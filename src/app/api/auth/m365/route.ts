@@ -5,6 +5,8 @@ import { m365AuthUrl } from '@/lib/m365/graph'
 import { erzeugeStateWert, setzeNonceCookie } from '@/lib/m365/state'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { schreibSperre } from '@/lib/auth/sperren'
+import { sperrAntwortKoerper } from '@/lib/abo/regeln'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -23,6 +25,8 @@ export async function GET(req: NextRequest) {
   // Die Betriebs-Mailbox darf nur ein Admin verbinden
   if (membership?.role !== 'system_admin' && membership?.role !== 'tenant_admin')
     return NextResponse.json({ fehler: 'Nur Administratoren' }, { status: 403 })
+  // KAN-5: Betriebs-Postfach verbinden speichert Tokens in tenant_einstellungen – nicht im Nur-Lesen-Modus
+  if (await schreibSperre(membership)) return NextResponse.json(sperrAntwortKoerper(), { status: 403 })
 
   const { data: cfg } = await (admin.from('tenant_einstellungen') as any)
     .select('m365_tenant_id, m365_client_id').eq('tenant_id', tenantId).maybeSingle()

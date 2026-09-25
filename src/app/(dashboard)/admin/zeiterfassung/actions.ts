@@ -2,6 +2,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
+import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { revalidatePath } from 'next/cache'
 import { AktionsFehler } from '@/lib/fehler'
 import { dezimal } from '@/lib/format'
@@ -16,6 +17,7 @@ async function getTenantAdmin() {
   // Rollenabfrage, die bei mehreren Admin-Mitgliedschaften zudem mit .single() fehlschlagen würde.
   const membership = await getCurrentMembership()
   await pruefeSeitenBetrieb(membership?.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
+  await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
   if (!membership || !['tenant_admin', 'system_admin'].includes(membership.role ?? '')) {
     throw new AktionsFehler('Keine Berechtigung')
   }

@@ -70,6 +70,7 @@ function findBundesland(filter: string): [string, string][] | null {
   return null
 }
 
+// schreibsperre-ausnahme: nur lesend – Besuchsliste aus Kontakten, POST nur wegen des Filter-Körpers
 export async function POST(req: NextRequest) {
   const zweiFaktor = await pruefeZweiFaktor()
   if (zweiFaktor) return zweiFaktor

@@ -1,4 +1,5 @@
 'use server'
+// schreibsperre-ausnahme-datei: öffentliche Registrierung – legt erst einen Betrieb an, es gibt noch kein Abo zu sperren (KAN-5)
 
 import { pruefePasswort, istPasswortGeleakt, passwortFehlerText } from '@/lib/auth/passwort'
 import { clientIp, drossel } from '@/lib/sicherheit/drossel'
@@ -7,10 +8,11 @@ import { clientIp, drossel } from '@/lib/sicherheit/drossel'
 // für Ziel 200 Mandanten"): öffentlich erreichbar (kein Login nötig), legt
 // Mandant + Betriebsleiter-Konto + Stripe-Customer an und schickt direkt in
 // den Stripe-Checkout (Karte + 14 Tage Testphase, siehe TRIAL_TAGE). Der
-// Mandant startet mit stripe_status='incomplete' (bereits über
-// STRIPE_BLOCKED_STATUSES gesperrt) - bricht der Checkout ab, bleibt der
-// Betrieb gesperrt, aber nutzbar-genug-um-sich-einzuloggen (siehe /abo ->
-// "Jetzt Zahlungsdaten hinterlegen", abo/actions.ts). Erst das Webhook-Event
+// Mandant startet mit stripe_status='incomplete' (über ABO_GESPERRTE_STATUS
+// gesperrt) - bricht der Checkout ab, führt das Dashboard-Layout ihn wie bisher
+// auf /abo -> "Jetzt Zahlungsdaten hinterlegen" (abo/actions.ts): 'incomplete'
+// OHNE Abo-ID gilt als „Zahlung offen“ (AboStand.zahlungOffen, lib/abo/regeln.ts),
+// nicht als gesperrtes Abo im Nur-Lesen-Modus (KAN-5). Erst das Webhook-Event
 // customer.subscription.created (nach erfolgreichem Checkout) setzt
 // stripe_status auf 'trialing' und schaltet frei.
 
@@ -47,8 +49,9 @@ export async function registrierenAction(formData: FormData): Promise<Ergebnis> 
   // Öffentliche Registrierung (23.9.2026): je IP höchstens 5 Versuche pro Stunde
   if (!drossel(`signup:${await clientIp()}`, 5, 60 * 60 * 1000)) return { ok: false, fehler: 'Zu viele Registrierungsversuche. Bitte später erneut versuchen oder uns kontaktieren.' }
   if (!betrieb)  return { ok: false, fehler: 'Bitte den Namen Ihres Betriebs angeben.' }
-  // Reservierter Name (24.9.2026): Layout und /abo erkennen den Sandbox-Mandanten am
-  // Namen 'Sandbox' und nehmen ihn von der Abo-Sperre aus
+  // Reservierter Name (24.9.2026): Das Layout erkennt den Sandbox-Mandanten für Menü und
+  // Sandbox-Sonderfreigabe noch am Namen 'Sandbox' (Umstellung auf die ID: KAN-10); die
+  // Ausnahme von der Abo-Sperre hängt seit KAN-5 an der festen ID (lib/abo/regeln.ts)
   if (betrieb.toLowerCase() === 'sandbox') return { ok: false, fehler: 'Dieser Betriebsname ist reserviert. Bitte einen anderen Namen wählen.' }
   if (!name)     return { ok: false, fehler: 'Bitte Ihren Namen angeben.' }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, fehler: 'Bitte eine gültige E-Mail-Adresse angeben.' }

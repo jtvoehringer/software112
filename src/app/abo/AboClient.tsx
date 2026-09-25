@@ -9,9 +9,10 @@ import { createOwnStripePortalSession, starteZahlungAction, wechslePaketAction, 
 import { PAKETE, preisText, type PaketKey } from '@/lib/pakete'
 
 // Rückmeldung 31.8.2026 ("die Plattform soll sich selber abrechnen können,
-// damit wir zu unserem Geld kommen"): Selbstverwaltungsseite für Mandanten
-// mit Zahlungsproblem (siehe (dashboard)/layout.tsx, das hierher umleitet
-// bzw. warnt) - Layout/Stil analog (auth)/betrieb-waehlen/page.tsx.
+// damit wir zu unserem Geld kommen"): Selbstverwaltungsseite für Abo und
+// Zahlung - Layout/Stil analog (auth)/betrieb-waehlen/page.tsx. Seit KAN-5
+// (25.9.2026) arbeitet ein gesperrter Betrieb im Nur-Lesen-Modus weiter; die
+// Hinweisleiste im Arbeitsbereich verlinkt hierher.
 
 export default function AboClient({
   aktuellesPaket,
@@ -55,6 +56,8 @@ export default function AboClient({
   // aus Versehen passiert.
   const [wahl, setWahl]       = useState<PaketKey | null>(null)
   const [hinweis, setHinweis] = useState<string | null>(null)
+  // KAN-5: offener Paketwechsel (Zahlung ausständig) ist kein Erfolg → Warnoptik
+  const [hinweisWarnung, setHinweisWarnung] = useState(false)
   // Migration 197 (Rückmeldung 4.9.2026): kommt mit dem Paket die E&A-Rechnung
   // neu dazu, muss der Betrieb sagen, wer die Buchhaltung führt. '' = noch
   // nicht gewählt -> Bestätigen gesperrt (die Server-Action prüft zusätzlich).
@@ -67,9 +70,12 @@ export default function AboClient({
     setArtSpeichern(true); setError(null); setHinweis(null)
     const res = await setzeBuchhaltungsartAction(art)
     if ('error' in res && res.error) setError(res.error)
-    else setHinweis(art === 'doppik'
-      ? 'Umgestellt: Ihr Steuerberater führt die Buchhaltung in BMD – Belege übergeben Sie unter „Belege & BMD“, die UVA ist nur noch eine Vorschau.'
-      : 'Umgestellt: Sie führen die E&A-Rechnung in software:112 (UVA, Monatsabschluss).')
+    else {
+      setHinweisWarnung(false)
+      setHinweis(art === 'doppik'
+        ? 'Umgestellt: Ihr Steuerberater führt die Buchhaltung in BMD – Belege übergeben Sie unter „Belege & BMD“, die UVA ist nur noch eine Vorschau.'
+        : 'Umgestellt: Sie führen die E&A-Rechnung in software:112 (UVA, Monatsabschluss).')
+    }
     setArtSpeichern(false)
     router.refresh()
   }
@@ -117,7 +123,9 @@ export default function AboClient({
       return
     }
     setWahl(null)
-    setHinweis(`Ihr Paket wurde auf ${PAKETE[paket].label} umgestellt. Die Abrechnung erfolgt anteilig ab heute.`)
+    // KAN-5: bei offener Zahlung schaltet der Server das neue Paket erst nach Zahlungseingang frei
+    setHinweisWarnung('hinweisArt' in res && res.hinweisArt === 'warnung')
+    setHinweis('hinweis' in res && res.hinweis ? res.hinweis : `Ihr Paket wurde auf ${PAKETE[paket].label} umgestellt. Die Abrechnung erfolgt anteilig ab heute.`)
     setLoading(false)
     router.refresh()
   }
@@ -169,9 +177,13 @@ export default function AboClient({
   return (
     <div className="min-h-screen bg-s112-bg flex items-center justify-center p-4">
       <div className={`w-full ${darfVerwalten && verfuegbarePakete.length > 0 ? 'max-w-3xl' : 'max-w-md'}`}>
-        {/* Rückweg in die Anwendung (Rückmeldung 4.9.2026) - nur, wenn der
-            Betrieb nicht gesperrt ist; gesperrte landen ohnehin wieder hier. */}
-        {!hardBlocked && (
+        {/* Rückweg in die Anwendung (Rückmeldung 4.9.2026). Seit KAN-5 auch für
+            gesperrte Betriebe - sie arbeiten im Nur-Lesen-Modus weiter. */}
+        {hardBlocked ? (
+          <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-sm text-s112-muted hover:text-s112-blue-700 mb-4">
+            <ArrowLeft size={15} strokeWidth={1.75} /> Zurück zur Anwendung (Nur-Lesen-Modus)
+          </Link>
+        ) : (
           <Link href="/betrieb/einstellungen" className="inline-flex items-center gap-1.5 text-sm text-s112-muted hover:text-s112-blue-700 mb-4">
             <ArrowLeft size={15} strokeWidth={1.75} /> Zurück zu „Mein Betrieb“
           </Link>
@@ -195,15 +207,17 @@ export default function AboClient({
               <p className="font-semibold mb-1">Testphase abgelaufen</p>
               <p>
                 Ihre kostenlose 14-tägige Testphase ist beendet. Bitte hinterlegen Sie Ihre Zahlungsdaten,
-                um software:112 weiter zu nutzen.
+                um software:112 weiter zu nutzen. Bis dahin arbeitet Ihr Betrieb im Nur-Lesen-Modus:
+                Daten ansehen, drucken und exportieren bleibt möglich, Änderungen sind gesperrt.
               </p>
             </div>
           ) : hardBlocked ? (
             <div className="px-4 py-3 rounded-lg bg-s112-err-bg text-s112-err-fg text-sm">
-              <p className="font-semibold mb-1">Zugriff derzeit gesperrt</p>
+              <p className="font-semibold mb-1">Nur-Lesen-Modus</p>
               <p>
                 Ihr Betrieb hat aktuell kein aktives Abo{statusLabel ? ` (Status: ${statusLabel})` : ''}.
-                Bitte aktualisieren Sie Ihre Zahlungsdaten, um software:112 wieder zu nutzen.
+                Daten ansehen, drucken und exportieren bleibt möglich; Änderungen, KI-Abfragen und der
+                Assistent sind gesperrt, bis die Zahlungsdaten aktualisiert sind.
               </p>
             </div>
           ) : warned ? (
@@ -256,7 +270,9 @@ export default function AboClient({
             <p className="text-sm text-s112-err-fg">{error}</p>
           )}
           {hinweis && (
-            <p className="text-sm text-s112-ok-fg bg-s112-ok-bg border border-s112-ok/30 rounded-lg px-3 py-2">{hinweis}</p>
+            <p role="status" className={hinweisWarnung
+              ? 'text-sm text-s112-warn-fg bg-s112-warn-bg border border-s112-warn/30 rounded-lg px-3 py-2'
+              : 'text-sm text-s112-ok-fg bg-s112-ok-bg border border-s112-ok/30 rounded-lg px-3 py-2'}>{hinweis}</p>
           )}
 
           {/* Paketwahl / -wechsel (Paketmodell Basis · Standard · Premium, 2.9.2026) */}

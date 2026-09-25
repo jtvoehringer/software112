@@ -12,7 +12,7 @@ import type { WetterAuswertung } from '@/lib/wetter/regeln'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
-export type KiErgebnis = { text: string | null; modell: string | null; grund: 'ok' | 'kein-schluessel' | 'limit' | 'inaktiv' | 'fehler' | 'nichts' }
+export type KiErgebnis = { text: string | null; modell: string | null; grund: 'ok' | 'kein-schluessel' | 'limit' | 'inaktiv' | 'gesperrt' | 'fehler' | 'nichts' }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function fasseZusammen(client: any, tenantId: string, tenantName: string, befunde: Befund[], wetter: WetterAuswertung | null, heute: Date): Promise<KiErgebnis> {
@@ -22,7 +22,10 @@ export async function fasseZusammen(client: any, tenantId: string, tenantName: s
   const { data: einst } = await (client.from('tenant_einstellungen') as any).select('ki_abfragen_aktiv').eq('tenant_id', tenantId).maybeSingle()
   if (!(einst as R | null)?.ki_abfragen_aktiv) return { text: null, modell: null, grund: 'inaktiv' }
 
-  const { data: limitCheck } = await (client.rpc as any)('check_und_increment_ki_abfrage', { p_tenant_id: tenantId })
+  const { data: limitCheck, error: limitFehler } = await (client.rpc as any)('check_und_increment_ki_abfrage', { p_tenant_id: tenantId })
+  // KAN-5: Fehler der Zählung nicht überspringen (fail-closed) – sperrt die Datenbank das Abo
+  // (HINT 'abo_gesperrt', auch im Service-Kontext), bleibt der Bericht ohne KI-Zusammenfassung
+  if (limitFehler) return { text: null, modell: null, grund: (limitFehler as R).hint === 'abo_gesperrt' ? 'gesperrt' : 'fehler' }
   const check = limitCheck as R | null
   if (check && check.erlaubt === false) return { text: null, modell: null, grund: 'limit' }
 

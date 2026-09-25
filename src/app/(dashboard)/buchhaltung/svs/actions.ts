@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentMembership, canWrite, canAdmin, isSystemAdmin } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
+import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import type { Zurechnung } from '@/lib/svs/berechnung'
 import { AktionsFehler } from '@/lib/fehler'
 import { dezimal } from '@/lib/format'
@@ -17,6 +18,7 @@ async function ctx(schreiben = true) {
   const membership = await getCurrentMembership()
   if (!membership?.tenantId) throw new AktionsFehler('Kein Mandant')
   await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
+  await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
   if (schreiben && !canWrite(membership.role, 'ea')) throw new AktionsFehler('Keine Berechtigung')
   const supabase = await createSupabaseServerClient()
   return { supabase, tenantId: membership.tenantId, role: membership.role }
@@ -117,6 +119,7 @@ export async function speichereSvsOption(werte: { svs_option: 'pauschal' | 'opti
 }
 
 /** SVS-Parameter eines Jahres pflegen (Plattform-Admin; Service-Role, da keine Schreib-Policy) */
+// schreibsperre-ausnahme: nur Super-Admin (plattformweite SVS-Parameter, kein Betriebsbezug) – Super-Admins sind von der Abo-Sperre ausgenommen
 export async function speichereSvsParameter(p: { jahr: number; staffel: { bis: number | null; prozent: number }[]; satz_pv: number; satz_kv: number; satz_uv: number; satz_bh: number; satz_kv_zusatz: number; min_bg_kv_pv: number; min_bg_uv: number; hoechst_bg: number; hinweis?: string | null }) {
   const membership = await getCurrentMembership()
   if (!membership || !isSystemAdmin(membership.role)) return { ok: false, fehler: 'Nur der Plattform-Admin darf SVS-Parameter ändern.' }

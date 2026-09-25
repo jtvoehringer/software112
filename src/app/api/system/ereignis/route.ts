@@ -8,6 +8,7 @@ export const dynamic = 'force-dynamic'
 
 // Browser-Fehlergrenze ((dashboard)/error.tsx) meldet hierher (20.9.2026).
 // Nur für angemeldete Benutzer, knappe Felder – kein freies Protokoll.
+// schreibsperre-ausnahme: Fehlerprotokoll der Oberfläche (Systemereignisse) – keine Betriebsdaten
 export async function POST(req: NextRequest) {
   const zweiFaktor = await pruefeZweiFaktor()
   if (zweiFaktor) return zweiFaktor

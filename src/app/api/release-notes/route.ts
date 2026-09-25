@@ -26,6 +26,7 @@ export async function GET() {
   return NextResponse.json({ note })
 }
 
+// schreibsperre-ausnahme: markiert eine Release Note als gesehen (Lesestatus des Benutzers) – gehört zum Lesen
 export async function POST(req: NextRequest) {
   const zweiFaktor = await pruefeZweiFaktor()
   if (zweiFaktor) return zweiFaktor

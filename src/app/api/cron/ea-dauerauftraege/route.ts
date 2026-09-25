@@ -16,6 +16,7 @@ export async function GET(req: NextRequest) {
 
 // Manuell auslösbar (z.B. zum Testen) – nur System-Admins, ausschließlich über
 // eine eingeloggte Session (kein CRON_SECRET nötig für diesen Zweig).
+// schreibsperre-ausnahme: Cron bzw. manueller Lauf nur für Super-Admins (von der Abo-Sperre ausgenommen), mandantenübergreifend
 export async function POST(req: NextRequest) {
   return handle(req)
 }

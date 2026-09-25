@@ -16,10 +16,12 @@ import { SPERR_TEXT, sitzungsSperre } from '@/lib/auth/sperren'
 // Liegt bewusst unter (dashboard) und NICHT unter /api: so greift der Login des Proxys
 // (src/proxy.ts), der zusätzlich aal2 verlangt – aber nur von Konten, die bereits einen
 // Faktor eingerichtet haben. layout.tsx-Guards laufen für Route-Handler NICHT: die
-// 2FA-Einrichtungspflicht (Super-Admin/Betriebs-Manager ab 15.10.2026) und die Abo-Sperre
-// prüft die Route deshalb selbst über lib/auth/sperren.ts (dieselbe Regel wie das
-// Dashboard-Layout), ebenso Modul und Rolle.
-// Ablauf: 404 unbekannte Meldung → 401 ohne Mitgliedschaft → 403 Sitzungssperre (2FA, Abo)
+// 2FA-Einrichtungspflicht (Super-Admin/Betriebs-Manager ab 15.10.2026) prüft die Route
+// deshalb selbst über lib/auth/sperren.ts (dieselbe Regel wie das Dashboard-Layout), ebenso
+// Modul und Rolle. Ein gesperrtes Abo sperrt den Export seit KAN-5 NICHT mehr: Im
+// Nur-Lesen-Modus bleiben Ansehen, Drucken und Exportieren ausdrücklich erlaubt
+// (Aufbewahrungspflicht, DSGVO) – die Route schreibt nichts.
+// Ablauf: 404 unbekannte Meldung → 401 ohne Mitgliedschaft → 403 Sitzungssperre (2FA)
 // → 403 Modul/Zugriff → 400 Parameter → laden (dieselbe Ladefunktion wie die Druckseite) → CSV.
 // GET ohne Seiteneffekte (kein Export-Protokoll – das bräuchte eine Migration).
 // Leermeldung: 0 Datensätze → Datei nur mit Kopfzeile, HTTP 200, X-Zeilen: 0.

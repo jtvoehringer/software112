@@ -12,6 +12,7 @@ const zuletzt = new Map<string, number>()
 const STUNDE = 60 * 60 * 1000
 
 // zwei-faktor-ausnahme: Browser senden CSP-Berichte ohne Anmeldung; gespeichert werden nur Richtlinie und blockierte Quelle, gedrosselt
+// schreibsperre-ausnahme: CSP-Berichte des Browsers ohne Anmeldung – kein Betriebsbezug
 export async function POST(req: NextRequest) {
   try {
     const text = await req.text()

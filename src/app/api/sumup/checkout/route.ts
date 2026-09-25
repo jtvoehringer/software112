@@ -5,6 +5,7 @@ import { getCurrentMembership } from '@/lib/auth/roles'
 import { ereignisMelden } from '@/lib/system/ereignis'
 import { sumupWebhookUrl } from '@/lib/sumup/webhook'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 
 // POST /api/sumup/checkout
 // Erstellt einen SumUp Checkout für einen Verkaufsposten.
@@ -22,6 +23,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Nicht authentifiziert' }, { status: 401 })
   }
   const tenantId = membership.tenantId
+  const gesperrt = await schreibSperreKonflikt(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
+  if (gesperrt) return gesperrt
 
   // SumUp-Konfiguration laden
   const { data: einst } = await (supabase.from('tenant_einstellungen') as any)

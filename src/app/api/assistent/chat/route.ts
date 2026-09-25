@@ -24,6 +24,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { ereignisMelden } from '@/lib/system/ereignis'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
 
 export const dynamic = 'force-dynamic'
@@ -164,6 +165,8 @@ export async function POST(req: NextRequest) {
     // (Die Tools prüfen zusätzlich über die Action-Helfer, der Header kommt vom Betriebs-Wächter.)
     const konflikt = await seitenBetriebKonflikt(membership.tenantId)
     if (konflikt) return konflikt
+    const gesperrt = await schreibSperreKonflikt(membership, 'ki')   // KAN-5: Nur-Lesen-Modus – KI gesperrt (Kosten)
+    if (gesperrt) return gesperrt
     if (!canWrite(membership.role, 'kellerbuch')) {
       return NextResponse.json({ fehler: 'Keine Berechtigung für den Assistenten' }, { status: 403 })
     }

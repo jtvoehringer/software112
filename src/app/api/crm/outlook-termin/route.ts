@@ -3,6 +3,8 @@ import { ladeOutlookVerbindung, ladeOutlookKollegen } from '@/lib/m365/benutzer'
 import { kalenderTerminAnlegen } from '@/lib/m365/graph'
 import { ereignisMelden } from '@/lib/system/ereignis'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { getCurrentMembership } from '@/lib/auth/roles'
+import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,6 +16,8 @@ export const dynamic = 'force-dynamic'
 export async function POST(req: NextRequest) {
   const zweiFaktor = await pruefeZweiFaktor()
   if (zweiFaktor) return zweiFaktor
+  const gesperrt = await schreibSperreKonflikt(await getCurrentMembership())   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
+  if (gesperrt) return gesperrt
   const body = (await req.json().catch(() => ({}))) as {
     betreff?: string; datum?: string; bis_datum?: string | null; ganztags?: boolean
     von?: string | null; bis?: string | null; beschreibung?: string | null; teilnehmer?: string[]

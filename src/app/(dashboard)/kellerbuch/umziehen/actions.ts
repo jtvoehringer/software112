@@ -9,6 +9,7 @@ import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
 import { deleteUmzug as _deleteUmzug } from '../gebinde-actions'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
+import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { fmtNum, zahlAus } from '@/lib/format'
 import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { weinartKonflikt, weinartKonfliktText, weinartAusFarbe, weinartBekannt } from '@/lib/keller/weinart'
@@ -74,6 +75,7 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
   const tenantId = membership?.tenantId
   if (!tenantId) throw new AktionsFehler('Kein aktiver Mandant gefunden')
   await pruefeSeitenBetrieb(tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
+  await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
 
   // Ziele vorab prüfen (Kellergemeinschaft, Migration 203): eigenes oder freigegebenes,
   // aktives Gebinde, nicht durch einen anderen Betrieb belegt - bevor Quellen reduziert werden.
@@ -365,6 +367,7 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
 // ── Umzug stornieren ─────────────────────────────────────────────────────────
 // Wrapper um gebinde-actions.deleteUmzug – nur solange die Ziel-Charge nicht weiterbewegt
 // wurde und die Rückbuchung vollständig möglich ist (KAN-35, lib/kellerbuch/storno.ts)
+// schreibsperre-ausnahme: reicht nur an gebinde-actions.deleteUmzug weiter – dort prüfen kellerbuchSchreibrecht() Betrieb (KAN-30) und Schreibsperre (KAN-5)
 export async function deleteUmzug(id: string) {
   return _deleteUmzug(id)
 }
@@ -379,6 +382,7 @@ export async function updateUmzug(umzugId: string, datum: string, notizen: strin
   const membership = await getCurrentMembership()
   if (!membership) throw new AktionsFehler('Kein aktiver Mandant gefunden')
   await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: vor den Rechten – sonst meldet ein veralteter Tab die Rechte des neuen Betriebs
+  await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
   if (!canWrite(membership, 'kellerbuch')) throw new AktionsFehler('Keine Schreibberechtigung für das Kellerbuch in diesem Betrieb.')
   const tenantId = membership.tenantId
 

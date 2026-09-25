@@ -2,6 +2,8 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { getCurrentMembership } from '@/lib/auth/roles'
+import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -14,6 +16,9 @@ export async function POST(req: NextRequest) {
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ fehler: 'Nicht angemeldet' }, { status: 401 })
+  // KAN-5: KI-Auswertung kostet – im Nur-Lesen-Modus (Abo gesperrt) gesperrt wie die KI-Abfrage
+  const gesperrt = await schreibSperreKonflikt(await getCurrentMembership(), 'ki')   // KAN-5: KI gesperrt (Kosten)
+  if (gesperrt) return gesperrt
 
   const { imageBase64, mediaType } = await req.json() as R
 

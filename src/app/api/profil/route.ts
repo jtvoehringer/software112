@@ -15,6 +15,7 @@ export async function GET() {
   return NextResponse.json({ profil: data ?? null })
 }
 
+// schreibsperre-ausnahme: eigenes Benutzerprofil (Name) – kein Betriebsdatum, bleibt im Nur-Lesen-Modus änderbar
 export async function POST(req: NextRequest) {
   const zweiFaktor = await pruefeZweiFaktor()
   if (zweiFaktor) return zweiFaktor

@@ -6,6 +6,7 @@ import { getCurrentMembership } from '@/lib/auth/roles'
 import { ladeAbsenderIndex, absenderStatus, findeNamensgleiche, type AbsenderStatus } from '@/lib/crm/absender'
 import { ereignisMelden } from '@/lib/system/ereignis'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { schreibSperre } from '@/lib/auth/sperren'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -26,6 +27,9 @@ export async function GET(req: NextRequest) {
     if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
 
     const { data: { user } } = await supabase.auth.getUser()
+    // KAN-5: Mail lesen bleibt im Nur-Lesen-Modus möglich – das Spiegeln als CRM-Aktivität und
+    // der Lead-Vorschlag (würde speichern) entfallen dann
+    const nurLesen = (await schreibSperre(membership)) !== null
     const [{ data: cfg }, { data: tenantCfg }] = await Promise.all([
       (supabase.from('user_email_connections') as any)
         .select('m365_aktiv, m365_access_token_enc, m365_refresh_token_enc, m365_token_expires_at, imap_aktiv, imap_host, imap_port, imap_user, imap_pass_enc, monitored_email, email_address').eq('tenant_id', tenantId).eq('user_id', user?.id ?? '').maybeSingle(),
@@ -99,8 +103,8 @@ export async function GET(req: NextRequest) {
             .map(t => ({ typ: t.typ, id: t.id, name: t.name, accountnummer: t.accountnummer, email: t.email, istLead: t.istLead }))
         }
 
-        // Eingehende Email als Aktivität speichern (fire-and-forget)
-        if (kontaktInfo && msg.id && tenantId) {
+        // Eingehende Email als Aktivität speichern (fire-and-forget) – nicht im Nur-Lesen-Modus
+        if (kontaktInfo && msg.id && tenantId && !nurLesen) {
           const bodyText = (msg.body?.content ?? '').replace(/<[^>]*>/g, '').trim()
           const bodyHtml = msg.body?.contentType === 'html' ? msg.body.content : null
           void (async () => {
@@ -157,7 +161,7 @@ export async function GET(req: NextRequest) {
         kontaktInfo,
         absender,
         // Lead-Vorschlag nur für unbekannte Absender (eigene Postfächer → 'eigen')
-        leadVorschlag: absender === 'unbekannt',
+        leadVorschlag: absender === 'unbekannt' && !nurLesen,
         namensTreffer,
       })
     }

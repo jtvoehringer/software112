@@ -25,6 +25,7 @@ const supabaseAdmin = createClient(
 const CHECKOUT_STATUS: Record<string, string> = { PAID: 'PAID', FAILED: 'FAILED', EXPIRED: 'CANCELLED' }
 
 // zwei-faktor-ausnahme: SumUp-Webhook ohne Benutzersitzung (Server zu Server) – nur mit gültiger HMAC-Signatur in der URL (sig, je Checkout), Status wird bei der SumUp-API gegengeprüft
+// schreibsperre-ausnahme: SumUp-Webhook ohne Benutzersitzung – bestätigt eine bereits am Terminal erfolgte Zahlung
 export async function POST(req: NextRequest) {
   const geprueft = pruefeSumupWebhook(req.nextUrl.searchParams)
   if (!geprueft) {

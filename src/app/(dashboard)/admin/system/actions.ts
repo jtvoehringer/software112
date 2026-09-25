@@ -1,5 +1,6 @@
 'use server'
 // seiten-betrieb-ausnahme: Systemtest der Plattform (Super-Admin), kein Schreiben in den aktiven Betrieb (KAN-30)
+// schreibsperre-ausnahme-datei: Systemtest der Plattform – nur Super-Admin, von der Abo-Sperre ausgenommen (KAN-5)
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'

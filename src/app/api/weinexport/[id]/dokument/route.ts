@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
 export const dynamic = 'force-dynamic'
 
@@ -27,6 +28,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!tenantId) return NextResponse.json({ fehler: 'Nicht autorisiert' }, { status: 401 })
   const konflikt = await seitenBetriebKonflikt(tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
   if (konflikt) return konflikt
+  const gesperrt = await schreibSperreKonflikt(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
+  if (gesperrt) return gesperrt
   if (!canWrite(membership, 'warenwirtschaft'))
     return NextResponse.json({ fehler: 'Keine Berechtigung' }, { status: 403 })
 
@@ -60,6 +63,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!tenantId) return NextResponse.json({ fehler: 'Nicht autorisiert' }, { status: 401 })
   const konflikt = await seitenBetriebKonflikt(tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
   if (konflikt) return konflikt
+  const gesperrt = await schreibSperreKonflikt(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
+  if (gesperrt) return gesperrt
   if (!canWrite(membership, 'warenwirtschaft'))
     return NextResponse.json({ fehler: 'Keine Berechtigung' }, { status: 403 })
 

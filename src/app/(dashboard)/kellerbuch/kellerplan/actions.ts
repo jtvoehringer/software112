@@ -3,6 +3,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
+import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { AktionsFehler } from '@/lib/fehler'
@@ -19,6 +20,7 @@ async function getTenantId(): Promise<string> {
   const id = membership?.tenantId
   if (!id) throw new AktionsFehler('Kein Betrieb gefunden')
   await pruefeSeitenBetrieb(id)   // KAN-30: Seite aus einem anderen Betrieb?
+  await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
   return id
 }
 

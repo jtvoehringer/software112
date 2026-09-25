@@ -7,6 +7,7 @@ export const dynamic = 'force-dynamic'
 
 // POST /api/benachrichtigungen – als gelesen markieren
 // Body: { ids: string[] } einzelne, oder { alle: true } alle ungelesenen des Benutzers im aktiven Betrieb
+// schreibsperre-ausnahme: markiert nur eigene Benachrichtigungen als gelesen (Lesestatus, keine Betriebsdaten) – gehört zum Lesen
 export async function POST(req: NextRequest) {
   const zweiFaktor = await pruefeZweiFaktor()
   if (zweiFaktor) return zweiFaktor

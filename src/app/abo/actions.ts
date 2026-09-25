@@ -17,10 +17,13 @@ import { revalidatePath } from 'next/cache'
 import { tenantKopfInvalidieren } from '@/lib/tenant/kopf'
 import { stripeKundennummerSync } from '@/lib/stripe/kundennummer'
 import { AktionsFehler } from '@/lib/fehler'
+import { paketEntscheidung, testphaseTage } from '@/lib/abo/regeln'
+import { schreibSperreFehler } from '@/lib/auth/sperren'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
+// schreibsperre-ausnahme: Stripe-Kundenportal (Zahlungsdaten, Rechnungen, Kündigung) – der Weg aus der Sperre (KAN-5)
 export async function createOwnStripePortalSession() {
   const membership = await getCurrentMembership()
   if (!membership) return { error: 'Kein Betrieb gefunden' }
@@ -61,6 +64,10 @@ export async function createOwnStripePortalSession() {
 // neuen Checkout für genau diesen Mandanten, inkl. der vollen 14-tägigen
 // Testphase (die ja nie begonnen hat). Existiert bereits eine
 // stripe_subscription_id, ist das NICHT der richtige Weg (dann: Portal oben).
+// KAN-5: Auch nach einer Kündigung (stripe_subscription_id wieder leer) ist das der Weg zurück
+// aus dem Nur-Lesen-Modus – dann aber OHNE neue Testphase (testphaseTage: nur, wenn der
+// Stripe-Kunde noch nie ein Abo hatte), sonst ließe sich die Sperre beliebig oft umgehen.
+// schreibsperre-ausnahme: Checkout für ein neues Abo – der Weg aus der Sperre (KAN-5)
 export async function starteZahlungAction(paketWunsch?: string, buchhaltungsart?: string) {
   const membership = await getCurrentMembership()
   if (!membership) return { error: 'Kein Betrieb gefunden' }
@@ -118,6 +125,9 @@ export async function starteZahlungAction(paketWunsch?: string, buchhaltungsart?
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://software112.icp-consultants.at'
   try {
+    // Testphase nur für Kunden ohne bisheriges Abo (auch gekündigte/abgelaufene zählen)
+    const bisherige = await getStripe().subscriptions.list({ customer: customerId, status: 'all', limit: 1 })
+    const trialTage = testphaseTage({ bisherigeAbos: bisherige.data.length, tage: TRIAL_TAGE })
     const session = await getStripe().checkout.sessions.create({
       customer:    customerId,
       mode:        'subscription',
@@ -125,7 +135,10 @@ export async function starteZahlungAction(paketWunsch?: string, buchhaltungsart?
       success_url: `${baseUrl}/signup/willkommen`,
       cancel_url:  `${baseUrl}/abo`,
       metadata:    { tenant_id: membership.tenantId },
-      subscription_data: { trial_period_days: TRIAL_TAGE, metadata: { tenant_id: membership.tenantId } },
+      subscription_data: {
+        ...(trialTage ? { trial_period_days: trialTage } : {}),
+        metadata: { tenant_id: membership.tenantId },
+      },
     })
     return { url: session.url }
   } catch (err) {
@@ -139,10 +152,13 @@ export async function starteZahlungAction(paketWunsch?: string, buchhaltungsart?
 // sofort); das Webhook-Event customer.subscription.updated setzt danach
 // Modul-Flags und Benutzerlimit (lib/pakete-server.ts). Damit die Oberfläche
 // nicht auf den Webhook warten muss, werden Paket und Vorgaben hier zusätzlich
-// sofort geschrieben - der Webhook bestätigt dasselbe Ergebnis. Downgrade
+// sofort geschrieben - der Webhook bestätigt dasselbe Ergebnis. KAN-5: nur, wenn
+// der Status des Abos das erlaubt (paketEntscheidung, dieselbe Regel wie im
+// Webhook) - bei gesperrtem Abo bzw. offener Zahlung kein Upgrade ohne Zahlung. Downgrade
 // schaltet hart ab (Daten bleiben); sind mehr Benutzer aktiv als das neue
 // Paket erlaubt, bleiben sie aktiv, es können nur keine neuen eingeladen
 // werden.
+// schreibsperre-ausnahme: Paketwechsel läuft über Stripe (auch ein günstigeres Paket kann der Weg aus der Sperre sein); Module nur nach paketEntscheidung (KAN-5)
 export async function wechslePaketAction(paketWunsch: string, buchhaltungsart?: string) {
   const membership = await getCurrentMembership()
   if (!membership) return { error: 'Kein Betrieb gefunden' }
@@ -171,27 +187,46 @@ export async function wechslePaketAction(paketWunsch: string, buchhaltungsart?: 
     return { error: `Das Paket ${PAKETE[paket].label} enthält die E&A-Rechnung – bitte wählen Sie, ob Sie die E&A-Rechnung in software:112 führen oder Ihr Steuerberater die doppelte Buchhaltung (BMD) macht.` }
   }
 
+  let aboStatus: string | null = null
   try {
     const stripe = getStripe()
     const sub = await stripe.subscriptions.retrieve(t.stripe_subscription_id)
     const item = sub.items.data[0]
     if (!item) return { error: 'Abo ohne Position – bitte kontaktieren Sie uns.' }
-    await stripe.subscriptions.update(sub.id, {
+    const aktualisiert = await stripe.subscriptions.update(sub.id, {
       items: [{ id: item.id, price: priceId }],
       proration_behavior: 'create_prorations',
       metadata: { ...(sub.metadata ?? {}), tenant_id: membership.tenantId },
     })
+    aboStatus = aktualisiert.status ?? null
   } catch (err) {
     return { error: `Stripe-Fehler: ${(err as Error).message}` }
   }
 
-  await (admin.from('tenants') as R).update({ stripe_plan: paket }).eq('id', membership.tenantId)
-  const fehler = await wendePaketAn(admin, membership.tenantId, paket)
-  if (fehler) return { error: fehler }
   if (istBuchhaltungsart(buchhaltungsart)) {
     const f2 = await speichereBuchhaltungsart(admin, membership.tenantId, buchhaltungsart)
     if (f2) return { error: f2 }
   }
+
+  // KAN-5: Paket nur sofort freischalten, wenn das Abo bezahlt bzw. in der Testphase ist –
+  // sonst übernimmt der Webhook den Wechsel, sobald Stripe die Zahlung bestätigt
+  const entscheidung = paketEntscheidung({ ereignis: 'aktualisiert', status: aboStatus, neuesPaket: paket, bisherigesPaket: altesPaket })
+  if (!entscheidung.moduleAnwenden) {
+    // Die Buchhaltungsart ist oben schon gespeichert – Menü und Seiten sofort nachziehen
+    revalidatePath('/abo')
+    revalidatePath('/', 'layout')
+    tenantKopfInvalidieren(membership.tenantId)
+    return {
+      ok: true, paket,
+      hinweisArt: 'warnung' as const,
+      hinweis: `Der Wechsel auf ${PAKETE[paket].label} ist bei Stripe beauftragt. Freigeschaltet wird das Paket, sobald die Zahlung bestätigt ist – bitte die Zahlungsdaten unter „Zahlungsdaten verwalten“ prüfen.`,
+    }
+  }
+
+  { const { error: e } = await (admin.from('tenants') as R).update({ stripe_plan: paket }).eq('id', membership.tenantId)
+    if (e) return { error: `Paket konnte nicht gespeichert werden (tenants): ${(e as R).message}` } }
+  const fehler = await wendePaketAn(admin, membership.tenantId, paket)
+  if (fehler) return { error: fehler }
 
   revalidatePath('/abo')
   revalidatePath('/', 'layout')
@@ -214,9 +249,13 @@ async function speichereBuchhaltungsart(admin: R, tenantId: string, art: Buchhal
   return error ? `Buchhaltungsart konnte nicht gespeichert werden: ${(error as R).message}` : null
 }
 
+// KAN-5: fachliche Einstellung (E&A oder Doppik) – im Nur-Lesen-Modus gesperrt. Beim Abschluss
+// bzw. Paketwechsel speichern starteZahlungAction/wechslePaketAction die Wahl ohnehin mit.
 export async function setzeBuchhaltungsartAction(art: string) {
   const membership = await getCurrentMembership()
   if (!membership) return { error: 'Kein Betrieb gefunden' }
+  const gesperrt = await schreibSperreFehler(membership)
+  if (gesperrt) return { error: gesperrt }
   if (!canAdmin(membership.role)) return { error: 'Nur der Betriebs-Manager bzw. Super-Admin kann die Buchhaltungsart ändern.' }
   if (!istBuchhaltungsart(art)) return { error: 'Ungültige Buchhaltungsart.' }
   const fehler = await speichereBuchhaltungsart(createSupabaseAdminClient(), membership.tenantId, art)

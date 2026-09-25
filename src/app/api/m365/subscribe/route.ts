@@ -6,6 +6,7 @@ import { getCurrentMembership } from '@/lib/auth/roles'
 import { ereignisMelden } from '@/lib/system/ereignis'
 import { erzeugeClientState } from '@/lib/m365/clientState'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -50,6 +51,12 @@ export async function POST(req: NextRequest) {
     const membership = await getCurrentMembership()
     const tenantId = membership?.tenantId
     if (!tenantId && !hasCronAuth) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
+    if (!hasCronAuth) {
+      // KAN-5: Sitzungszweig schreibt die Graph-Subscription des Betriebs – im Nur-Lesen-Modus
+      // gesperrt; der Cron-Zweig (CRON_SECRET) erneuert bestehende Subscriptions weiter
+      const gesperrt = await schreibSperreKonflikt(membership)
+      if (gesperrt) return gesperrt
+    }
 
     // Wenn Cron ohne Session: alle M365-Tenants erneuern
     if (hasCronAuth && !tenantId) {

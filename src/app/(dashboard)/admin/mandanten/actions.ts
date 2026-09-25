@@ -1,5 +1,6 @@
 'use server'
 // seiten-betrieb-ausnahme: Mandanten anlegen/umbenennen (Super-Admin) – Ziel ausdrücklich als Parameter bzw. neu; der Wechsel läuft über /auth/betrieb (KAN-30)
+// schreibsperre-ausnahme-datei: Mandanten anlegen/umbenennen – nur Super-Admin, von der Abo-Sperre ausgenommen (KAN-5)
 
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { createSupabaseServerClient } from '@/lib/supabase/server'

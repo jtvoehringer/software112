@@ -26,6 +26,8 @@ jobs:
         run: node scripts/check-api-zwei-faktor.js
       - name: Seiten-Betrieb-Guard ausführen (KAN-30)
         run: node scripts/check-seiten-betrieb.js
+      - name: Schreibsperre-Guard ausführen (KAN-5, Nur-Lesen-Modus)
+        run: node scripts/check-schreibsperre.js
 
   abhaengigkeiten:
     # Sicherheits-Welle 1 (23.9.2026): bekannte Schwachstellen ab Stufe „hoch“ in

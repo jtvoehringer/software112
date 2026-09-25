@@ -143,6 +143,7 @@ function AboTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
 function BrandingTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
   const [pending, startTransition] = useTransition()
   const [saved, setSaved]         = useState(false)
+  const [fehler, setFehler]       = useState<string | null>(null)
   const [primary, setPrimary]     = useState(daten.primary_color)
   const [secondary, setSecondary] = useState(daten.secondary_color)
   const [logoUrl, setLogoUrl]     = useState(daten.logo_url ?? '')
@@ -166,8 +167,11 @@ function BrandingTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
+    setFehler(null)
     startTransition(async () => {
-      await saveBrandingOwn(fd)
+      // Ergebnis auswerten – der Server lehnt z. B. im Nur-Lesen-Modus (KAN-5) mit { error } ab
+      const r = await saveBrandingOwn(fd)
+      if (r && 'error' in r && r.error) { setFehler(r.error); return }
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
     })
@@ -303,6 +307,7 @@ function BrandingTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
         </button>
         {saved && <span className="text-xs text-s112-blue-700 font-medium">Gespeichert</span>}
       </div>
+      {fehler && <p role="alert" className="text-sm text-s112-err-fg">{fehler}</p>}
     </form>
   )
 }
@@ -312,12 +317,16 @@ function BrandingTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
 function BetriebTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
   const [pending, startTransition] = useTransition()
   const [saved, setSaved]         = useState(false)
+  const [fehler, setFehler]       = useState<string | null>(null)
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
+    setFehler(null)
     startTransition(async () => {
-      await saveBetriebOwn(fd)
+      // Ergebnis auswerten – der Server lehnt z. B. im Nur-Lesen-Modus (KAN-5) mit { error } ab
+      const r = await saveBetriebOwn(fd)
+      if (r && 'error' in r && r.error) { setFehler(r.error); return }
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
     })
@@ -422,6 +431,7 @@ function BetriebTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
         </button>
         {saved && <span className="text-xs text-s112-blue-700 font-medium">Gespeichert</span>}
       </div>
+      {fehler && <p role="alert" className="text-sm text-s112-err-fg">{fehler}</p>}
     </form>
   )
 }

@@ -3,6 +3,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
+import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -21,15 +22,19 @@ async function getTenantId(): Promise<string> {
 
 // Für die schreibenden Actions (KAN-30): Seite aus einem anderen Betrieb? – nicht in
 // getTenantId(), weil ladeCustomWeinbaugebiete() auch beim Rendern der Seiten läuft.
+// Aus demselben Grund steht hier auch die Schreibsperre (KAN-5, Nur-Lesen-Modus).
 async function schreibTenantId(): Promise<string> {
-  const tenantId = await getTenantId()
-  await pruefeSeitenBetrieb(tenantId)
-  return tenantId
+  const membership = await getCurrentMembership()
+  if (!membership) throw new AktionsFehler('Kein aktiver Mandant gefunden')
+  await pruefeSeitenBetrieb(membership.tenantId)
+  await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
+  return membership.tenantId
 }
 
 // Lädt die eigenen (aktiven) Weinbaugebiete des Mandanten – wird server-seitig
 // von allen Seiten geladen, die das Herkunft-Code(BKI)-Dropdown rendern
 // (Grundstück-Formular, Füllung anlegen/bearbeiten).
+// schreibsperre-ausnahme: nur lesend – läuft beim Rendern der Seiten (Herkunft-Dropdown)
 export async function ladeCustomWeinbaugebiete(): Promise<CustomWeinbaugebiet[]> {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()

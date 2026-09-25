@@ -1,4 +1,5 @@
 'use server'
+// schreibsperre-ausnahme-datei: Betrieb wechseln – muss auch aus einem gesperrten Betrieb heraus möglich sein (KAN-5)
 
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
