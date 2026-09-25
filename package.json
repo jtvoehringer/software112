@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "prebuild": "node scripts/check-tenant-isolation.js && node scripts/check-api-zwei-faktor.js && node scripts/check-seiten-betrieb.js && node scripts/check-schreibsperre.js && node scripts/check-schema.js && node scripts/check-a11y.js && node scripts/check-behoerden-csv.js",
+    "prebuild": "node scripts/check-tenant-isolation.js && node scripts/check-api-zwei-faktor.js && node scripts/check-seiten-betrieb.js && node scripts/check-schreibsperre.js && node scripts/check-schema.js && node scripts/check-a11y.js && node scripts/check-behoerden-csv.js && node scripts/check-replica.js",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -14,6 +14,7 @@
     "check-seiten-betrieb": "node scripts/check-seiten-betrieb.js",
     "check-schreibsperre": "node scripts/check-schreibsperre.js",
     "check-behoerden-csv": "node scripts/check-behoerden-csv.js",
+    "check-replica": "node scripts/check-replica.js",
     "test:csv": "node --experimental-strip-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"scripts/tests/*.test.mjs\""
   },
   "dependencies": {

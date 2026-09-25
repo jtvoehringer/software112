@@ -23,7 +23,8 @@ Vertrag Anlage 3, Abschnitt 6: jährlicher Test, ob sich die Datensicherung tats
    - gleiche Zahl an Tabellen und gleiche höchste Migrationsnummer,
    - Datensätze je Tabelle gleich oder nur dort abweichend, wo seit der Sicherung gearbeitet wurde,
    - Anzahl Benutzer und 2FA-Faktoren gleich,
-   - verschlüsselte Werte vorhanden (Format v2).
+   - verschlüsselte Werte vorhanden (Format v2),
+   - „FK-Waisen gesamt“ in beiden Projekten gleich und 0 (seit KAN-124; bis zur Bereinigung waren es 10 in `ernte_parzellen`). Ist der Wert größer 0, zeigt `scripts/fk-waisen.sql` die betroffenen Fremdschlüssel – eine Sicherung übernimmt verwaiste Zeilen unverändert, sie sind also kein Fehler der Wiederherstellung, sondern Altlast der Produktion.
 5. Stichprobe: im neuen Projekt drei Datensätze aus Kellerbuch, Verkauf und CRM mit der Produktion vergleichen.
 6. Ergebnis unten eintragen, neues Projekt löschen (Settings → General → Delete project).
 
