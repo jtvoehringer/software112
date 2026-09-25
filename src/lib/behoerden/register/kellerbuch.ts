@@ -157,7 +157,9 @@ export const MELDUNGEN_KELLERBUCH = {
     laden: async (ctx, p) => {
       const b = await ladeBlendProtokoll(ctx.supabase, ctx.tenantId, p)
       if (!b) throw new MeldungsFehler(404, p.art === 'fuellung' ? 'Füllung nicht gefunden.' : 'Charge nicht gefunden.')
-      p.anzeige.name = b.kopf.pruefnummer ?? b.kopf.chargennummer ?? b.kopf.name
+      // KAN-72: keine Prüfnummer im Dateinamen – eine Datei „…_N 10716-26_…“ sah amtlich
+      // bestätigt aus, auch wenn die Nummer für den Bestand nicht (mehr) galt
+      p.anzeige.name = b.kopf.chargennummer ?? b.kopf.name
       return { zeilen: b.zeilen, warnungen: b.warnungen }
     },
     spalten: SPALTEN_BLEND,

@@ -33,7 +33,14 @@ datum (pflicht, Abfülldatum YYYY-MM-DD), flaschengroesse_ml (pflicht, eine von
 qualitaet (optional – ohne Angabe wird die aktuelle Qualitätsstufe der Charge übernommen;
 NUR Abstufung möglich, eine Aufstufung wird vom Server hart blockiert), herkunft_code
 (optional, gleiche Regel: nur Abstufung), jahrgang/rebsorte/anbaugebiet/bezeichnung/
-pruefnummer/chargennummer (optional, chargennummer wird sonst automatisch vergeben),
+pruefnummer/chargennummer (optional, chargennummer wird sonst automatisch vergeben;
+pruefnummer: hat die Charge einen DAC-Antrag, NUR die Nummer ihres genehmigten Antrags, die der
+User nennt – der Server verknüpft dann den Antrag, wenn die Nummer für den Bestand gilt, sonst
+kommt eine Fehlermeldung, die du wörtlich weitergibst; eine andere Nummer lehnt er ab. Einen
+offenen Antrag ohne Nummer verknüpft nur das Formular Weinhandel > Neue Füllung – soll die
+Füllung ihn tragen, auf das Formular verweisen statt ohne Nummer abzufüllen (die Bearbeitung
+kann Prüfnummer und Antrag später nicht mehr setzen). Eine freie Nummer, z. B. die des
+Lieferanten bei einem Zukauf, nur bei Chargen ohne DAC-Antrag),
 vk_preis_brutto/einstandspreis (optional, pro Flasche), notizen (optional), abschliessen
 (optional, boolean – Charge nach dieser Füllung explizit als abgeschlossen markieren, auch
 wenn noch Restwein übrig bleibt; wird ohnehin automatisch gesetzt, wenn kein/kaum Restwein
@@ -72,7 +79,7 @@ export const ABFUELLEN_TOOL = {
       rebsorte: { type: 'string' },
       anbaugebiet: { type: 'string' },
       bezeichnung: { type: 'string', description: 'Subbezeichnung/Ried, z.B. "Ried Hohenberg · Reserve"' },
-      pruefnummer: { type: 'string' },
+      pruefnummer: { type: 'string', description: 'Charge mit DAC-Antrag: nur die Nummer ihres genehmigten Antrags (der Server prüft, ob sie für den Bestand gilt, und verknüpft den Antrag); Charge ohne DAC-Antrag: freie Nummer, z. B. des Lieferanten (KAN-72)' },
       chargennummer: { type: 'string', description: 'Leer lassen = wird automatisch vergeben' },
       vk_preis_brutto: { type: 'number', description: 'VK-Preis brutto pro Flasche' },
       einstandspreis: { type: 'number', description: 'Einstandspreis pro Flasche' },

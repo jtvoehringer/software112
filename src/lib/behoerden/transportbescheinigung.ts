@@ -17,6 +17,8 @@
 import { STELLEN, runden, wienHeute, type CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
 import { bkiFarbe, formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
+import { bestandVorVerkauf, ersatzPruefnummer, pnDatumDe, pnTag, pruefnummerGueltig, pruefnummerHinweis, type PnAntrag, type PnChargeDaten } from '@/lib/kellerbuch/pruefnummer'
+import { antragAusZeile, ladePruefnummerDaten, PN_ANTRAG_SELECT } from '@/lib/kellerbuch/pruefnummerLaden'
 import { rebsorteDerLieferung } from './traubenverkauf'
 import {
   UUID_RE, datumAusTeilen, feld, formularZahl, inBloecken, jaNeinFeld, strasseTeilen, textOderNull, zahlFeld, type R,
@@ -207,18 +209,32 @@ function farbHinweis(nr: number, rebsorte: unknown): string {
 }
 
 export type TBPruefnummern = {
-  /** Prüfnummer je Charge (dac_antrag.weinausbau_id) */
-  jeWeinausbau: Record<string, string>
-  /** Prüfnummer je DAC-Antrag (fuellungen.dac_antrag_id) */
-  jeDacAntrag: Record<string, string>
+  /** Prüfnummern-Daten je Charge – Tankposition: pruefnummerGueltig am Verkaufsdatum; Charge einer Füllung: Zugänge für ersatzPruefnummer */
+  jeWeinausbau: Record<string, PnChargeDaten>
+  /** DAC-Antrag je id (fuellungen.dac_antrag_id) – Nummer über ersatzPruefnummer (genehmigt, aktiv, Charge der Füllung, Abfülldatum gegen den Beginn) */
+  jeDacAntrag: Record<string, PnAntrag>
 }
+
+/** Endung der Prüfnummern-Hinweise der Vorbelegung (die Zeitraumliste übernimmt nur diese) */
+export const TB_PN_NICHT_VORBELEGT = 'Prüfnummer nicht vorbelegt.'
 
 /**
  * Vorbelegung eines noch nicht gespeicherten Formulars aus Verkaufsposten und Betriebsdaten.
  * `hinweise` sammelt Felder, die nicht sicher bestimmt werden konnten (→ X-Warnungen).
+ *
+ * Prüfnummer (KAN-72): Tankposition nur mit einer am Verkaufsdatum gültigen Nummer der Charge
+ * (pruefnummerGueltig – dieselbe Regel wie Blend-Protokoll und Füllungsvorschlag; bisher der
+ * älteste Antrag mit Nummer ohne Status-/Datumsprüfung; Mengenregel mit dem Bestand vor dem
+ * Verkauf, bestandVorVerkauf), sonst leer mit Hinweis. Flaschen-
+ * position: Nummer der Füllung, ersatzweise die ihres genehmigten, aktiven DAC-Antrags derselben
+ * Charge, wenn zwischen Abfüllung und Beginn des Antrags nichts zugebucht wurde (ersatzPruefnummer
+ * – etwa nach einer Verknüpfung mit einem noch nicht eingereichten Entwurf). Für den Transport
+ * an einem Tag gibt es die Nummer erst ab dem Bescheid (bescheidBisStichtag) – ein Verkauf
+ * zwischen Einreichung und Bescheid bleibt leer (Hinweis).
  */
 export function tbVorbelegung(posten: R, cfg: R, pn: TBPruefnummern, heute: string, hinweise: string[]): TBDaten {
   const [jahr, monat, tag] = heute.split('-')
+  const verkaufstag = pnTag(posten.datum) ?? heute
   const kunde = (posten.kontakt ?? posten.firma ?? {}) as R
   const eName = posten.kontakt
     ? [kunde.vorname, kunde.nachname].map(feld).filter(Boolean).join(' ')
@@ -233,6 +249,13 @@ export function tbVorbelegung(posten: R, cfg: R, pn: TBPruefnummern, heute: stri
       const wa = (p.weinausbau ?? null) as R | null
       const art = farbe(wa?.weinart, wa?.rebsorte)
       if (!art) hinweise.push(farbHinweis(nr, wa?.rebsorte))
+      // Mengenregel mit dem Bestand vor dem Verkauf – sonst machte der Verkauf von mehr Wein als
+      // beantragt die Nummer selbst „gültig“ (bestandVorVerkauf)
+      const roh = wa?.id ? pn.jeWeinausbau[wa.id] : undefined
+      const daten = roh ? bestandVorVerkauf(roh, verkaufstag) : undefined
+      const e = daten ? pruefnummerGueltig(daten, verkaufstag, { bescheidBisStichtag: true }) : null
+      const pnHinweis = e ? pruefnummerHinweis(e, `den Bestand am ${pnDatumDe(verkaufstag)} (Verkaufsdatum)`) : null
+      if (pnHinweis) hinweise.push(`Position ${nr}: ${pnHinweis} ${TB_PN_NICHT_VORBELEGT}`)
       return {
         ...TB_LEERE_POSITION,
         menge_liter:     formularZahl(p.menge === null || p.menge === undefined ? null : Number(p.menge), STELLEN.liter),
@@ -242,7 +265,7 @@ export function tbVorbelegung(posten: R, cfg: R, pn: TBPruefnummern, heute: stri
         qualitaetsstufe: feld(wa?.qualitaetsstufe),
         jahrgang:        wa?.jahrgang ? String(wa.jahrgang) : '',
         herkunft:        feld(cfg.betrieb_ort),
-        pruefnummer:     wa?.id ? (pn.jeWeinausbau[wa.id] ?? '') : '',
+        pruefnummer:     e?.gueltig ? (e.pruefnummer ?? '') : '',
       }
     }
     if (p.typ === 'flasche') {
@@ -254,7 +277,22 @@ export function tbVorbelegung(posten: R, cfg: R, pn: TBPruefnummern, heute: stri
       const stueck = p.menge === null || p.menge === undefined || p.menge === '' ? NaN : Number(p.menge)
       const hatGroesse = Number.isFinite(ml) && ml > 0
       if (!hatGroesse) hinweise.push(`Position ${nr}: Flaschengröße unbekannt – Menge ist die Flaschenanzahl, nicht Liter`)
-      const pruef = feld(f?.pruefnummer) || (f?.dac_antrag_id ? (pn.jeDacAntrag[f.dac_antrag_id] ?? '') : '')
+      let pruef = feld(f?.pruefnummer)
+      const antrag = !pruef && f?.dac_antrag_id ? pn.jeDacAntrag[f.dac_antrag_id] : undefined
+      if (antrag) {
+        const chargeId = f?.weinausbau_id ? String(f.weinausbau_id) : null
+        const e = ersatzPruefnummer(antrag, { datum: pnTag(f?.datum), chargeId }, (chargeId ? pn.jeWeinausbau[chargeId]?.zugaenge : null) ?? [])
+        const ersatz = e.pruefnummer
+        const bescheid = pnTag(antrag.bescheidAm)
+        if (e.hinweis) {
+          hinweise.push(`Position ${nr}: ${e.hinweis} ${TB_PN_NICHT_VORBELEGT}`)
+        } else if (ersatz && bescheid !== null && bescheid > verkaufstag) {
+          const h = pruefnummerHinweis({ gueltig: false, pruefnummer: ersatz, antragId: antrag.id, grund: 'vor_bescheid', ereignisDatum: bescheid, menge: null, mengeGeprueft: false }, `den Verkauf am ${pnDatumDe(verkaufstag)}`)
+          hinweise.push(`Position ${nr}: ${h} ${TB_PN_NICHT_VORBELEGT}`)
+        } else if (ersatz) {
+          pruef = ersatz
+        }
+      }
       return {
         ...TB_LEERE_POSITION,
         menge_liter:     hatGroesse && Number.isFinite(stueck) ? formularZahl((stueck * ml) / 1000, STELLEN.liter) : formularZahl(Number.isFinite(stueck) ? stueck : null, STELLEN.liter),
@@ -436,7 +474,7 @@ const POSTEN_SELECT = `
   positionen:verkauf_positionen(
     id, typ, name, menge, einheit,
     weinausbau:weinausbau(id, name, jahrgang, qualitaetsstufe, rebsorte, weinart),
-    fuellung:fuellungen(id, name, jahrgang, qualitaet, rebsorte, anbaugebiet, flaschengroesse_ml, pruefnummer, dac_antrag_id),
+    fuellung:fuellungen(id, name, jahrgang, qualitaet, rebsorte, anbaugebiet, flaschengroesse_ml, datum, pruefnummer, dac_antrag_id, weinausbau_id),
     traubenverkauf:traubenverkauf(id, datum, kmw_grad, qualitaetsstufe, herkunft_code, grundstueck:grundstueck_id(rebsorte), weingarten:weingarten_id(rebsorte), zukauf:zukauf_posten_id(rebsorte))
   )
 `
@@ -455,31 +493,33 @@ async function betriebLaden(supabase: Client, tenantId: string): Promise<R> {
   return (data ?? {}) as R
 }
 
-/** Prüfnummern zu Chargen (Tank) und DAC-Anträgen (Füllungen) der Verkaufsposten */
+/**
+ * Prüfnummern zu Chargen (Tank) und DAC-Anträgen (Füllungen) der Verkaufsposten. Tank: die
+ * Daten für pruefnummerGueltig (lib/kellerbuch/pruefnummerLaden.ts), ausgewertet in
+ * tbVorbelegung am Verkaufsdatum. Füllung: die Anträge und die Daten ihrer Charge (Zugänge für
+ * ersatzPruefnummer); die Nummer wählt tbVorbelegung (genehmigt, aktiv, Charge der Füllung,
+ * Abfülldatum gegen den Beginn, Bescheid bis zum Verkaufsdatum).
+ */
 async function pruefnummernLaden(supabase: Client, tenantId: string, posten: R[]): Promise<TBPruefnummern> {
   const pos = posten.flatMap(p => (p.positionen ?? []) as R[])
-  const waIds = [...new Set(pos.filter(p => p.typ === 'tank' && p.weinausbau?.id).map(p => String(p.weinausbau.id)))]
-  const dacIds = [...new Set(pos.filter(p => p.typ === 'flasche' && p.fuellung?.dac_antrag_id && !feld(p.fuellung?.pruefnummer)).map(p => String(p.fuellung.dac_antrag_id)))]
+  const ersatzPos = pos.filter(p => p.typ === 'flasche' && p.fuellung?.dac_antrag_id && !feld(p.fuellung?.pruefnummer))
+  const waIds = [...new Set([
+    ...pos.filter(p => p.typ === 'tank' && p.weinausbau?.id).map(p => String(p.weinausbau.id)),
+    ...ersatzPos.filter(p => p.fuellung?.weinausbau_id).map(p => String(p.fuellung.weinausbau_id)),
+  ])]
+  const dacIds = [...new Set(ersatzPos.map(p => String(p.fuellung.dac_antrag_id)))]
   const pn: TBPruefnummern = { jeWeinausbau: {}, jeDacAntrag: {} }
-  for (const block of inBloecken(waIds)) {
-    const { data, error } = await alle<R>((supabase.from('dac_antrag') as any)
-      .select('id, weinausbau_id, pruefnummer')
-      .eq('tenant_id', tenantId)
-      .in('weinausbau_id', block)
-      .not('pruefnummer', 'is', null)
-      .order('created_at', { ascending: true })
-      .order('id'))
-    if (error) throw new Error(`Laden fehlgeschlagen (dac_antrag): ${error.message}`)
-    for (const d of data) if (!pn.jeWeinausbau[d.weinausbau_id] && feld(d.pruefnummer)) pn.jeWeinausbau[d.weinausbau_id] = feld(d.pruefnummer)
+  if (waIds.length > 0) {
+    for (const [id, daten] of await ladePruefnummerDaten(supabase, tenantId, waIds)) pn.jeWeinausbau[id] = daten
   }
   for (const block of inBloecken(dacIds)) {
     const { data, error } = await alle<R>((supabase.from('dac_antrag') as any)
-      .select('id, pruefnummer')
+      .select(PN_ANTRAG_SELECT)
       .eq('tenant_id', tenantId)
       .in('id', block)
       .order('id'))
     if (error) throw new Error(`Laden fehlgeschlagen (dac_antrag): ${error.message}`)
-    for (const d of data) if (feld(d.pruefnummer)) pn.jeDacAntrag[d.id] = feld(d.pruefnummer)
+    for (const d of data) pn.jeDacAntrag[d.id] = antragAusZeile(d)
   }
   return pn
 }
@@ -492,6 +532,8 @@ export type TBErgebnis = {
   gespeichertAm: string | null
   zeilen: TBZeile[]
   warnungen: string[]
+  /** Hinweise zur nicht gespeicherten Vorbelegung (Farbe, Flaschengröße, Prüfnummer) – für die Druckseite */
+  vorbelegungHinweise: string[]
 }
 
 const HINWEIS_VORBELEGUNG = 'Transportbescheinigung ist noch nicht gespeichert – ausgegeben ist die nicht gespeicherte Vorbelegung wie in der Druckansicht. Bitte Formular prüfen (v. a. Farbe, Prüfnummer, „Angereichert“ ist ungeprüft mit „N“ vorbelegt) und speichern.'
@@ -526,6 +568,7 @@ export async function ladeTransportbescheinigung(supabase: Client, tenantId: str
   const gespeichertAm = tb ? (tb.aktualisiert_am ?? tb.erstellt_am ?? null) : null
 
   let formular: TBDaten
+  let vorbelegungHinweise: string[] = []
   if (gespeicherteDaten) {
     formular = { ...gespeicherteDaten, positionen: Array.isArray(gespeicherteDaten.positionen) ? gespeicherteDaten.positionen : [] }
   } else {
@@ -533,6 +576,7 @@ export async function ladeTransportbescheinigung(supabase: Client, tenantId: str
     const hinweise: string[] = []
     formular = tbVorbelegung(posten, cfg, pn, wienHeute(), hinweise)
     warnungen.push(HINWEIS_VORBELEGUNG, ...hinweise)
+    vorbelegungHinweise = hinweise
   }
   if (posten.storniert === true) warnungen.push('Der Verkaufsposten ist storniert.')
 
@@ -552,6 +596,7 @@ export async function ladeTransportbescheinigung(supabase: Client, tenantId: str
     gespeichertAm,
     zeilen,
     warnungen,
+    vorbelegungHinweise,
   }
 }
 
@@ -611,7 +656,11 @@ export async function ladeTransportbescheinigungen(supabase: Client, tenantId: s
     const t = tbJePosten.get(String(v.id))
     const daten = t?.formular_daten && typeof t.formular_daten === 'object' ? (t.formular_daten as R) : null
     const beleg = textOderNull(v.rechnungsnummer) ?? `Verkauf vom ${feld(v.datum)}`
-    const formular = daten ?? tbVorbelegung(v, cfg, pn, heute, [])
+    // Hinweise der Vorbelegung: nur die zur Prüfnummer (KAN-72) – eine leere Spalte braucht
+    // ihren Grund; Farbe/Flaschengröße deckt der Sammelhinweis „bitte prüfen“ unten ab
+    const hinweise: string[] = []
+    const formular = daten ?? tbVorbelegung(v, cfg, pn, heute, hinweise)
+    for (const h of hinweise) if (h.endsWith(TB_PN_NICHT_VORBELEGT)) warnungen.push(`${beleg}: ${h}`)
     zeilen.push(...tbZeilen(formular, {
       verkaufspostenId: String(v.id),
       rechnungsnummer: textOderNull(v.rechnungsnummer),

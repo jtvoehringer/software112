@@ -14,6 +14,8 @@ import { BEWEGUNGSARTEN, istBewegungsart } from './fuellungen/bewegungsarten'
 import { spaetereMengenbewegungen } from '@/lib/kellerbuch/storno'
 import { folgebuchungenText } from '@/lib/kellerbuch/folgebuchungen'
 import { KORREKTUR_NACH_OBEN_HINWEIS } from '@/lib/kellerbuch/hinweise'
+import { pruefnummerBeiChargenzuordnung, pruefnummerBeiDatumsaenderung, pruefnummerFuerFuellung } from '@/lib/kellerbuch/pruefnummerLaden'
+import { pnTag } from '@/lib/kellerbuch/pruefnummer'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -182,6 +184,14 @@ export async function createFuellung(formData: FormData): Promise<{ id: string; 
     }
   }
 
+  // KAN-72: Prüfnummer und DAC-Antrag VOR jedem Schreibzugriff klären – nie ungeprüft aus dem
+  // Formular: mit DAC-Antrag kommt die Nummer aus dem Antrag der gewählten Charge (fremder oder
+  // nicht passender Antrag → Fehler), ohne Antrag nur eine geprüfte freie Eingabe
+  const { pruefnummer, dacAntragId } = await pruefnummerFuerFuellung(supabase, tenantId, {
+    dacAntragId: String(formData.get('dac_antrag_id') ?? '').trim() || null,
+    pruefnummer: String(formData.get('pruefnummer') ?? '').trim() || null,
+  }, { weinausbauId, chargeName: (charge?.name as string | undefined) ?? null, abfuelldatum: datum })
+
   const notizenInput = (formData.get('notizen') as string) || null
   const notizen = notizenZusatz ? [notizenInput, notizenZusatz.trim()].filter(Boolean).join('\n') : notizenInput
 
@@ -234,8 +244,8 @@ export async function createFuellung(formData: FormData): Promise<{ id: string; 
     anzahl_flaschen:      anzahl,
     bestand_flaschen:     anzahl,
     menge_liter_gefuellt: mengeGefuellt,
-    pruefnummer:          (formData.get('pruefnummer') as string) || null,
-    dac_antrag_id:        (formData.get('dac_antrag_id') as string) || null,
+    pruefnummer,          // KAN-72: aus dem geprüften Antrag bzw. geprüfte freie Eingabe
+    dac_antrag_id:        dacAntragId,
     chargennummer,
     vk_preis_brutto:      parseFloat(dezimal(formData.get('vk_preis_brutto') as string)) || null,
     einstandspreis:       parseFloat(dezimal(formData.get('einstandspreis') as string)) || null,
@@ -309,7 +319,7 @@ export async function updateFuellung(id: string, formData: FormData): Promise<vo
 
   // Gespeicherten Stand laden: Mengenfelder werden verglichen statt blind überschrieben
   const { data: altRaw, error: altErr } = await (supabase.from('fuellungen') as any)
-    .select('weinausbau_id, anzahl_flaschen, bestand_flaschen, flaschengroesse_ml, menge_liter_gefuellt')
+    .select('weinausbau_id, datum, anzahl_flaschen, bestand_flaschen, flaschengroesse_ml, menge_liter_gefuellt, pruefnummer, dac_antrag_id')
     .eq('id', id)
     .eq('tenant_id', tenantId)
     .maybeSingle()
@@ -373,14 +383,37 @@ export async function updateFuellung(id: string, formData: FormData): Promise<vo
   const herkunftCodeInput = (formData.get('herkunft_code') as string) || null
   let notizenZusatz = ''
 
+  // KAN-72: Abfülldatum für die Prüfnummern-Prüfungen (Formularwert, sonst der gespeicherte)
+  const abfuelldatum = pnTag(formData.get('datum')) ?? pnTag(alt.datum)
+  const pnFuellung = {
+    pruefnummer: (alt.pruefnummer as string | null) ?? null,
+    dacAntragId: (alt.dac_antrag_id as string | null) ?? null,
+  }
+  // … geändertes Abfülldatum (Charge unverändert): Prüfnummer bzw. DAC-Antrag müssen weiter
+  // gelten – sonst ließe sich die Datumsregel von createFuellung über die Bearbeitung umgehen
+  if (abfuelldatum && abfuelldatum !== pnTag(alt.datum) && weinausbauId === (alt.weinausbau_id ?? null)) {
+    await pruefnummerBeiDatumsaenderung(supabase, tenantId, { ...pnFuellung, weinausbauId }, { datum: abfuelldatum })
+  }
+
   // Downgrade-only-Prüfung wie bei createFuellung: 'Qualitätswein' und 'Herkunft-Code (BKI)'
   // dürfen beim Bearbeiten einer Füllung nur abgestuft, nie aufgestuft werden (hart blockiert).
   if (weinausbauId) {
-    const { data: wa } = await (supabase.from('weinausbau') as any)
-      .select('qualitaetsstufe, herkunft_code')
+    const { data: wa, error: waErr } = await (supabase.from('weinausbau') as any)
+      .select('name, qualitaetsstufe, herkunft_code')
       .eq('id', weinausbauId)
       .eq('tenant_id', tenantId)
-      .single()
+      .maybeSingle()
+    // Wie createFuellung: eine Charge eines anderen Betriebs (bzw. eine unbekannte ID) nie speichern
+    if (waErr) throw new AktionsFehler(dbFehlerText(waErr, 'Charge konnte nicht geladen werden'))
+    if (!wa) throw new AktionsFehler('Die gewählte Kellerbuch-Charge wurde nicht gefunden.')
+
+    // KAN-72: nachträglich (bzw. neu) zugeordnete Charge – Prüfnummer und DAC-Antrag der Füllung
+    // müssen zu ihr und zum Abfülldatum passen, sonst umginge die Bearbeitung die Prüfung von createFuellung
+    if (weinausbauId !== (alt.weinausbau_id ?? null)) {
+      await pruefnummerBeiChargenzuordnung(supabase, tenantId, pnFuellung, {
+        weinausbauId, chargeName: ((wa as AR | null)?.name as string | undefined) ?? null, datum: abfuelldatum,
+      })
+    }
     const chargeQualitaet = (wa as AR | null)?.qualitaetsstufe as string | null ?? null
     const chargeHerkunft  = (wa as AR | null)?.herkunft_code as string | null ?? null
 

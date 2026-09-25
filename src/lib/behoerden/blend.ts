@@ -6,12 +6,22 @@
 // je Herkunftsanteil; Kopfangaben (Bezeichnung, Prüfnummer, Chargennummer) stehen in jeder
 // Zeile. „Menge anteilig“ = Bezugsmenge × Anteil (Füllung: abgefüllte Liter, Charge:
 // aktueller Bestand) – eine rechnerische Aufteilung, keine gebuchte Menge.
+//
+// Prüfnummer (KAN-72, 25.09.2026): Charge – nur eine heute gültige Nummer laut
+// pruefnummerGueltig() (lib/kellerbuch/pruefnummer.ts; nach Verschnitt, Zugang, Zukauf oder
+// Pressung seit der Einreichung gilt sie nicht mehr, § 25 Abs. 6 WeinG), sonst Hinweiszeile und leere
+// CSV-Spalte mit Warnung. Füllung – die Nummer der Füllung (Stichtag = Abfüllung), ersatzweise
+// die ihres genehmigten, aktiven DAC-Antrags derselben Charge, wenn zwischen Abfüllung und Beginn
+// des Antrags nichts zugebucht wurde (ersatzPruefnummer, wie die TBS). Der Dateiname enthält nie
+// eine Prüfnummer.
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Projektkonvention (supabase.from('…') as any), siehe CLAUDE.md */
-import { runden, STELLEN, type CsvSpalte } from '@/lib/csv'
+import { runden, STELLEN, wienHeute, type CsvSpalte } from '@/lib/csv'
 import { resolveBlendKomposition, resolveBlendKompositionFuellung, type KompositionUrsprung } from '@/lib/wein/blendKomposition'
 import { bkiRebsorteKuerzel, fehlendeKuerzelHinweise } from '@/lib/wein/bki_kuerzel'
 import { qualitaetLabel } from '@/lib/wein/qualitaet'
+import { ersatzPruefnummer, pruefnummerAusAntrag, pruefnummerGueltig, pruefnummerHinweis } from '@/lib/kellerbuch/pruefnummer'
+import { antragAusZeile, ladePruefnummerDaten, PN_ANTRAG_SELECT } from '@/lib/kellerbuch/pruefnummerLaden'
 import { num, numOderNull, tag, text, type R } from './kellerbuch-hilfen'
 
 export type BlendArt = 'fuellung' | 'charge'
@@ -23,7 +33,10 @@ export type BlendKopf = {
   jahrgang: number | null
   rebsorte: string | null
   qualitaet: string | null
+  /** nur eine gültige Prüfnummer (Charge: heute, Füllung: die der Abfüllung) */
   pruefnummer: string | null
+  /** warum eine (frühere bzw. Ersatz-)Prüfnummer nicht (mehr) gilt – für Kopf und Warnung, sonst null */
+  pruefnummerHinweis: string | null
   chargennummer: string | null
   /** Abfülldatum (nur Füllung) */
   datum: string | null
@@ -105,58 +118,80 @@ export async function ladeBlendProtokoll(
 ): Promise<BlendProtokoll | null> {
   let kopf: BlendKopf
   let komposition: KompositionUrsprung[]
+  const warnungen: string[] = []
   if (p.art === 'fuellung') {
     const { data, error } = await (supabase.from('fuellungen') as any)
-      .select('id, name, chargennummer, pruefnummer, jahrgang, rebsorte, qualitaet, datum, anzahl_flaschen, flaschengroesse_ml, menge_liter_gefuellt')
+      .select('id, name, chargennummer, pruefnummer, dac_antrag_id, weinausbau_id, jahrgang, rebsorte, qualitaet, datum, anzahl_flaschen, flaschengroesse_ml, menge_liter_gefuellt')
       .eq('tenant_id', tenantId)
       .eq('id', p.id)
       .maybeSingle()
     if (error) throw new Error(`Blend-Protokoll: Füllung konnte nicht geladen werden (${error.message})`)
     const f = data as R | null
     if (!f) return null
+    // Prüfnummer der Füllung (Stichtag = Abfüllung); ohne eigene Nummer die des verknüpften,
+    // genehmigten und aktiven DAC-Antrags (Nummer erst nach der Abfüllung erteilt) – nur, wenn
+    // der Antrag zur Charge der Füllung gehört (in /dac umgehängt → keine Nummer) und zwischen
+    // Abfüllung und Beginn des Antrags nichts zugebucht wurde – wie die TBS
+    let pruefnummer = text(f.pruefnummer)
+    let pnHinweis: string | null = null
+    if (!pruefnummer && f.dac_antrag_id) {
+      const { data: dac, error: dacErr } = await (supabase.from('dac_antrag') as any)
+        .select(PN_ANTRAG_SELECT)
+        .eq('tenant_id', tenantId)
+        .eq('id', f.dac_antrag_id)
+        .maybeSingle()
+      if (dacErr) throw new Error(`Blend-Protokoll: DAC-Antrag der Füllung konnte nicht geladen werden (${dacErr.message})`)
+      const antrag = dac ? antragAusZeile(dac as R) : null
+      const chargeId = f.weinausbau_id ? String(f.weinausbau_id) : null
+      const zugaenge = antrag && chargeId && pruefnummerAusAntrag(antrag, chargeId)
+        ? (await ladePruefnummerDaten(supabase, tenantId, [chargeId])).get(chargeId)?.zugaenge ?? []
+        : []
+      const e = ersatzPruefnummer(antrag, { datum: tag(f.datum) || null, chargeId }, zugaenge)
+      pruefnummer = e.pruefnummer
+      pnHinweis = e.hinweis
+      if (pnHinweis) warnungen.push(`${pnHinweis} Die Spalte „Prüfnummer“ bleibt leer.`)
+    }
     const flaschen = numOderNull(f.anzahl_flaschen)
     const groesse = numOderNull(f.flaschengroesse_ml)
     const bezug = num(f.menge_liter_gefuellt) || (flaschen && groesse ? flaschen * groesse / 1000 : 0)
     kopf = {
       art: 'fuellung', id: f.id, name: text(f.name) ?? 'Füllung',
       jahrgang: numOderNull(f.jahrgang), rebsorte: text(f.rebsorte), qualitaet: f.qualitaet ? qualitaetLabel(f.qualitaet) : null,
-      pruefnummer: text(f.pruefnummer), chargennummer: text(f.chargennummer), datum: tag(f.datum) || null,
+      pruefnummer, pruefnummerHinweis: pnHinweis, chargennummer: text(f.chargennummer), datum: tag(f.datum) || null,
       anzahlFlaschen: flaschen === null ? null : Math.trunc(flaschen), flaschengroesseMl: groesse,
       bezugLiter: bezug > 0 ? runden(bezug, STELLEN.liter) : null,
     }
     komposition = await resolveBlendKompositionFuellung(supabase, p.id, tenantId)
   } else {
-    const [waRes, dacRes] = await Promise.all([
+    const heute = wienHeute()
+    const [waRes, pnDaten] = await Promise.all([
       (supabase.from('weinausbau') as any)
         .select('id, name, jahrgang, rebsorte, qualitaetsstufe, menge_liter')
         .eq('tenant_id', tenantId)
         .eq('id', p.id)
         .maybeSingle(),
-      // Prüfnummer der Charge: jüngster DAC-/Prüfnummernantrag mit erteilter Nummer
-      (supabase.from('dac_antrag') as any)
-        .select('pruefnummer, created_at')
-        .eq('tenant_id', tenantId)
-        .eq('weinausbau_id', p.id)
-        .not('pruefnummer', 'is', null)
-        .order('created_at', { ascending: false })
-        .limit(1),
+      // KAN-72: Prüfnummer nur, wenn sie für den heutigen Bestand gilt (dieselbe Regel wie
+      // TBS-Vorbelegung und Füllungsvorschlag) – nicht mehr „jüngster Antrag mit Nummer“
+      ladePruefnummerDaten(supabase, tenantId, [p.id], { heute }),
     ])
     if (waRes.error) throw new Error(`Blend-Protokoll: Charge konnte nicht geladen werden (${waRes.error.message})`)
-    if (dacRes.error) throw new Error(`Blend-Protokoll: Prüfnummer konnte nicht geladen werden (${dacRes.error.message})`)
     const wa = waRes.data as R | null
     if (!wa) return null
+    const daten = pnDaten.get(p.id)
+    const pn = daten ? pruefnummerGueltig(daten, heute) : null
+    const hinweis = pn ? pruefnummerHinweis(pn) : null
+    if (hinweis) warnungen.push(`${hinweis} Die Spalte „Prüfnummer“ bleibt leer.`)
     const bestand = num(wa.menge_liter)
     kopf = {
       art: 'charge', id: wa.id, name: text(wa.name) ?? 'Charge',
       jahrgang: numOderNull(wa.jahrgang), rebsorte: text(wa.rebsorte), qualitaet: wa.qualitaetsstufe ? qualitaetLabel(wa.qualitaetsstufe) : null,
-      pruefnummer: text(((dacRes.data ?? []) as R[])[0]?.pruefnummer), chargennummer: null, datum: null,
+      pruefnummer: pn?.gueltig ? pn.pruefnummer : null, pruefnummerHinweis: hinweis, chargennummer: null, datum: null,
       anzahlFlaschen: null, flaschengroesseMl: null,
       bezugLiter: bestand > 0 ? runden(bestand, STELLEN.liter) : null,
     }
     komposition = await resolveBlendKomposition(supabase, p.id, tenantId)
   }
 
-  const warnungen: string[] = []
   if (komposition.length === 0) warnungen.push('Keine Herkunftsdaten ermittelbar – die Datei enthält nur die Kopfzeile.')
   const unbekannt = komposition.filter(u => u.typ === 'unbekannt').length
   if (unbekannt > 0) warnungen.push(`${unbekannt} ${unbekannt === 1 ? 'Anteil hat' : 'Anteile haben'} keine ermittelbare Herkunft (Pressungs- oder Verschneidungsdaten unvollständig).`)
