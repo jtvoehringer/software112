@@ -6,8 +6,9 @@
 // aktuellen Bestand. Zugänge, Füllungen und Bestand nur für Chargen mit mindestens einem
 // Antrag – ohne Antrag gibt es nichts zu prüfen. pruefnummerFuerFuellung ist die Prüfung der
 // Server Action createFuellung (Prüfnummer nie ungeprüft aus dem Formular),
-// pruefnummerBeiChargenzuordnung die von updateFuellung (Charge nachträglich zugeordnet);
-// ladeUmzugsherkunft verfolgt eine Charge ohne Antrag über Umzüge zur Antrags-Charge zurück.
+// pruefnummerBeiChargenzuordnung und pruefnummerBeiDatumsaenderung die von updateFuellung
+// (Charge nachträglich zugeordnet bzw. Abfülldatum geändert); ladeUmzugsherkunft verfolgt eine
+// Charge ohne Antrag über Umzüge zur Antrags-Charge zurück.
 //
 // Isomorph ohne Server-Importe (Supabase-Client wird übergeben); Mandant: jede Abfrage auf
 // eine mandantenbezogene Tabelle mit .eq('tenant_id', …), pressung_behaelter (ohne tenant_id)
@@ -18,8 +19,9 @@ import { wienDatum, wienHeute } from '@/lib/csv'
 import { AktionsFehler } from '@/lib/fehler'
 import { alle } from '@/lib/supabase/alle'
 import {
-  chargeHatAntrag, freiePruefnummerPruefen, fuellungAntragPruefen, pnNormiert, pruefnummerAusAntrag, pruefnummerGueltig, pnTag,
-  type PnAbfuellung, type PnAntrag, type PnChargeDaten, type PnErgebnis, type PnUmzugsherkunft, type PnZugang,
+  antragGenehmigt, chargeHatAntrag, freiePruefnummerPruefen, fuellungAntragPruefen, fuellungDatumText, fuellungDatumVerletzung,
+  pnDatumDe, pnNormiert, pruefnummerAusAntrag, pruefnummerGueltig, pnTag,
+  type PnAbfuellung, type PnAntrag, type PnChargeDaten, type PnErgebnis, type PnUmzugAbgang, type PnUmzugsherkunft, type PnZugang,
 } from './pruefnummer'
 
 type R = Record<string, any>
@@ -243,15 +245,16 @@ export async function ladeAntraegeMitNummer(supabase: any, tenantId: string): Pr
 
 // ── Herkunft über Umzüge ─────────────────────────────────────────────────────
 
-type Umzugsquelle = { chargeId: string; letzterUmzug: string }
+type Umzugsquelle = { chargeId: string; ersterUmzug: string; letzterUmzug: string }
 
 /**
  * Einzige Herkunft der Charge über Umzüge – null, wenn sie eigenen Wein hat (Eröffnungs- oder
  * Anfangsbestand, Pressung, Verschnitt, Zukauf), aus mehreren Chargen befüllt wurde oder eine
  * Umzugszeile ohne Quelle bzw. Datum hat. Umzüge innerhalb der Charge (anderes Gebinde) zählen
- * nicht als Herkunft.
+ * nicht als Herkunft. `bis` (Zwischenglied einer Kette): nur Umzüge bis zum letzten Umzug ins
+ * nächste Glied – was danach kam, ist nicht im Wein der Charge, um die es geht.
  */
-async function einzigeUmzugsquelle(supabase: any, tenantId: string, chargeId: string): Promise<Umzugsquelle | null> {
+async function einzigeUmzugsquelle(supabase: any, tenantId: string, chargeId: string, bis: string | null = null): Promise<Umzugsquelle | null> {
   const [waRes, vRes, zkRes, pbRes, umRes] = await Promise.all([
     (supabase.from('weinausbau') as any)
       .select('id, anfangsbestand_liter, ist_eroeffnungsbestand')
@@ -295,18 +298,66 @@ async function einzigeUmzugsquelle(supabase: any, tenantId: string, chargeId: st
   if (umzuege.length === 0) return null
   const quellenJeBatch = await umzugsquellenJeBatch(supabase, tenantId, umzuege)
   const quellen = new Set<string>()
+  let erster = ''
   let letzter = ''
   for (const u of umzuege) {
-    const q = u.von_weinausbau_id ? [String(u.von_weinausbau_id)] : (u.umzug_batch_id ? quellenJeBatch.get(String(u.umzug_batch_id)) ?? [] : [])
     const d = pnTag(u.datum)
-    if (q.length === 0 || q.some(x => !x) || d === null) return null
+    if (d === null) return null
+    if (bis !== null && d > bis) continue                  // erst nach dem Umzug ins nächste Glied
+    const q = u.von_weinausbau_id ? [String(u.von_weinausbau_id)] : (u.umzug_batch_id ? quellenJeBatch.get(String(u.umzug_batch_id)) ?? [] : [])
+    if (q.length === 0 || q.some(x => !x)) return null
     const fremd = q.filter(x => x !== chargeId)
     if (fremd.length === 0) continue                       // Umzug innerhalb der Charge
     for (const x of fremd) quellen.add(x)
+    if (!erster || d < erster) erster = d
     if (d > letzter) letzter = d
   }
   if (quellen.size !== 1 || !letzter) return null
-  return { chargeId: [...quellen][0], letzterUmzug: letzter }
+  return { chargeId: [...quellen][0], ersterUmzug: erster, letzterUmzug: letzter }
+}
+
+/**
+ * Umzüge aus der Charge in andere Chargen (Mengenregel der Umzugsherkunft): quelle-Zeilen je
+ * Batch, abzüglich eines Anteils zurück in dieselbe Charge; ältere Zeilen mit von_ und nach_.
+ * Ohne Ziel-Charge (Schwund) kein Umzug. Liter brutto = um so viel sank der Bestand.
+ */
+async function umzuegeAusCharge(supabase: any, tenantId: string, chargeId: string): Promise<PnUmzugAbgang[]> {
+  const { data, error } = await alle<R>((supabase.from('keller_umzuege') as any)
+    .select('id, datum, menge_liter, von_weinausbau_id, nach_weinausbau_id, umzug_batch_id, zeilen_typ')
+    .eq('tenant_id', tenantId)
+    .eq('von_weinausbau_id', chargeId)
+    .order('id'))
+  if (error) fehler('Umzüge aus der Charge', error)
+  const out: PnUmzugAbgang[] = []
+  const jeBatch = new Map<string, PnUmzugAbgang>()
+  for (const u of data) {
+    const liter = zahl(u.menge_liter) ?? 0
+    if (u.zeilen_typ === 'quelle' && u.umzug_batch_id) {
+      const b = String(u.umzug_batch_id)
+      const bisher = jeBatch.get(b)
+      jeBatch.set(b, { datum: bisher?.datum ?? pnTag(u.datum), liter: (bisher?.liter ?? 0) + liter })
+    } else if (u.zeilen_typ === 'quelle' || (u.nach_weinausbau_id && String(u.nach_weinausbau_id) !== chargeId)) {
+      out.push({ datum: pnTag(u.datum), liter })           // Ziel unbekannt bzw. andere Charge
+    }
+  }
+  const zurueck = new Map<string, number>()
+  for (const b of bloecke([...jeBatch.keys()])) {
+    const { data: ziele, error: e } = await alle<R>((supabase.from('keller_umzuege') as any)
+      .select('id, umzug_batch_id, nach_weinausbau_id, menge_liter')
+      .eq('tenant_id', tenantId)
+      .eq('zeilen_typ', 'ziel')
+      .in('umzug_batch_id', b)
+      .order('id'))
+    if (e) fehler('Umzugsziele', e)
+    for (const z of ziele) {
+      if (String(z.nach_weinausbau_id) === chargeId) zurueck.set(String(z.umzug_batch_id), (zurueck.get(String(z.umzug_batch_id)) ?? 0) + (zahl(z.menge_liter) ?? 0))
+    }
+  }
+  for (const [b, u] of jeBatch) {
+    const netto = u.liter - (zurueck.get(b) ?? 0)
+    if (netto > 0.005) out.push({ datum: u.datum, liter: netto })
+  }
+  return out
 }
 
 /**
@@ -314,9 +365,11 @@ async function einzigeUmzugsquelle(supabase: any, tenantId: string, chargeId: st
  * in ein anderes Gebinde – jeder Umzug in ein leeres Gebinde legt eine neue Charge an) aus
  * einer Charge mit Antrag? Folgt der Kette bis `maxTiefe` Umzüge zurück; jedes Glied darf nur
  * Wein aus genau einer Charge bekommen haben (kein Verschnitt, Zukauf, Pressung, Eröffnungs-
- * bestand). `umzugAm` ist der letzte Umzug aus der Antrags-Charge in die Kette – an diesem Tag
- * muss deren Nummer gegolten haben (freiePruefnummerPruefen). Bis KAN-99 der einzige Weg, die
- * Nummer nach einem Umzug auf eine Füllung zu bringen.
+ * bestand). `ersterUmzugAm`/`umzugAm` sind der erste und letzte Umzug aus der Antrags-Charge in
+ * die Kette – in einem Zwischenglied nur Umzüge bis zum letzten Umzug ins nächste Glied. An
+ * beiden Tagen muss die Nummer gegolten haben, `umzuegeAus` (alle Umzüge aus der Antrags-Charge)
+ * dient der Mengenregel (freiePruefnummerPruefen). Bis KAN-99 der einzige Weg, die Nummer nach
+ * einem Umzug auf eine Füllung zu bringen.
  */
 export async function ladeUmzugsherkunft(
   supabase: any,
@@ -327,20 +380,28 @@ export async function ladeUmzugsherkunft(
   if (!UUID_RE.test(chargeId)) return null
   const gesehen = new Set<string>([chargeId])
   let aktuell = chargeId
+  let bis: string | null = null
   for (let tiefe = 0; tiefe < (opts.maxTiefe ?? 5); tiefe++) {
-    const quelle = await einzigeUmzugsquelle(supabase, tenantId, aktuell)
+    const quelle = await einzigeUmzugsquelle(supabase, tenantId, aktuell, bis)
     if (!quelle || gesehen.has(quelle.chargeId) || !UUID_RE.test(quelle.chargeId)) return null
     gesehen.add(quelle.chargeId)
     const daten = (await ladePruefnummerDaten(supabase, tenantId, [quelle.chargeId], { heute: opts.heute })).get(quelle.chargeId)
     if (daten && daten.antraege.length > 0) {
-      const { data, error } = await (supabase.from('weinausbau') as any)
-        .select('id, name')
-        .eq('tenant_id', tenantId)
-        .eq('id', quelle.chargeId)
-        .maybeSingle()
+      const [{ data, error }, umzuegeAus] = await Promise.all([
+        (supabase.from('weinausbau') as any)
+          .select('id, name')
+          .eq('tenant_id', tenantId)
+          .eq('id', quelle.chargeId)
+          .maybeSingle(),
+        umzuegeAusCharge(supabase, tenantId, quelle.chargeId),
+      ])
       if (error) fehler('Charge', error)
-      return { daten, name: typeof (data as R | null)?.name === 'string' ? (data as R).name : null, umzugAm: quelle.letzterUmzug }
+      return {
+        daten, name: typeof (data as R | null)?.name === 'string' ? (data as R).name : null,
+        umzugAm: quelle.letzterUmzug, ersterUmzugAm: quelle.ersterUmzug, umzuegeAus,
+      }
     }
+    bis = quelle.letzterUmzug
     aktuell = quelle.chargeId
   }
   return null
@@ -360,7 +421,7 @@ async function freieNummerFehler(
   supabase: any,
   tenantId: string,
   nummer: string,
-  p: { weinausbauId: string | null; chargeName: string | null; charge: PnChargeDaten | null; antraegeMitNummer: PnAntrag[]; heute?: string },
+  p: { weinausbauId: string | null; chargeName: string | null; charge: PnChargeDaten | null; antraegeMitNummer: PnAntrag[]; heute?: string; nachtraeglich?: boolean },
 ): Promise<string | null> {
   const n = pnNormiert(nummer)
   const brauchtHerkunft = !!p.weinausbauId && !chargeHatAntrag(p.charge)
@@ -370,6 +431,7 @@ async function freieNummerFehler(
     : null
   return freiePruefnummerPruefen(nummer, {
     chargeId: p.weinausbauId, chargeName: p.chargeName, charge: p.charge, antraegeMitNummer: p.antraegeMitNummer, herkunft,
+    nachtraeglich: p.nachtraeglich,
   })
 }
 
@@ -382,10 +444,12 @@ async function freieNummerFehler(
  *     nur, wenn sie für den Bestand gilt, von dem die Füllung abgebucht wird
  *     (fuellungAntragPruefen – dieselbe Regel wie das Angebot im Formular; ein rückdatiertes
  *     Abfülldatum umgeht sie nicht). Ein offener Antrag wird ohne Nummer verknüpft.
- *   * Ohne Antrag: freie Eingabe bleibt für Füllungen ohne Charge (Altbestand), Chargen ohne
- *     DAC-Antrag (z. B. Zukauf mit Prüfnummer des Lieferanten) und Umzugs-Chargen (Nummer der
- *     Antrags-Charge, wenn sie beim Umzug galt) – nicht für Chargen mit Antrag und nie mit der
- *     Nummer eines anderen Antrags des Betriebs (freiePruefnummerPruefen).
+ *   * Ohne Antrag: ist die Nummer die eines genehmigten Antrags der Charge (Bot-Tool ohne
+ *     Antragsauswahl, veralteter Tab), gilt dieselbe Prüfung wie über die Auswahl und der Antrag
+ *     wird verknüpft. Sonst bleibt die freie Eingabe für Füllungen ohne Charge (Altbestand),
+ *     Chargen ohne DAC-Antrag (z. B. Zukauf mit Prüfnummer des Lieferanten) und Umzugs-Chargen
+ *     (Nummer der Antrags-Charge, wenn sie beim Umzug galt) – nicht für Chargen mit Antrag und
+ *     nie mit der Nummer eines anderen Antrags des Betriebs (freiePruefnummerPruefen).
  * `heute` nur für Tests (Tag des Bestands, Standard wienHeute()).
  */
 export async function pruefnummerFuerFuellung(
@@ -411,9 +475,18 @@ export async function pruefnummerFuerFuellung(
   }
 
   if (!freieNummer) return { pruefnummer: null, dacAntragId: null }
+  const charge = await chargeDaten()
+  // Nummer des genehmigten Antrags der Charge frei eingegeben: dieselbe Prüfung wie die Auswahl
+  const n = pnNormiert(freieNummer)
+  const passend = charge?.antraege.find(a => a.weinausbauId === charge.chargeId && antragGenehmigt(a) && pnNormiert(a.pruefnummer) === n)
+  if (charge && passend) {
+    const r = fuellungAntragPruefen(charge, passend.id, p.abfuelldatum)
+    if (!r.ok) throw new AktionsFehler(r.fehler)
+    return { pruefnummer: r.pruefnummer, dacAntragId: passend.id }
+  }
   const antraegeMitNummer = await mitFehlertext(() => ladeAntraegeMitNummer(supabase, tenantId))
   const fehlerText = await freieNummerFehler(supabase, tenantId, freieNummer, {
-    weinausbauId: p.weinausbauId, chargeName: p.chargeName, charge: await chargeDaten(), antraegeMitNummer, heute: p.heute,
+    weinausbauId: p.weinausbauId, chargeName: p.chargeName, charge, antraegeMitNummer, heute: p.heute,
   })
   if (fehlerText) throw new AktionsFehler(fehlerText)
   return { pruefnummer: freieNummer, dacAntragId: null }
@@ -423,38 +496,93 @@ export async function pruefnummerFuerFuellung(
  * updateFuellung: Wird einer Füllung mit Prüfnummer oder DAC-Antrag nachträglich eine (andere)
  * Charge zugeordnet, müssen Nummer bzw. Antrag zu ihr passen – sonst umginge die Bearbeitung
  * die Prüfung von createFuellung (Füllung ohne Charge mit freier Nummer anlegen, danach die
- * Charge mit Antrag wählen). Nummer und Antrag selbst ändert die Bearbeitung nicht.
- *   * DAC-Antrag: muss zur neuen Charge gehören.
- *   * Nummer ohne Antrag: die des genehmigten, aktiven Antrags der neuen Charge – oder eine
- *     freie Nummer, die createFuellung für diese Charge angenommen hätte.
- * Wirft AktionsFehler.
+ * Charge mit Antrag wählen). Nummer und Antrag selbst ändert die Bearbeitung nicht, abgebucht
+ * wird nichts – maßgeblich ist deshalb das Abfülldatum (`datum`), nicht der heutige Bestand.
+ *   * DAC-Antrag: muss zur neuen Charge gehören, das Abfülldatum gegen seinen Beginn halten
+ *     (fuellungDatumVerletzung).
+ *   * Nummer ohne Antrag: die eines genehmigten, aktiven Antrags der neuen Charge, wenn das
+ *     Abfülldatum gegen dessen Beginn hält – oder eine freie Nummer, die zu keinem Antrag des
+ *     Betriebs gehört (auch bei einer Charge mit Antrag: Füllung aus einem früheren, nicht
+ *     erfassten Los) bzw. die einer Umzugs-Charge (freiePruefnummerPruefen, `nachtraeglich`).
+ * Ohne `datum` entfällt die Datumsprüfung. Wirft AktionsFehler.
  */
 export async function pruefnummerBeiChargenzuordnung(
   supabase: any,
   tenantId: string,
   fuellung: { pruefnummer: string | null; dacAntragId: string | null },
-  p: { weinausbauId: string; chargeName: string | null; heute?: string },
+  p: { weinausbauId: string; chargeName: string | null; datum?: string | null; heute?: string },
 ): Promise<void> {
   const nummer = fuellung.pruefnummer?.trim() || null
   const dacAntragId = fuellung.dacAntragId?.trim() || null
   if (!nummer && !dacAntragId) return
   const charge = await mitFehlertext(async () => (await ladePruefnummerDaten(supabase, tenantId, [p.weinausbauId], { heute: p.heute })).get(p.weinausbauId) ?? null)
   const name = p.chargeName ? ` „${p.chargeName}“` : ''
+  const datum = pnTag(p.datum)
+  const datumPruefen = (antrag: PnAntrag) => {
+    const v = datum && charge ? fuellungDatumVerletzung(antrag, charge.zugaenge, datum) : null
+    if (v && datum) {
+      throw new AktionsFehler(`Die Charge${name} kann nicht zugeordnet werden: ${fuellungDatumText(v, datum, antrag)} – die Prüfnummer bzw. der DAC-Antrag der Füllung gilt für diese Abfüllung nicht.`)
+    }
+  }
   if (dacAntragId) {
-    if (!charge?.antraege.some(a => a.id === dacAntragId)) {
+    const antrag = charge?.antraege.find(a => a.id === dacAntragId)
+    if (!antrag) {
       throw new AktionsFehler(`Die Füllung ist mit dem DAC-Antrag einer anderen Charge verknüpft – die Charge${name} kann ihr nicht zugeordnet werden.`)
     }
+    datumPruefen(antrag)
     return
   }
   if (!nummer) return
   const n = pnNormiert(nummer)
-  if (charge?.antraege.some(a => { const nr = pruefnummerAusAntrag(a, p.weinausbauId); return nr !== null && pnNormiert(nr) === n })) return
-  if (chargeHatAntrag(charge)) {
-    throw new AktionsFehler(`Die Füllung trägt die Prüfnummer ${nummer}, die nicht aus dem DAC-Antrag der Charge${name} stammt – die Charge kann ihr nicht zugeordnet werden.`)
-  }
+  const eigener = charge?.antraege.find(a => { const nr = pruefnummerAusAntrag(a, p.weinausbauId); return nr !== null && pnNormiert(nr) === n })
+  if (eigener) { datumPruefen(eigener); return }
   const antraegeMitNummer = await mitFehlertext(() => ladeAntraegeMitNummer(supabase, tenantId))
   const fehlerText = await freieNummerFehler(supabase, tenantId, nummer, {
-    weinausbauId: p.weinausbauId, chargeName: p.chargeName, charge, antraegeMitNummer, heute: p.heute,
+    weinausbauId: p.weinausbauId, chargeName: p.chargeName, charge, antraegeMitNummer, heute: p.heute, nachtraeglich: true,
   })
   if (fehlerText) throw new AktionsFehler(`Die Charge${name} kann nicht zugeordnet werden: ${fehlerText}`)
+}
+
+/**
+ * updateFuellung: geändertes Abfülldatum einer Füllung mit DAC-Antrag oder mit der Nummer eines
+ * genehmigten Antrags ihrer Charge – das neue Datum muss gegen den Beginn des Antrags halten
+ * (fuellungDatumVerletzung: kein Zugang zwischen Abfüllung und Beginn), sonst trüge die Füllung
+ * eine Nummer, die createFuellung mit diesem Datum abgelehnt hätte. Freie Nummern (Lieferant,
+ * Umzugs-Charge, ohne Charge) hängen nicht vom Abfülldatum ab. Wirft AktionsFehler.
+ */
+export async function pruefnummerBeiDatumsaenderung(
+  supabase: any,
+  tenantId: string,
+  fuellung: { pruefnummer: string | null; dacAntragId: string | null; weinausbauId: string | null },
+  p: { datum: string; heute?: string },
+): Promise<void> {
+  const nummer = fuellung.pruefnummer?.trim() || null
+  const dacAntragId = fuellung.dacAntragId?.trim() || null
+  const datum = pnTag(p.datum)
+  if (!datum || (!nummer && !dacAntragId)) return
+  await mitFehlertext(async () => {
+    let antrag: PnAntrag | null = null
+    let chargeId = fuellung.weinausbauId
+    if (dacAntragId) {
+      const { data, error } = await (supabase.from('dac_antrag') as any)
+        .select(PN_ANTRAG_SELECT)
+        .eq('tenant_id', tenantId)
+        .eq('id', dacAntragId)
+        .maybeSingle()
+      if (error) fehler('DAC-Antrag', error)
+      antrag = data ? antragAusZeile(data as R) : null
+      chargeId = chargeId ?? antrag?.weinausbauId ?? null
+    }
+    if (!chargeId || (!antrag && !nummer)) return
+    const charge = (await ladePruefnummerDaten(supabase, tenantId, [chargeId], { heute: p.heute })).get(chargeId) ?? null
+    if (!charge) return
+    if (!antrag && nummer) {
+      const n = pnNormiert(nummer)
+      antrag = charge.antraege.find(a => { const nr = pruefnummerAusAntrag(a, chargeId); return nr !== null && pnNormiert(nr) === n }) ?? null
+    }
+    const v = antrag ? fuellungDatumVerletzung(antrag, charge.zugaenge, datum) : null
+    if (v && antrag) {
+      throw new AktionsFehler(`Das Abfülldatum kann nicht auf den ${pnDatumDe(datum)} geändert werden: ${fuellungDatumText(v, datum, antrag)} – die Prüfnummer bzw. der DAC-Antrag der Füllung gälte dann nicht. Ist das Datum falsch erfasst, bitte die Füllung löschen (nur ohne Verkäufe und Bestandsbuchungen möglich) und neu anlegen.`)
+    }
+  })
 }

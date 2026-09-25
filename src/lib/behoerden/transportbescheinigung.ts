@@ -17,7 +17,7 @@
 import { STELLEN, runden, wienHeute, type CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
 import { bkiFarbe, formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
-import { pnDatumDe, pnTag, pruefnummerAusAntrag, pruefnummerGueltig, pruefnummerHinweis, type PnAntrag, type PnChargeDaten } from '@/lib/kellerbuch/pruefnummer'
+import { ersatzPruefnummer, pnDatumDe, pnTag, pruefnummerGueltig, pruefnummerHinweis, type PnAntrag, type PnChargeDaten } from '@/lib/kellerbuch/pruefnummer'
 import { antragAusZeile, ladePruefnummerDaten, PN_ANTRAG_SELECT } from '@/lib/kellerbuch/pruefnummerLaden'
 import { rebsorteDerLieferung } from './traubenverkauf'
 import {
@@ -209,9 +209,9 @@ function farbHinweis(nr: number, rebsorte: unknown): string {
 }
 
 export type TBPruefnummern = {
-  /** Prüfnummern-Daten je Charge (Tankposition) – ausgewertet mit pruefnummerGueltig am Verkaufsdatum */
+  /** Prüfnummern-Daten je Charge – Tankposition: pruefnummerGueltig am Verkaufsdatum; Charge einer Füllung: Zugänge für ersatzPruefnummer */
   jeWeinausbau: Record<string, PnChargeDaten>
-  /** DAC-Antrag je id (fuellungen.dac_antrag_id) – Nummer über pruefnummerAusAntrag (genehmigt, aktiv, Charge der Füllung) */
+  /** DAC-Antrag je id (fuellungen.dac_antrag_id) – Nummer über ersatzPruefnummer (genehmigt, aktiv, Charge der Füllung, Abfülldatum gegen den Beginn) */
   jeDacAntrag: Record<string, PnAntrag>
 }
 
@@ -226,8 +226,10 @@ export const TB_PN_NICHT_VORBELEGT = 'Prüfnummer nicht vorbelegt.'
  * (pruefnummerGueltig – dieselbe Regel wie Blend-Protokoll und Füllungsvorschlag; bisher der
  * älteste Antrag mit Nummer ohne Status-/Datumsprüfung), sonst leer mit Hinweis. Flaschen-
  * position: Nummer der Füllung, ersatzweise die ihres genehmigten, aktiven DAC-Antrags derselben
- * Charge. Für den Transport an einem Tag gibt es die Nummer erst ab dem Bescheid
- * (bescheidBisStichtag) – ein Verkauf zwischen Einreichung und Bescheid bleibt leer (Hinweis).
+ * Charge, wenn zwischen Abfüllung und Beginn des Antrags nichts zugebucht wurde (ersatzPruefnummer
+ * – etwa nach einer Verknüpfung mit einem noch nicht eingereichten Entwurf). Für den Transport
+ * an einem Tag gibt es die Nummer erst ab dem Bescheid (bescheidBisStichtag) – ein Verkauf
+ * zwischen Einreichung und Bescheid bleibt leer (Hinweis).
  */
 export function tbVorbelegung(posten: R, cfg: R, pn: TBPruefnummern, heute: string, hinweise: string[]): TBDaten {
   const [jahr, monat, tag] = heute.split('-')
@@ -274,10 +276,12 @@ export function tbVorbelegung(posten: R, cfg: R, pn: TBPruefnummern, heute: stri
       let pruef = feld(f?.pruefnummer)
       const antrag = !pruef && f?.dac_antrag_id ? pn.jeDacAntrag[f.dac_antrag_id] : undefined
       if (antrag) {
-        const ersatz = pruefnummerAusAntrag(antrag, f?.weinausbau_id ? String(f.weinausbau_id) : null)
+        const chargeId = f?.weinausbau_id ? String(f.weinausbau_id) : null
+        const e = ersatzPruefnummer(antrag, { datum: pnTag(f?.datum), chargeId }, (chargeId ? pn.jeWeinausbau[chargeId]?.zugaenge : null) ?? [])
+        const ersatz = e.pruefnummer
         const bescheid = pnTag(antrag.bescheidAm)
-        if (!ersatz && pruefnummerAusAntrag(antrag)) {
-          hinweise.push(`Position ${nr}: Der DAC-Antrag der Füllung gehört zu einer anderen Charge. ${TB_PN_NICHT_VORBELEGT}`)
+        if (e.hinweis) {
+          hinweise.push(`Position ${nr}: ${e.hinweis} ${TB_PN_NICHT_VORBELEGT}`)
         } else if (ersatz && bescheid !== null && bescheid > verkaufstag) {
           const h = pruefnummerHinweis({ gueltig: false, pruefnummer: ersatz, antragId: antrag.id, grund: 'vor_bescheid', ereignisDatum: bescheid, menge: null, mengeGeprueft: false }, `den Verkauf am ${pnDatumDe(verkaufstag)}`)
           hinweise.push(`Position ${nr}: ${h} ${TB_PN_NICHT_VORBELEGT}`)
@@ -466,7 +470,7 @@ const POSTEN_SELECT = `
   positionen:verkauf_positionen(
     id, typ, name, menge, einheit,
     weinausbau:weinausbau(id, name, jahrgang, qualitaetsstufe, rebsorte, weinart),
-    fuellung:fuellungen(id, name, jahrgang, qualitaet, rebsorte, anbaugebiet, flaschengroesse_ml, pruefnummer, dac_antrag_id, weinausbau_id),
+    fuellung:fuellungen(id, name, jahrgang, qualitaet, rebsorte, anbaugebiet, flaschengroesse_ml, datum, pruefnummer, dac_antrag_id, weinausbau_id),
     traubenverkauf:traubenverkauf(id, datum, kmw_grad, qualitaetsstufe, herkunft_code, grundstueck:grundstueck_id(rebsorte), weingarten:weingarten_id(rebsorte), zukauf:zukauf_posten_id(rebsorte))
   )
 `
@@ -488,13 +492,18 @@ async function betriebLaden(supabase: Client, tenantId: string): Promise<R> {
 /**
  * Prüfnummern zu Chargen (Tank) und DAC-Anträgen (Füllungen) der Verkaufsposten. Tank: die
  * Daten für pruefnummerGueltig (lib/kellerbuch/pruefnummerLaden.ts), ausgewertet in
- * tbVorbelegung am Verkaufsdatum. Füllung: die Anträge; die Nummer wählt tbVorbelegung
- * (genehmigt, aktiv, Charge der Füllung, Bescheid bis zum Verkaufsdatum).
+ * tbVorbelegung am Verkaufsdatum. Füllung: die Anträge und die Daten ihrer Charge (Zugänge für
+ * ersatzPruefnummer); die Nummer wählt tbVorbelegung (genehmigt, aktiv, Charge der Füllung,
+ * Abfülldatum gegen den Beginn, Bescheid bis zum Verkaufsdatum).
  */
 async function pruefnummernLaden(supabase: Client, tenantId: string, posten: R[]): Promise<TBPruefnummern> {
   const pos = posten.flatMap(p => (p.positionen ?? []) as R[])
-  const waIds = [...new Set(pos.filter(p => p.typ === 'tank' && p.weinausbau?.id).map(p => String(p.weinausbau.id)))]
-  const dacIds = [...new Set(pos.filter(p => p.typ === 'flasche' && p.fuellung?.dac_antrag_id && !feld(p.fuellung?.pruefnummer)).map(p => String(p.fuellung.dac_antrag_id)))]
+  const ersatzPos = pos.filter(p => p.typ === 'flasche' && p.fuellung?.dac_antrag_id && !feld(p.fuellung?.pruefnummer))
+  const waIds = [...new Set([
+    ...pos.filter(p => p.typ === 'tank' && p.weinausbau?.id).map(p => String(p.weinausbau.id)),
+    ...ersatzPos.filter(p => p.fuellung?.weinausbau_id).map(p => String(p.fuellung.weinausbau_id)),
+  ])]
+  const dacIds = [...new Set(ersatzPos.map(p => String(p.fuellung.dac_antrag_id)))]
   const pn: TBPruefnummern = { jeWeinausbau: {}, jeDacAntrag: {} }
   if (waIds.length > 0) {
     for (const [id, daten] of await ladePruefnummerDaten(supabase, tenantId, waIds)) pn.jeWeinausbau[id] = daten

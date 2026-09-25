@@ -200,6 +200,20 @@ describe('pruefnummerGueltig – Regeln', () => {
     assert.equal(pn.pruefnummerGueltig(daten, '2026-06-01').gueltig, true)
     assert.equal(pn.pruefnummerGueltig(daten, '2026-06-08', { bescheidBisStichtag: true }).gueltig, true)
   })
+  test('bescheidBisStichtag: ein jüngerer, noch nicht beschiedener Antrag verdrängt den geltenden älteren nicht', () => {
+    const x = { ...ANTRAG, id: 'X', pruefnummer: 'N 1/26', eingereichtAm: '2026-08-01', bescheidAm: '2026-08-10', angelegtAm: '2026-08-01' }
+    const y = { ...ANTRAG, id: 'Y', pruefnummer: 'N 2/26', eingereichtAm: '2026-09-01', bescheidAm: '2026-09-20', angelegtAm: '2026-09-01' }
+    const daten = musterhof({ antraege: [x, y], zugaenge: [PRESSUNG] })
+    const e = pn.pruefnummerGueltig(daten, '2026-09-10', { bescheidBisStichtag: true })
+    assert.deepEqual([e.gueltig, e.pruefnummer, e.antragId], [true, 'N 1/26', 'X'])
+    // ab dem Bescheid des jüngeren gilt dessen Nummer; ohne Option ab seiner Einreichung
+    assert.equal(pn.pruefnummerGueltig(daten, '2026-09-20', { bescheidBisStichtag: true }).pruefnummer, 'N 2/26')
+    assert.equal(pn.pruefnummerGueltig(daten, '2026-09-10').pruefnummer, 'N 2/26')
+    // Zugang nach der Einreichung von X (vor Y): X gilt nicht mehr – Hinweis nennt den jüngeren Antrag
+    const mitZugang = musterhof({ antraege: [x, y], zugaenge: [PRESSUNG, { art: 'verschnitt', datum: '2026-08-20' }] })
+    const z = pn.pruefnummerGueltig(mitZugang, '2026-09-10', { bescheidBisStichtag: true })
+    assert.deepEqual([z.gueltig, z.grund, z.antragId], [false, 'vor_bescheid', 'Y'])
+  })
   test('mehrere Anträge: der zuletzt eingereichte genehmigte bis zum Stichtag zählt', () => {
     const neu = { ...ANTRAG, id: 'neu', pruefnummer: 'N 20001/26', mengeLiter: 548, eingereichtAm: '2026-09-26', bescheidAm: '2026-10-05', angelegtAm: '2026-09-26' }
     const daten = musterhof({ antraege: [ANTRAG, neu], bestandAm: '2026-10-05' })
@@ -247,6 +261,34 @@ describe('Füllung: fuellungAntragPruefen, waehlbareAntraege, freiePruefnummerPr
     assert.match(r.fehler, /Abfüllung am 10\.05\.2026 liegt vor der Einreichung .* am 20\.05\.2026; dazwischen: Verschnitt am 15\.05\.2026/)
     // Buchung am Abfülltag gilt als davor
     assert.equal(pn.fuellungAntragPruefen(stand2006({ bestandLiter: 4000, zugaenge: [PRESSUNG, { art: 'verschnitt', datum: '2026-05-10' }] }), ANTRAG_ID, '2026-05-10').ok, true)
+  })
+  test('Abfüllung vor dem Beginn ohne eingereicht_am: Text nennt Bescheid bzw. Erfassung, keine „Einreichung“', () => {
+    const nacherfasst = { ...ANTRAG, eingereichtAm: null, bescheidAm: '2026-09-10', angelegtAm: '2026-09-12' }
+    const daten = stand2006({ bestandLiter: 500, bestandAm: '2026-09-25', antraege: [nacherfasst], zugaenge: [PRESSUNG, { art: 'verschnitt', datum: '2026-09-05' }] })
+    const r = pn.fuellungAntragPruefen(daten, ANTRAG_ID, '2026-09-01')
+    assert.equal(r.ok, false)
+    assert.match(r.fehler, /^Die Abfüllung am 01\.09\.2026 liegt vor dem Bescheid zum DAC-Antrag „Riesling Ried Pfaffenberg 2025“ vom 10\.09\.2026 \(Einreichungsdatum fehlt\); dazwischen: Verschnitt am 05\.09\.2026/)
+    assert.doesNotMatch(r.fehler, /Einreichung des/)
+    const erfasst = { ...nacherfasst, bescheidAm: null, angelegtAm: '2026-09-10' }
+    assert.match(pn.fuellungAntragPruefen({ ...daten, antraege: [erfasst] }, ANTRAG_ID, '2026-09-01').fehler, /liegt vor der Erfassung des DAC-Antrags „Riesling Ried Pfaffenberg 2025“ am 10\.09\.2026 \(Einreichungsdatum fehlt\)/)
+  })
+  test('Ersatznummer aus dem Antrag (TBS, Blend-Protokoll): Abfülldatum muss gegen den Beginn halten', () => {
+    // Füllung am 03.09. mit einem Entwurf verknüpft, Verschnitt am 04.09., Einreichung 05.09., Bescheid 20.09.
+    const antrag = { ...ANTRAG, pruefnummer: 'N 9/26', eingereichtAm: '2026-09-05', bescheidAm: '2026-09-20', angelegtAm: '2026-09-02' }
+    const verschnitt = { art: 'verschnitt', datum: '2026-09-04' }
+    const e = pn.ersatzPruefnummer(antrag, { datum: '2026-09-03', chargeId: CH }, [PRESSUNG, verschnitt])
+    assert.equal(e.pruefnummer, null)
+    assert.equal(e.hinweis, 'Prüfnummer N 9/26 des DAC-Antrags gilt nicht für diese Füllung: Die Abfüllung am 03.09.2026 liegt vor der Einreichung des DAC-Antrags „Riesling Ried Pfaffenberg 2025“ am 05.09.2026; dazwischen: Verschnitt am 04.09.2026 (§ 25 Abs. 6 WeinG). Flaschen und Probe enthalten damit verschiedenen Wein.')
+    // dieselbe Füllung heute erfasst: dieselbe Regel lehnt sie ab
+    assert.equal(pn.fuellungAntragPruefen(musterhof({ antraege: [antrag], zugaenge: [PRESSUNG, verschnitt], bestandLiter: 500, abfuellungen: [] }), ANTRAG_ID, '2026-09-03').ok, false)
+    // ohne Zugang dazwischen: die Nummer
+    assert.deepEqual(pn.ersatzPruefnummer(antrag, { datum: '2026-09-03', chargeId: CH }, [PRESSUNG]), { pruefnummer: 'N 9/26', hinweis: null })
+    // Abfüllung nach einem Zugang seit der Einreichung: Flaschen enthalten den Zugang
+    assert.match(pn.ersatzPruefnummer(antrag, { datum: '2026-09-26', chargeId: CH }, [PRESSUNG, VERSCHNITT]).hinweis, /liegt nach der Einreichung .*Verschnitt am 25\.09\.2026/)
+    // andere Charge, nicht genehmigt, kein Antrag
+    assert.deepEqual(pn.ersatzPruefnummer(antrag, { datum: '2026-09-03', chargeId: CH_B }, []), { pruefnummer: null, hinweis: 'Der DAC-Antrag der Füllung gehört zu einer anderen Charge.' })
+    assert.deepEqual(pn.ersatzPruefnummer({ ...antrag, status: 'eingereicht' }, { datum: '2026-09-03', chargeId: CH }, []), { pruefnummer: null, hinweis: null })
+    assert.deepEqual(pn.ersatzPruefnummer(null, { datum: '2026-09-03', chargeId: CH }, []), { pruefnummer: null, hinweis: null })
   })
   test('fremde oder nicht passende dac_antrag_id → abgelehnt', () => {
     const fremd = pn.fuellungAntragPruefen(musterhof(), '11111111-1111-4111-8111-111111111111', '2026-06-20')
@@ -321,6 +363,50 @@ describe('Füllung: fuellungAntragPruefen, waehlbareAntraege, freiePruefnummerPr
     assert.match(pn.freiePruefnummerPruefen('N 10716/26', p('2026-05-01')), /eingereicht/)
     // ohne Herkunft (z. B. Charge mit Pressung) bleibt es „einer anderen Charge“
     assert.match(pn.freiePruefnummerPruefen('N 10716/26', { ...p('2026-07-10'), herkunft: null }), /einer anderen Charge/)
+  })
+  test('Umzugs-Charge: Gültigkeit am ersten UND am letzten Umzugstag', () => {
+    const Z = '33333333-3333-4333-8333-000b00000014'
+    const z = { chargeId: Z, bestandLiter: 500, bestandAm: '2026-09-25', antraege: [], zugaenge: [], abfuellungen: [] }
+    const p = (ersterUmzugAm, umzugAm, daten = musterhof()) => ({ chargeId: Z, charge: z, antraegeMitNummer: [ANTRAG], herkunft: { daten, name: 'Riesling Ried Pfaffenberg', umzugAm, ersterUmzugAm } })
+    // Teil vor der Einreichung (01.05.), Rest danach (10.07.): der frühere Teil ist nicht vom Antrag erfasst
+    assert.match(pn.freiePruefnummerPruefen('N 10716/26', p('2026-05-01', '2026-07-10')), /gilt nicht für den Wein, der am 01\.05\.2026 umgezogen wurde: Der DAC-Antrag wurde erst am 20\.05\.2026 eingereicht/)
+    // Zukauf in die Antrags-Charge zwischen den Umzügen (nach der Einreichung): letzter Umzug ungültig
+    const zukauf = musterhof({ zugaenge: [PRESSUNG, { art: 'zukauf', datum: '2026-06-01' }] })
+    assert.match(pn.freiePruefnummerPruefen('N 10716/26', p('2026-05-25', '2026-07-10', zukauf)), /am 10\.07\.2026 umgezogen wurde: Zukauf am 01\.06\.2026/)
+    // beide Umzüge nach der Einreichung, nichts dazwischen → gilt
+    assert.equal(pn.freiePruefnummerPruefen('N 10716/26', p('2026-05-25', '2026-07-10')), null)
+  })
+  test('Umzugs-Charge: Mengenregel – Antrag über eine Teilmenge lässt sich per Umzug nicht strecken', () => {
+    const Z = '33333333-3333-4333-8333-000b00000014'
+    const z = { chargeId: Z, bestandLiter: 500, bestandAm: '2026-09-25', antraege: [], zugaenge: [], abfuellungen: [] }
+    // Charge A: 1.500 l, Antrag über 1.000 l (eingereicht 01.09.), heute 500 l nach Z umgezogen → A 1.000 l
+    const teil = { ...ANTRAG, mengeLiter: 1000, eingereichtAm: '2026-09-01', bescheidAm: '2026-09-10', angelegtAm: '2026-09-01' }
+    const a = (extra = {}) => musterhof({ antraege: [teil], zugaenge: [PRESSUNG], abfuellungen: [], bestandLiter: 1000, ...extra })
+    const p = (daten, umzugAm, umzuegeAus) => ({ chargeId: Z, charge: z, antraegeMitNummer: [teil], herkunft: { daten, name: 'A', umzugAm, ersterUmzugAm: umzugAm, umzuegeAus } })
+    // A selbst: 1.000 l ≤ 1.000 l → gilt (Umzüge zählen dort nicht – der Überschuss darf weg)
+    assert.equal(pn.pruefnummerGueltig(a(), '2026-09-25').gueltig, true)
+    // Z: 1.000 l in A + 500 l umgezogen > 1.000 l beantragt → abgelehnt, heute wie bei einem früheren Umzugstag
+    for (const tag of ['2026-09-25', '2026-09-12']) {
+      assert.match(pn.freiePruefnummerPruefen('N 10716/26', p(a(), tag, [{ datum: tag, liter: 500 }])),
+        /gilt aber nicht für diesen Wein – der DAC-Antrag umfasst 1\.000,00 l; seither wurden 500,00 l aus ihr umgezogen, 1\.000,00 l liegen noch in ihr – zusammen mehr als beantragt\.$/, tag)
+    }
+    // alles umgezogen (A leer): 1.500 l > 1.000 l
+    assert.match(pn.freiePruefnummerPruefen('N 10716/26', p(a({ bestandLiter: 0 }), '2026-09-25', [{ datum: '2026-09-25', liter: 1500 }])), /seither wurden 1\.500,00 l aus ihr umgezogen – zusammen mehr als beantragt/)
+    // Antrag über die ganze Menge → gilt; Umzug am Einreichungstag zählt mit
+    assert.equal(pn.freiePruefnummerPruefen('N 10716/26', p(a({ antraege: [{ ...teil, mengeLiter: 1500 }] }), '2026-09-25', [{ datum: '2026-09-25', liter: 500 }])), null)
+    assert.match(pn.freiePruefnummerPruefen('N 10716/26', p(a(), '2026-09-01', [{ datum: '2026-09-01', liter: 500 }])), /zusammen mehr als beantragt/)
+    // Umzug vor der Einreichung zählt nicht (der Antrag betraf dann nur den Rest)
+    const vorher = { ...p(a({ antraege: [{ ...teil, mengeLiter: 1500 }] }), '2026-09-25', [{ datum: '2026-08-01', liter: 400 }, { datum: '2026-09-25', liter: 500 }]) }
+    assert.equal(pn.freiePruefnummerPruefen('N 10716/26', vorher), null)
+    // Zugang in A nach dem Umzug: A trägt die Nummer nicht mehr, ihr Bestand zählt nicht
+    const danach = a({ zugaenge: [PRESSUNG, { art: 'verschnitt', datum: '2026-09-20' }], bestandLiter: 1048 })
+    assert.equal(pn.freiePruefnummerPruefen('N 10716/26', p(danach, '2026-09-12', [{ datum: '2026-09-12', liter: 1000 }])), null)
+    // … ebenso, was danach aus ihr abgefüllt oder umgezogen wurde (Wein mit dem Zugang, ohne Verknüpfung)
+    const weiter = a({ zugaenge: [PRESSUNG, { art: 'verschnitt', datum: '2026-09-20' }], bestandLiter: 0, abfuellungen: [{ datum: '2026-09-22', liter: 600, dacAntragId: null }] })
+    assert.equal(pn.freiePruefnummerPruefen('N 10716/26', p(weiter, '2026-09-12', [{ datum: '2026-09-12', liter: 500 }, { datum: '2026-09-23', liter: 100 }])), null)
+    // eine mit dem Antrag verknüpfte Füllung zählt immer
+    const verknuepft = a({ zugaenge: [PRESSUNG, { art: 'verschnitt', datum: '2026-09-20' }], bestandLiter: 0, abfuellungen: [{ datum: '2026-09-15', liter: 600, dacAntragId: ANTRAG_ID }] })
+    assert.match(pn.freiePruefnummerPruefen('N 10716/26', p(verknuepft, '2026-09-12', [{ datum: '2026-09-12', liter: 500 }])), /500,00 l aus ihr umgezogen und 600,00 l abgefüllt – zusammen mehr als beantragt/)
   })
 })
 
@@ -466,11 +552,11 @@ describe('Lader ladePruefnummerDaten', () => {
 // Umzug in ein leeres Gebinde legt eine neue Charge an (umziehen/actions.ts, gebinde-actions.ts)
 const Z = '33333333-3333-4333-8333-000b00000014'   // Abfülltank nach Filtration
 const Y = '33333333-3333-4333-8333-000b00000015'   // Zwischenstation
-function umzug(db, von, nach, datum, batch) {
+function umzug(db, von, nach, datum, batch, liter = 500) {
   if (!db.weinausbau.some(w => w.id === nach)) db.weinausbau.push({ id: nach, tenant_id: T, name: `Umzug ${batch}`, menge_liter: '500.00', anfangsbestand_liter: null, ist_eroeffnungsbestand: false })
   db.keller_umzuege.push(
-    { id: `${batch}-q`, tenant_id: T, datum, zeilen_typ: 'quelle', von_weinausbau_id: von, nach_weinausbau_id: null, umzug_batch_id: batch },
-    { id: `${batch}-z`, tenant_id: T, datum, zeilen_typ: 'ziel', von_weinausbau_id: null, nach_weinausbau_id: nach, umzug_batch_id: batch },
+    { id: `${batch}-q`, tenant_id: T, datum, zeilen_typ: 'quelle', von_weinausbau_id: von, nach_weinausbau_id: null, umzug_batch_id: batch, menge_liter: String(liter) },
+    { id: `${batch}-z`, tenant_id: T, datum, zeilen_typ: 'ziel', von_weinausbau_id: null, nach_weinausbau_id: nach, umzug_batch_id: batch, menge_liter: String(liter) },
   )
   return db
 }
@@ -486,6 +572,32 @@ describe('Umzugsherkunft (ladeUmzugsherkunft) – Prüfnummer nach Abstich/Filtr
     const kette = umzug(umzug(dbMusterhof(), CH, Y, '2026-07-10', 'B3'), Y, Z, '2026-07-20', 'B4')
     const h2 = await laden.ladeUmzugsherkunft(attrappe(kette), T, Z, { heute: '2026-09-25' })
     assert.deepEqual([h2.daten.chargeId, h2.umzugAm], [CH, '2026-07-10'])
+  })
+  test('erster und letzter Umzug; in einer Kette nur Umzüge bis zum Umzug ins nächste Glied', async () => {
+    // Teilumzug 01.05., Rest 10.07. in dieselbe Charge
+    const zwei = umzug(umzug(dbMusterhof(), CH, Z, '2026-05-01', 'B5', 200), CH, Z, '2026-07-10', 'B6', 300)
+    const h = await laden.ladeUmzugsherkunft(attrappe(zwei), T, Z, { heute: '2026-09-25' })
+    assert.deepEqual([h.ersterUmzugAm, h.umzugAm], ['2026-05-01', '2026-07-10'])
+    // Kette: A→Y 01.05., Y→Z 01.06., A→Y 10.07. – der Wein von Z verließ Y am 01.06.
+    const kette = umzug(umzug(umzug(dbMusterhof(), CH, Y, '2026-05-01', 'B7'), Y, Z, '2026-06-01', 'B8'), CH, Y, '2026-07-10', 'B9')
+    const k = await laden.ladeUmzugsherkunft(attrappe(kette), T, Z, { heute: '2026-09-25' })
+    assert.deepEqual([k.daten.chargeId, k.ersterUmzugAm, k.umzugAm], [CH, '2026-05-01', '2026-05-01'])
+    // später in Y aus einer anderen Charge zugeführt: betrifft den Wein von Z nicht
+    const spaeter = umzug(umzug(umzug(dbMusterhof(), CH, Y, '2026-07-01', 'B7'), Y, Z, '2026-07-05', 'B8'), CH_B, Y, '2026-08-01', 'B9')
+    assert.equal((await laden.ladeUmzugsherkunft(attrappe(spaeter), T, Z, { heute: '2026-09-25' })).daten.chargeId, CH)
+  })
+  test('Umzüge aus der Antrags-Charge für die Mengenregel: je Batch, ohne Anteil zurück, ohne Schwund', async () => {
+    const db = umzug(umzug(dbMusterhof(), CH, Z, '2026-07-10', 'B3', 300), CH, Y, '2026-08-01', 'B4', 150)
+    // B1 (dbMusterhof): Umzug innerhalb der Charge, u3: Schwund – beide keine Abgänge
+    db.keller_umzuege.find(u => u.id === 'u1').menge_liter = '80'
+    db.keller_umzuege.find(u => u.id === 'u2').menge_liter = '80'
+    db.keller_umzuege.find(u => u.id === 'u3').menge_liter = '5'
+    // ältere Zeile mit von_ und nach_
+    db.keller_umzuege.push({ id: 'alt1', tenant_id: T, datum: '2026-06-01', zeilen_typ: 'transfer', von_weinausbau_id: CH, nach_weinausbau_id: CH_B, menge_liter: '20' })
+    const sb = attrappe(db)
+    const h = await laden.ladeUmzugsherkunft(sb, T, Z, { heute: '2026-09-25' })
+    assert.deepEqual(h.umzuegeAus.map(u => [u.datum, u.liter]).sort(), [['2026-06-01', 20], ['2026-07-10', 300], ['2026-08-01', 150]])
+    mandantGefiltert(sb)
   })
   test('keine Herkunft bei eigenem Wein, Verschnitt, Zukauf, Pressung oder mehreren Quellen', async () => {
     const faelle = {
@@ -543,6 +655,18 @@ describe('Blend-Protokoll (Charge und Füllung)', () => {
     db.dac_antrag[0] = { ...db.dac_antrag[0], aktiv: true, weinausbau_id: CH_B }
     assert.equal((await blend.ladeBlendProtokoll(attrappe(db), T, { art: 'fuellung', id: FUELLUNG_ID })).kopf.pruefnummer, null)
   })
+  test('Füllung ohne eigene Nummer, abgefüllt vor der Einreichung mit Verschnitt dazwischen: keine Ersatznummer, Warnung', async () => {
+    const blend = await import('../../src/lib/behoerden/blend.ts')
+    const db = dbMusterhof()
+    db.fuellungen[0] = { ...db.fuellungen[0], pruefnummer: null, datum: '2026-05-10' }
+    db.verschneidungen.push({ id: 'v-mai', tenant_id: T, datum: '2026-05-15', ziel_weinausbau_id: CH })
+    const sb = attrappe(db)
+    const b = await blend.ladeBlendProtokoll(sb, T, { art: 'fuellung', id: FUELLUNG_ID })
+    assert.equal(b.kopf.pruefnummer, null)
+    assert.match(b.kopf.pruefnummerHinweis, /Die Abfüllung am 10\.05\.2026 liegt vor der Einreichung .*Verschnitt am 15\.05\.2026/)
+    assert.ok(b.warnungen.some(w => w.endsWith('Die Spalte „Prüfnummer“ bleibt leer.')), b.warnungen.join(' | '))
+    mandantGefiltert(sb)
+  })
   test('Charge mit gültigem Antrag (vor dem Verschnitt) zeigt die Nummer', async () => {
     const blend = await import('../../src/lib/behoerden/blend.ts')
     const db = dbMusterhof()
@@ -595,6 +719,21 @@ describe('Transportbescheinigung: Tankverkauf aus der Charge', () => {
     h = []
     assert.equal(tb.tbVorbelegung(flasche('2026-07-01', { weinausbau_id: CH_B }), CFG, pnF, '2026-09-25', h).positionen[0].pruefnummer, '')
     assert.match(h[0], /DAC-Antrag der Füllung gehört zu einer anderen Charge/)
+    // Abfüllung vor der Einreichung (z. B. mit einem Entwurf verknüpft), Verschnitt dazwischen
+    const mitVerschnitt = { ...pnF, jeWeinausbau: { [CH]: musterhof({ zugaenge: [PRESSUNG, { art: 'verschnitt', datum: '2026-05-15' }] }) } }
+    h = []
+    assert.equal(tb.tbVorbelegung(flasche('2026-07-01', { datum: '2026-05-10' }), CFG, mitVerschnitt, '2026-09-25', h).positionen[0].pruefnummer, '')
+    assert.deepEqual(h, ['Position 1: Prüfnummer N 10716/26 des DAC-Antrags gilt nicht für diese Füllung: Die Abfüllung am 10.05.2026 liegt vor der Einreichung des DAC-Antrags „Riesling Ried Pfaffenberg 2025“ am 20.05.2026; dazwischen: Verschnitt am 15.05.2026 (§ 25 Abs. 6 WeinG). Flaschen und Probe enthalten damit verschiedenen Wein. Prüfnummer nicht vorbelegt.'])
+    h = []
+    assert.equal(tb.tbVorbelegung(flasche('2026-07-01', { datum: '2026-05-10' }), CFG, { ...pnF, jeWeinausbau: { [CH]: musterhof() } }, '2026-09-25', h).positionen[0].pruefnummer, 'N 10716/26')
+  })
+  test('Ladefunktion: Flaschenposition – Zugänge der Charge der Füllung werden geladen', async () => {
+    const fl = { id: '44444444-4444-4444-8444-444444444445', tenant_id: T, aktiv: true, rechnungsnummer: 'RE-2026-0101', datum: '2026-09-26', storniert: false, kontakt: null, firma: { name: 'Weinhandel Huber' },
+      positionen: [{ id: 'p3', typ: 'flasche', name: 'Riesling', menge: 12, fuellung: { id: FUELLUNG_ID, rebsorte: 'Riesling', flaschengroesse_ml: 750, datum: '2026-09-26', pruefnummer: null, dac_antrag_id: ANTRAG_ID, weinausbau_id: CH } }] }
+    const db = { ...dbMusterhof(), verkaufsposten: [fl], tenant_einstellungen: [CFG], transportbescheinigungen: [] }
+    const r = await tb.ladeTransportbescheinigung(attrappe(db), T, { id: fl.id })
+    assert.equal(r.formular.positionen[0].pruefnummer, '')
+    assert.ok(r.vorbelegungHinweise.some(w => /liegt nach der Einreichung .*Verschnitt am 25\.09\.2026/.test(w)), r.vorbelegungHinweise.join(' | '))
   })
   test('Zeitraumliste: Prüfnummern-Hinweis je Beleg in den Warnungen', async () => {
     const db = { ...dbMusterhof(), verkaufsposten: [{ ...posten('2026-09-25'), aktiv: true }], tenant_einstellungen: [CFG], transportbescheinigungen: [] }
@@ -672,15 +811,93 @@ describe('Server-Prüfung der Füllung (pruefnummerFuerFuellung, createFuellung)
     db.dac_antrag.push({ id: '33333333-3333-4333-8333-001200000009', tenant_id: T, weinausbau_id: CH_B, status: 'genehmigt', aktiv: true, pruefnummer: 'N 1/26', eingereicht_am: '2026-01-10', created_at: '2026-01-10T00:00:00+00:00' })
     await assert.rejects(pruefen({ pruefnummer: 'N 1/26' }, { weinausbauId: Z }, db), aktionsFehler(/einer anderen Charge/))
   })
+  test('Umzugs-Charge: Teil vor der Einreichung umgezogen bzw. Kette nach dem Weiterzug befüllt → abgelehnt', async () => {
+    const zwei = umzug(umzug(dbMusterhof(), CH, Z, '2026-05-01', 'B5', 200), CH, Z, '2026-07-10', 'B6', 300)
+    zwei.zukauf_posten.push({ id: 'zk-ch', tenant_id: T, datum: '2026-05-10', ziel_weinausbau_id: CH, aktiv: true })
+    await assert.rejects(pruefen({ pruefnummer: 'N 10716/26' }, { weinausbauId: Z }, zwei), aktionsFehler(/am 01\.05\.2026 umgezogen wurde: Der DAC-Antrag wurde erst am 20\.05\.2026 eingereicht/))
+    const kette = umzug(umzug(umzug(dbMusterhof(), CH, Y, '2026-05-01', 'B7'), Y, Z, '2026-06-01', 'B8'), CH, Y, '2026-07-10', 'B9')
+    await assert.rejects(pruefen({ pruefnummer: 'N 10716/26' }, { weinausbauId: Z }, kette), aktionsFehler(/am 01\.05\.2026 umgezogen wurde/))
+  })
+  test('Umzugs-Charge: Antrag über eine Teilmenge – Abstich des Überschusses bringt die Nummer nicht auf den Überschuss', async () => {
+    // Charge A: 1.500 l, Antrag über 1.000 l (eingereicht 01.09.), heute 500 l in ein leeres Gebinde umgezogen
+    const teilmenge = (antragLiter, umzugLiter, bestand) => {
+      const db = dbMusterhof()
+      db.dac_antrag[0] = { ...db.dac_antrag[0], menge_liter: String(antragLiter), eingereicht_am: '2026-09-01', bescheid_am: '2026-09-10', created_at: '2026-09-01T08:00:00+00:00' }
+      db.verschneidungen = []
+      db.fuellungen = []
+      db.fuellung_chargen = []
+      db.weinausbau[0] = { ...db.weinausbau[0], menge_liter: String(bestand) }
+      return umzug(db, CH, Z, '2026-09-25', 'B10', umzugLiter)
+    }
+    await assert.rejects(pruefen({ pruefnummer: 'N 10716/26' }, { weinausbauId: Z }, teilmenge(1000, 500, 1000)), aktionsFehler(/zusammen mehr als beantragt/))
+    await assert.rejects(pruefen({ pruefnummer: 'N 10716/26' }, { weinausbauId: Z }, teilmenge(1000, 1500, 0)), aktionsFehler(/zusammen mehr als beantragt/))
+    assert.deepEqual(await pruefen({ pruefnummer: 'N 10716/26' }, { weinausbauId: Z }, teilmenge(1500, 500, 1000)), { pruefnummer: 'N 10716/26', dacAntragId: null })
+    // die Antrags-Charge selbst behält die Nummer für ihren Rest (1.000 l ≤ 1.000 l)
+    assert.deepEqual(await pruefen({ dacAntragId: ANTRAG_ID }, {}, teilmenge(1000, 500, 1000)), { pruefnummer: 'N 10716/26', dacAntragId: ANTRAG_ID })
+  })
+  test('freie Eingabe der gültigen Nummer der Charge (Bot, veralteter Tab): Antrag wird nach derselben Regel verknüpft', async () => {
+    assert.deepEqual(await pruefen({ pruefnummer: 'n10716/26' }, { abfuelldatum: '2026-09-24', heute: '2026-09-24' }, vorVerschnitt()),
+      { pruefnummer: 'N 10716/26', dacAntragId: ANTRAG_ID })
+    // nach dem Verschnitt: Grund statt „Auswahl im Formular“
+    await assert.rejects(pruefen({ pruefnummer: 'N 10716/26' }), aktionsFehler(/Verschnitt am 25\.09\.2026/))
+    // eine andere Nummer bleibt abgelehnt
+    await assert.rejects(pruefen({ pruefnummer: 'N 1/26' }, { abfuelldatum: '2026-09-24', heute: '2026-09-24' }, vorVerschnitt()), aktionsFehler(/gibt es einen DAC-Antrag – die Prüfnummer kommt aus dem Antrag, eine andere Nummer ist nicht zulässig/))
+  })
+})
+
+describe('Bearbeiten: Abfülldatum geändert (pruefnummerBeiDatumsaenderung, updateFuellung)', () => {
+  const aendern = (fuellung, datum, db = dbMusterhof()) => laden.pruefnummerBeiDatumsaenderung(attrappe(db), T,
+    { pruefnummer: null, dacAntragId: null, weinausbauId: CH, ...fuellung }, { datum, heute: '2026-09-25' })
+  const aktionsFehler = muster => e => e.name === 'AktionsFehler' && muster.test(e.message)
+
+  test('verknüpfter Antrag: neues Datum nach einem Zugang seit der Einreichung → abgelehnt, davor erlaubt', async () => {
+    await aendern({ pruefnummer: 'N 10716/26', dacAntragId: ANTRAG_ID }, '2026-06-01')
+    await assert.rejects(aendern({ pruefnummer: 'N 10716/26', dacAntragId: ANTRAG_ID }, '2026-09-26'),
+      aktionsFehler(/^Das Abfülldatum kann nicht auf den 26\.09\.2026 geändert werden: Die Abfüllung am 26\.09\.2026 liegt nach der Einreichung .*Verschnitt am 25\.09\.2026/))
+    // Nummer des genehmigten Antrags ohne Verknüpfung: dieselbe Regel
+    await assert.rejects(aendern({ pruefnummer: 'N 10716/26' }, '2026-09-26'), aktionsFehler(/liegt nach der Einreichung/))
+  })
+  test('Datum vor die Einreichung zurück, Verschnitt dazwischen → abgelehnt', async () => {
+    const db = dbMusterhof()
+    db.verschneidungen.push({ id: 'v-mai', tenant_id: T, datum: '2026-05-15', ziel_weinausbau_id: CH })
+    await assert.rejects(aendern({ dacAntragId: ANTRAG_ID }, '2026-05-10', db), aktionsFehler(/liegt vor der Einreichung .*Verschnitt am 15\.05\.2026.*bitte die Füllung löschen/))
+    await aendern({ dacAntragId: ANTRAG_ID }, '2026-05-16', db)
+  })
+  test('freie Nummer, Entwurf oder ohne Nummer: keine Datumsprüfung', async () => {
+    await aendern({ pruefnummer: 'L 4711/25', weinausbauId: CH_B }, '2026-09-26')
+    await aendern({ pruefnummer: 'L 4711/25', weinausbauId: null }, '2026-09-26')
+    await aendern({}, '2026-09-26')
+    const db = dbMusterhof()
+    db.dac_antrag[0] = { ...db.dac_antrag[0], status: 'entwurf', pruefnummer: null, eingereicht_am: null, bescheid_am: null }
+    await aendern({ dacAntragId: ANTRAG_ID }, '2026-09-26', db)
+  })
 })
 
 describe('Bearbeiten: Charge nachträglich zugeordnet (pruefnummerBeiChargenzuordnung, updateFuellung)', () => {
-  const zuordnen = (fuellung, weinausbauId, db = dbMusterhof()) => laden.pruefnummerBeiChargenzuordnung(attrappe(db), T,
-    { pruefnummer: null, dacAntragId: null, ...fuellung }, { weinausbauId, chargeName: 'Riesling Ried Pfaffenberg', heute: '2026-09-25' })
+  const zuordnen = (fuellung, weinausbauId, db = dbMusterhof(), extra = {}) => laden.pruefnummerBeiChargenzuordnung(attrappe(db), T,
+    { pruefnummer: null, dacAntragId: null, ...fuellung }, { weinausbauId, chargeName: 'Riesling Ried Pfaffenberg', heute: '2026-09-25', ...extra })
   const aktionsFehler = muster => e => e.name === 'AktionsFehler' && muster.test(e.message)
 
-  test('freie Fremdnummer auf eine Charge mit DAC-Antrag → abgelehnt', async () => {
-    await assert.rejects(zuordnen({ pruefnummer: 'L 4711/25' }, CH), aktionsFehler(/nicht aus dem DAC-Antrag der Charge „Riesling Ried Pfaffenberg“ stammt/))
+  test('Nummer, die zu keinem Antrag gehört (früheres Los), auf eine Charge mit DAC-Antrag oder Entwurf → erlaubt (nichts wird abgebucht)', async () => {
+    await zuordnen({ pruefnummer: 'N 9999/25' }, CH)
+    const entwurf = dbMusterhof()
+    entwurf.dac_antrag[0] = { ...entwurf.dac_antrag[0], status: 'entwurf', pruefnummer: null, eingereicht_am: null, bescheid_am: null }
+    await zuordnen({ pruefnummer: 'N 9999/25' }, CH, entwurf)
+    // die Nummer eines inaktiven eigenen Antrags bleibt gesperrt
+    const inaktiv = dbMusterhof()
+    inaktiv.dac_antrag[0] = { ...inaktiv.dac_antrag[0], aktiv: false }
+    await assert.rejects(zuordnen({ pruefnummer: 'N 10716/26' }, CH, inaktiv), aktionsFehler(/kann nicht zugeordnet werden: .*dieser Charge, der inaktiv ist/))
+  })
+  test('Nummer bzw. DAC-Antrag der Charge: nur, wenn das Abfülldatum gegen den Beginn hält', async () => {
+    // Abfüllung vor dem Verschnitt (25.09.) → erlaubt; danach enthalten die Flaschen den Verschnitt
+    await zuordnen({ pruefnummer: 'N 10716/26' }, CH, dbMusterhof(), { datum: '2026-06-20' })
+    await assert.rejects(zuordnen({ pruefnummer: 'N 10716/26' }, CH, dbMusterhof(), { datum: '2026-09-26' }),
+      aktionsFehler(/kann nicht zugeordnet werden: Die Abfüllung am 26\.09\.2026 liegt nach der Einreichung des DAC-Antrags „Riesling Ried Pfaffenberg 2025“ am 20\.05\.2026; dazwischen: Verschnitt am 25\.09\.2026/))
+    await assert.rejects(zuordnen({ dacAntragId: ANTRAG_ID }, CH, dbMusterhof(), { datum: '2026-09-26' }), aktionsFehler(/liegt nach der Einreichung/))
+    // Abfüllung vor der Einreichung mit Verschnitt dazwischen
+    const vorher = dbMusterhof()
+    vorher.verschneidungen.push({ id: 'v-mai', tenant_id: T, datum: '2026-05-15', ziel_weinausbau_id: CH })
+    await assert.rejects(zuordnen({ pruefnummer: 'N 10716/26' }, CH, vorher, { datum: '2026-05-10' }), aktionsFehler(/liegt vor der Einreichung .*Verschnitt am 15\.05\.2026/))
   })
   test('passende Nummer, Charge ohne Antrag, Füllung ohne Nummer → erlaubt', async () => {
     await zuordnen({ pruefnummer: 'N 10716/26' }, CH)
@@ -724,8 +941,13 @@ describe('Verdrahtung (Quelltext)', () => {
     const s = quelle('src/app/(dashboard)/weinhandel/actions.ts')
     const upd = s.slice(s.indexOf('export async function updateFuellung'), s.indexOf('export async function bestandKorrigieren'))
     assert.match(upd, /\.select\('weinausbau_id, [^']*pruefnummer, dac_antrag_id'\)/)
-    assert.match(upd, /if \(weinausbauId !== \(alt\.weinausbau_id \?\? null\)\) \{\s+await pruefnummerBeiChargenzuordnung\(supabase, tenantId, \{/)
+    assert.match(upd, /\.select\('weinausbau_id, datum, /)
+    assert.match(upd, /if \(weinausbauId !== \(alt\.weinausbau_id \?\? null\)\) \{\s+await pruefnummerBeiChargenzuordnung\(supabase, tenantId, pnFuellung, \{[^}]*datum: abfuelldatum,/)
     assert.ok(upd.indexOf('pruefnummerBeiChargenzuordnung(') < upd.indexOf(".update(payload)"), 'Prüfung vor dem Speichern')
+    // geändertes Abfülldatum bei unveränderter Charge
+    assert.match(upd, /const abfuelldatum = pnTag\(formData\.get\('datum'\)\) \?\? pnTag\(alt\.datum\)/)
+    assert.match(upd, /if \(abfuelldatum && abfuelldatum !== pnTag\(alt\.datum\) && weinausbauId === \(alt\.weinausbau_id \?\? null\)\) \{\s+await pruefnummerBeiDatumsaenderung\(/)
+    assert.ok(upd.indexOf('pruefnummerBeiDatumsaenderung(') < upd.indexOf(".update(payload)"), 'Datumsprüfung vor dem Speichern')
   })
   test('Formular: Chargenwechsel setzt Antrag und Prüfnummer zurück, Hidden-Input nur bei freier Eingabe', () => {
     const s = quelle('src/app/(dashboard)/weinhandel/fuellungen/neu/FuellungFormClient.tsx')
@@ -761,6 +983,9 @@ describe('Verdrahtung (Quelltext)', () => {
     assert.doesNotMatch(s, /pn\.jeWeinausbau\[d\.weinausbau_id\] = /)
     // Zeitraumliste verwirft die Hinweise der Vorbelegung nicht mehr
     assert.doesNotMatch(s, /tbVorbelegung\(v, cfg, pn, heute, \[\]\)/)
-    assert.match(s, /fuellung:fuellungen\([^)]*dac_antrag_id, weinausbau_id\)/)
+    assert.match(s, /fuellung:fuellungen\([^)]*datum, pruefnummer, dac_antrag_id, weinausbau_id\)/)
+    // Ersatznummer der Flaschenposition und des Blend-Protokolls der Füllung über denselben Helfer
+    assert.match(s, /ersatzPruefnummer\(antrag, \{ datum: pnTag\(f\?\.datum\), chargeId \}/)
+    assert.match(quelle('src/lib/behoerden/blend.ts'), /ersatzPruefnummer\(antrag, \{ datum: tag\(f\.datum\) \|\| null, chargeId \}, zugaenge\)/)
   })
 })

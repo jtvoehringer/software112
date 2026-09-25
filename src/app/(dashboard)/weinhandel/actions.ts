@@ -14,7 +14,8 @@ import { BEWEGUNGSARTEN, istBewegungsart } from './fuellungen/bewegungsarten'
 import { spaetereMengenbewegungen } from '@/lib/kellerbuch/storno'
 import { folgebuchungenText } from '@/lib/kellerbuch/folgebuchungen'
 import { KORREKTUR_NACH_OBEN_HINWEIS } from '@/lib/kellerbuch/hinweise'
-import { pruefnummerBeiChargenzuordnung, pruefnummerFuerFuellung } from '@/lib/kellerbuch/pruefnummerLaden'
+import { pruefnummerBeiChargenzuordnung, pruefnummerBeiDatumsaenderung, pruefnummerFuerFuellung } from '@/lib/kellerbuch/pruefnummerLaden'
+import { pnTag } from '@/lib/kellerbuch/pruefnummer'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -318,7 +319,7 @@ export async function updateFuellung(id: string, formData: FormData): Promise<vo
 
   // Gespeicherten Stand laden: Mengenfelder werden verglichen statt blind überschrieben
   const { data: altRaw, error: altErr } = await (supabase.from('fuellungen') as any)
-    .select('weinausbau_id, anzahl_flaschen, bestand_flaschen, flaschengroesse_ml, menge_liter_gefuellt, pruefnummer, dac_antrag_id')
+    .select('weinausbau_id, datum, anzahl_flaschen, bestand_flaschen, flaschengroesse_ml, menge_liter_gefuellt, pruefnummer, dac_antrag_id')
     .eq('id', id)
     .eq('tenant_id', tenantId)
     .maybeSingle()
@@ -382,6 +383,18 @@ export async function updateFuellung(id: string, formData: FormData): Promise<vo
   const herkunftCodeInput = (formData.get('herkunft_code') as string) || null
   let notizenZusatz = ''
 
+  // KAN-72: Abfülldatum für die Prüfnummern-Prüfungen (Formularwert, sonst der gespeicherte)
+  const abfuelldatum = pnTag(formData.get('datum')) ?? pnTag(alt.datum)
+  const pnFuellung = {
+    pruefnummer: (alt.pruefnummer as string | null) ?? null,
+    dacAntragId: (alt.dac_antrag_id as string | null) ?? null,
+  }
+  // … geändertes Abfülldatum (Charge unverändert): Prüfnummer bzw. DAC-Antrag müssen weiter
+  // gelten – sonst ließe sich die Datumsregel von createFuellung über die Bearbeitung umgehen
+  if (abfuelldatum && abfuelldatum !== pnTag(alt.datum) && weinausbauId === (alt.weinausbau_id ?? null)) {
+    await pruefnummerBeiDatumsaenderung(supabase, tenantId, { ...pnFuellung, weinausbauId }, { datum: abfuelldatum })
+  }
+
   // Downgrade-only-Prüfung wie bei createFuellung: 'Qualitätswein' und 'Herkunft-Code (BKI)'
   // dürfen beim Bearbeiten einer Füllung nur abgestuft, nie aufgestuft werden (hart blockiert).
   if (weinausbauId) {
@@ -392,12 +405,11 @@ export async function updateFuellung(id: string, formData: FormData): Promise<vo
       .single()
 
     // KAN-72: nachträglich (bzw. neu) zugeordnete Charge – Prüfnummer und DAC-Antrag der Füllung
-    // müssen zu ihr passen, sonst umginge die Bearbeitung die Prüfung von createFuellung
+    // müssen zu ihr und zum Abfülldatum passen, sonst umginge die Bearbeitung die Prüfung von createFuellung
     if (weinausbauId !== (alt.weinausbau_id ?? null)) {
-      await pruefnummerBeiChargenzuordnung(supabase, tenantId, {
-        pruefnummer: (alt.pruefnummer as string | null) ?? null,
-        dacAntragId: (alt.dac_antrag_id as string | null) ?? null,
-      }, { weinausbauId, chargeName: ((wa as AR | null)?.name as string | undefined) ?? null })
+      await pruefnummerBeiChargenzuordnung(supabase, tenantId, pnFuellung, {
+        weinausbauId, chargeName: ((wa as AR | null)?.name as string | undefined) ?? null, datum: abfuelldatum,
+      })
     }
     const chargeQualitaet = (wa as AR | null)?.qualitaetsstufe as string | null ?? null
     const chargeHerkunft  = (wa as AR | null)?.herkunft_code as string | null ?? null

@@ -32,11 +32,15 @@
 //     (Messdifferenz als Schwund buchen bzw. Antragsmenge korrigieren) – fachlich offen.
 //   * Ab wann es die Nummer gibt: für Blend-Protokoll und Füllung ab der Einreichung (die
 //     Flaschen tragen die später erteilte Nummer); für die TBS (Transport an einem bestimmten
-//     Tag) erst ab dem Bescheid – Option bescheidBisStichtag.
+//     Tag) erst ab dem Bescheid – Option bescheidBisStichtag; ein älterer, am Stichtag schon
+//     beschiedener Antrag gilt dann weiter, bis der jüngere beschieden ist.
 //   * Umzüge geben die Nummer nicht weiter: eine durch Umzug entstandene Charge hat keinen
 //     eigenen Antrag, Blend-Protokoll und TBS zeigen für sie keine Nummer (bis KAN-99). Die
 //     Füllung nimmt die Nummer dort als freie Eingabe an, wenn die Charge nur über Umzüge aus
-//     der Antrags-Charge stammt und die Nummer beim Umzug galt (freiePruefnummerPruefen).
+//     der Antrags-Charge stammt, die Nummer am ersten und am letzten Umzugstag galt und der
+//     Antrag die Menge deckt: Bestand der Antrags-Charge + seither umgezogen + abgefüllt ≤
+//     beantragt (freiePruefnummerPruefen). Die Antrags-Charge selbst zählt Umzüge nicht mit –
+//     wer den Überschuss eines Antrags über eine Teilmenge umzieht, behält die Nummer für den Rest.
 //
 // Grundlage für KAN-83 (Warnung „Prüfnummer gilt nicht mehr“ bei Verschnitt/Umzug/Zugang)
 // und KAN-84 (Füllung: Merkmale serverseitig aus der Charge); KAN-99 ersetzt die Ableitung
@@ -122,9 +126,16 @@ export type PnUmzugsherkunft = {
   /** Daten der Charge mit dem DAC-Antrag */
   daten: PnChargeDaten
   name?: string | null
-  /** letzter Umzug aus dieser Charge in die Kette – Stichtag für die Gültigkeit der Nummer */
+  /** letzter Umzug aus dieser Charge in die Kette – bis dahin kein Zugang (Gültigkeit der Nummer) */
   umzugAm: string
+  /** erster Umzug aus dieser Charge in die Kette – der Antrag muss davor begonnen haben (fehlt: umzugAm) */
+  ersterUmzugAm?: string | null
+  /** alle Umzüge aus dieser Charge in andere Chargen (Mengenregel der Herkunft; fehlt: keine) */
+  umzuegeAus?: PnUmzugAbgang[]
 }
+
+/** Umzug aus einer Charge in eine andere Charge (Liter, die die Charge verlassen haben) */
+export type PnUmzugAbgang = { datum: string | null; liter: number }
 
 /** Status, unter denen ein Antrag noch offen ist (Füllung darf ihn ohne Nummer verknüpfen) */
 export const PN_OFFENE_STATUS = ['entwurf', 'eingereicht', 'in_pruefung'] as const
@@ -221,17 +232,28 @@ export function antragVerletzung(antrag: PnAntrag, daten: PnChargeDaten, stichta
   return null
 }
 
+/**
+ * Abgefüllt im Sinn der Mengenregel: Füllungen mit diesem Antrag oder nach der Einreichung. Alle,
+ * nicht nur bis zum Stichtag – der Bestand (bestandAm) ist um jede erfasste Füllung schon gemindert.
+ * `bis`: nicht verknüpfte Füllungen nur bis zu diesem Tag (herkunftMenge).
+ */
+function abgefuelltLiter(antrag: PnAntrag, daten: PnChargeDaten, bis: string | null = null): number {
+  const beginn = antragBeginn(antrag)
+  return daten.abfuellungen
+    .filter(f => {
+      if (f.dacAntragId === antrag.id) return true
+      const t = pnTag(f.datum) ?? ''
+      return beginn !== null && t > beginn && (bis === null || t <= bis)
+    })
+    .reduce((s, f) => s + (Number.isFinite(f.liter) ? f.liter : 0), 0)
+}
+
 /** Zahlen der Mengenregel; null = nicht prüfbar */
 function mengeRegel(antrag: PnAntrag, daten: PnChargeDaten, stichtag: string): PnMenge | null {
   const bestandAm = pnTag(daten.bestandAm)
   if (antrag.mengeLiter === null || !Number.isFinite(antrag.mengeLiter)) return null
   if (daten.bestandLiter === null || !Number.isFinite(daten.bestandLiter) || bestandAm === null || stichtag < bestandAm) return null
-  const beginn = antragBeginn(antrag)
-  // Abgefüllt: Füllungen mit diesem Antrag oder nach der Einreichung. Alle, nicht nur bis zum
-  // Stichtag – der Bestand (bestandAm) ist um jede erfasste Füllung schon gemindert.
-  const abgefuellt = daten.abfuellungen
-    .filter(f => f.dacAntragId === antrag.id || (beginn !== null && (pnTag(f.datum) ?? '') > beginn))
-    .reduce((s, f) => s + (Number.isFinite(f.liter) ? f.liter : 0), 0)
+  const abgefuellt = abgefuelltLiter(antrag, daten)
   return {
     bestandLiter: r2(daten.bestandLiter),
     beantragtLiter: r2(antrag.mengeLiter),
@@ -264,16 +286,28 @@ export function pruefnummerGueltig(charge: PnChargeDaten, stichtag: string, opts
     return { gueltig: false, pruefnummer: nummer(mitNummer?.pruefnummer), antragId: (mitNummer ?? alle[0]).id, grund: 'nicht_genehmigt', ...leer }
   }
 
-  const a = bisStichtag[0]
-  const pn = nummer(a.pruefnummer)
-  const m = mengeRegel(a, charge, stichtag)
-  const v = antragVerletzung(a, charge, stichtag)
-  if (v) return { gueltig: false, pruefnummer: pn, antragId: a.id, grund: v.grund, ereignisDatum: v.ereignisDatum, menge: v.menge, mengeGeprueft: m !== null }
-  const bescheid = pnTag(a.bescheidAm)
-  if (opts.bescheidBisStichtag && bescheid !== null && bescheid > stichtag) {
-    return { gueltig: false, pruefnummer: pn, antragId: a.id, grund: 'vor_bescheid', ereignisDatum: bescheid, menge: m, mengeGeprueft: m !== null }
+  const auswerten = (a: PnAntrag): PnErgebnis => {
+    const pn = nummer(a.pruefnummer)
+    const m = mengeRegel(a, charge, stichtag)
+    const v = antragVerletzung(a, charge, stichtag)
+    if (v) return { gueltig: false, pruefnummer: pn, antragId: a.id, grund: v.grund, ereignisDatum: v.ereignisDatum, menge: v.menge, mengeGeprueft: m !== null }
+    const bescheid = pnTag(a.bescheidAm)
+    if (opts.bescheidBisStichtag && bescheid !== null && bescheid > stichtag) {
+      return { gueltig: false, pruefnummer: pn, antragId: a.id, grund: 'vor_bescheid', ereignisDatum: bescheid, menge: m, mengeGeprueft: m !== null }
+    }
+    return { gueltig: true, pruefnummer: pn, antragId: a.id, grund: null, ereignisDatum: null, menge: m, mengeGeprueft: m !== null }
   }
-  return { gueltig: true, pruefnummer: pn, antragId: a.id, grund: null, ereignisDatum: null, menge: m, mengeGeprueft: m !== null }
+  // Nummer erst ab dem Bescheid: bis der jüngere Antrag beschieden ist, gilt der zuletzt schon
+  // beschiedene weiter – aber nur, wenn er selbst gilt (nach einem Zugang seit seiner Einreichung
+  // nicht; dann nennt der Hinweis den jüngeren Antrag)
+  if (opts.bescheidBisStichtag) {
+    const beschieden = bisStichtag.find(a => { const b = pnTag(a.bescheidAm); return b === null || b <= stichtag })
+    if (beschieden && beschieden !== bisStichtag[0]) {
+      const e = auswerten(beschieden)
+      if (e.gueltig) return e
+    }
+  }
+  return auswerten(bisStichtag[0])
 }
 
 /** „2026-09-25“ → „25.09.2026“ */
@@ -335,9 +369,63 @@ export function pruefnummerHinweis(e: PnErgebnis, bezug = 'den aktuellen Bestand
 // Füllung erfassen, Zugang neu buchen.
 // Abfüllung VOR der Einreichung (Probe aus den Flaschen, Antrag danach): zusätzlich darf
 // zwischen Abfüllung und Einreichung nichts zugebucht worden sein – sonst enthalten Flaschen
-// und Probe verschiedenen Wein.
+// und Probe verschiedenen Wein. Dieselbe Datumsregel (fuellungDatumVerletzung, in beide
+// Richtungen) gilt, wo nichts neu abgebucht wird: geändertes Abfülldatum, nachträglich
+// zugeordnete Charge und die Ersatznummer aus dem Antrag (ersatzPruefnummer: TBS, Blend-
+// Protokoll – ein beim Anlegen noch nicht eingereichter Entwurf ließ sie nicht prüfen).
 
 export type PnFuellungPruefung = { ok: true; pruefnummer: string | null } | { ok: false; fehler: string }
+
+/** Zugang zwischen Abfüllung und Beginn eines Antrags (vorher: Abfüllung vor dem Beginn) */
+export type PnDatumVerletzung = { zugang: PnZugang; vorher: boolean; beginn: { tag: string; quelle: PnBeginnQuelle } }
+
+/**
+ * Zwischen Abfüllung und Beginn des Antrags darf nichts zugebucht worden sein: liegt die
+ * Abfüllung davor, enthalten Flaschen und Probe sonst verschiedenen Wein; liegt sie danach,
+ * enthalten die Flaschen den Zugang (Regel 2 am Abfülltag). Ohne Beginn (Entwurf) keine Prüfung.
+ */
+export function fuellungDatumVerletzung(antrag: PnAntrag, zugaenge: readonly PnZugang[], abfuelldatum: string): PnDatumVerletzung | null {
+  const beginn = antragBeginnMitQuelle(antrag)
+  if (!beginn || abfuelldatum === beginn.tag) return null
+  const vorher = abfuelldatum < beginn.tag
+  const z = (vorher ? zugaengeZwischen(zugaenge, abfuelldatum, beginn.tag) : zugaengeZwischen(zugaenge, beginn.tag, abfuelldatum))[0]
+  return z ? { zugang: z, vorher, beginn } : null
+}
+
+/** „der Einreichung des DAC-Antrags „X“ am …“ – oder der Ersatz, wenn eingereicht_am fehlt */
+function beginnText(b: { tag: string; quelle: PnBeginnQuelle }, antrag: PnAntrag): string {
+  const name = antrag.bezeichnung ? ` „${antrag.bezeichnung}“` : ''
+  if (b.quelle === 'angelegt') return `der Erfassung des DAC-Antrags${name} am ${pnDatumDe(b.tag)} (Einreichungsdatum fehlt)`
+  if (b.quelle === 'bescheid') return `dem Bescheid zum DAC-Antrag${name} vom ${pnDatumDe(b.tag)} (Einreichungsdatum fehlt)`
+  return `der Einreichung des DAC-Antrags${name} am ${pnDatumDe(b.tag)}`
+}
+
+/** Text zu fuellungDatumVerletzung, ohne Schlusspunkt */
+export function fuellungDatumText(v: PnDatumVerletzung, abfuelldatum: string, antrag: PnAntrag): string {
+  return v.vorher
+    ? `Die Abfüllung am ${pnDatumDe(abfuelldatum)} liegt vor ${beginnText(v.beginn, antrag)}; dazwischen: ${pnZugangText(v.zugang.art, v.zugang.datum)}. Flaschen und Probe enthalten damit verschiedenen Wein`
+    : `Die Abfüllung am ${pnDatumDe(abfuelldatum)} liegt nach ${beginnText(v.beginn, antrag)}; dazwischen: ${pnZugangText(v.zugang.art, v.zugang.datum)}. Die Flaschen enthalten damit Wein, den der Antrag nicht umfasst`
+}
+
+/**
+ * Ersatznummer einer Füllung ohne eigene Prüfnummer aus ihrem DAC-Antrag (fuellungen.dac_antrag_id)
+ * für Blend-Protokoll und TBS-Flaschenposition: nur genehmigt, aktiv und derselben Charge
+ * (pruefnummerAusAntrag) – und nur, wenn das Abfülldatum gegen den Beginn hält
+ * (fuellungDatumVerletzung mit den Zugängen der Charge der Füllung). `hinweis`: warum es keine gibt.
+ */
+export function ersatzPruefnummer(
+  antrag: PnAntrag | null | undefined,
+  fuellung: { datum: string | null | undefined; chargeId: string | null },
+  zugaenge: readonly PnZugang[],
+): { pruefnummer: string | null; hinweis: string | null } {
+  if (!antrag) return { pruefnummer: null, hinweis: null }
+  const nr = pruefnummerAusAntrag(antrag, fuellung.chargeId)
+  if (!nr) return { pruefnummer: null, hinweis: pruefnummerAusAntrag(antrag) ? 'Der DAC-Antrag der Füllung gehört zu einer anderen Charge.' : null }
+  const datum = pnTag(fuellung.datum)
+  const v = datum ? fuellungDatumVerletzung(antrag, zugaenge, datum) : null
+  if (v && datum) return { pruefnummer: null, hinweis: `Prüfnummer ${nr} des DAC-Antrags gilt nicht für diese Füllung: ${fuellungDatumText(v, datum, antrag)}.` }
+  return { pruefnummer: nr, hinweis: null }
+}
 
 /**
  * Darf eine Füllung aus der Charge am Abfülldatum mit diesem DAC-Antrag verknüpft werden?
@@ -367,12 +455,13 @@ export function fuellungAntragPruefen(daten: PnChargeDaten | null | undefined, a
   const nachtragText = (ereignis: string | null) => nachtrag && ereignis !== null && ereignis > abfuelldatum
     ? ' Die Füllung wird vom heutigen Bestand abgebucht, der diese Buchung schon enthält – fand die Abfüllung davor statt, bitte die Buchung stornieren, die Füllung erfassen und die Buchung danach neu anlegen.'
     : ''
-  // Abfüllung vor der Einreichung: nichts zwischen Abfüllung und Einreichung zugebucht
-  const beginn = antragBeginn(antrag)
-  const vorher = beginn !== null && abfuelldatum < beginn ? zugaengeZwischen(daten.zugaenge, abfuelldatum, beginn)[0] ?? null : null
-  const vorherFehler = (z: PnZugang) => ({
+  // Abfüllung vor der Einreichung: nichts zwischen Abfüllung und Einreichung zugebucht (danach
+  // prüfen pruefnummerGueltig bzw. antragVerletzung am Buchungstag ≥ Abfülldatum)
+  const datumV = fuellungDatumVerletzung(antrag, daten.zugaenge, abfuelldatum)
+  const vorher = datumV?.vorher ? datumV : null
+  const vorherFehler = (v: PnDatumVerletzung) => ({
     ok: false as const,
-    fehler: `Die Abfüllung am ${pnDatumDe(abfuelldatum)} liegt vor der Einreichung des DAC-Antrags${name} am ${pnDatumDe(beginn)}; dazwischen: ${pnZugangText(z.art, z.datum)}. Flaschen und Probe enthalten damit verschiedenen Wein – die Füllung kann nicht mit diesem Antrag verknüpft werden.`,
+    fehler: `${fuellungDatumText(v, abfuelldatum, antrag)} – die Füllung kann nicht mit diesem Antrag verknüpft werden.`,
   })
 
   if (antragGenehmigt(antrag)) {
@@ -416,6 +505,34 @@ export function chargeHatAntrag(daten: PnChargeDaten | null | undefined): boolea
 }
 
 /**
+ * Mengenregel einer Umzugs-Charge (freiePruefnummerPruefen): Wein mit der Nummer des Antrags =
+ * heutiger Bestand der Antrags-Charge + seit dem Beginn aus ihr umgezogen (Umzugstag = Beginn
+ * zählt mit) + abgefüllt (wie mengeRegel); das muss der beantragten Menge entsprechen. Ab dem
+ * ersten Zugang seit dem Beginn trägt der Wein der Antrags-Charge die Nummer nicht mehr: ihr
+ * Bestand zählt dann nicht, spätere Umzüge und nicht verknüpfte Füllungen auch nicht (am Tag des
+ * Zugangs noch). Anders als die Mengenregel der Antrags-Charge unabhängig vom Umzugstag
+ * (heutiger Bestand). null = nicht prüfbar (keine beantragte Menge, Bestand unbekannt).
+ */
+function herkunftMenge(antrag: PnAntrag, h: PnUmzugsherkunft): { bestandLiter: number; umgezogenLiter: number; abgefuelltLiter: number; beantragtLiter: number } | null {
+  const d = h.daten
+  const bestandAm = pnTag(d.bestandAm)
+  if (antrag.mengeLiter === null || !Number.isFinite(antrag.mengeLiter)) return null
+  if (d.bestandLiter === null || !Number.isFinite(d.bestandLiter) || bestandAm === null) return null
+  const beginn = antragBeginn(antrag)
+  const zugang = beginn !== null ? zugaengeZwischen(d.zugaenge, beginn, bestandAm)[0] ?? null : null
+  const grenze = zugang ? pnTag(zugang.datum) : null
+  const umgezogen = (h.umzuegeAus ?? [])
+    .filter(u => { const t = pnTag(u.datum); return t === null || ((beginn === null || t >= beginn) && (grenze === null || t <= grenze)) })
+    .reduce((s, u) => s + (Number.isFinite(u.liter) ? u.liter : 0), 0)
+  return {
+    bestandLiter: r2(grenze ? 0 : d.bestandLiter),
+    umgezogenLiter: r2(umgezogen),
+    abgefuelltLiter: r2(abgefuelltLiter(antrag, d, grenze)),
+    beantragtLiter: r2(antrag.mengeLiter),
+  }
+}
+
+/**
  * Freie Eingabe einer Prüfnummer ohne DAC-Antrag – bewusst erhalten für Füllungen ohne Charge
  * (Altbestand), Chargen ohne DAC-Antrag (z. B. Zukauf mit der Prüfnummer des Lieferanten) und
  * durch Umzug entstandene Chargen (Nummer der Antrags-Charge, siehe `herkunft`).
@@ -425,8 +542,12 @@ export function chargeHatAntrag(daten: PnChargeDaten | null | undefined): boolea
  *   * die Nummer zu irgendeinem DAC-Antrag des Betriebs gehört (antraegeMitNummer: alle, auch
  *     inaktive und abgelehnte) – typisch ein beim Chargenwechsel stehen gebliebener Wert oder
  *     die Nummer eines inaktiven Antrags der eigenen Charge. Einzige Ausnahme: die Charge stammt
- *     nur über Umzüge aus der Antrags-Charge (`herkunft`, ladeUmzugsherkunft) und die Nummer
- *     galt dort am Tag des (letzten) Umzugs laut pruefnummerGueltig.
+ *     nur über Umzüge aus der Antrags-Charge (`herkunft`, ladeUmzugsherkunft), die Nummer galt
+ *     dort am ersten und am letzten Umzugstag laut pruefnummerGueltig und der Antrag deckt die
+ *     Menge (herkunftMenge: Bestand + seither umgezogen + abgefüllt ≤ beantragt).
+ * `nachtraeglich` (Charge einer bestehenden Füllung nachträglich zugeordnet, nichts wird
+ * abgebucht): der erste Punkt entfällt – eine Nummer, die zu keinem Antrag des Betriebs gehört
+ * (z. B. aus einem früheren, nicht erfassten Los), bleibt zulässig.
  * Eine Lieferanten-Nummer prüft der Helfer nicht gegen Verschnitte (kein Antrag als Bezug) –
  * das bleibt KAN-84/KAN-99. Rückgabe: Fehlertext oder null.
  */
@@ -438,25 +559,40 @@ export function freiePruefnummerPruefen(
     charge: PnChargeDaten | null
     antraegeMitNummer: readonly PnAntrag[]
     herkunft?: PnUmzugsherkunft | null
+    nachtraeglich?: boolean
   },
 ): string | null {
-  if (p.chargeId && chargeHatAntrag(p.charge)) {
-    return `Für die Charge${p.chargeName ? ` „${p.chargeName}“` : ''} gibt es einen DAC-Antrag – die Prüfnummer kommt aus dem Antrag (Auswahl „DAC-Antrag / Prüfnummer“), nicht aus der freien Eingabe. Bitte die Seite neu laden.`
+  if (p.chargeId && !p.nachtraeglich && chargeHatAntrag(p.charge)) {
+    return `Für die Charge${p.chargeName ? ` „${p.chargeName}“` : ''} gibt es einen DAC-Antrag – die Prüfnummer kommt aus dem Antrag, eine andere Nummer ist nicht zulässig. Im Formular „Neue Füllung“ den Antrag unter „DAC-Antrag / Prüfnummer“ wählen (fehlt die Auswahl, die Seite neu laden).`
   }
   const n = pnNormiert(pruefnummer)
   const treffer = p.antraegeMitNummer.filter(a => pnNormiert(a.pruefnummer) === n)
   if (treffer.length === 0) return null
   const bez = (a: PnAntrag) => (a.bezeichnung ? ` „${a.bezeichnung}“` : '')
 
-  // Umzugs-Charge: Nummer der Charge, aus der sie per Umzug hervorging – nur, wenn sie galt
+  // Umzugs-Charge: Nummer der Charge, aus der sie per Umzug hervorging – nur, wenn sie am ersten
+  // (Beginn davor) und am letzten Umzugstag (bis dahin kein Zugang) galt und die Menge passt
   const h = p.chargeId ? p.herkunft ?? null : null
   if (h && treffer.some(a => a.weinausbauId === h.daten.chargeId)) {
-    const e = pruefnummerGueltig(h.daten, h.umzugAm)
     const herkunftCharge = `der Charge${h.name ? ` „${h.name}“` : ''}`
-    if (e.gueltig && pnNormiert(e.pruefnummer) === n) return null
-    if (e.gueltig) return `Für den Wein, der am ${pnDatumDe(h.umzugAm)} aus ${herkunftCharge} umgezogen wurde, gilt die Prüfnummer ${e.pruefnummer}, nicht ${nummer(pruefnummer)}.`
-    const hinweis = pruefnummerHinweis(e, `den Wein, der am ${pnDatumDe(h.umzugAm)} umgezogen wurde`)
-    return `Die Prüfnummer ${nummer(pruefnummer)} stammt aus ${herkunftCharge}, aus der diese Charge per Umzug hervorging, gilt aber nicht für diesen Wein${hinweis ? ` – ${hinweis}` : '.'}`
+    const nichtFuerDiesenWein = (grund: string | null) =>
+      `Die Prüfnummer ${nummer(pruefnummer)} stammt aus ${herkunftCharge}, aus der diese Charge per Umzug hervorging, gilt aber nicht für diesen Wein${grund ? ` – ${grund}` : '.'}`
+    const erster = pnTag(h.ersterUmzugAm) ?? h.umzugAm
+    let e: PnErgebnis | null = null
+    for (const tag of erster < h.umzugAm ? [erster, h.umzugAm] : [h.umzugAm]) {
+      e = pruefnummerGueltig(h.daten, tag)
+      if (!e.gueltig) return nichtFuerDiesenWein(pruefnummerHinweis(e, `den Wein, der am ${pnDatumDe(tag)} umgezogen wurde`))
+      if (pnNormiert(e.pruefnummer) !== n) return `Für den Wein, der am ${pnDatumDe(tag)} aus ${herkunftCharge} umgezogen wurde, gilt die Prüfnummer ${e.pruefnummer}, nicht ${nummer(pruefnummer)}.`
+    }
+    const antrag = h.daten.antraege.find(a => a.id === e?.antragId)
+    const m = antrag ? herkunftMenge(antrag, h) : null
+    if (m && m.bestandLiter + m.umgezogenLiter + m.abgefuelltLiter > m.beantragtLiter + RUNDUNG) {
+      const seither = `seither wurden ${liter(m.umgezogenLiter)} aus ihr umgezogen`
+        + (m.abgefuelltLiter > 0 ? ` und ${liter(m.abgefuelltLiter)} abgefüllt` : '')
+        + (m.bestandLiter > 0 ? `, ${liter(m.bestandLiter)} liegen noch in ihr` : '')
+      return nichtFuerDiesenWein(`der DAC-Antrag umfasst ${liter(m.beantragtLiter)}; ${seither} – zusammen mehr als beantragt.`)
+    }
+    return null
   }
 
   const eigene = p.chargeId ? treffer.find(a => a.weinausbauId === p.chargeId) : undefined

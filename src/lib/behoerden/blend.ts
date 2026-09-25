@@ -11,15 +11,16 @@
 // pruefnummerGueltig() (lib/kellerbuch/pruefnummer.ts; nach Verschnitt, Zugang, Zukauf oder
 // Pressung seit der Einreichung gilt sie nicht mehr, § 25 Abs. 6 WeinG), sonst Hinweiszeile und leere
 // CSV-Spalte mit Warnung. Füllung – die Nummer der Füllung (Stichtag = Abfüllung), ersatzweise
-// die ihres genehmigten, aktiven DAC-Antrags derselben Charge. Der Dateiname enthält nie eine
-// Prüfnummer.
+// die ihres genehmigten, aktiven DAC-Antrags derselben Charge, wenn zwischen Abfüllung und Beginn
+// des Antrags nichts zugebucht wurde (ersatzPruefnummer, wie die TBS). Der Dateiname enthält nie
+// eine Prüfnummer.
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Projektkonvention (supabase.from('…') as any), siehe CLAUDE.md */
 import { runden, STELLEN, wienHeute, type CsvSpalte } from '@/lib/csv'
 import { resolveBlendKomposition, resolveBlendKompositionFuellung, type KompositionUrsprung } from '@/lib/wein/blendKomposition'
 import { bkiRebsorteKuerzel, fehlendeKuerzelHinweise } from '@/lib/wein/bki_kuerzel'
 import { qualitaetLabel } from '@/lib/wein/qualitaet'
-import { pruefnummerAusAntrag, pruefnummerGueltig, pruefnummerHinweis } from '@/lib/kellerbuch/pruefnummer'
+import { ersatzPruefnummer, pruefnummerAusAntrag, pruefnummerGueltig, pruefnummerHinweis } from '@/lib/kellerbuch/pruefnummer'
 import { antragAusZeile, ladePruefnummerDaten, PN_ANTRAG_SELECT } from '@/lib/kellerbuch/pruefnummerLaden'
 import { num, numOderNull, tag, text, type R } from './kellerbuch-hilfen'
 
@@ -34,7 +35,7 @@ export type BlendKopf = {
   qualitaet: string | null
   /** nur eine gültige Prüfnummer (Charge: heute, Füllung: die der Abfüllung) */
   pruefnummer: string | null
-  /** Charge: warum eine frühere Prüfnummer nicht (mehr) gilt – für Kopf und Warnung, sonst null */
+  /** warum eine (frühere bzw. Ersatz-)Prüfnummer nicht (mehr) gilt – für Kopf und Warnung, sonst null */
   pruefnummerHinweis: string | null
   chargennummer: string | null
   /** Abfülldatum (nur Füllung) */
@@ -129,8 +130,10 @@ export async function ladeBlendProtokoll(
     if (!f) return null
     // Prüfnummer der Füllung (Stichtag = Abfüllung); ohne eigene Nummer die des verknüpften,
     // genehmigten und aktiven DAC-Antrags (Nummer erst nach der Abfüllung erteilt) – nur, wenn
-    // der Antrag zur Charge der Füllung gehört (in /dac umgehängt → keine Nummer) – wie die TBS
+    // der Antrag zur Charge der Füllung gehört (in /dac umgehängt → keine Nummer) und zwischen
+    // Abfüllung und Beginn des Antrags nichts zugebucht wurde – wie die TBS
     let pruefnummer = text(f.pruefnummer)
+    let pnHinweis: string | null = null
     if (!pruefnummer && f.dac_antrag_id) {
       const { data: dac, error: dacErr } = await (supabase.from('dac_antrag') as any)
         .select(PN_ANTRAG_SELECT)
@@ -138,7 +141,15 @@ export async function ladeBlendProtokoll(
         .eq('id', f.dac_antrag_id)
         .maybeSingle()
       if (dacErr) throw new Error(`Blend-Protokoll: DAC-Antrag der Füllung konnte nicht geladen werden (${dacErr.message})`)
-      pruefnummer = dac ? pruefnummerAusAntrag(antragAusZeile(dac as R), f.weinausbau_id ? String(f.weinausbau_id) : null) : null
+      const antrag = dac ? antragAusZeile(dac as R) : null
+      const chargeId = f.weinausbau_id ? String(f.weinausbau_id) : null
+      const zugaenge = antrag && chargeId && pruefnummerAusAntrag(antrag, chargeId)
+        ? (await ladePruefnummerDaten(supabase, tenantId, [chargeId])).get(chargeId)?.zugaenge ?? []
+        : []
+      const e = ersatzPruefnummer(antrag, { datum: tag(f.datum) || null, chargeId }, zugaenge)
+      pruefnummer = e.pruefnummer
+      pnHinweis = e.hinweis
+      if (pnHinweis) warnungen.push(`${pnHinweis} Die Spalte „Prüfnummer“ bleibt leer.`)
     }
     const flaschen = numOderNull(f.anzahl_flaschen)
     const groesse = numOderNull(f.flaschengroesse_ml)
@@ -146,7 +157,7 @@ export async function ladeBlendProtokoll(
     kopf = {
       art: 'fuellung', id: f.id, name: text(f.name) ?? 'Füllung',
       jahrgang: numOderNull(f.jahrgang), rebsorte: text(f.rebsorte), qualitaet: f.qualitaet ? qualitaetLabel(f.qualitaet) : null,
-      pruefnummer, pruefnummerHinweis: null, chargennummer: text(f.chargennummer), datum: tag(f.datum) || null,
+      pruefnummer, pruefnummerHinweis: pnHinweis, chargennummer: text(f.chargennummer), datum: tag(f.datum) || null,
       anzahlFlaschen: flaschen === null ? null : Math.trunc(flaschen), flaschengroesseMl: groesse,
       bezugLiter: bezug > 0 ? runden(bezug, STELLEN.liter) : null,
     }
