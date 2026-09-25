@@ -224,8 +224,9 @@ function ChargeKette({
       {lesen.length > 0 && (
         <Section title="Maßnahmen im Weingarten bis zur Lese" icon={<Leaf className="w-4 h-4" />}>
           <p className="text-xs text-s112-muted">
-            Je Lese die Maßnahmen des gelesenen Grundstücks vom Tag nach der vorigen Lese dieses Grundstücks
-            (sonst ab 01.01. des Jahrgangs) bis einschließlich zum Lesedatum.
+            Je Lese die Maßnahmen des gelesenen Grundstücks ab 01.01. des Jahrgangs bis einschließlich zum
+            Lesedatum – auch bei mehreren Lesen am selben Grundstück (z. B. Hauptlese und Eiswein), denn die
+            Trauben der späteren Lese hingen die ganze Saison am Stock.
           </p>
           {lesen.map((l, i) => {
             const w = l.lese.weingarten as R | null

@@ -388,10 +388,10 @@ describe('rueckverfolgung', () => {
   // Maßnahmen je Lese (KAN-75): Zeitfenster und Zuordnung liefert ladeChargeKette (Kette.lesen)
   const lesen = [
     { leseId: 'pw1', lese: pw1, pressungDatum: '2024-09-30', hinweise: [],
-      fenster: { von: '2024-09-11', bis: '2024-09-29', beginn: 'vorige_lese', vorigeLese: '2024-09-10', bisAus: 'lesedatum' },
+      fenster: { von: '2024-01-01', bis: '2024-09-29', jahrgang: 2024, bisAus: 'lesedatum' },
       massnahmen: [{ behandlung: { id: 'b1', datum: '2024-09-12', art: 'spritzung', psm: { name: 'Cuprozin' } }, nurWeingarten: false, grundstuecke: ['1234/5'], flaecheHa: 0.5 }] },
     { leseId: 'pw2', lese: pw2, pressungDatum: '2024-09-30', hinweise: ['Lese ohne Grundstück erfasst – Maßnahmen aller Grundstücke des Weingartens ab 01.01. des Jahrgangs aufgeführt.'],
-      fenster: { von: '2024-01-01', bis: '2024-09-30', beginn: 'jahresbeginn', vorigeLese: null, bisAus: 'lesedatum' },
+      fenster: { von: '2024-01-01', bis: '2024-09-30', jahrgang: 2024, bisAus: 'lesedatum' },
       massnahmen: [
         { behandlung: { id: 'b2', datum: '2024-07-01', datum_bis: '2024-07-03', art: 'laubarbeit', psm: null }, nurWeingarten: false, grundstuecke: ['7/1', '7/2'], flaecheHa: null },
         { behandlung: { id: 'b3', datum: '2024-08-01', art: 'duengung', psm: null }, nurWeingarten: true, grundstuecke: [], flaecheHa: null },
@@ -414,7 +414,8 @@ describe('rueckverfolgung', () => {
     assert.deepEqual(a.slice(0, 8), ['Cuvée Rot', 'L-26-02', '04023/26', '01.03.2026', '2024', 'Cuvée', '1000', '750'])
     assert.deepEqual(a.slice(8, 16), ['ZW 2024', '2024', '450,00', '60,0', 'Pressung', '30.09.2024', '700,00', 'Ried Hochrain'])
     assert.deepEqual(a.slice(16, 22), ['04023', '1234/5', 'Zweigelt', '600', '29.09.2024', '19,25'])   // °KMW verlustfrei (2 Stellen)
-    assert.deepEqual(a.slice(22), ['11.09.2024', '29.09.2024', '1', '12.09.2024 Cuprozin', 'Zeitfenster ab dem Tag nach der vorigen Lese dieses Grundstücks am 10.09.2024.'])
+    // Fensterbeginn immer 01.01. des Jahrgangs (Spalte „Behandlungen ab“), kein Hinweis dazu
+    assert.deepEqual(a.slice(22), ['01.01.2024', '29.09.2024', '1', '12.09.2024 Cuprozin', ''])
     assert.deepEqual([b[15], b[16], b[17]], ['Ried Au', '', ''])
     assert.deepEqual(b.slice(22), ['01.01.2024', '30.09.2024', '2', '01.07.2024–03.07.2024 Laubarbeit (GST 7/1, 7/2) | 01.08.2024 Düngung (am Weingarten erfasst)',
       'Lese ohne Grundstück erfasst – Maßnahmen aller Grundstücke des Weingartens ab 01.01. des Jahrgangs aufgeführt.'])
