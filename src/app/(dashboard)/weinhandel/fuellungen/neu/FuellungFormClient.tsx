@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation'
 import Link from '@/components/ui/Link'
 import { KN_CODES } from '@/lib/wein/zolltarif'
 import { HERKUNFT_ORDER, HERKUNFT_LABEL, istNiedrigerAls as istHerkunftNiedriger } from '@/lib/herkunft'
-import { QUALITAET_LABEL, istNiedrigerAls as istQualitaetNiedriger } from '@/lib/weinqualitaet'
-import { FUELLUNG_QUALITAETEN } from '@/lib/wein/qualitaet'
+import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
+import { fuellungsStufenFuer } from '@/lib/wein/qualitaet'
 import { AlertTriangle, CheckCircle2, Droplet } from 'lucide-react'
 import HerkunftCodeSelect from '@/components/weinbaugebiete/HerkunftCodeSelect'
 import type { CustomWeinbaugebiet } from '@/app/(dashboard)/weinbaugebiete/actions'
@@ -36,9 +36,9 @@ type DacAntrag = {
   weinausbau_id: string | null
 }
 
-// KAN-73: zentrale Liste der Füllung (= CHECK fuellungen_qualitaet_check, alle 18 Stufen –
-// jetzt auch „Wein“ und „Ausbruch“, damit jede Charge abgefüllt werden kann)
-const QUALITAETEN = FUELLUNG_QUALITAETEN
+// KAN-73: Auswahl aus der zentralen Liste der Füllung (FUELLUNG_QUALITAETEN = CHECK
+// fuellungen_qualitaet_check, alle 18 Stufen inkl. „Wein“ und „Ausbruch“) über
+// fuellungsStufenFuer() – ohne Charge alle, mit Charge nur Abstufungen (siehe unten)
 
 const FLASCHENGROESSEN = [
   { value: 375,  label: '0,375 L – Halbflasche' },
@@ -115,13 +115,12 @@ export default function FuellungFormClient({
   // aktuelle Stufe der Charge und alle rechtlich niedrigeren Stufen (+ "Sonstiges"
   // als generischer Fallback ohne Schutzangabe). Ist keine Charge verknüpft,
   // stehen alle Stufen zur Auswahl (kein Bezugswert zum Einschränken vorhanden).
-  const qualitaetOptions = useMemo(() => {
-    const aktuell = selectedCharge?.qualitaetsstufe
-    if (!aktuell) return QUALITAETEN
-    return QUALITAETEN.filter(q =>
-      q.value === aktuell || q.value === 'sonstiges' || istQualitaetNiedriger(q.value, aktuell)
-    )
-  }, [selectedCharge])
+  // KAN-73: fuellungsStufenFuer – Eiswein/Strohwein nur bis Beerenauslese, DAC/Reserve/
+  // Erste Lage/Großes Gewächs auch als Qualitätswein, Landwein oder Wein
+  const qualitaetOptions = useMemo(
+    () => fuellungsStufenFuer(selectedCharge?.qualitaetsstufe),
+    [selectedCharge],
+  )
 
   const herkunftOptions = useMemo(() => {
     const aktuell = selectedCharge?.herkunft_code

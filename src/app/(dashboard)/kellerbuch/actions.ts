@@ -3,7 +3,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { minQualitaet, maxQualitaet, istNiedrigerAls, QUALITAET_LABEL } from '@/lib/weinqualitaet'
-import { qualitaetFehler } from '@/lib/wein/qualitaet'
+import { chargenStufenBis, qualitaetFehler } from '@/lib/wein/qualitaet'
 import { minHerkunft, maxHerkunft, istNiedrigerAls as herkunftIstNiedrigerAls, HERKUNFT_LABEL } from '@/lib/herkunft'
 import { weinartKonflikt, weinartBekannt, weinartAusFarbe, WEINART_LABEL } from '@/lib/keller/weinart'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
@@ -251,7 +251,7 @@ export async function updateWeinausbau(id: string, formData: FormData) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: altRaw, error: altErr } = await (supabase.from('weinausbau') as any)
-    .select('id, behaelter_id, menge_liter, aktiv, status')
+    .select('id, behaelter_id, menge_liter, aktiv, status, qualitaetsstufe')
     .eq('id', id)
     .eq('tenant_id', tenantId)
     .maybeSingle()
@@ -285,6 +285,28 @@ export async function updateWeinausbau(id: string, formData: FormData) {
     throw new AktionsFehler(
       `Die Charge hat noch ${fmtNum(bestand, 2)} L Bestand und kann deshalb nicht ${wirdDeaktiviert ? 'deaktiviert' : 'abgeschlossen'} werden. Bitte den Wein zuerst abfüllen, umziehen, verkaufen oder als Schwund buchen – bei 0 L wird die Charge automatisch abgeschlossen.`,
     )
+  }
+
+  // KAN-73: keine Aufstufung der Charge – dieselbe Regel wie die Auswahl im Formular
+  // (chargenStufenBis: höchstens der Rang der bisherigen Stufe, Eiswein/Strohwein nicht nach
+  // Ausbruch/TBA bzw. einander). Die Stufe einer Pressungs-Charge ergibt sich aus Lese-Stufe und
+  // °KMW der Pressung (das Formular zeigt sie nur an) – abgestuft wird sie bei der Füllung.
+  const altQualitaet = (alt.qualitaetsstufe as string | null) ?? null
+  const neuQualitaet = (payload.qualitaetsstufe as string | null) ?? null
+  if (neuQualitaet !== altQualitaet) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { count: pbAnzahlQ, error: pbQErr } = await (supabase.from('pressung_behaelter') as any)
+      .select('id', { count: 'exact', head: true })
+      .eq('weinausbau_id', id)
+    if (pbQErr) throw new AktionsFehler(dbFehlerText(pbQErr, 'Pressung der Charge konnte nicht geprüft werden'))
+    if ((pbAnzahlQ ?? 0) > 0) {
+      throw new AktionsFehler('Die Qualitätsstufe einer Charge aus einer Pressung ergibt sich aus Lese-Stufe und °KMW der Pressung und ist hier nicht änderbar – abstufen lässt sie sich bei der Füllung.')
+    }
+    if (altQualitaet && neuQualitaet && !chargenStufenBis(altQualitaet).some(o => o.value === neuQualitaet)) {
+      throw new AktionsFehler(
+        `Die Qualitätsstufe kann nicht von ${QUALITAET_LABEL[altQualitaet] ?? altQualitaet} auf ${QUALITAET_LABEL[neuQualitaet] ?? neuQualitaet} geändert werden – bei einer Charge sind nur Abstufungen zulässig.`,
+      )
+    }
   }
 
   // Gebindewechsel nur ohne Folgebuchungen

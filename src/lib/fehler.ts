@@ -75,7 +75,7 @@ const PRUEFREGEL_MELDUNG: Record<string, string> = {
     'Die Anzahl der gefüllten Flaschen muss größer als 0 sein.',
   // KAN-73: Rückfall, falls ein Wert an der Serverprüfung (lib/wein/qualitaet.ts, qualitaetFehler) vorbeikommt
   ernte_parzellen_qualitaetsstufe_check:
-    'Diese Qualitätsstufe ist bei der Lese nicht zulässig – möglich sind nur die Mostgewichts-Stufen (Wein bis Eiswein). DAC, Reserve, Erste Lage, Großes Gewächs, Sekt, Perlwein und Sonstiges werden erst bei der Charge bzw. Füllung vergeben.',
+    'Diese Qualitätsstufe ist bei der Lese nicht vorgesehen – möglich sind Wein, Landwein, Qualitätswein, Kabinett, Spätlese, Auslese, Beerenauslese, Trockenbeerenauslese und Eiswein; Strohwein und Ausbruch derzeit nicht (Entscheidung offen). DAC, Reserve, Erste Lage, Großes Gewächs, Sekt, Perlwein und Sonstiges werden bei der Charge bzw. Füllung vergeben.',
   weinausbau_qualitaetsstufe_check:
     'Diese Qualitätsstufe ist bei einer Kellerbuch-Charge nicht zulässig – bitte eine Stufe aus der Auswahlliste wählen.',
   fuellungen_qualitaet_check:

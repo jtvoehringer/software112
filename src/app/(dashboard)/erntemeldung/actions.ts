@@ -2,7 +2,7 @@
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { kmwZuQualitaet } from '@/lib/weinqualitaet'
+import { kmwZuQualitaet, leseStufeFuerPressung, MINDEST_KMW, pressungsQualitaet, QUALITAET_LABEL, stufeMitKmwMoeglich, type LeseStufe } from '@/lib/weinqualitaet'
 import { qualitaetFehler } from '@/lib/wein/qualitaet'
 import { findePassendeHerkunftsstufe, HERKUNFT_LABEL, minHerkunft } from '@/lib/herkunft'
 import { createVerkaufspostenFuerTrauben, ermittleQuellenName, upsertTraubenverkauf } from '@/app/(dashboard)/weinhandel/traubenverkauf/actions'
@@ -127,6 +127,15 @@ export async function upsertErnteParzelle(jahrgangId: string, formData: FormData
   if (qualitaetUnzulaessig) throw new AktionsFehler(qualitaetUnzulaessig)
   // dezimal() ist nötig, da die Felder °KMW-typisch mit Komma-Dezimaltrennzeichen
   // erfasst werden (de-AT) - ohne die Ersetzung liefert Number() bei "9,5" NaN.
+  const kmwLese = formData.get('klosterneuburger') ? Number(dezimal((formData.get('klosterneuburger') as string))) : null
+  // KAN-73: die Stufe muss zum erfassten Mostgewicht passen (z. B. Kabinett ab 17 °KMW, Eiswein
+  // ab 25 °KMW) – geht in die AMA-Erntemeldung und das BKI-Datenblatt. Ohne KMW keine Prüfung.
+  if (qualitaetsstufe && !stufeMitKmwMoeglich(qualitaetsstufe, kmwLese)) {
+    throw new AktionsFehler(
+      `Die Qualitätsstufe „${QUALITAET_LABEL[qualitaetsstufe] ?? qualitaetsstufe}“ setzt mindestens ${fmtNum(MINDEST_KMW[qualitaetsstufe], { max: 1 })} °KMW voraus – erfasst sind ${fmtNum(kmwLese as number, { max: 2 })} °KMW. ` +
+      'Bitte eine niedrigere Stufe wählen oder den KMW-Wert prüfen.'
+    )
+  }
   const mengeKg = formData.get('menge_kg') ? Number(dezimal((formData.get('menge_kg') as string))) : null
   const mengeHl = mengeKg ? mengeKg / 130 : null  // 1 hl ≈ 130 kg
   const grundstueckId = (formData.get('grundstueck_id') as string) || null
@@ -157,7 +166,7 @@ export async function upsertErnteParzelle(jahrgangId: string, formData: FormData
     menge_kg:         mengeKg,
     menge_hl:         mengeHl,
     oechsle:          formData.get('oechsle') ? Number(dezimal((formData.get('oechsle') as string))) : null,
-    klosterneuburger: formData.get('klosterneuburger') ? Number(dezimal((formData.get('klosterneuburger') as string))) : null,
+    klosterneuburger: kmwLese,
     qualitaetsstufe:  qualitaetsstufe,
     herkunft_code:    herkunftCode,
     lesemethode:      (formData.get('lesemethode') as string) || null,
@@ -573,18 +582,22 @@ async function chargenVorgabenErmitteln(
   weingaerten: WGZeile[],
   kopf: { datum: string; weinbezeichnung: string | null; kmwGrad: number | null; qualitaetsstufe: string | null },
 ): Promise<ChargenVorgaben> {
-  // Qualität: User-Input > KMW-Ableitung > Fallback 'qualitaetswein'
+  // Qualität: User-Input (nur direkter Aufruf) > Lese-Stufen der gepressten Parzellen,
+  // gedeckelt durch die Ableitung aus dem Ø-KMW (pressungsQualitaet, KAN-73) > 'qualitaetswein'.
+  // Die Charge übernimmt so die (ggf. abgestufte) Stufe der Lese: Lese „Wein“ → Charge „Wein“,
+  // auch ohne KMW; Lese „Eiswein“ bei 26 °KMW → Charge „Eiswein“ (vorher Beerenauslese).
+  // PressungSection zeigt dieselbe Rechnung als Vorschau.
   // ACHTUNG: weinjahrgaenge.qualitaet_gesamt enthält Vintage-Bewertungen ('sehr_gut' etc.) – NICHT als qualitaetsstufe verwenden!
-  const qualitaet = kopf.qualitaetsstufe
-    ?? (kopf.kmwGrad != null && !isNaN(kopf.kmwGrad) ? kmwZuQualitaet(kopf.kmwGrad) : 'qualitaetswein')
+  const kmw = kopf.kmwGrad != null && !isNaN(kopf.kmwGrad) ? kopf.kmwGrad : null
 
   // Herkunft-Code (BKI): niedrigster (breitester) Wert der verknüpften Ernte-Parzellen übernehmen
   // (analog Qualität – Verschneiden/Pressen kann Herkunft nur ab-, nie aufstufen).
   let herkunft: string | null = null
+  let leseStufen: (string | null)[] = []
   if (weingaerten.length > 0) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: epRows, error } = await (supabase.from('ernte_parzellen') as any)
-      .select('herkunft_code, weingarten_id, grundstueck_id').eq('jahrgang_id', jahrgangId)
+      .select('herkunft_code, qualitaetsstufe, ernte_datum, weingarten_id, grundstueck_id').eq('jahrgang_id', jahrgangId)
     if (error) throw new AktionsFehler(dbFehlerText(error, 'Herkunft konnte nicht ermittelt werden (ernte_parzellen)'))
     const epList = ((epRows ?? []) as AR[])
     const passendeCodes = weingaerten.map(w => {
@@ -595,7 +608,16 @@ async function chargenVorgabenErmitteln(
       return match?.herkunft_code as string | null ?? null
     })
     herkunft = minHerkunft(passendeCodes)
+    // Lese-Stufe je Pressungszeile (Zukauf-Trauben: unbekannt → Ableitung aus den °KMW)
+    const lese: LeseStufe[] = epList.map((e: AR) => ({
+      weingartenId: (e.weingarten_id as string | null) ?? null, grundstueckId: (e.grundstueck_id as string | null) ?? null,
+      datum: (e.ernte_datum as string | null) ?? null, stufe: (e.qualitaetsstufe as string | null) ?? null,
+    }))
+    leseStufen = weingaerten.map(w => w.zukauf_posten_id
+      ? null
+      : leseStufeFuerPressung(lese, { weingartenId: w.weingarten_id, grundstueckId: w.grundstueck_id }, kopf.datum))
   }
+  const qualitaet = kopf.qualitaetsstufe ?? pressungsQualitaet(leseStufen, kmw)
 
   // Rebsorte + Weinart ableiten aus Weingarten-Tabelle
   const rebsortenAusForm = weingaerten.map(w => w.rebsorte).filter((r): r is string => !!r)
@@ -1260,6 +1282,11 @@ export async function deleteJahrgang(id: string) {
 export async function createTraubenverkauf(fd: FormData) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
+  // KAN-73: Trauben-Qualität = Stufen der Lese (traubenverkauf hat keinen CHECK) – vor jedem
+  // Schreiben und vor der Liefernummer prüfen (keine Lücke im Nummernkreis)
+  const qualitaetsstufe = (fd.get('qualitaetsstufe') as string) || null
+  const qualitaetUnzulaessig = qualitaetFehler('lese', qualitaetsstufe)
+  if (qualitaetUnzulaessig) throw new AktionsFehler(qualitaetUnzulaessig)
 
   // Liefernummer auto-generieren
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1290,7 +1317,7 @@ export async function createTraubenverkauf(fd: FormData) {
     menge_kg:        mengeKg,
     preis_per_kg:    preisPerKg,
     kmw_grad:        fd.get('kmw_grad') ? parseFloat(dezimal((fd.get('kmw_grad') as string))) : null,
-    qualitaetsstufe: (fd.get('qualitaetsstufe') as string) || null,
+    qualitaetsstufe,
     gesundheit:      (fd.get('gesundheit') as string) || 'G',
     herkunft_code:   (fd.get('herkunft_code') as string) || null,
     notizen:         (fd.get('notizen') as string) || null,

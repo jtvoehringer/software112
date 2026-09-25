@@ -2,15 +2,21 @@
 // Enthält alle Werte die in den Formularen vorkommen können
 //
 // KAN-73 (25.09.2026): Jede Auswahlliste bietet genau die Werte an, die der CHECK ihrer
-// Zieltabelle zulässt (scripts/tests/qualitaet.test.mjs liest die CHECKs aus den Migrationen):
+// Zieltabelle zulässt (scripts/tests/qualitaet.test.mjs liest die CHECKs aus den Migrationen
+// und prüft je Formular, welche Liste es verwendet):
 //   QUALITAET_OPTS        → weinausbau.qualitaetsstufe (Charge, Eröffnungsbestand, Datenimport,
-//                           Zukauf mit Zielcharge, Pressung) – weinausbau_qualitaetsstufe_check
+//                           Zukauf mit Zielcharge, Pressung) – weinausbau_qualitaetsstufe_check;
+//                           Charge bearbeiten: chargenStufenBis()
 //   LESE_QUALITAETEN      → ernte_parzellen.qualitaetsstufe (Lese) – ernte_parzellen_qualitaetsstufe_check;
 //                           dieselbe Liste für die Trauben-Qualität beim Traubenverkauf
-//                           (traubenverkauf.qualitaetsstufe, ohne CHECK)
-//   FUELLUNG_QUALITAETEN  → fuellungen.qualitaet (Füllung neu/bearbeiten) – fuellungen_qualitaet_check
+//                           (traubenverkauf.qualitaetsstufe, ohne CHECK); mit °KMW: leseStufenBeiKmw()
+//   FUELLUNG_QUALITAETEN  → fuellungen.qualitaet (Füllung neu/bearbeiten) – fuellungen_qualitaet_check;
+//                           mit Charge: fuellungsStufenFuer() (nur Abstufung)
 // Server Actions prüfen vor dem Schreiben mit qualitaetFehler() (verständliche Meldung statt 23514).
-// Die Datei bleibt bewusst ohne Importe, damit node:test sie direkt laden kann.
+// Abstufungsregeln (Eiswein/Strohwein als eigene Zweige, DAC & Co. auf Qualitätswein-Niveau)
+// stehen in lib/weinqualitaet.ts – die einzige Abhängigkeit dieser Datei.
+
+import { istAbstufung, istMindestens, istPraedikatsStufe, minQualitaet as minPraedikat, stufeMitKmwMoeglich } from '@/lib/weinqualitaet'
 
 export const QUALITAET_OPTS = [
   { value: 'wein',                 label: 'Wein (ohne Herkunft)',           rang: 0 },
@@ -62,6 +68,33 @@ export const LESE_QUALITAETEN: readonly QualitaetsOption[] = QUALITAET_OPTS
  *  damit jede Charge ohne Umweg abgefüllt werden kann (vorher fehlten „Wein“ und „Ausbruch“). */
 export const FUELLUNG_QUALITAETEN: readonly QualitaetsOption[] = QUALITAET_OPTS
 
+/** Lese-Stufen, die das Mostgewicht `kmw` trägt (Mindest-°KMW laut Weingesetz, Eiswein ab
+ *  25 °KMW); ohne KMW-Wert alle. Server: upsertErnteParzelle prüft dieselbe Regel. */
+export function leseStufenBeiKmw(kmw: number | null | undefined): readonly QualitaetsOption[] {
+  return LESE_QUALITAETEN.filter(o => stufeMitKmwMoeglich(o.value, kmw))
+}
+
+/** Auswahl der Füllung zu einer Charge der Stufe `chargeStufe`: dieselbe Stufe, echte
+ *  Abstufungen (lib/weinqualitaet.ts, istAbstufung) und „Sonstiges“ – ohne Charge bzw. ohne
+ *  Stufe alle. Der Server sperrt Aufstufungen (istAufstufung) unabhängig davon. */
+export function fuellungsStufenFuer(chargeStufe: string | null | undefined): readonly QualitaetsOption[] {
+  if (!chargeStufe) return FUELLUNG_QUALITAETEN
+  return FUELLUNG_QUALITAETEN.filter(o =>
+    o.value === chargeStufe || o.value === 'sonstiges' || istAbstufung(chargeStufe, o.value))
+}
+
+/** Auswahl der Charge (Kellerbuch, Charge bearbeiten): Obergrenze `basis` (gespeicherte Stufe
+ *  bzw. Ableitung aus den °KMW) und alles mit höchstens gleichem Rang; zwischen zwei Stufen der
+ *  Prädikats-Skala nur echte Abstufungen – Eiswein/Strohwein also nicht nach Ausbruch, TBA oder
+ *  zueinander (KAN-73). Ohne Obergrenze alle. updateWeinausbau prüft dieselbe Regel. */
+export function chargenStufenBis(basis: string | null | undefined): readonly QualitaetsOption[] {
+  if (!basis) return QUALITAET_OPTS
+  const maxRang = QUALITAET_OPTS.find(o => o.value === basis)?.rang ?? 99
+  return QUALITAET_OPTS.filter(o => o.rang <= maxRang && (
+    o.value === basis || !istPraedikatsStufe(basis) || !istPraedikatsStufe(o.value) || istMindestens(basis, o.value)
+  ))
+}
+
 function inListe(liste: readonly QualitaetsOption[], wert: unknown): boolean {
   return typeof wert === 'string' && liste.some(o => o.value === wert)
 }
@@ -87,7 +120,7 @@ const ZIELE: Record<QualitaetsZiel, { liste: readonly QualitaetsOption[]; wo: st
   lese: {
     liste: LESE_QUALITAETEN,
     wo: 'bei der Lese',
-    zusatz: ` Möglich sind nur die Mostgewichts-Stufen: ${LESE_QUALITAETEN.map(o => o.label).join(', ')}. DAC, Reserve, Erste Lage, Großes Gewächs, Sekt, Perlwein und Sonstiges werden erst bei der Charge bzw. Füllung vergeben.`,
+    zusatz: ` Bei der Lese sind nur diese Stufen vorgesehen: ${LESE_QUALITAETEN.map(o => o.label).join(', ')}. Strohwein und Ausbruch derzeit nicht (Entscheidung offen); DAC, Reserve, Erste Lage, Großes Gewächs, Sekt, Perlwein und Sonstiges werden bei der Charge bzw. Füllung vergeben.`,
   },
   charge:   { liste: QUALITAET_OPTS,       wo: 'bei einer Kellerbuch-Charge', zusatz: ' Bitte eine Stufe aus der Auswahlliste wählen.' },
   fuellung: { liste: FUELLUNG_QUALITAETEN, wo: 'bei einer Füllung',           zusatz: ' Bitte eine Stufe aus der Auswahlliste wählen.' },
@@ -127,11 +160,14 @@ export function qualitaetLabel(value: string | null | undefined): string {
   return QUALITAET_OPTS.find(o => o.value === value)?.label ?? value
 }
 
-/** Gibt die niedrigere der beiden Qualitätsstufen zurück (Verschnitt-Regel) */
+/** Gibt die niedrigere der beiden Qualitätsstufen zurück (Zusammenführung per Umziehen).
+ *  Zwei Stufen der Prädikats-Skala: wie lib/weinqualitaet.ts (Eiswein + TBA → Beerenauslese,
+ *  KAN-73); sonst nach Rang in QUALITAET_OPTS wie bisher. */
 export function minQualitaet(a: string | null, b: string | null): string | null {
   if (!a && !b) return null
   if (!a) return b
   if (!b) return a
+  if (istPraedikatsStufe(a) && istPraedikatsStufe(b)) return minPraedikat([a, b])
   const ra = QUALITAET_OPTS.find(o => o.value === a)?.rang ?? 99
   const rb = QUALITAET_OPTS.find(o => o.value === b)?.rang ?? 99
   return ra <= rb ? a : b

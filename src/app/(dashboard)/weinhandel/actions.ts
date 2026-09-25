@@ -2,7 +2,7 @@
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { istNiedrigerAls, QUALITAET_LABEL } from '@/lib/weinqualitaet'
+import { istAbstufung, istAufstufung, QUALITAET_LABEL } from '@/lib/weinqualitaet'
 import { qualitaetFehler } from '@/lib/wein/qualitaet'
 import { istNiedrigerAls as herkunftIstNiedrigerAls, HERKUNFT_LABEL } from '@/lib/herkunft'
 import { getCurrentMembership, canWrite, type Membership } from '@/lib/auth/roles'
@@ -69,6 +69,12 @@ function fuellungQualitaetAusFormular(formData: FormData): string {
   const fehler = qualitaetFehler('fuellung', wert)
   if (fehler) throw new AktionsFehler(fehler)
   return wert
+}
+
+/** Meldung bei einer Aufstufung gegenüber der Charge (KAN-73, istAufstufung) */
+function aufstufungsText(charge: string, fuellung: string): string {
+  return `Die Qualitätsstufe kann nicht von ${QUALITAET_LABEL[charge] ?? charge} (Charge) auf ${QUALITAET_LABEL[fuellung] ?? fuellung} AUFgestuft werden. ` +
+    'Nur Abstufungen sind zulässig – Eiswein und Strohwein z. B. nur auf Beerenauslese und darunter, eine Charge „Wein“ oder „Landwein“ nicht auf DAC, Reserve oder Sekt.'
 }
 
 /** Notiz der Abschluss-Schwundzeile einer Füllung (deactivateFuellung erkennt sie am Anfang) */
@@ -178,18 +184,16 @@ export async function createFuellung(formData: FormData): Promise<{ id: string; 
     const chargeQualitaet = charge.qualitaetsstufe as string | null ?? null
     const chargeHerkunft  = charge.herkunft_code as string | null ?? null
 
-    if (qualitaetInput && chargeQualitaet && istNiedrigerAls(chargeQualitaet, qualitaetInput)) {
-      throw new AktionsFehler(
-        `Qualitätswein kann nicht von ${QUALITAET_LABEL[chargeQualitaet] ?? chargeQualitaet} auf ${QUALITAET_LABEL[qualitaetInput] ?? qualitaetInput} AUFgestuft werden. Nur Abstufungen sind zulässig.`
-      )
-    }
+    // KAN-73: Aufstufung nach lib/weinqualitaet.ts (istAufstufung) – auch Eiswein → Ausbruch/TBA,
+    // Wein/Landwein → DAC/Reserve/Sekt und DAC → Prädikat; vorher nur auf der linearen Skala
+    if (istAufstufung(chargeQualitaet, qualitaetInput)) throw new AktionsFehler(aufstufungsText(chargeQualitaet as string, qualitaetInput))
     if (herkunftCodeInput && chargeHerkunft && herkunftIstNiedrigerAls(chargeHerkunft, herkunftCodeInput)) {
       throw new AktionsFehler(
         `Herkunft-Code (BKI) kann nicht von ${HERKUNFT_LABEL[chargeHerkunft] ?? chargeHerkunft} auf ${HERKUNFT_LABEL[herkunftCodeInput] ?? herkunftCodeInput} AUFgestuft werden. Nur Abstufungen sind zulässig.`
       )
     }
-    if (qualitaetInput && chargeQualitaet && qualitaetInput !== chargeQualitaet && istNiedrigerAls(qualitaetInput, chargeQualitaet)) {
-      notizenZusatz += `Qualität manuell abgestuft von ${QUALITAET_LABEL[chargeQualitaet] ?? chargeQualitaet} auf ${QUALITAET_LABEL[qualitaetInput] ?? qualitaetInput}. `
+    if (istAbstufung(chargeQualitaet, qualitaetInput)) {
+      notizenZusatz += `Qualität manuell abgestuft von ${QUALITAET_LABEL[chargeQualitaet as string] ?? chargeQualitaet} auf ${QUALITAET_LABEL[qualitaetInput] ?? qualitaetInput}. `
     }
     if (herkunftCodeInput && chargeHerkunft && herkunftCodeInput !== chargeHerkunft && herkunftIstNiedrigerAls(herkunftCodeInput, chargeHerkunft)) {
       notizenZusatz += `Herkunft-Code (BKI) manuell abgestuft von ${HERKUNFT_LABEL[chargeHerkunft] ?? chargeHerkunft} auf ${HERKUNFT_LABEL[herkunftCodeInput] ?? herkunftCodeInput}. `
@@ -331,7 +335,7 @@ export async function updateFuellung(id: string, formData: FormData): Promise<vo
 
   // Gespeicherten Stand laden: Mengenfelder werden verglichen statt blind überschrieben
   const { data: altRaw, error: altErr } = await (supabase.from('fuellungen') as any)
-    .select('weinausbau_id, datum, anzahl_flaschen, bestand_flaschen, flaschengroesse_ml, menge_liter_gefuellt, pruefnummer, dac_antrag_id')
+    .select('weinausbau_id, datum, qualitaet, anzahl_flaschen, bestand_flaschen, flaschengroesse_ml, menge_liter_gefuellt, pruefnummer, dac_antrag_id')
     .eq('id', id)
     .eq('tenant_id', tenantId)
     .maybeSingle()
@@ -429,18 +433,21 @@ export async function updateFuellung(id: string, formData: FormData): Promise<vo
     const chargeQualitaet = (wa as AR | null)?.qualitaetsstufe as string | null ?? null
     const chargeHerkunft  = (wa as AR | null)?.herkunft_code as string | null ?? null
 
-    if (qualitaetInput && chargeQualitaet && istNiedrigerAls(chargeQualitaet, qualitaetInput)) {
-      throw new AktionsFehler(
-        `Qualitätswein kann nicht von ${QUALITAET_LABEL[chargeQualitaet] ?? chargeQualitaet} auf ${QUALITAET_LABEL[qualitaetInput] ?? qualitaetInput} AUFgestuft werden. Nur Abstufungen sind zulässig.`
-      )
+    // KAN-73: wie createFuellung (istAufstufung). Eine unverändert gespeicherte Stufe bei
+    // unveränderter Charge bleibt speicherbar – sonst ließe sich eine Altfüllung (z. B. vor
+    // KAN-73 angelegt) nicht mehr bearbeiten, ohne ihre Bezeichnung zu ändern.
+    const qualitaetUnveraendert = qualitaetInput === ((alt.qualitaet as string | null) ?? null)
+      && weinausbauId === ((alt.weinausbau_id as string | null) ?? null)
+    if (!qualitaetUnveraendert && istAufstufung(chargeQualitaet, qualitaetInput)) {
+      throw new AktionsFehler(aufstufungsText(chargeQualitaet as string, qualitaetInput))
     }
     if (herkunftCodeInput && chargeHerkunft && herkunftIstNiedrigerAls(chargeHerkunft, herkunftCodeInput)) {
       throw new AktionsFehler(
         `Herkunft-Code (BKI) kann nicht von ${HERKUNFT_LABEL[chargeHerkunft] ?? chargeHerkunft} auf ${HERKUNFT_LABEL[herkunftCodeInput] ?? herkunftCodeInput} AUFgestuft werden. Nur Abstufungen sind zulässig.`
       )
     }
-    if (qualitaetInput && chargeQualitaet && qualitaetInput !== chargeQualitaet && istNiedrigerAls(qualitaetInput, chargeQualitaet)) {
-      notizenZusatz += `Qualität manuell abgestuft von ${QUALITAET_LABEL[chargeQualitaet] ?? chargeQualitaet} auf ${QUALITAET_LABEL[qualitaetInput] ?? qualitaetInput}. `
+    if (!qualitaetUnveraendert && istAbstufung(chargeQualitaet, qualitaetInput)) {
+      notizenZusatz += `Qualität manuell abgestuft von ${QUALITAET_LABEL[chargeQualitaet as string] ?? chargeQualitaet} auf ${QUALITAET_LABEL[qualitaetInput] ?? qualitaetInput}. `
     }
     if (herkunftCodeInput && chargeHerkunft && herkunftCodeInput !== chargeHerkunft && herkunftIstNiedrigerAls(herkunftCodeInput, chargeHerkunft)) {
       notizenZusatz += `Herkunft-Code (BKI) manuell abgestuft von ${HERKUNFT_LABEL[chargeHerkunft] ?? chargeHerkunft} auf ${HERKUNFT_LABEL[herkunftCodeInput] ?? herkunftCodeInput}. `

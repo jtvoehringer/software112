@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react'
 import { Pencil, Trash2, X, ChevronDown, Plus } from 'lucide-react'
 import { upsertPressung, deletePressung } from '../actions'
 import { fmtProzent, fmtNum, dezimal } from '@/lib/format'
-import { kmwZuQualitaet, QUALITAET_LABEL, QUALITAET_ORDER } from '@/lib/weinqualitaet'
+import { kmwZuQualitaet, leseStufeFuerPressung, pressungsQualitaet, QUALITAET_LABEL, QUALITAET_ORDER, type LeseStufe } from '@/lib/weinqualitaet'
 import VerschneidungForm from '@/components/kellerbuch/VerschneidungForm'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fehlerText } from '@/lib/fehler'
@@ -93,10 +93,10 @@ function Fehlermeldung({ text, onClose }: { text: string; onClose?: () => void }
   )
 }
 
-function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, leseParzellen, verfuegbareKgByGST, zukaufTrauben, behaelterMitCharge, onDone }: {
+function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, leseParzellen, leseStufen, verfuegbareKgByGST, zukaufTrauben, behaelterMitCharge, onDone }: {
   jahrgangId: string; pressung?: Pressung
   wgOptions: WGOption[]; behOptions: BehOption[]; waOptions: WAOption[]
-  leseParzellen: LeseParzelle[]; verfuegbareKgByGST: Record<string, number>
+  leseParzellen: LeseParzelle[]; leseStufen: LeseStufe[]; verfuegbareKgByGST: Record<string, number>
   zukaufTrauben: ZukaufTraubenOpt[]
   behaelterMitCharge?: Record<string, { weinausbau_id: string; name: string; rebsorte?: string | null; menge_liter?: number | null; qualitaetsstufe?: string | null; herkunft_code?: string | null }[]>; onDone: () => void
 }) {
@@ -177,7 +177,16 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
   })()
   const kmwGrad      = kmwFromWgRows?.toString().replace('.', ',') ?? ''
   const kmwNum       = parseFloat(dezimal(kmwGrad))
-  const kmwQualitaet = !isNaN(kmwNum) && kmwNum > 0 ? kmwZuQualitaet(kmwNum) : null
+  // KAN-73: Stufe der neuen Charge wie der Server (upsertPressung → pressungsQualitaet): Lese-Stufe
+  // je Zeile (letzte Lese bis zum Pressungsdatum; Zukauf unbekannt), gedeckelt durch den Ø-KMW
+  const pressungsStufe = pressungsQualitaet(
+    wgRows
+      .filter(r => r.id || ((r.weingarten_id || r.zukauf_posten_id) && r.trauben_kg))
+      .map(r => r.zukauf_posten_id
+        ? null
+        : leseStufeFuerPressung(leseStufen, { weingartenId: r.weingarten_id || null, grundstueckId: r.grundstueck_id || null }, datum)),
+    !isNaN(kmwNum) && kmwNum > 0 ? kmwNum : null,
+  )
   const [pending, startTransition] = useTransition()
 
   type VerschneidungData = {
@@ -260,7 +269,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
     fd.append('weinbezeichnung', weinbezeichnung)
     fd.append('kmw_grad', kmwGrad)
     // Qualitätsstufe wird bewusst NICHT vom Formular mitgeschickt: der Server
-    // leitet sie automatisch aus den °KMW ab (siehe upsertPressung/autoQualitaet).
+    // leitet sie aus Lese-Stufen und °KMW ab (upsertPressung → pressungsQualitaet, KAN-73).
     // Ein bewusstes manuelles Abstufen bleibt bei der Abfüllung möglich.
     fd.append('notizen', notizen)
     fd.append('weingaerten_json', JSON.stringify(
@@ -401,9 +410,9 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
             </div>
             <div className="flex-1 flex items-center gap-2 border border-s112-border rounded-lg px-2 py-1.5 bg-s112-bg">
               <span className="shrink-0 text-xs font-semibold px-2 py-1 rounded-full bg-s112-warn-bg text-s112-warn-fg whitespace-nowrap">
-                {QUALITAET_LABEL[kmwQualitaet ?? 'qualitaetswein']}
+                {QUALITAET_LABEL[pressungsStufe] ?? pressungsStufe}
               </span>
-              <span className="text-xs text-s112-muted">automatisch aus °KMW · manuelles Abstufen bei der Abfüllung möglich</span>
+              <span className="text-xs text-s112-muted">automatisch aus Lese-Stufe und °KMW (die niedrigere gilt) · Abstufen bei der Abfüllung möglich</span>
             </div>
           </div>
         </div>
@@ -641,10 +650,12 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
 
 // ── Hauptexport ───────────────────────────────────────────────────────────────
 
-export default function PressungSection({ jahrgangId, pressungen, wgOptions, behOptions, waOptions, leseParzellen, verfuegbareKgByGST, zukaufTrauben, behaelterMitCharge, writeOk, adminOk }: {
+export default function PressungSection({ jahrgangId, pressungen, wgOptions, behOptions, waOptions, leseParzellen, leseStufen, verfuegbareKgByGST, zukaufTrauben, behaelterMitCharge, writeOk, adminOk }: {
   jahrgangId: string; pressungen: Pressung[]
   wgOptions: WGOption[]; behOptions: BehOption[]; waOptions: WAOption[]
-  leseParzellen: LeseParzelle[]; verfuegbareKgByGST: Record<string, number>
+  /** leseParzellen: eine Zeile je Parzelle (Auswahl); leseStufen: ALLE Lese-Einträge mit Datum
+   *  und Stufe – für die Stufe der neuen Charge (KAN-73, wie upsertPressung) */
+  leseParzellen: LeseParzelle[]; leseStufen: LeseStufe[]; verfuegbareKgByGST: Record<string, number>
   zukaufTrauben: ZukaufTraubenOpt[]
   behaelterMitCharge?: Record<string, { weinausbau_id: string; name: string; rebsorte?: string | null; menge_liter?: number | null; qualitaetsstufe?: string | null; herkunft_code?: string | null }[]>; writeOk: boolean; adminOk: boolean
 }) {
@@ -731,7 +742,7 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
       {/* Neues Formular */}
       {showForm && !editId && (
         <PressungForm jahrgangId={jahrgangId} wgOptions={wgOptions} behOptions={behOptions}
-          waOptions={waOptions} leseParzellen={leseParzellen} verfuegbareKgByGST={verfuegbareKgByGST}
+          waOptions={waOptions} leseParzellen={leseParzellen} leseStufen={leseStufen} verfuegbareKgByGST={verfuegbareKgByGST}
           zukaufTrauben={zukaufTrauben}
           behaelterMitCharge={behaelterMitCharge} onDone={() => setShowForm(false)} />
       )}
@@ -750,7 +761,7 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
               <div key={p.id}>
                 {editId === p.id ? (
                   <PressungForm pressung={p} jahrgangId={jahrgangId} wgOptions={wgOptions}
-                    behOptions={behOptions} waOptions={waOptions} leseParzellen={leseParzellen}
+                    behOptions={behOptions} waOptions={waOptions} leseParzellen={leseParzellen} leseStufen={leseStufen}
                     verfuegbareKgByGST={verfuegbareKgByGST} zukaufTrauben={zukaufTrauben}
                     behaelterMitCharge={undefined}
                     onDone={() => setEditId(null)} />

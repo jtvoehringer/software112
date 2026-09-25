@@ -96,10 +96,13 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
   // Niedrigste Qualitätsstufe aller beteiligten Chargen
   const abstufungsZiel = selectedChargen.length > 0 ? minQualitaet(alleQualitaeten) : null
   // Warnung wenn IRGENDEINE Charge (Quelle oder Ziel) eine höhere Stufe hat als das Minimum
-  // → diese Charge verliert ihre Qualitätsbezeichnung durch die Verschneidung
+  // → diese Charge verliert ihre Qualitätsbezeichnung durch die Verschneidung.
+  // KAN-73: Argumente richtig herum (Minimum niedriger als die Charge) – vorher war die Prüfung
+  // „Charge niedriger als Minimum“ nie erfüllt und die Warnung erschien nie; Eiswein + TBA
+  // ergibt seither Beerenauslese (lib/weinqualitaet.ts, minQualitaet).
   const hatAbstufung = abstufungsZiel != null && (
-    istNiedrigerAls(zielCharge.qualitaetsstufe ?? null, abstufungsZiel) ||
-    selectedChargen.some(c => istNiedrigerAls(c.qualitaetsstufe ?? null, abstufungsZiel))
+    istNiedrigerAls(abstufungsZiel, zielCharge.qualitaetsstufe ?? null) ||
+    selectedChargen.some(c => istNiedrigerAls(abstufungsZiel, c.qualitaetsstufe ?? null))
   )
   // Herkunft-Code-Abstufungs-Check (analog Qualität) – nur Abstufungen möglich, nie Aufstufungen
   const alleHerkuenfte = [
@@ -126,9 +129,9 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
 
   // Welche Chargen werden abgestuft?
   const betroffeneChargen = selectedChargen.length > 0 ? [
-    ...(istNiedrigerAls(zielCharge.qualitaetsstufe ?? null, abstufungsZiel ?? '') ? [zielCharge.name] : []),
+    ...(istNiedrigerAls(abstufungsZiel, zielCharge.qualitaetsstufe ?? null) ? [zielCharge.name] : []),
     ...selectedChargen
-      .filter(c => istNiedrigerAls(c.qualitaetsstufe ?? null, abstufungsZiel ?? ''))
+      .filter(c => istNiedrigerAls(abstufungsZiel, c.qualitaetsstufe ?? null))
       .map(c => c.name),
   ] : []
 

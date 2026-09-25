@@ -2,7 +2,7 @@
 
 import React, { useState, useTransition } from 'react'
 import { upsertErnteParzelle, deleteErnteParzelle, createOrUpdateAMAMeldung, createMultipleErnteParzellen } from '../actions'
-import { qualitaetLabel, LESE_QUALITAETEN, mitGespeichertemWert } from '@/lib/wein/qualitaet'
+import { qualitaetLabel, leseStufenBeiKmw, mitGespeichertemWert } from '@/lib/wein/qualitaet'
 import { kmwZuQualitaet } from '@/lib/weinqualitaet'
 import type { ErnteParzelle, WeingartenOpt, GSTOpt, AMAMeldung, HektarhoechstertragStatus } from './page'
 import PressungSection from './PressungSection'
@@ -16,7 +16,8 @@ import { csvPfad } from '@/lib/behoerden/katalog'
 import { runden, STELLEN } from '@/lib/csv'
 
 // Qualitätsstufen der Lese: LESE_QUALITAETEN aus lib/wein/qualitaet (KAN-73) – nur die
-// Mostgewichts-Stufen, die ernte_parzellen speichern kann (DAC, Reserve & Co. erst an der Charge/Füllung)
+// Mostgewichts-Stufen, die ernte_parzellen speichern kann (DAC, Reserve & Co. erst an der Charge/Füllung);
+// mit °KMW über leseStufenBeiKmw() nur die Stufen, die das Mostgewicht trägt (Server prüft dasselbe)
 const LESEMETHODE_OPTS = [
   { value: 'handlese', label: 'Handlese' },
   { value: 'maschinenlese', label: 'Maschinenlese' },
@@ -419,12 +420,12 @@ function ParzellForm({
           <select aria-label="Qualitätsstufe" name="qualitaetsstufe" value={effectiveQualitaetEdit}
             onChange={e => setQualitaetEdit(e.target.value)}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
-            {mitGespeichertemWert(LESE_QUALITAETEN, parzelle?.qualitaetsstufe).map(o => (
+            {mitGespeichertemWert(leseStufenBeiKmw(kmwEdit), parzelle?.qualitaetsstufe).map(o => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </select>
           {qualitaetEdit == null && (
-            <p className="text-xs text-s112-muted mt-0.5">↑ Wird aus °KMW abgeleitet – bei Bedarf anpassen</p>
+            <p className="text-xs text-s112-muted mt-0.5">↑ Wird aus °KMW abgeleitet – bei Bedarf abstufen (Eiswein ab 25 °KMW)</p>
           )}
         </div>
         <div className="col-span-2">
@@ -662,6 +663,10 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
         verfuegbareKgByGST={verfuegbareKgByGST}
         zukaufTrauben={zukaufTrauben}
         behaelterMitCharge={behaelterMitCharge}
+        leseStufen={parzellen.map(p => ({
+          weingartenId: p.weingarten_id || null, grundstueckId: p.grundstueck_id || null,
+          datum: p.ernte_datum || null, stufe: p.qualitaetsstufe || null,
+        }))}
         leseParzellen={(() => {
           // Deduplizieren: eine Zeile pro (weingarten_id, grundstueck_id) für Pressung-Formular.
           // Ein GST kann mehrere ernte_parzellen-Einträge haben (z.B. Kabinett + Spätlese).

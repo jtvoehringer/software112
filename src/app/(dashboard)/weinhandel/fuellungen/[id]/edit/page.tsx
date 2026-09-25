@@ -7,8 +7,8 @@ import { Wine } from 'lucide-react'
 import { updateFuellung } from '../../../actions'
 import { KN_CODES } from '@/lib/wein/zolltarif'
 import { HERKUNFT_ORDER, HERKUNFT_LABEL, istNiedrigerAls as istHerkunftNiedriger } from '@/lib/herkunft'
-import { QUALITAET_LABEL, istNiedrigerAls as istQualitaetNiedriger } from '@/lib/weinqualitaet'
-import { FUELLUNG_QUALITAETEN, mitGespeichertemWert } from '@/lib/wein/qualitaet'
+import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
+import { FUELLUNG_QUALITAETEN, fuellungsStufenFuer, mitGespeichertemWert } from '@/lib/wein/qualitaet'
 import { ladeCustomWeinbaugebiete } from '../../../../weinbaugebiete/actions'
 import HerkunftCodeSelect from '@/components/weinbaugebiete/HerkunftCodeSelect'
 import { fmtNum } from '@/lib/format'
@@ -24,8 +24,8 @@ export const dynamic = 'force-dynamic'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
-// KAN-73: zentrale Liste der Füllung (= CHECK fuellungen_qualitaet_check, alle 18 Stufen inkl. „Wein“ und „Ausbruch“)
-const QUALITAETEN = FUELLUNG_QUALITAETEN
+// KAN-73: zentrale Liste der Füllung (FUELLUNG_QUALITAETEN = CHECK fuellungen_qualitaet_check,
+// alle 18 Stufen inkl. „Wein“ und „Ausbruch“), mit Charge über fuellungsStufenFuer()
 
 const FLASCHENGROESSEN = [
   { value: 375,  label: '0,375 L – Halbflasche' },
@@ -140,12 +140,12 @@ export default async function EditFuellungPage({
   // dieser Füllung gespeicherte Wert bleibt immer wählbar, auch falls er durch
   // eine spätere Änderung an der Charge nicht mehr in der erlaubten Liste wäre
   // (verhindert Datenverlust beim Speichern).
+  // KAN-73: fuellungsStufenFuer wie beim Anlegen (Eiswein/Strohwein nur bis Beerenauslese,
+  // DAC & Co. auch als Qualitätswein); updateFuellung lässt den unveränderten Wert zu.
   const qualitaetOptionsEdit = (() => {
-    const basis = waCeilingQualitaet
-      ? QUALITAETEN.filter(q => q.value === waCeilingQualitaet || q.value === 'sonstiges' || istQualitaetNiedriger(q.value, waCeilingQualitaet))
-      : QUALITAETEN
+    const basis = fuellungsStufenFuer(waCeilingQualitaet)
     if (f.qualitaet && !basis.some(q => q.value === f.qualitaet)) {
-      const bestehend = QUALITAETEN.find(q => q.value === f.qualitaet)
+      const bestehend = FUELLUNG_QUALITAETEN.find(q => q.value === f.qualitaet)
       if (bestehend) return [bestehend, ...basis]
     }
     // KAN-73: auch ein Wert außerhalb der Liste bleibt sichtbar (statt still die erste Option)

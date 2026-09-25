@@ -11,13 +11,17 @@
 //     („ADD CONSTRAINT <name> CHECK (… IN (…))“ bzw. „= ANY (ARRAY[…])“); ein späteres
 //     „DROP CONSTRAINT <name>“ ohne neue Definition entfernt sie. Inline-CHECKs ohne Namen
 //     (CREATE TABLE … check (…)) werden nicht gewertet – ihre Auto-Namen stehen nicht im SQL.
-// (2) kmwZuQualitaet liefert nur Lese-Stufen; Grenzwerte laut Weingesetz.
+// (2) kmwZuQualitaet liefert nur Lese-Stufen; Grenzwerte laut Weingesetz; Lese-Auswahl je °KMW.
 // (3) übrige Listen: QUALITAET_ORDER/QUALITAET_LABEL/PRAEDIKATSWEIN_ORDER, BKI-Kürzel,
 //     Serverprüfung qualitaetFehler(), keine lokalen Qualitätslisten und kein „tafelwein“ in src.
+// (4) Abstufungsregeln (Eiswein/Strohwein als eigene Zweige auf BA-Niveau, DAC & Co. auf
+//     Qualitätswein-Niveau), Auswahl von Füllung und Charge, Stufe neuer Pressungs-Chargen und
+//     die Kette Lese → Pressung → Charge → Füllung für jede Lese-Stufe.
+// (5) Formulare und Server Actions: jede Datei verwendet die Liste ihrer Zieltabelle (statisch).
 
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { register } from 'node:module'
@@ -28,9 +32,14 @@ const {
   QUALITAET_OPTS, LESE_QUALITAETEN, FUELLUNG_QUALITAETEN,
   istLeseQualitaet, istChargenQualitaet, istFuellungQualitaet,
   qualitaetFehler, mitGespeichertemWert, qualitaetLabel,
+  leseStufenBeiKmw, fuellungsStufenFuer, chargenStufenBis,
+  minQualitaet: minQualitaetUmzug,
 } = await import('../../src/lib/wein/qualitaet.ts')
-const { kmwZuQualitaet, QUALITAET_ORDER, QUALITAET_LABEL, PRAEDIKATSWEIN_ORDER, istNiedrigerAls } =
-  await import('../../src/lib/weinqualitaet.ts')
+const {
+  kmwZuQualitaet, QUALITAET_ORDER, QUALITAET_LABEL, PRAEDIKATSWEIN_ORDER, istNiedrigerAls,
+  istMindestens, minQualitaet, maxQualitaet, MINDEST_KMW, stufeMitKmwMoeglich,
+  istAbstufung, istAufstufung, leseStufeFuerPressung, pressungsQualitaet,
+} = await import('../../src/lib/weinqualitaet.ts')
 const kuerzel = await import('../../src/lib/wein/bki_kuerzel.ts')
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
@@ -202,9 +211,13 @@ describe('Listen in lib/wein/qualitaet.ts', () => {
     }
     const dac = qualitaetFehler('lese', 'dac')
     assert.match(dac, /^Die Qualitätsstufe „DAC“ ist bei der Lese nicht zulässig\./)
-    assert.match(dac, /Wein \(ohne Herkunft\), Landwein, Qualitätswein/)
-    assert.match(dac, /erst bei der Charge bzw\. Füllung vergeben/)
-    assert.match(qualitaetFehler('lese', 'strohwein'), /„Strohwein \/ Schilfwein“ ist bei der Lese nicht zulässig/)
+    assert.match(dac, /Bei der Lese sind nur diese Stufen vorgesehen: Wein \(ohne Herkunft\), Landwein, Qualitätswein/)
+    assert.match(dac, /bei der Charge bzw\. Füllung vergeben/)
+    const stroh = qualitaetFehler('lese', 'strohwein')
+    assert.match(stroh, /„Strohwein \/ Schilfwein“ ist bei der Lese nicht zulässig/)
+    // Strohwein/Ausbruch haben ein Mindestmostgewicht – die Meldung nennt sie ausdrücklich als offen
+    assert.match(stroh, /Strohwein und Ausbruch derzeit nicht \(Entscheidung offen\)/)
+    assert.doesNotMatch(stroh, /Mostgewichts-Stufen/)
   })
 
   test('mitGespeichertemWert: gespeicherter Wert außerhalb der Liste bleibt sichtbar', () => {
@@ -247,6 +260,35 @@ describe('(2) kmwZuQualitaet (lib/weinqualitaet.ts)', () => {
       assert.ok(!['eiswein', 'strohwein', 'ausbruch'].includes(kmwZuQualitaet(i / 10)))
     }
   })
+
+  test('MINDEST_KMW passt zu kmwZuQualitaet (jede ableitbare Stufe beginnt genau an ihrer Grenze)', () => {
+    for (const v of PRAEDIKATSWEIN_ORDER) assert.equal(typeof MINDEST_KMW[v], 'number', v)
+    for (const v of ['landwein', 'qualitaetswein', 'kabinett', 'spaetlese', 'auslese', 'beerenauslese', 'trockenbeerenauslese']) {
+      assert.equal(kmwZuQualitaet(MINDEST_KMW[v]), v, `${v} ab ${MINDEST_KMW[v]} °KMW`)
+      assert.notEqual(kmwZuQualitaet(MINDEST_KMW[v] - 0.1), v, `${v} unter ${MINDEST_KMW[v]} °KMW`)
+    }
+    assert.equal(MINDEST_KMW.eiswein, 25)
+    assert.equal(MINDEST_KMW.strohwein, 25)
+    assert.equal(MINDEST_KMW.ausbruch, 27)
+  })
+
+  test('Lese-Auswahl je °KMW (leseStufenBeiKmw): nur Stufen, die das Mostgewicht trägt – Eiswein ab 25', () => {
+    const lese = new Set(werte(LESE_QUALITAETEN))
+    assert.deepEqual(werte(leseStufenBeiKmw(null)), werte(LESE_QUALITAETEN))
+    assert.deepEqual(werte(leseStufenBeiKmw(Number.NaN)), werte(LESE_QUALITAETEN))
+    for (let i = 0; i <= 400; i++) {
+      const kmw = i / 10
+      const optionen = werte(leseStufenBeiKmw(kmw))
+      for (const v of optionen) assert.ok(lese.has(v), `${kmw} °KMW: ${v}`)
+      assert.ok(optionen.includes(kmwZuQualitaet(kmw)), `${kmw} °KMW: Vorbelegung ${kmwZuQualitaet(kmw)} fehlt`)
+      for (const v of optionen) assert.ok(v === 'eiswein' || istMindestens(kmwZuQualitaet(kmw), v), `${kmw} °KMW: ${v} über der Ableitung`)
+      assert.equal(optionen.includes('eiswein'), kmw >= 25, `${kmw} °KMW: Eiswein`)
+    }
+    assert.ok(!stufeMitKmwMoeglich('kabinett', 16.9) && stufeMitKmwMoeglich('kabinett', 17))
+    assert.ok(!stufeMitKmwMoeglich('eiswein', 24.9) && stufeMitKmwMoeglich('eiswein', 25))
+    assert.ok(stufeMitKmwMoeglich('trockenbeerenauslese', null), 'ohne KMW keine Prüfung')
+    assert.ok(stufeMitKmwMoeglich('dac', 10), 'außerhalb der Skala keine Prüfung')
+  })
 })
 
 // ── (3) übrige Listen ─────────────────────────────────────────────────────────
@@ -266,8 +308,7 @@ describe('(3) übrige Qualitätslisten', () => {
     assert.ok(!istNiedrigerAls('landwein', 'wein'))
     assert.ok(istNiedrigerAls('beerenauslese', 'ausbruch') && istNiedrigerAls('ausbruch', 'trockenbeerenauslese'))
     // Füllungsformular (nur Abstufung): Charge „Wein“ → nur Wein und Sonstiges
-    const erlaubt = FUELLUNG_QUALITAETEN.filter(q => q.value === 'wein' || q.value === 'sonstiges' || istNiedrigerAls(q.value, 'wein'))
-    assert.deepEqual(werte(erlaubt), ['wein', 'sonstiges'])
+    assert.deepEqual(werte(fuellungsStufenFuer('wein')), ['wein', 'sonstiges'])
   })
 
   test('BKI-Kürzel: jede Lese-Stufe hat ein amtliches Kürzel, „wein“ → WEI', () => {
@@ -309,5 +350,269 @@ describe('(3) übrige Qualitätslisten', () => {
     assert.equal(qualitaetLabel('ausbruch'), 'Ausbruch')
     assert.equal(qualitaetLabel('xyz'), 'xyz')
     assert.equal(qualitaetLabel(null), '–')
+  })
+})
+
+// ── (4) Abstufungsregeln, Pressung und Kette ─────────────────────────────────
+
+describe('(4) Abstufungsregeln (lib/weinqualitaet.ts)', () => {
+  test('Eiswein und Strohwein: eigene Zweige auf BA-Niveau – nicht vergleichbar mit Ausbruch/TBA und einander', () => {
+    assert.ok(istNiedrigerAls('beerenauslese', 'eiswein') && istNiedrigerAls('auslese', 'strohwein'))
+    for (const [a, b] of [['ausbruch', 'eiswein'], ['trockenbeerenauslese', 'eiswein'], ['eiswein', 'strohwein'], ['ausbruch', 'strohwein']]) {
+      assert.ok(!istNiedrigerAls(a, b) && !istNiedrigerAls(b, a), `${a} / ${b}`)
+    }
+    assert.ok(istMindestens('eiswein', 'beerenauslese') && !istMindestens('eiswein', 'ausbruch'))
+    assert.ok(!istMindestens('trockenbeerenauslese', 'eiswein'))
+    assert.ok(!istMindestens('dac', 'wein') && !istMindestens('wein', 'dac'), 'DAC liegt nicht auf der Skala')
+  })
+
+  test('minQualitaet (Verschnitt): höchste gemeinsame Stufe, Zweige über die Hauptskala', () => {
+    assert.equal(minQualitaet(['eiswein', 'trockenbeerenauslese']), 'beerenauslese')
+    assert.equal(minQualitaet(['eiswein', 'ausbruch']), 'beerenauslese')
+    assert.equal(minQualitaet(['eiswein', 'strohwein']), 'beerenauslese')
+    assert.equal(minQualitaet(['eiswein', 'eiswein']), 'eiswein')
+    assert.equal(minQualitaet(['eiswein', 'auslese']), 'auslese')
+    assert.equal(minQualitaet(['trockenbeerenauslese', 'ausbruch']), 'ausbruch')
+    assert.equal(minQualitaet(['kabinett', 'dac', null, 'sonstiges']), 'kabinett', 'DAC & Co. wie bisher ignoriert')
+    assert.equal(minQualitaet(['dac', 'reserve']), null)
+    assert.equal(minQualitaet([]), null)
+    // Verschnitt meldet die Abstufung gegen die höchste Stufe (kellerbuch/actions.ts)
+    assert.ok(istNiedrigerAls(minQualitaet(['eiswein', 'trockenbeerenauslese']), maxQualitaet(['eiswein', 'trockenbeerenauslese'])))
+    // Umziehen (lib/wein/qualitaet.ts): auf der Skala gleiche Regel, sonst Rang wie bisher
+    assert.equal(minQualitaetUmzug('eiswein', 'trockenbeerenauslese'), 'beerenauslese')
+    assert.equal(minQualitaetUmzug('strohwein', 'eiswein'), 'beerenauslese')
+    assert.equal(minQualitaetUmzug('dac', 'qualitaetswein'), 'qualitaetswein')
+    assert.equal(minQualitaetUmzug(null, 'kabinett'), 'kabinett')
+  })
+
+  test('Füllung: Auswahl je Charge nur Abstufungen, nie eine vom Server gesperrte Aufstufung', () => {
+    const alleWerte = werte(QUALITAET_OPTS)
+    for (const charge of [...alleWerte, null, 'altwert']) {
+      const optionen = werte(fuellungsStufenFuer(charge))
+      for (const v of optionen) {
+        assert.ok(istFuellungQualitaet(v), `${charge} → ${v}: nicht in FUELLUNG_QUALITAETEN`)
+        assert.ok(!istAufstufung(charge, v), `${charge} → ${v}: angeboten, aber vom Server gesperrt`)
+      }
+      if (charge && alleWerte.includes(charge)) assert.ok(optionen.includes(charge), `${charge}: eigene Stufe fehlt`)
+      assert.ok(optionen.includes('sonstiges'), `${charge}: Sonstiges fehlt`)
+    }
+    assert.deepEqual(werte(fuellungsStufenFuer(null)), alleWerte)
+    const eis = werte(fuellungsStufenFuer('eiswein'))
+    assert.ok(eis.includes('beerenauslese') && eis.includes('eiswein'))
+    for (const nicht of ['ausbruch', 'trockenbeerenauslese', 'strohwein']) assert.ok(!eis.includes(nicht), `Eiswein → ${nicht}`)
+    assert.deepEqual(werte(fuellungsStufenFuer('dac')), ['wein', 'landwein', 'qualitaetswein', 'dac', 'sonstiges'])
+    assert.deepEqual(werte(fuellungsStufenFuer('sekt')), ['sekt', 'sonstiges'])
+    assert.ok(werte(fuellungsStufenFuer('trockenbeerenauslese')).includes('ausbruch'))
+  })
+
+  test('Füllung: Serverregel istAufstufung / Vermerk istAbstufung', () => {
+    for (const [von, nach] of [
+      ['eiswein', 'ausbruch'], ['eiswein', 'trockenbeerenauslese'], ['strohwein', 'eiswein'], ['eiswein', 'strohwein'],
+      ['wein', 'dac'], ['wein', 'reserve'], ['landwein', 'sekt'], ['landwein', 'erste_lage'],
+      ['dac', 'kabinett'], ['dac', 'eiswein'], ['reserve', 'auslese'], ['qualitaetswein', 'kabinett'], ['wein', 'landwein'],
+    ]) assert.ok(istAufstufung(von, nach), `${von} → ${nach} muss gesperrt sein`)
+    for (const [von, nach] of [
+      ['trockenbeerenauslese', 'ausbruch'], ['eiswein', 'beerenauslese'], ['eiswein', 'wein'],
+      ['qualitaetswein', 'reserve'], ['qualitaetswein', 'sekt'], ['qualitaetswein', 'dac'],   // Bestand Musterhof: QW → Reserve/Sekt
+      ['dac', 'qualitaetswein'], ['dac', 'reserve'], ['kabinett', 'dac'], ['wein', 'perlwein'], ['wein', 'sonstiges'],
+      ['sekt', 'kabinett'], ['sonstiges', 'kabinett'], [null, 'eiswein'], ['kabinett', 'kabinett'],
+    ]) assert.ok(!istAufstufung(von, nach), `${von} → ${nach} darf nicht gesperrt sein`)
+    assert.ok(istAbstufung('dac', 'qualitaetswein') && istAbstufung('eiswein', 'beerenauslese'))
+    assert.ok(!istAbstufung('qualitaetswein', 'reserve') && !istAbstufung('kabinett', 'kabinett'))
+  })
+
+  test('Charge: Auswahl chargenStufenBis ⊆ QUALITAET_OPTS, Eiswein/Strohwein nicht nach Ausbruch/TBA bzw. einander', () => {
+    assert.deepEqual(werte(chargenStufenBis(null)), werte(QUALITAET_OPTS))
+    for (const basis of werte(QUALITAET_OPTS)) {
+      const optionen = werte(chargenStufenBis(basis))
+      assert.ok(optionen.includes(basis), basis)
+      for (const v of optionen) assert.ok(istChargenQualitaet(v), `${basis} → ${v}`)
+      // außerhalb der Zweige unverändert: alles mit höchstens gleichem Rang
+      if (basis !== 'eiswein' && basis !== 'strohwein') {
+        const rang = QUALITAET_OPTS.find(o => o.value === basis).rang
+        assert.deepEqual(optionen, werte(QUALITAET_OPTS.filter(o => o.rang <= rang)), basis)
+      }
+    }
+    for (const zweig of ['eiswein', 'strohwein']) {
+      const optionen = werte(chargenStufenBis(zweig))
+      for (const nicht of ['ausbruch', 'trockenbeerenauslese', zweig === 'eiswein' ? 'strohwein' : 'eiswein']) {
+        assert.ok(!optionen.includes(nicht), `${zweig} → ${nicht}`)
+      }
+      assert.ok(optionen.includes('beerenauslese') && optionen.includes('grosses_gewachs'), zweig)
+    }
+  })
+})
+
+describe('(4) Stufe neuer Pressungs-Chargen (pressungsQualitaet, leseStufeFuerPressung)', () => {
+  test('Lese-Stufe gedeckelt durch den Ø-KMW – nie Aufstufung', () => {
+    assert.equal(pressungsQualitaet(['wein'], null), 'wein', 'Lese „Wein“ ohne KMW (vorher Qualitätswein)')
+    assert.equal(pressungsQualitaet(['wein'], 16), 'wein', 'Lese auf „Wein“ abgestuft bei 16 °KMW')
+    assert.equal(pressungsQualitaet(['eiswein'], 26), 'eiswein', 'Eiswein bei 26 °KMW (vorher BA)')
+    assert.equal(pressungsQualitaet(['eiswein'], 30.5), 'eiswein')
+    assert.equal(pressungsQualitaet(['eiswein'], null), 'eiswein')
+    assert.equal(pressungsQualitaet(['eiswein'], 22), 'auslese', 'Eiswein ohne BA-Niveau → Ableitung')
+    assert.equal(pressungsQualitaet(['eiswein', null], 26), 'beerenauslese', 'Zukauf (unbekannt) + Eiswein')
+    assert.equal(pressungsQualitaet(['eiswein', 'trockenbeerenauslese'], 31), 'beerenauslese')
+    assert.equal(pressungsQualitaet(['eiswein', 'eiswein'], 25), 'eiswein')
+    assert.equal(pressungsQualitaet(['qualitaetswein'], 18), 'qualitaetswein', 'abgestufte Lese bleibt abgestuft')
+    assert.equal(pressungsQualitaet(['kabinett', 'qualitaetswein'], 18), 'qualitaetswein')
+    assert.equal(pressungsQualitaet(['trockenbeerenauslese'], 20), 'spaetlese')
+    // ohne Lese-Stufe wie bisher: Ableitung, sonst Qualitätswein
+    assert.equal(pressungsQualitaet([null], 18), 'kabinett')
+    assert.equal(pressungsQualitaet([], 12), 'wein')
+    assert.equal(pressungsQualitaet([], null), 'qualitaetswein')
+    assert.equal(pressungsQualitaet([null, undefined], null), 'qualitaetswein')
+    assert.equal(pressungsQualitaet(['dac'], 18), 'kabinett', 'Altwert außerhalb der Skala zählt als unbekannt')
+  })
+
+  test('Ergebnis ist immer eine Chargen-Stufe', () => {
+    const stufen = [...werte(LESE_QUALITAETEN), null]
+    for (const a of stufen) for (const b of stufen) for (const kmw of [null, 0, 12, 14, 15, 17, 19, 21, 25, 27, 30, 35]) {
+      assert.ok(istChargenQualitaet(pressungsQualitaet([a, b], kmw)), `${a}, ${b}, ${kmw}`)
+    }
+  })
+
+  test('Lese-Stufe je Pressungszeile: letzte Lese bis zum Pressungsdatum, gleicher Tag → niedrigste', () => {
+    const lese = [
+      { weingartenId: 'W1', grundstueckId: 'G1', datum: '2026-09-20', stufe: 'qualitaetswein' },
+      { weingartenId: 'W1', grundstueckId: 'G1', datum: '2026-12-10', stufe: 'eiswein' },
+      { weingartenId: 'W1', grundstueckId: 'G2', datum: '2026-09-22', stufe: 'wein' },
+      { weingartenId: 'W2', grundstueckId: null, datum: '2026-09-25', stufe: 'kabinett' },
+      { weingartenId: 'W2', grundstueckId: null, datum: '2026-09-25', stufe: 'spaetlese' },
+      { weingartenId: 'W3', grundstueckId: null, datum: null, stufe: 'auslese' },
+    ]
+    const zeile = (weingartenId, grundstueckId = null) => ({ weingartenId, grundstueckId })
+    assert.equal(leseStufeFuerPressung(lese, zeile('W1', 'G1'), '2026-09-21'), 'qualitaetswein', 'Hauptlese')
+    assert.equal(leseStufeFuerPressung(lese, zeile('W1', 'G1'), '2026-12-11'), 'eiswein', 'Eiswein nach der Hauptlese')
+    assert.equal(leseStufeFuerPressung(lese, zeile('W1', 'G2'), '2026-12-11'), 'wein')
+    assert.equal(leseStufeFuerPressung(lese, zeile('W1'), '2026-09-23'), 'wein', 'ohne GST: alle Lesen des Weingartens')
+    assert.equal(leseStufeFuerPressung(lese, zeile('W2'), '2026-09-26'), 'kabinett', 'zwei Lesen am selben Tag')
+    assert.equal(leseStufeFuerPressung(lese, zeile('W3'), '2026-09-26'), 'auslese', 'ohne Lesedatum')
+    assert.equal(leseStufeFuerPressung(lese, zeile('W1', 'G1'), '2026-09-19'), null, 'Lese erst nach der Pressung')
+    assert.equal(leseStufeFuerPressung(lese, zeile('W9'), '2026-12-31'), null)
+    assert.equal(leseStufeFuerPressung(lese, zeile(null), '2026-12-31'), null, 'Zukauf')
+    assert.equal(leseStufeFuerPressung(lese, zeile('W1', 'G1'), null), 'eiswein', 'ohne Pressungsdatum: letzte Lese')
+  })
+
+  test('Akzeptanz: Kette Lese → Pressung → Charge → Füllung für jede Lese-Stufe (gegen die CHECKs)', () => {
+    const cLese = new Set(checkListe('ernte_parzellen_qualitaetsstufe_check'))
+    const cCharge = new Set(checkListe('weinausbau_qualitaetsstufe_check'))
+    const cFuellung = new Set(checkListe('fuellungen_qualitaet_check'))
+    for (const o of LESE_QUALITAETEN) {
+      const kmw = MINDEST_KMW[o.value]
+      assert.ok(cLese.has(o.value), `Lese „${o.value}“`)
+      assert.ok(werte(leseStufenBeiKmw(kmw)).includes(o.value), `Lese „${o.value}“ bei ${kmw} °KMW nicht wählbar`)
+      const lese = [{ weingartenId: 'W', grundstueckId: null, datum: '2026-09-20', stufe: o.value }]
+      const charge = pressungsQualitaet([leseStufeFuerPressung(lese, { weingartenId: 'W', grundstueckId: null }, '2026-09-21')], kmw)
+      assert.equal(charge, o.value, `Pressung: Lese „${o.value}“ bei ${kmw} °KMW → Charge „${charge}“`)
+      assert.ok(cCharge.has(charge), `Charge „${charge}“`)
+      assert.ok(werte(fuellungsStufenFuer(charge)).includes(o.value), `Füllung „${o.value}“ nicht angeboten`)
+      assert.ok(cFuellung.has(o.value), `Füllung „${o.value}“`)
+    }
+    // ausdrücklich laut Ticket: Parzelle „Wein“ → Pressung → Charge „Wein“ → Füllung „Wein“, auch ohne KMW
+    assert.equal(pressungsQualitaet(['wein'], null), 'wein')
+  })
+})
+
+// ── (5) Formulare und Server Actions ─────────────────────────────────────────
+
+describe('(5) Formulare und Server Actions verwenden die Liste ihrer Zieltabelle', () => {
+  // Name aus lib/wein/qualitaet.ts → Zieltabelle
+  const LISTEN_ZIEL = {
+    LESE_QUALITAETEN: 'lese', leseStufenBeiKmw: 'lese',
+    FUELLUNG_QUALITAETEN: 'fuellung', fuellungsStufenFuer: 'fuellung',
+    QUALITAET_OPTS: 'charge', chargenStufenBis: 'charge',
+  }
+  // Datei → erwartete Zieltabelle (neue Formulare hier eintragen – der Test verlangt es)
+  const FORMULARE = {
+    'src/app/(dashboard)/erntemeldung/[id]/ErnteDetailClient.tsx':             'lese',
+    'src/app/(dashboard)/erntemeldung/[id]/TraubenverkaufSection.tsx':         'lese',
+    'src/app/(dashboard)/weinhandel/traubenverkauf/TraubenverkaufClient.tsx':  'lese',
+    'src/app/(dashboard)/weinhandel/verkauf/neu/page.tsx':                     'lese',
+    'src/lib/assistent/tools/ernte.ts':                                        'lese',
+    'src/app/(dashboard)/weinhandel/fuellungen/neu/FuellungFormClient.tsx':    'fuellung',
+    'src/app/(dashboard)/weinhandel/fuellungen/[id]/edit/page.tsx':            'fuellung',
+    'src/lib/assistent/tools/abfuellen.ts':                                    'fuellung',
+    'src/components/kellerbuch/WeinausbauForm.tsx':                            'charge',
+    'src/app/(dashboard)/kellerbuch/actions.ts':                               'charge',
+    'src/app/(dashboard)/kellerbuch/eroeffnungsbestand/[id]/edit/page.tsx':    'charge',
+    'src/app/(dashboard)/kellerbuch/gebinde/page.tsx':                         'charge',
+    'src/app/(dashboard)/admin/import/ImportClient.tsx':                       'charge',
+    'src/app/(dashboard)/weinhandel/zukauf/neu/page.tsx':                      'charge',
+    'src/app/(dashboard)/weinhandel/zukauf/[id]/edit/ZukaufEditForm.tsx':      'charge',
+  }
+  // Serverprüfung vor dem Schreiben: [Datei, Aufruf, Mindestanzahl]
+  const SERVERPRUEFUNGEN = [
+    ['src/app/(dashboard)/erntemeldung/actions.ts', "qualitaetFehler('lese'", 3],   // Lese einzeln, mehrfach, Traubenverkauf
+    ['src/app/(dashboard)/erntemeldung/actions.ts', "qualitaetFehler('charge'", 1], // Pressung (Stufe per Direktaufruf)
+    ['src/app/(dashboard)/erntemeldung/actions.ts', 'stufeMitKmwMoeglich(', 1],     // Lese: Stufe passt zum KMW
+    ['src/app/(dashboard)/erntemeldung/actions.ts', 'pressungsQualitaet(', 1],      // Pressung: Lese-Stufe + KMW
+    ['src/app/(dashboard)/weinhandel/actions.ts', "qualitaetFehler('fuellung'", 1],
+    ['src/app/(dashboard)/weinhandel/actions.ts', 'istAufstufung(', 2],             // Füllung anlegen und ändern
+    ['src/app/(dashboard)/kellerbuch/actions.ts', "qualitaetFehler('charge'", 1],
+    ['src/app/(dashboard)/kellerbuch/actions.ts', 'chargenStufenBis(', 1],          // Charge ändern: keine Aufstufung
+    ['src/app/(dashboard)/kellerbuch/gebinde-actions.ts', "qualitaetFehler('charge'", 2],
+    ['src/app/(dashboard)/weinhandel/zukauf/actions.ts', "qualitaetFehler('charge'", 1],
+    ['src/app/(dashboard)/weinhandel/traubenverkauf/actions.ts', "qualitaetFehler('lese'", 1],
+    ['src/app/(dashboard)/weinhandel/verkauf/actions.ts', "qualitaetFehler('lese'", 1],
+    ['src/lib/assistent/tools/ernte.ts', "qualitaetFehler('lese'", 1],
+    ['src/lib/assistent/tools/abfuellen.ts', "qualitaetFehler('fuellung'", 1],
+  ]
+
+  /** Aus lib/wein/qualitaet importierte Namen einer Datei */
+  function importierteNamen(text) {
+    const namen = new Set()
+    for (const m of text.matchAll(/import\s*(?:type\s*)?\{([^}]*)\}\s*from\s*['"][^'"]*lib\/wein\/qualitaet['"]/g)) {
+      for (const teil of m[1].split(',')) {
+        const name = teil.trim().replace(/^type\s+/, '').split(/\s+as\s+/)[0].trim()
+        if (name) namen.add(name)
+      }
+    }
+    return namen
+  }
+
+  test('jede Datei importiert genau die Liste ihrer Zieltabelle und verwendet sie', () => {
+    const fehler = []
+    for (const [datei, ziel] of Object.entries(FORMULARE)) {
+      const p = path.join(ROOT, ...datei.split('/'))
+      if (!existsSync(p)) { fehler.push(`${datei}: Datei fehlt – Zuordnung in FORMULARE anpassen`); continue }
+      const text = readFileSync(p, 'utf8')
+      const listen = [...importierteNamen(text)].filter(n => n in LISTEN_ZIEL)
+      const ziele = menge(listen.map(n => LISTEN_ZIEL[n]))
+      if (JSON.stringify(ziele) !== JSON.stringify([ziel])) {
+        fehler.push(`${datei}: erwartet Liste für „${ziel}“, importiert ${listen.join(', ') || 'keine'}`)
+      }
+      for (const n of listen) {
+        if ((text.match(new RegExp(`\\b${n}\\b`, 'g')) ?? []).length < 2) fehler.push(`${datei}: ${n} importiert, aber nicht verwendet`)
+      }
+    }
+    assert.deepEqual(fehler, [])
+  })
+
+  test('keine weitere Datei in src verwendet eine Qualitätsliste ohne Eintrag in FORMULARE', () => {
+    const bekannt = new Set(Object.keys(FORMULARE))
+    const funde = []
+    ;(function durchsuche(dir) {
+      for (const name of readdirSync(dir)) {
+        const p = path.join(dir, name)
+        if (statSync(p).isDirectory()) { durchsuche(p); continue }
+        if (!/\.(ts|tsx)$/.test(name)) continue
+        const rel = path.relative(ROOT, p).split(path.sep).join('/')
+        if (rel === 'src/lib/wein/qualitaet.ts' || bekannt.has(rel)) continue
+        const listen = [...importierteNamen(readFileSync(p, 'utf8'))].filter(n => n in LISTEN_ZIEL)
+        if (listen.length > 0) funde.push(`${rel}: ${listen.join(', ')} – Zieltabelle in FORMULARE eintragen`)
+      }
+    })(path.join(ROOT, 'src'))
+    assert.deepEqual(funde, [])
+  })
+
+  test('Server Actions prüfen die Stufe vor dem Schreiben', () => {
+    const fehler = []
+    for (const [datei, aufruf, mindestens] of SERVERPRUEFUNGEN) {
+      const text = readFileSync(path.join(ROOT, ...datei.split('/')), 'utf8')
+      const anzahl = text.split(aufruf).length - 1
+      if (anzahl < mindestens) fehler.push(`${datei}: ${aufruf} ${anzahl}× statt mindestens ${mindestens}×`)
+    }
+    assert.deepEqual(fehler, [])
   })
 })
