@@ -17,7 +17,7 @@
 import { STELLEN, runden, wienHeute, type CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
 import { bkiFarbe, formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
-import { ersatzPruefnummer, pnDatumDe, pnTag, pruefnummerGueltig, pruefnummerHinweis, type PnAntrag, type PnChargeDaten } from '@/lib/kellerbuch/pruefnummer'
+import { bestandVorVerkauf, ersatzPruefnummer, pnDatumDe, pnTag, pruefnummerGueltig, pruefnummerHinweis, type PnAntrag, type PnChargeDaten } from '@/lib/kellerbuch/pruefnummer'
 import { antragAusZeile, ladePruefnummerDaten, PN_ANTRAG_SELECT } from '@/lib/kellerbuch/pruefnummerLaden'
 import { rebsorteDerLieferung } from './traubenverkauf'
 import {
@@ -224,7 +224,8 @@ export const TB_PN_NICHT_VORBELEGT = 'Prüfnummer nicht vorbelegt.'
  *
  * Prüfnummer (KAN-72): Tankposition nur mit einer am Verkaufsdatum gültigen Nummer der Charge
  * (pruefnummerGueltig – dieselbe Regel wie Blend-Protokoll und Füllungsvorschlag; bisher der
- * älteste Antrag mit Nummer ohne Status-/Datumsprüfung), sonst leer mit Hinweis. Flaschen-
+ * älteste Antrag mit Nummer ohne Status-/Datumsprüfung; Mengenregel mit dem Bestand vor dem
+ * Verkauf, bestandVorVerkauf), sonst leer mit Hinweis. Flaschen-
  * position: Nummer der Füllung, ersatzweise die ihres genehmigten, aktiven DAC-Antrags derselben
  * Charge, wenn zwischen Abfüllung und Beginn des Antrags nichts zugebucht wurde (ersatzPruefnummer
  * – etwa nach einer Verknüpfung mit einem noch nicht eingereichten Entwurf). Für den Transport
@@ -248,7 +249,10 @@ export function tbVorbelegung(posten: R, cfg: R, pn: TBPruefnummern, heute: stri
       const wa = (p.weinausbau ?? null) as R | null
       const art = farbe(wa?.weinart, wa?.rebsorte)
       if (!art) hinweise.push(farbHinweis(nr, wa?.rebsorte))
-      const daten = wa?.id ? pn.jeWeinausbau[wa.id] : undefined
+      // Mengenregel mit dem Bestand vor dem Verkauf – sonst machte der Verkauf von mehr Wein als
+      // beantragt die Nummer selbst „gültig“ (bestandVorVerkauf)
+      const roh = wa?.id ? pn.jeWeinausbau[wa.id] : undefined
+      const daten = roh ? bestandVorVerkauf(roh, verkaufstag) : undefined
       const e = daten ? pruefnummerGueltig(daten, verkaufstag, { bescheidBisStichtag: true }) : null
       const pnHinweis = e ? pruefnummerHinweis(e, `den Bestand am ${pnDatumDe(verkaufstag)} (Verkaufsdatum)`) : null
       if (pnHinweis) hinweise.push(`Position ${nr}: ${pnHinweis} ${TB_PN_NICHT_VORBELEGT}`)

@@ -407,6 +407,18 @@ describe('Füllung: fuellungAntragPruefen, waehlbareAntraege, freiePruefnummerPr
     // eine mit dem Antrag verknüpfte Füllung zählt immer
     const verknuepft = a({ zugaenge: [PRESSUNG, { art: 'verschnitt', datum: '2026-09-20' }], bestandLiter: 0, abfuellungen: [{ datum: '2026-09-15', liter: 600, dacAntragId: ANTRAG_ID }] })
     assert.match(pn.freiePruefnummerPruefen('N 10716/26', p(verknuepft, '2026-09-12', [{ datum: '2026-09-12', liter: 500 }])), /500,00 l aus ihr umgezogen und 600,00 l abgefüllt – zusammen mehr als beantragt/)
+    // Rest der Antrags-Charge danach offen (Tank) verkauft: zählt wie eine Füllung – sonst gäbe der
+    // Verkauf (TBS mit der Nummer der Antrags-Charge) die Nummer ein zweites Mal frei
+    const verkauft = a({ bestandLiter: 0, tankverkaeufe: [{ datum: '2026-09-13', liter: 1000 }] })
+    assert.match(pn.freiePruefnummerPruefen('N 10716/26', p(verkauft, '2026-09-12', [{ datum: '2026-09-12', liter: 500 }])),
+      /der DAC-Antrag umfasst 1\.000,00 l; seither wurden 500,00 l aus ihr umgezogen und 1\.000,00 l offen \(Tank\) verkauft – zusammen mehr als beantragt\.$/)
+    const alles = a({ bestandLiter: 0, tankverkaeufe: [{ datum: '2026-09-13', liter: 200 }], abfuellungen: [{ datum: '2026-09-14', liter: 600, dacAntragId: ANTRAG_ID }] })
+    assert.match(pn.freiePruefnummerPruefen('N 10716/26', p(alles, '2026-09-12', [{ datum: '2026-09-12', liter: 500 }])), /500,00 l aus ihr umgezogen, 200,00 l offen \(Tank\) verkauft und 600,00 l abgefüllt – zusammen/)
+    // Verkauf vor der Einreichung bzw. nach einem Zugang in A zählt nicht
+    const frueh = a({ antraege: [{ ...teil, mengeLiter: 1500 }], tankverkaeufe: [{ datum: '2026-08-15', liter: 400 }] })
+    assert.equal(pn.freiePruefnummerPruefen('N 10716/26', p(frueh, '2026-09-25', [{ datum: '2026-09-25', liter: 500 }])), null)
+    const spaet = a({ zugaenge: [PRESSUNG, { art: 'verschnitt', datum: '2026-09-20' }], bestandLiter: 748, tankverkaeufe: [{ datum: '2026-09-22', liter: 300 }] })
+    assert.equal(pn.freiePruefnummerPruefen('N 10716/26', p(spaet, '2026-09-12', [{ datum: '2026-09-12', liter: 1000 }])), null)
   })
 })
 
@@ -546,6 +558,19 @@ describe('Lader ladePruefnummerDaten', () => {
     const d = (await laden.ladePruefnummerDaten(attrappe(db), T, [CH], { heute: '2026-09-25' })).get(CH)
     const e = pn.pruefnummerGueltig(d, '2026-09-25')
     assert.deepEqual([e.grund, e.ereignisDatum], ['zugang', '2026-08-15'])
+  })
+  test('Tankverkäufe aus der Charge mit Verkaufsdatum – stornierte, Flaschen und fremde Betriebe nicht', async () => {
+    const db = dbMusterhof()
+    db.verkauf_positionen = [
+      { id: 'vp1', tenant_id: T, typ: 'tank', weinausbau_id: CH, menge: '200.00', verkaufsposten: { datum: '2026-09-20', storniert: false } },
+      { id: 'vp2', tenant_id: T, typ: 'tank', weinausbau_id: CH, menge: '50', verkaufsposten: { datum: '2026-09-21', storniert: true } },
+      { id: 'vp3', tenant_id: T, typ: 'flasche', weinausbau_id: null, menge: '12', verkaufsposten: { datum: '2026-09-21', storniert: false } },
+      { id: 'vp4', tenant_id: X, typ: 'tank', weinausbau_id: CH, menge: '999', verkaufsposten: { datum: '2026-09-21', storniert: false } },
+    ]
+    const sb = attrappe(db)
+    const d = (await laden.ladePruefnummerDaten(sb, T, [CH], { heute: '2026-09-25' })).get(CH)
+    assert.deepEqual(d.tankverkaeufe, [{ datum: '2026-09-20', liter: 200 }])
+    mandantGefiltert(sb)
   })
 })
 
@@ -702,6 +727,24 @@ describe('Transportbescheinigung: Tankverkauf aus der Charge', () => {
     const hinweise = []
     assert.equal(tb.tbVorbelegung(posten('2026-06-01'), CFG, PN, '2026-09-25', hinweise).positionen[0].pruefnummer, '')
     assert.deepEqual(hinweise, ['Position 1: Prüfnummer N 10716/26 gilt nicht für den Bestand am 01.06.2026 (Verkaufsdatum): Sie wurde erst mit dem Bescheid vom 08.06.2026 erteilt. Prüfnummer nicht vorbelegt.'])
+  })
+  test('Mengenregel mit dem Bestand vor dem Verkauf: ganzer Tank über der Antragsmenge verkauft → keine Vorbelegung', () => {
+    // Charge 700 l, Antrag über 500 l (eingereicht 01.09., Bescheid 10.09.); heute verkauft – der Bestand ist schon gemindert
+    const teil = { ...ANTRAG, mengeLiter: 500, eingereichtAm: '2026-09-01', bescheidAm: '2026-09-10', angelegtAm: '2026-09-01' }
+    const pnMit = (tankverkaeufe, bestandLiter = 0) => ({ jeWeinausbau: { [CH]: musterhof({ antraege: [teil], zugaenge: [PRESSUNG], abfuellungen: [], bestandLiter, tankverkaeufe }) }, jeDacAntrag: {} })
+    const verkauf = menge => ({ ...posten('2026-09-25'), positionen: [{ ...posten('2026-09-25').positionen[0], menge }] })
+    let h = []
+    assert.equal(tb.tbVorbelegung(verkauf(700), CFG, pnMit([{ datum: '2026-09-25', liter: 700 }]), '2026-09-25', h).positionen[0].pruefnummer, '')
+    assert.deepEqual(h, ['Position 1: Frühere Prüfnummer N 10716/26 gilt nicht für den Bestand am 25.09.2026 (Verkaufsdatum): 700,00 l Bestand, beantragt waren 500,00 l, davon 0,00 l abgefüllt – höchstens 500,00 l tragen die Nummer. Prüfnummer nicht vorbelegt.'])
+    // Überschuss schon vorher verkauft, heute der Rest von 500 l → Nummer
+    h = []
+    assert.equal(tb.tbVorbelegung(verkauf(500), CFG, pnMit([{ datum: '2026-09-24', liter: 200 }, { datum: '2026-09-25', liter: 500 }]), '2026-09-25', h).positionen[0].pruefnummer, 'N 10716/26')
+    assert.deepEqual(h, [])
+    // zwei Verkäufe am selben Tag (Reihenfolge unbekannt): beide ohne Nummer
+    h = []
+    assert.equal(tb.tbVorbelegung(verkauf(350), CFG, pnMit([{ datum: '2026-09-25', liter: 350 }, { datum: '2026-09-25', liter: 350 }]), '2026-09-25', h).positionen[0].pruefnummer, '')
+    // Verkauf in der Vergangenheit: Mengenregel wie bisher nicht geprüft, nichts zurückgerechnet
+    assert.equal(pn.bestandVorVerkauf(pnMit([{ datum: '2026-09-20', liter: 700 }]).jeWeinausbau[CH], '2026-09-20').bestandLiter, 0)
   })
   test('Flaschenposition ohne eigene Nummer: Antrag nur derselben Charge und erst ab dem Bescheid', () => {
     const antrag = laden.antragAusZeile(dbMusterhof().dac_antrag[0])
@@ -979,6 +1022,7 @@ describe('Verdrahtung (Quelltext)', () => {
   test('TBS: Tank über den Helfer am Verkaufsdatum, nicht mehr „ältester Antrag mit Nummer“', () => {
     const s = quelle('src/lib/behoerden/transportbescheinigung.ts')
     assert.match(s, /pruefnummerGueltig\(daten, verkaufstag, \{ bescheidBisStichtag: true \}\)/)
+    assert.match(s, /const daten = roh \? bestandVorVerkauf\(roh, verkaufstag\) : undefined/)
     assert.match(s, /ladePruefnummerDaten\(supabase, tenantId, waIds\)/)
     assert.doesNotMatch(s, /pn\.jeWeinausbau\[d\.weinausbau_id\] = /)
     // Zeitraumliste verwirft die Hinweise der Vorbelegung nicht mehr

@@ -26,7 +26,8 @@
 //   * Zugänge ohne Datum werden nicht gewertet (z. B. Pressung ohne Datum = Herkunft).
 //   * Mengenregel nur, wenn der Bestand am Stichtag bekannt ist: der Lader liefert den
 //     aktuellen Bestand (bestandAm = heute). Für einen Stichtag in der Vergangenheit (z. B.
-//     Verkaufsdatum der TBS) entfällt sie – mengeGeprueft: false. Keine Messtoleranz (nur die
+//     Verkaufsdatum der TBS) entfällt sie – mengeGeprueft: false. Am Verkaufstag selbst rechnet
+//     die TBS mit dem Bestand VOR dem Verkauf (bestandVorVerkauf). Keine Messtoleranz (nur die
 //     Rundung von numeric(10,2)): eine gerundete Antragsmenge oder ein Antrag über eine
 //     Teilmenge des Gebindes lässt die Nummer der Charge nicht gelten, bis der Bestand passt
 //     (Messdifferenz als Schwund buchen bzw. Antragsmenge korrigieren) – fachlich offen.
@@ -38,9 +39,10 @@
 //     eigenen Antrag, Blend-Protokoll und TBS zeigen für sie keine Nummer (bis KAN-99). Die
 //     Füllung nimmt die Nummer dort als freie Eingabe an, wenn die Charge nur über Umzüge aus
 //     der Antrags-Charge stammt, die Nummer am ersten und am letzten Umzugstag galt und der
-//     Antrag die Menge deckt: Bestand der Antrags-Charge + seither umgezogen + abgefüllt ≤
-//     beantragt (freiePruefnummerPruefen). Die Antrags-Charge selbst zählt Umzüge nicht mit –
-//     wer den Überschuss eines Antrags über eine Teilmenge umzieht, behält die Nummer für den Rest.
+//     Antrag die Menge deckt: Bestand der Antrags-Charge + seither umgezogen + offen (Tank)
+//     verkauft + abgefüllt ≤ beantragt (freiePruefnummerPruefen). Die Antrags-Charge selbst zählt
+//     Umzüge nicht mit – wer den Überschuss eines Antrags über eine Teilmenge umzieht, behält die
+//     Nummer für den Rest; ihr Wein hat Vorrang, auch wenn er später offen verkauft wird.
 //
 // Grundlage für KAN-83 (Warnung „Prüfnummer gilt nicht mehr“ bei Verschnitt/Umzug/Zugang)
 // und KAN-84 (Füllung: Merkmale serverseitig aus der Charge); KAN-99 ersetzt die Ableitung
@@ -72,6 +74,9 @@ export type PnZugang = { art: PnZugangArt; datum: string | null; id?: string }
 /** Füllung aus der Charge (für die Mengenregel) */
 export type PnAbfuellung = { id?: string; datum: string | null; liter: number; dacAntragId: string | null }
 
+/** Tankverkauf aus der Charge (verkauf_positionen typ 'tank', Posten nicht storniert), Verkaufsdatum */
+export type PnTankverkauf = { datum: string | null; liter: number }
+
 export type PnChargeDaten = {
   chargeId: string
   /** Bestand in l am Tag bestandAm (Lader: aktueller Bestand, bestandAm = heute); null = unbekannt */
@@ -80,6 +85,8 @@ export type PnChargeDaten = {
   antraege: PnAntrag[]
   zugaenge: PnZugang[]
   abfuellungen: PnAbfuellung[]
+  /** Tankverkäufe aus der Charge (bestandVorVerkauf, Mengenregel der Umzugsherkunft); fehlt: keine bekannt */
+  tankverkaeufe?: PnTankverkauf[]
 }
 
 export type PnGrund =
@@ -130,7 +137,7 @@ export type PnUmzugsherkunft = {
   umzugAm: string
   /** erster Umzug aus dieser Charge in die Kette – der Antrag muss davor begonnen haben (fehlt: umzugAm) */
   ersterUmzugAm?: string | null
-  /** alle Umzüge aus dieser Charge in andere Chargen (Mengenregel der Herkunft; fehlt: keine) */
+  /** alle Umzüge aus dieser Charge in andere Chargen (Mengenregel der Herkunft mit daten.tankverkaeufe; fehlt: keine) */
   umzuegeAus?: PnUmzugAbgang[]
 }
 
@@ -260,6 +267,22 @@ function mengeRegel(antrag: PnAntrag, daten: PnChargeDaten, stichtag: string): P
     abgefuelltLiter: r2(abgefuellt),
     zulaessigLiter: r2(antrag.mengeLiter - abgefuellt),
   }
+}
+
+/**
+ * Daten für die Mengenregel einer Tankposition der TBS: Bestand am Verkaufstag VOR dem Verkauf.
+ * Der Bestand des Laders ist um den Verkauf schon gemindert – sonst machte sich der Verkauf von
+ * mehr Wein als beantragt selbst „gültig“ (ganzer Tank verkauft → Bestand 0). Zurückgerechnet
+ * werden alle Tankverkäufe der Charge ab dem Verkaufstag (auch andere desselben Tages – ihre
+ * Reihenfolge ist unbekannt). Nur, wenn die Mengenregel greift (Verkaufstag ≥ Tag des Bestands).
+ */
+export function bestandVorVerkauf(daten: PnChargeDaten, verkaufstag: string): PnChargeDaten {
+  const bestandAm = pnTag(daten.bestandAm)
+  if (daten.bestandLiter === null || !Number.isFinite(daten.bestandLiter) || bestandAm === null || verkaufstag < bestandAm) return daten
+  const verkauft = (daten.tankverkaeufe ?? [])
+    .filter(v => { const t = pnTag(v.datum); return t === null || t >= verkaufstag })
+    .reduce((s, v) => s + (Number.isFinite(v.liter) ? v.liter : 0), 0)
+  return verkauft > 0 ? { ...daten, bestandLiter: daten.bestandLiter + verkauft } : daten
 }
 
 /**
@@ -506,14 +529,17 @@ export function chargeHatAntrag(daten: PnChargeDaten | null | undefined): boolea
 
 /**
  * Mengenregel einer Umzugs-Charge (freiePruefnummerPruefen): Wein mit der Nummer des Antrags =
- * heutiger Bestand der Antrags-Charge + seit dem Beginn aus ihr umgezogen (Umzugstag = Beginn
- * zählt mit) + abgefüllt (wie mengeRegel); das muss der beantragten Menge entsprechen. Ab dem
- * ersten Zugang seit dem Beginn trägt der Wein der Antrags-Charge die Nummer nicht mehr: ihr
- * Bestand zählt dann nicht, spätere Umzüge und nicht verknüpfte Füllungen auch nicht (am Tag des
- * Zugangs noch). Anders als die Mengenregel der Antrags-Charge unabhängig vom Umzugstag
- * (heutiger Bestand). null = nicht prüfbar (keine beantragte Menge, Bestand unbekannt).
+ * heutiger Bestand der Antrags-Charge + seit dem Beginn aus ihr umgezogen bzw. offen (Tank)
+ * verkauft (Tag = Beginn zählt mit) + abgefüllt (wie mengeRegel); das muss der beantragten Menge
+ * entsprechen. Tankverkäufe zählen wie Füllungen vorsichtshalber alle – ob die TBS die Nummer
+ * trug, steht nicht fest; sonst gäbe der Verkauf des Rests der Antrags-Charge (die die Nummer
+ * behält) die Nummer ein zweites Mal für den umgezogenen Wein frei. Ab dem ersten Zugang seit
+ * dem Beginn trägt der Wein der Antrags-Charge die Nummer nicht mehr: ihr Bestand zählt dann
+ * nicht, spätere Umzüge, Verkäufe und nicht verknüpfte Füllungen auch nicht (am Tag des Zugangs
+ * noch). Anders als die Mengenregel der Antrags-Charge unabhängig vom Umzugstag (heutiger
+ * Bestand). null = nicht prüfbar (keine beantragte Menge, Bestand unbekannt).
  */
-function herkunftMenge(antrag: PnAntrag, h: PnUmzugsherkunft): { bestandLiter: number; umgezogenLiter: number; abgefuelltLiter: number; beantragtLiter: number } | null {
+function herkunftMenge(antrag: PnAntrag, h: PnUmzugsherkunft): { bestandLiter: number; umgezogenLiter: number; verkauftLiter: number; abgefuelltLiter: number; beantragtLiter: number } | null {
   const d = h.daten
   const bestandAm = pnTag(d.bestandAm)
   if (antrag.mengeLiter === null || !Number.isFinite(antrag.mengeLiter)) return null
@@ -521,12 +547,13 @@ function herkunftMenge(antrag: PnAntrag, h: PnUmzugsherkunft): { bestandLiter: n
   const beginn = antragBeginn(antrag)
   const zugang = beginn !== null ? zugaengeZwischen(d.zugaenge, beginn, bestandAm)[0] ?? null : null
   const grenze = zugang ? pnTag(zugang.datum) : null
-  const umgezogen = (h.umzuegeAus ?? [])
+  const seitBeginn = (abgaenge: readonly { datum: string | null; liter: number }[]) => abgaenge
     .filter(u => { const t = pnTag(u.datum); return t === null || ((beginn === null || t >= beginn) && (grenze === null || t <= grenze)) })
     .reduce((s, u) => s + (Number.isFinite(u.liter) ? u.liter : 0), 0)
   return {
     bestandLiter: r2(grenze ? 0 : d.bestandLiter),
-    umgezogenLiter: r2(umgezogen),
+    umgezogenLiter: r2(seitBeginn(h.umzuegeAus ?? [])),
+    verkauftLiter: r2(seitBeginn(d.tankverkaeufe ?? [])),
     abgefuelltLiter: r2(abgefuelltLiter(antrag, d, grenze)),
     beantragtLiter: r2(antrag.mengeLiter),
   }
@@ -544,7 +571,7 @@ function herkunftMenge(antrag: PnAntrag, h: PnUmzugsherkunft): { bestandLiter: n
  *     die Nummer eines inaktiven Antrags der eigenen Charge. Einzige Ausnahme: die Charge stammt
  *     nur über Umzüge aus der Antrags-Charge (`herkunft`, ladeUmzugsherkunft), die Nummer galt
  *     dort am ersten und am letzten Umzugstag laut pruefnummerGueltig und der Antrag deckt die
- *     Menge (herkunftMenge: Bestand + seither umgezogen + abgefüllt ≤ beantragt).
+ *     Menge (herkunftMenge: Bestand + seither umgezogen + offen verkauft + abgefüllt ≤ beantragt).
  * `nachtraeglich` (Charge einer bestehenden Füllung nachträglich zugeordnet, nichts wird
  * abgebucht): der erste Punkt entfällt – eine Nummer, die zu keinem Antrag des Betriebs gehört
  * (z. B. aus einem früheren, nicht erfassten Los), bleibt zulässig.
@@ -586,9 +613,11 @@ export function freiePruefnummerPruefen(
     }
     const antrag = h.daten.antraege.find(a => a.id === e?.antragId)
     const m = antrag ? herkunftMenge(antrag, h) : null
-    if (m && m.bestandLiter + m.umgezogenLiter + m.abgefuelltLiter > m.beantragtLiter + RUNDUNG) {
-      const seither = `seither wurden ${liter(m.umgezogenLiter)} aus ihr umgezogen`
-        + (m.abgefuelltLiter > 0 ? ` und ${liter(m.abgefuelltLiter)} abgefüllt` : '')
+    if (m && m.bestandLiter + m.umgezogenLiter + m.verkauftLiter + m.abgefuelltLiter > m.beantragtLiter + RUNDUNG) {
+      const teile = [`${liter(m.umgezogenLiter)} aus ihr umgezogen`]
+      if (m.verkauftLiter > 0) teile.push(`${liter(m.verkauftLiter)} offen (Tank) verkauft`)
+      if (m.abgefuelltLiter > 0) teile.push(`${liter(m.abgefuelltLiter)} abgefüllt`)
+      const seither = `seither wurden ${teile.length > 1 ? `${teile.slice(0, -1).join(', ')} und ${teile[teile.length - 1]}` : teile[0]}`
         + (m.bestandLiter > 0 ? `, ${liter(m.bestandLiter)} liegen noch in ihr` : '')
       return nichtFuerDiesenWein(`der DAC-Antrag umfasst ${liter(m.beantragtLiter)}; ${seither} – zusammen mehr als beantragt.`)
     }

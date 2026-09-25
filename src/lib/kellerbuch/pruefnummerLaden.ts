@@ -2,10 +2,10 @@
 //
 // Lädt je Charge, was pruefnummerGueltig() (lib/kellerbuch/pruefnummer.ts) braucht: DAC-Anträge
 // (alle, auch inaktive/abgelehnte – für Hinweise und chargeHatAntrag), Buchungen mit der Charge
-// als ZIEL (Verschnitt, Zukauf, Umzug aus einer anderen Charge, Pressung), Füllungen und den
-// aktuellen Bestand. Zugänge, Füllungen und Bestand nur für Chargen mit mindestens einem
-// Antrag – ohne Antrag gibt es nichts zu prüfen. pruefnummerFuerFuellung ist die Prüfung der
-// Server Action createFuellung (Prüfnummer nie ungeprüft aus dem Formular),
+// als ZIEL (Verschnitt, Zukauf, Umzug aus einer anderen Charge, Pressung), Füllungen, Tankverkäufe
+// und den aktuellen Bestand. Zugänge, Füllungen, Verkäufe und Bestand nur für Chargen mit
+// mindestens einem Antrag – ohne Antrag gibt es nichts zu prüfen. pruefnummerFuerFuellung ist
+// die Prüfung der Server Action createFuellung (Prüfnummer nie ungeprüft aus dem Formular),
 // pruefnummerBeiChargenzuordnung und pruefnummerBeiDatumsaenderung die von updateFuellung
 // (Charge nachträglich zugeordnet bzw. Abfülldatum geändert); ladeUmzugsherkunft verfolgt eine
 // Charge ohne Antrag über Umzüge zur Antrags-Charge zurück.
@@ -101,7 +101,7 @@ export async function ladePruefnummerDaten(
   const heute = opts.heute ?? wienHeute()
   const ids = [...new Set(chargeIds.filter((x): x is string => typeof x === 'string' && UUID_RE.test(x)))]
   const daten = new Map<string, PnChargeDaten>()
-  for (const id of ids) daten.set(id, { chargeId: id, bestandLiter: null, bestandAm: null, antraege: [], zugaenge: [], abfuellungen: [] })
+  for (const id of ids) daten.set(id, { chargeId: id, bestandLiter: null, bestandAm: null, antraege: [], zugaenge: [], abfuellungen: [], tankverkaeufe: [] })
   if (ids.length === 0) return daten
 
   // 1. Anträge
@@ -121,7 +121,7 @@ export async function ladePruefnummerDaten(
   const zugang = (id: unknown, z: PnZugang) => { daten.get(String(id))?.zugaenge.push(z) }
 
   for (const block of bloecke(mitAntrag)) {
-    const [waRes, vRes, zkRes, umRes, pbRes, fRes, fcRes] = await Promise.all([
+    const [waRes, vRes, zkRes, umRes, pbRes, fRes, fcRes, tvRes] = await Promise.all([
       alle<R>((supabase.from('weinausbau') as any)
         .select('id, menge_liter')
         .eq('tenant_id', tenantId)
@@ -159,6 +159,12 @@ export async function ladePruefnummerDaten(
         .eq('tenant_id', tenantId)
         .in('weinausbau_id', block)
         .order('id')),
+      alle<R>((supabase.from('verkauf_positionen') as any)
+        .select('id, menge, weinausbau_id, verkaufsposten:verkaufsposten_id(datum, storniert)')
+        .eq('tenant_id', tenantId)
+        .eq('typ', 'tank')
+        .in('weinausbau_id', block)
+        .order('id')),
     ])
     if (waRes.error) fehler('Chargen', waRes.error)
     if (vRes.error) fehler('Verschnitte', vRes.error)
@@ -167,6 +173,7 @@ export async function ladePruefnummerDaten(
     if (pbRes.error) fehler('Pressungen', pbRes.error)
     if (fRes.error) fehler('Füllungen', fRes.error)
     if (fcRes.error) fehler('Füllungs-Chargen', fcRes.error)
+    if (tvRes.error) fehler('Tankverkäufe', tvRes.error)
 
     for (const w of waRes.data) {
       const d = daten.get(String(w.id))
@@ -214,6 +221,13 @@ export async function ladePruefnummerDaten(
       merken(fc.weinausbau_id, fc.fuellung_id, { id: String(fc.fuellung_id), datum: pnTag(f.datum), liter: zahl(fc.anteil_liter) ?? 0, dacAntragId: f.dac_antrag_id ? String(f.dac_antrag_id) : null })
     }
     for (const [charge, m] of jeCharge) daten.get(charge)?.abfuellungen.push(...m.values())
+
+    // Tankverkäufe: der Storno bucht die Liter zurück – stornierte Posten zählen nicht
+    for (const v of tvRes.data) {
+      const vp = v.verkaufsposten as R | null
+      if (vp?.storniert === true) continue
+      daten.get(String(v.weinausbau_id))?.tankverkaeufe?.push({ datum: pnTag(vp?.datum), liter: zahl(v.menge) ?? 0 })
+    }
   }
   return daten
 }
@@ -368,8 +382,8 @@ async function umzuegeAusCharge(supabase: any, tenantId: string, chargeId: strin
  * bestand). `ersterUmzugAm`/`umzugAm` sind der erste und letzte Umzug aus der Antrags-Charge in
  * die Kette – in einem Zwischenglied nur Umzüge bis zum letzten Umzug ins nächste Glied. An
  * beiden Tagen muss die Nummer gegolten haben, `umzuegeAus` (alle Umzüge aus der Antrags-Charge)
- * dient der Mengenregel (freiePruefnummerPruefen). Bis KAN-99 der einzige Weg, die Nummer nach
- * einem Umzug auf eine Füllung zu bringen.
+ * dient mit den Tankverkäufen in `daten` der Mengenregel (freiePruefnummerPruefen). Bis KAN-99
+ * der einzige Weg, die Nummer nach einem Umzug auf eine Füllung zu bringen.
  */
 export async function ladeUmzugsherkunft(
   supabase: any,
