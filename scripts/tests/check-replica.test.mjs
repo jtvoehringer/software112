@@ -142,23 +142,24 @@ describe('Verzeichnisse (Beispielprojekt über S112_GUARD_ROOT)', () => {
     }
   }
 
-  test('aktive Zeile in sql/, scripts/ und supabase/migrations/ lässt den Lauf scheitern', () => {
+  test('aktive Zeile in sql/, scripts/, supabase/migrations/ und Datenskripten unter supabase/ lässt den Lauf scheitern', () => {
     const r = lauf({
       'sql/cleanup.sql': `-- Kopf\n${AKTIV}\nDELETE FROM x;\n`,
       'scripts/restore.mjs': `await db.query("ALTER TABLE x ${DT} ALL")\n`,
       'supabase/migrations/20260925120000_x.sql': `ALTER TABLE x ${DT} USER;\n`,
+      'supabase/import_x.sql': `${AKTIV}\n`,
     })
     assert.equal(r.code, 1, r.text)
     assert.match(r.text, /sql\/cleanup\.sql:2 {2}REPLICA/)
     assert.match(r.text, /scripts\/restore\.mjs:1 {2}DISABLE_TRIGGER/)
     assert.match(r.text, /supabase\/migrations\/20260925120000_x\.sql:1 {2}DISABLE_TRIGGER/)
-    assert.match(r.text, /3 Fund\(e\)/)
+    assert.match(r.text, /supabase\/import_x\.sql:1 {2}REPLICA/)
+    assert.match(r.text, /4 Fund\(e\)/)
   })
 
   test('migrations_legacy, andere Ordner, andere Endungen und das Skript selbst bleiben außen vor', () => {
     const r = lauf({
       'supabase/migrations_legacy/052_alt.sql': `${AKTIV}\n`,
-      'supabase/import.sql': `${AKTIV}\n`,
       'docs/notiz.sql': `${AKTIV}\n`,
       'scripts/notiz.md': `${AKTIV}\n`,
       'scripts/check-replica.js': `const x = "${AKTIV.replace(/'/g, '')}"\n`,

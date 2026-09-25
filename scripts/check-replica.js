@@ -10,9 +10,10 @@
  *  2. DISABLE_TRIGGER  ALTER TABLE … DISABLE TRIGGER … (auch ALL/USER) bzw. ENABLE REPLICA TRIGGER
  *                      (feuert dann nur noch unter 'replica', im Normalbetrieb also nie).
  *
- * Geprüft werden sql/**, scripts/** und supabase/migrations/** – *.sql, in scripts/ zusätzlich
- * *.js/*.mjs/*.cjs/*.ts (dynamisches SQL in Node-Skripten). Nicht geprüft: supabase/migrations_legacy/
- * (unveränderliche Historie bis 24.09.2026, dort nichts davon) und dieses Skript selbst.
+ * Geprüft werden sql/**, scripts/** und supabase/** (Migrationen, aber auch Datenskripte wie
+ * supabase/import_*.sql) – *.sql, in scripts/ zusätzlich *.js/*.mjs/*.cjs/*.ts (dynamisches SQL in
+ * Node-Skripten). Nicht geprüft: supabase/migrations_legacy/ (unveränderliche Historie bis
+ * 24.09.2026, dort nichts davon) und dieses Skript selbst.
  * Kommentare zählen nicht: -- … und /* … *\/ (in SQL auch verschachtelt) bzw. // … und /* … *\/ in JS –
  * die seit KAN-35 auskommentierten Zeilen der Cleanup-Skripte bleiben so erlaubt. Strings zählen
  * (EXECUTE 'SET …', set_config('session_replication_role', …)), ebenso DO-Rümpfe in $$ … $$.
@@ -27,7 +28,8 @@
 const fs = require('fs')
 const path = require('path')
 
-const VERZEICHNISSE = ['sql', 'scripts', 'supabase/migrations']
+const VERZEICHNISSE = ['sql', 'scripts', 'supabase']
+const AUSGENOMMEN = ['supabase/migrations_legacy']
 const SQL_ENDUNGEN = ['.sql']
 const JS_ENDUNGEN = ['.js', '.mjs', '.cjs', '.ts']
 const SELBST = 'scripts/check-replica.js'
@@ -184,7 +186,8 @@ function pruefeText(text, sprache = 'sql') {
   }
   // Statistik: Erwähnungen, die nur in Kommentaren stehen (z. B. die seit KAN-35 auskommentierten Zeilen)
   const imCode = MUSTER.reduce((summe, { re }) => summe + (code.match(re) ?? []).length, 0)
-  return { funde, ausnahmen, auskommentiert: roh - imCode }
+  // (nie negativ: „DISABLE /* … */ TRIGGER“ trifft erst nach dem Entfernen des Kommentars)
+  return { funde, ausnahmen, auskommentiert: Math.max(0, roh - imCode) }
 }
 
 const rel = (root, f) => path.relative(root, f).split(path.sep).join('/')
@@ -206,7 +209,7 @@ function pruefeWurzel(root) {
     const endungen = verzeichnis === 'scripts' ? [...SQL_ENDUNGEN, ...JS_ENDUNGEN] : SQL_ENDUNGEN
     for (const f of dateien(path.join(root, verzeichnis), endungen)) {
       const r = rel(root, f)
-      if (r === SELBST) continue
+      if (r === SELBST || AUSGENOMMEN.some(a => r.startsWith(a + '/'))) continue
       anzahl++
       const sprache = SQL_ENDUNGEN.some(x => r.endsWith(x)) ? 'sql' : 'js'
       const e = pruefeText(fs.readFileSync(f, 'utf8'), sprache)
