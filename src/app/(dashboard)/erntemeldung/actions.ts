@@ -3,6 +3,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { kmwZuQualitaet } from '@/lib/weinqualitaet'
+import { qualitaetFehler } from '@/lib/wein/qualitaet'
 import { findePassendeHerkunftsstufe, HERKUNFT_LABEL, minHerkunft } from '@/lib/herkunft'
 import { createVerkaufspostenFuerTrauben, ermittleQuellenName, upsertTraubenverkauf } from '@/app/(dashboard)/weinhandel/traubenverkauf/actions'
 import { stornoVerkauf } from '@/app/(dashboard)/weinhandel/verkauf/actions'
@@ -120,6 +121,10 @@ export async function upsertErnteParzelle(jahrgangId: string, formData: FormData
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
   const weingartenId = formData.get('weingarten_id') as string
+  // KAN-73: nur Lese-Stufen (LESE_QUALITAETEN = CHECK ernte_parzellen) – verständliche Meldung statt 23514
+  const qualitaetsstufe = (formData.get('qualitaetsstufe') as string) || null
+  const qualitaetUnzulaessig = qualitaetFehler('lese', qualitaetsstufe)
+  if (qualitaetUnzulaessig) throw new AktionsFehler(qualitaetUnzulaessig)
   // dezimal() ist nötig, da die Felder °KMW-typisch mit Komma-Dezimaltrennzeichen
   // erfasst werden (de-AT) - ohne die Ersetzung liefert Number() bei "9,5" NaN.
   const mengeKg = formData.get('menge_kg') ? Number(dezimal((formData.get('menge_kg') as string))) : null
@@ -153,7 +158,7 @@ export async function upsertErnteParzelle(jahrgangId: string, formData: FormData
     menge_hl:         mengeHl,
     oechsle:          formData.get('oechsle') ? Number(dezimal((formData.get('oechsle') as string))) : null,
     klosterneuburger: formData.get('klosterneuburger') ? Number(dezimal((formData.get('klosterneuburger') as string))) : null,
-    qualitaetsstufe:  (formData.get('qualitaetsstufe') as string) || null,
+    qualitaetsstufe:  qualitaetsstufe,
     herkunft_code:    herkunftCode,
     lesemethode:      (formData.get('lesemethode') as string) || null,
     notizen:          notizen,
@@ -278,10 +283,17 @@ export async function createMultipleErnteParzellen(jahrgangId: string, formData:
   const ernteDatum  = (formData.get('ernte_datum') as string) || null
   const lesemethode = (formData.get('lesemethode') as string) || null
   // dezimal() nötig für de-AT-Komma-Eingabe (z.B. "9,5") - siehe upsertErnteParzelle.
-  const kmw         = formData.get('klosterneuburger') ? Number(dezimal((formData.get('klosterneuburger') as string))) : null
-  // Qualitätsstufe wird ausschließlich aus den °KMW abgeleitet (kein manuelles Formularfeld
-  // mehr) - Fallback 'qualitaetswein', wenn kein KMW erfasst wurde.
-  const qualitaet   = kmw != null ? kmwZuQualitaet(kmw) : 'qualitaetswein'
+  const kmwEingabe  = formData.get('klosterneuburger') ? Number(dezimal((formData.get('klosterneuburger') as string))) : null
+  // KAN-73: eine ungültige Eingabe (NaN) zählt wie „kein KMW“ – gespeichert wurde sie schon
+  // bisher als leer, kmwZuQualitaet(NaN) ergäbe aber die unterste Stufe 'wein'.
+  const kmw         = kmwEingabe != null && Number.isFinite(kmwEingabe) ? kmwEingabe : null
+  // Qualitätsstufe wird aus den °KMW abgeleitet (kein manuelles Formularfeld mehr). Ohne KMW
+  // gilt die mitgegebene Stufe – nur das Assistent-Tool ernte_erfassen schickt eine, das
+  // Formular nicht (KAN-73: geprüft gegen LESE_QUALITAETEN) –, sonst 'qualitaetswein'.
+  const qualitaetOhneKmw = (formData.get('qualitaetsstufe') as string) || null
+  const qualitaetUnzulaessig = qualitaetFehler('lese', qualitaetOhneKmw)
+  if (qualitaetUnzulaessig) throw new AktionsFehler(qualitaetUnzulaessig)
+  const qualitaet   = kmw != null ? kmwZuQualitaet(kmw) : (qualitaetOhneKmw ?? 'qualitaetswein')
   const notizen     = (formData.get('notizen') as string) || null
   const mengeKgRaw  = formData.get('menge_kg') as string | null
   const mengeKg     = mengeKgRaw ? Number(dezimal(mengeKgRaw)) : null
@@ -348,7 +360,7 @@ export async function createMultipleErnteParzellen(jahrgangId: string, formData:
     const mengen = splitKg(mengeKg, wgGsts.map(g => g.flaeche_ha))
     wgGsts.forEach((g, i) => {
       const kg = g.menge_kg != null ? g.menge_kg : mengen[i]
-      const perKmw = g.kmw != null ? g.kmw : kmw
+      const perKmw = g.kmw != null && Number.isFinite(Number(g.kmw)) ? Number(g.kmw) : kmw
       const perQualitaet = perKmw != null ? kmwZuQualitaet(perKmw) : qualitaet
       const perLesemethode = g.lesemethode ?? lesemethode
       const perNotizen = g.notizen ?? notizen
@@ -715,6 +727,10 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
   const notizen          = (fd.get('notizen') as string) || null
   const qualitaetsstufeInput = (fd.get('qualitaetsstufe') as string) || null
   if (!datum) throw new AktionsFehler('Bitte das Datum der Pressung angeben.')
+  // KAN-73: die Stufe geht in die neue Kellerbuch-Charge (weinausbau) – vor jedem Schreiben prüfen.
+  // Das Formular schickt keine (Ableitung aus den °KMW), nur ein direkter Aufruf.
+  const qualitaetUnzulaessig = qualitaetFehler('charge', qualitaetsstufeInput)
+  if (qualitaetUnzulaessig) throw new AktionsFehler(qualitaetUnzulaessig)
 
   const weingaerten: WGZeile[] = leseFormularJson<PressungWGInput>(fd, 'weingaerten_json').map(w => ({
     id:               textOderNull(w.id),

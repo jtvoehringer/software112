@@ -3,7 +3,7 @@
 import { useState, useTransition, useEffect } from 'react'
 import Link from '@/components/ui/Link'
 import { updateZukauf } from '../../actions'
-import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
+import { QUALITAET_OPTS, mitGespeichertemWert } from '@/lib/wein/qualitaet'
 import { AlertTriangle } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum } from '@/lib/format'
@@ -47,11 +47,8 @@ interface InitialValues {
 const inputCls = 'border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 bg-white'
 const labelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
 
-const ZUKAUF_QUALITAETEN = [
-  'landwein', 'qualitaetswein', 'kabinett', 'spaetlese', 'auslese',
-  'beerenauslese', 'ausbruch', 'trockenbeerenauslese', 'eiswein', 'strohwein',
-  'dac', 'reserve',
-] as const
+// Qualitätsstufe eines Wein-/Most-Zukaufs: zentrale Chargen-Liste QUALITAET_OPTS wie beim
+// Anlegen (KAN-73); ein gespeicherter Wert außerhalb der Liste bleibt sichtbar
 
 const ART_OPTIONS: { value: 'wein' | 'most' | 'trauben'; label: string }[] = [
   { value: 'wein',    label: 'Wein' },
@@ -337,8 +334,8 @@ export default function ZukaufEditForm({
                 <select aria-label="Qualitätsstufe" value={qualitaet} onChange={e => setQualitaet(e.target.value)}
                   className={inputCls + ' w-full'}>
                   <option value="">– nicht angegeben –</option>
-                  {ZUKAUF_QUALITAETEN.map(q => (
-                    <option key={q} value={q}>{QUALITAET_LABEL[q] ?? q}</option>
+                  {mitGespeichertemWert(QUALITAET_OPTS, initial.qualitaetsstufe).map(q => (
+                    <option key={q.value} value={q.value}>{q.label}</option>
                   ))}
                 </select>
               </div>

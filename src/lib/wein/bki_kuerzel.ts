@@ -159,12 +159,14 @@ const QUALITAET_VORSCHLAG: Record<string, { kuerzel: string; name: string }> = {
   'ausbruch': { kuerzel: 'AUB', name: 'Ausbruch' },
 }
 
-/** Werte ohne passende Stufe in der BKI-Kürzelliste – Feld bleibt leer */
+/** Werte ohne passende Stufe in der BKI-Kürzelliste – Feld bleibt leer.
+ *  KAN-73 (25.09.2026): der frühere Lese-Wert für „Wein ohne Herkunft“ heißt jetzt überall
+ *  'wein' und hat mit WEI ein amtliches Kürzel (QUALITAET_BKI oben) – der alte Eintrag hier
+ *  entfällt; ein solcher Altwert käme nur noch als unbekannte Stufe (leer mit Hinweis) an. */
 const QUALITAET_OHNE_BKI: Record<string, string> = {
   'sekt':      'Sekt b.A.',
   'perlwein':  'Perlwein',
   'sonstiges': 'Sonstiges',
-  'tafelwein': 'Tafelwein',
 }
 
 /** Bekannte Rotwein-Rebsorten für Farberkennung (Altbestand – maßgeblich ist jetzt bkiFarbe()) */
@@ -262,7 +264,8 @@ export function fehlendeKuerzelHinweise(
  *  - amtliche Stufe → Kürzel, kein Hinweis
  *  - Reserve / Erste Lage / Großes Gewächs → QUW (Grundstufe Qualitätswein) mit Hinweis
  *  - Ausbruch → vorläufig AUB (Vorschlag, nicht in der Liste) mit Hinweis
- *  - Sekt, Perlwein, Sonstiges, Tafelwein, unbekannte Werte → leer mit Hinweis
+ *  - Sekt, Perlwein, Sonstiges, unbekannte Werte → leer mit Hinweis
+ *  - Wein (ohne Herkunft) → WEI (amtlich, auch bei der Lese seit KAN-73)
  *  - leer → leer, kein Hinweis
  */
 export function qualitaetBki(q: string | null | undefined): { kuerzel: string; hinweis: string | null } {

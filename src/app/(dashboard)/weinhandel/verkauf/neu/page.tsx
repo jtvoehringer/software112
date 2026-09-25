@@ -6,6 +6,7 @@ import Link from '@/components/ui/Link'
 import { createVerkauf, createSonstigesArtikel, SonstigesArtikelData } from '../actions'
 import { Check } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
+import { LESE_QUALITAETEN, mitGespeichertemWert } from '@/lib/wein/qualitaet'
 import { fmtEur, fmtNum } from '@/lib/format'
 import PartnerSuche from '@/components/crm/PartnerSuche'
 import { fehlerText } from '@/lib/fehler'
@@ -669,16 +670,11 @@ export default function NeuerVerkaufPage() {
                         onChange={e => updatePos(idx, { trauben_qualitaetsstufe: e.target.value })}
                         className={inputCls + ' w-full'}>
                         <option value="">–</option>
-                        <option value="tafelwein">Tafelwein</option>
-                        <option value="landwein">Landwein</option>
-                        <option value="qualitaetswein">Qualitätswein</option>
-                        <option value="kabinett">Kabinett</option>
-                        <option value="spaetlese">Spätlese</option>
-                        <option value="auslese">Auslese</option>
-                        <option value="beerenauslese">Beerenauslese</option>
-                        <option value="trockenbeerenauslese">Trockenbeerenauslese</option>
-                        <option value="eiswein">Eiswein</option>
-                        <option value="strohwein">Strohwein</option>
+                        {/* KAN-73: Trauben-Qualität = Stufen der Lese („Wein“ statt des früheren
+                            Werts, Strohwein vorerst nicht – wie bei der Lese, Entscheidung nach KAN-38) */}
+                        {mitGespeichertemWert(LESE_QUALITAETEN, pos.trauben_qualitaetsstufe).map(q => (
+                          <option key={q.value} value={q.value}>{q.label}</option>
+                        ))}
                       </select>
                     </div>
                     <div>

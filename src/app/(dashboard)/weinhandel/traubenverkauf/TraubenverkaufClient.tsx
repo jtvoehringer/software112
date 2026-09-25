@@ -6,7 +6,7 @@ import { upsertTraubenverkauf, deleteTraubenverkauf } from './actions'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
-import { qualitaetLabel } from '@/lib/wein/qualitaet'
+import { qualitaetLabel, LESE_QUALITAETEN, mitGespeichertemWert } from '@/lib/wein/qualitaet'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { csvDatei, csvDateiname, HINWEIS_BKI_UPLOAD } from '@/lib/csv'
 import { csvPfad } from '@/lib/behoerden/katalog'
@@ -26,17 +26,9 @@ interface Props {
   bkiErlaubt:   boolean
 }
 
-const QUALITAETEN = [
-  { value: 'landwein',             label: 'Landwein' },
-  { value: 'qualitaetswein',       label: 'Qualitätswein' },
-  { value: 'kabinett',             label: 'Kabinett' },
-  { value: 'spaetlese',            label: 'Spätlese' },
-  { value: 'auslese',              label: 'Auslese' },
-  { value: 'beerenauslese',        label: 'Beerenauslese' },
-  { value: 'trockenbeerenauslese', label: 'Trockenbeerenauslese' },
-  { value: 'eiswein',              label: 'Eiswein' },
-  { value: 'dac',                  label: 'DAC' },
-]
+// Trauben-Qualität = Stufen der Lese (KAN-73: LESE_QUALITAETEN). „DAC“ ist keine Stufe der
+// Trauben – sie wird erst an Charge bzw. Füllung vergeben – und steht deshalb nicht mehr zur
+// Wahl; ein bereits gespeicherter Wert außerhalb der Liste bleibt beim Bearbeiten sichtbar.
 
 function fmtDate(d: string) {
   return new Date(d).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -449,7 +441,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Qualitätsstufe</label>
                 <select aria-label="Qualitätsstufe" name="qualitaetsstufe" value={qualitaet} onChange={e => setQualitaet(e.target.value)} className={inp}>
                   <option value="">– keine –</option>
-                  {QUALITAETEN.map(q => <option key={q.value} value={q.value}>{q.label}</option>)}
+                  {mitGespeichertemWert(LESE_QUALITAETEN, qualitaet).map(q => <option key={q.value} value={q.value}>{q.label}</option>)}
                 </select>
               </div>
 
@@ -601,7 +593,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
                           </span>
                         )}
                         {v.kmw_grad != null && <span>{'·'} {fmt(v.kmw_grad)} KMW Grad</span>}
-                        {v.qualitaetsstufe && <span>{'·'} {v.qualitaetsstufe}</span>}
+                        {v.qualitaetsstufe && <span>{'·'} {qualitaetLabel(v.qualitaetsstufe)}</span>}
                         {v.herkunft_code && <span className="font-mono">{'·'} {v.herkunft_code}</span>}
                         <span>{'·'} {kaeufer}</span>
                         {v.notizen && <span className="italic">{'·'} {v.notizen}</span>}

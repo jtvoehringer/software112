@@ -3,7 +3,7 @@
 import { useState, useTransition, useEffect } from 'react'
 import Link from '@/components/ui/Link'
 import { createZukauf } from '../actions'
-import { QUALITAET_LABEL, QUALITAET_ORDER } from '@/lib/weinqualitaet'
+import { QUALITAET_OPTS } from '@/lib/wein/qualitaet'
 import { AlertTriangle } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum } from '@/lib/format'
@@ -20,12 +20,8 @@ const DEFAULT_EINHEIT: Record<string, string> = {
   wein: 'L', trauben: 'kg', most: 'L',
 }
 
-// Qualitätsstufen die beim Zukauf relevant sind
-const ZUKAUF_QUALITAETEN = [
-  'landwein', 'qualitaetswein', 'kabinett', 'spaetlese', 'auslese',
-  'beerenauslese', 'ausbruch', 'trockenbeerenauslese', 'eiswein', 'strohwein',
-  'dac', 'reserve',
-] as const
+// Qualitätsstufe eines Wein-/Most-Zukaufs: geht in die Zielcharge (weinausbau) – deshalb die
+// zentrale Chargen-Liste QUALITAET_OPTS (KAN-73; vorher eine eigene Teilliste ohne „Wein“)
 
 // Lieferanten-Suche: serverseitig über components/crm/PartnerSuche (17.9.2026)
 
@@ -318,8 +314,8 @@ export default function ZukaufNeuPage() {
                 <select aria-label="Qualitätsstufe" value={qualitaet} onChange={e => setQualitaet(e.target.value)}
                   className={inputCls + ' w-full'}>
                   <option value="">– nicht angegeben –</option>
-                  {ZUKAUF_QUALITAETEN.map(q => (
-                    <option key={q} value={q}>{QUALITAET_LABEL[q] ?? q}</option>
+                  {QUALITAET_OPTS.map(q => (
+                    <option key={q.value} value={q.value}>{q.label}</option>
                   ))}
                 </select>
               </div>

@@ -3,6 +3,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { istNiedrigerAls, QUALITAET_LABEL } from '@/lib/weinqualitaet'
+import { qualitaetFehler } from '@/lib/wein/qualitaet'
 import { istNiedrigerAls as herkunftIstNiedrigerAls, HERKUNFT_LABEL } from '@/lib/herkunft'
 import { getCurrentMembership, canWrite, type Membership } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
@@ -57,6 +58,17 @@ function pruefeChargenRecht(m: Membership) {
   if (!(canWrite(m, 'kellerbuch') || canWrite(m, 'rieden'))) {
     throw new AktionsFehler('Keine Berechtigung, den Bestand der Kellerbuch-Charge zu ändern – dafür ist das Modul Kellerbuch (oder Rieden) nötig.')
   }
+}
+
+/** Qualitätsbezeichnung einer Füllung aus dem Formular (KAN-73): Pflichtfeld (fuellungen.qualitaet
+ *  ist NOT NULL) und nur Werte des CHECK fuellungen (FUELLUNG_QUALITAETEN) – verständliche Meldung
+ *  statt 23502/23514, vor jedem Schreibzugriff. */
+function fuellungQualitaetAusFormular(formData: FormData): string {
+  const wert = (formData.get('qualitaet') as string) || null
+  if (!wert) throw new AktionsFehler('Bitte eine Qualitätsbezeichnung für die Füllung wählen.')
+  const fehler = qualitaetFehler('fuellung', wert)
+  if (fehler) throw new AktionsFehler(fehler)
+  return wert
 }
 
 /** Notiz der Abschluss-Schwundzeile einer Füllung (deactivateFuellung erkennt sie am Anfang) */
@@ -134,7 +146,7 @@ export async function createFuellung(formData: FormData): Promise<{ id: string; 
   if (!(mengeGefuellt > 0)) throw new AktionsFehler('Die abgefüllte Menge muss größer als 0 L sein.')
   if (!DATUM_RE.test(datum)) throw new AktionsFehler('Bitte ein gültiges Abfülldatum angeben.')
 
-  const qualitaetInput     = (formData.get('qualitaet') as string) || null
+  const qualitaetInput     = fuellungQualitaetAusFormular(formData)
   const herkunftCodeInput  = (formData.get('herkunft_code') as string) || null
   let notizenZusatz = ''
   let charge: AR | null = null
@@ -235,7 +247,7 @@ export async function createFuellung(formData: FormData): Promise<{ id: string; 
     name:                 formData.get('name') as string,
     jahrgang:             parseInt(dezimal(formData.get('jahrgang') as string)) || null,
     rebsorte:             (formData.get('rebsorte') as string) || null,
-    qualitaet:            formData.get('qualitaet') as string,
+    qualitaet:            qualitaetInput,   // KAN-73: geprüft (fuellungQualitaetAusFormular)
     herkunft_code:        herkunftCodeInput,
     anbaugebiet:          (formData.get('anbaugebiet') as string) || null,
     bezeichnung:          (formData.get('bezeichnung') as string) || null,
@@ -379,7 +391,7 @@ export async function updateFuellung(id: string, formData: FormData): Promise<vo
     }
   }
 
-  const qualitaetInput    = (formData.get('qualitaet') as string) || null
+  const qualitaetInput    = fuellungQualitaetAusFormular(formData)
   const herkunftCodeInput = (formData.get('herkunft_code') as string) || null
   let notizenZusatz = ''
 
@@ -444,7 +456,7 @@ export async function updateFuellung(id: string, formData: FormData): Promise<vo
     name:                 formData.get('name') as string,
     jahrgang:             parseInt(dezimal(formData.get('jahrgang') as string)) || null,
     rebsorte:             (formData.get('rebsorte') as string) || null,
-    qualitaet:            formData.get('qualitaet') as string,
+    qualitaet:            qualitaetInput,   // KAN-73: geprüft (fuellungQualitaetAusFormular)
     herkunft_code:        herkunftCodeInput,
     anbaugebiet:          (formData.get('anbaugebiet') as string) || null,
     bezeichnung:          (formData.get('bezeichnung') as string) || null,

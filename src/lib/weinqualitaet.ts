@@ -12,6 +12,11 @@ export const QUALITAET_ORDER = [
 
 export type Qualitaetsstufe = typeof QUALITAET_ORDER[number] | 'sonstiges' | null
 
+// Kurzbezeichnungen für Fließtexte (Abstufungs-Hinweise, Badges, Notizen). Bewusst kürzer
+// als die Listen-Labels in lib/wein/qualitaet.ts (dort „Wein (ohne Herkunft)“): umziehen()
+// schreibt diese Texte in Notizen/Bewegungsbuch, und lib/kellerbuch/storno.ts
+// (qualitaetsCode) liest sie beim Storno wieder zurück – ein geändertes Label träfe
+// gespeicherte Texte nicht mehr. Werte = QUALITAET_OPTS (Test: scripts/tests/qualitaet.test.mjs).
 export const QUALITAET_LABEL: Record<string, string> = {
   wein:                    'Wein',
   landwein:                'Landwein',
@@ -48,8 +53,14 @@ export function minQualitaet(stufen: (string | null | undefined)[]): string | nu
 }
 
 /** Leitet die Qualitätsstufe aus dem KMW-Grad (Klosterneuburger Mostwaage) ab.
- *  Quelle: Österreichisches Weingesetz (oesterreichwein.at)
- *  Eiswein / Strohwein / Ausbruch werden NICHT auto-abgeleitet (Sonderbedingungen). */
+ *  Quelle: Österreichisches Weingesetz (oesterreichwein.at) – Mindest-Mostgewichte:
+ *  Landwein 14, Qualitätswein 15, Kabinett 17, Spätlese 19, Auslese 21,
+ *  Beerenauslese 25, Trockenbeerenauslese 30 °KMW; darunter „Wein“ (ohne Herkunft).
+ *  KAN-73 (25.09.2026): unter 14 °KMW jetzt 'wein' statt 'landwein' – Landwein verlangt
+ *  mindestens 14 °KMW. Das Ergebnis ist immer ein Wert aus LESE_QUALITAETEN
+ *  (lib/wein/qualitaet.ts), also für ernte_parzellen und weinausbau speicherbar.
+ *  Eiswein / Strohwein / Ausbruch werden NICHT auto-abgeleitet (Sonderbedingungen).
+ *  Aufrufer übergeben nur gültige Zahlen (NaN/leer vorher abfangen – NaN ergäbe 'wein'). */
 export function kmwZuQualitaet(kmw: number): string {
   if (kmw >= 30) return 'trockenbeerenauslese'
   if (kmw >= 25) return 'beerenauslese'
@@ -57,7 +68,8 @@ export function kmwZuQualitaet(kmw: number): string {
   if (kmw >= 19) return 'spaetlese'
   if (kmw >= 17) return 'kabinett'
   if (kmw >= 15) return 'qualitaetswein'
-  return 'landwein'
+  if (kmw >= 14) return 'landwein'
+  return 'wein'
 }
 
 // Nur diese Stufen werden für die Abstufungs-Prüfung beim Verschneiden herangezogen.

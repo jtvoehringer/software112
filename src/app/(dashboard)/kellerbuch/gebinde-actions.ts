@@ -9,6 +9,7 @@ import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { fmtNum, dezimal, zahlAus } from '@/lib/format'
 import { AktionsFehler, dbFehlerText, fehlerText } from '@/lib/fehler'
+import { qualitaetFehler } from '@/lib/wein/qualitaet'
 import { sperreBeiFolgebuchungen } from '@/lib/kellerbuch/folgebuchungen'
 import {
   ladeUmzugZeilen, planeUmzugStorno, storniereUmzug, umzugSperrMeldung, umzugAlsEingabe, nurNotizenAenderbar,
@@ -61,6 +62,10 @@ async function insertEroeffnungsbestand(formData: FormData): Promise<string | nu
   const jahr      = new Date().getFullYear()
   // Keine aktiven 0-L- oder negativen Chargen (KAN-35; negativ scheitert zusätzlich am CHECK)
   if (!Number.isFinite(menge) || menge < 0.01) return 'Bitte eine Menge von mindestens 0,01 L angeben.'
+  // KAN-73: nur Stufen des CHECK weinausbau (QUALITAET_OPTS) – vor der Transaktionsnummer prüfen
+  const qualitaetsstufe = (formData.get('qualitaetsstufe') as string) || null
+  const qualitaetUnzulaessig = qualitaetFehler('charge', qualitaetsstufe)
+  if (qualitaetUnzulaessig) return qualitaetUnzulaessig
 
   const epRaw = dezimal(formData.get('einstandspreis_pro_liter') as string) ?? ''
   // Transaktionsnummer vergeben
@@ -73,7 +78,7 @@ async function insertEroeffnungsbestand(formData: FormData): Promise<string | nu
     kmw:                  parseFloat(dezimal(formData.get('kmw') as string)) || null,
     menge_liter:          menge,
     anfangsbestand_liter: menge,
-    qualitaetsstufe:      (formData.get('qualitaetsstufe') as string) || null,
+    qualitaetsstufe:      qualitaetsstufe,
     behaelter_id:         (formData.get('behaelter_id') as string) || null,
     notizen:              (formData.get('notizen') as string) || null,
     einstandspreis_pro_liter: epRaw ? parseFloat(epRaw) : null,
@@ -136,12 +141,17 @@ async function eroeffnungsbestandSpeichern(id: string, formData: FormData): Prom
   if (!altRaw) throw new AktionsFehler('Eröffnungsbestand nicht gefunden')
   const alt = altRaw as R
 
+  // KAN-73: nur Stufen des CHECK weinausbau (QUALITAET_OPTS) – verständliche Meldung statt 23514
+  const qualitaetsstufe = (formData.get('qualitaetsstufe') as string) || null
+  const qualitaetUnzulaessig = qualitaetFehler('charge', qualitaetsstufe)
+  if (qualitaetUnzulaessig) throw new AktionsFehler(qualitaetUnzulaessig)
+
   const epRaw2 = dezimal(formData.get('einstandspreis_pro_liter') as string) ?? ''
   const payload: R = {
     name:            formData.get('name') as string,
     jahrgang:        parseInt(dezimal(formData.get('jahrgang') as string)) || null,
     kmw:             parseFloat(dezimal(formData.get('kmw') as string)) || null,
-    qualitaetsstufe: (formData.get('qualitaetsstufe') as string) || null,
+    qualitaetsstufe: qualitaetsstufe,
     notizen:         (formData.get('notizen') as string) || null,
     einstandspreis_pro_liter: epRaw2 ? parseFloat(epRaw2) : null,
     referenz_altsystem: (formData.get('referenz_altsystem') as string) || null,
