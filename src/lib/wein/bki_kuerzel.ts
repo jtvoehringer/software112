@@ -258,11 +258,14 @@ export function fehlendeKuerzelHinweise(
 export function qualitaetBki(q: string | null | undefined): { kuerzel: string; hinweis: string | null } {
   const wert = (q ?? '').trim().toLowerCase()
   if (!wert) return { kuerzel: '', hinweis: null }
-  const kuerzel = QUALITAET_BKI[wert]
+  // Nur eigene Einträge – sonst lieferte z. B. „constructor“ die Funktion des Object-Prototyps
+  const eigen = (tabelle: Record<string, string>): string | undefined =>
+    Object.prototype.hasOwnProperty.call(tabelle, wert) ? tabelle[wert] : undefined
+  const kuerzel = eigen(QUALITAET_BKI)
   if (kuerzel) return { kuerzel, hinweis: null }
-  const zusatz = QUALITAET_GRUNDSTUFE_QUW[wert]
+  const zusatz = eigen(QUALITAET_GRUNDSTUFE_QUW)
   if (zusatz) return { kuerzel: 'QUW', hinweis: `„${zusatz}“ hat kein eigenes BKI-Kürzel – als Qualitätswein (QUW) gemeldet` }
-  const ohne = QUALITAET_OHNE_BKI[wert]
+  const ohne = eigen(QUALITAET_OHNE_BKI)
   if (ohne) return { kuerzel: '', hinweis: `„${ohne}“ steht nicht in der BKI-Kürzelliste – Qualitätsstufe leer gelassen` }
   return { kuerzel: '', hinweis: `Qualitätsstufe „${q}“ ist unbekannt – Qualitätsstufe leer gelassen` }
 }

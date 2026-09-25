@@ -175,3 +175,14 @@ describe('BKI-Datenblatt: Spalte „Herkunft“ und X-Warnungen', () => {
     assert.deepEqual(text.slice(3).map(z => z.split(';')[spalte]), ['WLNO', '', '', 'WLWV'])
   })
 })
+
+describe('qualitaetBki() – nur eigene Einträge', () => {
+  test('Prototyp-Schlüssel („constructor“, „toString“) liefern kein Kürzel, sondern „unbekannt“', () => {
+    for (const q of ['constructor', 'toString', '__proto__', 'hasOwnProperty']) {
+      const e = kuerzel.qualitaetBki(q)
+      assert.equal(e.kuerzel, '', q)
+      assert.match(e.hinweis ?? '', /ist unbekannt/, q)
+    }
+    assert.deepEqual(kuerzel.qualitaetBki('Spaetlese'), { kuerzel: 'SPL', hinweis: null })
+  })
+})
