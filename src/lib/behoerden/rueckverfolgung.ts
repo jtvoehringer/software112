@@ -3,10 +3,17 @@
 // Die Kette stand bis 24.09.2026 in kellerbuch/rueckverfolgung/page.tsx (ladeChargeKette);
 // jetzt hier, damit Bildschirm, Ausdruck und CSV („rueckverfolgung“) gleich rechnen.
 //   Füllung → Chargen (fuellung_chargen, sonst fuellungen.weinausbau_id, sonst eindeutiger
-//   Treffer über Rebsorte + Jahrgang) → Pressungen (pressung_behaelter) → Weingärten/GST
-//   (pressung_weingaerten) → Behandlungen der Grundstücke (behandlung_grundstuecke).
+//   Treffer über Rebsorte + Jahrgang) → Pressungen (pressung_behaelter) → Lesezeilen
+//   Weingarten/GST (pressung_weingaerten) → Maßnahmen im Weingarten bis zur Lese.
+// Maßnahmen (KAN-75, 25.09.2026): je Lesezeile nur die des gelesenen Grundstücks im
+// Zeitfenster vom Tag nach der vorigen Lese dieses GST (sonst 01.01. des Jahrgangs) bis
+// einschließlich zum Lesedatum – fehlt es an der Lesezeile (im Echtbetrieb die Regel), bis zum
+// Lesedatum laut Erntemeldung (nur wenn eindeutig: ein Lesetag, Menge deckt das Verpresste),
+// sonst bis zum Pressungsdatum. Regeln und offene Annahme (KAN-38) in rueckverfolgungFenster.ts.
+// Bis dahin standen hier alle Maßnahmen aller GST der Weingärten ohne Datumsgrenze.
 // CSV: eine Zeile je Füllung × Ursprung (Charge × Pressung × Weingarten/GST), mit Anteil
-// der Charge an der Füllung und den Behandlungen des Grundstücks bzw. Weingartens.
+// der Charge an der Füllung und den Maßnahmen dieser Lese (Kette.lesen – dieselbe Zuordnung
+// wie auf der Seite).
 // Die Trefferliste der Seite (Filter Jahrgang/Sorte/Bezeichnung) kommt ebenfalls von hier;
 // ihre Listen-CSV entsteht im Browser (SPALTEN_RUECKVERFOLGUNG_TREFFER). Isomorph.
 // Rechtsgrundlage: Art. 18 VO (EG) 178/2002 (Rückverfolgbarkeit).
@@ -16,17 +23,47 @@ import { runden, STELLEN, type CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
 import { bkiRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
 import { num, numOderNull, tag, text, type R } from './kellerbuch-hilfen'
+import {
+  fensterBeginnText, ladebereich, leseFenster, leseWarnungen, ordneMassnahmenZu, ttmmjjjj,
+  type ErnteEintrag, type ErnteErsatz, type LeseHistorie, type LeseZeile, type MassnahmeOrt, type VerpressteTrauben, type Zeitfenster,
+} from './rueckverfolgungFenster'
 
 export const BEHANDLUNG_ART_LABEL: Record<string, string> = {
   spritzung: 'Spritzung', duengung: 'Düngung', bodenbearbeitung: 'Bodenbearbeitung',
   schnitt: 'Schnitt', laubarbeit: 'Laubarbeit', sonstiges: 'Sonstiges',
 }
 
+/** Eine Maßnahme im Zeitfenster einer Lese */
+export type LeseMassnahme = {
+  /** behandlungen-Zeile (id, datum, datum_bis, art, psm, aufwandmenge …) */
+  behandlung: R
+  /** nur am Weingarten erfasst (keine Grundstückszuordnung) */
+  nurWeingarten: boolean
+  /** betroffene GST-Nummern dieser Lese (bei Lese ohne GST: die des Weingartens) */
+  grundstuecke: string[]
+  /** behandelte Fläche auf diesen GST laut behandlung_grundstuecke; null = nicht erfasst */
+  flaecheHa: number | null
+}
+
+/** Maßnahmen im Weingarten bis zur Lese – je Lesezeile (pressung_weingaerten) einmal */
+export type LeseMassnahmen = {
+  /** pressung_weingaerten.id */
+  leseId: string
+  /** pressung_weingaerten-Zeile samt weingarten/grundstueck */
+  lese: R
+  pressungDatum: string | null
+  fenster: Zeitfenster | null
+  /** Abgleich mit der Erntemeldung (Fensterende ohne Lesedatum an der Pressung), sonst null */
+  ersatz: ErnteErsatz | null
+  massnahmen: LeseMassnahme[]
+  hinweise: string[]
+}
+
 export type Kette = {
   weinausbau: R | null
   pressungen: R[]
-  /** je Behandlung einmal, mit Grundstücks-Labels, -IDs und Flächensumme */
-  behandlungen: R[]
+  /** je Lesezeile der Pressungen die Maßnahmen im Zeitfenster bis zur Lese (KAN-75) */
+  lesen: LeseMassnahmen[]
   analysen: R[]
   umzuege: R[]
 }
@@ -36,9 +73,227 @@ function pruefen<T>(res: { data: T; error: { message?: string } | null }, was: s
   return res.data
 }
 
+type MassnahmeRoh = MassnahmeOrt & { roh: R; flaeche: Map<string, number | null> }
+
+/**
+ * Maßnahmen je Lesezeile der Pressungen (KAN-75): Zeitfenster und Zuordnung in
+ * rueckverfolgungFenster.ts; hier nur Laden (je Mandant gefiltert) und Umformen.
+ * Seite und CSV bekommen das Ergebnis über ladeChargeKette (Kette.lesen).
+ */
+export async function ladeLeseMassnahmen(supabase: any, tenantId: string, pressungen: readonly R[]): Promise<LeseMassnahmen[]> {
+  // Lesezeilen der Charge – je pressung_weingaerten-Zeile einmal (eine Pressung kann über
+  // mehrere Behälter in dieselbe Charge fließen)
+  const zeilen = new Map<string, { lese: R; pressungDatum: string | null; eingabe: LeseZeile }>()
+  for (const pb of pressungen) {
+    const p = pb.pressung as R | null
+    if (!p) continue
+    for (const wg of ((p.pressung_weingaerten ?? []) as R[])) {
+      const id = text(wg.id)
+      if (!id || zeilen.has(id)) continue
+      const pressungDatum = tag(p.datum) || null
+      zeilen.set(id, {
+        lese: wg,
+        pressungDatum,
+        eingabe: {
+          id,
+          grundstueckId: text(wg.grundstueck_id),
+          weingartenId: text((wg.weingarten as R | null)?.id ?? wg.weingarten_id),
+          lesedatum: tag(wg.ernte_datum) || null,
+          pressungDatum,
+          jahrgang: numOderNull((p.jahrgang as R | null)?.jahrgang),
+          jahrgangId: text(p.jahrgang_id),
+        },
+      })
+    }
+  }
+  if (zeilen.size === 0) return []
+  const eingaben = [...zeilen.values()].map(z => z.eingabe)
+  const gstIds = [...new Set(eingaben.map(e => e.grundstueckId).filter((x): x is string => !!x))]
+  const wgIds = [...new Set(eingaben.map(e => e.weingartenId).filter((x): x is string => !!x))]
+  // Jahrgänge der Lesezeilen ohne eigenes Lesedatum – dort gilt das Lesedatum laut Erntemeldung
+  // (pw.ernte_datum schreibt das Pressungsformular nicht, siehe rueckverfolgungFenster.ts)
+  const jgOhneLesedatum = [...new Set(eingaben
+    .filter(e => !e.lesedatum && (e.grundstueckId || e.weingartenId))
+    .map(e => e.jahrgangId)
+    .filter((x): x is string => !!x))]
+
+  const leer = Promise.resolve({ data: [] as R[], error: null })
+  const [gstWgRes, gstLeseRes, histRes, ernteRes, verpresstRes] = await Promise.all([
+    // alle GST der Weingärten (für Lesen ohne GST) …
+    wgIds.length > 0
+      ? alle<R>((supabase.from('grundstuecke') as any)
+          .select('id, weingarten_id, gst_nr')
+          .eq('tenant_id', tenantId)
+          .in('weingarten_id', wgIds)
+          .order('id'))
+      : leer,
+    // … und die GST der Lesen selbst (Weingarten laut Grundstück für Maßnahmen am Weingarten)
+    gstIds.length > 0
+      ? alle<R>((supabase.from('grundstuecke') as any)
+          .select('id, weingarten_id, gst_nr')
+          .eq('tenant_id', tenantId)
+          .in('id', gstIds)
+          .order('id'))
+      : leer,
+    // Lese-Historie dieser GST im Betrieb (auch anderer Chargen) – für die „vorige Lese“ im
+    // selben Jahrgang. pressung_weingaerten hat keine tenant_id – Mandant über die Pressung (!inner)
+    gstIds.length > 0
+      // tenant-isolation-ignore: pressung_weingaerten ohne tenant_id, Filter über die Pressung
+      ? alle<R>((supabase.from('pressung_weingaerten') as any)
+          .select('id, grundstueck_id, ernte_datum, pressung:pressung_id!inner(tenant_id, jahrgang:jahrgang_id(jahrgang))')
+          .eq('pressung.tenant_id', tenantId)
+          .in('grundstueck_id', gstIds)
+          .order('id'))
+      : leer,
+    // Lese-Einträge der Erntemeldung – nur Ersatz für ein fehlendes Lesedatum (Fensterende).
+    // ernte_parzellen hat keine tenant_id – Mandant über den Jahrgang (!inner)
+    jgOhneLesedatum.length > 0
+      // tenant-isolation-ignore: ernte_parzellen ohne tenant_id, Filter über den Jahrgang
+      ? alle<R>((supabase.from('ernte_parzellen') as any)
+          .select('id, jahrgang_id, weingarten_id, grundstueck_id, ernte_datum, menge_kg, jahrgang:jahrgang_id!inner(tenant_id)')
+          .eq('jahrgang.tenant_id', tenantId)
+          .in('jahrgang_id', jgOhneLesedatum)
+          .order('id'))
+      : leer,
+    // Verpresste Trauben dieser Jahrgänge im Betrieb – Mengenprüfung des Ersatz-Lesedatums
+    // (deckt die Erntemeldung das Verpresste nicht, gilt das Pressungsdatum)
+    jgOhneLesedatum.length > 0
+      // tenant-isolation-ignore: pressung_weingaerten ohne tenant_id, Filter über die Pressung
+      ? alle<R>((supabase.from('pressung_weingaerten') as any)
+          .select('id, weingarten_id, grundstueck_id, trauben_kg, pressung:pressung_id!inner(tenant_id, datum, jahrgang_id)')
+          .eq('pressung.tenant_id', tenantId)
+          .in('pressung.jahrgang_id', jgOhneLesedatum)
+          .order('id'))
+      : leer,
+  ])
+
+  const gstNr = new Map<string, string>()
+  const weingartenJeGst = new Map<string, string>()
+  const gstJeWeingarten = new Map<string, string[]>()
+  for (const g of [...pruefen(gstWgRes, 'Grundstücke'), ...pruefen(gstLeseRes, 'Grundstücke')]) {
+    const id = text(g.id)
+    if (!id || gstNr.has(id)) continue
+    gstNr.set(id, text(g.gst_nr) ?? '?')
+    const wgId = text(g.weingarten_id)
+    if (!wgId) continue
+    weingartenJeGst.set(id, wgId)
+    gstJeWeingarten.set(wgId, [...(gstJeWeingarten.get(wgId) ?? []), id])
+  }
+
+  const historie: LeseHistorie[] = pruefen(histRes, 'Lese-Historie')
+    .filter(h => (h.pressung as R | null)?.tenant_id === tenantId)
+    .map(h => ({
+      id: String(h.id), grundstueckId: text(h.grundstueck_id), lesedatum: tag(h.ernte_datum) || null,
+      jahrgang: numOderNull(((h.pressung as R | null)?.jahrgang as R | null)?.jahrgang),
+    }))
+  for (const e of eingaben) {
+    if (!historie.some(h => h.id === e.id)) historie.push({ id: e.id, grundstueckId: e.grundstueckId, lesedatum: e.lesedatum, jahrgang: e.jahrgang })
+  }
+  const ernte: ErnteEintrag[] = pruefen(ernteRes, 'Erntemeldung')
+    .filter(e => (e.jahrgang as R | null)?.tenant_id === tenantId)
+    .map(e => ({ jahrgangId: text(e.jahrgang_id), weingartenId: text(e.weingarten_id), grundstueckId: text(e.grundstueck_id), lesedatum: tag(e.ernte_datum) || null, mengeKg: numOderNull(e.menge_kg) }))
+  const verpresst: VerpressteTrauben[] = pruefen(verpresstRes, 'Verpresste Trauben')
+    .filter(v => (v.pressung as R | null)?.tenant_id === tenantId)
+    .map(v => ({
+      id: String(v.id), jahrgangId: text((v.pressung as R).jahrgang_id), weingartenId: text(v.weingarten_id), grundstueckId: text(v.grundstueck_id),
+      pressungDatum: tag((v.pressung as R).datum) || null, traubenKg: numOderNull(v.trauben_kg),
+    }))
+
+  // Maßnahmen des Betriebs im Gesamtbereich aller Fenster; Ort und Fenster prüft ordneMassnahmenZu.
+  // Mehrtägige Maßnahmen, die vor dem Bereich beginnen und hineinreichen, zählen mit (datum_bis).
+  let massnahmen: MassnahmeRoh[] = []
+  if (gstIds.length > 0 || wgIds.length > 0) {
+    const bereich = ladebereich(eingaben.map(e => leseFenster(e, historie, ernte, verpresst)))
+    let q = (supabase.from('behandlungen') as any)
+      .select(`
+        id, datum, datum_bis, art, weingarten_id, aufwandmenge, aufwandmenge_einheit, schaderreger, witterung, notizen,
+        psm:psm_id(name, handelsname),
+        behandlung_grundstuecke(grundstueck_id, flaeche_ha)
+      `)
+      .eq('tenant_id', tenantId)
+    if (bereich.bis) q = q.lte('datum', bereich.bis)
+    if (bereich.von) q = q.or(`datum.gte.${bereich.von},datum_bis.gte.${bereich.von}`)
+    massnahmen = pruefen(await alle<R>(q.order('datum').order('id')), 'Maßnahmen').map(b => {
+      const flaeche = new Map<string, number | null>()
+      for (const bg of ((b.behandlung_grundstuecke ?? []) as R[])) {
+        const g = text(bg.grundstueck_id)
+        if (!g) continue
+        const f = numOderNull(bg.flaeche_ha)
+        flaeche.set(g, f === null ? (flaeche.get(g) ?? null) : (flaeche.get(g) ?? 0) + f)
+      }
+      return { id: String(b.id), datum: tag(b.datum), datumBis: tag(b.datum_bis) || null, weingartenId: text(b.weingarten_id), grundstueckIds: [...flaeche.keys()], roh: b, flaeche }
+    })
+  }
+
+  const zuordnung = ordneMassnahmenZu(eingaben, historie, massnahmen, gstJeWeingarten, weingartenJeGst, ernte, verpresst)
+  const lesen: LeseMassnahmen[] = zuordnung.map(z => {
+    const { lese, pressungDatum } = zeilen.get(z.leseId)!
+    return {
+      leseId: z.leseId,
+      lese,
+      pressungDatum,
+      fenster: z.fenster,
+      ersatz: z.ersatz,
+      hinweise: z.hinweise,
+      massnahmen: z.massnahmen.map(t => {
+        const flaechen = t.grundstueckIds.map(g => t.massnahme.flaeche.get(g) ?? null).filter((f): f is number => f !== null)
+        return {
+          behandlung: t.massnahme.roh,
+          nurWeingarten: t.nurWeingarten,
+          grundstuecke: t.grundstueckIds.map(g => gstNr.get(g) ?? '?'),
+          flaecheHa: flaechen.length > 0 ? flaechen.reduce((s, f) => s + f, 0) : null,
+        }
+      }),
+    }
+  })
+  // Reihenfolge: Lesedatum (sonst Ersatz aus Erntemeldung bzw. Pressungsdatum), Weingarten, GST
+  const schluessel = (l: LeseMassnahmen) => [
+    tag(l.lese.ernte_datum) || l.fenster?.bis || l.pressungDatum || '',
+    text((l.lese.weingarten as R | null)?.name) ?? '',
+    text((l.lese.grundstueck as R | null)?.gst_nr) ?? '',
+    l.leseId,
+  ]
+  return lesen.sort((a, b) => {
+    const ka = schluessel(a), kb = schluessel(b)
+    for (let i = 0; i < ka.length; i++) {
+      const c = ka[i].localeCompare(kb[i], 'de-AT')
+      if (c !== 0) return c
+    }
+    return 0
+  })
+}
+
+/** Datum einer Maßnahme: TT.MM.JJJJ, mehrtägig TT.MM.JJJJ–TT.MM.JJJJ */
+export function massnahmeZeitraum(b: R): string {
+  const von = tag(b.datum), bis = tag(b.datum_bis)
+  return bis && bis !== von ? `${ttmmjjjj(von)}–${ttmmjjjj(bis)}` : ttmmjjjj(von)
+}
+
+/** Mittel bzw. Art einer Maßnahme */
+export function massnahmeMittel(b: R): string {
+  return text((b.psm as R | null)?.name) ?? BEHANDLUNG_ART_LABEL[b.art] ?? text(b.art) ?? 'Behandlung'
+}
+
+/** Maßnahme als Text (CSV): „10.06.2024 Cuprozin“, ggf. mit GST bzw. Vermerk Weingarten */
+export function massnahmeText(m: LeseMassnahme, mitGst: boolean): string {
+  const zusatz = m.nurWeingarten ? ' (am Weingarten erfasst)'
+    : mitGst && m.grundstuecke.length > 0 ? ` (GST ${m.grundstuecke.join(', ')})` : ''
+  return `${massnahmeZeitraum(m.behandlung)} ${massnahmeMittel(m.behandlung)}${zusatz}`.trim()
+}
+
+/** Hinweistext einer Lese (Fensterbeginn nach voriger Lese und Hinweise) – Seite und CSV */
+export function leseHinweisText(l: LeseMassnahmen): string | null {
+  const teile = [
+    ...(l.fenster?.beginn === 'vorige_lese' ? [`Zeitfenster ${fensterBeginnText(l.fenster)}.`] : []),
+    ...l.hinweise,
+  ]
+  return teile.length > 0 ? teile.join(' ') : null
+}
+
 /**
  * Vollständige Kette einer Kellerbuch-Charge: Charge, Pressungen samt Weingärten/GST und
- * Behandlungen; mit details zusätzlich Analysen und Behälter-Verlauf (nur Bildschirm).
+ * je Lese die Maßnahmen bis zur Lese (lesen); mit details zusätzlich Analysen und
+ * Behälter-Verlauf (nur Bildschirm).
  */
 export async function ladeChargeKette(
   supabase: any,
@@ -58,7 +313,7 @@ export async function ladeChargeKette(
       .select(`
         id, menge_liter, notizen,
         pressung:pressung_id(
-          id, datum, most_liter_gesamt, tenant_id, jahrgang:jahrgang_id(jahrgang),
+          id, datum, most_liter_gesamt, tenant_id, jahrgang_id, jahrgang:jahrgang_id(jahrgang),
           pressung_weingaerten(
             id, trauben_kg, rebsorte, ernte_datum, kmw, weingarten_id, grundstueck_id,
             weingarten:weingarten_id(id, name, flaeche_ha),
@@ -96,60 +351,8 @@ export async function ladeChargeKette(
   const analysen = pruefen(anRes, 'Analysen')
   const umzuegeRaw = pruefen(umRes, 'Umzüge')
 
-  // Behandlungen hängen über behandlung_grundstuecke an den Grundstücken der Weingärten
-  const weingartenIds = new Set<string>()
-  for (const pb of pressungen) {
-    for (const wg of (((pb.pressung as R | null)?.pressung_weingaerten ?? []) as R[])) {
-      const id = (wg.weingarten as R | null)?.id ?? wg.weingarten_id
-      if (id) weingartenIds.add(id)
-    }
-  }
-
-  let behandlungen: R[] = []
-  if (weingartenIds.size > 0) {
-    const grundstuecke = pruefen(await alle<R>((supabase.from('grundstuecke') as any)
-      .select('id, weingarten_id')
-      .eq('tenant_id', tenantId)
-      .in('weingarten_id', Array.from(weingartenIds))
-      .order('id')), 'Grundstücke')
-    const wgJeGst = new Map(grundstuecke.map(g => [g.id as string, g.weingarten_id as string]))
-    const grundstueckIds = grundstuecke.map(g => g.id as string)
-
-    if (grundstueckIds.length > 0) {
-      const bgRows = pruefen(await alle<R>((supabase.from('behandlung_grundstuecke') as any)
-        .select(`
-          behandlung_id, grundstueck_id, flaeche_ha,
-          grundstueck:grundstueck_id(gst_nr, weingarten:weingarten_id(name)),
-          behandlung:behandlung_id(
-            id, tenant_id, datum, art, aufwandmenge, aufwandmenge_einheit, schaderreger, witterung, notizen,
-            psm:psm_id(name, handelsname)
-          )
-        `)
-        .in('grundstueck_id', grundstueckIds)
-        .order('behandlung_id')
-        .order('grundstueck_id')), 'Behandlungen')
-
-      // Nach Behandlung dedupliziert (eine Behandlung betrifft oft mehrere Grundstücke)
-      const byBehandlung = new Map<string, R>()
-      for (const row of bgRows) {
-        const b = row.behandlung as R | null
-        if (!b || b.tenant_id !== tenantId) continue
-        const g = row.grundstueck as R | null
-        const label = `${(g?.weingarten as R | null)?.name ?? '?'} · GST ${g?.gst_nr ?? '?'}`
-        const wgId = wgJeGst.get(row.grundstueck_id) ?? null
-        const e = byBehandlung.get(b.id)
-        if (e) {
-          e.grundstuecke.push(label)
-          e.grundstueckIds.push(row.grundstueck_id)
-          if (wgId && !e.weingartenIds.includes(wgId)) e.weingartenIds.push(wgId)
-          e.flaeche_ha_summe += num(row.flaeche_ha)
-        } else {
-          byBehandlung.set(b.id, { ...b, grundstuecke: [label], grundstueckIds: [row.grundstueck_id], weingartenIds: wgId ? [wgId] : [], flaeche_ha_summe: num(row.flaeche_ha) })
-        }
-      }
-      behandlungen = Array.from(byBehandlung.values()).sort((a, b) => tag(a.datum).localeCompare(tag(b.datum)))
-    }
-  }
+  // Maßnahmen im Weingarten je Lese – nur das gelesene GST, nur bis zum Lesedatum (KAN-75)
+  const lesen = await ladeLeseMassnahmen(supabase, tenantId, pressungen)
 
   // Quell-Zeilen der n:n-Umzüge: Ziel-Behälter nachladen
   const quelleBatchIds = [...new Set(umzuegeRaw.filter(u => u.zeilen_typ === 'quelle' && u.umzug_batch_id).map(u => u.umzug_batch_id as string))]
@@ -168,7 +371,7 @@ export async function ladeChargeKette(
     return z ? { ...u, nach_behaelter: z.nach_behaelter ?? z.nach_weinausbau ?? null, menge_liter: u.brutto_liter ?? u.menge_liter } : u
   })
 
-  return { weinausbau, pressungen, behandlungen, analysen, umzuege }
+  return { weinausbau, pressungen, lesen, analysen, umzuege }
 }
 
 export type ChargeEintrag = { weinausbauId: string; anteilLiter: number | null; kette: Kette }
@@ -272,16 +475,16 @@ export type RueckverfolgungZeile = {
   traubenKg: number | null
   lesedatum: string | null
   kmw: number | null
+  /** Zeitfenster der Maßnahmen dieser Lese ('JJJJ-MM-TT', inklusive) */
+  fensterVon: string | null
+  fensterBis: string | null
   behandlungenAnzahl: number | null
   behandlungen: string | null
+  behandlungenHinweis: string | null
 }
 
 const ZUORDNUNG_TEXT: Record<FuellungKette['zuordnung'], string> = {
   fuellung_chargen: '', direkt: ' (direkt verknüpft)', automatisch: ' (automatisch über Rebsorte und Jahrgang)', keine: '',
-}
-
-function tt(datum: string): string {
-  return datum ? `${datum.slice(8, 10)}.${datum.slice(5, 7)}.${datum.slice(0, 4)}` : ''
 }
 
 /** Füllung × Ursprung – eine Zeile je Charge × Pressung × Weingarten/GST (reine Umformung, testbar) */
@@ -303,7 +506,7 @@ export function rueckverfolgungZeilen(ketten: readonly FuellungKette[]): Rueckve
     const leer = {
       charge: null, chargeJahrgang: null, anteilLiter: null, anteilPct: null, pressungDatum: null, pressungLiter: null,
       weingarten: null, katastralgemeinde: null, gstNr: null, rebsorteLese: null, traubenKg: null, lesedatum: null, kmw: null,
-      behandlungenAnzahl: null, behandlungen: null,
+      fensterVon: null, fensterBis: null, behandlungenAnzahl: null, behandlungen: null, behandlungenHinweis: null,
     }
     if (fk.chargen.length === 0) {
       zeilen.push({ ...basis, ...leer, herkunft: 'keine Kellerbuch-Charge verknüpft – Rückverfolgung nur bis zur Abfüllung' })
@@ -321,6 +524,7 @@ export function rueckverfolgungZeilen(ketten: readonly FuellungKette[]): Rueckve
         anteilPct,
       }
       const vorher = zeilen.length
+      const leseJeId = new Map(c.kette.lesen.map(l => [l.leseId, l]))
       for (const pb of c.kette.pressungen) {
         const p = pb.pressung as R | null
         if (!p) continue
@@ -333,9 +537,8 @@ export function rueckverfolgungZeilen(ketten: readonly FuellungKette[]): Rueckve
         for (const wg of wgListe) {
           const w = wg.weingarten as R | null
           const g = wg.grundstueck as R | null
-          const wgId = w?.id ?? wg.weingarten_id ?? null
-          const gstId = wg.grundstueck_id ?? null
-          const beh = c.kette.behandlungen.filter(b => gstId ? (b.grundstueckIds as string[]).includes(gstId) : !!wgId && (b.weingartenIds as string[]).includes(wgId))
+          // Maßnahmen dieser Lese – dieselbe Zuordnung wie auf der Seite (Kette.lesen, KAN-75)
+          const l = wg.id ? leseJeId.get(String(wg.id)) : undefined
           const kg = numOderNull(wg.trauben_kg)
           zeilen.push({
             ...basis, ...leer, ...chargeTeil, ...pressungTeil,
@@ -347,11 +550,11 @@ export function rueckverfolgungZeilen(ketten: readonly FuellungKette[]): Rueckve
             traubenKg: kg === null ? null : runden(kg, STELLEN.kg),
             lesedatum: tag(wg.ernte_datum) || null,
             kmw: numOderNull(wg.kmw) === null ? null : runden(num(wg.kmw), STELLEN.kmw),
-            behandlungenAnzahl: beh.length,
-            behandlungen: beh.map(b => {
-              const mittel = (b.psm as R | null)?.name ?? BEHANDLUNG_ART_LABEL[b.art] ?? b.art ?? 'Behandlung'
-              return `${tt(tag(b.datum))} ${mittel}`.trim()
-            }).join(' | ') || null,
+            fensterVon: l?.fenster?.von ?? null,
+            fensterBis: l?.fenster?.bis ?? null,
+            behandlungenAnzahl: l ? l.massnahmen.length : null,
+            behandlungen: l ? l.massnahmen.map(m => massnahmeText(m, !l.lese.grundstueck_id)).join(' | ') || null : null,
+            behandlungenHinweis: l ? leseHinweisText(l) : 'Maßnahmen nicht ermittelt (Lesezeile ohne Kennung).',
           })
         }
       }
@@ -391,6 +594,11 @@ export async function ladeRueckverfolgung(
   if (ohne > 0) warnungen.push(`${ohne} ${ohne === 1 ? 'Füllung hat' : 'Füllungen haben'} keine verknüpfte Kellerbuch-Charge – Rückverfolgung nur bis zur Abfüllung.`)
   const auto = ketten.filter(k => k.zuordnung === 'automatisch').length
   if (auto > 0) warnungen.push(`${auto} ${auto === 1 ? 'Füllung ist' : 'Füllungen sind'} nur automatisch über Rebsorte und Jahrgang einer Charge zugeordnet – bitte prüfen.`)
+  // Sonderfälle der Maßnahmen-Zuordnung (KAN-75) auch als Warnung beim Download – je Lesezeile
+  // einmal, auch wenn ihre Charge in mehreren Füllungen steckt; Einzelheiten je Zeile in der CSV
+  const lesen = new Map<string, LeseMassnahmen>()
+  for (const k of ketten) for (const c of k.chargen) for (const l of c.kette.lesen) lesen.set(l.leseId, l)
+  warnungen.push(...leseWarnungen([...lesen.values()]))
   return { zeilen: rueckverfolgungZeilen(ketten), warnungen, fuellung: einzel }
 }
 
@@ -417,8 +625,12 @@ export const SPALTEN_RUECKVERFOLGUNG: CsvSpalte<RueckverfolgungZeile>[] = [
   { kopf: 'Trauben (kg)', typ: 'dezimal', stellen: STELLEN.kg, wert: z => z.traubenKg },
   { kopf: 'Lesedatum', typ: 'datum', wert: z => z.lesedatum },
   { kopf: 'KMW (°)', typ: 'dezimal', stellen: STELLEN.kmw, wert: z => z.kmw },
+  { kopf: 'Behandlungen ab', typ: 'datum', wert: z => z.fensterVon },
+  // bewusst ohne „(Lese)“: fehlt das Lesedatum, endet das Fenster am Ersatzdatum (Hinweis-Spalte)
+  { kopf: 'Behandlungen bis', typ: 'datum', wert: z => z.fensterBis },
   { kopf: 'Behandlungen (Anzahl)', typ: 'ganzzahl', wert: z => z.behandlungenAnzahl },
   { kopf: 'Behandlungen (Datum Mittel)', typ: 'text', wert: z => z.behandlungen },
+  { kopf: 'Hinweis Behandlungen', typ: 'text', wert: z => z.behandlungenHinweis },
 ]
 
 // ── Trefferliste (Listen-CSV im Browser) ──────────────────────────────────────

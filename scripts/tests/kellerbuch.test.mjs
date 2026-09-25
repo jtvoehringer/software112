@@ -382,35 +382,42 @@ describe('weinbuch und weinbuch-sammlung', () => {
 
 describe('rueckverfolgung', () => {
   const fuellung = { id: 'f1', name: 'Cuvée Rot', chargennummer: 'L-26-02', pruefnummer: '04023/26', datum: '2026-03-01', jahrgang: 2024, rebsorte: 'Cuvée', anzahl_flaschen: '1000', flaschengroesse_ml: 750 }
-  const pressung = {
-    id: 'pb1', menge_liter: '700', pressung: {
-      id: 'p1', datum: '2024-09-30', tenant_id: T, pressung_weingaerten: [
-        { weingarten_id: 'w1', grundstueck_id: 'g1', trauben_kg: '600.4', rebsorte: 'Zweigelt', ernte_datum: '2024-09-29', kmw: '19.25', weingarten: { id: 'w1', name: 'Ried Hochrain' }, grundstueck: { gst_nr: '1234/5', katastralgemeinde: '04023' } },
-        { weingarten_id: 'w2', grundstueck_id: null, trauben_kg: '400', rebsorte: 'Zweigelt', ernte_datum: '2024-09-30', kmw: null, weingarten: { id: 'w2', name: 'Ried Au' }, grundstueck: null },
-      ],
-    },
-  }
-  const behandlungen = [
-    { id: 'b1', datum: '2024-06-10', art: 'spritzung', psm: { name: 'Cuprozin' }, grundstueckIds: ['g1'], weingartenIds: ['w1'] },
-    { id: 'b2', datum: '2024-07-01', art: 'laubarbeit', psm: null, grundstueckIds: ['g7'], weingartenIds: ['w2'] },
+  const pw1 = { id: 'pw1', weingarten_id: 'w1', grundstueck_id: 'g1', trauben_kg: '600.4', rebsorte: 'Zweigelt', ernte_datum: '2024-09-29', kmw: '19.25', weingarten: { id: 'w1', name: 'Ried Hochrain' }, grundstueck: { gst_nr: '1234/5', katastralgemeinde: '04023' } }
+  const pw2 = { id: 'pw2', weingarten_id: 'w2', grundstueck_id: null, trauben_kg: '400', rebsorte: 'Zweigelt', ernte_datum: '2024-09-30', kmw: null, weingarten: { id: 'w2', name: 'Ried Au' }, grundstueck: null }
+  const pressung = { id: 'pb1', menge_liter: '700', pressung: { id: 'p1', datum: '2024-09-30', tenant_id: T, pressung_weingaerten: [pw1, pw2] } }
+  // Maßnahmen je Lese (KAN-75): Zeitfenster und Zuordnung liefert ladeChargeKette (Kette.lesen)
+  const lesen = [
+    { leseId: 'pw1', lese: pw1, pressungDatum: '2024-09-30', hinweise: [],
+      fenster: { von: '2024-09-11', bis: '2024-09-29', beginn: 'vorige_lese', vorigeLese: '2024-09-10', bisAus: 'lesedatum' },
+      massnahmen: [{ behandlung: { id: 'b1', datum: '2024-09-12', art: 'spritzung', psm: { name: 'Cuprozin' } }, nurWeingarten: false, grundstuecke: ['1234/5'], flaecheHa: 0.5 }] },
+    { leseId: 'pw2', lese: pw2, pressungDatum: '2024-09-30', hinweise: ['Lese ohne Grundstück erfasst – Maßnahmen aller Grundstücke des Weingartens ab 01.01. des Jahrgangs aufgeführt.'],
+      fenster: { von: '2024-01-01', bis: '2024-09-30', beginn: 'jahresbeginn', vorigeLese: null, bisAus: 'lesedatum' },
+      massnahmen: [
+        { behandlung: { id: 'b2', datum: '2024-07-01', datum_bis: '2024-07-03', art: 'laubarbeit', psm: null }, nurWeingarten: false, grundstuecke: ['7/1', '7/2'], flaecheHa: null },
+        { behandlung: { id: 'b3', datum: '2024-08-01', art: 'duengung', psm: null }, nurWeingarten: true, grundstuecke: [], flaecheHa: null },
+      ] },
   ]
   const ketten = [
     { fuellung, zuordnung: 'fuellung_chargen', chargen: [
-      { weinausbauId: 'c1', anteilLiter: 450, kette: { weinausbau: { name: 'ZW 2024', jahrgang: 2024 }, pressungen: [pressung], behandlungen, analysen: [], umzuege: [] } },
-      { weinausbauId: 'c2', anteilLiter: 300, kette: { weinausbau: { name: 'BF Zukauf', jahrgang: 2024 }, pressungen: [], behandlungen: [], analysen: [], umzuege: [] } },
+      { weinausbauId: 'c1', anteilLiter: 450, kette: { weinausbau: { name: 'ZW 2024', jahrgang: 2024 }, pressungen: [pressung], lesen, analysen: [], umzuege: [] } },
+      { weinausbauId: 'c2', anteilLiter: 300, kette: { weinausbau: { name: 'BF Zukauf', jahrgang: 2024 }, pressungen: [], lesen: [], analysen: [], umzuege: [] } },
     ] },
     { fuellung: { id: 'f2', name: 'Alt-Füllung', jahrgang: 2019 }, zuordnung: 'keine', chargen: [] },
   ]
 
-  test('Füllung × Ursprung: Anteile, GST/KG als Code, Behandlungen je Grundstück bzw. Weingarten', () => {
+  test('Füllung × Ursprung: Anteile, GST/KG als Code, Maßnahmen je Lese mit Zeitfenster', () => {
     const [kopf, ...z] = zellen(csv.csvText(rueck.rueckverfolgungZeilen(ketten), rueck.SPALTEN_RUECKVERFOLGUNG))
-    assert.equal(kopf.length, 24)
+    assert.equal(kopf.length, 27)
+    assert.deepEqual(kopf.slice(22), ['Behandlungen ab', 'Behandlungen bis', 'Behandlungen (Anzahl)', 'Behandlungen (Datum Mittel)', 'Hinweis Behandlungen'])
     assert.equal(z.length, 4)
     const [a, b, c, d] = z
     assert.deepEqual(a.slice(0, 8), ['Cuvée Rot', 'L-26-02', '04023/26', '01.03.2026', '2024', 'Cuvée', '1000', '750'])
     assert.deepEqual(a.slice(8, 16), ['ZW 2024', '2024', '450,00', '60,0', 'Pressung', '30.09.2024', '700,00', 'Ried Hochrain'])
-    assert.deepEqual(a.slice(16, 24), ['04023', '1234/5', 'Zweigelt', '600', '29.09.2024', '19,25', '1', '10.06.2024 Cuprozin'])   // °KMW verlustfrei (2 Stellen)
-    assert.deepEqual([b[15], b[16], b[17], b[22], b[23]], ['Ried Au', '', '', '1', '01.07.2024 Laubarbeit'])
+    assert.deepEqual(a.slice(16, 22), ['04023', '1234/5', 'Zweigelt', '600', '29.09.2024', '19,25'])   // °KMW verlustfrei (2 Stellen)
+    assert.deepEqual(a.slice(22), ['11.09.2024', '29.09.2024', '1', '12.09.2024 Cuprozin', 'Zeitfenster ab dem Tag nach der vorigen Lese dieses Grundstücks am 10.09.2024.'])
+    assert.deepEqual([b[15], b[16], b[17]], ['Ried Au', '', ''])
+    assert.deepEqual(b.slice(22), ['01.01.2024', '30.09.2024', '2', '01.07.2024–03.07.2024 Laubarbeit (GST 7/1, 7/2) | 01.08.2024 Düngung (am Weingarten erfasst)',
+      'Lese ohne Grundstück erfasst – Maßnahmen aller Grundstücke des Weingartens ab 01.01. des Jahrgangs aufgeführt.'])
     assert.deepEqual([c[8], c[11], c[12], c[13]], ['BF Zukauf', '40,0', 'ohne Pressung (Zukauf, Eröffnungsbestand oder Verschnitt – siehe Blend-Protokoll)', ''])
     assert.deepEqual([d[0], d[8], d[12]], ['Alt-Füllung', '', 'keine Kellerbuch-Charge verknüpft – Rückverfolgung nur bis zur Abfüllung'])
   })
