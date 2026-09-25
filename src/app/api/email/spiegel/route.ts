@@ -10,6 +10,7 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 export async function GET(req: NextRequest) { return handle(req) }
+// schreibsperre-ausnahme: Cron bzw. manueller Lauf nur für Super-Admins (von der Abo-Sperre ausgenommen)
 export async function POST(req: NextRequest) { return handle(req) }
 
 async function handle(req: NextRequest) {

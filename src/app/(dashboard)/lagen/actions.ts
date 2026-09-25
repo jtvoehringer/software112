@@ -3,6 +3,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb, seitenBetriebFehler } from '@/lib/auth/seitenBetrieb'
+import { pruefeSchreibzugriff, schreibSperreFehler } from '@/lib/auth/sperren'
 import { revalidatePath } from 'next/cache'
 import { AktionsFehler } from '@/lib/fehler'
 
@@ -16,6 +17,7 @@ async function getTenantId(): Promise<string> {
   const membership = await getCurrentMembership()
   if (!membership) throw new AktionsFehler('Kein aktiver Mandant gefunden')
   await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
+  await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
   return membership.tenantId
 }
 
@@ -72,6 +74,8 @@ export async function deleteLage(id: string): Promise<{ error?: string }> {
     if (!membership) return { error: 'Kein Betrieb gefunden' }
     const betriebGewechselt = await seitenBetriebFehler(membership.tenantId)   // KAN-30
     if (betriebGewechselt) return { error: betriebGewechselt }
+    const aboGesperrt = await schreibSperreFehler(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
+    if (aboGesperrt) return { error: aboGesperrt }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase.from('lagen') as any)

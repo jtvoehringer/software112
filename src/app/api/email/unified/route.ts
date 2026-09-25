@@ -6,6 +6,7 @@ import { decryptPass } from '@/lib/email/crypto'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { ereignisMelden } from '@/lib/system/ereignis'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -27,6 +28,8 @@ export async function POST(req: NextRequest) {
     const membership = await getCurrentMembership()
     const tenantId = membership?.tenantId
     if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
+    const gesperrt = await schreibSperreKonflikt(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
+    if (gesperrt) return gesperrt
 
     // Per-User Verbindung zuerst prüfen
     const { data: { user: authUser } } = await supabase.auth.getUser()

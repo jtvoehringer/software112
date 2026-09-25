@@ -6,6 +6,7 @@ import { istNiedrigerAls, QUALITAET_LABEL } from '@/lib/weinqualitaet'
 import { istNiedrigerAls as herkunftIstNiedrigerAls, HERKUNFT_LABEL } from '@/lib/herkunft'
 import { getCurrentMembership, canWrite, type Membership } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
+import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { dezimal, zahlAus, fmtNum } from '@/lib/format'
 import { folgebuchungenDerFuellung, folgebuchungenFuellungText, heuteOrtsdatum, datumDe } from './fuellungen/folgebuchungen'
@@ -37,6 +38,7 @@ async function getMembership(): Promise<Membership> {
   const membership = await getCurrentMembership()
   if (!membership) throw new AktionsFehler('Kein aktiver Mandant gefunden')
   await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
+  await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
   return membership
 }
 

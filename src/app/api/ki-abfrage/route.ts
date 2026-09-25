@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { getCurrentMembership, canSeeAuswertungen } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { schreibSperreKonflikt } from '@/lib/auth/sperren'
+import { sperrAntwortKoerper } from '@/lib/abo/regeln'
 
 export const dynamic = 'force-dynamic'
 
@@ -216,15 +218,26 @@ export async function POST(req: NextRequest) {
     const membership = await getCurrentMembership()
     const tenantId = membership?.tenantId
     if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb gefunden' }, { status: 401 })
+    const gesperrt = await schreibSperreKonflikt(membership, 'ki')   // KAN-5: Nur-Lesen-Modus – KI gesperrt (Kosten)
+    if (gesperrt) return gesperrt
     if (!canSeeAuswertungen(membership)) return NextResponse.json({ fehler: 'Keine Berechtigung für Frag dein Weingut' }, { status: 403 })
 
     if (!process.env.ANTHROPIC_API_KEY) {
       return NextResponse.json({ fehler: 'ANTHROPIC_API_KEY nicht gesetzt – bitte in Vercel Environment Variables eintragen.' }, { status: 500 })
     }
 
-    const { data: limitCheck } = await (supabase.rpc as any)('check_und_increment_ki_abfrage', {
+    const { data: limitCheck, error: limitFehler } = await (supabase.rpc as any)('check_und_increment_ki_abfrage', {
       p_tenant_id: tenantId,
     })
+    // KAN-5: Fehler NICHT überspringen (fail-closed) – sonst liefe die Anthropic-Abfrage ungezählt
+    // weiter, etwa wenn die Datenbank das Abo sperrt (HINT 'abo_gesperrt') oder die Zählung scheitert
+    if (limitFehler) {
+      if ((limitFehler as R).hint === 'abo_gesperrt') {
+        return NextResponse.json(sperrAntwortKoerper('ki'), { status: 403, headers: { 'Cache-Control': 'no-store', 'X-S112-Nur-Lesen': '1' } })
+      }
+      console.error('ki-abfrage: KI-Kontingent nicht prüfbar:', (limitFehler as R).message)
+      return NextResponse.json({ fehler: 'Das KI-Kontingent konnte nicht geprüft werden – bitte später erneut versuchen.' }, { status: 503 })
+    }
     const check = limitCheck as R | null
     if (check && check.erlaubt === false) {
       return NextResponse.json({

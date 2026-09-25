@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { exchangeCodeForTokens, encryptPass } from '@/lib/m365/graph'
 import { pruefeState, loescheNonceCookie, NONCE_COOKIE } from '@/lib/m365/state'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { schreibSperre } from '@/lib/auth/sperren'
+import type { UserRole } from '@/lib/auth/roles'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -28,6 +30,13 @@ export async function GET(req: NextRequest) {
   if (!code) return loescheNonceCookie(NextResponse.redirect(new URL(`${zurueck}?m365_error=no_code`, req.url)))
 
   const admin = createSupabaseAdminClient()
+
+  // KAN-5: Nur-Lesen-Modus des Betriebs aus dem State (nicht des gerade aktiven) – die Tokens
+  // landen per Service-Role in tenant_einstellungen, die Datenbank-Sperre greift hier nicht
+  const { data: mitglied } = await (admin.from('tenant_memberships') as any)
+    .select('role').eq('tenant_id', tenantId).eq('user_id', sitzung.id).eq('aktiv', true).maybeSingle()
+  if (await schreibSperre({ tenantId, role: ((mitglied as R | null)?.role ?? null) as UserRole | null }))
+    return loescheNonceCookie(NextResponse.redirect(new URL(`${zurueck}?m365_error=nur_lesen`, req.url)))
 
   const { data: cfg } = await (admin.from('tenant_einstellungen') as any)
     .select('m365_tenant_id, m365_client_id, m365_client_secret_enc')

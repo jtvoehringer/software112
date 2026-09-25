@@ -1,4 +1,5 @@
 'use server'
+// schreibsperre-ausnahme-datei: öffentliche Newsletter-An- und Abmeldung ohne Anmeldung – Abmelden muss immer gehen (DSGVO, KAN-5)
 
 // ── Newsletter-Anmeldung je Betrieb (Double Opt-in) ───────────────────────────
 // 23.9.2026: /newsletter/<kurzname> statt fest verdrahtetem Betrieb; Brevo-Konto je

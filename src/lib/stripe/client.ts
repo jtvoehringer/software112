@@ -38,25 +38,13 @@ export const STRIPE_STATUS_META: Record<string, { label: string; color: string }
 }
 
 // Rückmeldung 31.8.2026 ("die Plattform soll sich selber abrechnen können,
-// damit wir zu unserem Geld kommen"): stripe_status wurde bisher nirgends
-// außerhalb der Admin-Seiten und des Webhooks gelesen - ein Mandant mit
-// abgelaufenem/gekündigtem Abo hatte trotzdem uneingeschränkten Zugriff.
-// Diese Status führen jetzt zur Zugriffssperre (siehe (dashboard)/layout.tsx,
-// leitet auf /abo um). 'past_due' ist bewusst NICHT dabei - Stripes eigenes
-// Dunning eskaliert fehlgeschlagene Zahlungsversuche nach einigen Tagen
-// automatisch zu 'unpaid' (das dann sperrt); bis dahin gibt's im Layout nur
-// eine Warnung mit Link zur Selbstverwaltung.
-export const STRIPE_BLOCKED_STATUSES = ['unpaid', 'canceled', 'cancelled', 'incomplete', 'incomplete_expired', 'paused']
-
-// Rückmeldung 31.8.2026 ("Trial-Ablauf: 14 Tage, dann Sperre wie bei unpaid"):
-// 'trialing' bleibt bewusst NICHT in STRIPE_BLOCKED_STATUSES (sonst wäre jede
-// laufende Testphase sofort gesperrt) - stattdessen sperrt eine trialing-
-// Subscription erst, wenn das von Stripe gelieferte trial_end (14 Tage nach
-// Checkout, dort als trial_period_days konfiguriert) in der Vergangenheit
-// liegt. Zentral hier statt doppelt in layout.tsx und /abo gepflegt.
-export function istTrialAbgelaufen(stripeStatus: string | null, trialEndsAt: string | null): boolean {
-  return stripeStatus === 'trialing' && !!trialEndsAt && new Date(trialEndsAt).getTime() < Date.now()
-}
+// damit wir zu unserem Geld kommen"): Diese Status sperren den Betrieb - seit
+// KAN-5 (25.9.2026) als Nur-Lesen-Modus statt Umleitung auf /abo. 'past_due'
+// ist bewusst NICHT dabei (nur Warnung, Stripes Dunning eskaliert zu 'unpaid'),
+// 'trialing' sperrt erst nach Ablauf der Testphase (istTrialAbgelaufen).
+// Die Regeln stehen seit KAN-5 in lib/abo/regeln.ts (frei von Server-Importen,
+// mit Tests) - hier nur unter den bisherigen Namen weitergereicht.
+export { ABO_GESPERRTE_STATUS as STRIPE_BLOCKED_STATUSES, istTrialAbgelaufen } from '@/lib/abo/regeln'
 
 /** Länge der kostenlosen Testphase beim Self-Service-Signup (Rückmeldung 31.8.2026). */
 export const TRIAL_TAGE = 14

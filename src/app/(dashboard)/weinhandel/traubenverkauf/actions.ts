@@ -4,6 +4,7 @@ import { randomUUID } from 'crypto'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
+import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { dezimal } from '@/lib/format'
@@ -16,6 +17,7 @@ type AR = Record<string, any>
 // Eigener Weingarten ODER zugekaufter Posten (siehe Migration 141) - genau
 // einer der beiden Parameter ist gesetzt.
 
+// schreibsperre-ausnahme: nur lesend – interner Helfer (Name der Trauben-Quelle), schreibt nichts
 export async function ermittleQuellenName(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
   weingartenId: string | null,
@@ -50,6 +52,7 @@ export async function ermittleQuellenName(
 
 // ── Hilfs-Funktion: Verkaufsposten + Position für Traubenverkauf anlegen ─────
 
+// schreibsperre-ausnahme: interner Helfer mit Supabase-Client als Parameter (vom Browser nicht sinnvoll aufrufbar) – die Aufrufer (upsertTraubenverkauf, erntemeldung) prüfen Betrieb und Schreibsperre vorher
 export async function createVerkaufspostenFuerTrauben(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
   tenantId: string,
@@ -187,6 +190,7 @@ export async function upsertTraubenverkauf(formData: FormData) {
   const membership = await getCurrentMembership()
   if (!membership) throw new AktionsFehler('Nicht angemeldet')
   await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
+  await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
 
   const existing_id = formData.get('existing_id') as string | null
   const tenantId    = membership.tenantId
@@ -319,6 +323,7 @@ export async function deleteTraubenverkauf(id: string) {
   const membership = await getCurrentMembership()
   if (!membership) throw new AktionsFehler('Nicht angemeldet')
   await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
+  await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
   const tenantId = membership.tenantId
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -2,9 +2,12 @@
 // Wird vom täglichen Cron (/api/cron/taeglich, 05:00 UTC) und vom manuellen
 // System-Admin-Aufruf (/api/cron/morgenbericht) genutzt. Betriebe nacheinander;
 // ist das Zeitbudget erschöpft, werden die restlichen übersprungen.
+// KAN-5: Betriebe mit gesperrtem Abo (Nur-Lesen-Modus) werden übersprungen – der Bericht
+// schreibt und kostet (KI-Zusammenfassung); die bisherigen Berichte bleiben lesbar.
 
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { erstelleMorgenbericht } from './erstellen'
+import { aboStandBerechnen } from '@/lib/abo/regeln'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -15,7 +18,7 @@ export async function laufMorgenberichte(budgetMs: number): Promise<{ betriebe: 
   const start = Date.now()
   const admin = createSupabaseAdminClient()
   // tenant-isolation-ignore: Cron über alle aktiven Betriebe, Verarbeitung je Betrieb in erstelleMorgenbericht
-  const { data: tenants } = await (admin.from('tenants') as any).select('id, name, stripe_plan, active').eq('active', true).order('created_at')
+  const { data: tenants } = await (admin.from('tenants') as any).select('id, name, stripe_plan, stripe_status, stripe_trial_ends_at, active').eq('active', true).order('created_at')
   // tenant-isolation-ignore: Einstellungen aller Betriebe (nur Schalter morgenbericht_aktiv)
   const { data: einstRaw } = await (admin.from('tenant_einstellungen') as any).select('tenant_id, morgenbericht_aktiv')
   const aktiv = new Map(((einstRaw ?? []) as R[]).map(e => [e.tenant_id, e.morgenbericht_aktiv !== false]))
@@ -24,6 +27,9 @@ export async function laufMorgenberichte(budgetMs: number): Promise<{ betriebe: 
   for (const t of (tenants ?? []) as R[]) {
     if (Date.now() - start > budgetMs) { ergebnis.push({ tenant: t.name, uebersprungen: 'Zeitbudget erschöpft' }); continue }
     if (aktiv.get(t.id) === false) { ergebnis.push({ tenant: t.name, uebersprungen: 'Morgenbericht deaktiviert' }); continue }
+    if (aboStandBerechnen({ tenantId: t.id, stripeStatus: t.stripe_status, trialEndsAt: t.stripe_trial_ends_at, role: null }).gesperrt) {
+      ergebnis.push({ tenant: t.name, uebersprungen: 'Abo gesperrt (Nur-Lesen-Modus)' }); continue
+    }
     const t0 = Date.now()
     try {
       const b = await erstelleMorgenbericht({ id: t.id, name: t.name, stripe_plan: t.stripe_plan }, 'cron')

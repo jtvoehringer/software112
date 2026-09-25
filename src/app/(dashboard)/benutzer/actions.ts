@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentMembership, canManageUsers, isModul, type Modul } from '@/lib/auth/roles'
 import { seitenBetriebFehler } from '@/lib/auth/seitenBetrieb'
+import { schreibSperreFehler } from '@/lib/auth/sperren'
 import { pruefeBenutzerlimit, benutzerlimitFehler } from '@/lib/pakete-server'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -28,6 +29,7 @@ function moduleBereinigen(module: unknown): Modul[] {
 }
 
 /** Mitglieder des Tenants + Email aus auth.users */
+// schreibsperre-ausnahme: nur lesend – lädt die Mitgliederliste beim Rendern von /benutzer und /betrieb/einstellungen
 export async function getTenantMembers(): Promise<MemberWithEmail[]> {
   const membership = await getCurrentMembership()
   if (!membership) return []
@@ -82,6 +84,8 @@ export async function inviteMember(email: string, role: string, fullName: string
   const membership = await getCurrentMembership()
   const betriebGewechselt = await seitenBetriebFehler(membership?.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
   if (betriebGewechselt) return { error: betriebGewechselt }
+  const aboGesperrt = await schreibSperreFehler(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
+  if (aboGesperrt) return { error: aboGesperrt }
   if (!membership || !canManageUsers(membership.role)) {
     return { error: 'Keine Berechtigung' }
   }
@@ -143,6 +147,8 @@ export async function resendInvite(userId: string) {
   const membership = await getCurrentMembership()
   const betriebGewechselt = await seitenBetriebFehler(membership?.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
   if (betriebGewechselt) return { error: betriebGewechselt }
+  const aboGesperrt = await schreibSperreFehler(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
+  if (aboGesperrt) return { error: aboGesperrt }
   if (!membership || !canManageUsers(membership.role)) {
     return { error: 'Keine Berechtigung' }
   }
@@ -177,6 +183,8 @@ export async function updateMemberRole(membershipId: string, newRole: string, mo
   const membership = await getCurrentMembership()
   const betriebGewechselt = await seitenBetriebFehler(membership?.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
   if (betriebGewechselt) return { error: betriebGewechselt }
+  const aboGesperrt = await schreibSperreFehler(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
+  if (aboGesperrt) return { error: aboGesperrt }
   if (!membership || !canManageUsers(membership.role)) {
     return { error: 'Keine Berechtigung' }
   }
@@ -207,6 +215,8 @@ export async function updateMemberModule(membershipId: string, module: Modul[]) 
   const membership = await getCurrentMembership()
   const betriebGewechselt = await seitenBetriebFehler(membership?.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
   if (betriebGewechselt) return { error: betriebGewechselt }
+  const aboGesperrt = await schreibSperreFehler(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
+  if (aboGesperrt) return { error: aboGesperrt }
   if (!membership || !canManageUsers(membership.role)) {
     return { error: 'Keine Berechtigung' }
   }
@@ -233,6 +243,12 @@ export async function toggleMemberAktiv(membershipId: string, aktiv: boolean) {
   const membership = await getCurrentMembership()
   const betriebGewechselt = await seitenBetriebFehler(membership?.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
   if (betriebGewechselt) return { error: betriebGewechselt }
+  // KAN-5: Im Nur-Lesen-Modus bleibt das DEAKTIVIEREN erlaubt – Zugriff entziehen (z. B. bei
+  // ausgeschiedenen Mitarbeitern) darf nicht am Abo hängen. Reaktivieren gibt Zugriff und ist gesperrt.
+  if (aktiv) {
+    const aboGesperrt = await schreibSperreFehler(membership)
+    if (aboGesperrt) return { error: aboGesperrt }
+  }
   if (!membership || !canManageUsers(membership.role)) {
     return { error: 'Keine Berechtigung' }
   }
@@ -272,6 +288,7 @@ export async function toggleMemberAktiv(membershipId: string, aktiv: boolean) {
 }
 
 /** Mitglied entfernen */
+// schreibsperre-ausnahme: Zugriff entziehen bleibt auch im Nur-Lesen-Modus möglich (Sicherheit, DSGVO) – gibt keine Rechte, löscht nur die Mitgliedschaft
 export async function removeMember(membershipId: string) {
   const membership = await getCurrentMembership()
   const betriebGewechselt = await seitenBetriebFehler(membership?.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?

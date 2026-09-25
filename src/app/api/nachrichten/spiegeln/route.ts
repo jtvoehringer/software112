@@ -4,6 +4,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { spiegleMailboxen } from '@/lib/email/spiegel'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 
 // „Jetzt spiegeln“ (Nachrichten › Einstellungen, 18.9.2026): E-Mails des eigenen
 // Postfachs (und der geteilten Mailbox) seit dem letzten Stand als Aktivitäten
@@ -20,6 +21,8 @@ export async function POST(req: NextRequest) {
   if (zweiFaktor) return zweiFaktor
   const membership = await getCurrentMembership()
   if (!membership) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
+  const gesperrt = await schreibSperreKonflikt(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
+  if (gesperrt) return gesperrt
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ fehler: 'Nicht angemeldet' }, { status: 401 })

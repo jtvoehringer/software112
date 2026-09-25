@@ -8,6 +8,7 @@ import { createVerkaufspostenFuerTrauben, ermittleQuellenName, upsertTraubenverk
 import { stornoVerkauf } from '@/app/(dashboard)/weinhandel/verkauf/actions'
 import { getCurrentMembership, canAdmin, type Membership } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
+import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { dezimal, fmtNum, zahlAus } from '@/lib/format'
 import { folgebuchungenDerCharge, folgebuchungenText, sperreBeiFolgebuchungen } from '@/lib/kellerbuch/folgebuchungen'
@@ -23,6 +24,7 @@ async function getMembership(): Promise<Membership> {
   const membership = await getCurrentMembership()
   if (!membership) throw new AktionsFehler('Kein aktiver Mandant gefunden')
   await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
+  await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
   return membership
 }
 
@@ -1301,6 +1303,7 @@ export async function createTraubenverkauf(fd: FormData) {
 // Rechnungsposition (Menge, Preis, Bezeichnung) und Kopf werden mitgezogen. Bisher blieb die
 // Rechnung beim Bearbeiten über die Lese still auf dem alten Stand.
 export async function updateTraubenverkauf(id: string, fd: FormData) {
+  await getMembership()   // KAN-30/KAN-5: Betrieb und Schreibsperre vorab (upsertTraubenverkauf prüft erneut)
   const jahrgangId = fd.get('jahrgang_id') as string | null
   fd.set('existing_id', id)
   await upsertTraubenverkauf(fd)

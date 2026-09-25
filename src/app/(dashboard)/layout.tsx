@@ -1,17 +1,19 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole, getCurrentMembership, roleLabel, canWrite, canSeeAuswertungen, isSandboxAdminUnlock } from '@/lib/auth/roles'
-import { aboStand } from '@/lib/auth/sperren'
+import { aboStandErmitteln } from '@/lib/abo/regeln'
 import AppShell from '@/components/layout/AppShell'
 import ReleaseNotesModal from '@/components/ReleaseNotesModal'
 import SessionTimeout from '@/components/SessionTimeout'
 import AutoRefresh from '@/components/AutoRefresh'
 import BetriebsWaechter from '@/components/BetriebsWaechter'
+import NurLesenHinweis from '@/components/NurLesenHinweis'
+import { NUR_LESEN_BANNER, NUR_LESEN_TITEL } from '@/lib/abo/regeln'
 import NavigationsBalken from '@/components/NavigationsBalken'
 import { Suspense } from 'react'
 import AssistentWidget from '@/components/assistent/AssistentWidget'
 import Link from '@/components/ui/Link'
-import { ladeTenantKopf, betriebsName, mandantName } from '@/lib/tenant/kopf'
+import { ladeTenantKopf, ladeTenantKopfFrisch, betriebsName, mandantName } from '@/lib/tenant/kopf'
 import { ladeMfaStand, MFA_PFLICHT_AB } from '@/lib/auth/mfa'
 import { barrierefreieAktionsfarbe } from '@/lib/farbe'
 
@@ -81,10 +83,14 @@ export default async function DashboardLayout({
   let assistentAktiv = false
   let isSandbox = false
   // Rückmeldung 31.8.2026 ("die Plattform soll sich selber abrechnen können,
-  // damit wir zu unserem Geld kommen"): Zugriffssperre für Mandanten ohne
-  // aktives Abo. system_admin (Plattformbetreiber) und die Sandbox sind
-  // ausgenommen. 'past_due' sperrt bewusst nicht sofort (siehe stripe/client.ts),
-  // zeigt aber eine Warnung mit Link zur Selbstverwaltung (/abo).
+  // damit wir zu unserem Geld kommen"): Sperre für Mandanten ohne aktives Abo.
+  // Seit KAN-5 (25.9.2026, Entscheidung Jörgen) keine Umleitung auf /abo mehr,
+  // sondern Nur-Lesen-Modus: Seiten, Druck und Exporte bleiben erreichbar
+  // (Aufbewahrungspflicht, DSGVO), Speichern, KI-Abfrage und Assistent sperrt
+  // der Server (lib/auth/sperren.ts); hier nur Hinweisleiste und Browser-Wächter.
+  // Ausgenommen: system_admin, Sandbox und Demo-Musterhof (feste IDs,
+  // lib/abo/regeln.ts). 'past_due' sperrt bewusst nicht sofort, zeigt aber eine
+  // Warnung mit Link zur Selbstverwaltung (/abo).
   let billingBlocked = false
   let billingWarnung = false
   // Betrieb, mit dem diese Seite gerendert wird – für den Betriebs-Wächter (KAN-30)
@@ -120,13 +126,18 @@ export default async function DashboardLayout({
     }
     isSandbox = (tenantRow as R | null)?.name === 'Sandbox'
 
-    // Dieselbe Regel prüft die CSV-Route /meldungen/<id>/csv (lib/auth/sperren.ts)
-    const abo = aboStand(tenantRow as R | null, role)
+    // Dieselbe Regel prüfen Server Actions und API-Routen (lib/auth/sperren.ts: schreibSperre);
+    // den schon geladenen Kopf wiederverwenden, vor „gesperrt“ ungecacht gegenprüfen
+    const abo = await aboStandErmitteln(
+      { tenantId: membership.tenantId, role },
+      { gecacht: async () => kopf, frisch: ladeTenantKopfFrisch },
+    )
+    // Registrierung ohne abgeschlossenen Checkout (noch nie ein Abo): wie vor KAN-5 direkt zu
+    // „Zahlung nachholen“ – ein leerer Betrieb im Nur-Lesen-Modus hilft einem Neukunden nicht
+    if (abo.zahlungOffen) redirect('/abo')
     billingBlocked = abo.gesperrt
     billingWarnung = abo.warnung
   }
-
-  if (billingBlocked) redirect('/abo')
 
   return (
     <>
@@ -143,7 +154,9 @@ export default async function DashboardLayout({
       <SessionTimeout timeoutMinuten={(branding as any).session_timeout} />
       <AutoRefresh />
       {/* Betriebswechsel in einem anderen Tab erkennen und diesen Tab sperren (KAN-30) */}
-      {membership?.tenantId && <BetriebsWaechter tenantId={membership.tenantId} name={seitenBetriebName} mandant={seitenMandant} />}
+      {/* KAN-5: im Nur-Lesen-Modus hält derselbe Wächter API- und Supabase-Schreibzugriffe im Browser
+          zurück und meldet vom Server abgelehnte Server Actions (Hinweis: NurLesenHinweis) */}
+      {membership?.tenantId && <BetriebsWaechter tenantId={membership.tenantId} name={seitenBetriebName} mandant={seitenMandant} schreibgesperrt={billingBlocked} />}
       {/* Ladebalken bei Seitenwechsel (useSearchParams braucht Suspense) */}
       <Suspense fallback={null}><NavigationsBalken /></Suspense>
       <AppShell
@@ -155,24 +168,38 @@ export default async function DashboardLayout({
         betriebCount={betriebCount ?? 1}
         isSandbox={isSandbox}
         sandboxAdminUnlock={isSandboxAdminUnlock(user.email, isSandbox)}
-        darfSchreiben={canWrite(role)}
+        /* KAN-5: im Nur-Lesen-Modus keine „Neu …“-Einstiege in der Befehlspalette – das Speichern
+           würde ohnehin abgelehnt und die Eingaben eines ganzen Formulars gingen verloren */
+        darfSchreiben={canWrite(role) && !billingBlocked}
         auswertungenSichtbar={canSeeAuswertungen(role)}
       >
+        {/* Hinweisleisten: nie mitdrucken (print:hidden + data-print) – sonst stünden sie auf
+            Rechnung, Lieferschein, Etiketten und Behördenausdrucken */}
         {mfaHinweis && (
-          <div className="mb-4 px-4 py-2.5 rounded-lg bg-s112-blue-50 border border-s112-blue-100 text-s112-blue-700 text-sm flex items-center justify-between gap-3 flex-wrap">
+          <div data-print="hide" className="print:hidden mb-4 px-4 py-2.5 rounded-lg bg-s112-blue-50 border border-s112-blue-100 text-s112-blue-700 text-sm flex items-center justify-between gap-3 flex-wrap">
             <span>Für Administratoren wird die Zwei-Faktor-Anmeldung ab {new Date(MFA_PFLICHT_AB + 'T00:00:00').toLocaleDateString('de-AT')} Pflicht. Richte sie jetzt in zwei Minuten ein.</span>
             <Link href="/zwei-faktor" className="font-semibold underline whitespace-nowrap">Jetzt einrichten →</Link>
           </div>
         )}
+        {billingBlocked && (
+          // Nur-Lesen-Modus (KAN-5): auf allen Seiten sichtbar, Seiten und Navigation bleiben unverändert
+          <div role="status" data-print="hide" className="print:hidden mb-4 px-4 py-2.5 rounded-lg bg-s112-err-bg border border-s112-err/30 text-s112-err-fg text-sm flex items-center justify-between gap-3 flex-wrap">
+            <span><strong className="font-semibold">{NUR_LESEN_TITEL}:</strong> {NUR_LESEN_BANNER} Ansehen, Drucken und Exportieren bleiben möglich.</span>
+            <Link href="/abo" className="font-semibold underline whitespace-nowrap hover:text-s112-err-fg">Zum Abo →</Link>
+          </div>
+        )}
         {billingWarnung && (
-          <div className="mb-4 px-4 py-2.5 rounded-lg bg-s112-warn-bg border border-s112-warn/30 text-s112-warn-fg text-sm flex items-center justify-between gap-3 flex-wrap">
+          <div data-print="hide" className="print:hidden mb-4 px-4 py-2.5 rounded-lg bg-s112-warn-bg border border-s112-warn/30 text-s112-warn-fg text-sm flex items-center justify-between gap-3 flex-wrap">
             <span>Es gibt ein Problem mit der letzten Zahlung für Ihr Abo. Bitte aktualisieren Sie Ihre Zahlungsdaten, um eine Sperre zu vermeiden.</span>
             <Link href="/abo" className="font-semibold underline whitespace-nowrap hover:text-s112-warn-fg">Zahlungsdaten verwalten →</Link>
           </div>
         )}
         {children}
       </AppShell>
-      {assistentAktiv && canWrite(role, 'kellerbuch') && <AssistentWidget />}
+      {/* KAN-5: Assistent kostet KI-Abfragen – im Nur-Lesen-Modus ausgeblendet */}
+      {assistentAktiv && canWrite(role, 'kellerbuch') && !billingBlocked && <AssistentWidget />}
+      {/* nach der AppShell: im DOM und in der Tab-Reihenfolge am Ende, wo er auch angezeigt wird */}
+      {billingBlocked && <NurLesenHinweis />}
     </>
   )
 }

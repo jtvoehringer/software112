@@ -12,6 +12,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
 
 export const runtime = 'nodejs'
@@ -76,6 +77,8 @@ export async function POST(req: NextRequest) {
   if (!tenantId) return NextResponse.json({ error: 'Kein Betrieb' }, { status: 403 })
   const konflikt = await seitenBetriebKonflikt(tenantId, 'error')   // KAN-30: Beleg aus einem veralteten Tab?
   if (konflikt) return konflikt
+  const gesperrt = await schreibSperreKonflikt(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
+  if (gesperrt) return gesperrt
   if (!canWrite(membership.role, 'ea')) return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 })
 
   const { data: einst } = await (supabase.from('tenant_einstellungen') as any)

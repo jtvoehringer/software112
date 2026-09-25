@@ -28,7 +28,7 @@ function datumDe(iso: string | null | undefined) {
   return `${d}.${m}.${y}`
 }
 
-export default function BmdClient({ overrides, protokoll, kategorien, offeneRechnungen, offeneAusgaben, darfMappingAendern, darfUebergeben }: {
+export default function BmdClient({ overrides, protokoll, kategorien, offeneRechnungen, offeneAusgaben, darfMappingAendern, darfUebergeben, nurLesen = false }: {
   overrides: Record<string, string>
   protokoll: R[]
   kategorien: R[]
@@ -36,6 +36,8 @@ export default function BmdClient({ overrides, protokoll, kategorien, offeneRech
   offeneAusgaben: number
   darfMappingAendern: boolean
   darfUebergeben: boolean
+  /** KAN-5: Abo gesperrt – Export ja, Protokoll/Markierung/neue Personenkonten nein */
+  nurLesen?: boolean
 }) {
   const [tab, setTab] = useState<Tab>('uebergabe')
 
@@ -68,7 +70,7 @@ export default function BmdClient({ overrides, protokoll, kategorien, offeneRech
         ))}
       </div>
 
-      {tab === 'uebergabe' && <UebergabeTab offeneRechnungen={offeneRechnungen} offeneAusgaben={offeneAusgaben} darfUebergeben={darfUebergeben} />}
+      {tab === 'uebergabe' && <UebergabeTab offeneRechnungen={offeneRechnungen} offeneAusgaben={offeneAusgaben} darfUebergeben={darfUebergeben} nurLesen={nurLesen} />}
       {tab === 'mapping' && <MappingTab overrides={overrides} kategorien={kategorien} darfAendern={darfMappingAendern} />}
       {tab === 'protokoll' && <ProtokollTab protokoll={protokoll} />}
     </div>
@@ -76,7 +78,7 @@ export default function BmdClient({ overrides, protokoll, kategorien, offeneRech
 }
 
 // ── Übergabe ────────────────────────────────────────────────────────────────
-function UebergabeTab({ offeneRechnungen, offeneAusgaben, darfUebergeben }: { offeneRechnungen: number; offeneAusgaben: number; darfUebergeben: boolean }) {
+function UebergabeTab({ offeneRechnungen, offeneAusgaben, darfUebergeben, nurLesen }: { offeneRechnungen: number; offeneAusgaben: number; darfUebergeben: boolean; nurLesen: boolean }) {
   const heute = new Date()
   const [art, setArt] = useState<Art>('ausgangsrechnungen')
   const [von, setVon] = useState(new Date(heute.getFullYear(), heute.getMonth() - 1, 1).toISOString().slice(0, 10))
@@ -100,13 +102,27 @@ function UebergabeTab({ offeneRechnungen, offeneAusgaben, darfUebergeben }: { of
       const dateiname = res.headers.get('X-BMD-Dateiname') ?? `BMD_${art}.csv`
       const anzahl = res.headers.get('X-BMD-Anzahl') ?? '?'
       const summe = Number(res.headers.get('X-BMD-Summe') ?? 0)
+      // Was der Server tatsächlich getan hat (KAN-5: im Nur-Lesen-Modus kein Protokoll, keine neuen Personenkonten)
+      const protokolliert = res.headers.get('X-BMD-Protokolliert') === '1'
+      const serverNurLesen = res.headers.get('X-BMD-Nur-Lesen') === '1'
+      const sammel = Number(res.headers.get('X-BMD-Sammelkonto') ?? 0)
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a'); a.href = url; a.download = dateiname; a.click(); URL.revokeObjectURL(url)
+      const zusatz = [
+        protokollieren && !protokolliert
+          ? (serverNurLesen
+            ? 'Nicht protokolliert (Nur-Lesen-Modus) – die Belege bleiben als „nicht übergeben“ markiert und kommen bei der nächsten Übergabe mit „nur neue“ wieder mit.'
+            : 'Nicht protokolliert – die Belege bleiben als „nicht übergeben“ markiert.')
+          : '',
+        sammel > 0
+          ? `${sammel} Kunde(n)/Lieferant(en) ohne Personenkonto über das Sammelkonto übergeben${serverNurLesen ? ' (im Nur-Lesen-Modus werden keine neuen Konten vergeben)' : ''}.`
+          : '',
+      ].filter(Boolean).join(' ')
       setMeldung({
-        typ: 'ok',
-        text: art === 'stammdaten'
+        typ: zusatz ? 'info' : 'ok',
+        text: (art === 'stammdaten'
           ? `${anzahl} Personenkonten in ${dateiname} übergeben.`
-          : `${anzahl} Belege (${eur(summe)} brutto) in ${dateiname} übergeben${protokollieren ? ' und im Protokoll vermerkt' : ''}.`,
+          : `${anzahl} Belege (${eur(summe)} brutto) in ${dateiname} übergeben${protokolliert ? ' und im Protokoll vermerkt' : ''}.`) + (zusatz ? ` ${zusatz}` : ''),
       })
     } catch (e) {
       setMeldung({ typ: 'fehler', text: fehlerText(e, 'Fehler bei der Übergabe') })
@@ -163,6 +179,11 @@ function UebergabeTab({ offeneRechnungen, offeneAusgaben, darfUebergeben }: { of
               <input type="checkbox" checked={protokollieren} disabled={!darfUebergeben} onChange={e => setProtokollieren(e.target.checked)} className="mt-0.5" />
               <span>Übergabe protokollieren und Belege als „übergeben“ markieren <span className="text-s112-muted">(abwählen für einen Probelauf)</span></span>
             </label>
+            {nurLesen && (
+              <p className="text-xs text-s112-warn-fg">
+                Nur-Lesen-Modus: Der Export ist möglich, wird aber nicht protokolliert – die Belege bleiben als „nicht übergeben“ markiert, neue Personenkonten werden nicht vergeben (Sammelkonto).
+              </p>
+            )}
           </div>
         )}
 

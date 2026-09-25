@@ -16,6 +16,12 @@
 //  - Layout mit anderem Betrieb neu gerendert (router.refresh/AutoRefresh nach einem Wechsel):
 //    sofort sperren – Formular- und Client-Zustand gehören noch zum alten Betrieb.
 //  - Schreibende Anfragen: Header mit dem Betrieb der Seite (siehe lib/auth/seitenBetrieb.ts).
+//  - Nur-Lesen-Modus (KAN-5): Mit schreibgesperrt=true (Abo gesperrt) schickt derselbe
+//    fetch-Wrapper schreibende API- und Supabase-Anfragen gar nicht erst ab, sondern antwortet
+//    sofort mit der Meldung des Servers; Server Actions gehen an den Server (Formular bekommt
+//    seine gewohnte Antwort), ihre Antwort wird nur mitgelesen. Bei einer Ablehnung meldet er
+//    NUR_LESEN_EREIGNIS (Hinweis: components/NurLesenHinweis.tsx). Welche Anfragen, in welcher
+//    Form: lib/abo/nurLesen.ts. Die Sperre selbst bleibt der Server bzw. die Datenbank.
 // Einmal gesperrt bleibt gesperrt (auch wenn der Betrieb zurückgewechselt wird). Solange die
 // Sperre steht, trägt <html> das Attribut SPERRE_ATTRIBUT: AutoRefresh lädt dann keine Daten des
 // anderen Betriebs unter die Überlagerung, die Befehlspalette (Strg K) bleibt zu.
@@ -31,6 +37,10 @@ import {
   mitSeitenBetrieb, pruefMeldungBauen, sperrGrund, sperrText, wechselUrl, weichtAb,
   type AbfrageErgebnis, type Betrieb, type BetriebsMeldung, type PruefAnlass, type PruefMeldung,
 } from '@/lib/tenant/waechter'
+import {
+  NUR_LESEN_EREIGNIS, anfragePfad, schreibAnfrageArt, sperrAntwort, sperrArtFuer, sperrArtImText, zurueckhalten,
+  type NurLesenDetail, type SchreibAnfrage,
+} from '@/lib/abo/nurLesen'
 
 const PRUEF_ABSTAND_MS = 15_000       // wie AutoRefresh; focus und visibilitychange kommen meist paarweise
 const FALLBACK_INTERVALL_MS = 60_000  // nur ohne BroadcastChannel
@@ -39,16 +49,56 @@ const FALLBACK_INTERVALL_MS = 60_000  // nur ohne BroadcastChannel
 // Modulweit, weil der fetch-Wrapper außerhalb von React läuft; beim Verlassen des
 // Arbeitsbereichs (Wächter entfernt) wieder null → kein Header.
 let seitenBetrieb: string | null = null
+// KAN-5: Nur-Lesen-Modus der Seite (Abo gesperrt) – ebenso modulweit, beim Verlassen false
+let nurLesen = false
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? null
 const FETCH_MARKE = '__s112SeitenBetrieb'
 type MarkiertesFetch = typeof fetch & { [FETCH_MARKE]?: true }
+
+function nurLesenMelden(detail: NurLesenDetail) {
+  try { window.dispatchEvent(new CustomEvent<NurLesenDetail>(NUR_LESEN_EREIGNIS, { detail })) } catch { /* Hinweis ist Zusatznutzen */ }
+}
+
+/** Art der schreibenden Anfrage im Nur-Lesen-Modus, sonst null (Anfrage unberührt) */
+function nurLesenArt(input: Parameters<typeof fetch>[0], init: RequestInit | undefined): SchreibAnfrage | null {
+  if (!nurLesen) return null
+  try { return schreibAnfrageArt(input, init, window.location.origin, SUPABASE_URL) } catch { return null /* im Zweifel absenden – der Server sperrt ohnehin */ }
+}
+
+/** Nur-Lesen-Modus: API-/Supabase-Schreibanfrage zurückhalten → fertige Antwort wie vom Server */
+function nurLesenAntwort(art: Exclude<SchreibAnfrage, 'aktion'>, input: Parameters<typeof fetch>[0]): Response {
+  const pfad = anfragePfad(input, window.location.origin)
+  nurLesenMelden({ art, sperrArt: sperrArtFuer(art, pfad) })
+  const a = sperrAntwort(art, pfad)
+  return new Response(a.body, { status: a.status, headers: a.headers })
+}
+
+/**
+ * Server Action im Nur-Lesen-Modus: wird abgeschickt (der Server antwortet in der Form, die das
+ * Formular erwartet); eine Kopie der Antwort wird auf die Sperrmeldung geprüft → Hinweis.
+ */
+function actionMitlesen(antwort: Promise<Response>) {
+  antwort.then(res => {
+    let kopie: Response
+    try { kopie = res.clone() } catch { return }
+    kopie.text().then(text => {
+      const sperrArt = sperrArtImText(text)
+      if (sperrArt) nurLesenMelden({ art: 'aktion', sperrArt })
+    }).catch(() => { /* Hinweis ist Zusatznutzen */ })
+  }).catch(() => { /* Netzfehler meldet der Aufrufer selbst */ })
+}
 
 function fetchErweitern() {
   const original = window.fetch as MarkiertesFetch
   if (original[FETCH_MARKE]) return
   const erweitert: MarkiertesFetch = (input, init) => {
+    const art = nurLesenArt(input, init)
+    if (art && art !== 'aktion' && zurueckhalten(art)) return Promise.resolve(nurLesenAntwort(art, input))
     let neu: RequestInit | null = null
     try { neu = mitSeitenBetrieb(input, init, seitenBetrieb, window.location.origin) } catch { /* Anfrage nie am Wrapper scheitern lassen */ }
-    return original.call(window, input, neu ?? init)
+    const antwort = original.call(window, input, neu ?? init)
+    if (art === 'aktion') actionMitlesen(antwort)
+    return antwort
   }
   erweitert[FETCH_MARKE] = true
   window.fetch = erweitert
@@ -70,7 +120,7 @@ function ueberSpeicherMelden(meldung: BetriebsMeldung | PruefMeldung) {
 /**
  * „Bitte aktiven Betrieb prüfen“ an die Tabs des Arbeitsbereichs – für Seiten außerhalb von
  * (dashboard), auf denen ein Betriebswechsel landen kann, ohne dass ein Wächter ihn meldet
- * (Abo-Sperre des neuen Betriebs → /abo, Zwei-Faktor-Pflicht → /zwei-faktor, Betriebsauswahl).
+ * (/abo, Zwei-Faktor-Pflicht → /zwei-faktor, Betriebsauswahl).
  */
 export function BetriebsPruefMelder() {
   useEffect(() => {
@@ -88,7 +138,7 @@ export function BetriebsPruefMelder() {
 
 type Sperre = { neu: Betrieb | null; ausAnderemTab: boolean }
 
-export default function BetriebsWaechter({ tenantId, name, mandant }: Betrieb) {
+export default function BetriebsWaechter({ tenantId, name, mandant, schreibgesperrt = false }: Betrieb & { schreibgesperrt?: boolean }) {
   // Betrieb, mit dem diese Seite geladen wurde – bleibt bis zum Neuladen fest
   const [seite] = useState<Betrieb>(() => (mandant ? { tenantId, name, mandant } : { tenantId, name }))
   const [sperre, setSperre] = useState<Sperre | null>(null)
@@ -132,6 +182,13 @@ export default function BetriebsWaechter({ tenantId, name, mandant }: Betrieb) {
     seitenBetrieb = eigener
     return () => { if (seitenBetrieb === eigener) seitenBetrieb = null }
   }, [seite])
+
+  // Nur-Lesen-Modus (KAN-5): folgt dem Layout – nach Zahlung und Neuladen wieder frei
+  useEffect(() => {
+    fetchErweitern()
+    nurLesen = schreibgesperrt
+    return () => { nurLesen = false }
+  }, [schreibgesperrt])
 
   // Melden und Meldungen anderer Tabs empfangen
   useEffect(() => {

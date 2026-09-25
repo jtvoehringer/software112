@@ -6,6 +6,7 @@ import { zerlegeTelefon } from '@/lib/crm/telefon'
 import { pruefeEmailFelder } from '@/lib/crm/email'
 import { dezimal } from '@/lib/format'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
 export const dynamic = 'force-dynamic'
 // Große Importe (Dynamics-Leads 3.9.2026: 4.200 Firmen / 7.900 Kontakte) kommen
@@ -170,6 +171,8 @@ export async function POST(req: NextRequest) {
     // KAN-30: Import aus einem veralteten Tab (anderer Betrieb)? Sonst landen die Daten im neuen Betrieb
     const konflikt = await seitenBetriebKonflikt(tenantId)
     if (konflikt) return konflikt
+    const gesperrt = await schreibSperreKonflikt(activeMembership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
+    if (gesperrt) return gesperrt
 
     // Nur Rollen mit Schreibrecht dürfen importieren (system_admin/tenant_admin/winzer,
     // nicht leser) - einheitlich über canWrite() statt einer eigenen, unvollständigen

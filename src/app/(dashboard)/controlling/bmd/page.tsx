@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canAdmin, canWrite } from '@/lib/auth/roles'
 import { hatModul } from '@/lib/auth/modul'
+import { schreibSperre } from '@/lib/auth/sperren'
 import BmdClient from './BmdClient'
 
 export const dynamic = 'force-dynamic'
@@ -35,6 +36,9 @@ export default async function BmdPage() {
       .eq('tenant_id', tenantId).eq('aktiv', true).eq('storniert', false).is('bmd_export_id', null),
   ])
 
+  // KAN-5: im Nur-Lesen-Modus wird exportiert, aber nichts protokolliert/markiert (api/export/bmd)
+  const nurLesen = (await schreibSperre(membership)) !== null
+
   const { count: offeneAusgaben } = await (supabase.from('ea_transaktionen') as any)
     .select('id', { count: 'exact', head: true })
     .eq('tenant_id', tenantId).eq('typ', 'ausgabe').is('bmd_export_id', null)
@@ -47,7 +51,8 @@ export default async function BmdPage() {
       offeneRechnungen={offeneRechnungen ?? 0}
       offeneAusgaben={offeneAusgaben ?? 0}
       darfMappingAendern={canAdmin(membership.role)}
-      darfUebergeben={canWrite(membership.role, 'ea')}
+      darfUebergeben={canWrite(membership.role, 'ea') && !nurLesen}
+      nurLesen={nurLesen}
     />
   )
 }

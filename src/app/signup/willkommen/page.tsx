@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole, getCurrentMembership } from '@/lib/auth/roles'
-import { STRIPE_BLOCKED_STATUSES, istTrialAbgelaufen } from '@/lib/stripe/client'
+import { aboStandBerechnen } from '@/lib/abo/regeln'
 
 // ── Zwischenseite nach erfolgreichem Stripe-Checkout ─────────────────────────
 // Rückmeldung 31.8.2026: der Webhook (customer.subscription.created), der
@@ -32,8 +32,8 @@ export default async function WillkommenPage() {
   const status      = (t?.stripe_status ?? null) as string | null
   const trialEndsAt = (t?.stripe_trial_ends_at ?? null) as string | null
 
-  const nochGesperrt = role !== 'system_admin' && !!status &&
-    (STRIPE_BLOCKED_STATUSES.includes(status) || istTrialAbgelaufen(status, trialEndsAt))
+  // Dieselbe Regel wie Layout und Schreibsperre (KAN-5, lib/abo/regeln.ts)
+  const nochGesperrt = aboStandBerechnen({ tenantId: membership.tenantId, stripeStatus: status, trialEndsAt, role }).gesperrt
 
   if (!nochGesperrt) redirect('/dashboard')
 

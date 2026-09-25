@@ -7,6 +7,7 @@ import { revalidatePath } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
+import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { LESE_VORLAGE } from './vorlage'
 import { AktionsFehler } from '@/lib/fehler'
 
@@ -18,6 +19,7 @@ async function kontext() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!membership?.tenantId || !user) throw new AktionsFehler('Nicht angemeldet')
   await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
+  await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
   if (!canWrite(membership.role, 'rieden')) throw new AktionsFehler('Keine Berechtigung')
   return { supabase, tenantId: membership.tenantId, userId: user.id }
 }

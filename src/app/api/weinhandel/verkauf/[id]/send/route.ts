@@ -17,6 +17,7 @@ import { getValidUserAccessToken } from '@/lib/m365/graph'
 import { renderVerkaufRechnungPdf } from '@/lib/pdf/verkaufRechnungPdf'
 import { ereignisMelden } from '@/lib/system/ereignis'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -40,6 +41,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const membership = await getCurrentMembership()
   if (!membership?.tenantId) return NextResponse.json({ error: 'Kein Betrieb' }, { status: 401 })
+  const gesperrt = await schreibSperreKonflikt(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
+  if (gesperrt) return gesperrt
   if (!canWrite(membership.role, 'warenwirtschaft')) return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 })
   const tenantId = membership.tenantId
 

@@ -9,6 +9,7 @@ export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
 // zwei-faktor-ausnahme: OAuth-Rückkehr von Microsoft – signierter State + Einmal-Cookie + Abgleich mit dem Sitzungs-User; den State stellt nur /api/auth/m365/user aus, das aal2 prüft
+// schreibsperre-ausnahme: persönliche Postfach-Verbindung (user_email_connections, keine Betriebsdaten) – auch im Nur-Lesen-Modus erlaubt, DB-Ausnahme ebenso (KAN-5)
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
   const code  = searchParams.get('code')

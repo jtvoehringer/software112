@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 
 // POST /api/crm/aktivitaet/[id]/dokument – Datei hochladen
 export async function POST(
@@ -19,6 +20,8 @@ export async function POST(
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId
   if (!tenantId) return NextResponse.json({ error: 'Kein Betrieb' }, { status: 403 })
+  const gesperrt = await schreibSperreKonflikt(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
+  if (gesperrt) return gesperrt
 
   // Prüfen ob Aktivität zu diesem Tenant gehört
   const { data: akt } = await (supabase.from('aktivitaeten') as any)

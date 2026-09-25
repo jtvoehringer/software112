@@ -1,5 +1,6 @@
 'use server'
 // seiten-betrieb-ausnahme: Schlüsseltausch über alle Mandanten (Super-Admin), kein Bezug zum aktiven Betrieb (KAN-30)
+// schreibsperre-ausnahme-datei: Schlüsseltausch über alle Mandanten – nur Super-Admin, von der Abo-Sperre ausgenommen (KAN-5)
 
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUserRole } from '@/lib/auth/roles'

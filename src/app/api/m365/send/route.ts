@@ -5,6 +5,7 @@ import { graphPost, getValidAccessToken } from '@/lib/m365/graph'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { ereignisMelden } from '@/lib/system/ereignis'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -20,6 +21,8 @@ export async function POST(req: NextRequest) {
     const membership = await getCurrentMembership()
     const tenantId = membership?.tenantId
     if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
+    const gesperrt = await schreibSperreKonflikt(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
+    if (gesperrt) return gesperrt
 
     const { data: cfg } = await (admin.from('tenant_einstellungen') as any)
       .select('m365_modul_aktiv, m365_tenant_id, m365_client_id, m365_client_secret_enc, m365_access_token_enc, m365_refresh_token_enc, m365_token_expires_at, m365_user_email, tenant_id')

@@ -1,5 +1,6 @@
 'use server'
 // seiten-betrieb-ausnahme: Plattform-Admins verwalten – wirkt plattformweit, nicht auf den aktiven Betrieb (KAN-30)
+// schreibsperre-ausnahme-datei: Plattform-Admins verwalten – nur Super-Admin, und Super-Admins sind von der Abo-Sperre ausgenommen (KAN-5)
 
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { createSupabaseServerClient } from '@/lib/supabase/server'

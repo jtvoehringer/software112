@@ -11,6 +11,7 @@ import {
   type Mapping, type BmdZeile, type PersonenkontoZeile,
 } from '@/lib/buchhaltung/bmd'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { schreibSperre } from '@/lib/auth/sperren'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -35,6 +36,13 @@ type R = Record<string, any>
 // Kunden/Lieferanten automatisch aus dem Nummernkreis des Mandanten vergeben
 // (RPC get_next_personenkonto) und am Kontakt/an der Firma gespeichert - damit
 // bleibt die Nummer für alle weiteren Übergaben stabil.
+//
+// KAN-5 Nur-Lesen-Modus (gesperrtes Abo): Der Export bleibt erlaubt (Übergabe an den
+// Steuerberater, Aufbewahrungspflicht), schreibt aber nichts – kein Protokoll, keine
+// „übergeben“-Markierung und KEINE neuen Personenkonten (eine vergebene, aber nicht
+// gespeicherte Nummer ergäbe beim nächsten Export eine zweite – doppelte Konten in der
+// Kanzlei). Kunden ohne Nummer laufen dann über das Sammelkonto (debitor_/kreditor_diverse).
+// Die Antwort meldet das in X-BMD-Protokolliert / X-BMD-Nur-Lesen / X-BMD-Sammelkonto.
 
 const STANDARD_ZAHLUNGSZIEL = 14
 
@@ -53,7 +61,10 @@ export async function GET(req: NextRequest) {
   const von = sp.get('von') ?? ''
   const bis = sp.get('bis') ?? ''
   const nurNeue = sp.get('nurNeue') === '1'
-  const protokollieren = sp.get('protokollieren') === '1' && canWrite(membership.role, 'ea')
+  // KAN-5: Der Export selbst bleibt im Nur-Lesen-Modus erlaubt (Übergabe an den Steuerberater,
+  // Aufbewahrungspflicht) – Protokoll und „übergeben“-Markierung werden dann nicht geschrieben.
+  const nurLesen = (await schreibSperre(membership)) !== null
+  const protokollieren = sp.get('protokollieren') === '1' && canWrite(membership.role, 'ea') && !nurLesen
 
   if (!['ausgangsrechnungen', 'eingangsbelege', 'stammdaten'].includes(art)) {
     return NextResponse.json({ fehler: 'Unbekannte Übergabeart' }, { status: 400 })
@@ -67,7 +78,7 @@ export async function GET(req: NextRequest) {
     .select('schluessel, wert').eq('tenant_id', tenantId)
   const mapping = mappingAufloesen(Object.fromEntries(((overrides ?? []) as R[]).map(o => [o.schluessel, o.wert])))
 
-  const konten = new Personenkonten(supabase, tenantId, mapping)
+  const konten = new Personenkonten(supabase, tenantId, mapping, nurLesen)
 
   let csv = ''
   let anzahl = 0
@@ -132,6 +143,9 @@ export async function GET(req: NextRequest) {
       'X-BMD-Anzahl': String(anzahl),
       'X-BMD-Summe': String(Math.round(summe * 100) / 100),
       'X-BMD-Dateiname': dateiname,
+      'X-BMD-Protokolliert': protokollieren ? '1' : '0',
+      'X-BMD-Nur-Lesen': nurLesen ? '1' : '0',
+      'X-BMD-Sammelkonto': String(konten.aufSammelkonto),
       'Cache-Control': 'no-store',
     },
   })
@@ -146,8 +160,10 @@ function bloecke<T>(arr: T[], groesse = 500): T[][] {
 // ── Personenkonten-Vergabe ──────────────────────────────────────────────────
 class Personenkonten {
   private cache = new Map<string, string>()
+  /** Kunden/Lieferanten ohne eigene Nummer, die über das Sammelkonto laufen (Nur-Lesen-Modus bzw. Fehler) */
+  aufSammelkonto = 0
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  constructor(private supabase: any, private tenantId: string, private mapping: Mapping) {}
+  constructor(private supabase: any, private tenantId: string, private mapping: Mapping, private nurLesen = false) {}
 
   /** Debitorenkonto für Firma (bevorzugt) oder Kontakt - vergibt bei Bedarf eine neue Nummer */
   async debitor(firma: R | null, kontakt: R | null): Promise<string> {
@@ -166,9 +182,22 @@ class Personenkonten {
     const key = `${tabelle}:${zeile.id}:${spalte}`
     const vorhanden = this.cache.get(key) ?? (zeile[spalte] ? String(zeile[spalte]).trim() : '')
     if (vorhanden) { this.cache.set(key, vorhanden); return vorhanden }
-    const { data: nr } = await this.supabase.rpc('get_next_personenkonto', { p_tenant_id: this.tenantId, p_art: artKonto, p_basis: basis })
-    const neu = nr ? String(nr) : (artKonto === 'debitor' ? this.mapping.debitor_diverse : this.mapping.kreditor_diverse)
-    if (nr) await this.supabase.from(tabelle).update({ [spalte]: neu }).eq('id', zeile.id).eq('tenant_id', this.tenantId)
+    const sammel = artKonto === 'debitor' ? this.mapping.debitor_diverse : this.mapping.kreditor_diverse
+    const sammelkonto = () => { this.aufSammelkonto++; this.cache.set(key, sammel); return sammel }
+    // KAN-5: im Nur-Lesen-Modus keine neue Nummer vergeben (siehe Kopf)
+    if (this.nurLesen) return sammelkonto()
+    const { data: nr, error: nrFehler } = await this.supabase.rpc('get_next_personenkonto', { p_tenant_id: this.tenantId, p_art: artKonto, p_basis: basis })
+    if (nrFehler || !nr) {
+      if (nrFehler) void ereignisMelden({ art: 'db', quelle: 'bmd/get_next_personenkonto', meldung: nrFehler.message })
+      return sammelkonto()
+    }
+    const neu = String(nr)
+    // Nummer nur verwenden, wenn sie auch gespeichert ist – sonst gäbe es beim nächsten Export eine zweite
+    const { data: gespeichert, error: ue } = await this.supabase.from(tabelle).update({ [spalte]: neu }).eq('id', zeile.id).eq('tenant_id', this.tenantId).select('id')
+    if (ue || !((gespeichert ?? []) as R[]).length) {
+      void ereignisMelden({ art: 'db', quelle: `bmd/${tabelle}.${spalte}`, meldung: ue?.message ?? 'Personenkonto nicht gespeichert (0 Zeilen)' })
+      return sammelkonto()
+    }
     this.cache.set(key, neu)
     return neu
   }

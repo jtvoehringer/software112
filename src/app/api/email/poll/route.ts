@@ -14,6 +14,7 @@ type R = Record<string, any>
 // Kann per Vercel Cron oder manuellem Aufruf getriggert werden
 // Header X-Cron-Secret muss mit CRON_SECRET übereinstimmen (optional)
 // zwei-faktor-ausnahme: nur mit Authorization: Bearer CRON_SECRET erreichbar – ohne Secret 401, kein Sitzungszweig
+// schreibsperre-ausnahme: nur mit CRON_SECRET erreichbar – kein Benutzer, kein Sitzungszweig
 export async function POST(req: NextRequest) {
   // Authentifizierung: CRON_SECRET (Cron-Job) ODER eingeloggte Supabase-Session (Admin)
   const cronSecret = process.env.CRON_SECRET

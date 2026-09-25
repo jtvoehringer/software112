@@ -2,7 +2,8 @@ import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole, getCurrentMembership, canAdmin } from '@/lib/auth/roles'
-import { STRIPE_BLOCKED_STATUSES, STRIPE_PLAN_LABELS, STRIPE_STATUS_META, istTrialAbgelaufen } from '@/lib/stripe/client'
+import { STRIPE_PLAN_LABELS, STRIPE_STATUS_META } from '@/lib/stripe/client'
+import { aboStandBerechnen, istTrialAbgelaufen } from '@/lib/abo/regeln'
 import { PAKET_REIHENFOLGE, paketAusPlan, paketPriceId } from '@/lib/pakete'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { pruefeBenutzerlimit } from '@/lib/pakete-server'
@@ -10,10 +11,12 @@ import AboClient from './AboClient'
 import { BetriebsPruefMelder } from '@/components/BetriebsWaechter'
 
 // Rückmeldung 31.8.2026 ("die Plattform soll sich selber abrechnen können,
-// damit wir zu unserem Geld kommen"): Ziel-/Hinweisseite der neuen
-// Zugriffssperre in (dashboard)/layout.tsx. Bewusst AUSSERHALB der
-// (dashboard)-Route-Gruppe angesiedelt, damit ein gesperrter Mandant die
-// Seite überhaupt erreichen kann (sonst Redirect-Schleife).
+// damit wir zu unserem Geld kommen"): Selbstverwaltung von Abo und Zahlung.
+// Bewusst AUSSERHALB der (dashboard)-Route-Gruppe angesiedelt. Seit KAN-5
+// (25.9.2026) leitet das Layout gesperrte Betriebe nicht mehr hierher um – sie
+// arbeiten im Nur-Lesen-Modus weiter, die Hinweisleiste verlinkt auf diese Seite.
+// Umgeleitet wird nur noch ein Neukunde, der den Checkout der Registrierung nie
+// abgeschlossen hat ('incomplete' ohne Abo-ID, AboStand.zahlungOffen).
 
 export const metadata: Metadata = { title: 'Abo & Zahlung – software:112' }
 export const dynamic = 'force-dynamic'
@@ -36,7 +39,6 @@ export default async function AboPage() {
     .maybeSingle()
 
   const t = tenantRow as R | null
-  const isSandbox    = t?.name === 'Sandbox'
   const stripeStatus = (t?.stripe_status ?? null) as string | null
   const stripePlan   = (t?.stripe_plan ?? null) as string | null
   const hasCustomer  = !!t?.stripe_customer_id
@@ -47,10 +49,12 @@ export default async function AboPage() {
   const hatAbo       = !!t?.stripe_subscription_id
   const trialEndsAt  = (t?.stripe_trial_ends_at ?? null) as string | null
 
-  const exempt          = role === 'system_admin' || isSandbox
-  const trialAbgelaufen = !exempt && istTrialAbgelaufen(stripeStatus, trialEndsAt)
-  const hardBlocked      = !exempt && ((!!stripeStatus && STRIPE_BLOCKED_STATUSES.includes(stripeStatus)) || trialAbgelaufen)
-  const warned           = !exempt && stripeStatus === 'past_due'
+  // KAN-5: dieselbe Regel wie Layout und Schreibsperre (lib/abo/regeln.ts) – Sandbox und
+  // Demo-Musterhof über feste IDs statt über den Namen
+  const abo             = aboStandBerechnen({ tenantId: membership.tenantId, stripeStatus, trialEndsAt, role })
+  const trialAbgelaufen = abo.gesperrt && istTrialAbgelaufen(stripeStatus, trialEndsAt)
+  const hardBlocked      = abo.gesperrt
+  const warned           = abo.warnung
 
   const planLabel   = stripePlan ? (STRIPE_PLAN_LABELS[stripePlan] ?? stripePlan) : null
   const statusMeta  = stripeStatus ? STRIPE_STATUS_META[stripeStatus] : undefined
@@ -67,8 +71,10 @@ export default async function AboPage() {
 
   return (
     <>
-      {/* KAN-30: Hierher leitet das Layout nach einem Wechsel in einen gesperrten Betrieb –
-          die anderen Tabs sollen den aktiven Betrieb prüfen (kein Wächter auf dieser Seite) */}
+      {/* KAN-30: Seite außerhalb des Arbeitsbereichs (kein Wächter) – die anderen Tabs sollen
+          den aktiven Betrieb prüfen. Seit KAN-5 leitet das Layout nur noch bei nie abgeschlossener
+          Zahlung hierher um; der Melder bleibt für Aufrufe per Link bzw. aus Stripe zurück
+          (Betrieb kann inzwischen gewechselt sein). */}
       <BetriebsPruefMelder />
       <AboClient
         aktuellesPaket={aktuellesPaket}

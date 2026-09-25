@@ -9,6 +9,7 @@ import { revalidatePath } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
+import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { zentrum, type EamaFeldstueck, type EamaSchlag } from '@/lib/geo/eama'
 import { AktionsFehler } from '@/lib/fehler'
 
@@ -32,6 +33,7 @@ async function kontext() {
   const membership = await getCurrentMembership()
   if (!membership?.tenantId) throw new AktionsFehler('Nicht angemeldet')
   await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
+  await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
   if (!canWrite(membership.role, 'rieden')) throw new AktionsFehler('Keine Berechtigung')
   return { supabase, tenantId: membership.tenantId }
 }

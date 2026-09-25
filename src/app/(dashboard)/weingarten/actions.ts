@@ -3,6 +3,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canWrite, canAdmin } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
+import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { revalidatePath } from 'next/cache'
 import { AktionsFehler } from '@/lib/fehler'
 import { dezimal } from '@/lib/format'
@@ -26,6 +27,7 @@ async function requireWrite(): Promise<{ tenantId: string }> {
   const membership = await getCurrentMembership()
   if (!membership) throw new AktionsFehler('Kein Betrieb gefunden')
   await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
+  await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
   if (!canWrite(membership.role, 'rieden')) {
     throw new AktionsFehler('Keine Berechtigung: Diese Aktion ist Betriebs-Manager, Super-Admin oder Mitarbeiter mit Modulrecht vorbehalten.')
   }
@@ -36,6 +38,7 @@ async function requireAdmin(): Promise<{ tenantId: string }> {
   const membership = await getCurrentMembership()
   if (!membership) throw new AktionsFehler('Kein Betrieb gefunden')
   await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
+  await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
   if (!canAdmin(membership.role)) {
     throw new AktionsFehler('Keine Berechtigung: Löschen (und Deaktivieren) ist nur dem Betriebs-Manager bzw. Super-Admin vorbehalten.')
   }
@@ -299,6 +302,7 @@ export type BevResult = {
   alleNutzungen?: BevNutzung[]  // gefüllt wenn GST gefunden aber kein ns=53
 }
 
+// schreibsperre-ausnahme: nur lesend – fragt die Fläche beim BEV-Kataster ab, schreibt nichts
 export async function fetchBevFlaeche(kgnr: string, gstNr: string): Promise<BevResult> {
   if (!kgnr || !gstNr) return { ok: false, message: 'KGNr und GST-Nr erforderlich' }
   try {

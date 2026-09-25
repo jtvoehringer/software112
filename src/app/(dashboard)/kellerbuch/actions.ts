@@ -7,6 +7,7 @@ import { minHerkunft, maxHerkunft, istNiedrigerAls as herkunftIstNiedrigerAls, H
 import { weinartKonflikt, weinartBekannt, weinartAusFarbe, WEINART_LABEL } from '@/lib/keller/weinart'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
+import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { dezimal, zahlAus, fmtNum } from '@/lib/format'
 import { gebindeFehlerText } from '@/lib/keller/behaelter'
@@ -22,6 +23,7 @@ type R = Record<string, any>
 async function getTenantId(): Promise<string | null> {
   const membership = await getCurrentMembership()
   await pruefeSeitenBetrieb(membership?.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
+  await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
   return membership?.tenantId ?? null
 }
 
@@ -31,6 +33,7 @@ async function kellerbuchSchreibrecht(): Promise<string> {
   const membership = await getCurrentMembership()
   if (!membership) throw new AktionsFehler('Kein Betrieb gefunden')
   await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: vor den Rechten – sonst meldet ein veralteter Tab die Rechte des neuen Betriebs
+  await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
   if (!canWrite(membership, 'kellerbuch')) throw new AktionsFehler('Keine Schreibberechtigung für das Kellerbuch in diesem Betrieb.')
   return membership.tenantId
 }

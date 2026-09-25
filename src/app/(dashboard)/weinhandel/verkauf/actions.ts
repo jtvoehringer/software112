@@ -3,6 +3,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, type Membership } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
+import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { revalidatePath } from 'next/cache'
 import { randomUUID } from 'crypto'
 import { syncEaEinnahmeFuerVerkauf } from '@/app/(dashboard)/buchhaltung/actions'
@@ -24,6 +25,7 @@ async function getMembership(): Promise<Membership> {
   const membership = await getCurrentMembership()
   if (!membership) throw new AktionsFehler('Kein aktiver Mandant gefunden')
   await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
+  await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
   return membership
 }
 
@@ -391,6 +393,7 @@ export async function createVerkauf(formData: FormData) {
 // sichtbar). Die Action bleibt als harte Ablehnung bestehen, damit ältere, noch
 // geöffnete Seiten eine verständliche Meldung statt „Server Action not found“ bekommen.
 
+// schreibsperre-ausnahme: lehnt immer ab (Verkäufe werden storniert, nicht gelöscht) – schreibt nichts
 export async function deactivateVerkauf(id: string): Promise<never> {
   void id
   throw new AktionsFehler(

@@ -20,6 +20,7 @@ export const maxDuration = 60
 type R = Record<string, any>
 
 export async function GET(req: NextRequest) { return handle(req) }
+// schreibsperre-ausnahme: Cron bzw. manueller Lauf nur für Super-Admins (von der Abo-Sperre ausgenommen), mandantenübergreifend
 export async function POST(req: NextRequest) { return handle(req) }
 
 async function handle(req: NextRequest) {

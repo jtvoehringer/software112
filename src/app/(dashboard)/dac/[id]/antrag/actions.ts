@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
+import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -17,6 +18,7 @@ export async function savePNA(dacAntragId: string, daten: R): Promise<{ id: stri
   const tenantId = membership?.tenantId
   if (!tenantId) throw new AktionsFehler('Kein Tenant')
   await pruefeSeitenBetrieb(tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
+  await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
   if (!canWrite(membership, 'kellerbuch')) throw new AktionsFehler('Keine Berechtigung')   // Admin-Client umgeht RLS → Modulrecht hier prüfen
 
   const { data: existing } = await (supabase.from('pruefnummernantraege') as any)

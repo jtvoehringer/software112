@@ -1,5 +1,6 @@
 'use server'
 // seiten-betrieb-ausnahme: Freigaben zwischen Betrieben (nur Super-Admin), Betriebe kommen ausdrücklich als Parameter – nicht aus dem Cookie (KAN-30)
+// schreibsperre-ausnahme-datei: Freigaben zwischen Betrieben – nur Super-Admin, von der Abo-Sperre ausgenommen (KAN-5)
 // ── Administration > Kellergemeinschaft (Migration 203) ──────────────────────
 // Nur system_admin: legt fest, welcher Partner-Betrieb (Nutzer) die freigegebenen
 // Gebinde eines Eigentümer-Betriebs sehen und befüllen darf. Schreibt über die

@@ -1,5 +1,6 @@
 'use server'
 // seiten-betrieb-ausnahme: Release Notes sind plattformweit, kein Bezug zum aktiven Betrieb (KAN-30)
+// schreibsperre-ausnahme-datei: Release Notes sind plattformweit – nur Super-Admin, von der Abo-Sperre ausgenommen (KAN-5)
 
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUserRole, isSystemAdmin } from '@/lib/auth/roles'

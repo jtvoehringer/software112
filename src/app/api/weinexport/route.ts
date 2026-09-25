@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { ereignisMelden } from '@/lib/system/ereignis'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -30,6 +31,8 @@ export async function POST(req: NextRequest) {
     // Nummernkreis des neuen Betriebs mit Kontakten/Füllungen des alten
     const konflikt = await seitenBetriebKonflikt(tenantId)
     if (konflikt) return konflikt
+    const gesperrt = await schreibSperreKonflikt(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
+    if (gesperrt) return gesperrt
     if (!canWrite(membership, 'warenwirtschaft'))   // Admin-Client umgeht RLS → Modulrecht hier prüfen
       return NextResponse.json({ fehler: 'Keine Berechtigung' }, { status: 403 })
 

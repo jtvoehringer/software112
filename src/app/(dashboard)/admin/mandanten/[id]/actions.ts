@@ -1,5 +1,6 @@
 'use server'
 // seiten-betrieb-ausnahme: Mandantenverwaltung – Ziel-Betrieb kommt ausdrücklich als tenantId-Parameter, nicht aus dem Cookie (KAN-30)
+// schreibsperre-ausnahme-datei: Mandantenverwaltung – nur Super-Admin bzw. Sandbox-Sonderfreigabe (Sandbox ist von der Abo-Sperre ausgenommen); Abo-Verwaltung des Betriebs muss auch bei Sperre gehen (KAN-5)
 
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
