@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { getCurrentUserRole } from '@/lib/auth/roles'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { ereignisseLaden, type EreignisZeile } from '@/lib/system/ereignis'
+import { TAEGLICH_QUELLE, cronLaufBeginn, cronProtokollFehlt } from '@/lib/morgenbericht/zeitplan'
 import Link from '@/components/ui/Link'
 import SmokeTestClient from './SmokeTestClient'
 import SchluesselClient from './SchluesselClient'
@@ -44,12 +45,18 @@ export default async function SystemberichtPage({ searchParams }: { searchParams
   const seit = new Date(Date.now() - tage * 86400000)
 
   const admin = createSupabaseAdminClient()
-  const [zeilen, { data: tenantsRaw }] = await Promise.all([
+  const jetzt = new Date()
+  const [zeilen, { data: tenantsRaw }, { data: cronHeute }] = await Promise.all([
     ereignisseLaden(seit),
     // tenant-isolation-ignore: Namen aller Betriebe für die Anzeige (Super-Admin)
     (admin.from('tenants') as any).select('id, name'),
+    // tenant-isolation-ignore: Systemprotokoll ohne Mandantenbezug – Protokolleintrag des täglichen Crons von heute (KAN-123)
+    (admin.from('system_ereignisse') as any).select('erstellt_am').eq('art', 'cron').eq('quelle', TAEGLICH_QUELLE)
+      .gte('erstellt_am', cronLaufBeginn(jetzt).toISOString()).order('erstellt_am', { ascending: false }).limit(1).maybeSingle(),
   ])
   const tenantName = new Map(((tenantsRaw ?? []) as R[]).map(t => [t.id as string, t.name as string]))
+  // KAN-123: Reißt der Lauf das Zeitlimit, fehlt sein Protokolleintrag ganz – dann steht unten nichts
+  const cronOhneProtokoll = cronProtokollFehlt(jetzt, (cronHeute as R | null)?.erstellt_am ?? null)
 
   const fehler = zeilen.filter(z => z.art !== 'cron')
   const cron = zeilen.filter(z => z.art === 'cron')
@@ -86,6 +93,14 @@ export default async function SystemberichtPage({ searchParams }: { searchParams
           ))}
         </div>
       </div>
+
+      {cronOhneProtokoll && (
+        <div role="alert" className="mb-6 p-4 bg-s112-err-bg border border-s112-err/30 rounded-xl text-sm text-s112-err-fg">
+          <strong>Täglicher Cron ohne Protokoll:</strong> Für heute gibt es nach 05:30 UTC keinen Eintrag von <code className="font-mono text-xs">{TAEGLICH_QUELLE}</code>.
+          Der Lauf ist vermutlich vor dem Protokoll abgebrochen (Zeitlimit) oder nicht gestartet – Laufzeitprotokoll in Vercel prüfen.
+          Fehlende Morgenberichte meldet der Sandbox-Morgenbericht am Folgetag.
+        </div>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         {(['server', 'client', 'db', 'cron'] as const).map(a => (

@@ -4,23 +4,30 @@
 // eine Abfrage gegen das KI-Kontingent des Pakets (check_und_increment_
 // ki_abfrage, Migration 194) - ist das Limit erreicht oder kein Schlüssel
 // gesetzt, bleibt der Bericht ohne Zusammenfassung (Fallback-Text).
+// KAN-123 (25.09.2026): Aufruf mit Zeitlimit 20 s und ohne Wiederholungen (SDK-Standard
+// 10 min + 2 Wiederholungen hätte den Cron blockiert); reicht die Restzeit des Betriebs
+// nicht (zeitplan.ts: KI_MINDESTZEIT_MS), startet die KI gar nicht und wird nicht gezählt.
 
 import Anthropic from '@anthropic-ai/sdk'
 import type { Befund } from '@/lib/wetter/regeln'
 import type { WetterAuswertung } from '@/lib/wetter/regeln'
+import { kiStartErlaubt } from './zeitplan'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
-export type KiErgebnis = { text: string | null; modell: string | null; grund: 'ok' | 'kein-schluessel' | 'limit' | 'inaktiv' | 'gesperrt' | 'fehler' | 'nichts' }
+export type KiErgebnis = { text: string | null; modell: string | null; grund: 'ok' | 'kein-schluessel' | 'limit' | 'inaktiv' | 'gesperrt' | 'fehler' | 'nichts' | 'zeit' }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function fasseZusammen(client: any, tenantId: string, tenantName: string, befunde: Befund[], wetter: WetterAuswertung | null, heute: Date): Promise<KiErgebnis> {
+export async function fasseZusammen(client: any, tenantId: string, tenantName: string, befunde: Befund[], wetter: WetterAuswertung | null, heute: Date, opts: { deadline?: number } = {}): Promise<KiErgebnis> {
   if (befunde.length === 0 && !wetter) return { text: null, modell: null, grund: 'nichts' }
   if (!process.env.ANTHROPIC_API_KEY) return { text: null, modell: null, grund: 'kein-schluessel' }
 
   const { data: einst } = await (client.from('tenant_einstellungen') as any).select('ki_abfragen_aktiv').eq('tenant_id', tenantId).maybeSingle()
   if (!(einst as R | null)?.ki_abfragen_aktiv) return { text: null, modell: null, grund: 'inaktiv' }
+
+  // KAN-123: vor der Zählung – ohne genug Restzeit weder Aufruf noch Abfrage im Kontingent
+  if (!kiStartErlaubt(opts.deadline)) return { text: null, modell: null, grund: 'zeit' }
 
   const { data: limitCheck, error: limitFehler } = await (client.rpc as any)('check_und_increment_ki_abfrage', { p_tenant_id: tenantId })
   // KAN-5: Fehler der Zählung nicht überspringen (fail-closed) – sperrt die Datenbank das Abo
@@ -46,7 +53,7 @@ Regeln: Nenne zuerst, was heute als Erstes zu tun ist (Stufe hoch), dann das Wic
   const user = `Datum: ${datum}\n\nBefunde:\n${befundText}\n\nWetter:\n${wetterText}`
 
   try {
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: 20_000, maxRetries: 0 })
     const msg = await anthropic.messages.create({ model: modell, max_tokens: 400, system, messages: [{ role: 'user', content: user }] })
     const text = (msg.content[0] as R)?.text?.trim() as string | undefined
     await (client.rpc as any)('increment_ki_tokens', { p_tenant_id: tenantId, p_input_tokens: msg.usage.input_tokens, p_output_tokens: msg.usage.output_tokens })
