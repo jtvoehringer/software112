@@ -121,12 +121,19 @@ const zelle = (text, zeile, kopf) => {
 const CFG = { tenant_id: T, betrieb_name: 'Weingut Muster', betrieb_strasse: 'Kellergasse 12', betrieb_plz: '2170', betrieb_ort: 'Poysdorf', betrieb_telefon: '+43 2552 123', betrieb_betriebsnummer: '1234567', betrieb_email: 'office@muster.at', betrieb_uid: 'ATU12345678' }
 
 const POSTEN_ID = '22222222-2222-4222-8222-222222222222'
+const WA1 = 'aaaaaaaa-0000-4000-8000-000000000001'
+// KAN-72: Prüfnummer der Charge nur aus einem genehmigten, aktiven Antrag ohne Zugang seit der Einreichung
+const DAC_WA1 = { id: 'dac-wa1', tenant_id: T, weinausbau_id: WA1, status: 'genehmigt', aktiv: true, pruefnummer: 'N 1234/25', menge_liter: '5000', eingereicht_am: '2026-03-01', bescheid_am: '2026-04-01', created_at: '2026-03-01T08:00:00+00:00' }
+const PN_WA1 = {
+  chargeId: WA1, bestandLiter: 2000, bestandAm: '2026-09-24', zugaenge: [], abfuellungen: [],
+  antraege: [{ id: 'dac-wa1', weinausbauId: WA1, status: 'genehmigt', aktiv: true, pruefnummer: 'N 1234/25', mengeLiter: 5000, eingereichtAm: '2026-03-01', bescheidAm: '2026-04-01', angelegtAm: '2026-03-01' }],
+}
 const POSTEN = {
   id: POSTEN_ID, tenant_id: T, aktiv: true, rechnungsnummer: 'RE-2026-0042', datum: '2026-09-10', storniert: false,
   kontakt: null,
   firma: { name: 'Heuriger Huber; Wien', telefon: '01 234', strasse: 'Hauptstraße 5a', plz: '1190', ort: 'Wien', betrieb_nr: '7654321' },
   positionen: [
-    { id: 'p1', typ: 'tank', name: 'ZW Tank', menge: 1500.5, einheit: 'l', weinausbau: { id: 'wa1', name: 'ZW 2025', jahrgang: 2025, qualitaetsstufe: 'Qualitätswein', rebsorte: 'Zweigelt', weinart: 'rot' } },
+    { id: 'p1', typ: 'tank', name: 'ZW Tank', menge: 1500.5, einheit: 'l', weinausbau: { id: WA1, name: 'ZW 2025', jahrgang: 2025, qualitaetsstufe: 'Qualitätswein', rebsorte: 'Zweigelt', weinart: 'rot' } },
     { id: 'p2', typ: 'flasche', name: 'GV Klassik', menge: 7, einheit: 'Stk', fuellung: { id: 'f1', name: 'GV', jahrgang: 2025, qualitaet: 'Qualitätswein', rebsorte: 'Grüner Veltliner', anbaugebiet: 'Weinviertel', flaschengroesse_ml: 375, pruefnummer: null, dac_antrag_id: 'dac-f1' } },
     { id: 'p3', typ: 'trauben', name: 'Trauben', menge: 1200, einheit: 'kg', traubenverkauf: { id: 't1', datum: '2026-09-10', kmw_grad: 18.5, qualitaetsstufe: 'Qualitätswein', herkunft_code: 'WV', grundstueck: { rebsorte: 'Blaufränkisch' } } },
     { id: 'p4', typ: 'sonstiges', name: 'Karton', menge: 1 },
@@ -175,7 +182,7 @@ describe('verkehr-hilfen', () => {
 describe('transportbescheinigung', () => {
   test('Vorbelegung: Farbe aus Weinart/Rebsorte, Prüfnummer der Füllung, Trauben in kg mit KMW', () => {
     const hinweise = []
-    const f = tb.tbVorbelegung(POSTEN, CFG, { jeWeinausbau: { wa1: 'N 1234/25' }, jeDacAntrag: { 'dac-f1': 'N 5678/25' } }, '2026-09-24', hinweise)
+    const f = tb.tbVorbelegung(POSTEN, CFG, { jeWeinausbau: { [WA1]: PN_WA1 }, jeDacAntrag: { 'dac-f1': 'N 5678/25' } }, '2026-09-24', hinweise)
     assert.equal(f.positionen.length, 3)                          // „sonstiges“ braucht keine TB
     const [tank, flasche, trauben] = f.positionen
     assert.equal(tank.art, 'Rot')                                 // bisher fix „Weiß“
@@ -287,7 +294,8 @@ describe('transportbescheinigung', () => {
       verkaufsposten: [POSTEN, { ...POSTEN, id: '33333333-3333-4333-8333-333333333333', tenant_id: FREMD }],
       tenant_einstellungen: [{ ...CFG, tenant_id: FREMD, betrieb_name: 'Fremd' }, CFG],
       transportbescheinigungen: [],
-      dac_antrag: [{ id: 'dac-wa1', tenant_id: T, weinausbau_id: 'wa1', pruefnummer: 'N 1234/25' }, { id: 'dac-f1', tenant_id: T, pruefnummer: 'N 5678/25' }],
+      dac_antrag: [DAC_WA1, { id: 'dac-f1', tenant_id: T, status: 'genehmigt', aktiv: true, pruefnummer: 'N 5678/25' }],
+      weinausbau: [{ id: WA1, tenant_id: T, menge_liter: '2000' }],
     })
     const r = await tb.ladeTransportbescheinigung(sb, T, { id: POSTEN_ID })
     assert.ok(r)
@@ -297,7 +305,8 @@ describe('transportbescheinigung', () => {
     assert.equal(r.zeilen[0].pruefnummer, 'N 1234/25')
     assert.equal(r.zeilen[1].pruefnummer, 'N 5678/25')
     assert.match(r.warnungen[0], /nicht gespeicherte Vorbelegung/)
-    mandantGefiltert(sb, ['verkaufsposten', 'tenant_einstellungen', 'transportbescheinigungen', 'dac_antrag'])
+    mandantGefiltert(sb, ['verkaufsposten', 'tenant_einstellungen', 'transportbescheinigungen', 'dac_antrag', 'weinausbau', 'verschneidungen', 'zukauf_posten', 'keller_umzuege', 'fuellungen', 'fuellung_chargen'])
+    assert.ok(sb.abfragen.some(x => x.tabelle === 'verschneidungen'))   // KAN-72: Zugänge der Charge geprüft
     assert.equal(await tb.ladeTransportbescheinigung(sb, T, { id: '33333333-3333-4333-8333-333333333333' }), null)
     assert.equal(await tb.ladeTransportbescheinigung(sb, T, { id: 'abc' }), null)
   })

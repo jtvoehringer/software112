@@ -33,7 +33,10 @@ datum (pflicht, Abfülldatum YYYY-MM-DD), flaschengroesse_ml (pflicht, eine von
 qualitaet (optional – ohne Angabe wird die aktuelle Qualitätsstufe der Charge übernommen;
 NUR Abstufung möglich, eine Aufstufung wird vom Server hart blockiert), herkunft_code
 (optional, gleiche Regel: nur Abstufung), jahrgang/rebsorte/anbaugebiet/bezeichnung/
-pruefnummer/chargennummer (optional, chargennummer wird sonst automatisch vergeben),
+pruefnummer/chargennummer (optional, chargennummer wird sonst automatisch vergeben;
+pruefnummer NUR bei Chargen ohne DAC-Antrag, z. B. Zukauf mit Prüfnummer des Lieferanten –
+hat die Charge einen DAC-Antrag, pruefnummer leer lassen und für die Verknüpfung mit dem
+Antrag auf das Formular Weinhandel > Neue Füllung verweisen),
 vk_preis_brutto/einstandspreis (optional, pro Flasche), notizen (optional), abschliessen
 (optional, boolean – Charge nach dieser Füllung explizit als abgeschlossen markieren, auch
 wenn noch Restwein übrig bleibt; wird ohnehin automatisch gesetzt, wenn kein/kaum Restwein
@@ -72,7 +75,7 @@ export const ABFUELLEN_TOOL = {
       rebsorte: { type: 'string' },
       anbaugebiet: { type: 'string' },
       bezeichnung: { type: 'string', description: 'Subbezeichnung/Ried, z.B. "Ried Hohenberg · Reserve"' },
-      pruefnummer: { type: 'string' },
+      pruefnummer: { type: 'string', description: 'Nur für Chargen OHNE DAC-Antrag (z. B. Zukauf mit Prüfnummer des Lieferanten) – bei Chargen mit DAC-Antrag leer lassen, der Server lehnt eine freie Nummer dort ab (KAN-72)' },
       chargennummer: { type: 'string', description: 'Leer lassen = wird automatisch vergeben' },
       vk_preis_brutto: { type: 'number', description: 'VK-Preis brutto pro Flasche' },
       einstandspreis: { type: 'number', description: 'Einstandspreis pro Flasche' },

@@ -5,7 +5,7 @@ import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
-import { GitMerge } from 'lucide-react'
+import { AlertTriangle, GitMerge } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import PrintButton from './PrintButton'
 import { fmtNum } from '@/lib/format'
@@ -92,6 +92,7 @@ export default async function BlendProtokollPage({ params }: { params: Promise<{
             <p className="text-xs text-s112-tertiary font-medium uppercase tracking-wide flex items-center justify-end gap-1.5">
               <GitMerge size={13} strokeWidth={1.75} />Blend-Protokoll
             </p>
+            {/* KAN-72: nur eine für den heutigen Bestand gültige Prüfnummer */}
             {kopf.pruefnummer && (
               <p className="text-lg font-semibold text-s112-blue-700 font-mono mt-0.5">{kopf.pruefnummer}</p>
             )}
@@ -100,6 +101,14 @@ export default async function BlendProtokollPage({ params }: { params: Promise<{
             </p>
           </div>
         </div>
+
+        {/* KAN-72: frühere Prüfnummer gilt nicht (mehr) für den Bestand – Hinweis statt Nummer */}
+        {kopf.pruefnummerHinweis && (
+          <p className="text-sm text-s112-warn-fg bg-s112-warn-bg border border-s112-warn/30 rounded-lg px-3 py-2 flex items-start gap-1.5">
+            <AlertTriangle size={15} strokeWidth={1.75} className="mt-0.5 shrink-0" />
+            <span>{kopf.pruefnummerHinweis}</span>
+          </p>
+        )}
 
         {/* Chargenbezeichnung */}
         <div className="text-center py-4 border-b border-s112-border">

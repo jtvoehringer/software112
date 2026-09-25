@@ -14,6 +14,7 @@ import { BEWEGUNGSARTEN, istBewegungsart } from './fuellungen/bewegungsarten'
 import { spaetereMengenbewegungen } from '@/lib/kellerbuch/storno'
 import { folgebuchungenText } from '@/lib/kellerbuch/folgebuchungen'
 import { KORREKTUR_NACH_OBEN_HINWEIS } from '@/lib/kellerbuch/hinweise'
+import { pruefnummerFuerFuellung } from '@/lib/kellerbuch/pruefnummerLaden'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -182,6 +183,14 @@ export async function createFuellung(formData: FormData): Promise<{ id: string; 
     }
   }
 
+  // KAN-72: Prüfnummer und DAC-Antrag VOR jedem Schreibzugriff klären – nie ungeprüft aus dem
+  // Formular: mit DAC-Antrag kommt die Nummer aus dem Antrag der gewählten Charge (fremder oder
+  // nicht passender Antrag → Fehler), ohne Antrag nur eine geprüfte freie Eingabe
+  const { pruefnummer, dacAntragId } = await pruefnummerFuerFuellung(supabase, tenantId, {
+    dacAntragId: String(formData.get('dac_antrag_id') ?? '').trim() || null,
+    pruefnummer: String(formData.get('pruefnummer') ?? '').trim() || null,
+  }, { weinausbauId, chargeName: (charge?.name as string | undefined) ?? null, abfuelldatum: datum })
+
   const notizenInput = (formData.get('notizen') as string) || null
   const notizen = notizenZusatz ? [notizenInput, notizenZusatz.trim()].filter(Boolean).join('\n') : notizenInput
 
@@ -234,8 +243,8 @@ export async function createFuellung(formData: FormData): Promise<{ id: string; 
     anzahl_flaschen:      anzahl,
     bestand_flaschen:     anzahl,
     menge_liter_gefuellt: mengeGefuellt,
-    pruefnummer:          (formData.get('pruefnummer') as string) || null,
-    dac_antrag_id:        (formData.get('dac_antrag_id') as string) || null,
+    pruefnummer,          // KAN-72: aus dem geprüften Antrag bzw. geprüfte freie Eingabe
+    dac_antrag_id:        dacAntragId,
     chargennummer,
     vk_preis_brutto:      parseFloat(dezimal(formData.get('vk_preis_brutto') as string)) || null,
     einstandspreis:       parseFloat(dezimal(formData.get('einstandspreis') as string)) || null,

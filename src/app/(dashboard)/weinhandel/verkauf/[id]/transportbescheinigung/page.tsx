@@ -36,6 +36,17 @@ export default async function TransportbescheinigungPage({ params }: { params: P
         <span className="text-s112-text-1 font-medium">Transportbescheinigung</span>
       </div>
 
+      {/* Hinweise zur Vorbelegung (z. B. Prüfnummer gilt nach Verschnitt nicht mehr, KAN-72) –
+          dieselben Texte wie X-Warnungen der CSV; nur solange das Formular nicht gespeichert ist */}
+      {tb.vorbelegungHinweise.length > 0 && (
+        <div className="no-print rounded-lg border border-s112-warn/30 bg-s112-warn-bg px-4 py-3 text-sm text-s112-warn-fg space-y-1">
+          <p className="font-semibold">Vorbelegung bitte prüfen</p>
+          <ul className="list-disc pl-5 space-y-0.5">
+            {tb.vorbelegungHinweise.map((h, i) => <li key={i}>{h}</li>)}
+          </ul>
+        </div>
+      )}
+
       <TBFormular
         verkaufspostenId={id}
         initial={tb.formular}

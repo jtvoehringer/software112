@@ -72,12 +72,19 @@ function fmtL(n: number) {
 export default function FuellungFormClient({
   chargen,
   dacAntraege,
+  chargenMitAntrag = [],
+  pnHinweise = {},
   customWeinbaugebiete,
   action,
   defaultChargeId,
 }: {
   chargen: Charge[]
+  /** KAN-72: nur die für die Abfüllung wählbaren Anträge (gültige Prüfnummer bzw. offen) */
   dacAntraege: DacAntrag[]
+  /** Chargen mit aktivem, nicht abgelehntem DAC-Antrag – für sie keine freie Prüfnummer */
+  chargenMitAntrag?: string[]
+  /** Charge → warum ihre frühere Prüfnummer nicht (mehr) gilt */
+  pnHinweise?: Record<string, string>
   customWeinbaugebiete: CustomWeinbaugebiet[]
   action: (fd: FormData) => Promise<{ id: string; hinweis?: string }>
   defaultChargeId?: string
@@ -101,11 +108,20 @@ export default function FuellungFormClient({
   // sonst schon unbemerkt hohe Restmengen als Schwund ausgebucht. Der User muss die
   // Schwundbuchung aktiv bestätigen (siehe Warnhinweis unten).
   const [abschliessen, setAbschliessen] = useState(false)
-  const [selectedDacId, setSelectedDacId] = useState('')
-  const [pruefnummerVal, setPruefnummerVal] = useState('')
+  // KAN-72: Vorschlag = genehmigter Antrag der Charge – die Liste enthält nur Anträge, deren
+  // Prüfnummer für den heutigen Bestand gilt (nach einem Verschnitt keiner mehr)
+  const vorschlag = (chargeId: string) => dacAntraege.find(d => d.weinausbau_id === chargeId && d.status === 'genehmigt') ?? null
+  const [selectedDacId, setSelectedDacId] = useState(() => (defaultChargeId ? vorschlag(defaultChargeId)?.id ?? '' : ''))
+  const [pruefnummerVal, setPruefnummerVal] = useState(() => (defaultChargeId ? vorschlag(defaultChargeId)?.pruefnummer ?? '' : ''))
 
   const selectedCharge = chargen.find(c => c.id === selectedChargeId) ?? null
   const verfuegbar     = parseFloat(String(selectedCharge?.menge_liter ?? 0)) || 0
+
+  // KAN-72: Auswahl (gültige/offene Anträge der Charge), sonst freie Eingabe nur ohne Charge
+  // oder für Chargen ohne DAC-Antrag – gleiche Regel wie createFuellung
+  const antraegeDerCharge = selectedChargeId ? dacAntraege.filter(d => d.weinausbau_id === selectedChargeId) : []
+  const freieEingabe = antraegeDerCharge.length === 0 && (!selectedChargeId || !chargenMitAntrag.includes(selectedChargeId))
+  const pnHinweis = selectedChargeId ? (pnHinweise[selectedChargeId] ?? null) : null
 
   // Nur Abstufung erlaubt, keine Aufstufung: Dropdowns zeigen nur noch die
   // aktuelle Stufe der Charge und alle rechtlich niedrigeren Stufen (+ "Sonstiges"
@@ -160,9 +176,12 @@ export default function FuellungFormClient({
       setQualitaetVal(c.qualitaetsstufe ?? 'qualitaetswein')
       setHerkunftCodeVal(c.herkunft_code ?? '')
     }
-    const dac = dacAntraege.find(d => d.weinausbau_id === id && d.status === 'genehmigt')
+    // KAN-72: Prüfnummer und Antrag der vorigen Charge immer verwerfen (Freitext und Hidden-
+    // Input) – bisher blieb die Nummer von Charge A stehen und wurde mit Charge B gespeichert
+    setSelectedDacId('')
+    setPruefnummerVal('')
+    const dac = vorschlag(id)
     if (dac) { setSelectedDacId(dac.id); setPruefnummerVal(dac.pruefnummer ?? '') }
-    else { setSelectedDacId('') }
   }
 
   function handleDacChange(dacId: string) {
@@ -312,11 +331,11 @@ export default function FuellungFormClient({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className={labelCls}>DAC-Antrag / Prüfnummer</label>
-            {selectedChargeId && dacAntraege.filter(d => d.weinausbau_id === selectedChargeId).length > 0 ? (
+            {antraegeDerCharge.length > 0 ? (
               <div className="space-y-2">
-                <select value={selectedDacId} onChange={e => handleDacChange(e.target.value)} className={inputCls}>
+                <select aria-label="DAC-Antrag / Prüfnummer" value={selectedDacId} onChange={e => handleDacChange(e.target.value)} className={inputCls}>
                   <option value="">– kein DAC-Antrag –</option>
-                  {dacAntraege.filter(d => d.weinausbau_id === selectedChargeId).map(d => (
+                  {antraegeDerCharge.map(d => (
                     <option key={d.id} value={d.id}>
                       {d.bezeichnung} · {d.pruefnummer ?? 'keine Prüfnr.'} ({d.status})
                     </option>
@@ -328,13 +347,27 @@ export default function FuellungFormClient({
                   </p>
                 )}
               </div>
-            ) : (
-              <input name="pruefnummer_freitext" value={pruefnummerVal}
+            ) : freieEingabe ? (
+              // Bewusst erhalten (KAN-72): freie Prüfnummer für Füllungen ohne Charge (Altbestand)
+              // und Chargen ohne DAC-Antrag (z. B. Zukauf mit Prüfnummer des Lieferanten). Der
+              // Server lehnt eine Nummer ab, die zum Antrag einer anderen Charge gehört.
+              <input aria-label="Prüfnummer (ohne DAC-Antrag)" name="pruefnummer_freitext" value={pruefnummerVal}
                 onChange={e => setPruefnummerVal(e.target.value)}
                 placeholder="z.B. AT 1234/2025" className={inputCls} />
+            ) : (
+              <p className="text-xs text-s112-muted border border-s112-border rounded-lg px-3 py-2">
+                Kein DAC-Antrag mit gültiger Prüfnummer für diese Charge – die Füllung wird ohne Prüfnummer angelegt.
+                Für den aktuellen Bestand ist ein neuer DAC-Antrag nötig.
+              </p>
+            )}
+            {pnHinweis && (
+              <p className="text-xs text-s112-warn-fg bg-s112-warn-bg border border-s112-warn/30 rounded px-2 py-1 mt-2 flex items-start gap-1">
+                <AlertTriangle size={12} strokeWidth={2} className="mt-0.5 shrink-0" /><span>{pnHinweis}</span>
+              </p>
             )}
             <input type="hidden" name="dac_antrag_id" value={selectedDacId} />
-            <input type="hidden" name="pruefnummer" value={pruefnummerVal} />
+            {/* Nur die freie Eingabe schickt eine Nummer – mit DAC-Antrag liest der Server sie aus dem Antrag */}
+            {freieEingabe && <input type="hidden" name="pruefnummer" value={pruefnummerVal} />}
           </div>
           <div>
             <label className={labelCls}>Chargennummer</label>
