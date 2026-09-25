@@ -23,6 +23,7 @@ import { schreibSperreFehler } from '@/lib/auth/sperren'
 import { revalidatePath } from 'next/cache'
 import { tenantKopfInvalidieren } from '@/lib/tenant/kopf'
 import { stripeKundennummerSync } from '@/lib/stripe/kundennummer'
+import { weinbauBetriebsnummerPruefen } from '@/lib/betrieb/betriebsnummer'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -119,6 +120,9 @@ export async function uploadLogoOwn(formData: FormData): Promise<{ url?: string;
 export async function saveBetriebOwn(formData: FormData) {
   const auth = await requireOwnTenant()
   if ('error' in auth) return { error: auth.error }
+  // Weinbau-Betriebsnummer ist Pflichtfeld (25.09.2026) – nur Ziffern, Leerzeichen werden entfernt
+  const betriebsnummer = weinbauBetriebsnummerPruefen(formData.get('betrieb_betriebsnummer'))
+  if (!betriebsnummer.ok) return { error: betriebsnummer.fehler }
   const admin = createSupabaseAdminClient()
 
   const { error } = await (admin.from('tenant_einstellungen') as any)
@@ -132,7 +136,7 @@ export async function saveBetriebOwn(formData: FormData) {
       betrieb_email:             (formData.get('betrieb_email')   as string) || null,
       betrieb_website:           (formData.get('betrieb_website') as string) || null,
       betrieb_uid:               (formData.get('betrieb_uid')           as string) || null,
-      betrieb_betriebsnummer:    (formData.get('betrieb_betriebsnummer') as string) || null,
+      betrieb_betriebsnummer:    betriebsnummer.wert,
       // Betriebsbeginn E&A (Migration 180): leer = keine Einschränkung
       ea_betriebsbeginn:         /^\d{4}-\d{2}-\d{2}$/.test(String(formData.get('ea_betriebsbeginn') ?? '')) ? String(formData.get('ea_betriebsbeginn')) : null,
       rechnung_iban:             (formData.get('rechnung_iban')   as string) || null,

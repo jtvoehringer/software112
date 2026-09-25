@@ -8,6 +8,7 @@ import { ladeFristen, ladeKeller, ZAHLUNGSZIEL_TAGE, posSum, type Ctx, type R } 
 import type { Befund } from '@/lib/wetter/regeln'
 import { alle } from '@/lib/supabase/alle'
 import { ereignisseLaden } from '@/lib/system/ereignis'
+import { weinbauBetriebsnummerFehlt } from '@/lib/betrieb/betriebsnummer'
 
 export type { Befund }
 export type Einstellungen = Awaited<ReturnType<typeof import('@/app/(dashboard)/dashboard/_shared/data').ladeEinstellungen>>
@@ -126,6 +127,15 @@ export async function pruefeBetrieb(ctx: Ctx, einst: Einstellungen, paket: { ist
     const tage = Math.round((new Date(t.stripe_trial_ends_at).getTime() - heute.getTime()) / 86400000)
     if (tage >= 0 && tage <= 7 && !t.stripe_plan) befunde.push({ key: 'abo:trial', bereich: 'Abo', stufe: 'mittel', titel: `Testphase endet in ${tage} ${tage === 1 ? 'Tag' : 'Tagen'}`, detail: 'Paket wählen, damit der Zugang bestehen bleibt', href: '/abo' })
   }
+  // 9b. Stammdaten: Weinbau-Betriebsnummer ist Pflichtfeld (25.09.2026) – ohne sie fehlen Angaben auf
+  //     Transportbescheinigung und Prüfnummernantrag, und die BKI-Berichte haben keinen gültigen Dateinamen
+  const { data: stamm } = await ctx.tf(ctx.q('tenant_einstellungen').select('betrieb_betriebsnummer')).maybeSingle()
+  if (weinbauBetriebsnummerFehlt((stamm as R | null)?.betrieb_betriebsnummer)) befunde.push({
+    key: 'betrieb:betriebsnummer', bereich: 'Betrieb', stufe: 'mittel', titel: 'Weinbau-Betriebsnummer fehlt',
+    detail: 'Pflichtfeld unter Mein Betrieb → Betrieb – gebraucht für Transportbescheinigung, Prüfnummernantrag und BKI-Berichte',
+    href: '/betrieb/einstellungen',
+  })
+
   // 10. Systembericht (nur Sandbox = Betrieb der Super-Admins): Server-/Browser-Fehler
   //     aller Betriebe der letzten 24 h aus system_ereignisse (Migration 222)
   if (t.slug === 'sandbox') {

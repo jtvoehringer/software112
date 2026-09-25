@@ -3,6 +3,7 @@
 import { useState, useRef, useTransition } from 'react'
 import Link from '@/components/ui/Link'
 import { saveBrandingOwn, uploadLogoOwn, saveBetriebOwn, saveBawbOwn } from './actions'
+import { BETRIEBSNUMMER_MUSTER, BETRIEBSNUMMER_ZWECK, weinbauBetriebsnummerFehlt } from '@/lib/betrieb/betriebsnummer'
 import type { EigeneBetriebsdaten } from './page'
 import BenutzerClient from '../../benutzer/BenutzerClient'
 import type { BenutzerlimitStatus } from '@/lib/pakete-server'
@@ -375,9 +376,13 @@ function BetriebTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
               <input aria-label="UID-Nummer" name="betrieb_uid" defaultValue={daten.betrieb_uid ?? ''} className={inputCls()} placeholder="ATU12345678" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-s112-text-2 mb-1">Weinbau-Betriebsnummer</label>
-              <input aria-label="Weinbau-Betriebsnummer" name="betrieb_betriebsnummer" defaultValue={daten.betrieb_betriebsnummer ?? ''} className={inputCls()} placeholder="z.B. 4489781" />
-              <p className="text-[11px] text-s112-tertiary mt-0.5">Für Transportbescheinigung &amp; Prüfnummernantrag</p>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Weinbau-Betriebsnummer *</label>
+              <input aria-label="Weinbau-Betriebsnummer" name="betrieb_betriebsnummer" defaultValue={daten.betrieb_betriebsnummer ?? ''} required
+                inputMode="numeric" pattern={BETRIEBSNUMMER_MUSTER} title="Nur Ziffern, z. B. 4489781"
+                className={inputCls()} placeholder="z.B. 4489781" />
+              {weinbauBetriebsnummerFehlt(daten.betrieb_betriebsnummer)
+                ? <p className="text-[11px] text-s112-err-fg mt-0.5">Fehlt – bitte ergänzen. {BETRIEBSNUMMER_ZWECK}.</p>
+                : <p className="text-[11px] text-s112-tertiary mt-0.5">{BETRIEBSNUMMER_ZWECK}</p>}
             </div>
             {/* Betriebsbeginn / Systemstart der E&A-Rechnung (Migration 180) */}
             <div>
