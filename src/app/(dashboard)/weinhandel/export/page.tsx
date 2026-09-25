@@ -1,7 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
-import Link from '@/components/ui/Link'
+import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { Users, Building2, Wine, ShoppingCart, type LucideIcon } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'Datenexport – software:112' }
@@ -79,23 +79,21 @@ export default async function ExportPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {exports.map(exp => (
-          <a key={exp.href} href={exp.href} download
-            className="card p-5 hover:border-s112-teal hover:shadow-sm transition-all group flex flex-col gap-3">
+          // wie Controlling › Datenexport: CsvExportKnopf zeigt Fehler und X-Warnungen der Route an
+          <div key={exp.href} className="card p-5 flex flex-col gap-3">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
                 <exp.icon className="w-6 h-6 text-s112-blue-700" />
                 <div>
-                  <p className="font-semibold text-s112-text group-hover:text-s112-blue-700">{exp.title}</p>
+                  <p className="font-semibold text-s112-text">{exp.title}</p>
                   <p className="text-xs text-s112-muted">{exp.anzahl} {exp.einheit}</p>
                 </div>
               </div>
               <span className="text-xs bg-s112-bg border border-s112-border px-2 py-0.5 rounded font-mono text-s112-text-2">{exp.format}</span>
             </div>
             <p className="text-xs text-s112-text-2 leading-relaxed">{exp.beschreibung}</p>
-            <div className="flex items-center gap-1.5 text-xs text-s112-blue-700 font-medium mt-auto">
-              Herunterladen
-            </div>
-          </a>
+            <CsvExportKnopf href={exp.href} label="Herunterladen" ariaLabel={`${exp.title} als CSV herunterladen`} className="mt-auto" />
+          </div>
         ))}
       </div>
 

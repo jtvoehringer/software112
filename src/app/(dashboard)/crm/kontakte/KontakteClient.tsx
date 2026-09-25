@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { paramsAusFilter, LISTE_SCHRITT, type ListenFilter, type Zaehler } from '@/lib/crm/liste'
 import { useListenSuche } from '@/lib/crm/listenSuche'
 import Link from '@/components/ui/Link'
+import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { createKontakt, updateKontakt, pruefeKontaktDublette, deleteKontakt, createAktivitaet, createPipelineEintrag } from '../actions'
 import { SEGMENTE, AKTIVITAET_ARTEN, PIPELINE_STUFEN, LAENDER, DIAL_CODES, segmentLabel, segmentFarbe } from '@/lib/crm/types'
 import type { KontaktRow } from '@/lib/crm/types'
@@ -699,12 +700,11 @@ export default function KontakteClient({
           ))}
         </div>
         <div className="ml-auto flex items-center gap-2">
-          {/* Export nur mit CRM-Schreibrecht – dieselbe Regel prüft /api/export/kontakte (KAN-54) */}
+          {/* Export nur mit CRM-Schreibrecht – dieselbe Regel prüft /api/export/kontakte (KAN-54);
+              der Knopf zeigt Fehler und Hinweise der Route (X-Warnungen) statt sie als Datei zu speichern */}
           {writeOk && (
-            <a href="/api/export/kontakte" download
-              className="inline-flex items-center gap-1.5 border border-s112-border text-s112-text-2 px-3 py-2 rounded-xl text-sm hover:bg-s112-bg transition-colors">
-              CSV
-            </a>
+            <CsvExportKnopf href="/api/export/kontakte" label="CSV" ariaLabel="Kontakte als CSV exportieren"
+              hinweis="Alle aktiven Kontakte als CSV für Excel (Semikolon, UTF-8)" />
           )}
           {writeOk && !showForm && (
             <button onClick={() => setShowForm(true)}

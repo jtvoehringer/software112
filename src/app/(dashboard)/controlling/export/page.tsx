@@ -2,10 +2,14 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
+import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { Users, Building2, Package, ShoppingCart, type LucideIcon } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'Datenexport – software:112' }
 export const dynamic = 'force-dynamic'
+
+// Tooltip des Knopfs (statt des Hinweises auf KG-Nr./BBCH der Behördenmeldungen)
+const DATENEXPORT_TIPP = 'CSV für Excel (Semikolon, UTF-8). Werte mit + am Anfang (Vorwahl „+43“) stehen mit Apostroph davor (Formelschutz).'
 
 export default async function ExportPage() {
   const supabase = await createSupabaseServerClient()
@@ -25,8 +29,8 @@ export default async function ExportPage() {
     tf((supabase.from('verkaufsposten') as any).select('*', { count: 'exact', head: true }).eq('aktiv', true)),
   ])
 
-  // format: tatsächliches Trennzeichen der jeweiligen /api/export-Route (Stand 24.09.2026) –
-  // Kontakte/Firmen mit Komma, Lager/Verkauf mit Semikolon; alle UTF-8 mit BOM, CRLF, Kopfzeile.
+  // format: Seit KAN-54 (25.09.2026) erzeugen alle vier /api/export-Routen die CSV über den
+  // CSV-Baustein (lib/csv, PROFIL_EXCEL_AT): Semikolon, UTF-8 mit BOM, CRLF, Kopfzeile.
   const exports: { title: string; beschreibung: string; anzahl: number; einheit: string; href: string; icon: LucideIcon; format: string }[] = [
     {
       title: 'Kontakte',
@@ -35,7 +39,7 @@ export default async function ExportPage() {
       einheit: 'Kontakte',
       href: '/api/export/kontakte',
       icon: Users,
-      format: 'CSV · Komma',
+      format: 'CSV · Semikolon',
     },
     {
       title: 'Firmen',
@@ -44,7 +48,7 @@ export default async function ExportPage() {
       einheit: 'Firmen',
       href: '/api/export/firmen',
       icon: Building2,
-      format: 'CSV · Komma',
+      format: 'CSV · Semikolon',
     },
     {
       title: 'Lagerbestand',
@@ -75,36 +79,42 @@ export default async function ExportPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {exports.map(exp => (
-          <a key={exp.href} href={exp.href} download
-            className="card p-5 hover:border-s112-teal hover:shadow-sm transition-all group flex flex-col gap-3">
+          // Download per CsvExportKnopf statt <a download>: zeigt Fehler (401/403/500 als JSON) und die
+          // X-Warnungen der Route (z. B. ungültige Werte, die leer gelassen wurden) an
+          <div key={exp.href} className="card p-5 flex flex-col gap-3">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
                 <exp.icon size={22} className="text-s112-blue-700 flex-shrink-0" />
                 <div>
-                  <p className="font-semibold text-s112-text group-hover:text-s112-blue-700">{exp.title}</p>
+                  <p className="font-semibold text-s112-text">{exp.title}</p>
                   <p className="text-xs text-s112-muted">{exp.anzahl} {exp.einheit}</p>
                 </div>
               </div>
               <span className="text-xs bg-s112-bg border border-s112-border px-2 py-0.5 rounded font-mono text-s112-text-2">{exp.format}</span>
             </div>
             <p className="text-xs text-s112-text-2 leading-relaxed">{exp.beschreibung}</p>
-            <div className="flex items-center gap-1.5 text-xs text-s112-blue-700 font-medium mt-auto">
-              Herunterladen
-            </div>
-          </a>
+            <CsvExportKnopf href={exp.href} label="Herunterladen" ariaLabel={`${exp.title} als CSV herunterladen`}
+              hinweis={DATENEXPORT_TIPP} className="mt-auto" />
+          </div>
         ))}
       </div>
 
       <div className="text-xs text-s112-muted space-y-1">
         <p>
-          Alle Exporte sind UTF-8 mit BOM (Umlaute stimmen in Excel) und enthalten eine Kopfzeile.
-          Lagerbestand und Verkaufshistorie sind Semikolon-getrennt mit Dezimalkomma bei Beträgen und öffnen in Excel
-          (Region Deutsch/Österreich) per Doppelklick. Kontakte und Firmen sind Komma-getrennt: in Excel über
-          „Daten › Aus Text/CSV“ öffnen und als Trennzeichen „Komma“ wählen.
+          Alle Exporte sind UTF-8 mit BOM (Umlaute stimmen in Excel), Semikolon-getrennt mit Dezimalkomma und
+          Datum als TT.MM.JJJJ und enthalten eine Kopfzeile – sie öffnen in Excel (Region Deutsch/Österreich) per
+          Doppelklick. Postleitzahlen und Telefonnummern mit führender Null bleiben nur exakt, wenn du die Datei
+          in Excel über „Daten › Aus Text/CSV“ öffnest und die Spalte als Text importierst.
         </p>
         <p>
-          Behördenmeldungen (Erntemeldung, Pflanzenschutz, Kellerbuch, UVA …) exportierst du einheitlich als CSV für Excel
-          (Semikolon, Dezimalkomma, TT.MM.JJJJ) auf ihrer Seite bzw. unter{' '}
+          Werte, die mit =, +, - oder @ beginnen – etwa die Vorwahl „+43“ –, stehen zum Schutz vor Formeln mit
+          vorangestelltem Apostroph in der Datei („&apos;+43“). Liest ein anderes Programm die Datei ein, das
+          Apostroph dort gegebenenfalls entfernen. Nach dem Download nennt der Knopf die Zahl der Zeilen und
+          Hinweise zum Prüfen, z. B. ungültige Werte, die leer gelassen wurden.
+        </p>
+        <p>
+          Behördenmeldungen (Erntemeldung, Pflanzenschutz, Kellerbuch, UVA …) exportierst du im selben Format
+          auf ihrer Seite bzw. unter{' '}
           <Link href="/dashboard/fristen" className="text-s112-blue-700 hover:underline">Übersicht › Meldungen & Fristen</Link>.
         </p>
       </div>

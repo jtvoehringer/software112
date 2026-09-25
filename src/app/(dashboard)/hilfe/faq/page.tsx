@@ -145,7 +145,7 @@ const FAQS: FAQ[] = [
   // Technik
   { kategorie: 'Technik', frage: 'Ich sehe "This page could not load" - was tun?', antwort: 'Seite neu laden (F5). Falls es weiterhin passiert, melde dich aus- und wieder ein. Wenn das Problem bleibt, bitte den Administrator kontaktieren mit URL und Uhrzeit des Fehlers.' },
   { kategorie: 'Technik', frage: 'Funktioniert software:112 auch ohne Internet?', antwort: 'Nein, eine aktive Internetverbindung ist erforderlich. Alle Daten werden sicher in der Cloud (Supabase/Vercel, EU-Region Irland) gespeichert.' },
-  { kategorie: 'Technik', frage: 'Wie exportiere ich meine Daten?', antwort: 'Unter Controlling > Datenexport: Kontakte, Firmen, Lagerbestand und Verkaufshistorie als CSV herunterladen (UTF-8 mit BOM). Kontakte und Firmen sind derzeit Komma-getrennt – in Excel über „Daten › Aus Text/CSV“ mit Trennzeichen Komma öffnen; Lagerbestand und Verkaufshistorie sind Semikolon-getrennt. Behördenmeldungen exportierst du auf ihrer Seite bzw. unter Meldungen & Fristen (siehe Kategorie Behördenmeldungen).' },
+  { kategorie: 'Technik', frage: 'Wie exportiere ich meine Daten?', antwort: 'Unter Controlling > Datenexport: Kontakte, Firmen, Lagerbestand und Verkaufshistorie als CSV herunterladen – alle vier Semikolon-getrennt mit Dezimalkomma, Datum als TT.MM.JJJJ, UTF-8 mit BOM und Kopfzeile; sie öffnen in Excel (Region Deutsch/Österreich) per Doppelklick. Werte, die mit =, +, - oder @ beginnen (z. B. die Vorwahl „+43“), stehen zum Schutz vor Formeln mit vorangestelltem Apostroph in der Datei. Behördenmeldungen exportierst du auf ihrer Seite bzw. unter Meldungen & Fristen (siehe Kategorie Behördenmeldungen).' },
 ]
 
 const KATEGORIEN = [...new Set(FAQS.map(f => f.kategorie))]
