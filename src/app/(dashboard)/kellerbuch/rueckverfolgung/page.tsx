@@ -11,22 +11,17 @@ import RueckverfolgungCsvExportButton from './CsvExportButton'
 import { fmtNum } from '@/lib/format'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { csvPfad } from '@/lib/behoerden/katalog'
-import { ladeFuellungKette, ladeRueckverfolgungTreffer } from '@/lib/behoerden/rueckverfolgung'
+import {
+  BEHANDLUNG_ART_LABEL, ladeFuellungKette, ladeRueckverfolgungTreffer, massnahmeMittel, massnahmeZeitraum,
+  type LeseMassnahmen,
+} from '@/lib/behoerden/rueckverfolgung'
+import { fensterBeginnText, ttmmjjjj } from '@/lib/behoerden/rueckverfolgungFenster'
 
 export const metadata: Metadata = { title: 'Rückverfolgung – software:112' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
-
-const ART_LABELS: Record<string, string> = {
-  spritzung:        'Spritzung',
-  duengung:         'Düngung',
-  bodenbearbeitung: 'Bodenbearbeitung',
-  schnitt:          'Schnitt',
-  laubarbeit:       'Laubarbeit',
-  sonstiges:        'Sonstiges',
-}
 
 function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   if (!value && value !== 0) return null
@@ -63,7 +58,7 @@ function herkunftLabel(u: KompositionUrsprung): string {
 function ChargeKette({
   weinausbau,
   pressungen,
-  behandlungen,
+  lesen,
   analysen,
   umzuege,
   anteilLiter,
@@ -72,7 +67,7 @@ function ChargeKette({
 }: {
   weinausbau: R | null
   pressungen: R[]
-  behandlungen: R[]
+  lesen: LeseMassnahmen[]
   analysen: R[]
   umzuege: R[]
   anteilLiter?: number | null
@@ -224,31 +219,70 @@ function ChargeKette({
         </Section>
       )}
 
-      {/* Behandlungen */}
-      {behandlungen.length > 0 && (
-        <Section title="Behandlungen / PSM" icon={<Leaf className="w-4 h-4" />}>
-          <div className="space-y-2">
-            {behandlungen.map((b: R, i: number) => {
-              const psm = b.psm as R | null
-              return (
-                <div key={i} className="flex items-start gap-3 text-sm border-b border-s112-border/30 last:border-0 pb-2 last:pb-0">
-                  <span className="text-xs text-s112-muted tabular-nums w-20 shrink-0 pt-0.5">
-                    {new Date(b.datum).toLocaleDateString('de-AT')}
+      {/* Maßnahmen je Lese: nur das gelesene Grundstück, nur bis zum Lesedatum (KAN-75).
+          Dieselbe Zuordnung wie die CSV „rueckverfolgung“ (Kette.lesen aus ladeChargeKette). */}
+      {lesen.length > 0 && (
+        <Section title="Maßnahmen im Weingarten bis zur Lese" icon={<Leaf className="w-4 h-4" />}>
+          <p className="text-xs text-s112-muted">
+            Je Lese die Maßnahmen des gelesenen Grundstücks vom Tag nach der vorigen Lese dieses Grundstücks
+            (sonst ab 01.01. des Jahrgangs) bis einschließlich zum Lesedatum.
+          </p>
+          {lesen.map((l, i) => {
+            const w = l.lese.weingarten as R | null
+            const g = l.lese.grundstueck as R | null
+            const ohneGst = !l.lese.grundstueck_id
+            return (
+              <div key={l.leseId} className={`space-y-2 ${i > 0 ? 'pt-3 border-t border-s112-border/60' : ''}`}>
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+                  <span className="text-sm font-medium text-s112-text">
+                    {w?.name ?? 'Weingarten unbekannt'}{g?.gst_nr ? ` · GST ${g.gst_nr}` : ''}
                   </span>
-                  <div className="flex-1">
-                    <span className="font-medium text-s112-text">{psm?.name ?? ART_LABELS[b.art] ?? b.art}</span>
-                    <span className="text-xs text-s112-muted ml-1">({ART_LABELS[b.art] ?? b.art})</span>
-                    <div className="text-xs text-s112-muted">
-                      {(b.grundstuecke as string[]).join(', ')}
-                      {b.aufwandmenge ? ` · ${b.aufwandmenge} ${b.aufwandmenge_einheit ?? ''}` : ''}
-                      {b.flaeche_ha_summe ? ` · ${fmtNum(Number(b.flaeche_ha_summe))} ha` : ''}
-                    </div>
-                    {b.schaderreger && <div className="text-xs text-s112-muted">Grund: {b.schaderreger}</div>}
-                  </div>
+                  <span className="text-xs text-s112-muted tabular-nums">
+                    Lese {l.lese.ernte_datum ? ttmmjjjj(String(l.lese.ernte_datum).slice(0, 10)) : '–'}
+                  </span>
+                  <span className="text-xs text-s112-muted ml-auto">
+                    {l.massnahmen.length} {l.massnahmen.length === 1 ? 'Maßnahme' : 'Maßnahmen'}
+                  </span>
                 </div>
-              )
-            })}
-          </div>
+                {l.fenster && (
+                  <div className="text-xs text-s112-muted">
+                    Zeitfenster {ttmmjjjj(l.fenster.von)} – {ttmmjjjj(l.fenster.bis)} ({fensterBeginnText(l.fenster)})
+                  </div>
+                )}
+                {l.hinweise.length > 0 && (
+                  <div className="text-xs bg-s112-warn-bg border border-s112-warn/30 text-s112-warn-fg rounded-lg px-3 py-1.5">
+                    {l.hinweise.join(' ')}
+                  </div>
+                )}
+                {l.massnahmen.length === 0 ? (
+                  <p className="text-xs text-s112-muted italic">Keine Maßnahmen im Zeitfenster erfasst.</p>
+                ) : (
+                  <div className="ml-4 space-y-2">
+                    {l.massnahmen.map(m => {
+                      const b = m.behandlung
+                      const art = BEHANDLUNG_ART_LABEL[b.art] ?? b.art
+                      const details = [
+                        m.nurWeingarten ? 'nur am Weingarten erfasst (ohne Grundstück)' : ohneGst ? `GST ${m.grundstuecke.join(', ')}` : null,
+                        b.aufwandmenge ? `${b.aufwandmenge} ${b.aufwandmenge_einheit ?? ''}`.trim() : null,
+                        m.flaecheHa ? `${fmtNum(m.flaecheHa)} ha` : null,
+                      ].filter(Boolean).join(' · ')
+                      return (
+                        <div key={b.id} className="flex items-start gap-3 text-sm border-b border-s112-border/30 last:border-0 pb-2 last:pb-0">
+                          <span className="text-xs text-s112-muted tabular-nums w-40 shrink-0 pt-0.5">{massnahmeZeitraum(b)}</span>
+                          <div className="flex-1">
+                            <span className="font-medium text-s112-text">{massnahmeMittel(b)}</span>
+                            {art && (b.psm as R | null)?.name && <span className="text-xs text-s112-muted ml-1">({art})</span>}
+                            {details && <div className="text-xs text-s112-muted">{details}</div>}
+                            {b.schaderreger && <div className="text-xs text-s112-muted">Grund: {b.schaderreger}</div>}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </Section>
       )}
     </div>
@@ -441,7 +475,7 @@ export default async function RueckverfolgungPage({
                 key={entry.weinausbauId}
                 weinausbau={entry.kette.weinausbau}
                 pressungen={entry.kette.pressungen}
-                behandlungen={entry.kette.behandlungen}
+                lesen={entry.kette.lesen}
                 analysen={entry.kette.analysen}
                 umzuege={entry.kette.umzuege}
                 anteilLiter={chargeEntries.length > 1 ? entry.anteilLiter : undefined}

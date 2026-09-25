@@ -79,7 +79,7 @@ export const KATALOG_KELLERBUCH = katalogGruppe('kellerbuch', {
     zugriff: 'mitglied',
     druckPfad: '/kellerbuch/rueckverfolgung',
     rechtsgrundlage: 'Art. 18 VO (EG) 178/2002 (Rückverfolgbarkeit) – zu prüfen',
-    beschreibung: 'Eine Zeile je Füllung × Ursprung: Charge, Anteil, Pressung, Weingarten/Ried, GST-Nr., Behandlungen.',
+    beschreibung: 'Eine Zeile je Füllung × Ursprung: Charge, Anteil, Pressung, Weingarten/Ried, GST-Nr., Behandlungen des Grundstücks bis zur Lese.',
   },
   'blend-protokoll': {
     titel: 'Blend-Protokoll',
