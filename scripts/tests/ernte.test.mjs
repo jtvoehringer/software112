@@ -122,11 +122,14 @@ describe('KAN-36 – BKI-Kürzel (lib/wein/bki_kuerzel.ts)', () => {
     }
   })
 
-  test('kein Ersatzkürzel mehr: Ausbruch, Sekt, Unbekanntes leer mit Hinweis; Reserve & Co. als QUW', () => {
-    const ausbruch = kuerzel.qualitaetBki('ausbruch')
-    assert.equal(ausbruch.kuerzel, '')
-    assert.match(ausbruch.hinweis, /„Ausbruch“ steht nicht in der BKI-Kürzelliste/)
-    for (const q of ['sekt', 'perlwein', 'sonstiges', 'Phantasie']) {
+  test('kein Ersatzkürzel mehr: Sekt, Unbekanntes leer mit Hinweis; Ausbruch vorläufig AUB; Reserve & Co. als QUW', () => {
+    // Ausbruch fehlt in der Liste – AUB als Vorschlag (KAN-36, 25.09.2026), immer mit Hinweis
+    for (const q of ['ausbruch', ' Ausbruch ']) {
+      const ausbruch = kuerzel.qualitaetBki(q)
+      assert.equal(ausbruch.kuerzel, 'AUB', q)
+      assert.match(ausbruch.hinweis, /„Ausbruch“ steht nicht in der BKI-Kürzelliste – vorläufig als AUB gemeldet \(Vorschlag/)
+    }
+    for (const q of ['sekt', 'perlwein', 'sonstiges', 'tafelwein', 'Phantasie']) {
       const r = kuerzel.qualitaetBki(q)
       assert.equal(r.kuerzel, '', q)
       assert.ok(r.hinweis, q)
@@ -138,7 +141,7 @@ describe('KAN-36 – BKI-Kürzel (lib/wein/bki_kuerzel.ts)', () => {
     }
     assert.deepEqual(kuerzel.qualitaetBki(null), { kuerzel: '', hinweis: null })
     assert.equal(kuerzel.getQualitaetBki('trockenbeerenauslese'), 'TBA')   // früher „TROC“
-    assert.equal(kuerzel.getQualitaetBki('ausbruch'), '')                  // früher „AUSB“
+    assert.equal(kuerzel.getQualitaetBki('ausbruch'), 'AUB')               // früher „AUSB“, dann leer
   })
 
   test('Rebsorten streng (Behörde) vs. Anzeige (Oberfläche)', () => {
@@ -407,12 +410,12 @@ describe('bki-traubenverkauf', () => {
       // Menge_kg: ganze kg wie bisher ohne Komma (Schnittstelle „Menge int“), Bruchteil mit Dezimalkomma
       // Herkunft nur als BKI-Kürzel (KAN-36): Stufe des Grundstücks → WLTH, Bezeichnung → WLWV, Freitext leer
       `7654321;"Weingut Huber, Stiftung";;Hauptstraße;3a;2170;Poysdorf;${vers};05.09.2026;"1250,5";TB;J;;RR;;;QUW;2026;WLTH;"17,4";`,
-      `;Gruber;Hans;Kellergasse;;3491;Straß im Straßertale;${vers};18.09.2026;980;TB;;J;ZW;;;;2026;WLWV;"21,0";`,
+      `;Gruber;Hans;Kellergasse;;3491;Straß im Straßertale;${vers};18.09.2026;980;TB;;J;ZW;;;AUB;2026;WLWV;"21,0";`,   // Ausbruch: AUB als Vorschlag
       `;;;;;;;${vers};20.09.2026;300;TB;;;;;;QUW;2026;;;`,
     ].join('\r\n'))
     const w = warnungen.join('\n')
     assert.match(w, /Abnehmer „Hans Gruber“ ohne BKI-Betriebsnummer .* \(1 Lieferung: TV-0002\)/)
-    assert.match(w, /„Ausbruch“ steht nicht in der BKI-Kürzelliste .* \(1 Lieferung: TV-0002\)/)
+    assert.match(w, /„Ausbruch“ steht nicht in der BKI-Kürzelliste – vorläufig als AUB gemeldet .* \(1 Lieferung: TV-0002\)/)
     assert.match(w, /Rebsorte „Uhudler“ steht nicht in der BKI-Kürzelliste – Sorte1, Weiss und Rot leer gelassen\. \(1 Lieferung: Lieferung vom 20\.09\.2026\)/)
     assert.match(w, /„Reserve“ hat kein eigenes BKI-Kürzel – als Qualitätswein \(QUW\) gemeldet/)
     assert.match(w, /Kein Abnehmer erfasst/)
