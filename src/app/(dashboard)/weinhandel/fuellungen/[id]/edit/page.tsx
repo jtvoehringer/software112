@@ -8,6 +8,7 @@ import { updateFuellung } from '../../../actions'
 import { KN_CODES } from '@/lib/wein/zolltarif'
 import { HERKUNFT_ORDER, HERKUNFT_LABEL, istNiedrigerAls as istHerkunftNiedriger } from '@/lib/herkunft'
 import { QUALITAET_LABEL, istNiedrigerAls as istQualitaetNiedriger } from '@/lib/weinqualitaet'
+import { FUELLUNG_QUALITAETEN, mitGespeichertemWert } from '@/lib/wein/qualitaet'
 import { ladeCustomWeinbaugebiete } from '../../../../weinbaugebiete/actions'
 import HerkunftCodeSelect from '@/components/weinbaugebiete/HerkunftCodeSelect'
 import { fmtNum } from '@/lib/format'
@@ -23,24 +24,8 @@ export const dynamic = 'force-dynamic'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
-const QUALITAETEN = [
-  { value: 'qualitaetswein',        label: 'Qualitätswein' },
-  { value: 'kabinett',              label: 'Kabinett' },
-  { value: 'spaetlese',             label: 'Spätlese' },
-  { value: 'auslese',               label: 'Auslese' },
-  { value: 'beerenauslese',         label: 'Beerenauslese' },
-  { value: 'trockenbeerenauslese',  label: 'Trockenbeerenauslese (TBA)' },
-  { value: 'eiswein',               label: 'Eiswein' },
-  { value: 'strohwein',             label: 'Strohwein / Schilfwein' },
-  { value: 'dac',                   label: 'DAC (Districtus Austriae Controllatus)' },
-  { value: 'reserve',               label: 'Reservé / Reserve' },
-  { value: 'erste_lage',            label: 'Erste Lage (ÖTW)' },
-  { value: 'grosses_gewachs',       label: 'Großes Gewächs' },
-  { value: 'landwein',              label: 'Landwein' },
-  { value: 'sekt',                  label: 'Sekt b.A.' },
-  { value: 'perlwein',              label: 'Perlwein' },
-  { value: 'sonstiges',             label: 'Sonstiges' },
-]
+// KAN-73: zentrale Liste der Füllung (= CHECK fuellungen_qualitaet_check, alle 18 Stufen inkl. „Wein“ und „Ausbruch“)
+const QUALITAETEN = FUELLUNG_QUALITAETEN
 
 const FLASCHENGROESSEN = [
   { value: 375,  label: '0,375 L – Halbflasche' },
@@ -163,7 +148,8 @@ export default async function EditFuellungPage({
       const bestehend = QUALITAETEN.find(q => q.value === f.qualitaet)
       if (bestehend) return [bestehend, ...basis]
     }
-    return basis
+    // KAN-73: auch ein Wert außerhalb der Liste bleibt sichtbar (statt still die erste Option)
+    return mitGespeichertemWert(basis, f.qualitaet)
   })()
 
   // Ein eigenes (nicht in HERKUNFT_ORDER geführtes) Weinbaugebiet liegt außerhalb der

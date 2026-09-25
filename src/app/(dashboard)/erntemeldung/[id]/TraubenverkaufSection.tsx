@@ -7,7 +7,7 @@ import type { ZukaufTraubenOpt } from './PressungSection'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum, dezimal } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
-import { qualitaetLabel } from '@/lib/wein/qualitaet'
+import { qualitaetLabel, LESE_QUALITAETEN, mitGespeichertemWert } from '@/lib/wein/qualitaet'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { csvDateiname, csvDatei, HINWEIS_BKI_UPLOAD } from '@/lib/csv'
 import { csvPfad } from '@/lib/behoerden/katalog'
@@ -63,16 +63,8 @@ export type TVQuelleOption = {
   verfuegbar_kg: number
 }
 
-const QUALITAETEN = [
-  { value: 'qualitaetswein', label: 'Qualitätswein' },
-  { value: 'kabinett', label: 'Kabinett' },
-  { value: 'spaetlese', label: 'Spätlese' },
-  { value: 'auslese', label: 'Auslese' },
-  { value: 'beerenauslese', label: 'Beerenauslese' },
-  { value: 'trockenbeerenauslese', label: 'TBA' },
-  { value: 'eiswein', label: 'Eiswein' },
-  { value: 'landwein', label: 'Landwein' },
-]
+// Trauben-Qualität = Stufen der Lese (KAN-73: LESE_QUALITAETEN, jetzt auch „Wein“) – vorbelegt
+// aus den Lesedaten der Ried/GST; ein gespeicherter Wert außerhalb der Liste bleibt sichtbar.
 
 const fmt = (n: number | null) =>
   n == null ? '–' : fmtNum(n, { max: 2 })
@@ -287,7 +279,9 @@ function TVForm({ jahrgangId, tv, quelleOptions, zukaufOptions, kontaktOptions, 
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Qualitätsstufe</label>
           <select aria-label="Qualitätsstufe" value={qualitaet} onChange={e => setQualitaet(e.target.value)} className={inp}>
             <option value="">– keine –</option>
-            {QUALITAETEN.map(q => <option key={q.value} value={q.value}>{q.label}</option>)}
+            {/* gespeicherter Wert (nicht der Formularzustand): bleibt nach einem Wechsel wieder wählbar;
+                die Vorbelegung bei der Neuanlage kommt aus ernte_parzellen (CHECK = Lese-Liste) */}
+            {mitGespeichertemWert(LESE_QUALITAETEN, tv?.qualitaetsstufe).map(q => <option key={q.value} value={q.value}>{q.label}</option>)}
           </select>
         </div>
 
@@ -515,7 +509,7 @@ export default function TraubenverkaufSection({
                           </span>
                         )}
                         {v.kmw_grad != null && <span>· {v.kmw_grad.toString().replace('.', ',')} °KMW</span>}
-                        {v.qualitaetsstufe && <span>· {v.qualitaetsstufe}</span>}
+                        {v.qualitaetsstufe && <span>· {qualitaetLabel(v.qualitaetsstufe)}</span>}
                         {(v.firma_name ?? v.kontakt_name) && (
                           <span>· {v.firma_name ?? v.kontakt_name}</span>
                         )}

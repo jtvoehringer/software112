@@ -9,6 +9,7 @@ import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { dezimal } from '@/lib/format'
 import { verkaufspostenStornieren } from '@/lib/verkauf/bestand'
+import { qualitaetFehler } from '@/lib/wein/qualitaet'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -213,6 +214,10 @@ export async function upsertTraubenverkauf(formData: FormData) {
   if (!Number.isFinite(mengeKg) || mengeKg <= 0) {
     throw new AktionsFehler('Bitte eine Menge in kg größer als 0 angeben.')
   }
+  // KAN-73: Trauben-Qualität = Stufen der Lese (LESE_QUALITAETEN; traubenverkauf hat keinen CHECK).
+  // Ein unverändert gespeicherter Altwert (Bearbeiten) bleibt erlaubt – geprüft unten nach dem Laden.
+  const qualitaetsstufe = (formData.get('qualitaetsstufe') as string) || null
+  const qualitaetUnzulaessig = qualitaetFehler('lese', qualitaetsstufe)
 
   // Bezeichnung der Quelle (eigener Weingarten ODER zugekaufter Posten) für die
   // Positionsbezeichnung im Verkaufsposten laden.
@@ -232,7 +237,7 @@ export async function upsertTraubenverkauf(formData: FormData) {
     menge_kg:        mengeKg,
     preis_per_kg:    preisPerKg,
     kmw_grad:        getNum('kmw_grad'),
-    qualitaetsstufe: (formData.get('qualitaetsstufe') as string) || null,
+    qualitaetsstufe,
     herkunft_code:   (formData.get('herkunft_code') as string) || null,
     gesundheit:      (formData.get('gesundheit') as string) || 'G',
     notizen:         (formData.get('notizen') as string) || null,
@@ -243,12 +248,15 @@ export async function upsertTraubenverkauf(formData: FormData) {
     // Bestehenden Traubenverkauf laden (für verkaufsposten_id)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: tvAlt, error: tvAltErr } = await (supabase.from('traubenverkauf') as any)
-      .select('verkaufsposten_id')
+      .select('verkaufsposten_id, qualitaetsstufe')
       .eq('id', existing_id)
       .eq('tenant_id', tenantId)
       .maybeSingle()
     if (tvAltErr) throw new AktionsFehler(dbFehlerText(tvAltErr, 'Traubenverkauf konnte nicht geladen werden'))
     if (!tvAlt) throw new AktionsFehler('Traubenverkauf nicht gefunden – bitte Seite neu laden.')
+    if (qualitaetUnzulaessig && qualitaetsstufe !== ((tvAlt as AR).qualitaetsstufe ?? null)) {
+      throw new AktionsFehler(qualitaetUnzulaessig)
+    }
     const altPostenId = (tvAlt as AR | null)?.verkaufsposten_id as string | null
 
     // Stornierte Rechnung und nicht eindeutige Position vor jedem Schreibzugriff ablehnen
@@ -280,6 +288,7 @@ export async function upsertTraubenverkauf(formData: FormData) {
         if (e) throw new AktionsFehler(dbFehlerText(e, 'Speichern fehlgeschlagen (traubenverkauf)')) }
     }
   } else {
+    if (qualitaetUnzulaessig) throw new AktionsFehler(qualitaetUnzulaessig)
     // Liefernummer bei Neuanlage auto-generieren
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: lnData } = await (supabase.rpc as any)('get_next_liefernummer', { p_tenant_id: tenantId })

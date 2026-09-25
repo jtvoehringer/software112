@@ -177,7 +177,8 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
   })()
   const kmwGrad      = kmwFromWgRows?.toString().replace('.', ',') ?? ''
   const kmwNum       = parseFloat(dezimal(kmwGrad))
-  const kmwQualitaet = !isNaN(kmwNum) && kmwNum > 0 ? kmwZuQualitaet(kmwNum) : null
+  // wie der Server (zahlAus → kmwZuQualitaet): jede gültige Zahl zählt, auch 0 °KMW (→ Wein)
+  const kmwQualitaet = kmwGrad !== '' && Number.isFinite(kmwNum) ? kmwZuQualitaet(kmwNum) : null
   const [pending, startTransition] = useTransition()
 
   type VerschneidungData = {
