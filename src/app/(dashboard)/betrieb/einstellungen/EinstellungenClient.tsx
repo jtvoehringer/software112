@@ -378,7 +378,7 @@ function BetriebTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Weinbau-Betriebsnummer *</label>
               <input aria-label="Weinbau-Betriebsnummer" name="betrieb_betriebsnummer" defaultValue={daten.betrieb_betriebsnummer ?? ''} required
-                inputMode="numeric" pattern={BETRIEBSNUMMER_MUSTER} title="Nur Ziffern, z. B. 4489781"
+                inputMode="numeric" pattern={BETRIEBSNUMMER_MUSTER} title="Nur Ziffern (höchstens 10), z. B. 4489781"
                 className={inputCls()} placeholder="z.B. 4489781" />
               {weinbauBetriebsnummerFehlt(daten.betrieb_betriebsnummer)
                 ? <p className="text-[11px] text-s112-err-fg mt-0.5">Fehlt – bitte ergänzen. {BETRIEBSNUMMER_ZWECK}.</p>
