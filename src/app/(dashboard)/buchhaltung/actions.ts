@@ -2,11 +2,12 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
+import { getCurrentMembership, canAdmin, canWrite } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { AktionsFehler } from '@/lib/fehler'
 import { dezimal } from '@/lib/format'
+import { ersetzeVerkaufsEinnahmen, type VerkaufsEinnahme } from '@/lib/ea/verkaufEinnahmen'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -17,7 +18,7 @@ async function getCtx() {
   if (!membership?.tenantId) throw new AktionsFehler('Kein Mandant')
   await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
   await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
-  return { supabase, tenantId: membership.tenantId }
+  return { supabase, tenantId: membership.tenantId, membership }
 }
 
 // Migration 168 - liest den abzugsfaehig_pct-Wert der gewählten Kategorie, um
@@ -217,11 +218,18 @@ export async function berechneUndSpeichereUva(jahr: number, zeitraum: string) {
 // verknüpften ea_transaktionen-Zeilen für diesen Verkaufsposten komplett neu
 // auf (idempotent) – dadurch entstehen bei mehreren Teilzahlungen keine
 // Duplikate. Bereits über eine übermittelte UVA gesperrte Zeilen werden nie
-// angefasst.
+// angefasst. Lesen, Entfernen und Anlegen der Einnahmen laufen über
+// ersetzeVerkaufsEinnahmen (Service-Role, KAN-149 Nebenbefund 2): Wer Zahlungen
+// erfassen darf, aktualisiert damit auch die abgeleitete Einnahme – ohne eigenes
+// Löschrecht in der E&A (sonst Doppelbuchung) und ohne Freigabe E&A (sonst fehlte sie).
 export async function syncEaEinnahmeFuerVerkauf(
   verkaufspostenId: string
 ): Promise<{ ok: boolean; error?: string; skipped?: boolean }> {
-  const { supabase, tenantId } = await getCtx()
+  const { supabase, tenantId, membership } = await getCtx()
+  // Zahlungen und Verkäufe erfassen Warenwirtschaft, die E&A ihre Einnahmen – Leser nie
+  if (!canWrite(membership, 'warenwirtschaft') && !canWrite(membership, 'ea')) {
+    return { ok: false, error: 'Keine Berechtigung, die E&A-Einnahme dieses Verkaufs zu aktualisieren.' }
+  }
 
   // Nur relevant, wenn das E&A-Modul für diesen Mandanten aktiv ist
   const { data: einst } = await (supabase.from('tenant_einstellungen') as any)
@@ -241,99 +249,62 @@ export async function syncEaEinnahmeFuerVerkauf(
   const posten = postenRaw as R
   const positionen = (posten.positionen ?? []) as R[]
 
-  // Bestehende, verknüpfte Buchungen prüfen
-  const { data: bestehendeRaw } = await (supabase.from('ea_transaktionen') as any)
-    .select('id, is_locked')
-    .eq('verkaufsposten_id', verkaufspostenId)
-    .eq('tenant_id', tenantId)
-  const bestehende = (bestehendeRaw ?? []) as R[]
-
-  if (bestehende.some((b: R) => b.is_locked)) {
-    // Zeitraum bereits per UVA übermittelt – nicht mehr verändern
-    return { ok: true, skipped: true }
-  }
-
-  if (bestehende.length > 0) {
-    { const { error: e } = await (supabase.from('ea_transaktionen') as any)
-      .delete()
-      .in('id', bestehende.map((b: R) => b.id))
+  // Neue Einnahmen berechnen – leer bei Storno, ohne Zahlung oder ohne Rechnungssumme
+  const neu: VerkaufsEinnahme[] = []
+  if (!posten.storniert) {
+    // Zahlungen summieren
+    const { data: zahlungenRaw, error: zahlErr } = await (supabase.from('zahlungen') as any)
+      .select('betrag, datum')
+      .eq('verkaufsposten_id', verkaufspostenId)
       .eq('tenant_id', tenantId)
-      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (ea_transaktionen): ${e.message}`) }
+      .order('datum', { ascending: false })
+    if (zahlErr) return { ok: false, error: `Zahlungen konnten nicht geladen werden: ${(zahlErr as R).message}` }
+    const zahlungen = (zahlungenRaw ?? []) as R[]
+    const bezahltSumme = zahlungen.reduce((s: number, z: R) => s + Number(z.betrag ?? 0), 0)
+
+    // Rechnungssumme je USt-Satz (brutto/netto) – analog zur Rechnungsdruck-Logik
+    const gruppen: Record<string, { brutto: number; netto: number }> = {}
+    for (const pos of positionen) {
+      if (pos.preis_brutto == null) continue
+      const satz = Number(pos.ust_satz ?? 13)
+      const brutto = Number(pos.preis_brutto) * Number(pos.menge)
+      const rabatt = Number(pos.rabatt_pct ?? 0) / 100
+      const sonder = Number(pos.sonderrabatt_pct ?? 0) / 100
+      const effektiv = brutto * (1 - rabatt) * (1 - sonder)
+      const netto = effektiv / (1 + satz / 100)
+      const key = String(satz)
+      if (!gruppen[key]) gruppen[key] = { brutto: 0, netto: 0 }
+      gruppen[key].brutto += effektiv
+      gruppen[key].netto += netto
+    }
+    const gesamtBrutto = Object.values(gruppen).reduce((s, g) => s + g.brutto, 0)
+
+    if (bezahltSumme > 0.005 && gesamtBrutto > 0) {
+      // Anteilig zugeordneter Zahlungseingang je USt-Satz (bei Teilzahlung proportional)
+      const quote = Math.min(bezahltSumme, gesamtBrutto) / gesamtBrutto
+      const re = posten.rechnungsnummer ? `RE ${posten.rechnungsnummer}` : `Beleg ${verkaufspostenId.slice(0, 8)}`
+      const buchungsDatum = zahlungen[0]?.datum ?? posten.datum
+      for (const [satz, g] of Object.entries(gruppen)) {
+        const nettoAnteil = Math.round(g.netto * quote * 100) / 100
+        if (nettoAnteil <= 0) continue
+        neu.push({
+          datum:        buchungsDatum,
+          beschreibung: `Zahlungseingang ${re}`,
+          betrag_netto: nettoAnteil,
+          ust_satz:     Number(satz),
+          notizen:      'Automatisch erzeugt aus Zahlungseingang (Verkauf)',
+        })
+      }
+    }
   }
 
-  if (posten.storniert) {
-    revalidatePath('/buchhaltung')
-    revalidatePath('/buchhaltung/uva')
-    return { ok: true }
-  }
-
-  // Zahlungen summieren
-  const { data: zahlungenRaw } = await (supabase.from('zahlungen') as any)
-    .select('betrag, datum')
-    .eq('verkaufsposten_id', verkaufspostenId)
-    .eq('tenant_id', tenantId)
-    .order('datum', { ascending: false })
-  const zahlungen = (zahlungenRaw ?? []) as R[]
-  const bezahltSumme = zahlungen.reduce((s: number, z: R) => s + Number(z.betrag ?? 0), 0)
-
-  if (bezahltSumme <= 0.005) {
-    revalidatePath('/buchhaltung')
-    revalidatePath('/buchhaltung/uva')
-    return { ok: true }
-  }
-
-  // Rechnungssumme je USt-Satz (brutto/netto) – analog zur Rechnungsdruck-Logik
-  const gruppen: Record<string, { brutto: number; netto: number }> = {}
-  for (const pos of positionen) {
-    if (pos.preis_brutto == null) continue
-    const satz = Number(pos.ust_satz ?? 13)
-    const brutto = Number(pos.preis_brutto) * Number(pos.menge)
-    const rabatt = Number(pos.rabatt_pct ?? 0) / 100
-    const sonder = Number(pos.sonderrabatt_pct ?? 0) / 100
-    const effektiv = brutto * (1 - rabatt) * (1 - sonder)
-    const netto = effektiv / (1 + satz / 100)
-    const key = String(satz)
-    if (!gruppen[key]) gruppen[key] = { brutto: 0, netto: 0 }
-    gruppen[key].brutto += effektiv
-    gruppen[key].netto += netto
-  }
-  const gesamtBrutto = Object.values(gruppen).reduce((s, g) => s + g.brutto, 0)
-  if (gesamtBrutto <= 0) {
-    revalidatePath('/buchhaltung')
-    revalidatePath('/buchhaltung/uva')
-    return { ok: true }
-  }
-
-  // Anteilig zugeordneter Zahlungseingang je USt-Satz (bei Teilzahlung proportional)
-  const quote = Math.min(bezahltSumme, gesamtBrutto) / gesamtBrutto
-  const re = posten.rechnungsnummer ? `RE ${posten.rechnungsnummer}` : `Beleg ${verkaufspostenId.slice(0, 8)}`
-  const buchungsDatum = zahlungen[0]?.datum ?? posten.datum
-
-  const inserts: R[] = []
-  for (const [satz, g] of Object.entries(gruppen)) {
-    const nettoAnteil = Math.round(g.netto * quote * 100) / 100
-    if (nettoAnteil <= 0) continue
-    inserts.push({
-      tenant_id:         tenantId,
-      typ:               'einnahme',
-      datum:             buchungsDatum,
-      beschreibung:      `Zahlungseingang ${re}`,
-      betrag_netto:      nettoAnteil,
-      ust_satz:          Number(satz),
-      import_quelle:     'verkauf',
-      verkaufsposten_id: verkaufspostenId,
-      notizen:           'Automatisch erzeugt aus Zahlungseingang (Verkauf)',
-    })
-  }
-
-  if (inserts.length > 0) {
-    const { error } = await (supabase.from('ea_transaktionen') as any).insert(inserts)
-    if (error) return { ok: false, error: (error as R).message }
-  }
+  // Zeitraum bereits per UVA übermittelt (gesperrte Einnahme) – dann nichts verändern
+  const r = await ersetzeVerkaufsEinnahmen(tenantId, verkaufspostenId, neu, { beiGesperrtenNichtsAendern: true })
+  if (!r.ok) return { ok: false, error: r.fehler }
 
   revalidatePath('/buchhaltung')
   revalidatePath('/buchhaltung/uva')
-  return { ok: true }
+  return r.gesperrt ? { ok: true, skipped: true } : { ok: true }
 }
 
 // ── UVA als übermittelt markieren ─────────────────────────────────────────────

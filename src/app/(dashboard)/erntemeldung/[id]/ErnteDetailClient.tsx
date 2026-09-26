@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useTransition } from 'react'
+import React, { useEffect, useState, useTransition } from 'react'
 import { upsertErnteParzelle, deleteErnteParzelle, createOrUpdateAMAMeldung, createMultipleErnteParzellen } from '../actions'
 import { qualitaetLabel, LESE_QUALITAETEN, mitGespeichertemWert } from '@/lib/wein/qualitaet'
 import { kmwZuQualitaet } from '@/lib/weinqualitaet'
@@ -57,6 +57,56 @@ function GstMostgewicht({ gstId, zeile, onChange }: {
 function formatDate(d: string | null) {
   if (!d) return '–'
   return new Date(d).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
+/**
+ * Notiz einer Lese in der Tabelle (KAN-144, z. B. Grund für 0 kg) – derselbe Wert wie in der CSV
+ * „Lesedaten“ (LeseZeile.notizen aus ladeLesedaten). Höchstens zwei Zeilen, voller Text als title;
+ * abgeschnittene Notizen klappen per Klick bzw. Tippen auf (Touch hat keinen Tooltip). Im Druck immer vollständig.
+ * Ob gekürzt wird, hängt an der Spaltenbreite, nicht an der Zeichenzahl: Auf Telefon und Tablet bleibt die
+ * Spalte wegen min-w-[700px] der Tabelle bei min-w-[7rem], dort reichen schon rund 30 Zeichen für drei Zeilen.
+ * Deshalb wird der Überlauf gemessen und nur eine tatsächlich abgeschnittene Notiz zum Knopf.
+ * Gekürzt und gemessen wird immer dasselbe innere span; die Hülle bleibt dasselbe Element und bekommt
+ * nur Rolle, Fokus und Klick dazu. Kein Wechsel span ↔ <button>: In WebKit (Safari, alle Browser auf iOS)
+ * kürzt -webkit-line-clamp keinen <button> – die Messung meldete dort „passt“, der span wieder
+ * „abgeschnitten“, und die Zelle sprang endlos hin und her (Review 26.09.2026).
+ */
+function NotizZelle({ text }: { text: string | null }) {
+  const [offen, setOffen] = useState(false)
+  const [abgeschnitten, setAbgeschnitten] = useState(false)
+  // Ref als State: das innere span entsteht erst, wenn es eine Notiz gibt (vorher steht nur „–“)
+  const [el, setEl] = useState<HTMLSpanElement | null>(null)
+
+  useEffect(() => {
+    // Aufgeklappt ist nichts abgeschnitten – dann nicht messen, sonst verschwände der Knopf zum Zuklappen
+    if (!el || offen) return
+    let aktiv = true
+    const pruefe = () => { if (aktiv) setAbgeschnitten(el.scrollHeight > el.clientHeight + 1) }
+    pruefe()
+    // Die Spaltenbreite ändert sich mit Fenster und Nachbarzellen, der Umbruch zusätzlich mit dem Nachladen der Schrift
+    const beobachter = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(pruefe)
+    beobachter?.observe(el)
+    document.fonts?.ready.then(pruefe).catch(() => {})
+    return () => { aktiv = false; beobachter?.disconnect() }
+  }, [el, offen, text])
+
+  if (!text) return <span className="text-s112-muted">–</span>
+  // Aufgeklappt bleibt der Knopf zum Zuklappen, auch wenn die Messung ruht
+  const klickbar = offen || abgeschnitten
+  const umschalten = () => setOffen(o => !o)
+  return (
+    <span title={text}
+      role={klickbar ? 'button' : undefined}
+      tabIndex={klickbar ? 0 : undefined}
+      aria-expanded={klickbar ? offen : undefined}
+      onClick={klickbar ? umschalten : undefined}
+      onKeyDown={klickbar ? e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); umschalten() } } : undefined}
+      className={`block min-w-[7rem] max-w-[10rem] sm:max-w-[14rem] ${klickbar ? 'cursor-pointer hover:text-s112-text focus-visible:text-s112-text' : ''}`}>
+      <span ref={setEl} className={`whitespace-pre-line [overflow-wrap:anywhere] ${offen ? 'line-clamp-none' : 'line-clamp-2'} print:line-clamp-none`}>
+        {text}
+      </span>
+    </span>
+  )
 }
 
 // ── Neu-Formular: Mehrfacherfassung (Checkboxen nach Ried + GST) ──────────────
@@ -528,6 +578,9 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
   const [amaFehler, setAmaFehler]   = useState<string | null>(null)
 
   const gesamtKg = parzellen.reduce((s, p) => s + (p.menge_kg ?? 0), 0)
+  const mitAktionen = writeOk || adminOk
+  // Spalten der Lesedaten-Tabelle: Ried, GST, Sorte, Datum, kg, Notizen, Mostgewicht, Qualität (+ Aktionen)
+  const spaltenAnzahl = 8 + (mitAktionen ? 1 : 0)
 
   function handleDelete(id: string) {
     if (!confirm('Lesedaten löschen?')) return
@@ -607,8 +660,8 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
         )}
 
         {parzellen.length > 0 ? (
-          <div className="border border-s112-border rounded-xl overflow-x-auto">
-            <table className="w-full text-sm min-w-[640px]">
+          <div className="border border-s112-border rounded-xl overflow-x-auto print:overflow-visible">
+            <table className="w-full text-sm min-w-[700px] print:min-w-0">
               <thead>
                 <tr className="bg-s112-bg border-b border-s112-border text-xs text-s112-text-2">
                   <th className="text-left px-3 py-2 font-semibold">Ried</th>
@@ -616,10 +669,11 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
                   <th className="text-left px-3 py-2 font-semibold">Sorte</th>
                   <th className="text-left px-3 py-2 font-semibold">Datum</th>
                   <th className="text-right px-3 py-2 font-semibold">kg</th>
+                  <th className="text-left px-3 py-2 font-semibold">Notizen</th>
                   <th className="text-right px-3 py-2 font-semibold">Mostgewicht</th>
                   <th className="text-left px-3 py-2 font-semibold whitespace-nowrap">Qualität</th>
-                  {(writeOk || adminOk) && (
-                    <th className="px-3 py-2 sticky right-0 bg-s112-bg border-l border-s112-border" />
+                  {mitAktionen && (
+                    <th className="px-3 py-2 sticky right-0 bg-s112-bg border-l border-s112-border" data-print="hide" />
                   )}
                 </tr>
               </thead>
@@ -634,11 +688,14 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
                       <td className="px-3 py-2 text-xs text-s112-muted">{formatRebsorteMitKuerzel(p.grundstueck_rebsorte ?? p.weingarten_rebsorte)}</td>
                       <td className="px-3 py-2 text-s112-muted whitespace-nowrap">{formatDate(p.ernte_datum)}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{(p.menge_kg == null ? undefined : fmtNum(p.menge_kg)) ?? '–'}</td>
+                      <td className="px-3 py-2 text-xs text-s112-text-2">
+                        <NotizZelle text={p.notizen} />
+                      </td>
                       <td className="px-3 py-2 text-right">
                         <MostgewichtAnzeige wert={{ kmw: p.klosterneuburger, oechsle: p.oechsle, einheit: p.mostgewicht_einheit }} />
                       </td>
                       <td className="px-3 py-2 text-xs text-s112-muted whitespace-nowrap">{qualitaetLabel(p.qualitaetsstufe)}</td>
-                      {(writeOk || adminOk) && (
+                      {mitAktionen && (
                         <td className="px-3 py-2 text-right sticky right-0 bg-white border-l border-s112-border/40" data-print="hide">
                           <div className="flex items-center justify-end gap-2">
                             {writeOk && (
@@ -657,7 +714,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
                     </tr>
                     {editId === p.id && (
                       <tr>
-                        <td colSpan={8} className="px-3 py-2">
+                        <td colSpan={spaltenAnzahl} className="px-3 py-2">
                           <ParzellForm jahrgangId={jahrgang.id} weingaerten={weingaerten} gstByWeingarten={gstByWeingarten} parzelle={p} onDone={() => setEditId(null)} />
                         </td>
                       </tr>
@@ -667,11 +724,15 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
               </tbody>
               <tfoot>
                 <tr className="bg-s112-bg border-t-2 border-s112-border font-semibold text-sm">
-                  <td className="px-3 py-2 text-s112-text-1" colSpan={3}>Gesamt</td>
-                  <td className="px-3 py-2 text-right tabular-nums text-s112-text">{fmtNum(gesamtKg)} kg</td>
+                  {/* Summe unter der Spalte „kg“ (Ried, GST, Sorte, Datum davor), hl ab „Notizen“ */}
+                  <td className="px-3 py-2 text-s112-text-1" colSpan={4}>Gesamt</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-s112-text whitespace-nowrap">{fmtNum(gesamtKg)} kg</td>
                   <td colSpan={3} className="px-3 py-2 text-xs text-s112-muted">
                     ≈ {fmtProzent(gesamtKg / 130)} hl
                   </td>
+                  {mitAktionen && (
+                    <td className="sticky right-0 bg-s112-bg border-l border-s112-border" data-print="hide" />
+                  )}
                 </tr>
               </tfoot>
             </table>

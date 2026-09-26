@@ -5,6 +5,7 @@ import { notFound, redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import MandantDetailClient from './MandantDetailClient'
 import { geheimMaskiert } from '@/lib/email/geheimnis'
+import type { MostgewichtEinheit } from '@/lib/wein/mostgewicht'
 
 export const dynamic = 'force-dynamic'
 
@@ -107,6 +108,8 @@ export type TenantSettings = {
   // Migration 123 – bawb.at
   bawb_kennung:        string | null
   bawb_passwort:       string | null
+  // KAN-134 – bevorzugte Mostgewicht-Einheit (Migration A: NOT NULL DEFAULT 'kmw'), Tab Betrieb
+  mostgewicht_einheit: MostgewichtEinheit
 }
 export type TenantMember = {
   id: string; userId: string; email: string; role: string; createdAt: string
@@ -260,6 +263,7 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
     bawb_kennung:        s?.bawb_kennung ?? null,
     bawb_passwort:       geheimMaskiert(s?.bawb_passwort),   // KAN-135: nur „hinterlegt ja/nein“, nie der Klartext
     assistent_aktiv:     !!(s?.assistent_aktiv),
+    mostgewicht_einheit: s?.mostgewicht_einheit === 'oechsle' ? 'oechsle' : 'kmw',
   }
 
   const members: TenantMember[] = ((memberships ?? []) as R[]).map(m => ({

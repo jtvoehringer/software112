@@ -3,7 +3,8 @@
 -- Gebeshuber" nach dem CSV-Reimport - rein lesend, ändert nichts.
 --
 -- Bitte im Supabase SQL-Editor ausführen und mir alle vier Ergebnisse (Screenshot
--- oder Text) schicken, bevor wir den Sweep laufen lassen - damit ich sehe, WAS beim
+-- oder Text) schicken, bevor wir den Sweep (sql/sweep-rieden-weingarten-gst.sql, mit
+-- KAN-151 entfernt – nicht wiederherstellen, Produktivbetrieb) laufen lassen - damit ich sehe, WAS beim
 -- Import genau schiefgelaufen ist (falsche Zuordnung, doppelte Rieden/Weingärten,
 -- nicht gefundene Zuordnungen), und die Import-Logik entsprechend korrigieren kann,
 -- bevor du nochmal importierst.
