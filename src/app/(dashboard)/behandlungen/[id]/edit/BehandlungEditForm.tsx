@@ -113,6 +113,10 @@ export default function BehandlungEditForm({
   const laubarbeitBisher = laubarbeitAltwert(behandlung.laubarbeit_art)
   // gespeichertes BBCH-Stadium außerhalb von BBCH_OPTIONS (z. B. „68“) – eigene Option in beiden BBCH-Auswahlen
   const bbchBisher = bbchAltwert(behandlung.bbch_stadium)
+  // Ein gemeinsamer Wert für beide BBCH-Auswahlen (Spritzung und alle anderen Arten): Ein Artwechsel baut die
+  // Auswahl neu auf, das Stadium bleibt aber – unabhängig vom Weg und samt eigener Eingabe – erhalten wie im
+  // Anlegen-Formular. Ist keine Auswahl eingeblendet, wird nichts gesendet und Speichern leert das Stadium.
+  const [bbch, setBbch] = useState(behandlung.bbch_stadium ?? '')
   const [selectedPsmId, setSelectedPsmId] = useState(behandlung.psm_id ?? '')
   const [selectedDuengemittelId, setSelectedDuengemittelId] = useState(behandlung.duengemittel_id ?? '')
   // Gespeicherte Mengen als Formularwerte (Dezimalkomma, siehe alsFeld)
@@ -540,7 +544,7 @@ export default function BehandlungEditForm({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>BBCH-Stadium</label>
-              <select aria-label="BBCH-Stadium" name="bbch_stadium" defaultValue={behandlung.bbch_stadium ?? ''} className={inputCls}>
+              <select aria-label="BBCH-Stadium" name="bbch_stadium" value={bbch} onChange={e => setBbch(e.target.value)} className={inputCls}>
                 <option value="">– Auswählen –</option>
                 {bbchBisher && <option value={bbchBisher}>{bbchBisher} (bisherige Angabe)</option>}
                 {BBCH_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -617,15 +621,16 @@ export default function BehandlungEditForm({
           </div>
         )}
 
-        {/* BBCH außerhalb der Spritzung (Laubarbeit, Laubschneiden – optional laut Feld-Matrix); ein
-            gespeichertes Stadium bleibt sichtbar, damit Speichern es nicht leert – ein Code außerhalb von
-            BBCH_OPTIONS als eigene Option. Die bleibt auch nach einem Artwechsel stehen (das Stadium hängt nicht
-            an der Art): Wechselt z. B. Laubarbeit → Laubschneiden, bleibt die Auswahl erhalten wie bei „75“ */}
+        {/* BBCH außerhalb der Spritzung (Laubarbeit, Laubschneiden – optional laut Feld-Matrix); bei der
+            gespeicherten Art bleibt ein gespeichertes Stadium sichtbar, damit Speichern es nicht leert – ein Code
+            außerhalb von BBCH_OPTIONS als eigene Option. Der Wert kommt aus dem gemeinsamen State `bbch` und
+            bleibt daher bei jedem Artwechsel stehen (z. B. Spritzung → Laubschneiden oder Laubarbeit →
+            Spritzung → Laubschneiden); nur bei einer Art ohne eingeblendete Auswahl wird er nicht gespeichert */}
         {art !== 'spritzung' && bbchBeimBearbeiten(art, art === startArt ? behandlung.bbch_stadium : null) && (
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>BBCH-Stadium</label>
-              <select aria-label="BBCH-Stadium" name="bbch_stadium" defaultValue={art === startArt ? behandlung.bbch_stadium ?? '' : ''} className={inputCls}>
+              <select aria-label="BBCH-Stadium" name="bbch_stadium" value={bbch} onChange={e => setBbch(e.target.value)} className={inputCls}>
                 <option value="">– Auswählen –</option>
                 {bbchBisher && <option value={bbchBisher}>{bbchBisher} (bisherige Angabe)</option>}
                 {BBCH_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}

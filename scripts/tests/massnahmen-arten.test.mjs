@@ -535,6 +535,20 @@ describe('Quelltext: keine Stelle mit eigener, veralteter Artenliste', () => {
     }
   })
 
+  test('Bearbeiten-Formular: beide BBCH-Auswahlen teilen einen State – Stadium beim Artwechsel unabhängig vom Weg', () => {
+    // Spritzung → Laubschneiden, Laubarbeit → Spritzung → Laubschneiden und eine eigene Eingabe behalten das
+    // Stadium wie im Anlegen-Formular; ungesteuerte Auswahlen (defaultValue) fielen je nach Weg auf leer oder
+    // den gespeicherten Wert zurück
+    const edit = quelle('app/(dashboard)/behandlungen/[id]/edit/BehandlungEditForm.tsx')
+    assert.match(edit, /const \[bbch, setBbch\] = useState\(behandlung\.bbch_stadium \?\? ''\)/)
+    const auswahlen = edit.split('name="bbch_stadium"').slice(1).map(t => t.slice(0, t.indexOf('className=')))
+    assert.equal(auswahlen.length, 2)   // Spritzung und alle anderen Arten
+    for (const a of auswahlen) {
+      assert.match(a, /^ value=\{bbch\} onChange=\{e => setBbch\(e\.target\.value\)\}/)
+      assert.doesNotMatch(a, /defaultValue/)
+    }
+  })
+
   test('Maßnahmenliste: Art-Auswahl „Alle Arten“ und Filter aus lib/behandlungen/arten.ts', () => {
     const c = quelle('app/(dashboard)/behandlungen/BehandlungenClient.tsx')
     assert.match(c, /const artOptionen = artFilterOptionen\(behandlungen\)/)
