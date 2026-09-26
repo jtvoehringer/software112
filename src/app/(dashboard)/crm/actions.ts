@@ -11,6 +11,7 @@ import { pruefeEmailFelder, einzelneEmail } from '@/lib/crm/email'
 import { dezimal } from '@/lib/format'
 import { ladeMandantMitglieder } from '@/lib/aufgaben/mitglieder'
 import { benachrichtigeAktivitaet } from '@/lib/benachrichtigungen/server'
+import { ladeMailAusPostfach } from '@/lib/email/mailLaden'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -649,7 +650,10 @@ export type LeadAusEmailDaten = {
   zahlungsziel_tage: number | null
   notizen: string | null
   firma: { modus: 'keine' | 'neu' | 'bestehend'; id: string | null; name: string | null; website: string | null; segment: string | null }
-  mail: { id: string; conversationId: string | null; betreff: string; von: string; vonName: string; an: string; datum: string; bodyText: string; bodyHtml: string | null } | null
+  // KAN-137: bewusst OHNE bodyHtml – das HTML lädt die Action selbst aus dem Postfach
+  // (ladeMailAusPostfach); ein vom Browser geschicktes HTML wird nie gespeichert.
+  // mailbox: aus welchem Postfach die Mail stammt (eigenes/geteiltes, wie unter Nachrichten)
+  mail: { id: string; conversationId: string | null; betreff: string; von: string; vonName: string; an: string; datum: string; bodyText: string; mailbox?: 'own' | 'shared' } | null
 }
 
 export async function createLeadAusEmail(d: LeadAusEmailDaten): Promise<{ kontaktId?: string; firmaId?: string | null; error?: string }> {
@@ -716,15 +720,29 @@ export async function createLeadAusEmail(d: LeadAusEmailDaten): Promise<{ kontak
 
     // Auslösende E-Mail als Aktivität an den Kontakt hängen (wie /api/nachrichten/message bei bekannten Absendern)
     if (d.mail?.id) {
-      const bodyText = (d.mail.bodyText ?? '').replace(/<[^>]*>/g, '').trim()
+      // KAN-137: Inhalt und Kopfdaten serverseitig aus dem Postfach laden (Graph) statt
+      // dem Browser zu glauben – sonst ließe sich beliebiges HTML als email_body_html
+      // speichern. Ist die Mail nicht ladbar (Postfach getrennt, Token abgelaufen …),
+      // wird die Aktivität mit den Angaben aus dem Dialog, aber OHNE HTML angelegt
+      // (der Klartext wird in der CRM-Ansicht nur als Text dargestellt).
+      const mailbox = d.mail.mailbox === 'shared' ? 'shared' : 'own'
+      let geladen: Awaited<ReturnType<typeof ladeMailAusPostfach>> = null
+      try {
+        geladen = await ladeMailAusPostfach(supabase, tenantId, user?.id ?? '', d.mail.id, mailbox)
+      } catch (e) {
+        console.error('[createLeadAusEmail] Mail nicht aus dem Postfach ladbar:', e)
+      }
+      const bodyText = (geladen?.bodyText ?? (d.mail.bodyText ?? '').replace(/<[^>]*>/g, '')).trim()
       { const { error: e } = await (supabase.from('aktivitaeten') as any).upsert({
         tenant_id: tenantId, kontakt_id: kontaktId, firma_id: null,
         art: 'email', erledigt: false, ganztags: true,
-        betreff: d.mail.betreff || '(kein Betreff)',
-        datum: (d.mail.datum || new Date().toISOString()).split('T')[0],
-        email_id: d.mail.id, email_conversation_id: d.mail.conversationId,
-        email_von: d.mail.von || null, email_von_name: d.mail.vonName || null, email_an: d.mail.an || null,
-        email_body: bodyText || null, email_body_html: d.mail.bodyHtml,
+        betreff: geladen?.betreff || d.mail.betreff || '(kein Betreff)',
+        datum: (geladen?.datum || d.mail.datum || new Date().toISOString()).split('T')[0],
+        email_id: d.mail.id, email_conversation_id: geladen ? geladen.conversationId : d.mail.conversationId,
+        email_von: (geladen ? geladen.von : d.mail.von) || null,
+        email_von_name: (geladen ? geladen.vonName : d.mail.vonName) || null,
+        email_an: (geladen ? geladen.an : d.mail.an) || null,
+        email_body: bodyText || null, email_body_html: geladen?.bodyHtml ?? null,
         beschreibung: bodyText.slice(0, 500),
         erstellt_von: user?.id ?? null,
       }, { onConflict: 'tenant_id,email_id', ignoreDuplicates: true })

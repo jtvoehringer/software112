@@ -6,6 +6,7 @@ import { Mail, Inbox, Send, Trash2, FileText, Folder, X, UserPlus, Paperclip } f
 import LeadDialog from './LeadDialog'
 import { ignoriereAbsender, emailHinzufuegen } from '../crm/actions'
 import EmailEingabe from '@/components/crm/EmailEingabe'
+import EmailHtmlAnzeige from '@/components/EmailHtmlAnzeige'
 
 // absender: Status aus der Absender-Erkennung (lib/crm/absender.ts) - 'lead'
 // und 'unbekannt' werden in der Liste markiert, 'unbekannt' löst beim Öffnen
@@ -799,9 +800,10 @@ export default function NachrichtenClient() {
                 </div>
               )}
               {selected.bodyHtml ? (
-                <iframe
-                  srcDoc={`<base target="_blank"><style>body{font-family:Arial,sans-serif;font-size:13px;color:#22252B;margin:0;padding:0}a{color:#4F86D6}</style>${selected.bodyHtml}`}
-                  className="w-full min-h-96 border-0" sandbox="allow-popups allow-same-origin"
+                // KAN-137: gemeinsame Sandbox-Anzeige – ohne allow-same-origin (die Höhe
+                // kommt ohnehin aus dem Layout, nicht aus dem Inhalt)
+                <EmailHtmlAnzeige html={selected.bodyHtml}
+                  className="w-full min-h-96 border-0"
                   style={{ height: '100%', minHeight: '400px' }}
                 />
               ) : (
@@ -883,7 +885,7 @@ export default function NachrichtenClient() {
       </div>
       {leadDialog && selected && (
         <LeadDialog
-          mail={{ id: selected.id, conversationId: selected.conversationId, betreff: selected.betreff, von: selected.von, vonName: selected.vonName, an: selected.an, datum: selected.datum, bodyText: selected.bodyText ?? '', bodyHtml: selected.bodyHtml }}
+          mail={{ id: selected.id, conversationId: selected.conversationId, betreff: selected.betreff, von: selected.von, vonName: selected.vonName, an: selected.an, datum: selected.datum, bodyText: selected.bodyText ?? '', bodyHtml: selected.bodyHtml, mailbox: selected.mailbox ?? activeMailbox }}
           onClose={() => setLeadDialog(false)}
           onAngelegt={info => {
             // Kopfzeile sofort auf „bekannt“ stellen und alle Mails dieses Absenders in der Liste als Lead markieren

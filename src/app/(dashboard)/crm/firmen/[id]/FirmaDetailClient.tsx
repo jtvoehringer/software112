@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { fmtEur } from '@/lib/format'
 import { useDialog } from '@/components/ui/useDialog'
+import EmailHtmlAnzeige from '@/components/EmailHtmlAnzeige'
 
 // Aktivitäts-Art -> Lucide-Icon (Timeline-Avatar). Gleiches Vokabular wie im
 // CRM-Kalender (CRMUebersichtClient.tsx); dort werden Icons in Status-Chips
@@ -331,8 +332,9 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
             </div>
             {a.email_body
               ? (a.email_body_html
-                  ? <div className="px-3 py-2 text-xs text-s112-text-1 max-h-64 overflow-y-auto"
-                      dangerouslySetInnerHTML={{ __html: a.email_body_html }} />
+                  // KAN-137: fremdes Mail-HTML nur in der Sandbox (keine Skripte, eigene Herkunft)
+                  ? <EmailHtmlAnzeige html={a.email_body_html} schriftgroesse="12px" innenabstand="8px 12px"
+                      className="w-full border-0 block bg-white" style={{ height: '16rem' }} />
                   : <pre className="px-3 py-2 text-xs text-s112-text-1 whitespace-pre-wrap font-sans max-h-64 overflow-y-auto">{a.email_body}</pre>)
               : a.beschreibung
                 ? <p className="px-3 py-2 text-xs text-s112-text-1 italic">{a.beschreibung}</p>
