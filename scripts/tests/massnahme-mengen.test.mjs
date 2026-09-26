@@ -160,6 +160,26 @@ describe('Spritzung', nurMitHooks, () => {
     assert.equal(mm.kupferGehaltPct({ cuGehaltPct: 0, wirkstoff: 'Folpet', wirkstoffgehaltPct: 80 }), null)
     assert.equal(mm.kupferGehaltPct(null), null)
   })
+
+  test('Reinkupfer je ha über numeric(8,4): nicht gespeichert, Hinweis statt Datenbankfehler', () => {
+    // 3 kg gesamt × 35 % = 1,05 kg Cu auf einem Kleinst-GST mit 0,0001 ha wären 10.500 kg/ha
+    const winzig = ok(spritzung({ aufwand: 3, aufwandEinheit: 'kg', flaecheHa: 0.0001, wasserLHa: null, mengeGesamt: 0.04 }))
+    assert.equal(winzig.cuKg, 1.05)
+    assert.equal(winzig.werte.reinkupfer_kg_ha, null)
+    assert.ok(winzig.hinweise.some(h => /^Reinkupfer je ha nicht gespeichert: 1,05 kg Cu auf 0,0001 ha wären 10\.500 kg\/ha/.test(h)), winzig.hinweise.join(' | '))
+    // dasselbe ohne Kleinstfläche: 30.000 kg/ha auf 1 ha (aufwandmenge passt in numeric(8,3))
+    const unsinn = ok(spritzung({ aufwand: 30000, flaecheHa: 1, mengeGesamt: 400 }))
+    assert.equal(unsinn.werte.reinkupfer_kg_ha, null)
+    assert.ok(unsinn.hinweise.some(h => h.startsWith('Reinkupfer je ha nicht gespeichert')))
+    // Grenze numeric(8,4): 9.999,999 kg/ha wird noch gespeichert, 10.000 kg/ha nicht mehr
+    const reinesCu = { psm: { cuGehaltPct: 100 }, aufwandEinheit: 'kg', flaecheHa: 1, mengeGesamt: 400 }
+    assert.equal(ok(spritzung({ ...reinesCu, aufwand: 9999.999 })).werte.reinkupfer_kg_ha, 9999.999)
+    assert.equal(ok(spritzung({ ...reinesCu, aufwand: 10000 })).werte.reinkupfer_kg_ha, null)
+    // Kleinstfläche ohne Überlauf: Rundung wie die Kupfer-Bilanz (cu.ts), kein Hinweis
+    const klein = ok(spritzung({ flaecheHa: 0.005, wasserLHa: null, mengeGesamt: 2 }))
+    assert.equal(klein.werte.reinkupfer_kg_ha, 0.22)
+    assert.ok(!klein.hinweise.some(h => h.startsWith('Reinkupfer je ha')))
+  })
 })
 
 describe('Düngung', nurMitHooks, () => {

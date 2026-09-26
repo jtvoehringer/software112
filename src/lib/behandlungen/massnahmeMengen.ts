@@ -10,7 +10,7 @@
 //   Spritzbrühe – nur l oder ml (gespeichert in l), kg/g werden abgelehnt; g/hl bzw. ml/hl
 //   (Konzentration im Tank) nur mit Spritzbrühe oder Wasseraufwand. Fehlt eines von Spritzbrühe und
 //   Wasseraufwand, wird es aus dem anderen und der Fläche ergänzt. reinkupfer_kg_ha = Mittelmenge ×
-//   Cu-Gehalt ÷ Fläche, gerundet wie die Kupfer-Bilanz (cu.ts).
+//   Cu-Gehalt ÷ Fläche, gerundet wie die Kupfer-Bilanz (cu.ts); über numeric(8,4) hinaus leer + Hinweis.
 // Düngung: g/hl und ml/hl abgelehnt; Düngermenge in der Einheit des Düngemittels – kg (g → kg), bei
 //   Düngemitteln in l nur l (ml → l); ohne Angabe gilt diese Einheit (wie duengermengeEinheit() im
 //   Formular), die jeweils andere wird abgelehnt (keine Dichte-Annahme). Aufwand l/ha und l nur bei
@@ -29,9 +29,10 @@ export const AUFWAND_EINHEITEN_DUENGUNG = ['kg_ha', 'l_ha', 'kg', 'l'] as const
 /** Einheiten der Spritzbrühe („Menge gesamt“ einer Spritzung); gespeichert wird immer l */
 export const SPRITZBRUEHE_EINHEITEN = ['l', 'ml'] as const
 
-/** Größte speicherbare Werte (numeric(10,3) bzw. numeric(8,2)) */
+/** Größte speicherbare Werte (numeric(10,3), numeric(8,2) bzw. numeric(8,4)) */
 const MAX_MENGE_GESAMT = 9_999_999.999
 const MAX_WASSER_L_HA = 999_999.99
+const MAX_REINKUPFER_KG_HA = 9_999.9999
 /** Spritzbrühe weicht von Wasseraufwand × Fläche ab: ab 1 % bzw. 1 l */
 const TOLERANZ_BRUEHE = 0.01
 
@@ -233,7 +234,11 @@ export function pruefeMassnahmeMengen(e: MassnahmeMengenEingabe, opt: { bruehePf
   if (pct !== null && mm.menge !== null) {
     cuKg = runden(mm.menge * pct / 100, STELLEN_CU)
     if (mm.einheit === 'l') hinweise.push('Kupfermittel in Litern – für Reinkupfer Dichte 1 kg/l angenommen (wie Kupfer-Bilanz).')
-    werte.reinkupfer_kg_ha = ha !== null ? runden(cuKg / ha, STELLEN_CU) : null
+    if (ha !== null) {
+      const jeHa = runden(cuKg / ha, STELLEN_CU)
+      if (jeHa <= MAX_REINKUPFER_KG_HA) werte.reinkupfer_kg_ha = jeHa
+      else hinweise.push(`Reinkupfer je ha nicht gespeichert: ${zahlText(cuKg, STELLEN_CU)} kg Cu auf ${zahlText(ha, 4)} ha wären ${zahlText(jeHa, 2)} kg/ha – bitte Aufwand und Fläche prüfen.`)
+    }
   }
   return { ok: true, werte, mittelmenge: mm, spritzbruehe: spritzbruehe(normal), cuKg, hinweise }
 }
