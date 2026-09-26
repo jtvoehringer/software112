@@ -10,9 +10,13 @@
 //   • Hinweis (X-Warnung) nur für GEMESSENE Werte, deren exportierte Rundung eine andere Stufe
 //     ergibt als der gespeicherte °KMW – nach Entscheidung 8 eine reine Absicherung (z. B. Zeilen,
 //     deren °KMW und °Oe vor Migration A nicht zusammenpassen).
+// Texte statt Spalten (Weinbuch, Details einer Lese): mostgewichtWeinbuchText().
 // Isomorph, ohne Server-/Next-Importe (scripts/tests/ernte.test.mjs lädt die Datei direkt).
 
-import { abrunden, ausMessung, EINHEIT_ZEICHEN, formatKmw, formatOechsle, runden, OECHSLE_STELLEN, type MostgewichtEinheit } from '@/lib/wein/mostgewicht'
+import {
+  abrunden, ausMessung, EINHEIT_ZEICHEN, format as formatMostgewicht, formatKmw, formatOechsle, runden,
+  KMW_STELLEN, OECHSLE_STELLEN, type MostgewichtEinheit,
+} from '@/lib/wein/mostgewicht'
 import { mostgewichtAusGespeichert, type GespeichertesMostgewicht } from '@/lib/wein/mostgewichtFormular'
 import { kmwZuQualitaet } from '@/lib/weinqualitaet'
 import { qualitaetLabel } from '@/lib/wein/qualitaet'
@@ -62,4 +66,16 @@ export function mostgewichtFuerExport(g: GespeichertesMostgewicht | null | undef
 /** Text der Spalte „Mostgewicht gemessen in“ („°KMW“ / „°Oe“), ohne Mostgewicht null */
 export function gemessenInText(einheit: MostgewichtEinheit | null | undefined): string | null {
   return einheit ? EINHEIT_ZEICHEN[einheit] : null
+}
+
+/** Mostgewicht als Text im Weinbuch (Details einer Lese; Druck und CSV „Details“) – Rechenregel 9:
+ *  °KMW steht immer (gesetzlich führend, bis 2 Stellen wie gespeichert, Dezimalkomma), °Oe nur als
+ *  Messwert. Gemessen in °KMW → „17,4 °KMW“: das gerechnete °Oe, das der Trigger seit Migration A
+ *  in jede Zeile schreibt (nicht rechtsverbindlich), bleibt wie vor KAN-128 weg. Gemessen in °Oe →
+ *  „≈ 17,09 °KMW · 84,0 °Oe“ (°KMW umgerechnet nach Variante B, mit „≈“). Ohne Mostgewicht null. */
+export function mostgewichtWeinbuchText(g: GespeichertesMostgewicht | null | undefined): string | null {
+  const m = mostgewichtAusGespeichert(g)
+  if (!m) return null
+  if (m.einheit === 'kmw') return `${formatKmw(m.kmw, KMW_STELLEN)} °KMW`
+  return formatMostgewicht(m, 'kmw')
 }

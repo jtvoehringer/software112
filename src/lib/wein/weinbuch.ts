@@ -9,6 +9,7 @@ import { qualitaetLabel } from '@/lib/wein/qualitaet'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum } from '@/lib/format'
 import { ladeBelegungen } from '@/lib/behoerden/bewegungsbuch'
+import { mostgewichtWeinbuchText } from '@/lib/behoerden/mostgewicht_export'
 import { tag } from '@/lib/behoerden/kellerbuch-hilfen'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -103,7 +104,7 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
         pressung:pressung_id(
           id, datum, most_liter_gesamt, weinbezeichnung,
           pressung_weingaerten(
-            trauben_kg, rebsorte, ernte_datum, kmw, weingarten_id,
+            trauben_kg, rebsorte, ernte_datum, kmw, oechsle, mostgewicht_einheit, weingarten_id,
             weingarten:weingarten_id(id, name, flaeche_ha)
           )
         )
@@ -267,7 +268,7 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
     if (jahrgangId) {
       const { data: epRaw } = await (supabase.from('ernte_parzellen') as any)
         .select(`
-          ernte_datum, menge_kg, oechsle, klosterneuburger, qualitaetsstufe, lesemethode, notizen,
+          ernte_datum, menge_kg, oechsle, klosterneuburger, mostgewicht_einheit, qualitaetsstufe, lesemethode, notizen,
           weingarten:weingarten_id(name),
           grundstueck:grundstueck_id(gst_nr, katastralgemeinde)
         `)
@@ -283,8 +284,9 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
         if (w?.name) details.push(`Ried: ${w.name}`)
         if (g?.gst_nr) details.push(`GST ${g.gst_nr}`)
         if (ep.menge_kg) details.push(`${fmtNum(parseFloat(ep.menge_kg))} kg`)
-        if (ep.klosterneuburger) details.push(`${ep.klosterneuburger} °KMW`)
-        if (ep.oechsle) details.push(`${ep.oechsle} °Oe`)
+        // KAN-128: °Oe nur als Messwert; das gerechnete °Oe (Trigger b_mostgewicht) bleibt weg
+        const mostgewicht = mostgewichtWeinbuchText({ kmw: ep.klosterneuburger, oechsle: ep.oechsle, einheit: ep.mostgewicht_einheit })
+        if (mostgewicht) details.push(mostgewicht)
         if (ep.qualitaetsstufe) details.push(qualitaetLabel(ep.qualitaetsstufe))
         if (ep.lesemethode) {
           details.push(
@@ -310,7 +312,8 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
         const details: string[] = []
         if (w?.name) details.push(`Weingarten: ${w.name}`)
         if (wg.trauben_kg) details.push(`${fmtNum(parseFloat(wg.trauben_kg))} kg`)
-        if (wg.kmw) details.push(`${wg.kmw} °KMW`)
+        const mostgewicht = mostgewichtWeinbuchText({ kmw: wg.kmw, oechsle: wg.oechsle, einheit: wg.mostgewicht_einheit })
+        if (mostgewicht) details.push(mostgewicht)
         if (wg.rebsorte) details.push(formatRebsorteMitKuerzel(wg.rebsorte))
         ernteDaten.push({ datum: wg.ernte_datum, details })
       }

@@ -65,7 +65,7 @@ export const ERNTE_TOOL = {
     'Grundstücke eines Erntejahrs. Legt bei Bedarf automatisch den passenden Weinjahrgang an. ' +
     'WICHTIG: Rufe dieses Tool ausschließlich MIT bestaetigt_vom_user=true auf, und das auch ' +
     'nur, nachdem du dem User in einer normalen Textnachricht eine Zusammenfassung aller ' +
-    'Positionen gezeigt hat – Jahrgang, Datum, Rieden/Grundstücke mit Mengen und jedes ' +
+    'Positionen gezeigt hast – Jahrgang, Datum, Rieden/Grundstücke mit Mengen und jedes ' +
     'Mostgewicht mit der Einheit, in der er es genannt hat (z. B. „Mostgewicht 17,4 °KMW“ ' +
     'bzw. „Mostgewicht 84 °Oe“) – und er ausdrücklich zugestimmt hat (z.B. "ja", "passt", "ok"). Rufe es ' +
     'NIEMALS vorher auf (auch nicht testweise) – nutze bestaetigt_vom_user=false nur, falls du ' +

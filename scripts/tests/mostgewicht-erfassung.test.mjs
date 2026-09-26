@@ -143,6 +143,7 @@ describe('Verdrahtung Lese (Quelltext)', () => {
     assert.match(t, /bitte nur EINEN Messwert angeben/)
     // Bestätigungspflicht nennt das Mostgewicht mit Einheit (Beschreibung, Feld-Matrix, Hinweis ohne Bestätigung)
     assert.match(t, /jedes ' \+\s+'Mostgewicht mit der Einheit, in der er es genannt hat \(z\. B\. „Mostgewicht 17,4 °KMW“ ' \+\s+'bzw\. „Mostgewicht 84 °Oe“\)/)
+    assert.match(t, /nachdem du dem User in einer normalen Textnachricht eine Zusammenfassung aller ' \+\s+'Positionen gezeigt hast – /)
     assert.match(t, /Die Zusammenfassung zur Bestätigung nennt jedes Mostgewicht mit der Einheit/)
     assert.match(t, /jedes Mostgewicht mit Einheit wie vom User genannt – ' \+\s+'z\. B\. „17,4 °KMW“ bzw\. „84 °Oe“\)/)
     assert.match(t, /höchstens 1 Nachkommastelle, 0–350\)/)
