@@ -172,6 +172,15 @@ describe('Artenliste (lib/behandlungen/arten.ts) = DB-CHECKs', nurMitHooks, () =
     assert.equal(arten.LAUBARBEIT_ART_FEHLT, 'Bitte die Art der Laubarbeit wählen.')
   })
 
+  test('laubarbeitAltwert: ältere Freitext-Unterart bleibt, bekannte Werte und leer → null', () => {
+    // Freitexte wie im Demo-Betrieb (demo_musterhof_zuruecksetzen)
+    for (const alt of ['Ausbrechen', 'Ausdünnen / Grünlese', 'Entblättern Traubenzone', 'Heften / Einstricken']) {
+      assert.equal(arten.laubarbeitAltwert(alt), alt)
+    }
+    for (const o of arten.LAUBARBEIT_OPTIONEN) assert.equal(arten.laubarbeitAltwert(o.value), null, o.value)
+    for (const leer of [null, undefined, '', '  ']) assert.equal(arten.laubarbeitAltwert(leer), null, String(leer))
+  })
+
   test('mittelFuerArt: Mittel und Wartezeit nur, wenn die Art das Mittel kennt', () => {
     const alles = { psmId: 'p-1', duengemittelId: 'd-1', wartezeitTage: 35 }
     for (const art of ['laubschneiden', 'laubarbeit', 'schnitt', 'bodenbearbeitung', 'lese', null]) {
@@ -248,6 +257,12 @@ describe('createBehandlung/updateBehandlung: bei Arten ohne Mittel kein psm_id u
       await assert.rejects(aufruf, { message: 'Bitte die Art der Laubarbeit wählen.' })
       assert.deepEqual(globalThis.__kan143Supabase.schreiben, [])
     }
+  })
+
+  test('Laubarbeit mit älterer Freitext-Unterart: Bearbeiten speichert sie unverändert', async () => {
+    globalThis.__kan143Supabase = supabaseAttrappe()
+    await aktionen.updateBehandlung('b-1', formular({ ...MIT_MITTEL, art: 'laubarbeit', laubarbeit_art: 'Ausbrechen' }))
+    assert.equal(gespeichert('update').laubarbeit_art, 'Ausbrechen')
   })
 
   test('Gegenprobe: Sonstiges mit Mittel behält psm_id und Wartezeit (Datum + 14 Tage)', async () => {
@@ -468,7 +483,8 @@ describe('Quelltext: keine Stelle mit eigener, veralteter Artenliste', () => {
     assert.doesNotMatch(f, /selectedPsm\?\.wartezeit_tage \?\? selectedDuengemittel/)
   })
 
-  test('Art der Laubarbeit ist Pflicht – Anlegen, Bearbeiten (auch nach Artwechsel) und Server Actions', () => {
+  // greift auf die per Hook geladenen Module zu → ohne Hooks übersprungen (wie massnahme-mengen.test.mjs)
+  test('Art der Laubarbeit ist Pflicht – Anlegen, Bearbeiten (auch nach Artwechsel) und Server Actions', nurMitHooks, () => {
     assert.equal(feld.FELD_MATRIX.laubarbeit.laubarbeitArt, 'pflicht')
     const neu = quelle('app/(dashboard)/behandlungen/neu/NeueBehandlungForm.tsx')
     assert.match(neu, /<select name="laubarbeit_art" required=\{felder\.laubarbeitArt === 'pflicht'\}/)
@@ -478,6 +494,15 @@ describe('Quelltext: keine Stelle mit eigener, veralteter Artenliste', () => {
     assert.match(edit, /Art der Laubarbeit\s+\{FELD_MATRIX\.laubarbeit\.laubarbeitArt === 'pflicht' && <span className="text-s112-err"> \*<\/span>\}/)
     const a = quelle('app/(dashboard)/behandlungen/actions.ts')
     assert.equal(a.match(/if \(laubarbeitArtFehlt\(art, laubarbeitArt\)\) throw new AktionsFehler\(LAUBARBEIT_ART_FEHLT\)/g)?.length, 2)   // Anlegen und Bearbeiten
+  })
+
+  test('Bearbeiten-Formular: ältere Freitext-Unterart der Laubarbeit bleibt als eigene Option vorausgewählt', () => {
+    const edit = quelle('app/(dashboard)/behandlungen/[id]/edit/BehandlungEditForm.tsx')
+    assert.match(edit, /const laubarbeitBisher = laubarbeitAltwert\(behandlung\.laubarbeit_art\)/)
+    assert.match(edit, /name="laubarbeit_art" defaultValue=\{behandlung\.laubarbeit_art \?\? ''\}/)
+    const auswahl = edit.slice(edit.indexOf('name="laubarbeit_art"'), edit.indexOf('</select>', edit.indexOf('name="laubarbeit_art"')))
+    assert.match(auswahl, /\{art === startArt && laubarbeitBisher && \(\s*<option value=\{laubarbeitBisher\}>\{laubarbeitBisher\} \(bisherige Angabe\)<\/option>/)
+    assert.ok(auswahl.indexOf('laubarbeitBisher') < auswahl.indexOf('LAUBARBEIT_OPTIONEN.map'), 'Altwert-Option vor den Standardwerten')
   })
 
   test('Maßnahmenliste: Art-Auswahl „Alle Arten“ und Filter aus lib/behandlungen/arten.ts', () => {
@@ -508,7 +533,7 @@ describe('Quelltext: keine Stelle mit eigener, veralteter Artenliste', () => {
     assert.doesNotMatch(w, /`Art: \$\{b\.art\}`/)
   })
 
-  test('Assistent (Systemprompt) und KI-Kontext nennen Laubschneiden und grenzen es von Gipfeln ab', () => {
+  test('Assistent (Systemprompt) und KI-Kontext nennen Laubschneiden und grenzen es von Gipfeln ab', nurMitHooks, () => {
     const chat = quelle('app/api/assistent/chat/route.ts').replace(/\s+/g, ' ')
     assert.match(chat, /Maßnahmen dokumentieren \(Spritzung, Düngung, Bodenbearbeitung, Schnitt, Laubarbeit, Laubschneiden, Sonstiges\)/)
     const ki = quelle('app/api/ki-abfrage/route.ts').replace(/\s+/g, ' ')

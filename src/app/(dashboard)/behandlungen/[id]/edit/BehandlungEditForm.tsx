@@ -11,7 +11,7 @@ import { runden } from '@/lib/csv'
 import { STELLEN_MENGE } from '@/lib/behoerden/psm'
 import { pruefeMassnahmeMengen } from '@/lib/behandlungen/massnahmeMengen'
 import {
-  LAUBARBEIT_OPTIONEN, LAUBSCHNEIDEN_HINWEIS, artMitDuengemittel, artMitPsm, type MassnahmenArt,
+  LAUBARBEIT_OPTIONEN, LAUBSCHNEIDEN_HINWEIS, artMitDuengemittel, artMitPsm, laubarbeitAltwert, type MassnahmenArt,
 } from '@/lib/behandlungen/arten'
 import {
   MENGEN_SICHT, alsFeld, aufwandEinheitText, duengerEinheitWechsel, duengermengeEinheit, eingabeZahl,
@@ -126,6 +126,8 @@ export default function BehandlungEditForm({
   const [pending, startTransition] = useTransition()
   const startArt = (behandlung.art as Art) ?? 'spritzung'
   const [art, setArt] = useState<Art>(startArt)
+  // ältere Freitext-Unterart einer Laubarbeit (nicht in LAUBARBEIT_OPTIONEN) – eigene Option in der Auswahl
+  const laubarbeitBisher = laubarbeitAltwert(behandlung.laubarbeit_art)
   const [selectedPsmId, setSelectedPsmId] = useState(behandlung.psm_id ?? '')
   const [selectedDuengemittelId, setSelectedDuengemittelId] = useState(behandlung.duengemittel_id ?? '')
   // Gespeicherte Mengen als Formularwerte (Dezimalkomma, siehe alsFeld)
@@ -610,7 +612,8 @@ export default function BehandlungEditForm({
           </div>
         )}
 
-        {/* Laubarbeit – Unterart Pflicht wie beim Anlegen, auch nach einem Artwechsel (z. B. Laubschneiden → Laubarbeit) */}
+        {/* Laubarbeit – Unterart Pflicht wie beim Anlegen, auch nach einem Artwechsel (z. B. Laubschneiden → Laubarbeit).
+            Eine ältere Freitext-Unterart bleibt als eigene Option vorausgewählt – Speichern deutet sie nicht um */}
         {art === 'laubarbeit' && (
           <div>
             <label className={labelCls}>
@@ -620,6 +623,9 @@ export default function BehandlungEditForm({
             <select aria-label="Art der Laubarbeit" name="laubarbeit_art" defaultValue={behandlung.laubarbeit_art ?? ''}
               required={FELD_MATRIX.laubarbeit.laubarbeitArt === 'pflicht'} className={inputCls}>
               <option value="">– Auswählen –</option>
+              {art === startArt && laubarbeitBisher && (
+                <option value={laubarbeitBisher}>{laubarbeitBisher} (bisherige Angabe)</option>
+              )}
               {LAUBARBEIT_OPTIONEN.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>

@@ -53,6 +53,16 @@ export const LAUBARBEIT_OPTIONEN = [
   { value: 'sonstige',     label: 'Sonstige' },
 ] as const
 
+/**
+ * Gespeicherte Unterart außerhalb von LAUBARBEIT_OPTIONEN (ältere Freitexte, z. B. „Ausbrechen“ im
+ * Demo-Betrieb) – das Bearbeiten-Formular bietet sie als eigene Option an, damit sie sichtbar bleibt und
+ * Speichern sie nicht umdeutet. Bekannte Werte und leer → null.
+ */
+export function laubarbeitAltwert(gespeichert: string | null | undefined): string | null {
+  if (!gespeichert?.trim()) return null
+  return LAUBARBEIT_OPTIONEN.some(o => o.value === gespeichert) ? null : gespeichert
+}
+
 export function istMassnahmenArt(x: unknown): x is MassnahmenArt {
   return typeof x === 'string' && (MASSNAHMEN_ARTEN as readonly string[]).includes(x)
 }
