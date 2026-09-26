@@ -6,7 +6,7 @@ import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { revalidatePath } from 'next/cache'
 import { AktionsFehler } from '@/lib/fehler'
-import { dezimal } from '@/lib/format'
+import { dezimal, zahlAus } from '@/lib/format'
 import { pruefeMassnahmeMengen, summeFlaecheHa, type MassnahmeMengenEingabe } from '@/lib/behandlungen/massnahmeMengen'
 import {
   LAUBARBEIT_ART_FEHLT, MASSNAHMEN_ARTEN, MASSNAHMEN_ART_LABEL, istMassnahmenArt, laubarbeitArtFehlt, laubarbeitArtFuer,
@@ -306,7 +306,7 @@ export async function createBehandlung(formData: FormData) {
   const bbch            = (formData.get('bbch_stadium') as string) || null
   const schaderreger    = (formData.get('schaderreger') as string) || null
   const witterung       = (formData.get('witterung') as string) || null
-  const temperatur      = formData.get('temperatur_c') ? Number(dezimal(formData.get('temperatur_c'))) : null
+  const temperatur      = zahlAus(formData.get('temperatur_c'))   // 0 °C bleibt 0, leer → null
   const notizen         = (formData.get('notizen') as string) || null
   const bearbeitungstiefe = formData.get('bearbeitungstiefe_cm') ? Number(dezimal(formData.get('bearbeitungstiefe_cm'))) : null
   const bearbeitungsgeraet = (formData.get('bearbeitungsgeraet') as string) || null
@@ -465,10 +465,14 @@ export async function updateBehandlung(id: string, formData: FormData) {
   const mengeEinheit   = (formData.get('menge_einheit') as string) || null
   const konzentration  = parseDecimal(formData.get('konzentration'))
   const wasseraufwand  = formData.get('wasseraufwand_l_ha') ? Number(dezimal(formData.get('wasseraufwand_l_ha'))) : null
+  // BBCH, Schaderreger bzw. Grund / Anlass, Witterung und Temperatur so, wie das Formular sie sendet – nicht nach
+  // der Feld-Matrix filtern: Ausgeblendete Felder schickt das Bearbeiten-Formular bei unveränderter Art mit dem
+  // gespeicherten Wert (<input type="hidden">, felderBeimBearbeiten, KAN-143/KAN-152); nicht gesendet (nach einem
+  // Artwechsel) oder leer → null
   const bbch           = (formData.get('bbch_stadium') as string) || null
   const schaderreger   = (formData.get('schaderreger') as string) || null
   const witterung      = (formData.get('witterung') as string) || null
-  const temperatur     = formData.get('temperatur_c') ? Number(dezimal(formData.get('temperatur_c'))) : null
+  const temperatur     = zahlAus(formData.get('temperatur_c'))   // 0 °C bleibt 0, leer → null
   const notizen        = (formData.get('notizen') as string) || null
   const bearbeitungstiefe = formData.get('bearbeitungstiefe_cm') ? Number(dezimal(formData.get('bearbeitungstiefe_cm'))) : null
   const bearbeitungsgeraet = (formData.get('bearbeitungsgeraet') as string) || null
