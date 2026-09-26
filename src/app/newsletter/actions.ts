@@ -113,7 +113,7 @@ export async function newsletterAnmelden(formData: FormData): Promise<AnmeldeRes
 
   const confirmUrl = `${baseUrl()}/newsletter/bestaetigt?token=${token}`
   const n = esc(betrieb.name)
-  const f = betrieb.farbe
+  const f = esc(betrieb.farbe)   // KAN-138: primary_color ist Freitext – nicht ungeprüft ins style-Attribut
   try {
     await sendEmail({
       zugang:  betrieb.zugang,
