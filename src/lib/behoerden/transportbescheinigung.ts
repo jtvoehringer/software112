@@ -20,6 +20,7 @@ import { bkiFarbe, formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { bestandVorVerkauf, ersatzPruefnummer, pnDatumDe, pnTag, pruefnummerGueltig, pruefnummerHinweis, type PnAntrag, type PnChargeDaten } from '@/lib/kellerbuch/pruefnummer'
 import { antragAusZeile, ladePruefnummerDaten, PN_ANTRAG_SELECT } from '@/lib/kellerbuch/pruefnummerLaden'
 import { rebsorteDerLieferung } from './traubenverkauf'
+import { abrunden } from '@/lib/wein/mostgewicht'
 import {
   UUID_RE, datumAusTeilen, feld, formularZahl, inBloecken, jaNeinFeld, strasseTeilen, textOderNull, zahlFeld, type R,
 } from './verkehr-hilfen'
@@ -311,7 +312,11 @@ export function tbVorbelegung(posten: R, cfg: R, pn: TBPruefnummern, heute: stri
     const rebsorte = tv ? rebsorteDerLieferung(tv) : null
     const art = farbe(null, rebsorte)
     if (!art) hinweise.push(farbHinweis(nr, rebsorte))
-    const kmw = tv?.kmw_grad === null || tv?.kmw_grad === undefined ? null : Number(tv.kmw_grad)
+    // KAN-128 (Entscheidung 8): kmw_grad hat nach Migration A 2 Stellen (°Oe-Messung: 94 °Oe = 18,97 °KMW)
+    // – auf die 1 Stelle des Formblatts ABRUNDEN, nie über eine Stufenschwelle („18,9“, nicht „19,0“).
+    // °Oe auf dem amtlichen Formblatt: KAN-131 (Entscheidung 7).
+    const kmwRoh = tv?.kmw_grad === null || tv?.kmw_grad === undefined ? null : Number(tv.kmw_grad)
+    const kmw = kmwRoh === null || !Number.isFinite(kmwRoh) ? kmwRoh : abrunden(kmwRoh, STELLEN.kmwBki)
     const kmwText = formularZahl(kmw, STELLEN.kmwBki)
     const lieferjahr = /^\d{4}-/.test(feld(tv?.datum)) ? feld(tv?.datum).slice(0, 4) : ''
     return {

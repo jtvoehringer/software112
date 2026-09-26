@@ -14,6 +14,8 @@
 //     der Kürzelliste; ein nicht abbildbarer genauerer Wert wird nie durch eine gröbere
 //     Quelle ersetzt, herkunftDerLieferung)
 //   • Weiss/Rot aus dem Sortenkürzel (vorher feste Liste von 12 roten Sorten)
+//   • KAN-128: KMW_Grad UND Oechsle immer befüllt (vorher Oechsle stets leer), °KMW auf 1 Stelle
+//     abgerundet statt kaufmännisch (20,15 → „20,1“), °Oe wie erfasst ohne Nachkomma-Null
 // Die Spaltenköpfe sind das Format der Weindatenbank und bleiben ohne Umlaute.
 //
 // Die interne „Traubenverkauf-Liste“ (Bildschirm-Listen auf /weinhandel/traubenverkauf
@@ -26,6 +28,7 @@ import { bkiFarbe, bkiRebsorteKuerzel, herkunftPruefen, qualitaetBki } from '@/l
 import { HERKUNFT_LABEL } from '@/lib/herkunft'
 import { MeldungsFehler } from './typen'
 import { Hinweise, datumAT, textOderNull, zahlOderNull } from './ernte_hilfen'
+import { gemessenInText, mostgewichtFuerExport } from './mostgewicht_export'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -61,7 +64,10 @@ export type BkiZeile = {
   jahrgang: number | null
   /** amtliches BKI-Herkunftskürzel (herkunftDerLieferung) */
   herkunft: string | null
+  /** °KMW mit STELLEN.kmwBki, abgerundet (KAN-128, Entscheidung 8) – auch umgerechnete Werte */
   kmw: number | null
+  /** °Oe wie erfasst bzw. umgerechnet, 1 Stelle (Entscheidung 9) */
+  oechsle: number | null
 }
 
 const LEER: Adresse = { betriebsnr: '', name: '', vorname: '', strasse: '', hausnr: '', plz: '', ort: '' }
@@ -210,6 +216,10 @@ export function bkiZeilen(alleVerkaeufe: readonly R[], betrieb: R | null): { zei
     const herkunft = herkunftDerLieferung(v)
     if (herkunft.hinweis) hinweise.add(herkunft.hinweis, bezug)
 
+    // Mostgewicht (KAN-128): immer beide amtlichen Spalten (Jörgen 26.09.2026), °KMW abgerundet
+    const mostgewicht = mostgewichtFuerExport({ kmw: v.kmw_grad, oechsle: v.oechsle, einheit: v.mostgewicht_einheit }, 1)
+    if (mostgewicht.stufenHinweis) hinweise.add(mostgewicht.stufenHinweis, bezug)
+
     return {
       empf,
       vers,
@@ -221,7 +231,8 @@ export function bkiZeilen(alleVerkaeufe: readonly R[], betrieb: R | null): { zei
       qualitaet: q.kuerzel || null,
       jahrgang: zahlOderNull((v.jahrgang as R | null)?.jahrgang),
       herkunft: herkunft.kuerzel,
-      kmw: zahlOderNull(v.kmw_grad),
+      kmw: mostgewicht.kmw,
+      oechsle: mostgewicht.oechsle,
     }
   })
   return { zeilen, warnungen: hinweise.liste() }
@@ -258,7 +269,7 @@ export async function ladeBkiTraubenverkauf(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let abfrage = (supabase.from('traubenverkauf') as any)
     .select(`
-      id, datum, liefernummer, menge_kg, kmw_grad, qualitaetsstufe, herkunft_code,
+      id, datum, liefernummer, menge_kg, kmw_grad, oechsle, mostgewicht_einheit, qualitaetsstufe, herkunft_code,
       weingarten:weingarten_id(name, rebsorte, trauben_herkunft_code, grundstuecke(trauben_herkunft_code)),
       grundstueck:grundstueck_id(rebsorte, trauben_herkunft_code),
       zukauf:zukauf_posten_id(rebsorte, herkunft),
@@ -301,8 +312,12 @@ export const SPALTEN_BKI_TRAUBENVERKAUF: CsvSpalte<BkiZeile>[] = [
   { kopf: 'Qualitaetsstufe', typ: 'code', wert: z => z.qualitaet },
   { kopf: 'Jahrgang', typ: 'ganzzahl', wert: z => z.jahrgang },
   { kopf: 'Herkunft', typ: 'code', wert: z => z.herkunft },
+  // Mostgewicht (KAN-128, Entscheidungen 5, 8, 9): beide Spalten immer befüllt – die BKI verlangt
+  // „alle Felder“; °KMW mit 1 Stelle ABGERUNDET (bkiZeilen, auch umgerechnete Werte, da ohne
+  // Kennzeichnung), °Oe wie erfasst ohne Nachkomma-Null (80 → „80“, 83,5 → „83,5“) – nie auf
+  // ganze °Oe runden (104,5 → 105 kippte Spätlese → Auslese)
   { kopf: 'KMW_Grad', typ: 'dezimal', stellen: STELLEN.kmwBki, wert: z => z.kmw },
-  { kopf: 'Oechsle', typ: 'ganzzahl', wert: () => null },          // Pflichtspalte, leer wenn KMW angegeben
+  { kopf: 'Oechsle', typ: 'dezimal', stellen: 'roh', wert: z => z.oechsle },
 ]
 
 // ── Interne Traubenverkauf-Liste (Bildschirm-Listen, Excel) ──────────────────
@@ -317,7 +332,12 @@ export type TraubenverkaufListenZeile = {
   gstNr: string | null
   mengeKg: number | null
   preisProKg: number | null
+  /** °KMW wie gespeichert (die Spalte rundet auf 1 Stelle ab) */
   kmw: number | null
+  /** °Oe wie gespeichert (KAN-128) */
+  oechsle: number | null
+  /** gemessene Einheit ('kmw' | 'oechsle') wie gespeichert */
+  mostgewichtEinheit: string | null
   /** Anzeige-Bezeichnung (qualitaetLabel) */
   qualitaet: string | null
   gesundheit: string | null
@@ -325,6 +345,21 @@ export type TraubenverkaufListenZeile = {
   kaeufer: string | null
   rechnungsnummer: string | null
   notizen: string | null
+}
+
+/** Mostgewicht einer Listenzeile für die Spalten (Rechenregel 9, kmwBki = 1 Stelle abgerundet) */
+function listenMostgewicht(z: Pick<TraubenverkaufListenZeile, 'kmw' | 'oechsle' | 'mostgewichtEinheit'>) {
+  return mostgewichtFuerExport({ kmw: z.kmw, oechsle: z.oechsle, einheit: z.mostgewichtEinheit }, 1)
+}
+
+/** X-Warnungen der Liste (KAN-128): gemessene Werte, deren exportierte Rundung die Stufe ändert */
+export function traubenverkaufListenHinweise(zeilen: readonly TraubenverkaufListenZeile[]): string[] {
+  const hinweise = new Hinweise(['Lieferung', 'Lieferungen'])
+  for (const z of zeilen) {
+    const h = listenMostgewicht(z).stufenHinweis
+    if (h) hinweise.add(h, z.liefernummer ?? `Lieferung vom ${datumAT(z.datum)}`)
+  }
+  return hinweise.liste()
 }
 
 /** Betrag der Lieferung (€), kaufmännisch auf Cent */
@@ -341,7 +376,10 @@ export const SPALTEN_TRAUBENVERKAUF_LISTE: CsvSpalte<TraubenverkaufListenZeile>[
   { kopf: 'Menge (kg)', typ: 'dezimal', stellen: STELLEN.kgGenau, wert: z => z.mengeKg },
   { kopf: 'Preis (€/kg)', typ: 'dezimal', stellen: 4, wert: z => z.preisProKg },
   { kopf: 'Betrag (€)', typ: 'betrag', wert: z => betragDerLieferung(z) },
-  { kopf: 'Mostgewicht (°KMW)', typ: 'dezimal', stellen: STELLEN.kmwBki, wert: z => z.kmw },
+  // Mostgewicht (KAN-128): °KMW vor °Oe, °KMW auf 1 Stelle abgerundet (Entscheidung 8), gemessene Einheit
+  { kopf: 'Mostgewicht (°KMW)', typ: 'dezimal', stellen: STELLEN.kmwBki, wert: z => listenMostgewicht(z).kmw },
+  { kopf: 'Mostgewicht (°Oe)', typ: 'dezimal', stellen: STELLEN.oechsle, wert: z => listenMostgewicht(z).oechsle },
+  { kopf: 'Mostgewicht gemessen in', typ: 'text', wert: z => gemessenInText(listenMostgewicht(z).einheit) },
   { kopf: 'Qualitätsstufe', typ: 'text', wert: z => z.qualitaet },
   { kopf: 'Gesundheit (G/K)', typ: 'code', wert: z => z.gesundheit },
   { kopf: 'Herkunftscode', typ: 'code', wert: z => z.herkunftscode },

@@ -133,6 +133,7 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
               <th className="text-right px-3 py-2 border border-s112-line-str font-semibold">davon verkauft (kg)</th>
               <th className="text-right px-3 py-2 border border-s112-line-str font-semibold">Menge (hl)</th>
               <th className="text-right px-3 py-2 border border-s112-line-str font-semibold">°KMW</th>
+              <th className="text-right px-3 py-2 border border-s112-line-str font-semibold">°Oe</th>
               <th className="text-left px-3 py-2 border border-s112-line-str font-semibold">Qualitätsstufe</th>
               <th className="text-right px-3 py-2 border border-s112-line-str font-semibold">Ertrag (kg/ha)</th>
               <th className="text-right px-3 py-2 border border-s112-line-str font-semibold">Übermenge (kg)</th>
@@ -141,7 +142,7 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
           <tbody>
             {zeilen.length === 0 ? (
               <tr>
-                <td colSpan={9} className="px-3 py-4 text-center text-s112-tertiary text-sm italic border border-s112-line">
+                <td colSpan={10} className="px-3 py-4 text-center text-s112-tertiary text-sm italic border border-s112-line">
                   Keine Erntemeldung vorhanden – bitte auf der Lese-Seite &quot;AMA-Meldung erstellen&quot; klicken
                 </td>
               </tr>
@@ -154,7 +155,8 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
                 <td className="px-3 py-2 border border-s112-line text-right tabular-nums" title={z.hlGeschaetzt ? 'aus Menge (kg) ÷ 130 umgerechnet' : undefined}>
                   {zahl(z.mengeHl, 2)}
                 </td>
-                <td className="px-3 py-2 border border-s112-line text-right tabular-nums" title="Mostgewicht, mengengewichtetes Mittel der Lesen">{z.kmw === null ? '–' : fmtNum(z.kmw, { min: 1, max: 2 })}</td>
+                <td className="px-3 py-2 border border-s112-line text-right tabular-nums" title="Mostgewicht, mengengewichtetes Mittel der Lesen (abgerundet)">{z.kmw === null ? '–' : fmtNum(z.kmw, { min: 1, max: 2 })}</td>
+                <td className="px-3 py-2 border border-s112-line text-right tabular-nums" title="Mostgewicht in °Oe, aus dem °KMW-Mittel umgerechnet">{z.oechsle === null ? '–' : fmtNum(z.oechsle, { min: 1, max: 1 })}</td>
                 <td className="px-3 py-2 border border-s112-line">{qualitaetLabel(z.qualitaetsstufe)}</td>
                 <td className="px-3 py-2 border border-s112-line text-right tabular-nums">{zahl(z.ertragKgHa, 0)}</td>
                 <td className={`px-3 py-2 border border-s112-line text-right tabular-nums ${(z.uebermengeKg ?? 0) > 0 ? 'text-s112-err-fg font-semibold' : ''}`}>
@@ -170,7 +172,7 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
               <td className="px-3 py-2 border border-s112-line-str text-right tabular-nums">{fmtNum(ernte?.summe.mengeKg ?? 0, 0)} kg</td>
               <td className="px-3 py-2 border border-s112-line-str text-right tabular-nums">{fmtNum(ernte?.summe.verkauftKg ?? 0, 0)} kg</td>
               <td className="px-3 py-2 border border-s112-line-str text-right tabular-nums">{fmtNum(ernte?.summe.mengeHl ?? 0, 2)} hl</td>
-              <td className="px-3 py-2 border border-s112-line-str" colSpan={4} />
+              <td className="px-3 py-2 border border-s112-line-str" colSpan={5} />
             </tr>
           </tfoot>
         </table>

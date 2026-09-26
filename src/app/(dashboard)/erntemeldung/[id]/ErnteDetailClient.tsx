@@ -13,7 +13,10 @@ import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fehlerText } from '@/lib/fehler'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { csvPfad } from '@/lib/behoerden/katalog'
-import { runden, STELLEN } from '@/lib/csv'
+import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
+import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
+import type { Mostgewicht } from '@/lib/wein/mostgewicht'
+import { messwertText, type GespeichertesMostgewicht } from '@/lib/wein/mostgewichtFormular'
 
 // Qualitätsstufen der Lese: LESE_QUALITAETEN aus lib/wein/qualitaet (KAN-73) – genau die
 // Stufen, die ernte_parzellen speichern kann (DAC, Reserve & Co. erst an der Charge/Füllung)
@@ -28,6 +31,25 @@ const AMA_STATUS_BADGE: Record<string, { label: string; cls: string }> = {
   eingereicht: { label: 'Eingereicht', cls: 'bg-s112-warn-bg text-s112-warn-fg' },
   bestaetigt:  { label: 'Bestätigt',   cls: 'bg-s112-ok-bg text-s112-ok-fg' },
   abgelehnt:   { label: 'Abgelehnt',   cls: 'bg-s112-err-bg text-s112-err-fg' },
+}
+
+// Erfassung je Grundstück in der Sammelerfassung. Mostgewicht (KAN-128) als Messwert mit Einheit aus
+// der Eingabe-Komponente – im Zustand, weil die Zeile beim Zuklappen der Ried verschwindet.
+type GstEingabe = { menge_kg: string; mg: Mostgewicht | null; mgFehler: string | null; lesemethode: string; notizen: string }
+const GST_LEER: GstEingabe = { menge_kg: '', mg: null, mgFehler: null, lesemethode: '', notizen: '' }
+
+/** Mostgewicht einer Grundstückszeile: der Startwert gilt nur beim Einblenden (sonst begänne die
+ *  Eingabe bei jedem Tastendruck neu); nach dem Auf- und Zuklappen steht der zuletzt gültige Wert da. */
+function GstMostgewicht({ gstId, start, onChange }: {
+  gstId: string
+  start: Mostgewicht | null
+  onChange: (wert: Mostgewicht | null, fehler: string | null) => void
+}) {
+  const [anfang] = useState<GespeichertesMostgewicht | null>(() => start)
+  return (
+    <MostgewichtEingabe name={`gst_${gstId}_mostgewicht`} startwert={anfang}
+      onChange={(wert, info) => onChange(wert, info.fehler)} />
+  )
 }
 
 function formatDate(d: string | null) {
@@ -47,10 +69,10 @@ function NeueParzellenForm({
   const [selectedGSTs, setSelectedGSTs] = useState<Map<string, string>>(new Map())
   const [expandedWGs, setExpandedWGs] = useState<Set<string>>(new Set())
   const [error, setError] = useState<string | null>(null)
-  const [gstData, setGstData] = useState<Map<string, { menge_kg: string; kmw: string; lesemethode: string; notizen: string }>>(new Map())
-  const [kmwNeu, setKmwNeu] = useState<number | null>(null)
-  // ungültige Eingabe (NaN) wie „kein KMW“ – so rechnet auch createMultipleErnteParzellen (KAN-73)
-  const derivedQualitaetNeu = kmwNeu != null && Number.isFinite(kmwNeu) ? kmwZuQualitaet(kmwNeu) : 'qualitaetswein'
+  const [gstData, setGstData] = useState<Map<string, GstEingabe>>(new Map())
+  function gstAendern(gstId: string, patch: Partial<GstEingabe>) {
+    setGstData(prev => { const n = new Map(prev); n.set(gstId, { ...(n.get(gstId) ?? GST_LEER), ...patch }); return n })
+  }
 
   const riedMap = new Map<string, WeingartenOpt[]>()
   for (const w of weingaerten) {
@@ -73,7 +95,7 @@ function NeueParzellenForm({
     const wasSelected = selectedGSTs.has(gstId)
     setSelectedWGs(prev => { const n = new Set(prev); n.delete(wgId); return n })
     setSelectedGSTs(prev => { const n = new Map(prev); wasSelected ? n.delete(gstId) : n.set(gstId, wgId); return n })
-    setGstData(prev => { const n = new Map(prev); wasSelected ? n.delete(gstId) : n.set(gstId, { menge_kg: '', kmw: '', lesemethode: '', notizen: '' }); return n })
+    setGstData(prev => { const n = new Map(prev); wasSelected ? n.delete(gstId) : n.set(gstId, GST_LEER); return n })
   }
   function toggleLage(wgs: WeingartenOpt[]) {
     const ids = wgs.map(w => w.id)
@@ -89,6 +111,15 @@ function NeueParzellenForm({
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (totalSelCount === 0) { setError('Bitte mindestens eine Ried oder ein Grundstück auswählen.'); return }
+    // Ungültiges Mostgewicht einer (evtl. zugeklappten) Grundstückszeile – sonst ginge es still verloren
+    for (const [gstId, wgId] of selectedGSTs) {
+      const f = gstData.get(gstId)?.mgFehler
+      if (f) {
+        const gst = (gstByWeingarten[wgId] ?? []).find(g => g.id === gstId)
+        setError(`GST ${gst?.gst_nr ?? ''}: ${f}`)
+        return
+      }
+    }
     setError(null)
     const fd = new FormData(e.currentTarget)
     selectedWGs.forEach(id => fd.append('weingarten_ids', id))
@@ -99,7 +130,9 @@ function NeueParzellenForm({
         return {
           gst_id, weingarten_id, flaeche_ha: gst?.flaeche_ha ?? null,
           menge_kg: data?.menge_kg ? parseFloat(dezimal(data.menge_kg)) : null,
-          kmw: data?.kmw ? parseFloat(dezimal(data.kmw)) : null,
+          // Messwert und Einheit – die Action rechnet beide Werte selbst (KAN-128)
+          mostgewicht_wert: data?.mg ? messwertText(data.mg) : null,
+          mostgewicht_einheit: data?.mg?.einheit ?? null,
           lesemethode: data?.lesemethode || null,
           notizen: data?.notizen || null,
         }
@@ -195,32 +228,30 @@ function NeueParzellenForm({
                                         <label className="block text-xs text-s112-text-2 mb-0.5">Menge kg</label>
                                         <input aria-label="Menge kg" type="text" inputMode="decimal" placeholder="–"
                                           value={gstData.get(g.id)?.menge_kg ?? ''}
-                                          onChange={e => setGstData(prev => { const n = new Map(prev); const d = n.get(g.id) ?? { menge_kg: '', kmw: '', lesemethode: '', notizen: '' }; n.set(g.id, { ...d, menge_kg: e.target.value }); return n })}
-                                          className="w-full border border-s112-border rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-s112-teal/40 bg-white" />
-                                      </div>
-                                      <div>
-                                        <label className="block text-xs text-s112-text-2 mb-0.5">°KMW</label>
-                                        <input aria-label="°KMW" type="text" inputMode="decimal" placeholder="–"
-                                          value={gstData.get(g.id)?.kmw ?? ''}
-                                          onChange={e => setGstData(prev => { const n = new Map(prev); const d = n.get(g.id) ?? { menge_kg: '', kmw: '', lesemethode: '', notizen: '' }; n.set(g.id, { ...d, kmw: e.target.value }); return n })}
+                                          onChange={e => gstAendern(g.id, { menge_kg: e.target.value })}
                                           className="w-full border border-s112-border rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-s112-teal/40 bg-white" />
                                       </div>
                                       <div>
                                         <label className="block text-xs text-s112-text-2 mb-0.5">Lesemethode</label>
                                         <select aria-label="Lesemethode"
                                           value={gstData.get(g.id)?.lesemethode ?? ''}
-                                          onChange={e => setGstData(prev => { const n = new Map(prev); const d = n.get(g.id) ?? { menge_kg: '', kmw: '', lesemethode: '', notizen: '' }; n.set(g.id, { ...d, lesemethode: e.target.value }); return n })}
+                                          onChange={e => gstAendern(g.id, { lesemethode: e.target.value })}
                                           className="w-full border border-s112-border rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-s112-teal/40 bg-white">
                                           <option value="">–</option>
                                           {LESEMETHODE_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                                         </select>
                                       </div>
-                                      <div>
+                                      <div className="col-span-2">
                                         <label className="block text-xs text-s112-text-2 mb-0.5">Notizen</label>
                                         <input aria-label="Notizen" type="text" placeholder="–"
                                           value={gstData.get(g.id)?.notizen ?? ''}
-                                          onChange={e => setGstData(prev => { const n = new Map(prev); const d = n.get(g.id) ?? { menge_kg: '', kmw: '', lesemethode: '', notizen: '' }; n.set(g.id, { ...d, notizen: e.target.value }); return n })}
+                                          onChange={e => gstAendern(g.id, { notizen: e.target.value })}
                                           className="w-full border border-s112-border rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-s112-teal/40 bg-white" />
+                                      </div>
+                                      {/* Mostgewicht in °KMW oder °Oe (KAN-128), bevorzugte Einheit zuerst */}
+                                      <div className="col-span-4">
+                                        <GstMostgewicht gstId={g.id} start={gstData.get(g.id)?.mg ?? null}
+                                          onChange={(mg, mgFehler) => gstAendern(g.id, { mg, mgFehler })} />
                                       </div>
                                     </div>
                                   </div>
@@ -266,22 +297,16 @@ function NeueParzellenForm({
               <input aria-label="Menge kg (anteilsmäßig auf GST aufgeteilt)" name="menge_kg" type="text" inputMode="decimal" className={inputCls} placeholder="–" />
             </div>
             <div className="col-span-2">
-              <label className="block text-xs font-medium text-s112-text-2 mb-1">°KMW & Qualitätsstufe</label>
-              <div className="flex items-center gap-2">
-                <input name="klosterneuburger" type="text" inputMode="decimal" placeholder="–"
-                  onChange={e => setKmwNeu(e.target.value ? parseFloat(dezimal(e.target.value)) : null)}
-                  className={`flex-1 ${inputCls}`} />
-                <span className="shrink-0 text-xs font-semibold px-2 py-1.5 rounded-full bg-s112-warn-bg text-s112-warn-fg whitespace-nowrap">
-                  {qualitaetLabel(derivedQualitaetNeu)}
-                </span>
-              </div>
-              <p className="text-xs text-s112-muted mt-0.5">Qualitätsstufe wird automatisch aus den °KMW abgeleitet.</p>
+              {/* Mostgewicht in °KMW oder °Oe (KAN-128) – die Qualitätsstufe folgt aus den °KMW
+                  (bei °Oe-Messung aus dem umgerechneten, gespeicherten °KMW; ohne Mostgewicht Qualitätswein) */}
+              <MostgewichtEingabe name="mostgewicht" label="Mostgewicht & Qualitätsstufe" qualitaetsVorschau />
+              <p className="text-xs text-s112-muted mt-0.5">Qualitätsstufe wird automatisch aus den °KMW abgeleitet (ohne Mostgewicht: Qualitätswein).</p>
             </div>
           </>
         ) : (
           <div className="col-span-2 -mt-1">
             <p className="text-xs text-s112-muted">
-              Menge, °KMW und Lesemethode werden für ausgewählte Grundstücke direkt dort erfasst (siehe oben).
+              Menge, Mostgewicht und Lesemethode werden für ausgewählte Grundstücke direkt dort erfasst (siehe oben).
             </p>
           </div>
         )}
@@ -316,11 +341,17 @@ function ParzellForm({
   parzelle?: ErnteParzelle; onDone: () => void
 }) {
   const [pending, startTransition] = useTransition()
+  // Mostgewicht wie gespeichert (Messwert + Einheit, KAN-128) – beim Öffnen nichts neu rechnen
+  const [mgStart] = useState<GespeichertesMostgewicht | null>(() => (parzelle
+    ? { kmw: parzelle.klosterneuburger, oechsle: parzelle.oechsle, einheit: parzelle.mostgewicht_einheit }
+    : null))
   const [kmwEdit, setKmwEdit] = useState<number | null>(
     parzelle?.klosterneuburger != null ? Number(parzelle.klosterneuburger) : null
   )
+  const [mgGeaendert, setMgGeaendert] = useState(false)
   const [selWgId, setSelWgId] = useState<string>(parzelle?.weingarten_id ?? '')
   const [selGstId, setSelGstId] = useState<string>(parzelle?.grundstueck_id ?? '')
+  // Stufe nur aus den °KMW von ausMessung() (onChange der Eingabe, Rechenregel 5)
   const derivedQualitaetEdit = kmwEdit != null && Number.isFinite(kmwEdit) ? kmwZuQualitaet(kmwEdit) : 'qualitaetswein'
   const [qualitaetEdit, setQualitaetEdit] = useState<string | null>(parzelle?.qualitaetsstufe ?? null)
   const effectiveQualitaetEdit = qualitaetEdit ?? derivedQualitaetEdit
@@ -406,13 +437,16 @@ function ParzellForm({
             defaultValue={parzelle?.menge_kg ?? ''}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
-        <input type="hidden" name="oechsle" value="" />
-        <div>
-          <label className="block text-xs font-medium text-s112-text-2 mb-1">°KMW</label>
-          <input aria-label="°KMW" name="klosterneuburger" type="text" inputMode="decimal"
-            defaultValue={parzelle?.klosterneuburger ?? ''}
-            onChange={e => { setKmwEdit(e.target.value ? parseFloat(dezimal(e.target.value)) : null); setQualitaetEdit(null) }}
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+        {/* Mostgewicht in °KMW oder °Oe (KAN-128): Messwert + Einheit als versteckte Felder
+            mostgewicht_wert/_einheit – kein leeres Feld „oechsle“ mehr, das °Oe beim Speichern löschte.
+            „Lese bearbeiten“ behält die gewählte Stufe (Rechenregel 6), höchstens ein Prüfhinweis. */}
+        <div className="col-span-2">
+          <MostgewichtEingabe name="mostgewicht" startwert={mgStart}
+            onChange={wert => {
+              setKmwEdit(wert ? wert.kmw : null)
+              setMgGeaendert(true)
+              if (!parzelle) setQualitaetEdit(null)
+            }} />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Qualitätsstufe</label>
@@ -425,6 +459,14 @@ function ParzellForm({
           </select>
           {qualitaetEdit == null && (
             <p className="text-xs text-s112-muted mt-0.5">↑ Wird aus °KMW abgeleitet – bei Bedarf anpassen</p>
+          )}
+          {qualitaetEdit != null && mgGeaendert && kmwEdit != null && derivedQualitaetEdit !== qualitaetEdit && (
+            <p role="status" className="text-xs text-s112-warn-fg mt-0.5">
+              Rechnerisch aus dem Mostgewicht: {qualitaetLabel(derivedQualitaetEdit)} – die gewählte Stufe bleibt.{' '}
+              <button type="button" onClick={() => setQualitaetEdit(derivedQualitaetEdit)} className="underline hover:no-underline">
+                Übernehmen
+              </button>
+            </p>
           )}
         </div>
         <div className="col-span-2">
@@ -560,7 +602,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
                   <th className="text-left px-3 py-2 font-semibold">Sorte</th>
                   <th className="text-left px-3 py-2 font-semibold">Datum</th>
                   <th className="text-right px-3 py-2 font-semibold">kg</th>
-                  <th className="text-right px-3 py-2 font-semibold">°KMW</th>
+                  <th className="text-right px-3 py-2 font-semibold">Mostgewicht</th>
                   <th className="text-left px-3 py-2 font-semibold whitespace-nowrap">Qualität</th>
                   {(writeOk || adminOk) && (
                     <th className="px-3 py-2 sticky right-0 bg-s112-bg border-l border-s112-border" />
@@ -578,7 +620,9 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
                       <td className="px-3 py-2 text-xs text-s112-muted">{formatRebsorteMitKuerzel(p.grundstueck_rebsorte ?? p.weingarten_rebsorte)}</td>
                       <td className="px-3 py-2 text-s112-muted whitespace-nowrap">{formatDate(p.ernte_datum)}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{(p.menge_kg == null ? undefined : fmtNum(p.menge_kg)) ?? '–'}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{p.klosterneuburger == null ? '–' : fmtNum(runden(p.klosterneuburger, STELLEN.kmw), { min: 1, max: STELLEN.kmw })}</td>
+                      <td className="px-3 py-2 text-right">
+                        <MostgewichtAnzeige wert={{ kmw: p.klosterneuburger, oechsle: p.oechsle, einheit: p.mostgewicht_einheit }} />
+                      </td>
                       <td className="px-3 py-2 text-xs text-s112-muted whitespace-nowrap">{qualitaetLabel(p.qualitaetsstufe)}</td>
                       {(writeOk || adminOk) && (
                         <td className="px-3 py-2 text-right sticky right-0 bg-white border-l border-s112-border/40" data-print="hide">

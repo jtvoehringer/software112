@@ -17,6 +17,8 @@ import { GEBINDEWECHSEL_OHNE } from '@/lib/kellerbuch/storno'
 import { KORREKTUR_NACH_OBEN_HINWEIS } from '@/lib/kellerbuch/hinweise'
 import { aggregiereJeRebsorte, KG_JE_HL, ladeLesedaten, parzelleFuerMeldung } from '@/lib/behoerden/erntemeldung'
 import { runden, STELLEN } from '@/lib/csv'
+import { mostgewichtAusFormular, mostgewichtAusWert, mostgewichtSpalten } from '@/lib/wein/mostgewichtFormular'
+import type { Mostgewicht } from '@/lib/wein/mostgewicht'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -125,8 +127,13 @@ export async function upsertErnteParzelle(jahrgangId: string, formData: FormData
   const qualitaetsstufe = (formData.get('qualitaetsstufe') as string) || null
   const qualitaetUnzulaessig = qualitaetFehler('lese', qualitaetsstufe)
   if (qualitaetUnzulaessig) throw new AktionsFehler(qualitaetUnzulaessig)
-  // dezimal() ist nötig, da die Felder °KMW-typisch mit Komma-Dezimaltrennzeichen
-  // erfasst werden (de-AT) - ohne die Ersetzung liefert Number() bei "9,5" NaN.
+  // KAN-128: Mostgewicht aus Messwert und Einheit (versteckte Felder der Eingabe, übergangsweise das
+  // alte Feld klosterneuburger als °KMW) – beide Werte serverseitig gerechnet. Die Stufe bleibt, wie
+  // im Formular gewählt („Lese bearbeiten“, Rechenregel 6). Löschen = beide Spalten NULL.
+  const mostgewicht = mostgewichtAusFormular(formData, 'mostgewicht', { altesFeld: 'klosterneuburger' })
+  if (!mostgewicht.ok) throw new AktionsFehler(mostgewicht.fehler)
+  // dezimal() ist nötig, da Zahlen mit Komma-Dezimaltrennzeichen erfasst werden (de-AT) -
+  // ohne die Ersetzung liefert Number() bei "9,5" NaN.
   const mengeKg = formData.get('menge_kg') ? Number(dezimal((formData.get('menge_kg') as string))) : null
   const mengeHl = mengeKg ? mengeKg / 130 : null  // 1 hl ≈ 130 kg
   const grundstueckId = (formData.get('grundstueck_id') as string) || null
@@ -156,8 +163,9 @@ export async function upsertErnteParzelle(jahrgangId: string, formData: FormData
     ernte_datum:      (formData.get('ernte_datum') as string) || null,
     menge_kg:         mengeKg,
     menge_hl:         mengeHl,
-    oechsle:          formData.get('oechsle') ? Number(dezimal((formData.get('oechsle') as string))) : null,
-    klosterneuburger: formData.get('klosterneuburger') ? Number(dezimal((formData.get('klosterneuburger') as string))) : null,
+    // beide Werte und die gemessene Einheit – ein Formular ohne Mostgewicht-Feld lässt das
+    // gespeicherte stehen (vorher schrieb das leere Hidden-Feld oechsle immer NULL)
+    ...(mostgewicht.uebermittelt || !formData.get('existing_id') ? mostgewichtSpalten(mostgewicht.wert, 'klosterneuburger') : {}),
     qualitaetsstufe:  qualitaetsstufe,
     herkunft_code:    herkunftCode,
     lesemethode:      (formData.get('lesemethode') as string) || null,
@@ -272,7 +280,14 @@ export async function createMultipleErnteParzellen(jahrgangId: string, formData:
   const tenantId = await getTenantId()
   const weingartenIds = formData.getAll('weingarten_ids') as string[]
 
-  type GSTEntry = { gst_id: string; weingarten_id: string; flaeche_ha: number | null; menge_kg?: number | null; kmw?: number | null; lesemethode?: string | null; notizen?: string | null }
+  type GSTEntry = {
+    gst_id: string; weingarten_id: string; flaeche_ha: number | null; menge_kg?: number | null
+    /** Mostgewicht je Grundstück (KAN-128): Messwert (Text wie eingegeben oder Zahl) und gemessene Einheit */
+    mostgewicht_wert?: string | number | null; mostgewicht_einheit?: string | null
+    /** älteres Format (vor KAN-128): °KMW als Zahl – gilt als °KMW-Messung */
+    kmw?: number | null
+    lesemethode?: string | null; notizen?: string | null
+  }
   const gstJsonRaw = formData.get('grundstueck_json') as string | null
   const gstEntries: GSTEntry[] = gstJsonRaw ? JSON.parse(gstJsonRaw) : []
 
@@ -282,18 +297,22 @@ export async function createMultipleErnteParzellen(jahrgangId: string, formData:
 
   const ernteDatum  = (formData.get('ernte_datum') as string) || null
   const lesemethode = (formData.get('lesemethode') as string) || null
-  // dezimal() nötig für de-AT-Komma-Eingabe (z.B. "9,5") - siehe upsertErnteParzelle.
-  // Eine ungültige Eingabe (NaN) wird als leer gespeichert (JSON); kmwZuQualitaet behandelt NaN
-  // wie „kein KMW“ (KAN-73: 'qualitaetswein', nicht mehr die unterste Stufe).
-  const kmw         = formData.get('klosterneuburger') ? Number(dezimal((formData.get('klosterneuburger') as string))) : null
+  // KAN-128: gemeinsames Mostgewicht (nur bei ganzen Rieden im Formular) aus Messwert und Einheit
+  // der Eingabe, übergangsweise das alte Feld klosterneuburger als °KMW – beide Werte serverseitig
+  // gerechnet; eine ungültige Eingabe bricht ab, bevor etwas geschrieben wird.
+  const gemeinsam = mostgewichtAusFormular(formData, 'mostgewicht', { altesFeld: 'klosterneuburger' })
+  if (!gemeinsam.ok) throw new AktionsFehler(gemeinsam.fehler)
+  const mgGemeinsam = gemeinsam.wert
   // Qualitätsstufe wird ausschließlich aus den °KMW abgeleitet (kein manuelles Formularfeld
-  // mehr) - Fallback 'qualitaetswein', wenn kein KMW erfasst wurde. Eine mitgeschickte Stufe
+  // mehr) - Fallback 'qualitaetswein', wenn kein Mostgewicht erfasst wurde. Eine mitgeschickte Stufe
   // (nur das Assistent-Tool ernte_erfassen schickt eine) wird wie bisher NICHT übernommen;
   // KAN-73: sie muss trotzdem eine Lese-Stufe sein (LESE_QUALITAETEN), sonst Abbruch.
+  // KAN-128 (Rechenregeln 5 und 6): nur aus ausMessung().kmw, bei °Oe-Messung also aus dem
+  // gespeicherten °KMW nach Variante B – nie aus einer ungerundeten Umrechnung.
   const qualitaetMitgeschickt = (formData.get('qualitaetsstufe') as string) || null
   const qualitaetUnzulaessig = qualitaetFehler('lese', qualitaetMitgeschickt)
   if (qualitaetUnzulaessig) throw new AktionsFehler(qualitaetUnzulaessig)
-  const qualitaet   = kmw != null ? kmwZuQualitaet(kmw) : 'qualitaetswein'
+  const qualitaet   = mgGemeinsam ? kmwZuQualitaet(mgGemeinsam.kmw) : 'qualitaetswein'
   const notizen     = (formData.get('notizen') as string) || null
   const mengeKgRaw  = formData.get('menge_kg') as string | null
   const mengeKg     = mengeKgRaw ? Number(dezimal(mengeKgRaw)) : null
@@ -314,7 +333,7 @@ export async function createMultipleErnteParzellen(jahrgangId: string, formData:
     return result
   }
 
-  const base = { jahrgang_id: jahrgangId, ernte_datum: ernteDatum, oechsle: null, klosterneuburger: kmw, qualitaetsstufe: qualitaet, lesemethode, notizen }
+  const base = { jahrgang_id: jahrgangId, ernte_datum: ernteDatum, ...mostgewichtSpalten(mgGemeinsam, 'klosterneuburger'), qualitaetsstufe: qualitaet, lesemethode, notizen }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rows: AR[] = []
 
@@ -352,16 +371,27 @@ export async function createMultipleErnteParzellen(jahrgangId: string, formData:
   const alleGstIds = gstEntries.map(g => g.gst_id).filter(Boolean)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: gstStammdaten } = alleGstIds.length > 0
-    ? await (supabase.from('grundstuecke') as any).select('id, trauben_herkunft_code, rebsorte').in('id', alleGstIds).eq('tenant_id', tenantId)
+    ? await (supabase.from('grundstuecke') as any).select('id, gst_nr, trauben_herkunft_code, rebsorte').in('id', alleGstIds).eq('tenant_id', tenantId)
     : { data: [] }
   const gstStammdatenMap = new Map<string, AR>(((gstStammdaten ?? []) as AR[]).map((g: AR) => [g.id, g]))
+
+  // Mostgewicht je Grundstück (KAN-128): eigener Messwert, sonst das gemeinsame – alle vor dem Schreiben prüfen
+  const mgJeGst = new Map<GSTEntry, Mostgewicht | null>()
+  for (const g of gstEntries) {
+    const bezeichnung = `GST ${gstStammdatenMap.get(g.gst_id)?.gst_nr ?? g.gst_id}`
+    const eigenes = g.mostgewicht_wert !== null && g.mostgewicht_wert !== undefined && String(g.mostgewicht_wert).trim() !== ''
+      ? mostgewichtAusWert(g.mostgewicht_wert, g.mostgewicht_einheit, bezeichnung)
+      : g.kmw !== null && g.kmw !== undefined ? mostgewichtAusWert(g.kmw, 'kmw', bezeichnung) : null
+    if (eigenes && !eigenes.ok) throw new AktionsFehler(eigenes.fehler)
+    mgJeGst.set(g, eigenes ? eigenes.wert : mgGemeinsam)
+  }
 
   for (const [wgId, wgGsts] of gstsByWG) {
     const mengen = splitKg(mengeKg, wgGsts.map(g => g.flaeche_ha))
     wgGsts.forEach((g, i) => {
       const kg = g.menge_kg != null ? g.menge_kg : mengen[i]
-      const perKmw = g.kmw != null ? g.kmw : kmw
-      const perQualitaet = perKmw != null ? kmwZuQualitaet(perKmw) : qualitaet
+      const perMg = mgJeGst.get(g) ?? null
+      const perQualitaet = perMg ? kmwZuQualitaet(perMg.kmw) : qualitaet
       const perLesemethode = g.lesemethode ?? lesemethode
       const perNotizen = g.notizen ?? notizen
       const gstStamm = gstStammdatenMap.get(g.gst_id)
@@ -373,7 +403,7 @@ export async function createMultipleErnteParzellen(jahrgangId: string, formData:
         ...base,
         weingarten_id: wgId, grundstueck_id: g.gst_id,
         menge_kg: kg, menge_hl: kg ? kg / 130 : null,
-        klosterneuburger: perKmw, qualitaetsstufe: perQualitaet, lesemethode: perLesemethode, notizen: finaleNotizen,
+        ...mostgewichtSpalten(perMg, 'klosterneuburger'), qualitaetsstufe: perQualitaet, lesemethode: perLesemethode, notizen: finaleNotizen,
         herkunft_code: passend.code,
       })
     })
@@ -1265,6 +1295,10 @@ export async function createTraubenverkauf(fd: FormData) {
   const qualitaetsstufe = (fd.get('qualitaetsstufe') as string) || null
   const qualitaetUnzulaessig = qualitaetFehler('lese', qualitaetsstufe)
   if (qualitaetUnzulaessig) throw new AktionsFehler(qualitaetUnzulaessig)
+  // KAN-128: Mostgewicht aus Messwert und Einheit (übergangsweise altes Feld kmw_grad als °KMW) –
+  // ebenfalls vor der Liefernummer prüfen; die Stufe bleibt, wie gewählt (Rechenregel 6)
+  const mostgewicht = mostgewichtAusFormular(fd, 'mostgewicht', { altesFeld: 'kmw_grad' })
+  if (!mostgewicht.ok) throw new AktionsFehler(mostgewicht.fehler)
 
   // Liefernummer auto-generieren
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1294,7 +1328,7 @@ export async function createTraubenverkauf(fd: FormData) {
     datum,
     menge_kg:        mengeKg,
     preis_per_kg:    preisPerKg,
-    kmw_grad:        fd.get('kmw_grad') ? parseFloat(dezimal((fd.get('kmw_grad') as string))) : null,
+    ...mostgewichtSpalten(mostgewicht.wert, 'kmw_grad'),
     qualitaetsstufe,
     gesundheit:      (fd.get('gesundheit') as string) || 'G',
     herkunft_code:   (fd.get('herkunft_code') as string) || null,

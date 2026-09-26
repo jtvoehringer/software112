@@ -9,7 +9,9 @@
 //                   (klosterneuburger, kmw_grad, kmw)
 // Die Action rechnet selbst (kein Client-Wert zählt): mostgewichtAusFormular() → ausMessung(), dann
 // mostgewichtSpalten() – beide Werte konsistent und die Einheit, damit das Ergebnis auch ohne den
-// Abgleich-Trigger der Migration A stimmt (Rechenregeln 1–4).
+// Abgleich-Trigger der Migration A stimmt (Rechenregeln 1–4). Kommen Messwert und Einheit als JSON
+// (Sammelerfassung je Grundstück, Verkaufsformular, Assistent – S5), gilt dasselbe über
+// mostgewichtAusWert(); messwertText() liefert den Messwert dafür.
 
 import {
   abrunden, ausMessung, istMostgewichtEinheit, kmwAusOechsle, oechsleAusKmw, parseEingabe, runden,
@@ -57,6 +59,44 @@ export function mostgewichtAusGespeichert(g: GespeichertesMostgewicht | null | u
   return { kmw: berechnet?.kmw ?? abrunden(kmwAusOechsle(oe), KMW_STELLEN), oechsle: oe, einheit }
 }
 
+export type MostgewichtWertErgebnis =
+  /** wert null = leer bzw. gelöscht (beide Spalten NULL) */
+  | { ok: true; wert: Mostgewicht | null }
+  | { ok: false; fehler: string }
+
+/**
+ * Ein Messwert (Text wie eingegeben – „83,5“ – oder Zahl) in der angegebenen Einheit → beide Werte,
+ * serverseitig gerechnet (parseEingabe, dann ausMessung nach Variante B). Für Eingaben, die nicht
+ * als Formularfelder kommen: Positionen als JSON (Sammelerfassung der Lese je Grundstück,
+ * Verkaufsformular) und das Assistent-Tool. Leer, null oder undefined = kein Mostgewicht.
+ * `bezeichnung` stellt Fehlern z. B. die Grundstücksnummer voran.
+ */
+export function mostgewichtAusWert(roh: unknown, einheit: unknown, bezeichnung?: string): MostgewichtWertErgebnis {
+  const fehler = (text: string): MostgewichtWertErgebnis => ({ ok: false, fehler: bezeichnung ? `${bezeichnung}: ${text}` : text })
+  if (roh == null) return { ok: true, wert: null }
+  let text: string
+  if (typeof roh === 'number') {
+    if (!Number.isFinite(roh)) return fehler('Das Mostgewicht ist keine gültige Zahl.')
+    text = String(roh)
+  } else if (typeof roh === 'string') {
+    text = roh
+  } else {
+    return fehler('Das Mostgewicht ist keine gültige Eingabe.')
+  }
+  if (text.trim() === '') return { ok: true, wert: null }
+  if (!istMostgewichtEinheit(einheit)) return fehler('Bitte gib an, ob das Mostgewicht in °KMW oder °Oe gemessen wurde.')
+  const p = parseEingabe(text, einheit)
+  if (!p.ok) return fehler(p.fehler)
+  return { ok: true, wert: ausMessung(p.wert, einheit) }
+}
+
+/** Messwert eines Mostgewichts als Text mit Punkt („17.4“, „83.5“) für versteckte Felder und JSON –
+ *  mostgewichtAusWert() liest ihn wieder ein (gleiche Stellen, nichts neu gerundet). */
+export function messwertText(m: Mostgewicht | null | undefined): string {
+  if (!m) return ''
+  return String(m.einheit === 'oechsle' ? m.oechsle : m.kmw)
+}
+
 export type MostgewichtFormularErgebnis =
   /** wert null = leer bzw. gelöscht (beide Spalten NULL); uebermittelt false = Feld nicht im
    *  Formular (Spalten unverändert lassen) */
@@ -75,9 +115,6 @@ export function mostgewichtAusFormular(
   name: string,
   optionen: { altesFeld?: string; bezeichnung?: string } = {},
 ): MostgewichtFormularErgebnis {
-  const fehler = (text: string): MostgewichtFormularErgebnis =>
-    ({ ok: false, fehler: optionen.bezeichnung ? `${optionen.bezeichnung}: ${text}` : text })
-
   let roh = fd.get(`${name}_wert`)
   let einheit: unknown = fd.get(`${name}_einheit`)
   if (roh === null) {
@@ -85,12 +122,12 @@ export function mostgewichtAusFormular(
     roh = fd.get(optionen.altesFeld)
     einheit = 'kmw'
   }
-  if (typeof roh !== 'string') return fehler('Das Mostgewicht ist keine gültige Eingabe.')
-  if (roh.trim() === '') return { ok: true, wert: null, uebermittelt: true }
-  if (!istMostgewichtEinheit(einheit)) return fehler('Bitte gib an, ob das Mostgewicht in °KMW oder °Oe gemessen wurde.')
-  const p = parseEingabe(roh, einheit)
-  if (!p.ok) return fehler(p.fehler)
-  return { ok: true, wert: ausMessung(p.wert, einheit), uebermittelt: true }
+  if (typeof roh !== 'string') {
+    const text = 'Das Mostgewicht ist keine gültige Eingabe.'
+    return { ok: false, fehler: optionen.bezeichnung ? `${optionen.bezeichnung}: ${text}` : text }
+  }
+  const e = mostgewichtAusWert(roh, einheit, optionen.bezeichnung)
+  return e.ok ? { ok: true, wert: e.wert, uebermittelt: true } : e
 }
 
 /**

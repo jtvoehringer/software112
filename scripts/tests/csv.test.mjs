@@ -410,6 +410,9 @@ describe('PROFIL_BKI – EDV-Liste Weindatenbank', () => {
   // Golden-File aus den PRODUKTIVEN Spalten (SPALTEN_BKI_TRAUBENVERKAUF) und bkiZeilen():
   // Synonym- und Schreibweisen-Fälle, Rot/Weiß, Rosenmuskateller (Kürzel ohne eindeutige Farbe),
   // unbekannte Sorte, Rebsorte über Ried/Zukauf, ganze und gebrochene kg, Storno, Qualitätsstufen.
+  // KAN-128 (26.09.2026, Golden-File neu erzeugt): KMW_Grad UND Oechsle immer befüllt, °KMW auf
+  // 1 Stelle abgerundet (20,15 → „20,1“ statt „20,2“), °Oe wie erfasst ohne Nachkomma-Null, dazu
+  // Lieferungen mit °Oe-Messung (80 → „80“, 83,5 → „83,5“, 94 °Oe = 18,97 °KMW → „18,9“).
   const BETRIEB = { betrieb_betriebsnummer: '9988776', betrieb_name: 'Weingut Muster', betrieb_strasse: 'Rebenweg 1', betrieb_plz: '3500', betrieb_ort: 'Krems' }
   const firma = { betrieb_nr: '7654321', name: 'Weingut Huber, Stiftung', strasse: 'Hauptstraße 3a', plz: '2170', ort: 'Poysdorf' }
   const VERKAEUFE = [
@@ -420,6 +423,10 @@ describe('PROFIL_BKI – EDV-Liste Weindatenbank', () => {
     { datum: '2026-09-08', liefernummer: 'TV-4', menge_kg: 300, kmw_grad: 20.15, qualitaetsstufe: 'spaetlese', grundstueck: { rebsorte: 'Rosenmuskateller' }, firma, jahrgang: { jahrgang: 2026 } },
     { datum: '2026-09-09', liefernummer: 'TV-5', menge_kg: 120.25, kmw_grad: null, qualitaetsstufe: 'reserve', zukauf: { rebsorte: 'Uhudler', herkunft: 'Südburgenland' }, firma, jahrgang: { jahrgang: 2026 } },
     { datum: '2026-09-10', liefernummer: 'TV-6', menge_kg: 999, kmw_grad: 17, qualitaetsstufe: 'qualitaetswein', grundstueck: { rebsorte: 'Riesling' }, firma, jahrgang: { jahrgang: 2026 }, verkaufsposten: { storniert: true } },
+    // KAN-128: in °Oe gemessen (kmw_grad nach Variante B, wie ihn der Abgleich-Trigger speichert)
+    { datum: '2026-09-11', liefernummer: 'TV-7', menge_kg: 400, kmw_grad: 16.33, oechsle: 80, mostgewicht_einheit: 'oechsle', qualitaetsstufe: 'qualitaetswein', grundstueck: { rebsorte: 'Grüner Veltliner' }, firma, jahrgang: { jahrgang: 2026 } },
+    { datum: '2026-09-12', liefernummer: 'TV-8', menge_kg: 400, kmw_grad: 17, oechsle: 83.5, mostgewicht_einheit: 'oechsle', qualitaetsstufe: 'kabinett', grundstueck: { rebsorte: 'Grüner Veltliner' }, firma, jahrgang: { jahrgang: 2026 } },
+    { datum: '2026-09-13', liefernummer: 'TV-9', menge_kg: 400, kmw_grad: 18.97, oechsle: 94, mostgewicht_einheit: 'oechsle', qualitaetsstufe: 'kabinett', grundstueck: { rebsorte: 'Grüner Veltliner' }, firma, jahrgang: { jahrgang: 2026 } },
   ]
 
   test('Golden: produktive EDV-Liste (SPALTEN_BKI_TRAUBENVERKAUF + bkiZeilen)', () => {
@@ -432,11 +439,14 @@ describe('PROFIL_BKI – EDV-Liste Weindatenbank', () => {
       'EDV-Liste zum automatischen Einlesen in die Weindatenbank',
       '',
       KOPF.join(';'),
-      `${empf};${vers};05.09.2026;1250;TB;J;;GV;;;QUW;2026;WLNO;"17,4";`,        // Synonym Weißgipfler → GV, ganze kg ohne Komma
-      `${empf};${vers};06.09.2026;"980,5";TB;J;;GV;;;QUW;2026;WLTH;"18,0";`,     // Ried-Sorte, Schreibweise tolerant, Bruchteil mit Komma; DAC-Herkunft zu Qualitätswein
-      `${empf};${vers};07.09.2026;500;TB;;J;ZW;;;KAB;2026;;"19,2";`,              // Blauer Zweigelt → ZW, rot
-      `${empf};${vers};08.09.2026;300;TB;;;RM;;;SPL;2026;;"20,2";`,               // Rosenmuskateller: Kürzel ja, Farbe nicht eindeutig
-      `${empf};${vers};09.09.2026;"120,25";TB;;;;;;QUW;2026;;;`,                   // Zukauf „Uhudler“: kein amtliches Kürzel; Herkunft „Südburgenland“ kein BKI-Kürzel
+      `${empf};${vers};05.09.2026;1250;TB;J;;GV;;;QUW;2026;WLNO;"17,4";"85,7"`,        // Synonym Weißgipfler → GV, ganze kg ohne Komma; °Oe aus dem °KMW
+      `${empf};${vers};06.09.2026;"980,5";TB;J;;GV;;;QUW;2026;WLTH;"18,0";"88,8"`,     // Ried-Sorte, Schreibweise tolerant, Bruchteil mit Komma; DAC-Herkunft zu Qualitätswein
+      `${empf};${vers};07.09.2026;500;TB;;J;ZW;;;KAB;2026;;"19,2";"95,3"`,              // Blauer Zweigelt → ZW, rot
+      `${empf};${vers};08.09.2026;300;TB;;;RM;;;SPL;2026;;"20,1";"100,4"`,              // Rosenmuskateller: Kürzel ja, Farbe nicht eindeutig; 20,15 °KMW abgerundet
+      `${empf};${vers};09.09.2026;"120,25";TB;;;;;;QUW;2026;;;`,                         // Zukauf „Uhudler“: kein amtliches Kürzel; Herkunft „Südburgenland“ kein BKI-Kürzel; ohne Mostgewicht
+      `${empf};${vers};11.09.2026;400;TB;J;;GV;;;QUW;2026;;"16,3";80`,                  // 80 °Oe gemessen → „80“, °KMW 16,33 → „16,3“
+      `${empf};${vers};12.09.2026;400;TB;J;;GV;;;KAB;2026;;"17,0";"83,5"`,              // 83,5 °Oe = 17,00 °KMW (Kabinett)
+      `${empf};${vers};13.09.2026;400;TB;J;;GV;;;KAB;2026;;"18,9";94`,                  // 94 °Oe = 18,97 °KMW → „18,9“, nicht „19,0“
     ].join('\r\n'))
     gleicheBytes(t, golden('bki_traubenverkauf.csv', () => t), 'BKI-EDV-Liste weicht von der Golden-File ab')
     const w = warnungen.join('\n')

@@ -28,6 +28,8 @@ export type ErnteParzelle = {
   grundstueck_id: string | null; grundstueck_nr: string | null; grundstueck_rebsorte: string | null
   ernte_datum: string | null; menge_kg: number | null; menge_hl: number | null
   oechsle: number | null; klosterneuburger: number | null
+  /** gemessene Einheit ('kmw' | 'oechsle', KAN-128) – vor Migration A null */
+  mostgewicht_einheit: string | null
   qualitaetsstufe: string | null; lesemethode: string | null; notizen: string | null
 }
 export type WeingartenOpt = { id: string; name: string; rebsorte: string | null; lage_name: string | null }
@@ -46,7 +48,7 @@ function zuErnteParzelle(z: LeseZeile): ErnteParzelle {
     weingarten_name: z.ried ?? '–', weingarten_rebsorte: z.weingartenRebsorte,
     grundstueck_id: z.grundstueckId, grundstueck_nr: z.gstNr, grundstueck_rebsorte: z.grundstueckRebsorte,
     ernte_datum: z.datum, menge_kg: z.mengeKg, menge_hl: z.mengeHl,
-    oechsle: z.oechsle, klosterneuburger: z.kmw,
+    oechsle: z.oechsle, klosterneuburger: z.kmw, mostgewicht_einheit: z.mostgewichtEinheit,
     qualitaetsstufe: z.qualitaetsstufe, lesemethode: z.lesemethode, notizen: z.notizen,
   }
 }
@@ -119,7 +121,7 @@ export default async function ErnteDetailPage({ params }: Props) {
     // Traubenverkäufe dieses Jahrgangs (mit Rechnung: Löschen storniert sie, KAN-35)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tf((supabase.from('traubenverkauf') as any)
-      .select('id, weingarten_id, grundstueck_id, zukauf_posten_id, kontakt_id, firma_id, datum, menge_kg, preis_per_kg, kmw_grad, qualitaetsstufe, gesundheit, herkunft_code, notizen, liefernummer, verkaufsposten_id, weingarten:weingarten_id(name), grundstueck:grundstueck_id(gst_nr), kontakt:kontakt_id(vorname, nachname), firma:firma_id(name), verkaufsposten:verkaufsposten_id(rechnungsnummer, storniert)')
+      .select('id, weingarten_id, grundstueck_id, zukauf_posten_id, kontakt_id, firma_id, datum, menge_kg, preis_per_kg, kmw_grad, oechsle, mostgewicht_einheit, qualitaetsstufe, gesundheit, herkunft_code, notizen, liefernummer, verkaufsposten_id, weingarten:weingarten_id(name), grundstueck:grundstueck_id(gst_nr), kontakt:kontakt_id(vorname, nachname), firma:firma_id(name), verkaufsposten:verkaufsposten_id(rechnungsnummer, storniert)')
       .eq('jahrgang_id', id).order('datum', { ascending: false })),
 
     // Kontakte + Firmen für Abnehmer-Dropdown
@@ -142,7 +144,7 @@ export default async function ErnteDetailPage({ params }: Props) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawZukaufTrauben } = await tf((supabase.from('zukauf_posten') as any)
     .select(`
-      id, datum, menge, rebsorte, herkunft, qualitaetsstufe, kmw,
+      id, datum, menge, rebsorte, herkunft, qualitaetsstufe, kmw, oechsle, mostgewicht_einheit,
       lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname),
       lieferant_firma:firmen!lieferant_firma_id(name)
     `)
@@ -270,6 +272,9 @@ export default async function ErnteDetailPage({ params }: Props) {
       menge_kg: mengeKg,
       verfuegbar_kg: Math.max(0, mengeKg - (pressedKgByZukauf[z.id] ?? 0) - (soldKgByZukauf[z.id] ?? 0)),
       kmw_grad: z.kmw != null ? parseFloat(z.kmw) : null,
+      // KAN-128: Messwert und Einheit des Zukaufs – Vorbelegung beim Traubenverkauf aus dem Zukauf
+      oechsle: z.oechsle != null ? parseFloat(z.oechsle) : null,
+      mostgewicht_einheit: z.mostgewicht_einheit ?? null,
     }
   })
   // Welche Behälter haben bereits eine Kellerbuch-Charge (für Verschnitt-Warnung)
@@ -309,6 +314,8 @@ export default async function ErnteDetailPage({ params }: Props) {
     menge_kg: parseFloat(v.menge_kg) || 0,
     preis_per_kg: v.preis_per_kg != null ? parseFloat(v.preis_per_kg) : null,
     kmw_grad: v.kmw_grad != null ? parseFloat(v.kmw_grad) : null,
+    oechsle: v.oechsle != null ? parseFloat(v.oechsle) : null,
+    mostgewicht_einheit: v.mostgewicht_einheit ?? null,
     qualitaetsstufe: v.qualitaetsstufe ?? null,
     gesundheit: v.gesundheit ?? 'G',
     herkunft_code: v.herkunft_code ?? null,
@@ -336,14 +343,17 @@ export default async function ErnteDetailPage({ params }: Props) {
   const tvHerkunftByWG = new Map(tvWGOptions.map(w => [w.id, w.herkunft_code]))
   const gstRowsMap = new Map<string, {
     weingarten_id: string; weingarten_name: string; grundstueck_nr: string | null
-    klosterneuburger: number | null; qualitaetsstufe: string | null
+    klosterneuburger: number | null; oechsle: number | null; mostgewicht_einheit: string | null
+    qualitaetsstufe: string | null
   }>()
   for (const p of parzellen) {
     if (p.grundstueck_id && !gstRowsMap.has(p.grundstueck_id)) {
       gstRowsMap.set(p.grundstueck_id, {
         weingarten_id: p.weingarten_id, weingarten_name: p.weingarten_name,
         grundstueck_nr: p.grundstueck_nr,
-        klosterneuburger: p.klosterneuburger, qualitaetsstufe: p.qualitaetsstufe,
+        // Mostgewicht mit gemessener Einheit (KAN-128) – Vorbelegung des Traubenverkaufs
+        klosterneuburger: p.klosterneuburger, oechsle: p.oechsle, mostgewicht_einheit: p.mostgewicht_einheit,
+        qualitaetsstufe: p.qualitaetsstufe,
       })
     }
   }
@@ -356,6 +366,8 @@ export default async function ErnteDetailPage({ params }: Props) {
       label: g.grundstueck_nr ? `GST ${g.grundstueck_nr} · ${g.weingarten_name}` : g.weingarten_name,
       herkunft_code: tvHerkunftByWG.get(g.weingarten_id) ?? null,
       klosterneuburger: g.klosterneuburger,
+      oechsle: g.oechsle,
+      mostgewicht_einheit: g.mostgewicht_einheit,
       qualitaetsstufe: g.qualitaetsstufe,
       verfuegbar_kg: verfuegbareKgByGST[gstId] ?? 0,
     })),
@@ -370,6 +382,8 @@ export default async function ErnteDetailPage({ params }: Props) {
           label: w.name,
           herkunft_code: w.herkunft_code,
           klosterneuburger: p?.klosterneuburger ?? null,
+          oechsle: p?.oechsle ?? null,
+          mostgewicht_einheit: p?.mostgewicht_einheit ?? null,
           qualitaetsstufe: p?.qualitaetsstufe ?? null,
           verfuegbar_kg: verfuegbareKg[w.id] ?? 0,
         }

@@ -11,14 +11,18 @@
 //
 // Zahlen je Zeile sind bereits gerundet (runden() aus lib/csv, Stellen wie die CSV-Spalte);
 // Summen im Ausdruck addieren genau diese Werte – CSV und Ausdruck stimmen überein.
+// Mostgewicht (KAN-128): °KMW und °Oe, °KMW-Mittelwerte abgerundet (Entscheidung 8), Lesedaten
+// zusätzlich mit der gemessenen Einheit – Regeln in mostgewicht_export.ts.
 // Ohne 'server-only' und ohne Next-Importe: scripts/tests/ernte.test.mjs lädt die Datei direkt.
 
 import { STELLEN, runden, type CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
 import { bkiRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
+import { mischen } from '@/lib/wein/mostgewicht'
 import { qualitaetLabel } from '@/lib/wein/qualitaet'
 import { MeldungsFehler } from './typen'
-import { kuerzelWarnungen, textOderNull, zahlOderNull } from './ernte_hilfen'
+import { Hinweise, datumAT, kuerzelWarnungen, textOderNull, zahlOderNull } from './ernte_hilfen'
+import { gemessenInText, mostgewichtFuerExport, type MostgewichtExport } from './mostgewicht_export'
 import { ohneStornierte } from './traubenverkauf'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -88,9 +92,15 @@ export type LeseZeile = {
   /** kg (numeric(12,2) – verlustfrei auf 2 Stellen) */
   mengeKg: number | null
   mengeHl: number | null
+  /** °Oe wie gespeichert (Bearbeiten) */
   oechsle: number | null
-  /** °KMW wie gespeichert (Bearbeiten); Ausgabe mit STELLEN.kmw */
+  /** °KMW wie gespeichert (Bearbeiten); Ausgabe über `mostgewicht` */
   kmw: number | null
+  /** gemessene Einheit wie gespeichert ('kmw' | 'oechsle'; vor Migration A null) */
+  mostgewichtEinheit: string | null
+  /** Mostgewicht für Anzeige und CSV (KAN-128): beide Werte, °KMW mit STELLEN.kmw, °Oe mit
+   *  STELLEN.oechsle, gemessene Einheit – nichts neu gerechnet, nur ein fehlender Wert ergänzt */
+  mostgewicht: MostgewichtExport
   qualitaetsstufe: string | null
   lesemethode: string | null
   notizen: string | null
@@ -121,6 +131,8 @@ function zuLeseZeile(p: R): LeseZeile {
     mengeHl: zahlOderNull(p.menge_hl),
     oechsle: zahlOderNull(p.oechsle),
     kmw: zahlOderNull(p.klosterneuburger),
+    mostgewichtEinheit: textOderNull(p.mostgewicht_einheit),
+    mostgewicht: mostgewichtFuerExport({ kmw: p.klosterneuburger, oechsle: p.oechsle, einheit: p.mostgewicht_einheit }, 2),   // 2 = STELLEN.kmw (verlustfrei)
     qualitaetsstufe: textOderNull(p.qualitaetsstufe),
     lesemethode: textOderNull(p.lesemethode),
     notizen: textOderNull(p.notizen),
@@ -145,16 +157,24 @@ export async function ladeLesedaten(supabase: Client, jahrgangId: string): Promi
   const { data, error } = await alle<R>(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('ernte_parzellen') as any)
-      .select('id, weingarten_id, grundstueck_id, ernte_datum, menge_kg, menge_hl, oechsle, klosterneuburger, qualitaetsstufe, lesemethode, notizen, weingarten:weingarten_id(name, rebsorte, flaeche_ha), grundstueck:grundstueck_id(gst_nr, katastralgemeinde, rebsorte, flaeche_ha)')
+      .select('id, weingarten_id, grundstueck_id, ernte_datum, menge_kg, menge_hl, oechsle, klosterneuburger, mostgewicht_einheit, qualitaetsstufe, lesemethode, notizen, weingarten:weingarten_id(name, rebsorte, flaeche_ha), grundstueck:grundstueck_id(gst_nr, katastralgemeinde, rebsorte, flaeche_ha)')
       .eq('jahrgang_id', jahrgangId)
       .order('ernte_datum', { ascending: true })
       .order('id'),
   )
   if (error) throw new Error(`Laden fehlgeschlagen (ernte_parzellen): ${error.message}`)
   const zeilen = data.map(zuLeseZeile).sort(vergleicheLese)
-  return { zeilen, warnungen: kuerzelWarnungen(zeilen.map(z => z.rebsorte)) }
+  // X-Warnung nur, wenn die exportierte Rundung eines Messwerts die Stufe ändert (KAN-128, Absicherung)
+  const mostgewicht = new Hinweise(['Lese', 'Lesen'])
+  for (const z of zeilen) {
+    if (z.mostgewicht.stufenHinweis) {
+      mostgewicht.add(z.mostgewicht.stufenHinweis, [datumAT(z.datum), z.ried, z.gstNr ? `GST ${z.gstNr}` : null].filter(Boolean).join(' '))
+    }
+  }
+  return { zeilen, warnungen: [...kuerzelWarnungen(zeilen.map(z => z.rebsorte)), ...mostgewicht.liste()] }
 }
 
+// Mostgewicht (KAN-128): °KMW vor °Oe, dazu die gemessene Einheit – der andere Wert ist umgerechnet
 export const SPALTEN_LESEDATEN: CsvSpalte<LeseZeile>[] = [
   { kopf: 'Lesedatum', typ: 'datum', wert: z => z.datum },
   { kopf: 'Ried', typ: 'text', wert: z => z.ried },
@@ -163,7 +183,9 @@ export const SPALTEN_LESEDATEN: CsvSpalte<LeseZeile>[] = [
   { kopf: 'Rebsorte', typ: 'text', wert: z => z.rebsorte },
   { kopf: 'BKI-Kürzel', typ: 'code', wert: z => z.kuerzel },
   { kopf: 'Menge (kg)', typ: 'dezimal', stellen: STELLEN.kgGenau, wert: z => z.mengeKg },
-  { kopf: 'Mostgewicht (°KMW)', typ: 'dezimal', stellen: STELLEN.kmw, wert: z => z.kmw },
+  { kopf: 'Mostgewicht (°KMW)', typ: 'dezimal', stellen: STELLEN.kmw, wert: z => z.mostgewicht.kmw },
+  { kopf: 'Mostgewicht (°Oe)', typ: 'dezimal', stellen: STELLEN.oechsle, wert: z => z.mostgewicht.oechsle },
+  { kopf: 'Mostgewicht gemessen in', typ: 'text', wert: z => gemessenInText(z.mostgewicht.einheit) },
   { kopf: 'Qualitätsstufe', typ: 'text', wert: z => (z.qualitaetsstufe ? qualitaetLabel(z.qualitaetsstufe) : null) },
   { kopf: 'Lesemethode', typ: 'text', wert: z => (z.lesemethode ? LESEMETHODE_LABEL[z.lesemethode] ?? z.lesemethode : null) },
 ]
@@ -292,8 +314,11 @@ export type ErnteZeile = {
   /** Menge (hl), 2 Stellen – erfasst oder kg ÷ 130 */
   mengeHl: number | null
   hlGeschaetzt: boolean
-  /** Mostgewicht (°KMW): kg-gewichtetes Mittel der Lesen mit erfasstem °KMW, STELLEN.kmw */
+  /** Mostgewicht (°KMW): kg-gewichtetes Mittel der Lesen mit erfasstem °KMW, auf STELLEN.kmw
+   *  abgerundet (Rechenregel 7, Entscheidung 8) */
   kmw: number | null
+  /** Mostgewicht (°Oe) = f(Ø °KMW) mit STELLEN.oechsle – nie aus °Oe gemittelt (KAN-128) */
+  oechsle: number | null
   qualitaetsstufe: string | null
   /** Ertrag (kg/ha), ganzzahlig */
   ertragKgHa: number | null
@@ -315,7 +340,7 @@ export type ErntemeldungDaten = {
   warnungen: string[]
 }
 
-type ErnteRoh = { rebsorte: string; flaecheHa: number | null; mengeKg: number | null; mengeHl: number | null; qualitaetsstufe: string | null; kmw?: number | null }
+type ErnteRoh = { rebsorte: string; flaecheHa: number | null; mengeKg: number | null; mengeHl: number | null; qualitaetsstufe: string | null; kmw?: number | null; oechsle?: number | null }
 
 /** Schlüssel der Rebsorte wie in aggregiereJeRebsorte() */
 function sortenKey(rebsorte: string | null | undefined): string {
@@ -323,22 +348,32 @@ function sortenKey(rebsorte: string | null | undefined): string {
 }
 
 /**
- * Mostgewicht je Rebsorte: kg-gewichtetes Mittel der °KMW aller Lesen mit erfasstem °KMW und
- * Menge. teilweise = mindestens eine Lese der Sorte mit Menge, aber ohne °KMW.
+ * Mostgewicht je Rebsorte: kg-gewichtetes Mittel der °KMW aller Lesen mit erfasstem Mostgewicht
+ * und Menge (mischen() aus lib/wein/mostgewicht, Rechenregel 7): auf 2 Stellen abgerundet
+ * (Entscheidung 8), °Oe = f(Ø °KMW) – nie °Oe mitteln. Es zählt die führende °KMW-Spalte, bei
+ * einer Lese nur mit °Oe (vor Migration A) der daraus ergänzte Wert. teilweise = mindestens eine
+ * Lese der Sorte mit Menge, aber ohne Mostgewicht.
  */
-export function kmwJeRebsorte(lese: readonly Pick<LeseZeile, 'rebsorte' | 'mengeKg' | 'kmw'>[]): Map<string, { kmw: number; teilweise: boolean }> {
-  const summen = new Map<string, { kg: number; kgKmw: number; teilweise: boolean }>()
+export function kmwJeRebsorte(
+  lese: readonly (Pick<LeseZeile, 'rebsorte' | 'mengeKg' | 'kmw'> & { mostgewicht?: Pick<MostgewichtExport, 'kmw'> })[],
+): Map<string, { kmw: number; oechsle: number; teilweise: boolean }> {
+  const teile = new Map<string, { menge: number; kmw: number }[]>()
+  const teilweise = new Set<string>()
   for (const z of lese) {
     const kg = z.mengeKg ?? 0
     if (kg <= 0) continue
     const key = sortenKey(z.rebsorte)
-    const e = summen.get(key) ?? { kg: 0, kgKmw: 0, teilweise: false }
-    if (z.kmw === null) e.teilweise = true
-    else { e.kg += kg; e.kgKmw += kg * z.kmw }
-    summen.set(key, e)
+    const kmw = z.mostgewicht ? z.mostgewicht.kmw : z.kmw
+    const liste = teile.get(key) ?? []
+    teile.set(key, liste)
+    if (kmw === null || kmw === undefined) teilweise.add(key)
+    else liste.push({ menge: kg, kmw })
   }
-  const out = new Map<string, { kmw: number; teilweise: boolean }>()
-  for (const [key, e] of summen) if (e.kg > 0) out.set(key, { kmw: runden(e.kgKmw / e.kg, STELLEN.kmw), teilweise: e.teilweise })
+  const out = new Map<string, { kmw: number; oechsle: number; teilweise: boolean }>()
+  for (const [key, t] of teile) {
+    const m = mischen(t)
+    if (m) out.set(key, { kmw: m.kmw, oechsle: m.oechsle, teilweise: teilweise.has(key) })
+  }
   return out
 }
 
@@ -362,6 +397,7 @@ export function ernteZeile(roh: ErnteRoh, verkauftKg: number | null = null): Ern
     verkauftKg: verkauftKg === null ? null : runden(verkauftKg, STELLEN.kg),
     mengeHl, hlGeschaetzt,
     kmw: roh.kmw === null || roh.kmw === undefined ? null : runden(roh.kmw, STELLEN.kmw),
+    oechsle: roh.oechsle === null || roh.oechsle === undefined ? null : runden(roh.oechsle, STELLEN.oechsle),
     qualitaetsstufe: roh.qualitaetsstufe,
     ertragKgHa, hoechstertragKgHa, uebermengeKg,
   }
@@ -458,6 +494,7 @@ export async function ladeErntemeldung(supabase: Client, tenantId: string, jg: J
         mengeHl: zahlOderNull(p.menge_hl),
         qualitaetsstufe: textOderNull(p.qualitaetsstufe),
         kmw: kmw.get(rebsorte)?.kmw ?? null,
+        oechsle: kmw.get(rebsorte)?.oechsle ?? null,
       }
     })
     const leseKg = runden(lese.zeilen.reduce((s, z) => s + (z.mengeKg ?? 0), 0), STELLEN.kg)
@@ -493,6 +530,7 @@ export async function ladeErntemeldung(supabase: Client, tenantId: string, jg: J
       mengeHl: hlAusLese(s),
       qualitaetsstufe: stufeAusLese(s),
       kmw: kmw.get(s.rebsorte)?.kmw ?? null,
+      oechsle: kmw.get(s.rebsorte)?.oechsle ?? null,
     }))
     if (roh.length > 0) {
       warnungen.unshift(`Für den Jahrgang ${jg.jahrgang} ist noch keine AMA-Meldung erstellt – die Zeilen sind eine Vorschau aus den Lesedaten. Auf der Lese-Seite „AMA-Meldung erstellen“.`)
@@ -506,7 +544,7 @@ export async function ladeErntemeldung(supabase: Client, tenantId: string, jg: J
   }
   const kmwTeilweise = [...kmw].filter(([, k]) => k.teilweise).map(([s]) => s)
   if (kmwTeilweise.length > 0) {
-    warnungen.push(`Mostgewicht (°KMW) bei ${kmwTeilweise.join(', ')} nur aus den Lesen mit erfasstem °KMW gemittelt (mengengewichtet).`)
+    warnungen.push(`Mostgewicht bei ${kmwTeilweise.join(', ')} nur aus den Lesen mit erfasstem Mostgewicht gemittelt (mengengewichtet in °KMW, °Oe daraus umgerechnet).`)
   }
 
   const zeilen = roh.map(r => ernteZeile(r, verkauft.get(r.rebsorte) ?? 0))
@@ -556,6 +594,7 @@ export const SPALTEN_ERNTEMELDUNG: CsvSpalte<ErnteZeile>[] = [
   { kopf: 'davon als Trauben verkauft (kg)', typ: 'dezimal', stellen: STELLEN.kg, wert: z => z.verkauftKg },
   { kopf: 'Menge (hl)', typ: 'dezimal', stellen: STELLEN.hl, wert: z => z.mengeHl },
   { kopf: 'Mostgewicht (°KMW)', typ: 'dezimal', stellen: STELLEN.kmw, wert: z => z.kmw },
+  { kopf: 'Mostgewicht (°Oe)', typ: 'dezimal', stellen: STELLEN.oechsle, wert: z => z.oechsle },
   { kopf: 'Qualitätsstufe', typ: 'text', wert: z => (z.qualitaetsstufe ? qualitaetLabel(z.qualitaetsstufe) : null) },
   { kopf: 'Ertrag (kg/ha)', typ: 'ganzzahl', wert: z => z.ertragKgHa },
   { kopf: 'Höchstertrag (kg/ha)', typ: 'ganzzahl', wert: z => z.hoechstertragKgHa },

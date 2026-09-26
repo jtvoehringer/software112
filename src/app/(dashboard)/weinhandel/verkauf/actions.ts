@@ -10,6 +10,8 @@ import { syncEaEinnahmeFuerVerkauf } from '@/app/(dashboard)/buchhaltung/actions
 import { fmtEur, fmtNum, dezimal } from '@/lib/format'
 import { AktionsFehler, dbFehlerText, fehlerText } from '@/lib/fehler'
 import { qualitaetFehler } from '@/lib/wein/qualitaet'
+import { mostgewichtAusWert, mostgewichtSpalten } from '@/lib/wein/mostgewichtFormular'
+import type { Mostgewicht } from '@/lib/wein/mostgewicht'
 import {
   bestandBuchenAllesOderNichts,
   bestandsBuchungenZuruecknehmen,
@@ -68,6 +70,10 @@ interface PositionInput {
   trauben_weingarten_id?:   string | null
   trauben_jahrgang_id?:     string | null
   trauben_grundstueck_id?:  string | null
+  /** Mostgewicht (KAN-128): Messwert wie eingegeben und gemessene Einheit – beide Werte rechnet der Server */
+  trauben_mostgewicht_wert?:    string | number | null
+  trauben_mostgewicht_einheit?: string | null
+  /** älteres Format (vor KAN-128): °KMW als Zahl – gilt als °KMW-Messung */
   trauben_kmw_grad?:        number | null
   trauben_qualitaetsstufe?: string | null
   trauben_herkunft_code?:   string | null
@@ -91,10 +97,11 @@ async function pruefePositionen(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
   membership: Membership,
   positionen: PositionInput[],
-): Promise<{ literJeCharge: Map<string, number>; stueckJeFuellung: Map<string, number> }> {
+): Promise<{ literJeCharge: Map<string, number>; stueckJeFuellung: Map<string, number>; mostgewichtJePosition: (Mostgewicht | null)[] }> {
   const tenantId = membership.tenantId
   const literJeCharge   = new Map<string, number>()
   const stueckJeFuellung = new Map<string, number>()
+  const mostgewichtJePosition: (Mostgewicht | null)[] = []
 
   positionen.forEach((p, i) => {
     const nr = `Position ${i + 1}${p?.name ? ` („${String(p.name).trim()}“)` : ''}`
@@ -120,6 +127,15 @@ async function pruefePositionen(
       // KAN-73: Trauben-Qualität = Stufen der Lese (traubenverkauf hat keinen CHECK)
       const qualitaetUnzulaessig = qualitaetFehler('lese', p.trauben_qualitaetsstufe ?? null)
       if (qualitaetUnzulaessig) throw new AktionsFehler(`${nr}: ${qualitaetUnzulaessig}`)
+      // KAN-128: Mostgewicht aus Messwert und Einheit (älteres Format: trauben_kmw_grad als °KMW) –
+      // beide Werte serverseitig gerechnet; die Stufe bleibt, wie gewählt (Rechenregel 6)
+      const mg = p.trauben_mostgewicht_wert !== null && p.trauben_mostgewicht_wert !== undefined && p.trauben_mostgewicht_wert !== ''
+        ? mostgewichtAusWert(p.trauben_mostgewicht_wert, p.trauben_mostgewicht_einheit, nr)
+        : mostgewichtAusWert(p.trauben_kmw_grad ?? null, 'kmw', nr)
+      if (!mg.ok) throw new AktionsFehler(mg.fehler)
+      mostgewichtJePosition[i] = mg.wert
+    } else {
+      mostgewichtJePosition[i] = null
     }
   })
 
@@ -167,7 +183,7 @@ async function pruefePositionen(
       }
     }
   }
-  return { literJeCharge, stueckJeFuellung }
+  return { literJeCharge, stueckJeFuellung, mostgewichtJePosition }
 }
 
 /** Abgänge als negative Deltas (für bestandBuchenAllesOderNichts) */
@@ -212,7 +228,7 @@ export async function createVerkauf(formData: FormData) {
 
   // ── Prüfung VOR dem ersten Schreibzugriff (auch vor der Rechnungsnummer –
   //    eine Ablehnung hinterlässt so keine Lücke im Nummernkreis)
-  const { literJeCharge, stueckJeFuellung } = await pruefePositionen(supabase, membership, positionen)
+  const { literJeCharge, stueckJeFuellung, mostgewichtJePosition } = await pruefePositionen(supabase, membership, positionen)
 
   // ── 1. Bestand abbuchen – alles oder nichts (vor Rechnungsnummer und Beleg; eine
   //    gleichzeitige Buchung wird per Vergleichen und Setzen erkannt, dann nichts geändert)
@@ -269,7 +285,7 @@ export async function createVerkauf(formData: FormData) {
   // 3. Positionen anlegen (bei Trauben: vorher BKI-Record anlegen)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const posInserts: any[] = []
-  for (const p of positionen) {
+  for (const [i, p] of positionen.entries()) {
     let traubenverkaufId: string | null = null
 
     if (p.typ === 'trauben') {
@@ -288,7 +304,7 @@ export async function createVerkauf(formData: FormData) {
           datum,
           menge_kg:        p.menge,
           preis_per_kg:    p.preis_brutto,
-          kmw_grad:        p.trauben_kmw_grad         ?? null,
+          ...mostgewichtSpalten(mostgewichtJePosition[i] ?? null, 'kmw_grad'),
           qualitaetsstufe: p.trauben_qualitaetsstufe  ?? null,
           herkunft_code:   p.trauben_herkunft_code    ?? null,
           gesundheit:      p.trauben_gesundheit       ?? 'G',

@@ -16,7 +16,7 @@ export const KATALOG_ERNTE = katalogGruppe('ernte', {
     druckPfad: '/reports/ama',
     pflicht: true,
     rechtsgrundlage: 'Weingesetz 2009 (Erntemeldung); VO (EU) 2018/273',
-    beschreibung: 'Erntemenge je Rebsorte mit Fläche, hl, Qualitätsstufe, Traubenverkauf, Ertrag je ha und Übermenge (Hektarhöchstertrag).',
+    beschreibung: 'Erntemenge je Rebsorte mit Fläche, hl, Mostgewicht (Mittel in °KMW und °Oe), Qualitätsstufe, Traubenverkauf, Ertrag je ha und Übermenge (Hektarhöchstertrag).',
   },
   lesedaten: {
     titel: 'Lesedaten je Parzelle',
@@ -25,7 +25,7 @@ export const KATALOG_ERNTE = katalogGruppe('ernte', {
     druckPfad: '/erntemeldung/[id]',
     pflicht: true,
     rechtsgrundlage: 'Weingesetz 2009 (Erntemeldung)',
-    beschreibung: 'Lese je Ried bzw. Grundstück: Datum, KG- und GST-Nr., Rebsorte, Menge, °KMW, Qualitätsstufe, Lesemethode.',
+    beschreibung: 'Lese je Ried bzw. Grundstück: Datum, KG- und GST-Nr., Rebsorte, Menge, Mostgewicht in °KMW und °Oe samt gemessener Einheit, Qualitätsstufe, Lesemethode.',
   },
   bestandsmeldung: {
     titel: 'Weinbestandsmeldung (Bestand am Abrufdatum)',

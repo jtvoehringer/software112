@@ -10,7 +10,10 @@ import { qualitaetLabel, LESE_QUALITAETEN, mitGespeichertemWert } from '@/lib/we
 import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { csvDatei, csvDateiname, HINWEIS_BKI_UPLOAD } from '@/lib/csv'
 import { csvPfad } from '@/lib/behoerden/katalog'
-import { SPALTEN_TRAUBENVERKAUF_LISTE, type TraubenverkaufListenZeile } from '@/lib/behoerden/traubenverkauf'
+import { SPALTEN_TRAUBENVERKAUF_LISTE, traubenverkaufListenHinweise, type TraubenverkaufListenZeile } from '@/lib/behoerden/traubenverkauf'
+import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
+import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
+import type { GespeichertesMostgewicht } from '@/lib/wein/mostgewichtFormular'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -33,6 +36,12 @@ interface Props {
 function fmtDate(d: string) {
   return new Date(d).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
+/** Mostgewicht einer Zeile (ernte_parzellen, traubenverkauf, zukauf_posten) mit gemessener Einheit */
+function mostgewichtVon(kmw: unknown, oechsle: unknown, einheit: unknown): GespeichertesMostgewicht | null {
+  if (kmw == null && oechsle == null) return null
+  return { kmw: kmw as number | string | null, oechsle: oechsle as number | string | null, einheit: (einheit as string | null) ?? null }
+}
+
 function fmt(n: number | null | undefined, digits = 2) {
   if (n == null) return '–'
   return fmtNum(n, digits)
@@ -53,7 +62,10 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
   const [gstId, setGstId]           = useState('')
   const [jahrgangId, setJahrgangId] = useState('')
   const [jahrgangNr, setJahrgangNr] = useState<number | null>(null)
-  const [kmw, setKmw]               = useState('')
+  // Mostgewicht (KAN-128): Vorbelegung bzw. gespeicherter Wert – die Eingabe schickt Messwert und
+  // Einheit als versteckte Felder mostgewicht_wert/_einheit (vorher Feld „klosterneuburger“, das die
+  // Action nie las: jede Bearbeitung löschte das Mostgewicht)
+  const [mgStart, setMgStart]       = useState<GespeichertesMostgewicht | null>(null)
   const [qualitaet, setQualitaet]   = useState('')
   const [herkunft, setHerkunft]     = useState('')
   const [kaeuferTyp, setKaeuferTyp] = useState<'firma' | 'kontakt'>('firma')
@@ -132,7 +144,8 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
       return true
     }) ?? ernteOptions.find(e => (e.weingarten as R | null)?.id === newWgId)
     if (match) {
-      if (match.klosterneuburger != null) setKmw(String(match.klosterneuburger).replace('.', ','))
+      const mg = mostgewichtVon(match.klosterneuburger, match.oechsle, match.mostgewicht_einheit)
+      if (mg) setMgStart(mg)
       if (match.qualitaetsstufe) setQualitaet(match.qualitaetsstufe)
       const jg = match.jahrgang as R | null
       if (jg) { setJahrgangId(jg.id); setJahrgangNr(jg.jahrgang) }
@@ -145,7 +158,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
   function handleWgChange(newWgId: string) {
     setWgId(newWgId); setGstId('')
     if (newWgId) fillFromErnte(newWgId, '')
-    else { setKmw(''); setQualitaet(''); setJahrgangId(''); setJahrgangNr(null); setHerkunft('') }
+    else { setMgStart(null); setQualitaet(''); setJahrgangId(''); setJahrgangNr(null); setHerkunft('') }
   }
 
   function handleGstChange(newGstId: string) {
@@ -156,7 +169,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
   function openNew() {
     setEditRow(null); setQuelle('ernte'); setZukaufId('')
     setWgId(''); setGstId(''); setJahrgangId(''); setJahrgangNr(null)
-    setKmw(''); setQualitaet(''); setHerkunft(''); setKaeuferTyp('firma')
+    setMgStart(null); setQualitaet(''); setHerkunft(''); setKaeuferTyp('firma')
     setError(null); setShowForm(true)
   }
 
@@ -169,7 +182,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
     setZukaufId(v.zukauf_posten_id ?? '')
     setWgId(wg?.id ?? ''); setGstId(gst?.id ?? '')
     setJahrgangId(jg?.id ?? ''); setJahrgangNr(jg?.jahrgang ?? null)
-    setKmw(v.kmw_grad != null ? String(v.kmw_grad).replace('.', ',') : '')
+    setMgStart(mostgewichtVon(v.kmw_grad, v.oechsle, v.mostgewicht_einheit))
     setQualitaet(v.qualitaetsstufe ?? ''); setHerkunft(v.herkunft_code ?? '')
     setKaeuferTyp(v.firma_id ? 'firma' : 'kontakt')
     setError(null); setShowForm(true)
@@ -180,6 +193,9 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
     const opt = zukaufOptions.find(z => z.id === newZukaufId)
     if (opt) {
       setHerkunft(opt.herkunft ?? '')
+      // KAN-128: Mostgewicht des Zukaufs (Messwert und Einheit) vorbelegen
+      const mg = mostgewichtVon(opt.kmw, opt.oechsle, opt.mostgewicht_einheit)
+      if (mg) setMgStart(mg)
     }
   }
 
@@ -239,6 +255,8 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
         mengeKg: zahl(v.menge_kg),
         preisProKg: zahl(v.preis_per_kg),
         kmw: zahl(v.kmw_grad),
+        oechsle: zahl(v.oechsle),
+        mostgewichtEinheit: v.mostgewicht_einheit ?? null,
         qualitaet: v.qualitaetsstufe ? qualitaetLabel(v.qualitaetsstufe) : null,
         gesundheit: v.gesundheit ?? null,
         herkunftscode: v.herkunft_code ?? null,
@@ -248,7 +266,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
       }
     })
     const datei = csvDatei(zeilen, SPALTEN_TRAUBENVERKAUF_LISTE)
-    return { text: datei.text, zeilen: datei.zeilen, warnungen: datei.warnungen, dateiname: csvDateiname(['Traubenverkauf-Liste']).utf8 }
+    return { text: datei.text, zeilen: datei.zeilen, warnungen: [...datei.warnungen, ...traubenverkaufListenHinweise(zeilen)], dateiname: csvDateiname(['Traubenverkauf-Liste']).utf8 }
   }
 
   // Jahrgänge mit Traubenverkäufen (Auswahl für das BKI-Datenblatt), neueste zuerst
@@ -428,12 +446,9 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
                   defaultValue={editRow?.preis_per_kg ?? ''} placeholder="z.B. 0,65" className={inp} />
               </div>
 
-              {/* KMW */}
-              <div>
-                <label className="block text-xs font-medium text-s112-text-2 mb-1">KMW Grad</label>
-                <input aria-label="KMW Grad" name="klosterneuburger" type="text" inputMode="decimal"
-                  value={kmw} onChange={e => setKmw(e.target.value)}
-                  placeholder="z.B. 17,5" className={inp} />
+              {/* Mostgewicht in °KMW oder °Oe (KAN-128) – bevorzugte Einheit des Betriebs zuerst */}
+              <div className="col-span-2">
+                <MostgewichtEingabe key={editRow?.id ?? 'neu'} name="mostgewicht" startwert={mgStart} />
               </div>
 
               {/* Qualität */}
@@ -594,7 +609,9 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
                             </span>
                           </span>
                         )}
-                        {v.kmw_grad != null && <span>{'·'} {fmt(v.kmw_grad)} KMW Grad</span>}
+                        {(v.kmw_grad != null || v.oechsle != null) && (
+                          <span>{'·'} <MostgewichtAnzeige wert={mostgewichtVon(v.kmw_grad, v.oechsle, v.mostgewicht_einheit)} /></span>
+                        )}
                         {v.qualitaetsstufe && <span>{'·'} {qualitaetLabel(v.qualitaetsstufe)}</span>}
                         {v.herkunft_code && <span className="font-mono">{'·'} {v.herkunft_code}</span>}
                         <span>{'·'} {kaeufer}</span>

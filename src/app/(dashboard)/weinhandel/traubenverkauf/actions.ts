@@ -10,6 +10,7 @@ import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { dezimal } from '@/lib/format'
 import { verkaufspostenStornieren } from '@/lib/verkauf/bestand'
 import { qualitaetFehler } from '@/lib/wein/qualitaet'
+import { mostgewichtAusFormular, mostgewichtSpalten } from '@/lib/wein/mostgewichtFormular'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -218,6 +219,11 @@ export async function upsertTraubenverkauf(formData: FormData) {
   // Ein unverändert gespeicherter Altwert (Bearbeiten) bleibt erlaubt – geprüft unten nach dem Laden.
   const qualitaetsstufe = (formData.get('qualitaetsstufe') as string) || null
   const qualitaetUnzulaessig = qualitaetFehler('lese', qualitaetsstufe)
+  // KAN-128: Mostgewicht aus Messwert und Einheit (versteckte Felder der Eingabe; übergangsweise das
+  // alte Feld kmw_grad als °KMW) – beide Werte serverseitig gerechnet, vor jedem Schreibzugriff geprüft.
+  // Die Stufe bleibt, wie gewählt (Rechenregel 6).
+  const mostgewicht = mostgewichtAusFormular(formData, 'mostgewicht', { altesFeld: 'kmw_grad' })
+  if (!mostgewicht.ok) throw new AktionsFehler(mostgewicht.fehler)
 
   // Bezeichnung der Quelle (eigener Weingarten ODER zugekaufter Posten) für die
   // Positionsbezeichnung im Verkaufsposten laden.
@@ -236,7 +242,9 @@ export async function upsertTraubenverkauf(formData: FormData) {
     datum,
     menge_kg:        mengeKg,
     preis_per_kg:    preisPerKg,
-    kmw_grad:        getNum('kmw_grad'),
+    // beide Werte und die gemessene Einheit – nur, wenn das Formular ein Mostgewicht mitschickt
+    // (ein Formular ohne Feld lässt das gespeicherte stehen; leer = beide Spalten NULL)
+    ...(mostgewicht.uebermittelt || !existing_id ? mostgewichtSpalten(mostgewicht.wert, 'kmw_grad') : {}),
     qualitaetsstufe,
     herkunft_code:   (formData.get('herkunft_code') as string) || null,
     gesundheit:      (formData.get('gesundheit') as string) || 'G',

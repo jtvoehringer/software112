@@ -11,7 +11,10 @@ import { qualitaetLabel, LESE_QUALITAETEN, mitGespeichertemWert } from '@/lib/we
 import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { csvDateiname, csvDatei, HINWEIS_BKI_UPLOAD } from '@/lib/csv'
 import { csvPfad } from '@/lib/behoerden/katalog'
-import { SPALTEN_TRAUBENVERKAUF_LISTE, type TraubenverkaufListenZeile } from '@/lib/behoerden/traubenverkauf'
+import { SPALTEN_TRAUBENVERKAUF_LISTE, traubenverkaufListenHinweise, type TraubenverkaufListenZeile } from '@/lib/behoerden/traubenverkauf'
+import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
+import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
+import type { GespeichertesMostgewicht } from '@/lib/wein/mostgewichtFormular'
 
 function Fehlermeldung({ text, onClose }: { text: string; onClose?: () => void }) {
   return (
@@ -39,6 +42,8 @@ export type Traubenverkauf = {
   firma_id: string | null; firma_name: string | null
   datum: string; menge_kg: number
   preis_per_kg: number | null; kmw_grad: number | null
+  // Mostgewicht mit gemessener Einheit (KAN-128): kmw_grad führend, oechsle, mostgewicht_einheit
+  oechsle: number | null; mostgewicht_einheit: string | null
   qualitaetsstufe: string | null; gesundheit: string
   herkunft_code: string | null; notizen: string | null
   liefernummer: string | null
@@ -58,7 +63,10 @@ export type TVQuelleOption = {
   grundstueck_id: string | null
   label: string
   herkunft_code: string | null
+  // Mostgewicht der Lese mit gemessener Einheit (KAN-128) – Vorbelegung
   klosterneuburger: number | null
+  oechsle: number | null
+  mostgewicht_einheit: string | null
   qualitaetsstufe: string | null
   verfuegbar_kg: number
 }
@@ -96,7 +104,11 @@ function TVForm({ jahrgangId, tv, quelleOptions, zukaufOptions, kontaktOptions, 
   const [datum, setDatum]       = useState(tv?.datum ?? new Date().toISOString().split('T')[0])
   const [mengeKg, setMengeKg]   = useState(tv?.menge_kg?.toString().replace('.', ',') ?? '')
   const [preis, setPreis]       = useState(tv?.preis_per_kg?.toString().replace('.', ',') ?? '')
-  const [kmw, setKmw]           = useState(tv?.kmw_grad?.toString().replace('.', ',') ?? '')
+  // Mostgewicht (KAN-128): Vorbelegung bzw. gespeicherter Wert – die Eingabe hält den Messwert selbst
+  // und schickt ihn als versteckte Felder mostgewicht_wert/_einheit; die Action rechnet beide Werte
+  const [mgStart, setMgStart]   = useState<GespeichertesMostgewicht | null>(
+    tv ? { kmw: tv.kmw_grad, oechsle: tv.oechsle, einheit: tv.mostgewicht_einheit } : null,
+  )
   const [qualitaet, setQualitaet] = useState(tv?.qualitaetsstufe ?? '')
   const [gesundheit, setGesundheit] = useState(tv?.gesundheit ?? 'G')
   const [herkunft, setHerkunft] = useState(tv?.herkunft_code ?? '')
@@ -132,8 +144,10 @@ function TVForm({ jahrgangId, tv, quelleOptions, zukaufOptions, kontaktOptions, 
     const opt = quelleOptions.find(o => o.compositeId === newId)
     setHerkunft(opt?.herkunft_code ?? '')
     if (!tv && opt) {
-      // KMW + Qualität aus der Lesedaten dieser Ried/GST vorausfüllen
-      if (opt.klosterneuburger != null) setKmw(opt.klosterneuburger.toString().replace('.', ','))
+      // Mostgewicht (Messwert und Einheit) + Qualität aus den Lesedaten dieser Ried/GST vorausfüllen
+      if (opt.klosterneuburger != null || opt.oechsle != null) {
+        setMgStart({ kmw: opt.klosterneuburger, oechsle: opt.oechsle, einheit: opt.mostgewicht_einheit })
+      }
       if (opt.qualitaetsstufe) setQualitaet(opt.qualitaetsstufe)
     }
   }
@@ -142,14 +156,20 @@ function TVForm({ jahrgangId, tv, quelleOptions, zukaufOptions, kontaktOptions, 
     setZukaufId(newZukaufId)
     const opt = zukaufOptions.find(z => z.id === newZukaufId)
     if (opt) setHerkunft(opt.herkunft ?? '')
+    // KAN-128: Mostgewicht des Zukaufs (zukauf_posten.kmw/oechsle/mostgewicht_einheit) vorbelegen
+    if (!tv && opt && (opt.kmw_grad != null || opt.oechsle != null)) {
+      setMgStart({ kmw: opt.kmw_grad, oechsle: opt.oechsle ?? null, einheit: opt.mostgewicht_einheit ?? null })
+    }
   }
 
   const gesamtWert = mengeKg && preis
     ? parseFloat(dezimal(mengeKg)) * parseFloat(dezimal(preis))
     : null
 
-  function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    // Mostgewicht aus den versteckten Feldern der Eingabe (Messwert wie eingegeben + Einheit)
+    const formular = new FormData(e.currentTarget)
     const fd = new FormData()
     fd.append('jahrgang_id', jahrgangId)
     if (quelle === 'zukauf') {
@@ -164,7 +184,10 @@ function TVForm({ jahrgangId, tv, quelleOptions, zukaufOptions, kontaktOptions, 
     fd.append('datum', datum)
     fd.append('menge_kg', mengeKg)
     if (preis) fd.append('preis_per_kg', preis)
-    if (kmw) fd.append('kmw_grad', kmw)
+    for (const feld of ['mostgewicht_wert', 'mostgewicht_einheit']) {
+      const w = formular.get(feld)
+      if (typeof w === 'string') fd.append(feld, w)
+    }
     if (qualitaet) fd.append('qualitaetsstufe', qualitaet)
     fd.append('gesundheit', gesundheit)
     if (herkunft) fd.append('herkunft_code', herkunft)
@@ -267,11 +290,18 @@ function TVForm({ jahrgangId, tv, quelleOptions, zukaufOptions, kontaktOptions, 
             placeholder="z.B. 0,65" className={inp} />
         </div>
 
-        {/* KMW */}
+        {/* Gesundheit */}
         <div>
-          <label className="block text-xs font-medium text-s112-text-2 mb-1">KMW°</label>
-          <input aria-label="KMW°" type="text" inputMode="decimal" value={kmw} onChange={e => setKmw(e.target.value)}
-            placeholder="z.B. 17,5" className={inp} />
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Gesundheit</label>
+          <select aria-label="Gesundheit" value={gesundheit} onChange={e => setGesundheit(e.target.value)} className={inp}>
+            <option value="G">G – Gut</option>
+            <option value="K">K – Krank/beschädigt</option>
+          </select>
+        </div>
+
+        {/* Mostgewicht in °KMW oder °Oe (KAN-128) – bevorzugte Einheit des Betriebs zuerst */}
+        <div className="col-span-2">
+          <MostgewichtEingabe name="mostgewicht" startwert={mgStart} />
         </div>
 
         {/* Qualitätsstufe */}
@@ -282,15 +312,6 @@ function TVForm({ jahrgangId, tv, quelleOptions, zukaufOptions, kontaktOptions, 
             {/* gespeicherter Wert (nicht der Formularzustand): bleibt nach einem Wechsel wieder wählbar;
                 die Vorbelegung bei der Neuanlage kommt aus ernte_parzellen (CHECK = Lese-Liste) */}
             {mitGespeichertemWert(LESE_QUALITAETEN, tv?.qualitaetsstufe).map(q => <option key={q.value} value={q.value}>{q.label}</option>)}
-          </select>
-        </div>
-
-        {/* Gesundheit */}
-        <div>
-          <label className="block text-xs font-medium text-s112-text-2 mb-1">Gesundheit</label>
-          <select aria-label="Gesundheit" value={gesundheit} onChange={e => setGesundheit(e.target.value)} className={inp}>
-            <option value="G">G – Gut</option>
-            <option value="K">K – Krank/beschädigt</option>
           </select>
         </div>
 
@@ -421,6 +442,8 @@ export default function TraubenverkaufSection({
       mengeKg: v.menge_kg,
       preisProKg: v.preis_per_kg,
       kmw: v.kmw_grad,
+      oechsle: v.oechsle,
+      mostgewichtEinheit: v.mostgewicht_einheit,
       qualitaet: v.qualitaetsstufe ? qualitaetLabel(v.qualitaetsstufe) : null,
       gesundheit: v.gesundheit,
       herkunftscode: v.herkunft_code,
@@ -429,7 +452,7 @@ export default function TraubenverkaufSection({
       notizen: v.notizen,
     }))
     const datei = csvDatei(zeilen, SPALTEN_TRAUBENVERKAUF_LISTE)
-    return { text: datei.text, zeilen: datei.zeilen, warnungen: datei.warnungen, dateiname: csvDateiname(['Traubenverkauf-Liste', jahrgang]).utf8 }
+    return { text: datei.text, zeilen: datei.zeilen, warnungen: [...datei.warnungen, ...traubenverkaufListenHinweise(zeilen)], dateiname: csvDateiname(['Traubenverkauf-Liste', jahrgang]).utf8 }
   }
 
   return (
@@ -508,7 +531,9 @@ export default function TraubenverkaufSection({
                             </span>
                           </span>
                         )}
-                        {v.kmw_grad != null && <span>· {v.kmw_grad.toString().replace('.', ',')} °KMW</span>}
+                        {(v.kmw_grad != null || v.oechsle != null) && (
+                          <span>· <MostgewichtAnzeige wert={{ kmw: v.kmw_grad, oechsle: v.oechsle, einheit: v.mostgewicht_einheit }} /></span>
+                        )}
                         {v.qualitaetsstufe && <span>· {qualitaetLabel(v.qualitaetsstufe)}</span>}
                         {(v.firma_name ?? v.kontakt_name) && (
                           <span>· {v.firma_name ?? v.kontakt_name}</span>
