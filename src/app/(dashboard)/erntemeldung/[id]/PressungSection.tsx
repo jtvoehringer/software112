@@ -30,6 +30,9 @@ export type ZukaufTraubenOpt = {
   // werden können, da zugekaufte Trauben keine eigene Lese-Parzelle mit klosterneuburger
   // haben und daher sonst nicht in den gewichteten KMW-Durchschnitt einfließen.
   kmw_grad: number | null
+  // Messwert und Einheit des Zukaufs (KAN-128) – Vorbelegung beim Traubenverkauf aus dem Zukauf
+  oechsle?: number | null
+  mostgewicht_einheit?: string | null
 }
 export type PressungBeh = {
   id: string; behaelter_id: string | null; behaelter_name: string | null

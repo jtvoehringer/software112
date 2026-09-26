@@ -1,5 +1,6 @@
 import { unstable_cache, revalidateTag } from 'next/cache'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import type { MostgewichtEinheit } from '@/lib/wein/mostgewicht'
 
 // Layout-Cache (Performance, 17.9.2026): Branding, Module und Abo-Status eines
 // Betriebs werden bei JEDER Seitennavigation vom Dashboard-Layout gebraucht
@@ -34,7 +35,11 @@ export type TenantKopf = {
   ladefehler?: boolean
 }
 
-export const KOPF_SPALTEN = 'anzeigename, logo_url, primary_color, secondary_color, modul_newsletter, modul_ea, modul_sumup, modul_export, modul_controlling, buchhaltungsart, session_timeout_minuten, assistent_aktiv'
+// mostgewicht_einheit (KAN-128 Teil A, S3): bevorzugte Einheit °KMW/°Oe, Spalte aus Migration A.
+// ACHTUNG Reihenfolge: erst Migration A einspielen, dann diesen Stand deployen – solange die Spalte
+// fehlt, lehnt PostgREST die ganze Abfrage ab (42703), ladeTenantKopf() liefert dann bei jeder
+// Anfrage den leeren, ungecachten Stand (Standard-Branding, Module aus, Abo-Sperre FREI).
+export const KOPF_SPALTEN = 'anzeigename, logo_url, primary_color, secondary_color, modul_newsletter, modul_ea, modul_sumup, modul_export, modul_controlling, buchhaltungsart, session_timeout_minuten, assistent_aktiv, mostgewicht_einheit'
 
 const LEER: TenantKopf = { einstellungen: null, tenant: null, ladefehler: true }
 
@@ -81,6 +86,16 @@ export function betriebsName(kopf: TenantKopf): string {
 /** Mandantenname (tenants.name) – unterscheidet im Betriebs-Wächter Betriebe mit gleichem Anzeigenamen */
 export function mandantName(kopf: TenantKopf): string {
   return kopf.tenant?.name?.trim() || ''
+}
+
+/** Bevorzugte Mostgewicht-Einheit (KAN-128): 'oechsle' nur, wenn so eingestellt – sonst 'kmw' */
+export function mostgewichtEinheitAus(kopf: TenantKopf): MostgewichtEinheit {
+  return kopf.einstellungen?.mostgewicht_einheit === 'oechsle' ? 'oechsle' : 'kmw'
+}
+
+/** Bevorzugte Mostgewicht-Einheit für Server-Komponenten und Actions (aus dem 60-s-Cache) */
+export async function ladeMostgewichtEinheit(tenantId: string): Promise<MostgewichtEinheit> {
+  return mostgewichtEinheitAus(await ladeTenantKopf(tenantId))
 }
 
 /**

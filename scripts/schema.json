@@ -476,7 +476,8 @@
 "created_at",
 "weinbezeichnung",
 "grundstueck_id",
-"herkunft_code"
+"herkunft_code",
+"mostgewicht_einheit"
 ],
 "export_dokumente": [
 "id",
@@ -719,7 +720,13 @@
 "umzug_typ",
 "transaktions_nr",
 "herkunft_code_vorher",
-"herkunft_code_nachher"
+"herkunft_code_nachher",
+"kmw_vorher",
+"kmw_nachher",
+"oechsle_vorher",
+"oechsle_nachher",
+"mostgewicht_einheit_vorher",
+"mostgewicht_einheit_nachher"
 ],
 "kellerplaene": [
 "id",
@@ -985,7 +992,9 @@
 "ernte_datum",
 "kmw",
 "grundstueck_id",
-"zukauf_posten_id"
+"zukauf_posten_id",
+"oechsle",
+"mostgewicht_einheit"
 ],
 "pressungen": [
 "id",
@@ -996,7 +1005,9 @@
 "notizen",
 "erstellt_am",
 "weinbezeichnung",
-"kmw_grad"
+"kmw_grad",
+"oechsle",
+"mostgewicht_einheit"
 ],
 "profiles": [
 "id",
@@ -1273,7 +1284,8 @@
 "m365_kalender_schreiben",
 "newsletter_kurzname",
 "newsletter_datenschutz_url",
-"newsletter_einleitung"
+"newsletter_einleitung",
+"mostgewicht_einheit"
 ],
 "tenant_memberships": [
 "id",
@@ -1339,7 +1351,9 @@
 "liefernummer",
 "grundstueck_id",
 "verkaufsposten_id",
-"zukauf_posten_id"
+"zukauf_posten_id",
+"oechsle",
+"mostgewicht_einheit"
 ],
 "user_email_connections": [
 "id",
@@ -1432,7 +1446,10 @@
 "notizen",
 "created_at",
 "ziel_qualitaet_vorher",
-"ziel_herkunft_code_vorher"
+"ziel_herkunft_code_vorher",
+"ziel_kmw_vorher",
+"ziel_oechsle_vorher",
+"ziel_mostgewicht_einheit_vorher"
 ],
 "weinanalysen": [
 "id",
@@ -1483,7 +1500,9 @@
 "transaktions_nr",
 "weinart",
 "herkunft_code",
-"referenz_altsystem"
+"referenz_altsystem",
+"oechsle",
+"mostgewicht_einheit"
 ],
 "weinausbau_weingaerten": [
 "id",
@@ -1633,6 +1652,8 @@
 "qualitaetsstufe",
 "staatliche_pruefnummer",
 "eingangsrechnungsnummer",
-"zh_kontakt_id"
+"zh_kontakt_id",
+"oechsle",
+"mostgewicht_einheit"
 ]
 }

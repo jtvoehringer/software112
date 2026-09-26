@@ -15,9 +15,11 @@ import Topbar from './Topbar'
 import TabNav from './TabNav'
 import AssistantPanel from './AssistantPanel'
 import CommandPalette from '@/components/CommandPalette'
+import { MostgewichtEinheitProvider } from '@/components/wein/MostgewichtEinheit'
 import { buildNav } from '@/lib/navigation'
 import type { UserRole } from '@/lib/auth/roles'
 import type { TenantBranding } from '@/app/(dashboard)/layout'
+import type { MostgewichtEinheit } from '@/lib/wein/mostgewicht'
 
 interface Props {
   children: React.ReactNode
@@ -36,12 +38,15 @@ interface Props {
   auswertungenSichtbar?: boolean
   /** canWrite(role) – serverseitig ermittelt, steuert die Aktionen der Befehlspalette */
   darfSchreiben?: boolean
+  /** Bevorzugte Mostgewicht-Einheit des Betriebs (KAN-128) – für useMostgewichtEinheit() */
+  mostgewichtEinheit?: MostgewichtEinheit
 }
 
 export const APP_VERSION = 'v2.3.0 · August 2026'
 
 export default function AppShell({
   children, userEmail, userName, role, roleLabel, branding, betriebCount = 1, isSandbox = false, sandboxAdminUnlock = false, darfSchreiben = false, auswertungenSichtbar = true,
+  mostgewichtEinheit = 'kmw',
 }: Props) {
   const groups = useMemo(() => buildNav({
     role,
@@ -66,7 +71,8 @@ export default function AppShell({
             links und rechts ein Drittel leer. Kopfzeile und Navigation ziehen mit. */}
         <main id="inhalt" tabIndex={-1} className="flex-1 min-w-0 overflow-y-auto focus:outline-none">
           <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8 2xl:py-5">
-            {children}
+            {/* Bevorzugte Mostgewicht-Einheit für Formulare und Listen der Seiten (KAN-128) */}
+            <MostgewichtEinheitProvider einheit={mostgewichtEinheit}>{children}</MostgewichtEinheitProvider>
           </div>
 
           {/* Fußzeile: Dachmarke hohenstein + Auftragnehmer ICP Solutions */}

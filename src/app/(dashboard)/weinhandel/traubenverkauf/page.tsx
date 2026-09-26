@@ -28,7 +28,7 @@ export default async function TraubenverkaufPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: verkaufeRaw } = await alle<R>((supabase.from('traubenverkauf') as any)
     .select(`
-      id, datum, menge_kg, preis_per_kg, kmw_grad,
+      id, datum, menge_kg, preis_per_kg, kmw_grad, oechsle, mostgewicht_einheit,
       qualitaetsstufe, herkunft_code, gesundheit, liefernummer, notizen, jahrgang_id, grundstueck_id, zukauf_posten_id, verkaufsposten_id,
       weingarten:weingarten_id(id, name, trauben_herkunft_code),
       grundstueck:grundstueck_id(id, gst_nr, rebsorte, trauben_herkunft_code),
@@ -56,7 +56,7 @@ export default async function TraubenverkaufPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: ernteRaw } = jahrgangIds.length === 0 ? { data: [] as R[] } : await alle<R>((supabase.from('ernte_parzellen') as any)
     .select(`
-      id, klosterneuburger, qualitaetsstufe, menge_kg, jahrgang_id,
+      id, klosterneuburger, oechsle, mostgewicht_einheit, qualitaetsstufe, menge_kg, jahrgang_id,
       weingarten:weingarten_id(id, name, trauben_herkunft_code),
       grundstueck:grundstueck_id(id, gst_nr, rebsorte, trauben_herkunft_code),
       jahrgang:jahrgang_id(id, jahrgang)
@@ -90,7 +90,7 @@ export default async function TraubenverkaufPage() {
   // als verkaufbare Menge zur Verfügung (siehe Migration 141).
   const { data: zukaufRaw } = await (supabase.from('zukauf_posten') as any)
     .select(`
-      id, datum, menge, rebsorte, herkunft,
+      id, datum, menge, rebsorte, herkunft, kmw, oechsle, mostgewicht_einheit,
       lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname),
       lieferant_firma:firmen!lieferant_firma_id(name)
     `)
@@ -129,6 +129,10 @@ export default async function TraubenverkaufPage() {
       lieferant,
       rebsorte: z.rebsorte ?? null,
       herkunft: z.herkunft ?? null,
+      // Mostgewicht des Zukaufs mit gemessener Einheit (KAN-128) – Vorbelegung des Traubenverkaufs
+      kmw: z.kmw ?? null,
+      oechsle: z.oechsle ?? null,
+      mostgewicht_einheit: z.mostgewicht_einheit ?? null,
       menge_kg: mengeKg,
       verfuegbar_kg: Math.max(0, mengeKg - (pressedKgByZukauf[z.id] ?? 0) - (soldKgByZukauf[z.id] ?? 0)),
     }

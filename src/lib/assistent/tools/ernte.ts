@@ -3,7 +3,7 @@
 // Deckt die Mehrfacherfassung von Lesedaten ab (Abstimmung mit dem User):
 // sowohl ganze Rieden (Menge wird proportional nach Fläche auf die einzelnen
 // Grundstücke aufgeteilt, wie im bestehenden Formular) als auch einzelne
-// Grundstücke mit individuellen Werten (Menge/KMW/Notizen je Grundstück).
+// Grundstücke mit individuellen Werten (Menge/Mostgewicht/Notizen je Grundstück).
 // Fehlt der Weinjahrgang für das angegebene Erntejahr noch, legt der Bot ihn
 // im selben bestätigten Schritt automatisch an (Abstimmung mit dem User).
 //
@@ -17,6 +17,7 @@
 import { createJahrgang, createMultipleErnteParzellen } from '@/app/(dashboard)/erntemeldung/actions'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { LESE_QUALITAETEN, qualitaetFehler } from '@/lib/wein/qualitaet'
+import { messwertText, mostgewichtAusWert } from '@/lib/wein/mostgewichtFormular'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -30,9 +31,15 @@ FELD-MATRIX für "Ernte erfassen":
 
 Gemeinsame Felder: jahrgang (pflicht, Erntejahr als Zahl z.B. 2026 – existiert dafür noch kein
 Weinjahrgang-Datensatz, wird er automatisch mit angelegt), ernte_datum (pflicht, YYYY-MM-DD),
-lesemethode (optional: handlese/maschinenlese/selektionslese), klosterneuburger (optional,
-gemeinsamer °KMW-Wert), qualitaetsstufe (optional – wird derzeit NICHT übernommen: die Stufe
-wird immer aus den °KMW abgeleitet, ohne KMW gilt qualitaetswein; eine andere Stufe, z. B.
+lesemethode (optional: handlese/maschinenlese/selektionslese), gemeinsames Mostgewicht (optional)
+ENTWEDER klosterneuburger (in °KMW, höchstens 2 Nachkommastellen, 0–60) ODER oechsle (in °Oe,
+höchstens 1 Nachkommastelle, 0–350) – genau in der Einheit, die der User nennt, nie selbst
+umrechnen und nie beide angeben; gespeichert wird der Messwert mit seiner Einheit, der andere Wert
+wird umgerechnet. Die Zusammenfassung zur Bestätigung nennt jedes Mostgewicht mit der Einheit, in
+der der User es genannt hat (z. B. „17,4 °KMW“ bzw. „84 °Oe“) – so bestätigt er auch die Einheit.
+qualitaetsstufe (optional – wird derzeit NICHT übernommen: die Stufe
+wird immer aus den °KMW abgeleitet (bei °Oe aus dem umgerechneten °KMW), ohne Mostgewicht gilt
+qualitaetswein; eine andere Stufe, z. B.
 Eiswein, stellt der User nach dem Speichern beim Bearbeiten der Lese ein – darauf hinweisen.
 Angegeben werden dürfen nur diese Lese-Stufen: ${LESE_WERTE_TEXT} – DAC, Reserve, Erste Lage,
 Großes Gewächs, Sekt, Perlwein, Sonstiges, Strohwein und Ausbruch gibt es bei der Lese nicht),
@@ -46,9 +53,9 @@ Mindestens EINE der beiden folgenden Positions-Arten ist erforderlich (auch komb
   "grundstuecke" mit Einzelwerten verwenden).
 - "grundstuecke": Array einzelner Positionen {grundstueck_id (pflicht, ID aus dem
   Stammdaten-Kontext), menge_kg (pflicht – die tatsächlich gewogene Menge dieses
-  Grundstücks), kmw (optional, überschreibt den gemeinsamen klosterneuburger-Wert für
-  dieses Grundstück), notizen (optional, überschreibt die gemeinsamen notizen für dieses
-  Grundstück)}.
+  Grundstücks), Mostgewicht (optional, ENTWEDER kmw in °KMW ODER oechsle in °Oe – überschreibt
+  das gemeinsame Mostgewicht für dieses Grundstück), notizen (optional, überschreibt die
+  gemeinsamen notizen für dieses Grundstück)}.
 `.trim()
 
 export const ERNTE_TOOL = {
@@ -58,7 +65,9 @@ export const ERNTE_TOOL = {
     'Grundstücke eines Erntejahrs. Legt bei Bedarf automatisch den passenden Weinjahrgang an. ' +
     'WICHTIG: Rufe dieses Tool ausschließlich MIT bestaetigt_vom_user=true auf, und das auch ' +
     'nur, nachdem du dem User in einer normalen Textnachricht eine Zusammenfassung aller ' +
-    'Positionen gezeigt und er ausdrücklich zugestimmt hat (z.B. "ja", "passt", "ok"). Rufe es ' +
+    'Positionen gezeigt hast – Jahrgang, Datum, Rieden/Grundstücke mit Mengen und jedes ' +
+    'Mostgewicht mit der Einheit, in der er es genannt hat (z. B. „Mostgewicht 17,4 °KMW“ ' +
+    'bzw. „Mostgewicht 84 °Oe“) – und er ausdrücklich zugestimmt hat (z.B. "ja", "passt", "ok"). Rufe es ' +
     'NIEMALS vorher auf (auch nicht testweise) – nutze bestaetigt_vom_user=false nur, falls du ' +
     'aus Versehen ohne Bestätigung aufrufst, was du aber vermeiden sollst.',
   input_schema: {
@@ -71,7 +80,8 @@ export const ERNTE_TOOL = {
       jahrgang: { type: 'number', description: 'Erntejahr, z.B. 2026' },
       ernte_datum: { type: 'string', description: 'Datum der Lese, Format YYYY-MM-DD' },
       lesemethode: { type: 'string', enum: ['handlese', 'maschinenlese', 'selektionslese'] },
-      klosterneuburger: { type: 'number', description: 'Gemeinsamer °KMW-Wert (optional)' },
+      klosterneuburger: { type: 'number', description: 'Gemeinsames Mostgewicht in °KMW (optional; nicht zusammen mit oechsle)' },
+      oechsle: { type: 'number', description: 'Gemeinsames Mostgewicht in °Oe (optional, höchstens 1 Nachkommastelle; nicht zusammen mit klosterneuburger)' },
       qualitaetsstufe: {
         type: 'string',
         enum: LESE_WERTE,
@@ -94,7 +104,8 @@ export const ERNTE_TOOL = {
           properties: {
             grundstueck_id: { type: 'string', description: 'ID aus dem Stammdaten-Kontext' },
             menge_kg: { type: 'number' },
-            kmw: { type: 'number' },
+            kmw: { type: 'number', description: 'Mostgewicht in °KMW (nicht zusammen mit oechsle)' },
+            oechsle: { type: 'number', description: 'Mostgewicht in °Oe (nicht zusammen mit kmw)' },
             notizen: { type: 'string' },
           },
           required: ['grundstueck_id', 'menge_kg'],
@@ -103,6 +114,30 @@ export const ERNTE_TOOL = {
     },
     required: ['bestaetigt_vom_user', 'jahrgang', 'ernte_datum'],
   },
+}
+
+/**
+ * Mostgewicht-Parameter des Tools (KAN-128): °KMW ODER °Oe (Zahl, auch „17,4“ als Text). Prüft wie
+ * das Formular (mostgewichtAusWert: Stellen, Bereich) und liefert Messwert + Einheit für die Action –
+ * oder einen Hinweis an den Bot.
+ */
+type MostgewichtParameter = { wert: string | null; einheit: 'kmw' | 'oechsle' | null }
+function mostgewichtParameter(
+  kmw: unknown,
+  oechsle: unknown,
+  bezeichnung: string,
+): MostgewichtParameter | { hinweis: string } {
+  const hatKmw = kmw !== null && kmw !== undefined && kmw !== ''
+  const hatOe = oechsle !== null && oechsle !== undefined && oechsle !== ''
+  if (hatKmw && hatOe) {
+    return { hinweis: `${bezeichnung}: bitte nur EINEN Messwert angeben – °KMW oder °Oe, so wie gemessen. Beim User nachfragen, in welcher Einheit gemessen wurde. Es wurde NICHTS gespeichert.` }
+  }
+  if (!hatKmw && !hatOe) return { wert: null, einheit: null }
+  const einheit = hatKmw ? 'kmw' : 'oechsle'
+  const roh = hatKmw ? kmw : oechsle
+  const pruefung = mostgewichtAusWert(roh, einheit, bezeichnung)
+  if (!pruefung.ok) return { hinweis: `${pruefung.fehler} Bitte beim User nachfragen. Es wurde NICHTS gespeichert.` }
+  return pruefung.wert ? { wert: messwertText(pruefung.wert), einheit } : { wert: null, einheit: null }
 }
 
 export async function fuehreErnteErfassenAus(
@@ -115,7 +150,8 @@ export async function fuehreErnteErfassenAus(
     return {
       erfolg: false,
       hinweis: 'Noch nicht bestätigt. Fasse die geplante Eintragung (Jahrgang, Datum, alle ' +
-        'Rieden/Grundstücke mit Mengen) in einer normalen Textnachricht zusammen und frage den ' +
+        'Rieden/Grundstücke mit Mengen, jedes Mostgewicht mit Einheit wie vom User genannt – ' +
+        'z. B. „17,4 °KMW“ bzw. „84 °Oe“) in einer normalen Textnachricht zusammen und frage den ' +
         'User ausdrücklich um Bestätigung, bevor du dieses Tool erneut mit ' +
         'bestaetigt_vom_user=true aufrufst. Es wurde NICHTS gespeichert.',
     }
@@ -153,6 +189,17 @@ export async function fuehreErnteErfassenAus(
     }
   }
 
+  // KAN-128: Mostgewicht in °KMW ODER °Oe – vor dem Anlegen des Jahrgangs prüfen (Einheit, Stellen,
+  // Bereich wie das Formular); die Action rechnet beide Werte selbst
+  const gemeinsam = mostgewichtParameter(input.klosterneuburger, input.oechsle, 'Gemeinsames Mostgewicht')
+  if ('hinweis' in gemeinsam) return { erfolg: false, hinweis: gemeinsam.hinweis }
+  const jeGrundstueck: MostgewichtParameter[] = []
+  for (const g of grundstueckeIn) {
+    const mg = mostgewichtParameter(g.kmw, g.oechsle, `Grundstück ${g.grundstueck_id}`)
+    if ('hinweis' in mg) return { erfolg: false, hinweis: mg.hinweis }
+    jeGrundstueck.push(mg)
+  }
+
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId ?? null
   if (!tenantId) {
@@ -181,7 +228,7 @@ export async function fuehreErnteErfassenAus(
 
   // ── Grundstücke → jeweils zugehörigen weingarten_id nachladen (für GSTEntry-Payload) ──
   const grundstueckJson: R[] = []
-  for (const g of grundstueckeIn) {
+  for (const [i, g] of grundstueckeIn.entries()) {
     const { data: gst } = await (supabase.from('grundstuecke') as any)
       .select('id, weingarten_id').eq('id', g.grundstueck_id).eq('tenant_id', tenantId).eq('nutzart', 'WI').maybeSingle()
     if (!gst) {
@@ -192,7 +239,9 @@ export async function fuehreErnteErfassenAus(
       weingarten_id: (gst as R).weingarten_id,
       flaeche_ha: null, // nicht benötigt, da menge_kg pro Grundstück immer explizit angegeben wird
       menge_kg: Number(g.menge_kg),
-      kmw: g.kmw != null ? Number(g.kmw) : null,
+      // Messwert und gemessene Einheit (KAN-128) – createMultipleErnteParzellen rechnet beide Werte
+      mostgewicht_wert: jeGrundstueck[i].wert,
+      mostgewicht_einheit: jeGrundstueck[i].einheit,
       notizen: g.notizen ? String(g.notizen) : null,
     })
   }
@@ -202,7 +251,10 @@ export async function fuehreErnteErfassenAus(
   fd.append('grundstueck_json', JSON.stringify(grundstueckJson))
   fd.set('ernte_datum', String(input.ernte_datum))
   if (input.lesemethode) fd.set('lesemethode', String(input.lesemethode))
-  if (input.klosterneuburger != null) fd.set('klosterneuburger', String(input.klosterneuburger))
+  if (gemeinsam.wert !== null && gemeinsam.einheit) {
+    fd.set('mostgewicht_wert', gemeinsam.wert)
+    fd.set('mostgewicht_einheit', gemeinsam.einheit)
+  }
   if (input.qualitaetsstufe) fd.set('qualitaetsstufe', String(input.qualitaetsstufe))
   if (input.notizen) fd.set('notizen', String(input.notizen))
   if (riedenIn.menge_kg_gesamt != null) fd.set('menge_kg', String(riedenIn.menge_kg_gesamt))

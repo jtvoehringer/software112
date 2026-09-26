@@ -2,7 +2,8 @@
 
 import { useState, useRef, useTransition } from 'react'
 import Link from '@/components/ui/Link'
-import { saveBrandingOwn, uploadLogoOwn, saveBetriebOwn, saveBawbOwn } from './actions'
+import { saveBrandingOwn, uploadLogoOwn, saveBetriebOwn, saveBawbOwn, saveKellerwirtschaftOwn } from './actions'
+import type { MostgewichtEinheit } from '@/lib/wein/mostgewicht'
 import { BETRIEBSNUMMER_MUSTER, BETRIEBSNUMMER_ZWECK, weinbauBetriebsnummerFehlt } from '@/lib/betrieb/betriebsnummer'
 import type { EigeneBetriebsdaten } from './page'
 import BenutzerClient from '../../benutzer/BenutzerClient'
@@ -26,7 +27,7 @@ function inputCls() {
   return 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
 }
 
-type Tab = 'branding' | 'benutzer' | 'betrieb' | 'bawb' | 'abo'
+type Tab = 'branding' | 'benutzer' | 'betrieb' | 'keller' | 'bawb' | 'abo'
 
 export default function EinstellungenClient({
   daten, members, benutzerlimit, isSystemAdmin,
@@ -42,6 +43,7 @@ export default function EinstellungenClient({
     { id: 'branding', label: 'Branding' },
     { id: 'benutzer', label: 'Benutzer', count: members.length },
     { id: 'betrieb',  label: 'Betrieb' },
+    { id: 'keller',   label: 'Kellerwirtschaft' },
     { id: 'bawb',     label: 'bawb.at' },
     { id: 'abo',      label: 'Abo & Paket' },
   ]
@@ -89,6 +91,7 @@ export default function EinstellungenClient({
       {tab === 'branding' && <BrandingTabOwn daten={daten} />}
       {tab === 'benutzer' && <BenutzerClient members={members} limit={benutzerlimit} />}
       {tab === 'betrieb'  && <BetriebTabOwn daten={daten} />}
+      {tab === 'keller'   && <KellerwirtschaftTabOwn daten={daten} />}
       {tab === 'bawb'     && <BawbTabOwn daten={daten} />}
       {tab === 'abo'      && <AboTabOwn daten={daten} />}
     </div>
@@ -428,6 +431,66 @@ function BetriebTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
           rows={3} placeholder="z.B. Gemäß § 6 Abs. 1 Z 8 UStG befreit von der Umsatzsteuer."
           className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 resize-none" />
       </div>
+
+      <div className="flex items-center gap-3">
+        <button type="submit" disabled={pending}
+          className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+          {pending ? 'Speichern…' : 'Speichern'}
+        </button>
+        {saved && <span className="text-xs text-s112-blue-700 font-medium">Gespeichert</span>}
+      </div>
+      {fehler && <p role="alert" className="text-sm text-s112-err-fg">{fehler}</p>}
+    </form>
+  )
+}
+
+// ── Tab: Kellerwirtschaft (KAN-128 Teil A, S3) ───────────────────────────────
+// Bevorzugte Mostgewicht-Einheit des Betriebs (tenant_einstellungen.mostgewicht_einheit): steuert
+// nur, welche Einheit Formulare und Listen zuerst zeigen (useMostgewichtEinheit).
+
+const MOSTGEWICHT_EINHEIT_OPTS: { value: MostgewichtEinheit; label: string; text: string }[] = [
+  { value: 'kmw',     label: '°KMW (Klosterneuburger Mostwaage)', text: 'Einheit des österreichischen Weingesetzes – Standard.' },
+  { value: 'oechsle', label: '°Oe (Öchsle)',                      text: 'Wenn du meist in Öchsle misst, z. B. mit Dichtemesser oder Öchsle-Refraktometer.' },
+]
+
+function KellerwirtschaftTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
+  const [pending, startTransition] = useTransition()
+  const [saved, setSaved]         = useState(false)
+  const [fehler, setFehler]       = useState<string | null>(null)
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const fd = new FormData(e.currentTarget)
+    setFehler(null)
+    startTransition(async () => {
+      // Ergebnis auswerten – der Server lehnt z. B. im Nur-Lesen-Modus (KAN-5) mit { error } ab
+      const r = await saveKellerwirtschaftOwn(fd)
+      if (r && 'error' in r && r.error) { setFehler(r.error); return }
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    })
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-5 max-w-lg">
+      <fieldset aria-describedby="mostgewicht-einheit-hinweis">
+        <legend className="text-xs font-semibold text-s112-text-1 uppercase tracking-wide mb-3">Mostgewicht – bevorzugte Einheit</legend>
+        <div className="space-y-2">
+          {MOSTGEWICHT_EINHEIT_OPTS.map(o => (
+            <label key={o.value} className="flex items-start gap-2 text-sm text-s112-text">
+              <input type="radio" name="mostgewicht_einheit" value={o.value} required
+                defaultChecked={daten.mostgewicht_einheit === o.value} className="mt-1 accent-s112-teal" />
+              <span>{o.label}<span className="block text-xs text-s112-muted">{o.text}</span></span>
+            </label>
+          ))}
+        </div>
+        <p id="mostgewicht-einheit-hinweis" className="text-xs text-s112-muted mt-3">
+          Formulare und Listen zeigen diese Einheit zuerst, die andere umgerechnet daneben (≈). Die gemessene
+          Einheit wird bei jedem Eintrag mitgespeichert und bleibt davon unabhängig – ein Zukauf-Lieferschein
+          in °KMW bleibt z. B. in °KMW erfasst, auch wenn du sonst in °Oe misst. Qualitätsstufen richten sich
+          immer nach °KMW; Behördenmeldungen und Exporte zeigen °KMW vor °Oe.
+        </p>
+      </fieldset>
 
       <div className="flex items-center gap-3">
         <button type="submit" disabled={pending}

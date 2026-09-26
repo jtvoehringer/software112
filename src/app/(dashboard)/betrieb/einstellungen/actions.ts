@@ -13,7 +13,7 @@
 // hier wird die Ziel-Tenant-ID daher ausschließlich serverseitig aus der
 // aktiven Mitgliedschaft (getCurrentMembership) gelesen, nie vom Client
 // übernommen, und es werden ausschließlich Branding-/Betriebsdaten-/bawb.at-
-// Spalten gelesen und geschrieben.
+// und Kellerwirtschafts-Spalten (mostgewicht_einheit) gelesen und geschrieben.
 
 import { geheimSpeichern } from '@/lib/email/geheimnis'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
@@ -24,6 +24,7 @@ import { revalidatePath } from 'next/cache'
 import { tenantKopfInvalidieren } from '@/lib/tenant/kopf'
 import { stripeKundennummerSync } from '@/lib/stripe/kundennummer'
 import { weinbauBetriebsnummerPruefen } from '@/lib/betrieb/betriebsnummer'
+import { istMostgewichtEinheit } from '@/lib/wein/mostgewicht'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -157,6 +158,31 @@ export async function saveBetriebOwn(formData: FormData) {
 
   await stripeKundennummerSync(auth.tenantId) // PLZ gespeichert → Kundennummer ggf. neu vergeben
   tenantKopfInvalidieren(auth.tenantId)
+  revalidatePath('/betrieb/einstellungen')
+  return { success: true }
+}
+
+// ── Kellerwirtschaft (KAN-128 Teil A, S3) ───────────────────────────────────
+// Bevorzugte Mostgewicht-Einheit: welche Einheit Formulare und Listen zuerst zeigen
+// (useMostgewichtEinheit / ladeMostgewichtEinheit). Die gemessene Einheit je Eintrag bleibt
+// davon unabhängig. Nur canAdmin (requireOwnTenant); Service-Role wie saveBrandingOwn – keine
+// neuen Trigger-Argumente für a_schutz_plattformfelder nötig.
+
+export async function saveKellerwirtschaftOwn(formData: FormData) {
+  const auth = await requireOwnTenant()
+  if ('error' in auth) return { error: auth.error }
+  const einheit = formData.get('mostgewicht_einheit')
+  if (!istMostgewichtEinheit(einheit)) return { error: 'Bitte wähle °KMW oder °Oe als bevorzugte Einheit.' }
+  const admin = createSupabaseAdminClient()
+
+  const { error } = await (admin.from('tenant_einstellungen') as any).upsert({
+    tenant_id:           auth.tenantId,
+    mostgewicht_einheit: einheit,
+    aktualisiert_am:     new Date().toISOString(),
+  }, { onConflict: 'tenant_id' })
+
+  if (error) return { error: error.message }
+  tenantKopfInvalidieren(auth.tenantId)   // Layout-Cache: wirkt ab der nächsten Anfrage
   revalidatePath('/betrieb/einstellungen')
   return { success: true }
 }

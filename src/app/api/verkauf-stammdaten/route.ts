@@ -71,7 +71,7 @@ export async function GET() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       // tenant-isolation-ignore: ernte_parzellen ohne tenant_id, Filter über den Jahrgang
       (supabase.from('ernte_parzellen') as any)
-        .select('weingarten_id, grundstueck_id, menge_kg, klosterneuburger, qualitaetsstufe, ernte_datum, jahrgang_id, jahrgang:jahrgang_id!inner(tenant_id)')
+        .select('weingarten_id, grundstueck_id, menge_kg, klosterneuburger, oechsle, mostgewicht_einheit, qualitaetsstufe, ernte_datum, jahrgang_id, jahrgang:jahrgang_id!inner(tenant_id)')
         .eq('jahrgang.tenant_id', tenantId)
         .order('ernte_datum', { ascending: false }),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -124,19 +124,27 @@ export async function GET() {
         soldByGST[v.grundstueck_id] = (soldByGST[v.grundstueck_id] ?? 0) + (parseFloat(v.menge_kg) || 0)
     }
 
-    // Letztes KMW + Qualität pro Weingarten und pro GST (neueste ernte_parzelle)
-    const kmwByWG: Record<string, number | null> = {}
+    // Letztes Mostgewicht + Qualität pro Weingarten und pro GST (neueste ernte_parzelle). Mostgewicht
+    // mit gemessener Einheit (KAN-128): kmw führend, oechsle, einheit – Vorbelegung im Verkaufsformular
+    type Mg = { kmw: number | null; oechsle: number | null; einheit: string | null } | null
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mgAus = (l: any): Mg => (l.klosterneuburger == null && l.oechsle == null ? null : {
+      kmw: l.klosterneuburger != null ? Number(l.klosterneuburger) : null,
+      oechsle: l.oechsle != null ? Number(l.oechsle) : null,
+      einheit: l.mostgewicht_einheit ?? null,
+    })
+    const mgByWG: Record<string, Mg> = {}
     const qualByWG: Record<string, string | null> = {}
-    const kmwByGST: Record<string, number | null> = {}
+    const mgByGST: Record<string, Mg> = {}
     const qualByGST: Record<string, string | null> = {}
     // parzellen sind bereits nach ernte_datum desc sortiert → erster Treffer = neuester
     for (const l of parzellen) {
-      if (!(l.weingarten_id in kmwByWG)) {
-        kmwByWG[l.weingarten_id] = l.klosterneuburger != null ? Number(l.klosterneuburger) : null
+      if (!(l.weingarten_id in mgByWG)) {
+        mgByWG[l.weingarten_id] = mgAus(l)
         qualByWG[l.weingarten_id] = l.qualitaetsstufe ?? null
       }
-      if (l.grundstueck_id && !(l.grundstueck_id in kmwByGST)) {
-        kmwByGST[l.grundstueck_id] = l.klosterneuburger != null ? Number(l.klosterneuburger) : null
+      if (l.grundstueck_id && !(l.grundstueck_id in mgByGST)) {
+        mgByGST[l.grundstueck_id] = mgAus(l)
         qualByGST[l.grundstueck_id] = l.qualitaetsstufe ?? null
       }
     }
@@ -162,7 +170,8 @@ export async function GET() {
         lage_name:             (wg.lage as any)?.name ?? null,
         trauben_herkunft_code: wg.trauben_herkunft_code ?? null,
         verfuegbar_kg:         Math.max(0, (harvestedByWG[wg.id] ?? 0) - (pressedByWG[wg.id] ?? 0) - (soldByWG[wg.id] ?? 0)),
-        kmw_grad:              kmwByWG[wg.id] ?? null,
+        kmw_grad:              mgByWG[wg.id]?.kmw ?? null,
+        mostgewicht:           mgByWG[wg.id] ?? null,
         qualitaetsstufe:       qualByWG[wg.id] ?? null,
         jahrgang_id:           jahrgangIdByWG[wg.id] ?? null,
       }))
@@ -179,7 +188,8 @@ export async function GET() {
         weingarten_id: g.weingarten_id,
         rebsorte:      g.rebsorte ?? null,
         verfuegbar_kg:   Math.max(0, (harvestedByGST[g.id] ?? 0) - (pressedByGST[g.id] ?? 0) - (soldByGST[g.id] ?? 0)),
-        kmw_grad:        kmwByGST[g.id] ?? null,
+        kmw_grad:        mgByGST[g.id]?.kmw ?? null,
+        mostgewicht:     mgByGST[g.id] ?? null,
         qualitaetsstufe: qualByGST[g.id] ?? null,
         jahrgang_id:     jahrgangIdByGST[g.id] ?? null,
       }))

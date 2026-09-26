@@ -195,23 +195,52 @@ describe('KAN-36 – BKI-Kürzel (lib/wein/bki_kuerzel.ts)', () => {
 // ── Lesedaten ───────────────────────────────────────────────────────────────
 
 describe('lesedaten', () => {
-  test('Ladefunktion + Spalten: chronologisch, Codes unverändert, KMW 2 Stellen (verlustfrei), Formelschutz', async () => {
+  test('Ladefunktion + Spalten: chronologisch, Codes unverändert, KMW 2 Stellen (verlustfrei), °Oe, gemessene Einheit, Formelschutz', async () => {
     const db = supabaseDoppel(TABELLEN_ERNTE)
     const jg = await ernte.jahrgangPflicht(db, T, 2026)
     const { zeilen, warnungen } = await ernte.ladeLesedaten(db, jg.id)
     mandantengefiltert(db)
     assert.deepEqual(zeilen.map(z => z.id), ['p1', 'p4', 'p2', 'p3'])
     const text = csv.csvText(zeilen, ernte.SPALTEN_LESEDATEN)
+    // KAN-128: Zeilen vor Migration A (ohne Einheit, ohne °Oe) – °Oe aus dem °KMW, gemessen in °KMW
     assert.equal(text, BOM + [
-      'Lesedatum;Ried;KG-Nr.;GST-Nr.;Rebsorte;BKI-Kürzel;Menge (kg);Mostgewicht (°KMW);Qualitätsstufe;Lesemethode',
-      '10.09.2026;Ried Kaiserberg;04023;1234/5;Grüner Veltliner;GV;9000,00;17,40;Qualitätswein;Handlese',
-      '15.09.2026;Ried Satz;12003;88;Gemischer Satz;;1000,00;;Qualitätswein;',
-      '24.09.2026;Ried Kaiserberg;04023;1234/5;Grüner Veltliner;GV;2500,00;19,25;Qualitätswein;Selektionslese',
-      '02.10.2026;Ried Hochstraß;;;Zweigelt;ZW;6000,00;19,00;Kabinett;Maschinenlese',
+      'Lesedatum;Ried;KG-Nr.;GST-Nr.;Rebsorte;BKI-Kürzel;Menge (kg);Mostgewicht (°KMW);Mostgewicht (°Oe);Mostgewicht gemessen in;Qualitätsstufe;Lesemethode',
+      '10.09.2026;Ried Kaiserberg;04023;1234/5;Grüner Veltliner;GV;9000,00;17,40;85,7;°KMW;Qualitätswein;Handlese',
+      '15.09.2026;Ried Satz;12003;88;Gemischer Satz;;1000,00;;;;Qualitätswein;',
+      '24.09.2026;Ried Kaiserberg;04023;1234/5;Grüner Veltliner;GV;2500,00;19,25;95,5;°KMW;Qualitätswein;Selektionslese',
+      '02.10.2026;Ried Hochstraß;;;Zweigelt;ZW;6000,00;19,00;94,2;°KMW;Kabinett;Maschinenlese',
     ].join('\r\n') + '\r\n')
     assert.equal(warnungen.length, 1)
     assert.match(warnungen[0], /„Gemischer Satz“ steht nicht in der BKI-Kürzelliste/)
     assert.equal(zeilen.find(z => z.id === 'p2').kmw, 19.25)                  // Bearbeiten bekommt den gespeicherten Wert
+  })
+
+  test('KAN-128: Messwert in °Oe – °KMW verlustfrei, °Oe wie erfasst, gemessene Einheit; X-Warnung nur bei Stufenwechsel', async () => {
+    const lese = [
+      // 83,5 °Oe gemessen (Variante B: 17,00 °KMW, Kabinett), 94 °Oe (18,97 °KMW), 19,0 °KMW gemessen
+      { id: 'q1', jahrgang_id: 'jg26', weingarten_id: 'w1', grundstueck_id: 'g1', ernte_datum: '2026-09-10', menge_kg: 1000, menge_hl: null, oechsle: 83.5, klosterneuburger: 17, mostgewicht_einheit: 'oechsle', qualitaetsstufe: 'kabinett', weingarten: WG.w1, grundstueck: GST.g1 },
+      { id: 'q2', jahrgang_id: 'jg26', weingarten_id: 'w1', grundstueck_id: 'g1', ernte_datum: '2026-09-11', menge_kg: 1000, menge_hl: null, oechsle: 94, klosterneuburger: 18.97, mostgewicht_einheit: 'oechsle', qualitaetsstufe: 'kabinett', weingarten: WG.w1, grundstueck: GST.g1 },
+      { id: 'q3', jahrgang_id: 'jg26', weingarten_id: 'w2', grundstueck_id: null, ernte_datum: '2026-09-12', menge_kg: 1000, menge_hl: null, oechsle: 94.2, klosterneuburger: 19, mostgewicht_einheit: 'kmw', qualitaetsstufe: 'spaetlese', weingarten: WG.w2, grundstueck: null },
+      // nur °Oe gespeichert (vor Migration A möglich): °KMW nach Variante B ergänzt
+      { id: 'q4', jahrgang_id: 'jg26', weingarten_id: 'w2', grundstueck_id: null, ernte_datum: '2026-09-13', menge_kg: 500, menge_hl: null, oechsle: 73, klosterneuburger: null, mostgewicht_einheit: null, qualitaetsstufe: 'landwein', weingarten: WG.w2, grundstueck: null },
+    ]
+    const db = supabaseDoppel({ ...TABELLEN_ERNTE, ernte_parzellen: lese })
+    const { zeilen, warnungen } = await ernte.ladeLesedaten(db, 'jg26')
+    const zeile = csv.csvText(zeilen, ernte.SPALTEN_LESEDATEN).slice(1).split('\r\n')
+    assert.equal(zeile[1], '10.09.2026;Ried Kaiserberg;04023;1234/5;Grüner Veltliner;GV;1000,00;17,00;83,5;°Oe;Kabinett;')
+    assert.equal(zeile[2], '11.09.2026;Ried Kaiserberg;04023;1234/5;Grüner Veltliner;GV;1000,00;18,97;94,0;°Oe;Kabinett;')
+    assert.equal(zeile[3], '12.09.2026;Ried Hochstraß;;;Zweigelt;ZW;1000,00;19,00;94,2;°KMW;Spätlese;')
+    assert.equal(zeile[4], '13.09.2026;Ried Hochstraß;;;Zweigelt;ZW;500,00;14,99;73,0;°Oe;Landwein;')
+    // gespeicherte Werte bleiben für das Bearbeiten-Formular unverändert
+    assert.deepEqual(zeilen.map(z => [z.kmw, z.oechsle, z.mostgewichtEinheit]), [[17, 83.5, 'oechsle'], [18.97, 94, 'oechsle'], [19, 94.2, 'kmw'], [null, 73, null]])
+    assert.ok(!warnungen.some(w => /Mostgewicht/.test(w)), warnungen.join('\n'))   // 19,0 °KMW: keine X-Warnung
+  })
+
+  test('KAN-128: widersprüchliche Altzeile (°Oe gemessen, °KMW passt nicht) → X-Warnung mit Bezug', async () => {
+    const lese = [{ id: 'q9', jahrgang_id: 'jg26', weingarten_id: 'w1', grundstueck_id: 'g1', ernte_datum: '2026-09-10', menge_kg: 1000, oechsle: 83.4, klosterneuburger: 17, mostgewicht_einheit: 'oechsle', qualitaetsstufe: 'kabinett', weingarten: WG.w1, grundstueck: GST.g1 }]
+    const { warnungen } = await ernte.ladeLesedaten(supabaseDoppel({ ...TABELLEN_ERNTE, ernte_parzellen: lese }), 'jg26')
+    const w = warnungen.join('\n')
+    assert.match(w, /Mostgewicht gemessen in °Oe: exportiert 83,4 °Oe ergibt rechnerisch Qualitätswein, der gespeicherte Wert 17,0 °KMW Kabinett – Mostgewicht bitte prüfen\. \(1 Lese: 10\.09\.2026 Ried Kaiserberg GST 1234\/5\)/)
   })
 
   test('fremder oder unbekannter Jahrgang → 400', async () => {
@@ -231,11 +260,11 @@ describe('erntemeldung', () => {
     assert.equal(daten.quelle, 'lesedaten')
     const text = csv.csvText(daten.zeilen, ernte.SPALTEN_ERNTEMELDUNG)
     assert.equal(text, BOM + [
-      'Rebsorte;BKI-Kürzel;Fläche (ha);Menge (kg);davon als Trauben verkauft (kg);Menge (hl);Mostgewicht (°KMW);Qualitätsstufe;Ertrag (kg/ha);Höchstertrag (kg/ha);Übermenge (kg)',
-      'Gemischer Satz;;0,2500;1000;0;7,69;;Qualitätswein;4000;10000;0',
-      // °KMW mengengewichtet: (9000 × 17,4 + 2500 × 19,25) / 11500 = 17,80
-      'Grüner Veltliner;GV;1,0000;11500;800;88,46;17,80;Qualitätswein;11500;10000;1500',
-      'Zweigelt;ZW;0,8000;6000;0;46,15;19,00;Kabinett;7500;;',
+      'Rebsorte;BKI-Kürzel;Fläche (ha);Menge (kg);davon als Trauben verkauft (kg);Menge (hl);Mostgewicht (°KMW);Mostgewicht (°Oe);Qualitätsstufe;Ertrag (kg/ha);Höchstertrag (kg/ha);Übermenge (kg)',
+      'Gemischer Satz;;0,2500;1000;0;7,69;;;Qualitätswein;4000;10000;0',
+      // °KMW mengengewichtet: (9000 × 17,4 + 2500 × 19,25) / 11500 = 17,802… → 17,80; °Oe = f(17,80) = 87,8
+      'Grüner Veltliner;GV;1,0000;11500;800;88,46;17,80;87,8;Qualitätswein;11500;10000;1500',
+      'Zweigelt;ZW;0,8000;6000;0;46,15;19,00;94,2;Kabinett;7500;;',
     ].join('\r\n') + '\r\n')
     // Ausdruck summiert die gerundeten Zeilenwerte
     assert.deepEqual(daten.summe, { flaecheHa: 2.05, mengeKg: 18500, verkauftKg: 800, mengeHl: 142.3 })
@@ -275,6 +304,25 @@ describe('erntemeldung', () => {
     assert.match(w, /gespeicherte AMA-Meldung weicht von den Lesedaten ab: „Zweigelt“ \(Qualitätsstufe „Qualitätswein“, Lesedaten: Kabinett\)/)
     assert.doesNotMatch(w, /„Grüner Veltliner“ \(Qualitätsstufe/)
     assert.equal(daten.zeilen[0].kmw, 17.8)                                    // Mostgewicht aus den Lesedaten
+    assert.equal(daten.zeilen[0].oechsle, 87.8)
+  })
+
+  test('KAN-128: Ø °KMW abgerundet (nie über die Schwelle), °Oe = f(Ø °KMW), °Oe-Messungen über ihren °KMW', async () => {
+    const lese = [
+      // (1000 × 19,00 + 1 × 14,00) / 1001 = 18,995… → 18,99 (kaufmännisch wäre 19,00 = Spätlese)
+      { id: 'r1', jahrgang_id: 'jg26', weingarten_id: 'w2', grundstueck_id: null, ernte_datum: '2026-09-10', menge_kg: 1000, klosterneuburger: 19, oechsle: 94.2, mostgewicht_einheit: 'kmw', qualitaetsstufe: 'spaetlese', weingarten: WG.w2, grundstueck: null },
+      { id: 'r2', jahrgang_id: 'jg26', weingarten_id: 'w2', grundstueck_id: null, ernte_datum: '2026-09-11', menge_kg: 1, klosterneuburger: 14, oechsle: 67.9, mostgewicht_einheit: 'kmw', qualitaetsstufe: 'landwein', weingarten: WG.w2, grundstueck: null },
+      // je 50 % 14 und 22 °KMW: 18,00 °KMW = 88,8 °Oe (°Oe-Mittel wäre 89,2) – 22 °KMW als °Oe gemessen
+      { id: 'r3', jahrgang_id: 'jg26', weingarten_id: 'w1', grundstueck_id: 'g1', ernte_datum: '2026-09-12', menge_kg: 500, klosterneuburger: 14, oechsle: 67.9, mostgewicht_einheit: 'kmw', qualitaetsstufe: 'landwein', weingarten: WG.w1, grundstueck: GST.g1 },
+      { id: 'r4', jahrgang_id: 'jg26', weingarten_id: 'w1', grundstueck_id: 'g1', ernte_datum: '2026-09-13', menge_kg: 500, klosterneuburger: 22, oechsle: 110.5, mostgewicht_einheit: 'oechsle', qualitaetsstufe: 'auslese', weingarten: WG.w1, grundstueck: GST.g1 },
+    ]
+    const daten = await ernte.ladeErntemeldung(supabaseDoppel({ ...TABELLEN_ERNTE, ernte_parzellen: lese }), T, { id: 'jg26', jahrgang: 2026 })
+    const je = Object.fromEntries(daten.zeilen.map(z => [z.rebsorte, [z.kmw, z.oechsle]]))
+    assert.deepEqual(je.Zweigelt, [18.99, 94.1])
+    assert.deepEqual(je['Grüner Veltliner'], [18, 88.8])
+    const text = csv.csvText(daten.zeilen, ernte.SPALTEN_ERNTEMELDUNG)
+    assert.match(text, /\r\nZweigelt;ZW;0,8000;1001;0;7,70;18,99;94,1;;/)
+    assert.ok(!daten.warnungen.some(w => /exportiert/.test(w)))                // Mittelwerte sind keine Messwerte
   })
 
   test('gespeicherte Meldung mit erfassten hl: nicht übernommene hl werden gemeldet', async () => {
@@ -417,8 +465,9 @@ describe('bki-traubenverkauf', () => {
       'Betriebsnr_Empf;Name_Empf;Vorname_Empf;Strasse_Empf;Hausnr_Empf;PLZ_Empf;Ort_Empf;Betriebsnr_Vers;Name_Vers;Vorname_Vers;Strasse_Vers;Hausnr_Vers;PLZ_Vers;Ort_Vers;Datum_Lieferung;Menge_kg;Art;Weiss;Rot;Sorte1;Sorte2;Sorte3;Qualitaetsstufe;Jahrgang;Herkunft;KMW_Grad;Oechsle',
       // Menge_kg: ganze kg wie bisher ohne Komma (Schnittstelle „Menge int“), Bruchteil mit Dezimalkomma
       // Herkunft nur als BKI-Kürzel (KAN-36): Stufe des Grundstücks → WLTH, Bezeichnung → WLWV, Freitext leer
-      `7654321;"Weingut Huber, Stiftung";;Hauptstraße;3a;2170;Poysdorf;${vers};05.09.2026;"1250,5";TB;J;;RR;;;QUW;2026;WLTH;"17,4";`,
-      `;Gruber;Hans;Kellergasse;;3491;Straß im Straßertale;${vers};18.09.2026;980;TB;;J;ZW;;;AUB;2026;WLWV;"21,0";`,   // Ausbruch: AUB als Vorschlag
+      // KAN-128: KMW_Grad UND Oechsle immer befüllt – °Oe aus dem °KMW mit 1 Stelle, ohne Nachkomma-Null (105,0 → 105)
+      `7654321;"Weingut Huber, Stiftung";;Hauptstraße;3a;2170;Poysdorf;${vers};05.09.2026;"1250,5";TB;J;;RR;;;QUW;2026;WLTH;"17,4";"85,7"`,
+      `;Gruber;Hans;Kellergasse;;3491;Straß im Straßertale;${vers};18.09.2026;980;TB;;J;ZW;;;AUB;2026;WLWV;"21,0";105`,   // Ausbruch: AUB als Vorschlag
       `;;;;;;;${vers};20.09.2026;300;TB;;;;;;QUW;2026;;;`,
     ].join('\r\n'))
     const w = warnungen.join('\n')
@@ -431,6 +480,27 @@ describe('bki-traubenverkauf', () => {
     assert.match(w, /1 Traubenverkauf mit stornierter Rechnung ist nicht enthalten \(TV-0005\)/)
     assert.match(w, /Herkunft „Südburgenland“ \(Zukauf\) ist kein BKI-Herkunftskürzel – Spalte leer gelassen\. \(1 Lieferung: Lieferung vom 20\.09\.2026\)/)
     assert.doesNotMatch(w, /Herkunft[^\n]*TV-000[12]/)                         // WLTH und WLWV ohne Hinweis
+  })
+
+  test('KAN-128: Mostgewicht – beide Spalten, °KMW abgerundet, °Oe wie erfasst; X-Warnung nur bei Stufenwechsel', () => {
+    const basis = { datum: '2026-09-05', menge_kg: 100, qualitaetsstufe: 'qualitaetswein', grundstueck: { rebsorte: 'Grüner Veltliner' }, jahrgang: { jahrgang: 2026 } }
+    const faelle = [
+      [{ liefernummer: 'M1', kmw_grad: 16.33, oechsle: 80, mostgewicht_einheit: 'oechsle' }, '"16,3";80'],        // 80 → „80“
+      [{ liefernummer: 'M2', kmw_grad: 17, oechsle: 83.5, mostgewicht_einheit: 'oechsle' }, '"17,0";"83,5"'],     // 83,5 °Oe = 17,00 °KMW
+      [{ liefernummer: 'M3', kmw_grad: 18.97, oechsle: 94, mostgewicht_einheit: 'oechsle' }, '"18,9";94'],        // abgerundet, nicht „19,0“
+      [{ liefernummer: 'M4', kmw_grad: 18.95, oechsle: 93.9, mostgewicht_einheit: 'kmw' }, '"18,9";"93,9"'],      // gemessene 18,95 °KMW → „18,9“
+      [{ liefernummer: 'M5', kmw_grad: 19, oechsle: 94.2, mostgewicht_einheit: 'kmw' }, '"19,0";"94,2"'],         // 19,0 °KMW: gleiche Stufe
+      [{ liefernummer: 'M6', kmw_grad: 20.9, oechsle: 104.5, mostgewicht_einheit: 'oechsle' }, '"20,9";"104,5"'], // nie auf ganze °Oe (105 = Auslese)
+      [{ liefernummer: 'M7', kmw_grad: null, oechsle: 73, mostgewicht_einheit: 'oechsle' }, '"14,9";73'],         // nur °Oe gespeichert: °KMW nach Variante B
+      [{ liefernummer: 'M8', kmw_grad: 17.4, oechsle: null, mostgewicht_einheit: null }, '"17,4";"85,7"'],        // Altzeile ohne °Oe und Einheit
+    ]
+    const { zeilen, warnungen } = tv.bkiZeilen(faelle.map(([v]) => ({ ...basis, ...v })), { betrieb_betriebsnummer: '9' })
+    const text = csv.csvText(zeilen, tv.SPALTEN_BKI_TRAUBENVERKAUF, csv.PROFIL_BKI).split('\r\n').slice(3)
+    faelle.forEach(([v, soll], i) => assert.ok(text[i].endsWith(`;${soll}`), `${v.liefernummer}: ${text[i]}`))
+    assert.ok(!warnungen.some(w => /Mostgewicht/.test(w)), warnungen.join('\n'))
+    // widersprüchliche Altzeile: gemessene 83,4 °Oe ergäben Qualitätswein, gespeichert 17,0 °KMW = Kabinett
+    const wider = tv.bkiZeilen([{ ...basis, liefernummer: 'M9', kmw_grad: 17, oechsle: 83.4, mostgewicht_einheit: 'oechsle' }], { betrieb_betriebsnummer: '9' })
+    assert.match(wider.warnungen.join('\n'), /Mostgewicht gemessen in °Oe: exportiert 83,4 °Oe ergibt rechnerisch Qualitätswein, der gespeicherte Wert 17,0 °KMW Kabinett .* \(1 Lieferung: M9\)/)
   })
 
   test('Formelzeichen in Stammdaten: am Feldanfang entfernt und gemeldet (kein Apostroph im Upload)', () => {
@@ -471,9 +541,41 @@ describe('bki-traubenverkauf', () => {
       { liefernummer: null, datum: null, jahrgang: null, quelle: null, gstNr: null, mengeKg: null, preisProKg: null, kmw: null, qualitaet: null, gesundheit: null, herkunftscode: null, kaeufer: null, rechnungsnummer: null, notizen: null },
     ], tv.SPALTEN_TRAUBENVERKAUF_LISTE)
     const zeilen = t.slice(1).split('\r\n')
-    assert.equal(zeilen[0], 'Liefernummer;Lieferdatum;Jahrgang;Quelle (Ried bzw. Zukauf);GST-Nr.;Menge (kg);Preis (€/kg);Betrag (€);Mostgewicht (°KMW);Qualitätsstufe;Gesundheit (G/K);Herkunftscode;Käufer;Rechnung;Notizen')
-    assert.equal(zeilen[1], "TV-0001;05.09.2026;2026;Kaiserberg;1234/5;1250,50;0,6550;819,08;17,4;Qualitätswein;G;NÖ;'+43 Genossenschaft;RE-2026-0001;")   // kmw_grad numeric(5,1) → 1 Stelle
-    assert.equal(zeilen[2], ';;;;;;;;;;;;;;')
+    assert.equal(zeilen[0], 'Liefernummer;Lieferdatum;Jahrgang;Quelle (Ried bzw. Zukauf);GST-Nr.;Menge (kg);Preis (€/kg);Betrag (€);Mostgewicht (°KMW);Mostgewicht (°Oe);Mostgewicht gemessen in;Qualitätsstufe;Gesundheit (G/K);Herkunftscode;Käufer;Rechnung;Notizen')
+    assert.equal(zeilen[1], "TV-0001;05.09.2026;2026;Kaiserberg;1234/5;1250,50;0,6550;819,08;17,4;85,7;°KMW;Qualitätswein;G;NÖ;'+43 Genossenschaft;RE-2026-0001;")   // 1 Stelle, °Oe aus dem °KMW
+    assert.equal(zeilen[2], ';;;;;;;;;;;;;;;;')
+    // KAN-128: °KMW auf 1 Stelle ABGERUNDET (18,95 → 18,9, nicht 19,0), °Oe-Messung mit Einheit
+    const t2 = csv.csvText([
+      { liefernummer: 'TV-2', datum: null, jahrgang: null, quelle: null, gstNr: null, mengeKg: null, preisProKg: null, kmw: 18.95, oechsle: 93.9, mostgewichtEinheit: 'kmw', qualitaet: null, gesundheit: null, herkunftscode: null, kaeufer: null, rechnungsnummer: null, notizen: null },
+      { liefernummer: 'TV-3', datum: null, jahrgang: null, quelle: null, gstNr: null, mengeKg: null, preisProKg: null, kmw: 18.97, oechsle: 94, mostgewichtEinheit: 'oechsle', qualitaet: null, gesundheit: null, herkunftscode: null, kaeufer: null, rechnungsnummer: null, notizen: null },
+    ], tv.SPALTEN_TRAUBENVERKAUF_LISTE).slice(1).split('\r\n')
+    assert.equal(t2[1], 'TV-2;;;;;;;;18,9;93,9;°KMW;;;;;;')
+    assert.equal(t2[2], 'TV-3;;;;;;;;18,9;94,0;°Oe;;;;;;')
+    // X-Warnung nur für eine widersprüchliche Messung (83,4 °Oe gemessen, 17,0 °KMW gespeichert)
+    const zeile = (liefernummer, kmw, oechsle, mostgewichtEinheit) => ({ liefernummer, datum: null, jahrgang: null, quelle: null, gstNr: null, mengeKg: null, preisProKg: null, kmw, oechsle, mostgewichtEinheit, qualitaet: null, gesundheit: null, herkunftscode: null, kaeufer: null, rechnungsnummer: null, notizen: null })
+    assert.deepEqual(tv.traubenverkaufListenHinweise([zeile('TV-2', 18.95, 93.9, 'kmw'), zeile('TV-3', 18.97, 94, 'oechsle'), zeile('TV-4', null, null, null)]), [])
+    const w = tv.traubenverkaufListenHinweise([zeile('TV-5', 17, 83.4, 'oechsle')])
+    assert.equal(w.length, 1)
+    assert.match(w[0], /exportiert 83,4 °Oe ergibt rechnerisch Qualitätswein.*\(1 Lieferung: TV-5\)$/)
+  })
+
+  test('interne Traubenverkauf-Liste: °KMW auf 1 Stelle abgerundet kippt nie über eine Stufenschwelle (Entscheidung 8)', async () => {
+    const { abrunden, ausMessung, KMW_MAX, OECHSLE_MAX } = await import('../../src/lib/wein/mostgewicht.ts')
+    const { kmwZuQualitaet } = await import('../../src/lib/weinqualitaet.ts')
+    const zeile = (m) => ({ liefernummer: `TV ${m.kmw}`, datum: null, jahrgang: null, quelle: null, gstNr: null, mengeKg: null, preisProKg: null, kmw: m.kmw, oechsle: m.oechsle, mostgewichtEinheit: m.einheit, qualitaet: null, gesundheit: null, herkunftscode: null, kaeufer: null, rechnungsnummer: null, notizen: null })
+    const gemessen = []
+    for (let h = 0; h <= KMW_MAX * 100; h++) gemessen.push(ausMessung(h / 100, 'kmw'))             // 2-stellige °KMW-Messungen
+    for (let z = 0; z <= OECHSLE_MAX * 10; z++) gemessen.push(ausMessung(z / 10, 'oechsle'))      // °Oe-Messungen (°KMW nach B)
+    const spalte = tv.SPALTEN_TRAUBENVERKAUF_LISTE.find(s => s.kopf === 'Mostgewicht (°KMW)')
+    const gekippt = gemessen.filter(m => kmwZuQualitaet(spalte.wert(zeile(m))) !== kmwZuQualitaet(m.kmw))
+    assert.deepEqual(gekippt, [])
+    assert.deepEqual(tv.traubenverkaufListenHinweise(gemessen.map(zeile)), [])
+    // an den Schwellen: abgerundet, nie aufgerundet
+    assert.equal(spalte.wert(zeile(ausMessung(16.99, 'kmw'))), 16.9)
+    assert.equal(kmwZuQualitaet(16.9), 'qualitaetswein')
+    assert.equal(spalte.wert(zeile(ausMessung(17.09, 'kmw'))), 17)
+    assert.equal(spalte.wert(zeile(ausMessung(94, 'oechsle'))), 18.9)                          // 18,97 °KMW
+    assert.equal(abrunden(18.97, 1), 18.9)
   })
 })
 

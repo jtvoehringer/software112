@@ -61,7 +61,7 @@ export type CsvSpalte<Z> = {
   /** Rohwert der Zeile – Zahlen als number, Datum als 'JJJJ-MM-TT' bzw. ISO-Zeitpunkt, Ja/Nein als boolean */
   wert: (z: Z) => unknown
   /** Nachkommastellen dieser Spalte (gilt für jede Zeile gleich). 'roh' = String(n) ohne Rundung – nur für
-   *  Empfängerprofile mit festgeschriebenem Altverhalten (PROFIL_BMD; PROFIL_BKI Menge_kg, Wert vorher gerundet). */
+   *  Empfängerprofile mit festgeschriebenem Altverhalten (PROFIL_BMD; PROFIL_BKI Menge_kg und Oechsle, Wert vorher gerundet). */
   stellen?: number | 'roh'
 }
 
@@ -165,7 +165,11 @@ export const PROFIL_BMD: CsvProfil = Object.freeze({
  *  kg-Spalten mit Bruchteilen (z. B. Cu-Reinmenge) durchgehend kgGenau.
  *  kmw: 2 = verlustfrei für ernte_parzellen.klosterneuburger / weinausbau.kmw (numeric(5,2)) –
  *  eine Rundung auf 1 Stelle könnte über gesetzliche Mindestgradationen springen (18,95 → 19,0).
- *  kmwBki: 1 = Traubenverkauf (kmw_grad numeric(5,1)), BKI-Schnittstelle „KMW_Grad“, Transportbescheinigung. */
+ *  kmwBki: 1 = BKI-Schnittstelle „KMW_Grad“, Traubenverkauf-Liste, Transportbescheinigung – weniger
+ *  Stellen als gespeichert: die Ladefunktion rundet °KMW vorher AB (KAN-128, Entscheidung 8;
+ *  lib/behoerden/mostgewicht_export.ts), sonst rundete csvText() kaufmännisch über die Schwelle.
+ *  oechsle: 1 = °Oe wie gespeichert (numeric(5,1), KAN-128 Entscheidung 9); die BKI-EDV-Liste gibt
+ *  den Wert ohne Nachkomma-Null aus (stellen: 'roh', 80 → „80“, 83,5 → „83,5“). */
 export const STELLEN = Object.freeze({
   betrag: 2,
   liter: 2,
@@ -176,7 +180,7 @@ export const STELLEN = Object.freeze({
   prozent: 2,
   kmw: 2,
   kmwBki: 1,
-  oechsle: 0,
+  oechsle: 1,
   ganzzahl: 0,
 })
 

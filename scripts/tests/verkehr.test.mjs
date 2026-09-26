@@ -205,6 +205,13 @@ describe('transportbescheinigung', () => {
     assert.deepEqual(hinweise, [])
   })
 
+  test('KAN-128: °KMW der Traubenlieferung auf 1 Stelle abgerundet (94 °Oe = 18,97 °KMW → „18,9“, nicht „19,0“)', () => {
+    const trauben = (kmw_grad) => ({ id: 'q', typ: 'trauben', menge: 100, traubenverkauf: { id: 't', datum: '2026-09-10', kmw_grad, grundstueck: { rebsorte: 'Zweigelt' } } })
+    const posten = { ...POSTEN, positionen: [trauben(18.97), trauben(18.95), trauben(19), trauben(null)] }
+    const pos = tb.tbVorbelegung(posten, CFG, { jeWeinausbau: {}, jeDacAntrag: {} }, '2026-09-24', []).positionen
+    assert.deepEqual(pos.map(p => p.alkohol_pct), ['18,9 °KMW', '18,9 °KMW', '19 °KMW', ''])   // Formblatt ohne Nachkomma-Null wie bisher
+  })
+
   test('Farbe nur aus der amtlichen Kürzelliste; Traubensorte über Grundstück → Ried → Zukauf; kein Ersatzkürzel', () => {
     const posten = {
       ...POSTEN,

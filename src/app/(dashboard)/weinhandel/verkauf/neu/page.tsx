@@ -10,6 +10,8 @@ import { LESE_QUALITAETEN, mitGespeichertemWert } from '@/lib/wein/qualitaet'
 import { fmtEur, fmtNum } from '@/lib/format'
 import PartnerSuche from '@/components/crm/PartnerSuche'
 import { fehlerText } from '@/lib/fehler'
+import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
+import type { GespeichertesMostgewicht } from '@/lib/wein/mostgewichtFormular'
 
 // ── Typen ─────────────────────────────────────────────────────────────────────
 
@@ -39,6 +41,8 @@ interface Weingarten {
   trauben_herkunft_code: string | null
   verfuegbar_kg: number
   kmw_grad: number | null
+  /** Mostgewicht der neuesten Lese mit gemessener Einheit (KAN-128) */
+  mostgewicht?: GespeichertesMostgewicht | null
   qualitaetsstufe: string | null
   jahrgang_id: string | null
 }
@@ -55,6 +59,8 @@ interface Grundstueck {
   rebsorte: string | null
   verfuegbar_kg: number
   kmw_grad: number | null
+  /** Mostgewicht der neuesten Lese mit gemessener Einheit (KAN-128) */
+  mostgewicht?: GespeichertesMostgewicht | null
   qualitaetsstufe: string | null
   jahrgang_id: string | null
 }
@@ -77,7 +83,9 @@ interface Position {
   trauben_weingarten_id:   string
   trauben_jahrgang_id:     string
   trauben_grundstueck_id:  string
-  trauben_kmw_grad:        string
+  /** Vorbelegung des Mostgewichts (Lese der Ried/GST, KAN-128) – den Messwert hält die Eingabe
+   *  selbst (versteckte Felder trauben_<id>_mostgewicht_wert/_einheit, beim Absenden gelesen) */
+  trauben_mostgewicht:     GespeichertesMostgewicht | null
   trauben_qualitaetsstufe: string
   trauben_herkunft_code:   string
   trauben_gesundheit:      'G' | 'K'
@@ -236,7 +244,7 @@ export default function NeuerVerkaufPage() {
       trauben_weingarten_id:   '',
       trauben_jahrgang_id:     '',
       trauben_grundstueck_id:  '',
-      trauben_kmw_grad:        '',
+      trauben_mostgewicht:     null,
       trauben_qualitaetsstufe: '',
       trauben_herkunft_code:   '',
       trauben_gesundheit:      'G',
@@ -311,9 +319,16 @@ export default function NeuerVerkaufPage() {
     return s + preis * (1 - rabatt) * (1 - sonder) * menge
   }, 0)
 
-  function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError(null)
+    // Mostgewicht der Weintrauben-Positionen: Messwert wie eingegeben + Einheit aus den versteckten
+    // Feldern der Eingabe – createVerkauf rechnet beide Werte serverseitig (KAN-128)
+    const formular = new FormData(e.currentTarget)
+    const mgFeld = (p: Position, teil: 'wert' | 'einheit') => {
+      const w = formular.get(`trauben_${p.id}_mostgewicht_${teil}`)
+      return typeof w === 'string' && w !== '' ? w : null
+    }
 
     const posForServer = positionen.map(p => ({
       typ:           p.typ,
@@ -329,7 +344,8 @@ export default function NeuerVerkaufPage() {
       trauben_weingarten_id:   p.trauben_weingarten_id   || null,
       trauben_jahrgang_id:     p.trauben_jahrgang_id     || null,
       trauben_grundstueck_id:  p.trauben_grundstueck_id  || null,
-      trauben_kmw_grad:        parseFloat(p.trauben_kmw_grad) || null,
+      trauben_mostgewicht_wert:    p.typ === 'trauben' ? mgFeld(p, 'wert') : null,
+      trauben_mostgewicht_einheit: p.typ === 'trauben' ? mgFeld(p, 'einheit') : null,
       trauben_qualitaetsstufe: p.trauben_qualitaetsstufe || null,
       trauben_herkunft_code:   p.trauben_herkunft_code   || null,
       trauben_gesundheit:      p.trauben_gesundheit       || 'G',
@@ -608,7 +624,7 @@ export default function NeuerVerkaufPage() {
                             trauben_grundstueck_id: '',
                             trauben_herkunft_code: wg?.trauben_herkunft_code ?? '',
                             name: wg ? `Weintrauben – ${wg.lage_name ?? wg.name}` : '',
-                            trauben_kmw_grad:        wg?.kmw_grad != null ? String(wg.kmw_grad) : '',
+                            trauben_mostgewicht:     wg?.mostgewicht ?? (wg?.kmw_grad != null ? { kmw: wg.kmw_grad } : null),
                             trauben_qualitaetsstufe: wg?.qualitaetsstufe ?? '',
                             trauben_jahrgang_id:     wg?.jahrgang_id ?? '',
                           })
@@ -630,7 +646,9 @@ export default function NeuerVerkaufPage() {
                           const gst = grundstuecke.find(g => g.id === e.target.value)
                           updatePos(idx, {
                             trauben_grundstueck_id: e.target.value,
-                            ...(gst?.kmw_grad != null        ? { trauben_kmw_grad: String(gst.kmw_grad) } : {}),
+                            ...(gst?.mostgewicht || gst?.kmw_grad != null
+                              ? { trauben_mostgewicht: gst.mostgewicht ?? { kmw: gst.kmw_grad } }
+                              : {}),
                             ...(gst?.qualitaetsstufe != null ? { trauben_qualitaetsstufe: gst.qualitaetsstufe } : {}),
                             ...(gst?.jahrgang_id != null     ? { trauben_jahrgang_id: gst.jahrgang_id }         : {}),
                           })
@@ -657,12 +675,9 @@ export default function NeuerVerkaufPage() {
                         ))}
                       </select>
                     </div>
-                    <div>
-                      <label className={labelCls}>KMW (°Kl.)</label>
-                      <input aria-label="KMW (°Kl.)" type="number" value={pos.trauben_kmw_grad}
-                        onChange={e => updatePos(idx, { trauben_kmw_grad: e.target.value })}
-                        step="0.1" min={0} placeholder="z.B. 17.5"
-                        className={inputCls + ' w-full'} />
+                    {/* Mostgewicht in °KMW oder °Oe (KAN-128) – bevorzugte Einheit zuerst */}
+                    <div className="col-span-2 sm:col-span-3">
+                      <MostgewichtEingabe name={`trauben_${pos.id}_mostgewicht`} startwert={pos.trauben_mostgewicht} />
                     </div>
                     <div>
                       <label className={labelCls}>Qualitätsstufe</label>
