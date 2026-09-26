@@ -15,7 +15,7 @@
 // übernommen, und es werden ausschließlich Branding-/Betriebsdaten-/bawb.at-
 // und Kellerwirtschafts-Spalten (mostgewicht_einheit) gelesen und geschrieben.
 
-import { geheimSpeichern } from '@/lib/email/geheimnis'
+import { geheimFeld } from '@/lib/email/geheimnis'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
 import { seitenBetriebFehler } from '@/lib/auth/seitenBetrieb'
@@ -197,7 +197,8 @@ export async function saveBawbOwn(formData: FormData) {
   const { error } = await (admin.from('tenant_einstellungen') as any).upsert({
     tenant_id:       auth.tenantId,
     bawb_kennung:    (formData.get('bawb_kennung')  as string) || null,
-    bawb_passwort:   geheimSpeichern(formData.get('bawb_passwort')) ?? null,  // S11: verschlüsselt
+    // S11: verschlüsselt; KAN-135: Maske (= unverändert) lässt das Feld weg, statt es zu leeren
+    ...geheimFeld('bawb_passwort', formData.get('bawb_passwort')),
     aktualisiert_am: new Date().toISOString(),
   }, { onConflict: 'tenant_id' })
 

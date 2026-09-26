@@ -4,7 +4,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
 import { getTenantMembers } from '../../benutzer/actions'
 import EinstellungenClient from './EinstellungenClient'
-import { geheimLesen } from '@/lib/email/geheimnis'
+import { geheimMaskiert } from '@/lib/email/geheimnis'
 import { pruefeBenutzerlimit } from '@/lib/pakete-server'
 import { paketAusPlan } from '@/lib/pakete'
 import type { MostgewichtEinheit } from '@/lib/wein/mostgewicht'
@@ -124,7 +124,7 @@ export default async function MeinBetriebPage() {
     rechnung_bic:      s?.rechnung_bic ?? null,
     rechnung_fusstext: s?.rechnung_fusstext ?? null,
     bawb_kennung:      s?.bawb_kennung ?? null,
-    bawb_passwort:     (() => { try { return geheimLesen(s?.bawb_passwort) } catch { return null } })(),
+    bawb_passwort:     geheimMaskiert(s?.bawb_passwort),   // KAN-135: nur „hinterlegt ja/nein“, nie der Klartext
     mostgewicht_einheit: s?.mostgewicht_einheit === 'oechsle' ? 'oechsle' : 'kmw',
     paket:             paketAusPlan(t.stripe_plan) ?? null,
     stripe_status:     t.stripe_status ?? null,

@@ -33,8 +33,9 @@ export async function GET(req: NextRequest) {
 
     // Per-User Verbindung + Tenant App-Credentials laden
     const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ fehler: 'Nicht angemeldet' }, { status: 401 })
     const [{ data: cfg }, { data: tenantCfg }] = await Promise.all([
-      (supabase.from('user_email_connections') as any)
+      (admin.from('user_email_connections') as any)
         .select('m365_aktiv, m365_access_token_enc, m365_refresh_token_enc, m365_token_expires_at, imap_aktiv, imap_host, imap_port, imap_user, imap_pass_enc, monitored_email, email_address').eq('tenant_id', tenantId).eq('user_id', user?.id ?? '').maybeSingle(),
       (admin.from('tenant_einstellungen') as any)
         .select('m365_tenant_id, m365_client_id, m365_client_secret_enc').eq('tenant_id', tenantId).maybeSingle(),
@@ -43,7 +44,7 @@ export async function GET(req: NextRequest) {
 
     // M365
     if (c?.m365_aktiv && c?.m365_access_token_enc) {
-      const token = await getValidUserAccessToken(c, tenantCfg as R, supabase, tenantId, user?.id ?? '')
+      const token = await getValidUserAccessToken(c, tenantCfg as R, admin, tenantId, user?.id ?? '')
       // Echte Ordner-ID verwenden wenn vorhanden, sonst Standard-Ordner
       // Mailbox laut ?mailbox=own|shared (own = Standard, siehe getMailboxBase)
       const mailboxBase = getMailboxBase(c as R, mailbox)
