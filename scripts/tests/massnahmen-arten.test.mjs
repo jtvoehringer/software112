@@ -9,7 +9,9 @@
 //
 // Resolve-Hook wie in pflanzenschutz.test.mjs ('@/'-Aliase, endungslose Importe, 'server-only'); für den
 // Assistenten ersetzt er zusätzlich die Server Action createBehandlung und getCurrentMembership durch
-// Attrappen – der Test speichert nichts.
+// Attrappen – der Test speichert nichts. createBehandlung/updateBehandlung selbst laufen gegen eine
+// Supabase-Attrappe (merkt sich insert/update); Betriebs-, Schreibsperren-Prüfung und revalidatePath
+// sind leer.
 
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
@@ -34,6 +36,40 @@ const ATTRAPPEN = {
     'export async function createBehandlung(fd) { globalThis.__kan143Aufrufe.push(fd); return { id: "b-neu", hinweise: [] } }',
   '@/lib/auth/roles':
     'export async function getCurrentMembership() { return { tenantId: "t-1", role: "winzer" } }',
+  '@/lib/supabase/server':
+    'export async function createSupabaseServerClient() { return globalThis.__kan143Supabase }',
+  '@/lib/auth/seitenBetrieb': 'export async function pruefeSeitenBetrieb() {}',
+  '@/lib/auth/sperren': 'export async function pruefeSchreibzugriff() {}',
+  'next/cache': 'export function revalidatePath() {}',
+}
+
+// Supabase-Attrappe für die Server Actions: Abfragen sind verkettbar und awaitbar, insert/update werden
+// in schreiben gemerkt. Eine Maßnahme auf einem GST mit 2 ha.
+function supabaseAttrappe() {
+  const schreiben = []
+  const antwort = (tabelle, op) => {
+    if (tabelle === 'grundstuecke') return { data: [{ id: 'g-1', weingarten_id: 'w-1', flaeche_ha: 2 }], error: null }
+    if (tabelle === 'behandlungen' && op === 'insert') return { data: { id: 'b-neu' }, error: null }
+    if (tabelle === 'behandlungen' && op === 'select') return { data: { id: 'b-1', behandlung_grundstuecke: [{ flaeche_ha: 2 }] }, error: null }
+    return { data: null, error: null }
+  }
+  return {
+    schreiben,
+    from(tabelle) {
+      let op = 'select'
+      const q = {
+        select: () => q, eq: () => q, in: () => q, or: () => q,
+        insert(p) { op = 'insert'; schreiben.push({ tabelle, op, p }); return q },
+        update(p) { op = 'update'; schreiben.push({ tabelle, op, p }); return q },
+        delete() { op = 'delete'; schreiben.push({ tabelle, op }); return q },
+        single: () => Promise.resolve(antwort(tabelle, op)),
+        maybeSingle: () => Promise.resolve(antwort(tabelle, op)),
+        then: (ok, fehler) => Promise.resolve(antwort(tabelle, op)).then(ok, fehler),
+      }
+      return q
+    },
+    rpc: () => Promise.resolve({ data: null, error: null }),
+  }
 }
 
 const hooksMoeglich = typeof nodeModule.registerHooks === 'function'
@@ -58,11 +94,12 @@ if (hooksMoeglich) {
 }
 
 const laden = (rel) => import(pathToFileURL(path.join(SRC, rel)).href)
-const [arten, psm, rueck, feld, mengen, massnahmeMengen, tool] = hooksMoeglich
+const [arten, psm, rueck, feld, mengen, massnahmeMengen, tool, aktionen] = hooksMoeglich
   ? await Promise.all([
       laden('lib/behandlungen/arten.ts'), laden('lib/behoerden/psm.ts'), laden('lib/behoerden/rueckverfolgung.ts'),
       laden('app/(dashboard)/behandlungen/neu/feldMatrix.ts'), laden('app/(dashboard)/behandlungen/neu/mengenFelder.ts'),
       laden('lib/behandlungen/massnahmeMengen.ts'), laden('lib/assistent/tools/massnahme.ts'),
+      laden('app/(dashboard)/behandlungen/actions.ts'),
     ])
   : []
 const nurMitHooks = { skip: hooksMoeglich ? false : 'module.registerHooks fehlt (Node ≥ 22.15 nötig)' }
@@ -124,6 +161,74 @@ describe('Artenliste (lib/behandlungen/arten.ts) = DB-CHECKs', nurMitHooks, () =
     assert.equal(arten.laubarbeitArtFuer('spritzung', 'heften'), null)
     assert.equal(arten.laubarbeitArtFuer('laubarbeit', null), null)
     assert.deepEqual(arten.LAUBARBEIT_OPTIONEN.map(o => o.value), ['entblaettern', 'ausgeizen', 'gipfeln', 'heften', 'sonstige'])
+  })
+
+  test('mittelFuerArt: Mittel und Wartezeit nur, wenn die Art das Mittel kennt', () => {
+    const alles = { psmId: 'p-1', duengemittelId: 'd-1', wartezeitTage: 35 }
+    for (const art of ['laubschneiden', 'laubarbeit', 'schnitt', 'bodenbearbeitung', 'lese', null]) {
+      assert.deepEqual(arten.mittelFuerArt(art, alles), { psmId: null, duengemittelId: null, wartezeitTage: null }, String(art))
+    }
+    assert.deepEqual(arten.mittelFuerArt('spritzung', alles), { psmId: 'p-1', duengemittelId: null, wartezeitTage: 35 })
+    assert.deepEqual(arten.mittelFuerArt('sonstiges', alles), { psmId: 'p-1', duengemittelId: null, wartezeitTage: 35 })
+    assert.deepEqual(arten.mittelFuerArt('duengung', alles), { psmId: null, duengemittelId: 'd-1', wartezeitTage: 35 })
+    // Wartezeit ohne passendes Mittel (z. B. Düngemittel bei einer Spritzung) gilt nicht
+    assert.deepEqual(arten.mittelFuerArt('spritzung', { psmId: null, duengemittelId: 'd-1', wartezeitTage: 35 }), { psmId: null, duengemittelId: null, wartezeitTage: null })
+    assert.equal(arten.artMitPsm('laubschneiden'), false)
+    assert.equal(arten.artMitDuengemittel('duengung'), true)
+  })
+
+  test('Maßnahmenliste: Art-Filter und Freitext finden Laubschneiden', () => {
+    const liste = [
+      { id: 1, art: 'laubschneiden', weingarten_name: 'Stein', weingarten_ried: 'Stein', psm_name: null },
+      { id: 2, art: 'laubarbeit', weingarten_name: 'Hölle', weingarten_ried: null, psm_name: null },
+      { id: 3, art: 'spritzung', weingarten_name: 'Stein', weingarten_ried: 'Stein', psm_name: 'Funguran' },
+    ]
+    const ids = (l) => l.map(b => b.id)
+    assert.deepEqual(ids(arten.filterMassnahmen(liste, '', '')), [1, 2, 3])
+    assert.deepEqual(ids(arten.filterMassnahmen(liste, 'laubschneiden', '')), [1])
+    assert.deepEqual(ids(arten.filterMassnahmen(liste, 'laubarbeit', '')), [2])
+    assert.deepEqual(ids(arten.filterMassnahmen(liste, '', 'Laubschn')), [1])        // über die Bezeichnung der Art
+    assert.deepEqual(ids(arten.filterMassnahmen(liste, '', 'laub')), [1, 2])
+    assert.deepEqual(ids(arten.filterMassnahmen(liste, 'laubschneiden', 'stein')), [1])
+    assert.deepEqual(ids(arten.filterMassnahmen(liste, '', 'FUNG')), [3])
+    assert.deepEqual(arten.artFilterOptionen(liste), arten.BEHANDLUNG_ARTEN.filter(a => a !== 'lese'))
+    assert.ok(arten.artFilterOptionen([...liste, { art: 'lese' }]).includes('lese'))
+  })
+})
+
+// ── Server Actions: Mittel und Wartezeit je Art ─────────────────────────────────
+
+describe('createBehandlung/updateBehandlung: bei Arten ohne Mittel kein psm_id und keine Wartezeit', nurMitHooks, () => {
+  const formular = (felder) => {
+    const fd = new FormData()
+    for (const [k, v] of Object.entries(felder)) fd.set(k, v)
+    return fd
+  }
+  // wie nach einem Artwechsel Spritzung → Laubschneiden im Bearbeiten-Formular bzw. vom Assistenten mitgeschickt
+  const MIT_MITTEL = { datum: '2026-07-02', grundstueck_ids: 'g-1', psm_id: 'p-1', duengemittel_id: 'd-1', wartezeit_tage: '14' }
+  const gespeichert = (op) => globalThis.__kan143Supabase.schreiben.find(s => s.tabelle === 'behandlungen' && s.op === op)?.p
+
+  for (const art of ['laubschneiden', 'laubarbeit', 'schnitt', 'bodenbearbeitung']) {
+    test(`${art}: anlegen und bearbeiten ohne psm_id, duengemittel_id und ernte_fruehesteins`, async () => {
+      globalThis.__kan143Supabase = supabaseAttrappe()
+      await aktionen.createBehandlung(formular({ ...MIT_MITTEL, art }))
+      const neu = gespeichert('insert')
+      assert.equal(neu.art, art)
+      assert.deepEqual([neu.psm_id, neu.duengemittel_id, neu.ernte_fruehesteins], [null, null, null])
+
+      globalThis.__kan143Supabase = supabaseAttrappe()
+      await aktionen.updateBehandlung('b-1', formular({ ...MIT_MITTEL, art }))
+      const upd = gespeichert('update')
+      assert.equal(upd.art, art)
+      assert.deepEqual([upd.psm_id, upd.duengemittel_id, upd.ernte_fruehesteins], [null, null, null])
+    })
+  }
+
+  test('Gegenprobe: Sonstiges mit Mittel behält psm_id und Wartezeit (Datum + 14 Tage)', async () => {
+    globalThis.__kan143Supabase = supabaseAttrappe()
+    await aktionen.updateBehandlung('b-1', formular({ ...MIT_MITTEL, art: 'sonstiges' }))
+    const upd = gespeichert('update')
+    assert.deepEqual([upd.psm_id, upd.duengemittel_id, upd.ernte_fruehesteins], ['p-1', null, '2026-07-16'])
   })
 })
 
@@ -317,6 +422,30 @@ describe('Quelltext: keine Stelle mit eigener, veralteter Artenliste', () => {
     }
   })
 
+  test('Bearbeiten-Formular: BBCH/Wetter über die Feld-Matrix, Mittel beim Artwechsel geleert, Wartezeit nur vom sichtbaren Mittel', () => {
+    const f = quelle('app/(dashboard)/behandlungen/[id]/edit/BehandlungEditForm.tsx')
+    assert.match(f, /\{art !== 'spritzung' && bbchBeimBearbeiten\(art, /)
+    assert.match(f, /\{wetterBeimBearbeiten\(art, /)
+    assert.match(f, /if \(!artMitPsm\(neu\)\) setSelectedPsmId\(''\)/)
+    assert.match(f, /if \(!artMitDuengemittel\(neu\)\) setSelectedDuengemittelId\(''\)/)
+    assert.match(f, /const wartezeit = artMitPsm\(art\) \? selectedPsm\?\.wartezeit_tage\s+: artMitDuengemittel\(art\) \? selectedDuengemittel\?\.wartezeit_tage/)
+    assert.doesNotMatch(f, /selectedPsm\?\.wartezeit_tage \?\? selectedDuengemittel/)
+  })
+
+  test('Maßnahmenliste: Art-Auswahl „Alle Arten“ und Filter aus lib/behandlungen/arten.ts', () => {
+    const c = quelle('app/(dashboard)/behandlungen/BehandlungenClient.tsx')
+    assert.match(c, /const artOptionen = artFilterOptionen\(behandlungen\)/)
+    assert.match(c, /const gefiltert = filterMassnahmen\(behandlungen, artFilter, filter\)/)
+    assert.match(c, /value=\{artFilter\}/)
+    assert.match(c, /<option value="">Alle Arten<\/option>/)
+  })
+
+  test('Server Actions: Mittel und Wartezeit über mittelFuerArt (Anlegen und Bearbeiten)', () => {
+    const a = quelle('app/(dashboard)/behandlungen/actions.ts')
+    assert.equal(a.match(/= mittelFuerArt\(art, \{/g)?.length, 2)
+    assert.doesNotMatch(a, /const (psmId|wartezeit)\s+=/)
+  })
+
   test('Server Actions: laubarbeit_art über laubarbeitArtFuer, Art geprüft (Maßnahme und Stundensatz)', () => {
     const a = quelle('app/(dashboard)/behandlungen/actions.ts')
     assert.equal(a.match(/laubarbeitArtFuer\(art,/g)?.length, 2)      // createBehandlung und updateBehandlung
@@ -348,5 +477,15 @@ describe('Quelltext: keine Stelle mit eigener, veralteter Artenliste', () => {
     const hb = quelle('app/(dashboard)/hilfe/handbuch/page.tsx')
     assert.match(hb, /titel: 'Laubarbeit oder Laubschneiden'/)
     assert.match(hb, /Gipfeln von Hand erfasst du also weiterhin als Laubarbeit/)
+    // festgelegt ist nur das Gipfeln von Hand – Laubarbeit ist nicht allgemein Handarbeit
+    for (const [name, s] of [['FAQ', faq], ['Handbuch', hb]]) {
+      assert.match(s, /Alle anderen Arbeiten an der Laubwand/, name)
+      assert.doesNotMatch(s, /Arbeiten an der Laubwand von Hand|Laubarbeit von Hand/, name)
+    }
+    assert.doesNotMatch(quelle('app/api/ki-abfrage/route.ts'), /'laubarbeit' \(Laubarbeit von Hand/)
+    // Menüweg der Stundensätze und sichtbare Beschriftung der Art-Auswahl
+    assert.match(faq, /Unter Rieden > Betriebsmittel > Tab "Stundensätze"/)
+    assert.match(hb, /Maßnahmenliste \(Auswahl „Alle Arten“ neben dem Suchfeld\)/)
+    assert.doesNotMatch(hb, /Filter „Art der Maßnahme“/)
   })
 })

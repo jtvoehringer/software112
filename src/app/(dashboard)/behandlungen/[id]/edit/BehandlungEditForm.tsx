@@ -10,7 +10,9 @@ import { fmtNum } from '@/lib/format'
 import { runden } from '@/lib/csv'
 import { STELLEN_MENGE } from '@/lib/behoerden/psm'
 import { pruefeMassnahmeMengen } from '@/lib/behandlungen/massnahmeMengen'
-import { LAUBARBEIT_OPTIONEN, LAUBSCHNEIDEN_HINWEIS, type MassnahmenArt } from '@/lib/behandlungen/arten'
+import {
+  LAUBARBEIT_OPTIONEN, LAUBSCHNEIDEN_HINWEIS, artMitDuengemittel, artMitPsm, type MassnahmenArt,
+} from '@/lib/behandlungen/arten'
 import {
   MENGEN_SICHT, alsFeld, aufwandEinheitText, duengerEinheitWechsel, duengermengeEinheit, eingabeZahl,
   mengeVorbelegung, mengenFelder, mengenInFormData,
@@ -178,7 +180,14 @@ export default function BehandlungEditForm({
     if (neu === art) return
     const zurueck = neu === startArt
     setArt(neu)
-    setMengeGesamt(zurueck ? vorbelegung.text : '')
+    // Mittel, das die neue Art nicht zeigt, leeren (wie im Anlegen-Formular) – sonst ginge seine Wartezeit mit;
+    // bei Rückkehr zur gespeicherten Art das gespeicherte Mittel wieder wählen
+    if (!artMitPsm(neu)) setSelectedPsmId('')
+    else if (zurueck) setSelectedPsmId(behandlung.psm_id ?? '')
+    if (!artMitDuengemittel(neu)) setSelectedDuengemittelId('')
+    else if (zurueck) setSelectedDuengemittelId(behandlung.duengemittel_id ?? '')
+    // Vorbelegung zum gespeicherten Düngemittel (die Auswahl ist beim Zurückwechseln erst im nächsten Render gesetzt)
+    setMengeGesamt(zurueck ? mengeVorbelegung(behandlung, gespeichertEinheit, gespeichertEinheit).text : '')
     setEinheitHinweis(null)
     setAufwandmenge(zurueck ? start.aufwand : '')
     setAufwandmengeEinheit(zurueck ? start.aufwandEinheit : 'kg_ha')
@@ -250,8 +259,10 @@ export default function BehandlungEditForm({
     if (!mengen.ok) { setError(mengen.fehler); return }
     if (m.konzentrationFehler) { setError(m.konzentrationFehler); return }
     const fd = new FormData(e.currentTarget)
-    // wartezeit_tage aus dem gewählten PSM/Düngemittel
-    const wartezeit = selectedPsm?.wartezeit_tage ?? selectedDuengemittel?.wartezeit_tage
+    // wartezeit_tage nur aus dem Mittel, das die Art zeigt (psm_id bzw. duengemittel_id gehen nur dann mit)
+    const wartezeit = artMitPsm(art) ? selectedPsm?.wartezeit_tage
+      : artMitDuengemittel(art) ? selectedDuengemittel?.wartezeit_tage
+      : null
     if (wartezeit != null) {
       fd.set('wartezeit_tage', String(wartezeit))
     }

@@ -6,7 +6,7 @@ import { Pencil, Trash2 } from 'lucide-react'
 import { deleteBehandlung } from './actions'
 import type { Behandlung } from './page'
 import { fmtNum } from '@/lib/format'
-import { BEHANDLUNG_ARTEN, MASSNAHMEN_ART_LABEL } from '@/lib/behandlungen/arten'
+import { MASSNAHMEN_ART_LABEL, artFilterOptionen, filterMassnahmen } from '@/lib/behandlungen/arten'
 
 const WITTERUNG_LABEL: Record<string, string> = {
   sonnig: 'Sonnig', bewoelkt: 'Bewölkt',
@@ -58,16 +58,9 @@ export default function BehandlungenClient({
   const [filter, setFilter] = useState('')
   const [artFilter, setArtFilter] = useState('')
 
-  // Art-Auswahl: alle Maßnahmenarten, Lese nur, wenn solche Einträge da sind
-  const artOptionen = BEHANDLUNG_ARTEN.filter(a => a !== 'lese' || behandlungen.some(b => b.art === 'lese'))
-  const suche = filter.toLowerCase()
-  const gefiltert = behandlungen.filter(b =>
-    (!artFilter || b.art === artFilter) && (!suche ||
-      b.weingarten_name?.toLowerCase().includes(suche) ||
-      b.psm_name?.toLowerCase().includes(suche) ||
-      b.weingarten_ried?.toLowerCase().includes(suche) ||
-      (ART_LABEL[b.art] ?? b.art ?? '').toLowerCase().includes(suche))
-  )
+  // Art-Auswahl (alle Maßnahmenarten, Lese nur, wenn solche Einträge da sind) und Filter: lib/behandlungen/arten.ts
+  const artOptionen = artFilterOptionen(behandlungen)
+  const gefiltert = filterMassnahmen(behandlungen, artFilter, filter)
 
   const grouped = groupByDate(gefiltert)
 

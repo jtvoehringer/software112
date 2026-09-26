@@ -72,3 +72,43 @@ export function massnahmenArtLabel(art: string | null | undefined): string | nul
 export function laubarbeitArtFuer(art: string | null | undefined, laubarbeitArt: string | null): string | null {
   return art === 'laubarbeit' ? laubarbeitArt : null
 }
+
+/** Pflanzenschutzmittel gibt es bei Spritzung und Sonstiges (Bearbeiten-Formular), Düngemittel nur bei Düngung */
+export function artMitPsm(art: string | null | undefined): boolean {
+  return art === 'spritzung' || art === 'sonstiges'
+}
+export function artMitDuengemittel(art: string | null | undefined): boolean {
+  return art === 'duengung'
+}
+
+/**
+ * psm_id, duengemittel_id und Wartezeit (→ ernte_fruehesteins) nur, wenn die Art das Mittel kennt – nach
+ * einem Artwechsel beim Bearbeiten oder aus dem Assistenten ginge sonst die Wartezeit eines ausgeblendeten
+ * Mittels mit (z. B. Spritzung → Laubschneiden). Ohne passendes Mittel keine Wartezeit.
+ */
+export function mittelFuerArt(
+  art: string | null | undefined,
+  mittel: { psmId: string | null; duengemittelId: string | null; wartezeitTage: number | null },
+): { psmId: string | null; duengemittelId: string | null; wartezeitTage: number | null } {
+  const psmId = artMitPsm(art) ? mittel.psmId : null
+  const duengemittelId = artMitDuengemittel(art) ? mittel.duengemittelId : null
+  return { psmId, duengemittelId, wartezeitTage: psmId || duengemittelId ? mittel.wartezeitTage : null }
+}
+
+type ListenMassnahme = { art: string; weingarten_name?: string | null; weingarten_ried?: string | null; psm_name?: string | null }
+
+/** Art-Auswahl der Maßnahmenliste: alle Arten, Lese nur, wenn solche Einträge da sind */
+export function artFilterOptionen(behandlungen: readonly ListenMassnahme[]): BehandlungArt[] {
+  return BEHANDLUNG_ARTEN.filter(a => a !== 'lese' || behandlungen.some(b => b.art === 'lese'))
+}
+
+/** Filter der Maßnahmenliste: Art (leer = alle) und Freitext über Ried, Mittel und Bezeichnung der Art */
+export function filterMassnahmen<T extends ListenMassnahme>(behandlungen: readonly T[], artFilter: string, text: string): T[] {
+  const suche = text.toLowerCase()
+  return behandlungen.filter(b =>
+    (!artFilter || b.art === artFilter) && (!suche ||
+      !!b.weingarten_name?.toLowerCase().includes(suche) ||
+      !!b.psm_name?.toLowerCase().includes(suche) ||
+      !!b.weingarten_ried?.toLowerCase().includes(suche) ||
+      (massnahmenArtLabel(b.art) ?? '').toLowerCase().includes(suche)))
+}
