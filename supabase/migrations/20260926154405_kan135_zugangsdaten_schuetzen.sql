@@ -1,37 +1,22 @@
 -- ════════════════════════════════════════════════════════════════════════════
 -- KAN-135 – Zugangsdaten in tenant_einstellungen und user_email_connections schützen
--- ENTWURF – noch nicht in supabase/migrations/. Einspielen erst nach Jörgens „OK, einspielen“
--- per Supabase-MCP apply_migration (Name: kan135_zugangsdaten_schuetzen), danach Version aus
--- list_migrations übernehmen und Datei als supabase/migrations/<version>_kan135_zugangsdaten_schuetzen.sql
--- ablegen. VORHER muss der Code-Stand aus Branch claude/kan-135-zugangsdaten-schuetzen live sein
--- (liest/schreibt die Zugangsdaten nur noch per Service-Role).
+-- Eingespielt 26.09.2026 nach Probelauf (Staging + Produktion, zurückgerollt) und Jörgens Freigabe.
+-- Voraussetzung: Code-Stand aus PR #56 (liest/schreibt Zugangsdaten nur noch per Service-Role).
 --
 -- Befund:
 --   * tenant_einstellungen: Policy einst_select lässt jedes Mitglied (auch Leser) alle Spalten
 --     lesen – inkl. m365_*_enc, email_*_pass_enc, brevo_api_key, sumup_api_key, bawb_passwort.
 --   * user_email_connections: uec_all (FOR ALL, TO public, nur user_id = auth.uid(), kein
---     WITH CHECK auf tenant_id) – Token-/IMAP-Spalten frei schreibbar. Angriff: Chiffrat des
---     Betriebs (z. B. email_imap_pass_enc) in die eigene Zeile kopieren, imap_host auf einen
---     eigenen Server setzen → /api/nachrichten/list entschlüsselt und schickt das Passwort dorthin;
---     analog M365-Token des Betriebs über getValidUserAccessToken.
+--     WITH CHECK auf tenant_id) – Token-/IMAP-Spalten frei schreibbar (Entschlüsselungs-Orakel).
 --
 -- Lösung:
---   1. Spaltenrechte statt Tabellenrechte für anon/authenticated. Achtung: Ein Spalten-REVOKE
---      wirkt nicht, solange ein Tabellen-GRANT besteht – deshalb Tabellenrechte ganz entziehen
---      und nur die Nicht-Geheimnis-Spalten per Spalten-GRANT wieder erlauben. Die Spaltenliste
---      entsteht dynamisch aus information_schema (läuft auf Produktion und Staging, auch wenn
---      dort unterschiedliche Spalten existieren). Neue Spalten brauchen künftig einen
---      expliziten GRANT (siehe Hinweis in CLAUDE.md).
---   2. user_email_connections: Benutzer dürfen nur noch die eigene Zeile lesen (ohne Geheimnis-
---      Spalten) und löschen (Trennen). INSERT/UPDATE nur noch per Service-Role – alle Schreib-
---      pfade der App laufen serverseitig (OAuth-Callback, Token-Refresh, geteilte Mailbox,
---      Spiegel-Stand); eine IMAP-Einrichtung durch Benutzer gibt es in der App nicht. So bleibt
---      keine Spalte (imap_host, tenant_id, email_address …) übrig, über die sich eine Zeile
---      mit fremden Zugangsdaten kombinieren ließe.
---   3. Fremde Policies (mitgliedschaft_aktiv, abo_schreibsperre_*, zwei_faktor_aal) bleiben
---      unangetastet – gelöscht werden nur die uec_*-Namensvarianten (Produktion: uec_all,
---      Alt-Stand: uec_select/insert/update/delete).
---   Kein Umbau der Verschlüsselung (AAD) – siehe Folgeempfehlung im Ticket.
+--   1. Spaltenrechte statt Tabellenrechte für anon/authenticated (Spalten-REVOKE wirkt nicht bei
+--      bestehendem Tabellen-GRANT). Spaltenliste dynamisch aus information_schema. Neue Spalten
+--      brauchen künftig einen expliziten GRANT (siehe CLAUDE.md).
+--   2. user_email_connections: Benutzer lesen nur die eigene Zeile (ohne Geheimnis-Spalten) und
+--      dürfen sie löschen (Trennen). INSERT/UPDATE nur noch per Service-Role.
+--   3. Fremde Policies (mitgliedschaft_aktiv, abo_schreibsperre_*, zwei_faktor_aal) bleiben.
+-- Rückbau: siehe Kommentar am Ende.
 -- ════════════════════════════════════════════════════════════════════════════
 
 -- ── 1. tenant_einstellungen ──────────────────────────────────────────────────
@@ -53,16 +38,15 @@ BEGIN
    WHERE table_schema = 'public' AND table_name = 'tenant_einstellungen'
      AND column_name <> ALL (v_geheim);
 
-  -- UPDATE ohne tenant_id (Zeile umhängen ist nie ein Benutzer-Fall). Welche Felder ein
-  -- Benutzer tatsächlich ändern darf, entscheidet weiterhin der Trigger a_schutz_plattformfelder.
+  -- UPDATE ohne tenant_id; welche Felder ein Benutzer ändern darf, entscheidet weiterhin
+  -- der Trigger a_schutz_plattformfelder.
   SELECT string_agg(quote_ident(column_name), ', ' ORDER BY ordinal_position)
     INTO v_aendern
     FROM information_schema.columns
    WHERE table_schema = 'public' AND table_name = 'tenant_einstellungen'
      AND column_name <> ALL (v_geheim || ARRAY['tenant_id']);
 
-  -- anon bekommt dieselben Lese-Spalten, damit anonyme Abfragen mit Spaltenliste weiterhin
-  -- fehlerfrei 0 Zeilen liefern (Policies gelten nur TO authenticated); Schreiben gar nicht.
+  -- anon bekommt dieselben Lese-Spalten (anonyme Abfragen liefern weiter fehlerfrei 0 Zeilen)
   EXECUTE format('GRANT SELECT (%s) ON public.tenant_einstellungen TO authenticated, anon', v_lesen);
   EXECUTE format('GRANT UPDATE (%s) ON public.tenant_einstellungen TO authenticated', v_aendern);
 END $$;
@@ -85,7 +69,6 @@ END $$;
 
 GRANT DELETE ON TABLE public.user_email_connections TO authenticated;
 
--- alle bekannten Namensvarianten (Produktion: uec_all; Alt-Stand: vier Einzel-Policies)
 DROP POLICY IF EXISTS uec_all                ON public.user_email_connections;
 DROP POLICY IF EXISTS uec_select             ON public.user_email_connections;
 DROP POLICY IF EXISTS uec_insert             ON public.user_email_connections;
