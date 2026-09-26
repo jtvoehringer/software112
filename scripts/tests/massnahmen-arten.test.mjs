@@ -927,8 +927,21 @@ describe('Neue Maßnahme: Knopf ohne Auswahl nicht gesperrt, Klick zeigt den Gru
     assert.match(abschnitt, /riedKopf\.warnung \? 'text-s112-warn-fg' : 'text-s112-blue-700'/)
     assert.match(abschnitt, /\{riedKopf\.text\}/)
     assert.match(abschnitt, /aria-expanded=\{riedenExpanded\}/)
-    assert.match(abschnitt, /\{riedHinweis && \(\s*<p key=\{riedSprung\} role="alert"[^>]*>[\s\S]*?\{RIED_AUSWAHL_FEHLT\}/)
+    assert.match(abschnitt, /\{riedHinweis && \(\s*<p key=\{riedSprung\} id="ried-auswahl-fehlt" role="alert"[^>]*>[\s\S]*?\{RIED_AUSWAHL_FEHLT\}/)
     assert.match(neu, /const riedHinweis = riedSprung > 0 && totalSelCount === 0/)
+    // Fokusziel liest die Meldung sicher mit (aria-describedby wie bei der Bio-Sperre): alle Ried-Checkboxen
+    // und der Kopf-Knopf (Rückfall-Fokus ohne aktive Checkbox) verweisen auf sie, solange sie steht
+    assert.match(neu, /const riedMeldung = riedHinweis \? 'ried-auswahl-fehlt' : undefined/)
+    assert.equal((neu.match(/ried-auswahl-fehlt/g) ?? []).length, 2, 'id genau einmal vergeben, einmal verwiesen')
+    const kopfKnopf = abschnitt.match(/<button type="button" ref=\{riedenKopfRef\}[\s\S]*?className=/)?.[0]
+    assert.ok(kopfKnopf, 'Kopf-Knopf mit riedenKopfRef')
+    assert.match(kopfKnopf, /aria-describedby=\{riedMeldung\}/)
+    const checkboxen = abschnitt.match(/<input\s+type="checkbox"[^>]*>/g) ?? []
+    assert.equal(checkboxen.length, 3, 'Lage-, Ried- und GST-Checkbox')
+    for (const c of checkboxen) {
+      assert.match(c, /aria-describedby=\{riedMeldung\}/, c)
+      assert.match(c, /aria-invalid=\{riedHinweis \|\| undefined\}/, c)
+    }
     assert.match(neu, /const riedKopf = auswahlKopf\(totalSelCount, totalHaAktiv\)/)
     // Checkboxen mit Namen für Vorleseprogramme (Fokusziel nach dem Klick)
     assert.match(abschnitt, /aria-label=\{`\$\{lageName\}: alle spritzbaren auswählen`\}/)
@@ -980,6 +993,8 @@ describe('Neue Maßnahme: Knopf ohne Auswahl nicht gesperrt, Klick zeigt den Gru
     assert.match(faq, /ein Klick auf „Maßnahme erfassen“ springt dorthin, statt still gesperrt zu bleiben/)
     // KAN-152: Bearbeiten mit denselben Feldern, ausgeblendete gespeicherte Angaben bleiben
     assert.match(hb, /Beim Bearbeiten einer Maßnahme zeigt das Formular BBCH-Stadium, Schaderreger bzw\. Grund \/ Anlass, Witterung und Temperatur genauso/)
-    assert.match(faq, /Beim Bearbeiten gelten dieselben Felder; eine schon gespeicherte Angabe in einem ausgeblendeten Feld bleibt beim Speichern erhalten/)
+    // FAQ wie das Handbuch nur für diese vier Felder – PSM bei Sonstiges und Einarbeitung weichen beim Bearbeiten ab
+    assert.match(faq, /Beim Bearbeiten zeigt das Formular BBCH-Stadium, Schaderreger bzw\. Grund \/ Anlass, Witterung und Temperatur genauso wie beim Anlegen; eine schon gespeicherte Angabe in einem ausgeblendeten Feld bleibt beim Speichern erhalten/)
+    assert.doesNotMatch(faq, /Beim Bearbeiten gelten dieselben Felder/)
   })
 })

@@ -151,6 +151,9 @@ export default function NeueBehandlungForm({
   // KAN-153: Kopfzeile der Ried-Auswahl und Meldung nach einem Klick ohne Auswahl (verschwindet mit der Auswahl)
   const riedKopf = auswahlKopf(totalSelCount, totalHaAktiv)
   const riedHinweis = riedSprung > 0 && totalSelCount === 0
+  // Checkboxen und Kopfzeile verweisen auf die Meldung (aria-describedby) – das Fokusziel nach dem Klick liest sie
+  // so sicher mit, auch wenn der Fokuswechsel die role="alert"-Ansage unterbricht (wie bei der Bio-Sperre)
+  const riedMeldung = riedHinweis ? 'ried-auswahl-fehlt' : undefined
 
   // Nach dem Klick ohne Auswahl: zum (jetzt aufgeklappten) Abschnitt scrollen und die erste Checkbox fokussieren –
   // erst nach dem Rendern, beim Klick war die Auswahl womöglich noch eingeklappt
@@ -735,7 +738,7 @@ export default function NeueBehandlungForm({
         <div className="flex items-center justify-between mb-3">
           <button type="button" ref={riedenKopfRef}
             onClick={() => setRiedenExpanded(v => !v)}
-            aria-expanded={riedenExpanded}
+            aria-expanded={riedenExpanded} aria-describedby={riedMeldung}
             className="flex items-center gap-2 text-left">
             <svg className={`w-3.5 h-3.5 text-s112-muted transition-transform shrink-0 ${riedenExpanded ? 'rotate-90' : ''}`}
               fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -757,9 +760,10 @@ export default function NeueBehandlungForm({
           )}
         </div>
 
-        {/* Meldung nach „Maßnahme erfassen“ ohne Auswahl – key: jeder weitere Klick liest sie neu vor */}
+        {/* Meldung nach „Maßnahme erfassen“ ohne Auswahl – key: jeder weitere Klick liest sie neu vor; die id ist das
+            Ziel von aria-describedby an Checkboxen und Kopfzeile */}
         {riedHinweis && (
-          <p key={riedSprung} role="alert"
+          <p key={riedSprung} id="ried-auswahl-fehlt" role="alert"
             className="mb-3 bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-xl px-4 py-2.5 text-sm flex items-start gap-2">
             <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" aria-hidden="true" />
             <span>{RIED_AUSWAHL_FEHLT}</span>
@@ -789,6 +793,7 @@ export default function NeueBehandlungForm({
                     type="checkbox"
                     readOnly
                     aria-label={`${lageName}: alle spritzbaren auswählen`}
+                    aria-invalid={riedHinweis || undefined} aria-describedby={riedMeldung}
                     checked={allSelected}
                     ref={el => { if (el) el.indeterminate = someSelected && !allSelected }}
                     className="accent-s112-teal"
@@ -817,6 +822,7 @@ export default function NeueBehandlungForm({
                           <input
                             type="checkbox"
                             aria-label={w.name}
+                            aria-invalid={riedHinweis || undefined} aria-describedby={riedMeldung}
                             checked={wgSel || allGstSel}
                             ref={el => { if (el) el.indeterminate = someGstSel && !allGstSel && !wgSel }}
                             onChange={() => toggleWG(w.id, w.spritzbar)}
@@ -856,6 +862,7 @@ export default function NeueBehandlungForm({
                                 <Fragment key={g.id}>
                                   <label className={`flex items-center gap-2 pl-10 pr-4 py-1.5 text-xs cursor-pointer hover:bg-s112-bg/30 ${isGstSel ? 'bg-s112-teal/5' : ''}`}>
                                     <input type="checkbox"
+                                      aria-invalid={riedHinweis || undefined} aria-describedby={riedMeldung}
                                       checked={isGstSel}
                                       onChange={() => toggleGST(g.id, w.id)}
                                       className="accent-s112-teal" />
