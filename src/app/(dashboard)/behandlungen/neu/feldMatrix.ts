@@ -59,13 +59,22 @@ export function bbchAltwert(gespeichert: string | null | undefined): string | nu
 }
 
 /**
- * Bearbeiten-Formular (BehandlungEditForm): BBCH bei Spritzung, Laubarbeit und Laubschneiden (Feld-Matrix
- * nicht 'hidden') – oder wenn bei der gespeicherten Art schon ein Stadium gespeichert ist; ein
- * ausgeblendetes Feld würde beim Speichern sonst geleert (ein Code außerhalb von BBCH_OPTIONS über
- * bbchAltwert). `gespeichert` nur übergeben, solange die Art nicht gewechselt wurde.
+ * Bearbeiten-Formular (BehandlungEditForm): BBCH folgt der Feld-Matrix wie beim Anlegen (und wie FAQ und
+ * Handbuch es beschreiben) – eine Auswahl gibt es nur, wo BBCH nicht 'hidden' ist:
+ *   'auswahl'  – Spritzung (Pflicht), Laubarbeit und Laubschneiden (optional): BBCH-Auswahl, ein Code
+ *                außerhalb von BBCH_OPTIONS als eigene Option (bbchAltwert)
+ *   'behalten' – Art mit BBCH 'hidden' (Düngung, Bodenbearbeitung, Schnitt, Sonstiges), aber unverändert
+ *                (art = startArt): keine Auswahl, der Wert geht unsichtbar mit (<input type="hidden">) –
+ *                sonst leerte Speichern ein gespeichertes Stadium (Musterhof: 14 solche Maßnahmen mit BBCH)
+ *   'keine'    – nach einem Wechsel auf eine Art mit BBCH 'hidden': nichts senden, Speichern leert das
+ *                Stadium (wie beim Anlegen)
+ * Unbekannte Arten (z. B. 'lese') gelten als 'hidden'.
  */
-export function bbchBeimBearbeiten(art: string, gespeichert: string | null): boolean {
-  return (istMassnahmenArt(art) && FELD_MATRIX[art].bbch !== 'hidden') || !!gespeichert
+export type BbchBeimBearbeiten = 'auswahl' | 'behalten' | 'keine'
+
+export function bbchBeimBearbeiten(art: string, startArt: string): BbchBeimBearbeiten {
+  if (istMassnahmenArt(art) && FELD_MATRIX[art].bbch !== 'hidden') return 'auswahl'
+  return art === startArt ? 'behalten' : 'keine'
 }
 
 /**

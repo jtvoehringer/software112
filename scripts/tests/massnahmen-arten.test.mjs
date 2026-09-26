@@ -105,6 +105,8 @@ const [arten, psm, rueck, feld, mengen, massnahmeMengen, tool, aktionen] = hooks
 const nurMitHooks = { skip: hooksMoeglich ? false : 'module.registerHooks fehlt (Node ≥ 22.15 nötig)' }
 
 const quelle = (rel) => readFileSync(path.join(SRC, rel), 'utf8')
+// Beginn einer sichtbaren BBCH-Auswahl im Bearbeiten-Formular (ohne das unsichtbare Feld bei ausgeblendetem BBCH)
+const BBCH_AUSWAHL = '<select aria-label="BBCH-Stadium" name="bbch_stadium"'
 
 // ── Artenliste gegen die DB-CHECKs ──────────────────────────────────────────────
 
@@ -271,6 +273,21 @@ describe('createBehandlung/updateBehandlung: bei Arten ohne Mittel kein psm_id u
     const upd = gespeichert('update')
     assert.deepEqual([upd.psm_id, upd.duengemittel_id, upd.ernte_fruehesteins], ['p-1', null, '2026-07-16'])
   })
+
+  test('BBCH bei Arten mit ausgeblendetem BBCH: Bearbeiten übernimmt den mitgesendeten Wert, ohne Wert null', async () => {
+    // Das Bearbeiten-Formular schickt ihn bei unveränderter Art als <input type="hidden"> mit – die Server
+    // Action darf ihn nicht selbst nach der Feld-Matrix verwerfen; nach einem Artwechsel fehlt er → null
+    for (const art of ['duengung', 'bodenbearbeitung', 'schnitt', 'sonstiges']) {
+      assert.equal(feld.FELD_MATRIX[art].bbch, 'hidden', art)
+      const basis = { datum: '2026-07-02', grundstueck_ids: 'g-1', art }
+      globalThis.__kan143Supabase = supabaseAttrappe()
+      await aktionen.updateBehandlung('b-1', formular({ ...basis, bbch_stadium: '83' }))
+      assert.equal(gespeichert('update').bbch_stadium, '83', art)
+      globalThis.__kan143Supabase = supabaseAttrappe()
+      await aktionen.updateBehandlung('b-1', formular(basis))
+      assert.equal(gespeichert('update').bbch_stadium, null, art)
+    }
+  })
 })
 
 // ── Feld- und Mengen-Matrix ─────────────────────────────────────────────────────
@@ -304,12 +321,27 @@ describe('Feld- und Mengen-Matrix für Laubschneiden', nurMitHooks, () => {
     assert.equal(r.spritzbruehe, null)
   })
 
-  test('Bearbeiten: BBCH bei Laubarbeit/Laubschneiden, Wetterfelder bei Laubschneiden nur mit gespeichertem Wert', () => {
-    assert.equal(feld.bbchBeimBearbeiten('laubschneiden', null), true)
-    assert.equal(feld.bbchBeimBearbeiten('laubarbeit', null), true)
-    assert.equal(feld.bbchBeimBearbeiten('schnitt', null), false)
-    assert.equal(feld.bbchBeimBearbeiten('schnitt', '09'), true)     // gespeichertes Stadium nicht still leeren
-    assert.equal(feld.bbchBeimBearbeiten('lese', null), false)       // unbekannte Art: kein Absturz
+  test('Bearbeiten: BBCH nach der Feld-Matrix wie beim Anlegen, Wetterfelder bei Laubschneiden nur mit gespeichertem Wert', () => {
+    // Auswahl bei Spritzung, Laubarbeit und Laubschneiden – auch nach einem Artwechsel
+    for (const art of ['spritzung', 'laubarbeit', 'laubschneiden']) {
+      assert.notEqual(feld.FELD_MATRIX[art].bbch, 'hidden', art)
+      for (const startArt of DB_SAETZE_ART_CHECK) assert.equal(feld.bbchBeimBearbeiten(art, startArt), 'auswahl', `${startArt} → ${art}`)
+    }
+    // Düngung, Bodenbearbeitung, Schnitt, Sonstiges: nicht sichtbar – bei unveränderter Art geht der Wert
+    // unsichtbar mit (gespeichertes Stadium bleibt), nach einem Artwechsel wird nichts gesendet
+    for (const art of ['duengung', 'bodenbearbeitung', 'schnitt', 'sonstiges']) {
+      assert.equal(feld.FELD_MATRIX[art].bbch, 'hidden', art)
+      assert.equal(feld.bbchBeimBearbeiten(art, art), 'behalten', art)
+      for (const startArt of DB_SAETZE_ART_CHECK.filter(a => a !== art)) {
+        assert.equal(feld.bbchBeimBearbeiten(art, startArt), 'keine', `${startArt} → ${art}`)
+      }
+    }
+    // sichtbar genau dort, wo das Anlegen-Formular die Auswahl zeigt (felder.bbch !== 'hidden')
+    for (const art of DB_SAETZE_ART_CHECK) {
+      assert.equal(feld.bbchBeimBearbeiten(art, art) === 'auswahl', feld.FELD_MATRIX[art].bbch !== 'hidden', art)
+    }
+    assert.equal(feld.bbchBeimBearbeiten('lese', 'lese'), 'behalten')   // unbekannte Art: kein Absturz, Stadium bleibt
+    assert.equal(feld.bbchBeimBearbeiten('lese', 'spritzung'), 'keine')
     assert.equal(feld.wetterBeimBearbeiten('laubschneiden', { witterung: null, temperatur_c: null }), false)
     assert.equal(feld.wetterBeimBearbeiten('laubschneiden', null), false)
     assert.equal(feld.wetterBeimBearbeiten('laubschneiden', { witterung: 'sonnig', temperatur_c: null }), true)
@@ -329,8 +361,8 @@ describe('Feld- und Mengen-Matrix für Laubschneiden', nurMitHooks, () => {
     assert.equal(feld.BBCH_OPTIONS.length, 15)
     for (const o of feld.BBCH_OPTIONS) assert.equal(feld.bbchAltwert(o.value), null, o.value)
     for (const leer of [null, undefined, '', '  ']) assert.equal(feld.bbchAltwert(leer), null, String(leer))
-    assert.equal(feld.bbchBeimBearbeiten('schnitt', '00'), true)
-    assert.equal(feld.bbchBeimBearbeiten('bodenbearbeitung', '83'), true)
+    // Schnitt 00, Bodenbearbeitung 05/83, Düngung 07: keine Auswahl, der Code geht unverändert unsichtbar mit
+    for (const art of ['schnitt', 'bodenbearbeitung', 'duengung']) assert.equal(feld.bbchBeimBearbeiten(art, art), 'behalten', art)
   })
 })
 
@@ -489,7 +521,8 @@ describe('Quelltext: keine Stelle mit eigener, veralteter Artenliste', () => {
 
   test('Bearbeiten-Formular: BBCH/Wetter über die Feld-Matrix, Mittel beim Artwechsel geleert, Wartezeit nur vom sichtbaren Mittel', () => {
     const f = quelle('app/(dashboard)/behandlungen/[id]/edit/BehandlungEditForm.tsx')
-    assert.match(f, /\{art !== 'spritzung' && bbchBeimBearbeiten\(art, /)
+    assert.match(f, /const bbchModus = bbchBeimBearbeiten\(art, startArt\)/)
+    assert.match(f, /\{art !== 'spritzung' && bbchModus === 'auswahl' && \(/)
     assert.match(f, /\{wetterBeimBearbeiten\(art, /)
     assert.match(f, /if \(!artMitPsm\(neu\)\) setSelectedPsmId\(''\)/)
     assert.match(f, /if \(!artMitDuengemittel\(neu\)\) setSelectedDuengemittelId\(''\)/)
@@ -527,8 +560,8 @@ describe('Quelltext: keine Stelle mit eigener, veralteter Artenliste', () => {
       assert.match(f, /import \{ BBCH_OPTIONS, FELD_MATRIX\b[^}]*\} from '(\.\/|\.\.\/\.\.\/neu\/)feldMatrix'/, name)
     }
     assert.match(edit, /const bbchBisher = bbchAltwert\(behandlung\.bbch_stadium\)/)
-    const auswahlen = edit.split('name="bbch_stadium"').slice(1).map(t => t.slice(0, t.indexOf('</select>')))
-    assert.equal(auswahlen.length, 2)   // Spritzung und alle anderen Arten
+    const auswahlen = edit.split(BBCH_AUSWAHL).slice(1).map(t => t.slice(0, t.indexOf('</select>')))
+    assert.equal(auswahlen.length, 2)   // Spritzung sowie Laubarbeit und Laubschneiden
     for (const a of auswahlen) {
       assert.match(a, /\{bbchBisher && <option value=\{bbchBisher\}>\{bbchBisher\} \(bisherige Angabe\)<\/option>\}/)
       assert.ok(a.indexOf('bbchBisher') < a.indexOf('BBCH_OPTIONS.map'), 'Altwert-Option vor den Standardwerten')
@@ -541,12 +574,27 @@ describe('Quelltext: keine Stelle mit eigener, veralteter Artenliste', () => {
     // den gespeicherten Wert zurück
     const edit = quelle('app/(dashboard)/behandlungen/[id]/edit/BehandlungEditForm.tsx')
     assert.match(edit, /const \[bbch, setBbch\] = useState\(behandlung\.bbch_stadium \?\? ''\)/)
-    const auswahlen = edit.split('name="bbch_stadium"').slice(1).map(t => t.slice(0, t.indexOf('className=')))
-    assert.equal(auswahlen.length, 2)   // Spritzung und alle anderen Arten
+    const auswahlen = edit.split(BBCH_AUSWAHL).slice(1).map(t => t.slice(0, t.indexOf('className=')))
+    assert.equal(auswahlen.length, 2)   // Spritzung sowie Laubarbeit und Laubschneiden
     for (const a of auswahlen) {
       assert.match(a, /^ value=\{bbch\} onChange=\{e => setBbch\(e\.target\.value\)\}/)
       assert.doesNotMatch(a, /defaultValue/)
     }
+  })
+
+  test('Bearbeiten-Formular: bei Arten mit ausgeblendetem BBCH geht der Wert nur bei unveränderter Art unsichtbar mit', () => {
+    // Düngung, Bodenbearbeitung, Schnitt, Sonstiges zeigen keine Auswahl (wie beim Anlegen, FAQ und Handbuch);
+    // auf main leerte Speichern dort das Stadium (Musterhof: 14 Maßnahmen). bbchModus 'behalten' nur bei
+    // art = startArt (bbchBeimBearbeiten), nach einem Artwechsel ('keine') wird nichts gesendet
+    const edit = quelle('app/(dashboard)/behandlungen/[id]/edit/BehandlungEditForm.tsx')
+    assert.match(edit, /\{bbchModus === 'behalten' && <input type="hidden" name="bbch_stadium" value=\{bbch\} \/>\}/)
+    // genau drei Stellen senden bbch_stadium: zwei Auswahlen und das unsichtbare Feld – alle aus dem State `bbch`
+    const stellen = edit.match(/<(select|input)\b[^>]*name="bbch_stadium"[^>]*>/g) ?? []
+    assert.equal(stellen.length, 3)
+    assert.equal(stellen.filter(s => s.startsWith('<input type="hidden"')).length, 1)
+    for (const s of stellen) assert.match(s, /value=\{bbch\}/)
+    // die gespeicherte Art entscheidet nicht mehr über die Sichtbarkeit der Auswahl
+    assert.doesNotMatch(edit, /bbchBeimBearbeiten\(art, art === startArt/)
   })
 
   test('Maßnahmenliste: Art-Auswahl „Alle Arten“ und Filter aus lib/behandlungen/arten.ts', () => {
