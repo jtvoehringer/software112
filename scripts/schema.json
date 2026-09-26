@@ -720,7 +720,13 @@
 "umzug_typ",
 "transaktions_nr",
 "herkunft_code_vorher",
-"herkunft_code_nachher"
+"herkunft_code_nachher",
+"kmw_vorher",
+"kmw_nachher",
+"oechsle_vorher",
+"oechsle_nachher",
+"mostgewicht_einheit_vorher",
+"mostgewicht_einheit_nachher"
 ],
 "kellerplaene": [
 "id",
@@ -1440,7 +1446,10 @@
 "notizen",
 "created_at",
 "ziel_qualitaet_vorher",
-"ziel_herkunft_code_vorher"
+"ziel_herkunft_code_vorher",
+"ziel_kmw_vorher",
+"ziel_oechsle_vorher",
+"ziel_mostgewicht_einheit_vorher"
 ],
 "weinanalysen": [
 "id",
