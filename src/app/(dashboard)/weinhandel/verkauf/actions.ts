@@ -9,6 +9,7 @@ import { randomUUID } from 'crypto'
 import { syncEaEinnahmeFuerVerkauf } from '@/app/(dashboard)/buchhaltung/actions'
 import { fmtEur, fmtNum, dezimal } from '@/lib/format'
 import { AktionsFehler, dbFehlerText, fehlerText } from '@/lib/fehler'
+import { qualitaetFehler } from '@/lib/wein/qualitaet'
 import {
   bestandBuchenAllesOderNichts,
   bestandsBuchungenZuruecknehmen,
@@ -114,6 +115,11 @@ async function pruefePositionen(
       stueckJeFuellung.set(p.fuellung_id, (stueckJeFuellung.get(p.fuellung_id) ?? 0) + menge)
     } else if (p.typ === 'trauben' && !p.trauben_weingarten_id) {
       throw new AktionsFehler(`${nr}: Bitte den Weingarten (Ried) für den Traubenverkauf auswählen.`)
+    }
+    if (p.typ === 'trauben') {
+      // KAN-73: Trauben-Qualität = Stufen der Lese (traubenverkauf hat keinen CHECK)
+      const qualitaetUnzulaessig = qualitaetFehler('lese', p.trauben_qualitaetsstufe ?? null)
+      if (qualitaetUnzulaessig) throw new AktionsFehler(`${nr}: ${qualitaetUnzulaessig}`)
     }
   })
 

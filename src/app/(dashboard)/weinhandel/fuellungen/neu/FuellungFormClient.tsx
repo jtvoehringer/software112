@@ -6,6 +6,7 @@ import Link from '@/components/ui/Link'
 import { KN_CODES } from '@/lib/wein/zolltarif'
 import { HERKUNFT_ORDER, HERKUNFT_LABEL, istNiedrigerAls as istHerkunftNiedriger } from '@/lib/herkunft'
 import { QUALITAET_LABEL, istNiedrigerAls as istQualitaetNiedriger } from '@/lib/weinqualitaet'
+import { FUELLUNG_QUALITAETEN } from '@/lib/wein/qualitaet'
 import { AlertTriangle, CheckCircle2, Droplet } from 'lucide-react'
 import HerkunftCodeSelect from '@/components/weinbaugebiete/HerkunftCodeSelect'
 import type { CustomWeinbaugebiet } from '@/app/(dashboard)/weinbaugebiete/actions'
@@ -35,24 +36,9 @@ type DacAntrag = {
   weinausbau_id: string | null
 }
 
-const QUALITAETEN = [
-  { value: 'qualitaetswein',        label: 'Qualitätswein' },
-  { value: 'kabinett',              label: 'Kabinett' },
-  { value: 'spaetlese',             label: 'Spätlese' },
-  { value: 'auslese',               label: 'Auslese' },
-  { value: 'beerenauslese',         label: 'Beerenauslese' },
-  { value: 'trockenbeerenauslese',  label: 'Trockenbeerenauslese (TBA)' },
-  { value: 'eiswein',               label: 'Eiswein' },
-  { value: 'strohwein',             label: 'Strohwein / Schilfwein' },
-  { value: 'dac',                   label: 'DAC (Districtus Austriae Controllatus)' },
-  { value: 'reserve',               label: 'Reservé / Reserve' },
-  { value: 'erste_lage',            label: 'Erste Lage (ÖTW)' },
-  { value: 'grosses_gewachs',       label: 'Großes Gewächs' },
-  { value: 'landwein',              label: 'Landwein' },
-  { value: 'sekt',                  label: 'Sekt b.A.' },
-  { value: 'perlwein',              label: 'Perlwein' },
-  { value: 'sonstiges',             label: 'Sonstiges' },
-]
+// KAN-73: zentrale Liste der Füllung (= CHECK fuellungen_qualitaet_check, alle 18 Stufen –
+// jetzt auch „Wein“ und „Ausbruch“, damit jede Charge abgefüllt werden kann)
+const QUALITAETEN = FUELLUNG_QUALITAETEN
 
 const FLASCHENGROESSEN = [
   { value: 375,  label: '0,375 L – Halbflasche' },

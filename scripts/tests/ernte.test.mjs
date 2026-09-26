@@ -129,11 +129,19 @@ describe('KAN-36 – BKI-Kürzel (lib/wein/bki_kuerzel.ts)', () => {
       assert.equal(ausbruch.kuerzel, 'AUB', q)
       assert.match(ausbruch.hinweis, /„Ausbruch“ steht nicht in der BKI-Kürzelliste – vorläufig als AUB gemeldet \(Vorschlag/)
     }
-    for (const q of ['sekt', 'perlwein', 'sonstiges', 'tafelwein', 'Phantasie']) {
+    for (const q of ['sekt', 'perlwein', 'sonstiges']) {
       const r = kuerzel.qualitaetBki(q)
       assert.equal(r.kuerzel, '', q)
-      assert.ok(r.hinweis, q)
+      assert.match(r.hinweis, /steht nicht in der BKI-Kürzelliste – Qualitätsstufe leer gelassen/, q)
     }
+    // KAN-73: der alte Lese-Wert „tafelwein“ ist abgeschafft (einheitlich 'wein' → WEI) und
+    // gilt jetzt wie jeder Fantasiewert als unbekannt – leer mit Hinweis, kein Ersatzkürzel
+    for (const q of ['tafelwein', 'Phantasie']) {
+      const r = kuerzel.qualitaetBki(q)
+      assert.equal(r.kuerzel, '', q)
+      assert.match(r.hinweis, /ist unbekannt – Qualitätsstufe leer gelassen/, q)
+    }
+    assert.deepEqual(kuerzel.qualitaetBki('wein'), { kuerzel: 'WEI', hinweis: null })
     for (const q of ['reserve', 'erste_lage', 'grosses_gewachs']) {
       const r = kuerzel.qualitaetBki(q)
       assert.equal(r.kuerzel, 'QUW', q)

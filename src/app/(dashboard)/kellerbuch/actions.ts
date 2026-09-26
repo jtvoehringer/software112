@@ -3,6 +3,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { minQualitaet, maxQualitaet, istNiedrigerAls, QUALITAET_LABEL } from '@/lib/weinqualitaet'
+import { qualitaetFehler } from '@/lib/wein/qualitaet'
 import { minHerkunft, maxHerkunft, istNiedrigerAls as herkunftIstNiedrigerAls, HERKUNFT_LABEL } from '@/lib/herkunft'
 import { weinartKonflikt, weinartBekannt, weinartAusFarbe, WEINART_LABEL } from '@/lib/keller/weinart'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
@@ -39,6 +40,15 @@ async function kellerbuchSchreibrecht(): Promise<string> {
 }
 
 const rund2 = (n: number): number => Math.round(n * 100) / 100
+
+/** Qualitätsstufe einer Charge aus dem Formular – KAN-73: nur Werte des CHECK weinausbau
+ *  (QUALITAET_OPTS), sonst verständliche Meldung statt 23514; leer bleibt null wie bisher. */
+function chargenQualitaetAusFormular(formData: FormData): string | null {
+  const wert = (formData.get('qualitaetsstufe') as string) || null
+  const fehler = qualitaetFehler('charge', wert)
+  if (fehler) throw new AktionsFehler(fehler)
+  return wert
+}
 
 // BEHAELTER
 export async function createBehaelter(formData: FormData) {
@@ -202,7 +212,7 @@ export async function createWeinausbau(formData: FormData) {
     behaelter_id:    (formData.get('behaelter_id') as string) || null,
     menge_liter:          formData.get('menge_liter') ? Number(dezimal((formData.get('menge_liter') as string))) : null,
     anfangsbestand_liter: formData.get('menge_liter') ? Number(dezimal((formData.get('menge_liter') as string))) : null,
-    qualitaetsstufe:      (formData.get('qualitaetsstufe') as string) || null,
+    qualitaetsstufe:      chargenQualitaetAusFormular(formData),
     status:               (formData.get('status') as string) || 'ernte',
     notizen:              (formData.get('notizen') as string) || null,
     einstandspreis_pro_liter: formData.get('einstandspreis_pro_liter')
@@ -258,7 +268,7 @@ export async function updateWeinausbau(id: string, formData: FormData) {
     jahrgang:        formData.get('jahrgang') ? Number(dezimal(formData.get('jahrgang'))) : null,
     rebsorte:        (formData.get('rebsorte') as string) || null,
     weingarten_id:   wgIds[0] ?? null,
-    qualitaetsstufe:      (formData.get('qualitaetsstufe') as string) || null,
+    qualitaetsstufe:      chargenQualitaetAusFormular(formData),
     weinart:              (formData.get('weinart') as string) || 'unbekannt',
     status:               neuStatus,
     notizen:              (formData.get('notizen') as string) || null,

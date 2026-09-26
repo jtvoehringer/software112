@@ -5,30 +5,15 @@ import { createEroeffnungsbestandVonImport } from '@/app/(dashboard)/kellerbuch/
 import { exportCSV } from '@/lib/utils/csv'
 import { csvDateiname } from '@/lib/csv'
 import { fehlerText } from '@/lib/fehler'
+import { QUALITAET_OPTS } from '@/lib/wein/qualitaet'
 
 type ImportTyp = 'kontakte' | 'firmen' | 'fuellungen' | 'rieden_details' | 'grundstuecke' | 'gebinde'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
-const QUALITAETEN = [
-  { value: 'qualitaetswein',       label: 'Qualitätswein' },
-  { value: 'kabinett',             label: 'Kabinett' },
-  { value: 'spaetlese',            label: 'Spätlese' },
-  { value: 'auslese',              label: 'Auslese' },
-  { value: 'beerenauslese',        label: 'Beerenauslese' },
-  { value: 'trockenbeerenauslese', label: 'Trockenbeerenauslese (TBA)' },
-  { value: 'eiswein',              label: 'Eiswein' },
-  { value: 'strohwein',            label: 'Strohwein / Schilfwein' },
-  { value: 'dac',                  label: 'DAC' },
-  { value: 'reserve',              label: 'Reservé / Reserve' },
-  { value: 'erste_lage',           label: 'Erste Lage (ÖTW)' },
-  { value: 'grosses_gewachs',      label: 'Großes Gewächs' },
-  { value: 'landwein',             label: 'Landwein' },
-  { value: 'sekt',                 label: 'Sekt b.A.' },
-  { value: 'perlwein',             label: 'Perlwein' },
-  { value: 'sonstiges',            label: 'Sonstiges' },
-]
+// Anfangsbestand (Gebinde) = Kellerbuch-Charge (weinausbau): zentrale Chargen-Liste (KAN-73)
+const QUALITAETEN = QUALITAET_OPTS
 
 // Rückmeldung 2.9.2026 ("besser lesbar machen, ohne Details anzeigen"): die
 // Wertelisten (z.B. alle Segment-Werte) standen bisher direkt im Label und

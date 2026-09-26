@@ -2,7 +2,7 @@
 
 import React, { useState, useTransition } from 'react'
 import { upsertErnteParzelle, deleteErnteParzelle, createOrUpdateAMAMeldung, createMultipleErnteParzellen } from '../actions'
-import { qualitaetLabel, QUALITAET_OPTS } from '@/lib/wein/qualitaet'
+import { qualitaetLabel, LESE_QUALITAETEN, mitGespeichertemWert } from '@/lib/wein/qualitaet'
 import { kmwZuQualitaet } from '@/lib/weinqualitaet'
 import type { ErnteParzelle, WeingartenOpt, GSTOpt, AMAMeldung, HektarhoechstertragStatus } from './page'
 import PressungSection from './PressungSection'
@@ -15,7 +15,8 @@ import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { csvPfad } from '@/lib/behoerden/katalog'
 import { runden, STELLEN } from '@/lib/csv'
 
-// QUALITAET_OPTS: aus lib/wein/qualitaet importiert (s.u. import qualitaetLabel)
+// Qualitätsstufen der Lese: LESE_QUALITAETEN aus lib/wein/qualitaet (KAN-73) – genau die
+// Stufen, die ernte_parzellen speichern kann (DAC, Reserve & Co. erst an der Charge/Füllung)
 const LESEMETHODE_OPTS = [
   { value: 'handlese', label: 'Handlese' },
   { value: 'maschinenlese', label: 'Maschinenlese' },
@@ -48,7 +49,8 @@ function NeueParzellenForm({
   const [error, setError] = useState<string | null>(null)
   const [gstData, setGstData] = useState<Map<string, { menge_kg: string; kmw: string; lesemethode: string; notizen: string }>>(new Map())
   const [kmwNeu, setKmwNeu] = useState<number | null>(null)
-  const derivedQualitaetNeu = kmwNeu != null ? kmwZuQualitaet(kmwNeu) : 'qualitaetswein'
+  // ungültige Eingabe (NaN) wie „kein KMW“ – so rechnet auch createMultipleErnteParzellen (KAN-73)
+  const derivedQualitaetNeu = kmwNeu != null && Number.isFinite(kmwNeu) ? kmwZuQualitaet(kmwNeu) : 'qualitaetswein'
 
   const riedMap = new Map<string, WeingartenOpt[]>()
   for (const w of weingaerten) {
@@ -319,7 +321,7 @@ function ParzellForm({
   )
   const [selWgId, setSelWgId] = useState<string>(parzelle?.weingarten_id ?? '')
   const [selGstId, setSelGstId] = useState<string>(parzelle?.grundstueck_id ?? '')
-  const derivedQualitaetEdit = kmwEdit != null ? kmwZuQualitaet(kmwEdit) : 'qualitaetswein'
+  const derivedQualitaetEdit = kmwEdit != null && Number.isFinite(kmwEdit) ? kmwZuQualitaet(kmwEdit) : 'qualitaetswein'
   const [qualitaetEdit, setQualitaetEdit] = useState<string | null>(parzelle?.qualitaetsstufe ?? null)
   const effectiveQualitaetEdit = qualitaetEdit ?? derivedQualitaetEdit
   const verfuegbareGSTs = selWgId ? (gstByWeingarten[selWgId] ?? []) : []
@@ -417,7 +419,7 @@ function ParzellForm({
           <select aria-label="Qualitätsstufe" name="qualitaetsstufe" value={effectiveQualitaetEdit}
             onChange={e => setQualitaetEdit(e.target.value)}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
-            {QUALITAET_OPTS.map(o => (
+            {mitGespeichertemWert(LESE_QUALITAETEN, parzelle?.qualitaetsstufe).map(o => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </select>

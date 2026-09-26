@@ -7,6 +7,7 @@ import { notFound } from 'next/navigation'
 import { Sprout } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum } from '@/lib/format'
+import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
 
 export const dynamic = 'force-dynamic'
 
@@ -75,13 +76,11 @@ export default async function WeinpassPage({ params }: { params: Promise<{ charg
       .filter((wg: R) => wg.weingarten)
   }
 
+  // Kurzbezeichnungen aus lib/weinqualitaet (deckt alle 18 Stufen der Füllung ab, KAN-73: auch
+  // „Wein“ und „Ausbruch“) – die bisherigen Schreibweisen dieser Seite bleiben unverändert
   const qualitaetLabels: Record<string, string> = {
-    qualitaetswein: 'Qualitätswein', kabinett: 'Kabinett', spaetlese: 'Spätlese',
-    auslese: 'Auslese', beerenauslese: 'Beerenauslese',
-    trockenbeerenauslese: 'Trockenbeerenauslese', eiswein: 'Eiswein',
-    strohwein: 'Strohwein', dac: 'DAC', reserve: 'Reservé',
-    erste_lage: 'Erste Lage (ÖTW)', grosses_gewachs: 'Großes Gewächs',
-    landwein: 'Landwein', sekt: 'Sekt b.A.', perlwein: 'Perlwein', sonstiges: 'Sonstiges',
+    ...QUALITAET_LABEL,
+    reserve: 'Reservé', erste_lage: 'Erste Lage (ÖTW)', sekt: 'Sekt b.A.',
   }
 
   return (

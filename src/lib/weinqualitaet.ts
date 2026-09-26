@@ -12,6 +12,11 @@ export const QUALITAET_ORDER = [
 
 export type Qualitaetsstufe = typeof QUALITAET_ORDER[number] | 'sonstiges' | null
 
+// Kurzbezeichnungen für Fließtexte (Abstufungs-Hinweise, Badges, Notizen). Bewusst kürzer
+// als die Listen-Labels in lib/wein/qualitaet.ts (dort „Wein (ohne Herkunft)“): umziehen()
+// schreibt diese Texte in Notizen/Bewegungsbuch, und lib/kellerbuch/storno.ts
+// (qualitaetsCode) liest sie beim Storno wieder zurück – ein geändertes Label träfe
+// gespeicherte Texte nicht mehr. Werte = QUALITAET_OPTS (Test: scripts/tests/qualitaet.test.mjs).
 export const QUALITAET_LABEL: Record<string, string> = {
   wein:                    'Wein',
   landwein:                'Landwein',
@@ -48,16 +53,32 @@ export function minQualitaet(stufen: (string | null | undefined)[]): string | nu
 }
 
 /** Leitet die Qualitätsstufe aus dem KMW-Grad (Klosterneuburger Mostwaage) ab.
- *  Quelle: Österreichisches Weingesetz (oesterreichwein.at)
- *  Eiswein / Strohwein / Ausbruch werden NICHT auto-abgeleitet (Sonderbedingungen). */
+ *  Quelle: Österreichisches Weingesetz (oesterreichwein.at) – Mindest-Mostgewichte:
+ *  Landwein 14, Qualitätswein 15, Kabinett 17, Spätlese 19, Auslese 21,
+ *  Beerenauslese 25, Trockenbeerenauslese 30 °KMW; darunter „Wein“ (ohne Herkunft).
+ *  KAN-73 (25.09.2026): unter 14 °KMW jetzt 'wein' statt 'landwein' – Landwein verlangt
+ *  mindestens 14 °KMW. Das Ergebnis ist immer ein Wert aus LESE_QUALITAETEN
+ *  (lib/wein/qualitaet.ts), also für ernte_parzellen und weinausbau speicherbar.
+ *  Eiswein / Strohwein / Ausbruch werden NICHT auto-abgeleitet (Sonderbedingungen).
+ *  Keine gültige Zahl (NaN, ±Infinity) sowie null, undefined und ein leerer Text zählen wie
+ *  „kein KMW“: 'qualitaetswein' – derselbe Rückfall wie bei den Aufrufern ohne KMW-Wert (Lese,
+ *  Pressung/Charge); sonst stufte eine fehlende oder ungültige Eingabe still auf die unterste
+ *  Stufe 'wein' ab (Number(null) und Number('') ergäben 0). 0 °KMW als Zahl bleibt 'wein'. */
 export function kmwZuQualitaet(kmw: number): string {
-  if (kmw >= 30) return 'trockenbeerenauslese'
-  if (kmw >= 25) return 'beerenauslese'
-  if (kmw >= 21) return 'auslese'
-  if (kmw >= 19) return 'spaetlese'
-  if (kmw >= 17) return 'kabinett'
-  if (kmw >= 15) return 'qualitaetswein'
-  return 'landwein'
+  // Laufzeitwert prüfen: null kommt z. B. als DB-Wert aus einer untypisierten Zeile
+  const wert: unknown = kmw
+  if (wert == null || (typeof wert === 'string' && wert.trim() === '')) return 'qualitaetswein'
+  // Number(): ein numerischer Text aus der DB zählt wie bisher als Zahl
+  const zahl = Number(wert)
+  if (!Number.isFinite(zahl)) return 'qualitaetswein'
+  if (zahl >= 30) return 'trockenbeerenauslese'
+  if (zahl >= 25) return 'beerenauslese'
+  if (zahl >= 21) return 'auslese'
+  if (zahl >= 19) return 'spaetlese'
+  if (zahl >= 17) return 'kabinett'
+  if (zahl >= 15) return 'qualitaetswein'
+  if (zahl >= 14) return 'landwein'
+  return 'wein'
 }
 
 // Nur diese Stufen werden für die Abstufungs-Prüfung beim Verschneiden herangezogen.

@@ -14,11 +14,14 @@
 // diese Regel nicht selbst prüfen, sie greift automatisch.
 import { createFuellung } from '@/app/(dashboard)/weinhandel/actions'
 import { getCurrentMembership } from '@/lib/auth/roles'
+import { FUELLUNG_QUALITAETEN, qualitaetFehler } from '@/lib/wein/qualitaet'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
 const FLASCHENGROESSEN_ML = [187, 375, 500, 750, 1000, 1500, 3000, 6000]
+// KAN-73: erlaubte Qualitätsbezeichnungen der Füllung (= CHECK fuellungen)
+const FUELLUNG_WERTE = FUELLUNG_QUALITAETEN.map(o => o.value)
 
 export const ABFUELLEN_FELD_MATRIX_TEXT = `
 FELD-MATRIX für "Abfüllen" (aktuell NUR Füllungen mit Kellerbuch-Chargen-Verknüpfung –
@@ -73,7 +76,11 @@ export const ABFUELLEN_TOOL = {
       flaschengroesse_ml: { type: 'number', enum: FLASCHENGROESSEN_ML },
       anzahl_flaschen: { type: 'number' },
       menge_liter_gefuellt: { type: 'number', description: 'Nur falls die tatsächlich abgefüllte Menge von Anzahl×Größe abweicht (sonst automatisch berechnet)' },
-      qualitaet: { type: 'string', description: 'Nur Abstufung gegenüber der Charge möglich (sonst wird die aktuelle Stufe übernommen)' },
+      qualitaet: {
+        type: 'string',
+        enum: FUELLUNG_WERTE,
+        description: 'Nur Abstufung gegenüber der Charge möglich (sonst wird die aktuelle Stufe übernommen)',
+      },
       herkunft_code: { type: 'string', description: 'Nur Abstufung gegenüber der Charge möglich' },
       jahrgang: { type: 'number' },
       rebsorte: { type: 'string' },
@@ -111,6 +118,11 @@ export async function fuehreAbfuellenAus(
   }
   if (!input.name || !input.datum || !input.flaschengroesse_ml || !(Number(input.anzahl_flaschen) > 0)) {
     return { erfolg: false, hinweis: 'Produktname, Datum, Flaschengröße und Anzahl Flaschen (> 0) sind Pflichtfelder – bitte beim User nachfragen.' }
+  }
+  // KAN-73: unbekannte Stufe freundlich zurückmelden (createFuellung prüft ebenfalls)
+  const qualitaetUnzulaessig = qualitaetFehler('fuellung', input.qualitaet ? String(input.qualitaet) : null)
+  if (qualitaetUnzulaessig) {
+    return { erfolg: false, hinweis: `${qualitaetUnzulaessig} Mögliche Werte: ${FUELLUNG_WERTE.join(', ')}. Es wurde NICHTS gespeichert.` }
   }
 
   const membership = await getCurrentMembership()

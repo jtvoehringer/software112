@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Info, AlertTriangle } from 'lucide-react'
-import { QUALITAET_OPTS } from '@/lib/wein/qualitaet'
+import { QUALITAET_OPTS, mitGespeichertemWert } from '@/lib/wein/qualitaet'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum, dezimal } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
@@ -160,7 +160,12 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
               (() => {
                 const basisQ = weinausbau?.qualitaetsstufe ?? maxQualitaetsstufe ?? null
                 const maxRang = basisQ ? (QUALITAET_OPTS.find(o => o.value === basisQ)?.rang ?? 99) : 99
-                const erlaubteOptionen = basisQ ? QUALITAET_OPTS.filter(o => o.rang <= maxRang) : QUALITAET_OPTS
+                // KAN-73: Charge = QUALITAET_OPTS (CHECK weinausbau); „Wein“ (Rang 0) lässt nur Wein
+                // und Sonstiges zu. Ein gespeicherter Wert außerhalb der Liste bleibt sichtbar.
+                const erlaubteOptionen = mitGespeichertemWert(
+                  basisQ ? QUALITAET_OPTS.filter(o => o.rang <= maxRang) : QUALITAET_OPTS,
+                  weinausbau?.qualitaetsstufe,
+                )
                 return (
                   <>
                     <select name="qualitaetsstufe" defaultValue={weinausbau?.qualitaetsstufe ?? maxQualitaetsstufe ?? ''} className="form-input">

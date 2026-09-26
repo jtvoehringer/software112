@@ -9,6 +9,7 @@ import { folgebuchungenDerCharge, folgebuchungenText, type Folgebuchung } from '
 import { OHNE_MENGENWIRKUNG, GEBINDEWECHSEL_OHNE } from '@/lib/kellerbuch/storno'
 import { fmtNum } from '@/lib/format'
 import { KORREKTUR_NACH_OBEN_HINWEIS } from '@/lib/kellerbuch/hinweise'
+import { QUALITAET_OPTS, mitGespeichertemWert } from '@/lib/wein/qualitaet'
 import { Info } from 'lucide-react'
 import type { Metadata } from 'next'
 
@@ -18,24 +19,7 @@ export const dynamic = 'force-dynamic'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
-const QUALITAETEN = [
-  { value: 'qualitaetswein', label: 'Qualitätswein' },
-  { value: 'kabinett', label: 'Kabinett' },
-  { value: 'spaetlese', label: 'Spätlese' },
-  { value: 'auslese', label: 'Auslese' },
-  { value: 'beerenauslese', label: 'Beerenauslese' },
-  { value: 'trockenbeerenauslese', label: 'Trockenbeerenauslese (TBA)' },
-  { value: 'eiswein', label: 'Eiswein' },
-  { value: 'strohwein', label: 'Strohwein / Schilfwein' },
-  { value: 'dac', label: 'DAC' },
-  { value: 'reserve', label: 'Reservé / Reserve' },
-  { value: 'erste_lage', label: 'Erste Lage (ÖTW)' },
-  { value: 'grosses_gewachs', label: 'Großes Gewächs' },
-  { value: 'landwein', label: 'Landwein' },
-  { value: 'sekt', label: 'Sekt b.A.' },
-  { value: 'perlwein', label: 'Perlwein' },
-  { value: 'sonstiges', label: 'Sonstiges' },
-]
+// Eröffnungsbestand = Kellerbuch-Charge (weinausbau): zentrale Chargen-Liste QUALITAET_OPTS (KAN-73)
 
 export default async function EroeffnungsbestandEditPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ err?: string }> }) {
   const { id } = await params
@@ -171,7 +155,7 @@ export default async function EroeffnungsbestandEditPage({ params, searchParams 
             <label className={labelCls}>Qualitätsstufe</label>
             <select aria-label="Qualitätsstufe" name="qualitaetsstufe" defaultValue={eintrag.qualitaetsstufe ?? ''} className={inputCls}>
               <option value="">– keine –</option>
-              {QUALITAETEN.map(q => (
+              {mitGespeichertemWert(QUALITAET_OPTS, eintrag.qualitaetsstufe).map(q => (
                 <option key={q.value} value={q.value}>{q.label}</option>
               ))}
             </select>

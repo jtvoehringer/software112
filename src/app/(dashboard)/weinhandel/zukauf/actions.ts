@@ -8,6 +8,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { AktionsFehler, dbFehlerText, fehlerText } from '@/lib/fehler'
 import { dezimal, fmtNum } from '@/lib/format'
+import { qualitaetFehler } from '@/lib/wein/qualitaet'
 import {
   folgebuchungenDerZielcharge, zielchargeText, zukaufVerweise, traubenGebundenText, loeschSperreText,
 } from './sperren'
@@ -124,6 +125,11 @@ function parseZukaufFormData(formData: FormData) {
   // dadurch unsichtbar für diese Zuordnung zu machen.
   const jahrgangEingabe = parseInt(dezimal(formData.get('jahrgang') as string))
   const jahrgang = !isNaN(jahrgangEingabe) ? jahrgangEingabe : (parseInt(datum.slice(0, 4)) || null)
+  // KAN-73: die Stufe geht bei Wein/Most in die Zielcharge (weinausbau) – nur Werte des
+  // CHECK weinausbau (QUALITAET_OPTS), sonst verständliche Meldung statt 23514
+  const qualitaetsstufe = (formData.get('qualitaetsstufe') as string)?.trim() || null
+  const qualitaetUnzulaessig = qualitaetFehler('charge', qualitaetsstufe)
+  if (qualitaetUnzulaessig) throw new AktionsFehler(qualitaetUnzulaessig)
   return {
     datum,
     lieferungUhrzeit:    (formData.get('lieferung_uhrzeit')        as string)?.trim() || null,
@@ -139,7 +145,7 @@ function parseZukaufFormData(formData: FormData) {
     anhaenger2:          (formData.get('transport_anhaenger2')     as string)?.trim() || null,
     weinart:             (formData.get('weinart')                  as string) || 'unbekannt',
     rebsorte:            (formData.get('rebsorte')                 as string)?.trim() || null,
-    qualitaetsstufe:     (formData.get('qualitaetsstufe')          as string)?.trim() || null,
+    qualitaetsstufe,
     jahrgang,
     herkunft:            (formData.get('herkunft')                 as string)?.trim() || null,
     anreicherung:        formData.get('anreicherung') === 'true',

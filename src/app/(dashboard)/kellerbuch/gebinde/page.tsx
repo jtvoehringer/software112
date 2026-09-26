@@ -16,6 +16,7 @@ import { csvPfad } from '@/lib/behoerden/katalog'
 import { ladeGebindeverzeichnis } from '@/lib/behoerden/gebindeverzeichnis'
 import DruckKnopf from '../_behoerden/DruckKnopf'
 import ZeitraumCsvKnopf from '../_behoerden/ZeitraumCsvKnopf'
+import { QUALITAET_OPTS, qualitaetLabel } from '@/lib/wein/qualitaet'
 
 export const metadata: Metadata = { title: 'Gebinde – software:112' }
 export const dynamic = 'force-dynamic'
@@ -23,24 +24,8 @@ export const dynamic = 'force-dynamic'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
-const QUALITAETEN = [
-  { value: 'qualitaetswein',       label: 'Qualitätswein' },
-  { value: 'kabinett',             label: 'Kabinett' },
-  { value: 'spaetlese',            label: 'Spätlese' },
-  { value: 'auslese',              label: 'Auslese' },
-  { value: 'beerenauslese',        label: 'Beerenauslese' },
-  { value: 'trockenbeerenauslese', label: 'Trockenbeerenauslese (TBA)' },
-  { value: 'eiswein',              label: 'Eiswein' },
-  { value: 'strohwein',            label: 'Strohwein / Schilfwein' },
-  { value: 'dac',                  label: 'DAC' },
-  { value: 'reserve',              label: 'Reservé / Reserve' },
-  { value: 'erste_lage',           label: 'Erste Lage (ÖTW)' },
-  { value: 'grosses_gewachs',      label: 'Großes Gewächs' },
-  { value: 'landwein',             label: 'Landwein' },
-  { value: 'sekt',                 label: 'Sekt b.A.' },
-  { value: 'perlwein',             label: 'Perlwein' },
-  { value: 'sonstiges',            label: 'Sonstiges' },
-]
+// Eröffnungsbestand = Kellerbuch-Charge (weinausbau): zentrale Chargen-Liste (KAN-73)
+const QUALITAETEN = QUALITAET_OPTS
 
 export default async function GebindePage({
   searchParams,
@@ -486,7 +471,7 @@ export default async function GebindePage({
                         : '–'}
                     </td>
                     <td className="px-4 py-2.5 text-s112-text-2">{(e.behaelter as R | null)?.name ?? '–'}</td>
-                    <td className="px-4 py-2.5 text-s112-text-2 text-xs">{e.qualitaetsstufe ?? '–'}</td>
+                    <td className="px-4 py-2.5 text-s112-text-2 text-xs">{qualitaetLabel(e.qualitaetsstufe)}</td>
                     <td className="px-4 py-2.5 text-s112-text-2 text-xs">{e.referenz_altsystem ?? '–'}</td>
                     {writeOk && (
                       <td className="px-4 py-2.5 text-right whitespace-nowrap">

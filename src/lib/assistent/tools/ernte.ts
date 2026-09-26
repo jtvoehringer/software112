@@ -16,9 +16,14 @@
 // (bestaetigt_vom_user), analog zu den anderen Prozessen.
 import { createJahrgang, createMultipleErnteParzellen } from '@/app/(dashboard)/erntemeldung/actions'
 import { getCurrentMembership } from '@/lib/auth/roles'
+import { LESE_QUALITAETEN, qualitaetFehler } from '@/lib/wein/qualitaet'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
+
+// KAN-73: erlaubte Qualitätsstufen der Lese (= CHECK ernte_parzellen) für Schema und Feld-Matrix
+const LESE_WERTE = LESE_QUALITAETEN.map(o => o.value)
+const LESE_WERTE_TEXT = LESE_QUALITAETEN.map(o => `${o.value} (${o.label})`).join(', ')
 
 export const ERNTE_FELD_MATRIX_TEXT = `
 FELD-MATRIX für "Ernte erfassen":
@@ -26,9 +31,12 @@ FELD-MATRIX für "Ernte erfassen":
 Gemeinsame Felder: jahrgang (pflicht, Erntejahr als Zahl z.B. 2026 – existiert dafür noch kein
 Weinjahrgang-Datensatz, wird er automatisch mit angelegt), ernte_datum (pflicht, YYYY-MM-DD),
 lesemethode (optional: handlese/maschinenlese/selektionslese), klosterneuburger (optional,
-gemeinsamer °KMW-Wert), qualitaetsstufe (optional – nur relevant für "rieden"-Positionen ohne
-KMW; bei Grundstücken mit KMW wird die Qualitätsstufe automatisch daraus abgeleitet), notizen
-(optional).
+gemeinsamer °KMW-Wert), qualitaetsstufe (optional – wird derzeit NICHT übernommen: die Stufe
+wird immer aus den °KMW abgeleitet, ohne KMW gilt qualitaetswein; eine andere Stufe, z. B.
+Eiswein, stellt der User nach dem Speichern beim Bearbeiten der Lese ein – darauf hinweisen.
+Angegeben werden dürfen nur diese Lese-Stufen: ${LESE_WERTE_TEXT} – DAC, Reserve, Erste Lage,
+Großes Gewächs, Sekt, Perlwein, Sonstiges, Strohwein und Ausbruch gibt es bei der Lese nicht),
+notizen (optional).
 
 Mindestens EINE der beiden folgenden Positions-Arten ist erforderlich (auch kombiniert möglich):
 - "rieden": Array von weingarten_ids (ganze Rieden aus dem Stammdaten-Kontext) + optional EINE
@@ -64,7 +72,11 @@ export const ERNTE_TOOL = {
       ernte_datum: { type: 'string', description: 'Datum der Lese, Format YYYY-MM-DD' },
       lesemethode: { type: 'string', enum: ['handlese', 'maschinenlese', 'selektionslese'] },
       klosterneuburger: { type: 'number', description: 'Gemeinsamer °KMW-Wert (optional)' },
-      qualitaetsstufe: { type: 'string', description: 'Nur relevant für rieden-Positionen ohne KMW' },
+      qualitaetsstufe: {
+        type: 'string',
+        enum: LESE_WERTE,
+        description: `Wird derzeit nicht übernommen – die Stufe ergibt sich aus den °KMW (ohne KMW: qualitaetswein); eine andere Stufe stellt der User beim Bearbeiten der Lese ein. Nur Lese-Stufen: ${LESE_WERTE_TEXT}`,
+      },
       notizen: { type: 'string' },
       rieden: {
         type: 'object',
@@ -112,6 +124,11 @@ export async function fuehreErnteErfassenAus(
   const jahrgangJahr = Number(input.jahrgang)
   if (!jahrgangJahr || !input.ernte_datum) {
     return { erfolg: false, hinweis: 'Jahrgang (Erntejahr) und Datum sind Pflichtfelder – bitte beim User nachfragen.' }
+  }
+  // KAN-73: vor dem Anlegen des Jahrgangs prüfen (createMultipleErnteParzellen prüft ebenfalls)
+  const qualitaetUnzulaessig = qualitaetFehler('lese', input.qualitaetsstufe ? String(input.qualitaetsstufe) : null)
+  if (qualitaetUnzulaessig) {
+    return { erfolg: false, hinweis: `${qualitaetUnzulaessig} Bitte beim User nachfragen. Es wurde NICHTS gespeichert.` }
   }
 
   const riedenIn = (input.rieden ?? {}) as R
