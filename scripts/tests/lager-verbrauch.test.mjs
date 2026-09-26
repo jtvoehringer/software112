@@ -224,6 +224,25 @@ describe('lagerEinheit', nurMitHooks, () => {
     assert.equal(lv.lagerEinheit([], [posten(null), posten('l')]), 'l')
     assert.equal(lv.lagerEinheit([buchung('2026-01-01', 1, null)]), 'kg')
   })
+
+  test('preisEinheit (Material-Vorschlag): Preis je kg bzw. l, auch wenn alle Buchungen in g bzw. ml sind', () => {
+    assert.equal(lv.preisEinheit([buchung('2026-01-01', 500, 'g')]), 'kg')
+    assert.equal(lv.preisEinheit([buchung('2026-01-01', 250, 'ml'), buchung('2026-02-01', 500, 'ml')]), 'l')
+    assert.equal(lv.preisEinheit([buchung('2026-01-01', 0.5, 'kg'), buchung('2026-02-01', 500, 'g')]), 'kg')
+    assert.equal(lv.preisEinheit([buchung('2026-02-01', 500, 'ml'), buchung('2026-01-01', 1, 'kg')]), 'l')
+    assert.equal(lv.preisEinheit([]), null)
+    assert.equal(lv.preisEinheit([buchung('2026-01-01', 1, null)]), null)
+    // Steward 180 €/kg, einzige Buchung 500 g: 0,125 kg/ha × 4,75 ha = 0,594 kg × 180 €/kg = 106,92 € (nicht 594 g × 180 €)
+    const steward = spritzung('b-st', STEWARD, {
+      aufwandmenge: 0.125, aufwandmenge_einheit: 'kg_ha', menge_gesamt: 2375, menge_einheit: 'l', wasseraufwand_l_ha: 500,
+      behandlung_grundstuecke: [gst('1', 4.75)],
+    })
+    const mm = psm.mittelmenge(steward)
+    assert.deepEqual([mm.menge, mm.einheit], [0.594, 'kg'])
+    const menge = psm.mengeInEinheit(mm.menge, mm.einheit, lv.preisEinheit([buchung('2026-01-01', 500, 'g')]))
+    assert.equal(menge, 0.594)
+    assert.equal(Math.round(menge * 180 * 100) / 100, 106.92)
+  })
 })
 
 // ── Abnahme Musterhof (Demo, SELECT 26.09.2026) ─────────────────────────────

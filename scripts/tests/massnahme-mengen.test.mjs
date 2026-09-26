@@ -186,6 +186,24 @@ describe('Düngung', nurMitHooks, () => {
     assert.equal(fluessig.mittelmenge.einheit, 'l')
   })
 
+  test('Düngemittel in l: Düngermenge ohne Einheit in l, kg/g abgelehnt (keine Dichte-Annahme)', () => {
+    // Assistent ohne menge_einheit: die Einheit folgt dem Düngemittel wie im Formular (duengermengeEinheit)
+    const r = ok(duengung({ duengemittelEinheit: 'l', mengeGesamt: 50, mengeEinheit: null }))
+    assert.equal(r.werte.menge_gesamt, 50)
+    assert.equal(r.werte.menge_einheit, 'l')
+    assert.deepEqual([r.mittelmenge.menge, r.mittelmenge.einheit, r.mittelmenge.basis], [50, 'l', 'Düngermenge'])
+    abgelehnt(duengung({ duengemittelEinheit: 'l', mengeGesamt: 50, mengeEinheit: 'kg' }), /Düngemittel wird in Litern geführt – bitte die Düngermenge in l angeben/)
+    abgelehnt(duengung({ duengemittelEinheit: 'l', mengeGesamt: 50000, mengeEinheit: 'g' }), /in Litern geführt/)
+    // Vorabprüfung des Assistenten (ohne Fläche, mit bruehePflicht) lehnt ebenso ab
+    abgelehnt({ ...duengung({ duengemittelEinheit: 'l', mengeGesamt: 200, mengeEinheit: 'kg' }), flaecheHa: null }, /in l angeben/, { bruehePflicht: true })
+  })
+
+  test('Düngemittel in kg bzw. ohne Düngemittel: Düngermenge ohne Einheit weiter kg', () => {
+    assert.equal(ok(duengung({ mengeEinheit: null })).werte.menge_einheit, 'kg')
+    assert.equal(ok(duengung({ duengemittelEinheit: null, mengeEinheit: null })).werte.menge_einheit, 'kg')
+    assert.equal(ok(duengung({ duengemittelId: null, duengemittelEinheit: null, mengeEinheit: null })).werte.menge_einheit, 'kg')
+  })
+
   test('nur Aufwand: Düngermenge = kg/ha × Fläche (nicht gespeichert), Einheit ohne Aufwand entfällt', () => {
     const r = ok(duengung({ mengeGesamt: null, mengeEinheit: 'kg' }))
     assert.equal(r.werte.menge_gesamt, null)
@@ -260,6 +278,19 @@ describe('Anbindung Server Action und Assistent', nurMitHooks, () => {
     abgelehnt({ ...spritzung({ mengeGesamt: null, mengeEinheit: null, wasserLHa: null }), flaecheHa: null }, /Spritzbrühe gesamt \(l\) oder den Wasseraufwand/, { bruehePflicht: true })
   })
 
+  test('KI-Kontext (Frag dein Weingut): Cu-Gehalt wie kupferGehaltPct()/cuGehalt() – Näherung über wirkstoffgehalt_pct', () => {
+    // „Cuprozin Progress“ mit cu_gehalt_pct 0: Cu-Bilanz und reinkupfer_kg_ha nehmen den Wirkstoffgehalt
+    const cuprozin = { cuGehaltPct: 0, wirkstoff: 'Kupferhydroxid', wirkstoffgehaltPct: 18.9 }
+    assert.equal(mm.kupferGehaltPct(cuprozin), 18.9)
+    assert.equal(ok(spritzung({ psm: cuprozin })).cuKg, 0.2268)       // 1,2 kg × 18,9 % – nicht 0
+    assert.equal(mm.kupferGehaltPct({ cuGehaltPct: null, wirkstoff: 'Penconazol', wirkstoffgehaltPct: 10 }), null)
+    const kontext = readFileSync(path.join(SRC, 'app/api/ki-abfrage/route.ts'), 'utf8').replace(/\s+/g, ' ')
+    const regel = kontext.match(/Reinkupfer \(kg\) = [^.]*\.(?:[^.]*\.){0,4}/)?.[0] ?? ''
+    assert.match(regel, /Mittelmenge \* Cu-Gehalt \/ 100/)
+    assert.doesNotMatch(regel, /Mittelmenge \* pflanzenschutzmittel\.cu_gehalt_pct \/ 100/)
+    assert.ok(kontext.includes("COALESCE(NULLIF(cu_gehalt_pct, 0), CASE WHEN wirkstoff ILIKE '%kupfer%' THEN NULLIF(wirkstoffgehalt_pct, 0) END)"))
+  })
+
   test('Fläche der Action und der Bearbeiten-Seite: summeFlaecheHa() wie normalisiereBehandlung (4 Stellen je GST)', () => {
     assert.equal(mm.summeFlaecheHa([0.75, '0.8', 0.45]), 2)                   // DB-Werte auch als Text
     assert.equal(mm.summeFlaecheHa([0.12346, 0.12346]), 0.247)              // je GST gerundet, dann Summe (nicht 0,2469)
@@ -283,6 +314,114 @@ describe('Anbindung Server Action und Assistent', nurMitHooks, () => {
     const r = ok({ ...CUPROZIN_ALT, art: 'schnitt' })
     assert.equal(r.werte.reinkupfer_kg_ha, null)
     assert.equal(r.cuKg, null)
+  })
+})
+
+// ── Formulare: Vorbelegung und Wechsel des Düngemittels (Soll 8/9, Entscheidung 1) ──
+// neu/mengenFelder.ts – gemeinsam für Anlegen und Bearbeiten; kg ↔ l nie still umdeuten
+
+describe('Formulare: Düngermenge beim Wechsel kg ↔ l', nurMitHooks, () => {
+  const laden = () => import(pathToFileURL(path.join(SRC, 'app/(dashboard)/behandlungen/neu/mengenFelder.ts')).href)
+
+  test('Vorbelegung gegen die Einheit des gewählten Düngemittels: 950 kg bei Düngemittel in l → Altwert', async () => {
+    const mf = await laden()
+    const gespeichert = { art: 'duengung', menge_gesamt: 950, menge_einheit: 'kg' }
+    assert.deepEqual(mf.mengeVorbelegung(gespeichert, 'kg'), { text: '950', altwert: null })
+    assert.deepEqual(mf.mengeVorbelegung(gespeichert, 'l'), { text: '', altwert: '950 kg' })
+    assert.deepEqual(mf.mengeVorbelegung({ ...gespeichert, menge_gesamt: 500, menge_einheit: 'g' }, 'kg'), { text: '0,5', altwert: null })
+    // Spritzung: immer Spritzbrühe in l, unabhängig vom Düngemittel; kg/g vor KAN-133 = Altwert
+    assert.deepEqual(mf.mengeVorbelegung({ art: 'spritzung', menge_gesamt: 800, menge_einheit: 'l' }, 'kg'), { text: '800', altwert: null })
+    assert.deepEqual(mf.mengeVorbelegung({ art: 'spritzung', menge_gesamt: 21.15, menge_einheit: 'kg' }, 'l'), { text: '', altwert: '21,15 kg' })
+    assert.deepEqual(mf.mengeVorbelegung({ art: 'duengung', menge_gesamt: null, menge_einheit: null }, 'l'), { text: '', altwert: null })
+  })
+
+  test('Vorbelegung ohne gespeicherte Einheit: Einheit des gespeicherten Düngemittels (wie pruefeMassnahmeMengen)', async () => {
+    const mf = await laden()
+    const ohneEinheit = { art: 'duengung', menge_gesamt: 50, menge_einheit: null }
+    assert.deepEqual(mf.mengeVorbelegung(ohneEinheit, 'l'), { text: '50', altwert: null })
+    assert.deepEqual(mf.mengeVorbelegung(ohneEinheit, 'kg'), { text: '50', altwert: null })
+    // Wechsel vom Düngemittel in l auf eines in kg (und umgekehrt): Altwert, nie still umgedeutet
+    assert.deepEqual(mf.mengeVorbelegung(ohneEinheit, 'kg', 'l'), { text: '', altwert: '50 l' })
+    assert.deepEqual(mf.mengeVorbelegung(ohneEinheit, 'l', 'kg'), { text: '', altwert: '50 kg' })
+  })
+
+  test('Formular und Server: Düngemittel in l – dieselbe Einheit, gespeicherte kg sind im Formular Altwert und im Server abgelehnt', async () => {
+    const mf = await laden()
+    const m = mf.mengenFelder({
+      art: 'duengung', felder: mf.MENGEN_SICHT.duengung,
+      mengeGesamt: '50', wasseraufwand: '', mengeQuelle: null,
+      aufwandmenge: '', aufwandmengeEinheit: 'kg_ha', konzentration: '', aufwandQuelle: null,
+      flaecheHa: 2, psmId: null, psm: null, duengemittelId: 'd-l', duengemittelEinheit: 'l',
+    })
+    assert.equal(m.mengeEinheit, 'l')
+    assert.equal(m.pruefung.ok, true)
+    assert.deepEqual([m.pruefung.werte.menge_gesamt, m.pruefung.werte.menge_einheit], [50, 'l'])
+    // was der Server ohne Einheit speichert, belegt das Bearbeiten-Formular ohne Altwert vor
+    const gespeichert = ok(duengung({ duengemittelEinheit: 'l', mengeGesamt: 50, mengeEinheit: null, aufwand: null })).werte
+    assert.deepEqual(mf.mengeVorbelegung({ art: 'duengung', ...gespeichert }, 'l'), { text: '50', altwert: null })
+    // kg bei einem Düngemittel in l: Formular Altwert, Server abgelehnt
+    assert.deepEqual(mf.mengeVorbelegung({ art: 'duengung', menge_gesamt: 50, menge_einheit: 'kg' }, 'l'), { text: '', altwert: '50 kg' })
+    abgelehnt(duengung({ duengemittelEinheit: 'l', mengeGesamt: 50, mengeEinheit: 'kg' }), /in l angeben/)
+  })
+
+  test('eigene Eingabe bleibt stehen, Hinweis nur bei anderer Einheit', async () => {
+    const mf = await laden()
+    assert.deepEqual(['kg', 'l', null, undefined, 'g'].map(e => mf.duengermengeEinheit(e)), ['kg', 'l', 'kg', 'kg', 'kg'])
+    assert.match(mf.duengerEinheitWechsel('kg', 'l', '950'), /von kg auf l gewechselt .* nicht umgerechnet/)
+    assert.equal(mf.duengerEinheitWechsel('kg', 'kg', '950'), null)
+    assert.equal(mf.duengerEinheitWechsel('kg', 'l', ' '), null)
+  })
+})
+
+describe('Formulare: Hinweis unter „Konzentration (%)“ nennt, was fehlt', nurMitHooks, () => {
+  const laden = () => import(pathToFileURL(path.join(SRC, 'app/(dashboard)/behandlungen/neu/mengenFelder.ts')).href)
+  const eingaben = (mf, x = {}) => ({
+    art: 'spritzung', felder: mf.MENGEN_SICHT.spritzung,
+    mengeGesamt: '', wasseraufwand: '', mengeQuelle: null,
+    aufwandmenge: '0,6', aufwandmengeEinheit: 'kg_ha', konzentration: '', aufwandQuelle: 'aufwand',
+    flaecheHa: null, psmId: 'p-funguran', psm: null, duengemittelId: null, duengemittelEinheit: null,
+    ...x,
+  })
+
+  test('weder Spritzbrühe noch Wasseraufwand: bisheriger Text', async () => {
+    const mf = await laden()
+    assert.equal(mf.mengenFelder(eingaben(mf)).konzentrationHinweis,
+      'Für die automatische Berechnung bitte Wasseraufwand (l/ha) oder Spritzbrühe gesamt angeben.')
+    assert.match(mf.mengenFelder(eingaben(mf, { flaecheHa: 2 })).konzentrationHinweis, /oder Spritzbrühe gesamt angeben/)
+  })
+
+  test('Spritzbrühe gesamt eingetragen, aber keine Fläche: verlangt nicht erneut die Brühe', async () => {
+    const mf = await laden()
+    const bruehe = { mengeGesamt: '800', mengeQuelle: 'gesamt' }
+    const neu = mf.mengenFelder(eingaben(mf, bruehe))
+    assert.equal(neu.wasserBerechnet, null)
+    assert.equal(neu.konzentrationHinweis, 'Konzentration wird berechnet, sobald Ried(en) ausgewählt sind – oder Wasseraufwand (l/ha) angeben.')
+    assert.equal(mf.mengenFelder(eingaben(mf, { ...bruehe, formular: 'neu' })).konzentrationHinweis, neu.konzentrationHinweis)
+    const bearbeiten = mf.mengenFelder(eingaben(mf, { ...bruehe, formular: 'bearbeiten' })).konzentrationHinweis
+    assert.match(bearbeiten, /^Ohne zugeordnete Grundstücke lässt sich die Spritzbrühe gesamt nicht umrechnen/)
+    for (const t of [neu.konzentrationHinweis, bearbeiten]) assert.doesNotMatch(t, /Spritzbrühe gesamt angeben/)
+    // Bearbeiten mit Fläche, Brühe gespeichert, Wasseraufwand leer und unverändert (mengeQuelle null): nur der Wasseraufwand fehlt
+    assert.equal(mf.mengenFelder(eingaben(mf, { mengeGesamt: '800', flaecheHa: 2, formular: 'bearbeiten' })).konzentrationHinweis,
+      'Für die automatische Berechnung bitte Wasseraufwand (l/ha) angeben.')
+  })
+
+  test('kein Hinweis, sobald gerechnet wird oder nichts zu rechnen ist', async () => {
+    const mf = await laden()
+    // mit Fläche: 800 l ÷ 2 ha = 400 l/ha; 0,6 kg/ha ÷ 400 l/ha × 100 = 0,15 %
+    const mitFlaeche = mf.mengenFelder(eingaben(mf, { mengeGesamt: '800', mengeQuelle: 'gesamt', flaecheHa: 2 }))
+    assert.equal(mitFlaeche.wasserBerechnet, 400)
+    assert.ok(Math.abs(mitFlaeche.konzentrationBerechnet - 0.15) < 1e-9)
+    assert.equal(mitFlaeche.konzentrationHinweis, null)
+    // Wasseraufwand wirkt auch ohne Fläche direkt
+    const nurWasser = mf.mengenFelder(eingaben(mf, { wasseraufwand: '400', mengeQuelle: 'wasser' }))
+    assert.ok(Math.abs(nurWasser.konzentrationBerechnet - 0.15) < 1e-9)
+    assert.equal(nurWasser.konzentrationHinweis, null)
+    for (const x of [
+      { aufwandmenge: '25', aufwandmengeEinheit: 'g_hl' },   // g/hl → % ohne Wasseraufwand
+      { aufwandmenge: '1,2', aufwandmengeEinheit: 'kg' },    // gesamt: keine Umrechnung in %
+      { aufwandmenge: '', aufwandQuelle: null },             // nichts eingegeben
+      { art: 'duengung', felder: mf.MENGEN_SICHT.duengung }, // Düngung ohne Konzentrationsfeld
+    ]) assert.equal(mf.mengenFelder(eingaben(mf, x)).konzentrationHinweis, null, JSON.stringify(x))
   })
 })
 

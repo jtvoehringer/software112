@@ -198,7 +198,7 @@ export default async function CuBilanzPage({ searchParams }: { searchParams: Pro
             <tr className="bg-s112-line font-semibold border-t-2 border-s112-line-str">
               <td className="px-2 py-2 border border-s112-line-str text-xs" colSpan={7}>GESAMT {aktJahr} (Betrieb, {fmtNum(gesamtHa, { min: 2, max: 4 })} ha)</td>
               <td className="px-2 py-2 border border-s112-line-str text-right tabular-nums text-xs">{kg(totalCuKg)} kg</td>
-              <td className={`px-2 py-2 border border-s112-line-str text-right tabular-nums text-xs ${ueberlimit ? 'text-s112-err-fg' : 'text-s112-ok-fg'}`}>
+              <td className={`px-2 py-2 border border-s112-line-str text-right tabular-nums text-xs ${ueberlimit ? 'text-s112-err-fg' : totalCuKgHa === null ? 'text-s112-text-2' : 'text-s112-ok-fg'}`}>
                 {totalCuKgHa !== null ? `${kg(totalCuKgHa)} kg/ha` : '–'}
               </td>
             </tr>

@@ -81,6 +81,9 @@ function TabRied({ behandlungen, jahr, ried, art }: { behandlungen: PsmBehandlun
                   // ein einziger Ort trägt die ganze Menge (wie die CSV)
                   const anteil = b.grundstuecke.length <= 1 ? 1 : totalHa > 0 ? lageHa / totalHa : null
                   const anteilMenge = mm.menge !== null && anteil !== null ? mm.menge * anteil : null
+                  // GST dieser Ried ohne Fläche: kein bzw. nur anteiliger Wert (wie der Hinweis der CSV)
+                  const ohneFlaeche = b.grundstuecke.length > 1 && (mm.menge !== null || bruehe !== null) &&
+                    b.grundstuecke.some(g => riedSchluessel(g.lageId) === lId && g.flaecheHa == null)
 
                   return (
                     <tr key={b.id} className="border-b border-s112-border/40 hover:bg-s112-bg/30">
@@ -95,6 +98,11 @@ function TabRied({ behandlungen, jahr, ried, art }: { behandlungen: PsmBehandlun
                       <td className="py-2 pr-3 text-right tabular-nums">{fmtHa(lageHa)}</td>
                       <td className="py-2 text-right tabular-nums font-medium text-s112-blue-700">
                         {anteilMenge !== null ? `${fmtNum(anteilMenge, 3)} ${mm.einheit}` : '–'}
+                        {ohneFlaeche && (
+                          <span className="block text-xs font-normal text-s112-warn-fg">
+                            {anteil === null ? 'GST ohne Fläche – nicht verteilt' : 'GST ohne Fläche – nur auf GST mit Fläche verteilt'}
+                          </span>
+                        )}
                       </td>
                     </tr>
                   )
@@ -238,9 +246,9 @@ function TabCu({ behandlungen, weingaerten }: { behandlungen: PsmBehandlung[]; w
       )}
 
       {jahre.map(j => {
-        const cuProHa = j.cuKgHa ?? 0
-        const pct = Math.min(100, (cuProHa / CU_GRENZWERT_KG_HA_JAHR) * 100)
-        // ohne Betriebsfläche (keine WI-Grundstücke) kein Status – neutral statt grün
+        // ohne Betriebsfläche (keine WI-Grundstücke) kein Cu je ha und kein Status: Balken leer mit „–“ statt
+        // „0 %“, Badge neutral statt grün
+        const pct = j.cuKgHa !== null ? Math.min(100, (j.cuKgHa / CU_GRENZWERT_KG_HA_JAHR) * 100) : null
         const status = j.status === 'ueber' ? 'red' : j.status === 'warnung' ? 'amber' : j.status === 'ok' ? 'green' : 'none'
         const barColor = status === 'red' ? 'bg-s112-err' : status === 'amber' ? 'bg-s112-warn' : 'bg-s112-teal'
         const badgeColor = status === 'red'   ? 'bg-s112-err-bg text-s112-err-fg border-s112-err/30'
@@ -263,11 +271,13 @@ function TabCu({ behandlungen, weingaerten }: { behandlungen: PsmBehandlung[]; w
             {/* Progress Bar */}
             <div>
               <div className="h-6 bg-[#F2F3F5] rounded-lg overflow-hidden relative border border-s112-border">
-                <div className={`h-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
+                <div className={`h-full transition-all ${barColor}`} style={{ width: `${pct ?? 0}%` }} />
                 {/* Marker bei 80% */}
                 <div className="absolute top-0 bottom-0 border-l-2 border-dashed border-s112-warn/50 opacity-60" style={{ left: `${CU_WARNSCHWELLE * 100}%` }} />
                 <div className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-s112-text-1 mix-blend-multiply">
-                  {pct.toLocaleString(ZAHL_LOCALE, { maximumFractionDigits: 1 })} % des Grenzwerts
+                  {pct !== null
+                    ? `${pct.toLocaleString(ZAHL_LOCALE, { maximumFractionDigits: 1 })} % des Grenzwerts`
+                    : '– (keine WI-Fläche)'}
                 </div>
               </div>
               <div className="flex justify-between text-xs text-s112-muted mt-1">

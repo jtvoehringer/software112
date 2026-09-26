@@ -1,6 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { alle } from '@/lib/supabase/alle'
-import { lagerEinheit, type LagerBuchung } from '@/lib/behandlungen/lagerVerbrauch'
+import { preisEinheit, type LagerBuchung } from '@/lib/behandlungen/lagerVerbrauch'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
@@ -18,7 +18,7 @@ export type PSM = {
   /** Ersatz für den Cu-Gehalt bei Kupfer-Wirkstoffen (wie die Kupfer-Bilanz) */
   wirkstoff: string | null; wirkstoffgehalt_pct: number | null
   preis_pro_einheit: number | null
-  /** Einheit des Lagers (lagerEinheit, wie die Lager-Seite) – der Preis gilt je dieser Einheit; null = keine Lagerbuchung */
+  /** Einheit, in der der Preis gilt: kg bzw. l, die Grundeinheit des Lagers (preisEinheit); null = keine Lagerbuchung */
   einheit: string | null
 }
 export type DuengemittelOption = {
@@ -69,9 +69,10 @@ export default async function NeueBehandlungPage() {
     .eq('aktiv', true)
     .order('name'))
 
-  // Lager-Einheit je PSM (pflanzenschutzmittel hat keine Einheit-Spalte) nach derselben Regel wie die
-  // Lager-Seite (lagerEinheit). Der Material-Vorschlag rechnet Preis je Lager-Einheit × Mittelmenge
-  // (KAN-133); ohne Lagerbuchung bleibt die Einheit unbekannt – dann kein Vorschlag.
+  // Preis-Einheit je PSM (pflanzenschutzmittel hat keine Einheit-Spalte): Grundeinheit des Lagers nach
+  // derselben Regel wie die Lager-Seite (lagerEinheit), g → kg, ml → l. Der Material-Vorschlag rechnet
+  // Preis je kg bzw. l × Mittelmenge (KAN-133); ohne Lagerbuchung bleibt die Einheit unbekannt – dann
+  // kein Vorschlag.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawBew } = await alle(tf((supabase.from('psm_lager_bewegungen') as any)
     .select('id, psm_id, datum, menge, einheit')
@@ -84,7 +85,7 @@ export default async function NeueBehandlungPage() {
     arr.push({ datum: b.datum, menge: Number(b.menge), einheit: b.einheit })
     buchungenJePsm.set(b.psm_id, arr)
   }
-  const psmEinheit = new Map(Array.from(buchungenJePsm, ([id, buchungen]) => [id, lagerEinheit(buchungen)]))
+  const psmEinheit = new Map(Array.from(buchungenJePsm, ([id, buchungen]) => [id, preisEinheit(buchungen)]))
 
   const psm: PSM[] = ((rawPSM ?? []) as AR[]).map(p => ({
     id:             p.id,

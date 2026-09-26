@@ -10,7 +10,8 @@
 // Abschnitt 6 "Sicherheit & Vertrauen").
 //
 // KAN-133 (26.09.2026): Bei einer Spritzung ist menge_gesamt die gesamte Spritzbrühe in Litern, NICHT die
-// Mittelmenge (die kommt nur aus dem Aufwand); bei einer Düngung die Düngermenge in kg. Vor dem Aufruf
+// Mittelmenge (die kommt nur aus dem Aufwand); bei einer Düngung die Düngermenge in kg (bei Düngemitteln
+// in Litern in l; ohne menge_einheit gilt die Einheit des Düngemittels). Vor dem Aufruf
 // prüft das Tool die Mengen mit derselben Regel wie Formular und Server (pruefeMassnahmeMengen, hier mit
 // Pflicht Spritzbrühe oder Wasseraufwand); createBehandlung prüft noch einmal mit der Fläche der
 // gewählten Grundstücke und ergänzt die Spritzbrühe aus l/ha × Fläche.
@@ -31,7 +32,8 @@ FELD-MATRIX je Maßnahmenart (nur diese Felder abfragen – "pflicht" IMMER erfr
                      wasseraufwand_l_ha = Spritzbrühe je ha – eines davon reicht),
                      bbch_stadium (pflicht), schaderreger (pflicht),
                      konzentration/witterung/temperatur_c (optional)
-- duengung:          duengemittel_id (optional), menge_gesamt = Düngermenge in kg (pflicht),
+- duengung:          duengemittel_id (optional), menge_gesamt = Düngermenge in kg bzw. in l bei
+                     Düngemitteln in Litern (pflicht),
                      aufwandmenge/witterung (optional), einarbeitung (bedingt: nachfragen
                      ob eingearbeitet wurde, falls ja auch einarbeitung_zeitpunkt)
 - bodenbearbeitung:  bearbeitungstiefe_cm (pflicht), bearbeitungsgeraet (pflicht),
@@ -51,9 +53,10 @@ MENGEN – GANZ WICHTIG:
   400 l Wasser je ha" → aufwandmenge 0.6, aufwandmenge_einheit kg_ha, wasseraufwand_l_ha 400.
   Tankmischung (mehrere Mittel in einem Tank): je Mittel eine eigene Maßnahme mit derselben
   Spritzbrühe.
-- Düngung: menge_gesamt ist die Düngermenge in kg (menge_einheit kg; l nur bei Düngemitteln, die
-  in Litern geführt werden – im Stammdaten-Kontext mit "in Litern" markiert). g_hl und ml_hl gibt es
-  bei Düngungen nicht.
+- Düngung: menge_gesamt ist die Düngermenge in der Einheit des Düngemittels: kg (menge_einheit kg),
+  bei Düngemitteln, die in Litern geführt werden (im Stammdaten-Kontext mit "in Litern" markiert),
+  in l (menge_einheit l) – dort werden kg/g abgelehnt, ohne Dichte keine Umrechnung. g_hl und ml_hl
+  gibt es bei Düngungen nicht.
 - In der Zusammenfassung vor dem Speichern bei einer Spritzung Mittel, Aufwand (z.B. 0,6 kg/ha) und
   Spritzbrühe (z.B. 800 l bzw. 400 l/ha) getrennt nennen – die Spritzbrühe nie als Mittelmenge.
 - Liefert das Tool "hinweise" zurück (z.B. Spritzbrühe weicht von l/ha × Fläche ab), teile sie dem
@@ -95,12 +98,12 @@ export const MASSNAHME_TOOL = {
       menge_gesamt: {
         type: 'number',
         description: 'Spritzung: menge_gesamt = gesamte Spritzbrühe in Litern (Mittel + Wasser), NICHT die Mittelmenge. ' +
-          'Düngung: Düngermenge in kg. Bei Spritzung alternativ nur wasseraufwand_l_ha angeben.',
+          'Düngung: Düngermenge in kg bzw. in l bei Düngemitteln in Litern. Bei Spritzung alternativ nur wasseraufwand_l_ha angeben.',
       },
       menge_einheit: {
         type: 'string', enum: ['l', 'ml', 'kg', 'g'],
         description: 'Einheit von menge_gesamt – Spritzung: l (ml wird in l umgerechnet, kg/g werden abgelehnt); ' +
-          'Düngung: kg (g wird in kg umgerechnet; l/ml nur bei Düngemitteln in Litern).',
+          'Düngung: kg (g wird in kg umgerechnet), bei Düngemitteln in Litern nur l (ml wird in l umgerechnet); ohne Angabe gilt die Einheit des Düngemittels.',
       },
       aufwandmenge: {
         type: 'number',

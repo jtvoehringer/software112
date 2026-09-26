@@ -11,7 +11,8 @@ import { runden } from '@/lib/csv'
 import { mengeInEinheit, type MittelmengeErgebnis } from '@/lib/behoerden/psm'
 import { pruefeMassnahmeMengen } from '@/lib/behandlungen/massnahmeMengen'
 import {
-  MENGEN_SICHT, aufwandEinheitText, mengenFelder, mengenInFormData, mengenTexte, type Sicht,
+  MENGEN_SICHT, aufwandEinheitText, duengerEinheitWechsel, duengermengeEinheit, mengenFelder, mengenInFormData,
+  mengenTexte, type Sicht,
 } from './mengenFelder'
 import MengenZusammenfassung from './MengenZusammenfassung'
 
@@ -69,8 +70,9 @@ const FELD_MATRIX: Record<Art, {
 }
 
 /**
- * Menge für den Material-Vorschlag in der Einheit, in der der Preis gilt (Lager-Einheit des PSM bzw.
- * Einheit des Düngemittels). kg ↔ l ohne Dichte nicht umrechenbar → kein Vorschlag, nur ein Hinweis.
+ * Menge für den Material-Vorschlag in der Einheit, in der der Preis gilt (Preis je kg bzw. l – beim PSM
+ * die Grundeinheit des Lagers, beim Düngemittel dessen Einheit). kg ↔ l ohne Dichte nicht umrechenbar →
+ * kein Vorschlag, nur ein Hinweis.
  */
 function materialMenge(mm: MittelmengeErgebnis | null, einheit: string | null): { menge: number | null; hinweis: string | null } {
   if (!mm || mm.menge === null || !mm.einheit) return { menge: null, hinweis: null }
@@ -110,6 +112,8 @@ export default function NeueBehandlungForm({
   const [art, setArt] = useState<Art>('spritzung')
   // Spritzung: Spritzbrühe gesamt (l) – nie die Mittelmenge; Düngung: Düngermenge (KAN-133)
   const [mengeGesamt, setMengeGesamt] = useState<string>('')
+  // Hinweis, wenn ein anderes Düngemittel die Einheit der eingegebenen Düngermenge wechselt (kg ↔ l)
+  const [einheitHinweis, setEinheitHinweis] = useState<string | null>(null)
   const [wasseraufwand, setWasseraufwand] = useState<string>('')
   // Welches der beiden Felder Spritzbrühe gesamt/Wasseraufwand (l/ha) der Nutzer zuletzt befüllt hat -
   // dieses treibt die Berechnung, das jeweils andere wird gesperrt (Punkt 1 der Anforderung)
@@ -139,6 +143,7 @@ export default function NeueBehandlungForm({
     // Menge und Aufwand bedeuten je Art etwas anderes (Spritzbrühe in l bzw. Düngermenge, Mittel bzw.
     // Dünger; g/hl nur bei Spritzungen) – nicht in die neue Art übernehmen
     setMengeGesamt('')
+    setEinheitHinweis(null)
     setAufwandmenge('')
     setAufwandmengeEinheit('kg_ha')
     setKonzentration('')
@@ -192,6 +197,7 @@ export default function NeueBehandlungForm({
       : null,
     duengemittelId: selectedDuengemittelId || null,
     duengemittelEinheit: selectedDuengemittel?.einheit ?? null,
+    formular: 'neu',
   })
   const wasserGesperrt = m.wasserBerechnet !== null
   const mengeGesamtGesperrt = m.mengeGesamtBerechnet !== null
@@ -205,8 +211,8 @@ export default function NeueBehandlungForm({
   const passendeSaetze = saetzeMassnahmen.filter(s => s.art === art)
   const gewaehlterSatz = passendeSaetze.find(s => s.id === selectedSatzId) ?? passendeSaetze[0]
 
-  // Material = Preis je kg bzw. l × Mittelmenge (nie × Spritzbrühe); der Preis gilt je Lager-Einheit des
-  // PSM bzw. je Einheit des Düngemittels
+  // Material = Preis je kg bzw. l × Mittelmenge (nie × Spritzbrühe); der Preis gilt beim PSM je kg bzw. l
+  // (Grundeinheit des Lagers, auch bei Buchungen in g bzw. ml), beim Düngemittel je dessen Einheit
   const materialpreisProEinheit =
     art === 'spritzung' ? selectedPsm?.preis_pro_einheit :
     art === 'duengung'  ? selectedDuengemittel?.preis_pro_einheit :
@@ -418,7 +424,14 @@ export default function NeueBehandlungForm({
               {felder.duengemittel === 'pflicht' && <span className="text-s112-err"> *</span>}
             </label>
             <select name="duengemittel_id" value={selectedDuengemittelId} required={felder.duengemittel === 'pflicht'}
-              onChange={e => setSelectedDuengemittelId(e.target.value)}
+              onChange={e => {
+                // Düngermenge in der Einheit des Düngemittels (kg bzw. l): eine Eingabe wird beim Wechsel nie
+                // umgerechnet, nur mit Hinweis versehen (keine Dichte-Annahme)
+                const hinweis = duengerEinheitWechsel(duengermengeEinheit(selectedDuengemittel?.einheit),
+                  duengermengeEinheit(duengemittel.find(d => d.id === e.target.value)?.einheit), mengeGesamt)
+                if (hinweis) setEinheitHinweis(hinweis)
+                setSelectedDuengemittelId(e.target.value)
+              }}
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
               <option value="">– Auswählen –</option>
               {duengemittel.map(d => (
@@ -468,8 +481,13 @@ export default function NeueBehandlungForm({
               required={felder.mengeGesamt === 'pflicht'}
               placeholder="z.B. 950"
               value={mengeGesamt}
-              onChange={e => setMengeGesamt(e.target.value)}
+              onChange={e => { setMengeGesamt(e.target.value); setEinheitHinweis(null) }}
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            {einheitHinweis && (
+              <p className="text-xs text-s112-warn-fg mt-1 flex items-start gap-1">
+                <AlertTriangle size={12} className="mt-0.5 flex-shrink-0" />{einheitHinweis}
+              </p>
+            )}
           </div>
         )}
 
@@ -511,9 +529,8 @@ export default function NeueBehandlungForm({
                     disabled={konzentrationGesperrt}
                     onChange={e => { setKonzentration(e.target.value); setAufwandQuelle(e.target.value.trim() === '' ? null : 'konzentration') }}
                     className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-s112-text-2" />
-                  {aufwandQuelle != null && !konzentrationGesperrt && !aufwandmengeGesperrt && !(m.eingabe.wasserLHa && m.eingabe.wasserLHa > 0)
-                    && (m.aufwandEinheit === 'kg_ha' || m.aufwandEinheit === 'l_ha') && (
-                    <p className="text-xs text-s112-muted mt-1">Für die automatische Berechnung bitte Wasseraufwand (l/ha) oder Spritzbrühe gesamt angeben.</p>
+                  {m.konzentrationHinweis && (
+                    <p className="text-xs text-s112-muted mt-1">{m.konzentrationHinweis}</p>
                   )}
                 </div>
               )}

@@ -25,7 +25,7 @@ import { runden, STELLEN, type CsvSpalte } from '@/lib/csv'
 import type { LadeErgebnis } from './typen'
 import {
   behandlungKurz, betriebsflaecheWi, jahrZeitraum, ladeBehandlungen, ladeWeingaerten, liste,
-  mittelmenge, mittelmengeKg, riedText, spritzbruehe, weingartenText, einheitText, STELLEN_MENGE,
+  mittelmenge, mittelmengeKg, riedText, spritzbruehe, weingartenText, aufwandEinheitText, STELLEN_MENGE,
   type PsmBehandlung, type WeingartenStamm,
 } from './psm'
 
@@ -177,7 +177,7 @@ export function cuBilanz(behandlungen: readonly PsmBehandlung[], weingaerten: re
       cuGehaltPct: gehalt.pct, cuGehaltQuelle: gehalt.quelle,
       spritzbruehe: spritzbruehe(b),
       aufwand: b.aufwand !== null ? runden(b.aufwand, STELLEN_MENGE) : null,
-      aufwandEinheit: einheitText(b.aufwandEinheit),
+      aufwandEinheit: aufwandEinheitText(b.aufwandEinheit),
       mengeKg: mm.kg, mengeBasis: mm.basis,
       flaecheHa: b.flaecheHa,
       cuKg, cuKgHa: durch(cuKg, b.flaecheHa),

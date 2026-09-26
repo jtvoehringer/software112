@@ -11,7 +11,7 @@ import { csvPfad } from '@/lib/behoerden/katalog'
 import { wienHeute } from '@/lib/csv'
 import { fmtNum } from '@/lib/format'
 import {
-  ART_LABEL, artAus, datumDe, einheitText, gstAnzahl, jahrAus, ladePsmAufzeichnung, mittelmenge, mittelName,
+  ART_LABEL, artAus, aufwandEinheitText, datumDe, gstAnzahl, jahrAus, ladePsmAufzeichnung, mittelmenge, mittelName,
   riedText, spritzbruehe, weingartenText, windText, witterungText, type PsmBehandlung,
 } from '@/lib/behoerden/psm'
 
@@ -152,7 +152,7 @@ export default async function BehandlungsprotokollPage({ searchParams }: { searc
                   <td className="px-2 py-1.5 border border-s112-line">{b.schaderreger ?? '–'}</td>
                   <td className="px-2 py-1.5 border border-s112-line text-center">{b.bbch ?? '–'}</td>
                   <td className="px-2 py-1.5 border border-s112-line tabular-nums whitespace-nowrap">
-                    {b.aufwand !== null ? `${fmtNum(b.aufwand, { max: 3 })} ${einheitText(b.aufwandEinheit)}` : '–'}
+                    {b.aufwand !== null ? `${fmtNum(b.aufwand, { max: 3 })} ${aufwandEinheitText(b.aufwandEinheit)}` : '–'}
                     {mengen && <span className="block text-[10px] text-s112-tertiary">{mengen}</span>}
                     {b.wasserLHa !== null && <span className="block text-[10px] text-s112-tertiary">Wasser {fmtNum(b.wasserLHa, { max: 1 })} l/ha</span>}
                   </td>

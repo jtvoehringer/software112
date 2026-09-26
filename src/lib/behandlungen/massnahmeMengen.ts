@@ -11,8 +11,10 @@
 //   (Konzentration im Tank) nur mit Spritzbrühe oder Wasseraufwand. Fehlt eines von Spritzbrühe und
 //   Wasseraufwand, wird es aus dem anderen und der Fläche ergänzt. reinkupfer_kg_ha = Mittelmenge ×
 //   Cu-Gehalt ÷ Fläche, gerundet wie die Kupfer-Bilanz (cu.ts).
-// Düngung: g/hl und ml/hl abgelehnt; Düngermenge in kg (g → kg), l (ml → l) bzw. Aufwand l/ha und l
-//   nur bei Düngemitteln in l (keine Dichte-Annahme).
+// Düngung: g/hl und ml/hl abgelehnt; Düngermenge in der Einheit des Düngemittels – kg (g → kg), bei
+//   Düngemitteln in l nur l (ml → l); ohne Angabe gilt diese Einheit (wie duengermengeEinheit() im
+//   Formular), die jeweils andere wird abgelehnt (keine Dichte-Annahme). Aufwand l/ha und l nur bei
+//   Düngemitteln in l.
 // Andere Arten: unverändert.
 
 import { runden, STELLEN } from '@/lib/csv'
@@ -151,9 +153,12 @@ export function pruefeMassnahmeMengen(e: MassnahmeMengenEingabe, opt: { bruehePf
     let menge: number | null = null
     let einheit: string | null = null
     if (e.mengeGesamt !== null) {
-      const me = e.mengeEinheit ?? 'kg'
-      if (me === 'kg' || me === 'g') { menge = me === 'g' ? e.mengeGesamt / 1000 : e.mengeGesamt; einheit = 'kg' }
-      else if (me === 'l' || me === 'ml') {
+      // ohne Einheit gilt die Einheit des Düngemittels (Assistent: menge_einheit ist optional)
+      const me = e.mengeEinheit ?? (inLiter ? 'l' : 'kg')
+      if (me === 'kg' || me === 'g') {
+        if (inLiter) return fehler('Das Düngemittel wird in Litern geführt – bitte die Düngermenge in l angeben (keine Umrechnung aus kg ohne Dichte).')
+        menge = me === 'g' ? e.mengeGesamt / 1000 : e.mengeGesamt; einheit = 'kg'
+      } else if (me === 'l' || me === 'ml') {
         if (!inLiter) return fehler('Die Düngermenge in Litern ist nur bei Düngemitteln möglich, die in Litern geführt werden – bitte in kg angeben.')
         menge = me === 'ml' ? e.mengeGesamt / 1000 : e.mengeGesamt; einheit = 'l'
       } else return fehler(`Mengeneinheit „${me}“ ist nicht zulässig (kg oder l).`)

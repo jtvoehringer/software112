@@ -4,14 +4,15 @@
 //  • Spritzung: „Spritzbrühe gesamt (l)“ ist die Brühe (Mittel + Wasser) und nie die Mittelmenge.
 //    Spritzbrühe gesamt ↔ Wasseraufwand (l/ha) sind über die behandelte Fläche gekoppelt; Pflicht ist
 //    eines der beiden sowie die Aufwandmenge. g/hl bzw. ml/hl gelten als Konzentration im Tank.
-//  • Düngung: „Düngermenge gesamt“ in kg (l nur bei Düngemitteln in l), Aufwand ohne g/hl und ml/hl.
+//  • Düngung: „Düngermenge gesamt“ in der Einheit des Düngemittels (kg, bei Düngemitteln in l nur l),
+//    Aufwand ohne g/hl und ml/hl.
 //  • Mittelmenge, Spritzbrühe, Cu und Reinkupfer rechnet pruefeMassnahmeMengen()
 //    (lib/behandlungen/massnahmeMengen.ts) – dieselbe Prüfung wie in der Server Action.
 // Ohne JSX und ohne Datenbank; die Anzeige steckt in MengenZusammenfassung.tsx.
 
 import { fmtNum, zahlAus } from '@/lib/format'
 import { runden, STELLEN } from '@/lib/csv'
-import { STELLEN_MENGE } from '@/lib/behoerden/psm'
+import { AUFWAND_EINHEIT_LABEL, STELLEN_MENGE, mengeInEinheit } from '@/lib/behoerden/psm'
 import {
   AUFWAND_EINHEITEN, AUFWAND_EINHEITEN_DUENGUNG, pruefeMassnahmeMengen,
   type MassnahmeMengenEingabe, type MassnahmeMengenErgebnis, type MassnahmeMengenWerte,
@@ -33,12 +34,10 @@ export const MENGEN_SICHT: Record<'spritzung' | 'duengung' | 'bodenbearbeitung' 
   sonstiges:        { mengeGesamt: 'hidden',  aufwandmenge: 'hidden',   konzentration: 'hidden',   wasseraufwand: 'hidden'  },
 }
 
-/** Beschriftung der Aufwand-Einheiten; g/hl und ml/hl sind die tatsächliche Konzentration im Tank */
-export const AUFWAND_EINHEIT_LABEL: Record<string, string> = {
-  kg_ha: 'kg/ha', l_ha: 'l/ha', g_hl: 'g/hl (im Tank)', ml_hl: 'ml/hl (im Tank)', kg: 'kg (gesamt)', l: 'l (gesamt)',
-}
-
-/** Beschriftung einer Option der Aufwand-Einheit; unzulässige (z. B. g/hl bei Düngung) gekennzeichnet */
+/**
+ * Beschriftung einer Option der Aufwand-Einheit (AUFWAND_EINHEIT_LABEL wie in psm-aufzeichnung und Druck;
+ * g/hl und ml/hl sind die tatsächliche Konzentration im Tank); unzulässige (z. B. g/hl bei Düngung) gekennzeichnet
+ */
 export function aufwandEinheitText(einheit: string, zulaessig: readonly string[]): string {
   const text = AUFWAND_EINHEIT_LABEL[einheit] ?? einheit
   return zulaessig.includes(einheit) ? text : `${text} – nicht zulässig`
@@ -67,6 +66,45 @@ export function alsFeld(n: number | null | undefined): string {
   return n === null || n === undefined || !Number.isFinite(n) ? '' : String(n).replace('.', ',')
 }
 
+/** Einheit der Düngermenge: l nur bei Düngemitteln in l, sonst kg – ohne Dichte-Annahme (KAN-133 Entscheidung 1) */
+export function duengermengeEinheit(duengemittelEinheit: string | null | undefined): 'kg' | 'l' {
+  return duengemittelEinheit === 'l' ? 'l' : 'kg'
+}
+
+/**
+ * Vorbelegung von „Menge gesamt“ beim Bearbeiten in der Einheit des Felds (Spritzung: Spritzbrühe in l,
+ * Düngung: Einheit des gewählten Düngemittels). Passt die gespeicherte Einheit nicht – vor allem bei einer
+ * Spritzung in kg/g, die vor KAN-133 als Mittelmenge erfasst wurde, oder bei einer Düngermenge in kg nach
+ * dem Wechsel auf ein Düngemittel in l –, bleibt das Feld leer und `altwert` nennt den bisherigen Wert: er
+ * wird nie still in die andere Einheit umgedeutet. `gespeichertEinheit`: Einheit des gespeicherten
+ * Düngemittels (ohne Angabe `duengerEinheit`) – gilt für eine Düngermenge ohne gespeicherte Einheit.
+ */
+export function mengeVorbelegung(
+  b: { art: string; menge_gesamt: number | null; menge_einheit: string | null },
+  duengerEinheit: 'kg' | 'l',
+  gespeichertEinheit: 'kg' | 'l' = duengerEinheit,
+): { text: string; altwert: string | null } {
+  if (b.menge_gesamt === null) return { text: '', altwert: null }
+  const ziel = b.art === 'spritzung' ? 'l' : b.art === 'duengung' ? duengerEinheit : null
+  if (!ziel) return { text: alsFeld(b.menge_gesamt), altwert: null }
+  // ohne Einheit: Spritzbrühe in l bzw. Düngermenge in der Einheit des gespeicherten Düngemittels (wie
+  // pruefeMassnahmeMengen) – nach einem Wechsel kg ↔ l also Altwert, nie still umgedeutet
+  const von = b.menge_einheit ?? (b.art === 'spritzung' ? 'l' : gespeichertEinheit)
+  const menge = mengeInEinheit(b.menge_gesamt, von, ziel)
+  return menge !== null
+    ? { text: alsFeld(menge), altwert: null }
+    : { text: '', altwert: `${fmtNum(b.menge_gesamt, { max: 3 })} ${von}` }
+}
+
+/**
+ * Hinweis, wenn ein anderes Düngemittel die Einheit der Düngermenge wechselt (kg ↔ l) und im Feld schon eine
+ * eigene Eingabe steht: die Zahl bleibt stehen, wird aber nie umgerechnet (950 kg sind nicht 950 l) – bitte prüfen.
+ */
+export function duengerEinheitWechsel(von: 'kg' | 'l', nach: 'kg' | 'l', menge: string): string | null {
+  if (von === nach || menge.trim() === '') return null
+  return `Einheit der Düngermenge von ${von} auf ${nach} gewechselt (anderes Düngemittel) – die Zahl wird nicht umgerechnet, bitte prüfen.`
+}
+
 export type MengenFelderEingaben = {
   art: string
   felder: MengenSichten
@@ -86,6 +124,8 @@ export type MengenFelderEingaben = {
   psm: MassnahmeMengenEingabe['psm']
   duengemittelId: string | null
   duengemittelEinheit: string | null
+  /** Formular für den Hinweistext ohne Fläche: Anlegen (Ried-Auswahl) bzw. Bearbeiten (zugeordnete Grundstücke); Vorgabe 'neu' */
+  formular?: 'neu' | 'bearbeiten'
 }
 
 export type MengenFelderWerte = {
@@ -105,6 +145,8 @@ export type MengenFelderWerte = {
   konzentrationBerechnet: number | null
   konzentrationNum: number | null
   konzentrationFehler: string | null
+  /** Hinweis unter „Konzentration (%)“, wenn kg/ha bzw. l/ha ↔ % mangels Wasseraufwand nicht rechnet; null = keiner */
+  konzentrationHinweis: string | null
   /** Eingabe für pruefeMassnahmeMengen() – dieselbe Prüfung wie in der Server Action */
   eingabe: MassnahmeMengenEingabe
   /** Prüfung ohne Brühe-Pflicht für die Live-Anzeige; beim Absenden mit { bruehePflicht: true } */
@@ -132,7 +174,7 @@ export function mengenFelder(e: MengenFelderEingaben): MengenFelderWerte {
   const ha = e.flaecheHa !== null && e.flaecheHa > 0 ? runden(e.flaecheHa, STELLEN.ha) : null
   const istSpritzung = e.art === 'spritzung'
   const duengerInLiter = e.duengemittelEinheit === 'l'
-  const mengeEinheit = istSpritzung || duengerInLiter ? 'l' : 'kg'
+  const mengeEinheit = istSpritzung ? 'l' : duengermengeEinheit(e.duengemittelEinheit)
 
   // Spritzbrühe gesamt (l) ↔ Wasseraufwand (l/ha) über die Fläche, nur bei Spritzungen: das zuletzt
   // befüllte Feld treibt die Berechnung, das andere wird gesperrt. Die Brühe ist immer in Litern – aus
@@ -163,6 +205,21 @@ export function mengenFelder(e: MengenFelderEingaben): MengenFelderWerte {
     : konzentrationNum < 0 || konzentrationNum > 100 ? '„Konzentration (%)“ muss zwischen 0 und 100 liegen.'
     : null
 
+  // Hinweis unter „Konzentration (%)“: kg/ha bzw. l/ha ↔ % braucht den Wasseraufwand (eingegeben oder aus
+  // Spritzbrühe gesamt ÷ Fläche). Er nennt, was tatsächlich fehlt – steht die Spritzbrühe gesamt schon da,
+  // fehlt die Fläche (Ried-Auswahl bzw. zugeordnete Grundstücke) oder der Wasseraufwand, nicht die Brühe.
+  const konzentrationHinweis = e.felder.konzentration === 'hidden' || e.aufwandQuelle === null
+    || konzentrationBerechnet !== null || aufwandmengeBerechnet !== null || wasserLHa !== null
+    || (aufwandEinheit !== 'kg_ha' && aufwandEinheit !== 'l_ha')
+    ? null
+    : !(mengeNum !== null && mengeNum > 0)
+      ? 'Für die automatische Berechnung bitte Wasseraufwand (l/ha) oder Spritzbrühe gesamt angeben.'
+      : ha !== null
+        ? 'Für die automatische Berechnung bitte Wasseraufwand (l/ha) angeben.'
+        : e.formular === 'bearbeiten'
+          ? 'Ohne zugeordnete Grundstücke lässt sich die Spritzbrühe gesamt nicht umrechnen – für die Berechnung bitte Wasseraufwand (l/ha) angeben.'
+          : 'Konzentration wird berechnet, sobald Ried(en) ausgewählt sind – oder Wasseraufwand (l/ha) angeben.'
+
   const sichtbar = (s: Sicht) => s !== 'hidden'
   const eingabe: MassnahmeMengenEingabe = {
     art: e.art,
@@ -178,7 +235,7 @@ export function mengenFelder(e: MengenFelderEingaben): MengenFelderWerte {
   return {
     ha, mengeEinheit, einheiten, zulaessig, aufwandEinheit, jeHl: istJeHl(aufwandEinheit),
     mengeGesamtBerechnet, wasserBerechnet, aufwandmengeBerechnet, konzentrationBerechnet,
-    konzentrationNum, konzentrationFehler,
+    konzentrationNum, konzentrationFehler, konzentrationHinweis,
     eingabe, pruefung: pruefeMassnahmeMengen(eingabe),
   }
 }

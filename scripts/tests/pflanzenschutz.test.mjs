@@ -118,7 +118,7 @@ const WEINGAERTEN_ROH = [ // grundstuecke: eingebettet (ladeWeingaerten), nur Nu
 /** WeingartenStamm wie aus ladeWeingaerten() (Betriebsfläche der Cu-Bilanz = Σ WI-GST der aktiven Weingärten = 2,1 ha) */
 const wg = () => WEINGAERTEN_ROH.map(w => {
   const wi = w.grundstuecke.filter(g => g.nutzart === 'WI')
-  return { id: w.id, name: w.name, ried: w.lagen?.name ?? w.ried, lageId: w.lage_id, flaecheHa: w.flaeche_ha, aktiv: w.aktiv, wiFlaecheHa: wi.reduce((s, g) => s + g.flaeche_ha, 0), wiGst: wi.length }
+  return { id: w.id, name: w.name, ried: w.lagen?.name ?? w.ried, lageId: w.lage_id, flaecheHa: w.flaeche_ha, aktiv: w.aktiv, wiFlaecheHa: wi.reduce((s, g) => s + g.flaeche_ha, 0) }
 })
 const NAMEN = new Map([['u-1', 'Maria Muster']])
 
@@ -182,6 +182,20 @@ describe('psm-aufzeichnung', nurMitHooks, () => {
     assert.deepEqual(psm.psmAufzeichnungZeilen([topas]).zeilen.map(z => [z.mittelmengeAnteil, z.mittelmengeEinheit]), [[0.3, 'l'], [0.2, 'l']])
   })
 
+  test('Aufwand 1,2 kg gesamt auf 2 GST: Aufwand-Einheit „kg (gesamt)“, Σ Mittelmenge anteilig 1,2 kg', () => {
+    const b = spritzung({ aufwandmenge: 1.2, aufwandmenge_einheit: 'kg' })
+    const { zeilen } = psm.psmAufzeichnungZeilen([b])
+    // der Aufwand bleibt Pflichtangabe, ist aber als Gesamtwert der Maßnahme gekennzeichnet – keine Menge je Grundstück
+    assert.deepEqual(zeilen.map(z => [z.aufwand, z.aufwandEinheit, z.mittelmengeAnteil, z.mittelmengeBasis]),
+      [[1.2, 'kg (gesamt)', 0.72, 'Aufwand (gesamt)'], [1.2, 'kg (gesamt)', 0.48, 'Aufwand (gesamt)']])
+    assert.equal(csv.runden(zeilen.reduce((s, z) => s + z.mittelmengeAnteil, 0), 3), 1.2)
+    const [, z1] = zeilenVon(csv.csvText(zeilen, psm.SPALTEN_PSM_AUFZEICHNUNG))
+    assert.match(z1, /;1,200;kg \(gesamt\);0,720;kg;Aufwand \(gesamt\);480,000;/)
+    // je ha und im Tank wie im Formular
+    assert.deepEqual(['kg_ha', 'l_ha', 'g_hl', 'ml_hl', 'kg', 'l', null].map(psm.aufwandEinheitText),
+      ['kg/ha', 'l/ha', 'g/hl (im Tank)', 'ml/hl (im Tank)', 'kg (gesamt)', 'l (gesamt)', ''])
+  })
+
   test('ohne Aufwand, Altwert in kg und Düngung', () => {
     const ohne = spritzung({ id: 'b-o' })
     const alt = psm.normalisiereBehandlung(ALT(A, 3.15))
@@ -199,6 +213,33 @@ describe('psm-aufzeichnung', nurMitHooks, () => {
     assert.equal(warnungen.length, 2)
     assert.match(warnungen[0], /1 Maßnahme ohne berechenbare Mittelmenge .*Spritzung am 30\.05\.2026 .* – ohne Aufwand/)
     assert.match(warnungen[1], /1 Spritzung hat „Menge gesamt“ noch in kg bzw\. g/)
+  })
+
+  test('mehrere GST ohne Fläche: Anteile leer, Hinweis mit Mittelmenge und Spritzbrühe der Maßnahme', () => {
+    const ohneFlaeche = [
+      { grundstueck_id: 'g-1', flaeche_ha: null, grundstueck: { ...GST1, flaeche_ha: null } },
+      { grundstueck_id: 'g-3', flaeche_ha: null, grundstueck: { ...GST3, flaeche_ha: null } },
+    ]
+    const b = spritzung({ aufwandmenge: 1.2, aufwandmenge_einheit: 'kg', behandlung_grundstuecke: ohneFlaeche })
+    assert.deepEqual([psm.mittelmenge(b).menge, psm.mittelmenge(b).basis, psm.spritzbruehe(b)], [1.2, 'Aufwand (gesamt)', 800])
+    const { zeilen, warnungen } = psm.psmAufzeichnungZeilen([b])
+    assert.deepEqual(zeilen.map(z => [z.gstNr, z.mittelmengeAnteil, z.spritzbruehAnteil]), [['123/1', null, null], ['124', null, null]])
+    assert.equal(warnungen.length, 1)
+    assert.match(warnungen[0], /^1 Maßnahme hat Grundstücke ohne Fläche – .* bleiben dort leer, .*: Spritzung am 30\.05\.2026 \(Pfaffenberg Riesling\) – Mittelmenge 1,2 kg, Spritzbrühe 800 l \(nicht verteilt\)$/)
+    // nur ein GST ohne Fläche: das andere trägt die ganze Menge (ohne Restausgleich, KAN-132), Hinweis trotzdem
+    const teil = spritzung({ aufwandmenge: 1.2, aufwandmenge_einheit: 'kg', behandlung_grundstuecke: [ZWEI_HA[0], ohneFlaeche[1]] })
+    const t = psm.psmAufzeichnungZeilen([teil])
+    assert.deepEqual(t.zeilen.map(z => [z.mittelmengeAnteil, z.spritzbruehAnteil]), [[1.2, 800], [null, null]])
+    assert.equal(t.warnungen.length, 1)
+    assert.match(t.warnungen[0], /Mittelmenge 1,2 kg, Spritzbrühe 800 l \(nur auf GST mit Fläche verteilt\)$/)
+    // Düngung ohne Fläche: Düngermenge genannt, keine Spritzbrühe
+    const dueng = duengung({ menge_gesamt: 1000, menge_einheit: 'kg', behandlung_grundstuecke: ohneFlaeche })
+    assert.match(psm.psmAufzeichnungZeilen([dueng]).warnungen[0], /Düngung am 25\.03\.2026 \(Pfaffenberg Riesling\) – Düngermenge 1\.000 kg \(nicht verteilt\)$/)
+    // ohne Mittelmenge und ohne Spritzbrühe nur der bisherige Hinweis „ohne berechenbare Mittelmenge“
+    const leer = spritzung({ menge_gesamt: null, menge_einheit: null, wasseraufwand_l_ha: null, behandlung_grundstuecke: ohneFlaeche })
+    const l = psm.psmAufzeichnungZeilen([leer]).warnungen
+    assert.equal(l.length, 1)
+    assert.match(l[0], /ohne berechenbare Mittelmenge/)
   })
 
   test('Ried-Filter nur auf die Grundstücke dieser Ried', () => {
@@ -336,7 +377,7 @@ describe('cu-bilanz', nurMitHooks, () => {
 
   test('Betrieb ohne WI-Grundstücke: Cu je ha „–“ statt 0 (Kachel und Druck)', () => {
     const b = spritzung({ aufwandmenge: 0.6, aufwandmenge_einheit: 'kg_ha' })
-    const ohneWi = wg().map(w => ({ ...w, wiFlaecheHa: 0, wiGst: 0 }))
+    const ohneWi = wg().map(w => ({ ...w, wiFlaecheHa: 0 }))
     const j = cu.cuBilanz([b], ohneWi, { jahre: [2026] })
     assert.equal(j.gesamtHa, 0)
     assert.equal(j.jahre[0].cuKg, 0.42)
@@ -364,6 +405,7 @@ describe('cu-bilanz', nurMitHooks, () => {
     assert.equal(zf.cuGehaltQuelle, 'Wirkstoffgehalt (Näherung)')
     assert.equal(zf.cuKg, 2)                               // Aufwand 10 kg gesamt × 20 %, nicht die 960 l Spritzbrühe
     assert.equal(zf.mengeBasis, 'Aufwand (gesamt)')
+    assert.deepEqual([zf.aufwand, zf.aufwandEinheit], [10, 'kg (gesamt)'])   // wie Formular und psm-aufzeichnung
     assert.ok(bilanz.warnungen.some(w => w.includes('Dichte 1 kg/l')))
     assert.ok(bilanz.warnungen.some(w => w.includes('Bordeaux Manica 20') && w.includes('Näherung')))
     // Zeilen je Weingarten aufsteigend nach Jahr
@@ -635,7 +677,7 @@ describe('betriebsflaecheWi', nurMitHooks, () => {
   test('ladeWeingaerten: Σ WI-GST je Weingarten, Betrieb nur aktive Weingärten', async () => {
     const sb = supabaseErsatz(DATEN)
     const w = await psm.ladeWeingaerten(sb, 't-1')
-    assert.deepEqual(w.map(x => [x.id, x.wiFlaecheHa, x.wiGst]), [['wg-1', 1.2, 1], ['wg-2', 0.9, 1], ['wg-3', 2, 1]])
+    assert.deepEqual(w.map(x => [x.id, x.wiFlaecheHa]), [['wg-1', 1.2], ['wg-2', 0.9], ['wg-3', 2]])
     assert.equal(psm.betriebsflaecheWi(w), 2.1)                // ohne Nutzart A (0,25 ha) und ohne den inaktiven Weingarten
     assert.ok(sb.protokoll.every(x => x.filter.some(([op, k, v]) => op === 'eq' && k === 'tenant_id' && v === 't-1')))
     // Weingärten ohne Stammdaten-Fläche (Gebeshuber): Betriebsfläche trotzdem aus den GST

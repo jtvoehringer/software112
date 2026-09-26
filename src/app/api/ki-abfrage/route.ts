@@ -64,7 +64,7 @@ const ERLAUBTE_TABELLEN = [
 
 const TABELLEN_KONTEXT = `
 - weingarten / grundstuecke: Rieden (weingarten) und einzelne Grundstücke (GST, grundstuecke.weingarten_id → weingarten.id) mit Rebsorte, Fläche, Bewirtschaftungsart.
-- behandlungen ↔ behandlung_grundstuecke (Junction, m:n) ↔ grundstuecke: Pflanzenschutz-/Düngemaßnahmen. pflanzenschutzmittel.cu_gehalt_pct für Kupfer-Bilanzen.
+- behandlungen ↔ behandlung_grundstuecke (Junction, m:n) ↔ grundstuecke: Pflanzenschutz-/Düngemaßnahmen. Kupfer-Bilanzen über den Cu-Gehalt (Regel „Reinkupfer“ unten).
   MENGEN IN behandlungen – die Bedeutung hängt von art ab (KAN-133):
   art='spritzung': menge_gesamt ist die gesamte SPRITZBRÜHE in Liter (Mittel + Wasser), NIEMALS die Mittelmenge –
   auch nicht bei alten Einträgen mit menge_einheit kg oder g. Die MITTELMENGE (eingesetztes Pflanzenschutzmittel)
@@ -75,7 +75,10 @@ const TABELLEN_KONTEXT = `
   ist die Mittelmenge unbekannt (NULL) – dann NICHT menge_gesamt und NICHT konzentration verwenden.
   art='duengung': menge_gesamt ist die Düngermenge in kg (bzw. l, wenn duengemittel.einheit = 'l'); fehlt sie,
   aufwandmenge * Fläche bei 'kg_ha' bzw. aufwandmenge bei 'kg' ('l_ha' bzw. 'l' nur bei duengemittel.einheit = 'l').
-  Reinkupfer (kg) = Mittelmenge * pflanzenschutzmittel.cu_gehalt_pct / 100 (Mittel in l wie die Cu-Bilanz mit 1 kg/l).
+  Reinkupfer (kg) = Mittelmenge * Cu-Gehalt / 100 (Mittel in l wie die Cu-Bilanz mit 1 kg/l). Cu-Gehalt wie die
+  Cu-Bilanz: pflanzenschutzmittel.cu_gehalt_pct, wenn > 0; sonst wirkstoffgehalt_pct, wenn wirkstoff ILIKE '%kupfer%'
+  (Näherung); sonst kein Kupfermittel. In SQL: COALESCE(NULLIF(cu_gehalt_pct, 0), CASE WHEN wirkstoff ILIKE
+  '%kupfer%' THEN NULLIF(wirkstoffgehalt_pct, 0) END).
   Die Spritzbrühe NIE über mehrere Maßnahmen summieren: eine Tankmischung steht als mehrere Maßnahmen (je Mittel
   eine) mit derselben Brühe. Summen über Maßnahmen nur für die Mittelmenge, getrennt je Mittel und Einheit (kg und
   l nie addieren). Beim JOIN auf behandlung_grundstuecke wiederholt sich jede Maßnahme je Grundstück – die Fläche

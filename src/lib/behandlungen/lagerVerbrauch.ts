@@ -66,7 +66,7 @@ const ART_DES_LAGERS: Readonly<Record<LagerArt, string>> = { psm: 'spritzung', d
 const zahl = (n: number) => fmtNum(n, { max: 3 })
 
 /** kg bzw. l für kg/g bzw. l/ml; null bei unbekannter Einheit */
-function grundeinheit(e: string | null | undefined): MittelEinheit | null {
+export function grundeinheit(e: string | null | undefined): MittelEinheit | null {
   if (mengeInEinheit(1, e, 'kg') !== null) return 'kg'
   if (mengeInEinheit(1, e, 'l') !== null) return 'l'
   return null
@@ -105,6 +105,16 @@ export function lagerEinheit(buchungen: readonly LagerBuchung[], verbrauch: read
   }
   if (stammEinheit && grundeinheit(stammEinheit)) return stammEinheit
   return verbrauch.find(p => p.einheit)?.einheit ?? 'kg'
+}
+
+/**
+ * Einheit, in der der Preis eines Pflanzenschutzmittels gilt (Material-Vorschlag der Maßnahme, KAN-133
+ * Soll 8): preis_pro_einheit gilt je kg bzw. l – also die Grundeinheit des Lagers, auch wenn alle
+ * Buchungen in g bzw. ml erfasst sind. null ohne Buchung mit bekannter Einheit – dann kein Vorschlag.
+ */
+export function preisEinheit(buchungen: readonly LagerBuchung[]): MittelEinheit | null {
+  if (!buchungen.some(b => grundeinheit(b.einheit) !== null)) return null
+  return grundeinheit(lagerEinheit(buchungen))
 }
 
 /**

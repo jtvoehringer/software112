@@ -8,10 +8,11 @@ import { SprayCan, Sprout, Layers, Scissors, Leaf, MoreHorizontal, Hourglass, Ba
 import { fehlerText } from '@/lib/fehler'
 import { fmtNum } from '@/lib/format'
 import { runden } from '@/lib/csv'
-import { mengeInEinheit, STELLEN_MENGE } from '@/lib/behoerden/psm'
+import { STELLEN_MENGE } from '@/lib/behoerden/psm'
 import { pruefeMassnahmeMengen } from '@/lib/behandlungen/massnahmeMengen'
 import {
-  MENGEN_SICHT, alsFeld, aufwandEinheitText, eingabeZahl, mengenFelder, mengenInFormData,
+  MENGEN_SICHT, alsFeld, aufwandEinheitText, duengerEinheitWechsel, duengermengeEinheit, eingabeZahl,
+  mengeVorbelegung, mengenFelder, mengenInFormData,
 } from '../../neu/mengenFelder'
 import MengenZusammenfassung from '../../neu/MengenZusammenfassung'
 
@@ -118,24 +119,6 @@ export type BestehenderKostenEintrag = {
 const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
 const labelCls = 'block text-sm font-medium text-s112-text-1 mb-1'
 
-/**
- * Vorbelegung von „Menge gesamt“ in der Einheit des Felds (Spritzung: Spritzbrühe in l, Düngung: Einheit
- * des Düngemittels). Passt die gespeicherte Einheit nicht – vor allem bei einer Spritzung in kg/g, die vor
- * KAN-133 als Mittelmenge erfasst wurde –, bleibt das Feld leer und `altwert` nennt den bisherigen Wert:
- * er wird nie still als Spritzbrühe in l gespeichert.
- */
-function mengeVorbelegung(b: BehandlungEdit, duengerEinheit: string): { text: string; altwert: string | null } {
-  if (b.menge_gesamt === null) return { text: '', altwert: null }
-  const ziel = b.art === 'spritzung' ? 'l' : b.art === 'duengung' ? duengerEinheit : null
-  if (!ziel) return { text: alsFeld(b.menge_gesamt), altwert: null }
-  // ohne Einheit: Spritzbrühe in l bzw. Düngermenge in kg (wie pruefeMassnahmeMengen)
-  const von = b.menge_einheit ?? (b.art === 'spritzung' ? 'l' : 'kg')
-  const menge = mengeInEinheit(b.menge_gesamt, von, ziel)
-  return menge !== null
-    ? { text: alsFeld(menge), altwert: null }
-    : { text: '', altwert: `${fmtNum(b.menge_gesamt, { max: 3 })} ${von}` }
-}
-
 export default function BehandlungEditForm({
   behandlung, psm, duengemittel, bioStatus, kostenarten, bestehenderKostenEintrag, flaecheHa,
 }: {
@@ -154,18 +137,22 @@ export default function BehandlungEditForm({
   const [art, setArt] = useState<Art>(startArt)
   const [selectedPsmId, setSelectedPsmId] = useState(behandlung.psm_id ?? '')
   const [selectedDuengemittelId, setSelectedDuengemittelId] = useState(behandlung.duengemittel_id ?? '')
-  // Gespeicherte Mengen als Formularwerte (Dezimalkomma, siehe alsFeld); Altwert einer Spritzung in kg/g
-  // bleibt draußen (KAN-133 Soll 9)
-  const [start] = useState(() => {
-    const duengerEinheit = duengemittel.find(d => d.id === behandlung.duengemittel_id)?.einheit === 'l' ? 'l' : 'kg'
-    return {
-      ...mengeVorbelegung(behandlung, duengerEinheit),
-      aufwand: alsFeld(behandlung.aufwandmenge),
-      aufwandEinheit: behandlung.aufwandmenge_einheit ?? 'kg_ha',
-      konzentration: alsFeld(behandlung.konzentration),
-    }
-  })
-  const [mengeGesamt, setMengeGesamt] = useState(start.text)
+  // Gespeicherte Mengen als Formularwerte (Dezimalkomma, siehe alsFeld)
+  const [start] = useState(() => ({
+    aufwand: alsFeld(behandlung.aufwandmenge),
+    aufwandEinheit: behandlung.aufwandmenge_einheit ?? 'kg_ha',
+    konzentration: alsFeld(behandlung.konzentration),
+  }))
+  // Gespeicherte „Menge gesamt“ in der Einheit des Felds – gegen das aktuell gewählte Düngemittel, damit ein
+  // Wechsel kg ↔ l wie beim Laden geprüft wird; ein Altwert (Spritzung in kg/g, Düngermenge in der anderen
+  // Einheit) bleibt draußen (KAN-133 Soll 9)
+  const duengerEinheitVon = (id: string) => duengermengeEinheit(duengemittel.find(d => d.id === id)?.einheit)
+  // Einheit des gespeicherten Düngemittels: gilt für eine gespeicherte Düngermenge ohne Einheit
+  const gespeichertEinheit = duengerEinheitVon(behandlung.duengemittel_id ?? '')
+  const vorbelegung = mengeVorbelegung(behandlung, duengerEinheitVon(selectedDuengemittelId), gespeichertEinheit)
+  const [mengeGesamt, setMengeGesamt] = useState(vorbelegung.text)
+  // Hinweis, wenn ein anderes Düngemittel die Einheit einer eigenen Eingabe wechselt (duengerEinheitWechsel)
+  const [einheitHinweis, setEinheitHinweis] = useState<string | null>(null)
   const [wasseraufwand, setWasseraufwand] = useState(alsFeld(behandlung.wasseraufwand_l_ha))
   // Analog zum Anlegen-Formular (NeueBehandlungForm.tsx, Punkte 1 und 2 der Anforderung): Spritzbrühe
   // gesamt ↔ Wasseraufwand (über die Fläche der Maßnahme) und Aufwandmenge ↔ Konzentration berechnen sich
@@ -202,12 +189,29 @@ export default function BehandlungEditForm({
     if (neu === art) return
     const zurueck = neu === startArt
     setArt(neu)
-    setMengeGesamt(zurueck ? start.text : '')
+    setMengeGesamt(zurueck ? vorbelegung.text : '')
+    setEinheitHinweis(null)
     setAufwandmenge(zurueck ? start.aufwand : '')
     setAufwandmengeEinheit(zurueck ? start.aufwandEinheit : 'kg_ha')
     setKonzentration(zurueck ? start.konzentration : '')
     setMengeQuelle(null)
     setAufwandQuelle(null)
+  }
+
+  // Die Düngermenge gilt in der Einheit des Düngemittels (kg bzw. l, ohne Dichte-Annahme). Wechselt ein
+  // anderes Düngemittel die Einheit, wird die unveränderte Vorbelegung wie beim Laden neu geprüft (950 kg bei
+  // einem Düngemittel in l → Altwert, Feld leer); eine eigene Eingabe bleibt stehen, mit Hinweis
+  function duengemittelWechseln(id: string) {
+    const von = duengerEinheitVon(selectedDuengemittelId)
+    const nach = duengerEinheitVon(id)
+    if (art === startArt && mengeGesamt === vorbelegung.text) {
+      setMengeGesamt(mengeVorbelegung(behandlung, nach, gespeichertEinheit).text)
+      setEinheitHinweis(null)
+    } else {
+      const hinweis = duengerEinheitWechsel(von, nach, mengeGesamt)
+      if (hinweis) setEinheitHinweis(hinweis)
+    }
+    setSelectedDuengemittelId(id)
   }
 
   // ─── Mengen: Kopplungen, Mittelmenge, Cu, Reinkupfer – Rechnung und Prüfung wie in updateBehandlung ──
@@ -222,22 +226,24 @@ export default function BehandlungEditForm({
       : null,
     duengemittelId: selectedDuengemittelId || null,
     duengemittelEinheit: selectedDuengemittel?.einheit ?? null,
+    formular: 'bearbeiten',
   })
   const wasserGesperrt = m.wasserBerechnet !== null
   const mengeGesamtGesperrt = m.mengeGesamtBerechnet !== null
   const konzentrationGesperrt = m.konzentrationBerechnet !== null
   const aufwandmengeGesperrt = m.aufwandmengeBerechnet !== null
 
-  // Altwert (gespeicherte Menge passt nicht zur Einheit des Felds): Speichern erst, wenn die Spritzbrühe
-  // bzw. Düngermenge neu angegeben ist – direkt oder über den Wasseraufwand × Fläche
-  const altwertSichtbar = start.altwert !== null && art === startArt && felder.mengeGesamt !== 'hidden'
+  // Altwert (gespeicherte Menge passt nicht zur Einheit des Felds, auch nach einem Wechsel des Düngemittels):
+  // Speichern erst, wenn die Spritzbrühe bzw. Düngermenge neu angegeben ist – direkt oder über den
+  // Wasseraufwand × Fläche
+  const altwertSichtbar = vorbelegung.altwert !== null && art === startArt && felder.mengeGesamt !== 'hidden'
   const altwertOffen = altwertSichtbar && m.eingabe.mengeGesamt === null
   const wasserZahl = eingabeZahl(wasseraufwand)
   const brueheAusWasser = art === 'spritzung' && m.ha !== null && wasserZahl !== null && wasserZahl > 0
     ? runden(wasserZahl * m.ha, STELLEN_MENGE) : null
   const altwertFehler = art === 'spritzung'
-    ? `Bitte die Spritzbrühe gesamt (l) neu eingeben – der bisherige Wert (${start.altwert}) ist keine Spritzbrühe und wird nicht übernommen.`
-    : `Bitte die Düngermenge gesamt (${m.mengeEinheit}) neu eingeben – der bisherige Wert (${start.altwert}) passt nicht zur Einheit des Düngemittels.`
+    ? `Bitte die Spritzbrühe gesamt (l) neu eingeben – der bisherige Wert (${vorbelegung.altwert}) ist keine Spritzbrühe und wird nicht übernommen.`
+    : `Bitte die Düngermenge gesamt (${m.mengeEinheit}) neu eingeben – der bisherige Wert (${vorbelegung.altwert}) passt nicht zur Einheit des Düngemittels.`
 
   const updateWithId = updateBehandlung.bind(null, behandlung.id)
 
@@ -277,13 +283,20 @@ export default function BehandlungEditForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
 
-      {/* Weingarten-Info (readonly) */}
-      {behandlung.weingarten_name && (
+      {/* Weingarten und behandelte Fläche (readonly) – weingarten_id setzen nur Altdaten/Seed; die Fläche
+          (Σ Grundstücke, koppelt Spritzbrühe und Wasseraufwand) steht auch bei Maßnahmen aus Formular und Assistent */}
+      {(behandlung.weingarten_name || m.ha !== null) && (
         <div className="card bg-s112-bg/50 p-4">
-          <p className="text-xs text-s112-muted">Weingarten (nicht änderbar)</p>
-          <p className="font-semibold text-s112-text">{behandlung.weingarten_name}</p>
+          {behandlung.weingarten_name && (
+            <>
+              <p className="text-xs text-s112-muted">Weingarten (nicht änderbar)</p>
+              <p className="font-semibold text-s112-text">{behandlung.weingarten_name}</p>
+            </>
+          )}
           {m.ha !== null && (
-            <p className="text-xs text-s112-muted mt-0.5">Behandelte Fläche: {fmtNum(m.ha, { max: 4 })} ha (Σ Grundstücke der Maßnahme)</p>
+            <p className={`text-xs text-s112-muted${behandlung.weingarten_name ? ' mt-0.5' : ''}`}>
+              Behandelte Fläche: {fmtNum(m.ha, { max: 4 })} ha (Σ Grundstücke der Maßnahme{behandlung.weingarten_name ? '' : ', nicht änderbar'})
+            </p>
           )}
         </div>
       )}
@@ -352,7 +365,7 @@ export default function BehandlungEditForm({
           <div>
             <label className={labelCls}>Düngemittel</label>
             <select aria-label="Düngemittel" name="duengemittel_id" value={selectedDuengemittelId}
-              onChange={e => setSelectedDuengemittelId(e.target.value)}
+              onChange={e => duengemittelWechseln(e.target.value)}
               className={inputCls}>
               <option value="">– keines –</option>
               {duengemittel.map(d => (
@@ -391,13 +404,13 @@ export default function BehandlungEditForm({
             <div className="space-y-1.5">
               {art === 'spritzung' ? (
                 <p>
-                  „Menge gesamt“ ist noch als <strong>{start.altwert}</strong> gespeichert – früher die Mittelmenge. Bei
+                  „Menge gesamt“ ist noch als <strong>{vorbelegung.altwert}</strong> gespeichert – früher die Mittelmenge. Bei
                   Spritzungen ist das Feld jetzt die Spritzbrühe in Litern, die Mittelmenge ergibt sich aus der
                   Aufwandmenge. Der bisherige Wert wird nicht übernommen: bitte die Spritzbrühe gesamt (l) neu eingeben.
                 </p>
               ) : (
                 <p>
-                  „Düngermenge gesamt“ ist als <strong>{start.altwert}</strong> gespeichert und passt nicht zur Einheit des
+                  „Düngermenge gesamt“ ist als <strong>{vorbelegung.altwert}</strong> gespeichert und passt nicht zur Einheit des
                   Düngemittels ({m.mengeEinheit}) – bitte neu eingeben.
                 </p>
               )}
@@ -410,7 +423,7 @@ export default function BehandlungEditForm({
             </div>
           </div>
         ) : (
-          <p className="text-xs text-s112-muted">Bisher gespeichert: {start.altwert} – wird durch die neue Angabe ersetzt.</p>
+          <p className="text-xs text-s112-muted">Bisher gespeichert: {vorbelegung.altwert} – wird durch die neue Angabe ersetzt.</p>
         ))}
 
         {/* Düngermenge gesamt (kg; l nur bei Düngemitteln in l) */}
@@ -423,8 +436,13 @@ export default function BehandlungEditForm({
             <input aria-label={`Düngermenge gesamt (${m.mengeEinheit})`} name="menge_gesamt" type="text" inputMode="decimal"
               required={felder.mengeGesamt === 'pflicht'}
               value={mengeGesamt}
-              onChange={e => setMengeGesamt(e.target.value)}
+              onChange={e => { setMengeGesamt(e.target.value); setEinheitHinweis(null) }}
               className={inputCls} />
+            {einheitHinweis && (
+              <p className="text-xs text-s112-warn-fg mt-1 flex items-start gap-1">
+                <AlertTriangle size={12} className="mt-0.5 flex-shrink-0" />{einheitHinweis}
+              </p>
+            )}
           </div>
         )}
 
@@ -464,9 +482,8 @@ export default function BehandlungEditForm({
                     disabled={konzentrationGesperrt}
                     onChange={e => { setKonzentration(e.target.value); setAufwandQuelle(e.target.value.trim() === '' ? null : 'konzentration') }}
                     className={`${inputCls} disabled:bg-s112-bg disabled:text-s112-text-2`} />
-                  {aufwandQuelle != null && !konzentrationGesperrt && !aufwandmengeGesperrt && !(m.eingabe.wasserLHa && m.eingabe.wasserLHa > 0)
-                    && (m.aufwandEinheit === 'kg_ha' || m.aufwandEinheit === 'l_ha') && (
-                    <p className="text-xs text-s112-muted mt-1">Für die automatische Berechnung bitte Wasseraufwand (l/ha) oder Spritzbrühe gesamt angeben.</p>
+                  {m.konzentrationHinweis && (
+                    <p className="text-xs text-s112-muted mt-1">{m.konzentrationHinweis}</p>
                   )}
                 </div>
               )}

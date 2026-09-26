@@ -28,6 +28,7 @@
 // Fläche des EINEN Weingartens aus weingarten_id – bei Maßnahmen über mehrere Rieden viel zu hoch.
 
 import { runden, STELLEN, type CsvSpalte } from '@/lib/csv'
+import { fmtNum } from '@/lib/format'
 import { alle } from '@/lib/supabase/alle'
 import type { LadeErgebnis } from './typen'
 
@@ -63,6 +64,21 @@ export function einheitText(e: string | null | undefined): string {
   return EINHEIT_LABEL[e] ?? e
 }
 
+/**
+ * Beschriftung der Aufwand-Einheit (Formulare, psm-aufzeichnung, cu-bilanz-behandlungen, Druck): kg bzw. l
+ * sind Gesamtwerte der Maßnahme („kg (gesamt)“ – in einer GST-Zeile keine Menge je Grundstück), g/hl bzw.
+ * ml/hl die tatsächliche Konzentration im Tank (KAN-133).
+ */
+export const AUFWAND_EINHEIT_LABEL: Record<string, string> = {
+  kg_ha: 'kg/ha', l_ha: 'l/ha', g_hl: 'g/hl (im Tank)', ml_hl: 'ml/hl (im Tank)', kg: 'kg (gesamt)', l: 'l (gesamt)',
+}
+
+/** Aufwand-Einheit als Text (AUFWAND_EINHEIT_LABEL); einheitText bleibt für Mengen-Einheiten (menge_einheit, Lager) */
+export function aufwandEinheitText(e: string | null | undefined): string {
+  if (!e) return ''
+  return AUFWAND_EINHEIT_LABEL[e] ?? e
+}
+
 export function witterungText(w: string | null | undefined): string | null {
   if (!w) return null
   return WITTERUNG_LABEL[w] ?? w
@@ -92,8 +108,6 @@ export type WeingartenStamm = {
   aktiv: boolean
   /** Σ Fläche der Grundstücke mit Nutzart WI (ha, 4 Stellen) – wie createBehandlung die WI-GST bestimmt */
   wiFlaecheHa: number
-  /** Anzahl Grundstücke mit Nutzart WI */
-  wiGst: number
 }
 
 export type PsmGrundstueck = {
@@ -595,7 +609,6 @@ export async function ladeWeingaerten(supabase: any, tenantId: string): Promise<
       flaecheHa: rund(zahl(w.flaeche_ha), STELLEN.ha),
       aktiv: w.aktiv !== false,
       wiFlaecheHa: runden(wi.reduce((s, g) => s + (zahl(g.flaeche_ha) ?? 0), 0), STELLEN.ha),
-      wiGst: wi.length,
     }
   })
 }
@@ -704,6 +717,7 @@ export function psmAufzeichnungZeilen(behandlungen: readonly PsmBehandlung[], fi
   const ohneOrt: string[] = []
   const ohneMittelmenge: string[] = []
   const altwerte: string[] = []
+  const nichtVerteilt: string[] = []
   for (const b of behandlungen) {
     let orte: (PsmGrundstueck | null)[] = b.grundstuecke
     if (filter.ried) orte = b.grundstuecke.filter(g => (g.lageId ?? OHNE_RIED) === filter.ried)
@@ -718,11 +732,13 @@ export function psmAufzeichnungZeilen(behandlungen: readonly PsmBehandlung[], fi
 
     const summeHa = b.grundstuecke.reduce((s, g) => s + (g.flaecheHa ?? 0), 0)
     const istPsm = b.psm !== null
+    let ohneAnteil = false
     for (const g of orte) {
       // Anteil nach Fläche wie bisher (ohne Restausgleich); ein einziger Ort trägt die ganze Menge
       let anteil: number | null = null
       if (b.grundstuecke.length <= 1) anteil = 1
       else if (summeHa > 0 && g?.flaecheHa != null) anteil = g.flaecheHa / summeHa
+      if (anteil === null) ohneAnteil = true
       zeilen.push({
         behandlungId: b.id,
         datum: b.datum,
@@ -742,7 +758,8 @@ export function psmAufzeichnungZeilen(behandlungen: readonly PsmBehandlung[], fi
         schaderreger: b.schaderreger,
         bbch: b.bbch,
         aufwand: rund(b.aufwand, STELLEN_MENGE),
-        aufwandEinheit: einheitText(b.aufwandEinheit),
+        // „kg (gesamt)“ bzw. „l (gesamt)“: Wert der Maßnahme, keine Menge je Grundstück (die steht in „Mittelmenge anteilig“)
+        aufwandEinheit: aufwandEinheitText(b.aufwandEinheit),
         mittelmengeAnteil: mm.menge !== null && anteil !== null ? runden(mm.menge * anteil, STELLEN_MENGE) : null,
         mittelmengeEinheit: mm.einheit ?? '',
         mittelmengeBasis: mm.basis,
@@ -760,12 +777,22 @@ export function psmAufzeichnungZeilen(behandlungen: readonly PsmBehandlung[], fi
         notiz: b.notiz,
       })
     }
+    // Grundstücke ohne Fläche: dort bleiben die Anteile leer – ohne jede Fläche fehlen Mittelmenge und
+    // Spritzbrühe der Maßnahme in den Zeilen ganz (seit Nr. 7 gibt es keine Gesamtspalte mehr)
+    if (ohneAnteil && (mm.menge !== null || bruehe !== null)) {
+      const werte = [
+        mm.menge !== null ? `${b.art === 'duengung' ? 'Düngermenge' : 'Mittelmenge'} ${fmtNum(mm.menge, { max: STELLEN_MENGE })} ${mm.einheit}` : null,
+        bruehe !== null ? `Spritzbrühe ${fmtNum(bruehe, { max: STELLEN_MENGE })} l` : null,
+      ].filter(Boolean).join(', ')
+      nichtVerteilt.push(`${behandlungKurz(b)} – ${werte} ${summeHa > 0 ? '(nur auf GST mit Fläche verteilt)' : '(nicht verteilt)'}`)
+    }
   }
   const warnungen: string[] = []
   if (ohneGst.length > 0) warnungen.push(`${ohneGst.length} ${ohneGst.length === 1 ? 'Maßnahme ist' : 'Maßnahmen sind'} keinem Grundstück zugeordnet – je eine Zeile für den Weingarten ohne GST-Nr.: ${liste(ohneGst)}`)
   if (ohneOrt.length > 0) warnungen.push(`${ohneOrt.length} ${ohneOrt.length === 1 ? 'Maßnahme hat' : 'Maßnahmen haben'} weder Grundstück noch Weingarten – Ried, GST-Nr. und Fläche bleiben leer: ${liste(ohneOrt)}`)
   if (ohneMittelmenge.length > 0) warnungen.push(`${ohneMittelmenge.length} ${ohneMittelmenge.length === 1 ? 'Maßnahme' : 'Maßnahmen'} ohne berechenbare Mittelmenge – „Mittelmenge anteilig (GST)“ bleibt leer: ${liste(ohneMittelmenge)}`)
   if (altwerte.length > 0) warnungen.push(`${altwerte.length} ${altwerte.length === 1 ? 'Spritzung hat' : 'Spritzungen haben'} „Menge gesamt“ noch in kg bzw. g (früher als Mittelmenge erfasst) – zählt weder als Spritzbrühe noch als Mittelmenge; Spritzbrühe nur aus Wasseraufwand × Fläche, Mittelmenge aus dem Aufwand: ${liste(altwerte)}`)
+  if (nichtVerteilt.length > 0) warnungen.push(`${nichtVerteilt.length} ${nichtVerteilt.length === 1 ? 'Maßnahme hat' : 'Maßnahmen haben'} Grundstücke ohne Fläche – „Mittelmenge anteilig (GST)“ und „Spritzbrühe anteilig (GST, l)“ bleiben dort leer, die Werte je Maßnahme stehen im Druck: ${liste(nichtVerteilt)}`)
   return { zeilen, warnungen }
 }
 
