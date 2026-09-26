@@ -1,6 +1,6 @@
 // Tool "massnahme_dokumentieren" für den Prozess-Assistenten (Bot) – Phase 1
 // Pilot. Bildet exakt die Felder der bestehenden FELD_MATRIX aus
-// NeueBehandlungForm.tsx ab und ruft am Ende dieselbe Server Action
+// behandlungen/neu/feldMatrix.ts ab und ruft am Ende dieselbe Server Action
 // (createBehandlung) mit denselben Parametern auf, die auch das Formular
 // übergibt – siehe Konzeptdokument Abschnitt 8.
 //
@@ -15,10 +15,21 @@
 // prüft das Tool die Mengen mit derselben Regel wie Formular und Server (pruefeMassnahmeMengen, hier mit
 // Pflicht Spritzbrühe oder Wasseraufwand); createBehandlung prüft noch einmal mit der Fläche der
 // gewählten Grundstücke und ergänzt die Spritzbrühe aus l/ha × Fläche.
+//
+// KAN-143 (26.09.2026): neue Art „laubschneiden“ (maschinelles Laubschneiden an Seiten und Gipfel, ohne
+// laubarbeit_art). Arten und Bezeichnungen aus lib/behandlungen/arten.ts; eine unbekannte Art lehnt das
+// Tool vor dem Speichern ab, laubarbeit_art geht nur bei einer Laubarbeit mit (dort Pflicht).
 import { createBehandlung } from '@/app/(dashboard)/behandlungen/actions'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { dezimal } from '@/lib/format'
 import { AUFWAND_EINHEITEN, pruefeMassnahmeMengen } from '@/lib/behandlungen/massnahmeMengen'
+import {
+  LAUBARBEIT_OPTIONEN, MASSNAHMEN_ARTEN, MASSNAHMEN_ART_LABEL, istMassnahmenArt, laubarbeitArtFehlt, laubarbeitArtFuer,
+} from '@/lib/behandlungen/arten'
+
+/** „Spritzung, Düngung, …, Laubschneiden oder Sonstiges“ – für die Tool-Beschreibung (die Rückfrage bei
+ *  unbekannter Art nennt bewusst die Codes, die das Tool erwartet: MASSNAHMEN_ARTEN) */
+const ARTEN_TEXT = MASSNAHMEN_ARTEN.map(a => MASSNAHMEN_ART_LABEL[a]).join(', ').replace(/, ([^,]*)$/, ' oder $1')
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -41,6 +52,10 @@ FELD-MATRIX je Maßnahmenart (nur diese Felder abfragen – "pflicht" IMMER erfr
 - schnitt:           schnittart (pflicht)
 - laubarbeit:        laubarbeit_art (pflicht, einer von: entblaettern, ausgeizen,
                      gipfeln, heften, sonstige), bbch_stadium (optional)
+- laubschneiden:     bbch_stadium (optional); KEIN laubarbeit_art. Laubschneiden = maschinelles
+                     Laubschneiden an Seiten und Gipfel (Laubschneider, Laubschnitt mit dem Traktor).
+                     Gipfeln von Hand ist dagegen laubarbeit mit laubarbeit_art gipfeln – bei
+                     "Gipfeln" ohne Hinweis auf Maschine oder Hand kurz nachfragen.
 - sonstiges:         schaderreger (optional, hier als freie Beschreibung nutzbar)
 
 MENGEN – GANZ WICHTIG:
@@ -71,8 +86,7 @@ nachfragen).
 export const MASSNAHME_TOOL = {
   name: 'massnahme_dokumentieren',
   description:
-    'Trägt eine Maßnahme (Spritzung, Düngung, Bodenbearbeitung, Schnitt, Laubarbeit ' +
-    'oder Sonstiges) im Maßnahmenprotokoll ein. WICHTIG: Rufe dieses Tool ausschließlich ' +
+    `Trägt eine Maßnahme (${ARTEN_TEXT}) im Maßnahmenprotokoll ein. WICHTIG: Rufe dieses Tool ausschließlich ` +
     'MIT bestaetigt_vom_user=true auf, und das auch nur, nachdem du dem User in einer ' +
     'normalen Textnachricht eine Zusammenfassung der geplanten Eintragung gezeigt und er ' +
     'ausdrücklich zugestimmt hat (z.B. "ja", "passt", "ok"). Rufe es NIEMALS vorher auf ' +
@@ -87,7 +101,9 @@ export const MASSNAHME_TOOL = {
       },
       art: {
         type: 'string',
-        enum: ['spritzung', 'duengung', 'bodenbearbeitung', 'schnitt', 'laubarbeit', 'sonstiges'],
+        enum: [...MASSNAHMEN_ARTEN],
+        description: 'laubschneiden = maschinelles Laubschneiden an Seiten und Gipfel (ohne laubarbeit_art); ' +
+          'Gipfeln von Hand = laubarbeit mit laubarbeit_art gipfeln.',
       },
       datum: { type: 'string', description: 'Datum der Maßnahme, Format YYYY-MM-DD' },
       datum_bis: { type: 'string', description: 'Optional: Enddatum bei mehrtägigen Maßnahmen, YYYY-MM-DD' },
@@ -131,7 +147,10 @@ export const MASSNAHME_TOOL = {
       bearbeitungstiefe_cm: { type: 'number' },
       bearbeitungsgeraet: { type: 'string' },
       schnittart: { type: 'string', description: 'Freitext, z.B. "Guyot", "Kordon"' },
-      laubarbeit_art: { type: 'string', enum: ['entblaettern', 'ausgeizen', 'gipfeln', 'heften', 'sonstige'] },
+      laubarbeit_art: {
+        type: 'string', enum: LAUBARBEIT_OPTIONEN.map(o => o.value),
+        description: 'Nur bei art laubarbeit (bei laubschneiden und allen anderen Arten weglassen).',
+      },
       einarbeitung: { type: 'boolean', description: 'Nur bei Düngung: wurde eingearbeitet' },
       einarbeitung_zeitpunkt: { type: 'string', description: 'YYYY-MM-DD, nur falls einarbeitung=true' },
       notizen: { type: 'string' },
@@ -166,6 +185,21 @@ export async function fuehreMassnahmeDokumentierenAus(
   }
   if (!input.art || !input.datum) {
     return { erfolg: false, hinweis: 'Art und Datum sind Pflichtfelder – bitte beim User nachfragen.' }
+  }
+  if (!istMassnahmenArt(input.art)) {
+    return {
+      erfolg: false,
+      hinweis: `Unbekannte Maßnahmenart „${String(input.art)}“ – erlaubt: ${MASSNAHMEN_ARTEN.join(', ')}. ` +
+        'Bitte beim User nachfragen, welche Art gemeint ist. Es wurde NICHTS gespeichert.',
+    }
+  }
+  // Laubarbeit ohne Unterart lehnt auch createBehandlung ab – hier mit Rückfrage statt Fehler
+  if (laubarbeitArtFehlt(input.art, input.laubarbeit_art ? String(input.laubarbeit_art) : null)) {
+    return {
+      erfolg: false,
+      hinweis: `Bei einer Laubarbeit ist laubarbeit_art Pflicht (${LAUBARBEIT_OPTIONEN.map(o => o.value).join(', ')}). ` +
+        'Bitte beim User nachfragen. Es wurde NICHTS gespeichert.',
+    }
   }
 
   // Wartezeit automatisch aus dem gewählten Mittel ableiten (wie im Formular –
@@ -240,7 +274,9 @@ export async function fuehreMassnahmeDokumentierenAus(
   if (input.bearbeitungstiefe_cm != null) fd.set('bearbeitungstiefe_cm', String(input.bearbeitungstiefe_cm))
   if (input.bearbeitungsgeraet) fd.set('bearbeitungsgeraet', String(input.bearbeitungsgeraet))
   if (input.schnittart) fd.set('schnittart', String(input.schnittart))
-  if (input.laubarbeit_art) fd.set('laubarbeit_art', String(input.laubarbeit_art))
+  // laubarbeit_art nur bei einer Laubarbeit (bei Laubschneiden null, KAN-143)
+  const laubarbeitArt = laubarbeitArtFuer(input.art, input.laubarbeit_art ? String(input.laubarbeit_art) : null)
+  if (laubarbeitArt) fd.set('laubarbeit_art', laubarbeitArt)
   if (input.einarbeitung) fd.set('einarbeitung', 'on')
   if (input.einarbeitung_zeitpunkt) fd.set('einarbeitung_zeitpunkt', String(input.einarbeitung_zeitpunkt))
   if (input.notizen) fd.set('notizen', String(input.notizen))

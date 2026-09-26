@@ -8,6 +8,10 @@ import { revalidatePath } from 'next/cache'
 import { AktionsFehler } from '@/lib/fehler'
 import { dezimal } from '@/lib/format'
 import { pruefeMassnahmeMengen, summeFlaecheHa, type MassnahmeMengenEingabe } from '@/lib/behandlungen/massnahmeMengen'
+import {
+  LAUBARBEIT_ART_FEHLT, MASSNAHMEN_ARTEN, MASSNAHMEN_ART_LABEL, istMassnahmenArt, laubarbeitArtFehlt, laubarbeitArtFuer,
+  mittelFuerArt, type MassnahmenArt,
+} from '@/lib/behandlungen/arten'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -20,6 +24,18 @@ async function getTenantId(): Promise<string> {
   return membership.tenantId
 }
 
+
+/**
+ * Maßnahmenart aus dem Formular (ohne Angabe Spritzung wie bisher). Unbekannte Werte lehnt die Action mit
+ * lesbarem Text ab, statt am DB-CHECK behandlungen_art_check zu scheitern (KAN-143).
+ */
+function massnahmenArtAus(formData: FormData): MassnahmenArt {
+  const art = (formData.get('art') as string) || 'spritzung'
+  if (!istMassnahmenArt(art)) {
+    throw new AktionsFehler(`Unbekannte Maßnahmenart „${art}“ – erlaubt: ${MASSNAHMEN_ARTEN.map(a => MASSNAHMEN_ART_LABEL[a]).join(', ')}.`)
+  }
+  return art
+}
 
 function parseDecimal(val: FormDataEntryValue | null): number | null {
   if (!val) return null
@@ -274,10 +290,13 @@ export async function createBehandlung(formData: FormData) {
 
   const datum           = formData.get('datum') as string
   const datumBis        = (formData.get('datum_bis') as string) || null
-  const art             = (formData.get('art') as string) || 'spritzung'
-  const psmId           = (formData.get('psm_id') as string) || null
-  const duengemittelId  = (formData.get('duengemittel_id') as string) || null
-  const wartezeit       = formData.get('wartezeit_tage') ? Number(dezimal(formData.get('wartezeit_tage'))) : null
+  const art             = massnahmenArtAus(formData)
+  // Mittel und Wartezeit nur, wenn die Art sie kennt (Assistent schickt sie sonst auch bei Laubschneiden mit)
+  const { psmId, duengemittelId, wartezeitTage: wartezeit } = mittelFuerArt(art, {
+    psmId:          (formData.get('psm_id') as string) || null,
+    duengemittelId: (formData.get('duengemittel_id') as string) || null,
+    wartezeitTage:  formData.get('wartezeit_tage') ? Number(dezimal(formData.get('wartezeit_tage'))) : null,
+  })
   const aufwandmenge    = formData.get('aufwandmenge') ? Number(dezimal(formData.get('aufwandmenge'))) : null
   const aufwandEinheit  = (formData.get('aufwandmenge_einheit') as string) || null
   const mengeGesamt     = formData.get('menge_gesamt') ? Number(dezimal(formData.get('menge_gesamt'))) : null
@@ -292,7 +311,9 @@ export async function createBehandlung(formData: FormData) {
   const bearbeitungstiefe = formData.get('bearbeitungstiefe_cm') ? Number(dezimal(formData.get('bearbeitungstiefe_cm'))) : null
   const bearbeitungsgeraet = (formData.get('bearbeitungsgeraet') as string) || null
   const schnittart      = (formData.get('schnittart') as string) || null
-  const laubarbeitArt   = (formData.get('laubarbeit_art') as string) || null
+  // nur bei einer Laubarbeit – bei Laubschneiden (KAN-143) und allen anderen Arten null
+  const laubarbeitArt   = laubarbeitArtFuer(art, (formData.get('laubarbeit_art') as string) || null)
+  if (laubarbeitArtFehlt(art, laubarbeitArt)) throw new AktionsFehler(LAUBARBEIT_ART_FEHLT)   // Feld-Matrix: Pflicht
   const einarbeitung    = formData.has('einarbeitung') ? formData.get('einarbeitung') === 'on' : null
   const einarbeitungZeitpunkt = (formData.get('einarbeitung_zeitpunkt') as string) || null
 
@@ -430,10 +451,14 @@ export async function updateBehandlung(id: string, formData: FormData) {
 
   const datum          = formData.get('datum') as string
   const datumBis       = (formData.get('datum_bis') as string) || null
-  const art            = (formData.get('art') as string) || 'spritzung'
-  const psmId          = (formData.get('psm_id') as string) || null
-  const duengemittelId = (formData.get('duengemittel_id') as string) || null
-  const wartezeit      = formData.get('wartezeit_tage') ? Number(dezimal(formData.get('wartezeit_tage'))) : null
+  const art            = massnahmenArtAus(formData)
+  // Mittel und Wartezeit nur, wenn die Art sie kennt – nach einem Artwechsel (z. B. Spritzung → Laubschneiden)
+  // bleibt sonst die Wartezeit des ausgeblendeten Mittels in ernte_fruehesteins stehen
+  const { psmId, duengemittelId, wartezeitTage: wartezeit } = mittelFuerArt(art, {
+    psmId:          (formData.get('psm_id') as string) || null,
+    duengemittelId: (formData.get('duengemittel_id') as string) || null,
+    wartezeitTage:  formData.get('wartezeit_tage') ? Number(dezimal(formData.get('wartezeit_tage'))) : null,
+  })
   const aufwandmenge   = formData.get('aufwandmenge') ? Number(dezimal(formData.get('aufwandmenge'))) : null
   const aufwandEinheit = (formData.get('aufwandmenge_einheit') as string) || null
   const mengeGesamt    = formData.get('menge_gesamt') ? Number(dezimal(formData.get('menge_gesamt'))) : null
@@ -448,7 +473,9 @@ export async function updateBehandlung(id: string, formData: FormData) {
   const bearbeitungstiefe = formData.get('bearbeitungstiefe_cm') ? Number(dezimal(formData.get('bearbeitungstiefe_cm'))) : null
   const bearbeitungsgeraet = (formData.get('bearbeitungsgeraet') as string) || null
   const schnittart      = (formData.get('schnittart') as string) || null
-  const laubarbeitArt   = (formData.get('laubarbeit_art') as string) || null
+  // nur bei einer Laubarbeit – bei Laubschneiden (KAN-143) und allen anderen Arten null
+  const laubarbeitArt   = laubarbeitArtFuer(art, (formData.get('laubarbeit_art') as string) || null)
+  if (laubarbeitArtFehlt(art, laubarbeitArt)) throw new AktionsFehler(LAUBARBEIT_ART_FEHLT)   // Feld-Matrix: Pflicht
   const einarbeitung    = formData.has('einarbeitung') ? formData.get('einarbeitung') === 'on' : null
   const einarbeitungZeitpunkt = (formData.get('einarbeitung_zeitpunkt') as string) || null
 

@@ -17,20 +17,23 @@ import {
   AUFWAND_EINHEITEN, AUFWAND_EINHEITEN_DUENGUNG, pruefeMassnahmeMengen,
   type MassnahmeMengenEingabe, type MassnahmeMengenErgebnis, type MassnahmeMengenWerte,
 } from '@/lib/behandlungen/massnahmeMengen'
+import type { MassnahmenArt } from '@/lib/behandlungen/arten'
 
 export type Sicht = 'pflicht' | 'bedingt' | 'optional' | 'hidden'
 export type MengenSichten = { mengeGesamt: Sicht; aufwandmenge: Sicht; konzentration: Sicht; wasseraufwand: Sicht }
 
 /**
  * Mengenfelder je Maßnahmenart. Spritzung: Spritzbrühe gesamt ODER Wasseraufwand ('bedingt', geprüft mit
- * bruehePflicht), Aufwand Pflicht. Düngung: Düngermenge Pflicht, Aufwand optional.
+ * bruehePflicht), Aufwand Pflicht. Düngung: Düngermenge Pflicht, Aufwand optional. Laubschneiden (KAN-143)
+ * wie Laubarbeit ohne Mengenfelder.
  */
-export const MENGEN_SICHT: Record<'spritzung' | 'duengung' | 'bodenbearbeitung' | 'schnitt' | 'laubarbeit' | 'sonstiges', MengenSichten> = {
+export const MENGEN_SICHT: Record<MassnahmenArt, MengenSichten> = {
   spritzung:        { mengeGesamt: 'bedingt', aufwandmenge: 'pflicht',  konzentration: 'optional', wasseraufwand: 'bedingt' },
   duengung:         { mengeGesamt: 'pflicht', aufwandmenge: 'optional', konzentration: 'hidden',   wasseraufwand: 'hidden'  },
   bodenbearbeitung: { mengeGesamt: 'hidden',  aufwandmenge: 'hidden',   konzentration: 'hidden',   wasseraufwand: 'hidden'  },
   schnitt:          { mengeGesamt: 'hidden',  aufwandmenge: 'hidden',   konzentration: 'hidden',   wasseraufwand: 'hidden'  },
   laubarbeit:       { mengeGesamt: 'hidden',  aufwandmenge: 'hidden',   konzentration: 'hidden',   wasseraufwand: 'hidden'  },
+  laubschneiden:    { mengeGesamt: 'hidden',  aufwandmenge: 'hidden',   konzentration: 'hidden',   wasseraufwand: 'hidden'  },
   sonstiges:        { mengeGesamt: 'hidden',  aufwandmenge: 'hidden',   konzentration: 'hidden',   wasseraufwand: 'hidden'  },
 }
 

@@ -11,6 +11,7 @@ import { fmtNum } from '@/lib/format'
 import { ladeBelegungen } from '@/lib/behoerden/bewegungsbuch'
 import { mostgewichtWeinbuchText } from '@/lib/behoerden/mostgewicht_export'
 import { tag } from '@/lib/behoerden/kellerbuch-hilfen'
+import { massnahmenArtLabel } from '@/lib/behandlungen/arten'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -371,12 +372,14 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
 
   for (const b of feldbehandlungen) {
     const wgName = (b.weingarten as R | null)?.name ?? null
+    // Bezeichnung der Art („Laubschneiden“ statt des Rohwerts, KAN-143)
+    const artText = massnahmenArtLabel(b.art)
     events.push({
       datum: b.datum,
       typ: 'feldbehandlung',
-      titel: b.psm_name ?? b.art ?? 'Behandlung',
+      titel: b.psm_name ?? artText ?? 'Behandlung',
       details: [
-        b.art && `Art: ${b.art}`,
+        artText && `Art: ${artText}`,
         b.aufwandmenge && `${b.aufwandmenge} ${b.aufwandmenge_einheit ?? ''}`.trim(),
         b.bbch_stadium && `BBCH ${b.bbch_stadium}`,
         b.schaderreger && `Schaderreger: ${b.schaderreger}`,

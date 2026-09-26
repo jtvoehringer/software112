@@ -30,6 +30,7 @@
 import { runden, STELLEN, type CsvSpalte } from '@/lib/csv'
 import { fmtNum } from '@/lib/format'
 import { alle } from '@/lib/supabase/alle'
+import { MASSNAHMEN_ART_LABEL } from '@/lib/behandlungen/arten'
 import type { LadeErgebnis } from './typen'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -37,10 +38,12 @@ type R = Record<string, any>
 
 // ── Bezeichnungen ───────────────────────────────────────────────────────────
 
-export const ART_LABEL: Record<string, string> = {
-  spritzung: 'Spritzung', duengung: 'Düngung', bodenbearbeitung: 'Bodenbearbeitung',
-  schnitt: 'Schnitt', laubarbeit: 'Laubarbeit', lese: 'Lese', sonstiges: 'Sonstiges',
-}
+/**
+ * Maßnahmenarten (alle Werte von behandlungen.art, lib/behandlungen/arten.ts – seit KAN-143 mit
+ * Laubschneiden). Reihenfolge = Art-Filter in Behandlungsprotokoll und Berichten; artAus() lässt genau
+ * diese Schlüssel zu.
+ */
+export const ART_LABEL: Readonly<Record<string, string>> = MASSNAHMEN_ART_LABEL
 
 export const EINHEIT_LABEL: Record<string, string> = {
   kg_ha: 'kg/ha', l_ha: 'l/ha', g_hl: 'g/hl', ml_hl: 'ml/hl', kg: 'kg', l: 'l', g: 'g', ml: 'ml',

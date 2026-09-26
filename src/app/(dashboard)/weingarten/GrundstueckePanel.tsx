@@ -10,6 +10,7 @@ import HerkunftCodeSelect from '@/components/weinbaugebiete/HerkunftCodeSelect'
 import type { CustomWeinbaugebiet } from '../weinbaugebiete/actions'
 import { NUTZART_OPTIONS, NutzungBadge } from '@/lib/wein/grundstueckStatus'
 import { fehlerText } from '@/lib/fehler'
+import { MASSNAHMEN_ART_LABEL } from '@/lib/behandlungen/arten'
 
 const HERKUNFT_OPTIONS = HERKUNFT_ORDER.map(code => ({ value: code, label: HERKUNFT_LABEL[code] }))
 
@@ -32,11 +33,8 @@ export type MassnahmeHistorie = {
   aufwandmenge: number | null; aufwandmenge_einheit: string | null
 }
 
-const MASSNAHME_ART_LABEL: Record<string, string> = {
-  spritzung: 'Spritzung', duengung: 'Düngung',
-  bodenbearbeitung: 'Bodenbearbeitung', schnitt: 'Schnitt',
-  laubarbeit: 'Laubarbeit', sonstiges: 'Sonstiges',
-}
+// Bezeichnungen der Maßnahmenarten (lib/behandlungen/arten.ts, seit KAN-143 mit Laubschneiden)
+const MASSNAHME_ART_LABEL: Record<string, string> = MASSNAHMEN_ART_LABEL
 const MASSNAHME_EINHEIT_LABEL: Record<string, string> = {
   kg_ha: 'kg/ha', l_ha: 'l/ha', g_hl: 'g/hl', ml_hl: 'ml/hl', kg: 'kg', l: 'l',
 }

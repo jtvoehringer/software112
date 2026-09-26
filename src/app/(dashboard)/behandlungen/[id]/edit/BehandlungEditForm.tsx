@@ -4,57 +4,31 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateBehandlung } from '../../actions'
 import type { KostenartOption } from '../../neu/page'
-import { SprayCan, Sprout, Layers, Scissors, Leaf, MoreHorizontal, Hourglass, Ban, AlertTriangle } from 'lucide-react'
+import { Hourglass, Ban, AlertTriangle } from 'lucide-react'
 import { fehlerText } from '@/lib/fehler'
 import { fmtNum } from '@/lib/format'
 import { runden } from '@/lib/csv'
 import { STELLEN_MENGE } from '@/lib/behoerden/psm'
 import { pruefeMassnahmeMengen } from '@/lib/behandlungen/massnahmeMengen'
 import {
+  LAUBARBEIT_OPTIONEN, LAUBSCHNEIDEN_HINWEIS, artMitDuengemittel, artMitPsm, laubarbeitAltwert, type MassnahmenArt,
+} from '@/lib/behandlungen/arten'
+import {
   MENGEN_SICHT, alsFeld, aufwandEinheitText, duengerEinheitWechsel, duengermengeEinheit, eingabeZahl,
   mengeVorbelegung, mengenFelder, mengenInFormData,
 } from '../../neu/mengenFelder'
+import { BBCH_OPTIONS, FELD_MATRIX, bbchAltwert, bbchBeimBearbeiten, wetterBeimBearbeiten } from '../../neu/feldMatrix'
+import { ART_OPTIONS } from '../../neu/artOptionen'
 import MengenZusammenfassung from '../../neu/MengenZusammenfassung'
 
-const BBCH_OPTIONS = [
-  { value: '09', label: '09 – Knospenaufbruch' },
-  { value: '11', label: '11 – 1. Blatt entfaltet' },
-  { value: '53', label: '53 – Traubenanlage sichtbar' },
-  { value: '55', label: '55 – Einzelblüten sichtbar' },
-  { value: '57', label: '57 – Blütenstand gestreckt' },
-  { value: '61', label: '61 – Beginn Blüte (10%)' },
-  { value: '65', label: '65 – Vollblüte (50%)' },
-  { value: '69', label: '69 – Ende Blüte' },
-  { value: '71', label: '71 – Fruchtansatz' },
-  { value: '73', label: '73 – Erbsengröße' },
-  { value: '75', label: '75 – Haselnussgröße' },
-  { value: '77', label: '77 – Trauben schließen sich' },
-  { value: '81', label: '81 – Beginn Reife' },
-  { value: '85', label: '85 – Weichwerden' },
-  { value: '89', label: '89 – Vollreife' },
-]
 const WITTERUNG = ['sonnig', 'bewoelkt', 'regnerisch', 'wind']
-const ART_OPTIONS = [
-  { value: 'spritzung',        label: 'Spritzung',        icon: SprayCan },
-  { value: 'duengung',         label: 'Düngung',          icon: Sprout },
-  { value: 'bodenbearbeitung', label: 'Bodenbearbeitung', icon: Layers },
-  { value: 'schnitt',          label: 'Schnitt',          icon: Scissors },
-  { value: 'laubarbeit',       label: 'Laubarbeit',       icon: Leaf },
-  { value: 'sonstiges',        label: 'Sonstiges',        icon: MoreHorizontal },
-]
 const SCHADERREGER_OPTIONEN = ['Oidium', 'Peronospora', 'Botrytis']
-const LAUBARBEIT_OPTIONEN = [
-  { value: 'entblaettern', label: 'Entblättern' },
-  { value: 'ausgeizen',    label: 'Ausgeizen' },
-  { value: 'gipfeln',      label: 'Gipfeln' },
-  { value: 'heften',       label: 'Heften' },
-  { value: 'sonstige',     label: 'Sonstige' },
-]
 
 // Welche Mengen-Felder pro Art sichtbar/pflicht sind, kommt aus MENGEN_SICHT (neu/mengenFelder.ts) -
 // identisch zum Anlegen-Formular, damit Anlegen und Bearbeiten konsistent sind (siehe "Analyse
-// Maßnahmen.docx", Tabelle 2; KAN-133).
-type Art = 'spritzung' | 'duengung' | 'bodenbearbeitung' | 'schnitt' | 'laubarbeit' | 'sonstiges'
+// Maßnahmen.docx", Tabelle 2; KAN-133). BBCH, Witterung und Temperatur: bbchBeimBearbeiten bzw.
+// wetterBeimBearbeiten (neu/feldMatrix.ts, KAN-143).
+type Art = MassnahmenArt
 
 const BIO_SPERRE = new Set(['bio_eu', 'biodynamisch'])
 const BIO_WARNUNG = new Set(['kip', 'nachhaltig'])
@@ -135,6 +109,19 @@ export default function BehandlungEditForm({
   const [pending, startTransition] = useTransition()
   const startArt = (behandlung.art as Art) ?? 'spritzung'
   const [art, setArt] = useState<Art>(startArt)
+  // ältere Freitext-Unterart einer Laubarbeit (nicht in LAUBARBEIT_OPTIONEN) – eigene Option in der Auswahl
+  const laubarbeitBisher = laubarbeitAltwert(behandlung.laubarbeit_art)
+  // gespeichertes BBCH-Stadium außerhalb von BBCH_OPTIONS (z. B. „68“) – eigene Option in beiden BBCH-Auswahlen
+  const bbchBisher = bbchAltwert(behandlung.bbch_stadium)
+  // Ein gemeinsamer Wert für beide BBCH-Auswahlen (Spritzung sowie Laubarbeit und Laubschneiden): Ein Artwechsel
+  // baut die Auswahl neu auf, das Stadium bleibt aber zwischen Arten mit Auswahl – unabhängig vom Weg und samt
+  // eigener Eingabe – erhalten wie im Anlegen-Formular. Eine Auswahl gibt es nur, wo die Feld-Matrix BBCH nicht
+  // ausblendet (bbchBeimBearbeiten);
+  // bei einer Art mit ausgeblendetem BBCH geht nur bei unveränderter Art das gespeicherte Stadium unsichtbar
+  // mit (nicht `bbch` – eine Änderung auf einem Umweg über eine Art mit Auswahl wäre dort weder sichtbar noch
+  // korrigierbar) – nach einem Wechsel dorthin wird nichts gesendet und Speichern leert das Stadium.
+  const [bbch, setBbch] = useState(behandlung.bbch_stadium ?? '')
+  const bbchModus = bbchBeimBearbeiten(art, startArt)
   const [selectedPsmId, setSelectedPsmId] = useState(behandlung.psm_id ?? '')
   const [selectedDuengemittelId, setSelectedDuengemittelId] = useState(behandlung.duengemittel_id ?? '')
   // Gespeicherte Mengen als Formularwerte (Dezimalkomma, siehe alsFeld)
@@ -189,7 +176,14 @@ export default function BehandlungEditForm({
     if (neu === art) return
     const zurueck = neu === startArt
     setArt(neu)
-    setMengeGesamt(zurueck ? vorbelegung.text : '')
+    // Mittel, das die neue Art nicht zeigt, leeren (wie im Anlegen-Formular) – sonst ginge seine Wartezeit mit;
+    // bei Rückkehr zur gespeicherten Art das gespeicherte Mittel wieder wählen
+    if (!artMitPsm(neu)) setSelectedPsmId('')
+    else if (zurueck) setSelectedPsmId(behandlung.psm_id ?? '')
+    if (!artMitDuengemittel(neu)) setSelectedDuengemittelId('')
+    else if (zurueck) setSelectedDuengemittelId(behandlung.duengemittel_id ?? '')
+    // Vorbelegung zum gespeicherten Düngemittel (die Auswahl ist beim Zurückwechseln erst im nächsten Render gesetzt)
+    setMengeGesamt(zurueck ? mengeVorbelegung(behandlung, gespeichertEinheit, gespeichertEinheit).text : '')
     setEinheitHinweis(null)
     setAufwandmenge(zurueck ? start.aufwand : '')
     setAufwandmengeEinheit(zurueck ? start.aufwandEinheit : 'kg_ha')
@@ -261,8 +255,10 @@ export default function BehandlungEditForm({
     if (!mengen.ok) { setError(mengen.fehler); return }
     if (m.konzentrationFehler) { setError(m.konzentrationFehler); return }
     const fd = new FormData(e.currentTarget)
-    // wartezeit_tage aus dem gewählten PSM/Düngemittel
-    const wartezeit = selectedPsm?.wartezeit_tage ?? selectedDuengemittel?.wartezeit_tage
+    // wartezeit_tage nur aus dem Mittel, das die Art zeigt (psm_id bzw. duengemittel_id gehen nur dann mit)
+    const wartezeit = artMitPsm(art) ? selectedPsm?.wartezeit_tage
+      : artMitDuengemittel(art) ? selectedDuengemittel?.wartezeit_tage
+      : null
     if (wartezeit != null) {
       fd.set('wartezeit_tage', String(wartezeit))
     }
@@ -314,11 +310,12 @@ export default function BehandlungEditForm({
                   ? 'bg-s112-teal text-white border-s112-teal'
                   : 'bg-white text-s112-text-1 border-s112-border hover:border-s112-teal/50'}`}>
                 <input type="radio" name="art" value={o.value} checked={art === o.value}
-                  onChange={() => artWechseln(o.value as Art)} className="sr-only" />
+                  onChange={() => artWechseln(o.value)} className="sr-only" />
                 <o.icon size={14} />{o.label}
               </label>
             ))}
           </div>
+          {art === 'laubschneiden' && <p className="text-xs text-s112-muted mt-1">{LAUBSCHNEIDEN_HINWEIS}</p>}
         </div>
 
         <div className="grid grid-cols-2 gap-4">
@@ -552,8 +549,9 @@ export default function BehandlungEditForm({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>BBCH-Stadium</label>
-              <select aria-label="BBCH-Stadium" name="bbch_stadium" defaultValue={behandlung.bbch_stadium ?? ''} className={inputCls}>
+              <select aria-label="BBCH-Stadium" name="bbch_stadium" value={bbch} onChange={e => setBbch(e.target.value)} className={inputCls}>
                 <option value="">– Auswählen –</option>
+                {bbchBisher && <option value={bbchBisher}>{bbchBisher} (bisherige Angabe)</option>}
                 {BBCH_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </div>
@@ -609,31 +607,65 @@ export default function BehandlungEditForm({
           </div>
         )}
 
-        {/* Laubarbeit */}
+        {/* Laubarbeit – Unterart Pflicht wie beim Anlegen, auch nach einem Artwechsel (z. B. Laubschneiden → Laubarbeit).
+            Eine ältere Freitext-Unterart bleibt als eigene Option vorausgewählt – Speichern deutet sie nicht um */}
         {art === 'laubarbeit' && (
           <div>
-            <label className={labelCls}>Art der Laubarbeit</label>
-            <select aria-label="Art der Laubarbeit" name="laubarbeit_art" defaultValue={behandlung.laubarbeit_art ?? ''} className={inputCls}>
+            <label className={labelCls}>
+              Art der Laubarbeit
+              {FELD_MATRIX.laubarbeit.laubarbeitArt === 'pflicht' && <span className="text-s112-err"> *</span>}
+            </label>
+            <select aria-label="Art der Laubarbeit" name="laubarbeit_art" defaultValue={behandlung.laubarbeit_art ?? ''}
+              required={FELD_MATRIX.laubarbeit.laubarbeitArt === 'pflicht'} className={inputCls}>
               <option value="">– Auswählen –</option>
+              {art === startArt && laubarbeitBisher && (
+                <option value={laubarbeitBisher}>{laubarbeitBisher} (bisherige Angabe)</option>
+              )}
               {LAUBARBEIT_OPTIONEN.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className={labelCls}>Witterung</label>
-            <select aria-label="Witterung" name="witterung" defaultValue={behandlung.witterung ?? ''} className={inputCls}>
-              <option value="">–</option>
-              {WITTERUNG.map(w => <option key={w} value={w}>{w.charAt(0).toUpperCase() + w.slice(1)}</option>)}
-            </select>
+        {/* BBCH außerhalb der Spritzung nur bei Laubarbeit und Laubschneiden (optional laut Feld-Matrix, wie beim
+            Anlegen) – ein Code außerhalb von BBCH_OPTIONS als eigene Option. Der Wert kommt aus dem gemeinsamen
+            State `bbch` und bleibt daher bei jedem Artwechsel stehen (z. B. Spritzung → Laubschneiden oder
+            Laubarbeit → Spritzung → Laubschneiden) */}
+        {art !== 'spritzung' && bbchModus === 'auswahl' && (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>BBCH-Stadium</label>
+              <select aria-label="BBCH-Stadium" name="bbch_stadium" value={bbch} onChange={e => setBbch(e.target.value)} className={inputCls}>
+                <option value="">– Auswählen –</option>
+                {bbchBisher && <option value={bbchBisher}>{bbchBisher} (bisherige Angabe)</option>}
+                {BBCH_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
           </div>
-          <div>
-            <label className={labelCls}>Temperatur (°C)</label>
-            <input aria-label="Temperatur (°C)" name="temperatur_c" type="number" step="0.1"
-              defaultValue={behandlung.temperatur_c ?? ''} className={inputCls} />
+        )}
+
+        {/* Düngung, Bodenbearbeitung, Schnitt, Sonstiges: BBCH laut Feld-Matrix ausgeblendet. Bei unveränderter
+            Art geht das gespeicherte Stadium unsichtbar mit – auch nach einem Umweg über eine andere Art (wie Mittel
+            und Mengen bei der Rückkehr zur gespeicherten Art), denn eine dort geänderte Auswahl wäre hier weder
+            sichtbar noch korrigierbar –, damit Speichern es nicht leert; nach einem Wechsel auf eine dieser Arten
+            wird nichts gesendet (Speichern setzt null wie beim Anlegen) */}
+        {bbchModus === 'behalten' && <input type="hidden" name="bbch_stadium" value={behandlung.bbch_stadium ?? ''} />}
+
+        {wetterBeimBearbeiten(art, art === startArt ? behandlung : null) && (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Witterung</label>
+              <select aria-label="Witterung" name="witterung" defaultValue={behandlung.witterung ?? ''} className={inputCls}>
+                <option value="">–</option>
+                {WITTERUNG.map(w => <option key={w} value={w}>{w.charAt(0).toUpperCase() + w.slice(1)}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Temperatur (°C)</label>
+              <input aria-label="Temperatur (°C)" name="temperatur_c" type="number" step="0.1"
+                defaultValue={behandlung.temperatur_c ?? ''} className={inputCls} />
+            </div>
           </div>
-        </div>
+        )}
 
         <div>
           <label className={labelCls}>Notizen</label>
