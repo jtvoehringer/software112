@@ -585,15 +585,22 @@ describe('Quelltext: keine Stelle mit eigener, veralteter Artenliste', () => {
     assert.match(ki, /'laubschneiden' \(Laubschneiden = maschinelles Laubschneiden an Seiten und Gipfel, ohne laubarbeit_art\)/)
     assert.match(ki, /saetze_massnahmen\.art .*dieselben Werte ohne 'lese'/)
     // Unterarten mit gespeichertem Code und Bezeichnung; Suche über Wortstämme ohne Umlaut, die Code und
-    // Freitext treffen ('%entblätter%' fände 'entblaettern' nicht); Datierung per Datum statt Ticketnummer
-    for (const o of arten.LAUBARBEIT_OPTIONEN) assert.ok(ki.includes(`'${o.value}' (${o.label}`), `KI-Kontext: laubarbeit_art ${o.value}`)
+    // Freitext treffen ('%entblätter%' fände 'entblaettern' nicht); Datierung per Datum statt Ticketnummer.
+    // Bezeichnung exakt wie in der Oberfläche – danach nur ')' oder ein Zusatz nach ';' (nicht „Gipfeln von Hand“)
+    for (const o of arten.LAUBARBEIT_OPTIONEN) {
+      assert.ok(ki.includes(`'${o.value}' (${o.label})`) || ki.includes(`'${o.value}' (${o.label};`), `KI-Kontext: laubarbeit_art ${o.value}`)
+    }
+    assert.match(ki, /'gipfeln' \(Gipfeln; bei created_at ab 26\.09\.2026 Gipfeln von Hand, davor offen\)/)
     const wortstaemme = [...(ki.match(/UNTERARTEN \(behandlungen\.laubarbeit_art[^]*?ILIKE ((?:'%[a-z]+%'(?:, | bzw\. )?)+)/)?.[1] ?? '').matchAll(/'%([a-z]+)%'/g)].map(m => m[1])
     assert.ok(wortstaemme.length > 0, 'KI-Kontext: Wortstämme für laubarbeit_art')
     for (const o of arten.LAUBARBEIT_OPTIONEN.filter(x => x.value !== 'sonstige')) {
       for (const text of [o.value, o.label.toLowerCase()]) assert.ok(wortstaemme.some(w => text.includes(w)), `KI-Kontext: kein Wortstamm für ${text}`)
     }
     assert.doesNotMatch(ki, /vor KAN-143/)
-    assert.match(ki, /vor dem 26\.09\.2026/)
+    // Stichtag hängt am Erfassungszeitpunkt – nachgetragene Maßnahmen mit älterem datum sind eindeutig
+    assert.match(ki, /created_at vor dem 26\.09\.2026/)
+    assert.match(ki, /maßgeblich ist created_at, nicht datum/)
+    assert.doesNotMatch(ki, /Einträgen vor dem 26\.09\.2026/)
   })
 
   test('Hilfe: FAQ und Handbuch erklären Laubschneiden, Gipfeln von Hand bleibt Laubarbeit', () => {

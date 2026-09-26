@@ -68,16 +68,18 @@ const TABELLEN_KONTEXT = `
   ARTEN (behandlungen.art, KAN-143): 'spritzung' (Spritzung), 'duengung' (Düngung), 'bodenbearbeitung'
   (Bodenbearbeitung), 'schnitt' (Schnitt), 'laubarbeit' (Laubarbeit, Unterart in laubarbeit_art), 'laubschneiden'
   (Laubschneiden = maschinelles Laubschneiden an Seiten und Gipfel, ohne laubarbeit_art), 'lese' (Lese),
-  'sonstiges' (Sonstiges). Die Art 'laubschneiden' gibt es erst seit 26.09.2026 – bei Einträgen vor dem 26.09.2026
-  kann auch eine 'laubarbeit' maschinelles Laubschneiden bzw. Gipfeln sein.
+  'sonstiges' (Sonstiges). Die Art 'laubschneiden' gibt es erst seit 26.09.2026 – bei Einträgen mit created_at
+  vor dem 26.09.2026 (erfasst vor der Unterscheidung; maßgeblich ist created_at, nicht datum – nachgetragene
+  Maßnahmen mit älterem datum sind eindeutig) kann auch eine 'laubarbeit' maschinelles Laubschneiden bzw.
+  Gipfeln sein.
   UNTERARTEN (behandlungen.laubarbeit_art, nur bei art='laubarbeit'): 'entblaettern' (Entblättern), 'ausgeizen'
-  (Ausgeizen), 'gipfeln' (Gipfeln von Hand), 'heften' (Heften), 'sonstige' (Sonstige). Ältere Einträge enthalten
-  Freitext (z.B. 'Heften / Einstricken') – nach einer Unterart deshalb immer über einen Wortstamm ohne Umlaut
-  suchen, der Code und Freitext trifft: laubarbeit_art ILIKE '%entbl%', '%geiz%', '%heft%' bzw. '%gipfel%'.
-  In Antworten die Bezeichnung in Klammern zeigen, nicht den Rohwert. Fragt der User allgemein nach Gipfeln bzw.
-  Laubschnitt, beide Arten berücksichtigen (laubschneiden sowie laubarbeit mit laubarbeit_art ILIKE '%gipfel%')
-  und getrennt ausweisen. saetze_massnahmen.art (Hektarsätze je Art für den Kosten-Vorschlag): dieselben Werte
-  ohne 'lese'.
+  (Ausgeizen), 'gipfeln' (Gipfeln; bei created_at ab 26.09.2026 Gipfeln von Hand, davor offen), 'heften'
+  (Heften), 'sonstige' (Sonstige). Ältere Einträge enthalten Freitext (z.B. 'Heften / Einstricken') – nach einer
+  Unterart deshalb immer über einen Wortstamm ohne Umlaut suchen, der Code und Freitext trifft: laubarbeit_art
+  ILIKE '%entbl%', '%geiz%', '%heft%' bzw. '%gipfel%'. In Antworten die Bezeichnung in Klammern (ohne den Zusatz
+  nach einem Strichpunkt) zeigen, nicht den Rohwert. Fragt der User allgemein nach Gipfeln bzw. Laubschnitt,
+  beide Arten berücksichtigen (laubschneiden sowie laubarbeit mit laubarbeit_art ILIKE '%gipfel%') und getrennt
+  ausweisen. saetze_massnahmen.art (Hektarsätze je Art für den Kosten-Vorschlag): dieselben Werte ohne 'lese'.
   MENGEN IN behandlungen – die Bedeutung hängt von art ab (KAN-133):
   art='spritzung': menge_gesamt ist die gesamte SPRITZBRÜHE in Liter (Mittel + Wasser), NIEMALS die Mittelmenge –
   auch nicht bei alten Einträgen mit menge_einheit kg oder g. Die MITTELMENGE (eingesetztes Pflanzenschutzmittel)
