@@ -58,7 +58,8 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
   const jahrgaenge = (jahrgaengeRaw ?? []) as R[]
   const s = (settingsRaw as R | null) ?? {}
   const aktJahrgang = jahrgaenge.find(j => String(j.jahrgang) === jahrgangParam) ?? jahrgaenge[0]
-  // Brotkrume wie die Navigation: Rieden › Lese › AMA-Erntemeldung (Review 25.09.2026)
+  // Brotkrume nach fachlicher Zugehörigkeit: Rieden › Lese › AMA-Erntemeldung (Review 25.09.2026) –
+  // nicht nach der Tab-Leiste, dort steht der Punkt seit KAN-142 hinter „Betriebsmittel“
 
   const [ernte, bestand] = await Promise.all([
     aktJahrgang ? ladeErntemeldung(supabase, tenantId, { id: aktJahrgang.id, jahrgang: Number(aktJahrgang.jahrgang) }) : Promise.resolve(null),

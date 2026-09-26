@@ -1,7 +1,7 @@
 'use client'
 
 // ── App-Rahmen aller Dashboard-Seiten (Dashboard-Relaunch 27.8.2026) ─────────
-// Ersetzt ResponsiveLayout + Sidebar: Navy-Kopfleiste (Topbar), darunter die
+// Ersetzt ResponsiveLayout + Sidebar: Kopfleiste in CD-Blau (Topbar, KAN-142), darunter die
 // horizontale Tab-Navigation (TabNav), darunter der scrollende Inhalt mit
 // Fußzeile. Befehlspalette (Strg K) und Assistent-Panel bleiben global.
 //

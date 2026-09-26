@@ -26,6 +26,8 @@ const ONBOARDING_SCHRITTE: Gruppe[] = [
     gruppe: 'Betrieb konfigurieren',
     schritte: [
       { id: 's4', pflicht: true, titel: 'Betriebsdaten eintragen', beschreibung: 'Admin > Mandant > Betrieb: Name, Adresse, UID-Nummer eintragen. Erscheint auf allen gedruckten Dokumenten (Rechnung, Etikett, Behandlungsprotokoll).', link: '/admin/mandanten', linkLabel: 'Admin öffnen' },
+      // KAN-134: gleiche Einstellung wie „Mein Betrieb“ → Kellerwirtschaft (Betriebs-Manager)
+      { id: 'kw1', pflicht: true, titel: 'Mostgewicht-Einheit festlegen', beschreibung: 'Admin > Mandant > Betrieb, Abschnitt „Kellerwirtschaft“: mit dem Betrieb klären, ob er das Mostgewicht in °KMW (Standard) oder °Oe (Öchsle) misst, und diese Einheit wählen. Formulare und Listen zeigen sie zuerst, die andere umgerechnet daneben; die Qualitätsstufe richtet sich immer nach °KMW. Später kann der Betriebs-Manager sie selbst unter System > Mein Betrieb > Kellerwirtschaft ändern.', link: '/admin/mandanten', linkLabel: 'Admin öffnen' },
       { id: 's5', pflicht: true, titel: 'Branding einrichten', beschreibung: 'Admin > Mandant > Branding: Logo hochladen (URL), Primärfarbe (teal) und Sekundärfarbe (gelb) anpassen. Logo erscheint in der Sidebar und auf Druckdokumenten.' },
       { id: 's6', pflicht: true, titel: 'Rechnungseinstellungen', beschreibung: 'Admin > Mandant > Verkauf: Rechnungsnummer-Präfix (z.B. RE), Stellen (z.B. 4), Accountnummer-Präfix (z.B. K). IBAN + BIC + Zahlungsziel für Rechnungsdruck.' },
       { id: 's7', pflicht: true, titel: 'USt.-Satz festlegen', beschreibung: 'Admin > Mandant > Verkauf: 13% für Weinproduzenten (Standard), 20% für Weinhändler. Kann später geändert werden.' },
@@ -80,7 +82,7 @@ const ONBOARDING_SCHRITTE: Gruppe[] = [
     gruppe: 'Abnahme',
     schritte: [
       { id: 's17', pflicht: true, titel: 'Testverkauf durchführen', beschreibung: 'Warenwirtschaft > Verkauf > Neuer Verkauf: Einen kompletten Verkauf anlegen, Rechnung drucken, als bezahlt markieren. Prüfen ob Bestand korrekt reduziert wird.', link: '/weinhandel/verkauf/neu', linkLabel: 'Neuer Verkauf' },
-      { id: 's18', pflicht: true, titel: 'Maßnahme + Bericht testen', beschreibung: 'Maßnahme erfassen, dann Rieden > Maßnahmen > Behandlungsprotokoll öffnen und prüfen ob der Eintrag erscheint – im Ausdruck und in der CSV („CSV exportieren“).', link: '/reports/behandlungsprotokoll', linkLabel: 'Behandlungsprotokoll öffnen' },
+      { id: 's18', pflicht: true, titel: 'Maßnahme + Bericht testen', beschreibung: 'Maßnahme erfassen, dann Rieden > Behandlungsprotokoll öffnen und prüfen ob der Eintrag erscheint – im Ausdruck und in der CSV („CSV exportieren“).', link: '/reports/behandlungsprotokoll', linkLabel: 'Behandlungsprotokoll öffnen' },
       { id: 's19', pflicht: false, titel: 'Handbuch + FAQ prüfen', beschreibung: 'Unter Hilfe > Handbuch und Hilfe > FAQ prüfen ob die wichtigsten Informationen für den neuen Mandanten vorhanden sind.', link: '/hilfe/handbuch', linkLabel: 'Handbuch öffnen' },
     ],
   },
