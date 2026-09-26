@@ -7,6 +7,7 @@ import EinstellungenClient from './EinstellungenClient'
 import { geheimLesen } from '@/lib/email/geheimnis'
 import { pruefeBenutzerlimit } from '@/lib/pakete-server'
 import { paketAusPlan } from '@/lib/pakete'
+import type { MostgewichtEinheit } from '@/lib/wein/mostgewicht'
 
 export const metadata: Metadata = { title: 'Mein Betrieb – software:112' }
 export const dynamic = 'force-dynamic'
@@ -49,6 +50,8 @@ export type EigeneBetriebsdaten = {
   rechnung_fusstext: string | null
   bawb_kennung: string | null
   bawb_passwort: string | null
+  // Kellerwirtschaft (KAN-128): bevorzugte Mostgewicht-Einheit
+  mostgewicht_einheit: MostgewichtEinheit
   // Abo & Paket (Rückmeldung 4.9.2026): Betriebsleiter sieht sein Paket und
   // kommt von hier zu /abo (Wechsel, Zahlungsdaten, Buchhaltungsart)
   paket: string | null
@@ -77,7 +80,7 @@ export default async function MeinBetriebPage() {
         betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort, betrieb_telefon,
         betrieb_email, betrieb_website, betrieb_uid, betrieb_betriebsnummer, ea_betriebsbeginn, modul_ea, buchhaltungsart,
         rechnung_iban, rechnung_bic, rechnung_fusstext,
-        bawb_kennung, bawb_passwort
+        bawb_kennung, bawb_passwort, mostgewicht_einheit
       `)
       .eq('tenant_id', membership.tenantId)
       .maybeSingle(),
@@ -122,6 +125,7 @@ export default async function MeinBetriebPage() {
     rechnung_fusstext: s?.rechnung_fusstext ?? null,
     bawb_kennung:      s?.bawb_kennung ?? null,
     bawb_passwort:     (() => { try { return geheimLesen(s?.bawb_passwort) } catch { return null } })(),
+    mostgewicht_einheit: s?.mostgewicht_einheit === 'oechsle' ? 'oechsle' : 'kmw',
     paket:             paketAusPlan(t.stripe_plan) ?? null,
     stripe_status:     t.stripe_status ?? null,
     buchhaltungsart:   s?.buchhaltungsart === 'doppik' ? 'doppik' : 'ea',

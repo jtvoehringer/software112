@@ -13,7 +13,8 @@ import NavigationsBalken from '@/components/NavigationsBalken'
 import { Suspense } from 'react'
 import AssistentWidget from '@/components/assistent/AssistentWidget'
 import Link from '@/components/ui/Link'
-import { ladeTenantKopf, ladeTenantKopfFrisch, betriebsName, mandantName } from '@/lib/tenant/kopf'
+import { ladeTenantKopf, ladeTenantKopfFrisch, betriebsName, mandantName, mostgewichtEinheitAus } from '@/lib/tenant/kopf'
+import type { MostgewichtEinheit } from '@/lib/wein/mostgewicht'
 import { ladeMfaStand, MFA_PFLICHT_AB } from '@/lib/auth/mfa'
 import { barrierefreieAktionsfarbe } from '@/lib/farbe'
 
@@ -96,6 +97,8 @@ export default async function DashboardLayout({
   // Betrieb, mit dem diese Seite gerendert wird – für den Betriebs-Wächter (KAN-30)
   let seitenBetriebName = ''
   let seitenMandant = ''
+  // Bevorzugte Mostgewicht-Einheit (KAN-128) für Formulare und Listen – Client-Context in der AppShell
+  let mostgewichtEinheit: MostgewichtEinheit = 'kmw'
   if (membership?.tenantId) {
     // Branding/Module/Abo-Status aus dem 60-s-Layout-Cache (lib/tenant/kopf.ts,
     // 17.9.2026) statt zwei Abfragen je Seitenaufruf. tenants.name nur für
@@ -106,6 +109,7 @@ export default async function DashboardLayout({
     const tenantRow = kopf.tenant
     seitenBetriebName = betriebsName(kopf)
     seitenMandant = mandantName(kopf)
+    mostgewichtEinheit = mostgewichtEinheitAus(kopf)
 
     if (data) {
       const d = data as R
@@ -172,6 +176,7 @@ export default async function DashboardLayout({
            würde ohnehin abgelehnt und die Eingaben eines ganzen Formulars gingen verloren */
         darfSchreiben={canWrite(role) && !billingBlocked}
         auswertungenSichtbar={canSeeAuswertungen(role)}
+        mostgewichtEinheit={mostgewichtEinheit}
       >
         {/* Hinweisleisten: nie mitdrucken (print:hidden + data-print) – sonst stünden sie auf
             Rechnung, Lieferschein, Etiketten und Behördenausdrucken */}
