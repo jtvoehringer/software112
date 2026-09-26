@@ -59,7 +59,7 @@ function SatzForm({ satz, onDone }: { satz?: SatzEintrag; onDone: () => void }) 
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Bezeichnung *</label>
           <input aria-label="Bezeichnung" name="bezeichnung" required defaultValue={satz?.bezeichnung ?? ''}
-            placeholder="z.B. Handlese, Laubschneiden Seiten und Gipfel"
+            placeholder="z.B. Laubschneiden Seiten und Gipfel, Rebschnitt Guyot"
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
 

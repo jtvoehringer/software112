@@ -64,8 +64,10 @@ export function bbchAltwert(gespeichert: string | null | undefined): string | nu
  *   'auswahl'  – Spritzung (Pflicht), Laubarbeit und Laubschneiden (optional): BBCH-Auswahl, ein Code
  *                außerhalb von BBCH_OPTIONS als eigene Option (bbchAltwert)
  *   'behalten' – Art mit BBCH 'hidden' (Düngung, Bodenbearbeitung, Schnitt, Sonstiges), aber unverändert
- *                (art = startArt): keine Auswahl, der Wert geht unsichtbar mit (<input type="hidden">) –
- *                sonst leerte Speichern ein gespeichertes Stadium (Musterhof: 14 solche Maßnahmen mit BBCH)
+ *                (art = startArt): keine Auswahl, das gespeicherte Stadium geht unsichtbar mit
+ *                (<input type="hidden">) – sonst leerte Speichern es (Musterhof: 14 solche Maßnahmen mit BBCH).
+ *                Auch nach einem Umweg über eine Art mit Auswahl das gespeicherte, nicht die dortige Auswahl:
+ *                bei dieser Art wäre eine Änderung weder sichtbar noch korrigierbar
  *   'keine'    – nach einem Wechsel auf eine Art mit BBCH 'hidden': nichts senden, Speichern leert das
  *                Stadium (wie beim Anlegen)
  * Unbekannte Arten (z. B. 'lese') gelten als 'hidden'.

@@ -113,11 +113,13 @@ export default function BehandlungEditForm({
   const laubarbeitBisher = laubarbeitAltwert(behandlung.laubarbeit_art)
   // gespeichertes BBCH-Stadium außerhalb von BBCH_OPTIONS (z. B. „68“) – eigene Option in beiden BBCH-Auswahlen
   const bbchBisher = bbchAltwert(behandlung.bbch_stadium)
-  // Ein gemeinsamer Wert für beide BBCH-Auswahlen (Spritzung und alle anderen Arten): Ein Artwechsel baut die
-  // Auswahl neu auf, das Stadium bleibt aber – unabhängig vom Weg und samt eigener Eingabe – erhalten wie im
-  // Anlegen-Formular. Eine Auswahl gibt es nur, wo die Feld-Matrix BBCH nicht ausblendet (bbchBeimBearbeiten);
-  // bei einer Art mit ausgeblendetem BBCH geht der Wert nur bei unveränderter Art unsichtbar mit – nach einem
-  // Wechsel dorthin wird nichts gesendet und Speichern leert das Stadium.
+  // Ein gemeinsamer Wert für beide BBCH-Auswahlen (Spritzung sowie Laubarbeit und Laubschneiden): Ein Artwechsel
+  // baut die Auswahl neu auf, das Stadium bleibt aber zwischen Arten mit Auswahl – unabhängig vom Weg und samt
+  // eigener Eingabe – erhalten wie im Anlegen-Formular. Eine Auswahl gibt es nur, wo die Feld-Matrix BBCH nicht
+  // ausblendet (bbchBeimBearbeiten);
+  // bei einer Art mit ausgeblendetem BBCH geht nur bei unveränderter Art das gespeicherte Stadium unsichtbar
+  // mit (nicht `bbch` – eine Änderung auf einem Umweg über eine Art mit Auswahl wäre dort weder sichtbar noch
+  // korrigierbar) – nach einem Wechsel dorthin wird nichts gesendet und Speichern leert das Stadium.
   const [bbch, setBbch] = useState(behandlung.bbch_stadium ?? '')
   const bbchModus = bbchBeimBearbeiten(art, startArt)
   const [selectedPsmId, setSelectedPsmId] = useState(behandlung.psm_id ?? '')
@@ -642,10 +644,11 @@ export default function BehandlungEditForm({
         )}
 
         {/* Düngung, Bodenbearbeitung, Schnitt, Sonstiges: BBCH laut Feld-Matrix ausgeblendet. Bei unveränderter
-            Art geht der Wert unsichtbar mit (das gespeicherte Stadium, nach einem Umweg über eine andere Art die
-            letzte Auswahl), damit Speichern ihn nicht leert; nach einem Wechsel auf eine dieser Arten wird nichts
-            gesendet (Speichern setzt null wie beim Anlegen) */}
-        {bbchModus === 'behalten' && <input type="hidden" name="bbch_stadium" value={bbch} />}
+            Art geht das gespeicherte Stadium unsichtbar mit – auch nach einem Umweg über eine andere Art (wie Mittel
+            und Mengen bei der Rückkehr zur gespeicherten Art), denn eine dort geänderte Auswahl wäre hier weder
+            sichtbar noch korrigierbar –, damit Speichern es nicht leert; nach einem Wechsel auf eine dieser Arten
+            wird nichts gesendet (Speichern setzt null wie beim Anlegen) */}
+        {bbchModus === 'behalten' && <input type="hidden" name="bbch_stadium" value={behandlung.bbch_stadium ?? ''} />}
 
         {wetterBeimBearbeiten(art, art === startArt ? behandlung : null) && (
           <div className="grid grid-cols-2 gap-3">

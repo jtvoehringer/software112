@@ -68,12 +68,13 @@ const TABELLEN_KONTEXT = `
   ARTEN (behandlungen.art, KAN-143): 'spritzung' (Spritzung), 'duengung' (Düngung), 'bodenbearbeitung'
   (Bodenbearbeitung), 'schnitt' (Schnitt), 'laubarbeit' (Laubarbeit, Unterart in laubarbeit_art), 'laubschneiden'
   (Laubschneiden = maschinelles Laubschneiden an Seiten und Gipfel, ohne laubarbeit_art), 'lese' (Lese),
-  'sonstiges' (Sonstiges). Die Art 'laubschneiden' gibt es erst seit 26.09.2026 – bei Einträgen mit created_at
-  vor dem 26.09.2026 (erfasst vor der Unterscheidung; maßgeblich ist created_at, nicht datum – nachgetragene
-  Maßnahmen mit älterem datum sind eindeutig) kann auch eine 'laubarbeit' maschinelles Laubschneiden bzw.
-  Gipfeln sein.
+  'sonstiges' (Sonstiges). Die Art 'laubschneiden' gibt es erst seit Herbst 2026 – STICHTAG ist deshalb der
+  erste Eintrag damit im Betrieb: (SELECT min(created_at) FROM behandlungen WHERE art = 'laubschneiden'). Bei
+  Einträgen mit created_at vor dem Stichtag – bzw. bei allen, solange es keinen 'laubschneiden'-Eintrag gibt –
+  (erfasst vor der Unterscheidung; maßgeblich ist created_at, nicht datum – nachgetragene Maßnahmen mit älterem
+  datum sind eindeutig) kann auch eine 'laubarbeit' maschinelles Laubschneiden bzw. Gipfeln sein.
   UNTERARTEN (behandlungen.laubarbeit_art, nur bei art='laubarbeit'): 'entblaettern' (Entblättern), 'ausgeizen'
-  (Ausgeizen), 'gipfeln' (Gipfeln; bei created_at ab 26.09.2026 Gipfeln von Hand, davor offen), 'heften'
+  (Ausgeizen), 'gipfeln' (Gipfeln; bei created_at ab dem Stichtag Gipfeln von Hand, davor offen), 'heften'
   (Heften), 'sonstige' (Sonstige). Ältere Einträge enthalten Freitext (z.B. 'Heften / Einstricken') – nach einer
   Unterart deshalb immer über einen Wortstamm ohne Umlaut suchen, der Code und Freitext trifft: laubarbeit_art
   ILIKE '%entbl%', '%geiz%', '%heft%' bzw. '%gipfel%'. In Antworten die Bezeichnung in Klammern (ohne den Zusatz

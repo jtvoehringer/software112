@@ -27,7 +27,8 @@ import {
   LAUBARBEIT_OPTIONEN, MASSNAHMEN_ARTEN, MASSNAHMEN_ART_LABEL, istMassnahmenArt, laubarbeitArtFehlt, laubarbeitArtFuer,
 } from '@/lib/behandlungen/arten'
 
-/** „Spritzung, Düngung, …, Laubschneiden oder Sonstiges“ – für Tool-Beschreibung und Rückfragen */
+/** „Spritzung, Düngung, …, Laubschneiden oder Sonstiges“ – für die Tool-Beschreibung (die Rückfrage bei
+ *  unbekannter Art nennt bewusst die Codes, die das Tool erwartet: MASSNAHMEN_ARTEN) */
 const ARTEN_TEXT = MASSNAHMEN_ARTEN.map(a => MASSNAHMEN_ART_LABEL[a]).join(', ').replace(/, ([^,]*)$/, ' oder $1')
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

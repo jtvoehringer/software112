@@ -44,7 +44,7 @@ const ATTRAPPEN = {
 }
 
 // Supabase-Attrappe für die Server Actions: Abfragen sind verkettbar und awaitbar, insert/update werden
-// in schreiben gemerkt. Eine Maßnahme auf einem GST mit 2 ha.
+// in schreiben gemerkt. Eine Maßnahme auf einem GST mit 2 ha; angemeldet ist 'u-1' (Stundensätze).
 function supabaseAttrappe() {
   const schreiben = []
   const antwort = (tabelle, op) => {
@@ -55,6 +55,7 @@ function supabaseAttrappe() {
   }
   return {
     schreiben,
+    auth: { getUser: async () => ({ data: { user: { id: 'u-1' } } }) },
     from(tabelle) {
       let op = 'select'
       const q = {
@@ -94,12 +95,12 @@ if (hooksMoeglich) {
 }
 
 const laden = (rel) => import(pathToFileURL(path.join(SRC, rel)).href)
-const [arten, psm, rueck, feld, mengen, massnahmeMengen, tool, aktionen] = hooksMoeglich
+const [arten, psm, rueck, feld, mengen, massnahmeMengen, tool, aktionen, lagerAktionen] = hooksMoeglich
   ? await Promise.all([
       laden('lib/behandlungen/arten.ts'), laden('lib/behoerden/psm.ts'), laden('lib/behoerden/rueckverfolgung.ts'),
       laden('app/(dashboard)/behandlungen/neu/feldMatrix.ts'), laden('app/(dashboard)/behandlungen/neu/mengenFelder.ts'),
       laden('lib/behandlungen/massnahmeMengen.ts'), laden('lib/assistent/tools/massnahme.ts'),
-      laden('app/(dashboard)/behandlungen/actions.ts'),
+      laden('app/(dashboard)/behandlungen/actions.ts'), laden('app/(dashboard)/behandlungen/lager/actions.ts'),
     ])
   : []
 const nurMitHooks = { skip: hooksMoeglich ? false : 'module.registerHooks fehlt (Node ≥ 22.15 nötig)' }
@@ -275,8 +276,9 @@ describe('createBehandlung/updateBehandlung: bei Arten ohne Mittel kein psm_id u
   })
 
   test('BBCH bei Arten mit ausgeblendetem BBCH: Bearbeiten übernimmt den mitgesendeten Wert, ohne Wert null', async () => {
-    // Das Bearbeiten-Formular schickt ihn bei unveränderter Art als <input type="hidden"> mit – die Server
-    // Action darf ihn nicht selbst nach der Feld-Matrix verwerfen; nach einem Artwechsel fehlt er → null
+    // Das Bearbeiten-Formular schickt das gespeicherte Stadium bei unveränderter Art als <input type="hidden">
+    // mit – die Server Action darf es nicht selbst nach der Feld-Matrix verwerfen; nach einem Artwechsel fehlt
+    // es → null
     for (const art of ['duengung', 'bodenbearbeitung', 'schnitt', 'sonstiges']) {
       assert.equal(feld.FELD_MATRIX[art].bbch, 'hidden', art)
       const basis = { datum: '2026-07-02', grundstueck_ids: 'g-1', art }
@@ -287,6 +289,58 @@ describe('createBehandlung/updateBehandlung: bei Arten ohne Mittel kein psm_id u
       await aktionen.updateBehandlung('b-1', formular(basis))
       assert.equal(gespeichert('update').bbch_stadium, null, art)
     }
+  })
+})
+
+// ── Server Actions: Art-Prüfung (Maßnahme und Stundensatz) ──────────────────────
+
+describe('Server Actions: Laubschneiden wird gespeichert, unbekannte Arten abgelehnt, ohne zu schreiben', nurMitHooks, () => {
+  const formular = (felder) => {
+    const fd = new FormData()
+    for (const [k, v] of Object.entries(felder)) fd.set(k, v)
+    return fd
+  }
+  const SATZ = { bezeichnung: 'Laubschneiden Seiten und Gipfel', satz_pro_ha: '85,5', gueltig_ab: '2026-09-26' }
+  // unbekannt für saetze_massnahmen_art_check: Lese (nur behandlungen), Tippfehler, leere Auswahl
+  const OHNE_SATZ_ART = ['lese', 'laubschnitt', '']
+
+  test('upsertSatzMassnahme: Stundensatz für Laubschneiden anlegen und bearbeiten', async () => {
+    globalThis.__kan143Supabase = supabaseAttrappe()
+    await lagerAktionen.upsertSatzMassnahme(formular({ ...SATZ, art: 'laubschneiden' }))
+    await lagerAktionen.upsertSatzMassnahme(formular({ ...SATZ, art: 'laubschneiden', existing_id: 's-1' }))
+    const s = globalThis.__kan143Supabase.schreiben
+    assert.deepEqual(s.map(x => [x.tabelle, x.op]), [['saetze_massnahmen', 'insert'], ['saetze_massnahmen', 'update']])
+    for (const { p } of s) {
+      assert.deepEqual([p.tenant_id, p.art, p.bezeichnung, p.satz_pro_ha], ['t-1', 'laubschneiden', SATZ.bezeichnung, 85.5])
+    }
+  })
+
+  test('upsertSatzMassnahme: Lese, unbekannte und fehlende Art abgelehnt', async () => {
+    for (const art of [...OHNE_SATZ_ART, null]) {
+      globalThis.__kan143Supabase = supabaseAttrappe()
+      const fd = formular(art === null ? SATZ : { ...SATZ, art })
+      await assert.rejects(() => lagerAktionen.upsertSatzMassnahme(fd), { message: /^Bitte eine Maßnahmenart wählen \(.*Laubschneiden/ }, String(art))
+      assert.deepEqual(globalThis.__kan143Supabase.schreiben, [], String(art))
+    }
+  })
+
+  test('createBehandlung/updateBehandlung: unbekannte Art abgelehnt (ohne Angabe wie bisher Spritzung)', async () => {
+    const basis = { datum: '2026-07-02', grundstueck_ids: 'g-1' }
+    for (const art of ['laubschnitt', 'lese', 'Laubschneiden']) {
+      for (const aufruf of [
+        () => aktionen.createBehandlung(formular({ ...basis, art })),
+        () => aktionen.updateBehandlung('b-1', formular({ ...basis, art })),
+      ]) {
+        globalThis.__kan143Supabase = supabaseAttrappe()
+        await assert.rejects(aufruf, { message: new RegExp(`^Unbekannte Maßnahmenart „${art}“ – erlaubt: .*Laubschneiden`) }, art)
+        assert.deepEqual(globalThis.__kan143Supabase.schreiben, [], art)
+      }
+    }
+    // leere Auswahl ist keine unbekannte Art: createBehandlung fällt auf Spritzung zurück (hier ohne Mittel →
+    // deren Pflichtprüfung greift)
+    globalThis.__kan143Supabase = supabaseAttrappe()
+    await assert.rejects(() => aktionen.createBehandlung(formular({ ...basis, art: '' })),
+      { message: 'Bei einer Spritzung ist ein Pflanzenschutzmittel Pflicht.' })
   })
 })
 
@@ -582,17 +636,24 @@ describe('Quelltext: keine Stelle mit eigener, veralteter Artenliste', () => {
     }
   })
 
-  test('Bearbeiten-Formular: bei Arten mit ausgeblendetem BBCH geht der Wert nur bei unveränderter Art unsichtbar mit', () => {
+  test('Bearbeiten-Formular: bei Arten mit ausgeblendetem BBCH geht nur bei unveränderter Art das gespeicherte Stadium unsichtbar mit', () => {
     // Düngung, Bodenbearbeitung, Schnitt, Sonstiges zeigen keine Auswahl (wie beim Anlegen, FAQ und Handbuch);
     // auf main leerte Speichern dort das Stadium (Musterhof: 14 Maßnahmen). bbchModus 'behalten' nur bei
     // art = startArt (bbchBeimBearbeiten), nach einem Artwechsel ('keine') wird nichts gesendet
     const edit = quelle('app/(dashboard)/behandlungen/[id]/edit/BehandlungEditForm.tsx')
-    assert.match(edit, /\{bbchModus === 'behalten' && <input type="hidden" name="bbch_stadium" value=\{bbch\} \/>\}/)
-    // genau drei Stellen senden bbch_stadium: zwei Auswahlen und das unsichtbare Feld – alle aus dem State `bbch`
+    assert.match(edit, /\{bbchModus === 'behalten' && <input type="hidden" name="bbch_stadium" value=\{behandlung\.bbch_stadium \?\? ''\} \/>\}/)
+    // genau drei Stellen senden bbch_stadium: zwei Auswahlen aus dem State `bbch` und das unsichtbare Feld mit dem
+    // gespeicherten Stadium – eine Auswahl auf einem Umweg (z. B. Düngung → Spritzung → Düngung) geht nicht
+    // unsichtbar mit, wie Mittel und Mengen bei der Rückkehr zur gespeicherten Art (artWechseln)
     const stellen = edit.match(/<(select|input)\b[^>]*name="bbch_stadium"[^>]*>/g) ?? []
     assert.equal(stellen.length, 3)
-    assert.equal(stellen.filter(s => s.startsWith('<input type="hidden"')).length, 1)
-    for (const s of stellen) assert.match(s, /value=\{bbch\}/)
+    const auswahlen = stellen.filter(s => s.startsWith('<select'))
+    const versteckt = stellen.filter(s => s.startsWith('<input type="hidden"'))
+    assert.equal(auswahlen.length, 2)
+    assert.equal(versteckt.length, 1)
+    for (const s of auswahlen) assert.match(s, /value=\{bbch\}/)
+    assert.match(versteckt[0], /value=\{behandlung\.bbch_stadium \?\? ''\}/)
+    assert.doesNotMatch(versteckt[0], /value=\{bbch\}/)
     // die gespeicherte Art entscheidet nicht mehr über die Sichtbarkeit der Auswahl
     assert.doesNotMatch(edit, /bbchBeimBearbeiten\(art, art === startArt/)
   })
@@ -611,11 +672,10 @@ describe('Quelltext: keine Stelle mit eigener, veralteter Artenliste', () => {
     assert.doesNotMatch(a, /const (psmId|wartezeit)\s+=/)
   })
 
-  test('Server Actions: laubarbeit_art über laubarbeitArtFuer, Art geprüft (Maßnahme und Stundensatz)', () => {
+  // Art-Prüfung (Maßnahme und Stundensatz): Verhaltenstests im Block „Server Actions: Laubschneiden wird gespeichert …“
+  test('Server Actions: laubarbeit_art über laubarbeitArtFuer (Anlegen und Bearbeiten)', () => {
     const a = quelle('app/(dashboard)/behandlungen/actions.ts')
     assert.equal(a.match(/laubarbeitArtFuer\(art,/g)?.length, 2)      // createBehandlung und updateBehandlung
-    assert.equal(a.match(/= massnahmenArtAus\(formData\)/g)?.length, 2)
-    assert.match(quelle('app/(dashboard)/behandlungen/lager/actions.ts'), /if \(!istMassnahmenArt\(art\)\)/)
   })
 
   test('Weinbuch zeigt die Bezeichnung statt des Rohwerts', () => {
@@ -633,12 +693,12 @@ describe('Quelltext: keine Stelle mit eigener, veralteter Artenliste', () => {
     assert.match(ki, /'laubschneiden' \(Laubschneiden = maschinelles Laubschneiden an Seiten und Gipfel, ohne laubarbeit_art\)/)
     assert.match(ki, /saetze_massnahmen\.art .*dieselben Werte ohne 'lese'/)
     // Unterarten mit gespeichertem Code und Bezeichnung; Suche über Wortstämme ohne Umlaut, die Code und
-    // Freitext treffen ('%entblätter%' fände 'entblaettern' nicht); Datierung per Datum statt Ticketnummer.
+    // Freitext treffen ('%entblätter%' fände 'entblaettern' nicht); Datierung per Stichtag statt Ticketnummer.
     // Bezeichnung exakt wie in der Oberfläche – danach nur ')' oder ein Zusatz nach ';' (nicht „Gipfeln von Hand“)
     for (const o of arten.LAUBARBEIT_OPTIONEN) {
       assert.ok(ki.includes(`'${o.value}' (${o.label})`) || ki.includes(`'${o.value}' (${o.label};`), `KI-Kontext: laubarbeit_art ${o.value}`)
     }
-    assert.match(ki, /'gipfeln' \(Gipfeln; bei created_at ab 26\.09\.2026 Gipfeln von Hand, davor offen\)/)
+    assert.match(ki, /'gipfeln' \(Gipfeln; bei created_at ab dem Stichtag Gipfeln von Hand, davor offen\)/)
     const wortstaemme = [...(ki.match(/UNTERARTEN \(behandlungen\.laubarbeit_art[^]*?ILIKE ((?:'%[a-z]+%'(?:, | bzw\. )?)+)/)?.[1] ?? '').matchAll(/'%([a-z]+)%'/g)].map(m => m[1])
     assert.ok(wortstaemme.length > 0, 'KI-Kontext: Wortstämme für laubarbeit_art')
     for (const o of arten.LAUBARBEIT_OPTIONEN.filter(x => x.value !== 'sonstige')) {
@@ -646,9 +706,17 @@ describe('Quelltext: keine Stelle mit eigener, veralteter Artenliste', () => {
     }
     assert.doesNotMatch(ki, /vor KAN-143/)
     // Stichtag hängt am Erfassungszeitpunkt – nachgetragene Maßnahmen mit älterem datum sind eindeutig
-    assert.match(ki, /created_at vor dem 26\.09\.2026/)
+    assert.match(ki, /created_at vor dem Stichtag/)
     assert.match(ki, /maßgeblich ist created_at, nicht datum/)
     assert.doesNotMatch(ki, /Einträgen vor dem 26\.09\.2026/)
+    // Stichtag = erster 'laubschneiden'-Eintrag des Betriebs (RLS), nicht ein festes Datum: Der Migrationstag
+    // (CHECK seit 26.09.2026) liegt vor dem Deploy der Auswahl, bis dahin gab es für maschinelles Gipfeln nur
+    // Laubarbeit › Gipfeln – ein festes Datum davor machte solche Einträge fälschlich zu „von Hand“
+    assert.match(ki, /STICHTAG ist deshalb der erste Eintrag damit im Betrieb: \(SELECT min\(created_at\) FROM behandlungen WHERE art = 'laubschneiden'\)/)
+    assert.match(ki, /bzw\. bei allen, solange es keinen 'laubschneiden'-Eintrag gibt/)
+    const artenAbschnitt = ki.slice(ki.indexOf('ARTEN (behandlungen.art'), ki.indexOf('saetze_massnahmen.art'))
+    assert.ok(artenAbschnitt.includes('STICHTAG'), 'KI-Kontext: Abschnitt ARTEN/UNTERARTEN gefunden')
+    assert.doesNotMatch(artenAbschnitt, /\d{1,2}\.\d{2}\.\d{4}/)
   })
 
   test('Hilfe: FAQ und Handbuch erklären Laubschneiden, Gipfeln von Hand bleibt Laubarbeit', () => {
@@ -656,6 +724,10 @@ describe('Quelltext: keine Stelle mit eigener, veralteter Artenliste', () => {
     assert.match(faq, /frage: 'Laubarbeit oder Laubschneiden – was wähle ich\?'/)
     assert.match(faq, /Stundensätze für die Kosten-Vorschlagsfunktion.*Laubschneiden/)
     assert.doesNotMatch(faq, /z\.B\. Schnitt, Laubarbeit, Ernte/)   // Ernte ist keine Art der Stundensätze
+    // … und keine Beispiel-Bezeichnung im Stundensatz-Formular (ein Satz „Handlese“ landete unter einer anderen Art)
+    const saetze = quelle('app/(dashboard)/behandlungen/lager/SaetzeClient.tsx')
+    assert.match(saetze, /placeholder="z\.B\. Laubschneiden Seiten und Gipfel, Rebschnitt Guyot"/)
+    assert.doesNotMatch(saetze, /placeholder="[^"]*(Lese|lese|Ernte)/)
     const hb = quelle('app/(dashboard)/hilfe/handbuch/page.tsx')
     assert.match(hb, /titel: 'Laubarbeit oder Laubschneiden'/)
     assert.match(hb, /Gipfeln von Hand erfasst du also weiterhin als Laubarbeit/)
