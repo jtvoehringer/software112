@@ -6,22 +6,18 @@ import { upsertSatzMassnahme, deactivateSatzMassnahme } from './actions'
 import type { SatzEintrag } from './page'
 import { fmtNum } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
+import { MASSNAHMEN_ARTEN, MASSNAHMEN_ART_LABEL, type MassnahmenArt } from '@/lib/behandlungen/arten'
 
-const ART_OPTS = [
-  { value: 'spritzung',        label: 'Spritzung' },
-  { value: 'duengung',         label: 'Düngung' },
-  { value: 'bodenbearbeitung', label: 'Bodenbearbeitung' },
-  { value: 'schnitt',          label: 'Schnitt' },
-  { value: 'laubarbeit',       label: 'Laubarbeit' },
-  { value: 'sonstiges',        label: 'Sonstiges' },
-]
+// Arten wie saetze_massnahmen_art_check (ohne Lese) – aus lib/behandlungen/arten.ts
+const ART_OPTS = MASSNAHMEN_ARTEN.map(value => ({ value, label: MASSNAHMEN_ART_LABEL[value] }))
 
-const ART_COLOR: Record<string, string> = {
+const ART_COLOR: Record<MassnahmenArt, string> = {
   spritzung:        'bg-s112-blue-50 text-s112-blue-700 border-s112-blue-100',
   duengung:         'bg-s112-ok-bg text-s112-ok-fg border-s112-ok/30',
   bodenbearbeitung: 'bg-s112-warn-bg text-s112-warn-fg border-s112-warn/30',
   schnitt:          'bg-[#F2F3F5] text-s112-text-1 border-s112-line-str',
   laubarbeit:       'bg-[#F2F3F5] text-s112-text-1 border-s112-line-str',
+  laubschneiden:    'bg-white text-s112-ok-fg border-s112-ok/30',
   sonstiges:        'bg-s112-bg text-s112-text-2 border-s112-line',
 }
 
@@ -63,7 +59,7 @@ function SatzForm({ satz, onDone }: { satz?: SatzEintrag; onDone: () => void }) 
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Bezeichnung *</label>
           <input aria-label="Bezeichnung" name="bezeichnung" required defaultValue={satz?.bezeichnung ?? ''}
-            placeholder="z.B. Handlese, Laubschnitt maschinell"
+            placeholder="z.B. Handlese, Laubschneiden Seiten und Gipfel"
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
 
@@ -158,7 +154,7 @@ export default function SaetzeClient({
                 <>
                   <tr key={s.id} className="group border-b border-s112-border/40 hover:bg-s112-bg/30">
                     <td className="py-2.5 pr-3">
-                      <span className={`text-xs px-2 py-0.5 rounded-full border ${ART_COLOR[s.art] ?? 'bg-s112-bg text-s112-text-2 border-s112-line'}`}>
+                      <span className={`text-xs px-2 py-0.5 rounded-full border ${ART_COLOR[s.art as MassnahmenArt] ?? 'bg-s112-bg text-s112-text-2 border-s112-line'}`}>
                         {ART_OPTS.find(o => o.value === s.art)?.label ?? s.art}
                       </span>
                     </td>

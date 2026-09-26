@@ -65,6 +65,14 @@ const ERLAUBTE_TABELLEN = [
 const TABELLEN_KONTEXT = `
 - weingarten / grundstuecke: Rieden (weingarten) und einzelne Grundstücke (GST, grundstuecke.weingarten_id → weingarten.id) mit Rebsorte, Fläche, Bewirtschaftungsart.
 - behandlungen ↔ behandlung_grundstuecke (Junction, m:n) ↔ grundstuecke: Pflanzenschutz-/Düngemaßnahmen. Kupfer-Bilanzen über den Cu-Gehalt (Regel „Reinkupfer“ unten).
+  ARTEN (behandlungen.art, KAN-143): 'spritzung' (Spritzung), 'duengung' (Düngung), 'bodenbearbeitung'
+  (Bodenbearbeitung), 'schnitt' (Schnitt), 'laubarbeit' (Laubarbeit von Hand, Unterart in laubarbeit_art, z.B.
+  Entblättern, Ausgeizen, Gipfeln, Heften – ältere Einträge mit Freitext), 'laubschneiden' (Laubschneiden =
+  maschinelles Laubschneiden an Seiten und Gipfel, ohne laubarbeit_art), 'lese' (Lese), 'sonstiges' (Sonstiges).
+  In Antworten die Bezeichnung in Klammern zeigen, nicht den Rohwert. Fragt der User allgemein nach Gipfeln bzw.
+  Laubschnitt, beide Arten berücksichtigen (laubschneiden sowie laubarbeit mit laubarbeit_art ILIKE '%gipfel%')
+  und getrennt ausweisen. saetze_massnahmen.art (Hektarsätze je Art für den Kosten-Vorschlag): dieselben Werte
+  ohne 'lese'.
   MENGEN IN behandlungen – die Bedeutung hängt von art ab (KAN-133):
   art='spritzung': menge_gesamt ist die gesamte SPRITZBRÜHE in Liter (Mittel + Wasser), NIEMALS die Mittelmenge –
   auch nicht bei alten Einträgen mit menge_einheit kg oder g. Die MITTELMENGE (eingesetztes Pflanzenschutzmittel)

@@ -1,0 +1,352 @@
+// KAN-143 (26.09.2026): neue Maßnahmen-Art „Laubschneiden“ – eine Artenliste für alle Stellen
+// (src/lib/behandlungen/arten.ts) gegen die DB-CHECKs, Feld- und Mengen-Matrix, Labels in
+// Behördenmeldungen und Rückverfolgung, Assistent (Tool-Schema und Handler) sowie Quelltext-Prüfungen,
+// dass keine Stelle eine eigene, veraltete Artenliste führt.
+//
+// Aufruf:  node --experimental-strip-types --disable-warning=ExperimentalWarning \
+//               --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/tests/massnahmen-arten.test.mjs
+//          (Node ≥ 22.15 wegen module.registerHooks; läuft auch über npm run test:csv)
+//
+// Resolve-Hook wie in pflanzenschutz.test.mjs ('@/'-Aliase, endungslose Importe, 'server-only'); für den
+// Assistenten ersetzt er zusätzlich die Server Action createBehandlung und getCurrentMembership durch
+// Attrappen – der Test speichert nichts.
+
+import { test, describe } from 'node:test'
+import assert from 'node:assert/strict'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import path from 'node:path'
+import * as nodeModule from 'node:module'
+
+const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../src')
+
+// ── Stand der Datenbank ─────────────────────────────────────────────────────────
+// Werte der CHECKs nach Migration 20260926175835_kan143_laubschneiden, live per SELECT auf
+// pg_constraint geprüft am 26.09.2026 (Produktion und Staging). Ändert sich ein CHECK, zuerst hier und in
+// lib/behandlungen/arten.ts nachziehen.
+const DB_BEHANDLUNGEN_ART_CHECK = ['spritzung', 'duengung', 'bodenbearbeitung', 'schnitt', 'laubarbeit', 'laubschneiden', 'lese', 'sonstiges']
+const DB_SAETZE_ART_CHECK = ['spritzung', 'duengung', 'bodenbearbeitung', 'schnitt', 'laubarbeit', 'laubschneiden', 'sonstiges']
+
+// Attrappen für den Assistenten: createBehandlung merkt sich die FormData, statt zu speichern
+globalThis.__kan143Aufrufe = []
+const ATTRAPPEN = {
+  '@/app/(dashboard)/behandlungen/actions':
+    'export async function createBehandlung(fd) { globalThis.__kan143Aufrufe.push(fd); return { id: "b-neu", hinweise: [] } }',
+  '@/lib/auth/roles':
+    'export async function getCurrentMembership() { return { tenantId: "t-1", role: "winzer" } }',
+}
+
+const hooksMoeglich = typeof nodeModule.registerHooks === 'function'
+if (hooksMoeglich) {
+  nodeModule.registerHooks({
+    resolve(spezifizierer, kontext, weiter) {
+      if (spezifizierer === 'server-only') return { url: 'data:text/javascript,export {}', shortCircuit: true }
+      if (ATTRAPPEN[spezifizierer]) return { url: 'data:text/javascript,' + encodeURIComponent(ATTRAPPEN[spezifizierer]), shortCircuit: true }
+      let basis = null
+      if (spezifizierer.startsWith('@/')) basis = path.join(SRC, spezifizierer.slice(2))
+      else if (/^\.\.?\//.test(spezifizierer) && !path.extname(spezifizierer) && kontext.parentURL?.startsWith('file:')) {
+        basis = path.resolve(path.dirname(fileURLToPath(kontext.parentURL)), spezifizierer)
+      }
+      if (basis) {
+        for (const kandidat of [basis + '.ts', basis + '.tsx', path.join(basis, 'index.ts')]) {
+          if (existsSync(kandidat)) return weiter(pathToFileURL(kandidat).href, kontext)
+        }
+      }
+      return weiter(spezifizierer, kontext)
+    },
+  })
+}
+
+const laden = (rel) => import(pathToFileURL(path.join(SRC, rel)).href)
+const [arten, psm, rueck, feld, mengen, massnahmeMengen, tool] = hooksMoeglich
+  ? await Promise.all([
+      laden('lib/behandlungen/arten.ts'), laden('lib/behoerden/psm.ts'), laden('lib/behoerden/rueckverfolgung.ts'),
+      laden('app/(dashboard)/behandlungen/neu/feldMatrix.ts'), laden('app/(dashboard)/behandlungen/neu/mengenFelder.ts'),
+      laden('lib/behandlungen/massnahmeMengen.ts'), laden('lib/assistent/tools/massnahme.ts'),
+    ])
+  : []
+const nurMitHooks = { skip: hooksMoeglich ? false : 'module.registerHooks fehlt (Node ≥ 22.15 nötig)' }
+
+const quelle = (rel) => readFileSync(path.join(SRC, rel), 'utf8')
+
+// ── Artenliste gegen die DB-CHECKs ──────────────────────────────────────────────
+
+describe('Artenliste (lib/behandlungen/arten.ts) = DB-CHECKs', nurMitHooks, () => {
+  test('Werte und Reihenfolge wie behandlungen_art_check bzw. saetze_massnahmen_art_check', () => {
+    assert.deepEqual([...arten.BEHANDLUNG_ARTEN], DB_BEHANDLUNGEN_ART_CHECK)
+    assert.deepEqual([...arten.MASSNAHMEN_ARTEN], DB_SAETZE_ART_CHECK)
+    assert.deepEqual(Object.keys(arten.MASSNAHMEN_ART_LABEL), DB_BEHANDLUNGEN_ART_CHECK)
+  })
+
+  test('liegt die Migration im Repo, stimmen ihre CHECKs mit den Konstanten überein', () => {
+    const verzeichnis = path.resolve(SRC, '../supabase/migrations')
+    const treffer = readdirSync(verzeichnis).filter(d => /^\d{14}_kan143_laubschneiden\.sql$/.test(d))
+    assert.ok(treffer.length <= 1, `mehrere Migrationen kan143_laubschneiden: ${treffer.join(', ')}`)
+    if (treffer.length === 0) return   // Datei kommt mit PR #60; bis dahin gilt der SELECT-Stand oben
+    const sql = readFileSync(path.join(verzeichnis, treffer[0]), 'utf8')
+    const check = (name) => {
+      const m = sql.match(new RegExp(`ADD\\s+CONSTRAINT\\s+${name}\\s+CHECK\\s*\\(\\s*art\\s+IN\\s*\\(([^)]*)\\)`, 'i'))
+      assert.ok(m, `${treffer[0]}: ADD CONSTRAINT ${name} nicht gefunden`)
+      return [...m[1].matchAll(/'([a-z_]+)'/g)].map(x => x[1])
+    }
+    assert.deepEqual(check('behandlungen_art_check'), DB_BEHANDLUNGEN_ART_CHECK)
+    assert.deepEqual(check('saetze_massnahmen_art_check'), DB_SAETZE_ART_CHECK)
+  })
+
+  test('Bezeichnungen, Laubschneiden direkt nach Laubarbeit', () => {
+    assert.equal(arten.MASSNAHMEN_ART_LABEL.laubschneiden, 'Laubschneiden')
+    assert.equal(arten.MASSNAHMEN_ART_LABEL.laubarbeit, 'Laubarbeit')
+    const reihe = arten.MASSNAHMEN_ARTEN
+    assert.equal(reihe.indexOf('laubschneiden'), reihe.indexOf('laubarbeit') + 1)
+    for (const [art, label] of Object.entries(arten.MASSNAHMEN_ART_LABEL)) {
+      assert.match(label, /^[A-ZÄÖÜ][a-zäöüß]+$/, `${art}: Bezeichnung „${label}“`)
+      assert.doesNotMatch(label, /ae|oe|ue/, `${art}: Umlaute statt ae/oe/ue`)
+    }
+  })
+
+  test('istMassnahmenArt: Lese und Unbekanntes sind keine Maßnahmenart des Formulars', () => {
+    assert.equal(arten.istMassnahmenArt('laubschneiden'), true)
+    for (const x of ['lese', 'Laubschneiden', 'laubschnitt', '', null, undefined, 3]) assert.equal(arten.istMassnahmenArt(x), false, String(x))
+  })
+
+  test('massnahmenArtLabel: Bezeichnung, Rohwert für Unbekanntes, leer → null', () => {
+    assert.equal(arten.massnahmenArtLabel('laubschneiden'), 'Laubschneiden')
+    assert.equal(arten.massnahmenArtLabel('lese'), 'Lese')
+    assert.equal(arten.massnahmenArtLabel('rodung'), 'rodung')
+    assert.equal(arten.massnahmenArtLabel(''), null)
+    assert.equal(arten.massnahmenArtLabel(null), null)
+    assert.equal(arten.massnahmenArtLabel('toString'), 'toString')   // kein Prototyp-Treffer
+  })
+
+  test('laubarbeit_art nur bei Laubarbeit – bei Laubschneiden null', () => {
+    assert.equal(arten.laubarbeitArtFuer('laubarbeit', 'gipfeln'), 'gipfeln')
+    assert.equal(arten.laubarbeitArtFuer('laubschneiden', 'gipfeln'), null)
+    assert.equal(arten.laubarbeitArtFuer('spritzung', 'heften'), null)
+    assert.equal(arten.laubarbeitArtFuer('laubarbeit', null), null)
+    assert.deepEqual(arten.LAUBARBEIT_OPTIONEN.map(o => o.value), ['entblaettern', 'ausgeizen', 'gipfeln', 'heften', 'sonstige'])
+  })
+})
+
+// ── Feld- und Mengen-Matrix ─────────────────────────────────────────────────────
+
+describe('Feld- und Mengen-Matrix für Laubschneiden', nurMitHooks, () => {
+  test('jede Maßnahmenart hat genau eine Zeile in FELD_MATRIX und MENGEN_SICHT', () => {
+    assert.deepEqual(Object.keys(feld.FELD_MATRIX), DB_SAETZE_ART_CHECK)
+    assert.deepEqual(Object.keys(mengen.MENGEN_SICHT), DB_SAETZE_ART_CHECK)
+  })
+
+  test('wie Laubarbeit, aber ohne „Art der Laubarbeit“: BBCH optional, Witterung und Temperatur ausgeblendet', () => {
+    const ls = feld.FELD_MATRIX.laubschneiden
+    assert.equal(ls.laubarbeitArt, 'hidden')
+    assert.equal(ls.bbch, 'optional')
+    assert.equal(ls.witterung, 'hidden')
+    assert.equal(ls.temperatur, 'hidden')
+    assert.deepEqual({ ...ls, laubarbeitArt: 'pflicht' }, feld.FELD_MATRIX.laubarbeit)
+    // sonst nichts sichtbar: kein Mittel, kein Dünger, keine Schnittart, keine Bearbeitung
+    assert.deepEqual(Object.entries(ls).filter(([, s]) => s !== 'hidden').map(([k]) => k), ['bbch'])
+  })
+
+  test('Mengenfelder wie Laubarbeit: alle ausgeblendet, keine Menge gespeichert', () => {
+    assert.deepEqual(mengen.MENGEN_SICHT.laubschneiden, mengen.MENGEN_SICHT.laubarbeit)
+    assert.ok(Object.values(mengen.MENGEN_SICHT.laubschneiden).every(s => s === 'hidden'))
+    const r = massnahmeMengen.pruefeMassnahmeMengen({
+      art: 'laubschneiden', psmId: null, duengemittelId: null, aufwand: null, aufwandEinheit: null,
+      mengeGesamt: null, mengeEinheit: null, wasserLHa: null, flaecheHa: 2,
+    }, { bruehePflicht: true })
+    assert.equal(r.ok, true)
+    assert.equal(r.werte.reinkupfer_kg_ha, null)
+    assert.equal(r.spritzbruehe, null)
+  })
+
+  test('Bearbeiten: BBCH bei Laubarbeit/Laubschneiden, Wetterfelder bei Laubschneiden nur mit gespeichertem Wert', () => {
+    assert.equal(feld.bbchBeimBearbeiten('laubschneiden', null), true)
+    assert.equal(feld.bbchBeimBearbeiten('laubarbeit', null), true)
+    assert.equal(feld.bbchBeimBearbeiten('schnitt', null), false)
+    assert.equal(feld.bbchBeimBearbeiten('schnitt', '09'), true)     // gespeichertes Stadium nicht still leeren
+    assert.equal(feld.bbchBeimBearbeiten('lese', null), false)       // unbekannte Art: kein Absturz
+    assert.equal(feld.wetterBeimBearbeiten('laubschneiden', { witterung: null, temperatur_c: null }), false)
+    assert.equal(feld.wetterBeimBearbeiten('laubschneiden', null), false)
+    assert.equal(feld.wetterBeimBearbeiten('laubschneiden', { witterung: 'sonnig', temperatur_c: null }), true)
+    assert.equal(feld.wetterBeimBearbeiten('laubschneiden', { witterung: null, temperatur_c: 0 }), true)
+    for (const art of ['spritzung', 'duengung', 'bodenbearbeitung', 'schnitt', 'laubarbeit', 'sonstiges']) {
+      assert.equal(feld.wetterBeimBearbeiten(art, null), true, art)   // bisherige Arten unverändert
+    }
+  })
+})
+
+// ── Behördenmeldungen, Auswertungen, Rückverfolgung ─────────────────────────────
+
+describe('Labels und Art-Filter in Pflanzenschutz-Aufzeichnung und Rückverfolgung', nurMitHooks, () => {
+  test('psm.ART_LABEL: alle DB-Werte, Art-Filter ?art=laubschneiden gültig', () => {
+    assert.deepEqual(Object.keys(psm.ART_LABEL), DB_BEHANDLUNGEN_ART_CHECK)
+    assert.equal(psm.ART_LABEL.laubschneiden, 'Laubschneiden')
+    assert.equal(psm.artAus('laubschneiden'), 'laubschneiden')
+    assert.equal(psm.artAus('laubschnitt'), undefined)
+    assert.equal(psm.artAus('all'), null)
+  })
+
+  test('Aufzeichnung (Druck und CSV): Art „Laubschneiden“, keine Mittelmenge, keine Warnung', () => {
+    const b = psm.normalisiereBehandlung({
+      id: 'b-ls', datum: '2026-07-02', datum_bis: null, art: 'laubschneiden', bbch_stadium: '73',
+      weingarten: null, psm: null, duengemittel: null,
+      behandlung_grundstuecke: [{ grundstueck_id: 'g-1', flaeche_ha: 1.5, grundstueck: { id: 'g-1', gst_nr: '123/1', katastralgemeinde: '04023', kg_bezeichnung: 'Stein', flaeche_ha: 1.5, weingarten: null } }],
+    })
+    assert.equal(psm.behandlungKurz(b), 'Laubschneiden am 02.07.2026')
+    const { zeilen, warnungen } = psm.psmAufzeichnungZeilen([b])
+    assert.deepEqual(warnungen, [])
+    assert.deepEqual(zeilen.map(z => [z.art, z.bbch, z.mittelmengeAnteil, z.spritzbruehAnteil]), [['Laubschneiden', '73', null, null]])
+  })
+
+  test('Rückverfolgung: BEHANDLUNG_ART_LABEL und Maßnahmentext', () => {
+    for (const art of DB_SAETZE_ART_CHECK) assert.equal(rueck.BEHANDLUNG_ART_LABEL[art], arten.MASSNAHMEN_ART_LABEL[art], art)
+    assert.equal(rueck.massnahmeMittel({ art: 'laubschneiden', psm: null }), 'Laubschneiden')
+    assert.equal(rueck.massnahmeMittel({ art: 'laubarbeit', psm: null }), 'Laubarbeit')
+    const m = { behandlung: { id: 'b1', datum: '2025-07-10', datum_bis: '2025-07-11', art: 'laubschneiden', psm: null }, nurWeingarten: false, grundstuecke: ['7/1'], flaecheHa: null }
+    assert.equal(rueck.massnahmeText(m, true), '10.07.2025–11.07.2025 Laubschneiden (GST 7/1)')
+  })
+})
+
+// ── Assistent ───────────────────────────────────────────────────────────────────
+
+describe('Assistent: Tool massnahme_dokumentieren kennt Laubschneiden', nurMitHooks, () => {
+  const EINGABE = { bestaetigt_vom_user: true, datum: '2026-07-02', weingarten_ids: ['w-1'] }
+
+  test('Schema: enum = saetze_massnahmen_art_check, Beschreibung und Feld-Matrix nennen Laubschneiden', () => {
+    const p = tool.MASSNAHME_TOOL.input_schema.properties
+    assert.deepEqual(p.art.enum, DB_SAETZE_ART_CHECK)
+    assert.match(tool.MASSNAHME_TOOL.description, /Laubarbeit, Laubschneiden oder Sonstiges/)
+    assert.match(p.art.description, /laubschneiden = maschinelles Laubschneiden/)
+    assert.deepEqual(p.laubarbeit_art.enum, arten.LAUBARBEIT_OPTIONEN.map(o => o.value))
+    assert.match(tool.MASSNAHME_FELD_MATRIX_TEXT, /- laubschneiden: +bbch_stadium \(optional\); KEIN laubarbeit_art/)
+    // jede Art des Schemas hat eine Zeile in der Feld-Matrix des Systemprompts
+    for (const art of DB_SAETZE_ART_CHECK) assert.match(tool.MASSNAHME_FELD_MATRIX_TEXT, new RegExp(`^- ${art}:`, 'm'), art)
+  })
+
+  test('legt Laubschneiden an – laubarbeit_art wird nicht mitgeschickt', async () => {
+    globalThis.__kan143Aufrufe.length = 0
+    const r = await tool.fuehreMassnahmeDokumentierenAus({ ...EINGABE, art: 'laubschneiden', laubarbeit_art: 'gipfeln', bbch_stadium: '73' }, null)
+    assert.deepEqual(r, { erfolg: true, behandlung_id: 'b-neu' })
+    assert.equal(globalThis.__kan143Aufrufe.length, 1)
+    const fd = globalThis.__kan143Aufrufe[0]
+    assert.equal(fd.get('art'), 'laubschneiden')
+    assert.equal(fd.get('bbch_stadium'), '73')
+    assert.deepEqual(fd.getAll('weingarten_ids'), ['w-1'])
+    assert.equal(fd.has('laubarbeit_art'), false)
+  })
+
+  test('Laubarbeit behält ihre Unterart', async () => {
+    globalThis.__kan143Aufrufe.length = 0
+    const r = await tool.fuehreMassnahmeDokumentierenAus({ ...EINGABE, art: 'laubarbeit', laubarbeit_art: 'gipfeln' }, null)
+    assert.equal(r.erfolg, true)
+    assert.equal(globalThis.__kan143Aufrufe[0].get('laubarbeit_art'), 'gipfeln')
+  })
+
+  test('unbekannte Art: abgelehnt, nichts gespeichert', async () => {
+    globalThis.__kan143Aufrufe.length = 0
+    for (const art of ['laubschnitt', 'lese', 'Laubschneiden']) {
+      const r = await tool.fuehreMassnahmeDokumentierenAus({ ...EINGABE, art }, null)
+      assert.equal(r.erfolg, false, art)
+      assert.match(r.hinweis, /Unbekannte Maßnahmenart .*NICHTS gespeichert/, art)
+    }
+    assert.equal(globalThis.__kan143Aufrufe.length, 0)
+  })
+})
+
+// ── Quelltext-Prüfungen ─────────────────────────────────────────────────────────
+
+function dateien(dir) {
+  return readdirSync(dir).flatMap(n => {
+    const p = path.join(dir, n)
+    return statSync(p).isDirectory() ? dateien(p) : /\.(ts|tsx)$/.test(n) ? [p] : []
+  })
+}
+
+describe('Quelltext: keine Stelle mit eigener, veralteter Artenliste', () => {
+  test('jede Datei, die Bodenbearbeitung und Laubarbeit aufzählt, kennt auch Laubschneiden', () => {
+    const fehlend = dateien(SRC)
+      .filter(f => { const s = readFileSync(f, 'utf8'); return /\bbodenbearbeitung\b/i.test(s) && /\blaubarbeit\b/i.test(s) && !/laubschneiden/i.test(s) })
+      .map(f => path.relative(SRC, f))
+    assert.deepEqual(fehlend, [])
+  })
+
+  test('Objekte je Art (spritzung: …) nur in arten.ts oder mit Typ MassnahmenArt (Vollständigkeit prüft tsc)', () => {
+    const lose = dateien(SRC)
+      .filter(f => /\bspritzung\s*:\s*['"{A-Z]/.test(readFileSync(f, 'utf8')))
+      .filter(f => !f.endsWith(path.join('lib', 'behandlungen', 'arten.ts')) && !/Record<MassnahmenArt\b/.test(readFileSync(f, 'utf8')))
+      .map(f => path.relative(SRC, f))
+    assert.deepEqual(lose, [])
+  })
+
+  test('Artenlisten als Array-Literal nur in lib/behandlungen/arten.ts', () => {
+    const treffer = dateien(SRC)
+      .filter(f => /'spritzung'\s*,\s*'duengung'/.test(readFileSync(f, 'utf8')))
+      .map(f => path.relative(SRC, f).replaceAll('\\', '/'))
+    assert.deepEqual(treffer, ['lib/behandlungen/arten.ts'])
+  })
+
+  test('alle Stellen mit Maßnahmen-Arten lesen sie aus lib/behandlungen/arten.ts', () => {
+    for (const rel of [
+      'app/(dashboard)/behandlungen/neu/NeueBehandlungForm.tsx',
+      'app/(dashboard)/behandlungen/[id]/edit/BehandlungEditForm.tsx',
+      'app/(dashboard)/behandlungen/neu/feldMatrix.ts',
+      'app/(dashboard)/behandlungen/neu/mengenFelder.ts',
+      'app/(dashboard)/behandlungen/neu/artOptionen.ts',
+      'app/(dashboard)/behandlungen/BehandlungenClient.tsx',
+      'app/(dashboard)/behandlungen/actions.ts',
+      'app/(dashboard)/behandlungen/lager/SaetzeClient.tsx',
+      'app/(dashboard)/behandlungen/lager/actions.ts',
+      'app/(dashboard)/weingarten/GrundstueckePanel.tsx',
+      'lib/behoerden/psm.ts',
+      'lib/behoerden/rueckverfolgung.ts',
+      'lib/wein/weinbuch.ts',
+      'lib/assistent/tools/massnahme.ts',
+    ]) assert.match(quelle(rel), /from '@\/lib\/behandlungen\/arten'/, rel)
+  })
+
+  test('Formulare: Auswahl aus ART_OPTIONS mit eigenem Symbol für Laubschneiden (nicht Schere, nicht Blatt)', () => {
+    const s = quelle('app/(dashboard)/behandlungen/neu/artOptionen.ts')
+    const symbol = Object.fromEntries([...s.matchAll(/^\s+([a-z]+):\s+([A-Z][A-Za-z]+),\r?$/gm)].map(m => [m[1], m[2]]))
+    assert.deepEqual(Object.keys(symbol), DB_SAETZE_ART_CHECK)
+    assert.equal(symbol.laubschneiden, 'Shrub')
+    assert.equal(new Set(Object.values(symbol)).size, DB_SAETZE_ART_CHECK.length, 'jede Art ein eigenes Symbol')
+    for (const rel of ['app/(dashboard)/behandlungen/neu/NeueBehandlungForm.tsx', 'app/(dashboard)/behandlungen/[id]/edit/BehandlungEditForm.tsx']) {
+      const f = quelle(rel)
+      assert.match(f, /import \{ ART_OPTIONS \} from '\.\.?\/(\.\.\/neu\/)?artOptionen'/, rel)
+      assert.doesNotMatch(f, /const ART_OPTIONS\b/, rel)
+      assert.match(f, /art === 'laubschneiden' && <p[^>]*>\{LAUBSCHNEIDEN_HINWEIS\}/, rel)
+    }
+  })
+
+  test('Server Actions: laubarbeit_art über laubarbeitArtFuer, Art geprüft (Maßnahme und Stundensatz)', () => {
+    const a = quelle('app/(dashboard)/behandlungen/actions.ts')
+    assert.equal(a.match(/laubarbeitArtFuer\(art,/g)?.length, 2)      // createBehandlung und updateBehandlung
+    assert.equal(a.match(/= massnahmenArtAus\(formData\)/g)?.length, 2)
+    assert.match(quelle('app/(dashboard)/behandlungen/lager/actions.ts'), /if \(!istMassnahmenArt\(art\)\)/)
+  })
+
+  test('Weinbuch zeigt die Bezeichnung statt des Rohwerts', () => {
+    const w = quelle('lib/wein/weinbuch.ts')
+    assert.match(w, /const artText = massnahmenArtLabel\(b\.art\)/)
+    assert.match(w, /artText && `Art: \$\{artText\}`/)
+    assert.doesNotMatch(w, /`Art: \$\{b\.art\}`/)
+  })
+
+  test('Assistent (Systemprompt) und KI-Kontext nennen Laubschneiden und grenzen es von Gipfeln ab', () => {
+    const chat = quelle('app/api/assistent/chat/route.ts').replace(/\s+/g, ' ')
+    assert.match(chat, /Maßnahmen dokumentieren \(Spritzung, Düngung, Bodenbearbeitung, Schnitt, Laubarbeit, Laubschneiden, Sonstiges\)/)
+    const ki = quelle('app/api/ki-abfrage/route.ts').replace(/\s+/g, ' ')
+    for (const art of DB_BEHANDLUNGEN_ART_CHECK) assert.ok(ki.includes(`'${art}' (${arten.MASSNAHMEN_ART_LABEL[art]}`), `KI-Kontext: ${art}`)
+    assert.match(ki, /'laubschneiden' \(Laubschneiden = maschinelles Laubschneiden an Seiten und Gipfel, ohne laubarbeit_art\)/)
+    assert.match(ki, /saetze_massnahmen\.art .*dieselben Werte ohne 'lese'/)
+  })
+
+  test('Hilfe: FAQ und Handbuch erklären Laubschneiden, Gipfeln von Hand bleibt Laubarbeit', () => {
+    const faq = quelle('app/(dashboard)/hilfe/faq/page.tsx')
+    assert.match(faq, /frage: 'Laubarbeit oder Laubschneiden – was wähle ich\?'/)
+    assert.match(faq, /Stundensätze für die Kosten-Vorschlagsfunktion.*Laubschneiden/)
+    assert.doesNotMatch(faq, /z\.B\. Schnitt, Laubarbeit, Ernte/)   // Ernte ist keine Art der Stundensätze
+    const hb = quelle('app/(dashboard)/hilfe/handbuch/page.tsx')
+    assert.match(hb, /titel: 'Laubarbeit oder Laubschneiden'/)
+    assert.match(hb, /Gipfeln von Hand erfasst du also weiterhin als Laubarbeit/)
+  })
+})

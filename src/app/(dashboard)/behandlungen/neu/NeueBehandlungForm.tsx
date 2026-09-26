@@ -4,16 +4,19 @@ import { Fragment, useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createBehandlung } from '../actions'
 import type { PSM, DuengemittelOption, WeingartenOption, GSTOption, KostenartOption, SatzOption } from './page'
-import { SprayCan, Sprout, Layers, Scissors, Leaf, MoreHorizontal, Hourglass, Info, Ban, AlertTriangle } from 'lucide-react'
+import { Hourglass, Info, Ban, AlertTriangle } from 'lucide-react'
 import { fmtNum } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
 import { runden } from '@/lib/csv'
 import { mengeInEinheit, type MittelmengeErgebnis } from '@/lib/behoerden/psm'
 import { pruefeMassnahmeMengen } from '@/lib/behandlungen/massnahmeMengen'
+import { LAUBARBEIT_OPTIONEN, LAUBSCHNEIDEN_HINWEIS, MASSNAHMEN_ART_LABEL, type MassnahmenArt } from '@/lib/behandlungen/arten'
 import {
   MENGEN_SICHT, aufwandEinheitText, duengerEinheitWechsel, duengermengeEinheit, mengenFelder, mengenInFormData,
-  mengenTexte, type Sicht,
+  mengenTexte,
 } from './mengenFelder'
+import { FELD_MATRIX } from './feldMatrix'
+import { ART_OPTIONS } from './artOptionen'
 import MengenZusammenfassung from './MengenZusammenfassung'
 
 const BBCH_OPTIONS = [
@@ -34,40 +37,11 @@ const BBCH_OPTIONS = [
   { value: '89', label: '89 – Vollreife' },
 ]
 const WITTERUNG = ['sonnig', 'bewoelkt', 'regnerisch', 'wind']
-const ART_OPTIONS = [
-  { value: 'spritzung',        label: 'Spritzung',        icon: SprayCan },
-  { value: 'duengung',         label: 'Düngung',          icon: Sprout },
-  { value: 'bodenbearbeitung', label: 'Bodenbearbeitung', icon: Layers },
-  { value: 'schnitt',          label: 'Schnitt',          icon: Scissors },
-  { value: 'laubarbeit',       label: 'Laubarbeit',       icon: Leaf },
-  { value: 'sonstiges',        label: 'Sonstiges',        icon: MoreHorizontal },
-]
 const SCHADERREGER_OPTIONEN = ['Oidium', 'Peronospora', 'Botrytis']
-const LAUBARBEIT_OPTIONEN = [
-  { value: 'entblaettern', label: 'Entblättern' },
-  { value: 'ausgeizen',    label: 'Ausgeizen' },
-  { value: 'gipfeln',      label: 'Gipfeln' },
-  { value: 'heften',       label: 'Heften' },
-  { value: 'sonstige',     label: 'Sonstige' },
-]
 
-// ─── Feld-Matrix je Maßnahmenart ──────────────────────────────────────────
-// Steuert, welche Felder pro Art sichtbar/pflicht sind (siehe "Analyse Maßnahmen.docx", Tabelle 2).
-// 'pflicht' | 'bedingt' | 'optional' | 'hidden'. Die Mengenfelder (Spritzbrühe bzw. Düngermenge, Aufwand,
-// Konzentration, Wasseraufwand) kommen aus MENGEN_SICHT – gemeinsam mit dem Bearbeiten-Formular (KAN-133).
-type Art = 'spritzung' | 'duengung' | 'bodenbearbeitung' | 'schnitt' | 'laubarbeit' | 'sonstiges'
-
-const FELD_MATRIX: Record<Art, {
-  psm: Sicht; duengemittel: Sicht; bbch: Sicht; schaderreger: Sicht; witterung: Sicht; temperatur: Sicht
-  einarbeitung: Sicht; bearbeitung: Sicht; schnittart: Sicht; laubarbeitArt: Sicht
-}> = {
-  spritzung:        { psm: 'pflicht', duengemittel: 'hidden',   bbch: 'pflicht',  schaderreger: 'pflicht',  witterung: 'optional', temperatur: 'optional', einarbeitung: 'hidden',  bearbeitung: 'hidden',  schnittart: 'hidden',  laubarbeitArt: 'hidden'  },
-  duengung:         { psm: 'hidden',  duengemittel: 'optional', bbch: 'hidden',   schaderreger: 'hidden',   witterung: 'optional', temperatur: 'hidden',   einarbeitung: 'bedingt', bearbeitung: 'hidden',  schnittart: 'hidden',  laubarbeitArt: 'hidden'  },
-  bodenbearbeitung: { psm: 'hidden',  duengemittel: 'hidden',   bbch: 'hidden',   schaderreger: 'hidden',   witterung: 'optional', temperatur: 'hidden',   einarbeitung: 'hidden',  bearbeitung: 'pflicht', schnittart: 'hidden',  laubarbeitArt: 'hidden'  },
-  schnitt:          { psm: 'hidden',  duengemittel: 'hidden',   bbch: 'hidden',   schaderreger: 'hidden',   witterung: 'hidden',   temperatur: 'hidden',   einarbeitung: 'hidden',  bearbeitung: 'hidden',  schnittart: 'pflicht', laubarbeitArt: 'hidden'  },
-  laubarbeit:       { psm: 'hidden',  duengemittel: 'hidden',   bbch: 'optional', schaderreger: 'hidden',   witterung: 'hidden',   temperatur: 'hidden',   einarbeitung: 'hidden',  bearbeitung: 'hidden',  schnittart: 'hidden',  laubarbeitArt: 'pflicht' },
-  sonstiges:        { psm: 'hidden',  duengemittel: 'hidden',   bbch: 'hidden',   schaderreger: 'optional', witterung: 'hidden',   temperatur: 'hidden',   einarbeitung: 'hidden',  bearbeitung: 'hidden',  schnittart: 'hidden',  laubarbeitArt: 'hidden'  },
-}
+// Welche Felder je Maßnahmenart sichtbar/pflicht sind, steht in FELD_MATRIX (feldMatrix.ts), die
+// Mengenfelder in MENGEN_SICHT (mengenFelder.ts) – gemeinsam mit dem Bearbeiten-Formular und dem Assistenten.
+type Art = MassnahmenArt
 
 /**
  * Menge für den Material-Vorschlag in der Einheit, in der der Preis gilt (Preis je kg bzw. l – beim PSM
@@ -244,7 +218,7 @@ export default function NeueBehandlungForm({
   useEffect(() => {
     if (!kostenAktiv) return
     if (kostenBeschreibung) return
-    const artLabel = ART_OPTIONS.find(o => o.value === art)?.label ?? art
+    const artLabel = MASSNAHMEN_ART_LABEL[art] ?? art
     setKostenBeschreibung(`${artLabel}${gewaehlterSatz ? ` – ${gewaehlterSatz.bezeichnung}` : ''}`)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kostenAktiv, art])
@@ -360,11 +334,12 @@ export default function NeueBehandlungForm({
                   ? 'bg-s112-teal text-white border-s112-teal'
                   : 'bg-white text-s112-text-1 border-s112-border hover:border-s112-teal/50'}`}>
                 <input type="radio" name="art" value={o.value} checked={art === o.value}
-                  onChange={() => setArt(o.value as Art)} className="sr-only" />
+                  onChange={() => setArt(o.value)} className="sr-only" />
                 <o.icon size={14} />{o.label}
               </label>
             ))}
           </div>
+          {art === 'laubschneiden' && <p className="text-xs text-s112-muted mt-1">{LAUBSCHNEIDEN_HINWEIS}</p>}
         </div>
 
         <div className="grid grid-cols-2 gap-4">

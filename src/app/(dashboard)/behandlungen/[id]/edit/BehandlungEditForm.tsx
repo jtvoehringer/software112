@@ -4,16 +4,19 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateBehandlung } from '../../actions'
 import type { KostenartOption } from '../../neu/page'
-import { SprayCan, Sprout, Layers, Scissors, Leaf, MoreHorizontal, Hourglass, Ban, AlertTriangle } from 'lucide-react'
+import { Hourglass, Ban, AlertTriangle } from 'lucide-react'
 import { fehlerText } from '@/lib/fehler'
 import { fmtNum } from '@/lib/format'
 import { runden } from '@/lib/csv'
 import { STELLEN_MENGE } from '@/lib/behoerden/psm'
 import { pruefeMassnahmeMengen } from '@/lib/behandlungen/massnahmeMengen'
+import { LAUBARBEIT_OPTIONEN, LAUBSCHNEIDEN_HINWEIS, type MassnahmenArt } from '@/lib/behandlungen/arten'
 import {
   MENGEN_SICHT, alsFeld, aufwandEinheitText, duengerEinheitWechsel, duengermengeEinheit, eingabeZahl,
   mengeVorbelegung, mengenFelder, mengenInFormData,
 } from '../../neu/mengenFelder'
+import { bbchBeimBearbeiten, wetterBeimBearbeiten } from '../../neu/feldMatrix'
+import { ART_OPTIONS } from '../../neu/artOptionen'
 import MengenZusammenfassung from '../../neu/MengenZusammenfassung'
 
 const BBCH_OPTIONS = [
@@ -34,27 +37,13 @@ const BBCH_OPTIONS = [
   { value: '89', label: '89 – Vollreife' },
 ]
 const WITTERUNG = ['sonnig', 'bewoelkt', 'regnerisch', 'wind']
-const ART_OPTIONS = [
-  { value: 'spritzung',        label: 'Spritzung',        icon: SprayCan },
-  { value: 'duengung',         label: 'Düngung',          icon: Sprout },
-  { value: 'bodenbearbeitung', label: 'Bodenbearbeitung', icon: Layers },
-  { value: 'schnitt',          label: 'Schnitt',          icon: Scissors },
-  { value: 'laubarbeit',       label: 'Laubarbeit',       icon: Leaf },
-  { value: 'sonstiges',        label: 'Sonstiges',        icon: MoreHorizontal },
-]
 const SCHADERREGER_OPTIONEN = ['Oidium', 'Peronospora', 'Botrytis']
-const LAUBARBEIT_OPTIONEN = [
-  { value: 'entblaettern', label: 'Entblättern' },
-  { value: 'ausgeizen',    label: 'Ausgeizen' },
-  { value: 'gipfeln',      label: 'Gipfeln' },
-  { value: 'heften',       label: 'Heften' },
-  { value: 'sonstige',     label: 'Sonstige' },
-]
 
 // Welche Mengen-Felder pro Art sichtbar/pflicht sind, kommt aus MENGEN_SICHT (neu/mengenFelder.ts) -
 // identisch zum Anlegen-Formular, damit Anlegen und Bearbeiten konsistent sind (siehe "Analyse
-// Maßnahmen.docx", Tabelle 2; KAN-133).
-type Art = 'spritzung' | 'duengung' | 'bodenbearbeitung' | 'schnitt' | 'laubarbeit' | 'sonstiges'
+// Maßnahmen.docx", Tabelle 2; KAN-133). BBCH, Witterung und Temperatur: bbchBeimBearbeiten bzw.
+// wetterBeimBearbeiten (neu/feldMatrix.ts, KAN-143).
+type Art = MassnahmenArt
 
 const BIO_SPERRE = new Set(['bio_eu', 'biodynamisch'])
 const BIO_WARNUNG = new Set(['kip', 'nachhaltig'])
@@ -314,11 +303,12 @@ export default function BehandlungEditForm({
                   ? 'bg-s112-teal text-white border-s112-teal'
                   : 'bg-white text-s112-text-1 border-s112-border hover:border-s112-teal/50'}`}>
                 <input type="radio" name="art" value={o.value} checked={art === o.value}
-                  onChange={() => artWechseln(o.value as Art)} className="sr-only" />
+                  onChange={() => artWechseln(o.value)} className="sr-only" />
                 <o.icon size={14} />{o.label}
               </label>
             ))}
           </div>
+          {art === 'laubschneiden' && <p className="text-xs text-s112-muted mt-1">{LAUBSCHNEIDEN_HINWEIS}</p>}
         </div>
 
         <div className="grid grid-cols-2 gap-4">
@@ -620,20 +610,36 @@ export default function BehandlungEditForm({
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className={labelCls}>Witterung</label>
-            <select aria-label="Witterung" name="witterung" defaultValue={behandlung.witterung ?? ''} className={inputCls}>
-              <option value="">–</option>
-              {WITTERUNG.map(w => <option key={w} value={w}>{w.charAt(0).toUpperCase() + w.slice(1)}</option>)}
-            </select>
+        {/* BBCH außerhalb der Spritzung (Laubarbeit, Laubschneiden – optional laut Feld-Matrix); ein
+            gespeichertes Stadium bleibt sichtbar, damit Speichern es nicht leert */}
+        {art !== 'spritzung' && bbchBeimBearbeiten(art, art === startArt ? behandlung.bbch_stadium : null) && (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>BBCH-Stadium</label>
+              <select aria-label="BBCH-Stadium" name="bbch_stadium" defaultValue={art === startArt ? behandlung.bbch_stadium ?? '' : ''} className={inputCls}>
+                <option value="">– Auswählen –</option>
+                {BBCH_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
           </div>
-          <div>
-            <label className={labelCls}>Temperatur (°C)</label>
-            <input aria-label="Temperatur (°C)" name="temperatur_c" type="number" step="0.1"
-              defaultValue={behandlung.temperatur_c ?? ''} className={inputCls} />
+        )}
+
+        {wetterBeimBearbeiten(art, art === startArt ? behandlung : null) && (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Witterung</label>
+              <select aria-label="Witterung" name="witterung" defaultValue={behandlung.witterung ?? ''} className={inputCls}>
+                <option value="">–</option>
+                {WITTERUNG.map(w => <option key={w} value={w}>{w.charAt(0).toUpperCase() + w.slice(1)}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Temperatur (°C)</label>
+              <input aria-label="Temperatur (°C)" name="temperatur_c" type="number" step="0.1"
+                defaultValue={behandlung.temperatur_c ?? ''} className={inputCls} />
+            </div>
           </div>
-        </div>
+        )}
 
         <div>
           <label className={labelCls}>Notizen</label>
