@@ -338,7 +338,7 @@ export async function verkaufspostenStornieren(supabase: SB, tenantId: string, p
     throw new AktionsFehler('Dieser Verkauf ist bereits storniert – der Bestand wurde schon zurückgebucht.')
   }
 
-  // Positionen, Traubenverkäufe und E&A-Buchungen VOR dem ersten Schreibzugriff lesen:
+  // Positionen und Traubenverkäufe VOR dem ersten Schreibzugriff lesen:
   // ein Lesefehler bricht so ab, bevor irgendetwas geändert ist.
   const { data: posRaw, error: posErr } = await (supabase.from('verkauf_positionen') as any)
     .select('name, typ, fuellung_id, weinausbau_id, menge, traubenverkauf_id')
@@ -432,6 +432,9 @@ export async function verkaufspostenStornieren(supabase: SB, tenantId: string, p
   //     und gehen über ersetzeVerkaufsEinnahmen (Service-Role, KAN-149 Nebenbefund 2): Wer
   //     stornieren darf, nimmt sie mit zurück – per RLS dürften sonst nur Betriebs-Manager
   //     löschen. Gesperrte Einnahmen (übermittelte UVA) bleiben stehen (Gegenbuchung: KAN-149).
+  //     Die Einnahmen liest erst der Helfer, also nach Rückbuchung und Storno-Kennzeichen:
+  //     Fehler beim Lesen oder Entfernen landen nur als offener Punkt in `probleme` – der
+  //     Storno ist dann schon durchgeführt.
   {
     const ea = await ersetzeVerkaufsEinnahmen(tenantId, postenId, [], { beiGesperrtenNichtsAendern: false })
     if (!ea.ok) probleme.push(`${ea.fehler.replace(/[.\s]+$/, '')} – bitte in der E&A-Rechnung prüfen, sonst stimmt die UVA nicht`)

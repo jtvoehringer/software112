@@ -1,7 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
+import { getCurrentMembership, canWrite, canAdmin } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import type { AfaMethode } from '@/lib/ea/anlagen'
@@ -39,10 +39,34 @@ async function ctx() {
   await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
   if (!canWrite(membership.role, 'ea')) throw new AktionsFehler('Keine Berechtigung')
   const supabase = await createSupabaseServerClient()
-  return { supabase, tenantId: membership.tenantId }
+  return { supabase, tenantId: membership.tenantId, role: membership.role }
 }
 
 const pfade = () => { revalidatePath('/buchhaltung/anlagen'); revalidatePath('/buchhaltung'); revalidatePath('/buchhaltung/uebersicht') }
+
+// KAN-149 Nebenbefund 2: E&A-Buchungen löschen per RLS (ea_tx_delete) nur Betriebs-Manager und nur
+// nicht gesperrte – sonst filtert die Datenbank still. Die Rolle prüfen die AfA-Aktionen deshalb
+// VOR dem ersten Löschen. Trifft das Löschen trotzdem nicht alle IDs (veralteter Tab, Buchung
+// inzwischen im E&A-Journal gelöscht, gesperrt oder geändert), klärt diese Abfrage, ob es die
+// übrigen noch gibt: Sind sie weg, entspricht der Zustand der Absicht.
+const AFA_GEAENDERT = 'Die AfA-Buchungen wurden inzwischen geändert – die Seite wurde aktualisiert'
+
+async function nichtGeloeschteNochDa(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  tenantId: string,
+  ids: string[],
+  geloescht: unknown,
+  nurAfa: boolean,
+): Promise<{ ok: true; vorhanden: boolean } | { ok: false; fehler: string }> {
+  const weg = new Set(((geloescht ?? []) as R[]).map(r => r.id as string))
+  const fehlend = [...new Set(ids)].filter(id => !weg.has(id))
+  if (!fehlend.length) return { ok: true, vorhanden: false }
+  let q = (supabase.from('ea_transaktionen') as any).select('id').in('id', fehlend).eq('tenant_id', tenantId)
+  if (nurAfa) q = q.not('anlage_id', 'is', null)
+  const { data, error } = await q
+  if (error) return { ok: false, fehler: `Die AfA-Buchungen konnten nicht geprüft werden: ${(error as R).message}` }
+  return { ok: true, vorhanden: ((data ?? []) as R[]).length > 0 }
+}
 
 export async function speichereAnlage(a: AnlageEingabe): Promise<{ ok: true; id: string } | { ok: false; fehler: string }> {
   const { supabase, tenantId } = await ctx()
@@ -101,7 +125,7 @@ export async function loescheAnlage(id: string): Promise<{ ok: boolean; fehler?:
  * werden vorher entfernt. Sperre über pruefe_ea_zeitraum_offen (Dezember).
  */
 export async function bucheAfa(jahr: number, zeilen: { anlageId: string; name: string; soll: number; buchungId: string | null }[]): Promise<{ ok: boolean; fehler?: string; gebucht?: number }> {
-  const { supabase, tenantId } = await ctx()
+  const { supabase, tenantId, role } = await ctx()
   const stichtag = `${jahr}-12-31`
   const { data: pruefRaw } = await (supabase.rpc as any)('pruefe_ea_zeitraum_offen', { p_tenant_id: tenantId, p_datum: stichtag })
   const pruef = Array.isArray(pruefRaw) ? pruefRaw[0] : pruefRaw
@@ -114,13 +138,17 @@ export async function bucheAfa(jahr: number, zeilen: { anlageId: string; name: s
 
   const alt = zeilen.filter(z => z.buchungId).map(z => z.buchungId as string)
   if (alt.length) {
-    const { data: geloescht, error } = await (supabase.from('ea_transaktionen') as any).delete().in('id', alt).eq('tenant_id', tenantId).select('id')
-    if (error) return { ok: false, fehler: (error as R).message }
-    // KAN-149 Nebenbefund 2: RLS lässt nur Betriebs-Manager E&A-Buchungen löschen und filtert
-    // sonst still – ohne diese Prüfung stünde die AfA danach doppelt in der E&A-Rechnung.
-    if (((geloescht ?? []) as R[]).length !== alt.length) {
+    // KAN-149 Nebenbefund 2: ohne Löschrecht blieben die alten Zeilen stehen und die AfA stünde
+    // danach doppelt in der E&A-Rechnung – deshalb vor dem ersten Löschen abbrechen.
+    if (!canAdmin(role)) {
       return { ok: false, fehler: 'Bereits gebuchte AfA kann nur ein Betriebs-Manager ersetzen (Mitarbeiter dürfen E&A-Buchungen nicht löschen) – es wurde nichts gebucht.' }
     }
+    const { data: geloescht, error } = await (supabase.from('ea_transaktionen') as any).delete().in('id', alt).eq('tenant_id', tenantId).select('id')
+    if (error) return { ok: false, fehler: (error as R).message }
+    const rest = await nichtGeloeschteNochDa(supabase, tenantId, alt, geloescht, false)
+    // Übrige alte Zeilen sind dann schon gelöscht: Seite aktualisieren, damit sie offen erscheinen
+    if (!rest.ok) { pfade(); return { ok: false, fehler: rest.fehler } }
+    if (rest.vorhanden) { pfade(); return { ok: false, fehler: `${AFA_GEAENDERT}, bitte erneut buchen.` } }
   }
   const neu = zeilen.filter(z => z.soll > 0).map(z => ({
     tenant_id: tenantId, typ: 'ausgabe', datum: stichtag,
@@ -137,17 +165,21 @@ export async function bucheAfa(jahr: number, zeilen: { anlageId: string; name: s
 }
 
 export async function nimmAfaZurueck(jahr: number, buchungIds: string[]): Promise<{ ok: boolean; fehler?: string }> {
-  const { supabase, tenantId } = await ctx()
+  const { supabase, tenantId, role } = await ctx()
   const { data: pruefRaw } = await (supabase.rpc as any)('pruefe_ea_zeitraum_offen', { p_tenant_id: tenantId, p_datum: `${jahr}-12-31` })
   const pruef = Array.isArray(pruefRaw) ? pruefRaw[0] : pruefRaw
   if (pruef && pruef.offen === false) return { ok: false, fehler: pruef.grund ?? `Dezember ${jahr} ist abgeschlossen.` }
   if (!buchungIds.length) return { ok: true }
-  const { data: geloescht, error } = await (supabase.from('ea_transaktionen') as any).delete().in('id', buchungIds).eq('tenant_id', tenantId).not('anlage_id', 'is', null).select('id')
-  if (error) return { ok: false, fehler: (error as R).message }
   // KAN-149 Nebenbefund 2: sonst meldete die Rücknahme Erfolg, obwohl RLS nichts gelöscht hat
-  if (((geloescht ?? []) as R[]).length !== buchungIds.length) {
+  if (!canAdmin(role)) {
     return { ok: false, fehler: 'Die AfA kann nur ein Betriebs-Manager zurücknehmen (Mitarbeiter dürfen E&A-Buchungen nicht löschen).' }
   }
+  const { data: geloescht, error } = await (supabase.from('ea_transaktionen') as any).delete().in('id', buchungIds).eq('tenant_id', tenantId).not('anlage_id', 'is', null).select('id')
+  if (error) return { ok: false, fehler: (error as R).message }
+  // Nicht getroffene IDs, die es nicht mehr gibt, hat inzwischen jemand anders gelöscht – Ziel erreicht
+  const rest = await nichtGeloeschteNochDa(supabase, tenantId, buchungIds, geloescht, true)
   pfade()
+  if (!rest.ok) return { ok: false, fehler: rest.fehler }
+  if (rest.vorhanden) return { ok: false, fehler: `${AFA_GEAENDERT}, bitte erneut zurücknehmen.` }
   return { ok: true }
 }

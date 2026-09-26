@@ -9,6 +9,11 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 // Freigabe E&A scheiterte das Anlegen und die Einnahme fehlte ganz.
 // Die Aufrufer prüfen vorher Betrieb, Schreibsperre und Rechte (Warenwirtschaft oder E&A).
 // Gesperrte Zeilen (übermittelte UVA, is_locked) werden nie verändert.
+// Bekannte Lücke bis KAN-149: Welche Zeilen hier entfernt werden, entscheiden tenant_id,
+// verkaufsposten_id, import_quelle 'verkauf' und is_locked – verkaufsposten_id und import_quelle
+// darf `authenticated` per UPDATE ändern (RLS ea_tx_update, Mitarbeiter mit Freigabe E&A). Die
+// Service-Role entfernt also auch eine so umgewidmete Zeile. Abhilfe: DB-Sperre für diese beiden
+// Felder (Migration nur nach Freigabe) bzw. die Gegenbuchung statt Löschen aus KAN-149.
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -24,6 +29,13 @@ export type VerkaufsEinnahme = {
 export type EinnahmenErgebnis =
   | { ok: true; gesperrt: boolean; entfernt: number; angelegt: number }
   | { ok: false; fehler: string }
+
+/** Meldung, wenn beim Entfernen weniger Zeilen getroffen wurden als gelesen (paralleler Vorgang) */
+function teilweiseEntferntText(alt: number, entfernt: number, neuGeplant: boolean): string {
+  const vorher = `Von ${alt} E&A-Einnahme${alt === 1 ? '' : 'n'} des Verkaufs`
+  const nachher = entfernt === 0 ? 'wurde keine entfernt' : `wurde${entfernt === 1 ? '' : 'n'} nur ${entfernt} entfernt`
+  return `${vorher} ${nachher} (inzwischen gesperrt oder geändert)${neuGeplant ? ' – es wurde nichts neu gebucht' : ''}.`
+}
 
 /**
  * Ersetzt die nicht gesperrten abgeleiteten Einnahmen eines Verkaufspostens durch `neu`
@@ -63,9 +75,10 @@ export async function ersetzeVerkaufsEinnahmen(
       .select('id')
     if (delErr) return { ok: false, fehler: `E&A-Einnahmen des Verkaufs konnten nicht entfernt werden: ${(delErr as R).message}` }
     entfernt = ((geloescht ?? []) as R[]).length
-    // Eine Zeile wurde inzwischen gesperrt oder gelöscht (paralleler Vorgang): nichts neu anlegen
+    // Eine Zeile wurde inzwischen gesperrt oder gelöscht (paralleler Vorgang): nichts neu anlegen.
+    // Nur den Sachverhalt melden – die Handlungsanweisung ergänzt der Aufrufer (Zahlung, Storno).
     if (entfernt !== alt.length) {
-      return { ok: false, fehler: `Von ${alt.length} E&A-Einnahmen des Verkaufs wurden nur ${entfernt} entfernt – es wurde nichts neu gebucht. Bitte die Seite neu laden und die Zahlung erneut speichern.` }
+      return { ok: false, fehler: teilweiseEntferntText(alt.length, entfernt, neu.length > 0) }
     }
   }
 
