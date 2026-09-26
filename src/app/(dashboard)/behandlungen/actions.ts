@@ -7,6 +7,7 @@ import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { revalidatePath } from 'next/cache'
 import { AktionsFehler } from '@/lib/fehler'
 import { dezimal } from '@/lib/format'
+import { pruefeMassnahmeMengen, summeFlaecheHa, type MassnahmeMengenEingabe } from '@/lib/behandlungen/massnahmeMengen'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -25,6 +26,56 @@ function parseDecimal(val: FormDataEntryValue | null): number | null {
   const s = dezimal((val as string))
   const n = Number(s)
   return isNaN(n) ? null : n
+}
+
+// ── Mengen einer Maßnahme (KAN-133 Soll 10) ──────────────────────────────────
+// Bei einer Spritzung ist „Menge gesamt“ die Spritzbrühe (l), nie die Mittelmenge. Die Prüfung und
+// Ergänzung (Spritzbrühe ↔ Wasseraufwand × Fläche, reinkupfer_kg_ha) steckt in pruefeMassnahmeMengen()
+// (lib/behandlungen/massnahmeMengen.ts) – dieselbe Regel für Formular, Bearbeiten und Assistent; die
+// Fläche (Σ der Grundstücke) über summeFlaecheHa() von dort, wie die Bearbeiten-Seite.
+
+function zahlOderNull(v: unknown): number | null {
+  if (v == null || v === '') return null
+  const n = Number(v)
+  return Number.isFinite(n) ? n : null
+}
+
+/**
+ * Stammdaten für die Mengenprüfung: Cu-Gehalt des Pflanzenschutzmittels (Reinkupfer) bzw. Einheit des
+ * Düngemittels (Düngermenge in l nur bei Düngemitteln in l). Katalogeinträge haben tenant_id NULL.
+ */
+async function ladeMengenStamm(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  tenantId: string,
+  art: string,
+  psmId: string | null,
+  duengemittelId: string | null,
+): Promise<Pick<MassnahmeMengenEingabe, 'psm' | 'duengemittelEinheit'>> {
+  if (art === 'spritzung' && psmId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase.from('pflanzenschutzmittel') as any)
+      .select('cu_gehalt_pct, wirkstoff, wirkstoffgehalt_pct')
+      .eq('id', psmId)
+      .or(`tenant_id.eq.${tenantId},tenant_id.is.null`)
+      .maybeSingle()
+    if (error) throw new AktionsFehler((error as AR).message)
+    if (!data) throw new AktionsFehler('Das gewählte Pflanzenschutzmittel wurde nicht gefunden – bitte die Auswahl neu laden.')
+    const p = data as AR
+    return { psm: { cuGehaltPct: zahlOderNull(p.cu_gehalt_pct), wirkstoff: p.wirkstoff ?? null, wirkstoffgehaltPct: zahlOderNull(p.wirkstoffgehalt_pct) } }
+  }
+  if (art === 'duengung' && duengemittelId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase.from('duengemittel') as any)
+      .select('einheit')
+      .eq('id', duengemittelId)
+      .or(`tenant_id.eq.${tenantId},tenant_id.is.null`)
+      .maybeSingle()
+    if (error) throw new AktionsFehler((error as AR).message)
+    if (!data) throw new AktionsFehler('Das gewählte Düngemittel wurde nicht gefunden – bitte die Auswahl neu laden.')
+    return { duengemittelEinheit: (data as AR).einheit ?? null }
+  }
+  return {}
 }
 
 // Optionale Kosten-Vorschlagsfunktion: legt (best effort) einen Kosteneintrag +
@@ -273,42 +324,7 @@ export async function createBehandlung(formData: FormData) {
     ernteFruehesteins = d.toISOString().split('T')[0]
   }
 
-  // 1. Behandlung anlegen
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: beh, error: behErr } = await (supabase.from('behandlungen') as any)
-    .insert({
-      tenant_id:            tenantId,
-      art,
-      psm_id:               psmId,
-      duengemittel_id:      duengemittelId,
-      datum,
-      datum_bis:            datumBis,
-      aufwandmenge,
-      aufwandmenge_einheit: aufwandEinheit,
-      menge_gesamt:         mengeGesamt,
-      menge_einheit:        mengeEinheit,
-      konzentration,
-      wasseraufwand_l_ha:   wasseraufwand,
-      bbch_stadium:         bbch,
-      schaderreger,
-      witterung,
-      temperatur_c:         temperatur,
-      ernte_fruehesteins:   ernteFruehesteins,
-      notizen,
-      bearbeitungstiefe_cm: bearbeitungstiefe,
-      bearbeitungsgeraet:   bearbeitungsgeraet,
-      schnittart,
-      laubarbeit_art:       laubarbeitArt,
-      einarbeitung,
-      einarbeitung_zeitpunkt: einarbeitungZeitpunkt,
-    })
-    .select('id')
-    .single()
-
-  if (behErr) throw new AktionsFehler((behErr as AR).message)
-  const behandlungId = (beh as AR).id
-
-  // 2. Betroffene Grundstücke ermitteln:
+  // 1. Betroffene Grundstücke ermitteln (vor dem Anlegen – ihre Fläche braucht die Mengenprüfung):
   //    a) alle aktiven Grundstücke der ganz ausgewählten Weingärten (Ried-Auswahl)
   //    b) die einzeln ausgewählten Grundstücke (GST-Feinauswahl)
   //    Brache + Gerodet werden automatisch übersprungen
@@ -340,7 +356,49 @@ export async function createBehandlung(formData: FormData) {
     }
   }
 
-  // 3. Junction-Records anlegen (betroffene Grundstücke + flaeche_ha Snapshot, dedupliziert)
+  // 2. Mengen prüfen und ergänzen (KAN-133): Fläche = Σ der gewählten WI-GST
+  const mengen = pruefeMassnahmeMengen({
+    art, psmId, duengemittelId,
+    ...(await ladeMengenStamm(supabase, tenantId, art, psmId, duengemittelId)),
+    aufwand: aufwandmenge, aufwandEinheit,
+    mengeGesamt, mengeEinheit,
+    wasserLHa: wasseraufwand,
+    flaecheHa: summeFlaecheHa(Array.from(grundstueckeById.values(), g => g.flaeche_ha)),
+  })
+  if (!mengen.ok) throw new AktionsFehler(mengen.fehler)
+
+  // 3. Behandlung anlegen – Aufwand, Spritzbrühe/Düngermenge, Wasseraufwand und Reinkupfer aus der Prüfung
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: beh, error: behErr } = await (supabase.from('behandlungen') as any)
+    .insert({
+      tenant_id:            tenantId,
+      art,
+      psm_id:               psmId,
+      duengemittel_id:      duengemittelId,
+      datum,
+      datum_bis:            datumBis,
+      ...mengen.werte,
+      konzentration,
+      bbch_stadium:         bbch,
+      schaderreger,
+      witterung,
+      temperatur_c:         temperatur,
+      ernte_fruehesteins:   ernteFruehesteins,
+      notizen,
+      bearbeitungstiefe_cm: bearbeitungstiefe,
+      bearbeitungsgeraet:   bearbeitungsgeraet,
+      schnittart,
+      laubarbeit_art:       laubarbeitArt,
+      einarbeitung,
+      einarbeitung_zeitpunkt: einarbeitungZeitpunkt,
+    })
+    .select('id')
+    .single()
+
+  if (behErr) throw new AktionsFehler((behErr as AR).message)
+  const behandlungId = (beh as AR).id
+
+  // 4. Junction-Records anlegen (betroffene Grundstücke + flaeche_ha Snapshot, dedupliziert)
   if (grundstueckeById.size > 0) {
     const junctionRows = Array.from(grundstueckeById.values()).map(g => ({
       behandlung_id:  behandlungId,
@@ -352,7 +410,7 @@ export async function createBehandlung(formData: FormData) {
     if (jErr) throw new AktionsFehler((jErr as AR).message)
   }
 
-  // 4. Kosten-Vorschlagsfunktion (optional, best effort): Fläche je Weingarten aggregieren
+  // 5. Kosten-Vorschlagsfunktion (optional, best effort): Fläche je Weingarten aggregieren
   //    und – falls im Formular aktiviert – einen Kosteneintrag + Weingarten-Splits anlegen.
   const haByWeingarten = new Map<string, number>()
   for (const g of grundstueckeById.values()) {
@@ -362,7 +420,8 @@ export async function createBehandlung(formData: FormData) {
   await ggfKostenEintragAnlegen(supabase, tenantId, formData, datum, haByWeingarten, behandlungId)
 
   revalidatePath('/behandlungen')
-  return { id: behandlungId }
+  // hinweise: gespeichert, aber prüfenswert (z. B. Spritzbrühe ≠ Wasseraufwand × Fläche) – für Formular und Assistent
+  return { id: behandlungId, hinweise: mengen.hinweise }
 }
 
 export async function updateBehandlung(id: string, formData: FormData) {
@@ -400,13 +459,33 @@ export async function updateBehandlung(id: string, formData: FormData) {
     ernteFruehesteins = d.toISOString().split('T')[0]
   }
 
+  // Mengen prüfen und ergänzen (KAN-133) – Fläche = Σ der Grundstücke dieser Maßnahme (die GST-Auswahl
+  // ist beim Bearbeiten nicht änderbar). behandlung_grundstuecke hat keine tenant_id, daher eingebettet
+  // über die Maßnahme des Betriebs.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: bisher, error: bisherErr } = await (supabase.from('behandlungen') as any)
+    .select('id, behandlung_grundstuecke(flaeche_ha, grundstueck:grundstueck_id(flaeche_ha))')
+    .eq('id', id)
+    .eq('tenant_id', tenantId)
+    .maybeSingle()
+  if (bisherErr) throw new AktionsFehler((bisherErr as AR).message)
+  if (!bisher) throw new AktionsFehler('Maßnahme nicht gefunden – bitte die Seite neu laden.')
+  const mengen = pruefeMassnahmeMengen({
+    art, psmId, duengemittelId,
+    ...(await ladeMengenStamm(supabase, tenantId, art, psmId, duengemittelId)),
+    aufwand: aufwandmenge, aufwandEinheit,
+    mengeGesamt, mengeEinheit,
+    wasserLHa: wasseraufwand,
+    flaecheHa: summeFlaecheHa((((bisher as AR).behandlung_grundstuecke ?? []) as AR[]).map(bg => bg.flaeche_ha ?? bg.grundstueck?.flaeche_ha)),
+  })
+  if (!mengen.ok) throw new AktionsFehler(mengen.fehler)
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('behandlungen') as any)
     .update({
       art, psm_id: psmId, duengemittel_id: duengemittelId, datum, datum_bis: datumBis,
-      aufwandmenge, aufwandmenge_einheit: aufwandEinheit,
-      menge_gesamt: mengeGesamt, menge_einheit: mengeEinheit,
-      konzentration, wasseraufwand_l_ha: wasseraufwand,
+      ...mengen.werte,
+      konzentration,
       bbch_stadium: bbch, schaderreger, witterung, temperatur_c: temperatur,
       ernte_fruehesteins: ernteFruehesteins, notizen,
       bearbeitungstiefe_cm: bearbeitungstiefe, bearbeitungsgeraet,
@@ -421,6 +500,7 @@ export async function updateBehandlung(id: string, formData: FormData) {
 
   revalidatePath('/behandlungen')
   revalidatePath('/behandlungen/berichte')
+  return { hinweise: mengen.hinweise }
 }
 
 export async function deleteBehandlung(id: string) {

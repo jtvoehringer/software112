@@ -65,6 +65,21 @@ const ERLAUBTE_TABELLEN = [
 const TABELLEN_KONTEXT = `
 - weingarten / grundstuecke: Rieden (weingarten) und einzelne Grundstücke (GST, grundstuecke.weingarten_id → weingarten.id) mit Rebsorte, Fläche, Bewirtschaftungsart.
 - behandlungen ↔ behandlung_grundstuecke (Junction, m:n) ↔ grundstuecke: Pflanzenschutz-/Düngemaßnahmen. pflanzenschutzmittel.cu_gehalt_pct für Kupfer-Bilanzen.
+  MENGEN IN behandlungen – die Bedeutung hängt von art ab (KAN-133):
+  art='spritzung': menge_gesamt ist die gesamte SPRITZBRÜHE in Liter (Mittel + Wasser), NIEMALS die Mittelmenge –
+  auch nicht bei alten Einträgen mit menge_einheit kg oder g. Die MITTELMENGE (eingesetztes Pflanzenschutzmittel)
+  kommt nur aus aufwandmenge und aufwandmenge_einheit: 'kg_ha' bzw. 'l_ha' → aufwandmenge * Fläche (kg bzw. l);
+  'kg' bzw. 'l' → aufwandmenge (gesamt); 'g_hl' bzw. 'ml_hl' (Konzentration im Tank) → aufwandmenge * Spritzbrühe_l
+  / 100 / 1000 (kg bzw. l), mit Spritzbrühe_l = menge_gesamt (menge_einheit 'l'; bei 'ml' / 1000), sonst
+  wasseraufwand_l_ha * Fläche. Fläche = SUM(behandlung_grundstuecke.flaeche_ha) der Maßnahme. Ohne aufwandmenge
+  ist die Mittelmenge unbekannt (NULL) – dann NICHT menge_gesamt und NICHT konzentration verwenden.
+  art='duengung': menge_gesamt ist die Düngermenge in kg (bzw. l, wenn duengemittel.einheit = 'l'); fehlt sie,
+  aufwandmenge * Fläche bei 'kg_ha' bzw. aufwandmenge bei 'kg' ('l_ha' bzw. 'l' nur bei duengemittel.einheit = 'l').
+  Reinkupfer (kg) = Mittelmenge * pflanzenschutzmittel.cu_gehalt_pct / 100 (Mittel in l wie die Cu-Bilanz mit 1 kg/l).
+  Die Spritzbrühe NIE über mehrere Maßnahmen summieren: eine Tankmischung steht als mehrere Maßnahmen (je Mittel
+  eine) mit derselben Brühe. Summen über Maßnahmen nur für die Mittelmenge, getrennt je Mittel und Einheit (kg und
+  l nie addieren). Beim JOIN auf behandlung_grundstuecke wiederholt sich jede Maßnahme je Grundstück – die Fläche
+  daher zuerst je behandlung_id summieren (Unterabfrage/CTE), Werte der Maßnahme nicht über die Join-Zeilen summieren.
 - ernte_parzellen: Lesedaten je Grundstück und Jahrgang (jahrgang_id → weinjahrgaenge.id), menge_kg, oechsle, klosterneuburger (°KMW).
 - weinausbau: Kellerbuch-Chargen (der "Keller-Bestand"). DREI VERSCHIEDENE, oft unterschiedliche Textfelder –
   name = frei vergebener Produkt-/Chargenname (z.B. "Partywein Kängaru", oft eine Fantasiebezeichnung, KEINE

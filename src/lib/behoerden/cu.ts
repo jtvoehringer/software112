@@ -7,21 +7,25 @@
 //   • Cu-Gehalt: pflanzenschutzmittel.cu_gehalt_pct; fehlt er bei einem Kupfer-Wirkstoff,
 //     ersatzweise wirkstoffgehalt_pct (Näherung, als Hinweis gemeldet – wie bisher im Berichte-Tab).
 //   • Cu (kg) je Maßnahme = Mittelmenge (kg, mittelmengeKg mit Litern ≈ kg) × Cu-Gehalt / 100.
+//     Die Mittelmenge einer Spritzung kommt seit KAN-133 (26.09.2026) nur aus dem Aufwand – „Menge
+//     gesamt“ ist die Spritzbrühe und steht nur zur Information in der CSV.
 //   • Cu (kg/ha) je Maßnahme = Cu (kg) / behandelte Fläche (Σ Grundstücke der Maßnahme).
 //   • Je Weingarten: Cu anteilig nach Grundstücksfläche, geteilt durch die Stammdaten-Fläche
 //     des Weingartens; dazu die gleitenden Summen über 5 Jahre (ÖPUL, 20 kg/ha) und 7 Jahre
 //     (DVO (EU) 2021/1165 Anhang II, 28 kg/ha).
-//   • Betrieb: Σ Cu (kg) / Σ Fläche der aktiven Weingärten – wie bisher auf der Druckseite.
-//     (Der Berichte-Tab teilte bis 24.09.2026 durch die Summe der behandelten Flächen aller
-//     Anwendungen – bei fünf Spritzungen nur ein Fünftel des tatsächlichen Eintrags je ha.)
+//   • Betrieb: Σ Cu (kg) / Σ Fläche der WI-Grundstücke der aktiven Weingärten (betriebsflaecheWi,
+//     KAN-133 Nr. 5). Bis 26.09.2026 Σ weingarten.flaeche_ha – bei Betrieben ohne Stammdaten-Fläche
+//     0 ha und damit kein Wert. (Der Berichte-Tab teilte bis 24.09.2026 durch die Summe der
+//     behandelten Flächen aller Anwendungen – bei fünf Spritzungen nur ein Fünftel des Eintrags je ha.)
+//     Dieselbe Rechnung zeigt die Kachel „Kupfer“ in /reports (Tab „Behandlungen“).
 //   • Ampel je Jahr gegen 4 kg/ha (EU-Bio-VO 2018/848, bisherige App-Regel; fachlich offen:
 //     28 kg in 7 Jahren) – Warnschwelle ab 80 %.
 
 import { runden, STELLEN, type CsvSpalte } from '@/lib/csv'
 import type { LadeErgebnis } from './typen'
 import {
-  behandlungKurz, betriebsflaecheHa, jahrZeitraum, ladeBehandlungen, ladeWeingaerten, liste,
-  mittelmengeKg, riedText, weingartenText, einheitText, STELLEN_MENGE,
+  behandlungKurz, betriebsflaecheWi, jahrZeitraum, ladeBehandlungen, ladeWeingaerten, liste,
+  mittelmenge, mittelmengeKg, riedText, spritzbruehe, weingartenText, einheitText, STELLEN_MENGE,
   type PsmBehandlung, type WeingartenStamm,
 } from './psm'
 
@@ -69,10 +73,12 @@ export type CuBehandlungZeile = {
   zulassungsnr: string | null
   cuGehaltPct: number
   cuGehaltQuelle: string
-  /** erfasste Menge und Einheit */
-  menge: number | null
-  einheit: string
-  /** Mittelmenge in kg (Grundlage der Cu-Berechnung) */
+  /** Spritzbrühe der Maßnahme (l) – nur zur Information, nie summieren (Tankmischung) */
+  spritzbruehe: number | null
+  /** erfasster Aufwand und Einheit (Grundlage der Mittelmenge) */
+  aufwand: number | null
+  aufwandEinheit: string
+  /** Mittelmenge in kg (Grundlage der Cu-Berechnung; Mittel in l mit 1 kg/l) */
   mengeKg: number
   mengeBasis: string
   /** behandelte Fläche (ha) */
@@ -104,7 +110,7 @@ export type CuWeingartenZeile = {
 
 export type CuJahr = {
   jahr: number
-  /** Betriebsfläche (aktive Weingärten, ha) */
+  /** Betriebsfläche (WI-Grundstücke der aktiven Weingärten, ha) */
   gesamtHa: number
   /** Σ Cu (kg) der Einzelbehandlungen (gerundete Werte) */
   cuKg: number
@@ -136,10 +142,10 @@ function durch(z: number, n: number | null): number | null {
  * mitgeben). `jahre`: auszugebende Jahre – ohne Angabe alle Jahre mit Kupfereinsatz.
  */
 export function cuBilanz(behandlungen: readonly PsmBehandlung[], weingaerten: readonly WeingartenStamm[], opt: { jahre?: readonly number[] | null } = {}): CuBilanz {
-  const gesamtHa = betriebsflaecheHa(weingaerten)
+  const gesamtHa = betriebsflaecheWi(weingaerten)
   const wgStamm = new Map(weingaerten.map(w => [w.id, w]))
   const warnungen: string[] = []
-  // Hinweise je Jahr sammeln – ausgegeben werden nur die der ausgegebenen Jahre (Vorjahre zählen nur in die 5-/7-Jahres-Summen)
+  // Hinweise je Jahr sammeln – mit Jahresauswahl ausgegeben nur die der ausgegebenen Jahre (Vorjahre zählen nur in die 5-/7-Jahres-Summen)
   type Hinweis = { jahr: number; text: string }
   const ohneMenge: Hinweis[] = []
   const ohneFlaeche: Hinweis[] = []
@@ -155,7 +161,11 @@ export function cuBilanz(behandlungen: readonly PsmBehandlung[], weingaerten: re
     const gehalt = cuGehalt(b)
     if (!gehalt) continue
     const mm = mittelmengeKg(b, { literAlsKg: true })
-    if (!mm) { ohneMenge.push({ jahr: b.jahr, text: `${behandlungKurz(b)} – ${b.psm?.name ?? ''}` }); continue }
+    if (!mm) {
+      const warnung = mittelmenge(b).warnung
+      ohneMenge.push({ jahr: b.jahr, text: `${behandlungKurz(b)} – ${b.psm?.name ?? ''}${warnung ? `: ${warnung}` : ''}` })
+      continue
+    }
     if (mm.dichteAngenommen) literAngenommen.push({ jahr: b.jahr, text: behandlungKurz(b) })
     if (gehalt.quelle !== 'Stammdaten') naeherungCu.push({ jahr: b.jahr, text: b.psm?.name ?? '–' })
     const cuKg = runden(mm.kg * gehalt.pct / 100, STELLEN_CU)
@@ -165,8 +175,9 @@ export function cuBilanz(behandlungen: readonly PsmBehandlung[], weingaerten: re
       weingarten: weingartenText(b), ried: riedText(b),
       mittel: b.psm?.name ?? '–', zulassungsnr: b.psm?.zulassungsnr ?? null,
       cuGehaltPct: gehalt.pct, cuGehaltQuelle: gehalt.quelle,
-      menge: b.mengeGesamt !== null ? runden(b.mengeGesamt, STELLEN_MENGE) : null,
-      einheit: einheitText(b.mengeEinheit),
+      spritzbruehe: spritzbruehe(b),
+      aufwand: b.aufwand !== null ? runden(b.aufwand, STELLEN_MENGE) : null,
+      aufwandEinheit: einheitText(b.aufwandEinheit),
       mengeKg: mm.kg, mengeBasis: mm.basis,
       flaecheHa: b.flaecheHa,
       cuKg, cuKgHa: durch(cuKg, b.flaecheHa),
@@ -245,18 +256,21 @@ export function cuBilanz(behandlungen: readonly PsmBehandlung[], weingaerten: re
   })
 
   const ausgabeSet = new Set(ausgabe)
-  const imZeitraum = (h: Hinweis[]) => h.filter(x => ausgabeSet.has(x.jahr)).map(x => x.text)
-  const vorjahre = ohneMenge.filter(x => !ausgabeSet.has(x.jahr) && ausgabe.some(j => x.jahr < j && x.jahr > j - 7)).length
+  // ohne Jahresauswahl (Berichte-Tab „Cu-Bilanz“) gelten alle Hinweise – auch aus Jahren, in denen
+  // keine Kupfer-Anwendung eine Mittelmenge hat (sonst verschwände z. B. eine Spritzung „ohne Aufwand“ still)
+  const alleJahre = !(opt.jahre && opt.jahre.length)
+  const imZeitraum = (h: Hinweis[]) => h.filter(x => alleJahre || ausgabeSet.has(x.jahr)).map(x => x.text)
+  const vorjahre = alleJahre ? 0 : ohneMenge.filter(x => !ausgabeSet.has(x.jahr) && ausgabe.some(j => x.jahr < j && x.jahr > j - 7)).length
   const aMenge = imZeitraum(ohneMenge), aFlaeche = imZeitraum(ohneFlaeche), aLiter = imZeitraum(literAngenommen)
   const aCu = [...new Set(imZeitraum(naeherungCu))]
-  if (aMenge.length > 0) warnungen.push(`${aMenge.length} Kupfer-${aMenge.length === 1 ? 'Anwendung' : 'Anwendungen'} ohne umrechenbare Menge (kg, l, kg/ha oder l/ha) – nicht in der Bilanz: ${liste(aMenge)}`)
-  if (vorjahre > 0) warnungen.push(`${vorjahre} Kupfer-${vorjahre === 1 ? 'Anwendung' : 'Anwendungen'} der Vorjahre ohne umrechenbare Menge – fehlt in den 5-/7-Jahres-Summen.`)
+  if (aMenge.length > 0) warnungen.push(`${aMenge.length} Kupfer-${aMenge.length === 1 ? 'Anwendung' : 'Anwendungen'} ohne berechenbare Mittelmenge (Aufwand fehlt oder ist nicht umrechenbar) – nicht in der Bilanz: ${liste(aMenge)}`)
+  if (vorjahre > 0) warnungen.push(`${vorjahre} Kupfer-${vorjahre === 1 ? 'Anwendung' : 'Anwendungen'} der Vorjahre ohne berechenbare Mittelmenge – fehlt in den 5-/7-Jahres-Summen.`)
   if (aFlaeche.length > 0) warnungen.push(`${aFlaeche.length} Kupfer-${aFlaeche.length === 1 ? 'Anwendung' : 'Anwendungen'} ohne behandelte Fläche – Cu (kg/ha) bleibt leer: ${liste(aFlaeche)}`)
-  if (aLiter.length > 0) warnungen.push(`${aLiter.length} Kupfer-${aLiter.length === 1 ? 'Anwendung' : 'Anwendungen'} in Litern erfasst – Dichte 1 kg/l angenommen (wie bisher): ${liste(aLiter)}`)
+  if (aLiter.length > 0) warnungen.push(`${aLiter.length} Kupfer-${aLiter.length === 1 ? 'Anwendung' : 'Anwendungen'} mit Mittelmenge in Litern – Dichte 1 kg/l angenommen (wie bisher): ${liste(aLiter)}`)
   if (aCu.length > 0) warnungen.push(`Cu-Gehalt fehlt in den Mittel-Stammdaten (${liste(aCu)}) – Wirkstoffgehalt als Näherung verwendet; bitte Cu-Gehalt unter Betriebsmittel ergänzen.`)
   const ohneWgFlaeche = jahre.flatMap(j => j.weingaerten.filter(w => w.flaecheHa === null).map(w => w.weingarten))
   if (ohneWgFlaeche.length > 0) warnungen.push(`Weingarten ohne Fläche in den Stammdaten – Cu (kg/ha) bleibt leer: ${liste([...new Set(ohneWgFlaeche)])}`)
-  if (gesamtHa <= 0 && alleZeilen.some(z => ausgabeSet.has(z.jahr))) warnungen.push('Keine aktiven Weingärten mit Fläche – Cu je ha des Betriebs nicht berechenbar.')
+  if (gesamtHa <= 0 && alleZeilen.some(z => ausgabeSet.has(z.jahr))) warnungen.push('Keine Grundstücke mit Nutzart WI in aktiven Weingärten – Cu je ha des Betriebs nicht berechenbar.')
 
   return {
     gesamtHa,
@@ -290,8 +304,9 @@ export const SPALTEN_CU_BEHANDLUNGEN: CsvSpalte<CuBehandlungZeile>[] = [
   { kopf: 'Zulassungsnr.', typ: 'code', wert: z => z.zulassungsnr },
   { kopf: 'Cu-Gehalt (%)', typ: 'prozent', wert: z => z.cuGehaltPct },
   { kopf: 'Cu-Gehalt Quelle', typ: 'text', wert: z => z.cuGehaltQuelle },
-  { kopf: 'Menge', typ: 'dezimal', stellen: STELLEN_MENGE, wert: z => z.menge },
-  { kopf: 'Einheit', typ: 'text', wert: z => z.einheit },
+  { kopf: 'Spritzbrühe (l)', typ: 'dezimal', stellen: STELLEN_MENGE, wert: z => z.spritzbruehe },
+  { kopf: 'Aufwand', typ: 'dezimal', stellen: STELLEN_MENGE, wert: z => z.aufwand },
+  { kopf: 'Aufwand-Einheit', typ: 'text', wert: z => z.aufwandEinheit },
   { kopf: 'Mittelmenge (kg)', typ: 'dezimal', stellen: STELLEN_MENGE, wert: z => z.mengeKg },
   { kopf: 'Mengenbasis', typ: 'text', wert: z => z.mengeBasis },
   { kopf: 'Behandelte Fläche (ha)', typ: 'dezimal', stellen: STELLEN.ha, wert: z => z.flaecheHa },

@@ -112,6 +112,11 @@ const PRUEFREGEL_MELDUNG: Record<string, string> = {
   verschneidungen_ziel_mostgewicht_einheit_vorher_check: MOSTGEWICHT_EINHEIT_UNBEKANNT,
   keller_umzuege_mostgewicht_einheit_vorher_check: MOSTGEWICHT_EINHEIT_UNBEKANNT,
   keller_umzuege_mostgewicht_einheit_nachher_check: MOSTGEWICHT_EINHEIT_UNBEKANNT,
+  // KAN-133: optionaler CHECK der Migration kan133_spritzbruehe_demo_kommentare (Abschnitt 5; Test:
+  // scripts/tests/massnahme-mengen.test.mjs). Rückfall, falls eine Spritzung an der Serverprüfung
+  // (pruefeMassnahmeMengen, lib/behandlungen/massnahmeMengen.ts) vorbei mit kg/g bzw. ohne Einheit kommt.
+  behandlungen_spritzung_bruehe_l_check:
+    'Bei einer Spritzung ist „Menge gesamt“ die Spritzbrühe in Litern – bitte in l angeben. Die Mittelmenge ergibt sich aus der Aufwandmenge.',
 }
 
 const GEBINDE_INAKTIV = 'Gebinde stattdessen inaktiv setzen – die Historie bleibt so erhalten.'
