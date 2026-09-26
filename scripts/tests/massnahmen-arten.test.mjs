@@ -695,39 +695,24 @@ describe('Quelltext: keine Stelle mit eigener, veralteter Artenliste', () => {
     for (const art of DB_BEHANDLUNGEN_ART_CHECK) assert.ok(ki.includes(`'${art}' (${arten.MASSNAHMEN_ART_LABEL[art]}`), `KI-Kontext: ${art}`)
     assert.match(ki, /'laubschneiden' \(Laubschneiden = maschinelles Laubschneiden an Seiten und Gipfel, ohne laubarbeit_art\)/)
     assert.match(ki, /saetze_massnahmen\.art .*dieselben Werte ohne 'lese'/)
-    // Unterarten mit gespeichertem Code und Bezeichnung; Suche über Wortstämme ohne Umlaut, die Code und
-    // Freitext treffen ('%entblätter%' fände 'entblaettern' nicht); Datierung per Stichtag statt Ticketnummer.
-    // Bezeichnung exakt wie in der Oberfläche – danach nur ')' oder ein Zusatz nach ';' (nicht „Gipfeln von Hand“)
+    // Unterarten mit gespeichertem Code und Bezeichnung exakt wie in der Oberfläche (nicht „Gipfeln von Hand“);
+    // Suche über Wortstämme ohne Umlaut, die Code und Freitext treffen ('%entblätter%' fände 'entblaettern' nicht)
     for (const o of arten.LAUBARBEIT_OPTIONEN) {
-      assert.ok(ki.includes(`'${o.value}' (${o.label})`) || ki.includes(`'${o.value}' (${o.label};`), `KI-Kontext: laubarbeit_art ${o.value}`)
+      assert.ok(ki.includes(`'${o.value}' (${o.label})`), `KI-Kontext: laubarbeit_art ${o.value}`)
     }
-    assert.match(ki, /'gipfeln' \(Gipfeln; bei created_at ab dem Stichtag Gipfeln von Hand, davor offen\)/)
     const wortstaemme = [...(ki.match(/UNTERARTEN \(behandlungen\.laubarbeit_art[^]*?ILIKE ((?:'%[a-z]+%'(?:, | bzw\. )?)+)/)?.[1] ?? '').matchAll(/'%([a-z]+)%'/g)].map(m => m[1])
     assert.ok(wortstaemme.length > 0, 'KI-Kontext: Wortstämme für laubarbeit_art')
     for (const o of arten.LAUBARBEIT_OPTIONEN.filter(x => x.value !== 'sonstige')) {
       for (const text of [o.value, o.label.toLowerCase()]) assert.ok(wortstaemme.some(w => text.includes(w)), `KI-Kontext: kein Wortstamm für ${text}`)
     }
     assert.doesNotMatch(ki, /vor KAN-143/)
-    // Stichtag hängt am Erfassungszeitpunkt – nachgetragene Maßnahmen mit älterem datum sind eindeutig
-    assert.match(ki, /created_at vor dem Stichtag/)
-    assert.match(ki, /maßgeblich ist created_at, nicht datum/)
-    assert.doesNotMatch(ki, /Einträgen vor dem 26\.09\.2026/)
-    // Stichtag = erster 'laubschneiden'-Eintrag des Betriebs (RLS), nicht ein festes Datum: Der Migrationstag
-    // (CHECK seit 26.09.2026) liegt vor dem Deploy der Auswahl, bis dahin gab es für maschinelles Gipfeln nur
-    // Laubarbeit › Gipfeln – ein festes Datum davor machte solche Einträge fälschlich zu „von Hand“
-    assert.match(ki, /STICHTAG ist deshalb der erste damit angelegte Eintrag im Betrieb: \(SELECT min\(created_at\) FROM behandlungen WHERE art = 'laubschneiden' AND created_at >= '(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\+00'\)/)
-    // … gezählt erst ab dem Einspielen der Migration (Version = Zeitpunkt in UTC): Davor ließ der CHECK kein
-    // 'laubschneiden' zu – eine ältere Zeile ist umgestellt (created_at bleibt beim Bearbeiten) oder rückdatiert
-    // und zöge den Stichtag sonst zurück
-    const untergrenze = ki.match(/WHERE art = 'laubschneiden' AND created_at >= '([^']+)\+00'/)?.[1]
-    const version = readdirSync(path.resolve(SRC, '../supabase/migrations')).find(d => /^\d{14}_kan143_laubschneiden\.sql$/.test(d))?.slice(0, 14)
-    assert.ok(version, 'Migration *_kan143_laubschneiden.sql fehlt')
-    assert.equal(untergrenze, version.replace(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/, '$1-$2-$3 $4:$5:$6'))
-    assert.match(ki, /Auf 'laubschneiden' umgestellte oder rückdatierte Einträge mit älterem created_at bestimmen den Stichtag nicht – sie selbst sind eindeutig Laubschneiden/)
-    assert.match(ki, /bzw\. bei allen, solange der STICHTAG NULL ist/)
+    // Ältere Laubarbeiten können maschinelles Laubschneiden sein – als Hinweis, ohne Stichtag-Unterabfrage im
+    // Prompt (die KI soll für einfache Fragen einfaches SQL erzeugen)
+    assert.match(ki, /Die Art 'laubschneiden' gibt es erst seit Ende September 2026 – ältere Laubarbeiten \(Unterart 'gipfeln'\) können maschinelles Laubschneiden enthalten\./)
+    assert.match(ki, /Fragt der User allgemein nach Gipfeln bzw\. Laubschnitt, beide Arten berücksichtigen/)
     const artenAbschnitt = ki.slice(ki.indexOf('ARTEN (behandlungen.art'), ki.indexOf('saetze_massnahmen.art'))
-    assert.ok(artenAbschnitt.includes('STICHTAG'), 'KI-Kontext: Abschnitt ARTEN/UNTERARTEN gefunden')
-    assert.doesNotMatch(artenAbschnitt, /\d{1,2}\.\d{2}\.\d{4}/)
+    assert.ok(artenAbschnitt.length > 100, 'KI-Kontext: Abschnitt ARTEN/UNTERARTEN gefunden')
+    assert.doesNotMatch(artenAbschnitt, /STICHTAG|min\(created_at\)|\d{1,2}\.\d{2}\.\d{4}/)
   })
 
   test('Hilfe: FAQ und Handbuch erklären Laubschneiden, Gipfeln von Hand bleibt Laubarbeit', () => {
