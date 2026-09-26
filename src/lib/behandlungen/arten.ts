@@ -73,6 +73,17 @@ export function laubarbeitArtFuer(art: string | null | undefined, laubarbeitArt:
   return art === 'laubarbeit' ? laubarbeitArt : null
 }
 
+/** Fehlertext, wenn eine Laubarbeit ohne Unterart gespeichert werden soll */
+export const LAUBARBEIT_ART_FEHLT = 'Bitte die Art der Laubarbeit wählen.'
+
+/**
+ * Laubarbeit braucht ihre Unterart (Feld-Matrix: laubarbeitArt 'pflicht') – auch nach einem Artwechsel beim
+ * Bearbeiten (z. B. Laubschneiden → Laubarbeit); sonst findet u. a. die KI-Abfrage das Gipfeln von Hand nicht
+ */
+export function laubarbeitArtFehlt(art: string | null | undefined, laubarbeitArt: string | null | undefined): boolean {
+  return art === 'laubarbeit' && !laubarbeitArt
+}
+
 /** Pflanzenschutzmittel gibt es bei Spritzung und Sonstiges (Bearbeiten-Formular), Düngemittel nur bei Düngung */
 export function artMitPsm(art: string | null | undefined): boolean {
   return art === 'spritzung' || art === 'sonstiges'

@@ -18,12 +18,14 @@
 //
 // KAN-143 (26.09.2026): neue Art „laubschneiden“ (maschinelles Laubschneiden an Seiten und Gipfel, ohne
 // laubarbeit_art). Arten und Bezeichnungen aus lib/behandlungen/arten.ts; eine unbekannte Art lehnt das
-// Tool vor dem Speichern ab, laubarbeit_art geht nur bei einer Laubarbeit mit.
+// Tool vor dem Speichern ab, laubarbeit_art geht nur bei einer Laubarbeit mit (dort Pflicht).
 import { createBehandlung } from '@/app/(dashboard)/behandlungen/actions'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { dezimal } from '@/lib/format'
 import { AUFWAND_EINHEITEN, pruefeMassnahmeMengen } from '@/lib/behandlungen/massnahmeMengen'
-import { LAUBARBEIT_OPTIONEN, MASSNAHMEN_ARTEN, MASSNAHMEN_ART_LABEL, istMassnahmenArt, laubarbeitArtFuer } from '@/lib/behandlungen/arten'
+import {
+  LAUBARBEIT_OPTIONEN, MASSNAHMEN_ARTEN, MASSNAHMEN_ART_LABEL, istMassnahmenArt, laubarbeitArtFehlt, laubarbeitArtFuer,
+} from '@/lib/behandlungen/arten'
 
 /** „Spritzung, Düngung, …, Laubschneiden oder Sonstiges“ – für Tool-Beschreibung und Rückfragen */
 const ARTEN_TEXT = MASSNAHMEN_ARTEN.map(a => MASSNAHMEN_ART_LABEL[a]).join(', ').replace(/, ([^,]*)$/, ' oder $1')
@@ -188,6 +190,14 @@ export async function fuehreMassnahmeDokumentierenAus(
       erfolg: false,
       hinweis: `Unbekannte Maßnahmenart „${String(input.art)}“ – erlaubt: ${MASSNAHMEN_ARTEN.join(', ')}. ` +
         'Bitte beim User nachfragen, welche Art gemeint ist. Es wurde NICHTS gespeichert.',
+    }
+  }
+  // Laubarbeit ohne Unterart lehnt auch createBehandlung ab – hier mit Rückfrage statt Fehler
+  if (laubarbeitArtFehlt(input.art, input.laubarbeit_art ? String(input.laubarbeit_art) : null)) {
+    return {
+      erfolg: false,
+      hinweis: `Bei einer Laubarbeit ist laubarbeit_art Pflicht (${LAUBARBEIT_OPTIONEN.map(o => o.value).join(', ')}). ` +
+        'Bitte beim User nachfragen. Es wurde NICHTS gespeichert.',
     }
   }
 

@@ -163,6 +163,15 @@ describe('Artenliste (lib/behandlungen/arten.ts) = DB-CHECKs', nurMitHooks, () =
     assert.deepEqual(arten.LAUBARBEIT_OPTIONEN.map(o => o.value), ['entblaettern', 'ausgeizen', 'gipfeln', 'heften', 'sonstige'])
   })
 
+  test('laubarbeitArtFehlt: Laubarbeit braucht ihre Unterart, alle anderen Arten nicht', () => {
+    assert.equal(arten.laubarbeitArtFehlt('laubarbeit', null), true)
+    assert.equal(arten.laubarbeitArtFehlt('laubarbeit', ''), true)
+    assert.equal(arten.laubarbeitArtFehlt('laubarbeit', undefined), true)
+    assert.equal(arten.laubarbeitArtFehlt('laubarbeit', 'gipfeln'), false)
+    for (const art of DB_BEHANDLUNGEN_ART_CHECK.filter(a => a !== 'laubarbeit')) assert.equal(arten.laubarbeitArtFehlt(art, null), false, art)
+    assert.equal(arten.LAUBARBEIT_ART_FEHLT, 'Bitte die Art der Laubarbeit wählen.')
+  })
+
   test('mittelFuerArt: Mittel und Wartezeit nur, wenn die Art das Mittel kennt', () => {
     const alles = { psmId: 'p-1', duengemittelId: 'd-1', wartezeitTage: 35 }
     for (const art of ['laubschneiden', 'laubarbeit', 'schnitt', 'bodenbearbeitung', 'lese', null]) {
@@ -205,7 +214,8 @@ describe('createBehandlung/updateBehandlung: bei Arten ohne Mittel kein psm_id u
     return fd
   }
   // wie nach einem Artwechsel Spritzung → Laubschneiden im Bearbeiten-Formular bzw. vom Assistenten mitgeschickt
-  const MIT_MITTEL = { datum: '2026-07-02', grundstueck_ids: 'g-1', psm_id: 'p-1', duengemittel_id: 'd-1', wartezeit_tage: '14' }
+  // (laubarbeit_art geht nur bei einer Laubarbeit mit, dort ist sie Pflicht)
+  const MIT_MITTEL = { datum: '2026-07-02', grundstueck_ids: 'g-1', psm_id: 'p-1', duengemittel_id: 'd-1', wartezeit_tage: '14', laubarbeit_art: 'gipfeln' }
   const gespeichert = (op) => globalThis.__kan143Supabase.schreiben.find(s => s.tabelle === 'behandlungen' && s.op === op)?.p
 
   for (const art of ['laubschneiden', 'laubarbeit', 'schnitt', 'bodenbearbeitung']) {
@@ -221,8 +231,24 @@ describe('createBehandlung/updateBehandlung: bei Arten ohne Mittel kein psm_id u
       const upd = gespeichert('update')
       assert.equal(upd.art, art)
       assert.deepEqual([upd.psm_id, upd.duengemittel_id, upd.ernte_fruehesteins], [null, null, null])
+      assert.equal(neu.laubarbeit_art, art === 'laubarbeit' ? 'gipfeln' : null)
+      assert.equal(upd.laubarbeit_art, art === 'laubarbeit' ? 'gipfeln' : null)
     })
   }
+
+  test('Laubarbeit ohne Art der Laubarbeit: anlegen und bearbeiten abgelehnt, nichts geschrieben', async () => {
+    const ohne = { ...MIT_MITTEL, art: 'laubarbeit' }
+    delete ohne.laubarbeit_art
+    for (const aufruf of [
+      () => aktionen.createBehandlung(formular(ohne)),
+      () => aktionen.updateBehandlung('b-1', formular(ohne)),   // z. B. nach Wechsel Laubschneiden → Laubarbeit
+      () => aktionen.updateBehandlung('b-1', formular({ ...ohne, laubarbeit_art: '' })),
+    ]) {
+      globalThis.__kan143Supabase = supabaseAttrappe()
+      await assert.rejects(aufruf, { message: 'Bitte die Art der Laubarbeit wählen.' })
+      assert.deepEqual(globalThis.__kan143Supabase.schreiben, [])
+    }
+  })
 
   test('Gegenprobe: Sonstiges mit Mittel behält psm_id und Wartezeit (Datum + 14 Tage)', async () => {
     globalThis.__kan143Supabase = supabaseAttrappe()
@@ -346,6 +372,16 @@ describe('Assistent: Tool massnahme_dokumentieren kennt Laubschneiden', nurMitHo
     assert.equal(globalThis.__kan143Aufrufe[0].get('laubarbeit_art'), 'gipfeln')
   })
 
+  test('Laubarbeit ohne Unterart: Rückfrage, nichts gespeichert', async () => {
+    globalThis.__kan143Aufrufe.length = 0
+    for (const laubarbeit_art of [undefined, null, '']) {
+      const r = await tool.fuehreMassnahmeDokumentierenAus({ ...EINGABE, art: 'laubarbeit', laubarbeit_art }, null)
+      assert.equal(r.erfolg, false, String(laubarbeit_art))
+      assert.match(r.hinweis, /Bei einer Laubarbeit ist laubarbeit_art Pflicht \(entblaettern, ausgeizen, gipfeln, heften, sonstige\).*NICHTS gespeichert/)
+    }
+    assert.equal(globalThis.__kan143Aufrufe.length, 0)
+  })
+
   test('unbekannte Art: abgelehnt, nichts gespeichert', async () => {
     globalThis.__kan143Aufrufe.length = 0
     for (const art of ['laubschnitt', 'lese', 'Laubschneiden']) {
@@ -432,6 +468,18 @@ describe('Quelltext: keine Stelle mit eigener, veralteter Artenliste', () => {
     assert.doesNotMatch(f, /selectedPsm\?\.wartezeit_tage \?\? selectedDuengemittel/)
   })
 
+  test('Art der Laubarbeit ist Pflicht – Anlegen, Bearbeiten (auch nach Artwechsel) und Server Actions', () => {
+    assert.equal(feld.FELD_MATRIX.laubarbeit.laubarbeitArt, 'pflicht')
+    const neu = quelle('app/(dashboard)/behandlungen/neu/NeueBehandlungForm.tsx')
+    assert.match(neu, /<select name="laubarbeit_art" required=\{felder\.laubarbeitArt === 'pflicht'\}/)
+    const edit = quelle('app/(dashboard)/behandlungen/[id]/edit/BehandlungEditForm.tsx')
+    assert.match(edit, /import \{ FELD_MATRIX, bbchBeimBearbeiten, wetterBeimBearbeiten \} from '\.\.\/\.\.\/neu\/feldMatrix'/)
+    assert.match(edit, /name="laubarbeit_art"[^>]*\s+required=\{FELD_MATRIX\.laubarbeit\.laubarbeitArt === 'pflicht'\}/)
+    assert.match(edit, /Art der Laubarbeit\s+\{FELD_MATRIX\.laubarbeit\.laubarbeitArt === 'pflicht' && <span className="text-s112-err"> \*<\/span>\}/)
+    const a = quelle('app/(dashboard)/behandlungen/actions.ts')
+    assert.equal(a.match(/if \(laubarbeitArtFehlt\(art, laubarbeitArt\)\) throw new AktionsFehler\(LAUBARBEIT_ART_FEHLT\)/g)?.length, 2)   // Anlegen und Bearbeiten
+  })
+
   test('Maßnahmenliste: Art-Auswahl „Alle Arten“ und Filter aus lib/behandlungen/arten.ts', () => {
     const c = quelle('app/(dashboard)/behandlungen/BehandlungenClient.tsx')
     assert.match(c, /const artOptionen = artFilterOptionen\(behandlungen\)/)
@@ -487,5 +535,8 @@ describe('Quelltext: keine Stelle mit eigener, veralteter Artenliste', () => {
     assert.match(faq, /Unter Rieden > Betriebsmittel > Tab "Stundensätze"/)
     assert.match(hb, /Maßnahmenliste \(Auswahl „Alle Arten“ neben dem Suchfeld\)/)
     assert.doesNotMatch(hb, /Filter „Art der Maßnahme“/)
+    // das Symbol (Shrub) gibt es nur in der Art-Auswahl der Formulare, nicht in Liste und Berichten
+    assert.match(hb, /Im Formular hat Laubschneiden ein eigenes Symbol \(Strauch\); außerdem erscheint es in der Maßnahmenliste/)
+    assert.doesNotMatch(hb, /mit eigenem Symbol im Formular, in der/)
   })
 })

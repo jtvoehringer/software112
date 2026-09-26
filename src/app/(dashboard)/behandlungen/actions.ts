@@ -9,7 +9,8 @@ import { AktionsFehler } from '@/lib/fehler'
 import { dezimal } from '@/lib/format'
 import { pruefeMassnahmeMengen, summeFlaecheHa, type MassnahmeMengenEingabe } from '@/lib/behandlungen/massnahmeMengen'
 import {
-  MASSNAHMEN_ARTEN, MASSNAHMEN_ART_LABEL, istMassnahmenArt, laubarbeitArtFuer, mittelFuerArt, type MassnahmenArt,
+  LAUBARBEIT_ART_FEHLT, MASSNAHMEN_ARTEN, MASSNAHMEN_ART_LABEL, istMassnahmenArt, laubarbeitArtFehlt, laubarbeitArtFuer,
+  mittelFuerArt, type MassnahmenArt,
 } from '@/lib/behandlungen/arten'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -312,6 +313,7 @@ export async function createBehandlung(formData: FormData) {
   const schnittart      = (formData.get('schnittart') as string) || null
   // nur bei einer Laubarbeit – bei Laubschneiden (KAN-143) und allen anderen Arten null
   const laubarbeitArt   = laubarbeitArtFuer(art, (formData.get('laubarbeit_art') as string) || null)
+  if (laubarbeitArtFehlt(art, laubarbeitArt)) throw new AktionsFehler(LAUBARBEIT_ART_FEHLT)   // Feld-Matrix: Pflicht
   const einarbeitung    = formData.has('einarbeitung') ? formData.get('einarbeitung') === 'on' : null
   const einarbeitungZeitpunkt = (formData.get('einarbeitung_zeitpunkt') as string) || null
 
@@ -473,6 +475,7 @@ export async function updateBehandlung(id: string, formData: FormData) {
   const schnittart      = (formData.get('schnittart') as string) || null
   // nur bei einer Laubarbeit – bei Laubschneiden (KAN-143) und allen anderen Arten null
   const laubarbeitArt   = laubarbeitArtFuer(art, (formData.get('laubarbeit_art') as string) || null)
+  if (laubarbeitArtFehlt(art, laubarbeitArt)) throw new AktionsFehler(LAUBARBEIT_ART_FEHLT)   // Feld-Matrix: Pflicht
   const einarbeitung    = formData.has('einarbeitung') ? formData.get('einarbeitung') === 'on' : null
   const einarbeitungZeitpunkt = (formData.get('einarbeitung_zeitpunkt') as string) || null
 

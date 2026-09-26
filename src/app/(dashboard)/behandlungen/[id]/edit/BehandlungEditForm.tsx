@@ -17,7 +17,7 @@ import {
   MENGEN_SICHT, alsFeld, aufwandEinheitText, duengerEinheitWechsel, duengermengeEinheit, eingabeZahl,
   mengeVorbelegung, mengenFelder, mengenInFormData,
 } from '../../neu/mengenFelder'
-import { bbchBeimBearbeiten, wetterBeimBearbeiten } from '../../neu/feldMatrix'
+import { FELD_MATRIX, bbchBeimBearbeiten, wetterBeimBearbeiten } from '../../neu/feldMatrix'
 import { ART_OPTIONS } from '../../neu/artOptionen'
 import MengenZusammenfassung from '../../neu/MengenZusammenfassung'
 
@@ -610,11 +610,15 @@ export default function BehandlungEditForm({
           </div>
         )}
 
-        {/* Laubarbeit */}
+        {/* Laubarbeit – Unterart Pflicht wie beim Anlegen, auch nach einem Artwechsel (z. B. Laubschneiden → Laubarbeit) */}
         {art === 'laubarbeit' && (
           <div>
-            <label className={labelCls}>Art der Laubarbeit</label>
-            <select aria-label="Art der Laubarbeit" name="laubarbeit_art" defaultValue={behandlung.laubarbeit_art ?? ''} className={inputCls}>
+            <label className={labelCls}>
+              Art der Laubarbeit
+              {FELD_MATRIX.laubarbeit.laubarbeitArt === 'pflicht' && <span className="text-s112-err"> *</span>}
+            </label>
+            <select aria-label="Art der Laubarbeit" name="laubarbeit_art" defaultValue={behandlung.laubarbeit_art ?? ''}
+              required={FELD_MATRIX.laubarbeit.laubarbeitArt === 'pflicht'} className={inputCls}>
               <option value="">– Auswählen –</option>
               {LAUBARBEIT_OPTIONEN.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
