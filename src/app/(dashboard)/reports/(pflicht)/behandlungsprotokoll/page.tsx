@@ -61,9 +61,8 @@ export default async function BehandlungsprotokollPage({ searchParams }: { searc
 
   const { behandlungen, zeilen, warnungen } = aufzeichnung
   const s = (settingsRaw as R | null) ?? {}
-  // Brotkrume nach fachlicher Zugehörigkeit (Rieden › Maßnahmen › …), nicht nach der Tab-Leiste –
-  // dort steht der Punkt seit KAN-142 hinter „Lese“. Die Tab-Leiste zeigt diese Seite immer unter
-  // „Rieden“, auch mit Modul Controlling (Review 25.09.2026)
+  // Brotkrume wie die Navigation (Rieden › Maßnahmen › …) – die Tab-Leiste zeigt diese Seite
+  // immer unter „Rieden“, auch mit Modul Controlling (Review 25.09.2026)
   const zurueck = { href: '/behandlungen', label: 'Maßnahmen' }
 
   return (

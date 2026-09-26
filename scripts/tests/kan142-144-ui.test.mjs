@@ -4,8 +4,9 @@
 //          bzw. node --experimental-strip-types --test scripts/tests/kan142-144-ui.test.mjs
 //
 // Reine Quelltext-Prüfungen (ohne Datenbank, ohne Browser): Reihenfolge der Gruppe „Rieden“ in
-// src/lib/navigation/index.ts, keine alten Menüpfade in FAQ, Handbuch und Onboarding, FAQ und
-// Handbuch nennen für jede Pflichtmeldung ihren Menüpunkt (auch Lesedaten: Rieden > Lese);
+// src/lib/navigation/index.ts (Unterpunkte bei ihrem Hauptpunkt), keine flachen Menüpfade in FAQ,
+// Handbuch und Onboarding, FAQ und Handbuch nennen für jede Pflichtmeldung ihren Menüpunkt
+// (auch Lesedaten: Rieden > Lese);
 // Kopfleiste in CD-Blau mit Glocken-Badge weiß/rot/gelb und weißem Fokusrahmen (KAN-142 AK 1/2);
 // Lese-Tabelle mit Spalte „Notizen“ nach „kg“, „–“ ohne Notiz, voller Text als title (KAN-144);
 // NotizZelle wechselt nie zwischen span und <button> (WebKit kürzt einen <button> nicht per
@@ -51,25 +52,25 @@ function ohneAusdruck(q, anfang) {
 const regexText = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 describe('KAN-142: Menüpfade unter „Rieden“', () => {
-  test('Reihenfolge: Rieden · Maßnahmen · Lese · • Behandlungsprotokoll · • Cu-Bilanz · • Nährstoffbilanz · Betriebsmittel · • AMA-Erntemeldung', () => {
+  test('Reihenfolge: Rieden · Maßnahmen · • Behandlungsprotokoll · • Cu-Bilanz · • Nährstoffbilanz · Lese · • AMA-Erntemeldung · Betriebsmittel', () => {
     const nav = quelle('src/lib/navigation/index.ts')
     const start = nav.indexOf("key: 'rieden'")
     assert.ok(start >= 0, 'Gruppe „rieden“ fehlt')
     const gruppe = nav.slice(start, nav.indexOf("key: '", start + 1))
     const punkte = [...gruppe.matchAll(/\{ href: '[^']+',\s*label: '([^']+)'([^}]*)\}/g)]
       .map(m => (/\bchild: true\b/.test(m[2]) ? '• ' : '') + m[1])
-    assert.deepEqual(punkte, ['Rieden', 'Maßnahmen', 'Lese', '• Behandlungsprotokoll', '• Cu-Bilanz', '• Nährstoffbilanz', 'Betriebsmittel', '• AMA-Erntemeldung'])
+    assert.deepEqual(punkte, ['Rieden', 'Maßnahmen', '• Behandlungsprotokoll', '• Cu-Bilanz', '• Nährstoffbilanz', 'Lese', '• AMA-Erntemeldung', 'Betriebsmittel'])
   })
 
-  test('FAQ, Handbuch und Onboarding nennen keine alten Pfade (Pflichtmeldungen hinter „Maßnahmen“, AMA hinter „Lese“)', () => {
+  test('FAQ, Handbuch und Onboarding nennen keine flachen Pfade (Pflichtmeldungen ohne „Maßnahmen“, AMA ohne „Lese“)', () => {
     for (const p of [FAQ, HANDBUCH, ONBOARDING]) {
-      assert.doesNotMatch(quelle(p), /Lese (>|›) AMA|Maßnahmen (>|›) (Behandlungsprotokoll|Cu-Bilanz|Nährstoffbilanz)|Rieden (>|›) Maßnahmen, Rieden (>|›) Lese/, p)
+      assert.doesNotMatch(quelle(p), /Rieden (>|›) (Behandlungsprotokoll|Cu-Bilanz|Nährstoffbilanz|AMA-Erntemeldung)|Rieden (>|›) Maßnahmen, Rieden (>|›) Lese/, p)
     }
   })
 
   test('FAQ und Handbuch nennen denselben Weg zu den Pflichtmeldungen', () => {
-    const weg = 'Rieden > Behandlungsprotokoll, Cu-Bilanz und Nährstoffbilanz, Rieden > Lese (Lesedaten je Jahrgang), '
-      + 'Rieden > AMA-Erntemeldung (Weinerntemeldung, Weinbestandsmeldung), Kellerbuch > Weinbuch-Sammlung'
+    const weg = 'Rieden > Maßnahmen > Behandlungsprotokoll, Cu-Bilanz und Nährstoffbilanz, Rieden > Lese (Lesedaten je Jahrgang), '
+      + 'Rieden > Lese > AMA-Erntemeldung (Weinerntemeldung, Weinbestandsmeldung), Kellerbuch > Weinbuch-Sammlung'
     assert.ok(quelle(FAQ).includes(`über ${weg} oder die Karte unter Meldungen & Fristen`), FAQ)
     assert.ok(quelle(HANDBUCH).includes(weg.replace(', Kellerbuch', ' sowie Kellerbuch')), HANDBUCH)
   })
@@ -107,14 +108,14 @@ describe('KAN-142: Menüpfade unter „Rieden“', () => {
     assert.doesNotMatch(quelle('src/app/(dashboard)/reports/(pflicht)/ama/page.tsx'), /csvPfad\('lesedaten'/)
   })
 
-  test('Pflichtmeldungs-Seiten: Brotkrume nach fachlicher Zugehörigkeit, unverändert', () => {
+  test('Pflichtmeldungs-Seiten: Brotkrume wie die Navigation (Maßnahmen bzw. Lese), unverändert', () => {
     for (const s of ['behandlungsprotokoll', 'cu-bilanz', 'naehrstoffbilanz']) {
       const q = quelle(`src/app/(dashboard)/reports/(pflicht)/${s}/page.tsx`)
-      assert.doesNotMatch(q, /Brotkrume wie die Navigation/, s)
+      assert.match(q, /Brotkrume wie die Navigation \(Rieden › Maßnahmen › …\)/, s)
       assert.match(q, /const zurueck = \{ href: '\/behandlungen', label: 'Maßnahmen' \}/, s)
     }
     const ama = quelle('src/app/(dashboard)/reports/(pflicht)/ama/page.tsx')
-    assert.doesNotMatch(ama, /Brotkrume wie die Navigation/)
+    assert.match(ama, /Brotkrume wie die Navigation: Rieden › Lese › AMA-Erntemeldung/)
     assert.match(ama, /<Link href="\/erntemeldung" className="[^"]*">Lese<\/Link>/)
   })
 })
