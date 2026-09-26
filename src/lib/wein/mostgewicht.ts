@@ -54,8 +54,9 @@ export const OECHSLE_STELLEN = 1
 export const KMW_MAX = 60
 export const OECHSLE_MAX = 350
 
-/** Grenzfall-Band um eine Stufenschwelle (Jörgen, 26.09.2026: ±0,2 °KMW ≈ ±1 °Oe, Hand-Refraktometer) */
-export const GRENZ_BAND_KMW = 0.2
+/** Grenzfall-Band um eine Stufenschwelle in °Oe, einschließlich (KAN-134, Jörgen 26.09.2026: ±0,5 °Oe
+ *  statt bisher ±0,2 °KMW – bei 17 °KMW rund ±0,1 °KMW). Verglichen wird in °Oe, siehe imGrenzbereich(). */
+export const GRENZ_BAND_OECHSLE = 0.5
 
 /** Toleranz in Einheiten der letzten Stelle (n · 10^stellen) gegen Gleitkomma-Reste wie 1739,9999999999998 */
 const TOLERANZ = 1e-9
@@ -219,24 +220,57 @@ export function mischen(teile: readonly MischTeil[], mengeneinheit: 'kg' | 'l' =
 
 // ── Grenzfall ───────────────────────────────────────────────────────────────
 
+/** °Oe-Zehntel zu einem °KMW-Wert nach der Formel, kaufmännisch auf 0,1 – wie ausMessung(k, 'kmw'):
+ *  auf dem 0,01-°KMW-Raster exakt in ganzen Zahlen, sonst über die Gleitkomma-Formel.
+ *  Keine endliche Zahl oder negativ → null. */
+function oechsleZehntelAusKmw(kmw: unknown): number | null {
+  if (typeof kmw !== 'number' || !Number.isFinite(kmw) || kmw < 0) return null
+  const h = Math.round(kmw * 100)
+  if (Math.abs(kmw * 100 - h) < 1e-6 && h <= KMW_MAX * 100) return oeZehntel(h)
+  return Math.round(runden(oechsleAusKmw(kmw), OECHSLE_STELLEN) * 10)
+}
+
+/** °Oe-Zehntel eines Mostgewichts für den Grenzfall: gemessen in °Oe → der Messwert, sonst aus °KMW
+ *  nach der Formel (ein gespeicherter, umgerechneter °Oe-Wert zählt nicht). Zahl = °KMW. */
+function grenzOechsleZehntel(wert: Mostgewicht | number | null | undefined): number | null {
+  if (wert == null) return null
+  if (typeof wert === 'number') return oechsleZehntelAusKmw(wert)
+  if (typeof wert !== 'object') return null
+  if (wert.einheit === 'oechsle' && typeof wert.oechsle === 'number' && Number.isFinite(wert.oechsle) && wert.oechsle >= 0) {
+    return Math.round(runden(wert.oechsle, OECHSLE_STELLEN) * 10)
+  }
+  return oechsleZehntelAusKmw(wert.kmw)
+}
+
 /**
- * Liegt `kmw` höchstens `band` (Standard ±0,2 °KMW) von einer der Schwellen entfernt? Liefert
- * die nächstgelegene Schwelle, sonst null. Schwellen als Parameter (z. B. die Mindest-°KMW der
- * Stufen aus lib/weinqualitaet), damit der Kern ohne Importe bleibt. Für den Hinweis auf die
- * BKI-Tabelle; bei Prädikatswein zählt die Bestätigung der Mostwäger (§ 11 Abs. 2, § 12 Abs. 6 WeinG).
+ * Liegt das Mostgewicht höchstens `band` °Oe (Standard ±0,5 °Oe, einschließlich) von einer der
+ * Schwellen entfernt? Liefert die nächstgelegene Schwelle (in °KMW), sonst null.
+ *
+ * Verglichen wird in °Oe (KAN-134): der °Oe-Wert des Mostgewichts – gemessen, sonst aus °KMW nach
+ * der Formel auf 0,1 gerundet – gegen den °Oe-Wert der Schwelle nach derselben Formel
+ * (17 °KMW = 83,5 °Oe). Beispiele um Kabinett: 83,0–84,0 °Oe gemessen und 16,9 °KMW (= 83,0 °Oe)
+ * → 17; 16,8 °KMW (82,5 °Oe) und 17,2 °KMW (84,6 °Oe) → null. `wert` als Zahl = °KMW.
+ *
+ * Schwellen in °KMW als Parameter (z. B. die Mindest-°KMW der Stufen aus lib/weinqualitaet), damit
+ * der Kern ohne Importe bleibt. Für den Hinweis auf die BKI-Tabelle; bei Prädikatswein zählt die
+ * Bestätigung der Mostwäger (§ 11 Abs. 2, § 12 Abs. 6 WeinG).
  */
 export function imGrenzbereich(
-  kmw: number | null | undefined,
-  schwellen: readonly number[],
-  band: number = GRENZ_BAND_KMW,
+  wert: Mostgewicht | number | null | undefined,
+  schwellenKmw: readonly number[],
+  band: number = GRENZ_BAND_OECHSLE,
 ): number | null {
-  if (typeof kmw !== 'number' || !Number.isFinite(kmw)) return null
-  if (!(band >= 0)) throw new RangeError(`imGrenzbereich: Band ≥ 0 erwartet: ${band}`)
+  const z = grenzOechsleZehntel(wert)
+  if (z == null) return null
+  if (!(band >= 0)) throw new RangeError(`imGrenzbereich: Band ≥ 0 °Oe erwartet: ${band}`)
   let treffer: number | null = null
   let bester = Infinity
-  for (const s of schwellen) {
-    const abstand = Math.abs(kmw - s)
-    if (abstand <= band + TOLERANZ && abstand < bester) {
+  for (const s of schwellenKmw) {
+    const zs = oechsleZehntelAusKmw(s)
+    if (zs == null) continue
+    // in ganzen °Oe-Zehnteln: 84,0 − 83,5 ist exakt 5, nicht 0,5000000000000142 · 10
+    const abstand = Math.abs(z - zs)
+    if (abstand <= band * 10 + TOLERANZ && abstand < bester) {
       treffer = s
       bester = abstand
     }

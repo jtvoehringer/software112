@@ -16,6 +16,7 @@ import { stripeKundennummerSync } from '@/lib/stripe/kundennummer'
 import { AktionsFehler } from '@/lib/fehler'
 import { dezimal } from '@/lib/format'
 import { weinbauBetriebsnummerPruefen } from '@/lib/betrieb/betriebsnummer'
+import { istMostgewichtEinheit } from '@/lib/wein/mostgewicht'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -341,6 +342,28 @@ export async function saveBetriebEinstellungen(tenantId: string, formData: FormD
 
   await stripeKundennummerSync(tenantId) // PLZ gespeichert → Kundennummer ggf. neu vergeben
   tenantKopfInvalidieren(tenantId)
+  revalidatePath(`/admin/mandanten/${tenantId}`)
+}
+
+// ── Kellerwirtschaft: bevorzugte Mostgewicht-Einheit (KAN-134) ────────────────
+// Dieselbe Einstellung wie „Mein Betrieb“ → Kellerwirtschaft (saveKellerwirtschaftOwn, canAdmin):
+// welche Einheit Formulare und Listen zuerst zeigen; die gemessene Einheit je Eintrag bleibt davon
+// unabhängig. Eigenes Formular im Tab Betrieb, damit es nicht an den Pflichtfeldern der Betriebsdaten
+// hängt. tenant_einstellungen nur per .update() – fehlt die Zeile, meldet die Action das.
+
+export async function saveKellerwirtschaftAdmin(tenantId: string, formData: FormData) {
+  await assertSystemAdmin(tenantId)
+  const einheit = formData.get('mostgewicht_einheit')
+  if (!istMostgewichtEinheit(einheit)) throw new AktionsFehler('Bitte wähle °KMW oder °Oe als bevorzugte Einheit.')
+  const admin = createSupabaseAdminClient()
+
+  const { error, count } = await (admin.from('tenant_einstellungen') as any)
+    .update({ mostgewicht_einheit: einheit, aktualisiert_am: new Date().toISOString() }, { count: 'exact' })
+    .eq('tenant_id', tenantId)
+
+  if (error) throw new AktionsFehler((error as R).message)
+  if (count === 0) throw new AktionsFehler('Für diesen Mandanten gibt es noch keine Einstellungen – bitte zuerst die Betriebsdaten speichern.')
+  tenantKopfInvalidieren(tenantId)   // Layout-Cache: wirkt beim Betrieb ab der nächsten Anfrage
   revalidatePath(`/admin/mandanten/${tenantId}`)
 }
 

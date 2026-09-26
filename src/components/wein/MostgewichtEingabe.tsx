@@ -14,7 +14,7 @@
 // Eine ungültige Eingabe setzt setCustomValidity – das Formular lässt sich dann nicht absenden.
 
 import { useEffect, useId, useRef, useState } from 'react'
-import { EINHEIT_ZEICHEN, GRENZ_BAND_KMW, formatKmw, formatOechsle, type Mostgewicht, type MostgewichtEinheit } from '@/lib/wein/mostgewicht'
+import { EINHEIT_ZEICHEN, GRENZ_BAND_OECHSLE, formatKmw, formatOechsle, type Mostgewicht, type MostgewichtEinheit } from '@/lib/wein/mostgewicht'
 import type { GespeichertesMostgewicht } from '@/lib/wein/mostgewichtFormular'
 import {
   eingabeAendern, eingabeStart, eingabeStufe, feldReihenfolge, grenzfall, stufenwechsel, versteckteWerte,
@@ -51,7 +51,7 @@ export interface MostgewichtEingabeProps {
   required?: boolean
   /** Rechnerische Qualitätsstufe aus °KMW neben den Feldern zeigen */
   qualitaetsVorschau?: boolean
-  /** Hinweis bei ±0,2 °KMW um eine Stufenschwelle (Standard: an) */
+  /** Hinweis bei höchstens ±0,5 °Oe um eine Stufenschwelle (KAN-134; Standard: an) */
   grenzfallHinweis?: boolean
   className?: string
 }
@@ -173,8 +173,12 @@ export default function MostgewichtEingabe({
 
       {grenz && zustand.wert && (
         <p id={ids.grenz} className="text-[11px] text-s112-text-2 bg-s112-bg border border-s112-border rounded-lg px-2.5 py-1.5 mt-1.5">
-          <span className="font-semibold">Grenzfall:</span> {kmwText(zustand.wert.kmw)} liegt nahe an der Schwelle
-          für {qualitaetLabel(grenz.stufe)} (höchstens {formatKmw(GRENZ_BAND_KMW, 1)} °KMW entfernt;
+          {/* Verglichen wird in °Oe (KAN-134): gemessener °Oe-Wert, sonst der aus °KMW gerechnete */}
+          <span className="font-semibold">Grenzfall:</span>{' '}
+          {zustand.wert.einheit === 'oechsle'
+            ? oeText(zustand.wert.oechsle)
+            : <>{kmwText(zustand.wert.kmw)} (≈ {oeText(zustand.wert.oechsle)})</>} liegt nahe an der Schwelle
+          für {qualitaetLabel(grenz.stufe)} (höchstens {formatOechsle(GRENZ_BAND_OECHSLE)} °Oe entfernt;
           {' '}{formatKmw(grenz.schwelleKmw, 1)} °KMW ≙ {formatOechsle(grenz.schwelleOechsle)} °Oe
           {grenz.bkiTabelle ? (
             <>
@@ -186,7 +190,7 @@ export default function MostgewichtEingabe({
           ) : (
             // Die BKI-Tabelle reicht nur von 11,5 bis 22,0 °KMW (Beerenauslese 25, TBA 30 stehen nicht darin)
             <> nach der Umrechnungsformel °Oe = °KMW × (4,54 + 0,022 × °KMW)</>
-          )}). Messgenauigkeit etwa ±0,2 °KMW (≈ ±1 °Oe) – im Zweifel nachmessen.
+          )}). Im Zweifel nachmessen.
           {grenz.praedikatswein && <> Bei Prädikatswein zählt die Bestätigung der Mostwäger (§ 11 Abs. 2, § 12 Abs. 6 WeinG).</>}
         </p>
       )}

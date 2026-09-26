@@ -8,8 +8,9 @@
 // (3) mostgewichtSpalten(): Löschen = beide Spalten NULL
 // (4) Zustand der Eingabe-Komponente (lib/wein/mostgewichtEingabe.ts): gekoppelte Felder,
 //     Öffnen und Speichern ohne Änderung, Stufenwechsel beim Überschreiben eines ≈-Werts,
-//     Grenzfall-Hinweis, Leeren = gelöscht
-// (5) Verdrahtung (Quelltext): Einstellungen-Action, Layout-Cache, AppShell, Komponente
+//     Grenzfall-Hinweis (±0,5 °Oe seit KAN-134), Leeren = gelöscht
+// (5) Verdrahtung (Quelltext): Einstellungen-Action, Mandantenverwaltung und Onboarding (KAN-134),
+//     Layout-Cache, AppShell, Komponente, Handbuch
 //
 // Auflösung der endungslosen Importe ('./mostgewicht', '../weinqualitaet'): ernte.aufloesung.mjs.
 
@@ -20,7 +21,7 @@ import { register } from 'node:module'
 
 register('./ernte.aufloesung.mjs', import.meta.url)
 
-const { ausMessung, format } = await import('../../src/lib/wein/mostgewicht.ts')
+const { ausMessung, format, formatOechsle, GRENZ_BAND_OECHSLE } = await import('../../src/lib/wein/mostgewicht.ts')
 const { mostgewichtAusGespeichert, mostgewichtAusFormular, mostgewichtSpalten } = await import('../../src/lib/wein/mostgewichtFormular.ts')
 const E = await import('../../src/lib/wein/mostgewichtEingabe.ts')
 const { eingabeStart, eingabeAendern, eingabeStufe, stufenwechsel, grenzfall, versteckteWerte, feldReihenfolge, feldText } = E
@@ -298,17 +299,35 @@ describe('Eingabe: Stufenwechsel und Grenzfall', () => {
     assert.deepEqual(stufenwechsel(z), { von: 'kabinett', nach: 'spaetlese', vorher: { kmw: 18.99, oechsle: 94.1, einheit: 'kmw' } })
   })
 
-  test('Grenzfall ±0,2 °KMW an den Stufenschwellen, Mostwäger-Hinweis ab Prädikatswein', () => {
+  test('Grenzfall ±0,5 °Oe an den Stufenschwellen (KAN-134), Mostwäger-Hinweis ab Prädikatswein', () => {
     assert.deepEqual(grenzfall(ausMessung(83.5, 'oechsle')), { schwelleKmw: 17, schwelleOechsle: 83.5, stufe: 'kabinett', praedikatswein: false, bkiTabelle: true })
     assert.deepEqual(grenzfall(ausMessung(94.2, 'oechsle')), { schwelleKmw: 19, schwelleOechsle: 94.2, stufe: 'spaetlese', praedikatswein: true, bkiTabelle: true })
     assert.deepEqual(grenzfall(ausMessung(105, 'oechsle')), { schwelleKmw: 21, schwelleOechsle: 105, stufe: 'auslese', praedikatswein: true, bkiTabelle: true })
     assert.equal(grenzfall(ausMessung(156, 'oechsle')).stufe, 'trockenbeerenauslese')
-    assert.equal(grenzfall(ausMessung(16.8, 'kmw')).schwelleKmw, 17)
-    assert.equal(grenzfall(ausMessung(17.2, 'kmw')).schwelleKmw, 17)
+    // Beispiele aus KAN-134: 83,0–84,0 °Oe um Kabinett, 16,9 °KMW (83,0 °Oe) ja, 16,8 (82,5) und 17,2 (84,6) nein
+    for (const w of [83.0, 83.3, 83.5, 83.8, 84.0]) assert.equal(grenzfall(ausMessung(w, 'oechsle'))?.schwelleKmw, 17, `${w} °Oe`)
+    assert.equal(grenzfall(ausMessung(82.9, 'oechsle')), null)
+    assert.equal(grenzfall(ausMessung(84.1, 'oechsle')), null)
+    assert.equal(grenzfall(ausMessung(16.9, 'kmw')).schwelleKmw, 17)
+    assert.equal(grenzfall(ausMessung(16.8, 'kmw')), null)
+    assert.equal(grenzfall(ausMessung(17.2, 'kmw')), null)
     assert.equal(grenzfall(ausMessung(16.79, 'kmw')), null)
     assert.equal(grenzfall(ausMessung(18.5, 'kmw')), null)
     assert.equal(grenzfall(null), null)
     assert.deepEqual([...E.STUFEN_SCHWELLEN_KMW], [14, 15, 17, 19, 21, 25, 30])
+  })
+
+  test('Grenzfall beim Tippen und beim Öffnen gespeicherter Werte', () => {
+    let z = eingabeStart(null, 'oechsle')
+    for (const t of ['8', '83', '83,']) z = eingabeAendern(z, 'oechsle', t)
+    assert.equal(grenzfall(z.wert).schwelleKmw, 17)                   // „83,“ = 83,0 °Oe
+    z = eingabeAendern(z, 'oechsle', '82,9')
+    assert.equal(grenzfall(z.wert), null)
+    // gespeichert in °KMW: der gespeicherte ≈-°Oe-Wert zählt nicht, nur die Formel aus °KMW
+    assert.equal(grenzfall(eingabeStart({ kmw: 16.9, oechsle: 83.0, einheit: 'kmw' }, 'kmw').wert).schwelleKmw, 17)
+    assert.equal(grenzfall(eingabeStart({ kmw: 16.8, oechsle: 82.5, einheit: 'kmw' }, 'kmw').wert), null)
+    // gespeichert in °Oe: der Messwert
+    assert.equal(grenzfall(eingabeStart({ kmw: 17.09, oechsle: 84.0, einheit: 'oechsle' }, 'kmw').wert).schwelleKmw, 17)
   })
 
   test('Grenzfall: Verweis auf die BKI-Tabelle nur für Schwellen darin (11,5–22,0 °KMW), bei 25/30 °KMW nur Formel', () => {
@@ -316,7 +335,9 @@ describe('Eingabe: Stufenwechsel und Grenzfall', () => {
     const tabelle = E.STUFEN_SCHWELLEN_KMW.filter(s => grenzfall(ausMessung(s, 'kmw')).bkiTabelle)
     assert.deepEqual(tabelle, [14, 15, 17, 19, 21])
     // Beerenauslese und Trockenbeerenauslese: kein Tabellenverweis, aber Mostwäger-Bestätigung
-    for (const [m, s] of [[ausMessung(127.3, 'oechsle'), 25], [ausMessung(24.9, 'kmw'), 25], [ausMessung(156, 'oechsle'), 30], [ausMessung(29.8, 'kmw'), 30]]) {
+    // 24,95 °KMW = 127,0 °Oe (Schwelle 127,3), 29,95 °KMW = 155,7 °Oe (Schwelle 156,0) – mit ±0,5 °Oe
+    // liegt ein °KMW-Wert hier nur noch rund ±0,1 °KMW an der Schwelle
+    for (const [m, s] of [[ausMessung(127.3, 'oechsle'), 25], [ausMessung(24.95, 'kmw'), 25], [ausMessung(156, 'oechsle'), 30], [ausMessung(29.95, 'kmw'), 30]]) {
       const g = grenzfall(m)
       assert.equal(g.schwelleKmw, s)
       assert.equal(g.bkiTabelle, false)
@@ -328,6 +349,37 @@ describe('Eingabe: Stufenwechsel und Grenzfall', () => {
     assert.match(k, /\{grenz\.bkiTabelle \? \(/)
     assert.match(k, /nach der Umrechnungsformel °Oe = °KMW × \(4,54 \+ 0,022 × °KMW\)/)
     assert.match(k, /grenz\.praedikatswein && <> Bei Prädikatswein zählt die Bestätigung der Mostwäger/)
+  })
+
+  test('Hinweistext und Handbuch nennen ±0,5 °Oe (KAN-134)', () => {
+    assert.equal(formatOechsle(GRENZ_BAND_OECHSLE), '0,5')
+    const k = quelle('src/components/wein/MostgewichtEingabe.tsx')
+    assert.match(k, /höchstens \{formatOechsle\(GRENZ_BAND_OECHSLE\)\} °Oe entfernt/)
+    assert.doesNotMatch(k, /GRENZ_BAND_KMW|°KMW entfernt|±0,2 °KMW/)
+    const h = quelle('src/app/(dashboard)/hilfe/handbuch/page.tsx')
+    const lese = h.slice(h.indexOf("titel: 'Lese erfassen'"), h.indexOf("titel: 'Lese erfassen'") + 3000)
+    assert.match(lese, /höchstens 0,5 °Oe von einer Stufengrenze entfernt/)
+    assert.match(lese, /BKI-Anreicherungstabelle/)
+    assert.match(lese, /bei Prädikatswein zählt die Bestätigung der Mostwäger/)
+    assert.doesNotMatch(h, /0,2 °KMW/)
+  })
+
+  test('Handbuch: BKI-Tabelle nur bis Auslese, Beerenauslese und TBA mit der Formel (wie der Hinweis)', () => {
+    const { STUFEN_SCHWELLEN_KMW, BKI_TABELLE_KMW } = E
+    const inTabelle = STUFEN_SCHWELLEN_KMW.filter(s => s >= BKI_TABELLE_KMW.von && s <= BKI_TABELLE_KMW.bis)
+    const ausserhalb = STUFEN_SCHWELLEN_KMW.filter(s => !inTabelle.includes(s))
+    assert.deepEqual([Math.max(...inTabelle), ausserhalb], [21, [25, 30]])
+    // Grenzfall an der Beerenauslese-Schwelle (25 °KMW ≙ 127,3 °Oe): ohne Tabellenverweis
+    const g = grenzfall(ausMessung(127.0, 'oechsle'))
+    assert.equal(g.schwelleKmw, 25)
+    assert.equal(g.bkiTabelle, false)
+    const h = quelle('src/app/(dashboard)/hilfe/handbuch/page.tsx')
+    const i = h.indexOf("titel: 'Lese erfassen'")
+    const lese = h.slice(i, h.indexOf("' },", i))
+    assert.ok(lese.includes(`bis Auslese (${Math.max(...inTabelle)} °KMW) mit Verweis auf die BKI-Anreicherungstabelle`), 'Tabellenbereich fehlt')
+    assert.ok(lese.includes(`bei Beerenauslese und Trockenbeerenauslese (${ausserhalb.join(' bzw. ')} °KMW, nicht in der Tabelle) mit der Umrechnungsformel`), 'Formel-Fall fehlt')
+    // Keine pauschale Ankündigung des Tabellenverweises mehr
+    assert.doesNotMatch(lese, /Grenzfall-Hinweis mit Verweis auf die BKI-Anreicherungstabelle/)
   })
 })
 
@@ -404,6 +456,39 @@ describe('Verdrahtung (Quelltext)', () => {
     const c = quelle('src/app/(dashboard)/betrieb/einstellungen/EinstellungenClient.tsx')
     assert.match(c, /saveKellerwirtschaftOwn\(fd\)/)
     assert.match(c, /name="mostgewicht_einheit"/)
+  })
+
+  test('Mandantenverwaltung (KAN-134): eigene Action nur für Super-Admin, .update() per Service-Role, Cache-Invalidierung', () => {
+    const a = quelle('src/app/(dashboard)/admin/mandanten/[id]/actions.ts')
+    const start = a.indexOf('export async function saveKellerwirtschaftAdmin')
+    assert.ok(start > 0)
+    const fn = a.slice(start, a.indexOf('\n}', start))
+    assert.match(fn, /^export async function saveKellerwirtschaftAdmin\(tenantId: string, formData: FormData\) \{\r?\n  await assertSystemAdmin\(tenantId\)/)
+    assert.match(fn, /istMostgewichtEinheit\(einheit\)/)
+    assert.match(fn, /createSupabaseAdminClient\(\)/)
+    assert.match(fn, /from\('tenant_einstellungen'\) as any\)\s*\.update\(\{ mostgewicht_einheit: einheit,/)
+    assert.match(fn, /\.eq\('tenant_id', tenantId\)/)
+    assert.doesNotMatch(fn, /\.upsert\(/)
+    assert.match(fn, /count === 0/)
+    assert.match(fn, /tenantKopfInvalidieren\(tenantId\)/)
+    // Seite lädt den Wert, Tab Betrieb schreibt ihn, Checkliste zeigt ihn
+    assert.match(quelle('src/app/(dashboard)/admin/mandanten/[id]/page.tsx'), /mostgewicht_einheit: s\?\.mostgewicht_einheit === 'oechsle' \? 'oechsle' : 'kmw'/)
+    const c = quelle('src/app/(dashboard)/admin/mandanten/[id]/MandantDetailClient.tsx')
+    assert.match(c, /await saveKellerwirtschaftAdmin\(tenant\.id, fd\)/)
+    assert.match(c, /name="mostgewicht_einheit"/)
+    assert.match(c, /defaultChecked=\{settings\.mostgewicht_einheit === o\.value\}/)
+    assert.match(c, /<BetriebTab tenant=\{tenant\} settings=\{settings\} \/>\s*<KellerwirtschaftAbschnitt tenant=\{tenant\} settings=\{settings\} \/>/)
+    assert.match(c, /label=\{`Mostgewicht-Einheit: \$\{settings\.mostgewicht_einheit === 'oechsle'/)
+    assert.match(c, /Tab Betrieb, Abschnitt „Kellerwirtschaft“/)
+    assert.doesNotMatch(c, /lib\/auth\/roles/)   // server-only
+  })
+
+  test('Onboarding (KAN-134): Schritt „Mostgewicht-Einheit festlegen“ in „Betrieb konfigurieren“ mit Link', () => {
+    const o = quelle('src/app/(dashboard)/admin/onboarding/page.tsx')
+    const gruppe = o.slice(o.indexOf("gruppe: 'Betrieb konfigurieren'"), o.indexOf("gruppe: 'Grunddaten erfassen'"))
+    assert.match(gruppe, /titel: 'Mostgewicht-Einheit festlegen'[^\n]*link: '\/admin\/mandanten'/)
+    assert.match(gruppe, /Abschnitt „Kellerwirtschaft“/)
+    assert.equal(o.match(/id: 'kw1'/g)?.length, 1)
   })
 
   test('Layout-Cache liest die Einheit, AppShell stellt sie bereit', () => {

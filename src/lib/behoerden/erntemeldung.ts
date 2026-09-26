@@ -174,7 +174,9 @@ export async function ladeLesedaten(supabase: Client, jahrgangId: string): Promi
   return { zeilen, warnungen: [...kuerzelWarnungen(zeilen.map(z => z.rebsorte)), ...mostgewicht.liste()] }
 }
 
-// Mostgewicht (KAN-128): °KMW vor °Oe, dazu die gemessene Einheit – der andere Wert ist umgerechnet
+// Mostgewicht (KAN-128): °KMW vor °Oe, dazu die gemessene Einheit – der andere Wert ist umgerechnet.
+// Notizen (KAN-144, z. B. Grund für 0 kg) bewusst als letzte Spalte – die bisherigen Spaltenpositionen
+// bleiben gleich; Freitext mit Formelschutz, Umbrüche als Leerzeichen, „;“ in Anführungszeichen (csvText).
 export const SPALTEN_LESEDATEN: CsvSpalte<LeseZeile>[] = [
   { kopf: 'Lesedatum', typ: 'datum', wert: z => z.datum },
   { kopf: 'Ried', typ: 'text', wert: z => z.ried },
@@ -188,6 +190,7 @@ export const SPALTEN_LESEDATEN: CsvSpalte<LeseZeile>[] = [
   { kopf: 'Mostgewicht gemessen in', typ: 'text', wert: z => gemessenInText(z.mostgewicht.einheit) },
   { kopf: 'Qualitätsstufe', typ: 'text', wert: z => (z.qualitaetsstufe ? qualitaetLabel(z.qualitaetsstufe) : null) },
   { kopf: 'Lesemethode', typ: 'text', wert: z => (z.lesemethode ? LESEMETHODE_LABEL[z.lesemethode] ?? z.lesemethode : null) },
+  { kopf: 'Notizen', typ: 'text', wert: z => z.notizen },
 ]
 
 // ── Aggregation je Rebsorte (Vorschau, Druck, „AMA-Meldung erstellen“) ───────
