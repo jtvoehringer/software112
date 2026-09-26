@@ -347,7 +347,12 @@ export type TraubenverkaufListenZeile = {
   notizen: string | null
 }
 
-/** Mostgewicht einer Listenzeile für die Spalten (Rechenregel 9, kmwBki = 1 Stelle abgerundet) */
+/** Mostgewicht einer Listenzeile für die Spalten (Rechenregel 9, kmwBki = 1 Stelle abgerundet).
+ *  Geprüft (Review 26.09.2026 III): Das Abrunden gemessener 2-stelliger °KMW (und der nach
+ *  Variante B gerechneten °KMW von °Oe-Messungen) kippt nie über eine Stufenschwelle – alle
+ *  Schwellen (14, 15, 17, 19, 21, 25, 30 °KMW) liegen auf dem 0,1-Raster, für sie gilt
+ *  abrunden(k, 1) ≥ s genau dann, wenn k ≥ s (16,99 → 16,9 bleibt Qualitätswein, 17,09 → 17,0
+ *  bleibt Kabinett). Test: scripts/tests/ernte.test.mjs (0,00–60,00 °KMW, 0,0–350,0 °Oe). */
 function listenMostgewicht(z: Pick<TraubenverkaufListenZeile, 'kmw' | 'oechsle' | 'mostgewichtEinheit'>) {
   return mostgewichtFuerExport({ kmw: z.kmw, oechsle: z.oechsle, einheit: z.mostgewichtEinheit }, 1)
 }

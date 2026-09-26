@@ -55,6 +55,12 @@ export function fehlerText(e: unknown, ersatz = 'Unerwarteter Fehler – bitte e
 // Client:  fehlerText(e) übersetzt bekannte Meldungen zusätzlich automatisch –
 //          auch wenn der Server die Rohmeldung in einen eigenen Text eingebaut hat.
 
+// KAN-128: gemessenes °Oe höchstens 350 (= 59,78 °KMW); aus °KMW gerechnet lässt der CHECK bis 351,6
+// zu (= 60 °KMW), eine °KMW-Messung scheitert also nie am °Oe-CHECK
+const MOSTGEWICHT_KMW_BEREICH = 'Das Mostgewicht muss zwischen 0 und 60 °KMW liegen.'
+const MOSTGEWICHT_OECHSLE_BEREICH = 'Das Mostgewicht muss zwischen 0 und 350 °Oe liegen.'
+const MOSTGEWICHT_EINHEIT_UNBEKANNT = 'Unbekannte Mostgewichts-Einheit – möglich sind °KMW und °Oe.'
+
 /** Deutsche Meldung je CHECK-Constraint (23514) */
 const PRUEFREGEL_MELDUNG: Record<string, string> = {
   verkauf_positionen_menge_positiv_check:
@@ -80,6 +86,32 @@ const PRUEFREGEL_MELDUNG: Record<string, string> = {
     'Diese Qualitätsstufe ist bei einer Kellerbuch-Charge nicht zulässig – bitte eine Stufe aus der Auswahlliste wählen.',
   fuellungen_qualitaet_check:
     'Diese Qualitätsstufe ist bei einer Füllung nicht zulässig – bitte eine Stufe aus der Auswahlliste wählen.',
+  // KAN-128: Mostgewicht (Migration kan128_mostgewicht_oechsle, Namen exakt wie dort; Test:
+  // scripts/tests/mostgewicht-pruefregeln.test.mjs). Rückfall, falls ein Wert an der Serverprüfung
+  // (mostgewichtAusFormular/mostgewichtAusWert, lib/wein/mostgewicht.ts parseEingabe) vorbeikommt –
+  // Bereich und Wortlaut wie dort (KMW_MAX 60, OECHSLE_MAX 350).
+  ernte_parzellen_klosterneuburger_bereich_check: MOSTGEWICHT_KMW_BEREICH,
+  pressungen_kmw_grad_bereich_check: MOSTGEWICHT_KMW_BEREICH,
+  pressung_weingaerten_kmw_bereich_check: MOSTGEWICHT_KMW_BEREICH,
+  traubenverkauf_kmw_grad_bereich_check: MOSTGEWICHT_KMW_BEREICH,
+  weinausbau_kmw_bereich_check: MOSTGEWICHT_KMW_BEREICH,
+  zukauf_posten_kmw_bereich_check: MOSTGEWICHT_KMW_BEREICH,
+  ernte_parzellen_oechsle_bereich_check: MOSTGEWICHT_OECHSLE_BEREICH,
+  pressungen_oechsle_bereich_check: MOSTGEWICHT_OECHSLE_BEREICH,
+  pressung_weingaerten_oechsle_bereich_check: MOSTGEWICHT_OECHSLE_BEREICH,
+  traubenverkauf_oechsle_bereich_check: MOSTGEWICHT_OECHSLE_BEREICH,
+  weinausbau_oechsle_bereich_check: MOSTGEWICHT_OECHSLE_BEREICH,
+  zukauf_posten_oechsle_bereich_check: MOSTGEWICHT_OECHSLE_BEREICH,
+  ernte_parzellen_mostgewicht_einheit_check: MOSTGEWICHT_EINHEIT_UNBEKANNT,
+  pressungen_mostgewicht_einheit_check: MOSTGEWICHT_EINHEIT_UNBEKANNT,
+  pressung_weingaerten_mostgewicht_einheit_check: MOSTGEWICHT_EINHEIT_UNBEKANNT,
+  traubenverkauf_mostgewicht_einheit_check: MOSTGEWICHT_EINHEIT_UNBEKANNT,
+  weinausbau_mostgewicht_einheit_check: MOSTGEWICHT_EINHEIT_UNBEKANNT,
+  zukauf_posten_mostgewicht_einheit_check: MOSTGEWICHT_EINHEIT_UNBEKANNT,
+  tenant_einstellungen_mostgewicht_einheit_check: MOSTGEWICHT_EINHEIT_UNBEKANNT,
+  verschneidungen_ziel_mostgewicht_einheit_vorher_check: MOSTGEWICHT_EINHEIT_UNBEKANNT,
+  keller_umzuege_mostgewicht_einheit_vorher_check: MOSTGEWICHT_EINHEIT_UNBEKANNT,
+  keller_umzuege_mostgewicht_einheit_nachher_check: MOSTGEWICHT_EINHEIT_UNBEKANNT,
 }
 
 const GEBINDE_INAKTIV = 'Gebinde stattdessen inaktiv setzen – die Historie bleibt so erhalten.'

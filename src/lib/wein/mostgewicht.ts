@@ -21,7 +21,7 @@
 // Gleichlauf mit der Datenbank (Migration A: s112_oechsle_aus_kmw, s112_kmw_aus_oechsle): die
 // Golden-Tabelle scripts/tests/golden/mostgewicht_golden.csv (50,0–250,0 °Oe, 10,00–40,00 °KMW)
 // stammt aus derselben Formel in SQL und wird im Test vollständig verglichen, der Gesamtbereich
-// 0–360 °Oe / 0–60 °KMW per md5 gegen SQL (B mit zwei Schritten, siehe unten). Für Werte auf dem
+// 0–350 °Oe / 0–60 °KMW per md5 gegen SQL (B mit zwei Schritten, siehe unten). Für Werte auf dem
 // 0,01-°KMW-Raster rechnet der Kern f in ganzen Zahlen (exakt wie numeric in PostgreSQL):
 //   f(h / 100) = (22·h² + 454 000·h) / 10⁷   (h = °KMW-Hundertstel)
 
@@ -46,10 +46,13 @@ export const EINHEIT_ZEICHEN: Readonly<Record<MostgewichtEinheit, string>> = { k
 export const KMW_STELLEN = 2
 export const OECHSLE_STELLEN = 1
 
-/** Eingabebereich (CHECK-Vorschlag der Migration A). Achtung: 60 °KMW = 351,6 °Oe, 360 °Oe
- *  ergeben 61,17 °KMW – über 351,6 °Oe verletzte ein CHECK „°KMW 0–60“ (in Migration A klären). */
+/** Eingabebereich wie die CHECKs der Migration A (<tabelle>_<°KMW-Spalte>_bereich_check,
+ *  <tabelle>_oechsle_bereich_check). 350 °Oe = 59,78 °KMW: eine °Oe-Messung bleibt so immer unter
+ *  60 °KMW (bis 26.09.2026: 0–360 °Oe – zwischen 351,7 und 360 °Oe hätte der °KMW-CHECK abgelehnt).
+ *  Umgekehrt ergeben 59,79–60 °KMW gerechnet 350,1–351,6 °Oe – der °Oe-CHECK erlaubt bei Einheit
+ *  'kmw' deshalb bis 351,6 (= f(60 °KMW)); ausMessung(60, 'kmw') ist gültig. */
 export const KMW_MAX = 60
-export const OECHSLE_MAX = 360
+export const OECHSLE_MAX = 350
 
 /** Grenzfall-Band um eine Stufenschwelle (Jörgen, 26.09.2026: ±0,2 °KMW ≈ ±1 °Oe, Hand-Refraktometer) */
 export const GRENZ_BAND_KMW = 0.2
@@ -137,7 +140,7 @@ function kmwHundertstelVarianteB(z: number): number {
  * - 'kmw': °KMW auf 0,01 (kaufmännisch, wie die numeric(5,2)-Spalte), °Oe = f(°KMW) auf 0,1.
  * - 'oechsle': °Oe auf 0,1, °KMW nach Variante B auf 0,01.
  * null/undefined → null (kein Mostgewicht). Keine endliche Zahl, negativ, über 60 °KMW bzw.
- * 360 °Oe oder unbekannte Einheit → RangeError (Eingaben vorher mit parseEingabe() prüfen).
+ * 350 °Oe (gemessen) oder unbekannte Einheit → RangeError (Eingaben vorher mit parseEingabe() prüfen).
  * Die Stufe (kmwZuQualitaet) nur aus dem Ergebnis `.kmw` ableiten.
  */
 export function ausMessung(wert: number | null | undefined, einheit: MostgewichtEinheit): Mostgewicht | null {
@@ -250,7 +253,7 @@ export type MostgewichtParseErgebnis =
 /**
  * Prüft eine Texteingabe in der angegebenen Einheit: Komma oder Punkt als Dezimaltrennzeichen,
  * °KMW mit höchstens 2 und °Oe mit höchstens 1 Nachkommastelle (Nullen am Ende zählen nicht:
- * „83,50“ = 83,5), Bereich 0–60 °KMW bzw. 0–360 °Oe. Leer (auch nur Leerzeichen) = null.
+ * „83,50“ = 83,5), Bereich 0–60 °KMW bzw. 0–350 °Oe. Leer (auch nur Leerzeichen) = null.
  */
 export function parseEingabe(text: string | null | undefined, einheit: MostgewichtEinheit): MostgewichtParseErgebnis {
   pruefeEinheit(einheit)

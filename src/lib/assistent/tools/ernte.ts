@@ -33,9 +33,11 @@ Gemeinsame Felder: jahrgang (pflicht, Erntejahr als Zahl z.B. 2026 – existiert
 Weinjahrgang-Datensatz, wird er automatisch mit angelegt), ernte_datum (pflicht, YYYY-MM-DD),
 lesemethode (optional: handlese/maschinenlese/selektionslese), gemeinsames Mostgewicht (optional)
 ENTWEDER klosterneuburger (in °KMW, höchstens 2 Nachkommastellen, 0–60) ODER oechsle (in °Oe,
-höchstens 1 Nachkommastelle, 0–360) – genau in der Einheit, die der User nennt, nie selbst
+höchstens 1 Nachkommastelle, 0–350) – genau in der Einheit, die der User nennt, nie selbst
 umrechnen und nie beide angeben; gespeichert wird der Messwert mit seiner Einheit, der andere Wert
-wird umgerechnet. qualitaetsstufe (optional – wird derzeit NICHT übernommen: die Stufe
+wird umgerechnet. Die Zusammenfassung zur Bestätigung nennt jedes Mostgewicht mit der Einheit, in
+der der User es genannt hat (z. B. „17,4 °KMW“ bzw. „84 °Oe“) – so bestätigt er auch die Einheit.
+qualitaetsstufe (optional – wird derzeit NICHT übernommen: die Stufe
 wird immer aus den °KMW abgeleitet (bei °Oe aus dem umgerechneten °KMW), ohne Mostgewicht gilt
 qualitaetswein; eine andere Stufe, z. B.
 Eiswein, stellt der User nach dem Speichern beim Bearbeiten der Lese ein – darauf hinweisen.
@@ -63,7 +65,9 @@ export const ERNTE_TOOL = {
     'Grundstücke eines Erntejahrs. Legt bei Bedarf automatisch den passenden Weinjahrgang an. ' +
     'WICHTIG: Rufe dieses Tool ausschließlich MIT bestaetigt_vom_user=true auf, und das auch ' +
     'nur, nachdem du dem User in einer normalen Textnachricht eine Zusammenfassung aller ' +
-    'Positionen gezeigt und er ausdrücklich zugestimmt hat (z.B. "ja", "passt", "ok"). Rufe es ' +
+    'Positionen gezeigt hat – Jahrgang, Datum, Rieden/Grundstücke mit Mengen und jedes ' +
+    'Mostgewicht mit der Einheit, in der er es genannt hat (z. B. „Mostgewicht 17,4 °KMW“ ' +
+    'bzw. „Mostgewicht 84 °Oe“) – und er ausdrücklich zugestimmt hat (z.B. "ja", "passt", "ok"). Rufe es ' +
     'NIEMALS vorher auf (auch nicht testweise) – nutze bestaetigt_vom_user=false nur, falls du ' +
     'aus Versehen ohne Bestätigung aufrufst, was du aber vermeiden sollst.',
   input_schema: {
@@ -146,7 +150,8 @@ export async function fuehreErnteErfassenAus(
     return {
       erfolg: false,
       hinweis: 'Noch nicht bestätigt. Fasse die geplante Eintragung (Jahrgang, Datum, alle ' +
-        'Rieden/Grundstücke mit Mengen) in einer normalen Textnachricht zusammen und frage den ' +
+        'Rieden/Grundstücke mit Mengen, jedes Mostgewicht mit Einheit wie vom User genannt – ' +
+        'z. B. „17,4 °KMW“ bzw. „84 °Oe“) in einer normalen Textnachricht zusammen und frage den ' +
         'User ausdrücklich um Bestätigung, bevor du dieses Tool erneut mit ' +
         'bestaetigt_vom_user=true aufrufst. Es wurde NICHTS gespeichert.',
     }

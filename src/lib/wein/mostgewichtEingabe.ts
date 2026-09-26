@@ -27,6 +27,11 @@ export const STUFEN_SCHWELLEN_KMW: readonly number[] = [14, 15, 17, 19, 21, 25, 
 /** Prädikatswein (§ 11 WeinG) ab Spätlese – dort zählt die Bestätigung der Mostwäger */
 export const PRAEDIKATSWEIN_AB_KMW = 19
 
+/** Bereich der BKI-Anreicherungstabelle, Anlage Ia (°KMW ↔ °Oe): 11,5–22,0 °KMW. Schwellen darin
+ *  (Landwein 14, Qualitätswein 15, Kabinett 17, Spätlese 19, Auslese 21) stehen in der Tabelle,
+ *  25 und 30 °KMW (Beerenauslese, Trockenbeerenauslese) nicht – dort nur die Formel. */
+export const BKI_TABELLE_KMW: Readonly<{ von: number; bis: number }> = { von: 11.5, bis: 22 }
+
 export interface EingabeZustand {
   /** Text je Feld, wie angezeigt */
   text: Record<MostgewichtEinheit, string>
@@ -125,6 +130,8 @@ export interface Grenzfall {
   stufe: string
   /** Prädikatswein: die Bestätigung der Mostwäger zählt (§ 11 Abs. 2, § 12 Abs. 6 WeinG) */
   praedikatswein: boolean
+  /** Steht die Schwelle in der BKI-Anreicherungstabelle (11,5–22,0 °KMW)? Sonst nur Formel-Hinweis */
+  bkiTabelle: boolean
 }
 
 /** Liegt das Mostgewicht höchstens ±0,2 °KMW an einer Stufenschwelle? (Jörgen, 26.09.2026) */
@@ -132,7 +139,38 @@ export function grenzfall(m: Mostgewicht | null | undefined): Grenzfall | null {
   if (!m) return null
   const s = imGrenzbereich(m.kmw, STUFEN_SCHWELLEN_KMW)
   if (s == null) return null
-  return { schwelleKmw: s, schwelleOechsle: mindestOechsle(s, 1), stufe: kmwZuQualitaet(s), praedikatswein: s >= PRAEDIKATSWEIN_AB_KMW }
+  return {
+    schwelleKmw: s,
+    schwelleOechsle: mindestOechsle(s, 1),
+    stufe: kmwZuQualitaet(s),
+    praedikatswein: s >= PRAEDIKATSWEIN_AB_KMW,
+    bkiTabelle: s >= BKI_TABELLE_KMW.von && s <= BKI_TABELLE_KMW.bis,
+  }
+}
+
+/**
+ * Mostgewicht einer Zeile, deren Eingabe aus- und wieder eingeblendet wird – Sammelerfassung der
+ * Lese je Grundstück: die Zeile verschwindet beim Zuklappen der Ried (Review 26.09.2026 III).
+ *  - `zustand`: aktueller Eingabezustand (null = noch nichts eingegeben) – Startzustand beim
+ *    Wiedereinblenden (MostgewichtEingabe, Prop `anfangsZustand`): ein gültiger Wert steht wieder
+ *    da, ein ungültiger Text samt Fehler ebenso, statt still zu verschwinden;
+ *  - `wert`: zuletzt gültiger Wert (null = leer bzw. gelöscht) – bleibt bei ungültiger Eingabe stehen;
+ *  - `fehler`: Fehler der aktuellen Eingabe; verschwindet, sobald sie wieder gültig ist (das
+ *    Absenden prüft ihn, auch wenn die Zeile gerade zugeklappt ist).
+ */
+export interface ZeilenMostgewicht {
+  zustand: EingabeZustand | null
+  wert: Mostgewicht | null
+  fehler: string | null
+}
+
+export const ZEILE_OHNE_MOSTGEWICHT: ZeilenMostgewicht = { zustand: null, wert: null, fehler: null }
+
+/** Neuer Eingabezustand einer Zeile (onChange der Komponente) → Zeilenwerte (siehe ZeilenMostgewicht) */
+export function zeileMostgewichtAendern(zeile: ZeilenMostgewicht, z: EingabeZustand): ZeilenMostgewicht {
+  return z.fehler
+    ? { zustand: z, wert: zeile.wert, fehler: z.fehler }
+    : { zustand: z, wert: z.wert, fehler: null }
 }
 
 /**

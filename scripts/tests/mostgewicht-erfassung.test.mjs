@@ -98,9 +98,14 @@ describe('Verdrahtung Lese (Quelltext)', () => {
     assert.match(client, /name=\{`gst_\$\{gstId\}_mostgewicht`\}/)
     assert.match(client, /<MostgewichtEingabe name="mostgewicht" startwert=\{mgStart\}/)
     // je Grundstück: Messwert + Einheit ins JSON, ungültige Eingabe blockiert das Absenden
-    assert.match(client, /mostgewicht_wert: data\?\.mg \? messwertText\(data\.mg\) : null/)
-    assert.match(client, /mostgewicht_einheit: data\?\.mg\?\.einheit \?\? null/)
-    assert.match(client, /gstData\.get\(gstId\)\?\.mgFehler/)
+    assert.match(client, /const mg = data\?\.mg\.wert \?\? null/)
+    assert.match(client, /mostgewicht_wert: mg \? messwertText\(mg\) : null/)
+    assert.match(client, /mostgewicht_einheit: mg\?\.einheit \?\? null/)
+    assert.match(client, /gstData\.get\(gstId\)\?\.mg\.fehler/)
+    // Review 26.09.2026 III: Zeile zu- und aufklappen – Eingabezustand zurück, Fehler nur zur aktuellen Eingabe
+    assert.match(client, /anfangsZustand=\{zeile\.zustand\}/)
+    assert.match(client, /mg: zeileMostgewichtAendern\(alt\.mg, zustand\)/)
+    assert.doesNotMatch(client, /mgFehler/)
   })
 
   test('Lese bearbeiten behält die gewählte Stufe (Rechenregel 6), höchstens ein Prüfhinweis', () => {
@@ -136,6 +141,11 @@ describe('Verdrahtung Lese (Quelltext)', () => {
     assert.match(t, /oechsle: \{ type: 'number', description: 'Mostgewicht in °Oe \(nicht zusammen mit kmw\)' \}/)
     assert.match(t, /ENTWEDER klosterneuburger \(in °KMW/)
     assert.match(t, /bitte nur EINEN Messwert angeben/)
+    // Bestätigungspflicht nennt das Mostgewicht mit Einheit (Beschreibung, Feld-Matrix, Hinweis ohne Bestätigung)
+    assert.match(t, /jedes ' \+\s+'Mostgewicht mit der Einheit, in der er es genannt hat \(z\. B\. „Mostgewicht 17,4 °KMW“ ' \+\s+'bzw\. „Mostgewicht 84 °Oe“\)/)
+    assert.match(t, /Die Zusammenfassung zur Bestätigung nennt jedes Mostgewicht mit der Einheit/)
+    assert.match(t, /jedes Mostgewicht mit Einheit wie vom User genannt – ' \+\s+'z\. B\. „17,4 °KMW“ bzw\. „84 °Oe“\)/)
+    assert.match(t, /höchstens 1 Nachkommastelle, 0–350\)/)
     assert.match(t, /mostgewichtAusWert\(roh, einheit, bezeichnung\)/)
     assert.match(t, /fd\.set\('mostgewicht_einheit', gemeinsam\.einheit\)/)
     assert.doesNotMatch(t, /fd\.set\('klosterneuburger'/)

@@ -10,7 +10,7 @@
 // (5) Eingaben (parseEingabe) und ungültige Werte
 // (6) JavaScript-Gleitkomma-Fallen
 // (7) Golden-Tabelle: scripts/tests/golden/mostgewicht_golden.csv vollständig gegen ausMessung(),
-//     dazu der Gesamtbereich 0–360 °Oe / 0–60 °KMW per md5 gegen dieselbe Rechnung in SQL
+//     dazu der Gesamtbereich 0–350 °Oe / 0–60 °KMW per md5 gegen dieselbe Rechnung in SQL
 //
 // Golden-Tabelle: am 26.09.2026 per SELECT in Supabase (zwcsgnemijkpyxrqykul) erzeugt – dieselbe
 // Formel wie die Funktionen der Migration A (s112_oechsle_aus_kmw, s112_kmw_aus_oechsle), inline:
@@ -218,8 +218,10 @@ describe('(2) Beispiele der Akzeptanzkriterien', () => {
 describe('(3) Hin- und Rückrechnung ohne Drift', () => {
   const alleOe = raster(0, OECHSLE_MAX, 1)
   const alleKmw = raster(0, KMW_MAX, 2)
+  // °KMW, deren ≈ °Oe als Messwert eingebbar ist (0–59,78 °KMW; 59,79–60 °KMW ergeben über 350 °Oe)
+  const kmwMitOe = alleKmw.filter(k => kmw(k).oechsle <= OECHSLE_MAX)
 
-  test('°Oe → °KMW (B) → °Oe verlustfrei für 0,0–360,0 °Oe; B ist maximal', () => {
+  test('°Oe → °KMW (B) → °Oe verlustfrei für 0,0–350,0 °Oe; B ist maximal', () => {
     for (const w of alleOe) {
       const m = oe(w)
       assert.equal(m.oechsle, w)
@@ -246,7 +248,8 @@ describe('(3) Hin- und Rückrechnung ohne Drift', () => {
   })
 
   test('°KMW → °Oe → °KMW: nie tiefer, ab 10,5 °KMW höchstens +0,01; danach Fixpunkt', () => {
-    for (const k of alleKmw) {
+    assert.equal(kmwMitOe.at(-1), 59.78)
+    for (const k of kmwMitOe) {
       const zurueck = oe(kmw(k).oechsle).kmw
       const d = runden(zurueck - k, 2)
       assert.ok(d >= 0 && d <= (k >= 10.5 ? 0.01 : 0.02), `${k} °KMW → ${zurueck}`)
@@ -256,7 +259,7 @@ describe('(3) Hin- und Rückrechnung ohne Drift', () => {
 
   test('°KMW mit 1 Stelle über die °Oe-Anzeige zurück: unter B nie ein Stufenwechsel, unter A genau 17,0/19,0/21,0', () => {
     const wechselA = []
-    for (const k of raster(0, KMW_MAX, 1)) {
+    for (const k of raster(0, KMW_MAX, 1).filter(k => kmw(k).oechsle <= OECHSLE_MAX)) {
       const anzeige = kmw(k).oechsle
       assert.equal(kmwZuQualitaet(oe(anzeige).kmw), kmwZuQualitaet(k), `${k} °KMW`)
       if (kmwZuQualitaet(kmwVarianteA(anzeige)) !== kmwZuQualitaet(k)) wechselA.push(k)
@@ -265,7 +268,7 @@ describe('(3) Hin- und Rückrechnung ohne Drift', () => {
   })
 
   test('°KMW mit 2 Stellen: unter B kippen genau 16,99 und 20,99 nach oben (Rechenregel 5)', () => {
-    const kippt = alleKmw.filter(k => kmwZuQualitaet(oe(kmw(k).oechsle).kmw) !== kmwZuQualitaet(k))
+    const kippt = kmwMitOe.filter(k => kmwZuQualitaet(oe(kmw(k).oechsle).kmw) !== kmwZuQualitaet(k))
     assert.deepEqual(kippt, [16.99, 20.99])
   })
 
@@ -387,7 +390,8 @@ describe('(5) parseEingabe und ungültige Werte', () => {
     gut('84', 'oechsle', 84)
     gut('83,5', 'oechsle', 83.5)
     gut('83,50', 'oechsle', 83.5)
-    gut('360', 'oechsle', 360)
+    gut('350', 'oechsle', 350)
+    gut('350,0', 'oechsle', 350)
   })
 
   test('zu viele Stellen', () => {
@@ -396,10 +400,12 @@ describe('(5) parseEingabe und ungültige Werte', () => {
     schlecht('84,01', 'oechsle', /°Oe/)
   })
 
-  test('Bereich 0–60 °KMW bzw. 0–360 °Oe, nicht negativ', () => {
+  test('Bereich 0–60 °KMW bzw. 0–350 °Oe, nicht negativ', () => {
     schlecht('60,01', 'kmw', /zwischen 0 und 60 °KMW/)
     schlecht('61', 'kmw', /zwischen 0 und 60 °KMW/)
-    schlecht('360,1', 'oechsle', /zwischen 0 und 360 °Oe/)
+    schlecht('350,1', 'oechsle', /zwischen 0 und 350 °Oe/)
+    schlecht('351,6', 'oechsle', /zwischen 0 und 350 °Oe/)   // = 60 °KMW, gemessen nicht mehr zulässig
+    schlecht('360', 'oechsle', /zwischen 0 und 350 °Oe/)     // bis 26.09.2026 die Grenze
     schlecht('-3', 'kmw', /negativ/)
     schlecht('−3', 'oechsle', /negativ/)
     schlecht('99999999999999999999999', 'kmw', /zwischen 0 und 60 °KMW/)
@@ -427,15 +433,27 @@ describe('(5) parseEingabe und ungültige Werte', () => {
     assert.throws(() => ausMessung(-0.1, 'kmw'), RangeError)
     assert.throws(() => ausMessung(-1, 'oechsle'), RangeError)
     assert.throws(() => ausMessung(60.01, 'kmw'), RangeError)
-    assert.throws(() => ausMessung(360.1, 'oechsle'), RangeError)
+    assert.throws(() => ausMessung(350.1, 'oechsle'), RangeError)
+    assert.throws(() => ausMessung(351.6, 'oechsle'), RangeError)
     assert.throws(() => ausMessung('17', 'kmw'), RangeError)
     assert.throws(() => ausMessung(17, 'brix'), RangeError)
     assert.deepEqual(ausMessung(0, 'kmw'), { kmw: 0, oechsle: 0, einheit: 'kmw' })
     // B am Rand: f(0,01) = 0,0454 rundet auf 0,0 °Oe – größter °KMW-Wert dazu ist 0,01 (SQL ebenso)
     assert.deepEqual(ausMessung(0, 'oechsle'), { kmw: 0.01, oechsle: 0, einheit: 'oechsle' })
     assert.deepEqual(ausMessung(60, 'kmw'), { kmw: 60, oechsle: 351.6, einheit: 'kmw' })
-    assert.equal(ausMessung(351.6, 'oechsle').kmw, 60)
-    assert.equal(ausMessung(360, 'oechsle').oechsle, 360)
+    assert.deepEqual(ausMessung(350, 'oechsle'), { kmw: 59.78, oechsle: 350, einheit: 'oechsle' })
+  })
+
+  test('Grenzen passen zusammen (Review 26.09.2026 III): °Oe-Messung nie über 60 °KMW, °KMW-Messung nie über 351,6 °Oe', () => {
+    // wie die CHECKs der Migration A: °KMW 0–60, °Oe gemessen 0–350, bei Einheit kmw gerechnet bis 351,6
+    assert.equal(KMW_MAX, 60)
+    assert.equal(OECHSLE_MAX, 350)
+    assert.equal(oe(OECHSLE_MAX).kmw, 59.78)
+    assert.equal(kmw(KMW_MAX).oechsle, 351.6)
+    assert.ok(raster(0, OECHSLE_MAX, 1).every(w => oe(w).kmw <= KMW_MAX))
+    assert.ok(raster(0, KMW_MAX, 2).every(k => kmw(k).oechsle <= 351.6))
+    // nur 59,79–60,00 °KMW ergeben gerechnet mehr als 350 °Oe
+    assert.deepEqual(raster(59, KMW_MAX, 2).filter(k => kmw(k).oechsle > OECHSLE_MAX), raster(59.79, KMW_MAX, 2))
   })
 
   test('mindestOechsle, runden, abrunden: ungültige Parameter werfen', () => {
@@ -462,9 +480,12 @@ describe('(6) JavaScript-Gleitkomma-Fallen', () => {
     assert.equal(stufe(oe(156)), 'trockenbeerenauslese')
     // alle °Oe-Werte (0,1-Raster), bei denen das Abrunden ohne Toleranz eine Stelle verliert
     const ohneToleranz = raster(0, OECHSLE_MAX, 1).filter(w => Math.floor(kmwAusOechsle(w) * 100) / 100 !== kmwVarianteA(w))
-    assert.deepEqual(ohneToleranz, [47.6, 156, 351.6])
-    assert.deepEqual([47.6, 156, 351.6].map(kmwVarianteA), [10, 30, 60])
-    assert.deepEqual([47.6, 156, 351.6].map(w => oe(w).kmw), [10.01, 30, 60])   // B: f(10,01) = 47,65 → 47,6
+    assert.deepEqual(ohneToleranz, [47.6, 156])
+    assert.deepEqual([47.6, 156].map(kmwVarianteA), [10, 30])
+    assert.deepEqual([47.6, 156].map(w => oe(w).kmw), [10.01, 30])   // B: f(10,01) = 47,65 → 47,6
+    // über dem Eingabebereich (bis 26.09.2026: 0–360 °Oe) ebenso 351,6 °Oe = 60 °KMW
+    assert.equal(Math.floor(kmwAusOechsle(351.6) * 100) / 100, 59.99)
+    assert.equal(kmwVarianteA(351.6), 60)
   })
 
   test('exakte Mitten (x,x5 °Oe) runden auf wie numeric in PostgreSQL: 15 → 73,1, 25 → 127,3', () => {
@@ -530,18 +551,20 @@ describe('(7) Golden-Tabelle (SQL, Variante B)', () => {
     assert.deepEqual([...gesehen.kmw].map(Number), raster(10, 40, 2))
   })
 
-  // Gesamtbereich 0,0–360,0 °Oe und 0,00–60,00 °KMW (26.09.2026, SQL wie oben, B mit ZWEI
+  // Gesamtbereich 0,0–350,0 °Oe und 0,00–60,00 °KMW (26.09.2026, SQL wie oben, B mit ZWEI
   // Schritten – siehe (3); mit nur einem Schritt weichen 20 Werte unter 42,1 °Oe ab):
   //   oe_b: case when round((a + 0.02) * (0.022 * (a + 0.02) + 4.54), 1) <= p then a + 0.02
   //              when round((a + 0.01) * (0.022 * (a + 0.01) + 4.54), 1) <= p then a + 0.01 else a end
-  //   md5(string_agg(p::text || ';' || b::numeric(5,2)::text || E'\n', '' order by n))       – generate_series(0,3600)
+  //   md5(string_agg(p::text || ';' || b::numeric(5,2)::text || E'\n', '' order by n))       – generate_series(0,3500)
   //   md5(string_agg(k::text || ';' || round(k * (0.022 * k + 4.54), 1)::numeric(5,1)::text || E'\n', '' order by n)) – generate_series(0,6000)
-  test('Gesamtbereich 0–360 °Oe und 0–60 °KMW = SQL (md5)', () => {
+  // Review 26.09.2026 III: Eingabebereich 0–350 °Oe (vorher 0–360, md5 29e4a694…). Neuer md5 per SELECT
+  // in Supabase und lokal mit s112_kmw_aus_oechsle() der Migration A nachgerechnet – gleich.
+  test('Gesamtbereich 0–350 °Oe und 0–60 °KMW = SQL (md5)', () => {
     let oeText = ''
     for (const w of raster(0, OECHSLE_MAX, 1)) oeText += `${w.toFixed(1)};${oe(w).kmw.toFixed(2)}\n`
     let kmwText = ''
     for (const k of raster(0, KMW_MAX, 2)) kmwText += `${k.toFixed(2)};${kmw(k).oechsle.toFixed(1)}\n`
-    assert.equal(createHash('md5').update(oeText, 'utf8').digest('hex'), '29e4a694ae37776b95c210a01a7fbd03')
+    assert.equal(createHash('md5').update(oeText, 'utf8').digest('hex'), 'c7e2de30814117fa5231bbd68d663c70')
     assert.equal(createHash('md5').update(kmwText, 'utf8').digest('hex'), '7ce2c7f20528af665c0b9d2dd929c8ad')
   })
 })

@@ -15,8 +15,8 @@ import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { csvPfad } from '@/lib/behoerden/katalog'
 import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
 import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
-import type { Mostgewicht } from '@/lib/wein/mostgewicht'
 import { messwertText, type GespeichertesMostgewicht } from '@/lib/wein/mostgewichtFormular'
+import { ZEILE_OHNE_MOSTGEWICHT, zeileMostgewichtAendern, type EingabeZustand, type ZeilenMostgewicht } from '@/lib/wein/mostgewichtEingabe'
 
 // Qualitätsstufen der Lese: LESE_QUALITAETEN aus lib/wein/qualitaet (KAN-73) – genau die
 // Stufen, die ernte_parzellen speichern kann (DAC, Reserve & Co. erst an der Charge/Füllung)
@@ -34,21 +34,23 @@ const AMA_STATUS_BADGE: Record<string, { label: string; cls: string }> = {
 }
 
 // Erfassung je Grundstück in der Sammelerfassung. Mostgewicht (KAN-128) als Messwert mit Einheit aus
-// der Eingabe-Komponente – im Zustand, weil die Zeile beim Zuklappen der Ried verschwindet.
-type GstEingabe = { menge_kg: string; mg: Mostgewicht | null; mgFehler: string | null; lesemethode: string; notizen: string }
-const GST_LEER: GstEingabe = { menge_kg: '', mg: null, mgFehler: null, lesemethode: '', notizen: '' }
+// der Eingabe-Komponente – im Zustand, weil die Zeile beim Zuklappen der Ried verschwindet:
+// zuletzt gültiger Wert, Fehler der aktuellen Eingabe und der Eingabezustand fürs Wiedereinblenden
+// (lib/wein/mostgewichtEingabe.ts, ZeilenMostgewicht).
+type GstEingabe = { menge_kg: string; mg: ZeilenMostgewicht; lesemethode: string; notizen: string }
+const GST_LEER: GstEingabe = { menge_kg: '', mg: ZEILE_OHNE_MOSTGEWICHT, lesemethode: '', notizen: '' }
 
-/** Mostgewicht einer Grundstückszeile: der Startwert gilt nur beim Einblenden (sonst begänne die
- *  Eingabe bei jedem Tastendruck neu); nach dem Auf- und Zuklappen steht der zuletzt gültige Wert da. */
-function GstMostgewicht({ gstId, start, onChange }: {
+/** Mostgewicht einer Grundstückszeile: beginnt beim Einblenden mit dem zuletzt gemeldeten
+ *  Eingabezustand (auch einem ungültigen Text samt Fehler) – anfangsZustand gilt nur beim ersten
+ *  Rendern, sonst begänne die Eingabe bei jedem Tastendruck neu. */
+function GstMostgewicht({ gstId, zeile, onChange }: {
   gstId: string
-  start: Mostgewicht | null
-  onChange: (wert: Mostgewicht | null, fehler: string | null) => void
+  zeile: ZeilenMostgewicht
+  onChange: (zustand: EingabeZustand) => void
 }) {
-  const [anfang] = useState<GespeichertesMostgewicht | null>(() => start)
   return (
-    <MostgewichtEingabe name={`gst_${gstId}_mostgewicht`} startwert={anfang}
-      onChange={(wert, info) => onChange(wert, info.fehler)} />
+    <MostgewichtEingabe name={`gst_${gstId}_mostgewicht`} anfangsZustand={zeile.zustand}
+      onChange={(_wert, info) => onChange(info.zustand)} />
   )
 }
 
@@ -72,6 +74,16 @@ function NeueParzellenForm({
   const [gstData, setGstData] = useState<Map<string, GstEingabe>>(new Map())
   function gstAendern(gstId: string, patch: Partial<GstEingabe>) {
     setGstData(prev => { const n = new Map(prev); n.set(gstId, { ...(n.get(gstId) ?? GST_LEER), ...patch }); return n })
+  }
+  // Mostgewicht: ein gültiger Wert ersetzt den letzten und löscht den Fehler, ein ungültiger setzt
+  // nur den Fehler (der zuletzt gültige Wert bleibt) – immer mit dem aktuellen Eingabezustand
+  function gstMostgewichtAendern(gstId: string, zustand: EingabeZustand) {
+    setGstData(prev => {
+      const n = new Map(prev)
+      const alt = n.get(gstId) ?? GST_LEER
+      n.set(gstId, { ...alt, mg: zeileMostgewichtAendern(alt.mg, zustand) })
+      return n
+    })
   }
 
   const riedMap = new Map<string, WeingartenOpt[]>()
@@ -111,9 +123,10 @@ function NeueParzellenForm({
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (totalSelCount === 0) { setError('Bitte mindestens eine Ried oder ein Grundstück auswählen.'); return }
-    // Ungültiges Mostgewicht einer (evtl. zugeklappten) Grundstückszeile – sonst ginge es still verloren
+    // Ungültiges Mostgewicht einer (evtl. zugeklappten) Grundstückszeile – sonst ginge es still verloren;
+    // beim Aufklappen steht die Eingabe samt Fehler wieder da
     for (const [gstId, wgId] of selectedGSTs) {
-      const f = gstData.get(gstId)?.mgFehler
+      const f = gstData.get(gstId)?.mg.fehler
       if (f) {
         const gst = (gstByWeingarten[wgId] ?? []).find(g => g.id === gstId)
         setError(`GST ${gst?.gst_nr ?? ''}: ${f}`)
@@ -127,12 +140,13 @@ function NeueParzellenForm({
       Array.from(selectedGSTs.entries()).map(([gst_id, weingarten_id]) => {
         const gst = (gstByWeingarten[weingarten_id] ?? []).find(g => g.id === gst_id)
         const data = gstData.get(gst_id)
+        const mg = data?.mg.wert ?? null   // ohne Fehler (oben geprüft) = aktuelle Eingabe
         return {
           gst_id, weingarten_id, flaeche_ha: gst?.flaeche_ha ?? null,
           menge_kg: data?.menge_kg ? parseFloat(dezimal(data.menge_kg)) : null,
           // Messwert und Einheit – die Action rechnet beide Werte selbst (KAN-128)
-          mostgewicht_wert: data?.mg ? messwertText(data.mg) : null,
-          mostgewicht_einheit: data?.mg?.einheit ?? null,
+          mostgewicht_wert: mg ? messwertText(mg) : null,
+          mostgewicht_einheit: mg?.einheit ?? null,
           lesemethode: data?.lesemethode || null,
           notizen: data?.notizen || null,
         }
@@ -250,8 +264,8 @@ function NeueParzellenForm({
                                       </div>
                                       {/* Mostgewicht in °KMW oder °Oe (KAN-128), bevorzugte Einheit zuerst */}
                                       <div className="col-span-4">
-                                        <GstMostgewicht gstId={g.id} start={gstData.get(g.id)?.mg ?? null}
-                                          onChange={(mg, mgFehler) => gstAendern(g.id, { mg, mgFehler })} />
+                                        <GstMostgewicht gstId={g.id} zeile={gstData.get(g.id)?.mg ?? ZEILE_OHNE_MOSTGEWICHT}
+                                          onChange={zustand => gstMostgewichtAendern(g.id, zustand)} />
                                       </div>
                                     </div>
                                   </div>

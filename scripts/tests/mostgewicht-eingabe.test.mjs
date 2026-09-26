@@ -84,7 +84,7 @@ describe('mostgewichtAusGespeichert()', () => {
     const m = mostgewichtAusGespeichert({ kmw: 65 })
     assert.equal(m.kmw, 65)
     assert.equal(m.einheit, 'kmw')
-    assert.ok(m.oechsle > 360)
+    assert.ok(m.oechsle > 350)
   })
 })
 
@@ -129,7 +129,7 @@ describe('mostgewichtAusFormular()', () => {
       [{ mg_wert: '84' }, /°KMW oder °Oe/],
       [{ mg_wert: '84', mg_einheit: 'brix' }, /°KMW oder °Oe/],
       [{ mg_wert: '61', mg_einheit: 'kmw' }, /zwischen 0 und 60 °KMW/],
-      [{ mg_wert: '360,1', mg_einheit: 'oechsle' }, /zwischen 0 und 360 °Oe/],
+      [{ mg_wert: '350,1', mg_einheit: 'oechsle' }, /zwischen 0 und 350 °Oe/],
       [{ mg_wert: '-3', mg_einheit: 'kmw' }, /nicht negativ/],
       [{ mg_wert: '17,4 KMW', mg_einheit: 'kmw' }, /als Zahl/],
       [{ mg_wert: '17,456', mg_einheit: 'kmw' }, /höchstens 2 Nachkommastellen/],
@@ -299,9 +299,9 @@ describe('Eingabe: Stufenwechsel und Grenzfall', () => {
   })
 
   test('Grenzfall ±0,2 °KMW an den Stufenschwellen, Mostwäger-Hinweis ab Prädikatswein', () => {
-    assert.deepEqual(grenzfall(ausMessung(83.5, 'oechsle')), { schwelleKmw: 17, schwelleOechsle: 83.5, stufe: 'kabinett', praedikatswein: false })
-    assert.deepEqual(grenzfall(ausMessung(94.2, 'oechsle')), { schwelleKmw: 19, schwelleOechsle: 94.2, stufe: 'spaetlese', praedikatswein: true })
-    assert.deepEqual(grenzfall(ausMessung(105, 'oechsle')), { schwelleKmw: 21, schwelleOechsle: 105, stufe: 'auslese', praedikatswein: true })
+    assert.deepEqual(grenzfall(ausMessung(83.5, 'oechsle')), { schwelleKmw: 17, schwelleOechsle: 83.5, stufe: 'kabinett', praedikatswein: false, bkiTabelle: true })
+    assert.deepEqual(grenzfall(ausMessung(94.2, 'oechsle')), { schwelleKmw: 19, schwelleOechsle: 94.2, stufe: 'spaetlese', praedikatswein: true, bkiTabelle: true })
+    assert.deepEqual(grenzfall(ausMessung(105, 'oechsle')), { schwelleKmw: 21, schwelleOechsle: 105, stufe: 'auslese', praedikatswein: true, bkiTabelle: true })
     assert.equal(grenzfall(ausMessung(156, 'oechsle')).stufe, 'trockenbeerenauslese')
     assert.equal(grenzfall(ausMessung(16.8, 'kmw')).schwelleKmw, 17)
     assert.equal(grenzfall(ausMessung(17.2, 'kmw')).schwelleKmw, 17)
@@ -309,6 +309,80 @@ describe('Eingabe: Stufenwechsel und Grenzfall', () => {
     assert.equal(grenzfall(ausMessung(18.5, 'kmw')), null)
     assert.equal(grenzfall(null), null)
     assert.deepEqual([...E.STUFEN_SCHWELLEN_KMW], [14, 15, 17, 19, 21, 25, 30])
+  })
+
+  test('Grenzfall: Verweis auf die BKI-Tabelle nur für Schwellen darin (11,5–22,0 °KMW), bei 25/30 °KMW nur Formel', () => {
+    assert.deepEqual(E.BKI_TABELLE_KMW, { von: 11.5, bis: 22 })
+    const tabelle = E.STUFEN_SCHWELLEN_KMW.filter(s => grenzfall(ausMessung(s, 'kmw')).bkiTabelle)
+    assert.deepEqual(tabelle, [14, 15, 17, 19, 21])
+    // Beerenauslese und Trockenbeerenauslese: kein Tabellenverweis, aber Mostwäger-Bestätigung
+    for (const [m, s] of [[ausMessung(127.3, 'oechsle'), 25], [ausMessung(24.9, 'kmw'), 25], [ausMessung(156, 'oechsle'), 30], [ausMessung(29.8, 'kmw'), 30]]) {
+      const g = grenzfall(m)
+      assert.equal(g.schwelleKmw, s)
+      assert.equal(g.bkiTabelle, false)
+      assert.equal(g.praedikatswein, true)
+    }
+    assert.equal(grenzfall(ausMessung(67.9, 'oechsle')).bkiTabelle, true)     // Landwein 14 °KMW
+    // Komponente: Tabellenverweis nur mit bkiTabelle, sonst die Formel
+    const k = quelle('src/components/wein/MostgewichtEingabe.tsx')
+    assert.match(k, /\{grenz\.bkiTabelle \? \(/)
+    assert.match(k, /nach der Umrechnungsformel °Oe = °KMW × \(4,54 \+ 0,022 × °KMW\)/)
+    assert.match(k, /grenz\.praedikatswein && <> Bei Prädikatswein zählt die Bestätigung der Mostwäger/)
+  })
+})
+
+describe('Sammelerfassung: Grundstückszeile zu- und wieder aufklappen (Review 26.09.2026 III)', () => {
+  const { ZEILE_OHNE_MOSTGEWICHT, zeileMostgewichtAendern } = E
+
+  /** Tippen wie im Browser: Komponente (eingabeAendern) → onChange → Zeilenwerte */
+  function tippen(z, zeile, einheit, texte) {
+    for (const t of texte) {
+      z = eingabeAendern(z, einheit, t)
+      zeile = zeileMostgewichtAendern(zeile, z)
+    }
+    return { z, zeile }
+  }
+
+  test('17,4 → 17,456 (Fehler) → 17,45: der Fehler verschwindet, der gültige Wert zählt', () => {
+    let { z, zeile } = tippen(eingabeStart(null, 'kmw'), ZEILE_OHNE_MOSTGEWICHT, 'kmw', ['1', '17', '17,', '17,4'])
+    assert.deepEqual(zeile.wert, { kmw: 17.4, oechsle: 85.7, einheit: 'kmw' })
+    assert.equal(zeile.fehler, null)
+    ;({ z, zeile } = tippen(z, zeile, 'kmw', ['17,45', '17,456']))
+    assert.match(zeile.fehler, /höchstens 2 Nachkommastellen/)
+    assert.deepEqual(zeile.wert, ausMessung(17.45, 'kmw'))      // zuletzt gültiger Wert bleibt
+    ;({ z, zeile } = tippen(z, zeile, 'kmw', ['17,45']))
+    assert.equal(zeile.fehler, null)
+    assert.deepEqual(zeile.wert, ausMessung(17.45, 'kmw'))
+    ;({ z, zeile } = tippen(z, zeile, 'kmw', ['']))                                   // Leeren = gelöscht, kein Fehler
+    assert.deepEqual([zeile.wert, zeile.fehler], [null, null])
+  })
+
+  test('Wiedereinblenden beginnt mit dem aktuellen Eingabezustand – gültig wie ungültig', () => {
+    // gültig: gleiche Felder, Speichern ohne Änderung ergibt denselben Wert
+    let { zeile } = tippen(eingabeStart(null, 'oechsle'), ZEILE_OHNE_MOSTGEWICHT, 'oechsle', ['8', '84'])
+    let wieder = zeile.zustand                                  // anfangsZustand der neu eingeblendeten Komponente
+    assert.deepEqual(wieder.text, { oechsle: '84', kmw: '17,09' })
+    assert.deepEqual(mostgewichtAusFormular(formular(wieder), 'mg').wert, zeile.wert)
+    // ungültig: Text und Fehler stehen wieder da (kein unsichtbarer, veralteter Fehler beim Absenden)
+    ;({ zeile } = tippen(wieder, zeile, 'oechsle', ['84,05']))
+    wieder = zeile.zustand
+    assert.equal(wieder.text.oechsle, '84,05')
+    assert.equal(wieder.fehler, zeile.fehler)
+    assert.match(zeile.fehler, /höchstens einer Nachkommastelle/)
+    assert.deepEqual(zeile.wert, { kmw: 17.09, oechsle: 84, einheit: 'oechsle' })   // zuletzt gültiger Wert
+    // nach dem Aufklappen korrigiert: Fehler weg, neuer Wert
+    ;({ zeile } = tippen(wieder, zeile, 'oechsle', ['84,5']))
+    assert.equal(zeile.fehler, null)
+    assert.deepEqual(zeile.wert, ausMessung(84.5, 'oechsle'))
+    // Stufenwechsel-Vergleich überlebt das Zuklappen (vorher im Zustand)
+    const s = tippen(eingabeStart({ kmw: 16.99, oechsle: 83.5, einheit: 'kmw' }, 'kmw'), ZEILE_OHNE_MOSTGEWICHT, 'oechsle', ['83,5'])
+    assert.deepEqual(stufenwechsel(s.zeile.zustand), { von: 'qualitaetswein', nach: 'kabinett', vorher: { kmw: 16.99, oechsle: 83.5, einheit: 'kmw' } })
+  })
+
+  test('Komponente: anfangsZustand hat Vorrang vor startwert, onChange meldet den Zustand', () => {
+    const k = quelle('src/components/wein/MostgewichtEingabe.tsx')
+    assert.match(k, /useState<EingabeZustand>\(\(\) => anfangsZustand \?\? eingabeStart\(startwert, zuerst\)\)/)
+    assert.match(k, /onChange\?\.\(neu\.wert, \{ fehler: neu\.fehler, zustand: neu \}\)/)
   })
 })
 

@@ -34,12 +34,17 @@ export interface MostgewichtEingabeProps {
   /** Gespeicherte Werte bzw. Vorbelegung (z. B. aus der Lese) – nicht den onChange-Wert zurückgeben;
    *  ändert sich die Vorbelegung, beginnt die Eingabe neu */
   startwert?: GespeichertesMostgewicht | null
+  /** Eingabezustand beim Einblenden, z. B. einer Zeile nach dem Zu- und Aufklappen (der zuletzt über
+   *  onChange gemeldete, siehe zeileMostgewichtAendern) – hat Vorrang vor startwert und gilt nur beim
+   *  ersten Rendern */
+  anfangsZustand?: EingabeZustand | null
   /** Einheit, die zuerst steht – Standard: bevorzugte Einheit des Betriebs */
   bevorzugt?: MostgewichtEinheit
   /** Beschriftung (Legende der Feldgruppe) */
   label?: string
-  /** Neues Mostgewicht (null = leer, gelöscht oder ungültig; dann steht der Grund in `fehler`) */
-  onChange?: (wert: Mostgewicht | null, info: { fehler: string | null }) => void
+  /** Neues Mostgewicht (null = leer, gelöscht oder ungültig; dann steht der Grund in `fehler`) und
+   *  der ganze Eingabezustand (für anfangsZustand beim Wiedereinblenden) */
+  onChange?: (wert: Mostgewicht | null, info: { fehler: string | null; zustand: EingabeZustand }) => void
   /** Nur lesen (Nur-Lesen-Modus, gesperrte Lese): Felder gesperrt, die versteckten Felder tragen
    *  weiter den gespeicherten Wert */
   disabled?: boolean
@@ -59,12 +64,12 @@ const kmwText = (kmw: number) => `${formatKmw(kmw, 2)} °KMW`
 const oeText = (oe: number) => `${formatOechsle(oe)} °Oe`
 
 export default function MostgewichtEingabe({
-  name, altesFeld, startwert, bevorzugt, label = 'Mostgewicht', onChange, disabled = false, required = false,
+  name, altesFeld, startwert, anfangsZustand, bevorzugt, label = 'Mostgewicht', onChange, disabled = false, required = false,
   qualitaetsVorschau = false, grenzfallHinweis = true, className,
 }: MostgewichtEingabeProps) {
   const betriebsEinheit = useMostgewichtEinheit()
   const zuerst = bevorzugt ?? betriebsEinheit
-  const [zustand, setZustand] = useState<EingabeZustand>(() => eingabeStart(startwert, zuerst))
+  const [zustand, setZustand] = useState<EingabeZustand>(() => anfangsZustand ?? eingabeStart(startwert, zuerst))
   const [startSignatur, setStartSignatur] = useState(() => signatur(startwert))
   const aktuelleSignatur = signatur(startwert)
   if (aktuelleSignatur !== startSignatur) {
@@ -84,7 +89,7 @@ export default function MostgewichtEingabe({
   function aendern(einheit: MostgewichtEinheit, text: string) {
     const neu = eingabeAendern(zustand, einheit, text)
     setZustand(neu)
-    onChange?.(neu.wert, { fehler: neu.fehler })
+    onChange?.(neu.wert, { fehler: neu.fehler, zustand: neu })
   }
 
   const id = useId()
@@ -170,10 +175,18 @@ export default function MostgewichtEingabe({
         <p id={ids.grenz} className="text-[11px] text-s112-text-2 bg-s112-bg border border-s112-border rounded-lg px-2.5 py-1.5 mt-1.5">
           <span className="font-semibold">Grenzfall:</span> {kmwText(zustand.wert.kmw)} liegt nahe an der Schwelle
           für {qualitaetLabel(grenz.stufe)} (höchstens {formatKmw(GRENZ_BAND_KMW, 1)} °KMW entfernt;
-          {' '}{formatKmw(grenz.schwelleKmw, 1)} °KMW ≙ {formatOechsle(grenz.schwelleOechsle)} °Oe laut{' '}
-          <a href={BKI_ANREICHERUNGSTABELLE_URL} target="_blank" rel="noreferrer" className="text-s112-blue-700 underline hover:no-underline">
-            BKI-Anreicherungstabelle, Anlage Ia
-          </a>). Messgenauigkeit etwa ±0,2 °KMW (≈ ±1 °Oe) – im Zweifel nachmessen.
+          {' '}{formatKmw(grenz.schwelleKmw, 1)} °KMW ≙ {formatOechsle(grenz.schwelleOechsle)} °Oe
+          {grenz.bkiTabelle ? (
+            <>
+              {' '}laut{' '}
+              <a href={BKI_ANREICHERUNGSTABELLE_URL} target="_blank" rel="noreferrer" className="text-s112-blue-700 underline hover:no-underline">
+                BKI-Anreicherungstabelle, Anlage Ia
+              </a>
+            </>
+          ) : (
+            // Die BKI-Tabelle reicht nur von 11,5 bis 22,0 °KMW (Beerenauslese 25, TBA 30 stehen nicht darin)
+            <> nach der Umrechnungsformel °Oe = °KMW × (4,54 + 0,022 × °KMW)</>
+          )}). Messgenauigkeit etwa ±0,2 °KMW (≈ ±1 °Oe) – im Zweifel nachmessen.
           {grenz.praedikatswein && <> Bei Prädikatswein zählt die Bestätigung der Mostwäger (§ 11 Abs. 2, § 12 Abs. 6 WeinG).</>}
         </p>
       )}

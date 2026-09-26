@@ -558,6 +558,25 @@ describe('bki-traubenverkauf', () => {
     assert.equal(w.length, 1)
     assert.match(w[0], /exportiert 83,4 °Oe ergibt rechnerisch Qualitätswein.*\(1 Lieferung: TV-5\)$/)
   })
+
+  test('interne Traubenverkauf-Liste: °KMW auf 1 Stelle abgerundet kippt nie über eine Stufenschwelle (Entscheidung 8)', async () => {
+    const { abrunden, ausMessung, KMW_MAX, OECHSLE_MAX } = await import('../../src/lib/wein/mostgewicht.ts')
+    const { kmwZuQualitaet } = await import('../../src/lib/weinqualitaet.ts')
+    const zeile = (m) => ({ liefernummer: `TV ${m.kmw}`, datum: null, jahrgang: null, quelle: null, gstNr: null, mengeKg: null, preisProKg: null, kmw: m.kmw, oechsle: m.oechsle, mostgewichtEinheit: m.einheit, qualitaet: null, gesundheit: null, herkunftscode: null, kaeufer: null, rechnungsnummer: null, notizen: null })
+    const gemessen = []
+    for (let h = 0; h <= KMW_MAX * 100; h++) gemessen.push(ausMessung(h / 100, 'kmw'))             // 2-stellige °KMW-Messungen
+    for (let z = 0; z <= OECHSLE_MAX * 10; z++) gemessen.push(ausMessung(z / 10, 'oechsle'))      // °Oe-Messungen (°KMW nach B)
+    const spalte = tv.SPALTEN_TRAUBENVERKAUF_LISTE.find(s => s.kopf === 'Mostgewicht (°KMW)')
+    const gekippt = gemessen.filter(m => kmwZuQualitaet(spalte.wert(zeile(m))) !== kmwZuQualitaet(m.kmw))
+    assert.deepEqual(gekippt, [])
+    assert.deepEqual(tv.traubenverkaufListenHinweise(gemessen.map(zeile)), [])
+    // an den Schwellen: abgerundet, nie aufgerundet
+    assert.equal(spalte.wert(zeile(ausMessung(16.99, 'kmw'))), 16.9)
+    assert.equal(kmwZuQualitaet(16.9), 'qualitaetswein')
+    assert.equal(spalte.wert(zeile(ausMessung(17.09, 'kmw'))), 17)
+    assert.equal(spalte.wert(zeile(ausMessung(94, 'oechsle'))), 18.9)                          // 18,97 °KMW
+    assert.equal(abrunden(18.97, 1), 18.9)
+  })
 })
 
 // ── Register und Katalog ────────────────────────────────────────────────────
