@@ -7,7 +7,9 @@
 // (lib/assistent/tools/massnahme.ts).
 // Laubschneiden (KAN-143): wie Laubarbeit, aber ohne „Art der Laubarbeit“ – BBCH optional, Witterung und
 // Temperatur ausgeblendet, keine Mengenfelder.
-// Die BBCH-Auswahl (BBCH_OPTIONS, bbchAltwert) liegt ebenfalls hier – gemeinsam für Anlegen und Bearbeiten.
+// Die BBCH-Auswahl (BBCH_OPTIONS, bbchAltwert), Schaderreger bzw. Grund / Anlass (schaderregerFeld) und die
+// Witterung liegen ebenfalls hier – gemeinsam für Anlegen und Bearbeiten; welche dieser Felder das Bearbeiten
+// zeigt oder unsichtbar mitsendet, entscheidet felderBeimBearbeiten (KAN-152).
 // Ohne JSX, damit node:test sie prüfen kann (scripts/tests/massnahmen-arten.test.mjs).
 
 import { istMassnahmenArt, type MassnahmenArt } from '@/lib/behandlungen/arten'
@@ -49,7 +51,7 @@ export const BBCH_OPTIONS = [
 
 /**
  * Gespeichertes BBCH-Stadium außerhalb von BBCH_OPTIONS (z. B. „68“ oder „83“ im Demo-Betrieb, oder ein
- * freier Code aus dem Assistenten) – das Bearbeiten-Formular bietet es in beiden BBCH-Auswahlen als eigene
+ * freier Code aus dem Assistenten) – das Bearbeiten-Formular bietet es in der BBCH-Auswahl als eigene
  * Option „<Code> (bisherige Angabe)“ an; ohne passende Option wäre „– Auswählen –“ gewählt und Speichern
  * leerte das Stadium. Bekannte Codes und leer → null.
  */
@@ -58,37 +60,66 @@ export function bbchAltwert(gespeichert: string | null | undefined): string | nu
   return BBCH_OPTIONS.some(o => o.value === gespeichert) ? null : gespeichert
 }
 
-/**
- * Bearbeiten-Formular (BehandlungEditForm): BBCH folgt der Feld-Matrix wie beim Anlegen (und wie FAQ und
- * Handbuch es beschreiben) – eine Auswahl gibt es nur, wo BBCH nicht 'hidden' ist:
- *   'auswahl'  – Spritzung (Pflicht), Laubarbeit und Laubschneiden (optional): BBCH-Auswahl, ein Code
- *                außerhalb von BBCH_OPTIONS als eigene Option (bbchAltwert)
- *   'behalten' – Art mit BBCH 'hidden' (Düngung, Bodenbearbeitung, Schnitt, Sonstiges), aber unverändert
- *                (art = startArt): keine Auswahl, das gespeicherte Stadium geht unsichtbar mit
- *                (<input type="hidden">) – sonst leerte Speichern es (Musterhof: 14 solche Maßnahmen mit BBCH).
- *                Auch nach einem Umweg über eine Art mit Auswahl das gespeicherte, nicht die dortige Auswahl:
- *                bei dieser Art wäre eine Änderung weder sichtbar noch korrigierbar
- *   'keine'    – nach einem Wechsel auf eine Art mit BBCH 'hidden': nichts senden, Speichern leert das
- *                Stadium (wie beim Anlegen)
- * Unbekannte Arten (z. B. 'lese') gelten als 'hidden'.
- */
-export type BbchBeimBearbeiten = 'auswahl' | 'behalten' | 'keine'
+/** Vorschläge im Feld „Schaderreger“ (datalist, nur bei Spritzung) – gemeinsam für Anlegen und Bearbeiten */
+export const SCHADERREGER_OPTIONEN = ['Oidium', 'Peronospora', 'Botrytis'] as const
 
-export function bbchBeimBearbeiten(art: string, startArt: string): BbchBeimBearbeiten {
-  if (istMassnahmenArt(art) && FELD_MATRIX[art].bbch !== 'hidden') return 'auswahl'
-  return art === startArt ? 'behalten' : 'keine'
+/** Witterung der Maßnahmenformulare – Werte wie behandlungen_witterung_check, Bezeichnung mit Umlaut */
+export const WITTERUNG_OPTIONEN = [
+  { value: 'sonnig', label: 'Sonnig' },
+  { value: 'bewoelkt', label: 'Bewölkt' },
+  { value: 'regnerisch', label: 'Regnerisch' },
+  { value: 'wind', label: 'Wind' },
+] as const
+
+/**
+ * Feld `schaderreger` je Art (KAN-152): bei Sonstiges „Grund / Anlass“ (optional, Beispiel „Rodung“, ohne
+ * Schaderreger-Vorschläge), sonst „Schaderreger“ – eine Stelle für Anlegen und Bearbeiten.
+ */
+export function schaderregerFeld(art: string): { label: string; placeholder: string; vorschlaege: boolean } {
+  return art === 'sonstiges'
+    ? { label: 'Grund / Anlass', placeholder: 'z.B. Rodung', vorschlaege: false }
+    : { label: 'Schaderreger', placeholder: 'z.B. Peronospora', vorschlaege: true }
 }
 
 /**
- * Bearbeiten-Formular: Witterung und Temperatur zeigt es bei den bisherigen Arten wie bisher immer.
- * Laubschneiden (KAN-143) folgt der Feld-Matrix (ausgeblendet) – außer es ist schon ein Wert gespeichert
- * (z. B. über den Assistenten), der beim Speichern sonst verloren ginge.
+ * Bearbeiten-Formular (BehandlungEditForm): BBCH (KAN-143), Schaderreger bzw. Grund / Anlass, Witterung und
+ * Temperatur (KAN-152) folgen der Feld-Matrix wie beim Anlegen (und wie FAQ und Handbuch es beschreiben) –
+ * ein Eingabefeld gibt es nur, wo das Feld nicht 'hidden' ist:
+ *   'sichtbar' – Feld laut Matrix sichtbar, z. B. BBCH bei Spritzung (Pflicht), Laubarbeit und Laubschneiden
+ *                (optional; ein Code außerhalb von BBCH_OPTIONS als eigene Option, bbchAltwert), Schaderreger
+ *                bei Spritzung (Pflicht) bzw. Grund / Anlass bei Sonstiges (optional; bis KAN-152 zeigte das
+ *                Bearbeiten ihn nicht, Speichern leerte ihn), Witterung bei Spritzung, Düngung und
+ *                Bodenbearbeitung, Temperatur bei Spritzung
+ *   'behalten' – Feld 'hidden', aber Art unverändert (art = startArt): kein Eingabefeld, der gespeicherte Wert
+ *                geht unsichtbar mit (<input type="hidden">) – sonst leerte Speichern ihn (Musterhof, SELECT
+ *                26.09.2026, bei solchen Arten: 14 Maßnahmen mit BBCH, 12 mit Witterung, 22 mit Temperatur).
+ *                Auch nach einem Umweg über eine Art mit sichtbarem Feld der gespeicherte, nicht der dort
+ *                eingegebene Wert: bei dieser Art wäre eine Änderung weder sichtbar noch korrigierbar
+ *   'keine'    – nach einem Wechsel auf eine Art mit ausgeblendetem Feld: nichts senden, Speichern leert das
+ *                Feld (wie beim Anlegen)
+ * Die Modi schließen sich aus – je Feld sendet also immer höchstens eine Stelle des Formulars.
+ * Unbekannte Arten (z. B. 'lese') gelten als 'hidden'.
  */
-export function wetterBeimBearbeiten(
-  art: string,
-  gespeichert: { witterung: string | null; temperatur_c: number | null } | null,
-): boolean {
-  if (art !== 'laubschneiden') return true
-  return FELD_MATRIX.laubschneiden.witterung !== 'hidden'
-    || gespeichert?.witterung != null || gespeichert?.temperatur_c != null
+export const BEARBEITEN_FELDER = ['bbch', 'schaderreger', 'witterung', 'temperatur'] as const
+export type BearbeitenFeld = typeof BEARBEITEN_FELDER[number]
+export type FeldBeimBearbeiten = 'sichtbar' | 'behalten' | 'keine'
+
+export function feldBeimBearbeiten(feld: BearbeitenFeld, art: string, startArt: string): FeldBeimBearbeiten {
+  if (istMassnahmenArt(art) && FELD_MATRIX[art][feld] !== 'hidden') return 'sichtbar'
+  return art === startArt ? 'behalten' : 'keine'
+}
+
+/** Alle Modi auf einmal – so verdrahtet das Bearbeiten-Formular die vier Felder */
+export function felderBeimBearbeiten(art: string, startArt: string): Record<BearbeitenFeld, FeldBeimBearbeiten> {
+  return {
+    bbch:         feldBeimBearbeiten('bbch', art, startArt),
+    schaderreger: feldBeimBearbeiten('schaderreger', art, startArt),
+    witterung:    feldBeimBearbeiten('witterung', art, startArt),
+    temperatur:   feldBeimBearbeiten('temperatur', art, startArt),
+  }
+}
+
+/** Pflicht laut Feld-Matrix (Stern und `required` im Bearbeiten-Formular wie beim Anlegen) */
+export function feldPflicht(feld: keyof Felder, art: string): boolean {
+  return istMassnahmenArt(art) && FELD_MATRIX[art][feld] === 'pflicht'
 }

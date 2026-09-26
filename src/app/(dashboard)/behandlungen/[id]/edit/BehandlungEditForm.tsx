@@ -17,17 +17,18 @@ import {
   MENGEN_SICHT, alsFeld, aufwandEinheitText, duengerEinheitWechsel, duengermengeEinheit, eingabeZahl,
   mengeVorbelegung, mengenFelder, mengenInFormData,
 } from '../../neu/mengenFelder'
-import { BBCH_OPTIONS, FELD_MATRIX, bbchAltwert, bbchBeimBearbeiten, wetterBeimBearbeiten } from '../../neu/feldMatrix'
+import {
+  BBCH_OPTIONS, FELD_MATRIX, SCHADERREGER_OPTIONEN, WITTERUNG_OPTIONEN, bbchAltwert, feldPflicht, felderBeimBearbeiten,
+  schaderregerFeld,
+} from '../../neu/feldMatrix'
 import { ART_OPTIONS } from '../../neu/artOptionen'
 import MengenZusammenfassung from '../../neu/MengenZusammenfassung'
 
-const WITTERUNG = ['sonnig', 'bewoelkt', 'regnerisch', 'wind']
-const SCHADERREGER_OPTIONEN = ['Oidium', 'Peronospora', 'Botrytis']
-
 // Welche Mengen-Felder pro Art sichtbar/pflicht sind, kommt aus MENGEN_SICHT (neu/mengenFelder.ts) -
 // identisch zum Anlegen-Formular, damit Anlegen und Bearbeiten konsistent sind (siehe "Analyse
-// Maßnahmen.docx", Tabelle 2; KAN-133). BBCH, Witterung und Temperatur: bbchBeimBearbeiten bzw.
-// wetterBeimBearbeiten (neu/feldMatrix.ts, KAN-143).
+// Maßnahmen.docx", Tabelle 2; KAN-133). BBCH, Schaderreger bzw. Grund / Anlass, Witterung und Temperatur:
+// felderBeimBearbeiten (neu/feldMatrix.ts, KAN-143 und KAN-152) – sichtbar laut Feld-Matrix, sonst bei
+// unveränderter Art der gespeicherte Wert unsichtbar, nach einem Artwechsel nichts.
 type Art = MassnahmenArt
 
 const BIO_SPERRE = new Set(['bio_eu', 'biodynamisch'])
@@ -111,17 +112,18 @@ export default function BehandlungEditForm({
   const [art, setArt] = useState<Art>(startArt)
   // ältere Freitext-Unterart einer Laubarbeit (nicht in LAUBARBEIT_OPTIONEN) – eigene Option in der Auswahl
   const laubarbeitBisher = laubarbeitAltwert(behandlung.laubarbeit_art)
-  // gespeichertes BBCH-Stadium außerhalb von BBCH_OPTIONS (z. B. „68“) – eigene Option in beiden BBCH-Auswahlen
+  // gespeichertes BBCH-Stadium außerhalb von BBCH_OPTIONS (z. B. „68“) – eigene Option in der BBCH-Auswahl
   const bbchBisher = bbchAltwert(behandlung.bbch_stadium)
-  // Ein gemeinsamer Wert für beide BBCH-Auswahlen (Spritzung sowie Laubarbeit und Laubschneiden): Ein Artwechsel
-  // baut die Auswahl neu auf, das Stadium bleibt aber zwischen Arten mit Auswahl – unabhängig vom Weg und samt
-  // eigener Eingabe – erhalten wie im Anlegen-Formular. Eine Auswahl gibt es nur, wo die Feld-Matrix BBCH nicht
-  // ausblendet (bbchBeimBearbeiten);
-  // bei einer Art mit ausgeblendetem BBCH geht nur bei unveränderter Art das gespeicherte Stadium unsichtbar
-  // mit (nicht `bbch` – eine Änderung auf einem Umweg über eine Art mit Auswahl wäre dort weder sichtbar noch
-  // korrigierbar) – nach einem Wechsel dorthin wird nichts gesendet und Speichern leert das Stadium.
+  // BBCH-Auswahl (Spritzung, Laubarbeit, Laubschneiden) als gesteuerter Wert: Das Stadium bleibt zwischen Arten
+  // mit Auswahl – unabhängig vom Weg und samt eigener Eingabe – erhalten wie im Anlegen-Formular.
   const [bbch, setBbch] = useState(behandlung.bbch_stadium ?? '')
-  const bbchModus = bbchBeimBearbeiten(art, startArt)
+  // Je Feld (BBCH, Schaderreger bzw. Grund / Anlass, Witterung, Temperatur) genau ein Modus aus der Feld-Matrix:
+  // 'sichtbar' – Eingabefeld; 'behalten' – ausgeblendet bei unveränderter Art: der gespeicherte Wert geht
+  // unsichtbar mit (nicht der State – eine Änderung auf einem Umweg über eine Art mit Eingabefeld wäre dort
+  // weder sichtbar noch korrigierbar); 'keine' – nach einem Wechsel auf eine Art ohne das Feld: nichts senden,
+  // Speichern leert es wie beim Anlegen
+  const modus = felderBeimBearbeiten(art, startArt)
+  const schaderreger = schaderregerFeld(art)
   const [selectedPsmId, setSelectedPsmId] = useState(behandlung.psm_id ?? '')
   const [selectedDuengemittelId, setSelectedDuengemittelId] = useState(behandlung.duengemittel_id ?? '')
   // Gespeicherte Mengen als Formularwerte (Dezimalkomma, siehe alsFeld)
@@ -545,27 +547,52 @@ export default function BehandlungEditForm({
         {/* Live-Zusammenfassung: Mittelmenge, Spritzbrühe, Cu, Reinkupfer, Hinweis bei Spritzbrühe ≠ Wasseraufwand × Fläche */}
         {(art === 'spritzung' || art === 'duengung') && <MengenZusammenfassung art={art} pruefung={m.pruefung} ha={m.ha} />}
 
-        {art === 'spritzung' && (
+        {/* BBCH und Schaderreger bzw. Grund / Anlass laut Feld-Matrix wie beim Anlegen: BBCH bei Spritzung (Pflicht),
+            Laubarbeit und Laubschneiden (optional) – ein Code außerhalb von BBCH_OPTIONS als eigene Option;
+            Schaderreger bei Spritzung (Pflicht), bei Sonstiges als „Grund / Anlass“ (optional, ohne Vorschläge) */}
+        {(modus.bbch === 'sichtbar' || modus.schaderreger === 'sichtbar') && (
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelCls}>BBCH-Stadium</label>
-              <select aria-label="BBCH-Stadium" name="bbch_stadium" value={bbch} onChange={e => setBbch(e.target.value)} className={inputCls}>
-                <option value="">– Auswählen –</option>
-                {bbchBisher && <option value={bbchBisher}>{bbchBisher} (bisherige Angabe)</option>}
-                {BBCH_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className={labelCls}>Schaderreger</label>
-              <input aria-label="Schaderreger" name="schaderreger" type="text"
-                defaultValue={behandlung.schaderreger ?? ''} className={inputCls}
-                placeholder="z.B. Peronospora" list="schaderreger-kb" />
-              <datalist id="schaderreger-kb">
-                {SCHADERREGER_OPTIONEN.map(s => <option key={s} value={s} />)}
-              </datalist>
-            </div>
+            {modus.bbch === 'sichtbar' && (
+              <div>
+                <label className={labelCls}>
+                  BBCH-Stadium
+                  {feldPflicht('bbch', art) && <span className="text-s112-err"> *</span>}
+                </label>
+                <select aria-label="BBCH-Stadium" name="bbch_stadium" value={bbch} onChange={e => setBbch(e.target.value)}
+                  required={feldPflicht('bbch', art)} className={inputCls}>
+                  <option value="">– Auswählen –</option>
+                  {bbchBisher && <option value={bbchBisher}>{bbchBisher} (bisherige Angabe)</option>}
+                  {BBCH_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+            )}
+            {modus.schaderreger === 'sichtbar' && (
+              <div>
+                <label className={labelCls}>
+                  {schaderreger.label}
+                  {feldPflicht('schaderreger', art) && <span className="text-s112-err"> *</span>}
+                </label>
+                <input aria-label={schaderreger.label} name="schaderreger" type="text"
+                  required={feldPflicht('schaderreger', art)}
+                  defaultValue={behandlung.schaderreger ?? ''} className={inputCls}
+                  placeholder={schaderreger.placeholder} list={schaderreger.vorschlaege ? 'schaderreger-kb' : undefined} />
+                {schaderreger.vorschlaege && (
+                  <datalist id="schaderreger-kb">
+                    {SCHADERREGER_OPTIONEN.map(s => <option key={s} value={s} />)}
+                  </datalist>
+                )}
+              </div>
+            )}
           </div>
         )}
+
+        {/* Laut Feld-Matrix ausgeblendet (z. B. BBCH bei Düngung, Schaderreger bei Laubarbeit): Bei unveränderter
+            Art geht der gespeicherte Wert unsichtbar mit – auch nach einem Umweg über eine andere Art (wie Mittel und
+            Mengen bei der Rückkehr zur gespeicherten Art), denn eine dort geänderte Eingabe wäre hier weder sichtbar
+            noch korrigierbar –, damit Speichern ihn nicht leert; nach einem Wechsel auf eine Art ohne das Feld wird
+            nichts gesendet (Speichern setzt null wie beim Anlegen) */}
+        {modus.bbch === 'behalten' && <input type="hidden" name="bbch_stadium" value={behandlung.bbch_stadium ?? ''} />}
+        {modus.schaderreger === 'behalten' && <input type="hidden" name="schaderreger" value={behandlung.schaderreger ?? ''} />}
 
         {/* Düngung: Einarbeitung */}
         {art === 'duengung' && (
@@ -626,46 +653,30 @@ export default function BehandlungEditForm({
           </div>
         )}
 
-        {/* BBCH außerhalb der Spritzung nur bei Laubarbeit und Laubschneiden (optional laut Feld-Matrix, wie beim
-            Anlegen) – ein Code außerhalb von BBCH_OPTIONS als eigene Option. Der Wert kommt aus dem gemeinsamen
-            State `bbch` und bleibt daher bei jedem Artwechsel stehen (z. B. Spritzung → Laubschneiden oder
-            Laubarbeit → Spritzung → Laubschneiden) */}
-        {art !== 'spritzung' && bbchModus === 'auswahl' && (
+        {/* Witterung (Spritzung, Düngung, Bodenbearbeitung) und Temperatur (Spritzung) laut Feld-Matrix wie beim
+            Anlegen; ausgeblendet gehen gespeicherte Werte bei unveränderter Art unsichtbar mit (siehe oben) */}
+        {(modus.witterung === 'sichtbar' || modus.temperatur === 'sichtbar') && (
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelCls}>BBCH-Stadium</label>
-              <select aria-label="BBCH-Stadium" name="bbch_stadium" value={bbch} onChange={e => setBbch(e.target.value)} className={inputCls}>
-                <option value="">– Auswählen –</option>
-                {bbchBisher && <option value={bbchBisher}>{bbchBisher} (bisherige Angabe)</option>}
-                {BBCH_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </div>
+            {modus.witterung === 'sichtbar' && (
+              <div>
+                <label className={labelCls}>Witterung</label>
+                <select aria-label="Witterung" name="witterung" defaultValue={behandlung.witterung ?? ''} className={inputCls}>
+                  <option value="">–</option>
+                  {WITTERUNG_OPTIONEN.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+            )}
+            {modus.temperatur === 'sichtbar' && (
+              <div>
+                <label className={labelCls}>Temperatur (°C)</label>
+                <input aria-label="Temperatur (°C)" name="temperatur_c" type="number" step="0.1"
+                  defaultValue={behandlung.temperatur_c ?? ''} className={inputCls} />
+              </div>
+            )}
           </div>
         )}
-
-        {/* Düngung, Bodenbearbeitung, Schnitt, Sonstiges: BBCH laut Feld-Matrix ausgeblendet. Bei unveränderter
-            Art geht das gespeicherte Stadium unsichtbar mit – auch nach einem Umweg über eine andere Art (wie Mittel
-            und Mengen bei der Rückkehr zur gespeicherten Art), denn eine dort geänderte Auswahl wäre hier weder
-            sichtbar noch korrigierbar –, damit Speichern es nicht leert; nach einem Wechsel auf eine dieser Arten
-            wird nichts gesendet (Speichern setzt null wie beim Anlegen) */}
-        {bbchModus === 'behalten' && <input type="hidden" name="bbch_stadium" value={behandlung.bbch_stadium ?? ''} />}
-
-        {wetterBeimBearbeiten(art, art === startArt ? behandlung : null) && (
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelCls}>Witterung</label>
-              <select aria-label="Witterung" name="witterung" defaultValue={behandlung.witterung ?? ''} className={inputCls}>
-                <option value="">–</option>
-                {WITTERUNG.map(w => <option key={w} value={w}>{w.charAt(0).toUpperCase() + w.slice(1)}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className={labelCls}>Temperatur (°C)</label>
-              <input aria-label="Temperatur (°C)" name="temperatur_c" type="number" step="0.1"
-                defaultValue={behandlung.temperatur_c ?? ''} className={inputCls} />
-            </div>
-          </div>
-        )}
+        {modus.witterung === 'behalten' && <input type="hidden" name="witterung" value={behandlung.witterung ?? ''} />}
+        {modus.temperatur === 'behalten' && <input type="hidden" name="temperatur_c" value={behandlung.temperatur_c ?? ''} />}
 
         <div>
           <label className={labelCls}>Notizen</label>

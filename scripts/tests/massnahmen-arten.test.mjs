@@ -2,6 +2,9 @@
 // (src/lib/behandlungen/arten.ts) gegen die DB-CHECKs, Feld- und Mengen-Matrix, Labels in
 // Behördenmeldungen und Rückverfolgung, Assistent (Tool-Schema und Handler) sowie Quelltext-Prüfungen,
 // dass keine Stelle eine eigene, veraltete Artenliste führt.
+// KAN-152: Das Bearbeiten-Formular zeigt BBCH, Schaderreger bzw. Grund / Anlass, Witterung und Temperatur nach
+// der Feld-Matrix (felderBeimBearbeiten) und sendet ausgeblendete, gespeicherte Werte bei unveränderter Art mit.
+// KAN-153: „Maßnahme erfassen“ ohne Ried-Auswahl bzw. bei Bio-Sperre – Klick zeigt den Grund (absenden.ts).
 //
 // Aufruf:  node --experimental-strip-types --disable-warning=ExperimentalWarning \
 //               --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/tests/massnahmen-arten.test.mjs
@@ -95,20 +98,48 @@ if (hooksMoeglich) {
 }
 
 const laden = (rel) => import(pathToFileURL(path.join(SRC, rel)).href)
-const [arten, psm, rueck, feld, mengen, massnahmeMengen, tool, aktionen, lagerAktionen, artOptionen, lucide] = hooksMoeglich
+const [arten, psm, rueck, feld, mengen, massnahmeMengen, tool, aktionen, lagerAktionen, artOptionen, lucide, absenden] = hooksMoeglich
   ? await Promise.all([
       laden('lib/behandlungen/arten.ts'), laden('lib/behoerden/psm.ts'), laden('lib/behoerden/rueckverfolgung.ts'),
       laden('app/(dashboard)/behandlungen/neu/feldMatrix.ts'), laden('app/(dashboard)/behandlungen/neu/mengenFelder.ts'),
       laden('lib/behandlungen/massnahmeMengen.ts'), laden('lib/assistent/tools/massnahme.ts'),
       laden('app/(dashboard)/behandlungen/actions.ts'), laden('app/(dashboard)/behandlungen/lager/actions.ts'),
       laden('app/(dashboard)/behandlungen/neu/artOptionen.ts'), import('lucide-react'),
+      laden('app/(dashboard)/behandlungen/neu/absenden.ts'),
     ])
   : []
 const nurMitHooks = { skip: hooksMoeglich ? false : 'module.registerHooks fehlt (Node ≥ 22.15 nötig)' }
 
 const quelle = (rel) => readFileSync(path.join(SRC, rel), 'utf8')
-// Beginn einer sichtbaren BBCH-Auswahl im Bearbeiten-Formular (ohne das unsichtbare Feld bei ausgeblendetem BBCH)
+const EDIT_FORM = 'app/(dashboard)/behandlungen/[id]/edit/BehandlungEditForm.tsx'
+const NEU_FORM = 'app/(dashboard)/behandlungen/neu/NeueBehandlungForm.tsx'
+// Beginn der sichtbaren BBCH-Auswahl im Bearbeiten-Formular (ohne das unsichtbare Feld bei ausgeblendetem BBCH)
 const BBCH_AUSWAHL = '<select aria-label="BBCH-Stadium" name="bbch_stadium"'
+// Die vier Felder, die das Bearbeiten-Formular nach der Feld-Matrix zeigt oder mitsendet (KAN-143, KAN-152):
+// Feld der Matrix → Name im Formular = Spalte in behandlungen
+const BEARBEITEN_NAME = { bbch: 'bbch_stadium', schaderreger: 'schaderreger', witterung: 'witterung', temperatur: 'temperatur_c' }
+// Sichtbar laut Ticket KAN-152 bzw. Anlegen-Formular (unabhängig von FELD_MATRIX notiert)
+const BEARBEITEN_SICHTBAR = {
+  bbch:         ['spritzung', 'laubarbeit', 'laubschneiden'],
+  schaderreger: ['spritzung', 'sonstiges'],
+  witterung:    ['spritzung', 'duengung', 'bodenbearbeitung'],
+  temperatur:   ['spritzung'],
+}
+
+/**
+ * Was das Bearbeiten-Formular für diese vier Felder sendet, wenn niemand sie ändert: 'sichtbar' → das mit dem
+ * gespeicherten Wert vorbelegte Eingabefeld, 'behalten' → das unsichtbare Feld mit dem gespeicherten Wert,
+ * 'keine' → nichts. Der Quelltext-Test „je Feld eine sichtbare und eine unsichtbare Stelle“ sichert, dass das
+ * Formular genau so verdrahtet ist.
+ */
+function bearbeitenSendet(gespeichert, art, startArt) {
+  const modus = feld.felderBeimBearbeiten(art, startArt)
+  const fd = {}
+  for (const f of feld.BEARBEITEN_FELDER) {
+    if (modus[f] !== 'keine') fd[BEARBEITEN_NAME[f]] = String(gespeichert[BEARBEITEN_NAME[f]] ?? '')
+  }
+  return fd
+}
 
 // ── Artenliste gegen die DB-CHECKs ──────────────────────────────────────────────
 
@@ -293,6 +324,77 @@ describe('createBehandlung/updateBehandlung: bei Arten ohne Mittel kein psm_id u
   })
 })
 
+// ── KAN-152: Bearbeiten nach der Feld-Matrix – updateBehandlung mit bzw. ohne mitgesendete Werte ─────────────────
+
+describe('updateBehandlung: BBCH, Schaderreger bzw. Grund / Anlass, Witterung und Temperatur (KAN-152)', nurMitHooks, () => {
+  const formular = (felder) => {
+    const fd = new FormData()
+    for (const [k, v] of Object.entries(felder)) fd.set(k, v)
+    return fd
+  }
+  // laubarbeit_art nur, damit auch eine Laubarbeit speichert – bei allen anderen Arten verwirft die Action sie
+  const BASIS = { datum: '2026-07-02', grundstueck_ids: 'g-1', laubarbeit_art: 'gipfeln' }
+  // Spritzung braucht Mittel und Mengen (eigene Tests) – ihre vier Felder sind ohnehin alle sichtbar
+  const OHNE_SPRITZUNG = DB_SAETZE_ART_CHECK.filter(a => a !== 'spritzung')
+  const GESPEICHERT = { bbch_stadium: '83', schaderreger: 'Rodung', witterung: 'bewoelkt', temperatur_c: 18.5 }
+  const vier = (p) => [p.bbch_stadium, p.schaderreger, p.witterung, p.temperatur_c]
+  const gespeichert = (op) => globalThis.__kan143Supabase.schreiben.find(s => s.tabelle === 'behandlungen' && s.op === op)?.p
+
+  test('mitgesendet bleibt, leer gesendet und nicht gesendet → null; 0 °C bleibt 0', async () => {
+    for (const art of OHNE_SPRITZUNG) {
+      for (const [fall, felder, erwartet] of [
+        ['mitgesendet', { bbch_stadium: '83', schaderreger: 'Rodung', witterung: 'bewoelkt', temperatur_c: '18.5' }, ['83', 'Rodung', 'bewoelkt', 18.5]],
+        ['0 °C', { temperatur_c: '0' }, [null, null, null, 0]],
+        ['leer gesendet', { bbch_stadium: '', schaderreger: '', witterung: '', temperatur_c: '' }, [null, null, null, null]],
+        ['Leerzeichen als Temperatur', { temperatur_c: '  ' }, [null, null, null, null]],
+        ['nicht gesendet', {}, [null, null, null, null]],
+      ]) {
+        globalThis.__kan143Supabase = supabaseAttrappe()
+        await aktionen.updateBehandlung('b-1', formular({ ...BASIS, art, ...felder }))
+        assert.deepEqual(vier(gespeichert('update')), erwartet, `${art}: ${fall}`)
+      }
+    }
+  })
+
+  test('unverändert speichern: gespeicherte Werte bleiben bei jeder Art – auch ausgeblendete (Musterhof-Fall)', async () => {
+    // Musterhof (SELECT 26.09.2026): Witterung und Temperatur bei allen Maßnahmen, BBCH auch bei Düngung,
+    // Bodenbearbeitung, Schnitt und Sonstiges – auf main leerte Speichern z. B. den Grund / Anlass einer Sonstigen
+    for (const art of OHNE_SPRITZUNG) {
+      globalThis.__kan143Supabase = supabaseAttrappe()
+      await aktionen.updateBehandlung('b-1', formular({ ...BASIS, art, ...bearbeitenSendet(GESPEICHERT, art, art) }))
+      assert.deepEqual(vier(gespeichert('update')), vier(GESPEICHERT), art)
+    }
+  })
+
+  test('Sonstiges mit Grund / Anlass: anlegen, bearbeiten und unverändert speichern – der Grund / Anlass bleibt', async () => {
+    globalThis.__kan143Supabase = supabaseAttrappe()
+    await aktionen.createBehandlung(formular({ ...BASIS, art: 'sonstiges', schaderreger: 'Rodung' }))
+    const neu = gespeichert('insert')
+    assert.equal(neu.schaderreger, 'Rodung')
+    assert.equal(feld.felderBeimBearbeiten('sonstiges', 'sonstiges').schaderreger, 'sichtbar')
+    globalThis.__kan143Supabase = supabaseAttrappe()
+    await aktionen.updateBehandlung('b-1', formular({ ...BASIS, art: 'sonstiges', ...bearbeitenSendet(neu, 'sonstiges', 'sonstiges') }))
+    assert.equal(gespeichert('update').schaderreger, 'Rodung')
+  })
+
+  test('nach einem Artwechsel: sichtbare Felder behalten den Wert, ausgeblendete werden nicht gesendet → null', async () => {
+    for (const startArt of DB_SAETZE_ART_CHECK) {
+      for (const art of OHNE_SPRITZUNG.filter(a => a !== startArt)) {
+        const sendet = bearbeitenSendet(GESPEICHERT, art, startArt)
+        globalThis.__kan143Supabase = supabaseAttrappe()
+        await aktionen.updateBehandlung('b-1', formular({ ...BASIS, art, ...sendet }))
+        const upd = gespeichert('update')
+        for (const f of feld.BEARBEITEN_FELDER) {
+          const name = BEARBEITEN_NAME[f]
+          const sichtbar = BEARBEITEN_SICHTBAR[f].includes(art)
+          assert.equal(name in sendet, sichtbar, `${f}: ${startArt} → ${art} gesendet`)
+          assert.equal(upd[name], sichtbar ? GESPEICHERT[name] : null, `${f}: ${startArt} → ${art}`)
+        }
+      }
+    }
+  })
+})
+
 // ── Server Actions: Art-Prüfung (Maßnahme und Stundensatz) ──────────────────────
 
 describe('Server Actions: Laubschneiden wird gespeichert, unbekannte Arten abgelehnt, ohne zu schreiben', nurMitHooks, () => {
@@ -376,34 +478,52 @@ describe('Feld- und Mengen-Matrix für Laubschneiden', nurMitHooks, () => {
     assert.equal(r.spritzbruehe, null)
   })
 
-  test('Bearbeiten: BBCH nach der Feld-Matrix wie beim Anlegen, Wetterfelder bei Laubschneiden nur mit gespeichertem Wert', () => {
-    // Auswahl bei Spritzung, Laubarbeit und Laubschneiden – auch nach einem Artwechsel
-    for (const art of ['spritzung', 'laubarbeit', 'laubschneiden']) {
-      assert.notEqual(feld.FELD_MATRIX[art].bbch, 'hidden', art)
-      for (const startArt of DB_SAETZE_ART_CHECK) assert.equal(feld.bbchBeimBearbeiten(art, startArt), 'auswahl', `${startArt} → ${art}`)
+  test('Bearbeiten: BBCH, Schaderreger, Witterung und Temperatur nach der Feld-Matrix – Modus je Art und Ausgangsart', () => {
+    assert.deepEqual([...feld.BEARBEITEN_FELDER], Object.keys(BEARBEITEN_SICHTBAR))
+    for (const [f, sichtbar] of Object.entries(BEARBEITEN_SICHTBAR)) {
+      for (const art of DB_SAETZE_ART_CHECK) {
+        // sichtbar genau dort, wo das Anlegen-Formular das Feld zeigt (felder.<feld> !== 'hidden')
+        assert.equal(feld.FELD_MATRIX[art][f] !== 'hidden', sichtbar.includes(art), `${f} bei ${art} (Feld-Matrix)`)
+        // sichtbar auch nach einem Artwechsel; ausgeblendet bei unveränderter Art 'behalten' (der gespeicherte
+        // Wert geht unsichtbar mit), nach einem Artwechsel 'keine' (nichts gesendet)
+        for (const startArt of [...DB_SAETZE_ART_CHECK, 'lese']) {
+          const erwartet = sichtbar.includes(art) ? 'sichtbar' : art === startArt ? 'behalten' : 'keine'
+          assert.equal(feld.feldBeimBearbeiten(f, art, startArt), erwartet, `${f}: ${startArt} → ${art}`)
+        }
+      }
+      assert.equal(feld.feldBeimBearbeiten(f, 'lese', 'lese'), 'behalten', f)   // unbekannte Art: kein Absturz, Wert bleibt
+      assert.equal(feld.feldBeimBearbeiten(f, 'lese', 'spritzung'), 'keine', f)
     }
-    // Düngung, Bodenbearbeitung, Schnitt, Sonstiges: nicht sichtbar – bei unveränderter Art geht der Wert
-    // unsichtbar mit (gespeichertes Stadium bleibt), nach einem Artwechsel wird nichts gesendet
-    for (const art of ['duengung', 'bodenbearbeitung', 'schnitt', 'sonstiges']) {
-      assert.equal(feld.FELD_MATRIX[art].bbch, 'hidden', art)
-      assert.equal(feld.bbchBeimBearbeiten(art, art), 'behalten', art)
-      for (const startArt of DB_SAETZE_ART_CHECK.filter(a => a !== art)) {
-        assert.equal(feld.bbchBeimBearbeiten(art, startArt), 'keine', `${startArt} → ${art}`)
+    // felderBeimBearbeiten: alle vier auf einmal, wie feldBeimBearbeiten
+    for (const art of DB_SAETZE_ART_CHECK) {
+      for (const startArt of DB_SAETZE_ART_CHECK) {
+        assert.deepEqual(feld.felderBeimBearbeiten(art, startArt),
+          Object.fromEntries(feld.BEARBEITEN_FELDER.map(f => [f, feld.feldBeimBearbeiten(f, art, startArt)])), `${startArt} → ${art}`)
       }
     }
-    // sichtbar genau dort, wo das Anlegen-Formular die Auswahl zeigt (felder.bbch !== 'hidden')
-    for (const art of DB_SAETZE_ART_CHECK) {
-      assert.equal(feld.bbchBeimBearbeiten(art, art) === 'auswahl', feld.FELD_MATRIX[art].bbch !== 'hidden', art)
+    // Fälle aus dem Ticket
+    assert.deepEqual(feld.felderBeimBearbeiten('sonstiges', 'sonstiges'), { bbch: 'behalten', schaderreger: 'sichtbar', witterung: 'behalten', temperatur: 'behalten' })
+    assert.deepEqual(feld.felderBeimBearbeiten('laubarbeit', 'laubarbeit'), { bbch: 'sichtbar', schaderreger: 'behalten', witterung: 'behalten', temperatur: 'behalten' })
+    assert.deepEqual(feld.felderBeimBearbeiten('laubschneiden', 'spritzung'), { bbch: 'sichtbar', schaderreger: 'keine', witterung: 'keine', temperatur: 'keine' })
+    assert.deepEqual(feld.felderBeimBearbeiten('duengung', 'sonstiges'), { bbch: 'keine', schaderreger: 'keine', witterung: 'sichtbar', temperatur: 'keine' })
+  })
+
+  test('Pflicht und Bezeichnung wie beim Anlegen: Schaderreger bei Spritzung, „Grund / Anlass“ bei Sonstiges', () => {
+    assert.equal(feld.feldPflicht('bbch', 'spritzung'), true)
+    assert.equal(feld.feldPflicht('schaderreger', 'spritzung'), true)
+    for (const art of ['sonstiges', 'laubarbeit', 'laubschneiden', 'duengung', 'lese', '']) {
+      assert.equal(feld.feldPflicht('schaderreger', art), false, art)
+      assert.equal(feld.feldPflicht('bbch', art), false, art)
     }
-    assert.equal(feld.bbchBeimBearbeiten('lese', 'lese'), 'behalten')   // unbekannte Art: kein Absturz, Stadium bleibt
-    assert.equal(feld.bbchBeimBearbeiten('lese', 'spritzung'), 'keine')
-    assert.equal(feld.wetterBeimBearbeiten('laubschneiden', { witterung: null, temperatur_c: null }), false)
-    assert.equal(feld.wetterBeimBearbeiten('laubschneiden', null), false)
-    assert.equal(feld.wetterBeimBearbeiten('laubschneiden', { witterung: 'sonnig', temperatur_c: null }), true)
-    assert.equal(feld.wetterBeimBearbeiten('laubschneiden', { witterung: null, temperatur_c: 0 }), true)
-    for (const art of ['spritzung', 'duengung', 'bodenbearbeitung', 'schnitt', 'laubarbeit', 'sonstiges']) {
-      assert.equal(feld.wetterBeimBearbeiten(art, null), true, art)   // bisherige Arten unverändert
+    assert.equal(feld.feldPflicht('laubarbeitArt', 'laubarbeit'), true)
+    assert.deepEqual(feld.schaderregerFeld('sonstiges'), { label: 'Grund / Anlass', placeholder: 'z.B. Rodung', vorschlaege: false })
+    for (const art of ['spritzung', 'duengung', 'lese']) {
+      assert.deepEqual(feld.schaderregerFeld(art), { label: 'Schaderreger', placeholder: 'z.B. Peronospora', vorschlaege: true }, art)
     }
+    assert.deepEqual([...feld.SCHADERREGER_OPTIONEN], ['Oidium', 'Peronospora', 'Botrytis'])
+    // Werte wie behandlungen_witterung_check, Bezeichnungen mit Umlaut
+    assert.deepEqual(feld.WITTERUNG_OPTIONEN.map(o => o.value), ['sonnig', 'bewoelkt', 'regnerisch', 'wind'])
+    assert.deepEqual(feld.WITTERUNG_OPTIONEN.map(o => o.label), ['Sonnig', 'Bewölkt', 'Regnerisch', 'Wind'])
   })
 
   test('Bearbeiten: gespeichertes BBCH außerhalb der Auswahlliste bleibt als eigene Option (bbchAltwert)', () => {
@@ -417,7 +537,7 @@ describe('Feld- und Mengen-Matrix für Laubschneiden', nurMitHooks, () => {
     for (const o of feld.BBCH_OPTIONS) assert.equal(feld.bbchAltwert(o.value), null, o.value)
     for (const leer of [null, undefined, '', '  ']) assert.equal(feld.bbchAltwert(leer), null, String(leer))
     // Schnitt 00, Bodenbearbeitung 05/83, Düngung 07: keine Auswahl, der Code geht unverändert unsichtbar mit
-    for (const art of ['schnitt', 'bodenbearbeitung', 'duengung']) assert.equal(feld.bbchBeimBearbeiten(art, art), 'behalten', art)
+    for (const art of ['schnitt', 'bodenbearbeitung', 'duengung']) assert.equal(feld.feldBeimBearbeiten('bbch', art, art), 'behalten', art)
   })
 })
 
@@ -580,11 +700,12 @@ describe('Quelltext: keine Stelle mit eigener, veralteter Artenliste', () => {
     }
   })
 
-  test('Bearbeiten-Formular: BBCH/Wetter über die Feld-Matrix, Mittel beim Artwechsel geleert, Wartezeit nur vom sichtbaren Mittel', () => {
-    const f = quelle('app/(dashboard)/behandlungen/[id]/edit/BehandlungEditForm.tsx')
-    assert.match(f, /const bbchModus = bbchBeimBearbeiten\(art, startArt\)/)
-    assert.match(f, /\{art !== 'spritzung' && bbchModus === 'auswahl' && \(/)
-    assert.match(f, /\{wetterBeimBearbeiten\(art, /)
+  test('Bearbeiten-Formular: BBCH, Schaderreger und Wetter über die Feld-Matrix, Mittel beim Artwechsel geleert, Wartezeit nur vom sichtbaren Mittel', () => {
+    const f = quelle(EDIT_FORM)
+    assert.match(f, /const modus = felderBeimBearbeiten\(art, startArt\)/)
+    // keine eigene Sichtbarkeitsregel mehr (KAN-143: art === 'spritzung', wetterBeimBearbeiten)
+    assert.doesNotMatch(f, /bbchBeimBearbeiten|wetterBeimBearbeiten|bbchModus/)
+    assert.doesNotMatch(f, /\{art === 'spritzung' && \(\s*<div className="grid grid-cols-2 gap-3">/)
     assert.match(f, /if \(!artMitPsm\(neu\)\) setSelectedPsmId\(''\)/)
     assert.match(f, /if \(!artMitDuengemittel\(neu\)\) setSelectedDuengemittelId\(''\)/)
     assert.match(f, /const wartezeit = artMitPsm\(art\) \? selectedPsm\?\.wartezeit_tage\s+: artMitDuengemittel\(art\) \? selectedDuengemittel\?\.wartezeit_tage/)
@@ -598,7 +719,7 @@ describe('Quelltext: keine Stelle mit eigener, veralteter Artenliste', () => {
     const neu = quelle('app/(dashboard)/behandlungen/neu/NeueBehandlungForm.tsx')
     assert.match(neu, /<select name="laubarbeit_art" required=\{felder\.laubarbeitArt === 'pflicht'\}/)
     const edit = quelle('app/(dashboard)/behandlungen/[id]/edit/BehandlungEditForm.tsx')
-    assert.match(edit, /import \{ BBCH_OPTIONS, FELD_MATRIX, bbchAltwert, bbchBeimBearbeiten, wetterBeimBearbeiten \} from '\.\.\/\.\.\/neu\/feldMatrix'/)
+    assert.match(edit, /import \{\s*BBCH_OPTIONS, FELD_MATRIX,[^}]*\bfelderBeimBearbeiten\b[^}]*\} from '\.\.\/\.\.\/neu\/feldMatrix'/)
     assert.match(edit, /name="laubarbeit_art"[^>]*\s+required=\{FELD_MATRIX\.laubarbeit\.laubarbeitArt === 'pflicht'\}/)
     assert.match(edit, /Art der Laubarbeit\s+\{FELD_MATRIX\.laubarbeit\.laubarbeitArt === 'pflicht' && <span className="text-s112-err"> \*<\/span>\}/)
   })
@@ -612,56 +733,65 @@ describe('Quelltext: keine Stelle mit eigener, veralteter Artenliste', () => {
     assert.ok(auswahl.indexOf('laubarbeitBisher') < auswahl.indexOf('LAUBARBEIT_OPTIONEN.map'), 'Altwert-Option vor den Standardwerten')
   })
 
-  test('BBCH: eine Auswahlliste (feldMatrix.ts) für Anlegen und Bearbeiten, Altwert in beiden BBCH-Auswahlen des Bearbeiten-Formulars', () => {
-    const neu = quelle('app/(dashboard)/behandlungen/neu/NeueBehandlungForm.tsx')
-    const edit = quelle('app/(dashboard)/behandlungen/[id]/edit/BehandlungEditForm.tsx')
+  test('BBCH: eine Auswahlliste (feldMatrix.ts) für Anlegen und Bearbeiten, Altwert in der BBCH-Auswahl des Bearbeiten-Formulars', () => {
+    const neu = quelle(NEU_FORM)
+    const edit = quelle(EDIT_FORM)
     for (const [name, f] of [['Anlegen', neu], ['Bearbeiten', edit]]) {
       assert.doesNotMatch(f, /const BBCH_OPTIONS\b/, name)
-      assert.match(f, /import \{ BBCH_OPTIONS, FELD_MATRIX\b[^}]*\} from '(\.\/|\.\.\/\.\.\/neu\/)feldMatrix'/, name)
+      assert.match(f, /import \{\s*BBCH_OPTIONS, FELD_MATRIX\b[^}]*\} from '(\.\/|\.\.\/\.\.\/neu\/)feldMatrix'/, name)
     }
     assert.match(edit, /const bbchBisher = bbchAltwert\(behandlung\.bbch_stadium\)/)
     const auswahlen = edit.split(BBCH_AUSWAHL).slice(1).map(t => t.slice(0, t.indexOf('</select>')))
-    assert.equal(auswahlen.length, 2)   // Spritzung sowie Laubarbeit und Laubschneiden
-    for (const a of auswahlen) {
-      assert.match(a, /\{bbchBisher && <option value=\{bbchBisher\}>\{bbchBisher\} \(bisherige Angabe\)<\/option>\}/)
-      assert.ok(a.indexOf('bbchBisher') < a.indexOf('BBCH_OPTIONS.map'), 'Altwert-Option vor den Standardwerten')
-    }
+    assert.equal(auswahlen.length, 1)   // eine Auswahl für Spritzung, Laubarbeit und Laubschneiden (KAN-152)
+    assert.match(auswahlen[0], /\{bbchBisher && <option value=\{bbchBisher\}>\{bbchBisher\} \(bisherige Angabe\)<\/option>\}/)
+    assert.ok(auswahlen[0].indexOf('bbchBisher') < auswahlen[0].indexOf('BBCH_OPTIONS.map'), 'Altwert-Option vor den Standardwerten')
   })
 
-  test('Bearbeiten-Formular: beide BBCH-Auswahlen teilen einen State – Stadium beim Artwechsel unabhängig vom Weg', () => {
+  test('Bearbeiten-Formular: BBCH-Auswahl aus einem State – Stadium beim Artwechsel unabhängig vom Weg', () => {
     // Spritzung → Laubschneiden, Laubarbeit → Spritzung → Laubschneiden und eine eigene Eingabe behalten das
-    // Stadium wie im Anlegen-Formular; ungesteuerte Auswahlen (defaultValue) fielen je nach Weg auf leer oder
-    // den gespeicherten Wert zurück
-    const edit = quelle('app/(dashboard)/behandlungen/[id]/edit/BehandlungEditForm.tsx')
+    // Stadium wie im Anlegen-Formular; eine ungesteuerte Auswahl (defaultValue) fiele nach einem Umweg über eine
+    // Art ohne BBCH auf den gespeicherten Wert zurück
+    const edit = quelle(EDIT_FORM)
     assert.match(edit, /const \[bbch, setBbch\] = useState\(behandlung\.bbch_stadium \?\? ''\)/)
     const auswahlen = edit.split(BBCH_AUSWAHL).slice(1).map(t => t.slice(0, t.indexOf('className=')))
-    assert.equal(auswahlen.length, 2)   // Spritzung sowie Laubarbeit und Laubschneiden
-    for (const a of auswahlen) {
-      assert.match(a, /^ value=\{bbch\} onChange=\{e => setBbch\(e\.target\.value\)\}/)
-      assert.doesNotMatch(a, /defaultValue/)
-    }
+    assert.equal(auswahlen.length, 1)
+    assert.match(auswahlen[0], /^ value=\{bbch\} onChange=\{e => setBbch\(e\.target\.value\)\}/)
+    assert.doesNotMatch(auswahlen[0], /defaultValue/)
   })
 
-  test('Bearbeiten-Formular: bei Arten mit ausgeblendetem BBCH geht nur bei unveränderter Art das gespeicherte Stadium unsichtbar mit', () => {
-    // Düngung, Bodenbearbeitung, Schnitt, Sonstiges zeigen keine Auswahl (wie beim Anlegen, FAQ und Handbuch);
-    // auf main leerte Speichern dort das Stadium (Musterhof: 14 Maßnahmen). bbchModus 'behalten' nur bei
-    // art = startArt (bbchBeimBearbeiten), nach einem Artwechsel ('keine') wird nichts gesendet
-    const edit = quelle('app/(dashboard)/behandlungen/[id]/edit/BehandlungEditForm.tsx')
-    assert.match(edit, /\{bbchModus === 'behalten' && <input type="hidden" name="bbch_stadium" value=\{behandlung\.bbch_stadium \?\? ''\} \/>\}/)
-    // genau drei Stellen senden bbch_stadium: zwei Auswahlen aus dem State `bbch` und das unsichtbare Feld mit dem
-    // gespeicherten Stadium – eine Auswahl auf einem Umweg (z. B. Düngung → Spritzung → Düngung) geht nicht
-    // unsichtbar mit, wie Mittel und Mengen bei der Rückkehr zur gespeicherten Art (artWechseln)
-    const stellen = edit.match(/<(select|input)\b[^>]*name="bbch_stadium"[^>]*>/g) ?? []
-    assert.equal(stellen.length, 3)
-    const auswahlen = stellen.filter(s => s.startsWith('<select'))
-    const versteckt = stellen.filter(s => s.startsWith('<input type="hidden"'))
-    assert.equal(auswahlen.length, 2)
-    assert.equal(versteckt.length, 1)
-    for (const s of auswahlen) assert.match(s, /value=\{bbch\}/)
-    assert.match(versteckt[0], /value=\{behandlung\.bbch_stadium \?\? ''\}/)
-    assert.doesNotMatch(versteckt[0], /value=\{bbch\}/)
-    // die gespeicherte Art entscheidet nicht mehr über die Sichtbarkeit der Auswahl
-    assert.doesNotMatch(edit, /bbchBeimBearbeiten\(art, art === startArt/)
+  test('Bearbeiten-Formular: je Feld eine sichtbare und eine unsichtbare Stelle, die der Modus ausschließt (KAN-152)', () => {
+    // BBCH, Schaderreger bzw. Grund / Anlass, Witterung, Temperatur: das Eingabefeld nur bei 'sichtbar', das
+    // unsichtbare Feld mit dem gespeicherten Wert nur bei 'behalten' (art = startArt, felderBeimBearbeiten) – so
+    // sendet je Feld immer höchstens eine Stelle (bei zwei gleichnamigen Feldern nähme formData.get das erste),
+    // nach einem Artwechsel ('keine') keine. Auf main leerte Speichern z. B. den Grund / Anlass einer Sonstigen
+    // und bei ausgeblendetem BBCH das Stadium (Musterhof: 14 Maßnahmen)
+    const edit = quelle(EDIT_FORM)
+    for (const [f, name] of Object.entries(BEARBEITEN_NAME)) {
+      const stellen = [...edit.matchAll(new RegExp(`<(select|input)\\b[^>]*\\bname="${name}"[^>]*>`, 'g'))]
+      assert.equal(stellen.length, 2, `${name}: genau zwei Stellen`)
+      const [sichtbar, versteckt] = [stellen.filter(s => !/type="hidden"/.test(s[0])), stellen.filter(s => /type="hidden"/.test(s[0]))]
+      assert.equal(sichtbar.length, 1, name)
+      assert.equal(versteckt.length, 1, name)
+      // unsichtbar: gespeicherter Wert (nicht der State), nur im Modus 'behalten'
+      assert.match(edit, new RegExp(`\\{modus\\.${f} === 'behalten' && <input type="hidden" name="${name}" value=\\{behandlung\\.${name} \\?\\? ''\\} />\\}`), name)
+      // sichtbar: der nächste Modus-Guard davor ist 'sichtbar' desselben Felds
+      const guard = [...edit.slice(0, sichtbar[0].index).matchAll(/\{modus\.(\w+) === '(\w+)' && /g)].at(-1)
+      assert.deepEqual([guard?.[1], guard?.[2]], [f, 'sichtbar'], name)
+    }
+    // Schaderreger bzw. Grund / Anlass: Bezeichnung, Pflicht und Vorschläge wie beim Anlegen
+    assert.match(edit, /const schaderreger = schaderregerFeld\(art\)/)
+    assert.match(edit, /<input aria-label=\{schaderreger\.label\} name="schaderreger" type="text"\s+required=\{feldPflicht\('schaderreger', art\)\}/)
+    assert.match(edit, /\{schaderreger\.label\}\s+\{feldPflicht\('schaderreger', art\) && <span className="text-s112-err"> \*<\/span>\}/)
+    assert.match(edit, /list=\{schaderreger\.vorschlaege \? 'schaderreger-kb' : undefined\}/)
+    assert.match(edit, /required=\{feldPflicht\('bbch', art\)\}/)
+    // Anlegen nimmt dieselbe Bezeichnung
+    const neu = quelle(NEU_FORM)
+    assert.match(neu, /const schaderreger = schaderregerFeld\(art\)/)
+    assert.doesNotMatch(neu, /art === 'sonstiges' \? 'Grund \/ Anlass'/)
+    for (const [name, f] of [['Anlegen', neu], ['Bearbeiten', edit]]) {
+      assert.doesNotMatch(f, /const (WITTERUNG|SCHADERREGER_OPTIONEN)\b/, name)
+      assert.match(f, /WITTERUNG_OPTIONEN\.map\(o => <option key=\{o\.value\} value=\{o\.value\}>\{o\.label\}<\/option>\)/, name)
+    }
   })
 
   test('Maßnahmenliste: Art-Auswahl „Alle Arten“ und Filter aus lib/behandlungen/arten.ts', () => {
@@ -742,5 +872,114 @@ describe('Quelltext: keine Stelle mit eigener, veralteter Artenliste', () => {
     // das Symbol (Shrub) gibt es nur in der Art-Auswahl der Formulare, nicht in Liste und Berichten
     assert.match(hb, /Im Formular hat Laubschneiden ein eigenes Symbol \(Strauch\); außerdem erscheint es in der Maßnahmenliste/)
     assert.doesNotMatch(hb, /mit eigenem Symbol im Formular, in der/)
+  })
+})
+
+// ── KAN-153: „Maßnahme erfassen“ ohne Ried-Auswahl bzw. bei Bio-Sperre ──────────────────────────────────────
+
+describe('Neue Maßnahme: Knopf ohne Auswahl nicht gesperrt, Klick zeigt den Grund (KAN-153)', () => {
+  test('absendenHindernis: Bio-Sperre vor fehlender Auswahl (Reihenfolge des Formulars), sonst absenden', nurMitHooks, () => {
+    assert.equal(absenden.absendenHindernis(0, false), 'ried')
+    assert.equal(absenden.absendenHindernis(0, true), 'bio')
+    assert.equal(absenden.absendenHindernis(2, true), 'bio')
+    assert.equal(absenden.absendenHindernis(1, false), null)
+    assert.equal(absenden.absendenHindernis(Number.NaN, false), 'ried')
+    assert.equal(absenden.RIED_AUSWAHL_FEHLT, 'Bitte mindestens ein Ried oder Grundstück auswählen.')
+  })
+
+  test('Kopfzeile und Knopftext: ohne Auswahl „noch keine Auswahl“ (Warnfarbe) und kein „(0 ausgewählt)“', nurMitHooks, () => {
+    assert.deepEqual(absenden.auswahlKopf(0, 0), { text: 'noch keine Auswahl', warnung: true })
+    assert.deepEqual(absenden.auswahlKopf(2, 1.25), { text: '2 ausgewählt · 1,25 ha', warnung: false })
+    assert.deepEqual(absenden.auswahlKopf(1, 0.12345), { text: '1 ausgewählt · 0,1235 ha', warnung: false })
+    assert.equal(absenden.erfassenKnopfText(false, 0), 'Maßnahme erfassen')
+    assert.equal(absenden.erfassenKnopfText(false, 3), 'Maßnahme erfassen (3 ausgewählt)')
+    assert.equal(absenden.erfassenKnopfText(true, 0), 'Speichert…')
+    assert.equal(absenden.erfassenKnopfText(true, 3), 'Speichert…')
+  })
+
+  test('Quelltext: Knopf nur beim Speichern gesperrt, Klick ohne Auswahl springt zum Abschnitt – nichts gesendet', () => {
+    const neu = quelle(NEU_FORM)
+    const knopf = neu.match(/<button type="submit"[^>]*>/g) ?? []
+    assert.equal(knopf.length, 1)
+    assert.match(knopf[0], /disabled=\{pending\}/)
+    assert.doesNotMatch(knopf[0], /totalSelCount|bioSperre/)
+    assert.doesNotMatch(neu, /disabled=\{[^}]*totalSelCount === 0/)
+    assert.match(neu, /\{erfassenKnopfText\(pending, totalSelCount\)\}/)
+    assert.doesNotMatch(neu, /`Maßnahme erfassen \(\$\{totalSelCount\} ausgewählt\)`/)
+    // handleSubmit: vor dem Zusammenstellen der Daten, ohne createBehandlung
+    const submit = neu.slice(neu.indexOf('function handleSubmit'), neu.indexOf('createBehandlung(fd)'))
+    assert.match(submit, /const hindernis = absendenHindernis\(totalSelCount, bioSperre\)/)
+    assert.match(submit, /if \(hindernis === 'bio'\) \{ setBioSprung\(n => n \+ 1\); return \}/)
+    assert.match(submit, /if \(hindernis === 'ried'\) \{ setRiedenExpanded\(true\); setRiedSprung\(n => n \+ 1\); return \}/)
+    assert.ok(submit.indexOf('absendenHindernis') < submit.indexOf('new FormData'), 'Prüfung vor dem Zusammenstellen der Daten')
+    assert.doesNotMatch(submit, /totalSelCount === 0\) \{ setError/)
+    // nach dem Klick: hinscrollen und die erste Checkbox der (aufgeklappten) Auswahl fokussieren
+    assert.match(neu, /riedenRef\.current\?\.scrollIntoView\(/)
+    assert.match(neu, /querySelector<HTMLInputElement>\('input\[type="checkbox"\]:not\(:disabled\)'\)/)
+    assert.match(neu, /\(erste \?\? riedenKopfRef\.current\)\?\.focus\(/)
+    assert.match(neu, /<div ref=\{riedenRef\} className="card">/)
+  })
+
+  test('Quelltext: Meldung mit role="alert" am Abschnitt, Pflicht-Stern und Warnfarbe in der Kopfzeile', () => {
+    const neu = quelle(NEU_FORM)
+    const abschnitt = neu.slice(neu.indexOf('<div ref={riedenRef}'), neu.indexOf('{/* Kosten-Vorschlagsfunktion'))
+    assert.match(abschnitt, /Ried\(en\) auswählen<span className="text-s112-err"> \*<\/span>/)
+    assert.match(abschnitt, /riedKopf\.warnung \? 'text-s112-warn-fg' : 'text-s112-blue-700'/)
+    assert.match(abschnitt, /\{riedKopf\.text\}/)
+    assert.match(abschnitt, /aria-expanded=\{riedenExpanded\}/)
+    assert.match(abschnitt, /\{riedHinweis && \(\s*<p key=\{riedSprung\} role="alert"[^>]*>[\s\S]*?\{RIED_AUSWAHL_FEHLT\}/)
+    assert.match(neu, /const riedHinweis = riedSprung > 0 && totalSelCount === 0/)
+    assert.match(neu, /const riedKopf = auswahlKopf\(totalSelCount, totalHaAktiv\)/)
+    // Checkboxen mit Namen für Vorleseprogramme (Fokusziel nach dem Klick)
+    assert.match(abschnitt, /aria-label=\{`\$\{lageName\}: alle spritzbaren auswählen`\}/)
+    assert.match(abschnitt, /aria-label=\{w\.name\}/)
+  })
+
+  test('Quelltext: Bio-Sperre zeigt den Grund am Mittel (role="alert", aria-describedby, Fokus)', () => {
+    const neu = quelle(NEU_FORM)
+    assert.match(neu, /\{bioSperre && \(\s*<div key=\{bioSprung\} id="bio-sperre-grund" role="alert"/)
+    for (const [ref, name] of [['psmRef', 'psm_id'], ['duengemittelRef', 'duengemittel_id']]) {
+      const s = neu.match(new RegExp(`<select ref=\\{${ref}\\}[^]*?name="${name}"[^]*?onChange`))?.[0]
+      assert.ok(s, `${name}: Auswahl mit ${ref}`)
+      assert.match(s, /aria-describedby=\{bioSperre \? 'bio-sperre-grund' : undefined\}/, name)
+      assert.match(s, /aria-invalid=\{bioSperre \|\| undefined\}/, name)
+    }
+    assert.match(neu, /const mittel = psmRef\.current \?\? duengemittelRef\.current/)
+    // Sperre nur für ein Mittel, dessen Feld die Art zeigt; ausgeblendete Mittel werden beim Artwechsel geleert
+    assert.match(neu, /felder\.psm !== 'hidden'\s+\? selectedPsm\?\.oeko_zugelassen/)
+    assert.match(neu, /if \(FELD_MATRIX\[art\]\.psm === 'hidden'\) setSelectedPsmId\(''\)/)
+    assert.match(neu, /if \(FELD_MATRIX\[art\]\.duengemittel === 'hidden'\) setSelectedDuengemittelId\(''\)/)
+  })
+
+  test('Server-Prüfung bleibt: createBehandlung ohne Ried und Grundstück abgelehnt, nichts geschrieben', nurMitHooks, async () => {
+    const fd = new FormData()
+    for (const [k, v] of Object.entries({ datum: '2026-07-02', art: 'laubarbeit', laubarbeit_art: 'gipfeln', bbch_stadium: '61', kosten_aktiv: 'on', kosten_betrag: '2000' })) fd.set(k, v)
+    globalThis.__kan143Supabase = supabaseAttrappe()
+    await assert.rejects(() => aktionen.createBehandlung(fd), { message: 'Mindestens eine Ried oder ein Grundstück auswählen' })
+    assert.deepEqual(globalThis.__kan143Supabase.schreiben, [])
+    // mit Auswahl: Maßnahme samt Kosteneintrag gespeichert (Fall aus dem Ticket: Laubarbeit › Gipfeln, BBCH 61, 2.000 €)
+    fd.set('grundstueck_ids', 'g-1')
+    globalThis.__kan143Supabase = supabaseAttrappe()
+    await aktionen.createBehandlung(fd)
+    // (die Attrappe liefert für den Kosteneintrag keine id – die Aufteilung auf Weingärten prüft sie daher nicht)
+    const eingefuegt = globalThis.__kan143Supabase.schreiben.filter(s => s.op === 'insert')
+    assert.deepEqual(eingefuegt.map(s => s.tabelle), ['behandlungen', 'behandlung_grundstuecke', 'kosteneintraege'])
+    assert.deepEqual([eingefuegt[0].p.art, eingefuegt[0].p.laubarbeit_art, eingefuegt[0].p.bbch_stadium], ['laubarbeit', 'gipfeln', '61'])
+    assert.deepEqual([eingefuegt[2].p.behandlung_id, eingefuegt[2].p.betrag], ['b-neu', 2000])
+  })
+
+  test('Hilfe: Handbuch und FAQ nennen die Pflicht und den Sprung zum Abschnitt', () => {
+    const hb = quelle('app/(dashboard)/hilfe/handbuch/page.tsx')
+    const abschnitt = hb.match(/titel: 'Ried\(en\)-Auswahl ein-\/aufklappen', inhalt: '([^']*)'/)?.[1]
+    assert.ok(abschnitt, 'Handbuch-Abschnitt „Ried(en)-Auswahl ein-/aufklappen“')
+    assert.match(abschnitt, /Pflicht – ohne Auswahl springt „Maßnahme erfassen“ zum Abschnitt/)
+    assert.match(abschnitt, /„Bitte mindestens ein Ried oder Grundstück auswählen\.“/)
+    assert.match(abschnitt, /„noch keine Auswahl“/)
+    const faq = quelle('app/(dashboard)/hilfe/faq/page.tsx')
+    assert.match(faq, /Die Auswahl ist Pflicht: Klickst du ohne Auswahl auf „Maßnahme erfassen“, klappt der Abschnitt auf/)
+    assert.match(faq, /ein Klick auf „Maßnahme erfassen“ springt dorthin, statt still gesperrt zu bleiben/)
+    // KAN-152: Bearbeiten mit denselben Feldern, ausgeblendete gespeicherte Angaben bleiben
+    assert.match(hb, /Beim Bearbeiten einer Maßnahme zeigt das Formular BBCH-Stadium, Schaderreger bzw\. Grund \/ Anlass, Witterung und Temperatur genauso/)
+    assert.match(faq, /Beim Bearbeiten gelten dieselben Felder; eine schon gespeicherte Angabe in einem ausgeblendeten Feld bleibt beim Speichern erhalten/)
   })
 })
