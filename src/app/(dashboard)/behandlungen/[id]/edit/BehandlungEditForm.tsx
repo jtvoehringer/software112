@@ -17,27 +17,10 @@ import {
   MENGEN_SICHT, alsFeld, aufwandEinheitText, duengerEinheitWechsel, duengermengeEinheit, eingabeZahl,
   mengeVorbelegung, mengenFelder, mengenInFormData,
 } from '../../neu/mengenFelder'
-import { FELD_MATRIX, bbchBeimBearbeiten, wetterBeimBearbeiten } from '../../neu/feldMatrix'
+import { BBCH_OPTIONS, FELD_MATRIX, bbchAltwert, bbchBeimBearbeiten, wetterBeimBearbeiten } from '../../neu/feldMatrix'
 import { ART_OPTIONS } from '../../neu/artOptionen'
 import MengenZusammenfassung from '../../neu/MengenZusammenfassung'
 
-const BBCH_OPTIONS = [
-  { value: '09', label: '09 – Knospenaufbruch' },
-  { value: '11', label: '11 – 1. Blatt entfaltet' },
-  { value: '53', label: '53 – Traubenanlage sichtbar' },
-  { value: '55', label: '55 – Einzelblüten sichtbar' },
-  { value: '57', label: '57 – Blütenstand gestreckt' },
-  { value: '61', label: '61 – Beginn Blüte (10%)' },
-  { value: '65', label: '65 – Vollblüte (50%)' },
-  { value: '69', label: '69 – Ende Blüte' },
-  { value: '71', label: '71 – Fruchtansatz' },
-  { value: '73', label: '73 – Erbsengröße' },
-  { value: '75', label: '75 – Haselnussgröße' },
-  { value: '77', label: '77 – Trauben schließen sich' },
-  { value: '81', label: '81 – Beginn Reife' },
-  { value: '85', label: '85 – Weichwerden' },
-  { value: '89', label: '89 – Vollreife' },
-]
 const WITTERUNG = ['sonnig', 'bewoelkt', 'regnerisch', 'wind']
 const SCHADERREGER_OPTIONEN = ['Oidium', 'Peronospora', 'Botrytis']
 
@@ -128,6 +111,8 @@ export default function BehandlungEditForm({
   const [art, setArt] = useState<Art>(startArt)
   // ältere Freitext-Unterart einer Laubarbeit (nicht in LAUBARBEIT_OPTIONEN) – eigene Option in der Auswahl
   const laubarbeitBisher = laubarbeitAltwert(behandlung.laubarbeit_art)
+  // gespeichertes BBCH-Stadium außerhalb von BBCH_OPTIONS (z. B. „68“) – eigene Option in beiden BBCH-Auswahlen
+  const bbchBisher = bbchAltwert(behandlung.bbch_stadium)
   const [selectedPsmId, setSelectedPsmId] = useState(behandlung.psm_id ?? '')
   const [selectedDuengemittelId, setSelectedDuengemittelId] = useState(behandlung.duengemittel_id ?? '')
   // Gespeicherte Mengen als Formularwerte (Dezimalkomma, siehe alsFeld)
@@ -557,6 +542,7 @@ export default function BehandlungEditForm({
               <label className={labelCls}>BBCH-Stadium</label>
               <select aria-label="BBCH-Stadium" name="bbch_stadium" defaultValue={behandlung.bbch_stadium ?? ''} className={inputCls}>
                 <option value="">– Auswählen –</option>
+                {bbchBisher && <option value={bbchBisher}>{bbchBisher} (bisherige Angabe)</option>}
                 {BBCH_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </div>
@@ -632,13 +618,16 @@ export default function BehandlungEditForm({
         )}
 
         {/* BBCH außerhalb der Spritzung (Laubarbeit, Laubschneiden – optional laut Feld-Matrix); ein
-            gespeichertes Stadium bleibt sichtbar, damit Speichern es nicht leert */}
+            gespeichertes Stadium bleibt sichtbar, damit Speichern es nicht leert – ein Code außerhalb von
+            BBCH_OPTIONS als eigene Option. Die bleibt auch nach einem Artwechsel stehen (das Stadium hängt nicht
+            an der Art): Wechselt z. B. Laubarbeit → Laubschneiden, bleibt die Auswahl erhalten wie bei „75“ */}
         {art !== 'spritzung' && bbchBeimBearbeiten(art, art === startArt ? behandlung.bbch_stadium : null) && (
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>BBCH-Stadium</label>
               <select aria-label="BBCH-Stadium" name="bbch_stadium" defaultValue={art === startArt ? behandlung.bbch_stadium ?? '' : ''} className={inputCls}>
                 <option value="">– Auswählen –</option>
+                {bbchBisher && <option value={bbchBisher}>{bbchBisher} (bisherige Angabe)</option>}
                 {BBCH_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </div>

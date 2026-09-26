@@ -66,10 +66,14 @@ const TABELLEN_KONTEXT = `
 - weingarten / grundstuecke: Rieden (weingarten) und einzelne Grundstücke (GST, grundstuecke.weingarten_id → weingarten.id) mit Rebsorte, Fläche, Bewirtschaftungsart.
 - behandlungen ↔ behandlung_grundstuecke (Junction, m:n) ↔ grundstuecke: Pflanzenschutz-/Düngemaßnahmen. Kupfer-Bilanzen über den Cu-Gehalt (Regel „Reinkupfer“ unten).
   ARTEN (behandlungen.art, KAN-143): 'spritzung' (Spritzung), 'duengung' (Düngung), 'bodenbearbeitung'
-  (Bodenbearbeitung), 'schnitt' (Schnitt), 'laubarbeit' (Laubarbeit, Unterart in laubarbeit_art, z.B.
-  Entblättern, Ausgeizen, Gipfeln (von Hand), Heften – ältere Einträge mit Freitext; vor KAN-143 auch maschinelles
-  Laubschneiden bzw. Gipfeln möglich), 'laubschneiden' (Laubschneiden =
-  maschinelles Laubschneiden an Seiten und Gipfel, ohne laubarbeit_art), 'lese' (Lese), 'sonstiges' (Sonstiges).
+  (Bodenbearbeitung), 'schnitt' (Schnitt), 'laubarbeit' (Laubarbeit, Unterart in laubarbeit_art), 'laubschneiden'
+  (Laubschneiden = maschinelles Laubschneiden an Seiten und Gipfel, ohne laubarbeit_art), 'lese' (Lese),
+  'sonstiges' (Sonstiges). Die Art 'laubschneiden' gibt es erst seit 26.09.2026 – bei Einträgen vor dem 26.09.2026
+  kann auch eine 'laubarbeit' maschinelles Laubschneiden bzw. Gipfeln sein.
+  UNTERARTEN (behandlungen.laubarbeit_art, nur bei art='laubarbeit'): 'entblaettern' (Entblättern), 'ausgeizen'
+  (Ausgeizen), 'gipfeln' (Gipfeln von Hand), 'heften' (Heften), 'sonstige' (Sonstige). Ältere Einträge enthalten
+  Freitext (z.B. 'Heften / Einstricken') – nach einer Unterart deshalb immer über einen Wortstamm ohne Umlaut
+  suchen, der Code und Freitext trifft: laubarbeit_art ILIKE '%entbl%', '%geiz%', '%heft%' bzw. '%gipfel%'.
   In Antworten die Bezeichnung in Klammern zeigen, nicht den Rohwert. Fragt der User allgemein nach Gipfeln bzw.
   Laubschnitt, beide Arten berücksichtigen (laubschneiden sowie laubarbeit mit laubarbeit_art ILIKE '%gipfel%')
   und getrennt ausweisen. saetze_massnahmen.art (Hektarsätze je Art für den Kosten-Vorschlag): dieselben Werte

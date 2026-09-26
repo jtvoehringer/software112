@@ -115,11 +115,11 @@ describe('Artenliste (lib/behandlungen/arten.ts) = DB-CHECKs', nurMitHooks, () =
     assert.deepEqual(Object.keys(arten.MASSNAHMEN_ART_LABEL), DB_BEHANDLUNGEN_ART_CHECK)
   })
 
-  test('liegt die Migration im Repo, stimmen ihre CHECKs mit den Konstanten überein', () => {
+  // Migration 20260926175835_kan143_laubschneiden (seit PR #60 im Repo) – fehlt sie, schlägt der Test fehl
+  test('Migration kan143_laubschneiden liegt im Repo, ihre CHECKs stimmen mit den Konstanten überein', () => {
     const verzeichnis = path.resolve(SRC, '../supabase/migrations')
     const treffer = readdirSync(verzeichnis).filter(d => /^\d{14}_kan143_laubschneiden\.sql$/.test(d))
-    assert.ok(treffer.length <= 1, `mehrere Migrationen kan143_laubschneiden: ${treffer.join(', ')}`)
-    if (treffer.length === 0) return   // Datei kommt mit PR #60; bis dahin gilt der SELECT-Stand oben
+    assert.equal(treffer.length, 1, `Migration *_kan143_laubschneiden.sql fehlt oder ist doppelt: ${treffer.join(', ')}`)
     const sql = readFileSync(path.join(verzeichnis, treffer[0]), 'utf8')
     const check = (name) => {
       const m = sql.match(new RegExp(`ADD\\s+CONSTRAINT\\s+${name}\\s+CHECK\\s*\\(\\s*art\\s+IN\\s*\\(([^)]*)\\)`, 'i'))
@@ -318,6 +318,20 @@ describe('Feld- und Mengen-Matrix für Laubschneiden', nurMitHooks, () => {
       assert.equal(feld.wetterBeimBearbeiten(art, null), true, art)   // bisherige Arten unverändert
     }
   })
+
+  test('Bearbeiten: gespeichertes BBCH außerhalb der Auswahlliste bleibt als eigene Option (bbchAltwert)', () => {
+    // Codes im Musterhof (SELECT 26.09.2026): Laubarbeit 68/83, Bodenbearbeitung 05/83, Düngung 07, Schnitt 00,
+    // Spritzung 13/79 – ohne eigene Option wäre „– Auswählen –“ gewählt und Speichern leerte das Stadium
+    for (const code of ['68', '83', '05', '07', '00', '13', '79']) {
+      assert.ok(!feld.BBCH_OPTIONS.some(o => o.value === code), `${code} steht nicht in BBCH_OPTIONS`)
+      assert.equal(feld.bbchAltwert(code), code, code)
+    }
+    assert.equal(feld.BBCH_OPTIONS.length, 15)
+    for (const o of feld.BBCH_OPTIONS) assert.equal(feld.bbchAltwert(o.value), null, o.value)
+    for (const leer of [null, undefined, '', '  ']) assert.equal(feld.bbchAltwert(leer), null, String(leer))
+    assert.equal(feld.bbchBeimBearbeiten('schnitt', '00'), true)
+    assert.equal(feld.bbchBeimBearbeiten('bodenbearbeitung', '83'), true)
+  })
 })
 
 // ── Behördenmeldungen, Auswertungen, Rückverfolgung ─────────────────────────────
@@ -489,7 +503,7 @@ describe('Quelltext: keine Stelle mit eigener, veralteter Artenliste', () => {
     const neu = quelle('app/(dashboard)/behandlungen/neu/NeueBehandlungForm.tsx')
     assert.match(neu, /<select name="laubarbeit_art" required=\{felder\.laubarbeitArt === 'pflicht'\}/)
     const edit = quelle('app/(dashboard)/behandlungen/[id]/edit/BehandlungEditForm.tsx')
-    assert.match(edit, /import \{ FELD_MATRIX, bbchBeimBearbeiten, wetterBeimBearbeiten \} from '\.\.\/\.\.\/neu\/feldMatrix'/)
+    assert.match(edit, /import \{ BBCH_OPTIONS, FELD_MATRIX, bbchAltwert, bbchBeimBearbeiten, wetterBeimBearbeiten \} from '\.\.\/\.\.\/neu\/feldMatrix'/)
     assert.match(edit, /name="laubarbeit_art"[^>]*\s+required=\{FELD_MATRIX\.laubarbeit\.laubarbeitArt === 'pflicht'\}/)
     assert.match(edit, /Art der Laubarbeit\s+\{FELD_MATRIX\.laubarbeit\.laubarbeitArt === 'pflicht' && <span className="text-s112-err"> \*<\/span>\}/)
     const a = quelle('app/(dashboard)/behandlungen/actions.ts')
@@ -503,6 +517,22 @@ describe('Quelltext: keine Stelle mit eigener, veralteter Artenliste', () => {
     const auswahl = edit.slice(edit.indexOf('name="laubarbeit_art"'), edit.indexOf('</select>', edit.indexOf('name="laubarbeit_art"')))
     assert.match(auswahl, /\{art === startArt && laubarbeitBisher && \(\s*<option value=\{laubarbeitBisher\}>\{laubarbeitBisher\} \(bisherige Angabe\)<\/option>/)
     assert.ok(auswahl.indexOf('laubarbeitBisher') < auswahl.indexOf('LAUBARBEIT_OPTIONEN.map'), 'Altwert-Option vor den Standardwerten')
+  })
+
+  test('BBCH: eine Auswahlliste (feldMatrix.ts) für Anlegen und Bearbeiten, Altwert in beiden BBCH-Auswahlen des Bearbeiten-Formulars', () => {
+    const neu = quelle('app/(dashboard)/behandlungen/neu/NeueBehandlungForm.tsx')
+    const edit = quelle('app/(dashboard)/behandlungen/[id]/edit/BehandlungEditForm.tsx')
+    for (const [name, f] of [['Anlegen', neu], ['Bearbeiten', edit]]) {
+      assert.doesNotMatch(f, /const BBCH_OPTIONS\b/, name)
+      assert.match(f, /import \{ BBCH_OPTIONS, FELD_MATRIX\b[^}]*\} from '(\.\/|\.\.\/\.\.\/neu\/)feldMatrix'/, name)
+    }
+    assert.match(edit, /const bbchBisher = bbchAltwert\(behandlung\.bbch_stadium\)/)
+    const auswahlen = edit.split('name="bbch_stadium"').slice(1).map(t => t.slice(0, t.indexOf('</select>')))
+    assert.equal(auswahlen.length, 2)   // Spritzung und alle anderen Arten
+    for (const a of auswahlen) {
+      assert.match(a, /\{bbchBisher && <option value=\{bbchBisher\}>\{bbchBisher\} \(bisherige Angabe\)<\/option>\}/)
+      assert.ok(a.indexOf('bbchBisher') < a.indexOf('BBCH_OPTIONS.map'), 'Altwert-Option vor den Standardwerten')
+    }
   })
 
   test('Maßnahmenliste: Art-Auswahl „Alle Arten“ und Filter aus lib/behandlungen/arten.ts', () => {
@@ -540,6 +570,16 @@ describe('Quelltext: keine Stelle mit eigener, veralteter Artenliste', () => {
     for (const art of DB_BEHANDLUNGEN_ART_CHECK) assert.ok(ki.includes(`'${art}' (${arten.MASSNAHMEN_ART_LABEL[art]}`), `KI-Kontext: ${art}`)
     assert.match(ki, /'laubschneiden' \(Laubschneiden = maschinelles Laubschneiden an Seiten und Gipfel, ohne laubarbeit_art\)/)
     assert.match(ki, /saetze_massnahmen\.art .*dieselben Werte ohne 'lese'/)
+    // Unterarten mit gespeichertem Code und Bezeichnung; Suche über Wortstämme ohne Umlaut, die Code und
+    // Freitext treffen ('%entblätter%' fände 'entblaettern' nicht); Datierung per Datum statt Ticketnummer
+    for (const o of arten.LAUBARBEIT_OPTIONEN) assert.ok(ki.includes(`'${o.value}' (${o.label}`), `KI-Kontext: laubarbeit_art ${o.value}`)
+    const wortstaemme = [...(ki.match(/UNTERARTEN \(behandlungen\.laubarbeit_art[^]*?ILIKE ((?:'%[a-z]+%'(?:, | bzw\. )?)+)/)?.[1] ?? '').matchAll(/'%([a-z]+)%'/g)].map(m => m[1])
+    assert.ok(wortstaemme.length > 0, 'KI-Kontext: Wortstämme für laubarbeit_art')
+    for (const o of arten.LAUBARBEIT_OPTIONEN.filter(x => x.value !== 'sonstige')) {
+      for (const text of [o.value, o.label.toLowerCase()]) assert.ok(wortstaemme.some(w => text.includes(w)), `KI-Kontext: kein Wortstamm für ${text}`)
+    }
+    assert.doesNotMatch(ki, /vor KAN-143/)
+    assert.match(ki, /vor dem 26\.09\.2026/)
   })
 
   test('Hilfe: FAQ und Handbuch erklären Laubschneiden, Gipfeln von Hand bleibt Laubarbeit', () => {
@@ -558,6 +598,8 @@ describe('Quelltext: keine Stelle mit eigener, veralteter Artenliste', () => {
     assert.doesNotMatch(quelle('app/api/ki-abfrage/route.ts'), /'laubarbeit' \(Laubarbeit von Hand/)
     // Menüweg der Stundensätze und sichtbare Beschriftung der Art-Auswahl
     assert.match(faq, /Unter Rieden > Betriebsmittel > Tab "Stundensätze"/)
+    assert.match(faq, /Unter Rieden > Betriebsmittel > Tab "Düngemittel"/)
+    assert.doesNotMatch(faq, /Maßnahmen\s*(>|›)\s*Betriebsmittel/)   // Betriebsmittel ist kein Unterpunkt von Maßnahmen
     assert.match(hb, /Maßnahmenliste \(Auswahl „Alle Arten“ neben dem Suchfeld\)/)
     assert.doesNotMatch(hb, /Filter „Art der Maßnahme“/)
     // das Symbol (Shrub) gibt es nur in der Art-Auswahl der Formulare, nicht in Liste und Berichten

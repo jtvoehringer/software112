@@ -7,6 +7,7 @@
 // (lib/assistent/tools/massnahme.ts).
 // Laubschneiden (KAN-143): wie Laubarbeit, aber ohne „Art der Laubarbeit“ – BBCH optional, Witterung und
 // Temperatur ausgeblendet, keine Mengenfelder.
+// Die BBCH-Auswahl (BBCH_OPTIONS, bbchAltwert) liegt ebenfalls hier – gemeinsam für Anlegen und Bearbeiten.
 // Ohne JSX, damit node:test sie prüfen kann (scripts/tests/massnahmen-arten.test.mjs).
 
 import { istMassnahmenArt, type MassnahmenArt } from '@/lib/behandlungen/arten'
@@ -27,11 +28,41 @@ export const FELD_MATRIX: Readonly<Record<MassnahmenArt, Felder>> = {
   sonstiges:        { psm: 'hidden',  duengemittel: 'hidden',   bbch: 'hidden',   schaderreger: 'optional', witterung: 'hidden',   temperatur: 'hidden',   einarbeitung: 'hidden',  bearbeitung: 'hidden',  schnittart: 'hidden',  laubarbeitArt: 'hidden'  },
 }
 
+/** BBCH-Auswahl der Maßnahmenformulare (Anlegen und Bearbeiten) – eine Liste für beide */
+export const BBCH_OPTIONS = [
+  { value: '09', label: '09 – Knospenaufbruch' },
+  { value: '11', label: '11 – 1. Blatt entfaltet' },
+  { value: '53', label: '53 – Traubenanlage sichtbar' },
+  { value: '55', label: '55 – Einzelblüten sichtbar' },
+  { value: '57', label: '57 – Blütenstand gestreckt' },
+  { value: '61', label: '61 – Beginn Blüte (10%)' },
+  { value: '65', label: '65 – Vollblüte (50%)' },
+  { value: '69', label: '69 – Ende Blüte' },
+  { value: '71', label: '71 – Fruchtansatz' },
+  { value: '73', label: '73 – Erbsengröße' },
+  { value: '75', label: '75 – Haselnussgröße' },
+  { value: '77', label: '77 – Trauben schließen sich' },
+  { value: '81', label: '81 – Beginn Reife' },
+  { value: '85', label: '85 – Weichwerden' },
+  { value: '89', label: '89 – Vollreife' },
+] as const
+
+/**
+ * Gespeichertes BBCH-Stadium außerhalb von BBCH_OPTIONS (z. B. „68“ oder „83“ im Demo-Betrieb, oder ein
+ * freier Code aus dem Assistenten) – das Bearbeiten-Formular bietet es in beiden BBCH-Auswahlen als eigene
+ * Option „<Code> (bisherige Angabe)“ an; ohne passende Option wäre „– Auswählen –“ gewählt und Speichern
+ * leerte das Stadium. Bekannte Codes und leer → null.
+ */
+export function bbchAltwert(gespeichert: string | null | undefined): string | null {
+  if (!gespeichert?.trim()) return null
+  return BBCH_OPTIONS.some(o => o.value === gespeichert) ? null : gespeichert
+}
+
 /**
  * Bearbeiten-Formular (BehandlungEditForm): BBCH bei Spritzung, Laubarbeit und Laubschneiden (Feld-Matrix
  * nicht 'hidden') – oder wenn bei der gespeicherten Art schon ein Stadium gespeichert ist; ein
- * ausgeblendetes Feld würde beim Speichern sonst geleert. `gespeichert` nur übergeben, solange die Art
- * nicht gewechselt wurde.
+ * ausgeblendetes Feld würde beim Speichern sonst geleert (ein Code außerhalb von BBCH_OPTIONS über
+ * bbchAltwert). `gespeichert` nur übergeben, solange die Art nicht gewechselt wurde.
  */
 export function bbchBeimBearbeiten(art: string, gespeichert: string | null): boolean {
   return (istMassnahmenArt(art) && FELD_MATRIX[art].bbch !== 'hidden') || !!gespeichert

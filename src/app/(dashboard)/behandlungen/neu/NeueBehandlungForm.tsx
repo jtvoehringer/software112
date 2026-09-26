@@ -15,27 +15,10 @@ import {
   MENGEN_SICHT, aufwandEinheitText, duengerEinheitWechsel, duengermengeEinheit, mengenFelder, mengenInFormData,
   mengenTexte,
 } from './mengenFelder'
-import { FELD_MATRIX } from './feldMatrix'
+import { BBCH_OPTIONS, FELD_MATRIX } from './feldMatrix'
 import { ART_OPTIONS } from './artOptionen'
 import MengenZusammenfassung from './MengenZusammenfassung'
 
-const BBCH_OPTIONS = [
-  { value: '09', label: '09 – Knospenaufbruch' },
-  { value: '11', label: '11 – 1. Blatt entfaltet' },
-  { value: '53', label: '53 – Traubenanlage sichtbar' },
-  { value: '55', label: '55 – Einzelblüten sichtbar' },
-  { value: '57', label: '57 – Blütenstand gestreckt' },
-  { value: '61', label: '61 – Beginn Blüte (10%)' },
-  { value: '65', label: '65 – Vollblüte (50%)' },
-  { value: '69', label: '69 – Ende Blüte' },
-  { value: '71', label: '71 – Fruchtansatz' },
-  { value: '73', label: '73 – Erbsengröße' },
-  { value: '75', label: '75 – Haselnussgröße' },
-  { value: '77', label: '77 – Trauben schließen sich' },
-  { value: '81', label: '81 – Beginn Reife' },
-  { value: '85', label: '85 – Weichwerden' },
-  { value: '89', label: '89 – Vollreife' },
-]
 const WITTERUNG = ['sonnig', 'bewoelkt', 'regnerisch', 'wind']
 const SCHADERREGER_OPTIONEN = ['Oidium', 'Peronospora', 'Botrytis']
 
