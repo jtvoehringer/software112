@@ -5,7 +5,7 @@
 --         Kunden, Artikel, Preislisten (preislisten_positionen bleibt unangetastet –
 --         das sind Preisdefinitionen, keine Transaktionen)
 --
--- Basiert auf sql/cleanup_testdaten.sql, erweitert um Tabellen, die seither dazu-
+-- Basiert auf sql/cleanup_testdaten.sql (mit KAN-151 entfernt, siehe Git-Historie), erweitert um Tabellen, die seither dazu-
 -- gekommen sind bzw. bisher nicht mitgelöscht wurden (siehe "NEU" markierte Blöcke):
 --   - Verschneidungen (verschneidungen, verschneidung_quellen) – Feature erst seit
 --     Kurzem im aktiven Test (heute erstmals über bot:112 getestet)
