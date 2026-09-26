@@ -78,7 +78,9 @@ async function ladeJahrgang(supabase: any, tenantId: string, jahrgangId: string)
 
 // ── Jahrgänge ─────────────────────────────────────────────────────────────────
 
-export async function createJahrgang(formData: FormData): Promise<{ error?: string }> {
+/** KAN-129: `vorhandenId` = der schon bestehende Jahrgang des Betriebs (nur bei 23505),
+ *  damit das Formular dorthin verlinkt; `error` bleibt für bisherige Aufrufer gesetzt. */
+export async function createJahrgang(formData: FormData): Promise<{ error?: string; vorhandenId?: string }> {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
   const jahrgang = Number(dezimal(formData.get('jahrgang')))
@@ -93,7 +95,14 @@ export async function createJahrgang(formData: FormData): Promise<{ error?: stri
   if (error) {
     // 23505 = unique_violation (unique(tenant_id, jahrgang)) – verständliche Meldung statt Server-Crash
     if ((error as AR).code === '23505') {
-      return { error: `Jahrgang ${jahrgang} existiert bereits für diesen Betrieb.` }
+      const meldung = `Jahrgang ${jahrgang} existiert bereits für diesen Betrieb.`
+      // KAN-129: bestehenden Jahrgang nachladen, damit das Formular direkt dorthin führt
+      // (die Lese wird am Jahrgang erfasst); schlägt das fehl, bleibt es bei der Meldung
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: vorhanden } = await (supabase.from('weinjahrgaenge') as any)
+        .select('id').eq('tenant_id', tenantId).eq('jahrgang', jahrgang).maybeSingle()
+      const vorhandenId = (vorhanden as AR | null)?.id as string | undefined
+      return vorhandenId ? { error: meldung, vorhandenId } : { error: meldung }
     }
     return { error: (error as AR).message }
   }
