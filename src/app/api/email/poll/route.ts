@@ -31,7 +31,8 @@ export async function POST(req: NextRequest) {
     const tenantId = membership?.tenantId
     if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
 
-    const { data: cfg } = await (supabase.from('tenant_einstellungen') as any)
+    // KAN-135: Passwort-Chiffrat nur per Service-Role (Benutzer haben keinen SELECT darauf)
+    const { data: cfg } = await (admin.from('tenant_einstellungen') as any)
       .select('email_modul_aktiv, email_imap_host, email_imap_port, email_imap_user, email_imap_pass_enc')
       .eq('tenant_id', tenantId).maybeSingle()
 

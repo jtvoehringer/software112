@@ -33,7 +33,10 @@ export async function POST(req: NextRequest) {
 
     // Per-User Verbindung zuerst prüfen
     const { data: { user: authUser } } = await supabase.auth.getUser()
-    const { data: userCfg } = await (supabase.from('user_email_connections') as any)
+    if (!authUser) return NextResponse.json({ fehler: 'Nicht angemeldet' }, { status: 401 })
+    // KAN-135: Zugangsdaten (Token/Passwörter) nur per Service-Role lesen – immer auf die
+    // eigene Zeile (tenant_id aus der Mitgliedschaft, user_id aus getUser()) eingeschränkt
+    const { data: userCfg } = await (admin.from('user_email_connections') as any)
       .select('m365_aktiv, m365_access_token_enc, m365_refresh_token_enc, m365_token_expires_at, imap_aktiv, imap_host, imap_port, imap_user, imap_pass_enc, monitored_email').eq('tenant_id', tenantId).eq('user_id', authUser?.id ?? '').maybeSingle()
     const uc = userCfg as R | null
 
@@ -48,7 +51,7 @@ export async function POST(req: NextRequest) {
       const { getValidUserAccessToken, getMailboxBase } = await import('@/lib/m365/graph')
       const { data: tcfg } = await (admin.from('tenant_einstellungen') as any)
         .select('m365_tenant_id, m365_client_id, m365_client_secret_enc').eq('tenant_id', tenantId).maybeSingle()
-      const token = await getValidUserAccessToken(uc, tcfg as R, supabase, tenantId, authUser?.id ?? '')
+      const token = await getValidUserAccessToken(uc, tcfg as R, admin, tenantId, authUser?.id ?? '')
       // Mehrere Empfänger: Komma-getrennt parsen
       const empfaenger = an.split(',').map((e: string) => e.trim()).filter(Boolean)
       // Shared Mailbox als Absender wenn explizit gewählt (erfordert Send-As-Rechte in Exchange)

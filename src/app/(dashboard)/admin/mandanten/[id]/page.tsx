@@ -4,7 +4,7 @@ import { getCurrentUserRole, isSandboxAdminUnlock } from '@/lib/auth/roles'
 import { notFound, redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import MandantDetailClient from './MandantDetailClient'
-import { geheimLesen, geheimMaskiert } from '@/lib/email/geheimnis'
+import { geheimMaskiert } from '@/lib/email/geheimnis'
 
 export const dynamic = 'force-dynamic'
 
@@ -258,7 +258,7 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
     sumup_api_key:       geheimMaskiert(s?.sumup_api_key),
     sumup_merchant_code: s?.sumup_merchant_code ?? null,
     bawb_kennung:        s?.bawb_kennung ?? null,
-    bawb_passwort:       (() => { try { return geheimLesen(s?.bawb_passwort) } catch { return null } })(),
+    bawb_passwort:       geheimMaskiert(s?.bawb_passwort),   // KAN-135: nur „hinterlegt ja/nein“, nie der Klartext
     assistent_aktiv:     !!(s?.assistent_aktiv),
   }
 

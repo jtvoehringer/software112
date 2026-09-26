@@ -5,7 +5,7 @@
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { encryptPass } from '@/lib/email/crypto'
-import { geheimSpeichern } from '@/lib/email/geheimnis'
+import { geheimSpeichern, geheimFeld } from '@/lib/email/geheimnis'
 import { getCurrentUserRole, isSandboxAdminUnlock } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
 import { getStripe } from '@/lib/stripe/client'
@@ -529,7 +529,8 @@ export async function saveBawbZugangsdaten(tenantId: string, formData: FormData)
   const { error } = await (admin.from('tenant_einstellungen') as any).upsert({
     tenant_id:    tenantId,
     bawb_kennung:  (formData.get('bawb_kennung')  as string) || null,
-    bawb_passwort: geheimSpeichern(formData.get('bawb_passwort')) ?? null,  // S11: verschlüsselt
+    // S11: verschlüsselt; KAN-135: Maske (= unverändert) lässt das Feld weg, statt es zu leeren
+    ...geheimFeld('bawb_passwort', formData.get('bawb_passwort')),
     aktualisiert_am: new Date().toISOString(),
   }, { onConflict: 'tenant_id' })
 

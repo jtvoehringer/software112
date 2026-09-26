@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { geheimLesen } from '@/lib/email/geheimnis'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { ereignisMelden } from '@/lib/system/ereignis'
 import { sumupWebhookUrl } from '@/lib/sumup/webhook'
@@ -26,8 +27,9 @@ export async function POST(req: NextRequest) {
   const gesperrt = await schreibSperreKonflikt(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
   if (gesperrt) return gesperrt
 
-  // SumUp-Konfiguration laden
-  const { data: einst } = await (supabase.from('tenant_einstellungen') as any)
+  // SumUp-Konfiguration laden – KAN-135: API-Key nur per Service-Role (Benutzer haben
+  // keinen SELECT darauf); Mitgliedschaft ist geprüft, Zeile über tenant_id eingeschränkt
+  const { data: einst } = await (createSupabaseAdminClient().from('tenant_einstellungen') as any)
     .select('modul_sumup, sumup_api_key, sumup_merchant_code')
     .eq('tenant_id', tenantId)
     .maybeSingle()

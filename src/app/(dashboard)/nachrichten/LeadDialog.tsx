@@ -19,6 +19,8 @@ import { useDialog } from '@/components/ui/useDialog'
 export type LeadMail = {
   id: string; conversationId: string | null; betreff: string; von: string; vonName: string; an: string; datum: string
   bodyText: string; bodyHtml: string | null
+  // Postfach der Mail (eigenes/geteilt) – createLeadAusEmail lädt den Inhalt dort selbst nach (KAN-137)
+  mailbox?: 'own' | 'shared'
 }
 type FirmaOption = { id: string; name: string; ort: string | null; segment: string; is_lead: boolean }
 type Rabattgruppe = { id: string; name: string; rabatt_pct: number }
@@ -110,7 +112,7 @@ export default function LeadDialog({ mail, onClose, onAngelegt }: Props) {
       segment, rabattgruppe_id: rabattgruppeId || null, zahlungsziel_tage: isNaN(zz) ? null : zz,
       notizen: notizen.trim() || null,
       firma: { modus: firmaModus, id: firmaModus === 'bestehend' ? firmaId : null, name: firmaModus === 'neu' ? firmaName.trim() : null, website: firmaWebsite.trim() || null, segment: firmaModus === 'neu' ? segment : null },
-      mail: { id: mail.id, conversationId: mail.conversationId, betreff: mail.betreff, von: mail.von, vonName: mail.vonName, an: mail.an, datum: mail.datum, bodyText: mail.bodyText, bodyHtml: mail.bodyHtml },
+      mail: { id: mail.id, conversationId: mail.conversationId, betreff: mail.betreff, von: mail.von, vonName: mail.vonName, an: mail.an, datum: mail.datum, bodyText: mail.bodyText, mailbox: mail.mailbox },
     }
     const r = await createLeadAusEmail(daten)
     if (r.error || !r.kontaktId) { setFehler(r.error ?? 'Speichern fehlgeschlagen'); setPhase('form'); return }

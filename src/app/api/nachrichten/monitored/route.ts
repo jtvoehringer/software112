@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
@@ -41,10 +42,16 @@ export async function POST(req: NextRequest) {
     const gesperrt = await schreibSperreKonflikt(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
     if (gesperrt) return gesperrt
     const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ fehler: 'Nicht angemeldet' }, { status: 401 })
+    const adresse = typeof monitored_email === 'string' ? monitored_email.trim() : ''
 
-    await (supabase.from('user_email_connections') as any)
-      .update({ monitored_email: monitored_email || null, aktualisiert_am: new Date().toISOString() })
-      .eq('tenant_id', tenantId).eq('user_id', user?.id ?? '')
+    // KAN-135: Benutzer haben auf user_email_connections kein UPDATE mehr – die App schreibt
+    // per Service-Role, eingeschränkt auf die eigene Zeile (tenant_id aus der Mitgliedschaft,
+    // user_id aus getUser()) und nur dieses eine Feld
+    const { error } = await (createSupabaseAdminClient().from('user_email_connections') as any)
+      .update({ monitored_email: adresse || null, aktualisiert_am: new Date().toISOString() })
+      .eq('tenant_id', tenantId).eq('user_id', user.id)
+    if (error) return NextResponse.json({ fehler: error.message }, { status: 500 })
 
     return NextResponse.json({ ok: true })
   } catch (err) { return NextResponse.json({ fehler: String(err) }, { status: 500 }) }

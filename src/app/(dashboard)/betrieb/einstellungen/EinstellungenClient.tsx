@@ -508,7 +508,11 @@ function KellerwirtschaftTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
 
 function BawbTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
   const [kennung, setKennung]   = useState(daten.bawb_kennung ?? '')
-  const [passwort, setPasswort] = useState(daten.bawb_passwort ?? '')
+  // KAN-135: Das Passwort kommt nie in den Browser – daten.bawb_passwort ist nur die
+  // Maske („hinterlegt“). Leer lassen = hinterlegtes behalten (Maske geht zurück).
+  const hinterlegt = daten.bawb_passwort
+  const [passwort, setPasswort] = useState('')
+  const [entfernen, setEntfernen] = useState(false)
   const [showPw, setShowPw]     = useState(false)
   const [status, setStatus]     = useState<'idle' | 'saving' | 'ok' | 'err'>('idle')
   const [errMsg, setErrMsg]     = useState<string | null>(null)
@@ -521,7 +525,7 @@ function BawbTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
     setStatus('saving'); setErrMsg(null)
     const fd = new FormData()
     fd.set('bawb_kennung', kennung.trim())
-    fd.set('bawb_passwort', passwort)
+    fd.set('bawb_passwort', passwort.trim() ? passwort : (entfernen ? '' : (hinterlegt ?? '')))
     startTransition(async () => {
       const res = await saveBawbOwn(fd)
       if (res?.error) { setStatus('err'); setErrMsg(res.error) }
@@ -574,7 +578,8 @@ function BawbTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
                 type={showPw ? 'text' : 'password'}
                 value={passwort}
                 onChange={e => { setPasswort(e.target.value); setStatus('idle') }}
-                placeholder="Passwort"
+                placeholder={hinterlegt ? 'hinterlegt (verschlüsselt) – zum Ändern neu eingeben' : 'Passwort'}
+                autoComplete="off"
                 className={cls + ' pr-16'}
               />
               <button
@@ -585,6 +590,12 @@ function BawbTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
                 {showPw ? 'verbergen' : 'anzeigen'}
               </button>
             </div>
+            {hinterlegt && (
+              <label className="mt-1 flex items-center gap-1.5 text-xs text-s112-muted">
+                <input type="checkbox" checked={entfernen} onChange={e => { setEntfernen(e.target.checked); setStatus('idle') }} />
+                Hinterlegtes Passwort entfernen
+              </label>
+            )}
           </div>
         </div>
 
