@@ -455,6 +455,16 @@ export async function stornoVerkauf(id: string) {
 // sync_verkaufsposten_bezahlt() setzt bezahlt/bezahlt_am automatisch, und die
 // E&A-Synchronisierung (Punkt 7) greift wie bei jeder anderen Zahlung.
 
+// KAN-149 Nebenbefund 2: Die Zahlung ist zu diesem Zeitpunkt schon gespeichert. Scheitert die
+// abgeleitete E&A-Einnahme, muss das sichtbar sein – bisher wurde das Ergebnis ignoriert und die
+// Einnahme fehlte still in der E&A-Rechnung und der UVA.
+function eaErgebnisPruefen(ea: { ok: boolean; error?: string }): void {
+  if (!ea.ok) {
+    const grund = (ea.error ?? 'unbekannter Fehler').replace(/[.\s]+$/, '')
+    throw new AktionsFehler(`Die Zahlung ist gespeichert, die Einnahme in der E&A-Rechnung aber nicht aktualisiert: ${grund}. Bitte erneut speichern oder in der E&A-Rechnung prüfen.`)
+  }
+}
+
 export async function markiereAlsBezahlt(id: string) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
@@ -503,7 +513,7 @@ export async function markiereAlsBezahlt(id: string) {
       if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (aktivitaeten): ${e.message}`) }
   } catch { /* nicht kritisch */ }
 
-  await syncEaEinnahmeFuerVerkauf(id)
+  const ea = await syncEaEinnahmeFuerVerkauf(id)
 
   revalidatePath('/weinhandel/verkauf')
   revalidatePath('/weinhandel/offene-posten')
@@ -511,6 +521,7 @@ export async function markiereAlsBezahlt(id: string) {
   revalidatePath('/buchhaltung')
   revalidatePath('/crm/kontakte/[id]', 'page')
   revalidatePath('/crm/firmen/[id]', 'page')
+  eaErgebnisPruefen(ea)
 }
 
 // ── Sonstiges-Artikel speichern ───────────────────────────────────────────────
@@ -563,11 +574,12 @@ export async function createZahlung(
   })
   if (error) throw new AktionsFehler(dbFehlerText(error))
 
-  await syncEaEinnahmeFuerVerkauf(verkaufspostenId)
+  const ea = await syncEaEinnahmeFuerVerkauf(verkaufspostenId)
 
   revalidatePath(`/weinhandel/verkauf/${verkaufspostenId}`)
   revalidatePath('/weinhandel/offene-posten')
   revalidatePath('/buchhaltung')
+  eaErgebnisPruefen(ea)
 }
 
 export async function deleteZahlung(
@@ -580,9 +592,10 @@ export async function deleteZahlung(
   const { error } = await (supabase.from('zahlungen') as any).delete().eq('id', zahlungId).eq('tenant_id', tenantId)
   if (error) throw new AktionsFehler(dbFehlerText(error))
 
-  await syncEaEinnahmeFuerVerkauf(verkaufspostenId)
+  const ea = await syncEaEinnahmeFuerVerkauf(verkaufspostenId)
 
   revalidatePath(`/weinhandel/verkauf/${verkaufspostenId}`)
   revalidatePath('/weinhandel/offene-posten')
   revalidatePath('/buchhaltung')
+  eaErgebnisPruefen(ea)
 }

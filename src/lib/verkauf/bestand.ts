@@ -32,6 +32,7 @@ import { AktionsFehler, dbFehlerText, fehlerText } from '@/lib/fehler'
 import { fmtNum } from '@/lib/format'
 import { gebindeFehlerText } from '@/lib/keller/behaelter'
 import { getCurrentMembership, canWrite, type Membership } from '@/lib/auth/roles'
+import { ersetzeVerkaufsEinnahmen } from '@/lib/ea/verkaufEinnahmen'
 import type { createSupabaseServerClient } from '@/lib/supabase/server'
 
 type SB = Awaited<ReturnType<typeof createSupabaseServerClient>>
@@ -356,14 +357,6 @@ export async function verkaufspostenStornieren(supabase: SB, tenantId: string, p
     ...positionen.filter(p => p.traubenverkauf_id).map(p => p.traubenverkauf_id as string),
   ])]
 
-  const { data: eaRaw, error: eaLeseErr } = await (supabase.from('ea_transaktionen') as any)
-    .select('id')
-    .eq('verkaufsposten_id', postenId)
-    .eq('is_locked', false)
-    .eq('tenant_id', tenantId)
-  if (eaLeseErr) throw new AktionsFehler(dbFehlerText(eaLeseErr, 'E&A-Buchungen des Verkaufs konnten nicht geladen werden'))
-  const eaAnzahl = ((eaRaw ?? []) as R[]).length
-
   // 0. Rechte vor dem ersten Schreibzugriff
   const literJeCharge = new Map<string, number>()
   const stueckJeFuellung = new Map<string, number>()
@@ -434,20 +427,14 @@ export async function verkaufspostenStornieren(supabase: SB, tenantId: string, p
     }
   }
 
-  // 4a. Verknüpfte, nicht gesperrte E&A-Einnahmebuchungen entfernen – ein Storno
-  //     macht den zugehörigen Zahlungseingang ungültig. RLS verlangt die Freigabe E&A
-  //     und filtert sonst still: deshalb die Zahl der gelöschten Zeilen vergleichen.
-  if (eaAnzahl > 0) {
-    const { data: eaGeloescht, error: eaErr } = await (supabase.from('ea_transaktionen') as any)
-      .delete()
-      .eq('verkaufsposten_id', postenId)
-      .eq('is_locked', false)
-      .eq('tenant_id', tenantId)
-      .select('id')
-    if (eaErr) probleme.push(dbFehlerText(eaErr, 'E&A-Buchung konnte nicht entfernt werden'))
-    else if (((eaGeloescht ?? []) as R[]).length < eaAnzahl) {
-      probleme.push('Die Einnahme in der E&A-Rechnung konnte nicht entfernt werden (dafür ist die Freigabe E&A-Rechnung nötig) – bitte in der E&A-Rechnung entfernen lassen, sonst stimmt die UVA nicht')
-    }
+  // 4a. Verknüpfte, nicht gesperrte E&A-Einnahmen entfernen – ein Storno macht den
+  //     zugehörigen Zahlungseingang ungültig. Die Einnahmen sind aus den Zahlungen abgeleitet
+  //     und gehen über ersetzeVerkaufsEinnahmen (Service-Role, KAN-149 Nebenbefund 2): Wer
+  //     stornieren darf, nimmt sie mit zurück – per RLS dürften sonst nur Betriebs-Manager
+  //     löschen. Gesperrte Einnahmen (übermittelte UVA) bleiben stehen (Gegenbuchung: KAN-149).
+  {
+    const ea = await ersetzeVerkaufsEinnahmen(tenantId, postenId, [], { beiGesperrtenNichtsAendern: false })
+    if (!ea.ok) probleme.push(`${ea.fehler.replace(/[.\s]+$/, '')} – bitte in der E&A-Rechnung prüfen, sonst stimmt die UVA nicht`)
   }
 
   // 4b. CRM-Aktivität auf STORNIERT setzen (nicht kritisch)

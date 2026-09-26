@@ -114,8 +114,13 @@ export async function bucheAfa(jahr: number, zeilen: { anlageId: string; name: s
 
   const alt = zeilen.filter(z => z.buchungId).map(z => z.buchungId as string)
   if (alt.length) {
-    const { error } = await (supabase.from('ea_transaktionen') as any).delete().in('id', alt).eq('tenant_id', tenantId)
+    const { data: geloescht, error } = await (supabase.from('ea_transaktionen') as any).delete().in('id', alt).eq('tenant_id', tenantId).select('id')
     if (error) return { ok: false, fehler: (error as R).message }
+    // KAN-149 Nebenbefund 2: RLS lässt nur Betriebs-Manager E&A-Buchungen löschen und filtert
+    // sonst still – ohne diese Prüfung stünde die AfA danach doppelt in der E&A-Rechnung.
+    if (((geloescht ?? []) as R[]).length !== alt.length) {
+      return { ok: false, fehler: 'Bereits gebuchte AfA kann nur ein Betriebs-Manager ersetzen (Mitarbeiter dürfen E&A-Buchungen nicht löschen) – es wurde nichts gebucht.' }
+    }
   }
   const neu = zeilen.filter(z => z.soll > 0).map(z => ({
     tenant_id: tenantId, typ: 'ausgabe', datum: stichtag,
@@ -137,8 +142,12 @@ export async function nimmAfaZurueck(jahr: number, buchungIds: string[]): Promis
   const pruef = Array.isArray(pruefRaw) ? pruefRaw[0] : pruefRaw
   if (pruef && pruef.offen === false) return { ok: false, fehler: pruef.grund ?? `Dezember ${jahr} ist abgeschlossen.` }
   if (!buchungIds.length) return { ok: true }
-  const { error } = await (supabase.from('ea_transaktionen') as any).delete().in('id', buchungIds).eq('tenant_id', tenantId).not('anlage_id', 'is', null)
+  const { data: geloescht, error } = await (supabase.from('ea_transaktionen') as any).delete().in('id', buchungIds).eq('tenant_id', tenantId).not('anlage_id', 'is', null).select('id')
   if (error) return { ok: false, fehler: (error as R).message }
+  // KAN-149 Nebenbefund 2: sonst meldete die Rücknahme Erfolg, obwohl RLS nichts gelöscht hat
+  if (((geloescht ?? []) as R[]).length !== buchungIds.length) {
+    return { ok: false, fehler: 'Die AfA kann nur ein Betriebs-Manager zurücknehmen (Mitarbeiter dürfen E&A-Buchungen nicht löschen).' }
+  }
   pfade()
   return { ok: true }
 }
