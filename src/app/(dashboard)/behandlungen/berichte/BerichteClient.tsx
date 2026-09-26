@@ -9,7 +9,7 @@ import { ZAHL_LOCALE } from '@/lib/format'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { csvPfad } from '@/lib/behoerden/katalog'
 import {
-  ART_LABEL, OHNE_RIED, datumDe, einheitText, mittelverbrauch,
+  ART_LABEL, OHNE_RIED, datumDe, mittelmenge, mittelverbrauch, mittelverbrauchHinweise, spritzbruehe,
   type PsmBehandlung, type WeingartenStamm,
 } from '@/lib/behoerden/psm'
 import { cuBilanz, CU_GRENZWERT_KG_HA_5J, CU_GRENZWERT_KG_HA_JAHR, CU_WARNSCHWELLE } from '@/lib/behoerden/cu'
@@ -31,6 +31,9 @@ function riedSchluessel(lageId: string | null) {
 // Ersetzt die frühere getrennte "Pro Weingarten"/"Pro Ried"-Ansicht (beide Tabs
 // waren identisch beschriftet "Pro Ried" und verwirrend). Ein Tab, gruppiert
 // nach Ried (Lage), mit Auswahl "Alle Rieden" / einzelnes Ried sowie Art.
+// Seit KAN-133 (26.09.2026) die Mittelmenge aus mittelmenge() statt „Menge gesamt“ – die ist bei
+// Spritzungen die Spritzbrühe und steht nur als Zusatzzeile da (nie summiert); Anteil nach Fläche
+// wie die CSV „psm-aufzeichnung“.
 function TabRied({ behandlungen, jahr, ried, art }: { behandlungen: PsmBehandlung[]; jahr: string; ried: string; art: string }) {
   const filtered = behandlungen.filter(b =>
     (jahr === 'all' || String(b.jahr) === jahr) &&
@@ -64,30 +67,42 @@ function TabRied({ behandlungen, jahr, ried, art }: { behandlungen: PsmBehandlun
                   <th className="text-left text-xs text-s112-muted font-semibold py-1.5 pr-3">Datum</th>
                   <th className="text-left text-xs text-s112-muted font-semibold py-1.5 pr-3">Art</th>
                   <th className="text-left text-xs text-s112-muted font-semibold py-1.5 pr-3">Mittel</th>
-                  <th className="text-right text-xs text-s112-muted font-semibold py-1.5 pr-3">Menge gesamt</th>
+                  <th className="text-right text-xs text-s112-muted font-semibold py-1.5 pr-3">Mittelmenge</th>
                   <th className="text-right text-xs text-s112-muted font-semibold py-1.5 pr-3">Ant. Fläche</th>
-                  <th className="text-right text-xs text-s112-muted font-semibold py-1.5">Ant. Menge</th>
+                  <th className="text-right text-xs text-s112-muted font-semibold py-1.5">Ant. Mittelmenge</th>
                 </tr>
               </thead>
               <tbody>
                 {lage.behandlungen.map(b => {
+                  const mm = mittelmenge(b)
+                  const bruehe = spritzbruehe(b)
                   const totalHa = b.grundstuecke.reduce((s, g) => s + (g.flaecheHa ?? 0), 0)
                   const lageHa = b.grundstuecke.filter(g => riedSchluessel(g.lageId) === lId).reduce((s, g) => s + (g.flaecheHa ?? 0), 0)
-                  const anteil = totalHa > 0 ? lageHa / totalHa : 0
-                  const anteilMenge = b.mengeGesamt != null ? b.mengeGesamt * anteil : null
-                  const einheit = einheitText(b.mengeEinheit)
+                  // ein einziger Ort trägt die ganze Menge (wie die CSV)
+                  const anteil = b.grundstuecke.length <= 1 ? 1 : totalHa > 0 ? lageHa / totalHa : null
+                  const anteilMenge = mm.menge !== null && anteil !== null ? mm.menge * anteil : null
+                  // GST dieser Ried ohne Fläche: kein bzw. nur anteiliger Wert (wie der Hinweis der CSV)
+                  const ohneFlaeche = b.grundstuecke.length > 1 && (mm.menge !== null || bruehe !== null) &&
+                    b.grundstuecke.some(g => riedSchluessel(g.lageId) === lId && g.flaecheHa == null)
 
                   return (
                     <tr key={b.id} className="border-b border-s112-border/40 hover:bg-s112-bg/30">
                       <td className="py-2 pr-3 tabular-nums">{datumDe(b.datum)}</td>
                       <td className="py-2 pr-3">{ART_LABEL[b.art] ?? b.art}</td>
                       <td className="py-2 pr-3 text-s112-text-2">{b.psm?.name ?? b.duengemittel?.name ?? '–'}</td>
-                      <td className="py-2 pr-3 text-right tabular-nums">
-                        {b.mengeGesamt != null ? `${fmtNum(b.mengeGesamt, 2)} ${einheit}` : '–'}
+                      <td className="py-2 pr-3 text-right tabular-nums" title={mm.basis ?? undefined}>
+                        {mm.menge !== null ? `${fmtNum(mm.menge, 3)} ${mm.einheit}` : '–'}
+                        {mm.menge === null && mm.grund !== 'art' && <span className="block text-xs text-s112-warn-fg">{mm.warnung}</span>}
+                        {bruehe !== null && <span className="block text-xs text-s112-muted">Brühe {fmtNum(bruehe, 3)} l</span>}
                       </td>
                       <td className="py-2 pr-3 text-right tabular-nums">{fmtHa(lageHa)}</td>
                       <td className="py-2 text-right tabular-nums font-medium text-s112-blue-700">
-                        {anteilMenge != null ? `${fmtNum(anteilMenge, 3)} ${einheit}` : '–'}
+                        {anteilMenge !== null ? `${fmtNum(anteilMenge, 3)} ${mm.einheit}` : '–'}
+                        {ohneFlaeche && (
+                          <span className="block text-xs font-normal text-s112-warn-fg">
+                            {anteil === null ? 'GST ohne Fläche – nicht verteilt' : 'GST ohne Fläche – nur auf GST mit Fläche verteilt'}
+                          </span>
+                        )}
                       </td>
                     </tr>
                   )
@@ -104,15 +119,24 @@ function TabRied({ behandlungen, jahr, ried, art }: { behandlungen: PsmBehandlun
 // ─── Mittelverbrauch Tab ──────────────────────────────────────────────────────
 // Je Saison × Mittel × Einheit (mittelverbrauch() aus lib/behoerden/psm.ts, wie die CSV
 // „psm-mittelverbrauch“) – „Max. Anw.“ gilt je Saison, kg und l werden nicht addiert.
+// Mittelmenge nur aus dem Aufwand (KAN-133), Hinweise wie in der CSV (mittelverbrauchHinweise()).
 function TabMittel({ behandlungen, jahr }: { behandlungen: PsmBehandlung[]; jahr: string }) {
   const filtered = jahr === 'all' ? behandlungen : behandlungen.filter(b => String(b.jahr) === jahr)
   const mittel = mittelverbrauch(filtered)
+  const hinweise = mittelverbrauchHinweise(filtered)
   const mitJahr = jahr === 'all'
 
-  if (mittel.length === 0) return <EmptyState msg="Keine Mittel mit Mengenangaben im Zeitraum" />
+  if (mittel.length === 0) {
+    return (
+      <div className="space-y-2">
+        <EmptyState msg="Keine Spritzungen mit Mittelmenge (Aufwand) im Zeitraum" />
+        <HinweisListe hinweise={hinweise} />
+      </div>
+    )
+  }
 
   return (
-    <div className="card">
+    <div className="card space-y-3">
       <div className="overflow-x-auto">
         <table className="w-full text-sm border-collapse">
           <thead>
@@ -121,7 +145,7 @@ function TabMittel({ behandlungen, jahr }: { behandlungen: PsmBehandlung[]; jahr
               <th className="text-left text-xs text-s112-muted font-semibold py-1.5 pr-3">Mittel</th>
               <th className="text-right text-xs text-s112-muted font-semibold py-1.5 pr-3">Anwendungen</th>
               <th className="text-right text-xs text-s112-muted font-semibold py-1.5 pr-3">Max. Anw.</th>
-              <th className="text-right text-xs text-s112-muted font-semibold py-1.5 pr-3">Gesamtmenge</th>
+              <th className="text-right text-xs text-s112-muted font-semibold py-1.5 pr-3">Mittelmenge</th>
               <th className="text-right text-xs text-s112-muted font-semibold py-1.5 pr-3">Ø pro ha</th>
               <th className="text-right text-xs text-s112-muted font-semibold py-1.5 pr-3">Grenzwert/ha</th>
               <th className="text-right text-xs text-s112-muted font-semibold py-1.5">Status</th>
@@ -141,7 +165,7 @@ function TabMittel({ behandlungen, jahr }: { behandlungen: PsmBehandlung[]; jahr
                     {m.maxAnwendungen ?? '–'}
                   </td>
                   <td className="py-2.5 pr-3 text-right tabular-nums">
-                    {fmtNum(m.mengeGesamt, 3)} {m.einheit}
+                    {fmtNum(m.mittelmenge, 3)} {m.einheit}
                   </td>
                   <td className={`py-2.5 pr-3 text-right tabular-nums font-semibold ${m.aufwandUeber ? 'text-s112-err-fg' : ''}`}>
                     {m.aufwandJeHa != null ? `${fmtNum(m.aufwandJeHa, 3)} ${m.einheit}/ha` : '–'}
@@ -163,15 +187,16 @@ function TabMittel({ behandlungen, jahr }: { behandlungen: PsmBehandlung[]; jahr
           </tbody>
         </table>
       </div>
+      <HinweisListe hinweise={hinweise} />
     </div>
   )
 }
 
 // ─── Cu-Bilanz Tab ────────────────────────────────────────────────────────────
 // cuBilanz() aus lib/behoerden/cu.ts – dieselbe Rechnung wie /reports/cu-bilanz und die CSV-Dateien
-// „cu-bilanz“/„cu-bilanz-behandlungen“. Cu je ha des Betriebs = Σ Cu / Fläche der aktiven Weingärten
-// (bis 24.09.2026 hier: / Summe der behandelten Flächen aller Anwendungen – bei n Spritzungen nur
-// ein n-tel des tatsächlichen Eintrags). EU-Bio: 4 kg Cu/ha/Jahr, AT (ÖPUL): 20 kg Cu/ha in 5 Jahren.
+// „cu-bilanz“/„cu-bilanz-behandlungen“. Cu je ha des Betriebs = Σ Cu / Fläche der WI-Grundstücke der
+// aktiven Weingärten (bis 24.09.2026 hier: / Summe der behandelten Flächen aller Anwendungen – bei
+// n Spritzungen nur ein n-tel des tatsächlichen Eintrags). EU-Bio: 4 kg Cu/ha/Jahr, AT (ÖPUL): 20 kg Cu/ha in 5 Jahren.
 function TabCu({ behandlungen, weingaerten }: { behandlungen: PsmBehandlung[]; weingaerten: WeingartenStamm[] }) {
   const bilanz = useMemo(() => cuBilanz(behandlungen, weingaerten), [behandlungen, weingaerten])
   const jahre = bilanz.jahre
@@ -183,9 +208,11 @@ function TabCu({ behandlungen, weingaerten }: { behandlungen: PsmBehandlung[]; w
           <p className="font-medium text-s112-text-2">Keine Cu-Daten vorhanden</p>
           <p className="text-sm mt-1 max-w-sm mx-auto">
             Erfassen Sie Maßnahmen mit kupferhaltigen Mitteln. Der Cu-Gehalt muss in den
-            PSM-Stammdaten (Betriebsmittel, Feld &quot;cu_gehalt_pct&quot;) hinterlegt sein und die Menge in kg oder l angegeben werden.
+            PSM-Stammdaten (Betriebsmittel, Feld &quot;cu_gehalt_pct&quot;) hinterlegt und die Aufwandmenge (z. B. kg/ha) erfasst sein –
+            die Mittelmenge ergibt sich aus Aufwand × Fläche, nicht aus der Spritzbrühe.
           </p>
         </div>
+        <HinweisListe hinweise={bilanz.warnungen} />
       </div>
     )
   }
@@ -219,13 +246,15 @@ function TabCu({ behandlungen, weingaerten }: { behandlungen: PsmBehandlung[]; w
       )}
 
       {jahre.map(j => {
-        const cuProHa = j.cuKgHa ?? 0
-        const pct = Math.min(100, (cuProHa / CU_GRENZWERT_KG_HA_JAHR) * 100)
-        const status = j.status === 'ueber' ? 'red' : j.status === 'warnung' ? 'amber' : 'green'
+        // ohne Betriebsfläche (keine WI-Grundstücke) kein Cu je ha und kein Status: Balken leer mit „–“ statt
+        // „0 %“, Badge neutral statt grün
+        const pct = j.cuKgHa !== null ? Math.min(100, (j.cuKgHa / CU_GRENZWERT_KG_HA_JAHR) * 100) : null
+        const status = j.status === 'ueber' ? 'red' : j.status === 'warnung' ? 'amber' : j.status === 'ok' ? 'green' : 'none'
         const barColor = status === 'red' ? 'bg-s112-err' : status === 'amber' ? 'bg-s112-warn' : 'bg-s112-teal'
         const badgeColor = status === 'red'   ? 'bg-s112-err-bg text-s112-err-fg border-s112-err/30'
                          : status === 'amber' ? 'bg-s112-warn-bg text-s112-warn-fg border-s112-warn/30'
-                         : 'bg-s112-ok-bg text-s112-ok-fg border-s112-ok/30'
+                         : status === 'green' ? 'bg-s112-ok-bg text-s112-ok-fg border-s112-ok/30'
+                         : 'bg-s112-bg text-s112-text-2 border-s112-border'
 
         return (
           <div key={j.jahr} className="card space-y-3">
@@ -242,11 +271,13 @@ function TabCu({ behandlungen, weingaerten }: { behandlungen: PsmBehandlung[]; w
             {/* Progress Bar */}
             <div>
               <div className="h-6 bg-[#F2F3F5] rounded-lg overflow-hidden relative border border-s112-border">
-                <div className={`h-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
+                <div className={`h-full transition-all ${barColor}`} style={{ width: `${pct ?? 0}%` }} />
                 {/* Marker bei 80% */}
                 <div className="absolute top-0 bottom-0 border-l-2 border-dashed border-s112-warn/50 opacity-60" style={{ left: `${CU_WARNSCHWELLE * 100}%` }} />
                 <div className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-s112-text-1 mix-blend-multiply">
-                  {pct.toLocaleString(ZAHL_LOCALE, { maximumFractionDigits: 1 })} % des Grenzwerts
+                  {pct !== null
+                    ? `${pct.toLocaleString(ZAHL_LOCALE, { maximumFractionDigits: 1 })} % des Grenzwerts`
+                    : '– (keine WI-Fläche)'}
                 </div>
               </div>
               <div className="flex justify-between text-xs text-s112-muted mt-1">
@@ -258,7 +289,7 @@ function TabCu({ behandlungen, weingaerten }: { behandlungen: PsmBehandlung[]; w
 
             <p className="text-xs text-s112-muted">
               Gesamteintrag: <strong>{fmtNum(j.cuKg, 3)} kg Cu</strong>
-              {' '}auf <strong>{fmtHa(j.gesamtHa)}</strong> (Fläche der aktiven Weingärten)
+              {' '}auf <strong>{fmtHa(j.gesamtHa)}</strong> (Grundstücke mit Nutzart WI der aktiven Weingärten)
             </p>
 
             {/* Je Weingarten */}
@@ -299,7 +330,7 @@ function TabCu({ behandlungen, weingaerten }: { behandlungen: PsmBehandlung[]; w
                     <th className="text-left text-xs text-s112-muted font-semibold py-1.5 pr-3">Datum</th>
                     <th className="text-left text-xs text-s112-muted font-semibold py-1.5 pr-3">Mittel</th>
                     <th className="text-right text-xs text-s112-muted font-semibold py-1.5 pr-3">Cu-%</th>
-                    <th className="text-right text-xs text-s112-muted font-semibold py-1.5 pr-3">Menge</th>
+                    <th className="text-right text-xs text-s112-muted font-semibold py-1.5 pr-3">Mittelmenge</th>
                     <th className="text-right text-xs text-s112-muted font-semibold py-1.5 pr-3">Cu-Eintrag</th>
                     <th className="text-right text-xs text-s112-muted font-semibold py-1.5">Anw. / Max.</th>
                   </tr>
@@ -312,8 +343,8 @@ function TabCu({ behandlungen, weingaerten }: { behandlungen: PsmBehandlung[]; w
                         <td className="py-2 pr-3 tabular-nums">{datumDe(e.datum)}</td>
                         <td className="py-2 pr-3">{e.mittel}</td>
                         <td className="py-2 pr-3 text-right tabular-nums">{fmtNum(e.cuGehaltPct, 3)} %</td>
-                        <td className="py-2 pr-3 text-right tabular-nums">
-                          {e.menge !== null ? `${fmtNum(e.menge, 2)} ${e.einheit}` : `${fmtNum(e.mengeKg, 3)} kg`}
+                        <td className="py-2 pr-3 text-right tabular-nums" title={e.mengeBasis}>
+                          {fmtNum(e.mengeKg, 3)} kg
                         </td>
                         <td className="py-2 pr-3 text-right tabular-nums font-semibold text-s112-blue-700">
                           {fmtNum(e.cuKg, 3)} kg
@@ -340,11 +371,7 @@ function TabCu({ behandlungen, weingaerten }: { behandlungen: PsmBehandlung[]; w
         )
       })}
 
-      {bilanz.warnungen.length > 0 && (
-        <ul className="text-xs text-s112-warn-fg list-disc pl-4 space-y-0.5">
-          {bilanz.warnungen.map((w, i) => <li key={i}>{w}</li>)}
-        </ul>
-      )}
+      <HinweisListe hinweise={bilanz.warnungen} />
     </div>
   )
 }
@@ -355,6 +382,15 @@ function EmptyState({ msg = 'Keine Daten für den gewählten Zeitraum' }: { msg?
     <div className="card text-center py-12 text-s112-muted">
       <p className="font-medium text-s112-text-2">{msg}</p>
     </div>
+  )
+}
+
+function HinweisListe({ hinweise }: { hinweise: string[] }) {
+  if (hinweise.length === 0) return null
+  return (
+    <ul className="text-xs text-s112-warn-fg list-disc pl-4 space-y-0.5">
+      {hinweise.map((w, i) => <li key={i}>{w}</li>)}
+    </ul>
   )
 }
 

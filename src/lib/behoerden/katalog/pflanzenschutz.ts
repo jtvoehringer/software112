@@ -22,14 +22,14 @@ export const KATALOG_PFLANZENSCHUTZ = katalogGruppe('pflanzenschutz', {
     standardParameter: laufendesJahr,
     pflicht: true,
     rechtsgrundlage: 'Art. 67 VO (EG) 1107/2009, DVO (EU) 2023/564; Pflanzenschutzmittelgesetz 2011',
-    beschreibung: 'Eine Zeile je Maßnahme und Grundstück: Datum, Ried, KG, GST-Nr., Fläche, Kultur, Mittel, Zulassungsnr., Wirkstoff, Schaderreger, BBCH, Aufwand, Wasser, Wartezeit, Anwender, Witterung.',
+    beschreibung: 'Eine Zeile je Maßnahme und Grundstück: Datum, Ried, KG, GST-Nr., Fläche, Kultur, Mittel, Zulassungsnr., Wirkstoff, Schaderreger, BBCH, Aufwand, Mittelmenge und Spritzbrühe anteilig nach Fläche, Wasser, Wartezeit, Anwender, Witterung.',
   },
   'psm-mittelverbrauch': {
     titel: 'Pflanzenschutz – Mittelverbrauch und Grenzwerte',
     behoerde: 'Landwirtschaftskammer / Bio-Kontrollstelle',
     zugriff: 'betriebsleitung',
     druckPfad: '/behandlungen/berichte',
-    beschreibung: 'Je Saison und Mittel: Anwendungen, Gesamtmenge, behandelte Fläche, Ø Aufwand je ha gegen die Grenzwerte der Stammdaten.',
+    beschreibung: 'Je Saison und Mittel: Anwendungen, Mittelmenge (aus dem Aufwand), behandelte Fläche, Ø Aufwand je ha gegen die Grenzwerte der Stammdaten.',
   },
   'cu-bilanz': {
     titel: 'Kupfer-Bilanz (je Weingarten)',
@@ -49,7 +49,7 @@ export const KATALOG_PFLANZENSCHUTZ = katalogGruppe('pflanzenschutz', {
     standardParameter: laufendesJahr,
     pflicht: true,
     rechtsgrundlage: 'VO (EU) 2018/848, DVO (EU) 2021/1165 Anhang II',
-    beschreibung: 'Jede Kupfer-Anwendung: Datum, Weingarten, Mittel, Cu-Gehalt, Menge, behandelte Fläche, Cu (kg) und Cu (kg/ha).',
+    beschreibung: 'Jede Kupfer-Anwendung: Datum, Weingarten, Mittel, Cu-Gehalt, Spritzbrühe, Aufwand, Mittelmenge (aus dem Aufwand), behandelte Fläche, Cu (kg) und Cu (kg/ha).',
   },
   naehrstoffbilanz: {
     titel: 'Nährstoffbilanz (Düngeaufzeichnung)',
@@ -59,6 +59,6 @@ export const KATALOG_PFLANZENSCHUTZ = katalogGruppe('pflanzenschutz', {
     standardParameter: laufendesJahr,
     pflicht: true,
     rechtsgrundlage: 'Nitrat-Aktionsprogramm-Verordnung (NAPV) 2023',
-    beschreibung: 'Eine Zeile je Düngung: Datum, Weingarten, Fläche, Düngemittel, Menge (kg), N/P-Gehalt, N/P (kg) und (kg/ha).',
+    beschreibung: 'Eine Zeile je Düngung: Datum, Weingarten, Fläche, Düngemittel, Düngermenge (kg), N/P-Gehalt, N/P (kg) und (kg/ha).',
   },
 })

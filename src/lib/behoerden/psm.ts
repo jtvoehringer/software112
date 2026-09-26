@@ -4,11 +4,19 @@
 //   • ladeBehandlungen()      – EINE Abfrage auf behandlungen (Mandantenfilter, alle()) samt
 //                               Grundstücken (behandlung_grundstuecke), Mittel, Düngemittel,
 //                               Weingarten/Ried; normalisiert zu PsmBehandlung.
-//   • psm-aufzeichnung        – eine Zeile je Maßnahme × Grundstück (Druck: /reports/behandlungsprotokoll,
+//   • psm-aufzeichnung        – eine Zeile je Maßnahme × Grundstück, Mittelmenge und Spritzbrühe
+//                               anteilig nach Fläche (Druck: /reports/behandlungsprotokoll,
 //                               /behandlungen/berichte Tab „Ried“).
-//   • psm-mittelverbrauch     – eine Zeile je Jahr × Mittel × Einheit (Druck: /behandlungen/berichte Tab
-//                               „Mittelverbrauch“).
-//   • mittelmengeKg()         – Mittelmenge in kg für Kupfer- und Nährstoffbilanz (cu.ts, naehrstoff.ts).
+//   • psm-mittelverbrauch     – eine Zeile je Jahr × Mittel × Einheit, Σ Mittelmenge der Spritzungen
+//                               (Druck: /behandlungen/berichte Tab „Mittelverbrauch“).
+//   • mittelmenge()           – Menge des Mittels bzw. Düngers je Maßnahme in kg oder l (KAN-133), die
+//                               EINZIGE Stelle, die Aufwand, Spritzbrühe und Düngermenge auslegt;
+//                               mittelmengeKg() darauf für Kupfer- und Nährstoffbilanz (cu.ts, naehrstoff.ts).
+//   • betriebsflaecheWi()     – Betriebsfläche als Σ WI-GST-Fläche der aktiven Weingärten.
+//
+// „Menge gesamt“ (menge_gesamt, menge_einheit) ist seit KAN-133 (26.09.2026) bei Spritzungen die
+// Spritzbrühe in l und NIE die Mittelmenge; bei Düngungen die Düngermenge (kg, l nur bei Düngemitteln
+// in l). Die Mittelmenge einer Spritzung kommt nur aus dem Aufwand.
 //
 // Isomorph (Server und Client, keine server-only-Importe): BerichteClient rechnet mit denselben
 // Funktionen wie die CSV-Route. Ladefunktionen liefern bereits gerundete Zeilenwerte (runden()),
@@ -20,6 +28,7 @@
 // Fläche des EINEN Weingartens aus weingarten_id – bei Maßnahmen über mehrere Rieden viel zu hoch.
 
 import { runden, STELLEN, type CsvSpalte } from '@/lib/csv'
+import { fmtNum } from '@/lib/format'
 import { alle } from '@/lib/supabase/alle'
 import type { LadeErgebnis } from './typen'
 
@@ -55,6 +64,21 @@ export function einheitText(e: string | null | undefined): string {
   return EINHEIT_LABEL[e] ?? e
 }
 
+/**
+ * Beschriftung der Aufwand-Einheit (Formulare, psm-aufzeichnung, cu-bilanz-behandlungen, Druck): kg bzw. l
+ * sind Gesamtwerte der Maßnahme („kg (gesamt)“ – in einer GST-Zeile keine Menge je Grundstück), g/hl bzw.
+ * ml/hl die tatsächliche Konzentration im Tank (KAN-133).
+ */
+export const AUFWAND_EINHEIT_LABEL: Record<string, string> = {
+  kg_ha: 'kg/ha', l_ha: 'l/ha', g_hl: 'g/hl (im Tank)', ml_hl: 'ml/hl (im Tank)', kg: 'kg (gesamt)', l: 'l (gesamt)',
+}
+
+/** Aufwand-Einheit als Text (AUFWAND_EINHEIT_LABEL); einheitText bleibt für Mengen-Einheiten (menge_einheit, Lager) */
+export function aufwandEinheitText(e: string | null | undefined): string {
+  if (!e) return ''
+  return AUFWAND_EINHEIT_LABEL[e] ?? e
+}
+
 export function witterungText(w: string | null | undefined): string | null {
   if (!w) return null
   return WITTERUNG_LABEL[w] ?? w
@@ -82,6 +106,8 @@ export type WeingartenStamm = {
   /** Stammdaten-Fläche (ha) */
   flaecheHa: number | null
   aktiv: boolean
+  /** Σ Fläche der Grundstücke mit Nutzart WI (ha, 4 Stellen) – wie createBehandlung die WI-GST bestimmt */
+  wiFlaecheHa: number
 }
 
 export type PsmGrundstueck = {
@@ -119,6 +145,8 @@ export type PsmDuengemittel = {
   id: string | null
   name: string
   typ: string | null
+  /** Einheit laut Stammdaten ('kg' | 'l') – Düngermenge in l nur bei 'l' (KAN-133) */
+  einheit: string | null
   nPct: number | null
   pPct: number | null
   oeko: boolean | null
@@ -136,6 +164,7 @@ export type PsmBehandlung = {
   /** Aufwandmenge (je ha bzw. je hl, siehe aufwandEinheit) */
   aufwand: number | null
   aufwandEinheit: string | null
+  /** „Menge gesamt“: Spritzung = Spritzbrühe (l bzw. ml), Düngung = Düngermenge – nie direkt als Mittelmenge lesen, sondern mittelmenge() */
   mengeGesamt: number | null
   mengeEinheit: string | null
   konzentrationPct: number | null
@@ -254,6 +283,7 @@ export function normalisiereBehandlung(roh: R, anwenderNamen?: ReadonlyMap<strin
     id: textOderNull(dmRoh.id) ?? textOderNull(roh.duengemittel_id),
     name: textOderNull(dmRoh.handelsname) ?? textOderNull(dmRoh.name) ?? '–',
     typ: textOderNull(dmRoh.typ),
+    einheit: textOderNull(dmRoh.einheit),
     nPct: zahl(dmRoh.naehrstoff_n_pct),
     pPct: zahl(dmRoh.naehrstoff_p_pct),
     oeko: bool(dmRoh.oeko_zugelassen),
@@ -318,37 +348,181 @@ export function gstAnzahl(b: PsmBehandlung): number {
   return b.grundstuecke.filter(g => g.grundstueckId !== null).length
 }
 
+// ── Mittelmenge und Spritzbrühe (KAN-133, 26.09.2026) ───────────────────────
+//
+// Spritzung: „Menge gesamt“ ist die Spritzbrühe (l; ml → l) und wird NIE als Mittelmenge gelesen.
+// Mittelmenge nur aus dem Aufwand:
+//   kg/ha bzw. l/ha × behandelte Fläche · kg bzw. l (gesamt; g/ml → kg/l) ·
+//   g/hl bzw. ml/hl (Konzentration im Tank) × Spritzbrühe (l) ÷ 100 ÷ 1000
+//   (Spritzbrühe = „Menge gesamt“, sonst Wasseraufwand (l/ha) × Fläche).
+// Kein Rückfall auf konzentration × Brühe (numeric(5,2) rundet: 0,025 % → 0,03 = +20 %).
+// Düngung: Düngermenge („Menge gesamt“ in kg; g → kg; l bzw. ml nur bei Düngemitteln in l), sonst
+// Aufwand kg/ha × Fläche bzw. kg (gesamt) – l/ha und l wieder nur bei Düngemitteln in l.
+// Mengen in l und kg werden nie ineinander umgerechnet (keine Dichte-Annahme); einzige Ausnahme ist
+// mittelmengeKg(…, { literAlsKg: true }) für die Kupfer-Bilanz (wie bisher, als Hinweis gemeldet).
+
+/** Einheit einer Mittelmenge: Masse in kg, Volumen in l */
+export type MittelEinheit = 'kg' | 'l'
+
+/**
+ * Warum keine Mittelmenge bestimmbar ist:
+ *  'aufwand'   Spritzung ohne Aufwand (bzw. ohne Aufwand-Einheit)
+ *  'flaeche'   Aufwand je ha bzw. Wasseraufwand, aber keine behandelte Fläche
+ *  'bruehe'    g/hl bzw. ml/hl ohne Spritzbrühe und ohne Wasseraufwand
+ *  'einheit'   Einheit nicht umrechenbar bzw. nicht zulässig (z. B. Düngermenge in l bei Düngemittel in kg)
+ *  'menge'     Düngung ohne Düngermenge und ohne Aufwand
+ *  'ungueltig' negative oder ungültige Zahl
+ *  'art'       weder Spritzung noch Düngung
+ */
+export type MittelmengeGrund = 'aufwand' | 'flaeche' | 'bruehe' | 'einheit' | 'menge' | 'ungueltig' | 'art'
+
+export type MittelmengeErgebnis = {
+  /** Menge des Mittels bzw. Düngers in `einheit` (3 Stellen); null = nicht bestimmbar */
+  menge: number | null
+  einheit: MittelEinheit | null
+  /** Rechenweg, z. B. „Aufwand × Fläche“; null ohne Menge */
+  basis: string | null
+  /** nur ohne Menge: kurzer Grund („ohne Aufwand“) – zum Anhängen an behandlungKurz() */
+  warnung: string | null
+  grund: MittelmengeGrund | null
+}
+
+/** Felder, die mittelmenge() liest – PsmBehandlung erfüllt sie, Formulare und Actions bauen sie selbst */
+export type MittelmengeEingabe = Pick<PsmBehandlung, 'art' | 'aufwand' | 'aufwandEinheit' | 'mengeGesamt' | 'mengeEinheit' | 'wasserLHa' | 'flaecheHa'> & {
+  /** nur Düngung: Einheit des Düngemittels ('kg' | 'l'); ohne Angabe gilt kg */
+  duengemittel?: Pick<PsmDuengemittel, 'einheit'> | null
+}
+
+/** kg, g, l, ml → Grundeinheit kg bzw. l */
+const ZU_GRUNDEINHEIT: Readonly<Record<string, { einheit: MittelEinheit; faktor: number }>> = {
+  kg: { einheit: 'kg', faktor: 1 }, g: { einheit: 'kg', faktor: 0.001 },
+  l: { einheit: 'l', faktor: 1 }, ml: { einheit: 'l', faktor: 0.001 },
+}
+
+function positiv(n: number | null | undefined): number | null {
+  return typeof n === 'number' && Number.isFinite(n) && n > 0 ? n : null
+}
+
+/**
+ * Spritzbrühe (l, ungerundet) samt Herkunft; null bei anderen Arten und ohne Angabe. Ein Altwert in kg/g
+ * (bruehenAltwert) ist keine Brühe – dann nur Wasseraufwand × Fläche, sonst null.
+ */
+function brueheLiter(b: MittelmengeEingabe): { liter: number; quelle: 'erfasst' | 'wasser' } | null {
+  if (b.art !== 'spritzung') return null
+  const m = positiv(b.mengeGesamt)
+  // ohne Einheit gilt l: bei Spritzungen gibt es keine andere Brühen-Einheit
+  if (m !== null && (!b.mengeEinheit || b.mengeEinheit === 'l' || b.mengeEinheit === 'ml')) {
+    return { liter: b.mengeEinheit === 'ml' ? m / 1000 : m, quelle: 'erfasst' }
+  }
+  const w = positiv(b.wasserLHa), ha = positiv(b.flaecheHa)
+  return w !== null && ha !== null ? { liter: w * ha, quelle: 'wasser' } : null
+}
+
+/**
+ * Spritzbrühe einer Spritzung in l (3 Stellen): „Menge gesamt“ in l bzw. ml, sonst Wasseraufwand
+ * (l/ha) × behandelte Fläche – auch bei Altwerten in kg/g (bruehenAltwert), die nie als Brühe gelten.
+ * null bei anderen Arten und ohne Angabe. Nur für Anzeige und CSV – NIE über Maßnahmen summieren:
+ * eine Tankmischung sind mehrere Maßnahmen mit derselben Brühe.
+ */
+export function spritzbruehe(b: MittelmengeEingabe): number | null {
+  const br = brueheLiter(b)
+  return br ? runden(br.liter, STELLEN_MENGE) : null
+}
+
+/**
+ * Spritzung, deren „Menge gesamt“ noch in kg bzw. g erfasst ist (vor KAN-133 als Mittelmenge gedacht):
+ * weder Spritzbrühe noch Mittelmenge – zählt nirgends; Bearbeiten-Formular warnt.
+ */
+export function bruehenAltwert(b: Pick<PsmBehandlung, 'art' | 'mengeGesamt' | 'mengeEinheit'>): boolean {
+  return b.art === 'spritzung' && b.mengeGesamt !== null && (b.mengeEinheit === 'kg' || b.mengeEinheit === 'g')
+}
+
+/**
+ * Menge des Mittels (Spritzung) bzw. Düngers (Düngung) einer Maßnahme in kg oder l, 3 Stellen
+ * (Regeln siehe Abschnittskopf). Je Maßnahme gerechnet – Summen addieren diese gerundeten Werte.
+ * Ohne Menge: warnung und grund sagen, warum (z. B. „ohne Aufwand“).
+ */
+export function mittelmenge(b: MittelmengeEingabe): MittelmengeErgebnis {
+  const ohne = (grund: MittelmengeGrund, warnung: string): MittelmengeErgebnis => ({ menge: null, einheit: null, basis: null, warnung, grund })
+  const ergebnis = (menge: number, einheit: MittelEinheit, basis: string): MittelmengeErgebnis =>
+    Number.isFinite(menge) && menge >= 0
+      ? { menge: runden(menge, STELLEN_MENGE), einheit, basis, warnung: null, grund: null }
+      : ohne('ungueltig', 'Menge negativ oder ungültig')
+  const ha = positiv(b.flaecheHa)
+  const a = typeof b.aufwand === 'number' && Number.isFinite(b.aufwand) ? b.aufwand : null
+  const ae = b.aufwandEinheit
+
+  if (b.art === 'duengung') {
+    const inLiter = b.duengemittel?.einheit === 'l'
+    const nichtInLiter = 'Düngemittel nicht in l geführt'
+    // 1. Düngermenge
+    let hinweis: string | null = null
+    const m = typeof b.mengeGesamt === 'number' && Number.isFinite(b.mengeGesamt) ? b.mengeGesamt : null
+    if (m !== null) {
+      const e = b.mengeEinheit ? ZU_GRUNDEINHEIT[b.mengeEinheit] : undefined
+      if (e && (e.einheit === 'kg' || inLiter)) {
+        return ergebnis(m * e.faktor, e.einheit, e.faktor === 1 ? 'Düngermenge' : `Düngermenge (${b.mengeEinheit})`)
+      }
+      hinweis = e ? `Düngermenge in ${b.mengeEinheit}, ${nichtInLiter}`
+        : b.mengeEinheit ? `Mengeneinheit „${b.mengeEinheit}“ nicht umrechenbar` : 'Düngermenge ohne Einheit'
+    }
+    // 2. Aufwand
+    if (a !== null && ae) {
+      if (ae === 'kg_ha' || (ae === 'l_ha' && inLiter)) {
+        return ha !== null ? ergebnis(a * ha, ae === 'kg_ha' ? 'kg' : 'l', 'Aufwand × Fläche') : ohne('flaeche', 'ohne behandelte Fläche')
+      }
+      const e = ZU_GRUNDEINHEIT[ae]
+      if (e && (e.einheit === 'kg' || inLiter)) return ergebnis(a * e.faktor, e.einheit, e.faktor === 1 ? 'Aufwand (gesamt)' : `Aufwand (gesamt, ${ae})`)
+      let text: string
+      if (ae === 'g_hl' || ae === 'ml_hl') text = 'Konzentration (g/hl, ml/hl) bei Düngung nicht zulässig'
+      else if (ae === 'l_ha' || e) text = `Aufwand in ${einheitText(ae)}, ${nichtInLiter}`
+      else text = `Aufwand-Einheit „${ae}“ nicht umrechenbar`
+      return ohne('einheit', hinweis ?? text)
+    }
+    return hinweis ? ohne('einheit', hinweis) : ohne('menge', 'ohne Düngermenge und Aufwand')
+  }
+
+  if (b.art !== 'spritzung') return ohne('art', `bei ${ART_LABEL[b.art] ?? b.art} keine Mittelmenge`)
+  if (a === null || !ae) return ohne('aufwand', 'ohne Aufwand')
+  if (ae === 'kg_ha' || ae === 'l_ha') {
+    return ha !== null ? ergebnis(a * ha, ae === 'kg_ha' ? 'kg' : 'l', 'Aufwand × Fläche') : ohne('flaeche', 'ohne behandelte Fläche')
+  }
+  if (ae === 'g_hl' || ae === 'ml_hl') {
+    const br = brueheLiter(b)
+    if (!br) return positiv(b.wasserLHa) !== null ? ohne('flaeche', 'ohne behandelte Fläche') : ohne('bruehe', 'ohne Spritzbrühe und Wasseraufwand')
+    return ergebnis(a * br.liter / 100 / 1000, ae === 'g_hl' ? 'kg' : 'l',
+      br.quelle === 'erfasst' ? 'Konzentration × Spritzbrühe' : 'Konzentration × Wasseraufwand × Fläche')
+  }
+  const e = ZU_GRUNDEINHEIT[ae]
+  if (e) return ergebnis(a * e.faktor, e.einheit, e.faktor === 1 ? 'Aufwand (gesamt)' : `Aufwand (gesamt, ${ae})`)
+  return ohne('einheit', `Aufwand-Einheit „${ae}“ nicht umrechenbar`)
+}
+
+/**
+ * Menge von einer Einheit in eine andere (kg ↔ g, l ↔ ml; 3 Stellen), z. B. die Mittelmenge in die
+ * Einheit des Lagers. Masse ↔ Volumen (kg ↔ l) ist ohne Dichte nicht umrechenbar → null
+ * (Lager: kein Abzug, nur Hinweis).
+ */
+export function mengeInEinheit(menge: number, von: string | null | undefined, nach: string | null | undefined): number | null {
+  const v = von ? ZU_GRUNDEINHEIT[von] : undefined
+  const n = nach ? ZU_GRUNDEINHEIT[nach] : undefined
+  if (!v || !n || v.einheit !== n.einheit || !Number.isFinite(menge)) return null
+  return runden(menge * v.faktor / n.faktor, STELLEN_MENGE)
+}
+
 export type Mittelmenge = { kg: number; basis: string; dichteAngenommen: boolean }
 
 /**
- * Menge des Mittels in kg (3 Stellen) für Kupfer- und Nährstoffbilanz. Reihenfolge:
- *  1. Gesamtmenge in kg bzw. g
- *  2. Aufwand kg/ha × behandelte Fläche, Aufwand kg (gesamt)
- *  3. Konzentration g/hl × Wasseraufwand (l/ha) × Fläche
- *  4. nur mit literAlsKg (Kupfer, wie bisher): Aufwand l/ha × Fläche, Gesamtmenge l bzw. ml,
- *     Konzentration ml/hl – Dichte 1 kg/l angenommen (dichteAngenommen)
- * Die Gesamtmenge in Litern kann auch die Spritzbrühe sein (Formular „aus Wasseraufwand berechnet“),
- * deshalb geht bei Flüssigkeiten der Aufwand je ha vor. null = nicht umrechenbar.
+ * Mittelmenge in kg (3 Stellen) für Kupfer- und Nährstoffbilanz, aus mittelmenge(): Spritzung nur
+ * aus dem Aufwand, Düngung aus der Düngermenge, sonst dem Aufwand. Mengen in l nur mit literAlsKg
+ * (Kupfer, wie bisher: Dichte 1 kg/l angenommen → dichteAngenommen, Basis „… (1 kg/l)“).
+ * null = keine Mittelmenge in kg; den Grund liefert mittelmenge(b).warnung.
  */
-export function mittelmengeKg(b: PsmBehandlung, opt: { literAlsKg: boolean }): Mittelmenge | null {
-  const ha = b.flaecheHa && b.flaecheHa > 0 ? b.flaecheHa : null
-  const m = b.mengeGesamt, me = b.mengeEinheit
-  const a = b.aufwand, ae = b.aufwandEinheit
-  const w = b.wasserLHa && b.wasserLHa > 0 ? b.wasserLHa : null
-  const ergebnis = (kg: number, basis: string, dichteAngenommen = false): Mittelmenge | null =>
-    Number.isFinite(kg) && kg >= 0 ? { kg: runden(kg, STELLEN_MENGE), basis, dichteAngenommen } : null
-
-  if (m !== null && me === 'kg') return ergebnis(m, 'Gesamtmenge')
-  if (m !== null && me === 'g') return ergebnis(m / 1000, 'Gesamtmenge (g)')
-  if (a !== null && ae === 'kg_ha' && ha) return ergebnis(a * ha, 'Aufwand × Fläche')
-  if (a !== null && ae === 'kg') return ergebnis(a, 'Aufwand (gesamt)')
-  if (a !== null && ae === 'g_hl' && w && ha) return ergebnis(a * (w * ha / 100) / 1000, 'Konzentration × Wasseraufwand × Fläche')
-  if (!opt.literAlsKg) return null
-  if (a !== null && ae === 'l_ha' && ha) return ergebnis(a * ha, 'Aufwand × Fläche (1 kg/l)', true)
-  if (m !== null && me === 'l') return ergebnis(m, 'Gesamtmenge (1 kg/l)', true)
-  if (m !== null && me === 'ml') return ergebnis(m / 1000, 'Gesamtmenge (ml, 1 kg/l)', true)
-  if (a !== null && ae === 'l') return ergebnis(a, 'Aufwand (gesamt, 1 kg/l)', true)
-  if (a !== null && ae === 'ml_hl' && w && ha) return ergebnis(a * (w * ha / 100) / 1000, 'Konzentration × Wasseraufwand × Fläche (1 kg/l)', true)
+export function mittelmengeKg(b: MittelmengeEingabe, opt: { literAlsKg: boolean }): Mittelmenge | null {
+  const mm = mittelmenge(b)
+  if (mm.menge === null || mm.basis === null) return null
+  if (mm.einheit === 'kg') return { kg: mm.menge, basis: mm.basis, dichteAngenommen: false }
+  if (mm.einheit === 'l' && opt.literAlsKg) return { kg: mm.menge, basis: `${mm.basis} (1 kg/l)`, dichteAngenommen: true }
   return null
 }
 
@@ -384,7 +558,7 @@ export async function ladeBehandlungen(supabase: any, tenantId: string, f: Behan
       temperatur_c, windstaerke, ernte_fruehesteins, wartezeit_eingehalten, notizen,
       weingarten:weingarten_id(id, name, ried, flaeche_ha, lage_id, lagen:lage_id(name)),
       psm:psm_id(id, name, handelsname, wirkstoff, wirkstoffgehalt_pct, zulassungsnr, eppo_code, cu_gehalt_pct, wartezeit_tage, max_aufwand_kg_ha, max_anwendungen, oeko_zugelassen),
-      duengemittel:duengemittel_id(id, name, handelsname, typ, naehrstoff_n_pct, naehrstoff_p_pct, oeko_zugelassen),
+      duengemittel:duengemittel_id(id, name, handelsname, typ, einheit, naehrstoff_n_pct, naehrstoff_p_pct, oeko_zugelassen),
       behandlung_grundstuecke(grundstueck_id, flaeche_ha, grundstueck:grundstueck_id(id, gst_nr, katastralgemeinde, kg_bezeichnung, flaeche_ha, weingarten:weingarten_id(id, name, ried, flaeche_ha, lage_id, lagen:lage_id(name))))
     `)
     .eq('tenant_id', tenantId)
@@ -412,28 +586,45 @@ export async function ladeBehandlungen(supabase: any, tenantId: string, f: Behan
   return { behandlungen: data.map(b => normalisiereBehandlung(b, namen)), warnungen }
 }
 
-/** Weingärten des Betriebs (auch inaktive – frühere Maßnahmen verweisen darauf) */
+/**
+ * Weingärten des Betriebs (auch inaktive – frühere Maßnahmen verweisen darauf) samt Σ WI-GST-Fläche.
+ * Die Grundstücke kommen eingebettet über den mandantengefilterten Weingarten; Nutzart WI wie in
+ * createBehandlung (Brache, Gerodet usw. zählen nicht).
+ */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function ladeWeingaerten(supabase: any, tenantId: string): Promise<WeingartenStamm[]> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await alle<R>((supabase.from('weingarten') as any)
-    .select('id, name, ried, flaeche_ha, aktiv, lage_id, lagen:lage_id(name)')
+    .select('id, name, ried, flaeche_ha, aktiv, lage_id, lagen:lage_id(name), grundstuecke(flaeche_ha, nutzart)')
     .eq('tenant_id', tenantId)
     .order('name').order('id'))
   if (error) throw new Error(`Weingärten konnten nicht geladen werden: ${error.message}`)
-  return data.map(w => ({
-    id: String(w.id),
-    name: textOderNull(w.name) ?? '–',
-    ried: riedAus(w),
-    lageId: textOderNull(w.lage_id),
-    flaecheHa: rund(zahl(w.flaeche_ha), STELLEN.ha),
-    aktiv: w.aktiv !== false,
-  }))
+  return data.map(w => {
+    const wi = ((w.grundstuecke ?? []) as R[]).filter(g => g.nutzart === 'WI')
+    return {
+      id: String(w.id),
+      name: textOderNull(w.name) ?? '–',
+      ried: riedAus(w),
+      lageId: textOderNull(w.lage_id),
+      flaecheHa: rund(zahl(w.flaeche_ha), STELLEN.ha),
+      aktiv: w.aktiv !== false,
+      wiFlaecheHa: runden(wi.reduce((s, g) => s + (zahl(g.flaeche_ha) ?? 0), 0), STELLEN.ha),
+    }
+  })
 }
 
-/** Betriebsfläche: Σ Fläche der aktiven Weingärten (ha, 4 Stellen) – wie bisher auf Cu-/Nährstoffbilanz */
+/** Betriebsfläche: Σ Stammdaten-Fläche der aktiven Weingärten (ha, 4 Stellen) – bisheriger Nenner der Cu-/Nährstoffbilanz */
 export function betriebsflaecheHa(weingaerten: readonly WeingartenStamm[]): number {
   return runden(weingaerten.filter(w => w.aktiv).reduce((s, w) => s + (w.flaecheHa ?? 0), 0), STELLEN.ha)
+}
+
+/**
+ * Betriebsfläche nach KAN-132 Regel 8 (vorgezogen in KAN-133): Σ WI-GST-Fläche der aktiven Weingärten
+ * (ha, 4 Stellen) – Nenner für Cu je ha des Betriebs. Unabhängig von weingarten.flaeche_ha, das bei
+ * vielen Betrieben leer ist. 0 = keine WI-Fläche (Anzeige „–“, nicht „0,00“).
+ */
+export function betriebsflaecheWi(weingaerten: readonly Pick<WeingartenStamm, 'aktiv' | 'wiFlaecheHa'>[]): number {
+  return runden(weingaerten.filter(w => w.aktiv).reduce((s, w) => s + (w.wiFlaecheHa ?? 0), 0), STELLEN.ha)
 }
 
 // ── Parameter (CSV-Route und Druckseiten) ───────────────────────────────────
@@ -492,10 +683,14 @@ export type PsmAufzeichnungZeile = {
   bbch: string | null
   aufwand: number | null
   aufwandEinheit: string
-  mengeGesamt: number | null
-  mengeEinheit: string
-  /** Anteil der Gesamtmenge auf diesem Grundstück (nach Fläche) */
-  mengeAnteil: number | null
+  /** Mittelmenge (mittelmenge(): Mittel bzw. Dünger) anteilig nach Fläche des Grundstücks */
+  mittelmengeAnteil: number | null
+  /** kg oder l; leer ohne Mittelmenge */
+  mittelmengeEinheit: string
+  /** Rechenweg der Mittelmenge der Maßnahme, z. B. „Aufwand × Fläche“ */
+  mittelmengeBasis: string | null
+  /** Spritzbrühe (l) anteilig nach Fläche des Grundstücks – nur Spritzungen */
+  spritzbruehAnteil: number | null
   wasserLHa: number | null
   konzentrationPct: number | null
   wartezeitTage: number | null
@@ -511,11 +706,18 @@ export type PsmAufzeichnungZeile = {
 
 export type PsmAufzeichnungFilter = { ried?: string | null }
 
-/** Zeilen je Maßnahme × Grundstück (bereits gerundet) plus Hinweise */
+/**
+ * Zeilen je Maßnahme × Grundstück (bereits gerundet) plus Hinweise. Mittelmenge und Spritzbrühe der
+ * Maßnahme stehen nur anteilig nach Grundstücksfläche in der Zeile (KAN-133 Nr. 7) – nie die
+ * Gesamtwerte der Maßnahme, sonst ergäbe die Spaltensumme in Excel ein Vielfaches.
+ */
 export function psmAufzeichnungZeilen(behandlungen: readonly PsmBehandlung[], filter: PsmAufzeichnungFilter = {}): { zeilen: PsmAufzeichnungZeile[]; warnungen: string[] } {
   const zeilen: PsmAufzeichnungZeile[] = []
   const ohneGst: string[] = []
   const ohneOrt: string[] = []
+  const ohneMittelmenge: string[] = []
+  const altwerte: string[] = []
+  const nichtVerteilt: string[] = []
   for (const b of behandlungen) {
     let orte: (PsmGrundstueck | null)[] = b.grundstuecke
     if (filter.ried) orte = b.grundstuecke.filter(g => (g.lageId ?? OHNE_RIED) === filter.ried)
@@ -523,14 +725,20 @@ export function psmAufzeichnungZeilen(behandlungen: readonly PsmBehandlung[], fi
     if (b.grundstuecke.length === 0) { ohneOrt.push(behandlungKurz(b)); orte = [null] }
     else if (gstAnzahl(b) === 0) ohneGst.push(behandlungKurz(b))
 
+    const mm = mittelmenge(b)
+    const bruehe = spritzbruehe(b)
+    if (mm.menge === null && mm.grund !== 'art') ohneMittelmenge.push(`${behandlungKurz(b)} – ${mm.warnung}`)
+    if (bruehenAltwert(b)) altwerte.push(behandlungKurz(b))
+
     const summeHa = b.grundstuecke.reduce((s, g) => s + (g.flaecheHa ?? 0), 0)
     const istPsm = b.psm !== null
+    let ohneAnteil = false
     for (const g of orte) {
-      let mengeAnteil: number | null = null
-      if (b.mengeGesamt !== null) {
-        if (b.grundstuecke.length <= 1) mengeAnteil = b.mengeGesamt
-        else if (summeHa > 0 && g?.flaecheHa != null) mengeAnteil = b.mengeGesamt * g.flaecheHa / summeHa
-      }
+      // Anteil nach Fläche wie bisher (ohne Restausgleich); ein einziger Ort trägt die ganze Menge
+      let anteil: number | null = null
+      if (b.grundstuecke.length <= 1) anteil = 1
+      else if (summeHa > 0 && g?.flaecheHa != null) anteil = g.flaecheHa / summeHa
+      if (anteil === null) ohneAnteil = true
       zeilen.push({
         behandlungId: b.id,
         datum: b.datum,
@@ -550,10 +758,12 @@ export function psmAufzeichnungZeilen(behandlungen: readonly PsmBehandlung[], fi
         schaderreger: b.schaderreger,
         bbch: b.bbch,
         aufwand: rund(b.aufwand, STELLEN_MENGE),
-        aufwandEinheit: einheitText(b.aufwandEinheit),
-        mengeGesamt: rund(b.mengeGesamt, STELLEN_MENGE),
-        mengeEinheit: einheitText(b.mengeEinheit),
-        mengeAnteil: rund(mengeAnteil, STELLEN_MENGE),
+        // „kg (gesamt)“ bzw. „l (gesamt)“: Wert der Maßnahme, keine Menge je Grundstück (die steht in „Mittelmenge anteilig“)
+        aufwandEinheit: aufwandEinheitText(b.aufwandEinheit),
+        mittelmengeAnteil: mm.menge !== null && anteil !== null ? runden(mm.menge * anteil, STELLEN_MENGE) : null,
+        mittelmengeEinheit: mm.einheit ?? '',
+        mittelmengeBasis: mm.basis,
+        spritzbruehAnteil: bruehe !== null && anteil !== null ? runden(bruehe * anteil, STELLEN_MENGE) : null,
         wasserLHa: rund(b.wasserLHa, 1),
         konzentrationPct: rund(b.konzentrationPct, STELLEN.prozent),
         wartezeitTage: b.psm?.wartezeitTage ?? null,
@@ -567,10 +777,22 @@ export function psmAufzeichnungZeilen(behandlungen: readonly PsmBehandlung[], fi
         notiz: b.notiz,
       })
     }
+    // Grundstücke ohne Fläche: dort bleiben die Anteile leer – ohne jede Fläche fehlen Mittelmenge und
+    // Spritzbrühe der Maßnahme in den Zeilen ganz (seit Nr. 7 gibt es keine Gesamtspalte mehr)
+    if (ohneAnteil && (mm.menge !== null || bruehe !== null)) {
+      const werte = [
+        mm.menge !== null ? `${b.art === 'duengung' ? 'Düngermenge' : 'Mittelmenge'} ${fmtNum(mm.menge, { max: STELLEN_MENGE })} ${mm.einheit}` : null,
+        bruehe !== null ? `Spritzbrühe ${fmtNum(bruehe, { max: STELLEN_MENGE })} l` : null,
+      ].filter(Boolean).join(', ')
+      nichtVerteilt.push(`${behandlungKurz(b)} – ${werte} ${summeHa > 0 ? '(nur auf GST mit Fläche verteilt)' : '(nicht verteilt)'}`)
+    }
   }
   const warnungen: string[] = []
   if (ohneGst.length > 0) warnungen.push(`${ohneGst.length} ${ohneGst.length === 1 ? 'Maßnahme ist' : 'Maßnahmen sind'} keinem Grundstück zugeordnet – je eine Zeile für den Weingarten ohne GST-Nr.: ${liste(ohneGst)}`)
   if (ohneOrt.length > 0) warnungen.push(`${ohneOrt.length} ${ohneOrt.length === 1 ? 'Maßnahme hat' : 'Maßnahmen haben'} weder Grundstück noch Weingarten – Ried, GST-Nr. und Fläche bleiben leer: ${liste(ohneOrt)}`)
+  if (ohneMittelmenge.length > 0) warnungen.push(`${ohneMittelmenge.length} ${ohneMittelmenge.length === 1 ? 'Maßnahme' : 'Maßnahmen'} ohne berechenbare Mittelmenge – „Mittelmenge anteilig (GST)“ bleibt leer: ${liste(ohneMittelmenge)}`)
+  if (altwerte.length > 0) warnungen.push(`${altwerte.length} ${altwerte.length === 1 ? 'Spritzung hat' : 'Spritzungen haben'} „Menge gesamt“ noch in kg bzw. g (früher als Mittelmenge erfasst) – zählt weder als Spritzbrühe noch als Mittelmenge; Spritzbrühe nur aus Wasseraufwand × Fläche, Mittelmenge aus dem Aufwand: ${liste(altwerte)}`)
+  if (nichtVerteilt.length > 0) warnungen.push(`${nichtVerteilt.length} ${nichtVerteilt.length === 1 ? 'Maßnahme hat' : 'Maßnahmen haben'} Grundstücke ohne Fläche – „Mittelmenge anteilig (GST)“ und „Spritzbrühe anteilig (GST, l)“ bleiben dort leer, die Werte je Maßnahme stehen im Druck: ${liste(nichtVerteilt)}`)
   return { zeilen, warnungen }
 }
 
@@ -598,9 +820,10 @@ export const SPALTEN_PSM_AUFZEICHNUNG: CsvSpalte<PsmAufzeichnungZeile>[] = [
   { kopf: 'BBCH', typ: 'code', wert: z => z.bbch },
   { kopf: 'Aufwand', typ: 'dezimal', stellen: STELLEN_MENGE, wert: z => z.aufwand },
   { kopf: 'Aufwand-Einheit', typ: 'text', wert: z => z.aufwandEinheit },
-  { kopf: 'Gesamtmenge', typ: 'dezimal', stellen: STELLEN_MENGE, wert: z => z.mengeGesamt },
-  { kopf: 'Mengeneinheit', typ: 'text', wert: z => z.mengeEinheit },
-  { kopf: 'Menge anteilig (GST)', typ: 'dezimal', stellen: STELLEN_MENGE, wert: z => z.mengeAnteil },
+  { kopf: 'Mittelmenge anteilig (GST)', typ: 'dezimal', stellen: STELLEN_MENGE, wert: z => z.mittelmengeAnteil },
+  { kopf: 'Mittelmenge Einheit', typ: 'text', wert: z => z.mittelmengeEinheit },
+  { kopf: 'Mittelmenge Basis', typ: 'text', wert: z => z.mittelmengeBasis },
+  { kopf: 'Spritzbrühe anteilig (GST, l)', typ: 'dezimal', stellen: STELLEN_MENGE, wert: z => z.spritzbruehAnteil },
   { kopf: 'Wasseraufwand (l/ha)', typ: 'dezimal', stellen: 1, wert: z => z.wasserLHa },
   { kopf: 'Konzentration (%)', typ: 'prozent', wert: z => z.konzentrationPct },
   { kopf: 'Wartezeit (Tage)', typ: 'ganzzahl', wert: z => z.wartezeitTage },
@@ -628,6 +851,9 @@ export async function ladePsmAufzeichnung(supabase: any, tenantId: string, p: Ps
 }
 
 // ── Meldung „psm-mittelverbrauch“: je Jahr × Mittel × Einheit ───────────────
+//
+// Seit KAN-133 (26.09.2026) Σ Mittelmenge aus mittelmenge() – nicht mehr Σ „Menge gesamt“, das bei
+// Spritzungen die Spritzbrühe ist. Es zählen nur Spritzungen (wie der Abzug im PSM-Lager).
 
 export type MittelverbrauchZeile = {
   jahr: number
@@ -636,73 +862,99 @@ export type MittelverbrauchZeile = {
   wirkstoff: string | null
   anwendungen: number
   maxAnwendungen: number | null
-  /** Σ Gesamtmenge (Einheit siehe einheit) */
-  mengeGesamt: number
+  /** Σ Mittelmenge der Anwendungen (Summe der je Maßnahme gerundeten Werte), Einheit siehe einheit */
+  mittelmenge: number
+  /** kg oder l (g bzw. ml rechnet mittelmenge() um); kg und l werden nicht addiert */
   einheit: string
   /** Σ behandelte Fläche der Anwendungen (ha) */
   flaecheHa: number
-  /** Ø Aufwand je Anwendung und ha = Gesamtmenge / Fläche (in der Einheit der Gesamtmenge je ha) */
+  /** Ø Aufwand je Anwendung und ha = Σ Mittelmenge ÷ Σ Fläche (Anwendungen mit Fläche), in Einheit je ha */
   aufwandJeHa: number | null
-  /** Ø Aufwand umgerechnet in kg/ha – nur für Masseneinheiten (kg, g), sonst null */
+  /** Ø Aufwand in kg/ha – nur bei Mitteln in kg, sonst null */
   aufwandKgHa: number | null
   maxAufwandKgHa: number | null
   anwendungenUeber: boolean
   aufwandUeber: boolean
-  /** Grenzwert (kg/ha) vorhanden, Menge aber in l/ml – kein Vergleich möglich */
+  /** Grenzwert (kg/ha) vorhanden, Mittel aber in l – ohne Dichte kein Vergleich (Entscheidung 7 in KAN-133) */
   aufwandNichtVergleichbar: boolean
   status: string
 }
 
-/** Umrechnung der Mengeneinheit in kg – nur Massen; l/ml sind ohne Dichte nicht mit kg/ha vergleichbar */
-const ZU_KG: Readonly<Record<string, number>> = { kg: 1, g: 0.001 }
-
 /** Ø Aufwand je ha hat 3 Stellen */
 export const STELLEN_AUFWAND_HA = 3
 
+/** Mittelmenge eines Pflanzenschutzmittels im Mittelverbrauch: nur bei Spritzungen */
+function psmMittelmenge(b: PsmBehandlung): MittelmengeErgebnis {
+  if (b.art === 'spritzung') return mittelmenge(b)
+  return { menge: null, einheit: null, basis: null, warnung: `${ART_LABEL[b.art] ?? b.art} mit Pflanzenschutzmittel – es zählen nur Spritzungen`, grund: 'art' }
+}
+
 /**
- * Mittelverbrauch je Saison: Maßnahmen mit Pflanzenschutzmittel und Gesamtmenge, gruppiert nach
- * Jahr × Mittel × Mengeneinheit (kg und l werden nicht addiert). Grenzwerte: max. Anwendungen je
- * Saison und max. Aufwand je ha (Stammdaten). Sortiert nach Jahr (neueste zuerst), dann Menge.
+ * Mittelverbrauch je Saison: Spritzungen mit Pflanzenschutzmittel und Mittelmenge (mittelmenge()),
+ * gruppiert nach Jahr × Mittel × Einheit (kg und l werden nicht addiert). Grenzwerte: max.
+ * Anwendungen je Saison und max. Aufwand je ha (Stammdaten, kg/ha – nur für Mittel in kg).
+ * Sortiert nach Jahr (neueste zuerst), dann Menge. Hinweise: mittelverbrauchHinweise().
  */
 export function mittelverbrauch(behandlungen: readonly PsmBehandlung[]): MittelverbrauchZeile[] {
-  type Summe = { jahr: number; psm: PsmMittel; einheit: string; menge: number; anwendungen: number; ha: number }
+  type Summe = { jahr: number; psm: PsmMittel; einheit: MittelEinheit; menge: number; mengeMitFlaeche: number; anwendungen: number; ha: number }
   const gruppen = new Map<string, Summe>()
   for (const b of behandlungen) {
-    if (!b.psm || b.mengeGesamt === null) continue
-    const einheit = einheitText(b.mengeEinheit)
-    const key = `${b.jahr}|${b.psm.id ?? b.psm.name}|${einheit}`
-    const s = gruppen.get(key) ?? { jahr: b.jahr, psm: b.psm, einheit, menge: 0, anwendungen: 0, ha: 0 }
-    s.menge += b.mengeGesamt
+    if (!b.psm) continue
+    const mm = psmMittelmenge(b)
+    if (mm.menge === null || mm.einheit === null) continue
+    const key = `${b.jahr}|${b.psm.id ?? b.psm.name}|${mm.einheit}`
+    const s = gruppen.get(key) ?? { jahr: b.jahr, psm: b.psm, einheit: mm.einheit, menge: 0, mengeMitFlaeche: 0, anwendungen: 0, ha: 0 }
+    s.menge += mm.menge
     s.anwendungen += 1
-    s.ha += b.flaecheHa ?? 0
+    // Ø je ha nur über Anwendungen mit Fläche – sonst stünde deren Menge ohne Fläche im Zähler
+    if (b.flaecheHa !== null && b.flaecheHa > 0) { s.ha += b.flaecheHa; s.mengeMitFlaeche += mm.menge }
     gruppen.set(key, s)
   }
   const zeilen = [...gruppen.values()].map((s): MittelverbrauchZeile => {
-    const mengeGesamt = runden(s.menge, STELLEN_MENGE)
+    const menge = runden(s.menge, STELLEN_MENGE)
     const flaecheHa = runden(s.ha, STELLEN.ha)
-    const aufwandJeHa = flaecheHa > 0 ? runden(mengeGesamt / flaecheHa, STELLEN_AUFWAND_HA) : null
-    // Grenzwert der Stammdaten ist kg/ha: nur Masseneinheiten vergleichen (g → /1000), l/ml nicht
-    const faktor = ZU_KG[s.einheit]
-    const aufwandKgHa = aufwandJeHa !== null && faktor !== undefined ? runden(aufwandJeHa * faktor, STELLEN_AUFWAND_HA) : null
+    const aufwandJeHa = flaecheHa > 0 ? runden(runden(s.mengeMitFlaeche, STELLEN_MENGE) / flaecheHa, STELLEN_AUFWAND_HA) : null
+    // Grenzwert der Stammdaten ist kg/ha: nur Mittel in kg vergleichen, l ohne Dichte nicht
+    const inKg = s.einheit === 'kg'
+    const aufwandKgHa = inKg ? aufwandJeHa : null
     const maxAufwand = s.psm.maxAufwandKgHa && s.psm.maxAufwandKgHa > 0 ? s.psm.maxAufwandKgHa : null
     const maxAnw = s.psm.maxAnwendungen && s.psm.maxAnwendungen > 0 ? s.psm.maxAnwendungen : null
     const aufwandUeber = maxAufwand !== null && aufwandKgHa !== null && aufwandKgHa > maxAufwand
-    const aufwandNichtVergleichbar = maxAufwand !== null && aufwandJeHa !== null && faktor === undefined
+    const aufwandNichtVergleichbar = maxAufwand !== null && aufwandJeHa !== null && !inKg
     const anwendungenUeber = maxAnw !== null && s.anwendungen > maxAnw
     const teile: string[] = []
     if (aufwandUeber && anwendungenUeber) teile.push('Aufwand und Anwendungen über Grenzwert')
     else if (aufwandUeber) teile.push('Aufwand über Grenzwert')
     else if (anwendungenUeber) teile.push('Anwendungen über Grenzwert')
-    if (aufwandNichtVergleichbar) teile.push(`Aufwand-Grenzwert nicht vergleichbar (Einheit ${s.einheit || 'unbekannt'}, Grenzwert in kg/ha)`)
+    if (aufwandNichtVergleichbar) teile.push(`Aufwand-Grenzwert nicht vergleichbar (Einheit ${s.einheit}, Grenzwert in kg/ha)`)
     const status = teile.length > 0 ? teile.join('; ') : 'OK'
     return {
       jahr: s.jahr, mittel: s.psm.name, zulassungsnr: s.psm.zulassungsnr, wirkstoff: s.psm.wirkstoff,
       anwendungen: s.anwendungen, maxAnwendungen: maxAnw,
-      mengeGesamt, einheit: s.einheit, flaecheHa, aufwandJeHa, aufwandKgHa, maxAufwandKgHa: maxAufwand,
+      mittelmenge: menge, einheit: s.einheit, flaecheHa, aufwandJeHa, aufwandKgHa, maxAufwandKgHa: maxAufwand,
       anwendungenUeber, aufwandUeber, aufwandNichtVergleichbar, status,
     }
   })
-  return zeilen.sort((a, b) => b.jahr - a.jahr || b.mengeGesamt - a.mengeGesamt || vergleiche(a.mittel, b.mittel))
+  return zeilen.sort((a, b) => b.jahr - a.jahr || b.mittelmenge - a.mittelmenge || vergleiche(a.mittel, b.mittel))
+}
+
+/**
+ * Hinweise zum Mittelverbrauch (CSV „psm-mittelverbrauch“ und Tab „Mittelverbrauch“): Anwendungen
+ * eines Pflanzenschutzmittels ohne Mittelmenge (z. B. „ohne Aufwand“) bzw. ohne behandelte Fläche.
+ */
+export function mittelverbrauchHinweise(behandlungen: readonly PsmBehandlung[]): string[] {
+  const ohneMenge: string[] = []
+  const ohneFlaeche: string[] = []
+  for (const b of behandlungen) {
+    if (!b.psm) continue
+    const mm = psmMittelmenge(b)
+    if (mm.menge === null) ohneMenge.push(`${behandlungKurz(b)} – ${b.psm.name}: ${mm.warnung}`)
+    else if (b.flaecheHa === null || b.flaecheHa <= 0) ohneFlaeche.push(`${behandlungKurz(b)} – ${b.psm.name}`)
+  }
+  const w: string[] = []
+  if (ohneMenge.length > 0) w.push(`${ohneMenge.length} ${ohneMenge.length === 1 ? 'Anwendung' : 'Anwendungen'} ohne berechenbare Mittelmenge – im Mittelverbrauch nicht enthalten: ${liste(ohneMenge)}`)
+  if (ohneFlaeche.length > 0) w.push(`${ohneFlaeche.length} ${ohneFlaeche.length === 1 ? 'Anwendung' : 'Anwendungen'} ohne behandelte Fläche – in der Mittelmenge enthalten, im Ø Aufwand je ha nicht: ${liste(ohneFlaeche)}`)
+  return w
 }
 
 export const SPALTEN_PSM_MITTELVERBRAUCH: CsvSpalte<MittelverbrauchZeile>[] = [
@@ -712,7 +964,7 @@ export const SPALTEN_PSM_MITTELVERBRAUCH: CsvSpalte<MittelverbrauchZeile>[] = [
   { kopf: 'Wirkstoff', typ: 'text', wert: z => z.wirkstoff },
   { kopf: 'Anwendungen', typ: 'ganzzahl', wert: z => z.anwendungen },
   { kopf: 'Max. Anwendungen', typ: 'ganzzahl', wert: z => z.maxAnwendungen },
-  { kopf: 'Gesamtmenge', typ: 'dezimal', stellen: STELLEN_MENGE, wert: z => z.mengeGesamt },
+  { kopf: 'Mittelmenge', typ: 'dezimal', stellen: STELLEN_MENGE, wert: z => z.mittelmenge },
   { kopf: 'Einheit', typ: 'text', wert: z => z.einheit },
   { kopf: 'Behandelte Fläche (ha)', typ: 'dezimal', stellen: STELLEN.ha, wert: z => z.flaecheHa },
   { kopf: 'Ø Aufwand (Einheit/ha)', typ: 'dezimal', stellen: STELLEN_AUFWAND_HA, wert: z => z.aufwandJeHa },
@@ -721,12 +973,9 @@ export const SPALTEN_PSM_MITTELVERBRAUCH: CsvSpalte<MittelverbrauchZeile>[] = [
   { kopf: 'Status', typ: 'text', wert: z => z.status },
 ]
 
-/** Ladefunktion der CSV „psm-mittelverbrauch“ – der Tab „Mittelverbrauch“ rechnet mit mittelverbrauch() gleich */
+/** Ladefunktion der CSV „psm-mittelverbrauch“ – der Tab „Mittelverbrauch“ rechnet mit mittelverbrauch() und mittelverbrauchHinweise() gleich */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function ladePsmMittelverbrauch(supabase: any, tenantId: string, p: { jahr: number | null }): Promise<LadeErgebnis<MittelverbrauchZeile>> {
   const { behandlungen, warnungen } = await ladeBehandlungen(supabase, tenantId, jahrZeitraum(p.jahr))
-  const ohneMenge = behandlungen.filter(b => b.psm && b.mengeGesamt === null).map(behandlungKurz)
-  const w = [...warnungen]
-  if (ohneMenge.length > 0) w.push(`${ohneMenge.length} ${ohneMenge.length === 1 ? 'Anwendung' : 'Anwendungen'} ohne Gesamtmenge – im Mittelverbrauch nicht enthalten: ${liste(ohneMenge)}`)
-  return { zeilen: mittelverbrauch(behandlungen), warnungen: w }
+  return { zeilen: mittelverbrauch(behandlungen), warnungen: [...warnungen, ...mittelverbrauchHinweise(behandlungen)] }
 }

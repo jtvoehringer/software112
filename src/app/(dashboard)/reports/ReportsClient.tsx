@@ -11,16 +11,37 @@ import { fmtEur, fmtNum } from '@/lib/format'
 import PartnerSuche from '@/components/crm/PartnerSuche'
 import BehoerdenUebersicht from '@/components/behoerden/BehoerdenUebersicht'
 import type { UebersichtGruppe } from '@/lib/behoerden/uebersicht'
+import { CU_GRENZWERT_KG_HA_JAHR, type CuStatus } from '@/lib/behoerden/cu'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
+
+/** Tab „Behandlungen“: eine Maßnahme des laufenden Jahres – Mittelmenge aus mittelmenge() (KAN-133), nie „Menge gesamt“ */
+export type BehandlungUebersicht = {
+  id: string
+  datum: string
+  /** Bezeichnung der Art (ART_LABEL) */
+  art: string
+  mittel: string | null
+  /** Mittel- bzw. Düngermenge in kg oder l; null = nicht berechenbar (Grund in warnung) */
+  mittelmenge: number | null
+  einheit: string | null
+  basis: string | null
+  warnung: string | null
+  /** Spritzbrühe (l) – nur Anzeige, nie summieren */
+  spritzbruehe: number | null
+}
+
+/** Kupfer-Kachel aus cuBilanz() für das laufende Jahr; kgHa null = keine WI-Fläche (Anzeige „–“) */
+export type CuKachel = { kgHa: number | null; kg: number; ha: number; status: CuStatus | null }
 
 interface Props {
   umsatzMonate: { monat: string; umsatz: number; anzahl: number; von: string; bis: string }[]
   lager: R[]
   lagerWert: number
-  behandlungen: R[]
-  cuKgHa: number
+  behandlungen: BehandlungUebersicht[]
+  /** null = Maßnahmen konnten nicht geladen werden */
+  cu: CuKachel | null
   pipeline: R[]
   kontaktFrequenz: { id: string; name: string; accountnummer: string | null; letzterKontakt: string | null; tage: number }[]
   offene: R[]
@@ -78,6 +99,30 @@ function kundenName(p: R) {
   return '–'
 }
 
+/** Kupfer je ha des Betriebs (cuBilanz(), Betriebsfläche = WI-Grundstücke) – ohne Fläche „–“ statt grün */
+function KupferKachel({ cu }: { cu: CuKachel | null }) {
+  const st = cu?.status ?? null
+  const bg = st === 'ueber' ? 'bg-s112-err-bg' : st === 'warnung' ? 'bg-s112-warn-bg' : st === 'ok' ? 'bg-s112-ok-bg' : 'bg-s112-bg'
+  const fg = st === 'ueber' ? 'text-s112-err-fg' : st === 'warnung' ? 'text-s112-warn-fg' : st === 'ok' ? 'text-s112-ok-fg' : 'text-s112-text-2'
+  const text = !cu ? 'Maßnahmen konnten nicht geladen werden'
+    : cu.kgHa === null ? 'Keine Grundstücke mit Nutzart WI in aktiven Rieden – je ha nicht berechenbar'
+    : st === 'ueber' ? `Über EU-Limit (${CU_GRENZWERT_KG_HA_JAHR} kg/ha/Jahr)`
+    : st === 'warnung' ? `Über 80 % des EU-Limits (${CU_GRENZWERT_KG_HA_JAHR} kg/ha/Jahr)`
+    : 'Im EU-Bio-Limit'
+  return (
+    <div className={`rounded-xl p-4 ${bg}`}>
+      <p className="text-xs text-s112-muted">Kupfer eingesetzt (kg Reinkupfer/ha)</p>
+      <p className={`text-xl font-semibold mt-1 tabular-nums ${fg}`}>
+        {cu && cu.kgHa !== null ? `${fmtNum(runden(cu.kgHa, 2), 2)} kg/ha` : '–'}
+      </p>
+      <p className="text-xs text-s112-muted mt-0.5">{text}</p>
+      {cu && cu.kgHa !== null && (
+        <p className="text-xs text-s112-muted">{fmtNum(cu.kg, { max: 3 })} kg Cu auf {fmtNum(cu.ha, { max: 4 })} ha</p>
+      )}
+    </div>
+  )
+}
+
 function CsvBtn({ onClick, label = '↓ CSV' }: { onClick: () => void; label?: string }) {
   return (
     <button onClick={onClick}
@@ -88,7 +133,7 @@ function CsvBtn({ onClick, label = '↓ CSV' }: { onClick: () => void; label?: s
 }
 
 export default function ReportsClient({
-  umsatzMonate, lager, lagerWert, behandlungen, cuKgHa, pipeline, kontaktFrequenz, offene,
+  umsatzMonate, lager, lagerWert, behandlungen, cu, pipeline, kontaktFrequenz, offene,
   vsJahrgaenge, vsSorten, vsBezeichnungen, vsOrte, vsLaender,
   wbJahrgaenge, wbSorten, wbBezeichnungen, behoerden,
 }: Props) {
@@ -742,13 +787,7 @@ export default function ReportsClient({
                 <p className="text-xs text-s112-muted">Behandlungen dieses Jahr</p>
                 <p className="text-xl font-semibold text-s112-blue-700 mt-1">{behandlungen.length}</p>
               </div>
-              <div className={`rounded-xl p-4 ${cuKgHa>4?'bg-s112-err-bg':'bg-s112-ok-bg'}`}>
-                <p className="text-xs text-s112-muted">Kupfer eingesetzt (kg Wirkstoff/ha)</p>
-                <p className={`text-xl font-semibold mt-1 tabular-nums ${cuKgHa>4?'text-s112-err-fg':'text-s112-ok-fg'}`}>
-                  {cuKgHa.toFixed(2).replace('.',',')} kg/ha
-                </p>
-                <p className="text-xs text-s112-muted mt-0.5">{cuKgHa>4?'Über EU-Limit (4 kg/ha/Jahr)':'Im EU-Bio-Limit'}</p>
-              </div>
+              <KupferKachel cu={cu} />
             </div>
             {behandlungen.length === 0 ? (
               <p className="text-center text-s112-muted py-8">Keine Behandlungen dieses Jahr erfasst.</p>
@@ -758,15 +797,18 @@ export default function ReportsClient({
                   <th className="text-left px-3 py-2 font-semibold">Datum</th>
                   <th className="text-left px-3 py-2 font-semibold">Mittel</th>
                   <th className="text-left px-3 py-2 font-semibold">Art</th>
-                  <th className="text-right px-3 py-2 font-semibold">Menge</th>
+                  <th className="text-right px-3 py-2 font-semibold">Mittelmenge</th>
                 </tr></thead>
                 <tbody>
                   {behandlungen.slice(0,30).map((b,i) => (
                     <tr key={b.id} className={`border-b border-s112-border/40 ${i%2===1?'bg-s112-bg/30':''}`}>
                       <td className="px-3 py-2 tabular-nums text-s112-muted">{fmtDate(b.datum)}</td>
-                      <td className="px-3 py-2 font-medium text-s112-text">{(b.psm as R|null)?.name??'–'}</td>
-                      <td className="px-3 py-2 text-xs text-s112-muted capitalize">{b.art??'–'}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{b.menge_gesamt??'–'} {b.menge_einheit??''}</td>
+                      <td className="px-3 py-2 font-medium text-s112-text">{b.mittel ?? '–'}</td>
+                      <td className="px-3 py-2 text-xs text-s112-muted">{b.art}</td>
+                      <td className="px-3 py-2 text-right tabular-nums" title={b.basis ?? b.warnung ?? undefined}>
+                        {b.mittelmenge !== null ? `${fmtNum(b.mittelmenge, { max: 3 })} ${b.einheit ?? ''}` : '–'}
+                        {b.spritzbruehe !== null && <span className="block text-xs text-s112-muted">Brühe {fmtNum(b.spritzbruehe, { max: 3 })} l</span>}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

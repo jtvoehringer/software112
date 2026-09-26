@@ -7,6 +7,14 @@ import type { PSM, DuengemittelOption, WeingartenOption, GSTOption, KostenartOpt
 import { SprayCan, Sprout, Layers, Scissors, Leaf, MoreHorizontal, Hourglass, Info, Ban, AlertTriangle } from 'lucide-react'
 import { fmtNum } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
+import { runden } from '@/lib/csv'
+import { mengeInEinheit, type MittelmengeErgebnis } from '@/lib/behoerden/psm'
+import { pruefeMassnahmeMengen } from '@/lib/behandlungen/massnahmeMengen'
+import {
+  MENGEN_SICHT, aufwandEinheitText, duengerEinheitWechsel, duengermengeEinheit, mengenFelder, mengenInFormData,
+  mengenTexte, type Sicht,
+} from './mengenFelder'
+import MengenZusammenfassung from './MengenZusammenfassung'
 
 const BBCH_OPTIONS = [
   { value: '09', label: '09 – Knospenaufbruch' },
@@ -26,10 +34,6 @@ const BBCH_OPTIONS = [
   { value: '89', label: '89 – Vollreife' },
 ]
 const WITTERUNG = ['sonnig', 'bewoelkt', 'regnerisch', 'wind']
-const EINHEITEN_AUFWAND = ['kg_ha', 'l_ha', 'g_hl', 'ml_hl', 'kg', 'l']
-const EINHEITEN_LABEL: Record<string, string> = {
-  kg_ha: 'kg/ha', l_ha: 'l/ha', g_hl: 'g/hl', ml_hl: 'ml/hl', kg: 'kg', l: 'l',
-}
 const ART_OPTIONS = [
   { value: 'spritzung',        label: 'Spritzung',        icon: SprayCan },
   { value: 'duengung',         label: 'Düngung',          icon: Sprout },
@@ -38,7 +42,6 @@ const ART_OPTIONS = [
   { value: 'laubarbeit',       label: 'Laubarbeit',       icon: Leaf },
   { value: 'sonstiges',        label: 'Sonstiges',        icon: MoreHorizontal },
 ]
-const MENGE_EINHEITEN = ['kg', 'l', 'g', 'ml']
 const SCHADERREGER_OPTIONEN = ['Oidium', 'Peronospora', 'Botrytis']
 const LAUBARBEIT_OPTIONEN = [
   { value: 'entblaettern', label: 'Entblättern' },
@@ -50,21 +53,33 @@ const LAUBARBEIT_OPTIONEN = [
 
 // ─── Feld-Matrix je Maßnahmenart ──────────────────────────────────────────
 // Steuert, welche Felder pro Art sichtbar/pflicht sind (siehe "Analyse Maßnahmen.docx", Tabelle 2).
-// 'pflicht' | 'bedingt' | 'optional' | 'hidden'
-type Sicht = 'pflicht' | 'bedingt' | 'optional' | 'hidden'
+// 'pflicht' | 'bedingt' | 'optional' | 'hidden'. Die Mengenfelder (Spritzbrühe bzw. Düngermenge, Aufwand,
+// Konzentration, Wasseraufwand) kommen aus MENGEN_SICHT – gemeinsam mit dem Bearbeiten-Formular (KAN-133).
 type Art = 'spritzung' | 'duengung' | 'bodenbearbeitung' | 'schnitt' | 'laubarbeit' | 'sonstiges'
 
 const FELD_MATRIX: Record<Art, {
-  psm: Sicht; duengemittel: Sicht; mengeGesamt: Sicht; aufwandmenge: Sicht; konzentration: Sicht
-  bbch: Sicht; wasseraufwand: Sicht; schaderreger: Sicht; witterung: Sicht; temperatur: Sicht
+  psm: Sicht; duengemittel: Sicht; bbch: Sicht; schaderreger: Sicht; witterung: Sicht; temperatur: Sicht
   einarbeitung: Sicht; bearbeitung: Sicht; schnittart: Sicht; laubarbeitArt: Sicht
 }> = {
-  spritzung:        { psm: 'pflicht', duengemittel: 'hidden',  mengeGesamt: 'pflicht',  aufwandmenge: 'pflicht',  konzentration: 'optional', bbch: 'pflicht',  wasseraufwand: 'optional', schaderreger: 'pflicht',  witterung: 'optional', temperatur: 'optional', einarbeitung: 'hidden',  bearbeitung: 'hidden',  schnittart: 'hidden',  laubarbeitArt: 'hidden'  },
-  duengung:         { psm: 'hidden', duengemittel: 'optional', mengeGesamt: 'pflicht',  aufwandmenge: 'optional', konzentration: 'hidden',   bbch: 'hidden',   wasseraufwand: 'hidden',   schaderreger: 'hidden',   witterung: 'optional', temperatur: 'hidden',   einarbeitung: 'bedingt', bearbeitung: 'hidden',  schnittart: 'hidden',  laubarbeitArt: 'hidden'  },
-  bodenbearbeitung: { psm: 'hidden', duengemittel: 'hidden',   mengeGesamt: 'hidden',   aufwandmenge: 'hidden',   konzentration: 'hidden',   bbch: 'hidden',   wasseraufwand: 'hidden',   schaderreger: 'hidden',   witterung: 'optional', temperatur: 'hidden',   einarbeitung: 'hidden',  bearbeitung: 'pflicht', schnittart: 'hidden',  laubarbeitArt: 'hidden'  },
-  schnitt:          { psm: 'hidden', duengemittel: 'hidden',   mengeGesamt: 'hidden',   aufwandmenge: 'hidden',   konzentration: 'hidden',   bbch: 'hidden',   wasseraufwand: 'hidden',   schaderreger: 'hidden',   witterung: 'hidden',   temperatur: 'hidden',   einarbeitung: 'hidden',  bearbeitung: 'hidden',  schnittart: 'pflicht', laubarbeitArt: 'hidden'  },
-  laubarbeit:       { psm: 'hidden', duengemittel: 'hidden',   mengeGesamt: 'hidden',   aufwandmenge: 'hidden',   konzentration: 'hidden',   bbch: 'optional', wasseraufwand: 'hidden',   schaderreger: 'hidden',   witterung: 'hidden',   temperatur: 'hidden',   einarbeitung: 'hidden',  bearbeitung: 'hidden',  schnittart: 'hidden',  laubarbeitArt: 'pflicht' },
-  sonstiges:        { psm: 'hidden', duengemittel: 'hidden', mengeGesamt: 'hidden', aufwandmenge: 'hidden',   konzentration: 'hidden',   bbch: 'hidden',   wasseraufwand: 'hidden',   schaderreger: 'optional', witterung: 'hidden',   temperatur: 'hidden',   einarbeitung: 'hidden',  bearbeitung: 'hidden',  schnittart: 'hidden',  laubarbeitArt: 'hidden'  },
+  spritzung:        { psm: 'pflicht', duengemittel: 'hidden',   bbch: 'pflicht',  schaderreger: 'pflicht',  witterung: 'optional', temperatur: 'optional', einarbeitung: 'hidden',  bearbeitung: 'hidden',  schnittart: 'hidden',  laubarbeitArt: 'hidden'  },
+  duengung:         { psm: 'hidden',  duengemittel: 'optional', bbch: 'hidden',   schaderreger: 'hidden',   witterung: 'optional', temperatur: 'hidden',   einarbeitung: 'bedingt', bearbeitung: 'hidden',  schnittart: 'hidden',  laubarbeitArt: 'hidden'  },
+  bodenbearbeitung: { psm: 'hidden',  duengemittel: 'hidden',   bbch: 'hidden',   schaderreger: 'hidden',   witterung: 'optional', temperatur: 'hidden',   einarbeitung: 'hidden',  bearbeitung: 'pflicht', schnittart: 'hidden',  laubarbeitArt: 'hidden'  },
+  schnitt:          { psm: 'hidden',  duengemittel: 'hidden',   bbch: 'hidden',   schaderreger: 'hidden',   witterung: 'hidden',   temperatur: 'hidden',   einarbeitung: 'hidden',  bearbeitung: 'hidden',  schnittart: 'pflicht', laubarbeitArt: 'hidden'  },
+  laubarbeit:       { psm: 'hidden',  duengemittel: 'hidden',   bbch: 'optional', schaderreger: 'hidden',   witterung: 'hidden',   temperatur: 'hidden',   einarbeitung: 'hidden',  bearbeitung: 'hidden',  schnittart: 'hidden',  laubarbeitArt: 'pflicht' },
+  sonstiges:        { psm: 'hidden',  duengemittel: 'hidden',   bbch: 'hidden',   schaderreger: 'optional', witterung: 'hidden',   temperatur: 'hidden',   einarbeitung: 'hidden',  bearbeitung: 'hidden',  schnittart: 'hidden',  laubarbeitArt: 'hidden'  },
+}
+
+/**
+ * Menge für den Material-Vorschlag in der Einheit, in der der Preis gilt (Preis je kg bzw. l – beim PSM
+ * die Grundeinheit des Lagers, beim Düngemittel dessen Einheit). kg ↔ l ohne Dichte nicht umrechenbar →
+ * kein Vorschlag, nur ein Hinweis.
+ */
+function materialMenge(mm: MittelmengeErgebnis | null, einheit: string | null): { menge: number | null; hinweis: string | null } {
+  if (!mm || mm.menge === null || !mm.einheit) return { menge: null, hinweis: null }
+  if (!einheit) return { menge: null, hinweis: 'Kein Material-Vorschlag: Einheit des Mittels unbekannt (noch keine Lagerbewegung) – der Preis gilt je kg oder l.' }
+  const menge = mengeInEinheit(mm.menge, mm.einheit, einheit)
+  return menge !== null ? { menge, hinweis: null }
+    : { menge: null, hinweis: `Kein Material-Vorschlag: Mittelmenge in ${mm.einheit}, Preis je ${einheit} – ohne Dichte nicht umrechenbar.` }
 }
 
 function fmtHa(n: number) {
@@ -95,10 +110,12 @@ export default function NeueBehandlungForm({
   const [expandedWGs, setExpandedWGs] = useState<Set<string>>(new Set())
   const [riedenExpanded, setRiedenExpanded] = useState(false)
   const [art, setArt] = useState<Art>('spritzung')
+  // Spritzung: Spritzbrühe gesamt (l) – nie die Mittelmenge; Düngung: Düngermenge (KAN-133)
   const [mengeGesamt, setMengeGesamt] = useState<string>('')
-  const [mengeEinheit, setMengeEinheit] = useState('kg')
+  // Hinweis, wenn ein anderes Düngemittel die Einheit der eingegebenen Düngermenge wechselt (kg ↔ l)
+  const [einheitHinweis, setEinheitHinweis] = useState<string | null>(null)
   const [wasseraufwand, setWasseraufwand] = useState<string>('')
-  // Welches der beiden Felder Gesamtmenge/Spritzbrühe(l/ha) der Nutzer zuletzt befüllt hat -
+  // Welches der beiden Felder Spritzbrühe gesamt/Wasseraufwand (l/ha) der Nutzer zuletzt befüllt hat -
   // dieses treibt die Berechnung, das jeweils andere wird gesperrt (Punkt 1 der Anforderung)
   const [mengeQuelle, setMengeQuelle] = useState<'gesamt' | 'wasser' | null>(null)
   const [aufwandmenge, setAufwandmenge] = useState<string>('')
@@ -116,13 +133,20 @@ export default function NeueBehandlungForm({
   const [kostenBeschreibung, setKostenBeschreibung] = useState('')
   const betragManuellGeaendert = useRef(false)
 
-  const felder = FELD_MATRIX[art]
+  const felder = { ...FELD_MATRIX[art], ...MENGEN_SICHT[art] }
 
   // Beim Wechsel der Art eine Mittel-Auswahl zurücksetzen, die zur neuen Art nicht mehr passt
   useEffect(() => {
     if (art !== 'spritzung' && art !== 'sonstiges') setSelectedPsmId('')
     if (art !== 'duengung') setSelectedDuengemittelId('')
     setSelectedSatzId('')
+    // Menge und Aufwand bedeuten je Art etwas anderes (Spritzbrühe in l bzw. Düngermenge, Mittel bzw.
+    // Dünger; g/hl nur bei Spritzungen) – nicht in die neue Art übernehmen
+    setMengeGesamt('')
+    setEinheitHinweis(null)
+    setAufwandmenge('')
+    setAufwandmengeEinheit('kg_ha')
+    setKonzentration('')
     // Sperr-Zustände der verknüpften Felder zurücksetzen, da sich je nach Art
     // sichtbare Felder ändern (Feld-Matrix)
     setMengeQuelle(null)
@@ -157,88 +181,51 @@ export default function NeueBehandlungForm({
     weingaerten.filter(w => selectedWGs.has(w.id)).reduce((s, w) => s + w.gst_ha_aktiv, 0) +
     Array.from(selectedGSTs.keys()).reduce((s, gstId) => s + (gstLookup.get(gstId)?.flaeche_ha ?? 0), 0)
 
-  // ─── Punkt 1: Gesamtmenge eingesetzt ↔ Spritzbrühe (l/ha) - gegenseitige Sperre + Berechnung ──
-  // Je nachdem, welches der beiden Felder zuletzt befüllt wurde (mengeQuelle), wird das jeweils
-  // andere daraus berechnet und gesperrt. Grundlage ist die aktuell ausgewählte Fläche (totalHaAktiv,
-  // wie bei der bereits bestehenden Live-Zusammenfassung). Wird die Spritzbrühe(l/ha) vorgegeben,
-  // ergibt sich die Gesamtmenge zwingend in Liter (Gesamtmenge = Spritzbrühe(l/ha) × Fläche).
-  const wasserBerechnet = mengeQuelle === 'gesamt' && mengeGesamt && totalHaAktiv > 0
-    ? parseFloat(mengeGesamt) / totalHaAktiv
-    : null
-  const mengeGesamtBerechnet = mengeQuelle === 'wasser' && wasseraufwand && totalHaAktiv > 0
-    ? parseFloat(wasseraufwand) * totalHaAktiv
-    : null
-  const wasserGesperrt = mengeQuelle === 'gesamt' && wasserBerechnet != null
-  const mengeGesamtGesperrt = mengeQuelle === 'wasser' && mengeGesamtBerechnet != null
-
-  // Effektive Gesamtmenge/Einheit für alle nachgelagerten Berechnungen (Aufwand/ha, Cu-Beitrag,
-  // Reinkupfer) - berücksichtigt, ob die Gesamtmenge gerade aus der Spritzbrühe berechnet wird
-  const mengeGesamtNum = mengeGesamtGesperrt ? mengeGesamtBerechnet : (mengeGesamt ? parseFloat(mengeGesamt) : null)
-  const mengeEinheitEff = mengeQuelle === 'wasser' ? 'l' : mengeEinheit
-
-  // Aufwand pro ha (live berechnet)
-  const aufwandProHa = mengeGesamtNum != null && totalHaAktiv > 0
-    ? fmtNum((mengeGesamtNum / totalHaAktiv), { max: 3 }) + ' ' + mengeEinheitEff + '/ha'
-    : null
-
-  // Cu-Beitrag (live berechnet, nur für kg) + Reinkupfer je ha (Punkt 4) - Berechnungsgrundlage
-  // ist der Cu-Gehalt (%) des gewählten PSM aus den Stammdaten
-  const cuBeitragGRaw = selectedPsm?.cu_gehalt_pct && mengeGesamtNum && mengeEinheitEff === 'kg'
-    ? mengeGesamtNum * 1000 * (selectedPsm.cu_gehalt_pct / 100)
-    : null
-  const cuBeitragG = cuBeitragGRaw != null
-    ? fmtNum(Math.round(cuBeitragGRaw)) + ' g Cu'
-    : null
-  const reinkupferKgHaRaw = cuBeitragGRaw != null && totalHaAktiv > 0
-    ? (cuBeitragGRaw / 1000) / totalHaAktiv
-    : null
-  const reinkupferKgHa = reinkupferKgHaRaw != null
-    ? fmtNum(reinkupferKgHaRaw, { max: 3 }) + ' kg Cu/ha'
-    : null
-
-  // ─── Punkt 2: Aufwandmenge (Etikett) ↔ Konzentration (%) - gegenseitige Sperre + Berechnung ──
-  // Bei Etikettangaben je Spritzbrühe (g/hl, ml/hl) ergibt sich die Konzentration direkt daraus
-  // (g/hl ÷ 1000 ≈ %). Bei Angaben je Fläche (kg/ha, l/ha) wird zusätzlich die Spritzbrühe (l/ha)
-  // aus Punkt 1 benötigt (Konzentration % = Aufwandmenge ÷ Spritzbrühe(l/ha) × 100); ist diese nicht
-  // bekannt, bleiben beide Felder unabhängig voneinander editierbar.
-  const effektivesWasserLHa = wasserGesperrt ? wasserBerechnet : (wasseraufwand ? parseFloat(wasseraufwand) : null)
-
-  function konzentrationAusAufwand(wertStr: string, einheit: string): number | null {
-    const wert = parseFloat(wertStr)
-    if (isNaN(wert)) return null
-    if (einheit === 'g_hl' || einheit === 'ml_hl') return wert / 1000
-    if ((einheit === 'kg_ha' || einheit === 'l_ha') && effektivesWasserLHa && effektivesWasserLHa > 0) {
-      return (wert / effektivesWasserLHa) * 100
-    }
-    return null
-  }
-  function aufwandAusKonzentration(konzStr: string, einheit: string): number | null {
-    const konz = parseFloat(konzStr)
-    if (isNaN(konz)) return null
-    if (einheit === 'g_hl' || einheit === 'ml_hl') return konz * 1000
-    if ((einheit === 'kg_ha' || einheit === 'l_ha') && effektivesWasserLHa && effektivesWasserLHa > 0) {
-      return (konz / 100) * effektivesWasserLHa
-    }
-    return null
-  }
-
-  const konzentrationBerechnet = aufwandQuelle === 'aufwand'
-    ? konzentrationAusAufwand(aufwandmenge, aufwandmengeEinheit) : null
-  const aufwandmengeBerechnet = aufwandQuelle === 'konzentration'
-    ? aufwandAusKonzentration(konzentration, aufwandmengeEinheit) : null
-  const konzentrationGesperrt = aufwandQuelle === 'aufwand' && konzentrationBerechnet != null
-  const aufwandmengeGesperrt = aufwandQuelle === 'konzentration' && aufwandmengeBerechnet != null
+  // ─── Punkt 1 + 2: Spritzbrühe gesamt ↔ Wasseraufwand (l/ha), Aufwandmenge ↔ Konzentration (%) ──
+  // Je nachdem, welches Feld zuletzt befüllt wurde (mengeQuelle bzw. aufwandQuelle), wird das jeweils
+  // andere daraus berechnet und gesperrt – Grundlage ist die ausgewählte Fläche. Die Spritzbrühe ist immer
+  // in Litern, die Mittelmenge kommt nur aus der Aufwandmenge (KAN-133); Rechnung und Prüfung wie in der
+  // Server Action (mengenFelder → pruefeMassnahmeMengen).
+  const m = mengenFelder({
+    art, felder,
+    mengeGesamt, wasseraufwand, mengeQuelle,
+    aufwandmenge, aufwandmengeEinheit, konzentration, aufwandQuelle,
+    flaecheHa: totalHaAktiv,
+    psmId: selectedPsmId || null,
+    psm: selectedPsm
+      ? { cuGehaltPct: selectedPsm.cu_gehalt_pct, wirkstoff: selectedPsm.wirkstoff, wirkstoffgehaltPct: selectedPsm.wirkstoffgehalt_pct }
+      : null,
+    duengemittelId: selectedDuengemittelId || null,
+    duengemittelEinheit: selectedDuengemittel?.einheit ?? null,
+    formular: 'neu',
+  })
+  const wasserGesperrt = m.wasserBerechnet !== null
+  const mengeGesamtGesperrt = m.mengeGesamtBerechnet !== null
+  const konzentrationGesperrt = m.konzentrationBerechnet !== null
+  const aufwandmengeGesperrt = m.aufwandmengeBerechnet !== null
+  const mengenTexteAktiv = mengenTexte(art, m.pruefung, m.ha)
+  const mengenSichtbar = (art === 'spritzung' || art === 'duengung')
+    && [aufwandmenge, mengeGesamt, wasseraufwand, konzentration].some(s => s.trim() !== '')
 
   // ─── Kosten-Vorschlag: passende Hektarsätze für die aktuelle Art + Vorschlagssumme ──
   const passendeSaetze = saetzeMassnahmen.filter(s => s.art === art)
   const gewaehlterSatz = passendeSaetze.find(s => s.id === selectedSatzId) ?? passendeSaetze[0]
 
+  // Material = Preis je kg bzw. l × Mittelmenge (nie × Spritzbrühe); der Preis gilt beim PSM je kg bzw. l
+  // (Grundeinheit des Lagers, auch bei Buchungen in g bzw. ml), beim Düngemittel je dessen Einheit
   const materialpreisProEinheit =
-    art === 'spritzung' || art === 'sonstiges' ? selectedPsm?.preis_pro_einheit :
+    art === 'spritzung' ? selectedPsm?.preis_pro_einheit :
     art === 'duengung'  ? selectedDuengemittel?.preis_pro_einheit :
     undefined
-  const materialkosten = materialpreisProEinheit && mengeGesamtNum
-    ? materialpreisProEinheit * mengeGesamtNum
+  const materialEinheit =
+    art === 'spritzung' ? selectedPsm?.einheit ?? null :
+    art === 'duengung'  ? selectedDuengemittel?.einheit ?? 'kg' :
+    null
+  const material = materialpreisProEinheit
+    ? materialMenge(m.pruefung.ok ? m.pruefung.mittelmenge : null, materialEinheit)
+    : { menge: null, hinweis: null }
+  const materialkosten = materialpreisProEinheit && material.menge !== null
+    ? runden(materialpreisProEinheit * material.menge, 2)
     : 0
   const personalkosten = gewaehlterSatz && totalHaAktiv > 0
     ? gewaehlterSatz.satz_pro_ha * totalHaAktiv
@@ -334,30 +321,17 @@ export default function NeueBehandlungForm({
       setError('Dieses Mittel ist nicht öko-zugelassen und passt nicht zum Bio-Status des Betriebs. Bitte ein zugelassenes Mittel wählen.')
       return
     }
+    // Dieselbe Prüfung wie die Server Action, im Formular zusätzlich mit Pflicht Spritzbrühe gesamt oder
+    // Wasseraufwand (KAN-133)
+    const mengen = pruefeMassnahmeMengen(m.eingabe, { bruehePflicht: true })
+    if (!mengen.ok) { setError(mengen.fehler); return }
+    if (m.konzentrationFehler) { setError(m.konzentrationFehler); return }
     const fd = new FormData(e.currentTarget)
     selectedWGs.forEach(id => fd.append('weingarten_ids', id))
     selectedGSTs.forEach((_wgId, gstId) => fd.append('grundstueck_ids', gstId))
-    // Gesperrte (berechnete) Felder werden als disabled gerendert und daher NICHT automatisch
-    // in die FormData übernommen - hier explizit mit dem berechneten Wert nachtragen.
-    if (felder.mengeGesamt !== 'hidden') {
-      if (mengeGesamtGesperrt && mengeGesamtBerechnet != null) {
-        fd.set('menge_gesamt', String(mengeGesamtBerechnet))
-        fd.set('menge_einheit', 'l')
-      } else {
-        fd.set('menge_gesamt', mengeGesamt)
-      }
-    }
-    if (felder.wasseraufwand !== 'hidden') {
-      fd.set('wasseraufwand_l_ha', wasserGesperrt && wasserBerechnet != null ? String(wasserBerechnet) : wasseraufwand)
-    }
-    if (felder.aufwandmenge !== 'hidden') {
-      fd.set('aufwandmenge', aufwandmengeGesperrt && aufwandmengeBerechnet != null ? String(aufwandmengeBerechnet) : aufwandmenge)
-      fd.set('aufwandmenge_einheit', aufwandmengeEinheit)
-    }
-    if (felder.konzentration !== 'hidden') {
-      fd.set('konzentration', konzentrationGesperrt && konzentrationBerechnet != null ? String(konzentrationBerechnet) : konzentration)
-    }
-    fd.set('reinkupfer_kg_ha', reinkupferKgHaRaw != null ? String(reinkupferKgHaRaw) : '')
+    // Mengen so, wie die Prüfung sie normalisiert hat; gesperrte (berechnete) Felder sind disabled und
+    // würden sonst fehlen. reinkupfer_kg_ha rechnet die Server Action selbst.
+    mengenInFormData(fd, felder, mengen.werte, m.konzentrationNum)
     startTransition(async () => {
       try {
         await createBehandlung(fd)
@@ -450,7 +424,14 @@ export default function NeueBehandlungForm({
               {felder.duengemittel === 'pflicht' && <span className="text-s112-err"> *</span>}
             </label>
             <select name="duengemittel_id" value={selectedDuengemittelId} required={felder.duengemittel === 'pflicht'}
-              onChange={e => setSelectedDuengemittelId(e.target.value)}
+              onChange={e => {
+                // Düngermenge in der Einheit des Düngemittels (kg bzw. l): eine Eingabe wird beim Wechsel nie
+                // umgerechnet, nur mit Hinweis versehen (keine Dichte-Annahme)
+                const hinweis = duengerEinheitWechsel(duengermengeEinheit(selectedDuengemittel?.einheit),
+                  duengermengeEinheit(duengemittel.find(d => d.id === e.target.value)?.einheit), mengeGesamt)
+                if (hinweis) setEinheitHinweis(hinweis)
+                setSelectedDuengemittelId(e.target.value)
+              }}
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
               <option value="">– Auswählen –</option>
               {duengemittel.map(d => (
@@ -489,92 +470,140 @@ export default function NeueBehandlungForm({
           </div>
         )}
 
-        {/* Gesamtmenge */}
-        {felder.mengeGesamt !== 'hidden' && (
+        {/* Düngermenge gesamt (kg; l nur bei Düngemitteln in l) */}
+        {art === 'duengung' && felder.mengeGesamt !== 'hidden' && (
           <div>
             <label className="block text-sm font-medium text-s112-text-1 mb-1">
-              Gesamtmenge eingesetzt
+              Düngermenge gesamt ({m.mengeEinheit})
               {felder.mengeGesamt === 'pflicht' && <span className="text-s112-err"> *</span>}
             </label>
-            <div className="flex gap-2">
-              <input name="menge_gesamt" type="number" step="0.001" min="0"
-                required={felder.mengeGesamt === 'pflicht' && !mengeGesamtGesperrt}
-                placeholder="z.B. 2.4"
-                value={mengeGesamtGesperrt ? (mengeGesamtBerechnet != null ? mengeGesamtBerechnet.toFixed(2) : '') : mengeGesamt}
-                disabled={mengeGesamtGesperrt}
-                onChange={e => { setMengeGesamt(e.target.value); setMengeQuelle(e.target.value === '' ? null : 'gesamt') }}
-                className="flex-1 border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-s112-text-2" />
-              <select name="menge_einheit" value={mengeQuelle === 'wasser' ? 'l' : mengeEinheit}
-                disabled={mengeGesamtGesperrt}
-                onChange={e => setMengeEinheit(e.target.value)}
-                className="w-24 border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-s112-text-2">
-                {MENGE_EINHEITEN.map(e => <option key={e} value={e}>{e}</option>)}
-              </select>
-            </div>
-            {mengeQuelle === 'wasser' && (
-              <p className="text-xs text-s112-muted mt-1">
-                {mengeGesamtGesperrt
-                  ? 'Automatisch berechnet aus Spritzbrühe (l/ha) × Fläche.'
-                  : 'Wird berechnet, sobald Ried(en) ausgewählt sind.'}
+            <input aria-label={`Düngermenge gesamt (${m.mengeEinheit})`} name="menge_gesamt" type="text" inputMode="decimal"
+              required={felder.mengeGesamt === 'pflicht'}
+              placeholder="z.B. 950"
+              value={mengeGesamt}
+              onChange={e => { setMengeGesamt(e.target.value); setEinheitHinweis(null) }}
+              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            {einheitHinweis && (
+              <p className="text-xs text-s112-warn-fg mt-1 flex items-start gap-1">
+                <AlertTriangle size={12} className="mt-0.5 flex-shrink-0" />{einheitHinweis}
               </p>
             )}
-            {/* Live-Zusammenfassung */}
-            {(aufwandProHa || cuBeitragG || reinkupferKgHa) && (
-              <div className="mt-2 bg-s112-bg rounded-lg px-3 py-2 text-xs text-s112-text-2 flex flex-wrap gap-x-4 gap-y-1">
-                {totalHaAktiv > 0 && <span>Behandelte Fläche: <strong>{fmtHa(totalHaAktiv)}</strong></span>}
-                {aufwandProHa && <span>≈ <strong>{aufwandProHa}</strong></span>}
-                {cuBeitragG && <span className="text-s112-blue-700">Cu-Eintrag: <strong>{cuBeitragG}</strong></span>}
-                {reinkupferKgHa && <span className="text-s112-blue-700">Reinkupfer: <strong>{reinkupferKgHa}</strong></span>}
-              </div>
+          </div>
+        )}
+
+        {/* Aufwandmenge bzw. Konzentration im Tank – einzige Grundlage der Mittelmenge einer Spritzung */}
+        {(felder.aufwandmenge !== 'hidden' || felder.konzentration !== 'hidden') && (
+          <div>
+            <div className="grid grid-cols-3 gap-3">
+              {felder.aufwandmenge !== 'hidden' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-s112-text-1 mb-1">
+                      {m.jeHl ? 'Konzentration im Tank' : 'Aufwandmenge'}
+                      {felder.aufwandmenge === 'pflicht' && <span className="text-s112-err"> *</span>}
+                    </label>
+                    <input aria-label={m.jeHl ? 'Konzentration im Tank' : 'Aufwandmenge'} name="aufwandmenge" type="text" inputMode="decimal"
+                      placeholder={m.jeHl ? 'z.B. 25' : 'z.B. 0,6'}
+                      required={felder.aufwandmenge === 'pflicht' && !aufwandmengeGesperrt}
+                      value={m.aufwandmengeBerechnet !== null ? fmtNum(m.aufwandmengeBerechnet, { max: 3 }) : aufwandmenge}
+                      disabled={aufwandmengeGesperrt}
+                      onChange={e => { setAufwandmenge(e.target.value); setAufwandQuelle(e.target.value.trim() === '' ? null : 'aufwand') }}
+                      className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-s112-text-2" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-s112-text-1 mb-1">Einheit</label>
+                    <select aria-label="Einheit" name="aufwandmenge_einheit" value={m.aufwandEinheit}
+                      onChange={e => setAufwandmengeEinheit(e.target.value)}
+                      className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                      {m.einheiten.map(e => <option key={e} value={e}>{aufwandEinheitText(e, m.zulaessig)}</option>)}
+                    </select>
+                  </div>
+                </>
+              )}
+              {felder.konzentration !== 'hidden' && (
+                <div>
+                  <label className="block text-sm font-medium text-s112-text-1 mb-1">Konzentration (%)</label>
+                  <input aria-label="Konzentration (%)" name="konzentration" type="text" inputMode="decimal"
+                    placeholder="z.B. 0,5"
+                    value={m.konzentrationBerechnet !== null ? fmtNum(m.konzentrationBerechnet, { max: 3 }) : konzentration}
+                    disabled={konzentrationGesperrt}
+                    onChange={e => { setKonzentration(e.target.value); setAufwandQuelle(e.target.value.trim() === '' ? null : 'konzentration') }}
+                    className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-s112-text-2" />
+                  {m.konzentrationHinweis && (
+                    <p className="text-xs text-s112-muted mt-1">{m.konzentrationHinweis}</p>
+                  )}
+                </div>
+              )}
+            </div>
+            {felder.aufwandmenge !== 'hidden' && (
+              <p className="text-xs text-s112-muted mt-1">
+                {art === 'duengung'
+                  ? 'Optional – maßgeblich für Lager und Nährstoffbilanz ist die Düngermenge gesamt.'
+                  : m.jeHl
+                    ? 'Tatsächliche Konzentration im Tank: Mittelmenge = Konzentration × Spritzbrühe. Etikettwerte je Hektar bitte als kg/ha bzw. l/ha erfassen.'
+                    : 'Die Mittelmenge ergibt sich aus der Aufwandmenge (je ha × Fläche bzw. gesamt).'}
+              </p>
             )}
           </div>
         )}
 
-        {(felder.aufwandmenge !== 'hidden' || felder.konzentration !== 'hidden') && (
-          <div className="grid grid-cols-3 gap-3">
-            {felder.aufwandmenge !== 'hidden' && (
-              <>
+        {/* Spritzbrühe gesamt (l) ↔ Wasseraufwand (l/ha) – Punkt 1 der Anforderung; die Brühe ist nie die Mittelmenge */}
+        {art === 'spritzung' && (felder.mengeGesamt !== 'hidden' || felder.wasseraufwand !== 'hidden') && (
+          <div>
+            <div className="grid grid-cols-2 gap-3">
+              {felder.mengeGesamt !== 'hidden' && (
                 <div>
                   <label className="block text-sm font-medium text-s112-text-1 mb-1">
-                    Aufwandmenge (Etikett)
-                    {felder.aufwandmenge === 'pflicht' && <span className="text-s112-err"> *</span>}
+                    Spritzbrühe gesamt (l)
+                    {felder.mengeGesamt !== 'optional' && <span className="text-s112-err"> *</span>}
                   </label>
-                  <input name="aufwandmenge" type="number" step="0.001" min="0" placeholder="z.B. 3.0"
-                    required={felder.aufwandmenge === 'pflicht' && !aufwandmengeGesperrt}
-                    value={aufwandmengeGesperrt ? (aufwandmengeBerechnet != null ? aufwandmengeBerechnet.toFixed(3) : '') : aufwandmenge}
-                    disabled={aufwandmengeGesperrt}
-                    onChange={e => { setAufwandmenge(e.target.value); setAufwandQuelle(e.target.value === '' ? null : 'aufwand') }}
+                  <input aria-label="Spritzbrühe gesamt (l)" name="menge_gesamt" type="text" inputMode="decimal"
+                    placeholder="z.B. 800"
+                    value={m.mengeGesamtBerechnet !== null ? fmtNum(m.mengeGesamtBerechnet, { max: 3 }) : mengeGesamt}
+                    disabled={mengeGesamtGesperrt}
+                    onChange={e => { setMengeGesamt(e.target.value); setMengeQuelle(e.target.value.trim() === '' ? null : 'gesamt') }}
                     className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-s112-text-2" />
+                  {mengeQuelle === 'wasser' && (
+                    <p className="text-xs text-s112-muted mt-1">
+                      {mengeGesamtGesperrt
+                        ? 'Automatisch berechnet aus Wasseraufwand (l/ha) × Fläche.'
+                        : 'Wird berechnet, sobald Ried(en) ausgewählt sind.'}
+                    </p>
+                  )}
                 </div>
+              )}
+              {felder.wasseraufwand !== 'hidden' && (
                 <div>
-                  <label className="block text-sm font-medium text-s112-text-1 mb-1">Einheit</label>
-                  <select aria-label="Einheit" name="aufwandmenge_einheit" value={aufwandmengeEinheit}
-                    onChange={e => setAufwandmengeEinheit(e.target.value)}
-                    className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
-                    {EINHEITEN_AUFWAND.map(e => <option key={e} value={e}>{EINHEITEN_LABEL[e]}</option>)}
-                  </select>
+                  <label className="block text-sm font-medium text-s112-text-1 mb-1">
+                    Wasseraufwand (l/ha)
+                    {felder.wasseraufwand !== 'optional' && <span className="text-s112-err"> *</span>}
+                  </label>
+                  <input aria-label="Wasseraufwand (l/ha)" name="wasseraufwand_l_ha" type="text" inputMode="decimal"
+                    placeholder="z.B. 400"
+                    value={m.wasserBerechnet !== null ? fmtNum(m.wasserBerechnet, { max: 2 }) : wasseraufwand}
+                    disabled={wasserGesperrt}
+                    onChange={e => { setWasseraufwand(e.target.value); setMengeQuelle(e.target.value.trim() === '' ? null : 'wasser') }}
+                    className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-s112-text-2" />
+                  {mengeQuelle === 'gesamt' && (
+                    <p className="text-xs text-s112-muted mt-1">
+                      {wasserGesperrt
+                        ? 'Automatisch berechnet aus Spritzbrühe gesamt ÷ Fläche.'
+                        : 'Wird berechnet, sobald Ried(en) ausgewählt sind.'}
+                    </p>
+                  )}
                 </div>
-              </>
-            )}
-            {felder.konzentration !== 'hidden' && (
-              <div>
-                <label className="block text-sm font-medium text-s112-text-1 mb-1">Konzentration (%)</label>
-                <input aria-label="Konzentration (%)" name="konzentration" type="number" step="0.01" min="0" max="100"
-                  placeholder="z.B. 0.5"
-                  value={konzentrationGesperrt ? (konzentrationBerechnet != null ? konzentrationBerechnet.toFixed(3) : '') : konzentration}
-                  disabled={konzentrationGesperrt}
-                  onChange={e => { setKonzentration(e.target.value); setAufwandQuelle(e.target.value === '' ? null : 'konzentration') }}
-                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-s112-text-2" />
-                {aufwandQuelle != null && !konzentrationGesperrt && !aufwandmengeGesperrt && effektivesWasserLHa == null
-                  && (aufwandmengeEinheit === 'kg_ha' || aufwandmengeEinheit === 'l_ha') && (
-                  <p className="text-xs text-s112-muted mt-1">Für die automatische Berechnung bitte Spritzbrühe (l/ha) angeben.</p>
-                )}
-              </div>
-            )}
+              )}
+            </div>
+            <p className="text-xs text-s112-muted mt-1">
+              Spritzbrühe = Mittel + Wasser. Eines der beiden Felder ist Pflicht, das andere ergibt sich über die Fläche.
+            </p>
           </div>
         )}
 
-        {(felder.bbch !== 'hidden' || felder.wasseraufwand !== 'hidden' || felder.schaderreger !== 'hidden') && (
+        {/* Live-Zusammenfassung: Mittelmenge, Spritzbrühe, Cu, Reinkupfer – gerechnet wie in der Server Action */}
+        {mengenSichtbar && <MengenZusammenfassung art={art} pruefung={m.pruefung} ha={m.ha} />}
+
+        {(felder.bbch !== 'hidden' || felder.schaderreger !== 'hidden') && (
           <div className="grid grid-cols-2 gap-3">
             {felder.bbch !== 'hidden' && (
               <div>
@@ -587,23 +616,6 @@ export default function NeueBehandlungForm({
                   <option value="">– Auswählen –</option>
                   {BBCH_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
-              </div>
-            )}
-            {felder.wasseraufwand !== 'hidden' && (
-              <div>
-                <label className="block text-sm font-medium text-s112-text-1 mb-1">Spritzbrühe (l/ha)</label>
-                <input aria-label="Spritzbrühe (l/ha)" name="wasseraufwand_l_ha" type="number" step="1" min="0" placeholder="z.B. 500"
-                  value={wasserGesperrt ? (wasserBerechnet != null ? wasserBerechnet.toFixed(1) : '') : wasseraufwand}
-                  disabled={wasserGesperrt}
-                  onChange={e => { setWasseraufwand(e.target.value); setMengeQuelle(e.target.value === '' ? null : 'wasser') }}
-                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-s112-text-2" />
-                {mengeQuelle === 'gesamt' && (
-                  <p className="text-xs text-s112-muted mt-1">
-                    {wasserGesperrt
-                      ? 'Automatisch berechnet aus Gesamtmenge ÷ Fläche.'
-                      : 'Wird berechnet, sobald Ried(en) ausgewählt sind.'}
-                  </p>
-                )}
               </div>
             )}
             {felder.schaderreger !== 'hidden' && (
@@ -868,9 +880,10 @@ export default function NeueBehandlungForm({
             <span className="font-semibold text-s112-blue-700">{selectedWGs.size}</span> Ried/Rieden
             {selectedGSTs.size > 0 && <> · <span className="font-semibold text-s112-blue-700">{selectedGSTs.size}</span> GST</>} ·{' '}
             <span className="font-semibold">{fmtHa(totalHaAktiv)}</span> aktive Fläche
-            {aufwandProHa && <> · <span className="text-s112-text-2">≈ {aufwandProHa}</span></>}
-            {cuBeitragG && <> · <span className="text-s112-blue-700 font-medium">Cu: {cuBeitragG}</span></>}
-            {reinkupferKgHa && <> · <span className="text-s112-blue-700 font-medium">Reinkupfer: {reinkupferKgHa}</span></>}
+            {mengenTexteAktiv?.mittel && <> · <span className="text-s112-text-2">{mengenTexteAktiv.mittelLabel} {mengenTexteAktiv.mittel}</span></>}
+            {mengenTexteAktiv?.bruehe && <> · <span className="text-s112-text-2">Spritzbrühe {mengenTexteAktiv.bruehe}</span></>}
+            {mengenTexteAktiv?.cu && <> · <span className="text-s112-blue-700 font-medium">Cu: {mengenTexteAktiv.cu}</span></>}
+            {mengenTexteAktiv?.reinkupfer && <> · <span className="text-s112-blue-700 font-medium">Reinkupfer: {mengenTexteAktiv.reinkupfer}</span></>}
           </div>
         )}
       </div>
@@ -884,15 +897,23 @@ export default function NeueBehandlungForm({
           <h2 className="text-base font-semibold text-s112-text">Kosten erfassen</h2>
         </label>
         <p className="text-xs text-s112-muted -mt-2">
-          Optional: Material- und Personalkosten dieser Maßnahme automatisch vorschlagen (aus Mittelpreis
-          und Hektarsätzen) und als Kosteneintrag in der Kostenrechnung anlegen.
+          Optional: Material- und Personalkosten dieser Maßnahme automatisch vorschlagen (Material = Preis je
+          kg bzw. l × Mittelmenge, Personal/Maschinen = Hektarsatz × Fläche) und als Kosteneintrag in der
+          Kostenrechnung anlegen.
         </p>
 
         {kostenAktiv && (
           <div className="space-y-3 pt-1">
             {(materialkosten > 0 || personalkosten > 0) && (
               <div className="bg-s112-bg rounded-lg px-3 py-2 text-xs text-s112-text-2 flex flex-wrap gap-x-4 gap-y-1">
-                {materialkosten > 0 && <span>Material: <strong>{fmtEuro(materialkosten)} €</strong></span>}
+                {materialkosten > 0 && (
+                  <span>
+                    Material: <strong>{fmtEuro(materialkosten)} €</strong>
+                    {material.menge !== null && materialpreisProEinheit && (
+                      <> ({fmtNum(material.menge, { max: 3 })} {materialEinheit} × {fmtNum(materialpreisProEinheit, { min: 2, max: 4 })} €/{materialEinheit})</>
+                    )}
+                  </span>
+                )}
                 {personalkosten > 0 && (
                   <span>
                     Personal/Maschinen: <strong>{fmtEuro(personalkosten)} €</strong>
@@ -901,6 +922,11 @@ export default function NeueBehandlungForm({
                 )}
                 <span>Vorschlag gesamt: <strong className="text-s112-blue-700">{fmtEuro(kostenVorschlag)} €</strong></span>
               </div>
+            )}
+            {material.hinweis && (
+              <p className="text-xs text-s112-warn-fg flex items-start gap-1">
+                <AlertTriangle size={12} className="mt-0.5 flex-shrink-0" />{material.hinweis}
+              </p>
             )}
 
             {passendeSaetze.length > 0 && (
