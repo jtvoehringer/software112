@@ -255,7 +255,7 @@ function BenutzerTab({ tenant, members: initialMembers }: { tenant: TenantDetail
     startTransition(async () => {
       const r = await inviteUserToTenant(tenant.id, inviteEmail, inviteRole, inviteName)
       if (r.error) { setError(r.error) }
-      else { setSuccess(`Einladung an ${inviteEmail} versandt.`); setInviteEmail(''); setInviteName(''); setShowInvite(false) }
+      else { setSuccess(r.hinweis ?? `Einladung an ${inviteEmail} versandt.`); setInviteEmail(''); setInviteName(''); setShowInvite(false) }
     })
   }
 

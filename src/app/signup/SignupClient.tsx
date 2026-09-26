@@ -1,10 +1,11 @@
 'use client'
 
-import { PASSWORT_MIN, pruefePasswort } from '@/lib/auth/passwort'
 // ── Self-Service-Signup: öffentliches Formular ────────────────────────────────
-// Rückmeldung 31.8.2026: Betriebsname, Ansprechperson, Zugangsdaten + Plan-Wahl
-// in einem Schritt, danach direkt weiter zum Stripe-Checkout (Karte + 14 Tage
-// Testphase). Stil/Layout analog (auth)/login/page.tsx bzw. abo/AboClient.tsx.
+// Rückmeldung 31.8.2026: Betriebsname, Ansprechperson, E-Mail + Plan-Wahl in
+// einem Schritt. KAN-139: kein Passwort mehr im Formular und kein direkter
+// Stripe-Checkout – die Person bekommt einen Link per E-Mail, bestätigt damit
+// ihre Adresse und legt erst dann das Passwort fest; die Zahlungsdaten folgen
+// nach der ersten Anmeldung auf /abo. Stil/Layout analog (auth)/login/page.tsx.
 
 import { useState } from 'react'
 import { registrierenAction } from './actions'
@@ -18,8 +19,6 @@ export default function SignupClient() {
   const [betrieb, setBetrieb]   = useState('')
   const [name, setName]         = useState('')
   const [email, setEmail]       = useState('')
-  const [passwort, setPasswort] = useState('')
-  const [passwort2, setPasswort2] = useState('')
   // Vorbelegt: Standard (mittleres Paket), sonst das erste verfügbare
   const [paket, setPaket]       = useState<PaketKey | ''>(
     PAKET_OPTIONEN.some(p => p.key === 'standard') ? 'standard' : (PAKET_OPTIONEN[0]?.key ?? ''),
@@ -27,13 +26,12 @@ export default function SignupClient() {
   const [zustimmung, setZustimmung] = useState(false)
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState<string | null>(null)
+  const [erledigt, setErledigt] = useState<string | null>(null)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
 
-    if (passwort !== passwort2) { setError('Die Passwörter stimmen nicht überein.'); return }
-    { const f = pruefePasswort(passwort); if (f) { setError(f); return } }
     if (!zustimmung) { setError('Bitte AGB und Datenschutzerklärung bestätigen.'); return }
     if (!paket) { setError('Bitte ein Paket auswählen.'); return }
 
@@ -42,16 +40,26 @@ export default function SignupClient() {
     fd.set('betrieb', betrieb)
     fd.set('name', name)
     fd.set('email', email)
-    fd.set('passwort', passwort)
     fd.set('paket', paket)
 
     const res = await registrierenAction(fd)
-    if (!res.ok) {
-      setError(res.fehler)
-      setLoading(false)
-      return
-    }
-    window.location.href = res.url
+    setLoading(false)
+    if (!res.ok) { setError(res.fehler); return }
+    setErledigt(res.hinweis)
+  }
+
+  if (erledigt) {
+    return (
+      <div className="min-h-screen bg-s112-bg flex items-center justify-center p-4">
+        <div className="w-full max-w-lg">
+          <div className="card space-y-3 text-center" role="status">
+            <h1 className="text-lg font-semibold text-s112-text">Bitte bestätigen Sie Ihre E-Mail-Adresse</h1>
+            <p className="text-sm text-s112-muted">{erledigt}</p>
+            <a href="/login" className="text-sm text-s112-blue-700 hover:underline block pt-1">Zur Anmeldung</a>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -85,18 +93,9 @@ export default function SignupClient() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="passwort" className="block text-sm font-medium text-s112-text-1 mb-1">Passwort</label>
-                <input id="passwort" type="password" required minLength={PASSWORT_MIN} autoComplete="new-password" className="input" placeholder={`mind. ${PASSWORT_MIN} Zeichen, Buchstaben und Ziffern`}
-                  value={passwort} onChange={e => setPasswort(e.target.value)} />
-              </div>
-              <div>
-                <label htmlFor="passwort2" className="block text-sm font-medium text-s112-text-1 mb-1">Passwort wiederholen</label>
-                <input id="passwort2" type="password" required autoComplete="new-password" className="input" placeholder="wiederholen"
-                  value={passwort2} onChange={e => setPasswort2(e.target.value)} />
-              </div>
-            </div>
+            <p className="text-[12.5px] text-s112-muted">
+              Wir schicken Ihnen einen Link an diese Adresse. Darüber bestätigen Sie sie und legen Ihr Passwort fest.
+            </p>
 
             {PAKET_OPTIONEN.length > 0 && (
               <div>
@@ -141,7 +140,7 @@ export default function SignupClient() {
             )}
 
             <button type="submit" disabled={loading} className="btn-primary w-full mt-2">
-              {loading ? 'Konto wird angelegt …' : 'Jetzt kostenlos testen'}
+              {loading ? 'Wird gesendet …' : 'Jetzt kostenlos testen'}
             </button>
           </form>
         </div>
