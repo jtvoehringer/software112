@@ -1,0 +1,109 @@
+name: E2E-Regressionstests
+
+# Playwright-Regressionstests (e2e/, siehe e2e/README.md). Bewusst NICHT bei jedem Push:
+#  - manuell (workflow_dispatch) gegen E2E_BASE_URL bzw. die eingegebene URL
+#  - optional nach einem erfolgreichen Vercel-Preview-Deployment (deployment_status)
+# Läuft nur, wenn das Secret E2E_BASE_URL gesetzt ist (Schalter „E2E aktiv“).
+#
+# Produktionsschutz: playwright.config.ts bricht ab, wenn das Ziel die Produktion ist oder
+# das Supabase-Projekt unbekannt ist – außer im Nur-Lesen-Modus (@lesend). Vercel-Previews
+# nutzen die Produktions-Datenbank, deshalb laufen sie hier IMMER nur lesend.
+#
+# Secrets: E2E_BASE_URL, E2E_SUPABASE_URL (nur für eine eigene Test-Umgebung),
+#   E2E_{TENANT_ADMIN,WINZER,LESER}_{EMAIL,PASSWORT,TOTP_SECRET,TENANT_ID},
+#   E2E_FREMDE_IDS, E2E_MODULE, E2E_VERCEL_BYPASS (Protection Bypass for Automation)
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'Basis-URL (leer = Secret E2E_BASE_URL)'
+        required: false
+        default: ''
+      nur_lesen:
+        description: 'Nur lesende Tests (@lesend)'
+        type: boolean
+        default: true
+  deployment_status:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+jobs:
+  vorab:
+    runs-on: ubuntu-latest
+    outputs:
+      aktiv: ${{ steps.pruefen.outputs.aktiv }}
+    steps:
+      - id: pruefen
+        env:
+          E2E_BASE_URL: ${{ secrets.E2E_BASE_URL }}
+          EREIGNIS: ${{ github.event_name }}
+          STATUS: ${{ github.event.deployment_status.state }}
+          UMGEBUNG: ${{ github.event.deployment.environment }}
+        run: |
+          aktiv=false
+          if [ -n "$E2E_BASE_URL" ]; then
+            if [ "$EREIGNIS" = "workflow_dispatch" ]; then aktiv=true; fi
+            # nur erfolgreiche Vercel-Previews, nie Production-Deployments
+            if [ "$EREIGNIS" = "deployment_status" ] && [ "$STATUS" = "success" ] && [[ "$UMGEBUNG" == Preview* ]]; then aktiv=true; fi
+          else
+            echo "Secret E2E_BASE_URL nicht gesetzt – E2E-Tests übersprungen."
+          fi
+          echo "aktiv=$aktiv" >> "$GITHUB_OUTPUT"
+
+  e2e:
+    needs: vorab
+    if: needs.vorab.outputs.aktiv == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: 'true'
+      # Preview: URL des Deployments; manuell: Eingabe oder Secret
+      E2E_BASE_URL: ${{ github.event_name == 'deployment_status' && github.event.deployment_status.target_url || inputs.base_url || secrets.E2E_BASE_URL }}
+      # Previews laufen gegen die Produktions-Datenbank → immer nur lesend
+      E2E_NUR_LESEN: ${{ (github.event_name == 'deployment_status' || inputs.nur_lesen) && '1' || '' }}
+      E2E_SUPABASE_URL: ${{ github.event_name != 'deployment_status' && secrets.E2E_SUPABASE_URL || '' }}
+      E2E_TENANT_ADMIN_EMAIL: ${{ secrets.E2E_TENANT_ADMIN_EMAIL }}
+      E2E_TENANT_ADMIN_PASSWORT: ${{ secrets.E2E_TENANT_ADMIN_PASSWORT }}
+      E2E_TENANT_ADMIN_TOTP_SECRET: ${{ secrets.E2E_TENANT_ADMIN_TOTP_SECRET }}
+      E2E_TENANT_ADMIN_TENANT_ID: ${{ secrets.E2E_TENANT_ADMIN_TENANT_ID }}
+      E2E_WINZER_EMAIL: ${{ secrets.E2E_WINZER_EMAIL }}
+      E2E_WINZER_PASSWORT: ${{ secrets.E2E_WINZER_PASSWORT }}
+      E2E_WINZER_TOTP_SECRET: ${{ secrets.E2E_WINZER_TOTP_SECRET }}
+      E2E_WINZER_TENANT_ID: ${{ secrets.E2E_WINZER_TENANT_ID }}
+      E2E_LESER_EMAIL: ${{ secrets.E2E_LESER_EMAIL }}
+      E2E_LESER_PASSWORT: ${{ secrets.E2E_LESER_PASSWORT }}
+      E2E_LESER_TOTP_SECRET: ${{ secrets.E2E_LESER_TOTP_SECRET }}
+      E2E_LESER_TENANT_ID: ${{ secrets.E2E_LESER_TENANT_ID }}
+      E2E_FREMDE_IDS: ${{ secrets.E2E_FREMDE_IDS }}
+      E2E_MODULE: ${{ secrets.E2E_MODULE }}
+      E2E_VERCEL_BYPASS: ${{ secrets.E2E_VERCEL_BYPASS }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Preview: genau den deployten Stand testen
+          ref: ${{ github.event_name == 'deployment_status' && github.event.deployment.sha || github.ref }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - name: Abhängigkeiten installieren
+        run: npm ci
+      - name: Chromium installieren
+        run: npx playwright install --with-deps chromium
+      - name: Playwright-Tests
+        run: npx playwright test
+      - name: Bericht hochladen
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-bericht
+          path: |
+            playwright-report/
+            e2e/.ergebnisse/
+          retention-days: 7
