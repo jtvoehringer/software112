@@ -95,12 +95,13 @@ if (hooksMoeglich) {
 }
 
 const laden = (rel) => import(pathToFileURL(path.join(SRC, rel)).href)
-const [arten, psm, rueck, feld, mengen, massnahmeMengen, tool, aktionen, lagerAktionen] = hooksMoeglich
+const [arten, psm, rueck, feld, mengen, massnahmeMengen, tool, aktionen, lagerAktionen, artOptionen, lucide] = hooksMoeglich
   ? await Promise.all([
       laden('lib/behandlungen/arten.ts'), laden('lib/behoerden/psm.ts'), laden('lib/behoerden/rueckverfolgung.ts'),
       laden('app/(dashboard)/behandlungen/neu/feldMatrix.ts'), laden('app/(dashboard)/behandlungen/neu/mengenFelder.ts'),
       laden('lib/behandlungen/massnahmeMengen.ts'), laden('lib/assistent/tools/massnahme.ts'),
       laden('app/(dashboard)/behandlungen/actions.ts'), laden('app/(dashboard)/behandlungen/lager/actions.ts'),
+      laden('app/(dashboard)/behandlungen/neu/artOptionen.ts'), import('lucide-react'),
     ])
   : []
 const nurMitHooks = { skip: hooksMoeglich ? false : 'module.registerHooks fehlt (Node ≥ 22.15 nötig)' }
@@ -559,12 +560,18 @@ describe('Quelltext: keine Stelle mit eigener, veralteter Artenliste', () => {
     ]) assert.match(quelle(rel), /from '@\/lib\/behandlungen\/arten'/, rel)
   })
 
-  test('Formulare: Auswahl aus ART_OPTIONS mit eigenem Symbol für Laubschneiden (nicht Schere, nicht Blatt)', () => {
-    const s = quelle('app/(dashboard)/behandlungen/neu/artOptionen.ts')
-    const symbol = Object.fromEntries([...s.matchAll(/^\s+([a-z]+):\s+([A-Z][A-Za-z]+),\r?$/gm)].map(m => [m[1], m[2]]))
-    assert.deepEqual(Object.keys(symbol), DB_SAETZE_ART_CHECK)
-    assert.equal(symbol.laubschneiden, 'Shrub')
-    assert.equal(new Set(Object.values(symbol)).size, DB_SAETZE_ART_CHECK.length, 'jede Art ein eigenes Symbol')
+  test('Formulare: Auswahl aus ART_OPTIONS mit eigenem Symbol für Laubschneiden (nicht Schere, nicht Blatt)', nurMitHooks, () => {
+    const { ART_OPTIONS, ART_SYMBOL } = artOptionen
+    assert.deepEqual(ART_OPTIONS.map(o => o.value), DB_SAETZE_ART_CHECK)
+    assert.deepEqual(ART_OPTIONS.map(o => o.label), DB_SAETZE_ART_CHECK.map(a => arten.MASSNAHMEN_ART_LABEL[a]))
+    for (const o of ART_OPTIONS) assert.equal(o.icon, ART_SYMBOL[o.value], `Symbol der Option ${o.value}`)
+    assert.deepEqual(Object.keys(ART_SYMBOL).sort(), [...DB_SAETZE_ART_CHECK].sort())
+    // Vergleich der Komponenten selbst, nicht ihrer Namen: in lucide-react ist z. B. MoreHorizontal dasselbe
+    // Symbol wie Ellipsis
+    assert.equal(new Set(Object.values(ART_SYMBOL)).size, DB_SAETZE_ART_CHECK.length, 'jede Art ein eigenes Symbol')
+    assert.equal(ART_SYMBOL.laubschneiden, lucide.Shrub)
+    assert.notEqual(ART_SYMBOL.laubschneiden, lucide.Scissors)
+    assert.notEqual(ART_SYMBOL.laubschneiden, lucide.Leaf)
     for (const rel of ['app/(dashboard)/behandlungen/neu/NeueBehandlungForm.tsx', 'app/(dashboard)/behandlungen/[id]/edit/BehandlungEditForm.tsx']) {
       const f = quelle(rel)
       assert.match(f, /import \{ ART_OPTIONS \} from '\.\.?\/(\.\.\/neu\/)?artOptionen'/, rel)
@@ -584,8 +591,9 @@ describe('Quelltext: keine Stelle mit eigener, veralteter Artenliste', () => {
     assert.doesNotMatch(f, /selectedPsm\?\.wartezeit_tage \?\? selectedDuengemittel/)
   })
 
-  // greift auf die per Hook geladenen Module zu → ohne Hooks übersprungen (wie massnahme-mengen.test.mjs)
-  test('Art der Laubarbeit ist Pflicht – Anlegen, Bearbeiten (auch nach Artwechsel) und Server Actions', nurMitHooks, () => {
+  // greift auf die per Hook geladenen Module zu → ohne Hooks übersprungen (wie massnahme-mengen.test.mjs);
+  // die Server Actions prüft der Block „createBehandlung/updateBehandlung: bei Arten ohne Mittel …“ (Verhalten)
+  test('Art der Laubarbeit ist Pflicht – Anlegen und Bearbeiten (auch nach Artwechsel)', nurMitHooks, () => {
     assert.equal(feld.FELD_MATRIX.laubarbeit.laubarbeitArt, 'pflicht')
     const neu = quelle('app/(dashboard)/behandlungen/neu/NeueBehandlungForm.tsx')
     assert.match(neu, /<select name="laubarbeit_art" required=\{felder\.laubarbeitArt === 'pflicht'\}/)
@@ -593,8 +601,6 @@ describe('Quelltext: keine Stelle mit eigener, veralteter Artenliste', () => {
     assert.match(edit, /import \{ BBCH_OPTIONS, FELD_MATRIX, bbchAltwert, bbchBeimBearbeiten, wetterBeimBearbeiten \} from '\.\.\/\.\.\/neu\/feldMatrix'/)
     assert.match(edit, /name="laubarbeit_art"[^>]*\s+required=\{FELD_MATRIX\.laubarbeit\.laubarbeitArt === 'pflicht'\}/)
     assert.match(edit, /Art der Laubarbeit\s+\{FELD_MATRIX\.laubarbeit\.laubarbeitArt === 'pflicht' && <span className="text-s112-err"> \*<\/span>\}/)
-    const a = quelle('app/(dashboard)/behandlungen/actions.ts')
-    assert.equal(a.match(/if \(laubarbeitArtFehlt\(art, laubarbeitArt\)\) throw new AktionsFehler\(LAUBARBEIT_ART_FEHLT\)/g)?.length, 2)   // Anlegen und Bearbeiten
   })
 
   test('Bearbeiten-Formular: ältere Freitext-Unterart der Laubarbeit bleibt als eigene Option vorausgewählt', () => {
@@ -666,17 +672,9 @@ describe('Quelltext: keine Stelle mit eigener, veralteter Artenliste', () => {
     assert.match(c, /<option value="">Alle Arten<\/option>/)
   })
 
-  test('Server Actions: Mittel und Wartezeit über mittelFuerArt (Anlegen und Bearbeiten)', () => {
-    const a = quelle('app/(dashboard)/behandlungen/actions.ts')
-    assert.equal(a.match(/= mittelFuerArt\(art, \{/g)?.length, 2)
-    assert.doesNotMatch(a, /const (psmId|wartezeit)\s+=/)
-  })
-
-  // Art-Prüfung (Maßnahme und Stundensatz): Verhaltenstests im Block „Server Actions: Laubschneiden wird gespeichert …“
-  test('Server Actions: laubarbeit_art über laubarbeitArtFuer (Anlegen und Bearbeiten)', () => {
-    const a = quelle('app/(dashboard)/behandlungen/actions.ts')
-    assert.equal(a.match(/laubarbeitArtFuer\(art,/g)?.length, 2)      // createBehandlung und updateBehandlung
-  })
+  // Server Actions – Art-Prüfung (Maßnahme und Stundensatz): Verhaltenstests im Block „Server Actions: Laubschneiden
+  // wird gespeichert …“; Mittel, Wartezeit, laubarbeit_art und Pflicht der Unterart beim Anlegen und Bearbeiten:
+  // Block „createBehandlung/updateBehandlung: bei Arten ohne Mittel …“
 
   test('Weinbuch zeigt die Bezeichnung statt des Rohwerts', () => {
     const w = quelle('lib/wein/weinbuch.ts')
@@ -686,8 +684,13 @@ describe('Quelltext: keine Stelle mit eigener, veralteter Artenliste', () => {
   })
 
   test('Assistent (Systemprompt) und KI-Kontext nennen Laubschneiden und grenzen es von Gipfeln ab', nurMitHooks, () => {
+    // Artenliste unter „AKTUELL KANNST DU“ ist im Systemprompt von Hand geschrieben → genau die Klammer nach
+    // „Maßnahmen dokumentieren“ gegen alle Arten des Formulars (ein includes über den ganzen Prompt träfe z. B.
+    // „Sonstiges“ auch unter Punkt 2)
     const chat = quelle('app/api/assistent/chat/route.ts').replace(/\s+/g, ' ')
-    assert.match(chat, /Maßnahmen dokumentieren \(Spritzung, Düngung, Bodenbearbeitung, Schnitt, Laubarbeit, Laubschneiden, Sonstiges\)/)
+    const promptArten = chat.match(/Maßnahmen dokumentieren \(([^)]*)\) über das Tool "massnahme_dokumentieren"/)?.[1]
+    assert.ok(promptArten, 'Systemprompt: Artenliste nach „Maßnahmen dokumentieren“ nicht gefunden')
+    assert.deepEqual(promptArten.split(', '), arten.MASSNAHMEN_ARTEN.map(a => arten.MASSNAHMEN_ART_LABEL[a]))
     const ki = quelle('app/api/ki-abfrage/route.ts').replace(/\s+/g, ' ')
     for (const art of DB_BEHANDLUNGEN_ART_CHECK) assert.ok(ki.includes(`'${art}' (${arten.MASSNAHMEN_ART_LABEL[art]}`), `KI-Kontext: ${art}`)
     assert.match(ki, /'laubschneiden' \(Laubschneiden = maschinelles Laubschneiden an Seiten und Gipfel, ohne laubarbeit_art\)/)
@@ -712,8 +715,16 @@ describe('Quelltext: keine Stelle mit eigener, veralteter Artenliste', () => {
     // Stichtag = erster 'laubschneiden'-Eintrag des Betriebs (RLS), nicht ein festes Datum: Der Migrationstag
     // (CHECK seit 26.09.2026) liegt vor dem Deploy der Auswahl, bis dahin gab es für maschinelles Gipfeln nur
     // Laubarbeit › Gipfeln – ein festes Datum davor machte solche Einträge fälschlich zu „von Hand“
-    assert.match(ki, /STICHTAG ist deshalb der erste Eintrag damit im Betrieb: \(SELECT min\(created_at\) FROM behandlungen WHERE art = 'laubschneiden'\)/)
-    assert.match(ki, /bzw\. bei allen, solange es keinen 'laubschneiden'-Eintrag gibt/)
+    assert.match(ki, /STICHTAG ist deshalb der erste damit angelegte Eintrag im Betrieb: \(SELECT min\(created_at\) FROM behandlungen WHERE art = 'laubschneiden' AND created_at >= '(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\+00'\)/)
+    // … gezählt erst ab dem Einspielen der Migration (Version = Zeitpunkt in UTC): Davor ließ der CHECK kein
+    // 'laubschneiden' zu – eine ältere Zeile ist umgestellt (created_at bleibt beim Bearbeiten) oder rückdatiert
+    // und zöge den Stichtag sonst zurück
+    const untergrenze = ki.match(/WHERE art = 'laubschneiden' AND created_at >= '([^']+)\+00'/)?.[1]
+    const version = readdirSync(path.resolve(SRC, '../supabase/migrations')).find(d => /^\d{14}_kan143_laubschneiden\.sql$/.test(d))?.slice(0, 14)
+    assert.ok(version, 'Migration *_kan143_laubschneiden.sql fehlt')
+    assert.equal(untergrenze, version.replace(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/, '$1-$2-$3 $4:$5:$6'))
+    assert.match(ki, /Auf 'laubschneiden' umgestellte oder rückdatierte Einträge mit älterem created_at bestimmen den Stichtag nicht – sie selbst sind eindeutig Laubschneiden/)
+    assert.match(ki, /bzw\. bei allen, solange der STICHTAG NULL ist/)
     const artenAbschnitt = ki.slice(ki.indexOf('ARTEN (behandlungen.art'), ki.indexOf('saetze_massnahmen.art'))
     assert.ok(artenAbschnitt.includes('STICHTAG'), 'KI-Kontext: Abschnitt ARTEN/UNTERARTEN gefunden')
     assert.doesNotMatch(artenAbschnitt, /\d{1,2}\.\d{2}\.\d{4}/)

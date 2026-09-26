@@ -7,8 +7,9 @@
 //   saetze_massnahmen_art_check  = MASSNAHMEN_ARTEN (ohne 'lese')
 // Eine neue Art braucht zuerst eine Migration beider CHECKs, danach hier den Wert, die Bezeichnung,
 // die Feld-Matrix (behandlungen/neu/feldMatrix.ts), die Mengenfelder (neu/mengenFelder.ts), das
-// Symbol (neu/artOptionen.ts) und die Texte für Assistent und KI (scripts/tests/massnahmen-arten.test.mjs
-// prüft das).
+// Symbol (neu/artOptionen.ts) und die Texte für Assistent (Feld-Matrix im Tool, Artenliste im Systemprompt von
+// api/assistent/chat/route.ts) und KI (api/ki-abfrage/route.ts) – scripts/tests/massnahmen-arten.test.mjs
+// prüft das.
 //
 // Laubschneiden (KAN-143) = maschinelles Laubschneiden an Seiten und Gipfel. „Gipfeln“ von Hand bleibt
 // Unterart von Laubarbeit (laubarbeit_art); bestehende Einträge werden nicht umgedeutet (Entscheidung

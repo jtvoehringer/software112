@@ -69,10 +69,13 @@ const TABELLEN_KONTEXT = `
   (Bodenbearbeitung), 'schnitt' (Schnitt), 'laubarbeit' (Laubarbeit, Unterart in laubarbeit_art), 'laubschneiden'
   (Laubschneiden = maschinelles Laubschneiden an Seiten und Gipfel, ohne laubarbeit_art), 'lese' (Lese),
   'sonstiges' (Sonstiges). Die Art 'laubschneiden' gibt es erst seit Herbst 2026 – STICHTAG ist deshalb der
-  erste Eintrag damit im Betrieb: (SELECT min(created_at) FROM behandlungen WHERE art = 'laubschneiden'). Bei
-  Einträgen mit created_at vor dem Stichtag – bzw. bei allen, solange es keinen 'laubschneiden'-Eintrag gibt –
-  (erfasst vor der Unterscheidung; maßgeblich ist created_at, nicht datum – nachgetragene Maßnahmen mit älterem
-  datum sind eindeutig) kann auch eine 'laubarbeit' maschinelles Laubschneiden bzw. Gipfeln sein.
+  erste damit angelegte Eintrag im Betrieb: (SELECT min(created_at) FROM behandlungen WHERE art = 'laubschneiden'
+  AND created_at >= '2026-09-26 17:58:35+00'); die Untergrenze ist die Freischaltung der Art in der Datenbank.
+  Auf 'laubschneiden' umgestellte oder rückdatierte Einträge mit älterem created_at bestimmen den Stichtag nicht –
+  sie selbst sind eindeutig Laubschneiden. Bei Einträgen mit created_at vor dem Stichtag – bzw. bei allen, solange
+  der STICHTAG NULL ist – (erfasst vor der Unterscheidung; maßgeblich ist created_at, nicht datum – nachgetragene
+  Maßnahmen mit älterem datum sind eindeutig) kann auch eine 'laubarbeit' maschinelles Laubschneiden bzw. Gipfeln
+  sein.
   UNTERARTEN (behandlungen.laubarbeit_art, nur bei art='laubarbeit'): 'entblaettern' (Entblättern), 'ausgeizen'
   (Ausgeizen), 'gipfeln' (Gipfeln; bei created_at ab dem Stichtag Gipfeln von Hand, davor offen), 'heften'
   (Heften), 'sonstige' (Sonstige). Ältere Einträge enthalten Freitext (z.B. 'Heften / Einstricken') – nach einer
