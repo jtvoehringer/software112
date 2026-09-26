@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
     if (!user) return NextResponse.json({ eintraege: [] })
 
     const [{ data: cfg }, { data: tenantCfg }] = await Promise.all([
-      (supabase.from('user_email_connections') as any)
+      (admin.from('user_email_connections') as any)
         .select('m365_aktiv, m365_access_token_enc, m365_refresh_token_enc, m365_token_expires_at')
         .eq('tenant_id', tenantId).eq('user_id', user.id).maybeSingle(),
       (admin.from('tenant_einstellungen') as any)
@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
     // damit der Client die zuletzt erfolgreich geladenen Termine NICHT überschreibt/löscht.
     let token: string
     try {
-      token = await getValidUserAccessToken(c, tenantCfg as R, supabase, tenantId, user.id)
+      token = await getValidUserAccessToken(c, tenantCfg as R, admin, tenantId, user.id)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       console.error(`[outlook-kalender] Token-Fehler für user=${user.id} tenant=${tenantId}:`, msg)

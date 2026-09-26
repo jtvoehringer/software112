@@ -25,12 +25,14 @@ export type GeladeneMail = {
 }
 
 export async function ladeMailAusPostfach(
-  supabase: R, tenantId: string, userId: string, mailId: string, mailbox: 'own' | 'shared' = 'own',
+  tenantId: string, userId: string, mailId: string, mailbox: 'own' | 'shared' = 'own',
 ): Promise<GeladeneMail | null> {
   if (!mailId || !userId) return null
+  // KAN-135: Zugangsdaten nur per Service-Role – eingeschränkt auf die eigene Zeile
+  // (userId aus getUser() des Aufrufers, tenantId aus der Mitgliedschaft)
   const admin = createSupabaseAdminClient()
   const [{ data: cfg }, { data: tenantCfg }] = await Promise.all([
-    (supabase.from('user_email_connections') as any)
+    (admin.from('user_email_connections') as any)
       .select('m365_aktiv, m365_access_token_enc, m365_refresh_token_enc, m365_token_expires_at, m365_scope, monitored_email, email_address')
       .eq('tenant_id', tenantId).eq('user_id', userId).maybeSingle(),
     (admin.from('tenant_einstellungen') as any)
@@ -39,7 +41,7 @@ export async function ladeMailAusPostfach(
   const c = cfg as R | null
   if (!c?.m365_aktiv || !c.m365_access_token_enc || !tenantCfg) return null
 
-  const token = await getValidUserAccessToken(c, tenantCfg as R, supabase, tenantId, userId)
+  const token = await getValidUserAccessToken(c, tenantCfg as R, admin, tenantId, userId)
   const base = getMailboxBase(c, mailbox)
   const res = await fetch(
     `${base}/messages/${encodeURIComponent(mailId)}?$select=id,subject,from,toRecipients,receivedDateTime,sentDateTime,body,conversationId`,

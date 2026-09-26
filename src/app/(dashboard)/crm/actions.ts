@@ -728,7 +728,7 @@ export async function createLeadAusEmail(d: LeadAusEmailDaten): Promise<{ kontak
       const mailbox = d.mail.mailbox === 'shared' ? 'shared' : 'own'
       let geladen: Awaited<ReturnType<typeof ladeMailAusPostfach>> = null
       try {
-        geladen = await ladeMailAusPostfach(supabase, tenantId, user?.id ?? '', d.mail.id, mailbox)
+        geladen = await ladeMailAusPostfach(tenantId, user?.id ?? '', d.mail.id, mailbox)
       } catch (e) {
         console.error('[createLeadAusEmail] Mail nicht aus dem Postfach ladbar:', e)
       }
