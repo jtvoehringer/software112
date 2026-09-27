@@ -45,7 +45,7 @@ export async function getM365Token(
   userId: string
 ): Promise<{ uc: R | null; token: string | null }> {
   const [{ data: uc }, { data: tc }] = await Promise.all([
-    (supabase.from('user_email_connections') as any)
+    (adminClient.from('user_email_connections') as any)
       .select(USER_EMAIL_CONN_SELECT).eq('tenant_id', tenantId).eq('user_id', userId).maybeSingle(),
     (adminClient.from('tenant_einstellungen') as any)
       .select('m365_tenant_id, m365_client_id, m365_client_secret_enc').eq('tenant_id', tenantId).maybeSingle(),
@@ -53,7 +53,7 @@ export async function getM365Token(
   if (!(uc as R | null)?.m365_aktiv || !(uc as R | null)?.m365_access_token_enc)
     return { uc: uc as R | null, token: null }
   try {
-    const token = await getValidUserAccessToken(uc as R, tc as R, supabase, tenantId, userId)
+    const token = await getValidUserAccessToken(uc as R, tc as R, adminClient, tenantId, userId)
     return { uc: uc as R | null, token }
   } catch {
     return { uc: uc as R | null, token: null }

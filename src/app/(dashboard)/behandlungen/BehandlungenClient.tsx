@@ -6,6 +6,7 @@ import { Pencil, Trash2 } from 'lucide-react'
 import { deleteBehandlung } from './actions'
 import type { Behandlung } from './page'
 import { fmtNum } from '@/lib/format'
+import { MASSNAHMEN_ART_LABEL, artFilterOptionen, filterMassnahmen } from '@/lib/behandlungen/arten'
 
 const WITTERUNG_LABEL: Record<string, string> = {
   sonnig: 'Sonnig', bewoelkt: 'Bewölkt',
@@ -15,11 +16,8 @@ const EINHEIT_LABEL: Record<string, string> = {
   kg_ha: 'kg/ha', l_ha: 'l/ha', g_hl: 'g/hl',
   ml_hl: 'ml/hl', kg: 'kg', l: 'l',
 }
-const ART_LABEL: Record<string, string> = {
-  spritzung: 'Spritzung', duengung: 'Düngung',
-  bodenbearbeitung: 'Bodenbearbeitung', schnitt: 'Schnitt',
-  laubarbeit: 'Laubarbeit', lese: 'Lese', sonstiges: 'Sonstiges',
-}
+// Bezeichnungen aller Arten (lib/behandlungen/arten.ts, seit KAN-143 mit Laubschneiden)
+const ART_LABEL: Record<string, string> = MASSNAHMEN_ART_LABEL
 
 function formatDate(d: string) {
   return new Date(d).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -58,14 +56,11 @@ export default function BehandlungenClient({
 }) {
   const [pending, startTransition] = useTransition()
   const [filter, setFilter] = useState('')
+  const [artFilter, setArtFilter] = useState('')
 
-  const gefiltert = filter
-    ? behandlungen.filter(b =>
-        b.weingarten_name?.toLowerCase().includes(filter.toLowerCase()) ||
-        b.psm_name?.toLowerCase().includes(filter.toLowerCase()) ||
-        b.weingarten_ried?.toLowerCase().includes(filter.toLowerCase())
-      )
-    : behandlungen
+  // Art-Auswahl (alle Maßnahmenarten, Lese nur, wenn solche Einträge da sind) und Filter: lib/behandlungen/arten.ts
+  const artOptionen = artFilterOptionen(behandlungen)
+  const gefiltert = filterMassnahmen(behandlungen, artFilter, filter)
 
   const grouped = groupByDate(gefiltert)
 
@@ -89,15 +84,28 @@ export default function BehandlungenClient({
 
   return (
     <div className={pending ? 'opacity-60 pointer-events-none' : ''}>
-      {/* Filter */}
-      <div className="mb-4">
+      {/* Filter: Freitext (Ried, Mittel, Art) und Art */}
+      <div className="mb-4 flex flex-wrap gap-2">
         <input
+          aria-label="Filtern nach Ried, Mittel oder Art"
           value={filter}
           onChange={e => setFilter(e.target.value)}
-          placeholder="Filtern nach Ried, Mittel…"
+          placeholder="Filtern nach Ried, Mittel, Art…"
           className="w-full max-w-sm border border-s112-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
         />
+        <select
+          aria-label="Art der Maßnahme"
+          value={artFilter}
+          onChange={e => setArtFilter(e.target.value)}
+          className="border border-s112-border rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
+        >
+          <option value="">Alle Arten</option>
+          {artOptionen.map(a => <option key={a} value={a}>{MASSNAHMEN_ART_LABEL[a]}</option>)}
+        </select>
       </div>
+      {gefiltert.length === 0 && (
+        <p className="card text-center py-8 text-sm text-s112-muted">Keine Maßnahmen für diesen Filter.</p>
+      )}
 
       {/* Gruppiert nach Datum */}
       <div className="space-y-4">

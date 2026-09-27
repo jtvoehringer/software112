@@ -17,6 +17,7 @@ import {
   saveEmailEinstellungen,
   saveM365Einstellungen,
   saveBetriebEinstellungen,
+  saveKellerwirtschaftAdmin,
   resetRechnungsZaehler,
   resetKundenZaehler,
   saveSumUpConfig,
@@ -34,6 +35,7 @@ import { STRIPE_STATUS_META, STRIPE_PLAN_LABELS } from '@/lib/stripe/client'
 import type { TenantDetail, TenantSettings, TenantMember } from './page'
 import { bundeslandAusKundennummer } from '@/lib/tenant/kundennummer'
 import KontrastHinweis from '@/components/ui/KontrastHinweis'
+import { EINHEIT_ZEICHEN, type MostgewichtEinheit } from '@/lib/wein/mostgewicht'
 
 // ── Hilfsfunktionen ───────────────────────────────────────────────────────────
 
@@ -882,7 +884,70 @@ function BetriebTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
   )
 }
 
+// ── Tab: Betrieb – Abschnitt Kellerwirtschaft (KAN-134) ──────────────────────
+// Bevorzugte Mostgewicht-Einheit (tenant_einstellungen.mostgewicht_einheit) – dieselbe Einstellung wie
+// „Mein Betrieb“ → Kellerwirtschaft (/betrieb/einstellungen, canAdmin). Eigenes Formular unter den
+// Betriebsdaten (kein eigener Reiter – die Reiterleiste ist voll); speichert saveKellerwirtschaftAdmin.
 
+const MOSTGEWICHT_EINHEIT_OPTS: { value: MostgewichtEinheit; label: string; text: string }[] = [
+  { value: 'kmw',     label: '°KMW (Klosterneuburger Mostwaage)', text: 'Einheit des österreichischen Weingesetzes – Standard.' },
+  { value: 'oechsle', label: '°Oe (Öchsle)',                      text: 'Wenn der Betrieb meist in Öchsle misst, z. B. mit Dichtemesser oder Öchsle-Refraktometer.' },
+]
+
+function KellerwirtschaftAbschnitt({ tenant, settings }: { tenant: TenantDetail; settings: TenantSettings }) {
+  const router                     = useRouter()
+  const [pending, startTransition] = useTransition()
+  const [saved, setSaved]          = useState(false)
+  const [fehler, setFehler]        = useState<string | null>(null)
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const fd = new FormData(e.currentTarget)
+    setFehler(null)
+    startTransition(async () => {
+      try {
+        await saveKellerwirtschaftAdmin(tenant.id, fd)
+        setSaved(true)
+        setTimeout(() => setSaved(false), 2000)
+        router.refresh()
+      } catch (err) {
+        setFehler(fehlerText(err))
+      }
+    })
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4 max-w-lg mt-8 pt-6 border-t border-s112-border">
+      <fieldset aria-describedby="admin-mostgewicht-einheit-hinweis">
+        <legend className="text-xs font-semibold text-s112-text-1 uppercase tracking-wide mb-3">Kellerwirtschaft – Mostgewicht-Einheit</legend>
+        <div className="space-y-2">
+          {MOSTGEWICHT_EINHEIT_OPTS.map(o => (
+            <label key={o.value} className="flex items-start gap-2 text-sm text-s112-text">
+              <input type="radio" name="mostgewicht_einheit" value={o.value} required
+                defaultChecked={settings.mostgewicht_einheit === o.value} className="mt-1 accent-s112-teal" />
+              <span>{o.label}<span className="block text-xs text-s112-muted">{o.text}</span></span>
+            </label>
+          ))}
+        </div>
+        <p id="admin-mostgewicht-einheit-hinweis" className="text-[11px] text-s112-tertiary mt-2">
+          Aktuell: {EINHEIT_ZEICHEN[settings.mostgewicht_einheit]}. Formulare und Listen des Betriebs zeigen diese Einheit
+          zuerst, die andere umgerechnet daneben (≈); die gemessene Einheit wird bei jedem Eintrag mitgespeichert.
+          Qualitätsstufen richten sich immer nach °KMW. Der Betriebs-Manager kann die Einstellung später selbst unter
+          System &gt; Mein Betrieb im Reiter „Kellerwirtschaft“ ändern.
+        </p>
+      </fieldset>
+
+      <div className="flex items-center gap-3">
+        <button type="submit" disabled={pending}
+          className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+          {pending ? 'Speichern…' : 'Einheit speichern'}
+        </button>
+        {saved && <span className="text-xs text-s112-blue-700 font-medium">Gespeichert</span>}
+      </div>
+      {fehler && <p role="alert" className="text-sm text-s112-err-fg">{fehler}</p>}
+    </form>
+  )
+}
 
 // ── Tab: Microsoft 365 ───────────────────────────────────────────────────────
 function M365Tab({ tenant, settings }: { tenant: TenantDetail; settings: TenantSettings }) {
@@ -1422,7 +1487,8 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
 
 // ── Tab: Onboarding-Checkliste ────────────────────────────────────────────────
 
-function CheckItem({ ok, label, hint }: { ok: boolean; label: string; hint?: string }) {
+/** `hint` nur bei offenem Punkt; `info` immer (z. B. Einstellungen mit Standardwert, die man abstimmen sollte) */
+function CheckItem({ ok, label, hint, info }: { ok: boolean; label: string; hint?: string; info?: string }) {
   return (
     <div className={`flex gap-3 p-3 rounded-xl border ${ok ? 'border-s112-ok/30 bg-s112-ok-bg' : 'border-s112-warn/30 bg-s112-warn-bg'}`}>
       {ok
@@ -1431,6 +1497,7 @@ function CheckItem({ ok, label, hint }: { ok: boolean; label: string; hint?: str
       <div>
         <p className={`text-sm font-medium ${ok ? 'text-s112-ok-fg' : 'text-s112-warn-fg'}`}>{label}</p>
         {!ok && hint && <p className="text-xs text-s112-warn-fg mt-0.5">{hint}</p>}
+        {info && <p className={`text-xs mt-0.5 ${ok ? 'text-s112-ok-fg' : 'text-s112-warn-fg'}`}>{info}</p>}
       </div>
     </div>
   )
@@ -1473,6 +1540,10 @@ function ChecklisteTab({ tenant, settings, members }: {
         <CheckItem ok={hasUser}
           label="Mindestens 1 Benutzer zugewiesen"
           hint="→ Tab Benutzer: Benutzer einladen. Der eingeladene Benutzer erhält eine E-Mail von Supabase." />
+        {/* KAN-134: hat immer einen Wert (Standard °KMW) – daher nur Anzeige mit Hinweis, kein offener Punkt */}
+        <CheckItem ok
+          label={`Mostgewicht-Einheit: ${settings.mostgewicht_einheit === 'oechsle' ? '°Oe (Öchsle)' : '°KMW (Standard)'}`}
+          info="→ Tab Betrieb, Abschnitt „Kellerwirtschaft“: mit dem Betrieb abstimmen, ob er in °KMW oder °Oe misst – Formulare und Listen zeigen diese Einheit zuerst." />
         {settings.modul_newsletter && (
           <>
             <CheckItem ok={hasBrevo}
@@ -1512,7 +1583,11 @@ const BAWB_URL = 'https://services2.lfrz.at/at.lfrz.wein/frame.html'
 
 function BawbTab({ tenant, settings }: { tenant: TenantDetail; settings: TenantSettings }) {
   const [kennung,  setKennung]  = useState(settings.bawb_kennung  ?? '')
-  const [passwort, setPasswort] = useState(settings.bawb_passwort ?? '')
+  // KAN-135: Das Passwort kommt nie in den Browser – settings.bawb_passwort ist nur die
+  // Maske („hinterlegt“). Leer lassen = hinterlegtes behalten (Maske geht zurück).
+  const hinterlegt = settings.bawb_passwort
+  const [passwort, setPasswort] = useState('')
+  const [entfernen, setEntfernen] = useState(false)
   const [showPw,   setShowPw]   = useState(false)
   const [status,   setStatus]   = useState<'idle' | 'saving' | 'ok' | 'err'>('idle')
   const [errMsg,   setErrMsg]   = useState<string | null>(null)
@@ -1525,7 +1600,7 @@ function BawbTab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
     setStatus('saving'); setErrMsg(null)
     const fd = new FormData()
     fd.set('bawb_kennung',  kennung.trim())
-    fd.set('bawb_passwort', passwort)
+    fd.set('bawb_passwort', passwort.trim() ? passwort : (entfernen ? '' : (hinterlegt ?? '')))
     startTransition(async () => {
       const res = await saveBawbZugangsdaten(tenant.id, fd)
       if (res?.error) { setStatus('err'); setErrMsg(res.error) }
@@ -1581,7 +1656,8 @@ function BawbTab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
                 type={showPw ? 'text' : 'password'}
                 value={passwort}
                 onChange={e => { setPasswort(e.target.value); setStatus('idle') }}
-                placeholder="Passwort"
+                placeholder={hinterlegt ? 'hinterlegt (verschlüsselt) – zum Ändern neu eingeben' : 'Passwort'}
+                autoComplete="off"
                 className={inputCls + ' pr-16'}
               />
               <button
@@ -1592,6 +1668,12 @@ function BawbTab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
                 {showPw ? 'verbergen' : 'anzeigen'}
               </button>
             </div>
+            {hinterlegt && (
+              <label className="mt-1 flex items-center gap-1.5 text-xs text-s112-muted">
+                <input type="checkbox" checked={entfernen} onChange={e => { setEntfernen(e.target.checked); setStatus('idle') }} />
+                Hinterlegtes Passwort entfernen
+              </label>
+            )}
           </div>
         </div>
 
@@ -1609,7 +1691,7 @@ function BawbTab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
       {/* Gespeicherte Zugangsdaten – Kopier-Hilfe */}
       {(settings.bawb_kennung || settings.bawb_passwort) && (
         <div className="card p-4 space-y-2 bg-s112-bg">
-          <p className="text-xs font-semibold text-s112-text-1">Gespeicherte Zugangsdaten (zum Kopieren)</p>
+          <p className="text-xs font-semibold text-s112-text-1">Gespeicherte Zugangsdaten</p>
           <div className="grid grid-cols-2 gap-3 text-xs">
             <div>
               <span className="text-s112-muted">Kennung:</span>{' '}
@@ -1617,7 +1699,7 @@ function BawbTab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
             </div>
             <div>
               <span className="text-s112-muted">Passwort:</span>{' '}
-              <span className="font-mono font-medium text-s112-text">{settings.bawb_passwort ?? '–'}</span>
+              <span className="font-medium text-s112-text">{settings.bawb_passwort ? 'hinterlegt (verschlüsselt)' : '–'}</span>
             </div>
           </div>
         </div>
@@ -1940,7 +2022,12 @@ export default function MandantDetailClient({ tenant, settings, members }: {
       {tab === 'benutzer'   && <BenutzerTab   tenant={tenant} members={members} />}
       {tab === 'brevo'      && <BrevoTab      tenant={tenant} settings={settings} />}
       {tab === 'module'     && <ModuleTab     tenant={tenant} settings={settings} />}
-      {tab === 'betrieb'    && <BetriebTab    tenant={tenant} settings={settings} />}
+      {tab === 'betrieb'    && (
+        <>
+          <BetriebTab tenant={tenant} settings={settings} />
+          <KellerwirtschaftAbschnitt tenant={tenant} settings={settings} />
+        </>
+      )}
       {tab === 'verkauf'    && <VerkaufTab    tenant={tenant} settings={settings} />}
       {tab === 'email'      && <EmailTab      tenant={tenant} settings={settings} />}
       {tab === 'm365'       && (

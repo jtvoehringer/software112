@@ -31,7 +31,7 @@ const ERT = 'ENABLE REPLICA' + ' TRIGGER'
 const arten = (text, sprache) => pruefeText(text, sprache).funde.map(f => `${f.zeile}:${f.art}`)
 
 describe('auskommentierte Stellen im Projekt schlagen nicht an', () => {
-  for (const datei of ['sql/cleanup_testdaten_2026-08-05.sql', 'sql/cleanup_gebeshuber_testdaten_2026-08-14.sql']) {
+  for (const datei of ['sql/cleanup_testdaten_2026-08-05.sql']) {
     test(datei, () => {
       const text = readFileSync(path.join(ROOT, datei), 'utf8')
       assert.ok(text.includes(`-- ${AKTIV}`), 'enthält die seit KAN-35 auskommentierte Zeile')
@@ -40,6 +40,14 @@ describe('auskommentierte Stellen im Projekt schlagen nicht an', () => {
       assert.ok(e.auskommentiert >= 2, `auskommentiert: ${e.auskommentiert}`)
     })
   }
+
+  // Ersatz für sql/cleanup_gebeshuber_testdaten_2026-08-14.sql (mit KAN-151 entfernt): gleiches Muster als Text
+  test('Beispiel-Skript mit auskommentiertem Setzen und Zurücksetzen', () => {
+    const text = `BEGIN;\n-- ${AKTIV}\nDELETE FROM beispiel WHERE tenant_id = '00000000-0000-0000-0000-000000000000';\n-- SET ${SRR} = 'origin';\nCOMMIT;\n`
+    const e = pruefeText(text, 'sql')
+    assert.deepEqual(e.funde, [])
+    assert.ok(e.auskommentiert >= 2, `auskommentiert: ${e.auskommentiert}`)
+  })
 
   test('ganzes Projekt ohne Fund, Skript endet mit Exit 0', () => {
     assert.deepEqual(pruefeWurzel(ROOT).funde, [])

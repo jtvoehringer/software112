@@ -6,7 +6,7 @@
 --   0d7481ae  Zierfandler A02       ist=7960   soll laut Bewegungen=9960
 --   cbd39208  Traubenmost Imm.002   ist=900    soll laut Formel    = 890
 --
--- Ursache A02: fix_umzug_c03d3c6b.sql hat nach_weinausbau_id nachträglich
+-- Ursache A02: fix_umzug_c03d3c6b.sql (mit KAN-151 entfernt, siehe Git-Historie) hat nach_weinausbau_id nachträglich
 --   eingetragen → Reconciliation-Formel zählt +4200 L doppelt.
 --   Bewegungen-Page (per-Behälter) zeigt 9960 – das ist der korrekte Wert.
 --

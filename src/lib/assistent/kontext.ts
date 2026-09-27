@@ -17,7 +17,8 @@ export type AssistentKontext = {
   weingaerten: { id: string; name: string; ried: string | null; rebsorte: string | null }[]
   grundstuecke: { id: string; gst_nr: string; katastralgemeinde: string | null; rebsorte: string | null; weingarten_id: string | null }[]
   psm: { id: string; name: string; kategorie: string | null; oeko_zugelassen: boolean }[]
-  duengemittel: { id: string; name: string; typ: string | null; oeko_zugelassen: boolean }[]
+  /** einheit 'kg' | 'l' – eine Düngermenge in Litern nur bei Düngemitteln in l (KAN-133) */
+  duengemittel: { id: string; name: string; typ: string | null; oeko_zugelassen: boolean; einheit: string | null }[]
   kontakte: { id: string; name: string; ort: string | null }[]
   firmen: { id: string; name: string; ort: string | null }[]
   mitarbeiter: { user_id: string; name: string; rolle: string }[]
@@ -70,7 +71,7 @@ export async function ladeAssistentKontext(
       .or(`tenant_id.eq.${tenantId},tenant_id.is.null`).eq('aktiv', true)
       .order('name').limit(300),
     (supabase.from('duengemittel') as any)
-      .select('id, name, typ, oeko_zugelassen')
+      .select('id, name, typ, oeko_zugelassen, einheit')
       .or(`tenant_id.eq.${tenantId},tenant_id.is.null`)
       .order('name').limit(200),
     (supabase.from('kontakte') as any)
@@ -137,7 +138,7 @@ export async function ladeAssistentKontext(
       id: p.id, name: p.name, kategorie: p.kategorie ?? null, oeko_zugelassen: !!p.oeko_zugelassen,
     })),
     duengemittel: ((duengemittelRaw ?? []) as R[]).map(d => ({
-      id: d.id, name: d.name, typ: d.typ ?? null, oeko_zugelassen: !!d.oeko_zugelassen,
+      id: d.id, name: d.name, typ: d.typ ?? null, oeko_zugelassen: !!d.oeko_zugelassen, einheit: d.einheit ?? null,
     })),
     kontakte: ((kontakteRaw ?? []) as R[]).map(k => ({
       id: k.id, name: [k.vorname, k.nachname].filter(Boolean).join(' '), ort: k.ort ?? null,
@@ -199,7 +200,7 @@ PFLANZENSCHUTZMITTEL (${k.psm.length}):
 ${k.psm.map(p => zeile(p.id, p.name, [p.kategorie, p.oeko_zugelassen ? 'bio-zugelassen' : null].filter(Boolean).join(', ') || null)).join('\n') || '(keine)'}
 
 DÜNGEMITTEL (${k.duengemittel.length}):
-${k.duengemittel.map(d => zeile(d.id, d.name, [d.typ, d.oeko_zugelassen ? 'bio-zugelassen' : null].filter(Boolean).join(', ') || null)).join('\n') || '(keine)'}
+${k.duengemittel.map(d => zeile(d.id, d.name, [d.typ, d.einheit === 'l' ? 'in Litern' : null, d.oeko_zugelassen ? 'bio-zugelassen' : null].filter(Boolean).join(', ') || null)).join('\n') || '(keine)'}
 
 KONTAKTE (${k.kontakte.length}):
 ${k.kontakte.map(c => zeile(c.id, c.name, c.ort)).join('\n') || '(keine)'}

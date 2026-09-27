@@ -23,16 +23,15 @@
 import { runden, STELLEN, type CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
 import { bkiRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
+import { MASSNAHMEN_ART_LABEL } from '@/lib/behandlungen/arten'
 import { num, numOderNull, tag, text, type R } from './kellerbuch-hilfen'
 import {
   ladebereich, leseFenster, leseWarnungen, ordneMassnahmenZu, ttmmjjjj,
   type ErnteEintrag, type ErnteErsatz, type LeseZeile, type MassnahmeOrt, type VerpressteTrauben, type Zeitfenster,
 } from './rueckverfolgungFenster'
 
-export const BEHANDLUNG_ART_LABEL: Record<string, string> = {
-  spritzung: 'Spritzung', duengung: 'Düngung', bodenbearbeitung: 'Bodenbearbeitung',
-  schnitt: 'Schnitt', laubarbeit: 'Laubarbeit', sonstiges: 'Sonstiges',
-}
+/** Maßnahmenarten (lib/behandlungen/arten.ts, seit KAN-143 mit Laubschneiden) */
+export const BEHANDLUNG_ART_LABEL: Readonly<Record<string, string>> = MASSNAHMEN_ART_LABEL
 
 /** Eine Maßnahme im Zeitfenster einer Lese */
 export type LeseMassnahme = {

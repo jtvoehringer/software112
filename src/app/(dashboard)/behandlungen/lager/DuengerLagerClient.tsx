@@ -4,12 +4,14 @@ import { useState, useTransition } from 'react'
 import { Pencil, Trash2 } from 'lucide-react'
 import { upsertDuengerBewegung, deleteDuengerBewegung } from './actions'
 import type { DuengerLager, DuengerOption } from './page'
+import LagerHinweise from './LagerHinweise'
 import { fmtNum } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
 
 // Analog LagerClient.tsx (PSM) – volle Lagerbewegungs-Erfassung für Düngemittel
 // (Migration 142): Anfangsbestand, Einkauf, Inventurkorrektur, berechneter
-// Bestand = Zugänge - Korrektur-Abgänge - Verbrauch (aus Behandlungen).
+// Bestand = Zugänge - Korrektur-Abgänge - Verbrauch (aus Düngungen: Düngermenge bzw.
+// Aufwand × Fläche, in der Lager-Einheit – lib/behandlungen/lagerVerbrauch.ts, KAN-133).
 
 const TYP_LABEL: Record<string, string> = {
   anfangsbestand: 'Anfangsbestand',
@@ -33,10 +35,12 @@ function fmtMenge(m: number, einheit: string | null) {
 
 // ── Buchungsformular ──────────────────────────────────────────────────────────
 function BuchungsForm({
-  alleDuenger, defaultDuengerId, onDone, edit,
+  alleDuenger, defaultDuengerId, defaultEinheit, onDone, edit,
 }: {
   alleDuenger: DuengerOption[]
   defaultDuengerId?: string
+  /** Lager-Einheit des Düngemittels als Vorgabe für neue Buchungen */
+  defaultEinheit?: string
   onDone: () => void
   edit?: DuengerLager['bewegungen'][0] & { duengemittel_id: string }
 }) {
@@ -124,7 +128,7 @@ function BuchungsForm({
         {/* Einheit */}
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Einheit</label>
-          <select aria-label="Einheit" name="einheit" defaultValue={edit?.einheit ?? 'kg'}
+          <select aria-label="Einheit" name="einheit" defaultValue={edit?.einheit ?? defaultEinheit ?? 'kg'}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
             <option value="kg">kg</option>
             <option value="l">l</option>
@@ -166,10 +170,8 @@ function DuengerKarte({
   const [editBew, setEditBew] = useState<(DuengerLager['bewegungen'][0] & { duengemittel_id: string }) | null>(null)
   const [pending, startTransition] = useTransition()
 
-  const zugang  = duenger.bewegungen.filter(b => b.menge > 0).reduce((s, b) => s + b.menge, 0)
-  const abgang  = duenger.bewegungen.filter(b => b.menge < 0).reduce((s, b) => s + Math.abs(b.menge), 0)
-  const bestand = zugang - abgang - duenger.verbrauch_gesamt
-  const einheit = duenger.bewegungen[0]?.einheit ?? duenger.einheit_behandlung ?? 'kg'
+  // Alle Mengen in der Lager-Einheit; Verbrauch = Σ Düngermenge der Düngungen (lib/behandlungen/lagerVerbrauch.ts)
+  const { einheit, zugang, abgang, verbrauch, bestand, hinweise } = duenger.konto
 
   const bestandColor = bestand < 0 ? 'text-s112-err-fg' : bestand < 1 ? 'text-s112-warn-fg' : 'text-s112-blue-700'
 
@@ -206,7 +208,7 @@ function DuengerKarte({
         </div>
         <div className="bg-s112-blue-50 rounded-lg p-2">
           <p className="text-sm font-semibold text-s112-blue-700 tabular-nums">
-            –{fmtNum(duenger.verbrauch_gesamt, { max: 3 })} {duenger.einheit_behandlung ?? einheit}
+            –{fmtNum(verbrauch, { max: 3 })} {einheit}
           </p>
           <p className="text-xs text-s112-blue-700">Verbrauch (Maßnahmen)</p>
         </div>
@@ -218,12 +220,16 @@ function DuengerKarte({
         </div>
       </div>
 
+      {/* Nicht abgezogene Düngungen (ohne Düngermenge und Aufwand, l bei Lager in kg …) */}
+      <LagerHinweise hinweise={hinweise} writeOk={writeOk} />
+
       {/* Buchungsformular */}
       {(showForm || editBew) && (
         <div className="mb-4">
           <BuchungsForm
             alleDuenger={alleDuenger}
             defaultDuengerId={duenger.duengemittel_id}
+            defaultEinheit={einheit}
             edit={editBew ?? undefined}
             onDone={() => { setShowForm(false); setEditBew(null) }}
           />
@@ -275,7 +281,7 @@ function DuengerKarte({
                 </tr>
               ))}
               {/* Verbrauch-Zeile (read-only, aus Behandlungen) */}
-              {duenger.verbrauch_gesamt > 0 && (
+              {verbrauch > 0 && (
                 <tr className="border-b border-s112-border/40 last:border-0 bg-s112-blue-50/30">
                   <td className="px-3 py-2 tabular-nums text-s112-muted text-xs">aus Maßnahmen</td>
                   <td className="px-3 py-2">
@@ -284,9 +290,9 @@ function DuengerKarte({
                     </span>
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums font-medium text-s112-blue-700">
-                    –{fmtNum(duenger.verbrauch_gesamt, { max: 3 })} {duenger.einheit_behandlung ?? ''}
+                    –{fmtNum(verbrauch, { max: 3 })} {einheit}
                   </td>
-                  <td className="px-3 py-2 text-xs text-s112-muted italic">automatisch aus Düngungen</td>
+                  <td className="px-3 py-2 text-xs text-s112-muted italic">aus Düngungen (Düngermenge bzw. Aufwand × Fläche)</td>
                   {(writeOk || adminOk) && <td />}
                 </tr>
               )}
@@ -335,7 +341,7 @@ export default function DuengerLagerClient({
           <p className="font-medium text-s112-text-2">Noch keine Lagerbewegungen</p>
           <p className="text-sm mt-1 max-w-sm mx-auto">
             Erfasse den Anfangsbestand oder einen Einkauf für ein Düngemittel.
-            Der Verbrauch wird automatisch aus den Maßnahmen berechnet.
+            Der Verbrauch wird automatisch aus den Düngungen berechnet (Düngermenge bzw. Aufwand × Fläche).
           </p>
         </div>
       ) : (

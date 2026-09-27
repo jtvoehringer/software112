@@ -4,67 +4,41 @@ import { Fragment, useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createBehandlung } from '../actions'
 import type { PSM, DuengemittelOption, WeingartenOption, GSTOption, KostenartOption, SatzOption } from './page'
-import { SprayCan, Sprout, Layers, Scissors, Leaf, MoreHorizontal, Hourglass, Info, Ban, AlertTriangle } from 'lucide-react'
+import { Hourglass, Info, Ban, AlertTriangle } from 'lucide-react'
 import { fmtNum } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
+import { runden } from '@/lib/csv'
+import { mengeInEinheit, type MittelmengeErgebnis } from '@/lib/behoerden/psm'
+import { pruefeMassnahmeMengen } from '@/lib/behandlungen/massnahmeMengen'
+import { LAUBARBEIT_OPTIONEN, LAUBSCHNEIDEN_HINWEIS, MASSNAHMEN_ART_LABEL, type MassnahmenArt } from '@/lib/behandlungen/arten'
+import {
+  aufwandEinheitText, duengerEinheitWechsel, duengermengeEinheit, mengenFelder, mengenInFormData, mengenSicht,
+  mengenTexte,
+} from './mengenFelder'
+import {
+  BBCH_OPTIONS, FELD_MATRIX, EINARBEITUNG_GESENDET, SCHADERREGER_OPTIONEN, WITTERUNG_OPTIONEN, einarbeitungSichtbar,
+  schaderregerFeld,
+} from './feldMatrix'
+import { RIED_AUSWAHL_FEHLT, absendenHindernis, auswahlKopf, erfassenKnopfText } from './absenden'
+import { ART_OPTIONS } from './artOptionen'
+import MengenZusammenfassung from './MengenZusammenfassung'
 
-const BBCH_OPTIONS = [
-  { value: '09', label: '09 – Knospenaufbruch' },
-  { value: '11', label: '11 – 1. Blatt entfaltet' },
-  { value: '53', label: '53 – Traubenanlage sichtbar' },
-  { value: '55', label: '55 – Einzelblüten sichtbar' },
-  { value: '57', label: '57 – Blütenstand gestreckt' },
-  { value: '61', label: '61 – Beginn Blüte (10%)' },
-  { value: '65', label: '65 – Vollblüte (50%)' },
-  { value: '69', label: '69 – Ende Blüte' },
-  { value: '71', label: '71 – Fruchtansatz' },
-  { value: '73', label: '73 – Erbsengröße' },
-  { value: '75', label: '75 – Haselnussgröße' },
-  { value: '77', label: '77 – Trauben schließen sich' },
-  { value: '81', label: '81 – Beginn Reife' },
-  { value: '85', label: '85 – Weichwerden' },
-  { value: '89', label: '89 – Vollreife' },
-]
-const WITTERUNG = ['sonnig', 'bewoelkt', 'regnerisch', 'wind']
-const EINHEITEN_AUFWAND = ['kg_ha', 'l_ha', 'g_hl', 'ml_hl', 'kg', 'l']
-const EINHEITEN_LABEL: Record<string, string> = {
-  kg_ha: 'kg/ha', l_ha: 'l/ha', g_hl: 'g/hl', ml_hl: 'ml/hl', kg: 'kg', l: 'l',
-}
-const ART_OPTIONS = [
-  { value: 'spritzung',        label: 'Spritzung',        icon: SprayCan },
-  { value: 'duengung',         label: 'Düngung',          icon: Sprout },
-  { value: 'bodenbearbeitung', label: 'Bodenbearbeitung', icon: Layers },
-  { value: 'schnitt',          label: 'Schnitt',          icon: Scissors },
-  { value: 'laubarbeit',       label: 'Laubarbeit',       icon: Leaf },
-  { value: 'sonstiges',        label: 'Sonstiges',        icon: MoreHorizontal },
-]
-const MENGE_EINHEITEN = ['kg', 'l', 'g', 'ml']
-const SCHADERREGER_OPTIONEN = ['Oidium', 'Peronospora', 'Botrytis']
-const LAUBARBEIT_OPTIONEN = [
-  { value: 'entblaettern', label: 'Entblättern' },
-  { value: 'ausgeizen',    label: 'Ausgeizen' },
-  { value: 'gipfeln',      label: 'Gipfeln' },
-  { value: 'heften',       label: 'Heften' },
-  { value: 'sonstige',     label: 'Sonstige' },
-]
+// Welche Felder je Maßnahmenart sichtbar/pflicht sind, steht in FELD_MATRIX (feldMatrix.ts), die
+// Mengenfelder in MENGEN_SICHT (mengenFelder.ts, über mengenSicht: Aufwand bei Sonstiges nur mit Mittel) –
+// gemeinsam mit dem Bearbeiten-Formular und dem Assistenten.
+type Art = MassnahmenArt
 
-// ─── Feld-Matrix je Maßnahmenart ──────────────────────────────────────────
-// Steuert, welche Felder pro Art sichtbar/pflicht sind (siehe "Analyse Maßnahmen.docx", Tabelle 2).
-// 'pflicht' | 'bedingt' | 'optional' | 'hidden'
-type Sicht = 'pflicht' | 'bedingt' | 'optional' | 'hidden'
-type Art = 'spritzung' | 'duengung' | 'bodenbearbeitung' | 'schnitt' | 'laubarbeit' | 'sonstiges'
-
-const FELD_MATRIX: Record<Art, {
-  psm: Sicht; duengemittel: Sicht; mengeGesamt: Sicht; aufwandmenge: Sicht; konzentration: Sicht
-  bbch: Sicht; wasseraufwand: Sicht; schaderreger: Sicht; witterung: Sicht; temperatur: Sicht
-  einarbeitung: Sicht; bearbeitung: Sicht; schnittart: Sicht; laubarbeitArt: Sicht
-}> = {
-  spritzung:        { psm: 'pflicht', duengemittel: 'hidden',  mengeGesamt: 'pflicht',  aufwandmenge: 'pflicht',  konzentration: 'optional', bbch: 'pflicht',  wasseraufwand: 'optional', schaderreger: 'pflicht',  witterung: 'optional', temperatur: 'optional', einarbeitung: 'hidden',  bearbeitung: 'hidden',  schnittart: 'hidden',  laubarbeitArt: 'hidden'  },
-  duengung:         { psm: 'hidden', duengemittel: 'optional', mengeGesamt: 'pflicht',  aufwandmenge: 'optional', konzentration: 'hidden',   bbch: 'hidden',   wasseraufwand: 'hidden',   schaderreger: 'hidden',   witterung: 'optional', temperatur: 'hidden',   einarbeitung: 'bedingt', bearbeitung: 'hidden',  schnittart: 'hidden',  laubarbeitArt: 'hidden'  },
-  bodenbearbeitung: { psm: 'hidden', duengemittel: 'hidden',   mengeGesamt: 'hidden',   aufwandmenge: 'hidden',   konzentration: 'hidden',   bbch: 'hidden',   wasseraufwand: 'hidden',   schaderreger: 'hidden',   witterung: 'optional', temperatur: 'hidden',   einarbeitung: 'hidden',  bearbeitung: 'pflicht', schnittart: 'hidden',  laubarbeitArt: 'hidden'  },
-  schnitt:          { psm: 'hidden', duengemittel: 'hidden',   mengeGesamt: 'hidden',   aufwandmenge: 'hidden',   konzentration: 'hidden',   bbch: 'hidden',   wasseraufwand: 'hidden',   schaderreger: 'hidden',   witterung: 'hidden',   temperatur: 'hidden',   einarbeitung: 'hidden',  bearbeitung: 'hidden',  schnittart: 'pflicht', laubarbeitArt: 'hidden'  },
-  laubarbeit:       { psm: 'hidden', duengemittel: 'hidden',   mengeGesamt: 'hidden',   aufwandmenge: 'hidden',   konzentration: 'hidden',   bbch: 'optional', wasseraufwand: 'hidden',   schaderreger: 'hidden',   witterung: 'hidden',   temperatur: 'hidden',   einarbeitung: 'hidden',  bearbeitung: 'hidden',  schnittart: 'hidden',  laubarbeitArt: 'pflicht' },
-  sonstiges:        { psm: 'hidden', duengemittel: 'hidden', mengeGesamt: 'hidden', aufwandmenge: 'hidden',   konzentration: 'hidden',   bbch: 'hidden',   wasseraufwand: 'hidden',   schaderreger: 'optional', witterung: 'hidden',   temperatur: 'hidden',   einarbeitung: 'hidden',  bearbeitung: 'hidden',  schnittart: 'hidden',  laubarbeitArt: 'hidden'  },
+/**
+ * Menge für den Material-Vorschlag in der Einheit, in der der Preis gilt (Preis je kg bzw. l – beim PSM
+ * die Grundeinheit des Lagers, beim Düngemittel dessen Einheit). kg ↔ l ohne Dichte nicht umrechenbar →
+ * kein Vorschlag, nur ein Hinweis.
+ */
+function materialMenge(mm: MittelmengeErgebnis | null, einheit: string | null): { menge: number | null; hinweis: string | null } {
+  if (!mm || mm.menge === null || !mm.einheit) return { menge: null, hinweis: null }
+  if (!einheit) return { menge: null, hinweis: 'Kein Material-Vorschlag: Einheit des Mittels unbekannt (noch keine Lagerbewegung) – der Preis gilt je kg oder l.' }
+  const menge = mengeInEinheit(mm.menge, mm.einheit, einheit)
+  return menge !== null ? { menge, hinweis: null }
+    : { menge: null, hinweis: `Kein Material-Vorschlag: Mittelmenge in ${mm.einheit}, Preis je ${einheit} – ohne Dichte nicht umrechenbar.` }
 }
 
 function fmtHa(n: number) {
@@ -94,11 +68,21 @@ export default function NeueBehandlungForm({
   const [selectedGSTs, setSelectedGSTs] = useState<Map<string, string>>(new Map())
   const [expandedWGs, setExpandedWGs] = useState<Set<string>>(new Set())
   const [riedenExpanded, setRiedenExpanded] = useState(false)
+  // KAN-153: „Maßnahme erfassen“ ist nur beim Speichern gesperrt. Ein Klick ohne Auswahl bzw. bei Bio-Sperre
+  // zählt hoch – jeder Klick scrollt erneut hin, fokussiert und lässt die Meldung (role="alert") neu vorlesen
+  const [riedSprung, setRiedSprung] = useState(0)
+  const [bioSprung, setBioSprung] = useState(0)
+  const riedenRef = useRef<HTMLDivElement>(null)
+  const riedenKopfRef = useRef<HTMLButtonElement>(null)
+  const psmRef = useRef<HTMLSelectElement>(null)
+  const duengemittelRef = useRef<HTMLSelectElement>(null)
   const [art, setArt] = useState<Art>('spritzung')
+  // Spritzung: Spritzbrühe gesamt (l) – nie die Mittelmenge; Düngung: Düngermenge (KAN-133)
   const [mengeGesamt, setMengeGesamt] = useState<string>('')
-  const [mengeEinheit, setMengeEinheit] = useState('kg')
+  // Hinweis, wenn ein anderes Düngemittel die Einheit der eingegebenen Düngermenge wechselt (kg ↔ l)
+  const [einheitHinweis, setEinheitHinweis] = useState<string | null>(null)
   const [wasseraufwand, setWasseraufwand] = useState<string>('')
-  // Welches der beiden Felder Gesamtmenge/Spritzbrühe(l/ha) der Nutzer zuletzt befüllt hat -
+  // Welches der beiden Felder Spritzbrühe gesamt/Wasseraufwand (l/ha) der Nutzer zuletzt befüllt hat -
   // dieses treibt die Berechnung, das jeweils andere wird gesperrt (Punkt 1 der Anforderung)
   const [mengeQuelle, setMengeQuelle] = useState<'gesamt' | 'wasser' | null>(null)
   const [aufwandmenge, setAufwandmenge] = useState<string>('')
@@ -116,13 +100,23 @@ export default function NeueBehandlungForm({
   const [kostenBeschreibung, setKostenBeschreibung] = useState('')
   const betragManuellGeaendert = useRef(false)
 
-  const felder = FELD_MATRIX[art]
+  const felder = { ...FELD_MATRIX[art], ...mengenSicht(art, !!selectedPsmId) }
+  const schaderreger = schaderregerFeld(art)
 
-  // Beim Wechsel der Art eine Mittel-Auswahl zurücksetzen, die zur neuen Art nicht mehr passt
+  // Beim Wechsel der Art eine Mittel-Auswahl zurücksetzen, deren Feld die neue Art laut Feld-Matrix nicht zeigt –
+  // auch das Spritzmittel bei Sonstiges: Sonst sperrte ein nicht öko-zugelassenes Mittel aus der Spritzung das
+  // Speichern, ohne dass es im Formular zu sehen ist (KAN-153)
   useEffect(() => {
-    if (art !== 'spritzung' && art !== 'sonstiges') setSelectedPsmId('')
-    if (art !== 'duengung') setSelectedDuengemittelId('')
+    if (FELD_MATRIX[art].psm === 'hidden') setSelectedPsmId('')
+    if (FELD_MATRIX[art].duengemittel === 'hidden') setSelectedDuengemittelId('')
     setSelectedSatzId('')
+    // Menge und Aufwand bedeuten je Art etwas anderes (Spritzbrühe in l bzw. Düngermenge, Mittel bzw.
+    // Dünger; g/hl nur bei Spritzungen) – nicht in die neue Art übernehmen
+    setMengeGesamt('')
+    setEinheitHinweis(null)
+    setAufwandmenge('')
+    setAufwandmengeEinheit('kg_ha')
+    setKonzentration('')
     // Sperr-Zustände der verknüpften Felder zurücksetzen, da sich je nach Art
     // sichtbare Felder ändern (Feld-Matrix)
     setMengeQuelle(null)
@@ -136,9 +130,10 @@ export default function NeueBehandlungForm({
 
   // Bio-Status: harte Sperre bei Bio-EU/biodynamisch + nicht-öko-zugelassenem Mittel,
   // sonst nur Warnung bei KIP/nachhaltig (siehe "Analyse Maßnahmen.docx", 4.3)
+  // nur das Mittel, dessen Feld die Art zeigt – die Sperre muss sich am Mittel zeigen und beheben lassen
   const gewaehltesMittelOeko =
-    art === 'spritzung' || art === 'sonstiges' ? selectedPsm?.oeko_zugelassen :
-    art === 'duengung'  ? selectedDuengemittel?.oeko_zugelassen :
+    felder.psm !== 'hidden'          ? selectedPsm?.oeko_zugelassen :
+    felder.duengemittel !== 'hidden' ? selectedDuengemittel?.oeko_zugelassen :
     undefined
   const mittelNichtOeko = gewaehltesMittelOeko === false
   const bioSperre  = BIO_SPERRE.has(bioStatus) && mittelNichtOeko
@@ -157,88 +152,77 @@ export default function NeueBehandlungForm({
     weingaerten.filter(w => selectedWGs.has(w.id)).reduce((s, w) => s + w.gst_ha_aktiv, 0) +
     Array.from(selectedGSTs.keys()).reduce((s, gstId) => s + (gstLookup.get(gstId)?.flaeche_ha ?? 0), 0)
 
-  // ─── Punkt 1: Gesamtmenge eingesetzt ↔ Spritzbrühe (l/ha) - gegenseitige Sperre + Berechnung ──
-  // Je nachdem, welches der beiden Felder zuletzt befüllt wurde (mengeQuelle), wird das jeweils
-  // andere daraus berechnet und gesperrt. Grundlage ist die aktuell ausgewählte Fläche (totalHaAktiv,
-  // wie bei der bereits bestehenden Live-Zusammenfassung). Wird die Spritzbrühe(l/ha) vorgegeben,
-  // ergibt sich die Gesamtmenge zwingend in Liter (Gesamtmenge = Spritzbrühe(l/ha) × Fläche).
-  const wasserBerechnet = mengeQuelle === 'gesamt' && mengeGesamt && totalHaAktiv > 0
-    ? parseFloat(mengeGesamt) / totalHaAktiv
-    : null
-  const mengeGesamtBerechnet = mengeQuelle === 'wasser' && wasseraufwand && totalHaAktiv > 0
-    ? parseFloat(wasseraufwand) * totalHaAktiv
-    : null
-  const wasserGesperrt = mengeQuelle === 'gesamt' && wasserBerechnet != null
-  const mengeGesamtGesperrt = mengeQuelle === 'wasser' && mengeGesamtBerechnet != null
+  // KAN-153: Kopfzeile der Ried-Auswahl und Meldung nach einem Klick ohne Auswahl (verschwindet mit der Auswahl)
+  const riedKopf = auswahlKopf(totalSelCount, totalHaAktiv)
+  const riedHinweis = riedSprung > 0 && totalSelCount === 0
+  // Checkboxen und Kopfzeile verweisen auf die Meldung (aria-describedby) – das Fokusziel nach dem Klick liest sie
+  // so sicher mit, auch wenn der Fokuswechsel die role="alert"-Ansage unterbricht (wie bei der Bio-Sperre)
+  const riedMeldung = riedHinweis ? 'ried-auswahl-fehlt' : undefined
 
-  // Effektive Gesamtmenge/Einheit für alle nachgelagerten Berechnungen (Aufwand/ha, Cu-Beitrag,
-  // Reinkupfer) - berücksichtigt, ob die Gesamtmenge gerade aus der Spritzbrühe berechnet wird
-  const mengeGesamtNum = mengeGesamtGesperrt ? mengeGesamtBerechnet : (mengeGesamt ? parseFloat(mengeGesamt) : null)
-  const mengeEinheitEff = mengeQuelle === 'wasser' ? 'l' : mengeEinheit
+  // Nach dem Klick ohne Auswahl: zum (jetzt aufgeklappten) Abschnitt scrollen und die erste Checkbox fokussieren –
+  // erst nach dem Rendern, beim Klick war die Auswahl womöglich noch eingeklappt
+  useEffect(() => {
+    if (riedSprung === 0) return
+    riedenRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    const erste = riedenRef.current?.querySelector<HTMLInputElement>('input[type="checkbox"]:not(:disabled)')
+    ;(erste ?? riedenKopfRef.current)?.focus({ preventScroll: true })
+  }, [riedSprung])
 
-  // Aufwand pro ha (live berechnet)
-  const aufwandProHa = mengeGesamtNum != null && totalHaAktiv > 0
-    ? fmtNum((mengeGesamtNum / totalHaAktiv), { max: 3 }) + ' ' + mengeEinheitEff + '/ha'
-    : null
+  // Nach dem Klick bei Bio-Sperre: zum Mittel scrollen und es fokussieren – der Grund steht direkt darunter
+  // (aria-describedby) und wird als Meldung neu vorgelesen
+  useEffect(() => {
+    if (bioSprung === 0) return
+    const mittel = psmRef.current ?? duengemittelRef.current
+    mittel?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    mittel?.focus({ preventScroll: true })
+  }, [bioSprung])
 
-  // Cu-Beitrag (live berechnet, nur für kg) + Reinkupfer je ha (Punkt 4) - Berechnungsgrundlage
-  // ist der Cu-Gehalt (%) des gewählten PSM aus den Stammdaten
-  const cuBeitragGRaw = selectedPsm?.cu_gehalt_pct && mengeGesamtNum && mengeEinheitEff === 'kg'
-    ? mengeGesamtNum * 1000 * (selectedPsm.cu_gehalt_pct / 100)
-    : null
-  const cuBeitragG = cuBeitragGRaw != null
-    ? fmtNum(Math.round(cuBeitragGRaw)) + ' g Cu'
-    : null
-  const reinkupferKgHaRaw = cuBeitragGRaw != null && totalHaAktiv > 0
-    ? (cuBeitragGRaw / 1000) / totalHaAktiv
-    : null
-  const reinkupferKgHa = reinkupferKgHaRaw != null
-    ? fmtNum(reinkupferKgHaRaw, { max: 3 }) + ' kg Cu/ha'
-    : null
-
-  // ─── Punkt 2: Aufwandmenge (Etikett) ↔ Konzentration (%) - gegenseitige Sperre + Berechnung ──
-  // Bei Etikettangaben je Spritzbrühe (g/hl, ml/hl) ergibt sich die Konzentration direkt daraus
-  // (g/hl ÷ 1000 ≈ %). Bei Angaben je Fläche (kg/ha, l/ha) wird zusätzlich die Spritzbrühe (l/ha)
-  // aus Punkt 1 benötigt (Konzentration % = Aufwandmenge ÷ Spritzbrühe(l/ha) × 100); ist diese nicht
-  // bekannt, bleiben beide Felder unabhängig voneinander editierbar.
-  const effektivesWasserLHa = wasserGesperrt ? wasserBerechnet : (wasseraufwand ? parseFloat(wasseraufwand) : null)
-
-  function konzentrationAusAufwand(wertStr: string, einheit: string): number | null {
-    const wert = parseFloat(wertStr)
-    if (isNaN(wert)) return null
-    if (einheit === 'g_hl' || einheit === 'ml_hl') return wert / 1000
-    if ((einheit === 'kg_ha' || einheit === 'l_ha') && effektivesWasserLHa && effektivesWasserLHa > 0) {
-      return (wert / effektivesWasserLHa) * 100
-    }
-    return null
-  }
-  function aufwandAusKonzentration(konzStr: string, einheit: string): number | null {
-    const konz = parseFloat(konzStr)
-    if (isNaN(konz)) return null
-    if (einheit === 'g_hl' || einheit === 'ml_hl') return konz * 1000
-    if ((einheit === 'kg_ha' || einheit === 'l_ha') && effektivesWasserLHa && effektivesWasserLHa > 0) {
-      return (konz / 100) * effektivesWasserLHa
-    }
-    return null
-  }
-
-  const konzentrationBerechnet = aufwandQuelle === 'aufwand'
-    ? konzentrationAusAufwand(aufwandmenge, aufwandmengeEinheit) : null
-  const aufwandmengeBerechnet = aufwandQuelle === 'konzentration'
-    ? aufwandAusKonzentration(konzentration, aufwandmengeEinheit) : null
-  const konzentrationGesperrt = aufwandQuelle === 'aufwand' && konzentrationBerechnet != null
-  const aufwandmengeGesperrt = aufwandQuelle === 'konzentration' && aufwandmengeBerechnet != null
+  // ─── Punkt 1 + 2: Spritzbrühe gesamt ↔ Wasseraufwand (l/ha), Aufwandmenge ↔ Konzentration (%) ──
+  // Je nachdem, welches Feld zuletzt befüllt wurde (mengeQuelle bzw. aufwandQuelle), wird das jeweils
+  // andere daraus berechnet und gesperrt – Grundlage ist die ausgewählte Fläche. Die Spritzbrühe ist immer
+  // in Litern, die Mittelmenge kommt nur aus der Aufwandmenge (KAN-133); Rechnung und Prüfung wie in der
+  // Server Action (mengenFelder → pruefeMassnahmeMengen).
+  const m = mengenFelder({
+    art, felder,
+    mengeGesamt, wasseraufwand, mengeQuelle,
+    aufwandmenge, aufwandmengeEinheit, konzentration, aufwandQuelle,
+    flaecheHa: totalHaAktiv,
+    psmId: selectedPsmId || null,
+    psm: selectedPsm
+      ? { cuGehaltPct: selectedPsm.cu_gehalt_pct, wirkstoff: selectedPsm.wirkstoff, wirkstoffgehaltPct: selectedPsm.wirkstoffgehalt_pct }
+      : null,
+    duengemittelId: selectedDuengemittelId || null,
+    duengemittelEinheit: selectedDuengemittel?.einheit ?? null,
+    formular: 'neu',
+  })
+  const wasserGesperrt = m.wasserBerechnet !== null
+  const mengeGesamtGesperrt = m.mengeGesamtBerechnet !== null
+  const konzentrationGesperrt = m.konzentrationBerechnet !== null
+  const aufwandmengeGesperrt = m.aufwandmengeBerechnet !== null
+  const mengenTexteAktiv = mengenTexte(art, m.pruefung, m.ha)
+  const mengenSichtbar = (art === 'spritzung' || art === 'duengung' || felder.aufwandmenge !== 'hidden')
+    && [aufwandmenge, mengeGesamt, wasseraufwand, konzentration].some(s => s.trim() !== '')
 
   // ─── Kosten-Vorschlag: passende Hektarsätze für die aktuelle Art + Vorschlagssumme ──
   const passendeSaetze = saetzeMassnahmen.filter(s => s.art === art)
   const gewaehlterSatz = passendeSaetze.find(s => s.id === selectedSatzId) ?? passendeSaetze[0]
 
+  // Material = Preis je kg bzw. l × Mittelmenge (nie × Spritzbrühe); der Preis gilt beim PSM je kg bzw. l
+  // (Grundeinheit des Lagers, auch bei Buchungen in g bzw. ml), beim Düngemittel je dessen Einheit; das PSM
+  // auch bei Sonstiges (KAN-154)
   const materialpreisProEinheit =
-    art === 'spritzung' || art === 'sonstiges' ? selectedPsm?.preis_pro_einheit :
-    art === 'duengung'  ? selectedDuengemittel?.preis_pro_einheit :
+    felder.psm !== 'hidden' ? selectedPsm?.preis_pro_einheit :
+    art === 'duengung'      ? selectedDuengemittel?.preis_pro_einheit :
     undefined
-  const materialkosten = materialpreisProEinheit && mengeGesamtNum
-    ? materialpreisProEinheit * mengeGesamtNum
+  const materialEinheit =
+    felder.psm !== 'hidden' ? selectedPsm?.einheit ?? null :
+    art === 'duengung'      ? selectedDuengemittel?.einheit ?? 'kg' :
+    null
+  const material = materialpreisProEinheit
+    ? materialMenge(m.pruefung.ok ? m.pruefung.mittelmenge : null, materialEinheit)
+    : { menge: null, hinweis: null }
+  const materialkosten = materialpreisProEinheit && material.menge !== null
+    ? runden(materialpreisProEinheit * material.menge, 2)
     : 0
   const personalkosten = gewaehlterSatz && totalHaAktiv > 0
     ? gewaehlterSatz.satz_pro_ha * totalHaAktiv
@@ -257,7 +241,7 @@ export default function NeueBehandlungForm({
   useEffect(() => {
     if (!kostenAktiv) return
     if (kostenBeschreibung) return
-    const artLabel = ART_OPTIONS.find(o => o.value === art)?.label ?? art
+    const artLabel = MASSNAHMEN_ART_LABEL[art] ?? art
     setKostenBeschreibung(`${artLabel}${gewaehlterSatz ? ` – ${gewaehlterSatz.bezeichnung}` : ''}`)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kostenAktiv, art])
@@ -329,35 +313,21 @@ export default function NeueBehandlungForm({
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError(null)
-    if (totalSelCount === 0) { setError('Bitte mindestens eine Ried oder ein Grundstück auswählen.'); return }
-    if (bioSperre) {
-      setError('Dieses Mittel ist nicht öko-zugelassen und passt nicht zum Bio-Status des Betriebs. Bitte ein zugelassenes Mittel wählen.')
-      return
-    }
+    // KAN-153: statt eines gesperrten Knopfs zeigt der Klick den Grund an Ort und Stelle – nichts wird gesendet
+    const hindernis = absendenHindernis(totalSelCount, bioSperre)
+    if (hindernis === 'bio') { setBioSprung(n => n + 1); return }
+    if (hindernis === 'ried') { setRiedenExpanded(true); setRiedSprung(n => n + 1); return }
+    // Dieselbe Prüfung wie die Server Action, im Formular zusätzlich mit Pflicht Spritzbrühe gesamt oder
+    // Wasseraufwand (KAN-133)
+    const mengen = pruefeMassnahmeMengen(m.eingabe, { bruehePflicht: true })
+    if (!mengen.ok) { setError(mengen.fehler); return }
+    if (m.konzentrationFehler) { setError(m.konzentrationFehler); return }
     const fd = new FormData(e.currentTarget)
     selectedWGs.forEach(id => fd.append('weingarten_ids', id))
     selectedGSTs.forEach((_wgId, gstId) => fd.append('grundstueck_ids', gstId))
-    // Gesperrte (berechnete) Felder werden als disabled gerendert und daher NICHT automatisch
-    // in die FormData übernommen - hier explizit mit dem berechneten Wert nachtragen.
-    if (felder.mengeGesamt !== 'hidden') {
-      if (mengeGesamtGesperrt && mengeGesamtBerechnet != null) {
-        fd.set('menge_gesamt', String(mengeGesamtBerechnet))
-        fd.set('menge_einheit', 'l')
-      } else {
-        fd.set('menge_gesamt', mengeGesamt)
-      }
-    }
-    if (felder.wasseraufwand !== 'hidden') {
-      fd.set('wasseraufwand_l_ha', wasserGesperrt && wasserBerechnet != null ? String(wasserBerechnet) : wasseraufwand)
-    }
-    if (felder.aufwandmenge !== 'hidden') {
-      fd.set('aufwandmenge', aufwandmengeGesperrt && aufwandmengeBerechnet != null ? String(aufwandmengeBerechnet) : aufwandmenge)
-      fd.set('aufwandmenge_einheit', aufwandmengeEinheit)
-    }
-    if (felder.konzentration !== 'hidden') {
-      fd.set('konzentration', konzentrationGesperrt && konzentrationBerechnet != null ? String(konzentrationBerechnet) : konzentration)
-    }
-    fd.set('reinkupfer_kg_ha', reinkupferKgHaRaw != null ? String(reinkupferKgHaRaw) : '')
+    // Mengen so, wie die Prüfung sie normalisiert hat; gesperrte (berechnete) Felder sind disabled und
+    // würden sonst fehlen. reinkupfer_kg_ha rechnet die Server Action selbst.
+    mengenInFormData(fd, felder, mengen.werte, m.konzentrationNum)
     startTransition(async () => {
       try {
         await createBehandlung(fd)
@@ -386,11 +356,12 @@ export default function NeueBehandlungForm({
                   ? 'bg-s112-teal text-white border-s112-teal'
                   : 'bg-white text-s112-text-1 border-s112-border hover:border-s112-teal/50'}`}>
                 <input type="radio" name="art" value={o.value} checked={art === o.value}
-                  onChange={() => setArt(o.value as Art)} className="sr-only" />
+                  onChange={() => setArt(o.value)} className="sr-only" />
                 <o.icon size={14} />{o.label}
               </label>
             ))}
           </div>
+          {art === 'laubschneiden' && <p className="text-xs text-s112-muted mt-1">{LAUBSCHNEIDEN_HINWEIS}</p>}
         </div>
 
         <div className="grid grid-cols-2 gap-4">
@@ -416,10 +387,11 @@ export default function NeueBehandlungForm({
               Spritzmittel / Mittel (PSM)
               {felder.psm === 'pflicht' && <span className="text-s112-err"> *</span>}
             </label>
-            <select name="psm_id" value={selectedPsmId} required={felder.psm === 'pflicht'}
+            <select ref={psmRef} aria-label="Spritzmittel / Mittel (PSM)" name="psm_id" value={selectedPsmId} required={felder.psm === 'pflicht'}
+              aria-invalid={bioSperre || undefined} aria-describedby={bioSperre ? 'bio-sperre-grund' : undefined}
               onChange={e => setSelectedPsmId(e.target.value)}
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
-              <option value="">– Auswählen –</option>
+              <option value="">{felder.psm === 'pflicht' ? '– Auswählen –' : '– keines –'}</option>
               {psm.map(p => (
                 <option key={p.id} value={p.id}>
                   {p.name}{p.handelsname ? ` (${p.handelsname})` : ''}
@@ -449,8 +421,17 @@ export default function NeueBehandlungForm({
               Düngemittel
               {felder.duengemittel === 'pflicht' && <span className="text-s112-err"> *</span>}
             </label>
-            <select name="duengemittel_id" value={selectedDuengemittelId} required={felder.duengemittel === 'pflicht'}
-              onChange={e => setSelectedDuengemittelId(e.target.value)}
+            <select ref={duengemittelRef} aria-label="Düngemittel" name="duengemittel_id" value={selectedDuengemittelId}
+              required={felder.duengemittel === 'pflicht'}
+              aria-invalid={bioSperre || undefined} aria-describedby={bioSperre ? 'bio-sperre-grund' : undefined}
+              onChange={e => {
+                // Düngermenge in der Einheit des Düngemittels (kg bzw. l): eine Eingabe wird beim Wechsel nie
+                // umgerechnet, nur mit Hinweis versehen (keine Dichte-Annahme)
+                const hinweis = duengerEinheitWechsel(duengermengeEinheit(selectedDuengemittel?.einheit),
+                  duengermengeEinheit(duengemittel.find(d => d.id === e.target.value)?.einheit), mengeGesamt)
+                if (hinweis) setEinheitHinweis(hinweis)
+                setSelectedDuengemittelId(e.target.value)
+              }}
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
               <option value="">– Auswählen –</option>
               {duengemittel.map(d => (
@@ -475,11 +456,14 @@ export default function NeueBehandlungForm({
           </div>
         )}
 
+        {/* Bio-Sperre direkt am Mittel (KAN-153): role="alert" liest sie beim Wählen des Mittels vor; ein Klick auf
+            „Maßnahme erfassen“ fokussiert das Mittel und zeigt die Meldung neu (key) */}
         {bioSperre && (
-          <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-xl px-4 py-3 text-sm flex items-start gap-2">
-            <Ban size={16} className="mt-0.5 flex-shrink-0" />
+          <div key={bioSprung} id="bio-sperre-grund" role="alert"
+            className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-xl px-4 py-3 text-sm flex items-start gap-2">
+            <Ban size={16} className="mt-0.5 flex-shrink-0" aria-hidden="true" />
             <span>Das gewählte Mittel ist nicht öko-zugelassen – passt nicht zum Bio-Status des Betriebs
-            ({bioStatus === 'bio_eu' ? 'Bio-EU' : 'Biodynamisch'}). Absenden ist gesperrt, bitte ein zugelassenes Mittel wählen.</span>
+            ({bioStatus === 'bio_eu' ? 'Bio-EU' : 'Biodynamisch'}). Speichern ist so nicht möglich, bitte ein zugelassenes Mittel wählen.</span>
           </div>
         )}
         {bioWarnung && (
@@ -489,92 +473,142 @@ export default function NeueBehandlungForm({
           </div>
         )}
 
-        {/* Gesamtmenge */}
-        {felder.mengeGesamt !== 'hidden' && (
+        {/* Düngermenge gesamt (kg; l nur bei Düngemitteln in l) */}
+        {art === 'duengung' && felder.mengeGesamt !== 'hidden' && (
           <div>
             <label className="block text-sm font-medium text-s112-text-1 mb-1">
-              Gesamtmenge eingesetzt
+              Düngermenge gesamt ({m.mengeEinheit})
               {felder.mengeGesamt === 'pflicht' && <span className="text-s112-err"> *</span>}
             </label>
-            <div className="flex gap-2">
-              <input name="menge_gesamt" type="number" step="0.001" min="0"
-                required={felder.mengeGesamt === 'pflicht' && !mengeGesamtGesperrt}
-                placeholder="z.B. 2.4"
-                value={mengeGesamtGesperrt ? (mengeGesamtBerechnet != null ? mengeGesamtBerechnet.toFixed(2) : '') : mengeGesamt}
-                disabled={mengeGesamtGesperrt}
-                onChange={e => { setMengeGesamt(e.target.value); setMengeQuelle(e.target.value === '' ? null : 'gesamt') }}
-                className="flex-1 border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-s112-text-2" />
-              <select name="menge_einheit" value={mengeQuelle === 'wasser' ? 'l' : mengeEinheit}
-                disabled={mengeGesamtGesperrt}
-                onChange={e => setMengeEinheit(e.target.value)}
-                className="w-24 border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-s112-text-2">
-                {MENGE_EINHEITEN.map(e => <option key={e} value={e}>{e}</option>)}
-              </select>
-            </div>
-            {mengeQuelle === 'wasser' && (
-              <p className="text-xs text-s112-muted mt-1">
-                {mengeGesamtGesperrt
-                  ? 'Automatisch berechnet aus Spritzbrühe (l/ha) × Fläche.'
-                  : 'Wird berechnet, sobald Ried(en) ausgewählt sind.'}
+            <input aria-label={`Düngermenge gesamt (${m.mengeEinheit})`} name="menge_gesamt" type="text" inputMode="decimal"
+              required={felder.mengeGesamt === 'pflicht'}
+              placeholder="z.B. 950"
+              value={mengeGesamt}
+              onChange={e => { setMengeGesamt(e.target.value); setEinheitHinweis(null) }}
+              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            {einheitHinweis && (
+              <p className="text-xs text-s112-warn-fg mt-1 flex items-start gap-1">
+                <AlertTriangle size={12} className="mt-0.5 flex-shrink-0" />{einheitHinweis}
               </p>
             )}
-            {/* Live-Zusammenfassung */}
-            {(aufwandProHa || cuBeitragG || reinkupferKgHa) && (
-              <div className="mt-2 bg-s112-bg rounded-lg px-3 py-2 text-xs text-s112-text-2 flex flex-wrap gap-x-4 gap-y-1">
-                {totalHaAktiv > 0 && <span>Behandelte Fläche: <strong>{fmtHa(totalHaAktiv)}</strong></span>}
-                {aufwandProHa && <span>≈ <strong>{aufwandProHa}</strong></span>}
-                {cuBeitragG && <span className="text-s112-blue-700">Cu-Eintrag: <strong>{cuBeitragG}</strong></span>}
-                {reinkupferKgHa && <span className="text-s112-blue-700">Reinkupfer: <strong>{reinkupferKgHa}</strong></span>}
-              </div>
+          </div>
+        )}
+
+        {/* Aufwandmenge bzw. Konzentration im Tank – einzige Grundlage der Mittelmenge einer Spritzung */}
+        {(felder.aufwandmenge !== 'hidden' || felder.konzentration !== 'hidden') && (
+          <div>
+            <div className="grid grid-cols-3 gap-3">
+              {felder.aufwandmenge !== 'hidden' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-s112-text-1 mb-1">
+                      {m.jeHl ? 'Konzentration im Tank' : 'Aufwandmenge'}
+                      {felder.aufwandmenge === 'pflicht' && <span className="text-s112-err"> *</span>}
+                    </label>
+                    <input aria-label={m.jeHl ? 'Konzentration im Tank' : 'Aufwandmenge'} name="aufwandmenge" type="text" inputMode="decimal"
+                      placeholder={m.jeHl ? 'z.B. 25' : 'z.B. 0,6'}
+                      required={felder.aufwandmenge === 'pflicht' && !aufwandmengeGesperrt}
+                      value={m.aufwandmengeBerechnet !== null ? fmtNum(m.aufwandmengeBerechnet, { max: 3 }) : aufwandmenge}
+                      disabled={aufwandmengeGesperrt}
+                      onChange={e => { setAufwandmenge(e.target.value); setAufwandQuelle(e.target.value.trim() === '' ? null : 'aufwand') }}
+                      className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-s112-text-2" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-s112-text-1 mb-1">Einheit</label>
+                    <select aria-label="Einheit" name="aufwandmenge_einheit" value={m.aufwandEinheit}
+                      onChange={e => setAufwandmengeEinheit(e.target.value)}
+                      className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                      {m.einheiten.map(e => <option key={e} value={e}>{aufwandEinheitText(e, m.zulaessig)}</option>)}
+                    </select>
+                  </div>
+                </>
+              )}
+              {felder.konzentration !== 'hidden' && (
+                <div>
+                  <label className="block text-sm font-medium text-s112-text-1 mb-1">Konzentration (%)</label>
+                  <input aria-label="Konzentration (%)" name="konzentration" type="text" inputMode="decimal"
+                    placeholder="z.B. 0,5"
+                    value={m.konzentrationBerechnet !== null ? fmtNum(m.konzentrationBerechnet, { max: 3 }) : konzentration}
+                    disabled={konzentrationGesperrt}
+                    onChange={e => { setKonzentration(e.target.value); setAufwandQuelle(e.target.value.trim() === '' ? null : 'konzentration') }}
+                    className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-s112-text-2" />
+                  {m.konzentrationHinweis && (
+                    <p className="text-xs text-s112-muted mt-1">{m.konzentrationHinweis}</p>
+                  )}
+                </div>
+              )}
+            </div>
+            {felder.aufwandmenge !== 'hidden' && (
+              <p className="text-xs text-s112-muted mt-1">
+                {art === 'duengung'
+                  ? 'Optional – maßgeblich für Lager und Nährstoffbilanz ist die Düngermenge gesamt.'
+                  : art === 'sonstiges'
+                    ? 'Optional – nur mit Aufwandmenge zieht das Lager das Mittel ab (Mittelmenge = je ha × Fläche bzw. gesamt).'
+                  : m.jeHl
+                    ? 'Tatsächliche Konzentration im Tank: Mittelmenge = Konzentration × Spritzbrühe. Etikettwerte je Hektar bitte als kg/ha bzw. l/ha erfassen.'
+                    : 'Die Mittelmenge ergibt sich aus der Aufwandmenge (je ha × Fläche bzw. gesamt).'}
+              </p>
             )}
           </div>
         )}
 
-        {(felder.aufwandmenge !== 'hidden' || felder.konzentration !== 'hidden') && (
-          <div className="grid grid-cols-3 gap-3">
-            {felder.aufwandmenge !== 'hidden' && (
-              <>
+        {/* Spritzbrühe gesamt (l) ↔ Wasseraufwand (l/ha) – Punkt 1 der Anforderung; die Brühe ist nie die Mittelmenge */}
+        {art === 'spritzung' && (felder.mengeGesamt !== 'hidden' || felder.wasseraufwand !== 'hidden') && (
+          <div>
+            <div className="grid grid-cols-2 gap-3">
+              {felder.mengeGesamt !== 'hidden' && (
                 <div>
                   <label className="block text-sm font-medium text-s112-text-1 mb-1">
-                    Aufwandmenge (Etikett)
-                    {felder.aufwandmenge === 'pflicht' && <span className="text-s112-err"> *</span>}
+                    Spritzbrühe gesamt (l)
+                    {felder.mengeGesamt !== 'optional' && <span className="text-s112-err"> *</span>}
                   </label>
-                  <input name="aufwandmenge" type="number" step="0.001" min="0" placeholder="z.B. 3.0"
-                    required={felder.aufwandmenge === 'pflicht' && !aufwandmengeGesperrt}
-                    value={aufwandmengeGesperrt ? (aufwandmengeBerechnet != null ? aufwandmengeBerechnet.toFixed(3) : '') : aufwandmenge}
-                    disabled={aufwandmengeGesperrt}
-                    onChange={e => { setAufwandmenge(e.target.value); setAufwandQuelle(e.target.value === '' ? null : 'aufwand') }}
+                  <input aria-label="Spritzbrühe gesamt (l)" name="menge_gesamt" type="text" inputMode="decimal"
+                    placeholder="z.B. 800"
+                    value={m.mengeGesamtBerechnet !== null ? fmtNum(m.mengeGesamtBerechnet, { max: 3 }) : mengeGesamt}
+                    disabled={mengeGesamtGesperrt}
+                    onChange={e => { setMengeGesamt(e.target.value); setMengeQuelle(e.target.value.trim() === '' ? null : 'gesamt') }}
                     className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-s112-text-2" />
+                  {mengeQuelle === 'wasser' && (
+                    <p className="text-xs text-s112-muted mt-1">
+                      {mengeGesamtGesperrt
+                        ? 'Automatisch berechnet aus Wasseraufwand (l/ha) × Fläche.'
+                        : 'Wird berechnet, sobald Ried(en) ausgewählt sind.'}
+                    </p>
+                  )}
                 </div>
+              )}
+              {felder.wasseraufwand !== 'hidden' && (
                 <div>
-                  <label className="block text-sm font-medium text-s112-text-1 mb-1">Einheit</label>
-                  <select aria-label="Einheit" name="aufwandmenge_einheit" value={aufwandmengeEinheit}
-                    onChange={e => setAufwandmengeEinheit(e.target.value)}
-                    className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
-                    {EINHEITEN_AUFWAND.map(e => <option key={e} value={e}>{EINHEITEN_LABEL[e]}</option>)}
-                  </select>
+                  <label className="block text-sm font-medium text-s112-text-1 mb-1">
+                    Wasseraufwand (l/ha)
+                    {felder.wasseraufwand !== 'optional' && <span className="text-s112-err"> *</span>}
+                  </label>
+                  <input aria-label="Wasseraufwand (l/ha)" name="wasseraufwand_l_ha" type="text" inputMode="decimal"
+                    placeholder="z.B. 400"
+                    value={m.wasserBerechnet !== null ? fmtNum(m.wasserBerechnet, { max: 2 }) : wasseraufwand}
+                    disabled={wasserGesperrt}
+                    onChange={e => { setWasseraufwand(e.target.value); setMengeQuelle(e.target.value.trim() === '' ? null : 'wasser') }}
+                    className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-s112-text-2" />
+                  {mengeQuelle === 'gesamt' && (
+                    <p className="text-xs text-s112-muted mt-1">
+                      {wasserGesperrt
+                        ? 'Automatisch berechnet aus Spritzbrühe gesamt ÷ Fläche.'
+                        : 'Wird berechnet, sobald Ried(en) ausgewählt sind.'}
+                    </p>
+                  )}
                 </div>
-              </>
-            )}
-            {felder.konzentration !== 'hidden' && (
-              <div>
-                <label className="block text-sm font-medium text-s112-text-1 mb-1">Konzentration (%)</label>
-                <input aria-label="Konzentration (%)" name="konzentration" type="number" step="0.01" min="0" max="100"
-                  placeholder="z.B. 0.5"
-                  value={konzentrationGesperrt ? (konzentrationBerechnet != null ? konzentrationBerechnet.toFixed(3) : '') : konzentration}
-                  disabled={konzentrationGesperrt}
-                  onChange={e => { setKonzentration(e.target.value); setAufwandQuelle(e.target.value === '' ? null : 'konzentration') }}
-                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-s112-text-2" />
-                {aufwandQuelle != null && !konzentrationGesperrt && !aufwandmengeGesperrt && effektivesWasserLHa == null
-                  && (aufwandmengeEinheit === 'kg_ha' || aufwandmengeEinheit === 'l_ha') && (
-                  <p className="text-xs text-s112-muted mt-1">Für die automatische Berechnung bitte Spritzbrühe (l/ha) angeben.</p>
-                )}
-              </div>
-            )}
+              )}
+            </div>
+            <p className="text-xs text-s112-muted mt-1">
+              Spritzbrühe = Mittel + Wasser. Eines der beiden Felder ist Pflicht, das andere ergibt sich über die Fläche.
+            </p>
           </div>
         )}
 
-        {(felder.bbch !== 'hidden' || felder.wasseraufwand !== 'hidden' || felder.schaderreger !== 'hidden') && (
+        {/* Live-Zusammenfassung: Mittelmenge, Spritzbrühe, Cu, Reinkupfer – gerechnet wie in der Server Action */}
+        {mengenSichtbar && <MengenZusammenfassung art={art} pruefung={m.pruefung} ha={m.ha} />}
+
+        {(felder.bbch !== 'hidden' || felder.schaderreger !== 'hidden') && (
           <div className="grid grid-cols-2 gap-3">
             {felder.bbch !== 'hidden' && (
               <div>
@@ -589,34 +623,17 @@ export default function NeueBehandlungForm({
                 </select>
               </div>
             )}
-            {felder.wasseraufwand !== 'hidden' && (
-              <div>
-                <label className="block text-sm font-medium text-s112-text-1 mb-1">Spritzbrühe (l/ha)</label>
-                <input aria-label="Spritzbrühe (l/ha)" name="wasseraufwand_l_ha" type="number" step="1" min="0" placeholder="z.B. 500"
-                  value={wasserGesperrt ? (wasserBerechnet != null ? wasserBerechnet.toFixed(1) : '') : wasseraufwand}
-                  disabled={wasserGesperrt}
-                  onChange={e => { setWasseraufwand(e.target.value); setMengeQuelle(e.target.value === '' ? null : 'wasser') }}
-                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-s112-text-2" />
-                {mengeQuelle === 'gesamt' && (
-                  <p className="text-xs text-s112-muted mt-1">
-                    {wasserGesperrt
-                      ? 'Automatisch berechnet aus Gesamtmenge ÷ Fläche.'
-                      : 'Wird berechnet, sobald Ried(en) ausgewählt sind.'}
-                  </p>
-                )}
-              </div>
-            )}
             {felder.schaderreger !== 'hidden' && (
               <div>
                 <label className="block text-sm font-medium text-s112-text-1 mb-1">
-                  {art === 'sonstiges' ? 'Grund / Anlass' : 'Schaderreger'}
+                  {schaderreger.label}
                   {felder.schaderreger === 'pflicht' && <span className="text-s112-err"> *</span>}
                 </label>
-                <input name="schaderreger" type="text" required={felder.schaderreger === 'pflicht'}
-                  placeholder={art === 'sonstiges' ? 'z.B. Rodung' : 'z.B. Peronospora'}
-                  list={art === 'sonstiges' ? undefined : 'schaderreger-kb'}
+                <input aria-label={schaderreger.label} name="schaderreger" type="text" required={felder.schaderreger === 'pflicht'}
+                  placeholder={schaderreger.placeholder}
+                  list={schaderreger.vorschlaege ? 'schaderreger-kb' : undefined}
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
-                {art !== 'sonstiges' && (
+                {schaderreger.vorschlaege && (
                   <datalist id="schaderreger-kb">
                     {SCHADERREGER_OPTIONEN.map(s => <option key={s} value={s} />)}
                   </datalist>
@@ -626,9 +643,11 @@ export default function NeueBehandlungForm({
           </div>
         )}
 
-        {/* Düngung: Einarbeitung (nur bei organischem Dünger relevant) */}
-        {felder.einarbeitung !== 'hidden' && selectedDuengemittel?.typ === 'organisch' && (
+        {/* Düngung: Einarbeitung (nur bei organischem Dünger relevant) – einarbeitung_gesendet: nicht angehakt = „nein“
+            (false), nicht „keine Angabe“ (KAN-154, einarbeitungAus) */}
+        {einarbeitungSichtbar(art, selectedDuengemittel?.typ) && (
           <div className="grid grid-cols-2 gap-3 items-end">
+            <input type="hidden" name={EINARBEITUNG_GESENDET} value="1" />
             <label className="flex items-center gap-2 text-sm text-s112-text-1">
               <input type="checkbox" name="einarbeitung" className="accent-s112-teal" />
               Eingearbeitet
@@ -641,25 +660,25 @@ export default function NeueBehandlungForm({
           </div>
         )}
 
-        {/* Bodenbearbeitung */}
-        {felder.bearbeitung !== 'hidden' && (
+        {/* Bodenbearbeitung – Tiefe optional (Mulchen, Mähen), Gerät Pflicht (KAN-154) */}
+        {(felder.bearbeitungstiefe !== 'hidden' || felder.bearbeitungsgeraet !== 'hidden') && (
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-s112-text-1 mb-1">
                 Bearbeitungstiefe (cm)
-                {felder.bearbeitung === 'pflicht' && <span className="text-s112-err"> *</span>}
+                {felder.bearbeitungstiefe === 'pflicht' && <span className="text-s112-err"> *</span>}
               </label>
-              <input name="bearbeitungstiefe_cm" type="number" step="1" min="0" placeholder="z.B. 10"
-                required={felder.bearbeitung === 'pflicht'}
+              <input aria-label="Bearbeitungstiefe (cm)" name="bearbeitungstiefe_cm" type="number" step="1" min="0" placeholder="z.B. 10"
+                required={felder.bearbeitungstiefe === 'pflicht'}
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
             </div>
             <div>
               <label className="block text-sm font-medium text-s112-text-1 mb-1">
                 Gerät
-                {felder.bearbeitung === 'pflicht' && <span className="text-s112-err"> *</span>}
+                {felder.bearbeitungsgeraet === 'pflicht' && <span className="text-s112-err"> *</span>}
               </label>
-              <input name="bearbeitungsgeraet" type="text" placeholder="z.B. Grubber"
-                required={felder.bearbeitung === 'pflicht'}
+              <input aria-label="Gerät" name="bearbeitungsgeraet" type="text" placeholder="z.B. Grubber"
+                required={felder.bearbeitungsgeraet === 'pflicht'}
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
             </div>
           </div>
@@ -701,7 +720,7 @@ export default function NeueBehandlungForm({
                 <select aria-label="Witterung" name="witterung"
                   className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                   <option value="">–</option>
-                  {WITTERUNG.map(w => <option key={w} value={w}>{w.charAt(0).toUpperCase() + w.slice(1)}</option>)}
+                  {WITTERUNG_OPTIONEN.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               </div>
             )}
@@ -722,23 +741,23 @@ export default function NeueBehandlungForm({
         </div>
       </div>
 
-      {/* Ried(en)-Auswahl */}
-      <div className="card">
+      {/* Ried(en)-Auswahl – Pflicht (KAN-153): standardmäßig eingeklappt, damit „Kosten erfassen“ sichtbar ist; ohne
+          Auswahl springt „Maßnahme erfassen“ hierher (aufklappen, hinscrollen, erste Checkbox, Meldung) */}
+      <div ref={riedenRef} className="card">
         <div className="flex items-center justify-between mb-3">
-          <button type="button"
+          <button type="button" ref={riedenKopfRef}
             onClick={() => setRiedenExpanded(v => !v)}
+            aria-expanded={riedenExpanded} aria-describedby={riedMeldung}
             className="flex items-center gap-2 text-left">
             <svg className={`w-3.5 h-3.5 text-s112-muted transition-transform shrink-0 ${riedenExpanded ? 'rotate-90' : ''}`}
-              fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
             <h2 className="text-base font-semibold text-s112-text">
-              Ried(en) auswählen
-              {totalSelCount > 0 && (
-                <span className="ml-2 text-sm text-s112-blue-700 font-normal">
-                  {totalSelCount} ausgewählt · {fmtHa(totalHaAktiv)}
-                </span>
-              )}
+              Ried(en) auswählen<span className="text-s112-err"> *</span>
+              <span className={`ml-2 text-sm font-normal ${riedKopf.warnung ? 'text-s112-warn-fg' : 'text-s112-blue-700'}`}>
+                {riedKopf.text}
+              </span>
             </h2>
           </button>
           {riedenExpanded && (
@@ -749,6 +768,16 @@ export default function NeueBehandlungForm({
             </button>
           )}
         </div>
+
+        {/* Meldung nach „Maßnahme erfassen“ ohne Auswahl – key: jeder weitere Klick liest sie neu vor; die id ist das
+            Ziel von aria-describedby an Checkboxen und Kopfzeile */}
+        {riedHinweis && (
+          <p key={riedSprung} id="ried-auswahl-fehlt" role="alert"
+            className="mb-3 bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-xl px-4 py-2.5 text-sm flex items-start gap-2">
+            <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" aria-hidden="true" />
+            <span>{RIED_AUSWAHL_FEHLT}</span>
+          </p>
+        )}
 
         {riedenExpanded && (
         <div className="space-y-3">
@@ -772,6 +801,8 @@ export default function NeueBehandlungForm({
                   <input
                     type="checkbox"
                     readOnly
+                    aria-label={`${lageName}: alle spritzbaren auswählen`}
+                    aria-invalid={riedHinweis || undefined} aria-describedby={riedMeldung}
                     checked={allSelected}
                     ref={el => { if (el) el.indeterminate = someSelected && !allSelected }}
                     className="accent-s112-teal"
@@ -799,6 +830,8 @@ export default function NeueBehandlungForm({
                           ${w.spritzbar ? 'hover:bg-s112-bg/40' : 'opacity-40'}`}>
                           <input
                             type="checkbox"
+                            aria-label={w.name}
+                            aria-invalid={riedHinweis || undefined} aria-describedby={riedMeldung}
                             checked={wgSel || allGstSel}
                             ref={el => { if (el) el.indeterminate = someGstSel && !allGstSel && !wgSel }}
                             onChange={() => toggleWG(w.id, w.spritzbar)}
@@ -838,6 +871,7 @@ export default function NeueBehandlungForm({
                                 <Fragment key={g.id}>
                                   <label className={`flex items-center gap-2 pl-10 pr-4 py-1.5 text-xs cursor-pointer hover:bg-s112-bg/30 ${isGstSel ? 'bg-s112-teal/5' : ''}`}>
                                     <input type="checkbox"
+                                      aria-invalid={riedHinweis || undefined} aria-describedby={riedMeldung}
                                       checked={isGstSel}
                                       onChange={() => toggleGST(g.id, w.id)}
                                       className="accent-s112-teal" />
@@ -868,9 +902,10 @@ export default function NeueBehandlungForm({
             <span className="font-semibold text-s112-blue-700">{selectedWGs.size}</span> Ried/Rieden
             {selectedGSTs.size > 0 && <> · <span className="font-semibold text-s112-blue-700">{selectedGSTs.size}</span> GST</>} ·{' '}
             <span className="font-semibold">{fmtHa(totalHaAktiv)}</span> aktive Fläche
-            {aufwandProHa && <> · <span className="text-s112-text-2">≈ {aufwandProHa}</span></>}
-            {cuBeitragG && <> · <span className="text-s112-blue-700 font-medium">Cu: {cuBeitragG}</span></>}
-            {reinkupferKgHa && <> · <span className="text-s112-blue-700 font-medium">Reinkupfer: {reinkupferKgHa}</span></>}
+            {mengenTexteAktiv?.mittel && <> · <span className="text-s112-text-2">{mengenTexteAktiv.mittelLabel} {mengenTexteAktiv.mittel}</span></>}
+            {mengenTexteAktiv?.bruehe && <> · <span className="text-s112-text-2">Spritzbrühe {mengenTexteAktiv.bruehe}</span></>}
+            {mengenTexteAktiv?.cu && <> · <span className="text-s112-blue-700 font-medium">Cu: {mengenTexteAktiv.cu}</span></>}
+            {mengenTexteAktiv?.reinkupfer && <> · <span className="text-s112-blue-700 font-medium">Reinkupfer: {mengenTexteAktiv.reinkupfer}</span></>}
           </div>
         )}
       </div>
@@ -884,15 +919,23 @@ export default function NeueBehandlungForm({
           <h2 className="text-base font-semibold text-s112-text">Kosten erfassen</h2>
         </label>
         <p className="text-xs text-s112-muted -mt-2">
-          Optional: Material- und Personalkosten dieser Maßnahme automatisch vorschlagen (aus Mittelpreis
-          und Hektarsätzen) und als Kosteneintrag in der Kostenrechnung anlegen.
+          Optional: Material- und Personalkosten dieser Maßnahme automatisch vorschlagen (Material = Preis je
+          kg bzw. l × Mittelmenge, Personal/Maschinen = Hektarsatz × Fläche) und als Kosteneintrag in der
+          Kostenrechnung anlegen.
         </p>
 
         {kostenAktiv && (
           <div className="space-y-3 pt-1">
             {(materialkosten > 0 || personalkosten > 0) && (
               <div className="bg-s112-bg rounded-lg px-3 py-2 text-xs text-s112-text-2 flex flex-wrap gap-x-4 gap-y-1">
-                {materialkosten > 0 && <span>Material: <strong>{fmtEuro(materialkosten)} €</strong></span>}
+                {materialkosten > 0 && (
+                  <span>
+                    Material: <strong>{fmtEuro(materialkosten)} €</strong>
+                    {material.menge !== null && materialpreisProEinheit && (
+                      <> ({fmtNum(material.menge, { max: 3 })} {materialEinheit} × {fmtNum(materialpreisProEinheit, { min: 2, max: 4 })} €/{materialEinheit})</>
+                    )}
+                  </span>
+                )}
                 {personalkosten > 0 && (
                   <span>
                     Personal/Maschinen: <strong>{fmtEuro(personalkosten)} €</strong>
@@ -901,6 +944,11 @@ export default function NeueBehandlungForm({
                 )}
                 <span>Vorschlag gesamt: <strong className="text-s112-blue-700">{fmtEuro(kostenVorschlag)} €</strong></span>
               </div>
+            )}
+            {material.hinweis && (
+              <p className="text-xs text-s112-warn-fg flex items-start gap-1">
+                <AlertTriangle size={12} className="mt-0.5 flex-shrink-0" />{material.hinweis}
+              </p>
             )}
 
             {passendeSaetze.length > 0 && (
@@ -957,9 +1005,10 @@ export default function NeueBehandlungForm({
       )}
 
       <div className="flex gap-3">
-        <button type="submit" disabled={pending || totalSelCount === 0 || bioSperre}
+        {/* nur beim Speichern gesperrt – fehlende Auswahl bzw. Bio-Sperre zeigt der Klick (absendenHindernis, KAN-153) */}
+        <button type="submit" disabled={pending}
           className="bg-s112-teal text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50 transition-colors">
-          {pending ? 'Speichert…' : `Maßnahme erfassen (${totalSelCount} ausgewählt)`}
+          {erfassenKnopfText(pending, totalSelCount)}
         </button>
         <a href="/behandlungen" className="px-5 py-2.5 rounded-xl text-sm font-medium text-s112-text-2 hover:text-s112-text">
           Abbrechen

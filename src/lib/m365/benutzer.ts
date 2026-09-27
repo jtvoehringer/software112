@@ -33,7 +33,7 @@ export async function ladeOutlookVerbindung(): Promise<{ ok: true; v: OutlookVer
   if (!tenantId) return { ok: false, grund: 'kein_betrieb' }
 
   const [{ data: cfg }, { data: tenantCfg }] = await Promise.all([
-    (supabase.from('user_email_connections') as any)
+    (admin.from('user_email_connections') as any)
       .select('m365_aktiv, m365_access_token_enc, m365_refresh_token_enc, m365_token_expires_at, m365_scope, email_address')
       .eq('tenant_id', tenantId).eq('user_id', user.id).maybeSingle(),
     (admin.from('tenant_einstellungen') as any)
@@ -43,7 +43,7 @@ export async function ladeOutlookVerbindung(): Promise<{ ok: true; v: OutlookVer
   const c = cfg as R | null
   if (!c?.m365_aktiv || !c?.m365_access_token_enc) return { ok: false, grund: 'nicht_verbunden' }
   try {
-    const token = await getValidUserAccessToken(c, tenantCfg as R, supabase, tenantId, user.id)
+    const token = await getValidUserAccessToken(c, tenantCfg as R, admin, tenantId, user.id)
     return { ok: true, v: {
       tenantId, userId: user.id, token,
       schreiben: hatKalenderSchreibrecht(c),

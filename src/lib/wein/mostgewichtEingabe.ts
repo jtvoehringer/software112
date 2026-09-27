@@ -124,7 +124,8 @@ export function stufenwechsel(z: EingabeZustand): { von: string; nach: string; v
 export interface Grenzfall {
   /** Mindest-°KMW der nächstgelegenen Stufe */
   schwelleKmw: number
-  /** Kleinster °Oe-Messwert (0,1-Raster, Variante B) für diese Stufe – wie die BKI-Tabelle */
+  /** Kleinster °Oe-Messwert (0,1-Raster, Variante B) für diese Stufe – wie die BKI-Tabelle; bei den
+   *  ganzzahligen Stufenschwellen zugleich der °Oe-Wert, gegen den der Grenzfall misst */
   schwelleOechsle: number
   /** Stufe ab dieser Schwelle (Code aus lib/weinqualitaet) */
   stufe: string
@@ -134,10 +135,15 @@ export interface Grenzfall {
   bkiTabelle: boolean
 }
 
-/** Liegt das Mostgewicht höchstens ±0,2 °KMW an einer Stufenschwelle? (Jörgen, 26.09.2026) */
+/**
+ * Liegt das Mostgewicht höchstens ±0,5 °Oe (GRENZ_BAND_OECHSLE, einschließlich) an einer
+ * Stufenschwelle? Verglichen in °Oe – gemessen, sonst aus °KMW gerechnet – gegen den °Oe-Wert der
+ * Schwelle (KAN-134, Jörgen 26.09.2026; vorher ±0,2 °KMW): 83,0–84,0 °Oe und 16,9 °KMW → Kabinett,
+ * 16,8 °KMW (82,5 °Oe) nicht mehr. Siehe imGrenzbereich() in lib/wein/mostgewicht.ts.
+ */
 export function grenzfall(m: Mostgewicht | null | undefined): Grenzfall | null {
   if (!m) return null
-  const s = imGrenzbereich(m.kmw, STUFEN_SCHWELLEN_KMW)
+  const s = imGrenzbereich(m, STUFEN_SCHWELLEN_KMW)
   if (s == null) return null
   return {
     schwelleKmw: s,

@@ -11,8 +11,8 @@ import { csvPfad } from '@/lib/behoerden/katalog'
 import { wienHeute } from '@/lib/csv'
 import { fmtNum } from '@/lib/format'
 import {
-  ART_LABEL, artAus, datumDe, einheitText, gstAnzahl, jahrAus, ladePsmAufzeichnung, mittelName,
-  riedText, weingartenText, windText, witterungText,
+  ART_LABEL, artAus, aufwandEinheitText, datumDe, gstAnzahl, jahrAus, ladePsmAufzeichnung, mittelmenge, mittelName,
+  riedText, spritzbruehe, weingartenText, windText, witterungText, type PsmBehandlung,
 } from '@/lib/behoerden/psm'
 
 export const metadata: Metadata = { title: 'Behandlungsprotokoll – software:112' }
@@ -24,6 +24,22 @@ type R = Record<string, any>
 // Pflanzenschutz-Aufzeichnungen (Pflichtmeldung, Druck + CSV „psm-aufzeichnung“). Druck und CSV
 // laden über dieselbe Funktion ladePsmAufzeichnung() (lib/behoerden/psm.ts): der Ausdruck zeigt
 // eine Zeile je Maßnahme, die CSV eine Zeile je Maßnahme × Grundstück (KG, GST-Nr., Fläche).
+// Mengen je Maßnahme aus denselben Funktionen wie die CSV (KAN-133): „Mittel X kg · Brühe X l“
+// bzw. „Dünger X kg“ – die CSV verteilt genau diese Werte nach Grundstücksfläche.
+
+/** „Mittel 1,2 kg · Brühe 800 l“ (Spritzung), „Mittel 0,4 kg“ (Sonstiges mit Aufwand, KAN-154) bzw. „Dünger 1.000 kg“ (Düngung); sonst null */
+function mengenText(b: PsmBehandlung): string | null {
+  if (b.art === 'sonstiges') {
+    const mm = mittelmenge(b)
+    return b.psm && mm.menge !== null ? `Mittel ${fmtNum(mm.menge, { max: 3 })} ${mm.einheit}` : null
+  }
+  if (b.art !== 'spritzung' && b.art !== 'duengung') return null
+  const mm = mittelmenge(b)
+  const menge = mm.menge !== null ? `${fmtNum(mm.menge, { max: 3 })} ${mm.einheit}` : `– (${mm.warnung})`
+  if (b.art === 'duengung') return `Dünger ${menge}`
+  const bruehe = spritzbruehe(b)
+  return `Mittel ${menge}${bruehe !== null ? ` · Brühe ${fmtNum(bruehe, { max: 3 })} l` : ''}`
+}
 export default async function BehandlungsprotokollPage({ searchParams }: { searchParams: Promise<{ jahr?: string; art?: string }> }) {
   const { jahr: jahrParam, art: artParam } = await searchParams
   const membership = await getCurrentMembership()
@@ -117,6 +133,7 @@ export default async function BehandlungsprotokollPage({ searchParams }: { searc
               const ried = riedText(b)
               const nGst = gstAnzahl(b)
               const wetter = [witterungText(b.witterung), b.temperaturC !== null ? `${fmtNum(b.temperaturC, { max: 1 })} °C` : null, windText(b.wind)].filter(Boolean).join(', ')
+              const mengen = mengenText(b)
               return (
                 <tr key={b.id} className={i % 2 === 1 ? 'bg-s112-bg' : ''}>
                   <td className="px-2 py-1.5 border border-s112-line tabular-nums whitespace-nowrap">
@@ -139,8 +156,8 @@ export default async function BehandlungsprotokollPage({ searchParams }: { searc
                   <td className="px-2 py-1.5 border border-s112-line">{b.schaderreger ?? '–'}</td>
                   <td className="px-2 py-1.5 border border-s112-line text-center">{b.bbch ?? '–'}</td>
                   <td className="px-2 py-1.5 border border-s112-line tabular-nums whitespace-nowrap">
-                    {b.aufwand !== null ? `${fmtNum(b.aufwand, { max: 3 })} ${einheitText(b.aufwandEinheit)}` : '–'}
-                    {b.mengeGesamt !== null && <span className="block text-[10px] text-s112-tertiary">ges. {fmtNum(b.mengeGesamt, { max: 3 })} {einheitText(b.mengeEinheit)}</span>}
+                    {b.aufwand !== null ? `${fmtNum(b.aufwand, { max: 3 })} ${aufwandEinheitText(b.aufwandEinheit)}` : '–'}
+                    {mengen && <span className="block text-[10px] text-s112-tertiary">{mengen}</span>}
                     {b.wasserLHa !== null && <span className="block text-[10px] text-s112-tertiary">Wasser {fmtNum(b.wasserLHa, { max: 1 })} l/ha</span>}
                   </td>
                   <td className="px-2 py-1.5 border border-s112-line text-center whitespace-nowrap">
@@ -165,8 +182,10 @@ export default async function BehandlungsprotokollPage({ searchParams }: { searc
         )}
 
         <p className="text-xs text-s112-tertiary mt-4">
-          Kultur: Weinrebe (EPPO VITVI) · Fläche = Summe der behandelten Grundstücke · Die CSV-Datei enthält je Maßnahme
-          eine Zeile pro Grundstück (KG-Nr., GST-Nr., Fläche, anteilige Menge).
+          Kultur: Weinrebe (EPPO VITVI) · Fläche = Summe der behandelten Grundstücke · Mittelmenge = Aufwand × Fläche
+          (bzw. Konzentration im Tank × Spritzbrühe) · Spritzbrühe = Mittel und Wasser im Tank, bei einer Tankmischung
+          je Mittel dieselbe Brühe · Die CSV-Datei enthält je Maßnahme eine Zeile pro Grundstück (KG-Nr., GST-Nr., Fläche,
+          Mittelmenge und Spritzbrühe anteilig nach Fläche).
         </p>
 
         <div className="grid grid-cols-2 gap-16 mt-12 pt-4">

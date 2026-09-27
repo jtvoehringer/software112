@@ -6,6 +6,7 @@ import Link from '@/components/ui/Link'
 import BehandlungEditForm from './BehandlungEditForm'
 import type { BehandlungEdit, PSMOption, DuengemittelOption, BestehenderKostenEintrag } from './BehandlungEditForm'
 import type { KostenartOption } from '../../neu/page'
+import { summeFlaecheHa } from '@/lib/behandlungen/massnahmeMengen'
 
 export const metadata: Metadata = { title: 'Maßnahme bearbeiten – software:112' }
 export const dynamic = 'force-dynamic'
@@ -40,12 +41,13 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
     (supabase.from('behandlungen') as any)
       .select(`
         id, datum, datum_bis, art, psm_id, duengemittel_id, aufwandmenge, aufwandmenge_einheit,
-        menge_gesamt, menge_einheit, konzentration, wasseraufwand_l_ha, reinkupfer_kg_ha,
+        menge_gesamt, menge_einheit, konzentration, wasseraufwand_l_ha,
         bbch_stadium, schaderreger, witterung, temperatur_c, notizen,
         bearbeitungstiefe_cm, bearbeitungsgeraet, schnittart, laubarbeit_art,
         einarbeitung, einarbeitung_zeitpunkt,
         weingarten:weingarten_id(name),
-        psm:psm_id(wartezeit_tage)
+        psm:psm_id(wartezeit_tage),
+        behandlung_grundstuecke(flaeche_ha, grundstueck:grundstueck_id(flaeche_ha))
       `)
       .eq('id', id)
       .eq('tenant_id', tenantId)
@@ -53,14 +55,14 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('pflanzenschutzmittel') as any)
-      .select('id, name, handelsname, oeko_zugelassen, cu_gehalt_pct, wartezeit_tage')
+      .select('id, name, handelsname, oeko_zugelassen, cu_gehalt_pct, wirkstoff, wirkstoffgehalt_pct, wartezeit_tage')
       .eq('aktiv', true)
       .or(`tenant_id.eq.${tenantId},tenant_id.is.null`)
       .order('name'),
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('duengemittel') as any)
-      .select('id, name, handelsname, typ, wartezeit_tage, oeko_zugelassen')
+      .select('id, name, handelsname, typ, wartezeit_tage, oeko_zugelassen, einheit')
       .eq('aktiv', true)
       .or(`tenant_id.eq.${tenantId},tenant_id.is.null`)
       .order('name'),
@@ -98,7 +100,6 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
     menge_einheit:        b.menge_einheit ?? null,
     konzentration:        b.konzentration ?? null,
     wasseraufwand_l_ha:   b.wasseraufwand_l_ha ?? null,
-    reinkupfer_kg_ha:     b.reinkupfer_kg_ha ?? null,
     bbch_stadium:         b.bbch_stadium ?? null,
     schaderreger:         b.schaderreger ?? null,
     witterung:            b.witterung ?? null,
@@ -114,12 +115,18 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
     weingarten_name:      b.weingarten?.name ?? null,
   }
 
+  // Behandelte Fläche = Σ Grundstücke der Maßnahme (ha, je GST und gesamt 4 Stellen) – dieselbe Funktion,
+  // mit der updateBehandlung Spritzbrühe ↔ Wasseraufwand und Reinkupfer rechnet (KAN-133)
+  const flaecheHa = summeFlaecheHa(((b.behandlung_grundstuecke ?? []) as AR[]).map(bg => bg.flaeche_ha ?? bg.grundstueck?.flaeche_ha))
+
   const psm: PSMOption[] = ((rawPsm ?? []) as AR[]).map(p => ({
     id:              p.id,
     name:            p.name,
     handelsname:     p.handelsname ?? null,
     oeko_zugelassen: p.oeko_zugelassen ?? false,
     cu_gehalt_pct:   p.cu_gehalt_pct ?? null,
+    wirkstoff:       p.wirkstoff ?? null,
+    wirkstoffgehalt_pct: p.wirkstoffgehalt_pct ?? null,
     wartezeit_tage:  p.wartezeit_tage ?? null,
   }))
 
@@ -130,6 +137,7 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
     typ:             d.typ ?? null,
     wartezeit_tage:  d.wartezeit_tage ?? null,
     oeko_zugelassen: d.oeko_zugelassen ?? false,
+    einheit:         d.einheit ?? null,
   }))
 
   const kostenarten: KostenartOption[] = ((rawKostenarten ?? []) as AR[]).map(k => ({
@@ -155,6 +163,7 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
       <BehandlungEditForm
         behandlung={behandlung} psm={psm} duengemittel={duengemittel} bioStatus={bioStatus}
         kostenarten={kostenarten} bestehenderKostenEintrag={bestehenderKostenEintrag}
+        flaecheHa={flaecheHa}
       />
     </div>
   )
