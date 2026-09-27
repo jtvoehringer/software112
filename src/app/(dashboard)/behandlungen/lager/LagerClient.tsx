@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { Pencil, Trash2 } from 'lucide-react'
 import { upsertLagerBewegung, deleteLagerBewegung } from './actions'
 import type { PSMLager, PSMOption } from './page'
+import LagerHinweise from './LagerHinweise'
 import { fmtNum } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
 
@@ -29,10 +30,12 @@ function fmtMenge(m: number, einheit: string | null) {
 
 // ── Buchungsformular ──────────────────────────────────────────────────────────
 function BuchungsForm({
-  allePsm, defaultPsmId, onDone, edit,
+  allePsm, defaultPsmId, defaultEinheit, onDone, edit,
 }: {
   allePsm: PSMOption[]
   defaultPsmId?: string
+  /** Lager-Einheit des Mittels als Vorgabe für neue Buchungen */
+  defaultEinheit?: string
   onDone: () => void
   edit?: PSMLager['bewegungen'][0] & { psm_id: string }
 }) {
@@ -120,7 +123,7 @@ function BuchungsForm({
         {/* Einheit */}
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Einheit</label>
-          <select aria-label="Einheit" name="einheit" defaultValue={edit?.einheit ?? 'kg'}
+          <select aria-label="Einheit" name="einheit" defaultValue={edit?.einheit ?? defaultEinheit ?? 'kg'}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
             <option value="kg">kg</option>
             <option value="l">l</option>
@@ -162,10 +165,8 @@ function PsmKarte({
   const [editBew, setEditBew] = useState<(PSMLager['bewegungen'][0] & { psm_id: string }) | null>(null)
   const [pending, startTransition] = useTransition()
 
-  const zugang  = psm.bewegungen.filter(b => b.menge > 0).reduce((s, b) => s + b.menge, 0)
-  const abgang  = psm.bewegungen.filter(b => b.menge < 0).reduce((s, b) => s + Math.abs(b.menge), 0)
-  const bestand = zugang - abgang - psm.verbrauch_gesamt
-  const einheit = psm.bewegungen[0]?.einheit ?? psm.einheit_behandlung ?? 'kg'
+  // Alle Mengen in der Lager-Einheit; Verbrauch = Σ Mittelmenge der Spritzungen (lib/behandlungen/lagerVerbrauch.ts)
+  const { einheit, zugang, abgang, verbrauch, bestand, hinweise } = psm.konto
 
   const bestandColor = bestand < 0 ? 'text-s112-err-fg' : bestand < 1 ? 'text-s112-warn-fg' : 'text-s112-blue-700'
 
@@ -202,7 +203,7 @@ function PsmKarte({
         </div>
         <div className="bg-s112-blue-50 rounded-lg p-2">
           <p className="text-sm font-semibold text-s112-blue-700 tabular-nums">
-            –{fmtNum(psm.verbrauch_gesamt, { max: 3 })} {psm.einheit_behandlung ?? einheit}
+            –{fmtNum(verbrauch, { max: 3 })} {einheit}
           </p>
           <p className="text-xs text-s112-blue-700">Verbrauch (Maßnahmen)</p>
         </div>
@@ -214,12 +215,16 @@ function PsmKarte({
         </div>
       </div>
 
+      {/* Nicht abgezogene Maßnahmen (ohne Aufwand, l-Mittel bei Lager in kg …) */}
+      <LagerHinweise hinweise={hinweise} writeOk={writeOk} />
+
       {/* Buchungsformular */}
       {(showForm || editBew) && (
         <div className="mb-4">
           <BuchungsForm
             allePsm={allePsm}
             defaultPsmId={psm.psm_id}
+            defaultEinheit={einheit}
             edit={editBew ?? undefined}
             onDone={() => { setShowForm(false); setEditBew(null) }}
           />
@@ -271,7 +276,7 @@ function PsmKarte({
                 </tr>
               ))}
               {/* Verbrauch-Zeile (read-only, aus Behandlungen) */}
-              {psm.verbrauch_gesamt > 0 && (
+              {verbrauch > 0 && (
                 <tr className="border-b border-s112-border/40 last:border-0 bg-s112-blue-50/30">
                   <td className="px-3 py-2 tabular-nums text-s112-muted text-xs">aus Maßnahmen</td>
                   <td className="px-3 py-2">
@@ -280,9 +285,9 @@ function PsmKarte({
                     </span>
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums font-medium text-s112-blue-700">
-                    –{fmtNum(psm.verbrauch_gesamt, { max: 3 })} {psm.einheit_behandlung ?? ''}
+                    –{fmtNum(verbrauch, { max: 3 })} {einheit}
                   </td>
-                  <td className="px-3 py-2 text-xs text-s112-muted italic">automatisch aus Spritzungen</td>
+                  <td className="px-3 py-2 text-xs text-s112-muted italic">aus Spritzungen und Sonstiges (Aufwand × Fläche)</td>
                   {(writeOk || adminOk) && <td />}
                 </tr>
               )}
@@ -331,7 +336,7 @@ export default function LagerClient({
           <p className="font-medium text-s112-text-2">Noch keine Lagerbewegungen</p>
           <p className="text-sm mt-1 max-w-sm mx-auto">
             Erfasse den Anfangsbestand oder einen Einkauf für ein Pflanzenschutzmittel.
-            Der Verbrauch wird automatisch aus den Maßnahmen berechnet.
+            Der Verbrauch wird automatisch aus den Spritzungen berechnet (Aufwand × Fläche).
           </p>
         </div>
       ) : (

@@ -30,3 +30,13 @@ export function geheimSpeichern(roh: FormDataEntryValue | null): string | null |
   if (!s) return null
   return encryptPass(s)
 }
+
+/**
+ * KAN-135: Feld für ein Update/Upsert – Maske (unverändert) lässt die Spalte ganz weg,
+ * leer = löschen (null), sonst verschlüsselt. Nie `geheimSpeichern(…) ?? null` schreiben:
+ * das macht aus „unverändert“ ein Löschen.
+ */
+export function geheimFeld<K extends string>(spalte: K, roh: FormDataEntryValue | null): Partial<Record<K, string | null>> {
+  const wert = geheimSpeichern(roh)
+  return wert === undefined ? {} : ({ [spalte]: wert } as Partial<Record<K, string | null>>)
+}

@@ -7,6 +7,7 @@ import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { revalidatePath } from 'next/cache'
 import { AktionsFehler } from '@/lib/fehler'
 import { dezimal } from '@/lib/format'
+import { MASSNAHMEN_ARTEN, MASSNAHMEN_ART_LABEL, istMassnahmenArt } from '@/lib/behandlungen/arten'
 
 // Fehler der Datenbank (z.B. RLS) werden seit 20.9.2026 geworfen statt verschluckt -
 // vorher verschwanden abgelehnte Buchungen ohne Hinweis (PSM-Anfangsbestände Gebeshuber).
@@ -241,9 +242,15 @@ export async function upsertSatzMassnahme(fd: FormData) {
 
   const existingId = fd.get('existing_id') as string | null
 
+  // Arten wie saetze_massnahmen_art_check (lib/behandlungen/arten.ts, seit KAN-143 mit Laubschneiden)
+  const art = fd.get('art')
+  if (!istMassnahmenArt(art)) {
+    throw new AktionsFehler(`Bitte eine Maßnahmenart wählen (${MASSNAHMEN_ARTEN.map(a => MASSNAHMEN_ART_LABEL[a]).join(', ')}).`)
+  }
+
   const payload = {
     tenant_id:    tenantId,
-    art:          fd.get('art') as string,
+    art,
     bezeichnung:  fd.get('bezeichnung') as string,
     satz_pro_ha:  parseFloat(dezimal(fd.get('satz_pro_ha') as string)) || 0,
     gueltig_ab:   (fd.get('gueltig_ab') as string) || null,

@@ -3,8 +3,12 @@ import { alle } from '@/lib/supabase/alle'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
-import ReportsClient from '../ReportsClient'
+import ReportsClient, { type BehandlungUebersicht, type CuKachel } from '../ReportsClient'
 import { behoerdenUebersicht } from '@/lib/behoerden/uebersicht'
+import {
+  ART_LABEL, jahrZeitraum, ladeBehandlungen, ladeWeingaerten, mittelmenge, mittelName, spritzbruehe,
+} from '@/lib/behoerden/psm'
+import { cuBilanz } from '@/lib/behoerden/cu'
 
 export const metadata: Metadata = { title: 'Reports – software:112' }
 export const dynamic = 'force-dynamic'
@@ -39,11 +43,18 @@ export default async function ReportsPage() {
   // wirft nicht: bei einem Datenbankfehler null (protokolliert) – der Tab „Behörden“ zeigt dann einen Hinweis
   const behoerdenP = behoerdenUebersicht()
 
+  // Tab „Behandlungen“: Maßnahmen des Jahres und Kupfer-Kachel über dieselben Funktionen wie die
+  // Behördenmeldungen (KAN-133 Nr. 5): Mittelmenge nur aus dem Aufwand (nie die Spritzbrühe),
+  // Cu je ha über cuBilanz() mit der Betriebsfläche aus den WI-Grundstücken (betriebsflaecheWi).
+  // Ladefehler → Kachel „–“ statt Absturz der ganzen Controlling-Seite.
+  const massnahmenP = tenantId
+    ? Promise.all([ladeBehandlungen(supabase, tenantId, jahrZeitraum(thisYear)), ladeWeingaerten(supabase, tenantId)])
+        .catch((e: unknown) => { console.error('Reports: Maßnahmen konnten nicht geladen werden', e); return null })
+    : Promise.resolve(null)
+
   const [
     { data: umsatzRaw },
     { data: lagerRaw },
-    { data: behandlungenRaw },
-    { data: flaecheRaw },
     { data: pipelineRaw },
     { data: kontakteRaw },
     { data: offeneRaw },
@@ -58,10 +69,6 @@ export default async function ReportsPage() {
     tf((supabase.from('fuellungen') as any)
       .select('id, name, jahrgang, rebsorte, flaschengroesse_ml, bestand_flaschen, vk_preis_brutto, einstandspreis, aktiv')
       .eq('aktiv', true).order('bestand_flaschen', { ascending: false })),
-    tf((supabase.from('behandlungen') as any)
-      .select('id, datum, menge_gesamt, menge_einheit, art, psm:psm_id(name, cu_gehalt_pct)')
-      .gte('datum', `${thisYear}-01-01`).order('datum', { ascending: false })),
-    tf((supabase.from('weingarten') as any).select('flaeche_ha').eq('aktiv', true)),
     tf((supabase.from('pipeline_eintraege') as any)
       .select('id, stufe, kategorie, erledigt, kontakt:kontakte!kontakt_id(vorname, nachname, segment), firma:firmen(name, segment)')
       .order('erstellt_am', { ascending: false })),
@@ -113,19 +120,23 @@ export default async function ReportsPage() {
     s + (Number(f.bestand_flaschen) || 0) * (Number(f.einstandspreis) || 0), 0)
 
   // ── Behandlungsübersicht (aktuelles Jahr) ─────────────────────────────────
-  const behandlungen = (behandlungenRaw ?? []) as R[]
-
-  // Cu-Bilanz: kg Kupfer gesamt DURCH die bewirtschaftete Fläche teilen, sonst wird eine
-  // absolute Gesamtmenge gegen den EU-Grenzwert (4 kg/ha/Jahr) verglichen (wie in
-  // reports/cu-bilanz/page.tsx bereits korrekt gemacht).
-  const totalCuKg = behandlungen.reduce((s: number, b: R) => {
-    const cu = Number((b.psm as R | null)?.cu_gehalt_pct) || 0
-    if (cu === 0) return s
-    const menge = Number(b.menge_gesamt) || 0
-    return s + (menge * cu / 100)
-  }, 0)
-  const gesamtHaFuerCu = ((flaecheRaw ?? []) as R[]).reduce((s: number, w: R) => s + (Number(w.flaeche_ha) || 0), 0)
-  const cuKgHa = gesamtHaFuerCu > 0 ? totalCuKg / gesamtHaFuerCu : 0
+  // Bis 26.09.2026 rechnete die Kachel Σ „Menge gesamt“ × Cu-Gehalt ÷ Σ weingarten.flaeche_ha –
+  // mit der Spritzbrühe in „Menge gesamt“ ein Vielfaches, ohne Stammdaten-Fläche „0,00“ grün.
+  const massnahmen = await massnahmenP
+  const behandlungen: BehandlungUebersicht[] = [...(massnahmen?.[0].behandlungen ?? [])].reverse().map(b => {
+    const mm = mittelmenge(b)
+    return {
+      id: b.id, datum: b.datum, art: ART_LABEL[b.art] ?? b.art, mittel: mittelName(b),
+      mittelmenge: mm.menge, einheit: mm.einheit, basis: mm.basis,
+      warnung: mm.grund === 'art' ? null : mm.warnung,
+      spritzbruehe: spritzbruehe(b),
+    }
+  })
+  let cu: CuKachel | null = null
+  if (massnahmen) {
+    const jahr = cuBilanz(massnahmen[0].behandlungen, massnahmen[1], { jahre: [thisYear] }).jahre[0]
+    cu = { kgHa: jahr?.cuKgHa ?? null, kg: jahr?.cuKg ?? 0, ha: jahr?.gesamtHa ?? 0, status: jahr?.status ?? null }
+  }
 
   // ── Lead-Pipeline ─────────────────────────────────────────────────────────
   const pipeline = (pipelineRaw ?? []) as R[]
@@ -188,7 +199,7 @@ export default async function ReportsPage() {
       lager={lager}
       lagerWert={lagerWert}
       behandlungen={behandlungen}
-      cuKgHa={cuKgHa}
+      cu={cu}
       pipeline={pipeline}
       kontaktFrequenz={kontaktFrequenz}
       offene={offene}

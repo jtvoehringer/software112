@@ -64,7 +64,40 @@ const ERLAUBTE_TABELLEN = [
 
 const TABELLEN_KONTEXT = `
 - weingarten / grundstuecke: Rieden (weingarten) und einzelne Grundstücke (GST, grundstuecke.weingarten_id → weingarten.id) mit Rebsorte, Fläche, Bewirtschaftungsart.
-- behandlungen ↔ behandlung_grundstuecke (Junction, m:n) ↔ grundstuecke: Pflanzenschutz-/Düngemaßnahmen. pflanzenschutzmittel.cu_gehalt_pct für Kupfer-Bilanzen.
+- behandlungen ↔ behandlung_grundstuecke (Junction, m:n) ↔ grundstuecke: Pflanzenschutz-/Düngemaßnahmen. Kupfer-Bilanzen über den Cu-Gehalt (Regel „Reinkupfer“ unten).
+  ARTEN (behandlungen.art, KAN-143): 'spritzung' (Spritzung), 'duengung' (Düngung), 'bodenbearbeitung'
+  (Bodenbearbeitung), 'schnitt' (Schnitt), 'laubarbeit' (Laubarbeit, Unterart in laubarbeit_art), 'laubschneiden'
+  (Laubschneiden = maschinelles Laubschneiden an Seiten und Gipfel, ohne laubarbeit_art), 'lese' (Lese),
+  'sonstiges' (Sonstiges). Die Art 'laubschneiden' gibt es erst seit Ende September 2026 – ältere Laubarbeiten
+  (Unterart 'gipfeln') können maschinelles Laubschneiden enthalten.
+  UNTERARTEN (behandlungen.laubarbeit_art, nur bei art='laubarbeit'): 'entblaettern' (Entblättern), 'ausgeizen'
+  (Ausgeizen), 'gipfeln' (Gipfeln), 'heften' (Heften), 'sonstige' (Sonstige). Ältere Einträge enthalten Freitext
+  (z.B. 'Heften / Einstricken') – nach einer Unterart deshalb immer über einen Wortstamm ohne Umlaut suchen, der
+  Code und Freitext trifft: laubarbeit_art ILIKE '%entbl%', '%geiz%', '%heft%' bzw. '%gipfel%'. In Antworten die
+  Bezeichnung in Klammern zeigen, nicht den Rohwert. Fragt der User allgemein nach Gipfeln bzw. Laubschnitt,
+  beide Arten berücksichtigen (laubschneiden sowie laubarbeit mit laubarbeit_art ILIKE '%gipfel%') und getrennt
+  ausweisen. saetze_massnahmen.art (Hektarsätze je Art für den Kosten-Vorschlag): dieselben Werte ohne 'lese'.
+  MENGEN IN behandlungen – die Bedeutung hängt von art ab (KAN-133):
+  art='spritzung': menge_gesamt ist die gesamte SPRITZBRÜHE in Liter (Mittel + Wasser), NIEMALS die Mittelmenge –
+  auch nicht bei alten Einträgen mit menge_einheit kg oder g. Die MITTELMENGE (eingesetztes Pflanzenschutzmittel)
+  kommt nur aus aufwandmenge und aufwandmenge_einheit: 'kg_ha' bzw. 'l_ha' → aufwandmenge * Fläche (kg bzw. l);
+  'kg' bzw. 'l' → aufwandmenge (gesamt); 'g_hl' bzw. 'ml_hl' (Konzentration im Tank) → aufwandmenge * Spritzbrühe_l
+  / 100 / 1000 (kg bzw. l), mit Spritzbrühe_l = menge_gesamt (menge_einheit 'l'; bei 'ml' / 1000), sonst
+  wasseraufwand_l_ha * Fläche. Fläche = SUM(behandlung_grundstuecke.flaeche_ha) der Maßnahme. Ohne aufwandmenge
+  ist die Mittelmenge unbekannt (NULL) – dann NICHT menge_gesamt und NICHT konzentration verwenden.
+  art='sonstiges': seit KAN-154 (Ende September 2026) optional mit psm_id (z.B. Pheromon-Dispenser); Mittelmenge wie
+  bei der Spritzung aus aufwandmenge ('kg_ha', 'l_ha', 'kg', 'l'), ohne aufwandmenge unbekannt. Fragen nach dem
+  Einsatz eines Pflanzenschutzmittels deshalb über psm_id beantworten, nicht nur über art='spritzung'.
+  art='duengung': menge_gesamt ist die Düngermenge in kg (bzw. l, wenn duengemittel.einheit = 'l'); fehlt sie,
+  aufwandmenge * Fläche bei 'kg_ha' bzw. aufwandmenge bei 'kg' ('l_ha' bzw. 'l' nur bei duengemittel.einheit = 'l').
+  Reinkupfer (kg) = Mittelmenge * Cu-Gehalt / 100 (Mittel in l wie die Cu-Bilanz mit 1 kg/l). Cu-Gehalt wie die
+  Cu-Bilanz: pflanzenschutzmittel.cu_gehalt_pct, wenn > 0; sonst wirkstoffgehalt_pct, wenn wirkstoff ILIKE '%kupfer%'
+  (Näherung); sonst kein Kupfermittel. In SQL: COALESCE(NULLIF(cu_gehalt_pct, 0), CASE WHEN wirkstoff ILIKE
+  '%kupfer%' THEN NULLIF(wirkstoffgehalt_pct, 0) END).
+  Die Spritzbrühe NIE über mehrere Maßnahmen summieren: eine Tankmischung steht als mehrere Maßnahmen (je Mittel
+  eine) mit derselben Brühe. Summen über Maßnahmen nur für die Mittelmenge, getrennt je Mittel und Einheit (kg und
+  l nie addieren). Beim JOIN auf behandlung_grundstuecke wiederholt sich jede Maßnahme je Grundstück – die Fläche
+  daher zuerst je behandlung_id summieren (Unterabfrage/CTE), Werte der Maßnahme nicht über die Join-Zeilen summieren.
 - ernte_parzellen: Lesedaten je Grundstück und Jahrgang (jahrgang_id → weinjahrgaenge.id), menge_kg, oechsle, klosterneuburger (°KMW).
 - weinausbau: Kellerbuch-Chargen (der "Keller-Bestand"). DREI VERSCHIEDENE, oft unterschiedliche Textfelder –
   name = frei vergebener Produkt-/Chargenname (z.B. "Partywein Kängaru", oft eine Fantasiebezeichnung, KEINE

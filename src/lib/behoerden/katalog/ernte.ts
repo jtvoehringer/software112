@@ -25,7 +25,7 @@ export const KATALOG_ERNTE = katalogGruppe('ernte', {
     druckPfad: '/erntemeldung/[id]',
     pflicht: true,
     rechtsgrundlage: 'Weingesetz 2009 (Erntemeldung)',
-    beschreibung: 'Lese je Ried bzw. Grundstück: Datum, KG- und GST-Nr., Rebsorte, Menge, Mostgewicht in °KMW und °Oe samt gemessener Einheit, Qualitätsstufe, Lesemethode.',
+    beschreibung: 'Lese je Ried bzw. Grundstück: Datum, KG- und GST-Nr., Rebsorte, Menge, Mostgewicht in °KMW und °Oe samt gemessener Einheit, Qualitätsstufe, Lesemethode, Notizen (z. B. Grund für 0 kg).',
   },
   bestandsmeldung: {
     titel: 'Weinbestandsmeldung (Bestand am Abrufdatum)',

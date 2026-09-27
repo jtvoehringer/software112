@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import nodemailer from 'nodemailer'
 import { decryptPass } from '@/lib/email/crypto'
@@ -28,7 +29,9 @@ export async function POST(req: NextRequest) {
     const gesperrt = await schreibSperreKonflikt(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
     if (gesperrt) return gesperrt
 
-    const { data: cfg } = await (supabase.from('tenant_einstellungen') as any)
+    // KAN-135: SMTP-Passwort nur per Service-Role (Benutzer haben keinen SELECT darauf);
+    // Mitgliedschaft ist über getCurrentMembership() geprüft, Zeile über tenant_id eingeschränkt
+    const { data: cfg } = await (createSupabaseAdminClient().from('tenant_einstellungen') as any)
       .select('email_modul_aktiv, email_smtp_host, email_smtp_port, email_smtp_user, email_smtp_pass_enc, email_smtp_from_name')
       .eq('tenant_id', tenantId).maybeSingle()
 

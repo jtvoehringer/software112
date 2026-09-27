@@ -2,6 +2,8 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole, canWrite, canAdmin, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
+import { ladeBehandlungen, type PsmBehandlung } from '@/lib/behoerden/psm'
+import { lagerKonto, verbrauchJeMittel, type LagerKonto } from '@/lib/behandlungen/lagerVerbrauch'
 import LagerClient from './LagerClient'
 import DuengerLagerClient from './DuengerLagerClient'
 import PSMClient from './PSMClient'
@@ -17,7 +19,6 @@ type AR = Record<string, any>
 export type PSMLager = {
   psm_id: string
   psm_name: string
-  einheit: string | null
   kategorie: string | null
   bewegungen: {
     id: string
@@ -27,8 +28,8 @@ export type PSMLager = {
     einheit: string | null
     notizen: string | null
   }[]
-  verbrauch_gesamt: number   // aus behandlungen berechnet
-  einheit_behandlung: string | null
+  /** Zugänge, Abgänge, Verbrauch aus Spritzungen und Sonstiges (KAN-154) und Bestand in der Lager-Einheit (KAN-133) */
+  konto: LagerKonto
 }
 
 export type PSMOption = { id: string; name: string; einheit_default: string | null; kategorie: string | null }
@@ -39,7 +40,6 @@ export type PSMOption = { id: string; name: string; einheit_default: string | nu
 export type DuengerLager = {
   duengemittel_id: string
   duengemittel_name: string
-  einheit: string | null
   typ: string | null
   bewegungen: {
     id: string
@@ -49,8 +49,8 @@ export type DuengerLager = {
     einheit: string | null
     notizen: string | null
   }[]
-  verbrauch_gesamt: number   // aus behandlungen berechnet
-  einheit_behandlung: string | null
+  /** Zugänge, Abgänge, Verbrauch aus Düngungen und Bestand in der Lager-Einheit (KAN-133) */
+  konto: LagerKonto
 }
 
 export type DuengerOption = { id: string; name: string; einheit_default: string | null; typ: string | null }
@@ -172,20 +172,29 @@ export default async function LagerPage({
     .select('id, psm_id, datum, typ, menge, einheit, notizen')
     .order('datum', { ascending: false }))
 
-  // Verbrauch aus Behandlungen (menge_gesamt pro PSM, nur spritzung)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawBehandlungen } = await tf((supabase.from('behandlungen') as any)
-    .select('psm_id, menge_gesamt, menge_einheit')
-    .not('psm_id', 'is', null)
-    .not('menge_gesamt', 'is', null))
-
-  // Verbrauch je PSM aggregieren
-  const verbrauchByPsm = new Map<string, { menge: number; einheit: string | null }>()
-  for (const b of ((rawBehandlungen ?? []) as AR[])) {
-    const curr = verbrauchByPsm.get(b.psm_id) ?? { menge: 0, einheit: b.menge_einheit ?? null }
-    curr.menge += b.menge_gesamt ?? 0
-    verbrauchByPsm.set(b.psm_id, curr)
+  // Verbrauch aus Maßnahmen (KAN-133): Mittelmenge je Maßnahme (mittelmenge()) – PSM nur aus
+  // Spritzungen und Sonstiges (KAN-154; Aufwand × Fläche; „Menge gesamt“ ist bei Spritzungen die
+  // Spritzbrühe und zählt nie), Düngemittel
+  // nur aus Düngungen. ladeBehandlungen() filtert nach dem Betrieb und liefert die behandelte Fläche
+  // (Σ GST). Nur für den Bestand-Tab; ein Ladefehler erscheint dort, statt still ohne Verbrauch zu rechnen.
+  const zeigtBestand = tab !== 'stammdaten' && tab !== 'duengemittel' && tab !== 'saetze'
+  let mitPsm: PsmBehandlung[] = []
+  let duengungen: PsmBehandlung[] = []
+  let verbrauchFehler: string | null = null
+  if (zeigtBestand && tenantId) {
+    try {
+      const [s, so, d] = await Promise.all([
+        ladeBehandlungen(supabase, tenantId, { art: 'spritzung' }),
+        ladeBehandlungen(supabase, tenantId, { art: 'sonstiges' }),
+        ladeBehandlungen(supabase, tenantId, { art: 'duengung' }),
+      ])
+      mitPsm = [...s.behandlungen, ...so.behandlungen]
+      duengungen = d.behandlungen
+    } catch (e) {
+      verbrauchFehler = e instanceof Error ? e.message : String(e)
+    }
   }
+  const verbrauchByPsm = verbrauchJeMittel(mitPsm, 'psm')
 
   // Bewegungen je PSM gruppieren
   const bewegungenByPsm = new Map<string, PSMLager['bewegungen']>()
@@ -209,16 +218,14 @@ export default async function LagerPage({
   const aktivePsm = psms
     .filter(p => bewegungenByPsm.has(p.id) || verbrauchByPsm.has(p.id))
     .map(p => {
-      const vb = verbrauchByPsm.get(p.id)
+      const bewegungen = bewegungenByPsm.get(p.id) ?? []
       return {
         psm_id:              p.id,
         psm_name:            p.name,
-        einheit:             bewegungenByPsm.get(p.id)?.[0]?.einheit ?? null,
         kategorie:           p.kategorie ?? null,
-        bewegungen:          bewegungenByPsm.get(p.id) ?? [],
-        verbrauch_gesamt:    vb?.menge ?? 0,
-        einheit_behandlung:  vb?.einheit ?? null,
-      } as PSMLager
+        bewegungen,
+        konto:               lagerKonto(bewegungen, verbrauchByPsm.get(p.id) ?? []),
+      } satisfies PSMLager
     })
     .sort((a, b) => a.psm_name.localeCompare(b.psm_name, 'de'))
 
@@ -228,19 +235,8 @@ export default async function LagerPage({
     .select('id, duengemittel_id, datum, typ, menge, einheit, notizen')
     .order('datum', { ascending: false }))
 
-  // Verbrauch aus Behandlungen (menge_gesamt pro Düngemittel, nur art='duengung')
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawDuengerBehandlungen } = await tf((supabase.from('behandlungen') as any)
-    .select('duengemittel_id, menge_gesamt, menge_einheit')
-    .not('duengemittel_id', 'is', null)
-    .not('menge_gesamt', 'is', null))
-
-  const verbrauchByDuenger = new Map<string, { menge: number; einheit: string | null }>()
-  for (const b of ((rawDuengerBehandlungen ?? []) as AR[])) {
-    const curr = verbrauchByDuenger.get(b.duengemittel_id) ?? { menge: 0, einheit: b.menge_einheit ?? null }
-    curr.menge += b.menge_gesamt ?? 0
-    verbrauchByDuenger.set(b.duengemittel_id, curr)
-  }
+  // Verbrauch aus Düngungen: Düngermenge, sonst Aufwand × Fläche (mittelmenge(), siehe oben)
+  const verbrauchByDuenger = verbrauchJeMittel(duengungen, 'duenger')
 
   const bewegungenByDuenger = new Map<string, DuengerLager['bewegungen']>()
   for (const b of ((rawDuengerBew ?? []) as AR[])) {
@@ -262,16 +258,15 @@ export default async function LagerPage({
   const aktiveDuenger: DuengerLager[] = duenger
     .filter(d => bewegungenByDuenger.has(d.id) || verbrauchByDuenger.has(d.id))
     .map(d => {
-      const vb = verbrauchByDuenger.get(d.id)
+      const bewegungen = bewegungenByDuenger.get(d.id) ?? []
       return {
         duengemittel_id:     d.id,
         duengemittel_name:   d.name,
-        einheit:             bewegungenByDuenger.get(d.id)?.[0]?.einheit ?? d.einheit ?? null,
         typ:                 d.typ ?? null,
-        bewegungen:          bewegungenByDuenger.get(d.id) ?? [],
-        verbrauch_gesamt:    vb?.menge ?? 0,
-        einheit_behandlung:  vb?.einheit ?? null,
-      } as DuengerLager
+        bewegungen,
+        // Lager-Einheit ohne Buchungen: Einheit des Düngemittels (Stammdaten)
+        konto:               lagerKonto(bewegungen, verbrauchByDuenger.get(d.id) ?? [], d.einheit ?? null),
+      } satisfies DuengerLager
     })
     .sort((a, b) => a.duengemittel_name.localeCompare(b.duengemittel_name, 'de'))
 
@@ -328,6 +323,11 @@ export default async function LagerPage({
         <SaetzeClient saetze={saetzeMassnahmen} writeOk={writeOk} adminOk={adminOk} />
       ) : (
         <div className="space-y-8">
+          {verbrauchFehler && (
+            <div role="alert" className="p-3 bg-s112-err-bg border border-s112-err/30 rounded-lg text-sm text-s112-err-fg">
+              {verbrauchFehler} – der Verbrauch aus Maßnahmen fehlt in den Beständen unten.
+            </div>
+          )}
           <div>
             <h2 className="text-sm font-semibold text-s112-text-2 uppercase tracking-wide mb-3">Pflanzenschutzmittel</h2>
             <LagerClient

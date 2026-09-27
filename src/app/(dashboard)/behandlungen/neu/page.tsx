@@ -1,4 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
+import { preisEinheit, type LagerBuchung } from '@/lib/behandlungen/lagerVerbrauch'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
@@ -13,12 +15,18 @@ export type PSM = {
   id: string; name: string; handelsname: string | null
   kategorie: string | null; wartezeit_tage: number | null
   oeko_zugelassen: boolean; cu_gehalt_pct: number | null
+  /** Ersatz für den Cu-Gehalt bei Kupfer-Wirkstoffen (wie die Kupfer-Bilanz) */
+  wirkstoff: string | null; wirkstoffgehalt_pct: number | null
   preis_pro_einheit: number | null
+  /** Einheit, in der der Preis gilt: kg bzw. l, die Grundeinheit des Lagers (preisEinheit); null = keine Lagerbuchung */
+  einheit: string | null
 }
 export type DuengemittelOption = {
   id: string; name: string; handelsname: string | null
   typ: string | null; wartezeit_tage: number | null; oeko_zugelassen: boolean
   preis_pro_einheit: number | null
+  /** 'kg' | 'l' – Düngermenge in l nur bei Düngemitteln in l (KAN-133) */
+  einheit: string | null
 }
 export type WeingartenOption = {
   id: string; name: string; ried: string | null; lage_id: string | null; lage_name: string | null
@@ -54,12 +62,31 @@ export default async function NeueBehandlungPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
-  // PSM laden (global + eigene) — inkl. cu_gehalt_pct + preis_pro_einheit
+  // PSM laden (global + eigene) — inkl. cu_gehalt_pct (bzw. Kupfer-Wirkstoff) + preis_pro_einheit
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawPSM } = await tf((supabase.from('pflanzenschutzmittel') as any)
-    .select('id, name, handelsname, kategorie, wartezeit_tage, oeko_zugelassen, cu_gehalt_pct, preis_pro_einheit')
+    .select('id, name, handelsname, kategorie, wartezeit_tage, oeko_zugelassen, cu_gehalt_pct, wirkstoff, wirkstoffgehalt_pct, preis_pro_einheit')
     .eq('aktiv', true)
     .order('name'))
+
+  // Preis-Einheit je PSM (pflanzenschutzmittel hat keine Einheit-Spalte): Grundeinheit des Lagers nach
+  // derselben Regel wie die Lager-Seite (lagerEinheit), g → kg, ml → l. Der Material-Vorschlag rechnet
+  // Preis je kg bzw. l × Mittelmenge (KAN-133); ohne Lagerbuchung bleibt die Einheit unbekannt – dann
+  // kein Vorschlag.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: rawBew } = await alle(tf((supabase.from('psm_lager_bewegungen') as any)
+    .select('id, psm_id, datum, menge, einheit')
+    .order('datum', { ascending: false })
+    .order('id')))
+  const buchungenJePsm = new Map<string, LagerBuchung[]>()
+  for (const b of ((rawBew ?? []) as AR[])) {
+    if (!b.einheit) continue
+    const arr = buchungenJePsm.get(b.psm_id) ?? []
+    arr.push({ datum: b.datum, menge: Number(b.menge), einheit: b.einheit })
+    buchungenJePsm.set(b.psm_id, arr)
+  }
+  const psmEinheit = new Map(Array.from(buchungenJePsm, ([id, buchungen]) => [id, preisEinheit(buchungen)]))
+
   const psm: PSM[] = ((rawPSM ?? []) as AR[]).map(p => ({
     id:             p.id,
     name:           p.name,
@@ -68,13 +95,16 @@ export default async function NeueBehandlungPage() {
     wartezeit_tage: p.wartezeit_tage ?? null,
     oeko_zugelassen: p.oeko_zugelassen ?? false,
     cu_gehalt_pct:  p.cu_gehalt_pct ?? null,
+    wirkstoff:      p.wirkstoff ?? null,
+    wirkstoffgehalt_pct: p.wirkstoffgehalt_pct ?? null,
     preis_pro_einheit: p.preis_pro_einheit ?? null,
+    einheit:        psmEinheit.get(p.id) ?? null,
   }))
 
-  // Düngemittel laden (global + eigene) — inkl. preis_pro_einheit
+  // Düngemittel laden (global + eigene) — inkl. preis_pro_einheit + einheit
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawDuenger } = await tf((supabase.from('duengemittel') as any)
-    .select('id, name, handelsname, typ, wartezeit_tage, oeko_zugelassen, preis_pro_einheit')
+    .select('id, name, handelsname, typ, wartezeit_tage, oeko_zugelassen, preis_pro_einheit, einheit')
     .eq('aktiv', true)
     .order('name'))
   const duengemittel: DuengemittelOption[] = ((rawDuenger ?? []) as AR[]).map(d => ({
@@ -85,6 +115,7 @@ export default async function NeueBehandlungPage() {
     wartezeit_tage:  d.wartezeit_tage ?? null,
     oeko_zugelassen: d.oeko_zugelassen ?? false,
     preis_pro_einheit: d.preis_pro_einheit ?? null,
+    einheit:         d.einheit ?? null,
   }))
 
   // Kostenarten (für die Kosten-Vorschlagsfunktion)

@@ -43,7 +43,7 @@ const { kmwZuQualitaet } = await import('../../src/lib/weinqualitaet.ts')
 const {
   oechsleAusKmw, kmwAusOechsle, ausMessung, kmwVarianteA, abrunden, runden, mindestOechsle,
   mischen, imGrenzbereich, parseEingabe, format, formatKmw, formatOechsle,
-  KMW_MAX, OECHSLE_MAX, GRENZ_BAND_KMW, istMostgewichtEinheit,
+  KMW_MAX, OECHSLE_MAX, GRENZ_BAND_OECHSLE, istMostgewichtEinheit,
 } = mg
 
 const HIER = path.dirname(fileURLToPath(import.meta.url))
@@ -127,6 +127,7 @@ describe('(2) Beispiele der Akzeptanzkriterien', () => {
     assert.deepEqual(m, { kmw: 17, oechsle: 83.5, einheit: 'oechsle' })
     assert.equal(stufe(m), 'kabinett')
     assert.equal(imGrenzbereich(m.kmw, SCHWELLEN), 17)
+    assert.equal(imGrenzbereich(m, SCHWELLEN), 17)
   })
 
   test('94,2 → 19,00 → Spätlese; 105,0 → 21,00 → Auslese', () => {
@@ -322,17 +323,70 @@ describe('(4) mischen, imGrenzbereich, format', () => {
     assert.throws(() => mischen([{ menge: 1, kmw: 18 }], 'hl'), RangeError)
   })
 
-  test('imGrenzbereich: ±0,2 °KMW einschließlich, nächste Schwelle, eigenes Band', () => {
-    assert.equal(GRENZ_BAND_KMW, 0.2)
-    assert.equal(imGrenzbereich(16.8, SCHWELLEN), 17)
-    assert.equal(imGrenzbereich(17.2, SCHWELLEN), 17)
+  // KAN-134 (Jörgen, 26.09.2026): Band ±0,5 °Oe statt ±0,2 °KMW, verglichen in °Oe –
+  // °Oe des Werts (gemessen, sonst aus °KMW nach der Formel) gegen °Oe der Schwelle (17 °KMW = 83,5 °Oe)
+  test('imGrenzbereich: Band ±0,5 °Oe, das alte °KMW-Band gibt es nicht mehr', () => {
+    assert.equal(GRENZ_BAND_OECHSLE, 0.5)
+    assert.equal('GRENZ_BAND_KMW' in mg, false)
+  })
+
+  test('imGrenzbereich (KAN-134): 83,0–84,0 °Oe gemessen um Kabinett (83,5 °Oe) → Grenzfall, einschließlich', () => {
+    for (const w of [83.0, 83.1, 83.4, 83.5, 83.6, 83.9, 84.0]) assert.equal(imGrenzbereich(oe(w), SCHWELLEN), 17, `${w} °Oe`)
+    assert.equal(imGrenzbereich(oe(82.9), SCHWELLEN), null)
+    assert.equal(imGrenzbereich(oe(84.1), SCHWELLEN), null)
+  })
+
+  test('imGrenzbereich (KAN-134): °KMW über den umgerechneten °Oe-Wert – 16,9 ja, 16,8 und 17,2 nein', () => {
+    assert.equal(kmw(16.9).oechsle, 83.0)
+    assert.equal(imGrenzbereich(kmw(16.9), SCHWELLEN), 17)
+    assert.equal(imGrenzbereich(16.9, SCHWELLEN), 17)                 // Zahl = °KMW
+    assert.equal(kmw(16.8).oechsle, 82.5)
+    assert.equal(imGrenzbereich(kmw(16.8), SCHWELLEN), null)          // bis KAN-134 ein Grenzfall
+    assert.equal(imGrenzbereich(16.8, SCHWELLEN), null)
+    assert.equal(kmw(17.2).oechsle, 84.6)
+    assert.equal(imGrenzbereich(kmw(17.2), SCHWELLEN), null)
+    // Rand: 16,89 °KMW = 83,0 °Oe (ja), 16,88 = 82,9 (nein); 17,09 = 84,0 (ja), 17,10 = 84,1 (nein)
+    assert.equal(imGrenzbereich(16.89, SCHWELLEN), 17)
+    assert.equal(imGrenzbereich(16.88, SCHWELLEN), null)
+    assert.equal(imGrenzbereich(17.09, SCHWELLEN), 17)
+    assert.equal(imGrenzbereich(17.1, SCHWELLEN), null)
     assert.equal(imGrenzbereich(16.79, SCHWELLEN), null)
-    assert.equal(imGrenzbereich(17.21, SCHWELLEN), null)
     assert.equal(imGrenzbereich(18, SCHWELLEN), null)
-    assert.equal(imGrenzbereich(14.5, [14, 15], 0.5), 14)
-    assert.equal(imGrenzbereich(14.6, [14, 15], 0.5), 15)
+  })
+
+  test('imGrenzbereich: gemessener °Oe-Wert zählt, bei Messung in °KMW nur die Formel (nicht der gespeicherte °Oe)', () => {
+    // Werte konstruiert, damit sich °KMW und °Oe widersprechen
+    assert.equal(imGrenzbereich({ kmw: 17.2, oechsle: 84.0, einheit: 'oechsle' }, SCHWELLEN), 17)
+    assert.equal(imGrenzbereich({ kmw: 16.8, oechsle: 83.0, einheit: 'kmw' }, SCHWELLEN), null)
+    // ohne gültigen °Oe-Messwert: aus °KMW
+    assert.equal(imGrenzbereich({ kmw: 16.9, oechsle: NaN, einheit: 'oechsle' }, SCHWELLEN), 17)
+  })
+
+  test('imGrenzbereich: jede Stufenschwelle ±0,5 °Oe einschließlich, ±0,6 °Oe nicht mehr', () => {
+    for (const s of SCHWELLEN) {
+      const z = mindestOechsle(s, 1)                                   // °Oe der Schwelle nach der Formel
+      assert.equal(z, fOe(s), `${s} °KMW`)
+      for (const d of [-0.5, -0.1, 0, 0.1, 0.5]) assert.equal(imGrenzbereich(oe(runden(z + d, 1)), SCHWELLEN), s, `${s} °KMW, ${d} °Oe`)
+      for (const d of [-0.6, 0.6]) assert.equal(imGrenzbereich(oe(runden(z + d, 1)), SCHWELLEN), null, `${s} °KMW, ${d} °Oe`)
+    }
+    assert.equal(imGrenzbereich(14.99, SCHWELLEN), 15)                // 73,0 gegen 73,1 °Oe
+    assert.equal(imGrenzbereich(oe(156.5), SCHWELLEN), 30)
+    assert.equal(imGrenzbereich(oe(156.6), SCHWELLEN), null)
+  })
+
+  test('imGrenzbereich: eigenes Band in °Oe, nächste Schwelle, ungültige Werte', () => {
+    assert.equal(imGrenzbereich(oe(70), [14, 15], 3), 14)             // 70,0: 2,1 von 67,9 und 3,1 von 73,1 °Oe
+    assert.equal(imGrenzbereich(oe(71), [14, 15], 3), 15)             // 71,0: 3,1 bzw. 2,1 °Oe
+    assert.equal(imGrenzbereich(oe(70), [14, 15]), null)
+    assert.equal(imGrenzbereich(oe(83.5), SCHWELLEN, 0), 17)
+    assert.equal(imGrenzbereich(oe(83.6), SCHWELLEN, 0), null)
+    assert.equal(imGrenzbereich(oe(83.2), SCHWELLEN, 0.3), 17)
+    assert.equal(imGrenzbereich(oe(83.1), SCHWELLEN, 0.3), null)
+    assert.throws(() => imGrenzbereich(oe(83.5), SCHWELLEN, -0.1), RangeError)
     assert.equal(imGrenzbereich(null, SCHWELLEN), null)
+    assert.equal(imGrenzbereich(undefined, SCHWELLEN), null)
     assert.equal(imGrenzbereich(NaN, SCHWELLEN), null)
+    assert.equal(imGrenzbereich(-1, SCHWELLEN), null)
     assert.equal(imGrenzbereich(17, []), null)
   })
 

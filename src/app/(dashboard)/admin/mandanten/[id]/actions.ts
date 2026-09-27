@@ -5,7 +5,7 @@
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { encryptPass } from '@/lib/email/crypto'
-import { geheimSpeichern } from '@/lib/email/geheimnis'
+import { geheimSpeichern, geheimFeld } from '@/lib/email/geheimnis'
 import { getCurrentUserRole, isSandboxAdminUnlock } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
 import { getStripe } from '@/lib/stripe/client'
@@ -16,6 +16,7 @@ import { stripeKundennummerSync } from '@/lib/stripe/kundennummer'
 import { AktionsFehler } from '@/lib/fehler'
 import { dezimal } from '@/lib/format'
 import { weinbauBetriebsnummerPruefen } from '@/lib/betrieb/betriebsnummer'
+import { istMostgewichtEinheit } from '@/lib/wein/mostgewicht'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -344,6 +345,28 @@ export async function saveBetriebEinstellungen(tenantId: string, formData: FormD
   revalidatePath(`/admin/mandanten/${tenantId}`)
 }
 
+// ── Kellerwirtschaft: bevorzugte Mostgewicht-Einheit (KAN-134) ────────────────
+// Dieselbe Einstellung wie „Mein Betrieb“ → Kellerwirtschaft (saveKellerwirtschaftOwn, canAdmin):
+// welche Einheit Formulare und Listen zuerst zeigen; die gemessene Einheit je Eintrag bleibt davon
+// unabhängig. Eigenes Formular im Tab Betrieb, damit es nicht an den Pflichtfeldern der Betriebsdaten
+// hängt. tenant_einstellungen nur per .update() – fehlt die Zeile, meldet die Action das.
+
+export async function saveKellerwirtschaftAdmin(tenantId: string, formData: FormData) {
+  await assertSystemAdmin(tenantId)
+  const einheit = formData.get('mostgewicht_einheit')
+  if (!istMostgewichtEinheit(einheit)) throw new AktionsFehler('Bitte wähle °KMW oder °Oe als bevorzugte Einheit.')
+  const admin = createSupabaseAdminClient()
+
+  const { error, count } = await (admin.from('tenant_einstellungen') as any)
+    .update({ mostgewicht_einheit: einheit, aktualisiert_am: new Date().toISOString() }, { count: 'exact' })
+    .eq('tenant_id', tenantId)
+
+  if (error) throw new AktionsFehler((error as R).message)
+  if (count === 0) throw new AktionsFehler('Für diesen Mandanten gibt es noch keine Einstellungen – bitte zuerst die Betriebsdaten speichern.')
+  tenantKopfInvalidieren(tenantId)   // Layout-Cache: wirkt beim Betrieb ab der nächsten Anfrage
+  revalidatePath(`/admin/mandanten/${tenantId}`)
+}
+
 // ── Rechnungsnummer-Einstellungen speichern ───────────────────────────────────
 
 export async function saveVerkaufEinstellungen(tenantId: string, formData: FormData) {
@@ -529,7 +552,8 @@ export async function saveBawbZugangsdaten(tenantId: string, formData: FormData)
   const { error } = await (admin.from('tenant_einstellungen') as any).upsert({
     tenant_id:    tenantId,
     bawb_kennung:  (formData.get('bawb_kennung')  as string) || null,
-    bawb_passwort: geheimSpeichern(formData.get('bawb_passwort')) ?? null,  // S11: verschlüsselt
+    // S11: verschlüsselt; KAN-135: Maske (= unverändert) lässt das Feld weg, statt es zu leeren
+    ...geheimFeld('bawb_passwort', formData.get('bawb_passwort')),
     aktualisiert_am: new Date().toISOString(),
   }, { onConflict: 'tenant_id' })
 

@@ -1,7 +1,7 @@
 // ── Navigationsstruktur von software:112 ─────────────────────────────────────
 //
 // Dashboard-Relaunch (27.8.2026, Mgmt-Entscheidung): die linke Sidebar ist durch
-// eine horizontale Tab-Navigation unter der Navy-Kopfleiste ersetzt (Vorbild:
+// eine horizontale Tab-Navigation unter der Kopfleiste ersetzt (Vorbild:
 // ICP-HR-Suite-PoC bzw. E&A Suite / kps-smart-buchhaltung). Zeile 1 zeigt die
 // Bereiche, Zeile 2 die Seiten des aktiven Bereichs. Die Struktur hier ist die
 // EINZIGE Quelle für TabNav (Zeile 1 + 2) und die Befehlspalette (Strg K) –
@@ -82,9 +82,13 @@ const NAV: NavGroup[] = [
       { href: '/reports/behandlungsprotokoll', label: 'Behandlungsprotokoll', child: true, pflichtmeldung: true, keywords: 'pflanzenschutz psm aufzeichnungen spritzprotokoll bio kontrolle behörde meldung druck csv' },
       { href: '/reports/cu-bilanz',            label: 'Cu-Bilanz',            child: true, pflichtmeldung: true, keywords: 'kupfer bio jahresbericht kg ha behörde meldung druck csv' },
       { href: '/reports/naehrstoffbilanz',     label: 'Nährstoffbilanz',      child: true, pflichtmeldung: true, keywords: 'düngung düngeaufzeichnungen stickstoff phosphor napv behörde meldung druck csv' },
-      { href: '/behandlungen/lager', label: 'Betriebsmittel', phase: 1, keywords: 'psm lager dünger' },
+      // KAN-142 (26.09.2026): „Lese“ samt AMA-Erntemeldung direkt hinter die Pflichtmeldungen von
+      // „Maßnahmen“, „Betriebsmittel“ ans Ende – Reihenfolge Rieden · Maßnahmen · • Behandlungsprotokoll
+      // · • Cu-Bilanz · • Nährstoffbilanz · Lese · • AMA-Erntemeldung · Betriebsmittel. Jeder
+      // Unterpunkt bleibt bei seinem Hauptpunkt (Variante von Jörgen gewählt).
       { href: '/erntemeldung',       label: 'Lese',           phase: 1, keywords: 'ernte jahrgang pressung erntemeldung' },
       { href: '/reports/ama',        label: 'AMA-Erntemeldung', child: true, pflichtmeldung: true, keywords: 'weinerntemeldung lesedaten weinbestandsmeldung bestandsmeldung stichtag weindatenbank behörde meldung druck csv' },
+      { href: '/behandlungen/lager', label: 'Betriebsmittel', phase: 1, keywords: 'psm lager dünger' },
     ],
   },
   {

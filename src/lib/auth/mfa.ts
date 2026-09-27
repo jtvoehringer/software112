@@ -3,7 +3,11 @@
 //  - Wer einen Faktor eingerichtet hat, muss nach dem Passwort den Code eingeben
 //    (Stufe aal2) – erzwungen im Proxy (src/proxy.ts) für alle Seiten und seit
 //    KAN-54 (24.9.2026) per pruefeZweiFaktor() (src/lib/api/zweiFaktor.ts) in den
-//    API-Routen, die der Proxy-Matcher ausschließt.
+//    API-Routen, die der Proxy-Matcher ausschließt. Seit KAN-136 zusätzlich in der
+//    Datenbank (s112_aal_ok(): Policy zwei_faktor_aal auf allen Tabellen und Storage,
+//    pruefe_tenant_zugriff, PostgREST-Pre-Request) und in getCurrentMembership().
+//    Die PFLICHT (unten) prüft nur die App – in der DB wäre sie wirkungslos, weil eine
+//    aal1-Sitzung ohne Faktor selbst einen Faktor einrichten und aal2 erreichen kann.
 //  - Pflicht für Super-Admin und Betriebs-Manager ab MFA_PFLICHT_AB; davor ein Hinweis.
 //  - Für alle anderen Rollen freiwillig (Profil → Zwei-Faktor-Anmeldung).
 // Verlorenes Handy: Super-Admin entfernt den Faktor in Supabase (Authentication →

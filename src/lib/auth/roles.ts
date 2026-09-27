@@ -1,6 +1,7 @@
 import { cache } from 'react'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getActiveTenantCookie } from '@/lib/auth/activeTenant'
+import { hatBestaetigtenFaktor } from '@/lib/auth/mfa'
 
 export type UserRole = 'system_admin' | 'tenant_admin' | 'winzer' | 'leser' | null
 
@@ -49,6 +50,17 @@ export const getCurrentMembership = cache(async function getCurrentMembership():
   const activeTenantId = await getActiveTenantCookie()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
+
+  // KAN-136: Faktor eingerichtet, Sitzung aber nur aal1 → keine Mitgliedschaft. Der Proxy
+  // leitet Seiten dann auf /zwei-faktor, aber Server Actions lassen sich per POST auch an
+  // /zwei-faktor, /login oder /auth/* schicken, die er durchlässt. Ohne Mitgliedschaft bricht
+  // jede Action vor dem ersten Zugriff ab – auch solche, die danach per Service-Role schreiben.
+  // (Die DB liefert in dem Fall ohnehin 0 Zeilen: Policy zwei_faktor_aal, supabase/entwurf/
+  // kan136_zwei_faktor_datenbank.sql.) currentLevel stammt aus dem von getUser() geprüften JWT.
+  if (hatBestaetigtenFaktor(user)) {
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+    if (aal?.currentLevel !== 'aal2') return null
+  }
 
   if (activeTenantId) {
     // Validiere Cookie gegen tatsächliche Memberships. WICHTIG: zusätzlich zu RLS explizit

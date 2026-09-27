@@ -128,8 +128,12 @@ export async function getValidAccessToken(cfg: R, admin: R): Promise<string> {
 // Aufrufer tenantId (aus getCurrentMembership()) und die User-Id ohnehin schon zur Hand hat
 // (beides wird für die vorausgehende user_email_connections-Abfrage gebraucht), ist das
 // Durchreichen hier der korrekte, minimal-invasive Fix für beide Probleme gleichzeitig.
+//
+// KAN-135: `admin` muss der Service-Role-Client sein – Benutzer haben auf
+// user_email_connections weder UPDATE noch SELECT auf die Token-Spalten. tenantId
+// kommt aus der Mitgliedschaft, userId aus getUser() (bzw. der Zeile beim Cron).
 export async function getValidUserAccessToken(
-  userCfg: R, tenantCfg: R, supabase: R, tenantId: string, userId: string
+  userCfg: R, tenantCfg: R, admin: R, tenantId: string, userId: string
 ): Promise<string> {
   if (!userCfg.m365_access_token_enc) throw new Error('Mailbox nicht verbunden')
 
@@ -151,7 +155,7 @@ export async function getValidUserAccessToken(
 
   // Neuen Token in user_email_connections speichern - eindeutig über (tenant_id, user_id)
   // identifiziert (der Primärschlüssel 'id' steht hier wie erläutert nicht zur Verfügung).
-  { const { error: e } = await (supabase.from('user_email_connections') as any).update({
+  { const { error: e } = await (admin.from('user_email_connections') as any).update({
     m365_access_token_enc:  encryptPass(tokens.access_token),
     ...(tokens.refresh_token ? { m365_refresh_token_enc: encryptPass(tokens.refresh_token) } : {}),
     m365_token_expires_at:  new Date(Date.now() + tokens.expires_in * 1000).toISOString(),

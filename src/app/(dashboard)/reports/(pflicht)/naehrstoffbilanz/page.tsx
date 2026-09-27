@@ -149,7 +149,7 @@ export default async function NaehrstoffbilanzPage({ searchParams }: { searchPar
                 <td className="px-2 py-1.5 border border-s112-line text-right tabular-nums text-xs">{e.pPct !== null ? fmtNum(e.pPct, { max: 3 }) : '–'}</td>
                 <td className="px-2 py-1.5 border border-s112-line text-right tabular-nums text-xs">
                   {fmtNum(e.mengeKg, { max: 3 })}
-                  {e.mengeBasis !== 'Gesamtmenge' && <span className="block text-[10px] text-s112-tertiary">{e.mengeBasis}</span>}
+                  {e.mengeBasis !== 'Düngermenge' && <span className="block text-[10px] text-s112-tertiary">{e.mengeBasis}</span>}
                 </td>
                 <td className="px-2 py-1.5 border border-s112-line text-right tabular-nums text-xs">{e.flaecheHa !== null ? fmtNum(e.flaecheHa, { min: 2, max: 4 }) : '–'}</td>
                 <td className="px-2 py-1.5 border border-s112-line text-right tabular-nums font-medium text-xs">{np(e.nKg)}</td>
@@ -176,7 +176,7 @@ export default async function NaehrstoffbilanzPage({ searchParams }: { searchPar
 
         {eintraege.length === 0 && (
           <p className="text-center text-s112-muted py-8">
-            Keine Düngungen mit hinterlegtem Düngemittel und Menge in kg für {aktJahr} erfasst.
+            Keine Düngungen mit hinterlegtem Düngemittel und Düngermenge in kg für {aktJahr} erfasst.
           </p>
         )}
 
@@ -192,7 +192,7 @@ export default async function NaehrstoffbilanzPage({ searchParams }: { searchPar
         )}
 
         <p className="text-xs text-s112-tertiary mt-4">
-          Menge (kg) = Gesamtmenge in kg, sonst Aufwand (kg/ha) × behandelte Fläche; N/P je ha bezogen auf die behandelte
+          Menge (kg) = Düngermenge in kg, sonst Aufwand (kg/ha) × behandelte Fläche; N/P je ha bezogen auf die behandelte
           Fläche (Summe der Grundstücke), Gesamtwerte je ha bezogen auf die Fläche aller aktiven Weingärten.
           Richtwert Stickstoff: {N_RICHTWERT_KG_HA} kg N/ha/Jahr (Nitrat-Aktionsprogramm-Verordnung 2023,
           Düngeobergrenze Wein in Gebieten mit verstärkten Aktionen – außerhalb dieser Gebiete besteht keine

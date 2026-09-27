@@ -4,8 +4,9 @@
 // Isomorph, Ladefunktion wie psm.ts (Mandantenfilter, alle()).
 //
 // Rechenweg:
-//   • Menge (kg) = mittelmengeKg() ohne Liter-Näherung: Gesamtmenge in kg bzw. g, sonst Aufwand
-//     kg/ha × behandelte Fläche. Düngungen in Litern (Dichte unbekannt) oder ohne Düngemittel
+//   • Menge (kg) = mittelmengeKg() ohne Liter-Näherung: Düngermenge („Menge gesamt“ einer Düngung)
+//     in kg bzw. g, sonst Aufwand kg/ha × behandelte Fläche bzw. kg (gesamt) – Basis „Düngermenge“
+//     bzw. „Aufwand × Fläche“ (KAN-133). Düngungen in Litern (Dichte unbekannt) oder ohne Düngemittel
 //     gehen NICHT in die Bilanz – bis 24.09.2026 still übersprungen, jetzt als Hinweis (X-Warnungen,
 //     auf der Druckseite als Liste).
 //   • N (kg) = Menge × N-Gehalt / 100, P (kg) = Menge × P-Gehalt / 100 (Stammdaten Düngemittel).
@@ -17,7 +18,7 @@ import { runden, STELLEN, type CsvSpalte } from '@/lib/csv'
 import type { LadeErgebnis } from './typen'
 import {
   behandlungKurz, betriebsflaecheHa, jahrZeitraum, ladeBehandlungen, ladeWeingaerten, liste,
-  mittelmengeKg, riedText, weingartenText, einheitText, STELLEN_MENGE,
+  mittelmenge, mittelmengeKg, riedText, weingartenText, einheitText, STELLEN_MENGE,
   type PsmBehandlung, type WeingartenStamm,
 } from './psm'
 
@@ -98,8 +99,11 @@ export function naehrstoffbilanz(behandlungen: readonly PsmBehandlung[], weingae
     if (!d) { ohneMittel.push(behandlungKurz(b)); continue }
     const mm = mittelmengeKg(b, { literAlsKg: false })
     if (!mm) {
-      const erfasst = b.mengeGesamt !== null ? `${String(b.mengeGesamt).replace('.', ',')} ${einheitText(b.mengeEinheit)}`.trim() : 'ohne Menge'
-      ohneMenge.push(`${behandlungKurz(b)}: ${d.name}, ${erfasst}`)
+      const erfasst = b.mengeGesamt !== null ? `${String(b.mengeGesamt).replace('.', ',')} ${einheitText(b.mengeEinheit)}`.trim() : 'ohne Düngermenge'
+      // Grund aus mittelmenge(); Düngemittel in l haben eine Menge, aber keine in kg (keine Dichte-Annahme)
+      const m = mittelmenge(b)
+      const grund = m.warnung ?? (m.einheit === 'l' ? 'in l, ohne Dichte nicht in kg umrechenbar' : null)
+      ohneMenge.push(`${behandlungKurz(b)}: ${d.name}, ${erfasst}${grund ? ` (${grund})` : ''}`)
       continue
     }
     if (b.flaecheHa === null) ohneFlaeche.push(behandlungKurz(b))
@@ -125,7 +129,7 @@ export function naehrstoffbilanz(behandlungen: readonly PsmBehandlung[], weingae
   const pKg = runden(zeilen.reduce((s, z) => s + (z.pKg ?? 0), 0), STELLEN_NP)
   const warnungen: string[] = []
   if (ohneMittel.length > 0) warnungen.push(`${ohneMittel.length} ${ohneMittel.length === 1 ? 'Düngung' : 'Düngungen'} ohne Düngemittel – nicht in der Bilanz: ${liste(ohneMittel)}`)
-  if (ohneMenge.length > 0) warnungen.push(`${ohneMenge.length} ${ohneMenge.length === 1 ? 'Düngung' : 'Düngungen'} ohne Menge in kg (bzw. kg/ha) – nicht in der Bilanz: ${liste(ohneMenge)}`)
+  if (ohneMenge.length > 0) warnungen.push(`${ohneMenge.length} ${ohneMenge.length === 1 ? 'Düngung' : 'Düngungen'} ohne Düngermenge in kg (bzw. Aufwand in kg/ha oder kg) – nicht in der Bilanz: ${liste(ohneMenge)}`)
   if (ohneFlaeche.length > 0) warnungen.push(`${ohneFlaeche.length} ${ohneFlaeche.length === 1 ? 'Düngung' : 'Düngungen'} ohne behandelte Fläche – N/P (kg/ha) bleibt leer: ${liste(ohneFlaeche)}`)
   if (ohneGehalt.length > 0) warnungen.push(`N- oder P-Gehalt fehlt in den Düngemittel-Stammdaten: ${liste([...new Set(ohneGehalt)])} – Feld bleibt leer, zählt in der Summe als 0.`)
   if (gesamtHa <= 0 && zeilen.length > 0) warnungen.push('Keine aktiven Weingärten mit Fläche – N/P je ha des Betriebs nicht berechenbar.')
