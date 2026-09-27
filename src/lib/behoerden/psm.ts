@@ -361,6 +361,8 @@ export function gstAnzahl(b: PsmBehandlung): number {
 // Kein Rückfall auf konzentration × Brühe (numeric(5,2) rundet: 0,025 % → 0,03 = +20 %).
 // Düngung: Düngermenge („Menge gesamt“ in kg; g → kg; l bzw. ml nur bei Düngemitteln in l), sonst
 // Aufwand kg/ha × Fläche bzw. kg (gesamt) – l/ha und l wieder nur bei Düngemitteln in l.
+// Sonstiges (KAN-154, z. B. Pheromon-Dispenser als Pflanzenschutzmittel): Mittelmenge aus dem Aufwand wie bei
+// der Spritzung, aber ohne Spritzbrühe (kein g/hl, ml/hl); ohne Aufwand keine Mittelmenge (Grund 'art').
 // Mengen in l und kg werden nie ineinander umgerechnet (keine Dichte-Annahme); einzige Ausnahme ist
 // mittelmengeKg(…, { literAlsKg: true }) für die Kupfer-Bilanz (wie bisher, als Hinweis gemeldet).
 
@@ -375,7 +377,7 @@ export type MittelEinheit = 'kg' | 'l'
  *  'einheit'   Einheit nicht umrechenbar bzw. nicht zulässig (z. B. Düngermenge in l bei Düngemittel in kg)
  *  'menge'     Düngung ohne Düngermenge und ohne Aufwand
  *  'ungueltig' negative oder ungültige Zahl
- *  'art'       weder Spritzung noch Düngung
+ *  'art'       weder Spritzung noch Düngung (bzw. Sonstiges ohne Aufwand)
  */
 export type MittelmengeGrund = 'aufwand' | 'flaeche' | 'bruehe' | 'einheit' | 'menge' | 'ungueltig' | 'art'
 
@@ -485,7 +487,10 @@ export function mittelmenge(b: MittelmengeEingabe): MittelmengeErgebnis {
     return hinweis ? ohne('einheit', hinweis) : ohne('menge', 'ohne Düngermenge und Aufwand')
   }
 
-  if (b.art !== 'spritzung') return ohne('art', `bei ${ART_LABEL[b.art] ?? b.art} keine Mittelmenge`)
+  if (b.art === 'sonstiges') {
+    if (a === null || !ae) return ohne('art', 'bei Sonstiges ohne Aufwand keine Mittelmenge')
+    if (ae === 'g_hl' || ae === 'ml_hl') return ohne('einheit', 'Konzentration (g/hl, ml/hl) nur bei Spritzung')
+  } else if (b.art !== 'spritzung') return ohne('art', `bei ${ART_LABEL[b.art] ?? b.art} keine Mittelmenge`)
   if (a === null || !ae) return ohne('aufwand', 'ohne Aufwand')
   if (ae === 'kg_ha' || ae === 'l_ha') {
     return ha !== null ? ergebnis(a * ha, ae === 'kg_ha' ? 'kg' : 'l', 'Aufwand × Fläche') : ohne('flaeche', 'ohne behandelte Fläche')
@@ -856,7 +861,8 @@ export async function ladePsmAufzeichnung(supabase: any, tenantId: string, p: Ps
 // ── Meldung „psm-mittelverbrauch“: je Jahr × Mittel × Einheit ───────────────
 //
 // Seit KAN-133 (26.09.2026) Σ Mittelmenge aus mittelmenge() – nicht mehr Σ „Menge gesamt“, das bei
-// Spritzungen die Spritzbrühe ist. Es zählen nur Spritzungen (wie der Abzug im PSM-Lager).
+// Spritzungen die Spritzbrühe ist. Es zählen nur Spritzungen und seit KAN-154 Sonstiges mit Pflanzenschutzmittel
+// (wie der Abzug im PSM-Lager).
 
 export type MittelverbrauchZeile = {
   jahr: number
@@ -886,14 +892,14 @@ export type MittelverbrauchZeile = {
 /** Ø Aufwand je ha hat 3 Stellen */
 export const STELLEN_AUFWAND_HA = 3
 
-/** Mittelmenge eines Pflanzenschutzmittels im Mittelverbrauch: nur bei Spritzungen */
+/** Mittelmenge eines Pflanzenschutzmittels im Mittelverbrauch: nur bei Spritzungen und Sonstiges (KAN-154) */
 function psmMittelmenge(b: PsmBehandlung): MittelmengeErgebnis {
-  if (b.art === 'spritzung') return mittelmenge(b)
-  return { menge: null, einheit: null, basis: null, warnung: `${ART_LABEL[b.art] ?? b.art} mit Pflanzenschutzmittel – es zählen nur Spritzungen`, grund: 'art' }
+  if (b.art === 'spritzung' || b.art === 'sonstiges') return mittelmenge(b)
+  return { menge: null, einheit: null, basis: null, warnung: `${ART_LABEL[b.art] ?? b.art} mit Pflanzenschutzmittel – es zählen nur Spritzungen und Sonstiges`, grund: 'art' }
 }
 
 /**
- * Mittelverbrauch je Saison: Spritzungen mit Pflanzenschutzmittel und Mittelmenge (mittelmenge()),
+ * Mittelverbrauch je Saison: Spritzungen und Sonstiges mit Pflanzenschutzmittel und Mittelmenge (mittelmenge()),
  * gruppiert nach Jahr × Mittel × Einheit (kg und l werden nicht addiert). Grenzwerte: max.
  * Anwendungen je Saison und max. Aufwand je ha (Stammdaten, kg/ha – nur für Mittel in kg).
  * Sortiert nach Jahr (neueste zuerst), dann Menge. Hinweise: mittelverbrauchHinweise().

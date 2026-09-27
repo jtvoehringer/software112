@@ -1,6 +1,7 @@
 // KAN-133 Soll 2 und 3 (26.09.2026): Lagerbestand der Betriebsmittel – Verbrauch aus Maßnahmen als
 // Σ Mittelmenge (lib/behandlungen/lagerVerbrauch.ts auf mittelmenge() aus lib/behoerden/psm.ts).
-// Pflanzenschutzmittel nur aus Spritzungen (Aufwand × Fläche, nie die Spritzbrühe), Düngemittel nur
+// Pflanzenschutzmittel nur aus Spritzungen (Aufwand × Fläche, nie die Spritzbrühe) und seit KAN-154 aus
+// Sonstiges mit Mittel (Aufwand × Fläche bzw. gesamt), Düngemittel nur
 // aus Düngungen (Düngermenge, sonst Aufwand × Fläche); in der Lager-Einheit, kg ↔ l nur als Hinweis.
 //
 // Aufruf:  node --experimental-strip-types --disable-warning=ExperimentalWarning \
@@ -108,15 +109,26 @@ describe('Lager Pflanzenschutzmittel (Soll 2)', nurMitHooks, () => {
     assert.deepEqual([...cu.hinweise, ...to.hinweise], [])
   })
 
-  test('nur Spritzungen zählen: Düngung und andere Arten nicht im PSM-Lager', () => {
+  test('Spritzungen und Sonstiges zählen (KAN-154), Düngung und andere Arten nicht im PSM-Lager', () => {
+    const sonstiges = (id, teil) => psm.normalisiereBehandlung(roh({ id, art: 'sonstiges', psm_id: FUNGURAN.id, psm: FUNGURAN, ...teil }))
     const b = [
       funguran(),
-      psm.normalisiereBehandlung(roh({ id: 'b-so', art: 'sonstiges', psm_id: FUNGURAN.id, psm: FUNGURAN, aufwandmenge: 5, aufwandmenge_einheit: 'kg' })),
+      sonstiges('b-so', { aufwandmenge: 5, aufwandmenge_einheit: 'kg' }),
+      sonstiges('b-so-ha', { aufwandmenge: 0.5, aufwandmenge_einheit: 'kg_ha' }),   // × 2 ha = 1 kg
+      sonstiges('b-so-ohne', {}),                                                   // ohne Aufwand: Hinweis
+      psm.normalisiereBehandlung(roh({ id: 'b-bo', art: 'bodenbearbeitung', psm_id: FUNGURAN.id, psm: FUNGURAN, aufwandmenge: 5, aufwandmenge_einheit: 'kg' })),
       duengung('b-du', BIOSOL, { aufwandmenge: 500, aufwandmenge_einheit: 'kg_ha' }),
     ]
     const je = lv.verbrauchJeMittel(b, 'psm')
     assert.deepEqual([...je.keys()], ['p-fu'])
-    assert.deepEqual(je.get('p-fu').map(p => p.behandlungId), ['b-fu'])
+    assert.deepEqual(je.get('p-fu').map(p => p.behandlungId), ['b-fu', 'b-so', 'b-so-ha', 'b-so-ohne'])
+    const k = konto(b, 'psm', 'p-fu', [buchung('2026-05-01', 20, 'kg')])
+    assert.deepEqual([k.einheit, k.verbrauch, k.bestand], ['kg', 7.2, 12.8])   // 1,2 + 5 + 1 kg
+    assert.equal(k.hinweise.length, 1)
+    assert.match(k.hinweise[0].text, /^Sonstiges am 01\.06\.2026 .*: bei Sonstiges ohne Aufwand keine Mittelmenge – nicht abgezogen\.$/)
+    // Sonstiges ohne Mittel (Musterhof: Rodung) erscheint gar nicht
+    const ohneMittel = psm.normalisiereBehandlung(roh({ id: 'b-rod', art: 'sonstiges', schaderreger: 'Rodung' }))
+    assert.equal(lv.verbrauchJeMittel([ohneMittel], 'psm').size, 0)
   })
 
   test('g/hl mit Spritzbrühe: 25 g/hl × 800 l = 0,2 kg – Lager in g zieht 200 g ab', () => {

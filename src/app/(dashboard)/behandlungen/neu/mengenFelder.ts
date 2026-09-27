@@ -14,7 +14,7 @@ import { fmtNum, zahlAus } from '@/lib/format'
 import { runden, STELLEN } from '@/lib/csv'
 import { AUFWAND_EINHEIT_LABEL, STELLEN_MENGE, mengeInEinheit } from '@/lib/behoerden/psm'
 import {
-  AUFWAND_EINHEITEN, AUFWAND_EINHEITEN_DUENGUNG, pruefeMassnahmeMengen,
+  AUFWAND_EINHEITEN, AUFWAND_EINHEITEN_DUENGUNG, AUFWAND_EINHEITEN_SONSTIGES, pruefeMassnahmeMengen,
   type MassnahmeMengenEingabe, type MassnahmeMengenErgebnis, type MassnahmeMengenWerte,
 } from '@/lib/behandlungen/massnahmeMengen'
 import type { MassnahmenArt } from '@/lib/behandlungen/arten'
@@ -25,7 +25,8 @@ export type MengenSichten = { mengeGesamt: Sicht; aufwandmenge: Sicht; konzentra
 /**
  * Mengenfelder je Maßnahmenart. Spritzung: Spritzbrühe gesamt ODER Wasseraufwand ('bedingt', geprüft mit
  * bruehePflicht), Aufwand Pflicht. Düngung: Düngermenge Pflicht, Aufwand optional. Laubschneiden (KAN-143)
- * wie Laubarbeit ohne Mengenfelder.
+ * wie Laubarbeit ohne Mengenfelder. Sonstiges (KAN-154): Aufwand 'bedingt' – optional, sobald ein
+ * Pflanzenschutzmittel gewählt ist (mengenSicht), damit Lager und Mittelverbrauch es wie bei der Spritzung abziehen.
  */
 export const MENGEN_SICHT: Record<MassnahmenArt, MengenSichten> = {
   spritzung:        { mengeGesamt: 'bedingt', aufwandmenge: 'pflicht',  konzentration: 'optional', wasseraufwand: 'bedingt' },
@@ -34,7 +35,17 @@ export const MENGEN_SICHT: Record<MassnahmenArt, MengenSichten> = {
   schnitt:          { mengeGesamt: 'hidden',  aufwandmenge: 'hidden',   konzentration: 'hidden',   wasseraufwand: 'hidden'  },
   laubarbeit:       { mengeGesamt: 'hidden',  aufwandmenge: 'hidden',   konzentration: 'hidden',   wasseraufwand: 'hidden'  },
   laubschneiden:    { mengeGesamt: 'hidden',  aufwandmenge: 'hidden',   konzentration: 'hidden',   wasseraufwand: 'hidden'  },
-  sonstiges:        { mengeGesamt: 'hidden',  aufwandmenge: 'hidden',   konzentration: 'hidden',   wasseraufwand: 'hidden'  },
+  sonstiges:        { mengeGesamt: 'hidden',  aufwandmenge: 'bedingt',  konzentration: 'hidden',   wasseraufwand: 'hidden'  },
+}
+
+/**
+ * Mengenfelder, wie die Formulare sie zeigen: der Aufwand bei Sonstiges ('bedingt') nur mit gewähltem
+ * Pflanzenschutzmittel und dann optional, sonst ausgeblendet (nicht gesendet → null). Alle anderen wie MENGEN_SICHT.
+ */
+export function mengenSicht(art: MassnahmenArt, psmGewaehlt: boolean): MengenSichten {
+  const s = MENGEN_SICHT[art]
+  if (art !== 'sonstiges') return s
+  return { ...s, aufwandmenge: psmGewaehlt ? 'optional' : 'hidden' }
 }
 
 /**
@@ -50,8 +61,12 @@ export function istJeHl(einheit: string | null | undefined): boolean {
   return einheit === 'g_hl' || einheit === 'ml_hl'
 }
 
-/** Zulässige Aufwand-Einheiten: Düngung ohne g/hl und ml/hl, l/ha und l nur bei Düngemitteln in l */
+/**
+ * Zulässige Aufwand-Einheiten: Düngung ohne g/hl und ml/hl, l/ha und l nur bei Düngemitteln in l;
+ * Sonstiges ohne g/hl und ml/hl (keine Spritzbrühe, KAN-154)
+ */
 export function aufwandEinheiten(art: string, duengerInLiter: boolean): readonly string[] {
+  if (art === 'sonstiges') return AUFWAND_EINHEITEN_SONSTIGES
   if (art !== 'duengung') return AUFWAND_EINHEITEN
   return AUFWAND_EINHEITEN_DUENGUNG.filter(e => duengerInLiter || (e !== 'l_ha' && e !== 'l'))
 }

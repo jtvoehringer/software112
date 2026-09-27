@@ -19,6 +19,9 @@
 // KAN-143 (26.09.2026): neue Art „laubschneiden“ (maschinelles Laubschneiden an Seiten und Gipfel, ohne
 // laubarbeit_art). Arten und Bezeichnungen aus lib/behandlungen/arten.ts; eine unbekannte Art lehnt das
 // Tool vor dem Speichern ab, laubarbeit_art geht nur bei einer Laubarbeit mit (dort Pflicht).
+//
+// KAN-154 (27.09.2026): Sonstiges optional mit Pflanzenschutzmittel (samt Aufwand), Bearbeitungstiefe optional,
+// einarbeitung=false bleibt false.
 import { createBehandlung } from '@/app/(dashboard)/behandlungen/actions'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { dezimal } from '@/lib/format'
@@ -26,6 +29,7 @@ import { AUFWAND_EINHEITEN, pruefeMassnahmeMengen } from '@/lib/behandlungen/mas
 import {
   LAUBARBEIT_OPTIONEN, MASSNAHMEN_ARTEN, MASSNAHMEN_ART_LABEL, istMassnahmenArt, laubarbeitArtFehlt, laubarbeitArtFuer,
 } from '@/lib/behandlungen/arten'
+import { EINARBEITUNG_GESENDET } from '@/app/(dashboard)/behandlungen/neu/feldMatrix'
 
 /** „Spritzung, Düngung, …, Laubschneiden oder Sonstiges“ – für die Tool-Beschreibung (die Rückfrage bei
  *  unbekannter Art nennt bewusst die Codes, die das Tool erwartet: MASSNAHMEN_ARTEN) */
@@ -47,8 +51,8 @@ FELD-MATRIX je Maßnahmenart (nur diese Felder abfragen – "pflicht" IMMER erfr
                      Düngemitteln in Litern (pflicht),
                      aufwandmenge/witterung (optional), einarbeitung (bedingt: nachfragen
                      ob eingearbeitet wurde, falls ja auch einarbeitung_zeitpunkt)
-- bodenbearbeitung:  bearbeitungstiefe_cm (pflicht), bearbeitungsgeraet (pflicht),
-                     witterung (optional)
+- bodenbearbeitung:  bearbeitungsgeraet (pflicht), bearbeitungstiefe_cm (optional – Mulchen
+                     und Mähen haben keine Tiefe), witterung (optional)
 - schnitt:           schnittart (pflicht)
 - laubarbeit:        laubarbeit_art (pflicht, einer von: entblaettern, ausgeizen,
                      gipfeln, heften, sonstige), bbch_stadium (optional)
@@ -56,7 +60,9 @@ FELD-MATRIX je Maßnahmenart (nur diese Felder abfragen – "pflicht" IMMER erfr
                      Laubschneiden an Seiten und Gipfel (Laubschneider, Laubschnitt mit dem Traktor).
                      Gipfeln von Hand ist dagegen laubarbeit mit laubarbeit_art gipfeln – bei
                      "Gipfeln" ohne Hinweis auf Maschine oder Hand kurz nachfragen.
-- sonstiges:         schaderreger (optional, hier als freie Beschreibung nutzbar)
+- sonstiges:         schaderreger (optional, hier als freie Beschreibung nutzbar),
+                     psm_id (optional, z. B. Pheromon-Dispenser), aufwandmenge + aufwandmenge_einheit
+                     (optional, nur mit psm_id; kg_ha, l_ha, kg oder l – nur damit bucht das Lager ab)
 
 MENGEN – GANZ WICHTIG:
 - Spritzung: menge_gesamt ist die gesamte SPRITZBRÜHE (Mittel + Wasser) in Litern, NICHT die
@@ -277,6 +283,8 @@ export async function fuehreMassnahmeDokumentierenAus(
   // laubarbeit_art nur bei einer Laubarbeit (bei Laubschneiden null, KAN-143)
   const laubarbeitArt = laubarbeitArtFuer(input.art, input.laubarbeit_art ? String(input.laubarbeit_art) : null)
   if (laubarbeitArt) fd.set('laubarbeit_art', laubarbeitArt)
+  // KAN-154: ausdrücklich „nicht eingearbeitet“ bleibt false (einarbeitung_gesendet), ohne Angabe null
+  if (typeof input.einarbeitung === 'boolean') fd.set(EINARBEITUNG_GESENDET, '1')
   if (input.einarbeitung) fd.set('einarbeitung', 'on')
   if (input.einarbeitung_zeitpunkt) fd.set('einarbeitung_zeitpunkt', String(input.einarbeitung_zeitpunkt))
   if (input.notizen) fd.set('notizen', String(input.notizen))

@@ -27,8 +27,12 @@ type R = Record<string, any>
 // Mengen je Maßnahme aus denselben Funktionen wie die CSV (KAN-133): „Mittel X kg · Brühe X l“
 // bzw. „Dünger X kg“ – die CSV verteilt genau diese Werte nach Grundstücksfläche.
 
-/** „Mittel 1,2 kg · Brühe 800 l“ (Spritzung) bzw. „Dünger 1.000 kg“ (Düngung); sonst null */
+/** „Mittel 1,2 kg · Brühe 800 l“ (Spritzung), „Mittel 0,4 kg“ (Sonstiges mit Aufwand, KAN-154) bzw. „Dünger 1.000 kg“ (Düngung); sonst null */
 function mengenText(b: PsmBehandlung): string | null {
+  if (b.art === 'sonstiges') {
+    const mm = mittelmenge(b)
+    return b.psm && mm.menge !== null ? `Mittel ${fmtNum(mm.menge, { max: 3 })} ${mm.einheit}` : null
+  }
   if (b.art !== 'spritzung' && b.art !== 'duengung') return null
   const mm = mittelmenge(b)
   const menge = mm.menge !== null ? `${fmtNum(mm.menge, { max: 3 })} ${mm.einheit}` : `– (${mm.warnung})`

@@ -12,16 +12,20 @@ import { mengeInEinheit, type MittelmengeErgebnis } from '@/lib/behoerden/psm'
 import { pruefeMassnahmeMengen } from '@/lib/behandlungen/massnahmeMengen'
 import { LAUBARBEIT_OPTIONEN, LAUBSCHNEIDEN_HINWEIS, MASSNAHMEN_ART_LABEL, type MassnahmenArt } from '@/lib/behandlungen/arten'
 import {
-  MENGEN_SICHT, aufwandEinheitText, duengerEinheitWechsel, duengermengeEinheit, mengenFelder, mengenInFormData,
+  aufwandEinheitText, duengerEinheitWechsel, duengermengeEinheit, mengenFelder, mengenInFormData, mengenSicht,
   mengenTexte,
 } from './mengenFelder'
-import { BBCH_OPTIONS, FELD_MATRIX, SCHADERREGER_OPTIONEN, WITTERUNG_OPTIONEN, schaderregerFeld } from './feldMatrix'
+import {
+  BBCH_OPTIONS, FELD_MATRIX, EINARBEITUNG_GESENDET, SCHADERREGER_OPTIONEN, WITTERUNG_OPTIONEN, einarbeitungSichtbar,
+  schaderregerFeld,
+} from './feldMatrix'
 import { RIED_AUSWAHL_FEHLT, absendenHindernis, auswahlKopf, erfassenKnopfText } from './absenden'
 import { ART_OPTIONS } from './artOptionen'
 import MengenZusammenfassung from './MengenZusammenfassung'
 
 // Welche Felder je Maßnahmenart sichtbar/pflicht sind, steht in FELD_MATRIX (feldMatrix.ts), die
-// Mengenfelder in MENGEN_SICHT (mengenFelder.ts) – gemeinsam mit dem Bearbeiten-Formular und dem Assistenten.
+// Mengenfelder in MENGEN_SICHT (mengenFelder.ts, über mengenSicht: Aufwand bei Sonstiges nur mit Mittel) –
+// gemeinsam mit dem Bearbeiten-Formular und dem Assistenten.
 type Art = MassnahmenArt
 
 /**
@@ -96,7 +100,7 @@ export default function NeueBehandlungForm({
   const [kostenBeschreibung, setKostenBeschreibung] = useState('')
   const betragManuellGeaendert = useRef(false)
 
-  const felder = { ...FELD_MATRIX[art], ...MENGEN_SICHT[art] }
+  const felder = { ...FELD_MATRIX[art], ...mengenSicht(art, !!selectedPsmId) }
   const schaderreger = schaderregerFeld(art)
 
   // Beim Wechsel der Art eine Mittel-Auswahl zurücksetzen, deren Feld die neue Art laut Feld-Matrix nicht zeigt –
@@ -196,7 +200,7 @@ export default function NeueBehandlungForm({
   const konzentrationGesperrt = m.konzentrationBerechnet !== null
   const aufwandmengeGesperrt = m.aufwandmengeBerechnet !== null
   const mengenTexteAktiv = mengenTexte(art, m.pruefung, m.ha)
-  const mengenSichtbar = (art === 'spritzung' || art === 'duengung')
+  const mengenSichtbar = (art === 'spritzung' || art === 'duengung' || felder.aufwandmenge !== 'hidden')
     && [aufwandmenge, mengeGesamt, wasseraufwand, konzentration].some(s => s.trim() !== '')
 
   // ─── Kosten-Vorschlag: passende Hektarsätze für die aktuelle Art + Vorschlagssumme ──
@@ -204,14 +208,15 @@ export default function NeueBehandlungForm({
   const gewaehlterSatz = passendeSaetze.find(s => s.id === selectedSatzId) ?? passendeSaetze[0]
 
   // Material = Preis je kg bzw. l × Mittelmenge (nie × Spritzbrühe); der Preis gilt beim PSM je kg bzw. l
-  // (Grundeinheit des Lagers, auch bei Buchungen in g bzw. ml), beim Düngemittel je dessen Einheit
+  // (Grundeinheit des Lagers, auch bei Buchungen in g bzw. ml), beim Düngemittel je dessen Einheit; das PSM
+  // auch bei Sonstiges (KAN-154)
   const materialpreisProEinheit =
-    art === 'spritzung' ? selectedPsm?.preis_pro_einheit :
-    art === 'duengung'  ? selectedDuengemittel?.preis_pro_einheit :
+    felder.psm !== 'hidden' ? selectedPsm?.preis_pro_einheit :
+    art === 'duengung'      ? selectedDuengemittel?.preis_pro_einheit :
     undefined
   const materialEinheit =
-    art === 'spritzung' ? selectedPsm?.einheit ?? null :
-    art === 'duengung'  ? selectedDuengemittel?.einheit ?? 'kg' :
+    felder.psm !== 'hidden' ? selectedPsm?.einheit ?? null :
+    art === 'duengung'      ? selectedDuengemittel?.einheit ?? 'kg' :
     null
   const material = materialpreisProEinheit
     ? materialMenge(m.pruefung.ok ? m.pruefung.mittelmenge : null, materialEinheit)
@@ -386,7 +391,7 @@ export default function NeueBehandlungForm({
               aria-invalid={bioSperre || undefined} aria-describedby={bioSperre ? 'bio-sperre-grund' : undefined}
               onChange={e => setSelectedPsmId(e.target.value)}
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
-              <option value="">– Auswählen –</option>
+              <option value="">{felder.psm === 'pflicht' ? '– Auswählen –' : '– keines –'}</option>
               {psm.map(p => (
                 <option key={p.id} value={p.id}>
                   {p.name}{p.handelsname ? ` (${p.handelsname})` : ''}
@@ -537,6 +542,8 @@ export default function NeueBehandlungForm({
               <p className="text-xs text-s112-muted mt-1">
                 {art === 'duengung'
                   ? 'Optional – maßgeblich für Lager und Nährstoffbilanz ist die Düngermenge gesamt.'
+                  : art === 'sonstiges'
+                    ? 'Optional – nur mit Aufwandmenge zieht das Lager das Mittel ab (Mittelmenge = je ha × Fläche bzw. gesamt).'
                   : m.jeHl
                     ? 'Tatsächliche Konzentration im Tank: Mittelmenge = Konzentration × Spritzbrühe. Etikettwerte je Hektar bitte als kg/ha bzw. l/ha erfassen.'
                     : 'Die Mittelmenge ergibt sich aus der Aufwandmenge (je ha × Fläche bzw. gesamt).'}
@@ -636,9 +643,11 @@ export default function NeueBehandlungForm({
           </div>
         )}
 
-        {/* Düngung: Einarbeitung (nur bei organischem Dünger relevant) */}
-        {felder.einarbeitung !== 'hidden' && selectedDuengemittel?.typ === 'organisch' && (
+        {/* Düngung: Einarbeitung (nur bei organischem Dünger relevant) – einarbeitung_gesendet: nicht angehakt = „nein“
+            (false), nicht „keine Angabe“ (KAN-154, einarbeitungAus) */}
+        {einarbeitungSichtbar(art, selectedDuengemittel?.typ) && (
           <div className="grid grid-cols-2 gap-3 items-end">
+            <input type="hidden" name={EINARBEITUNG_GESENDET} value="1" />
             <label className="flex items-center gap-2 text-sm text-s112-text-1">
               <input type="checkbox" name="einarbeitung" className="accent-s112-teal" />
               Eingearbeitet
@@ -651,25 +660,25 @@ export default function NeueBehandlungForm({
           </div>
         )}
 
-        {/* Bodenbearbeitung */}
-        {felder.bearbeitung !== 'hidden' && (
+        {/* Bodenbearbeitung – Tiefe optional (Mulchen, Mähen), Gerät Pflicht (KAN-154) */}
+        {(felder.bearbeitungstiefe !== 'hidden' || felder.bearbeitungsgeraet !== 'hidden') && (
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-s112-text-1 mb-1">
                 Bearbeitungstiefe (cm)
-                {felder.bearbeitung === 'pflicht' && <span className="text-s112-err"> *</span>}
+                {felder.bearbeitungstiefe === 'pflicht' && <span className="text-s112-err"> *</span>}
               </label>
-              <input name="bearbeitungstiefe_cm" type="number" step="1" min="0" placeholder="z.B. 10"
-                required={felder.bearbeitung === 'pflicht'}
+              <input aria-label="Bearbeitungstiefe (cm)" name="bearbeitungstiefe_cm" type="number" step="1" min="0" placeholder="z.B. 10"
+                required={felder.bearbeitungstiefe === 'pflicht'}
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
             </div>
             <div>
               <label className="block text-sm font-medium text-s112-text-1 mb-1">
                 Gerät
-                {felder.bearbeitung === 'pflicht' && <span className="text-s112-err"> *</span>}
+                {felder.bearbeitungsgeraet === 'pflicht' && <span className="text-s112-err"> *</span>}
               </label>
-              <input name="bearbeitungsgeraet" type="text" placeholder="z.B. Grubber"
-                required={felder.bearbeitung === 'pflicht'}
+              <input aria-label="Gerät" name="bearbeitungsgeraet" type="text" placeholder="z.B. Grubber"
+                required={felder.bearbeitungsgeraet === 'pflicht'}
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
             </div>
           </div>

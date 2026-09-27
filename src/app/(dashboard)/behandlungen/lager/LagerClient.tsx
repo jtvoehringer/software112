@@ -287,7 +287,7 @@ function PsmKarte({
                   <td className="px-3 py-2 text-right tabular-nums font-medium text-s112-blue-700">
                     –{fmtNum(verbrauch, { max: 3 })} {einheit}
                   </td>
-                  <td className="px-3 py-2 text-xs text-s112-muted italic">aus Spritzungen (Aufwand × Fläche)</td>
+                  <td className="px-3 py-2 text-xs text-s112-muted italic">aus Spritzungen und Sonstiges (Aufwand × Fläche)</td>
                   {(writeOk || adminOk) && <td />}
                 </tr>
               )}
