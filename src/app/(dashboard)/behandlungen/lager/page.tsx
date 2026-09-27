@@ -28,7 +28,7 @@ export type PSMLager = {
     einheit: string | null
     notizen: string | null
   }[]
-  /** Zugänge, Abgänge, Verbrauch aus Spritzungen und Bestand in der Lager-Einheit (KAN-133) */
+  /** Zugänge, Abgänge, Verbrauch aus Spritzungen und Sonstiges (KAN-154) und Bestand in der Lager-Einheit (KAN-133) */
   konto: LagerKonto
 }
 
@@ -173,26 +173,28 @@ export default async function LagerPage({
     .order('datum', { ascending: false }))
 
   // Verbrauch aus Maßnahmen (KAN-133): Mittelmenge je Maßnahme (mittelmenge()) – PSM nur aus
-  // Spritzungen (Aufwand × Fläche; „Menge gesamt“ ist dort die Spritzbrühe und zählt nie), Düngemittel
+  // Spritzungen und Sonstiges (KAN-154; Aufwand × Fläche; „Menge gesamt“ ist bei Spritzungen die
+  // Spritzbrühe und zählt nie), Düngemittel
   // nur aus Düngungen. ladeBehandlungen() filtert nach dem Betrieb und liefert die behandelte Fläche
   // (Σ GST). Nur für den Bestand-Tab; ein Ladefehler erscheint dort, statt still ohne Verbrauch zu rechnen.
   const zeigtBestand = tab !== 'stammdaten' && tab !== 'duengemittel' && tab !== 'saetze'
-  let spritzungen: PsmBehandlung[] = []
+  let mitPsm: PsmBehandlung[] = []
   let duengungen: PsmBehandlung[] = []
   let verbrauchFehler: string | null = null
   if (zeigtBestand && tenantId) {
     try {
-      const [s, d] = await Promise.all([
+      const [s, so, d] = await Promise.all([
         ladeBehandlungen(supabase, tenantId, { art: 'spritzung' }),
+        ladeBehandlungen(supabase, tenantId, { art: 'sonstiges' }),
         ladeBehandlungen(supabase, tenantId, { art: 'duengung' }),
       ])
-      spritzungen = s.behandlungen
+      mitPsm = [...s.behandlungen, ...so.behandlungen]
       duengungen = d.behandlungen
     } catch (e) {
       verbrauchFehler = e instanceof Error ? e.message : String(e)
     }
   }
-  const verbrauchByPsm = verbrauchJeMittel(spritzungen, 'psm')
+  const verbrauchByPsm = verbrauchJeMittel(mitPsm, 'psm')
 
   // Bewegungen je PSM gruppieren
   const bewegungenByPsm = new Map<string, PSMLager['bewegungen']>()

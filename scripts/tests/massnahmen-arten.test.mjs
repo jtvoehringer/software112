@@ -5,6 +5,9 @@
 // KAN-152: Das Bearbeiten-Formular zeigt BBCH, Schaderreger bzw. Grund / Anlass, Witterung und Temperatur nach
 // der Feld-Matrix (felderBeimBearbeiten) und sendet ausgeblendete, gespeicherte Werte bei unveränderter Art mit.
 // KAN-153: „Maßnahme erfassen“ ohne Ried-Auswahl bzw. bei Bio-Sperre – Klick zeigt den Grund (absenden.ts).
+// KAN-154: Einarbeitung (Modus je Art × Ausgangsart × Düngemittel, false bleibt false), Pflichtfelder beim
+// Bearbeiten mit Ausnahme für Altdaten, Pflanzenschutzmittel bei Sonstiges (samt Aufwand, Lager, Bio-Sperre) und
+// Bio-Sperre im Bearbeiten-Formular wie KAN-153; unverändertes Speichern aller Musterhof-Konstellationen.
 //
 // Aufruf:  node --experimental-strip-types --disable-warning=ExperimentalWarning \
 //               --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/tests/massnahmen-arten.test.mjs
@@ -48,10 +51,16 @@ const ATTRAPPEN = {
 
 // Supabase-Attrappe für die Server Actions: Abfragen sind verkettbar und awaitbar, insert/update werden
 // in schreiben gemerkt. Eine Maßnahme auf einem GST mit 2 ha; angemeldet ist 'u-1' (Stundensätze).
-function supabaseAttrappe() {
+// KAN-154: Bio-Status des Betriebs und das Pflanzenschutzmittel (öko-zugelassen, Cu-Gehalt) einstellbar –
+// Spritzung und Sonstiges laden seine Stammdaten, Anlegen und Bearbeiten prüfen die Bio-Sperre.
+function supabaseAttrappe({ bio = 'konventionell', oeko = true, cuGehaltPct = null } = {}) {
   const schreiben = []
   const antwort = (tabelle, op) => {
     if (tabelle === 'grundstuecke') return { data: [{ id: 'g-1', weingarten_id: 'w-1', flaeche_ha: 2 }], error: null }
+    if (tabelle === 'tenants') return { data: { bio_status: bio }, error: null }
+    if (tabelle === 'pflanzenschutzmittel') {
+      return { data: { oeko_zugelassen: oeko, cu_gehalt_pct: cuGehaltPct, wirkstoff: null, wirkstoffgehalt_pct: null }, error: null }
+    }
     if (tabelle === 'behandlungen' && op === 'insert') return { data: { id: 'b-neu' }, error: null }
     if (tabelle === 'behandlungen' && op === 'select') return { data: { id: 'b-1', behandlung_grundstuecke: [{ flaeche_ha: 2 }] }, error: null }
     return { data: null, error: null }
@@ -778,12 +787,15 @@ describe('Quelltext: keine Stelle mit eigener, veralteter Artenliste', () => {
       const guard = [...edit.slice(0, sichtbar[0].index).matchAll(/\{modus\.(\w+) === '(\w+)' && /g)].at(-1)
       assert.deepEqual([guard?.[1], guard?.[2]], [f, 'sichtbar'], name)
     }
-    // Schaderreger bzw. Grund / Anlass: Bezeichnung, Pflicht und Vorschläge wie beim Anlegen
+    // Schaderreger bzw. Grund / Anlass: Bezeichnung, Pflicht und Vorschläge wie beim Anlegen (Pflicht seit KAN-154
+    // über pflichtBeimBearbeiten – Altdaten ohne Wert ausgenommen)
     assert.match(edit, /const schaderreger = schaderregerFeld\(art\)/)
-    assert.match(edit, /<input aria-label=\{schaderreger\.label\} name="schaderreger" type="text"\s+required=\{feldPflicht\('schaderreger', art\)\}/)
-    assert.match(edit, /\{schaderreger\.label\}\s+\{feldPflicht\('schaderreger', art\) && <span className="text-s112-err"> \*<\/span>\}/)
+    assert.match(edit, /<input aria-label=\{schaderreger\.label\} name="schaderreger" type="text"\s+required=\{pflicht\.schaderreger\}/)
+    assert.match(edit, /\{schaderreger\.label\}\s+\{pflicht\.schaderreger && <span className="text-s112-err"> \*<\/span>\}/)
     assert.match(edit, /list=\{schaderreger\.vorschlaege \? 'schaderreger-kb' : undefined\}/)
-    assert.match(edit, /required=\{feldPflicht\('bbch', art\)\}/)
+    assert.match(edit, /required=\{pflicht\.bbch\}/)
+    assert.match(edit, /schaderreger: +pflichtBeimBearbeiten\('schaderreger', art, startArt, behandlung\.schaderreger\)/)
+    assert.match(edit, /bbch: +pflichtBeimBearbeiten\('bbch', art, startArt, behandlung\.bbch_stadium\)/)
     // Anlegen nimmt dieselbe Bezeichnung
     const neu = quelle(NEU_FORM)
     assert.match(neu, /const schaderreger = schaderregerFeld\(art\)/)
@@ -993,8 +1005,373 @@ describe('Neue Maßnahme: Knopf ohne Auswahl nicht gesperrt, Klick zeigt den Gru
     assert.match(faq, /ein Klick auf „Maßnahme erfassen“ springt dorthin, statt still gesperrt zu bleiben/)
     // KAN-152: Bearbeiten mit denselben Feldern, ausgeblendete gespeicherte Angaben bleiben
     assert.match(hb, /Beim Bearbeiten einer Maßnahme zeigt das Formular BBCH-Stadium, Schaderreger bzw\. Grund \/ Anlass, Witterung und Temperatur genauso/)
-    // FAQ wie das Handbuch nur für diese vier Felder – PSM bei Sonstiges und Einarbeitung weichen beim Bearbeiten ab
-    assert.match(faq, /Beim Bearbeiten zeigt das Formular BBCH-Stadium, Schaderreger bzw\. Grund \/ Anlass, Witterung und Temperatur genauso wie beim Anlegen; eine schon gespeicherte Angabe in einem ausgeblendeten Feld bleibt beim Speichern erhalten/)
+    // KAN-154: seither gleichen sich Anlegen und Bearbeiten auch bei PSM (Sonstiges), Einarbeitung und Pflichtfeldern
+    assert.match(faq, /Beim Bearbeiten zeigt das Formular dieselben Felder und Pflichtfelder wie beim Anlegen; eine schon gespeicherte Angabe in einem ausgeblendeten Feld \(auch eine Einarbeitung „nein“\) bleibt beim Speichern erhalten/)
     assert.doesNotMatch(faq, /Beim Bearbeiten gelten dieselben Felder/)
+  })
+})
+
+// ── KAN-154: restliche Abweichungen Anlegen ↔ Bearbeiten ─────────────────────────────────────────────────────
+
+const formularAus = (felder) => {
+  const fd = new FormData()
+  for (const [k, v] of Object.entries(felder)) fd.set(k, v)
+  return fd
+}
+const geschrieben = (op) => globalThis.__kan143Supabase.schreiben.find(s => s.tabelle === 'behandlungen' && s.op === op)?.p
+
+/**
+ * Was das Bearbeiten-Formular für die Einarbeitung sendet (Spiegel der JSX-Blöcke 'sichtbar' und 'behalten' –
+ * der Quelltext-Test unten sichert die Verdrahtung): `angeklickt` = Stand der Checkbox nach einem Klick
+ * (undefined = nicht angefasst, dann der gespeicherte Wert).
+ */
+function einarbeitungSendet(gespeichert, art, startArt, typ, angeklickt) {
+  const modus = feld.einarbeitungBeimBearbeiten(art, startArt, typ)
+  const fd = {}
+  if (modus === 'keine') return fd
+  const wert = modus === 'sichtbar' && angeklickt !== undefined ? angeklickt : gespeichert.einarbeitung
+  if (wert !== null) fd.einarbeitung_gesendet = '1'
+  if (wert) fd.einarbeitung = 'on'
+  fd.einarbeitung_zeitpunkt = gespeichert.einarbeitung_zeitpunkt ?? ''
+  return fd
+}
+
+describe('KAN-154: Feld-Matrix – Pflanzenschutzmittel bei Sonstiges, Bearbeitungstiefe optional', nurMitHooks, () => {
+  test('Sonstiges: Mittel optional; Bearbeiten zeigt es dort, wo das Anlegen es zeigt (artMitPsm = Feld-Matrix)', () => {
+    assert.equal(feld.FELD_MATRIX.sonstiges.psm, 'optional')
+    assert.equal(feld.FELD_MATRIX.spritzung.psm, 'pflicht')
+    for (const art of DB_SAETZE_ART_CHECK) {
+      assert.equal(arten.artMitPsm(art), feld.FELD_MATRIX[art].psm !== 'hidden', art)
+      assert.equal(arten.artMitDuengemittel(art), feld.FELD_MATRIX[art].duengemittel !== 'hidden', art)
+    }
+    assert.equal(feld.feldPflicht('psm', 'sonstiges'), false)
+    assert.equal(feld.feldPflicht('psm', 'spritzung'), true)
+  })
+
+  test('Bodenbearbeitung: Gerät Pflicht, Tiefe optional (Mulchen, Mähen) – sonst beide ausgeblendet', () => {
+    for (const art of DB_SAETZE_ART_CHECK) {
+      const f = feld.FELD_MATRIX[art]
+      assert.deepEqual([f.bearbeitungstiefe, f.bearbeitungsgeraet],
+        art === 'bodenbearbeitung' ? ['optional', 'pflicht'] : ['hidden', 'hidden'], art)
+      assert.equal('bearbeitung' in f, false, art)
+    }
+  })
+
+  test('Mengenfelder: Aufwand bei Sonstiges nur mit Mittel (optional), ohne g/hl und ml/hl; alle anderen wie MENGEN_SICHT', () => {
+    assert.equal(mengen.MENGEN_SICHT.sonstiges.aufwandmenge, 'bedingt')
+    assert.deepEqual(mengen.mengenSicht('sonstiges', false), { mengeGesamt: 'hidden', aufwandmenge: 'hidden', konzentration: 'hidden', wasseraufwand: 'hidden' })
+    assert.deepEqual(mengen.mengenSicht('sonstiges', true), { mengeGesamt: 'hidden', aufwandmenge: 'optional', konzentration: 'hidden', wasseraufwand: 'hidden' })
+    for (const art of DB_SAETZE_ART_CHECK.filter(a => a !== 'sonstiges')) {
+      for (const mitPsm of [false, true]) assert.deepEqual(mengen.mengenSicht(art, mitPsm), mengen.MENGEN_SICHT[art], art)
+    }
+    assert.deepEqual([...mengen.aufwandEinheiten('sonstiges', false)], ['kg_ha', 'l_ha', 'kg', 'l'])
+    // Formular: 0,4 kg/ha auf 2 ha → Mittelmenge 0,8 kg (wie die Server Action)
+    const m = mengen.mengenFelder({
+      art: 'sonstiges', felder: mengen.mengenSicht('sonstiges', true),
+      mengeGesamt: '', wasseraufwand: '', mengeQuelle: null,
+      aufwandmenge: '0,4', aufwandmengeEinheit: 'kg_ha', konzentration: '', aufwandQuelle: 'aufwand',
+      flaecheHa: 2, psmId: 'p-1', psm: { cuGehaltPct: null }, duengemittelId: null, duengemittelEinheit: null,
+    })
+    assert.equal(m.pruefung.ok, true)
+    assert.deepEqual([m.pruefung.mittelmenge.menge, m.pruefung.mittelmenge.einheit], [0.8, 'kg'])
+    // ohne Mittel: Feld ausgeblendet, nichts gesendet
+    const fd = new FormData()
+    mengen.mengenInFormData(fd, mengen.mengenSicht('sonstiges', false), { aufwandmenge: 1, aufwandmenge_einheit: 'kg', menge_gesamt: null, menge_einheit: null, wasseraufwand_l_ha: null, reinkupfer_kg_ha: null }, null)
+    assert.deepEqual([...fd.keys()], [])
+  })
+
+  test('pruefeMassnahmeMengen bei Sonstiges: Aufwand nur mit Mittel, g/hl abgelehnt, Reinkupfer wie bei der Spritzung', () => {
+    const e = (teil) => ({ art: 'sonstiges', psmId: 'p-1', duengemittelId: null, psm: null, aufwand: null, aufwandEinheit: null, mengeGesamt: null, mengeEinheit: null, wasserLHa: null, flaecheHa: 2, ...teil })
+    const ohne = massnahmeMengen.pruefeMassnahmeMengen(e({ psmId: null, aufwand: 5, aufwandEinheit: 'kg' }))
+    assert.deepEqual([ohne.ok, ohne.werte.aufwandmenge, ohne.werte.aufwandmenge_einheit], [true, null, null])
+    const leer = massnahmeMengen.pruefeMassnahmeMengen(e({}), { bruehePflicht: true })   // Mittel ohne Aufwand: erlaubt
+    assert.deepEqual([leer.ok, leer.werte.aufwandmenge, leer.mittelmenge.grund], [true, null, 'art'])
+    const cu = massnahmeMengen.pruefeMassnahmeMengen(e({ aufwand: 0.4, aufwandEinheit: 'kg_ha', psm: { cuGehaltPct: 35 } }))
+    assert.deepEqual([cu.werte.aufwandmenge, cu.werte.aufwandmenge_einheit, cu.mittelmenge.menge, cu.cuKg, cu.werte.reinkupfer_kg_ha], [0.4, 'kg_ha', 0.8, 0.28, 0.14])
+    assert.equal(cu.spritzbruehe, null)
+    for (const [teil, text] of [
+      [{ aufwand: 25, aufwandEinheit: 'g_hl' }, /„g_hl“ ist bei Sonstiges nicht zulässig/],
+      [{ aufwand: 0, aufwandEinheit: 'kg' }, /größer als 0/],
+      [{ aufwand: 1, aufwandEinheit: null }, /Einheit der Aufwandmenge/],
+    ]) {
+      const r = massnahmeMengen.pruefeMassnahmeMengen(e(teil))
+      assert.equal(r.ok, false)
+      assert.match(r.fehler, text)
+    }
+  })
+
+  test('Mittelmenge, Mittelverbrauch und Aufzeichnung: Sonstiges mit Mittel und Aufwand zählt, ohne Aufwand still', () => {
+    const gst = { grundstueck_id: 'g-1', flaeche_ha: 2, grundstueck: { id: 'g-1', gst_nr: '12/1', katastralgemeinde: '04023', kg_bezeichnung: 'Stein', flaeche_ha: 2, weingarten: null } }
+    const b = (teil) => psm.normalisiereBehandlung({
+      id: 'b-so', datum: '2026-05-02', datum_bis: null, art: 'sonstiges', weingarten: null, duengemittel: null,
+      psm: { id: 'p-iso', name: 'Isonet LE' }, psm_id: 'p-iso', behandlung_grundstuecke: [gst], ...teil,
+    })
+    const mit = b({ aufwandmenge: 0.25, aufwandmenge_einheit: 'kg_ha' })
+    assert.deepEqual([psm.mittelmenge(mit).menge, psm.mittelmenge(mit).einheit], [0.5, 'kg'])
+    assert.equal(psm.mittelmenge(b({ aufwandmenge: 25, aufwandmenge_einheit: 'g_hl' })).grund, 'einheit')
+    const ohne = b({})
+    assert.deepEqual([psm.mittelmenge(ohne).menge, psm.mittelmenge(ohne).grund], [null, 'art'])
+    const [z] = psm.mittelverbrauch([mit])
+    assert.deepEqual([z.mittel, z.anwendungen, z.mittelmenge], ['Isonet LE', 1, 0.5])
+    assert.match(psm.mittelverbrauchHinweise([ohne])[0], /bei Sonstiges ohne Aufwand keine Mittelmenge/)
+    // Behandlungsprotokoll: Sonstiges ohne Aufwand bzw. ohne Mittel ohne Warnung „ohne Mittelmenge“
+    assert.deepEqual(psm.psmAufzeichnungZeilen([ohne, b({ psm: null, psm_id: null })]).warnungen, [])
+    assert.equal(psm.psmAufzeichnungZeilen([mit]).zeilen[0].mittel, 'Isonet LE')
+  })
+})
+
+describe('KAN-154: Anlegen und Bearbeiten – Sonstiges mit Pflanzenschutzmittel, Bio-Sperre', nurMitHooks, () => {
+  const BASIS = { datum: '2026-07-02', grundstueck_ids: 'g-1', art: 'sonstiges', schaderreger: 'Verwirrung Traubenwickler' }
+
+  test('Anlegen ohne Mittel (Musterhof: Rodung) und mit Mittel samt Aufwand, Wartezeit und Reinkupfer', async () => {
+    globalThis.__kan143Supabase = supabaseAttrappe()
+    await aktionen.createBehandlung(formularAus({ ...BASIS, aufwandmenge: '5', aufwandmenge_einheit: 'kg' }))
+    let p = geschrieben('insert')
+    assert.deepEqual([p.psm_id, p.aufwandmenge, p.aufwandmenge_einheit, p.ernte_fruehesteins], [null, null, null, null])
+
+    globalThis.__kan143Supabase = supabaseAttrappe({ cuGehaltPct: 35 })
+    await aktionen.createBehandlung(formularAus({ ...BASIS, psm_id: 'p-1', wartezeit_tage: '14', aufwandmenge: '0,4', aufwandmenge_einheit: 'kg_ha' }))
+    p = geschrieben('insert')
+    assert.deepEqual([p.psm_id, p.aufwandmenge, p.aufwandmenge_einheit, p.ernte_fruehesteins, p.reinkupfer_kg_ha],
+      ['p-1', 0.4, 'kg_ha', '2026-07-16', 0.14])
+
+    globalThis.__kan143Supabase = supabaseAttrappe()
+    await assert.rejects(() => aktionen.createBehandlung(formularAus({ ...BASIS, psm_id: 'p-1', aufwandmenge: '25', aufwandmenge_einheit: 'g_hl' })),
+      { message: /bei Sonstiges nicht zulässig/ })
+    assert.deepEqual(globalThis.__kan143Supabase.schreiben, [])
+  })
+
+  test('Bio-Sperre: nicht öko-zugelassenes Mittel bei Bio-EU – Anlegen und Bearbeiten abgelehnt, nichts geschrieben', async () => {
+    for (const art of ['sonstiges', 'spritzung']) {
+      for (const aufruf of [aktionen.createBehandlung, (fd) => aktionen.updateBehandlung('b-1', fd)]) {
+        globalThis.__kan143Supabase = supabaseAttrappe({ bio: 'bio_eu', oeko: false })
+        await assert.rejects(() => aufruf(formularAus({ ...BASIS, art, psm_id: 'p-1', aufwandmenge: '1', aufwandmenge_einheit: 'kg' })),
+          { message: 'Dieses Mittel ist nicht öko-zugelassen und passt nicht zum Bio-Status des Betriebs.' }, art)
+        assert.deepEqual(globalThis.__kan143Supabase.schreiben, [], art)
+      }
+    }
+    // Gegenproben: öko-zugelassen bzw. ohne Mittel speichert; KIP sperrt nicht
+    for (const [opt, felder] of [[{ bio: 'bio_eu', oeko: true }, { psm_id: 'p-1' }], [{ bio: 'bio_eu', oeko: false }, {}], [{ bio: 'kip', oeko: false }, { psm_id: 'p-1' }]]) {
+      globalThis.__kan143Supabase = supabaseAttrappe(opt)
+      await aktionen.updateBehandlung('b-1', formularAus({ ...BASIS, ...felder }))
+      assert.equal(geschrieben('update').psm_id, felder.psm_id ?? null, JSON.stringify(opt))
+    }
+  })
+
+  test('Quelltext Bearbeiten: Knopf nur beim Speichern gesperrt, Klick bei Bio-Sperre fokussiert das Mittel (role="alert")', () => {
+    const edit = quelle(EDIT_FORM)
+    const knopf = edit.match(/<button type="submit"[^>]*>/g) ?? []
+    assert.equal(knopf.length, 1)
+    assert.match(knopf[0], /disabled=\{pending\}/)
+    assert.doesNotMatch(knopf[0], /bioSperre/)
+    const submit = edit.slice(edit.indexOf('function handleSubmit'), edit.indexOf('updateWithId(fd)'))
+    assert.match(submit, /if \(bioSperre\) \{ setBioSprung\(n => n \+ 1\); return \}/)
+    assert.ok(submit.indexOf('bioSperre') < submit.indexOf('new FormData'), 'Prüfung vor dem Zusammenstellen der Daten')
+    assert.match(edit, /\{bioSperre && \(\s*<div key=\{bioSprung\} id="bio-sperre-grund" role="alert"/)
+    for (const [ref, name] of [['psmRef', 'psm_id'], ['duengemittelRef', 'duengemittel_id']]) {
+      const s = edit.match(new RegExp(`<select ref=\\{${ref}\\}[^]*?name="${name}"[^]*?onChange`))?.[0]
+      assert.ok(s, `${name}: Auswahl mit ${ref}`)
+      assert.match(s, /aria-describedby=\{bioSperre \? 'bio-sperre-grund' : undefined\}/, name)
+      assert.match(s, /aria-invalid=\{bioSperre \|\| undefined\}/, name)
+    }
+    assert.match(edit, /const mittel = psmRef\.current \?\? duengemittelRef\.current/)
+    assert.match(edit, /mittel\?\.focus\(/)
+    // PSM wie beim Anlegen: sichtbar bei Spritzung und Sonstiges, Pflicht laut Feld-Matrix
+    assert.match(edit, /\{artMitPsm\(art\) && \(/)
+    assert.match(edit, /required=\{feldPflicht\('psm', art\)\}/)
+    assert.doesNotMatch(edit, /art === 'spritzung' \|\| art === 'sonstiges'/)
+    // Anlegen: Mengenfelder, Material und Mittel über die Matrix
+    const neu = quelle(NEU_FORM)
+    assert.match(neu, /const felder = \{ \.\.\.FELD_MATRIX\[art\], \.\.\.mengenSicht\(art, !!selectedPsmId\) \}/)
+    assert.match(edit, /const felder = mengenSicht\(art, !!selectedPsmId\)/)
+    assert.match(neu, /felder\.psm !== 'hidden' \? selectedPsm\?\.preis_pro_einheit/)
+  })
+})
+
+describe('KAN-154: Einarbeitung – sichtbar nur bei organischem Dünger, „nein“ bleibt „nein“', nurMitHooks, () => {
+  test('einarbeitungAus: angehakt → true, gesendet und nicht angehakt → false, nicht gesendet → null', () => {
+    assert.equal(feld.EINARBEITUNG_GESENDET, 'einarbeitung_gesendet')
+    const fd = (felder) => formularAus(felder)
+    assert.equal(feld.einarbeitungAus(fd({ einarbeitung_gesendet: '1', einarbeitung: 'on' })), true)
+    assert.equal(feld.einarbeitungAus(fd({ einarbeitung_gesendet: '1' })), false)
+    assert.equal(feld.einarbeitungAus(fd({})), null)
+    assert.equal(feld.einarbeitungAus(fd({ einarbeitung: 'on' })), true)   // ohne Kennzeichen wie bisher (Assistent)
+  })
+
+  test('Modus je Art × Ausgangsart × Düngemittel-Typ (wie felderBeimBearbeiten)', () => {
+    for (const art of DB_SAETZE_ART_CHECK) {
+      for (const typ of ['organisch', 'mineralisch', null]) {
+        assert.equal(feld.einarbeitungSichtbar(art, typ), art === 'duengung' && typ === 'organisch', `${art}/${typ}`)
+        for (const startArt of [...DB_SAETZE_ART_CHECK, 'lese']) {
+          const erwartet = art === 'duengung' && typ === 'organisch' ? 'sichtbar' : art === startArt ? 'behalten' : 'keine'
+          assert.equal(feld.einarbeitungBeimBearbeiten(art, startArt, typ), erwartet, `${startArt} → ${art} (${typ})`)
+        }
+      }
+    }
+    assert.equal(feld.einarbeitungBeimBearbeiten('lese', 'lese', null), 'behalten')
+  })
+
+  test('updateBehandlung: true, false und nicht gesendet – unverändert gespeichert, auch bei mineralischem Dünger', async () => {
+    const BASIS = { datum: '2026-03-28', grundstueck_ids: 'g-1', art: 'duengung' }
+    for (const [fall, gespeichert, typ] of [
+      ['organisch, eingearbeitet', { einarbeitung: true, einarbeitung_zeitpunkt: '2026-03-28' }, 'organisch'],
+      ['mineralisch, nein (Musterhof)', { einarbeitung: false, einarbeitung_zeitpunkt: null }, 'mineralisch'],
+      ['organisch, nein', { einarbeitung: false, einarbeitung_zeitpunkt: null }, 'organisch'],
+      ['organisch, keine Angabe', { einarbeitung: null, einarbeitung_zeitpunkt: null }, 'organisch'],
+      ['mineralisch, keine Angabe', { einarbeitung: null, einarbeitung_zeitpunkt: null }, 'mineralisch'],
+      ['ohne Düngemittel, ja', { einarbeitung: true, einarbeitung_zeitpunkt: '2025-03-28' }, null],
+    ]) {
+      globalThis.__kan143Supabase = supabaseAttrappe()
+      await aktionen.updateBehandlung('b-1', formularAus({ ...BASIS, ...einarbeitungSendet(gespeichert, 'duengung', 'duengung', typ) }))
+      const p = geschrieben('update')
+      assert.deepEqual([p.einarbeitung, p.einarbeitung_zeitpunkt], [gespeichert.einarbeitung, gespeichert.einarbeitung_zeitpunkt], fall)
+    }
+    // Klick auf die sichtbare Checkbox: ja → nein bleibt false (auf main wurde daraus null)
+    globalThis.__kan143Supabase = supabaseAttrappe()
+    await aktionen.updateBehandlung('b-1', formularAus({ ...BASIS, ...einarbeitungSendet({ einarbeitung: true, einarbeitung_zeitpunkt: null }, 'duengung', 'duengung', 'organisch', false) }))
+    assert.equal(geschrieben('update').einarbeitung, false)
+    // nach einem Artwechsel nichts gesendet → null wie beim Anlegen
+    globalThis.__kan143Supabase = supabaseAttrappe()
+    await aktionen.updateBehandlung('b-1', formularAus({ ...BASIS, art: 'bodenbearbeitung', bearbeitungsgeraet: 'Grubber',
+      ...einarbeitungSendet({ einarbeitung: false, einarbeitung_zeitpunkt: null }, 'bodenbearbeitung', 'duengung', null) }))
+    assert.deepEqual([geschrieben('update').einarbeitung, geschrieben('update').einarbeitung_zeitpunkt], [null, null])
+  })
+
+  test('Anlegen: sichtbare, nicht angehakte Einarbeitung → false; Assistent mit einarbeitung=false → false', async () => {
+    globalThis.__kan143Supabase = supabaseAttrappe()
+    await aktionen.createBehandlung(formularAus({ datum: '2026-03-28', grundstueck_ids: 'g-1', art: 'duengung', einarbeitung_gesendet: '1' }))
+    assert.equal(geschrieben('insert').einarbeitung, false)
+    for (const [wert, erwartet] of [[false, ['1', null]], [true, ['1', 'on']], [undefined, [null, null]]]) {
+      globalThis.__kan143Aufrufe.length = 0
+      const r = await tool.fuehreMassnahmeDokumentierenAus({ bestaetigt_vom_user: true, datum: '2026-03-28', weingarten_ids: ['w-1'], art: 'duengung', menge_gesamt: 500, einarbeitung: wert }, null)
+      assert.equal(r.erfolg, true, String(wert))
+      const fd = globalThis.__kan143Aufrufe[0]
+      assert.deepEqual([fd.get('einarbeitung_gesendet'), fd.get('einarbeitung')], erwartet, String(wert))
+    }
+  })
+
+  test('Quelltext: je Modus eine Stelle – nie zwei gleichnamige Felder gleichzeitig im Formular', () => {
+    const edit = quelle(EDIT_FORM)
+    assert.match(edit, /const einarbeitungModus = einarbeitungBeimBearbeiten\(art, startArt, selectedDuengemittel\?\.typ\)/)
+    const block = (modus) => {
+      const start = edit.indexOf(`{einarbeitungModus === '${modus}' && (`)
+      assert.ok(start >= 0, modus)
+      return edit.slice(start, edit.indexOf('\n        )}', start))
+    }
+    const sichtbar = block('sichtbar')
+    const behalten = block('behalten')
+    assert.match(sichtbar, /\{einarbeitung !== null && <input type="hidden" name=\{EINARBEITUNG_GESENDET\} value="1" \/>\}/)
+    assert.match(sichtbar, /<input type="checkbox" name="einarbeitung" checked=\{!!einarbeitung\}/)
+    assert.match(sichtbar, /name="einarbeitung_zeitpunkt" type="date"/)
+    assert.match(behalten, /\{behandlung\.einarbeitung !== null && <input type="hidden" name=\{EINARBEITUNG_GESENDET\} value="1" \/>\}/)
+    assert.match(behalten, /\{behandlung\.einarbeitung && <input type="hidden" name="einarbeitung" value="on" \/>\}/)
+    assert.match(behalten, /<input type="hidden" name="einarbeitung_zeitpunkt" value=\{behandlung\.einarbeitung_zeitpunkt \?\? ''\} \/>/)
+    // außerhalb der beiden Blöcke kein Feld dieser Namen (die Modi schließen sich aus)
+    const rest = edit.replace(sichtbar, '').replace(behalten, '')
+    assert.doesNotMatch(rest, /name=("einarbeitung"|"einarbeitung_zeitpunkt"|\{EINARBEITUNG_GESENDET\})/)
+    assert.equal((edit.match(/useState<boolean \| null>\(behandlung\.einarbeitung\)/g) ?? []).length, 1)
+    // Anlegen: nur bei organischem Dünger, mit Kennzeichen
+    const neu = quelle(NEU_FORM)
+    assert.match(neu, /\{einarbeitungSichtbar\(art, selectedDuengemittel\?\.typ\) && \(\s*<div[^>]*>\s*<input type="hidden" name=\{EINARBEITUNG_GESENDET\} value="1" \/>/)
+    assert.equal((neu.match(/name="einarbeitung"/g) ?? []).length, 1)
+  })
+})
+
+describe('KAN-154: Pflichtfelder beim Bearbeiten wie beim Anlegen – Altdaten ohne Wert bleiben speicherbar', nurMitHooks, () => {
+  test('pflichtBeimBearbeiten: Pflicht nur nach Artwechsel oder mit gespeichertem Wert', () => {
+    const FELDER = ['bbch', 'schaderreger', 'bearbeitungstiefe', 'bearbeitungsgeraet', 'schnittart']
+    for (const f of FELDER) {
+      for (const art of DB_SAETZE_ART_CHECK) {
+        for (const startArt of DB_SAETZE_ART_CHECK) {
+          for (const gespeichert of [null, '', '  ', 'Grubber', 0, 10]) {
+            const erwartet = feld.feldPflicht(f, art) && (art !== startArt || (gespeichert !== null && String(gespeichert).trim() !== ''))
+            assert.equal(feld.pflichtBeimBearbeiten(f, art, startArt, gespeichert), erwartet, `${f}: ${startArt} → ${art} (${gespeichert})`)
+          }
+        }
+      }
+    }
+    // Fälle aus dem Ticket: Mulcher ohne Tiefe, Gerät vorhanden bzw. fehlend, Schnitt nach Artwechsel
+    assert.equal(feld.pflichtBeimBearbeiten('bearbeitungstiefe', 'bodenbearbeitung', 'bodenbearbeitung', null), false)
+    assert.equal(feld.pflichtBeimBearbeiten('bearbeitungstiefe', 'bodenbearbeitung', 'duengung', null), false)   // Tiefe nie Pflicht
+    assert.equal(feld.pflichtBeimBearbeiten('bearbeitungsgeraet', 'bodenbearbeitung', 'bodenbearbeitung', 'Mulcher'), true)
+    assert.equal(feld.pflichtBeimBearbeiten('bearbeitungsgeraet', 'bodenbearbeitung', 'bodenbearbeitung', null), false)
+    assert.equal(feld.pflichtBeimBearbeiten('bearbeitungsgeraet', 'bodenbearbeitung', 'laubarbeit', null), true)
+    assert.equal(feld.pflichtBeimBearbeiten('schnittart', 'schnitt', 'sonstiges', null), true)
+  })
+
+  test('Quelltext: Stern und required aus pflicht.<feld> – Anlegen: Tiefe ohne, Gerät mit Pflicht', () => {
+    const edit = quelle(EDIT_FORM)
+    for (const [f, spalte, name] of [
+      ['bearbeitungstiefe', 'bearbeitungstiefe_cm', 'bearbeitungstiefe_cm'], ['bearbeitungsgeraet', 'bearbeitungsgeraet', 'bearbeitungsgeraet'],
+      ['schnittart', 'schnittart', 'schnittart'],
+    ]) {
+      assert.match(edit, new RegExp(`${f}: +pflichtBeimBearbeiten\\('${f}', art, startArt, behandlung\\.${spalte}\\)`), f)
+      assert.match(edit, new RegExp(`name="${name}"[^>]*required=\\{pflicht\\.${f}\\}`), f)
+      assert.match(edit, new RegExp(`\\{pflicht\\.${f} && <span className="text-s112-err"> \\*</span>\\}`), f)
+    }
+    const neu = quelle(NEU_FORM)
+    assert.match(neu, /name="bearbeitungstiefe_cm"[^>]*\s+required=\{felder\.bearbeitungstiefe === 'pflicht'\}/)
+    assert.match(neu, /name="bearbeitungsgeraet"[^>]*\s+required=\{felder\.bearbeitungsgeraet === 'pflicht'\}/)
+  })
+
+  test('Musterhof-Konstellationen unverändert speichern: alle Felder bleiben, keine Pflicht ohne Wert', async () => {
+    // Datenlage Produktion (SELECT 27.09.2026): 4 von 6 Bodenbearbeitungen ohne Tiefe, alle mit Gerät; 2 Schnitte
+    // mit Schnittart; Düngungen organisch/eingearbeitet und mineralisch/„nein“; Sonstiges ohne Mittel
+    const KONSTELLATIONEN = [
+      { art: 'bodenbearbeitung', bearbeitungstiefe_cm: null, bearbeitungsgeraet: 'Mulcher', bbch_stadium: '83', witterung: 'sonnig', temperatur_c: 12 },
+      { art: 'bodenbearbeitung', bearbeitungstiefe_cm: 10, bearbeitungsgeraet: 'Grubber', bbch_stadium: '05', witterung: null, temperatur_c: null },
+      { art: 'schnitt', schnittart: 'Guyot', bbch_stadium: '00', witterung: 'bewoelkt', temperatur_c: 4 },
+      { art: 'duengung', typ: 'organisch', einarbeitung: true, einarbeitung_zeitpunkt: '2026-03-28', bbch_stadium: '07', witterung: 'sonnig', temperatur_c: 9 },
+      { art: 'duengung', typ: 'mineralisch', einarbeitung: false, einarbeitung_zeitpunkt: null, bbch_stadium: '07', witterung: null, temperatur_c: 9 },
+      { art: 'sonstiges', schaderreger: 'Rodung', bbch_stadium: '00', witterung: 'wind', temperatur_c: 15 },
+      { art: 'laubarbeit', laubarbeit_art: 'Ausbrechen', bbch_stadium: '68', witterung: 'sonnig', temperatur_c: 24 },
+    ]
+    for (const g of KONSTELLATIONEN) {
+      const gespeichert = { bearbeitungstiefe_cm: null, bearbeitungsgeraet: null, schnittart: null, schaderreger: null, einarbeitung: null, einarbeitung_zeitpunkt: null, laubarbeit_art: null, ...g }
+      const art = g.art
+      // sichtbare Felder so, wie das Bearbeiten-Formular sie vorbelegt (nur die, die die Art zeigt)
+      const sichtbar = {}
+      if (art === 'bodenbearbeitung') {
+        sichtbar.bearbeitungstiefe_cm = String(gespeichert.bearbeitungstiefe_cm ?? '')
+        sichtbar.bearbeitungsgeraet = gespeichert.bearbeitungsgeraet ?? ''
+      }
+      if (art === 'schnitt') sichtbar.schnittart = gespeichert.schnittart ?? ''
+      if (art === 'laubarbeit') sichtbar.laubarbeit_art = gespeichert.laubarbeit_art ?? ''
+      // keine Pflicht verlangt einen Wert, den es nicht gibt (sonst blockierte der Browser das Speichern)
+      for (const [f, spalte] of [['bbch', 'bbch_stadium'], ['schaderreger', 'schaderreger'], ['bearbeitungstiefe', 'bearbeitungstiefe_cm'], ['bearbeitungsgeraet', 'bearbeitungsgeraet'], ['schnittart', 'schnittart']]) {
+        if (feld.pflichtBeimBearbeiten(f, art, art, gespeichert[spalte])) assert.ok(String(gespeichert[spalte] ?? '').trim() !== '', `${art}: ${f} Pflicht ohne Wert`)
+      }
+      globalThis.__kan143Supabase = supabaseAttrappe()
+      await aktionen.updateBehandlung('b-1', formularAus({
+        datum: '2026-04-01', grundstueck_ids: 'g-1', art,
+        ...bearbeitenSendet(gespeichert, art, art),
+        ...einarbeitungSendet(gespeichert, art, art, g.typ ?? null),
+        ...sichtbar,
+      }))
+      const p = geschrieben('update')
+      for (const spalte of ['bbch_stadium', 'schaderreger', 'witterung', 'temperatur_c', 'bearbeitungstiefe_cm', 'bearbeitungsgeraet', 'schnittart', 'laubarbeit_art', 'einarbeitung', 'einarbeitung_zeitpunkt']) {
+        assert.deepEqual(p[spalte], gespeichert[spalte] ?? null, `${art}${g.typ ? ` (${g.typ})` : ''}: ${spalte}`)
+      }
+      assert.equal(p.psm_id, null, art)
+    }
+  })
+
+  test('Assistent: Feld-Matrix nennt Tiefe optional und Mittel bei Sonstiges', () => {
+    assert.match(tool.MASSNAHME_FELD_MATRIX_TEXT, /- bodenbearbeitung: +bearbeitungsgeraet \(pflicht\), bearbeitungstiefe_cm \(optional/)
+    assert.match(tool.MASSNAHME_FELD_MATRIX_TEXT, /psm_id \(optional, z\. B\. Pheromon-Dispenser\), aufwandmenge \+ aufwandmenge_einheit\s+\(optional, nur mit psm_id/)
+  })
+
+  test('Hilfe: FAQ und Handbuch nennen Mittel bei Sonstiges, Tiefe optional, Einarbeitung und Altdaten-Ausnahme', () => {
+    const faq = quelle('app/(dashboard)/hilfe/faq/page.tsx')
+    const hb = quelle('app/(dashboard)/hilfe/handbuch/page.tsx')
+    for (const [name, s] of [['FAQ', faq], ['Handbuch', hb]]) {
+      assert.match(s, /Pheromon-Dispenser/, name)
+      assert.match(s, /Gerät Pflicht, die Bearbeitungstiefe optional/, name)
+      assert.match(s, /Einarbeitung[^.]*nur bei organischem Dünger/, name)
+      assert.doesNotMatch(s, /entfallen "Spritzmittel" und die Mengenfelder|das Feld "Spritzmittel" und die Mengenfelder/, name)
+    }
+    assert.match(faq, /lässt sie sich unverändert speichern – Pflicht werden sie erst, wenn du die Art wechselst oder das Feld schon einen Wert hat/)
+    assert.match(hb, /Pflichtfelder ohne gespeicherten Wert \(z\. B\. ältere Maßnahmen ohne Gerät\) verlangen beim unveränderten Speichern keine Angabe/)
+    assert.match(faq, /Beim Bearbeiten macht „Änderungen speichern“ dasselbe; gespeichert wird dabei nichts\./)
   })
 })

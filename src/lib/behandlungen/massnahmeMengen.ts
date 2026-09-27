@@ -15,6 +15,9 @@
 //   Düngemitteln in l nur l (ml → l); ohne Angabe gilt diese Einheit (wie duengermengeEinheit() im
 //   Formular), die jeweils andere wird abgelehnt (keine Dichte-Annahme). Aufwand l/ha und l nur bei
 //   Düngemitteln in l.
+// Sonstiges (KAN-154): Pflanzenschutzmittel optional (z. B. Pheromon-Dispenser); Aufwand samt Einheit nur mit
+//   Mittel und optional – kg/ha, l/ha, kg oder l (ohne Spritzbrühe kein g/hl, ml/hl). Mittelmenge und
+//   Reinkupfer wie bei der Spritzung; ohne Mittel wird ein Aufwand verworfen.
 // Andere Arten: unverändert.
 
 import { runden, STELLEN } from '@/lib/csv'
@@ -26,6 +29,8 @@ import { STELLEN_CU } from '@/lib/behoerden/cu'
 export const AUFWAND_EINHEITEN = ['kg_ha', 'l_ha', 'g_hl', 'ml_hl', 'kg', 'l'] as const
 /** Aufwand-Einheiten einer Düngung (ohne g/hl, ml/hl; l/ha und l nur bei Düngemitteln in l) */
 export const AUFWAND_EINHEITEN_DUENGUNG = ['kg_ha', 'l_ha', 'kg', 'l'] as const
+/** Aufwand-Einheiten bei Sonstiges mit Pflanzenschutzmittel (ohne Spritzbrühe kein g/hl, ml/hl; KAN-154) */
+export const AUFWAND_EINHEITEN_SONSTIGES = ['kg_ha', 'l_ha', 'kg', 'l'] as const
 /** Einheiten der Spritzbrühe („Menge gesamt“ einer Spritzung); gespeichert wird immer l */
 export const SPRITZBRUEHE_EINHEITEN = ['l', 'ml'] as const
 
@@ -120,6 +125,30 @@ const zahlText = (n: number, stellen = 3) => fmtNum(n, { max: stellen })
 export function pruefeMassnahmeMengen(e: MassnahmeMengenEingabe, opt: { bruehePflicht?: boolean } = {}): MassnahmeMengenErgebnis {
   const fehler = (text: string): MassnahmeMengenErgebnis => ({ ok: false, fehler: text })
   const ha = positiv(e.flaecheHa)
+
+  if (e.art === 'sonstiges') {
+    // Aufwand nur mit Pflanzenschutzmittel (Formular: Feld erst nach der Mittelwahl), optional
+    const aufwand = e.psmId ? e.aufwand : null
+    const ae = aufwand !== null ? e.aufwandEinheit : null
+    if (aufwand !== null) {
+      if (!Number.isFinite(aufwand)) return fehler('„Aufwandmenge“ ist keine gültige Zahl.')
+      if (aufwand <= 0) return fehler('„Aufwandmenge“ muss größer als 0 sein.')
+      if (!ae) return fehler('Bitte die Einheit der Aufwandmenge angeben.')
+      if (!(AUFWAND_EINHEITEN_SONSTIGES as readonly string[]).includes(ae)) {
+        return fehler(`Aufwand-Einheit „${ae}“ ist bei Sonstiges nicht zulässig (kg/ha, l/ha, kg oder l – g/hl und ml/hl nur bei einer Spritzung).`)
+      }
+    }
+    const werte: MassnahmeMengenWerte = {
+      aufwandmenge: aufwand, aufwandmenge_einheit: ae,
+      menge_gesamt: e.mengeGesamt, menge_einheit: e.mengeEinheit,
+      wasseraufwand_l_ha: e.wasserLHa, reinkupfer_kg_ha: null,
+    }
+    const hinweise: string[] = []
+    const mm = mittelmenge({ ...eingabe(e, werte), flaecheHa: ha })
+    if (aufwand !== null && mm.menge === null && mm.warnung) hinweise.push(`Mittelmenge nicht berechenbar (${mm.warnung}).`)
+    const cuKg = reinkupfer(e, mm, ha, werte, hinweise)
+    return { ok: true, werte, mittelmenge: mm, spritzbruehe: null, cuKg, hinweise }
+  }
 
   if (e.art !== 'spritzung' && e.art !== 'duengung') {
     const werte: MassnahmeMengenWerte = {
@@ -227,20 +256,25 @@ export function pruefeMassnahmeMengen(e: MassnahmeMengenEingabe, opt: { bruehePf
   const normal = { ...eingabe(e, werte), flaecheHa: ha }
   const mm = mittelmenge(normal)
   if (mm.menge === null && mm.warnung) hinweise.push(`Mittelmenge nicht berechenbar (${mm.warnung}).`)
-
-  // Reinkupfer wie die Kupfer-Bilanz: Mittelmenge (l mit 1 kg/l) × Cu-Gehalt, je ha der Maßnahme
-  let cuKg: number | null = null
-  const pct = kupferGehaltPct(e.psm)
-  if (pct !== null && mm.menge !== null) {
-    cuKg = runden(mm.menge * pct / 100, STELLEN_CU)
-    if (mm.einheit === 'l') hinweise.push('Kupfermittel in Litern – für Reinkupfer Dichte 1 kg/l angenommen (wie Kupfer-Bilanz).')
-    if (ha !== null) {
-      const jeHa = runden(cuKg / ha, STELLEN_CU)
-      if (jeHa <= MAX_REINKUPFER_KG_HA) werte.reinkupfer_kg_ha = jeHa
-      else hinweise.push(`Reinkupfer je ha nicht gespeichert: ${zahlText(cuKg, STELLEN_CU)} kg Cu auf ${zahlText(ha, 4)} ha wären ${zahlText(jeHa, 2)} kg/ha – bitte Aufwand und Fläche prüfen.`)
-    }
-  }
+  const cuKg = reinkupfer(e, mm, ha, werte, hinweise)
   return { ok: true, werte, mittelmenge: mm, spritzbruehe: spritzbruehe(normal), cuKg, hinweise }
+}
+
+/**
+ * Reinkupfer wie die Kupfer-Bilanz: Mittelmenge (l mit 1 kg/l) × Cu-Gehalt, je ha der Maßnahme – setzt
+ * werte.reinkupfer_kg_ha, liefert Reinkupfer gesamt (kg) bzw. null (Spritzung und Sonstiges)
+ */
+function reinkupfer(e: MassnahmeMengenEingabe, mm: MittelmengeErgebnis, ha: number | null, werte: MassnahmeMengenWerte, hinweise: string[]): number | null {
+  const pct = kupferGehaltPct(e.psm)
+  if (pct === null || mm.menge === null) return null
+  const cuKg = runden(mm.menge * pct / 100, STELLEN_CU)
+  if (mm.einheit === 'l') hinweise.push('Kupfermittel in Litern – für Reinkupfer Dichte 1 kg/l angenommen (wie Kupfer-Bilanz).')
+  if (ha !== null) {
+    const jeHa = runden(cuKg / ha, STELLEN_CU)
+    if (jeHa <= MAX_REINKUPFER_KG_HA) werte.reinkupfer_kg_ha = jeHa
+    else hinweise.push(`Reinkupfer je ha nicht gespeichert: ${zahlText(cuKg, STELLEN_CU)} kg Cu auf ${zahlText(ha, 4)} ha wären ${zahlText(jeHa, 2)} kg/ha – bitte Aufwand und Fläche prüfen.`)
+  }
+  return cuKg
 }
 
 /** Werte → Eingabe für mittelmenge() (ohne Fläche und Düngemittel) */

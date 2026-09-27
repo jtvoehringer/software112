@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateBehandlung } from '../../actions'
 import type { KostenartOption } from '../../neu/page'
@@ -15,11 +15,11 @@ import {
 } from '@/lib/behandlungen/arten'
 import {
   MENGEN_SICHT, alsFeld, aufwandEinheitText, duengerEinheitWechsel, duengermengeEinheit, eingabeZahl,
-  mengeVorbelegung, mengenFelder, mengenInFormData,
+  mengeVorbelegung, mengenFelder, mengenInFormData, mengenSicht,
 } from '../../neu/mengenFelder'
 import {
   BBCH_OPTIONS, FELD_MATRIX, SCHADERREGER_OPTIONEN, WITTERUNG_OPTIONEN, bbchAltwert, feldPflicht, felderBeimBearbeiten,
-  schaderregerFeld,
+  schaderregerFeld, EINARBEITUNG_GESENDET, einarbeitungBeimBearbeiten, pflichtBeimBearbeiten,
 } from '../../neu/feldMatrix'
 import { ART_OPTIONS } from '../../neu/artOptionen'
 import MengenZusammenfassung from '../../neu/MengenZusammenfassung'
@@ -28,7 +28,9 @@ import MengenZusammenfassung from '../../neu/MengenZusammenfassung'
 // identisch zum Anlegen-Formular, damit Anlegen und Bearbeiten konsistent sind (siehe "Analyse
 // Maßnahmen.docx", Tabelle 2; KAN-133). BBCH, Schaderreger bzw. Grund / Anlass, Witterung und Temperatur:
 // felderBeimBearbeiten (neu/feldMatrix.ts, KAN-143 und KAN-152) – sichtbar laut Feld-Matrix, sonst bei
-// unveränderter Art der gespeicherte Wert unsichtbar, nach einem Artwechsel nichts.
+// unveränderter Art der gespeicherte Wert unsichtbar, nach einem Artwechsel nichts. KAN-154: Einarbeitung nach
+// demselben Muster (einarbeitungBeimBearbeiten), Pflichtfelder wie beim Anlegen – Altdaten ohne Wert bleiben
+// speicherbar (pflichtBeimBearbeiten) –, Pflanzenschutzmittel bei Sonstiges optional und Bio-Sperre wie KAN-153.
 type Art = MassnahmenArt
 
 const BIO_SPERRE = new Set(['bio_eu', 'biodynamisch'])
@@ -152,8 +154,17 @@ export default function BehandlungEditForm({
   const [konzentration, setKonzentration] = useState(start.konzentration)
   const [aufwandQuelle, setAufwandQuelle] = useState<'aufwand' | 'konzentration' | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Einarbeitung (nur sichtbar bei organischem Dünger): null = keine Angabe – dann geht einarbeitung_gesendet
+  // nicht mit und Speichern lässt null stehen; ein Klick macht daraus ja bzw. nein (KAN-154)
+  const [einarbeitung, setEinarbeitung] = useState<boolean | null>(behandlung.einarbeitung)
+  // KAN-153/154: „Änderungen speichern“ ist nur beim Speichern gesperrt – ein Klick bei Bio-Sperre zählt hoch,
+  // fokussiert das Mittel und lässt den Grund (role="alert") neu vorlesen
+  const [bioSprung, setBioSprung] = useState(0)
+  const psmRef = useRef<HTMLSelectElement>(null)
+  const duengemittelRef = useRef<HTMLSelectElement>(null)
 
-  const felder = MENGEN_SICHT[art] ?? MENGEN_SICHT.spritzung
+  // Mengenfelder wie beim Anlegen (Aufwand bei Sonstiges nur mit gewähltem Mittel); unbekannte Art wie Spritzung
+  const felder = mengenSicht(art, !!selectedPsmId) ?? MENGEN_SICHT.spritzung
 
   // Kosten (Punkte 6, 9: beim Bearbeiten sichtbar + editierbar, analog Neu-Formular)
   const [kostenAktiv, setKostenAktiv] = useState(!!bestehenderKostenEintrag)
@@ -164,13 +175,33 @@ export default function BehandlungEditForm({
   const selectedPsm = psm.find(p => p.id === selectedPsmId)
   const selectedDuengemittel = duengemittel.find(d => d.id === selectedDuengemittelId)
 
+  // nur das Mittel, dessen Feld die Art zeigt (beim Artwechsel wird ein ausgeblendetes Mittel geleert)
   const gewaehltesMittelOeko =
-    art === 'spritzung' || art === 'sonstiges' ? selectedPsm?.oeko_zugelassen :
-    art === 'duengung'  ? selectedDuengemittel?.oeko_zugelassen :
+    artMitPsm(art)          ? selectedPsm?.oeko_zugelassen :
+    artMitDuengemittel(art) ? selectedDuengemittel?.oeko_zugelassen :
     undefined
   const mittelNichtOeko = gewaehltesMittelOeko === false
   const bioSperre  = BIO_SPERRE.has(bioStatus) && mittelNichtOeko
   const bioWarnung = !bioSperre && BIO_WARNUNG.has(bioStatus) && mittelNichtOeko
+  // Einarbeitung je Modus (wie felderBeimBearbeiten): Checkbox, gespeicherter Wert unsichtbar oder nichts
+  const einarbeitungModus = einarbeitungBeimBearbeiten(art, startArt, selectedDuengemittel?.typ)
+  // Pflicht (Stern und required) wie beim Anlegen – aber nur nach einem Artwechsel oder wenn schon ein Wert
+  // gespeichert ist: Altdaten ohne Wert bleiben unverändert speicherbar (KAN-154)
+  const pflicht = {
+    bbch:               pflichtBeimBearbeiten('bbch', art, startArt, behandlung.bbch_stadium),
+    schaderreger:       pflichtBeimBearbeiten('schaderreger', art, startArt, behandlung.schaderreger),
+    bearbeitungstiefe:  pflichtBeimBearbeiten('bearbeitungstiefe', art, startArt, behandlung.bearbeitungstiefe_cm),
+    bearbeitungsgeraet: pflichtBeimBearbeiten('bearbeitungsgeraet', art, startArt, behandlung.bearbeitungsgeraet),
+    schnittart:         pflichtBeimBearbeiten('schnittart', art, startArt, behandlung.schnittart),
+  }
+
+  // Nach dem Klick bei Bio-Sperre: zum Mittel scrollen und es fokussieren – der Grund steht direkt darunter
+  useEffect(() => {
+    if (bioSprung === 0) return
+    const mittel = psmRef.current ?? duengemittelRef.current
+    mittel?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    mittel?.focus({ preventScroll: true })
+  }, [bioSprung])
 
   // Menge und Aufwand bedeuten je Art etwas anderes (Spritzbrühe bzw. Düngermenge, Mittel bzw. Dünger) –
   // beim Wechsel leeren, bei Rückkehr zur gespeicherten Art die gespeicherten Werte wieder zeigen
@@ -246,10 +277,8 @@ export default function BehandlungEditForm({
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError(null)
-    if (bioSperre) {
-      setError('Dieses Mittel ist nicht öko-zugelassen und passt nicht zum Bio-Status des Betriebs. Bitte ein zugelassenes Mittel wählen.')
-      return
-    }
+    // KAN-154 wie KAN-153: statt eines gesperrten Knopfs zeigt der Klick den Grund am Mittel – nichts wird gesendet
+    if (bioSperre) { setBioSprung(n => n + 1); return }
     if (altwertOffen) { setError(altwertFehler); return }
     // Dieselbe Prüfung wie updateBehandlung, im Formular zusätzlich mit Pflicht Spritzbrühe gesamt oder
     // Wasseraufwand (KAN-133)
@@ -331,15 +360,16 @@ export default function BehandlungEditForm({
           </div>
         </div>
 
-        {/* PSM */}
-        {(art === 'spritzung' || art === 'sonstiges') && (
+        {/* PSM laut Feld-Matrix wie beim Anlegen: Pflicht bei Spritzung, optional bei Sonstiges (KAN-154) */}
+        {artMitPsm(art) && (
           <div>
             <label className={labelCls}>
               Spritzmittel / Mittel (PSM)
-              {art === 'spritzung' && <span className="text-s112-err"> *</span>}
+              {feldPflicht('psm', art) && <span className="text-s112-err"> *</span>}
             </label>
-            <select aria-label="Spritzmittel / Mittel (PSM)" name="psm_id" value={selectedPsmId}
-              required={art === 'spritzung'}
+            <select ref={psmRef} aria-label="Spritzmittel / Mittel (PSM)" name="psm_id" value={selectedPsmId}
+              required={feldPflicht('psm', art)}
+              aria-invalid={bioSperre || undefined} aria-describedby={bioSperre ? 'bio-sperre-grund' : undefined}
               onChange={e => setSelectedPsmId(e.target.value)}
               className={inputCls}>
               <option value="">– keines –</option>
@@ -360,10 +390,11 @@ export default function BehandlungEditForm({
         )}
 
         {/* Düngemittel */}
-        {art === 'duengung' && (
+        {artMitDuengemittel(art) && (
           <div>
             <label className={labelCls}>Düngemittel</label>
-            <select aria-label="Düngemittel" name="duengemittel_id" value={selectedDuengemittelId}
+            <select ref={duengemittelRef} aria-label="Düngemittel" name="duengemittel_id" value={selectedDuengemittelId}
+              aria-invalid={bioSperre || undefined} aria-describedby={bioSperre ? 'bio-sperre-grund' : undefined}
               onChange={e => duengemittelWechseln(e.target.value)}
               className={inputCls}>
               <option value="">– keines –</option>
@@ -383,10 +414,14 @@ export default function BehandlungEditForm({
           </div>
         )}
 
+        {/* Bio-Sperre direkt am Mittel (wie KAN-153 beim Anlegen): role="alert" liest sie beim Wählen des Mittels vor;
+            ein Klick auf „Änderungen speichern“ fokussiert das Mittel und zeigt die Meldung neu (key) */}
         {bioSperre && (
-          <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-xl px-4 py-3 text-sm flex items-start gap-2">
-            <Ban size={16} className="mt-0.5 flex-shrink-0" />
-            <span>Das gewählte Mittel ist nicht öko-zugelassen – passt nicht zum Bio-Status des Betriebs. Speichern ist gesperrt.</span>
+          <div key={bioSprung} id="bio-sperre-grund" role="alert"
+            className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-xl px-4 py-3 text-sm flex items-start gap-2">
+            <Ban size={16} className="mt-0.5 flex-shrink-0" aria-hidden="true" />
+            <span>Das gewählte Mittel ist nicht öko-zugelassen – passt nicht zum Bio-Status des Betriebs
+            ({bioStatus === 'bio_eu' ? 'Bio-EU' : 'Biodynamisch'}). Speichern ist so nicht möglich, bitte ein zugelassenes Mittel wählen.</span>
           </div>
         )}
         {bioWarnung && (
@@ -491,6 +526,8 @@ export default function BehandlungEditForm({
               <p className="text-xs text-s112-muted mt-1">
                 {art === 'duengung'
                   ? 'Optional – maßgeblich für Lager und Nährstoffbilanz ist die Düngermenge gesamt.'
+                  : art === 'sonstiges'
+                    ? 'Optional – nur mit Aufwandmenge zieht das Lager das Mittel ab (Mittelmenge = je ha × Fläche bzw. gesamt).'
                   : m.jeHl
                     ? 'Tatsächliche Konzentration im Tank: Mittelmenge = Konzentration × Spritzbrühe. Etikettwerte je Hektar bitte als kg/ha bzw. l/ha erfassen.'
                     : 'Die Mittelmenge ergibt sich aus der Aufwandmenge (je ha × Fläche bzw. gesamt).'}
@@ -545,7 +582,9 @@ export default function BehandlungEditForm({
         )}
 
         {/* Live-Zusammenfassung: Mittelmenge, Spritzbrühe, Cu, Reinkupfer, Hinweis bei Spritzbrühe ≠ Wasseraufwand × Fläche */}
-        {(art === 'spritzung' || art === 'duengung') && <MengenZusammenfassung art={art} pruefung={m.pruefung} ha={m.ha} />}
+        {(art === 'spritzung' || art === 'duengung' || (art === 'sonstiges' && felder.aufwandmenge !== 'hidden')) && (
+          <MengenZusammenfassung art={art} pruefung={m.pruefung} ha={m.ha} />
+        )}
 
         {/* BBCH und Schaderreger bzw. Grund / Anlass laut Feld-Matrix wie beim Anlegen: BBCH bei Spritzung (Pflicht),
             Laubarbeit und Laubschneiden (optional) – ein Code außerhalb von BBCH_OPTIONS als eigene Option;
@@ -556,10 +595,10 @@ export default function BehandlungEditForm({
               <div>
                 <label className={labelCls}>
                   BBCH-Stadium
-                  {feldPflicht('bbch', art) && <span className="text-s112-err"> *</span>}
+                  {pflicht.bbch && <span className="text-s112-err"> *</span>}
                 </label>
                 <select aria-label="BBCH-Stadium" name="bbch_stadium" value={bbch} onChange={e => setBbch(e.target.value)}
-                  required={feldPflicht('bbch', art)} className={inputCls}>
+                  required={pflicht.bbch} className={inputCls}>
                   <option value="">– Auswählen –</option>
                   {bbchBisher && <option value={bbchBisher}>{bbchBisher} (bisherige Angabe)</option>}
                   {BBCH_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -570,10 +609,10 @@ export default function BehandlungEditForm({
               <div>
                 <label className={labelCls}>
                   {schaderreger.label}
-                  {feldPflicht('schaderreger', art) && <span className="text-s112-err"> *</span>}
+                  {pflicht.schaderreger && <span className="text-s112-err"> *</span>}
                 </label>
                 <input aria-label={schaderreger.label} name="schaderreger" type="text"
-                  required={feldPflicht('schaderreger', art)}
+                  required={pflicht.schaderreger}
                   defaultValue={behandlung.schaderreger ?? ''} className={inputCls}
                   placeholder={schaderreger.placeholder} list={schaderreger.vorschlaege ? 'schaderreger-kb' : undefined} />
                 {schaderreger.vorschlaege && (
@@ -594,11 +633,16 @@ export default function BehandlungEditForm({
         {modus.bbch === 'behalten' && <input type="hidden" name="bbch_stadium" value={behandlung.bbch_stadium ?? ''} />}
         {modus.schaderreger === 'behalten' && <input type="hidden" name="schaderreger" value={behandlung.schaderreger ?? ''} />}
 
-        {/* Düngung: Einarbeitung */}
-        {art === 'duengung' && (
+        {/* Düngung: Einarbeitung wie beim Anlegen nur bei organischem Dünger (KAN-154). einarbeitung_gesendet
+            unterscheidet „nein“ (false) von „keine Angabe“ (null): bei 'sichtbar' sobald ja/nein feststeht, bei
+            'behalten' mit dem gespeicherten Wert (unsichtbar, auch das gespeicherte „nein“ eines mineralischen
+            Düngers), nach einem Artwechsel ('keine') nichts – Speichern leert beide Felder wie beim Anlegen */}
+        {einarbeitungModus === 'sichtbar' && (
           <div className="grid grid-cols-2 gap-3 items-end">
+            {einarbeitung !== null && <input type="hidden" name={EINARBEITUNG_GESENDET} value="1" />}
             <label className="flex items-center gap-2 text-sm text-s112-text-1">
-              <input type="checkbox" name="einarbeitung" defaultChecked={!!behandlung.einarbeitung} className="accent-s112-teal" />
+              <input type="checkbox" name="einarbeitung" checked={!!einarbeitung}
+                onChange={e => setEinarbeitung(e.target.checked)} className="accent-s112-teal" />
               Eingearbeitet
             </label>
             <div>
@@ -608,28 +652,46 @@ export default function BehandlungEditForm({
             </div>
           </div>
         )}
+        {einarbeitungModus === 'behalten' && (
+          <>
+            {behandlung.einarbeitung !== null && <input type="hidden" name={EINARBEITUNG_GESENDET} value="1" />}
+            {behandlung.einarbeitung && <input type="hidden" name="einarbeitung" value="on" />}
+            <input type="hidden" name="einarbeitung_zeitpunkt" value={behandlung.einarbeitung_zeitpunkt ?? ''} />
+          </>
+        )}
 
-        {/* Bodenbearbeitung */}
+        {/* Bodenbearbeitung – Tiefe optional, Gerät Pflicht wie beim Anlegen (pflicht: Altdaten ohne Wert ausgenommen) */}
         {art === 'bodenbearbeitung' && (
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelCls}>Bearbeitungstiefe (cm)</label>
+              <label className={labelCls}>
+                Bearbeitungstiefe (cm)
+                {pflicht.bearbeitungstiefe && <span className="text-s112-err"> *</span>}
+              </label>
               <input aria-label="Bearbeitungstiefe (cm)" name="bearbeitungstiefe_cm" type="number" step="1" min="0"
-                defaultValue={behandlung.bearbeitungstiefe_cm ?? ''} className={inputCls} />
+                required={pflicht.bearbeitungstiefe}
+                defaultValue={behandlung.bearbeitungstiefe_cm ?? ''} className={inputCls} placeholder="z.B. 10" />
             </div>
             <div>
-              <label className={labelCls}>Gerät</label>
+              <label className={labelCls}>
+                Gerät
+                {pflicht.bearbeitungsgeraet && <span className="text-s112-err"> *</span>}
+              </label>
               <input aria-label="Gerät" name="bearbeitungsgeraet" type="text"
+                required={pflicht.bearbeitungsgeraet}
                 defaultValue={behandlung.bearbeitungsgeraet ?? ''} className={inputCls} placeholder="z.B. Grubber" />
             </div>
           </div>
         )}
 
-        {/* Schnitt */}
+        {/* Schnitt – Schnittart Pflicht wie beim Anlegen (Altdaten ohne Wert ausgenommen) */}
         {art === 'schnitt' && (
           <div>
-            <label className={labelCls}>Schnittart</label>
-            <input aria-label="Schnittart" name="schnittart" type="text"
+            <label className={labelCls}>
+              Schnittart
+              {pflicht.schnittart && <span className="text-s112-err"> *</span>}
+            </label>
+            <input aria-label="Schnittart" name="schnittart" type="text" required={pflicht.schnittart}
               defaultValue={behandlung.schnittart ?? ''} className={inputCls} placeholder="z.B. Guyot, Kordon" />
           </div>
         )}
@@ -734,7 +796,8 @@ export default function BehandlungEditForm({
       )}
 
       <div className="flex gap-3">
-        <button type="submit" disabled={pending || bioSperre}
+        {/* nur beim Speichern gesperrt – eine Bio-Sperre zeigt der Klick am Mittel (KAN-154 wie KAN-153) */}
+        <button type="submit" disabled={pending}
           className="bg-s112-teal text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50 transition-colors">
           {pending ? 'Speichert…' : 'Änderungen speichern'}
         </button>

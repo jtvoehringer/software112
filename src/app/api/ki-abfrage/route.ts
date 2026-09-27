@@ -85,6 +85,9 @@ const TABELLEN_KONTEXT = `
   / 100 / 1000 (kg bzw. l), mit Spritzbrühe_l = menge_gesamt (menge_einheit 'l'; bei 'ml' / 1000), sonst
   wasseraufwand_l_ha * Fläche. Fläche = SUM(behandlung_grundstuecke.flaeche_ha) der Maßnahme. Ohne aufwandmenge
   ist die Mittelmenge unbekannt (NULL) – dann NICHT menge_gesamt und NICHT konzentration verwenden.
+  art='sonstiges': seit KAN-154 (Ende September 2026) optional mit psm_id (z.B. Pheromon-Dispenser); Mittelmenge wie
+  bei der Spritzung aus aufwandmenge ('kg_ha', 'l_ha', 'kg', 'l'), ohne aufwandmenge unbekannt. Fragen nach dem
+  Einsatz eines Pflanzenschutzmittels deshalb über psm_id beantworten, nicht nur über art='spritzung'.
   art='duengung': menge_gesamt ist die Düngermenge in kg (bzw. l, wenn duengemittel.einheit = 'l'); fehlt sie,
   aufwandmenge * Fläche bei 'kg_ha' bzw. aufwandmenge bei 'kg' ('l_ha' bzw. 'l' nur bei duengemittel.einheit = 'l').
   Reinkupfer (kg) = Mittelmenge * Cu-Gehalt / 100 (Mittel in l wie die Cu-Bilanz mit 1 kg/l). Cu-Gehalt wie die

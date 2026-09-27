@@ -7,9 +7,13 @@
 // (lib/assistent/tools/massnahme.ts).
 // Laubschneiden (KAN-143): wie Laubarbeit, aber ohne „Art der Laubarbeit“ – BBCH optional, Witterung und
 // Temperatur ausgeblendet, keine Mengenfelder.
+// KAN-154 (Entscheidungen Jörgen, 27.09.2026): Sonstiges bietet das Pflanzenschutzmittel optional an (z. B.
+// Pheromon-Dispenser) – Bio-Sperre, Wartezeit, Lager und Behandlungsprotokoll wie bei der Spritzung; die
+// Bearbeitungstiefe ist generell optional (Mulchen, Mähen), das Gerät bleibt bei Bodenbearbeitung Pflicht.
 // Die BBCH-Auswahl (BBCH_OPTIONS, bbchAltwert), Schaderreger bzw. Grund / Anlass (schaderregerFeld) und die
 // Witterung liegen ebenfalls hier – gemeinsam für Anlegen und Bearbeiten; welche dieser Felder das Bearbeiten
 // zeigt oder unsichtbar mitsendet, entscheidet felderBeimBearbeiten (KAN-152).
+// Einarbeitung und Pflichtfelder beim Bearbeiten: einarbeitungBeimBearbeiten, pflichtBeimBearbeiten (KAN-154).
 // Ohne JSX, damit node:test sie prüfen kann (scripts/tests/massnahmen-arten.test.mjs).
 
 import { istMassnahmenArt, type MassnahmenArt } from '@/lib/behandlungen/arten'
@@ -17,17 +21,17 @@ import type { Sicht } from './mengenFelder'
 
 export type Felder = {
   psm: Sicht; duengemittel: Sicht; bbch: Sicht; schaderreger: Sicht; witterung: Sicht; temperatur: Sicht
-  einarbeitung: Sicht; bearbeitung: Sicht; schnittart: Sicht; laubarbeitArt: Sicht
+  einarbeitung: Sicht; bearbeitungstiefe: Sicht; bearbeitungsgeraet: Sicht; schnittart: Sicht; laubarbeitArt: Sicht
 }
 
 export const FELD_MATRIX: Readonly<Record<MassnahmenArt, Felder>> = {
-  spritzung:        { psm: 'pflicht', duengemittel: 'hidden',   bbch: 'pflicht',  schaderreger: 'pflicht',  witterung: 'optional', temperatur: 'optional', einarbeitung: 'hidden',  bearbeitung: 'hidden',  schnittart: 'hidden',  laubarbeitArt: 'hidden'  },
-  duengung:         { psm: 'hidden',  duengemittel: 'optional', bbch: 'hidden',   schaderreger: 'hidden',   witterung: 'optional', temperatur: 'hidden',   einarbeitung: 'bedingt', bearbeitung: 'hidden',  schnittart: 'hidden',  laubarbeitArt: 'hidden'  },
-  bodenbearbeitung: { psm: 'hidden',  duengemittel: 'hidden',   bbch: 'hidden',   schaderreger: 'hidden',   witterung: 'optional', temperatur: 'hidden',   einarbeitung: 'hidden',  bearbeitung: 'pflicht', schnittart: 'hidden',  laubarbeitArt: 'hidden'  },
-  schnitt:          { psm: 'hidden',  duengemittel: 'hidden',   bbch: 'hidden',   schaderreger: 'hidden',   witterung: 'hidden',   temperatur: 'hidden',   einarbeitung: 'hidden',  bearbeitung: 'hidden',  schnittart: 'pflicht', laubarbeitArt: 'hidden'  },
-  laubarbeit:       { psm: 'hidden',  duengemittel: 'hidden',   bbch: 'optional', schaderreger: 'hidden',   witterung: 'hidden',   temperatur: 'hidden',   einarbeitung: 'hidden',  bearbeitung: 'hidden',  schnittart: 'hidden',  laubarbeitArt: 'pflicht' },
-  laubschneiden:    { psm: 'hidden',  duengemittel: 'hidden',   bbch: 'optional', schaderreger: 'hidden',   witterung: 'hidden',   temperatur: 'hidden',   einarbeitung: 'hidden',  bearbeitung: 'hidden',  schnittart: 'hidden',  laubarbeitArt: 'hidden'  },
-  sonstiges:        { psm: 'hidden',  duengemittel: 'hidden',   bbch: 'hidden',   schaderreger: 'optional', witterung: 'hidden',   temperatur: 'hidden',   einarbeitung: 'hidden',  bearbeitung: 'hidden',  schnittart: 'hidden',  laubarbeitArt: 'hidden'  },
+  spritzung:        { psm: 'pflicht',  duengemittel: 'hidden',   bbch: 'pflicht',  schaderreger: 'pflicht',  witterung: 'optional', temperatur: 'optional', einarbeitung: 'hidden',  bearbeitungstiefe: 'hidden',   bearbeitungsgeraet: 'hidden',  schnittart: 'hidden',  laubarbeitArt: 'hidden'  },
+  duengung:         { psm: 'hidden',   duengemittel: 'optional', bbch: 'hidden',   schaderreger: 'hidden',   witterung: 'optional', temperatur: 'hidden',   einarbeitung: 'bedingt', bearbeitungstiefe: 'hidden',   bearbeitungsgeraet: 'hidden',  schnittart: 'hidden',  laubarbeitArt: 'hidden'  },
+  bodenbearbeitung: { psm: 'hidden',   duengemittel: 'hidden',   bbch: 'hidden',   schaderreger: 'hidden',   witterung: 'optional', temperatur: 'hidden',   einarbeitung: 'hidden',  bearbeitungstiefe: 'optional', bearbeitungsgeraet: 'pflicht', schnittart: 'hidden',  laubarbeitArt: 'hidden'  },
+  schnitt:          { psm: 'hidden',   duengemittel: 'hidden',   bbch: 'hidden',   schaderreger: 'hidden',   witterung: 'hidden',   temperatur: 'hidden',   einarbeitung: 'hidden',  bearbeitungstiefe: 'hidden',   bearbeitungsgeraet: 'hidden',  schnittart: 'pflicht', laubarbeitArt: 'hidden'  },
+  laubarbeit:       { psm: 'hidden',   duengemittel: 'hidden',   bbch: 'optional', schaderreger: 'hidden',   witterung: 'hidden',   temperatur: 'hidden',   einarbeitung: 'hidden',  bearbeitungstiefe: 'hidden',   bearbeitungsgeraet: 'hidden',  schnittart: 'hidden',  laubarbeitArt: 'pflicht' },
+  laubschneiden:    { psm: 'hidden',   duengemittel: 'hidden',   bbch: 'optional', schaderreger: 'hidden',   witterung: 'hidden',   temperatur: 'hidden',   einarbeitung: 'hidden',  bearbeitungstiefe: 'hidden',   bearbeitungsgeraet: 'hidden',  schnittart: 'hidden',  laubarbeitArt: 'hidden'  },
+  sonstiges:        { psm: 'optional', duengemittel: 'hidden',   bbch: 'hidden',   schaderreger: 'optional', witterung: 'hidden',   temperatur: 'hidden',   einarbeitung: 'hidden',  bearbeitungstiefe: 'hidden',   bearbeitungsgeraet: 'hidden',  schnittart: 'hidden',  laubarbeitArt: 'hidden'  },
 }
 
 /** BBCH-Auswahl der Maßnahmenformulare (Anlegen und Bearbeiten) – eine Liste für beide */
@@ -122,4 +126,49 @@ export function felderBeimBearbeiten(art: string, startArt: string): Record<Bear
 /** Pflicht laut Feld-Matrix (Stern und `required` im Bearbeiten-Formular wie beim Anlegen) */
 export function feldPflicht(feld: keyof Felder, art: string): boolean {
   return istMassnahmenArt(art) && FELD_MATRIX[art][feld] === 'pflicht'
+}
+
+/**
+ * Pflicht beim Bearbeiten (KAN-154): wie beim Anlegen (feldPflicht), aber Altdaten ohne Wert bleiben unverändert
+ * speicherbar – Pflicht nur nach einem Artwechsel oder wenn das Feld schon einen Wert hat (dann darf es nicht
+ * geleert werden). Für BBCH, Schaderreger, Gerät und Schnittart; die Art der Laubarbeit prüft auch der Server
+ * (laubarbeitArtFehlt) und bleibt immer Pflicht.
+ */
+export function pflichtBeimBearbeiten(
+  feld: keyof Felder, art: string, startArt: string, gespeichert: string | number | null | undefined,
+): boolean {
+  if (!feldPflicht(feld, art)) return false
+  return art !== startArt || (gespeichert != null && String(gespeichert).trim() !== '')
+}
+
+// ── Einarbeitung (Düngung, KAN-154) ──────────────────────────────────────────────
+//
+// Sichtbar wie beim Anlegen nur bei organischem Dünger (FELD_MATRIX einarbeitung 'bedingt'). Eine nicht
+// angehakte Checkbox fehlt in der FormData – damit „nein“ (false) nicht zu „keine Angabe“ (null) wird, sendet
+// das Formular neben einer gezeigten bzw. mitgesendeten Einarbeitung das Feld einarbeitung_gesendet
+// (einarbeitungAus). Ohne dieses Feld (z. B. Assistent) gilt wie bisher: angehakt → true, sonst null.
+
+/** Verstecktes Feld: die Einarbeitung wurde gesendet – fehlt „einarbeitung“, heißt das „nein“ */
+export const EINARBEITUNG_GESENDET = 'einarbeitung_gesendet'
+
+/** Anlegen und Bearbeiten: Checkbox „Eingearbeitet“ nur bei einer Art mit Einarbeitung und organischem Dünger */
+export function einarbeitungSichtbar(art: string, duengemittelTyp: string | null | undefined): boolean {
+  return istMassnahmenArt(art) && FELD_MATRIX[art].einarbeitung !== 'hidden' && duengemittelTyp === 'organisch'
+}
+
+/**
+ * Bearbeiten (Muster felderBeimBearbeiten): 'sichtbar' – Checkbox und Zeitpunkt wie beim Anlegen; 'behalten' –
+ * ausgeblendet bei unveränderter Art (z. B. mineralischer Dünger mit gespeichertem „nein“): gespeicherte Werte
+ * gehen unsichtbar mit; 'keine' – nach einem Artwechsel: nichts senden, Speichern leert beide Felder.
+ */
+export function einarbeitungBeimBearbeiten(art: string, startArt: string, duengemittelTyp: string | null | undefined): FeldBeimBearbeiten {
+  if (einarbeitungSichtbar(art, duengemittelTyp)) return 'sichtbar'
+  return art === startArt ? 'behalten' : 'keine'
+}
+
+/** Server Actions: Einarbeitung aus der FormData – true, false („gesendet, nicht angehakt“) oder null */
+export function einarbeitungAus(fd: FormData): boolean | null {
+  const angehakt = fd.get('einarbeitung') === 'on'
+  if (fd.has(EINARBEITUNG_GESENDET)) return angehakt
+  return fd.has('einarbeitung') ? angehakt : null
 }

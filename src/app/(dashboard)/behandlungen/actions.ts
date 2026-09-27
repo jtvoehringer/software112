@@ -10,8 +10,9 @@ import { dezimal, zahlAus } from '@/lib/format'
 import { pruefeMassnahmeMengen, summeFlaecheHa, type MassnahmeMengenEingabe } from '@/lib/behandlungen/massnahmeMengen'
 import {
   LAUBARBEIT_ART_FEHLT, MASSNAHMEN_ARTEN, MASSNAHMEN_ART_LABEL, istMassnahmenArt, laubarbeitArtFehlt, laubarbeitArtFuer,
-  mittelFuerArt, type MassnahmenArt,
+  artMitPsm, mittelFuerArt, type MassnahmenArt,
 } from '@/lib/behandlungen/arten'
+import { einarbeitungAus } from './neu/feldMatrix'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -68,7 +69,7 @@ async function ladeMengenStamm(
   psmId: string | null,
   duengemittelId: string | null,
 ): Promise<Pick<MassnahmeMengenEingabe, 'psm' | 'duengemittelEinheit'>> {
-  if (art === 'spritzung' && psmId) {
+  if (artMitPsm(art) && psmId) {   // Spritzung und Sonstiges (KAN-154): Cu-Gehalt für Reinkupfer
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (supabase.from('pflanzenschutzmittel') as any)
       .select('cu_gehalt_pct, wirkstoff, wirkstoffgehalt_pct')
@@ -92,6 +93,32 @@ async function ladeMengenStamm(
     return { duengemittelEinheit: (data as AR).einheit ?? null }
   }
   return {}
+}
+
+// Bio-Sperre serverseitig durchsetzen (bisher nur clientseitig in NeueBehandlungForm.tsx geprüft – das reicht
+// nicht mehr, seit auch der Prozess-Assistent (Bot) createBehandlung direkt aufruft, ohne über das Formular zu
+// gehen; seit KAN-154 auch beim Bearbeiten). Bei Bio-EU/biodynamisch harte Sperre für nicht öko-zugelassene
+// Mittel, analog zur Client-Logik ("Analyse Maßnahmen.docx", 4.3). psmId/duengemittelId nach mittelFuerArt.
+async function pruefeBioSperre(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  tenantId: string,
+  psmId: string | null,
+  duengemittelId: string | null,
+) {
+  if (!psmId && !duengemittelId) return
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [{ data: tenantRow }, { data: mittelRow }] = await Promise.all([
+    (supabase.from('tenants') as any).select('bio_status').eq('id', tenantId).maybeSingle(),
+    psmId
+      ? (supabase.from('pflanzenschutzmittel') as any).select('oeko_zugelassen').eq('id', psmId).or(`tenant_id.eq.${tenantId},tenant_id.is.null`).maybeSingle()
+      : (supabase.from('duengemittel') as any).select('oeko_zugelassen').eq('id', duengemittelId).or(`tenant_id.eq.${tenantId},tenant_id.is.null`).maybeSingle(),
+  ])
+  const bioStatus = (tenantRow as AR | null)?.bio_status ?? 'konventionell'
+  const mittelOeko = (mittelRow as AR | null)?.oeko_zugelassen ?? false
+  if (['bio_eu', 'biodynamisch'].includes(bioStatus) && !mittelOeko) {
+    throw new AktionsFehler('Dieses Mittel ist nicht öko-zugelassen und passt nicht zum Bio-Status des Betriebs.')
+  }
 }
 
 // Optionale Kosten-Vorschlagsfunktion: legt (best effort) einen Kosteneintrag +
@@ -314,28 +341,10 @@ export async function createBehandlung(formData: FormData) {
   // nur bei einer Laubarbeit – bei Laubschneiden (KAN-143) und allen anderen Arten null
   const laubarbeitArt   = laubarbeitArtFuer(art, (formData.get('laubarbeit_art') as string) || null)
   if (laubarbeitArtFehlt(art, laubarbeitArt)) throw new AktionsFehler(LAUBARBEIT_ART_FEHLT)   // Feld-Matrix: Pflicht
-  const einarbeitung    = formData.has('einarbeitung') ? formData.get('einarbeitung') === 'on' : null
+  const einarbeitung    = einarbeitungAus(formData)   // KAN-154: nicht angehakt = false, nicht gesendet = null
   const einarbeitungZeitpunkt = (formData.get('einarbeitung_zeitpunkt') as string) || null
 
-  // Bio-Sperre serverseitig durchsetzen (bisher nur clientseitig in
-  // NeueBehandlungForm.tsx geprüft – das reicht nicht mehr, seit auch der
-  // Prozess-Assistent (Bot) diese Action direkt aufruft, ohne über das
-  // Formular zu gehen). Bei Bio-EU/biodynamisch harte Sperre für nicht
-  // öko-zugelassene Mittel, analog zur Client-Logik ("Analyse Maßnahmen.docx", 4.3).
-  if (psmId || duengemittelId) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [{ data: tenantRow }, { data: mittelRow }] = await Promise.all([
-      (supabase.from('tenants') as any).select('bio_status').eq('id', tenantId).maybeSingle(),
-      psmId
-        ? (supabase.from('pflanzenschutzmittel') as any).select('oeko_zugelassen').eq('id', psmId).or(`tenant_id.eq.${tenantId},tenant_id.is.null`).maybeSingle()
-        : (supabase.from('duengemittel') as any).select('oeko_zugelassen').eq('id', duengemittelId).or(`tenant_id.eq.${tenantId},tenant_id.is.null`).maybeSingle(),
-    ])
-    const bioStatus = (tenantRow as AR | null)?.bio_status ?? 'konventionell'
-    const mittelOeko = (mittelRow as AR | null)?.oeko_zugelassen ?? false
-    if (['bio_eu', 'biodynamisch'].includes(bioStatus) && !mittelOeko) {
-      throw new AktionsFehler('Dieses Mittel ist nicht öko-zugelassen und passt nicht zum Bio-Status des Betriebs.')
-    }
-  }
+  await pruefeBioSperre(supabase, tenantId, psmId, duengemittelId)
 
   // Frühester Erntetermin berechnen
   let ernteFruehesteins: string | null = null
@@ -480,8 +489,10 @@ export async function updateBehandlung(id: string, formData: FormData) {
   // nur bei einer Laubarbeit – bei Laubschneiden (KAN-143) und allen anderen Arten null
   const laubarbeitArt   = laubarbeitArtFuer(art, (formData.get('laubarbeit_art') as string) || null)
   if (laubarbeitArtFehlt(art, laubarbeitArt)) throw new AktionsFehler(LAUBARBEIT_ART_FEHLT)   // Feld-Matrix: Pflicht
-  const einarbeitung    = formData.has('einarbeitung') ? formData.get('einarbeitung') === 'on' : null
+  const einarbeitung    = einarbeitungAus(formData)   // KAN-154: nicht angehakt = false, nicht gesendet = null
   const einarbeitungZeitpunkt = (formData.get('einarbeitung_zeitpunkt') as string) || null
+
+  await pruefeBioSperre(supabase, tenantId, psmId, duengemittelId)   // KAN-154: wie beim Anlegen
 
   let ernteFruehesteins: string | null = null
   if (datum && wartezeit != null) {

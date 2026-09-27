@@ -7,7 +7,8 @@
 //
 // Verbrauch = Σ mittelmenge() je Maßnahme: Pflanzenschutzmittel nur aus Spritzungen (Aufwand ×
 //   Fläche usw.) – „Menge gesamt“ ist dort die Spritzbrühe und wird nie abgezogen, auch nicht bei
-//   einer Tankmischung –, Düngemittel nur aus Düngungen (Düngermenge, sonst Aufwand × Fläche).
+//   einer Tankmischung – und seit KAN-154 aus Sonstiges mit Mittel (z. B. Pheromon-Dispenser; ohne
+//   Aufwand nur ein Hinweis), Düngemittel nur aus Düngungen (Düngermenge, sonst Aufwand × Fläche).
 //   Umgerechnet in die Lager-Einheit (g ↔ kg, ml ↔ l); kg ↔ l ohne Dichte nicht: kein Abzug, nur ein
 //   Hinweis – ebenso Maßnahmen ohne bestimmbare Mittelmenge (z. B. Spritzung ohne Aufwand).
 // Lager-Einheit (pflanzenschutzmittel hat keine Einheit-Spalte): Einheit der Buchungen – alle gleich
@@ -23,7 +24,7 @@ import {
   type MittelEinheit, type PsmBehandlung,
 } from '@/lib/behoerden/psm'
 
-/** Lager der Lagerseite: Pflanzenschutzmittel (Verbrauch aus Spritzungen) bzw. Düngemittel (aus Düngungen) */
+/** Lager der Lagerseite: Pflanzenschutzmittel (Verbrauch aus Spritzungen und Sonstiges) bzw. Düngemittel (aus Düngungen) */
 export type LagerArt = 'psm' | 'duenger'
 
 /** Buchung aus psm_lager_bewegungen bzw. duengemittel_lager_bewegungen (Abgänge negativ) */
@@ -61,7 +62,7 @@ export type LagerKonto = {
   hinweise: LagerHinweis[]
 }
 
-const ART_DES_LAGERS: Readonly<Record<LagerArt, string>> = { psm: 'spritzung', duenger: 'duengung' }
+const ARTEN_DES_LAGERS: Readonly<Record<LagerArt, readonly string[]>> = { psm: ['spritzung', 'sonstiges'], duenger: ['duengung'] }
 
 const zahl = (n: number) => fmtNum(n, { max: 3 })
 
@@ -74,12 +75,12 @@ export function grundeinheit(e: string | null | undefined): MittelEinheit | null
 
 /**
  * Verbrauchsposten je Mittel (psm.id bzw. duengemittel.id): Pflanzenschutzmittel nur aus
- * Spritzungen, Düngemittel nur aus Düngungen, Menge je Maßnahme aus mittelmenge().
+ * Spritzungen und Sonstiges, Düngemittel nur aus Düngungen, Menge je Maßnahme aus mittelmenge().
  */
 export function verbrauchJeMittel(behandlungen: readonly PsmBehandlung[], lager: LagerArt): Map<string, VerbrauchPosten[]> {
   const je = new Map<string, VerbrauchPosten[]>()
   for (const b of behandlungen) {
-    if (b.art !== ART_DES_LAGERS[lager]) continue
+    if (!ARTEN_DES_LAGERS[lager].includes(b.art)) continue
     const id = lager === 'psm' ? b.psm?.id : b.duengemittel?.id
     if (!id) continue
     const mm = mittelmenge(b)
