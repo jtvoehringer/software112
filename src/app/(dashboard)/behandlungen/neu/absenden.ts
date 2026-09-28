@@ -40,3 +40,41 @@ export function erfassenKnopfText(pending: boolean, auswahl: number): string {
   if (pending) return 'Speichert…'
   return auswahl > 0 ? `Maßnahme erfassen (${auswahl} ausgewählt)` : 'Maßnahme erfassen'
 }
+
+// ── Ried-Auswahl: Gruppen und „Alle auswählen“ ↔ „Alle abwählen“ (KAN-155, Pilotbetrieb) ──────────────
+//
+// Weingärten ohne Ried standen bisher in einer Gruppe „Alle Rieden“ – das las sich wie „alle“, enthielt aber nur
+// die Weingärten ohne Ried-Zuordnung. Die Gruppe heißt jetzt wie in /lagen und den Berichten („ohne Ried“) und
+// steht immer am Ende, die Rieden davor alphabetisch.
+
+/** Name der Gruppe für Weingärten ohne Ried (lage_name leer) */
+export const OHNE_RIED_GRUPPE = 'Ohne Ried-Zuordnung'
+
+export type RiedGruppe<T> = { schluessel: string; name: string; ohneRied: boolean; weingaerten: T[] }
+
+/** Weingärten nach Ried gruppieren: Rieden alphabetisch (de), „Ohne Ried-Zuordnung“ zuletzt */
+export function riedGruppen<T extends { lage_name: string | null }>(weingaerten: readonly T[]): RiedGruppe<T>[] {
+  const rieden = new Map<string, T[]>()
+  const ohne: T[] = []
+  for (const w of weingaerten) {
+    const name = w.lage_name?.trim()
+    if (!name) { ohne.push(w); continue }
+    const liste = rieden.get(name) ?? []
+    liste.push(w)
+    rieden.set(name, liste)
+  }
+  const gruppen: RiedGruppe<T>[] = Array.from(rieden.entries())
+    .sort(([a], [b]) => a.localeCompare(b, 'de'))
+    .map(([name, liste]) => ({ schluessel: `ried:${name}`, name, ohneRied: false, weingaerten: liste }))
+  if (ohne.length > 0) gruppen.push({ schluessel: 'ohne-ried', name: OHNE_RIED_GRUPPE, ohneRied: true, weingaerten: ohne })
+  return gruppen
+}
+
+/**
+ * Knopf über der Ried-Auswahl: „Alle abwählen“, sobald alle spritzbaren Weingärten ganz ausgewählt sind (ein Klick
+ * leert dann die ganze Auswahl, auch einzeln gewählte Grundstücke), sonst „Alle auswählen“. Ohne spritzbare
+ * Weingärten „Alle auswählen“ (wählt nichts).
+ */
+export function alleAuswahlModus(spritzbareIds: readonly string[], ausgewaehlt: ReadonlySet<string>): 'auswaehlen' | 'abwaehlen' {
+  return spritzbareIds.length > 0 && spritzbareIds.every(id => ausgewaehlt.has(id)) ? 'abwaehlen' : 'auswaehlen'
+}
