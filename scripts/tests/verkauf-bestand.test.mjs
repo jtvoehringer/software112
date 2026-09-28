@@ -431,7 +431,8 @@ describe('verkaufspostenStornieren – Verkauf zurücknehmen', nurMitHooks, () =
     assert.deepEqual(db.tabellen.traubenverkauf.map(t => t.id), [TV3], 'nur der fremde Traubenverkauf bleibt')
     const tvDel = db.aufrufe.find(a => a.art === 'delete' && a.tabelle === 'traubenverkauf')
     assert.deepEqual(tvDel.filter.find(f => f[0] === 'in'), ['in', 'id', [TV2, TV1]], 'erst über verkaufsposten_id, dann über die Position')
-    assert.deepEqual(db.tabellen.ea_transaktionen.map(r => r.id), ['ea-gesperrt', 'ea-manuell'])
+    assert.deepEqual(db.tabellen.ea_transaktionen.map(r => r.id), ['ea-gesperrt', 'ea-manuell'],
+      'Befund (KAN-149): gesperrte Einnahme bleibt ohne Meldung stehen – eigener Test unten')
     assert.equal(zeile(db, 'aktivitaeten', 'akt-1').betreff, 'Verkauf RE-2026-001 · STORNIERT')
     assert.equal(zeile(db, 'aktivitaeten', 'akt-2').betreff, 'fremd')
     assert.deepEqual(ohneMandant(db, T), [])
@@ -579,7 +580,8 @@ describe('verkaufspostenStornieren – Verkauf zurücknehmen', nurMitHooks, () =
     const e = await fehlerVon(b.verkaufspostenStornieren(db, T, VP))
     assert.equal(e.message, 'Der Verkauf ist storniert und der Bestand zurückgebucht, aber: Traubenverkauf (BKI) konnte nicht entfernt werden: fk.')
     assert.equal(zeile(db, 'verkaufsposten', VP).storniert, true)
-    assert.deepEqual(db.tabellen.ea_transaktionen.map(r => r.id), ['ea-gesperrt', 'ea-manuell'])
+    assert.deepEqual(db.tabellen.ea_transaktionen.map(r => r.id), ['ea-gesperrt', 'ea-manuell'],
+      'Befund (KAN-149): die gesperrte Einnahme fehlt auch in der Sammelmeldung')
     assert.equal(zeile(db, 'aktivitaeten', 'akt-1').betreff, 'Verkauf RE-2026-001 · STORNIERT')
   })
 
@@ -593,14 +595,35 @@ describe('verkaufspostenStornieren – Verkauf zurücknehmen', nurMitHooks, () =
     assert.deepEqual(db.tabellen.traubenverkauf.map(t => t.id).sort(), [TV1, TV3].sort())
   })
 
-  test('ohne Traubenverkäufe: keine Löschabfrage; gesperrte E&A-Einnahme bleibt ohne Meldung stehen', async () => {
+  test('ohne Traubenverkäufe: keine Löschabfrage', async () => {
     const t = vollerPosten()
     t.verkauf_positionen = t.verkauf_positionen.filter(p => p.typ !== 'traube')
     t.traubenverkauf = []
     const db = neueDb(t)
     await b.verkaufspostenStornieren(db, T, VP)
     assert.ok(!schreibzugriffe(db).includes('delete traubenverkauf'))
-    assert.ok(zeile(db, 'ea_transaktionen', 'ea-gesperrt'))
+    assert.equal(zeile(db, 'verkaufsposten', VP).storniert, true)
+  })
+
+  // Befund: verkaufspostenStornieren wertet `gesperrt: true` aus ersetzeVerkaufsEinnahmen nicht
+  // aus (bestand.ts, Block 4a) – kein Punkt in `probleme`, kein Hinweis in der Storno-Abfrage.
+  // Die E&A bzw. die schon übermittelte UVA ist danach zu hoch. Der Storno-Umbau KAN-149 soll
+  // hier eine Gegenbuchung anlegen: Dann ändert sich dieser Test bewusst.
+  test('Befund: gesperrte E&A-Einnahme (übermittelte UVA) bleibt nach dem Storno ohne Meldung stehen – Gegenbuchung offen (KAN-149)', async () => {
+    const db = neueDb(vollerPosten())
+    await b.verkaufspostenStornieren(db, T, VP) // löst keinen Fehler aus, also keine Meldung
+    assert.equal(zeile(db, 'verkaufsposten', VP).storniert, true)
+    assert.ok(zeile(db, 'ea_transaktionen', 'ea-gesperrt'), 'gesperrte Einnahme bleibt stehen')
+    const eaSchreib = db.aufrufe.filter(a => a.tabelle === 'ea_transaktionen' && a.art !== 'select')
+    assert.deepEqual(eaSchreib.map(a => [a.art, a.getroffen]), [['delete', ['ea-offen']]], 'nur die offene entfernt, keine Gegenbuchung')
+
+    // nur gesperrte Einnahmen: gar kein E&A-Schreibzugriff, ebenfalls ohne Meldung
+    const t = vollerPosten()
+    t.ea_transaktionen = [{ ...t.ea_transaktionen[1] }]
+    const db2 = neueDb(t)
+    await b.verkaufspostenStornieren(db2, T, VP)
+    assert.deepEqual(db2.tabellen.ea_transaktionen.map(r => r.id), ['ea-gesperrt'])
+    assert.ok(!schreibzugriffe(db2).some(z => z.endsWith(' ea_transaktionen')))
   })
 
   test('CRM-Fehler ist nicht kritisch: nur Konsolenmeldung, kein Fehler', async (t) => {

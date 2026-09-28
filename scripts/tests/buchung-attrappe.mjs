@@ -9,10 +9,27 @@
 //    globalThis.__adminFake bzw. __serverFake), 'next/cache' (protokolliert revalidatePath),
 //    '@/lib/auth/roles' (Mitgliedschaft aus globalThis.__membership, canWrite wie das Original
 //    für Membership-Objekte).
-// 2. datenbank(): Supabase-Attrappe, die ihre Parameter wirklich auswertet. Filter (eq, neq, in,
-//    is, not, gte, lte, or, contains, auch auf eingebettete Felder wie 'fuellungen.aktiv'),
-//    order/limit/range, count/head, maybeSingle; update/delete/insert ändern die Tabellen im
-//    Speicher. Jeder Aufruf landet mit Tabelle, Art, Filtern und Werten in `aufrufe`.
+// 2. datenbank(): Supabase-Attrappe. Sie wertet aus:
+//    - Filter eq, neq, in, is, not(…, 'is', …), gte, lte, or (nur 'a.eq.x,b.eq.y'), contains;
+//      unbekannte Operatoren scheitern laut
+//    - die select-Liste: zurück kommen nur die genannten Spalten, auch bei .update/.delete/.insert
+//      mit .select('id'); '*' = alle Schlüssel der Testzeile, Alias 'a:spalte'. Fehlt eine
+//      genannte Spalte in der Testzeile, kommt null (wie eine leere Spalte)
+//    - Einbettungen 'alias:tabelle!hint(spalten)' bzw. 'tabelle!inner(spalten)': Die Testdaten
+//      bringen sie FERTIG VERSCHACHTELT unter dem Ausgabeschlüssel (Alias, sonst Tabellenname) mit –
+//      die Attrappe verbindet keine Tabellen und prüft weder Fremdschlüssel noch Hint; fehlt die
+//      Einbettung in der Testzeile, kommt null. Ein Filter auf ein eingebettetes Feld
+//      ('fuellungen.aktiv') braucht die Einbettung in der select-Liste (sonst Fehler). Mit !inner
+//      filtert er die Elternzeilen (ohne verknüpfte Zeile fällt die Elternzeile ganz weg), ohne
+//      !inner nur die Einbettung selbst (1:1 → null, 1:n → gefilterte Liste) – wie PostgREST
+//    - order: Zahlen numerisch (auch numeric als Text), sonst Textvergleich nach Codepunkten (keine
+//      Kollation der Datenbank); NULL wie in Postgres aufsteigend zuletzt, absteigend zuerst
+//      (nullsFirst übersteuert); limit/range, count/head, maybeSingle
+//    - update/delete/insert ändern die Tabellen im Speicher
+//    Nicht nachgebildet: Schema (unbekannte Spaltennamen und Spaltentypen fallen nicht auf),
+//    Constraints, Trigger, Kaskaden, echte RLS (nur über den Eingriff rls), single(), Casts und
+//    JSON-Pfade in der select-Liste, order auf eingebettete Tabellen.
+//    Jeder Aufruf landet mit Tabelle, Art, Filtern und Werten in `aufrufe`.
 //    Eingriffe:  vorher(eintrag, tabellen) läuft unmittelbar vor der Ausführung und kann
 //                { error } liefern (Datenbankfehler) oder die Tabellen ändern (paralleler
 //                Vorgang);  rls(eintrag, zeile) → false blendet eine Zeile still aus (wie RLS).
@@ -120,6 +137,63 @@ function vergleich(a, b) {
 
 const kopie = x => (x == null ? x : structuredClone(x))
 
+/** Oberste Ebene einer select-Liste an Kommas außerhalb von Klammern trennen */
+function teileSelect(spalten) {
+  const teile = []
+  let tiefe = 0
+  let akt = ''
+  for (const z of spalten) {
+    if (z === '(') tiefe++
+    if (z === ')') tiefe--
+    if (z === ',' && tiefe === 0) { teile.push(akt.trim()); akt = '' } else akt += z
+  }
+  if (akt.trim()) teile.push(akt.trim())
+  return teile
+}
+
+const NAME = '[A-Za-z_][A-Za-z0-9_]*'
+const SELECT_TEIL = new RegExp(`^(?:(${NAME}):)?(${NAME}|\\*)((?:!${NAME})*)(?:\\(([\\s\\S]*)\\))?$`)
+
+/**
+ * select-Liste → [{ stern } | { schluessel, spalte, einbettung: null | { inner, liste } }];
+ * null = keine Liste (alle Schlüssel der Testzeile)
+ */
+function selectListe(spalten) {
+  if (spalten == null) return null
+  return teileSelect(spalten).map(teil => {
+    const m = teil.match(SELECT_TEIL)
+    if (!m) throw new Error(`Attrappe: select-Teil „${teil}“ nicht nachgebildet`)
+    const [, alias, name, hints, innen] = m
+    if (name === '*') {
+      if (alias || hints || innen !== undefined) throw new Error(`Attrappe: select-Teil „${teil}“ nicht nachgebildet`)
+      return { stern: true }
+    }
+    if (innen === undefined) {
+      if (hints) throw new Error(`Attrappe: Hint „${hints}“ ohne Einbettung in „${teil}“`)
+      return { schluessel: alias ?? name, spalte: name, einbettung: null }
+    }
+    if (innen.trim() === '') throw new Error(`Attrappe: leere Einbettung „${teil}“ nicht nachgebildet`)
+    return {
+      schluessel: alias ?? name,
+      spalte: name,
+      einbettung: { inner: hints.split('!').includes('inner'), liste: selectListe(innen) },
+    }
+  })
+}
+
+/** Zeile(n) auf die select-Liste beschränken; Einbettungen liegen in der Testzeile unter dem Ausgabeschlüssel */
+function projiziere(zeile, liste) {
+  if (liste == null || zeile == null) return zeile
+  if (Array.isArray(zeile)) return zeile.map(z => projiziere(z, liste))
+  const aus = {}
+  for (const t of liste) {
+    if (t.stern) { Object.assign(aus, zeile); continue }
+    if (t.einbettung) aus[t.schluessel] = projiziere(zeile[t.schluessel] ?? null, t.einbettung.liste)
+    else aus[t.schluessel] = t.spalte in zeile ? zeile[t.spalte] : null
+  }
+  return aus
+}
+
 export function datenbank(tabellen, { vorher = () => null, rls = () => true, rpc = null } = {}) {
   const aufrufe = []
   let zaehler = 0
@@ -133,18 +207,69 @@ export function datenbank(tabellen, { vorher = () => null, rls = () => true, rpc
     let grenze = null
     let einzeln = false
 
-    const passt = r => bedingungen.every(b => b(r)) && rls(eintrag, r)
+    // Bedingung: { k, pruefe } – pruefe(Wert des Felds k); k = null: pruefe(ganze Zeile) (or)
+    const bedingungErfuellt = (b, r) => (b.k == null ? b.pruefe(r) : b.pruefe(feld(r, b.k)))
 
+    /**
+     * Bedingungen aufteilen: auf die Zeile selbst und je Einbettung (Schlüssel vor dem ersten Punkt).
+     * Ein Filter auf ein eingebettetes Feld braucht die Einbettung in der select-Liste.
+     */
+    const planen = () => {
+      const liste = eintrag.art === 'select' ? selectListe(eintrag.spalten) : null
+      const einbettungen = new Map((liste ?? []).filter(t => t.einbettung).map(t => [t.schluessel, t.einbettung]))
+      const zeilenBed = []
+      const einbettBed = new Map()
+      for (const b of bedingungen) {
+        if (b.k == null || !b.k.includes('.')) { zeilenBed.push(b); continue }
+        const [kopf, ...rest] = b.k.split('.')
+        if (!einbettungen.has(kopf)) {
+          throw new Error(`Attrappe: Filter auf „${b.k}“, aber keine Einbettung „${kopf}“ in der select-Liste (${eintrag.art} ${tabelle})`)
+        }
+        if (!einbettBed.has(kopf)) einbettBed.set(kopf, [])
+        einbettBed.get(kopf).push({ k: rest.join('.'), pruefe: b.pruefe })
+      }
+      return { liste, einbettungen, zeilenBed, einbettBed }
+    }
+
+    const einbettungPasst = (wert, bed) => bed.every(b => bedingungErfuellt(b, wert))
+
+    const passtMit = ({ einbettungen, zeilenBed, einbettBed }) => r => {
+      if (!zeilenBed.every(b => bedingungErfuellt(b, r))) return false
+      for (const [kopf, e] of einbettungen) {
+        if (!e.inner) continue
+        // !inner: ohne verknüpfte (bzw. passende) Zeile fällt die Elternzeile weg
+        const w = r[kopf]
+        const bed = einbettBed.get(kopf) ?? []
+        if (w == null) return false
+        if (Array.isArray(w) ? !w.some(x => einbettungPasst(x, bed)) : !einbettungPasst(w, bed)) return false
+      }
+      return rls(eintrag, r)
+    }
+
+    /** Filter auf eingebettete Felder beschränken die Einbettung selbst (1:1 → null, 1:n → gefiltert) */
+    const einbettungenFiltern = (zeilen, einbettBed) => {
+      for (const r of zeilen) {
+        for (const [kopf, bed] of einbettBed) {
+          const w = r[kopf]
+          if (w == null) continue
+          r[kopf] = Array.isArray(w) ? w.filter(x => einbettungPasst(x, bed)) : (einbettungPasst(w, bed) ? w : null)
+        }
+      }
+      return zeilen
+    }
+
+    // Wie Postgres: Zahlen numerisch (vergleich), NULL aufsteigend zuletzt, absteigend zuerst
     const sortieren = zeilen => {
       if (ordnung.length === 0) return zeilen
       return [...zeilen].sort((a, b) => {
-        for (const [k, auf] of ordnung) {
+        for (const [k, auf, nullenZuerst] of ordnung) {
           const x = feld(a, k), y = feld(b, k)
-          if (x === y) continue
-          if (x == null) return 1
-          if (y == null) return -1
-          const v = x < y ? -1 : 1
-          return auf ? v : -v
+          if (x == null && y == null) continue
+          if (x == null) return nullenZuerst ? -1 : 1
+          if (y == null) return nullenZuerst ? 1 : -1
+          const c = vergleich(x, y)
+          if (c === 0) continue
+          return auf ? c : -c
         }
         return 0
       })
@@ -157,22 +282,24 @@ export function datenbank(tabellen, { vorher = () => null, rls = () => true, rpc
         return Promise.resolve({ data: null, error: eingriff.error, count: null })
       }
       const zeilen = tabellen[tabelle] ?? (tabellen[tabelle] = [])
+      const rueckgabe = z => (eintrag.mitSelect ? projiziere(kopie(z), selectListe(eintrag.rueckSpalten)) : null)
       if (eintrag.art === 'insert') {
         const neu = eintrag.werte.map(z => ({ id: `neu-${++zaehler}`, ...kopie(z) }))
         zeilen.push(...neu)
         eintrag.getroffen = neu.map(r => r.id)
-        return Promise.resolve({ data: eintrag.mitSelect ? kopie(neu) : null, error: null })
+        return Promise.resolve({ data: rueckgabe(neu), error: null })
       }
-      let treffer = sortieren(zeilen.filter(passt))
+      const plan = planen()
+      let treffer = sortieren(zeilen.filter(passtMit(plan)))
       if (eintrag.art === 'update') {
         for (const r of treffer) Object.assign(r, kopie(eintrag.werte))
         eintrag.getroffen = treffer.map(r => r.id)
-        return Promise.resolve({ data: eintrag.mitSelect ? kopie(treffer) : null, error: null })
+        return Promise.resolve({ data: rueckgabe(treffer), error: null })
       }
       if (eintrag.art === 'delete') {
         tabellen[tabelle] = zeilen.filter(r => !treffer.includes(r))
         eintrag.getroffen = treffer.map(r => r.id)
-        return Promise.resolve({ data: eintrag.mitSelect ? kopie(treffer) : null, error: null })
+        return Promise.resolve({ data: rueckgabe(treffer), error: null })
       }
       const anzahl = treffer.length
       if (bereich) treffer = treffer.slice(bereich[0], bereich[1] + 1)
@@ -180,36 +307,41 @@ export function datenbank(tabellen, { vorher = () => null, rls = () => true, rpc
       eintrag.getroffen = treffer.map(r => r.id)
       const count = eintrag.optionen?.count ? anzahl : null
       if (eintrag.optionen?.head) return Promise.resolve({ data: null, count, error: null })
-      return Promise.resolve({ data: kopie(treffer), count, error: null })
+      return Promise.resolve({ data: projiziere(einbettungenFiltern(kopie(treffer), plan.einbettBed), plan.liste), count, error: null })
     }
 
     const q = {
       select(spalten, optionen) {
-        if (eintrag.art === 'select') { eintrag.spalten = spalten ?? '*'; eintrag.optionen = optionen ?? null } else eintrag.mitSelect = true
+        if (eintrag.art === 'select') { eintrag.spalten = spalten ?? '*'; eintrag.optionen = optionen ?? null } else { eintrag.mitSelect = true; eintrag.rueckSpalten = spalten ?? '*' }
         return q
       },
       update(werte) { eintrag.art = 'update'; eintrag.werte = werte; return q },
       delete() { eintrag.art = 'delete'; return q },
       insert(z) { eintrag.art = 'insert'; eintrag.werte = Array.isArray(z) ? z : [z]; return q },
-      eq(k, v) { eintrag.filter.push(['eq', k, v]); bedingungen.push(r => gleich(feld(r, k), v)); return q },
-      neq(k, v) { eintrag.filter.push(['neq', k, v]); bedingungen.push(r => !gleich(feld(r, k), v)); return q },
-      in(k, v) { eintrag.filter.push(['in', k, v]); bedingungen.push(r => v.some(x => gleich(feld(r, k), x))); return q },
-      is(k, v) { eintrag.filter.push(['is', k, v]); bedingungen.push(r => (feld(r, k) ?? null) === v); return q },
+      eq(k, v) { eintrag.filter.push(['eq', k, v]); bedingungen.push({ k, pruefe: w => gleich(w, v) }); return q },
+      neq(k, v) { eintrag.filter.push(['neq', k, v]); bedingungen.push({ k, pruefe: w => !gleich(w, v) }); return q },
+      in(k, v) { eintrag.filter.push(['in', k, v]); bedingungen.push({ k, pruefe: w => v.some(x => gleich(w, x)) }); return q },
+      is(k, v) { eintrag.filter.push(['is', k, v]); bedingungen.push({ k, pruefe: w => (w ?? null) === v }); return q },
       not(k, op, v) {
         eintrag.filter.push(['not', k, op, v])
         if (op !== 'is') throw new Error(`Attrappe: not-Operator ${op} nicht nachgebildet`)
-        bedingungen.push(r => (feld(r, k) ?? null) !== v)
+        bedingungen.push({ k, pruefe: w => (w ?? null) !== v })
         return q
       },
-      gte(k, v) { eintrag.filter.push(['gte', k, v]); bedingungen.push(r => { const c = vergleich(feld(r, k), v); return c !== null && c >= 0 }); return q },
-      lte(k, v) { eintrag.filter.push(['lte', k, v]); bedingungen.push(r => { const c = vergleich(feld(r, k), v); return c !== null && c <= 0 }); return q },
-      or(ausdruck) { eintrag.filter.push(['or', ausdruck]); bedingungen.push(orBedingung(ausdruck)); return q },
+      gte(k, v) { eintrag.filter.push(['gte', k, v]); bedingungen.push({ k, pruefe: w => { const c = vergleich(w, v); return c !== null && c >= 0 } }); return q },
+      lte(k, v) { eintrag.filter.push(['lte', k, v]); bedingungen.push({ k, pruefe: w => { const c = vergleich(w, v); return c !== null && c <= 0 } }); return q },
+      or(ausdruck) { eintrag.filter.push(['or', ausdruck]); bedingungen.push({ k: null, pruefe: orBedingung(ausdruck) }); return q },
       contains(k, v) {
         eintrag.filter.push(['contains', k, v])
-        bedingungen.push(r => Array.isArray(feld(r, k)) && v.every(x => feld(r, k).includes(x)))
+        bedingungen.push({ k, pruefe: w => Array.isArray(w) && v.every(x => w.includes(x)) })
         return q
       },
-      order(k, opt) { ordnung.push([k, opt?.ascending !== false]); return q },
+      order(k, opt) {
+        if (opt?.referencedTable || opt?.foreignTable) throw new Error('Attrappe: order auf eingebettete Tabelle nicht nachgebildet')
+        const auf = opt?.ascending !== false
+        ordnung.push([k, auf, opt?.nullsFirst ?? !auf])
+        return q
+      },
       limit(n) { grenze = n; return q },
       range(a, b) { bereich = [a, b]; return q },
       maybeSingle() {

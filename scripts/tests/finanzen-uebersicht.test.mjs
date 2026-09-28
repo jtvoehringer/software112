@@ -215,13 +215,22 @@ describe('ladeFinanzen – Finanzübersicht', nurMitHooks, () => {
     assert.deepEqual(r.monatsabschluss, { letzter: '2026-06', offeneMonate: 2 })
   })
 
-  test('abgelaufenes Jahr: Stichtag 31.12., 12 Monate, UVA-Periode Nov bzw. Q3', async () => {
+  test('abgelaufenes Jahr: Stichtag 31.12., Jahreswerte, Monatsabschluss zählt alle 12 Monate', async () => {
     const { r } = await lade({ jahr: 2025 })
     assert.equal(r.stichtag, '2025-12-31')
     assert.deepEqual(r.ytd, { einnahmen: 800, ausgaben: 700, ergebnis: 100, einnahmenVj: 7, ausgabenVj: 0, ergebnisVj: 7 })
-    assert.deepEqual(r.monatsabschluss, { letzter: '2026-06', offeneMonate: 11 })
-    assert.deepEqual(r.uva, { label: 'Nov 2025', status: 'fehlt', zahllast: null, faelligAm: '2026-01-15' })
+    assert.deepEqual(r.monatsabschluss, { letzter: '2026-06', offeneMonate: 11 }) // 12 abgelaufen, Dez 2025 abgeschlossen
     assert.equal(Math.round(r.umsatz.ytd * 100) / 100, 100)
+  })
+
+  // Befund: uebersicht.ts ruft letzteUvaPeriode(…, new Date(jahr, 11, 31)) auf – das liefert die
+  // Periode VOR Dezember bzw. vor Q4. Der Monatsabschluss im selben Aufruf zählt dagegen alle
+  // 12 Monate als abgelaufen. Dez bzw. Q4 2025 (fällig 15.02.2026) zeigt nur die Jahresansicht 2026
+  // (monatlich im Jänner, quartalsweise Jänner bis März).
+  test('Befund: abgelaufenes Jahr zeigt als letzte UVA Nov bzw. Q3 statt Dez bzw. Q4 (Monatsabschluss zählt dagegen 12 Monate)', async () => {
+    const { r } = await lade({ jahr: 2025 })
+    assert.deepEqual(r.uva, { label: 'Nov 2025', status: 'fehlt', zahllast: null, faelligAm: '2026-01-15' })
+    assert.equal(r.monatsabschluss.offeneMonate, 11, 'Monatsabschluss: 12 abgelaufene Monate, nur Dez abgeschlossen')
     const q = await lade({ jahr: 2025, uvaZeitraum: 'quartalsweise' })
     assert.equal(q.r.uva.label, 'Q3 2025')
     assert.equal(q.r.uva.faelligAm, '2025-11-15')

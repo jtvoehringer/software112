@@ -9,11 +9,11 @@ Regeln für jede Änderung stehen in der `CLAUDE.md`, Abschnitt „Stabilität (
 |---|---|---|
 | Build | `next build` auf Vercel, inkl. prebuild-Wächter und vollständiger Typprüfung | 🟢 |
 | Typprüfung | `npm run typecheck` (`tsc --noEmit` über das ganze Programm): 0 Fehler | 🟢 |
-| Unit-Tests | 967 Tests in 184 Suiten (31 Testdateien, `node:test`), alle grün, ca. 12 s | 🟢 |
+| Unit-Tests | 976 Tests in 185 Suiten (32 Testdateien, `node:test`), alle grün, ca. 12 s | 🟢 |
 | Projekt-Wächter | 8 Wächter (Mandantentrennung, 2FA, Seitenbetrieb, Schreibsperre, Schema, Barrierefreiheit, Behörden-CSV, Replica): 0 Funde | 🟢 |
 | CI | Job „check“ = `npm run verify` bei jedem PR und Push; `main` per Ruleset geschützt (Merge nur mit grünem „check“) | 🟢 |
 | Abhängigkeiten | `npm audit`: 0 Schwachstellen (CI-Job „abhaengigkeiten“, ab Stufe hoch blockierend) | 🟢 |
-| Coverage | gemessen, aber nur 100 von 604 `src`-Dateien werden von Tests geladen; kein Gate | 🟡 |
+| Coverage | gemessen, aber nur 98 von 604 `src`-Dateien werden von Tests geladen; kein Gate | 🟡 |
 | Datenbank (RLS, Trigger, RPCs) | nur einmalige, zurückgerollte Tests bei Migrationen, nichts Wiederholbares | 🔴 |
 | Server Actions | 43 Dateien mit `'use server'`, davon 3 mit Tests | 🔴 |
 | Lint | ESLint läuft nicht, die Konfiguration fehlt (KAN-140) | 🔴 |
@@ -28,21 +28,24 @@ Wächter:      8/8 grün, 0 Funde
 npm audit:    0 Schwachstellen
 Coverage (npm run test:coverage, nur von Tests geladene Dateien):
               94,7 % Zeilen / 83,1 % Branches / 91,4 % Funktionen
-Abdeckung:    90 von 604 Dateien unter src/ geladen; src/lib: 82 von 162 Dateien
+Abdeckung:    89 von 604 Dateien unter src/ geladen; src/lib: 82 von 162 Dateien
+              (ursprünglich als 90 angegeben – die Summenzeile „all files“ war mitgezählt)
 ```
 
 **Stand 28.09.2026 nach den Charakterisierungstests der Buchungslogik (Stufe 3, Punkt 2):**
 
 ```
-Unit-Tests:   967 Tests, 184 Suiten, 31 Dateien – alle grün, ca. 12 s
-Coverage:     93,7 % Zeilen / 83,7 % Branches / 91,2 % Funktionen
+Unit-Tests:   976 Tests, 185 Suiten, 32 Dateien – alle grün, ca. 12 s
+Coverage:     93,7 % Zeilen / 83,6 % Branches / 91,2 % Funktionen
               (Zeilen leicht gesunken: dashboard/_shared/data.ts wird jetzt mitgeladen, aber nur zu 23 % genutzt)
-Abdeckung:    100 von 604 Dateien unter src/ geladen; src/lib: 89 von 162 Dateien
+Abdeckung:    98 von 604 Dateien unter src/ geladen; src/lib: 89 von 162 Dateien
+              (+9: verkauf/bestand, kellerbuch/storno, folgebuchungen, hinweise, finanzen/uebersicht,
+              ea/betriebsbeginn, aufgaben/mitglieder, dashboard/_shared/data und types)
 ```
 
-**Ab jetzt gilt:** Die Testzahl darf nicht sinken. Typprüfung und Wächter bleiben bei 0 Fehlern. Die Coverage-Werte der geladenen Dateien sollen nicht spürbar fallen. Ein hartes Coverage-Gate gibt es bewusst noch nicht: Solange 514 Dateien gar nicht geladen werden, sagt die Prozentzahl wenig aus.
+**Ab jetzt gilt:** Die Testzahl darf nicht sinken. Typprüfung und Wächter bleiben bei 0 Fehlern. Die Coverage-Werte der geladenen Dateien sollen nicht spürbar fallen. Ein hartes Coverage-Gate gibt es bewusst noch nicht: Solange 506 Dateien gar nicht geladen werden, sagt die Prozentzahl wenig aus.
 
-Neu messen: `npm run test:coverage`. Die Tabelle am Ende der Ausgabe listet je Datei Zeilen, Branches und Funktionen; Dateien, die kein Test lädt, fehlen darin.
+Neu messen: `npm run test:coverage`. Die Tabelle am Ende der Ausgabe listet je Datei Zeilen, Branches und Funktionen; Dateien, die kein Test lädt, fehlen darin. Gezählt werden die Dateizeilen der Tabelle, ohne die Summenzeile „all files“.
 
 ### Coverage je Bereich (`src/lib`)
 
@@ -67,7 +70,7 @@ Neu messen: `npm run test:coverage`. Die Tabelle am Ende der Ausgabe listet je D
 1. **Datenbank-Logik ohne wiederholbare Tests** (RLS-Policies, Löschsperren, Schreibsperre, Periodensperre, Trigger wie `bestandsprotokoll`, RPCs wie `fuellung_bestand_buchen`, `schwund_buchen`, `berechne_ea_uva`). Das ist der Kern der Mandantentrennung und der Behördenzahlen. Heute gibt es nur einmalige DO-Block-Tests bei Migrationen.
    **Vorschlag (Stufe 3):** eine SQL-Testsuite gegen Staging. Jede Datei ist ein DO-Block mit `RAISE EXCEPTION` am Ende, läuft per `npx supabase db query --project-ref sjpeghrlhsowmquacjhb` und zählt „OK“-Meldungen. Zuerst für die Rollen × Tabellen der Mandantentrennung, die Schreibsperre und die E&A-Sperren.
 2. **Buchungslogik – Rest nach den Charakterisierungstests vom 28.09.2026.**
-   `verkauf/bestand.ts`, `kellerbuch/storno.ts`, `kellerbuch/folgebuchungen.ts` und `finanzen/uebersicht.ts` sind jetzt durch Charakterisierungstests abgedeckt: `scripts/tests/verkauf-bestand`, `kellerbuch-storno`, `kellerbuch-folgebuchungen` und `finanzen-uebersicht.test.mjs`, gemeinsame Supabase-Attrappe in `scripts/tests/buchung-attrappe.mjs`. Sie halten das heutige Verhalten fest, auch die als „Befund“ markierten Auffälligkeiten – wer eines davon bewusst ändert, passt den Test mit an.
+   `verkauf/bestand.ts`, `kellerbuch/storno.ts`, `kellerbuch/folgebuchungen.ts` und `finanzen/uebersicht.ts` sind jetzt durch Charakterisierungstests abgedeckt: `scripts/tests/verkauf-bestand`, `kellerbuch-storno`, `kellerbuch-folgebuchungen` und `finanzen-uebersicht.test.mjs`, gemeinsame Supabase-Attrappe in `scripts/tests/buchung-attrappe.mjs` (wertet Filter, select-Liste samt Einbettungen/`!inner` und Sortierung wie PostgREST aus, Selbsttest in `buchung-attrappe.test.mjs`; was sie nicht nachbildet – Schema, Trigger, Kaskaden, echte RLS –, steht im Kopfkommentar). Sie halten das heutige Verhalten fest, auch die als „Befund“ markierten Auffälligkeiten – wer eines davon bewusst ändert, passt den Test mit an.
    Offen bleiben:
    - die Server Actions, die diese Bausteine aufrufen (`weinhandel/verkauf/actions.ts` createVerkauf/stornoVerkauf, `weinhandel/traubenverkauf/actions.ts`, `kellerbuch/gebinde-actions.ts`, `kellerbuch/actions.ts`), siehe Lücke 4
    - die DB-Seite (Trigger `bestandsprotokoll`, RPCs `fuellung_bestand_buchen`, `schwund_buchen`), siehe Lücke 1
@@ -78,8 +81,12 @@ Neu messen: `npm run test:coverage`. Die Tabelle am Ende der Ausgabe listet je D
    - Finanzübersicht: UVA-Fälligkeit über `toISOString` – bei Server-Zeitzone östlich von UTC ein Tag zu früh
    - Finanzübersicht: Datenbankfehler werden verschluckt, es erscheint 0
    - Finanzübersicht: Forderungen nur aus Rechnungen ab 1.1. des Vorjahres
+   - Finanzübersicht, abgelaufenes Jahr: als letzte UVA erscheint Nov bzw. Q3 statt Dez bzw. Q4, der Monatsabschluss im selben Aufruf zählt dagegen 12 Monate
+   - Finanzübersicht, Doppik-Übergabe: offene Rechnungen und Belege werden über beide Jahre gezählt (ab 1.1. des Vorjahres), auch nach dem Stichtag
    - Verschnitt-Storno: ohne Snapshot (Ziel vorher ohne Qualitätsstufe) bleibt die Verschnitt-Qualität am Ziel; ohne Quellmengen wird nur gelöscht
    - Umzug-/Verschnitt-Storno: spätere Bewegungen an Quell-Chargen sperren nicht
+   - Umzug-Storno: bis 0,01 L Fehlmenge am Ziel wird still auf 0 gekappt (Toleranz)
+   - Verkaufsstorno: eine gesperrte E&A-Einnahme (übermittelte UVA) bleibt ohne Meldung stehen – E&A bzw. UVA sind danach zu hoch, die Gegenbuchung ist offen (KAN-149)
    - Verkaufsstorno: CRM-Betreff ohne Rechnungsnummer mit doppeltem Leerzeichen
    - Verkauf: Zugang unter 0,005 L auf eine leere Charge wird als 0 L gespeichert
 

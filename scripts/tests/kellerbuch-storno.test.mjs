@@ -270,7 +270,22 @@ describe('planeUmzugStorno – Umzug', nurMitHooks, () => {
     ])
     assert.deepEqual(schreibzugriffe(db), [], 'Planen schreibt nichts')
     assert.deepEqual(ohneMandant(db, T, OHNE_VERSCHNITT), [])
-    assert.equal(db.aufrufe.filter(a => a.tabelle === 'keller_umzuege').length, 1, 'nur das Ziel wird auf spätere Bewegungen geprüft')
+    assert.equal(db.aufrufe.filter(a => a.tabelle === 'keller_umzuege').length, 1,
+      'Befund: nur das Ziel wird auf spätere Bewegungen geprüft, die Quelle nicht (eigener Test unten)')
+  })
+
+  test('Befund: spätere Bewegungen an der QUELL-Charge sperren nicht – sie bekommt ihre Liter trotzdem zurück', async () => {
+    const t = umzugTabellen()
+    t.fuellungen = [{ id: 'fq', tenant_id: T, weinausbau_id: A, aktiv: true, erstellt_am: SPAETER }]
+    const db = datenbank(t)
+    const plan = await s.planeUmzugStorno(db, T, t.keller_umzuege)
+    assert.equal(plan.sperre, null)
+    assert.equal(plan.aenderungen.find(a => a.id === A).neu, 1000)
+    const fuell = db.aufrufe.filter(a => a.tabelle === 'fuellungen')
+    assert.deepEqual(fuell.map(a => a.filter.find(f => f[1] === 'weinausbau_id')?.[2]), [B], 'nur die Ziel-Charge wird abgefragt')
+    // Gegenprobe: dieselbe Füllung am Ziel sperrt
+    t.fuellungen[0].weinausbau_id = B
+    assert.match((await s.planeUmzugStorno(datenbank(t), T, t.keller_umzuege)).sperre.grund, /weiterbewegt wurde \(1 Füllung\)/)
   })
 
   test('Quelle ohne brutto_liter: menge_liter zählt; abgeschlossene Quelle wird reaktiviert', async () => {
