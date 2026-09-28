@@ -68,6 +68,7 @@
   - Dasselbe Gate läuft in der CI (`.github/workflows/tenant-isolation-check.yml`, Job „check“) bei jedem PR und Push auf main; bei rotem „check“ wird nicht gemergt.
   - Neues oder geändertes Verhalten → Test; Bugfix → Regressionstest, der ohne den Fix rot wäre. Tests nie abschwächen, um grün zu werden; kein `test.only`/`test.skip` einchecken.
   - Testzahl vor und nach der Änderung vergleichen – sie darf nicht ungewollt sinken.
+  - Ausgangswerte, Coverage je Bereich, Lücken nach Risiko und manuelle Testszenarien stehen in `STABILITAET.md`; Coverage messen mit `npm run test:coverage`. Beim Schließen einer Lücke dort nachziehen.
 
 ## Aktuelle Nutzer
 
