@@ -13,7 +13,8 @@ on:
 jobs:
   check:
     # Seit 28.09.2026 das volle Gate `npm run verify` statt nur fünf Wächtern: Typprüfung des ganzen
-    # Programms, ESLint (nur Errors blockieren, seit KAN-140), alle Unit-Tests (scripts/tests/*.test.mjs)
+    # Programms, ESLint (seit KAN-140; Errors und Warnings über dem Ausgangswert je Regel in
+    # scripts/eslint-baseline.json blockieren), alle Unit-Tests (scripts/tests/*.test.mjs)
     # und alle acht prebuild-Wächter.
     # Node 24, weil test:csv TypeScript per --experimental-strip-types lädt (ab Node 22).
     runs-on: ubuntu-latest

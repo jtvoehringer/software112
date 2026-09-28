@@ -16,7 +16,7 @@ Regeln für jede Änderung stehen in der `CLAUDE.md`, Abschnitt „Stabilität (
 | Coverage | gemessen, aber nur 90 von 604 `src`-Dateien werden von Tests geladen; kein Gate | 🟡 |
 | Datenbank (RLS, Trigger, RPCs) | nur einmalige, zurückgerollte Tests bei Migrationen, nichts Wiederholbares | 🔴 |
 | Server Actions | 43 Dateien mit `'use server'`, davon 3 mit Tests | 🔴 |
-| Lint | `npm run lint` (ESLint 9, Flat Config `eslint.config.mjs`, eslint-config-next 16 core-web-vitals + typescript), Teil von `verify`: 0 Errors, 1.105 Warnings (Altbestand, blockieren nicht) | 🟡 |
+| Lint | ESLint 9 (Flat Config `eslint.config.mjs`, eslint-config-next 16 core-web-vitals + typescript), in `verify` als `npm run lint:verify`: 0 Errors, 1.105 Warnings (Altbestand; je Regel durch `scripts/eslint-baseline.json` gedeckelt) | 🟡 |
 | E2E | Playwright-Grundgerüst gegen Staging (PR #55), in der CI noch übersprungen | 🟡 |
 
 ## Ausgangswerte (Baseline 28.09.2026, main 808fe6c)
@@ -38,7 +38,9 @@ Neu messen: `npm run test:coverage`. Die Tabelle am Ende der Ausgabe listet je D
 
 ### Lint-Warnings je Regel (Ausgangswert KAN-140, 28.09.2026)
 
-`npm run lint` = `eslint .`, lokal ca. 2 min. Nur Errors blockieren (`verify`, CI), `--max-warnings` ist bewusst nicht gesetzt. Die Zahlen sollen nur sinken; neue Warnings möglichst vermeiden. Erster Lauf mit der reinen Next-Konfiguration: 1.028 Errors, 110 Warnings.
+`npm run lint` = `eslint .` zeigt alle Befunde einzeln (lokal ca. 1–2 min, rund 2.400 Zeilen Ausgabe). `verify` und CI rufen stattdessen `npm run lint:verify` auf (`scripts/lint-zusammenfassung.mjs`): Errors vollständig, Warnings nur als Zählung je Regel (aktuell / Ausgangswert). Rot wird der Lauf bei einem Error oder wenn eine Regel mehr Warnings hat als in `scripts/eslint-baseline.json` (Regel ohne Eintrag = 0); dann zeigt das Skript die Stellen auf geänderten Zeilen (gegenüber dem Abzweig von `origin/main`, neue Dateien ganz). Die Zahlen sollen nur sinken: nach einem Abbau `npm run lint:baseline` ausführen (schreibt nur, wenn keine Regel steigt) und die JSON-Datei mit committen; Erhöhen nur von Hand mit Begründung im PR. Cache unter `node_modules/.cache/eslint/` (je Arbeitsverzeichnis eine Datei, `npm ci` leert ihn): erster Lauf ca. 1 min, danach rund 10 s. Erster Lauf mit der reinen Next-Konfiguration: 1.028 Errors, 110 Warnings.
+
+Worktrees mit Junction auf die `node_modules` des Haupt-Checkouts: Nach dem Merge einer Änderung an `package-lock.json` dort `npm ci` ausführen – mit den alten Paketen (eslint-config-next 15 ohne `exports`) bricht `npm run lint` ab; `eslint.config.mjs` meldet das ausdrücklich. Paketänderung KAN-140: nur Dev-Abhängigkeiten, bis auf `zod` 4.6.5 – es kommt als `devOptional` (gebraucht von eslint-plugin-react-hooks 7, optionaler Peer von `@anthropic-ai/sdk`) und wird damit auch bei `npm ci --omit=dev` installiert. Im App-Code nicht darauf verlassen: wer zod braucht, trägt es ausdrücklich in `dependencies` ein.
 
 | Regel | Warnings | Anmerkung |
 |---|---|---|
@@ -99,7 +101,7 @@ Abgeschaltet sind nur `@typescript-eslint/no-require-imports` für die CommonJS-
    - `lib/fehler.ts` (33 %), `supabase/alle.ts` (43 %), `wein/blendKomposition.ts` (49 %), `wein/weinbuch.ts` (53 %), `pakete.ts` (56 %)
    - `assistent/tools/massnahme.ts` (61 %), `behandlungen/lager/actions.ts` (63 %), `buchhaltung/anlagen/actions.ts` (65 %)
    - `behoerden/keller-auswertungen.ts` (68 %), `behoerden/bewegungsbuch.ts` (68 %), `behoerden/weinbuch.ts` (69 %)
-6. ~~**Lint:** ESLint 9 einrichten (KAN-140).~~ Erledigt 28.09.2026: `npm run lint` in `verify` und CI, 0 Errors, Warnings je Regel siehe oben. Offen bleibt der Abbau der Warnings, zuerst die React-Compiler-Regeln und die ungenutzten Werte.
+6. ~~**Lint:** ESLint 9 einrichten (KAN-140).~~ Erledigt 28.09.2026: Lint in `verify` und CI (`npm run lint:verify`), 0 Errors, Warnings je Regel siehe oben und gedeckelt durch `scripts/eslint-baseline.json`. Offen bleibt der Abbau der Warnings, zuerst die React-Compiler-Regeln und die ungenutzten Werte.
 7. **E2E:** Playwright gegen Staging in die CI holen, sobald die Staging-Zugänge als GitHub-Secrets hinterlegt sind.
 
 ## Was automatische Tests nicht abdecken – manuelle Szenarien vor Releases

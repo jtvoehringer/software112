@@ -1,10 +1,29 @@
 // ESLint 9 Flat Config (KAN-140) – ersetzt `next lint` (in Next.js 16 entfernt).
-// Basis: eslint-config-next 16 (core-web-vitals + typescript). `npm run lint` = `eslint .`,
-// Teil von `npm run verify` (CI-Job „check“). Nur Errors blockieren, Warnings sind Altbestand
-// (Ausgangswerte je Regel in STABILITAET.md) und sollen nur sinken.
+// Basis: eslint-config-next 16 (core-web-vitals + typescript). `npm run lint` = `eslint .` (alle
+// Befunde einzeln); `npm run verify` (CI-Job „check“) ruft `npm run lint:verify` auf
+// (scripts/lint-zusammenfassung.mjs): Errors blockieren, Warnings sind Altbestand und dürfen je Regel
+// nicht über den Ausgangswert in scripts/eslint-baseline.json steigen.
 import { defineConfig, globalIgnores } from 'eslint/config'
-import nextVitals from 'eslint-config-next/core-web-vitals'
-import nextTs from 'eslint-config-next/typescript'
+
+// eslint-config-next < 16 (ohne `exports`-Map) kennt die Unterpfade nicht – typisch bei veralteten
+// node_modules, etwa über die Junction eines Worktrees auf den Haupt-Checkout. Klare Meldung statt
+// ERR_MODULE_NOT_FOUND.
+async function nextKonfiguration(unterpfad) {
+  try {
+    return (await import(`eslint-config-next/${unterpfad}`)).default
+  } catch (fehler) {
+    throw new Error(
+      `eslint-config-next/${unterpfad} ist nicht ladbar – vermutlich veraltete node_modules ` +
+        '(nötig: eslint-config-next 16 laut package.json). Im Checkout, dessen node_modules benutzt ' +
+        'werden (bei einer Junction: im Haupt-Checkout), `npm ci` ausführen. ' +
+        `Ursache: ${fehler?.message ?? fehler}`,
+      { cause: fehler },
+    )
+  }
+}
+
+const nextVitals = await nextKonfiguration('core-web-vitals')
+const nextTs = await nextKonfiguration('typescript')
 
 export default defineConfig([
   ...nextVitals,
@@ -47,8 +66,8 @@ export default defineConfig([
 
   {
     rules: {
-      // Altbefunde in großer Zahl (Ausgangswerte in STABILITAET.md) – als Warnung sichtbar,
-      // blockieren aber nicht. Neue Befunde trotzdem vermeiden, die Zahl soll nur sinken.
+      // Altbefunde in großer Zahl – als Warnung sichtbar. `verify` lässt die Zahl je Regel nicht über
+      // den Ausgangswert steigen (scripts/eslint-baseline.json), sie soll nur sinken.
       '@typescript-eslint/no-explicit-any': 'warn', // Projektkonvention `(supabase.from(…) as any)`
       '@typescript-eslint/no-unused-vars': [
         'warn',
