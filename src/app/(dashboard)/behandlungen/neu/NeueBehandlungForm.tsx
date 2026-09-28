@@ -12,14 +12,16 @@ import { mengeInEinheit, type MittelmengeErgebnis } from '@/lib/behoerden/psm'
 import { pruefeMassnahmeMengen } from '@/lib/behandlungen/massnahmeMengen'
 import { LAUBARBEIT_OPTIONEN, LAUBSCHNEIDEN_HINWEIS, MASSNAHMEN_ART_LABEL, type MassnahmenArt } from '@/lib/behandlungen/arten'
 import {
-  aufwandEinheitText, duengerEinheitWechsel, duengermengeEinheit, mengenFelder, mengenInFormData, mengenSicht,
-  mengenTexte,
+  aufwandEinheitText, duengerEinheitWechsel, duengermengeEinheit, eingabeFolge, mengenFelder, mengenInFormData, mengenSicht,
+  mengenTexte, type MengenGroesse,
 } from './mengenFelder'
 import {
   BBCH_OPTIONS, FELD_MATRIX, EINARBEITUNG_GESENDET, SCHADERREGER_OPTIONEN, WITTERUNG_OPTIONEN, einarbeitungSichtbar,
   schaderregerFeld,
 } from './feldMatrix'
-import { RIED_AUSWAHL_FEHLT, absendenHindernis, auswahlKopf, erfassenKnopfText } from './absenden'
+import {
+  RIED_AUSWAHL_FEHLT, absendenHindernis, alleAuswahlModus, auswahlKopf, erfassenKnopfText, riedGruppen,
+} from './absenden'
 import { ART_OPTIONS } from './artOptionen'
 import MengenZusammenfassung from './MengenZusammenfassung'
 
@@ -88,8 +90,9 @@ export default function NeueBehandlungForm({
   const [aufwandmenge, setAufwandmenge] = useState<string>('')
   const [aufwandmengeEinheit, setAufwandmengeEinheit] = useState('kg_ha')
   const [konzentration, setKonzentration] = useState<string>('')
-  // Analog zu mengeQuelle, für Aufwandmenge/Konzentration (Punkt 2)
-  const [aufwandQuelle, setAufwandQuelle] = useState<'aufwand' | 'konzentration' | null>(null)
+  // Reihenfolge der Eingaben in Aufwandmenge, Konzentration und Spritzbrühe/Wasseraufwand – je zwei bestimmen
+  // die dritte (KAN-155, eingabeFolge/berechneteGroesse in mengenFelder.ts)
+  const [folge, setFolge] = useState<MengenGroesse[]>([])
   const [error, setError] = useState<string | null>(null)
 
   // Kosten-Vorschlagsfunktion
@@ -120,7 +123,7 @@ export default function NeueBehandlungForm({
     // Sperr-Zustände der verknüpften Felder zurücksetzen, da sich je nach Art
     // sichtbare Felder ändern (Feld-Matrix)
     setMengeQuelle(null)
-    setAufwandQuelle(null)
+    setFolge([])
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [art])
 
@@ -178,14 +181,15 @@ export default function NeueBehandlungForm({
   }, [bioSprung])
 
   // ─── Punkt 1 + 2: Spritzbrühe gesamt ↔ Wasseraufwand (l/ha), Aufwandmenge ↔ Konzentration (%) ──
-  // Je nachdem, welches Feld zuletzt befüllt wurde (mengeQuelle bzw. aufwandQuelle), wird das jeweils
-  // andere daraus berechnet und gesperrt – Grundlage ist die ausgewählte Fläche. Die Spritzbrühe ist immer
-  // in Litern, die Mittelmenge kommt nur aus der Aufwandmenge (KAN-133); Rechnung und Prüfung wie in der
-  // Server Action (mengenFelder → pruefeMassnahmeMengen).
+  // Spritzbrühe gesamt ↔ Wasseraufwand: das zuletzt befüllte Feld treibt das andere (mengeQuelle, über die
+  // ausgewählte Fläche). Aufwandmenge, Konzentration und Wasseraufwand: je zwei bestimmen die dritte, berechnet
+  // wird die nicht unter den zwei zuletzt eingegebenen (folge, KAN-155); berechnete Felder sind gesperrt. Die
+  // Spritzbrühe ist immer in Litern, die Mittelmenge kommt nur aus der Aufwandmenge (KAN-133); Rechnung und
+  // Prüfung wie in der Server Action (mengenFelder → pruefeMassnahmeMengen).
   const m = mengenFelder({
     art, felder,
     mengeGesamt, wasseraufwand, mengeQuelle,
-    aufwandmenge, aufwandmengeEinheit, konzentration, aufwandQuelle,
+    aufwandmenge, aufwandmengeEinheit, konzentration, folge,
     flaecheHa: totalHaAktiv,
     psmId: selectedPsmId || null,
     psm: selectedPsm
@@ -195,10 +199,10 @@ export default function NeueBehandlungForm({
     duengemittelEinheit: selectedDuengemittel?.einheit ?? null,
     formular: 'neu',
   })
-  const wasserGesperrt = m.wasserBerechnet !== null
-  const mengeGesamtGesperrt = m.mengeGesamtBerechnet !== null
-  const konzentrationGesperrt = m.konzentrationBerechnet !== null
-  const aufwandmengeGesperrt = m.aufwandmengeBerechnet !== null
+  const wasserGesperrt = m.gesperrt.wasser
+  const mengeGesamtGesperrt = m.gesperrt.mengeGesamt
+  const konzentrationGesperrt = m.gesperrt.konzentration
+  const aufwandmengeGesperrt = m.gesperrt.aufwandmenge
   const mengenTexteAktiv = mengenTexte(art, m.pruefung, m.ha)
   const mengenSichtbar = (art === 'spritzung' || art === 'duengung' || felder.aufwandmenge !== 'hidden')
     && [aufwandmenge, mengeGesamt, wasseraufwand, konzentration].some(s => s.trim() !== '')
@@ -246,15 +250,11 @@ export default function NeueBehandlungForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kostenAktiv, art])
 
-  // Weingärten nach Ried gruppieren
-  const lagenMap = new Map<string, WeingartenOption[]>()
-  for (const w of weingaerten) {
-    const key = w.lage_name ?? 'Alle Rieden'
-    const arr = lagenMap.get(key) ?? []
-    arr.push(w)
-    lagenMap.set(key, arr)
-  }
-  const lagen = Array.from(lagenMap.entries()).sort(([a], [b]) => a.localeCompare(b, 'de'))
+  // Weingärten nach Ried gruppieren – Rieden alphabetisch, „Ohne Ried-Zuordnung“ zuletzt (KAN-155)
+  const lagen = riedGruppen(weingaerten)
+  // „Alle auswählen“ bzw. „Alle abwählen“, sobald alle spritzbaren ausgewählt sind (KAN-155)
+  const spritzbareIds = weingaerten.filter(w => w.spritzbar).map(w => w.id)
+  const alleModus = alleAuswahlModus(spritzbareIds, selectedWGs)
 
   function toggleExpand(wgId: string) {
     setExpandedWGs(prev => { const n = new Set(prev); n.has(wgId) ? n.delete(wgId) : n.add(wgId); return n })
@@ -307,7 +307,7 @@ export default function NeueBehandlungForm({
 
   function selectAll() {
     setSelectedGSTs(new Map())
-    setSelectedWGs(new Set(weingaerten.filter(w => w.spritzbar).map(w => w.id)))
+    setSelectedWGs(alleModus === 'abwaehlen' ? new Set() : new Set(spritzbareIds))
   }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -510,8 +510,11 @@ export default function NeueBehandlungForm({
                       required={felder.aufwandmenge === 'pflicht' && !aufwandmengeGesperrt}
                       value={m.aufwandmengeBerechnet !== null ? fmtNum(m.aufwandmengeBerechnet, { max: 3 }) : aufwandmenge}
                       disabled={aufwandmengeGesperrt}
-                      onChange={e => { setAufwandmenge(e.target.value); setAufwandQuelle(e.target.value.trim() === '' ? null : 'aufwand') }}
+                      onChange={e => { const v = e.target.value; setAufwandmenge(v); setFolge(f => eingabeFolge(f, 'aufwand', v)) }}
                       className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-s112-text-2" />
+                    {m.berechnetHinweis.aufwandmenge && (
+                      <p className="text-xs text-s112-muted mt-1">{m.berechnetHinweis.aufwandmenge}</p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-s112-text-1 mb-1">Einheit</label>
@@ -530,10 +533,10 @@ export default function NeueBehandlungForm({
                     placeholder="z.B. 0,5"
                     value={m.konzentrationBerechnet !== null ? fmtNum(m.konzentrationBerechnet, { max: 3 }) : konzentration}
                     disabled={konzentrationGesperrt}
-                    onChange={e => { setKonzentration(e.target.value); setAufwandQuelle(e.target.value.trim() === '' ? null : 'konzentration') }}
+                    onChange={e => { const v = e.target.value; setKonzentration(v); setFolge(f => eingabeFolge(f, 'konzentration', v)) }}
                     className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-s112-text-2" />
-                  {m.konzentrationHinweis && (
-                    <p className="text-xs text-s112-muted mt-1">{m.konzentrationHinweis}</p>
+                  {(m.berechnetHinweis.konzentration ?? m.konzentrationHinweis) && (
+                    <p className="text-xs text-s112-muted mt-1">{m.berechnetHinweis.konzentration ?? m.konzentrationHinweis}</p>
                   )}
                 </div>
               )}
@@ -564,16 +567,12 @@ export default function NeueBehandlungForm({
                   </label>
                   <input aria-label="Spritzbrühe gesamt (l)" name="menge_gesamt" type="text" inputMode="decimal"
                     placeholder="z.B. 800"
-                    value={m.mengeGesamtBerechnet !== null ? fmtNum(m.mengeGesamtBerechnet, { max: 3 }) : mengeGesamt}
+                    value={m.mengeGesamtBerechnet !== null ? fmtNum(m.mengeGesamtBerechnet, { max: 3 }) : mengeGesamtGesperrt ? '' : mengeGesamt}
                     disabled={mengeGesamtGesperrt}
-                    onChange={e => { setMengeGesamt(e.target.value); setMengeQuelle(e.target.value.trim() === '' ? null : 'gesamt') }}
+                    onChange={e => { const v = e.target.value; setMengeGesamt(v); setMengeQuelle(v.trim() === '' ? null : 'gesamt'); setFolge(f => eingabeFolge(f, 'wasser', v)) }}
                     className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-s112-text-2" />
-                  {mengeQuelle === 'wasser' && (
-                    <p className="text-xs text-s112-muted mt-1">
-                      {mengeGesamtGesperrt
-                        ? 'Automatisch berechnet aus Wasseraufwand (l/ha) × Fläche.'
-                        : 'Wird berechnet, sobald Ried(en) ausgewählt sind.'}
-                    </p>
+                  {m.berechnetHinweis.mengeGesamt && (
+                    <p className="text-xs text-s112-muted mt-1">{m.berechnetHinweis.mengeGesamt}</p>
                   )}
                 </div>
               )}
@@ -587,20 +586,17 @@ export default function NeueBehandlungForm({
                     placeholder="z.B. 400"
                     value={m.wasserBerechnet !== null ? fmtNum(m.wasserBerechnet, { max: 2 }) : wasseraufwand}
                     disabled={wasserGesperrt}
-                    onChange={e => { setWasseraufwand(e.target.value); setMengeQuelle(e.target.value.trim() === '' ? null : 'wasser') }}
+                    onChange={e => { const v = e.target.value; setWasseraufwand(v); setMengeQuelle(v.trim() === '' ? null : 'wasser'); setFolge(f => eingabeFolge(f, 'wasser', v)) }}
                     className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-s112-text-2" />
-                  {mengeQuelle === 'gesamt' && (
-                    <p className="text-xs text-s112-muted mt-1">
-                      {wasserGesperrt
-                        ? 'Automatisch berechnet aus Spritzbrühe gesamt ÷ Fläche.'
-                        : 'Wird berechnet, sobald Ried(en) ausgewählt sind.'}
-                    </p>
+                  {m.berechnetHinweis.wasser && (
+                    <p className="text-xs text-s112-muted mt-1">{m.berechnetHinweis.wasser}</p>
                   )}
                 </div>
               )}
             </div>
             <p className="text-xs text-s112-muted mt-1">
               Spritzbrühe = Mittel + Wasser. Eines der beiden Felder ist Pflicht, das andere ergibt sich über die Fläche.
+              Aufwandmenge (kg/ha, l/ha), Konzentration (%) und Wasseraufwand: je zwei ergeben die dritte (Aufwand = Wasseraufwand × Konzentration ÷ 100).
             </p>
           </div>
         )}
@@ -764,7 +760,7 @@ export default function NeueBehandlungForm({
             <button type="button"
               onClick={selectAll}
               className="text-xs text-s112-blue-700 hover:underline">
-              Alle auswählen
+              {alleModus === 'abwaehlen' ? 'Alle abwählen' : 'Alle auswählen'}
             </button>
           )}
         </div>
@@ -781,7 +777,7 @@ export default function NeueBehandlungForm({
 
         {riedenExpanded && (
         <div className="space-y-3">
-          {lagen.map(([lageName, wgs]) => {
+          {lagen.map(({ schluessel, name: lageName, weingaerten: wgs }) => {
             const spritzbare = wgs.filter(w => w.spritzbar)
             const allSelected = spritzbare.length > 0 && spritzbare.every(w => selectedWGs.has(w.id))
             const someSelected = spritzbare.some(w => selectedWGs.has(w.id) || [...selectedGSTs.values()].includes(w.id))
@@ -792,7 +788,7 @@ export default function NeueBehandlungForm({
             }, 0)
 
             return (
-              <div key={lageName} className="border border-s112-border rounded-xl overflow-hidden">
+              <div key={schluessel} className="border border-s112-border rounded-xl overflow-hidden">
                 {/* Lage-Header */}
                 <div
                   className="flex items-center gap-3 px-3 py-2 bg-s112-bg cursor-pointer hover:bg-s112-bg/80 transition-colors"

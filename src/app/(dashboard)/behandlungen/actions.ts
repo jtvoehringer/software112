@@ -47,7 +47,8 @@ function parseDecimal(val: FormDataEntryValue | null): number | null {
 
 // ── Mengen einer Maßnahme (KAN-133 Soll 10) ──────────────────────────────────
 // Bei einer Spritzung ist „Menge gesamt“ die Spritzbrühe (l), nie die Mittelmenge. Die Prüfung und
-// Ergänzung (Spritzbrühe ↔ Wasseraufwand × Fläche, reinkupfer_kg_ha) steckt in pruefeMassnahmeMengen()
+// Ergänzung (Spritzbrühe ↔ Wasseraufwand × Fläche, Wasseraufwand aus Aufwand und Konzentration – KAN-155 –,
+// reinkupfer_kg_ha) steckt in pruefeMassnahmeMengen()
 // (lib/behandlungen/massnahmeMengen.ts) – dieselbe Regel für Formular, Bearbeiten und Assistent; die
 // Fläche (Σ der Grundstücke) über summeFlaecheHa() von dort, wie die Bearbeiten-Seite.
 
@@ -392,7 +393,7 @@ export async function createBehandlung(formData: FormData) {
     ...(await ladeMengenStamm(supabase, tenantId, art, psmId, duengemittelId)),
     aufwand: aufwandmenge, aufwandEinheit,
     mengeGesamt, mengeEinheit,
-    wasserLHa: wasseraufwand,
+    wasserLHa: wasseraufwand, konzentrationPct: konzentration,
     flaecheHa: summeFlaecheHa(Array.from(grundstueckeById.values(), g => g.flaeche_ha)),
   })
   if (!mengen.ok) throw new AktionsFehler(mengen.fehler)
@@ -517,7 +518,7 @@ export async function updateBehandlung(id: string, formData: FormData) {
     ...(await ladeMengenStamm(supabase, tenantId, art, psmId, duengemittelId)),
     aufwand: aufwandmenge, aufwandEinheit,
     mengeGesamt, mengeEinheit,
-    wasserLHa: wasseraufwand,
+    wasserLHa: wasseraufwand, konzentrationPct: konzentration,
     flaecheHa: summeFlaecheHa((((bisher as AR).behandlung_grundstuecke ?? []) as AR[]).map(bg => bg.flaeche_ha ?? bg.grundstueck?.flaeche_ha)),
   })
   if (!mengen.ok) throw new AktionsFehler(mengen.fehler)
