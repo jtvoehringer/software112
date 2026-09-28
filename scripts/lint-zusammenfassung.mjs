@@ -3,9 +3,10 @@
 // - Errors werden vollständig ausgegeben (Format „stylish“), Warnings nur als Zählung je Regel.
 // - Sperre gegen neue Warnings: Vergleich mit scripts/eslint-baseline.json (Ausgangswert je Regel).
 //   Exit 1 bei mindestens einem Error oder wenn eine Regel mehr Warnings hat als ihr Ausgangswert
-//   (Regel ohne Eintrag = Ausgangswert 0); in der CI (Umgebungsvariable CI) auch, wenn eine Regel
+//   (Regel ohne Eintrag = Ausgangswert 0); im Pull-Request-Lauf der CI auch, wenn eine Regel
 //   darunter liegt – dann ist der Ausgangswert mit `npm run lint:baseline` zu senken (Ratsche, sonst
-//   ließe sich der frei gewordene Spielraum später mit neuen Warnings füllen).
+//   ließe sich der frei gewordene Spielraum später mit neuen Warnings füllen). Lokal und beim Push
+//   auf main nur ein Hinweis (siehe exitCode/ratscheAktiv in scripts/lint-auswertung.mjs).
 // - Für Regeln über dem Ausgangswert zeigt das Skript die Stellen auf geänderten Zeilen (git:
 //   Arbeitsstand gegenüber dem Abzweig vom Ziel-Branch, siehe basisErmitteln in
 //   scripts/lint-auswertung.mjs; neue Dateien ganz). Ist keine Vergleichsbasis ermittelbar, sagt es
@@ -31,6 +32,7 @@ import {
   baselineVerweigerung,
   neueBaseline,
   exitCode,
+  ratscheAktiv,
 } from './lint-auswertung.mjs'
 
 const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -42,7 +44,7 @@ const OHNE_REGEL = '(unbenutzte eslint-disable-Kommentare)'
 const MAX_EINZELN = 60
 
 const baselineSchreiben = process.argv.includes('--baseline')
-const CI = Boolean(process.env.CI) && process.env.CI !== 'false'
+const RATSCHE = ratscheAktiv(process.env)
 
 const regelVon = (m) => m.ruleId ?? OHNE_REGEL
 const relativ = (datei) => path.relative(WURZEL, datei).split(path.sep).join('/')
@@ -179,9 +181,9 @@ async function main() {
       console.log(`\nAusgangswerte NICHT geschrieben: ${grund}`)
       return 1
     }
-    const neu = neueBaseline(zaehlung, new Date().toISOString().slice(0, 10))
+    const neu = neueBaseline(zaehlung)
     writeFileSync(BASELINE_DATEI, JSON.stringify(neu, null, 2) + '\n')
-    console.log(`\nAusgangswerte geschrieben: scripts/eslint-baseline.json (${neu.summe} Warnings) – mit committen.`)
+    console.log(`\nAusgangswerte geschrieben: scripts/eslint-baseline.json (${warnings} Warnings) – mit committen.`)
     return 0
   }
 
@@ -198,13 +200,13 @@ async function main() {
     console.log('Beheben, nicht die Ausgangswerte erhöhen (CLAUDE.md, Abschnitt Stabilität).')
   } else if (unter.length > 0) {
     console.log(
-      CI
-        ? `\nAusgangswert senken: ${unter.join(', ')} unter dem Ausgangswert – \`npm run lint:baseline\` ausführen und scripts/eslint-baseline.json committen (in der CI rot, damit kein Spielraum für neue Warnings bleibt).`
-        : '\nWeniger Warnings als im Ausgangswert – `npm run lint:baseline` ausführen und scripts/eslint-baseline.json mit committen (die CI ist sonst rot).',
+      RATSCHE
+        ? `\nAusgangswert senken: ${unter.join(', ')} unter dem Ausgangswert – \`npm run lint:baseline\` ausführen und scripts/eslint-baseline.json committen (im Pull Request rot, damit kein Spielraum für neue Warnings bleibt). Hat dieser PR die Regel nicht angefasst (ein anderer PR hat sie auf main schon gesenkt, ohne die Baseline nachzuziehen), genügt dasselbe nach einem Rebase auf main.`
+        : '\nWeniger Warnings als im Ausgangswert – `npm run lint:baseline` ausführen und scripts/eslint-baseline.json mit committen (im Pull Request ist die CI sonst rot).',
     )
   }
 
-  return exitCode({ errors, ueber, unter, ci: CI })
+  return exitCode({ errors, ueber, unter, ratsche: RATSCHE })
 }
 
 process.exitCode = await main()

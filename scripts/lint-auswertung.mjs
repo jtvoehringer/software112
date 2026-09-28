@@ -5,9 +5,11 @@
 // - zeilenAusDiff: Hunks aus `git diff -U0` → Pfad → [[von, bis], …] (Zeilennummern des Arbeitsstands).
 // - vergleichen: Zählung je Regel gegen den Ausgangswert → ueber/unter.
 // - baselineVerweigerung / neueBaseline: Bedingungen und Inhalt für `npm run lint:baseline`.
-// - exitCode: rot bei Errors, Regeln über dem Ausgangswert und – in der CI – auch darunter
-//   (Ratsche: der Ausgangswert muss nach einem Abbau gesenkt werden, sonst ließe sich der frei
-//   gewordene Spielraum später mit neuen Warnings füllen).
+// - exitCode: rot bei Errors, Regeln über dem Ausgangswert und – nur im Pull-Request-Lauf der CI –
+//   auch darunter (Ratsche: der Ausgangswert muss nach einem Abbau gesenkt werden, sonst ließe sich
+//   der frei gewordene Spielraum später mit neuen Warnings füllen). Beim Push auf main nur ein
+//   Hinweis: zwei unabhängig grüne PRs, die dieselbe Regel je um eins senken, ergeben dort „unter“,
+//   ohne dass main dadurch schlechter wäre.
 
 // Vergleichsbasis: Abzweig vom Ziel-Branch. Reihenfolge:
 //   1. merge-base mit origin/$GITHUB_BASE_REF (Pull Request in GitHub Actions), sonst origin/main;
@@ -38,14 +40,17 @@ export function basisErmitteln(git, env = {}) {
 }
 
 // Hunks aus `git diff -U0`: `+N` ohne Anzahl = 1 Zeile, `+N,0` = reine Löschung (keine Zeile),
-// `+++ /dev/null` = gelöschte Datei (übersprungen). CRLF wird toleriert.
+// `+++ /dev/null` = gelöschte Datei (übersprungen). CRLF wird toleriert. Bei Pfaden mit Leerzeichen
+// hängt git an die `+++ b/…`-Zeile einen TAB an – der wird entfernt. Pfade, die git trotz
+// core.quotePath=false in Anführungszeichen setzt (`"`, Backslash, Steuerzeichen), werden
+// übersprungen: ihre Stellen erscheinen nicht in der Anzeige, gezählt werden sie trotzdem.
 export function zeilenAusDiff(diffText) {
   const zeilen = new Map()
   let datei = null
   for (const roh of (diffText ?? '').split('\n')) {
     const z = roh.replace(/\r$/, '')
     if (z.startsWith('+++ ')) {
-      datei = z.startsWith('+++ b/') ? z.slice(6) : null
+      datei = z.startsWith('+++ b/') ? z.slice(6).replace(/\t$/, '') : null
       if (datei && !zeilen.has(datei)) zeilen.set(datei, [])
     } else if (datei && z.startsWith('@@')) {
       const m = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/.exec(z)
@@ -95,19 +100,24 @@ export function baselineVerweigerung({ errors, baseline, ueber }) {
 
 // Neuer Inhalt von scripts/eslint-baseline.json: nur Regeln mit mindestens einer Warning
 // (abgebaute Regeln fallen heraus), absteigend nach Anzahl, bei Gleichstand nach Name.
-export function neueBaseline(zaehlung, stand) {
+// Bewusst ohne Datum und Summe: so ändert ein Abbau nur die Zeile der betroffenen Regel, und
+// parallele PRs, die verschiedene Regeln senken, lassen sich ohne Konflikt zusammenführen.
+export function neueBaseline(zaehlung) {
   const regeln = [...zaehlung.entries()]
     .filter(([, n]) => n > 0)
     .sort(([a, x], [b, y]) => y - x || a.localeCompare(b))
-  return {
-    stand,
-    summe: regeln.reduce((s, [, n]) => s + n, 0),
-    regeln: Object.fromEntries(regeln),
-  }
+  return { regeln: Object.fromEntries(regeln) }
 }
 
-export function exitCode({ errors, ueber, unter, ci }) {
+// ratsche: `unter` macht den Lauf rot – nur im Pull-Request-Lauf der CI (siehe ratscheAktiv).
+export function exitCode({ errors, ueber, unter, ratsche }) {
   if (errors > 0 || ueber.length > 0) return 1
-  if (ci && unter.length > 0) return 1
+  if (ratsche && unter.length > 0) return 1
   return 0
+}
+
+// Ratsche nur im Pull-Request-Lauf von GitHub Actions; lokal und beim Push auf main nur Hinweis.
+export function ratscheAktiv(env = {}) {
+  const ci = Boolean(env.CI) && env.CI !== 'false'
+  return ci && env.GITHUB_EVENT_NAME === 'pull_request'
 }

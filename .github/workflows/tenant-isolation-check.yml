@@ -14,7 +14,8 @@ jobs:
   check:
     # Seit 28.09.2026 das volle Gate `npm run verify` statt nur fünf Wächtern: Typprüfung des ganzen
     # Programms, ESLint (seit KAN-140; Errors und Warnings über dem Ausgangswert je Regel in
-    # scripts/eslint-baseline.json blockieren), alle Unit-Tests (scripts/tests/*.test.mjs)
+    # scripts/eslint-baseline.json blockieren; im pull_request-Lauf auch Regeln darunter – Ratsche,
+    # beim Push auf main nur Hinweis), alle Unit-Tests (scripts/tests/*.test.mjs)
     # und alle acht prebuild-Wächter.
     # Node 24, weil test:csv TypeScript per --experimental-strip-types lädt (ab Node 22).
     # fetch-depth: 0, damit lint:verify origin/main kennt und bei neuen Warnings die Stellen auf

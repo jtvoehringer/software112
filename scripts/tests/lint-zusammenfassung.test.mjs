@@ -6,6 +6,10 @@
 
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
+import { execFileSync } from 'node:child_process'
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
 import {
   basisErmitteln,
   zeilenAusDiff,
@@ -14,6 +18,7 @@ import {
   baselineVerweigerung,
   neueBaseline,
   exitCode,
+  ratscheAktiv,
 } from '../lint-auswertung.mjs'
 
 describe('zeilenAusDiff', () => {
@@ -55,9 +60,42 @@ describe('zeilenAusDiff', () => {
     assert.deepEqual(zeilenAusDiff(diff), new Map([['src/d.ts', [[2, 3]]]]))
   })
 
-  test('Pfade mit Umlauten und Leerzeichen (core.quotePath=false)', () => {
-    const diff = ['+++ b/src/app/(dashboard)/weingärten/neu page.tsx', '@@ -1 +1 @@'].join('\n')
+  test('Pfade mit Leerzeichen: git hängt einen TAB an die +++-Zeile, der wird entfernt', () => {
+    const diff = ['+++ b/src/app/(dashboard)/weingärten/neu page.tsx\t', '@@ -1 +1 @@'].join('\n')
     assert.deepEqual(zeilenAusDiff(diff), new Map([['src/app/(dashboard)/weingärten/neu page.tsx', [[1, 1]]]]))
+  })
+
+  test('von git in Anführungszeichen gesetzte Pfade werden übersprungen', () => {
+    const diff = ['+++ "b/src/a\\"b.ts"', '@@ -1 +1 @@', '+++ b/src/c.ts', '@@ -2 +2 @@'].join('\n')
+    assert.deepEqual(zeilenAusDiff(diff), new Map([['src/c.ts', [[2, 2]]]]))
+  })
+
+  test('echte git-Ausgabe: Umlaute und Leerzeichen (core.quotePath=false wie im Skript)', () => {
+    const ort = mkdtempSync(path.join(tmpdir(), 'lint-diff-'))
+    const git = (...args) =>
+      execFileSync('git', ['-c', 'core.quotePath=false', '-c', 'core.autocrlf=false', ...args], {
+        cwd: ort,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      })
+    try {
+      git('init', '-q')
+      mkdirSync(path.join(ort, 'weingärten'))
+      const dateien = ['weingärten/neu page.tsx', 'ohne.ts']
+      for (const d of dateien) writeFileSync(path.join(ort, d), 'a\nb\nc\n')
+      git('add', '.')
+      git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'x')
+      for (const d of dateien) writeFileSync(path.join(ort, d), 'a\nB\nc\nd\n')
+      assert.deepEqual(
+        zeilenAusDiff(git('diff', '-U0', 'HEAD')),
+        new Map([
+          ['ohne.ts', [[2, 2], [4, 4]]],
+          ['weingärten/neu page.tsx', [[2, 2], [4, 4]]],
+        ]),
+      )
+    } finally {
+      rmSync(ort, { recursive: true, force: true })
+    }
   })
 
   test('leerer oder fehlender Diff ergibt eine leere Map', () => {
@@ -181,7 +219,7 @@ describe('Baseline schreiben', () => {
     assert.equal(baselineVerweigerung({ errors: 0, baseline: null, ueber: ['a'] }), null)
   })
 
-  test('abgebaute Regeln fallen heraus, Summe und Reihenfolge stimmen', () => {
+  test('abgebaute Regeln fallen heraus, Reihenfolge stimmt, ohne Datum und Summe (konfliktarm)', () => {
     const neu = neueBaseline(
       new Map([
         ['b', 2],
@@ -189,25 +227,40 @@ describe('Baseline schreiben', () => {
         ['a', 5],
         ['c', 2],
       ]),
-      '2026-09-28',
     )
-    assert.deepEqual(neu, { stand: '2026-09-28', summe: 9, regeln: { a: 5, b: 2, c: 2 } })
+    assert.deepEqual(neu, { regeln: { a: 5, b: 2, c: 2 } })
     assert.deepEqual(Object.keys(neu.regeln), ['a', 'b', 'c'])
   })
 })
 
 describe('exitCode', () => {
   test('rot bei Errors oder Überschreitung', () => {
-    assert.equal(exitCode({ errors: 1, ueber: [], unter: [], ci: false }), 1)
-    assert.equal(exitCode({ errors: 0, ueber: ['a'], unter: [], ci: false }), 1)
+    assert.equal(exitCode({ errors: 1, ueber: [], unter: [], ratsche: false }), 1)
+    assert.equal(exitCode({ errors: 0, ueber: ['a'], unter: [], ratsche: false }), 1)
   })
 
-  test('gesunken: lokal grün, in der CI rot (Ratsche)', () => {
-    assert.equal(exitCode({ errors: 0, ueber: [], unter: ['a'], ci: false }), 0)
-    assert.equal(exitCode({ errors: 0, ueber: [], unter: ['a'], ci: true }), 1)
+  test('gesunken: ohne Ratsche grün, mit Ratsche rot', () => {
+    assert.equal(exitCode({ errors: 0, ueber: [], unter: ['a'], ratsche: false }), 0)
+    assert.equal(exitCode({ errors: 0, ueber: [], unter: ['a'], ratsche: true }), 1)
   })
 
   test('gleichauf: grün', () => {
-    assert.equal(exitCode({ errors: 0, ueber: [], unter: [], ci: true }), 0)
+    assert.equal(exitCode({ errors: 0, ueber: [], unter: [], ratsche: true }), 0)
+  })
+})
+
+describe('ratscheAktiv', () => {
+  test('nur im Pull-Request-Lauf der CI', () => {
+    assert.equal(ratscheAktiv({ CI: 'true', GITHUB_EVENT_NAME: 'pull_request' }), true)
+  })
+
+  test('Push auf main: nur Hinweis – zwei grüne PRs, die dieselbe Regel senken, machen main nicht rot', () => {
+    assert.equal(ratscheAktiv({ CI: 'true', GITHUB_EVENT_NAME: 'push' }), false)
+    assert.equal(ratscheAktiv({ CI: 'true', GITHUB_EVENT_NAME: 'workflow_dispatch' }), false)
+  })
+
+  test('lokal bzw. CI=false: aus', () => {
+    assert.equal(ratscheAktiv({}), false)
+    assert.equal(ratscheAktiv({ CI: 'false', GITHUB_EVENT_NAME: 'pull_request' }), false)
   })
 })

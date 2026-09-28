@@ -1,6 +1,4 @@
 {
-  "stand": "2026-09-28",
-  "summe": 1105,
   "regeln": {
     "@typescript-eslint/no-explicit-any": 912,
     "react/no-unescaped-entities": 33,
