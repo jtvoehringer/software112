@@ -1,8 +1,8 @@
-name: Tenant-Isolation-Check
+name: Prüfungen (verify)
 
-# Läuft bei jedem Push/PR gegen main als schnelles Feedback (unabhängig vom
-# "prebuild"-Skript, das denselben Check zusätzlich bei jedem Vercel-Deploy blockierend
-# ausführt - siehe package.json "prebuild" und scripts/check-tenant-isolation.js).
+# Läuft bei jedem Push/PR gegen main. Job „check“ = npm run verify (Typprüfung, Unit-Tests,
+# alle prebuild-Wächter), Job „abhaengigkeiten“ = npm audit. Dieselben Wächter laufen zusätzlich
+# bei jedem Vercel-Build blockierend (package.json „prebuild“).
 on:
   push:
     branches: [main]
@@ -12,24 +12,20 @@ on:
 
 jobs:
   check:
+    # Seit 28.09.2026 das volle Gate `npm run verify` statt nur fünf Wächtern: Typprüfung des ganzen
+    # Programms, alle Unit-Tests (scripts/tests/*.test.mjs) und alle acht prebuild-Wächter.
+    # Node 24, weil test:csv TypeScript per --experimental-strip-types lädt (ab Node 22).
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: 20
-      - name: Dependencies installieren (nur für das 'typescript'-Paket benötigt)
-        run: npm install --no-save typescript
-      - name: Tenant-Isolation-Guard ausführen
-        run: node scripts/check-tenant-isolation.js
-      - name: API-Zwei-Faktor-Guard ausführen (KAN-54)
-        run: node scripts/check-api-zwei-faktor.js
-      - name: Seiten-Betrieb-Guard ausführen (KAN-30)
-        run: node scripts/check-seiten-betrieb.js
-      - name: Schreibsperre-Guard ausführen (KAN-5, Nur-Lesen-Modus)
-        run: node scripts/check-schreibsperre.js
-      - name: Replica-Guard ausführen (KAN-124, kein session_replication_role/DISABLE TRIGGER)
-        run: node scripts/check-replica.js
+          node-version: 24
+          cache: npm
+      - name: Abhängigkeiten installieren
+        run: npm ci
+      - name: Gate – Typprüfung, Unit-Tests, Wächter (npm run verify)
+        run: npm run verify
 
   abhaengigkeiten:
     # Sicherheits-Welle 1 (23.9.2026): bekannte Schwachstellen ab Stufe „hoch“ in

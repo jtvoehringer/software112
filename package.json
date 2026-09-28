@@ -15,6 +15,8 @@
     "check-schreibsperre": "node scripts/check-schreibsperre.js",
     "check-behoerden-csv": "node scripts/check-behoerden-csv.js",
     "check-replica": "node scripts/check-replica.js",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "verify": "npm run -s typecheck && npm run -s test:csv && npm run -s prebuild",
     "test:csv": "node --experimental-strip-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"scripts/tests/*.test.mjs\"",
     "test:e2e": "playwright test",
     "test:e2e:lesend": "node e2e/nur-lesen.mjs",
