@@ -715,6 +715,16 @@ describe('planeVerschneidungStorno / storniereVerschneidung', nurMitHooks, () =>
     assert.deepEqual(db.aufrufe, [])
   })
 
+  // Hält fest, dass created_at der Verschneidung gelesen wird: ohne Zeitstempel sperrt jede
+  // Bewegung am Ziel (sichere Richtung), auch eine vor dem Verschnitt.
+  test('ältere Füllung am Ziel sperrt nicht – außer die Verschneidung hat keinen Zeitstempel', async () => {
+    const t = tabellen({ fuellungen: [{ id: 'f0', tenant_id: T, weinausbau_id: Z, aktiv: true, erstellt_am: '2026-09-22T08:00:00.000Z' }] })
+    assert.equal((await s.planeVerschneidungStorno(datenbank(t), T, VS)).sperre, null)
+    t.verschneidungen[0].created_at = null
+    assert.equal((await s.planeVerschneidungStorno(datenbank(t), T, VS)).sperre.grund,
+      'die Ziel-Charge „Cuvée Rot“ seither weiterbewegt wurde (1 Füllung)')
+  })
+
   test('Befund: spätere Bewegungen an einer QUELL-Charge sperren nicht – sie bekommt ihre Liter trotzdem zurück', async () => {
     const t = tabellen({ fuellungen: [{ id: 'f', tenant_id: T, weinausbau_id: V2, aktiv: true, erstellt_am: '2026-09-24T08:00:00.000Z' }] })
     const plan = await s.planeVerschneidungStorno(datenbank(t), T, VS)

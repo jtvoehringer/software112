@@ -78,7 +78,8 @@ Neu messen: `npm run test:coverage`. Die Tabelle am Ende der Ausgabe listet je D
 
    Befunde aus den Tests (festgehalten, nicht korrigiert – Entscheidung offen):
    - Finanzübersicht: Buchungen ohne Kategorie landen in einem Topf „–“, Einnahmen und Ausgaben werden addiert
-   - Finanzübersicht: UVA-Fälligkeit über `toISOString` – bei Server-Zeitzone östlich von UTC ein Tag zu früh
+   - Finanzübersicht: Stichtag (`heuteStr`) und UVA-Fälligkeit über `toISOString` (UTC-Datum), Jahr und Monat über `getFullYear`/`getMonth` (Serverzeit) – bei Server-Zeitzone östlich von UTC ist die Fälligkeit einen Tag zu früh, und am 1.1. bis 1 Uhr (Wien) fallen Jahr und Stichtag auseinander: Jahr 2027 mit Stichtag 31.12.2026, YTD 0, Vorjahresvergleich über das ganze Vorjahr, 0 offene Monate, UVA Dez statt Nov (Vercel läuft in UTC, betroffen ist z. B. `npm run dev`)
+   - Finanzübersicht: `afaGebuchtVj` wird berechnet, aber nie ausgegeben (`void afaGebuchtVj`) – toter Zweig
    - Finanzübersicht: Datenbankfehler werden verschluckt, es erscheint 0
    - Finanzübersicht: Forderungen nur aus Rechnungen ab 1.1. des Vorjahres
    - Finanzübersicht, abgelaufenes Jahr: als letzte UVA erscheint Nov bzw. Q3 statt Dez bzw. Q4, der Monatsabschluss im selben Aufruf zählt dagegen 12 Monate

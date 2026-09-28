@@ -8,7 +8,9 @@
 // ohne Storno/inaktiv), Forderungen und Überfälligkeit, Liquidität aus Konten (Zahlungen,
 // E&A-Buchungen aller Jahre, Umbuchungen), UVA-Stand monatlich/quartalsweise samt Fälligkeit,
 // Monatsabschluss, Belege, Doppik-Übergabe, abgelaufenes Jahr, Mandantenfilter (über getCtx),
-// Verhalten bei Datenbankfehlern und die Zeitzonen-Abhängigkeit der Fälligkeit.
+// Verhalten bei Datenbankfehlern, Datumsgrenzen (Stichtag und Vorjahres-Stichtag einschließlich,
+// Zeitraum 1.1. Vorjahr bis 31.12., Zahlungsziel 30 Tage) und die Zeitzonen-Abhängigkeit von
+// Fälligkeit, Jahr und Stichtag.
 //
 // Aufruf: npm run -s test:csv  (Node ≥ 22.15 wegen module.registerHooks)
 
@@ -174,6 +176,47 @@ describe('ladeFinanzen – Finanzübersicht', nurMitHooks, () => {
     assert.equal(Math.round(r.forderungen.ueberfaelligSumme * 100) / 100, 223)
   })
 
+  // Datumsgrenzen: jede Buchung/Rechnung liegt GENAU auf einer Grenze (Stichtag einschließlich,
+  // Vorjahres-Stichtag einschließlich, Zeitraum 1.1. Vorjahr bis 31.12., Zahlungsziel 30 Tage).
+  // Läuft in UTC und in Wien – heute = 28.09.2026, 00:00 UTC (02:00 Wiener Zeit, gleicher Kalendertag).
+  test('Datumsgrenzen: Stichtag und Vorjahres-Stichtag zählen mit, Zeitraum 1.1. Vorjahr bis 31.12., überfällig erst nach 30 vollen Tagen', async () => {
+    const grenzen = () => ({
+      tenants: [{ id: T, name: 'Grenzen' }],
+      ea_transaktionen: [
+        tx('g1', '2026-09-28', 'einnahme', 100),                                                          // Stichtag → YTD
+        tx('g2', '2025-09-28', 'einnahme', 10),                                                           // Vorjahres-Stichtag → einnahmenVj
+        tx('g3', '2025-09-29', 'einnahme', 1000),                                                         // nur gesamtVj
+        tx('g4', '2025-01-01', 'ausgabe', 3),                                                             // Zeitraumbeginn zählt noch
+        tx('g5', '2026-12-31', 'ausgabe', 7),                                                             // Zeitraumende: nur Doppik belegeOffen
+        tx('a1', '2026-09-28', 'ausgabe', 20, { anlage_id: 'anl-x', kategorie: kat('Abschreibung (AfA)', 7010) }), // AfA am Stichtag
+        tx('a2', '2025-09-28', 'ausgabe', 30, { anlage_id: 'anl-x', kategorie: kat('Abschreibung (AfA)', 7010) }), // AfA am Vorjahres-Stichtag (afaGebuchtVj wird nicht ausgegeben)
+        tx('k1', '2026-09-28', 'ausgabe', 500, { kategorie: kat('Traktor', '0620') }),                   // Anlagenkauf am Stichtag
+        tx('k2', '2025-09-28', 'ausgabe', 300, { kategorie: kat('Traktor', '0620') }),                   // Anlagenkauf am Vorjahres-Stichtag
+      ],
+      verkaufsposten: [
+        vp('r1', '2026-09-28', [vpos(120, 1, 20)], { bezahlt: true }),                                   // Stichtag, netto 100
+        vp('r2', '2025-09-28', [vpos(110, 1, 10)], { bezahlt: true }),                                   // Vorjahres-Stichtag, netto 100
+        vp('r3', '2026-08-29', [vpos(12, 1, 20)]),                                                       // genau 30 Tage alt: nicht überfällig
+        vp('r4', '2026-08-28', [vpos(24, 1, 20)]),                                                       // 31 Tage alt: überfällig
+      ],
+    })
+    for (const zone of ['UTC', 'Europe/Vienna']) {
+      process.env.TZ = zone
+      const { r } = await lade({ art: 'doppik', heute: new Date('2026-09-28T00:00:00.000Z') }, grenzen())
+      assert.equal(r.stichtag, '2026-09-28', zone)
+      // YTD-Ausgaben: nur der Anlagenkauf k1 (auch Anlagenkäufe sind Ausgaben der Übersicht); Vorjahr: g4 + k2
+      assert.deepEqual(r.ytd, { einnahmen: 100, ausgaben: 500, ergebnis: -400, einnahmenVj: 10, ausgabenVj: 303, ergebnisVj: -293 }, zone)
+      assert.deepEqual(r.gesamtVj, { einnahmen: 1010, ausgaben: 303, ergebnis: 707 }, zone)
+      assert.equal(r.belege.buchungenJahr, 2, `${zone}: g1 und k1 am Stichtag, AfA zählt nicht`)
+      assert.deepEqual([r.anlagen.afaGebuchtJahr, r.anlagen.anlagenkaeufeJahr, r.anlagen.anlagenkaeufeVj], [20, 500, 300], zone)
+      assert.equal(r.anlagen.ergebnisNachAfaVjGesamt, 707 + 300, zone)
+      assert.deepEqual([Math.round(r.umsatz.ytd * 100) / 100, Math.round(r.umsatz.vj * 100) / 100], [130, 100], `${zone}: r1 + r3 + r4 (100 + 10 + 20) bzw. r2`)
+      assert.deepEqual(r.forderungen, { summe: 36, anzahl: 2, ueberfaellig: 1, ueberfaelligSumme: 24 }, zone)
+      // Ausgaben ohne BMD-Export im ganzen Zeitraum: g4, g5 (31.12.), a1, a2, k1, k2
+      assert.deepEqual([r.uebergabe.belegeOffen, r.uebergabe.rechnungenOffen], [6, 4], zone)
+    }
+  })
+
   test('Liquidität: Eröffnungssaldo + Zahlungen + E&A-Buchungen aller Jahre (brutto, Vorzeichen) ± Umbuchungen, nur aktive Konten', async () => {
     const { r } = await lade()
     assert.deepEqual(r.liquiditaet, {
@@ -208,6 +251,28 @@ describe('ladeFinanzen – Finanzübersicht', nurMitHooks, () => {
     process.env.TZ = 'Europe/Vienna'
     const { r } = await lade()
     assert.equal(r.uva.faelligAm, '2026-10-14')
+  })
+
+  // Gleiche Ursache, andere Wirkung: heuteStr (Stichtag) kommt aus toISOString (UTC-Datum), Jahr und
+  // Monat aus getFullYear/getMonth (Serverzeit). Östlich von UTC fallen am 1.1. bis 1 Uhr (Winterzeit
+  // Wien) Jahr und Stichtag auseinander. Vercel läuft in UTC – betroffen ist z. B. npm run dev in Wien.
+  test('Befund: Wien, 1.1.2027 00:30 – Jahr 2027, aber Stichtag 31.12.2026: YTD leer, Vorjahr = ganzes Jahr 2026', async () => {
+    const silvester = new Date('2026-12-31T23:30:00.000Z')
+    process.env.TZ = 'UTC'
+    const utc = (await lade({ heute: silvester })).r
+    assert.deepEqual([utc.jahr, utc.stichtag, utc.ytd.einnahmen, utc.monatsabschluss.offeneMonate], [2026, '2026-12-31', 2039, 5])
+    assert.deepEqual([utc.uva.label, utc.uva.faelligAm], ['Nov 2026', '2027-01-15'])
+
+    process.env.TZ = 'Europe/Vienna'
+    const { r } = await lade({ heute: silvester })
+    assert.equal(r.jahr, 2027)
+    assert.equal(r.stichtag, '2026-12-31')
+    assert.deepEqual(r.ytd, { einnahmen: 0, ausgaben: 0, ergebnis: 0, einnahmenVj: 2039, ausgabenVj: 2315, ergebnisVj: -276 })
+    assert.deepEqual(r.ytd.einnahmenVj, r.gesamtVj.einnahmen, 'Vorjahresvergleich umfasst das ganze Jahr 2026')
+    assert.equal(r.monatsabschluss.offeneMonate, 0)
+    assert.deepEqual([r.uva.label, r.uva.faelligAm], ['Dez 2026', '2027-02-14'])
+    const q = await lade({ heute: silvester, uvaZeitraum: 'quartalsweise' })
+    assert.deepEqual([q.r.uva.label, q.r.uva.faelligAm], ['Q4 2026', '2027-02-14'])
   })
 
   test('Monatsabschluss: letzter Abschluss und offene abgelaufene Monate des Jahres', async () => {
