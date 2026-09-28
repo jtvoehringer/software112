@@ -26,9 +26,6 @@ import { stripeKundennummerSync } from '@/lib/stripe/kundennummer'
 import { weinbauBetriebsnummerPruefen } from '@/lib/betrieb/betriebsnummer'
 import { istMostgewichtEinheit } from '@/lib/wein/mostgewicht'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type R = Record<string, any>
-
 async function requireOwnTenant(): Promise<{ tenantId: string } | { error: string }> {
   const membership = await getCurrentMembership()
   // KAN-30: Seite aus einem anderen Betrieb? (vor den Rechten, sonst gelten die des neuen Betriebs)

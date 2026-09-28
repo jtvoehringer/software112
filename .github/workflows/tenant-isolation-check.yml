@@ -1,6 +1,6 @@
 name: Prüfungen (verify)
 
-# Läuft bei jedem Push/PR gegen main. Job „check“ = npm run verify (Typprüfung, Unit-Tests,
+# Läuft bei jedem Push/PR gegen main. Job „check“ = npm run verify (Typprüfung, ESLint, Unit-Tests,
 # alle prebuild-Wächter), Job „abhaengigkeiten“ = npm audit. Dieselben Wächter laufen zusätzlich
 # bei jedem Vercel-Build blockierend (package.json „prebuild“).
 on:
@@ -13,7 +13,8 @@ on:
 jobs:
   check:
     # Seit 28.09.2026 das volle Gate `npm run verify` statt nur fünf Wächtern: Typprüfung des ganzen
-    # Programms, alle Unit-Tests (scripts/tests/*.test.mjs) und alle acht prebuild-Wächter.
+    # Programms, ESLint (nur Errors blockieren, seit KAN-140), alle Unit-Tests (scripts/tests/*.test.mjs)
+    # und alle acht prebuild-Wächter.
     # Node 24, weil test:csv TypeScript per --experimental-strip-types lädt (ab Node 22).
     runs-on: ubuntu-latest
     steps:
@@ -24,7 +25,7 @@ jobs:
           cache: npm
       - name: Abhängigkeiten installieren
         run: npm ci
-      - name: Gate – Typprüfung, Unit-Tests, Wächter (npm run verify)
+      - name: Gate – Typprüfung, Lint, Unit-Tests, Wächter (npm run verify)
         run: npm run verify
 
   abhaengigkeiten:

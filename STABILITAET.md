@@ -11,12 +11,12 @@ Regeln für jede Änderung stehen in der `CLAUDE.md`, Abschnitt „Stabilität (
 | Typprüfung | `npm run typecheck` (`tsc --noEmit` über das ganze Programm): 0 Fehler | 🟢 |
 | Unit-Tests | 823 Tests in 167 Suiten (27 Testdateien, `node:test`), alle grün, ca. 7 s | 🟢 |
 | Projekt-Wächter | 8 Wächter (Mandantentrennung, 2FA, Seitenbetrieb, Schreibsperre, Schema, Barrierefreiheit, Behörden-CSV, Replica): 0 Funde | 🟢 |
-| CI | Job „check“ = `npm run verify` bei jedem PR und Push; `main` per Ruleset geschützt (Merge nur mit grünem „check“) | 🟢 |
+| CI | Job „check“ = `npm run verify` (inkl. Lint) bei jedem PR und Push; `main` per Ruleset geschützt (Merge nur mit grünem „check“) | 🟢 |
 | Abhängigkeiten | `npm audit`: 0 Schwachstellen (CI-Job „abhaengigkeiten“, ab Stufe hoch blockierend) | 🟢 |
 | Coverage | gemessen, aber nur 90 von 604 `src`-Dateien werden von Tests geladen; kein Gate | 🟡 |
 | Datenbank (RLS, Trigger, RPCs) | nur einmalige, zurückgerollte Tests bei Migrationen, nichts Wiederholbares | 🔴 |
 | Server Actions | 43 Dateien mit `'use server'`, davon 3 mit Tests | 🔴 |
-| Lint | ESLint läuft nicht, die Konfiguration fehlt (KAN-140) | 🔴 |
+| Lint | `npm run lint` (ESLint 9, Flat Config `eslint.config.mjs`, eslint-config-next 16 core-web-vitals + typescript), Teil von `verify`: 0 Errors, 1.105 Warnings (Altbestand, blockieren nicht) | 🟡 |
 | E2E | Playwright-Grundgerüst gegen Staging (PR #55), in der CI noch übersprungen | 🟡 |
 
 ## Ausgangswerte (Baseline 28.09.2026, main 808fe6c)
@@ -26,6 +26,7 @@ Typprüfung:   0 Fehler (tsc --noEmit -p tsconfig.json)
 Unit-Tests:   823 Tests, 167 Suiten, 27 Dateien – alle grün, ca. 7 s (verify gesamt lokal ca. 30 s, CI ca. 70 s)
 Wächter:      8/8 grün, 0 Funde
 npm audit:    0 Schwachstellen
+Lint:         0 Errors, 1.105 Warnings (Stand 28.09.2026, KAN-140; je Regel siehe unten)
 Coverage (npm run test:coverage, nur von Tests geladene Dateien):
               94,7 % Zeilen / 83,1 % Branches / 91,4 % Funktionen
 Abdeckung:    90 von 604 Dateien unter src/ geladen; src/lib: 82 von 162 Dateien
@@ -34,6 +35,30 @@ Abdeckung:    90 von 604 Dateien unter src/ geladen; src/lib: 82 von 162 Dateien
 **Ab jetzt gilt:** Die Testzahl darf nicht sinken. Typprüfung und Wächter bleiben bei 0 Fehlern. Die Coverage-Werte der geladenen Dateien sollen nicht spürbar fallen. Ein hartes Coverage-Gate gibt es bewusst noch nicht: Solange 514 Dateien gar nicht geladen werden, sagt die Prozentzahl wenig aus.
 
 Neu messen: `npm run test:coverage`. Die Tabelle am Ende der Ausgabe listet je Datei Zeilen, Branches und Funktionen; Dateien, die kein Test lädt, fehlen darin.
+
+### Lint-Warnings je Regel (Ausgangswert KAN-140, 28.09.2026)
+
+`npm run lint` = `eslint .`, lokal ca. 2 min. Nur Errors blockieren (`verify`, CI), `--max-warnings` ist bewusst nicht gesetzt. Die Zahlen sollen nur sinken; neue Warnings möglichst vermeiden. Erster Lauf mit der reinen Next-Konfiguration: 1.028 Errors, 110 Warnings.
+
+| Regel | Warnings | Anmerkung |
+|---|---|---|
+| `@typescript-eslint/no-explicit-any` | 912 | auf warn gestellt (Konvention `(supabase.from(…) as any)`) |
+| `react/no-unescaped-entities` | 33 | auf warn gestellt, rein kosmetisch (gerade Anführungszeichen in JSX-Text) |
+| `@typescript-eslint/no-unused-vars` | 32 | vorher 41; 9 ungenutzte Importe/Typen entfernt. Rest sind berechnete, aber nie verwendete Werte – teils prüfenswert (z. B. `gesamtUst`, `tankPos` in `weinhandel/verkauf/[id]/page.tsx`, `kundenRabatt` in `weinhandel/verkauf/neu/page.tsx`) |
+| `react-hooks/set-state-in-effect` | 27 | React-Compiler-Regel (react-hooks 7), auf warn gestellt |
+| unbenutzte `eslint-disable`-Kommentare | 27 | Kommentare, die nichts mehr unterdrücken (`reportUnusedDisableDirectives: 'warn'`) |
+| `react-hooks/exhaustive-deps` | 24 | Standard warn |
+| `react-hooks/refs` | 12 | React-Compiler-Regel, auf warn gestellt |
+| `@typescript-eslint/no-unused-expressions` | 11 | Standard warn (`a && b()` als Anweisung) |
+| `react-hooks/use-memo` | 8 | React-Compiler-Regel, auf warn gestellt (Ausdrücke in Abhängigkeitslisten, CRM-Kalender) |
+| `react-hooks/purity` | 6 | React-Compiler-Regel, auf warn gestellt (`Date.now()` im Render) |
+| `@next/next/no-location-assign-relative-destination` | 5 | Standard warn |
+| `@next/next/no-html-link-for-pages` | 3 | auf warn gestellt: `<a>` statt `<Link>` (voller Reload) in `erntemeldung/neu`, `lagen/[id]`, `lagen/neu` |
+| `@next/next/no-img-element` | 2 | Standard warn |
+| `react-hooks/static-components` | 2 | React-Compiler-Regel, auf warn gestellt (`ChargenTabelle` in `kellerbuch/weinausbau/page.tsx` im Render definiert) |
+| `react-hooks/immutability` | 1 | React-Compiler-Regel, auf warn gestellt (`zeichnen` in `RiedKarte.tsx` vor der Deklaration benutzt – per Hoisting funktionsfähig) |
+
+Abgeschaltet sind nur `@typescript-eslint/no-require-imports` für die CommonJS-Wächter unter `scripts/` und `react-hooks/rules-of-hooks` unter `e2e/` (Playwrights Fixture-Callback heißt `use`). `react-hooks/rules-of-hooks` bleibt sonst Error (Abnahme: ein bedingter `useState` wird als Error gemeldet).
 
 ### Coverage je Bereich (`src/lib`)
 
@@ -74,7 +99,7 @@ Neu messen: `npm run test:coverage`. Die Tabelle am Ende der Ausgabe listet je D
    - `lib/fehler.ts` (33 %), `supabase/alle.ts` (43 %), `wein/blendKomposition.ts` (49 %), `wein/weinbuch.ts` (53 %), `pakete.ts` (56 %)
    - `assistent/tools/massnahme.ts` (61 %), `behandlungen/lager/actions.ts` (63 %), `buchhaltung/anlagen/actions.ts` (65 %)
    - `behoerden/keller-auswertungen.ts` (68 %), `behoerden/bewegungsbuch.ts` (68 %), `behoerden/weinbuch.ts` (69 %)
-6. **Lint:** ESLint 9 einrichten (KAN-140). Nur Errors blockieren, die Anzahl der Warnings als Ausgangswert festhalten.
+6. ~~**Lint:** ESLint 9 einrichten (KAN-140).~~ Erledigt 28.09.2026: `npm run lint` in `verify` und CI, 0 Errors, Warnings je Regel siehe oben. Offen bleibt der Abbau der Warnings, zuerst die React-Compiler-Regeln und die ungenutzten Werte.
 7. **E2E:** Playwright gegen Staging in die CI holen, sobald die Staging-Zugänge als GitHub-Secrets hinterlegt sind.
 
 ## Was automatische Tests nicht abdecken – manuelle Szenarien vor Releases

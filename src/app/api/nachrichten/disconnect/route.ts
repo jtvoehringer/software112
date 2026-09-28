@@ -3,7 +3,6 @@ import { NextResponse } from 'next/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 export const dynamic = 'force-dynamic'
-type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
 // schreibsperre-ausnahme: entfernt nur die eigenen gespeicherten Postfach-Zugangsdaten – muss aus Datenschutzgründen immer möglich sein
 export async function POST() {

@@ -4,7 +4,6 @@ import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
-import { qualitaetLabel } from '@/lib/wein/qualitaet'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import PrintButton from './PrintButton'
 
