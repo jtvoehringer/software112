@@ -17,9 +17,13 @@ jobs:
     # scripts/eslint-baseline.json blockieren), alle Unit-Tests (scripts/tests/*.test.mjs)
     # und alle acht prebuild-Wächter.
     # Node 24, weil test:csv TypeScript per --experimental-strip-types lädt (ab Node 22).
+    # fetch-depth: 0, damit lint:verify origin/main kennt und bei neuen Warnings die Stellen auf
+    # geänderten Zeilen zeigen kann (flacher Checkout: nur der Merge-Commit, ohne origin/main).
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v7
         with:
           node-version: 24

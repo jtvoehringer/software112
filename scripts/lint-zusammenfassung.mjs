@@ -3,19 +3,35 @@
 // - Errors werden vollständig ausgegeben (Format „stylish“), Warnings nur als Zählung je Regel.
 // - Sperre gegen neue Warnings: Vergleich mit scripts/eslint-baseline.json (Ausgangswert je Regel).
 //   Exit 1 bei mindestens einem Error oder wenn eine Regel mehr Warnings hat als ihr Ausgangswert
-//   (Regel ohne Eintrag = Ausgangswert 0). Für solche Regeln zeigt das Skript die Stellen auf
-//   geänderten Zeilen (git: Arbeitsstand gegenüber dem Abzweig von origin/main, sonst gegenüber HEAD;
-//   neue Dateien ganz).
+//   (Regel ohne Eintrag = Ausgangswert 0); in der CI (Umgebungsvariable CI) auch, wenn eine Regel
+//   darunter liegt – dann ist der Ausgangswert mit `npm run lint:baseline` zu senken (Ratsche, sonst
+//   ließe sich der frei gewordene Spielraum später mit neuen Warnings füllen).
+// - Für Regeln über dem Ausgangswert zeigt das Skript die Stellen auf geänderten Zeilen (git:
+//   Arbeitsstand gegenüber dem Abzweig vom Ziel-Branch, siehe basisErmitteln in
+//   scripts/lint-auswertung.mjs; neue Dateien ganz). Ist keine Vergleichsbasis ermittelbar, sagt es
+//   das ausdrücklich (in der CI braucht es dafür den Checkout mit fetch-depth: 0).
+// - Grenze: gezählt wird je Regel – eine abgebaute Warning gleicht eine neue derselben Regel aus.
 // - Warnings abgebaut: `npm run lint:baseline` schreibt die aktuellen Zahlen – nur, wenn es keine
 //   Errors gibt und keine Regel über ihrem Ausgangswert liegt. Erhöhen nur bewusst von Hand in der
 //   JSON-Datei, mit Begründung im PR.
 // - Cache unter node_modules/.cache/eslint/ (eine Datei je Arbeitsverzeichnis, auch bei einer
 //   Junction auf die node_modules des Haupt-Checkouts; `npm ci` leert ihn).
+// - Reine Logik (Diff-Parser, Vergleich, Baseline, Exit-Code) in scripts/lint-auswertung.mjs,
+//   getestet in scripts/tests/lint-zusammenfassung.test.mjs.
 import { ESLint } from 'eslint'
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import {
+  basisErmitteln,
+  zeilenAusDiff,
+  aufGeaendertenZeilen,
+  vergleichen,
+  baselineVerweigerung,
+  neueBaseline,
+  exitCode,
+} from './lint-auswertung.mjs'
 
 const WURZEL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const BASELINE_DATEI = path.join(WURZEL, 'scripts', 'eslint-baseline.json')
@@ -26,6 +42,7 @@ const OHNE_REGEL = '(unbenutzte eslint-disable-Kommentare)'
 const MAX_EINZELN = 60
 
 const baselineSchreiben = process.argv.includes('--baseline')
+const CI = Boolean(process.env.CI) && process.env.CI !== 'false'
 
 const regelVon = (m) => m.ruleId ?? OHNE_REGEL
 const relativ = (datei) => path.relative(WURZEL, datei).split(path.sep).join('/')
@@ -50,24 +67,13 @@ function git(args) {
 }
 
 // Geänderte Zeilen je Datei (Zeilennummern des Arbeitsstands): Pfad → [[von, bis], …] oder 'alle'.
+// null, wenn keine Vergleichsbasis ermittelbar ist (z. B. flacher CI-Checkout ohne origin/main).
 function geaenderteZeilen() {
-  const basis = git(['merge-base', 'origin/main', 'HEAD'])?.trim() || 'HEAD'
-  const diff = git(['diff', '-U0', '--no-color', '--no-ext-diff', basis]) ?? ''
-  const zeilen = new Map()
-  let datei = null
-  for (const roh of diff.split('\n')) {
-    const z = roh.replace(/\r$/, '')
-    if (z.startsWith('+++ ')) {
-      datei = z.startsWith('+++ b/') ? z.slice(6) : null
-      if (datei && !zeilen.has(datei)) zeilen.set(datei, [])
-    } else if (datei && z.startsWith('@@')) {
-      const m = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/.exec(z)
-      if (!m) continue
-      const von = Number(m[1])
-      const anzahl = m[2] === undefined ? 1 : Number(m[2])
-      if (anzahl > 0) zeilen.get(datei).push([von, von + anzahl - 1])
-    }
-  }
+  const { basis } = basisErmitteln(git, process.env)
+  if (!basis) return null
+  const diff = git(['diff', '-U0', '--no-color', '--no-ext-diff', basis])
+  if (diff === null) return null
+  const zeilen = zeilenAusDiff(diff)
   for (const d of (git(['ls-files', '--others', '--exclude-standard']) ?? '').split('\n')) {
     const pfad = d.trim()
     if (pfad) zeilen.set(pfad, 'alle')
@@ -90,6 +96,13 @@ function nurMeldungen(r, messages) {
 
 async function neueStellenZeigen(ergebnisse, ueber, stylish) {
   const zeilen = geaenderteZeilen()
+  if (!zeilen) {
+    console.log(
+      'Vergleichsbasis origin/main nicht verfügbar – geänderte Zeilen unbekannt. ' +
+        'Stellen mit `npx eslint <datei>` bzw. `npm run lint` suchen (CI: Checkout mit fetch-depth: 0).',
+    )
+    return
+  }
   const ueberSet = new Set(ueber)
   const aufZeilen = []
   const inDateien = []
@@ -98,9 +111,7 @@ async function neueStellenZeigen(ergebnisse, ueber, stylish) {
     if (!bereiche) continue
     const betroffen = r.messages.filter((m) => m.severity === 1 && ueberSet.has(regelVon(m)))
     if (betroffen.length === 0) continue
-    const geaendert = betroffen.filter(
-      (m) => bereiche === 'alle' || bereiche.some(([von, bis]) => m.line >= von && m.line <= bis),
-    )
+    const geaendert = betroffen.filter((m) => aufGeaendertenZeilen(bereiche, m.line))
     if (geaendert.length > 0) aufZeilen.push(nurMeldungen(r, geaendert))
     inDateien.push({ datei: relativ(r.filePath), anzahl: betroffen.length })
   }
@@ -150,12 +161,7 @@ async function main() {
   if (errors > 0) process.stdout.write(await stylish.format(ESLint.getErrorResults(ergebnisse)))
 
   const baseline = baselineLesen()
-  const vergleich = baseline ?? Object.fromEntries(zaehlung)
-  const regeln = [...new Set([...zaehlung.keys(), ...Object.keys(vergleich)])].sort(
-    (a, b) => (zaehlung.get(b) ?? 0) - (zaehlung.get(a) ?? 0) || a.localeCompare(b),
-  )
-  const ueber = regeln.filter((r) => (zaehlung.get(r) ?? 0) > (vergleich[r] ?? 0))
-  const unter = regeln.filter((r) => (zaehlung.get(r) ?? 0) < (vergleich[r] ?? 0))
+  const { vergleich, regeln, ueber, unter } = vergleichen(zaehlung, baseline)
 
   console.log(`ESLint: ${errors} Errors, ${warnings} Warnings in ${ergebnisse.length} Dateien`)
   console.log('Warnings je Regel (aktuell / Ausgangswert aus scripts/eslint-baseline.json):')
@@ -168,23 +174,14 @@ async function main() {
   }
 
   if (baselineSchreiben) {
-    if (errors > 0 || (baseline && ueber.length > 0)) {
-      console.log(
-        '\nAusgangswerte NICHT geschrieben: ' +
-          (errors > 0 ? 'es gibt Errors. ' : '') +
-          (baseline && ueber.length > 0
-            ? `Über dem Ausgangswert: ${ueber.join(', ')}. Erhöhen nur bewusst von Hand in scripts/eslint-baseline.json (mit Begründung im PR).`
-            : ''),
-      )
+    const grund = baselineVerweigerung({ errors, baseline, ueber })
+    if (grund) {
+      console.log(`\nAusgangswerte NICHT geschrieben: ${grund}`)
       return 1
     }
-    const neu = {
-      stand: new Date().toISOString().slice(0, 10),
-      summe: warnings,
-      regeln: Object.fromEntries(regeln.filter((r) => zaehlung.get(r)).map((r) => [r, zaehlung.get(r)])),
-    }
+    const neu = neueBaseline(zaehlung, new Date().toISOString().slice(0, 10))
     writeFileSync(BASELINE_DATEI, JSON.stringify(neu, null, 2) + '\n')
-    console.log(`\nAusgangswerte geschrieben: scripts/eslint-baseline.json (${warnings} Warnings) – mit committen.`)
+    console.log(`\nAusgangswerte geschrieben: scripts/eslint-baseline.json (${neu.summe} Warnings) – mit committen.`)
     return 0
   }
 
@@ -200,10 +197,14 @@ async function main() {
     await neueStellenZeigen(ergebnisse, ueber, stylish)
     console.log('Beheben, nicht die Ausgangswerte erhöhen (CLAUDE.md, Abschnitt Stabilität).')
   } else if (unter.length > 0) {
-    console.log('\nWeniger Warnings als im Ausgangswert – `npm run lint:baseline` ausführen und scripts/eslint-baseline.json mit committen.')
+    console.log(
+      CI
+        ? `\nAusgangswert senken: ${unter.join(', ')} unter dem Ausgangswert – \`npm run lint:baseline\` ausführen und scripts/eslint-baseline.json committen (in der CI rot, damit kein Spielraum für neue Warnings bleibt).`
+        : '\nWeniger Warnings als im Ausgangswert – `npm run lint:baseline` ausführen und scripts/eslint-baseline.json mit committen (die CI ist sonst rot).',
+    )
   }
 
-  return errors > 0 || ueber.length > 0 ? 1 : 0
+  return exitCode({ errors, ueber, unter, ci: CI })
 }
 
 process.exitCode = await main()
