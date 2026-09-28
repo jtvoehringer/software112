@@ -178,43 +178,73 @@ describe('ladeFinanzen – Finanzübersicht', nurMitHooks, () => {
 
   // Datumsgrenzen: jede Buchung/Rechnung liegt GENAU auf einer Grenze (Stichtag einschließlich,
   // Vorjahres-Stichtag einschließlich, Zeitraum 1.1. Vorjahr bis 31.12., Zahlungsziel 30 Tage).
-  // Läuft in UTC und in Wien – heute = 28.09.2026, 00:00 UTC (02:00 Wiener Zeit, gleicher Kalendertag).
-  test('Datumsgrenzen: Stichtag und Vorjahres-Stichtag zählen mit, Zeitraum 1.1. Vorjahr bis 31.12., überfällig erst nach 30 vollen Tagen', async () => {
-    const grenzen = () => ({
-      tenants: [{ id: T, name: 'Grenzen' }],
-      ea_transaktionen: [
-        tx('g1', '2026-09-28', 'einnahme', 100),                                                          // Stichtag → YTD
-        tx('g2', '2025-09-28', 'einnahme', 10),                                                           // Vorjahres-Stichtag → einnahmenVj
-        tx('g3', '2025-09-29', 'einnahme', 1000),                                                         // nur gesamtVj
-        tx('g4', '2025-01-01', 'ausgabe', 3),                                                             // Zeitraumbeginn zählt noch
-        tx('g5', '2026-12-31', 'ausgabe', 7),                                                             // Zeitraumende: nur Doppik belegeOffen
-        tx('a1', '2026-09-28', 'ausgabe', 20, { anlage_id: 'anl-x', kategorie: kat('Abschreibung (AfA)', 7010) }), // AfA am Stichtag
-        tx('a2', '2025-09-28', 'ausgabe', 30, { anlage_id: 'anl-x', kategorie: kat('Abschreibung (AfA)', 7010) }), // AfA am Vorjahres-Stichtag (afaGebuchtVj wird nicht ausgegeben)
-        tx('k1', '2026-09-28', 'ausgabe', 500, { kategorie: kat('Traktor', '0620') }),                   // Anlagenkauf am Stichtag
-        tx('k2', '2025-09-28', 'ausgabe', 300, { kategorie: kat('Traktor', '0620') }),                   // Anlagenkauf am Vorjahres-Stichtag
-      ],
-      verkaufsposten: [
-        vp('r1', '2026-09-28', [vpos(120, 1, 20)], { bezahlt: true }),                                   // Stichtag, netto 100
-        vp('r2', '2025-09-28', [vpos(110, 1, 10)], { bezahlt: true }),                                   // Vorjahres-Stichtag, netto 100
-        vp('r3', '2026-08-29', [vpos(12, 1, 20)]),                                                       // genau 30 Tage alt: nicht überfällig
-        vp('r4', '2026-08-28', [vpos(24, 1, 20)]),                                                       // 31 Tage alt: überfällig
-      ],
-    })
-    for (const zone of ['UTC', 'Europe/Vienna']) {
+  // Der erste Test läuft mit heute = 28.09.2026, 00:00:00.000 UTC (Server in UTC): nur exakt zu diesem
+  // Zeitpunkt ist r3 (30 Tage) noch nicht überfällig – das deckt die Grenze > gegen >= ab. Das
+  // Verhalten im Betrieb (mit Uhrzeit) und die Zeitzonen-Grenze kurz nach Mitternacht in Wien prüfen
+  // die beiden Befund-Tests danach.
+  const grenzen = () => ({
+    tenants: [{ id: T, name: 'Grenzen' }],
+    ea_transaktionen: [
+      tx('g1', '2026-09-28', 'einnahme', 100),                                                          // Stichtag → YTD
+      tx('g2', '2025-09-28', 'einnahme', 10),                                                           // Vorjahres-Stichtag → einnahmenVj
+      tx('g3', '2025-09-29', 'einnahme', 1000),                                                         // nur gesamtVj
+      tx('g4', '2025-01-01', 'ausgabe', 3),                                                             // Zeitraumbeginn zählt noch
+      tx('g5', '2026-12-31', 'ausgabe', 7),                                                             // Zeitraumende: nur Doppik belegeOffen
+      tx('a1', '2026-09-28', 'ausgabe', 20, { anlage_id: 'anl-x', kategorie: kat('Abschreibung (AfA)', 7010) }), // AfA am Stichtag
+      tx('a2', '2025-09-28', 'ausgabe', 30, { anlage_id: 'anl-x', kategorie: kat('Abschreibung (AfA)', 7010) }), // AfA am Vorjahres-Stichtag (afaGebuchtVj wird nicht ausgegeben)
+      tx('k1', '2026-09-28', 'ausgabe', 500, { kategorie: kat('Traktor', '0620') }),                   // Anlagenkauf am Stichtag
+      tx('k2', '2025-09-28', 'ausgabe', 300, { kategorie: kat('Traktor', '0620') }),                   // Anlagenkauf am Vorjahres-Stichtag
+    ],
+    verkaufsposten: [
+      vp('r1', '2026-09-28', [vpos(120, 1, 20)], { bezahlt: true }),                                   // Stichtag, netto 100
+      vp('r2', '2025-09-28', [vpos(110, 1, 10)], { bezahlt: true }),                                   // Vorjahres-Stichtag, netto 100
+      vp('r3', '2026-08-29', [vpos(12, 1, 20)]),                                                       // 30 Tage alt: nur exakt um Mitternacht UTC nicht überfällig
+      vp('r4', '2026-08-28', [vpos(24, 1, 20)]),                                                       // 31 Tage alt: überfällig
+    ],
+  })
+
+  test('Datumsgrenzen: Stichtag und Vorjahres-Stichtag zählen mit, Zeitraum 1.1. Vorjahr bis 31.12., überfällig erst nach 30 vollen Tagen (exakt 00:00:00.000 UTC)', async () => {
+    const { r } = await lade({ art: 'doppik', heute: new Date('2026-09-28T00:00:00.000Z') }, grenzen())
+    assert.equal(r.stichtag, '2026-09-28')
+    // YTD-Ausgaben: nur der Anlagenkauf k1 (auch Anlagenkäufe sind Ausgaben der Übersicht); Vorjahr: g4 + k2
+    assert.deepEqual(r.ytd, { einnahmen: 100, ausgaben: 500, ergebnis: -400, einnahmenVj: 10, ausgabenVj: 303, ergebnisVj: -293 })
+    assert.deepEqual(r.gesamtVj, { einnahmen: 1010, ausgaben: 303, ergebnis: 707 })
+    assert.equal(r.belege.buchungenJahr, 2, 'g1 und k1 am Stichtag, AfA zählt nicht')
+    assert.deepEqual([r.anlagen.afaGebuchtJahr, r.anlagen.anlagenkaeufeJahr, r.anlagen.anlagenkaeufeVj], [20, 500, 300])
+    assert.equal(r.anlagen.ergebnisNachAfaVjGesamt, 707 + 300)
+    assert.deepEqual([Math.round(r.umsatz.ytd * 100) / 100, Math.round(r.umsatz.vj * 100) / 100], [130, 100], 'r1 + r3 + r4 (100 + 10 + 20) bzw. r2')
+    assert.deepEqual(r.forderungen, { summe: 36, anzahl: 2, ueberfaellig: 1, ueberfaelligSumme: 24 }, 'r3 exakt 30 Tage: nicht überfällig')
+    // Ausgaben ohne BMD-Export im ganzen Zeitraum: g4, g5 (31.12.), a1, a2, k1, k2
+    assert.deepEqual([r.uebergabe.belegeOffen, r.uebergabe.rechnungenOffen], [6, 4])
+  })
+
+  // Befund: Die Überfälligkeit hängt am Zeitpunkt, nicht am Kalendertag. Das Rechnungsdatum gilt als
+  // UTC-Mitternacht, heute trägt im Betrieb eine Uhrzeit – eine Rechnung ist damit schon am 30.
+  // Kalendertag überfällig (ab 00:00:00.001 UTC, in Wien ab 02:00 Sommer- bzw. 01:00 Winterzeit).
+  test('Befund: Überfälligkeit nach Zeitpunkt – am 30. Tag mit Uhrzeit ist r3 schon überfällig (UTC und Wien)', async () => {
+    for (const [zone, heute] of [['UTC', '2026-09-28T00:00:01.000Z'], ['UTC', '2026-09-28T12:00:00.000Z'], ['Europe/Vienna', '2026-09-28T12:00:00.000Z']]) {
       process.env.TZ = zone
-      const { r } = await lade({ art: 'doppik', heute: new Date('2026-09-28T00:00:00.000Z') }, grenzen())
-      assert.equal(r.stichtag, '2026-09-28', zone)
-      // YTD-Ausgaben: nur der Anlagenkauf k1 (auch Anlagenkäufe sind Ausgaben der Übersicht); Vorjahr: g4 + k2
-      assert.deepEqual(r.ytd, { einnahmen: 100, ausgaben: 500, ergebnis: -400, einnahmenVj: 10, ausgabenVj: 303, ergebnisVj: -293 }, zone)
-      assert.deepEqual(r.gesamtVj, { einnahmen: 1010, ausgaben: 303, ergebnis: 707 }, zone)
-      assert.equal(r.belege.buchungenJahr, 2, `${zone}: g1 und k1 am Stichtag, AfA zählt nicht`)
-      assert.deepEqual([r.anlagen.afaGebuchtJahr, r.anlagen.anlagenkaeufeJahr, r.anlagen.anlagenkaeufeVj], [20, 500, 300], zone)
-      assert.equal(r.anlagen.ergebnisNachAfaVjGesamt, 707 + 300, zone)
-      assert.deepEqual([Math.round(r.umsatz.ytd * 100) / 100, Math.round(r.umsatz.vj * 100) / 100], [130, 100], `${zone}: r1 + r3 + r4 (100 + 10 + 20) bzw. r2`)
-      assert.deepEqual(r.forderungen, { summe: 36, anzahl: 2, ueberfaellig: 1, ueberfaelligSumme: 24 }, zone)
-      // Ausgaben ohne BMD-Export im ganzen Zeitraum: g4, g5 (31.12.), a1, a2, k1, k2
-      assert.deepEqual([r.uebergabe.belegeOffen, r.uebergabe.rechnungenOffen], [6, 4], zone)
+      const { r } = await lade({ heute: new Date(heute) }, grenzen())
+      assert.equal(r.stichtag, '2026-09-28', `${zone} ${heute}`)
+      assert.deepEqual(r.forderungen, { summe: 36, anzahl: 2, ueberfaellig: 2, ueberfaelligSumme: 36 }, `${zone} ${heute}: r3 und r4 überfällig`)
     }
+  })
+
+  // Befund (Zeitzonen-Grenze): Server in Wien, 28.09.2026 00:30 Wiener Zeit (27.09. 22:30 UTC).
+  // Jahr und Monat kommen aus der Serverzeit (28.09.), der Stichtag aus toISOString (UTC-Datum 27.09.):
+  // alles vom 28.09. bzw. 28.09. des Vorjahres fehlt im Stichtagsvergleich. Unter UTC (Vercel) ergibt
+  // derselbe Zeitpunkt ebenfalls den 27.09. – dort stimmig, aus Wiener Sicht aber der Vortag.
+  test('Befund: Wien, 28.09. 00:30 – Stichtag noch 27.09.: g1/k1/r1 fehlen im YTD, g2/k2/r2 im Vorjahresvergleich', async () => {
+    process.env.TZ = 'Europe/Vienna'
+    const { r } = await lade({ art: 'doppik', heute: new Date('2026-09-27T22:30:00.000Z') }, grenzen())
+    assert.equal(r.jahr, 2026)
+    assert.equal(r.stichtag, '2026-09-27')
+    assert.deepEqual(r.ytd, { einnahmen: 0, ausgaben: 0, ergebnis: 0, einnahmenVj: 0, ausgabenVj: 3, ergebnisVj: -3 })
+    assert.deepEqual(r.gesamtVj, { einnahmen: 1010, ausgaben: 303, ergebnis: 707 })
+    assert.equal(r.belege.buchungenJahr, 0)
+    assert.deepEqual([r.anlagen.afaGebuchtJahr, r.anlagen.anlagenkaeufeJahr, r.anlagen.anlagenkaeufeVj], [0, 0, 0])
+    assert.deepEqual([Math.round(r.umsatz.ytd * 100) / 100, Math.round(r.umsatz.vj * 100) / 100], [30, 0], 'nur r3 + r4')
+    assert.deepEqual(r.forderungen, { summe: 36, anzahl: 2, ueberfaellig: 1, ueberfaelligSumme: 24 }, 'r3 erst 29 Tage 22,5 Stunden alt')
   })
 
   test('Liquidität: Eröffnungssaldo + Zahlungen + E&A-Buchungen aller Jahre (brutto, Vorzeichen) ± Umbuchungen, nur aktive Konten', async () => {
@@ -255,9 +285,17 @@ describe('ladeFinanzen – Finanzübersicht', nurMitHooks, () => {
 
   // Gleiche Ursache, andere Wirkung: heuteStr (Stichtag) kommt aus toISOString (UTC-Datum), Jahr und
   // Monat aus getFullYear/getMonth (Serverzeit). Östlich von UTC fallen am 1.1. bis 1 Uhr (Winterzeit
-  // Wien) Jahr und Stichtag auseinander. Vercel läuft in UTC – betroffen ist z. B. npm run dev in Wien.
+  // Wien) Jahr und Stichtag auseinander.
+  // Server in Wien: Jahr 2027, 0 abgelaufene Monate und die UVA Dez 2026 (bzw. Q4 2026) sind für das
+  // Wiener Datum 1.1.2027 RICHTIG. Falsch sind nur der Stichtag (UTC-Datum 31.12.2026), daraus das
+  // leere YTD und der Vorjahresvergleich über das ganze Jahr 2026 (stichtagVj 2026-12-31), sowie die
+  // Fälligkeit 14.2. statt 15.2. Ein Fix bildet den Stichtag nach Europe/Vienna – nicht Jahr und
+  // Monat nach UTC.
   test('Befund: Wien, 1.1.2027 00:30 – Jahr 2027, aber Stichtag 31.12.2026: YTD leer, Vorjahr = ganzes Jahr 2026', async () => {
     const silvester = new Date('2026-12-31T23:30:00.000Z')
+    // Server in UTC (Vercel): in sich stimmig, aber aus Wiener Sicht der VORTAG – Jahr 2026, Stichtag
+    // 31.12.2026, UVA Nov 2026. Das ist die heutige Referenz, nicht das fachliche Soll (offen:
+    // Datum nach Europe/Vienna bilden).
     process.env.TZ = 'UTC'
     const utc = (await lade({ heute: silvester })).r
     assert.deepEqual([utc.jahr, utc.stichtag, utc.ytd.einnahmen, utc.monatsabschluss.offeneMonate], [2026, '2026-12-31', 2039, 5])
@@ -265,12 +303,12 @@ describe('ladeFinanzen – Finanzübersicht', nurMitHooks, () => {
 
     process.env.TZ = 'Europe/Vienna'
     const { r } = await lade({ heute: silvester })
-    assert.equal(r.jahr, 2027)
-    assert.equal(r.stichtag, '2026-12-31')
+    assert.equal(r.jahr, 2027)                        // richtig für Wien
+    assert.equal(r.stichtag, '2026-12-31')            // Befund: UTC-Datum statt 2027-01-01
     assert.deepEqual(r.ytd, { einnahmen: 0, ausgaben: 0, ergebnis: 0, einnahmenVj: 2039, ausgabenVj: 2315, ergebnisVj: -276 })
     assert.deepEqual(r.ytd.einnahmenVj, r.gesamtVj.einnahmen, 'Vorjahresvergleich umfasst das ganze Jahr 2026')
-    assert.equal(r.monatsabschluss.offeneMonate, 0)
-    assert.deepEqual([r.uva.label, r.uva.faelligAm], ['Dez 2026', '2027-02-14'])
+    assert.equal(r.monatsabschluss.offeneMonate, 0)   // richtig für Wien (Jänner: noch kein Monat abgelaufen)
+    assert.deepEqual([r.uva.label, r.uva.faelligAm], ['Dez 2026', '2027-02-14']) // Label richtig, Fälligkeit Befund (15.2.)
     const q = await lade({ heute: silvester, uvaZeitraum: 'quartalsweise' })
     assert.deepEqual([q.r.uva.label, q.r.uva.faelligAm], ['Q4 2026', '2027-02-14'])
   })
