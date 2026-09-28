@@ -16,6 +16,7 @@ import { stripeKundennummerSync } from '@/lib/stripe/kundennummer'
 import { AktionsFehler } from '@/lib/fehler'
 import { dezimal } from '@/lib/format'
 import { weinbauBetriebsnummerPruefen } from '@/lib/betrieb/betriebsnummer'
+import { mitgliedEinladen, EINLADUNG_REDIRECT } from '@/lib/auth/einladung'
 import { istMostgewichtEinheit } from '@/lib/wein/mostgewicht'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -173,48 +174,26 @@ export async function inviteUserToTenant(tenantId: string, email: string, role: 
     if (!limit.erlaubt) return { error: benutzerlimitFehler(limit) }
   }
 
-  // Prüfen ob User schon existiert
-  const { data: { users } } = await admin.auth.admin.listUsers({ perPage: 1000 })
-  let userId = users.find(u => u.email === email)?.id
-
-  if (!userId) {
-    const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
-      redirectTo: 'https://software112.icp-consultants.at/auth/invite',
-    })
-    if (error || !data.user) return { error: error?.message ?? 'Einladung fehlgeschlagen' }
-    userId = data.user.id
-  }
-
-  // Prüfen ob Membership schon existiert
-  const { data: existing } = await (admin.from('tenant_memberships') as any)
-    .select('id').eq('user_id', userId).eq('tenant_id', tenantId).maybeSingle()
-
-  if (existing) return { error: 'Benutzer ist bereits Mitglied dieses Mandanten.' }
-
-  const { error: memberError } = await (admin.from('tenant_memberships') as any)
-    .insert({ tenant_id: tenantId, user_id: userId, role })
-
-  if (memberError) return { error: (memberError as R).message }
-
-  // Name im Profil hinterlegen (upsert, falls das Signup-Trigger-Profil noch
-  // nicht existiert oder ein bestehender User ohne Namen eingeladen wird).
-  const { error: profileError } = await (admin.from('profiles') as any)
-    .upsert({ id: userId, full_name: name, updated_at: new Date().toISOString() }, { onConflict: 'id' })
-  if (profileError) return { error: (profileError as R).message }
+  // KAN-139: gemeinsamer Ablauf mit /benutzer (lib/auth/einladung.ts) – bestehende
+  // Konten nur mit bestätigter Adresse und mit Benachrichtigung; der Name wird bei
+  // bestehenden Konten nur ergänzt, nicht überschrieben (Korrektur: updateMemberNameAdmin).
+  const authClient = await createSupabaseServerClient()
+  const { data: { user } } = await authClient.auth.getUser()
+  const ergebnis = await mitgliedEinladen(admin, { tenantId, email, role, name, eingeladenVon: user?.id ?? null })
+  if ('error' in ergebnis) return { error: ergebnis.error }
 
   tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
-  return { success: true }
+  return { success: true, hinweis: ergebnis.hinweis }
 }
 
 // ── Benutzer: Einladung erneut senden ──────────────────────────────────────────
 //
 // Für Benutzer, die ihr Konto noch nicht aktiviert haben (email_confirmed_at
 // leer) - z.B. weil der erste Einladungslink abgelaufen ist, bevor er
-// angeklickt wurde. inviteUserToTenant() oben verschickt bei einem bereits
-// existierenden Auth-User bewusst KEINE neue Mail (das ist dort so gewollt,
-// damit ein bestehender, bereits aktiver Nutzer ohne Fehlermeldung einem
-// weiteren Mandanten zugewiesen werden kann) - für den "steckengebliebenen"
+// angeklickt wurde. inviteUserToTenant() oben ordnet ein bestehendes Konto
+// nur zu, wenn dessen Adresse bestätigt ist (KAN-139), und schickt dann eine
+// Hinweis-Mail statt einer Einladung - für den "steckengebliebenen"
 // Fall hier braucht es also einen eigenen, expliziten Weg. Ruft dieselbe
 // GoTrue-Route wie eine Erst-Einladung auf: für einen noch unbestätigten
 // User erzeugt das einen frischen, neuen Einladungslink und verschickt ihn
@@ -232,7 +211,7 @@ export async function resendInvite(userId: string, tenantId: string) {
   }
 
   const { error } = await admin.auth.admin.inviteUserByEmail(user.email, {
-    redirectTo: 'https://software112.icp-consultants.at/auth/invite',
+    redirectTo: EINLADUNG_REDIRECT,
   })
   if (error) return { error: error.message }
 

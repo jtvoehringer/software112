@@ -60,7 +60,9 @@ Nach dem Speichern im Produkt unter „Preise" die **Preis-ID** (`price_…`) ko
 - Danach **Redeploy** – `NEXT_PUBLIC_*` werden erst beim Build eingebacken.
 
 ### 5. Testlauf (Stripe-Testmodus)
-1. Signup mit Testkarte `4242 4242 4242 4242` → Mandant muss `trialing` sein,
+1. Signup (seit KAN-139 ohne Passwort, mit E-Mail-Bestätigung): Link aus der Mail öffnen,
+   Passwort festlegen → Weiterleitung auf `/abo` → „Zahlungsdaten hinterlegen“ mit Paket →
+   Testkarte `4242 4242 4242 4242` → Mandant muss `trialing` sein,
    Module laut Paket geschaltet, `max_benutzer` gesetzt.
 2. Auf `/abo` einmal Upgrade und einmal Downgrade → Administration → Mandanten →
    Module: Schalter müssen mitgehen; Downgrade-Hinweis auf wegfallende Module prüfen.

@@ -58,14 +58,14 @@ function InviteContent() {
       </div>
       <h2 className="text-lg font-semibold text-s112-text">Willkommen!</h2>
       <p className="text-sm text-s112-muted">
-        Du wurdest zu software:112 eingeladen. Klicke unten um dein Passwort festzulegen.
+        Du wurdest zu software:112 eingeladen oder hast deinen Betrieb registriert. Klicke unten, um dein Konto zu aktivieren und dein Passwort festzulegen.
       </p>
       {error && <p className="text-sm text-s112-err-fg">{error}</p>}
       {!isValid && !error && <p className="text-sm text-s112-err-fg">Ungültiger Einladungslink.</p>}
       {isValid && (
         <button onClick={annehmen} disabled={loading}
           className="w-full bg-s112-teal text-white px-6 py-3 rounded-xl font-semibold hover:bg-opacity-90 disabled:opacity-40">
-          {loading ? 'Wird verarbeitet…' : 'Einladung annehmen & Passwort setzen'}
+          {loading ? 'Wird verarbeitet…' : 'Konto aktivieren & Passwort festlegen'}
         </button>
       )}
     </div>
@@ -80,7 +80,7 @@ export default function InviteLandingPage() {
           <h1 className="text-3xl font-semibold text-s112-blue-700 inline-flex items-baseline gap-0">
             software<span className="text-s112-yellow">:</span>112
           </h1>
-          <p className="text-s112-muted text-sm mt-1">Einladung annehmen</p>
+          <p className="text-s112-muted text-sm mt-1">Konto aktivieren</p>
         </div>
         <Suspense fallback={<div className="bg-white rounded-xl border border-s112-border p-8 text-center text-s112-muted text-sm">Laden…</div>}>
           <InviteContent />

@@ -103,7 +103,7 @@ export default function BenutzerClient({ members, limit }: Props) {
       const result = await inviteMember(inviteEmail, inviteRole, inviteName, inviteRole === 'winzer' ? inviteModule : [])
       if (result?.error) setError(result.error)
       else {
-        setSuccess(`Einladung an ${inviteEmail} versandt.`)
+        setSuccess(result.hinweis ?? `Einladung an ${inviteEmail} versandt.`)
         setInviteName(''); setInviteEmail(''); setInviteRole('winzer'); setInviteModule([...MODUL_VORLAGEN[0].module]); setShowInvite(false)
       }
     })

@@ -7,6 +7,7 @@ import { getCurrentMembership, canManageUsers, isModul, type Modul } from '@/lib
 import { seitenBetriebFehler } from '@/lib/auth/seitenBetrieb'
 import { schreibSperreFehler } from '@/lib/auth/sperren'
 import { pruefeBenutzerlimit, benutzerlimitFehler } from '@/lib/pakete-server'
+import { mitgliedEinladen, EINLADUNG_REDIRECT } from '@/lib/auth/einladung'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -106,36 +107,20 @@ export async function inviteMember(email: string, role: string, fullName: string
   const limit = await pruefeBenutzerlimit(admin, membership.tenantId)
   if (!limit.erlaubt) return { error: benutzerlimitFehler(limit) }
 
-  // Prüfen ob User schon existiert
-  const { data: { users } } = await admin.auth.admin.listUsers({ perPage: 1000 })
-  let userId = users.find(u => u.email === mail)?.id
-
-  if (!userId) {
-    const { data, error } = await admin.auth.admin.inviteUserByEmail(mail, {
-      redirectTo: 'https://software112.icp-consultants.at/auth/invite',
-    })
-    if (error || !data.user) return { error: error?.message ?? 'Einladung fehlgeschlagen' }
-    userId = data.user.id
-  }
-
-  // Prüfen ob Membership schon existiert
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: existing } = await (admin.from('tenant_memberships') as any)
-    .select('id').eq('user_id', userId).eq('tenant_id', membership.tenantId).maybeSingle()
-  if (existing) return { error: 'Benutzer ist bereits Mitglied dieses Betriebs.' }
-
-  // Modulmatrix (Migration 218): nur Mitarbeiter (winzer) tragen sie, Admins haben alles, Leser nichts
-  const { error: memberError } = await (admin.from('tenant_memberships') as any)
-    .insert({ tenant_id: membership.tenantId, user_id: userId, role, schreibmodule: role === 'winzer' ? moduleBereinigen(module) : null })
-  if (memberError) return { error: (memberError as R).message }
-
-  const { error: profileError } = await (admin.from('profiles') as any)
-    .upsert({ id: userId, full_name: name, updated_at: new Date().toISOString() }, { onConflict: 'id' })
-  if (profileError) return { error: (profileError as R).message }
+  // KAN-139: bestehende Konten nur mit bestätigter Adresse, und dann mit Benachrichtigung
+  const supabase = await createSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const ergebnis = await mitgliedEinladen(admin, {
+    tenantId: membership.tenantId, email: mail, role, name,
+    // Modulmatrix (Migration 218): nur Mitarbeiter (winzer) tragen sie, Admins haben alles, Leser nichts
+    schreibmodule: role === 'winzer' ? moduleBereinigen(module) : null,
+    eingeladenVon: user?.id ?? null,
+  })
+  if ('error' in ergebnis) return { error: ergebnis.error }
 
   revalidatePath('/benutzer')
   revalidatePath('/betrieb/einstellungen')
-  return { success: true }
+  return { success: true, hinweis: ergebnis.hinweis }
 }
 
 /** Einladung erneut senden – für Mitglieder, die ihr Konto noch nicht aktiviert
@@ -169,7 +154,7 @@ export async function resendInvite(userId: string) {
   }
 
   const { error } = await admin.auth.admin.inviteUserByEmail(user.email, {
-    redirectTo: 'https://software112.icp-consultants.at/auth/invite',
+    redirectTo: EINLADUNG_REDIRECT,
   })
   if (error) return { error: error.message }
 

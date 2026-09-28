@@ -20,7 +20,7 @@ export default function SystemAdminClient({ admins, canInvite = true }: { admins
       if (result.error) {
         setError(result.error)
       } else {
-        setSuccess(`Einladung an ${email} versandt.`)
+        setSuccess(result.hinweis ?? `Einladung an ${email} versandt.`)
         setEmail('')
         setShowInvite(false)
       }
