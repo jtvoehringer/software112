@@ -370,7 +370,7 @@ describe('Formulare: Düngermenge beim Wechsel kg ↔ l', nurMitHooks, () => {
     const m = mf.mengenFelder({
       art: 'duengung', felder: mf.MENGEN_SICHT.duengung,
       mengeGesamt: '50', wasseraufwand: '', mengeQuelle: null,
-      aufwandmenge: '', aufwandmengeEinheit: 'kg_ha', konzentration: '', aufwandQuelle: null,
+      aufwandmenge: '', aufwandmengeEinheit: 'kg_ha', konzentration: '', folge: [],
       flaecheHa: 2, psmId: null, psm: null, duengemittelId: 'd-l', duengemittelEinheit: 'l',
     })
     assert.equal(m.mengeEinheit, 'l')
@@ -398,15 +398,16 @@ describe('Formulare: Hinweis unter „Konzentration (%)“ nennt, was fehlt', nu
   const eingaben = (mf, x = {}) => ({
     art: 'spritzung', felder: mf.MENGEN_SICHT.spritzung,
     mengeGesamt: '', wasseraufwand: '', mengeQuelle: null,
-    aufwandmenge: '0,6', aufwandmengeEinheit: 'kg_ha', konzentration: '', aufwandQuelle: 'aufwand',
+    aufwandmenge: '0,6', aufwandmengeEinheit: 'kg_ha', konzentration: '', folge: ['aufwand'],
     flaecheHa: null, psmId: 'p-funguran', psm: null, duengemittelId: null, duengemittelEinheit: null,
     ...x,
   })
 
   test('weder Spritzbrühe noch Wasseraufwand: bisheriger Text', async () => {
     const mf = await laden()
+    // KAN-155: auch die Konzentration (%) genügt – Aufwand und Konzentration ergeben den Wasseraufwand
     assert.equal(mf.mengenFelder(eingaben(mf)).konzentrationHinweis,
-      'Für die automatische Berechnung bitte Wasseraufwand (l/ha) oder Spritzbrühe gesamt angeben.')
+      'Für die automatische Berechnung bitte Konzentration (%), Wasseraufwand (l/ha) oder Spritzbrühe gesamt angeben.')
     assert.match(mf.mengenFelder(eingaben(mf, { flaecheHa: 2 })).konzentrationHinweis, /oder Spritzbrühe gesamt angeben/)
   })
 
@@ -439,7 +440,7 @@ describe('Formulare: Hinweis unter „Konzentration (%)“ nennt, was fehlt', nu
     for (const x of [
       { aufwandmenge: '25', aufwandmengeEinheit: 'g_hl' },   // g/hl → % ohne Wasseraufwand
       { aufwandmenge: '1,2', aufwandmengeEinheit: 'kg' },    // gesamt: keine Umrechnung in %
-      { aufwandmenge: '', aufwandQuelle: null },             // nichts eingegeben
+      { aufwandmenge: '', folge: [] },                       // nichts eingegeben
       { art: 'duengung', felder: mf.MENGEN_SICHT.duengung }, // Düngung ohne Konzentrationsfeld
     ]) assert.equal(mf.mengenFelder(eingaben(mf, x)).konzentrationHinweis, null, JSON.stringify(x))
   })
@@ -494,5 +495,211 @@ describe('CHECK behandlungen_spritzung_bruehe_l_check (KAN-133, optional)', () =
     abgelehnt(spritzung({ mengeGesamt: 1.2, mengeEinheit: 'kg' }), /Spritzbrühe in Litern/)
     assert.equal(checkErfuellt('spritzung', { menge_gesamt: 1.2, menge_einheit: 'kg' }), false)
     assert.equal(checkErfuellt('duengung', ok(duengung()).werte), true)
+  })
+})
+
+// ── KAN-155: Aufwand, Konzentration (%) und Wasseraufwand – je zwei bestimmen die dritte ──
+// Aufwand (kg/ha, l/ha) = Wasseraufwand × Konzentration ÷ 100; Spritzbrühe gesamt = Wasseraufwand × Fläche.
+
+/** Ergebnis von pruefeMassnahmeMengen muss gültig sein (ok()/abgelehnt() oben nehmen die Eingabe) */
+function gueltig(r) {
+  assert.equal(r.ok, true, r.fehler)
+  return r
+}
+
+describe('KAN-155: wasseraufwandAusKonzentration und pruefeMassnahmeMengen', nurMitHooks, () => {
+  test('Rechnung und Randfälle (0, leer, ungültig, > 100 %, Einheiten) – nie durch 0 teilen', () => {
+    const w = mm.wasseraufwandAusKonzentration
+    assert.equal(w(2, 'l_ha', 0.5), 400)                  // Beispiel aus dem Ticket
+    assert.equal(w(0.6, 'kg_ha', 0.15), 400)              // Rundung auf 2 Stellen fängt 400,0000001 ab
+    assert.equal(w(1, 'kg_ha', 3), 33.33)
+    for (const k of [0, -1, 100.5, null, Number.NaN, Infinity]) assert.equal(w(2, 'l_ha', k), null, String(k))
+    for (const a of [0, -2, null, Number.NaN]) assert.equal(w(a, 'l_ha', 0.5), null, String(a))
+    for (const e of ['g_hl', 'ml_hl', 'kg', 'l', null, '']) assert.equal(w(2, e, 0.5), null, String(e))
+    assert.equal(w(2, 'l_ha', 100), 2)
+  })
+
+  test('Server: Aufwand + Konzentration ohne Spritzbrühe und Wasseraufwand → 400 l/ha, bei 1,5 ha 600 l', () => {
+    const e = (teil) => ({ art: 'spritzung', psmId: 'p-1', psm: null, aufwand: 2, aufwandEinheit: 'l_ha', mengeGesamt: null, mengeEinheit: null, wasserLHa: null, konzentrationPct: 0.5, flaecheHa: 1.5, ...teil })
+    const r = gueltig(mm.pruefeMassnahmeMengen(e({}), { bruehePflicht: true }))
+    assert.deepEqual([r.werte.wasseraufwand_l_ha, r.werte.menge_gesamt, r.werte.menge_einheit, r.spritzbruehe], [400, 600, 'l', 600])
+    assert.deepEqual([r.mittelmenge.menge, r.mittelmenge.einheit], [3, 'l'])  // Mittelmenge weiter nur aus dem Aufwand
+    // ohne Fläche: Wasseraufwand ja, Spritzbrühe erst mit Fläche
+    const ohneHa = gueltig(mm.pruefeMassnahmeMengen(e({ flaecheHa: null }), { bruehePflicht: true }))
+    assert.deepEqual([ohneHa.werte.wasseraufwand_l_ha, ohneHa.werte.menge_gesamt], [400, null])
+    // eingegebene Spritzbrühe bzw. eingegebener Wasseraufwand gehen vor – die Konzentration ändert sie nicht
+    assert.equal(gueltig(mm.pruefeMassnahmeMengen(e({ wasserLHa: 300 }))).werte.wasseraufwand_l_ha, 300)
+    assert.deepEqual(gueltig(mm.pruefeMassnahmeMengen(e({ mengeGesamt: 900, mengeEinheit: 'l' }))).werte.wasseraufwand_l_ha, 600)
+    // Konzentration 0, leer oder g/hl: nichts ergänzt – mit Brühe-Pflicht die Rückfrage, sonst ohne Wasseraufwand gespeichert
+    for (const teil of [{ konzentrationPct: 0 }, { konzentrationPct: null }, { konzentrationPct: undefined }]) {
+      const r2 = mm.pruefeMassnahmeMengen(e(teil), { bruehePflicht: true })
+      assert.equal(r2.ok, false, JSON.stringify(teil))
+      assert.match(r2.fehler, /genügt auch die Konzentration \(%\)/)
+      assert.equal(gueltig(mm.pruefeMassnahmeMengen(e(teil))).werte.wasseraufwand_l_ha, null)
+    }
+    abgelehnt(e({ aufwand: 25, aufwandEinheit: 'g_hl' }), /g\/hl bzw\. ml\/hl .* Pflicht/)
+    // Düngung und Sonstiges: Konzentration spielt keine Rolle
+    assert.equal(gueltig(mm.pruefeMassnahmeMengen({ art: 'duengung', aufwand: 2, aufwandEinheit: 'kg_ha', mengeGesamt: 100, mengeEinheit: 'kg', wasserLHa: null, konzentrationPct: 0.5, flaecheHa: 1.5 })).werte.wasseraufwand_l_ha, null)
+  })
+})
+
+describe('KAN-155: Formular – welches Feld berechnet wird', nurMitHooks, () => {
+  const laden = () => import(pathToFileURL(path.join(SRC, 'app/(dashboard)/behandlungen/neu/mengenFelder.ts')).href)
+  const eingaben = (mf, x = {}) => ({
+    art: 'spritzung', felder: mf.MENGEN_SICHT.spritzung,
+    mengeGesamt: '', wasseraufwand: '', mengeQuelle: null,
+    aufwandmenge: '', aufwandmengeEinheit: 'l_ha', konzentration: '', folge: [],
+    flaecheHa: 1.5, psmId: 'p-1', psm: null, duengemittelId: null, duengemittelEinheit: null,
+    ...x,
+  })
+  /** Eingaben wie im Formular nacheinander: [['aufwand', '2'], ['konzentration', '0,5'], ['wasser', '400'], ['gesamt', '600']] */
+  const tippe = (mf, schritte, x = {}) => {
+    let e = eingaben(mf, x)
+    for (const [feld, wert] of schritte) {
+      if (feld === 'aufwand') e = { ...e, aufwandmenge: wert, folge: mf.eingabeFolge(e.folge, 'aufwand', wert) }
+      if (feld === 'konzentration') e = { ...e, konzentration: wert, folge: mf.eingabeFolge(e.folge, 'konzentration', wert) }
+      if (feld === 'wasser') e = { ...e, wasseraufwand: wert, mengeQuelle: wert.trim() ? 'wasser' : null, folge: mf.eingabeFolge(e.folge, 'wasser', wert) }
+      if (feld === 'gesamt') e = { ...e, mengeGesamt: wert, mengeQuelle: wert.trim() ? 'gesamt' : null, folge: mf.eingabeFolge(e.folge, 'wasser', wert) }
+    }
+    return mf.mengenFelder(e)
+  }
+
+  test('eingabeFolge: zuletzt geänderte Größe ans Ende, geleertes Feld fällt heraus', async () => {
+    const mf = await laden()
+    assert.deepEqual(mf.eingabeFolge([], 'aufwand', '2'), ['aufwand'])
+    assert.deepEqual(mf.eingabeFolge(['aufwand', 'konzentration'], 'aufwand', '3'), ['konzentration', 'aufwand'])
+    assert.deepEqual(mf.eingabeFolge(['aufwand', 'konzentration'], 'aufwand', '  '), ['konzentration'])
+    const vorher = ['wasser']
+    mf.eingabeFolge(vorher, 'aufwand', '1')
+    assert.deepEqual(vorher, ['wasser'])   // unverändert (React-State)
+  })
+
+  test('berechneteGroesse: die nicht unter den zwei zuletzt eingegebenen; gespeicherte Werte zählen als älter', async () => {
+    const mf = await laden()
+    const alle = { aufwand: true, konzentration: true, wasser: true }
+    const keine = { aufwand: false, konzentration: false, wasser: false }
+    assert.equal(mf.berechneteGroesse([], alle, false), null)                       // nichts geändert: nichts rechnen
+    assert.equal(mf.berechneteGroesse(['aufwand'], { ...keine, aufwand: true }, false), null)
+    assert.equal(mf.berechneteGroesse(['aufwand', 'konzentration'], keine, false), 'wasser')
+    assert.equal(mf.berechneteGroesse(['konzentration', 'aufwand'], keine, false), 'wasser')
+    assert.equal(mf.berechneteGroesse(['aufwand', 'wasser'], keine, false), 'konzentration')
+    assert.equal(mf.berechneteGroesse(['konzentration', 'wasser'], keine, false), 'aufwand')
+    assert.equal(mf.berechneteGroesse(['wasser', 'aufwand', 'konzentration'], keine, false), 'wasser')
+    assert.equal(mf.berechneteGroesse(['konzentration', 'aufwand', 'wasser'], keine, false), 'konzentration')
+    // Bearbeiten mit allen drei gespeichert: wie bisher bleibt der Wasseraufwand stehen
+    assert.equal(mf.berechneteGroesse(['aufwand'], alle, false), 'konzentration')
+    assert.equal(mf.berechneteGroesse(['konzentration'], alle, false), 'aufwand')
+    assert.equal(mf.berechneteGroesse(['wasser'], alle, false), 'konzentration')
+    // g/hl, ml/hl: nur Aufwand ↔ Konzentration
+    assert.equal(mf.berechneteGroesse(['aufwand', 'konzentration'], keine, true), 'aufwand')
+    assert.equal(mf.berechneteGroesse(['konzentration', 'aufwand'], keine, true), 'konzentration')
+    assert.equal(mf.berechneteGroesse(['wasser'], keine, true), null)
+    assert.equal(mf.berechneteGroesse(['wasser'], { ...keine, aufwand: true }, true), 'konzentration')
+  })
+
+  test('Akzeptanz: 2 l/ha und 0,5 % → 400 l/ha Wasseraufwand, bei 1,5 ha 600 l Spritzbrühe – beide gesperrt', async () => {
+    const mf = await laden()
+    for (const schritte of [[['aufwand', '2'], ['konzentration', '0,5']], [['konzentration', '0,5'], ['aufwand', '2']]]) {
+      const m = tippe(mf, schritte)
+      assert.equal(m.berechnet, 'wasser')
+      assert.deepEqual([m.wasserBerechnet, m.mengeGesamtBerechnet], [400, 600])
+      assert.deepEqual(m.gesperrt, { aufwandmenge: false, konzentration: false, wasser: true, mengeGesamt: true })
+      assert.equal(m.berechnetHinweis.wasser, 'Automatisch berechnet aus Aufwandmenge ÷ Konzentration (%) × 100.')
+      assert.equal(m.berechnetHinweis.mengeGesamt, 'Automatisch berechnet aus Wasseraufwand (l/ha) × Fläche.')
+      assert.deepEqual([m.eingabe.wasserLHa, m.eingabe.mengeGesamt, m.eingabe.aufwand], [400, 600, 2])
+      const p = gueltig(m.pruefung)
+      assert.deepEqual([p.werte.wasseraufwand_l_ha, p.werte.menge_gesamt, p.mittelmenge.menge], [400, 600, 3])
+      assert.equal(m.konzentrationHinweis, null)
+      // die eingegebenen Felder bleiben änderbar: neue Konzentration → neuer Wasseraufwand
+      const neu = tippe(mf, [...schritte, ['konzentration', '0,25']])
+      assert.deepEqual([neu.wasserBerechnet, neu.mengeGesamtBerechnet], [800, 1200])
+    }
+    // kg/ha genauso; ohne Fläche Wasseraufwand ja, Spritzbrühe gesperrt und leer
+    const kg = tippe(mf, [['aufwand', '0,6'], ['konzentration', '0,15']], { aufwandmengeEinheit: 'kg_ha', flaecheHa: null })
+    assert.deepEqual([kg.wasserBerechnet, kg.mengeGesamtBerechnet, kg.gesperrt.mengeGesamt, kg.eingabe.mengeGesamt], [400, null, true, null])
+    assert.equal(kg.berechnetHinweis.mengeGesamt, 'Wird berechnet, sobald Ried(en) ausgewählt sind.')
+    assert.equal(mf.mengenFelder({ ...eingaben(mf, { aufwandmenge: '2', konzentration: '0,5', folge: ['aufwand', 'konzentration'], flaecheHa: null }), formular: 'bearbeiten' }).berechnetHinweis.mengeGesamt,
+      'Ohne zugeordnete Grundstücke nicht berechenbar.')
+  })
+
+  test('bisherige Wege bleiben: Wasseraufwand bzw. Spritzbrühe → Konzentration; Konzentration + Wasseraufwand → Aufwand', async () => {
+    const mf = await laden()
+    const w = tippe(mf, [['aufwand', '2'], ['wasser', '400']])
+    assert.equal(w.berechnet, 'konzentration')
+    assert.ok(Math.abs(w.konzentrationBerechnet - 0.5) < 1e-9)
+    assert.deepEqual([w.gesperrt.konzentration, w.gesperrt.wasser, w.mengeGesamtBerechnet], [true, false, 600])
+    assert.equal(w.berechnetHinweis.konzentration, 'Automatisch berechnet aus Aufwandmenge ÷ Wasseraufwand (l/ha) × 100.')
+    const b = tippe(mf, [['aufwand', '2'], ['gesamt', '600']])
+    assert.deepEqual([b.berechnet, b.wasserBerechnet, b.gesperrt.wasser, b.gesperrt.mengeGesamt], ['konzentration', 400, true, false])
+    assert.ok(Math.abs(b.konzentrationBerechnet - 0.5) < 1e-9)
+    // Spritzbrühe zuerst, dann Aufwand: ebenfalls Konzentration
+    assert.equal(tippe(mf, [['gesamt', '600'], ['aufwand', '2']]).berechnet, 'konzentration')
+    const a = tippe(mf, [['konzentration', '0,5'], ['wasser', '400']])
+    assert.deepEqual([a.berechnet, a.aufwandmengeBerechnet, a.gesperrt.aufwandmenge], ['aufwand', 2, true])
+    assert.equal(a.berechnetHinweis.aufwandmenge, 'Automatisch berechnet aus Konzentration (%) × Wasseraufwand (l/ha) ÷ 100.')
+    assert.equal(gueltig(a.pruefung).mittelmenge.menge, 3)
+    // Konzentration geleert: nichts mehr berechnet, der Wasseraufwand (hier nie eingegeben) ist wieder frei
+    const leer = tippe(mf, [['aufwand', '2'], ['konzentration', '0,5'], ['konzentration', '']])
+    assert.deepEqual([leer.berechnet, leer.gesperrt.wasser, leer.gesperrt.mengeGesamt, leer.eingabe.wasserLHa], [null, false, false, null])
+  })
+
+  test('g/hl, ml/hl unverändert: nur Aufwand ↔ Konzentration, der Wasseraufwand wird nie berechnet', async () => {
+    const mf = await laden()
+    const g = tippe(mf, [['aufwand', '25']], { aufwandmengeEinheit: 'g_hl' })
+    assert.deepEqual([g.berechnet, g.konzentrationBerechnet], ['konzentration', 0.025])
+    const k = tippe(mf, [['konzentration', '0,05'], ['wasser', '400']], { aufwandmengeEinheit: 'ml_hl' })
+    assert.deepEqual([k.berechnet, k.aufwandmengeBerechnet, k.wasserBerechnet, k.gesperrt.wasser], ['aufwand', 50, null, false])
+    // kg bzw. l gesamt: nichts wird berechnet
+    const gesamt = tippe(mf, [['aufwand', '3'], ['konzentration', '0,5']], { aufwandmengeEinheit: 'l' })
+    assert.deepEqual([gesamt.berechnet, gesamt.wasserBerechnet, gesamt.konzentrationHinweis], [null, null, null])
+  })
+
+  test('Randfälle: Konzentration 0 teilt nicht durch 0, leere und ungültige Eingaben rechnen nicht', async () => {
+    const mf = await laden()
+    const null0 = tippe(mf, [['aufwand', '2'], ['konzentration', '0']])
+    assert.deepEqual([null0.berechnet, null0.wasserBerechnet, null0.gesperrt.wasser], [null, null, false])
+    assert.match(null0.konzentrationHinweis, /^Aus einer Konzentration von 0 % lässt sich der Wasseraufwand nicht berechnen/)
+    // Aufwand 0: kein Wasseraufwand (0 l/ha wäre keine Spritzbrühe)
+    assert.equal(tippe(mf, [['aufwand', '0'], ['konzentration', '0,5']]).wasserBerechnet, null)
+    // ungültige Konzentration: Fehler, keine Rechnung
+    const falsch = tippe(mf, [['aufwand', '2'], ['konzentration', '120']])
+    assert.deepEqual([falsch.berechnet, falsch.konzentrationFehler], [null, '„Konzentration (%)“ muss zwischen 0 und 100 liegen.'])
+    const text = tippe(mf, [['aufwand', '2'], ['konzentration', 'abc']])
+    assert.deepEqual([text.berechnet, text.konzentrationFehler], [null, '„Konzentration (%)“ ist keine gültige Zahl.'])
+    // nur die Konzentration: Hinweis nennt Aufwand bzw. Wasseraufwand
+    assert.equal(tippe(mf, [['konzentration', '0,5']]).konzentrationHinweis,
+      'Für die automatische Berechnung bitte Aufwandmenge, Wasseraufwand (l/ha) oder Spritzbrühe gesamt angeben.')
+    // Düngung: kein Konzentrationsfeld – nichts berechnet, auch mit eingegebenen Feldern
+    const d = mf.mengenFelder(eingaben(mf, { art: 'duengung', felder: mf.MENGEN_SICHT.duengung, aufwandmenge: '2', aufwandmengeEinheit: 'kg_ha', konzentration: '0,5', folge: ['aufwand', 'konzentration'], mengeGesamt: '100' }))
+    assert.deepEqual([d.berechnet, d.wasserBerechnet, d.eingabe.wasserLHa, d.eingabe.konzentrationPct], [null, null, null, null])
+  })
+
+  test('Bearbeiten: gespeicherte Werte bleiben unberechnet, bis ein Feld geändert wird', async () => {
+    const mf = await laden()
+    const gespeichert = { aufwandmenge: '2', konzentration: '0,4', wasseraufwand: '400', mengeGesamt: '600', formular: 'bearbeiten' }
+    const start = mf.mengenFelder(eingaben(mf, gespeichert))
+    assert.equal(start.berechnet, null)
+    assert.deepEqual(start.gesperrt, { aufwandmenge: false, konzentration: false, wasser: false, mengeGesamt: false })
+    // Aufwand geändert → Konzentration folgt (wie bisher), Wasseraufwand und Spritzbrühe bleiben
+    const a = mf.mengenFelder(eingaben(mf, { ...gespeichert, aufwandmenge: '3', folge: ['aufwand'] }))
+    assert.equal(a.berechnet, 'konzentration')
+    assert.ok(Math.abs(a.konzentrationBerechnet - 0.75) < 1e-9)
+    // Konzentration geändert → Aufwand folgt
+    const k = mf.mengenFelder(eingaben(mf, { ...gespeichert, konzentration: '0,5', folge: ['konzentration'] }))
+    assert.deepEqual([k.berechnet, k.aufwandmengeBerechnet], ['aufwand', 2])
+  })
+
+  test('Quelltext: beide Formulare führen die Reihenfolge und zeigen die Sperren samt Hinweis', () => {
+    for (const rel of ['app/(dashboard)/behandlungen/neu/NeueBehandlungForm.tsx', 'app/(dashboard)/behandlungen/[id]/edit/BehandlungEditForm.tsx']) {
+      const q = readFileSync(path.join(SRC, rel), 'utf8')
+      assert.doesNotMatch(q, /aufwandQuelle/, rel)
+      for (const [groesse, n] of [['aufwand', 1], ['konzentration', 1], ['wasser', 2]]) {
+        const treffer = q.match(new RegExp(`setFolge\\(f => eingabeFolge\\(f, '${groesse}', v\\)\\)`, 'g')) ?? []
+        assert.equal(treffer.length, n, `${rel}: ${groesse}`)
+      }
+      for (const f of ['wasser', 'mengeGesamt', 'konzentration', 'aufwandmenge']) assert.match(q, new RegExp(`m\\.gesperrt\\.${f}`), `${rel}: ${f}`)
+      for (const f of ['wasser', 'mengeGesamt', 'aufwandmenge']) assert.match(q, new RegExp(`\\{m\\.berechnetHinweis\\.${f} && \\(`), `${rel}: ${f}`)
+      assert.match(q, /mengeGesamtGesperrt \? '' : mengeGesamt/, rel)
+    }
   })
 })

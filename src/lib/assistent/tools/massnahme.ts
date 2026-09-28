@@ -22,6 +22,9 @@
 //
 // KAN-154 (27.09.2026): Sonstiges optional mit Pflanzenschutzmittel (samt Aufwand), Bearbeitungstiefe optional,
 // einarbeitung=false bleibt false.
+//
+// KAN-155 (28.09.2026): BBCH-Stadium und Schaderreger bei der Spritzung optional; bei kg_ha/l_ha ergibt sich der
+// Wasseraufwand ohne Spritzbrühe und Wasseraufwand aus Aufwand und Konzentration (Aufwand ÷ Konzentration × 100).
 import { createBehandlung } from '@/app/(dashboard)/behandlungen/actions'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { dezimal } from '@/lib/format'
@@ -44,9 +47,9 @@ FELD-MATRIX je Maßnahmenart (nur diese Felder abfragen – "pflicht" IMMER erfr
 
 - spritzung:        psm_id (pflicht), aufwandmenge + aufwandmenge_einheit (pflicht),
                      Spritzbrühe (pflicht: menge_gesamt = gesamte Spritzbrühe in Litern ODER
-                     wasseraufwand_l_ha = Spritzbrühe je ha – eines davon reicht),
-                     bbch_stadium (pflicht), schaderreger (pflicht),
-                     konzentration/witterung/temperatur_c (optional)
+                     wasseraufwand_l_ha = Spritzbrühe je ha – eines davon reicht; bei kg_ha/l_ha
+                     genügt stattdessen konzentration in %),
+                     bbch_stadium/schaderreger/konzentration/witterung/temperatur_c (optional)
 - duengung:          duengemittel_id (optional), menge_gesamt = Düngermenge in kg bzw. in l bei
                      Düngemitteln in Litern (pflicht),
                      aufwandmenge/witterung (optional), einarbeitung (bedingt: nachfragen
@@ -72,6 +75,9 @@ MENGEN – GANZ WICHTIG:
   (l) ÷ 100. Nennt der User nur l/ha, übergib wasseraufwand_l_ha – die Spritzbrühe gesamt rechnet
   das System als l/ha × Fläche der gewählten Grundstücke. Beispiel: "0,6 kg Funguran je ha,
   400 l Wasser je ha" → aufwandmenge 0.6, aufwandmenge_einheit kg_ha, wasseraufwand_l_ha 400.
+  Nennt der User Aufwand je ha und Konzentration in %, reicht das: aufwandmenge + konzentration ergeben
+  den Wasseraufwand (Aufwand ÷ Konzentration × 100). Beispiel: "2 l/ha mit 0,5 %" → aufwandmenge 2,
+  aufwandmenge_einheit l_ha, konzentration 0.5 (= 400 l/ha, bei 1,5 ha 600 l Spritzbrühe).
   Tankmischung (mehrere Mittel in einem Tank): je Mittel eine eigene Maßnahme mit derselben
   Spritzbrühe.
 - Düngung: menge_gesamt ist die Düngermenge in der Einheit des Düngemittels: kg (menge_einheit kg),
@@ -138,8 +144,9 @@ export const MASSNAHME_TOOL = {
       },
       konzentration: {
         type: 'number',
-        description: 'Optional, Konzentration in % – nur zur Information, fließt nicht in die Mittelmenge ein. Nennt der User nur %, ' +
-          'nach der Konzentration im Tank (g/hl bzw. ml/hl) oder dem Aufwand je ha fragen.',
+        description: 'Optional, Konzentration in % – fließt nicht in die Mittelmenge ein. Bei kg_ha/l_ha ohne menge_gesamt und ' +
+          'wasseraufwand_l_ha ergibt sich daraus der Wasseraufwand (Aufwand ÷ Konzentration × 100). Nennt der User nur %, ' +
+          'nach dem Aufwand je ha oder der Konzentration im Tank (g/hl bzw. ml/hl) fragen.',
       },
       wasseraufwand_l_ha: {
         type: 'number',
@@ -247,7 +254,7 @@ export async function fuehreMassnahmeDokumentierenAus(
     aufwandEinheit: input.aufwandmenge_einheit ? String(input.aufwandmenge_einheit) : null,
     mengeGesamt: zahl(input.menge_gesamt),
     mengeEinheit: input.menge_einheit ? String(input.menge_einheit) : null,
-    wasserLHa: zahl(input.wasseraufwand_l_ha),
+    wasserLHa: zahl(input.wasseraufwand_l_ha), konzentrationPct: zahl(input.konzentration),
     flaecheHa: null,
   }, { bruehePflicht: true })
   if (!vorab.ok) {
