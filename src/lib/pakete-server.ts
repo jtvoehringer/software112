@@ -50,10 +50,10 @@ export function benutzerlimitFehler(s: BenutzerlimitStatus): string {
  * paket = null (kein Abo / gekündigt) schaltet alles Paketgesteuerte ab.
  */
 export async function wendePaketAn(admin: AdminClient, tenantId: string, paket: PaketKey | null): Promise<string | null> {
-  const module = paket ? PAKETE[paket].module : MODULE_OHNE_PAKET
+  const modulFlags = paket ? PAKETE[paket].module : MODULE_OHNE_PAKET
   const maxBenutzer = paket ? PAKETE[paket].maxBenutzer : null
   const { error: e1 } = await (admin.from('tenant_einstellungen') as any)
-    .upsert({ tenant_id: tenantId, ...module }, { onConflict: 'tenant_id' })
+    .upsert({ tenant_id: tenantId, ...modulFlags }, { onConflict: 'tenant_id' })
   if (e1) return `Modul-Sync fehlgeschlagen: ${(e1 as R).message}`
   const { error: e2 } = await (admin.from('tenants') as any)
     .update({ max_benutzer: maxBenutzer }).eq('id', tenantId)

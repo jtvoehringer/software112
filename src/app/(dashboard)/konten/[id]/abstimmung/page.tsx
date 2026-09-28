@@ -1,5 +1,4 @@
 import { redirect, notFound } from 'next/navigation'
-import Link from '@/components/ui/Link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import AbstimmungClient from './AbstimmungClient'

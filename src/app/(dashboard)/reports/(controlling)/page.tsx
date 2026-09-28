@@ -2,7 +2,6 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { alle } from '@/lib/supabase/alle'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
-import Link from '@/components/ui/Link'
 import ReportsClient, { type BehandlungUebersicht, type CuKachel } from '../ReportsClient'
 import { behoerdenUebersicht } from '@/lib/behoerden/uebersicht'
 import {

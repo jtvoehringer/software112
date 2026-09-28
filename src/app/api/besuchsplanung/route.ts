@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
 
     // Letzten Kontakt je Person laden
     const ids = kontakte.map(k => k.id)
-    let letzteMap: Record<string, string> = {}
+    const letzteMap: Record<string, string> = {}
     if (ids.length > 0) {
       // Kein .in(ids) mehr: bei mehreren tausend Kontakten würde die URL zu
       // lang. Stattdessen alle erledigten Aktivitäten des Mandanten seitenweise
