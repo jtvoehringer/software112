@@ -1122,6 +1122,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('session_user',  '-US', false, 'crm_filterwerte(p_tenant_id uuid)'),
     ('session_user',  '-US', false, 'crm_zaehler(p_tenant_id uuid)'),
     ('intern',        '--S', false, 'demo_musterhof_info()'),
+    ('intern',        '--S', false, 'demo_musterhof_lesen()'),
     ('intern',        '--S', false, 'demo_musterhof_y2_kette()'),
     ('intern',        '--S', false, 'demo_musterhof_zuruecksetzen()'),
     ('mandant',       '-US', true , 'fuellung_bestand_buchen(p_tenant_id uuid, p_fuellung_id uuid, p_art text, p_datum date, p_menge_stk integer, p_ist_bestand integer, p_grund text)'),

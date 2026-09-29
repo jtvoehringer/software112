@@ -41,7 +41,8 @@
 --    (samt verschneidung_quellen), keller_behandlungen, keller_umzuege,
 --    fuellung_chargen und pressung_behaelter VOR weinausbau; weinausbau,
 --    keller_umzuege, keller_behandlungen und pressung_behaelter VOR behaelter;
---    traubenverkauf VOR weinjahrgaenge.
+--    traubenverkauf VOR weinjahrgaenge. ernte_parzellen ausdrücklich VOR weinjahrgaenge (KAN-124); lesen
+--    (KAN-129) nur über die Kaskade des Jahrgangs – direktes DELETE lehnt der Lösch-Trigger ab.
 --  • Mengenkorrekturen nicht per UPDATE, sondern über die RPCs schwund_buchen(...)
 --    (Liter einer Charge mindern, datierte Schwundzeile) bzw. fuellung_bestand_buchen(...)
 --    (Flaschenbestand ±, datierte Zeile in fuellung_bewegungen) – aus dem SQL-Editor
@@ -164,8 +165,15 @@ BEGIN
   DELETE FROM weinanalysen WHERE tenant_id = v_tid;
   RAISE NOTICE 'weinanalysen gelöscht';
 
+  -- KAN-124/KAN-129: Lese-Einträge ausdrücklich vor dem Jahrgang löschen (nicht auf die Kaskade verlassen).
+  -- Die Lesen (Tabelle lesen) gehen nur über die Kaskade des Jahrgangs – ein direktes DELETE auf lesen lehnt
+  -- der Trigger a_lesen_vor_loeschen ab („einzige Lese“, „nur die höchste Nummer“).
+  DELETE FROM ernte_parzellen
+  WHERE jahrgang_id IN (SELECT id FROM weinjahrgaenge WHERE tenant_id = v_tid);
+  RAISE NOTICE 'ernte_parzellen gelöscht';
+
   DELETE FROM weinjahrgaenge WHERE tenant_id = v_tid;
-  RAISE NOTICE 'weinjahrgaenge gelöscht';
+  RAISE NOTICE 'weinjahrgaenge gelöscht (Lesen per Kaskade: % übrig)', (SELECT count(*) FROM lesen WHERE tenant_id = v_tid);
 
   -- ── 7. Kostenrechnung (Wein-bezogene Buchungen) ────────────────────────────
   DELETE FROM kosteneintrag_behaelter

@@ -53,6 +53,7 @@ UNION ALL SELECT 'Weiteres', 'ama_erntemeldungen',   COUNT(*) FROM ama_erntemeld
 UNION ALL SELECT 'Weiteres', 'dac_antrag',           COUNT(*) FROM dac_antrag, t            WHERE tenant_id = t.id
 UNION ALL SELECT 'Weiteres', 'weinanalysen',         COUNT(*) FROM weinanalysen, t          WHERE tenant_id = t.id
 UNION ALL SELECT 'Weiteres', 'weinjahrgaenge',       COUNT(*) FROM weinjahrgaenge, t        WHERE tenant_id = t.id
+UNION ALL SELECT 'Weiteres', 'lesen',                COUNT(*) FROM lesen, t                 WHERE tenant_id = t.id
 UNION ALL SELECT 'Weiteres', 'kosteneintraege',      COUNT(*) FROM kosteneintraege, t       WHERE tenant_id = t.id
 UNION ALL SELECT 'Weiteres', 'zeiterfassung',        COUNT(*) FROM zeiterfassung, t         WHERE tenant_id = t.id
 UNION ALL SELECT 'Weiteres', 'sumup_transaktionen',  COUNT(*) FROM sumup_transaktionen, t   WHERE tenant_id = t.id
