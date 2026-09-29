@@ -15,7 +15,7 @@ import {
 } from '@/lib/behandlungen/arten'
 import {
   MENGEN_SICHT, alsFeld, aufwandEinheitText, duengerEinheitWechsel, duengermengeEinheit, eingabeZahl,
-  mengeVorbelegung, mengenFelder, mengenInFormData, mengenSicht,
+  mengeVorbelegung, mengenFelder, mengenInFormData, mengenSicht, eingabeFolge, type MengenGroesse,
 } from '../../neu/mengenFelder'
 import {
   BBCH_OPTIONS, FELD_MATRIX, SCHADERREGER_OPTIONEN, WITTERUNG_OPTIONEN, bbchAltwert, feldPflicht, felderBeimBearbeiten,
@@ -146,13 +146,14 @@ export default function BehandlungEditForm({
   const [einheitHinweis, setEinheitHinweis] = useState<string | null>(null)
   const [wasseraufwand, setWasseraufwand] = useState(alsFeld(behandlung.wasseraufwand_l_ha))
   // Analog zum Anlegen-Formular (NeueBehandlungForm.tsx, Punkte 1 und 2 der Anforderung): Spritzbrühe
-  // gesamt ↔ Wasseraufwand (über die Fläche der Maßnahme) und Aufwandmenge ↔ Konzentration berechnen sich
-  // gegenseitig, sobald eines der Felder geändert wird. Gespeicherte Werte bleiben bis dahin frei editierbar.
+  // gesamt ↔ Wasseraufwand (über die Fläche der Maßnahme); Aufwandmenge, Konzentration und Wasseraufwand – je
+  // zwei bestimmen die dritte (KAN-155, folge) –, sobald eines der Felder geändert wird. Gespeicherte Werte
+  // bleiben bis dahin frei editierbar und zählen dann als ältere Eingaben (berechneteGroesse).
   const [mengeQuelle, setMengeQuelle] = useState<'gesamt' | 'wasser' | null>(null)
   const [aufwandmenge, setAufwandmenge] = useState(start.aufwand)
   const [aufwandmengeEinheit, setAufwandmengeEinheit] = useState(start.aufwandEinheit)
   const [konzentration, setKonzentration] = useState(start.konzentration)
-  const [aufwandQuelle, setAufwandQuelle] = useState<'aufwand' | 'konzentration' | null>(null)
+  const [folge, setFolge] = useState<MengenGroesse[]>([])
   const [error, setError] = useState<string | null>(null)
   // Einarbeitung (nur sichtbar bei organischem Dünger): null = keine Angabe – dann geht einarbeitung_gesendet
   // nicht mit und Speichern lässt null stehen; ein Klick macht daraus ja bzw. nein (KAN-154)
@@ -222,7 +223,7 @@ export default function BehandlungEditForm({
     setAufwandmengeEinheit(zurueck ? start.aufwandEinheit : 'kg_ha')
     setKonzentration(zurueck ? start.konzentration : '')
     setMengeQuelle(null)
-    setAufwandQuelle(null)
+    setFolge([])
   }
 
   // Die Düngermenge gilt in der Einheit des Düngemittels (kg bzw. l, ohne Dichte-Annahme). Wechselt ein
@@ -245,7 +246,7 @@ export default function BehandlungEditForm({
   const m = mengenFelder({
     art, felder,
     mengeGesamt, wasseraufwand, mengeQuelle,
-    aufwandmenge, aufwandmengeEinheit, konzentration, aufwandQuelle,
+    aufwandmenge, aufwandmengeEinheit, konzentration, folge,
     flaecheHa,
     psmId: selectedPsmId || null,
     psm: selectedPsm
@@ -255,10 +256,10 @@ export default function BehandlungEditForm({
     duengemittelEinheit: selectedDuengemittel?.einheit ?? null,
     formular: 'bearbeiten',
   })
-  const wasserGesperrt = m.wasserBerechnet !== null
-  const mengeGesamtGesperrt = m.mengeGesamtBerechnet !== null
-  const konzentrationGesperrt = m.konzentrationBerechnet !== null
-  const aufwandmengeGesperrt = m.aufwandmengeBerechnet !== null
+  const wasserGesperrt = m.gesperrt.wasser
+  const mengeGesamtGesperrt = m.gesperrt.mengeGesamt
+  const konzentrationGesperrt = m.gesperrt.konzentration
+  const aufwandmengeGesperrt = m.gesperrt.aufwandmenge
 
   // Altwert (gespeicherte Menge passt nicht zur Einheit des Felds, auch nach einem Wechsel des Düngemittels):
   // Speichern erst, wenn die Spritzbrühe bzw. Düngermenge neu angegeben ist – direkt oder über den
@@ -449,7 +450,7 @@ export default function BehandlungEditForm({
                 </p>
               )}
               {brueheAusWasser !== null && (
-                <button type="button" onClick={() => { setMengeGesamt(''); setMengeQuelle('wasser') }}
+                <button type="button" onClick={() => { setMengeGesamt(''); setMengeQuelle('wasser'); setFolge(f => eingabeFolge(f, 'wasser', wasseraufwand)) }}
                   className="text-xs font-medium underline hover:no-underline">
                   Spritzbrühe aus Wasseraufwand × Fläche übernehmen ({fmtNum(brueheAusWasser, { max: 3 })} l)
                 </button>
@@ -495,8 +496,11 @@ export default function BehandlungEditForm({
                       required={felder.aufwandmenge === 'pflicht' && !aufwandmengeGesperrt}
                       value={m.aufwandmengeBerechnet !== null ? fmtNum(m.aufwandmengeBerechnet, { max: 3 }) : aufwandmenge}
                       disabled={aufwandmengeGesperrt}
-                      onChange={e => { setAufwandmenge(e.target.value); setAufwandQuelle(e.target.value.trim() === '' ? null : 'aufwand') }}
+                      onChange={e => { const v = e.target.value; setAufwandmenge(v); setFolge(f => eingabeFolge(f, 'aufwand', v)) }}
                       className={`${inputCls} disabled:bg-s112-bg disabled:text-s112-text-2`} />
+                    {m.berechnetHinweis.aufwandmenge && (
+                      <p className="text-xs text-s112-muted mt-1">{m.berechnetHinweis.aufwandmenge}</p>
+                    )}
                   </div>
                   <div>
                     <label className={labelCls}>Einheit</label>
@@ -514,10 +518,10 @@ export default function BehandlungEditForm({
                   <input aria-label="Konzentration (%)" name="konzentration" type="text" inputMode="decimal"
                     value={m.konzentrationBerechnet !== null ? fmtNum(m.konzentrationBerechnet, { max: 3 }) : konzentration}
                     disabled={konzentrationGesperrt}
-                    onChange={e => { setKonzentration(e.target.value); setAufwandQuelle(e.target.value.trim() === '' ? null : 'konzentration') }}
+                    onChange={e => { const v = e.target.value; setKonzentration(v); setFolge(f => eingabeFolge(f, 'konzentration', v)) }}
                     className={`${inputCls} disabled:bg-s112-bg disabled:text-s112-text-2`} />
-                  {m.konzentrationHinweis && (
-                    <p className="text-xs text-s112-muted mt-1">{m.konzentrationHinweis}</p>
+                  {(m.berechnetHinweis.konzentration ?? m.konzentrationHinweis) && (
+                    <p className="text-xs text-s112-muted mt-1">{m.berechnetHinweis.konzentration ?? m.konzentrationHinweis}</p>
                   )}
                 </div>
               )}
@@ -547,12 +551,12 @@ export default function BehandlungEditForm({
                     {felder.mengeGesamt !== 'optional' && <span className="text-s112-err"> *</span>}
                   </label>
                   <input aria-label="Spritzbrühe gesamt (l)" name="menge_gesamt" type="text" inputMode="decimal"
-                    value={m.mengeGesamtBerechnet !== null ? fmtNum(m.mengeGesamtBerechnet, { max: 3 }) : mengeGesamt}
+                    value={m.mengeGesamtBerechnet !== null ? fmtNum(m.mengeGesamtBerechnet, { max: 3 }) : mengeGesamtGesperrt ? '' : mengeGesamt}
                     disabled={mengeGesamtGesperrt}
-                    onChange={e => { setMengeGesamt(e.target.value); setMengeQuelle(e.target.value.trim() === '' ? null : 'gesamt') }}
+                    onChange={e => { const v = e.target.value; setMengeGesamt(v); setMengeQuelle(v.trim() === '' ? null : 'gesamt'); setFolge(f => eingabeFolge(f, 'wasser', v)) }}
                     className={`${inputCls} disabled:bg-s112-bg disabled:text-s112-text-2`} />
-                  {mengeGesamtGesperrt && (
-                    <p className="text-xs text-s112-muted mt-1">Automatisch berechnet aus Wasseraufwand (l/ha) × Fläche.</p>
+                  {m.berechnetHinweis.mengeGesamt && (
+                    <p className="text-xs text-s112-muted mt-1">{m.berechnetHinweis.mengeGesamt}</p>
                   )}
                 </div>
               )}
@@ -565,10 +569,10 @@ export default function BehandlungEditForm({
                   <input aria-label="Wasseraufwand (l/ha)" name="wasseraufwand_l_ha" type="text" inputMode="decimal"
                     value={m.wasserBerechnet !== null ? fmtNum(m.wasserBerechnet, { max: 2 }) : wasseraufwand}
                     disabled={wasserGesperrt}
-                    onChange={e => { setWasseraufwand(e.target.value); setMengeQuelle(e.target.value.trim() === '' ? null : 'wasser') }}
+                    onChange={e => { const v = e.target.value; setWasseraufwand(v); setMengeQuelle(v.trim() === '' ? null : 'wasser'); setFolge(f => eingabeFolge(f, 'wasser', v)) }}
                     className={`${inputCls} disabled:bg-s112-bg disabled:text-s112-text-2`} />
-                  {wasserGesperrt && (
-                    <p className="text-xs text-s112-muted mt-1">Automatisch berechnet aus Spritzbrühe gesamt ÷ Fläche.</p>
+                  {m.berechnetHinweis.wasser && (
+                    <p className="text-xs text-s112-muted mt-1">{m.berechnetHinweis.wasser}</p>
                   )}
                 </div>
               )}
@@ -577,6 +581,7 @@ export default function BehandlungEditForm({
               {m.ha !== null
                 ? 'Spritzbrühe = Mittel + Wasser. Eines der beiden Felder ist Pflicht, das andere ergibt sich über die Fläche.'
                 : 'Spritzbrühe = Mittel + Wasser. Eines der beiden Felder ist Pflicht; ohne zugeordnete Grundstücke werden sie nicht über die Fläche abgeglichen.'}
+              {' '}Aufwandmenge (kg/ha, l/ha), Konzentration (%) und Wasseraufwand: je zwei ergeben die dritte (Aufwand = Wasseraufwand × Konzentration ÷ 100).
             </p>
           </div>
         )}
@@ -586,9 +591,9 @@ export default function BehandlungEditForm({
           <MengenZusammenfassung art={art} pruefung={m.pruefung} ha={m.ha} />
         )}
 
-        {/* BBCH und Schaderreger bzw. Grund / Anlass laut Feld-Matrix wie beim Anlegen: BBCH bei Spritzung (Pflicht),
+        {/* BBCH und Schaderreger bzw. Grund / Anlass laut Feld-Matrix wie beim Anlegen: BBCH bei Spritzung (optional, KAN-155),
             Laubarbeit und Laubschneiden (optional) – ein Code außerhalb von BBCH_OPTIONS als eigene Option;
-            Schaderreger bei Spritzung (Pflicht), bei Sonstiges als „Grund / Anlass“ (optional, ohne Vorschläge) */}
+            Schaderreger bei Spritzung (optional, KAN-155), bei Sonstiges als „Grund / Anlass“ (optional, ohne Vorschläge) */}
         {(modus.bbch === 'sichtbar' || modus.schaderreger === 'sichtbar') && (
           <div className="grid grid-cols-2 gap-3">
             {modus.bbch === 'sichtbar' && (

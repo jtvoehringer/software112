@@ -1,0 +1,19 @@
+{
+  "regeln": {
+    "@typescript-eslint/no-explicit-any": 912,
+    "react/no-unescaped-entities": 33,
+    "@typescript-eslint/no-unused-vars": 32,
+    "(unbenutzte eslint-disable-Kommentare)": 27,
+    "react-hooks/set-state-in-effect": 27,
+    "react-hooks/exhaustive-deps": 24,
+    "react-hooks/refs": 12,
+    "@typescript-eslint/no-unused-expressions": 11,
+    "react-hooks/use-memo": 8,
+    "react-hooks/purity": 6,
+    "@next/next/no-location-assign-relative-destination": 5,
+    "@next/next/no-html-link-for-pages": 3,
+    "@next/next/no-img-element": 2,
+    "react-hooks/static-components": 2,
+    "react-hooks/immutability": 1
+  }
+}

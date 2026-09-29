@@ -14,6 +14,8 @@
 // Witterung liegen ebenfalls hier – gemeinsam für Anlegen und Bearbeiten; welche dieser Felder das Bearbeiten
 // zeigt oder unsichtbar mitsendet, entscheidet felderBeimBearbeiten (KAN-152).
 // Einarbeitung und Pflichtfelder beim Bearbeiten: einarbeitungBeimBearbeiten, pflichtBeimBearbeiten (KAN-154).
+// KAN-155 (Pilotbetrieb, 28.09.2026): BBCH-Stadium und Schaderreger sind bei der Spritzung optional – beim Anlegen,
+// Bearbeiten, im Assistenten und in der Server Action (die ohnehin nichts davon verlangt).
 // Ohne JSX, damit node:test sie prüfen kann (scripts/tests/massnahmen-arten.test.mjs).
 
 import { istMassnahmenArt, type MassnahmenArt } from '@/lib/behandlungen/arten'
@@ -25,7 +27,7 @@ export type Felder = {
 }
 
 export const FELD_MATRIX: Readonly<Record<MassnahmenArt, Felder>> = {
-  spritzung:        { psm: 'pflicht',  duengemittel: 'hidden',   bbch: 'pflicht',  schaderreger: 'pflicht',  witterung: 'optional', temperatur: 'optional', einarbeitung: 'hidden',  bearbeitungstiefe: 'hidden',   bearbeitungsgeraet: 'hidden',  schnittart: 'hidden',  laubarbeitArt: 'hidden'  },
+  spritzung:        { psm: 'pflicht',  duengemittel: 'hidden',   bbch: 'optional', schaderreger: 'optional', witterung: 'optional', temperatur: 'optional', einarbeitung: 'hidden',  bearbeitungstiefe: 'hidden',   bearbeitungsgeraet: 'hidden',  schnittart: 'hidden',  laubarbeitArt: 'hidden'  },
   duengung:         { psm: 'hidden',   duengemittel: 'optional', bbch: 'hidden',   schaderreger: 'hidden',   witterung: 'optional', temperatur: 'hidden',   einarbeitung: 'bedingt', bearbeitungstiefe: 'hidden',   bearbeitungsgeraet: 'hidden',  schnittart: 'hidden',  laubarbeitArt: 'hidden'  },
   bodenbearbeitung: { psm: 'hidden',   duengemittel: 'hidden',   bbch: 'hidden',   schaderreger: 'hidden',   witterung: 'optional', temperatur: 'hidden',   einarbeitung: 'hidden',  bearbeitungstiefe: 'optional', bearbeitungsgeraet: 'pflicht', schnittart: 'hidden',  laubarbeitArt: 'hidden'  },
   schnitt:          { psm: 'hidden',   duengemittel: 'hidden',   bbch: 'hidden',   schaderreger: 'hidden',   witterung: 'hidden',   temperatur: 'hidden',   einarbeitung: 'hidden',  bearbeitungstiefe: 'hidden',   bearbeitungsgeraet: 'hidden',  schnittart: 'pflicht', laubarbeitArt: 'hidden'  },
@@ -89,9 +91,9 @@ export function schaderregerFeld(art: string): { label: string; placeholder: str
  * Bearbeiten-Formular (BehandlungEditForm): BBCH (KAN-143), Schaderreger bzw. Grund / Anlass, Witterung und
  * Temperatur (KAN-152) folgen der Feld-Matrix wie beim Anlegen (und wie FAQ und Handbuch es beschreiben) –
  * ein Eingabefeld gibt es nur, wo das Feld nicht 'hidden' ist:
- *   'sichtbar' – Feld laut Matrix sichtbar, z. B. BBCH bei Spritzung (Pflicht), Laubarbeit und Laubschneiden
- *                (optional; ein Code außerhalb von BBCH_OPTIONS als eigene Option, bbchAltwert), Schaderreger
- *                bei Spritzung (Pflicht) bzw. Grund / Anlass bei Sonstiges (optional; bis KAN-152 zeigte das
+ *   'sichtbar' – Feld laut Matrix sichtbar, z. B. BBCH bei Spritzung, Laubarbeit und Laubschneiden
+ *                (optional, KAN-155; ein Code außerhalb von BBCH_OPTIONS als eigene Option, bbchAltwert), Schaderreger
+ *                bei Spritzung (optional, KAN-155) bzw. Grund / Anlass bei Sonstiges (optional; bis KAN-152 zeigte das
  *                Bearbeiten ihn nicht, Speichern leerte ihn), Witterung bei Spritzung, Düngung und
  *                Bodenbearbeitung, Temperatur bei Spritzung
  *   'behalten' – Feld 'hidden', aber Art unverändert (art = startArt): kein Eingabefeld, der gespeicherte Wert
@@ -131,7 +133,7 @@ export function feldPflicht(feld: keyof Felder, art: string): boolean {
 /**
  * Pflicht beim Bearbeiten (KAN-154): wie beim Anlegen (feldPflicht), aber Altdaten ohne Wert bleiben unverändert
  * speicherbar – Pflicht nur nach einem Artwechsel oder wenn das Feld schon einen Wert hat (dann darf es nicht
- * geleert werden). Für BBCH, Schaderreger, Gerät und Schnittart; die Art der Laubarbeit prüft auch der Server
+ * geleert werden). Für Gerät und Schnittart (BBCH und Schaderreger seit KAN-155 nirgends mehr Pflicht); die Art der Laubarbeit prüft auch der Server
  * (laubarbeitArtFehlt) und bleibt immer Pflicht.
  */
 export function pflichtBeimBearbeiten(

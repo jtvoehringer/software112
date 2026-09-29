@@ -517,10 +517,8 @@ describe('Feld- und Mengen-Matrix für Laubschneiden', nurMitHooks, () => {
     assert.deepEqual(feld.felderBeimBearbeiten('duengung', 'sonstiges'), { bbch: 'keine', schaderreger: 'keine', witterung: 'sichtbar', temperatur: 'keine' })
   })
 
-  test('Pflicht und Bezeichnung wie beim Anlegen: Schaderreger bei Spritzung, „Grund / Anlass“ bei Sonstiges', () => {
-    assert.equal(feld.feldPflicht('bbch', 'spritzung'), true)
-    assert.equal(feld.feldPflicht('schaderreger', 'spritzung'), true)
-    for (const art of ['sonstiges', 'laubarbeit', 'laubschneiden', 'duengung', 'lese', '']) {
+  test('Pflicht und Bezeichnung wie beim Anlegen: BBCH und Schaderreger nirgends Pflicht (KAN-155), „Grund / Anlass“ bei Sonstiges', () => {
+    for (const art of ['spritzung', 'sonstiges', 'laubarbeit', 'laubschneiden', 'duengung', 'lese', '']) {
       assert.equal(feld.feldPflicht('schaderreger', art), false, art)
       assert.equal(feld.feldPflicht('bbch', art), false, art)
     }
@@ -1069,7 +1067,7 @@ describe('KAN-154: Feld-Matrix – Pflanzenschutzmittel bei Sonstiges, Bearbeitu
     const m = mengen.mengenFelder({
       art: 'sonstiges', felder: mengen.mengenSicht('sonstiges', true),
       mengeGesamt: '', wasseraufwand: '', mengeQuelle: null,
-      aufwandmenge: '0,4', aufwandmengeEinheit: 'kg_ha', konzentration: '', aufwandQuelle: 'aufwand',
+      aufwandmenge: '0,4', aufwandmengeEinheit: 'kg_ha', konzentration: '', folge: ['aufwand'],
       flaecheHa: 2, psmId: 'p-1', psm: { cuGehaltPct: null }, duengemittelId: null, duengemittelEinheit: null,
     })
     assert.equal(m.pruefung.ok, true)
@@ -1373,5 +1371,140 @@ describe('KAN-154: Pflichtfelder beim Bearbeiten wie beim Anlegen – Altdaten o
     assert.match(faq, /lässt sie sich unverändert speichern – Pflicht werden sie erst, wenn du die Art wechselst oder das Feld schon einen Wert hat/)
     assert.match(hb, /Pflichtfelder ohne gespeicherten Wert \(z\. B\. ältere Maßnahmen ohne Gerät\) verlangen beim unveränderten Speichern keine Angabe/)
     assert.match(faq, /Beim Bearbeiten macht „Änderungen speichern“ dasselbe; gespeichert wird dabei nichts\./)
+  })
+})
+
+// ── KAN-155: BBCH und Schaderreger optional, Ried-Auswahl (Pilotbetrieb, 28.09.2026) ─────────────────────────
+
+describe('KAN-155: Spritzung ohne BBCH-Stadium und Schaderreger – anlegen, bearbeiten, Assistent, Protokoll', nurMitHooks, () => {
+  const SPRITZUNG = { datum: '2026-07-02', grundstueck_ids: 'g-1', art: 'spritzung', psm_id: 'p-1', aufwandmenge: '0,6', aufwandmenge_einheit: 'kg_ha', wasseraufwand_l_ha: '400' }
+
+  test('Feld-Matrix: bei der Spritzung optional, auch beim Bearbeiten mit gespeichertem Wert oder nach Artwechsel', () => {
+    assert.deepEqual([feld.FELD_MATRIX.spritzung.bbch, feld.FELD_MATRIX.spritzung.schaderreger], ['optional', 'optional'])
+    for (const f of ['bbch', 'schaderreger']) {
+      for (const startArt of ['spritzung', 'duengung']) {
+        for (const gespeichert of [null, '', '61', 'Peronospora']) {
+          assert.equal(feld.pflichtBeimBearbeiten(f, 'spritzung', startArt, gespeichert), false, `${f} ${startArt} ${gespeichert}`)
+        }
+      }
+      // Eingabefeld bleibt sichtbar – nur ohne Stern und required
+      assert.equal(feld.feldBeimBearbeiten(f, 'spritzung', 'spritzung'), 'sichtbar')
+    }
+    // übrige Pflichtfelder unverändert
+    assert.equal(feld.feldPflicht('psm', 'spritzung'), true)
+    assert.equal(feld.feldPflicht('bearbeitungsgeraet', 'bodenbearbeitung'), true)
+    assert.equal(feld.feldPflicht('schnittart', 'schnitt'), true)
+  })
+
+  test('Server Actions: anlegen und bearbeiten ohne BBCH und Schaderreger speichert null', async () => {
+    globalThis.__kan143Supabase = supabaseAttrappe()
+    await aktionen.createBehandlung(formularAus(SPRITZUNG))
+    let p = geschrieben('insert')
+    assert.deepEqual([p.art, p.bbch_stadium, p.schaderreger, p.aufwandmenge, p.wasseraufwand_l_ha, p.menge_gesamt], ['spritzung', null, null, 0.6, 400, 800])
+    globalThis.__kan143Supabase = supabaseAttrappe()
+    await aktionen.updateBehandlung('b-1', formularAus({ ...SPRITZUNG, bbch_stadium: '', schaderreger: '' }))
+    p = geschrieben('update')
+    assert.deepEqual([p.bbch_stadium, p.schaderreger], [null, null])
+  })
+
+  test('Server Action: Aufwand + Konzentration ohne Spritzbrühe und Wasseraufwand ergänzt Wasseraufwand und Spritzbrühe', async () => {
+    globalThis.__kan143Supabase = supabaseAttrappe()
+    const ohneWasser = { ...SPRITZUNG }
+    delete ohneWasser.wasseraufwand_l_ha
+    await aktionen.createBehandlung(formularAus({ ...ohneWasser, aufwandmenge: '2', aufwandmenge_einheit: 'l_ha', konzentration: '0,5' }))
+    const p = geschrieben('insert')
+    // 2 l/ha ÷ 0,5 % × 100 = 400 l/ha; GST der Attrappe mit 2 ha → 800 l
+    assert.deepEqual([p.aufwandmenge, p.konzentration, p.wasseraufwand_l_ha, p.menge_gesamt, p.menge_einheit], [2, 0.5, 400, 800, 'l'])
+  })
+
+  test('Assistent: Spritzung ohne BBCH und Schaderreger, nur mit Aufwand und Konzentration', async () => {
+    globalThis.__kan143Aufrufe.length = 0
+    const eingabe = { bestaetigt_vom_user: true, datum: '2026-07-02', weingarten_ids: ['w-1'], art: 'spritzung', psm_id: 'p-1', aufwandmenge: 2, aufwandmenge_einheit: 'l_ha' }
+    const r = await tool.fuehreMassnahmeDokumentierenAus({ ...eingabe, konzentration: 0.5 }, supabaseAttrappe())
+    assert.equal(r.erfolg, true, JSON.stringify(r))
+    const fd = globalThis.__kan143Aufrufe[0]
+    assert.deepEqual([fd.has('bbch_stadium'), fd.has('schaderreger'), fd.get('konzentration')], [false, false, '0,5'])
+    assert.match(tool.MASSNAHME_FELD_MATRIX_TEXT, /bbch_stadium\/schaderreger\/konzentration\/witterung\/temperatur_c \(optional\)/)
+    assert.doesNotMatch(tool.MASSNAHME_FELD_MATRIX_TEXT, /bbch_stadium \(pflicht\)|schaderreger \(pflicht\)/)
+    // ohne Konzentration weiter die Rückfrage nach Spritzbrühe bzw. Wasseraufwand
+    globalThis.__kan143Aufrufe.length = 0
+    const ohne = await tool.fuehreMassnahmeDokumentierenAus(eingabe, supabaseAttrappe())
+    assert.equal(ohne.erfolg, false)
+    assert.match(ohne.hinweis, /Spritzbrühe gesamt \(l\) oder den Wasseraufwand \(l\/ha\) angeben – bei kg\/ha bzw\. l\/ha genügt auch die Konzentration/)
+    assert.equal(globalThis.__kan143Aufrufe.length, 0)
+  })
+
+  test('Behandlungsprotokoll: leeres BBCH und leerer Schaderreger – Druck „–“, CSV leere Zellen', async () => {
+    const csv = await laden('lib/csv/index.ts')
+    const gst = { grundstueck_id: 'g-1', flaeche_ha: 2, grundstueck: { id: 'g-1', gst_nr: '12/1', katastralgemeinde: '04023', kg_bezeichnung: 'Stein', flaeche_ha: 2, weingarten: null } }
+    for (const [bbch, schaderreger] of [[null, null], ['', '  ']]) {
+      const b = psm.normalisiereBehandlung({
+        id: 'b-sp', datum: '2026-07-02', datum_bis: null, art: 'spritzung', weingarten: null, duengemittel: null,
+        psm: { id: 'p-1', name: 'Funguran Progress' }, psm_id: 'p-1', behandlung_grundstuecke: [gst],
+        aufwandmenge: 0.6, aufwandmenge_einheit: 'kg_ha', wasseraufwand_l_ha: 400, bbch_stadium: bbch, schaderreger,
+      })
+      assert.deepEqual([b.bbch, b.schaderreger], [null, null])
+      const { zeilen } = psm.psmAufzeichnungZeilen([b])
+      const text = csv.csvText(zeilen, psm.SPALTEN_PSM_AUFZEICHNUNG)
+      const [kopf, zeile] = text.replace(/^﻿/, '').split('\r\n')
+      const spalten = kopf.split(';')
+      const werte = zeile.split(';')
+      assert.equal(werte[spalten.indexOf('Schaderreger')], '')
+      assert.equal(werte[spalten.indexOf('BBCH')], '')
+      assert.equal(werte[spalten.indexOf('Mittel')], 'Funguran Progress')
+    }
+    const druck = quelle('app/(dashboard)/reports/(pflicht)/behandlungsprotokoll/page.tsx')
+    assert.match(druck, /\{b\.schaderreger \?\? '–'\}/)
+    assert.match(druck, /\{b\.bbch \?\? '–'\}/)
+  })
+
+  test('Quelltext: Stern und required nur bei Pflicht – Anlegen nach Feld-Matrix, Bearbeiten über pflichtBeimBearbeiten', () => {
+    const neu = quelle(NEU_FORM)
+    assert.match(neu, /<select name="bbch_stadium" required=\{felder\.bbch === 'pflicht'\}/)
+    assert.match(neu, /name="schaderreger" type="text" required=\{felder\.schaderreger === 'pflicht'\}/)
+    const edit = quelle(EDIT_FORM)
+    assert.match(edit, /required=\{pflicht\.bbch\}/)
+    assert.match(edit, /required=\{pflicht\.schaderreger\}/)
+    const hb = quelle('app/(dashboard)/hilfe/handbuch/page.tsx')
+    assert.match(hb, /BBCH-Stadium und Schaderreger sind bei der Spritzung optional/)
+  })
+})
+
+describe('KAN-155: Ried-Auswahl – „Ohne Ried-Zuordnung“ zuletzt, „Alle auswählen“ ↔ „Alle abwählen“', nurMitHooks, () => {
+  const wg = (id, lage_name, spritzbar = true) => ({ id, lage_name, spritzbar })
+
+  test('riedGruppen: Rieden alphabetisch (de), Weingärten ohne Ried in einer Gruppe am Ende', () => {
+    const g = absenden.riedGruppen([wg('1', null), wg('2', 'Zöbinger Heiligenstein'), wg('3', 'Äußere Point'), wg('4', ''), wg('5', 'Gaisberg'), wg('6', 'Gaisberg'), wg('7', '  ')])
+    assert.deepEqual(g.map(x => x.name), ['Äußere Point', 'Gaisberg', 'Zöbinger Heiligenstein', 'Ohne Ried-Zuordnung'])
+    assert.deepEqual(g.map(x => x.weingaerten.map(w => w.id)), [['3'], ['5', '6'], ['2'], ['1', '4', '7']])
+    assert.deepEqual(g.map(x => x.ohneRied), [false, false, false, true])
+    // eindeutige Schlüssel – auch wenn ein Ried zufällig so heißt wie die Sammelgruppe
+    const doppelt = absenden.riedGruppen([wg('1', 'Ohne Ried-Zuordnung'), wg('2', null)])
+    assert.equal(new Set(doppelt.map(x => x.schluessel)).size, 2)
+    assert.deepEqual(doppelt.map(x => x.ohneRied), [false, true])
+    // ohne Weingärten ohne Ried keine leere Sammelgruppe; ganz leer → keine Gruppe
+    assert.deepEqual(absenden.riedGruppen([wg('1', 'Gaisberg')]).map(x => x.name), ['Gaisberg'])
+    assert.deepEqual(absenden.riedGruppen([]), [])
+    assert.equal(absenden.OHNE_RIED_GRUPPE, 'Ohne Ried-Zuordnung')
+  })
+
+  test('alleAuswahlModus: „abwählen“ erst, wenn alle spritzbaren ganz ausgewählt sind', () => {
+    assert.equal(absenden.alleAuswahlModus(['a', 'b'], new Set()), 'auswaehlen')
+    assert.equal(absenden.alleAuswahlModus(['a', 'b'], new Set(['a'])), 'auswaehlen')
+    assert.equal(absenden.alleAuswahlModus(['a', 'b'], new Set(['a', 'b'])), 'abwaehlen')
+    assert.equal(absenden.alleAuswahlModus(['a', 'b'], new Set(['a', 'b', 'x'])), 'abwaehlen')
+    assert.equal(absenden.alleAuswahlModus([], new Set()), 'auswaehlen')
+  })
+
+  test('Quelltext Anlegen: Gruppen aus riedGruppen, kein „Alle Rieden“ mehr, Knopf schaltet und leert die ganze Auswahl', () => {
+    const neu = quelle(NEU_FORM)
+    assert.doesNotMatch(neu, /'Alle Rieden'/)
+    assert.match(neu, /const lagen = riedGruppen\(weingaerten\)/)
+    assert.match(neu, /\{alleModus === 'abwaehlen' \? 'Alle abwählen' : 'Alle auswählen'\}/)
+    assert.match(neu, /setSelectedGSTs\(new Map\(\)\)\s+setSelectedWGs\(alleModus === 'abwaehlen' \? new Set\(\) : new Set\(spritzbareIds\)\)/)
+    assert.match(neu, /<div key=\{schluessel\}/)
+    const hb = quelle('app/(dashboard)/hilfe/handbuch/page.tsx')
+    assert.match(hb, /„Ohne Ried-Zuordnung“/)
+    assert.match(hb, /„Alle abwählen“/)
   })
 })

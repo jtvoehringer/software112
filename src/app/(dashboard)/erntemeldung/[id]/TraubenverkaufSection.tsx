@@ -27,9 +27,6 @@ function Fehlermeldung({ text, onClose }: { text: string; onClose?: () => void }
   )
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type R = Record<string, any>
-
 export type Traubenverkauf = {
   id: string
   // Quelle: eigener Weingarten ODER zugekaufter Posten (Migration 141) - genau

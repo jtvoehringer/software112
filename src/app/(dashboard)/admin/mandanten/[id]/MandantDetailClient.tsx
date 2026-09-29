@@ -655,7 +655,7 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
 
   // Was der Betrieb aktuell hat (tatsächliche Flags - nach Paket-Anwendung bzw. Webhook)
   const p = paket ? PAKETE[paket] : null
-  const module: { label: string; aktiv: boolean; hinweis?: string }[] = [
+  const modulListe: { label: string; aktiv: boolean; hinweis?: string }[] = [
     { label: 'Weingarten & Rieden',      aktiv: settings.modul_weingarten },
     { label: 'Kellerbuch',               aktiv: settings.modul_kellerbuch },
     { label: 'CRM',                      aktiv: settings.modul_crm },
@@ -720,7 +720,7 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
         {paketMsg && <p className="text-xs text-s112-text-1">{paketMsg}</p>}
 
         <ul className="divide-y divide-s112-border/60 border-t border-s112-border/60 pt-1">
-          {module.map(m => (
+          {modulListe.map(m => (
             <li key={m.label} className="flex items-center justify-between py-2 text-sm">
               <span className={m.aktiv ? 'text-s112-text' : 'text-s112-tertiary'}>
                 {m.aktiv ? <CheckCircle2 className="inline w-4 h-4 text-s112-blue-700 mr-1.5 -mt-0.5" /> : <span className="inline-block w-4 h-4 mr-1.5 align-middle rounded-full border border-s112-line-str" />}

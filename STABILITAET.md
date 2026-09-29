@@ -9,14 +9,14 @@ Regeln für jede Änderung stehen in der `CLAUDE.md`, Abschnitt „Stabilität (
 |---|---|---|
 | Build | `next build` auf Vercel, inkl. prebuild-Wächter und vollständiger Typprüfung | 🟢 |
 | Typprüfung | `npm run typecheck` (`tsc --noEmit` über das ganze Programm): 0 Fehler | 🟢 |
-| Unit-Tests | 823 Tests in 167 Suiten (27 Testdateien, `node:test`), alle grün, ca. 7 s | 🟢 |
+| Unit-Tests | 976 Tests in 185 Suiten (32 Testdateien, `node:test`), alle grün, ca. 12 s | 🟢 |
 | Projekt-Wächter | 8 Wächter (Mandantentrennung, 2FA, Seitenbetrieb, Schreibsperre, Schema, Barrierefreiheit, Behörden-CSV, Replica): 0 Funde | 🟢 |
-| CI | Job „check“ = `npm run verify` bei jedem PR und Push; `main` per Ruleset geschützt (Merge nur mit grünem „check“) | 🟢 |
+| CI | Job „check“ = `npm run verify` (inkl. Lint) bei jedem PR und Push; `main` per Ruleset geschützt (Merge nur mit grünem „check“) | 🟢 |
 | Abhängigkeiten | `npm audit`: 0 Schwachstellen (CI-Job „abhaengigkeiten“, ab Stufe hoch blockierend) | 🟢 |
-| Coverage | gemessen, aber nur 90 von 604 `src`-Dateien werden von Tests geladen; kein Gate | 🟡 |
-| Datenbank (RLS, Trigger, RPCs) | `npm run test:db`: wiederholbare SQL-Testsuite gegen Staging, jede Datei zurückgerollt (`scripts/db-tests/README.md`); Stand 28.09.2026: Rahmen `00_rahmen` grün (108 Prüfungen, 2/2 Mutationen erkannt), Bereichsdateien im Aufbau; kein CI-Job (erst nach Jörgens OK) | 🟡 |
+| Coverage | gemessen, aber nur 98 von 604 `src`-Dateien werden von Tests geladen; kein Gate | 🟡 |
+| Datenbank (RLS, Trigger, RPCs) | `npm run test:db`: wiederholbare SQL-Testsuite gegen Staging (14 Dateien, 8.598 Prüfungen, jede Datei zurückgerollt, `scripts/db-tests/README.md`); grün, aber 36 bekannte Lücken (siehe unten) | 🟡 |
 | Server Actions | 43 Dateien mit `'use server'`, davon 3 mit Tests | 🔴 |
-| Lint | ESLint läuft nicht, die Konfiguration fehlt (KAN-140) | 🔴 |
+| Lint | ESLint 9 (Flat Config `eslint.config.mjs`, eslint-config-next 16 core-web-vitals + typescript), in `verify` als `npm run lint:verify`: 0 Errors, 1.105 Warnings (Altbestand; je Regel durch `scripts/eslint-baseline.json` gedeckelt) | 🟡 |
 | E2E | Playwright-Grundgerüst gegen Staging (PR #55), in der CI noch übersprungen | 🟡 |
 
 ## Ausgangswerte (Baseline 28.09.2026, main 808fe6c)
@@ -26,14 +26,53 @@ Typprüfung:   0 Fehler (tsc --noEmit -p tsconfig.json)
 Unit-Tests:   823 Tests, 167 Suiten, 27 Dateien – alle grün, ca. 7 s (verify gesamt lokal ca. 30 s, CI ca. 70 s)
 Wächter:      8/8 grün, 0 Funde
 npm audit:    0 Schwachstellen
+Lint:         0 Errors, 1.105 Warnings (Stand 28.09.2026, KAN-140; je Regel siehe unten)
 Coverage (npm run test:coverage, nur von Tests geladene Dateien):
               94,7 % Zeilen / 83,1 % Branches / 91,4 % Funktionen
-Abdeckung:    90 von 604 Dateien unter src/ geladen; src/lib: 82 von 162 Dateien
+Abdeckung:    89 von 604 Dateien unter src/ geladen; src/lib: 82 von 162 Dateien
+              (ursprünglich als 90 angegeben – die Summenzeile „all files“ war mitgezählt)
 ```
 
-**Ab jetzt gilt:** Die Testzahl darf nicht sinken. Typprüfung und Wächter bleiben bei 0 Fehlern. Die Coverage-Werte der geladenen Dateien sollen nicht spürbar fallen. Ein hartes Coverage-Gate gibt es bewusst noch nicht: Solange 514 Dateien gar nicht geladen werden, sagt die Prozentzahl wenig aus.
+**Stand 28.09.2026 nach den Charakterisierungstests der Buchungslogik (Stufe 3, Punkt 2):**
 
-Neu messen: `npm run test:coverage`. Die Tabelle am Ende der Ausgabe listet je Datei Zeilen, Branches und Funktionen; Dateien, die kein Test lädt, fehlen darin.
+```
+Unit-Tests:   976 Tests, 185 Suiten, 32 Dateien – alle grün, ca. 12 s
+Coverage:     93,7 % Zeilen / 83,6 % Branches / 91,2 % Funktionen
+              (Zeilen leicht gesunken: dashboard/_shared/data.ts wird jetzt mitgeladen, aber nur zu 23 % genutzt)
+Abdeckung:    98 von 604 Dateien unter src/ geladen; src/lib: 89 von 162 Dateien
+              (+9: verkauf/bestand, kellerbuch/storno, folgebuchungen, hinweise, finanzen/uebersicht,
+              ea/betriebsbeginn, aufgaben/mitglieder, dashboard/_shared/data und types)
+```
+
+**Ab jetzt gilt:** Die Testzahl darf nicht sinken. Typprüfung und Wächter bleiben bei 0 Fehlern. Die Coverage-Werte der geladenen Dateien sollen nicht spürbar fallen. Ein hartes Coverage-Gate gibt es bewusst noch nicht: Solange 506 Dateien gar nicht geladen werden, sagt die Prozentzahl wenig aus.
+
+Neu messen: `npm run test:coverage`. Die Tabelle am Ende der Ausgabe listet je Datei Zeilen, Branches und Funktionen; Dateien, die kein Test lädt, fehlen darin. Gezählt werden die Dateizeilen der Tabelle, ohne die Summenzeile „all files“.
+
+### Lint-Warnings je Regel (Ausgangswert KAN-140, 28.09.2026)
+
+`npm run lint` = `eslint .` zeigt alle Befunde einzeln (lokal ca. 1–2 min, rund 2.400 Zeilen Ausgabe). `verify` und CI rufen stattdessen `npm run lint:verify` auf (`scripts/lint-zusammenfassung.mjs`): Errors vollständig, Warnings nur als Zählung je Regel (aktuell / Ausgangswert). Rot wird der Lauf bei einem Error oder wenn eine Regel mehr Warnings hat als in `scripts/eslint-baseline.json` (Regel ohne Eintrag = 0); dann zeigt das Skript die Stellen auf geänderten Zeilen (gegenüber dem Abzweig von `origin/main` bzw. `GITHUB_BASE_REF`, neue Dateien ganz; der CI-Job checkt dafür mit `fetch-depth: 0` aus – ohne ermittelbare Basis sagt das Skript das ausdrücklich, statt „keine davon in geänderten Dateien“ zu melden). Die Zahlen sollen nur sinken: nach einem Abbau `npm run lint:baseline` ausführen (schreibt nur, wenn keine Regel steigt) und die JSON-Datei mit committen – im Pull-Request-Lauf der CI ist der Lauf sonst rot (Ratsche: liegt eine Regel unter ihrem Ausgangswert, bleibt kein Spielraum für spätere neue Warnings; lokal und beim Push auf main nur ein Hinweis, weil zwei für sich grüne PRs, die dieselbe Regel je um eins senken, auf main sonst ein rotes Gate ergäben). Meldet ein PR „unter dem Ausgangswert“ für eine Regel, die er nicht angefasst hat (ein anderer PR hat sie auf main gesenkt, ohne dass die Baseline nachgezogen wurde), genügt nach einem Rebase auf main `npm run lint:baseline` und die JSON-Datei mit committen. Die Datei enthält bewusst nur `regeln` (kein Datum, keine Summe), damit parallele Abbauten verschiedener Regeln ohne Merge-Konflikt zusammengehen. Erhöhen nur von Hand mit Begründung im PR. Bekannte Grenze: gezählt wird je Regel, eine abgebaute Warning gleicht innerhalb desselben Stands eine neue derselben Regel in einer anderen Datei aus. Die reine Logik (Diff-Parser, Vergleich, Baseline, Exit-Code) liegt in `scripts/lint-auswertung.mjs`, Tests in `scripts/tests/lint-zusammenfassung.test.mjs`. Cache unter `node_modules/.cache/eslint/` (je Arbeitsverzeichnis eine Datei, `npm ci` leert ihn): erster Lauf ca. 1 min, danach rund 10 s. Erster Lauf mit der reinen Next-Konfiguration: 1.028 Errors, 110 Warnings.
+
+Worktrees mit Junction auf die `node_modules` des Haupt-Checkouts: Nach dem Merge einer Änderung an `package-lock.json` dort `npm ci` ausführen – mit den alten Paketen (eslint-config-next 15 ohne `exports`) bricht `npm run lint` ab; `eslint.config.mjs` meldet das ausdrücklich. Paketänderung KAN-140: nur Dev-Abhängigkeiten, bis auf `zod` 4.6.5 – es kommt als `devOptional` (gebraucht von eslint-plugin-react-hooks 7, optionaler Peer von `@anthropic-ai/sdk`) und wird damit auch bei `npm ci --omit=dev` installiert. Im App-Code nicht darauf verlassen: wer zod braucht, trägt es ausdrücklich in `dependencies` ein.
+
+| Regel | Warnings | Anmerkung |
+|---|---|---|
+| `@typescript-eslint/no-explicit-any` | 912 | auf warn gestellt (Konvention `(supabase.from(…) as any)`) |
+| `react/no-unescaped-entities` | 33 | auf warn gestellt, rein kosmetisch (gerade Anführungszeichen in JSX-Text) |
+| `@typescript-eslint/no-unused-vars` | 32 | vorher 41; 9 ungenutzte Importe/Typen entfernt. Rest sind berechnete, aber nie verwendete Werte – teils prüfenswert (z. B. `gesamtUst`, `tankPos` in `weinhandel/verkauf/[id]/page.tsx`, `kundenRabatt` in `weinhandel/verkauf/neu/page.tsx`) |
+| `react-hooks/set-state-in-effect` | 27 | React-Compiler-Regel (react-hooks 7), auf warn gestellt |
+| unbenutzte `eslint-disable`-Kommentare | 27 | Kommentare, die nichts mehr unterdrücken (`reportUnusedDisableDirectives: 'warn'`) |
+| `react-hooks/exhaustive-deps` | 24 | Standard warn |
+| `react-hooks/refs` | 12 | React-Compiler-Regel, auf warn gestellt |
+| `@typescript-eslint/no-unused-expressions` | 11 | Standard warn (`a && b()` als Anweisung) |
+| `react-hooks/use-memo` | 8 | React-Compiler-Regel, auf warn gestellt (Ausdrücke in Abhängigkeitslisten, CRM-Kalender) |
+| `react-hooks/purity` | 6 | React-Compiler-Regel, auf warn gestellt (`Date.now()` im Render) |
+| `@next/next/no-location-assign-relative-destination` | 5 | Standard warn |
+| `@next/next/no-html-link-for-pages` | 3 | auf warn gestellt: `<a>` statt `<Link>` (voller Reload) in `erntemeldung/neu`, `lagen/[id]`, `lagen/neu` |
+| `@next/next/no-img-element` | 2 | Standard warn |
+| `react-hooks/static-components` | 2 | React-Compiler-Regel, auf warn gestellt (`ChargenTabelle` in `kellerbuch/weinausbau/page.tsx` im Render definiert) |
+| `react-hooks/immutability` | 1 | React-Compiler-Regel, auf warn gestellt (`zeichnen` in `RiedKarte.tsx` vor der Deklaration benutzt – per Hoisting funktionsfähig) |
+
+Abgeschaltet sind nur `@typescript-eslint/no-require-imports` für die CommonJS-Wächter unter `scripts/` und `react-hooks/rules-of-hooks` unter `e2e/` (Playwrights Fixture-Callback heißt `use`). `react-hooks/rules-of-hooks` bleibt sonst Error (Abnahme: ein bedingter `useState` wird als Error gemeldet).
 
 ### Coverage je Bereich (`src/lib`)
 
@@ -41,30 +80,49 @@ Neu messen: `npm run test:coverage`. Die Tabelle am Ende der Ausgabe listet je D
 |---|---|---|---|---|
 | behoerden (Meldungen, CSV) | 50 | 44 | 10.584 | 81 % |
 | wein | 10 | 8 | 8.010 | 94 % |
-| kellerbuch | 5 | 2 | 2.245 | 84 % – **storno.ts (728 Zeilen) ungetestet** |
+| kellerbuch | 5 | 5 | 2.245 | 90 % (storno.ts 91 %, folgebuchungen.ts 93 %) |
 | assistent | 9 | 1 | 1.757 | 61 % |
 | crm | 7 | 0 | 960 | – |
 | auth | 10 | 1 | 828 | – |
 | csv | 2 | 1 | 645 | 91 % |
 | abo | 3 | 3 | 618 | 93 % |
 | behandlungen | 3 | 3 | 595 | 95 % |
-| verkauf | 1 | 0 | 458 | – **bestand.ts ungetestet** |
-| ea | 3 | 2 | 424 | 77 % |
-| finanzen | 1 | 0 | 242 | – |
+| verkauf | 1 | 1 | 458 | 94 % (bestand.ts) |
+| ea | 3 | 2 (+ betriebsbeginn geladen) | 424 | 80 % |
+| finanzen | 1 | 1 | 242 | 75 % (uebersicht.ts) |
 | buchhaltung, svs, abo, utils, format, herkunft | | alle | | 93–100 % |
 
 ## Lücken, nach Risiko sortiert
 
-1. **Datenbank-Logik ohne wiederholbare Tests** (RLS-Policies, Löschsperren, Schreibsperre, Periodensperre, Trigger wie `bestandsprotokoll`, RPCs wie `fuellung_bestand_buchen`, `schwund_buchen`, `berechne_ea_uva`). Das ist der Kern der Mandantentrennung und der Behördenzahlen. Heute gibt es nur einmalige DO-Block-Tests bei Migrationen.
-   **Stufe 3 begonnen (28.09.2026):** Testrahmen `scripts/db-tests/` mit `npm run test:db` (Runner, Hilfsfunktionen, Soll-Daten, Rahmentest 00; Anleitung in `scripts/db-tests/README.md`).
-   **Ursprünglicher Vorschlag:** eine SQL-Testsuite gegen Staging. Jede Datei ist ein DO-Block mit `RAISE EXCEPTION` am Ende, läuft per `npx supabase db query --project-ref sjpeghrlhsowmquacjhb` und zählt „OK“-Meldungen. Zuerst für die Rollen × Tabellen der Mandantentrennung, die Schreibsperre und die E&A-Sperren.
-2. **Buchungslogik mit Geld- und Bestandswirkung ohne Unit-Tests:**
-   - `src/lib/kellerbuch/storno.ts` (728 Zeilen): Storno von Kellerbewegungen
-   - `src/lib/kellerbuch/folgebuchungen.ts` (256)
-   - `src/lib/verkauf/bestand.ts` (458): Verkauf, Bestandsabzug, Verkaufsstorno, E&A-Einnahmen
-   - `src/lib/finanzen/uebersicht.ts` (242)
+1. **Datenbank-Logik – Testsuite steht (29.09.2026), 36 bekannte Lücken.** `npm run test:db` prüft auf Staging Mandantentrennung (lesen/schreiben, dynamisch über alle Tabellen mit `tenant_id`), Rollen und Modulrechte, inaktive Mitgliedschaft, Abo-Schreibsperre, Zwei-Faktor, Paket-/Geheimnisspalten, Plattform-Admin, SECURITY-DEFINER-RPCs, Storage-Ordner, Sperr-/Protokoll-Trigger und Katalog-Invarianten; Mutationsprüfung je Datei. Ausführen nach jeder Migration (zuerst Staging) und vor Releases; läuft ca. 17 min (fast nur CLI-Verbindungsaufbau).
+   Die Lücken zeigt jeder Lauf unter „Bekannte Lücken“ (B1–B17, BK1–BK4); die wichtigsten: B1 Zahlung setzt fremden Verkaufsposten auf bezahlt (SECURITY-DEFINER-Trigger), BK1/BK2 TRUNCATE-Recht für anon/authenticated auf 81 Tabellen, B2 96 Fremdschlüssel ohne Mandantenprüfung, B7/B8 E&A- und Jahrgangssperren nur in der App, B9 RPCs ohne Modulprüfung, B13 Benachrichtigung in fremden Betrieb umhängbar, B16/B17 Betriebs- bzw. Modulschalter nicht in der DB durchgesetzt.
+   Offen im Testrahmen (Review Runde 2, nicht mehr umgesetzt): Fremd-UPDATE/DELETE nur per PK geprüft (maskiert durch SELECT-Policy), Personas mit unterschiedlicher Rolle je Betrieb fehlen, tenants-Zeile fremder Betrieb nicht geprüft, Modulprüfung von fuellung_bestand_buchen/schwund_buchen nicht ausgeführt, Restprüfung wertet 4 Spalten nicht aus, statische RAISE-Prüfung per Quoting umgehbar.
+2. **Buchungslogik – Rest nach den Charakterisierungstests vom 28.09.2026.**
+   `verkauf/bestand.ts`, `kellerbuch/storno.ts`, `kellerbuch/folgebuchungen.ts` und `finanzen/uebersicht.ts` sind jetzt durch Charakterisierungstests abgedeckt: `scripts/tests/verkauf-bestand`, `kellerbuch-storno`, `kellerbuch-folgebuchungen` und `finanzen-uebersicht.test.mjs`, gemeinsame Supabase-Attrappe in `scripts/tests/buchung-attrappe.mjs` (wertet Filter, select-Liste samt Einbettungen/`!inner` und Sortierung wie PostgREST aus, Selbsttest in `buchung-attrappe.test.mjs`; was sie nicht nachbildet – Schema, Trigger, Kaskaden, echte RLS –, steht im Kopfkommentar). Sie halten das heutige Verhalten fest, auch die als „Befund“ markierten Auffälligkeiten – wer eines davon bewusst ändert, passt den Test mit an.
+   Offen bleiben:
+   - die Server Actions, die diese Bausteine aufrufen (`weinhandel/verkauf/actions.ts` createVerkauf/stornoVerkauf, `weinhandel/traubenverkauf/actions.ts`, `kellerbuch/gebinde-actions.ts`, `kellerbuch/actions.ts`), siehe Lücke 4
+   - die DB-Seite (Trigger `bestandsprotokoll`, RPCs `fuellung_bestand_buchen`, `schwund_buchen`), siehe Lücke 1
+   - `finanzen/uebersicht.ts` mit 75 % Branch-Coverage
 
-   Das sind die nächsten Kandidaten für Charakterisierungstests. Sie halten zuerst das heutige Verhalten fest und laufen mit Supabase-Attrappen wie in `scripts/tests/ea-verkaufseinnahmen.test.mjs`.
+   Befunde aus den Tests (festgehalten, nicht korrigiert – Entscheidung offen):
+   - Finanzübersicht: Buchungen ohne Kategorie landen in einem Topf „–“, Einnahmen und Ausgaben werden addiert
+   - Finanzübersicht: Stichtag (`heuteStr`) und UVA-Fälligkeit über `toISOString` (UTC-Datum), Jahr und Monat über `getFullYear`/`getMonth` (Serverzeit).
+     - Server-Zeitzone östlich von UTC (z. B. `npm run dev` in Wien): die Fälligkeit ist einen Tag zu früh (14. statt 15.), und zwischen 0 und 1 bzw. 2 Uhr Wiener Zeit fallen Jahr/Monat und Stichtag auseinander. Am 1.1.2027 00:30 sind Jahr 2027, 0 abgelaufene Monate und die UVA Dez 2026 bzw. Q4 2026 für das Wiener Datum **richtig**; falsch sind der Stichtag (31.12.2026 statt 1.1.2027), daraus das leere YTD und der Vorjahresvergleich über das ganze Jahr 2026 (`stichtagVj` 2026-12-31) sowie die Fälligkeit 14.2. statt 15.2. An jedem anderen Tag fehlen in dieser Stunde die Buchungen und Rechnungen vom heutigen Tag im Stichtagsvergleich.
+     - Server in UTC (Vercel, Produktion): Jahr, Monat und Stichtag bleiben stimmig, hinken aber jede Nacht zwischen 0 und 1 bzw. 2 Uhr Wiener Zeit einen Kalendertag hinterher – Stichtag, YTD, Überfälligkeit, am Monatsersten auch UVA-Periode und offene Monate (am 1.1.2027 00:30: Jahr 2026, Stichtag 31.12.2026, UVA Nov 2026). Das ist keine Entwarnung, sondern der Vortag aus Nutzersicht.
+     - Ein Fix bildet das Datum (Stichtag, Jahr, Monat, Fälligkeit) einheitlich nach Europe/Vienna – nicht Jahr und Monat nach UTC. Offen: Entscheidung, ob die App das Datum grundsätzlich nach Europe/Vienna bildet.
+   - Finanzübersicht: Die Überfälligkeit hängt am Zeitpunkt, nicht am Kalendertag – `(heute − Rechnungsdatum als UTC-Mitternacht) / 86 400 000 > 30`. Mit Uhrzeit ist eine Rechnung damit schon am 30. Kalendertag überfällig (ab 00:00:00.001 UTC, in Wien ab 02:00 Sommer- bzw. 01:00 Winterzeit); „nicht überfällig“ gilt nur exakt um Mitternacht UTC
+   - Finanzübersicht: `afaGebuchtVj` wird berechnet, aber nie ausgegeben (`void afaGebuchtVj`) – toter Zweig
+   - Finanzübersicht: Datenbankfehler werden verschluckt, es erscheint 0
+   - Finanzübersicht: Forderungen nur aus Rechnungen ab 1.1. des Vorjahres
+   - Finanzübersicht, abgelaufenes Jahr: als letzte UVA erscheint Nov bzw. Q3 statt Dez bzw. Q4, der Monatsabschluss im selben Aufruf zählt dagegen 12 Monate
+   - Finanzübersicht, Doppik-Übergabe: offene Rechnungen und Belege werden über beide Jahre gezählt (ab 1.1. des Vorjahres), auch nach dem Stichtag
+   - Verschnitt-Storno: ohne Snapshot (Ziel vorher ohne Qualitätsstufe) bleibt die Verschnitt-Qualität am Ziel; ohne Quellmengen wird nur gelöscht
+   - Umzug-/Verschnitt-Storno: spätere Bewegungen an Quell-Chargen sperren nicht
+   - Umzug-Storno: bis 0,01 L Fehlmenge am Ziel wird still auf 0 gekappt (Toleranz)
+   - Verkaufsstorno: eine gesperrte E&A-Einnahme (übermittelte UVA) bleibt ohne Meldung stehen – E&A bzw. UVA sind danach zu hoch, die Gegenbuchung ist offen (KAN-149)
+   - Verkaufsstorno: CRM-Betreff ohne Rechnungsnummer mit doppeltem Leerzeichen
+   - Verkauf: Zugang unter 0,005 L auf eine leere Charge wird als 0 L gespeichert
+
 3. **Zugriffsschutz in der App:**
    - `src/lib/auth/roles.ts`, `sperren.ts`, `seitenBetrieb.ts`, `mfa.ts`, `einladung.ts`
    - `src/lib/api/zweiFaktor.ts`
@@ -75,7 +133,7 @@ Neu messen: `npm run test:coverage`. Die Tabelle am Ende der Ausgabe listet je D
    - `lib/fehler.ts` (33 %), `supabase/alle.ts` (43 %), `wein/blendKomposition.ts` (49 %), `wein/weinbuch.ts` (53 %), `pakete.ts` (56 %)
    - `assistent/tools/massnahme.ts` (61 %), `behandlungen/lager/actions.ts` (63 %), `buchhaltung/anlagen/actions.ts` (65 %)
    - `behoerden/keller-auswertungen.ts` (68 %), `behoerden/bewegungsbuch.ts` (68 %), `behoerden/weinbuch.ts` (69 %)
-6. **Lint:** ESLint 9 einrichten (KAN-140). Nur Errors blockieren, die Anzahl der Warnings als Ausgangswert festhalten.
+6. ~~**Lint:** ESLint 9 einrichten (KAN-140).~~ Erledigt 28.09.2026: Lint in `verify` und CI (`npm run lint:verify`), 0 Errors, Warnings je Regel siehe oben und gedeckelt durch `scripts/eslint-baseline.json`. Offen bleibt der Abbau der Warnings, zuerst die React-Compiler-Regeln und die ungenutzten Werte.
 7. **E2E:** Playwright gegen Staging in die CI holen, sobald die Staging-Zugänge als GitHub-Secrets hinterlegt sind.
 
 ## Was automatische Tests nicht abdecken – manuelle Szenarien vor Releases
