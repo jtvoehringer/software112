@@ -151,8 +151,12 @@ export const MELDUNGEN_KELLERBUCH = {
       const charge = uuidOptional(sp, 'charge', 'Charge')
       if (istParameterFehler(charge)) return charge
       if ((fuellung ? 1 : 0) + (charge ? 1 : 0) !== 1) return parameterFehler('Bitte genau eine Füllung (fuellung) oder eine Charge (charge) angeben.')
+      // KAN-76: Charge optional zu einem Stichtag (JJJJ-MM-TT)
+      const st = sp.get('stichtag')?.trim() || null
+      if (st && (!/^\d{4}-\d{2}-\d{2}$/.test(st) || Number.isNaN(Date.parse(st)))) return parameterFehler('Stichtag bitte als JJJJ-MM-TT angeben.')
+      if (st && fuellung) return parameterFehler('Ein Stichtag gilt nur für eine Charge – die Füllung zeigt immer die Zusammensetzung bei der Abfüllung.')
       const art: BlendArt = fuellung ? 'fuellung' : 'charge'
-      return { art, id: (fuellung ?? charge) as string, anzeige: anzeige() } as { art: BlendArt; id: string } & Anzeige
+      return { art, id: (fuellung ?? charge) as string, stichtag: st, anzeige: anzeige() } as { art: BlendArt; id: string; stichtag: string | null } & Anzeige
     },
     laden: async (ctx, p) => {
       const b = await ladeBlendProtokoll(ctx.supabase, ctx.tenantId, p)
@@ -163,7 +167,7 @@ export const MELDUNGEN_KELLERBUCH = {
       return { zeilen: b.zeilen, warnungen: b.warnungen }
     },
     spalten: SPALTEN_BLEND,
-    dateiteile: (p, betrieb) => ['Blend-Protokoll', betrieb.betriebsnummer, p.anzeige.name],
+    dateiteile: (p, betrieb) => ['Blend-Protokoll', betrieb.betriebsnummer, p.anzeige.name, (p as { stichtag?: string | null }).stichtag ?? null],
   }),
 
   'keller-auswertungen': definiereMeldung(KATALOG_KELLERBUCH['keller-auswertungen'], {

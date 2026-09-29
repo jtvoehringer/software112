@@ -15,6 +15,8 @@ type ChargeOpt = { id: string; name: string; menge_liter: number | null; qualita
 type R = Record<string, any>
 
 interface Props {
+  /** KAN-76: Rebsorten-Anteile des heutigen Bestands (lib/wein/mischungsrechnung.ts), null = keine Chips */
+  bestehtAus?:         { wert: string; anteil_pct: number }[] | null
   zielCharge:          ChargeOpt
   alleChargen:         ChargeOpt[]
   verschneidungen:     R[]
@@ -84,7 +86,7 @@ function StornoButton({ id, zielId }: { id: string; zielId: string }) {
   )
 }
 
-export default function VerschneidungWidget({ zielCharge, alleChargen, verschneidungen, initialOpen = false, initialQuelleId, initialQuelleMenge }: Props) {
+export default function VerschneidungWidget({ bestehtAus = null, zielCharge, alleChargen, verschneidungen, initialOpen = false, initialQuelleId, initialQuelleMenge }: Props) {
   const router = useRouter()
   const [showForm, setShowForm] = useState(initialOpen)
   const sectionRef = useRef<HTMLElement>(null)
@@ -134,56 +136,17 @@ export default function VerschneidungWidget({ zielCharge, alleChargen, verschnei
         </div>
       )}
 
-      {verschneidungen.length > 0 && (() => {
-        // Aggregation nach Rebsorte/Name – gleiche Rebsorten (auch über mehrere Verschneidungen) zusammenfassen
-        // istRebsorte merkt sich, ob "name" wirklich eine Rebsorte ist (nur dann macht ein
-        // Kürzel-Zusatz Sinn - beim Fallback auf den Chargen-Namen würde formatRebsorteMitKuerzel()
-        // sonst einen unsinnigen 4-Buchstaben-"Kürzel" aus dem Namen erzeugen).
-        const quellenMap: Record<string, { name: string; menge: number; istRebsorte: boolean }> = {}
-        let gesamtMenge = 0
-        for (const v of verschneidungen) {
-          for (const q of ((v.quellen ?? []) as R[])) {
-            const src    = q.quelle as R | null
-            // Rebsorte bevorzugen; Fallback auf Name der Charge
-            const rebsorteWert = src?.rebsorte ?? null
-            const label  = rebsorteWert ?? src?.name ?? '?'
-            const ml     = parseFloat(q.menge_liter) || 0
-            if (!quellenMap[label]) quellenMap[label] = { name: label, menge: 0, istRebsorte: !!rebsorteWert }
-            quellenMap[label].menge += ml
-            gesamtMenge += ml
-          }
-        }
-        const gesamtVerschnittMenge = gesamtMenge
-        const originalMenge = (zielCharge.menge_liter ?? 0) - gesamtVerschnittMenge
-        if (originalMenge > 0.5) {
-          // Original-Anteil unter der Rebsorte des Ziel-Weins eintragen und ggf. mit
-          // gleichnamiger Verschnitt-Quelle zusammenführen (z.B. 2× Rotgipfler → eine Bubble)
-          const originalIstRebsorte = !!(zielCharge.rebsorte && zielCharge.rebsorte !== 'Sortenverschnitt')
-          const originalLabel = originalIstRebsorte ? (zielCharge.rebsorte as string) : zielCharge.name
-          if (quellenMap[originalLabel]) {
-            quellenMap[originalLabel].menge += originalMenge
-          } else {
-            quellenMap[originalLabel] = { name: originalLabel, menge: originalMenge, istRebsorte: originalIstRebsorte }
-          }
-          gesamtMenge += originalMenge
-        }
-        const quellenliste = Object.values(quellenMap).sort((a, b) => b.menge - a.menge)
-        if (quellenliste.length === 0) return null
-        return (
-          <div className="mb-3 flex flex-wrap gap-2 items-center">
-            <span className="text-xs font-semibold text-s112-text-2 uppercase tracking-wide">Besteht aus:</span>
-            {quellenliste.map((q, i) => {
-              const pct = gesamtMenge > 0 ? Math.round((q.menge / gesamtMenge) * 1000) / 10 : 0
-              return (
-                <span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#F2F3F5] border border-s112-line-str text-xs text-s112-text-1 font-medium">
-                  {q.istRebsorte ? formatRebsorteMitKuerzel(q.name) : q.name}
-                  <span className="text-s112-text-1 font-normal">{fmtNum(pct)} %</span>
-                </span>
-              )
-            })}
-          </div>
-        )
-      })()}
+      {bestehtAus && bestehtAus.length > 0 && (
+        <div className="mb-3 flex flex-wrap gap-2 items-center">
+          <span className="text-xs font-semibold text-s112-text-2 uppercase tracking-wide">Besteht aus:</span>
+          {bestehtAus.map(q => (
+            <span key={q.wert} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#F2F3F5] border border-s112-line-str text-xs text-s112-text-1 font-medium">
+              {q.wert === 'unbekannt' ? 'Herkunft unbekannt' : formatRebsorteMitKuerzel(q.wert)}
+              <span className="text-s112-text-1 font-normal">{fmtNum(q.anteil_pct)} %</span>
+            </span>
+          ))}
+        </div>
+      )}
 
       {verschneidungen.length > 0 ? (
         <div className="card p-0 overflow-hidden">
