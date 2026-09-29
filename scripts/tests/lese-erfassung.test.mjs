@@ -235,7 +235,7 @@ describe('Verdrahtung Lese-Erfassung (Quelltext)', () => {
     assert.doesNotMatch(client, /lage_name \?\? 'Alle'/)
     assert.doesNotMatch(client, /\(Keine Lage\)/)
     assert.match(form, /const gruppen = riedGruppen\(weingaerten\)/)
-    assert.match(edit, /const lagen = riedGruppen\(weingaerten\)/)
+    assert.match(edit, /const lagen = riedGruppen\(weingaerten\.filter\(w => w\.erntebar \|\| w\.id === parzelle\?\.weingarten_id\)\)/)   // seit 29.09.2026 nur erntebare
     assert.match(form, /disabled=\{!w\.erntebar\}/)
     assert.match(form, /\{alleKnopfText\(alleAbwaehlen, sucheErg\.aktiv\)\}/)
     assert.match(page, /erntebar: istErntebar\(/)

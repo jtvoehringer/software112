@@ -17,7 +17,7 @@ import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
 import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
 import { messwertText, type GespeichertesMostgewicht } from '@/lib/wein/mostgewichtFormular'
 import { ZEILE_OHNE_MOSTGEWICHT, zeileMostgewichtAendern, type EingabeZustand, type ZeilenMostgewicht } from '@/lib/wein/mostgewichtEingabe'
-import { riedGruppen } from '@/lib/wein/riedAuswahl'
+import { riedGruppen, istEinzelRied, weingartenZusatz } from '@/lib/wein/riedAuswahl'
 import {
   alleKnopfText, bezugsflaeche, leseSuche, leseTreffer, leseZiele, trefferAusgewaehlt, trefferEntfernen, trefferHinzufuegen,
   trefferTeilweise, verteileKg, verteilungsHinweis, type LeseAuswahl, type LeseTreffer, type LeseZiel,
@@ -120,8 +120,10 @@ function NotizZelle({ text }: { text: string | null }) {
 // KAN-161: EINE Gesamtmenge für die ganze Auswahl, nach Fläche auf alle gewählten Grundstücke verteilt (Vorschau
 // unten, die Action rechnet mit derselben Funktion und den Flächen aus der Datenbank); wahlweise Mengen je Grundstück.
 // KAN-162: Suche nach Ried, Lage, AMA-Feldstücknummer und GST-Nummer; „Alle Treffer auswählen“ wirkt nur auf Treffer.
+// Pilot-Rückmeldung 29.09.2026: nicht erntebare Weingärten (nur Acker, Grünland, Brache …) gar nicht anbieten;
+// eine Ried mit genau einem Weingarten als EINE Zeile (statt Ried-Kopf und gleichnamigem Weingarten darunter).
 function NeueParzellenForm({
-  jahrgangId, weingaerten, gstByWeingarten, onDone,
+  jahrgangId, weingaerten: alleWeingaerten, gstByWeingarten, onDone,
 }: {
   jahrgangId: string; weingaerten: WeingartenOpt[]
   gstByWeingarten: Record<string, GSTOpt[]>; onDone: () => void
@@ -151,6 +153,8 @@ function NeueParzellenForm({
     })
   }
 
+  const weingaerten = alleWeingaerten.filter(w => w.erntebar)
+  const ausgeblendet = alleWeingaerten.length - weingaerten.length
   const gruppen = riedGruppen(weingaerten)
   const wgById = new Map(weingaerten.map(w => [w.id, w]))
   const sucheErg = leseSuche(suche, weingaerten, gstByWeingarten)
@@ -266,15 +270,21 @@ function NeueParzellenForm({
         {sucheErg.aktiv && sichtbareGruppen.length === 0 && (
           <p className="text-xs text-s112-muted px-1">Keine Treffer für „{suche.trim()}“.</p>
         )}
+        {ausgeblendet > 0 && (
+          <p className="text-[11px] text-s112-muted px-1">
+            {ausgeblendet} {ausgeblendet === 1 ? 'Weingarten' : 'Weingärten'} ohne Weingarten-Grundstück (nur Acker, Grünland, Brache …) {ausgeblendet === 1 ? 'ist' : 'sind'} ausgeblendet.
+          </p>
+        )}
         {sichtbareGruppen.map(gruppe => {
           const wgs = gruppe.weingaerten
           const gt = leseTreffer(erntebar(wgs), sucheErg)
           const alleGruppe = trefferAusgewaehlt(gt, auswahl, gstByWeingarten)
           const teilGruppe = trefferTeilweise(gt, auswahl)
           const keinErntebar = gt.ganze.length === 0 && gt.einzeln.length === 0
+          const einzelRied = istEinzelRied(gruppe)
           return (
             <div key={gruppe.schluessel} className="border border-s112-border rounded-lg overflow-hidden">
-              <label className={`flex items-center gap-2 px-3 py-1.5 bg-white ${keinErntebar ? 'opacity-60' : 'cursor-pointer hover:bg-s112-bg/60'}`}>
+              {!einzelRied && <label className={`flex items-center gap-2 px-3 py-1.5 bg-white ${keinErntebar ? 'opacity-60' : 'cursor-pointer hover:bg-s112-bg/60'}`}>
                 <input type="checkbox" checked={alleGruppe} disabled={keinErntebar}
                   aria-label={`${gruppe.name}: alle ${sucheErg.aktiv ? 'Treffer' : 'erntebaren'} auswählen`}
                   ref={el => { if (el) el.indeterminate = teilGruppe && !alleGruppe }}
@@ -282,8 +292,8 @@ function NeueParzellenForm({
                   className="accent-s112-teal" />
                 <span className={`text-xs font-semibold ${gruppe.ohneRied ? 'text-s112-text-2 italic' : 'text-s112-text'}`}>{gruppe.name}</span>
                 <span className="text-xs text-s112-muted ml-1">{wgs.length} {wgs.length === 1 ? 'Ried' : 'Rieden'}</span>
-              </label>
-              <div className="divide-y divide-s112-border/40 border-t border-s112-border/40">
+              </label>}
+              <div className={`divide-y divide-s112-border/40 ${einzelRied ? '' : 'border-t border-s112-border/40'}`}>
                 {wgs.map(w => {
                   const alleGsts = gstByWeingarten[w.id] ?? []
                   const gstFilter = sucheErg.gstTreffer.get(w.id)
@@ -294,9 +304,14 @@ function NeueParzellenForm({
                   const wgTeil = w.erntebar && trefferTeilweise(wt, auswahl)
                   const isActive = wgVoll || wgTeil
                   const fs = w.ama_feldnummer ? `FS ${w.ama_feldnummer}` : null
+                  // Einzel-Ried: Ried-Name fett, Weingarten nur als Zusatz, wenn er anders heißt
+                  const zusatz = einzelRied ? weingartenZusatz(gruppe.name, w.name) : null
+                  const nameEl = einzelRied
+                    ? <span className={`text-xs font-semibold ${isActive ? 'text-s112-blue-700' : 'text-s112-text'}`}>{gruppe.name}{zusatz && <span className="font-normal text-s112-text-1"> · {zusatz}</span>}</span>
+                    : <span className={`text-xs ${isActive ? 'font-medium text-s112-blue-700' : 'text-s112-text-1'}`}>{w.name}</span>
                   return (
                     <div key={w.id} className={!w.erntebar ? 'bg-s112-bg' : ''}>
-                      <div className={`flex items-center gap-2 px-4 py-1.5 ${w.erntebar ? 'hover:bg-s112-bg/40' : 'opacity-50'}`}>
+                      <div className={`flex items-center gap-2 ${einzelRied ? 'px-3 bg-white' : 'px-4'} py-1.5 ${w.erntebar ? 'hover:bg-s112-bg/40' : 'opacity-50'}`}>
                         <input type="checkbox"
                           aria-label={`${w.name} auswählen`}
                           checked={wgVoll}
@@ -311,7 +326,7 @@ function NeueParzellenForm({
                               fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                             </svg>
-                            <span className={`text-xs ${isActive ? 'font-medium text-s112-blue-700' : 'text-s112-text-1'}`}>{w.name}</span>
+                            {nameEl}
                             {fs && <span className="text-xs text-s112-muted">· {fs}</span>}
                             <span className="text-xs text-s112-muted ml-auto">
                               {gstFilter ? `${gsts.length} von ${alleGsts.length} GST` : `${alleGsts.length} GST`}
@@ -319,7 +334,7 @@ function NeueParzellenForm({
                           </button>
                         ) : (
                           <span className="flex items-center gap-1.5 flex-1">
-                            <span className={`text-xs ${isActive ? 'font-medium text-s112-blue-700' : 'text-s112-text-1'}`}>{w.name}</span>
+                            {nameEl}
                             {fs && <span className="text-xs text-s112-muted">· {fs}</span>}
                             {!w.erntebar && <span className="text-xs text-s112-muted ml-auto">nicht erntebar (kein Grundstück der Nutzart WI)</span>}
                           </span>
@@ -522,8 +537,9 @@ function ParzellForm({
     })
   }
 
-  // Gruppen wie in der Erfassung (KAN-160): Rieden alphabetisch, „Ohne Ried-Zuordnung“ am Ende
-  const lagen = riedGruppen(weingaerten)
+  // Gruppen wie in der Erfassung (KAN-160): Rieden alphabetisch, „Ohne Ried-Zuordnung“ am Ende; nur erntebare
+  // Weingärten (der schon gespeicherte bleibt wählbar), Ried mit genau einem Weingarten ohne eigene Gruppe
+  const lagen = riedGruppen(weingaerten.filter(w => w.erntebar || w.id === parzelle?.weingarten_id))
 
   return (
     <form onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-4 space-y-3">
@@ -538,9 +554,13 @@ function ParzellForm({
             onChange={e => { setSelWgId(e.target.value); setSelGstId('') }}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
             <option value="">– Auswählen –</option>
-            {lagen.map(({ schluessel, name, weingaerten: wgs }) => (
-              <optgroup key={schluessel} label={name}>
-                {wgs.map(w => (
+            {lagen.map(g => istEinzelRied(g) ? (
+              <option key={g.weingaerten[0].id} value={g.weingaerten[0].id}>
+                {g.name}{weingartenZusatz(g.name, g.weingaerten[0].name) ? ` · ${g.weingaerten[0].name}` : ''}{g.weingaerten[0].rebsorte ? ` (${formatRebsorteMitKuerzel(g.weingaerten[0].rebsorte)})` : ''}
+              </option>
+            ) : (
+              <optgroup key={g.schluessel} label={g.name}>
+                {g.weingaerten.map(w => (
                   <option key={w.id} value={w.id}>{w.name}{w.rebsorte ? ` (${formatRebsorteMitKuerzel(w.rebsorte)})` : ''}</option>
                 ))}
               </optgroup>
