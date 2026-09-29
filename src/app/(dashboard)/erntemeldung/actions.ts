@@ -19,6 +19,7 @@ import { aggregiereJeRebsorte, KG_JE_HL, ladeLesedaten, parzelleFuerMeldung } fr
 import { runden, STELLEN } from '@/lib/csv'
 import { mostgewichtAusFormular, mostgewichtAusWert, mostgewichtSpalten } from '@/lib/wein/mostgewichtFormular'
 import type { Mostgewicht } from '@/lib/wein/mostgewicht'
+import { istErntebar, leseZiele, verteileKg, type LeseGst, type LeseZiel } from '@/lib/wein/leseErfassung'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -55,6 +56,11 @@ function zahlOderNull(v: unknown): number | null {
   if (v == null || v === '') return null
   if (typeof v === 'number') return Number.isFinite(v) ? v : null
   return zahlAus(v)
+}
+
+/** Formular-/JSON-Wert leer (null, undefined, nur Leerzeichen)? */
+function leerOderNull(v: unknown): boolean {
+  return v == null || String(v).trim() === ''
 }
 
 function textOderNull(v: unknown): string | null {
@@ -287,10 +293,15 @@ async function pruefeLesemengeGedeckt(
 export async function createMultipleErnteParzellen(jahrgangId: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
-  const weingartenIds = formData.getAll('weingarten_ids') as string[]
+  const weingartenIds = [...new Set((formData.getAll('weingarten_ids') as string[]).filter(Boolean))]
 
   type GSTEntry = {
-    gst_id: string; weingarten_id: string; flaeche_ha: number | null; menge_kg?: number | null
+    /** Grundstück – null nur für einen Weingarten ohne Grundstücke (Einzelerfassung, KAN-161) */
+    gst_id: string | null; weingarten_id: string
+    /** veraltet und ignoriert: die Verteilung rechnet mit der Fläche aus der Datenbank (KAN-161) */
+    flaeche_ha?: number | null
+    /** eigene Menge (Einzelerfassung, Assistent); ohne eigene Menge bekommt die Zeile ihren Anteil der Gesamtmenge */
+    menge_kg?: number | string | null
     /** Mostgewicht je Grundstück (KAN-128): Messwert (Text wie eingegeben oder Zahl) und gemessene Einheit */
     mostgewicht_wert?: string | number | null; mostgewicht_einheit?: string | null
     /** älteres Format (vor KAN-128): °KMW als Zahl – gilt als °KMW-Messung */
@@ -298,15 +309,19 @@ export async function createMultipleErnteParzellen(jahrgangId: string, formData:
     lesemethode?: string | null; notizen?: string | null
   }
   const gstJsonRaw = formData.get('grundstueck_json') as string | null
-  const gstEntries: GSTEntry[] = gstJsonRaw ? JSON.parse(gstJsonRaw) : []
+  let gstEntries: GSTEntry[] = []
+  try { gstEntries = gstJsonRaw ? JSON.parse(gstJsonRaw) : [] } catch { throw new AktionsFehler('Die Grundstücksauswahl ist ungültig – bitte die Seite neu laden.') }
+  if (!Array.isArray(gstEntries)) throw new AktionsFehler('Die Grundstücksauswahl ist ungültig – bitte die Seite neu laden.')
 
   if (weingartenIds.length === 0 && gstEntries.length === 0) {
     throw new AktionsFehler('Mindestens eine Ried oder ein Grundstück auswählen')
   }
+  // ernte_parzellen hat keine tenant_id – der Jahrgang muss zum aktiven Betrieb gehören
+  await ladeJahrgang(supabase, tenantId, jahrgangId)
 
   const ernteDatum  = (formData.get('ernte_datum') as string) || null
   const lesemethode = (formData.get('lesemethode') as string) || null
-  // KAN-128: gemeinsames Mostgewicht (nur bei ganzen Rieden im Formular) aus Messwert und Einheit
+  // KAN-128: gemeinsames Mostgewicht (gilt für jede Zeile ohne eigenes) aus Messwert und Einheit
   // der Eingabe, übergangsweise das alte Feld klosterneuburger als °KMW – beide Werte serverseitig
   // gerechnet; eine ungültige Eingabe bricht ab, bevor etwas geschrieben wird.
   const gemeinsam = mostgewichtAusFormular(formData, 'mostgewicht', { altesFeld: 'klosterneuburger' })
@@ -323,104 +338,132 @@ export async function createMultipleErnteParzellen(jahrgangId: string, formData:
   if (qualitaetUnzulaessig) throw new AktionsFehler(qualitaetUnzulaessig)
   const qualitaet   = mgGemeinsam ? kmwZuQualitaet(mgGemeinsam.kmw) : 'qualitaetswein'
   const notizen     = (formData.get('notizen') as string) || null
-  const mengeKgRaw  = formData.get('menge_kg') as string | null
-  const mengeKg     = mengeKgRaw ? Number(dezimal(mengeKgRaw)) : null
+  // KAN-161: EINE Gesamtmenge für die ganze Auswahl – vorher bekam jede ganz gewählte Ried die volle Menge
+  const mengeKgRaw  = formData.get('menge_kg')
+  const mengeKg     = zahlOderNull(mengeKgRaw)
+  if (!leerOderNull(mengeKgRaw) && mengeKg == null) throw new AktionsFehler('Die Menge ist keine gültige Zahl.')
+  if (mengeKg != null && mengeKg < 0) throw new AktionsFehler('Die Menge darf nicht negativ sein.')
 
-  // Proportionale Aufteilung nach Fläche (ha); Fallback: gleichmäßig
-  function splitKg(total: number | null, areas: (number | null)[]): (number | null)[] {
-    if (!total || areas.length === 0) return areas.map(() => null)
-    const validAreas = areas.filter((a): a is number => a != null && a > 0)
-    if (validAreas.length === 0) {
-      const each = Math.round(total / areas.length)
-      return areas.map(() => each)
-    }
-    const totalArea = validAreas.reduce((s, a) => s + a, 0)
-    const result = areas.map(a => (a ?? 0) > 0 ? Math.floor(total * ((a as number) / totalArea)) : 0)
-    // Restkilos auf das erste GST draufrechnen
-    const diff = total - result.reduce((s, v) => s + (v ?? 0), 0)
-    if (diff > 0 && result.length > 0) result[0] = (result[0] ?? 0) + diff
-    return result
+  // ── Stammdaten aus der Datenbank (Flächen, Nutzart, Weingarten) – nichts davon aus dem Formular ──
+  const einzelIds = [...new Set(gstEntries.map(g => g.gst_id).filter((x): x is string => typeof x === 'string' && x !== ''))]
+  const ohneGstWg = [...new Set(gstEntries.filter(g => !g.gst_id).map(g => g.weingarten_id).filter(Boolean))]
+  const ganzOderOhneGst = [...new Set([...weingartenIds, ...ohneGstWg])]
+  const gstSpalten = 'id, weingarten_id, gst_nr, flaeche_ha, nutzart, trauben_herkunft_code, rebsorte'
+  const [ganzRes, einzelRes] = await Promise.all([
+    ganzOderOhneGst.length > 0
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ? (supabase.from('grundstuecke') as any).select(gstSpalten).in('weingarten_id', ganzOderOhneGst).eq('tenant_id', tenantId).order('gst_nr').order('id')
+      : { data: [], error: null },
+    einzelIds.length > 0
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ? (supabase.from('grundstuecke') as any).select(gstSpalten).in('id', einzelIds).eq('tenant_id', tenantId)
+      : { data: [], error: null },
+  ])
+  if (ganzRes.error) throw new AktionsFehler(dbFehlerText(ganzRes.error, 'Grundstücke konnten nicht geladen werden'))
+  if (einzelRes.error) throw new AktionsFehler(dbFehlerText(einzelRes.error, 'Grundstücke konnten nicht geladen werden'))
+  const gstStammdatenMap = new Map<string, AR>()
+  for (const g of [...(ganzRes.data ?? []), ...(einzelRes.data ?? [])] as AR[]) gstStammdatenMap.set(g.id, g)
+  for (const id of einzelIds) {
+    const g = gstStammdatenMap.get(id)
+    if (!g) throw new AktionsFehler('Ein gewähltes Grundstück wurde nicht gefunden – bitte die Seite neu laden.')
+    if (g.nutzart !== 'WI') throw new AktionsFehler(`GST ${g.gst_nr} ist kein Weingarten-Grundstück (Nutzart ${g.nutzart ?? '–'}) – dort wird nicht geerntet.`)
   }
+  // Weingarten eines Grundstücks immer aus der Datenbank (nicht aus dem Formular)
+  const wgVonGst = (id: string) => gstStammdatenMap.get(id)!.weingarten_id as string
 
-  const base = { jahrgang_id: jahrgangId, ernte_datum: ernteDatum, ...mostgewichtSpalten(mgGemeinsam, 'klosterneuburger'), qualitaetsstufe: qualitaet, lesemethode, notizen }
+  const wgIds = [...new Set([...ganzOderOhneGst, ...einzelIds.map(wgVonGst)])]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const rows: AR[] = []
+  const { data: wgRows, error: wgFehler } = await (supabase.from('weingarten') as any)
+    .select('id, name, flaeche_ha').in('id', wgIds).eq('tenant_id', tenantId)
+  if (wgFehler) throw new AktionsFehler(dbFehlerText(wgFehler, 'Rieden konnten nicht geladen werden'))
+  const wgMap = new Map<string, AR>(((wgRows ?? []) as AR[]).map(w => [w.id, w]))
+  if (wgIds.some(id => !wgMap.has(id))) throw new AktionsFehler('Eine gewählte Ried wurde nicht gefunden – bitte die Seite neu laden.')
 
-  // Ganze Rieden → GSTs aus DB laden, Menge proportional aufteilen
-  for (const wgId of weingartenIds) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: gsts } = await (supabase.from('grundstuecke') as any)
-      .select('id, flaeche_ha, trauben_herkunft_code, rebsorte').eq('weingarten_id', wgId).eq('nutzart', 'WI').eq('tenant_id', tenantId).order('gst_nr')
-    const gstList = (gsts ?? []) as AR[]
-    if (gstList.length === 0) {
-      // Keine GSTs → eine Zeile für die ganze Ried (kein GST-Herkunft-Code verfügbar)
-      rows.push({ ...base, weingarten_id: wgId, grundstueck_id: null, menge_kg: mengeKg, menge_hl: mengeKg ? mengeKg / 130 : null })
-    } else {
-      const mengen = splitKg(mengeKg, gstList.map((g: AR) => g.flaeche_ha ?? null))
-      gstList.forEach((g: AR, i: number) => {
-        const kg = mengen[i]
-        const passend = findePassendeHerkunftsstufe(g.trauben_herkunft_code ?? null, g.rebsorte ?? null)
-        rows.push({
-          ...base, weingarten_id: wgId, grundstueck_id: g.id, menge_kg: kg, menge_hl: kg ? kg / 130 : null,
-          herkunft_code: passend.code,
-          notizen: passend.abgestuft
-            ? [base.notizen, `Herkunft-Code automatisch abgestuft auf ${HERKUNFT_LABEL[passend.code ?? ''] ?? passend.code} (Sortenspiegel: ${g.rebsorte ?? 'unbekannte Rebsorte'})`].filter(Boolean).join('\n')
-            : base.notizen,
-        })
-      })
+  // WI-Grundstücke je Weingarten; ganz gewählt werden nur erntebare Weingärten (lib/wein/leseErfassung.ts)
+  const alleJeWg = new Map<string, AR[]>()
+  for (const g of (ganzRes.data ?? []) as AR[]) alleJeWg.set(g.weingarten_id, [...(alleJeWg.get(g.weingarten_id) ?? []), g])
+  const wiJeWg: Record<string, LeseGst[]> = {}
+  for (const wgId of ganzOderOhneGst) {
+    const alle = alleJeWg.get(wgId) ?? []
+    const wi = alle.filter(g => g.nutzart === 'WI')
+    const name = wgMap.get(wgId)?.name ?? 'Ried'
+    if (!istErntebar(alle.length, wi.length)) {
+      throw new AktionsFehler(`„${name}“ hat keine Grundstücke der Nutzart Weingarten (WI) – dort wird nicht geerntet.`)
     }
+    if (ohneGstWg.includes(wgId) && alle.length > 0) {
+      throw new AktionsFehler(`„${name}“ hat Grundstücke – bitte die Menge je Grundstück angeben.`)
+    }
+    wiJeWg[wgId] = wi.map(g => ({ id: g.id, flaeche_ha: g.flaeche_ha ?? null }))
   }
+  for (const id of einzelIds) {
+    const liste = wiJeWg[wgVonGst(id)] ?? []
+    if (!liste.some(x => x.id === id)) wiJeWg[wgVonGst(id)] = [...liste, { id, flaeche_ha: gstStammdatenMap.get(id)!.flaeche_ha ?? null }]
+  }
+  const wgFlaeche: Record<string, number | null> = {}
+  for (const [id, w] of wgMap) wgFlaeche[id] = w.flaeche_ha ?? null
 
-  // Einzelne GSTs → nach Weingarten gruppieren, Menge proportional aufteilen
-  const gstsByWG = new Map<string, GSTEntry[]>()
+  // Einzeln übergebene Zeilen (eigene Menge, Mostgewicht, Lesemethode, Notizen) je Grundstück bzw. Weingarten ohne Grundstück
+  const zielSchluessel = (wgId: string, gstId: string | null) => gstId ?? `wg:${wgId}`
+  const eintragJeZiel = new Map<string, GSTEntry>()
   for (const g of gstEntries) {
-    const arr = gstsByWG.get(g.weingarten_id) ?? []; arr.push(g); gstsByWG.set(g.weingarten_id, arr)
+    eintragJeZiel.set(g.gst_id ? g.gst_id : zielSchluessel(g.weingarten_id, null), g)
   }
-  // Herkunft-Code + Rebsorte der referenzierten GSTs nachladen (nicht Teil des Frontend-Payloads)
-  const alleGstIds = gstEntries.map(g => g.gst_id).filter(Boolean)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: gstStammdaten } = alleGstIds.length > 0
-    ? await (supabase.from('grundstuecke') as any).select('id, gst_nr, trauben_herkunft_code, rebsorte').in('id', alleGstIds).eq('tenant_id', tenantId)
-    : { data: [] }
-  const gstStammdatenMap = new Map<string, AR>(((gstStammdaten ?? []) as AR[]).map((g: AR) => [g.id, g]))
 
-  // Mostgewicht je Grundstück (KAN-128): eigener Messwert, sonst das gemeinsame – alle vor dem Schreiben prüfen
+  // Mostgewicht und Menge je Grundstück (KAN-128): eigener Messwert, sonst das gemeinsame – alle vor dem Schreiben prüfen
   const mgJeGst = new Map<GSTEntry, Mostgewicht | null>()
   for (const g of gstEntries) {
-    const bezeichnung = `GST ${gstStammdatenMap.get(g.gst_id)?.gst_nr ?? g.gst_id}`
+    const bezeichnung = g.gst_id ? `GST ${gstStammdatenMap.get(g.gst_id)?.gst_nr ?? g.gst_id}` : `„${wgMap.get(g.weingarten_id)?.name ?? 'Ried'}“`
     const eigenes = g.mostgewicht_wert !== null && g.mostgewicht_wert !== undefined && String(g.mostgewicht_wert).trim() !== ''
       ? mostgewichtAusWert(g.mostgewicht_wert, g.mostgewicht_einheit, bezeichnung)
       : g.kmw !== null && g.kmw !== undefined ? mostgewichtAusWert(g.kmw, 'kmw', bezeichnung) : null
     if (eigenes && !eigenes.ok) throw new AktionsFehler(eigenes.fehler)
     mgJeGst.set(g, eigenes ? eigenes.wert : mgGemeinsam)
+    const eigeneMenge = zahlOderNull(g.menge_kg)
+    if (!leerOderNull(g.menge_kg) && eigeneMenge == null) throw new AktionsFehler(`${bezeichnung}: Die Menge ist keine gültige Zahl.`)
+    if (eigeneMenge != null && eigeneMenge < 0) throw new AktionsFehler(`${bezeichnung}: Die Menge darf nicht negativ sein.`)
   }
 
-  for (const [wgId, wgGsts] of gstsByWG) {
-    const mengen = splitKg(mengeKg, wgGsts.map(g => g.flaeche_ha))
-    wgGsts.forEach((g, i) => {
-      const kg = g.menge_kg != null ? g.menge_kg : mengen[i]
-      const perMg = mgJeGst.get(g) ?? null
-      const perQualitaet = perMg ? kmwZuQualitaet(perMg.kmw) : qualitaet
-      const perLesemethode = g.lesemethode ?? lesemethode
-      const perNotizen = g.notizen ?? notizen
-      const gstStamm = gstStammdatenMap.get(g.gst_id)
-      const passend = findePassendeHerkunftsstufe(gstStamm?.trauben_herkunft_code ?? null, gstStamm?.rebsorte ?? null)
-      const finaleNotizen = passend.abgestuft
-        ? [perNotizen, `Herkunft-Code automatisch abgestuft auf ${HERKUNFT_LABEL[passend.code ?? ''] ?? passend.code} (Sortenspiegel: ${gstStamm?.rebsorte ?? 'unbekannte Rebsorte'})`].filter(Boolean).join('\n')
-        : perNotizen
-      rows.push({
-        ...base,
-        weingarten_id: wgId, grundstueck_id: g.gst_id,
-        menge_kg: kg, menge_hl: kg ? kg / 130 : null,
-        ...mostgewichtSpalten(perMg, 'klosterneuburger'), qualitaetsstufe: perQualitaet, lesemethode: perLesemethode, notizen: finaleNotizen,
-        herkunft_code: passend.code,
-      })
-    })
+  // KAN-161: Zielflächen der ganzen Auswahl; die Gesamtmenge geht nach Fläche (aus der Datenbank) auf alle
+  // Zeilen ohne eigene Menge – dieselbe Rechnung wie die Vorschau im Formular
+  const ziele = leseZiele(ganzOderOhneGst, einzelIds.map(id => ({ gst_id: id, weingarten_id: wgVonGst(id) })), wiJeWg, wgFlaeche)
+  const eintragVon = (z: LeseZiel) => eintragJeZiel.get(zielSchluessel(z.weingarten_id, z.grundstueck_id))
+  const mengen = ziele.map(z => zahlOderNull(eintragVon(z)?.menge_kg))
+  const zuVerteilen = ziele.map((_, i) => i).filter(i => mengen[i] == null)
+  if (mengeKg != null && zuVerteilen.length === 0) {
+    throw new AktionsFehler('Alle gewählten Grundstücke haben eine eigene Menge – die Gesamtmenge würde nicht verteilt. Bitte eines von beiden leeren.')
   }
+  const anteile = verteileKg(mengeKg, zuVerteilen.map(i => ziele[i].flaeche_ha))
+  zuVerteilen.forEach((i, k) => { mengen[i] = anteile[k] })
+
+  const base = { jahrgang_id: jahrgangId, ernte_datum: ernteDatum }
+  const rows: AR[] = ziele.map((z, i) => {
+    const eintrag = eintragVon(z)
+    const perMg = eintrag ? (mgJeGst.get(eintrag) ?? null) : mgGemeinsam
+    const perQualitaet = perMg ? kmwZuQualitaet(perMg.kmw) : qualitaet
+    const perLesemethode = eintrag?.lesemethode || lesemethode
+    const perNotizen = eintrag?.notizen || notizen
+    const kg = mengen[i]
+    const zeile: AR = {
+      ...base,
+      weingarten_id: z.weingarten_id, grundstueck_id: z.grundstueck_id,
+      menge_kg: kg, menge_hl: kg != null ? kg / 130 : null,
+      ...mostgewichtSpalten(perMg, 'klosterneuburger'), qualitaetsstufe: perQualitaet, lesemethode: perLesemethode, notizen: perNotizen,
+    }
+    // Weingarten ohne Grundstück: kein GST-Herkunft-Code verfügbar
+    if (z.grundstueck_id) {
+      const gstStamm = gstStammdatenMap.get(z.grundstueck_id)
+      const passend = findePassendeHerkunftsstufe(gstStamm?.trauben_herkunft_code ?? null, gstStamm?.rebsorte ?? null)
+      zeile.herkunft_code = passend.code
+      if (passend.abgestuft) {
+        zeile.notizen = [perNotizen, `Herkunft-Code automatisch abgestuft auf ${HERKUNFT_LABEL[passend.code ?? ''] ?? passend.code} (Sortenspiegel: ${gstStamm?.rebsorte ?? 'unbekannte Rebsorte'})`].filter(Boolean).join('\n')
+      }
+    }
+    return zeile
+  })
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('ernte_parzellen') as any).insert(rows)
-  if (error) throw new AktionsFehler((error as AR).message)
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Speichern fehlgeschlagen (ernte_parzellen)'))
   revalidatePath(`/erntemeldung/${jahrgangId}`)
 }
 

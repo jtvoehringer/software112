@@ -13,6 +13,7 @@ import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { berechneHektarhoechstertrag, ladeLesedaten, weinbauflaecheHa, type HektarhoechstertragStatus, type LeseZeile } from '@/lib/behoerden/erntemeldung'
 import { KATALOG_ERNTE } from '@/lib/behoerden/katalog/ernte'
 import { betriebUndModuleLaden, zugriffsFehler } from '@/lib/behoerden/zugriff'
+import { istErntebar } from '@/lib/wein/leseErfassung'
 
 export const metadata: Metadata = { title: 'Lese – software:112' }
 export const dynamic = 'force-dynamic'
@@ -32,7 +33,15 @@ export type ErnteParzelle = {
   mostgewicht_einheit: string | null
   qualitaetsstufe: string | null; lesemethode: string | null; notizen: string | null
 }
-export type WeingartenOpt = { id: string; name: string; rebsorte: string | null; lage_name: string | null }
+export type WeingartenOpt = {
+  id: string; name: string; rebsorte: string | null; lage_name: string | null
+  /** AMA-Feldstücknummer (Suche in der Lese-Erfassung, KAN-162) */
+  ama_feldnummer: string | null
+  /** Fläche des Weingartens – Bezugsfläche nur, wenn er keine Grundstücke hat (KAN-161) */
+  flaeche_ha: number | null
+  /** mind. ein Grundstück der Nutzart WI oder gar keine Grundstücke (lib/wein/leseErfassung.ts, KAN-160) */
+  erntebar: boolean
+}
 export type AMAMeldung = {
   id: string; status: string; gesamtmenge_kg: number | null; gesamtmenge_hl: number | null
   n8n_status: string | null; n8n_fehler: string | null; eingereicht_am: string | null
@@ -74,6 +83,7 @@ export default async function ErnteDetailPage({ params }: Props) {
     behRows,
     { data: rawWA },
     { data: rawGST },
+    { data: rawGstAlle },
     { data: rawTV },
     { data: rawTVKontakte },
     { data: rawTVFirmen },
@@ -89,7 +99,7 @@ export default async function ErnteDetailPage({ params }: Props) {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tf((supabase.from('weingarten') as any)
-      .select('id, name, rebsorte, trauben_verkauf, trauben_herkunft_code, lagen:lage_id(name)').eq('aktiv', true).order('name')),
+      .select('id, name, rebsorte, flaeche_ha, ama_feldnummer, trauben_verkauf, trauben_herkunft_code, lagen:lage_id(name)').eq('aktiv', true).order('name')),
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tf((supabase.from('ama_erntemeldungen') as any)
@@ -116,6 +126,11 @@ export default async function ErnteDetailPage({ params }: Props) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       tf((supabase.from('grundstuecke') as any)
         .select('id, weingarten_id, gst_nr, rebsorte, flaeche_ha').eq('nutzart', 'WI').order('gst_nr').order('id')),
+    ),
+    // Alle Grundstücke (jede Nutzart) – ein Weingarten nur mit Acker/Grünland/Brache ist nicht erntebar (KAN-160)
+    alle<AR>(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      tf((supabase.from('grundstuecke') as any).select('id, weingarten_id').order('id')),
     ),
 
     // Traubenverkäufe dieses Jahrgangs (mit Rechnung: Löschen storniert sie, KAN-35)
@@ -157,15 +172,19 @@ export default async function ErnteDetailPage({ params }: Props) {
   const parzellen: ErnteParzelle[] = lese.zeilen.map(zuErnteParzelle)
     .sort((a, b) => (a.ernte_datum === b.ernte_datum ? 0 : a.ernte_datum === null ? -1 : b.ernte_datum === null ? 1 : b.ernte_datum.localeCompare(a.ernte_datum)))
 
-  const weingaerten: WeingartenOpt[] = ((rawW ?? []) as AR[]).map(w => ({
-    id: w.id, name: w.name, rebsorte: w.rebsorte ?? null, lage_name: w.lagen?.name ?? null,
-  }))
-
   const gstByWeingarten: Record<string, GSTOpt[]> = {}
   for (const g of rawGST) {
     if (!gstByWeingarten[g.weingarten_id]) gstByWeingarten[g.weingarten_id] = []
     gstByWeingarten[g.weingarten_id].push({ id: g.id, gst_nr: g.gst_nr, rebsorte: g.rebsorte ?? null, flaeche_ha: g.flaeche_ha ?? null })
   }
+  const gstAnzahlJeWeingarten = new Map<string, number>()
+  for (const g of rawGstAlle as AR[]) gstAnzahlJeWeingarten.set(g.weingarten_id, (gstAnzahlJeWeingarten.get(g.weingarten_id) ?? 0) + 1)
+
+  const weingaerten: WeingartenOpt[] = ((rawW ?? []) as AR[]).map(w => ({
+    id: w.id, name: w.name, rebsorte: w.rebsorte ?? null, lage_name: w.lagen?.name ?? null,
+    ama_feldnummer: w.ama_feldnummer ?? null, flaeche_ha: w.flaeche_ha ?? null,
+    erntebar: istErntebar(gstAnzahlJeWeingarten.get(w.id) ?? 0, gstByWeingarten[w.id]?.length ?? 0),
+  }))
 
   // ── Hektarhöchstertrag-Prüfung (Qualitätswein, betriebsweit) ────────────────
   // Hinweis vom BKI (18.07.2026): die hl-Höchstmenge für Qualitätswein wird gegen
