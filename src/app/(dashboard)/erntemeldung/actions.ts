@@ -194,6 +194,7 @@ export async function upsertErnteParzelle(jahrgangId: string, formData: FormData
   if (existingId) {
     // KAN-35: Lesemenge nicht unter das bereits Verpresste/Verkaufte senken bzw. verschieben
     const alt = await ladeErnteParzelle(supabase, existingId, jahrgangId)
+    await pruefeLesedatumNichtVerpresst(supabase, tenantId, jahrgangId, alt, (payload.ernte_datum as string | null) ?? null)
     await pruefeLesemengeGedeckt(supabase, tenantId, jahrgangId, alt,
       { weingarten_id: weingartenId, grundstueck_id: grundstueckId, menge_kg: mengeKg }, 'Ändern der Lesedaten')
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -219,11 +220,42 @@ export async function upsertErnteParzelle(jahrgangId: string, formData: FormData
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function ladeErnteParzelle(supabase: any, id: string, jahrgangId: string): Promise<AR> {
   const { data, error } = await (supabase.from('ernte_parzellen') as any)
-    .select('id, weingarten_id, grundstueck_id, menge_kg, weingarten:weingarten_id(name), grundstueck:grundstueck_id(gst_nr)')
+    .select('id, weingarten_id, grundstueck_id, menge_kg, ernte_datum, weingarten:weingarten_id(name), grundstueck:grundstueck_id(gst_nr)')
     .eq('id', id).eq('jahrgang_id', jahrgangId).maybeSingle()
   if (error) throw new AktionsFehler(dbFehlerText(error, 'Lesedaten konnten nicht geladen werden'))
   if (!data) throw new AktionsFehler('Lesedaten nicht gefunden – bitte die Seite neu laden.')
   return data as AR
+}
+
+/**
+ * KAN-126 (Entscheidung Jörgen 29.09.2026, offene Frage 4 „einfrieren“): Ist ein Lese-Eintrag schon verpresst –
+ * eine Pressungszeile desselben Orts (Ortsregel wie die Lesetage der Pressung) trägt seinen Lesetag –, bleibt
+ * sein Lesedatum fest. Sonst liefen Pressung (Snapshot pw.ernte_datum) und Erntemeldung auseinander.
+ */
+async function pruefeLesedatumNichtVerpresst(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any, tenantId: string, jahrgangId: string, alt: AR, neuesDatum: string | null,
+): Promise<void> {
+  const altesDatum = alt.ernte_datum ? String(alt.ernte_datum).slice(0, 10) : null
+  if (!altesDatum || altesDatum === (neuesDatum ?? null)) return
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: pRows, error: pErr } = await (supabase.from('pressungen') as any)
+    .select('id, datum').eq('jahrgang_id', jahrgangId).eq('tenant_id', tenantId)
+  if (pErr) throw new AktionsFehler(dbFehlerText(pErr, 'Pressungen konnten nicht geprüft werden'))
+  const pressungen = (pRows ?? []) as AR[]
+  if (pressungen.length === 0) return
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let q = (supabase.from('pressung_weingaerten') as any)
+    .select('pressung_id, grundstueck_id').in('pressung_id', pressungen.map(p => p.id))
+    .eq('weingarten_id', alt.weingarten_id).eq('ernte_datum', altesDatum)
+  if (alt.grundstueck_id) q = q.or(`grundstueck_id.eq.${alt.grundstueck_id},grundstueck_id.is.null`)
+  const { data: pwRows, error: pwErr } = await q
+  if (pwErr) throw new AktionsFehler(dbFehlerText(pwErr, 'Pressungen konnten nicht geprüft werden'))
+  const treffer = ((pwRows ?? []) as AR[])[0]
+  if (!treffer) return
+  const pDatum = pressungen.find(p => p.id === treffer.pressung_id)?.datum as string | undefined
+  throw new AktionsFehler(`Diese Lese vom ${datumText(altesDatum)} ist bereits verpresst${pDatum ? ` (Pressung vom ${datumText(pDatum)})` : ''} – ihr Lesedatum bleibt fest. `
+    + 'Ist das Datum falsch, bitte zuerst die Pressung korrigieren (solange an ihren Chargen nichts gebucht ist).')
 }
 
 async function pruefeLesemengeGedeckt(

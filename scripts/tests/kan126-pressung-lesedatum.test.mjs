@@ -192,3 +192,21 @@ describe('Abstufen bei der Pressung', async () => {
     assert.ok(a.includes('const ueberObergrenze = abstufungFehler(qualitaetsstufeInput,'))
   })
 })
+
+// Nachtrag 29.09.2026 (offene Fragen 4 und 7 laut Jira-Kommentar Jörgen)
+describe('Einfrieren verpresster Lesedaten und Weinbuch je Pressung', () => {
+  test('Lese-Eintrag: Lesedatum fest, sobald eine Pressungszeile desselben Orts diesen Lesetag trägt', () => {
+    const a = quelle('src/app/(dashboard)/erntemeldung/actions.ts')
+    assert.ok(a.includes('async function pruefeLesedatumNichtVerpresst('))
+    assert.ok(a.includes('await pruefeLesedatumNichtVerpresst(supabase, tenantId, jahrgangId, alt, (payload.ernte_datum as string | null) ?? null)'))
+    assert.ok(a.includes(".eq('weingarten_id', alt.weingarten_id).eq('ernte_datum', altesDatum)"))
+  })
+
+  test('Weinbuch: Lesen der Pressungen (Lesedatum je Traubenzeile) vor den Erntemeldungs-Einträgen', () => {
+    const w = quelle('src/lib/wein/weinbuch.ts')
+    const i = w.indexOf('if (!wg.ernte_datum || !wg.weingarten_id) continue')
+    const j = w.indexOf('if (ernteDaten.length === 0 && weingartenIds.size > 0) {')
+    assert.ok(i > 0 && j > i, 'Pressungs-Lesen zuerst, Erntemeldung nur als Rückfall')
+    assert.ok(w.includes('grundstueck:grundstueck_id(gst_nr)'))
+  })
+})
