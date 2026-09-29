@@ -110,7 +110,7 @@ export default async function ErnteDetailPage({ params }: Props) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tf((supabase.from('pressungen') as any)
       .select(`id, datum, most_liter_gesamt, weinbezeichnung, notizen, kmw_grad,
-        weingaerten:pressung_weingaerten(id, weingarten_id, grundstueck_id, zukauf_posten_id, trauben_kg, rebsorte, notizen, weingarten:weingarten_id(name)),
+        weingaerten:pressung_weingaerten(id, weingarten_id, grundstueck_id, zukauf_posten_id, trauben_kg, rebsorte, notizen, ernte_datum, kmw, oechsle, mostgewicht_einheit, weingarten:weingarten_id(name)),
         behaelter:pressung_behaelter(id, behaelter_id, weinausbau_id, menge_liter, notizen, behaelter:behaelter_id(name), weinausbau:weinausbau_id(name, jahrgang))`)
       .eq('jahrgang_id', id).order('datum', { ascending: false })),
 
@@ -211,6 +211,8 @@ export default async function ErnteDetailPage({ params }: Props) {
       zukauf_posten_id: w.zukauf_posten_id ?? null,
       weingarten_name: w.weingarten?.name ?? (w.zukauf_posten_id ? 'Zukauf' : '–'),
       trauben_kg: w.trauben_kg, rebsorte: w.rebsorte ?? null, notizen: w.notizen ?? null,
+      // KAN-126: Lesetag und Mostgewicht der Traubenzeile
+      ernte_datum: w.ernte_datum ?? null, kmw: w.kmw ?? null, oechsle: w.oechsle ?? null, mostgewicht_einheit: w.mostgewicht_einheit ?? null,
     })),
     behaelter: ((p.behaelter ?? []) as AR[]).map((b: AR): PressungBeh => ({
       id: b.id, behaelter_id: b.behaelter_id ?? null,

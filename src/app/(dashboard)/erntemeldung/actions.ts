@@ -20,6 +20,7 @@ import { runden, STELLEN } from '@/lib/csv'
 import { mostgewichtAusFormular, mostgewichtAusWert, mostgewichtSpalten } from '@/lib/wein/mostgewichtFormular'
 import type { Mostgewicht } from '@/lib/wein/mostgewicht'
 import { istErntebar, leseZiele, verteileKg, type LeseGst, type LeseZiel } from '@/lib/wein/leseErfassung'
+import { lesedatumFehler } from '@/lib/wein/pressungLesedatum'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -594,17 +595,23 @@ export async function createOrUpdateAMAMeldung(jahrgangId: string) {
 //     – die Charge wird mitgelöscht (nur Betriebsleiter, wie RLS auf weinausbau)
 //   - Stammdaten bestehender Chargen (Name, Sorte, Qualität, Herkunft, Weinart) bleiben
 //     unangetastet; gesetzt werden sie nur beim Anlegen, Änderungen im Kellerbuch
-//   - pw.ernte_datum/pw.kmw kommen nicht aus dem Formular und werden nie geschrieben
+//   - KAN-126: Lesedatum und Mostgewicht je Traubenzeile (pw.ernte_datum, kmw/oechsle/mostgewicht_einheit)
+//     kommen aus dem Formular (Lesetag der Erntemeldung, änderbar); Zukauf-Zeilen bekommen das Zukaufsdatum
 // Keine Transaktion (einzelne PostgREST-Aufrufe): erst alles prüfen, dann schreiben.
 // Sperren kommen aus lib/kellerbuch/folgebuchungen.ts (eine Stelle für „hat Folgebuchungen“).
 
-type PressungWGInput  = { id?: string; weingarten_id?: string; grundstueck_id?: string | null; zukauf_posten_id?: string; trauben_kg: number; rebsorte?: string; notizen?: string }
+type PressungWGInput  = {
+  id?: string; weingarten_id?: string; grundstueck_id?: string | null; zukauf_posten_id?: string; trauben_kg: number; rebsorte?: string; notizen?: string
+  /** KAN-126: Lesetag (JJJJ-MM-TT) und Mostgewicht dieser Traubenzeile */
+  ernte_datum?: string | null; mostgewicht_wert?: string | number | null; mostgewicht_einheit?: string | null
+}
 type PressungBehInput = { id?: string; behaelter_id?: string; weinausbau_id?: string; menge_liter?: number; notizen?: string }
 type NeueCharge = { behaelter_id: string; weinausbau_id: string; name: string; menge_liter: number | null; qualitaetsstufe: string | null; herkunft_code: string | null }
 
 type WGZeile = {
-  id: string | null; weingarten_id: string | null; grundstueck_id: string | null; zukauf_posten_id: string | null
+  nr: number; id: string | null; weingarten_id: string | null; grundstueck_id: string | null; zukauf_posten_id: string | null
   trauben_kg: number; rebsorte: string | null; notizen: string | null
+  ernte_datum: string | null; kmw: number | null; oechsle: number | null; mostgewicht_einheit: string
 }
 type BehZeile = {
   nr: number; id: string | null; behaelter_id: string | null; weinausbau_id: string | null
@@ -615,7 +622,8 @@ type ChargenVorgaben = {
   qualitaet: string; herkunft: string | null; weinart: string
 }
 
-const PW_FELDER = ['weingarten_id', 'grundstueck_id', 'zukauf_posten_id', 'trauben_kg', 'rebsorte', 'notizen'] as const
+const PW_FELDER = ['weingarten_id', 'grundstueck_id', 'zukauf_posten_id', 'trauben_kg', 'rebsorte', 'notizen', 'ernte_datum', 'kmw', 'oechsle', 'mostgewicht_einheit'] as const
+const PW_ZAHLEN = new Set<string>(['trauben_kg', 'kmw', 'oechsle'])
 const MENGE_TOLERANZ = 0.005
 const MENGE_HINWEIS = `Die Pressung bleibt als Zugangsbeleg unverändert: Mindermengen bitte im Kellerbuch an der Charge über „Schwund buchen“ erfassen; eine Mehrmenge kann nach Folgebuchungen nicht mehr über die Pressung gebucht werden. ${KORREKTUR_NACH_OBEN_HINWEIS}`
 const GEBINDE_HINWEIS = 'Liegt der Wein inzwischen in einem anderen Gebinde, bitte im Kellerbuch einen Umzug buchen.'
@@ -814,15 +822,26 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
   const qualitaetUnzulaessig = qualitaetFehler('charge', qualitaetsstufeInput)
   if (qualitaetUnzulaessig) throw new AktionsFehler(qualitaetUnzulaessig)
 
-  const weingaerten: WGZeile[] = leseFormularJson<PressungWGInput>(fd, 'weingaerten_json').map(w => ({
-    id:               textOderNull(w.id),
-    weingarten_id:    textOderNull(w.weingarten_id),
-    grundstueck_id:   textOderNull(w.grundstueck_id),
-    zukauf_posten_id: textOderNull(w.zukauf_posten_id),
-    trauben_kg:       zahlOderNull(w.trauben_kg) ?? NaN,
-    rebsorte:         textOderNull(w.rebsorte),
-    notizen:          textOderNull(w.notizen),
-  }))
+  const weingaerten: WGZeile[] = leseFormularJson<PressungWGInput>(fd, 'weingaerten_json').map((w, i) => {
+    // KAN-126: Mostgewicht der Zeile (Messwert + Einheit) wie in der Erntemeldung
+    const mg = mostgewichtAusWert(w.mostgewicht_wert ?? null, w.mostgewicht_einheit ?? null, `Traubenzeile ${i + 1}`)
+    if (!mg.ok) throw new AktionsFehler(mg.fehler)
+    const spalten = mostgewichtSpalten(mg.wert, 'kmw')
+    return {
+      nr:               i + 1,
+      id:               textOderNull(w.id),
+      weingarten_id:    textOderNull(w.weingarten_id),
+      grundstueck_id:   textOderNull(w.grundstueck_id),
+      zukauf_posten_id: textOderNull(w.zukauf_posten_id),
+      trauben_kg:       zahlOderNull(w.trauben_kg) ?? NaN,
+      rebsorte:         textOderNull(w.rebsorte),
+      notizen:          textOderNull(w.notizen),
+      ernte_datum:      textOderNull(w.ernte_datum),
+      kmw:              spalten.kmw,
+      oechsle:          spalten.oechsle,
+      mostgewicht_einheit: spalten.mostgewicht_einheit,
+    }
+  })
   const behaelter: BehZeile[] = leseFormularJson<PressungBehInput>(fd, 'behaelter_json').map((b, i) => {
     const menge = zahlOderNull(b.menge_liter)
     return {
@@ -838,9 +857,9 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
   // ── Eingaben prüfen ────────────────────────────────────────────────────────
   for (const w of weingaerten) {
     if (!!w.weingarten_id === !!w.zukauf_posten_id) {
-      throw new AktionsFehler('Jede Traubenzeile braucht genau eine Quelle: eine Ried/GST aus der Lese oder einen Trauben-Zukauf.')
+      throw new AktionsFehler(`Traubenzeile ${w.nr}: Jede Traubenzeile braucht genau eine Quelle – eine Ried/GST aus der Lese oder einen Trauben-Zukauf.`)
     }
-    if (!(w.trauben_kg > 0)) throw new AktionsFehler('Bitte für jede Traubenzeile eine Menge größer als 0 kg angeben.')
+    if (!(w.trauben_kg > 0)) throw new AktionsFehler(`Traubenzeile ${w.nr}: Bitte eine Menge größer als 0 kg angeben.`)
   }
   for (const b of behaelter) {
     if (b.id) continue
@@ -868,7 +887,7 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
     const [pwRes, pbRes] = await Promise.all([
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('pressung_weingaerten') as any)
-        .select('id, weingarten_id, grundstueck_id, zukauf_posten_id, trauben_kg, rebsorte, notizen')
+        .select('id, weingarten_id, grundstueck_id, zukauf_posten_id, trauben_kg, rebsorte, notizen, ernte_datum, kmw, oechsle, mostgewicht_einheit')
         .eq('pressung_id', existingId),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('pressung_behaelter') as any)
@@ -883,6 +902,35 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
     throw new AktionsFehler('Ungültige Formulardaten – bitte die Seite neu laden.')
   }
   const jg = await ladeJahrgang(supabase, tenantId, jahrgangId)
+
+  // ── KAN-126: Lesedatum je Traubenzeile ─────────────────────────────────────
+  // Zukauf-Zeilen: Zukaufsdatum (Entscheidung Jörgen 29.09.2026), unabhängig von der Formulareingabe
+  const zukaufIds = [...new Set(weingaerten.map(w => w.zukauf_posten_id).filter(Boolean) as string[])]
+  if (zukaufIds.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: zkRows, error: zkErr } = await (supabase.from('zukauf_posten') as any)
+      .select('id, datum').in('id', zukaufIds).eq('tenant_id', tenantId)
+    if (zkErr) throw new AktionsFehler(dbFehlerText(zkErr, 'Trauben-Zukauf konnte nicht geladen werden'))
+    const zkDatum = new Map(((zkRows ?? []) as AR[]).map(z => [z.id as string, (z.datum as string | null) ?? null]))
+    for (const w of weingaerten) {
+      if (!w.zukauf_posten_id) continue
+      if (!zkDatum.has(w.zukauf_posten_id)) throw new AktionsFehler(`Traubenzeile ${w.nr}: Der Trauben-Zukauf wurde nicht gefunden – bitte die Seite neu laden.`)
+      w.ernte_datum = zkDatum.get(w.zukauf_posten_id) ?? null
+    }
+  }
+  // Eigene Lese: Pflicht für neue Zeilen und Zeilen mit geändertem Ort; unveränderte Altzeilen ohne Datum
+  // blockieren nicht. Ein gesetztes Datum wird immer geprüft – auch wenn sich nur das Pressungsdatum ändert.
+  {
+    const altById = new Map(pwAlt.map(w => [w.id as string, w]))
+    for (const w of weingaerten) {
+      if (!w.weingarten_id) continue
+      const alt = w.id ? altById.get(w.id) : undefined
+      const ortGeaendert = !alt || (alt.weingarten_id ?? null) !== w.weingarten_id || (alt.grundstueck_id ?? null) !== w.grundstueck_id
+      const pflicht = ortGeaendert || !!alt?.ernte_datum
+      const f = lesedatumFehler(w.ernte_datum, { pressungDatum: datum, jahrgang: (jg.jahrgang as number | null) ?? null, pflicht })
+      if (f) throw new AktionsFehler(`Traubenzeile ${w.nr}: ${f}`)
+    }
+  }
 
   // ── Änderungen planen und prüfen (noch nichts geschrieben) ─────────────────
   const pwAltMap = new Map(pwAlt.map(w => [w.id as string, w]))
@@ -901,9 +949,13 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
     const patch: AR = {}
     for (const feld of PW_FELDER) {
       const neu = w[feld]
-      const gleich = feld === 'trauben_kg'
-        ? Math.abs((Number(alt.trauben_kg) || 0) - (neu as number)) < 0.0005
-        : (alt[feld] ?? null) === neu
+      const gleich = PW_ZAHLEN.has(feld)
+        ? (alt[feld] == null || neu == null)
+          ? (alt[feld] ?? null) === (neu ?? null)
+          : Math.abs((Number(alt[feld]) || 0) - (neu as number)) < 0.0005
+        : feld === 'mostgewicht_einheit' && w.kmw == null && w.oechsle == null
+          ? true   // ohne Messwert ist die Einheit bedeutungslos (Altzeilen: NULL)
+          : (alt[feld] ?? null) === neu
       if (!gleich) patch[feld] = neu
     }
     if (Object.keys(patch).length > 0) pwAendern.push({ id: w.id, patch })
@@ -1105,6 +1157,7 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
     const { error: pwInsErr } = await (supabase.from('pressung_weingaerten') as any).insert(pwNeu.map(w => ({
       pressung_id: pressId, weingarten_id: w.weingarten_id, grundstueck_id: w.grundstueck_id,
       zukauf_posten_id: w.zukauf_posten_id, trauben_kg: w.trauben_kg, rebsorte: w.rebsorte, notizen: w.notizen,
+      ernte_datum: w.ernte_datum, kmw: w.kmw, oechsle: w.oechsle, mostgewicht_einheit: w.mostgewicht_einheit,
     })))
     if (pwInsErr) {
       let zusatz = ''
@@ -1153,6 +1206,8 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
     // aktualisieren – sonst würden andere, noch offene Grundstücke desselben Rieds
     // fälschlich mit überschrieben.
     if (w.grundstueck_id) q = q.eq('grundstueck_id', w.grundstueck_id)
+    // KAN-126 (Entscheidung Jörgen): bei Mehrfachlese nur den Eintrag desselben Lesetags befüllen
+    if (w.ernte_datum) q = q.eq('ernte_datum', w.ernte_datum)
     const { error: syncErr } = await q
     if (syncErr) throw new AktionsFehler(dbFehlerText(syncErr, 'Lesedaten konnten nicht übernommen werden (ernte_parzellen)'))
   }

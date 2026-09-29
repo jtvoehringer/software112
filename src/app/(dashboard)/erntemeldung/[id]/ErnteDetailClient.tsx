@@ -910,6 +910,11 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
             klosterneuburger: p.klosterneuburger,
           }))
         })()}
+        // KAN-126: alle Lese-Einträge – Lesetage und Mostgewicht je Ort für die Pressung
+        leseEintraege={parzellen.map(p => ({
+          weingarten_id: p.weingarten_id, grundstueck_id: p.grundstueck_id, ernte_datum: p.ernte_datum,
+          kmw: p.klosterneuburger, oechsle: p.oechsle, mostgewicht_einheit: p.mostgewicht_einheit,
+        }))}
         writeOk={writeOk}
         adminOk={adminOk}
       />
