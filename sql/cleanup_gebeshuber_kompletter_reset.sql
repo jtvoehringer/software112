@@ -40,7 +40,8 @@
 --    (samt verschneidung_quellen), keller_behandlungen, keller_umzuege,
 --    fuellung_chargen und pressung_behaelter VOR weinausbau; weinausbau,
 --    keller_umzuege, keller_behandlungen und pressung_behaelter VOR behaelter;
---    traubenverkauf VOR weinjahrgaenge.
+--    traubenverkauf VOR weinjahrgaenge. lesen (KAN-129) hängen per FK an Betrieb und Jahrgang (CASCADE);
+--    der Lösch-Trigger lässt die Kaskade zu, ein direktes DELETE auf lesen nicht.
 --  • Mengenkorrekturen nicht per UPDATE, sondern über die RPCs schwund_buchen(...)
 --    (Liter einer Charge mindern, datierte Schwundzeile) bzw. fuellung_bestand_buchen(...)
 --    (Flaschenbestand ±, datierte Zeile in fuellung_bewegungen) – aus dem SQL-Editor
