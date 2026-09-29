@@ -14,7 +14,7 @@ Regeln für jede Änderung stehen in der `CLAUDE.md`, Abschnitt „Stabilität (
 | CI | Job „check“ = `npm run verify` bei jedem PR und Push; `main` per Ruleset geschützt (Merge nur mit grünem „check“) | 🟢 |
 | Abhängigkeiten | `npm audit`: 0 Schwachstellen (CI-Job „abhaengigkeiten“, ab Stufe hoch blockierend) | 🟢 |
 | Coverage | gemessen, aber nur 90 von 604 `src`-Dateien werden von Tests geladen; kein Gate | 🟡 |
-| Datenbank (RLS, Trigger, RPCs) | nur einmalige, zurückgerollte Tests bei Migrationen, nichts Wiederholbares | 🔴 |
+| Datenbank (RLS, Trigger, RPCs) | `npm run test:db`: wiederholbare SQL-Testsuite gegen Staging, jede Datei zurückgerollt (`scripts/db-tests/README.md`); Stand 28.09.2026: Rahmen `00_rahmen` grün (108 Prüfungen, 2/2 Mutationen erkannt), Bereichsdateien im Aufbau; kein CI-Job (erst nach Jörgens OK) | 🟡 |
 | Server Actions | 43 Dateien mit `'use server'`, davon 3 mit Tests | 🔴 |
 | Lint | ESLint läuft nicht, die Konfiguration fehlt (KAN-140) | 🔴 |
 | E2E | Playwright-Grundgerüst gegen Staging (PR #55), in der CI noch übersprungen | 🟡 |
@@ -56,7 +56,8 @@ Neu messen: `npm run test:coverage`. Die Tabelle am Ende der Ausgabe listet je D
 ## Lücken, nach Risiko sortiert
 
 1. **Datenbank-Logik ohne wiederholbare Tests** (RLS-Policies, Löschsperren, Schreibsperre, Periodensperre, Trigger wie `bestandsprotokoll`, RPCs wie `fuellung_bestand_buchen`, `schwund_buchen`, `berechne_ea_uva`). Das ist der Kern der Mandantentrennung und der Behördenzahlen. Heute gibt es nur einmalige DO-Block-Tests bei Migrationen.
-   **Vorschlag (Stufe 3):** eine SQL-Testsuite gegen Staging. Jede Datei ist ein DO-Block mit `RAISE EXCEPTION` am Ende, läuft per `npx supabase db query --project-ref sjpeghrlhsowmquacjhb` und zählt „OK“-Meldungen. Zuerst für die Rollen × Tabellen der Mandantentrennung, die Schreibsperre und die E&A-Sperren.
+   **Stufe 3 begonnen (28.09.2026):** Testrahmen `scripts/db-tests/` mit `npm run test:db` (Runner, Hilfsfunktionen, Soll-Daten, Rahmentest 00; Anleitung in `scripts/db-tests/README.md`).
+   **Ursprünglicher Vorschlag:** eine SQL-Testsuite gegen Staging. Jede Datei ist ein DO-Block mit `RAISE EXCEPTION` am Ende, läuft per `npx supabase db query --project-ref sjpeghrlhsowmquacjhb` und zählt „OK“-Meldungen. Zuerst für die Rollen × Tabellen der Mandantentrennung, die Schreibsperre und die E&A-Sperren.
 2. **Buchungslogik mit Geld- und Bestandswirkung ohne Unit-Tests:**
    - `src/lib/kellerbuch/storno.ts` (728 Zeilen): Storno von Kellerbewegungen
    - `src/lib/kellerbuch/folgebuchungen.ts` (256)

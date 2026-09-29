@@ -1,0 +1,1177 @@
+-- software:112 – SQL-Testrahmen gegen STAGING: Hilfsfunktionen
+--
+-- Diese Datei setzt run.mjs vor jede Testdatei (scripts/db-tests/NN_<bereich>.sql). Sie enthält auf
+-- oberster Ebene NUR „CREATE FUNCTION pg_temp.…“: temporäre Funktionen, die in derselben Transaktion
+-- wie der Test entstehen und mit ihm zurückgerollt werden (belegt in 00_rahmen.sql). pg_temp liegt nie
+-- im search_path – Aufrufe deshalb IMMER qualifiziert schreiben: pg_temp.s112_als(…).
+-- pg_temp-Funktionen sind auch als authenticated/anon ausführbar (SECURITY INVOKER, laufen mit der
+-- gerade aktiven Rolle).
+--
+-- Inhalt
+--   1. Wächter            s112_nur_staging()
+--   2. Rollen             s112_als(uid, rolle, aal), s112_als_postgres()
+--   3. Versuche           s112_fehlercode, s112_versuch, s112_zaehle, s112_fehlertext, s112_policy
+--   4. Ergebnisse         s112_name, s112_text, s112_erwarte, s112_ok, s112_fehler, s112_bekannt,
+--                         s112_luecke, s112_baseline, s112_mutation, s112_ausfuehrlich, s112_mutiere, s112_ende
+--   5. Aufbau             s112_nur_postgres, s112_betrieb, s112_benutzer, s112_mitglied,
+--                         s112_plattform_admin, s112_faktor, s112_aufbau
+--   6. Katalog & Zeilen   s112_klasse, s112_mandantentabellen, s112_pk_where, s112_zeile,
+--                         s112_beispiel, s112_klon_sql, s112_klon
+--   7. Soll-Daten         s112_soll, s112_soll_liste, s112_soll_rpc
+--
+-- Ergebniseinträge (text) sammelt jede Testdatei in einer lokalen Variablen v_erg text[]:
+--   'OK:<name>'  'FEHLER:<name> <beleg>'  'BEKANNT:<titel> [<beleg>]'
+-- GUCs oder temporäre Tabellen taugen dafür nicht: ein scheiternder Unterblock setzt GUCs zurück, und
+-- authenticated darf temporäre Tabellen von postgres nicht lesen.
+--
+-- Regeln für diese Datei (prüft run.mjs vor jedem Senden, ebenso scripts/tests/db-tests.test.mjs):
+--   * nur CREATE FUNCTION pg_temp.* – keine DO-Blöcke, keine Transaktionssteuerung (auch nicht in Strings),
+--   * die Wörter für Replikationsmodus und Trigger-Abschalten nur in Kommentaren (scripts/check-replica.js),
+--   * LANGUAGE-sql-Funktionen werden beim Anlegen geprüft: nur auf weiter OBEN definierte Funktionen verweisen.
+-- Die Produktions-IDs stehen ausschließlich im Wächter (Abschnitt 1); run.mjs liest sie von dort.
+
+
+-- ═══ 1. Wächter ═══════════════════════════════════════════════════════════════════════════════════════
+
+-- Erste Anweisung jedes DO-Blocks. Bricht mit 'S112GUARD|…' ab (run.mjs: Exit 4), wenn die Verbindung
+-- nicht die Staging-Datenbank ist. Vier unabhängige Merkmale:
+--   * current_user = postgres (Management-API; nie als Benutzerrolle),
+--   * system_identifier der Staging-Datenbank (Produktion: 7642734024280108049, Projekt zwcsgnemijkpyxrqykul),
+--   * keiner der drei Produktions-Betriebe existiert,
+--   * das Staging-Testkonto admin@software112.test ist Plattform-Admin (auf der Produktion gibt es es nicht).
+-- Wird Staging neu aufgebaut oder wiederhergestellt, ändert sich der system_identifier: dann schlägt der
+-- Wächter sicher fehl und c_staging_sysid (hier UND STAGING_SYSID in run.mjs) muss nachgezogen werden.
+CREATE FUNCTION pg_temp.s112_nur_staging() RETURNS void LANGUAGE plpgsql AS $f$
+DECLARE
+  -- Sandbox, Weingut Johannes Gebeshuber, Spaetrot Gebeshuber GmbH (Produktion). run.mjs liest genau diese Zeile.
+  c_prod_betriebe constant uuid[] := ARRAY['fa22dc07-eca5-43df-af96-f7b9b09f0471', '097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d']::uuid[];
+  c_staging_sysid constant text := '7678069749886157684';
+  v_sysid text;
+BEGIN
+  IF current_user <> 'postgres' THEN
+    RAISE EXCEPTION 'S112GUARD|Wächter läuft nicht als postgres (current_user=%)', current_user USING ERRCODE = 'P0001';
+  END IF;
+  SELECT system_identifier::text INTO v_sysid FROM pg_control_system();
+  IF v_sysid IS DISTINCT FROM c_staging_sysid THEN
+    RAISE EXCEPTION 'S112GUARD|system_identifier % ist nicht Staging – Abbruch', v_sysid USING ERRCODE = 'P0001';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.tenants WHERE id = ANY (c_prod_betriebe)) THEN
+    RAISE EXCEPTION 'S112GUARD|Produktions-Betrieb gefunden – Abbruch' USING ERRCODE = 'P0001';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM auth.users u JOIN public.plattform_admins p ON p.user_id = u.id
+                  WHERE u.email = 'admin@software112.test') THEN
+    RAISE EXCEPTION 'S112GUARD|Staging-Testkonto admin@software112.test fehlt als Plattform-Admin – Abbruch' USING ERRCODE = 'P0001';
+  END IF;
+END $f$;
+
+
+-- ═══ 2. Rollen ════════════════════════════════════════════════════════════════════════════════════════
+
+-- Als Benutzer weiterarbeiten: s112_als(<uid>) = authenticated mit aal1, s112_als(<uid>, 'authenticated', 'aal2'),
+-- s112_als(NULL, 'anon'). Setzt request.jwt.claims {sub, role, aal} (anon: nur {role}) und SET LOCAL ROLE.
+-- Die Rolle wirkt nach dem Rücksprung weiter (INVOKER-Funktion ohne SET-Klausel). Setzt außerdem die
+-- transaktionslokalen Schalter zurück, die ein früherer Schritt gesetzt haben kann:
+--   app.active_tenant_id        (ki_readonly_query setzt ihn; danach sähe man auf GUT-Tabellen nur diesen Betrieb)
+--   s112.protokoll_aus          (Protokoll-Bypass des bestandsprotokoll-Triggers)
+--   storage.allow_delete_query  (Schalter für DELETE auf storage.objects)
+-- Rollen- und Claim-Wechsel in einem scheiternden Unterblock werden mit zurückgerollt (belegt in 00).
+CREATE FUNCTION pg_temp.s112_als(p_uid uuid, p_rolle text DEFAULT 'authenticated', p_aal text DEFAULT 'aal1')
+RETURNS void LANGUAGE plpgsql AS $f$
+BEGIN
+  IF p_rolle IS NULL OR p_rolle NOT IN ('authenticated', 'anon') THEN
+    RAISE EXCEPTION 's112_als: Rolle % nicht vorgesehen (nur authenticated oder anon)', p_rolle;
+  END IF;
+  IF p_rolle = 'authenticated' AND p_uid IS NULL THEN
+    RAISE EXCEPTION 's112_als: authenticated braucht eine Benutzer-ID';
+  END IF;
+  IF p_aal IS NULL OR p_aal NOT IN ('aal1', 'aal2') THEN
+    RAISE EXCEPTION 's112_als: Stufe % nicht vorgesehen (aal1 oder aal2)', p_aal;
+  END IF;
+  EXECUTE 'RESET ROLE';
+  PERFORM set_config('app.active_tenant_id', '', true);
+  PERFORM set_config('s112.protokoll_aus', '', true);
+  PERFORM set_config('storage.allow_delete_query', '', true);
+  PERFORM set_config('request.jwt.claims',
+                     CASE WHEN p_rolle = 'anon' THEN json_build_object('role', 'anon')::text
+                          ELSE json_build_object('sub', p_uid, 'role', 'authenticated', 'aal', p_aal)::text END,
+                     true);
+  EXECUTE format('SET LOCAL ROLE %I', p_rolle);
+END $f$;
+
+-- Zurück zu postgres. Die Claims MÜSSEN geleert werden: sonst hält ist_service_kontext() die Sitzung für
+-- „authenticated“, und SECURITY-DEFINER-RPCs wie pruefe_tenant_zugriff lehnen ab.
+CREATE FUNCTION pg_temp.s112_als_postgres() RETURNS void LANGUAGE plpgsql AS $f$
+BEGIN
+  EXECUTE 'RESET ROLE';
+  PERFORM set_config('request.jwt.claims', '', true);
+  PERFORM set_config('app.active_tenant_id', '', true);
+  PERFORM set_config('s112.protokoll_aus', '', true);
+  PERFORM set_config('storage.allow_delete_query', '', true);
+END $f$;
+
+
+-- ═══ 3. Versuche ══════════════════════════════════════════════════════════════════════════════════════
+
+-- Einheitliche Kurzform eines Fehlers:
+--   R = RLS lehnt die neue Zeile ab ('new row violates row-level security …', 42501)
+--   G = Recht fehlt ('permission denied …', 42501: Tabellen-, Spalten- oder Funktionsrecht)
+--   T = anderes 42501, z. B. aus einem Trigger oder einer RPC ('Kein Zugriff auf diesen Betrieb')
+--   E<sqlstate> = alles andere, z. B. E23502 (NOT NULL), E23503 (FK), E23514 (CHECK), EP0001 (RAISE)
+CREATE FUNCTION pg_temp.s112_fehlercode(p_state text, p_msg text) RETURNS text LANGUAGE sql IMMUTABLE AS $f$
+  SELECT CASE
+    WHEN p_state = '42501' AND p_msg LIKE 'new row violates row-level security%' THEN 'R'
+    WHEN p_state = '42501' AND p_msg LIKE 'permission denied%' THEN 'G'
+    WHEN p_state = '42501' THEN 'T'
+    ELSE 'E' || coalesce(p_state, '?????')
+  END
+$f$;
+
+-- Führt p_sql aus und rollt die Wirkung SOFORT zurück (Unterblock endet immer mit RAISE 'S1T00').
+-- Ergebnis: 'k<n>' = Erfolg mit n betroffenen bzw. gelieferten Zeilen, sonst R | G | T | E<sqlstate>.
+-- Läuft mit der gerade aktiven Rolle. Beispiel:
+--   pg_temp.s112_erwarte('insert_fremd', pg_temp.s112_versuch(format('INSERT INTO public.kontakte (tenant_id, nachname) VALUES (%L, %L)', v_m, 'x')), 'R')
+CREATE FUNCTION pg_temp.s112_versuch(p_sql text) RETURNS text LANGUAGE plpgsql AS $f$
+DECLARE
+  v_n bigint;
+  v_state text;
+  v_msg text;
+BEGIN
+  BEGIN
+    EXECUTE p_sql;
+    GET DIAGNOSTICS v_n = ROW_COUNT;
+    RAISE EXCEPTION USING ERRCODE = 'S1T00', MESSAGE = v_n::text;
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS v_state = RETURNED_SQLSTATE, v_msg = MESSAGE_TEXT;
+    IF v_state = 'S1T00' THEN
+      RETURN 'k' || v_msg;
+    END IF;
+    RETURN pg_temp.s112_fehlercode(v_state, v_msg);
+  END;
+END $f$;
+
+-- Zählt: p_sql liefert EINEN Wert (z. B. SELECT count(*) …). Ergebnis als Text: '0', '15' … oder bei
+-- Fehler R | G | T | E<sqlstate> (siehe s112_fehlercode). Vergleich deshalb gegen Text: s112_erwarte(…, '0').
+CREATE FUNCTION pg_temp.s112_zaehle(p_sql text) RETURNS text LANGUAGE plpgsql AS $f$
+DECLARE
+  v_n bigint;
+  v_state text;
+  v_msg text;
+BEGIN
+  EXECUTE p_sql INTO v_n;
+  RETURN coalesce(v_n::text, 'NULL');
+EXCEPTION WHEN OTHERS THEN
+  GET STACKED DIAGNOSTICS v_state = RETURNED_SQLSTATE, v_msg = MESSAGE_TEXT;
+  RETURN pg_temp.s112_fehlercode(v_state, v_msg);
+END $f$;
+
+-- 'ok' oder '<SQLSTATE>: <Meldung>[ | HINT: <Hinweis>]'. Anders als s112_versuch bleibt ein Erfolg bis zum
+-- Ende der Datei bestehen (wie jede andere Anweisung im Test).
+CREATE FUNCTION pg_temp.s112_fehlertext(p_sql text) RETURNS text LANGUAGE plpgsql AS $f$
+DECLARE
+  v_state text;
+  v_msg text;
+  v_hint text;
+BEGIN
+  EXECUTE p_sql;
+  RETURN 'ok';
+EXCEPTION WHEN OTHERS THEN
+  GET STACKED DIAGNOSTICS v_state = RETURNED_SQLSTATE, v_msg = MESSAGE_TEXT, v_hint = PG_EXCEPTION_HINT;
+  RETURN v_state || ': ' || v_msg || coalesce(' | HINT: ' || nullif(v_hint, ''), '');
+END $f$;
+
+-- Wertet die RLS-Policy-Schicht einer Tabelle in public für EINE Zeile aus, als GERADE AKTIVE Rolle (nach
+-- s112_als): (OR aller PERMISSIVE-Policies) AND (AND aller RESTRICTIVE-Policies) für p_cmd bzw. ALL, Rollen =
+-- current_user oder public. INSERT: WITH CHECK (ohne WITH CHECK der USING-Ausdruck); SELECT/DELETE: USING;
+-- UPDATE: USING der alten Zeile UND WITH CHECK (sonst USING) derselben Zeile als neue Zeile.
+-- Wozu: UPDATE/DELETE mit „WHERE <pk>“ wenden zusätzlich die SELECT-Policies an – ist die Zeile für die Persona
+-- unsichtbar, kommt immer k0 heraus, egal was die UPDATE-/DELETE-Policy erlaubt. Ein „DELETE FROM tab“ ohne
+-- Spaltenbezug prüft dagegen NUR die DELETE-Policy. Diese Funktion bewertet genau diese Schicht, unabhängig von
+-- Triggern, Tabellenrechten und der SELECT-Sichtbarkeit.
+-- Ergebnis: 'ja' | 'nein' | Fehlercode (R/G/T/E…, z. B. G = Hilfsfunktion der Policy für die Rolle gesperrt – die
+-- echte Anweisung scheiterte dann ebenso). Tabelle ohne RLS → 'ja' (alles geht durch).
+CREATE FUNCTION pg_temp.s112_policy(p_tab text, p_cmd text, p_zeile jsonb) RETURNS text LANGUAGE plpgsql AS $f$
+DECLARE
+  v_rls   boolean;
+  v_schicht text;
+  v_perm  text;
+  v_restr text;
+  v_ok    boolean;
+  v_state text;
+  v_msg   text;
+BEGIN
+  SELECT c.relrowsecurity INTO v_rls FROM pg_class c WHERE c.oid = to_regclass(format('public.%I', p_tab));
+  IF v_rls IS NULL THEN
+    RETURN 'E42P01';
+  ELSIF NOT v_rls THEN
+    RETURN 'ja';
+  END IF;
+  IF p_cmd NOT IN ('SELECT', 'INSERT', 'UPDATE', 'DELETE') THEN
+    RETURN 'E22023';
+  END IF;
+  -- Schichten wie im Rewriter: USING = (OR PERMISSIVE qual) AND (AND RESTRICTIVE qual);
+  -- CHECK = dasselbe mit coalesce(with_check, qual). UPDATE braucht beide, INSERT nur CHECK, sonst nur USING.
+  FOREACH v_schicht IN ARRAY CASE p_cmd WHEN 'UPDATE' THEN ARRAY['using', 'check'] WHEN 'INSERT' THEN ARRAY['check']
+                                    ELSE ARRAY['using'] END LOOP
+    SELECT string_agg('(' || x.ausdruck || ')', ' OR ') FILTER (WHERE x.permissive = 'PERMISSIVE'),
+           string_agg('(' || x.ausdruck || ')', ' AND ') FILTER (WHERE x.permissive = 'RESTRICTIVE')
+      INTO v_perm, v_restr
+      FROM (SELECT p.permissive, CASE WHEN v_schicht = 'check' THEN coalesce(p.with_check, p.qual) ELSE p.qual END AS ausdruck
+              FROM pg_policies p
+             WHERE p.schemaname = 'public' AND p.tablename = p_tab AND p.cmd IN (p_cmd, 'ALL')
+               AND p.roles && ARRAY[current_user::name, 'public'::name]) x
+     WHERE x.ausdruck IS NOT NULL;
+    IF v_perm IS NULL THEN
+      RETURN 'nein';
+    END IF;
+    EXECUTE format('SELECT (%s) AND (%s) FROM jsonb_populate_record(NULL::public.%I, $1) AS %I',
+                   v_perm, coalesce(v_restr, 'true'), p_tab, p_tab)
+       INTO v_ok USING p_zeile;
+    IF v_ok IS NOT TRUE THEN
+      RETURN 'nein';
+    END IF;
+  END LOOP;
+  RETURN 'ja';
+EXCEPTION WHEN OTHERS THEN
+  GET STACKED DIAGNOSTICS v_state = RETURNED_SQLSTATE, v_msg = MESSAGE_TEXT;
+  RETURN pg_temp.s112_fehlercode(v_state, v_msg);
+END $f$;
+
+
+-- ═══ 4. Ergebnisse ════════════════════════════════════════════════════════════════════════════════════
+
+-- Prüfnamen ohne Leerraum (run.mjs trennt den Namen am ersten Leerzeichen ab; Mutationsmuster prüfen ihn).
+CREATE FUNCTION pg_temp.s112_name(p_name text) RETURNS text LANGUAGE sql IMMUTABLE AS $f$
+  SELECT regexp_replace(coalesce(nullif(p_name, ''), 'ohne_name'), '\s+', '_', 'g')
+$f$;
+
+-- Freitext einzeilig und ohne den Eintrags-Trenner ' ; ' (die Ergebniszeile darf keinen Umbruch enthalten).
+-- NULL bleibt NULL: die Aufrufer schreiben dann 'NULL' oder lassen den Teil weg.
+CREATE FUNCTION pg_temp.s112_text(p_text text) RETURNS text LANGUAGE sql IMMUTABLE AS $f$
+  SELECT replace(regexp_replace(p_text, '[\r\n]+', ' ⏎ ', 'g'), ' ; ', ', ')
+$f$;
+
+-- 'OK:<name>' oder 'FEHLER:<name> ist=… soll=…' (Vergleich mit IS NOT DISTINCT FROM, NULL = NULL gilt).
+CREATE FUNCTION pg_temp.s112_erwarte(p_name text, p_ist anycompatible, p_soll anycompatible)
+RETURNS text LANGUAGE sql IMMUTABLE AS $f$
+  SELECT CASE WHEN p_ist IS NOT DISTINCT FROM p_soll THEN 'OK:' || pg_temp.s112_name(p_name)
+              ELSE 'FEHLER:' || pg_temp.s112_name(p_name)
+                   || ' ist=' || pg_temp.s112_text(coalesce(p_ist::text, 'NULL'))
+                   || ' soll=' || pg_temp.s112_text(coalesce(p_soll::text, 'NULL')) END
+$f$;
+
+CREATE FUNCTION pg_temp.s112_ok(p_name text) RETURNS text LANGUAGE sql IMMUTABLE AS $f$
+  SELECT 'OK:' || pg_temp.s112_name(p_name)
+$f$;
+
+CREATE FUNCTION pg_temp.s112_fehler(p_name text, p_beleg text DEFAULT NULL) RETURNS text LANGUAGE sql IMMUTABLE AS $f$
+  SELECT 'FEHLER:' || pg_temp.s112_name(p_name) || coalesce(' ' || pg_temp.s112_text(p_beleg), '')
+$f$;
+
+-- Bekannte Lücke: lässt die Suite NICHT scheitern (außer mit --streng), steht aber in jedem Lauf im Block
+-- „Bekannte Lücken“. Titel mit der Lücken-ID beginnen (z. B. 'B1 …'), run.mjs dedupliziert über den Titel.
+CREATE FUNCTION pg_temp.s112_bekannt(p_titel text, p_beleg text DEFAULT NULL) RETURNS text LANGUAGE sql IMMUTABLE AS $f$
+  SELECT 'BEKANNT:' || pg_temp.s112_text(coalesce(p_titel, 'ohne Titel')) || coalesce(' [' || pg_temp.s112_text(p_beleg) || ']', '')
+$f$;
+
+-- Ratsche für eine bekannte Lücke:
+--   ist = p_ist_bei_luecke  → BEKANNT (Lücke unverändert)
+--   ist = p_soll_sicher     → FEHLER '… BEHOBEN – in harte Prüfung umwandeln' (bis die Prüfung verschärft ist)
+--   sonst                   → FEHLER (weder der sichere noch der bekannte Zustand)
+-- So kann eine behobene Lücke nicht still wieder aufgehen.
+CREATE FUNCTION pg_temp.s112_luecke(p_name text, p_ist anycompatible, p_soll_sicher anycompatible,
+                                    p_ist_bei_luecke anycompatible, p_titel text)
+RETURNS text LANGUAGE sql IMMUTABLE AS $f$
+  SELECT CASE
+    WHEN p_ist IS NOT DISTINCT FROM p_ist_bei_luecke THEN
+      'BEKANNT:' || pg_temp.s112_text(coalesce(p_titel, 'ohne Titel')) || ' [' || pg_temp.s112_name(p_name) || ' ist=' || pg_temp.s112_text(coalesce(p_ist::text, 'NULL')) || ']'
+    WHEN p_ist IS NOT DISTINCT FROM p_soll_sicher THEN
+      'FEHLER:' || pg_temp.s112_name(p_name) || ' BEHOBEN – in harte Prüfung umwandeln (ist=' || pg_temp.s112_text(coalesce(p_ist::text, 'NULL'))
+      || ', bekannte Lücke: ' || pg_temp.s112_text(coalesce(p_titel, 'ohne Titel')) || ')'
+    ELSE
+      'FEHLER:' || pg_temp.s112_name(p_name) || ' ist=' || pg_temp.s112_text(coalesce(p_ist::text, 'NULL'))
+      || ' soll=' || pg_temp.s112_text(coalesce(p_soll_sicher::text, 'NULL'))
+      || ' (bekannte Lücke erwartete ' || pg_temp.s112_text(coalesce(p_ist_bei_luecke::text, 'NULL')) || ': ' || pg_temp.s112_text(coalesce(p_titel, 'ohne Titel')) || ')'
+  END
+$f$;
+
+-- Ratsche für aggregierte Lücken mit Baseline-Zahl (Fremd-FK, TRUNCATE-Recht, tenant_id ohne FK, anon-EXECUTE):
+--   ist = baseline → BEKANNT;  ist > baseline → FEHLER (neue Lücke);
+--   ist < baseline → FEHLER 'BEHOBEN – Baseline senken' (bei 0: in harte Prüfung umwandeln).
+CREATE FUNCTION pg_temp.s112_baseline(p_name text, p_ist bigint, p_baseline bigint, p_titel text, p_beleg text DEFAULT NULL)
+RETURNS text LANGUAGE sql IMMUTABLE AS $f$
+  SELECT CASE
+    WHEN p_ist IS NULL OR p_baseline IS NULL THEN
+      'FEHLER:' || pg_temp.s112_name(p_name) || ' ist=' || coalesce(p_ist::text, 'NULL') || ' Baseline=' || coalesce(p_baseline::text, 'NULL') || ' (Zählung fehlgeschlagen)'
+    WHEN p_ist = p_baseline THEN
+      'BEKANNT:' || pg_temp.s112_text(coalesce(p_titel, 'ohne Titel')) || ' [' || pg_temp.s112_name(p_name) || ' ' || p_ist || coalesce(': ' || pg_temp.s112_text(p_beleg), '') || ']'
+    WHEN p_ist > p_baseline THEN
+      'FEHLER:' || pg_temp.s112_name(p_name) || ' ist=' || p_ist || ' soll<=' || p_baseline || ' – neue Lücke (' || pg_temp.s112_text(coalesce(p_titel, 'ohne Titel')) || ')'
+      || coalesce(' ' || pg_temp.s112_text(p_beleg), '')
+    WHEN p_ist = 0 THEN
+      'FEHLER:' || pg_temp.s112_name(p_name) || ' BEHOBEN – in harte Prüfung umwandeln (ist=0, Baseline ' || p_baseline || ')'
+    ELSE
+      'FEHLER:' || pg_temp.s112_name(p_name) || ' BEHOBEN – Baseline senken auf ' || p_ist || ' (bisher ' || p_baseline || ')'
+      || coalesce(' ' || pg_temp.s112_text(p_beleg), '')
+  END
+$f$;
+
+-- Mutationsmodus: run.mjs ersetzt diese Funktion (CREATE OR REPLACE … SELECT '<name>') – sonst NULL.
+CREATE FUNCTION pg_temp.s112_mutation() RETURNS text LANGUAGE sql AS $f$
+  SELECT NULL::text
+$f$;
+
+-- Ausführlich-Modus (--ausfuehrlich): run.mjs ersetzt diese Funktion durch SELECT true – dann stehen auch
+-- die OK-Namen in der Ergebniszeile.
+CREATE FUNCTION pg_temp.s112_ausfuehrlich() RETURNS boolean LANGUAGE sql AS $f$
+  SELECT false
+$f$;
+
+-- Wendet eine Mutation an, wenn der Lauf genau sie verlangt (run.mjs --mutationen): führt p_sql als postgres
+-- aus und vermerkt sie für s112_ende (Beleg 'mutation=<name>'). Aufruf NACH dem Aufbau, VOR den Prüfungen,
+-- auf oberster Ebene des DO-Blocks (nicht in einem Unterblock, sonst verfällt der Vermerk):
+--   PERFORM pg_temp.s112_mutiere('kontakte_select_offen', $m$CREATE POLICY … $m$);
+-- Jede Mutation muss im Dateikopf als '-- @mutation <name>: <Beschreibung> | rot: <Muster>' stehen.
+CREATE FUNCTION pg_temp.s112_mutiere(p_name text, p_sql text) RETURNS boolean LANGUAGE plpgsql AS $f$
+BEGIN
+  IF pg_temp.s112_mutation() IS DISTINCT FROM p_name THEN
+    RETURN false;
+  END IF;
+  PERFORM pg_temp.s112_als_postgres();
+  EXECUTE p_sql;
+  PERFORM set_config('s112.mutation_angewendet', p_name, true);
+  RETURN true;
+END $f$;
+
+-- Letzte Anweisung jeder Testdatei: zählt die Einträge und wirft IMMER
+--   RAISE P0001 'S112TEST|<datei>|ok=<n>|fehler=<m>|bekannt=<k>|dauer_ms=… ; mutation=<name|-> ; FEHLER:… ; BEKANNT:… [; OK:…]'
+-- → die Transaktion wird vollständig zurückgerollt. OK-Namen nur im Ausführlich-Modus; ab 50 000 Zeichen
+-- wird gekürzt ('GEKUERZT:<n> weitere Einträge'), die Zähler bleiben exakt.
+-- Zu wenige Prüfungen (OK + FEHLER + BEKANNT < p_min_pruefungen) zählen als FEHLER – ein leerer Test ist rot.
+-- Einträge ohne bekanntes Präfix zählen als FEHLER. Eine verlangte, aber nicht angewendete Mutation auch.
+CREATE FUNCTION pg_temp.s112_ende(p_datei text, p_erg text[], p_t0 timestamptz DEFAULT NULL, p_min_pruefungen int DEFAULT 1)
+RETURNS void LANGUAGE plpgsql AS $f$
+DECLARE
+  c_max constant int := 50000;
+  v_e text;
+  v_fehler text[] := '{}';
+  v_bekannt text[] := '{}';
+  v_ok text[] := '{}';
+  v_mut text := pg_temp.s112_mutation();
+  v_angewendet text := nullif(current_setting('s112.mutation_angewendet', true), '');
+  v_mut_text text := '-';
+  v_details text;
+  v_liste text[];
+  v_i int;
+  v_n int;
+BEGIN
+  FOREACH v_e IN ARRAY coalesce(p_erg, '{}'::text[]) LOOP
+    v_e := coalesce(pg_temp.s112_text(v_e), 'NULL');
+    IF v_e LIKE 'OK:%' THEN
+      v_ok := v_ok || v_e;
+    ELSIF v_e LIKE 'FEHLER:%' THEN
+      v_fehler := v_fehler || v_e;
+    ELSIF v_e LIKE 'BEKANNT:%' THEN
+      v_bekannt := v_bekannt || v_e;
+    ELSE
+      v_fehler := v_fehler || ('FEHLER:unbekannter_eintrag ' || v_e);
+    END IF;
+  END LOOP;
+  IF coalesce(array_length(v_ok, 1), 0) + coalesce(array_length(v_fehler, 1), 0) + coalesce(array_length(v_bekannt, 1), 0)
+     < coalesce(p_min_pruefungen, 1) THEN
+    v_fehler := v_fehler || ('FEHLER:zu_wenige_pruefungen ist='
+                 || (coalesce(array_length(v_ok, 1), 0) + coalesce(array_length(v_fehler, 1), 0) + coalesce(array_length(v_bekannt, 1), 0))
+                 || ' soll>=' || coalesce(p_min_pruefungen, 1));
+  END IF;
+  IF v_mut IS NOT NULL THEN
+    IF v_angewendet IS NOT DISTINCT FROM v_mut THEN
+      v_mut_text := v_mut;
+    ELSE
+      v_mut_text := v_mut || '(nicht_angewendet)';
+      v_fehler := v_fehler || ('FEHLER:mutation_nicht_angewendet ' || v_mut || ' – kein pg_temp.s112_mutiere(''' || v_mut || ''', …) auf oberster Ebene');
+    END IF;
+  END IF;
+
+  v_details := 'dauer_ms=' || round(extract(epoch FROM clock_timestamp() - coalesce(p_t0, transaction_timestamp())) * 1000)
+               || ' ; mutation=' || v_mut_text;
+  v_liste := v_fehler || v_bekannt || CASE WHEN pg_temp.s112_ausfuehrlich() THEN v_ok ELSE '{}'::text[] END;
+  v_n := coalesce(array_length(v_liste, 1), 0);
+  v_i := 0;
+  WHILE v_i < v_n LOOP
+    IF length(v_details) + length(v_liste[v_i + 1]) + 3 > c_max THEN
+      v_details := v_details || ' ; GEKUERZT:' || (v_n - v_i) || ' weitere Einträge';
+      EXIT;
+    END IF;
+    v_details := v_details || ' ; ' || v_liste[v_i + 1];
+    v_i := v_i + 1;
+  END LOOP;
+
+  RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE =
+    'S112TEST|' || pg_temp.s112_name(p_datei)
+    || '|ok=' || coalesce(array_length(v_ok, 1), 0)
+    || '|fehler=' || coalesce(array_length(v_fehler, 1), 0)
+    || '|bekannt=' || coalesce(array_length(v_bekannt, 1), 0)
+    || '|' || v_details;
+END $f$;
+
+
+-- ═══ 5. Aufbau (nur als postgres) ═════════════════════════════════════════════════════════════════════
+--
+-- Trigger-Fallen beim Anlegen (alle belegt, siehe README):
+--   * trg_tenant_plattform_admins: JEDER neue Betrieb bekommt alle plattform_admins als system_admin
+--     (auf Staging admin@software112.test, im Aufbau zusätzlich der Test-Plattform-Admin).
+--   * tenant_memberships_schreibmodule_default: winzer mit schreibmodule NULL bekommt alle 6 Module
+--     (rieden, kellerbuch, warenwirtschaft, crm, ea, auswertungen); '{}' bleibt leer; andere Rollen → NULL.
+--   * handle_new_user legt profiles(id, display_name) an; create_profile_on_signup ist toter Code (42P10, verschluckt).
+--   * kundennummer_trg greift nur mit betrieb_plz – s112_betrieb lässt sie leer.
+--   * bestandsprotokoll_id_seq und system_ereignisse_id_seq sind nicht transaktional: Nummernlücken, harmlos.
+-- Alle Test-Datensätze tragen 's112test'/'S112TEST' im Namen – run.mjs prüft vor und nach dem Lauf, dass
+-- keiner übrig ist.
+
+CREATE FUNCTION pg_temp.s112_nur_postgres(p_funktion text) RETURNS void LANGUAGE plpgsql AS $f$
+BEGIN
+  IF current_user <> 'postgres' THEN
+    RAISE EXCEPTION '% nur als postgres aufrufen (vorher pg_temp.s112_als_postgres()), aktiv: %', p_funktion, current_user;
+  END IF;
+END $f$;
+
+-- Neuer Betrieb (tenants + tenant_einstellungen), Name beginnt mit 'S112TEST', slug 's112test-<id>'.
+-- p_stripe_status z. B. 'canceled' → Abo-Schreibsperre (der Musterhof ist davon fest ausgenommen!).
+CREATE FUNCTION pg_temp.s112_betrieb(p_name text DEFAULT 'Betrieb', p_stripe_status text DEFAULT NULL)
+RETURNS uuid LANGUAGE plpgsql AS $f$
+DECLARE
+  v_id uuid := gen_random_uuid();
+BEGIN
+  PERFORM pg_temp.s112_nur_postgres('s112_betrieb');
+  INSERT INTO public.tenants (id, name, slug, stripe_status)
+  VALUES (v_id, CASE WHEN p_name LIKE 'S112TEST%' THEN p_name ELSE 'S112TEST ' || coalesce(p_name, 'Betrieb') END,
+          's112test-' || v_id, p_stripe_status);
+  INSERT INTO public.tenant_einstellungen (tenant_id) VALUES (v_id);
+  RETURN v_id;
+END $f$;
+
+-- Mitgliedschaft anlegen (Rolle system_admin | tenant_admin | winzer | leser).
+CREATE FUNCTION pg_temp.s112_mitglied(p_uid uuid, p_tenant uuid, p_rolle text,
+                                      p_schreibmodule text[] DEFAULT NULL, p_aktiv boolean DEFAULT true)
+RETURNS void LANGUAGE plpgsql AS $f$
+BEGIN
+  PERFORM pg_temp.s112_nur_postgres('s112_mitglied');
+  INSERT INTO public.tenant_memberships (tenant_id, user_id, role, aktiv, schreibmodule)
+  VALUES (p_tenant, p_uid, p_rolle, p_aktiv, p_schreibmodule);
+END $f$;
+
+-- Neuer Benutzer 's112test-<uuid>@software112.test' (auth.users, bestätigt) und – wenn p_rolle und p_tenant
+-- gesetzt sind – eine Mitgliedschaft. p_rolle NULL: angemeldet, aber ohne Betrieb.
+CREATE FUNCTION pg_temp.s112_benutzer(p_rolle text, p_tenant uuid, p_schreibmodule text[] DEFAULT NULL,
+                                      p_aktiv boolean DEFAULT true)
+RETURNS uuid LANGUAGE plpgsql AS $f$
+DECLARE
+  v_uid uuid := gen_random_uuid();
+BEGIN
+  PERFORM pg_temp.s112_nur_postgres('s112_benutzer');
+  INSERT INTO auth.users (id, instance_id, aud, role, email, raw_app_meta_data, raw_user_meta_data,
+                          email_confirmed_at, created_at, updated_at)
+  VALUES (v_uid, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+          's112test-' || v_uid || '@software112.test',
+          '{"provider":"email","providers":["email"]}', '{}', now(), now(), now());
+  IF p_rolle IS NOT NULL AND p_tenant IS NOT NULL THEN
+    PERFORM pg_temp.s112_mitglied(v_uid, p_tenant, p_rolle, p_schreibmodule, p_aktiv);
+  END IF;
+  RETURN v_uid;
+END $f$;
+
+-- Test-Plattform-Admin: Benutzer + plattform_admins + system_admin in den angegebenen (bestehenden) Betrieben.
+-- VOR neuen Betrieben anlegen – die bekommen ihn dann über trg_tenant_plattform_admins automatisch.
+CREATE FUNCTION pg_temp.s112_plattform_admin(p_betriebe uuid[] DEFAULT ARRAY['33333333-3333-4333-8333-333333333333']::uuid[])
+RETURNS uuid LANGUAGE plpgsql AS $f$
+DECLARE
+  v_uid uuid;
+  v_t uuid;
+BEGIN
+  v_uid := pg_temp.s112_benutzer(NULL, NULL);
+  INSERT INTO public.plattform_admins (user_id, hinweis) VALUES (v_uid, 'S112TEST Plattform-Admin');
+  FOREACH v_t IN ARRAY coalesce(p_betriebe, '{}'::uuid[]) LOOP
+    PERFORM pg_temp.s112_mitglied(v_uid, v_t, 'system_admin');
+  END LOOP;
+  RETURN v_uid;
+END $f$;
+
+-- Zweiter Faktor (TOTP) für einen Benutzer; status 'verified' (zählt für s112_aal_ok) oder 'unverified' (zählt nicht).
+CREATE FUNCTION pg_temp.s112_faktor(p_uid uuid, p_status text DEFAULT 'verified') RETURNS uuid LANGUAGE plpgsql AS $f$
+DECLARE
+  v_id uuid := gen_random_uuid();
+BEGIN
+  PERFORM pg_temp.s112_nur_postgres('s112_faktor');
+  INSERT INTO auth.mfa_factors (id, user_id, friendly_name, factor_type, status, created_at, updated_at)
+  VALUES (v_id, p_uid, 's112test-' || left(v_id::text, 8), 'totp', p_status::auth.factor_status, now(), now());
+  RETURN v_id;
+END $f$;
+
+-- Standard-Aufbau → jsonb mit allen IDs (Zugriff: (v_a ->> 'b_w')::uuid). Nur NEUE Test-Benutzer; die vier
+-- Staging-Konten bleiben unberührt.
+--   m      Musterhof 33333333-3333-4333-8333-333333333333 (fest von der Abo-Sperre ausgenommen → Abo-Tests in B)
+--   b      neuer Betrieb B (stripe_status NULL);  c  Betrieb C nur mit p_mit_c
+--   pa     Test-Plattform-Admin (plattform_admins; system_admin in M, B und C)
+--   m_sa   system_admin in M, aber KEIN Plattform-Admin
+--   m_ta   tenant_admin M      m_w   winzer M (alle 6 Module)   m_wc  winzer M nur 'crm'
+--   m_w0   winzer M ohne Schreibmodul ('{}')                     m_l   leser M
+--   m_inak winzer M, Mitgliedschaft inaktiv
+--   b_ta   tenant_admin B      b_w   winzer B (alle 6 Module)   b_l   leser B
+--   mb_ta  tenant_admin in M UND B (zwei aktive Betriebe)
+--   mix    winzer aktiv in B, inaktiv in M
+--   ohne   angemeldet, ohne Mitgliedschaft
+--   c_ta   tenant_admin C (nur mit p_mit_c)
+CREATE FUNCTION pg_temp.s112_aufbau(p_mit_c boolean DEFAULT false) RETURNS jsonb LANGUAGE plpgsql AS $f$
+DECLARE
+  c_m constant uuid := '33333333-3333-4333-8333-333333333333';
+  v jsonb;
+  v_pa uuid;
+  v_b uuid;
+  v_c uuid;
+  v_mb uuid;
+  v_mix uuid;
+BEGIN
+  PERFORM pg_temp.s112_nur_postgres('s112_aufbau');
+  v_pa := pg_temp.s112_plattform_admin(ARRAY[c_m]);
+  v_b := pg_temp.s112_betrieb('S112TEST Betrieb B');
+  IF p_mit_c THEN
+    v_c := pg_temp.s112_betrieb('S112TEST Betrieb C');
+  END IF;
+  v_mb := pg_temp.s112_benutzer('tenant_admin', c_m);
+  PERFORM pg_temp.s112_mitglied(v_mb, v_b, 'tenant_admin');
+  v_mix := pg_temp.s112_benutzer('winzer', v_b);
+  PERFORM pg_temp.s112_mitglied(v_mix, c_m, 'winzer', NULL, false);
+  v := jsonb_build_object(
+    'm', c_m, 'b', v_b, 'c', v_c, 'pa', v_pa,
+    'm_sa', pg_temp.s112_benutzer('system_admin', c_m),
+    'm_ta', pg_temp.s112_benutzer('tenant_admin', c_m),
+    'm_w', pg_temp.s112_benutzer('winzer', c_m),
+    'm_wc', pg_temp.s112_benutzer('winzer', c_m, ARRAY['crm']),
+    'm_w0', pg_temp.s112_benutzer('winzer', c_m, '{}'::text[]),
+    'm_l', pg_temp.s112_benutzer('leser', c_m),
+    'm_inak', pg_temp.s112_benutzer('winzer', c_m, NULL, false),
+    'b_ta', pg_temp.s112_benutzer('tenant_admin', v_b),
+    'b_w', pg_temp.s112_benutzer('winzer', v_b),
+    'b_l', pg_temp.s112_benutzer('leser', v_b),
+    'mb_ta', v_mb, 'mix', v_mix,
+    'ohne', pg_temp.s112_benutzer(NULL, NULL));
+  IF p_mit_c THEN
+    v := v || jsonb_build_object('c_ta', pg_temp.s112_benutzer('tenant_admin', v_c));
+  END IF;
+  RETURN v;
+END $f$;
+
+
+-- ═══ 6. Katalog & Beispielzeilen ══════════════════════════════════════════════════════════════════════
+
+-- Klasse einer Tabelle in public:
+--   T = hat tenant_id (Mandantentabelle; bei nullable tenant_id gibt es zusätzlich globale Zeilen)
+--   K = Kindtabelle ohne tenant_id mit einspaltigem FK auf eine T-Tabelle (Mandant über die Eltern)
+--   G = global/sonderbar ohne Mandantenbezug über tenant_id (tenants selbst, rebsorten, profiles …)
+CREATE FUNCTION pg_temp.s112_klasse(p_tab text) RETURNS text LANGUAGE sql STABLE AS $f$
+  SELECT CASE
+    WHEN c.oid IS NULL THEN NULL
+    WHEN c.relname = 'tenants' THEN 'G'
+    WHEN EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid = c.oid AND a.attname = 'tenant_id' AND NOT a.attisdropped) THEN 'T'
+    WHEN EXISTS (SELECT 1 FROM pg_constraint k
+                   JOIN pg_class p ON p.oid = k.confrelid
+                   JOIN pg_namespace pn ON pn.oid = p.relnamespace AND pn.nspname = 'public'
+                  WHERE k.conrelid = c.oid AND k.contype = 'f' AND array_length(k.conkey, 1) = 1
+                    AND EXISTS (SELECT 1 FROM pg_attribute t WHERE t.attrelid = p.oid AND t.attname = 'tenant_id' AND NOT t.attisdropped))
+      THEN 'K'
+    ELSE 'G'
+  END
+  FROM (SELECT to_regclass(format('public.%I', p_tab)) AS oid) x
+  LEFT JOIN pg_class c ON c.oid = x.oid
+$f$;
+
+-- Alle Tabellen in public mit RLS (auch partitionierte, relkind 'p'): Klasse, nullable tenant_id, Eltern-FK (nur K: Spalte → Tabelle.Spalte,
+-- bevorzugt ON DELETE CASCADE, dann NOT NULL), die erste für authenticated updatebare Spalte (tenant_id vor
+-- id vor Spaltenreihenfolge – für No-op-UPDATE-Proben 'SET x = x') und die Primärschlüsselspalten.
+CREATE FUNCTION pg_temp.s112_mandantentabellen()
+RETURNS TABLE (tabelle text, klasse text, tid_nullable boolean, eltern_spalte text, eltern_tabelle text,
+               eltern_ref text, upd_spalte text, pk text[])
+LANGUAGE sql STABLE AS $f$
+  SELECT c.relname::text,
+         pg_temp.s112_klasse(c.relname::text),
+         (SELECT NOT a.attnotnull FROM pg_attribute a WHERE a.attrelid = c.oid AND a.attname = 'tenant_id' AND NOT a.attisdropped),
+         e.spalte, e.tabelle, e.ref,
+         (SELECT a.attname::text FROM pg_attribute a
+           WHERE a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped AND a.attgenerated = ''
+             AND has_column_privilege('authenticated', c.oid, a.attnum, 'UPDATE')
+           ORDER BY (a.attname = 'tenant_id') DESC, (a.attname = 'id') DESC, a.attnum LIMIT 1),
+         (SELECT array_agg(a.attname::text ORDER BY array_position(ix.indkey::int2[], a.attnum))
+            FROM pg_index ix JOIN pg_attribute a ON a.attrelid = ix.indrelid AND a.attnum = ANY (ix.indkey)
+           WHERE ix.indrelid = c.oid AND ix.indisprimary)
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    LEFT JOIN LATERAL (
+      SELECT a.attname::text AS spalte, p.relname::text AS tabelle, pa.attname::text AS ref
+        FROM pg_constraint k
+        JOIN pg_attribute a ON a.attrelid = k.conrelid AND a.attnum = k.conkey[1]
+        JOIN pg_class p ON p.oid = k.confrelid
+        JOIN pg_namespace pn ON pn.oid = p.relnamespace AND pn.nspname = 'public'
+        JOIN pg_attribute pa ON pa.attrelid = k.confrelid AND pa.attnum = k.confkey[1]
+       WHERE k.conrelid = c.oid AND k.contype = 'f' AND array_length(k.conkey, 1) = 1
+         AND pg_temp.s112_klasse(c.relname::text) = 'K'
+         AND EXISTS (SELECT 1 FROM pg_attribute t WHERE t.attrelid = p.oid AND t.attname = 'tenant_id' AND NOT t.attisdropped)
+       ORDER BY (k.confdeltype = 'c') DESC, a.attnotnull DESC, k.conname
+       LIMIT 1) e ON true
+   WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p') AND c.relrowsecurity
+   ORDER BY c.relname
+$f$;
+
+-- WHERE-Bedingung auf den Primärschlüssel einer Zeile (jsonb aus to_jsonb), TYPISIERT:
+-- '"id" = ''…''::uuid' – nicht ::text, sonst findet man z. B. die timestamptz-Spalte in wetter_stunden nicht.
+CREATE FUNCTION pg_temp.s112_pk_where(p_tab text, p_zeile jsonb) RETURNS text LANGUAGE plpgsql STABLE AS $f$
+DECLARE
+  v text;
+  v_fehlt text;
+BEGIN
+  SELECT string_agg(format('%I = %L::%s', a.attname, p_zeile ->> a.attname::text, format_type(a.atttypid, a.atttypmod)),
+                    ' AND ' ORDER BY array_position(ix.indkey::int2[], a.attnum)),
+         string_agg(a.attname::text, ', ') FILTER (WHERE p_zeile ->> a.attname::text IS NULL)
+    INTO v, v_fehlt
+    FROM pg_index ix JOIN pg_attribute a ON a.attrelid = ix.indrelid AND a.attnum = ANY (ix.indkey)
+   WHERE ix.indrelid = to_regclass(format('public.%I', p_tab)) AND ix.indisprimary;
+  IF v IS NULL THEN
+    RAISE EXCEPTION 's112_pk_where: public.% hat keinen Primärschlüssel', p_tab;
+  END IF;
+  IF v_fehlt IS NOT NULL THEN
+    RAISE EXCEPTION 's112_pk_where: Zeile für % ohne Wert für %', p_tab, v_fehlt;
+  END IF;
+  RETURN v;
+END $f$;
+
+-- Generische Beispielzeile (als postgres, INSERT … RETURNING → jsonb). p_werte setzt/überschreibt Spalten
+-- (Werte als Text, typisiert gecastet; Arrays als '{a,b}'). Fehlende Pflichtspalten (NOT NULL ohne Default):
+--   * FK auf auth.users → ein Mitglied des Betriebs, auf tenants → p_tenant,
+--   * FK auf T-Tabelle → vorhandene Zeile DESSELBEN Betriebs, sonst rekursiv neu (Tiefe ≤ 3),
+--   * FK auf K-Tabelle → rekursiv neu (hängt so am selben Betrieb), auf G-Tabelle → irgendeine Zeile,
+--   * sonst ein Literal aus einem CHECK der Spalte, der erste Enum-Wert oder ein Typ-Standardwert
+--     (Text 'S112TEST <tabelle> <zufall>', Zahl 1, Datum heute, false, '{}' …).
+-- p_neue_eltern = true: direkte FKs auf T-Tabellen immer mit NEUEN Elternzeilen (gegen Schlüsselkonflikte in
+-- Verknüpfungstabellen mit vorhandenen Daten, z. B. behandlung_grundstuecke im Musterhof).
+-- Mehrspaltige CHECKs (konto_umbuchungen, traubenverkauf) und Eigentümer-/Statusspalten: s112_beispiel.
+CREATE FUNCTION pg_temp.s112_zeile(p_tab text, p_tenant uuid, p_werte jsonb DEFAULT '{}', p_tiefe int DEFAULT 0,
+                                   p_neue_eltern boolean DEFAULT false)
+RETURNS jsonb LANGUAGE plpgsql AS $f$
+DECLARE
+  v_oid oid := to_regclass(format('public.%I', p_tab));
+  v_werte jsonb := coalesce(p_werte, '{}'::jsonb);
+  r record;
+  v_fk record;
+  v_cols text[] := '{}';
+  v_vals text[] := '{}';
+  v_k text;
+  v_typ text;
+  v_val text;
+  v_lit text;
+  v_id text;
+  v_len int;
+  v_klasse text;
+  v_erg jsonb;
+BEGIN
+  IF v_oid IS NULL THEN
+    RAISE EXCEPTION 's112_zeile: Tabelle public.% gibt es nicht', p_tab;
+  END IF;
+  IF p_tiefe > 3 THEN
+    RAISE EXCEPTION 's112_zeile: FK-Kette zu tief bei %', p_tab;
+  END IF;
+  FOR v_k IN SELECT jsonb_object_keys(v_werte) LOOP
+    SELECT format_type(a.atttypid, a.atttypmod) INTO v_typ FROM pg_attribute a
+     WHERE a.attrelid = v_oid AND a.attname = v_k AND a.attnum > 0 AND NOT a.attisdropped;
+    IF v_typ IS NULL THEN
+      RAISE EXCEPTION 's112_zeile: Spalte %.% gibt es nicht', p_tab, v_k;
+    END IF;
+    v_cols := v_cols || v_k;
+    v_vals := v_vals || (CASE WHEN jsonb_typeof(v_werte -> v_k) = 'null' THEN 'NULL' ELSE quote_literal(v_werte ->> v_k) END
+                         || '::' || v_typ);
+  END LOOP;
+  IF p_tenant IS NOT NULL AND NOT ('tenant_id' = ANY (v_cols))
+     AND EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid = v_oid AND a.attname = 'tenant_id' AND NOT a.attisdropped) THEN
+    v_cols := v_cols || 'tenant_id'::text;
+    v_vals := v_vals || (quote_literal(p_tenant) || '::uuid');
+  END IF;
+
+  FOR r IN SELECT a.attnum, a.attname::text AS attname, a.atttypid, a.atttypmod,
+                  format_type(a.atttypid, a.atttypmod) AS typ, t.typtype, t.typcategory
+             FROM pg_attribute a JOIN pg_type t ON t.oid = a.atttypid
+            WHERE a.attrelid = v_oid AND a.attnum > 0 AND NOT a.attisdropped AND a.attnotnull
+              AND NOT a.atthasdef AND a.attidentity = '' AND a.attgenerated = ''
+              AND NOT (a.attname::text = ANY (v_cols))
+            ORDER BY a.attnum LOOP
+    v_val := NULL;
+    v_id := NULL;
+    v_lit := NULL;
+    SELECT pn.nspname::text AS refschema, p.relname::text AS reftab,
+           (SELECT pa.attname::text FROM pg_attribute pa WHERE pa.attrelid = k.confrelid AND pa.attnum = k.confkey[1]) AS refcol
+      INTO v_fk
+      FROM pg_constraint k JOIN pg_class p ON p.oid = k.confrelid JOIN pg_namespace pn ON pn.oid = p.relnamespace
+     WHERE k.conrelid = v_oid AND k.contype = 'f' AND k.conkey = ARRAY[r.attnum]::int2[]
+     LIMIT 1;
+    IF FOUND THEN
+      v_klasse := CASE WHEN v_fk.refschema = 'public' THEN pg_temp.s112_klasse(v_fk.reftab) END;
+      IF v_fk.refschema = 'auth' AND v_fk.reftab = 'users' THEN
+        SELECT m.user_id::text INTO v_id FROM public.tenant_memberships m
+         WHERE m.tenant_id = p_tenant ORDER BY m.role, m.user_id LIMIT 1;
+      ELSIF v_fk.refschema = 'public' AND v_fk.reftab = 'tenants' THEN
+        v_id := p_tenant::text;
+      ELSIF v_klasse = 'T' THEN
+        IF NOT p_neue_eltern THEN
+          EXECUTE format('SELECT %I::text FROM public.%I WHERE tenant_id = %L ORDER BY 1 LIMIT 1', v_fk.refcol, v_fk.reftab, p_tenant)
+            INTO v_id;
+        END IF;
+        IF v_id IS NULL THEN
+          v_id := pg_temp.s112_zeile(v_fk.reftab, p_tenant, '{}'::jsonb, p_tiefe + 1) ->> v_fk.refcol;
+        END IF;
+      ELSIF v_klasse = 'K' THEN
+        v_id := pg_temp.s112_zeile(v_fk.reftab, p_tenant, '{}'::jsonb, p_tiefe + 1) ->> v_fk.refcol;
+      ELSE
+        EXECUTE format('SELECT %I::text FROM %I.%I ORDER BY 1 LIMIT 1', v_fk.refcol, v_fk.refschema, v_fk.reftab) INTO v_id;
+      END IF;
+      v_val := quote_nullable(v_id);
+    ELSE
+      SELECT (regexp_match(pg_get_constraintdef(k.oid), '''([^'']*)'''))[1] INTO v_lit
+        FROM pg_constraint k
+       WHERE k.conrelid = v_oid AND k.contype = 'c' AND k.conkey = ARRAY[r.attnum]::int2[]
+         AND pg_get_constraintdef(k.oid) LIKE '%''%'
+       ORDER BY k.conname LIMIT 1;
+      -- Jahr/Jahrgang (oft eindeutig je Betrieb, z. B. weinjahrgaenge): nächstes freies Jahr des Betriebs
+      IF v_lit IS NULL AND r.attname IN ('jahr', 'jahrgang') AND r.typcategory = 'N' THEN
+        IF p_tenant IS NOT NULL
+           AND EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid = v_oid AND a.attname = 'tenant_id' AND NOT a.attisdropped) THEN
+          EXECUTE format('SELECT (coalesce(max(%I), 2025) + 1)::text FROM public.%I WHERE tenant_id = %L', r.attname, p_tab, p_tenant)
+            INTO v_lit;
+        ELSE
+          v_lit := '2026';
+        END IF;
+      END IF;
+      v_len := CASE WHEN r.atttypid IN ('varchar'::regtype, 'bpchar'::regtype) AND r.atttypmod > 4 THEN r.atttypmod - 4 END;
+      v_val := CASE
+        WHEN v_lit IS NOT NULL THEN quote_literal(v_lit)
+        WHEN r.typtype = 'e' THEN (SELECT quote_literal(e.enumlabel) FROM pg_enum e WHERE e.enumtypid = r.atttypid ORDER BY e.enumsortorder LIMIT 1)
+        WHEN r.attname = 'monat' THEN '1'
+        WHEN r.typcategory = 'A' THEN '''{}'''
+        WHEN r.typcategory = 'S' THEN quote_literal(left('S112TEST ' || p_tab || ' ' || left(gen_random_uuid()::text, 8), coalesce(v_len, 200)))
+        WHEN r.typcategory = 'N' THEN '1'
+        WHEN r.typ = 'date' THEN 'current_date'
+        WHEN r.typ LIKE 'timestamp%' THEN 'now()'
+        WHEN r.typ LIKE 'time%' THEN 'current_time'
+        WHEN r.typ = 'boolean' THEN 'false'
+        WHEN r.typ IN ('jsonb', 'json') THEN '''{}'''
+        WHEN r.typ = 'uuid' THEN quote_literal(gen_random_uuid())
+        ELSE 'NULL'
+      END;
+    END IF;
+    v_cols := v_cols || r.attname;
+    v_vals := v_vals || (v_val || '::' || r.typ);
+  END LOOP;
+
+  IF coalesce(array_length(v_cols, 1), 0) = 0 THEN
+    EXECUTE format('INSERT INTO public.%I AS x DEFAULT VALUES RETURNING to_jsonb(x.*)', p_tab) INTO v_erg;
+  ELSE
+    EXECUTE format('INSERT INTO public.%I AS x (%s) VALUES (%s) RETURNING to_jsonb(x.*)', p_tab,
+                   (SELECT string_agg(quote_ident(c), ', ') FROM unnest(v_cols) c), array_to_string(v_vals, ', '))
+      INTO v_erg;
+  END IF;
+  RETURN v_erg;
+END $f$;
+
+-- Vollständige Beispielzeile für Positivkontrollen (als postgres): wie s112_zeile, zusätzlich
+--   * Eigentümerspalten (jeder einspaltige FK auf auth.users, z. B. user_id, erstellt_von, empfaenger_id) = p_persona
+--     – nötig, wo WITH CHECK auf auth.uid() prüft (assistent_unterhaltungen, benachrichtigungen …),
+--   * ama_erntemeldungen: status 'entwurf' (nur Entwürfe sind änderbar),
+--   * konto_umbuchungen: zwei verschiedene Konten des Betriebs, betrag 1 (CHECK von_konto_id <> nach_konto_id),
+--   * traubenverkauf, pressung_weingaerten: weingarten_id des Betriebs (CHECK: genau eine von
+--     weingarten_id/zukauf_posten_id),
+--   * verschneidung_quellen: menge_liter 1 (CHECK menge_liter > 0),
+--   * tenant_einstellungen: die vorhandene Zeile des Betriebs (je Betrieb genau eine),
+--   * tenant_memberships: neuer Test-Benutzer als leser (user_id aus p_werte, sonst neu; nie p_persona).
+-- p_werte überschreibt alles. Bei einem Schlüsselkonflikt ein zweiter Versuch mit neuen Elternzeilen
+-- (s112_zeile … p_neue_eltern); kollidiert ein Wert selbst (z. B. module_flags.module), ihn über p_werte setzen.
+CREATE FUNCTION pg_temp.s112_beispiel(p_tab text, p_tenant uuid, p_persona uuid DEFAULT NULL, p_werte jsonb DEFAULT '{}')
+RETURNS jsonb LANGUAGE plpgsql AS $f$
+DECLARE
+  v_oid oid := to_regclass(format('public.%I', p_tab));
+  v_w jsonb := '{}'::jsonb;
+  r record;
+  v_a text;
+  v_b text;
+  v_erg jsonb;
+BEGIN
+  PERFORM pg_temp.s112_nur_postgres('s112_beispiel');
+  IF v_oid IS NULL THEN
+    RAISE EXCEPTION 's112_beispiel: Tabelle public.% gibt es nicht', p_tab;
+  END IF;
+  IF p_tab = 'tenant_einstellungen' THEN
+    SELECT to_jsonb(t.*) INTO v_erg FROM public.tenant_einstellungen t WHERE t.tenant_id = p_tenant;
+    IF v_erg IS NOT NULL THEN
+      RETURN v_erg;
+    END IF;
+  ELSIF p_tab = 'tenant_memberships' THEN
+    RETURN pg_temp.s112_zeile('tenant_memberships', p_tenant,
+             jsonb_build_object('user_id', coalesce(p_werte ->> 'user_id', pg_temp.s112_benutzer(NULL, NULL)::text), 'role', 'leser')
+             || coalesce(p_werte, '{}'::jsonb));
+  END IF;
+  IF p_persona IS NOT NULL THEN
+    FOR r IN SELECT a.attname::text AS spalte
+               FROM pg_constraint k JOIN pg_attribute a ON a.attrelid = k.conrelid AND a.attnum = k.conkey[1]
+              WHERE k.conrelid = v_oid AND k.contype = 'f' AND array_length(k.conkey, 1) = 1
+                AND k.confrelid = 'auth.users'::regclass LOOP
+      v_w := v_w || jsonb_build_object(r.spalte, p_persona);
+    END LOOP;
+  END IF;
+  IF p_tab = 'ama_erntemeldungen' THEN
+    v_w := v_w || '{"status": "entwurf"}'::jsonb;
+  ELSIF p_tab = 'konto_umbuchungen' THEN
+    SELECT k.id::text INTO v_a FROM public.konten k WHERE k.tenant_id = p_tenant ORDER BY k.id LIMIT 1;
+    IF v_a IS NULL THEN
+      v_a := pg_temp.s112_zeile('konten', p_tenant) ->> 'id';
+    END IF;
+    SELECT k.id::text INTO v_b FROM public.konten k WHERE k.tenant_id = p_tenant AND k.id::text <> v_a ORDER BY k.id LIMIT 1;
+    IF v_b IS NULL THEN
+      v_b := pg_temp.s112_zeile('konten', p_tenant) ->> 'id';
+    END IF;
+    v_w := v_w || jsonb_build_object('von_konto_id', v_a, 'nach_konto_id', v_b, 'betrag', 1);
+  ELSIF p_tab IN ('traubenverkauf', 'pressung_weingaerten') THEN
+    SELECT w.id::text INTO v_a FROM public.weingarten w WHERE w.tenant_id = p_tenant ORDER BY w.id LIMIT 1;
+    IF v_a IS NULL THEN
+      v_a := pg_temp.s112_zeile('weingarten', p_tenant) ->> 'id';
+    END IF;
+    v_w := v_w || jsonb_build_object('weingarten_id', v_a);
+  ELSIF p_tab = 'verschneidung_quellen' THEN
+    v_w := v_w || '{"menge_liter": 1}'::jsonb;
+  END IF;
+  BEGIN
+    RETURN pg_temp.s112_zeile(p_tab, p_tenant, v_w || coalesce(p_werte, '{}'::jsonb));
+  EXCEPTION WHEN unique_violation THEN
+    -- vorhandene Elternzeilen sind schon verknüpft (Musterhof): einmal mit neuen Eltern
+    RETURN pg_temp.s112_zeile(p_tab, p_tenant, v_w || coalesce(p_werte, '{}'::jsonb), 0, true);
+  END;
+END $f$;
+
+-- INSERT-Anweisung für eine Kopie von p_zeile mit p_aenderungen (für s112_versuch, läuft mit der aktiven
+-- Rolle): per jsonb_populate_record, ohne generated/identity-always-Spalten; Primärschlüsselspalten mit
+-- Default (id) werden neu vergeben, außer p_aenderungen setzt sie. Beispiel – Kopie in fremden Betrieb:
+--   pg_temp.s112_versuch(pg_temp.s112_klon_sql('kontakte', v_zeile, jsonb_build_object('tenant_id', v_m)))  → 'R'
+CREATE FUNCTION pg_temp.s112_klon_sql(p_tab text, p_zeile jsonb, p_aenderungen jsonb DEFAULT '{}') RETURNS text
+LANGUAGE plpgsql STABLE AS $f$
+DECLARE
+  v_oid oid := to_regclass(format('public.%I', p_tab));
+  v_aend jsonb := coalesce(p_aenderungen, '{}'::jsonb);
+  v_cols text;
+BEGIN
+  IF v_oid IS NULL THEN
+    RAISE EXCEPTION 's112_klon_sql: Tabelle public.% gibt es nicht', p_tab;
+  END IF;
+  SELECT string_agg(quote_ident(a.attname), ', ' ORDER BY a.attnum) INTO v_cols
+    FROM pg_attribute a
+   WHERE a.attrelid = v_oid AND a.attnum > 0 AND NOT a.attisdropped AND a.attgenerated = '' AND a.attidentity <> 'a'
+     AND NOT (a.atthasdef AND NOT (v_aend ? a.attname::text)
+              AND EXISTS (SELECT 1 FROM pg_index ix WHERE ix.indrelid = v_oid AND ix.indisprimary AND a.attnum = ANY (ix.indkey)));
+  RETURN format('INSERT INTO public.%I AS x (%s) SELECT %s FROM jsonb_populate_record(NULL::public.%I, %L::jsonb)',
+                p_tab, v_cols, v_cols, p_tab, (coalesce(p_zeile, '{}'::jsonb) || v_aend)::text);
+END $f$;
+
+-- Kopie einfügen und als jsonb zurückgeben (RETURNING braucht SELECT-Recht – meist als postgres).
+CREATE FUNCTION pg_temp.s112_klon(p_tab text, p_zeile jsonb, p_aenderungen jsonb DEFAULT '{}') RETURNS jsonb
+LANGUAGE plpgsql AS $f$
+DECLARE
+  v_erg jsonb;
+BEGIN
+  EXECUTE pg_temp.s112_klon_sql(p_tab, p_zeile, p_aenderungen) || ' RETURNING to_jsonb(x.*)' INTO v_erg;
+  RETURN v_erg;
+END $f$;
+
+
+-- ═══ 7. Soll-Daten (eine Quelle für alle Testdateien) ═════════════════════════════════════════════════
+--
+-- Pflege (siehe README): neue Tabelle → s112_soll ergänzen (sonst 01 und 12 rot); neue SECURITY-DEFINER-RPC
+-- → s112_soll_rpc (sonst 01 und 18 rot); neues Geheimnis → s112_soll_liste('geheimnis_spalten') (01, 16);
+-- Lücke behoben → Liste/Baseline hier senken bzw. s112_luecke in eine harte Prüfung umwandeln.
+-- Stand: Staging 28.09.2026 (106 Tabellen mit RLS, 52 SECURITY-DEFINER-Funktionen in public).
+
+-- Rollenmatrix je Tabelle und Aktion (Stand inventar/matrix.txt, aus den Policies abgeleitet):
+--   rollen: SA = system_admin, TA = tenant_admin, W = winzer, W* = winzer nur mit passendem Schreibmodul,
+--           L = leser, PA = Plattform-Admin (plattform_admins); '{}' = niemand per API
+--   module: Schreibmodule der RESTRICTIVE-Policies (s112_darf_schreiben, eines genügt; 'betrieb' = jeder
+--           winzer); '{}' = keine Modulprüfung
+--   roh:    Kurzform wie in der Matrix, z. B. 'SA,TA,W*{crm|warenwirtschaft}' oder '-{crm}'
+CREATE FUNCTION pg_temp.s112_soll()
+RETURNS TABLE (tabelle text, aktion text, rollen text[], module text[], roh text)
+LANGUAGE sql IMMUTABLE AS $f$
+  WITH m (tabelle, i, u, d) AS (VALUES
+    ('aktivitaet_dokumente',          'SA,TA,W*{crm|warenwirtschaft}',          '-{crm|warenwirtschaft}',                 'SA,TA,W*{crm|warenwirtschaft}'),
+    ('aktivitaeten',                  'SA,TA,W*{crm|warenwirtschaft}',          'SA,TA,W*{crm|warenwirtschaft}',          'SA,TA,W*{crm|warenwirtschaft}'),
+    ('ama_erntemeldungen',            'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       'SA,TA{rieden}'),
+    ('ama_meldepositionen',           'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       '-{rieden}'),
+    ('assistent_aktionen',            'SA,TA,W*{kellerbuch}',                   '-{kellerbuch}',                          '-{kellerbuch}'),
+    ('assistent_korrekturen',         'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}'),
+    ('assistent_nachrichten',         'SA,TA,W*{kellerbuch}',                   '-{kellerbuch}',                          '-{kellerbuch}'),
+    ('assistent_unterhaltungen',      'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}'),
+    ('behaelter',                     'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   'SA,TA{kellerbuch}'),
+    ('behandlung_grundstuecke',       'SA,TA,W*{rieden}',                       '-{rieden}',                              'SA,TA,W*{rieden}'),
+    ('behandlungen',                  'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       'SA,TA{rieden}'),
+    ('benachrichtigungen',            '-',                                      'L,SA,TA,W',                              'L,SA,TA,W'),
+    ('bestandsprotokoll',             '-',                                      '-',                                      '-'),
+    ('bestellung_positionen',         'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}'),
+    ('bestellungen',                  'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}'),
+    ('buchhaltung_export_protokoll',  'SA,TA,W*{ea}',                           '-{ea}',                                  '-{ea}'),
+    ('buchhaltung_kontenmapping',     'SA,TA{ea}',                              'SA,TA{ea}',                              'SA,TA{ea}'),
+    ('checklisten',                   'SA,TA,W*{betrieb}',                      'SA,TA,W*{betrieb}',                      'SA,TA,W*{betrieb}'),
+    ('checklisten_punkte',            'SA,TA,W*{betrieb}',                      'SA,TA,W*{betrieb}',                      'SA,TA,W*{betrieb}'),
+    ('crm_dubletten_ignoriert',       'SA,TA,W*{crm}',                          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}'),
+    ('dac_antrag',                    'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   'SA,TA{kellerbuch}'),
+    ('datenschutz_consents',          'SA,TA,W*{crm}',                          '-',                                      '-'),
+    ('duengemittel',                  'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       'SA,TA{rieden}'),
+    ('duengemittel_lager_bewegungen', 'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}'),
+    ('ea_anlagen',                    'SA,TA,W*{ea}',                           'SA,TA,W*{ea}',                           'SA,TA,W*{ea}'),
+    ('ea_belege',                     'SA,TA,W*{ea}',                           'SA,TA,W*{ea}',                           'SA,TA,W*{ea}'),
+    ('ea_dauerauftraege',             'SA,TA,W*{ea}',                           'SA,TA,W*{ea}',                           'SA,TA,W*{ea}'),
+    ('ea_dauerauftrag_log',           '-',                                      '-',                                      '-'),
+    ('ea_kategorien',                 'SA,TA,W*{ea}',                           'SA,TA,W*{ea}',                           'SA,TA,W*{ea}'),
+    ('ea_monatsabschluss',            'SA,TA{ea}',                              'SA,TA{ea}',                              'SA,TA{ea}'),
+    ('ea_transaktionen',              'SA,TA,W*{ea}',                           'SA,TA,W*{ea}',                           'SA,TA{ea}'),
+    ('ea_uva',                        'SA,TA,W*{ea}',                           'SA,TA,W*{ea}',                           'SA,TA,W*{ea}'),
+    ('email_lead_ignoriert',          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}'),
+    ('ernte_parzellen',               'SA,TA,W*{rieden|kellerbuch}',            'SA,TA,W*{rieden|kellerbuch}',            'SA,TA{rieden|kellerbuch}'),
+    ('export_dokumente',              'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}'),
+    ('exportauftraege',               'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}'),
+    ('exportauftrag_positionen',      'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}'),
+    ('firmen',                        'SA,TA,W*{crm}',                          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}'),
+    ('fristen',                       'SA,TA,W*{betrieb}',                      'SA,TA,W*{betrieb}',                      'SA,TA,W*{betrieb}'),
+    ('fuellung_bewegungen',           '-',                                      '-',                                      '-'),
+    ('fuellung_chargen',              'SA,TA,W*{kellerbuch|warenwirtschaft}',   'SA,TA,W*{kellerbuch|warenwirtschaft}',   'SA,TA,W*{kellerbuch|warenwirtschaft}'),
+    ('fuellungen',                    'SA,TA,W*{kellerbuch|warenwirtschaft}',   'SA,TA,W*{kellerbuch|warenwirtschaft}',   'SA,TA{kellerbuch|warenwirtschaft}'),
+    ('grundstuecke',                  'SA,TA,W*{rieden|ea}',                    'SA,TA,W*{rieden|ea}',                    'SA,TA{rieden|ea}'),
+    ('keller_behandlungen',           'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}'),
+    ('keller_behandlungstypen',       'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}'),
+    ('keller_freigaben',              '-',                                      '-',                                      '-'),
+    ('keller_umzuege',                'SA,TA,W*{kellerbuch|warenwirtschaft}',   'SA,TA,W*{kellerbuch|warenwirtschaft}',   'SA,TA,W*{kellerbuch|warenwirtschaft}'),
+    ('kellerplaene',                  'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   'SA,TA{kellerbuch}'),
+    ('kellerplan_positionen',         'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}'),
+    ('kontakt_firmen',                'SA,TA,W*{crm}',                          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}'),
+    ('kontakt_praeferenzen',          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}'),
+    ('kontakte',                      'SA,TA,W*{crm}',                          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}'),
+    ('konten',                        'SA,TA{ea}',                              'SA,TA{ea}',                              'SA,TA{ea}'),
+    ('konto_umbuchungen',             'SA,TA,W*{ea}',                           '-{ea}',                                  'SA,TA{ea}'),
+    ('kostenarten',                   'SA,TA,W*{auswertungen|rieden|kellerbuch}','SA,TA,W*{auswertungen|rieden|kellerbuch}','SA,TA,W*{auswertungen|rieden|kellerbuch}'),
+    ('kosteneintraege',               'SA,TA,W*{auswertungen|rieden|kellerbuch}','SA,TA,W*{auswertungen|rieden|kellerbuch}','SA,TA,W*{auswertungen|rieden|kellerbuch}'),
+    ('kosteneintrag_behaelter',       'SA,TA,W*{auswertungen|rieden|kellerbuch}','SA,TA,W*{auswertungen|rieden|kellerbuch}','SA,TA,W*{auswertungen|rieden|kellerbuch}'),
+    ('kosteneintrag_weingaerten',     'SA,TA,W*{auswertungen|rieden|kellerbuch}','SA,TA,W*{auswertungen|rieden|kellerbuch}','SA,TA,W*{auswertungen|rieden|kellerbuch}'),
+    ('kostenstellen',                 'SA,TA,W*{auswertungen|rieden|kellerbuch}','SA,TA,W*{auswertungen|rieden|kellerbuch}','SA,TA,W*{auswertungen|rieden|kellerbuch}'),
+    ('lagen',                         'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       'SA,TA{rieden}'),
+    ('module_flags',                  'PA',                                     'PA',                                     '-'),
+    ('morgenberichte',                '-',                                      '-',                                      '-'),
+    ('pflanzenschutzmittel',          'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       'SA,TA{rieden}'),
+    ('pipeline_eintraege',            'SA,TA,W*{crm}',                          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}'),
+    ('pipeline_verlauf',              'SA,TA,W*{crm}',                          '-{crm}',                                 '-{crm}'),
+    ('plattform_admins',              '-',                                      '-',                                      '-'),
+    ('pressung_behaelter',            'SA,TA,W*{kellerbuch|rieden}',            'SA,TA,W*{kellerbuch|rieden}',            'SA,TA,W*{kellerbuch|rieden}'),
+    ('pressung_weingaerten',          'SA,TA,W*{kellerbuch|rieden}',            'SA,TA,W*{kellerbuch|rieden}',            'SA,TA,W*{kellerbuch|rieden}'),
+    ('pressungen',                    'SA,TA,W*{kellerbuch|rieden}',            'SA,TA,W*{kellerbuch|rieden}',            'SA,TA,W*{kellerbuch|rieden}'),
+    ('profiles',                      'L,SA,TA,W',                              'L,SA,TA,W',                              '-'),
+    ('pruefnummernantraege',          'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}'),
+    ('psm_lager_bewegungen',          'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}'),
+    ('rabattgruppen',                 'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}'),
+    ('rebsorten',                     'PA',                                     'PA',                                     'PA'),
+    ('release_notes',                 'PA',                                     'PA',                                     'PA'),
+    ('release_notes_gesehen',         'L,SA,TA,W',                              'L,SA,TA,W',                              'L,SA,TA,W'),
+    ('saetze_massnahmen',             'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       'SA,TA{rieden}'),
+    ('sonstige_artikel',              'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              '-{warenwirtschaft}'),
+    ('stripe_zahlungen_log',          '-',                                      '-',                                      '-'),
+    ('sumup_checkouts',               'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              '-{warenwirtschaft}'),
+    ('sumup_terminals',               'SA,TA',                                  'SA,TA',                                  'SA,TA'),
+    ('sumup_transaktionen',           '-',                                      '-',                                      '-'),
+    ('svs_parameter',                 '-',                                      '-',                                      '-'),
+    ('system_ereignisse',             '-',                                      '-',                                      '-'),
+    ('tenant_einstellungen',          '-',                                      'SA,TA',                                  '-'),
+    ('tenant_memberships',            'PA',                                     'PA',                                     'SA,TA'),
+    ('tenants',                       'PA',                                     'SA,TA',                                  '-'),
+    ('transaktionszaehler',           '-',                                      '-',                                      '-'),
+    ('transportbescheinigungen',      'SA,TA,W*{kellerbuch|warenwirtschaft}',   'SA,TA,W*{kellerbuch|warenwirtschaft}',   'SA,TA,W*{kellerbuch|warenwirtschaft}'),
+    ('traubenverkauf',                'SA,TA,W*{rieden|warenwirtschaft}',       'SA,TA,W*{rieden|warenwirtschaft}',       'SA,TA,W*{rieden|warenwirtschaft}'),
+    ('user_email_connections',        '-',                                      '-',                                      'L,SA,TA,W'),
+    ('verkauf_positionen',            'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              'SA,TA{warenwirtschaft}'),
+    ('verkaufsposten',                'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              'SA,TA{warenwirtschaft}'),
+    ('verschneidung_quellen',         'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}'),
+    ('verschneidungen',               'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}'),
+    ('weinanalysen',                  'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   'SA,TA{kellerbuch}'),
+    ('weinausbau',                    'SA,TA,W*{kellerbuch|rieden}',            'SA,TA,W*{kellerbuch|rieden}',            'SA,TA{kellerbuch|rieden}'),
+    ('weinausbau_weingaerten',        'SA,TA,W*{kellerbuch|rieden}',            'SA,TA,W*{kellerbuch|rieden}',            'SA,TA,W*{kellerbuch|rieden}'),
+    ('weinbaugebiete_custom',         'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       '-{rieden}'),
+    ('weingarten',                    'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       'SA,TA{rieden}'),
+    ('weingarten_rebsorten',          'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       'SA,TA{rieden}'),
+    ('weinjahrgaenge',                'SA,TA,W*{rieden|kellerbuch}',            'SA,TA,W*{rieden|kellerbuch}',            'SA,TA{rieden|kellerbuch}'),
+    ('wetter_stunden',                '-',                                      '-',                                      '-'),
+    ('zahlungen',                     'SA,TA,W*{warenwirtschaft|ea}',           'SA,TA,W*{warenwirtschaft|ea}',           'SA,TA{warenwirtschaft|ea}'),
+    ('zeiterfassung',                 'SA,TA',                                  'SA,TA',                                  'SA,TA'),
+    ('zukauf_posten',                 'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              '-{warenwirtschaft}')
+  )
+  SELECT m.tabelle, a.aktion,
+         CASE WHEN x.r IS NULL OR x.r IN ('', '-') THEN '{}'::text[] ELSE string_to_array(x.r, ',') END,
+         CASE WHEN x.mo IS NULL OR x.mo = '' THEN '{}'::text[] ELSE string_to_array(x.mo, '|') END,
+         a.roh
+    FROM m
+   CROSS JOIN LATERAL (VALUES (1, 'INSERT', m.i), (2, 'UPDATE', m.u), (3, 'DELETE', m.d)) a (nr, aktion, roh)
+   CROSS JOIN LATERAL (SELECT (regexp_match(a.roh, '^([^{]*)(?:\{([^}]*)\})?$'))[1] AS r,
+                              (regexp_match(a.roh, '^([^{]*)(?:\{([^}]*)\})?$'))[2] AS mo) x
+   ORDER BY m.tabelle, a.nr
+$f$;
+
+-- Benannte Soll-Listen. Unbekannter Name → Fehler.
+--   geheimnis_spalten      Tabelle.Spalte ohne SELECT-Recht für authenticated/anon (KAN-135)
+--   public_policies        Tabelle.Policy, die bewusst TO public gelten (CLAUDE.md: genau diese 6)
+--   g_tabellen             Klasse G (s112_klasse): ohne Mandantenbezug über tenant_id
+--   protokoll_tabellen     Tabellen mit bestandsprotokoll-Triggern (z_protokoll_*, auch TRUNCATE-Sperre)
+--   abo_ausnahmen          Tabellen mit RLS OHNE die drei abo_schreibsperre-Policies
+--   abo_status_gesperrt    stripe_status, die sperren (zusätzlich 'trialing' mit abgelaufenem stripe_trial_ends_at)
+--   anon_execute_erlaubt   Funktionen in public, die anon ausführen MUSS (PostgREST-Pre-Request)
+--   anon_execute_bekannt   Baseline: Funktionen in public mit anon-EXECUTE entgegen der Konvention (Lücke)
+--   tid_nullable           Tabellen mit nullable tenant_id (globale Zeilen, NULL-Falle)
+--   tid_ohne_fk            Baseline: tenant_id ohne FK (Lücke)
+--   truncate_authenticated Baseline: TRUNCATE-Recht für authenticated (RLS greift bei TRUNCATE nicht – Lücke)
+--   truncate_anon          Baseline: dasselbe für anon (derzeit identische Liste)
+--   schreibmodule          die sechs Schreibmodule (Default für winzer mit schreibmodule NULL)
+--   abo_rpc_ausnahmen      SECURITY-DEFINER-Funktionen mit p_tenant_id, EXECUTE für authenticated und Schreibanweisung
+--                          im Quelltext, die BEWUSST nicht s112_pruefe_abo_schreibsperre aufrufen (01: rpc_schreibt_ohne_abo).
+--                          Nur mit Begründung aufnehmen:
+--                            check_und_increment_ki_abfrage – prüft die Sperre selbst über s112_abo_gesperrt (eigene
+--                              KI-Meldung); dynamisch belegt in 14 (rpc_gesperrt_check_und_increment_ki_abfrage).
+--                            increment_ki_tokens – zählt nur die Tokens einer schon über check_und_increment_ki_abfrage
+--                              freigegebenen KI-Abfrage nach (Verbrauchszähler, keine Fachdaten); Ist-Stand im gesperrten
+--                              Betrieb in 14 festgehalten (rpc_gesperrt_increment_ki_tokens).
+--   ptz_ausnahmen          INVOKER-Funktionen mit p_tenant_id und EXECUTE für authenticated/anon/PUBLIC OHNE
+--                          pruefe_tenant_zugriff (01: ptz_invoker). Derzeit keine; nur mit Begründung aufnehmen.
+CREATE FUNCTION pg_temp.s112_soll_liste(p_art text) RETURNS text[] LANGUAGE plpgsql IMMUTABLE AS $f$
+BEGIN
+  RETURN CASE p_art
+    WHEN 'geheimnis_spalten' THEN ARRAY[
+      'tenant_einstellungen.m365_access_token_enc', 'tenant_einstellungen.m365_refresh_token_enc',
+      'tenant_einstellungen.m365_client_secret_enc', 'tenant_einstellungen.email_imap_pass_enc',
+      'tenant_einstellungen.email_smtp_pass_enc', 'tenant_einstellungen.brevo_api_key',
+      'tenant_einstellungen.sumup_api_key', 'tenant_einstellungen.bawb_passwort',
+      'user_email_connections.m365_access_token_enc', 'user_email_connections.m365_refresh_token_enc',
+      'user_email_connections.imap_pass_enc', 'user_email_connections.smtp_pass_enc']
+    WHEN 'public_policies' THEN ARRAY[
+      'profiles.profiles: insert own', 'profiles.profiles: update own', 'profiles.profiles_read_all',
+      'rebsorten.rebsorten: everyone can read', 'release_notes_gesehen.rng_own', 'svs_parameter.svsp_select']
+    WHEN 'g_tabellen' THEN ARRAY[
+      'keller_freigaben', 'plattform_admins', 'profiles', 'rebsorten', 'release_notes', 'release_notes_gesehen',
+      'svs_parameter', 'tenants']
+    WHEN 'protokoll_tabellen' THEN ARRAY[
+      'ama_erntemeldungen', 'ama_meldepositionen', 'bestandsprotokoll', 'ernte_parzellen', 'fuellung_bewegungen',
+      'fuellung_chargen', 'fuellungen', 'keller_behandlungen', 'keller_umzuege', 'pressung_behaelter',
+      'pressung_weingaerten', 'pressungen', 'traubenverkauf', 'verkauf_positionen', 'verkaufsposten',
+      'verschneidung_quellen', 'verschneidungen', 'weinausbau', 'weinjahrgaenge', 'zukauf_posten']
+    WHEN 'abo_ausnahmen' THEN ARRAY[
+      'benachrichtigungen', 'keller_freigaben', 'plattform_admins', 'profiles', 'rebsorten', 'release_notes',
+      'release_notes_gesehen', 'svs_parameter', 'system_ereignisse', 'tenant_memberships', 'user_email_connections']
+    WHEN 'abo_status_gesperrt' THEN ARRAY['unpaid', 'canceled', 'cancelled', 'incomplete', 'incomplete_expired', 'paused']
+    WHEN 'anon_execute_erlaubt' THEN ARRAY['s112_pre_request()']
+    WHEN 'anon_execute_bekannt' THEN ARRAY[
+      'crm_dubletten_paar(p_art text, a jsonb, b jsonb)', 'crm_dubletten_stufe(p_art text, p_kontakte jsonb)',
+      'crm_norm_name(p text)', 'kundennummer_unveraenderlich_trg()', 'tenant_memberships_schreibmodule_default()',
+      'trg_ea_anlagen_aktualisiert()', 'trg_ea_anlagen_transaktion_tenant()', 'trg_ea_transaktion_anlage_tenant()']
+    WHEN 'tid_nullable' THEN ARRAY[
+      'bestandsprotokoll', 'duengemittel', 'ea_kategorien', 'pflanzenschutzmittel', 'saetze_massnahmen', 'system_ereignisse']
+    WHEN 'tid_ohne_fk' THEN ARRAY[
+      'aktivitaet_dokumente', 'bestandsprotokoll', 'exportauftraege', 'pruefnummernantraege', 'sonstige_artikel', 'system_ereignisse',
+      'transportbescheinigungen', 'weinbaugebiete_custom', 'zukauf_posten']
+    WHEN 'truncate_authenticated' THEN ARRAY[
+      'aktivitaet_dokumente', 'aktivitaeten', 'assistent_aktionen', 'assistent_korrekturen', 'assistent_nachrichten',
+      'assistent_unterhaltungen', 'behaelter', 'behandlung_grundstuecke', 'behandlungen', 'benachrichtigungen',
+      'bestellung_positionen', 'bestellungen', 'buchhaltung_export_protokoll', 'buchhaltung_kontenmapping',
+      'checklisten', 'checklisten_punkte', 'crm_dubletten_ignoriert', 'dac_antrag', 'datenschutz_consents',
+      'duengemittel', 'duengemittel_lager_bewegungen', 'ea_anlagen', 'ea_belege', 'ea_dauerauftraege',
+      'ea_dauerauftrag_log', 'ea_kategorien', 'ea_monatsabschluss', 'ea_transaktionen', 'ea_uva',
+      'email_lead_ignoriert', 'export_dokumente', 'exportauftraege', 'exportauftrag_positionen', 'firmen', 'fristen',
+      'grundstuecke', 'keller_behandlungstypen', 'keller_freigaben', 'kellerplaene', 'kellerplan_positionen',
+      'kontakt_firmen', 'kontakt_praeferenzen', 'kontakte', 'konten', 'konto_umbuchungen', 'kostenarten',
+      'kosteneintraege', 'kosteneintrag_behaelter', 'kosteneintrag_weingaerten', 'kostenstellen', 'lagen',
+      'module_flags', 'morgenberichte', 'pflanzenschutzmittel', 'pipeline_eintraege', 'pipeline_verlauf', 'profiles',
+      'pruefnummernantraege', 'psm_lager_bewegungen', 'rabattgruppen', 'rebsorten', 'release_notes',
+      'release_notes_gesehen', 'saetze_massnahmen', 'sonstige_artikel', 'stripe_zahlungen_log', 'sumup_checkouts',
+      'sumup_terminals', 'sumup_transaktionen', 'svs_parameter', 'system_ereignisse', 'transaktionszaehler',
+      'transportbescheinigungen', 'weinanalysen', 'weinausbau_weingaerten', 'weinbaugebiete_custom', 'weingarten',
+      'weingarten_rebsorten', 'wetter_stunden', 'zahlungen', 'zeiterfassung']
+    WHEN 'truncate_anon' THEN pg_temp.s112_soll_liste('truncate_authenticated')
+    WHEN 'schreibmodule' THEN ARRAY['rieden', 'kellerbuch', 'warenwirtschaft', 'crm', 'ea', 'auswertungen']
+    WHEN 'abo_rpc_ausnahmen' THEN ARRAY[
+      'check_und_increment_ki_abfrage(p_tenant_id uuid)',
+      'increment_ki_tokens(p_tenant_id uuid, p_input_tokens integer, p_output_tokens integer)']
+    WHEN 'ptz_ausnahmen' THEN '{}'::text[]
+    ELSE NULL
+  END;
+END $f$;
+
+-- Einstufung der SECURITY-DEFINER-Funktionen in public (Signatur wie proname || '(' ||
+-- pg_get_function_identity_arguments(oid) || ')'):
+--   rls_hilfe     Hilfsfunktion der Policies/RPCs, liefert nur Eigenes (authenticated darf ausführen)
+--   mandant       nimmt p_tenant_id und ruft public.pruefe_tenant_zugriff auf (abo = true: zusätzlich
+--                 public.s112_pruefe_abo_schreibsperre, weil schreibend)
+--   mandant_eigen nimmt p_tenant_id, filtert selbst über die eigene Mitgliedschaft (ohne pruefe_tenant_zugriff)
+--   session_user  erlaubt bei session_user = postgres – über die Management-API nicht dynamisch prüfbar,
+--                 nur statisch (crm_zaehler lieferte per CLI Zeilen eines fremden Betriebs)
+--   intern        nur Service-Role (kein EXECUTE für authenticated/anon)
+--   trigger       Triggerfunktion (kein EXECUTE für authenticated/anon)
+--   rechte        Soll-Rechte als 'A' (anon), 'U' (authenticated), 'S' (service_role) bzw. '-'
+CREATE FUNCTION pg_temp.s112_soll_rpc()
+RETURNS TABLE (einstufung text, rechte text, abo boolean, funktion text)
+LANGUAGE sql IMMUTABLE AS $f$
+  SELECT * FROM (VALUES
+    ('intern',        '--S', false, 'behaelter_nutzbar(p_behaelter_id uuid, p_tenant_id uuid)'),
+    ('mandant',       '-US', false, 'berechne_ea_uva(p_tenant_id uuid, p_jahr smallint, p_zeitraum text)'),
+    ('intern',        '--S', false, 'bestandsprotokoll_mandant_loeschen(p_tenant_id uuid)'),
+    ('trigger',       '--S', false, 'bestandsprotokoll_schreiben()'),
+    ('mandant',       '-US', false, 'check_und_increment_ki_abfrage(p_tenant_id uuid)'),
+    ('trigger',       '--S', false, 'create_profile_on_signup()'),
+    ('session_user',  '-US', false, 'crm_dubletten(p_tenant_id uuid)'),
+    ('session_user',  '-US', false, 'crm_filterwerte(p_tenant_id uuid)'),
+    ('session_user',  '-US', false, 'crm_zaehler(p_tenant_id uuid)'),
+    ('intern',        '--S', false, 'demo_musterhof_info()'),
+    ('intern',        '--S', false, 'demo_musterhof_y2_kette()'),
+    ('intern',        '--S', false, 'demo_musterhof_zuruecksetzen()'),
+    ('mandant',       '-US', true , 'fuellung_bestand_buchen(p_tenant_id uuid, p_fuellung_id uuid, p_art text, p_datum date, p_menge_stk integer, p_ist_bestand integer, p_grund text)'),
+    ('mandant_eigen', '-US', false, 'get_behandlungen_fuer_grundstuecke(p_grundstueck_ids uuid[], p_tenant_id uuid)'),
+    ('mandant',       '-US', true , 'get_next_accountnummer(p_tenant_id uuid)'),
+    ('mandant',       '-US', true , 'get_next_chargennummer(p_tenant_id uuid)'),
+    ('mandant',       '-US', true , 'get_next_liefernummer(p_tenant_id uuid)'),
+    ('mandant',       '-US', true , 'get_next_personenkonto(p_tenant_id uuid, p_art text, p_basis integer)'),
+    ('mandant',       '-US', true , 'get_next_rechnungsnummer(p_tenant_id uuid)'),
+    ('mandant',       '-US', true , 'get_next_transaktionsnr(p_tenant_id uuid, p_typ text)'),
+    ('rls_hilfe',     '-US', false, 'get_user_role_in_tenant(p_tenant_id uuid)'),
+    ('rls_hilfe',     '-US', false, 'get_user_tenant_ids()'),
+    ('trigger',       '--S', false, 'handle_new_user()'),
+    ('mandant',       '-US', false, 'increment_ki_tokens(p_tenant_id uuid, p_input_tokens integer, p_output_tokens integer)'),
+    ('mandant',       '-U-', false, 'ki_readonly_query(p_sql text, p_tenant_id uuid)'),
+    ('session_user',  '-US', true , 'kontakte_zusammenfuehren(p_tenant_id uuid, p_behalten uuid, p_weg uuid[])'),
+    ('trigger',       '--S', false, 'kundennummer_trg()'),
+    ('intern',        '--S', false, 'kundennummer_vergeben(p_tenant_id uuid, p_kreis integer)'),
+    ('session_user',  '-US', false, 'lade_behaelter(p_tenant_id uuid)'),
+    ('session_user',  '-US', false, 'lade_kellergemeinschaft(p_tenant_id uuid)'),
+    ('intern',        '--S', false, 'mark_verkauf_bezahlt(p_posten_id uuid)'),
+    ('intern',        '--S', false, 'process_ea_dauerauftraege()'),
+    ('mandant',       '-US', false, 'pruefe_ea_zeitraum_offen(p_tenant_id uuid, p_datum date)'),
+    ('rls_hilfe',     '-US', false, 'pruefe_tenant_zugriff(p_tenant_id uuid, p_rollen text[])'),
+    ('rls_hilfe',     '-US', false, 's112_aal_ok()'),
+    ('rls_hilfe',     '-US', false, 's112_darf_schreiben(p_tenant uuid, VARIADIC p_module text[])'),
+    ('rls_hilfe',     '-US', false, 's112_gesperrte_tenants()'),
+    ('mandant_eigen', '-US', false, 's112_mandant_mitglieder(p_tenant_id uuid)'),
+    ('intern',        '--S', false, 's112_mandant_mitglieder_mit_email(p_tenant_id uuid)'),
+    ('rls_hilfe',     '-US', false, 's112_meine_tenants()'),
+    ('rls_hilfe',     '-US', false, 's112_schreibgesperrte_tenants()'),
+    ('mandant',       '-US', true , 'schwund_buchen(p_tenant_id uuid, p_weinausbau_id uuid, p_liter numeric, p_datum date, p_notiz text, p_abschliessen boolean, p_bestand_mindern boolean)'),
+    ('intern',        '--S', false, 'set_verkauf_storniert(p_posten_id uuid)'),
+    ('mandant',       '-US', true , 'setze_kontobewegung_abgeglichen(p_tenant_id uuid, p_quelle text, p_id uuid, p_abgeglichen boolean)'),
+    ('mandant',       '-US', true , 'sperre_ea_monat(p_tenant_id uuid, p_jahr smallint, p_monat smallint)'),
+    ('mandant',       '-US', true , 'sperre_ea_uva(p_tenant_id uuid, p_jahr smallint, p_zeitraum text)'),
+    ('trigger',       '--S', false, 'sumup_tx_zu_zahlung()'),
+    ('trigger',       '--S', false, 'sync_verkaufsposten_bezahlt()'),
+    ('rls_hilfe',     '-US', false, 'tenant_has_module(p_module text)'),
+    ('trigger',       '--S', false, 'trg_tenant_plattform_admins()'),
+    ('rls_hilfe',     '-US', false, 'user_has_role_in_tenant(p_tenant_id uuid, p_roles text[])'),
+    ('trigger',       '--S', false, 'weinausbau_gebinde_pruefen()')
+  ) v (einstufung, rechte, abo, funktion)
+  ORDER BY funktion
+$f$;
