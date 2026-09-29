@@ -149,3 +149,25 @@ export function leseLoeschsperre(
     ? `Die Lese kann nicht gelöscht werden: Es sind noch ${gruende.join(', ')} erfasst. Bitte diese zuerst löschen.`
     : null
 }
+
+// ── Eiswein (KAN-129 Soll 2) ──────────────────────────────────────────────────────────────────────────────
+// Bei einer Lese der Art „Eiswein“ ist die Stufe Eiswein – nicht die Ableitung aus den °KMW (ab 25 °KMW ergäbe
+// die Beerenauslese). Mindestmostgewicht 25 °KMW (§ 11 Abs. 1 Z 6 WeinG) – darunter nur ein Hinweis.
+
+export const EISWEIN_MIN_KMW = 25
+
+/** Stufe einer Lese bzw. Pressung: Eiswein-Lese → 'eiswein', sonst die übergebene Ableitung aus den °KMW */
+export function leseStufe(art: string | null | undefined, ausKmw: string): string {
+  return art === 'eiswein' ? 'eiswein' : ausKmw
+}
+
+/** Hinweis bei einer Eiswein-Lese unter 25 °KMW bzw. ohne Mostgewicht, sonst null */
+export function eisweinHinweis(art: string | null | undefined, kmw: number | null | undefined): string | null {
+  if (art !== 'eiswein') return null
+  if (kmw === null || kmw === undefined || !Number.isFinite(kmw)) {
+    return `Eiswein: Mostgewicht nicht erfasst – Eiswein verlangt mindestens ${EISWEIN_MIN_KMW} °KMW (§ 11 Abs. 1 Z 6 WeinG).`
+  }
+  return kmw < EISWEIN_MIN_KMW
+    ? `Eiswein verlangt mindestens ${EISWEIN_MIN_KMW} °KMW (§ 11 Abs. 1 Z 6 WeinG) – erfasst sind ${String(kmw).replace('.', ',')} °KMW. Bitte Mostgewicht bzw. Stufe prüfen.`
+    : null
+}

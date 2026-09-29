@@ -195,15 +195,15 @@ export function leseFuerDatum<L extends { id: string; lfd_nr: number; beginn: st
   return kandidaten[0] ?? null
 }
 
-export type LeseKurz = { id: string; lfd_nr: number; beginn: string | null }
+export type LeseKurz = { id: string; lfd_nr: number; beginn: string | null; art?: string | null }
 
 /** Lesen eines Jahrgangs des Betriebs (Nummer und Beginn – für Zuordnung und Meldungen) */
 export async function ladeLesenDesJahrgangs(supabase: Client, tenantId: string, jahrgangId: string): Promise<LeseKurz[]> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase.from('lesen') as any)
-    .select('id, lfd_nr, beginn').eq('jahrgang_id', jahrgangId).eq('tenant_id', tenantId).order('lfd_nr')
+    .select('id, lfd_nr, beginn, art').eq('jahrgang_id', jahrgangId).eq('tenant_id', tenantId).order('lfd_nr')
   if (error) throw new Error(`Lesen konnten nicht geladen werden: ${error.message}`)
-  return ((data ?? []) as R[]).map(l => ({ id: l.id as string, lfd_nr: Number(l.lfd_nr), beginn: (l.beginn as string | null) ?? null }))
+  return ((data ?? []) as R[]).map(l => ({ id: l.id as string, lfd_nr: Number(l.lfd_nr), beginn: (l.beginn as string | null) ?? null, art: (l.art as string | null) ?? null }))
 }
 
 /**

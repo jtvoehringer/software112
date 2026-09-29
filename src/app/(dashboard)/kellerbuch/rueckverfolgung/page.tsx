@@ -16,6 +16,7 @@ import {
   type LeseMassnahmen,
 } from '@/lib/behoerden/rueckverfolgung'
 import { fensterBeginnText, ttmmjjjj } from '@/lib/behoerden/rueckverfolgungFenster'
+import { leseTitel } from '@/lib/wein/lesen'
 
 export const metadata: Metadata = { title: 'Rückverfolgung – software:112' }
 export const dynamic = 'force-dynamic'
@@ -135,6 +136,12 @@ function ChargeKette({
                     {p.datum ? new Date(p.datum).toLocaleDateString('de-AT') : ''}
                   </span>
                   <span className="text-sm font-medium text-s112-text-1">Pressung</span>
+                  {/* KAN-129 Soll 7: Lese der Pressung („2026/2 Eiswein“) */}
+                  {(p.lese as R | null)?.lfd_nr != null && (p.jahrgang as R | null)?.jahrgang != null && (
+                    <span className="text-xs text-s112-muted">
+                      Lese {leseTitel((p.jahrgang as R).jahrgang, { lfd_nr: (p.lese as R).lfd_nr, art: (p.lese as R).art, bezeichnung: null })}
+                    </span>
+                  )}
                   {p.most_liter_gesamt && (
                     <span className="text-xs text-s112-muted">
                       {fmtNum(parseFloat(p.most_liter_gesamt))} L Most

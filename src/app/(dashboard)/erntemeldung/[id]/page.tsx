@@ -488,6 +488,7 @@ export default async function ErnteDetailPage({ params, searchParams }: Props) {
       <ErnteDetailClient
         jahrgang={jg as AR}
         leseId={aktiveLese?.id ?? null}
+        leseArt={aktiveLese?.art ?? null}
         leseTitel={aktiveLese && lesen.length > 1 ? leseTitel((jg as AR).jahrgang, aktiveLese) : null}
         mehrereLesen={lesen.length > 1}
         tabellenParzellen={alleParzellen}

@@ -123,9 +123,11 @@ function NotizZelle({ text }: { text: string | null }) {
 // Pilot-Rückmeldung 29.09.2026: nicht erntebare Weingärten (nur Acker, Grünland, Brache …) gar nicht anbieten;
 // eine Ried mit genau einem Weingarten als EINE Zeile (statt Ried-Kopf und gleichnamigem Weingarten darunter).
 function NeueParzellenForm({
-  jahrgangId, leseId, weingaerten: alleWeingaerten, gstByWeingarten, onDone,
+  jahrgangId, leseId, leseArt, weingaerten: alleWeingaerten, gstByWeingarten, onDone,
 }: {
   jahrgangId: string
+  /** KAN-129 Soll 2: Art der gewählten Lese – bei Eiswein Stufe Eiswein */
+  leseArt: string | null
   /** KAN-129: gewählte Lese (Reiter) – die neuen Einträge landen in ihr */
   leseId: string | null
   weingaerten: WeingartenOpt[]
@@ -252,6 +254,11 @@ function NeueParzellenForm({
 
   return (
     <form onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-4 space-y-4">
+      {leseArt === 'eiswein' && (
+        <p role="note" className="rounded-lg border border-s112-blue-100 bg-s112-blue-50 px-3 py-2 text-xs text-s112-text">
+          Eiswein-Lese: Die Stufe ist Eiswein (nicht aus den °KMW abgeleitet). Eiswein verlangt mindestens 25 °KMW (§ 11 Abs. 1 Z 6 WeinG).
+        </p>
+      )}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-s112-text">Lesedaten erfassen</h3>
         {ziele.length > 0 && (
@@ -660,11 +667,13 @@ function ParzellForm({
 
 
 // ── Hauptkomponente ─────────────────────────────────────────────────────────────
-export default function ErnteDetailClient({ jahrgang, leseId, leseTitel, mehrereLesen, tabellenParzellen, stichtagHinweis, parzellen, weingaerten, gstByWeingarten, amaMeldung, hektarhoechstertrag, pressungen, wgOptions, behOptions, waOptions, verfuegbareKg, verfuegbareKgByGST, zukaufTrauben, behaelterMitCharge, writeOk, adminOk, betriebName, csvErlaubt }: {
+export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel, mehrereLesen, tabellenParzellen, stichtagHinweis, parzellen, weingaerten, gstByWeingarten, amaMeldung, hektarhoechstertrag, pressungen, wgOptions, behOptions, waOptions, verfuegbareKg, verfuegbareKgByGST, zukaufTrauben, behaelterMitCharge, writeOk, adminOk, betriebName, csvErlaubt }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   jahrgang: Record<string, any>; parzellen: ErnteParzelle[]
   /** KAN-129: gewählte Lese (Reiter der Seite) – neue Einträge und Pressungen landen in ihr */
   leseId: string | null
+  /** KAN-129 Soll 2: Art der gewählten Lese (Eiswein → Stufe Eiswein) */
+  leseArt: string | null
   /** KAN-129: „2026/2 Eiswein“ – nur bei mehreren Lesen (Überschrift der Pressungs-/Erfassungsteile) */
   leseTitel: string | null
   mehrereLesen: boolean
@@ -767,7 +776,7 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseTitel, mehrere
 
         {showForm && !editId && (
           <div className="mb-4" data-print="hide">
-            <NeueParzellenForm jahrgangId={jahrgang.id} leseId={leseId} weingaerten={weingaerten} gstByWeingarten={gstByWeingarten} onDone={() => setShowForm(false)} />
+            <NeueParzellenForm jahrgangId={jahrgang.id} leseId={leseId} leseArt={leseArt} weingaerten={weingaerten} gstByWeingarten={gstByWeingarten} onDone={() => setShowForm(false)} />
           </div>
         )}
 
@@ -898,6 +907,7 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseTitel, mehrere
       <PressungSection
         jahrgangId={jahrgang.id}
         leseId={leseId}
+        leseArt={leseArt}
         pressungen={pressungen}
         wgOptions={wgOptions}
         behOptions={behOptions}

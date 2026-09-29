@@ -6,6 +6,7 @@ import { upsertPressung, deletePressung } from '../actions'
 import { fmtProzent, fmtNum, dezimal } from '@/lib/format'
 import { kmwZuQualitaet } from '@/lib/weinqualitaet'
 import { abstufungsOptionen, minQualitaet, qualitaetLabel, QUALITAET_OPTS } from '@/lib/wein/qualitaet'
+import { leseStufe } from '@/lib/wein/lesen'
 import VerschneidungForm from '@/components/kellerbuch/VerschneidungForm'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fehlerText } from '@/lib/fehler'
@@ -115,8 +116,8 @@ function Fehlermeldung({ text, onClose }: { text: string; onClose?: () => void }
   )
 }
 
-function PressungForm({ jahrgangId, leseId, pressung, wgOptions, behOptions, waOptions, leseParzellen, leseEintraege, verfuegbareKgByGST, zukaufTrauben, behaelterMitCharge, onDone }: {
-  jahrgangId: string; leseId: string | null; pressung?: Pressung
+function PressungForm({ jahrgangId, leseId, leseArt, pressung, wgOptions, behOptions, waOptions, leseParzellen, leseEintraege, verfuegbareKgByGST, zukaufTrauben, behaelterMitCharge, onDone }: {
+  jahrgangId: string; leseId: string | null; leseArt: string | null; pressung?: Pressung
   wgOptions: WGOption[]; behOptions: BehOption[]; waOptions: WAOption[]
   leseParzellen: LeseParzelle[]; leseEintraege: LeseEintrag[]; verfuegbareKgByGST: Record<string, number>
   zukaufTrauben: ZukaufTraubenOpt[]
@@ -213,7 +214,8 @@ function PressungForm({ jahrgangId, leseId, pressung, wgOptions, behOptions, waO
   const kmwQualitaet = kmwGrad !== '' && Number.isFinite(kmwNum) ? kmwZuQualitaet(kmwNum) : null
   // KAN-81/KAN-126: Abstufen bei der Pressung – Obergrenze aus den °KMW (ohne: Qualitätswein), wählbar nur niedriger.
   // '' = Obergrenze (automatisch); gilt für neu angelegte Chargen (bestehende bleiben, Abstufen dort im Kellerbuch)
-  const obergrenze = kmwQualitaet ?? 'qualitaetswein'
+  // KAN-129 Soll 2: bei einer Eiswein-Lese ist die Obergrenze Eiswein (neue Pressung; beim Bearbeiten zählt die Lese der Pressung – der Server prüft)
+  const obergrenze = leseStufe(pressung ? null : leseArt, kmwQualitaet ?? 'qualitaetswein')
   const [abgestuft, setAbgestuft] = useState('')
   // Liste der Zieltabelle (weinausbau, KAN-73), eingeschränkt auf die zulässigen Abstufungen
   const zulaessig = new Set(abstufungsOptionen(obergrenze).map(o => o.value))
@@ -803,10 +805,12 @@ function PressungForm({ jahrgangId, leseId, pressung, wgOptions, behOptions, waO
 
 // ── Hauptexport ───────────────────────────────────────────────────────────────
 
-export default function PressungSection({ jahrgangId, leseId, pressungen, wgOptions, behOptions, waOptions, leseParzellen, leseEintraege, verfuegbareKgByGST, zukaufTrauben, behaelterMitCharge, writeOk, adminOk }: {
+export default function PressungSection({ jahrgangId, leseId, leseArt, pressungen, wgOptions, behOptions, waOptions, leseParzellen, leseEintraege, verfuegbareKgByGST, zukaufTrauben, behaelterMitCharge, writeOk, adminOk }: {
   jahrgangId: string; pressungen: Pressung[]
   /** KAN-129: gewählte Lese (Reiter) – Pressungen und Lese-Einträge dieser Lese */
   leseId: string | null
+  /** KAN-129 Soll 2: Art der gewählten Lese (Eiswein → Stufe Eiswein) */
+  leseArt: string | null
   wgOptions: WGOption[]; behOptions: BehOption[]; waOptions: WAOption[]
   /** KAN-126: alle Lese-Einträge des Jahrgangs (Lesetage und Mostgewicht je Ort) */
   leseParzellen: LeseParzelle[]; leseEintraege: LeseEintrag[]; verfuegbareKgByGST: Record<string, number>
@@ -895,7 +899,7 @@ export default function PressungSection({ jahrgangId, leseId, pressungen, wgOpti
 
       {/* Neues Formular */}
       {showForm && !editId && (
-        <PressungForm jahrgangId={jahrgangId} leseId={leseId} wgOptions={wgOptions} behOptions={behOptions}
+        <PressungForm jahrgangId={jahrgangId} leseId={leseId} leseArt={leseArt} wgOptions={wgOptions} behOptions={behOptions}
           waOptions={waOptions} leseParzellen={leseParzellen} leseEintraege={leseEintraege} verfuegbareKgByGST={verfuegbareKgByGST}
           zukaufTrauben={zukaufTrauben}
           behaelterMitCharge={behaelterMitCharge} onDone={() => setShowForm(false)} />
@@ -914,7 +918,7 @@ export default function PressungSection({ jahrgangId, leseId, pressungen, wgOpti
             return (
               <div key={p.id}>
                 {editId === p.id ? (
-                  <PressungForm pressung={p} jahrgangId={jahrgangId} leseId={leseId} wgOptions={wgOptions}
+                  <PressungForm pressung={p} jahrgangId={jahrgangId} leseId={leseId} leseArt={leseArt} wgOptions={wgOptions}
                     behOptions={behOptions} waOptions={waOptions} leseParzellen={leseParzellen} leseEintraege={leseEintraege}
                     verfuegbareKgByGST={verfuegbareKgByGST} zukaufTrauben={zukaufTrauben}
                     behaelterMitCharge={undefined}
