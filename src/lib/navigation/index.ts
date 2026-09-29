@@ -86,7 +86,7 @@ const NAV: NavGroup[] = [
       // „Maßnahmen“, „Betriebsmittel“ ans Ende – Reihenfolge Rieden · Maßnahmen · • Behandlungsprotokoll
       // · • Cu-Bilanz · • Nährstoffbilanz · Lese · • AMA-Erntemeldung · Betriebsmittel. Jeder
       // Unterpunkt bleibt bei seinem Hauptpunkt (Variante von Jörgen gewählt).
-      { href: '/erntemeldung',       label: 'Lese',           phase: 1, keywords: 'ernte jahrgang pressung erntemeldung' },
+      { href: '/erntemeldung',       label: 'Lese',           phase: 1, keywords: 'ernte jahrgang pressung erntemeldung neue lese eiswein hauptlese' },
       { href: '/reports/ama',        label: 'AMA-Erntemeldung', child: true, pflichtmeldung: true, keywords: 'weinerntemeldung lesedaten weinbestandsmeldung bestandsmeldung stichtag weindatenbank behörde meldung druck csv' },
       { href: '/behandlungen/lager', label: 'Betriebsmittel', phase: 1, keywords: 'psm lager dünger' },
     ],

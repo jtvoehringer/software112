@@ -119,6 +119,15 @@ export function leseZeitraumFehler(jahrgang: number, beginn: string | null, ende
 }
 
 /**
+ * Lesen, in deren Zeitraum ein Datum fällt (Beginn/Ende offen = unbegrenzt) – für den Assistenten: eindeutig nur,
+ * wenn genau eine Lese passt (Ticket Soll 9), sonst Rückfrage nach der Lese.
+ */
+export function lesenZumDatum<L extends Pick<Lese, 'beginn' | 'ende'>>(lesen: readonly L[], datum: string): L[] {
+  const tag = datum.slice(0, 10)
+  return lesen.filter(l => (!l.beginn || l.beginn.slice(0, 10) <= tag) && (!l.ende || l.ende.slice(0, 10) >= tag))
+}
+
+/**
  * Welche Lese die Jahrgangsseite zeigt: `?lese=<Nr.>`, sonst die mit der höchsten Nummer (die jüngste
  * Lesekampagne). Unbekannte Nummer → ebenfalls die höchste. Leere Liste → null.
  */

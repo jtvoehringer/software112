@@ -341,8 +341,9 @@ export async function POST(req: NextRequest) {
         { const { error: e } = await (supabase.from('assistent_aktionen') as any).insert({
           unterhaltung_id: unterhaltungId,
           prozess: 'ernte_erfassen',
-          ziel_tabelle: 'ernte_parzellen',
-          ziel_id: ergebnis.jahrgang_id,
+          // N6 (KAN-129): ziel_id muss zur ziel_tabelle passen – die Lese (bzw. ohne Lese der Jahrgang)
+          ziel_tabelle: ergebnis.lese_id ? 'lesen' : 'weinjahrgaenge',
+          ziel_id: ergebnis.lese_id ?? ergebnis.jahrgang_id,
           erstellt_von: user.id,
         })
           if (e) void ereignisMelden({ art: 'db', quelle: 'chat/assistent_aktionen', meldung: e.message }) }
