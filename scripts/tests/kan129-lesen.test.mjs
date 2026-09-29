@@ -66,7 +66,7 @@ const ACTIONS = lies('src/app/(dashboard)/erntemeldung/actions.ts')
 test('Verdrahtung: neue Einträge und Pressungen bekommen die gewählte Lese', () => {
   assert.ok(ACTIONS.includes("insert(leseId ? { ...payload, lese_id: leseId } : payload)"), 'upsertErnteParzelle')
   assert.ok(ACTIONS.includes("const base = { jahrgang_id: jahrgangId, ernte_datum: ernteDatum, ...(leseId ? { lese_id: leseId } : {}) }"), 'createMultipleErnteParzellen')
-  assert.ok(ACTIONS.includes("notizen, ...(leseId ? { lese_id: leseId } : {}) })"), 'upsertPressung')
+  assert.ok(ACTIONS.includes('notizen, lese_id: lesePressung?.id })'), 'upsertPressung')
   // Lese muss zu Jahrgang und Betrieb gehören
   assert.ok(ACTIONS.includes(".select('id').eq('id', leseId).eq('jahrgang_id', jahrgangId).eq('tenant_id', tenantId)"))
   const detail = lies('src/app/(dashboard)/erntemeldung/[id]/ErnteDetailClient.tsx')

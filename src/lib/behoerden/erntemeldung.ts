@@ -20,6 +20,7 @@ import { alle } from '@/lib/supabase/alle'
 import { bkiRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
 import { mischen } from '@/lib/wein/mostgewicht'
 import { qualitaetLabel } from '@/lib/wein/qualitaet'
+import { leseTitel } from '@/lib/wein/lesen'
 import { MeldungsFehler } from './typen'
 import { Hinweise, datumAT, kuerzelWarnungen, textOderNull, zahlOderNull } from './ernte_hilfen'
 import { gemessenInText, mostgewichtFuerExport, type MostgewichtExport } from './mostgewicht_export'
@@ -75,6 +76,10 @@ export type LeseZeile = {
   id: string
   /** Lese des Eintrags (KAN-129, lesen.id) */
   leseId: string | null
+  /** „2026/1 Hauptlese“ (KAN-129, CSV-Spalte „Lese“) */
+  lese: string | null
+  /** lfd. Nr. der Lese – Sortierung/Gruppierung */
+  leseNr: number | null
   weingartenId: string | null
   /** Ried (weingarten.name) */
   ried: string | null
@@ -108,6 +113,13 @@ export type LeseZeile = {
   notizen: string | null
 }
 
+function leseFelder(l: R | null): { lese: string | null; leseNr: number | null } {
+  const nr = zahlOderNull(l?.lfd_nr)
+  const jahr = zahlOderNull((l?.jahrgang as R | null)?.jahrgang)
+  if (nr === null) return { lese: null, leseNr: null }
+  return { lese: jahr === null ? String(nr) : leseTitel(jahr, { lfd_nr: nr, art: textOderNull(l?.art) ?? '', bezeichnung: null }), leseNr: nr }
+}
+
 function zuLeseZeile(p: R): LeseZeile {
   const wg = (p.weingarten ?? null) as R | null
   const gst = (p.grundstueck ?? null) as R | null
@@ -118,6 +130,7 @@ function zuLeseZeile(p: R): LeseZeile {
   return {
     id: p.id,
     leseId: textOderNull(p.lese_id),
+    ...leseFelder(p.lese as R | null),
     weingartenId: p.weingarten_id ?? null,
     ried: textOderNull(wg?.name),
     weingartenRebsorte,
@@ -160,7 +173,7 @@ export async function ladeLesedaten(supabase: Client, jahrgangId: string): Promi
   const { data, error } = await alle<R>(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('ernte_parzellen') as any)
-      .select('id, lese_id, weingarten_id, grundstueck_id, ernte_datum, menge_kg, menge_hl, oechsle, klosterneuburger, mostgewicht_einheit, qualitaetsstufe, lesemethode, notizen, weingarten:weingarten_id(name, rebsorte, flaeche_ha), grundstueck:grundstueck_id(gst_nr, katastralgemeinde, rebsorte, flaeche_ha)')
+      .select('id, lese_id, lese:lesen!ernte_parzellen_lese_fkey(lfd_nr, art, jahrgang:weinjahrgaenge!lesen_jahrgang_fkey(jahrgang)), weingarten_id, grundstueck_id, ernte_datum, menge_kg, menge_hl, oechsle, klosterneuburger, mostgewicht_einheit, qualitaetsstufe, lesemethode, notizen, weingarten:weingarten_id(name, rebsorte, flaeche_ha), grundstueck:grundstueck_id(gst_nr, katastralgemeinde, rebsorte, flaeche_ha)')
       .eq('jahrgang_id', jahrgangId)
       .order('ernte_datum', { ascending: true })
       .order('id'),
@@ -194,7 +207,34 @@ export const SPALTEN_LESEDATEN: CsvSpalte<LeseZeile>[] = [
   { kopf: 'Qualitätsstufe', typ: 'text', wert: z => (z.qualitaetsstufe ? qualitaetLabel(z.qualitaetsstufe) : null) },
   { kopf: 'Lesemethode', typ: 'text', wert: z => (z.lesemethode ? LESEMETHODE_LABEL[z.lesemethode] ?? z.lesemethode : null) },
   { kopf: 'Notizen', typ: 'text', wert: z => z.notizen },
+  // KAN-129 (Frage 8): Lese als letzte Spalte – die bisherigen Spaltenpositionen bleiben
+  { kopf: 'Lese', typ: 'text', wert: z => z.lese },
 ]
+
+// ── Stichtag 30.11. (KAN-129 Frage 7, Entscheidung Jörgen 29.09.2026) ─────────────────────────────────────
+// Die Erntemeldung erfasst das Lesegut zum 30. November (§ 29 Abs. 1 WeinG). Später Gelesenes (z. B. Eiswein im
+// Jänner) zählt bis zur Klärung (KAN-38) nicht in Erntemeldung und AMA-Meldung, sondern wird gesondert
+// ausgewiesen. Hektarhöchstertrag und Lesedaten umfassen weiter den ganzen Jahrgang. Ohne Datum zählt mit.
+
+export function erntemeldungStichtag(jahrgang: number): string {
+  return `${jahrgang}-11-30`
+}
+
+export function teileNachStichtag<Z extends { datum: string | null }>(zeilen: readonly Z[], jahrgang: number): { bis: Z[]; danach: Z[] } {
+  const stichtag = erntemeldungStichtag(jahrgang)
+  const bis: Z[] = []
+  const danach: Z[] = []
+  for (const z of zeilen) (z.datum && z.datum.slice(0, 10) > stichtag ? danach : bis).push(z)
+  return { bis, danach }
+}
+
+/** Hinweis auf Lesegut nach dem Stichtag (je Rebsorte) oder null */
+export function stichtagHinweis(danach: readonly LeseZeile[], jahrgang: number): string | null {
+  const summen = aggregiereJeRebsorte(danach.map(parzelleFuerMeldung)).filter(s => s.mengeKg > 0)
+  if (summen.length === 0) return null
+  const liste = summen.map(s => `${s.rebsorte} ${fmtKg(runden(s.mengeKg, STELLEN.kg))} kg`).join(', ')
+  return `Nach dem Stichtag 30.11.${jahrgang} gelesen und in der Erntemeldung nicht enthalten (gesondert auszuweisen): ${liste}.`
+}
 
 // ── Aggregation je Rebsorte (Vorschau, Druck, „AMA-Meldung erstellen“) ───────
 
@@ -472,10 +512,15 @@ export async function ladeErntemeldung(supabase: Client, tenantId: string, jg: J
   const verkauft = verkaufRes.je
   if (verkaufRes.hinweis) warnungen.push(verkaufRes.hinweis)
 
+  // KAN-129: nur Lesegut bis zum Stichtag 30.11.; späteres gesondert (Hinweis)
+  const stichtag = teileNachStichtag(lese.zeilen, jg.jahrgang)
+  const nachStichtag = stichtagHinweis(stichtag.danach, jg.jahrgang)
+  if (nachStichtag) warnungen.push(nachStichtag)
+
   // Vorschau je Rebsorte aus den Lesedaten – Grundlage ohne Meldung und Abgleich mit Meldung
-  const summen = aggregiereJeRebsorte(lese.zeilen.map(parzelleFuerMeldung))
+  const summen = aggregiereJeRebsorte(stichtag.bis.map(parzelleFuerMeldung))
   const vorschau = new Map(summen.map(s => [s.rebsorte, s]))
-  const kmw = kmwJeRebsorte(lese.zeilen)
+  const kmw = kmwJeRebsorte(stichtag.bis)
   const stufeAusLese = (s: RebsortenSumme) => (s.qualitaetsstufen.length === 1 ? s.qualitaetsstufen[0] : null)
   const hlAusLese = (s: RebsortenSumme) => (s.hlGeschaetzt ? null : s.mengeHl)
 
@@ -503,7 +548,7 @@ export async function ladeErntemeldung(supabase: Client, tenantId: string, jg: J
         oechsle: kmw.get(rebsorte)?.oechsle ?? null,
       }
     })
-    const leseKg = runden(lese.zeilen.reduce((s, z) => s + (z.mengeKg ?? 0), 0), STELLEN.kg)
+    const leseKg = runden(stichtag.bis.reduce((s, z) => s + (z.mengeKg ?? 0), 0), STELLEN.kg)
     const meldungKg = zahlOderNull(meldung.gesamtmenge_kg)
     if (meldungKg !== null && runden(meldungKg, STELLEN.kg) !== leseKg) {
       warnungen.push(`Die Lesedaten wurden nach dem Erstellen der AMA-Meldung geändert (Meldung ${fmtKg(meldungKg)} kg, Lesedaten ${fmtKg(leseKg)} kg) – auf der Lese-Seite „Neu berechnen“ und die Datei neu erstellen.`)

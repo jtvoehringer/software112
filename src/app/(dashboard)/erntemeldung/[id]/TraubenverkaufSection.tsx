@@ -78,8 +78,10 @@ const fmtDate = (d: string) =>
 
 // ── Formular ──────────────────────────────────────────────────────────────────
 
-function TVForm({ jahrgangId, tv, quelleOptions, zukaufOptions, kontaktOptions, firmaOptions, onDone }: {
+function TVForm({ jahrgangId, leseId, tv, quelleOptions, zukaufOptions, kontaktOptions, firmaOptions, onDone }: {
   jahrgangId: string
+  /** KAN-129: gewählte Lese (Reiter) – ein neuer Verkauf aus eigener Ernte landet in ihr */
+  leseId: string | null
   tv?: Traubenverkauf
   quelleOptions: TVQuelleOption[]
   zukaufOptions: ZukaufTraubenOpt[]
@@ -169,6 +171,7 @@ function TVForm({ jahrgangId, tv, quelleOptions, zukaufOptions, kontaktOptions, 
     const formular = new FormData(e.currentTarget)
     const fd = new FormData()
     fd.append('jahrgang_id', jahrgangId)
+    if (leseId && !tv) fd.append('lese_id', leseId)
     if (quelle === 'zukauf') {
       fd.append('zukauf_posten_id', zukaufId)
     } else {
@@ -389,9 +392,11 @@ function TVForm({ jahrgangId, tv, quelleOptions, zukaufOptions, kontaktOptions, 
 // ── Hauptexport ───────────────────────────────────────────────────────────────
 
 export default function TraubenverkaufSection({
-  jahrgangId, jahrgang, bkiErlaubt, verkauefe, quelleOptions, zukaufOptions, kontaktOptions, firmaOptions, writeOk, adminOk,
+  jahrgangId, leseId, jahrgang, bkiErlaubt, verkauefe, quelleOptions, zukaufOptions, kontaktOptions, firmaOptions, writeOk, adminOk,
 }: {
   jahrgangId: string
+  /** KAN-129: gewählte Lese (Reiter der Jahrgangsseite) */
+  leseId: string | null
   /** Jahrgang (Jahreszahl) – Parameter des BKI-Datenblatts und Teil des Dateinamens */
   jahrgang: number
   /** BKI-Datenblatt (Pflichtmeldung) – gleiche Regel wie die CSV-Route */
@@ -486,7 +491,7 @@ export default function TraubenverkaufSection({
       {fehler && <Fehlermeldung text={fehler} onClose={() => setFehler(null)} />}
 
       {showForm && !editId && (
-        <TVForm jahrgangId={jahrgangId} quelleOptions={quelleOptions} zukaufOptions={zukaufOptions}
+        <TVForm jahrgangId={jahrgangId} leseId={leseId} quelleOptions={quelleOptions} zukaufOptions={zukaufOptions}
           kontaktOptions={kontaktOptions} firmaOptions={firmaOptions}
           onDone={() => setShowForm(false)} />
       )}
@@ -500,7 +505,7 @@ export default function TraubenverkaufSection({
           {verkauefe.map(v => (
             <div key={v.id}>
               {editId === v.id ? (
-                <TVForm tv={v} jahrgangId={jahrgangId} quelleOptions={quelleOptions} zukaufOptions={zukaufOptions}
+                <TVForm tv={v} jahrgangId={jahrgangId} leseId={leseId} quelleOptions={quelleOptions} zukaufOptions={zukaufOptions}
                   kontaktOptions={kontaktOptions} firmaOptions={firmaOptions}
                   onDone={() => setEditId(null)} />
               ) : (

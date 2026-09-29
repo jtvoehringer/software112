@@ -10,18 +10,19 @@ import { stornoVerkauf } from '@/app/(dashboard)/weinhandel/verkauf/actions'
 import { getCurrentMembership, canAdmin, type Membership } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
-import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
+import { AktionsFehler, dbFehlerText, LESE_WAEHLEN_MELDUNG } from '@/lib/fehler'
 import { dezimal, fmtNum, zahlAus } from '@/lib/format'
 import { folgebuchungenDerCharge, folgebuchungenText, sperreBeiFolgebuchungen } from '@/lib/kellerbuch/folgebuchungen'
 import { GEBINDEWECHSEL_OHNE } from '@/lib/kellerbuch/storno'
 import { KORREKTUR_NACH_OBEN_HINWEIS } from '@/lib/kellerbuch/hinweise'
-import { aggregiereJeRebsorte, KG_JE_HL, ladeLesedaten, parzelleFuerMeldung } from '@/lib/behoerden/erntemeldung'
+import { aggregiereJeRebsorte, KG_JE_HL, ladeLesedaten, parzelleFuerMeldung, teileNachStichtag } from '@/lib/behoerden/erntemeldung'
 import { runden, STELLEN } from '@/lib/csv'
 import { mostgewichtAusFormular, mostgewichtAusWert, mostgewichtSpalten } from '@/lib/wein/mostgewichtFormular'
 import type { Mostgewicht } from '@/lib/wein/mostgewicht'
 import { istErntebar, leseZiele, verteileKg, type LeseGst, type LeseZiel } from '@/lib/wein/leseErfassung'
 import { lesedatumFehler, behaelterPruefung } from '@/lib/wein/pressungLesedatum'
 import { istLeseArt, jahrgangAusEingabe, leseLoeschsperre, leseZeitraumFehler } from '@/lib/wein/lesen'
+import { ladeLesenDesJahrgangs, leseDeckungFehler, leseFuerDatum, traubenverkaufLese } from '@/lib/wein/leseBilanz'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -401,7 +402,7 @@ export async function upsertErnteParzelle(jahrgangId: string, formData: FormData
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function ladeErnteParzelle(supabase: any, id: string, jahrgangId: string): Promise<AR> {
   const { data, error } = await (supabase.from('ernte_parzellen') as any)
-    .select('id, weingarten_id, grundstueck_id, menge_kg, ernte_datum, weingarten:weingarten_id(name), grundstueck:grundstueck_id(gst_nr)')
+    .select('id, lese_id, weingarten_id, grundstueck_id, menge_kg, ernte_datum, weingarten:weingarten_id(name), grundstueck:grundstueck_id(gst_nr)')
     .eq('id', id).eq('jahrgang_id', jahrgangId).maybeSingle()
   if (error) throw new AktionsFehler(dbFehlerText(error, 'Lesedaten konnten nicht geladen werden'))
   if (!data) throw new AktionsFehler('Lesedaten nicht gefunden – bitte die Seite neu laden.')
@@ -457,13 +458,15 @@ async function pruefeLesemengeGedeckt(
   if (neuKg >= altKg) return                       // an der bisherigen Stelle wird nichts weniger
   const minderung = altKg - neuKg
 
+  // KAN-129: Bilanz je Lese – nur Einträge, Pressungen und Traubenverkäufe derselben Lese
+  const leseId = alt.lese_id as string
   const [parzRes, pressRes, tvRes] = await Promise.all([
     (supabase.from('ernte_parzellen') as any)
-      .select('grundstueck_id, menge_kg').eq('jahrgang_id', jahrgangId).eq('weingarten_id', alt.weingarten_id),
+      .select('grundstueck_id, menge_kg').eq('jahrgang_id', jahrgangId).eq('lese_id', leseId).eq('weingarten_id', alt.weingarten_id),
     (supabase.from('pressungen') as any)
-      .select('id').eq('jahrgang_id', jahrgangId).eq('tenant_id', tenantId),
+      .select('id').eq('jahrgang_id', jahrgangId).eq('lese_id', leseId).eq('tenant_id', tenantId),
     (supabase.from('traubenverkauf') as any)
-      .select('grundstueck_id, menge_kg').eq('jahrgang_id', jahrgangId).eq('weingarten_id', alt.weingarten_id).eq('tenant_id', tenantId),
+      .select('grundstueck_id, menge_kg').eq('jahrgang_id', jahrgangId).eq('lese_id', leseId).eq('weingarten_id', alt.weingarten_id).eq('tenant_id', tenantId),
   ])
   for (const [tabelle, res] of [['ernte_parzellen', parzRes], ['pressungen', pressRes], ['traubenverkauf', tvRes]] as const) {
     if (res.error) throw new AktionsFehler(dbFehlerText(res.error, `Lesemenge konnte nicht geprüft werden (${tabelle})`))
@@ -705,11 +708,12 @@ export async function createOrUpdateAMAMeldung(jahrgangId: string) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
   // ernte_parzellen hat keine tenant_id – erst den Jahrgang des aktiven Betriebs prüfen
-  await ladeJahrgang(supabase, tenantId, jahrgangId)
+  const jgMeldung = await ladeJahrgang(supabase, tenantId, jahrgangId)
 
   // Lesedaten über die gemeinsame Ladefunktion (Behördenmeldungen „Erntemeldung“/„Lesedaten“):
   // Druck, CSV-Vorschau und die hier gespeicherte Meldung rechnen damit gleich.
-  const { zeilen: lese } = await ladeLesedaten(supabase, jahrgangId)
+  // KAN-129: nur Lesegut bis zum Stichtag 30.11. (späteres gesondert, wie ladeErntemeldung)
+  const lese = teileNachStichtag((await ladeLesedaten(supabase, jahrgangId)).zeilen, Number(jgMeldung.jahrgang)).bis
   // Weinbaugebiet steht nur am Ried – für die Meldung aus den geernteten Rieden ableiten
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: parzellen, error: pFehler } = await (supabase.from('ernte_parzellen') as any)
@@ -1099,7 +1103,7 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
   if (existingId) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: pAlt, error: pAltErr } = await (supabase.from('pressungen') as any)
-      .select('id, jahrgang_id, datum, most_liter_gesamt').eq('id', existingId).eq('tenant_id', tenantId).maybeSingle()
+      .select('id, jahrgang_id, lese_id, datum, most_liter_gesamt').eq('id', existingId).eq('tenant_id', tenantId).maybeSingle()
     if (pAltErr) throw new AktionsFehler(dbFehlerText(pAltErr, 'Pressung konnte nicht geladen werden'))
     if (!pAlt) throw new AktionsFehler('Pressung nicht gefunden – bitte die Seite neu laden.')
     jahrgangId = (pAlt as AR).jahrgang_id as string
@@ -1322,6 +1326,23 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
     }
   }
 
+  // ── KAN-129: Lese der Pressung und kg-Bilanz je Lese ───────────────────────
+  // Entscheidung Jörgen 29.09.2026: je Lese, serverseitig sperren – verpresst + verkauft ≤ gelesen je Ort.
+  // Neue Pressung: gewählter Reiter, sonst wie die Datenbank nach Datum; beim Bearbeiten bleibt die Lese.
+  const lesenJg = await ladeLesenDesJahrgangs(supabase, tenantId, jahrgangId)
+  let lesePressung = existingId ? lesenJg.find(l => l.id === (kopfAlt as AR).lese_id) ?? null : null
+  if (!existingId) {
+    const gewaehlt = await leseFuerNeuenEintrag(supabase, tenantId, jahrgangId, fd)
+    lesePressung = gewaehlt ? lesenJg.find(l => l.id === gewaehlt) ?? null : leseFuerDatum(lesenJg, Number(jg.jahrgang), datum)
+    if (!lesePressung) throw new AktionsFehler(LESE_WAEHLEN_MELDUNG)
+  }
+  if (lesePressung) {
+    const deckung = await leseDeckungFehler(supabase, tenantId, jahrgangId, lesePressung, Number(jg.jahrgang), { pressungId: existingId },
+      pwAlt.filter(w => w.weingarten_id).map(w => ({ weingarten_id: w.weingarten_id as string, grundstueck_id: (w.grundstueck_id as string | null) ?? null, kg: Number(w.trauben_kg) || 0 })),
+      weingaerten.filter(w => w.weingarten_id).map(w => ({ weingarten_id: w.weingarten_id, grundstueck_id: w.grundstueck_id, kg: w.trauben_kg })))
+    if (deckung) throw new AktionsFehler(deckung)
+  }
+
   // ── Schreiben ──────────────────────────────────────────────────────────────
   let pressId: string
   if (existingId) {
@@ -1414,11 +1435,10 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
       if (!(pwUpd as AR[] | null)?.length) throw new AktionsFehler('Eine Traubenzeile konnte nicht gespeichert werden – keine Berechtigung oder inzwischen geändert. Bitte die Seite neu laden.')
     }
   } else {
-    // KAN-129: neue Pressung an die gewählte Lese; beim Bearbeiten bleibt die Lese unverändert
-    const leseId = await leseFuerNeuenEintrag(supabase, tenantId, jahrgangId, fd)
+    // KAN-129: neue Pressung an die oben ermittelte Lese; beim Bearbeiten bleibt die Lese unverändert
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: neu, error: neuErr } = await (supabase.from('pressungen') as any)
-      .insert({ tenant_id: tenantId, jahrgang_id: jahrgangId, datum, most_liter_gesamt: mostLiter, weinbezeichnung, kmw_grad: kmwGrad, notizen, ...(leseId ? { lese_id: leseId } : {}) })
+      .insert({ tenant_id: tenantId, jahrgang_id: jahrgangId, datum, most_liter_gesamt: mostLiter, weinbezeichnung, kmw_grad: kmwGrad, notizen, lese_id: lesePressung?.id })
       .select('id').single()
     if (neuErr || !neu) throw new AktionsFehler(dbFehlerText(neuErr, 'Speichern fehlgeschlagen (pressungen)'))
     pressId = (neu as AR).id as string
@@ -1680,11 +1700,6 @@ export async function createTraubenverkauf(fd: FormData) {
   const mostgewicht = mostgewichtAusFormular(fd, 'mostgewicht', { altesFeld: 'kmw_grad' })
   if (!mostgewicht.ok) throw new AktionsFehler(mostgewicht.fehler)
 
-  // Liefernummer auto-generieren
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: lnData } = await (supabase.rpc as any)('get_next_liefernummer', { p_tenant_id: tenantId })
-  const liefernummer = lnData as string | null
-
   const jahrgangId   = fd.get('jahrgang_id') as string | null
   const weingartenId = (fd.get('weingarten_id') as string) || null
   const zukaufPostenId = (fd.get('zukauf_posten_id') as string) || null
@@ -1695,11 +1710,24 @@ export async function createTraubenverkauf(fd: FormData) {
   const firmaId      = (fd.get('firma_id') as string) || null
   const datum        = fd.get('datum') as string
 
+  // KAN-129: Jahrgang des Betriebs (N5), Lese und kg-Bilanz je Lese – vor Liefernummer und Schreiben
+  const lese = await traubenverkaufLese(supabase, tenantId, {
+    jahrgangId: jahrgangId || null, weingartenId, grundstueckId, zukaufPostenId, datum, mengeKg,
+    leseIdFormular: (fd.get('lese_id') as string) || null, leseWaehlenText: LESE_WAEHLEN_MELDUNG,
+  })
+  if (lese.fehler) throw new AktionsFehler(lese.fehler)
+
+  // Liefernummer auto-generieren – erst nach allen Prüfungen (keine Lücke im Nummernkreis)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: lnData } = await (supabase.rpc as any)('get_next_liefernummer', { p_tenant_id: tenantId })
+  const liefernummer = lnData as string | null
+
   const weingartenName = await ermittleQuellenName(supabase, weingartenId, zukaufPostenId, tenantId)
 
   const payload: AR = {
     tenant_id:       tenantId,
     jahrgang_id:     jahrgangId || null,
+    lese_id:         lese.leseId,
     weingarten_id:   weingartenId,
     zukauf_posten_id: zukaufPostenId,
     grundstueck_id:  grundstueckId,
