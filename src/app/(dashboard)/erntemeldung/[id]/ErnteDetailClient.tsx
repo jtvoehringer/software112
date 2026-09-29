@@ -7,7 +7,7 @@ import { kmwZuQualitaet } from '@/lib/weinqualitaet'
 import type { ErnteParzelle, WeingartenOpt, GSTOpt, AMAMeldung, HektarhoechstertragStatus } from './page'
 import PressungSection from './PressungSection'
 import type { Pressung, WGOption, BehOption, WAOption, ZukaufTraubenOpt } from './PressungSection'
-import { fmtHa, fmtZahl, fmtProzent, fmtNum, dezimal } from '@/lib/format'
+import { fmtHa, fmtZahl, fmtProzent, fmtNum, zahlAus } from '@/lib/format'
 import { Pencil, Trash2, AlertTriangle, Plus } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fehlerText } from '@/lib/fehler'
@@ -17,6 +17,11 @@ import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
 import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
 import { messwertText, type GespeichertesMostgewicht } from '@/lib/wein/mostgewichtFormular'
 import { ZEILE_OHNE_MOSTGEWICHT, zeileMostgewichtAendern, type EingabeZustand, type ZeilenMostgewicht } from '@/lib/wein/mostgewichtEingabe'
+import { riedGruppen } from '@/lib/wein/riedAuswahl'
+import {
+  alleKnopfText, bezugsflaeche, leseSuche, leseTreffer, leseZiele, trefferAusgewaehlt, trefferEntfernen, trefferHinzufuegen,
+  trefferTeilweise, verteileKg, verteilungsHinweis, type LeseAuswahl, type LeseTreffer, type LeseZiel,
+} from '@/lib/wein/leseErfassung'
 
 // Qualitätsstufen der Lese: LESE_QUALITAETEN aus lib/wein/qualitaet (KAN-73) – genau die
 // Stufen, die ernte_parzellen speichern kann (DAC, Reserve & Co. erst an der Charge/Füllung)
@@ -33,8 +38,8 @@ const AMA_STATUS_BADGE: Record<string, { label: string; cls: string }> = {
   abgelehnt:   { label: 'Abgelehnt',   cls: 'bg-s112-err-bg text-s112-err-fg' },
 }
 
-// Erfassung je Grundstück in der Sammelerfassung. Mostgewicht (KAN-128) als Messwert mit Einheit aus
-// der Eingabe-Komponente – im Zustand, weil die Zeile beim Zuklappen der Ried verschwindet:
+// Erfassung je Grundstück in der Sammelerfassung („Mengen je Grundstück einzeln erfassen“, KAN-161). Mostgewicht (KAN-128) als Messwert mit Einheit aus
+// der Eingabe-Komponente – im Zustand, weil die Zeile beim Abwählen oder Umschalten verschwindet:
 // zuletzt gültiger Wert, Fehler der aktuellen Eingabe und der Eingabezustand fürs Wiedereinblenden
 // (lib/wein/mostgewichtEingabe.ts, ZeilenMostgewicht).
 type GstEingabe = { menge_kg: string; mg: ZeilenMostgewicht; lesemethode: string; notizen: string }
@@ -110,6 +115,11 @@ function NotizZelle({ text }: { text: string | null }) {
 }
 
 // ── Neu-Formular: Mehrfacherfassung (Checkboxen nach Ried + GST) ──────────────
+// KAN-160: Gruppen aus riedGruppen („Ohne Ried-Zuordnung“ am Ende), „Alle auswählen“ ↔ „Alle abwählen“, nur
+// erntebare Weingärten (mind. ein WI-Grundstück oder gar keine Grundstücke) wählbar.
+// KAN-161: EINE Gesamtmenge für die ganze Auswahl, nach Fläche auf alle gewählten Grundstücke verteilt (Vorschau
+// unten, die Action rechnet mit derselben Funktion und den Flächen aus der Datenbank); wahlweise Mengen je Grundstück.
+// KAN-162: Suche nach Ried, Lage, AMA-Feldstücknummer und GST-Nummer; „Alle Treffer auswählen“ wirkt nur auf Treffer.
 function NeueParzellenForm({
   jahrgangId, weingaerten, gstByWeingarten, onDone,
 }: {
@@ -121,6 +131,11 @@ function NeueParzellenForm({
   const [selectedGSTs, setSelectedGSTs] = useState<Map<string, string>>(new Map())
   const [expandedWGs, setExpandedWGs] = useState<Set<string>>(new Set())
   const [error, setError] = useState<string | null>(null)
+  const [suche, setSuche] = useState('')
+  // Umschalter „Mengen je Grundstück einzeln erfassen“ (KAN-161) – sonst eine Gesamtmenge für die ganze Auswahl
+  const [einzeln, setEinzeln] = useState(false)
+  const [mengeGesamt, setMengeGesamt] = useState('')
+  // Eingaben je Zeile (nur bei Einzelerfassung) – Schlüssel: Grundstück bzw. „wg:<id>“ für einen Weingarten ohne GST
   const [gstData, setGstData] = useState<Map<string, GstEingabe>>(new Map())
   function gstAendern(gstId: string, patch: Partial<GstEingabe>) {
     setGstData(prev => { const n = new Map(prev); n.set(gstId, { ...(n.get(gstId) ?? GST_LEER), ...patch }); return n })
@@ -136,72 +151,85 @@ function NeueParzellenForm({
     })
   }
 
-  const riedMap = new Map<string, WeingartenOpt[]>()
-  for (const w of weingaerten) {
-    const key = w.lage_name ?? 'Alle'
-    const arr = riedMap.get(key) ?? []
-    arr.push(w)
-    riedMap.set(key, arr)
-  }
-  const rieden = Array.from(riedMap.entries()).sort(([a], [b]) => a.localeCompare(b, 'de'))
-  const totalSelCount = selectedWGs.size + selectedGSTs.size
+  const gruppen = riedGruppen(weingaerten)
+  const wgById = new Map(weingaerten.map(w => [w.id, w]))
+  const sucheErg = leseSuche(suche, weingaerten, gstByWeingarten)
+  const auswahl: LeseAuswahl = { weingaerten: selectedWGs, gst: selectedGSTs }
+  const erntebar = (wgs: readonly WeingartenOpt[]) => wgs.filter(w => w.erntebar).map(w => w.id)
+  const alleTreffer = leseTreffer(erntebar(weingaerten), sucheErg)
+  const alleAbwaehlen = trefferAusgewaehlt(alleTreffer, auswahl, gstByWeingarten)
 
+  // Zielflächen und Verteilung – dieselben Funktionen wie createMultipleErnteParzellen
+  const wgFlaeche: Record<string, number | null> = {}
+  for (const w of weingaerten) wgFlaeche[w.id] = w.flaeche_ha
+  const ziele = leseZiele([...selectedWGs], [...selectedGSTs].map(([gst_id, weingarten_id]) => ({ gst_id, weingarten_id })), gstByWeingarten, wgFlaeche)
+  const zielKey = (z: LeseZiel) => z.grundstueck_id ?? `wg:${z.weingarten_id}`
+  const zielName = (z: LeseZiel) => {
+    const w = wgById.get(z.weingarten_id)
+    const g = z.grundstueck_id ? (gstByWeingarten[z.weingarten_id] ?? []).find(x => x.id === z.grundstueck_id) : null
+    return { ried: w?.name ?? '–', gst: g ? `GST ${g.gst_nr}` : 'ohne GST' }
+  }
+  const mengeZahl = zahlAus(mengeGesamt)
+  const mengeUngueltig = mengeGesamt.trim() !== '' && (mengeZahl == null || mengeZahl < 0)
+  const vorschau = verteileKg(mengeUngueltig ? null : mengeZahl, ziele.map(z => z.flaeche_ha))
+  const hinweis = einzeln ? null : verteilungsHinweis(ziele.map(z => z.flaeche_ha))
+  const summeHa = ziele.reduce((s, z) => s + (bezugsflaeche(z.flaeche_ha) ?? 0), 0)
+
+  function umschalten(t: LeseTreffer) {
+    const neu = trefferAusgewaehlt(t, auswahl, gstByWeingarten)
+      ? trefferEntfernen(t, auswahl, gstByWeingarten)
+      : trefferHinzufuegen(t, auswahl)
+    setSelectedWGs(neu.weingaerten)
+    setSelectedGSTs(neu.gst)
+  }
+  function alleUmschalten() {
+    // ohne Suche leert „Alle abwählen“ die ganze Auswahl (wie bei den Maßnahmen, KAN-155)
+    if (!sucheErg.aktiv && alleAbwaehlen) { setSelectedGSTs(new Map()); setSelectedWGs(new Set()); return }
+    umschalten(alleTreffer)
+  }
   function toggleExpand(wgId: string) {
     setExpandedWGs(prev => { const n = new Set(prev); n.has(wgId) ? n.delete(wgId) : n.add(wgId); return n })
-  }
-  function toggleWG(wgId: string) {
-    setSelectedGSTs(prev => { const n = new Map(prev); for (const [gId, wId] of n) { if (wId === wgId) n.delete(gId) } return n })
-    setSelectedWGs(prev => { const n = new Set(prev); n.has(wgId) ? n.delete(wgId) : n.add(wgId); return n })
-  }
-  function toggleGST(gstId: string, wgId: string) {
-    const wasSelected = selectedGSTs.has(gstId)
-    setSelectedWGs(prev => { const n = new Set(prev); n.delete(wgId); return n })
-    setSelectedGSTs(prev => { const n = new Map(prev); wasSelected ? n.delete(gstId) : n.set(gstId, wgId); return n })
-    setGstData(prev => { const n = new Map(prev); wasSelected ? n.delete(gstId) : n.set(gstId, GST_LEER); return n })
-  }
-  function toggleLage(wgs: WeingartenOpt[]) {
-    const ids = wgs.map(w => w.id)
-    const allSel = ids.every(id => selectedWGs.has(id))
-    setSelectedGSTs(prev => { const n = new Map(prev); for (const [gId, wId] of n) { if (ids.includes(wId)) n.delete(gId) } return n })
-    setSelectedWGs(prev => { const n = new Set(prev); allSel ? ids.forEach(id => n.delete(id)) : ids.forEach(id => n.add(id)); return n })
-  }
-  function selectAll() {
-    setSelectedGSTs(new Map())
-    setSelectedWGs(new Set(weingaerten.map(w => w.id)))
   }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (totalSelCount === 0) { setError('Bitte mindestens eine Ried oder ein Grundstück auswählen.'); return }
-    // Ungültiges Mostgewicht einer (evtl. zugeklappten) Grundstückszeile – sonst ginge es still verloren;
-    // beim Aufklappen steht die Eingabe samt Fehler wieder da
-    for (const [gstId, wgId] of selectedGSTs) {
-      const f = gstData.get(gstId)?.mg.fehler
-      if (f) {
-        const gst = (gstByWeingarten[wgId] ?? []).find(g => g.id === gstId)
-        setError(`GST ${gst?.gst_nr ?? ''}: ${f}`)
-        return
+    if (ziele.length === 0) { setError('Bitte mindestens eine Ried oder ein Grundstück auswählen.'); return }
+    if (!einzeln && mengeUngueltig) { setError('Die Menge ist keine gültige Zahl (≥ 0).'); return }
+    // Ungültiges Mostgewicht bzw. ungültige Menge einer Zeile – sonst ginge es still verloren
+    if (einzeln) {
+      for (const z of ziele) {
+        const gstId = zielKey(z)
+        const f = gstData.get(gstId)?.mg.fehler
+        const m = gstData.get(gstId)?.menge_kg ?? ''
+        const name = zielName(z)
+        if (f) { setError(`${name.ried} · ${name.gst}: ${f}`); return }
+        if (m.trim() !== '' && !((zahlAus(m) ?? -1) >= 0)) { setError(`${name.ried} · ${name.gst}: Die Menge ist keine gültige Zahl (≥ 0).`); return }
       }
     }
     setError(null)
     const fd = new FormData(e.currentTarget)
-    selectedWGs.forEach(id => fd.append('weingarten_ids', id))
-    fd.append('grundstueck_json', JSON.stringify(
-      Array.from(selectedGSTs.entries()).map(([gst_id, weingarten_id]) => {
-        const gst = (gstByWeingarten[weingarten_id] ?? []).find(g => g.id === gst_id)
-        const data = gstData.get(gst_id)
+    if (einzeln) {
+      // jede Zeile mit eigener Menge; ohne Eingabe gelten die gemeinsamen Felder
+      fd.append('grundstueck_json', JSON.stringify(ziele.map(z => {
+        const data = gstData.get(zielKey(z))
         const mg = data?.mg.wert ?? null   // ohne Fehler (oben geprüft) = aktuelle Eingabe
         return {
-          gst_id, weingarten_id, flaeche_ha: gst?.flaeche_ha ?? null,
-          menge_kg: data?.menge_kg ? parseFloat(dezimal(data.menge_kg)) : null,
+          gst_id: z.grundstueck_id, weingarten_id: z.weingarten_id,
+          menge_kg: data?.menge_kg?.trim() ? data.menge_kg : null,
           // Messwert und Einheit – die Action rechnet beide Werte selbst (KAN-128)
           mostgewicht_wert: mg ? messwertText(mg) : null,
           mostgewicht_einheit: mg?.einheit ?? null,
           lesemethode: data?.lesemethode || null,
           notizen: data?.notizen || null,
         }
-      })
-    ))
+      })))
+    } else {
+      // Gesamtmenge (Feld menge_kg) – die Action verteilt sie selbst nach den Flächen aus der Datenbank
+      selectedWGs.forEach(id => fd.append('weingarten_ids', id))
+      fd.append('grundstueck_json', JSON.stringify(
+        Array.from(selectedGSTs.entries()).map(([gst_id, weingarten_id]) => ({ gst_id, weingarten_id })),
+      ))
+    }
     startTransition(async () => {
       try { await createMultipleErnteParzellen(jahrgangId, fd); onDone() }
       catch (err) { setError(fehlerText(err)) }
@@ -209,118 +237,110 @@ function NeueParzellenForm({
   }
 
   const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+  const zeileCls = 'w-full border border-s112-border rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-s112-teal/40 bg-white'
+  const sichtbareGruppen = gruppen
+    .map(g => ({ ...g, weingaerten: g.weingaerten.filter(w => sucheErg.weingaerten.has(w.id)) }))
+    .filter(g => g.weingaerten.length > 0)
 
   return (
     <form onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-4 space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-s112-text">Lesedaten erfassen</h3>
-        {totalSelCount > 0 && <span className="text-xs text-s112-blue-700 font-medium">{totalSelCount} gewählt</span>}
+        {ziele.length > 0 && (
+          <span className="text-xs text-s112-blue-700 font-medium">
+            {ziele.length} {ziele.length === 1 ? 'Fläche' : 'Flächen'} · {fmtNum(summeHa, { max: 4 })} ha
+          </span>
+        )}
       </div>
 
       <div className="space-y-2">
-        <div className="flex items-center justify-between mb-1">
-          <label className="block text-xs font-medium text-s112-text-2">Rieden <span className="text-s112-err">*</span></label>
-          <button type="button" onClick={selectAll} className="text-xs text-s112-blue-700 hover:underline">Alle auswählen</button>
+        <div className="flex items-center justify-between gap-2 mb-1">
+          <span className="block text-xs font-medium text-s112-text-2">Rieden <span className="text-s112-err">*</span></span>
+          <button type="button" onClick={alleUmschalten} className="text-xs text-s112-blue-700 hover:underline">
+            {alleKnopfText(alleAbwaehlen, sucheErg.aktiv)}
+          </button>
         </div>
-        {rieden.map(([lageName, wgs]) => {
-          const allLageSel = wgs.every(w => selectedWGs.has(w.id))
-          const someLageSel = wgs.some(w => selectedWGs.has(w.id) || [...selectedGSTs.values()].includes(w.id))
+        <input aria-label="Rieden durchsuchen" type="search" value={suche} onChange={e => setSuche(e.target.value)}
+          placeholder="Suchen: Ried, Lage, AMA-Feldstück-Nr. oder GST-Nr."
+          className={inputCls} />
+        {sucheErg.aktiv && sichtbareGruppen.length === 0 && (
+          <p className="text-xs text-s112-muted px-1">Keine Treffer für „{suche.trim()}“.</p>
+        )}
+        {sichtbareGruppen.map(gruppe => {
+          const wgs = gruppe.weingaerten
+          const gt = leseTreffer(erntebar(wgs), sucheErg)
+          const alleGruppe = trefferAusgewaehlt(gt, auswahl, gstByWeingarten)
+          const teilGruppe = trefferTeilweise(gt, auswahl)
+          const keinErntebar = gt.ganze.length === 0 && gt.einzeln.length === 0
           return (
-            <div key={lageName} className="border border-s112-border rounded-lg overflow-hidden">
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-white cursor-pointer hover:bg-s112-bg/60"
-                onClick={() => toggleLage(wgs)}>
-                <input type="checkbox" readOnly checked={allLageSel}
-                  ref={el => { if (el) el.indeterminate = someLageSel && !allLageSel }}
+            <div key={gruppe.schluessel} className="border border-s112-border rounded-lg overflow-hidden">
+              <label className={`flex items-center gap-2 px-3 py-1.5 bg-white ${keinErntebar ? 'opacity-60' : 'cursor-pointer hover:bg-s112-bg/60'}`}>
+                <input type="checkbox" checked={alleGruppe} disabled={keinErntebar}
+                  aria-label={`${gruppe.name}: alle ${sucheErg.aktiv ? 'Treffer' : 'erntebaren'} auswählen`}
+                  ref={el => { if (el) el.indeterminate = teilGruppe && !alleGruppe }}
+                  onChange={() => umschalten(gt)}
                   className="accent-s112-teal" />
-                <span className="text-xs font-semibold text-s112-text">{lageName}</span>
-                <span className="text-xs text-s112-muted ml-1">{wgs.length} Rieden</span>
-              </div>
+                <span className={`text-xs font-semibold ${gruppe.ohneRied ? 'text-s112-text-2 italic' : 'text-s112-text'}`}>{gruppe.name}</span>
+                <span className="text-xs text-s112-muted ml-1">{wgs.length} {wgs.length === 1 ? 'Ried' : 'Rieden'}</span>
+              </label>
               <div className="divide-y divide-s112-border/40 border-t border-s112-border/40">
                 {wgs.map(w => {
-                  const gsts = gstByWeingarten[w.id] ?? []
-                  const isExpanded = expandedWGs.has(w.id)
-                  const wgSel = selectedWGs.has(w.id)
-                  const gstSelCount = gsts.filter(g => selectedGSTs.has(g.id)).length
-                  const someGstSel = gstSelCount > 0
-                  const allGstSel = gsts.length > 0 && gstSelCount === gsts.length
-                  const isActive = wgSel || someGstSel
+                  const alleGsts = gstByWeingarten[w.id] ?? []
+                  const gstFilter = sucheErg.gstTreffer.get(w.id)
+                  const gsts = gstFilter ? alleGsts.filter(g => gstFilter.has(g.id)) : alleGsts
+                  const isExpanded = !!gstFilter || expandedWGs.has(w.id)
+                  const wt = leseTreffer([w.id], sucheErg)
+                  const wgVoll = w.erntebar && trefferAusgewaehlt(wt, auswahl, gstByWeingarten)
+                  const wgTeil = w.erntebar && trefferTeilweise(wt, auswahl)
+                  const isActive = wgVoll || wgTeil
+                  const fs = w.ama_feldnummer ? `FS ${w.ama_feldnummer}` : null
                   return (
-                    <div key={w.id}>
-                      <div className="flex items-center gap-2 px-4 py-1.5 hover:bg-s112-bg/40">
+                    <div key={w.id} className={!w.erntebar ? 'bg-s112-bg' : ''}>
+                      <div className={`flex items-center gap-2 px-4 py-1.5 ${w.erntebar ? 'hover:bg-s112-bg/40' : 'opacity-50'}`}>
                         <input type="checkbox"
-                          checked={wgSel || allGstSel}
-                          ref={el => { if (el) el.indeterminate = someGstSel && !allGstSel && !wgSel }}
-                          onChange={() => toggleWG(w.id)}
-                          className="accent-s112-teal cursor-pointer" />
-                        {gsts.length > 0 ? (
-                          <button type="button" onClick={() => toggleExpand(w.id)}
+                          aria-label={`${w.name} auswählen`}
+                          checked={wgVoll}
+                          disabled={!w.erntebar}
+                          ref={el => { if (el) el.indeterminate = wgTeil && !wgVoll }}
+                          onChange={() => umschalten(wt)}
+                          className="accent-s112-teal cursor-pointer disabled:cursor-not-allowed" />
+                        {alleGsts.length > 0 && w.erntebar ? (
+                          <button type="button" onClick={() => toggleExpand(w.id)} aria-expanded={isExpanded}
                             className="flex items-center gap-1.5 flex-1 text-left">
                             <svg className={`w-3 h-3 text-s112-muted transition-transform shrink-0 ${isExpanded ? 'rotate-90' : ''}`}
-                              fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                             </svg>
                             <span className={`text-xs ${isActive ? 'font-medium text-s112-blue-700' : 'text-s112-text-1'}`}>{w.name}</span>
-                            <span className="text-xs text-s112-muted ml-auto">{gsts.length} GST</span>
+                            {fs && <span className="text-xs text-s112-muted">· {fs}</span>}
+                            <span className="text-xs text-s112-muted ml-auto">
+                              {gstFilter ? `${gsts.length} von ${alleGsts.length} GST` : `${alleGsts.length} GST`}
+                            </span>
                           </button>
                         ) : (
-                          <label className="flex items-center gap-1.5 flex-1 cursor-pointer">
+                          <span className="flex items-center gap-1.5 flex-1">
                             <span className={`text-xs ${isActive ? 'font-medium text-s112-blue-700' : 'text-s112-text-1'}`}>{w.name}</span>
-                          </label>
+                            {fs && <span className="text-xs text-s112-muted">· {fs}</span>}
+                            {!w.erntebar && <span className="text-xs text-s112-muted ml-auto">nicht erntebar (kein Grundstück der Nutzart WI)</span>}
+                          </span>
                         )}
                       </div>
-                      {isExpanded && gsts.length > 0 && (
+                      {isExpanded && w.erntebar && gsts.length > 0 && (
                         <div className="bg-white border-t border-s112-border/20">
                           {gsts.map(g => {
-                            const isGstSel = selectedGSTs.has(g.id)
+                            const isGstSel = selectedGSTs.has(g.id) || selectedWGs.has(w.id)
                             return (
-                              <React.Fragment key={g.id}>
-                                <label className={`flex items-center gap-2 pl-10 pr-4 py-1 text-xs cursor-pointer hover:bg-s112-bg/30 ${isGstSel ? 'bg-s112-teal/5' : ''}`}>
-                                  <input type="checkbox"
-                                    checked={isGstSel}
-                                    onChange={() => toggleGST(g.id, w.id)}
-                                    className="accent-s112-teal" />
-                                  <span className={`font-mono ${isGstSel ? 'text-s112-blue-700 font-medium' : 'text-s112-text-2'}`}>
-                                    GST {g.gst_nr}
-                                  </span>
-                                  {g.rebsorte && <span className="text-s112-muted">· {formatRebsorteMitKuerzel(g.rebsorte)}</span>}
-                                  {g.flaeche_ha && <span className="text-s112-muted ml-auto">{g.flaeche_ha.toFixed(4)} ha</span>}
-                                </label>
-                                {isGstSel && (
-                                  <div className="pl-10 pr-4 pb-2 pt-1 bg-s112-teal/5 border-b border-s112-border/20">
-                                    <div className="grid grid-cols-4 gap-2">
-                                      <div>
-                                        <label className="block text-xs text-s112-text-2 mb-0.5">Menge kg</label>
-                                        <input aria-label="Menge kg" type="text" inputMode="decimal" placeholder="–"
-                                          value={gstData.get(g.id)?.menge_kg ?? ''}
-                                          onChange={e => gstAendern(g.id, { menge_kg: e.target.value })}
-                                          className="w-full border border-s112-border rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-s112-teal/40 bg-white" />
-                                      </div>
-                                      <div>
-                                        <label className="block text-xs text-s112-text-2 mb-0.5">Lesemethode</label>
-                                        <select aria-label="Lesemethode"
-                                          value={gstData.get(g.id)?.lesemethode ?? ''}
-                                          onChange={e => gstAendern(g.id, { lesemethode: e.target.value })}
-                                          className="w-full border border-s112-border rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-s112-teal/40 bg-white">
-                                          <option value="">–</option>
-                                          {LESEMETHODE_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                                        </select>
-                                      </div>
-                                      <div className="col-span-2">
-                                        <label className="block text-xs text-s112-text-2 mb-0.5">Notizen</label>
-                                        <input aria-label="Notizen" type="text" placeholder="–"
-                                          value={gstData.get(g.id)?.notizen ?? ''}
-                                          onChange={e => gstAendern(g.id, { notizen: e.target.value })}
-                                          className="w-full border border-s112-border rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-s112-teal/40 bg-white" />
-                                      </div>
-                                      {/* Mostgewicht in °KMW oder °Oe (KAN-128), bevorzugte Einheit zuerst */}
-                                      <div className="col-span-4">
-                                        <GstMostgewicht gstId={g.id} zeile={gstData.get(g.id)?.mg ?? ZEILE_OHNE_MOSTGEWICHT}
-                                          onChange={zustand => gstMostgewichtAendern(g.id, zustand)} />
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-                              </React.Fragment>
+                              <label key={g.id} className={`flex items-center gap-2 pl-10 pr-4 py-1 text-xs cursor-pointer hover:bg-s112-bg/30 ${isGstSel ? 'bg-s112-teal/5' : ''}`}>
+                                <input type="checkbox"
+                                  checked={isGstSel}
+                                  onChange={() => umschalten({ ganze: [], einzeln: [{ gst_id: g.id, weingarten_id: w.id }] })}
+                                  className="accent-s112-teal" />
+                                <span className={`font-mono ${isGstSel ? 'text-s112-blue-700 font-medium' : 'text-s112-text-2'}`}>
+                                  GST {g.gst_nr}
+                                </span>
+                                {g.rebsorte && <span className="text-s112-muted">· {formatRebsorteMitKuerzel(g.rebsorte)}</span>}
+                                <span className="text-s112-muted ml-auto">{g.flaeche_ha ? `${g.flaeche_ha.toFixed(4)} ha` : 'ohne Fläche'}</span>
+                              </label>
                             )
                           })}
                         </div>
@@ -339,54 +359,119 @@ function NeueParzellenForm({
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Ernte-Datum</label>
           <input aria-label="Ernte-Datum" name="ernte_datum" type="date" defaultValue={new Date().toISOString().split('T')[0]} className={inputCls} />
         </div>
-
-        {/* Die "zweite Möglichkeit" (Menge/°KMW/Lesemethode formularweit erfassen) entfällt,
-            sobald einzelne Grundstücke ausgewählt sind - dort werden diese Werte direkt pro
-            GST erfasst (siehe oben). Sie wird nur gezeigt, wenn ausschließlich ganze Rieden
-            gewählt wurden. Die Qualitätsstufe wird dabei automatisch aus den °KMW abgeleitet
-            (kein manuelles Übernehmen mehr nötig). */}
-        {selectedGSTs.size === 0 ? (
-          <>
-            <div>
-              <label className="block text-xs font-medium text-s112-text-2 mb-1">Lesemethode</label>
-              <select aria-label="Lesemethode" name="lesemethode" className={inputCls}>
-                <option value="">–</option>
-                {LESEMETHODE_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-s112-text-2 mb-1">
-                Menge kg <span className="text-s112-muted font-normal">(anteilsmäßig auf GST aufgeteilt)</span>
-              </label>
-              <input aria-label="Menge kg (anteilsmäßig auf GST aufgeteilt)" name="menge_kg" type="text" inputMode="decimal" className={inputCls} placeholder="–" />
-            </div>
-            <div className="col-span-2">
-              {/* Mostgewicht in °KMW oder °Oe (KAN-128) – die Qualitätsstufe folgt aus den °KMW
-                  (bei °Oe-Messung aus dem umgerechneten, gespeicherten °KMW; ohne Mostgewicht Qualitätswein) */}
-              <MostgewichtEingabe name="mostgewicht" label="Mostgewicht & Qualitätsstufe" qualitaetsVorschau />
-              <p className="text-xs text-s112-muted mt-0.5">Qualitätsstufe wird automatisch aus den °KMW abgeleitet (ohne Mostgewicht: Qualitätswein).</p>
-            </div>
-          </>
-        ) : (
-          <div className="col-span-2 -mt-1">
-            <p className="text-xs text-s112-muted">
-              Menge, Mostgewicht und Lesemethode werden für ausgewählte Grundstücke direkt dort erfasst (siehe oben).
-            </p>
+        <div>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Lesemethode</label>
+          <select aria-label="Lesemethode" name="lesemethode" className={inputCls}>
+            <option value="">–</option>
+            {LESEMETHODE_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </div>
+        {!einzeln && (
+          <div className="col-span-2">
+            <label htmlFor="lese-menge-gesamt" className="block text-xs font-medium text-s112-text-2 mb-1">
+              Menge kg gesamt <span className="text-s112-muted font-normal">(nach Fläche auf alle gewählten Grundstücke aufgeteilt)</span>
+            </label>
+            <input id="lese-menge-gesamt" name="menge_kg" type="text" inputMode="decimal" placeholder="–"
+              value={mengeGesamt} onChange={e => setMengeGesamt(e.target.value)}
+              aria-invalid={mengeUngueltig || undefined}
+              className={inputCls} />
+            {mengeUngueltig && <p className="text-xs text-s112-err-fg mt-0.5">Bitte eine Zahl ≥ 0 eingeben.</p>}
           </div>
         )}
-
+        <div className="col-span-2">
+          {/* Mostgewicht in °KMW oder °Oe (KAN-128) – die Qualitätsstufe folgt aus den °KMW
+              (bei °Oe-Messung aus dem umgerechneten, gespeicherten °KMW; ohne Mostgewicht Qualitätswein).
+              Bei Einzelerfassung gilt es für jede Zeile ohne eigenes Mostgewicht. */}
+          <MostgewichtEingabe name="mostgewicht" label="Mostgewicht & Qualitätsstufe" qualitaetsVorschau />
+          <p className="text-xs text-s112-muted mt-0.5">Qualitätsstufe wird automatisch aus den °KMW abgeleitet (ohne Mostgewicht: Qualitätswein).</p>
+        </div>
         <div className="col-span-2">
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
           <input aria-label="Notizen" name="notizen" className={inputCls} placeholder="optional" />
         </div>
       </div>
 
-      {error && <p className="text-xs text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2">{error}</p>}
+      {/* Verteilung (KAN-161): Vorschau je Grundstück bzw. Eingabe je Grundstück */}
+      {ziele.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <p className="text-xs font-medium text-s112-text-2">
+              {einzeln ? 'Mengen je Grundstück' : 'Verteilung der Menge'}
+            </p>
+            <label className="flex items-center gap-1.5 text-xs text-s112-text-2 cursor-pointer">
+              <input type="checkbox" checked={einzeln} onChange={e => setEinzeln(e.target.checked)} className="accent-s112-teal" />
+              Mengen je Grundstück einzeln erfassen
+            </label>
+          </div>
+          {hinweis && <p role="status" className="text-xs text-s112-warn-fg bg-s112-warn-bg rounded-lg px-3 py-1.5">{hinweis}</p>}
+          <div className="border border-s112-border rounded-lg bg-white divide-y divide-s112-border/40 max-h-96 overflow-y-auto">
+            {ziele.map((z, i) => {
+              const gstId = zielKey(z)
+              const name = zielName(z)
+              const ha = bezugsflaeche(z.flaeche_ha)
+              return (
+                <div key={gstId} className="px-3 py-1.5 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="text-s112-text-1 truncate">{name.ried}</span>
+                    <span className="font-mono text-s112-text-2">{name.gst}</span>
+                    <span className="text-s112-muted">{ha != null ? `${fmtNum(ha, { max: 4 })} ha` : 'ohne Fläche'}</span>
+                    {!einzeln && (
+                      <span className="ml-auto tabular-nums font-medium text-s112-text">
+                        {vorschau[i] == null ? '–' : `${fmtNum(vorschau[i] as number, { max: 2 })} kg`}
+                      </span>
+                    )}
+                  </div>
+                  {einzeln && (
+                    <div className="grid grid-cols-4 gap-2 mt-1">
+                      <div>
+                        <label className="block text-xs text-s112-text-2 mb-0.5">Menge kg</label>
+                        <input aria-label={`Menge kg ${name.ried} ${name.gst}`} type="text" inputMode="decimal" placeholder="–"
+                          value={gstData.get(gstId)?.menge_kg ?? ''}
+                          onChange={e => gstAendern(gstId, { menge_kg: e.target.value })}
+                          className={zeileCls} />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-s112-text-2 mb-0.5">Lesemethode</label>
+                        <select aria-label={`Lesemethode ${name.ried} ${name.gst}`}
+                          value={gstData.get(gstId)?.lesemethode ?? ''}
+                          onChange={e => gstAendern(gstId, { lesemethode: e.target.value })}
+                          className={zeileCls}>
+                          <option value="">wie oben</option>
+                          {LESEMETHODE_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                        </select>
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-xs text-s112-text-2 mb-0.5">Notizen</label>
+                        <input aria-label={`Notizen ${name.ried} ${name.gst}`} type="text" placeholder="wie oben"
+                          value={gstData.get(gstId)?.notizen ?? ''}
+                          onChange={e => gstAendern(gstId, { notizen: e.target.value })}
+                          className={zeileCls} />
+                      </div>
+                      {/* Mostgewicht in °KMW oder °Oe (KAN-128); leer = gemeinsames Mostgewicht */}
+                      <div className="col-span-4">
+                        <GstMostgewicht gstId={gstId} zeile={gstData.get(gstId)?.mg ?? ZEILE_OHNE_MOSTGEWICHT}
+                          onChange={zustand => gstMostgewichtAendern(gstId, zustand)} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+          {!einzeln && mengeZahl != null && !mengeUngueltig && (
+            <p className="text-xs text-s112-muted">
+              Summe {fmtNum(vorschau.reduce<number>((s, v) => s + (v ?? 0), 0), { max: 2 })} kg – Rundungsrest auf die größte Fläche.
+            </p>
+          )}
+        </div>
+      )}
+
+      {error && <p role="alert" className="text-xs text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2">{error}</p>}
 
       <div className="flex gap-2 pt-1">
-        <button type="submit" disabled={pending || totalSelCount === 0}
+        <button type="submit" disabled={pending || ziele.length === 0}
           className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-50 transition-colors">
-          {pending ? 'Speichert…' : `${totalSelCount > 0 ? `${totalSelCount} × ` : ''}Speichern`}
+          {pending ? 'Speichert…' : `${ziele.length > 0 ? `${ziele.length} × ` : ''}Speichern`}
         </button>
         <button type="button" onClick={onDone}
           className="px-4 py-1.5 rounded-lg text-sm font-medium text-s112-text-2 hover:text-s112-text">
@@ -437,13 +522,8 @@ function ParzellForm({
     })
   }
 
-  const lagenMap = new Map<string, WeingartenOpt[]>()
-  for (const w of weingaerten) {
-    const key = w.lage_name ?? '(Keine Lage)'
-    const arr = lagenMap.get(key) ?? []
-    arr.push(w)
-    lagenMap.set(key, arr)
-  }
+  // Gruppen wie in der Erfassung (KAN-160): Rieden alphabetisch, „Ohne Ried-Zuordnung“ am Ende
+  const lagen = riedGruppen(weingaerten)
 
   return (
     <form onSubmit={handleSubmit} className="bg-s112-bg border border-s112-border rounded-xl p-4 space-y-3">
@@ -458,8 +538,8 @@ function ParzellForm({
             onChange={e => { setSelWgId(e.target.value); setSelGstId('') }}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
             <option value="">– Auswählen –</option>
-            {Array.from(lagenMap.entries()).map(([lage, wgs]) => (
-              <optgroup key={lage} label={lage}>
+            {lagen.map(({ schluessel, name, weingaerten: wgs }) => (
+              <optgroup key={schluessel} label={name}>
                 {wgs.map(w => (
                   <option key={w.id} value={w.id}>{w.name}{w.rebsorte ? ` (${formatRebsorteMitKuerzel(w.rebsorte)})` : ''}</option>
                 ))}
