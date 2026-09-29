@@ -14,11 +14,17 @@
 
 import { alle } from '@/lib/supabase/alle'
 import type { Ctx, R } from '@/app/(dashboard)/dashboard/_shared/data'
-import { posSum, ZAHLUNGSZIEL_TAGE, toDateStr } from '@/app/(dashboard)/dashboard/_shared/data'
+import { toDateStr, ladeOffenePosten } from '@/app/(dashboard)/dashboard/_shared/data'
 import { anlagenspiegel, buchwertAm, type Anlage } from '@/lib/ea/anlagen'
 
 export type Monat = { monat: number; einnahmen: number; ausgaben: number; einnahmenVj: number; ausgabenVj: number }
 export type KategorieZeile = { name: string; betrag: number; vj: number }
+
+// KAN-157: Buchungen ohne Kategorie je Typ in einer eigenen Zeile (vorher EIN Topf „–“ für Einnahmen UND Ausgaben,
+// Typ vom ersten Treffer). Automatische Verkaufs-Einnahmen (import_quelle 'verkauf', ersetzeVerkaufsEinnahmen) haben nie
+// eine Kategorie und lassen sich nicht zuordnen – sie stehen als „Verkauf (Rechnungen)“ und zählen nicht als „ohne Kategorie“.
+export const OHNE_KATEGORIE = 'ohne Kategorie'
+export const VERKAUF_KATEGORIE = 'Verkauf (Rechnungen)'
 
 export type Finanzen = {
   art: 'ea' | 'doppik'
@@ -28,6 +34,7 @@ export type Finanzen = {
   gesamtVj: { einnahmen: number; ausgaben: number; ergebnis: number }
   monate: Monat[]
   liquiditaet: { summe: number; konten: { id: string; name: string; typ: string; saldo: number }[] }
+  /** KAN-157: wie „Offene Posten“ (ladeOffenePosten) – immer der heutige Stand, auch in der Vorjahresansicht */
   forderungen: { summe: number; anzahl: number; ueberfaellig: number; ueberfaelligSumme: number }
   umsatz: { ytd: number; vj: number }
   uva: { label: string; status: 'uebermittelt' | 'entwurf' | 'fehlt'; zahllast: number | null; faelligAm: string } | null
@@ -80,9 +87,9 @@ export async function ladeFinanzen(ctx: Ctx, opts: { art: 'ea' | 'doppik'; uvaZe
   const stichtagVj = `${jahr - 1}${stichtag.slice(4)}`
   const von = `${jahr - 1}-01-01`, bis = `${jahr}-12-31`
 
-  const [{ data: txRaw }, { data: vpRaw }, { data: kontenRaw }, { data: zahlRaw }, { data: umbRaw }, { data: uvaRaw }, { data: maRaw }, { count: belegeErkannt }, prot] = await Promise.all([
+  const [{ data: txRaw }, { data: vpRaw }, { data: kontenRaw }, { data: zahlRaw }, { data: umbRaw }, { data: uvaRaw }, { data: maRaw }, { count: belegeErkannt }, prot, offenePosten] = await Promise.all([
     alle<R>(ctx.tf(ctx.q('ea_transaktionen')
-      .select('id, datum, typ, betrag_netto, betrag_brutto, kategorie_id, konto_id, bmd_export_id, anlage_id, kategorie:ea_kategorien!kategorie_id(name, konto_nr)')
+      .select('id, datum, typ, betrag_netto, betrag_brutto, kategorie_id, konto_id, bmd_export_id, anlage_id, import_quelle, kategorie:ea_kategorien!kategorie_id(name, konto_nr)')
       .gte('datum', von).lte('datum', bis).order('datum').order('id'))),
     alle<R>(ctx.tf(ctx.q('verkaufsposten')
       .select('id, datum, bezahlt, bmd_export_id, verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct, ust_satz)')
@@ -96,6 +103,7 @@ export async function ladeFinanzen(ctx: Ctx, opts: { art: 'ea' | 'doppik'; uvaZe
     opts.art === 'doppik'
       ? ctx.tf(ctx.q('buchhaltung_export_protokoll').select('art, erstellt_am, anzahl').order('erstellt_am', { ascending: false }).limit(1))
       : Promise.resolve({ data: [] }),
+    ladeOffenePosten(ctx),
   ])
   // Anlagenverzeichnis (Migration 200) – alle Jahre, für Buchwert und AfA
   const { data: anlagenRaw } = await ctx.tf(ctx.q('ea_anlagen').select('id, name, gruppe, konto_nr, anschaffung_am, ak_netto, nutzungsdauer_jahre, methode, degressiv_satz, restwert, abgang_am, veraeusserungserloes, transaktion_id'))
@@ -107,7 +115,14 @@ export async function ladeFinanzen(ctx: Ctx, opts: { art: 'ea' | 'doppik'; uvaZe
   const monate: Monat[] = Array.from({ length: 12 }, (_, i) => ({ monat: i + 1, einnahmen: 0, ausgaben: 0, einnahmenVj: 0, ausgabenVj: 0 }))
   const ytd = { einnahmen: 0, ausgaben: 0, ergebnis: 0, einnahmenVj: 0, ausgabenVj: 0, ergebnisVj: 0 }
   const gesamtVj = { einnahmen: 0, ausgaben: 0, ergebnis: 0 }
-  const katMap = new Map<string, { typ: string; betrag: number; vj: number }>()
+  // Schlüssel „typ|name“ – Einnahmen und Ausgaben gleichen Namens (auch ohne Kategorie) bleiben getrennt
+  const katMap = new Map<string, { typ: string; name: string; betrag: number; vj: number }>()
+  const katZeile = (typ: string, name: string) => {
+    const k = `${typ}|${name}`
+    const z = katMap.get(k) ?? { typ, name, betrag: 0, vj: 0 }
+    katMap.set(k, z)
+    return z
+  }
   let ohneKategorie = 0, buchungenJahr = 0
   // Migration 200: AfA-Buchungen (anlage_id) sind nicht zahlungswirksam und
   // werden getrennt gerechnet; Anlagenkäufe (Kategorie Kontenklasse 0) sind
@@ -120,7 +135,7 @@ export async function ladeFinanzen(ctx: Ctx, opts: { art: 'ea' | 'doppik'; uvaZe
     const j = Number(d.slice(0, 4)), m = Number(d.slice(5, 7))
     const netto = Number(t.betrag_netto ?? 0) || 0
     const istEinnahme = t.typ === 'einnahme'
-    const kat = t.kategorie?.name as string | undefined
+    const kat = (t.kategorie?.name as string | undefined) ?? (t.import_quelle === 'verkauf' ? VERKAUF_KATEGORIE : OHNE_KATEGORIE)
     if (t.anlage_id) {
       if (j === jahr && d <= stichtag) afaGebuchtJahr += netto
       else if (j === jahr - 1 && d <= stichtagVj) afaGebuchtVj += netto
@@ -134,16 +149,14 @@ export async function ladeFinanzen(ctx: Ctx, opts: { art: 'ea' | 'doppik'; uvaZe
     if (j === jahr) {
       if (d > stichtag) continue
       buchungenJahr++
-      if (!t.kategorie_id) ohneKategorie++
+      if (!t.kategorie_id && t.import_quelle !== 'verkauf') ohneKategorie++
       if (istEinnahme) { monate[m - 1].einnahmen += netto; ytd.einnahmen += netto } else { monate[m - 1].ausgaben += netto; ytd.ausgaben += netto }
-      const k = katMap.get(kat ?? '–') ?? { typ: t.typ, betrag: 0, vj: 0 }
-      k.betrag += netto; katMap.set(kat ?? '–', k)
+      katZeile(t.typ, kat).betrag += netto
     } else if (j === jahr - 1) {
       if (istEinnahme) { monate[m - 1].einnahmenVj += netto; gesamtVj.einnahmen += netto } else { monate[m - 1].ausgabenVj += netto; gesamtVj.ausgaben += netto }
       if (d <= stichtagVj) {
         if (istEinnahme) ytd.einnahmenVj += netto; else ytd.ausgabenVj += netto
-        const k = katMap.get(kat ?? '–') ?? { typ: t.typ, betrag: 0, vj: 0 }
-        k.vj += netto; katMap.set(kat ?? '–', k)
+        katZeile(t.typ, kat).vj += netto
       }
     }
   }
@@ -151,20 +164,19 @@ export async function ladeFinanzen(ctx: Ctx, opts: { art: 'ea' | 'doppik'; uvaZe
   ytd.ergebnisVj = ytd.einnahmenVj - ytd.ausgabenVj
   gesamtVj.ergebnis = gesamtVj.einnahmen - gesamtVj.ausgaben
 
-  const top = (typ: string) => [...katMap.entries()].filter(([, v]) => v.typ === typ && (v.betrag > 0 || v.vj > 0))
-    .map(([name, v]) => ({ name, betrag: v.betrag, vj: v.vj })).sort((a, b) => b.betrag - a.betrag).slice(0, 6)
+  const top = (typ: string) => [...katMap.values()].filter(v => v.typ === typ && (v.betrag > 0 || v.vj > 0))
+    .map(v => ({ name: v.name, betrag: v.betrag, vj: v.vj })).sort((a, b) => b.betrag - a.betrag).slice(0, 6)
 
   // ── Umsatz aus Rechnungen (Vorsystem-Sicht, unabhängig von der E&A-Buchung) ─
   const vpJahr = vp.filter(p => String(p.datum).slice(0, 4) === String(jahr) && String(p.datum).slice(0, 10) <= stichtag)
   const vpVj = vp.filter(p => String(p.datum).slice(0, 4) === String(jahr - 1) && String(p.datum).slice(0, 10) <= stichtagVj)
 
   // ── Forderungen (offene Rechnungen, brutto) ───────────────────────────────
-  const offene = vp.filter(p => !p.bezahlt)
-  const heuteMs = ctx.heute.getTime()
-  const ueberf = offene.filter(p => (heuteMs - new Date(p.datum).getTime()) / 86400000 > ZAHLUNGSZIEL_TAGE)
+  // KAN-157: dieselbe Quelle wie „Offene Posten“ – ohne Datumsgrenze (vorher nur ab 1.1. des Vorjahres) und mit
+  // derselben Überfälligkeit (volle Tage > Zahlungsziel)
   const forderungen = {
-    summe: posSum(offene), anzahl: offene.length,
-    ueberfaellig: ueberf.length, ueberfaelligSumme: posSum(ueberf),
+    summe: offenePosten.summe, anzahl: offenePosten.anzahl,
+    ueberfaellig: offenePosten.ueberfaellig, ueberfaelligSumme: offenePosten.ueberfaelligSumme,
   }
 
   // ── Liquidität: Kontensalden wie /konten ──────────────────────────────────
