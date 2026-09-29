@@ -63,7 +63,7 @@ export default function KellerplanEditModal({ plan, action, inputCls, labelCls }
               </div>
               <div className="flex gap-3 pt-2">
                 <button type="submit"
-                  className="bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
+                  className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
                   Speichern
                 </button>
                 <button type="button" onClick={() => setOpen(false)}

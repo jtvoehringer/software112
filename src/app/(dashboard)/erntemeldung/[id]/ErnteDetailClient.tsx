@@ -470,7 +470,7 @@ function NeueParzellenForm({
 
       <div className="flex gap-2 pt-1">
         <button type="submit" disabled={pending || ziele.length === 0}
-          className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-50 transition-colors">
+          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-50 transition-colors">
           {pending ? 'Speichert…' : `${ziele.length > 0 ? `${ziele.length} × ` : ''}Speichern`}
         </button>
         <button type="button" onClick={onDone}
@@ -622,7 +622,7 @@ function ParzellForm({
       {error && <p role="alert" className="text-xs text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2">{error}</p>}
       <div className="flex gap-2 pt-1">
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-50 transition-colors">
+          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-50 transition-colors">
           {pending ? 'Speichert…' : 'Speichern'}
         </button>
         <button type="button" onClick={onDone}
@@ -708,7 +708,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
             {writeOk && !showForm && (
               <button onClick={() => { setShowForm(true); setEditId(null) }}
                 data-print="hide"
-                className="inline-flex items-center gap-1.5 bg-s112-teal text-white font-semibold px-3 py-1.5 rounded-lg text-xs hover:bg-opacity-90 transition-colors shadow-sm">
+                className="inline-flex items-center gap-1.5 bg-s112-teal text-s112-yellow font-semibold px-3 py-1.5 rounded-lg text-xs hover:bg-opacity-90 transition-colors shadow-sm">
                 <Plus size={14} strokeWidth={2.5} /> Ernte
               </button>
             )}
@@ -974,7 +974,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
               )}
               <button onClick={handleAMA} disabled={parzellen.length === 0}
                 data-print="hide"
-                className="bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50 transition-colors">
+                className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50 transition-colors">
                 AMA-Meldung erstellen
               </button>
             </div>

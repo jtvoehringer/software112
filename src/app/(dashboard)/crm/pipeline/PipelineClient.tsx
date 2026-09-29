@@ -137,7 +137,7 @@ function PipelineForm({
 
       <div className="flex gap-2">
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
           {pending ? 'Wird gespeichert…' : (initial ? 'Speichern' : 'Anlegen')}
         </button>
         <button type="button" onClick={onDone}
@@ -359,7 +359,7 @@ export default function PipelineClient({
             onClick={() => setFilterStufe('alle')}
             className={`text-xs px-3 py-1 rounded-full font-medium border transition-colors ${
               filterStufe === 'alle'
-                ? 'bg-s112-teal text-white border-s112-teal'
+                ? 'bg-s112-teal text-s112-yellow border-s112-teal'
                 : 'bg-white text-s112-text-2 border-s112-border hover:border-s112-teal/50'
             }`}>
             Alle ({eintraege.length})
@@ -402,7 +402,7 @@ export default function PipelineClient({
               <button key={s} onClick={() => setFilterStatus(s)}
                 className={`px-3 py-1.5 font-medium transition-colors ${
                   filterStatus === s
-                    ? 'bg-s112-teal text-white'
+                    ? 'bg-s112-teal text-s112-yellow'
                     : 'bg-white text-s112-text-2 hover:bg-s112-bg'
                 }`}>
                 {s === 'offen' ? 'Offen' : s === 'erledigt' ? 'Erledigt' : 'Alle'}
@@ -442,7 +442,7 @@ export default function PipelineClient({
         </div>
         {writeOk && !showForm && (
           <button onClick={() => setShowForm(true)}
-            className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 whitespace-nowrap">
+            className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 whitespace-nowrap">
             <span>＋</span> Neue Chance
           </button>
         )}

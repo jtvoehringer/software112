@@ -353,7 +353,7 @@ export default function NeueBehandlungForm({
             {ART_OPTIONS.map(o => (
               <label key={o.value} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm cursor-pointer transition-colors
                 ${art === o.value
-                  ? 'bg-s112-teal text-white border-s112-teal'
+                  ? 'bg-s112-teal text-s112-yellow border-s112-teal'
                   : 'bg-white text-s112-text-1 border-s112-border hover:border-s112-teal/50'}`}>
                 <input type="radio" name="art" value={o.value} checked={art === o.value}
                   onChange={() => setArt(o.value)} className="sr-only" />
@@ -1003,7 +1003,7 @@ export default function NeueBehandlungForm({
       <div className="flex gap-3">
         {/* nur beim Speichern gesperrt – fehlende Auswahl bzw. Bio-Sperre zeigt der Klick (absendenHindernis, KAN-153) */}
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50 transition-colors">
+          className="bg-s112-teal text-s112-yellow px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50 transition-colors">
           {erfassenKnopfText(pending, totalSelCount)}
         </button>
         <a href="/behandlungen" className="px-5 py-2.5 rounded-xl text-sm font-medium text-s112-text-2 hover:text-s112-text">

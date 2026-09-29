@@ -124,10 +124,11 @@ describe('KAN-142: Kopfleiste in CD-Blau (AK 1/2)', () => {
   const top = quelle('src/components/layout/Topbar.tsx')
   const kopf = top.slice(top.indexOf('<header'), top.indexOf('</header>'))
 
-  test('Kopfleiste bg-s112-blue-700 statt Anthrazit (bg-s112-text)', () => {
+  // seit KAN-164 über die Kopfleisten-Token (Standard CD-Blau #2F63AC, siehe kan164-kopfleiste.test.mjs)
+  test('Kopfleiste bg-s112-kopf (Standard CD-Blau) statt Anthrazit (bg-s112-text)', () => {
     assert.ok(kopf.length > 0, '<header> fehlt')
     const header = tagAb(top, top.indexOf('<header'))
-    assert.match(header, /\bbg-s112-blue-700\b/)
+    assert.match(header, /\bbg-s112-kopf\b/)
     assert.doesNotMatch(header, /\bbg-s112-text\b/)
   })
 
@@ -149,8 +150,8 @@ describe('KAN-142: Kopfleiste in CD-Blau (AK 1/2)', () => {
     ]
     for (const [titel, anzahlErr, benachr, hinweise, soll] of faelle) {
       const k = farbe(anzahlErr, benachr, hinweise).split(/\s+/)
-      assert.ok(!k.includes('bg-s112-blue-700'), `${titel}: Badge blau auf blauer Fläche`)
-      if (soll === 'weiss') assert.ok(k.includes('bg-white') && k.includes('text-s112-blue-700'), `${titel}: ${k.join(' ')}`)
+      assert.ok(!k.includes('bg-s112-blue-700') && !k.includes('bg-s112-kopf'), `${titel}: Badge in der Farbe der Fläche`)
+      if (soll === 'weiss') assert.ok(k.includes('bg-s112-kopf-text') && k.includes('text-s112-kopf'), `${titel}: ${k.join(' ')}`)
       if (soll === 'gelb') assert.ok(k.includes('bg-s112-warn-fg') && k.includes('text-white'), `${titel}: ${k.join(' ')}`)
       if (soll === 'rot') assert.ok(k.includes('bg-s112-err') && k.includes('text-white'), `${titel}: ${k.join(' ')}`)
     }
@@ -161,7 +162,7 @@ describe('KAN-142: Kopfleiste in CD-Blau (AK 1/2)', () => {
   })
 
   test('jedes Bedienelement auf der blauen Fläche hat den weißen Fokusrahmen (FOKUS_HELL)', () => {
-    assert.match(top, /const FOKUS_HELL = '[^']*outline-white[^']*'/)
+    assert.match(top, /const FOKUS_HELL = '[^']*outline-s112-kopf-text[^']*'/)
     // Aufgeklappte Menüs liegen auf Weiß – dort gilt der globale blaue Rahmen
     let flaeche = ohneAusdruck(kopf, '{notifOpen && (')
     flaeche = ohneAusdruck(flaeche, '{menuOpen && (')

@@ -122,7 +122,7 @@ export default function AfaBuchen({ status, dezemberGesperrt, laufend, doppik, d
       {!doppik && darfSchreiben && (
         <div className="flex flex-wrap items-center gap-2 mt-4">
           <button type="button" onClick={buchen} disabled={pending || blockiert || zuBuchen.length === 0}
-            className="inline-flex items-center gap-1.5 bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-[13px] font-semibold hover:bg-s112-blue-700 disabled:opacity-40">
+            className="inline-flex items-center gap-1.5 bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-[13px] font-semibold hover:opacity-90 disabled:opacity-40">
             <CalendarCheck size={15} strokeWidth={2} />
             {zuBuchen.length === 0 ? `AfA ${jahr} gebucht` : `AfA ${jahr} buchen (${zuBuchen.length})`}
           </button>

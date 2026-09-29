@@ -86,7 +86,7 @@ function SatzForm({ satz, onDone }: { satz?: SatzEintrag; onDone: () => void }) 
 
       <div className="flex gap-2 pt-1">
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-50">
+          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-50">
           {pending ? 'Speichert…' : 'Speichern'}
         </button>
         <button type="button" onClick={onDone}
@@ -128,7 +128,7 @@ export default function SaetzeClient({
       {!showForm && writeOk && (
         <div className="mb-6">
           <button onClick={() => setShowForm(true)}
-            className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
+            className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
             Neuen Satz anlegen
           </button>
         </div>

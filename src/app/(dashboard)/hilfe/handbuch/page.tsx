@@ -210,7 +210,7 @@ export default function HandbuchPage() {
             {KAPITEL.map(k => (
               <button key={k.id} onClick={() => setAktiv(k.id)}
                 className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-left transition-colors
-                  ${aktiv === k.id ? 'bg-s112-teal text-white' : 'text-s112-text-2 hover:bg-s112-bg hover:text-s112-text'}`}>
+                  ${aktiv === k.id ? 'bg-s112-teal text-s112-yellow' : 'text-s112-text-2 hover:bg-s112-bg hover:text-s112-text'}`}>
                 <k.icon size={16} />
                 {k.titel}
               </button>

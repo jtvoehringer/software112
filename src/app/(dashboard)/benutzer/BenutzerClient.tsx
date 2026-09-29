@@ -50,7 +50,7 @@ function ModulMatrix({ module, onChange, disabled }: { module: Modul[]; onChange
           const aktiv = gleich(module, v.module)
           return (
             <button key={v.key} type="button" disabled={disabled} onClick={() => onChange([...v.module])} title={v.hinweis}
-              className={`px-2.5 py-1 rounded-full border font-medium transition-colors disabled:opacity-50 ${aktiv ? 'bg-s112-teal text-white border-s112-teal' : 'bg-white text-s112-text-1 border-s112-border hover:bg-s112-bg'}`}>
+              className={`px-2.5 py-1 rounded-full border font-medium transition-colors disabled:opacity-50 ${aktiv ? 'bg-s112-teal text-s112-yellow border-s112-teal' : 'bg-white text-s112-text-1 border-s112-border hover:bg-s112-bg'}`}>
               {v.label}
             </button>
           )
@@ -330,7 +330,7 @@ export default function BenutzerClient({ members, limit }: Props) {
         <button onClick={() => setShowInvite(true)}
           disabled={!!limit && !limit.erlaubt}
           title={limit && !limit.erlaubt ? 'Benutzerlimit des Pakets erreicht' : undefined}
-          className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40 disabled:cursor-not-allowed">
+          className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40 disabled:cursor-not-allowed">
           <span>＋</span> Benutzer hinzufügen
         </button>
       ) : (
@@ -368,7 +368,7 @@ export default function BenutzerClient({ members, limit }: Props) {
           )}
           <div className="flex gap-2">
             <button type="submit" disabled={isPending}
-              className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+              className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
               {isPending ? 'Wird eingeladen…' : 'Einladen'}
             </button>
             <button type="button" onClick={() => { setShowInvite(false); setInviteName(''); setInviteEmail('') }}

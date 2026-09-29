@@ -243,7 +243,7 @@ export default function UmziehenFormClient({
       )}
 
       <button type="submit" disabled={!canSubmit || pending}
-        className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+        className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
         {pending ? 'Wird gespeichert …' : (submitLabel ?? 'Umzug buchen')}
       </button>
     </form>

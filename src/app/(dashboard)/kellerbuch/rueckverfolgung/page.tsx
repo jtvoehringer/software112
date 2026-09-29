@@ -529,7 +529,7 @@ export default async function RueckverfolgungPage({
           </div>
           <div className="sm:col-span-3 flex items-center gap-3">
             <button type="submit"
-              className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
+              className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
               Filtern
             </button>
             {filterAktiv && (
@@ -593,7 +593,7 @@ export default async function RueckverfolgungPage({
                     </td>
                     <td className="px-3 py-2 text-right print:hidden">
                       <Link href={`/kellerbuch/rueckverfolgung?fuellung_id=${f.id}`}
-                        className="text-xs text-s112-blue-700 border border-s112-teal/30 rounded-full px-2.5 py-1 hover:bg-s112-teal hover:text-white transition-colors whitespace-nowrap">
+                        className="text-xs text-s112-blue-700 border border-s112-teal/30 rounded-full px-2.5 py-1 hover:bg-s112-teal hover:text-s112-yellow transition-colors whitespace-nowrap">
                         Details →
                       </Link>
                     </td>
@@ -623,7 +623,7 @@ export default async function RueckverfolgungPage({
           ))}
         </datalist>
         <button type="submit"
-          className="bg-s112-teal text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-opacity-90">
+          className="bg-s112-teal text-s112-yellow px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-opacity-90">
           Suchen
         </button>
       </form>

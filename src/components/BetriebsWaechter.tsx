@@ -296,7 +296,7 @@ export default function BetriebsWaechter({ tenantId, name, mandant, schreibgespe
           </p>
           <div className="flex flex-col sm:flex-row gap-2">
             <button type="button" onClick={neuLaden} disabled={wechselt}
-              className="flex-1 bg-s112-teal text-white py-2.5 px-4 rounded-xl font-semibold hover:bg-opacity-90 text-sm disabled:opacity-60">
+              className="flex-1 bg-s112-teal text-s112-yellow py-2.5 px-4 rounded-xl font-semibold hover:bg-opacity-90 text-sm disabled:opacity-60">
               Neu laden
             </button>
             <button type="button" onClick={zurueck} disabled={wechselt}

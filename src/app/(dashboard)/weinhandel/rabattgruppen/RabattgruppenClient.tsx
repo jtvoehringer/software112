@@ -53,7 +53,7 @@ function RabattForm({
       </div>
       <div className="flex gap-2">
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
           {pending ? 'Speichern…' : (initial ? 'Speichern' : 'Anlegen')}
         </button>
         <button type="button" onClick={onDone}
@@ -94,7 +94,7 @@ export default function RabattgruppenClient({
         </div>
         {writeOk && !showForm && !editing && (
           <button onClick={() => setShowForm(true)}
-            className="bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
+            className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
             Neue Gruppe
           </button>
         )}

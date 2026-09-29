@@ -5,7 +5,7 @@
 // (Ereignis aus components/ui/Link.tsx) oder beim Browser-Zurück und läuft
 // asymptotisch bis 90 %; sobald sich Pfad oder Suchparameter ändern, füllt er
 // sich und blendet aus. Sicherheitsnetz: nach 20 s ohne Seitenwechsel aus.
-// Farbe Weiß (KAN-142, 26.09.2026): der Balken liegt oben auf der Kopfleiste in
+// Farbe = Schrift der Kopfleiste (KAN-164; Standard Weiß, KAN-142): der Balken liegt oben auf der Kopfleiste in
 // CD-Blau #2F63AC – Weiß erreicht dort 6,0:1, die Primärfarbe (Standard #4677BE)
 // nur 1,3:1.
 import { useEffect, useRef, useState } from 'react'
@@ -69,7 +69,7 @@ export default function NavigationsBalken() {
     <div aria-hidden className="pointer-events-none fixed left-0 right-0 top-0 z-[100] h-[3px]">
       <div
         className={`h-full transition-[width,opacity] ${fertig ? 'duration-200 opacity-0' : 'duration-150 opacity-100'}`}
-        style={{ width: `${Math.min(100, breite)}%`, backgroundColor: '#FFFFFF', boxShadow: '0 0 8px rgba(255,255,255,.7)' }}
+        style={{ width: `${Math.min(100, breite)}%`, backgroundColor: 'rgb(var(--s112-kopf-text, 255 255 255))', boxShadow: '0 0 8px rgb(var(--s112-kopf-text, 255 255 255) / .7)' }}
       />
     </div>
   )

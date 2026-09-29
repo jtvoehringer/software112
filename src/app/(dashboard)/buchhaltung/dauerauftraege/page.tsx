@@ -149,7 +149,7 @@ export default async function DauerauftraegePage() {
             </div>
           )}
           <button type="submit"
-            className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
+            className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
             Dauerauftrag anlegen
           </button>
         </form>

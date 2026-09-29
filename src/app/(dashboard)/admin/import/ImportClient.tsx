@@ -286,7 +286,7 @@ export default function ImportClient({
         {(Object.keys(TYP_LABEL) as ImportTyp[]).map(t => (
           <button key={t} onClick={() => { setTyp(t); setParsed(null); setMapping({}); setResult(null); setErrorMsg(null) }}
             className={`px-4 py-2 rounded-xl text-sm font-medium border transition-colors ${
-              typ === t ? 'bg-s112-teal text-white border-s112-teal' : 'border-s112-border text-s112-text-2 hover:bg-s112-bg'
+              typ === t ? 'bg-s112-teal text-s112-yellow border-s112-teal' : 'border-s112-border text-s112-text-2 hover:bg-s112-bg'
             }`}>
             {TYP_LABEL[t]}
           </button>
@@ -317,7 +317,7 @@ export default function ImportClient({
             {(['lead', 'kunde'] as const).map(v => (
               <button key={v} onClick={() => setIstLead(v === 'lead')}
                 className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  (v === 'lead') === istLead ? 'bg-s112-teal text-white' : 'bg-s112-bg text-s112-text-2 hover:text-s112-text'
+                  (v === 'lead') === istLead ? 'bg-s112-teal text-s112-yellow' : 'bg-s112-bg text-s112-text-2 hover:text-s112-text'
                 }`}>
                 {v === 'lead' ? 'Leads' : 'Aktive Kunden'}
               </button>
@@ -423,7 +423,7 @@ export default function ImportClient({
                 <input aria-label="Notizen" name="notizen" placeholder="z.B. Herkunft Altsystem …" className={ebInputCls} />
               </div>
               <div className="sm:col-span-2">
-                <button type="submit" className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
+                <button type="submit" className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
                   Anfangsbestand speichern
                 </button>
               </div>
@@ -438,7 +438,7 @@ export default function ImportClient({
         <div className="flex items-center gap-4">
           <input ref={fileRef} type="file" accept=".csv,.txt" onChange={handleFile} className="hidden" />
           <button onClick={() => fileRef.current?.click()}
-            className="bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-opacity-90">
+            className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-medium hover:bg-opacity-90">
             CSV-Datei öffnen
           </button>
           {parsed && (
@@ -504,7 +504,7 @@ export default function ImportClient({
             <p className="text-sm text-s112-warn-fg mb-3">Bitte alle Pflichtfelder (*) zuordnen</p>
           )}
           <button onClick={startImport} disabled={importing || !pflichtMapped}
-            className="bg-s112-teal text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
+            className="bg-s112-teal text-s112-yellow px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
             {importing
               ? (fortschritt ? `Importiere… ${fortschritt.erledigt} / ${fortschritt.gesamt}` : 'Importiere…')
               : `${parsed.rows.length} Zeilen importieren`}

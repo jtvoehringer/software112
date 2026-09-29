@@ -89,11 +89,11 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
           <h2 className="font-semibold text-s112-text mb-4">Importeur / Empfänger</h2>
           <div className="flex gap-2 mb-4">
             <button type="button" onClick={() => setEmpfaengerTyp('firma')}
-              className={`px-4 py-1.5 rounded-lg text-sm border ${empfaengerTyp==='firma'?'bg-s112-teal text-white border-s112-teal':'border-s112-border text-s112-text-2'}`}>
+              className={`px-4 py-1.5 rounded-lg text-sm border ${empfaengerTyp==='firma'?'bg-s112-teal text-s112-yellow border-s112-teal':'border-s112-border text-s112-text-2'}`}>
               Firma
             </button>
             <button type="button" onClick={() => setEmpfaengerTyp('kontakt')}
-              className={`px-4 py-1.5 rounded-lg text-sm border ${empfaengerTyp==='kontakt'?'bg-s112-teal text-white border-s112-teal':'border-s112-border text-s112-text-2'}`}>
+              className={`px-4 py-1.5 rounded-lg text-sm border ${empfaengerTyp==='kontakt'?'bg-s112-teal text-s112-yellow border-s112-teal':'border-s112-border text-s112-text-2'}`}>
               Kontakt
             </button>
           </div>
@@ -237,7 +237,7 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
         {fehler && <p className="text-s112-err-fg text-sm">{fehler}</p>}
         <div className="flex gap-3">
           <button type="submit" disabled={saving}
-            className="bg-s112-teal text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
+            className="bg-s112-teal text-s112-yellow px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
             {saving ? 'Speichern…' : 'Exportauftrag anlegen'}
           </button>
           <Link href="/weinexport" className="px-6 py-2.5 rounded-xl text-sm border border-s112-border text-s112-text-2 hover:bg-s112-bg">

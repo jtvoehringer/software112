@@ -36,7 +36,7 @@ export default function DashboardFehler({ error, reset }: { error: Error & { dig
           {SCHREIBSPERRE_MELDUNG} Ansehen, Drucken und Exportieren bleiben möglich.
         </p>
         <div className="flex gap-2 flex-wrap">
-          <button type="button" onClick={reset} className="px-4 py-2 rounded-lg bg-s112-teal text-white text-sm font-medium hover:opacity-90">Zurück zur Seite</button>
+          <button type="button" onClick={reset} className="px-4 py-2 rounded-lg bg-s112-teal text-s112-yellow text-sm font-medium hover:opacity-90">Zurück zur Seite</button>
           <a href="/abo" className="px-4 py-2 rounded-lg border border-s112-border text-sm text-s112-text-1 hover:bg-s112-bg">Zum Abo</a>
         </div>
       </div>
@@ -50,7 +50,7 @@ export default function DashboardFehler({ error, reset }: { error: Error & { dig
         <p className="text-sm text-s112-text-1 mb-5">
           {BETRIEB_GEWECHSELT_MELDUNG} Die Aktion wurde nicht ausgeführt, damit nichts im falschen Betrieb gespeichert wird.
         </p>
-        <button type="button" onClick={() => window.location.reload()} className="px-4 py-2 rounded-lg bg-s112-teal text-white text-sm font-medium hover:opacity-90">Seite neu laden</button>
+        <button type="button" onClick={() => window.location.reload()} className="px-4 py-2 rounded-lg bg-s112-teal text-s112-yellow text-sm font-medium hover:opacity-90">Seite neu laden</button>
       </div>
     )
   }
@@ -65,7 +65,7 @@ export default function DashboardFehler({ error, reset }: { error: Error & { dig
         Der Fehler wurde automatisch protokolliert{error.digest ? ` (Kennung ${error.digest.slice(0, 12)})` : ''}. Wenn er wiederholt auftritt, bitte mit Uhrzeit und Seite melden.
       </p>
       <div className="flex gap-2">
-        <button type="button" onClick={reset} className="px-4 py-2 rounded-lg bg-s112-teal text-white text-sm font-medium hover:opacity-90">Erneut versuchen</button>
+        <button type="button" onClick={reset} className="px-4 py-2 rounded-lg bg-s112-teal text-s112-yellow text-sm font-medium hover:opacity-90">Erneut versuchen</button>
         <a href="/dashboard" className="px-4 py-2 rounded-lg border border-s112-border text-sm text-s112-text-1 hover:bg-s112-bg">Zum Dashboard</a>
       </div>
     </div>

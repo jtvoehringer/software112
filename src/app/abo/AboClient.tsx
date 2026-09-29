@@ -239,7 +239,7 @@ export default function AboClient({
               <button
                 onClick={handlePortal}
                 disabled={loading}
-                className="w-full bg-s112-teal text-white px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-60"
+                className="w-full bg-s112-teal text-s112-yellow px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-60"
               >
                 {loading ? 'Wird geöffnet…' : 'Zahlungsdaten verwalten'}
               </button>
@@ -251,7 +251,7 @@ export default function AboClient({
               <button
                 onClick={() => handleZahlungNachholen()}
                 disabled={loading}
-                className="w-full bg-s112-teal text-white px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-60"
+                className="w-full bg-s112-teal text-s112-yellow px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-60"
               >
                 {loading ? 'Wird geöffnet…' : 'Jetzt Zahlungsdaten hinterlegen'}
               </button>
@@ -310,7 +310,7 @@ export default function AboClient({
                               )}
                               {brauchtBuchhaltungsWahl(k) && <BuchhaltungsWahl wert={buchhaltungsWahl} onChange={setBuchhaltungsWahl} />}
                               <button onClick={() => handlePaketwechsel(k)} disabled={loading || (brauchtBuchhaltungsWahl(k) && !buchhaltungsWahl)}
-                                className="w-full bg-s112-teal text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-60">
+                                className="w-full bg-s112-teal text-s112-yellow px-3 py-2 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-60">
                                 {loading ? 'Wird umgestellt…' : 'Wechsel bestätigen'}
                               </button>
                               <button onClick={() => setWahl(null)} disabled={loading}
@@ -328,7 +328,7 @@ export default function AboClient({
                               <div className="mt-3 space-y-1.5">
                                 <BuchhaltungsWahl wert={buchhaltungsWahl} onChange={setBuchhaltungsWahl} />
                                 <button onClick={() => handleZahlungNachholen(k)} disabled={loading || !buchhaltungsWahl}
-                                  className="w-full bg-s112-teal text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-60">
+                                  className="w-full bg-s112-teal text-s112-yellow px-3 py-2 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-60">
                                   {loading ? 'Weiter zu Stripe…' : 'Weiter zur Zahlung'}
                                 </button>
                                 <button onClick={() => setWahl(null)} disabled={loading}

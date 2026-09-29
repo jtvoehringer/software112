@@ -220,7 +220,7 @@ export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dok
                   const d = await r.json().catch(() => null)
                   if (r.ok && d?.id) setDokumente(prev => [...prev, { id: d.id, dokument_art: sel, status: 'ausstehend' }])
                   else setDokFehler(d?.fehler ?? `Fehler (Status ${r.status})`)
-                }} className="text-[11px] bg-s112-teal text-white px-2 py-1 rounded hover:bg-opacity-90">+</button>
+                }} className="text-[11px] bg-s112-teal text-s112-yellow px-2 py-1 rounded hover:bg-opacity-90">+</button>
               </div>
             </div>
             {dokFehler && <p role="alert" className="mt-2 text-xs text-s112-err">{dokFehler}</p>}

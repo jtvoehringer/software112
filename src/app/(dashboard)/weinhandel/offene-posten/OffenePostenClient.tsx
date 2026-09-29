@@ -161,7 +161,7 @@ function PostenZeile({ p, writeOk, konten }: { p: Posten; writeOk: boolean; kont
                 >
                   Abbrechen
                 </button>
-                <button type="submit" className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 transition-colors">
+                <button type="submit" className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 transition-colors">
                   Zahlung buchen
                 </button>
               </div>

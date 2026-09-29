@@ -97,7 +97,7 @@ function ZweiFaktor() {
           className="w-full border border-s112-line-str rounded-lg px-3 py-2 text-lg tracking-widest font-mono focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
       </div>
       <button type="submit" disabled={laeuft || code.replace(/\s/g, '').length !== 6}
-        className="w-full bg-s112-teal text-white py-2 rounded-lg text-sm font-semibold disabled:opacity-40">
+        className="w-full bg-s112-teal text-s112-yellow py-2 rounded-lg text-sm font-semibold disabled:opacity-40">
         {laeuft ? 'Wird geprüft …' : 'Bestätigen'}
       </button>
     </form>
@@ -138,7 +138,7 @@ function ZweiFaktor() {
                     <li>Den angezeigten Code eingeben.</li>
                   </ol>
                   <button type="button" onClick={einrichtungStarten} disabled={laeuft}
-                    className="w-full bg-s112-teal text-white py-2 rounded-lg text-sm font-semibold disabled:opacity-40">
+                    className="w-full bg-s112-teal text-s112-yellow py-2 rounded-lg text-sm font-semibold disabled:opacity-40">
                     {laeuft ? 'Wird vorbereitet …' : 'Einrichten'}
                   </button>
                 </>
@@ -161,7 +161,7 @@ function ZweiFaktor() {
               <p className="text-sm text-s112-ok-fg bg-s112-ok-bg rounded-lg px-3 py-2">Zwei-Faktor-Anmeldung ist aktiv{faktor?.created_at ? ` seit ${new Date(faktor.created_at).toLocaleDateString('de-AT')}` : ''}.</p>
               <p className="text-xs text-s112-text-2">Handy verloren oder neu? Wende dich an deinen Administrator – er kann die Einrichtung zurücksetzen.</p>
               <div className="flex gap-2">
-                <button type="button" onClick={() => router.push('/profil')} className="flex-1 bg-s112-teal text-white py-2 rounded-lg text-sm font-semibold">Zurück zum Profil</button>
+                <button type="button" onClick={() => router.push('/profil')} className="flex-1 bg-s112-teal text-s112-yellow py-2 rounded-lg text-sm font-semibold">Zurück zum Profil</button>
                 <button type="button" onClick={entfernen} disabled={laeuft} className="px-3 py-2 rounded-lg text-sm border border-s112-line-str text-s112-err-fg hover:bg-s112-err-bg disabled:opacity-40">Entfernen</button>
               </div>
             </>

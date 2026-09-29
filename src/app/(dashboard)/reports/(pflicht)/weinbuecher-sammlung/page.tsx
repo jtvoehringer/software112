@@ -99,7 +99,7 @@ export default async function WeinbuecherSammlungPage({
             </select>
           </div>
           <div className="sm:col-span-3 flex items-center gap-3">
-            <button type="submit" className="text-white px-4 py-2 rounded-xl text-sm font-semibold bg-s112-teal hover:bg-opacity-90">
+            <button type="submit" className="text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold bg-s112-teal hover:bg-opacity-90">
               Auswahl anzeigen
             </button>
             {filterAktiv && (

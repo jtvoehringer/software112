@@ -16,7 +16,7 @@ import Link from '@/components/ui/Link'
 import { ladeTenantKopf, ladeTenantKopfFrisch, betriebsName, mandantName, mostgewichtEinheitAus } from '@/lib/tenant/kopf'
 import type { MostgewichtEinheit } from '@/lib/wein/mostgewicht'
 import { ladeMfaStand, MFA_PFLICHT_AB } from '@/lib/auth/mfa'
-import { barrierefreieAktionsfarbe } from '@/lib/farbe'
+import { barrierefreieAktionsfarbe, kopfleistenFarben, rgbKanaele } from '@/lib/farbe'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -147,6 +147,9 @@ export default async function DashboardLayout({
     billingWarnung = abo.warnung
   }
 
+  // Kopfleiste im Betriebs-CD (KAN-164): Standardfarben → CD-Blau/Weiß wie bisher
+  const kopfleiste = kopfleistenFarben(branding.primary_color, branding.secondary_color)
+
   return (
     <>
       {/* CSS-Variablen pro Tenant — überschreiben die Tailwind-Defaults */}
@@ -154,6 +157,8 @@ export default async function DashboardLayout({
         :root {
           --s112-teal:   ${barrierefreieAktionsfarbe(branding.primary_color, branding.secondary_color)};
           --s112-yellow: ${branding.secondary_color};
+          --s112-kopf:      ${rgbKanaele(kopfleiste.flaeche)};
+          --s112-kopf-text: ${rgbKanaele(kopfleiste.schrift)};
         }
       `}</style>
       {/* Sprunglink für Tastatur und Vorleseprogramme (Barrierefreiheit B7) */}

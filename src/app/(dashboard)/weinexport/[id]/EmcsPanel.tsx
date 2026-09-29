@@ -37,7 +37,7 @@ export default function EmcsPanel({ auftragId, initialArc, initialStatus }: Prop
             if (!res.ok) setFehler((await res.json().catch(() => null))?.fehler ?? `Fehler (Status ${res.status})`)
             setSaving(false)
           }}
-          className="w-full text-xs bg-s112-teal text-white py-1.5 rounded-lg hover:bg-opacity-90 disabled:opacity-40">
+          className="w-full text-xs bg-s112-teal text-s112-yellow py-1.5 rounded-lg hover:bg-opacity-90 disabled:opacity-40">
           {saving ? 'Speichern...' : 'EMCS speichern'}
         </button>
         {fehler && <p role="alert" className="text-xs text-s112-err">{fehler}</p>}

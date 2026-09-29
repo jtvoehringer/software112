@@ -32,7 +32,7 @@ function NeuMandantForm({ onDone }: { onDone: () => void }) {
       </div>
       <div className="flex gap-2">
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
           {pending ? 'Wird angelegt…' : 'Anlegen'}
         </button>
         <button type="button" onClick={onDone}
@@ -61,7 +61,7 @@ export default function MandantenClient({ mandanten, canCreate = true }: { manda
           bei dem sie automatisch als system_admin eingetragen würde. */}
       {canCreate && !showForm && (
         <button onClick={() => setShowForm(true)}
-          className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
+          className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
           <span>＋</span> Neuer Mandant
         </button>
       )}

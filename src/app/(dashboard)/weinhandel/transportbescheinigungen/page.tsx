@@ -80,7 +80,7 @@ export default async function TransportbescheinigungenPage({ searchParams }: { s
           <input type="checkbox" name="nur" value="gespeichert" defaultChecked={nurGespeichert} className="accent-s112-teal" />
           nur gespeicherte Transportbescheinigungen
         </label>
-        <button type="submit" className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-opacity-90">
+        <button type="submit" className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-opacity-90">
           Anzeigen
         </button>
       </form>

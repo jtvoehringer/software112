@@ -71,7 +71,7 @@ export default async function DacEditPage({ params }: { params: Promise<{ id: st
           {dac.pruefnummer && (
             <Link
               href={`/dac/${id}/etikett`}
-              className="flex items-center gap-1.5 bg-s112-teal text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-opacity-90 transition-colors"
+              className="flex items-center gap-1.5 bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-opacity-90 transition-colors"
             >
               <Tag size={14} /> Etikett
             </Link>
