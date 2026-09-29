@@ -14,11 +14,13 @@ import { berechneHektarhoechstertrag, ladeLesedaten, weinbauflaecheHa, type Hekt
 import { KATALOG_ERNTE } from '@/lib/behoerden/katalog/ernte'
 import { betriebUndModuleLaden, zugriffsFehler } from '@/lib/behoerden/zugriff'
 import { istErntebar } from '@/lib/wein/leseErfassung'
+import { gewaehlteLese, leseLoeschsperre, leseTitel, type Lese } from '@/lib/wein/lesen'
+import LeseReiter, { type LeseMitSperre } from './LeseReiter'
 
 export const metadata: Metadata = { title: 'Lese – software:112' }
 export const dynamic = 'force-dynamic'
 
-interface Props { params: Promise<{ id: string }> }
+interface Props { params: Promise<{ id: string }>; searchParams: Promise<{ lese?: string | string[] }> }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -62,8 +64,9 @@ function zuErnteParzelle(z: LeseZeile): ErnteParzelle {
   }
 }
 
-export default async function ErnteDetailPage({ params }: Props) {
+export default async function ErnteDetailPage({ params, searchParams }: Props) {
   const { id } = await params
+  const { lese: leseParam } = await searchParams
   const supabase = await createSupabaseServerClient()
   const role = await getCurrentUserRole()
   const writeOk = canWrite(role, 'rieden')
@@ -88,6 +91,7 @@ export default async function ErnteDetailPage({ params }: Props) {
     { data: rawTVKontakte },
     { data: rawTVFirmen },
     { betrieb, module },
+    { data: rawLesen },
   ] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tf((supabase.from('weinjahrgaenge') as any).select('*').eq('id', id).single()),
@@ -109,7 +113,7 @@ export default async function ErnteDetailPage({ params }: Props) {
     // Pressungen mit Sub-Tabellen
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tf((supabase.from('pressungen') as any)
-      .select(`id, datum, most_liter_gesamt, weinbezeichnung, notizen, kmw_grad,
+      .select(`id, lese_id, datum, most_liter_gesamt, weinbezeichnung, notizen, kmw_grad,
         weingaerten:pressung_weingaerten(id, weingarten_id, grundstueck_id, zukauf_posten_id, trauben_kg, rebsorte, notizen, ernte_datum, kmw, oechsle, mostgewicht_einheit, weingarten:weingarten_id(name)),
         behaelter:pressung_behaelter(id, behaelter_id, weinausbau_id, menge_liter, notizen, behaelter:behaelter_id(name), weinausbau:weinausbau_id(name, jahrgang, qualitaetsstufe))`)
       .eq('jahrgang_id', id).order('datum', { ascending: false })),
@@ -136,7 +140,7 @@ export default async function ErnteDetailPage({ params }: Props) {
     // Traubenverkäufe dieses Jahrgangs (mit Rechnung: Löschen storniert sie, KAN-35)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tf((supabase.from('traubenverkauf') as any)
-      .select('id, weingarten_id, grundstueck_id, zukauf_posten_id, kontakt_id, firma_id, datum, menge_kg, preis_per_kg, kmw_grad, oechsle, mostgewicht_einheit, qualitaetsstufe, gesundheit, herkunft_code, notizen, liefernummer, verkaufsposten_id, weingarten:weingarten_id(name), grundstueck:grundstueck_id(gst_nr), kontakt:kontakt_id(vorname, nachname), firma:firma_id(name), verkaufsposten:verkaufsposten_id(rechnungsnummer, storniert)')
+      .select('id, lese_id, weingarten_id, grundstueck_id, zukauf_posten_id, kontakt_id, firma_id, datum, menge_kg, preis_per_kg, kmw_grad, oechsle, mostgewicht_einheit, qualitaetsstufe, gesundheit, herkunft_code, notizen, liefernummer, verkaufsposten_id, weingarten:weingarten_id(name), grundstueck:grundstueck_id(gst_nr), kontakt:kontakt_id(vorname, nachname), firma:firma_id(name), verkaufsposten:verkaufsposten_id(rechnungsnummer, storniert)')
       .eq('jahrgang_id', id).order('datum', { ascending: false })),
 
     // Kontakte + Firmen für Abnehmer-Dropdown
@@ -147,9 +151,33 @@ export default async function ErnteDetailPage({ params }: Props) {
 
     // Betriebsname (Druckkopf) und Modul-Schalter (CSV-Knöpfe nach derselben Regel wie die CSV-Route)
     betriebUndModuleLaden(supabase, tenantId),
+
+    // KAN-129: Lesen des Jahrgangs (Reiter)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    tf((supabase.from('lesen') as any)
+      .select('id, lfd_nr, art, bezeichnung, beginn, ende, notizen').eq('jahrgang_id', id).order('lfd_nr')),
   ])
 
   if (!jg) notFound()
+
+  // ── KAN-129: gewählte Lese (?lese=<Nr.>, sonst die höchste) ─────────────────
+  // Lesedaten, Pressungen, Traubenverkäufe aus eigener Ernte und die verfügbaren kg gelten für diese Lese;
+  // Hektarhöchstertrag und AMA-Erntemeldung bleiben beim ganzen Jahrgang. Trauben-Zukäufe gehören keiner Lese.
+  const lesen = ((rawLesen ?? []) as Lese[])
+  const aktiveLese = gewaehlteLese(lesen, leseParam)
+  const inLese = (leseId: string | null | undefined) => !aktiveLese || lesen.length <= 1 || leseId === aktiveLese.id
+  const rawPressungenAlle = (rawPressungen ?? []) as AR[]
+  const rawTVAlle = (rawTV ?? []) as AR[]
+  const rawTVLese = rawTVAlle.filter(v => v.zukauf_posten_id || inLese(v.lese_id))
+  const lesenMitSperre: LeseMitSperre[] = lesen.map(l => ({
+    ...l,
+    loeschsperre: leseLoeschsperre(l, lesen.map(x => x.lfd_nr), {
+      eintraege: lese.zeilen.filter(z => z.leseId === l.id).length,
+      pressungen: rawPressungenAlle.filter(p => p.lese_id === l.id).length,
+      traubenverkaeufe: rawTVAlle.filter(v => v.lese_id === l.id).length,
+    }),
+  }))
+  const aktiveLeseMitSperre = aktiveLese ? lesenMitSperre.find(l => l.id === aktiveLese.id) ?? null : null
   // Pflichtmeldungen (Lesedaten, Erntemeldung, BKI-Datenblatt): Betriebsleiter immer, Leser nur mit Controlling
   const csvErlaubt = zugriffsFehler(KATALOG_ERNTE.lesedaten, membership, module) === null
   const bkiErlaubt = zugriffsFehler(KATALOG_ERNTE['bki-traubenverkauf'], membership, module) === null
@@ -169,7 +197,7 @@ export default async function ErnteDetailPage({ params }: Props) {
     .order('datum', { ascending: false }))
 
   // Anzeige wie bisher: neueste Lese zuerst (Postgres-DESC: ohne Datum ganz oben)
-  const parzellen: ErnteParzelle[] = lese.zeilen.map(zuErnteParzelle)
+  const parzellen: ErnteParzelle[] = lese.zeilen.filter(z => inLese(z.leseId)).map(zuErnteParzelle)
     .sort((a, b) => (a.ernte_datum === b.ernte_datum ? 0 : a.ernte_datum === null ? -1 : b.ernte_datum === null ? 1 : b.ernte_datum.localeCompare(a.ernte_datum)))
 
   const gstByWeingarten: Record<string, GSTOpt[]> = {}
@@ -202,7 +230,8 @@ export default async function ErnteDetailPage({ params }: Props) {
     amaMeldung = { ...(rawA as AR), positionen: (rawPos ?? []) as AMAMeldung['positionen'] } as AMAMeldung
   }
 
-  const pressungen: Pressung[] = ((rawPressungen ?? []) as AR[]).map(p => ({
+  const allePressungen: (Pressung & { lese_id: string | null })[] = rawPressungenAlle.map(p => ({
+    lese_id: p.lese_id ?? null,
     id: p.id, datum: p.datum, most_liter_gesamt: p.most_liter_gesamt ?? null,
     weinbezeichnung: p.weinbezeichnung ?? null, notizen: p.notizen ?? null, kmw_grad: p.kmw_grad ?? null,
     weingaerten: ((p.weingaerten ?? []) as AR[]).map((w: AR): PressungWG => ({
@@ -224,6 +253,7 @@ export default async function ErnteDetailPage({ params }: Props) {
     })),
   }))
 
+  const pressungen: Pressung[] = allePressungen.filter(p => inLese(p.lese_id))
   const wgOptions: WGOption[]  = weingaerten.map(w => ({ id: w.id, name: w.name, rebsorte: w.rebsorte }))
 
   // Verfügbare kg pro WG: geerntet − verpresst (für alle Pressungen dieses Jahrgangs)
@@ -239,7 +269,7 @@ export default async function ErnteDetailPage({ params }: Props) {
   }
   // Verkaufte kg pro WG aus Traubenverkauf (dieses Jahrgangs) abziehen
   const soldKgByWG: Record<string, number> = {}
-  for (const v of ((rawTV ?? []) as AR[])) {
+  for (const v of rawTVLese) {
     if (v.weingarten_id) soldKgByWG[v.weingarten_id] = (soldKgByWG[v.weingarten_id] ?? 0) + (parseFloat(v.menge_kg) || 0)
   }
   const verfuegbareKg: Record<string, number> = {}
@@ -260,7 +290,7 @@ export default async function ErnteDetailPage({ params }: Props) {
     }
   }
   const soldKgByGST: Record<string, number> = {}
-  for (const v of ((rawTV ?? []) as AR[])) {
+  for (const v of rawTVLese) {
     if (v.grundstueck_id)
       soldKgByGST[v.grundstueck_id] = (soldKgByGST[v.grundstueck_id] ?? 0) + (parseFloat(v.menge_kg) || 0)
   }
@@ -271,13 +301,13 @@ export default async function ErnteDetailPage({ params }: Props) {
 
   // Verfügbare kg pro Trauben-Zukauf: zugekaufte Menge − bereits verpresst − bereits verkauft
   const pressedKgByZukauf: Record<string, number> = {}
-  for (const p of pressungen) {
+  for (const p of allePressungen) {
     for (const w of p.weingaerten) {
       if (w.zukauf_posten_id) pressedKgByZukauf[w.zukauf_posten_id] = (pressedKgByZukauf[w.zukauf_posten_id] ?? 0) + w.trauben_kg
     }
   }
   const soldKgByZukauf: Record<string, number> = {}
-  for (const v of ((rawTV ?? []) as AR[])) {
+  for (const v of rawTVAlle) {
     if (v.zukauf_posten_id) soldKgByZukauf[v.zukauf_posten_id] = (soldKgByZukauf[v.zukauf_posten_id] ?? 0) + (parseFloat(v.menge_kg) || 0)
   }
   const zukaufTrauben: ZukaufTraubenOpt[] = ((rawZukaufTrauben ?? []) as AR[]).map(z => {
@@ -316,7 +346,7 @@ export default async function ErnteDetailPage({ params }: Props) {
 
   // Traubenverkauf
   const zukaufById = new Map(zukaufTrauben.map(z => [z.id, z]))
-  const verkauefe: Traubenverkauf[] = ((rawTV ?? []) as AR[]).map((v: AR) => {
+  const verkauefe: Traubenverkauf[] = rawTVLese.map((v: AR) => {
     const zukaufQuelle = v.zukauf_posten_id ? zukaufById.get(v.zukauf_posten_id) : undefined
     return {
     id: v.id,
@@ -434,8 +464,21 @@ export default async function ErnteDetailPage({ params }: Props) {
         )}
       </div>
 
+      {aktiveLeseMitSperre && (
+        <LeseReiter
+          jahrgangId={id}
+          jahrgang={Number((jg as AR).jahrgang)}
+          lesen={lesenMitSperre}
+          aktiv={aktiveLeseMitSperre}
+          writeOk={writeOk}
+          adminOk={adminOk}
+        />
+      )}
+
       <ErnteDetailClient
         jahrgang={jg as AR}
+        leseId={aktiveLese?.id ?? null}
+        leseTitel={aktiveLese && lesen.length > 1 ? leseTitel((jg as AR).jahrgang, aktiveLese) : null}
         parzellen={parzellen}
         weingaerten={weingaerten}
         gstByWeingarten={gstByWeingarten}

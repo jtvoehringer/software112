@@ -7,6 +7,7 @@ import type { Jahrgang } from './page'
 import { fmtZahl, fmtProzent } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
 import { updateJahrgang, deleteJahrgang } from './actions'
+import { leseArtText, leseNummer, leseZeitraumText } from '@/lib/wein/lesen'
 
 const QUALITAET_LABEL: Record<string, string> = {
   sehr_gut: 'Sehr gut', gut: 'Gut',
@@ -20,11 +21,6 @@ const AMA_STATUS_BADGE: Record<string, { label: string; cls: string }> = {
   abgelehnt:   { label: 'Abgelehnt',   cls: 'bg-s112-err-bg text-s112-err-fg' },
 }
 
-function formatDate(d: string | null) {
-  if (!d) return '–'
-  return new Date(d).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })
-}
-
 export default function JahrgaengeClient({
   jahrgaenge, writeOk, adminOk,
 }: {
@@ -34,11 +30,11 @@ export default function JahrgaengeClient({
     return (
       <div className="card text-center py-16">
         <p className="text-s112-text-1 font-medium">Noch keine Jahrgänge erfasst</p>
-        <p className="text-s112-muted text-sm mt-1 mb-6">Ersten Jahrgang anlegen und Erntedaten erfassen</p>
+        <p className="text-s112-muted text-sm mt-1 mb-6">Erste Lese anlegen (der Jahrgang entsteht dabei) und Lesedaten erfassen</p>
         {writeOk && (
           <Link href="/erntemeldung/neu"
             className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
-            Neuer Jahrgang
+            Neue Lese
           </Link>
         )}
       </div>
@@ -104,17 +100,8 @@ function JahrgangKarte({ j, writeOk, adminOk }: { j: Jahrgang; writeOk: boolean;
       {editing ? (
         <form onSubmit={handleSave} className="space-y-3">
           <h3 className="text-sm font-semibold text-s112-text">Jahrgang {j.jahrgang} bearbeiten</h3>
+          {/* KAN-129: Beginn und Ende stehen an der Lese (Jahrgangsseite, Reiter der Lese) */}
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-s112-text-2 mb-1">Ernte Beginn</label>
-              <input aria-label="Ernte Beginn" name="ernte_beginn" type="date" defaultValue={j.ernte_beginn ?? ''}
-                className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-s112-text-2 mb-1">Ernte Ende</label>
-              <input aria-label="Ernte Ende" name="ernte_ende" type="date" defaultValue={j.ernte_ende ?? ''}
-                className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
-            </div>
             <div className="col-span-2">
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Qualität</label>
               <select aria-label="Qualität" name="qualitaet_gesamt" defaultValue={j.qualitaet_gesamt ?? ''}
@@ -149,10 +136,23 @@ function JahrgangKarte({ j, writeOk, adminOk }: { j: Jahrgang; writeOk: boolean;
                 {j.qualitaet_gesamt && (
                   <p className="text-sm font-medium text-s112-text-1">{QUALITAET_LABEL[j.qualitaet_gesamt]}</p>
                 )}
-                <p className="text-xs text-s112-muted mt-0.5">
-                  {j.ernte_beginn ? `Ernte: ${formatDate(j.ernte_beginn)}` : 'Ernte: nicht erfasst'}
-                  {j.ernte_ende ? ` – ${formatDate(j.ernte_ende)}` : ''}
-                </p>
+                {/* KAN-129: Lesen des Jahrgangs – jede führt direkt zu ihrem Reiter */}
+                <ul className="mt-1 flex flex-wrap gap-1.5" aria-label={`Lesen des Jahrgangs ${j.jahrgang}`}>
+                  {j.lesen.map(l => {
+                    const zeitraum = leseZeitraumText(l.beginn, l.ende)
+                    return (
+                      <li key={l.id}>
+                        <Link href={`/erntemeldung/${j.id}?lese=${l.lfd_nr}`}
+                          title={l.bezeichnung ?? undefined}
+                          className="inline-flex items-center gap-1 rounded-full border border-s112-border px-2 py-0.5 text-xs text-s112-text-1 hover:border-s112-blue-700 hover:text-s112-blue-700">
+                          <span className="font-semibold tabular-nums">{leseNummer(j.jahrgang, l.lfd_nr)}</span>
+                          <span>{leseArtText(l.art)}</span>
+                          <span className="text-s112-muted">{zeitraum ?? 'Zeitraum offen'}</span>
+                        </Link>
+                      </li>
+                    )
+                  })}
+                </ul>
               </div>
             </div>
 

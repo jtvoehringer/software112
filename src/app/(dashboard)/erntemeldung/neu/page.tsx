@@ -3,40 +3,53 @@ import { getCurrentUserRole, getCurrentMembership, canWrite } from '@/lib/auth/r
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
-import NeuerJahrgangForm, { type VorhandenerJahrgang } from './NeuerJahrgangForm'
+import { lokalerTag, wienJetzt } from '@/lib/datum/wien'
+import { jahrgangAusEingabe, vorgeschlagenerJahrgang } from '@/lib/wein/lesen'
+import NeueLeseForm, { type VorhandenerJahrgang } from './NeueLeseForm'
 
-export const metadata: Metadata = { title: 'Neuer Jahrgang – software:112' }
+export const metadata: Metadata = { title: 'Neue Lese – software:112' }
+export const dynamic = 'force-dynamic'
 
-export default async function NeuerJahrgangPage() {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AR = Record<string, any>
+
+// KAN-129: „Neue Lese“ statt „Neuer Jahrgang“ – den Jahrgang legt die Aktion bei Bedarf mit an
+export default async function NeueLesePage({ searchParams }: { searchParams: Promise<{ jahrgang?: string }> }) {
   const role = await getCurrentUserRole()
   if (!canWrite(role, 'rieden')) redirect('/erntemeldung')
+  const { jahrgang: jahrgangParam } = await searchParams
 
-  const aktuellesJahr = new Date().getFullYear()
+  // im Jänner und Februar der Vorjahrgang (Eiswein), sonst das laufende Jahr; ?jahrgang= aus der Jahrgangsseite
+  const vorschlag = jahrgangAusEingabe(jahrgangParam) ?? vorgeschlagenerJahrgang(lokalerTag(wienJetzt()))
 
-  // KAN-129: bestehende Jahrgänge des Betriebs – das Formular weist schon vor dem Speichern
-  // darauf hin und verlinkt den Jahrgang (dort wird die Lese erfasst)
+  // bestehende Jahrgänge mit ihren Lesen – das Formular zeigt, welche Nummer die neue Lese bekommt
   const membership = await getCurrentMembership()
   const supabase = await createSupabaseServerClient()
   const { data: rawJ } = membership
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ? await (supabase.from('weinjahrgaenge') as any)
-        .select('id, jahrgang').eq('tenant_id', membership.tenantId)
+        .select('id, jahrgang, lesen(lfd_nr)').eq('tenant_id', membership.tenantId)
     : { data: [] }
-  const vorhandene = (rawJ ?? []) as VorhandenerJahrgang[]
+  const vorhandene: VorhandenerJahrgang[] = ((rawJ ?? []) as AR[]).map(j => ({
+    id: j.id, jahrgang: j.jahrgang,
+    lesen: ((j.lesen ?? []) as AR[]).map(l => l.lfd_nr as number).sort((a, b) => a - b),
+  }))
 
   return (
     <div className="max-w-lg">
       <div className="flex items-center gap-2 text-sm text-s112-muted mb-4">
         <Link href="/erntemeldung" className="hover:text-s112-blue-700 transition-colors">Lese</Link>
         <span>/</span>
-        <span className="text-s112-text-1 font-medium">Neuer Jahrgang</span>
+        <span className="text-s112-text-1 font-medium">Neue Lese</span>
       </div>
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-s112-text">Neuer Jahrgang</h1>
-        <p className="text-sm text-s112-muted mt-0.5">Jahrgang anlegen und Erntezeitraum festlegen</p>
+        <h1 className="text-2xl font-semibold text-s112-text">Neue Lese</h1>
+        <p className="text-sm text-s112-muted mt-0.5">
+          Lese im Jahrgang anlegen (z. B. Hauptlese, Eiswein) – den Jahrgang legt software:112 bei Bedarf mit an
+        </p>
       </div>
       <div className="card">
-        <NeuerJahrgangForm aktuellesJahr={aktuellesJahr} vorhandene={vorhandene} />
+        <NeueLeseForm vorschlag={vorschlag} vorhandene={vorhandene} />
       </div>
     </div>
   )

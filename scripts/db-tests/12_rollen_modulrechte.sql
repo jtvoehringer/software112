@@ -196,7 +196,7 @@ DECLARE
     'buchhaltung_export_protokoll', 'pipeline_verlauf', 'assistent_aktionen', 'assistent_nachrichten'];
   c_delete_nur_admin constant text[] := ARRAY['ama_erntemeldungen', 'behaelter', 'behandlungen', 'dac_antrag',
     'duengemittel', 'ea_transaktionen', 'ernte_parzellen', 'fuellungen', 'grundstuecke', 'kellerplaene',
-    'konto_umbuchungen', 'lagen', 'pflanzenschutzmittel', 'saetze_massnahmen', 'verkauf_positionen', 'verkaufsposten',
+    'konto_umbuchungen', 'lagen', 'lesen', 'pflanzenschutzmittel', 'saetze_massnahmen', 'verkauf_positionen', 'verkaufsposten',
     'weinanalysen', 'weinausbau', 'weingarten', 'weingarten_rebsorten', 'weinjahrgaenge', 'zahlungen'];
   c_nur_admin constant text[] := ARRAY['buchhaltung_kontenmapping', 'ea_monatsabschluss', 'konten', 'sumup_terminals',
     'zeiterfassung'];

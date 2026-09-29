@@ -21,6 +21,7 @@ import { mostgewichtAusFormular, mostgewichtAusWert, mostgewichtSpalten } from '
 import type { Mostgewicht } from '@/lib/wein/mostgewicht'
 import { istErntebar, leseZiele, verteileKg, type LeseGst, type LeseZiel } from '@/lib/wein/leseErfassung'
 import { lesedatumFehler, behaelterPruefung } from '@/lib/wein/pressungLesedatum'
+import { istLeseArt, jahrgangAusEingabe, leseLoeschsperre, leseZeitraumFehler } from '@/lib/wein/lesen'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -120,17 +121,195 @@ export async function createJahrgang(formData: FormData): Promise<{ error?: stri
 export async function updateJahrgang(id: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
+  // KAN-129: Beginn und Ende stehen an der Lese (updateLese); Felder, die das Formular nicht schickt
+  // (z. B. witterungscharakter), bleiben unverändert statt auf NULL gesetzt zu werden
+  const patch: AR = {}
+  for (const feld of ['qualitaet_gesamt', 'witterungscharakter', 'notizen'] as const) {
+    if (formData.has(feld)) patch[feld] = (formData.get(feld) as string) || null
+  }
+  if (Object.keys(patch).length === 0) return
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('weinjahrgaenge') as any).update({
-    ernte_beginn:        (formData.get('ernte_beginn') as string) || null,
-    ernte_ende:          (formData.get('ernte_ende') as string) || null,
-    qualitaet_gesamt:    (formData.get('qualitaet_gesamt') as string) || null,
-    witterungscharakter: (formData.get('witterungscharakter') as string) || null,
-    notizen:             (formData.get('notizen') as string) || null,
-  }).eq('id', id).eq('tenant_id', tenantId)
-  if (error) throw new AktionsFehler((error as AR).message)
+  const { error } = await (supabase.from('weinjahrgaenge') as any).update(patch).eq('id', id).eq('tenant_id', tenantId)
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Speichern fehlgeschlagen (weinjahrgaenge)'))
   revalidatePath('/erntemeldung')
   revalidatePath(`/erntemeldung/${id}`)
+}
+
+// ── Lesen (KAN-129) ───────────────────────────────────────────────────────────
+// Ein Jahrgang je Betrieb, darunter Lesen mit lfd. Nr. (2026/1 Hauptlese, 2026/2 Eiswein …). Die Nummer
+// vergibt die Datenbank (Trigger a_lesen_vor_schreiben), ein neuer Jahrgang bekommt Lese 1 per Trigger.
+
+type LeseAngaben = { art: string; bezeichnung: string | null; beginn: string | null; ende: string | null; notizen: string | null }
+
+function leseAngaben(formData: FormData, jahrgang: number): LeseAngaben {
+  const art = String(formData.get('art') ?? 'hauptlese')
+  if (!istLeseArt(art)) throw new AktionsFehler('Unbekannte Art der Lese – bitte aus der Liste wählen.')
+  const bezeichnung = String(formData.get('bezeichnung') ?? '').trim() || null
+  if (bezeichnung && bezeichnung.length > 100) throw new AktionsFehler('Die Bezeichnung der Lese ist zu lang (höchstens 100 Zeichen).')
+  const beginn = String(formData.get('beginn') ?? '').trim() || null
+  const ende = String(formData.get('ende') ?? '').trim() || null
+  const zeitraum = leseZeitraumFehler(jahrgang, beginn, ende)
+  if (zeitraum) throw new AktionsFehler(zeitraum)
+  return { art, bezeichnung, beginn, ende, notizen: String(formData.get('notizen') ?? '').trim() || null }
+}
+
+/** Belegung einer Lese (Lese-Einträge, Pressungen, Traubenverkäufe) – für Löschsperre und „Lese 1 füllen“ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function leseBelegung(supabase: any, tenantId: string, jahrgangId: string, leseId: string) {
+  const [ep, pr, tv] = await Promise.all([
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from('ernte_parzellen') as any).select('id', { count: 'exact', head: true })
+      .eq('lese_id', leseId).eq('jahrgang_id', jahrgangId),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from('pressungen') as any).select('id', { count: 'exact', head: true })
+      .eq('lese_id', leseId).eq('tenant_id', tenantId),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from('traubenverkauf') as any).select('id', { count: 'exact', head: true })
+      .eq('lese_id', leseId).eq('tenant_id', tenantId),
+  ])
+  for (const [tabelle, res] of [['ernte_parzellen', ep], ['pressungen', pr], ['traubenverkauf', tv]] as const) {
+    if (res.error) throw new AktionsFehler(dbFehlerText(res.error, `Lese konnte nicht geprüft werden (${tabelle})`))
+  }
+  return {
+    eintraege: (ep.count as number | null) ?? 0,
+    pressungen: (pr.count as number | null) ?? 0,
+    traubenverkaeufe: (tv.count as number | null) ?? 0,
+  }
+}
+
+/**
+ * „Neue Lese“: legt die Lese im Jahrgang an – gibt es den Jahrgang noch nicht, entsteht er mit (seine Lese 1
+ * bekommt die Angaben). Hat ein bestehender Jahrgang nur eine leere, noch nie beschriebene Lese 1 (Übergang,
+ * Jahrgang ohne Angaben), wird diese gefüllt statt eine zweite anzulegen.
+ */
+export async function neueLese(formData: FormData): Promise<{ error?: string; jahrgangId?: string; lfdNr?: number }> {
+  const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
+  const jahrgang = jahrgangAusEingabe(formData.get('jahrgang'))
+  if (jahrgang == null) return { error: 'Bitte einen gültigen Jahrgang (1900–2100) angeben.' }
+  let angaben: LeseAngaben
+  try { angaben = leseAngaben(formData, jahrgang) } catch (err) { return { error: (err as Error).message } }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ladeJg = async () => (supabase.from('weinjahrgaenge') as any)
+    .select('id').eq('tenant_id', tenantId).eq('jahrgang', jahrgang).maybeSingle()
+  const { data: jgVorhanden, error: jgErr } = await ladeJg()
+  if (jgErr) return { error: dbFehlerText(jgErr, 'Jahrgang konnte nicht geladen werden') }
+  let jahrgangId = (jgVorhanden as AR | null)?.id as string | undefined
+  let jahrgangNeu = false
+  if (!jahrgangId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: neu, error } = await (supabase.from('weinjahrgaenge') as any)
+      .insert({ tenant_id: tenantId, jahrgang }).select('id').single()
+    if (error && (error as AR).code !== '23505') return { error: dbFehlerText(error, 'Jahrgang konnte nicht angelegt werden') }
+    if (neu) { jahrgangId = (neu as AR).id as string; jahrgangNeu = true }
+    else {
+      // gleichzeitig angelegt (23505) – dann den bestehenden verwenden
+      const { data: nochmal } = await ladeJg()
+      jahrgangId = (nochmal as AR | null)?.id as string | undefined
+      if (!jahrgangId) return { error: `Jahrgang ${jahrgang} konnte nicht angelegt werden – bitte die Seite neu laden.` }
+    }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: rawLesen, error: lErr } = await (supabase.from('lesen') as any)
+    .select('id, lfd_nr, art, bezeichnung, beginn, ende, notizen').eq('jahrgang_id', jahrgangId).eq('tenant_id', tenantId)
+  if (lErr) return { error: dbFehlerText(lErr, 'Lesen konnten nicht geladen werden') }
+  const lesen = (rawLesen ?? []) as AR[]
+  let fuellen: AR | null = null
+  if (lesen.length === 1) {
+    const l = lesen[0]
+    const unbeschrieben = !l.beginn && !l.ende && !l.bezeichnung && !l.notizen && l.art === 'hauptlese'
+    if (jahrgangNeu || (unbeschrieben && Object.values(await leseBelegung(supabase, tenantId, jahrgangId, l.id)).every(n => n === 0))) {
+      fuellen = l
+    }
+  }
+
+  let lfdNr: number
+  if (fuellen) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: upd, error } = await (supabase.from('lesen') as any)
+      .update(angaben).eq('id', fuellen.id).eq('tenant_id', tenantId).select('lfd_nr')
+    if (error) return { error: dbFehlerText(error, 'Speichern fehlgeschlagen (lesen)') }
+    if (!(upd as AR[] | null)?.length) return { error: 'Die Lese konnte nicht gespeichert werden – keine Berechtigung. Bitte die Seite neu laden.' }
+    lfdNr = (upd as AR[])[0].lfd_nr as number
+  } else {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: neu, error } = await (supabase.from('lesen') as any)
+      .insert({ tenant_id: tenantId, jahrgang_id: jahrgangId, ...angaben }).select('lfd_nr').single()
+    if (error || !neu) return { error: dbFehlerText(error, 'Speichern fehlgeschlagen (lesen)') }
+    lfdNr = (neu as AR).lfd_nr as number
+  }
+  revalidatePath('/erntemeldung')
+  revalidatePath(`/erntemeldung/${jahrgangId}`)
+  return { jahrgangId, lfdNr }
+}
+
+/** Lese des aktiven Betriebs samt Jahrgang laden */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function ladeLese(supabase: any, tenantId: string, leseId: string): Promise<AR> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.from('lesen') as any)
+    .select('id, jahrgang_id, lfd_nr, jahrgang:weinjahrgaenge!lesen_jahrgang_fkey(jahrgang)')
+    .eq('id', leseId).eq('tenant_id', tenantId).maybeSingle()
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Lese konnte nicht geladen werden'))
+  if (!data) throw new AktionsFehler('Lese nicht gefunden – bitte die Seite neu laden.')
+  return data as AR
+}
+
+export async function updateLese(leseId: string, formData: FormData) {
+  const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
+  const lese = await ladeLese(supabase, tenantId, leseId)
+  const angaben = leseAngaben(formData, Number(lese.jahrgang?.jahrgang))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: upd, error } = await (supabase.from('lesen') as any)
+    .update(angaben).eq('id', leseId).eq('tenant_id', tenantId).select('id')
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Speichern fehlgeschlagen (lesen)'))
+  if (!(upd as AR[] | null)?.length) throw new AktionsFehler('Die Lese konnte nicht gespeichert werden – keine Berechtigung. Bitte die Seite neu laden.')
+  revalidatePath('/erntemeldung')
+  revalidatePath(`/erntemeldung/${lese.jahrgang_id}`)
+}
+
+/** Löschen nur für Betriebsleiter (Entscheidung Jörgen 29.09.2026): höchste, leere Lese, nie die einzige */
+export async function deleteLese(leseId: string): Promise<{ jahrgangId: string }> {
+  const supabase = await createSupabaseServerClient()
+  const membership = await getMembership()
+  const tenantId = membership.tenantId
+  if (!canAdmin(membership.role)) throw new AktionsFehler('Lesen löschen dürfen nur Betriebsleiter (Admin).')
+  const lese = await ladeLese(supabase, tenantId, leseId)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: rawNr, error: nErr } = await (supabase.from('lesen') as any)
+    .select('lfd_nr').eq('jahrgang_id', lese.jahrgang_id).eq('tenant_id', tenantId)
+  if (nErr) throw new AktionsFehler(dbFehlerText(nErr, 'Lesen konnten nicht geladen werden'))
+  const sperre = leseLoeschsperre(lese as { lfd_nr: number }, ((rawNr ?? []) as AR[]).map(r => r.lfd_nr as number),
+    await leseBelegung(supabase, tenantId, lese.jahrgang_id, leseId))
+  if (sperre) throw new AktionsFehler(sperre)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: del, error } = await (supabase.from('lesen') as any)
+    .delete().eq('id', leseId).eq('tenant_id', tenantId).select('id')
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Löschen fehlgeschlagen (lesen)'))
+  if (!(del as AR[] | null)?.length) throw new AktionsFehler('Die Lese konnte nicht gelöscht werden – keine Berechtigung. Bitte die Seite neu laden.')
+  revalidatePath('/erntemeldung')
+  revalidatePath(`/erntemeldung/${lese.jahrgang_id}`)
+  return { jahrgangId: lese.jahrgang_id as string }
+}
+
+/**
+ * Lese für einen NEUEN Lese-Eintrag bzw. eine neue Pressung aus dem Formular (Feld lese_id, der gewählte
+ * Reiter der Jahrgangsseite). Muss zum Jahrgang und Betrieb gehören. Ohne Angabe null – dann ordnet die
+ * Datenbank zu (eine Lese → diese, sonst nach Datum, notfalls Fehler „bitte die Lese wählen“).
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function leseFuerNeuenEintrag(supabase: any, tenantId: string, jahrgangId: string, formData: FormData): Promise<string | null> {
+  const leseId = String(formData.get('lese_id') ?? '').trim()
+  if (!leseId) return null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.from('lesen') as any)
+    .select('id').eq('id', leseId).eq('jahrgang_id', jahrgangId).eq('tenant_id', tenantId).maybeSingle()
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Lese konnte nicht geladen werden'))
+  if (!data) throw new AktionsFehler('Die gewählte Lese gehört nicht zu diesem Jahrgang oder wurde gelöscht – bitte die Seite neu laden.')
+  return leseId
 }
 
 // ── Ernte-Parzellen ───────────────────────────────────────────────────────────
@@ -203,8 +382,10 @@ export async function upsertErnteParzelle(jahrgangId: string, formData: FormData
     if (error) throw new AktionsFehler(dbFehlerText(error, 'Speichern fehlgeschlagen (ernte_parzellen)'))
     if (!(upd as AR[] | null)?.length) throw new AktionsFehler('Die Lesedaten konnten nicht gespeichert werden – keine Berechtigung oder der Eintrag wurde inzwischen gelöscht. Bitte die Seite neu laden.')
   } else {
+    // KAN-129: neuer Eintrag an die gewählte Lese; beim Bearbeiten bleibt die Lese unverändert
+    const leseId = await leseFuerNeuenEintrag(supabase, tenantId, jahrgangId, formData)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase.from('ernte_parzellen') as any).insert(payload)
+    const { error } = await (supabase.from('ernte_parzellen') as any).insert(leseId ? { ...payload, lese_id: leseId } : payload)
     if (error) throw new AktionsFehler(dbFehlerText(error, 'Speichern fehlgeschlagen (ernte_parzellen)'))
   }
   revalidatePath(`/erntemeldung/${jahrgangId}`)
@@ -468,7 +649,9 @@ export async function createMultipleErnteParzellen(jahrgangId: string, formData:
   const anteile = verteileKg(mengeKg, zuVerteilen.map(i => ziele[i].flaeche_ha))
   zuVerteilen.forEach((i, k) => { mengen[i] = anteile[k] })
 
-  const base = { jahrgang_id: jahrgangId, ernte_datum: ernteDatum }
+  // KAN-129: alle Einträge an die gewählte Lese (ohne Angabe ordnet die Datenbank zu)
+  const leseId = await leseFuerNeuenEintrag(supabase, tenantId, jahrgangId, formData)
+  const base = { jahrgang_id: jahrgangId, ernte_datum: ernteDatum, ...(leseId ? { lese_id: leseId } : {}) }
   const rows: AR[] = ziele.map((z, i) => {
     const eintrag = eintragVon(z)
     const perMg = eintrag ? (mgJeGst.get(eintrag) ?? null) : mgGemeinsam
@@ -728,7 +911,6 @@ async function chargenVorgabenErmitteln(
     const gstIds = weingaerten.map(w => w.grundstueck_id).filter(Boolean) as string[]
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: wgRows } = await (supabase.from('weingarten') as any).select('rebsorte, weinart').in('id', wgIds).eq('tenant_id', tenantId)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: gstRows } = gstIds.length > 0
       ? await (supabase.from('grundstuecke') as any).select('weinart').in('id', gstIds).eq('tenant_id', tenantId)
       : { data: [] }
@@ -1232,9 +1414,11 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
       if (!(pwUpd as AR[] | null)?.length) throw new AktionsFehler('Eine Traubenzeile konnte nicht gespeichert werden – keine Berechtigung oder inzwischen geändert. Bitte die Seite neu laden.')
     }
   } else {
+    // KAN-129: neue Pressung an die gewählte Lese; beim Bearbeiten bleibt die Lese unverändert
+    const leseId = await leseFuerNeuenEintrag(supabase, tenantId, jahrgangId, fd)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: neu, error: neuErr } = await (supabase.from('pressungen') as any)
-      .insert({ tenant_id: tenantId, jahrgang_id: jahrgangId, datum, most_liter_gesamt: mostLiter, weinbezeichnung, kmw_grad: kmwGrad, notizen })
+      .insert({ tenant_id: tenantId, jahrgang_id: jahrgangId, datum, most_liter_gesamt: mostLiter, weinbezeichnung, kmw_grad: kmwGrad, notizen, ...(leseId ? { lese_id: leseId } : {}) })
       .select('id').single()
     if (neuErr || !neu) throw new AktionsFehler(dbFehlerText(neuErr, 'Speichern fehlgeschlagen (pressungen)'))
     pressId = (neu as AR).id as string

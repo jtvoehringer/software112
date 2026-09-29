@@ -703,13 +703,20 @@ BEGIN
     v_val := NULL;
     v_id := NULL;
     v_lit := NULL;
+    -- einspaltiger FK bevorzugt; sonst ein mehrspaltiger (z. B. lesen.jahrgang_id → weinjahrgaenge (id, tenant_id),
+    -- die übrigen Spalten – tenant_id – kommen aus demselben Betrieb)
     SELECT pn.nspname::text AS refschema, p.relname::text AS reftab,
-           (SELECT pa.attname::text FROM pg_attribute pa WHERE pa.attrelid = k.confrelid AND pa.attnum = k.confkey[1]) AS refcol
+           (SELECT pa.attname::text FROM pg_attribute pa
+             WHERE pa.attrelid = k.confrelid AND pa.attnum = k.confkey[array_position(k.conkey, r.attnum)]) AS refcol
       INTO v_fk
       FROM pg_constraint k JOIN pg_class p ON p.oid = k.confrelid JOIN pg_namespace pn ON pn.oid = p.relnamespace
-     WHERE k.conrelid = v_oid AND k.contype = 'f' AND k.conkey = ARRAY[r.attnum]::int2[]
+     WHERE k.conrelid = v_oid AND k.contype = 'f' AND r.attnum = ANY (k.conkey)
+     ORDER BY cardinality(k.conkey), k.conname
      LIMIT 1;
-    IF FOUND THEN
+    IF FOUND AND v_fk.refschema = 'public' AND v_fk.reftab = 'lesen' THEN
+      -- KAN-129: lese_id (FK lese_id + jahrgang_id) setzt der Trigger a_lese_zuordnen passend zum Jahrgang
+      v_val := 'NULL';
+    ELSIF FOUND THEN
       v_klasse := CASE WHEN v_fk.refschema = 'public' THEN pg_temp.s112_klasse(v_fk.reftab) END;
       IF v_fk.refschema = 'auth' AND v_fk.reftab = 'users' THEN
         SELECT m.user_id::text INTO v_id FROM public.tenant_memberships m
@@ -961,6 +968,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('kosteneintrag_weingaerten',     'SA,TA,W*{auswertungen|rieden|kellerbuch}','SA,TA,W*{auswertungen|rieden|kellerbuch}','SA,TA,W*{auswertungen|rieden|kellerbuch}'),
     ('kostenstellen',                 'SA,TA,W*{auswertungen|rieden|kellerbuch}','SA,TA,W*{auswertungen|rieden|kellerbuch}','SA,TA,W*{auswertungen|rieden|kellerbuch}'),
     ('lagen',                         'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       'SA,TA{rieden}'),
+    ('lesen',                         'SA,TA,W*{rieden|kellerbuch}',            'SA,TA,W*{rieden|kellerbuch}',            'SA,TA{rieden|kellerbuch}'),
     ('module_flags',                  'PA',                                     'PA',                                     '-'),
     ('morgenberichte',                '-',                                      '-',                                      '-'),
     ('pflanzenschutzmittel',          'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       'SA,TA{rieden}'),
@@ -1061,7 +1069,7 @@ BEGIN
       'svs_parameter', 'tenants']
     WHEN 'protokoll_tabellen' THEN ARRAY[
       'ama_erntemeldungen', 'ama_meldepositionen', 'bestandsprotokoll', 'ernte_parzellen', 'fuellung_bewegungen',
-      'fuellung_chargen', 'fuellungen', 'keller_behandlungen', 'keller_umzuege', 'pressung_behaelter',
+      'fuellung_chargen', 'fuellungen', 'keller_behandlungen', 'keller_umzuege', 'lesen', 'pressung_behaelter',
       'pressung_weingaerten', 'pressungen', 'traubenverkauf', 'verkauf_positionen', 'verkaufsposten',
       'verschneidung_quellen', 'verschneidungen', 'weinausbau', 'weinjahrgaenge', 'zukauf_posten']
     WHEN 'abo_ausnahmen' THEN ARRAY[
@@ -1134,6 +1142,10 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('intern',        '--S', false, 'kundennummer_vergeben(p_tenant_id uuid, p_kreis integer)'),
     ('session_user',  '-US', false, 'lade_behaelter(p_tenant_id uuid)'),
     ('session_user',  '-US', false, 'lade_kellergemeinschaft(p_tenant_id uuid)'),
+    ('trigger',       '--S', false, 'lese_zuordnen()'),
+    ('trigger',       '--S', false, 'lesen_vor_loeschen()'),
+    ('trigger',       '--S', false, 'lesen_vor_schreiben()'),
+    ('trigger',       '--S', false, 'weinjahrgang_erste_lese()'),
     ('intern',        '--S', false, 'mark_verkauf_bezahlt(p_posten_id uuid)'),
     ('intern',        '--S', false, 'process_ea_dauerauftraege()'),
     ('mandant',       '-US', false, 'pruefe_ea_zeitraum_offen(p_tenant_id uuid, p_datum date)'),

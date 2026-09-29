@@ -477,7 +477,8 @@
 "weinbezeichnung",
 "grundstueck_id",
 "herkunft_code",
-"mostgewicht_einheit"
+"mostgewicht_einheit",
+"lese_id"
 ],
 "export_dokumente": [
 "id",
@@ -892,6 +893,19 @@
 "import_quelle",
 "importiert_am"
 ],
+"lesen": [
+"id",
+"tenant_id",
+"jahrgang_id",
+"lfd_nr",
+"art",
+"bezeichnung",
+"beginn",
+"ende",
+"notizen",
+"created_at",
+"updated_at"
+],
 "module_flags": [
 "id",
 "tenant_id",
@@ -1007,7 +1021,8 @@
 "weinbezeichnung",
 "kmw_grad",
 "oechsle",
-"mostgewicht_einheit"
+"mostgewicht_einheit",
+"lese_id"
 ],
 "profiles": [
 "id",
@@ -1353,7 +1368,8 @@
 "verkaufsposten_id",
 "zukauf_posten_id",
 "oechsle",
-"mostgewicht_einheit"
+"mostgewicht_einheit",
+"lese_id"
 ],
 "user_email_connections": [
 "id",
