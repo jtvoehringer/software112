@@ -6,7 +6,8 @@ import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
-import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
+import { AktionsFehler, dbFehlerText, LESE_WAEHLEN_MELDUNG } from '@/lib/fehler'
+import { traubenverkaufLese } from '@/lib/wein/leseBilanz'
 import { dezimal } from '@/lib/format'
 import { verkaufspostenStornieren } from '@/lib/verkauf/bestand'
 import { qualitaetFehler } from '@/lib/wein/qualitaet'
@@ -225,6 +226,24 @@ export async function upsertTraubenverkauf(formData: FormData) {
   const mostgewicht = mostgewichtAusFormular(formData, 'mostgewicht', { altesFeld: 'kmw_grad' })
   if (!mostgewicht.ok) throw new AktionsFehler(mostgewicht.fehler)
 
+  // KAN-129: Jahrgang des Betriebs (N5), Lese und kg-Bilanz je Lese – vor jedem Schreiben
+  let altLese: AR | null = null
+  if (existing_id) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase.from('traubenverkauf') as any)
+      .select('id, lese_id, jahrgang_id, weingarten_id, grundstueck_id, menge_kg').eq('id', existing_id).eq('tenant_id', tenantId).maybeSingle()
+    if (error) throw new AktionsFehler(dbFehlerText(error, 'Traubenverkauf konnte nicht geladen werden'))
+    altLese = (data as AR | null) ?? null
+  }
+  const lese = await traubenverkaufLese(supabase, tenantId, {
+    jahrgangId: (formData.get('jahrgang_id') as string) || null, weingartenId,
+    grundstueckId: (formData.get('grundstueck_id') as string) || null, zukaufPostenId, datum, mengeKg,
+    leseIdFormular: (formData.get('lese_id') as string) || null,
+    alt: altLese as { id: string; lese_id: string | null; jahrgang_id: string | null; weingarten_id: string | null; grundstueck_id: string | null; menge_kg: unknown } | null,
+    leseWaehlenText: LESE_WAEHLEN_MELDUNG,
+  })
+  if (lese.fehler) throw new AktionsFehler(lese.fehler)
+
   // Bezeichnung der Quelle (eigener Weingarten ODER zugekaufter Posten) für die
   // Positionsbezeichnung im Verkaufsposten laden.
   const weingartenName = await ermittleQuellenName(supabase, weingartenId, zukaufPostenId, tenantId)
@@ -236,6 +255,7 @@ export async function upsertTraubenverkauf(formData: FormData) {
     weingarten_id:   weingartenId,
     zukauf_posten_id: zukaufPostenId,
     jahrgang_id:     (formData.get('jahrgang_id') as string) || null,
+    lese_id:         lese.leseId,
     grundstueck_id:  (formData.get('grundstueck_id') as string) || null,
     kontakt_id:      kontaktId,
     firma_id:        firmaId,

@@ -10,7 +10,7 @@ import ErnteDetailClient from './ErnteDetailClient'
 import type { Pressung, PressungWG, PressungBeh, WGOption, BehOption, WAOption, ZukaufTraubenOpt } from './PressungSection'
 import TraubenverkaufSection, { type Traubenverkauf, type TVWGOption, type TVKontaktOption, type TVFirmaOption, type TVQuelleOption } from './TraubenverkaufSection'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
-import { berechneHektarhoechstertrag, ladeLesedaten, weinbauflaecheHa, type HektarhoechstertragStatus, type LeseZeile } from '@/lib/behoerden/erntemeldung'
+import { berechneHektarhoechstertrag, ladeLesedaten, stichtagHinweis, teileNachStichtag, weinbauflaecheHa, type HektarhoechstertragStatus, type LeseZeile } from '@/lib/behoerden/erntemeldung'
 import { KATALOG_ERNTE } from '@/lib/behoerden/katalog/ernte'
 import { betriebUndModuleLaden, zugriffsFehler } from '@/lib/behoerden/zugriff'
 import { istErntebar } from '@/lib/wein/leseErfassung'
@@ -34,6 +34,8 @@ export type ErnteParzelle = {
   /** gemessene Einheit ('kmw' | 'oechsle', KAN-128) – vor Migration A null */
   mostgewicht_einheit: string | null
   qualitaetsstufe: string | null; lesemethode: string | null; notizen: string | null
+  /** KAN-129: Lese des Eintrags („2026/1 Hauptlese“) und ihre Nummer – Gruppierung der Lesedaten */
+  lese_titel: string | null; lese_nr: number | null
 }
 export type WeingartenOpt = {
   id: string; name: string; rebsorte: string | null; lage_name: string | null
@@ -61,6 +63,7 @@ function zuErnteParzelle(z: LeseZeile): ErnteParzelle {
     ernte_datum: z.datum, menge_kg: z.mengeKg, menge_hl: z.mengeHl,
     oechsle: z.oechsle, klosterneuburger: z.kmw, mostgewicht_einheit: z.mostgewichtEinheit,
     qualitaetsstufe: z.qualitaetsstufe, lesemethode: z.lesemethode, notizen: z.notizen,
+    lese_titel: z.lese, lese_nr: z.leseNr,
   }
 }
 
@@ -196,9 +199,16 @@ export default async function ErnteDetailPage({ params, searchParams }: Props) {
     .eq('jahrgang', (jg as AR).jahrgang)
     .order('datum', { ascending: false }))
 
-  // Anzeige wie bisher: neueste Lese zuerst (Postgres-DESC: ohne Datum ganz oben)
-  const parzellen: ErnteParzelle[] = lese.zeilen.filter(z => inLese(z.leseId)).map(zuErnteParzelle)
-    .sort((a, b) => (a.ernte_datum === b.ernte_datum ? 0 : a.ernte_datum === null ? -1 : b.ernte_datum === null ? 1 : b.ernte_datum.localeCompare(a.ernte_datum)))
+  // Anzeige wie bisher: neueste Lese zuerst (Postgres-DESC: ohne Datum ganz oben); bei mehreren Lesen je Lese
+  // gruppiert (höchste Nummer oben). Die Tabelle und der Druck zeigen immer den ganzen Jahrgang (Ticket Soll 4),
+  // Pressungen und verfügbare kg nur die gewählte Lese.
+  const nachDatum = (a: ErnteParzelle, b: ErnteParzelle) =>
+    (a.ernte_datum === b.ernte_datum ? 0 : a.ernte_datum === null ? -1 : b.ernte_datum === null ? 1 : b.ernte_datum.localeCompare(a.ernte_datum))
+  const alleParzellen: ErnteParzelle[] = lese.zeilen.map(zuErnteParzelle)
+    .sort((a, b) => (lesen.length > 1 ? (b.lese_nr ?? 0) - (a.lese_nr ?? 0) : 0) || nachDatum(a, b))
+  const parzellen: ErnteParzelle[] = alleParzellen.filter(p => inLese(lese.zeilen.find(z => z.id === p.id)?.leseId))
+  // KAN-129 Frage 7: Lesegut nach dem 30.11. zählt nicht in die Erntemeldung
+  const nachStichtag = stichtagHinweis(teileNachStichtag(lese.zeilen, Number((jg as AR).jahrgang)).danach, Number((jg as AR).jahrgang))
 
   const gstByWeingarten: Record<string, GSTOpt[]> = {}
   for (const g of rawGST) {
@@ -479,6 +489,9 @@ export default async function ErnteDetailPage({ params, searchParams }: Props) {
         jahrgang={jg as AR}
         leseId={aktiveLese?.id ?? null}
         leseTitel={aktiveLese && lesen.length > 1 ? leseTitel((jg as AR).jahrgang, aktiveLese) : null}
+        mehrereLesen={lesen.length > 1}
+        tabellenParzellen={alleParzellen}
+        stichtagHinweis={nachStichtag}
         parzellen={parzellen}
         weingaerten={weingaerten}
         gstByWeingarten={gstByWeingarten}
@@ -502,6 +515,7 @@ export default async function ErnteDetailPage({ params, searchParams }: Props) {
         <div className="mt-6">
           <TraubenverkaufSection
             jahrgangId={id}
+            leseId={aktiveLese?.id ?? null}
             jahrgang={Number((jg as AR).jahrgang)}
             bkiErlaubt={bkiErlaubt}
             verkauefe={verkauefe}

@@ -660,13 +660,18 @@ function ParzellForm({
 
 
 // ── Hauptkomponente ─────────────────────────────────────────────────────────────
-export default function ErnteDetailClient({ jahrgang, leseId, leseTitel, parzellen, weingaerten, gstByWeingarten, amaMeldung, hektarhoechstertrag, pressungen, wgOptions, behOptions, waOptions, verfuegbareKg, verfuegbareKgByGST, zukaufTrauben, behaelterMitCharge, writeOk, adminOk, betriebName, csvErlaubt }: {
+export default function ErnteDetailClient({ jahrgang, leseId, leseTitel, mehrereLesen, tabellenParzellen, stichtagHinweis, parzellen, weingaerten, gstByWeingarten, amaMeldung, hektarhoechstertrag, pressungen, wgOptions, behOptions, waOptions, verfuegbareKg, verfuegbareKgByGST, zukaufTrauben, behaelterMitCharge, writeOk, adminOk, betriebName, csvErlaubt }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   jahrgang: Record<string, any>; parzellen: ErnteParzelle[]
   /** KAN-129: gewählte Lese (Reiter der Seite) – neue Einträge und Pressungen landen in ihr */
   leseId: string | null
-  /** KAN-129: „2026/2 Eiswein“ – nur bei mehreren Lesen, für Überschrift und Druck */
+  /** KAN-129: „2026/2 Eiswein“ – nur bei mehreren Lesen (Überschrift der Pressungs-/Erfassungsteile) */
   leseTitel: string | null
+  mehrereLesen: boolean
+  /** KAN-129: Lesedaten des ganzen Jahrgangs (Tabelle und Druck), nach Lese sortiert; `parzellen` = gewählte Lese */
+  tabellenParzellen: ErnteParzelle[]
+  /** KAN-129 Frage 7: Lesegut nach dem Stichtag 30.11. (nicht in der Erntemeldung) oder null */
+  stichtagHinweis: string | null
   weingaerten: WeingartenOpt[]; gstByWeingarten: Record<string, GSTOpt[]>; amaMeldung: AMAMeldung | null
   hektarhoechstertrag: HektarhoechstertragStatus
   pressungen: Pressung[]; wgOptions: WGOption[]; behOptions: BehOption[]; waOptions: WAOption[]
@@ -684,7 +689,7 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseTitel, parzell
   const [leseFehler, setLeseFehler] = useState<string | null>(null)
   const [amaFehler, setAmaFehler]   = useState<string | null>(null)
 
-  const gesamtKg = parzellen.reduce((s, p) => s + (p.menge_kg ?? 0), 0)
+  const gesamtKg = tabellenParzellen.reduce((s, p) => s + (p.menge_kg ?? 0), 0)
   const mitAktionen = writeOk || adminOk
   // Spalten der Lesedaten-Tabelle: Ried, GST, Sorte, Datum, kg, Notizen, Mostgewicht, Qualität (+ Aktionen)
   const spaltenAnzahl = 8 + (mitAktionen ? 1 : 0)
@@ -722,16 +727,16 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseTitel, parzell
       {/* Print-Header (nur beim Drucken sichtbar) */}
       <div className="hidden print:block mb-4 pb-4 border-b-2 border-s112-line-str">
         <p className="text-xs text-s112-text-2 font-semibold tracking-widest uppercase">{betriebName ? `software:112 – ${betriebName}` : 'software:112'}</p>
-        <h1 className="text-2xl font-semibold text-s112-text mt-0.5">Jahrgang {jahrgang.jahrgang}{leseTitel ? ` · Lese ${leseTitel}` : ''}</h1>
+        <h1 className="text-2xl font-semibold text-s112-text mt-0.5">Jahrgang {jahrgang.jahrgang}</h1>
         <p className="text-sm text-s112-tertiary mt-1">Erstellt: {heute}</p>
       </div>
 
       {/* Ernte-Übersicht */}
       <div className="card">
         <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
-          <h2 className="text-base font-semibold text-s112-text">Lesedaten{leseTitel ? ` – Lese ${leseTitel}` : ''}</h2>
+          <h2 className="text-base font-semibold text-s112-text">Lesedaten{mehrereLesen ? ' – alle Lesen des Jahrgangs' : ''}</h2>
           <div className="flex items-start gap-3 flex-wrap">
-            <span className="text-sm text-s112-muted">{parzellen.length} Parzellen · {fmtZahl(gesamtKg/1000, 2)} t</span>
+            <span className="text-sm text-s112-muted">{tabellenParzellen.length} Parzellen · {fmtZahl(gesamtKg/1000, 2)} t</span>
             {writeOk && !showForm && (
               <button onClick={() => { setShowForm(true); setEditId(null) }}
                 data-print="hide"
@@ -766,7 +771,11 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseTitel, parzell
           </div>
         )}
 
-        {parzellen.length > 0 ? (
+        {leseTitel && writeOk && (
+          <p className="mb-3 text-xs text-s112-muted" data-print="hide">Neue Einträge über „Ernte“ landen in der Lese {leseTitel}.</p>
+        )}
+
+        {tabellenParzellen.length > 0 ? (
           <div className="border border-s112-border rounded-xl overflow-x-auto print:overflow-visible">
             <table className="w-full text-sm min-w-[700px] print:min-w-0">
               <thead>
@@ -785,8 +794,15 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseTitel, parzell
                 </tr>
               </thead>
               <tbody>
-                {parzellen.map(p => (
+                {tabellenParzellen.map((p, i) => (
                   <React.Fragment key={p.id}>
+                    {mehrereLesen && (i === 0 || tabellenParzellen[i - 1].lese_nr !== p.lese_nr) && (
+                      <tr className="bg-s112-bg/60 border-b border-s112-border">
+                        <td colSpan={spaltenAnzahl} className="px-3 py-1.5 text-xs font-semibold text-s112-text-2">
+                          Lese {p.lese_titel ?? '–'}
+                        </td>
+                      </tr>
+                    )}
                     <tr className="group border-b border-s112-border/40 last:border-0 hover:bg-s112-bg/30">
                       <td className="px-3 py-2 font-medium text-s112-text">
                         {p.weingarten_name}
@@ -939,6 +955,12 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseTitel, parzell
             )}
           </div>
 
+          {stichtagHinweis && (
+            <p role="note" className="mb-3 rounded-lg border border-s112-warn/30 bg-s112-warn-bg px-3 py-2 text-xs text-s112-warn-fg">
+              {stichtagHinweis}
+            </p>
+          )}
+
           {amaMeldung ? (
             <div>
               <div className="grid grid-cols-2 gap-4 mb-4">
@@ -998,14 +1020,14 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseTitel, parzell
           ) : (
             <div>
               <p className="text-sm text-s112-muted mb-4" data-print="hide">
-                Lesedaten aus {parzellen.length} Parzellen zu AMA-Meldung aggregieren.
+                Lesedaten aus {tabellenParzellen.length} Parzellen zu AMA-Meldung aggregieren.
               </p>
               {amaFehler && (
                 <div role="alert" className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-lg px-3 py-2 text-xs mb-3" data-print="hide">
                   {amaFehler}
                 </div>
               )}
-              <button onClick={handleAMA} disabled={parzellen.length === 0}
+              <button onClick={handleAMA} disabled={tabellenParzellen.length === 0}
                 data-print="hide"
                 className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50 transition-colors">
                 AMA-Meldung erstellen
