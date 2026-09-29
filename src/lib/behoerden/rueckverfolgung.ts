@@ -6,8 +6,9 @@
 //   Treffer über Rebsorte + Jahrgang) → Pressungen (pressung_behaelter) → Lesezeilen
 //   Weingarten/GST (pressung_weingaerten) → Maßnahmen im Weingarten bis zur Lese.
 // Maßnahmen (KAN-75, 25.09.2026): je Lesezeile nur die des gelesenen Grundstücks im
-// Zeitfenster vom 01.01. des Jahrgangs bis einschließlich zum Lesedatum – auch bei mehreren
-// Lesen am selben GST (Hauptlese und Eiswein; entschieden von Jörgen am 25.09.2026). Fehlt das
+// Zeitfenster „Ernte bis Ernte“ (KAN-108, seit 29.09.2026): vom Tag nach der letzten Lese des
+// Vorjahrgangs an diesem GST (sonst 01.01. des Jahrgangs) bis einschließlich zum Lesedatum –
+// Hauptlese und Eiswein desselben Jahrgangs mit demselben Beginn (Jörgen, 25.09.2026). Fehlt das
 // Lesedatum an der Lesezeile (im Echtbetrieb die Regel), bis zum Lesedatum laut Erntemeldung
 // (nur wenn eindeutig: ein Lesetag, Menge deckt das Verpresste), sonst bis zum Pressungsdatum.
 // Regeln in rueckverfolgungFenster.ts.
@@ -26,8 +27,8 @@ import { bkiRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
 import { MASSNAHMEN_ART_LABEL } from '@/lib/behandlungen/arten'
 import { num, numOderNull, tag, text, type R } from './kellerbuch-hilfen'
 import {
-  ladebereich, leseFenster, leseWarnungen, ordneMassnahmenZu, ttmmjjjj,
-  type ErnteEintrag, type ErnteErsatz, type LeseZeile, type MassnahmeOrt, type VerpressteTrauben, type Zeitfenster,
+  kalendertag, ladebereich, leseFenster, leseWarnungen, ordneMassnahmenZu, ttmmjjjj,
+  type ErnteEintrag, type ErnteErsatz, type FruehereLese, type LeseZeile, type MassnahmeOrt, type VerpressteTrauben, type Zeitfenster,
 } from './rueckverfolgungFenster'
 
 /** Maßnahmenarten (lib/behandlungen/arten.ts, seit KAN-143 mit Laubschneiden) */
@@ -76,6 +77,74 @@ function pruefen<T>(res: { data: T; error: { message?: string } | null }, was: s
 type MassnahmeRoh = MassnahmeOrt & { roh: R; flaeche: Map<string, number | null> }
 
 /**
+ * Lesen der angegebenen Jahrgänge im Betrieb – für den Fensterbeginn „Ernte bis Ernte“
+ * (rueckverfolgungFenster.ts): Lesedatum an der Pressungszeile, Erntemeldung und Traubenverkauf
+ * (ohne Zukauf-Trauben), nur Einträge mit Lesedatum. Leer, wenn keiner der Jahrgänge angelegt ist.
+ */
+export async function ladeFruehereLesen(supabase: any, tenantId: string, jahrgaenge: readonly number[]): Promise<FruehereLese[]> {
+  const jahre = [...new Set(jahrgaenge.filter(j => Number.isInteger(j)))]
+  if (jahre.length === 0) return []
+  const jg = pruefen(await alle<R>((supabase.from('weinjahrgaenge') as any)
+    .select('id, jahrgang')
+    .eq('tenant_id', tenantId)
+    .in('jahrgang', jahre)
+    .order('id')), 'Jahrgänge')
+  const jahrJeId = new Map(jg.map(j => [String(j.id), Number(j.jahrgang)]))
+  const ids = [...jahrJeId.keys()]
+  if (ids.length === 0) return []
+  const [pwRes, epRes, tvRes] = await Promise.all([
+    // tenant-isolation-ignore: pressung_weingaerten ohne tenant_id, Filter über die Pressung
+    alle<R>((supabase.from('pressung_weingaerten') as any)
+      .select('id, weingarten_id, grundstueck_id, ernte_datum, zukauf_posten_id, pressung:pressung_id!inner(tenant_id, jahrgang_id)')
+      .eq('pressung.tenant_id', tenantId)
+      .in('pressung.jahrgang_id', ids)
+      .not('ernte_datum', 'is', null)
+      .order('id')),
+    // tenant-isolation-ignore: ernte_parzellen ohne tenant_id, Filter über den Jahrgang
+    alle<R>((supabase.from('ernte_parzellen') as any)
+      .select('id, jahrgang_id, weingarten_id, grundstueck_id, ernte_datum, jahrgang:jahrgang_id!inner(tenant_id)')
+      .eq('jahrgang.tenant_id', tenantId)
+      .in('jahrgang_id', ids)
+      .not('ernte_datum', 'is', null)
+      .order('id')),
+    alle<R>((supabase.from('traubenverkauf') as any)
+      .select('id, jahrgang_id, weingarten_id, grundstueck_id, datum, zukauf_posten_id')
+      .eq('tenant_id', tenantId)
+      .in('jahrgang_id', ids)
+      .is('zukauf_posten_id', null)
+      .order('id')),
+  ])
+  const lesen: FruehereLese[] = []
+  const neu = (jahrgangId: unknown, wg: unknown, gst: unknown, datum: unknown) => {
+    const jahrgang = jahrJeId.get(String(jahrgangId))
+    const lesedatum = kalendertag(datum)
+    if (jahrgang !== undefined && lesedatum) lesen.push({ jahrgang, weingartenId: text(wg), grundstueckId: text(gst), lesedatum })
+  }
+  for (const pw of pruefen(pwRes, 'Lesezeilen der Vorjahre')) {
+    const p = pw.pressung as R | null
+    if (p?.tenant_id !== tenantId || text(pw.zukauf_posten_id)) continue
+    neu(p.jahrgang_id, pw.weingarten_id, pw.grundstueck_id, pw.ernte_datum)
+  }
+  for (const ep of pruefen(epRes, 'Erntemeldung der Vorjahre')) {
+    if ((ep.jahrgang as R | null)?.tenant_id !== tenantId) continue
+    neu(ep.jahrgang_id, ep.weingarten_id, ep.grundstueck_id, ep.ernte_datum)
+  }
+  for (const tv of pruefen(tvRes, 'Traubenverkauf der Vorjahre')) neu(tv.jahrgang_id, tv.weingarten_id, tv.grundstueck_id, tv.datum)
+  return lesen
+}
+
+/** Vorjahrgänge der Lesezeilen (Jahrgang der Pressung, sonst Jahr des Lese- bzw. Pressungsdatums, minus 1) */
+export function vorjahrgaenge(eingaben: readonly LeseZeile[]): number[] {
+  const jahre = new Set<number>()
+  for (const e of eingaben) {
+    const t = kalendertag(e.lesedatum) ?? kalendertag(e.pressungDatum)
+    const j = e.jahrgang !== null && Number.isInteger(e.jahrgang) ? e.jahrgang : t ? Number(t.slice(0, 4)) : null
+    if (j !== null) jahre.add(j - 1)
+  }
+  return [...jahre].sort()
+}
+
+/**
  * Maßnahmen je Lesezeile der Pressungen (KAN-75): Zeitfenster und Zuordnung in
  * rueckverfolgungFenster.ts; hier nur Laden (je Mandant gefiltert) und Umformen.
  * Seite und CSV bekommen das Ergebnis über ladeChargeKette (Kette.lesen).
@@ -119,7 +188,7 @@ export async function ladeLeseMassnahmen(supabase: any, tenantId: string, pressu
     .filter((x): x is string => !!x))]
 
   const leer = Promise.resolve({ data: [] as R[], error: null })
-  const [gstWgRes, gstLeseRes, ernteRes, verpresstRes] = await Promise.all([
+  const [gstWgRes, gstLeseRes, ernteRes, verpresstRes, fruehere] = await Promise.all([
     // alle GST der Weingärten (für Lesen ohne GST) …
     wgIds.length > 0
       ? alle<R>((supabase.from('grundstuecke') as any)
@@ -157,6 +226,8 @@ export async function ladeLeseMassnahmen(supabase: any, tenantId: string, pressu
           .in('pressung.jahrgang_id', jgOhneLesedatum)
           .order('id'))
       : leer,
+    // Lesen der Vorjahrgänge – Fensterbeginn „Ernte bis Ernte“ (KAN-108)
+    gstIds.length > 0 || wgIds.length > 0 ? ladeFruehereLesen(supabase, tenantId, vorjahrgaenge(eingaben)) : Promise.resolve([] as FruehereLese[]),
   ])
 
   const gstNr = new Map<string, string>()
@@ -186,7 +257,7 @@ export async function ladeLeseMassnahmen(supabase: any, tenantId: string, pressu
   // Mehrtägige Maßnahmen, die vor dem Bereich beginnen und hineinreichen, zählen mit (datum_bis).
   let massnahmen: MassnahmeRoh[] = []
   if (gstIds.length > 0 || wgIds.length > 0) {
-    const bereich = ladebereich(eingaben.map(e => leseFenster(e, ernte, verpresst)))
+    const bereich = ladebereich(eingaben.map(e => leseFenster(e, ernte, verpresst, fruehere)))
     let q = (supabase.from('behandlungen') as any)
       .select(`
         id, datum, datum_bis, art, weingarten_id, aufwandmenge, aufwandmenge_einheit, schaderreger, witterung, notizen,
@@ -208,7 +279,7 @@ export async function ladeLeseMassnahmen(supabase: any, tenantId: string, pressu
     })
   }
 
-  const zuordnung = ordneMassnahmenZu(eingaben, massnahmen, gstJeWeingarten, weingartenJeGst, ernte, verpresst)
+  const zuordnung = ordneMassnahmenZu(eingaben, massnahmen, gstJeWeingarten, weingartenJeGst, ernte, verpresst, fruehere)
   const lesen: LeseMassnahmen[] = zuordnung.map(z => {
     const { lese, pressungDatum } = zeilen.get(z.leseId)!
     return {
@@ -266,8 +337,8 @@ export function massnahmeText(m: LeseMassnahme, mitGst: boolean): string {
 
 /**
  * Hinweistext einer Lese für die CSV-Spalte „Hinweis Behandlungen“ (die Seite zeigt dieselben
- * Hinweise). Den Fensterbeginn (immer der 01.01. des Jahrgangs) nennt die Spalte
- * „Behandlungen ab“ – seit dem 25.09.2026 gibt es keinen Beginn nach einer vorigen Lese mehr.
+ * Hinweise). Den Fensterbeginn („Ernte bis Ernte“: Tag nach der letzten Lese des Vorjahrgangs am
+ * GST, sonst 01.01. des Jahrgangs – dann als X-Warnung) nennt die Spalte „Behandlungen ab“.
  */
 export function leseHinweisText(l: LeseMassnahmen): string | null {
   return l.hinweise.length > 0 ? l.hinweise.join(' ') : null

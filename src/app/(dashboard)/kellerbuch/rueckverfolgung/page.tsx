@@ -231,8 +231,9 @@ function ChargeKette({
       {lesen.length > 0 && (
         <Section title="Maßnahmen im Weingarten bis zur Lese" icon={<Leaf className="w-4 h-4" />}>
           <p className="text-xs text-s112-muted">
-            Je Lese die Maßnahmen des gelesenen Grundstücks ab 01.01. des Jahrgangs bis einschließlich zum
-            Lesedatum – auch bei mehreren Lesen am selben Grundstück (z. B. Hauptlese und Eiswein), denn die
+            Je Lese die Maßnahmen des gelesenen Grundstücks „von Ernte bis Ernte“: ab dem Tag nach der letzten
+            Lese des Vorjahrgangs an diesem Grundstück (ist keine erfasst, ab 01.01. des Jahrgangs) bis
+            einschließlich zum Lesedatum. Hauptlese und Eiswein desselben Jahrgangs beginnen gleich, denn die
             Trauben der späteren Lese hingen die ganze Saison am Stock.
           </p>
           {lesen.map((l, i) => {

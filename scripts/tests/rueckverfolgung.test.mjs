@@ -272,12 +272,12 @@ describe('Zeitfenster – Randfälle', () => {
     const zweite = lese('l2')
     const ms = [m('vorher', '2025-06-01'), m('amErstenLesetag', '2025-09-10'), m('tagDanach', '2025-09-11'), m('amLesetag', '2025-10-05'), m('danach', '2025-10-06')]
     const [a, b] = zuordnen([erste, zweite], ms)
-    assert.deepEqual(a.fenster, { von: '2025-01-01', bis: '2025-09-10', jahrgang: 2025, bisAus: 'lesedatum' })
+    assert.deepEqual(a.fenster, { von: '2025-01-01', bis: '2025-09-10', jahrgang: 2025, bisAus: 'lesedatum', vonAus: 'jahresbeginn', vorjahresLese: null })
     assert.deepEqual(ids(a), ['vorher', 'amErstenLesetag'])
-    assert.deepEqual(b.fenster, { von: '2025-01-01', bis: '2025-10-05', jahrgang: 2025, bisAus: 'lesedatum' })
+    assert.deepEqual(b.fenster, { von: '2025-01-01', bis: '2025-10-05', jahrgang: 2025, bisAus: 'lesedatum', vonAus: 'jahresbeginn', vorjahresLese: null })
     assert.deepEqual(ids(b), ['vorher', 'amErstenLesetag', 'tagDanach', 'amLesetag'])
     assert.deepEqual(b.hinweise, [])
-    assert.equal(fenster.fensterBeginnText(b.fenster), 'ab 01.01. des Jahrgangs 2025')
+    assert.equal(fenster.fensterBeginnText(b.fenster), 'ab 01.01. des Jahrgangs 2025 (keine Lese des Jahrgangs 2024 erfasst)')
     // das Fenster hängt nur an der Lesezeile selbst – mit oder ohne die erste Lese dasselbe
     const [allein] = zuordnen([zweite], ms)
     assert.deepEqual(allein, b)
@@ -294,9 +294,9 @@ describe('Zeitfenster – Randfälle', () => {
       m('anderesGst', '2025-10-20', { grundstueckIds: ['gB'] }),
     ]
     const [h, e] = zuordnen([haupt, eis], ms)
-    assert.deepEqual(h.fenster, { von: '2025-01-01', bis: '2025-09-20', jahrgang: 2025, bisAus: 'lesedatum' })
+    assert.deepEqual(h.fenster, { von: '2025-01-01', bis: '2025-09-20', jahrgang: 2025, bisAus: 'lesedatum', vonAus: 'jahresbeginn', vorjahresLese: null })
     assert.deepEqual(ids(h), ['juliSpritzung', 'amHauptLesetag'])
-    assert.deepEqual(e.fenster, { von: '2025-01-01', bis: '2025-12-12', jahrgang: 2025, bisAus: 'lesedatum' })
+    assert.deepEqual(e.fenster, { von: '2025-01-01', bis: '2025-12-12', jahrgang: 2025, bisAus: 'lesedatum', vonAus: 'jahresbeginn', vorjahresLese: null })
     assert.deepEqual(ids(e), ['juliSpritzung', 'amHauptLesetag', 'oktoberZwischen', 'laubNovember', 'amEisLesetag'])
     assert.deepEqual(e.hinweise, [])
     // Reihenfolge der Lesezeilen egal
@@ -318,7 +318,7 @@ describe('Zeitfenster – Randfälle', () => {
       m('herbst2024', '2024-11-15'), m('silvester', '2024-12-20', { datumBis: '2025-01-05' }), m('fruehjahr', '2025-04-01'), m('nachLese2024', '2024-10-02'),
     ])
     assert.deepEqual(ids(a), [])                                            // nichts vor der Lese 2024 erfasst
-    assert.deepEqual(b.fenster, { von: '2025-01-01', bis: '2025-09-20', jahrgang: 2025, bisAus: 'lesedatum' })
+    assert.deepEqual(b.fenster, { von: '2025-01-01', bis: '2025-09-20', jahrgang: 2025, bisAus: 'lesedatum', vonAus: 'jahresbeginn', vorjahresLese: null })
     assert.deepEqual(ids(b), ['silvester', 'fruehjahr'])
   })
 
@@ -331,26 +331,26 @@ describe('Zeitfenster – Randfälle', () => {
     ]
     const [h, z] = zuordnen([herbst, eis], ms)
     assert.deepEqual(ids(h), ['juli'])
-    assert.deepEqual(z.fenster, { von: '2024-01-01', bis: '2025-01-10', jahrgang: 2024, bisAus: 'lesedatum' })
+    assert.deepEqual(z.fenster, { von: '2024-01-01', bis: '2025-01-10', jahrgang: 2024, bisAus: 'lesedatum', vonAus: 'jahresbeginn', vorjahresLese: null })
     assert.deepEqual(ids(z), ['juli', 'nachHerbst', 'dezember', 'jaenner', 'amEisLesetag'])
-    assert.equal(fenster.fensterBeginnText(z.fenster), 'ab 01.01. des Jahrgangs 2024')
+    assert.equal(fenster.fensterBeginnText(z.fenster), 'ab 01.01. des Jahrgangs 2024 (keine Lese des Jahrgangs 2023 erfasst)')
     // ohne Jahrgang an der Pressung entscheidet das Jahr des Lesedatums
     const [ohneJg] = zuordnen([{ ...eis, jahrgang: null }], ms)
-    assert.deepEqual(ohneJg.fenster, { von: '2025-01-01', bis: '2025-01-10', jahrgang: 2025, bisAus: 'lesedatum' })
+    assert.deepEqual(ohneJg.fenster, { von: '2025-01-01', bis: '2025-01-10', jahrgang: 2025, bisAus: 'lesedatum', vonAus: 'jahresbeginn', vorjahresLese: null })
   })
 
   test('Eiswein des Vorjahrgangs im Jänner: die Lese des neuen Jahrgangs beginnt am 01.01. ihres Jahrgangs', () => {
     const eis = lese('eis2025', { lesedatum: '2026-01-10', pressungDatum: '2026-01-10', jahrgang: 2025 })
     const haupt = lese('haupt2026', { lesedatum: '2026-09-15', pressungDatum: '2026-09-15', jahrgang: 2026 })
     const [e, z] = zuordnen([eis, haupt], [m('dezember', '2025-12-01'), m('jaenner', '2026-01-05'), m('mai', '2026-05-01')])
-    assert.deepEqual(z.fenster, { von: '2026-01-01', bis: '2026-09-15', jahrgang: 2026, bisAus: 'lesedatum' })
+    assert.deepEqual(z.fenster, { von: '2026-01-01', bis: '2026-09-15', jahrgang: 2026, bisAus: 'lesedatum', vonAus: 'jahresbeginn', vorjahresLese: null })
     assert.deepEqual(ids(z), ['jaenner', 'mai'])
     assert.deepEqual(ids(e), ['dezember', 'jaenner'])                     // die Jänner-Maßnahme betrifft beide Jahrgänge
   })
 
   test('Fensterende vor dem Jahrgang (Datenfehler): ab 01.01. des früheren Jahres, Text nennt es', () => {
     const [z] = zuordnen([lese('l', { lesedatum: '2024-09-30', pressungDatum: '2024-09-30', jahrgang: 2025 })], [m('mai2024', '2024-05-01'), m('mai2025', '2025-05-01')])
-    assert.deepEqual(z.fenster, { von: '2024-01-01', bis: '2024-09-30', jahrgang: 2025, bisAus: 'lesedatum' })
+    assert.deepEqual(z.fenster, { von: '2024-01-01', bis: '2024-09-30', jahrgang: 2025, bisAus: 'lesedatum', vonAus: 'jahresbeginn', vorjahresLese: null })
     assert.deepEqual(ids(z), ['mai2024'])
     assert.equal(fenster.fensterBeginnText(z.fenster), 'ab 01.01.2024, Fensterende vor dem Jahrgang 2025')
   })
@@ -386,7 +386,7 @@ describe('Zeitfenster – Randfälle', () => {
 
   test('Lese ohne Lesedatum und ohne Erntemeldung: ab 01.01. bis zum Pressungsdatum, Hinweis', () => {
     const [, z] = zuordnen([lese('l1', { lesedatum: '2025-09-10' }), lese('l2', { lesedatum: null, pressungDatum: '2025-10-07' })], [m('juni', '2025-06-01'), m('okt', '2025-10-07'), m('spaet', '2025-10-08')])
-    assert.deepEqual(z.fenster, { von: '2025-01-01', bis: '2025-10-07', jahrgang: 2025, bisAus: 'pressungsdatum' })
+    assert.deepEqual(z.fenster, { von: '2025-01-01', bis: '2025-10-07', jahrgang: 2025, bisAus: 'pressungsdatum', vonAus: 'jahresbeginn', vorjahresLese: null })
     assert.deepEqual(ids(z), ['juni', 'okt'])
     assert.deepEqual(z.hinweise, ['Lesedatum weder an der Pressung noch in der Erntemeldung erfasst – Zeitfenster bis zum Pressungsdatum 07.10.2025; Maßnahmen zwischen Lese und Pressung können mit aufgeführt sein.'])
   })
@@ -396,7 +396,7 @@ describe('Zeitfenster – Randfälle', () => {
     const ms = [m('juli', '2026-07-01'), m('lesetag', '2026-09-25'), m('kupfer', '2026-10-05')]
     const ernte = [{ jahrgangId: 'jg26', weingartenId: 'w1', grundstueckId: 'gA', lesedatum: '2026-09-25' }]
     const [z] = fenster.ordneMassnahmenZu([zw], ms, GST_W1, WG_GST, ernte)
-    assert.deepEqual(z.fenster, { von: '2026-01-01', bis: '2026-09-25', jahrgang: 2026, bisAus: 'erntemeldung' })
+    assert.deepEqual(z.fenster, { von: '2026-01-01', bis: '2026-09-25', jahrgang: 2026, bisAus: 'erntemeldung', vonAus: 'jahresbeginn', vorjahresLese: null })
     assert.deepEqual(ids(z), ['juli', 'lesetag'])
     assert.deepEqual(z.hinweise, ['Lesedatum an der Pressung nicht erfasst – Zeitfenster bis zum Lesedatum laut Erntemeldung 25.09.2026 (einziger passender Lesetag im Jahrgang, Pressung am 10.10.2026).'])
     // ohne Erntemeldung: bis zur Pressung, Kupfer dabei – aber mit Hinweis, nie still
@@ -455,7 +455,7 @@ describe('Zeitfenster – Randfälle', () => {
 
     test('Hauptlese vertippt (15.10. nach der Pressung): mehrere Lesetage → bis zur Pressung, Spritzung 28.09. dabei', () => {
       const [z] = zu([haupt], [e('2026-09-20', 500), e('2026-10-15', 2000)])
-      assert.deepEqual(z.fenster, { von: '2026-01-01', bis: '2026-10-06', jahrgang: 2026, bisAus: 'pressungsdatum' })
+      assert.deepEqual(z.fenster, { von: '2026-01-01', bis: '2026-10-06', jahrgang: 2026, bisAus: 'pressungsdatum', vonAus: 'jahresbeginn', vorjahresLese: null })
       assert.deepEqual(ids(z), ['juli', 'sprit2809'])
       assert.equal(z.ersatz.grund, 'mehrere_lesetage')
       assert.deepEqual(z.hinweise, ['Lesedatum an der Pressung nicht erfasst und laut Erntemeldung nicht eindeutig (mehrere Lesetage: 20.09.2026, 15.10.2026) – Zeitfenster bis zum Pressungsdatum 06.10.2026; Maßnahmen zwischen Lese und Pressung können mit aufgeführt sein.'])
@@ -513,6 +513,7 @@ describe('Zeitfenster – Randfälle', () => {
       assert.deepEqual(fenster.leseWarnungen(lesen), [
         '1 Lese hat weder an der Pressung noch in der Erntemeldung ein Lesedatum – Zeitfenster bis zum Pressungsdatum, Maßnahmen zwischen Lese und Pressung können mit aufgeführt sein.',
         '1 Lese hat kein Lesedatum an der Pressung, und die Erntemeldung ist dafür nicht eindeutig (mehrere Lesetage, Lesetag nach der Pressung oder Menge nicht gedeckt) – Zeitfenster bis zum Pressungsdatum, Maßnahmen zwischen Lese und Pressung können mit aufgeführt sein.',
+        '2 Lesen haben keine erfasste Lese des Vorjahrgangs am Grundstück – Zeitfenster ab 01.01. des Jahrgangs (Maßnahmen nach der Vorjahres-Ernte, z. B. Rebschnitt im Dezember, fehlen dann).',
       ])
     })
   })
@@ -530,7 +531,7 @@ describe('Zeitfenster – Randfälle', () => {
       '2 Lesen haben weder an der Pressung noch in der Erntemeldung ein Lesedatum – Zeitfenster bis zum Pressungsdatum, Maßnahmen zwischen Lese und Pressung können mit aufgeführt sein.',
       '1 Lese hat kein Lesedatum an der Pressung – Zeitfenster bis zum Lesedatum laut Erntemeldung.',
       '1 Lese hat weder Lese- noch Pressungsdatum – alle Maßnahmen des Grundstücks aufgeführt.',
-      '1 Lese ist ohne Grundstück erfasst – Maßnahmen aller Grundstücke des Weingartens ab 01.01. des Jahrgangs aufgeführt.',
+      '1 Lese ist ohne Grundstück erfasst – Maßnahmen aller Grundstücke des Weingartens im Zeitfenster aufgeführt.',
       '1 Lesezeile hat weder Weingarten noch Grundstück (z. B. Traubenzukauf) – keine Maßnahmen zuordenbar.',
       'Bei 2 Lesen sind Maßnahmen mit aufgeführt, die nur am Weingarten erfasst sind (ohne Grundstück).',
     ])
@@ -555,7 +556,7 @@ describe('Zeitfenster – Randfälle', () => {
 
   test('Hilfen: Ladebereich, TT.MM.JJJJ, Kalendertag', () => {
     assert.equal(fenster.ttmmjjjj('2025-09-10'), '10.09.2025')
-    const f = (von, bis) => ({ von, bis, jahrgang: Number(von.slice(0, 4)), bisAus: 'lesedatum' })
+    const f = (von, bis) => ({ von, bis, jahrgang: Number(von.slice(0, 4)), bisAus: 'lesedatum', vonAus: 'jahresbeginn', vorjahresLese: null })
     assert.deepEqual(fenster.ladebereich([f('2025-01-01', '2025-09-10'), f('2024-01-01', '2024-09-30')]), { von: '2024-01-01', bis: '2025-09-10' })
     assert.deepEqual(fenster.ladebereich([f('2025-01-01', '2025-09-10'), null]), { von: null, bis: null })
     assert.deepEqual(fenster.ladebereich([]), { von: null, bis: null })
@@ -749,7 +750,8 @@ describe('Gemeinsame Ladefunktion – Seite und CSV zeigen dieselben Maßnahmen'
 
   test('CSV: Sonderfälle zusätzlich als X-Warnungen (je Lese einmal)', () => {
     assert.deepEqual(csvLaden.warnungen, [
-      '1 Lese ist ohne Grundstück erfasst – Maßnahmen aller Grundstücke des Weingartens ab 01.01. des Jahrgangs aufgeführt.',
+      '1 Lese ist ohne Grundstück erfasst – Maßnahmen aller Grundstücke des Weingartens im Zeitfenster aufgeführt.',
+      '5 Lesen haben keine erfasste Lese des Vorjahrgangs am Grundstück – Zeitfenster ab 01.01. des Jahrgangs (Maßnahmen nach der Vorjahres-Ernte, z. B. Rebschnitt im Dezember, fehlen dann).',
       'Bei 2 Lesen sind Maßnahmen mit aufgeführt, die nur am Weingarten erfasst sind (ohne Grundstück).',
     ])
   })
@@ -892,7 +894,7 @@ describe('Gemeinsame Ladefunktion – Eiswein einer anderen Charge am selben GST
   test('Eiswein: Fenster 01.01.–12.12.2025 mit Juli-Spritzung und Maßnahmen zwischen den Lesen, nichts danach', () => {
     assert.equal(eis.length, 1)
     const [l] = eis
-    assert.deepEqual(l.fenster, { von: '2025-01-01', bis: '2025-12-12', jahrgang: 2025, bisAus: 'lesedatum' })
+    assert.deepEqual(l.fenster, { von: '2025-01-01', bis: '2025-12-12', jahrgang: 2025, bisAus: 'lesedatum', vonAus: 'jahresbeginn', vorjahresLese: null })
     const ids = l.massnahmen.map(mm => mm.behandlung.id)
     assert.ok(ids.includes(B('12')))                                  // Cuprozin 10.07.2025 (Juli-Spritzung)
     assert.ok(ids.includes('b-oktober'))                              // zwischen Hauptlese und Eiswein
@@ -905,7 +907,7 @@ describe('Gemeinsame Ladefunktion – Eiswein einer anderen Charge am selben GST
 
   test('Hauptlese derselben GST unverändert: bis 10.09.2025, ohne die Maßnahmen danach', () => {
     const l = haupt.find(x => x.leseId === '3cd11817-f570-41ff-8219-22b4588f258e')
-    assert.deepEqual(l.fenster, { von: '2025-01-01', bis: '2025-09-10', jahrgang: 2025, bisAus: 'lesedatum' })
+    assert.deepEqual(l.fenster, { von: '2025-01-01', bis: '2025-09-10', jahrgang: 2025, bisAus: 'lesedatum', vonAus: 'jahresbeginn', vorjahresLese: null })
     assert.equal(l.massnahmen.length, 22 + 1)
     assert.ok(!l.massnahmen.some(mm => ['b-oktober', 'b-am-eis'].includes(mm.behandlung.id)))
   })
@@ -942,13 +944,14 @@ describe('Verdrahtung', () => {
     assert.equal((lib.match(/from\('behandlung/g) ?? []).length, 1)
     assert.doesNotMatch(lib, /from\('behandlung_grundstuecke'\)/)
   })
-  test('Fenstermodul ohne \'@/\'-Importe (node:test-fähig), Regel „ab 01.01. des Jahrgangs“ als Entscheidung festgehalten', () => {
+  test('Fenstermodul ohne \'@/\'-Importe (node:test-fähig), Regel „Ernte bis Ernte“ als Entscheidung festgehalten', () => {
     const f = quelle('src/lib/behoerden/rueckverfolgungFenster.ts')
     assert.doesNotMatch(f, /^import /m)
-    assert.match(f, /Entschieden \(Jörgen, 25\.09\.2026/)
+    assert.match(f, /„Ernte bis Ernte“ \(Jörgen, 25\.09\.2026, KAN-108/)
     assert.doesNotMatch(f, /ANNAHME/)
-    // keine Lese-Historie mehr – weder im Fenstermodul noch im Lader
+    // Fensterbeginn nur über die Vorjahres-Lesen (FruehereLese), keine Verkürzung über Lesen des eigenen Jahrgangs
     for (const q of [f, lib]) assert.doesNotMatch(q, /LeseHistorie|vorige_lese|vorigeLese|tagDanach/)
+    assert.match(lib, /ladeFruehereLesen\(supabase, tenantId, vorjahrgaenge\(eingaben\)\)/)
     assert.doesNotMatch(seite, /vorigen Lese/)
   })
 })
