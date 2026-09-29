@@ -55,7 +55,7 @@ export default async function SvsPage() {
       parameter={parameter}
       jahr={jahr}
       option={{ svs_option: e.svs_option === 'option' ? 'option' : 'pauschal', svs_option_seit: e.svs_option_seit ?? null, svs_einkuenfte_manuell: e.svs_einkuenfte_manuell === null || e.svs_einkuenfte_manuell === undefined ? null : Number(e.svs_einkuenfte_manuell), svs_kv_angehoerige: !!e.svs_kv_angehoerige }}
-      einkuenfteVorjahr={{ jahr: jahr - 1, betrag: finanzen.anlagen.ergebnisNachAfaVjGesamt, buchungen: finanzen.gesamtVj.einnahmen !== 0 || finanzen.gesamtVj.ausgaben !== 0 }}
+      einkuenfteVorjahr={{ jahr: jahr - 1, betrag: finanzen.anlagen.ergebnisNachAfaVjGesamt, buchungen: finanzen.unvollstaendig.length === 0 && (finanzen.gesamtVj.einnahmen !== 0 || finanzen.gesamtVj.ausgaben !== 0) /* KAN-158: bei Datenbankfehler kein falscher Vorschlag */ }}
       darfSchreiben={canWrite(ctx.role, 'ea')}
       darfOption={canAdmin(ctx.role)}
       darfParameter={isSystemAdmin(ctx.role)}

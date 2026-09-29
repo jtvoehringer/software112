@@ -53,6 +53,13 @@ export default async function FinanzUebersichtPage({ searchParams }: { searchPar
         }
       />
 
+      {/* KAN-158: Datenbankfehler nicht als 0 € verstecken */}
+      {f.unvollstaendig.length > 0 && (
+        <div role="alert" className="rounded-xl border border-s112-err/30 bg-s112-err-bg text-s112-err-fg px-4 py-3 text-[13px]">
+          <b>Zahlen unvollständig:</b> {f.unvollstaendig.join(', ')} {f.unvollstaendig.length === 1 ? 'konnte' : 'konnten'} nicht geladen werden – die betroffenen Werte sind zu niedrig oder 0. Bitte die Seite neu laden; bleibt der Hinweis, den Support verständigen.
+        </div>
+      )}
+
       {/* ── Kennzahlen ─────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
         <Tile label={einst.doppik ? 'Ergebnis lt. Belegen' : 'Ergebnis (Einnahmen − Ausgaben)'} icon={f.ytd.ergebnis >= 0 ? TrendingUp : TrendingDown} href="/buchhaltung"

@@ -53,6 +53,9 @@ export type Finanzen = {
     ergebnisNachAfaVjGesamt: number
     offeneKaeufe: number
   }
+  /** KAN-158: Bereiche, deren Abfrage mit einem Datenbankfehler endete – die Zahlen dazu sind unvollständig
+   *  (vorher still 0 bzw. eine plausibel falsche Liquidität) */
+  unvollstaendig: string[]
 }
 
 const MONATE_KURZ = ['Jän', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez']
@@ -87,7 +90,8 @@ export async function ladeFinanzen(ctx: Ctx, opts: { art: 'ea' | 'doppik'; uvaZe
   const stichtagVj = `${jahr - 1}${stichtag.slice(4)}`
   const von = `${jahr - 1}-01-01`, bis = `${jahr}-12-31`
 
-  const [{ data: txRaw }, { data: vpRaw }, { data: kontenRaw }, { data: zahlRaw }, { data: umbRaw }, { data: uvaRaw }, { data: maRaw }, { count: belegeErkannt }, prot, offenePosten] = await Promise.all([
+  const [{ data: txRaw, error: txErr }, { data: vpRaw, error: vpErr }, { data: kontenRaw, error: kontenErr }, { data: zahlRaw, error: zahlErr },
+    { data: umbRaw, error: umbErr }, { data: uvaRaw, error: uvaErr }, { data: maRaw, error: maErr }, { count: belegeErkannt, error: belegeErr }, prot, offenePosten] = await Promise.all([
     alle<R>(ctx.tf(ctx.q('ea_transaktionen')
       .select('id, datum, typ, betrag_netto, betrag_brutto, kategorie_id, konto_id, bmd_export_id, anlage_id, import_quelle, kategorie:ea_kategorien!kategorie_id(name, konto_nr)')
       .gte('datum', von).lte('datum', bis).order('datum').order('id'))),
@@ -106,7 +110,7 @@ export async function ladeFinanzen(ctx: Ctx, opts: { art: 'ea' | 'doppik'; uvaZe
     ladeOffenePosten(ctx),
   ])
   // Anlagenverzeichnis (Migration 200) – alle Jahre, für Buchwert und AfA
-  const { data: anlagenRaw } = await ctx.tf(ctx.q('ea_anlagen').select('id, name, gruppe, konto_nr, anschaffung_am, ak_netto, nutzungsdauer_jahre, methode, degressiv_satz, restwert, abgang_am, veraeusserungserloes, transaktion_id'))
+  const { data: anlagenRaw, error: anlagenErr } = await ctx.tf(ctx.q('ea_anlagen').select('id, name, gruppe, konto_nr, anschaffung_am, ak_netto, nutzungsdauer_jahre, methode, degressiv_satz, restwert, abgang_am, veraeusserungserloes, transaktion_id'))
 
   const tx = (txRaw ?? []) as R[]
   const vp = (vpRaw ?? []) as R[]
@@ -184,7 +188,7 @@ export async function ladeFinanzen(ctx: Ctx, opts: { art: 'ea' | 'doppik'; uvaZe
   for (const k of (kontenRaw ?? []) as R[]) salden.set(k.id, Number(k.eroeffnungssaldo ?? 0))
   for (const z of (zahlRaw ?? []) as R[]) if (salden.has(z.konto_id)) salden.set(z.konto_id, salden.get(z.konto_id)! + Number(z.betrag ?? 0))
   // Bewegungen über E&A-Buchungen mit Konto: alle Jahre nötig -> eigene Abfrage ohne Datumsfilter
-  const { data: txKontoRaw } = await alle<R>(ctx.tf(ctx.q('ea_transaktionen').select('typ, betrag_brutto, konto_id').not('konto_id', 'is', null).order('id')))
+  const { data: txKontoRaw, error: txKontoErr } = await alle<R>(ctx.tf(ctx.q('ea_transaktionen').select('typ, betrag_brutto, konto_id').not('konto_id', 'is', null).order('id')))
   for (const t of (txKontoRaw ?? []) as R[]) if (salden.has(t.konto_id)) salden.set(t.konto_id, salden.get(t.konto_id)! + (t.typ === 'einnahme' ? 1 : -1) * Number(t.betrag_brutto ?? 0))
   for (const u of (umbRaw ?? []) as R[]) {
     if (salden.has(u.von_konto_id)) salden.set(u.von_konto_id, salden.get(u.von_konto_id)! - Number(u.betrag ?? 0))
@@ -240,6 +244,13 @@ export async function ladeFinanzen(ctx: Ctx, opts: { art: 'ea' | 'doppik'; uvaZe
   }
   void afaGebuchtVj
 
+  // ── KAN-158: Datenbankfehler sichtbar machen statt 0 anzuzeigen ───────────
+  const unvollstaendig = ([
+    [txErr, 'Buchungen (E&A)'], [vpErr, 'Rechnungen'], [kontenErr, 'Konten'], [zahlErr, 'Zahlungen'], [umbErr, 'Umbuchungen'],
+    [txKontoErr, 'Kontobewegungen'], [uvaErr, 'UVA'], [maErr, 'Monatsabschluss'], [belegeErr, 'Belege'],
+    [(prot as R).error, 'BMD-Übergabe'], [anlagenErr, 'Anlagenverzeichnis'], [offenePosten.fehler, 'Offene Posten'],
+  ] as [unknown, string][]).filter(([e]) => !!e).map(([, name]) => name)
+
   return {
     art: opts.art, jahr, stichtag, ytd, gesamtVj, monate, anlagen,
     liquiditaet: { summe: konten.reduce((s, k) => s + k.saldo, 0), konten },
@@ -249,5 +260,6 @@ export async function ladeFinanzen(ctx: Ctx, opts: { art: 'ea' | 'doppik'; uvaZe
     belege: { zuBuchen: belegeErkannt ?? 0, ohneKategorie, buchungenJahr },
     kategorien: { einnahmen: top('einnahme'), ausgaben: top('ausgabe') },
     uebergabe,
+    unvollstaendig,
   }
 }
