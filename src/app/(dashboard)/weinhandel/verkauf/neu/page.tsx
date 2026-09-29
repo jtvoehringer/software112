@@ -12,6 +12,10 @@ import PartnerSuche from '@/components/crm/PartnerSuche'
 import { fehlerText } from '@/lib/fehler'
 import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
 import type { GespeichertesMostgewicht } from '@/lib/wein/mostgewichtFormular'
+import {
+  OHNE_KUNDENRABATT, rabattFuerNeuePosition, wirksamerRabatt, wirksamerSonderrabatt,
+  zeilenBetrag, gesamtBetrag, type KundenKonditionen,
+} from '@/lib/verkauf/rabatt'
 
 // ── Typen ─────────────────────────────────────────────────────────────────────
 
@@ -218,7 +222,8 @@ export default function NeuerVerkaufPage() {
   const [firmaId,         setFirmaId]         = useState('')
   const [zhKontaktId,     setZhKontaktId]     = useState('')
   const [notizen,         setNotizen]         = useState('')
-  const [kundenRabatt,    setKundenRabatt]    = useState(0)
+  // Konditionen des gewählten Kunden – auch für später hinzugefügte Positionen (KAN-156)
+  const [kundenRabatt,    setKundenRabatt]    = useState<KundenKonditionen>(OHNE_KUNDENRABATT)
   const [skontoAktiv,     setSkontoAktiv]     = useState(false)
   const [skontoPct,       setSkontoPct]       = useState(0)
   const [skontoTage,      setSkontoTage]      = useState(10)
@@ -304,20 +309,18 @@ export default function NeuerVerkaufPage() {
   }
 
   function addPosition() {
-    setPositionen(prev => [...prev, { ...newEmptyPosition(), ust_satz: String(ustStandard), rabatt_aktiv: false }])
+    setPositionen(prev => [...prev, {
+      ...newEmptyPosition(),
+      ust_satz: String(ustStandard),
+      ...rabattFuerNeuePosition(kundenRabatt),
+    }])
   }
 
   function removePosition(idx: number) {
     setPositionen(prev => prev.filter((_, i) => i !== idx))
   }
 
-  const gesamt = positionen.reduce((s, p) => {
-    const preis  = parseFloat(p.preis_brutto) || 0
-    const menge  = parseFloat(p.menge) || 0
-    const rabatt = p.rabatt_aktiv ? (parseFloat(p.rabatt_pct) || 0) / 100 : 0
-    const sonder = p.sonderrabatt_aktiv ? (parseFloat(p.sonderrabatt) || 0) / 100 : 0
-    return s + preis * (1 - rabatt) * (1 - sonder) * menge
-  }, 0)
+  const gesamt = gesamtBetrag(positionen)
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -338,8 +341,8 @@ export default function NeuerVerkaufPage() {
       menge:         parseFloat(p.menge) || 0,
       einheit:       p.einheit,
       preis_brutto:  parseFloat(p.preis_brutto) || null,
-      rabatt_pct:       p.rabatt_aktiv ? (parseFloat(p.rabatt_pct) || 0) : 0,
-      sonderrabatt_pct: p.sonderrabatt_aktiv ? (parseFloat(p.sonderrabatt) || 0) : 0,
+      rabatt_pct:       wirksamerRabatt(p),
+      sonderrabatt_pct: wirksamerSonderrabatt(p),
       ust_satz:         parseFloat(p.ust_satz) || ustStandard,
       trauben_weingarten_id:   p.trauben_weingarten_id   || null,
       trauben_jahrgang_id:     p.trauben_jahrgang_id     || null,
@@ -437,7 +440,7 @@ export default function NeuerVerkaufPage() {
                   if (!val) {
                     setKontaktId('')
                     setFirmaId('')
-                    setKundenRabatt(0)
+                    setKundenRabatt(OHNE_KUNDENRABATT)
                     setSkontoAktiv(false)
                     setSkontoPct(0)
                     setSkontoTage(10)
@@ -449,19 +452,17 @@ export default function NeuerVerkaufPage() {
                   if (typ === 'kontakt') { setKontaktId(id); setFirmaId('') }
                   else                   { setFirmaId(id);   setKontaktId('') }
                   const d = treffer?.daten
-                  const rabatt = d?.rabatt_pct ?? 0, sonder = d?.sonderrabatt_pct ?? 0
+                  const konditionen: KundenKonditionen = {
+                    rabatt_pct:       d?.rabatt_pct ?? 0,
+                    sonderrabatt_pct: d?.sonderrabatt_pct ?? 0,
+                  }
                   const skPct = d?.skonto_pct ?? 0, skTage = d?.skonto_tage ?? 10
-                  setKundenRabatt(rabatt)
+                  setKundenRabatt(konditionen)
                   setSkontoAktiv(skPct > 0)
                   setSkontoPct(skPct)
                   setSkontoTage(skTage)
-                  setPositionen(prev => prev.map(p => ({
-                    ...p,
-                    rabatt_pct: String(rabatt),
-                    rabatt_aktiv: rabatt > 0,
-                    sonderrabatt: String(sonder),
-                    sonderrabatt_aktiv: sonder > 0,
-                  })))
+                  const rabattFelder = rabattFuerNeuePosition(konditionen)
+                  setPositionen(prev => prev.map(p => ({ ...p, ...rabattFelder })))
                 }}
                 placeholder="Name oder Firma suchen…"
                 disabled={loading}
@@ -780,13 +781,8 @@ export default function NeuerVerkaufPage() {
                   <div className="text-right w-full">
                     <p className="text-xs text-s112-muted mb-1">Zeile</p>
                     <p className="font-semibold text-s112-blue-700 tabular-nums text-sm">
-                      {(() => {
-                        const preis  = parseFloat(pos.preis_brutto) || 0
-                        const menge  = parseFloat(pos.menge) || 0
-                        const rabatt = (parseFloat(pos.rabatt_pct) || 0) / 100
-                        const sonder = pos.sonderrabatt_aktiv ? (parseFloat(pos.sonderrabatt) || 0) / 100 : 0
-                        return fmtEur(preis * (1 - rabatt) * (1 - sonder) * menge)
-                      })()}
+                      {/* beachtet abgewählten Kundenrabatt wie Gesamtsumme und Speichern (KAN-156) */}
+                      {fmtEur(zeilenBetrag(pos))}
                     </p>
                   </div>
                 </div>
@@ -837,15 +833,8 @@ export default function NeuerVerkaufPage() {
               {pos.preis_brutto !== '' && (
                 <div className="text-xs text-s112-muted text-right mt-1">
                   {(() => {
-                    const brutto = parseFloat(pos.preis_brutto) || 0
-                    const rabatt = pos.rabatt_aktiv ? (parseFloat(pos.rabatt_pct) || 0) : 0
-                    const sonder = pos.sonderrabatt_aktiv ? (parseFloat(pos.sonderrabatt) || 0) : 0
-                    const menge  = parseFloat(pos.menge)  || 0
-                    const netto  = brutto * (1 - rabatt/100) * (1 - sonder/100)
-                    const total  = netto * menge
-                    return total > 0
-                      ? `Gesamt: ${fmtEur(total)}`
-                      : null
+                    const total = zeilenBetrag(pos)
+                    return total > 0 ? `Gesamt: ${fmtEur(total)}` : null
                   })()}
                 </div>
               )}
