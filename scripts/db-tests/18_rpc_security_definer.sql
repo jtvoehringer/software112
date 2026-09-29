@@ -2,7 +2,7 @@
 -- @ziel: Jede SECURITY-DEFINER-Funktion mit p_tenant_id ist eingestuft und lehnt einen fremden Betrieb ab
 -- @ziel: (pruefe_tenant_zugriff bzw. eigene Mitgliedsprüfung), Rollenlisten und Abo-Schreibsperre greifen in den
 -- @ziel: RPCs, anon führt keine SECURITY-DEFINER-Funktion aus, interne Funktionen sind für Benutzer nicht
--- @ziel: aufrufbar. Lücken bei Modul- und Sperrprüfung (B9), ki_readonly_query (B6) und EXECUTE-Rechte
+-- @ziel: aufrufbar, schreibende RPCs prüfen das Schreibmodul (KAN-159). Lücken bei ki_readonly_query (B6) und EXECUTE-Rechte
 -- @ziel: entgegen der REVOKE-Regel (B10, B11) werden als Ratsche gezählt.
 -- @mutation pruefe_offen: pruefe_tenant_zugriff prüft nichts mehr | rot: fremd_.*|rolle_.*
 -- @mutation eigen_offen: get_user_role_in_tenant ohne auth.uid()-Bezug | rot: fremd_get_user_role_in_tenant
@@ -36,8 +36,8 @@
 --   6. EXECUTE-Rechte: anon auf keiner SECURITY-DEFINER-Funktion, tatsächlicher anon-Aufruf → 42501, Menge der
 --      anon/PUBLIC-Funktionen = Soll + bekannt (Ratsche B10), interne Funktionen ohne EXECUTE für authenticated,
 --      Triggerfunktionen mit EXECUTE für authenticated (Ratsche B11).
---   7. Bekannte Lücken: B9 (Modulprüfung in get_next_rechnungsnummer und setze_kontobewegung_abgeglichen,
---      Sperrprüfung is_locked), B4 (get_behandlungen_fuer_grundstuecke ohne pruefe_tenant_zugriff), B6
+--   7. Modulprüfung (seit KAN-159 hart, vorher B9): jede schreibende RPC für Winzer ruft s112_darf_schreiben bzw.
+--      s112_pruefe_schreibmodul auf; is_locked bleibt beim Kontenabgleich bewusst ungeprüft. Bekannte Lücken: B4 (get_behandlungen_fuer_grundstuecke ohne pruefe_tenant_zugriff), B6
 --      (ki_readonly_query filtert nur GUT-Tabellen auf den aktiven Betrieb).
 --   4b. Eigener Betrieb, fremdes Objekt (IDOR): b_ta ruft die RPCs mit p_tenant_id = B, aber mit echten Objekten
 --      des Musterhofs auf (Füllung, Charge, E&A-Buchung, Grundstücke). Als postgres wird im selben Unterblock
@@ -166,10 +166,6 @@ DECLARE
   -- Ratsche B11: Triggerfunktionen mit EXECUTE für authenticated (über PUBLIC), Stand 28.09.2026
   c_trigger_bekannt constant text[] := ARRAY['kundennummer_unveraenderlich_trg()', 'tenant_memberships_schreibmodule_default()',
     'trg_ea_anlagen_aktualisiert()', 'trg_ea_anlagen_transaktion_tenant()', 'trg_ea_transaktion_anlage_tenant()'];
-  -- Ratsche B9: schreibende RPCs (Abo-Prüfung), die auch Winzer aufrufen dürfen, ohne s112_darf_schreiben
-  c_ohne_modul_bekannt constant text[] := ARRAY['get_next_accountnummer', 'get_next_chargennummer', 'get_next_liefernummer',
-    'get_next_personenkonto', 'get_next_rechnungsnummer', 'get_next_transaktionsnr', 'kontakte_zusammenfuehren',
-    'setze_kontobewegung_abgeglichen'];
   v_t0    timestamptz := clock_timestamp();
   v_erg   text[] := '{}';
   v_a     jsonb;
@@ -608,27 +604,23 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_baseline('trigger_execute_authenticated', v_n, array_length(c_trigger_bekannt, 1),
     'B11 Triggerfunktionen mit EXECUTE für authenticated (über PUBLIC, direkt nicht aufrufbar)');
 
-  -- ── 7. Bekannte Lücken bei Modul- und Sperrprüfung (B9) ────────────────────────────────────────────────
-  -- Aggregiert: schreibende RPCs (Soll abo = true) mit Winzer in der Rollenliste, ohne s112_darf_schreiben
-  SELECT string_agg(p.proname::text, ', ' ORDER BY p.proname) FILTER (WHERE NOT p.proname::text = ANY (c_ohne_modul_bekannt)),
-         count(*) FILTER (WHERE p.proname::text = ANY (c_ohne_modul_bekannt))
-    INTO v_txt, v_n
+  -- ── 7. Modulprüfung der schreibenden RPCs (KAN-159, vorher B9) ─────────────────────────────────────────
+  -- Schreibende RPCs (Soll abo = true) mit Winzer in der Rollenliste prüfen das Schreibmodul
+  SELECT string_agg(p.proname::text, ', ' ORDER BY p.proname) INTO v_txt
     FROM pg_temp.s112_soll_rpc() s
     JOIN pg_proc p ON p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')' = s.funktion
     JOIN pg_namespace n ON n.oid = p.pronamespace AND n.nspname = 'public'
-   WHERE s.abo AND p.prosrc ~ 'winzer|m\.aktiv' AND p.prosrc !~ 's112_darf_schreiben';
-  v_erg := v_erg || pg_temp.s112_erwarte('modul_rpc_ohne_pruefung_neu', coalesce(v_txt, ''), '');
-  v_erg := v_erg || pg_temp.s112_baseline('modul_rpc_ohne_pruefung', v_n, array_length(c_ohne_modul_bekannt, 1),
-    'B9 schreibende RPCs für Winzer ohne Modulprüfung (s112_darf_schreiben)');
+   WHERE s.abo AND p.prosrc ~ 'winzer|m\.aktiv' AND p.prosrc !~ 's112_darf_schreiben|s112_pruefe_schreibmodul';
+  v_erg := v_erg || pg_temp.s112_erwarte('modul_rpc_ohne_pruefung', coalesce(v_txt, ''), '');
 
-  -- (a) Winzer nur mit crm erhält eine Rechnungsnummer (Modul warenwirtschaft fehlt)
+  -- (a) Winzer nur mit crm erhält keine Rechnungsnummer (Modul warenwirtschaft fehlt)
   PERFORM pg_temp.s112_als(v_mwc);
   v_r := pg_temp.t18_ruf(format('SELECT public.get_next_rechnungsnummer(%L)', v_m));
-  v_erg := v_erg || pg_temp.s112_luecke('modul_get_next_rechnungsnummer_winzer_crm', split_part(v_r, '|', 1), '42501', 'ok',
-    'B9 get_next_rechnungsnummer ohne Modulprüfung (Winzer nur crm)');
+  v_erg := v_erg || pg_temp.s112_erwarte('modul_get_next_rechnungsnummer_winzer_crm', split_part(v_r, '|', 1), '42501');
   PERFORM pg_temp.s112_als_postgres();
 
-  -- (b) Winzer nur mit crm setzt „abgeglichen“ an einer gesperrten Buchung (Modul ea fehlt, is_locked ungeprüft)
+  -- (b) Winzer nur mit crm setzt „abgeglichen“ nicht (Modul ea fehlt); gesperrte Buchung als Beispiel,
+  --     is_locked selbst prüft die RPC bewusst nicht (Abgleich nach Monatsabschluss erlaubt)
   SELECT id, abgeglichen INTO v_ea, v_ea_abg FROM public.ea_transaktionen
    WHERE tenant_id = v_m AND is_locked AND abgeglichen IS NOT NULL ORDER BY id LIMIT 1;
   v_erg := v_erg || pg_temp.s112_erwarte('musterhof_gesperrte_buchung_existiert', v_ea IS NOT NULL, true);
@@ -636,9 +628,8 @@ BEGIN
   v_r := pg_temp.t18_ruf(
     format('SELECT count(*)::text FROM public.setze_kontobewegung_abgeglichen(%L, %L, %L, %L)', v_m, 'ea_transaktion', v_ea, NOT v_ea_abg),
     format('SELECT abgeglichen::text FROM public.ea_transaktionen WHERE id = %L', v_ea));
-  v_erg := v_erg || pg_temp.s112_luecke('modul_setze_kontobewegung_gesperrt_winzer_crm',
-    CASE WHEN v_r = 'ok|' || (NOT v_ea_abg)::text THEN 'geaendert' ELSE split_part(v_r, '|', 1) END, '42501', 'geaendert',
-    'B9 setze_kontobewegung_abgeglichen ohne Modul- und Sperrprüfung (gesperrte Buchung, Winzer nur crm)');
+  v_erg := v_erg || pg_temp.s112_erwarte('modul_setze_kontobewegung_winzer_crm',
+    CASE WHEN v_r = 'ok|' || (NOT v_ea_abg)::text THEN 'geaendert' ELSE split_part(v_r, '|', 1) END, '42501');
   PERFORM pg_temp.s112_als_postgres();
   SELECT count(*) INTO v_n FROM public.ea_transaktionen WHERE id = v_ea AND abgeglichen = v_ea_abg AND is_locked;
   v_erg := v_erg || pg_temp.s112_erwarte('gesperrte_buchung_unveraendert_nach_versuch', v_n, 1);

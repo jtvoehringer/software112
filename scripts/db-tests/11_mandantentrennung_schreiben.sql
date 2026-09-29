@@ -2,8 +2,8 @@
 -- @ziel: Niemand legt in einem fremden Betrieb Zeilen an, ändert oder löscht dort Zeilen oder schiebt eigene Zeilen
 -- @ziel: in einen fremden Betrieb (T- und K-Tabellen, als tenant_admin und winzer aus B, als anon, Leser als Quersumme).
 -- @ziel: Positivkontrollen belegen, dass die Ablehnung vom Mandanten kommt. Verweise auf fremde Zeilen (Fremd-FK) laufen
--- @ziel: an RLS vorbei: sie zählen als bekannte Lücke B2 gegen eine feste Liste, B1 (zahlungen → fremder Verkaufsposten
--- @ziel: wird bezahlt gesetzt) und B13 (benachrichtigungen lassen sich in einen fremden Betrieb umhängen) als Ratsche.
+-- @ziel: an RLS vorbei: sie zählen als bekannte Lücke B2 gegen eine feste Liste. Zahlung auf einen fremden Verkaufsposten
+-- @ziel: und Umhängen von benachrichtigungen sind seit KAN-159 abgelehnt (vorher B1, B13).
 -- @mutation kontakte_rls_aus: RLS auf kontakte abgeschaltet – Schreiben im Musterhof und Umhängen gehen durch | rot: schreiben_fremd_(insert|insert_min|update|delete):kontakte:.*|umhaengen:kontakte|anon_(insert|update|delete):kontakte
 -- @mutation kontakt_firmen_rls_aus: RLS auf der Kindtabelle kontakt_firmen abgeschaltet | rot: schreiben_fremd_(insert|insert_min|update|delete):kontakt_firmen:.*|umhaengen:kontakt_firmen|anon_(insert|update|delete):kontakt_firmen
 -- @mutation global_offen: permissive Policy auf duengemittel lässt globale Zeilen (tenant_id NULL) schreiben, die Modul-Policies (s112_darf_schreiben(NULL, …) = false) fehlen | rot: global_(insert|update|delete|veroeffentlichen):duengemittel:.*
@@ -24,7 +24,7 @@
 --      (pg_temp.s112_policy, wie „UPDATE … SET x = <Literal>“ bzw. „DELETE FROM tab“ ohne WHERE):
 --      schreiben_fremd_update_policy/_delete_policy → 'nein' (oder kein Tabellenrecht bzw. G).
 --   2. Umhängen als b_ta: B-Zeile SET tenant_id = M bzw. Kindzeile SET <Eltern-FK, den die Policy prüft> = M-Elternzeile
---      → nie k1 (Ausnahme B13 benachrichtigungen als Ratsche, t11_umhaengen_bekannt).
+--      → nie k1 (bekannte Ausnahmen in t11_umhaengen_bekannt; seit KAN-159 keine).
 --   2b. Globale Zeilen (s112_soll_liste('tid_nullable')) als b_ta und b_w: INSERT-Klon mit tenant_id NULL → R/G/T/P,
 --      UPDATE/DELETE einer globalen Zeile (als postgres belegt bzw. mit S112TEST angelegt) → k0/G, eigene B-Zeile
 --      SET tenant_id = NULL („veröffentlichen“) → nie k1. Die Abo-Policies sind dort bewusst NULL-sicher; den Schutz
@@ -38,7 +38,7 @@
 --      derselbe Schreibweg mit einem EIGENEN Verweis (B-Zeile der Zieltabelle) durchgeht; lehnt auch die Kontrolle ab
 --      (R/G/k0), ist die Tabelle für b_ta gar nicht schreibbar → fremd_fk_nicht_schreibbar. k1 = ungeschützt
 --      → Abgleich mit der festen Liste pg_temp.t11_fremd_fk_bekannt() (B2, Baseline).
---   5. B1: b_ta bucht eine Zahlung in B auf einen offenen Verkaufsposten des Musterhofs → Ratsche.
+--   5. b_ta bucht eine Zahlung in B auf einen offenen Verkaufsposten des Musterhofs → abgelehnt, Posten bleibt offen (KAN-159, vorher B1).
 --   6. anon: je Tabelle INSERT → R/G/T, UPDATE/DELETE einer vorhandenen Zeile → k0/G; nie k1, nie E23xxx; dazu
 --      die UPDATE-/DELETE-Policy-Schicht direkt (anon_update_policy/_delete_policy → 'nein', kein Recht oder G).
 --   3b. Positivkontrolle der Policy-Auswertung: b_ta auf der eigenen B-Zeile → 'ja', wo das Soll TA erlaubt.
@@ -78,7 +78,7 @@ CREATE FUNCTION pg_temp.t11_fremd_fk_bekannt() RETURNS text[] LANGUAGE sql IMMUT
     'verkaufsposten.bmd_export_id', 'verkaufsposten.firma_id', 'verkaufsposten.kontakt_id', 'verkaufsposten.zh_kontakt_id',
     'verschneidung_quellen.quell_weinausbau_id', 'verschneidungen.ziel_weinausbau_id', 'weinanalysen.weinausbau_id',
     'weinausbau.weingarten_id', 'weinausbau_weingaerten.weinausbau_id', 'weinausbau_weingaerten.weingarten_id',
-    'weingarten.lage_id', 'zahlungen.konto_id', 'zahlungen.verkaufsposten_id', 'zukauf_posten.lieferant_firma_id',
+    'weingarten.lage_id', 'zahlungen.konto_id', 'zukauf_posten.lieferant_firma_id',
     'zukauf_posten.lieferant_kontakt_id', 'zukauf_posten.zh_kontakt_id', 'zukauf_posten.ziel_weinausbau_id'
   ]::text[]
 $f$;
@@ -86,7 +86,7 @@ $f$;
 -- Bekannte Umhänge-Lücken (Tabelle → Lücken-ID/Titel): Zeilen, die sich per UPDATE in einen fremden Betrieb schieben
 -- lassen. benachrichtigungen: UPDATE-Policy prüft nur empfaenger_id = auth.uid(), nicht die tenant_id.
 CREATE FUNCTION pg_temp.t11_umhaengen_bekannt() RETURNS jsonb LANGUAGE sql IMMUTABLE AS $f$
-  SELECT '{"benachrichtigungen": "B13 benachrichtigungen: eigene Benachrichtigung lässt sich in einen fremden Betrieb umhängen"}'::jsonb
+  SELECT '{}'::jsonb   -- benachrichtigungen (B13) seit KAN-159 geschützt: Benutzer ändern nur noch gelesen_am
 $f$;
 
 -- Spalte für No-op-UPDATE-Proben: die updatebare Spalte aus dem Katalog, sonst die erste normale Spalte (nie
@@ -523,7 +523,7 @@ BEGIN
                                           'B2 Fremd-FK: ' || coalesce(array_length(v_unges, 1), 0) || ' Spalten ohne Mandantenprüfung',
                                           array_to_string(v_unges, ','));
 
-  -- ── 5. B1: Zahlung in B auf einen offenen Verkaufsposten des Musterhofs ──────────────────────────────
+  -- ── 5. Zahlung in B auf einen offenen Verkaufsposten des Musterhofs (KAN-159, vorher B1) ──────────────────────────────
   SELECT v.id, v.bezahlt INTO v_vp, v_bez_vor
     FROM public.verkaufsposten v
    WHERE v.tenant_id = v_m AND NOT v.bezahlt AND NOT coalesce(v.storniert, false)
@@ -554,8 +554,7 @@ BEGIN
   v_b1 := CASE WHEN v_code IN ('R', 'EP0001', 'T') AND v_bez_nach = false THEN 'geschuetzt'
                WHEN v_code = 'k1' AND v_bez_nach = true THEN 'k1_fremd_bezahlt'
                ELSE coalesce(v_code, 'NULL') || '_bezahlt=' || coalesce(v_bez_nach::text, 'NULL') END;
-  v_erg := v_erg || pg_temp.s112_luecke('b1_zahlung_fremder_verkaufsposten', v_b1, 'geschuetzt', 'k1_fremd_bezahlt',
-                                        'B1 zahlungen: fremder Verkaufsposten wird bezahlt gesetzt');
+  v_erg := v_erg || pg_temp.s112_erwarte('b1_zahlung_fremder_verkaufsposten', v_b1, 'geschuetzt');
   SELECT v.bezahlt INTO v_bez_nach FROM public.verkaufsposten v WHERE v.id = v_vp;
   v_erg := v_erg || pg_temp.s112_erwarte('b1_zurueckgenommen', v_bez_nach, false);
 

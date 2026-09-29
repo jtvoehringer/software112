@@ -1030,8 +1030,8 @@ $f$;
 --   anon_execute_bekannt   Baseline: Funktionen in public mit anon-EXECUTE entgegen der Konvention (Lücke)
 --   tid_nullable           Tabellen mit nullable tenant_id (globale Zeilen, NULL-Falle)
 --   tid_ohne_fk            Baseline: tenant_id ohne FK (Lücke)
---   truncate_authenticated Baseline: TRUNCATE-Recht für authenticated (RLS greift bei TRUNCATE nicht – Lücke)
---   truncate_anon          Baseline: dasselbe für anon (derzeit identische Liste)
+--   truncate_authenticated Tabellen mit TRUNCATE-Recht für authenticated – seit KAN-159 leer (RLS greift bei TRUNCATE nicht)
+--   truncate_anon          dasselbe für anon (identische Liste)
 --   schreibmodule          die sechs Schreibmodule (Default für winzer mit schreibmodule NULL)
 --   abo_rpc_ausnahmen      SECURITY-DEFINER-Funktionen mit p_tenant_id, EXECUTE für authenticated und Schreibanweisung
 --                          im Quelltext, die BEWUSST nicht s112_pruefe_abo_schreibsperre aufrufen (01: rpc_schreibt_ohne_abo).
@@ -1078,23 +1078,7 @@ BEGIN
     WHEN 'tid_ohne_fk' THEN ARRAY[
       'aktivitaet_dokumente', 'bestandsprotokoll', 'exportauftraege', 'pruefnummernantraege', 'sonstige_artikel', 'system_ereignisse',
       'transportbescheinigungen', 'weinbaugebiete_custom', 'zukauf_posten']
-    WHEN 'truncate_authenticated' THEN ARRAY[
-      'aktivitaet_dokumente', 'aktivitaeten', 'assistent_aktionen', 'assistent_korrekturen', 'assistent_nachrichten',
-      'assistent_unterhaltungen', 'behaelter', 'behandlung_grundstuecke', 'behandlungen', 'benachrichtigungen',
-      'bestellung_positionen', 'bestellungen', 'buchhaltung_export_protokoll', 'buchhaltung_kontenmapping',
-      'checklisten', 'checklisten_punkte', 'crm_dubletten_ignoriert', 'dac_antrag', 'datenschutz_consents',
-      'duengemittel', 'duengemittel_lager_bewegungen', 'ea_anlagen', 'ea_belege', 'ea_dauerauftraege',
-      'ea_dauerauftrag_log', 'ea_kategorien', 'ea_monatsabschluss', 'ea_transaktionen', 'ea_uva',
-      'email_lead_ignoriert', 'export_dokumente', 'exportauftraege', 'exportauftrag_positionen', 'firmen', 'fristen',
-      'grundstuecke', 'keller_behandlungstypen', 'keller_freigaben', 'kellerplaene', 'kellerplan_positionen',
-      'kontakt_firmen', 'kontakt_praeferenzen', 'kontakte', 'konten', 'konto_umbuchungen', 'kostenarten',
-      'kosteneintraege', 'kosteneintrag_behaelter', 'kosteneintrag_weingaerten', 'kostenstellen', 'lagen',
-      'module_flags', 'morgenberichte', 'pflanzenschutzmittel', 'pipeline_eintraege', 'pipeline_verlauf', 'profiles',
-      'pruefnummernantraege', 'psm_lager_bewegungen', 'rabattgruppen', 'rebsorten', 'release_notes',
-      'release_notes_gesehen', 'saetze_massnahmen', 'sonstige_artikel', 'stripe_zahlungen_log', 'sumup_checkouts',
-      'sumup_terminals', 'sumup_transaktionen', 'svs_parameter', 'system_ereignisse', 'transaktionszaehler',
-      'transportbescheinigungen', 'weinanalysen', 'weinausbau_weingaerten', 'weinbaugebiete_custom', 'weingarten',
-      'weingarten_rebsorten', 'wetter_stunden', 'zahlungen', 'zeiterfassung']
+    WHEN 'truncate_authenticated' THEN '{}'::text[]   -- seit KAN-159 (29.09.2026) kein TRUNCATE mehr
     WHEN 'truncate_anon' THEN pg_temp.s112_soll_liste('truncate_authenticated')
     WHEN 'schreibmodule' THEN ARRAY['rieden', 'kellerbuch', 'warenwirtschaft', 'crm', 'ea', 'auswertungen']
     WHEN 'abo_rpc_ausnahmen' THEN ARRAY[
