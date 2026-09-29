@@ -102,6 +102,7 @@ export async function ladeLeseMassnahmen(supabase: any, tenantId: string, pressu
           pressungDatum,
           jahrgang: numOderNull((p.jahrgang as R | null)?.jahrgang),
           jahrgangId: text(p.jahrgang_id),
+          leseId: text(p.lese_id),
         },
       })
     }
@@ -140,7 +141,7 @@ export async function ladeLeseMassnahmen(supabase: any, tenantId: string, pressu
     jgOhneLesedatum.length > 0
       // tenant-isolation-ignore: ernte_parzellen ohne tenant_id, Filter über den Jahrgang
       ? alle<R>((supabase.from('ernte_parzellen') as any)
-          .select('id, jahrgang_id, weingarten_id, grundstueck_id, ernte_datum, menge_kg, jahrgang:jahrgang_id!inner(tenant_id)')
+          .select('id, jahrgang_id, lese_id, weingarten_id, grundstueck_id, ernte_datum, menge_kg, jahrgang:jahrgang_id!inner(tenant_id)')
           .eq('jahrgang.tenant_id', tenantId)
           .in('jahrgang_id', jgOhneLesedatum)
           .order('id'))
@@ -151,7 +152,7 @@ export async function ladeLeseMassnahmen(supabase: any, tenantId: string, pressu
     jgOhneLesedatum.length > 0
       // tenant-isolation-ignore: pressung_weingaerten ohne tenant_id, Filter über die Pressung
       ? alle<R>((supabase.from('pressung_weingaerten') as any)
-          .select('id, weingarten_id, grundstueck_id, trauben_kg, pressung:pressung_id!inner(tenant_id, datum, jahrgang_id)')
+          .select('id, weingarten_id, grundstueck_id, trauben_kg, pressung:pressung_id!inner(tenant_id, datum, jahrgang_id, lese_id)')
           .eq('pressung.tenant_id', tenantId)
           .in('pressung.jahrgang_id', jgOhneLesedatum)
           .order('id'))
@@ -173,11 +174,11 @@ export async function ladeLeseMassnahmen(supabase: any, tenantId: string, pressu
 
   const ernte: ErnteEintrag[] = pruefen(ernteRes, 'Erntemeldung')
     .filter(e => (e.jahrgang as R | null)?.tenant_id === tenantId)
-    .map(e => ({ jahrgangId: text(e.jahrgang_id), weingartenId: text(e.weingarten_id), grundstueckId: text(e.grundstueck_id), lesedatum: tag(e.ernte_datum) || null, mengeKg: numOderNull(e.menge_kg) }))
+    .map(e => ({ jahrgangId: text(e.jahrgang_id), leseId: text(e.lese_id), weingartenId: text(e.weingarten_id), grundstueckId: text(e.grundstueck_id), lesedatum: tag(e.ernte_datum) || null, mengeKg: numOderNull(e.menge_kg) }))
   const verpresst: VerpressteTrauben[] = pruefen(verpresstRes, 'Verpresste Trauben')
     .filter(v => (v.pressung as R | null)?.tenant_id === tenantId)
     .map(v => ({
-      id: String(v.id), jahrgangId: text((v.pressung as R).jahrgang_id), weingartenId: text(v.weingarten_id), grundstueckId: text(v.grundstueck_id),
+      id: String(v.id), jahrgangId: text((v.pressung as R).jahrgang_id), leseId: text((v.pressung as R).lese_id), weingartenId: text(v.weingarten_id), grundstueckId: text(v.grundstueck_id),
       pressungDatum: tag((v.pressung as R).datum) || null, traubenKg: numOderNull(v.trauben_kg),
     }))
 
@@ -295,7 +296,8 @@ export async function ladeChargeKette(
       .select(`
         id, menge_liter, notizen,
         pressung:pressung_id(
-          id, datum, most_liter_gesamt, tenant_id, jahrgang_id, jahrgang:jahrgang_id(jahrgang),
+          id, datum, most_liter_gesamt, tenant_id, jahrgang_id, lese_id, jahrgang:jahrgang_id(jahrgang),
+          lese:lesen!pressungen_lese_fkey(lfd_nr, art),
           pressung_weingaerten(
             id, trauben_kg, rebsorte, ernte_datum, kmw, weingarten_id, grundstueck_id,
             weingarten:weingarten_id(id, name, flaeche_ha),

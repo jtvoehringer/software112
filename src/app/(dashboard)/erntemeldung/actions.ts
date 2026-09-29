@@ -21,7 +21,7 @@ import { mostgewichtAusFormular, mostgewichtAusWert, mostgewichtSpalten } from '
 import type { Mostgewicht } from '@/lib/wein/mostgewicht'
 import { istErntebar, leseZiele, verteileKg, type LeseGst, type LeseZiel } from '@/lib/wein/leseErfassung'
 import { lesedatumFehler, behaelterPruefung } from '@/lib/wein/pressungLesedatum'
-import { istLeseArt, jahrgangAusEingabe, leseLoeschsperre, leseZeitraumFehler } from '@/lib/wein/lesen'
+import { eisweinHinweis, istLeseArt, jahrgangAusEingabe, leseLoeschsperre, leseStufe, leseZeitraumFehler } from '@/lib/wein/lesen'
 import { ladeLesenDesJahrgangs, leseDeckungFehler, leseFuerDatum, traubenverkaufLese } from '@/lib/wein/leseBilanz'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -652,13 +652,20 @@ export async function createMultipleErnteParzellen(jahrgangId: string, formData:
   const anteile = verteileKg(mengeKg, zuVerteilen.map(i => ziele[i].flaeche_ha))
   zuVerteilen.forEach((i, k) => { mengen[i] = anteile[k] })
 
-  // KAN-129: alle Einträge an die gewählte Lese (ohne Angabe ordnet die Datenbank zu)
-  const leseId = await leseFuerNeuenEintrag(supabase, tenantId, jahrgangId, formData)
+  // KAN-129: alle Einträge an die gewählte Lese – ohne Angabe wie die Datenbank nach Datum; der Jahrgang
+  // muss zum Betrieb gehören (N4). Eiswein-Lese → Stufe Eiswein statt der Ableitung aus den °KMW (Soll 2).
+  const jgMehrfach = await ladeJahrgang(supabase, tenantId, jahrgangId)
+  const leseGewaehlt = await leseFuerNeuenEintrag(supabase, tenantId, jahrgangId, formData)
+  const lesenJg = await ladeLesenDesJahrgangs(supabase, tenantId, jahrgangId)
+  const leseWirksam = leseGewaehlt
+    ? lesenJg.find(l => l.id === leseGewaehlt) ?? null
+    : leseFuerDatum(lesenJg, Number(jgMehrfach.jahrgang), ernteDatum)
+  const leseId = leseWirksam?.id ?? null
   const base = { jahrgang_id: jahrgangId, ernte_datum: ernteDatum, ...(leseId ? { lese_id: leseId } : {}) }
   const rows: AR[] = ziele.map((z, i) => {
     const eintrag = eintragVon(z)
     const perMg = eintrag ? (mgJeGst.get(eintrag) ?? null) : mgGemeinsam
-    const perQualitaet = perMg ? kmwZuQualitaet(perMg.kmw) : qualitaet
+    const perQualitaet = leseStufe(leseWirksam?.art, perMg ? kmwZuQualitaet(perMg.kmw) : qualitaet)
     const perLesemethode = eintrag?.lesemethode || lesemethode
     const perNotizen = eintrag?.notizen || notizen
     const kg = mengen[i]
@@ -1039,10 +1046,7 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
   // Das Formular schickt keine (Ableitung aus den °KMW), nur ein direkter Aufruf.
   const qualitaetUnzulaessig = qualitaetFehler('charge', qualitaetsstufeInput)
   if (qualitaetUnzulaessig) throw new AktionsFehler(qualitaetUnzulaessig)
-  // KAN-81/KAN-126: nur abstufen – nie über die Stufe aus den °KMW (ohne °KMW: Qualitätswein)
-  const ueberObergrenze = abstufungFehler(qualitaetsstufeInput,
-    kmwGrad != null && !isNaN(kmwGrad) ? kmwZuQualitaet(kmwGrad) : 'qualitaetswein')
-  if (ueberObergrenze) throw new AktionsFehler(ueberObergrenze)
+  // KAN-81/KAN-126: nur abstufen – die Obergrenze prüft der Abschnitt „Lese der Pressung“ (Eiswein, KAN-129)
 
   const weingaerten: WGZeile[] = leseFormularJson<PressungWGInput>(fd, 'weingaerten_json').map((w, i) => {
     // KAN-126: Mostgewicht der Zeile (Messwert + Einheit) wie in der Erntemeldung
@@ -1336,6 +1340,11 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
     lesePressung = gewaehlt ? lesenJg.find(l => l.id === gewaehlt) ?? null : leseFuerDatum(lesenJg, Number(jg.jahrgang), datum)
     if (!lesePressung) throw new AktionsFehler(LESE_WAEHLEN_MELDUNG)
   }
+  // KAN-81/KAN-126: nur abstufen – nie über die Stufe aus den °KMW (ohne °KMW: Qualitätswein); bei einer
+  // Eiswein-Lese ist die Obergrenze Eiswein (KAN-129 Soll 2)
+  const ueberObergrenze = abstufungFehler(qualitaetsstufeInput, leseStufe(lesePressung?.art,
+    kmwGrad != null && !isNaN(kmwGrad) ? kmwZuQualitaet(kmwGrad) : 'qualitaetswein'))
+  if (ueberObergrenze) throw new AktionsFehler(ueberObergrenze)
   if (lesePressung) {
     const deckung = await leseDeckungFehler(supabase, tenantId, jahrgangId, lesePressung, Number(jg.jahrgang), { pressungId: existingId },
       pwAlt.filter(w => w.weingarten_id).map(w => ({ weingarten_id: w.weingarten_id as string, grundstueck_id: (w.grundstueck_id as string | null) ?? null, kg: Number(w.trauben_kg) || 0 })),
@@ -1513,7 +1522,7 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
   const fehlgeschlagen: string[] = []
   if (neuePb.length > 0) {
     const vorgaben = await chargenVorgabenErmitteln(supabase, tenantId, jahrgangId, (jg.jahrgang as number | null) ?? null, weingaerten,
-      { datum, weinbezeichnung, kmwGrad, qualitaetsstufe: qualitaetsstufeInput })
+      { datum, weinbezeichnung, kmwGrad, qualitaetsstufe: qualitaetsstufeInput ?? (lesePressung?.art === 'eiswein' ? 'eiswein' : null) })
     for (const b of neuePb) {
       try {
         neuChargen.push(await mostzeileMitChargeAnlegen(supabase, tenantId, pressId, b, vorgaben))
@@ -1525,13 +1534,15 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
 
   revalidatePath(`/erntemeldung/${jahrgangId}`)
   revalidatePath('/kellerbuch')
+  // KAN-129: Eiswein unter 25 °KMW – nur Hinweis
+  const eiswein = eisweinHinweis(lesePressung?.art, kmwGrad != null && !isNaN(kmwGrad) ? kmwGrad : null)
   if (fehlgeschlagen.length > 0) {
     return {
       neu: neuChargen,
-      warnung: `Die Pressung wurde gespeichert, aber ${fehlgeschlagen.length === 1 ? 'eine Behälterzeile konnte' : `${fehlgeschlagen.length} Behälterzeilen konnten`} nicht angelegt werden – bitte die Pressung bearbeiten und den Behälter erneut eintragen.\n${fehlgeschlagen.join('\n')}`,
+      warnung: [`Die Pressung wurde gespeichert, aber ${fehlgeschlagen.length === 1 ? 'eine Behälterzeile konnte' : `${fehlgeschlagen.length} Behälterzeilen konnten`} nicht angelegt werden – bitte die Pressung bearbeiten und den Behälter erneut eintragen.\n${fehlgeschlagen.join('\n')}`, eiswein].filter(Boolean).join('\n'),
     }
   }
-  return { neu: neuChargen }
+  return eiswein ? { neu: neuChargen, warnung: eiswein } : { neu: neuChargen }
 }
 
 // Pressung löschen (KAN-35): nur, wenn an keiner der daraus entstandenen Chargen

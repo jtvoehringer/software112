@@ -88,12 +88,16 @@ export type LeseZeile = {
   jahrgang: number | null
   /** pressungen.jahrgang_id – für das Lesedatum laut Erntemeldung */
   jahrgangId?: string | null
+  /** pressungen.lese_id (KAN-129) – Ersatz nur aus derselben Lese (Hauptlese und Eiswein am selben GST) */
+  leseId?: string | null
 }
 
 /** Lese-Eintrag der Erntemeldung (ernte_parzellen) – nur Ersatz für ein fehlendes Lesedatum */
 export type ErnteEintrag = {
   /** ernte_parzellen.jahrgang_id */
   jahrgangId: string | null
+  /** ernte_parzellen.lese_id (KAN-129) */
+  leseId?: string | null
   weingartenId: string | null
   grundstueckId: string | null
   /** 'JJJJ-MM-TT' oder null */
@@ -111,6 +115,8 @@ export type VerpressteTrauben = {
   id: string
   /** pressungen.jahrgang_id */
   jahrgangId: string | null
+  /** pressungen.lese_id (KAN-129) */
+  leseId?: string | null
   weingartenId: string | null
   grundstueckId: string | null
   /** pressungen.datum ('JJJJ-MM-TT') */
@@ -214,6 +220,10 @@ export function ersatzAusErntemeldung(
     ({ datum: null, grund, lesetage, erfasstKg, verpresstKg })
   const pressung = kalendertag(lese.pressungDatum)
   if (!pressung || !lese.jahrgangId || (!lese.grundstueckId && !lese.weingartenId)) return ohne('kein_eintrag')
+  // KAN-129 Soll 7: mit Lese der Pressung nur Einträge und Verpresstes derselben Lese – Hauptlese und Eiswein am
+  // selben GST ergeben so einen eindeutigen Lesetag statt „mehrere_lesetage“; ohne Lese wie bisher je Jahrgang
+  const gleicheLese = (o: { jahrgangId: string | null; leseId?: string | null }) =>
+    (lese.leseId ? o.leseId === lese.leseId : o.jahrgangId === lese.jahrgangId)
   const amOrt = (o: { grundstueckId: string | null; weingartenId: string | null }) => lese.grundstueckId
     ? o.grundstueckId === lese.grundstueckId || (!o.grundstueckId && !!lese.weingartenId && o.weingartenId === lese.weingartenId)
     : o.weingartenId === lese.weingartenId
@@ -221,7 +231,7 @@ export function ersatzAusErntemeldung(
   const tage = new Set<string>()
   let erfasstKg = 0
   for (const e of ernte) {
-    if (e.jahrgangId !== lese.jahrgangId || !amOrt(e)) continue
+    if (!gleicheLese(e) || !amOrt(e)) continue
     const d = kalendertag(e.lesedatum)
     if (!d) return ohne('kein_eintrag')
     tage.add(d)
@@ -234,7 +244,7 @@ export function ersatzAusErntemeldung(
 
   let verpresstKg = 0
   for (const v of verpresst) {
-    if (v.jahrgangId !== lese.jahrgangId || !amOrt(v)) continue
+    if (!gleicheLese(v) || !amOrt(v)) continue
     const d = kalendertag(v.pressungDatum)
     if (d && d > pressung) continue
     verpresstKg += kg(v.traubenKg)

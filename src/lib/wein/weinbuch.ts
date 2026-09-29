@@ -103,7 +103,7 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
       .select(`
         menge_liter,
         pressung:pressung_id(
-          id, datum, most_liter_gesamt, weinbezeichnung,
+          id, datum, most_liter_gesamt, weinbezeichnung, lese_id,
           pressung_weingaerten(
             trauben_kg, rebsorte, ernte_datum, kmw, oechsle, mostgewicht_einheit, weingarten_id,
             weingarten:weingarten_id(id, name, flaeche_ha),
@@ -288,8 +288,10 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
       .maybeSingle()
     const jahrgangId = (jgRow as R | null)?.id
 
+    // KAN-129 Soll 8: nur die Lesen der Pressungen dieser Charge (Hauptlese ≠ Eiswein); ohne Pressung wie bisher
+    const leseIds = [...new Set(pressungen.map(pb => (pb.pressung as R | null)?.lese_id as string | undefined).filter((x): x is string => !!x))]
     if (jahrgangId) {
-      const { data: epRaw } = await (supabase.from('ernte_parzellen') as any)
+      let epAbfrage = (supabase.from('ernte_parzellen') as any)
         .select(`
           ernte_datum, menge_kg, oechsle, klosterneuburger, mostgewicht_einheit, qualitaetsstufe, lesemethode, notizen,
           weingarten:weingarten_id(name),
@@ -297,7 +299,8 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
         `)
         .eq('jahrgang_id', jahrgangId)
         .in('weingarten_id', Array.from(weingartenIds))
-        .order('ernte_datum', { ascending: true })
+      if (leseIds.length > 0) epAbfrage = epAbfrage.in('lese_id', leseIds)
+      const { data: epRaw } = await epAbfrage.order('ernte_datum', { ascending: true })
 
       for (const ep of ((epRaw ?? []) as R[])) {
         if (!ep.ernte_datum) continue
