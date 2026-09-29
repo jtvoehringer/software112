@@ -89,6 +89,38 @@ describe('lesedatumFehler', () => {
   })
 })
 
+describe('behaelterPruefung (Most vollständig in Behälter, kein Überlauf)', () => {
+  const beh = [{ id: 'b1', name: 'Tank 1', volumen_liter: 500 }, { id: 'b2', name: 'Immervolltank 10', volumen_liter: 400 }]
+  const z = (nr, behaelter_id, menge_liter, alt = null) => ({ nr, behaelter_id, menge_liter, alt })
+
+  test('Summe = Mostausbeute (±0,5 L) in Ordnung', () => {
+    assert.equal(L.behaelterPruefung({ mostLiter: 360, zeilen: [z(1, 'b2', 360)], behaelter: beh, fuellstand: {} }), null)
+    assert.equal(L.behaelterPruefung({ mostLiter: 360, zeilen: [z(1, 'b1', 200), z(2, 'b2', 160.4)], behaelter: beh, fuellstand: {} }), null)
+  })
+
+  test('Rückmeldung: 360 L gepresst, 380 L eingefüllt → abgelehnt', () => {
+    const f = L.behaelterPruefung({ mostLiter: 360, zeilen: [z(1, 'b2', 380)], behaelter: beh, fuellstand: {} })
+    assert.match(f, /Die Behälterzeilen ergeben 380 L, gepresst wurden 360 L/)
+    assert.match(L.behaelterPruefung({ mostLiter: 360, zeilen: [z(1, 'b2', 300)], behaelter: beh, fuellstand: {} }), /ergeben 300 L/)
+  })
+
+  test('ohne Mostausbeute → Hinweis', () => {
+    assert.equal(L.behaelterPruefung({ mostLiter: null, zeilen: [], behaelter: beh, fuellstand: {} }), 'Bitte die Mostausbeute gesamt (L) angeben.')
+  })
+
+  test('Kapazität: Inhalt + neuer Most > Volumen → Behälterzeile n', () => {
+    const f = L.behaelterPruefung({ mostLiter: 300, zeilen: [z(1, 'b2', 300)], behaelter: beh, fuellstand: { b2: 150 } })
+    assert.ok(f.startsWith('Behälterzeile 1: Der Behälter „Immervolltank 10“ fasst 400 L – Inhalt jetzt 150 L + 300 L aus der Pressung = 450 L'), f)
+    assert.equal(L.behaelterPruefung({ mostLiter: 300, zeilen: [z(1, 'b2', 300)], behaelter: beh, fuellstand: { b2: 100 } }), null, 'genau voll')
+  })
+
+  test('Bearbeiten: der schon enthaltene Most derselben Zeile zählt nicht doppelt', () => {
+    // Zeile war 300 L in b2 (Füllstand 380 inkl. dieser 300), jetzt 320 L → Zugang +20 → 400 L passt
+    assert.equal(L.behaelterPruefung({ mostLiter: 320, zeilen: [z(1, 'b2', 320, { behaelter_id: 'b2', menge_liter: 300 })], behaelter: beh, fuellstand: { b2: 380 } }), null)
+    assert.match(L.behaelterPruefung({ mostLiter: 330, zeilen: [z(1, 'b2', 330, { behaelter_id: 'b2', menge_liter: 300 })], behaelter: beh, fuellstand: { b2: 380 } }), /= 410 L/)
+  })
+})
+
 describe('Verdrahtung', () => {
   const actions = quelle('src/app/(dashboard)/erntemeldung/actions.ts')
   const upsert = actions.slice(actions.indexOf('export async function upsertPressung'), actions.indexOf('export async function deletePressung'))
@@ -113,6 +145,19 @@ describe('Verdrahtung', () => {
     assert.match(f, /ernte_datum: opt\.tag\?\.datum \?\? ''/)
     assert.match(f, /mostgewicht_wert: r\.mg \? messwertText\(r\.mg\) : null/)
     assert.match(f, /aria-label=\{`Lesedatum Traubenzeile \$\{i \+ 1\}`\}/)
+  })
+
+  test('Server: Press-/Lesedatum eingefroren bei Folgebuchungen, Most- und Kapazitätsprüfung', () => {
+    assert.ok(upsert.includes('if (datumGeaendert || lesedatumGeaendert) {'))
+    assert.ok(upsert.includes('await sperreBeiFolgebuchungen(supabase, pb.weinausbau_id as string,'))
+    assert.ok(upsert.includes('const fehlerText = behaelterPruefung({'))
+  })
+
+  test('Formular: Checkbox-Liste je Ried (mehrere GST gemeinsam), Ried-Haken wählt alle', () => {
+    const f = quelle('src/app/(dashboard)/erntemeldung/[id]/PressungSection.tsx')
+    assert.ok(f.includes('aria-label={`${g.name}: alle GST auswählen`}'))
+    assert.ok(f.includes('onChange={() => optionUmschalten(opt.compositeId)}'))
+    assert.ok(f.includes('function riedUmschalten('))
   })
 
   test('Seite lädt Lesedatum und Mostgewicht der Traubenzeilen; Blend-Jahrgang aus der Pressung', () => {

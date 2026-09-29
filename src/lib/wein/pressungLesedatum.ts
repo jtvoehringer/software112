@@ -99,3 +99,54 @@ export function lesedatumFehler(
   }
   return null
 }
+
+// ── Most in Behälter (KAN-126, Entscheidungen Jörgen 29.09.2026) ──────────────────────────────────────
+// Die Summe der Behälterzeilen muss der Mostausbeute entsprechen (der ganze Most kommt in Behälter), und
+// kein Behälter darf überlaufen. Die Server Action prüft das bei neuen Pressungen und wenn sich Mostmenge
+// oder Behälterzeilen ändern (Altbestände mit abweichender Summe blockieren sonst nicht).
+
+/** Erlaubte Abweichung zwischen Mostausbeute und Summe der Behälterzeilen */
+export const MOST_TOLERANZ_L = 0.5
+
+export type BehaelterZeileFuerPruefung = {
+  nr: number
+  behaelter_id: string | null
+  menge_liter: number | null
+  /** gespeicherter Stand der Zeile (Bearbeiten) – ihr Most liegt schon im Füllstand */
+  alt: { behaelter_id: string | null; menge_liter: number | null } | null
+}
+
+const liter = (n: number) => `${n.toLocaleString('de-AT', { maximumFractionDigits: 1 })} L`
+
+/** null = in Ordnung, sonst die Meldung (Behälterzeile n bzw. Behältername) */
+export function behaelterPruefung(o: {
+  mostLiter: number | null
+  zeilen: readonly BehaelterZeileFuerPruefung[]
+  behaelter: readonly { id: string; name: string | null; volumen_liter: number | null }[]
+  /** aktueller Inhalt je Behälter in Litern (v_behaelter_fuellstand) */
+  fuellstand: Readonly<Record<string, number>>
+}): string | null {
+  if (o.mostLiter == null || !(o.mostLiter > 0)) return 'Bitte die Mostausbeute gesamt (L) angeben.'
+  const summe = o.zeilen.reduce((s, z) => s + (z.menge_liter ?? 0), 0)
+  if (Math.abs(summe - o.mostLiter) > MOST_TOLERANZ_L) {
+    return `Die Behälterzeilen ergeben ${liter(summe)}, gepresst wurden ${liter(o.mostLiter)} – der ganze Most muss in Behälter `
+      + `(Abweichung höchstens ${liter(MOST_TOLERANZ_L)}). Bitte die Mengen bzw. die Mostausbeute korrigieren.`
+  }
+  // Zugang je Behälter: neue Mengen dort minus der schon eingerechnete Most derselben Zeilen
+  const zugang = new Map<string, number>()
+  for (const z of o.zeilen) {
+    if (z.behaelter_id && z.menge_liter) zugang.set(z.behaelter_id, (zugang.get(z.behaelter_id) ?? 0) + z.menge_liter)
+    if (z.alt?.behaelter_id && z.alt.menge_liter) zugang.set(z.alt.behaelter_id, (zugang.get(z.alt.behaelter_id) ?? 0) - z.alt.menge_liter)
+  }
+  for (const b of o.behaelter) {
+    const plus = zugang.get(b.id) ?? 0
+    if (b.volumen_liter == null || plus <= 0.005) continue
+    const inhalt = o.fuellstand[b.id] ?? 0
+    if (inhalt + plus > b.volumen_liter + MOST_TOLERANZ_L) {
+      const nr = o.zeilen.filter(z => z.behaelter_id === b.id).map(z => z.nr)
+      return `Behälterzeile ${nr.join(', ')}: Der Behälter „${b.name ?? 'ohne Namen'}“ fasst ${liter(b.volumen_liter)} – `
+        + `Inhalt jetzt ${liter(inhalt)} + ${liter(plus)} aus der Pressung = ${liter(inhalt + plus)}. Das passt nicht hinein.`
+    }
+  }
+  return null
+}

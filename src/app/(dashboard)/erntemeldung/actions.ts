@@ -20,7 +20,7 @@ import { runden, STELLEN } from '@/lib/csv'
 import { mostgewichtAusFormular, mostgewichtAusWert, mostgewichtSpalten } from '@/lib/wein/mostgewichtFormular'
 import type { Mostgewicht } from '@/lib/wein/mostgewicht'
 import { istErntebar, leseZiele, verteileKg, type LeseGst, type LeseZiel } from '@/lib/wein/leseErfassung'
-import { lesedatumFehler } from '@/lib/wein/pressungLesedatum'
+import { lesedatumFehler, behaelterPruefung } from '@/lib/wein/pressungLesedatum'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -877,13 +877,15 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
   let jahrgangId = (fd.get('jahrgang_id') as string) || ''
   let pwAlt: AR[] = []
   let pbAlt: AR[] = []
+  let kopfAlt: AR | null = null
   if (existingId) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: pAlt, error: pAltErr } = await (supabase.from('pressungen') as any)
-      .select('id, jahrgang_id').eq('id', existingId).eq('tenant_id', tenantId).maybeSingle()
+      .select('id, jahrgang_id, datum, most_liter_gesamt').eq('id', existingId).eq('tenant_id', tenantId).maybeSingle()
     if (pAltErr) throw new AktionsFehler(dbFehlerText(pAltErr, 'Pressung konnte nicht geladen werden'))
     if (!pAlt) throw new AktionsFehler('Pressung nicht gefunden – bitte die Seite neu laden.')
     jahrgangId = (pAlt as AR).jahrgang_id as string
+    kopfAlt = pAlt as AR
     const [pwRes, pbRes] = await Promise.all([
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('pressung_weingaerten') as any)
@@ -1049,6 +1051,57 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
       aenderung.charge = { neu, rueck, mengeVorher: chargeMenge }
     }
     pbAendern.push(aenderung)
+  }
+
+  // ── KAN-126: Press-/Lesedatum einfrieren, sobald an einer Charge der Pressung gebucht wurde ───────────
+  // (Entscheidung Jörgen 29.09.2026, wie Menge und Behälter nach KAN-35)
+  if (existingId && kopfAlt) {
+    const datumGeaendert = String(kopfAlt.datum ?? '').slice(0, 10) !== datum
+    const lesedatumGeaendert = weingaerten.some(w => {
+      if (!w.id) return false
+      const alt = pwAltMap.get(w.id)
+      return !!alt && String(alt.ernte_datum ?? '').slice(0, 10) !== (w.ernte_datum ?? '') && !w.zukauf_posten_id
+    })
+    if (datumGeaendert || lesedatumGeaendert) {
+      const was = datumGeaendert && lesedatumGeaendert ? 'Press- und Lesedatum' : datumGeaendert ? 'das Pressdatum' : 'das Lesedatum'
+      for (const pb of pbAlt) {
+        if (!pb.weinausbau_id) continue
+        await sperreBeiFolgebuchungen(supabase, pb.weinausbau_id as string,
+          `Das Ändern von ${was} der Pressung (Charge ${chargeBezeichnung(pb)})`, { hinweis: CHARGE_HINWEIS })
+      }
+    }
+  }
+
+  // ── KAN-126: Most muss vollständig in Behälter (Summe = Mostausbeute ±0,5 L) und in die Behälter passen ──
+  {
+    const mengenGeaendert = !existingId
+      || (zahlOderNull(kopfAlt?.most_liter_gesamt) ?? null) !== (mostLiter ?? null)
+      || behaelter.some(b => !b.id) || pbEntfernen.length > 0
+      || pbAendern.some(a => 'menge_liter' in a.patch || 'behaelter_id' in a.patch)
+    if (mengenGeaendert) {
+      const ziele = [...new Set(behaelter.map(b => b.behaelter_id).filter(Boolean) as string[])]
+      const [volRes, fsRes] = ziele.length > 0 ? await Promise.all([
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase.from('behaelter') as any).select('id, name, volumen_liter').in('id', ziele).eq('tenant_id', tenantId),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase.from('v_behaelter_fuellstand') as any).select('behaelter_id, liter_aktuell').in('behaelter_id', ziele),
+      ]) : [{ data: [], error: null }, { data: [], error: null }]
+      if (volRes.error) throw new AktionsFehler(dbFehlerText(volRes.error, 'Behälter konnten nicht geladen werden'))
+      if (fsRes.error) throw new AktionsFehler(dbFehlerText(fsRes.error, 'Füllstände konnten nicht geladen werden'))
+      const fehlerText = behaelterPruefung({
+        mostLiter,
+        zeilen: behaelter.map(b => {
+          const alt = b.id ? pbAltMap.get(b.id) : undefined
+          return {
+            nr: b.nr, behaelter_id: b.behaelter_id, menge_liter: b.menge_liter,
+            alt: alt ? { behaelter_id: (alt.behaelter_id as string | null) ?? null, menge_liter: zahlOderNull(alt.menge_liter) } : null,
+          }
+        }),
+        behaelter: ((volRes.data ?? []) as AR[]).map(r => ({ id: r.id as string, name: (r.name as string | null) ?? null, volumen_liter: zahlOderNull(r.volumen_liter) })),
+        fuellstand: Object.fromEntries(((fsRes.data ?? []) as AR[]).map(r => [r.behaelter_id as string, zahlOderNull(r.liter_aktuell) ?? 0])),
+      })
+      if (fehlerText) throw new AktionsFehler(fehlerText)
+    }
   }
 
   // ── Schreiben ──────────────────────────────────────────────────────────────

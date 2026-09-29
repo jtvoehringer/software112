@@ -87,12 +87,15 @@ const fmtDate = (d: string) =>
 // müssen deshalb mitgeschickt werden.
 // KAN-126: ernte_datum (Lesetag), mg (Mostgewicht der Zeile), mgStart (Vorbelegung für die Eingabe), mgFehler
 type WGRow  = {
+  /** stabiler Schlüssel der Zeile im Formular (gespeicherte Zeile: ihre id) */
+  schluessel: string
   id: string; weingarten_id: string; grundstueck_id: string; zukauf_posten_id: string; trauben_kg: string; rebsorte: string; notizen: string
   ernte_datum: string; mg: Mostgewicht | null; mgStart: GespeichertesMostgewicht | null; mgFehler: string | null
 }
 type BehRow = { id: string; behaelter_id: string; weinausbau_id: string; weinausbau_name: string; menge_liter: string; notizen: string }
 
-const emptyWG  = (): WGRow  => ({ id: '', weingarten_id: '', grundstueck_id: '', zukauf_posten_id: '', trauben_kg: '', rebsorte: '', notizen: '', ernte_datum: '', mg: null, mgStart: null, mgFehler: null })
+let zeilenZaehler = 0
+const emptyWG  = (): WGRow  => ({ schluessel: `neu-${++zeilenZaehler}`, id: '', weingarten_id: '', grundstueck_id: '', zukauf_posten_id: '', trauben_kg: '', rebsorte: '', notizen: '', ernte_datum: '', mg: null, mgStart: null, mgFehler: null })
 /** Mostgewicht eines Lesetags bzw. Zukaufs als Vorbelegung */
 const mgAusTag = (t: { kmw: number | null; oechsle?: number | null; einheit?: string | null } | null): GespeichertesMostgewicht | null =>
   t && (t.kmw != null || t.oechsle != null) ? { kmw: t.kmw, oechsle: t.oechsle ?? null, einheit: t.einheit ?? null } : null
@@ -129,6 +132,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
 
   const defaultWGRows: WGRow[] = pressung
     ? pressung.weingaerten.map(w => ({
+        schluessel: w.id,
         id: w.id,
         weingarten_id: w.weingarten_id ?? '', grundstueck_id: w.grundstueck_id ?? '',
         zukauf_posten_id: w.zukauf_posten_id ?? '',
@@ -143,8 +147,8 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
     // nicht gewünschter Trauben per X). Stattdessen startet die Pressung leer - die
     // pressbaren Trauben werden aktiv über das Dropdown "angemeldet" (ausgewählt);
     // die Menge (kg) wird dabei automatisch mit der vollen verfügbaren Menge vorbefüllt
-    // (siehe updateWG), kann aber vor dem Speichern reduziert werden.
-    : [emptyWG()]
+    // (siehe zeileHinzufuegen), kann aber vor dem Speichern reduziert werden.
+    : []
   const [wgRows, setWgRows] = useState<WGRow[]>(defaultWGRows)
   const [behRows, setBehRows] = useState<BehRow[]>(
     pressung?.behaelter.map(b => ({
@@ -221,7 +225,9 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
   // (plus „anderer Tag“), sonst eine je Ort mit dem einen Lesetag als Vorbelegung. Die verfügbaren kg
   // bleiben je Ort. compositeId = weingarten|gst|lesetag.
   type GstOption = {
-    compositeId: string; ort: string; weingarten_id: string; grundstueck_id: string; label: string
+    compositeId: string; ort: string; weingarten_id: string; weingarten_name: string; grundstueck_id: string; label: string
+    /** Anzeige in der Checkbox-Liste unter der Ried: GST-Nummer bzw. „ganzer Weingarten“, ggf. mit Lesetag */
+    kurz: string
     rebsorte: string; menge_kg: number; verfuegbar_kg: number; tag: Lesetag | null; mehrereTage: boolean
   }
   const tageJeOrt = new Map<string, Lesetag[]>()
@@ -230,18 +236,25 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
     const tage = lesetageFuerOrt(leseEintraege, p.weingarten_id, p.grundstueck_id)
     tageJeOrt.set(ort, tage)
     const basis = {
-      ort, weingarten_id: p.weingarten_id, grundstueck_id: p.grundstueck_id ?? '',
+      ort, weingarten_id: p.weingarten_id, weingarten_name: p.weingarten_name, grundstueck_id: p.grundstueck_id ?? '',
       label: p.grundstueck_nr ? `GST ${p.grundstueck_nr} · ${p.weingarten_name}` : p.weingarten_name,
+      kurz: p.grundstueck_nr ? `GST ${p.grundstueck_nr}` : 'ganzer Weingarten',
       rebsorte: p.grundstueck_rebsorte ?? p.rebsorte ?? '',
       menge_kg: p.menge_kg ?? 0,
       verfuegbar_kg: gstVerfuegbar(p.grundstueck_id),
     }
     if (tage.length <= 1) return [{ ...basis, compositeId: `${ort}|`, tag: vorbelegterLesetag(tage), mehrereTage: false }]
     return [
-      ...tage.map(t => ({ ...basis, compositeId: `${ort}|${t.datum}`, label: `${basis.label} · Lese ${datumText(t.datum)}`, tag: t, mehrereTage: true })),
-      { ...basis, compositeId: `${ort}|`, label: `${basis.label} · anderer Lesetag`, tag: null, mehrereTage: true },
+      ...tage.map(t => ({ ...basis, compositeId: `${ort}|${t.datum}`, label: `${basis.label} · Lese ${datumText(t.datum)}`, kurz: `${basis.kurz} · Lese ${datumText(t.datum)}`, tag: t, mehrereTage: true })),
+      { ...basis, compositeId: `${ort}|`, label: `${basis.label} · anderer Lesetag`, kurz: `${basis.kurz} · anderer Lesetag`, tag: null, mehrereTage: true },
     ]
   })
+  // Checkbox-Liste: Optionen je Ried (Weingarten), alphabetisch
+  const riedGruppenPressung = [...gstOptionen.reduce((m, o) => {
+    const g = m.get(o.weingarten_id) ?? { weingarten_id: o.weingarten_id, name: o.weingarten_name, optionen: [] as GstOption[] }
+    g.optionen.push(o); m.set(o.weingarten_id, g); return m
+  }, new Map<string, { weingarten_id: string; name: string; optionen: GstOption[] }>()).values()]
+    .sort((a, b) => a.name.localeCompare(b.name, 'de'))
   // Zukauf-Optionen: eigenes Präfix "zukauf:<id>" um Kollisionen mit compositeId zu vermeiden
   const zukaufOptionen = zukaufTrauben.map(z => ({
     compositeId: `zukauf:${z.id}`,
@@ -253,45 +266,53 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
     verfuegbar_kg: z.verfuegbar_kg,
   }))
 
-  function updateWG(i: number, field: keyof WGRow | 'compositeId', val: string) {
-    if (field === 'compositeId') {
-      if (val.startsWith('zukauf:')) {
-        const opt = zukaufOptionen.find(o => o.compositeId === val)
-        if (opt) {
-          setWgRows(rows => rows.map((r, j) => j === i ? {
-            ...r,
-            weingarten_id: '',
-            grundstueck_id: '',
-            zukauf_posten_id: opt.zukauf_posten_id,
-            rebsorte: opt.rebsorte,
-            // KAN-126: Zukauf-Zeilen tragen das Zukaufsdatum (setzt der Server) und das Mostgewicht des Zukaufs
-            ernte_datum: opt.datum ?? '',
-            mg: mostgewichtAusGespeichert(opt.mg), mgStart: opt.mg, mgFehler: null,
-            // Beim "Anmelden" die volle verfügbare Menge vorbefüllen (vor dem
-            // Speichern reduzierbar) - vorher wurde diese Menge nur beim
-            // automatischen Vorbelegen aller Posten gesetzt.
-            trauben_kg: opt.verfuegbar_kg.toString().replace('.', ','),
-          } : r))
-        }
-        return
+  /** Option, zu der eine Zeile gehört (gleich der compositeId): bei mehreren Lesetagen der gewählte Tag */
+  function zeilenSchluessel(r: WGRow): string {
+    if (r.zukauf_posten_id) return `zukauf:${r.zukauf_posten_id}`
+    const ort = `${r.weingarten_id}|${r.grundstueck_id}`
+    const tage = tageJeOrt.get(ort) ?? []
+    return tage.length > 1 && tage.some(t => t.datum === r.ernte_datum) ? `${ort}|${r.ernte_datum}` : `${ort}|`
+  }
+  const ausgewaehlt = new Set(wgRows.map(zeilenSchluessel))
+  /** Neue Traubenzeile aus einer Option (GST/Lesetag oder Zukauf) */
+  function zeileHinzufuegen(val: string) {
+    const z = zeileAusOption(val)
+    if (z) setWgRows(rows => [...rows, z])
+  }
+  function optionUmschalten(val: string) {
+    if (ausgewaehlt.has(val)) setWgRows(rows => rows.filter(r => zeilenSchluessel(r) !== val))
+    else zeileHinzufuegen(val)
+  }
+  function riedUmschalten(optionen: GstOption[], alleGewaehlt: boolean) {
+    const ids = new Set(optionen.map(o => o.compositeId))
+    if (alleGewaehlt) { setWgRows(rows => rows.filter(r => !ids.has(zeilenSchluessel(r)))); return }
+    const neu = optionen.filter(o => !ausgewaehlt.has(o.compositeId)).map(o => zeileAusOption(o.compositeId)).filter((z): z is WGRow => !!z)
+    setWgRows(rows => [...rows, ...neu])
+  }
+
+  /** Neue Traubenzeile aus einer Option: GST/Lesetag (Lesetag und dessen Mostgewicht übernommen, änderbar;
+   *  ohne eindeutigen Tag leer) oder Zukauf (Zukaufsdatum, setzt der Server, und Mostgewicht des Zukaufs).
+   *  Die Menge ist mit der vollen verfügbaren Menge vorbelegt (vor dem Speichern reduzierbar). */
+  function zeileAusOption(val: string): WGRow | null {
+    if (val.startsWith('zukauf:')) {
+      const opt = zukaufOptionen.find(o => o.compositeId === val)
+      if (!opt) return null
+      return {
+        ...emptyWG(), zukauf_posten_id: opt.zukauf_posten_id, rebsorte: opt.rebsorte,
+        trauben_kg: opt.verfuegbar_kg.toString().replace('.', ','),
+        ernte_datum: opt.datum ?? '', mg: mostgewichtAusGespeichert(opt.mg), mgStart: opt.mg,
       }
-      const opt = gstOptionen.find(o => o.compositeId === val)
-      if (opt) {
-        setWgRows(rows => rows.map((r, j) => j === i ? {
-          ...r,
-          weingarten_id: opt.weingarten_id,
-          grundstueck_id: opt.grundstueck_id,
-          zukauf_posten_id: '',
-          rebsorte: opt.rebsorte,
-          trauben_kg: opt.verfuegbar_kg.toString().replace('.', ','),
-          // KAN-126: Lesetag und dessen Mostgewicht übernehmen (änderbar); ohne eindeutigen Tag leer
-          ernte_datum: opt.tag?.datum ?? '',
-          mg: mostgewichtAusGespeichert(mgAusTag(opt.tag)), mgStart: mgAusTag(opt.tag), mgFehler: null,
-        } : r))
-      }
-    } else {
-      setWgRows(rows => rows.map((r, j) => j === i ? { ...r, [field]: val } : r))
     }
+    const opt = gstOptionen.find(o => o.compositeId === val)
+    if (!opt) return null
+    return {
+      ...emptyWG(), weingarten_id: opt.weingarten_id, grundstueck_id: opt.grundstueck_id, rebsorte: opt.rebsorte,
+      trauben_kg: opt.verfuegbar_kg.toString().replace('.', ','),
+      ernte_datum: opt.tag?.datum ?? '', mg: mostgewichtAusGespeichert(mgAusTag(opt.tag)), mgStart: mgAusTag(opt.tag),
+    }
+  }
+  function updateWG(i: number, field: 'trauben_kg' | 'ernte_datum', val: string) {
+    setWgRows(rows => rows.map((r, j) => j === i ? { ...r, [field]: val } : r))
   }
   function updateBeh(i: number, field: keyof BehRow, val: string) {
     setBehRows(rows => rows.map((r, j) => j === i ? { ...r, [field]: val } : r))
@@ -505,100 +526,122 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
         </div>
       )}
 
-      {/* Gelesene GST */}
+      {/* Gelesene GST – KAN-126 (Rückmeldung Jörgen 29.09.2026): Auswahl als Checkbox-Liste je Ried, damit mehrere
+          GST einer Ried gemeinsam gepresst werden können; je gewähltem GST (bzw. Lesetag) eine Traubenzeile */}
       <div>
-        <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center justify-between mb-1.5 gap-2">
           <label className="text-xs font-semibold text-s112-text-1">Gelesene GST</label>
-          <button type="button" onClick={() => setWgRows(r => [...r, emptyWG()])}
-            className="text-xs text-s112-blue-700 hover:underline">GST</button>
+          {zukaufOptionen.length > 0 && (
+            <select aria-label="Zugekaufte Trauben hinzufügen" value="" onChange={e => { if (e.target.value) zeileHinzufuegen(e.target.value) }}
+              className="text-xs border border-s112-border rounded-lg px-2 py-1 bg-white">
+              <option value="">+ Zugekaufte Trauben …</option>
+              {zukaufOptionen.map(opt => (
+                <option key={opt.compositeId} value={opt.compositeId}>
+                  {opt.label} – {fmtNum(opt.verfuegbar_kg, { max: 0 })} kg verf.
+                </option>
+              ))}
+            </select>
+          )}
         </div>
-        <div className="space-y-1.5">
+        {riedGruppenPressung.length === 0 ? (
+          <p className="text-xs text-s112-muted">Keine Lese in diesem Jahrgang erfasst.</p>
+        ) : (
+          <div className="border border-s112-border rounded-lg bg-white divide-y divide-s112-border/50 max-h-72 overflow-y-auto">
+            {riedGruppenPressung.map(g => {
+              const auswaehlbar = g.optionen.filter(o => !(o.mehrereTage && !o.tag))
+              const gewaehlt = auswaehlbar.filter(o => ausgewaehlt.has(o.compositeId))
+              const alle = auswaehlbar.length > 0 && gewaehlt.length === auswaehlbar.length
+              return (
+                <div key={g.weingarten_id}>
+                  <label className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-s112-bg/60">
+                    <input type="checkbox" className="accent-s112-teal" checked={alle}
+                      aria-label={`${g.name}: alle GST auswählen`}
+                      ref={el => { if (el) el.indeterminate = gewaehlt.length > 0 && !alle }}
+                      onChange={() => riedUmschalten(auswaehlbar, alle)} />
+                    <span className="text-xs font-semibold text-s112-text">{g.name}</span>
+                    <span className="text-xs text-s112-muted">{auswaehlbar.length} {auswaehlbar.length === 1 ? 'GST' : 'GST/Lesetage'}</span>
+                  </label>
+                  {g.optionen.map(opt => (
+                    <label key={opt.compositeId} className="flex items-center gap-2 pl-8 pr-3 py-1 text-xs cursor-pointer hover:bg-s112-bg/40">
+                      <input type="checkbox" className="accent-s112-teal" checked={ausgewaehlt.has(opt.compositeId)}
+                        onChange={() => optionUmschalten(opt.compositeId)} />
+                      <span className={ausgewaehlt.has(opt.compositeId) ? 'text-s112-blue-700 font-medium' : 'text-s112-text-1'}>{opt.kurz}</span>
+                      {opt.rebsorte && <span className="text-s112-muted">· {formatRebsorteMitKuerzel(opt.rebsorte)}</span>}
+                      <span className="text-s112-muted ml-auto whitespace-nowrap">{fmtNum(opt.verfuegbar_kg, { max: 0 })} kg verf.</span>
+                    </label>
+                  ))}
+                </div>
+              )
+            })}
+          </div>
+        )}
+        <div className="space-y-1.5 mt-2">
           {wgRows.map((row, i) => {
             const ort = `${row.weingarten_id}|${row.grundstueck_id}`
             const tage = tageJeOrt.get(ort) ?? []
-            // Mehrere Lesetage: Option des gewählten Tages, sonst „anderer Lesetag“; ein oder kein Tag: die Ortsoption
-            const selectValue = row.weingarten_id
-              ? (tage.length > 1 && tage.some(t => t.datum === row.ernte_datum) ? `${ort}|${row.ernte_datum}` : `${ort}|`)
-              : row.zukauf_posten_id ? `zukauf:${row.zukauf_posten_id}` : ''
             const altZeile = row.id ? pressung?.weingaerten.find(w => w.id === row.id) : undefined
+            const bezeichnung = row.zukauf_posten_id
+              ? (zukaufOptionen.find(o => o.zukauf_posten_id === row.zukauf_posten_id)?.label ?? 'Zukauf')
+              : (gstOptionen.find(o => o.compositeId === zeilenSchluessel(row))?.label ?? altZeile?.weingarten_name ?? '–')
             // Unveränderte Altzeile ohne Lesedatum: nur den eindeutigen Lesetag vorschlagen (nicht still setzen)
             const vorschlag = row.weingarten_id && !row.ernte_datum && altZeile && !altZeile.ernte_datum ? vorbelegterLesetag(tage) : null
             return (
-              <div key={i} className="rounded-lg border border-s112-border/60 bg-white/60 p-1.5 space-y-1.5">
+              <div key={row.schluessel} className="rounded-lg border border-s112-border/60 bg-white/60 p-1.5 space-y-1.5">
               <div className="grid grid-cols-12 gap-1.5 items-center">
-                <div className="col-span-5">
-                  <select
-                    value={selectValue}
-                    onChange={e => updateWG(i, 'compositeId', e.target.value)}
-                    className={inp}
-                  >
-                    <option value="">– GST/Ried –</option>
-                    {gstOptionen.map(opt => (
-                      <option key={opt.compositeId} value={opt.compositeId}>
-                        {opt.label} – {fmtNum(opt.verfuegbar_kg, { max: 0 })} kg verf.
-                      </option>
-                    ))}
-                    {zukaufOptionen.length > 0 && (
-                      <optgroup label="Zugekaufte Trauben">
-                        {zukaufOptionen.map(opt => (
-                          <option key={opt.compositeId} value={opt.compositeId}>
-                            {opt.label} – {fmtNum(opt.verfuegbar_kg, { max: 0 })} kg verf.
-                          </option>
-                        ))}
-                      </optgroup>
-                    )}
-                  </select>
+                <div className="col-span-5 text-sm text-s112-text-1 truncate" title={bezeichnung}>
+                  <span className="text-[11px] text-s112-muted mr-1">{i + 1}.</span>{bezeichnung}
                 </div>
                 <div className="col-span-2">
-                  <input type="text" inputMode="decimal" value={row.trauben_kg}
+                  <input aria-label={`Menge kg Traubenzeile ${i + 1}`} type="text" inputMode="decimal" value={row.trauben_kg}
                     onChange={e => updateWG(i, 'trauben_kg', e.target.value)}
                     placeholder="kg" className={inp} />
                 </div>
-                <div className="col-span-3 flex items-center px-2">
+                <div className="col-span-4 flex items-center px-2">
                   <span className="text-sm text-s112-text-2 truncate">
                     {row.rebsorte ? formatRebsorteMitKuerzel(row.rebsorte) : <span className="text-s112-tertiary text-xs">–</span>}
                   </span>
                 </div>
-                <div className="col-span-2 flex justify-end">
-                  {wgRows.length > 1 && (
-                    <button aria-label="Zeile entfernen" type="button" onClick={() => setWgRows(r => r.filter((_, j) => j !== i))}
-                      className="text-xs text-s112-err hover:text-s112-err-fg px-1"><X size={14} /></button>
-                  )}
+                <div className="col-span-1 flex justify-end">
+                  <button aria-label={`Traubenzeile ${i + 1} entfernen`} type="button" onClick={() => setWgRows(r => r.filter((_, j) => j !== i))}
+                    className="text-xs text-s112-err hover:text-s112-err-fg px-1"><X size={14} /></button>
                 </div>
               </div>
-              {(row.weingarten_id || row.zukauf_posten_id) && (
-                <div className="grid grid-cols-12 gap-1.5 items-start">
-                  <div className="col-span-4">
-                    <label className="block text-[11px] text-s112-text-2 mb-0.5">
-                      Lesedatum{row.weingarten_id && ' *'}{row.zukauf_posten_id && <span className="text-s112-muted"> (Zukaufsdatum)</span>}
-                    </label>
-                    <input aria-label={`Lesedatum Traubenzeile ${i + 1}`} type="date" value={row.ernte_datum}
-                      disabled={!!row.zukauf_posten_id}
-                      onChange={e => updateWG(i, 'ernte_datum', e.target.value)}
-                      className={`${inp} disabled:bg-s112-bg disabled:text-s112-text-2`} />
-                    {row.weingarten_id && tage.length > 1 && !tage.some(t => t.datum === row.ernte_datum) && (
-                      <p className="text-[11px] text-s112-muted mt-0.5">Lesetage laut Lese: {tage.map(t => datumText(t.datum)).join(', ')}</p>
-                    )}
-                    {row.weingarten_id && tage.length === 0 && !row.ernte_datum && (
-                      <p className="text-[11px] text-s112-warn-fg mt-0.5">Kein Lesetag in der Lese erfasst – bitte angeben.</p>
-                    )}
-                    {vorschlag && (
-                      <button type="button" onClick={() => setWgRows(rs => rs.map((r, j) => j === i
-                          ? { ...r, ernte_datum: vorschlag.datum, ...(r.mg ? {} : { mg: mostgewichtAusGespeichert(mgAusTag(vorschlag)), mgStart: mgAusTag(vorschlag), mgFehler: null }) }
-                          : r))}
-                        className="text-[11px] text-s112-blue-700 hover:underline mt-0.5">Lesetag {datumText(vorschlag.datum)} laut Lese übernehmen</button>
-                    )}
-                  </div>
-                  <div className="col-span-8">
-                    <MostgewichtEingabe name={`pw_${i}_mostgewicht`} label="Mostgewicht" startwert={row.mgStart}
-                      onChange={(wert, info) => setWgRows(rs => rs.map((r, j) => j === i ? { ...r, mg: info.fehler ? r.mg : wert, mgFehler: info.fehler } : r))} />
-                  </div>
+              <div className="grid grid-cols-12 gap-1.5 items-start">
+                <div className="col-span-4">
+                  <label className="block text-[11px] text-s112-text-2 mb-0.5">
+                    Lesedatum{row.weingarten_id && ' *'}{row.zukauf_posten_id && <span className="text-s112-muted"> (Zukaufsdatum)</span>}
+                  </label>
+                  <input aria-label={`Lesedatum Traubenzeile ${i + 1}`} type="date" value={row.ernte_datum}
+                    disabled={!!row.zukauf_posten_id}
+                    onChange={e => updateWG(i, 'ernte_datum', e.target.value)}
+                    className={`${inp} disabled:bg-s112-bg disabled:text-s112-text-2`} />
+                  {row.weingarten_id && tage.length > 1 && !tage.some(t => t.datum === row.ernte_datum) && (
+                    <p className="text-[11px] text-s112-muted mt-0.5">Lesetage laut Lese: {tage.map(t => datumText(t.datum)).join(', ')}</p>
+                  )}
+                  {row.weingarten_id && tage.length === 0 && !row.ernte_datum && (
+                    <p className="text-[11px] text-s112-warn-fg mt-0.5">Kein Lesetag in der Lese erfasst – bitte angeben.</p>
+                  )}
+                  {vorschlag && (
+                    <button type="button" onClick={() => setWgRows(rs => rs.map((r, j) => j === i
+                        ? { ...r, ernte_datum: vorschlag.datum, ...(r.mg ? {} : { mg: mostgewichtAusGespeichert(mgAusTag(vorschlag)), mgStart: mgAusTag(vorschlag), mgFehler: null }) }
+                        : r))}
+                      className="text-[11px] text-s112-blue-700 hover:underline mt-0.5">Lesetag {datumText(vorschlag.datum)} laut Lese übernehmen</button>
+                  )}
                 </div>
-              )}
+                <div className="col-span-8">
+                  <MostgewichtEingabe name={`pw_${row.schluessel}_mostgewicht`} label="Mostgewicht" startwert={row.mgStart}
+                    onChange={(wert, info) => setWgRows(rs => rs.map((r, j) => j === i ? { ...r, mg: info.fehler ? r.mg : wert, mgFehler: info.fehler } : r))} />
+                </div>
+              </div>
               </div>
             )
           })}
         </div>
+        {pressung && (
+          <p className="text-[11px] text-s112-muted mt-1.5">
+            Press- und Lesedatum lassen sich nur ändern, solange an den Chargen dieser Pressung noch nichts gebucht ist.
+          </p>
+        )}
       </div>
 
       {/* Befüllte Behälter/Chargen */}
