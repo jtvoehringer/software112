@@ -37,3 +37,17 @@ export function riedGruppen<T extends { lage_name: string | null }>(weingaerten:
 export function alleAuswahlModus(auswaehlbareIds: readonly string[], ausgewaehlt: ReadonlySet<string>): 'auswaehlen' | 'abwaehlen' {
   return auswaehlbareIds.length > 0 && auswaehlbareIds.every(id => ausgewaehlt.has(id)) ? 'abwaehlen' : 'auswaehlen'
 }
+
+/**
+ * Ried mit genau einem Weingarten (bei Gebeshuber der Regelfall: eine Ried je Weingarten, gleicher Name) –
+ * die Auswahl zeigt dann EINE Zeile statt Ried-Kopf und Weingarten darunter (Pilot-Rückmeldung 29.09.2026).
+ */
+export function istEinzelRied<T>(g: RiedGruppe<T>): boolean {
+  return !g.ohneRied && g.weingaerten.length === 1
+}
+
+/** Weingarten-Name als Zusatz zur Ried – nur wenn er sich vom Ried-Namen unterscheidet (Groß-/Kleinschreibung egal) */
+export function weingartenZusatz(riedName: string, weingartenName: string): string | null {
+  const n = (s: string) => s.trim().toLocaleLowerCase('de')
+  return n(riedName) === n(weingartenName) ? null : weingartenName
+}
