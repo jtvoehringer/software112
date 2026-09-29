@@ -150,6 +150,13 @@ const FK_LOESCHEN_MELDUNG: Record<string, string> = {
     'Die Charge kann nicht gelöscht werden: Sie stammt aus einer Pressung. Bitte die Pressung in der Erntemeldung bearbeiten.',
   traubenverkauf_jahrgang_id_fkey:
     'Der Jahrgang kann nicht gelöscht werden: Es gibt Traubenverkäufe zu diesem Jahrgang.',
+  // KAN-129: Lese mit Einträgen löschen (Migration lesen_je_jahrgang)
+  ernte_parzellen_lese_fkey:
+    'Die Lese kann nicht gelöscht werden: Es sind noch Lese-Einträge erfasst. Bitte diese zuerst löschen.',
+  pressungen_lese_fkey:
+    'Die Lese kann nicht gelöscht werden: Es sind noch Pressungen erfasst. Bitte diese zuerst löschen.',
+  traubenverkauf_lese_fkey:
+    'Die Lese kann nicht gelöscht werden: Es sind noch Traubenverkäufe erfasst. Bitte diese zuerst löschen.',
 }
 
 const CHECK_RE = /new row for relation "([^"]+)" violates check constraint "([^"]+)"/
@@ -190,6 +197,10 @@ export function uebersetzeDbMeldung(text: string): string {
   return text
 }
 
+/** KAN-129: Trigger a_lese_zuordnen (23502, HINT 'lese_waehlen') – Jahrgang mit mehreren Lesen, keine Lese angegeben */
+export const LESE_WAEHLEN_MELDUNG =
+  'Der Jahrgang hat mehrere Lesen und das Datum passt zu keiner – bitte oben auf der Jahrgangsseite die Lese (Reiter) wählen und erneut speichern.'
+
 /**
  * Deutsche Meldung für einen Supabase-/PostgREST-Fehler ({ code, message, details, hint }).
  * - 23514/23503: je Constraint-Name übersetzt (siehe Tabellen oben)
@@ -212,6 +223,7 @@ export function dbFehlerText(error: unknown, kontext?: string): string {
     // RAISE … USING ERRCODE = '23514' aus einer Funktion: Text ist bereits deutsch
     return message || mitKontext('Die Eingabe verletzt eine Prüfregel der Datenbank.')
   }
+  if (code === '23502' && (error as { hint?: unknown }).hint === 'lese_waehlen') return LESE_WAEHLEN_MELDUNG
   if (code === '23503') {
     const m = FK_RE.exec(message)
     if (m) return fremdschluesselText(m[1], m[3], m[2], m[4])

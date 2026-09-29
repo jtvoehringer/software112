@@ -69,9 +69,9 @@ CREATE FUNCTION pg_temp.t11_fremd_fk_bekannt() RETURNS text[] LANGUAGE sql IMMUT
     'pipeline_eintraege.firma_id', 'pipeline_eintraege.kontakt_id', 'pressung_behaelter.behaelter_id',
     'pressung_behaelter.weinausbau_id', 'pressung_weingaerten.grundstueck_id', 'pressung_weingaerten.weingarten_id',
     'pressung_weingaerten.zukauf_posten_id',
-    'pressungen.jahrgang_id', 'pruefnummernantraege.dac_antrag_id', 'psm_lager_bewegungen.psm_id',
+    'pruefnummernantraege.dac_antrag_id', 'psm_lager_bewegungen.psm_id',
     'sumup_checkouts.verkaufsposten_id', 'transportbescheinigungen.verkaufsposten_id', 'traubenverkauf.firma_id',
-    'traubenverkauf.grundstueck_id', 'traubenverkauf.jahrgang_id', 'traubenverkauf.kontakt_id',
+    'traubenverkauf.grundstueck_id', 'traubenverkauf.kontakt_id',
     'traubenverkauf.verkaufsposten_id', 'traubenverkauf.weingarten_id', 'traubenverkauf.zukauf_posten_id',
     'verkauf_positionen.fuellung_id',
     'verkauf_positionen.traubenverkauf_id', 'verkauf_positionen.verkaufsposten_id', 'verkauf_positionen.weinausbau_id',
@@ -503,6 +503,13 @@ BEGIN
                AND pg_get_constraintdef(c.oid) ~ ('\m' || r.spalte || ' IS NULL')
                AND pg_get_constraintdef(c.oid) !~* '\mOR\M') THEN
       v_erg := v_erg || pg_temp.s112_ok('fremd_fk_immer_null:' || v_name);
+    ELSIF v_txt = 'E23503' AND EXISTS (
+            -- mehrspaltiger FK mit der Spalte (KAN-129: lese_id + jahrgang_id + tenant_id → lesen): der fremde
+            -- Verweis passt nicht zur übrigen Zeile, die Datenbank lehnt ab
+            SELECT 1 FROM pg_constraint c JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attname = r.spalte
+             WHERE c.conrelid = to_regclass(format('public.%I', r.tab)) AND c.contype = 'f'
+               AND cardinality(c.conkey) > 1 AND a.attnum = ANY (c.conkey)) THEN
+      v_erg := v_erg || pg_temp.s112_ok('fremd_fk_verbund:' || v_name);
     ELSE
       v_erg := v_erg || pg_temp.s112_fehler('fremd_fk_unklar:' || v_name, 'update=' || v_code || coalesce(' insert=' || v_code2, ''));
     END IF;

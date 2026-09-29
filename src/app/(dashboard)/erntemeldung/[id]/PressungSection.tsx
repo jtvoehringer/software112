@@ -115,8 +115,8 @@ function Fehlermeldung({ text, onClose }: { text: string; onClose?: () => void }
   )
 }
 
-function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, leseParzellen, leseEintraege, verfuegbareKgByGST, zukaufTrauben, behaelterMitCharge, onDone }: {
-  jahrgangId: string; pressung?: Pressung
+function PressungForm({ jahrgangId, leseId, pressung, wgOptions, behOptions, waOptions, leseParzellen, leseEintraege, verfuegbareKgByGST, zukaufTrauben, behaelterMitCharge, onDone }: {
+  jahrgangId: string; leseId: string | null; pressung?: Pressung
   wgOptions: WGOption[]; behOptions: BehOption[]; waOptions: WAOption[]
   leseParzellen: LeseParzelle[]; leseEintraege: LeseEintrag[]; verfuegbareKgByGST: Record<string, number>
   zukaufTrauben: ZukaufTraubenOpt[]
@@ -343,6 +343,8 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
     }
     const fd = new FormData()
     fd.append('jahrgang_id', jahrgangId)
+    // KAN-129: neue Pressung in die gewählte Lese (beim Bearbeiten bleibt die Lese)
+    if (leseId && !pressung) fd.append('lese_id', leseId)
     if (pressung) fd.append('existing_id', pressung.id)
     fd.append('datum', datum)
     fd.append('most_liter_gesamt', mostLiter)
@@ -801,8 +803,10 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
 
 // ── Hauptexport ───────────────────────────────────────────────────────────────
 
-export default function PressungSection({ jahrgangId, pressungen, wgOptions, behOptions, waOptions, leseParzellen, leseEintraege, verfuegbareKgByGST, zukaufTrauben, behaelterMitCharge, writeOk, adminOk }: {
+export default function PressungSection({ jahrgangId, leseId, pressungen, wgOptions, behOptions, waOptions, leseParzellen, leseEintraege, verfuegbareKgByGST, zukaufTrauben, behaelterMitCharge, writeOk, adminOk }: {
   jahrgangId: string; pressungen: Pressung[]
+  /** KAN-129: gewählte Lese (Reiter) – Pressungen und Lese-Einträge dieser Lese */
+  leseId: string | null
   wgOptions: WGOption[]; behOptions: BehOption[]; waOptions: WAOption[]
   /** KAN-126: alle Lese-Einträge des Jahrgangs (Lesetage und Mostgewicht je Ort) */
   leseParzellen: LeseParzelle[]; leseEintraege: LeseEintrag[]; verfuegbareKgByGST: Record<string, number>
@@ -891,7 +895,7 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
 
       {/* Neues Formular */}
       {showForm && !editId && (
-        <PressungForm jahrgangId={jahrgangId} wgOptions={wgOptions} behOptions={behOptions}
+        <PressungForm jahrgangId={jahrgangId} leseId={leseId} wgOptions={wgOptions} behOptions={behOptions}
           waOptions={waOptions} leseParzellen={leseParzellen} leseEintraege={leseEintraege} verfuegbareKgByGST={verfuegbareKgByGST}
           zukaufTrauben={zukaufTrauben}
           behaelterMitCharge={behaelterMitCharge} onDone={() => setShowForm(false)} />
@@ -910,7 +914,7 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
             return (
               <div key={p.id}>
                 {editId === p.id ? (
-                  <PressungForm pressung={p} jahrgangId={jahrgangId} wgOptions={wgOptions}
+                  <PressungForm pressung={p} jahrgangId={jahrgangId} leseId={leseId} wgOptions={wgOptions}
                     behOptions={behOptions} waOptions={waOptions} leseParzellen={leseParzellen} leseEintraege={leseEintraege}
                     verfuegbareKgByGST={verfuegbareKgByGST} zukaufTrauben={zukaufTrauben}
                     behaelterMitCharge={undefined}

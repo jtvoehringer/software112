@@ -3,6 +3,7 @@ import { getCurrentUserRole, canWrite, canAdmin, getCurrentMembership } from '@/
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import JahrgaengeClient from './JahrgaengeClient'
+import type { Lese } from '@/lib/wein/lesen'
 
 export const metadata: Metadata = { title: 'Lese – software:112' }
 
@@ -12,6 +13,8 @@ export type Jahrgang = {
   abgeschlossen: boolean; notizen: string | null
   parzellen_count: number; gesamtmenge_kg: number; avg_kmw: number | null
   ama_status: string | null
+  /** KAN-129: Lesen des Jahrgangs, nach Nummer */
+  lesen: Lese[]
   // KAN-35: warum der Jahrgang nicht gelöscht werden kann (null = löschbar); dieselben
   // Regeln prüft deleteJahrgang serverseitig
   loeschsperre: string | null
@@ -37,7 +40,8 @@ export default async function ErntemeldungPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawJ } = await (supabase.from('weinjahrgaenge') as any)
     .select(`id, jahrgang, ernte_beginn, ernte_ende, qualitaet_gesamt,
-             ama_gemeldet, ama_meldedatum, abgeschlossen, notizen`)
+             ama_gemeldet, ama_meldedatum, abgeschlossen, notizen,
+             lesen(id, lfd_nr, art, bezeichnung, beginn, ende, notizen)`)
     .eq('tenant_id', tenantId)
     .order('jahrgang', { ascending: false })
 
@@ -101,6 +105,7 @@ export default async function ErntemeldungPage() {
     gesamtmenge_kg:   parzellenByJG.get(j.id)?.kg ?? 0,
     avg_kmw:          (() => { const d = parzellenByJG.get(j.id); return d && d.kmwCount > 0 ? d.kmwSum / d.kmwCount : null })(),
     ama_status:       amaByJG.get(j.id) ?? null,
+    lesen:            ((j.lesen ?? []) as Lese[]).slice().sort((a, b) => a.lfd_nr - b.lfd_nr),
     loeschsperre:     (() => {
       const gruende: string[] = []
       const nP = pressungenByJG.get(j.id) ?? 0
@@ -127,12 +132,12 @@ export default async function ErntemeldungPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-s112-text">Lese</h1>
-          <p className="text-sm text-s112-muted mt-0.5">Jahrgänge, Lesedaten & AMA-Meldung</p>
+          <p className="text-sm text-s112-muted mt-0.5">Jahrgänge mit ihren Lesen, Lesedaten & AMA-Meldung</p>
         </div>
         {writeOk && (
           <Link href="/erntemeldung/neu"
             className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
-            <span>＋</span> Neuer Jahrgang
+            <span>＋</span> Neue Lese
           </Link>
         )}
       </div>

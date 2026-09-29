@@ -60,7 +60,7 @@ const PROTECTED_TABLES = [
   'exportauftraege', 'fibu_buchungssaetze',
   'fibu_kontenplan', 'fibu_perioden', 'firmen', 'fuellung_bewegungen', 'fuellung_chargen', 'fuellungen', 'grundstuecke',
   'keller_behandlungen', 'keller_behandlungstypen', 'keller_umzuege', 'kellerplaene',
-  'kellerplan_positionen', 'kontakte', 'konten', 'konto_umbuchungen', 'kostenarten', 'kosteneintraege', 'kostenstellen', 'lagen',
+  'kellerplan_positionen', 'kontakte', 'konten', 'konto_umbuchungen', 'kostenarten', 'kosteneintraege', 'kostenstellen', 'lagen', 'lesen',
   'module_flags', 'pflanzenschutzmittel', 'pipeline_eintraege', 'preislisten',
   'preislisten_positionen', 'pressungen', 'pruefnummernantraege', 'psm_lager_bewegungen',
   'rabattgruppen', 'saetze_massnahmen', 'sonstige_artikel', 'sumup_checkouts', 'sumup_terminals',

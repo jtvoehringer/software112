@@ -123,9 +123,12 @@ function NotizZelle({ text }: { text: string | null }) {
 // Pilot-Rückmeldung 29.09.2026: nicht erntebare Weingärten (nur Acker, Grünland, Brache …) gar nicht anbieten;
 // eine Ried mit genau einem Weingarten als EINE Zeile (statt Ried-Kopf und gleichnamigem Weingarten darunter).
 function NeueParzellenForm({
-  jahrgangId, weingaerten: alleWeingaerten, gstByWeingarten, onDone,
+  jahrgangId, leseId, weingaerten: alleWeingaerten, gstByWeingarten, onDone,
 }: {
-  jahrgangId: string; weingaerten: WeingartenOpt[]
+  jahrgangId: string
+  /** KAN-129: gewählte Lese (Reiter) – die neuen Einträge landen in ihr */
+  leseId: string | null
+  weingaerten: WeingartenOpt[]
   gstByWeingarten: Record<string, GSTOpt[]>; onDone: () => void
 }) {
   const [pending, startTransition] = useTransition()
@@ -212,6 +215,7 @@ function NeueParzellenForm({
     }
     setError(null)
     const fd = new FormData(e.currentTarget)
+    if (leseId) fd.set('lese_id', leseId)
     if (einzeln) {
       // jede Zeile mit eigener Menge; ohne Eingabe gelten die gemeinsamen Felder
       fd.append('grundstueck_json', JSON.stringify(ziele.map(z => {
@@ -656,10 +660,13 @@ function ParzellForm({
 
 
 // ── Hauptkomponente ─────────────────────────────────────────────────────────────
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gstByWeingarten, amaMeldung, hektarhoechstertrag, pressungen, wgOptions, behOptions, waOptions, verfuegbareKg, verfuegbareKgByGST, zukaufTrauben, behaelterMitCharge, writeOk, adminOk, betriebName, csvErlaubt }: {
+export default function ErnteDetailClient({ jahrgang, leseId, leseTitel, parzellen, weingaerten, gstByWeingarten, amaMeldung, hektarhoechstertrag, pressungen, wgOptions, behOptions, waOptions, verfuegbareKg, verfuegbareKgByGST, zukaufTrauben, behaelterMitCharge, writeOk, adminOk, betriebName, csvErlaubt }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   jahrgang: Record<string, any>; parzellen: ErnteParzelle[]
+  /** KAN-129: gewählte Lese (Reiter der Seite) – neue Einträge und Pressungen landen in ihr */
+  leseId: string | null
+  /** KAN-129: „2026/2 Eiswein“ – nur bei mehreren Lesen, für Überschrift und Druck */
+  leseTitel: string | null
   weingaerten: WeingartenOpt[]; gstByWeingarten: Record<string, GSTOpt[]>; amaMeldung: AMAMeldung | null
   hektarhoechstertrag: HektarhoechstertragStatus
   pressungen: Pressung[]; wgOptions: WGOption[]; behOptions: BehOption[]; waOptions: WAOption[]
@@ -715,14 +722,14 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
       {/* Print-Header (nur beim Drucken sichtbar) */}
       <div className="hidden print:block mb-4 pb-4 border-b-2 border-s112-line-str">
         <p className="text-xs text-s112-text-2 font-semibold tracking-widest uppercase">{betriebName ? `software:112 – ${betriebName}` : 'software:112'}</p>
-        <h1 className="text-2xl font-semibold text-s112-text mt-0.5">Jahrgang {jahrgang.jahrgang}</h1>
+        <h1 className="text-2xl font-semibold text-s112-text mt-0.5">Jahrgang {jahrgang.jahrgang}{leseTitel ? ` · Lese ${leseTitel}` : ''}</h1>
         <p className="text-sm text-s112-tertiary mt-1">Erstellt: {heute}</p>
       </div>
 
       {/* Ernte-Übersicht */}
       <div className="card">
         <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
-          <h2 className="text-base font-semibold text-s112-text">Lesedaten</h2>
+          <h2 className="text-base font-semibold text-s112-text">Lesedaten{leseTitel ? ` – Lese ${leseTitel}` : ''}</h2>
           <div className="flex items-start gap-3 flex-wrap">
             <span className="text-sm text-s112-muted">{parzellen.length} Parzellen · {fmtZahl(gesamtKg/1000, 2)} t</span>
             {writeOk && !showForm && (
@@ -755,7 +762,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
 
         {showForm && !editId && (
           <div className="mb-4" data-print="hide">
-            <NeueParzellenForm jahrgangId={jahrgang.id} weingaerten={weingaerten} gstByWeingarten={gstByWeingarten} onDone={() => setShowForm(false)} />
+            <NeueParzellenForm jahrgangId={jahrgang.id} leseId={leseId} weingaerten={weingaerten} gstByWeingarten={gstByWeingarten} onDone={() => setShowForm(false)} />
           </div>
         )}
 
@@ -874,6 +881,7 @@ export default function ErnteDetailClient({ jahrgang, parzellen, weingaerten, gs
       {/* Pressungen / Lese */}
       <PressungSection
         jahrgangId={jahrgang.id}
+        leseId={leseId}
         pressungen={pressungen}
         wgOptions={wgOptions}
         behOptions={behOptions}

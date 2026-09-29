@@ -73,6 +73,8 @@ export async function jahrgangPflicht(supabase: Client, tenantId: string, jahrga
 
 export type LeseZeile = {
   id: string
+  /** Lese des Eintrags (KAN-129, lesen.id) */
+  leseId: string | null
   weingartenId: string | null
   /** Ried (weingarten.name) */
   ried: string | null
@@ -115,6 +117,7 @@ function zuLeseZeile(p: R): LeseZeile {
   const kg = zahlOderNull(p.menge_kg)
   return {
     id: p.id,
+    leseId: textOderNull(p.lese_id),
     weingartenId: p.weingarten_id ?? null,
     ried: textOderNull(wg?.name),
     weingartenRebsorte,
@@ -157,7 +160,7 @@ export async function ladeLesedaten(supabase: Client, jahrgangId: string): Promi
   const { data, error } = await alle<R>(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('ernte_parzellen') as any)
-      .select('id, weingarten_id, grundstueck_id, ernte_datum, menge_kg, menge_hl, oechsle, klosterneuburger, mostgewicht_einheit, qualitaetsstufe, lesemethode, notizen, weingarten:weingarten_id(name, rebsorte, flaeche_ha), grundstueck:grundstueck_id(gst_nr, katastralgemeinde, rebsorte, flaeche_ha)')
+      .select('id, lese_id, weingarten_id, grundstueck_id, ernte_datum, menge_kg, menge_hl, oechsle, klosterneuburger, mostgewicht_einheit, qualitaetsstufe, lesemethode, notizen, weingarten:weingarten_id(name, rebsorte, flaeche_ha), grundstueck:grundstueck_id(gst_nr, katastralgemeinde, rebsorte, flaeche_ha)')
       .eq('jahrgang_id', jahrgangId)
       .order('ernte_datum', { ascending: true })
       .order('id'),
