@@ -19,8 +19,13 @@ export const dynamic = 'force-dynamic'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
-export default async function BlendProtokollPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function BlendProtokollPage({ params, searchParams }: {
+  params: Promise<{ id: string }>; searchParams: Promise<{ stichtag?: string }>
+}) {
   const { id } = await params
+  // KAN-76: optional zu einem Stichtag (Zusammensetzung, Bestand und Prüfnummer an diesem Tag)
+  const stRoh = (await searchParams).stichtag?.trim() ?? ''
+  const stichtag = /^\d{4}-\d{2}-\d{2}$/.test(stRoh) && !Number.isNaN(Date.parse(stRoh)) ? stRoh : null
   const supabase   = await createSupabaseServerClient()
   const membership = await getCurrentMembership()
   const tenantId   = membership?.tenantId ?? null
@@ -32,7 +37,7 @@ export default async function BlendProtokollPage({ params }: { params: Promise<{
   if (!tenantId) notFound()
   // Dieselbe Ladefunktion wie die CSV „blend-protokoll“ (lib/behoerden/blend.ts)
   const [protokoll, { data: settingsRaw }] = await Promise.all([
-    ladeBlendProtokoll(supabase, tenantId, { art: 'charge', id }),
+    ladeBlendProtokoll(supabase, tenantId, { art: 'charge', id, stichtag }),
     tf((supabase.from('tenant_einstellungen') as any)
       .select('betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort, betrieb_uid, logo_url')
       .limit(1).maybeSingle()),
@@ -57,7 +62,7 @@ export default async function BlendProtokollPage({ params }: { params: Promise<{
         </nav>
         <div className="flex items-start gap-2">
           <PrintButton />
-          <CsvExportKnopf href={csvPfad('blend-protokoll', { charge: id })} />
+          <CsvExportKnopf href={csvPfad('blend-protokoll', { charge: id, ...(stichtag ? { stichtag } : {}) })} />
         </div>
       </div>
 
@@ -97,10 +102,29 @@ export default async function BlendProtokollPage({ params }: { params: Promise<{
               <p className="text-lg font-semibold text-s112-blue-700 font-mono mt-0.5">{kopf.pruefnummer}</p>
             )}
             <p className="text-xs text-s112-tertiary mt-0.5">
-              Stand: {new Date().toLocaleDateString('de-AT')}
+              Stand: {(stichtag ? new Date(`${stichtag}T12:00:00`) : new Date()).toLocaleDateString('de-AT')}
             </p>
           </div>
         </div>
+
+        {/* KAN-76: Stichtag wählen (nur am Bildschirm) */}
+        <form method="get" className="print:hidden flex items-end gap-2 flex-wrap text-sm">
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-s112-text-2">Zusammensetzung zum Stichtag</span>
+            <input type="date" name="stichtag" defaultValue={stichtag ?? ''} aria-label="Stichtag"
+              className="border border-s112-border rounded-lg px-2 py-1 text-sm" />
+          </label>
+          <button type="submit" className="border border-s112-border rounded-lg px-3 py-1 text-sm hover:bg-s112-bg">Anzeigen</button>
+          {stichtag && <Link href={`/kellerbuch/weinausbau/${id}/blend-protokoll`} className="text-xs underline text-s112-text-2">heute</Link>}
+        </form>
+
+        {/* KAN-76: Hinweise der Mischungsrechnung (Bestand ≠ Saldo, Abgänge > Bestand …) – auch im Druck */}
+        {protokoll.warnungen.filter(w => w !== kopf.pruefnummerHinweis && !w.startsWith(kopf.pruefnummerHinweis ?? '\u0000')).map((w, i) => (
+          <p key={i} className="text-sm text-s112-warn-fg bg-s112-warn-bg border border-s112-warn/30 rounded-lg px-3 py-2 flex items-start gap-1.5">
+            <AlertTriangle size={15} strokeWidth={1.75} className="mt-0.5 shrink-0" />
+            <span>{w}</span>
+          </p>
+        ))}
 
         {/* KAN-72: frühere Prüfnummer gilt nicht (mehr) für den Bestand – Hinweis statt Nummer */}
         {kopf.pruefnummerHinweis && (
@@ -118,7 +142,7 @@ export default async function BlendProtokollPage({ params }: { params: Promise<{
           </p>
           {wa.menge_liter && (
             <p className="text-xs text-s112-tertiary mt-1">
-              Aktueller Bestand: {fmtNum(wa.menge_liter)} L
+              {stichtag ? 'Bestand zum Stichtag' : 'Aktueller Bestand'}: {fmtNum(wa.menge_liter)} L
             </p>
           )}
         </div>

@@ -1,8 +1,10 @@
 // ── Blend-Protokoll (Herkunftsanteile je Füllung bzw. Charge) – Seiten UND CSV (24.09.2026) ──
 //
-// Quelle bleibt resolveBlendKomposition[Fuellung]() (lib/wein/blendKomposition.ts): rekursiv
-// über alle Verschneidungs-Generationen bis zu Pressung (Weingarten/GST), Zukauf oder
-// Eröffnungsbestand, auf 100 % normalisiert (Anteil auf 1 Stelle). Die CSV hat eine Zeile
+// Quelle: ladeZusammensetzungCharge/-Fuellung() (lib/wein/blendKomposition.ts) mit dem zeitrichtigen
+// Rechenkern lib/wein/mischungsrechnung.ts (KAN-76): alle Bewegungen chronologisch, Abgänge anteilig,
+// Umzüge und Verschnitte mit der Mischung der Quelle – bis zu Pressung (Weingarten/GST), Zukauf oder
+// Eröffnungsbestand, Anteile auf 1 Stelle mit Summe 100,0. Charge: heute oder zum Stichtag (?stichtag=);
+// Füllung: Zusammensetzung unmittelbar vor der Abfüllung. Weicht der Bestand vom Saldo ab: Warnung. Die CSV hat eine Zeile
 // je Herkunftsanteil; Kopfangaben (Bezeichnung, Prüfnummer, Chargennummer) stehen in jeder
 // Zeile. „Menge anteilig“ = Bezugsmenge × Anteil (Füllung: abgefüllte Liter, Charge:
 // aktueller Bestand) – eine rechnerische Aufteilung, keine gebuchte Menge.
@@ -17,7 +19,7 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Projektkonvention (supabase.from('…') as any), siehe CLAUDE.md */
 import { runden, STELLEN, wienHeute, type CsvSpalte } from '@/lib/csv'
-import { resolveBlendKomposition, resolveBlendKompositionFuellung, type KompositionUrsprung } from '@/lib/wein/blendKomposition'
+import { ladeZusammensetzungCharge, ladeZusammensetzungFuellung, type KompositionUrsprung } from '@/lib/wein/blendKomposition'
 import { bkiRebsorteKuerzel, fehlendeKuerzelHinweise } from '@/lib/wein/bki_kuerzel'
 import { qualitaetLabel } from '@/lib/wein/qualitaet'
 import { ersatzPruefnummer, pruefnummerAusAntrag, pruefnummerGueltig, pruefnummerHinweis } from '@/lib/kellerbuch/pruefnummer'
@@ -38,15 +40,15 @@ export type BlendKopf = {
   /** warum eine (frühere bzw. Ersatz-)Prüfnummer nicht (mehr) gilt – für Kopf und Warnung, sonst null */
   pruefnummerHinweis: string | null
   chargennummer: string | null
-  /** Abfülldatum (nur Füllung) */
+  /** Abfülldatum (Füllung) bzw. Stichtag (Charge, nur wenn angegeben) */
   datum: string | null
   anzahlFlaschen: number | null
   flaschengroesseMl: number | null
-  /** Bezugsmenge in l: Füllung = abgefüllte Liter, Charge = aktueller Bestand */
+  /** Bezugsmenge in l: Füllung = abgefüllte Liter, Charge = aktueller Bestand bzw. Saldo zum Stichtag */
   bezugLiter: number | null
 }
 
-export function herkunftLabel(u: KompositionUrsprung): string {
+export function herkunftLabel(u: Pick<KompositionUrsprung, 'typ' | 'weingarten_name' | 'gst_nr' | 'zukauf_von'>): string {
   if (u.typ === 'pressung') {
     const teile = [u.weingarten_name, u.gst_nr ? `GST ${u.gst_nr}` : null].filter(Boolean)
     return teile.length > 0 ? teile.join(' · ') : 'Pressung (Weingarten unbekannt)'
@@ -82,7 +84,10 @@ export type BlendZeile = {
 }
 
 /** Herkunftsanteile als CSV-Zeilen (reine Umformung, testbar) */
-export function blendZeilen(kopf: BlendKopf, komposition: readonly KompositionUrsprung[]): BlendZeile[] {
+export function blendZeilen(kopf: BlendKopf, komposition: readonly (Omit<KompositionUrsprung, 'liter'> & { liter?: number })[]): BlendZeile[] {
+  // KAN-76: Liter aus der Mischungsrechnung auf die Bezugsmenge bezogen (Summe = Bezugsmenge);
+  // ohne Liter (ältere Aufrufer) wie bisher Bezugsmenge × Anteil
+  const literSumme = komposition.reduce((s, u) => s + (u.liter ?? 0), 0)
   return komposition.map(u => {
     const anteilPct = runden(u.anteil_pct, 1)
     return {
@@ -103,7 +108,9 @@ export function blendZeilen(kopf: BlendKopf, komposition: readonly KompositionUr
       lieferant: text(u.zukauf_von),
       anteilPct,
       bezugLiter: kopf.bezugLiter,
-      mengeLiter: kopf.bezugLiter === null ? null : runden(kopf.bezugLiter * anteilPct / 100, STELLEN.liter),
+      mengeLiter: kopf.bezugLiter === null ? null
+        : u.liter != null && literSumme > 0 ? runden(kopf.bezugLiter * u.liter / literSumme, STELLEN.liter)
+        : runden(kopf.bezugLiter * anteilPct / 100, STELLEN.liter),
     }
   })
 }
@@ -114,7 +121,7 @@ export type BlendProtokoll = { kopf: BlendKopf; komposition: KompositionUrsprung
 export async function ladeBlendProtokoll(
   supabase: any,
   tenantId: string,
-  p: { art: BlendArt; id: string },
+  p: { art: BlendArt; id: string; stichtag?: string | null },
 ): Promise<BlendProtokoll | null> {
   let kopf: BlendKopf
   let komposition: KompositionUrsprung[]
@@ -161,9 +168,13 @@ export async function ladeBlendProtokoll(
       anzahlFlaschen: flaschen === null ? null : Math.trunc(flaschen), flaschengroesseMl: groesse,
       bezugLiter: bezug > 0 ? runden(bezug, STELLEN.liter) : null,
     }
-    komposition = await resolveBlendKompositionFuellung(supabase, p.id, tenantId)
+    const z = await ladeZusammensetzungFuellung(supabase, tenantId, p.id)
+    komposition = z.anteile
+    warnungen.push(...z.warnungen)
   } else {
-    const heute = wienHeute()
+    // KAN-76: Stichtag (optional) – Zusammensetzung, Bestand und Prüfnummer zu diesem Tag
+    const stichtag = p.stichtag ?? null
+    const heute = stichtag ?? wienHeute()
     const [waRes, pnDaten] = await Promise.all([
       (supabase.from('weinausbau') as any)
         .select('id, name, jahrgang, rebsorte, qualitaetsstufe, menge_liter')
@@ -181,15 +192,17 @@ export async function ladeBlendProtokoll(
     const pn = daten ? pruefnummerGueltig(daten, heute) : null
     const hinweis = pn ? pruefnummerHinweis(pn) : null
     if (hinweis) warnungen.push(`${hinweis} Die Spalte „Prüfnummer“ bleibt leer.`)
-    const bestand = num(wa.menge_liter)
+    const z = await ladeZusammensetzungCharge(supabase, tenantId, p.id, stichtag)
+    const bestand = stichtag ? z.saldoLiter : num(wa.menge_liter)
     kopf = {
       art: 'charge', id: wa.id, name: text(wa.name) ?? 'Charge',
       jahrgang: numOderNull(wa.jahrgang), rebsorte: text(wa.rebsorte), qualitaet: wa.qualitaetsstufe ? qualitaetLabel(wa.qualitaetsstufe) : null,
-      pruefnummer: pn?.gueltig ? pn.pruefnummer : null, pruefnummerHinweis: hinweis, chargennummer: null, datum: null,
+      pruefnummer: pn?.gueltig ? pn.pruefnummer : null, pruefnummerHinweis: hinweis, chargennummer: null, datum: stichtag,
       anzahlFlaschen: null, flaschengroesseMl: null,
       bezugLiter: bestand > 0 ? runden(bestand, STELLEN.liter) : null,
     }
-    komposition = await resolveBlendKomposition(supabase, p.id, tenantId)
+    komposition = z.anteile
+    warnungen.push(...z.warnungen)
   }
 
   if (komposition.length === 0) warnungen.push('Keine Herkunftsdaten ermittelbar – die Datei enthält nur die Kopfzeile.')

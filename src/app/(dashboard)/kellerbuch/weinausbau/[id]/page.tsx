@@ -11,6 +11,8 @@ import { kmwZuQualitaet, minQualitaet } from '@/lib/weinqualitaet'
 import { folgebuchungenDerCharge, folgebuchungenText } from '@/lib/kellerbuch/folgebuchungen'
 import { GEBINDEWECHSEL_OHNE } from '@/lib/kellerbuch/storno'
 import VerschneidungWidget from './VerschneidungWidget'
+import { ladeZusammensetzungCharge } from '@/lib/wein/blendKomposition'
+import { sortenAnteile } from '@/lib/wein/mischungsrechnung'
 import SchwundBuchenForm from './SchwundBuchenForm'
 import UmziehenWidget from '@/components/kellerbuch/UmziehenWidget'
 import { umziehen } from '../../umziehen/actions'
@@ -446,6 +448,12 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
 
   const st = STATUS_LABELS[weinausbau.status] ?? { label: weinausbau.status, color: 'bg-[#F2F3F5] text-s112-text-2' }
 
+  // KAN-76: „Besteht aus“ aus dem zeitrichtigen Rechenkern (Rebsorten je Liter im heutigen Bestand) statt
+  // „Bestand − Summe der Verschnitte“ – nur wenn die Charge Verschnitte hat, wie bisher
+  const bestehtAus = tenantId && verschneidungenEin.length > 0
+    ? sortenAnteile((await ladeZusammensetzungCharge(supabase, tenantId, weinausbau.id)).anteile)
+    : null
+
   return (
     <div className="max-w-4xl space-y-8">
       {/* Breadcrumb */}
@@ -663,6 +671,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
       {/* Verschneidung (wird über Header-Button mit ?form=verschneiden geöffnet) */}
       {writeOk && (
         <VerschneidungWidget
+          bestehtAus={bestehtAus}
           zielCharge={{ id: weinausbau.id, name: weinausbau.name, menge_liter: aktuell, qualitaetsstufe: weinausbau.qualitaetsstufe ?? null, herkunft_code: weinausbau.herkunft_code ?? null, rebsorte: weinausbau.rebsorte ?? null, weinart: weinausbau.weinart ?? null, behaelter_id: weinausbau.behaelter_id ?? null, behaelter_volumen_liter: bhRows.find(b => b.id === weinausbau.behaelter_id)?.volumen_liter ?? null }}
           alleChargen={alleChargen}
           verschneidungen={verschneidungenEin}
