@@ -7,6 +7,7 @@ import Link from '@/components/ui/Link'
 import TraubenverkaufClient from './TraubenverkaufClient'
 import { KATALOG_ERNTE } from '@/lib/behoerden/katalog/ernte'
 import { betriebUndModuleLaden, zugriffsFehler } from '@/lib/behoerden/zugriff'
+import { leseTitel } from '@/lib/wein/lesen'
 
 export const metadata: Metadata = { title: 'Traubenverkauf – software:112' }
 export const dynamic = 'force-dynamic'
@@ -29,7 +30,7 @@ export default async function TraubenverkaufPage() {
   const { data: verkaufeRaw } = await alle<R>((supabase.from('traubenverkauf') as any)
     .select(`
       id, datum, menge_kg, preis_per_kg, kmw_grad, oechsle, mostgewicht_einheit,
-      qualitaetsstufe, herkunft_code, gesundheit, liefernummer, notizen, jahrgang_id, grundstueck_id, zukauf_posten_id, verkaufsposten_id,
+      qualitaetsstufe, herkunft_code, gesundheit, liefernummer, notizen, jahrgang_id, lese_id, grundstueck_id, zukauf_posten_id, verkaufsposten_id,
       weingarten:weingarten_id(id, name, trauben_herkunft_code),
       grundstueck:grundstueck_id(id, gst_nr, rebsorte, trauben_herkunft_code),
       kontakt:kontakt_id(id, vorname, nachname),
@@ -56,17 +57,41 @@ export default async function TraubenverkaufPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: ernteRaw } = jahrgangIds.length === 0 ? { data: [] as R[] } : await alle<R>((supabase.from('ernte_parzellen') as any)
     .select(`
-      id, klosterneuburger, oechsle, mostgewicht_einheit, qualitaetsstufe, menge_kg, jahrgang_id,
+      id, klosterneuburger, oechsle, mostgewicht_einheit, qualitaetsstufe, menge_kg, jahrgang_id, lese_id, ernte_datum,
       weingarten:weingarten_id(id, name, trauben_herkunft_code),
       grundstueck:grundstueck_id(id, gst_nr, rebsorte, trauben_herkunft_code),
       jahrgang:jahrgang_id(id, jahrgang)
     `)
     .in('jahrgang_id', jahrgangIds)
     .not('menge_kg', 'is', null)
-    .order('jahrgang_id', { ascending: false })
+    .order('ernte_datum', { ascending: false, nullsFirst: false })
     .order('id'))
 
   const ernteOptions = (ernteRaw ?? []) as R[]
+
+  // KAN-129: Lesen des Betriebs (neueste zuerst) und Verpresstes je Lese – Auswahl und verfügbare kg je Lese
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: lesenRaw, error: leseFehler } = await (supabase.from('lesen') as any)
+    .select('id, jahrgang_id, lfd_nr, art, bezeichnung, jahrgang:weinjahrgaenge!lesen_jahrgang_fkey(jahrgang)')
+    .eq('tenant_id', membership.tenantId)
+  if (leseFehler) throw new Error(`Lesen konnten nicht geladen werden: ${leseFehler.message}`)
+  const lesen = ((lesenRaw ?? []) as R[]).map(l => {
+    const jahr = Number((l.jahrgang as R | null)?.jahrgang)
+    return { id: l.id as string, jahrgang_id: l.jahrgang_id as string, jahrgang: jahr, lfd_nr: Number(l.lfd_nr),
+      titel: leseTitel(jahr, { lfd_nr: Number(l.lfd_nr), art: l.art, bezeichnung: l.bezeichnung ?? null }) }
+  }).sort((a, b) => (b.jahrgang - a.jahrgang) || (b.lfd_nr - a.lfd_nr))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- tenant-isolation-ignore: pressung_weingaerten ohne tenant_id, Filter über die Pressung
+  const { data: pwRaw, error: pwFehler } = await alle<R>((supabase.from('pressung_weingaerten') as any)
+    .select('id, weingarten_id, grundstueck_id, trauben_kg, pressung:pressung_id!inner(tenant_id, lese_id)')
+    .eq('pressung.tenant_id', membership.tenantId)
+    .not('weingarten_id', 'is', null)
+    .order('id'))
+  if (pwFehler) throw new Error(`Pressungen konnten nicht geladen werden: ${pwFehler.message}`)
+  const verpresst = ((pwRaw ?? []) as R[]).map(p => ({
+    lese_id: ((p.pressung as R | null)?.lese_id as string | null) ?? null,
+    weingarten_id: p.weingarten_id as string, grundstueck_id: (p.grundstueck_id as string | null) ?? null,
+    kg: Number(p.trauben_kg) || 0,
+  }))
 
   // BKI-Datenblatt (Pflichtmeldung): gleiche Zugriffsregel wie /meldungen/bki-traubenverkauf/csv
   const { module } = await betriebUndModuleLaden(supabase, membership.tenantId)
@@ -153,6 +178,8 @@ export default async function TraubenverkaufPage() {
       <TraubenverkaufClient
         verkaufe={verkaufe}
         ernteOptions={ernteOptions}
+        lesen={lesen}
+        verpresst={verpresst}
         zukaufOptions={zukaufOptions}
         kontakte={kontakte}
         firmen={firmen}

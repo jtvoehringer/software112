@@ -2,6 +2,8 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { leseOrtSchluessel, verfuegbarJeLese } from '@/lib/wein/leseBilanz'
+import { leseTitel } from '@/lib/wein/lesen'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,6 +31,7 @@ export async function GET() {
       { data: lesemeldungenRaw },
       { data: pressungWGRaw },
       { data: tvSoldRaw },
+      { data: lesenRaw },
     ] = await Promise.all([
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('fuellungen') as any)
@@ -71,61 +74,50 @@ export async function GET() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       // tenant-isolation-ignore: ernte_parzellen ohne tenant_id, Filter über den Jahrgang
       (supabase.from('ernte_parzellen') as any)
-        .select('weingarten_id, grundstueck_id, menge_kg, klosterneuburger, oechsle, mostgewicht_einheit, qualitaetsstufe, ernte_datum, jahrgang_id, jahrgang:jahrgang_id!inner(tenant_id)')
+        .select('weingarten_id, grundstueck_id, menge_kg, klosterneuburger, oechsle, mostgewicht_einheit, qualitaetsstufe, ernte_datum, jahrgang_id, lese_id, jahrgang:jahrgang_id!inner(tenant_id)')
         .eq('jahrgang.tenant_id', tenantId)
         .order('ernte_datum', { ascending: false }),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       // tenant-isolation-ignore: pressung_weingaerten ohne tenant_id, Filter über die Pressung
       (supabase.from('pressung_weingaerten') as any)
-        .select('weingarten_id, grundstueck_id, trauben_kg, pressung:pressung_id!inner(tenant_id)')
+        .select('weingarten_id, grundstueck_id, trauben_kg, pressung:pressung_id!inner(tenant_id, lese_id)')
         .eq('pressung.tenant_id', tenantId),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('traubenverkauf') as any)
-        .select('weingarten_id, grundstueck_id, menge_kg')
+        .select('weingarten_id, grundstueck_id, menge_kg, lese_id')
+        .eq('tenant_id', tenantId),
+      // KAN-129: Lesen des Betriebs (Auswahl je Trauben-Position)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase.from('lesen') as any)
+        .select('id, jahrgang_id, lfd_nr, art, bezeichnung, jahrgang:weinjahrgaenge!lesen_jahrgang_fkey(jahrgang)')
         .eq('tenant_id', tenantId),
     ])
 
-    // ── Verfügbare kg pro Weingarten + Grundstück berechnen ─────────────────
+    // ── Verfügbare kg je Lese und Ort (KAN-129: kg-Bilanz je Lese, lib/wein/leseBilanz.ts) ──
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const parzellen = (lesemeldungenRaw ?? []) as any[]
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const pressungWG = (pressungWGRaw ?? []) as any[]
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const tvSold = (tvSoldRaw ?? []) as any[]
+    // Lesen neueste zuerst (Jahrgang, dann Nummer)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const lesen = ((lesenRaw ?? []) as any[]).map(l => {
+      const jahr = Number(l.jahrgang?.jahrgang)
+      return { id: l.id as string, jahrgang_id: l.jahrgang_id as string, jahrgang: jahr, lfd_nr: Number(l.lfd_nr),
+        titel: leseTitel(jahr, { lfd_nr: Number(l.lfd_nr), art: l.art, bezeichnung: l.bezeichnung ?? null }) }
+    }).sort((a, b) => (b.jahrgang - a.jahrgang) || (b.lfd_nr - a.lfd_nr))
 
-    // Pro Weingarten
-    const harvestedByWG: Record<string, number> = {}
-    for (const l of parzellen) {
-      if (l.menge_kg) harvestedByWG[l.weingarten_id] = (harvestedByWG[l.weingarten_id] ?? 0) + Number(l.menge_kg)
-    }
-    const pressedByWG: Record<string, number> = {}
-    for (const p of pressungWG) {
-      if (p.trauben_kg) pressedByWG[p.weingarten_id] = (pressedByWG[p.weingarten_id] ?? 0) + Number(p.trauben_kg)
-    }
-    const soldByWG: Record<string, number> = {}
-    for (const v of tvSold) {
-      soldByWG[v.weingarten_id] = (soldByWG[v.weingarten_id] ?? 0) + (parseFloat(v.menge_kg) || 0)
-    }
+    const verfuegbar = verfuegbarJeLese(
+      parzellen.map(l => ({ lese_id: l.lese_id ?? null, weingarten_id: l.weingarten_id, grundstueck_id: l.grundstueck_id ?? null, kg: l.menge_kg == null ? null : Number(l.menge_kg) })),
+      [
+        ...pressungWG.map(p => ({ lese_id: p.pressung?.lese_id ?? null, weingarten_id: p.weingarten_id ?? null, grundstueck_id: p.grundstueck_id ?? null, kg: Number(p.trauben_kg) || 0 })),
+        ...tvSold.map(v => ({ lese_id: v.lese_id ?? null, weingarten_id: v.weingarten_id ?? null, grundstueck_id: v.grundstueck_id ?? null, kg: parseFloat(v.menge_kg) || 0 })),
+      ],
+    )
 
-    // Pro Grundstück (GST)
-    const harvestedByGST: Record<string, number> = {}
-    for (const l of parzellen) {
-      if (l.grundstueck_id && l.menge_kg)
-        harvestedByGST[l.grundstueck_id] = (harvestedByGST[l.grundstueck_id] ?? 0) + Number(l.menge_kg)
-    }
-    const pressedByGST: Record<string, number> = {}
-    for (const p of pressungWG) {
-      if (p.grundstueck_id && p.trauben_kg)
-        pressedByGST[p.grundstueck_id] = (pressedByGST[p.grundstueck_id] ?? 0) + Number(p.trauben_kg)
-    }
-    const soldByGST: Record<string, number> = {}
-    for (const v of tvSold) {
-      if (v.grundstueck_id)
-        soldByGST[v.grundstueck_id] = (soldByGST[v.grundstueck_id] ?? 0) + (parseFloat(v.menge_kg) || 0)
-    }
-
-    // Letztes Mostgewicht + Qualität pro Weingarten und pro GST (neueste ernte_parzelle). Mostgewicht
-    // mit gemessener Einheit (KAN-128): kmw führend, oechsle, einheit – Vorbelegung im Verkaufsformular
+    // Mostgewicht + Qualität je Lese und Ort: neuester Lese-Eintrag (parzellen nach ernte_datum desc).
+    // Mostgewicht mit gemessener Einheit (KAN-128) – Vorbelegung im Verkaufsformular
     type Mg = { kmw: number | null; oechsle: number | null; einheit: string | null } | null
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const mgAus = (l: any): Mg => (l.klosterneuburger == null && l.oechsle == null ? null : {
@@ -133,66 +125,68 @@ export async function GET() {
       oechsle: l.oechsle != null ? Number(l.oechsle) : null,
       einheit: l.mostgewicht_einheit ?? null,
     })
-    const mgByWG: Record<string, Mg> = {}
-    const qualByWG: Record<string, string | null> = {}
-    const mgByGST: Record<string, Mg> = {}
-    const qualByGST: Record<string, string | null> = {}
-    // parzellen sind bereits nach ernte_datum desc sortiert → erster Treffer = neuester
+    const mgJe = new Map<string, { mostgewicht: Mg; qualitaetsstufe: string | null }>()
     for (const l of parzellen) {
-      if (!(l.weingarten_id in mgByWG)) {
-        mgByWG[l.weingarten_id] = mgAus(l)
-        qualByWG[l.weingarten_id] = l.qualitaetsstufe ?? null
-      }
-      if (l.grundstueck_id && !(l.grundstueck_id in mgByGST)) {
-        mgByGST[l.grundstueck_id] = mgAus(l)
-        qualByGST[l.grundstueck_id] = l.qualitaetsstufe ?? null
+      if (!l.lese_id) continue
+      for (const ort of [l.weingarten_id, l.grundstueck_id].filter(Boolean) as string[]) {
+        const k = leseOrtSchluessel(l.lese_id, ort)
+        if (!mgJe.has(k)) mgJe.set(k, { mostgewicht: mgAus(l), qualitaetsstufe: l.qualitaetsstufe ?? null })
       }
     }
-
-    // Letztes Jahrgang pro Weingarten und GST
-    const jahrgangIdByWG: Record<string, string | null> = {}
-    const jahrgangIdByGST: Record<string, string | null> = {}
-    for (const l of parzellen) {
-      if (!(l.weingarten_id in jahrgangIdByWG)) {
-        jahrgangIdByWG[l.weingarten_id] = l.jahrgang_id ?? null
-      }
-      if (l.grundstueck_id && !(l.grundstueck_id in jahrgangIdByGST)) {
-        jahrgangIdByGST[l.grundstueck_id] = l.jahrgang_id ?? null
-      }
+    /** Je Lese (neueste zuerst) die verfügbaren kg an einem Ort; Standard = neueste Lese mit Menge */
+    const jeLese = (ortId: string, karte: Map<string, number>) => {
+      const eintraege = lesen
+        .filter(l => karte.has(leseOrtSchluessel(l.id, ortId)))
+        .map(l => {
+          const k = leseOrtSchluessel(l.id, ortId)
+          return { lese_id: l.id, jahrgang_id: l.jahrgang_id, verfuegbar_kg: karte.get(k) ?? 0,
+            mostgewicht: mgJe.get(k)?.mostgewicht ?? null, qualitaetsstufe: mgJe.get(k)?.qualitaetsstufe ?? null }
+        })
+      const standard = eintraege.find(x => x.verfuegbar_kg > 0) ?? null
+      return { eintraege, standard }
     }
 
-    // Weingärten: nur jene mit geerntetem Bestand anzeigen
+    // Weingärten: nur jene mit verfügbarer Menge in mindestens einer Lese
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const weingaertenMitKg = ((weingaertenRaw ?? []) as any[])
-      .map((wg: any) => ({
-        id:                    wg.id,
-        name:                  wg.name,
-        lage_name:             (wg.lage as any)?.name ?? null,
-        trauben_herkunft_code: wg.trauben_herkunft_code ?? null,
-        verfuegbar_kg:         Math.max(0, (harvestedByWG[wg.id] ?? 0) - (pressedByWG[wg.id] ?? 0) - (soldByWG[wg.id] ?? 0)),
-        kmw_grad:              mgByWG[wg.id]?.kmw ?? null,
-        mostgewicht:           mgByWG[wg.id] ?? null,
-        qualitaetsstufe:       qualByWG[wg.id] ?? null,
-        jahrgang_id:           jahrgangIdByWG[wg.id] ?? null,
-      }))
-      .filter((wg: any) => wg.verfuegbar_kg > 0)
+      .map((wg: any) => {
+        const { eintraege, standard } = jeLese(wg.id, verfuegbar.ried)
+        return {
+          id:                    wg.id,
+          name:                  wg.name,
+          lage_name:             (wg.lage as any)?.name ?? null,
+          trauben_herkunft_code: wg.trauben_herkunft_code ?? null,
+          verfuegbar_kg:         standard?.verfuegbar_kg ?? 0,
+          kmw_grad:              standard?.mostgewicht?.kmw ?? null,
+          mostgewicht:           standard?.mostgewicht ?? null,
+          qualitaetsstufe:       standard?.qualitaetsstufe ?? null,
+          jahrgang_id:           standard?.jahrgang_id ?? null,
+          lese_id:               standard?.lese_id ?? null,
+          je_lese:               eintraege,
+        }
+      })
+      .filter((wg: any) => wg.je_lese.some((x: any) => x.verfuegbar_kg > 0))
 
-    // Grundstücke: nur jene anzeigen die geerntet wurden (gst_id in ernte_parzellen)
-    const gstMitErnte = new Set(parzellen.filter(l => l.grundstueck_id).map((l: any) => l.grundstueck_id as string))
+    // Grundstücke: nur gelesene (Lese-Eintrag mit Menge in einer Lese)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const grundstueckeMitKg = ((grundstuecke ?? []) as any[])
-      .filter((g: any) => gstMitErnte.has(g.id))
-      .map((g: any) => ({
-        id:            g.id,
-        gst_nr:        g.gst_nr,
-        weingarten_id: g.weingarten_id,
-        rebsorte:      g.rebsorte ?? null,
-        verfuegbar_kg:   Math.max(0, (harvestedByGST[g.id] ?? 0) - (pressedByGST[g.id] ?? 0) - (soldByGST[g.id] ?? 0)),
-        kmw_grad:        mgByGST[g.id]?.kmw ?? null,
-        mostgewicht:     mgByGST[g.id] ?? null,
-        qualitaetsstufe: qualByGST[g.id] ?? null,
-        jahrgang_id:     jahrgangIdByGST[g.id] ?? null,
-      }))
+      .map((g: any) => {
+        const { eintraege, standard } = jeLese(g.id, verfuegbar.gst)
+        return {
+          id:              g.id,
+          gst_nr:          g.gst_nr,
+          weingarten_id:   g.weingarten_id,
+          rebsorte:        g.rebsorte ?? null,
+          verfuegbar_kg:   standard?.verfuegbar_kg ?? 0,
+          kmw_grad:        standard?.mostgewicht?.kmw ?? null,
+          mostgewicht:     standard?.mostgewicht ?? null,
+          qualitaetsstufe: standard?.qualitaetsstufe ?? null,
+          jahrgang_id:     standard?.jahrgang_id ?? null,
+          lese_id:         standard?.lese_id ?? null,
+          je_lese:         eintraege,
+        }
+      })
+      .filter((g: any) => g.je_lese.length > 0)
 
     return NextResponse.json({
       fuellungen:       fuellungen    ?? [],
@@ -202,6 +196,7 @@ export async function GET() {
       weingaerten: weingaertenMitKg,
       jahrgaenge:  (jahrgaenge ?? []) as any[],
       grundstuecke: grundstueckeMitKg,
+      lesen,
     })
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 })
