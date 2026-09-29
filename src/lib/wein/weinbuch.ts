@@ -106,7 +106,8 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
           id, datum, most_liter_gesamt, weinbezeichnung,
           pressung_weingaerten(
             trauben_kg, rebsorte, ernte_datum, kmw, oechsle, mostgewicht_einheit, weingarten_id,
-            weingarten:weingarten_id(id, name, flaeche_ha)
+            weingarten:weingarten_id(id, name, flaeche_ha),
+            grundstueck:grundstueck_id(gst_nr)
           )
         )
       `)
@@ -259,7 +260,28 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
   }
 
   const ernteDaten: Array<{ datum: string; details: string[] }> = []
-  if (weingartenIds.size > 0) {
+  // KAN-126 (Entscheidung Jörgen 29.09.2026): Tragen die Pressungen dieser Charge ein Lesedatum je Traubenzeile,
+  // zeigt das Weinbuch genau diese Lesen (Ort, Tag, Menge, Mostgewicht der Pressungszeile) – nicht alle
+  // Erntemeldungs-Einträge der Weingärten im Jahrgang. Ohne Lesedatum (Altdaten) wie bisher.
+  for (const pb of pressungen) {
+    const p = pb.pressung as R | null
+    if (!p) continue
+    for (const wg of ((p.pressung_weingaerten ?? []) as R[])) {
+      if (!wg.ernte_datum || !wg.weingarten_id) continue
+      const w = wg.weingarten as R | null
+      const g = wg.grundstueck as R | null
+      const details: string[] = []
+      if (w?.name) details.push(`Ried: ${w.name}`)
+      if (g?.gst_nr) details.push(`GST ${g.gst_nr}`)
+      if (wg.trauben_kg) details.push(`${fmtNum(parseFloat(wg.trauben_kg))} kg`)
+      const mostgewicht = mostgewichtWeinbuchText({ kmw: wg.kmw, oechsle: wg.oechsle, einheit: wg.mostgewicht_einheit })
+      if (mostgewicht) details.push(mostgewicht)
+      if (wg.rebsorte) details.push(formatRebsorteMitKuerzel(wg.rebsorte))
+      ernteDaten.push({ datum: wg.ernte_datum, details })
+    }
+  }
+  ernteDaten.sort((a, b) => a.datum.localeCompare(b.datum))
+  if (ernteDaten.length === 0 && weingartenIds.size > 0) {
     const { data: jgRow } = await tf((supabase.from('weinjahrgaenge') as any)
       .select('id')
       .eq('jahrgang', wa.jahrgang))
