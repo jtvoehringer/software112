@@ -239,7 +239,7 @@ export default async function GebindePage({
                   )}
                 </div>
                 <div className="sm:col-span-2 flex gap-3">
-                  <button type="submit" className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
+                  <button type="submit" className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
                     Gebinde anlegen
                   </button>
                 </div>
@@ -429,7 +429,7 @@ export default async function GebindePage({
                   <input aria-label="Notizen" name="notizen" placeholder="z.B. Herkunft Altsystem …" className={inputCls} />
                 </div>
                 <div className="sm:col-span-2">
-                  <button type="submit" className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
+                  <button type="submit" className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
                     Eröffnungsbestand speichern
                   </button>
                 </div>
@@ -477,7 +477,7 @@ export default async function GebindePage({
                       <td className="px-4 py-2.5 text-right whitespace-nowrap">
                         {parseFloat(e.menge_liter) > 0.01 && (
                           <Link href={`/weinhandel/fuellungen/neu?charge=${e.id}`}
-                            className="text-xs text-s112-blue-700 border border-s112-teal/30 rounded-full px-2 py-0.5 hover:bg-s112-teal hover:text-white transition-colors whitespace-nowrap mr-2">
+                            className="text-xs text-s112-blue-700 border border-s112-teal/30 rounded-full px-2 py-0.5 hover:bg-s112-teal hover:text-s112-yellow transition-colors whitespace-nowrap mr-2">
                             Abfüllen
                           </Link>
                         )}

@@ -138,7 +138,7 @@ export default async function UvaPage({
             {jahre.map(j => <option key={j} value={j}>{j}</option>)}
           </select>
         </div>
-        <button type="submit" className="bg-s112-teal text-white px-4 py-2 rounded-lg text-sm">Anzeigen</button>
+        <button type="submit" className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-sm">Anzeigen</button>
       </form>
 
       {/* Berechnen */}
@@ -156,7 +156,7 @@ export default async function UvaPage({
                 </select>
               </div>
               <button type="submit"
-                className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
+                className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
                 Berechnen & Speichern
               </button>
             </form>
@@ -229,7 +229,7 @@ function UvaKarte({ uva, jahr, doppik, adminOk, fehlendeMonate, uebermitteln }: 
                       message={`Diese UVA-Meldung (${uva.label}) als übermittelt markieren? Dies ist nicht rückgängig zu machen und sperrt alle Buchungen dieses Zeitraums gegen weitere Änderungen.`}
                       label="Als übermittelt markieren"
                       title="Als übermittelt markieren"
-                      className="text-xs bg-s112-teal text-white px-2.5 py-1 rounded-full font-medium hover:bg-opacity-90"
+                      className="text-xs bg-s112-teal text-s112-yellow px-2.5 py-1 rounded-full font-medium hover:bg-opacity-90"
                     />
                   </span>
                 )

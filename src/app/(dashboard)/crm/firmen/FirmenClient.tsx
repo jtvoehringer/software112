@@ -323,7 +323,7 @@ export function FirmaForm({
 
       <div className="flex gap-2">
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
           {pending ? 'Wird gespeichert…' : (initial ? 'Speichern' : 'Anlegen')}
         </button>
         <button type="button" onClick={onDone}
@@ -490,7 +490,7 @@ export default function FirmenClient({
           <button key={b} onClick={() => setzeFilter({ buchstabe: b })}
             className={`min-w-[1.75rem] px-1 py-0.5 text-xs font-medium rounded transition-colors
               ${buchstabe === b
-                ? 'bg-s112-teal text-white'
+                ? 'bg-s112-teal text-s112-yellow'
                 : 'bg-s112-bg text-s112-text-2 hover:bg-s112-teal/10 hover:text-s112-blue-700'}`}>
             {b}
           </button>
@@ -502,14 +502,14 @@ export default function FirmenClient({
           className="border border-s112-border rounded-lg px-3 py-1.5 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         <div className="flex gap-1">
           <button onClick={() => setzeFilter({ segment: 'alle' })}
-            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${segment === 'alle' ? 'bg-s112-teal text-white' : 'bg-s112-bg text-s112-text-2 hover:text-s112-text'}`}>
+            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${segment === 'alle' ? 'bg-s112-teal text-s112-yellow' : 'bg-s112-bg text-s112-text-2 hover:text-s112-text'}`}>
             Alle ({zaehler.gesamt})
           </button>
           {bSegmente.filter(s => (zaehler.segment[s.value] ?? 0) > 0 || s.value === segment).map(s => {
             const count = zaehler.segment[s.value] ?? 0
             return (
               <button key={s.value} onClick={() => setzeFilter({ segment: s.value })}
-                className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${segment === s.value ? 'bg-s112-teal text-white' : 'bg-s112-bg text-s112-text-2 hover:text-s112-text'}`}>
+                className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${segment === s.value ? 'bg-s112-teal text-s112-yellow' : 'bg-s112-bg text-s112-text-2 hover:text-s112-text'}`}>
                 {s.label} ({count})
               </button>
             )
@@ -518,7 +518,7 @@ export default function FirmenClient({
         <div className="flex gap-1">
           {(['alle', 'lead', 'kunde'] as const).map(v => (
             <button key={v} onClick={() => setzeFilter({ lead: v })}
-              className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${filterLead === v ? 'bg-s112-teal text-white' : 'bg-s112-bg text-s112-text-2 hover:text-s112-text'}`}>
+              className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${filterLead === v ? 'bg-s112-teal text-s112-yellow' : 'bg-s112-bg text-s112-text-2 hover:text-s112-text'}`}>
               {v === 'alle' ? 'Alle' : v === 'lead' ? 'Lead' : 'Aktiv'}
               {' '}({v === 'alle' ? zaehler.gesamt : v === 'lead' ? zaehler.lead : zaehler.kunde})
             </button>
@@ -526,11 +526,11 @@ export default function FirmenClient({
         </div>
         <div className="flex gap-1">
           <button onClick={() => setzeFilter({ kunde: !filterKunde })}
-            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${filterKunde ? 'bg-s112-teal text-white' : 'bg-s112-bg text-s112-text-2 hover:text-s112-text'}`}>
+            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${filterKunde ? 'bg-s112-teal text-s112-yellow' : 'bg-s112-bg text-s112-text-2 hover:text-s112-text'}`}>
             Kunde ({zaehler.istKunde})
           </button>
           <button onClick={() => setzeFilter({ lieferant: !filterLieferant })}
-            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${filterLieferant ? 'bg-s112-teal text-white' : 'bg-s112-bg text-s112-text-2 hover:text-s112-text'}`}>
+            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${filterLieferant ? 'bg-s112-teal text-s112-yellow' : 'bg-s112-bg text-s112-text-2 hover:text-s112-text'}`}>
             Lieferant ({zaehler.istLieferant})
           </button>
         </div>
@@ -543,7 +543,7 @@ export default function FirmenClient({
           )}
           {writeOk && !showForm && (
             <button onClick={() => setShowForm(true)}
-              className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
+              className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
               Neue Firma
             </button>
           )}

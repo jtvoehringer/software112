@@ -272,7 +272,7 @@ export default function KellerbehandlungenPage() {
           <FlaskConical size={20} strokeWidth={1.75} className="text-s112-blue-700" />Kellerbehandlungen – {behaelter.name}
         </h1>
         <button onClick={openNeu}
-          className="text-xs bg-s112-teal text-white px-3 py-1.5 rounded-lg hover:bg-opacity-90 font-medium print:hidden">
+          className="text-xs bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg hover:bg-opacity-90 font-medium print:hidden">
           + Neue Behandlung
         </button>
       </div>
@@ -348,7 +348,7 @@ export default function KellerbehandlungenPage() {
                       ))}
                     </select>
                     <button type="button" onClick={() => setShowNeuerTyp(true)}
-                      className="text-xs text-s112-blue-700 border border-s112-teal/30 px-2 rounded-lg hover:bg-s112-teal hover:text-white transition-colors whitespace-nowrap">
+                      className="text-xs text-s112-blue-700 border border-s112-teal/30 px-2 rounded-lg hover:bg-s112-teal hover:text-s112-yellow transition-colors whitespace-nowrap">
                       + Neu
                     </button>
                   </div>
@@ -361,7 +361,7 @@ export default function KellerbehandlungenPage() {
                       {EINHEITEN.map(e => <option key={e} value={e}>{e}</option>)}
                     </select>
                     <button type="button" onClick={saveNeuerTyp} disabled={typSaving}
-                      className="text-xs bg-s112-teal text-white px-3 py-1.5 rounded-lg disabled:opacity-50">
+                      className="text-xs bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg disabled:opacity-50">
                       {typSaving ? '…' : 'Speichern'}
                     </button>
                     <button type="button" onClick={() => setShowNeuerTyp(false)}
@@ -427,7 +427,7 @@ export default function KellerbehandlungenPage() {
                 Abbrechen
               </button>
               <button type="submit" disabled={isPending}
-                className="text-xs bg-s112-teal text-white px-4 py-1.5 rounded-lg hover:bg-opacity-90 disabled:opacity-50">
+                className="text-xs bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg hover:bg-opacity-90 disabled:opacity-50">
                 {isPending ? 'Speichern…' : (editId ? 'Aktualisieren' : 'Speichern')}
               </button>
             </div>

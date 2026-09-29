@@ -92,7 +92,7 @@ function ArtikelRow({ artikel, onRefresh }: { artikel: Artikel; onRefresh: () =>
               Abbrechen
             </button>
             <button onClick={handleSave} disabled={isPending}
-              className="text-xs bg-s112-teal text-white px-3 py-1 rounded-lg hover:bg-opacity-90 disabled:opacity-50">
+              className="text-xs bg-s112-teal text-s112-yellow px-3 py-1 rounded-lg hover:bg-opacity-90 disabled:opacity-50">
               {isPending ? '…' : 'Speichern'}
             </button>
           </div>
@@ -192,7 +192,7 @@ function NeuerArtikelRow({ onRefresh, onCancel }: { onRefresh: () => void; onCan
             Abbrechen
           </button>
           <button onClick={handleSave} disabled={isPending}
-            className="text-xs bg-s112-teal text-s112-yellow px-3 py-1 rounded-lg hover:bg-s112-blue-700 disabled:opacity-50">
+            className="text-xs bg-s112-teal text-s112-yellow px-3 py-1 rounded-lg hover:opacity-90 disabled:opacity-50">
             {isPending ? '…' : '+ Anlegen'}
           </button>
         </div>
@@ -217,7 +217,7 @@ export default function SonstigeArtikelClient({ initialArtikel }: { initialArtik
         <button
           onClick={() => setShowNeu(true)}
           disabled={showNeu}
-          className="text-sm bg-s112-teal text-white px-4 py-2 rounded-xl font-semibold hover:bg-opacity-90 disabled:opacity-40 transition-colors"
+          className="text-sm bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl font-semibold hover:bg-opacity-90 disabled:opacity-40 transition-colors"
         >
           + Neues Produkt
         </button>

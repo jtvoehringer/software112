@@ -69,7 +69,7 @@ export default async function WeingartenPage() {
           {writeOk && (
             <Link
               href="/weingarten/neu"
-              className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors"
+              className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors"
             >
               Neue Ried
             </Link>
@@ -112,7 +112,7 @@ export default async function WeingartenPage() {
           {writeOk && (
             <Link
               href="/weingarten/neu"
-              className="inline-flex items-center gap-2 bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors"
+              className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors"
             >
               Erste Ried anlegen
             </Link>

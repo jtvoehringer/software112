@@ -84,7 +84,7 @@ export default async function MonatsabschlussPage({
             {jahre.map(j => <option key={j} value={j}>{j}</option>)}
           </select>
         </div>
-        <button type="submit" className="bg-s112-teal text-white px-4 py-2 rounded-lg text-sm">Anzeigen</button>
+        <button type="submit" className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-sm">Anzeigen</button>
       </form>
 
       <div className="bg-white rounded-xl border border-s112-border overflow-hidden">
@@ -113,7 +113,7 @@ export default async function MonatsabschlussPage({
                   message={`${name} ${jahr} abschließen? Alle Buchungen dieses Monats werden gesperrt und können nicht mehr bearbeitet, gelöscht oder durch neue Buchungen mit diesem Datum ergänzt werden. Das ist nicht rückgängig zu machen.`}
                   label="Monat abschließen"
                   title="Monat abschließen"
-                  className="text-xs bg-s112-teal text-white px-2.5 py-1 rounded-full font-medium hover:bg-opacity-90"
+                  className="text-xs bg-s112-teal text-s112-yellow px-2.5 py-1 rounded-full font-medium hover:bg-opacity-90"
                 />
               ) : (
                 <span className="text-xs bg-s112-warn-bg text-s112-warn-fg px-2 py-0.5 rounded-full">Offen</span>

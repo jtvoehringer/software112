@@ -479,7 +479,7 @@ export default function ReportsClient({
       <div className="flex gap-1 flex-wrap print:hidden">
         {TABS.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${tab === t.id ? 'bg-s112-teal text-white' : 'bg-s112-bg text-s112-text-2 hover:bg-s112-teal/10'}`}>
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${tab === t.id ? 'bg-s112-teal text-s112-yellow' : 'bg-s112-bg text-s112-text-2 hover:bg-s112-teal/10'}`}>
             {t.label}
           </button>
         ))}
@@ -506,7 +506,7 @@ export default function ReportsClient({
             <div className="flex flex-wrap items-end gap-x-4 gap-y-2 pb-4 mb-2 border-b border-s112-border/60 print:hidden">
               <button
                 onClick={umsatzLetzte12}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${umsatzModus === 'standard' ? 'bg-s112-teal text-white' : 'bg-s112-bg text-s112-text-2 hover:bg-s112-teal/10'}`}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${umsatzModus === 'standard' ? 'bg-s112-teal text-s112-yellow' : 'bg-s112-bg text-s112-text-2 hover:bg-s112-teal/10'}`}
               >
                 Letzte 12 Monate
               </button>
@@ -547,7 +547,7 @@ export default function ReportsClient({
                 <button
                   onClick={umsatzVergleichen}
                   disabled={!vergleichA || !vergleichB || umsatzLoading}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${umsatzModus === 'vergleich' ? 'bg-s112-teal text-white' : 'bg-s112-bg text-s112-text-2 hover:bg-s112-teal/10'}`}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${umsatzModus === 'vergleich' ? 'bg-s112-teal text-s112-yellow' : 'bg-s112-bg text-s112-text-2 hover:bg-s112-teal/10'}`}
                 >
                   {umsatzLoading && umsatzModus === 'vergleich' ? 'Lädt…' : 'Vergleichen'}
                 </button>
@@ -713,7 +713,7 @@ export default function ReportsClient({
                         <button
                           onClick={() => toggleLagerDrill(f.id)}
                           title="Bestandsveränderungen"
-                          className={`text-xs px-2 py-0.5 rounded-lg border transition-colors ${lagerExpand===f.id ? 'bg-s112-teal text-white border-s112-teal' : 'border-s112-border text-s112-muted hover:border-s112-teal hover:text-s112-blue-700'}`}
+                          className={`text-xs px-2 py-0.5 rounded-lg border transition-colors ${lagerExpand===f.id ? 'bg-s112-teal text-s112-yellow border-s112-teal' : 'border-s112-border text-s112-muted hover:border-s112-teal hover:text-s112-blue-700'}`}
                         >
                           {lagerExpand===f.id ? '▲' : '↓ BV'}
                         </button>

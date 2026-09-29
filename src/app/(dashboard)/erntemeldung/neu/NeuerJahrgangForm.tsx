@@ -80,7 +80,7 @@ export default function NeuerJahrgangForm({ aktuellesJahr, vorhandene = [] }: {
                   </p>
                 )}
                 <Link href={`/erntemeldung/${vorhanden.id}`}
-                  className="inline-flex items-center bg-s112-teal text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-opacity-90 transition-colors">
+                  className="inline-flex items-center bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-opacity-90 transition-colors">
                   Jahrgang {vorhanden.jahrgang} öffnen
                 </Link>
               </div>
@@ -107,7 +107,7 @@ export default function NeuerJahrgangForm({ aktuellesJahr, vorhandene = [] }: {
       </div>
       <div className="flex gap-3 pt-2">
         <button type="submit" disabled={pending || vorhanden != null}
-          className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-40">
+          className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-40">
           {pending ? 'Anlegen…' : 'Anlegen'}
         </button>
         <a href="/erntemeldung" className="px-5 py-2 rounded-xl text-sm font-medium text-s112-text-2 hover:text-s112-text">

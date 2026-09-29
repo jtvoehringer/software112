@@ -35,7 +35,7 @@ function MultiSelect({ items, selected, onToggle, splitModus, setSplitModus, ant
           <div className="flex gap-1">
             {(['gleich','prozent'] as const).map(m => (
               <button key={m} type="button" onClick={() => setSplitModus(m)}
-                className={`text-xs px-2 py-1 rounded ${splitModus===m ? 'bg-s112-teal text-white' : 'border border-s112-border text-s112-text-2'}`}>
+                className={`text-xs px-2 py-1 rounded ${splitModus===m ? 'bg-s112-teal text-s112-yellow' : 'border border-s112-border text-s112-text-2'}`}>
                 {m === 'gleich' ? 'Gleichmäßig' : 'Gewichtet %'}
               </button>
             ))}
@@ -99,7 +99,7 @@ function StammdatenTab({ items, onSave, onDelete, fields }: {
     <div className="bg-white rounded-xl border border-s112-border p-5">
       <div className="flex justify-between items-center mb-4">
         <p className="text-sm text-s112-muted">{items.length} Einträge</p>
-        <button onClick={startNeu} className="text-xs bg-s112-teal text-white px-3 py-1.5 rounded-lg hover:bg-opacity-90">+ Neu</button>
+        <button onClick={startNeu} className="text-xs bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg hover:bg-opacity-90">+ Neu</button>
       </div>
       {(neu || editId) && (
         <div className="border border-s112-teal/30 rounded-xl p-4 mb-4 space-y-3 bg-s112-teal/5">
@@ -119,7 +119,7 @@ function StammdatenTab({ items, onSave, onDelete, fields }: {
             </div>
           ))}
           <div className="flex gap-2">
-            <button onClick={save} className="text-xs bg-s112-teal text-white px-4 py-1.5 rounded-lg hover:bg-opacity-90">Speichern</button>
+            <button onClick={save} className="text-xs bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg hover:bg-opacity-90">Speichern</button>
             <button onClick={() => { setEditId(null); setNeu(false) }} className="text-xs border border-s112-border px-4 py-1.5 rounded-lg hover:bg-s112-bg">Abbrechen</button>
           </div>
         </div>
@@ -301,7 +301,7 @@ export default function KostenrechnungPage() {
           <div className="col-span-2"><label className="block text-xs font-medium text-s112-text-2 mb-1">Beschreibung</label>
             <input aria-label="Beschreibung" value={beschreibung} onChange={e=>setBeschreibung(e.target.value)} placeholder="z.B. Traktor-Service, Spritzarbeit…" className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" /></div>
           <div className="col-span-2 flex items-center gap-3">
-            <button type="submit" disabled={saving} className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
+            <button type="submit" disabled={saving} className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
               {saving ? 'Speichern…' : editId ? 'Aktualisieren' : 'Buchen'}</button>
             {fehler && <p className="text-sm text-s112-err-fg">{fehler}</p>}
             {erfolg && <p className="text-sm text-s112-ok-fg inline-flex items-center gap-1"><Check size={13} />Gespeichert</p>}

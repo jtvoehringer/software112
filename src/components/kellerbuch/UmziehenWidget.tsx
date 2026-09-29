@@ -276,7 +276,7 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
 
           <div className="flex items-center gap-3">
             <button type="submit" disabled={!canSubmit || pending}
-              className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+              className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
               {pending ? 'Wird gebucht …' : 'Umzug buchen'}
             </button>
              <button type="button" onClick={handleClose}

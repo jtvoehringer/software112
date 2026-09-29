@@ -85,7 +85,7 @@ export default async function KategorienPage() {
           </div>
           <div className="col-span-5 flex justify-end">
             <button type="submit"
-              className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
+              className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
               Speichern
             </button>
           </div>

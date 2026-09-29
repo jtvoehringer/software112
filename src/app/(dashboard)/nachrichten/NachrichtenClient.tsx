@@ -392,7 +392,7 @@ export default function NachrichtenClient() {
         </p>
         {fehler && <p className="text-sm text-s112-err-fg">{fehler}</p>}
         <a href="/api/auth/m365/user"
-          className="flex items-center gap-2 bg-s112-teal text-white px-6 py-3 rounded-xl text-sm font-semibold hover:bg-s112-blue-700">
+          className="flex items-center gap-2 bg-s112-teal text-s112-yellow px-6 py-3 rounded-xl text-sm font-semibold hover:opacity-90">
           Mit Microsoft 365 verbinden
         </a>
         <div className="mt-4 pt-4 border-t border-s112-border space-y-2">
@@ -432,7 +432,7 @@ export default function NachrichtenClient() {
       <div className="w-44 flex-shrink-0 bg-s112-bg border-r border-s112-border flex flex-col">
         <div className="p-3">
           <button onClick={() => { setAntwortAuf(null); setCc(''); setAn(''); setBetreff(''); setText(''); setCompose(true) }}
-            className="w-full bg-s112-teal text-white px-3 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 flex items-center justify-center gap-2">
+            className="w-full bg-s112-teal text-s112-yellow px-3 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 flex items-center justify-center gap-2">
             Verfassen
           </button>
         </div>
@@ -441,13 +441,13 @@ export default function NachrichtenClient() {
             <p className="text-[11px] text-s112-muted font-medium uppercase tracking-wide">Mailbox</p>
             <button onClick={() => setActiveMailbox('own')}
               className={`w-full text-left text-xs px-2 py-1.5 rounded-lg border transition-colors truncate
-                ${activeMailbox === 'own' ? 'bg-s112-teal text-white border-s112-teal font-medium' : 'border-s112-border text-s112-text-2 hover:bg-white'}`}
+                ${activeMailbox === 'own' ? 'bg-s112-teal text-s112-yellow border-s112-teal font-medium' : 'border-s112-border text-s112-text-2 hover:bg-white'}`}
               title={verbEmail || 'Eigene Mailbox'}>
               Eigene Mailbox
             </button>
             <button onClick={() => setActiveMailbox('shared')}
               className={`w-full text-left text-xs px-2 py-1.5 rounded-lg border transition-colors truncate
-                ${activeMailbox === 'shared' ? 'bg-s112-teal text-white border-s112-teal font-medium' : 'border-s112-border text-s112-text-2 hover:bg-white'}`}
+                ${activeMailbox === 'shared' ? 'bg-s112-teal text-s112-yellow border-s112-teal font-medium' : 'border-s112-border text-s112-text-2 hover:bg-white'}`}
               title={monitoredEmail}>
               {monitoredEmail}
             </button>
@@ -462,7 +462,7 @@ export default function NachrichtenClient() {
                 ${folderId === f.id ? 'bg-s112-teal/10 text-s112-blue-700 font-medium' : 'text-s112-text-2 hover:bg-white'}`}>
               <span className="flex-shrink-0">{f.name === 'Inbox' || f.name === 'Posteingang' ? <Inbox className="w-3.5 h-3.5" /> : f.name === 'Sent Items' || f.name === 'Gesendete Elemente' ? <Send className="w-3.5 h-3.5" /> : f.name === 'Deleted Items' || f.name === 'Gelöschte Elemente' ? <Trash2 className="w-3.5 h-3.5" /> : f.name === 'Drafts' || f.name === 'Entwürfe' ? <FileText className="w-3.5 h-3.5" /> : <Folder className="w-3.5 h-3.5" />}</span>
               <span className="flex-1 text-left truncate text-xs">{f.name}</span>
-              {f.unread > 0 && <span className="text-xs bg-s112-teal text-white px-1.5 py-0.5 rounded-full">{f.unread}</span>}
+              {f.unread > 0 && <span className="text-xs bg-s112-teal text-s112-yellow px-1.5 py-0.5 rounded-full">{f.unread}</span>}
             </button>
           )) : (
             // Fallback wenn keine Ordner geladen
@@ -526,7 +526,7 @@ export default function NachrichtenClient() {
                   setMonitoredSaving(false); setShowSettings(false)
                   window.location.reload()
                 }} disabled={monitoredSaving}
-                  className="w-full text-[11px] bg-s112-teal text-white px-2 py-1 rounded hover:bg-opacity-90 disabled:opacity-40">
+                  className="w-full text-[11px] bg-s112-teal text-s112-yellow px-2 py-1 rounded hover:bg-opacity-90 disabled:opacity-40">
                   {monitoredSaving ? '…' : monitoredEmail ? 'Speichern' : 'Eigene Mailbox'}
                 </button>
               </div>
@@ -616,7 +616,7 @@ export default function NachrichtenClient() {
               if (!r.ok) { setFehler('Weiterleiten fehlgeschlagen: ' + (d.fehler ?? r.status)); return }
               setForwardMode(false)
             }} disabled={sending || !forwardAn}
-              className="text-sm bg-s112-teal text-white px-4 py-2 rounded-lg hover:bg-opacity-90 disabled:opacity-40">
+              className="text-sm bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg hover:bg-opacity-90 disabled:opacity-40">
               {sending ? 'Senden…' : 'Weiterleiten'}
             </button>
           </div>
@@ -650,7 +650,7 @@ export default function NachrichtenClient() {
                         const info = { typ: t.typ, id: t.id, name: t.name, accountnummer: t.accountnummer, istLead: t.istLead, ueber: 'email' as const }
                         setSelected(prev => prev ? { ...prev, leadVorschlag: false, namensTreffer: [], kontaktInfo: info } : prev)
                         setMessages(prev => prev.map(m => m.von.toLowerCase() === selected.von.toLowerCase() ? { ...m, absender: t.istLead ? 'lead' : t.typ } : m))
-                      }} className="text-xs bg-s112-teal text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-opacity-90 disabled:opacity-50"
+                      }} className="text-xs bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg font-semibold hover:bg-opacity-90 disabled:opacity-50"
                         title={t.email ? `bisher: ${t.email}` : 'bisher ohne E-Mail-Adresse'}>
                         Ja, zu {t.name}{t.accountnummer ? ` (${t.accountnummer})` : ''}{t.typ === 'firma' ? ' · Firma' : ''} hinzufügen
                       </button>
@@ -664,7 +664,7 @@ export default function NachrichtenClient() {
                 <div className="mt-3 rounded-lg border border-s112-teal/40 bg-s112-blue-50 px-3.5 py-2.5 flex flex-wrap items-center gap-2">
                   <UserPlus className="w-4 h-4 text-s112-teal shrink-0" />
                   <span className="text-xs text-s112-text flex-1 min-w-[12rem]"><b>{selected.vonName || selected.von}</b> ist weder Kunde noch Lead. Soll ein Lead angelegt werden?</span>
-                  <button onClick={() => setLeadDialog(true)} className="text-xs bg-s112-teal text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-opacity-90">Ja, Lead anlegen</button>
+                  <button onClick={() => setLeadDialog(true)} className="text-xs bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg font-semibold hover:bg-opacity-90">Ja, Lead anlegen</button>
                   <button onClick={() => setLeadSpaeter(prev => new Set(prev).add(selected.von.toLowerCase()))} className="text-xs border border-s112-line-str text-s112-text-2 px-3 py-1.5 rounded-lg hover:bg-white">Jetzt nicht</button>
                   <button disabled={leadIgnoriere} onClick={async () => {
                     setLeadIgnoriere(true)
@@ -689,7 +689,7 @@ export default function NachrichtenClient() {
                     <button onClick={() => setLeadDialog(true)} className="text-xs border border-s112-border text-s112-text-2 px-3 py-1.5 rounded-lg hover:bg-s112-bg inline-flex items-center gap-1"><UserPlus className="w-3.5 h-3.5" /> Lead anlegen</button>
                   )}
                   <button onClick={() => antworten(selected, 'reply')}
-                    className="text-xs bg-s112-teal text-white px-3 py-1.5 rounded-lg hover:bg-opacity-90">
+                    className="text-xs bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg hover:bg-opacity-90">
                     Antworten
                   </button>
                   <button onClick={() => antworten(selected, 'replyAll')} title="Antwort an Absender und alle weiteren Empfänger (An + CC)"
@@ -734,7 +734,7 @@ export default function NachrichtenClient() {
                         setSelected(null)
                         ladeFolders(activeMailbox)  // Ordner-Zähler aktualisieren
                       }} disabled={moving || !moveTarget}
-                        className="text-xs bg-s112-teal text-white px-2 py-1 rounded hover:bg-opacity-90 disabled:opacity-40">
+                        className="text-xs bg-s112-teal text-s112-yellow px-2 py-1 rounded hover:bg-opacity-90 disabled:opacity-40">
                         {moving ? '…' : 'OK'}
                       </button>
                       <button onClick={() => setMoveMode(false)}
@@ -830,11 +830,11 @@ export default function NachrichtenClient() {
                   <label className="block text-xs font-medium text-s112-text-2 mb-1">Von</label>
                   <div className="flex gap-2">
                     <button type="button" onClick={() => setSendVon('own')}
-                      className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${sendVon === 'own' ? 'bg-s112-teal text-white border-s112-teal' : 'border-s112-border text-s112-text-2 hover:bg-s112-bg'}`}>
+                      className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${sendVon === 'own' ? 'bg-s112-teal text-s112-yellow border-s112-teal' : 'border-s112-border text-s112-text-2 hover:bg-s112-bg'}`}>
                       Eigene Mailbox
                     </button>
                     <button type="button" onClick={() => setSendVon('shared')}
-                      className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${sendVon === 'shared' ? 'bg-s112-teal text-white border-s112-teal' : 'border-s112-border text-s112-text-2 hover:bg-s112-bg'}`}>
+                      className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${sendVon === 'shared' ? 'bg-s112-teal text-s112-yellow border-s112-teal' : 'border-s112-border text-s112-text-2 hover:bg-s112-bg'}`}>
                       {monitoredEmail}
                     </button>
                   </div>
@@ -871,7 +871,7 @@ export default function NachrichtenClient() {
               {sendResult && <p className={`text-sm font-medium ${sendResult.startsWith('Fehler') ? 'text-s112-err-fg' : 'text-s112-ok-fg'}`}>{sendResult}</p>}
               <div className="flex gap-2 shrink-0 pt-1">
                 <button type="submit" disabled={sending}
-                  className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
+                  className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
                   {sending ? 'Senden…' : 'Senden'}
                 </button>
                 <button type="button" onClick={() => { setCompose(false); setAntwortAuf(null); setCc('') }}

@@ -141,7 +141,7 @@ export default async function BehandlungenPage() {
           {writeOk && (
             <Link
               href="/behandlungen/neu"
-              className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors"
+              className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors"
             >
               Neue Maßnahme
             </Link>

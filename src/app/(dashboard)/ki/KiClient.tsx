@@ -155,7 +155,7 @@ export default function KiClient({ aktiv, paket, verbraucht }: Props) {
             disabled={laden}
           />
           <button type="submit" disabled={laden || !frage.trim()}
-            className="bg-s112-teal text-white px-6 py-3 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40 flex items-center gap-2">
+            className="bg-s112-teal text-s112-yellow px-6 py-3 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40 flex items-center gap-2">
             {laden ? (
               <>Analysiere…</>
             ) : (

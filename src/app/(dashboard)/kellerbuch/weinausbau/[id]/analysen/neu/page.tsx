@@ -160,7 +160,7 @@ export default function AnalyseNeuPage({ params }: Props) {
           <button
             type="submit"
             disabled={saving}
-            className="bg-s112-teal text-white px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-50"
+            className="bg-s112-teal text-s112-yellow px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-50"
           >
             {saving ? 'Wird gespeichert …' : 'Analyse speichern'}
           </button>

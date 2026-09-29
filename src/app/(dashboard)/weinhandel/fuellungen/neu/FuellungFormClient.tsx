@@ -568,7 +568,7 @@ export default function FuellungFormClient({
         <button
           type="submit"
           disabled={isPending || ueberabfuellung}
-          className="bg-s112-teal text-white px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-50">
+          className="bg-s112-teal text-s112-yellow px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-50">
           {isPending ? 'Wird angelegt …' : 'Füllung anlegen'}
         </button>
         <Link href="/weinhandel" className="px-6 py-2 rounded-xl text-sm font-medium text-s112-text-2 hover:text-s112-text transition-colors">

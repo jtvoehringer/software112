@@ -188,7 +188,7 @@ function UebergabeTab({ offeneRechnungen, offeneAusgaben, darfUebergeben, nurLes
         )}
 
         <button onClick={starten} disabled={laden || (!stammdaten && (!von || !bis))}
-          className="w-full bg-s112-teal text-s112-yellow px-4 py-2.5 rounded-lg text-[13px] font-semibold hover:bg-s112-blue-700 disabled:opacity-40 inline-flex items-center justify-center gap-2">
+          className="w-full bg-s112-teal text-s112-yellow px-4 py-2.5 rounded-lg text-[13px] font-semibold hover:opacity-90 disabled:opacity-40 inline-flex items-center justify-center gap-2">
           <Download size={16} />{laden ? 'Wird erstellt…' : `${ART_LABEL[art]} als BMD-CSV herunterladen`}
         </button>
 
@@ -300,7 +300,7 @@ function MappingTab({ overrides, kategorien, darfAendern }: { overrides: Record<
       {darfAendern && (
         <div className="flex items-center gap-3">
           <button onClick={speichern} disabled={pending || !geaendert}
-            className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-lg text-[13px] font-semibold hover:bg-s112-blue-700 disabled:opacity-40">
+            className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-lg text-[13px] font-semibold hover:opacity-90 disabled:opacity-40">
             {pending ? 'Speichert…' : 'Konten-Mapping speichern'}
           </button>
           <button onClick={zuruecksetzen} disabled={pending || abweichungen === 0}

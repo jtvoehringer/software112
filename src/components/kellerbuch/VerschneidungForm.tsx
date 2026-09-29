@@ -190,7 +190,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
         <button
           type="button"
           onClick={onDone}
-          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-blue-700 transition-colors"
+          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:opacity-90 transition-colors"
         >
           Schließen
         </button>
@@ -438,7 +438,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
 
       <div className="flex gap-2 pt-1">
         <button type="submit" disabled={pending || hatWeinartFehler}
-          className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-blue-700 disabled:opacity-50 transition-colors">
+          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-colors">
           {pending ? 'Speichert…' : 'Verschneidung speichern'}
         </button>
         <button type="button" onClick={onDone}

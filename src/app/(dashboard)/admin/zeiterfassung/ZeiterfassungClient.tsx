@@ -126,7 +126,7 @@ function ZeitForm({
 
       <div className="flex gap-2 pt-1">
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
+          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
           {pending ? 'Speichern…' : 'Speichern'}
         </button>
         <button type="button" onClick={onCancel}
@@ -197,7 +197,7 @@ export default function ZeiterfassungClient({ eintraege }: { eintraege: Zeiteint
           <p className="text-sm text-s112-muted mt-0.5">software:112 · IC&P Consultants</p>
         </div>
         <button onClick={() => setShowNew(true)}
-          className="bg-s112-teal text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-opacity-90">
+          className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-sm font-semibold hover:bg-opacity-90">
           + Neuer Eintrag
         </button>
       </div>
@@ -221,12 +221,12 @@ export default function ZeiterfassungClient({ eintraege }: { eintraege: Zeiteint
       {/* ── Phasen-Filter ── */}
       <div className="flex flex-wrap gap-2">
         <button onClick={() => setFilterPhase(null)}
-          className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${filterPhase === null ? 'bg-s112-teal text-white border-s112-teal' : 'bg-white text-s112-text-2 border-s112-border hover:bg-s112-bg'}`}>
+          className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${filterPhase === null ? 'bg-s112-teal text-s112-yellow border-s112-teal' : 'bg-white text-s112-text-2 border-s112-border hover:bg-s112-bg'}`}>
           Alle
         </button>
         {PHASEN.map(p => (
           <button key={p.nr} onClick={() => setFilterPhase(filterPhase === p.nr ? null : p.nr)}
-            className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${filterPhase === p.nr ? 'bg-s112-teal text-white border-s112-teal' : `${p.bg} ${p.text} border-transparent hover:opacity-80`}`}>
+            className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${filterPhase === p.nr ? 'bg-s112-teal text-s112-yellow border-s112-teal' : `${p.bg} ${p.text} border-transparent hover:opacity-80`}`}>
             {p.label}
           </button>
         ))}

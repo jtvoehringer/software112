@@ -378,7 +378,7 @@ export default function KellerplanEditor({
                   {writeOk && (
                     <>
                       <button
-                        className="no-print absolute bottom-1 left-1 w-4 h-4 rounded-full bg-s112-line hover:bg-s112-teal hover:text-white text-s112-text-2 text-[11px] flex items-center justify-center z-20 leading-none opacity-0 group-hover:opacity-100 transition-opacity font-semibold"
+                        className="no-print absolute bottom-1 left-1 w-4 h-4 rounded-full bg-s112-line hover:bg-s112-teal hover:text-s112-yellow text-s112-text-2 text-[11px] flex items-center justify-center z-20 leading-none opacity-0 group-hover:opacity-100 transition-opacity font-semibold"
                         onClick={e => { e.stopPropagation(); handleResize(behaelterId, -RESIZE_STEP) }}
                         onPointerDown={e => e.stopPropagation()}
                         title="Kleiner"
@@ -386,7 +386,7 @@ export default function KellerplanEditor({
                         −
                       </button>
                       <button
-                        className="no-print absolute bottom-1 right-1 w-4 h-4 rounded-full bg-s112-line hover:bg-s112-teal hover:text-white text-s112-text-2 text-[11px] flex items-center justify-center z-20 leading-none opacity-0 group-hover:opacity-100 transition-opacity font-semibold"
+                        className="no-print absolute bottom-1 right-1 w-4 h-4 rounded-full bg-s112-line hover:bg-s112-teal hover:text-s112-yellow text-s112-text-2 text-[11px] flex items-center justify-center z-20 leading-none opacity-0 group-hover:opacity-100 transition-opacity font-semibold"
                         onClick={e => { e.stopPropagation(); handleResize(behaelterId, +RESIZE_STEP) }}
                         onPointerDown={e => e.stopPropagation()}
                         title="Größer"
