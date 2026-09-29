@@ -73,7 +73,7 @@ export default async function BuchhaltungPage({
           <p className="text-sm text-s112-muted">Einnahmen-Ausgaben-Rechner · § 4 Abs. 3 EStG</p>
         </div>
         <Link href="/buchhaltung/neu"
-          className="bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
+          className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
           + Buchung
         </Link>
       </div>
@@ -128,7 +128,7 @@ export default async function BuchhaltungPage({
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none" />
         </div>
         <button type="submit"
-          className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm">Filtern</button>
+          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm">Filtern</button>
       </form>
 
       {/* Quick-Links */}

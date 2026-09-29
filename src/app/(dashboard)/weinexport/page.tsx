@@ -45,7 +45,7 @@ export default async function WeinexportPage() {
         <div className="flex items-start gap-2">
           <CsvExportKnopf href={csvPfad('exportauftraege')} className="self-center" />
           <Link href="/weinexport/neu"
-            className="bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
+            className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
             + Neuer Auftrag
           </Link>
         </div>

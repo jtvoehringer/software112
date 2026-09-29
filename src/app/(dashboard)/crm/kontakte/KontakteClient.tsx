@@ -287,7 +287,7 @@ export function KontaktForm({
 
       <div className="flex gap-2">
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
           {pending ? 'Wird gespeichert…' : (initial ? 'Speichern' : 'Anlegen')}
         </button>
         <button type="button" onClick={onDone}
@@ -341,7 +341,7 @@ function AktivitaetForm({ kontaktId, onDone }: { kontaktId: string; onDone: () =
         className={inputCls() + ' resize-none'} />
       <div className="flex gap-2">
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-white px-3 py-1 rounded-lg text-xs font-medium disabled:opacity-40">
+          className="bg-s112-teal text-s112-yellow px-3 py-1 rounded-lg text-xs font-medium disabled:opacity-40">
           {pending ? '…' : 'Eintragen'}
         </button>
         <button type="button" onClick={onDone} className="text-xs text-s112-text-2 hover:text-s112-text-1">Abbrechen</button>
@@ -392,7 +392,7 @@ function PipelineForm({ kontaktId, onDone }: { kontaktId: string; onDone: () => 
       </div>
       <div className="flex gap-2">
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-white px-3 py-1 rounded-lg text-xs font-medium disabled:opacity-40">
+          className="bg-s112-teal text-s112-yellow px-3 py-1 rounded-lg text-xs font-medium disabled:opacity-40">
           {pending ? '…' : 'Eintragen'}
         </button>
         <button type="button" onClick={onDone} className="text-xs text-s112-text-2 hover:text-s112-text-1">Abbrechen</button>
@@ -531,7 +531,7 @@ function KontaktKarte({
             })}
             {writeOk && !showAktForm && (
               <button onClick={() => setShowAktForm(true)}
-                className="text-xs font-medium text-s112-blue-700 border border-s112-teal/30 rounded-full px-2.5 py-0.5 hover:bg-s112-teal hover:text-white transition-colors mt-1">
+                className="text-xs font-medium text-s112-blue-700 border border-s112-teal/30 rounded-full px-2.5 py-0.5 hover:bg-s112-teal hover:text-s112-yellow transition-colors mt-1">
                 + Aktivität eintragen
               </button>
             )}
@@ -542,7 +542,7 @@ function KontaktKarte({
         )}
         {!showAkt && writeOk && (
           <button onClick={() => { setShowAkt(true); setShowAktForm(true) }}
-            className="text-xs font-medium text-s112-blue-700 border border-s112-teal/30 rounded-full px-2.5 py-0.5 hover:bg-s112-teal hover:text-white transition-colors mt-1 ml-4">
+            className="text-xs font-medium text-s112-blue-700 border border-s112-teal/30 rounded-full px-2.5 py-0.5 hover:bg-s112-teal hover:text-s112-yellow transition-colors mt-1 ml-4">
             + Aktivität
           </button>
         )}
@@ -556,7 +556,7 @@ function KontaktKarte({
         </button>
         {!showPipeline && writeOk && (
           <button onClick={() => { setShowPipeline(true); setShowPipelineForm(true) }}
-            className="text-xs font-medium text-s112-blue-700 border border-s112-teal/30 rounded-full px-2.5 py-0.5 hover:bg-s112-teal hover:text-white transition-colors mt-1 ml-4">
+            className="text-xs font-medium text-s112-blue-700 border border-s112-teal/30 rounded-full px-2.5 py-0.5 hover:bg-s112-teal hover:text-s112-yellow transition-colors mt-1 ml-4">
             + Pipeline
           </button>
         )}
@@ -590,7 +590,7 @@ function KontaktKarte({
             })}
             {writeOk && !showPipelineForm && (
               <button onClick={() => setShowPipelineForm(true)}
-                className="text-xs font-medium text-s112-blue-700 border border-s112-teal/30 rounded-full px-2.5 py-0.5 hover:bg-s112-teal hover:text-white transition-colors mt-1">
+                className="text-xs font-medium text-s112-blue-700 border border-s112-teal/30 rounded-full px-2.5 py-0.5 hover:bg-s112-teal hover:text-s112-yellow transition-colors mt-1">
                 + Pipeline eintragen
               </button>
             )}
@@ -652,7 +652,7 @@ export default function KontakteClient({
           <button key={b} onClick={() => setzeFilter({ buchstabe: b })}
             className={`min-w-[1.75rem] px-1 py-0.5 text-xs font-medium rounded transition-colors
               ${buchstabe === b
-                ? 'bg-s112-teal text-white'
+                ? 'bg-s112-teal text-s112-yellow'
                 : 'bg-s112-bg text-s112-text-2 hover:bg-s112-teal/10 hover:text-s112-blue-700'}`}>
             {b}
           </button>
@@ -668,14 +668,14 @@ export default function KontakteClient({
         />
         <div className="flex gap-1">
           <button onClick={() => setzeFilter({ segment: 'alle' })}
-            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${segment === 'alle' ? 'bg-s112-teal text-white' : 'bg-s112-bg text-s112-text-2 hover:text-s112-text'}`}>
+            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${segment === 'alle' ? 'bg-s112-teal text-s112-yellow' : 'bg-s112-bg text-s112-text-2 hover:text-s112-text'}`}>
             Alle ({zaehler.gesamt})
           </button>
           {SEGMENTE.filter(s => (zaehler.segment[s.value] ?? 0) > 0 || s.value === segment).map(s => {
             const count = zaehler.segment[s.value] ?? 0
             return (
               <button key={s.value} onClick={() => setzeFilter({ segment: s.value })}
-                className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${segment === s.value ? 'bg-s112-teal text-white' : 'bg-s112-bg text-s112-text-2 hover:text-s112-text'}`}>
+                className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${segment === s.value ? 'bg-s112-teal text-s112-yellow' : 'bg-s112-bg text-s112-text-2 hover:text-s112-text'}`}>
                 {s.label} ({count})
               </button>
             )
@@ -693,7 +693,7 @@ export default function KontakteClient({
         <div className="flex gap-1">
           {(['alle', 'lead', 'kunde'] as const).map(v => (
             <button key={v} onClick={() => setzeFilter({ lead: v })}
-              className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${filterLead === v ? 'bg-s112-teal text-white' : 'bg-s112-bg text-s112-text-2 hover:text-s112-text'}`}>
+              className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${filterLead === v ? 'bg-s112-teal text-s112-yellow' : 'bg-s112-bg text-s112-text-2 hover:text-s112-text'}`}>
               {v === 'alle' ? 'Alle' : v === 'lead' ? 'Lead' : 'Aktiv'}
               {' '}({v === 'alle' ? zaehler.gesamt : v === 'lead' ? zaehler.lead : zaehler.kunde})
             </button>
@@ -708,7 +708,7 @@ export default function KontakteClient({
           )}
           {writeOk && !showForm && (
             <button onClick={() => setShowForm(true)}
-              className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
+              className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
               + Neuer Kontakt
             </button>
           )}

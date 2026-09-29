@@ -45,7 +45,7 @@ export default async function DacPage() {
           <CsvExportKnopf href={csvPfad('dac-antraege')} className="self-center" />
           {writeOk && (
             <Link href="/dac/neu"
-              className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
+              className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
               Neuer Antrag
             </Link>
           )}
@@ -120,7 +120,7 @@ export default async function DacPage() {
           <p className="text-s112-muted text-sm mt-1 mb-6">Legen Sie Ihren ersten Antrag an</p>
           {writeOk && (
             <Link href="/dac/neu"
-              className="inline-flex items-center gap-2 bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
+              className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
               Erster Antrag
             </Link>
           )}

@@ -54,7 +54,7 @@ export default function KellergemeinschaftClient({ rows, tenants }: { rows: Frei
         </div>
         {fehler && <p className="text-xs text-s112-err-fg">{fehler}</p>}
         <div className="flex items-center gap-3">
-          <button type="submit" disabled={pending || !eigentuemer || !nutzer} className="bg-s112-teal text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
+          <button type="submit" disabled={pending || !eigentuemer || !nutzer} className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
             {pending ? 'Speichern…' : 'Freigabe anlegen'}
           </button>
           <span className="text-[11px] text-s112-tertiary">Der Eigentümer kann einzelne Gebinde unter Kellerbuch › Gebinde von der Freigabe ausnehmen.</span>

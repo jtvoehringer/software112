@@ -75,7 +75,7 @@ export default function SystemAdminClient({ admins, canInvite = true }: { admins
 
       {canInvite && (!showInvite ? (
         <button onClick={() => setShowInvite(true)}
-          className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
+          className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
           <span>＋</span> Super-Admin einladen
         </button>
       ) : (
@@ -91,7 +91,7 @@ export default function SystemAdminClient({ admins, canInvite = true }: { admins
           </div>
           <div className="flex gap-2">
             <button type="submit" disabled={pending}
-              className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+              className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
               {pending ? 'Wird eingeladen…' : 'Einladen'}
             </button>
             <button type="button" onClick={() => { setShowInvite(false); setEmail('') }}

@@ -171,7 +171,7 @@ export default async function EroeffnungsbestandEditPage({ params, searchParams 
         </div>
         <div className="flex gap-3 pt-2">
           <button type="submit"
-            className="bg-s112-teal text-white px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
+            className="bg-s112-teal text-s112-yellow px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
             Speichern
           </button>
           <Link href="/kellerbuch/gebinde?tab=eroeffnungsbestand"

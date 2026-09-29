@@ -89,7 +89,7 @@ function AktivitaetForm({ firmaId, onDone }: { firmaId: string; onDone: () => vo
         className={inputCls() + ' resize-none'} />
       <div className="flex gap-2">
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-white px-3 py-1 rounded-lg text-xs font-medium disabled:opacity-40">
+          className="bg-s112-teal text-s112-yellow px-3 py-1 rounded-lg text-xs font-medium disabled:opacity-40">
           {pending ? '…' : 'Eintragen'}
         </button>
         <button type="button" onClick={onDone} className="text-xs text-s112-text-2 hover:text-s112-text-1">Abbrechen</button>
@@ -140,7 +140,7 @@ function PipelineForm({ firmaId, onDone }: { firmaId: string; onDone: () => void
       </div>
       <div className="flex gap-2">
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-white px-3 py-1 rounded-lg text-xs font-medium disabled:opacity-40">
+          className="bg-s112-teal text-s112-yellow px-3 py-1 rounded-lg text-xs font-medium disabled:opacity-40">
           {pending ? '…' : 'Eintragen'}
         </button>
         <button type="button" onClick={onDone} className="text-xs text-s112-text-2 hover:text-s112-text-1">Abbrechen</button>
@@ -266,7 +266,7 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
           </div>
           <div className="flex gap-2 pt-1">
             <button type="submit" disabled={pending}
-              className="bg-s112-teal text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-opacity-90 disabled:opacity-40">
+              className="bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-opacity-90 disabled:opacity-40">
               {pending ? 'Speichern…' : 'Speichern'}
             </button>
             <button type="button" onClick={() => setEditMode(false)}
@@ -359,7 +359,7 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
                   body: JSON.stringify({ an: firmaEmail, betreff: `Re: ${a.betreff ?? ''}`, text: replyText, firma_id: firmaId ?? null }),
                 })
                 setReplySending(false); setReplyOpen(false); setReplyText('')
-              }} className="text-xs bg-s112-teal text-white px-3 py-1.5 rounded-lg hover:bg-opacity-90 disabled:opacity-40">
+              }} className="text-xs bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg hover:bg-opacity-90 disabled:opacity-40">
                 {replySending ? 'Senden…' : 'Senden'}
               </button>
               <button type="button" onClick={() => setReplyOpen(false)}
@@ -663,7 +663,7 @@ export default function FirmaDetailClient({
             <Link href="/crm" className="text-xs text-s112-muted hover:text-s112-blue-700">→ Kalender</Link>
             {writeOk && !showAktForm && (
               <button onClick={() => setShowAktForm(true)}
-                className="text-xs font-medium text-s112-blue-700 border border-s112-teal/30 rounded-full px-2.5 py-0.5 hover:bg-s112-teal hover:text-white transition-colors">
+                className="text-xs font-medium text-s112-blue-700 border border-s112-teal/30 rounded-full px-2.5 py-0.5 hover:bg-s112-teal hover:text-s112-yellow transition-colors">
                 + Aktivität
               </button>
             )}
@@ -735,7 +735,7 @@ export default function FirmaDetailClient({
           <div className="flex justify-end">
             {writeOk && !showPipelineForm && (
               <button onClick={() => setShowPipelineForm(true)}
-                className="text-xs font-medium text-s112-blue-700 border border-s112-teal/30 rounded-full px-2.5 py-0.5 hover:bg-s112-teal hover:text-white transition-colors">
+                className="text-xs font-medium text-s112-blue-700 border border-s112-teal/30 rounded-full px-2.5 py-0.5 hover:bg-s112-teal hover:text-s112-yellow transition-colors">
                 + Pipeline-Eintrag
               </button>
             )}
@@ -873,7 +873,7 @@ export default function FirmaDetailClient({
               )}
               <div className="flex gap-2 pt-1">
                 <button type="submit" disabled={emailSending}
-                  className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+                  className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
                   {emailSending ? 'Senden…' : 'Senden'}
                 </button>
                 <button type="button" onClick={() => setShowEmailModal(false)}
@@ -911,7 +911,7 @@ export default function FirmaDetailClient({
                   placeholder="Neue Notiz…" required
                   className="flex-1 border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
                 <button type="submit" disabled={notizLaden}
-                  className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+                  className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
                   + Notiz
                 </button>
               </form>

@@ -75,7 +75,7 @@ export default function BehandlungenClient({
         <p className="text-s112-text-1 font-medium">Noch keine Maßnahmen erfasst</p>
         <p className="text-s112-muted text-sm mt-1 mb-6">Erste Spritzung aufzeichnen</p>
         <Link href="/behandlungen/neu"
-          className="inline-flex items-center gap-2 bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
+          className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
           Neue Maßnahme
         </Link>
       </div>

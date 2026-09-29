@@ -235,7 +235,7 @@ export default function AnlageForm({ initial, buchungen = [], darfSchreiben }: {
         <div className="flex flex-wrap gap-3">
           <Link href="/buchhaltung/anlagen" className="px-4 py-2 rounded-lg text-[13px] font-medium text-s112-text-1 border border-s112-line-str bg-white hover:bg-s112-bg">Abbrechen</Link>
           {darfSchreiben && (
-            <button type="submit" disabled={pending} className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-[13px] font-semibold hover:bg-s112-blue-700 disabled:opacity-40">
+            <button type="submit" disabled={pending} className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-[13px] font-semibold hover:opacity-90 disabled:opacity-40">
               {pending ? 'Speichern …' : form.id ? 'Änderungen speichern' : 'Anlage anlegen'}
             </button>
           )}

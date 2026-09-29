@@ -79,7 +79,7 @@ export default async function UmzugEditPage({ params }: { params: Promise<{ id: 
             <input id="umzug-notizen" name="notizen" defaultValue={eingabe.notizen} className={inputCls} />
           </div>
           <button type="submit"
-            className="bg-s112-teal text-white px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
+            className="bg-s112-teal text-s112-yellow px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
             Notizen speichern
           </button>
         </AktionsFormular>

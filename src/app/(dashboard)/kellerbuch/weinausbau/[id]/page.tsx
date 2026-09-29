@@ -505,13 +505,13 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
           <p className="text-xs text-s112-muted mt-0.5">verfügbarer Bestand</p>
           {writeOk && aktuell > 0.01 && (
             <Link href={`/weinhandel/fuellungen/neu?charge=${weinausbau.id}`}
-              className="mt-2 inline-flex items-center gap-1 text-xs bg-s112-teal text-white px-3 py-1 rounded-lg hover:bg-opacity-90 transition-colors">
+              className="mt-2 inline-flex items-center gap-1 text-xs bg-s112-teal text-s112-yellow px-3 py-1 rounded-lg hover:bg-opacity-90 transition-colors">
               <Wine size={13} strokeWidth={1.75} />Abfüllen
             </Link>
           )}
           {writeOk && aktuell > 0.01 && (
             <Link href={`/kellerbuch/weinausbau/${weinausbau.id}?form=umziehen`}
-              className="mt-1 inline-flex items-center gap-1 text-xs bg-s112-teal text-white px-3 py-1 rounded-lg hover:bg-opacity-90 transition-colors">
+              className="mt-1 inline-flex items-center gap-1 text-xs bg-s112-teal text-s112-yellow px-3 py-1 rounded-lg hover:bg-opacity-90 transition-colors">
               <ArrowLeftRight size={13} strokeWidth={1.75} />Umziehen
             </Link>
           )}

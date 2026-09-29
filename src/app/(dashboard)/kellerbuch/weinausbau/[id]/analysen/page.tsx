@@ -87,7 +87,7 @@ export default async function AnalysenPage({ params }: { params: Promise<{ id: s
         {writeOk && (
           <Link
             href={`/kellerbuch/weinausbau/${id}/analysen/neu`}
-            className="bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors"
+            className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors"
           >
             + Analyse erfassen
           </Link>

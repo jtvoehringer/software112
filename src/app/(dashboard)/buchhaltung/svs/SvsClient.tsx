@@ -193,7 +193,7 @@ function BeitraegeTab({ v, p, jahr, opt, setOpt, einkuenfteVorjahr, einkuenfte, 
         </label>
         {darfOption ? (
           <div className="flex items-center gap-3">
-            <button onClick={speichern} disabled={pending} className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-[13px] font-semibold hover:bg-s112-blue-700 disabled:opacity-40">{pending ? 'Speichert…' : 'Speichern'}</button>
+            <button onClick={speichern} disabled={pending} className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-[13px] font-semibold hover:opacity-90 disabled:opacity-40">{pending ? 'Speichert…' : 'Speichern'}</button>
             {meldung && <span className={`text-sm ${meldung.ok ? 'text-s112-ok-fg' : 'text-s112-err-fg'}`}>{meldung.text}</span>}
           </div>
         ) : <p className="text-xs text-s112-muted">Die Wahl trifft der Betriebs-Manager.</p>}
@@ -259,7 +259,7 @@ function EinheitswerteTab({ gst, setGst, darfSchreiben, csvHref }: { gst: Gst[];
         <div className="flex items-center gap-3 text-sm flex-wrap">
           <span className="text-s112-muted">{gst.length} Grundstücke · Summe Einheitswert {eur(summe, 0)}</span>
           <CsvExportKnopf href={csvHref} label={dirty.size > 0 ? 'CSV (gespeicherter Stand)' : 'CSV exportieren'} />
-          {darfSchreiben && <button onClick={speichern} disabled={pending || dirty.size === 0} className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-[13px] font-semibold hover:bg-s112-blue-700 disabled:opacity-40">{pending ? 'Speichert…' : `Speichern (${dirty.size})`}</button>}
+          {darfSchreiben && <button onClick={speichern} disabled={pending || dirty.size === 0} className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-[13px] font-semibold hover:opacity-90 disabled:opacity-40">{pending ? 'Speichert…' : `Speichern (${dirty.size})`}</button>}
           {meldung && <span className={meldung.ok ? 'text-s112-ok-fg' : 'text-s112-err-fg'}>{meldung.text}</span>}
         </div>
       </div>
@@ -349,7 +349,7 @@ function ImportTab({ darfSchreiben }: { darfSchreiben: boolean }) {
         <textarea value={text} onChange={e => setText(e.target.value)} rows={8} disabled={!darfSchreiben} placeholder="… oder Inhalt hier einfügen"
           className="w-full border border-s112-border rounded-lg px-3 py-2 text-xs font-mono focus:outline-none disabled:bg-s112-bg" />
         <div className="flex items-center gap-3">
-          <button onClick={los} disabled={pending || !text.trim() || !darfSchreiben} className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-[13px] font-semibold hover:bg-s112-blue-700 disabled:opacity-40">{pending ? 'Importiert…' : 'Einheitswerte importieren'}</button>
+          <button onClick={los} disabled={pending || !text.trim() || !darfSchreiben} className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-[13px] font-semibold hover:opacity-90 disabled:opacity-40">{pending ? 'Importiert…' : 'Einheitswerte importieren'}</button>
           {ergebnis && <span className={`text-sm ${ergebnis.ok ? 'text-s112-ok-fg' : 'text-s112-err-fg'}`}>{ergebnis.text}</span>}
         </div>
         {ergebnis?.details?.map((d, i) => <p key={i} className="text-xs text-s112-warn-fg">{d}</p>)}
@@ -402,7 +402,7 @@ function ParameterTab({ parameter, jahr }: { parameter: SvsParameter[]; jahr: nu
         <input aria-label="Hinweis (Quelle)" value={form.hinweis} onChange={e => setForm({ ...form, hinweis: e.target.value })} className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none" />
       </div>
       <div className="flex items-center gap-3">
-        <button onClick={speichern} disabled={pending} className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-[13px] font-semibold hover:bg-s112-blue-700 disabled:opacity-40">{pending ? 'Speichert…' : 'Parameter speichern'}</button>
+        <button onClick={speichern} disabled={pending} className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-[13px] font-semibold hover:opacity-90 disabled:opacity-40">{pending ? 'Speichert…' : 'Parameter speichern'}</button>
         {meldung && <span className={`text-sm ${meldung.ok ? 'text-s112-ok-fg' : 'text-s112-err-fg'}`}>{meldung.text}</span>}
       </div>
     </div>

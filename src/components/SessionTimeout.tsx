@@ -55,7 +55,7 @@ export default function SessionTimeout({ timeoutMinuten }: Props) {
         </p>
         <div className="flex gap-3">
           <button onClick={reset}
-            className="flex-1 bg-s112-teal text-white py-2.5 rounded-xl font-semibold hover:bg-opacity-90 text-sm">
+            className="flex-1 bg-s112-teal text-s112-yellow py-2.5 rounded-xl font-semibold hover:bg-opacity-90 text-sm">
             Aktiv bleiben
           </button>
           <button onClick={abmelden}

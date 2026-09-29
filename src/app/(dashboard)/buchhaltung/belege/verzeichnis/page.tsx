@@ -81,7 +81,7 @@ export default async function BelegverzeichnisPage({ searchParams }: { searchPar
             {(jahre.includes(jahr) ? jahre : [jahr, ...jahre]).map(j => <option key={j} value={j}>{j}</option>)}
           </select>
         </div>
-        <button type="submit" className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm">Anzeigen</button>
+        <button type="submit" className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm">Anzeigen</button>
         <p className="text-xs text-s112-muted basis-full">Zuordnung zum Jahr: verbuchte Belege nach dem Buchungsdatum, offene nach dem Upload-Tag.</p>
       </form>
 

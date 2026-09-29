@@ -275,7 +275,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
   const sumKg  = verkaufe.reduce((s, v) => s + Number(v.menge_kg ?? 0), 0)
   const sumEur = verkaufe.reduce((s, v) => v.preis_per_kg != null ? s + Number(v.menge_kg) * Number(v.preis_per_kg) : s, 0)
   const inp = 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 bg-white'
-  const btnToggle = (active: boolean) => `px-3 py-1 text-xs rounded-lg font-medium transition-colors ${active ? 'bg-s112-teal text-white' : 'bg-s112-bg border border-s112-border text-s112-text-2 hover:border-s112-teal'}`
+  const btnToggle = (active: boolean) => `px-3 py-1 text-xs rounded-lg font-medium transition-colors ${active ? 'bg-s112-teal text-s112-yellow' : 'bg-s112-bg border border-s112-border text-s112-text-2 hover:border-s112-teal'}`
 
   return (
     <div className={`space-y-6 ${isPending ? 'opacity-60 pointer-events-none' : ''}`}>
@@ -309,7 +309,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
             </div>
           )}
           {writeOk && !showForm && (
-            <button onClick={openNew} className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 transition-colors">
+            <button onClick={openNew} className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 transition-colors">
               + Traubenverkauf
             </button>
           )}
@@ -521,7 +521,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
 
             <div className="flex gap-2 pt-1">
               <button type="submit" disabled={isPending || (quelle === 'ernte' ? !wgId : !zukaufId)}
-                className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-50 transition-colors">
+                className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-50 transition-colors">
                 {isPending ? 'Speichert…' : 'Speichern'}
               </button>
               <button type="button" onClick={() => { setShowForm(false); setEditRow(null); setError(null) }}

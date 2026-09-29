@@ -127,7 +127,7 @@ export default function AssistantPanel() {
             <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div className={
                 m.role === 'user'
-                  ? 'max-w-[84%] px-[13px] py-[10px] text-[13px] leading-[1.5] whitespace-pre-wrap bg-s112-teal text-white rounded-[12px_12px_4px_12px]'
+                  ? 'max-w-[84%] px-[13px] py-[10px] text-[13px] leading-[1.5] whitespace-pre-wrap bg-s112-teal text-s112-yellow rounded-[12px_12px_4px_12px]'
                   : 'max-w-[90%] px-[13px] py-[10px] text-[13px] leading-[1.5] whitespace-pre-wrap bg-[#F2F3F5] text-s112-text rounded-[12px_12px_12px_4px]'
               }>
                 {m.text}
@@ -183,7 +183,7 @@ export default function AssistantPanel() {
               onClick={() => send(draft)}
               disabled={thinking || !draft.trim()}
               title="Senden"
-              className="flex-shrink-0 w-7 h-7 rounded-[7px] bg-s112-teal text-white flex items-center justify-center hover:opacity-90 transition-opacity disabled:opacity-40"
+              className="flex-shrink-0 w-7 h-7 rounded-[7px] bg-s112-teal text-s112-yellow flex items-center justify-center hover:opacity-90 transition-opacity disabled:opacity-40"
             >
               <ArrowUp size={14} strokeWidth={2} />
             </button>
@@ -196,7 +196,7 @@ export default function AssistantPanel() {
         <button
           onClick={() => setOpen(true)}
           title="Assistent öffnen"
-          className="fixed bottom-5 right-5 z-40 w-12 h-12 rounded-full bg-s112-teal text-white shadow-lg flex items-center justify-center hover:opacity-90 transition-opacity"
+          className="fixed bottom-5 right-5 z-40 w-12 h-12 rounded-full bg-s112-teal text-s112-yellow shadow-lg flex items-center justify-center hover:opacity-90 transition-opacity"
         >
           <Sparkles size={20} strokeWidth={1.75} />
         </button>

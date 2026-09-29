@@ -128,7 +128,7 @@ export default function DublettenClient({ gruppen: gruppenProp, writeOk }: { gru
         <div className="flex rounded-lg border border-s112-border overflow-hidden text-sm">
           {([['alle', `Alle (${gruppen.length})`], ...STUFEN.map(s => [s.key, `${s.label[0].toUpperCase()}${s.label.slice(1)} (${anzStufe(s.key)})`])] as [StufenFilter, string][]).map(([f, label]) => (
             <button key={f} type="button" onClick={() => setStufenFilter(f)}
-              className={`px-3 py-1.5 ${stufenFilter === f ? 'bg-s112-teal text-white' : 'bg-white text-s112-text-1 hover:bg-s112-bg'}`}>
+              className={`px-3 py-1.5 ${stufenFilter === f ? 'bg-s112-teal text-s112-yellow' : 'bg-white text-s112-text-1 hover:bg-s112-bg'}`}>
               {label}
             </button>
           ))}
@@ -136,7 +136,7 @@ export default function DublettenClient({ gruppen: gruppenProp, writeOk }: { gru
         <div className="flex rounded-lg border border-s112-border overflow-hidden text-sm">
           {([['alle', 'Alle Arten'], ['email', `E-Mail (${anzEmail})`], ['name', `Name (${anzName})`]] as [Filter, string][]).map(([f, label]) => (
             <button key={f} type="button" onClick={() => setFilter(f)}
-              className={`px-3 py-1.5 ${filter === f ? 'bg-s112-teal text-white' : 'bg-white text-s112-text-1 hover:bg-s112-bg'}`}>
+              className={`px-3 py-1.5 ${filter === f ? 'bg-s112-teal text-s112-yellow' : 'bg-white text-s112-text-1 hover:bg-s112-bg'}`}>
               {label}
             </button>
           ))}
@@ -223,7 +223,7 @@ function Gruppe({ gruppe: g, writeOk, onFertig }: { gruppe: DublettenGruppe; wri
               <EyeOff className="w-3.5 h-3.5" /> Keine Dublette
             </button>
             <button type="button" onClick={zusammenfuehren} disabled={pending || anzWeg === 0}
-              className="inline-flex items-center gap-1.5 bg-s112-teal text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:opacity-90 disabled:opacity-40">
+              className="inline-flex items-center gap-1.5 bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg text-xs font-semibold hover:opacity-90 disabled:opacity-40">
               <Merge className="w-3.5 h-3.5" /> {pending ? 'Wird zusammengeführt …' : `${anzWeg === 1 ? '1 Kontakt' : `${anzWeg} Kontakte`} zusammenführen`}
             </button>
           </div>

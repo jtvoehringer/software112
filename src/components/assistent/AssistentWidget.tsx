@@ -123,7 +123,7 @@ export default function AssistentWidget() {
       {offen && (
         <div className="mb-3 w-[360px] max-w-[92vw] h-[480px] max-h-[75vh] bg-white rounded-xl shadow-xl border border-s112-border flex flex-col overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 bg-s112-teal text-white flex-shrink-0">
+          <div className="flex items-center justify-between px-4 py-3 bg-s112-teal text-s112-yellow flex-shrink-0">
             <div className="flex items-center gap-2">
               <BotIcon size={18} />
               <span className="font-semibold text-sm">bot:112</span>
@@ -172,7 +172,7 @@ export default function AssistentWidget() {
               <div key={i} className={`flex ${n.rolle === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[85%] rounded-xl px-3 py-2 text-sm whitespace-pre-wrap ${
                   n.rolle === 'user'
-                    ? 'bg-s112-teal text-white rounded-br-sm'
+                    ? 'bg-s112-teal text-s112-yellow rounded-br-sm'
                     : 'bg-white border border-s112-border text-s112-text rounded-bl-sm'
                 }`}>
                   {n.inhalt}
@@ -226,7 +226,7 @@ export default function AssistentWidget() {
               type="submit"
               disabled={laden || !eingabe.trim()}
               aria-label="Senden"
-              className="bg-s112-teal text-white p-2 rounded-lg hover:bg-opacity-90 disabled:opacity-40 flex-shrink-0"
+              className="bg-s112-teal text-s112-yellow p-2 rounded-lg hover:bg-opacity-90 disabled:opacity-40 flex-shrink-0"
             >
               <Send size={16} />
             </button>
@@ -238,7 +238,7 @@ export default function AssistentWidget() {
       <button
         onClick={() => setOffen(v => !v)}
         aria-label={offen ? 'Assistent schließen' : 'Assistent öffnen'}
-        className="w-14 h-14 rounded-full bg-s112-teal text-white shadow-lg flex items-center justify-center hover:bg-opacity-90 transition-colors ml-auto"
+        className="w-14 h-14 rounded-full bg-s112-teal text-s112-yellow shadow-lg flex items-center justify-center hover:bg-opacity-90 transition-colors ml-auto"
       >
         {offen ? <X size={22} /> : <BotIcon size={22} />}
       </button>
