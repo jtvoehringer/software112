@@ -65,7 +65,7 @@
 --  11. Protokoll-Trigger (20/19/17 Tabellen, bestandsprotokoll_schreiben SECURITY DEFINER) samt Form: ohne WHEN,
 --      truncate/loeschen ohne Spaltenliste und Argumente, aendern mit UPDATE OF = Argumentspalten und genau den
 --      Spalten aus c_protokoll_aendern; a_schutz_plattformfelder mit den erlaubten Spalten als Argumente.
---  12. Härtung als Ratsche: TRUNCATE-Recht für authenticated/anon (BK1, BK2), tenant_id ohne FK (BK3).
+--  12. Härtung: kein TRUNCATE-Recht für authenticated/anon (seit KAN-159 hart), tenant_id ohne FK (BK3, Ratsche).
 --
 -- Neue Tabelle → s112_soll (Rollenmatrix) und ggf. g_tabellen/abo_ausnahmen; neue SECURITY-DEFINER-Funktion →
 -- s112_soll_rpc; neues Geheimnis → s112_soll_liste('geheimnis_spalten') – jeweils in _helfer.sql.
@@ -812,13 +812,11 @@ BEGIN
        WHERE c.relnamespace = 'public'::regnamespace AND c.relkind IN ('r', 'p')
          AND has_table_privilege(%L, c.oid, 'TRUNCATE') AND NOT (c.relname = ANY (%L::text[]))
        ORDER BY 1$q$, v_r.rolle, v_r.rolle, pg_temp.s112_soll_liste('truncate_' || v_r.rolle)));
+    -- KAN-159: auch Sichten/Fremdtabellen ohne TRUNCATE (REVOKE … ON ALL TABLES)
     SELECT count(*) INTO v_n FROM pg_class c
-     WHERE c.relnamespace = 'public'::regnamespace AND c.relkind IN ('r', 'p')
-       AND has_table_privilege(v_r.rolle, c.oid, 'TRUNCATE') AND c.relname = ANY (pg_temp.s112_soll_liste('truncate_' || v_r.rolle));
-    v_erg := v_erg || pg_temp.s112_baseline('truncate_' || v_r.rolle, v_n,
-      cardinality(pg_temp.s112_soll_liste('truncate_' || v_r.rolle))::bigint,
-      CASE v_r.rolle WHEN 'authenticated' THEN 'BK1 TRUNCATE-Recht für authenticated (TRUNCATE umgeht RLS; Supabase-Standardrecht)'
-                     ELSE 'BK2 TRUNCATE-Recht für anon (TRUNCATE umgeht RLS; Supabase-Standardrecht)' END);
+     WHERE c.relnamespace = 'public'::regnamespace AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
+       AND has_table_privilege(v_r.rolle, c.oid, 'TRUNCATE');
+    v_erg := v_erg || pg_temp.s112_erwarte('truncate_recht_' || v_r.rolle, v_n, 0::bigint);
   END LOOP;
   SELECT count(*) INTO v_n FROM pg_class c
    WHERE c.relname = ANY (pg_temp.s112_soll_liste('protokoll_tabellen')) AND c.relnamespace = 'public'::regnamespace

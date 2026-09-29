@@ -211,7 +211,7 @@ Titel immer mit der Lücken-ID beginnen (der Runner dedupliziert über den Titel
 
 | ID | Lücke (Stand Planungsprobe 28.09.2026) |
 |----|--------|
-| B1 (HOCH) | Benutzer aus B legt `zahlungen` mit der `verkaufsposten_id` eines fremden Betriebs an; der SECURITY-DEFINER-Trigger `sync_verkaufsposten_bezahlt` setzt `bezahlt` beim fremden Posten auf true |
+| ~~B1~~ | behoben (KAN-159, 29.09.2026): Zahlung auf einen fremden Verkaufsposten wird abgelehnt – 11 |
 | B2 | Fremd-FK allgemein (z. B. `kontakt_firmen` mit fremder Firma → k1) – Baseline |
 | B3 | `profiles_read_all`: jeder sieht alle Profile |
 | B4 | inaktives Mitglied sieht die `tenants`-Zeile und bekommt über `get_behandlungen_fuer_grundstuecke` Behandlungen |
@@ -219,16 +219,16 @@ Titel immer mit der Lücken-ID beginnen (der Runner dedupliziert über den Titel
 | B6 | `ki_readonly_query` liest bei zwei Betrieben Kontakte des anderen |
 | B7 | E&A-Perioden nur in der App gesperrt (Insert in abgeschlossenen Monat, `is_locked`, Datum verschieben, UVA entsperren/löschen, Monatsabschluss löschen) |
 | B8 | abgeschlossener Jahrgang änderbar, Storno rückgängig, bestätigte AMA-Meldung löschbar |
-| B9 | `get_next_rechnungsnummer` und `setze_kontobewegung_abgeglichen` (auch auf gesperrter Buchung) ohne Modulprüfung |
+| ~~B9~~ | behoben (KAN-159): schreibende RPCs prüfen das Schreibmodul (`s112_pruefe_schreibmodul`); `is_locked` beim Kontenabgleich bewusst offen – 18 |
 | B10 | anon/PUBLIC-EXECUTE auf Funktionen entgegen der REVOKE-Regel (keine SECURITY DEFINER) – 01, 18 |
 | B11 | Triggerfunktionen mit EXECUTE für authenticated (über PUBLIC) – 18 |
 | B12.1 | `aktivitaet_dokumente`: DELETE-Policy „Winzer können eigene Dokumente löschen“ prüft keinen Eigentümer (zu klären) – 12 |
-| B13 | `benachrichtigungen`: eigene Benachrichtigung lässt sich in einen fremden Betrieb umhängen – 11 |
+| ~~B13~~ | behoben (KAN-159): Benutzer ändern an `benachrichtigungen` nur `gelesen_am` (Spaltenrecht) – 11 |
 | B14 | `assistent_unterhaltungen`/`_nachrichten`/`_aktionen`: Verläufe eines anderen Mitglieds im selben Betrieb lesbar (Soll zu klären; Schreiben ist auf den Eigentümer begrenzt) – 12 |
 | B15 | RPCs mit eigener Mitgliedsprüfung (`crm_dubletten` u. a.) prüfen die Zwei-Faktor-Stufe nicht selbst – 15 |
 | B16 | `tenants.active` wird in der Datenbank nicht durchgesetzt: ein deaktivierter Betrieb bleibt für seine Mitglieder les- und schreibbar (Soll zu klären; die App liest die Spalte nur im Morgenbericht) – 13 |
 | B17 | Modul-/Paketschalter (`tenant_einstellungen.modul_*`, `module_flags`) werden beim Schreiben nicht in der DB durchgesetzt: mit allen Schaltern aus legen tenant_admin und Winzer per Direkt-API weiter `kontakte`, `weinausbau`, `weingarten`, `verkaufsposten`, `ea_transaktionen`, `exportauftraege` an (die modul_*-Policies prüfen nur die Schreibmodule der Mitgliedschaft; Soll zu klären) – 12 |
-| Baselines | TRUNCATE-Recht für authenticated/anon (81 Tabellen), `tenant_id` ohne FK (9), anon-EXECUTE (8 Funktionen) – `s112_soll_liste` |
+| Baselines | `tenant_id` ohne FK (9), anon-EXECUTE (8 Funktionen) – `s112_soll_liste`; TRUNCATE für authenticated/anon (BK1/BK2) seit KAN-159 entzogen und hart geprüft (01) |
 
 ## Mutationsprüfung (`--mutationen`)
 
