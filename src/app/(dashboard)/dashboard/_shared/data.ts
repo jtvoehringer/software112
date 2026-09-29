@@ -5,6 +5,7 @@
 // siehe Kommentar in lib/auth/roles.ts (Mehrfach-Mitgliedschaft).
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { getCurrentMembership, type UserRole } from '@/lib/auth/roles'
 import type { Charge, Frist, FristStatus } from './types'
 import { periodeVorBeginn } from '@/lib/ea/betriebsbeginn'
@@ -76,9 +77,10 @@ export function posSum(posten: R[]): number {
 export const ZAHLUNGSZIEL_TAGE = 30
 
 export async function ladeOffenePosten(ctx: Ctx) {
-  const { data } = await ctx.tf(ctx.q('verkaufsposten')
+  // KAN-157: alle offenen Rechnungen (vorher .limit(300) – Summe und Anzahl wären darüber zu niedrig); auch Quelle der Finanzübersicht
+  const { data } = await alle<R>(ctx.tf(ctx.q('verkaufsposten')
     .select('id, datum, rechnungsnummer, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen(name), positionen:verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
-    .eq('aktiv', true).eq('bezahlt', false).eq('storniert', false).order('datum', { ascending: true }).limit(300))
+    .eq('aktiv', true).eq('bezahlt', false).eq('storniert', false).order('datum', { ascending: true }).order('id')))
   const heuteMs = ctx.heute.getTime()
   const liste = ((data ?? []) as R[]).map(v => ({
     id: v.id as string,

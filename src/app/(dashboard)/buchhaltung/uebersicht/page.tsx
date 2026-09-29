@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 import { TrendingUp, TrendingDown, Wallet, Landmark, ReceiptText, FileCheck2, Send, ArrowRight } from 'lucide-react'
 import { DashHeader, Tile, Card, Badge, Note, BarRow, Th, Td, fmtEur, fmtDate } from '@/app/(dashboard)/dashboard/_shared/ui'
 import { getCtx, ladeEinstellungen } from '@/app/(dashboard)/dashboard/_shared/data'
-import { ladeFinanzen, monatLabel } from '@/lib/finanzen/uebersicht'
+import { ladeFinanzen, monatLabel, OHNE_KATEGORIE } from '@/lib/finanzen/uebersicht'
 
 export const metadata: Metadata = { title: 'Finanzübersicht – software:112' }
 export const dynamic = 'force-dynamic'
@@ -68,7 +68,7 @@ export default async function FinanzUebersichtPage({ searchParams }: { searchPar
           tone={f.liquiditaet.summe < 0 ? 'err' : undefined} />
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-        <Tile label="Offene Forderungen" icon={ReceiptText} href="/weinhandel/offene-posten"
+        <Tile label={jahr === jahrAktuell ? 'Offene Forderungen' : 'Offene Forderungen (heute)'} icon={ReceiptText} href="/weinhandel/offene-posten"
           value={fmtEur(f.forderungen.summe)}
           sub={f.forderungen.anzahl === 0 ? 'Alle Rechnungen bezahlt' : f.forderungen.ueberfaellig > 0 ? `${f.forderungen.ueberfaellig} überfällig · ${fmtEur(f.forderungen.ueberfaelligSumme)}` : `${f.forderungen.anzahl} offen`}
           tone={f.forderungen.ueberfaellig > 0 ? 'err' : undefined} />
@@ -151,12 +151,14 @@ export default async function FinanzUebersichtPage({ searchParams }: { searchPar
           <div className="space-y-2">
             <Zeile k={`Ergebnis (Einnahmen − Ausgaben)${jahr === jahrAktuell ? ' bis heute' : ''}`} v={<span className="font-mono">{fmtEur(f.ytd.ergebnis)}</span>} />
             <Zeile k="+ Anlagenkäufe (Kontenklasse 0, aktivierungspflichtig)" v={<span className="font-mono">{f.anlagen.anlagenkaeufeJahr > 0 ? `+ ${fmtEur(f.anlagen.anlagenkaeufeJahr)}` : '–'}</span>} />
-            <Zeile k={`− Abschreibung (AfA) ${jahr} lt. Anlagenverzeichnis`} v={<span className="font-mono">{f.anlagen.afaJahr > 0 ? `− ${fmtEur(f.anlagen.afaJahr)}` : f.anlagen.imVerzeichnis === 0 ? <Link href="/buchhaltung/anlagen" className="text-s112-blue-700 hover:underline">Verzeichnis anlegen</Link> : '–'}</span>} />
+            <Zeile k={`− Abschreibung (AfA) ${jahr} lt. Anlagenverzeichnis, volles Jahr`} v={<span className="font-mono">{f.anlagen.afaJahr > 0 ? `− ${fmtEur(f.anlagen.afaJahr)}` : f.anlagen.imVerzeichnis === 0 ? <Link href="/buchhaltung/anlagen" className="text-s112-blue-700 hover:underline">Verzeichnis anlegen</Link> : '–'}</span>} />
             <div className="flex items-baseline justify-between gap-3 pt-2 border-t border-s112-line-str">
-              <span className="font-semibold text-s112-text">Ergebnis nach AfA (steuerlich, vereinfacht)</span>
+              <span className="font-semibold text-s112-text">Ergebnis nach voller Jahres-AfA (steuerlich, vereinfacht)</span>
               <span className={`font-mono font-semibold ${f.anlagen.ergebnisNachAfa < 0 ? 'text-s112-err-fg' : 'text-s112-text'}`}>{fmtEur(f.anlagen.ergebnisNachAfa)}</span>
             </div>
             <p className="text-[11.5px] text-s112-tertiary">Vorjahr bis zum gleichen Stichtag: {fmtEur(f.anlagen.ergebnisNachAfaVj)}{f.anlagen.afaGebuchtJahr > 0 && <> · AfA {jahr} bereits gebucht: {fmtEur(f.anlagen.afaGebuchtJahr)}</>}</p>
+            {/* KAN-157 (Entscheidung Jörgen): volle Jahres-AfA lt. Plan (Anschaffungsjahr mit Halbjahresregel), nicht anteilig bis heute */}
+            {jahr === jahrAktuell && <p className="text-[11.5px] text-s112-tertiary">Abgezogen ist die AfA des ganzen Jahres {jahr} lt. Anlagenverzeichnis (im Anschaffungsjahr ganz bzw. halb nach der Halbjahresregel) – auch wenn das Jahr noch läuft.</p>}
           </div>
           <div className="space-y-2">
             <Zeile k="Anlagen im Verzeichnis" v={f.anlagen.imVerzeichnis === 0 ? <Badge tone="gray">keine</Badge> : <span className="font-mono">{f.anlagen.anzahlAktiv} aktiv</span>} />
@@ -208,7 +210,7 @@ function KategorieKarte({ titel, zeilen, warn }: { titel: string; zeilen: { name
               return (
                 <tr key={z.name}>
                   <Td>
-                    <span className="block">{z.name}</span>
+                    <span className={`block ${z.name === OHNE_KATEGORIE ? 'italic text-s112-text-2' : ''}`}>{z.name}</span>
                     <div className="mt-1 h-[6px] rounded bg-s112-line overflow-hidden"><div className={`h-full ${warn ? 'bg-s112-grey' : 'bg-s112-blue-700'}`} style={{ width: `${Math.max(2, z.betrag / max * 100)}%` }} /></div>
                   </Td>
                   <Td right mono>{fmtEur(z.betrag, 2)}</Td>

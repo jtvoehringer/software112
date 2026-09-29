@@ -34,7 +34,8 @@ const tx = (id, datum, typ, netto, teil) => ({
   bmd_export_id: null, anlage_id: null, kategorie: kat('Sonstiges', 7800), ...teil,
 })
 const vpos = (preis_brutto, menge, ust_satz, teil) => ({ preis_brutto, menge, rabatt_pct: 0, sonderrabatt_pct: 0, ust_satz, ...teil })
-const vp = (id, datum, positionen, teil) => ({ id, tenant_id: T, datum, bezahlt: false, aktiv: true, storniert: false, bmd_export_id: null, verkauf_positionen: positionen, ...teil })
+// verkauf_positionen für ladeFinanzen, positionen (Alias) für ladeOffenePosten – Quelle der Forderungen seit KAN-157
+const vp = (id, datum, positionen, teil) => ({ id, tenant_id: T, datum, bezahlt: false, aktiv: true, storniert: false, bmd_export_id: null, verkauf_positionen: positionen, positionen, kontakt: null, firma: null, rechnungsnummer: null, ...teil })
 
 const tabellen = () => ({
   tenants: [{ id: T, name: 'Weingut Test' }],
@@ -126,17 +127,33 @@ describe('ladeFinanzen – Finanzübersicht', nurMitHooks, () => {
     assert.deepEqual(r.belege, { zuBuchen: 2, ohneKategorie: 2, buchungenJahr: 5 })
   })
 
-  test('Befund: Buchungen ohne Kategorie landen in EINEM Topf „–“ – Einnahmen und Ausgaben werden addiert, Typ vom ersten Treffer', async () => {
+  // KAN-157 (vorher Befund: EIN Topf „–“ für Einnahmen UND Ausgaben, Typ vom ersten Treffer)
+  test('KAN-157: ohne Kategorie je Typ eine eigene Zeile, Einnahmen und Ausgaben nicht vermischt', async () => {
     const { r } = await lade()
     assert.deepEqual(r.kategorien.einnahmen, [
       { name: 'Weinverkauf', betrag: 1000, vj: 800 },
-      { name: '–', betrag: 55, vj: 0 },  // 40 € Einnahme + 15 € Ausgabe
+      { name: 'ohne Kategorie', betrag: 40, vj: 0 },
     ])
     assert.deepEqual(r.kategorien.ausgaben, [
       { name: 'Traktor', betrag: 2000, vj: 0 },
       { name: 'Material', betrag: 300, vj: 0 },
+      { name: 'ohne Kategorie', betrag: 15, vj: 0 },
       { name: 'Betriebsausstattung', betrag: 0, vj: 500 },
     ])
+    assert.equal(fin.OHNE_KATEGORIE, 'ohne Kategorie')
+  })
+
+  test('KAN-157: automatische Verkaufs-Einnahmen als „Verkauf (Rechnungen)“, nicht als „ohne Kategorie“ gezählt', async () => {
+    const t = tabellen()
+    t.ea_transaktionen.push(
+      tx('v1', '2026-07-01', 'einnahme', 6744, { kategorie_id: null, kategorie: null, import_quelle: 'verkauf', verkaufsposten_id: 'vp1' }),
+      tx('v2', '2025-07-01', 'einnahme', 500, { kategorie_id: null, kategorie: null, import_quelle: 'verkauf', verkaufsposten_id: 'vp6' }),
+    )
+    const { r } = await lade({}, t)
+    assert.deepEqual(r.kategorien.einnahmen[0], { name: 'Verkauf (Rechnungen)', betrag: 6744, vj: 500 })
+    assert.ok(!r.kategorien.ausgaben.some(k => k.name === 'Verkauf (Rechnungen)'), 'Erlöse nie unter Ausgaben')
+    assert.equal(r.belege.ohneKategorie, 2, 'nur t8 und t9 – die Verkaufs-Einnahmen kann der Anwender nicht zuordnen')
+    assert.equal(r.belege.buchungenJahr, 6)
   })
 
   test('Kategorien-Rangliste: höchstens 6 je Typ, absteigend nach laufendem Jahr', async () => {
@@ -168,12 +185,18 @@ describe('ladeFinanzen – Finanzübersicht', nurMitHooks, () => {
     assert.equal(Math.round(r.umsatz.vj * 100) / 100, 100)
   })
 
-  test('Forderungen: offene Rechnungen brutto; überfällig nach 30 Tagen; Befund: nur Rechnungen ab 1.1. des Vorjahres, auch nach dem Stichtag datierte', async () => {
-    const { r } = await lade()
-    assert.equal(r.forderungen.anzahl, 4, 'vp1, vp2, vp6, vp7 – die offene Rechnung vp9 aus 2024 fehlt')
-    assert.equal(Math.round(r.forderungen.summe * 100) / 100, 341)
-    assert.equal(r.forderungen.ueberfaellig, 2)
-    assert.equal(Math.round(r.forderungen.ueberfaelligSumme * 100) / 100, 223)
+  // KAN-157 (vorher Befund: nur Rechnungen ab 1.1. des Vorjahres – die Kachel wich von „Offene Posten“ ab)
+  test('KAN-157: Forderungen wie „Offene Posten“ (ladeOffenePosten) – ohne Datumsgrenze, brutto, überfällig nach 30 vollen Tagen', async () => {
+    const { r, db } = await lade()
+    assert.equal(r.forderungen.anzahl, 5, 'vp1, vp2, vp6, vp7 und die alte Rechnung vp9 aus 2024')
+    assert.equal(Math.round(r.forderungen.summe * 100) / 100, 841)
+    assert.equal(r.forderungen.ueberfaellig, 3, 'vp1, vp6, vp9')
+    assert.equal(Math.round(r.forderungen.ueberfaelligSumme * 100) / 100, 723)
+    const op = await dash.ladeOffenePosten(await ctxFuer(db))
+    assert.deepEqual(r.forderungen, { summe: op.summe, anzahl: op.anzahl, ueberfaellig: op.ueberfaellig, ueberfaelligSumme: op.ueberfaelligSumme })
+    // Vorjahresansicht: derselbe heutige Stand („Offene Forderungen (heute)“)
+    const vj = await lade({ jahr: 2025 })
+    assert.deepEqual(vj.r.forderungen, r.forderungen)
   })
 
   // Datumsgrenzen: jede Buchung/Rechnung liegt GENAU auf einer Grenze (Stichtag einschließlich,
@@ -218,15 +241,14 @@ describe('ladeFinanzen – Finanzübersicht', nurMitHooks, () => {
     assert.deepEqual([r.uebergabe.belegeOffen, r.uebergabe.rechnungenOffen], [6, 4])
   })
 
-  // Befund: Die Überfälligkeit hängt am Zeitpunkt, nicht am Kalendertag. Das Rechnungsdatum gilt als
-  // UTC-Mitternacht, heute trägt im Betrieb eine Uhrzeit – eine Rechnung ist damit schon am 30.
-  // Kalendertag überfällig (ab 00:00:00.001 UTC, in Wien ab 02:00 Sommer- bzw. 01:00 Winterzeit).
-  test('Befund: Überfälligkeit nach Zeitpunkt – am 30. Tag mit Uhrzeit ist r3 schon überfällig (UTC und Wien)', async () => {
+  // KAN-157: Überfälligkeit wie „Offene Posten“ nach vollen Tagen (vorher Befund: nach Zeitpunkt – r3 war
+  // schon am 30. Kalendertag mit Uhrzeit überfällig).
+  test('KAN-157: Überfälligkeit nach vollen Tagen – am 30. Tag mit Uhrzeit ist r3 noch nicht überfällig (UTC und Wien)', async () => {
     for (const [zone, heute] of [['UTC', '2026-09-28T00:00:01.000Z'], ['UTC', '2026-09-28T12:00:00.000Z'], ['Europe/Vienna', '2026-09-28T12:00:00.000Z']]) {
       process.env.TZ = zone
       const { r } = await lade({ heute: new Date(heute) }, grenzen())
       assert.equal(r.stichtag, '2026-09-28', `${zone} ${heute}`)
-      assert.deepEqual(r.forderungen, { summe: 36, anzahl: 2, ueberfaellig: 2, ueberfaelligSumme: 36 }, `${zone} ${heute}: r3 und r4 überfällig`)
+      assert.deepEqual(r.forderungen, { summe: 36, anzahl: 2, ueberfaellig: 1, ueberfaelligSumme: 24 }, `${zone} ${heute}: nur r4 überfällig`)
     }
   })
 
@@ -244,7 +266,8 @@ describe('ladeFinanzen – Finanzübersicht', nurMitHooks, () => {
     assert.equal(r.belege.buchungenJahr, 0)
     assert.deepEqual([r.anlagen.afaGebuchtJahr, r.anlagen.anlagenkaeufeJahr, r.anlagen.anlagenkaeufeVj], [0, 0, 0])
     assert.deepEqual([Math.round(r.umsatz.ytd * 100) / 100, Math.round(r.umsatz.vj * 100) / 100], [30, 0], 'nur r3 + r4')
-    assert.deepEqual(r.forderungen, { summe: 36, anzahl: 2, ueberfaellig: 1, ueberfaelligSumme: 24 }, 'r3 erst 29 Tage 22,5 Stunden alt')
+    // Befund (KAN-158): nach Wiener Kalender ist r4 schon 31 Tage alt, gerechnet wird aber mit 30 Tagen 22,5 Stunden (volle Tage in UTC)
+    assert.deepEqual(r.forderungen, { summe: 36, anzahl: 2, ueberfaellig: 0, ueberfaelligSumme: 0 }, 'r3 29, r4 30 volle Tage alt')
   })
 
   test('Liquidität: Eröffnungssaldo + Zahlungen + E&A-Buchungen aller Jahre (brutto, Vorzeichen) ± Umbuchungen, nur aktive Konten', async () => {
