@@ -66,6 +66,42 @@ export function neueUeberdeckungen(p: {
   return out.sort((a, b) => (a.art === b.art ? 0 : a.art === 'gst' ? -1 : 1))
 }
 
+/** Schlüssel der Maps von verfuegbarJeLese: `<lese_id>|<weingarten_id bzw. grundstueck_id>` */
+export function leseOrtSchluessel(leseId: string, ortId: string): string {
+  return `${leseId}|${ortId}`
+}
+
+/**
+ * Verfügbare kg je Lese und Ort (Ticket Soll 3: eine Funktion für Jahrgangsseite, Weinhandel und
+ * Verkauf-Stammdaten): gelesen − verpresst − verkauft, nie negativ. Nur Orte mit Lesemenge erscheinen.
+ * `ohneVerkaufId` nimmt einen Traubenverkauf heraus (Bearbeiten: seine Menge steht wieder zur Verfügung).
+ */
+export function verfuegbarJeLese(
+  gelesen: readonly (GelesenZeile & { lese_id: string | null })[],
+  verbraucht: readonly (Mengenzeile & { lese_id: string | null; verkauf_id?: string | null })[],
+  ohneVerkaufId: string | null = null,
+): { ried: Map<string, number>; gst: Map<string, number> } {
+  const ried = new Map<string, number>()
+  const gst = new Map<string, number>()
+  const add = (m: Map<string, number>, k: string, v: number) => m.set(k, (m.get(k) ?? 0) + v)
+  for (const z of gelesen) {
+    if (!z.lese_id || !z.weingarten_id || z.kg === null || z.kg === undefined) continue
+    add(ried, leseOrtSchluessel(z.lese_id, z.weingarten_id), Number(z.kg) || 0)
+    if (z.grundstueck_id) add(gst, leseOrtSchluessel(z.lese_id, z.grundstueck_id), Number(z.kg) || 0)
+  }
+  for (const z of verbraucht) {
+    if (!z.lese_id || !z.weingarten_id || (ohneVerkaufId && z.verkauf_id === ohneVerkaufId)) continue
+    const kr = leseOrtSchluessel(z.lese_id, z.weingarten_id)
+    if (ried.has(kr)) add(ried, kr, -(Number(z.kg) || 0))
+    if (z.grundstueck_id) {
+      const kg = leseOrtSchluessel(z.lese_id, z.grundstueck_id)
+      if (gst.has(kg)) add(gst, kg, -(Number(z.kg) || 0))
+    }
+  }
+  for (const m of [ried, gst]) for (const [k, v] of m) m.set(k, Math.max(0, Math.round(v * 100) / 100))
+  return { ried, gst }
+}
+
 function kgText(n: number): string {
   return `${(Math.round(n * 10) / 10).toLocaleString('de-AT', { maximumFractionDigits: 1 })} kg`
 }

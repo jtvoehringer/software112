@@ -196,6 +196,8 @@ describe('Verdrahtung Traubenverkauf (Quelltext)', () => {
     assert.match(a, /\.\.\.mostgewichtSpalten\(mostgewichtJePosition\[i\] \?\? null, 'kmw_grad'\)/)
     const r = quelle('src/app/api/verkauf-stammdaten/route.ts')
     assert.match(r, /menge_kg, klosterneuburger, oechsle, mostgewicht_einheit, qualitaetsstufe/)
-    assert.match(r, /mostgewicht: {11}mgByWG\[wg\.id\] \?\? null/)
+    // KAN-129: Mostgewicht je Lese und Ort (neuester Eintrag der Lese), Einheit bleibt dabei
+    assert.match(r, /mostgewicht: {11}standard\?\.mostgewicht \?\? null/)
+    assert.match(r, /mostgewicht: mgAus\(l\)/)
   })
 })

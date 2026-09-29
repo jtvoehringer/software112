@@ -49,11 +49,25 @@ interface Weingarten {
   mostgewicht?: GespeichertesMostgewicht | null
   qualitaetsstufe: string | null
   jahrgang_id: string | null
+  /** KAN-129: Standard-Lese (neueste mit Menge) und die Werte je Lese */
+  lese_id: string | null
+  je_lese: LeseWerte[]
 }
 
-interface Jahrgang {
+/** KAN-129: verfügbare kg, Mostgewicht und Stufe eines Orts in einer Lese (api/verkauf-stammdaten) */
+interface LeseWerte {
+  lese_id: string
+  jahrgang_id: string
+  verfuegbar_kg: number
+  mostgewicht: GespeichertesMostgewicht | null
+  qualitaetsstufe: string | null
+}
+
+interface LeseOption {
   id: string
+  jahrgang_id: string
   jahrgang: number
+  titel: string
 }
 
 interface Grundstueck {
@@ -67,6 +81,8 @@ interface Grundstueck {
   mostgewicht?: GespeichertesMostgewicht | null
   qualitaetsstufe: string | null
   jahrgang_id: string | null
+  lese_id: string | null
+  je_lese: LeseWerte[]
 }
 
 interface Position {
@@ -86,6 +102,8 @@ interface Position {
   // Traubenverkauf BKI-Felder
   trauben_weingarten_id:   string
   trauben_jahrgang_id:     string
+  /** KAN-129: Lese der Trauben (bestimmt den Jahrgang und die verfügbare Menge) */
+  trauben_lese_id:         string
   trauben_grundstueck_id:  string
   /** Vorbelegung des Mostgewichts (Lese der Ried/GST, KAN-128) – den Messwert hält die Eingabe
    *  selbst (versteckte Felder trauben_<id>_mostgewicht_wert/_einheit, beim Absenden gelesen) */
@@ -210,7 +228,7 @@ export default function NeuerVerkaufPage() {
   const [weinausbau,      setWeinausbau]      = useState<Weinausbau[]>([])
   const [sonstigeArtikel, setSonstigeArtikel] = useState<SonstigesArtikelData[]>([])
   const [weingaerten,     setWeingaerten]     = useState<Weingarten[]>([])
-  const [jahrgaenge,      setJahrgaenge]      = useState<Jahrgang[]>([])
+  const [lesen,           setLesen]           = useState<LeseOption[]>([])
   const [grundstuecke,    setGrundstuecke]    = useState<Grundstueck[]>([])
   const [loading,         setLoading]         = useState(true)
   const [ustStandard,     setUstStandard]     = useState(13)
@@ -248,6 +266,7 @@ export default function NeuerVerkaufPage() {
       ust_satz:           '13',
       trauben_weingarten_id:   '',
       trauben_jahrgang_id:     '',
+      trauben_lese_id:         '',
       trauben_grundstueck_id:  '',
       trauben_mostgewicht:     null,
       trauben_qualitaetsstufe: '',
@@ -266,7 +285,7 @@ export default function NeuerVerkaufPage() {
         setWeinausbau(json.weinausbau ?? [])
         setSonstigeArtikel(json.sonstige_artikel ?? [])
         setWeingaerten(json.weingaerten ?? [])
-        setJahrgaenge(json.jahrgaenge ?? [])
+        setLesen(json.lesen ?? [])
         setGrundstuecke(json.grundstuecke ?? [])
         const ust = json.ust_satz_standard ?? 13
         setUstStandard(ust)
@@ -346,6 +365,7 @@ export default function NeuerVerkaufPage() {
       ust_satz:         parseFloat(p.ust_satz) || ustStandard,
       trauben_weingarten_id:   p.trauben_weingarten_id   || null,
       trauben_jahrgang_id:     p.trauben_jahrgang_id     || null,
+      trauben_lese_id:         p.typ === 'trauben' ? (p.trauben_lese_id || null) : null,
       trauben_grundstueck_id:  p.trauben_grundstueck_id  || null,
       trauben_mostgewicht_wert:    p.typ === 'trauben' ? mgFeld(p, 'wert') : null,
       trauben_mostgewicht_einheit: p.typ === 'trauben' ? mgFeld(p, 'einheit') : null,
@@ -628,6 +648,7 @@ export default function NeuerVerkaufPage() {
                             trauben_mostgewicht:     wg?.mostgewicht ?? (wg?.kmw_grad != null ? { kmw: wg.kmw_grad } : null),
                             trauben_qualitaetsstufe: wg?.qualitaetsstufe ?? '',
                             trauben_jahrgang_id:     wg?.jahrgang_id ?? '',
+                            trauben_lese_id:         wg?.lese_id ?? '',
                           })
                         }}
                         className={inputCls + ' w-full'} disabled={loading}>
@@ -651,28 +672,51 @@ export default function NeuerVerkaufPage() {
                               ? { trauben_mostgewicht: gst.mostgewicht ?? { kmw: gst.kmw_grad } }
                               : {}),
                             ...(gst?.qualitaetsstufe != null ? { trauben_qualitaetsstufe: gst.qualitaetsstufe } : {}),
-                            ...(gst?.jahrgang_id != null     ? { trauben_jahrgang_id: gst.jahrgang_id }         : {}),
+                            // KAN-129: Werte der gewählten Lese an diesem GST (sonst seine Standard-Lese)
+                            ...(() => {
+                              const w = gst?.je_lese.find(x => x.lese_id === pos.trauben_lese_id && x.verfuegbar_kg > 0)
+                                ?? gst?.je_lese.find(x => x.lese_id === gst.lese_id)
+                              return w ? {
+                                trauben_lese_id: w.lese_id, trauben_jahrgang_id: w.jahrgang_id,
+                                ...(w.mostgewicht ? { trauben_mostgewicht: w.mostgewicht } : {}),
+                                ...(w.qualitaetsstufe ? { trauben_qualitaetsstufe: w.qualitaetsstufe } : {}),
+                              } : {}
+                            })(),
                           })
                         }}
                         className={inputCls + ' w-full'} disabled={loading || !pos.trauben_weingarten_id}>
                         <option value="">– gesamte Ried –</option>
                         {grundstuecke
-                          .filter(g => g.weingarten_id === pos.trauben_weingarten_id && g.verfuegbar_kg > 0)
+                          .filter(g => g.weingarten_id === pos.trauben_weingarten_id && (g.je_lese.find(x => x.lese_id === pos.trauben_lese_id)?.verfuegbar_kg ?? 0) > 0)
                           .map(g => (
                             <option key={g.id} value={g.id}>
-                              GST {g.gst_nr}{g.rebsorte ? ` – ${formatRebsorteMitKuerzel(g.rebsorte)}` : ''} · {fmtNum(g.verfuegbar_kg)} kg verf.
+                              GST {g.gst_nr}{g.rebsorte ? ` – ${formatRebsorteMitKuerzel(g.rebsorte)}` : ''} · {fmtNum(g.je_lese.find(x => x.lese_id === pos.trauben_lese_id)?.verfuegbar_kg ?? 0)} kg verf.
                             </option>
                           ))}
                       </select>
                     </div>
                     <div>
-                      <label className={labelCls}>Jahrgang</label>
-                      <select aria-label="Jahrgang" value={pos.trauben_jahrgang_id}
-                        onChange={e => updatePos(idx, { trauben_jahrgang_id: e.target.value })}
-                        className={inputCls + ' w-full'} disabled={loading}>
+                      {/* KAN-129: Lese statt Jahrgang – der Jahrgang folgt aus der Lese, die Menge je Lese */}
+                      <label className={labelCls}>Lese</label>
+                      <select aria-label="Lese" value={pos.trauben_lese_id}
+                        onChange={e => {
+                          const lese = lesen.find(l => l.id === e.target.value)
+                          const wg = weingaerten.find(w => w.id === pos.trauben_weingarten_id)
+                          const w = wg?.je_lese.find(x => x.lese_id === e.target.value)
+                          updatePos(idx, {
+                            trauben_lese_id: e.target.value,
+                            trauben_jahrgang_id: lese?.jahrgang_id ?? '',
+                            trauben_grundstueck_id: '',
+                            ...(w?.mostgewicht ? { trauben_mostgewicht: w.mostgewicht } : {}),
+                            ...(w?.qualitaetsstufe ? { trauben_qualitaetsstufe: w.qualitaetsstufe } : {}),
+                          })
+                        }}
+                        className={inputCls + ' w-full'} disabled={loading || !pos.trauben_weingarten_id}>
                         <option value="">–</option>
-                        {jahrgaenge.map(j => (
-                          <option key={j.id} value={j.id}>{j.jahrgang}</option>
+                        {(weingaerten.find(w => w.id === pos.trauben_weingarten_id)?.je_lese ?? []).map(x => (
+                          <option key={x.lese_id} value={x.lese_id}>
+                            {lesen.find(l => l.id === x.lese_id)?.titel ?? '–'} · {fmtNum(x.verfuegbar_kg)} kg verf.
+                          </option>
                         ))}
                       </select>
                     </div>

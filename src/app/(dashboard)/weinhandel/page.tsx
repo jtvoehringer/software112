@@ -72,7 +72,7 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
     // pressung_behaelter hat keine tenant_id – Mandantenfilter über die Pressung (!inner).
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('pressung_behaelter') as any)
-      .select('id, menge_liter, behaelter:behaelter_id(name), pressung:pressung_id!inner(datum, weinbezeichnung, kmw_grad, jahrgang_id, tenant_id, jahrgang:jahrgang_id(jahrgang))')
+      .select('id, menge_liter, behaelter:behaelter_id(name), pressung:pressung_id!inner(datum, weinbezeichnung, kmw_grad, jahrgang_id, tenant_id, jahrgang:jahrgang_id(jahrgang), lese:lesen!pressungen_lese_fkey(lfd_nr))')
       .eq('pressung.tenant_id', tenantId ?? '')
       .is('weinausbau_id', null)
       .gt('menge_liter', 0),
@@ -375,7 +375,7 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
                       <td className="px-4 py-3 text-right">
                         {writeOk && (
                           <Link
-                            href={(d.pressung as R | null)?.jahrgang_id ? `/erntemeldung/${(d.pressung as R).jahrgang_id}` : '/erntemeldung'}
+                            href={(d.pressung as R | null)?.jahrgang_id ? `/erntemeldung/${(d.pressung as R).jahrgang_id}${((d.pressung as R).lese as R | null)?.lfd_nr ? `?lese=${((d.pressung as R).lese as R).lfd_nr}` : ''}` : '/erntemeldung'}
                             className="text-xs text-s112-blue-700 hover:underline font-medium whitespace-nowrap">
                             Pressung bearbeiten →
                           </Link>

@@ -4,7 +4,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import { register } from 'node:module'
-import { leseFuerDatum, neueUeberdeckungen, ueberdeckungText } from '../../src/lib/wein/leseBilanz.ts'
+import { leseFuerDatum, leseOrtSchluessel, neueUeberdeckungen, ueberdeckungText, verfuegbarJeLese } from '../../src/lib/wein/leseBilanz.ts'
 
 register('./ernte.aufloesung.mjs', import.meta.url)
 const ernte = await import('../../src/lib/behoerden/erntemeldung.ts')
@@ -82,4 +82,30 @@ test('Verdrahtung: Deckung in Pressung und beiden Traubenverkauf-Wegen, Stichtag
   assert.ok(a.includes(".eq('lese_id', leseId).eq('weingarten_id', alt.weingarten_id)"), 'pruefeLesemengeGedeckt je Lese')
   const t = lies('src/app/(dashboard)/weinhandel/traubenverkauf/actions.ts')
   assert.ok(t.includes('const lese = await traubenverkaufLese(') && t.includes('lese_id:         lese.leseId,'), 'upsertTraubenverkauf')
+})
+
+test('Etappe 3: verfügbare kg je Lese und Ort – getrennt je Lese, Verpresstes und Verkauftes ab, Bearbeiten ohne eigene Menge', () => {
+  const lz = (lese_id, wg, gst, kg) => ({ lese_id, weingarten_id: wg, grundstueck_id: gst, kg })
+  const v = verfuegbarJeLese(
+    [lz('l1', 'w1', 'g1', 1000), lz('l2', 'w1', 'g1', 300), lz('l1', 'w2', null, null)],
+    [lz('l1', 'w1', 'g1', 400), { ...lz('l1', 'w1', 'g1', 100), verkauf_id: 'tv1' }, lz('l2', 'w1', 'g1', 500), lz(null, 'w1', 'g1', 50)],
+  )
+  assert.equal(v.gst.get(leseOrtSchluessel('l1', 'g1')), 500)
+  assert.equal(v.ried.get(leseOrtSchluessel('l1', 'w1')), 500)
+  assert.equal(v.gst.get(leseOrtSchluessel('l2', 'g1')), 0, 'nie negativ; Hauptlese-kg zählen nicht für die Eiswein-Lese')
+  assert.equal(v.ried.has(leseOrtSchluessel('l1', 'w2')), false, 'Ort ohne Lesemenge erscheint nicht')
+  const bearbeiten = verfuegbarJeLese([lz('l1', 'w1', 'g1', 1000)], [{ ...lz('l1', 'w1', 'g1', 100), verkauf_id: 'tv1' }], 'tv1')
+  assert.equal(bearbeiten.gst.get(leseOrtSchluessel('l1', 'g1')), 1000)
+})
+
+test('Etappe 3: Weinhandel-Wege mit Lese (Traubenverkauf-Seite, Verkauf mit Trauben-Position, Stammdaten)', () => {
+  const v = lies('src/app/(dashboard)/weinhandel/verkauf/actions.ts')
+  assert.ok(v.includes('erg = await traubenverkaufLese(') && v.includes('lese_id:         leseJePosition[i],'))
+  assert.ok(v.indexOf('await pruefePositionen(supabase, membership, positionen, datum)') < v.indexOf("get_next_liefernummer"), 'Prüfung vor Liefernummer')
+  const r = lies('src/app/api/verkauf-stammdaten/route.ts')
+  assert.ok(r.includes('const verfuegbar = verfuegbarJeLese(') && r.includes('pressung:pressung_id!inner(tenant_id, lese_id)'))
+  const c = lies('src/app/(dashboard)/weinhandel/traubenverkauf/TraubenverkaufClient.tsx')
+  assert.ok(c.includes("fd.set('lese_id', leseId)") && c.includes('const verfuegbar = verfuegbarJeLese('))
+  const p = lies('src/app/(dashboard)/weinhandel/traubenverkauf/page.tsx')
+  assert.ok(p.includes(".order('ernte_datum', { ascending: false, nullsFirst: false })"), 'N3: nach Lesedatum statt UUID')
 })

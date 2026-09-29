@@ -8,7 +8,8 @@ import { revalidatePath } from 'next/cache'
 import { randomUUID } from 'crypto'
 import { syncEaEinnahmeFuerVerkauf } from '@/app/(dashboard)/buchhaltung/actions'
 import { fmtEur, fmtNum, dezimal } from '@/lib/format'
-import { AktionsFehler, dbFehlerText, fehlerText } from '@/lib/fehler'
+import { AktionsFehler, dbFehlerText, fehlerText, LESE_WAEHLEN_MELDUNG } from '@/lib/fehler'
+import { traubenverkaufLese } from '@/lib/wein/leseBilanz'
 import { qualitaetFehler } from '@/lib/wein/qualitaet'
 import { mostgewichtAusWert, mostgewichtSpalten } from '@/lib/wein/mostgewichtFormular'
 import type { Mostgewicht } from '@/lib/wein/mostgewicht'
@@ -87,6 +88,8 @@ interface PositionInput {
   // Traubenverkauf-spezifische BKI-Felder
   trauben_weingarten_id?:   string | null
   trauben_jahrgang_id?:     string | null
+  /** KAN-129: Lese der Trauben (Auswahl im Formular); ohne Angabe nach Datum wie die Datenbank */
+  trauben_lese_id?:         string | null
   trauben_grundstueck_id?:  string | null
   /** Mostgewicht (KAN-128): Messwert wie eingegeben und gemessene Einheit – beide Werte rechnet der Server */
   trauben_mostgewicht_wert?:    string | number | null
@@ -115,7 +118,8 @@ async function pruefePositionen(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
   membership: Membership,
   positionen: PositionInput[],
-): Promise<{ literJeCharge: Map<string, number>; stueckJeFuellung: Map<string, number>; mostgewichtJePosition: (Mostgewicht | null)[] }> {
+  datum: string,
+): Promise<{ literJeCharge: Map<string, number>; stueckJeFuellung: Map<string, number>; mostgewichtJePosition: (Mostgewicht | null)[]; leseJePosition: (string | null)[] }> {
   const tenantId = membership.tenantId
   const literJeCharge   = new Map<string, number>()
   const stueckJeFuellung = new Map<string, number>()
@@ -201,7 +205,34 @@ async function pruefePositionen(
       }
     }
   }
-  return { literJeCharge, stueckJeFuellung, mostgewichtJePosition }
+
+  // KAN-129: Trauben – Jahrgang des Betriebs (N5), Lese und kg-Bilanz je Lese. Positionen desselben Orts,
+  // derselben Lese und desselben Jahrgangs werden summiert geprüft (wie Chargen und Füllungen oben).
+  const leseJePosition: (string | null)[] = positionen.map(() => null)
+  const gruppen = new Map<string, { idx: number[]; menge: number }>()
+  positionen.forEach((p, i) => {
+    if (p.typ !== 'trauben') return
+    const k = [p.trauben_jahrgang_id ?? '', p.trauben_lese_id ?? '', p.trauben_weingarten_id ?? '', p.trauben_grundstueck_id ?? ''].join('|')
+    const g = gruppen.get(k) ?? { idx: [], menge: 0 }
+    g.idx.push(i); g.menge += Number(p.menge) || 0
+    gruppen.set(k, g)
+  })
+  for (const g of gruppen.values()) {
+    const p = positionen[g.idx[0]]
+    let erg: { leseId: string | null; fehler: string | null }
+    try {
+      erg = await traubenverkaufLese(supabase, tenantId, {
+        jahrgangId: p.trauben_jahrgang_id ?? null, weingartenId: p.trauben_weingarten_id ?? null,
+        grundstueckId: p.trauben_grundstueck_id ?? null, zukaufPostenId: null, datum, mengeKg: g.menge,
+        leseIdFormular: p.trauben_lese_id ?? null, leseWaehlenText: LESE_WAEHLEN_MELDUNG,
+      })
+    } catch (e) {
+      throw new AktionsFehler(fehlerText(e, 'Die Lesemenge konnte nicht geprüft werden.'))
+    }
+    if (erg.fehler) throw new AktionsFehler(`Position ${g.idx[0] + 1}: ${erg.fehler}`)
+    for (const i of g.idx) leseJePosition[i] = erg.leseId
+  }
+  return { literJeCharge, stueckJeFuellung, mostgewichtJePosition, leseJePosition }
 }
 
 /** Abgänge als negative Deltas (für bestandBuchenAllesOderNichts) */
@@ -246,7 +277,7 @@ export async function createVerkauf(formData: FormData) {
 
   // ── Prüfung VOR dem ersten Schreibzugriff (auch vor der Rechnungsnummer –
   //    eine Ablehnung hinterlässt so keine Lücke im Nummernkreis)
-  const { literJeCharge, stueckJeFuellung, mostgewichtJePosition } = await pruefePositionen(supabase, membership, positionen)
+  const { literJeCharge, stueckJeFuellung, mostgewichtJePosition, leseJePosition } = await pruefePositionen(supabase, membership, positionen, datum)
 
   // ── 1. Bestand abbuchen – alles oder nichts (vor Rechnungsnummer und Beleg; eine
   //    gleichzeitige Buchung wird per Vergleichen und Setzen erkannt, dann nichts geändert)
@@ -316,6 +347,7 @@ export async function createVerkauf(formData: FormData) {
           tenant_id:       tenantId,
           weingarten_id:   p.trauben_weingarten_id   ?? null,
           jahrgang_id:     p.trauben_jahrgang_id      ?? null,
+          lese_id:         leseJePosition[i],
           grundstueck_id:  p.trauben_grundstueck_id   ?? null,
           kontakt_id:      kontaktId,
           firma_id:        firmaId,

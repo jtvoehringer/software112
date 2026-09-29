@@ -14,13 +14,18 @@ import { SPALTEN_TRAUBENVERKAUF_LISTE, traubenverkaufListenHinweise, type Traube
 import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
 import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
 import type { GespeichertesMostgewicht } from '@/lib/wein/mostgewichtFormular'
+import { leseOrtSchluessel, verfuegbarJeLese } from '@/lib/wein/leseBilanz'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
 interface Props {
   verkaufe:     R[]
-  ernteOptions: R[]   // ernte_parzellen mit weingarten, grundstueck, jahrgang joins
+  ernteOptions: R[]   // ernte_parzellen mit weingarten, grundstueck, jahrgang joins (und lese_id)
+  /** KAN-129: Lesen des Betriebs, neueste zuerst */
+  lesen: { id: string; jahrgang_id: string; jahrgang: number; lfd_nr: number; titel: string }[]
+  /** KAN-129: verpresste kg je Lese und Ort (eigene Ernte) */
+  verpresst: { lese_id: string | null; weingarten_id: string; grundstueck_id: string | null; kg: number }[]
   zukaufOptions: R[]  // zugekaufte Trauben (zukauf_posten, art='trauben') mit verfuegbar_kg
   kontakte:     R[]
   firmen:       R[]
@@ -47,7 +52,7 @@ function fmt(n: number | null | undefined, digits = 2) {
   return fmtNum(n, digits)
 }
 
-export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOptions, kontakte, firmen, writeOk, bkiErlaubt }: Props) {
+export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnteOptions, lesen, verpresst, zukaufOptions, kontakte, firmen, writeOk, bkiErlaubt }: Props) {
   const [showForm, setShowForm]      = useState(false)
   const [editRow, setEditRow]        = useState<R | null>(null)
   const [error, setError]            = useState<string | null>(null)
@@ -62,6 +67,20 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
   const [gstId, setGstId]           = useState('')
   const [jahrgangId, setJahrgangId] = useState('')
   const [jahrgangNr, setJahrgangNr] = useState<number | null>(null)
+  // KAN-129: Lese der Trauben – Ried/GST und verfügbare kg nur aus dieser Lese
+  const [leseId, setLeseId]         = useState('')
+  const lesenMitErnte = lesen.filter(l => alleErnteOptions.some(e => e.lese_id === l.id))
+  const ernteOptions = alleErnteOptions.filter(e => e.lese_id === leseId)
+  // gelesen − verpresst − verkauft je Lese und Ort (dieselbe Funktion wie Verkauf-Stammdaten); beim
+  // Bearbeiten ohne die eigene Menge
+  const verfuegbar = verfuegbarJeLese(
+    alleErnteOptions.map(e => ({ lese_id: e.lese_id ?? null, weingarten_id: (e.weingarten as R | null)?.id ?? null, grundstueck_id: (e.grundstueck as R | null)?.id ?? null, kg: e.menge_kg == null ? null : Number(e.menge_kg) })),
+    [
+      ...verpresst,
+      ...verkaufe.map(v => ({ lese_id: v.lese_id ?? null, weingarten_id: v.weingarten_id ?? (v.weingarten as R | null)?.id ?? null, grundstueck_id: v.grundstueck_id ?? null, kg: Number(v.menge_kg ?? 0), verkauf_id: v.id as string })),
+    ],
+    editRow?.id ?? null,
+  )
   // Mostgewicht (KAN-128): Vorbelegung bzw. gespeicherter Wert – die Eingabe schickt Messwert und
   // Einheit als versteckte Felder mostgewicht_wert/_einheit (vorher Feld „klosterneuburger“, das die
   // Action nie las: jede Bearbeitung löschte das Mostgewicht)
@@ -89,37 +108,8 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
   }
   const wgList = Array.from(wgMap.values()).sort((a, b) => a.name.localeCompare(b.name, 'de'))
 
-  // Geerntete kg pro WG aus ernteOptions
-  const ernteKgByWG: Record<string, number> = {}
-  for (const e of ernteOptions) {
-    const wg = e.weingarten as R | null
-    if (wg) ernteKgByWG[wg.id] = (ernteKgByWG[wg.id] ?? 0) + Number(e.menge_kg ?? 0)
-  }
-  // Verkaufte kg pro WG aus bestehenden Verkäufen
-  const verkauftKgByWG: Record<string, number> = {}
-  for (const v of verkaufe) {
-    if (!editRow || v.id !== editRow.id) {
-      const wgId_ = v.weingarten_id as string | undefined
-      if (wgId_) verkauftKgByWG[wgId_] = (verkauftKgByWG[wgId_] ?? 0) + Number(v.menge_kg ?? 0)
-    }
-  }
-  const verfuegbareKgByWG = (wId: string) => Math.max(0, (ernteKgByWG[wId] ?? 0) - (verkauftKgByWG[wId] ?? 0))
-
-  // Geerntete kg pro GST aus ernteOptions
-  const ernteKgByGST: Record<string, number> = {}
-  for (const e of ernteOptions) {
-    const gst = e.grundstueck as R | null
-    if (gst) ernteKgByGST[gst.id] = (ernteKgByGST[gst.id] ?? 0) + Number(e.menge_kg ?? 0)
-  }
-  // Verkaufte kg pro GST aus bestehenden Verkäufen
-  const verkauftKgByGST: Record<string, number> = {}
-  for (const v of verkaufe) {
-    if (!editRow || v.id !== editRow.id) {
-      const gId = v.grundstueck_id as string | undefined
-      if (gId) verkauftKgByGST[gId] = (verkauftKgByGST[gId] ?? 0) + Number(v.menge_kg ?? 0)
-    }
-  }
-  const verfuegbareKgByGST = (gId: string) => Math.max(0, (ernteKgByGST[gId] ?? 0) - (verkauftKgByGST[gId] ?? 0))
+  const verfuegbareKgByWG = (wId: string) => verfuegbar.ried.get(leseOrtSchluessel(leseId, wId)) ?? 0
+  const verfuegbareKgByGST = (gId: string) => verfuegbar.gst.get(leseOrtSchluessel(leseId, gId)) ?? 0
 
   // GSTs für gewählte Ried
   const gstList: R[] = []
@@ -147,8 +137,6 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
       const mg = mostgewichtVon(match.klosterneuburger, match.oechsle, match.mostgewicht_einheit)
       if (mg) setMgStart(mg)
       if (match.qualitaetsstufe) setQualitaet(match.qualitaetsstufe)
-      const jg = match.jahrgang as R | null
-      if (jg) { setJahrgangId(jg.id); setJahrgangNr(jg.jahrgang) }
       const wg  = match.weingarten as R | null
       const gst = match.grundstueck as R | null
       setHerkunft((gst as R | null)?.trauben_herkunft_code ?? wg?.trauben_herkunft_code ?? '')
@@ -158,7 +146,14 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
   function handleWgChange(newWgId: string) {
     setWgId(newWgId); setGstId('')
     if (newWgId) fillFromErnte(newWgId, '')
-    else { setMgStart(null); setQualitaet(''); setJahrgangId(''); setJahrgangNr(null); setHerkunft('') }
+    else { setMgStart(null); setQualitaet(''); setHerkunft('') }
+  }
+
+  /** KAN-129: Lese wählen – bestimmt den Jahrgang; Ried/GST werden neu gewählt */
+  function handleLeseChange(neu: string) {
+    setLeseId(neu); setWgId(''); setGstId(''); setMgStart(null); setQualitaet(''); setHerkunft('')
+    const l = lesen.find(x => x.id === neu)
+    setJahrgangId(l?.jahrgang_id ?? ''); setJahrgangNr(l?.jahrgang ?? null)
   }
 
   function handleGstChange(newGstId: string) {
@@ -168,7 +163,10 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
 
   function openNew() {
     setEditRow(null); setQuelle('ernte'); setZukaufId('')
-    setWgId(''); setGstId(''); setJahrgangId(''); setJahrgangNr(null)
+    setWgId(''); setGstId('')
+    // KAN-129: neueste Lese mit Lese-Einträgen vorbelegen
+    const l = lesenMitErnte[0]
+    setLeseId(l?.id ?? ''); setJahrgangId(l?.jahrgang_id ?? ''); setJahrgangNr(l?.jahrgang ?? null)
     setMgStart(null); setQualitaet(''); setHerkunft(''); setKaeuferTyp('firma')
     setError(null); setShowForm(true)
   }
@@ -182,6 +180,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
     setZukaufId(v.zukauf_posten_id ?? '')
     setWgId(wg?.id ?? ''); setGstId(gst?.id ?? '')
     setJahrgangId(jg?.id ?? ''); setJahrgangNr(jg?.jahrgang ?? null)
+    setLeseId(v.lese_id ?? '')
     setMgStart(mostgewichtVon(v.kmw_grad, v.oechsle, v.mostgewicht_einheit))
     setQualitaet(v.qualitaetsstufe ?? ''); setHerkunft(v.herkunft_code ?? '')
     setKaeuferTyp(v.firma_id ? 'firma' : 'kontakt')
@@ -212,6 +211,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
       fd.set('weingarten_id', wgId)
       fd.set('grundstueck_id', gstId)
       fd.set('zukauf_posten_id', '')
+      fd.set('lese_id', leseId)
     }
     if (kaeuferTyp === 'kontakt') fd.set('firma_id', '')
     else fd.set('kontakt_id', '')
@@ -378,14 +378,27 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
             ) : (
             <div className="grid grid-cols-2 gap-3">
 
+              {/* KAN-129: Lese – Ried/GST und verfügbare kg nur aus dieser Lese */}
+              <div className="col-span-2">
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">Lese *</label>
+                <select aria-label="Lese" value={leseId} onChange={e => handleLeseChange(e.target.value)} required
+                  disabled={!!editRow && !!editRow.lese_id} className={inp}>
+                  <option value="">– Lese wählen –</option>
+                  {lesenMitErnte.map(l => <option key={l.id} value={l.id}>{l.titel}</option>)}
+                </select>
+                {editRow?.lese_id && (
+                  <p className="text-xs text-s112-muted mt-1">Die Lese eines gespeicherten Verkaufs bleibt unverändert.</p>
+                )}
+              </div>
+
               {/* Ried */}
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Ried *</label>
-                <select aria-label="Ried" value={wgId} onChange={e => handleWgChange(e.target.value)} required className={inp}>
+                <select aria-label="Ried" value={wgId} onChange={e => handleWgChange(e.target.value)} required disabled={!leseId} className={inp}>
                   <option value="">– Ried wählen –</option>
                   {wgList.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                 </select>
-                {ernteOptions.length === 0 && (
+                {alleErnteOptions.length === 0 && (
                   <p className="text-xs text-s112-warn-fg mt-1">Noch keine Ernte vorhanden.</p>
                 )}
                 {wgId && (
@@ -592,7 +605,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions, zukaufOpt
                             GST {gst.gst_nr}
                           </span>
                         )}
-                        {jg && <span className="text-xs text-s112-muted">JG {jg.jahrgang}</span>}
+                        {jg && <span className="text-xs text-s112-muted">{v.lese_id && lesen.find(l => l.id === v.lese_id) ? `Lese ${lesen.find(l => l.id === v.lese_id)!.titel}` : `JG ${jg.jahrgang}`}</span>}
                         {v.gesundheit === 'K' && (
                           <span className="text-xs bg-s112-warn-bg text-s112-warn-fg px-2 py-0.5 rounded-full font-medium">
                             K {'–'} Krank
