@@ -48,7 +48,7 @@ export default async function FinanzUebersichtPage({ searchParams }: { searchPar
             <select name="jahr" defaultValue={String(jahr)} className="border border-s112-border rounded-lg px-2 py-1.5 text-sm bg-white">
               {Array.from({ length: 4 }, (_, i) => jahrAktuell - i).map(j => <option key={j} value={j}>{j}</option>)}
             </select>
-            <button type="submit" className="bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg text-[13px] font-semibold hover:bg-s112-blue-700">Anzeigen</button>
+            <button type="submit" className="bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg text-[13px] font-semibold hover:opacity-90">Anzeigen</button>
           </form>
         }
       />
@@ -123,7 +123,7 @@ export default async function FinanzUebersichtPage({ searchParams }: { searchPar
                 <Zeile k="Letzte Übergabe" v={f.uebergabe.letzte ? `${fmtDate(f.uebergabe.letzte.erstelltAm)} · ${f.uebergabe.letzte.anzahl} Belege` : '–'} />
                 <Zeile k="UVA" v={<span className="text-s112-text-2">meldet der Steuerberater aus BMD · <Link href="/buchhaltung/uva" className="text-s112-blue-700 hover:underline">Vorschau</Link></span>} />
                 <Zeile k="Belege zu buchen" v={f.belege.zuBuchen > 0 ? <Link href="/buchhaltung/belege"><Badge tone="warn">{f.belege.zuBuchen} erkannt</Badge></Link> : <Badge tone="ok">nichts offen</Badge>} />
-                <Link href="/controlling/bmd" className="inline-flex items-center gap-1.5 mt-2 bg-s112-teal text-s112-yellow px-3.5 py-2 rounded-lg text-[13px] font-semibold hover:bg-s112-blue-700">
+                <Link href="/controlling/bmd" className="inline-flex items-center gap-1.5 mt-2 bg-s112-teal text-s112-yellow px-3.5 py-2 rounded-lg text-[13px] font-semibold hover:opacity-90">
                   Zur BMD-Übergabe <ArrowRight size={15} />
                 </Link>
               </>

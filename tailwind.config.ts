@@ -17,6 +17,9 @@ const config: Config = {
         's112': {
           teal:      'var(--s112-teal, #4677BE)',    // Aktion → tenant primary_color
           yellow:    'var(--s112-yellow, #FFFFFF)',  // Text auf teal → tenant secondary_color
+          // KAN-164: Kopfleiste (Fläche/Schrift) aus kopfleistenFarben() – RGB-Kanäle, damit /85 usw. gehen
+          kopf:        'rgb(var(--s112-kopf, 47 99 172) / <alpha-value>)',
+          'kopf-text': 'rgb(var(--s112-kopf-text, 255 255 255) / <alpha-value>)',
           navy:      '#0E3C62',  // Alt: Sekundär/Dark (unverändert, wird noch vereinzelt verwendet)
           green:     '#98C780',  // Alt: Akzent Grün (unverändert)
           blue:      '#98C6DD',  // Alt: Akzent Blau (unverändert)

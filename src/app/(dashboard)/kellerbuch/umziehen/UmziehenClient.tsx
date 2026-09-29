@@ -265,12 +265,12 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
         <div className="flex gap-2">
           <button type="button"
             onClick={() => setUmzugTyp('normal')}
-            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border text-sm font-medium transition-colors ${umzugTyp === 'normal' ? 'bg-s112-teal text-white border-s112-teal' : 'border-s112-border text-s112-text-2 hover:border-s112-teal hover:text-s112-blue-700'}`}>
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border text-sm font-medium transition-colors ${umzugTyp === 'normal' ? 'bg-s112-teal text-s112-yellow border-s112-teal' : 'border-s112-border text-s112-text-2 hover:border-s112-teal hover:text-s112-blue-700'}`}>
             <ArrowLeftRight size={15} strokeWidth={1.75} />Umzug
           </button>
           <button type="button"
             onClick={() => setUmzugTyp('filtration')}
-            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border text-sm font-medium transition-colors ${umzugTyp === 'filtration' ? 'bg-s112-teal text-white border-s112-teal' : 'border-s112-border text-s112-text-2 hover:border-s112-teal hover:text-s112-blue-700'}`}>
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border text-sm font-medium transition-colors ${umzugTyp === 'filtration' ? 'bg-s112-teal text-s112-yellow border-s112-teal' : 'border-s112-border text-s112-text-2 hover:border-s112-teal hover:text-s112-blue-700'}`}>
             <Filter size={15} strokeWidth={1.75} />Filtration
           </button>
         </div>
@@ -360,7 +360,7 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
         </div>
       ) : (
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40 w-full">
+          className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40 w-full">
           {pending ? 'Wird verarbeitet…' : `Umziehen (${fmt(totalVon)} → ${fmt(totalNach)}${schwund > 0 ? `, ${fmt(schwund)} Schwund` : ''})`}
         </button>
       )}
@@ -432,7 +432,7 @@ function UmzugZeile({ u, writeOk, adminOk }: { u: UmzugRow; writeOk: boolean; ad
         </td>
         <td className="px-3 py-2 text-right whitespace-nowrap">
           <button onClick={handleSave} disabled={pending}
-            className="text-xs bg-s112-teal text-white px-2 py-1 rounded hover:bg-opacity-90 disabled:opacity-40 mr-1">
+            className="text-xs bg-s112-teal text-s112-yellow px-2 py-1 rounded hover:bg-opacity-90 disabled:opacity-40 mr-1">
             {pending ? '…' : 'Speichern'}
           </button>
           <button onClick={() => setEditing(false)}
@@ -523,7 +523,7 @@ export default function UmziehenClient({
         </div>
         {writeOk && (
           <button onClick={() => setShowForm(o => !o)}
-            className="bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
+            className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
             {showForm ? 'Abbrechen' : '+ Neuer Umzug'}
           </button>
         )}

@@ -315,7 +315,7 @@ function WochenView({ eintraege, current, heute }: { eintraege: KalenderEintrag[
           const isToday = toDateStr(d) === heute
           return (
             <div key={i} className={`px-2 py-3 text-center border-r last:border-r-0 border-s112-border
-              ${isToday ? 'bg-s112-teal text-white' : 'bg-s112-bg'}`}>
+              ${isToday ? 'bg-s112-teal text-s112-yellow' : 'bg-s112-bg'}`}>
               <div className={`text-xs font-medium ${isToday ? 'text-white/80' : 'text-s112-text-2'}`}>
                 {WOCHENTAGE[i]}
               </div>
@@ -664,7 +664,7 @@ function ZeitachseView({
             const isToday = toDateStr(d) === heute
             return (
               <div key={i} className={`px-2 py-2 text-center border-l border-s112-border
-                ${isToday ? 'bg-s112-teal text-white' : 'bg-s112-bg'}`}>
+                ${isToday ? 'bg-s112-teal text-s112-yellow' : 'bg-s112-bg'}`}>
                 <div className={`text-[11px] font-medium ${isToday ? 'text-white/80' : 'text-s112-text-2'}`}>
                   {WOCHENTAGE[i]}
                 </div>
@@ -965,13 +965,13 @@ function ZeitachseView({
               <div className="flex flex-wrap gap-2">
                 {viewAkt.typ === 'aktivitaet' && (
                   <button onClick={() => setEditAktMode(true)}
-                    className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 inline-flex items-center gap-1.5">
+                    className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 inline-flex items-center gap-1.5">
                     <Pencil size={14} />Bearbeiten
                   </button>
                 )}
                 {viewAkt.typ === 'pipeline' && (
                   <button onClick={() => setEditPipeMode(true)}
-                    className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 inline-flex items-center gap-1.5">
+                    className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 inline-flex items-center gap-1.5">
                     <Pencil size={14} />Bearbeiten
                   </button>
                 )}
@@ -1075,7 +1075,7 @@ function ZeitachseView({
                 {saveErr && <p className="text-xs text-s112-err-fg">{saveErr}</p>}
                 <div className="flex gap-2 pt-1">
                   <button type="submit" disabled={pending}
-                    className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
+                    className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
                     {pending ? 'Speichern…' : 'Speichern'}
                   </button>
                   <button type="button" onClick={() => setEditAktMode(false)}
@@ -1142,7 +1142,7 @@ function ZeitachseView({
                 {saveErr && <p className="text-xs text-s112-err-fg">{saveErr}</p>}
                 <div className="flex gap-2 pt-1">
                   <button type="submit" disabled={pending}
-                    className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
+                    className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
                     {pending ? 'Speichern…' : 'Speichern'}
                   </button>
                   <button type="button" onClick={() => setEditPipeMode(false)}
@@ -1262,7 +1262,7 @@ function ZeitachseView({
 
             <div className="flex gap-2 pt-1">
               <button type="submit" disabled={pending}
-                className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+                className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
                 {pending ? 'Speichern…' : 'Speichern'}
               </button>
               <button type="button" onClick={() => { setNewAkt(null); setNewAktKontaktId(''); setNewAktFirmaId('') }}
@@ -1341,7 +1341,7 @@ function MonatView({ eintraege, current, heute }: { eintraege: KalenderEintrag[]
                     ${isToday ? 'ring-2 ring-inset ring-s112-teal/30' : ''}`}>
                   <div
                     className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-semibold mb-1
-                      ${isToday ? 'bg-s112-teal text-white' : isThisMonth ? 'text-s112-text-1' : 'text-s112-tertiary'}`}
+                      ${isToday ? 'bg-s112-teal text-s112-yellow' : isThisMonth ? 'text-s112-text-1' : 'text-s112-tertiary'}`}
                     style={!isToday && hasOverdue ? { backgroundColor: '#C9564E', color: '#fff' } : undefined}>
                     {day.getDate()}
                   </div>
@@ -1411,7 +1411,7 @@ function MiniMonat({
                 <div className={`w-[18px] h-[18px] flex items-center justify-center rounded-full text-[10px] font-medium
                   ${!isThisMonth ? 'opacity-20' : ''}
                   ${isToday
-                    ? 'bg-s112-teal text-white'
+                    ? 'bg-s112-teal text-s112-yellow'
                     : hasItems
                       ? 'bg-s112-teal/10 text-s112-blue-700 font-semibold'
                       : 'text-s112-tertiary'}`}
@@ -1565,7 +1565,7 @@ export default function CRMUebersichtClient({ eintraege, heute, userProfiles = {
             <button key={v} onClick={() => setView(v)}
               className={`px-3 py-1.5 font-medium transition-colors border-r last:border-r-0 border-s112-border
                 ${view === v
-                  ? 'bg-s112-teal text-white'
+                  ? 'bg-s112-teal text-s112-yellow'
                   : 'bg-white text-s112-text-2 hover:bg-s112-bg'}`}>
               {label}
             </button>
@@ -1596,7 +1596,7 @@ export default function CRMUebersichtClient({ eintraege, heute, userProfiles = {
         </div>
 
         <button onClick={goToday}
-          className="text-xs font-medium text-s112-blue-700 border border-s112-teal/30 rounded-full px-3 py-1 hover:bg-s112-teal hover:text-white transition-colors">
+          className="text-xs font-medium text-s112-blue-700 border border-s112-teal/30 rounded-full px-3 py-1 hover:bg-s112-teal hover:text-s112-yellow transition-colors">
           Heute
         </button>
       </div>

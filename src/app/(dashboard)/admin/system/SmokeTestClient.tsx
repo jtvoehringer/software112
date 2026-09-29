@@ -27,7 +27,7 @@ export default function SmokeTestClient() {
       <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
         <h2 className="text-base font-semibold text-s112-text">Smoke-Test Zugriffsrechte</h2>
         <button type="button" onClick={ausfuehren} disabled={laeuft}
-          className="px-3 py-1.5 rounded-lg bg-s112-teal text-white text-sm font-medium hover:opacity-90 disabled:opacity-50">
+          className="px-3 py-1.5 rounded-lg bg-s112-teal text-s112-yellow text-sm font-medium hover:opacity-90 disabled:opacity-50">
           {laeuft ? 'Läuft …' : 'Jetzt ausführen'}
         </button>
       </div>

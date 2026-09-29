@@ -212,11 +212,11 @@ function TVForm({ jahrgangId, tv, quelleOptions, zukaufOptions, kontaktOptions, 
         <label className="block text-xs font-medium text-s112-text-2 mb-2">Quelle</label>
         <div className="flex gap-2">
           <button type="button" onClick={() => setQuelle('ernte')}
-            className={`px-3 py-1 text-xs rounded-lg font-medium transition-colors ${quelle === 'ernte' ? 'bg-s112-teal text-white' : 'bg-s112-bg border border-s112-border text-s112-text-2 hover:border-s112-teal'}`}>
+            className={`px-3 py-1 text-xs rounded-lg font-medium transition-colors ${quelle === 'ernte' ? 'bg-s112-teal text-s112-yellow' : 'bg-s112-bg border border-s112-border text-s112-text-2 hover:border-s112-teal'}`}>
             Eigene Ernte
           </button>
           <button type="button" onClick={() => setQuelle('zukauf')}
-            className={`px-3 py-1 text-xs rounded-lg font-medium transition-colors ${quelle === 'zukauf' ? 'bg-s112-teal text-white' : 'bg-s112-bg border border-s112-border text-s112-text-2 hover:border-s112-teal'}`}>
+            className={`px-3 py-1 text-xs rounded-lg font-medium transition-colors ${quelle === 'zukauf' ? 'bg-s112-teal text-s112-yellow' : 'bg-s112-bg border border-s112-border text-s112-text-2 hover:border-s112-teal'}`}>
             Zukauf
           </button>
         </div>
@@ -327,12 +327,12 @@ function TVForm({ jahrgangId, tv, quelleOptions, zukaufOptions, kontaktOptions, 
         <div className="flex gap-2 mb-2">
           <button type="button"
             onClick={() => { setBuyerType('firma'); setKontakt('') }}
-            className={`px-3 py-1 text-xs rounded-lg font-medium transition-colors ${buyerType === 'firma' ? 'bg-s112-teal text-white' : 'bg-s112-bg border border-s112-border text-s112-text-2 hover:border-s112-teal'}`}>
+            className={`px-3 py-1 text-xs rounded-lg font-medium transition-colors ${buyerType === 'firma' ? 'bg-s112-teal text-s112-yellow' : 'bg-s112-bg border border-s112-border text-s112-text-2 hover:border-s112-teal'}`}>
             Firma
           </button>
           <button type="button"
             onClick={() => { setBuyerType('kontakt'); setFirma('') }}
-            className={`px-3 py-1 text-xs rounded-lg font-medium transition-colors ${buyerType === 'kontakt' ? 'bg-s112-teal text-white' : 'bg-s112-bg border border-s112-border text-s112-text-2 hover:border-s112-teal'}`}>
+            className={`px-3 py-1 text-xs rounded-lg font-medium transition-colors ${buyerType === 'kontakt' ? 'bg-s112-teal text-s112-yellow' : 'bg-s112-bg border border-s112-border text-s112-text-2 hover:border-s112-teal'}`}>
             Privatperson
           </button>
         </div>
@@ -375,7 +375,7 @@ function TVForm({ jahrgangId, tv, quelleOptions, zukaufOptions, kontaktOptions, 
 
       <div className="flex gap-2 pt-1">
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-50">
+          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-50">
           {pending ? 'Speichert…' : 'Speichern'}
         </button>
         <button type="button" onClick={onDone} className="px-4 py-1.5 text-sm text-s112-text-2 hover:text-s112-text">

@@ -47,7 +47,7 @@ export default async function NeueLagePage() {
           </div>
           <div className="flex gap-3 pt-2">
             <button type="submit"
-              className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
+              className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
               Speichern
             </button>
             <a href="/lagen" className="px-5 py-2 rounded-xl text-sm font-medium text-s112-text-2 hover:text-s112-text">

@@ -95,7 +95,7 @@ export default async function ZukaufPage({
         <h1 className="text-xl font-semibold text-s112-text">Zukäufe</h1>
         {writeOk && (
           <Link href="/weinhandel/zukauf/neu"
-            className="bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
+            className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
             + Neuer Zukauf
           </Link>
         )}

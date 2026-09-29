@@ -83,7 +83,7 @@ export default async function RechnungsjournalPage({ searchParams }: { searchPar
           <label htmlFor="rj-bis" className="block text-xs font-medium text-s112-text-2 mb-1">Bis</label>
           <input id="rj-bis" type="date" name="bis" defaultValue={bis} className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none" />
         </div>
-        <button type="submit" className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm">Anzeigen</button>
+        <button type="submit" className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm">Anzeigen</button>
       </form>
 
       {warnungen.length > 0 && (

@@ -133,7 +133,7 @@ function BrandingTab({ tenant, settings }: { tenant: TenantDetail; settings: Ten
         <label className="block text-xs font-medium text-s112-text-2 mb-1">Anzeigename</label>
         <input aria-label="Anzeigename" name="anzeigename" defaultValue={settings.anzeigename ?? tenant.name}
           placeholder={tenant.name} className={inputCls()} />
-        <p className="text-xs text-s112-muted mt-1">Wird in der Sidebar unter dem Logo angezeigt.</p>
+        <p className="text-xs text-s112-muted mt-1">Wird oben in der Kopfleiste neben „Betrieb“ angezeigt – leer lassen für den Betriebsnamen.</p>
       </div>
 
       <div>
@@ -197,7 +197,7 @@ function BrandingTab({ tenant, settings }: { tenant: TenantDetail; settings: Ten
           </div>
         </div>
       </div>
-      <KontrastHinweis primary={primary} secondary={secondary} onUebernehmen={setPrimary} />
+      <KontrastHinweis primary={primary} secondary={secondary} name={settings.anzeigename || tenant.name} onUebernehmen={setPrimary} />
 
       <div>
         <label className="block text-xs font-medium text-s112-text-2 mb-1">
@@ -223,7 +223,7 @@ function BrandingTab({ tenant, settings }: { tenant: TenantDetail; settings: Ten
 
       <div className="flex items-center gap-3">
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
           {pending ? 'Speichern…' : 'Speichern'}
         </button>
         {saved && <span className="text-xs text-s112-blue-700 font-medium">Gespeichert</span>}
@@ -400,7 +400,7 @@ function BenutzerTab({ tenant, members: initialMembers }: { tenant: TenantDetail
 
       {!showInvite ? (
         <button onClick={() => setShowInvite(true)}
-          className="inline-flex items-center gap-2 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
+          className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
           + Benutzer einladen
         </button>
       ) : (
@@ -431,7 +431,7 @@ function BenutzerTab({ tenant, members: initialMembers }: { tenant: TenantDetail
           </div>
           <div className="flex gap-2">
             <button type="submit" disabled={pending}
-              className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+              className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
               {pending ? 'Einladen…' : 'Einladen'}
             </button>
             <button type="button" onClick={() => { setShowInvite(false); setInviteEmail(''); setInviteName('') }}
@@ -572,7 +572,7 @@ function BrevoTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
       {fehler && <p role="alert" className="text-sm text-s112-err-fg">{fehler}</p>}
       <div className="flex items-center gap-3">
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
           {pending ? 'Speichern…' : 'Speichern'}
         </button>
         {saved && <span role="status" className="text-xs text-s112-blue-700 font-medium">Gespeichert</span>}
@@ -742,7 +742,7 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
           </div>
           <div className="flex items-center gap-3 pt-1">
             <button onClick={handleSave} disabled={pending || !geaendert}
-              className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+              className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
               {pending ? 'Speichern…' : 'Speichern'}
             </button>
             {saved && <span className="text-xs text-s112-blue-700 font-medium">Gespeichert</span>}
@@ -874,7 +874,7 @@ function BetriebTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
 
       <div className="flex items-center gap-3">
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
           {pending ? 'Speichern…' : 'Speichern'}
         </button>
         {saved && <span className="text-xs text-s112-blue-700 font-medium">Gespeichert</span>}
@@ -939,7 +939,7 @@ function KellerwirtschaftAbschnitt({ tenant, settings }: { tenant: TenantDetail;
 
       <div className="flex items-center gap-3">
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
           {pending ? 'Speichern…' : 'Einheit speichern'}
         </button>
         {saved && <span className="text-xs text-s112-blue-700 font-medium">Gespeichert</span>}
@@ -1080,13 +1080,13 @@ function M365Tab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
 
         <div className="flex items-center gap-3">
           <button type="submit" disabled={pending}
-            className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+            className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
             {pending ? 'Speichern…' : 'Speichern'}
           </button>
           {saved && <span className="text-xs text-s112-blue-700 font-medium">Gespeichert</span>}
           {settings.m365_tenant_id && settings.m365_client_id && (
             <a href="/api/auth/m365"
-              className="ml-auto bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-blue-700">
+              className="ml-auto bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:opacity-90">
               Mit Microsoft 365 verbinden
             </a>
           )}
@@ -1212,7 +1212,7 @@ function EmailTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
 
         <div className="flex items-center gap-3">
           <button type="submit" disabled={pending}
-            className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+            className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
             {pending ? 'Speichern…' : 'Speichern'}
           </button>
           {saved && <span className="text-xs text-s112-blue-700 font-medium">Gespeichert</span>}
@@ -1411,7 +1411,7 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
 
         <div className="flex items-center gap-3">
           <button type="submit" disabled={pending}
-            className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+            className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
             {pending ? 'Speichern…' : 'Speichern'}
           </button>
           {saved && <span className="text-xs text-s112-blue-700 font-medium">Gespeichert</span>}
@@ -1624,7 +1624,7 @@ function BawbTab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
             href={BAWB_URL}
             target="_blank"
             rel="noreferrer"
-            className="shrink-0 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors whitespace-nowrap"
+            className="shrink-0 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors whitespace-nowrap"
           >
             bawb.at öffnen
           </a>
@@ -1681,7 +1681,7 @@ function BawbTab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
 
         <div className="flex items-center gap-3">
           <button type="submit" disabled={status === 'saving'}
-            className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-50 transition-colors">
+            className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-50 transition-colors">
             {status === 'saving' ? 'Speichert…' : 'Zugangsdaten speichern'}
           </button>
           {status === 'ok' && <span className="text-xs text-s112-ok-fg font-medium">Gespeichert</span>}
@@ -1761,7 +1761,7 @@ function SumUpTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
         </div>
         {msg && <p className={`text-sm ${msgIsError ? 'text-s112-err-fg' : 'text-s112-ok-fg'}`}>{msg}</p>}
         <button type="submit" disabled={saving}
-          className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
+          className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
           {saving ? 'Speichern…' : 'Speichern'}
         </button>
       </form>
@@ -1865,7 +1865,7 @@ function StripeTab({ tenant }: { tenant: TenantDetail }) {
             />
             <button
               type="button" onClick={handleCreateCustomer} disabled={pending}
-              className="bg-s112-teal text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50 whitespace-nowrap">
+              className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50 whitespace-nowrap">
               {pending ? 'Erstelle…' : '+ Customer anlegen'}
             </button>
           </div>
@@ -1895,7 +1895,7 @@ function StripeTab({ tenant }: { tenant: TenantDetail }) {
           <h2 className="text-sm font-semibold text-s112-muted uppercase tracking-wider">Abo verwalten</h2>
           <div className="flex gap-2 flex-wrap">
             <button type="button" onClick={handlePortal} disabled={pending}
-              className="bg-s112-teal text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50">
+              className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50">
               {pending ? 'Lade…' : 'software:112 Kundenportal'}
             </button>
             <button type="button" onClick={handleCancel} disabled={pending}
@@ -1962,7 +1962,7 @@ export default function MandantDetailClient({ tenant, settings, members }: {
                 className="text-2xl font-semibold text-s112-text border-b-2 border-s112-teal outline-none bg-transparent"
                 autoFocus />
               <button type="submit" disabled={pending}
-                className="text-xs bg-s112-teal text-white px-2.5 py-1 rounded-lg disabled:opacity-40">OK</button>
+                className="text-xs bg-s112-teal text-s112-yellow px-2.5 py-1 rounded-lg disabled:opacity-40">OK</button>
               <button type="button" onClick={() => { setEditName(false); setName(tenant.name) }}
                 className="text-xs text-s112-muted hover:text-s112-text-1">Abbrechen</button>
             </form>

@@ -11,6 +11,9 @@
 //    Doppelpunkt hätte auf Blau nur 2,4:1.
 //  - Fokusrahmen Weiß (FOKUS_HELL): der globale Rahmen #2F63AC (globals.css)
 //    wäre auf der gleichfarbigen Fläche unsichtbar.
+// KAN-164 (29.09.2026): Fläche und Schrift über s112-kopf / s112-kopf-text (CSS-Variablen
+// aus kopfleistenFarben() in layout.tsx). Standard bleibt CD-Blau/Weiß; mit eigenen Farben
+// Primärfarbe als Fläche und Sekundärfarbe als Schrift, mind. 5,5 : 1 (Reserve für /85).
 // Markenarchitektur lt. hohenstein-CD-Manual: in der Anwendung tritt
 // software:112 als Absender auf (Wortmarke links), hohenstein steht im
 // Fußbereich (siehe AppShell). Rechts daneben der Mandant – Logo und/oder
@@ -35,7 +38,7 @@ export const HINWEISE_EVENT = 's112:hinweise'
 
 /** Fokusrahmen auf der blauen Fläche: nur die Farbe, Breite und Abstand kommen
  *  aus globals.css (dort mit !important, daher auch hier !important) */
-const FOKUS_HELL = 'focus-visible:!outline-white'
+const FOKUS_HELL = 'focus-visible:!outline-s112-kopf-text'
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean)
@@ -90,10 +93,10 @@ export default function Topbar({
   // der blauen Fläche kaum durch Helligkeit ab (1,3:1 bzw. 1,1:1) – daher der
   // weiße Ring (6,0:1 zur Fläche).
   const badgeFarbe = anzahlErr > 0
-    ? 'bg-s112-err text-white ring-1 ring-white'
+    ? 'bg-s112-err text-white ring-1 ring-s112-kopf-text'
     : benachr.length > 0 && !hinweise?.length
-      ? 'bg-white text-s112-blue-700'
-      : 'bg-s112-warn-fg text-white ring-1 ring-white'
+      ? 'bg-s112-kopf-text text-s112-kopf'
+      : 'bg-s112-warn-fg text-white ring-1 ring-s112-kopf-text'
 
   // Benachrichtigung(en) als gelesen markieren – sofort aus der Liste nehmen, Server im Hintergrund
   const gelesen = (ids: string[] | 'alle') => {
@@ -130,7 +133,7 @@ export default function Topbar({
   }
 
   return (
-    <header className="bg-s112-blue-700 text-white shrink-0 z-40 shadow-[0_1px_4px_rgba(31,66,115,.35)]">
+    <header className="bg-s112-kopf text-s112-kopf-text shrink-0 z-40 shadow-[0_1px_4px_rgba(31,66,115,.35)]">
       <div className="h-14 max-w-[1280px] 2xl:max-w-[1600px] mx-auto px-4 lg:px-6 flex items-center gap-3 lg:gap-5">
 
         {/* Wortmarke software:112 – auf Blau einfarbig Weiß (siehe Dateikopf) */}
@@ -139,7 +142,7 @@ export default function Topbar({
         </Link>
 
         {/* Mandant: Logo und/oder Anzeigename (tenant_einstellungen) */}
-        <div className="min-w-0 flex-1 flex items-center gap-2.5 border-l border-white/35 pl-3 lg:pl-5 h-8" title={`Betrieb: ${branding.anzeigename}`}>
+        <div className="min-w-0 flex-1 flex items-center gap-2.5 border-l border-s112-kopf-text/35 pl-3 lg:pl-5 h-8" title={`Betrieb: ${branding.anzeigename}`}>
           {branding.logo_url && (
             // Logo-Kachel voll weiß: Mandantenlogos sind für hellen Grund gemacht
             // eslint-disable-next-line @next/next/no-img-element
@@ -147,8 +150,8 @@ export default function Topbar({
           )}
           {/* Label und Name auf einer Grundlinie (Mono-Schrift sitzt sonst optisch zu hoch) */}
           <div className="min-w-0 flex items-baseline gap-2.5 leading-none">
-            <span className="hidden md:inline font-mono text-[10.5px] tracking-[.08em] uppercase text-white/85 shrink-0">Betrieb</span>
-            <span className="min-w-0 truncate text-[13.5px] text-white">{branding.anzeigename}</span>
+            <span className="hidden md:inline font-mono text-[10.5px] tracking-[.08em] uppercase text-s112-kopf-text/85 shrink-0">Betrieb</span>
+            <span className="min-w-0 truncate text-[13.5px] text-s112-kopf-text">{branding.anzeigename}</span>
           </div>
         </div>
 
@@ -157,12 +160,12 @@ export default function Topbar({
           <button
             type="button"
             onClick={() => window.dispatchEvent(new Event(PALETTE_EVENT))}
-            className={`inline-flex items-center gap-2 h-8 px-2.5 rounded-md bg-black/15 hover:bg-black/25 text-white/85 hover:text-white text-[13px] transition-colors ${FOKUS_HELL}`}
+            className={`inline-flex items-center gap-2 h-8 px-2.5 rounded-md bg-black/15 hover:bg-black/25 text-s112-kopf-text/85 hover:text-s112-kopf-text text-[13px] transition-colors ${FOKUS_HELL}`}
             title="Suchen oder Befehl (Strg K)"
           >
             <Search size={15} strokeWidth={1.75} />
             <span className="hidden lg:inline">Suchen oder Befehl …</span>
-            <kbd className="hidden md:inline font-mono text-[10.5px] text-white/85 border border-white/40 rounded-sm px-1.5 py-px">Strg K</kbd>
+            <kbd className="hidden md:inline font-mono text-[10.5px] text-s112-kopf-text/85 border border-s112-kopf-text/40 rounded-sm px-1.5 py-px">Strg K</kbd>
           </button>
 
           {/* Benachrichtigungen: Fristenzähler */}
@@ -170,7 +173,7 @@ export default function Topbar({
             <button
               type="button"
               onClick={() => setNotifOpen(o => !o)}
-              className={`relative w-8 h-8 flex items-center justify-center rounded-md text-white/90 hover:bg-black/15 hover:text-white transition-colors ${FOKUS_HELL}`}
+              className={`relative w-8 h-8 flex items-center justify-center rounded-md text-s112-kopf-text/90 hover:bg-black/15 hover:text-s112-kopf-text transition-colors ${FOKUS_HELL}`}
               aria-label={anzahl ? `${anzahl} Hinweise` : 'Benachrichtigungen'}
               title={anzahl ? `${anzahl} offene Hinweise (Aufgaben, Fristen, Gärkontrollen)` : 'Benachrichtigungen'}
             >
@@ -247,8 +250,8 @@ export default function Topbar({
               <span className="w-[26px] h-[26px] rounded-full bg-s112-blue-50 text-s112-blue-700 flex items-center justify-center text-[10.5px] font-semibold">
                 {initials(displayName)}
               </span>
-              <span className="hidden md:inline font-mono text-[11px] tracking-[.08em] uppercase text-white/85">{roleLabel}</span>
-              <ChevronDown size={13} strokeWidth={1.75} className={`text-white/85 transition-transform ${menuOpen ? 'rotate-180' : ''}`} />
+              <span className="hidden md:inline font-mono text-[11px] tracking-[.08em] uppercase text-s112-kopf-text/85">{roleLabel}</span>
+              <ChevronDown size={13} strokeWidth={1.75} className={`text-s112-kopf-text/85 transition-transform ${menuOpen ? 'rotate-180' : ''}`} />
             </button>
             {menuOpen && (
               <div className="absolute right-0 top-10 z-50 w-60 bg-white rounded-xl border border-s112-line shadow-lg p-1.5 text-s112-text">

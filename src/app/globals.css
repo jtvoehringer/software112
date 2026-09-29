@@ -9,6 +9,8 @@
   --s112-green:  #3E9B79; /* Alt-Token → Signal OK */
   --s112-blue:   #77A6E7; /* Alt-Token → Markenblau */
   --s112-yellow: #FFFFFF; /* Text auf Aktion-Fläche, per Tenant überschreibbar (secondary_color) */
+  --s112-kopf:      47 99 172;    /* Kopfleiste (RGB-Kanäle), CD-Blau #2F63AC; per Tenant aus primary_color (KAN-164) */
+  --s112-kopf-text: 255 255 255;  /* Schrift auf der Kopfleiste; per Tenant aus secondary_color (KAN-164) */
   --s112-bg:     #F7F8FA;
   --s112-muted:  #6E717A;
   --s112-border: #EDEEF1;
@@ -40,7 +42,7 @@
 @layer components {
   /* Primär-Button */
   .btn-primary {
-    @apply bg-s112-teal text-white px-4 py-2 rounded-lg font-medium
+    @apply bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg font-medium
            hover:opacity-90 disabled:opacity-50 transition-opacity
            focus:outline-none focus:ring-2 focus:ring-s112-teal focus:ring-offset-2;
   }

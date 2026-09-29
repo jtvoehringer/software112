@@ -86,7 +86,7 @@ export default function TBFormular({ verkaufspostenId, initial, csvHref }: Props
           <button
             onClick={handleSave}
             disabled={pending}
-            className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50"
+            className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50"
           >
             {pending ? 'Speichern…' : 'Speichern'}
           </button>

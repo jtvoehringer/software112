@@ -60,7 +60,7 @@ export default async function AnlagenPage({ searchParams }: { searchParams: Prom
               </Link>
             )}
             {darfSchreiben && (
-              <Link href="/buchhaltung/anlagen/neu" className="inline-flex items-center gap-1.5 bg-s112-teal text-s112-yellow px-3.5 py-1.5 rounded-lg text-[13px] font-semibold hover:bg-s112-blue-700">
+              <Link href="/buchhaltung/anlagen/neu" className="inline-flex items-center gap-1.5 bg-s112-teal text-s112-yellow px-3.5 py-1.5 rounded-lg text-[13px] font-semibold hover:opacity-90">
                 <Plus size={14} strokeWidth={2.5} />Anlage erfassen
               </Link>
             )}

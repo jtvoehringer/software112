@@ -118,7 +118,7 @@ export default async function KellerplanListPage() {
               <input aria-label="Notizen (optional)" name="notizen" placeholder="z.B. Erdgeschoss Nordbau" className={iCls} />
             </div>
             <button type="submit"
-              className="bg-s112-teal text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
+              className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
               Plan anlegen &amp; öffnen
             </button>
           </form>

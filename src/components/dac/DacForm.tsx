@@ -169,7 +169,7 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
             href="https://services2.lfrz.at/at.lfrz.wein/frame.html"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 bg-s112-teal text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-opacity-90 transition-colors"
+            className="inline-flex items-center gap-1.5 bg-s112-teal text-s112-yellow text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-opacity-90 transition-colors"
           >
             bawb.at öffnen
           </a>
@@ -250,7 +250,7 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
       )}
 
       <div className="flex items-center gap-3">
-           <button type="submit" disabled={saving} className="bg-s112-teal text-white px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-50">
+           <button type="submit" disabled={saving} className="bg-s112-teal text-s112-yellow px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-50">
           {saving ? 'Wird gespeichert …' : 'Speichern'}
         </button>
         <button type="button" onClick={() => router.push('/dac')} className="text-sm text-s112-muted hover:text-s112-text-1 transition-colors">Abbrechen</button>

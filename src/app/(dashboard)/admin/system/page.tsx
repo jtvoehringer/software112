@@ -89,7 +89,7 @@ export default async function SystemberichtPage({ searchParams }: { searchParams
         </div>
         <div className="flex gap-1 text-sm">
           {[[1, '24 Stunden'], [7, '7 Tage'], [30, '30 Tage']].map(([t, l]) => (
-            <Link key={t} href={`/admin/system?tage=${t}`} className={`px-3 py-1.5 rounded-full border ${tage === t ? 'bg-s112-teal text-white border-s112-teal' : 'bg-white text-s112-text-1 border-s112-border hover:bg-s112-bg'}`}>{l}</Link>
+            <Link key={t} href={`/admin/system?tage=${t}`} className={`px-3 py-1.5 rounded-full border ${tage === t ? 'bg-s112-teal text-s112-yellow border-s112-teal' : 'bg-white text-s112-text-1 border-s112-border hover:bg-s112-bg'}`}>{l}</Link>
           ))}
         </div>
       </div>

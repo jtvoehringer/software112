@@ -78,7 +78,7 @@ export default async function BelegePage() {
           ) : (
             <Link
               href={`/buchhaltung/belege/${b.id}`}
-              className="bg-s112-teal text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-opacity-90"
+              className="bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-opacity-90"
             >
               Buchen
             </Link>

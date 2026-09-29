@@ -269,7 +269,7 @@ export default function BelegBuchenForm({
 
         <div className="flex gap-3 pt-2">
           <button type="submit" disabled={pending}
-            className="bg-s112-teal text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
+            className="bg-s112-teal text-s112-yellow px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
             {pending ? 'Wird gebucht…' : 'Buchung anlegen'}
           </button>
           <Link href="/buchhaltung/belege"

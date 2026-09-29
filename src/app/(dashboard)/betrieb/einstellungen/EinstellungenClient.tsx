@@ -131,7 +131,7 @@ function AboTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
             Buchhaltung: <span className="font-medium">{daten.buchhaltungsart === 'doppik' ? 'doppelte Buchhaltung beim Steuerberater (BMD-Übergabe)' : 'E&A-Rechnung in software:112'}</span>
           </p>
         )}
-        <Link href="/abo" className="inline-block bg-s112-teal text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-opacity-90">
+        <Link href="/abo" className="inline-block bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-sm font-medium hover:bg-opacity-90">
           Abo &amp; Paket verwalten →
         </Link>
         <p className="text-[11.5px] text-s112-muted">
@@ -187,7 +187,7 @@ function BrandingTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
         <label className="block text-xs font-medium text-s112-text-2 mb-1">Anzeigename</label>
         <input aria-label="Anzeigename" name="anzeigename" defaultValue={daten.anzeigename ?? daten.tenantName}
           placeholder={daten.tenantName} className={inputCls()} />
-        <p className="text-xs text-s112-muted mt-1">Wird in der Sidebar unter dem Logo angezeigt.</p>
+        <p className="text-xs text-s112-muted mt-1">Wird oben in der Kopfleiste neben „Betrieb“ angezeigt – leer lassen für den Betriebsnamen.</p>
       </div>
 
       <div>
@@ -247,7 +247,7 @@ function BrandingTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
           </div>
         </div>
       </div>
-      <KontrastHinweis primary={primary} secondary={secondary} onUebernehmen={setPrimary} />
+      <KontrastHinweis primary={primary} secondary={secondary} name={daten.anzeigename || daten.tenantName} onUebernehmen={setPrimary} />
 
       <div>
         <label className="block text-xs font-medium text-s112-text-2 mb-1">Session Timeout (Minuten)</label>
@@ -306,7 +306,7 @@ function BrandingTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
 
       <div className="flex items-center gap-3">
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
           {pending ? 'Speichern…' : 'Speichern'}
         </button>
         {saved && <span className="text-xs text-s112-blue-700 font-medium">Gespeichert</span>}
@@ -434,7 +434,7 @@ function BetriebTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
 
       <div className="flex items-center gap-3">
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
           {pending ? 'Speichern…' : 'Speichern'}
         </button>
         {saved && <span className="text-xs text-s112-blue-700 font-medium">Gespeichert</span>}
@@ -494,7 +494,7 @@ function KellerwirtschaftTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
 
       <div className="flex items-center gap-3">
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
           {pending ? 'Speichern…' : 'Speichern'}
         </button>
         {saved && <span className="text-xs text-s112-blue-700 font-medium">Gespeichert</span>}
@@ -547,7 +547,7 @@ function BawbTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
             href={BAWB_URL}
             target="_blank"
             rel="noreferrer"
-            className="shrink-0 bg-s112-teal text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors whitespace-nowrap"
+            className="shrink-0 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors whitespace-nowrap"
           >
             bawb.at öffnen
           </a>
@@ -603,7 +603,7 @@ function BawbTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
 
         <div className="flex items-center gap-3">
           <button type="submit" disabled={status === 'saving'}
-            className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+            className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
             {status === 'saving' ? 'Speichern…' : 'Speichern'}
           </button>
           {status === 'ok' && <span className="text-xs text-s112-blue-700 font-medium">Gespeichert</span>}

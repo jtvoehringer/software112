@@ -244,11 +244,11 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
           )}
           <div className="flex items-center border border-s112-border rounded-lg overflow-hidden text-xs">
             <a href={`/weinhandel/verkauf/${id}?mode=lieferschein`}
-              className={`px-2.5 py-1.5 font-medium transition-colors ${!isRechnung ? 'bg-s112-teal text-white' : 'bg-white text-s112-text-2 hover:bg-s112-bg'}`}>
+              className={`px-2.5 py-1.5 font-medium transition-colors ${!isRechnung ? 'bg-s112-teal text-s112-yellow' : 'bg-white text-s112-text-2 hover:bg-s112-bg'}`}>
               Lieferschein
             </a>
             <a href={`/weinhandel/verkauf/${id}`}
-              className={`px-2.5 py-1.5 font-medium transition-colors ${isRechnung ? 'bg-s112-teal text-white' : 'bg-white text-s112-text-2 hover:bg-s112-bg'}`}>
+              className={`px-2.5 py-1.5 font-medium transition-colors ${isRechnung ? 'bg-s112-teal text-s112-yellow' : 'bg-white text-s112-text-2 hover:bg-s112-bg'}`}>
               Rechnung
             </a>
           </div>
@@ -615,7 +615,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
                 </div>
               </div>
               <div className="flex justify-end">
-                <button type="submit" className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 transition-colors">
+                <button type="submit" className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 transition-colors">
                   Zahlung buchen
                 </button>
               </div>

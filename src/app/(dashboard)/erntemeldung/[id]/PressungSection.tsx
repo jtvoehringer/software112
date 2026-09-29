@@ -366,7 +366,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
           <button
             type="button"
             onClick={() => setVerschneidungOpen(true)}
-            className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90"
+            className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90"
           >
             Jetzt verschneiden
           </button>
@@ -632,7 +632,7 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
 
       <div className="flex gap-2 pt-1">
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-50">
+          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-50">
           {pending ? 'Speichert…' : 'Speichern'}
         </button>
         <button type="button" onClick={onDone} className="px-4 py-1.5 text-sm text-s112-text-2 hover:text-s112-text">
@@ -698,7 +698,7 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
           {writeOk && !showForm && (
             gesamtVerfuegbarKg > 0
               ? <button onClick={() => { setShowForm(true); setEditId(null); setCollapsed(false) }}
-                  className="inline-flex items-center gap-1.5 bg-s112-teal text-white font-semibold px-3 py-1.5 rounded-lg text-xs hover:bg-opacity-90 transition-colors shadow-sm">
+                  className="inline-flex items-center gap-1.5 bg-s112-teal text-s112-yellow font-semibold px-3 py-1.5 rounded-lg text-xs hover:bg-opacity-90 transition-colors shadow-sm">
                   <Plus size={14} strokeWidth={2.5} /> Pressung erfassen
                 </button>
               : <span className="text-xs text-s112-warn-fg font-medium bg-s112-warn-bg px-3 py-1.5 rounded-lg">

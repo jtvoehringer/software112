@@ -183,7 +183,7 @@ export default function FAQPage() {
           {['Alle', ...KATEGORIEN].map(k => (
             <button key={k} onClick={() => setKategorie(k)}
               className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors
-                ${kategorie === k ? 'bg-s112-teal text-white' : 'bg-s112-bg text-s112-text-2 hover:bg-s112-teal/10'}`}>
+                ${kategorie === k ? 'bg-s112-teal text-s112-yellow' : 'bg-s112-bg text-s112-text-2 hover:bg-s112-teal/10'}`}>
               {k}
             </button>
           ))}

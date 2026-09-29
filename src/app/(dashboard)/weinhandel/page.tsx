@@ -482,7 +482,7 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
           </div>
           {writeOk && (
             <Link href="/weinhandel/verkauf/neu"
-              className="text-sm bg-s112-teal text-white px-4 py-2 rounded-xl font-medium hover:bg-opacity-90 transition-colors whitespace-nowrap flex-shrink-0">
+              className="text-sm bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl font-medium hover:bg-opacity-90 transition-colors whitespace-nowrap flex-shrink-0">
               ＋ Verkauf anlegen
             </Link>
           )}

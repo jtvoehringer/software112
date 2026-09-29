@@ -211,7 +211,7 @@ export default function LeadDialog({ mail, onClose, onAngelegt }: Props) {
               <p className="text-[11px] text-s112-tertiary">Die E-Mail wird als Aktivität am neuen Lead abgelegt.</p>
               <div className="flex gap-2">
                 <button onClick={onClose} disabled={phase === 'speichern'} className="text-sm border border-s112-line-str text-s112-text-2 px-4 py-2 rounded-lg hover:bg-s112-bg">Abbrechen</button>
-                <button onClick={speichern} disabled={phase === 'speichern'} className="text-sm bg-s112-teal text-white px-4 py-2 rounded-lg font-semibold hover:bg-opacity-90 disabled:opacity-50">
+                <button onClick={speichern} disabled={phase === 'speichern'} className="text-sm bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg font-semibold hover:bg-opacity-90 disabled:opacity-50">
                   {phase === 'speichern' ? 'Speichern…' : 'Als Lead speichern'}
                 </button>
               </div>
@@ -225,7 +225,7 @@ export default function LeadDialog({ mail, onClose, onAngelegt }: Props) {
               Lead <b>{ergebnis.name}</b> wurde angelegt{ergebnis.firmaId ? ' und mit der Firma verknüpft' : ''}. Die E-Mail liegt in der Historie des Kontakts.
             </div>
             <div className="flex flex-wrap gap-2">
-              <Link href={`/crm/kontakte/${ergebnis.kontaktId}`} className="text-sm bg-s112-teal text-white px-4 py-2 rounded-lg font-semibold hover:bg-opacity-90">Kontakt öffnen</Link>
+              <Link href={`/crm/kontakte/${ergebnis.kontaktId}`} className="text-sm bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg font-semibold hover:bg-opacity-90">Kontakt öffnen</Link>
               {ergebnis.firmaId && <Link href={`/crm/firmen/${ergebnis.firmaId}`} className="text-sm border border-s112-line-str text-s112-text-2 px-4 py-2 rounded-lg hover:bg-s112-bg">Firma öffnen</Link>}
               <button onClick={onClose} className="text-sm border border-s112-line-str text-s112-text-2 px-4 py-2 rounded-lg hover:bg-s112-bg">Schließen</button>
             </div>
