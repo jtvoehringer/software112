@@ -6,6 +6,7 @@
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { alle } from '@/lib/supabase/alle'
+import { wienJetzt, lokalerTag, tageSeit } from '@/lib/datum/wien'
 import { getCurrentMembership, type UserRole } from '@/lib/auth/roles'
 import type { Charge, Frist, FristStatus } from './types'
 import { periodeVorBeginn } from '@/lib/ea/betriebsbeginn'
@@ -34,8 +35,10 @@ export type Ctx = {
   tf: (query: any) => any
 }
 
+/** 'JJJJ-MM-TT' aus den lokalen Feldern (KAN-158: nicht über toISOString – lokal gebildete Daten wie
+ *  new Date(j, m, 15) wurden auf einem Rechner in Wien sonst zum 14.) */
 export function toDateStr(d: Date) {
-  return d.toISOString().split('T')[0]
+  return lokalerTag(d)
 }
 export function startOfWeek(d: Date) {
   const day = d.getDay()
@@ -54,7 +57,8 @@ export async function getCtx(): Promise<Ctx> {
     const { data: t } = await (supabase.from('tenants') as any).select('name').eq('id', tenantId).maybeSingle()
     tenantName = (t as R | null)?.name ?? null
   }
-  const heute = new Date()
+  // KAN-158: Wiener Wandzeit – Tages-, Monats- und Jahreswechsel sowie die Begrüßung nach Wiener Uhr (Vercel läuft in UTC)
+  const heute = wienJetzt()
   const q = (table: string) => (supabase.from(table) as any)
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query // eslint-disable-line @typescript-eslint/no-explicit-any
   return { supabase, tenantId, tenantName, userId: user?.id ?? null, role: membership?.role ?? null, heute, heuteStr: toDateStr(heute), q, tf }
@@ -78,17 +82,16 @@ export const ZAHLUNGSZIEL_TAGE = 30
 
 export async function ladeOffenePosten(ctx: Ctx) {
   // KAN-157: alle offenen Rechnungen (vorher .limit(300) – Summe und Anzahl wären darüber zu niedrig); auch Quelle der Finanzübersicht
-  const { data } = await alle<R>(ctx.tf(ctx.q('verkaufsposten')
+  const { data, error } = await alle<R>(ctx.tf(ctx.q('verkaufsposten')
     .select('id, datum, rechnungsnummer, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen(name), positionen:verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
     .eq('aktiv', true).eq('bezahlt', false).eq('storniert', false).order('datum', { ascending: true }).order('id')))
-  const heuteMs = ctx.heute.getTime()
   const liste = ((data ?? []) as R[]).map(v => ({
     id: v.id as string,
     datum: v.datum as string,
     rechnungsnummer: (v.rechnungsnummer ?? null) as string | null,
     kunde: v.kontakt ? [v.kontakt.vorname, v.kontakt.nachname].filter(Boolean).join(' ') : (v.firma?.name ?? '–') as string,
     betrag: posSum([v]),
-    tage: Math.floor((heuteMs - new Date(v.datum).getTime()) / 86400000),
+    tage: tageSeit(v.datum, ctx.heute),   // KAN-158: Kalendertage in Wien
   }))
   const ueberfaellig = liste.filter(v => v.tage > ZAHLUNGSZIEL_TAGE)
   return {
@@ -98,6 +101,8 @@ export async function ladeOffenePosten(ctx: Ctx) {
     ueberfaellig: ueberfaellig.length,
     ueberfaelligSumme: ueberfaellig.reduce((s, v) => s + v.betrag, 0),
     avgTage: liste.length ? Math.round(liste.reduce((s, v) => s + v.tage, 0) / liste.length) : 0,
+    /** KAN-158: Datenbankfehler – Summen sind dann unvollständig */
+    fehler: error ? String((error as R).message ?? error) : null,
   }
 }
 

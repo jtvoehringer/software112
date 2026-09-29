@@ -122,6 +122,7 @@ export default async function UebersichtPage() {
                 {f.uebergabe
                   ? <Badge tone={offenUebergabe > 0 ? 'warn' : 'ok'}>{offenUebergabe > 0 ? `${offenUebergabe} Belege nicht übergeben` : 'alles übergeben'}</Badge>
                   : f.uva && <Badge tone={f.uva.status === 'uebermittelt' ? 'ok' : f.uva.faelligAm < ctx.heuteStr ? 'err' : 'warn'}>UVA {f.uva.label}: {f.uva.status === 'uebermittelt' ? 'übermittelt' : f.uva.status === 'entwurf' ? 'Entwurf' : 'offen'}</Badge>}
+                {f.unvollstaendig.length > 0 && <Badge tone="err">Zahlen unvollständig</Badge>}
                 <span className="text-[12px] text-s112-blue-700">Finanzübersicht →</span>
               </div>
             </div>

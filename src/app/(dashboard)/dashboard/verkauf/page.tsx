@@ -5,6 +5,7 @@ import Link from '@/components/ui/Link'
 import { ReceiptText, Package, Users, ShoppingCart, Calendar, Wallet } from 'lucide-react'
 import { DashHeader, Card, BarRow, Empty, fmtNum, fmtEur } from '../_shared/ui'
 import { getCtx, ladeFlaschenlager } from '../_shared/data'
+import { wienJetzt, lokalerTag, tageSeit } from '@/lib/datum/wien'
 
 export const metadata: Metadata = { title: 'Verkauf & CRM – software:112' }
 export const dynamic = 'force-dynamic'
@@ -26,9 +27,8 @@ function startOfWeek(d: Date) {
   s.setHours(0, 0, 0, 0)
   return s
 }
-function toDateStr(d: Date) {
-  return d.toISOString().split('T')[0]
-}
+// KAN-158: aus den lokalen Feldern (Wiener Wandzeit), nicht über toISOString
+const toDateStr = lokalerTag
 
 export default async function DashboardPage() {
   const supabase = await createSupabaseServerClient()
@@ -47,12 +47,12 @@ export default async function DashboardPage() {
     tenantName = (tenantRow as { name?: string } | null)?.name ?? null
   }
 
-  const heute = new Date()
-  const monatVon  = new Date(heute.getFullYear(), heute.getMonth(), 1).toISOString().split('T')[0]
-  const monatBis  = new Date(heute.getFullYear(), heute.getMonth() + 1, 0).toISOString().split('T')[0]
-  const vorMonVon = new Date(heute.getFullYear(), heute.getMonth() - 1, 1).toISOString().split('T')[0]
-  const vorMonBis = new Date(heute.getFullYear(), heute.getMonth(), 0).toISOString().split('T')[0]
-  const heuteStr  = heute.toISOString().split('T')[0]
+  const heute = wienJetzt()   // KAN-158: Monatswechsel nach Wiener Uhr
+  const monatVon  = toDateStr(new Date(heute.getFullYear(), heute.getMonth(), 1))
+  const monatBis  = toDateStr(new Date(heute.getFullYear(), heute.getMonth() + 1, 0))
+  const vorMonVon = toDateStr(new Date(heute.getFullYear(), heute.getMonth() - 1, 1))
+  const vorMonBis = toDateStr(new Date(heute.getFullYear(), heute.getMonth(), 0))
+  const heuteStr  = toDateStr(heute)
 
   const wochenStart      = startOfWeek(heute)
   const wochenStartStr   = toDateStr(wochenStart)
@@ -144,9 +144,8 @@ export default async function DashboardPage() {
   const offenePostenListe = (offenePostenRaw ?? []) as R[]
   const offenePosten  = posSum(offenePostenListe)
 
-  const heuteMs = heute.getTime()
   const offenePostenTage = offenePostenListe
-    .map(p => Math.floor((heuteMs - new Date(p.datum).getTime()) / 86400000))
+    .map(p => tageSeit(p.datum, heute))   // KAN-158: Kalendertage in Wien
     .filter(d => Number.isFinite(d))
   const offenePostenUeberfaellig = offenePostenTage.filter(d => d > ZAHLUNGSZIEL_TAGE).length
   const offenePostenAvgTage = offenePostenTage.length
@@ -190,7 +189,7 @@ export default async function DashboardPage() {
   const belege: R[] = ((letzteVerkaeufRaw ?? []) as R[])
     .map(v => {
       const betrag = posSum([v])
-      const tage = Math.floor((heuteMs - new Date(v.datum).getTime()) / 86400000)
+      const tage = tageSeit(v.datum, heute)
       return { ...v, betrag, tage, kunde: kundenName(v) } as R
     })
     .filter(v => v.tage > ZAHLUNGSZIEL_TAGE)
@@ -228,7 +227,7 @@ export default async function DashboardPage() {
   // Zusatz 24.9.2026: private Einträge ohne Ersteller (Ersteller gelöscht, FK seit
   // Migration legacy_nachtrag_025_050_052 ON DELETE SET NULL) bleiben ausgeblendet -
   // sonst sähe jeder im Betrieb Betreff und Kunde fremder privater Termine.
-  const in30 = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  const in30 = toDateStr(new Date(heute.getFullYear(), heute.getMonth(), heute.getDate() + 30))
   const { data: meineAkts } = currentUser
     ? await tf((supabase.from('aktivitaeten') as any)
         .select('id, art, betreff, datum, erledigt, kontakt_id, firma_id, kontakte(vorname,nachname), firmen(name)')

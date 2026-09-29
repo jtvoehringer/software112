@@ -19,8 +19,8 @@ import assert from 'node:assert/strict'
 import { hooksRegistrieren, laden, nurMitHooks, hooksMoeglich, datenbank, ohneMandant, fehlerBei } from './buchung-attrappe.mjs'
 
 hooksRegistrieren()
-const [fin, dash] = hooksMoeglich
-  ? await Promise.all([laden('lib/finanzen/uebersicht.ts'), laden('app/(dashboard)/dashboard/_shared/data.ts')])
+const [fin, dash, wien] = hooksMoeglich
+  ? await Promise.all([laden('lib/finanzen/uebersicht.ts'), laden('app/(dashboard)/dashboard/_shared/data.ts'), laden('lib/datum/wien.ts')])
   : []
 
 const T = 'tenant-1'
@@ -100,7 +100,9 @@ async function ctxFuer(db, heute = HEUTE) {
   globalThis.__serverFake = db
   globalThis.__membership = { tenantId: T, role: 'tenant_admin', schreibmodule: [] }
   const ctx = await dash.getCtx()
-  return { ...ctx, heute, heuteStr: dash.toDateStr(heute) }
+  // wie getCtx seit KAN-158: der Zeitpunkt als Wiener Wandzeit
+  const wand = wien.wienJetzt(heute)
+  return { ...ctx, heute: wand, heuteStr: dash.toDateStr(wand) }
 }
 
 async function lade(opts = {}, t = tabellen(), dbOpt) {
@@ -252,22 +254,44 @@ describe('ladeFinanzen – Finanzübersicht', nurMitHooks, () => {
     }
   })
 
-  // Befund (Zeitzonen-Grenze): Server in Wien, 28.09.2026 00:30 Wiener Zeit (27.09. 22:30 UTC).
-  // Jahr und Monat kommen aus der Serverzeit (28.09.), der Stichtag aus toISOString (UTC-Datum 27.09.):
-  // alles vom 28.09. bzw. 28.09. des Vorjahres fehlt im Stichtagsvergleich. Unter UTC (Vercel) ergibt
-  // derselbe Zeitpunkt ebenfalls den 27.09. – dort stimmig, aus Wiener Sicht aber der Vortag.
-  test('Befund: Wien, 28.09. 00:30 – Stichtag noch 27.09.: g1/k1/r1 fehlen im YTD, g2/k2/r2 im Vorjahresvergleich', async () => {
-    process.env.TZ = 'Europe/Vienna'
-    const { r } = await lade({ art: 'doppik', heute: new Date('2026-09-27T22:30:00.000Z') }, grenzen())
-    assert.equal(r.jahr, 2026)
-    assert.equal(r.stichtag, '2026-09-27')
-    assert.deepEqual(r.ytd, { einnahmen: 0, ausgaben: 0, ergebnis: 0, einnahmenVj: 0, ausgabenVj: 3, ergebnisVj: -3 })
-    assert.deepEqual(r.gesamtVj, { einnahmen: 1010, ausgaben: 303, ergebnis: 707 })
-    assert.equal(r.belege.buchungenJahr, 0)
-    assert.deepEqual([r.anlagen.afaGebuchtJahr, r.anlagen.anlagenkaeufeJahr, r.anlagen.anlagenkaeufeVj], [0, 0, 0])
-    assert.deepEqual([Math.round(r.umsatz.ytd * 100) / 100, Math.round(r.umsatz.vj * 100) / 100], [30, 0], 'nur r3 + r4')
-    // Befund (KAN-158): nach Wiener Kalender ist r4 schon 31 Tage alt, gerechnet wird aber mit 30 Tagen 22,5 Stunden (volle Tage in UTC)
-    assert.deepEqual(r.forderungen, { summe: 36, anzahl: 2, ueberfaellig: 0, ueberfaelligSumme: 0 }, 'r3 29, r4 30 volle Tage alt')
+  // KAN-158 (vorher Befund: Stichtag aus toISOString = UTC-Datum 27.09.): 28.09.2026 00:30 Wiener Zeit
+  // (27.09. 22:30 UTC) ist in Wien schon der 28.09. – egal, ob der Server in UTC (Vercel) oder Wien läuft.
+  // Überfällig nach Wiener Kalendertagen: r4 ist 31 Tage alt, r3 30.
+  test('KAN-158: Wien, 28.09. 00:30 – Stichtag 28.09. auf UTC- und Wiener Server, Überfälligkeit nach Kalendertagen', async () => {
+    for (const zone of ['UTC', 'Europe/Vienna']) {
+      process.env.TZ = zone
+      const { r } = await lade({ art: 'doppik', heute: new Date('2026-09-27T22:30:00.000Z') }, grenzen())
+      assert.equal(r.jahr, 2026, zone)
+      assert.equal(r.stichtag, '2026-09-28', zone)
+      assert.deepEqual(r.ytd, { einnahmen: 100, ausgaben: 500, ergebnis: -400, einnahmenVj: 10, ausgabenVj: 303, ergebnisVj: -293 }, zone)
+      assert.equal(r.belege.buchungenJahr, 2, zone)
+      assert.deepEqual([r.anlagen.afaGebuchtJahr, r.anlagen.anlagenkaeufeJahr, r.anlagen.anlagenkaeufeVj], [20, 500, 300], zone)
+      assert.deepEqual([Math.round(r.umsatz.ytd * 100) / 100, Math.round(r.umsatz.vj * 100) / 100], [130, 100], zone)
+      assert.deepEqual(r.forderungen, { summe: 36, anzahl: 2, ueberfaellig: 1, ueberfaelligSumme: 24 }, `${zone}: r4 (31 Tage) überfällig, r3 (30) nicht`)
+    }
+  })
+
+  test('KAN-158: UVA-Fälligkeit der 15. – auch auf einem Rechner in Wien (vorher über toISOString der 14.)', async () => {
+    for (const zone of ['UTC', 'Europe/Vienna']) {
+      process.env.TZ = zone
+      const { r } = await lade()
+      assert.equal(r.uva.faelligAm, '2026-10-15', zone)
+    }
+  })
+
+  // KAN-158 (vorher Befund): 1.1.2027 00:30 Wiener Zeit (31.12.2026 23:30 UTC) ist in Wien schon 2027 – Jahr,
+  // Stichtag, Monatsabschluss und UVA stimmen auf UTC- und Wiener Server überein.
+  test('KAN-158: Wien, 1.1.2027 00:30 – Jahr 2027, Stichtag 1.1.2027, UVA Dez 2026 fällig 15.2. (UTC- und Wiener Server)', async () => {
+    const silvester = new Date('2026-12-31T23:30:00.000Z')
+    for (const zone of ['UTC', 'Europe/Vienna']) {
+      process.env.TZ = zone
+      const { r } = await lade({ heute: silvester })
+      assert.deepEqual([r.jahr, r.stichtag, r.monatsabschluss.offeneMonate], [2027, '2027-01-01', 0], zone)
+      assert.deepEqual(r.ytd, { einnahmen: 0, ausgaben: 0, ergebnis: 0, einnahmenVj: 0, ausgabenVj: 0, ergebnisVj: 0 }, `${zone}: Vorjahr nur bis 1.1.2026`)
+      assert.deepEqual([r.uva.label, r.uva.faelligAm], ['Dez 2026', '2027-02-15'], zone)
+      const q = await lade({ heute: silvester, uvaZeitraum: 'quartalsweise' })
+      assert.deepEqual([q.r.uva.label, q.r.uva.faelligAm], ['Q4 2026', '2027-02-15'], zone)
+    }
   })
 
   test('Liquidität: Eröffnungssaldo + Zahlungen + E&A-Buchungen aller Jahre (brutto, Vorzeichen) ± Umbuchungen, nur aktive Konten', async () => {
@@ -298,42 +322,6 @@ describe('ladeFinanzen – Finanzübersicht', nurMitHooks, () => {
     assert.deepEqual(jan.r.uva, { label: 'Q4 2025', status: 'fehlt', zahllast: null, faelligAm: '2026-02-15' })
     const janM = await lade({ heute: new Date('2026-01-10T12:00:00Z') })
     assert.deepEqual(janM.r.uva, { label: 'Dez 2025', status: 'fehlt', zahllast: null, faelligAm: '2026-02-15' })
-  })
-
-  test('Befund: Fälligkeit hängt von der Zeitzone des Servers ab (toISOString) – in Wien der 14. statt des 15.', async () => {
-    process.env.TZ = 'Europe/Vienna'
-    const { r } = await lade()
-    assert.equal(r.uva.faelligAm, '2026-10-14')
-  })
-
-  // Gleiche Ursache, andere Wirkung: heuteStr (Stichtag) kommt aus toISOString (UTC-Datum), Jahr und
-  // Monat aus getFullYear/getMonth (Serverzeit). Östlich von UTC fallen am 1.1. bis 1 Uhr (Winterzeit
-  // Wien) Jahr und Stichtag auseinander.
-  // Server in Wien: Jahr 2027, 0 abgelaufene Monate und die UVA Dez 2026 (bzw. Q4 2026) sind für das
-  // Wiener Datum 1.1.2027 RICHTIG. Falsch sind nur der Stichtag (UTC-Datum 31.12.2026), daraus das
-  // leere YTD und der Vorjahresvergleich über das ganze Jahr 2026 (stichtagVj 2026-12-31), sowie die
-  // Fälligkeit 14.2. statt 15.2. Ein Fix bildet den Stichtag nach Europe/Vienna – nicht Jahr und
-  // Monat nach UTC.
-  test('Befund: Wien, 1.1.2027 00:30 – Jahr 2027, aber Stichtag 31.12.2026: YTD leer, Vorjahr = ganzes Jahr 2026', async () => {
-    const silvester = new Date('2026-12-31T23:30:00.000Z')
-    // Server in UTC (Vercel): in sich stimmig, aber aus Wiener Sicht der VORTAG – Jahr 2026, Stichtag
-    // 31.12.2026, UVA Nov 2026. Das ist die heutige Referenz, nicht das fachliche Soll (offen:
-    // Datum nach Europe/Vienna bilden).
-    process.env.TZ = 'UTC'
-    const utc = (await lade({ heute: silvester })).r
-    assert.deepEqual([utc.jahr, utc.stichtag, utc.ytd.einnahmen, utc.monatsabschluss.offeneMonate], [2026, '2026-12-31', 2039, 5])
-    assert.deepEqual([utc.uva.label, utc.uva.faelligAm], ['Nov 2026', '2027-01-15'])
-
-    process.env.TZ = 'Europe/Vienna'
-    const { r } = await lade({ heute: silvester })
-    assert.equal(r.jahr, 2027)                        // richtig für Wien
-    assert.equal(r.stichtag, '2026-12-31')            // Befund: UTC-Datum statt 2027-01-01
-    assert.deepEqual(r.ytd, { einnahmen: 0, ausgaben: 0, ergebnis: 0, einnahmenVj: 2039, ausgabenVj: 2315, ergebnisVj: -276 })
-    assert.deepEqual(r.ytd.einnahmenVj, r.gesamtVj.einnahmen, 'Vorjahresvergleich umfasst das ganze Jahr 2026')
-    assert.equal(r.monatsabschluss.offeneMonate, 0)   // richtig für Wien (Jänner: noch kein Monat abgelaufen)
-    assert.deepEqual([r.uva.label, r.uva.faelligAm], ['Dez 2026', '2027-02-14']) // Label richtig, Fälligkeit Befund (15.2.)
-    const q = await lade({ heute: silvester, uvaZeitraum: 'quartalsweise' })
-    assert.deepEqual([q.r.uva.label, q.r.uva.faelligAm], ['Q4 2026', '2027-02-14'])
   })
 
   test('Monatsabschluss: letzter Abschluss und offene abgelaufene Monate des Jahres', async () => {
@@ -389,12 +377,18 @@ describe('ladeFinanzen – Finanzübersicht', nurMitHooks, () => {
     assert.equal(r.anlagen.buchwert, 0)
   })
 
-  test('Befund: Datenbankfehler werden verschluckt – die Übersicht zeigt dann 0 statt einer Fehlermeldung', async () => {
+  // KAN-158 (vorher Befund: Fehler verschluckt, die Übersicht zeigte still 0): die Werte bleiben unvollständig,
+  // aber unvollstaendig nennt den Bereich – die Seite zeigt dazu einen Hinweis
+  test('KAN-158: Datenbankfehler werden als „unvollständig“ gemeldet statt still 0 anzuzeigen', async () => {
+    assert.deepEqual((await lade()).r.unvollstaendig, [])
     const { r } = await lade({}, tabellen(), { vorher: fehlerBei('konten', 'select', { message: 'timeout' }) })
     assert.deepEqual(r.liquiditaet, { summe: 0, konten: [] })
+    assert.deepEqual(r.unvollstaendig, ['Konten'])
     const ea = await lade({}, tabellen(), { vorher: fehlerBei('ea_transaktionen', 'select', { message: 'timeout' }) })
     assert.equal(ea.r.ytd.einnahmen, 0)
-    assert.equal(ea.r.belege.buchungenJahr, 0)
+    assert.ok(ea.r.unvollstaendig.includes('Buchungen (E&A)'), ea.r.unvollstaendig.join())
+    const vp = await lade({}, tabellen(), { vorher: fehlerBei('verkaufsposten', 'select', { message: 'timeout' }) })
+    assert.ok(vp.r.unvollstaendig.includes('Rechnungen') || vp.r.unvollstaendig.includes('Offene Posten'), vp.r.unvollstaendig.join())
   })
 
   test('monatLabel: Kurzname, sonst die Zahl', () => {
