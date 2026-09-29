@@ -8,7 +8,7 @@ import type { Lese } from '@/lib/wein/lesen'
 export const metadata: Metadata = { title: 'Lese – software:112' }
 
 export type Jahrgang = {
-  id: string; jahrgang: number; ernte_beginn: string | null; ernte_ende: string | null
+  id: string; jahrgang: number
   qualitaet_gesamt: string | null; ama_gemeldet: boolean; ama_meldedatum: string | null
   abgeschlossen: boolean; notizen: string | null
   parzellen_count: number; gesamtmenge_kg: number; avg_kmw: number | null
@@ -39,7 +39,7 @@ export default async function ErntemeldungPage() {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawJ } = await (supabase.from('weinjahrgaenge') as any)
-    .select(`id, jahrgang, ernte_beginn, ernte_ende, qualitaet_gesamt,
+    .select(`id, jahrgang, qualitaet_gesamt,
              ama_gemeldet, ama_meldedatum, abgeschlossen, notizen,
              lesen(id, lfd_nr, art, bezeichnung, beginn, ende, notizen)`)
     .eq('tenant_id', tenantId)
@@ -94,8 +94,6 @@ export default async function ErntemeldungPage() {
   const jahrgaenge: Jahrgang[] = ((rawJ ?? []) as AR[]).map(j => ({
     id:               j.id,
     jahrgang:         j.jahrgang,
-    ernte_beginn:     j.ernte_beginn,
-    ernte_ende:       j.ernte_ende,
     qualitaet_gesamt: j.qualitaet_gesamt,
     ama_gemeldet:     j.ama_gemeldet,
     ama_meldedatum:   j.ama_meldedatum,
