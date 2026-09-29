@@ -57,7 +57,10 @@ function lieferant(z: R): string | null {
   return f ?? (kn || null)
 }
 
-export type Bewegungsgraph = { ereignisse: Ereignis[]; chargen: Map<string, R>; warnungen: string[] }
+/** Eine Traubenzeile einer Pressung im Graphen (pressung_weingaerten samt Pressung) mit ihrem Herkunftsschlüssel */
+export type GraphLesezeile = { key: string; zeile: R; pressung: R; weinausbauId: string }
+
+export type Bewegungsgraph = { ereignisse: Ereignis[]; chargen: Map<string, R>; warnungen: string[]; lesezeilen: GraphLesezeile[] }
 
 /**
  * Alle Bewegungen der Chargen `startIds` und ihrer Vorgänger (rückwärts über Umzug und Verschnitt).
@@ -67,6 +70,7 @@ export async function ladeBewegungsgraph(supabase: any, tenantId: string, startI
   const ereignisse = new Map<string, Ereignis>()
   const chargen = new Map<string, R>()
   const warnungen: string[] = []
+  const lesezeilen = new Map<string, GraphLesezeile>()
   const bekannt = new Set<string>(startIds)
   let frontier = [...new Set(startIds)]
   const neu = (id: string | null | undefined) => {
@@ -86,9 +90,9 @@ export async function ladeBewegungsgraph(supabase: any, tenantId: string, startI
       // pressung_behaelter ohne tenant_id – Mandant über die Pressung
       liste((supabase.from('pressung_behaelter') as any)
         .select(`id, menge_liter, weinausbau_id,
-          pressung:pressung_id(id, datum, erstellt_am, tenant_id, jahrgang:jahrgang_id(jahrgang),
-            pressung_weingaerten(id, trauben_kg, rebsorte, ernte_datum, kmw, zukauf_posten_id,
-              weingarten:weingarten_id(name), grundstueck:grundstueck_id(gst_nr, katastralgemeinde)))`)
+          pressung:pressung_id(id, datum, erstellt_am, tenant_id, jahrgang_id, lese_id, jahrgang:jahrgang_id(jahrgang),
+            pressung_weingaerten(id, trauben_kg, rebsorte, ernte_datum, kmw, zukauf_posten_id, weingarten_id, grundstueck_id,
+              weingarten:weingarten_id(id, name), grundstueck:grundstueck_id(gst_nr, katastralgemeinde)))`)
         .in('weinausbau_id', ids).order('id'), 'Pressungen'),
       liste((supabase.from('zukauf_posten') as any)
         .select('id, datum, erstellt_am, menge, rebsorte, jahrgang, ziel_weinausbau_id, lieferant_firma:firmen!lieferant_firma_id(name), lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname)')
@@ -144,6 +148,12 @@ export async function ladeBewegungsgraph(supabase: any, tenantId: string, startI
           const anteil = kgGesamt > 0 ? num(z.trauben_kg) / kgGesamt : 1 / zeilen.length
           const w = z.weingarten as R | null, g = z.grundstueck as R | null
           const jg = jahrgang ?? (z.ernte_datum ? Number(String(z.ernte_datum).slice(0, 4)) : null)
+          if (z.id && !lesezeilen.has(String(z.id))) {
+            lesezeilen.set(String(z.id), {
+              key: z.zukauf_posten_id ? `zukauf-trauben:${z.zukauf_posten_id}` : `pressung:${w?.name ?? '?'}:${g?.gst_nr ?? '?'}:${z.rebsorte ?? '?'}:${jg ?? '?'}`,
+              zeile: z, pressung: p, weinausbauId: b.weinausbau_id,
+            })
+          }
           if (z.zukauf_posten_id) {
             return { key: `zukauf-trauben:${z.zukauf_posten_id}`, liter: liter * anteil,
               info: info({ typ: 'zukauf', rebsorte: z.rebsorte ?? null, jahrgang: jg, ernte_datum: z.ernte_datum ?? null, zukauf_von: 'Trauben-Zukauf' }) }
@@ -276,7 +286,7 @@ export async function ladeBewegungsgraph(supabase: any, tenantId: string, startI
     frontier = naechste
   }
   if (bekannt.size >= MAX_CHARGEN) warnungen.push(`Mehr als ${MAX_CHARGEN} vorgelagerte Chargen – die Herkunft ist nur teilweise aufgelöst.`)
-  return { ereignisse: [...ereignisse.values()], chargen, warnungen }
+  return { ereignisse: [...ereignisse.values()], chargen, warnungen, lesezeilen: [...lesezeilen.values()] }
 }
 
 /**
@@ -309,6 +319,36 @@ export async function ladeZusammensetzungFuellung(supabase: any, tenantId: strin
   const warnungen = [...g.warnungen]
   if (z.anteile.length === 0) warnungen.push('Die Füllung ist keiner Charge mit Bestand zugeordnet – Herkunft nicht ermittelbar.')
   return { ...z, warnungen }
+}
+
+/**
+ * Traubenzeilen (Lesezeilen), aus denen eine Charge bzw. Füllung stammt – Einstieg der Rieden-Rückverfolgung
+ * (KAN-108). Charge: alle Lesezeilen der Charge und ihrer Vorgänger (über Umzüge und Verschnitte) – auch
+ * bereits abgefüllte Anteile, lieber eine Lese zu viel als eine zu wenig. Füllung: nur die Lesezeilen, deren
+ * Herkunft laut Mischungsrechnung in der Abfüllung steckt (Anteil > 0). null = Charge/Füllung nicht gefunden.
+ */
+export async function ladeHerkunftLesezeilen(
+  supabase: any, tenantId: string, art: 'charge' | 'fuellung', id: string,
+): Promise<{ lesezeilen: GraphLesezeile[]; anteilJeKey: Map<string, number>; warnungen: string[] } | null> {
+  if (art === 'charge') {
+    const g = await ladeBewegungsgraph(supabase, tenantId, [id])
+    if (!g.chargen.has(id)) return null
+    return { lesezeilen: g.lesezeilen, anteilJeKey: new Map(), warnungen: g.warnungen }
+  }
+  const [fc, f] = await Promise.all([
+    liste((supabase.from('fuellung_chargen') as any)
+      .select('weinausbau_id').eq('tenant_id', tenantId).eq('fuellung_id', id).order('weinausbau_id'), 'Füllungen'),
+    (supabase.from('fuellungen') as any).select('id, weinausbau_id').eq('tenant_id', tenantId).eq('id', id).maybeSingle(),
+  ])
+  if (!(f.data as R | null)) return null
+  const ids = [...new Set([...fc.map(r => r.weinausbau_id as string), (f.data as R).weinausbau_id as string | undefined].filter((x): x is string => !!x))]
+  if (ids.length === 0) return { lesezeilen: [], anteilJeKey: new Map(), warnungen: ['Die Füllung ist keiner Charge zugeordnet – Rückverfolgung nur bis zur Abfüllung.'] }
+  const g = await ladeBewegungsgraph(supabase, tenantId, ids)
+  const z = zusammensetzungEntnahme(g.ereignisse, `fuellung:${id}`)
+  const anteilJeKey = new Map(z.anteile.filter(a => a.liter > 0 || a.anteil_pct > 0).map(a => [a.key, a.anteil_pct]))
+  // ohne auswertbare Entnahme (z. B. Füllung ohne Liter): alle Lesezeilen der Chargen
+  const lesezeilen = anteilJeKey.size > 0 ? g.lesezeilen.filter(l => anteilJeKey.has(l.key)) : g.lesezeilen
+  return { lesezeilen, anteilJeKey, warnungen: [...g.warnungen, ...z.warnungen] }
 }
 
 /** Kompatibel zu früheren Aufrufen: nur die Anteile einer Charge (heute) */

@@ -61,4 +61,15 @@ export const KATALOG_PFLANZENSCHUTZ = katalogGruppe('pflanzenschutz', {
     rechtsgrundlage: 'Nitrat-Aktionsprogramm-Verordnung (NAPV) 2023',
     beschreibung: 'Eine Zeile je Düngung: Datum, Weingarten, Fläche, Düngemittel, Düngermenge (kg), N/P-Gehalt, N/P (kg) und (kg/ha).',
   },
+  // KAN-108: Rückverfolgung geteilt in Weingarten und Weinkeller (BKI R19) – wie die Kellerbuch-Rückverfolgung
+  // für jedes Mitglied abrufbar; Einstieg über Jahrgang/GST, Lese, Charge oder Füllung
+  'rueckverfolgung-weingarten': {
+    titel: 'Rückverfolgung Weingarten (Maßnahmen bis zur Lese, Wartezeiten)',
+    behoerde: 'BKI / Lebensmittelaufsicht, Landes-Pflanzenschutzbehörde',
+    zugriff: 'mitglied',
+    druckPfad: '/weingarten/rueckverfolgung',
+    standardParameter: () => ({ jahrgang: wienHeute().slice(0, 4) }),
+    rechtsgrundlage: 'Art. 18 VO (EG) 178/2002 (Rückverfolgbarkeit), Art. 67 VO (EG) 1107/2009',
+    beschreibung: 'Eine Zeile je Lese-Grundstück und Maßnahme „von Ernte bis Ernte“: Weingarten, KG, GST, Feldstück, Sorte, Lesedatum, kg, KMW, Traubenverkauf mit Abnehmer und Liefernummer; je Pflanzenschutzmittel Registernummer, Aufwand, Wartezeit, frühester Lesetermin und Prüfung gegen den Lesetag.',
+  },
 })

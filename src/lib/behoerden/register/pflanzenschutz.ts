@@ -7,6 +7,9 @@ import {
 } from '../psm'
 import { ladeCuBilanz, SPALTEN_CU_BEHANDLUNGEN, SPALTEN_CU_BILANZ, type CuBilanzParameter } from '../cu'
 import { ladeNaehrstoffbilanz, SPALTEN_NAEHRSTOFFBILANZ } from '../naehrstoff'
+import { MeldungsFehler } from '../typen'
+import { jahrgangOptional, uuidOptional } from '../kellerbuch-hilfen'
+import { einstiegFehler, ladeRvWeingarten, rvZeilen, SPALTEN_RV_WEINGARTEN, type RvEinstieg } from '../rv-weingarten'
 
 // Register der Behördenmeldungen – Gruppe „Pflanzenschutz & Düngung“ (Pflanzenschutz-Aufzeichnungen,
 // Mittelverbrauch, Kupfer-Bilanz, Nährstoffbilanz). Parameter 1:1 wie die searchParams der Druckseiten:
@@ -69,5 +72,30 @@ export const MELDUNGEN_PFLANZENSCHUTZ = {
     laden: (ctx, p) => ladeNaehrstoffbilanz(ctx.supabase, ctx.tenantId, p),
     spalten: SPALTEN_NAEHRSTOFFBILANZ,
     dateiteile: (p, betrieb) => ['Nährstoffbilanz', betrieb.betriebsnummer, jahrTeil(p.jahr)],
+  }),
+
+  // KAN-108: Parameter wie die Seite /weingarten/rueckverfolgung (lese | charge | fuellung | jahrgang [+ gst | weingarten] | gst)
+  'rueckverfolgung-weingarten': definiereMeldung(KATALOG_PFLANZENSCHUTZ['rueckverfolgung-weingarten'], {
+    parameter: (sp): (RvEinstieg & { anzeige: { titel: string | null } }) | ParameterFehler => {
+      const e: Partial<RvEinstieg> = {}
+      for (const [k, name] of [['lese', 'Lese'], ['charge', 'Charge'], ['fuellung', 'Füllung'], ['gst', 'Grundstück'], ['weingarten', 'Weingarten']] as const) {
+        const v = uuidOptional(sp, k, name)
+        if (istParameterFehler(v)) return v
+        e[k] = v
+      }
+      const jahrgang = jahrgangOptional(sp)
+      if (istParameterFehler(jahrgang)) return jahrgang
+      const einstieg = { ...e, jahrgang } as RvEinstieg
+      const fehler = einstiegFehler(einstieg)
+      return fehler ? parameterFehler(fehler) : { ...einstieg, anzeige: { titel: null } }
+    },
+    laden: async (ctx, p) => {
+      const r = await ladeRvWeingarten(ctx.supabase, ctx.tenantId, p)
+      if (!r) throw new MeldungsFehler(404, 'Lese, Charge oder Füllung nicht gefunden.')
+      p.anzeige.titel = r.titel
+      return { zeilen: rvZeilen(r.lesen), warnungen: r.warnungen }
+    },
+    spalten: SPALTEN_RV_WEINGARTEN,
+    dateiteile: (p, betrieb) => ['Rückverfolgung-Weingarten', betrieb.betriebsnummer, p.anzeige.titel ?? p.jahrgang],
   }),
 } satisfies MeldungenZu<typeof KATALOG_PFLANZENSCHUTZ>
