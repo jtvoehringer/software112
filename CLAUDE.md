@@ -69,6 +69,7 @@
   - Neues oder geändertes Verhalten → Test; Bugfix → Regressionstest, der ohne den Fix rot wäre. Tests nie abschwächen, um grün zu werden; kein `test.only`/`test.skip` einchecken.
   - Testzahl vor und nach der Änderung vergleichen – sie darf nicht ungewollt sinken.
   - Ausgangswerte, Coverage je Bereich, Lücken nach Risiko und manuelle Testszenarien stehen in `STABILITAET.md`; Coverage messen mit `npm run test:coverage`. Beim Schließen einer Lücke dort nachziehen.
+  - **Datenbank-Tests (`npm run test:db`, seit 28.09.2026):** SQL-Testsuite in `scripts/db-tests/` (Anleitung und Konventionen: `README.md` dort), läuft NUR gegen Staging, jede Datei ist eine Transaktion, die mit `RAISE` endet und zurückgerollt wird. Nach jeder Migration mit RLS-, Trigger- oder RPC-Änderung zuerst auf Staging einspielen, dann `npm run test:db` ausführen, erst danach Produktion. Nie gegen die Produktion ausführen. `test:db` gehört nicht zu `verify` (braucht Netzwerk und Supabase-Login); die Runner-Unit-Tests (`scripts/tests/db-tests.test.mjs`) laufen in `verify` mit. Neue Tabelle → `pg_temp.s112_soll()` ergänzen, neue SECURITY-DEFINER-RPC → `s112_soll_rpc()`, neues Geheimnis → `s112_soll_liste('geheimnis_spalten')` (alles in `_helfer.sql`); bekannte Lücken bleiben als BEKANNT sichtbar, eine behobene wird rot, bis die Prüfung verschärft ist.
 
 ## Aktuelle Nutzer
 
