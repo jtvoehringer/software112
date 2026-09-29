@@ -24,7 +24,8 @@ export type AssistentKontext = {
   mitarbeiter: { user_id: string; name: string; rolle: string }[]
   fuellungen: { id: string; name: string; jahrgang: number | null; rebsorte: string | null; flaschengroesse_ml: number | null; bestand_flaschen: number; vk_preis_brutto: number | null }[]
   weinausbau: { id: string; name: string; jahrgang: number | null; rebsorte: string | null; menge_liter: number }[]
-  jahrgaenge: { id: string; jahrgang: number }[]
+  /** KAN-129: mit ihren Lesen („2026/1 Hauptlese (01.09.2026 – 30.09.2026)“) */
+  jahrgaenge: { id: string; jahrgang: number; lesen: string[] }[]
   behaelter: { id: string; name: string; typ: string | null; volumen_liter: number | null }[]
   behandlungstypen: { id: string; name: string; einheit_standard: string | null }[]
   korrekturen: { id: string; begriff: string; interpretation: string; kategorie: string | null }[]
@@ -106,7 +107,7 @@ export async function ladeAssistentKontext(
       .select('ust_satz_standard')
       .eq('tenant_id', tenantId).maybeSingle(),
     (supabase.from('weinjahrgaenge') as any)
-      .select('id, jahrgang')
+      .select('id, jahrgang, lesen(lfd_nr, art, bezeichnung, beginn, ende)')
       .eq('tenant_id', tenantId)
       .order('jahrgang', { ascending: false }).limit(50),
     // eigene + freigegebene Gebinde (Kellergemeinschaft, Migration 203) - fremd
@@ -159,7 +160,13 @@ export async function ladeAssistentKontext(
       menge_liter: Number(w.menge_liter ?? 0),
     })),
     ustSatzStandard: Number((einstellungenRaw as R | null)?.ust_satz_standard) || 13,
-    jahrgaenge: ((jahrgaengeRaw ?? []) as R[]).map(j => ({ id: j.id, jahrgang: Number(j.jahrgang) })),
+    jahrgaenge: ((jahrgaengeRaw ?? []) as R[]).map(j => ({
+      id: j.id, jahrgang: Number(j.jahrgang),
+      lesen: ((j.lesen ?? []) as R[]).slice().sort((a, b) => a.lfd_nr - b.lfd_nr).map(l => {
+        const zeit = leseZeitraumText(l.beginn, l.ende)
+        return `${leseTitel(Number(j.jahrgang), { lfd_nr: l.lfd_nr, art: l.art, bezeichnung: l.bezeichnung ?? null })}${zeit ? ` (${zeit})` : ''}`
+      }),
+    })),
     behaelter: behaelterRows.map(b => ({
       id: b.id, name: b.anzeigeName + (b.gesperrt ? ` (belegt durch ${b.fremd_betrieb ?? 'Partnerbetrieb'} – kein Ziel)` : ''), typ: b.typ ?? null, volumen_liter: b.volumen_liter ?? null,
     })),
@@ -184,6 +191,7 @@ export const FLASCHEN_LABEL: Record<number, string> = {
  */
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { ladeBehaelter } from '@/lib/keller/behaelter'
+import { leseTitel, leseZeitraumText } from '@/lib/wein/lesen'
 
 export function formatiereKontextFuerPrompt(k: AssistentKontext): string {
   const zeile = (id: string, label: string, extra?: string | null) =>
@@ -220,7 +228,7 @@ ${k.weinausbau.map(w => zeile(w.id, w.name, [w.jahrgang, w.rebsorte ? formatRebs
 STANDARD-UST-SATZ DES BETRIEBS: ${k.ustSatzStandard}%
 
 WEINJAHRGÄNGE (${k.jahrgaenge.length}, bereits angelegt):
-${k.jahrgaenge.map(j => `- ${j.jahrgang}`).join('\n') || '(keine)'}
+${k.jahrgaenge.map(j => `- ${j.jahrgang}${j.lesen.length > 0 ? `: Lesen ${j.lesen.join(', ')}` : ''}`).join('\n') || '(keine)'}
 
 BEHÄLTER / GEBINDE (${k.behaelter.length}):
 ${k.behaelter.map(b => zeile(b.id, b.name, [b.typ, b.volumen_liter != null ? `${b.volumen_liter} L` : null].filter(Boolean).join(', ') || null)).join('\n') || '(keine)'}

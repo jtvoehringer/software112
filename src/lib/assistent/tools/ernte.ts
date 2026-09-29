@@ -18,6 +18,7 @@ import { createJahrgang, createMultipleErnteParzellen } from '@/app/(dashboard)/
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { LESE_QUALITAETEN, qualitaetFehler } from '@/lib/wein/qualitaet'
 import { messwertText, mostgewichtAusWert } from '@/lib/wein/mostgewichtFormular'
+import { lesenZumDatum, leseTitel, leseZeitraumText } from '@/lib/wein/lesen'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -29,8 +30,12 @@ const LESE_WERTE_TEXT = LESE_QUALITAETEN.map(o => `${o.value} (${o.label})`).joi
 export const ERNTE_FELD_MATRIX_TEXT = `
 FELD-MATRIX für "Ernte erfassen":
 
-Gemeinsame Felder: jahrgang (pflicht, Erntejahr als Zahl z.B. 2026 – existiert dafür noch kein
-Weinjahrgang-Datensatz, wird er automatisch mit angelegt), ernte_datum (pflicht, YYYY-MM-DD),
+Gemeinsame Felder: jahrgang (pflicht, Erntejahr als Zahl z.B. 2026 – der JAHRGANG, nicht das Kalenderjahr:
+eine Eiswein-Lese im Jänner 2027 gehört zum Jahrgang 2026; existiert dafür noch kein Weinjahrgang-Datensatz,
+wird er automatisch mit angelegt), ernte_datum (pflicht, YYYY-MM-DD),
+lese_nr (Nummer der Lese im Jahrgang, z. B. 2 für „2026/2 Eiswein“ – siehe WEINJAHRGÄNGE im Kontext; Pflicht,
+sobald der Jahrgang mehrere Lesen hat und das Datum nicht in genau eine fällt. Eine neue Lese legt der Bot nicht
+an – der User legt sie unter „Lese › Neue Lese“ an),
 lesemethode (optional: handlese/maschinenlese/selektionslese), gemeinsames Mostgewicht (optional)
 ENTWEDER klosterneuburger (in °KMW, höchstens 2 Nachkommastellen, 0–60) ODER oechsle (in °Oe,
 höchstens 1 Nachkommastelle, 0–350) – genau in der Einheit, die der User nennt, nie selbst
@@ -39,8 +44,8 @@ wird umgerechnet. Die Zusammenfassung zur Bestätigung nennt jedes Mostgewicht m
 der der User es genannt hat (z. B. „17,4 °KMW“ bzw. „84 °Oe“) – so bestätigt er auch die Einheit.
 qualitaetsstufe (optional – wird derzeit NICHT übernommen: die Stufe
 wird immer aus den °KMW abgeleitet (bei °Oe aus dem umgerechneten °KMW), ohne Mostgewicht gilt
-qualitaetswein; eine andere Stufe, z. B.
-Eiswein, stellt der User nach dem Speichern beim Bearbeiten der Lese ein – darauf hinweisen.
+qualitaetswein; in einer Lese der Art Eiswein ist die Stufe automatisch Eiswein (unter 25 °KMW darauf
+hinweisen); eine andere Stufe stellt der User nach dem Speichern beim Bearbeiten der Lese ein – darauf hinweisen.
 Angegeben werden dürfen nur diese Lese-Stufen: ${LESE_WERTE_TEXT} – DAC, Reserve, Erste Lage,
 Großes Gewächs, Sekt, Perlwein, Sonstiges, Strohwein und Ausbruch gibt es bei der Lese nicht),
 notizen (optional).
@@ -79,6 +84,7 @@ export const ERNTE_TOOL = {
       },
       jahrgang: { type: 'number', description: 'Erntejahr, z.B. 2026' },
       ernte_datum: { type: 'string', description: 'Datum der Lese, Format YYYY-MM-DD' },
+      lese_nr: { type: 'number', description: 'Nummer der Lese im Jahrgang (z. B. 2 für 2026/2) – nötig, wenn der Jahrgang mehrere Lesen hat und das Datum nicht eindeutig zu einer passt' },
       lesemethode: { type: 'string', enum: ['handlese', 'maschinenlese', 'selektionslese'] },
       klosterneuburger: { type: 'number', description: 'Gemeinsames Mostgewicht in °KMW (optional; nicht zusammen mit oechsle)' },
       oechsle: { type: 'number', description: 'Gemeinsames Mostgewicht in °Oe (optional, höchstens 1 Nachkommastelle; nicht zusammen mit klosterneuburger)' },
@@ -226,6 +232,26 @@ export async function fuehreErnteErfassenAus(
     }
   }
 
+  // ── KAN-129: Lese im Jahrgang – eine Lese → diese; mehrere → lese_nr oder eindeutig über das Datum,
+  //    sonst Rückfrage ohne Speichern (neue Lesen legt der User selbst an) ─────────────────────────
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: lesenRaw, error: lesenFehler } = await (supabase.from('lesen') as any)
+    .select('id, lfd_nr, art, bezeichnung, beginn, ende').eq('jahrgang_id', jahrgangId).eq('tenant_id', tenantId).order('lfd_nr')
+  if (lesenFehler) return { erfolg: false, fehler: `Lesen konnten nicht geladen werden: ${lesenFehler.message}` }
+  const lesen = (lesenRaw ?? []) as { id: string; lfd_nr: number; art: string; bezeichnung: string | null; beginn: string | null; ende: string | null }[]
+  const leseListe = () => lesen.map(l => `${leseTitel(jahrgangJahr, l)}${leseZeitraumText(l.beginn, l.ende) ? ` (${leseZeitraumText(l.beginn, l.ende)})` : ''}`).join(', ')
+  let lese = lesen.length === 1 ? lesen[0] : null
+  if (input.lese_nr != null && input.lese_nr !== '') {
+    lese = lesen.find(l => l.lfd_nr === Number(input.lese_nr)) ?? null
+    if (!lese) return { erfolg: false, hinweis: `Lese ${jahrgangJahr}/${input.lese_nr} gibt es nicht. Vorhanden: ${leseListe() || 'keine'}. Beim User nachfragen; eine neue Lese legt er unter „Lese › Neue Lese“ an.` }
+  } else if (!lese) {
+    const passend = lesenZumDatum(lesen, String(input.ernte_datum))
+    if (passend.length !== 1) {
+      return { erfolg: false, hinweis: `Der Jahrgang ${jahrgangJahr} hat mehrere Lesen (${leseListe()}) und das Lesedatum passt nicht eindeutig zu einer. Beim User nachfragen, zu welcher Lese die Einträge gehören, und lese_nr angeben – nichts gespeichert.` }
+    }
+    lese = passend[0]
+  }
+
   // ── Grundstücke → jeweils zugehörigen weingarten_id nachladen (für GSTEntry-Payload) ──
   const grundstueckJson: R[] = []
   for (const [i, g] of grundstueckeIn.entries()) {
@@ -258,12 +284,16 @@ export async function fuehreErnteErfassenAus(
   if (input.qualitaetsstufe) fd.set('qualitaetsstufe', String(input.qualitaetsstufe))
   if (input.notizen) fd.set('notizen', String(input.notizen))
   if (riedenIn.menge_kg_gesamt != null) fd.set('menge_kg', String(riedenIn.menge_kg_gesamt))
+  if (lese) fd.set('lese_id', lese.id)
 
   try {
     await createMultipleErnteParzellen(jahrgangId, fd)
     return {
       erfolg: true,
       jahrgang_id: jahrgangId,
+      // KAN-129 (N6): Ziel der Assistent-Aktion ist die Lese, nicht der Jahrgang als „ernte_parzellen“-ID
+      lese_id: lese?.id ?? null,
+      lese: lese ? leseTitel(jahrgangJahr, lese) : null,
       anzahl_rieden: weingartenIds.length,
       anzahl_grundstuecke: grundstueckJson.length,
     }

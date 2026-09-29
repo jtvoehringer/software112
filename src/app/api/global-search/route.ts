@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { LESE_ARTEN, LESE_ART_LABEL, leseTitel } from '@/lib/wein/lesen'
 
 export const dynamic = 'force-dynamic'
 
@@ -142,7 +143,7 @@ export async function GET(req: NextRequest) {
 
   // ── Jahrgänge (Erntemeldung) ─────────────────────────────────────────────
   const { data: jahrgaenge } = await (supabase.from('weinjahrgaenge') as any)
-    .select('id, jahrgang, qualitaet_gesamt, abgeschlossen')
+    .select('id, jahrgang, qualitaet_gesamt, abgeschlossen, lesen(lfd_nr, art, bezeichnung)')
     .or(`jahrgang::text.ilike.%${q}%`)
     .eq('tenant_id', tenantId)
     .limit(5)
@@ -152,10 +153,37 @@ export async function GET(req: NextRequest) {
       id:         j.id,
       kategorie:  'jahrgang',
       titel:      `Jahrgang ${j.jahrgang}`,
-      untertitel: [j.qualitaet_gesamt, j.abgeschlossen ? 'Abgeschlossen' : null].filter(Boolean).join(' · '),
+      // KAN-129: die Lesen des Jahrgangs
+      untertitel: [
+        ((j.lesen ?? []) as R[]).length > 1
+          ? ((j.lesen ?? []) as R[]).slice().sort((a, b) => a.lfd_nr - b.lfd_nr).map(l => leseTitel(j.jahrgang, l as { lfd_nr: number; art: string; bezeichnung: string | null })).join(', ')
+          : null,
+        j.qualitaet_gesamt, j.abgeschlossen ? 'Abgeschlossen' : null,
+      ].filter(Boolean).join(' · '),
       href:       `/erntemeldung/${j.id}`,
     })
   })
+
+  // ── Lesen nach Art (z. B. „Eiswein“) – direkt zum Reiter der Lese (KAN-129) ──
+  const qKlein = q.toLowerCase()
+  const arten = LESE_ARTEN.filter(a => LESE_ART_LABEL[a].toLowerCase().includes(qKlein))
+  if (arten.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: lesenTreffer } = await (supabase.from('lesen') as any)
+      .select('id, jahrgang_id, lfd_nr, art, bezeichnung, jahrgang:weinjahrgaenge!lesen_jahrgang_fkey(jahrgang)')
+      .in('art', arten)
+      .eq('tenant_id', tenantId)
+      .limit(5)
+    ;(lesenTreffer as R[] ?? []).forEach((l: R) => {
+      const jahr = Number((l.jahrgang as R | null)?.jahrgang)
+      results.push({
+        id:         l.id,
+        kategorie:  'jahrgang',
+        titel:      `Lese ${leseTitel(jahr, { lfd_nr: l.lfd_nr, art: l.art, bezeichnung: l.bezeichnung ?? null })}`,
+        href:       `/erntemeldung/${l.jahrgang_id}?lese=${l.lfd_nr}`,
+      })
+    })
+  }
 
   // ── Kellerbuch (Weinausbau-Chargen) ──────────────────────────────────────
   const { data: chargen } = await (supabase.from('weinausbau') as any)
