@@ -97,8 +97,7 @@ export async function createJahrgang(formData: FormData): Promise<{ error?: stri
   const { error } = await (supabase.from('weinjahrgaenge') as any).insert({
     tenant_id:   tenantId,
     jahrgang,
-    ernte_beginn: (formData.get('ernte_beginn') as string) || null,
-    ernte_ende:   (formData.get('ernte_ende') as string) || null,
+    // KAN-129 Soll 12: Beginn und Ende stehen an der Lese (die Spalten am Jahrgang entfallen)
     notizen:      (formData.get('notizen') as string) || null,
   })
   if (error) {

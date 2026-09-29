@@ -36,3 +36,16 @@ test('Palette, Navigation, Suche und Handbuch kennen die Lesen', () => {
   assert.ok(s.includes('href:       `/erntemeldung/${l.jahrgang_id}?lese=${l.lfd_nr}`'), 'Suche → Reiter der Lese')
   assert.ok(lies('src/app/(dashboard)/hilfe/handbuch/page.tsx').includes("titel: 'Lesen je Jahrgang (Hauptlese, Eiswein …)'"))
 })
+
+test('Soll 12: die App liest und schreibt ernte_beginn/ernte_ende nicht mehr (Spalten werden entfernt)', () => {
+  const treffer = []
+  const durchsuche = dir => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = `${dir}/${e.name}`
+      if (e.isDirectory()) durchsuche(p)
+      else if (/\.(ts|tsx)$/.test(e.name) && /ernte_(beginn|ende)\b/.test(fs.readFileSync(p, 'utf8'))) treffer.push(p)
+    }
+  }
+  durchsuche('src')
+  assert.deepEqual(treffer, [])
+})
