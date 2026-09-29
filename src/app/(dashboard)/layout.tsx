@@ -114,7 +114,8 @@ export default async function DashboardLayout({
     if (data) {
       const d = data as R
       branding = {
-        anzeigename:      d.anzeigename ?? DEFAULT_BRANDING.anzeigename,
+        // Leerer Anzeigename → Betriebsname (tenants.name) statt „software:112“ (KAN-163)
+        anzeigename:      seitenBetriebName || DEFAULT_BRANDING.anzeigename,
         logo_url:         d.logo_url ?? null,
         primary_color:    d.primary_color ?? DEFAULT_BRANDING.primary_color,
         session_timeout:  d.session_timeout_minuten ?? null,
@@ -127,6 +128,9 @@ export default async function DashboardLayout({
         buchhaltungsart:  d.buchhaltungsart === 'doppik' ? 'doppik' : 'ea',
       }
       assistentAktiv = !!d.assistent_aktiv
+    } else if (tenantRow) {
+      // ohne tenant_einstellungen-Zeile ebenfalls den Betriebsnamen zeigen (KAN-163)
+      branding = { ...branding, anzeigename: seitenBetriebName }
     }
     isSandbox = (tenantRow as R | null)?.name === 'Sandbox'
 
