@@ -4,10 +4,15 @@ import { useState, useTransition } from 'react'
 import { Pencil, Trash2, X, ChevronDown, Plus } from 'lucide-react'
 import { upsertPressung, deletePressung } from '../actions'
 import { fmtProzent, fmtNum, dezimal } from '@/lib/format'
-import { kmwZuQualitaet, QUALITAET_LABEL } from '@/lib/weinqualitaet'
+import { kmwZuQualitaet } from '@/lib/weinqualitaet'
+import { abstufungsOptionen, minQualitaet, qualitaetLabel, QUALITAET_OPTS } from '@/lib/wein/qualitaet'
 import VerschneidungForm from '@/components/kellerbuch/VerschneidungForm'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fehlerText } from '@/lib/fehler'
+import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
+import { messwertText, mostgewichtAusGespeichert, type GespeichertesMostgewicht } from '@/lib/wein/mostgewichtFormular'
+import type { Mostgewicht } from '@/lib/wein/mostgewicht'
+import { datumText, lesedatumFehler, lesetageFuerOrt, vorbelegterLesetag, type LeseEintrag, type Lesetag } from '@/lib/wein/pressungLesedatum'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -18,6 +23,8 @@ export type PressungWG = {
   // von weingarten_id/zukauf_posten_id ist gesetzt (siehe Migration 141).
   zukauf_posten_id?: string | null
   trauben_kg: number; rebsorte: string | null; notizen: string | null
+  /** KAN-126: Lesetag und Mostgewicht der Traubenzeile */
+  ernte_datum: string | null; kmw: number | null; oechsle: number | null; mostgewicht_einheit: string | null
 }
 // Zugekaufte Trauben (zukauf_posten, art='trauben'), die als zusätzliche Quelle
 // für Pressung und Traubenverkauf zur Verfügung stehen (verfuegbar_kg = Menge
@@ -37,6 +44,8 @@ export type ZukaufTraubenOpt = {
 export type PressungBeh = {
   id: string; behaelter_id: string | null; behaelter_name: string | null
   weinausbau_id: string | null; weinausbau_name: string | null
+  /** Qualitätsstufe der Charge (zeigt eine Abstufung bei der Pressung, KAN-81) */
+  weinausbau_qualitaet?: string | null
   menge_liter: number | null; notizen: string | null
 }
 export type Pressung = {
@@ -79,10 +88,20 @@ const fmtDate = (d: string) =>
 // id = ID der gespeicherten Zeile (pressung_weingaerten/pressung_behaelter), '' für neue Zeilen.
 // KAN-35: Der Server ändert bestehende Zeilen gezielt statt alles neu anzulegen – die IDs
 // müssen deshalb mitgeschickt werden.
-type WGRow  = { id: string; weingarten_id: string; grundstueck_id: string; zukauf_posten_id: string; trauben_kg: string; rebsorte: string; notizen: string }
+// KAN-126: ernte_datum (Lesetag), mg (Mostgewicht der Zeile), mgStart (Vorbelegung für die Eingabe), mgFehler
+type WGRow  = {
+  /** stabiler Schlüssel der Zeile im Formular (gespeicherte Zeile: ihre id) */
+  schluessel: string
+  id: string; weingarten_id: string; grundstueck_id: string; zukauf_posten_id: string; trauben_kg: string; rebsorte: string; notizen: string
+  ernte_datum: string; mg: Mostgewicht | null; mgStart: GespeichertesMostgewicht | null; mgFehler: string | null
+}
 type BehRow = { id: string; behaelter_id: string; weinausbau_id: string; weinausbau_name: string; menge_liter: string; notizen: string }
 
-const emptyWG  = (): WGRow  => ({ id: '', weingarten_id: '', grundstueck_id: '', zukauf_posten_id: '', trauben_kg: '', rebsorte: '', notizen: '' })
+let zeilenZaehler = 0
+const emptyWG  = (): WGRow  => ({ schluessel: `neu-${++zeilenZaehler}`, id: '', weingarten_id: '', grundstueck_id: '', zukauf_posten_id: '', trauben_kg: '', rebsorte: '', notizen: '', ernte_datum: '', mg: null, mgStart: null, mgFehler: null })
+/** Mostgewicht eines Lesetags bzw. Zukaufs als Vorbelegung */
+const mgAusTag = (t: { kmw: number | null; oechsle?: number | null; einheit?: string | null } | null): GespeichertesMostgewicht | null =>
+  t && (t.kmw != null || t.oechsle != null) ? { kmw: t.kmw, oechsle: t.oechsle ?? null, einheit: t.einheit ?? null } : null
 const emptyBeh = (): BehRow => ({ id: '', behaelter_id: '', weinausbau_id: '', weinausbau_name: '', menge_liter: '', notizen: '' })
 
 function Fehlermeldung({ text, onClose }: { text: string; onClose?: () => void }) {
@@ -96,10 +115,10 @@ function Fehlermeldung({ text, onClose }: { text: string; onClose?: () => void }
   )
 }
 
-function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, leseParzellen, verfuegbareKgByGST, zukaufTrauben, behaelterMitCharge, onDone }: {
+function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, leseParzellen, leseEintraege, verfuegbareKgByGST, zukaufTrauben, behaelterMitCharge, onDone }: {
   jahrgangId: string; pressung?: Pressung
   wgOptions: WGOption[]; behOptions: BehOption[]; waOptions: WAOption[]
-  leseParzellen: LeseParzelle[]; verfuegbareKgByGST: Record<string, number>
+  leseParzellen: LeseParzelle[]; leseEintraege: LeseEintrag[]; verfuegbareKgByGST: Record<string, number>
   zukaufTrauben: ZukaufTraubenOpt[]
   behaelterMitCharge?: Record<string, { weinausbau_id: string; name: string; rebsorte?: string | null; menge_liter?: number | null; qualitaetsstufe?: string | null; herkunft_code?: string | null }[]>; onDone: () => void
 }) {
@@ -116,18 +135,23 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
 
   const defaultWGRows: WGRow[] = pressung
     ? pressung.weingaerten.map(w => ({
+        schluessel: w.id,
         id: w.id,
         weingarten_id: w.weingarten_id ?? '', grundstueck_id: w.grundstueck_id ?? '',
         zukauf_posten_id: w.zukauf_posten_id ?? '',
         trauben_kg: w.trauben_kg.toString().replace('.', ','),
         rebsorte: w.rebsorte ?? '', notizen: w.notizen ?? '',
+        ernte_datum: w.ernte_datum ?? '',
+        mg: mostgewichtAusGespeichert({ kmw: w.kmw, oechsle: w.oechsle, einheit: w.mostgewicht_einheit }),
+        mgStart: mgAusTag({ kmw: w.kmw, oechsle: w.oechsle, einheit: w.mostgewicht_einheit }),
+        mgFehler: null,
       }))
     // Kein Vorbelegen mehr mit allen verfügbaren GST/Zukauf-Posten (vorher: "abmelden"
     // nicht gewünschter Trauben per X). Stattdessen startet die Pressung leer - die
     // pressbaren Trauben werden aktiv über das Dropdown "angemeldet" (ausgewählt);
     // die Menge (kg) wird dabei automatisch mit der vollen verfügbaren Menge vorbefüllt
-    // (siehe updateWG), kann aber vor dem Speichern reduziert werden.
-    : [emptyWG()]
+    // (siehe zeileHinzufuegen), kann aber vor dem Speichern reduziert werden.
+    : []
   const [wgRows, setWgRows] = useState<WGRow[]>(defaultWGRows)
   const [behRows, setBehRows] = useState<BehRow[]>(
     pressung?.behaelter.map(b => ({
@@ -158,6 +182,11 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
     for (const row of wgRows) {
       const kg = parseFloat(dezimal(row.trauben_kg)) || 0
       if (kg <= 0) continue
+      if (row.mg) {
+        sumKg  += kg
+        sumKmw += row.mg.kmw * kg
+        continue
+      }
       if (row.zukauf_posten_id) {
         const zukauf = zukaufTrauben.find(z => z.id === row.zukauf_posten_id)
         if (zukauf?.kmw_grad != null) {
@@ -182,6 +211,14 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
   const kmwNum       = parseFloat(dezimal(kmwGrad))
   // wie der Server (zahlAus → kmwZuQualitaet): jede gültige Zahl zählt, auch 0 °KMW (→ Wein)
   const kmwQualitaet = kmwGrad !== '' && Number.isFinite(kmwNum) ? kmwZuQualitaet(kmwNum) : null
+  // KAN-81/KAN-126: Abstufen bei der Pressung – Obergrenze aus den °KMW (ohne: Qualitätswein), wählbar nur niedriger.
+  // '' = Obergrenze (automatisch); gilt für neu angelegte Chargen (bestehende bleiben, Abstufen dort im Kellerbuch)
+  const obergrenze = kmwQualitaet ?? 'qualitaetswein'
+  const [abgestuft, setAbgestuft] = useState('')
+  // Liste der Zieltabelle (weinausbau, KAN-73), eingeschränkt auf die zulässigen Abstufungen
+  const zulaessig = new Set(abstufungsOptionen(obergrenze).map(o => o.value))
+  const stufenOptionen = QUALITAET_OPTS.filter(o => zulaessig.has(o.value)).slice().sort((a, b) => b.rang - a.rang)
+  const stufeWert = abgestuft && stufenOptionen.some(o => o.value === abgestuft) ? abgestuft : ''
   const [pending, startTransition] = useTransition()
 
   type VerschneidungData = {
@@ -195,60 +232,98 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
   const mostL    = parseFloat(dezimal(mostLiter)) || 0
   const ausbeute = gesamtKg > 0 && mostL > 0 ? (mostL / gesamtKg) * 100 : null
 
-  // GST-/Ried-Optionen aus Erntedaten: eine Option pro Parzelle
-  const gstOptionen = leseParzellen.map(p => ({
-    compositeId: `${p.weingarten_id}|${p.grundstueck_id ?? ''}`,
-    weingarten_id: p.weingarten_id,
-    grundstueck_id: p.grundstueck_id ?? '',
-    label: p.grundstueck_nr
-      ? `GST ${p.grundstueck_nr} · ${p.weingarten_name}`
-      : p.weingarten_name,
-    rebsorte: p.grundstueck_rebsorte ?? p.rebsorte ?? '',
-    menge_kg: p.menge_kg ?? 0,
-    verfuegbar_kg: gstVerfuegbar(p.grundstueck_id),
-  }))
+  // GST-/Ried-Optionen aus Erntedaten. KAN-126: bei mehreren Lesetagen eine Option je Ort UND Lesetag
+  // (plus „anderer Tag“), sonst eine je Ort mit dem einen Lesetag als Vorbelegung. Die verfügbaren kg
+  // bleiben je Ort. compositeId = weingarten|gst|lesetag.
+  type GstOption = {
+    compositeId: string; ort: string; weingarten_id: string; weingarten_name: string; grundstueck_id: string; label: string
+    /** Anzeige in der Checkbox-Liste unter der Ried: GST-Nummer bzw. „ganzer Weingarten“, ggf. mit Lesetag */
+    kurz: string
+    rebsorte: string; menge_kg: number; verfuegbar_kg: number; tag: Lesetag | null; mehrereTage: boolean
+  }
+  const tageJeOrt = new Map<string, Lesetag[]>()
+  const gstOptionen: GstOption[] = leseParzellen.flatMap((p): GstOption[] => {
+    const ort = `${p.weingarten_id}|${p.grundstueck_id ?? ''}`
+    const tage = lesetageFuerOrt(leseEintraege, p.weingarten_id, p.grundstueck_id)
+    tageJeOrt.set(ort, tage)
+    const basis = {
+      ort, weingarten_id: p.weingarten_id, weingarten_name: p.weingarten_name, grundstueck_id: p.grundstueck_id ?? '',
+      label: p.grundstueck_nr ? `GST ${p.grundstueck_nr} · ${p.weingarten_name}` : p.weingarten_name,
+      kurz: p.grundstueck_nr ? `GST ${p.grundstueck_nr}` : 'ganzer Weingarten',
+      rebsorte: p.grundstueck_rebsorte ?? p.rebsorte ?? '',
+      menge_kg: p.menge_kg ?? 0,
+      verfuegbar_kg: gstVerfuegbar(p.grundstueck_id),
+    }
+    if (tage.length <= 1) return [{ ...basis, compositeId: `${ort}|`, tag: vorbelegterLesetag(tage), mehrereTage: false }]
+    return [
+      ...tage.map(t => ({ ...basis, compositeId: `${ort}|${t.datum}`, label: `${basis.label} · Lese ${datumText(t.datum)}`, kurz: `${basis.kurz} · Lese ${datumText(t.datum)}`, tag: t, mehrereTage: true })),
+      { ...basis, compositeId: `${ort}|`, label: `${basis.label} · anderer Lesetag`, kurz: `${basis.kurz} · anderer Lesetag`, tag: null, mehrereTage: true },
+    ]
+  })
+  // Checkbox-Liste: Optionen je Ried (Weingarten), alphabetisch
+  const riedGruppenPressung = [...gstOptionen.reduce((m, o) => {
+    const g = m.get(o.weingarten_id) ?? { weingarten_id: o.weingarten_id, name: o.weingarten_name, optionen: [] as GstOption[] }
+    g.optionen.push(o); m.set(o.weingarten_id, g); return m
+  }, new Map<string, { weingarten_id: string; name: string; optionen: GstOption[] }>()).values()]
+    .sort((a, b) => a.name.localeCompare(b.name, 'de'))
   // Zukauf-Optionen: eigenes Präfix "zukauf:<id>" um Kollisionen mit compositeId zu vermeiden
   const zukaufOptionen = zukaufTrauben.map(z => ({
     compositeId: `zukauf:${z.id}`,
     zukauf_posten_id: z.id,
+    datum: z.datum,
+    mg: mgAusTag({ kmw: z.kmw_grad, oechsle: z.oechsle ?? null, einheit: z.mostgewicht_einheit ?? null }),
     label: `Zukauf${z.lieferant ? ' · ' + z.lieferant : ''}${z.herkunft ? ' (' + z.herkunft + ')' : ''}`,
     rebsorte: z.rebsorte ?? '',
     verfuegbar_kg: z.verfuegbar_kg,
   }))
 
-  function updateWG(i: number, field: keyof WGRow | 'compositeId', val: string) {
-    if (field === 'compositeId') {
-      if (val.startsWith('zukauf:')) {
-        const opt = zukaufOptionen.find(o => o.compositeId === val)
-        if (opt) {
-          setWgRows(rows => rows.map((r, j) => j === i ? {
-            ...r,
-            weingarten_id: '',
-            grundstueck_id: '',
-            zukauf_posten_id: opt.zukauf_posten_id,
-            rebsorte: opt.rebsorte,
-            // Beim "Anmelden" die volle verfügbare Menge vorbefüllen (vor dem
-            // Speichern reduzierbar) - vorher wurde diese Menge nur beim
-            // automatischen Vorbelegen aller Posten gesetzt.
-            trauben_kg: opt.verfuegbar_kg.toString().replace('.', ','),
-          } : r))
-        }
-        return
+  /** Option, zu der eine Zeile gehört (gleich der compositeId): bei mehreren Lesetagen der gewählte Tag */
+  function zeilenSchluessel(r: WGRow): string {
+    if (r.zukauf_posten_id) return `zukauf:${r.zukauf_posten_id}`
+    const ort = `${r.weingarten_id}|${r.grundstueck_id}`
+    const tage = tageJeOrt.get(ort) ?? []
+    return tage.length > 1 && tage.some(t => t.datum === r.ernte_datum) ? `${ort}|${r.ernte_datum}` : `${ort}|`
+  }
+  const ausgewaehlt = new Set(wgRows.map(zeilenSchluessel))
+  /** Neue Traubenzeile aus einer Option (GST/Lesetag oder Zukauf) */
+  function zeileHinzufuegen(val: string) {
+    const z = zeileAusOption(val)
+    if (z) setWgRows(rows => [...rows, z])
+  }
+  function optionUmschalten(val: string) {
+    if (ausgewaehlt.has(val)) setWgRows(rows => rows.filter(r => zeilenSchluessel(r) !== val))
+    else zeileHinzufuegen(val)
+  }
+  function riedUmschalten(optionen: GstOption[], alleGewaehlt: boolean) {
+    const ids = new Set(optionen.map(o => o.compositeId))
+    if (alleGewaehlt) { setWgRows(rows => rows.filter(r => !ids.has(zeilenSchluessel(r)))); return }
+    const neu = optionen.filter(o => !ausgewaehlt.has(o.compositeId)).map(o => zeileAusOption(o.compositeId)).filter((z): z is WGRow => !!z)
+    setWgRows(rows => [...rows, ...neu])
+  }
+
+  /** Neue Traubenzeile aus einer Option: GST/Lesetag (Lesetag und dessen Mostgewicht übernommen, änderbar;
+   *  ohne eindeutigen Tag leer) oder Zukauf (Zukaufsdatum, setzt der Server, und Mostgewicht des Zukaufs).
+   *  Die Menge ist mit der vollen verfügbaren Menge vorbelegt (vor dem Speichern reduzierbar). */
+  function zeileAusOption(val: string): WGRow | null {
+    if (val.startsWith('zukauf:')) {
+      const opt = zukaufOptionen.find(o => o.compositeId === val)
+      if (!opt) return null
+      return {
+        ...emptyWG(), zukauf_posten_id: opt.zukauf_posten_id, rebsorte: opt.rebsorte,
+        trauben_kg: opt.verfuegbar_kg.toString().replace('.', ','),
+        ernte_datum: opt.datum ?? '', mg: mostgewichtAusGespeichert(opt.mg), mgStart: opt.mg,
       }
-      const opt = gstOptionen.find(o => o.compositeId === val)
-      if (opt) {
-        setWgRows(rows => rows.map((r, j) => j === i ? {
-          ...r,
-          weingarten_id: opt.weingarten_id,
-          grundstueck_id: opt.grundstueck_id,
-          zukauf_posten_id: '',
-          rebsorte: opt.rebsorte,
-          trauben_kg: opt.verfuegbar_kg.toString().replace('.', ','),
-        } : r))
-      }
-    } else {
-      setWgRows(rows => rows.map((r, j) => j === i ? { ...r, [field]: val } : r))
     }
+    const opt = gstOptionen.find(o => o.compositeId === val)
+    if (!opt) return null
+    return {
+      ...emptyWG(), weingarten_id: opt.weingarten_id, grundstueck_id: opt.grundstueck_id, rebsorte: opt.rebsorte,
+      trauben_kg: opt.verfuegbar_kg.toString().replace('.', ','),
+      ernte_datum: opt.tag?.datum ?? '', mg: mostgewichtAusGespeichert(mgAusTag(opt.tag)), mgStart: mgAusTag(opt.tag),
+    }
+  }
+  function updateWG(i: number, field: 'trauben_kg' | 'ernte_datum', val: string) {
+    setWgRows(rows => rows.map((r, j) => j === i ? { ...r, [field]: val } : r))
   }
   function updateBeh(i: number, field: keyof BehRow, val: string) {
     setBehRows(rows => rows.map((r, j) => j === i ? { ...r, [field]: val } : r))
@@ -256,6 +331,16 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    // KAN-126: Lesedatum und Mostgewicht je Traubenzeile vorab prüfen (der Server prüft zusätzlich den Jahrgang)
+    const zeilen = wgRows.filter(r => r.id || ((r.weingarten_id || r.zukauf_posten_id) && r.trauben_kg))
+    for (const [i, r] of zeilen.entries()) {
+      if (r.mgFehler) { setFehler(`Traubenzeile ${i + 1}: ${r.mgFehler}`); return }
+      if (!r.weingarten_id) continue
+      const alt = r.id ? pressung?.weingaerten.find(w => w.id === r.id) : undefined
+      const ortGeaendert = !alt || (alt.weingarten_id ?? '') !== r.weingarten_id || (alt.grundstueck_id ?? '') !== r.grundstueck_id
+      const fLese = lesedatumFehler(r.ernte_datum, { pressungDatum: datum, jahrgang: null, pflicht: ortGeaendert || !!alt?.ernte_datum })
+      if (fLese) { setFehler(`Traubenzeile ${i + 1}: ${fLese}`); return }
+    }
     const fd = new FormData()
     fd.append('jahrgang_id', jahrgangId)
     if (pressung) fd.append('existing_id', pressung.id)
@@ -263,13 +348,13 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
     fd.append('most_liter_gesamt', mostLiter)
     fd.append('weinbezeichnung', weinbezeichnung)
     fd.append('kmw_grad', kmwGrad)
-    // Qualitätsstufe wird bewusst NICHT vom Formular mitgeschickt: der Server
-    // leitet sie automatisch aus den °KMW ab (siehe upsertPressung/autoQualitaet).
-    // Ein bewusstes manuelles Abstufen bleibt bei der Abfüllung möglich.
+    // KAN-81/KAN-126: nur eine bewusste Abstufung schicken – ohne leitet der Server die Stufe aus den °KMW ab
+    // und lehnt eine Stufe über dieser Obergrenze ab
+    if (stufeWert) fd.append('qualitaetsstufe', stufeWert)
     fd.append('notizen', notizen)
     fd.append('weingaerten_json', JSON.stringify(
       // Gespeicherte Zeilen (mit id) immer mitschicken – entfernt wird nur per „×“
-      wgRows.filter(r => r.id || ((r.weingarten_id || r.zukauf_posten_id) && r.trauben_kg)).map(r => ({
+      zeilen.map(r => ({
         id: r.id || undefined,
         weingarten_id: r.weingarten_id || undefined,
         grundstueck_id: r.grundstueck_id || undefined,
@@ -277,6 +362,10 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
         trauben_kg: parseFloat(dezimal(r.trauben_kg)),
         rebsorte: r.rebsorte || undefined,
         notizen: r.notizen || undefined,
+        // KAN-126: Lesetag (bei Zukauf setzt der Server das Zukaufsdatum) und Mostgewicht (Messwert + Einheit)
+        ernte_datum: r.zukauf_posten_id ? undefined : (r.ernte_datum || null),
+        mostgewicht_wert: r.mg ? messwertText(r.mg) : null,
+        mostgewicht_einheit: r.mg?.einheit ?? null,
       }))
     ))
     fd.append('behaelter_json', JSON.stringify(
@@ -403,11 +492,18 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
             <div className="border border-s112-border rounded-lg px-2 py-1.5 text-sm bg-s112-bg text-s112-text-1 cursor-not-allowed whitespace-nowrap shrink-0">
               {kmwGrad ? `${kmwGrad} °KMW` : <span className="text-s112-muted text-xs">– kein KMW</span>}
             </div>
-            <div className="flex-1 flex items-center gap-2 border border-s112-border rounded-lg px-2 py-1.5 bg-s112-bg">
-              <span className="shrink-0 text-xs font-semibold px-2 py-1 rounded-full bg-s112-warn-bg text-s112-warn-fg whitespace-nowrap">
-                {QUALITAET_LABEL[kmwQualitaet ?? 'qualitaetswein']}
+            <div className="flex-1 flex items-center gap-2">
+              <select aria-label="Qualitätsstufe der neuen Charge" value={stufeWert} onChange={e => setAbgestuft(e.target.value)}
+                className="border border-s112-border rounded-lg px-2 py-1.5 text-sm bg-white">
+                <option value="">{qualitaetLabel(obergrenze)} (aus °KMW)</option>
+                {stufenOptionen.filter(o => o.value !== obergrenze).map(o => (
+                  <option key={o.value} value={o.value}>{o.label} – abgestuft</option>
+                ))}
+              </select>
+              <span className="text-xs text-s112-muted">
+                {stufeWert ? <>abgestuft von {qualitaetLabel(obergrenze)}</> : 'Abstufen möglich, höher nicht'}
+                {pressung && ' · gilt für neu angelegte Chargen, bestehende im Kellerbuch'}
               </span>
-              <span className="text-xs text-s112-muted">automatisch aus °KMW · manuelles Abstufen bei der Abfüllung möglich</span>
             </div>
           </div>
         </div>
@@ -448,62 +544,122 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
         </div>
       )}
 
-      {/* Gelesene GST */}
+      {/* Gelesene GST – KAN-126 (Rückmeldung Jörgen 29.09.2026): Auswahl als Checkbox-Liste je Ried, damit mehrere
+          GST einer Ried gemeinsam gepresst werden können; je gewähltem GST (bzw. Lesetag) eine Traubenzeile */}
       <div>
-        <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center justify-between mb-1.5 gap-2">
           <label className="text-xs font-semibold text-s112-text-1">Gelesene GST</label>
-          <button type="button" onClick={() => setWgRows(r => [...r, emptyWG()])}
-            className="text-xs text-s112-blue-700 hover:underline">GST</button>
+          {zukaufOptionen.length > 0 && (
+            <select aria-label="Zugekaufte Trauben hinzufügen" value="" onChange={e => { if (e.target.value) zeileHinzufuegen(e.target.value) }}
+              className="text-xs border border-s112-border rounded-lg px-2 py-1 bg-white">
+              <option value="">+ Zugekaufte Trauben …</option>
+              {zukaufOptionen.map(opt => (
+                <option key={opt.compositeId} value={opt.compositeId}>
+                  {opt.label} – {fmtNum(opt.verfuegbar_kg, { max: 0 })} kg verf.
+                </option>
+              ))}
+            </select>
+          )}
         </div>
-        <div className="space-y-1.5">
+        {riedGruppenPressung.length === 0 ? (
+          <p className="text-xs text-s112-muted">Keine Lese in diesem Jahrgang erfasst.</p>
+        ) : (
+          <div className="border border-s112-border rounded-lg bg-white divide-y divide-s112-border/50 max-h-72 overflow-y-auto">
+            {riedGruppenPressung.map(g => {
+              const auswaehlbar = g.optionen.filter(o => !(o.mehrereTage && !o.tag))
+              const gewaehlt = auswaehlbar.filter(o => ausgewaehlt.has(o.compositeId))
+              const alle = auswaehlbar.length > 0 && gewaehlt.length === auswaehlbar.length
+              return (
+                <div key={g.weingarten_id}>
+                  <label className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-s112-bg/60">
+                    <input type="checkbox" className="accent-s112-teal" checked={alle}
+                      aria-label={`${g.name}: alle GST auswählen`}
+                      ref={el => { if (el) el.indeterminate = gewaehlt.length > 0 && !alle }}
+                      onChange={() => riedUmschalten(auswaehlbar, alle)} />
+                    <span className="text-xs font-semibold text-s112-text">{g.name}</span>
+                    <span className="text-xs text-s112-muted">{auswaehlbar.length} {auswaehlbar.length === 1 ? 'GST' : 'GST/Lesetage'}</span>
+                  </label>
+                  {g.optionen.map(opt => (
+                    <label key={opt.compositeId} className="flex items-center gap-2 pl-8 pr-3 py-1 text-xs cursor-pointer hover:bg-s112-bg/40">
+                      <input type="checkbox" className="accent-s112-teal" checked={ausgewaehlt.has(opt.compositeId)}
+                        onChange={() => optionUmschalten(opt.compositeId)} />
+                      <span className={ausgewaehlt.has(opt.compositeId) ? 'text-s112-blue-700 font-medium' : 'text-s112-text-1'}>{opt.kurz}</span>
+                      {opt.rebsorte && <span className="text-s112-muted">· {formatRebsorteMitKuerzel(opt.rebsorte)}</span>}
+                      <span className="text-s112-muted ml-auto whitespace-nowrap">{fmtNum(opt.verfuegbar_kg, { max: 0 })} kg verf.</span>
+                    </label>
+                  ))}
+                </div>
+              )
+            })}
+          </div>
+        )}
+        <div className="space-y-1.5 mt-2">
           {wgRows.map((row, i) => {
-            const compositeId = `${row.weingarten_id}|${row.grundstueck_id}`
-            const selectValue = row.weingarten_id ? compositeId : row.zukauf_posten_id ? `zukauf:${row.zukauf_posten_id}` : ''
+            const ort = `${row.weingarten_id}|${row.grundstueck_id}`
+            const tage = tageJeOrt.get(ort) ?? []
+            const altZeile = row.id ? pressung?.weingaerten.find(w => w.id === row.id) : undefined
+            const bezeichnung = row.zukauf_posten_id
+              ? (zukaufOptionen.find(o => o.zukauf_posten_id === row.zukauf_posten_id)?.label ?? 'Zukauf')
+              : (gstOptionen.find(o => o.compositeId === zeilenSchluessel(row))?.label ?? altZeile?.weingarten_name ?? '–')
+            // Unveränderte Altzeile ohne Lesedatum: nur den eindeutigen Lesetag vorschlagen (nicht still setzen)
+            const vorschlag = row.weingarten_id && !row.ernte_datum && altZeile && !altZeile.ernte_datum ? vorbelegterLesetag(tage) : null
             return (
-              <div key={i} className="grid grid-cols-12 gap-1.5 items-center">
-                <div className="col-span-5">
-                  <select
-                    value={selectValue}
-                    onChange={e => updateWG(i, 'compositeId', e.target.value)}
-                    className={inp}
-                  >
-                    <option value="">– GST/Ried –</option>
-                    {gstOptionen.map(opt => (
-                      <option key={opt.compositeId} value={opt.compositeId}>
-                        {opt.label} – {fmtNum(opt.verfuegbar_kg, { max: 0 })} kg verf.
-                      </option>
-                    ))}
-                    {zukaufOptionen.length > 0 && (
-                      <optgroup label="Zugekaufte Trauben">
-                        {zukaufOptionen.map(opt => (
-                          <option key={opt.compositeId} value={opt.compositeId}>
-                            {opt.label} – {fmtNum(opt.verfuegbar_kg, { max: 0 })} kg verf.
-                          </option>
-                        ))}
-                      </optgroup>
-                    )}
-                  </select>
+              <div key={row.schluessel} className="rounded-lg border border-s112-border/60 bg-white/60 p-1.5 space-y-1.5">
+              <div className="grid grid-cols-12 gap-1.5 items-center">
+                <div className="col-span-5 text-sm text-s112-text-1 truncate" title={bezeichnung}>
+                  <span className="text-[11px] text-s112-muted mr-1">{i + 1}.</span>{bezeichnung}
                 </div>
                 <div className="col-span-2">
-                  <input type="text" inputMode="decimal" value={row.trauben_kg}
+                  <input aria-label={`Menge kg Traubenzeile ${i + 1}`} type="text" inputMode="decimal" value={row.trauben_kg}
                     onChange={e => updateWG(i, 'trauben_kg', e.target.value)}
                     placeholder="kg" className={inp} />
                 </div>
-                <div className="col-span-3 flex items-center px-2">
+                <div className="col-span-4 flex items-center px-2">
                   <span className="text-sm text-s112-text-2 truncate">
                     {row.rebsorte ? formatRebsorteMitKuerzel(row.rebsorte) : <span className="text-s112-tertiary text-xs">–</span>}
                   </span>
                 </div>
-                <div className="col-span-2 flex justify-end">
-                  {wgRows.length > 1 && (
-                    <button aria-label="Zeile entfernen" type="button" onClick={() => setWgRows(r => r.filter((_, j) => j !== i))}
-                      className="text-xs text-s112-err hover:text-s112-err-fg px-1"><X size={14} /></button>
+                <div className="col-span-1 flex justify-end">
+                  <button aria-label={`Traubenzeile ${i + 1} entfernen`} type="button" onClick={() => setWgRows(r => r.filter((_, j) => j !== i))}
+                    className="text-xs text-s112-err hover:text-s112-err-fg px-1"><X size={14} /></button>
+                </div>
+              </div>
+              <div className="grid grid-cols-12 gap-1.5 items-start">
+                <div className="col-span-4">
+                  <label className="block text-[11px] text-s112-text-2 mb-0.5">
+                    Lesedatum{row.weingarten_id && ' *'}{row.zukauf_posten_id && <span className="text-s112-muted"> (Zukaufsdatum)</span>}
+                  </label>
+                  <input aria-label={`Lesedatum Traubenzeile ${i + 1}`} type="date" value={row.ernte_datum}
+                    disabled={!!row.zukauf_posten_id}
+                    onChange={e => updateWG(i, 'ernte_datum', e.target.value)}
+                    className={`${inp} disabled:bg-s112-bg disabled:text-s112-text-2`} />
+                  {row.weingarten_id && tage.length > 1 && !tage.some(t => t.datum === row.ernte_datum) && (
+                    <p className="text-[11px] text-s112-muted mt-0.5">Lesetage laut Lese: {tage.map(t => datumText(t.datum)).join(', ')}</p>
+                  )}
+                  {row.weingarten_id && tage.length === 0 && !row.ernte_datum && (
+                    <p className="text-[11px] text-s112-warn-fg mt-0.5">Kein Lesetag in der Lese erfasst – bitte angeben.</p>
+                  )}
+                  {vorschlag && (
+                    <button type="button" onClick={() => setWgRows(rs => rs.map((r, j) => j === i
+                        ? { ...r, ernte_datum: vorschlag.datum, ...(r.mg ? {} : { mg: mostgewichtAusGespeichert(mgAusTag(vorschlag)), mgStart: mgAusTag(vorschlag), mgFehler: null }) }
+                        : r))}
+                      className="text-[11px] text-s112-blue-700 hover:underline mt-0.5">Lesetag {datumText(vorschlag.datum)} laut Lese übernehmen</button>
                   )}
                 </div>
+                <div className="col-span-8">
+                  <MostgewichtEingabe name={`pw_${row.schluessel}_mostgewicht`} label="Mostgewicht" startwert={row.mgStart}
+                    onChange={(wert, info) => setWgRows(rs => rs.map((r, j) => j === i ? { ...r, mg: info.fehler ? r.mg : wert, mgFehler: info.fehler } : r))} />
+                </div>
+              </div>
               </div>
             )
           })}
         </div>
+        {pressung && (
+          <p className="text-[11px] text-s112-muted mt-1.5">
+            Press- und Lesedatum lassen sich nur ändern, solange an den Chargen dieser Pressung noch nichts gebucht ist.
+          </p>
+        )}
       </div>
 
       {/* Befüllte Behälter/Chargen */}
@@ -645,10 +801,11 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
 
 // ── Hauptexport ───────────────────────────────────────────────────────────────
 
-export default function PressungSection({ jahrgangId, pressungen, wgOptions, behOptions, waOptions, leseParzellen, verfuegbareKgByGST, zukaufTrauben, behaelterMitCharge, writeOk, adminOk }: {
+export default function PressungSection({ jahrgangId, pressungen, wgOptions, behOptions, waOptions, leseParzellen, leseEintraege, verfuegbareKgByGST, zukaufTrauben, behaelterMitCharge, writeOk, adminOk }: {
   jahrgangId: string; pressungen: Pressung[]
   wgOptions: WGOption[]; behOptions: BehOption[]; waOptions: WAOption[]
-  leseParzellen: LeseParzelle[]; verfuegbareKgByGST: Record<string, number>
+  /** KAN-126: alle Lese-Einträge des Jahrgangs (Lesetage und Mostgewicht je Ort) */
+  leseParzellen: LeseParzelle[]; leseEintraege: LeseEintrag[]; verfuegbareKgByGST: Record<string, number>
   zukaufTrauben: ZukaufTraubenOpt[]
   behaelterMitCharge?: Record<string, { weinausbau_id: string; name: string; rebsorte?: string | null; menge_liter?: number | null; qualitaetsstufe?: string | null; herkunft_code?: string | null }[]>; writeOk: boolean; adminOk: boolean
 }) {
@@ -735,7 +892,7 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
       {/* Neues Formular */}
       {showForm && !editId && (
         <PressungForm jahrgangId={jahrgangId} wgOptions={wgOptions} behOptions={behOptions}
-          waOptions={waOptions} leseParzellen={leseParzellen} verfuegbareKgByGST={verfuegbareKgByGST}
+          waOptions={waOptions} leseParzellen={leseParzellen} leseEintraege={leseEintraege} verfuegbareKgByGST={verfuegbareKgByGST}
           zukaufTrauben={zukaufTrauben}
           behaelterMitCharge={behaelterMitCharge} onDone={() => setShowForm(false)} />
       )}
@@ -754,7 +911,7 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
               <div key={p.id}>
                 {editId === p.id ? (
                   <PressungForm pressung={p} jahrgangId={jahrgangId} wgOptions={wgOptions}
-                    behOptions={behOptions} waOptions={waOptions} leseParzellen={leseParzellen}
+                    behOptions={behOptions} waOptions={waOptions} leseParzellen={leseParzellen} leseEintraege={leseEintraege}
                     verfuegbareKgByGST={verfuegbareKgByGST} zukaufTrauben={zukaufTrauben}
                     behaelterMitCharge={undefined}
                     onDone={() => setEditId(null)} />
@@ -784,7 +941,12 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
                         {p.kmw_grad != null && (
                           <span className="font-semibold text-s112-warn-fg bg-s112-warn-bg px-2 py-0.5 rounded-full">
                             {p.kmw_grad.toString().replace('.', ',')} °KMW
-                            {' · '}{QUALITAET_LABEL[kmwZuQualitaet(p.kmw_grad)]}
+                            {' · '}{(() => {
+                              // Stufe der Chargen (bei Abstufung niedriger als aus den °KMW)
+                              const ausKmw = kmwZuQualitaet(p.kmw_grad)
+                              const charge = p.behaelter.map(b => b.weinausbau_qualitaet ?? null).reduce<string | null>((m, q) => minQualitaet(m, q), null)
+                              return charge && charge !== ausKmw ? `${qualitaetLabel(charge)} (abgestuft von ${qualitaetLabel(ausKmw)})` : qualitaetLabel(ausKmw)
+                            })()}
                           </span>
                         )}
                         <span className="flex items-center gap-2">
@@ -802,6 +964,10 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
                             {w.weingarten_name}
                             {w.rebsorte && <span className="text-s112-ok-fg">· {formatRebsorteMitKuerzel(w.rebsorte)}</span>}
                             <span className="font-medium">· {fmt(w.trauben_kg)} kg</span>
+                            {/* KAN-126 */}
+                            {w.ernte_datum
+                              ? <span>· Lese {datumText(w.ernte_datum)}</span>
+                              : w.weingarten_id && <span className="text-s112-warn-fg" title="Ohne Lesedatum rechnet die Rückverfolgung mit einem Ersatz">· ohne Lesedatum</span>}
                           </span>
                         ))}
                       </div>

@@ -488,6 +488,7 @@ describe('(4) Formulare und Server Actions verwenden die Liste ihrer Zieltabelle
     'src/app/(dashboard)/admin/import/ImportClient.tsx':                       'charge',
     'src/app/(dashboard)/weinhandel/zukauf/neu/page.tsx':                      'charge',
     'src/app/(dashboard)/weinhandel/zukauf/[id]/edit/ZukaufEditForm.tsx':      'charge',
+    'src/app/(dashboard)/erntemeldung/[id]/PressungSection.tsx':               'charge',   // Abstufen bei der Pressung (KAN-81/KAN-126)
   }
   // Serverprüfung vor dem Schreiben: [Datei, Funktion, Aufruf, weitere Schreibaufrufe (optional),
   // Optionen (optional)]. Der Aufruf muss im Rumpf der Funktion (ohne Kommentare) vor dem ersten

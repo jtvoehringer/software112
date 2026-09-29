@@ -73,6 +73,7 @@ async function resolveRoh(
         menge_liter,
         pressung:pressung_id(
           id,
+          jahrgang:jahrgang_id(jahrgang),
           pressung_weingaerten(
             trauben_kg, rebsorte, ernte_datum, kmw,
             weingarten:weingarten_id(name),
@@ -106,7 +107,11 @@ async function resolveRoh(
         if (liter <= EPSILON) continue
         const w = wg.weingarten as R | null
         const g = wg.grundstueck as R | null
-        const jahrgangAusDatum = wg.ernte_datum ? new Date(wg.ernte_datum).getFullYear() : null
+        // KAN-126: Jahrgang der Pressung (auch bei einer Eiswein-Lese im Jänner des Folgejahres); nur ohne ihn
+        // das Lesejahr (Kalendertag aus dem Text, nicht über Date – sonst zeitzonenabhängig)
+        const jahrgangPressung = (p?.jahrgang as R | null)?.jahrgang
+        const jahrgangAusDatum = jahrgangPressung != null ? Number(jahrgangPressung)
+          : wg.ernte_datum ? Number(String(wg.ernte_datum).slice(0, 4)) : null
         eintraege.push({
           key: `pressung:${w?.name ?? '?'}:${g?.gst_nr ?? '?'}:${wg.rebsorte ?? '?'}:${jahrgangAusDatum ?? '?'}`,
           liter,
