@@ -136,3 +136,26 @@ export function minQualitaet(a: string | null, b: string | null): string | null 
   const rb = QUALITAET_OPTS.find(o => o.value === b)?.rang ?? 99
   return ra <= rb ? a : b
 }
+
+// ── Abstufen (KAN-81, Pressung seit KAN-126-Nachtrag 29.09.2026) ─────────────────────────────────────
+// „händisch downgraden, aber nicht upgraden“: Wählbar sind die Lese-Stufen bis zur Obergrenze (bei der
+// Pressung die Stufe aus dem °KMW), vorbelegt mit der Obergrenze. Der Server lehnt höhere Stufen ab.
+
+const rangVon = (wert: string) => QUALITAET_OPTS.find(o => o.value === wert)?.rang ?? null
+
+/** Auswahl beim Abstufen: Lese-Stufen bis einschließlich der Obergrenze, absteigend (Obergrenze zuerst) */
+export function abstufungsOptionen(obergrenze: string): readonly QualitaetsOption[] {
+  const max = rangVon(obergrenze) ?? 2
+  return LESE_QUALITAETEN.filter(o => o.rang <= max).slice().sort((a, b) => b.rang - a.rang)
+}
+
+/** null = zulässig (gleich oder niedriger als die Obergrenze), sonst die Meldung */
+export function abstufungFehler(wert: string | null | undefined, obergrenze: string): string | null {
+  if (!wert) return null
+  const r = rangVon(wert)
+  const max = rangVon(obergrenze)
+  if (r == null || max == null) return null
+  return r > max
+    ? `Die Qualitätsstufe „${qualitaetLabel(wert)}“ liegt über „${qualitaetLabel(obergrenze)}“ aus dem Mostgewicht – nur Abstufen ist möglich.`
+    : null
+}

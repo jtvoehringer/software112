@@ -4,7 +4,8 @@ import { useState, useTransition } from 'react'
 import { Pencil, Trash2, X, ChevronDown, Plus } from 'lucide-react'
 import { upsertPressung, deletePressung } from '../actions'
 import { fmtProzent, fmtNum, dezimal } from '@/lib/format'
-import { kmwZuQualitaet, QUALITAET_LABEL } from '@/lib/weinqualitaet'
+import { kmwZuQualitaet } from '@/lib/weinqualitaet'
+import { abstufungsOptionen, minQualitaet, qualitaetLabel, QUALITAET_OPTS } from '@/lib/wein/qualitaet'
 import VerschneidungForm from '@/components/kellerbuch/VerschneidungForm'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fehlerText } from '@/lib/fehler'
@@ -43,6 +44,8 @@ export type ZukaufTraubenOpt = {
 export type PressungBeh = {
   id: string; behaelter_id: string | null; behaelter_name: string | null
   weinausbau_id: string | null; weinausbau_name: string | null
+  /** Qualitätsstufe der Charge (zeigt eine Abstufung bei der Pressung, KAN-81) */
+  weinausbau_qualitaet?: string | null
   menge_liter: number | null; notizen: string | null
 }
 export type Pressung = {
@@ -208,6 +211,14 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
   const kmwNum       = parseFloat(dezimal(kmwGrad))
   // wie der Server (zahlAus → kmwZuQualitaet): jede gültige Zahl zählt, auch 0 °KMW (→ Wein)
   const kmwQualitaet = kmwGrad !== '' && Number.isFinite(kmwNum) ? kmwZuQualitaet(kmwNum) : null
+  // KAN-81/KAN-126: Abstufen bei der Pressung – Obergrenze aus den °KMW (ohne: Qualitätswein), wählbar nur niedriger.
+  // '' = Obergrenze (automatisch); gilt für neu angelegte Chargen (bestehende bleiben, Abstufen dort im Kellerbuch)
+  const obergrenze = kmwQualitaet ?? 'qualitaetswein'
+  const [abgestuft, setAbgestuft] = useState('')
+  // Liste der Zieltabelle (weinausbau, KAN-73), eingeschränkt auf die zulässigen Abstufungen
+  const zulaessig = new Set(abstufungsOptionen(obergrenze).map(o => o.value))
+  const stufenOptionen = QUALITAET_OPTS.filter(o => zulaessig.has(o.value)).slice().sort((a, b) => b.rang - a.rang)
+  const stufeWert = abgestuft && stufenOptionen.some(o => o.value === abgestuft) ? abgestuft : ''
   const [pending, startTransition] = useTransition()
 
   type VerschneidungData = {
@@ -337,9 +348,9 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
     fd.append('most_liter_gesamt', mostLiter)
     fd.append('weinbezeichnung', weinbezeichnung)
     fd.append('kmw_grad', kmwGrad)
-    // Qualitätsstufe wird bewusst NICHT vom Formular mitgeschickt: der Server
-    // leitet sie automatisch aus den °KMW ab (siehe upsertPressung/autoQualitaet).
-    // Ein bewusstes manuelles Abstufen bleibt bei der Abfüllung möglich.
+    // KAN-81/KAN-126: nur eine bewusste Abstufung schicken – ohne leitet der Server die Stufe aus den °KMW ab
+    // und lehnt eine Stufe über dieser Obergrenze ab
+    if (stufeWert) fd.append('qualitaetsstufe', stufeWert)
     fd.append('notizen', notizen)
     fd.append('weingaerten_json', JSON.stringify(
       // Gespeicherte Zeilen (mit id) immer mitschicken – entfernt wird nur per „×“
@@ -481,11 +492,18 @@ function PressungForm({ jahrgangId, pressung, wgOptions, behOptions, waOptions, 
             <div className="border border-s112-border rounded-lg px-2 py-1.5 text-sm bg-s112-bg text-s112-text-1 cursor-not-allowed whitespace-nowrap shrink-0">
               {kmwGrad ? `${kmwGrad} °KMW` : <span className="text-s112-muted text-xs">– kein KMW</span>}
             </div>
-            <div className="flex-1 flex items-center gap-2 border border-s112-border rounded-lg px-2 py-1.5 bg-s112-bg">
-              <span className="shrink-0 text-xs font-semibold px-2 py-1 rounded-full bg-s112-warn-bg text-s112-warn-fg whitespace-nowrap">
-                {QUALITAET_LABEL[kmwQualitaet ?? 'qualitaetswein']}
+            <div className="flex-1 flex items-center gap-2">
+              <select aria-label="Qualitätsstufe der neuen Charge" value={stufeWert} onChange={e => setAbgestuft(e.target.value)}
+                className="border border-s112-border rounded-lg px-2 py-1.5 text-sm bg-white">
+                <option value="">{qualitaetLabel(obergrenze)} (aus °KMW)</option>
+                {stufenOptionen.filter(o => o.value !== obergrenze).map(o => (
+                  <option key={o.value} value={o.value}>{o.label} – abgestuft</option>
+                ))}
+              </select>
+              <span className="text-xs text-s112-muted">
+                {stufeWert ? <>abgestuft von {qualitaetLabel(obergrenze)}</> : 'Abstufen möglich, höher nicht'}
+                {pressung && ' · gilt für neu angelegte Chargen, bestehende im Kellerbuch'}
               </span>
-              <span className="text-xs text-s112-muted">automatisch aus °KMW · manuelles Abstufen bei der Abfüllung möglich</span>
             </div>
           </div>
         </div>
@@ -923,7 +941,12 @@ export default function PressungSection({ jahrgangId, pressungen, wgOptions, beh
                         {p.kmw_grad != null && (
                           <span className="font-semibold text-s112-warn-fg bg-s112-warn-bg px-2 py-0.5 rounded-full">
                             {p.kmw_grad.toString().replace('.', ',')} °KMW
-                            {' · '}{QUALITAET_LABEL[kmwZuQualitaet(p.kmw_grad)]}
+                            {' · '}{(() => {
+                              // Stufe der Chargen (bei Abstufung niedriger als aus den °KMW)
+                              const ausKmw = kmwZuQualitaet(p.kmw_grad)
+                              const charge = p.behaelter.map(b => b.weinausbau_qualitaet ?? null).reduce<string | null>((m, q) => minQualitaet(m, q), null)
+                              return charge && charge !== ausKmw ? `${qualitaetLabel(charge)} (abgestuft von ${qualitaetLabel(ausKmw)})` : qualitaetLabel(ausKmw)
+                            })()}
                           </span>
                         )}
                         <span className="flex items-center gap-2">

@@ -167,3 +167,28 @@ describe('Verdrahtung', () => {
     assert.doesNotMatch(b, /new Date\(wg\.ernte_datum\)\.getFullYear\(\)/)
   })
 })
+
+// Nachtrag 29.09.2026: Abstufen der Qualitätsstufe bei der Pressung (KAN-81, Pressungsteil)
+describe('Abstufen bei der Pressung', async () => {
+  const Q = await import('../../src/lib/wein/qualitaet.ts')
+
+  test('Optionen: Lese-Stufen bis zur Obergrenze, Obergrenze zuerst', () => {
+    assert.deepEqual(Q.abstufungsOptionen('kabinett').map(o => o.value), ['kabinett', 'qualitaetswein', 'landwein', 'wein'])
+    assert.deepEqual(Q.abstufungsOptionen('landwein').map(o => o.value), ['landwein', 'wein'])
+  })
+
+  test('Kabinett → Landwein erlaubt, höher als die Obergrenze abgelehnt', () => {
+    assert.equal(Q.abstufungFehler('landwein', 'kabinett'), null)
+    assert.equal(Q.abstufungFehler('kabinett', 'kabinett'), null)
+    assert.equal(Q.abstufungFehler(null, 'kabinett'), null)
+    assert.match(Q.abstufungFehler('spaetlese', 'kabinett'), /liegt über „Kabinett“ aus dem Mostgewicht – nur Abstufen ist möglich/)
+  })
+
+  test('Verdrahtung: Formular schickt nur eine Abstufung, Server prüft gegen die °KMW-Stufe', () => {
+    const f = quelle('src/app/(dashboard)/erntemeldung/[id]/PressungSection.tsx')
+    assert.ok(f.includes("if (stufeWert) fd.append('qualitaetsstufe', stufeWert)"))
+    assert.ok(f.includes('aria-label="Qualitätsstufe der neuen Charge"'))
+    const a = quelle('src/app/(dashboard)/erntemeldung/actions.ts')
+    assert.ok(a.includes('const ueberObergrenze = abstufungFehler(qualitaetsstufeInput,'))
+  })
+})

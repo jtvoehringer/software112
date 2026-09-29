@@ -111,7 +111,7 @@ export default async function ErnteDetailPage({ params }: Props) {
     tf((supabase.from('pressungen') as any)
       .select(`id, datum, most_liter_gesamt, weinbezeichnung, notizen, kmw_grad,
         weingaerten:pressung_weingaerten(id, weingarten_id, grundstueck_id, zukauf_posten_id, trauben_kg, rebsorte, notizen, ernte_datum, kmw, oechsle, mostgewicht_einheit, weingarten:weingarten_id(name)),
-        behaelter:pressung_behaelter(id, behaelter_id, weinausbau_id, menge_liter, notizen, behaelter:behaelter_id(name), weinausbau:weinausbau_id(name, jahrgang))`)
+        behaelter:pressung_behaelter(id, behaelter_id, weinausbau_id, menge_liter, notizen, behaelter:behaelter_id(name), weinausbau:weinausbau_id(name, jahrgang, qualitaetsstufe))`)
       .eq('jahrgang_id', id).order('datum', { ascending: false })),
 
     // Gebinde für die Pressung: eigene + freigegebene, fremd belegte ausgenommen (Migration 203)
@@ -219,6 +219,7 @@ export default async function ErnteDetailPage({ params }: Props) {
       behaelter_name: b.behaelter?.name ?? null,
       weinausbau_id: b.weinausbau_id ?? null,
       weinausbau_name: b.weinausbau?.name ?? null,
+      weinausbau_qualitaet: b.weinausbau?.qualitaetsstufe ?? null,
       menge_liter: b.menge_liter ?? null, notizen: b.notizen ?? null,
     })),
   }))

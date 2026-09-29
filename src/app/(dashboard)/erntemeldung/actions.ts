@@ -3,7 +3,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { kmwZuQualitaet } from '@/lib/weinqualitaet'
-import { qualitaetFehler } from '@/lib/wein/qualitaet'
+import { abstufungFehler, qualitaetFehler } from '@/lib/wein/qualitaet'
 import { findePassendeHerkunftsstufe, HERKUNFT_LABEL, minHerkunft } from '@/lib/herkunft'
 import { createVerkaufspostenFuerTrauben, ermittleQuellenName, upsertTraubenverkauf } from '@/app/(dashboard)/weinhandel/traubenverkauf/actions'
 import { stornoVerkauf } from '@/app/(dashboard)/weinhandel/verkauf/actions'
@@ -821,6 +821,10 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
   // Das Formular schickt keine (Ableitung aus den °KMW), nur ein direkter Aufruf.
   const qualitaetUnzulaessig = qualitaetFehler('charge', qualitaetsstufeInput)
   if (qualitaetUnzulaessig) throw new AktionsFehler(qualitaetUnzulaessig)
+  // KAN-81/KAN-126: nur abstufen – nie über die Stufe aus den °KMW (ohne °KMW: Qualitätswein)
+  const ueberObergrenze = abstufungFehler(qualitaetsstufeInput,
+    kmwGrad != null && !isNaN(kmwGrad) ? kmwZuQualitaet(kmwGrad) : 'qualitaetswein')
+  if (ueberObergrenze) throw new AktionsFehler(ueberObergrenze)
 
   const weingaerten: WGZeile[] = leseFormularJson<PressungWGInput>(fd, 'weingaerten_json').map((w, i) => {
     // KAN-126: Mostgewicht der Zeile (Messwert + Einheit) wie in der Erntemeldung
