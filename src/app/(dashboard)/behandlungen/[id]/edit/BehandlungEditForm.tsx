@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateBehandlung } from '../../actions'
-import type { KostenartOption } from '../../neu/page'
+import type { KostenartOption, WeingartenOption, GSTOption } from '../../neu/page'
+import RiedAuswahlListe from '../../neu/RiedAuswahlListe'
 import { Hourglass, Ban, AlertTriangle } from 'lucide-react'
 import { fehlerText } from '@/lib/fehler'
 import { fmtNum } from '@/lib/format'
@@ -98,6 +99,7 @@ const labelCls = 'block text-sm font-medium text-s112-text-1 mb-1'
 
 export default function BehandlungEditForm({
   behandlung, psm, duengemittel, bioStatus, kostenarten, bestehenderKostenEintrag, flaecheHa,
+  weingaerten, gstByWeingarten, startWGs, startGSTs,
 }: {
   behandlung: BehandlungEdit
   psm: PSMOption[]
@@ -107,7 +109,23 @@ export default function BehandlungEditForm({
   bestehenderKostenEintrag: BestehenderKostenEintrag | null
   /** Σ Fläche der Grundstücke dieser Maßnahme (ha); null = keine Grundstücke zugeordnet */
   flaecheHa: number | null
+  /** Rückmeldung 30.09.2026: Rieden beim Bearbeiten änderbar – Optionen und bisherige Auswahl */
+  weingaerten: WeingartenOption[]
+  gstByWeingarten: Record<string, GSTOption[]>
+  startWGs: string[]
+  startGSTs: [string, string][]
 }) {
+  const [selectedWGs, setSelectedWGs] = useState<Set<string>>(() => new Set(startWGs))
+  const [selectedGSTs, setSelectedGSTs] = useState<Map<string, string>>(() => new Map(startGSTs))
+  const [riedenOffen, setRiedenOffen] = useState(false)
+  // behandelte Fläche aus der aktuellen Auswahl (ganze Rieden = Σ WI-GST, sonst Σ gewählte GST); ohne Grundstücks-
+  // zuordnung (Altdaten) die bisherige Fläche
+  const gstFlaeche = new Map<string, number>()
+  for (const gsts of Object.values(gstByWeingarten)) for (const g of gsts) gstFlaeche.set(g.id, g.flaeche_ha ?? 0)
+  const auswahlHa = weingaerten.filter(w => selectedWGs.has(w.id)).reduce((s, w) => s + w.gst_ha_aktiv, 0)
+    + [...selectedGSTs.keys()].reduce((s, id) => s + (gstFlaeche.get(id) ?? 0), 0)
+  const auswahlLeer = selectedWGs.size === 0 && selectedGSTs.size === 0
+  const flaecheAktuell = auswahlLeer ? flaecheHa : (auswahlHa > 0 ? Math.round(auswahlHa * 10000) / 10000 : null)
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const startArt = (behandlung.art as Art) ?? 'spritzung'
@@ -247,7 +265,7 @@ export default function BehandlungEditForm({
     art, felder,
     mengeGesamt, wasseraufwand, mengeQuelle,
     aufwandmenge, aufwandmengeEinheit, konzentration, folge,
-    flaecheHa,
+    flaecheHa: flaecheAktuell,
     psmId: selectedPsmId || null,
     psm: selectedPsm
       ? { cuGehaltPct: selectedPsm.cu_gehalt_pct, wirkstoff: selectedPsm.wirkstoff, wirkstoffgehaltPct: selectedPsm.wirkstoffgehalt_pct }
@@ -281,6 +299,7 @@ export default function BehandlungEditForm({
     // KAN-154 wie KAN-153: statt eines gesperrten Knopfs zeigt der Klick den Grund am Mittel – nichts wird gesendet
     if (bioSperre) { setBioSprung(n => n + 1); return }
     if (altwertOffen) { setError(altwertFehler); return }
+    if (auswahlLeer && startWGs.length + startGSTs.length > 0) { setRiedenOffen(true); setError('Bitte mindestens eine Ried oder ein Grundstück auswählen.'); return }
     // Dieselbe Prüfung wie updateBehandlung, im Formular zusätzlich mit Pflicht Spritzbrühe gesamt oder
     // Wasseraufwand (KAN-133)
     const mengen = pruefeMassnahmeMengen(m.eingabe, { bruehePflicht: true })
@@ -297,6 +316,12 @@ export default function BehandlungEditForm({
     // Mengen so, wie die Prüfung sie normalisiert hat; gesperrte (berechnete) Felder sind disabled und
     // würden sonst fehlen. reinkupfer_kg_ha rechnet updateBehandlung selbst.
     mengenInFormData(fd, felder, mengen.werte, m.konzentrationNum)
+    // Ried-Auswahl (Rückmeldung 30.09.2026) – der Server ersetzt die Grundstücke der Maßnahme nur, wenn sie sich ändern
+    if (!auswahlLeer) {
+      fd.set('ried_auswahl', '1')
+      selectedWGs.forEach(id => fd.append('weingarten_ids', id))
+      selectedGSTs.forEach((_wgId, gstId) => fd.append('grundstueck_ids', gstId))
+    }
     startTransition(async () => {
       try {
         await updateWithId(fd)
@@ -311,23 +336,44 @@ export default function BehandlungEditForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
 
-      {/* Weingarten und behandelte Fläche (readonly) – weingarten_id setzen nur Altdaten/Seed; die Fläche
-          (Σ Grundstücke, koppelt Spritzbrühe und Wasseraufwand) steht auch bei Maßnahmen aus Formular und Assistent */}
-      {(behandlung.weingarten_name || m.ha !== null) && (
-        <div className="card bg-s112-bg/50 p-4">
-          {behandlung.weingarten_name && (
-            <>
-              <p className="text-xs text-s112-muted">Weingarten (nicht änderbar)</p>
-              <p className="font-semibold text-s112-text">{behandlung.weingarten_name}</p>
-            </>
-          )}
-          {m.ha !== null && (
-            <p className={`text-xs text-s112-muted${behandlung.weingarten_name ? ' mt-0.5' : ''}`}>
-              Behandelte Fläche: {fmtNum(m.ha, { max: 4 })} ha (Σ Grundstücke der Maßnahme{behandlung.weingarten_name ? '' : ', nicht änderbar'})
+      {/* Ried(en) – seit 30.09.2026 änderbar (Rückmeldung Jörgen); dieselbe Auswahl wie „Neue Maßnahme“ */}
+      <div className="card">
+        <button type="button" onClick={() => setRiedenOffen(v => !v)} aria-expanded={riedenOffen}
+          className="flex items-center gap-2 text-left w-full">
+          <svg className={`w-3.5 h-3.5 text-s112-muted transition-transform shrink-0 ${riedenOffen ? 'rotate-90' : ''}`}
+            fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+          <h2 className="text-base font-semibold text-s112-text">
+            Ried(en)
+            <span className="ml-2 text-sm font-normal text-s112-blue-700">
+              {auswahlLeer ? 'keine Auswahl' : `${selectedWGs.size} Ried/Rieden${selectedGSTs.size > 0 ? ` · ${selectedGSTs.size} GST` : ''}${flaecheAktuell !== null ? ` · ${fmtNum(flaecheAktuell, { max: 4 })} ha` : ''}`}
+            </span>
+          </h2>
+        </button>
+        {m.ha !== null && (
+          <p className="text-xs text-s112-muted mt-1 ml-5">
+            Behandelte Fläche: {fmtNum(m.ha, { max: 4 })} ha (Σ der ausgewählten Grundstücke – Spritzbrühe, Wasseraufwand
+            und Kosten rechnen damit)
+          </p>
+        )}
+        {auswahlLeer && behandlung.weingarten_name && (
+          <p className="text-xs text-s112-muted mt-1 ml-5">
+            Bisher ohne Grundstücke erfasst: {behandlung.weingarten_name} – eine Auswahl ordnet die Maßnahme Grundstücken zu.
+          </p>
+        )}
+        {riedenOffen && (
+          <div className="mt-3">
+            <RiedAuswahlListe weingaerten={weingaerten} gstByWeingarten={gstByWeingarten}
+              selectedWGs={selectedWGs} setSelectedWGs={setSelectedWGs} selectedGSTs={selectedGSTs} setSelectedGSTs={setSelectedGSTs}
+              riedHinweis={false} riedMeldung={undefined} />
+            <p className="text-xs text-s112-muted mt-2">
+              Eine geänderte Auswahl ersetzt die Grundstücke der Maßnahme; die Fläche bisher behandelter Grundstücke bleibt
+              wie erfasst, neu gewählte Grundstücke übernehmen ihre heutige Fläche. Mengen, Anteile und Kosten rechnen danach neu.
             </p>
-          )}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
 
       {/* Art & Datum */}
       <div className="card space-y-4">

@@ -1,0 +1,49 @@
+import 'server-only'
+
+// Ried- und GST-Optionen der Maßnahmen-Formulare (Neue Maßnahme und – seit 30.09.2026 – Maßnahme bearbeiten):
+// aktive Rieden mit Lage, Spritzbarkeit (nur mit Grundstück der Nutzart WI, KAN-132 Frage 6) und die WI-GST je Ried.
+
+import type { WeingartenOption, GSTOption } from './page'
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AR = Record<string, any>
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function ladeRiedOptionen(supabase: any, tenantId: string): Promise<{ weingaerten: WeingartenOption[]; gstByWeingarten: Record<string, GSTOption[]> }> {
+  const [{ data: rawW }, { data: rawG }] = await Promise.all([
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from('weingarten') as any)
+      .select('id, name, ried, lage_id, lagen:lage_id(name)')
+      .eq('tenant_id', tenantId)
+      .eq('aktiv', true)
+      .order('name'),
+    // Rückmeldung 24.8.2026: Nutzart WI ersetzt den Status als Quelle für die Spritzbarkeit
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from('grundstuecke') as any)
+      .select('id, weingarten_id, gst_nr, rebsorte, nutzart, flaeche_ha')
+      .eq('tenant_id', tenantId),
+  ])
+  const gstByWG = new Map<string, { nutzart: string | null; ha: number }[]>()
+  for (const g of ((rawG ?? []) as AR[])) {
+    const arr = gstByWG.get(g.weingarten_id) ?? []
+    arr.push({ nutzart: g.nutzart, ha: g.flaeche_ha ?? 0 })
+    gstByWG.set(g.weingarten_id, arr)
+  }
+  const weingaerten: WeingartenOption[] = ((rawW ?? []) as AR[]).map(w => {
+    const gsts = gstByWG.get(w.id) ?? []
+    return {
+      id: w.id, name: w.name, ried: w.ried ?? null, lage_id: w.lage_id ?? null, lage_name: w.lagen?.name ?? null,
+      // KAN-132 (Frage 6): nur Rieden mit Grundstück der Nutzart WI – eine Maßnahme ohne Grundstück ist nicht verteilbar
+      spritzbar: gsts.some(g => g.nutzart === 'WI'),
+      gst_ha_aktiv: gsts.filter(g => g.nutzart === 'WI').reduce((s, g) => s + g.ha, 0),
+    }
+  })
+  const gstByWeingarten: Record<string, GSTOption[]> = {}
+  for (const g of ((rawG ?? []) as AR[])) {
+    if (g.nutzart !== 'WI') continue
+    ;(gstByWeingarten[g.weingarten_id] ??= []).push({
+      id: g.id, weingarten_id: g.weingarten_id, gst_nr: g.gst_nr, rebsorte: g.rebsorte ?? null, flaeche_ha: g.flaeche_ha ?? null,
+    })
+  }
+  return { weingaerten, gstByWeingarten }
+}

@@ -18,6 +18,10 @@ export type Behandlung = {
   weingarten_id: string | null
   weingarten_name: string | null
   weingarten_ried: string | null
+  /** Rieden der Maßnahme (aus den Grundstücken bzw. weingarten_id), alphabetisch */
+  rieden: string[]
+  /** Σ Fläche der Grundstücke der Maßnahme (ha) */
+  flaeche_ha: number | null
   psm_name: string | null
   psm_wartezeit: number | null
   aufwandmenge: number | null
@@ -41,23 +45,20 @@ export default async function BehandlungenPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
-  // Behandlungen + PSM (weingarten_id ist oft null – Namen kommen aus Junction)
-  const [{ data: rawB }, { data: rawBG }, { data: rawKosten }] = await Promise.all([
+  // Behandlungen + PSM; die Rieden kommen aus den Grundstücken der Maßnahme (eingebettet über die mandantengefilterte
+  // Maßnahme – eine eigene Abfrage auf behandlung_grundstuecke war ungefiltert und bei vielen GST auf 1.000 Zeilen gekappt)
+  const [{ data: rawB }, { data: rawKosten }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tf((supabase.from('behandlungen') as any)
       .select(`
         id, datum, art, weingarten_id, aufwandmenge, aufwandmenge_einheit,
         bbch_stadium, witterung, ernte_fruehesteins, notizen,
         weingarten:weingarten_id ( name, ried ),
-        psm:psm_id ( name, wartezeit_tage )
+        psm:psm_id ( name, wartezeit_tage ),
+        behandlung_grundstuecke ( flaeche_ha, grundstueck:grundstueck_id ( flaeche_ha, weingarten:weingarten_id ( id, name, ried ) ) )
       `)
       .order('datum', { ascending: false })
       .limit(200)),
-
-    // Weingarten-Namen über Junction-Tabelle (für Behandlungen ohne direkten weingarten_id-FK)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase.from('behandlung_grundstuecke') as any)
-      .select('behandlung_id, grundstueck:grundstueck_id(weingarten:weingarten_id(id, name, ried))'),
 
     // Kosten je Maßnahme (Punkt 7, Migration 139)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -72,33 +73,22 @@ export default async function BehandlungenPage() {
     kostenByBeh.set(k.behandlung_id, (kostenByBeh.get(k.behandlung_id) ?? 0) + (k.betrag ?? 0))
   }
 
-  // behandlung_id → { name, ried } (erster Weingarten; bei Mehrfach-WG: alle zusammenfassen)
-  const wgByBeh = new Map<string, { name: string; ried: string | null; wgId: string }>()
-  for (const bg of ((rawBG ?? []) as AR[])) {
-    if (wgByBeh.has(bg.behandlung_id)) continue // nur ersten Eintrag nehmen für ried
-    const wg = bg.grundstueck?.weingarten
-    if (!wg) continue
-    wgByBeh.set(bg.behandlung_id, { name: wg.name, ried: wg.ried ?? null, wgId: wg.id })
-  }
-  // Für Mehrfach-WG: alle Namen sammeln
-  const wgNamenByBeh = new Map<string, string[]>()
-  for (const bg of ((rawBG ?? []) as AR[])) {
-    const wg = bg.grundstueck?.weingarten
-    if (!wg) continue
-    const arr = wgNamenByBeh.get(bg.behandlung_id) ?? []
-    if (!arr.includes(wg.name)) arr.push(wg.name)
-    wgNamenByBeh.set(bg.behandlung_id, arr)
-  }
+  const KOLLATOR = new Intl.Collator('de', { numeric: true, sensitivity: 'base' })
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const behandlungen: Behandlung[] = ((rawB ?? []) as any[]).map((b: any) => {
-    // Weingarten-Name: direkt via FK falls vorhanden, sonst aus Junction
-    const junctionWg = wgByBeh.get(b.id)
-    const allNames = wgNamenByBeh.get(b.id)
-    const wgName = b.weingarten?.name
-      ?? (allNames && allNames.length > 0 ? allNames.join(', ') : null)
-    const wgRied = b.weingarten?.ried ?? junctionWg?.ried ?? null
-    const wgId   = b.weingarten_id ?? junctionWg?.wgId ?? null
+    // Rieden aus den Grundstücken der Maßnahme (alphabetisch), sonst die Ried aus weingarten_id
+    const bgs = (b.behandlung_grundstuecke ?? []) as AR[]
+    const wgs = new Map<string, AR>()
+    for (const bg of bgs) { const wg = bg.grundstueck?.weingarten; if (wg?.id && !wgs.has(wg.id)) wgs.set(wg.id, wg) }
+    const rieden = wgs.size > 0
+      ? [...wgs.values()].map(w => String(w.name ?? '–')).sort(KOLLATOR.compare)
+      : b.weingarten?.name ? [String(b.weingarten.name)] : []
+    const flaeche = bgs.reduce((s: number, bg: AR) => s + (Number(bg.flaeche_ha ?? bg.grundstueck?.flaeche_ha) || 0), 0)
+    const erste = wgs.values().next().value as AR | undefined
+    const wgName = rieden.length > 0 ? rieden.join(', ') : null
+    const wgRied = b.weingarten?.ried ?? erste?.ried ?? null
+    const wgId   = b.weingarten_id ?? erste?.id ?? null
 
     return {
       id:                   b.id,
@@ -107,6 +97,8 @@ export default async function BehandlungenPage() {
       weingarten_id:        wgId,
       weingarten_name:      wgName,
       weingarten_ried:      wgRied,
+      rieden,
+      flaeche_ha:           flaeche > 0 ? Math.round(flaeche * 10000) / 10000 : null,
       psm_name:             b.psm?.name ?? null,
       psm_wartezeit:        b.psm?.wartezeit_tage ?? null,
       aufwandmenge:         b.aufwandmenge,

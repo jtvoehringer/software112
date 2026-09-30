@@ -38,6 +38,30 @@ function WartezeitBadge({ datum }: { datum: string | null }) {
   )
 }
 
+/** Rieden einer Maßnahme: alphabetisch, nicht fett; ab vier Rieden kompakt mit „alle anzeigen“ (Rückmeldung 30.09.2026) */
+function RiedenZelle({ rieden, flaecheHa }: { rieden: string[]; flaecheHa: number | null }) {
+  if (rieden.length === 0) return <span className="text-s112-muted">–</span>
+  const ha = flaecheHa != null ? ` · ${fmtNum(flaecheHa, { max: 4 })} ha` : ''
+  if (rieden.length <= 3) {
+    return (
+      <div className="text-xs text-s112-text-1 leading-snug">
+        {rieden.join(', ')}
+        {ha && <span className="block text-s112-muted">{ha.slice(3)}</span>}
+      </div>
+    )
+  }
+  return (
+    <details className="text-xs text-s112-text-1 leading-snug">
+      <summary className="cursor-pointer text-s112-blue-700 hover:underline list-none">
+        {rieden.length} Rieden{ha} <span className="text-s112-muted">– anzeigen</span>
+      </summary>
+      <ul className="mt-1 columns-2 gap-4">
+        {rieden.map(r => <li key={r} className="break-inside-avoid">{r}</li>)}
+      </ul>
+    </details>
+  )
+}
+
 // Behandlungen nach Datum gruppieren
 function groupByDate(behandlungen: Behandlung[]) {
   const map = new Map<string, Behandlung[]>()
@@ -114,44 +138,32 @@ export default function BehandlungenClient({
             {/* Datums-Header */}
             <div className="bg-s112-bg border-b border-s112-border px-4 py-2 flex items-center gap-3">
               <span className="font-semibold text-s112-text text-sm">{formatDate(datum)}</span>
-              <span className="text-xs text-s112-muted">{gruppe.length} {gruppe.length === 1 ? 'Ried' : 'Rieden'}</span>
-              {gruppe[0].art && gruppe[0].art !== 'spritzung' && (
-                <span className="text-xs text-s112-text-2 bg-[#F2F3F5] px-2 py-0.5 rounded-full">
-                  {ART_LABEL[gruppe[0].art] ?? gruppe[0].art}
-                </span>
-              )}
-              {gruppe[0].psm_name && (
-                <span className="ml-auto text-xs font-medium text-s112-blue-700 bg-s112-teal/10 px-2 py-0.5 rounded-full">
-                  {gruppe[0].psm_name}
-                </span>
-              )}
+              {/* Anzahl der Maßnahmen an diesem Tag (bisher stand hier fälschlich „1 Ried“) */}
+              <span className="text-xs text-s112-muted">{gruppe.length} {gruppe.length === 1 ? 'Maßnahme' : 'Maßnahmen'}</span>
             </div>
 
             <table className="w-full text-sm table-fixed">
               <thead>
                 <tr className="border-b border-s112-border text-xs font-medium text-s112-muted uppercase tracking-wide">
-                  <th className="px-4 py-2 text-left w-[32%]">Weingarten / Ried / Art</th>
-                  <th className="px-3 py-2 text-left w-[15%]">Menge</th>
-                  <th className="px-3 py-2 text-left w-[10%]">BBCH</th>
-                  <th className="px-3 py-2 text-left w-[10%]">Witterung</th>
-                  <th className="px-3 py-2 text-left w-[13%]">Erntefrei ab</th>
-                  <th className="px-3 py-2 text-right w-[10%]">Kosten</th>
-                  {adminOk && <th className="px-3 py-2 text-right w-[10%]">Aktionen</th>}
+                  <th className="px-4 py-2 text-left w-[22%]">Maßnahme</th>
+                  <th className="px-3 py-2 text-left w-[11%]">Menge</th>
+                  <th className="px-3 py-2 text-left w-[8%]">BBCH</th>
+                  <th className="px-3 py-2 text-left w-[9%]">Witterung</th>
+                  <th className="px-3 py-2 text-left w-[11%]">Erntefrei ab</th>
+                  <th className="px-3 py-2 text-left">Ried(en)</th>
+                  <th className="px-3 py-2 text-right w-[8%]">Kosten</th>
+                  {adminOk && <th className="px-3 py-2 text-right w-[8%]">Aktionen</th>}
                 </tr>
               </thead>
               <tbody>
                 {gruppe.map(b => (
                   <tr key={b.id} className="border-b border-s112-border/40 last:border-0 hover:bg-s112-bg/30 transition-colors">
-                    <td className="px-4 py-2.5">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium text-s112-text">{b.weingarten_name ?? '–'}</span>
-                        {b.weingarten_ried && (
-                          <span className="text-xs text-s112-muted">{b.weingarten_ried}</span>
-                        )}
-                        <span className="text-xs text-s112-text-2">
-                          {ART_LABEL[b.art] ?? b.art}
-                        </span>
-                      </div>
+                    {/* Maßnahme hervorgehoben: Mittel (bzw. Art) fett, Art als Kennzeichen */}
+                    <td className="px-4 py-2.5 align-top">
+                      <div className="font-semibold text-s112-text">{b.psm_name ?? ART_LABEL[b.art] ?? b.art}</div>
+                      <span className="inline-block mt-0.5 text-[11px] text-s112-text-2 bg-[#F2F3F5] px-2 py-0.5 rounded-full">
+                        {ART_LABEL[b.art] ?? b.art}
+                      </span>
                     </td>
                     <td className="px-3 py-2.5 text-s112-muted">
                       {b.aufwandmenge != null ? (
@@ -166,6 +178,9 @@ export default function BehandlungenClient({
                     </td>
                     <td className="px-3 py-2.5">
                       <WartezeitBadge datum={b.ernte_fruehesteins} />
+                    </td>
+                    <td className="px-3 py-2.5 align-top">
+                      <RiedenZelle rieden={b.rieden} flaecheHa={b.flaeche_ha} />
                     </td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-xs">
                       {b.kosten_betrag != null ? <span className="text-s112-text-1 font-medium">{formatEuro(b.kosten_betrag)} €</span> : <span className="text-s112-muted">–</span>}
