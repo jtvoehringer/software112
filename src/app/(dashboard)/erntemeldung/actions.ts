@@ -7,7 +7,7 @@ import { abstufungFehler, qualitaetFehler } from '@/lib/wein/qualitaet'
 import { findePassendeHerkunftsstufe, HERKUNFT_LABEL, minHerkunft } from '@/lib/herkunft'
 import { createVerkaufspostenFuerTrauben, ermittleQuellenName, upsertTraubenverkauf } from '@/app/(dashboard)/weinhandel/traubenverkauf/actions'
 import { traubenverkaufStornieren } from '@/lib/verkauf/traubenverkaufStorno'
-import { stornoGrundFehler } from '@/lib/storno/grund'
+import { GRUND_BEARBEITET, stornoGrundFehler } from '@/lib/storno/grund'
 import { getCurrentMembership, canAdmin, type Membership } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
@@ -960,22 +960,10 @@ async function chargenVorgabenErmitteln(
   return { name, jahr, rebsorte: dominantRebsorte, qualitaet, herkunft, weinart }
 }
 
-/** Behälterzeile nach einem Fehler wieder entfernen – liefert '' oder einen Zusatz für die Meldung */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function behaelterzeileAufraeumen(supabase: any, pbId: string, pressId: string): Promise<string> {
-  const { data, error } = await (supabase.from('pressung_behaelter') as any)
-    .delete().eq('id', pbId).eq('pressung_id', pressId).select('id')
-  if (error || !(data as AR[] | null)?.length) {
-    return ` Achtung: Die angelegte Behälterzeile konnte nicht wieder entfernt werden${error ? ` (${dbFehlerText(error)})` : ''} – bitte die Pressung prüfen.`
-  }
-  return ''
-}
-
 /**
- * Neue Behälterzeile samt Kellerbuch-Charge anlegen. Reihenfolge: Behälterzeile →
- * Charge → Rückverknüpfung über pb.id. Scheitert ein Schritt, wird aufgeräumt, damit
- * weder eine Behälterzeile ohne Charge (Zugang ohne Bestand) noch eine Charge ohne
- * Behälterzeile (Bestand ohne Zugang) zurückbleibt.
+ * Neue Behälterzeile samt Kellerbuch-Charge anlegen (KAN-148 C1c-2): Behälterzeile, Charge und Verknüpfung in EINER
+ * Transaktion über die RPC s112_mostzeile_anlegen – scheitert ein Schritt, bleibt nichts zurück (bisher drei
+ * Aufrufe mit Rückbau per DELETE). Der Trigger trg_pressung_weinausbau_weingaerten ergänzt die Herkunft.
  */
 async function mostzeileMitChargeAnlegen(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -985,53 +973,12 @@ async function mostzeileMitChargeAnlegen(
   b: BehZeile,
   v: ChargenVorgaben,
 ): Promise<NeueCharge> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: pbNeu, error: pbErr } = await (supabase.from('pressung_behaelter') as any)
-    .insert({ pressung_id: pressId, behaelter_id: b.behaelter_id, menge_liter: b.menge_liter, notizen: b.notizen })
-    .select('id').single()
-  if (pbErr || !pbNeu) throw new AktionsFehler(dbFehlerText(pbErr, 'Behälterzeile konnte nicht angelegt werden'))
-  const pbId = (pbNeu as AR).id as string
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: neuWA, error: waErr } = await (supabase.from('weinausbau') as any)
-    .insert({
-      tenant_id:       tenantId,
-      name:            v.name,
-      jahrgang:        v.jahr,
-      rebsorte:        v.rebsorte,
-      menge_liter:     b.menge_liter,
-      status:          'ausbau',
-      behaelter_id:    b.behaelter_id,
-      qualitaetsstufe: v.qualitaet,
-      herkunft_code:   v.herkunft,
-      weinart:         v.weinart,
-      aktiv:           true,
-    })
-    .select('id').single()
-  if (waErr || !neuWA) {
-    const zusatz = await behaelterzeileAufraeumen(supabase, pbId, pressId)
-    throw new AktionsFehler(`Kellerbuch-Charge konnte nicht angelegt werden: ${dbFehlerText(waErr)}${zusatz}`)
-  }
-  const waId = (neuWA as AR).id as string
-
-  // Rückverknüpfung über die ID der Behälterzeile (nicht über Pressung + Behälter:
-  // zwei Zeilen mit demselben Behälter würden sonst beide überschrieben). Der Trigger
-  // trg_pressung_weinausbau_weingaerten ergänzt dabei die Herkunft (weinausbau_weingaerten).
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: link, error: linkErr } = await (supabase.from('pressung_behaelter') as any)
-    .update({ weinausbau_id: waId }).eq('id', pbId).eq('pressung_id', pressId).select('id')
-  if (linkErr || !(link as AR[] | null)?.length) {
-    const zusatz = await behaelterzeileAufraeumen(supabase, pbId, pressId)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: wDel, error: wDelErr } = await (supabase.from('weinausbau') as any)
-      .delete().eq('id', waId).eq('tenant_id', tenantId).select('id')
-    const chargeRest = wDelErr || !(wDel as AR[] | null)?.length
-      ? ` Achtung: Die angelegte Charge „${v.name}“ konnte nicht wieder entfernt werden – bitte im Kellerbuch löschen lassen.`
-      : ''
-    throw new AktionsFehler(`Die Charge konnte nicht mit der Pressung verknüpft werden: ${linkErr ? dbFehlerText(linkErr) : 'keine Berechtigung'}.${zusatz}${chargeRest}`)
-  }
-
-  return { behaelter_id: b.behaelter_id as string, weinausbau_id: waId, name: v.name, menge_liter: b.menge_liter, qualitaetsstufe: v.qualitaet, herkunft_code: v.herkunft }
+  const { data, error } = await (supabase.rpc as (fn: string, args: AR) => Promise<{ data: AR | null; error: AR | null }>)('s112_mostzeile_anlegen', {
+    p_tenant_id: tenantId, p_pressung_id: pressId, p_behaelter_id: b.behaelter_id, p_menge_liter: b.menge_liter, p_notizen: b.notizen,
+    p_charge: { name: v.name, jahrgang: v.jahr, rebsorte: v.rebsorte, qualitaetsstufe: v.qualitaet, herkunft_code: v.herkunft, weinart: v.weinart },
+  })
+  if (error || !data?.weinausbau_id) throw new AktionsFehler(dbFehlerText(error, 'Behälterzeile mit Kellerbuch-Charge konnte nicht angelegt werden'))
+  return { behaelter_id: b.behaelter_id as string, weinausbau_id: data.weinausbau_id as string, name: v.name, menge_liter: b.menge_liter, qualitaetsstufe: v.qualitaet, herkunft_code: v.herkunft }
 }
 
 type PbAenderung = {
@@ -1219,11 +1166,9 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
       throw new AktionsFehler(`Der Behälter${(alt.behaelter as AR | null)?.name ? ` „${(alt.behaelter as AR).name}“` : ''} kann nicht aus der Pressung entfernt werden: Aus ihm wurde bereits direkt verkauft.`)
     }
     if (alt.weinausbau_id) {
+      // KAN-148 C1c-2: die Charge wird mitstorniert (nicht gelöscht) – wer Pressungen bearbeitet, darf das (KAN-166)
       await sperreBeiFolgebuchungen(supabase, alt.weinausbau_id as string,
         `Das Entfernen des Behälters mit der Charge ${chargeBezeichnung(alt)} aus der Pressung`)
-      if (!canAdmin(membership.role)) {
-        throw new AktionsFehler(`Das Entfernen des Behälters löscht auch die daraus entstandene Charge ${chargeBezeichnung(alt)} – das dürfen nur Betriebsleiter (Admin).`)
-      }
     }
   }
 
@@ -1368,30 +1313,15 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
   if (existingId) {
     pressId = existingId
 
-    // 1. Entfernte Behälterzeilen samt Charge (pb zuerst: pressung_behaelter.weinausbau_id ist NO ACTION)
-    for (const alt of pbEntfernen) {
+    // 1. Entfernte Behälterzeilen (samt Charge) und Traubenzeilen stornieren – eine Transaktion (KAN-148 C1c-2).
+    //    Bearbeiten braucht keinen eigenen Grund (KAN-166): fester Text GRUND_BEARBEITET.
+    if (pbEntfernen.length > 0 || pwEntfernen.length > 0) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: pbDel, error: pbDelErr } = await (supabase.from('pressung_behaelter') as any)
-        .delete().eq('id', alt.id).eq('pressung_id', pressId).select('id')
-      if (pbDelErr) throw new AktionsFehler(dbFehlerText(pbDelErr, 'Behälterzeile konnte nicht entfernt werden'))
-      if (!(pbDel as AR[] | null)?.length) throw new AktionsFehler('Behälterzeile konnte nicht entfernt werden – keine Berechtigung oder inzwischen geändert. Bitte die Seite neu laden.')
-      if (!alt.weinausbau_id) continue
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: wDel, error: wDelErr } = await (supabase.from('weinausbau') as any)
-        .delete().eq('id', alt.weinausbau_id).eq('tenant_id', tenantId).select('id')
-      if (wDelErr || !(wDel as AR[] | null)?.length) {
-        // Behälterzeile wiederherstellen – sonst bliebe die Charge ohne Zugang (Bewegungsbuch) zurück
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error: rErr } = await (supabase.from('pressung_behaelter') as any).insert({
-          id: alt.id, pressung_id: pressId, behaelter_id: alt.behaelter_id ?? null, weinausbau_id: alt.weinausbau_id,
-          menge_liter: alt.menge_liter ?? null, notizen: alt.notizen ?? null,
-        })
-        throw new AktionsFehler(
-          `Die Charge ${chargeBezeichnung(alt)} konnte nicht gelöscht werden: ${wDelErr ? dbFehlerText(wDelErr) : 'keine Berechtigung (nur Betriebsleiter)'}.`
-          + (rErr
-            ? ` Achtung: Die Behälterzeile konnte nicht wiederhergestellt werden (${dbFehlerText(rErr)}) – bitte die Pressung prüfen.`
-            : ' Die Behälterzeile bleibt erhalten.'))
-      }
+      const { error: stErr } = await (supabase.rpc as any)('s112_pressung_zeilen_stornieren', {
+        p_tenant_id: tenantId, p_pressung_id: pressId,
+        p_behaelter_zeilen: pbEntfernen.map(x => x.id as string), p_trauben_zeilen: pwEntfernen, p_grund: GRUND_BEARBEITET,
+      })
+      if (stErr) throw new AktionsFehler(dbFehlerText(stErr, 'Entfernte Zeilen der Pressung konnten nicht storniert werden'))
     }
 
     // 2. Geänderte Behälterzeilen – Charge zuerst (Gebinde-Trigger, Prüfregeln), dann die Zeile
@@ -1437,16 +1367,7 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
     if (pUpdErr) throw new AktionsFehler(dbFehlerText(pUpdErr, 'Speichern fehlgeschlagen (pressungen)'))
     if (!(pUpd as AR[] | null)?.length) throw new AktionsFehler('Die Pressung konnte nicht gespeichert werden – keine Berechtigung oder inzwischen gelöscht. Bitte die Seite neu laden.')
 
-    // 4. Traubenzeilen: entfernen und ändern (neue folgen unten)
-    if (pwEntfernen.length > 0) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: pwDel, error: pwDelErr } = await (supabase.from('pressung_weingaerten') as any)
-        .delete().in('id', pwEntfernen).eq('pressung_id', pressId).select('id')
-      if (pwDelErr) throw new AktionsFehler(dbFehlerText(pwDelErr, 'Traubenzeilen konnten nicht entfernt werden'))
-      if (((pwDel ?? []) as AR[]).length !== pwEntfernen.length) {
-        throw new AktionsFehler('Traubenzeilen konnten nicht entfernt werden – keine Berechtigung oder inzwischen geändert. Bitte die Seite neu laden.')
-      }
-    }
+    // 4. Traubenzeilen ändern (entfernte sind in Schritt 1 storniert, neue folgen unten)
     for (const u of pwAendern) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: pwUpd, error: pwUpdErr } = await (supabase.from('pressung_weingaerten') as any)
@@ -1455,34 +1376,31 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
       if (!(pwUpd as AR[] | null)?.length) throw new AktionsFehler('Eine Traubenzeile konnte nicht gespeichert werden – keine Berechtigung oder inzwischen geändert. Bitte die Seite neu laden.')
     }
   } else {
-    // KAN-129: neue Pressung an die oben ermittelte Lese; beim Bearbeiten bleibt die Lese unverändert
+    // KAN-129: neue Pressung an die oben ermittelte Lese; beim Bearbeiten bleibt die Lese unverändert.
+    // KAN-148 C1c-2: Kopf und Traubenzeilen in EINER Transaktion (bisher Rückbau per DELETE, wenn die Zeilen scheiterten)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: neu, error: neuErr } = await (supabase.from('pressungen') as any)
-      .insert({ tenant_id: tenantId, jahrgang_id: jahrgangId, datum, most_liter_gesamt: mostLiter, weinbezeichnung, kmw_grad: kmwGrad, notizen, lese_id: lesePressung?.id })
-      .select('id').single()
-    if (neuErr || !neu) throw new AktionsFehler(dbFehlerText(neuErr, 'Speichern fehlgeschlagen (pressungen)'))
-    pressId = (neu as AR).id as string
+    const { data: neuId, error: neuErr } = await (supabase.rpc as any)('s112_pressung_anlegen', {
+      p_tenant_id: tenantId,
+      p_kopf: { jahrgang_id: jahrgangId, lese_id: lesePressung?.id ?? null, datum, most_liter_gesamt: mostLiter, weinbezeichnung, kmw_grad: kmwGrad, notizen },
+      p_trauben: pwNeu.map(w => ({
+        weingarten_id: w.weingarten_id, grundstueck_id: w.grundstueck_id, zukauf_posten_id: w.zukauf_posten_id,
+        trauben_kg: w.trauben_kg, rebsorte: w.rebsorte, notizen: w.notizen, ernte_datum: w.ernte_datum,
+        kmw: w.kmw, oechsle: w.oechsle, mostgewicht_einheit: w.mostgewicht_einheit,
+      })),
+    })
+    if (neuErr || !neuId) throw new AktionsFehler(dbFehlerText(neuErr, 'Speichern fehlgeschlagen (Pressung)'))
+    pressId = neuId as string
   }
 
-  // 5. Neue Traubenzeilen
-  if (pwNeu.length > 0) {
+  // 5. Neue Traubenzeilen einer bestehenden Pressung (bei einer neuen Pressung schon in Schritt 4 angelegt)
+  if (existingId && pwNeu.length > 0) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error: pwInsErr } = await (supabase.from('pressung_weingaerten') as any).insert(pwNeu.map(w => ({
       pressung_id: pressId, weingarten_id: w.weingarten_id, grundstueck_id: w.grundstueck_id,
       zukauf_posten_id: w.zukauf_posten_id, trauben_kg: w.trauben_kg, rebsorte: w.rebsorte, notizen: w.notizen,
       ernte_datum: w.ernte_datum, kmw: w.kmw, oechsle: w.oechsle, mostgewicht_einheit: w.mostgewicht_einheit,
     })))
-    if (pwInsErr) {
-      let zusatz = ''
-      if (!existingId) {
-        // Neue Pressung ohne Trauben nicht stehen lassen (noch keine Behälter/Chargen angelegt)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: pDel, error: pDelErr } = await (supabase.from('pressungen') as any)
-          .delete().eq('id', pressId).eq('tenant_id', tenantId).select('id')
-        if (pDelErr || !(pDel as AR[] | null)?.length) zusatz = ' Achtung: Die bereits angelegte Pressung ohne Trauben konnte nicht wieder entfernt werden – bitte löschen.'
-      }
-      throw new AktionsFehler(dbFehlerText(pwInsErr, 'Speichern fehlgeschlagen (pressung_weingaerten)') + zusatz)
-    }
+    if (pwInsErr) throw new AktionsFehler(dbFehlerText(pwInsErr, 'Speichern fehlgeschlagen (pressung_weingaerten)'))
   }
 
   // 6. Herkunft bestehender Chargen um neu hinzugekommene Rieden ergänzen. Früher erledigte
