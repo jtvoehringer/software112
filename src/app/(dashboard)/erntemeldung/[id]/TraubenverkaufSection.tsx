@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Pencil, Trash2 } from 'lucide-react'
-import { createTraubenverkauf, updateTraubenverkauf, deleteTraubenverkauf } from '../actions'
+import { Pencil } from 'lucide-react'
+import { createTraubenverkauf, updateTraubenverkauf, stornoTraubenverkauf } from '../actions'
+import StornoButton from '@/components/StornoButton'
 import type { ZukaufTraubenOpt } from './PressungSection'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum, dezimal } from '@/lib/format'
@@ -44,9 +45,11 @@ export type Traubenverkauf = {
   qualitaetsstufe: string | null; gesundheit: string
   herkunft_code: string | null; notizen: string | null
   liefernummer: string | null
-  // Zugehörige Rechnung (verkaufsposten) – Löschen storniert sie (KAN-35)
+  // Zugehörige Rechnung (verkaufsposten) – Stornieren storniert sie mit (KAN-35/KAN-148)
   rechnungsnummer?: string | null
   rechnung_storniert?: boolean
+  /** KAN-148 C1b: storniert – Vermerk statt Aktionen, zählt in keiner Summe */
+  storno?: { am: string; von: string | null; grund: string | null } | null
 }
 export type TVWGOption = { id: string; name: string; herkunft_code: string | null }
 export type TVKontaktOption = { id: string; name: string; betrieb_nr: string | null }
@@ -392,7 +395,7 @@ function TVForm({ jahrgangId, leseId, tv, quelleOptions, zukaufOptions, kontaktO
 // ── Hauptexport ───────────────────────────────────────────────────────────────
 
 export default function TraubenverkaufSection({
-  jahrgangId, leseId, jahrgang, bkiErlaubt, verkauefe, quelleOptions, zukaufOptions, kontaktOptions, firmaOptions, writeOk, adminOk,
+  jahrgangId, leseId, jahrgang, bkiErlaubt, verkauefe, quelleOptions, zukaufOptions, kontaktOptions, firmaOptions, writeOk,
 }: {
   jahrgangId: string
   /** KAN-129: gewählte Lese (Reiter der Jahrgangsseite) */
@@ -410,27 +413,11 @@ export default function TraubenverkaufSection({
 }) {
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId]     = useState<string | null>(null)
-  const [pending, startTransition] = useTransition()
-  const [fehler, setFehler]     = useState<string | null>(null)
 
-  const gesamtKg = verkauefe.reduce((s, v) => s + v.menge_kg, 0)
-  const gesamtWert = verkauefe.reduce((s, v) => s + (v.menge_kg * (v.preis_per_kg ?? 0)), 0)
-
-  function handleDelete(v: Traubenverkauf) {
-    // KAN-35: Die Rechnung wird nicht gelöscht, sondern storniert (Beleg bleibt erhalten)
-    const frage = v.rechnungsnummer && !v.rechnung_storniert
-      ? `Traubenverkauf löschen? Die zugehörige Rechnung ${v.rechnungsnummer} wird dabei storniert – sie bleibt als stornierter Beleg erhalten.`
-      : 'Traubenverkauf löschen?'
-    if (!confirm(frage)) return
-    setFehler(null)
-    startTransition(async () => {
-      try {
-        await deleteTraubenverkauf(v.id, jahrgangId)
-      } catch (err) {
-        setFehler(fehlerText(err, 'Der Traubenverkauf konnte nicht gelöscht werden.'))
-      }
-    })
-  }
+  // KAN-148 C1b: stornierte Traubenverkäufe stehen gekennzeichnet in der Liste, zählen aber in keiner Summe
+  const gueltige = verkauefe.filter(v => !v.storno)
+  const gesamtKg = gueltige.reduce((s, v) => s + v.menge_kg, 0)
+  const gesamtWert = gueltige.reduce((s, v) => s + (v.menge_kg * (v.preis_per_kg ?? 0)), 0)
 
   // Interne Traubenverkauf-Liste dieses Jahrgangs (Excel) – das amtliche Format ist das
   // BKI-Datenblatt daneben. CSV über den Baustein lib/csv (Semikolon, BOM, Formelschutz).
@@ -452,13 +439,15 @@ export default function TraubenverkaufSection({
       kaeufer: v.firma_name ?? v.kontakt_name,
       rechnungsnummer: v.rechnungsnummer ?? null,
       notizen: v.notizen,
+      storniertAm: v.storno?.am ?? null,
+      stornoGrund: v.storno?.grund ?? null,
     }))
     const datei = csvDatei(zeilen, SPALTEN_TRAUBENVERKAUF_LISTE)
     return { text: datei.text, zeilen: datei.zeilen, warnungen: [...datei.warnungen, ...traubenverkaufListenHinweise(zeilen)], dateiname: csvDateiname(['Traubenverkauf-Liste', jahrgang]).utf8 }
   }
 
   return (
-    <div className={`card space-y-4 ${pending ? 'opacity-60 pointer-events-none' : ''}`}>
+    <div className="card space-y-4">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h2 className="text-base font-semibold text-s112-text">Traubenverkauf</h2>
@@ -488,8 +477,6 @@ export default function TraubenverkaufSection({
         </div>
       </div>
 
-      {fehler && <Fehlermeldung text={fehler} onClose={() => setFehler(null)} />}
-
       {showForm && !editId && (
         <TVForm jahrgangId={jahrgangId} leseId={leseId} quelleOptions={quelleOptions} zukaufOptions={zukaufOptions}
           kontaktOptions={kontaktOptions} firmaOptions={firmaOptions}
@@ -509,7 +496,7 @@ export default function TraubenverkaufSection({
                   kontaktOptions={kontaktOptions} firmaOptions={firmaOptions}
                   onDone={() => setEditId(null)} />
               ) : (
-                <div className="group border border-s112-border rounded-xl p-3">
+                <div className={`group border border-s112-border rounded-xl p-3 ${v.storno ? 'text-s112-muted opacity-70' : ''}`}>
                   <div className="flex items-start justify-between gap-2">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -542,15 +529,22 @@ export default function TraubenverkaufSection({
                         )}
                         {v.notizen && <span className="italic">· {v.notizen}</span>}
                       </div>
+                      {v.storno && (
+                        <p className="text-[11px] text-s112-warn-fg">
+                          storniert am {new Date(v.storno.am).toLocaleDateString('de-AT')}{v.storno.von ? ` von ${v.storno.von}` : ''}{v.storno.grund ? ` – ${v.storno.grund}` : ''}
+                        </p>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0 text-xs">
-                      {writeOk && (
+                      {writeOk && !v.storno && (
                         <button onClick={() => setEditId(v.id)} title="Bearbeiten" aria-label="Bearbeiten" className="text-s112-blue-700 hover:text-s112-blue-700/70"><Pencil size={14} /></button>
                       )}
-                      {adminOk && (
-                        <button onClick={() => handleDelete(v)}
-                          title={v.rechnungsnummer && !v.rechnung_storniert ? `Löschen (storniert Rechnung ${v.rechnungsnummer})` : 'Löschen'}
-                          aria-label="Löschen" className="text-s112-err hover:text-s112-err-fg"><Trash2 size={14} /></button>
+                      {/* KAN-148 C1b: stornieren statt löschen (Liefernummer und Rechnungsbezug bleiben) */}
+                      {writeOk && !v.storno && (
+                        <StornoButton
+                          action={grund => stornoTraubenverkauf(v.id, jahrgangId, grund)}
+                          label={v.rechnungsnummer && !v.rechnung_storniert ? `Stornieren (storniert Rechnung ${v.rechnungsnummer})` : undefined}
+                          hinweis={`Der Traubenverkauf bleibt samt Liefernummer als storniert stehen, die kg werden wieder frei.${v.rechnungsnummer && !v.rechnung_storniert ? ` Die zugehörige Rechnung ${v.rechnungsnummer} wird dabei storniert – sie bleibt als stornierter Beleg erhalten.` : ''}`} />
                       )}
                     </div>
                   </div>

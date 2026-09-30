@@ -76,7 +76,8 @@ export async function zukaufVerweise(
     (supabase.from('traubenverkauf') as any)
       .select('id, menge_kg')
       .eq('zukauf_posten_id', zukaufId)
-      .eq('tenant_id', tenantId),
+      .eq('tenant_id', tenantId)
+      .is('storniert_am', null),   // KAN-148: ein stornierter Traubenverkauf bindet keine kg mehr
     (supabase.from('verkauf_positionen') as any)
       .select('id', { count: 'exact', head: true })
       .eq('zukauf_id', zukaufId)

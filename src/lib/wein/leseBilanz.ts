@@ -138,14 +138,14 @@ export async function ladeLeseVerbrauch(supabase: Client, tenantId: string, jahr
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('ernte_parzellen') as any)
       .select('weingarten_id, grundstueck_id, menge_kg, weingarten:weingarten_id(name), grundstueck:grundstueck_id(gst_nr)')
-      .eq('jahrgang_id', jahrgangId).eq('lese_id', leseId),
+      .eq('jahrgang_id', jahrgangId).eq('lese_id', leseId).is('storniert_am', null),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('pressungen') as any)
       .select('id').eq('jahrgang_id', jahrgangId).eq('lese_id', leseId).eq('tenant_id', tenantId),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('traubenverkauf') as any)
       .select('id, weingarten_id, grundstueck_id, menge_kg')
-      .eq('jahrgang_id', jahrgangId).eq('lese_id', leseId).eq('tenant_id', tenantId),
+      .eq('jahrgang_id', jahrgangId).eq('lese_id', leseId).eq('tenant_id', tenantId).is('storniert_am', null),
   ])
   for (const [tabelle, res] of [['ernte_parzellen', ep], ['pressungen', pr], ['traubenverkauf', tv]] as const) {
     if (res.error) throw new Error(`Lesemenge konnte nicht geprüft werden (${tabelle}): ${res.error.message}`)

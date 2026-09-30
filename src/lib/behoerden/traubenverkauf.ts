@@ -152,16 +152,15 @@ export function herkunftDerLieferung(v: R): { kuerzel: string | null; hinweis: s
   }
 }
 
-/** Rechnung (Verkaufsposten) des Traubenverkaufs ist storniert? */
+/** Traubenverkauf storniert (KAN-148: storniert_am) oder seine Rechnung (Verkaufsposten) storniert? */
 export function lieferungStorniert(v: R): boolean {
-  return (v.verkaufsposten as R | null | undefined)?.storniert === true
+  return !!v.storniert_am || (v.verkaufsposten as R | null | undefined)?.storniert === true
 }
 
 /**
- * Traubenverkäufe mit stornierter Rechnung weglassen – gleiche Regel für BKI-Datenblatt und
- * Erntemeldung („davon als Trauben verkauft“). Der Datensatz bleibt nach einem Storno bestehen
- * (weinhandel/traubenverkauf/actions.ts: „bitte den Traubenverkauf löschen und neu erfassen“);
- * ein neu erfasster Ersatz würde sonst doppelt gemeldet. Liefert den Hinweis für X-Warnungen.
+ * Stornierte Traubenverkäufe bzw. solche mit stornierter Rechnung weglassen – gleiche Regel für BKI-Datenblatt
+ * und Erntemeldung („davon als Trauben verkauft“). Der Datensatz bleibt nach einem Storno bestehen (KAN-148:
+ * gekennzeichnet); ein neu erfasster Ersatz würde sonst doppelt gemeldet. Liefert den Hinweis für X-Warnungen.
  */
 export function ohneStornierte<T extends R>(verkaeufe: readonly T[]): { gueltig: T[]; hinweis: string | null } {
   const storniert = verkaeufe.filter(lieferungStorniert)
@@ -170,7 +169,7 @@ export function ohneStornierte<T extends R>(verkaeufe: readonly T[]): { gueltig:
   const auszug = bezug.slice(0, 5).join(', ') + (bezug.length > 5 ? ' …' : '')
   return {
     gueltig: verkaeufe.filter(v => !lieferungStorniert(v)),
-    hinweis: `${storniert.length} ${storniert.length === 1 ? 'Traubenverkauf mit stornierter Rechnung ist' : 'Traubenverkäufe mit stornierter Rechnung sind'} nicht enthalten (${auszug}) – den Traubenverkauf löschen bzw. neu erfassen.`,
+    hinweis: `${storniert.length} ${storniert.length === 1 ? 'stornierter Traubenverkauf ist' : 'stornierte Traubenverkäufe sind'} nicht enthalten (${auszug}).`,
   }
 }
 
@@ -266,10 +265,11 @@ export async function ladeBkiTraubenverkauf(
     jahrgangId = (jg as R).id
   }
 
+  // storno-sichtbar: stornierte (KAN-148) bzw. mit stornierter Rechnung filtert ohneStornierte() mit X-Warnung
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let abfrage = (supabase.from('traubenverkauf') as any)
     .select(`
-      id, datum, liefernummer, menge_kg, kmw_grad, oechsle, mostgewicht_einheit, qualitaetsstufe, herkunft_code,
+      id, datum, liefernummer, menge_kg, kmw_grad, oechsle, mostgewicht_einheit, qualitaetsstufe, herkunft_code, storniert_am,
       weingarten:weingarten_id(name, rebsorte, trauben_herkunft_code, grundstuecke(trauben_herkunft_code)),
       grundstueck:grundstueck_id(rebsorte, trauben_herkunft_code),
       zukauf:zukauf_posten_id(rebsorte, herkunft),
@@ -345,6 +345,9 @@ export type TraubenverkaufListenZeile = {
   kaeufer: string | null
   rechnungsnummer: string | null
   notizen: string | null
+  /** KAN-148 C1b: stornierte Lieferung – Zeitpunkt und Grund (Liste zeigt sie gekennzeichnet) */
+  storniertAm?: string | null
+  stornoGrund?: string | null
 }
 
 /** Mostgewicht einer Listenzeile für die Spalten (Rechenregel 9, kmwBki = 1 Stelle abgerundet).
@@ -391,4 +394,7 @@ export const SPALTEN_TRAUBENVERKAUF_LISTE: CsvSpalte<TraubenverkaufListenZeile>[
   { kopf: 'Käufer', typ: 'text', wert: z => z.kaeufer },
   { kopf: 'Rechnung', typ: 'code', wert: z => z.rechnungsnummer },
   { kopf: 'Notizen', typ: 'text', wert: z => z.notizen },
+  // KAN-148 C1b: stornierte Lieferungen bleiben in der Liste, gekennzeichnet – hinten angefügt
+  { kopf: 'Storniert am', typ: 'zeitpunkt', wert: z => z.storniertAm ?? null },
+  { kopf: 'Storno-Grund', typ: 'text', wert: z => z.stornoGrund ?? null },
 ]

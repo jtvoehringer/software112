@@ -9,7 +9,7 @@ import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { AktionsFehler, dbFehlerText, LESE_WAEHLEN_MELDUNG } from '@/lib/fehler'
 import { traubenverkaufLese } from '@/lib/wein/leseBilanz'
 import { dezimal } from '@/lib/format'
-import { verkaufspostenStornieren } from '@/lib/verkauf/bestand'
+import { traubenverkaufStornieren } from '@/lib/verkauf/traubenverkaufStorno'
 import { qualitaetFehler } from '@/lib/wein/qualitaet'
 import { mostgewichtAusFormular, mostgewichtSpalten } from '@/lib/wein/mostgewichtFormular'
 
@@ -231,9 +231,12 @@ export async function upsertTraubenverkauf(formData: FormData) {
   if (existing_id) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (supabase.from('traubenverkauf') as any)
-      .select('id, lese_id, jahrgang_id, weingarten_id, grundstueck_id, menge_kg').eq('id', existing_id).eq('tenant_id', tenantId).maybeSingle()
+      .select('id, lese_id, jahrgang_id, weingarten_id, grundstueck_id, menge_kg').eq('id', existing_id).eq('tenant_id', tenantId)
+      .is('storniert_am', null).maybeSingle()
     if (error) throw new AktionsFehler(dbFehlerText(error, 'Traubenverkauf konnte nicht geladen werden'))
-    altLese = (data as AR | null) ?? null
+    // KAN-148: ein stornierter Traubenverkauf ist unveränderlich
+    if (!data) throw new AktionsFehler('Traubenverkauf nicht gefunden oder storniert – bitte Seite neu laden.')
+    altLese = data as AR
   }
   const lese = await traubenverkaufLese(supabase, tenantId, {
     jahrgangId: (formData.get('jahrgang_id') as string) || null, weingartenId,
@@ -279,9 +282,10 @@ export async function upsertTraubenverkauf(formData: FormData) {
       .select('verkaufsposten_id, qualitaetsstufe')
       .eq('id', existing_id)
       .eq('tenant_id', tenantId)
+      .is('storniert_am', null)
       .maybeSingle()
     if (tvAltErr) throw new AktionsFehler(dbFehlerText(tvAltErr, 'Traubenverkauf konnte nicht geladen werden'))
-    if (!tvAlt) throw new AktionsFehler('Traubenverkauf nicht gefunden – bitte Seite neu laden.')
+    if (!tvAlt) throw new AktionsFehler('Traubenverkauf nicht gefunden oder storniert – bitte Seite neu laden.')
     if (qualitaetUnzulaessig && qualitaetsstufe !== ((tvAlt as AR).qualitaetsstufe ?? null)) {
       throw new AktionsFehler(qualitaetUnzulaessig)
     }
@@ -343,90 +347,23 @@ export async function upsertTraubenverkauf(formData: FormData) {
   revalidatePath('/weinhandel/verkauf')
 }
 
-// ── deleteTraubenverkauf ──────────────────────────────────────────────────────
-// KAN-35 (24.09.2026): Rechnung (verkaufsposten) und Positionen werden NIE mehr hart
-// gelöscht – vorher blieb bei einem winzer (RLS: DELETE auf Verkäufe nur für Admins)
-// still eine verwaiste, aktive Rechnung zurück. Hat der Traubenverkauf eine Rechnung,
-// wird sie über den normalen Verkaufsstorno storniert (Beleg bleibt als storniert
-// sichtbar, Rechnungsnummer lückenlos, E&A wie beim Storno); der Storno entfernt dabei
-// auch die Traubenverkauf-Datensätze der Rechnung. Ohne Rechnung bzw. bei bereits
-// stornierter Rechnung wird nur der Traubenverkauf gelöscht. Gehört der Traubenverkauf zu
-// einer Rechnung mit weiteren Positionen (Verkaufsformular), wird abgelehnt – die wird nur
-// als Ganzes unter Weinhandel › Verkauf storniert (gleiche Regel wie erntemeldung/actions.ts).
-// Jede Löschung landet im bestandsprotokoll.
+// ── stornoTraubenverkauf ──────────────────────────────────────────────────────
+// KAN-148 C1b (30.09.2026): stornieren statt löschen (BKI, KAN-145). Die Zeile bleibt mit Datum, Benutzer und
+// Grund stehen, Liefernummer und Rechnungsbezug bleiben, die kg werden frei. Eine offene Rechnung, die nur diesen
+// Traubenverkauf enthält, wird über den normalen Verkaufsstorno storniert (Beleg bleibt, Rechnungsnummer lückenlos,
+// E&A wie beim Storno); eine Mischrechnung nur als Ganzes unter Weinhandel › Verkauf. Siehe
+// lib/verkauf/traubenverkaufStorno.ts; jeder Storno landet im bestandsprotokoll.
 
-export async function deleteTraubenverkauf(id: string) {
+export async function stornoTraubenverkauf(id: string, grund: string) {
   const supabase = await createSupabaseServerClient()
   const membership = await getCurrentMembership()
   if (!membership) throw new AktionsFehler('Nicht angemeldet')
   await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
   await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
-  const tenantId = membership.tenantId
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: tv, error: tvErr } = await (supabase.from('traubenverkauf') as any)
-    .select('id, verkaufsposten_id')
-    .eq('id', id)
-    .eq('tenant_id', tenantId)
-    .maybeSingle()
-  if (tvErr) throw new AktionsFehler(dbFehlerText(tvErr, 'Traubenverkauf konnte nicht geladen werden'))
-  if (!tv) throw new AktionsFehler('Traubenverkauf nicht gefunden – bitte Seite neu laden.')
-  const postenId = (tv as AR).verkaufsposten_id as string | null
-
+  let postenId: string | null = null
   try {
-    if (postenId) {
-      const [postenRes, posRes] = await Promise.all([
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (supabase.from('verkaufsposten') as any)
-          .select('rechnungsnummer, storniert')
-          .eq('id', postenId)
-          .eq('tenant_id', tenantId)
-          .maybeSingle(),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (supabase.from('verkauf_positionen') as any)
-          .select('id, typ, traubenverkauf_id')
-          .eq('verkaufsposten_id', postenId)
-          .eq('tenant_id', tenantId),
-      ])
-      if (postenRes.error) throw new AktionsFehler(dbFehlerText(postenRes.error, 'Rechnung zum Traubenverkauf konnte nicht geladen werden'))
-      if (posRes.error) throw new AktionsFehler(dbFehlerText(posRes.error, 'Rechnungspositionen konnten nicht geladen werden'))
-      const posten = postenRes.data as AR | null
-      if (posten && !posten.storniert) {
-        // Nur stornieren, wenn die Rechnung ausschließlich diesen Traubenverkauf enthält
-        // (Traubenverkauf/Erntemeldung: Position 'sonstiges' ohne Verweis; Verkaufsformular:
-        // Position 'trauben' mit Verweis) – eine Mischrechnung wird nur als Ganzes storniert.
-        const positionen = (posRes.data ?? []) as AR[]
-        const nurDieserVerkauf = positionen.length <= 1 && positionen.every(p =>
-          (p.typ === 'trauben' && p.traubenverkauf_id === id) || (p.typ === 'sonstiges' && !p.traubenverkauf_id))
-        if (!nurDieserVerkauf) {
-          throw new AktionsFehler(`Der Traubenverkauf gehört zur Rechnung ${posten.rechnungsnummer ?? '(ohne Nummer)'} mit weiteren Positionen und kann hier nicht gelöscht werden. Bitte den Verkauf unter Weinhandel › Verkauf stornieren.`)
-        }
-        // Storno der Rechnung – entfernt dabei auch diesen Traubenverkauf
-        await verkaufspostenStornieren(supabase, tenantId, postenId)
-      }
-    }
-
-    // Traubenverkauf löschen, falls der Storno ihn nicht schon entfernt hat
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: geloescht, error: delErr } = await (supabase.from('traubenverkauf') as any)
-      .delete()
-      .eq('id', id)
-      .eq('tenant_id', tenantId)
-      .select('id')
-    if (delErr) throw new AktionsFehler(dbFehlerText(delErr, 'Traubenverkauf konnte nicht gelöscht werden'))
-    if (!((geloescht ?? []) as AR[]).length) {
-      // 0 Zeilen: entweder schon durch den Storno gelöscht (gut) oder RLS hat still nichts gelöscht
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: noch, error: nochErr } = await (supabase.from('traubenverkauf') as any)
-        .select('id')
-        .eq('id', id)
-        .eq('tenant_id', tenantId)
-        .maybeSingle()
-      if (nochErr) throw new AktionsFehler(dbFehlerText(nochErr, 'Traubenverkauf konnte nicht geprüft werden'))
-      if (noch) {
-        throw new AktionsFehler('Der Traubenverkauf konnte nicht gelöscht werden – keine Löschberechtigung (Schreibrecht Warenwirtschaft bzw. Rieden)?')
-      }
-    }
+    postenId = (await traubenverkaufStornieren(supabase, membership, id, grund)).postenId
   } finally {
     revalidatePath('/weinhandel/traubenverkauf')
     revalidatePath('/weinhandel/verkauf')

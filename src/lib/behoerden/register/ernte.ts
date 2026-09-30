@@ -40,7 +40,7 @@ export const MELDUNGEN_ERNTE = {
     laden: async (ctx, p) => {
       const jg = await jahrgangFinden(ctx.supabase, ctx.tenantId, p.jahrgang)
       if (!jg) return leermeldung(p.jahrgang)
-      return ladeLesedaten(ctx.supabase, jg.id)
+      return ladeLesedaten(ctx.supabase, jg.id, { mitStornierten: true })   // KAN-148: stornierte gekennzeichnet
     },
     spalten: SPALTEN_LESEDATEN,
     dateiteile: (p, betrieb) => ['Lesedaten', betrieb.betriebsnummer, p.jahrgang],

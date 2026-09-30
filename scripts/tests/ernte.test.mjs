@@ -47,6 +47,7 @@ function supabaseDoppel(tabellen, rpc = {}) {
     eq(f, w) { this.filter.push(r => r[f] === w); this.filter[`eq:${f}`] = w; return this }
     neq(f, w) { this.filter.push(r => r[f] !== null && r[f] !== undefined && r[f] !== w); return this }
     gt(f, w) { this.filter.push(r => r[f] !== null && r[f] !== undefined && Number(r[f]) > w); return this }
+    is(f, w) { this.filter.push(r => (r[f] ?? null) === w); return this }   // KAN-148: .is('storniert_am', null)
     range(a, b) { this.bereich = [a, b]; return this }
     maybeSingle() { this.einzeln = true; return this }
     then(ok, fehler) { return Promise.resolve(this.ausfuehren()).then(ok, fehler) }
@@ -204,11 +205,11 @@ describe('lesedaten', () => {
     const text = csv.csvText(zeilen, ernte.SPALTEN_LESEDATEN)
     // KAN-128: Zeilen vor Migration A (ohne Einheit, ohne °Oe) – °Oe aus dem °KMW, gemessen in °KMW
     assert.equal(text, BOM + [
-      'Lesedatum;Ried;KG-Nr.;GST-Nr.;Rebsorte;BKI-Kürzel;Menge (kg);Mostgewicht (°KMW);Mostgewicht (°Oe);Mostgewicht gemessen in;Qualitätsstufe;Lesemethode;Notizen;Lese',
-      '10.09.2026;Ried Kaiserberg;04023;1234/5;Grüner Veltliner;GV;9000,00;17,40;85,7;°KMW;Qualitätswein;Handlese;;',
-      '15.09.2026;Ried Satz;12003;88;Gemischer Satz;;1000,00;;;;Qualitätswein;;;',
-      '24.09.2026;Ried Kaiserberg;04023;1234/5;Grüner Veltliner;GV;2500,00;19,25;95,5;°KMW;Qualitätswein;Selektionslese;\'=Achtung;',
-      '02.10.2026;Ried Hochstraß;;;Zweigelt;ZW;6000,00;19,00;94,2;°KMW;Kabinett;Maschinenlese;;',
+      'Lesedatum;Ried;KG-Nr.;GST-Nr.;Rebsorte;BKI-Kürzel;Menge (kg);Mostgewicht (°KMW);Mostgewicht (°Oe);Mostgewicht gemessen in;Qualitätsstufe;Lesemethode;Notizen;Lese;Storniert am;Storno-Grund',
+      '10.09.2026;Ried Kaiserberg;04023;1234/5;Grüner Veltliner;GV;9000,00;17,40;85,7;°KMW;Qualitätswein;Handlese;;;;',
+      '15.09.2026;Ried Satz;12003;88;Gemischer Satz;;1000,00;;;;Qualitätswein;;;;;',
+      '24.09.2026;Ried Kaiserberg;04023;1234/5;Grüner Veltliner;GV;2500,00;19,25;95,5;°KMW;Qualitätswein;Selektionslese;\'=Achtung;;;',
+      '02.10.2026;Ried Hochstraß;;;Zweigelt;ZW;6000,00;19,00;94,2;°KMW;Kabinett;Maschinenlese;;;;',
     ].join('\r\n') + '\r\n')
     assert.equal(warnungen.length, 1)
     assert.match(warnungen[0], /„Gemischer Satz“ steht nicht in der BKI-Kürzelliste/)
@@ -227,13 +228,32 @@ describe('lesedaten', () => {
     const db = supabaseDoppel({ ...TABELLEN_ERNTE, ernte_parzellen: lese })
     const { zeilen, warnungen } = await ernte.ladeLesedaten(db, 'jg26')
     const zeile = csv.csvText(zeilen, ernte.SPALTEN_LESEDATEN).slice(1).split('\r\n')
-    assert.equal(zeile[1], '10.09.2026;Ried Kaiserberg;04023;1234/5;Grüner Veltliner;GV;1000,00;17,00;83,5;°Oe;Kabinett;;;')
-    assert.equal(zeile[2], '11.09.2026;Ried Kaiserberg;04023;1234/5;Grüner Veltliner;GV;1000,00;18,97;94,0;°Oe;Kabinett;;;')
-    assert.equal(zeile[3], '12.09.2026;Ried Hochstraß;;;Zweigelt;ZW;1000,00;19,00;94,2;°KMW;Spätlese;;;')
-    assert.equal(zeile[4], '13.09.2026;Ried Hochstraß;;;Zweigelt;ZW;500,00;14,99;73,0;°Oe;Landwein;;;')
+    assert.equal(zeile[1], '10.09.2026;Ried Kaiserberg;04023;1234/5;Grüner Veltliner;GV;1000,00;17,00;83,5;°Oe;Kabinett;;;;;')
+    assert.equal(zeile[2], '11.09.2026;Ried Kaiserberg;04023;1234/5;Grüner Veltliner;GV;1000,00;18,97;94,0;°Oe;Kabinett;;;;;')
+    assert.equal(zeile[3], '12.09.2026;Ried Hochstraß;;;Zweigelt;ZW;1000,00;19,00;94,2;°KMW;Spätlese;;;;;')
+    assert.equal(zeile[4], '13.09.2026;Ried Hochstraß;;;Zweigelt;ZW;500,00;14,99;73,0;°Oe;Landwein;;;;;')
     // gespeicherte Werte bleiben für das Bearbeiten-Formular unverändert
     assert.deepEqual(zeilen.map(z => [z.kmw, z.oechsle, z.mostgewichtEinheit]), [[17, 83.5, 'oechsle'], [18.97, 94, 'oechsle'], [19, 94.2, 'kmw'], [null, 73, null]])
     assert.ok(!warnungen.some(w => /Mostgewicht/.test(w)), warnungen.join('\n'))   // 19,0 °KMW: keine X-Warnung
+  })
+
+  test('KAN-148: stornierte Lesedaten – ohne Option nicht geladen, mit mitStornierten gekennzeichnet in der CSV', async () => {
+    const lese = [
+      { id: 's1', jahrgang_id: 'jg26', weingarten_id: 'w2', grundstueck_id: null, ernte_datum: '2026-09-10', menge_kg: 800, menge_hl: null, oechsle: null, klosterneuburger: null, qualitaetsstufe: null, weingarten: WG.w2, grundstueck: null, storniert_am: null },
+      { id: 's2', jahrgang_id: 'jg26', weingarten_id: 'w2', grundstueck_id: null, ernte_datum: '2026-09-11', menge_kg: 500, menge_hl: null, oechsle: null, klosterneuburger: null, qualitaetsstufe: null, weingarten: WG.w2, grundstueck: null,
+        storniert_am: '2026-09-30T10:15:00+00:00', storno_grund: 'Doppelt erfasst', storniert_von_name: 'Karin' },
+    ]
+    const db = supabaseDoppel({ ...TABELLEN_ERNTE, ernte_parzellen: lese })
+    const ohne = await ernte.ladeLesedaten(db, 'jg26')
+    assert.deepEqual(ohne.zeilen.map(z => z.id), ['s1'])
+    const mit = await ernte.ladeLesedaten(db, 'jg26', { mitStornierten: true })
+    assert.deepEqual(mit.zeilen.map(z => z.id), ['s1', 's2'])
+    assert.deepEqual(ernte.ohneStornierteLese(mit.zeilen).map(z => z.id), ['s1'])
+    const z2 = mit.zeilen.find(z => z.id === 's2')
+    assert.deepEqual([z2.storniertAm, z2.stornoGrund, z2.storniertVon], ['2026-09-30T10:15:00+00:00', 'Doppelt erfasst', 'Karin'])
+    const linien = csv.csvText(mit.zeilen, ernte.SPALTEN_LESEDATEN).slice(1).split('\r\n')
+    assert.match(linien[2], /;30\.09\.2026 12:15;Doppelt erfasst$/)   // Zeitpunkt in Europe/Vienna
+    assert.match(linien[1], /;;$/)
   })
 
   test('KAN-128: widersprüchliche Altzeile (°Oe gemessen, °KMW passt nicht) → X-Warnung mit Bezug', async () => {
@@ -261,14 +281,13 @@ describe('lesedaten', () => {
     assert.equal(zeilen.find(z => z.id === 'n3').notizen, null)
     const text = csv.csvText(zeilen, ernte.SPALTEN_LESEDATEN)
     const linien = text.slice(1).split('\r\n')
-    // KAN-129 (Frage 8): „Lese“ ist seither die letzte Spalte, Notizen die vorletzte
-    assert.equal(linien[0].split(';').at(-2), 'Notizen')
-    assert.equal(linien[0].split(';').at(-1), 'Lese')
-    assert.equal(linien[0].split(';').length, 14)                   // bisherige 12 Spalten unverändert davor
+    // KAN-129 (Frage 8): „Lese“ hinter „Notizen“; KAN-148: danach nur die beiden Storno-Spalten
+    assert.deepEqual(linien[0].split(';').slice(-4), ['Notizen', 'Lese', 'Storniert am', 'Storno-Grund'])
+    assert.equal(linien[0].split(';').length, 16)                   // bisherige 12 Spalten unverändert davor
     const notiz = id => {
       const i = zeilen.findIndex(z => z.id === id)
-      // ohne die (hier leere) Spalte „Lese“ am Ende
-      return linien[i + 1].slice('26.09.2026;Ried Hochstraß;;;Zweigelt;ZW;'.length).replace(/;$/, '')
+      // ohne die (hier leeren) Spalten „Lese“, „Storniert am“, „Storno-Grund“ am Ende
+      return linien[i + 1].slice('26.09.2026;Ried Hochstraß;;;Zweigelt;ZW;'.length).replace(/;;;$/, '')
     }
     assert.equal(notiz('n1'), '0,00;;;;;;Wildschaden')
     assert.equal(notiz('n2'), '500,00;;;;;;')
@@ -389,7 +408,7 @@ describe('erntemeldung', () => {
     })
     const daten = await ernte.ladeErntemeldung(db, T, { id: 'jg26', jahrgang: 2026 })
     assert.equal(daten.zeilen.find(z => z.rebsorte === 'Grüner Veltliner').verkauftKg, 800)
-    assert.match(daten.warnungen.join('\n'), /1 Traubenverkauf mit stornierter Rechnung ist nicht enthalten \(TV-0009\)/)
+    assert.match(daten.warnungen.join('\n'), /1 stornierter Traubenverkauf ist nicht enthalten \(TV-0009\)/)
   })
 
   test('Aggregation: zwei Lesedurchgänge auf demselben Grundstück zählen die Fläche einmal', () => {
@@ -517,7 +536,7 @@ describe('bki-traubenverkauf', () => {
     assert.match(w, /„Reserve“ hat kein eigenes BKI-Kürzel – als Qualitätswein \(QUW\) gemeldet/)
     assert.match(w, /Kein Abnehmer erfasst/)
     assert.match(w, /Menge mit Nachkommastellen .* ganze kg .* \(1 Lieferung: TV-0001\)/)
-    assert.match(w, /1 Traubenverkauf mit stornierter Rechnung ist nicht enthalten \(TV-0005\)/)
+    assert.match(w, /1 stornierter Traubenverkauf ist nicht enthalten \(TV-0005\)/)
     assert.match(w, /Herkunft „Südburgenland“ \(Zukauf\) ist kein BKI-Herkunftskürzel – Spalte leer gelassen\. \(1 Lieferung: Lieferung vom 20\.09\.2026\)/)
     assert.doesNotMatch(w, /Herkunft[^\n]*TV-000[12]/)                         // WLTH und WLWV ohne Hinweis
   })
@@ -581,16 +600,16 @@ describe('bki-traubenverkauf', () => {
       { liefernummer: null, datum: null, jahrgang: null, quelle: null, gstNr: null, mengeKg: null, preisProKg: null, kmw: null, qualitaet: null, gesundheit: null, herkunftscode: null, kaeufer: null, rechnungsnummer: null, notizen: null },
     ], tv.SPALTEN_TRAUBENVERKAUF_LISTE)
     const zeilen = t.slice(1).split('\r\n')
-    assert.equal(zeilen[0], 'Liefernummer;Lieferdatum;Jahrgang;Quelle (Ried bzw. Zukauf);GST-Nr.;Menge (kg);Preis (€/kg);Betrag (€);Mostgewicht (°KMW);Mostgewicht (°Oe);Mostgewicht gemessen in;Qualitätsstufe;Gesundheit (G/K);Herkunftscode;Käufer;Rechnung;Notizen')
-    assert.equal(zeilen[1], "TV-0001;05.09.2026;2026;Kaiserberg;1234/5;1250,50;0,6550;819,08;17,4;85,7;°KMW;Qualitätswein;G;NÖ;'+43 Genossenschaft;RE-2026-0001;")   // 1 Stelle, °Oe aus dem °KMW
-    assert.equal(zeilen[2], ';;;;;;;;;;;;;;;;')
+    assert.equal(zeilen[0], 'Liefernummer;Lieferdatum;Jahrgang;Quelle (Ried bzw. Zukauf);GST-Nr.;Menge (kg);Preis (€/kg);Betrag (€);Mostgewicht (°KMW);Mostgewicht (°Oe);Mostgewicht gemessen in;Qualitätsstufe;Gesundheit (G/K);Herkunftscode;Käufer;Rechnung;Notizen;Storniert am;Storno-Grund')
+    assert.equal(zeilen[1], "TV-0001;05.09.2026;2026;Kaiserberg;1234/5;1250,50;0,6550;819,08;17,4;85,7;°KMW;Qualitätswein;G;NÖ;'+43 Genossenschaft;RE-2026-0001;;;")   // 1 Stelle, °Oe aus dem °KMW
+    assert.equal(zeilen[2], ';;;;;;;;;;;;;;;;;;')
     // KAN-128: °KMW auf 1 Stelle ABGERUNDET (18,95 → 18,9, nicht 19,0), °Oe-Messung mit Einheit
     const t2 = csv.csvText([
       { liefernummer: 'TV-2', datum: null, jahrgang: null, quelle: null, gstNr: null, mengeKg: null, preisProKg: null, kmw: 18.95, oechsle: 93.9, mostgewichtEinheit: 'kmw', qualitaet: null, gesundheit: null, herkunftscode: null, kaeufer: null, rechnungsnummer: null, notizen: null },
       { liefernummer: 'TV-3', datum: null, jahrgang: null, quelle: null, gstNr: null, mengeKg: null, preisProKg: null, kmw: 18.97, oechsle: 94, mostgewichtEinheit: 'oechsle', qualitaet: null, gesundheit: null, herkunftscode: null, kaeufer: null, rechnungsnummer: null, notizen: null },
     ], tv.SPALTEN_TRAUBENVERKAUF_LISTE).slice(1).split('\r\n')
-    assert.equal(t2[1], 'TV-2;;;;;;;;18,9;93,9;°KMW;;;;;;')
-    assert.equal(t2[2], 'TV-3;;;;;;;;18,9;94,0;°Oe;;;;;;')
+    assert.equal(t2[1], 'TV-2;;;;;;;;18,9;93,9;°KMW;;;;;;;;')
+    assert.equal(t2[2], 'TV-3;;;;;;;;18,9;94,0;°Oe;;;;;;;;')
     // X-Warnung nur für eine widersprüchliche Messung (83,4 °Oe gemessen, 17,0 °KMW gespeichert)
     const zeile = (liefernummer, kmw, oechsle, mostgewichtEinheit) => ({ liefernummer, datum: null, jahrgang: null, quelle: null, gstNr: null, mengeKg: null, preisProKg: null, kmw, oechsle, mostgewichtEinheit, qualitaet: null, gesundheit: null, herkunftscode: null, kaeufer: null, rechnungsnummer: null, notizen: null })
     assert.deepEqual(tv.traubenverkaufListenHinweise([zeile('TV-2', 18.95, 93.9, 'kmw'), zeile('TV-3', 18.97, 94, 'oechsle'), zeile('TV-4', null, null, null)]), [])

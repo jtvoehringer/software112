@@ -453,7 +453,7 @@ describe('PROFIL_BKI – EDV-Liste Weindatenbank', () => {
     assert.match(w, /„Rosenmuskateller“ \(RM\): Farbe nicht eindeutig/)
     assert.match(w, /„Uhudler“ steht nicht in der BKI-Kürzelliste/)
     assert.match(w, /Menge mit Nachkommastellen .* \(2 Lieferungen: TV-2, TV-5\)/)
-    assert.match(w, /1 Traubenverkauf mit stornierter Rechnung ist nicht enthalten \(TV-6\)/)
+    assert.match(w, /1 stornierter Traubenverkauf ist nicht enthalten \(TV-6\)/)
     assert.match(w, /Herkunft „Südburgenland“ \(Zukauf\) ist kein BKI-Herkunftskürzel – Spalte leer gelassen\. \(1 Lieferung: TV-5\)/)
   })
 

@@ -480,7 +480,7 @@ const POSTEN_SELECT = `
     id, typ, name, menge, einheit,
     weinausbau:weinausbau(id, name, jahrgang, qualitaetsstufe, rebsorte, weinart),
     fuellung:fuellungen(id, name, jahrgang, qualitaet, rebsorte, anbaugebiet, flaschengroesse_ml, datum, pruefnummer, dac_antrag_id, weinausbau_id),
-    traubenverkauf:traubenverkauf(id, datum, kmw_grad, qualitaetsstufe, herkunft_code, grundstueck:grundstueck_id(rebsorte), weingarten:weingarten_id(rebsorte), zukauf:zukauf_posten_id(rebsorte))
+    traubenverkauf:traubenverkauf(id, storniert_am, datum, kmw_grad, qualitaetsstufe, herkunft_code, grundstueck:grundstueck_id(rebsorte), weingarten:weingarten_id(rebsorte), zukauf:zukauf_posten_id(rebsorte))
   )
 `
 

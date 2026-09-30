@@ -110,12 +110,14 @@ export async function ladeFruehereLesen(supabase: any, tenantId: string, jahrgae
       .select('id, jahrgang_id, weingarten_id, grundstueck_id, ernte_datum, jahrgang:jahrgang_id!inner(tenant_id)')
       .eq('jahrgang.tenant_id', tenantId)
       .in('jahrgang_id', ids)
+      .is('storniert_am', null)
       .not('ernte_datum', 'is', null)
       .order('id')),
     alle<R>((supabase.from('traubenverkauf') as any)
       .select('id, jahrgang_id, weingarten_id, grundstueck_id, datum, zukauf_posten_id')
       .eq('tenant_id', tenantId)
       .in('jahrgang_id', ids)
+      .is('storniert_am', null)
       .is('zukauf_posten_id', null)
       .order('id')),
   ])
@@ -235,6 +237,7 @@ export async function ladeMassnahmenZuLesezeilen(
           .select('id, jahrgang_id, lese_id, weingarten_id, grundstueck_id, ernte_datum, menge_kg, jahrgang:jahrgang_id!inner(tenant_id)')
           .eq('jahrgang.tenant_id', tenantId)
           .in('jahrgang_id', jgOhneLesedatum)
+          .is('storniert_am', null)
           .order('id'))
       : leer,
     // Verpresste Trauben dieser Jahrgänge im Betrieb – Mengenprüfung des Ersatz-Lesedatums

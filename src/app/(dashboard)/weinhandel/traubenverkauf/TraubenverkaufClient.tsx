@@ -1,8 +1,9 @@
 'use client'
 
 import React, { useState, useTransition } from 'react'
-import { Pencil, Trash2 } from 'lucide-react'
-import { upsertTraubenverkauf, deleteTraubenverkauf } from './actions'
+import { Pencil } from 'lucide-react'
+import { upsertTraubenverkauf, stornoTraubenverkauf } from './actions'
+import StornoButton from '@/components/StornoButton'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
@@ -57,7 +58,6 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnte
   const [editRow, setEditRow]        = useState<R | null>(null)
   const [error, setError]            = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
   // Formular-State
   // Quelle: eigene Ernte (Ried/GST) oder zugekaufte Trauben (siehe Migration 141)
@@ -77,7 +77,8 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnte
     alleErnteOptions.map(e => ({ lese_id: e.lese_id ?? null, weingarten_id: (e.weingarten as R | null)?.id ?? null, grundstueck_id: (e.grundstueck as R | null)?.id ?? null, kg: e.menge_kg == null ? null : Number(e.menge_kg) })),
     [
       ...verpresst,
-      ...verkaufe.map(v => ({ lese_id: v.lese_id ?? null, weingarten_id: v.weingarten_id ?? (v.weingarten as R | null)?.id ?? null, grundstueck_id: v.grundstueck_id ?? null, kg: Number(v.menge_kg ?? 0), verkauf_id: v.id as string })),
+      // KAN-148: stornierte Traubenverkäufe binden keine kg
+      ...verkaufe.filter(v => !v.storniert_am).map(v => ({ lese_id: v.lese_id ?? null, weingarten_id: v.weingarten_id ?? (v.weingarten as R | null)?.id ?? null, grundstueck_id: v.grundstueck_id ?? null, kg: Number(v.menge_kg ?? 0), verkauf_id: v.id as string })),
     ],
     editRow?.id ?? null,
   )
@@ -225,15 +226,6 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnte
     })
   }
 
-  // Löschen: hat der Traubenverkauf eine Rechnung, wird sie storniert (nicht gelöscht) – KAN-35
-  function handleDelete(id: string) {
-    setError(null)
-    startTransition(async () => {
-      try { await deleteTraubenverkauf(id); setDeleteConfirm(null) }
-      catch (err) { setDeleteConfirm(null); setError(fehlerText(err, 'Fehler beim Löschen')) }
-    })
-  }
-
   // Interne Traubenverkauf-Liste (Excel) über den Baustein lib/csv – Umlaute im Kopf,
   // Semikolon, BOM, Formelschutz. Das amtliche Format ist das BKI-Datenblatt.
   function listeErzeugen() {
@@ -263,6 +255,8 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnte
         kaeufer,
         rechnungsnummer: (v.verkaufsposten as R | null)?.rechnungsnummer ?? null,
         notizen: v.notizen ?? null,
+        storniertAm: v.storniert_am ?? null,
+        stornoGrund: v.storno_grund ?? null,
       }
     })
     const datei = csvDatei(zeilen, SPALTEN_TRAUBENVERKAUF_LISTE)
@@ -272,8 +266,9 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnte
   // Jahrgänge mit Traubenverkäufen (Auswahl für das BKI-Datenblatt), neueste zuerst
   const bkiJahrgaenge = [...new Set(verkaufe.map(v => (v.jahrgang as R | null)?.jahrgang).filter((j): j is number => typeof j === 'number'))].sort((a, b) => b - a)
 
-  const sumKg  = verkaufe.reduce((s, v) => s + Number(v.menge_kg ?? 0), 0)
-  const sumEur = verkaufe.reduce((s, v) => v.preis_per_kg != null ? s + Number(v.menge_kg) * Number(v.preis_per_kg) : s, 0)
+  // KAN-148 C1b: stornierte Traubenverkäufe zählen in keiner Summe
+  const sumKg  = verkaufe.filter(v => !v.storniert_am).reduce((s, v) => s + Number(v.menge_kg ?? 0), 0)
+  const sumEur = verkaufe.filter(v => !v.storniert_am).reduce((s, v) => v.preis_per_kg != null ? s + Number(v.menge_kg) * Number(v.preis_per_kg) : s, 0)
   const inp = 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 bg-white'
   const btnToggle = (active: boolean) => `px-3 py-1 text-xs rounded-lg font-medium transition-colors ${active ? 'bg-s112-teal text-s112-yellow' : 'bg-s112-bg border border-s112-border text-s112-text-2 hover:border-s112-teal'}`
 
@@ -569,27 +564,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnte
                     ? `Zukauf – ${zukaufPosten.rebsorte ? formatRebsorteMitKuerzel(zukaufPosten.rebsorte) : '–'}${zukaufPosten.lieferant ? ' (' + zukaufPosten.lieferant + ')' : ''}`
                     : (v.zukauf_posten_id ? 'Zukauf' : '–'))
             return (
-              <div key={v.id} className="group card">
-                {deleteConfirm === v.id ? (
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm text-s112-err-fg font-medium">Traubenverkauf wirklich löschen?</p>
-                      {v.verkaufsposten_id && (
-                        <p className="text-xs text-s112-muted mt-0.5">
-                          Die zugehörige Rechnung wird storniert (nicht gelöscht) – der Beleg bleibt als storniert erhalten.
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex gap-2 flex-shrink-0">
-                      <button onClick={() => handleDelete(v.id)} className="text-xs bg-s112-err text-white px-3 py-1 rounded-lg hover:bg-s112-err-fg">
-                        {v.verkaufsposten_id ? 'Ja, löschen und Rechnung stornieren' : 'Ja, löschen'}
-                      </button>
-                      <button onClick={() => setDeleteConfirm(null)} className="text-xs text-s112-text-2 px-3 py-1 rounded-lg hover:bg-[#F2F3F5]">
-                        Abbrechen
-                      </button>
-                    </div>
-                  </div>
-                ) : (
+              <div key={v.id} className={`group card ${v.storniert_am ? 'text-s112-muted opacity-70' : ''}`}>
                   <div className="flex items-start justify-between gap-2">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -630,19 +605,24 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnte
                         <span>{'·'} {kaeufer}</span>
                         {v.notizen && <span className="italic">{'·'} {v.notizen}</span>}
                       </div>
+                      {v.storniert_am && (
+                        <p className="text-[11px] text-s112-warn-fg">
+                          storniert am {new Date(v.storniert_am).toLocaleDateString('de-AT')}{v.storniert_von_name ? ` von ${v.storniert_von_name}` : ''}{v.storno_grund ? ` – ${v.storno_grund}` : ''}
+                        </p>
+                      )}
                     </div>
-                    {writeOk && (
+                    {writeOk && !v.storniert_am && (
                       <div className="flex items-center gap-2 shrink-0 text-xs">
                         <button onClick={() => openEdit(v)} title="Bearbeiten" aria-label="Bearbeiten" className="text-s112-blue-700 hover:text-s112-blue-700/70">
                           <Pencil className="w-4 h-4" />
                         </button>
-                        <button onClick={() => setDeleteConfirm(v.id)} title="Löschen" aria-label="Löschen" className="text-s112-err hover:text-s112-err-fg">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {/* KAN-148 C1b: stornieren statt löschen (Liefernummer und Rechnungsbezug bleiben) */}
+                        <StornoButton
+                          action={grund => stornoTraubenverkauf(v.id, grund)}
+                          hinweis={`Der Traubenverkauf bleibt samt Liefernummer als storniert stehen, die kg werden wieder frei.${v.verkaufsposten_id ? ' Eine offene Rechnung, die nur diesen Traubenverkauf enthält, wird dabei storniert – sie bleibt als stornierter Beleg erhalten.' : ''}`} />
                       </div>
                     )}
                   </div>
-                )}
               </div>
             )
           })}

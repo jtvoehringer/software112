@@ -417,7 +417,7 @@ describe('verkaufspostenStornieren – Verkauf zurücknehmen', nurMitHooks, () =
     await b.verkaufspostenStornieren(db, T, VP)
     assert.deepEqual(schreibzugriffe(db), [
       'update fuellungen', 'update weinausbau', 'update verkaufsposten',
-      'delete traubenverkauf', 'delete ea_transaktionen', 'update aktivitaeten',
+      'update traubenverkauf', 'delete ea_transaktionen', 'update aktivitaeten',
     ])
     assert.equal(zeile(db, 'fuellungen', F1).bestand_flaschen, 12, 'zwei Positionen derselben Füllung summiert')
     assert.equal(zeile(db, 'fuellungen', F2).bestand_flaschen, 3, 'Position eines anderen Postens unberührt')
@@ -428,9 +428,16 @@ describe('verkaufspostenStornieren – Verkauf zurücknehmen', nurMitHooks, () =
     assert.equal(p.storniert, true)
     assert.match(p.storniert_am, /^\d{4}-\d\d-\d\dT/)
     assert.equal(zeile(db, 'verkaufsposten', uuid(399)).storniert, false)
-    assert.deepEqual(db.tabellen.traubenverkauf.map(t => t.id), [TV3], 'nur der fremde Traubenverkauf bleibt')
-    const tvDel = db.aufrufe.find(a => a.art === 'delete' && a.tabelle === 'traubenverkauf')
-    assert.deepEqual(tvDel.filter.find(f => f[0] === 'in'), ['in', 'id', [TV2, TV1]], 'erst über verkaufsposten_id, dann über die Position')
+    // KAN-148: Traubenverkäufe bleiben, storniert mit Grund – der fremde bleibt unberührt
+    assert.deepEqual(db.tabellen.traubenverkauf.map(t => t.id).sort(), [TV1, TV2, TV3].sort())
+    for (const id of [TV1, TV2]) {
+      assert.match(zeile(db, 'traubenverkauf', id).storniert_am ?? '', /^\d{4}-\d\d-\d\dT/, `${id} storniert`)
+      assert.equal(zeile(db, 'traubenverkauf', id).storno_grund, 'Rechnung RE-2026-001 storniert')
+    }
+    assert.equal(zeile(db, 'traubenverkauf', TV3).storniert_am ?? null, null)
+    const tvStorno = db.aufrufe.find(a => a.art === 'update' && a.tabelle === 'traubenverkauf')
+    assert.deepEqual(tvStorno.filter.find(f => f[0] === 'in'), ['in', 'id', [TV2, TV1]], 'erst über verkaufsposten_id, dann über die Position')
+    assert.ok(hatFilter(tvStorno, 'is', 'storniert_am', null), 'nur noch nicht stornierte')
     assert.deepEqual(db.tabellen.ea_transaktionen.map(r => r.id), ['ea-gesperrt', 'ea-manuell'],
       'Befund (KAN-149): gesperrte Einnahme bleibt ohne Meldung stehen – eigener Test unten')
     assert.equal(zeile(db, 'aktivitaeten', 'akt-1').betreff, 'Verkauf RE-2026-001 · STORNIERT')
@@ -575,33 +582,34 @@ describe('verkaufspostenStornieren – Verkauf zurücknehmen', nurMitHooks, () =
     assert.equal(zeile(db, 'verkaufsposten', VP).storniert, false)
   })
 
-  test('Traubenverkauf-Löschen scheitert: Storno bleibt, E&A und CRM laufen weiter, Sammelmeldung am Ende', async () => {
-    const db = neueDb(vollerPosten(), { vorher: fehlerBei('traubenverkauf', 'delete', { message: 'fk' }) })
+  test('Traubenverkauf-Storno scheitert: Rechnungsstorno bleibt, E&A und CRM laufen weiter, Sammelmeldung am Ende', async () => {
+    const db = neueDb(vollerPosten(), { vorher: fehlerBei('traubenverkauf', 'update', { message: 'fk' }) })
     const e = await fehlerVon(b.verkaufspostenStornieren(db, T, VP))
-    assert.equal(e.message, 'Der Verkauf ist storniert und der Bestand zurückgebucht, aber: Traubenverkauf (BKI) konnte nicht entfernt werden: fk.')
+    assert.equal(e.message, 'Der Verkauf ist storniert und der Bestand zurückgebucht, aber: Traubenverkauf (BKI) konnte nicht storniert werden: fk.')
     assert.equal(zeile(db, 'verkaufsposten', VP).storniert, true)
     assert.deepEqual(db.tabellen.ea_transaktionen.map(r => r.id), ['ea-gesperrt', 'ea-manuell'],
       'Befund (KAN-149): die gesperrte Einnahme fehlt auch in der Sammelmeldung')
     assert.equal(zeile(db, 'aktivitaeten', 'akt-1').betreff, 'Verkauf RE-2026-001 · STORNIERT')
   })
 
-  test('Traubenverkauf nur teilweise gelöscht (RLS) und E&A-Lesefehler: beide Punkte, mit „ · “ verbunden', async () => {
+  test('Traubenverkauf nur teilweise storniert (RLS) und E&A-Lesefehler: beide Punkte, mit „ · “ verbunden', async () => {
     const db = neueDb(vollerPosten(), {
-      rls: (e, r) => !(e.tabelle === 'traubenverkauf' && e.art === 'delete' && r.id === TV1),
+      rls: (e, r) => !(e.tabelle === 'traubenverkauf' && e.art === 'update' && r.id === TV1),
       vorher: fehlerBei('ea_transaktionen', 'select', { message: 'timeout' }),
     })
     const e = await fehlerVon(b.verkaufspostenStornieren(db, T, VP))
-    assert.equal(e.message, 'Der Verkauf ist storniert und der Bestand zurückgebucht, aber: Traubenverkauf (BKI) konnte nicht entfernt werden – keine Löschberechtigung. Bitte unter Weinhandel › Traubenverkauf löschen · E&A-Einnahmen des Verkaufs konnten nicht geladen werden: timeout – bitte in der E&A-Rechnung prüfen, sonst stimmt die UVA nicht.')
-    assert.deepEqual(db.tabellen.traubenverkauf.map(t => t.id).sort(), [TV1, TV3].sort())
+    assert.equal(e.message, 'Der Verkauf ist storniert und der Bestand zurückgebucht, aber: Traubenverkauf (BKI) konnte nicht storniert werden – keine Schreibberechtigung. Bitte unter Weinhandel › Traubenverkauf stornieren · E&A-Einnahmen des Verkaufs konnten nicht geladen werden: timeout – bitte in der E&A-Rechnung prüfen, sonst stimmt die UVA nicht.')
+    assert.equal(zeile(db, 'traubenverkauf', TV1).storniert_am ?? null, null)
+    assert.match(zeile(db, 'traubenverkauf', TV2).storniert_am ?? '', /^\d{4}-/)
   })
 
-  test('ohne Traubenverkäufe: keine Löschabfrage', async () => {
+  test('ohne Traubenverkäufe: kein Traubenverkauf-Storno', async () => {
     const t = vollerPosten()
     t.verkauf_positionen = t.verkauf_positionen.filter(p => p.typ !== 'traube')
     t.traubenverkauf = []
     const db = neueDb(t)
     await b.verkaufspostenStornieren(db, T, VP)
-    assert.ok(!schreibzugriffe(db).includes('delete traubenverkauf'))
+    assert.ok(!schreibzugriffe(db).includes('update traubenverkauf'))
     assert.equal(zeile(db, 'verkaufsposten', VP).storniert, true)
   })
 

@@ -192,11 +192,11 @@ export async function ladeRvWeingarten(supabase: any, tenantId: string, e: RvEin
   let herkunftChargen: Map<string, R> | null = null
   let ep: R[] = []
   // tenant-isolation-ignore: ernte_parzellen ohne tenant_id, Filter über den Jahrgang (!inner)
-  const epAbfrage = () => (supabase.from('ernte_parzellen') as any).select(EP_SELECT).eq('jahrgang.tenant_id', tenantId)
+  const epAbfrage = () => (supabase.from('ernte_parzellen') as any).select(EP_SELECT).eq('jahrgang.tenant_id', tenantId).is('storniert_am', null)
 
   // tenant-isolation-ignore: pressung_weingaerten ohne tenant_id, Filter über die Pressung (!inner)
   const pwAbfrage = () => (supabase.from('pressung_weingaerten') as any).select(PW_SELECT).eq('pressung.tenant_id', tenantId)
-  const tvAbfrage = () => (supabase.from('traubenverkauf') as any).select(TV_SELECT).eq('tenant_id', tenantId)
+  const tvAbfrage = () => (supabase.from('traubenverkauf') as any).select(TV_SELECT).eq('tenant_id', tenantId).is('storniert_am', null)
 
   if (e.charge || e.fuellung) {
     const art = e.charge ? 'charge' : 'fuellung'

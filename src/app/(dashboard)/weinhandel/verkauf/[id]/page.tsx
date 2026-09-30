@@ -84,11 +84,12 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
       .eq('verkaufsposten_id', id)
       .eq('tenant_id', tenantId ?? '')
       .order('datum', { ascending: true }),
-    // Traubenverkäufe (BKI) zu diesem Beleg – ein Storno entfernt sie (Hinweis im Storno-Dialog)
+    // Traubenverkäufe (BKI) zu diesem Beleg – ein Storno storniert sie mit (Hinweis im Storno-Dialog)
     (supabase.from('traubenverkauf') as any)
       .select('id', { count: 'exact', head: true })
       .eq('verkaufsposten_id', id)
-      .eq('tenant_id', tenantId ?? ''),
+      .eq('tenant_id', tenantId ?? '')
+      .is('storniert_am', null),
   ])
 
   if (!postenRaw) notFound()

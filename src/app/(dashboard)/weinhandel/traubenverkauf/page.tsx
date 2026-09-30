@@ -26,10 +26,11 @@ export default async function TraubenverkaufPage() {
   }
 
   // Bestehende Verkäufe (alle() statt 1.000er-Deckel)
+  // storno-sichtbar: Liste zeigt stornierte gekennzeichnet (KAN-148); verfügbare kg rechnen ohne sie
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: verkaufeRaw } = await alle<R>((supabase.from('traubenverkauf') as any)
     .select(`
-      id, datum, menge_kg, preis_per_kg, kmw_grad, oechsle, mostgewicht_einheit,
+      id, datum, menge_kg, storniert_am, storno_grund, storniert_von_name, preis_per_kg, kmw_grad, oechsle, mostgewicht_einheit,
       qualitaetsstufe, herkunft_code, gesundheit, liefernummer, notizen, jahrgang_id, lese_id, grundstueck_id, zukauf_posten_id, verkaufsposten_id,
       weingarten:weingarten_id(id, name, trauben_herkunft_code),
       grundstueck:grundstueck_id(id, gst_nr, rebsorte, trauben_herkunft_code),
@@ -64,6 +65,7 @@ export default async function TraubenverkaufPage() {
     `)
     .in('jahrgang_id', jahrgangIds)
     .not('menge_kg', 'is', null)
+    .is('storniert_am', null)
     .order('ernte_datum', { ascending: false, nullsFirst: false })
     .order('id'))
 
@@ -139,7 +141,7 @@ export default async function TraubenverkaufPage() {
     }
   }
   const soldKgByZukauf: Record<string, number> = {}
-  for (const v of verkaufe) {
+  for (const v of verkaufe.filter(x => !x.storniert_am)) {
     if (v.zukauf_posten_id) soldKgByZukauf[v.zukauf_posten_id] = (soldKgByZukauf[v.zukauf_posten_id] ?? 0) + (parseFloat(v.menge_kg) || 0)
   }
 

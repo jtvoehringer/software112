@@ -6,7 +6,8 @@ import { kmwZuQualitaet } from '@/lib/weinqualitaet'
 import { abstufungFehler, qualitaetFehler } from '@/lib/wein/qualitaet'
 import { findePassendeHerkunftsstufe, HERKUNFT_LABEL, minHerkunft } from '@/lib/herkunft'
 import { createVerkaufspostenFuerTrauben, ermittleQuellenName, upsertTraubenverkauf } from '@/app/(dashboard)/weinhandel/traubenverkauf/actions'
-import { stornoVerkauf } from '@/app/(dashboard)/weinhandel/verkauf/actions'
+import { traubenverkaufStornieren } from '@/lib/verkauf/traubenverkaufStorno'
+import { stornoGrundFehler } from '@/lib/storno/grund'
 import { getCurrentMembership, canAdmin, type Membership } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
@@ -156,6 +157,7 @@ function leseAngaben(formData: FormData, jahrgang: number): LeseAngaben {
 /** Belegung einer Lese (Lese-Einträge, Pressungen, Traubenverkäufe) – für Löschsperre und „Lese 1 füllen“ */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function leseBelegung(supabase: any, tenantId: string, jahrgangId: string, leseId: string) {
+  // storno-sichtbar: stornierte Einträge und Traubenverkäufe hängen weiter an der Lese – sie belegen sie
   const [ep, pr, tv] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('ernte_parzellen') as any).select('id', { count: 'exact', head: true })
@@ -163,6 +165,7 @@ async function leseBelegung(supabase: any, tenantId: string, jahrgangId: string,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('pressungen') as any).select('id', { count: 'exact', head: true })
       .eq('lese_id', leseId).eq('tenant_id', tenantId),
+    // storno-sichtbar: wie oben – auch ein stornierter Traubenverkauf belegt die Lese
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('traubenverkauf') as any).select('id', { count: 'exact', head: true })
       .eq('lese_id', leseId).eq('tenant_id', tenantId),
@@ -402,9 +405,9 @@ export async function upsertErnteParzelle(jahrgangId: string, formData: FormData
 async function ladeErnteParzelle(supabase: any, id: string, jahrgangId: string): Promise<AR> {
   const { data, error } = await (supabase.from('ernte_parzellen') as any)
     .select('id, lese_id, weingarten_id, grundstueck_id, menge_kg, ernte_datum, weingarten:weingarten_id(name), grundstueck:grundstueck_id(gst_nr)')
-    .eq('id', id).eq('jahrgang_id', jahrgangId).maybeSingle()
+    .eq('id', id).eq('jahrgang_id', jahrgangId).is('storniert_am', null).maybeSingle()
   if (error) throw new AktionsFehler(dbFehlerText(error, 'Lesedaten konnten nicht geladen werden'))
-  if (!data) throw new AktionsFehler('Lesedaten nicht gefunden – bitte die Seite neu laden.')
+  if (!data) throw new AktionsFehler('Lesedaten nicht gefunden oder bereits storniert – bitte die Seite neu laden.')
   return data as AR
 }
 
@@ -461,11 +464,13 @@ async function pruefeLesemengeGedeckt(
   const leseId = alt.lese_id as string
   const [parzRes, pressRes, tvRes] = await Promise.all([
     (supabase.from('ernte_parzellen') as any)
-      .select('grundstueck_id, menge_kg').eq('jahrgang_id', jahrgangId).eq('lese_id', leseId).eq('weingarten_id', alt.weingarten_id),
+      .select('grundstueck_id, menge_kg').eq('jahrgang_id', jahrgangId).eq('lese_id', leseId).eq('weingarten_id', alt.weingarten_id)
+      .is('storniert_am', null),
     (supabase.from('pressungen') as any)
       .select('id').eq('jahrgang_id', jahrgangId).eq('lese_id', leseId).eq('tenant_id', tenantId),
     (supabase.from('traubenverkauf') as any)
-      .select('grundstueck_id, menge_kg').eq('jahrgang_id', jahrgangId).eq('lese_id', leseId).eq('weingarten_id', alt.weingarten_id).eq('tenant_id', tenantId),
+      .select('grundstueck_id, menge_kg').eq('jahrgang_id', jahrgangId).eq('lese_id', leseId).eq('weingarten_id', alt.weingarten_id).eq('tenant_id', tenantId)
+      .is('storniert_am', null),
   ])
   for (const [tabelle, res] of [['ernte_parzellen', parzRes], ['pressungen', pressRes], ['traubenverkauf', tvRes]] as const) {
     if (res.error) throw new AktionsFehler(dbFehlerText(res.error, `Lesemenge konnte nicht geprüft werden (${tabelle})`))
@@ -692,19 +697,25 @@ export async function createMultipleErnteParzellen(jahrgangId: string, formData:
   revalidatePath(`/erntemeldung/${jahrgangId}`)
 }
 
-export async function deleteErnteParzelle(id: string, jahrgangId: string) {
+// KAN-148 C1b (30.09.2026): Lesedaten stornieren statt löschen – der Eintrag bleibt mit Datum, Benutzer und Grund
+// sichtbar (Lesedaten-Druck und -CSV kennzeichnen ihn) und zählt in keiner Menge, Erntemeldung oder Verfügbarkeit.
+// Stornieren darf, wer Lesedaten bearbeiten darf (KAN-166); was schon verpresst oder verkauft ist, bleibt gesperrt.
+export async function stornoErnteParzelle(id: string, jahrgangId: string, grund: string) {
+  const fehler = stornoGrundFehler(grund)
+  if (fehler) throw new AktionsFehler(fehler)
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
   await ladeJahrgang(supabase, tenantId, jahrgangId)
-  // KAN-35: nicht löschen, was schon verpresst oder als Trauben verkauft ist
+  // KAN-35: nicht stornieren, was schon verpresst oder als Trauben verkauft ist
   const alt = await ladeErnteParzelle(supabase, id, jahrgangId)
-  await pruefeLesemengeGedeckt(supabase, tenantId, jahrgangId, alt, null, 'Löschen der Lesedaten')
+  await pruefeLesemengeGedeckt(supabase, tenantId, jahrgangId, alt, null, 'Stornieren der Lesedaten')
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: del, error } = await (supabase.from('ernte_parzellen') as any)
-    .delete().eq('id', id).eq('jahrgang_id', jahrgangId).select('id')
-  if (error) throw new AktionsFehler(dbFehlerText(error, 'Löschen fehlgeschlagen (ernte_parzellen)'))
-  // RLS löscht ohne Berechtigung still 0 Zeilen
-  if (!(del as AR[] | null)?.length) throw new AktionsFehler('Die Lesedaten konnten nicht gelöscht werden – keine Berechtigung (Löschen ist Betriebsleitern vorbehalten) oder der Eintrag wurde inzwischen gelöscht. Bitte die Seite neu laden.')
+  const { data: upd, error } = await (supabase.from('ernte_parzellen') as any)
+    .update({ storniert_am: new Date().toISOString(), storno_grund: grund.trim() })
+    .eq('id', id).eq('jahrgang_id', jahrgangId).is('storniert_am', null).select('id')
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Stornieren fehlgeschlagen (ernte_parzellen)'))
+  // RLS ändert ohne Berechtigung still 0 Zeilen
+  if (!(upd as AR[] | null)?.length) throw new AktionsFehler('Die Lesedaten konnten nicht storniert werden – keine Berechtigung oder der Eintrag wurde inzwischen geändert. Bitte die Seite neu laden.')
   revalidatePath(`/erntemeldung/${jahrgangId}`)
 }
 
@@ -725,6 +736,7 @@ export async function createOrUpdateAMAMeldung(jahrgangId: string) {
   const { data: parzellen, error: pFehler } = await (supabase.from('ernte_parzellen') as any)
     .select('id, weingarten:weingarten_id(weinbaugebiet)')
     .eq('jahrgang_id', jahrgangId)
+    .is('storniert_am', null)
   if (pFehler) throw new AktionsFehler(dbFehlerText(pFehler, 'Lesedaten konnten nicht geladen werden'))
 
   // Je Rebsorte wie Vorschau, Druck und CSV (lib/behoerden/erntemeldung.ts, aggregiereJeRebsorte)
@@ -899,7 +911,7 @@ async function chargenVorgabenErmitteln(
   if (weingaerten.length > 0) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: epRows, error } = await (supabase.from('ernte_parzellen') as any)
-      .select('herkunft_code, weingarten_id, grundstueck_id').eq('jahrgang_id', jahrgangId)
+      .select('herkunft_code, weingarten_id, grundstueck_id').eq('jahrgang_id', jahrgangId).is('storniert_am', null)
     if (error) throw new AktionsFehler(dbFehlerText(error, 'Herkunft konnte nicht ermittelt werden (ernte_parzellen)'))
     const epList = ((epRows ?? []) as AR[])
     const passendeCodes = weingaerten.map(w => {
@@ -1503,6 +1515,7 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
       .eq('jahrgang_id', jahrgangId)
       .eq('weingarten_id', w.weingarten_id)
       .is('menge_kg', null)
+      .is('storniert_am', null)   // KAN-148: stornierte Einträge bleiben unverändert
     // Wenn die Pressung ein konkretes Grundstück referenziert, NUR dessen Ernte-Zeile
     // aktualisieren – sonst würden andere, noch offene Grundstücke desselben Rieds
     // fälschlich mit überschrieben.
@@ -1664,6 +1677,7 @@ export async function deleteJahrgang(id: string) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('pressungen') as any)
       .select('id', { count: 'exact', head: true }).eq('jahrgang_id', id).eq('tenant_id', tenantId),
+    // storno-sichtbar: auch ein stornierter Traubenverkauf sperrt das Löschen des Jahrgangs (KAN-148 Nr. 6)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('traubenverkauf') as any)
       .select('id', { count: 'exact', head: true }).eq('jahrgang_id', id).eq('tenant_id', tenantId),
@@ -1786,69 +1800,24 @@ export async function updateTraubenverkauf(id: string, fd: FormData) {
   revalidatePath('/weinhandel/verkauf')
 }
 
-// Traubenverkauf löschen (KAN-35): Der zugehörige Verkaufsposten (Rechnung) wird nie
-// hart gelöscht, sondern über den regulären Verkaufsstorno (weinhandel/verkauf:
-// stornoVerkauf → lib/verkauf/bestand.ts) storniert – der Beleg bleibt samt
-// Rechnungsnummer erhalten, nicht gesperrte E&A-Buchungen werden wie beim Storno im
-// Weinhandel entfernt. Trauben haben keinen Kellerbestand, eine Bestandsrückbuchung
-// entfällt. Der Storno entfernt die Traubenverkauf-Zeilen des Postens selbst; ohne
-// (offene) Rechnung wird die Zeile hier gelöscht. Das Bestandsprotokoll hält sie fest,
-// die kg sind wieder verfügbar. Rechnungen mit weiteren Positionen nur im Weinhandel
-// stornieren (gleiche Regel wie weinhandel/traubenverkauf/actions.ts).
-export async function deleteTraubenverkauf(id: string, jahrgangId: string) {
+// Traubenverkauf stornieren (KAN-148 C1b, 30.09.2026; vorher KAN-35 löschen): Die Zeile bleibt mit Datum,
+// Benutzer und Grund stehen, Liefernummer und Rechnungsbezug bleiben, die kg sind wieder verfügbar. Eine offene
+// Rechnung, die nur diesen Traubenverkauf enthält, wird über den regulären Verkaufsstorno storniert (Beleg samt
+// Rechnungsnummer bleibt, nicht gesperrte E&A-Buchungen wie beim Storno im Weinhandel). Rechnungen mit weiteren
+// Positionen nur im Weinhandel stornieren. Gemeinsame Logik: lib/verkauf/traubenverkaufStorno.ts.
+export async function stornoTraubenverkauf(id: string, jahrgangId: string, grund: string) {
   const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: tv, error: tvErr } = await (supabase.from('traubenverkauf') as any)
-    .select('id, verkaufsposten_id').eq('id', id).eq('tenant_id', tenantId).maybeSingle()
-  if (tvErr) throw new AktionsFehler(dbFehlerText(tvErr, 'Traubenverkauf konnte nicht geladen werden'))
-  if (!tv) throw new AktionsFehler('Traubenverkauf nicht gefunden – bitte die Seite neu laden.')
-
-  const postenId = (tv as AR).verkaufsposten_id as string | null
-  let storniert = false
-  if (postenId) {
-    const [postenRes, posRes] = await Promise.all([
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase.from('verkaufsposten') as any)
-        .select('id, rechnungsnummer, storniert').eq('id', postenId).eq('tenant_id', tenantId).maybeSingle(),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase.from('verkauf_positionen') as any)
-        .select('id, typ, traubenverkauf_id').eq('verkaufsposten_id', postenId).eq('tenant_id', tenantId),
-    ])
-    if (postenRes.error) throw new AktionsFehler(dbFehlerText(postenRes.error, 'Rechnung zum Traubenverkauf konnte nicht geladen werden'))
-    if (posRes.error) throw new AktionsFehler(dbFehlerText(posRes.error, 'Rechnungspositionen konnten nicht geladen werden'))
-    const posten = postenRes.data as AR | null
-    if (posten && !posten.storniert) {
-      const positionen = (posRes.data ?? []) as AR[]
-      // Nur die eine Trauben-Position dieses Verkaufs: Erfassung über Lese/Traubenverkauf
-      // ('sonstiges' ohne Verweis) oder über das Verkaufsformular ('trauben' mit Verweis)
-      const nurDieserVerkauf = positionen.length <= 1 && positionen.every(p =>
-        (p.typ === 'trauben' && p.traubenverkauf_id === id) || (p.typ === 'sonstiges' && !p.traubenverkauf_id))
-      if (!nurDieserVerkauf) {
-        throw new AktionsFehler(`Der Traubenverkauf gehört zur Rechnung ${posten.rechnungsnummer ?? '(ohne Nummer)'} mit weiteren Positionen und kann hier nicht gelöscht werden. Bitte den Verkauf unter Weinhandel › Verkauf stornieren.`)
-      }
-      await stornoVerkauf(postenId)
-      storniert = true
-    }
+  const membership = await getMembership()
+  let postenId: string | null = null
+  try {
+    postenId = (await traubenverkaufStornieren(supabase, membership, id, grund)).postenId
+  } finally {
+    revalidatePath(`/erntemeldung/${jahrgangId}`)
+    revalidatePath('/erntemeldung')
+    revalidatePath('/weinhandel/traubenverkauf')
+    revalidatePath('/weinhandel/verkauf')
+    if (postenId) revalidatePath(`/weinhandel/verkauf/${postenId}`)
+    revalidatePath('/weinhandel')
+    revalidatePath('/buchhaltung')
   }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: del, error } = await (supabase.from('traubenverkauf') as any)
-    .delete().eq('id', id).eq('tenant_id', tenantId).select('id')
-  if (error) throw new AktionsFehler(dbFehlerText(error, 'Löschen fehlgeschlagen (traubenverkauf)'))
-  if (!(del as AR[] | null)?.length) {
-    // 0 Zeilen: entweder hat der Storno die Zeile schon entfernt (gut) oder RLS hat still
-    // nichts gelöscht
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: noch, error: nochErr } = await (supabase.from('traubenverkauf') as any)
-      .select('id').eq('id', id).eq('tenant_id', tenantId).maybeSingle()
-    if (nochErr) throw new AktionsFehler(dbFehlerText(nochErr, 'Traubenverkauf konnte nicht geprüft werden'))
-    if (noch) {
-      throw new AktionsFehler(`Der Traubenverkauf konnte nicht gelöscht werden – keine Berechtigung.${storniert ? ' Die zugehörige Rechnung wurde bereits storniert.' : ''}`)
-    }
-  }
-  revalidatePath(`/erntemeldung/${jahrgangId}`)
-  revalidatePath('/erntemeldung')
-  revalidatePath('/weinhandel/traubenverkauf')
-  revalidatePath('/weinhandel/verkauf')
 }
