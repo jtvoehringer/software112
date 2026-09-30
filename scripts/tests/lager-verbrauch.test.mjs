@@ -93,7 +93,7 @@ describe('Lager Pflanzenschutzmittel (Soll 2)', nurMitHooks, () => {
     assert.equal(posten[0].einheit, 'kg')
     assert.equal(posten[0].basis, 'Aufwand × Fläche')
     const k = lv.lagerKonto([buchung('2026-05-01', 2, 'kg')], posten)
-    assert.deepEqual(k, { einheit: 'kg', zugang: 2, abgang: 0, verbrauch: 1.2, bestand: 0.8, hinweise: [] })
+    assert.deepEqual(k, { einheit: 'kg', zugang: 2, abgang: 0, verbrauch: 1.2, posten: [{ behandlungId: 'b-fu', datum: '2026-06-01', menge: 1.2, art: 'Spritzung', ort: 'Pfaffenberg Riesling' }], bestand: 0.8, hinweise: [] })   // Rückmeldung 30.09.2026: Verbrauch je Maßnahme mit Datum
   })
 
   test('Tankmischung: dieselbe Spritzbrühe in zwei Maßnahmen – je Mittel nur die eigene Mittelmenge', () => {

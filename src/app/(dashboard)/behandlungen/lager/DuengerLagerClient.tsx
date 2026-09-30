@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { Pencil } from 'lucide-react'
 import { upsertDuengerBewegung, deleteDuengerBewegung } from './actions'
 import StornoButton from '@/components/StornoButton'
+import { VerbrauchTr, zeilenChronologisch } from './Verbrauchszeilen'
 import type { DuengerLager, DuengerOption } from './page'
 import LagerHinweise from './LagerHinweise'
 import { fmtNum } from '@/lib/format'
@@ -172,7 +173,7 @@ function DuengerKarte({
   const [pending] = useTransition()
 
   // Alle Mengen in der Lager-Einheit; Verbrauch = Σ Düngermenge der Düngungen (lib/behandlungen/lagerVerbrauch.ts)
-  const { einheit, zugang, abgang, verbrauch, bestand, hinweise } = duenger.konto
+  const { einheit, zugang, abgang, verbrauch, posten, bestand, hinweise } = duenger.konto
 
   const bestandColor = bestand < 0 ? 'text-s112-err-fg' : bestand < 1 ? 'text-s112-warn-fg' : 'text-s112-blue-700'
 
@@ -234,7 +235,7 @@ function DuengerKarte({
       )}
 
       {/* Bewegungshistorie */}
-      {duenger.bewegungen.length > 0 && (
+      {(duenger.bewegungen.length > 0 || posten.length > 0) && (
         <div className="border border-s112-border rounded-xl overflow-hidden mb-3">
           <table className="w-full text-sm">
             <thead>
@@ -247,7 +248,10 @@ function DuengerKarte({
               </tr>
             </thead>
             <tbody>
-              {duenger.bewegungen.map(b => (
+              {/* chronologisch: Buchungen und Verbrauch je Maßnahme (Rückmeldung 30.09.2026) */}
+              {zeilenChronologisch(duenger.bewegungen, posten).map(z => z.verbrauch ? (
+                <VerbrauchTr key={`v-${z.verbrauch.behandlungId}`} v={z.verbrauch} einheit={einheit} mitAktionen={writeOk || adminOk} />
+              ) : ((b: (typeof duenger.bewegungen)[number]) => (
                 <tr key={b.id} className="group border-b border-s112-border/40 last:border-0 hover:bg-s112-bg/30">
                   <td className="px-3 py-2 tabular-nums text-s112-muted">{fmtDate(b.datum)}</td>
                   <td className="px-3 py-2">
@@ -276,23 +280,7 @@ function DuengerKarte({
                     </td>
                   )}
                 </tr>
-              ))}
-              {/* Verbrauch-Zeile (read-only, aus Behandlungen) */}
-              {verbrauch > 0 && (
-                <tr className="border-b border-s112-border/40 last:border-0 bg-s112-blue-50/30">
-                  <td className="px-3 py-2 tabular-nums text-s112-muted text-xs">aus Maßnahmen</td>
-                  <td className="px-3 py-2">
-                    <span className="text-xs px-2 py-0.5 rounded-full border bg-s112-blue-50 text-s112-blue-700 border-s112-blue-100 font-medium">
-                      Verbrauch (berechnet)
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums font-medium text-s112-blue-700">
-                    –{fmtNum(verbrauch, { max: 3 })} {einheit}
-                  </td>
-                  <td className="px-3 py-2 text-xs text-s112-muted italic">aus Düngungen (Düngermenge bzw. Aufwand × Fläche)</td>
-                  {(writeOk || adminOk) && <td />}
-                </tr>
-              )}
+              ))(z.buchung as (typeof duenger.bewegungen)[number]))}
             </tbody>
           </table>
         </div>

@@ -63,7 +63,7 @@ function RiedenZelle({ rieden, flaecheHa }: { rieden: string[]; flaecheHa: numbe
   )
 }
 
-// Behandlungen nach Datum gruppieren
+// Behandlungen nach Datum gruppieren – chronologisch von oben (älteste) nach unten (jüngste), Rückmeldung 30.09.2026
 function groupByDate(behandlungen: Behandlung[]) {
   const map = new Map<string, Behandlung[]>()
   for (const b of behandlungen) {
@@ -71,7 +71,7 @@ function groupByDate(behandlungen: Behandlung[]) {
     arr.push(b)
     map.set(b.datum, arr)
   }
-  return Array.from(map.entries()).sort(([a], [b]) => b.localeCompare(a))
+  return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b))
 }
 
 export default function BehandlungenClient({

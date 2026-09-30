@@ -20,7 +20,7 @@
 import { runden } from '@/lib/csv'
 import { fmtNum } from '@/lib/format'
 import {
-  behandlungKurz, datumDe, einheitText, mengeInEinheit, mittelmenge, STELLEN_MENGE,
+  ART_LABEL, behandlungKurz, datumDe, einheitText, mengeInEinheit, mittelmenge, STELLEN_MENGE, weingartenText,
   type MittelEinheit, type PsmBehandlung,
 } from '@/lib/behoerden/psm'
 
@@ -41,7 +41,13 @@ export type VerbrauchPosten = {
   warnung: string | null
   /** „Spritzung am 10.07.2026 (Pfaffenberg Riesling)“ – für Hinweise */
   kurz: string
+  /** Art der Maßnahme („Spritzung“) und Ort (Ried/GST) – für die Zeile in Bestand & Bewegungen */
+  art: string
+  ort: string | null
 }
+
+/** Abgezogener Verbrauch einer Maßnahme in der Lager-Einheit (Zeile in „Bestand & Bewegungen“) */
+export type VerbrauchZeile = { behandlungId: string; datum: string; menge: number; art: string; ort: string | null }
 
 export type LagerHinweis = {
   text: string
@@ -57,6 +63,8 @@ export type LagerKonto = {
   abgang: number
   /** Verbrauch aus Maßnahmen */
   verbrauch: number
+  /** Verbrauch je Maßnahme (nur abgezogene), chronologisch */
+  posten: VerbrauchZeile[]
   bestand: number
   /** nicht berücksichtigte Buchungen und nicht abgezogene Maßnahmen */
   hinweise: LagerHinweis[]
@@ -89,6 +97,8 @@ export function verbrauchJeMittel(behandlungen: readonly PsmBehandlung[], lager:
       behandlungId: b.id, datum: b.datum,
       menge: mm.menge, einheit: mm.einheit, basis: mm.basis, warnung: mm.warnung,
       kurz: behandlungKurz(b),
+      art: ART_LABEL[b.art] ?? b.art,
+      ort: weingartenText(b),
     })
     je.set(id, posten)
   }
@@ -144,6 +154,7 @@ export function lagerKonto(buchungen: readonly LagerBuchung[], verbrauch: readon
   }
 
   let summe = 0
+  const posten: VerbrauchZeile[] = []
   for (const p of verbrauch) {
     if (p.menge === null || p.einheit === null) {
       hinweise.push({ text: `${p.kurz}: ${p.warnung ?? 'keine Mittelmenge'} – nicht abgezogen.`, behandlungId: p.behandlungId })
@@ -154,14 +165,17 @@ export function lagerKonto(buchungen: readonly LagerBuchung[], verbrauch: readon
       hinweise.push({ text: `${p.kurz}: ${zahl(p.menge)} ${p.einheit} – ${ohneDichte(p.einheit)}, nicht abgezogen.`, behandlungId: p.behandlungId })
       continue
     }
-    summe += m
+    const gerundet = runden(m, STELLEN_MENGE)
+    summe += gerundet
+    posten.push({ behandlungId: p.behandlungId, datum: p.datum, menge: gerundet, art: p.art, ort: p.ort })
   }
+  posten.sort((a, b) => a.datum.localeCompare(b.datum))
 
   zugang = runden(zugang, STELLEN_MENGE)
   abgang = runden(abgang, STELLEN_MENGE)
   const verbrauchGesamt = runden(summe, STELLEN_MENGE)
   return {
-    einheit, zugang, abgang, verbrauch: verbrauchGesamt,
+    einheit, zugang, abgang, verbrauch: verbrauchGesamt, posten,
     bestand: runden(zugang - abgang - verbrauchGesamt, STELLEN_MENGE),
     hinweise,
   }
