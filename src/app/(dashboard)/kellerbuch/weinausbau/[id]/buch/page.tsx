@@ -76,8 +76,12 @@ export default async function WeinbuchPage({
         </div>
       </div>
 
+      {/* KAN-127: Hinweise (Zukauf, Eröffnungsbestand, Lesedatum …) auch im Ausdruck */}
+      {geladen.weinbuch?.abgeschlossenAm && (
+        <p className="text-xs text-s112-muted">Weinbuch abgeschlossen mit der Füllung am {new Date(`${geladen.weinbuch.abgeschlossenAm}T12:00:00`).toLocaleDateString('de-AT')} – spätere Einträge gehören nicht mehr zu dieser Charge.</p>
+      )}
       {geladen.warnungen.length > 0 && (
-        <ul className="text-xs text-s112-warn-fg list-disc pl-4 space-y-0.5 print:hidden">
+        <ul className="text-xs text-s112-warn-fg list-disc pl-4 space-y-0.5">
           {geladen.warnungen.map((w, i) => <li key={i}>{w}</li>)}
         </ul>
       )}

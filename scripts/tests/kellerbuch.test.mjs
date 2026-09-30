@@ -56,6 +56,8 @@ function attrappe(tabellen, rpc = {}) {
       lte(k, v) { filter.push(['lte', k, v]); return b },
       lt(k, v) { filter.push(['lt', k, v]); return b },
       is(k, v) { filter.push(['is', k, v]); return b },
+      // KAN-127: or('a.gte.x,b.gte.y') wie PostgREST (eq, gte, lte)
+      or(ausdruck) { filter.push(['or', ausdruck, null]); return b },
       not(k, op, v) { filter.push([op === 'is' ? 'nichtNull' : 'neq', k, v]); return b },
       maybeSingle() { einzel = true; return b },
       single() { einzel = true; return b },
@@ -64,7 +66,16 @@ function attrappe(tabellen, rpc = {}) {
         let rows = (tabellen[tabelle] ?? []).slice()
         for (const [op, k, v] of filter) {
           rows = rows.filter(r => {
-            const x = r[k]
+            // Felder eingebetteter Zeilen ('pressung.tenant_id') wie PostgREST mit !inner
+            const wert = (zeile, pfad) => pfad.split('.').reduce((o, t) => (o == null ? undefined : o[t]), zeile)
+            if (op === 'or') {
+              return k.split(',').some(t => {
+                const [feld, o2, ...rest] = t.split('.')
+                const v2 = rest.join('.'), y = wert(r, feld)
+                return o2 === 'eq' ? String(y) === v2 : o2 === 'gte' ? y != null && y >= v2 : o2 === 'lte' ? y != null && y <= v2 : false
+              })
+            }
+            const x = wert(r, k)
             if (op === 'eq') return x === v
             if (op === 'neq') return x !== v
             if (op === 'in') return v.includes(x)
@@ -367,48 +378,69 @@ describe('weinbuch und weinbuch-sammlung', () => {
   })
   // KAN-128 (Merge-Voraussetzung der Migration A): der Trigger schreibt in jede Lese mit °KMW das
   // gerechnete °Oe – das Weinbuch darf es nicht roh („86.7 °Oe“) und nicht als Messwert zeigen
+  // KAN-127: Lese-Ereignisse kommen aus den Lesezeilen der Charge (pressung_weingaerten), nicht mehr aus allen
+  // Erntemeldungs-Einträgen der Weingärten im Jahrgang. Die Lesezeilen stehen in pressung_behaelter (Bewegungsgraph)
+  // und werden über pressung_weingaerten (id) samt Pressung nachgeladen.
+  function mitLesezeilen(daten, zeilen) {
+    const pressung = { ...daten.pressung_behaelter[0].pressung, erstellt_am: '2025-09-20T10:00:00Z', jahrgang_id: 'j2025', lese_id: null, jahrgang: { jahrgang: 2025 }, lese: null, most_liter_gesamt: null, weinbezeichnung: null }
+    const pw = zeilen.map((z, i) => ({
+      id: `pw${i + 1}`, zukauf_posten_id: null, grundstueck_id: z.grundstueck ? `g${i + 1}` : null, ...z,
+      pressung,
+    }))
+    daten.pressung_behaelter[0].pressung = { ...pressung, pressung_weingaerten: pw }
+    daten.pressung_weingaerten = pw
+    daten.weinjahrgaenge = [{ id: 'j2025', tenant_id: T, jahrgang: 2025 }]
+    return daten
+  }
+  // KAN-128 (Merge-Voraussetzung der Migration A): der Trigger schreibt in jede Lese mit °KMW das
+  // gerechnete °Oe – das Weinbuch darf es nicht roh („86.7 °Oe“) und nicht als Messwert zeigen
   test('KAN-128: Mostgewicht der Lese – °KMW mit Komma, °Oe nur als Messwert, gerechnet nie ohne „≈“', async () => {
     const daten = kellerDaten()
     daten.weinausbau[0].behaelter = { name: 'Tank 1' }
-    daten.weinausbau_weingaerten = [{ weinausbau_id: C1, tenant_id: T, weingarten_id: 'w1', weingarten: { id: 'w1', name: 'Ried Hochrain' } }]
-    daten.weinjahrgaenge = [{ id: 'j2025', tenant_id: T, jahrgang: 2025 }]
-    const lese = (datum, klosterneuburger, oechsle, mostgewicht_einheit) => ({
-      jahrgang_id: 'j2025', weingarten_id: 'w1', ernte_datum: datum, menge_kg: '1200', klosterneuburger, oechsle, mostgewicht_einheit,
-      qualitaetsstufe: null, lesemethode: 'handlese', notizen: null, weingarten: { name: 'Ried Hochrain' }, grundstueck: { gst_nr: '1234/5', katastralgemeinde: '04023' },
+    const lese = (ernte_datum, kmw, oechsle, mostgewicht_einheit) => ({
+      trauben_kg: '1200', rebsorte: null, ernte_datum, kmw, oechsle, mostgewicht_einheit, weingarten_id: 'w1',
+      weingarten: { id: 'w1', name: 'Ried Hochrain' }, grundstueck: { gst_nr: '1234/5', katastralgemeinde: '04023', ama_feldnummer: null },
     })
-    daten.ernte_parzellen = [
+    mitLesezeilen(daten, [
       lese('2025-09-16', 17.6, 86.7, 'kmw'),          // gemessen °KMW, °Oe vom Trigger gerechnet (Zahl wie aus PostgREST)
       lese('2025-09-17', '18.95', '93.8', 'kmw'),     // numerische Texte, 2 Stellen
       lese('2025-09-18', '17.09', '84.0', 'oechsle'), // gemessen °Oe, °KMW nach Variante B
       lese('2025-09-19', null, null, 'kmw'),          // ohne Mostgewicht
-    ]
+    ])
     const w = await ausfuehren('weinbuch', `charge=${C1}`, attrappe(daten, gebindeRpc(gebindeKeller)))
     const leseZeilen = w.tabelle.slice(1).filter(c => c[6] === 'Ernte / Lese')
     assert.deepEqual(leseZeilen.map(c => c[5]), ['16.09.2025', '17.09.2025', '18.09.2025', '19.09.2025'])
     const details = leseZeilen.map(c => c[8])
-    assert.equal(details[0], 'Ried: Ried Hochrain | GST 1234/5 | 1.200 kg | 17,6 °KMW | Handlese')
-    assert.equal(details[1], 'Ried: Ried Hochrain | GST 1234/5 | 1.200 kg | 18,95 °KMW | Handlese')
-    assert.equal(details[2], 'Ried: Ried Hochrain | GST 1234/5 | 1.200 kg | ≈ 17,09 °KMW · 84,0 °Oe | Handlese')
-    assert.equal(details[3], 'Ried: Ried Hochrain | GST 1234/5 | 1.200 kg | Handlese')
+    assert.equal(details[0], 'Ried: Ried Hochrain | GST 1234/5 | 1.200 kg | 17,6 °KMW')
+    assert.equal(details[1], 'Ried: Ried Hochrain | GST 1234/5 | 1.200 kg | 18,95 °KMW')
+    assert.equal(details[2], 'Ried: Ried Hochrain | GST 1234/5 | 1.200 kg | ≈ 17,09 °KMW · 84,0 °Oe')
+    assert.equal(details[3], 'Ried: Ried Hochrain | GST 1234/5 | 1.200 kg')
     for (const d of details) {
       assert.doesNotMatch(d, /\d\.\d+ °/, `Punkt statt Komma: ${d}`)
       // gemessen in °KMW: kein °Oe; gemessen in °Oe: der gerechnete °KMW-Wert trägt „≈“
       if (/°Oe/.test(d)) assert.match(d, /≈ \d+,\d+ °KMW · \d+,\d °Oe/, d)
     }
+    // Erntemeldungs-Einträge anderer Weingärten erscheinen nicht mehr
+    daten.ernte_parzellen = [{ jahrgang_id: 'j2025', weingarten_id: 'w9', ernte_datum: '2025-09-01', menge_kg: '1', weingarten: { name: 'Fremde Ried' }, grundstueck: null }]
+    const w2 = await ausfuehren('weinbuch', `charge=${C1}`, attrappe(daten, gebindeRpc(gebindeKeller)))
+    assert.ok(!w2.tabelle.some(c => /Fremde Ried/.test(c[8] ?? '')))
   })
-  test('KAN-128: Weinbuch-Fallback aus der Pressung (ohne Lese) mit derselben Mostgewicht-Regel', async () => {
+  test('KAN-128: Lese aus der Pressungszeile mit derselben Mostgewicht-Regel, ohne Lesedatum mit Vermerk', async () => {
     const daten = kellerDaten()
     daten.weinausbau[0].behaelter = { name: 'Tank 1' }
-    daten.pressung_behaelter[0].pressung.pressung_weingaerten = [
-      { trauben_kg: '600', rebsorte: 'Grüner Veltliner', ernte_datum: '2025-09-18', kmw: 17.09, oechsle: 84, mostgewicht_einheit: 'oechsle', weingarten_id: 'w1', weingarten: { id: 'w1', name: 'Ried Hochrain' } },
-      { trauben_kg: '400', rebsorte: 'Grüner Veltliner', ernte_datum: '2025-09-19', kmw: 18.2, oechsle: 89.9, mostgewicht_einheit: 'kmw', weingarten_id: 'w2', weingarten: { id: 'w2', name: 'Ried Au' } },
-    ]
+    mitLesezeilen(daten, [
+      { trauben_kg: '600', rebsorte: 'Grüner Veltliner', ernte_datum: '2025-09-18', kmw: 17.09, oechsle: 84, mostgewicht_einheit: 'oechsle', weingarten_id: 'w1', weingarten: { id: 'w1', name: 'Ried Hochrain' }, grundstueck: null },
+      { trauben_kg: '400', rebsorte: 'Grüner Veltliner', ernte_datum: null, kmw: 18.2, oechsle: 89.9, mostgewicht_einheit: 'kmw', weingarten_id: 'w2', weingarten: { id: 'w2', name: 'Ried Au' }, grundstueck: null },
+    ])
     const w = await ausfuehren('weinbuch', `charge=${C1}`, attrappe(daten, gebindeRpc(gebindeKeller)))
-    const details = w.tabelle.slice(1).filter(c => c[6] === 'Ernte / Lese').map(c => c[8])
-    assert.equal(details.length, 2)
-    assert.match(details[0], /\| ≈ 17,09 °KMW · 84,0 °Oe \|/)
-    assert.match(details[1], /\| 18,2 °KMW \|/)
-    assert.doesNotMatch(details[1], /°Oe/)
+    const lesen = w.tabelle.slice(1).filter(c => c[6] === 'Ernte / Lese')
+    assert.equal(lesen.length, 2)
+    const [a, b] = [lesen.find(c => c[8].includes('Hochrain'))[8], lesen.find(c => c[8].includes('Ried Au'))]
+    assert.match(a, /\| ≈ 17,09 °KMW · 84,0 °Oe \|/)
+    assert.equal(b[5], '20.09.2025')                                       // ohne Lesedatum: Datum der Pressung
+    assert.match(b[8], /\| 18,2 °KMW \|/)
+    assert.match(b[8], /Lesedatum nicht erfasst – Datum der Pressung/)
+    assert.doesNotMatch(b[8], /°Oe/)
   })
   test('KAN-128: mostgewichtWeinbuchText()', () => {
     const t = mgExport.mostgewichtWeinbuchText

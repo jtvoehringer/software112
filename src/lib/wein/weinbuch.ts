@@ -4,14 +4,29 @@
 // (Auswertungen, BKI-Prüfung) am 7.8.2026 hierher ausgelagert, damit dieselbe
 // (aufwändige) Abfrage-Logik für EINE Charge (Einzelseite) und für VIELE Chargen
 // (Sammel-PDF) identisch wiederverwendet werden kann, statt sie zu duplizieren.
+//
+// KAN-127 (Entscheidungen Jörgen 26.09.2026): Die Sicht liegt auf der Charge.
+//   - Ried-Maßnahmen, Lesen und Pressungen kommen aus den Lesezeilen der Charge UND ihrer Vorgänger (Umzüge,
+//     Verschnitte – wie im Blend-Protokoll), über denselben Kern wie die Rückverfolgung Weingarten
+//     (ladeRvWeingarten → ladeMassnahmenZuLesezeilen): nur die gelesenen GST, nur im Fenster „Ernte bis Ernte“
+//     bis zur jeweiligen Lese, eine Zeile je Maßnahme ohne Dubletten, Herkunft erkennbar („über Charge …“).
+//     Bis dahin kamen über die RPC get_behandlungen_fuer_grundstuecke alle Maßnahmen aller GST der Weingärten
+//     ohne Datumsgrenze (Musterhof: 1.028 statt 445 Zeilen, 519 nach der Lese).
+//   - Zukauf (Wein, Most, Trauben): Hinweis, dass die Ried-Maßnahmen beim Lieferbetrieb liegen (Name,
+//     Betriebsnummer, Datum, Menge; Transportschein-Nr. bis KAN-90 „nicht erfasst“). Eröffnungsbestand: Hinweis
+//     „Ried-Maßnahmen vor der Übernahme nicht in software:112 erfasst“. Hinweise auf Seite, Ausdruck und CSV.
+//   - Ende: Ist die Charge leer, endet das Weinbuch mit der letzten Füllung – spätere Einträge (Analysen,
+//     Prüfnummern, Kellerarbeiten) gehören nicht mehr dazu.
 
-import { qualitaetLabel } from '@/lib/wein/qualitaet'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum } from '@/lib/format'
 import { ladeBelegungen } from '@/lib/behoerden/bewegungsbuch'
 import { mostgewichtWeinbuchText } from '@/lib/behoerden/mostgewicht_export'
-import { tag } from '@/lib/behoerden/kellerbuch-hilfen'
+import { tag, text } from '@/lib/behoerden/kellerbuch-hilfen'
 import { massnahmenArtLabel } from '@/lib/behandlungen/arten'
+import { massnahmeMittel, massnahmeZeitraum } from '@/lib/behoerden/rueckverfolgung'
+import { ladeRvWeingarten, massnahmeWartezeit, type RvLese } from '@/lib/behoerden/rv-weingarten'
+import { ttmmjjjj } from '@/lib/behoerden/rueckverfolgungFenster'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -51,8 +66,26 @@ export interface WeinbuchCharge {
 export interface Weinbuch {
   wa: WeinbuchCharge
   events: TimelineEvent[]
-  /** Hinweise für Druckseite und CSV (z. B. Kellerbehandlungen ohne eindeutige Charge) */
+  /** Hinweise für Seite, Ausdruck und CSV (z. B. Kellerbehandlungen ohne eindeutige Charge, Zukauf, Eröffnungsbestand) */
   warnungen: string[]
+  /** Tag der Füllung, mit der die (jetzt leere) Charge abgeschlossen wurde – danach keine Einträge mehr; sonst null */
+  abgeschlossenAm: string | null
+}
+
+export const HINWEIS_EROEFFNUNGSBESTAND = 'Eröffnungsbestand – Ried-Maßnahmen vor der Übernahme nicht in software:112 erfasst.'
+
+const ZUKAUF_ART: Record<string, string> = { wein: 'Wein', most: 'Most', trauben: 'Trauben' }
+
+/** Hinweis zu einem Zukauf: Ried-Maßnahmen liegen beim Lieferbetrieb (KAN-127; Transportschein-Nr. kommt mit KAN-90) */
+export function zukaufHinweis(z: R, ueberCharge: string | null): string {
+  const firma = z.lieferant_firma as R | null
+  const kontakt = z.lieferant_kontakt as R | null
+  const name = text(firma?.name) ?? ([kontakt?.vorname, kontakt?.nachname].filter(Boolean).join(' ') || 'Lieferant nicht erfasst')
+  const bnr = text(firma?.betrieb_nr) ?? text(kontakt?.betrieb_nr)
+  const menge = z.menge != null ? `${fmtNum(parseFloat(z.menge))} ${z.einheit ?? ''}`.trim() : null
+  const was = [ZUKAUF_ART[z.art] ?? text(z.art) ?? 'Zukauf', text(z.rebsorte), z.jahrgang ? String(z.jahrgang) : null].filter(Boolean).join(' ')
+  return `Zukauf ${was}${z.datum ? ` vom ${ttmmjjjj(tag(z.datum))}` : ''}${menge ? ` (${menge})` : ''}${ueberCharge ? ` über Charge „${ueberCharge}“` : ''}: `
+    + `Die Ried-Maßnahmen liegen beim Lieferbetrieb ${name}${bnr ? ` (Betriebsnr. ${bnr})` : ' (Betriebsnummer nicht erfasst)'}; Transportschein-Nr. nicht erfasst.`
 }
 
 /** Vermerk an Kellerbehandlungen ohne Charge, die keiner Charge eindeutig zuzuordnen sind */
@@ -68,7 +101,7 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
 
   // ── 1. Weinausbau-Charge laden ────────────────────────────────────────────
   const { data: waRaw, error: waErr } = await tf((supabase.from('weinausbau') as any)
-    .select('id, name, jahrgang, rebsorte, qualitaetsstufe, status, menge_liter, behaelter_id, behaelter:behaelter_id(name)')
+    .select('id, name, jahrgang, rebsorte, qualitaetsstufe, status, menge_liter, behaelter_id, ist_eroeffnungsbestand, behaelter:behaelter_id(name)')
     .eq('id', id))
     .maybeSingle()
 
@@ -99,11 +132,12 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
     verschnEinRes, // Verschneidungen eingehend (Ziel)
     verschnAusRes, // Verschneidungen ausgehend (Quelle)
   ] = await Promise.all([
-    (supabase.from('pressung_behaelter') as any)
+    // tenant-isolation-ignore: pressung_behaelter ohne tenant_id, Filter über die Pressung (!inner)
+    (tenantId ? (q: any) => q.eq('pressung.tenant_id', tenantId) : (q: any) => q)((supabase.from('pressung_behaelter') as any)
       .select(`
         menge_liter,
-        pressung:pressung_id(
-          id, datum, most_liter_gesamt, weinbezeichnung, lese_id,
+        pressung:pressung_id!inner(
+          id, datum, most_liter_gesamt, weinbezeichnung, lese_id, tenant_id,
           pressung_weingaerten(
             trauben_kg, rebsorte, ernte_datum, kmw, oechsle, mostgewicht_einheit, weingarten_id,
             weingarten:weingarten_id(id, name, flaeche_ha),
@@ -111,7 +145,7 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
           )
         )
       `)
-      .eq('weinausbau_id', id),
+      .eq('weinausbau_id', id)),
 
     tf((supabase.from('keller_umzuege') as any)
       .select(`
@@ -246,177 +280,113 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
     return u
   })
 
-  // Feldbehandlungen: direkt über weingarten_id (weingarten hat kein grundstueck_id)
-  const weingartenIds = new Set<string>()
-  for (const r of ((wawRes.data ?? []) as R[])) {
-    if (r.weingarten_id) weingartenIds.add(r.weingarten_id)
-  }
-  for (const pb of pressungen) {
-    const p = pb.pressung as R | null
-    if (!p) continue
-    for (const wg of ((p.pressung_weingaerten ?? []) as R[])) {
-      if (wg.weingarten_id) weingartenIds.add(wg.weingarten_id)
+  // ── Ried: Lesen, Pressungen der Vorgänger, Maßnahmen bis zur Lese (KAN-127) ──────────────────────────────
+  // Derselbe Kern wie die Rückverfolgung Weingarten: Lesezeilen der Charge und ihrer Vorgänger, je Lesezeile die
+  // Maßnahmen der gelesenen GST im Fenster „Ernte bis Ernte“ (rueckverfolgungFenster.ts).
+  const rv = tenantId
+    ? await ladeRvWeingarten(supabase, tenantId, { charge: id, lese: null, jahrgang: null, gst: null, weingarten: null, fuellung: null })
+    : null
+  const rvLesen: RvLese[] = rv?.lesen ?? []
+  if (rv) warnungen.push(...rv.warnungen)
+  const herkunft = rv?.herkunftChargen ?? new Map<string, R>([[wa.id, waRow]])
+
+  // Hinweise: Zukauf (beim Lieferbetrieb), Eröffnungsbestand, Charge ohne Lese
+  const trauben = [...new Set(rvLesen.map(l => text(l.lese.zukauf_posten_id)).filter((x): x is string => !!x))]
+  if (tenantId) {
+    const zkSelect = 'id, datum, art, menge, einheit, rebsorte, jahrgang, ziel_weinausbau_id, lieferant_firma:firmen!lieferant_firma_id(name, betrieb_nr), lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname, betrieb_nr)'
+    const [zkZiel, zkTrauben] = await Promise.all([
+      (supabase.from('zukauf_posten') as any).select(zkSelect).eq('tenant_id', tenantId).eq('aktiv', true)
+        .in('ziel_weinausbau_id', [...herkunft.keys()]).order('datum'),
+      trauben.length > 0
+        ? (supabase.from('zukauf_posten') as any).select(zkSelect).eq('tenant_id', tenantId).in('id', trauben).order('datum')
+        : Promise.resolve({ data: [], error: null }),
+    ])
+    if (zkZiel.error || zkTrauben.error) warnungen.push('Zukäufe konnten nicht geladen werden – Hinweise zum Lieferbetrieb fehlen.')
+    const gesehen = new Set<string>()
+    for (const z of [...((zkZiel.data ?? []) as R[]), ...((zkTrauben.data ?? []) as R[])]) {
+      if (gesehen.has(z.id)) continue
+      gesehen.add(z.id)
+      const ziel = text(z.ziel_weinausbau_id)
+      warnungen.push(zukaufHinweis(z, ziel && ziel !== wa.id ? text(herkunft.get(ziel)?.name) ?? 'Vorgänger' : null))
     }
   }
-
-  const ernteDaten: Array<{ datum: string; details: string[] }> = []
-  // KAN-126 (Entscheidung Jörgen 29.09.2026): Tragen die Pressungen dieser Charge ein Lesedatum je Traubenzeile,
-  // zeigt das Weinbuch genau diese Lesen (Ort, Tag, Menge, Mostgewicht der Pressungszeile) – nicht alle
-  // Erntemeldungs-Einträge der Weingärten im Jahrgang. Ohne Lesedatum (Altdaten) wie bisher.
-  for (const pb of pressungen) {
-    const p = pb.pressung as R | null
-    if (!p) continue
-    for (const wg of ((p.pressung_weingaerten ?? []) as R[])) {
-      if (!wg.ernte_datum || !wg.weingarten_id) continue
-      const w = wg.weingarten as R | null
-      const g = wg.grundstueck as R | null
-      const details: string[] = []
-      if (w?.name) details.push(`Ried: ${w.name}`)
-      if (g?.gst_nr) details.push(`GST ${g.gst_nr}`)
-      if (wg.trauben_kg) details.push(`${fmtNum(parseFloat(wg.trauben_kg))} kg`)
-      const mostgewicht = mostgewichtWeinbuchText({ kmw: wg.kmw, oechsle: wg.oechsle, einheit: wg.mostgewicht_einheit })
-      if (mostgewicht) details.push(mostgewicht)
-      if (wg.rebsorte) details.push(formatRebsorteMitKuerzel(wg.rebsorte))
-      ernteDaten.push({ datum: wg.ernte_datum, details })
-    }
+  for (const [cid, c] of herkunft) {
+    if (!c.ist_eroeffnungsbestand) continue
+    warnungen.push(cid === wa.id ? HINWEIS_EROEFFNUNGSBESTAND : `Charge „${text(c.name) ?? 'Vorgänger'}“: ${HINWEIS_EROEFFNUNGSBESTAND}`)
   }
-  ernteDaten.sort((a, b) => a.datum.localeCompare(b.datum))
-  if (ernteDaten.length === 0 && weingartenIds.size > 0) {
-    const { data: jgRow } = await tf((supabase.from('weinjahrgaenge') as any)
-      .select('id')
-      .eq('jahrgang', wa.jahrgang))
-      .maybeSingle()
-    const jahrgangId = (jgRow as R | null)?.id
-
-    // KAN-129 Soll 8: nur die Lesen der Pressungen dieser Charge (Hauptlese ≠ Eiswein); ohne Pressung wie bisher
-    const leseIds = [...new Set(pressungen.map(pb => (pb.pressung as R | null)?.lese_id as string | undefined).filter((x): x is string => !!x))]
-    if (jahrgangId) {
-      let epAbfrage = (supabase.from('ernte_parzellen') as any)
-        .select(`
-          ernte_datum, menge_kg, oechsle, klosterneuburger, mostgewicht_einheit, qualitaetsstufe, lesemethode, notizen,
-          weingarten:weingarten_id(name),
-          grundstueck:grundstueck_id(gst_nr, katastralgemeinde)
-        `)
-        .eq('jahrgang_id', jahrgangId)
-        .in('weingarten_id', Array.from(weingartenIds))
-      if (leseIds.length > 0) epAbfrage = epAbfrage.in('lese_id', leseIds)
-      const { data: epRaw } = await epAbfrage.order('ernte_datum', { ascending: true })
-
-      for (const ep of ((epRaw ?? []) as R[])) {
-        if (!ep.ernte_datum) continue
-        const w = ep.weingarten as R | null
-        const g = ep.grundstueck as R | null
-        const details: string[] = []
-        if (w?.name) details.push(`Ried: ${w.name}`)
-        if (g?.gst_nr) details.push(`GST ${g.gst_nr}`)
-        if (ep.menge_kg) details.push(`${fmtNum(parseFloat(ep.menge_kg))} kg`)
-        // KAN-128: °Oe nur als Messwert; das gerechnete °Oe (Trigger b_mostgewicht) bleibt weg
-        const mostgewicht = mostgewichtWeinbuchText({ kmw: ep.klosterneuburger, oechsle: ep.oechsle, einheit: ep.mostgewicht_einheit })
-        if (mostgewicht) details.push(mostgewicht)
-        if (ep.qualitaetsstufe) details.push(qualitaetLabel(ep.qualitaetsstufe))
-        if (ep.lesemethode) {
-          details.push(
-            ep.lesemethode === 'handlese' ? 'Handlese'
-            : ep.lesemethode === 'maschinenlese' ? 'Maschinenlese'
-            : ep.lesemethode === 'selektionslese' ? 'Selektionslese'
-            : ep.lesemethode
-          )
-        }
-        if (ep.notizen) details.push(ep.notizen)
-        ernteDaten.push({ datum: ep.ernte_datum, details })
-      }
-    }
-  }
-
-  if (ernteDaten.length === 0) {
-    for (const pb of pressungen) {
-      const p = pb.pressung as R | null
-      if (!p) continue
-      for (const wg of ((p.pressung_weingaerten ?? []) as R[])) {
-        if (!wg.ernte_datum) continue
-        const w = wg.weingarten as R | null
-        const details: string[] = []
-        if (w?.name) details.push(`Weingarten: ${w.name}`)
-        if (wg.trauben_kg) details.push(`${fmtNum(parseFloat(wg.trauben_kg))} kg`)
-        const mostgewicht = mostgewichtWeinbuchText({ kmw: wg.kmw, oechsle: wg.oechsle, einheit: wg.mostgewicht_einheit })
-        if (mostgewicht) details.push(mostgewicht)
-        if (wg.rebsorte) details.push(formatRebsorteMitKuerzel(wg.rebsorte))
-        ernteDaten.push({ datum: wg.ernte_datum, details })
-      }
-    }
-  }
-
-  // Feldbehandlungen: via RPC (umgeht RLS-Subquery-Problem bei behandlung_grundstuecke)
-  let feldbehandlungen: R[] = []
-  if (weingartenIds.size > 0) {
-    const { data: gstRaw } = await tf((supabase.from('grundstuecke') as any)
-      .select('id').in('weingarten_id', Array.from(weingartenIds)))
-    const grundstueckIds = ((gstRaw ?? []) as R[]).map((g: R) => g.id as string)
-
-    if (grundstueckIds.length > 0) {
-      const { data: tenantRow } = await tf((supabase.from('weinausbau') as any)
-        .select('tenant_id').eq('id', id))
-        .maybeSingle()
-      const rpcTenantId = (tenantRow as R | null)?.tenant_id as string | null
-
-      if (rpcTenantId) {
-        const { data: rpcRaw } = await (supabase.rpc as any)(
-          'get_behandlungen_fuer_grundstuecke',
-          { p_grundstueck_ids: grundstueckIds, p_tenant_id: rpcTenantId }
-        )
-        feldbehandlungen = ((rpcRaw ?? []) as R[]).map((r: R) => ({
-          id: r.behandlung_id,
-          datum: r.datum,
-          art: r.art,
-          psm_name: r.psm_name,
-          aufwandmenge: r.aufwandmenge,
-          aufwandmenge_einheit: r.aufwandmenge_einheit,
-          bbch_stadium: r.bbch_stadium,
-          schaderreger: r.schaderreger,
-          notizen: r.notizen,
-          flaeche_ha_gesamt: r.flaeche_ha_gesamt,
-          weingarten: r.weingarten_name ? { name: r.weingarten_name } : null,
-        }))
-      }
-    }
-
-    if (feldbehandlungen.length === 0) {
-      const { data: fbDirektRaw } = await tf((supabase.from('behandlungen') as any)
-        .select('id, datum, art, aufwandmenge, aufwandmenge_einheit, bbch_stadium, schaderreger, notizen, psm:psm_id(name), weingarten:weingarten_id(name)')
-        .in('weingarten_id', Array.from(weingartenIds))
-        .order('datum', { ascending: true }))
-      feldbehandlungen = ((fbDirektRaw ?? []) as R[]).map((r: R) => ({
-        ...r,
-        psm_name: (r.psm as R | null)?.name ?? null,
-      }))
+  if (rvLesen.length === 0 && !waRow.ist_eroeffnungsbestand && ![...herkunft.values()].some(c => c.ist_eroeffnungsbestand)) {
+    const riede = ((wawRes.data ?? []) as R[]).map(r => text((r.weingarten as R | null)?.name)).filter(Boolean)
+    if (!warnungen.some(w => w.startsWith('Zukauf '))) {
+      warnungen.push(`Keine Lese und keine Pressung zugeordnet – im Weinbuch stehen keine Ried-Maßnahmen${riede.length > 0 ? ` (Herkunft laut Charge: ${riede.join(', ')})` : ''}.`)
     }
   }
 
   // ── 3. Timeline zusammenbauen ─────────────────────────────────────────────
   const events: TimelineEvent[] = []
+  const ueberText = (l: RvLese) => (l.ueberCharge ? `über Charge „${l.ueberCharge.name ?? 'Vorgänger'}“` : null)
 
-  for (const b of feldbehandlungen) {
-    const wgName = (b.weingarten as R | null)?.name ?? null
-    // Bezeichnung der Art („Laubschneiden“ statt des Rohwerts, KAN-143)
+  // Feldbehandlungen: eine je Maßnahme, vereinigt über alle Lesen (Charge und Vorgänger), ohne Dubletten
+  type Feld = { b: R; gst: Set<string>; riede: Set<string>; flaeche: Map<string, number>; nurWeingarten: boolean; ueber: Set<string>; eigene: boolean; fruehester: string | null }
+  const feld = new Map<string, Feld>()
+  for (const l of rvLesen) {
+    for (const m of l.massnahmen) {
+      const bid = String(m.behandlung.id)
+      const x = feld.get(bid) ?? { b: m.behandlung, gst: new Set(), riede: new Set(), flaeche: new Map(), nurWeingarten: false, ueber: new Set(), eigene: false, fruehester: null }
+      for (const g of m.grundstuecke) x.gst.add(g)
+      if (l.weingarten) x.riede.add(l.weingarten)
+      if (m.flaecheHa !== null) x.flaeche.set(m.grundstuecke.join(', '), m.flaecheHa)
+      if (m.nurWeingarten) x.nurWeingarten = true
+      const u = ueberText(l)
+      if (u) x.ueber.add(u); else x.eigene = true
+      x.fruehester = x.fruehester ?? massnahmeWartezeit(m, l.fenster).fruehester
+      feld.set(bid, x)
+    }
+  }
+  for (const x of feld.values()) {
+    const b = x.b
     const artText = massnahmenArtLabel(b.art)
+    const flaeche = [...x.flaeche.values()].reduce((a, v) => a + v, 0)
     events.push({
-      datum: b.datum,
+      datum: tag(b.datum),
       typ: 'feldbehandlung',
-      titel: b.psm_name ?? artText ?? 'Behandlung',
+      titel: (b.psm as R | null) ? massnahmeMittel(b) : artText ?? 'Behandlung',
       details: [
+        b.datum_bis && tag(b.datum_bis) !== tag(b.datum) ? `Zeitraum: ${massnahmeZeitraum(b)}` : null,
         artText && `Art: ${artText}`,
         b.aufwandmenge && `${b.aufwandmenge} ${b.aufwandmenge_einheit ?? ''}`.trim(),
         b.bbch_stadium && `BBCH ${b.bbch_stadium}`,
         b.schaderreger && `Schaderreger: ${b.schaderreger}`,
-        b.flaeche_ha_gesamt && `Fläche: ${fmtNum(parseFloat(b.flaeche_ha_gesamt))} ha`,
-        wgName && `Weingarten: ${wgName}`,
+        x.gst.size > 0 ? `GST ${[...x.gst].join(', ')}${x.riede.size > 0 ? ` (Ried: ${[...x.riede].join(', ')})` : ''}` : null,
+        x.nurWeingarten ? `am Weingarten erfasst (ohne Grundstück)${x.gst.size === 0 && x.riede.size > 0 ? ` – Ried: ${[...x.riede].join(', ')}` : ''}` : null,
+        flaeche > 0 ? `Fläche: ${fmtNum(flaeche)} ha` : null,
+        x.fruehester ? `Frühester Lesetermin: ${ttmmjjjj(x.fruehester)}` : null,
+        !x.eigene && x.ueber.size > 0 ? `Herkunft: ${[...x.ueber].join(', ')}` : null,
         b.notizen,
       ].filter(Boolean) as string[],
     })
   }
 
-  for (const e of ernteDaten) {
-    events.push({ datum: e.datum, typ: 'ernte', titel: 'Lese', details: e.details })
+  // Lesen: aus den Lesezeilen der Charge und ihrer Vorgänger (nicht aus allen Erntemeldungs-Einträgen der Weingärten)
+  for (const l of rvLesen) {
+    if (l.quelle !== 'pressung' || !l.pressung) continue
+    const ausErnte = !l.lesedatum && l.fenster?.bisAus === 'erntemeldung' ? l.fenster.bis : null
+    const datum = l.lesedatum ?? ausErnte ?? tag(l.pressung.datum)
+    if (!datum) continue
+    const mostgewicht = mostgewichtWeinbuchText({ kmw: l.lese.kmw, oechsle: l.lese.oechsle, einheit: l.lese.mostgewicht_einheit })
+    events.push({
+      datum,
+      typ: 'ernte',
+      titel: l.leseText ? `Lese ${l.leseText}` : 'Lese',
+      details: [
+        l.weingarten ? `Ried: ${l.weingarten}` : l.lese.zukauf_posten_id ? 'Trauben-Zukauf' : null,
+        l.gstNr && `GST ${l.gstNr}`,
+        l.kg !== null ? `${fmtNum(l.kg)} kg` : null,
+        mostgewicht,
+        l.rebsorte && formatRebsorteMitKuerzel(l.rebsorte),
+        ausErnte ? 'Lesedatum laut Erntemeldung' : !l.lesedatum ? 'Lesedatum nicht erfasst – Datum der Pressung' : null,
+        ueberText(l),
+      ].filter(Boolean) as string[],
+    })
   }
 
   for (const pb of pressungen) {
@@ -434,6 +404,26 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
         p.most_liter_gesamt && `${fmtNum(parseFloat(p.most_liter_gesamt))} L Most`,
         pb.menge_liter && `Anteil: ${fmtNum(parseFloat(pb.menge_liter))} L`,
         weingaertenText && `Weingärten: ${weingaertenText}`,
+      ].filter(Boolean) as string[],
+    })
+  }
+  // Pressungen der Vorgänger-Chargen (Herkunft über Umzug/Verschnitt)
+  const vorgaengerPressungen = new Map<string, RvLese[]>()
+  for (const l of rvLesen) {
+    if (!l.ueberCharge || !l.pressung) continue
+    const k = `${l.pressung.id}:${l.ueberCharge.id}`
+    vorgaengerPressungen.set(k, [...(vorgaengerPressungen.get(k) ?? []), l])
+  }
+  for (const zeilen of vorgaengerPressungen.values()) {
+    const p = zeilen[0].pressung as R
+    const riede = [...new Set(zeilen.map(l => l.weingarten).filter(Boolean))].join(', ')
+    events.push({
+      datum: tag(p.datum),
+      typ: 'pressung',
+      titel: `${p.weinbezeichnung ? `Pressung – ${p.weinbezeichnung}` : 'Pressung'} (${ueberText(zeilen[0])})`,
+      details: [
+        p.most_liter_gesamt && `${fmtNum(parseFloat(p.most_liter_gesamt))} L Most`,
+        riede && `Weingärten: ${riede}`,
       ].filter(Boolean) as string[],
     })
   }
@@ -592,5 +582,10 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
 
   events.sort((a, b) => a.datum.localeCompare(b.datum))
 
-  return { wa, events, warnungen }
+  // Ende (KAN-127): leere Charge mit Füllungen → nach der letzten Füllung keine Einträge mehr
+  const fuellTage = alleFuellungen.map(fc => tag((fc.fuellung as R | null)?.datum)).filter(Boolean).sort()
+  const abgeschlossenAm = parseFloat(String(wa.menge_liter ?? 0)) <= 0.5 && fuellTage.length > 0 ? fuellTage[fuellTage.length - 1] : null
+  const imWeinbuch = abgeschlossenAm ? events.filter(ev => !tag(ev.datum) || tag(ev.datum) <= abgeschlossenAm) : events
+
+  return { wa, events: imWeinbuch, warnungen, abgeschlossenAm }
 }

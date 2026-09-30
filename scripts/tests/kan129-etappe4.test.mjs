@@ -48,5 +48,6 @@ test('Verdrahtung: Eiswein in Mehrfacherfassung und Pressung, Lese in Rückverfo
   const r = lies('src/lib/behoerden/rueckverfolgung.ts')
   assert.ok(r.includes('leseId: text(p.lese_id)') && r.includes('pressung:pressung_id!inner(tenant_id, datum, jahrgang_id, lese_id)'))
   const w = lies('src/lib/wein/weinbuch.ts')
-  assert.ok(w.includes("if (leseIds.length > 0) epAbfrage = epAbfrage.in('lese_id', leseIds)"))
+  // KAN-127: Lese-Ereignisse aus den Lesezeilen der Charge samt Lese-Nummer (Hauptlese ≠ Eiswein)
+  assert.ok(w.includes("titel: l.leseText ? `Lese ${l.leseText}` : 'Lese'"))
 })

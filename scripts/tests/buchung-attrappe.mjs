@@ -153,7 +153,8 @@ function teileSelect(spalten) {
   return teile
 }
 
-const NAME = '[A-Za-z_][A-Za-z0-9_]*'
+// Spaltennamen mit Umlaut gibt es (weinanalysen.flüchtige_saeure_gl)
+const NAME = '[A-Za-z_ÄÖÜäöüß][A-Za-z0-9_ÄÖÜäöüß]*'
 const SELECT_TEIL = new RegExp(`^(?:(${NAME}):)?(${NAME}|\\*)((?:!${NAME})*)(?:\\(([\\s\\S]*)\\))?$`)
 
 /**

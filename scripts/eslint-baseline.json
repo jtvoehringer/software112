@@ -1,6 +1,6 @@
 {
   "regeln": {
-    "@typescript-eslint/no-explicit-any": 911,
+    "@typescript-eslint/no-explicit-any": 909,
     "react/no-unescaped-entities": 33,
     "@typescript-eslint/no-unused-vars": 31,
     "react-hooks/set-state-in-effect": 27,
