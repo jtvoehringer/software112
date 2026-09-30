@@ -6,7 +6,7 @@ import {
   SPALTEN_PSM_AUFZEICHNUNG, SPALTEN_PSM_MITTELVERBRAUCH, type PsmAufzeichnungParameter,
 } from '../psm'
 import { ladeCuBilanz, SPALTEN_CU_BEHANDLUNGEN, SPALTEN_CU_BILANZ, type CuBilanzParameter } from '../cu'
-import { ladeNaehrstoffbilanz, SPALTEN_NAEHRSTOFFBILANZ } from '../naehrstoff'
+import { ladeNaehrstoffbilanz, SPALTEN_NAEHRSTOFFBILANZ, SPALTEN_NAEHRSTOFFBILANZ_RIED } from '../naehrstoff'
 import { MeldungsFehler } from '../typen'
 import { jahrgangOptional, uuidOptional } from '../kellerbuch-hilfen'
 import { einstiegFehler, ladeRvWeingarten, rvZeilen, SPALTEN_RV_WEINGARTEN, type RvEinstieg } from '../rv-weingarten'
@@ -72,6 +72,16 @@ export const MELDUNGEN_PFLANZENSCHUTZ = {
     laden: (ctx, p) => ladeNaehrstoffbilanz(ctx.supabase, ctx.tenantId, p),
     spalten: SPALTEN_NAEHRSTOFFBILANZ,
     dateiteile: (p, betrieb) => ['Nährstoffbilanz', betrieb.betriebsnummer, jahrTeil(p.jahr)],
+  }),
+
+  'naehrstoffbilanz-weingarten': definiereMeldung(KATALOG_PFLANZENSCHUTZ['naehrstoffbilanz-weingarten'], {
+    parameter: jahrParameter,
+    laden: async (ctx, p) => {
+      const b = await ladeNaehrstoffbilanz(ctx.supabase, ctx.tenantId, p)
+      return { zeilen: b.riedZeilen, warnungen: b.warnungen }
+    },
+    spalten: SPALTEN_NAEHRSTOFFBILANZ_RIED,
+    dateiteile: (p, betrieb) => ['Nährstoffbilanz-je-Ried', betrieb.betriebsnummer, jahrTeil(p.jahr)],
   }),
 
   // KAN-108: Parameter wie die Seite /weingarten/rueckverfolgung (lese | charge | fuellung | jahrgang [+ gst | weingarten] | gst)

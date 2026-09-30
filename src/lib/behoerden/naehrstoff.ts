@@ -12,12 +12,17 @@
 //   • N (kg) = Menge × N-Gehalt / 100, P (kg) = Menge × P-Gehalt / 100 (Stammdaten Düngemittel).
 //   • N/P (kg/ha) je Düngung = N/P (kg) / behandelte Fläche (Σ Grundstücke der Maßnahme; bisher
 //     die Fläche des EINEN Weingartens aus weingarten_id).
-//   • Betrieb: Σ N/P (kg) / Σ Fläche der aktiven Weingärten – wie bisher.
+//   • Betrieb: Σ N/P (kg) / Σ Fläche der WI-Grundstücke der aktiven Rieden (KAN-132 Regel 8; bis 30.09.2026
+//     Σ weingarten.flaeche_ha – im Musterhof und bei Gebeshuber leer, also kein Wert je ha).
+//   • Je Jahr × Ried (= Weingarten, KAN-132, Meldung „naehrstoffbilanz-weingarten“): N/P je GST-Zeile über
+//     verteileMassnahme() (lib/wein/massnahmeAnteile.ts, Methode des größten Rests; Düngungen nur am Weingarten
+//     auf dessen WI-GST), Σ der Anteile / WI-GST-Fläche der Ried (Stand heute), Vergleich mit N_RICHTWERT_KG_HA.
 
 import { runden, STELLEN, type CsvSpalte } from '@/lib/csv'
+import { verteileMassnahme, type WiGst } from '@/lib/wein/massnahmeAnteile'
 import type { LadeErgebnis } from './typen'
 import {
-  behandlungKurz, betriebsflaecheHa, jahrZeitraum, ladeBehandlungen, ladeWeingaerten, liste,
+  behandlungKurz, betriebsflaecheWi, jahrZeitraum, ladeBehandlungen, ladeWeingaerten, liste,
   mittelmenge, mittelmengeKg, riedText, weingartenText, einheitText, STELLEN_MENGE,
   type PsmBehandlung, type WeingartenStamm,
 } from './psm'
@@ -62,8 +67,28 @@ export type NaehrstoffZeile = {
   pKgHa: number | null
 }
 
+/** Je Jahr × Ried (Meldung „naehrstoffbilanz-weingarten“) */
+export type NaehrstoffRiedZeile = {
+  jahr: number
+  weingartenId: string
+  /** Ried = Weingarten */
+  ried: string
+  lage: string | null
+  /** WI-GST-Fläche der Ried (ha, Stand heute) */
+  flaecheHa: number | null
+  duengungen: number
+  nKg: number
+  pKg: number
+  nKgHa: number | null
+  pKgHa: number | null
+  nRichtwertKgHa: number
+  status: string
+}
+
 export type Naehrstoffbilanz = {
   zeilen: NaehrstoffZeile[]
+  /** je Jahr × Ried (Jahr aufsteigend, Ried) */
+  riedZeilen: NaehrstoffRiedZeile[]
   /** Betriebsfläche (aktive Weingärten, ha) */
   gesamtHa: number
   /** Σ der gerundeten Zeilenwerte */
@@ -86,7 +111,10 @@ function anteil(menge: number, pct: number | null): number | null {
 
 /** Nährstoffbilanz aus den Düngungen (andere Maßnahmenarten werden ignoriert) */
 export function naehrstoffbilanz(behandlungen: readonly PsmBehandlung[], weingaerten: readonly WeingartenStamm[]): Naehrstoffbilanz {
-  const gesamtHa = betriebsflaecheHa(weingaerten)
+  const gesamtHa = betriebsflaecheWi(weingaerten)
+  const wiGst = new Map<string, WiGst[]>(weingaerten.map(w => [w.id, w.wiGst ?? []]))
+  const wgStamm = new Map(weingaerten.map(w => [w.id, w]))
+  const jeRied = new Map<string, { jahr: number; id: string; name: string; lage: string | null; gstHa: number; anzahl: number; nKg: number; pKg: number }>()
   const ohneMittel: string[] = []
   const ohneMenge: string[] = []
   const ohneFlaeche: string[] = []
@@ -123,7 +151,34 @@ export function naehrstoffbilanz(behandlungen: readonly PsmBehandlung[], weingae
       nKgHa: durch(nKg, b.flaecheHa),
       pKgHa: durch(pKg, b.flaecheHa),
     })
+    // KAN-132: N/P je GST-Zeile, Summe je Jahr × Ried
+    const v = verteileMassnahme(b, { wiGstJeWeingarten: wiGst })
+    const gezaehlt = new Set<string>()
+    for (const a of v.anteile) {
+      if (!a.weingartenId) continue
+      const k = `${b.jahr}|${a.weingartenId}`
+      const r = jeRied.get(k) ?? { jahr: b.jahr, id: a.weingartenId, name: a.weingarten ?? '–', lage: a.lage, gstHa: 0, anzahl: 0, nKg: 0, pKg: 0 }
+      r.nKg = runden(r.nKg + (a.nKg ?? 0), STELLEN_NP)
+      r.pKg = runden(r.pKg + (a.pKg ?? 0), STELLEN_NP)
+      if (!gezaehlt.has(k)) {
+        gezaehlt.add(k); r.anzahl += 1
+        r.gstHa = Math.max(r.gstHa, v.anteile.filter(x => x.weingartenId === a.weingartenId).reduce((s, x) => s + (x.flaecheHa ?? 0), 0))
+      }
+      jeRied.set(k, r)
+    }
   }
+
+  const riedZeilen: NaehrstoffRiedZeile[] = [...jeRied.values()].map(r => {
+    const stamm = wgStamm.get(r.id)
+    const flaeche = stamm && stamm.wiFlaecheHa > 0 ? stamm.wiFlaecheHa : (r.gstHa > 0 ? runden(r.gstHa, STELLEN.ha) : null)
+    const nKgHa = durch(r.nKg, flaeche)
+    return {
+      jahr: r.jahr, weingartenId: r.id, ried: stamm?.name ?? r.name, lage: stamm?.ried ?? r.lage, flaecheHa: flaeche,
+      duengungen: r.anzahl, nKg: r.nKg, pKg: r.pKg, nKgHa, pKgHa: durch(r.pKg, flaeche),
+      nRichtwertKgHa: N_RICHTWERT_KG_HA,
+      status: nKgHa === null ? 'Fläche fehlt' : nKgHa > N_RICHTWERT_KG_HA ? 'über Richtwert' : nKgHa > N_RICHTWERT_KG_HA * 0.8 ? 'über 80 % des Richtwerts' : 'im Rahmen',
+    }
+  }).sort((a, b) => a.jahr - b.jahr || a.ried.localeCompare(b.ried, 'de'))
 
   const nKg = runden(zeilen.reduce((s, z) => s + (z.nKg ?? 0), 0), STELLEN_NP)
   const pKg = runden(zeilen.reduce((s, z) => s + (z.pKg ?? 0), 0), STELLEN_NP)
@@ -132,10 +187,12 @@ export function naehrstoffbilanz(behandlungen: readonly PsmBehandlung[], weingae
   if (ohneMenge.length > 0) warnungen.push(`${ohneMenge.length} ${ohneMenge.length === 1 ? 'Düngung' : 'Düngungen'} ohne Düngermenge in kg (bzw. Aufwand in kg/ha oder kg) – nicht in der Bilanz: ${liste(ohneMenge)}`)
   if (ohneFlaeche.length > 0) warnungen.push(`${ohneFlaeche.length} ${ohneFlaeche.length === 1 ? 'Düngung' : 'Düngungen'} ohne behandelte Fläche – N/P (kg/ha) bleibt leer: ${liste(ohneFlaeche)}`)
   if (ohneGehalt.length > 0) warnungen.push(`N- oder P-Gehalt fehlt in den Düngemittel-Stammdaten: ${liste([...new Set(ohneGehalt)])} – Feld bleibt leer, zählt in der Summe als 0.`)
-  if (gesamtHa <= 0 && zeilen.length > 0) warnungen.push('Keine aktiven Weingärten mit Fläche – N/P je ha des Betriebs nicht berechenbar.')
+  if (gesamtHa <= 0 && zeilen.length > 0) warnungen.push('Keine Grundstücke mit Nutzart WI in aktiven Rieden – N/P je ha des Betriebs nicht berechenbar.')
+  const ohneRiedFlaeche = riedZeilen.filter(r => r.flaecheHa === null).map(r => r.ried)
+  if (ohneRiedFlaeche.length > 0) warnungen.push(`Ried ohne Grundstücke mit Nutzart WI – N/P (kg/ha) je Ried bleibt leer: ${liste([...new Set(ohneRiedFlaeche)])}`)
 
   return {
-    zeilen, gesamtHa, nKg, pKg,
+    zeilen, riedZeilen, gesamtHa, nKg, pKg,
     nKgHa: durch(nKg, gesamtHa),
     pKgHa: durch(pKg, gesamtHa),
     uebersprungen: ohneMittel.length + ohneMenge.length,
@@ -143,10 +200,11 @@ export function naehrstoffbilanz(behandlungen: readonly PsmBehandlung[], weingae
   }
 }
 
+// KAN-132: „Ried“ = Weingarten, „Lage“ darüber
 export const SPALTEN_NAEHRSTOFFBILANZ: CsvSpalte<NaehrstoffZeile>[] = [
   { kopf: 'Datum', typ: 'datum', wert: z => z.datum },
-  { kopf: 'Weingarten', typ: 'text', wert: z => z.weingarten },
-  { kopf: 'Ried', typ: 'text', wert: z => z.ried },
+  { kopf: 'Ried', typ: 'text', wert: z => z.weingarten },
+  { kopf: 'Lage', typ: 'text', wert: z => z.ried },
   { kopf: 'Fläche (ha)', typ: 'dezimal', stellen: STELLEN.ha, wert: z => z.flaecheHa },
   { kopf: 'Düngemittel', typ: 'text', wert: z => z.duengemittel },
   { kopf: 'Typ', typ: 'text', wert: z => z.typ },
@@ -162,7 +220,22 @@ export const SPALTEN_NAEHRSTOFFBILANZ: CsvSpalte<NaehrstoffZeile>[] = [
   { kopf: 'P (kg/ha)', typ: 'dezimal', stellen: STELLEN_NP, wert: z => z.pKgHa },
 ]
 
-/** Ladefunktion der Druckseite /reports/naehrstoffbilanz UND der CSV „naehrstoffbilanz“ */
+/** CSV „naehrstoffbilanz-weingarten“: eine Zeile je Jahr × Ried */
+export const SPALTEN_NAEHRSTOFFBILANZ_RIED: CsvSpalte<NaehrstoffRiedZeile>[] = [
+  { kopf: 'Jahr', typ: 'ganzzahl', wert: z => z.jahr },
+  { kopf: 'Ried', typ: 'text', wert: z => z.ried },
+  { kopf: 'Lage', typ: 'text', wert: z => z.lage },
+  { kopf: 'Fläche WI (ha)', typ: 'dezimal', stellen: STELLEN.ha, wert: z => z.flaecheHa },
+  { kopf: 'Düngungen', typ: 'ganzzahl', wert: z => z.duengungen },
+  { kopf: 'N (kg)', typ: 'dezimal', stellen: STELLEN_NP, wert: z => z.nKg },
+  { kopf: 'P (kg)', typ: 'dezimal', stellen: STELLEN_NP, wert: z => z.pKg },
+  { kopf: 'N (kg/ha)', typ: 'dezimal', stellen: STELLEN_NP, wert: z => z.nKgHa },
+  { kopf: 'P (kg/ha)', typ: 'dezimal', stellen: STELLEN_NP, wert: z => z.pKgHa },
+  { kopf: 'Richtwert N (kg/ha/Jahr)', typ: 'dezimal', stellen: 0, wert: z => z.nRichtwertKgHa },
+  { kopf: 'Status N', typ: 'text', wert: z => z.status },
+]
+
+/** Ladefunktion der Druckseite /reports/naehrstoffbilanz UND der CSV „naehrstoffbilanz“ bzw. „naehrstoffbilanz-weingarten“ */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function ladeNaehrstoffbilanz(supabase: any, tenantId: string, p: { jahr: number | null }): Promise<LadeErgebnis<NaehrstoffZeile> & Naehrstoffbilanz> {
   const [{ behandlungen, warnungen }, weingaerten] = await Promise.all([
