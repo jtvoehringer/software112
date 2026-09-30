@@ -4,6 +4,7 @@ import { notFound, redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import BehandlungEditForm from './BehandlungEditForm'
+import { ladeRiedOptionen } from '../../neu/riedOptionen'
 import type { BehandlungEdit, PSMOption, DuengemittelOption, BestehenderKostenEintrag } from './BehandlungEditForm'
 import type { KostenartOption } from '../../neu/page'
 import { summeFlaecheHa } from '@/lib/behandlungen/massnahmeMengen'
@@ -47,7 +48,7 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
         einarbeitung, einarbeitung_zeitpunkt,
         weingarten:weingarten_id(name),
         psm:psm_id(wartezeit_tage),
-        behandlung_grundstuecke(flaeche_ha, grundstueck:grundstueck_id(flaeche_ha))
+        behandlung_grundstuecke(grundstueck_id, flaeche_ha, grundstueck:grundstueck_id(flaeche_ha, weingarten_id))
       `)
       .eq('id', id)
       .eq('tenant_id', tenantId)
@@ -119,6 +120,21 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
   // mit der updateBehandlung Spritzbrühe ↔ Wasseraufwand und Reinkupfer rechnet (KAN-133)
   const flaecheHa = summeFlaecheHa(((b.behandlung_grundstuecke ?? []) as AR[]).map(bg => bg.flaeche_ha ?? bg.grundstueck?.flaeche_ha))
 
+  // Rieden änderbar (Rückmeldung 30.09.2026): bisherige Auswahl – ganze Ried, wenn alle ihre WI-GST dabei sind
+  const { weingaerten, gstByWeingarten } = await ladeRiedOptionen(supabase, tenantId)
+  const bisherGst = new Map<string, string>()
+  for (const bg of ((b.behandlung_grundstuecke ?? []) as AR[])) {
+    if (bg.grundstueck_id && bg.grundstueck?.weingarten_id) bisherGst.set(String(bg.grundstueck_id), String(bg.grundstueck.weingarten_id))
+  }
+  const startWGs: string[] = []
+  for (const [wgId, gsts] of Object.entries(gstByWeingarten)) {
+    if (gsts.length > 0 && gsts.every(g => bisherGst.has(g.id))) {
+      startWGs.push(wgId)
+      for (const g of gsts) bisherGst.delete(g.id)
+    }
+  }
+  const startGSTs: [string, string][] = [...bisherGst.entries()]
+
   const psm: PSMOption[] = ((rawPsm ?? []) as AR[]).map(p => ({
     id:              p.id,
     name:            p.name,
@@ -164,6 +180,7 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
         behandlung={behandlung} psm={psm} duengemittel={duengemittel} bioStatus={bioStatus}
         kostenarten={kostenarten} bestehenderKostenEintrag={bestehenderKostenEintrag}
         flaecheHa={flaecheHa}
+        weingaerten={weingaerten} gstByWeingarten={gstByWeingarten} startWGs={startWGs} startGSTs={startGSTs}
       />
     </div>
   )

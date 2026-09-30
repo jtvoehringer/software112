@@ -119,7 +119,10 @@ const [arten, psm, rueck, feld, mengen, massnahmeMengen, tool, aktionen, lagerAk
   : []
 const nurMitHooks = { skip: hooksMoeglich ? false : 'module.registerHooks fehlt (Node ≥ 22.15 nötig)' }
 
+// Die Ried-Auswahl des Anlegen-Formulars steht seit 30.09.2026 in RiedAuswahlListe.tsx (gemeinsam mit „Bearbeiten“) –
+// Quelltext-Prüfungen des Anlegen-Formulars lesen sie mit
 const quelle = (rel) => readFileSync(path.join(SRC, rel), 'utf8')
+  + (rel.endsWith('neu/NeueBehandlungForm.tsx') ? readFileSync(path.join(SRC, 'app/(dashboard)/behandlungen/neu/RiedAuswahlListe.tsx'), 'utf8') : '')
 const EDIT_FORM = 'app/(dashboard)/behandlungen/[id]/edit/BehandlungEditForm.tsx'
 const NEU_FORM = 'app/(dashboard)/behandlungen/neu/NeueBehandlungForm.tsx'
 // Beginn der sichtbaren BBCH-Auswahl im Bearbeiten-Formular (ohne das unsichtbare Feld bei ausgeblendetem BBCH)
@@ -946,7 +949,10 @@ describe('Neue Maßnahme: Knopf ohne Auswahl nicht gesperrt, Klick zeigt den Gru
     const kopfKnopf = abschnitt.match(/<button type="button" ref=\{riedenKopfRef\}[\s\S]*?className=/)?.[0]
     assert.ok(kopfKnopf, 'Kopf-Knopf mit riedenKopfRef')
     assert.match(kopfKnopf, /aria-describedby=\{riedMeldung\}/)
-    const checkboxen = abschnitt.match(/<input\s+type="checkbox"[^>]*>/g) ?? []
+    // Checkboxen seit 30.09.2026 in RiedAuswahlListe.tsx – das Formular reicht riedHinweis und riedMeldung durch
+    assert.match(abschnitt, /<RiedAuswahlListe [\s\S]*?riedHinweis=\{riedHinweis\} riedMeldung=\{riedMeldung\} \/>/)
+    const liste = quelle('app/(dashboard)/behandlungen/neu/RiedAuswahlListe.tsx')
+    const checkboxen = liste.match(/<input\s+type="checkbox"[^>]*>/g) ?? []
     assert.equal(checkboxen.length, 3, 'Lage-, Ried- und GST-Checkbox')
     for (const c of checkboxen) {
       assert.match(c, /aria-describedby=\{riedMeldung\}/, c)
@@ -954,8 +960,8 @@ describe('Neue Maßnahme: Knopf ohne Auswahl nicht gesperrt, Klick zeigt den Gru
     }
     assert.match(neu, /const riedKopf = auswahlKopf\(totalSelCount, totalHaAktiv\)/)
     // Checkboxen mit Namen für Vorleseprogramme (Fokusziel nach dem Klick)
-    assert.match(abschnitt, /aria-label=\{`\$\{lageName\}: alle spritzbaren auswählen`\}/)
-    assert.match(abschnitt, /aria-label=\{w\.name\}/)
+    assert.match(liste, /aria-label=\{`\$\{lageName\}: alle spritzbaren auswählen`\}/)
+    assert.match(liste, /aria-label=\{w\.name\}/)
   })
 
   test('Quelltext: Bio-Sperre zeigt den Grund am Mittel (role="alert", aria-describedby, Fokus)', () => {
