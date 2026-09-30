@@ -28,8 +28,8 @@ function behandlung(id, datum, gst, psm, extra = {}) {
 const CUPROZIN = { name: 'Cuprozin progress', handelsname: null, zulassungsnr: '3106-0', wartezeit_tage: 21 }
 const FOLPAN = { name: 'Folpan 80 WDG', handelsname: null, zulassungsnr: '2863', wartezeit_tage: 28 }
 
-function db() {
-  return datenbank({
+function tabellen() {
+  return {
     weinjahrgaenge: [{ id: JG, tenant_id: T, jahrgang: 2025 }, { id: 'jg24', tenant_id: T, jahrgang: 2024 }],
     lesen: [{ id: LESE, tenant_id: T, lfd_nr: 1, art: 'hauptlese', jahrgang: { jahrgang: 2025 } }],
     pressung_weingaerten: [
@@ -58,8 +58,9 @@ function db() {
       behandlung('cu-gst-b', '2025-08-01', GB, CUPROZIN, { ernte_fruehesteins: '2025-09-25' }),  // gespeichert 25.09. > Lese 20.09. (B) bzw. 18.09. (Verkauf)
       behandlung('nach-lese', '2025-10-01', GA, CUPROZIN),               // nach der Lese → nicht dabei
     ],
-  })
+  }
 }
+const db = () => datenbank(tabellen())
 
 describe('KAN-108 Wartezeit-Ampel (rein)', nurMitHooks, () => {
   test('frühester Lesetermin: gespeichert oder letzter Behandlungstag + Wartezeit, das spätere gilt', async () => {
@@ -193,5 +194,41 @@ describe('KAN-132 Menge anteilig in der Rückverfolgung', nurMitHooks, () => {
     assert.deepEqual([m.menge, m.mengeEinheit], [3, 'kg'])            // 2 kg/ha × 2 ha = 4 kg, davon 1,5/2 auf GST A
     const zeile = rv.rvZeilen(r.lesen).find(z => z.massnahmeVon === '2025-05-10')
     assert.deepEqual([zeile.mengeAnteil, zeile.mengeEinheit], [3, 'kg'])
+  })
+})
+
+describe('Rückmeldung 30.09.2026: Lesedaten ohne Pressung', nurMitHooks, () => {
+  const leer = { lese: null, jahrgang: null, gst: null, weingarten: null, charge: null, fuellung: null }
+  const GC = 'gst-c'
+  function epZeile(id, gst, extra = {}) {
+    return {
+      id, ernte_datum: '2025-09-21', menge_kg: 2374, klosterneuburger: 15, weingarten_id: W1, grundstueck_id: gst, jahrgang_id: JG, lese_id: LESE,
+      weingarten: { id: W1, name: 'Sandgrube', rebsorte: 'Riesling' },
+      grundstueck: { gst_nr: gst === GC ? '1411/2' : '1305/1', katastralgemeinde: '12119', ama_feldnummer: '9', rebsorte: null },
+      jahrgang: { jahrgang: 2025, tenant_id: T }, lese: { lfd_nr: 1, art: 'hauptlese' }, ...extra,
+    }
+  }
+  function db2() {
+    const basis = tabellen()
+    return datenbank({
+      ...basis,
+      ernte_parzellen: [
+        epZeile('ep-a', GA),                                                  // GST A ist gepresst → nur die Pressungszeile
+        epZeile('ep-c', GC),                                                  // GST C noch nicht gepresst → eigene Lesezeile
+        { ...epZeile('ep-fremd', GC), jahrgang: { jahrgang: 2025, tenant_id: 'fremd' } },   // fremder Betrieb
+      ],
+      grundstuecke: [...basis.grundstuecke, { id: GC, tenant_id: T, weingarten_id: W1, gst_nr: '1411/2' }],
+      behandlungen: [...basis.behandlungen, behandlung('cu-gst-c', '2025-06-01', GC, CUPROZIN)],
+    })
+  }
+
+  test('Jahrgang: ungepresste Lesedaten als Lesezeile „Lese (noch nicht gepresst)“, gepresste nicht doppelt', async () => {
+    const rv = await laden('lib/behoerden/rv-weingarten.ts')
+    const r = await rv.ladeRvWeingarten(db2(), T, { ...leer, jahrgang: 2025 })
+    const lese = r.lesen.filter(l => l.quelle === 'lese')
+    assert.deepEqual(lese.map(l => [l.gstNr, l.lesedatum, l.kg, l.kmw, l.rebsorte]), [['1411/2', '2025-09-21', 2374, 15, 'Riesling']])
+    assert.deepEqual(lese[0].massnahmen.map(m => m.behandlung.id), ['cu-gst-c'])
+    assert.equal(r.lesen.filter(l => l.gstNr === '1305/1' && l.jahrgang === 2025).length, 1)
+    assert.equal(rv.rvZeilen(lese)[0].quelle, 'Lese (noch nicht gepresst)')
   })
 })
