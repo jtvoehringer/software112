@@ -234,11 +234,37 @@ describe('bewegungsbuch', () => {
     assert.match((await ausfuehren('bewegungsbuch', `behaelter=${G1}&von=2026-13-01`, sb)).parameterFehler, /von/)
   })
 
+  test('KAN-145 B2b: stornierter Schwund – Buchung am Buchungstag (Vermerk), Gegenbuchung am Storno-Tag, Saldo stimmt je Stichtag', async () => {
+    const d = kellerDaten()
+    d.keller_umzuege = [{
+      id: 'sw1', tenant_id: 'T-PLATZHALTER', datum: '2025-10-10', menge_liter: '20', brutto_liter: '20', schwund_liter: '20', zeilen_typ: null,
+      umzug_typ: 'schwund', umzug_batch_id: null, von_weinausbau_id: C1, von_behaelter_id: G1, nach_behaelter_id: null, nach_weinausbau_id: null,
+      transaktions_nr: 'SW-1', notizen: null, von_weinausbau: { name: 'GV 2025' }, nach_behaelter: null,
+      storniert_am: '2025-10-15T09:30:00+00:00', storno_grund: 'Schwund doppelt erfasst', storniert_von_name: 'Karin',
+    }]
+    d.keller_umzuege[0].tenant_id = d.weinausbau[0].tenant_id
+    const sb = attrappe(d, gebindeRpc(gebindeKeller))
+    const r = await ausfuehren('bewegungsbuch', `behaelter=${G1}`, sb)
+    const [kopf, ...z] = r.tabelle
+    const iStorno = kopf.indexOf('Storno')
+    const sw = z.filter(c => c[2] === 'Schwund')
+    assert.equal(sw.length, 2, 'Buchung und Gegenbuchung')
+    const [buchung, gegen] = sw
+    assert.deepEqual([buchung[0], buchung[5], buchung[6], buchung[iStorno]], ['10.10.2025', '', '20,00', 'storniert am 15.10.2025'])
+    assert.deepEqual([gegen[0], gegen[5], gegen[6], gegen[iStorno]], ['15.10.2025', '20,00', '', 'Gegenbuchung (Storno) zur Buchung vom 10.10.2025'])
+    assert.match(gegen[4], /^Storno: Schwund/)
+    assert.match(gegen[10], /Grund: Schwund doppelt erfasst · storniert von Karin/)
+    // Saldo nach der Gegenbuchung = Saldo vor der Buchung
+    const vor = z[z.indexOf(buchung) - 1]
+    assert.equal(gegen[7], z[z.indexOf(gegen) - 1] === buchung ? vor[7] : gegen[7])
+    assert.equal(r.zeilen, 8)
+  })
+
   test('gesamter Zeitraum: Zu-/Abgänge, Saldo, fremder Betrieb und Storno ausgelassen', async () => {
     const sb = attrappe(kellerDaten(), gebindeRpc(gebindeKeller))
     const r = await ausfuehren('bewegungsbuch', `behaelter=${G1}`, sb)
     const [kopf, ...z] = r.tabelle
-    assert.deepEqual(kopf, ['Datum', 'Gebinde', 'Art', 'Charge', 'Vorgang', 'Zugang (l)', 'Abgang (l)', 'Saldo (l)', 'Gegenstelle', 'Beleg', 'Hinweis'])
+    assert.deepEqual(kopf, ['Datum', 'Gebinde', 'Art', 'Charge', 'Vorgang', 'Zugang (l)', 'Abgang (l)', 'Saldo (l)', 'Gegenstelle', 'Beleg', 'Hinweis', 'Storno'])
     assert.equal(r.zeilen, 6)   // Pressung, 3 Behandlungen, Abfüllung, Tankverkauf (Storno fehlt, fremde Pressung fehlt)
     const pressung = z.find(c => c[2] === 'Pressung')
     assert.deepEqual(pressung.slice(0, 8), ['20.09.2025', 'Tank 1', 'Pressung', 'GV 2025', 'Ernte / Pressung – Handlese', '1000,00', '', '1000,00'])

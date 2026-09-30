@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { ladeBehaelter } from '@/lib/keller/behaelter'
+import { stornoAngaben } from '@/lib/kellerbuch/stornoFilter'
 import { getCurrentUserRole, canWrite, canAdmin, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import UmziehenClient from './UmziehenClient'
@@ -46,8 +47,8 @@ export default async function UmziehenPage({ searchParams }: { searchParams: Pro
 
     // Umzug-Protokoll
     tf((supabase.from('keller_umzuege') as any)
-      .select('id, datum, menge_liter, schwund_liter, umzug_typ, notizen, von_weinausbau:von_weinausbau_id(name, behaelter:behaelter_id(name)), nach_behaelter:nach_behaelter_id(name)')
-      .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
+      .select('id, datum, menge_liter, schwund_liter, umzug_typ, notizen, von_weinausbau:von_weinausbau_id(name, behaelter:behaelter_id(name)), nach_behaelter:nach_behaelter_id(name), storniert_am, storno_grund, storniert_von_name')
+      // storno-sichtbar: Liste zeigt stornierte Buchungen gekennzeichnet, ohne Aktionen (KAN-145 B2b)
       .order('datum', { ascending: false })
       .order('id', { ascending: false })
       .limit(50)),
@@ -82,7 +83,7 @@ export default async function UmziehenPage({ searchParams }: { searchParams: Pro
       kapazitaet_liter: b.volumen_liter ?? null,
     }))
 
-  const umzuege: { id: string; von_name: string; nach_name: string; menge_liter: number; schwund_liter: number; datum: string; notizen: string | null; umzug_typ?: string }[] =
+  const umzuege: { id: string; von_name: string; nach_name: string; menge_liter: number; schwund_liter: number; datum: string; notizen: string | null; umzug_typ?: string; storno?: { am: string; grund: string | null; von: string | null } | null }[] =
     ((umzugRaw ?? []) as R[]).map(u => {
       const vonCharge = u.von_weinausbau as R | null
       const vonTank   = (vonCharge?.behaelter as R | null)?.name ?? null
@@ -96,6 +97,7 @@ export default async function UmziehenPage({ searchParams }: { searchParams: Pro
         schwund_liter: u.schwund_liter ?? 0,
         notizen:       u.notizen ?? null,
         umzug_typ:     u.umzug_typ ?? 'normal',
+        storno:        stornoAngaben(u),   // KAN-145
       }
     })
 

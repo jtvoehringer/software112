@@ -1,8 +1,8 @@
 // KAN-145 B2 (30.09.2026): Stornierte Umzüge und Verschnitte bleiben stehen (storniert_am) und dürfen in keinem
 // Bestand und keiner Meldung zählen. Jede LESENDE Abfrage auf keller_umzuege bzw. verschneidungen unter src/ filtert
 // deshalb .is('storniert_am', null); Verschnitt-Quellen (verschneidung_quellen) laufen über ohneStornierteVerschnitte.
-// Bewusst ungefilterte Leser (z. B. eine spätere Storno-Ansicht) brauchen direkt darüber
-// `// storno-sichtbar: <Grund>`.
+// Bewusst ungefilterte Leser (Bewegungsbuch, Weinbuch und Listen zeigen stornierte Buchungen gekennzeichnet, B2b)
+// brauchen `// storno-sichtbar: <Grund>` direkt darüber oder an Stelle des Filters hinter .select(…).
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -33,7 +33,7 @@ test('jede lesende Abfrage auf keller_umzuege/verschneidungen filtert stornierte
       geprueft++
       const danach = s.slice(m.index, m.index + 900)
       const vorher = s.slice(Math.max(0, m.index - 300), m.index)
-      if (/\.is\('storniert_am', null\)/.test(danach) || /storno-sichtbar:\s*\S.{10,}/.test(vorher)) continue
+      if (/\.is\('storniert_am', null\)/.test(danach) || /storno-sichtbar:\s*\S.{10,}/.test(vorher) || /\n\s*\/\/ storno-sichtbar:\s*\S.{10,}/.test(danach.slice(0, 700))) continue
       funde.push(`${path.relative(SRC, f)}:${s.slice(0, m.index).split('\n').length} (${m[1]})`)
     }
   }
@@ -49,7 +49,8 @@ test('Verschnitt-Quellen: jede lesende Abfrage bettet die Verschneidung mit stor
     let m
     while ((m = re.exec(s))) {
       const danach = s.slice(m.index, m.index + 400)
-      if (/verschneidung:verschneidung_id\([^)]*storniert_am/.test(danach) && s.includes('ohneStornierteVerschnitte(')) continue
+      // gefiltert (ohneStornierteVerschnitte) oder bewusst mit Kennzeichen (istStorniert/stornoAngaben, KAN-145 B2b)
+      if (/verschneidung:verschneidung_id\([^)]*storniert_am/.test(danach) && /ohneStornierteVerschnitte\(|istStorniert\(|stornoAngaben\(|merkeStorno\(/.test(s)) continue
       funde.push(`${path.relative(SRC, f)}:${s.slice(0, m.index).split('\n').length}`)
     }
   }
