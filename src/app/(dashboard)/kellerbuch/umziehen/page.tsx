@@ -47,6 +47,7 @@ export default async function UmziehenPage({ searchParams }: { searchParams: Pro
     // Umzug-Protokoll
     tf((supabase.from('keller_umzuege') as any)
       .select('id, datum, menge_liter, schwund_liter, umzug_typ, notizen, von_weinausbau:von_weinausbau_id(name, behaelter:behaelter_id(name)), nach_behaelter:nach_behaelter_id(name)')
+      .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
       .order('datum', { ascending: false })
       .order('id', { ascending: false })
       .limit(50)),

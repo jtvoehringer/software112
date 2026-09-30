@@ -220,6 +220,9 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
     const vorhandenListe = (vorhandenRaw ?? []) as R[]
 
     let nachWeinausbauId: string | null = null
+    // KAN-145: Qualität der Ziel-Charge vor/nach der Zusammenführung (Momentaufnahme für den Storno)
+    let zielVorher: string | null = null
+    let zielNachher: string | null = null
 
     // Rebsortenmix-Check: erste Quell-Rebsorte vs. bestehende Charge(n) im Zielbehälter.
     // Wichtig: eine bestehende Charge OHNE eindeutige Rebsorte (rebsorte = null, typischerweise
@@ -281,6 +284,8 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
         .eq('tenant_id', tenantId)
         if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weinausbau): ${dbFehlerText(e)}`) }
       nachWeinausbauId = vorhanden.id
+      zielVorher = altQualitaet
+      zielNachher = neueQualitaet ?? altQualitaet
     } else if (vorhanden && istRebsortenmix) {
       // Rebsortenmix: separate neue Charge anlegen, Verschneidung wird danach getriggert
       const von0 = quellenDaten[0]
@@ -350,6 +355,8 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
       schwund_liter:      0,
       brutto_liter:       null,
       umzug_typ:          umzugTyp,
+      qualitaet_vorher:   zielVorher,
+      qualitaet_nachher:  zielNachher,
       notizen:            zielNotizen,
       umzug_batch_id:     batchId,
       zeilen_typ:         'ziel',
@@ -368,8 +375,8 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
 // Wrapper um gebinde-actions.deleteUmzug – nur solange die Ziel-Charge nicht weiterbewegt
 // wurde und die Rückbuchung vollständig möglich ist (KAN-35, lib/kellerbuch/storno.ts)
 // schreibsperre-ausnahme: reicht nur an gebinde-actions.deleteUmzug weiter – dort prüfen kellerbuchSchreibrecht() Betrieb (KAN-30) und Schreibsperre (KAN-5)
-export async function deleteUmzug(id: string) {
-  return _deleteUmzug(id)
+export async function deleteUmzug(id: string, grund: string) {
+  return _deleteUmzug(id, grund)
 }
 
 // ── Umzug Datum/Notizen aktualisieren ────────────────────────────────────────

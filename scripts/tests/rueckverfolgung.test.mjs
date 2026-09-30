@@ -581,6 +581,7 @@ function attrappe(tabellen) {
       if (op === 'in') return v.includes(x)
       if (op === 'gte') return x != null && x >= v
       if (op === 'lte') return x != null && x <= v
+      if (op === 'is') return (x ?? null) === v   // KAN-145: .is('storniert_am', null)
       return true
     }
     const b = {
@@ -590,6 +591,7 @@ function attrappe(tabellen) {
       in(k, v) { filter.push(['in', k, v]); return b },
       gte(k, v) { filter.push(['gte', k, v]); return b },
       lte(k, v) { filter.push(['lte', k, v]); return b },
+      is(k, v) { filter.push(['is', k, v]); return b },
       // nur die hier genutzte Form: 'a.op.wert,b.op.wert' (ODER)
       or(s) { filter.push(['or', s.split(',').map(t => { const [k, op, ...v] = t.split('.'); return [k, op, v.join('.')] })]); return b },
       maybeSingle() { einzel = true; return b },

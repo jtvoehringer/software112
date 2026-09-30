@@ -9,6 +9,7 @@ import GebindeClient from '@/components/kellerbuch/GebindeClient'
 import LoeschenButton from '@/components/kellerbuch/LoeschenButton'
 import { createBehaelter, updateBehaelter, deleteBehaelter } from '../actions'
 import { createEroeffnungsbestand, deleteEroeffnungsbestand, deleteUmzug } from '../gebinde-actions'
+import StornoButton from '@/components/StornoButton'
 import { ladeKellergemeinschaft } from '@/lib/keller/behaelter'
 import { Users } from 'lucide-react'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
@@ -65,6 +66,7 @@ export default async function GebindePage({
       .order('jahrgang', { ascending: false })),
     tf((supabase.from('keller_umzuege') as any)
       .select('id, datum, menge_liter, schwund_liter, brutto_liter, umzug_batch_id, zeilen_typ, umzug_typ, notizen, transaktions_nr, von_weinausbau:von_weinausbau_id(name, jahrgang), von_behaelter:von_behaelter_id(name), nach_behaelter:nach_behaelter_id(name)')
+      .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
       .order('datum', { ascending: false })
       .limit(200)),
   ])
@@ -562,12 +564,10 @@ export default async function GebindePage({
                           title={u.istSchwund ? 'Notizen bearbeiten' : 'Bearbeiten'} aria-label="Bearbeiten"
                           className="text-s112-blue-700 hover:text-s112-blue-700/70 mr-3 inline-flex"><Pencil className="w-4 h-4" /></Link>
                         {(!u.istSchwund || adminOk) && (
-                          <LoeschenButton
-                            label="Stornieren"
+                          // KAN-145: Stornieren mit Grund – die Buchung bleibt gekennzeichnet stehen
+                          <StornoButton
                             action={deleteUmzug.bind(null, u.ersteId)}
-                            bestaetigung={u.istSchwund
-                              ? 'Schwundbuchung stornieren? Die Menge wird auf die Charge zurückgebucht und die Buchung gelöscht – nur möglich, wenn sie den Bestand gemindert hat und an der Charge seither nichts gebucht wurde.'
-                              : 'Umzug stornieren? Quelle und Ziel werden zurückgebucht und die Buchung gelöscht – nur möglich, solange die Ziel-Charge seither nicht weiterbewegt wurde.'} />
+                            hinweis={u.istSchwund ? 'Die Menge wird auf die Charge zurückgebucht; die Schwundbuchung bleibt als storniert stehen – nur wenn sie den Bestand gemindert hat und an der Charge seither nichts gebucht wurde.' : 'Die Bestände werden zurückgebucht; der Umzug bleibt als storniert im Bewegungsbuch – nur solange die Ziel-Charge seither nicht weiterbewegt wurde.'} />
                         )}
                       </td>
                     )}

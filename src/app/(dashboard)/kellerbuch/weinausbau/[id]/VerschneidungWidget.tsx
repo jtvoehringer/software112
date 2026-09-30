@@ -1,14 +1,14 @@
 'use client'
 
-import { useState, useTransition, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import VerschneidungForm from '@/components/kellerbuch/VerschneidungForm'
 import { deleteVerschneidung } from '@/app/(dashboard)/kellerbuch/actions'
+import StornoButton from '@/components/StornoButton'
 import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { GitMerge } from 'lucide-react'
 import { fmtNum } from '@/lib/format'
-import { fehlerText } from '@/lib/fehler'
 
 type ChargeOpt = { id: string; name: string; menge_liter: number | null; qualitaetsstufe?: string | null; herkunft_code?: string | null; rebsorte?: string | null; weinart?: string | null; behaelter_id?: string | null; behaelter_volumen_liter?: number | null }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -30,59 +30,15 @@ function fmtDate(d: string | null) {
   return new Date(d).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
-// Storno (KAN-35): nur möglich, solange die Ziel-Charge seither nicht weiterbewegt wurde und
-// die Menge noch vollständig hat – sonst zeigt der Server den Grund, der hier erscheint.
-function StornoButton({ id, zielId }: { id: string; zielId: string }) {
+// Storno (KAN-35, KAN-145): nur möglich, solange die Ziel-Charge seither nicht weiterbewegt wurde und die Menge noch
+// vollständig hat – sonst zeigt der Server den Grund. Mit Pflicht-Grund; der Verschnitt bleibt gekennzeichnet stehen.
+function VerschnittStorno({ id, zielId }: { id: string; zielId: string }) {
   const router = useRouter()
-  const [confirm, setConfirm] = useState(false)
-  const [fehler, setFehler] = useState<string | null>(null)
-  const [pending, startTransition] = useTransition()
-
-  if (fehler) {
-    return (
-      <span className="flex flex-col items-end gap-0.5">
-        <span role="alert" className="text-[11px] text-s112-err-fg w-[260px] max-w-[70vw] text-left whitespace-normal break-words">{fehler}</span>
-        <button onClick={() => setFehler(null)} className="text-xs text-s112-text-2 hover:text-s112-text-1">Schließen</button>
-      </span>
-    )
-  }
-
-  if (confirm) {
-    return (
-      <span className="flex items-center gap-1">
-        <span className="text-xs text-s112-err-fg">Wirklich stornieren?</span>
-        <button
-          onClick={() => startTransition(async () => {
-            try {
-              await deleteVerschneidung(id)
-              setConfirm(false)
-              router.push(`/kellerbuch/weinausbau/${zielId}`)
-              router.refresh()
-            } catch (err) {
-              setConfirm(false)
-              setFehler(fehlerText(err, 'Storno fehlgeschlagen'))
-            }
-          })}
-          disabled={pending}
-          className="text-xs bg-s112-err text-white px-2 py-0.5 rounded font-medium disabled:opacity-50"
-        >
-          {pending ? '…' : 'Ja'}
-        </button>
-        <button onClick={() => setConfirm(false)} className="text-xs text-s112-text-2 hover:text-s112-text-1 px-1">
-          Nein
-        </button>
-      </span>
-    )
-  }
-
   return (
-    <button
-      onClick={() => setConfirm(true)}
-      className="text-xs text-s112-err hover:text-s112-err-fg transition-colors opacity-0 group-hover:opacity-100"
-      title="Verschneidung stornieren (nur solange die Ziel-Charge seither nicht weiterbewegt wurde)"
-    >
-      Storno
-    </button>
+    <StornoButton
+      action={grund => deleteVerschneidung(id, grund)}
+      hinweis="Quellen und Ziel werden zurückgebucht (Menge, Qualität, Herkunft, Rebsorte); der Verschnitt bleibt als storniert im Bewegungsbuch – nur solange die Ziel-Charge seither nicht weiterbewegt wurde."
+      danach={() => { router.push(`/kellerbuch/weinausbau/${zielId}`); router.refresh() }} />
   )
 }
 
@@ -190,7 +146,7 @@ export default function VerschneidungWidget({ bestehtAus = null, zielCharge, all
                   </td>
                   <td className="px-4 py-2.5 text-xs text-s112-muted">{v.notizen ?? '–'}</td>
                   <td className="px-4 py-2.5 text-right">
-                    <StornoButton id={v.id} zielId={zielCharge.id} />
+                    <VerschnittStorno id={v.id} zielId={zielCharge.id} />
                   </td>
                 </tr>
               ))}

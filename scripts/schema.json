@@ -188,7 +188,8 @@
 "geaenderte_spalten",
 "db_rolle",
 "benutzer_id",
-"erstellt_am"
+"erstellt_am",
+"grund"
 ],
 "bestellung_positionen": [
 "id",
@@ -630,7 +631,11 @@
 "zolltarifnummer",
 "herkunft_code",
 "import_quelle",
-"importiert_am"
+"importiert_am",
+"storniert_am",
+"storniert_von",
+"storniert_von_name",
+"storno_grund"
 ],
 "grundstuecke": [
 "id",
@@ -681,7 +686,11 @@
 "notizen",
 "created_at",
 "updated_at",
-"weinausbau_id"
+"weinausbau_id",
+"storniert_am",
+"storniert_von",
+"storniert_von_name",
+"storno_grund"
 ],
 "keller_behandlungstypen": [
 "id",
@@ -727,7 +736,11 @@
 "oechsle_vorher",
 "oechsle_nachher",
 "mostgewicht_einheit_vorher",
-"mostgewicht_einheit_nachher"
+"mostgewicht_einheit_nachher",
+"storniert_am",
+"storniert_von",
+"storniert_von_name",
+"storno_grund"
 ],
 "kellerplaene": [
 "id",
@@ -1465,7 +1478,12 @@
 "ziel_herkunft_code_vorher",
 "ziel_kmw_vorher",
 "ziel_oechsle_vorher",
-"ziel_mostgewicht_einheit_vorher"
+"ziel_mostgewicht_einheit_vorher",
+"storniert_am",
+"storniert_von",
+"storniert_von_name",
+"storno_grund",
+"ziel_rebsorte_vorher"
 ],
 "weinanalysen": [
 "id",
@@ -1668,6 +1686,10 @@
 "eingangsrechnungsnummer",
 "zh_kontakt_id",
 "oechsle",
-"mostgewicht_einheit"
+"mostgewicht_einheit",
+"storniert_am",
+"storniert_von",
+"storniert_von_name",
+"storno_grund"
 ]
 }

@@ -1,9 +1,11 @@
 import 'server-only'
 
-// ── Storno von Umzug und Verschnitt (KAN-35, 24.09.2026) ─────────────────────
-// Übergangslösung bis zum Journal (AP3). Ein Umzug bzw. Verschnitt wird nur noch
-// storniert (Rückbuchung + Löschen der Buchung, das Löschen protokolliert der
-// DB-Trigger ins bestandsprotokoll), wenn
+// ── Storno von Umzug und Verschnitt (KAN-35, 24.09.2026; KAN-145, 30.09.2026) ──
+// Ein Umzug bzw. Verschnitt wird storniert: Rückbuchung der Bestände, danach bleibt die Buchung stehen und
+// bekommt das Storno-Kennzeichen (storniert_am/-von/-von_name, storno_grund – Grund Pflicht, Zeitpunkt und
+// Benutzer setzt die Datenbank, s112_storno_schutz; der Storno steht im Änderungsprotokoll). Stornierte
+// Buchungen zählen in keinem Bestand und keiner Meldung (alle Leser filtern storniert_am). Bis KAN-145 wurde
+// die Buchung gelöscht. Storniert werden kann nur, wenn
 //   (1) die Ziel-Charge seit der Buchung nicht weiterbewegt wurde: keine später
 //       ERFASSTE Mengenbewegung an der Ziel-Charge (Umzug, Schwund, Verschnitt als
 //       Quelle oder Ziel, Füllung, Tankverkauf, Zukauf), und
@@ -51,6 +53,8 @@ import { gebindeFehlerText } from '@/lib/keller/behaelter'
 import { fmtNum } from '@/lib/format'
 import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
 import { KORREKTUR_NACH_OBEN_HINWEIS, SCHWUND_STORNO_HINWEIS } from '@/lib/kellerbuch/hinweise'
+import { stornoGrundFehler } from '@/lib/storno/grund'
+import { ohneStornierteVerschnitte } from '@/lib/kellerbuch/stornoFilter'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -168,14 +172,16 @@ export async function spaetereMengenbewegungen(
     (supabase.from('keller_umzuege') as any)
       .select('id, umzug_batch_id, umzug_typ, erstellt_am')
       .or(`von_weinausbau_id.eq.${id},nach_weinausbau_id.eq.${id}`)
-      .eq('tenant_id', tenantId),
+      .eq('tenant_id', tenantId)
+      .is('storniert_am', null),
     (supabase.from('verschneidung_quellen') as any)   // ohne tenant_id-Spalte, RLS über verschneidungen
-      .select('verschneidung_id, verschneidung:verschneidung_id(created_at)')
+      .select('verschneidung_id, verschneidung:verschneidung_id(created_at, storniert_am)')
       .eq('quell_weinausbau_id', id),
     (supabase.from('verschneidungen') as any)
       .select('id, created_at')
       .eq('ziel_weinausbau_id', id)
-      .eq('tenant_id', tenantId),
+      .eq('tenant_id', tenantId)
+      .is('storniert_am', null),
     // Nur aktive Füllungen: das Löschen einer Füllung bucht ihre Liter exakt zurück
     (supabase.from('fuellung_chargen') as any)
       .select('fuellung_id, created_at, fuellungen!inner(aktiv)')
@@ -208,7 +214,7 @@ export async function spaetereMengenbewegungen(
   }
 
   const vqIds = new Set<string>()
-  for (const q of zeilen('verschneidung_quellen', vQuellen)) {
+  for (const q of ohneStornierteVerschnitte(zeilen('verschneidung_quellen', vQuellen))) {   // KAN-145
     if (q.verschneidung_id === ohne.verschneidungId) continue
     if (spaeter((q.verschneidung as R | null)?.created_at)) vqIds.add(q.verschneidung_id)
   }
@@ -393,45 +399,51 @@ export async function fuehreRueckbuchungAus(
 }
 
 /**
- * Buchung nach der Rückbuchung löschen (protokolliert). Scheitert das Löschen, wird die
- * Rückbuchung zurückgenommen – die Buchung bleibt dann samt Beständen unverändert.
+ * Buchung nach der Rückbuchung als storniert kennzeichnen (KAN-145) – Grund Pflicht, Zeitpunkt und Benutzer setzt
+ * die Datenbank. Nur Zeilen, die noch nicht storniert sind (gleichzeitiger zweiter Storno: 0 Zeilen). Scheitert
+ * das Kennzeichnen, wird die Rückbuchung zurückgenommen – die Buchung bleibt dann samt Beständen unverändert.
  */
-async function loescheNachRueckbuchung(
+async function kennzeichneNachRueckbuchung(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   tenantId: string,
   tabelle: 'keller_umzuege' | 'verschneidungen',
   ids: string[],
+  grund: string,
   angewandt: ChargenRueckbuchung[],
 ): Promise<void> {
   const { data, error } = await (supabase.from(tabelle) as any)
-    .delete()
+    .update({ storniert_am: new Date().toISOString(), storno_grund: grund.trim() })
     .in('id', ids)
     .eq('tenant_id', tenantId)
+    .is('storniert_am', null)
     .select('id')
   const anzahl = ((data ?? []) as R[]).length
   if (!error && anzahl === ids.length) return
   if (!error && anzahl > 0) {
-    // Teilweise gelöscht (nur bei gleichzeitiger Änderung denkbar) – nicht mehr automatisch lösbar
-    throw new AktionsFehler('Die Buchung wurde nur teilweise gelöscht (gleichzeitige Änderung?) – die Bestände wurden bereits zurückgebucht. Bitte Support kontaktieren.')
+    // Teilweise gekennzeichnet (nur bei gleichzeitiger Änderung denkbar) – nicht mehr automatisch lösbar
+    throw new AktionsFehler('Die Buchung wurde nur teilweise storniert (gleichzeitige Änderung?) – die Bestände wurden bereits zurückgebucht. Bitte Support kontaktieren.')
   }
   const meldung = error
-    ? dbFehlerText(error, `Löschen fehlgeschlagen (${tabelle})`)
-    : 'Die Buchung konnte nicht gelöscht werden – vermutlich fehlt die Berechtigung'
+    ? dbFehlerText(error, `Stornieren fehlgeschlagen (${tabelle})`)
+    : 'Die Buchung konnte nicht storniert werden – sie ist bereits storniert oder es fehlt die Berechtigung'
   const rueckFehler = await rueckbuchungZuruecknehmen(supabase, tenantId, angewandt)
   throw new AktionsFehler(mitRuecknahmeText(meldung, rueckFehler))
 }
 
-/** Verschnitt stornieren: Rückbuchung (inkl. Snapshot-Werte am Ziel) und Löschen, alles oder nichts */
+/** Verschnitt stornieren: Rückbuchung (inkl. Snapshot-Werte am Ziel) und Storno-Kennzeichen, alles oder nichts */
 export async function storniereVerschneidung(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   tenantId: string,
   plan: VerschneidungStornoPlan,
+  grund: string,
 ): Promise<void> {
+  const grundFehler = stornoGrundFehler(grund)
+  if (grundFehler) throw new AktionsFehler(grundFehler)
   if (plan.sperre) throw new AktionsFehler(verschneidungSperrMeldung(plan))
   const angewandt = await fuehreRueckbuchungAus(supabase, tenantId, plan.aenderungen)
-  await loescheNachRueckbuchung(supabase, tenantId, 'verschneidungen', [plan.verschneidung.id as string], angewandt)
+  await kennzeichneNachRueckbuchung(supabase, tenantId, 'verschneidungen', [plan.verschneidung.id as string], grund, angewandt)
 }
 
 /** Deutsche Meldung, wenn ein Verschnitt nicht storniert werden kann */
@@ -443,7 +455,7 @@ export function verschneidungSperrMeldung(plan: VerschneidungStornoPlan): string
 // ── Umzug ─────────────────────────────────────────────────────────────────────
 
 const UMZUG_SPALTEN =
-  'id, datum, erstellt_am, zeilen_typ, umzug_typ, umzug_batch_id, von_weinausbau_id, nach_weinausbau_id, von_behaelter_id, nach_behaelter_id, brutto_liter, menge_liter, schwund_liter, notizen'
+  'id, datum, erstellt_am, zeilen_typ, umzug_typ, umzug_batch_id, von_weinausbau_id, nach_weinausbau_id, von_behaelter_id, nach_behaelter_id, brutto_liter, menge_liter, schwund_liter, notizen, qualitaet_vorher, qualitaet_nachher'
 
 /** Alle Zeilen der Umzugsbuchung (ganzer Batch) zu einer Zeile – null, wenn nicht gefunden */
 export async function ladeUmzugZeilen(
@@ -452,15 +464,17 @@ export async function ladeUmzugZeilen(
   tenantId: string,
   umzugId: string,
 ): Promise<R[] | null> {
+  // storno-sichtbar: lädt die Zeile auch storniert, um „bereits storniert“ zu melden
   const { data: rec, error } = await (supabase.from('keller_umzuege') as any)
-    .select('id, umzug_batch_id')
+    .select('id, umzug_batch_id, storniert_am')
     .eq('id', umzugId)
     .eq('tenant_id', tenantId)
     .maybeSingle()
   if (error) throw new AktionsFehler(dbFehlerText(error, 'Umzug konnte nicht geladen werden'))
   if (!rec) return null
+  if ((rec as R).storniert_am) throw new AktionsFehler('Diese Buchung ist bereits storniert.')
   const batchId = (rec as R).umzug_batch_id as string | null
-  let q = (supabase.from('keller_umzuege') as any).select(UMZUG_SPALTEN).eq('tenant_id', tenantId)
+  let q = (supabase.from('keller_umzuege') as any).select(UMZUG_SPALTEN).eq('tenant_id', tenantId).is('storniert_am', null)
   q = batchId ? q.eq('umzug_batch_id', batchId) : q.eq('id', umzugId)
   const { data, error: e } = await q.order('erstellt_am', { ascending: true }).order('id', { ascending: true })
   if (e) throw new AktionsFehler(dbFehlerText(e, 'Umzug konnte nicht geladen werden'))
@@ -605,6 +619,13 @@ function qualitaetsCode(text: string): string | null {
 function nimmAbstufungZurueck(zeilenDerBuchung: R[], aenderungen: ChargenRueckbuchung[], chargen: Map<string, R>): void {
   for (const z of zeilenDerBuchung) {
     if (z.zeilen_typ !== 'ziel' || !z.nach_weinausbau_id) continue
+    // KAN-145: Momentaufnahme der Ziel-Charge an der Ziel-Zeile (ab 30.09.2026) – zurück, wenn sie noch auf „nachher“ steht
+    if (z.qualitaet_vorher && z.qualitaet_nachher && z.qualitaet_vorher !== z.qualitaet_nachher) {
+      const a = aenderungen.find(x => x.id === z.nach_weinausbau_id)
+      const c = chargen.get(z.nach_weinausbau_id)
+      if (a && c && a.neu > TOLERANZ && c.qualitaetsstufe === z.qualitaet_nachher) a.payload.qualitaetsstufe = z.qualitaet_vorher
+      continue
+    }
     const m = /^Abstufung von (.+) auf (.+)$/.exec(String(z.notizen ?? '').trim())
     if (!m) continue
     const a = aenderungen.find(x => x.id === z.nach_weinausbau_id)
@@ -620,19 +641,21 @@ function nimmAbstufungZurueck(zeilenDerBuchung: R[], aenderungen: ChargenRueckbu
 }
 
 /**
- * Umzug (bzw. Schwundbuchung) stornieren: Rückbuchung ausführen, dann die Zeilen der Buchung
- * löschen (protokolliert). Alles oder nichts – scheitert das Löschen, wird die Rückbuchung
- * zurückgenommen.
+ * Umzug (bzw. Schwundbuchung) stornieren: Rückbuchung ausführen, dann die Zeilen der Buchung als storniert
+ * kennzeichnen (KAN-145). Alles oder nichts – scheitert das Kennzeichnen, wird die Rückbuchung zurückgenommen.
  */
 export async function storniereUmzug(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   tenantId: string,
   plan: UmzugStornoPlan,
+  grund: string,
 ): Promise<void> {
+  const grundFehler = stornoGrundFehler(grund)
+  if (grundFehler) throw new AktionsFehler(grundFehler)
   if (plan.sperre) throw new AktionsFehler(umzugSperrMeldung(plan, 'stornieren'))
   const angewandt = await fuehreRueckbuchungAus(supabase, tenantId, plan.aenderungen)
-  await loescheNachRueckbuchung(supabase, tenantId, 'keller_umzuege', plan.zeilen.map(z => z.id as string), angewandt)
+  await kennzeichneNachRueckbuchung(supabase, tenantId, 'keller_umzuege', plan.zeilen.map(z => z.id as string), grund, angewandt)
 }
 
 /** Deutsche Meldung, wenn ein Umzug (bzw. eine Schwundbuchung) gesperrt ist */
@@ -687,14 +710,16 @@ export async function planeVerschneidungStorno(
   tenantId: string,
   verschneidungId: string,
 ): Promise<VerschneidungStornoPlan> {
+  // storno-sichtbar: lädt den Verschnitt auch storniert, um „bereits storniert“ zu melden
   const { data, error } = await (supabase.from('verschneidungen') as any)
-    .select('id, datum, created_at, ziel_weinausbau_id, ziel_qualitaet_vorher, ziel_herkunft_code_vorher, quellen:verschneidung_quellen(quell_weinausbau_id, menge_liter)')
+    .select('id, datum, created_at, storniert_am, ziel_weinausbau_id, ziel_qualitaet_vorher, ziel_herkunft_code_vorher, ziel_rebsorte_vorher, quellen:verschneidung_quellen(quell_weinausbau_id, menge_liter)')
     .eq('id', verschneidungId)
     .eq('tenant_id', tenantId)
     .maybeSingle()
   if (error) throw new AktionsFehler(dbFehlerText(error, 'Verschneidung konnte nicht geladen werden'))
   if (!data) throw new AktionsFehler('Verschneidung nicht gefunden')
   const v = data as R
+  if (v.storniert_am) throw new AktionsFehler('Diese Verschneidung ist bereits storniert.')
   const basis: VerschneidungStornoPlan = { verschneidung: v, datum: v.datum ?? null, sperre: null, aenderungen: [] }
 
   const zugang = new Map<string, number>()
@@ -722,6 +747,8 @@ export async function planeVerschneidungStorno(
     if (ziel) {
       if (v.ziel_qualitaet_vorher) ziel.payload.qualitaetsstufe = v.ziel_qualitaet_vorher
       if (v.ziel_herkunft_code_vorher) ziel.payload.herkunft_code = v.ziel_herkunft_code_vorher
+      // KAN-145: Rebsorte (Momentaufnahme ab 30.09.2026; ältere Verschnitte haben keine – dann unverändert)
+      if (v.ziel_rebsorte_vorher) ziel.payload.rebsorte = v.ziel_rebsorte_vorher
     }
   }
   return { ...basis, sperre, aenderungen }

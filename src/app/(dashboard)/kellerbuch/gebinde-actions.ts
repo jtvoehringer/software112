@@ -16,6 +16,7 @@ import {
   OHNE_MENGENWIRKUNG, GEBINDEWECHSEL_OHNE, type UmzugStornoPlan, type UmzugEingabe,
 } from '@/lib/kellerbuch/storno'
 import { KORREKTUR_NACH_OBEN_HINWEIS, KORREKTUR_NACH_UNTEN_HINWEIS } from '@/lib/kellerbuch/hinweise'
+import { GRUND_BEARBEITET } from '@/lib/storno/grund'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -541,7 +542,8 @@ export async function updateUmzugBatch(firstRecordId: string, formData: FormData
   // Neue Buchung gegen den Bestand NACH dem Storno prüfen, bevor irgendetwas gebucht wird
   await pruefeUmzug(supabase, tenantId, neu, new Map(plan.aenderungen.map(a => [a.id, a.neu])))
 
-  await storniereUmzug(supabase, tenantId, plan)
+  // Bearbeiten braucht keinen eigenen Grund (Vorgabe 30.09.2026) – der Storno der alten Buchung trägt einen festen
+  await storniereUmzug(supabase, tenantId, plan, GRUND_BEARBEITET)
   const umzugTyp = (zeilen.find(z => z.umzug_typ && z.umzug_typ !== 'normal')?.umzug_typ as string | undefined) ?? null
   try {
     await umzugAnlegen(supabase, tenantId, neu, { umzugTyp })
@@ -558,8 +560,8 @@ export async function updateUmzugBatch(firstRecordId: string, formData: FormData
 // aktiv, leer gewordene Ziel-Chargen abgeschlossen. Umzüge im alten Zeilenformat sind nicht
 // stornierbar; Schwundbuchungen nur durch Betriebs-Manager und nur, wenn sie nachweislich den
 // Bestand gemindert haben und an der Charge seither nichts gebucht wurde
-// (lib/kellerbuch/storno.ts). Alles oder nichts; das Löschen protokolliert die DB.
-export async function deleteUmzug(id: string) {
+// (lib/kellerbuch/storno.ts). Alles oder nichts; die Buchung bleibt mit Grund als storniert stehen (KAN-145).
+export async function deleteUmzug(id: string, grund: string) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await kellerbuchSchreibrecht()
 
@@ -572,7 +574,7 @@ export async function deleteUmzug(id: string) {
     }
   }
   const plan = await planeUmzugStorno(supabase, tenantId, zeilen)
-  await storniereUmzug(supabase, tenantId, plan)   // wirft bei Sperre die deutsche Meldung
+  await storniereUmzug(supabase, tenantId, plan, grund)   // wirft bei Sperre bzw. fehlendem Grund die deutsche Meldung
 
   revalidiereUmzug(plan)
 }

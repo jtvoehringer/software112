@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { ohneStornierteVerschnitte } from '@/lib/kellerbuch/stornoFilter'
 import { ladeBehaelter } from '@/lib/keller/behaelter'
 import { fmtLiter, fmtNum } from '@/lib/format'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
@@ -73,11 +74,13 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
     // sowie Schwundbuchungen (umzug_typ 'schwund')
     tf((supabase.from('keller_umzuege') as any)
       .select('id, datum, menge_liter, brutto_liter, schwund_liter, umzug_typ, nach_behaelter:nach_behaelter_id(name), notizen, umzug_batch_id, zeilen_typ')
+      .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
       .eq('von_weinausbau_id', id)
       .order('datum', { ascending: true })),
     // Eingehende Umzüge (in diese Charge rein) – enthält 'transfer' und 'ziel'-Zeilen
     tf((supabase.from('keller_umzuege') as any)
       .select('id, datum, menge_liter, von_weinausbau:von_weinausbau_id(name, behaelter:behaelter_id(name)), notizen, umzug_batch_id, zeilen_typ')
+      .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
       .eq('nach_weinausbau_id', id)
       .order('datum', { ascending: true })),
     // Abfüllungen – nur aktive: das Löschen einer Füllung bucht ihre Liter auf die Charge
@@ -113,6 +116,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
     // Verschneidungen: diese Charge als Ziel
     tf((supabase.from('verschneidungen') as any)
       .select('id, datum, notizen, quellen:verschneidung_quellen(menge_liter, anteil_pct, quelle:quell_weinausbau_id(id, name, rebsorte))')
+      .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
       .eq('ziel_weinausbau_id', id)
       .order('datum', { ascending: false })),
 
@@ -134,7 +138,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
     // verschneidung_quellen hat keine tenant_id (RLS über verschneidungen); die Charge selbst
     // ist oben auf den aktiven Betrieb gefiltert.
     (supabase.from('verschneidung_quellen') as any)
-      .select('menge_liter, verschneidung:verschneidung_id(datum, notizen, ziel:ziel_weinausbau_id(name))')
+      .select('menge_liter, verschneidung:verschneidung_id(datum, notizen, storniert_am, ziel:ziel_weinausbau_id(name))')
       .eq('quell_weinausbau_id', id),
   ])
 
@@ -308,7 +312,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
   }
 
   // Ausgehende Verschneidungen (Abgänge) – diese Charge als Quelle eines Verschnitts
-  for (const vq of ((verschnAusRaw ?? []) as R[])) {
+  for (const vq of ohneStornierteVerschnitte((verschnAusRaw ?? []) as R[])) {   // KAN-145
     const liter = parseFloat(vq.menge_liter) || 0
     if (liter <= 0) continue
     const v = vq.verschneidung as R | null

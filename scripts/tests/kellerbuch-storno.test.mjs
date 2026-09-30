@@ -13,7 +13,7 @@
 //                              fehlende Charge/Ziel), Qualitäts-Abstufung zurücknehmen
 //   Schwund (planeUmzugStorno) Bestandsprotokoll-Nachweis, Minderung samt aktiv/Status, Sperren
 //   storniereUmzug             Reihenfolge, Vergleichen und Setzen, Rücknahme bei jedem Fehler
-//                              (Rückbuchung, Löschen, Löschen ohne Treffer, Teil-Löschen)
+//                              (Rückbuchung, Storno-Kennzeichen, ohne Treffer, teilweise; seit KAN-145 kein Löschen mehr)
 //   planeVerschneidungStorno / storniereVerschneidung   Snapshot-Werte, Sperren, Fehler
 //
 // Aufruf: npm run -s test:csv  (Node ≥ 22.15 wegen module.registerHooks)
@@ -395,7 +395,29 @@ describe('planeUmzugStorno – Umzug', nurMitHooks, () => {
 
 // ── Umzug ausführen ───────────────────────────────────────────────────────────
 
-describe('storniereUmzug – Rückbuchung und Löschen, alles oder nichts', nurMitHooks, () => {
+const GRUND = 'Test: doppelt erfasst'
+
+describe('KAN-145: Grund Pflicht, bereits storniert', nurMitHooks, () => {
+  test('ohne bzw. zu kurzer Grund: Fehler, nichts geschrieben', async () => {
+    const t = umzugTabellen()
+    const db = datenbank(t)
+    const plan = await s.planeUmzugStorno(db, T, t.keller_umzuege)
+    db.aufrufe.length = 0
+    for (const g of ['', 'kurz', '         ']) {
+      const e = await fehlerVon(s.storniereUmzug(db, T, plan, g))
+      assert.match(e.message, /Grund für den Storno angeben \(mindestens 10 Zeichen\)/)
+    }
+    assert.deepEqual(zugriffe(db), [])
+  })
+  test('bereits stornierter Umzug bzw. Verschnitt: klare Meldung', async () => {
+    const t = umzugTabellen()
+    t.keller_umzuege[0].storniert_am = '2026-09-30T10:00:00Z'
+    const e = await fehlerVon(s.ladeUmzugZeilen(datenbank(t), T, t.keller_umzuege[0].id))
+    assert.equal(e.message, 'Diese Buchung ist bereits storniert.')
+  })
+})
+
+describe('storniereUmzug – Rückbuchung und Storno-Kennzeichen, alles oder nichts', nurMitHooks, () => {
   const geplant = async (t = umzugTabellen(), opt) => {
     const db = datenbank(t, opt)
     const plan = await s.planeUmzugStorno(db, T, t.keller_umzuege)
@@ -403,15 +425,16 @@ describe('storniereUmzug – Rückbuchung und Löschen, alles oder nichts', nurM
     return { db, plan }
   }
 
-  test('Normalfall: erst Quelle, dann Ziel (Vergleichen und Setzen), dann alle Zeilen der Buchung löschen', async () => {
+  test('Normalfall: erst Quelle, dann Ziel (Vergleichen und Setzen), dann alle Zeilen der Buchung als storniert kennzeichnen', async () => {
     const { db, plan } = await geplant()
-    await s.storniereUmzug(db, T, plan)
-    assert.deepEqual(zugriffe(db), ['update weinausbau', 'update weinausbau', 'delete keller_umzuege'])
+    await s.storniereUmzug(db, T, plan, GRUND)
+    assert.deepEqual(zugriffe(db), ['update weinausbau', 'update weinausbau', 'update keller_umzuege'])
     assert.ok(hatFilter(db.aufrufe[0], 'gte', 'menge_liter', 495 - 0.001) && hatFilter(db.aufrufe[0], 'lte', 'menge_liter', 495 + 0.001))
     assert.deepEqual(db.aufrufe[2].filter.find(f => f[0] === 'in'), ['in', 'id', [uuid(11), uuid(12)]])
     assert.deepEqual(mengen(db), { 'Welschriesling Tank 1': 1000, 'Welschriesling Tank 2': 0 })
     assert.equal(zeile(db, 'weinausbau', B).aktiv, false)
-    assert.deepEqual(db.tabellen.keller_umzuege, [])
+    assert.equal(db.tabellen.keller_umzuege.length, 2, 'KAN-145: Buchung bleibt stehen')
+    assert.ok(db.tabellen.keller_umzuege.every(z => z.storniert_am && z.storno_grund === GRUND), 'KAN-145: gekennzeichnet mit Grund')
     assert.deepEqual(ohneMandant(db, T), [])
   })
 
@@ -419,7 +442,7 @@ describe('storniereUmzug – Rückbuchung und Löschen, alles oder nichts', nurM
     const t = umzugTabellen()
     t.weinausbau[1].menge_liter = 300
     const { db, plan } = await geplant(t)
-    const e = await fehlerVon(s.storniereUmzug(db, T, plan))
+    const e = await fehlerVon(s.storniereUmzug(db, T, plan, GRUND))
     assert.match(e.message, /^Der Umzug vom 20\.09\.2026 ist nicht mehr stornierbar, weil die Ziel-Charge/)
     assert.deepEqual(db.aufrufe, [])
   })
@@ -427,7 +450,7 @@ describe('storniereUmzug – Rückbuchung und Löschen, alles oder nichts', nurM
   test('Quelle inzwischen geändert (Vergleich greift nicht): Abbruch vor jeder Änderung', async () => {
     const { db, plan } = await geplant()
     zeile(db, 'weinausbau', A).menge_liter = 490
-    const e = await fehlerVon(s.storniereUmzug(db, T, plan))
+    const e = await fehlerVon(s.storniereUmzug(db, T, plan, GRUND))
     assert.equal(e.message, 'Rückbuchung auf die Charge „Welschriesling Tank 1“ fehlgeschlagen: Der Bestand der Charge wurde inzwischen geändert (oder es fehlt die Berechtigung) – bitte Seite neu laden und erneut versuchen. Es wurde nichts geändert.')
     assert.deepEqual(zugriffe(db), ['update weinausbau'])
     assert.equal(db.tabellen.keller_umzuege.length, 2)
@@ -438,7 +461,7 @@ describe('storniereUmzug – Rückbuchung und Löschen, alles oder nichts', nurM
     t.weinausbau[0] = charge(A, 'Welschriesling Tank 1', { menge_liter: 0, aktiv: false, status: 'abgeschlossen' })
     t.keller_umzuege[0].brutto_liter = 500
     const { db, plan } = await geplant(t, { vorher: fehlerBei('weinausbau', 'update', { message: 'boom' }, 2) })
-    const e = await fehlerVon(s.storniereUmzug(db, T, plan))
+    const e = await fehlerVon(s.storniereUmzug(db, T, plan, GRUND))
     assert.equal(e.message, 'Rückbuchung auf die Charge „Welschriesling Tank 2“ fehlgeschlagen: boom. Es wurde nichts geändert.')
     assert.deepEqual(zugriffe(db), ['update weinausbau', 'update weinausbau', 'update weinausbau'])
     assert.deepEqual(db.aufrufe[2].werte, { menge_liter: 0, aktiv: false, status: 'abgeschlossen' })
@@ -451,56 +474,56 @@ describe('storniereUmzug – Rückbuchung und Löschen, alles oder nichts', nurM
     const t = umzugTabellen()
     t.weinausbau[0] = charge(A, 'Welschriesling Tank 1', { menge_liter: 0, aktiv: false, status: 'abgeschlossen' })
     const { db, plan } = await geplant(t, { vorher: fehlerBei('weinausbau', 'update', { code: 'P0001', message: 'Trigger: Gebinde „T1“ ist durch Weingut Nachbar belegt.' }) })
-    const e = await fehlerVon(s.storniereUmzug(db, T, plan))
+    const e = await fehlerVon(s.storniereUmzug(db, T, plan, GRUND))
     assert.equal(e.message, 'Gebinde „T1“ ist durch Weingut Nachbar belegt. Es wurde nichts geändert.')
   })
 
-  test('Löschen scheitert: beide Rückbuchungen zurückgenommen, Buchung bleibt', async () => {
-    const { db, plan } = await geplant(umzugTabellen(), { vorher: fehlerBei('keller_umzuege', 'delete', { message: 'fk' }) })
-    const e = await fehlerVon(s.storniereUmzug(db, T, plan))
-    assert.equal(e.message, 'Löschen fehlgeschlagen (keller_umzuege): fk. Es wurde nichts geändert.')
-    assert.deepEqual(zugriffe(db), ['update weinausbau', 'update weinausbau', 'delete keller_umzuege', 'update weinausbau', 'update weinausbau'])
+  test('Kennzeichnen scheitert: beide Rückbuchungen zurückgenommen, Buchung bleibt', async () => {
+    const { db, plan } = await geplant(umzugTabellen(), { vorher: fehlerBei('keller_umzuege', 'update', { message: 'fk' }) })
+    const e = await fehlerVon(s.storniereUmzug(db, T, plan, GRUND))
+    assert.equal(e.message, 'Stornieren fehlgeschlagen (keller_umzuege): fk. Es wurde nichts geändert.')
+    assert.deepEqual(zugriffe(db), ['update weinausbau', 'update weinausbau', 'update keller_umzuege', 'update weinausbau', 'update weinausbau'])
     assert.deepEqual(mengen(db), { 'Welschriesling Tank 1': 495, 'Welschriesling Tank 2': 500 })
     assert.equal(zeile(db, 'weinausbau', B).aktiv, true)
     assert.equal(zeile(db, 'weinausbau', B).status, 'ausbau')
   })
 
-  test('Löschen ohne Treffer (keine Berechtigung): zurückgenommen, eigene Meldung', async () => {
-    const { db, plan } = await geplant(umzugTabellen(), { rls: e => !(e.tabelle === 'keller_umzuege' && e.art === 'delete') })
-    const e = await fehlerVon(s.storniereUmzug(db, T, plan))
-    assert.equal(e.message, 'Die Buchung konnte nicht gelöscht werden – vermutlich fehlt die Berechtigung. Es wurde nichts geändert.')
+  test('Kennzeichnen ohne Treffer (bereits storniert bzw. keine Berechtigung): zurückgenommen, eigene Meldung', async () => {
+    const { db, plan } = await geplant(umzugTabellen(), { rls: e => !(e.tabelle === 'keller_umzuege' && e.art === 'update') })
+    const e = await fehlerVon(s.storniereUmzug(db, T, plan, GRUND))
+    assert.equal(e.message, 'Die Buchung konnte nicht storniert werden – sie ist bereits storniert oder es fehlt die Berechtigung. Es wurde nichts geändert.')
     assert.deepEqual(mengen(db), { 'Welschriesling Tank 1': 495, 'Welschriesling Tank 2': 500 })
   })
 
-  test('nur teilweise gelöscht: Fehler OHNE Rücknahme – Bestände bleiben zurückgebucht', async () => {
-    const { db, plan } = await geplant(umzugTabellen(), { rls: (e, r) => !(e.art === 'delete' && r.id === uuid(12)) })
-    const e = await fehlerVon(s.storniereUmzug(db, T, plan))
-    assert.equal(e.message, 'Die Buchung wurde nur teilweise gelöscht (gleichzeitige Änderung?) – die Bestände wurden bereits zurückgebucht. Bitte Support kontaktieren.')
+  test('nur teilweise storniert: Fehler OHNE Rücknahme – Bestände bleiben zurückgebucht', async () => {
+    const { db, plan } = await geplant(umzugTabellen(), { rls: (e, r) => !(e.art === 'update' && e.tabelle === 'keller_umzuege' && r.id === uuid(12)) })
+    const e = await fehlerVon(s.storniereUmzug(db, T, plan, GRUND))
+    assert.equal(e.message, 'Die Buchung wurde nur teilweise storniert (gleichzeitige Änderung?) – die Bestände wurden bereits zurückgebucht. Bitte Support kontaktieren.')
     assert.deepEqual(mengen(db), { 'Welschriesling Tank 1': 1000, 'Welschriesling Tank 2': 0 })
-    assert.deepEqual(db.tabellen.keller_umzuege.map(r => r.id), [uuid(12)])
+    assert.deepEqual(db.tabellen.keller_umzuege.filter(r => !r.storniert_am).map(r => r.id), [uuid(12)], 'nur die zweite Zeile blieb ungekennzeichnet')
   })
 
-  test('Löschen scheitert und eine Rücknahme auch: „Achtung“-Meldung nennt die Charge', async () => {
+  test('Kennzeichnen scheitert und eine Rücknahme auch: „Achtung“-Meldung nennt die Charge', async () => {
     const { db, plan } = await geplant(umzugTabellen(), {
       vorher: (e, t) => {
-        if (e.tabelle === 'keller_umzuege' && e.art === 'delete') {
+        if (e.tabelle === 'keller_umzuege' && e.art === 'update') {
           t.weinausbau.find(c => c.id === A).menge_liter = 999 // gleichzeitige Buchung an der Quelle
           return { error: { message: 'fk' } }
         }
         return null
       },
     })
-    const e = await fehlerVon(s.storniereUmzug(db, T, plan))
-    assert.equal(e.message, 'Löschen fehlgeschlagen (keller_umzuege): fk. Achtung: Bereits zurückgebuchte Chargen konnten nicht zurückgesetzt werden („Welschriesling Tank 1“: inzwischen geändert) – bitte die Bestände prüfen und Support kontaktieren.')
+    const e = await fehlerVon(s.storniereUmzug(db, T, plan, GRUND))
+    assert.equal(e.message, 'Stornieren fehlgeschlagen (keller_umzuege): fk. Achtung: Bereits zurückgebuchte Chargen konnten nicht zurückgesetzt werden („Welschriesling Tank 1“: inzwischen geändert) – bitte die Bestände prüfen und Support kontaktieren.')
     assert.deepEqual(mengen(db), { 'Welschriesling Tank 1': 999, 'Welschriesling Tank 2': 500 })
   })
 
   test('Rücknahme mit DB-Fehler: Fehlertext je Charge', async () => {
-    const f1 = fehlerBei('keller_umzuege', 'delete', { message: 'fk' })
+    const f1 = fehlerBei('keller_umzuege', 'update', { message: 'fk' })
     const f2 = fehlerBei('weinausbau', 'update', { message: 'weg' }, 3)
     const { db, plan } = await geplant(umzugTabellen(), { vorher: (e, t) => f1(e, t) ?? f2(e, t) })
-    const e = await fehlerVon(s.storniereUmzug(db, T, plan))
-    assert.equal(e.message, 'Löschen fehlgeschlagen (keller_umzuege): fk. Achtung: Bereits zurückgebuchte Chargen konnten nicht zurückgesetzt werden („Welschriesling Tank 2“: weg) – bitte die Bestände prüfen und Support kontaktieren.')
+    const e = await fehlerVon(s.storniereUmzug(db, T, plan, GRUND))
+    assert.equal(e.message, 'Stornieren fehlgeschlagen (keller_umzuege): fk. Achtung: Bereits zurückgebuchte Chargen konnten nicht zurückgesetzt werden („Welschriesling Tank 2“: weg) – bitte die Bestände prüfen und Support kontaktieren.')
   })
 
   test('fuehreRueckbuchungAus und rueckbuchungZuruecknehmen mit leerer Liste: kein Zugriff', async () => {
@@ -531,7 +554,7 @@ describe('planeUmzugStorno – Schwundbuchung', nurMitHooks, () => {
     return { db, plan: await s.planeUmzugStorno(db, T, t.keller_umzuege) }
   }
 
-  test('Normalfall: protokollierte Minderung zurück; Storno bucht zurück und löscht die Zeile', async () => {
+  test('Normalfall: protokollierte Minderung zurück; Storno bucht zurück und kennzeichnet die Zeile', async () => {
     const { db, plan } = await plane(tabellen())
     assert.equal(plan.istSchwund, true)
     assert.equal(plan.sperre, null)
@@ -544,10 +567,11 @@ describe('planeUmzugStorno – Schwundbuchung', nurMitHooks, () => {
     }
     assert.deepEqual(ohneMandant(db, T, OHNE_VERSCHNITT), [])
     db.aufrufe.length = 0
-    await s.storniereUmzug(db, T, plan)
-    assert.deepEqual(zugriffe(db), ['update weinausbau', 'delete keller_umzuege'])
+    await s.storniereUmzug(db, T, plan, GRUND)
+    assert.deepEqual(zugriffe(db), ['update weinausbau', 'update keller_umzuege'])
     assert.equal(zeile(db, 'weinausbau', S).menge_liter, 100)
-    assert.deepEqual(db.tabellen.keller_umzuege, [])
+    assert.equal(db.tabellen.keller_umzuege.length, 1, 'KAN-145: Buchung bleibt stehen')
+    assert.ok(db.tabellen.keller_umzuege.every(z => z.storniert_am && z.storno_grund === GRUND), 'KAN-145: gekennzeichnet mit Grund')
     assert.equal(s.nurNotizenAenderbar(plan), true, 'Menge/Datum eines Schwunds nie änderbar')
   })
 
@@ -653,7 +677,7 @@ describe('planeVerschneidungStorno / storniereVerschneidung', nurMitHooks, () =>
     ...teil,
   })
 
-  test('Normalfall: Quellen zurück (V1 reaktiviert), Ziel leer mit Qualität/Herkunft aus dem Snapshot; dann löschen', async () => {
+  test('Normalfall: Quellen zurück (V1 reaktiviert), Ziel leer mit Qualität/Herkunft aus dem Snapshot; dann kennzeichnen', async () => {
     const db = datenbank(tabellen())
     const plan = await s.planeVerschneidungStorno(db, T, VS)
     assert.equal(plan.sperre, null)
@@ -665,12 +689,13 @@ describe('planeVerschneidungStorno / storniereVerschneidung', nurMitHooks, () =>
     ])
     assert.deepEqual(ohneMandant(db, T, OHNE_VERSCHNITT), [])
     db.aufrufe.length = 0
-    await s.storniereVerschneidung(db, T, plan)
-    assert.deepEqual(zugriffe(db), ['update weinausbau', 'update weinausbau', 'update weinausbau', 'delete verschneidungen'])
+    await s.storniereVerschneidung(db, T, plan, GRUND)
+    assert.deepEqual(zugriffe(db), ['update weinausbau', 'update weinausbau', 'update weinausbau', 'update verschneidungen'])
     assert.deepEqual(mengen(db), { Zweigelt: 300, Blaufränkisch: 300, 'Cuvée Rot': 0 })
     assert.equal(zeile(db, 'weinausbau', Z).qualitaetsstufe, 'qualitaetswein')
-    assert.deepEqual(db.tabellen.verschneidungen, [])
-    assert.equal(db.tabellen.verschneidung_quellen.length, 2, 'Quellzeilen entfernt die DB per ON DELETE CASCADE, nicht der Code')
+    assert.equal(db.tabellen.verschneidungen.length, 1, 'KAN-145: Buchung bleibt stehen')
+    assert.ok(db.tabellen.verschneidungen.every(z => z.storniert_am && z.storno_grund === GRUND), 'KAN-145: gekennzeichnet mit Grund')
+    assert.equal(db.tabellen.verschneidung_quellen.length, 2, 'Quellzeilen bleiben (stornierter Verschnitt)')
   })
 
   test('Befund: ohne Snapshot (Ziel hatte vorher keine Qualitätsstufe) bleibt die Verschnitt-Qualität am Ziel stehen', async () => {
@@ -682,15 +707,15 @@ describe('planeVerschneidungStorno / storniereVerschneidung', nurMitHooks, () =>
     assert.deepEqual(plan.aenderungen.find(a => a.id === Z).payload, { menge_liter: 300 })
   })
 
-  test('Befund: Verschnitt ohne Quellmengen – keine Rückbuchung, keine Snapshot-Wiederherstellung, Storno löscht nur', async () => {
+  test('Befund: Verschnitt ohne Quellmengen – keine Rückbuchung, keine Snapshot-Wiederherstellung, Storno kennzeichnet nur', async () => {
     const t = tabellen()
     t.verschneidungen[0].quellen = [{ quell_weinausbau_id: V1, menge_liter: 0 }, { quell_weinausbau_id: null, menge_liter: 50 }]
     const db = datenbank(t)
     const plan = await s.planeVerschneidungStorno(db, T, VS)
     assert.deepEqual(plan, { verschneidung: plan.verschneidung, datum: '2026-09-23', sperre: null, aenderungen: [] })
     db.aufrufe.length = 0
-    await s.storniereVerschneidung(db, T, plan)
-    assert.deepEqual(zugriffe(db), ['delete verschneidungen'])
+    await s.storniereVerschneidung(db, T, plan, GRUND)
+    assert.deepEqual(zugriffe(db), ['update verschneidungen'])
     assert.equal(zeile(db, 'weinausbau', Z).qualitaetsstufe, 'landwein')
   })
 
@@ -710,7 +735,7 @@ describe('planeVerschneidungStorno / storniereVerschneidung', nurMitHooks, () =>
     assert.equal(plan.sperre.grund, 'die Ziel-Charge „Cuvée Rot“ seither weiterbewegt wurde (1 Schwundbuchung)')
     assert.equal(plan.sperre.hinweis, s.VERSCHNITT_HINWEIS)
     db.aufrufe.length = 0
-    const e = await fehlerVon(s.storniereVerschneidung(db, T, plan))
+    const e = await fehlerVon(s.storniereVerschneidung(db, T, plan, GRUND))
     assert.match(e.message, /^Die Verschneidung vom 23\.09\.2026 ist nicht mehr stornierbar/)
     assert.deepEqual(db.aufrufe, [])
   })
@@ -741,11 +766,11 @@ describe('planeVerschneidungStorno / storniereVerschneidung', nurMitHooks, () =>
     assert.equal(e.message, 'Verschneidung konnte nicht geladen werden: x')
   })
 
-  test('Löschen scheitert: alle drei Chargen zurückgesetzt, inkl. Qualität des Ziels', async () => {
-    const db = datenbank(tabellen(), { vorher: fehlerBei('verschneidungen', 'delete', { message: 'fk' }) })
+  test('Kennzeichnen scheitert: alle drei Chargen zurückgesetzt, inkl. Qualität des Ziels', async () => {
+    const db = datenbank(tabellen(), { vorher: fehlerBei('verschneidungen', 'update', { message: 'fk' }) })
     const plan = await s.planeVerschneidungStorno(db, T, VS)
-    const e = await fehlerVon(s.storniereVerschneidung(db, T, plan))
-    assert.equal(e.message, 'Löschen fehlgeschlagen (verschneidungen): fk. Es wurde nichts geändert.')
+    const e = await fehlerVon(s.storniereVerschneidung(db, T, plan, GRUND))
+    assert.equal(e.message, 'Stornieren fehlgeschlagen (verschneidungen): fk. Es wurde nichts geändert.')
     assert.deepEqual(mengen(db), { Zweigelt: 0, Blaufränkisch: 100, 'Cuvée Rot': 500 })
     const z = zeile(db, 'weinausbau', Z)
     assert.deepEqual([z.qualitaetsstufe, z.herkunft_code, z.aktiv, z.status], ['landwein', 'AT', true, 'ausbau'])
