@@ -10,6 +10,9 @@ import GrundstueckePanel, { type GST, type MassnahmeHistorie } from '../Grundstu
 import { updateWeingarten } from '../actions'
 import RiedGeoPanel from '@/components/weingarten/RiedGeoPanel'
 import { ladeCustomWeinbaugebiete } from '../../weinbaugebiete/actions'
+import { alle } from '@/lib/supabase/alle'
+import { ladeBehandlungen, type PsmBehandlung } from '@/lib/behoerden/psm'
+import { verteileMassnahme, type WiGst } from '@/lib/wein/massnahmeAnteile'
 
 export const metadata: Metadata = { title: 'Ried bearbeiten – software:112' }
 
@@ -63,34 +66,50 @@ export default async function WeingartenEditPage({ params }: Props) {
   const gstHaAma      = grundstuecke.reduce((s, g) => s + (g.flaeche_ha ?? 0), 0)
   const gstHaKataster = grundstuecke.reduce((s, g) => s + (g.flaeche_ha_kataster ?? 0), 0)
 
-  // Maßnahmen-Verlauf je GST (Punkt 10, analog Ertragshistorie) – Verknüpfung existiert
-  // bereits über die Junction-Tabelle behandlung_grundstuecke, wurde bisher aber nirgends
-  // auf GST-Ebene angezeigt.
+  // Maßnahmen-Verlauf je GST (Punkt 10). KAN-132: je Maßnahme ALLE Grundstücke laden (über die
+  // mandantengefilterte Maßnahme, ladeBehandlungen) und mit verteileMassnahme() anteilig auf die GST verteilen –
+  // bei Aufwand in kg bzw. l (gesamt) stand bisher an jedem GST die Gesamtmenge. Maßnahmen nur an dieser Ried
+  // (ohne Grundstück) werden auf deren WI-GST verteilt, mit Vermerk.
   const gstIds = grundstuecke.map(g => g.id)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawMassnahmen } = gstIds.length > 0
-    ? await (supabase.from('behandlung_grundstuecke') as any)
-        .select(`
-          grundstueck_id,
-          behandlung:behandlung_id ( id, datum, art, aufwandmenge, aufwandmenge_einheit, psm:psm_id(name) )
-        `)
-        .in('grundstueck_id', gstIds)
-    : { data: [] }
-
+  const gstIdSet = new Set(gstIds)
+  const tenantIdFuerMassnahmen = membership?.tenantId ?? null
   const massnahmenByGst: Record<string, MassnahmeHistorie[]> = {}
-  for (const row of ((rawMassnahmen ?? []) as AR[])) {
-    const b = row.behandlung as AR | null
-    if (!b) continue
-    const key = row.grundstueck_id as string
-    if (!massnahmenByGst[key]) massnahmenByGst[key] = []
-    massnahmenByGst[key].push({
-      id: b.id,
-      datum: b.datum,
-      art: b.art ?? 'spritzung',
-      psm_name: b.psm?.name ?? null,
-      aufwandmenge: b.aufwandmenge ?? null,
-      aufwandmenge_einheit: b.aufwandmenge_einheit ?? null,
-    })
+  if (tenantIdFuerMassnahmen) {
+    const [bgRes, nurWgRes] = await Promise.all([
+      gstIds.length > 0
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ? alle<AR>((supabase.from('behandlung_grundstuecke') as any).select('behandlung_id, grundstueck_id').in('grundstueck_id', gstIds).order('behandlung_id'))
+        : Promise.resolve({ data: [] as AR[], error: null }),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      alle<AR>((supabase.from('behandlungen') as any).select('id').eq('tenant_id', tenantIdFuerMassnahmen).eq('weingarten_id', id).order('id')),
+    ])
+    const ids = [...new Set([...(bgRes.data ?? []).map(r => String(r.behandlung_id)), ...(nurWgRes.data ?? []).map(r => String(r.id))])]
+    const { behandlungen } = ids.length > 0
+      ? await ladeBehandlungen(supabase, tenantIdFuerMassnahmen, { ids })
+      : { behandlungen: [] as PsmBehandlung[] }
+    const wi: WiGst[] = grundstuecke.filter(g => g.nutzart === 'WI').map(g => ({
+      grundstueckId: g.id, gstNr: g.gst_nr, kgNr: g.katastralgemeinde, kgName: g.kg_bezeichnung ?? null,
+      weingartenId: id, weingarten: weingarten.name, ried: null, lageId: null, flaecheHa: g.flaeche_ha,
+    }))
+    const wiJeWg = new Map([[id, wi]])
+    for (const b of behandlungen) {
+      const v = verteileMassnahme(b, { wiGstJeWeingarten: wiJeWg })
+      for (const a of v.anteile) {
+        if (!a.grundstueckId || !gstIdSet.has(a.grundstueckId)) continue
+        ;(massnahmenByGst[a.grundstueckId] ??= []).push({
+          id: b.id,
+          datum: b.datum,
+          art: b.art,
+          psm_name: b.psm?.name ?? b.duengemittel?.name ?? null,
+          aufwandmenge: b.aufwand,
+          aufwandmenge_einheit: b.aufwandEinheit,
+          menge: a.mittel, menge_einheit: a.mittelEinheit,
+          bruehe: a.bruehe,
+          flaeche_ha: a.flaecheHa, anteil_pct: v.anteile.length > 1 ? a.anteil * 100 : null,
+          vermerk: a.vermerk,
+        })
+      }
+    }
   }
   for (const key of Object.keys(massnahmenByGst)) {
     massnahmenByGst[key].sort((a, b) => b.datum.localeCompare(a.datum))

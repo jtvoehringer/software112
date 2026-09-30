@@ -326,15 +326,17 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
   const ueberText = (l: RvLese) => (l.ueberCharge ? `über Charge „${l.ueberCharge.name ?? 'Vorgänger'}“` : null)
 
   // Feldbehandlungen: eine je Maßnahme, vereinigt über alle Lesen (Charge und Vorgänger), ohne Dubletten
-  type Feld = { b: R; gst: Set<string>; riede: Set<string>; flaeche: Map<string, number>; nurWeingarten: boolean; ueber: Set<string>; eigene: boolean; fruehester: string | null }
+  type Feld = { b: R; gst: Set<string>; riede: Set<string>; flaeche: Map<string, number>; menge: Map<string, number>; einheit: string | null; nurWeingarten: boolean; ueber: Set<string>; eigene: boolean; fruehester: string | null }
   const feld = new Map<string, Feld>()
   for (const l of rvLesen) {
     for (const m of l.massnahmen) {
       const bid = String(m.behandlung.id)
-      const x = feld.get(bid) ?? { b: m.behandlung, gst: new Set(), riede: new Set(), flaeche: new Map(), nurWeingarten: false, ueber: new Set(), eigene: false, fruehester: null }
+      const x = feld.get(bid) ?? { b: m.behandlung, gst: new Set(), riede: new Set(), flaeche: new Map(), menge: new Map(), einheit: null, nurWeingarten: false, ueber: new Set(), eigene: false, fruehester: null }
       for (const g of m.grundstuecke) x.gst.add(g)
       if (l.weingarten) x.riede.add(l.weingarten)
       if (m.flaecheHa !== null) x.flaeche.set(m.grundstuecke.join(', '), m.flaecheHa)
+      // KAN-132: Menge anteilig auf die gelesenen GST (je GST-Gruppe einmal, wie die Fläche)
+      if (m.menge !== null) { x.menge.set(m.grundstuecke.join(', '), m.menge); x.einheit = m.mengeEinheit }
       if (m.nurWeingarten) x.nurWeingarten = true
       const u = ueberText(l)
       if (u) x.ueber.add(u); else x.eigene = true
@@ -346,6 +348,7 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
     const b = x.b
     const artText = massnahmenArtLabel(b.art)
     const flaeche = [...x.flaeche.values()].reduce((a, v) => a + v, 0)
+    const menge = Math.round([...x.menge.values()].reduce((a, v) => a + v, 0) * 1000) / 1000
     events.push({
       datum: tag(b.datum),
       typ: 'feldbehandlung',
@@ -359,6 +362,7 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
         x.gst.size > 0 ? `GST ${[...x.gst].join(', ')}${x.riede.size > 0 ? ` (Ried: ${[...x.riede].join(', ')})` : ''}` : null,
         x.nurWeingarten ? `am Weingarten erfasst (ohne Grundstück)${x.gst.size === 0 && x.riede.size > 0 ? ` – Ried: ${[...x.riede].join(', ')}` : ''}` : null,
         flaeche > 0 ? `Fläche: ${fmtNum(flaeche)} ha` : null,
+        x.menge.size > 0 ? `Menge anteilig: ${fmtNum(menge)} ${x.einheit ?? ''}`.trim() : null,
         x.fruehester ? `Frühester Lesetermin: ${ttmmjjjj(x.fruehester)}` : null,
         !x.eigene && x.ueber.size > 0 ? `Herkunft: ${[...x.ueber].join(', ')}` : null,
         b.notizen,
