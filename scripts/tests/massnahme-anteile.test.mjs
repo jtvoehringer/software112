@@ -244,3 +244,15 @@ describe('KAN-132 Nährstoffbilanz je Ried', nurMitHooks, () => {
     assert.equal(kopf, 'Jahr;Ried;Lage;Fläche WI (ha);Düngungen;N (kg);P (kg);N (kg/ha);P (kg/ha);Richtwert N (kg/ha/Jahr);Status N')
   })
 })
+
+describe('KAN-132 Kostenaufteilung', nurMitHooks, () => {
+  test('Σ betrag_anteil = Betrag, Σ anteil_pct = 100,00 – gleichmäßig auf 3 Rieden nicht mehr 99,99 %', async () => {
+    const { kostenAufteilung } = await laden('lib/wein/massnahmeAnteile.ts')
+    const gleich = kostenAufteilung(100, [{ weingartenId: 'a', gewicht: 1 }, { weingartenId: 'b', gewicht: 1 }, { weingartenId: 'c', gewicht: 1 }])
+    assert.deepEqual(gleich.map(x => [x.weingartenId, x.anteil_pct, x.betrag_anteil]), [['a', 33.34, 33.34], ['b', 33.33, 33.33], ['c', 33.33, 33.33]])
+    const flaeche = kostenAufteilung(25529, [{ weingartenId: 'x', gewicht: 1.5 }, { weingartenId: 'y', gewicht: 0.9 }, { weingartenId: 'z', gewicht: 0.55 }])
+    assert.equal(Math.round(flaeche.reduce((s, x) => s + x.betrag_anteil, 0) * 100), 2552900)
+    assert.equal(Math.round(flaeche.reduce((s, x) => s + x.anteil_pct, 0) * 100), 10000)
+    assert.deepEqual(flaeche.map(x => x.weingartenId), ['x', 'y', 'z'])   // größeres Gewicht zuerst
+  })
+})

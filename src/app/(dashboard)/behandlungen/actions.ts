@@ -13,6 +13,7 @@ import {
   artMitPsm, mittelFuerArt, type MassnahmenArt,
 } from '@/lib/behandlungen/arten'
 import { einarbeitungAus } from './neu/feldMatrix'
+import { kostenAufteilung } from '@/lib/wein/massnahmeAnteile'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -168,15 +169,9 @@ async function ggfKostenEintragAnlegen(
 
     const gesamtHa = Array.from(haByWeingarten.values()).reduce((s, h) => s + h, 0)
     if (gesamtHa > 0) {
-      const splitRows = Array.from(haByWeingarten.entries()).map(([weingartenId, ha]) => {
-        const pct = Math.round((ha / gesamtHa) * 10000) / 100
-        return {
-          kosteneintrag_id: (eintrag as AR).id,
-          weingarten_id:    weingartenId,
-          anteil_pct:       pct,
-          betrag_anteil:    Math.round(betrag * pct / 100 * 100) / 100,
-        }
-      })
+      // KAN-132: Restausgleich – Σ betrag_anteil = betrag, Σ anteil_pct = 100,00
+      const splitRows = kostenAufteilung(betrag, Array.from(haByWeingarten.entries()).map(([weingartenId, ha]) => ({ weingartenId, gewicht: ha })))
+        .map(a => ({ kosteneintrag_id: (eintrag as AR).id, weingarten_id: a.weingartenId, anteil_pct: a.anteil_pct, betrag_anteil: a.betrag_anteil }))
       { const { error: e } = await (supabase.from('kosteneintrag_weingaerten') as any).insert(splitRows)
         if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (kosteneintrag_weingaerten): ${e.message}`) }
     }
@@ -285,15 +280,9 @@ async function ggfKostenEintragAktualisieren(
 
     const gesamtHa = Array.from(haByWeingarten.values()).reduce((s, h) => s + h, 0)
     if (gesamtHa > 0 && eintragId) {
-      const splitRows = Array.from(haByWeingarten.entries()).map(([weingartenId, ha]) => {
-        const pct = Math.round((ha / gesamtHa) * 10000) / 100
-        return {
-          kosteneintrag_id: eintragId,
-          weingarten_id:    weingartenId,
-          anteil_pct:       pct,
-          betrag_anteil:    Math.round(betrag * pct / 100 * 100) / 100,
-        }
-      })
+      // KAN-132: Restausgleich – Σ betrag_anteil = betrag, Σ anteil_pct = 100,00
+      const splitRows = kostenAufteilung(betrag, Array.from(haByWeingarten.entries()).map(([weingartenId, ha]) => ({ weingartenId, gewicht: ha })))
+        .map(a => ({ kosteneintrag_id: eintragId, weingarten_id: a.weingartenId, anteil_pct: a.anteil_pct, betrag_anteil: a.betrag_anteil }))
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       { const { error: e } = await (supabase.from('kosteneintrag_weingaerten') as any).insert(splitRows)
         if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (kosteneintrag_weingaerten): ${e.message}`) }

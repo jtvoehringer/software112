@@ -6,6 +6,7 @@ import { ereignisMelden } from '@/lib/system/ereignis'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
+import { kostenAufteilung } from '@/lib/wein/massnahmeAnteile'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -19,17 +20,11 @@ async function saveWgSplit(s: any, eintragsId: string, wgSplit: R[], betrag: num
   { const { error: e } = await (s.from('kosteneintrag_weingaerten') as any).delete().eq('kosteneintrag_id', eintragsId)
     if (e) void ereignisMelden({ art: 'db', quelle: 'kostenrechnung/kosteneintrag_weingaerten', meldung: e.message }) }
   if (!wgSplit || wgSplit.length === 0) return
-  // Neue Splits einfügen
+  // Neue Splits einfügen – KAN-132: Restausgleich (Σ betrag_anteil = Betrag, Σ anteil_pct = 100,00; bisher
+  // gleichmäßig bei 3 Rieden 99,99 %); ohne Prozentangaben gleichmäßig
   const gleichmaessig = wgSplit.every((w: R) => !w.anteil_pct)
-  const records = wgSplit.map((w: R, i: number) => {
-    const pct = gleichmaessig ? Math.round(10000 / wgSplit.length) / 100 : (w.anteil_pct ?? 0)
-    return {
-      kosteneintrag_id: eintragsId,
-      weingarten_id:    w.weingarten_id,
-      anteil_pct:       pct,
-      betrag_anteil:    Math.round(betrag * pct / 100 * 100) / 100,
-    }
-  })
+  const records = kostenAufteilung(Number(betrag) || 0, wgSplit.map((w: R) => ({ weingartenId: String(w.weingarten_id), gewicht: gleichmaessig ? 1 : Number(w.anteil_pct) || 0 })))
+    .map(a => ({ kosteneintrag_id: eintragsId, weingarten_id: a.weingartenId, anteil_pct: a.anteil_pct, betrag_anteil: a.betrag_anteil }))
   { const { error: e } = await (s.from('kosteneintrag_weingaerten') as any).insert(records)
     if (e) void ereignisMelden({ art: 'db', quelle: 'kostenrechnung/kosteneintrag_weingaerten', meldung: e.message }) }
 }
@@ -87,7 +82,7 @@ export async function GET(req: NextRequest) {
     let splits: R[] = []
     if (ids.length > 0) {
       const { data: sd } = await (s.from('kosteneintrag_weingaerten') as any)
-        .select('kosteneintrag_id, betrag_anteil, wg:weingarten_id(name)').in('kosteneintrag_id', ids)
+        .select('kosteneintrag_id, anteil_pct, betrag_anteil, wg:weingarten_id(name, lagen:lage_id(name))').in('kosteneintrag_id', ids)
       splits = sd ?? []
     }
     return NextResponse.json({ eintraege: ke ?? [], splits, jahr })
