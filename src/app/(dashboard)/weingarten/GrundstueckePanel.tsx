@@ -37,6 +37,8 @@ export type MassnahmeHistorie = {
   /** Fläche dieses GST bei der Maßnahme (ha) und Anteil an der Maßnahme (%) */
   flaeche_ha?: number | null; anteil_pct?: number | null
   vermerk?: string | null
+  /** Kosten der Maßnahme anteilig auf dieses GST (€, laufend gerechnet) */
+  kosten_eur?: number | null
 }
 
 /** Aufwand je ha bzw. je hl gilt für jedes GST gleich; „kg/l (gesamt)“ ist ein Wert der ganzen Maßnahme (KAN-132) */
@@ -98,7 +100,8 @@ function GstMassnahmenPanel({ massnahmen }: { massnahmen: MassnahmeHistorie[] })
             <th className="text-left py-1 pr-3 font-medium">Mittel</th>
             <th className="text-right py-1 pr-3 font-medium">Aufwand</th>
             <th className="text-right py-1 pr-3 font-medium">Menge anteilig</th>
-            <th className="text-right py-1 font-medium">Anteil</th>
+            <th className="text-right py-1 pr-3 font-medium">Anteil</th>
+            <th className="text-right py-1 font-medium">Kosten</th>
           </tr>
         </thead>
         <tbody>
@@ -125,6 +128,9 @@ function GstMassnahmenPanel({ massnahmen }: { massnahmen: MassnahmeHistorie[] })
               <td className="py-1 text-right font-mono text-s112-text-2">
                 {m.flaeche_ha != null ? `${zahlDe(m.flaeche_ha, 4)} ha` : ''}
                 {m.anteil_pct != null && <span className="block text-[10px] text-s112-muted">{zahlDe(m.anteil_pct, 1)} %</span>}
+              </td>
+              <td className="py-1 pl-3 text-right font-mono text-s112-text-2">
+                {m.kosten_eur != null ? m.kosten_eur.toLocaleString('de-AT', { style: 'currency', currency: 'EUR' }) : '–'}
               </td>
             </tr>
           ))}

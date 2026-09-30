@@ -127,6 +127,19 @@ export function verteileMitRest(gesamt: number, gewichte: readonly number[], ste
   return ganz.map(x => (vorzeichen * x) / faktor)
 }
 
+/**
+ * Kostenaufteilung auf Rieden (KAN-132 Soll 10, Regel 7): Betrag und Prozent nach Gewichten (Fläche bzw. erfasste
+ * Prozent) mit Restausgleich – Σ betrag_anteil = Betrag, Σ anteil_pct = 100,00. Ohne Gewichte gleichmäßig.
+ * Reihenfolge beim Gleichstand: größeres Gewicht, dann weingartenId.
+ */
+export function kostenAufteilung(betrag: number, eintraege: readonly { weingartenId: string; gewicht: number | null }[]): { weingartenId: string; anteil_pct: number; betrag_anteil: number }[] {
+  const sortiert = [...eintraege].sort((a, b) => ((b.gewicht ?? 0) - (a.gewicht ?? 0)) || a.weingartenId.localeCompare(b.weingartenId))
+  const gewichte = sortiert.map(x => x.gewicht ?? 0)
+  const pct = verteileMitRest(100, gewichte, 2)
+  const betraege = verteileMitRest(betrag, gewichte, 2)
+  return sortiert.map((x, i) => ({ weingartenId: x.weingartenId, anteil_pct: pct[i], betrag_anteil: betraege[i] }))
+}
+
 /** Reihenfolge für den Gleichstand (Regel 7): größere Fläche, KG, GST-Nr. numerisch, grundstueck_id */
 function vergleicheOrte(a: { flaecheHa: number | null; kgNr: string | null; gstNr: string | null; grundstueckId: string | null }, b: typeof a): number {
   return ((b.flaecheHa ?? 0) - (a.flaecheHa ?? 0))

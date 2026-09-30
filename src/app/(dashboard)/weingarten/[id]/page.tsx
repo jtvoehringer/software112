@@ -84,16 +84,28 @@ export default async function WeingartenEditPage({ params }: Props) {
       alle<AR>((supabase.from('behandlungen') as any).select('id').eq('tenant_id', tenantIdFuerMassnahmen).eq('weingarten_id', id).order('id')),
     ])
     const ids = [...new Set([...(bgRes.data ?? []).map(r => String(r.behandlung_id)), ...(nurWgRes.data ?? []).map(r => String(r.id))])]
-    const { behandlungen } = ids.length > 0
-      ? await ladeBehandlungen(supabase, tenantIdFuerMassnahmen, { ids })
-      : { behandlungen: [] as PsmBehandlung[] }
+    const [{ behandlungen }, kostenRes] = await Promise.all([
+      ids.length > 0
+        ? ladeBehandlungen(supabase, tenantIdFuerMassnahmen, { ids })
+        : Promise.resolve({ behandlungen: [] as PsmBehandlung[] }),
+      // KAN-132 Soll 10: Kosten je GST laufend = Betrag der Maßnahme × Anteil (nicht gespeichert)
+      ids.length > 0
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ? alle<AR>((supabase.from('kosteneintraege') as any).select('behandlung_id, betrag').eq('tenant_id', tenantIdFuerMassnahmen).not('behandlung_id', 'is', null).order('behandlung_id'))
+        : Promise.resolve({ data: [] as AR[], error: null }),
+    ])
+    const kostenJeMassnahme = new Map<string, number>()
+    for (const k of kostenRes.data ?? []) {
+      const bid = String(k.behandlung_id)
+      kostenJeMassnahme.set(bid, (kostenJeMassnahme.get(bid) ?? 0) + (Number(k.betrag) || 0))
+    }
     const wi: WiGst[] = grundstuecke.filter(g => g.nutzart === 'WI').map(g => ({
       grundstueckId: g.id, gstNr: g.gst_nr, kgNr: g.katastralgemeinde, kgName: g.kg_bezeichnung ?? null,
       weingartenId: id, weingarten: weingarten.name, ried: null, lageId: null, flaecheHa: g.flaeche_ha,
     }))
     const wiJeWg = new Map([[id, wi]])
     for (const b of behandlungen) {
-      const v = verteileMassnahme(b, { wiGstJeWeingarten: wiJeWg })
+      const v = verteileMassnahme(b, { wiGstJeWeingarten: wiJeWg, kostenEur: kostenJeMassnahme.get(b.id) ?? null })
       for (const a of v.anteile) {
         if (!a.grundstueckId || !gstIdSet.has(a.grundstueckId)) continue
         ;(massnahmenByGst[a.grundstueckId] ??= []).push({
@@ -107,6 +119,7 @@ export default async function WeingartenEditPage({ params }: Props) {
           bruehe: a.bruehe,
           flaeche_ha: a.flaecheHa, anteil_pct: v.anteile.length > 1 ? a.anteil * 100 : null,
           vermerk: a.vermerk,
+          kosten_eur: a.kostenEur,
         })
       }
     }

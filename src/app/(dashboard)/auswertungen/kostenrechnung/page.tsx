@@ -6,11 +6,11 @@ import { exportCSV as csvExportieren } from '@/lib/utils/csv'
 import { csvDateiname, runden } from '@/lib/csv'
 
 type Eintrag = {
-  betrag: number; periode: string | null; objekt_typ: string | null
+  id: string; betrag: number; periode: string | null; objekt_typ: string | null
   kostenstelle: { name: string } | null; kostenart: { name: string } | null
   wg: { name: string } | null; behaelter: { name: string } | null
 }
-type Split = { kosteneintrag_id: string; betrag_anteil: number; wg: { name: string } | null }
+type Split = { kosteneintrag_id: string; anteil_pct: number | null; betrag_anteil: number; wg: { name: string; lagen?: { name: string } | null } | null }
 
 function eur(n: number) { return fmtEur(n) }
 function sumBy<T>(arr: T[], key: (t: T) => string, val: (t: T) => number) {
@@ -21,23 +21,35 @@ function sumBy<T>(arr: T[], key: (t: T) => string, val: (t: T) => number) {
 
 // CSV im Standard EXCEL_AT über lib/utils/csv (→ lib/csv, 24.09.2026): Semikolon, UTF-8 mit
 // BOM, CRLF, Betrag als Zahl mit Dezimalkomma, Formelschutz für Text. Vorher eigener Serializer.
-function exportCSV(jahr: string, daten: Eintrag[]) {
-  csvExportieren(
-    daten.map(e => ({
+// KAN-132: eine Zeile je Aufteilung auf eine Ried (Ried, Lage, Anteil, Betrag anteilig); Einträge ohne
+// Aufteilung eine Zeile mit dem ganzen Betrag. Die Spalte „Ried“ war bisher immer leer (weingarten_id NULL).
+function exportCSV(jahr: string, daten: Eintrag[], splits: Split[]) {
+  const jeEintrag = new Map<string, Split[]>()
+  for (const sp of splits) jeEintrag.set(sp.kosteneintrag_id, [...(jeEintrag.get(sp.kosteneintrag_id) ?? []), sp])
+  const zeilen = daten.flatMap(e => {
+    const basis = {
       periode:      e.periode ?? null,
       kostenstelle: e.kostenstelle?.name ?? null,
       kostenart:    e.kostenart?.name ?? null,
-      ried:         e.wg?.name ?? null,
       behaelter:    e.behaelter?.name ?? null,
       betrag:       runden(Number(e.betrag), 2),
-    })),
+    }
+    const sp = jeEintrag.get(e.id) ?? []
+    if (sp.length === 0) return [{ ...basis, ried: e.wg?.name ?? null, lage: null, anteil: null, betragAnteil: basis.betrag }]
+    return sp.map(x => ({ ...basis, ried: x.wg?.name ?? null, lage: x.wg?.lagen?.name ?? null, anteil: x.anteil_pct ?? null, betragAnteil: runden(Number(x.betrag_anteil), 2) }))
+  })
+  csvExportieren(
+    zeilen,
     [
       { key: 'periode',      header: 'Periode',      typ: 'text' },
       { key: 'kostenstelle', header: 'Kostenstelle', typ: 'text' },
       { key: 'kostenart',    header: 'Kostenart',    typ: 'text' },
       { key: 'ried',         header: 'Ried',         typ: 'text' },
+      { key: 'lage',         header: 'Lage',         typ: 'text' },
       { key: 'behaelter',    header: 'Behälter',     typ: 'text' },
-      { key: 'betrag',       header: 'Betrag (€)',   typ: 'betrag' },
+      { key: 'betrag',       header: 'Betrag Eintrag (€)', typ: 'betrag' },
+      { key: 'anteil',       header: 'Anteil (%)',   typ: 'prozent' },
+      { key: 'betragAnteil', header: 'Betrag anteilig (€)', typ: 'betrag' },
     ],
     csvDateiname(['Kostenauswertung', jahr]).utf8,
   )
@@ -71,14 +83,14 @@ export default function KostenAuswertungPage() {
       <div className="flex items-center justify-between print:hidden">
         <div>
           <h1 className="text-2xl font-semibold text-s112-text">Kosten-Auswertung</h1>
-          <p className="text-sm text-s112-muted mt-0.5">Jahresübersicht nach Kostenstelle, Kostenart und Weingarten</p>
+          <p className="text-sm text-s112-muted mt-0.5">Jahresübersicht nach Kostenstelle, Kostenart und Ried</p>
         </div>
         <div className="flex items-center gap-3">
           <select value={jahr} onChange={e => { setJahr(e.target.value); laden(e.target.value) }}
             className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none">
             {[2026,2025,2024,2023].map(y => <option key={y}>{y}</option>)}
           </select>
-          <button onClick={() => exportCSV(jahr, daten)}
+          <button onClick={() => exportCSV(jahr, daten, splits)}
             className="text-sm border border-s112-border px-4 py-1.5 rounded-lg hover:bg-s112-bg flex items-center gap-2">
             CSV exportieren
           </button>
@@ -132,9 +144,11 @@ export default function KostenAuswertungPage() {
           <h3 className="text-sm font-semibold text-s112-text mb-3 pb-2 border-b border-s112-border">Nach Ried</h3>
           {(() => {
             const m: Record<string, number> = {}
-            splits.forEach(s => { const n = s.wg?.name ?? '?'; m[n] = (m[n]||0) + (s.betrag_anteil ?? 0) })
-            const ohneSplit = daten.filter(e => e.objekt_typ === 'weingarten')
-            if (ohneSplit.length > 0) m['Alle WG'] = (m['Alle WG']||0) + ohneSplit.reduce((s,e)=>s+e.betrag,0)
+            // KAN-132: aufgeteilte Einträge nur über ihre Anteile – bisher zusätzlich noch einmal voll unter „Alle WG“
+            const aufgeteilt = new Set(splits.map(s => s.kosteneintrag_id))
+            splits.forEach(s => { const n = s.wg?.name ?? '?'; m[n] = (m[n]||0) + (Number(s.betrag_anteil) || 0) })
+            const ohneSplit = daten.filter(e => e.objekt_typ === 'weingarten' && !aufgeteilt.has(e.id))
+            if (ohneSplit.length > 0) m['Ohne Aufteilung (alle Rieden)'] = (m['Ohne Aufteilung (alle Rieden)']||0) + ohneSplit.reduce((s,e)=>s+e.betrag,0)
             return Object.entries(m).sort((a,b)=>b[1]-a[1]).map(([n,s]) => (
               <div key={n} className="flex justify-between text-sm mb-2">
                 <span className="text-s112-text-2 truncate mr-2">{n}</span>
