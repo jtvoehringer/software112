@@ -11,6 +11,7 @@ import type { Pressung, WGOption, BehOption, WAOption, ZukaufTraubenOpt } from '
 import { fmtHa, fmtZahl, fmtProzent, fmtNum, zahlAus } from '@/lib/format'
 import { Pencil, AlertTriangle, Plus } from 'lucide-react'
 import StornoButton from '@/components/StornoButton'
+import StornierteUmschalter from '@/components/StornierteUmschalter'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fehlerText } from '@/lib/fehler'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
@@ -693,6 +694,9 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
   // KAN-148 C1b: stornierte Einträge stehen gekennzeichnet in der Tabelle, zählen aber in keiner Summe
   const gueltigeParzellen = tabellenParzellen.filter(p => !p.storno)
   const stornierteAnzahl = tabellenParzellen.length - gueltigeParzellen.length
+  // KAN-148 Soll 9: stornierte ausblendbar
+  const [stornierteZeigen, setStornierteZeigen] = useState(true)
+  const tabellenZeilen = stornierteZeigen ? tabellenParzellen : gueltigeParzellen
   const gesamtKg = gueltigeParzellen.reduce((s, p) => s + (p.menge_kg ?? 0), 0)
   const mitAktionen = writeOk || adminOk
   // Spalten der Lesedaten-Tabelle: Ried, GST, Sorte, Datum, kg, Notizen, Mostgewicht, Qualität (+ Aktionen)
@@ -716,6 +720,7 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
           <h2 className="text-base font-semibold text-s112-text">Lesedaten{mehrereLesen ? ' – alle Lesen des Jahrgangs' : ''}</h2>
           <div className="flex items-start gap-3 flex-wrap">
             <span className="text-sm text-s112-muted">{gueltigeParzellen.length} Parzellen · {fmtZahl(gesamtKg/1000, 2)} t{stornierteAnzahl > 0 ? ` · ${stornierteAnzahl} storniert` : ''}</span>
+            <StornierteUmschalter anzahl={stornierteAnzahl} sichtbar={stornierteZeigen} onChange={setStornierteZeigen} className="mt-0.5" />
             {writeOk && !showForm && (
               <button onClick={() => { setShowForm(true); setEditId(null) }}
                 data-print="hide"
@@ -766,9 +771,9 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
                 </tr>
               </thead>
               <tbody>
-                {tabellenParzellen.map((p, i) => (
+                {tabellenZeilen.map((p, i) => (
                   <React.Fragment key={p.id}>
-                    {mehrereLesen && (i === 0 || tabellenParzellen[i - 1].lese_nr !== p.lese_nr) && (
+                    {mehrereLesen && (i === 0 || tabellenZeilen[i - 1].lese_nr !== p.lese_nr) && (
                       <tr className="bg-s112-bg/60 border-b border-s112-border">
                         <td colSpan={spaltenAnzahl} className="px-3 py-1.5 text-xs font-semibold text-s112-text-2">
                           Lese {p.lese_titel ?? '–'}

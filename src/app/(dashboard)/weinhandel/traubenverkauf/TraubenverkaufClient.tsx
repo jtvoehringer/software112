@@ -4,6 +4,7 @@ import React, { useState, useTransition } from 'react'
 import { Pencil } from 'lucide-react'
 import { upsertTraubenverkauf, stornoTraubenverkauf, endgueltigLoeschenTraubenverkauf } from './actions'
 import StornoButton from '@/components/StornoButton'
+import StornierteUmschalter from '@/components/StornierteUmschalter'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
@@ -267,6 +268,10 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnte
   const bkiJahrgaenge = [...new Set(verkaufe.map(v => (v.jahrgang as R | null)?.jahrgang).filter((j): j is number => typeof j === 'number'))].sort((a, b) => b - a)
 
   // KAN-148 C1b: stornierte Traubenverkäufe zählen in keiner Summe
+  // KAN-148 Soll 9: stornierte ausblendbar
+  const [stornierteZeigen, setStornierteZeigen] = useState(true)
+  const anzahlStorniert = verkaufe.filter(v => v.storniert_am).length
+  const sichtbare = stornierteZeigen ? verkaufe : verkaufe.filter(v => !v.storniert_am)
   const sumKg  = verkaufe.filter(v => !v.storniert_am).reduce((s, v) => s + Number(v.menge_kg ?? 0), 0)
   const sumEur = verkaufe.filter(v => !v.storniert_am).reduce((s, v) => v.preis_per_kg != null ? s + Number(v.menge_kg) * Number(v.preis_per_kg) : s, 0)
   const inp = 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 bg-white'
@@ -548,7 +553,8 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnte
         </div>
       ) : (
         <div className="space-y-2">
-          {verkaufe.map(v => {
+          <StornierteUmschalter anzahl={anzahlStorniert} sichtbar={stornierteZeigen} onChange={setStornierteZeigen} />
+          {sichtbare.map(v => {
             const wg     = v.weingarten as R | null
             const gst    = v.grundstueck as R | null
             const jg     = v.jahrgang as R | null

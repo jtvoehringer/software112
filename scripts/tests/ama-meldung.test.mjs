@@ -65,3 +65,24 @@ test('Leser: neueste Version statt maybeSingle je Jahrgang', () => {
   assert.ok(liste.includes("select('jahrgang_id, status, version')"))
   assert.ok(liste.includes('amaGesperrtByJG.get(j.id)'), 'Löschsperre bei jeder eingereichten Version')
 })
+
+test('Abgleich gemeldet ↔ Lesedaten je Rebsorte (KAN-148 Soll 5)', async () => {
+  const { amaAbweichungen, amaAktualisierenText } = await import('../../src/lib/behoerden/amaMeldung.ts')
+  const gemeldet = [{ rebsorte_name: 'Grüner Veltliner', menge_kg: 9000 }, { rebsorte_name: 'Riesling', menge_kg: '4000' }]
+  // gleich (inkl. Toleranz 0,5 kg) → leer
+  assert.deepEqual(amaAbweichungen(gemeldet, [{ rebsorte: 'Riesling', mengeKg: 4000.4 }, { rebsorte: 'Grüner Veltliner', mengeKg: 9000 }]), [])
+  // Lese storniert (Riesling weg) und neue Sorte → beide gemeldet, alphabetisch
+  assert.deepEqual(amaAbweichungen(gemeldet, [{ rebsorte: 'Grüner Veltliner', mengeKg: 9000 }, { rebsorte: 'Zweigelt', mengeKg: 100 }]), [
+    { rebsorte: 'Riesling', gemeldetKg: 4000, aktuellKg: 0 },
+    { rebsorte: 'Zweigelt', gemeldetKg: 0, aktuellKg: 100 },
+  ])
+  assert.equal(amaAktualisierenText('bereit'), '„Neu berechnen“')
+  assert.equal(amaAktualisierenText(null), '„Neu berechnen“')
+  assert.equal(amaAktualisierenText('bestaetigt'), '„Korrekturmeldung anlegen“ (neue Version)')
+})
+
+test('Erntemeldung: Hinweis auf Korrekturversion und Handlungstext je Status', () => {
+  const m = lies('src/lib/behoerden/erntemeldung.ts')
+  assert.ok(m.includes('Korrekturmeldung: Version ${version} ersetzt die eingereichte Version ${version - 1}.'))
+  assert.equal((m.match(/auf der Lese-Seite \$\{aktualisieren\}/g) ?? []).length, 2)
+})

@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { Pencil } from 'lucide-react'
 import { createTraubenverkauf, updateTraubenverkauf, stornoTraubenverkauf, endgueltigLoeschenLese } from '../actions'
 import StornoButton from '@/components/StornoButton'
+import StornierteUmschalter from '@/components/StornierteUmschalter'
 import type { ZukaufTraubenOpt } from './PressungSection'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum, dezimal } from '@/lib/format'
@@ -416,6 +417,9 @@ export default function TraubenverkaufSection({
 
   // KAN-148 C1b: stornierte Traubenverkäufe stehen gekennzeichnet in der Liste, zählen aber in keiner Summe
   const gueltige = verkauefe.filter(v => !v.storno)
+  // KAN-148 Soll 9: stornierte ausblendbar
+  const [stornierteZeigen, setStornierteZeigen] = useState(true)
+  const sichtbare = stornierteZeigen ? verkauefe : gueltige
   const gesamtKg = gueltige.reduce((s, v) => s + v.menge_kg, 0)
   const gesamtWert = gueltige.reduce((s, v) => s + (v.menge_kg * (v.preis_per_kg ?? 0)), 0)
 
@@ -489,7 +493,8 @@ export default function TraubenverkaufSection({
         </div>
       ) : (
         <div className="space-y-2">
-          {verkauefe.map(v => (
+          <StornierteUmschalter anzahl={verkauefe.length - gueltige.length} sichtbar={stornierteZeigen} onChange={setStornierteZeigen} />
+          {sichtbare.map(v => (
             <div key={v.id}>
               {editId === v.id ? (
                 <TVForm tv={v} jahrgangId={jahrgangId} leseId={leseId} quelleOptions={quelleOptions} zukaufOptions={zukaufOptions}

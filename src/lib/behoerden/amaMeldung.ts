@@ -44,3 +44,38 @@ export function neuesteAmaVersion<T extends { version?: number | null }>(version
   }
   return beste
 }
+
+/** Was bei abweichenden Lesedaten zu tun ist: offen → neu berechnen, sonst → Korrekturmeldung (neue Version) */
+export function amaAktualisierenText(status: string | null | undefined): string {
+  return status && !AMA_OFFEN.includes(status) ? '„Korrekturmeldung anlegen“ (neue Version)' : '„Neu berechnen“'
+}
+
+export type AmaAbweichung = { rebsorte: string; gemeldetKg: number; aktuellKg: number }
+
+/**
+ * Abgleich der gemeldeten Mengen je Rebsorte mit den aktuellen Lesedaten (ohne stornierte, bis Stichtag; Schlüssel wie
+ * aggregiereJeRebsorte). Liefert nur abweichende Sorten (Toleranz 0,5 kg), sortiert nach Rebsorte – leer = aktuell.
+ * KAN-148 Soll 5: Lesedaten dürfen nach dem Einreichen storniert/geändert werden, die AMA-Karte zeigt die Abweichung.
+ */
+export function amaAbweichungen(
+  gemeldet: readonly { rebsorte_name: string | null; menge_kg: number | string | null }[],
+  aktuell: readonly { rebsorte: string; mengeKg: number }[],
+): AmaAbweichung[] {
+  const m = new Map<string, { g: number; a: number }>()
+  for (const p of gemeldet) {
+    const k = (p.rebsorte_name ?? '').trim() || '–'
+    const e = m.get(k) ?? { g: 0, a: 0 }
+    e.g += Number(p.menge_kg ?? 0) || 0
+    m.set(k, e)
+  }
+  for (const s of aktuell) {
+    const k = s.rebsorte.trim() || '–'
+    const e = m.get(k) ?? { g: 0, a: 0 }
+    e.a += s.mengeKg || 0
+    m.set(k, e)
+  }
+  return [...m.entries()]
+    .filter(([, v]) => Math.abs(v.g - v.a) >= 0.5)
+    .map(([rebsorte, v]) => ({ rebsorte, gemeldetKg: v.g, aktuellKg: v.a }))
+    .sort((x, y) => x.rebsorte.localeCompare(y.rebsorte, 'de'))
+}

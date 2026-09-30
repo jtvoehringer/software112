@@ -135,7 +135,7 @@ async function pruefeRechnungFuerTrauben(
   if (postenRes.error) throw new AktionsFehler(dbFehlerText(postenRes.error, 'Rechnung zum Traubenverkauf konnte nicht geladen werden'))
   if (posRes.error) throw new AktionsFehler(dbFehlerText(posRes.error, 'Rechnungspositionen konnten nicht geladen werden'))
   if ((postenRes.data as AR | null)?.storniert) {
-    throw new AktionsFehler('Die Rechnung zu diesem Traubenverkauf ist storniert und kann nicht mehr geändert werden. Bitte den Traubenverkauf löschen und neu erfassen.')
+    throw new AktionsFehler('Die Rechnung zu diesem Traubenverkauf ist storniert und kann nicht mehr geändert werden. Bitte den Traubenverkauf stornieren und neu erfassen.')
   }
   const positionen = (posRes.data ?? []) as AR[]
   const pos = positionen.find(p => p.traubenverkauf_id === traubenverkaufId)
