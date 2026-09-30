@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { Pencil, X, ChevronDown, Plus } from 'lucide-react'
 import { upsertPressung, stornoPressung, endgueltigLoeschenLese } from '../actions'
 import StornoButton from '@/components/StornoButton'
+import StornierteUmschalter from '@/components/StornierteUmschalter'
 import { fmtProzent, fmtNum, dezimal } from '@/lib/format'
 import { kmwZuQualitaet } from '@/lib/weinqualitaet'
 import { abstufungsOptionen, minQualitaet, qualitaetLabel, QUALITAET_OPTS } from '@/lib/wein/qualitaet'
@@ -826,6 +827,9 @@ export default function PressungSection({ jahrgangId, leseId, leseArt, pressunge
 
   // KAN-148 C1c: stornierte Pressungen stehen gekennzeichnet in der Liste, zählen aber in keiner Summe
   const gueltige    = pressungen.filter(p => !p.storno)
+  // KAN-148 Soll 9: stornierte ausblendbar
+  const [stornierteZeigen, setStornierteZeigen] = useState(true)
+  const sichtbare   = stornierteZeigen ? pressungen : gueltige
   const gesamtKg    = gueltige.flatMap(p => p.weingaerten).reduce((s, w) => s + w.trauben_kg, 0)
   const gesamtLiter = gueltige.reduce((s, p) => s + (p.most_liter_gesamt ?? 0), 0)
   const ausbeute    = gesamtKg > 0 && gesamtLiter > 0 ? (gesamtLiter / gesamtKg) * 100 : null
@@ -906,7 +910,8 @@ export default function PressungSection({ jahrgangId, leseId, leseArt, pressunge
         </div>
       ) : (
         <div className="space-y-3">
-          {pressungen.map(p => {
+          <StornierteUmschalter anzahl={pressungen.length - gueltige.length} sichtbar={stornierteZeigen} onChange={setStornierteZeigen} />
+          {sichtbare.map(p => {
             const pKg = p.weingaerten.reduce((s, w) => s + w.trauben_kg, 0)
             const pAusbeute = pKg > 0 && p.most_liter_gesamt ? (p.most_liter_gesamt / pKg) * 100 : null
             return (

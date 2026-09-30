@@ -10,13 +10,13 @@ import ErnteDetailClient from './ErnteDetailClient'
 import type { Pressung, PressungWG, PressungBeh, WGOption, BehOption, WAOption, ZukaufTraubenOpt } from './PressungSection'
 import TraubenverkaufSection, { type Traubenverkauf, type TVWGOption, type TVKontaktOption, type TVFirmaOption, type TVQuelleOption } from './TraubenverkaufSection'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
-import { berechneHektarhoechstertrag, ladeLesedaten, ohneStornierteLese, stichtagHinweis, teileNachStichtag, weinbauflaecheHa, type HektarhoechstertragStatus, type LeseZeile } from '@/lib/behoerden/erntemeldung'
+import { aggregiereJeRebsorte, berechneHektarhoechstertrag, ladeLesedaten, ohneStornierteLese, parzelleFuerMeldung, stichtagHinweis, teileNachStichtag, weinbauflaecheHa, type HektarhoechstertragStatus, type LeseZeile } from '@/lib/behoerden/erntemeldung'
 import { KATALOG_ERNTE } from '@/lib/behoerden/katalog/ernte'
 import { betriebUndModuleLaden, zugriffsFehler } from '@/lib/behoerden/zugriff'
 import { istErntebar } from '@/lib/wein/leseErfassung'
 import { gewaehlteLese, leseLoeschsperre, leseTitel, type Lese } from '@/lib/wein/lesen'
 import LeseReiter, { type LeseMitSperre } from './LeseReiter'
-import { neuesteAmaVersion } from '@/lib/behoerden/amaMeldung'
+import { amaAbweichungen, neuesteAmaVersion, type AmaAbweichung } from '@/lib/behoerden/amaMeldung'
 
 export const metadata: Metadata = { title: 'Lese – software:112' }
 export const dynamic = 'force-dynamic'
@@ -60,6 +60,8 @@ export type AMAMeldung = AMAVersion & {
   n8n_status: string | null; n8n_fehler: string | null
   positionen: { rebsorte_name: string; flaeche_ha: number | null; menge_kg: number | null }[]
   versionen: AMAVersion[]
+  /** Rebsorten, deren aktuelle Lesedaten (ohne stornierte, bis Stichtag) von der Meldung abweichen (KAN-148 Soll 5) */
+  abweichungen: AmaAbweichung[]
 }
 // Hektarhöchstertrag: Berechnung gemeinsam mit Erntemeldung-Druck und -CSV (lib/behoerden/erntemeldung.ts)
 export type { HektarhoechstertragStatus }
@@ -259,6 +261,9 @@ export default async function ErnteDetailPage({ params, searchParams }: Props) {
       ...amaNeueste,
       positionen: (rawPos ?? []) as AMAMeldung['positionen'],
       versionen: amaVersionen,
+      // gleiche Grundlage wie „Neu berechnen“: gültige Lesedaten bis zum Stichtag, je Rebsorte
+      abweichungen: amaAbweichungen((rawPos ?? []) as AMAMeldung['positionen'],
+        aggregiereJeRebsorte(teileNachStichtag(leseGueltig, Number((jg as AR).jahrgang)).bis.map(parzelleFuerMeldung))),
     } as AMAMeldung
   }
 

@@ -161,6 +161,22 @@ export default function AmaMeldungKarte({ jahrgangId, jahrgang, amaMeldung, stic
             </table>
           )}
 
+          {amaMeldung.abweichungen.length > 0 && (
+            <div role="note" className="mb-3 rounded-lg border border-s112-warn/30 bg-s112-warn-bg px-3 py-2 text-xs text-s112-warn-fg">
+              <p className="font-semibold">
+                {offen ? 'Die Lesedaten haben sich seit der Berechnung geändert – bitte „Neu berechnen“.'
+                  : `Die Lesedaten weichen von der ${AMA_STATUS_LABEL[amaMeldung.status]?.toLowerCase() ?? ''} Meldung ab – bitte eine Korrekturmeldung anlegen.`}
+              </p>
+              <ul className="mt-1 list-disc pl-4">
+                {amaMeldung.abweichungen.map(a => (
+                  <li key={a.rebsorte}>
+                    {formatRebsorteMitKuerzel(a.rebsorte)}: gemeldet {fmtNum(a.gemeldetKg)} kg, Lesedaten {fmtNum(a.aktuellKg)} kg
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {!offen && (
             <p role="note" className="mb-3 text-xs text-s112-muted" data-print="hide">
               Die Meldung ist {AMA_STATUS_LABEL[amaMeldung.status]?.toLowerCase() ?? amaMeldung.status} und bleibt unverändert.

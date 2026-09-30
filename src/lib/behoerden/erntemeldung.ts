@@ -15,6 +15,7 @@
 // zusätzlich mit der gemessenen Einheit – Regeln in mostgewicht_export.ts.
 // Ohne 'server-only' und ohne Next-Importe: scripts/tests/ernte.test.mjs lädt die Datei direkt.
 
+import { amaAktualisierenText } from './amaMeldung'
 import { STELLEN, runden, type CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
 import { bkiRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
@@ -532,6 +533,12 @@ export async function ladeErntemeldung(supabase: Client, tenantId: string, jg: J
   if (meldungRes.error) throw new Error(`Laden fehlgeschlagen (ama_erntemeldungen): ${meldungRes.error.message}`)
   const meldung = (meldungRes.data ?? null) as R | null
   const warnungen: string[] = []
+  // KAN-148 C2: nach dem Einreichen hilft nur noch eine Korrekturmeldung (neue Version), vorher „Neu berechnen“
+  const aktualisieren = amaAktualisierenText(meldung ? textOderNull(meldung.status) : null)
+  const version = meldung ? Number(meldung.version ?? 1) || 1 : 1
+  if (version > 1) {
+    warnungen.push(`Korrekturmeldung: Version ${version} ersetzt die eingereichte Version ${version - 1}.`)
+  }
   const verkauft = verkaufRes.je
   if (verkaufRes.hinweis) warnungen.push(verkaufRes.hinweis)
 
@@ -574,7 +581,7 @@ export async function ladeErntemeldung(supabase: Client, tenantId: string, jg: J
     const leseKg = runden(stichtag.bis.reduce((s, z) => s + (z.mengeKg ?? 0), 0), STELLEN.kg)
     const meldungKg = zahlOderNull(meldung.gesamtmenge_kg)
     if (meldungKg !== null && runden(meldungKg, STELLEN.kg) !== leseKg) {
-      warnungen.push(`Die Lesedaten wurden nach dem Erstellen der AMA-Meldung geändert (Meldung ${fmtKg(meldungKg)} kg, Lesedaten ${fmtKg(leseKg)} kg) – auf der Lese-Seite „Neu berechnen“ und die Datei neu erstellen.`)
+      warnungen.push(`Die Lesedaten wurden nach dem Erstellen der AMA-Meldung geändert (Meldung ${fmtKg(meldungKg)} kg, Lesedaten ${fmtKg(leseKg)} kg) – auf der Lese-Seite ${aktualisieren} und die Datei neu erstellen.`)
     }
     // Abgleich Qualitätsstufe und hl je Sorte mit den Lesedaten: Meldungen, die vor dem
     // 25.09.2026 erstellt wurden, tragen fest „Qualitätswein“ und keine hl.
@@ -594,7 +601,7 @@ export async function ladeErntemeldung(supabase: Client, tenantId: string, jg: J
       if (gruende.length > 0) abweichend.push(`„${r.rebsorte}“ (${gruende.join('; ')})`)
     }
     if (abweichend.length > 0) {
-      warnungen.push(`Die gespeicherte AMA-Meldung weicht von den Lesedaten ab: ${abweichend.join(', ')} – auf der Lese-Seite „AMA-Meldung erstellen“ erneut ausführen und die Datei neu erstellen.`)
+      warnungen.push(`Die gespeicherte AMA-Meldung weicht von den Lesedaten ab: ${abweichend.join(', ')} – auf der Lese-Seite ${aktualisieren} und die Datei neu erstellen.`)
     }
   } else {
     roh = summen.map(s => ({
