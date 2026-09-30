@@ -81,7 +81,7 @@ DECLARE
   c_ta_liest   constant text[] := ARRAY['bestandsprotokoll', 'zeiterfassung'];
   c_min_ins    constant int := 75;
   c_min_upd    constant int := 70;
-  c_min_del    constant int := 70;
+  c_min_del    constant int := 68;   -- KAN-145 B4: Löschsperre auf keller_umzuege, verschneidungen … (30.09.2026)
   c_ok_re      constant text := '^(k[1-9][0-9]*|E23[0-9A-Z]{3})$';
   v_ok_ins     int := 0;
   v_ok_upd     int := 0;
