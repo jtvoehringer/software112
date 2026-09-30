@@ -11,7 +11,7 @@ import { fmtNum } from '@/lib/format'
 import { BEHANDLUNG_ART_LABEL, massnahmeMittel, massnahmeZeitraum } from '@/lib/behoerden/rueckverfolgung'
 import { fensterBeginnText, ttmmjjjj } from '@/lib/behoerden/rueckverfolgungFenster'
 import {
-  AMPEL_TEXT, einstiegFehler, ladeRvWeingarten, massnahmeWartezeit,
+  AMPEL_TEXT, QUELLE_TEXT, einstiegFehler, ladeRvWeingarten, massnahmeWartezeit,
   type RvEinstieg, type RvErgebnis, type WartezeitAmpel,
 } from '@/lib/behoerden/rv-weingarten'
 import RueckverfolgungPrintButton from '@/app/(dashboard)/kellerbuch/rueckverfolgung/PrintButton'
@@ -175,7 +175,7 @@ export default async function RiedenRueckverfolgungPage({ searchParams }: { sear
             </h2>
             <span className="text-xs text-s112-muted">
               {[
-                l.quelle === 'traubenverkauf' ? 'Traubenverkauf' : 'Pressung',
+                QUELLE_TEXT[l.quelle],
                 l.leseText,
                 l.katastralgemeinde ? `KG ${l.katastralgemeinde}` : null,
                 l.feldstueck ? `Feldstück ${l.feldstueck}` : null,

@@ -5,6 +5,10 @@
 //
 // Einstiege (genau einer; Seite /weingarten/rueckverfolgung und CSV „rueckverfolgung-weingarten“ gleich):
 //   ?lese=<lesen.id>        alle Lesezeilen (Pressungszeilen) und Traubenverkäufe dieser Lese
+// Lesedaten (ernte_parzellen), die noch nicht gepresst bzw. verkauft sind, zählen bei Lese, Jahrgang, Grundstück und
+// Weingarten als eigene Lesezeile (Herkunft „Lese (noch nicht gepresst)“, Rückmeldung 30.09.2026: die Lese vom 29.09.
+// fehlte, weil sie noch keine Pressung hatte). Sobald Pressung oder Traubenverkauf zur selben Lese (bzw. zum selben
+// Jahrgang) und demselben Grundstück (ohne GST: Weingarten) existieren, zählt nur noch diese.
 //   ?jahrgang=2025          alle Lesezeilen und Traubenverkäufe des Jahrgangs, optional ?gst= bzw. ?weingarten=
 //   ?gst=<grundstück>       Lesezeilen und Traubenverkäufe eines Grundstücks (mit ?jahrgang eines Jahrgangs)
 //   ?charge=<weinausbau>    Lesezeilen der Charge und ihrer Vorgänger (Umzüge, Verschnitte – lib/wein/blendKomposition)
@@ -53,7 +57,7 @@ export const AMPEL_TEXT: Record<WartezeitAmpel, string> = {
 
 /** Eine Lesezeile der Rieden-Rückverfolgung: Maßnahmen wie in der Kellerbuch-Rückverfolgung plus Herkunft */
 export type RvLese = LeseMassnahmen & {
-  quelle: 'pressung' | 'traubenverkauf'
+  quelle: 'pressung' | 'traubenverkauf' | 'lese'
   jahrgang: number | null
   /** „2025/1 Hauptlese“ */
   leseText: string | null
@@ -134,6 +138,19 @@ const TV_SELECT = `
   firma:firma_id(name)
 `
 
+const EP_SELECT = `
+  id, ernte_datum, menge_kg, klosterneuburger, weingarten_id, grundstueck_id, jahrgang_id, lese_id,
+  weingarten:weingarten_id(id, name, rebsorte),
+  grundstueck:grundstueck_id(gst_nr, katastralgemeinde, ama_feldnummer, rebsorte),
+  jahrgang:weinjahrgaenge!ernte_parzellen_jahrgang_id_fkey!inner(jahrgang, tenant_id),
+  lese:lesen!ernte_parzellen_lese_fkey(lfd_nr, art)
+`
+
+/** Schlüssel „Lese bzw. Jahrgang | Grundstück bzw. Weingarten“ – Lesedaten zählen nur ohne Pressung/Verkauf dazu */
+function leseOrtKey(leseId: unknown, jahrgangId: unknown, gstId: unknown, wgId: unknown): string {
+  return `${text(leseId) ?? `jg:${text(jahrgangId) ?? '?'}`}|${text(gstId) ?? `wg:${text(wgId) ?? '?'}`}`
+}
+
 function pruefen<T>(res: { data: T; error: { message?: string } | null }, was: string): T {
   if (res.error) throw new Error(`Rückverfolgung Weingarten: ${was} konnte nicht geladen werden (${res.error.message ?? 'unbekannter Fehler'})`)
   return res.data
@@ -173,6 +190,9 @@ export async function ladeRvWeingarten(supabase: any, tenantId: string, e: RvEin
   let keyJePw = new Map<string, string>()
   let chargeJePw = new Map<string, string>()
   let herkunftChargen: Map<string, R> | null = null
+  let ep: R[] = []
+  // tenant-isolation-ignore: ernte_parzellen ohne tenant_id, Filter über den Jahrgang (!inner)
+  const epAbfrage = () => (supabase.from('ernte_parzellen') as any).select(EP_SELECT).eq('jahrgang.tenant_id', tenantId)
 
   // tenant-isolation-ignore: pressung_weingaerten ohne tenant_id, Filter über die Pressung (!inner)
   const pwAbfrage = () => (supabase.from('pressung_weingaerten') as any).select(PW_SELECT).eq('pressung.tenant_id', tenantId)
@@ -200,11 +220,12 @@ export async function ladeRvWeingarten(supabase: any, tenantId: string, e: RvEin
     if (error) throw new Error(`Rückverfolgung Weingarten: Lese konnte nicht geladen werden (${error.message})`)
     if (!lese) return null
     titel = leseText(numOderNull(((lese as R).jahrgang as R | null)?.jahrgang), lese as R)
-    const [a, b] = await Promise.all([
+    const [a, b, c] = await Promise.all([
       alle<R>(pwAbfrage().eq('pressung.lese_id', e.lese).order('id')),
       alle<R>(tvAbfrage().eq('lese_id', e.lese).order('id')),
+      alle<R>(epAbfrage().eq('lese_id', e.lese).order('id')),
     ])
-    pw = pruefen(a, 'Lesezeilen'); tv = pruefen(b, 'Traubenverkäufe')
+    pw = pruefen(a, 'Lesezeilen'); tv = pruefen(b, 'Traubenverkäufe'); ep = pruefen(c, 'Lesedaten')
   } else {
     let jgIds: string[] | null = null
     if (e.jahrgang !== null) {
@@ -215,11 +236,12 @@ export async function ladeRvWeingarten(supabase: any, tenantId: string, e: RvEin
     }
     let qp = pwAbfrage()
     let qt = tvAbfrage()
-    if (jgIds) { qp = qp.in('pressung.jahrgang_id', jgIds); qt = qt.in('jahrgang_id', jgIds) }
-    if (e.gst) { qp = qp.eq('grundstueck_id', e.gst); qt = qt.eq('grundstueck_id', e.gst) }
-    if (e.weingarten) { qp = qp.eq('weingarten_id', e.weingarten); qt = qt.eq('weingarten_id', e.weingarten) }
-    const [a, b] = await Promise.all([alle<R>(qp.order('id')), alle<R>(qt.order('id'))])
-    pw = pruefen(a, 'Lesezeilen'); tv = pruefen(b, 'Traubenverkäufe')
+    let qe = epAbfrage()
+    if (jgIds) { qp = qp.in('pressung.jahrgang_id', jgIds); qt = qt.in('jahrgang_id', jgIds); qe = qe.in('jahrgang_id', jgIds) }
+    if (e.gst) { qp = qp.eq('grundstueck_id', e.gst); qt = qt.eq('grundstueck_id', e.gst); qe = qe.eq('grundstueck_id', e.gst) }
+    if (e.weingarten) { qp = qp.eq('weingarten_id', e.weingarten); qt = qt.eq('weingarten_id', e.weingarten); qe = qe.eq('weingarten_id', e.weingarten) }
+    const [a, b, c] = await Promise.all([alle<R>(qp.order('id')), alle<R>(qt.order('id')), alle<R>(qe.order('id'))])
+    pw = pruefen(a, 'Lesezeilen'); tv = pruefen(b, 'Traubenverkäufe'); ep = pruefen(c, 'Lesedaten')
     titel = e.jahrgang !== null ? `Jahrgang ${e.jahrgang}` : null
   }
   pw = pw.filter(z => (z.pressung as R | null)?.tenant_id === tenantId)
@@ -277,6 +299,44 @@ export async function ladeRvWeingarten(supabase: any, tenantId: string, e: RvEin
     })
   }
 
+  // Lesedaten ohne Pressung bzw. Traubenverkauf zur selben Lese und demselben Grundstück (Regeln im Dateikopf)
+  const belegt = new Set<string>()
+  for (const z of pw) {
+    const p = z.pressung as R
+    belegt.add(leseOrtKey(p.lese_id, p.jahrgang_id, z.grundstueck_id, z.weingarten_id))
+    belegt.add(leseOrtKey(null, p.jahrgang_id, z.grundstueck_id, z.weingarten_id))
+  }
+  for (const t of tv) {
+    belegt.add(leseOrtKey(t.lese_id, t.jahrgang_id, t.grundstueck_id, t.weingarten_id))
+    belegt.add(leseOrtKey(null, t.jahrgang_id, t.grundstueck_id, t.weingarten_id))
+  }
+  for (const p of ep) {
+    if ((p.jahrgang as R | null)?.tenant_id !== tenantId) continue
+    if (belegt.has(leseOrtKey(p.lese_id, p.jahrgang_id, p.grundstueck_id, p.weingarten_id))) continue
+    if (!p.lese_id && belegt.has(leseOrtKey(null, p.jahrgang_id, p.grundstueck_id, p.weingarten_id))) continue
+    const jahrgang = numOderNull((p.jahrgang as R | null)?.jahrgang)
+    const g = p.grundstueck as R | null
+    const w = p.weingarten as R | null
+    const id = `ep:${p.id}`
+    const datum = tag(p.ernte_datum) || null
+    zeilen.set(id, {
+      lese: { ...p, id, ernte_datum: datum },
+      pressungDatum: datum,
+      eingabe: {
+        id, grundstueckId: text(p.grundstueck_id), weingartenId: text(w?.id ?? p.weingarten_id),
+        lesedatum: datum, pressungDatum: datum, jahrgang, jahrgangId: text(p.jahrgang_id), leseId: text(p.lese_id),
+      },
+    })
+    info.set(id, {
+      ueberCharge: null, pressung: null,
+      quelle: 'lese', jahrgang, leseText: leseText(jahrgang, p.lese as R | null),
+      weingarten: text(w?.name), katastralgemeinde: text(g?.katastralgemeinde), gstNr: text(g?.gst_nr),
+      feldstueck: text(g?.ama_feldnummer), rebsorte: text(g?.rebsorte) ?? text(w?.rebsorte), lesedatum: datum,
+      kg: numOderNull(p.menge_kg), kmw: numOderNull(p.klosterneuburger), abnehmer: null, liefernummer: null,
+      anteilPct: null,
+    })
+  }
+
   const kern = await ladeMassnahmenZuLesezeilen(supabase, tenantId, zeilen)
   const lesen: RvLese[] = kern.map(l => ({ ...l, ...(info.get(l.leseId) as Omit<RvLese, keyof LeseMassnahmen>) }))
   warnungen.push(...leseWarnungen(lesen))
@@ -322,11 +382,17 @@ export type RvZeile = {
   hinweis: string | null
 }
 
+export const QUELLE_TEXT: Record<RvLese['quelle'], string> = {
+  pressung: 'Pressung',
+  traubenverkauf: 'Traubenverkauf',
+  lese: 'Lese (noch nicht gepresst)',
+}
+
 export function rvZeilen(lesen: readonly RvLese[]): RvZeile[] {
   const zeilen: RvZeile[] = []
   for (const l of lesen) {
     const basis = {
-      quelle: l.quelle === 'traubenverkauf' ? 'Traubenverkauf' : 'Pressung',
+      quelle: QUELLE_TEXT[l.quelle],
       lese: l.leseText, jahrgang: l.jahrgang, weingarten: l.weingarten, katastralgemeinde: l.katastralgemeinde,
       gstNr: l.gstNr, feldstueck: l.feldstueck, rebsorte: l.rebsorte, lesedatum: l.lesedatum,
       kg: l.kg === null ? null : runden(l.kg, STELLEN.kg), kmw: l.kmw === null ? null : runden(l.kmw, STELLEN.kmw),
