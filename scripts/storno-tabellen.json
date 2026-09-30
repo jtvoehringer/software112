@@ -1,0 +1,15 @@
+{
+  "_hinweis": "KAN-145: berichtsrelevante Tabellen (Meldungen aus src/lib/behoerden, Weinbuch, E/A) – stornieren statt löschen. 'scharf' = Tabellen mit DB-Löschsperre s112_loeschsperre (Block B und Folgetickets); ein Test gleicht sie mit den Trigger-Tabellen ab.",
+  "berichtsrelevant": [
+    "verschneidungen", "verschneidung_quellen", "keller_umzuege", "keller_behandlungen",
+    "fuellungen", "fuellung_chargen", "fuellung_bewegungen", "zukauf_posten", "weinausbau",
+    "pressungen", "pressung_behaelter", "pressung_weingaerten", "ernte_parzellen",
+    "ama_erntemeldungen", "ama_meldepositionen", "weinjahrgaenge", "traubenverkauf",
+    "verkaufsposten", "verkauf_positionen", "zahlungen", "konto_umbuchungen",
+    "ea_transaktionen", "ea_uva", "ea_monatsabschluss",
+    "behandlungen", "behandlung_grundstuecke", "psm_lager_bewegungen", "duengemittel_lager_bewegungen",
+    "dac_antrag", "weinanalysen", "pruefnummernantraege", "transportbescheinigungen",
+    "exportauftraege", "exportauftrag_positionen", "export_dokumente"
+  ],
+  "scharf": []
+}
