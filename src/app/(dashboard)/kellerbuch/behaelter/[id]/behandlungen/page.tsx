@@ -5,9 +5,10 @@ import { useEffect, useState, useTransition } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import Link from '@/components/ui/Link'
 import { useParams } from 'next/navigation'
-import { FlaskConical, BarChart3, ArrowLeftRight, Pencil, Trash2 } from 'lucide-react'
+import { FlaskConical, BarChart3, ArrowLeftRight, Pencil } from 'lucide-react'
+import StornoButton from '@/components/StornoButton'
 import { fmtNum, dezimal } from '@/lib/format'
-import { dbFehlerText, fehlerText } from '@/lib/fehler'
+import { dbFehlerText } from '@/lib/fehler'
 import { deleteKellerbehandlung } from '../../../actions'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { csvPfad } from '@/lib/behoerden/katalog'
@@ -60,7 +61,6 @@ export default function KellerbehandlungenPage() {
   // Name der beim Bearbeiten verknüpften Charge, falls sie nicht (mehr) aktiv im Behälter liegt
   const [formWeinausbauName, setFormWeinausbauName] = useState<string | null>(null)
   const [formError, setFormError]         = useState('')
-  const [listeFehler, setListeFehler]     = useState('')
   // Zeitraum für Liste, Ausdruck und CSV (Behördenmeldung „keller-behandlungen“) – leer = alles
   const [von, setVon]                     = useState('')
   const [bis, setBis]                     = useState('')
@@ -89,7 +89,8 @@ export default function KellerbehandlungenPage() {
     let weinausbauQuery = (supabase.from('weinausbau') as any).select('id, name, menge_liter, aktiv').eq('behaelter_id', behaelterId).eq('aktiv', true)
     // weinausbau_id mitladen: ohne sie setzte „Bearbeiten“ die Chargen-Zuordnung auf NULL (KAN-35)
     let behandlungenQuery = (supabase.from('keller_behandlungen') as any)
-      .select('id, datum, typ_id, typ_name_snapshot, menge, einheit, volumen_liter_ist, notizen, weinausbau_id, typ:typ_id(name), weinausbau:weinausbau_id(name)')
+      .select('id, datum, typ_id, typ_name_snapshot, menge, einheit, volumen_liter_ist, notizen, weinausbau_id, typ:typ_id(name), weinausbau:weinausbau_id(name), storniert_am, storno_grund, storniert_von_name')
+      // storno-sichtbar: Liste zeigt stornierte Behandlungen gekennzeichnet, ohne Aktionen (KAN-145 B3)
       .eq('behaelter_id', behaelterId)
       .order('datum', { ascending: false })
     let typenQuery = (supabase.from('keller_behandlungstypen') as any).select('id, name, einheit_standard').order('sort_order').order('name')
@@ -226,21 +227,6 @@ export default function KellerbehandlungenPage() {
       }
       setShowForm(false)
       loadData()
-    })
-  }
-
-  // KAN-35: Löschen über die Server Action (Rollen- und Ergebnisprüfung, protokolliert)
-  // statt direkt über den Browser-Client
-  function handleDelete(id: string) {
-    if (!confirm('Behandlung löschen?')) return
-    setListeFehler('')
-    startTransition(async () => {
-      try {
-        await deleteKellerbehandlung(id)
-        loadData()
-      } catch (err) {
-        setListeFehler(fehlerText(err, 'Löschen fehlgeschlagen'))
-      }
     })
   }
 
@@ -435,10 +421,6 @@ export default function KellerbehandlungenPage() {
         </div>
       )}
 
-      {listeFehler && (
-        <div role="alert" className="rounded-lg border border-s112-err/30 bg-s112-err-bg px-4 py-2 text-sm text-s112-err-fg">{listeFehler}</div>
-      )}
-
       {/* Liste */}
       {angezeigt.length === 0 ? (
         <div className="card text-center py-10">
@@ -472,7 +454,7 @@ export default function KellerbehandlungenPage() {
                 const ghl     = menge != null && vol != null && b.einheit
                   ? calcGProHl(menge, b.einheit, vol) : null
                 return (
-                  <tr key={b.id} className="border-b border-s112-border/30 last:border-0 hover:bg-s112-bg/40">
+                  <tr key={b.id} className={`border-b border-s112-border/30 last:border-0 ${b.storniert_am ? 'opacity-70' : 'hover:bg-s112-bg/40'}`}>
                     <td className="px-4 py-2.5 text-xs text-s112-text-2 whitespace-nowrap">
                       {String(b.datum ?? '').split('-').reverse().join('.')}
                     </td>
@@ -480,6 +462,11 @@ export default function KellerbehandlungenPage() {
                       <p className="font-medium text-s112-text">{typName}</p>
                       {(b.weinausbau as R | null)?.name && <p className="text-xs text-s112-text-2">Charge: {(b.weinausbau as R).name}</p>}
                       {b.notizen && <p className="text-xs text-s112-muted">{b.notizen}</p>}
+                      {b.storniert_am && (
+                        <p className="text-[11px] text-s112-warn-fg">
+                          storniert am {new Date(b.storniert_am).toLocaleDateString('de-AT')}{b.storniert_von_name ? ` von ${b.storniert_von_name}` : ''}{b.storno_grund ? ` – ${b.storno_grund}` : ''}
+                        </p>
+                      )}
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-s112-text-1">
                       {menge != null && b.einheit !== '-'
@@ -493,14 +480,16 @@ export default function KellerbehandlungenPage() {
                       {vol != null ? `${fmtNum(vol)} L` : '–'}
                     </td>
                     <td className="px-4 py-2.5 text-right print:hidden">
-                      <div className="flex items-center justify-end gap-3">
+                      {b.storniert_am ? <span className="text-[11px] text-s112-muted">storniert</span> : (
+                      <div className="flex items-start justify-end gap-3">
                         <button onClick={() => openEdit(b)}
                           title="Bearbeiten" aria-label="Bearbeiten"
                           className="text-s112-blue-700 hover:text-s112-blue-700/70"><Pencil size={15} strokeWidth={1.75} /></button>
-                        <button onClick={() => handleDelete(b.id)} disabled={isPending}
-                          title="Löschen" aria-label="Löschen"
-                          className="text-s112-err hover:text-s112-err-fg disabled:opacity-50"><Trash2 size={15} strokeWidth={1.75} /></button>
+                        {/* KAN-145 B3: stornieren mit Grund statt löschen */}
+                        <StornoButton action={grund => deleteKellerbehandlung(b.id, grund)} danach={() => loadData()}
+                          hinweis="Die Kellerbehandlung bleibt als storniert im Bewegungsbuch und Weinbuch stehen und zählt in keiner Auswertung." />
                       </div>
+                      )}
                     </td>
                   </tr>
                 )

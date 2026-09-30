@@ -27,7 +27,7 @@ test('jede lesende Abfrage auf keller_umzuege/verschneidungen filtert stornierte
   let geprueft = 0
   for (const f of dateien(SRC)) {
     const s = readFileSync(f, 'utf8').replace(/\r\n/g, '\n')
-    const re = /\(supabase\.from\('(keller_umzuege|verschneidungen)'\) as any\)\s*\n\s*\.select\(/g
+    const re = /\(supabase\.from\('(keller_umzuege|verschneidungen|keller_behandlungen)'\) as any\)\s*\n\s*\.select\(/g   // keller_behandlungen seit B3
     let m
     while ((m = re.exec(s))) {
       geprueft++
@@ -62,4 +62,16 @@ test('storno.ts löscht nicht mehr, sondern kennzeichnet (Grund Pflicht)', () =>
   assert.doesNotMatch(s, /\.delete\(\)/)
   assert.match(s, /\.update\(\{ storniert_am: new Date\(\)\.toISOString\(\), storno_grund: grund\.trim\(\) \}\)/)
   assert.match(s, /\.is\('storniert_am', null\)\s*\n\s*\.select\('id'\)/)
+})
+
+test('B3: Kellerbehandlung und Zukauf werden mit Grund storniert statt gelöscht', () => {
+  const k = readFileSync(path.join(SRC, 'app/(dashboard)/kellerbuch/actions.ts'), 'utf8')
+  const kb = k.slice(k.indexOf('export async function deleteKellerbehandlung'))
+  assert.match(kb, /export async function deleteKellerbehandlung\(id: string, grund: string\)/)
+  assert.match(kb, /\.update\(\{ storniert_am: new Date\(\)\.toISOString\(\), storno_grund: grund\.trim\(\) \}\)/)
+  assert.doesNotMatch(kb.slice(0, 1500), /\.delete\(\)/)
+  const z = readFileSync(path.join(SRC, 'app/(dashboard)/weinhandel/zukauf/actions.ts'), 'utf8')
+  const dz = z.slice(z.indexOf('export async function deleteZukauf'))
+  assert.match(dz, /\.update\(\{ aktiv: false, storniert_am: new Date\(\)\.toISOString\(\), storno_grund: grund\.trim\(\) \}\)/)
+  assert.match(readFileSync(path.join(SRC, 'app/(dashboard)/weinhandel/zukauf/ZukaufLoeschen.tsx'), 'utf8'), /<StornoButton/)
 })

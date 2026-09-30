@@ -7,6 +7,7 @@ import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { AktionsFehler, dbFehlerText, fehlerText } from '@/lib/fehler'
+import { stornoGrundFehler } from '@/lib/storno/grund'
 import { dezimal, fmtNum } from '@/lib/format'
 import { qualitaetFehler } from '@/lib/wein/qualitaet'
 import {
@@ -442,14 +443,17 @@ export async function updateZukauf(id: string, formData: FormData) {
   redirect('/weinhandel/zukauf')
 }
 
-// Soft-Delete (aktiv = false). KAN-35: nur ohne Folgebuchungen an der Zielcharge und ohne
+// Stornieren (KAN-145 B3, 30.09.2026): aktiv = false wie bisher (alle Leser filtern aktiv) und zusätzlich das
+// Storno-Kennzeichen mit Grund – der Zukauf bleibt als Beleg stehen. KAN-35: nur ohne Folgebuchungen an der Zielcharge und ohne
 // Pressung/Traubenverkauf/Tankverkauf aus dem Zukauf – sonst verschwände ein Zugang
 // rückwirkend, obwohl davon schon etwas abgegangen ist. Die Zielcharge wird vorher auf
 // 0 L/abgeschlossen gesetzt (einziger Zugang war dieser Zukauf); scheitert danach das
 // Deaktivieren, ist ein erneuter Versuch gefahrlos (Charge bleibt 0 L, keine Folgebuchungen).
-export async function deleteZukauf(id: string) {
+export async function deleteZukauf(id: string, grund: string) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await schreibKontext()
+  const grundFehler = stornoGrundFehler(grund)
+  if (grundFehler) throw new AktionsFehler(grundFehler)
 
   const { data: zukauf, error: zErr } = await (supabase.from('zukauf_posten') as any)
     .select('id, ziel_weinausbau_id')
@@ -473,12 +477,13 @@ export async function deleteZukauf(id: string) {
   }
 
   const { data: upd, error } = await (supabase.from('zukauf_posten') as any)
-    .update({ aktiv: false })
+    .update({ aktiv: false, storniert_am: new Date().toISOString(), storno_grund: grund.trim() })
     .eq('id', id)
     .eq('tenant_id', tenantId)
+    .is('storniert_am', null)
     .select('id')
-  if (error) throw new AktionsFehler(dbFehlerText(error, 'Löschen fehlgeschlagen (zukauf_posten)'))
-  if (!(upd as AR[] | null)?.length) throw new AktionsFehler('Der Zukauf konnte nicht gelöscht werden – Berechtigung prüfen.')
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Stornieren fehlgeschlagen (zukauf_posten)'))
+  if (!(upd as AR[] | null)?.length) throw new AktionsFehler('Der Zukauf konnte nicht storniert werden – bereits storniert oder Berechtigung prüfen.')
 
   revalidatePath('/weinhandel/zukauf')
   revalidatePath('/weinhandel')
