@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole, canWrite, canAdmin, getCurrentMembership } from '@/lib/auth/roles'
+import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import { BarChart3 } from 'lucide-react'
@@ -37,7 +37,6 @@ export default async function BehandlungenPage() {
   const supabase = await createSupabaseServerClient()
   const role = await getCurrentUserRole()
   const writeOk = canWrite(role, 'rieden')
-  const adminOk = canAdmin(role)
   // Explizite Tenant-Filterung zusätzlich zu RLS: RLS erlaubt Zeilen aus JEDER Mitgliedschaft
   // des Nutzers, nicht nur dem aktiv gewählten Betrieb.
   const membership = await getCurrentMembership()
@@ -159,7 +158,7 @@ export default async function BehandlungenPage() {
         </div>
       </div>
 
-      <BehandlungenClient behandlungen={behandlungen} adminOk={adminOk} />
+      <BehandlungenClient behandlungen={behandlungen} schreibOk={writeOk} />
     </div>
   )
 }

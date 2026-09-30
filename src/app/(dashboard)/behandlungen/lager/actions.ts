@@ -5,7 +5,8 @@ import { getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { revalidatePath } from 'next/cache'
-import { AktionsFehler } from '@/lib/fehler'
+import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
+import { stornoGrundFehler } from '@/lib/storno/grund'
 import { dezimal } from '@/lib/format'
 import { MASSNAHMEN_ARTEN, MASSNAHMEN_ART_LABEL, istMassnahmenArt } from '@/lib/behandlungen/arten'
 
@@ -61,13 +62,22 @@ export async function upsertLagerBewegung(fd: FormData) {
   revalidatePath('/behandlungen/lager')
 }
 
-export async function deleteLagerBewegung(id: string) {
+// Lagerbewegung löschen mit Grund (KAN-166): über die RPC – Rolle, Modul Rieden, Betrieb, Abo; Grund im Protokoll
+async function lagerLoeschen(tabelle: 'psm_lager_bewegungen' | 'duengemittel_lager_bewegungen', id: string, grund: string) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
+  const f = stornoGrundFehler(grund)
+  if (f) throw new AktionsFehler(f.replace('den Storno', 'das Löschen'))
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('psm_lager_bewegungen') as any).delete().eq('id', id).eq('tenant_id', tenantId)
-  if (error) throw new AktionsFehler(`Löschen fehlgeschlagen: ${error.message}`)
+  const { error } = await (supabase.rpc as any)('s112_buchung_loeschen', {
+    p_tenant_id: tenantId, p_tabelle: tabelle, p_id: id, p_grund: grund.trim(),
+  })
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Löschen fehlgeschlagen'))
   revalidatePath('/behandlungen/lager')
+}
+
+export async function deleteLagerBewegung(id: string, grund: string) {
+  await lagerLoeschen('psm_lager_bewegungen', id, grund)
 }
 
 // ── Düngemittel-Lagerbewegungen (Migration 142, analog PSM-Lager oben) ────────
@@ -110,13 +120,8 @@ export async function upsertDuengerBewegung(fd: FormData) {
   revalidatePath('/behandlungen/lager')
 }
 
-export async function deleteDuengerBewegung(id: string) {
-  const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('duengemittel_lager_bewegungen') as any).delete().eq('id', id).eq('tenant_id', tenantId)
-  if (error) throw new AktionsFehler(`Löschen fehlgeschlagen: ${error.message}`)
-  revalidatePath('/behandlungen/lager')
+export async function deleteDuengerBewegung(id: string, grund: string) {
+  await lagerLoeschen('duengemittel_lager_bewegungen', id, grund)
 }
 
 // ── PSM-Stammdaten (vormals /pflanzenschutz, jetzt Teil der Betriebsmittel-Lagerverwaltung) ────────

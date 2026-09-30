@@ -1,11 +1,12 @@
 'use client'
 
-// Stornieren mit Pflicht-Grund (KAN-145, 30.09.2026): Die Buchung bleibt stehen und wird gekennzeichnet; der Grund
-// (mind. 10 Zeichen) landet in storno_grund und im Änderungsprotokoll. Ersetzt beim Kellerbuch das bisherige
-// „Löschen“ per window.confirm (LoeschenButton).
+// Stornieren bzw. Löschen mit Pflicht-Grund (KAN-145, KAN-166; 30.09.2026). Stornieren: Die Buchung bleibt stehen und
+// wird gekennzeichnet (storno_grund). Löschen (modus="loeschen", z. B. Maßnahmen, Lagerbewegungen): die Zeile geht,
+// der Grund steht im Änderungsprotokoll (bestandsprotokoll.grund). Grund jeweils mind. 10 Zeichen – Vorgabe:
+// Stornieren und Löschen werden dokumentiert, Bearbeiten nicht.
 
 import { useId, useState } from 'react'
-import { Undo2 } from 'lucide-react'
+import { Trash2, Undo2 } from 'lucide-react'
 import { fehlerText } from '@/lib/fehler'
 import { STORNO_GRUND_MIN, stornoGrundFehler } from '@/lib/storno/grund'
 
@@ -14,13 +15,17 @@ interface Props {
   action: (grund: string) => Promise<void | { error?: string }>
   /** Was passiert (z. B. „Quelle und Ziel werden zurückgebucht …“) */
   hinweis: string
-  /** Beschriftung (Tooltip/Screenreader) */
+  /** Beschriftung (Tooltip/Screenreader); Standard je Modus */
   label?: string
+  /** 'storno' (Standard) oder 'loeschen' */
+  modus?: 'storno' | 'loeschen'
   /** Nach Erfolg (z. B. router.refresh) */
   danach?: () => void
 }
 
-export default function StornoButton({ action, hinweis, label = 'Stornieren', danach }: Props) {
+export default function StornoButton({ action, hinweis, label, modus = 'storno', danach }: Props) {
+  const loeschen = modus === 'loeschen'
+  const text = label ?? (loeschen ? 'Löschen' : 'Stornieren')
   const id = useId()
   const [offen, setOffen] = useState(false)
   const [grund, setGrund] = useState('')
@@ -28,7 +33,7 @@ export default function StornoButton({ action, hinweis, label = 'Stornieren', da
   const [pending, setPending] = useState(false)
 
   async function absenden() {
-    const f = stornoGrundFehler(grund)
+    const f = loeschen ? stornoGrundFehler(grund)?.replace('den Storno', 'das Löschen') ?? null : stornoGrundFehler(grund)
     if (f) { setFehler(f); return }
     setFehler(null)
     setPending(true)
@@ -39,7 +44,7 @@ export default function StornoButton({ action, hinweis, label = 'Stornieren', da
       setGrund('')
       danach?.()
     } catch (err) {
-      setFehler(fehlerText(err, 'Storno fehlgeschlagen'))
+      setFehler(fehlerText(err, loeschen ? 'Löschen fehlgeschlagen' : 'Storno fehlgeschlagen'))
     } finally {
       setPending(false)
     }
@@ -48,9 +53,9 @@ export default function StornoButton({ action, hinweis, label = 'Stornieren', da
   if (!offen) {
     return (
       <span className="inline-flex flex-col items-end gap-0.5 align-top">
-        <button type="button" onClick={() => { setOffen(true); setFehler(null) }} title={label} aria-label={label}
+        <button type="button" onClick={() => { setOffen(true); setFehler(null) }} title={text} aria-label={text}
           className="text-s112-err hover:text-s112-err-fg">
-          <Undo2 className="w-4 h-4" />
+          {loeschen ? <Trash2 className="w-4 h-4" /> : <Undo2 className="w-4 h-4" />}
         </button>
         {fehler && (
           <span role="alert" className="block text-[11px] leading-snug text-s112-err-fg w-[240px] max-w-[70vw] text-left whitespace-normal break-words">{fehler}</span>
@@ -63,7 +68,7 @@ export default function StornoButton({ action, hinweis, label = 'Stornieren', da
     <span className="inline-flex flex-col items-stretch gap-1 w-[280px] max-w-[80vw] text-left whitespace-normal align-top">
       <span className="text-[11px] leading-snug text-s112-text-2">{hinweis}</span>
       <label htmlFor={id} className="text-[11px] font-medium text-s112-text-1">
-        Grund des Stornos <span className="text-s112-err">*</span>
+        {loeschen ? 'Grund des Löschens' : 'Grund des Stornos'} <span className="text-s112-err">*</span>
       </label>
       <textarea id={id} value={grund} onChange={e => setGrund(e.target.value)} rows={2} autoFocus
         minLength={STORNO_GRUND_MIN} aria-invalid={!!fehler || undefined} aria-describedby={fehler ? `${id}-f` : undefined}
@@ -75,7 +80,7 @@ export default function StornoButton({ action, hinweis, label = 'Stornieren', da
           className="text-xs text-s112-text-2 hover:text-s112-text-1 px-1">Abbrechen</button>
         <button type="button" onClick={absenden} disabled={pending}
           className="text-xs bg-s112-err text-white px-2 py-0.5 rounded font-medium disabled:opacity-50">
-          {pending ? '…' : 'Stornieren'}
+          {pending ? '…' : text}
         </button>
       </span>
     </span>

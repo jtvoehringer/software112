@@ -1068,10 +1068,11 @@ BEGIN
       'keller_freigaben', 'plattform_admins', 'profiles', 'rebsorten', 'release_notes', 'release_notes_gesehen',
       'svs_parameter', 'tenants']
     WHEN 'protokoll_tabellen' THEN ARRAY[
-      'ama_erntemeldungen', 'ama_meldepositionen', 'bestandsprotokoll', 'ernte_parzellen', 'fuellung_bewegungen',
-      'fuellung_chargen', 'fuellungen', 'keller_behandlungen', 'keller_umzuege', 'lesen', 'pressung_behaelter',
-      'pressung_weingaerten', 'pressungen', 'traubenverkauf', 'verkauf_positionen', 'verkaufsposten',
-      'verschneidung_quellen', 'verschneidungen', 'weinausbau', 'weinjahrgaenge', 'zukauf_posten']
+      'ama_erntemeldungen', 'ama_meldepositionen', 'behandlungen', 'bestandsprotokoll', 'duengemittel_lager_bewegungen',
+      'ernte_parzellen', 'fuellung_bewegungen', 'fuellung_chargen', 'fuellungen', 'keller_behandlungen', 'keller_umzuege',
+      'lesen', 'pressung_behaelter', 'pressung_weingaerten', 'pressungen', 'psm_lager_bewegungen', 'traubenverkauf',
+      'verkauf_positionen', 'verkaufsposten', 'verschneidung_quellen', 'verschneidungen', 'weinausbau', 'weinjahrgaenge',
+      'zukauf_posten']   -- KAN-166: behandlungen und die beiden Lagertabellen
     WHEN 'abo_ausnahmen' THEN ARRAY[
       'benachrichtigungen', 'keller_freigaben', 'plattform_admins', 'profiles', 'rebsorten', 'release_notes',
       'release_notes_gesehen', 'svs_parameter', 'system_ereignisse', 'tenant_memberships', 'user_email_connections']
@@ -1157,6 +1158,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('intern',        '--S', false, 's112_mandant_mitglieder_mit_email(p_tenant_id uuid)'),
     ('rls_hilfe',     '-US', false, 's112_meine_tenants()'),
     ('rls_hilfe',     '-US', false, 's112_schreibgesperrte_tenants()'),
+    ('mandant',       '-US', true , 's112_buchung_loeschen(p_tenant_id uuid, p_tabelle text, p_id uuid, p_grund text)'),   -- KAN-166
     ('trigger',       '--S', false, 's112_loeschsperre()'),                    -- KAN-145 A: BEFORE-DELETE-Sperre
     ('mandant',       '-US', true , 's112_storniert_loeschen(p_tenant_id uuid, p_tabelle text, p_id uuid, p_grund text)'),   -- KAN-145 A
     ('trigger',       '--S', false, 's112_storno_schutz()'),                   -- KAN-145 B1: Storno-Spalten
