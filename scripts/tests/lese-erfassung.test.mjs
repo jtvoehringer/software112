@@ -229,7 +229,7 @@ describe('Verdrahtung Lese-Erfassung (Quelltext)', () => {
   const actions = quelle('src/app/(dashboard)/erntemeldung/actions.ts')
   const start = actions.indexOf('export async function createMultipleErnteParzellen(')
   const action = actions.slice(start, actions.indexOf('\nexport async function ', start + 10))
-  const page = quelle('src/app/(dashboard)/erntemeldung/[id]/page.tsx')
+  const page = (quelle('src/app/(dashboard)/erntemeldung/[id]/page.tsx') + quelle('src/app/(dashboard)/erntemeldung/[id]/leseKontext.ts'))   /* Laden seit dem Pilottest in leseKontext.ts */
 
   test('KAN-160: keine Gruppe „Alle“/„(Keine Lage)“ mehr, Gruppen aus riedGruppen, nur erntebare wählbar', () => {
     assert.doesNotMatch(client, /lage_name \?\? 'Alle'/)

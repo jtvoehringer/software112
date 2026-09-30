@@ -161,7 +161,7 @@ describe('Verdrahtung', () => {
   })
 
   test('Seite lädt Lesedatum und Mostgewicht der Traubenzeilen; Blend-Jahrgang aus der Pressung', () => {
-    assert.match(quelle('src/app/(dashboard)/erntemeldung/[id]/page.tsx'), /pressung_weingaerten\([^)]*ernte_datum, kmw, oechsle, mostgewicht_einheit/)
+    assert.match((quelle('src/app/(dashboard)/erntemeldung/[id]/page.tsx') + quelle('src/app/(dashboard)/erntemeldung/[id]/leseKontext.ts'))   /* Laden seit dem Pilottest in leseKontext.ts */, /pressung_weingaerten\([^)]*ernte_datum, kmw, oechsle, mostgewicht_einheit/)
     const b = quelle('src/lib/wein/blendKomposition.ts')
     assert.match(b, /jahrgang:jahrgang_id\(jahrgang\)/)
     assert.doesNotMatch(b, /new Date\(wg\.ernte_datum\)\.getFullYear\(\)/)

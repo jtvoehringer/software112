@@ -53,7 +53,7 @@ test('Verdrahtung: Speichern, Status und Korrektur nur über die RPCs', () => {
 })
 
 test('Leser: neueste Version statt maybeSingle je Jahrgang', () => {
-  const detail = lies('src/app/(dashboard)/erntemeldung/[id]/page.tsx')
+  const detail = (lies('src/app/(dashboard)/erntemeldung/[id]/page.tsx') + lies('src/app/(dashboard)/erntemeldung/[id]/leseKontext.ts'))   /* Laden seit dem Pilottest in leseKontext.ts */
   assert.ok(detail.includes("order('version', { ascending: false })"))
   assert.ok(detail.includes('neuesteAmaVersion('))
   const meldung = lies('src/lib/behoerden/erntemeldung.ts')
