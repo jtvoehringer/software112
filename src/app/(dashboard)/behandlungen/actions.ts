@@ -183,9 +183,8 @@ async function ggfKostenEintragAnlegen(
 }
 
 // Kosten beim Bearbeiten einer Maßnahme anlegen/aktualisieren/entfernen (Punkte 6, 9).
-// Ermittelt die Fläche je Weingarten aus der bestehenden Grundstück-Verknüpfung
-// (behandlung_grundstuecke) – die Weingarten-/GST-Auswahl selbst ist beim Bearbeiten
-// nicht änderbar.
+// Ermittelt die Fläche je Ried aus der Grundstück-Verknüpfung (behandlung_grundstuecke) – nach einer
+// geänderten Ried-Auswahl bereits die neue.
 async function ggfKostenEintragAktualisieren(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
@@ -294,6 +293,34 @@ async function ggfKostenEintragAktualisieren(
   }
 }
 
+type GstAuswahl = Map<string, { id: string; weingarten_id: string; flaeche_ha: number | null }>
+
+// Betroffene Grundstücke aus der Formular-Auswahl: a) alle WI-GST der ganz gewählten Rieden, b) die einzeln gewählten
+// GST – nur Nutzart WI (andere Nutzarten, z. B. Grünbrache, werden übersprungen). Anlegen und – seit 30.09.2026 –
+// Bearbeiten.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function grundstueckeDerAuswahl(supabase: any, tenantId: string, formData: FormData): Promise<GstAuswahl> {
+  const weingartenIds = formData.getAll('weingarten_ids') as string[]
+  const grundstueckIds = formData.getAll('grundstueck_ids') as string[]
+  const out: GstAuswahl = new Map()
+  const laden = async (spalte: 'weingarten_id' | 'id', ids: string[]) => {
+    if (ids.length === 0) return
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase.from('grundstuecke') as any)
+      .select('id, weingarten_id, flaeche_ha')
+      .in(spalte, ids)
+      .eq('nutzart', 'WI')
+      .eq('tenant_id', tenantId)
+    if (error) throw new AktionsFehler((error as AR).message)
+    for (const g of ((data ?? []) as AR[])) out.set(g.id, { id: g.id, weingarten_id: g.weingarten_id, flaeche_ha: g.flaeche_ha ?? null })
+  }
+  await laden('weingarten_id', weingartenIds)
+  await laden('id', grundstueckIds)
+  return out
+}
+
+const OHNE_WI_GST = 'Die gewählten Rieden bzw. Grundstücke haben kein Grundstück mit Nutzart WI (Weingarten) – eine Maßnahme ohne Grundstück lässt sich nicht auswerten. Bitte eine Ried mit Weingarten-Grundstücken wählen oder die Nutzart der Grundstücke prüfen.'
+
 export async function createBehandlung(formData: FormData) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
@@ -348,39 +375,11 @@ export async function createBehandlung(formData: FormData) {
   //    a) alle aktiven Grundstücke der ganz ausgewählten Weingärten (Ried-Auswahl)
   //    b) die einzeln ausgewählten Grundstücke (GST-Feinauswahl)
   //    nur Grundstücke mit Nutzart WI (Weingarten) – alle anderen Nutzarten (z. B. Grünbrache) werden übersprungen
-  const grundstueckeById = new Map<string, { id: string; weingarten_id: string; flaeche_ha: number | null }>()
-
-  if (weingartenIds.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: gVonRieden, error: gErr } = await (supabase.from('grundstuecke') as any)
-      .select('id, weingarten_id, flaeche_ha')
-      .in('weingarten_id', weingartenIds)
-      .eq('nutzart', 'WI')
-      .eq('tenant_id', tenantId)
-    if (gErr) throw new AktionsFehler((gErr as AR).message)
-    for (const g of ((gVonRieden ?? []) as AR[])) {
-      grundstueckeById.set(g.id, { id: g.id, weingarten_id: g.weingarten_id, flaeche_ha: g.flaeche_ha ?? null })
-    }
-  }
-
-  if (grundstueckIds.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: gEinzeln, error: gErr2 } = await (supabase.from('grundstuecke') as any)
-      .select('id, weingarten_id, flaeche_ha')
-      .in('id', grundstueckIds)
-      .eq('nutzart', 'WI')
-      .eq('tenant_id', tenantId)
-    if (gErr2) throw new AktionsFehler((gErr2 as AR).message)
-    for (const g of ((gEinzeln ?? []) as AR[])) {
-      grundstueckeById.set(g.id, { id: g.id, weingarten_id: g.weingarten_id, flaeche_ha: g.flaeche_ha ?? null })
-    }
-  }
+  const grundstueckeById = await grundstueckeDerAuswahl(supabase, tenantId, formData)
 
   // KAN-132 (Frage 6): keine Maßnahme ohne Grundstück – sie wäre auf kein GST verteilbar (Auswertungen, Cu, N/P,
   // Kosten); gilt für Formular und Assistent (der ruft diese Action)
-  if (grundstueckeById.size === 0) {
-    throw new AktionsFehler('Die gewählten Rieden bzw. Grundstücke haben kein Grundstück mit Nutzart WI (Weingarten) – eine Maßnahme ohne Grundstück lässt sich nicht auswerten. Bitte eine Ried mit Weingarten-Grundstücken wählen oder die Nutzart der Grundstücke prüfen.')
-  }
+  if (grundstueckeById.size === 0) throw new AktionsFehler(OHNE_WI_GST)
 
   // 2. Mengen prüfen und ergänzen (KAN-133): Fläche = Σ der gewählten WI-GST
   const mengen = pruefeMassnahmeMengen({
@@ -497,24 +496,39 @@ export async function updateBehandlung(id: string, formData: FormData) {
     ernteFruehesteins = d.toISOString().split('T')[0]
   }
 
-  // Mengen prüfen und ergänzen (KAN-133) – Fläche = Σ der Grundstücke dieser Maßnahme (die GST-Auswahl
-  // ist beim Bearbeiten nicht änderbar). behandlung_grundstuecke hat keine tenant_id, daher eingebettet
-  // über die Maßnahme des Betriebs.
+  // Mengen prüfen und ergänzen (KAN-133) – Fläche = Σ der Grundstücke dieser Maßnahme. behandlung_grundstuecke hat
+  // keine tenant_id, daher eingebettet über die Maßnahme des Betriebs.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: bisher, error: bisherErr } = await (supabase.from('behandlungen') as any)
-    .select('id, behandlung_grundstuecke(flaeche_ha, grundstueck:grundstueck_id(flaeche_ha))')
+    .select('id, behandlung_grundstuecke(grundstueck_id, flaeche_ha, grundstueck:grundstueck_id(flaeche_ha))')
     .eq('id', id)
     .eq('tenant_id', tenantId)
     .maybeSingle()
   if (bisherErr) throw new AktionsFehler((bisherErr as AR).message)
   if (!bisher) throw new AktionsFehler('Maßnahme nicht gefunden – bitte die Seite neu laden.')
+  const bisherBG = (((bisher as AR).behandlung_grundstuecke ?? []) as AR[])
+
+  // Rieden beim Bearbeiten änderbar (Rückmeldung 30.09.2026): mit „ried_auswahl“ ersetzt die Auswahl die
+  // Grundstücke der Maßnahme. Bisher behandelte GST behalten ihren Flächen-Snapshot, neue übernehmen die heutige
+  // Fläche. Ohne Kennzeichen (z. B. Altformular) bleibt die Zuordnung unverändert.
+  let neueGst: GstAuswahl | null = null
+  if (formData.get('ried_auswahl') === '1') {
+    neueGst = await grundstueckeDerAuswahl(supabase, tenantId, formData)
+    if (neueGst.size === 0) throw new AktionsFehler(OHNE_WI_GST)
+    const snapshot = new Map(bisherBG.map(bg => [String(bg.grundstueck_id), bg.flaeche_ha ?? bg.grundstueck?.flaeche_ha ?? null]))
+    for (const g of neueGst.values()) if (snapshot.has(g.id)) g.flaeche_ha = snapshot.get(g.id) ?? g.flaeche_ha
+  }
+  const flaechen = neueGst
+    ? Array.from(neueGst.values(), g => g.flaeche_ha)
+    : bisherBG.map(bg => bg.flaeche_ha ?? bg.grundstueck?.flaeche_ha)
+
   const mengen = pruefeMassnahmeMengen({
     art, psmId, duengemittelId,
     ...(await ladeMengenStamm(supabase, tenantId, art, psmId, duengemittelId)),
     aufwand: aufwandmenge, aufwandEinheit,
     mengeGesamt, mengeEinheit,
     wasserLHa: wasseraufwand, konzentrationPct: konzentration,
-    flaecheHa: summeFlaecheHa((((bisher as AR).behandlung_grundstuecke ?? []) as AR[]).map(bg => bg.flaeche_ha ?? bg.grundstueck?.flaeche_ha)),
+    flaecheHa: summeFlaecheHa(flaechen),
   })
   if (!mengen.ok) throw new AktionsFehler(mengen.fehler)
 
@@ -534,6 +548,25 @@ export async function updateBehandlung(id: string, formData: FormData) {
     .eq('tenant_id', tenantId)
   if (error) throw new AktionsFehler((error as AR).message)
 
+  if (neueGst) {
+    const bisherIds = new Set(bisherBG.map(bg => String(bg.grundstueck_id)))
+    const weg = [...bisherIds].filter(gid => !neueGst!.has(gid))
+    const dazu = [...neueGst.values()].filter(g => !bisherIds.has(g.id))
+    if (weg.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error: e } = await (supabase.from('behandlung_grundstuecke') as any)
+        .delete().eq('behandlung_id', id).in('grundstueck_id', weg)
+      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (behandlung_grundstuecke): ${e.message}`)
+    }
+    if (dazu.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error: e } = await (supabase.from('behandlung_grundstuecke') as any)
+        .insert(dazu.map(g => ({ behandlung_id: id, grundstueck_id: g.id, flaeche_ha: g.flaeche_ha ?? null })))
+      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (behandlung_grundstuecke): ${e.message}`)
+    }
+  }
+
+  // Kosten danach – die Aufteilung je Ried liest die (ggf. neue) Grundstücks-Zuordnung
   await ggfKostenEintragAktualisieren(supabase, tenantId, formData, datum, id)
 
   revalidatePath('/behandlungen')
