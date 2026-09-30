@@ -140,8 +140,16 @@
     break-inside: avoid;
   }
 
-  /* Tabellen sauber umbrechen */
-  table { border-collapse: collapse !important; width: 100% !important; }
+  /* Waagrechte Scroll-Container (overflow-x-auto) aufheben: im Druck schnitten sie breite Tabellen rechts ab
+     (Rückmeldung 30.09.2026, Rückverfolgung Weingarten) – der Inhalt muss auf die Seite umbrechen */
+  .overflow-x-auto,
+  .overflow-auto {
+    overflow: visible !important;
+  }
+
+  /* Tabellen sauber umbrechen – auch Zellen mit whitespace-nowrap, damit nichts über den Rand ragt */
+  table { border-collapse: collapse !important; width: 100% !important; max-width: 100% !important; }
+  th, td { white-space: normal !important; overflow-wrap: break-word; }
   thead { display: table-header-group; }
   tr    { break-inside: avoid; }
 
