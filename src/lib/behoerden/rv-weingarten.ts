@@ -72,9 +72,19 @@ export type RvLese = LeseMassnahmen & {
   liefernummer: string | null
   /** nur Füllung: Anteil dieser Herkunft an der Abfüllung (%) */
   anteilPct: number | null
+  /** nur Charge/Füllung: Charge, in die die Pressung floss (bei der gefragten Charge selbst null) */
+  ueberCharge: { id: string; name: string | null } | null
+  /** nur Pressung: Pressung samt Datum, Most und Bezeichnung (für das Weinbuch) */
+  pressung: R | null
 }
 
-export type RvErgebnis = { lesen: RvLese[]; warnungen: string[]; titel: string | null }
+export type RvErgebnis = {
+  lesen: RvLese[]
+  warnungen: string[]
+  titel: string | null
+  /** nur Charge/Füllung: die gefragte(n) Charge(n) und alle Vorgänger (lib/wein/blendKomposition) */
+  herkunftChargen: Map<string, R> | null
+}
 
 function plusTage(t: string, tage: number): string {
   const [j, m, d] = t.split('-').map(Number)
@@ -108,10 +118,10 @@ export function massnahmeWartezeit(m: Pick<LeseMassnahme, 'behandlung'>, f: Pick
 // ── Laden ─────────────────────────────────────────────────────────────────────
 
 const PW_SELECT = `
-  id, trauben_kg, rebsorte, ernte_datum, kmw, weingarten_id, grundstueck_id, zukauf_posten_id,
+  id, trauben_kg, rebsorte, ernte_datum, kmw, oechsle, mostgewicht_einheit, weingarten_id, grundstueck_id, zukauf_posten_id,
   weingarten:weingarten_id(id, name),
   grundstueck:grundstueck_id(gst_nr, katastralgemeinde, ama_feldnummer),
-  pressung:pressung_id!inner(id, datum, tenant_id, jahrgang_id, lese_id, jahrgang:jahrgang_id(jahrgang), lese:lesen!pressungen_lese_fkey(lfd_nr, art))
+  pressung:pressung_id!inner(id, datum, tenant_id, jahrgang_id, lese_id, most_liter_gesamt, weinbezeichnung, jahrgang:jahrgang_id(jahrgang), lese:lesen!pressungen_lese_fkey(lfd_nr, art))
 `
 
 const TV_SELECT = `
@@ -161,6 +171,8 @@ export async function ladeRvWeingarten(supabase: any, tenantId: string, e: RvEin
   let tv: R[] = []
   let anteilJeKey = new Map<string, number>()
   let keyJePw = new Map<string, string>()
+  let chargeJePw = new Map<string, string>()
+  let herkunftChargen: Map<string, R> | null = null
 
   // tenant-isolation-ignore: pressung_weingaerten ohne tenant_id, Filter über die Pressung (!inner)
   const pwAbfrage = () => (supabase.from('pressung_weingaerten') as any).select(PW_SELECT).eq('pressung.tenant_id', tenantId)
@@ -174,6 +186,8 @@ export async function ladeRvWeingarten(supabase: any, tenantId: string, e: RvEin
     warnungen.push(...h.warnungen)
     anteilJeKey = h.anteilJeKey
     keyJePw = new Map(h.lesezeilen.map(l => [String(l.zeile.id), l.key]))
+    chargeJePw = new Map(h.lesezeilen.map(l => [String(l.zeile.id), l.weinausbauId]))
+    herkunftChargen = h.chargen
     const ids = [...keyJePw.keys()]
     if (ids.length > 0) pw = pruefen(await alle<R>(pwAbfrage().in('id', ids).order('id')), 'Lesezeilen')
     const tabelle = art === 'charge' ? 'weinausbau' : 'fuellungen'
@@ -197,7 +211,7 @@ export async function ladeRvWeingarten(supabase: any, tenantId: string, e: RvEin
       const jg = pruefen(await alle<R>((supabase.from('weinjahrgaenge') as any)
         .select('id').eq('tenant_id', tenantId).eq('jahrgang', e.jahrgang).order('id')), 'Jahrgang')
       jgIds = jg.map(j => String(j.id))
-      if (jgIds.length === 0) return { lesen: [], warnungen: [`Jahrgang ${e.jahrgang} ist nicht angelegt.`], titel: `Jahrgang ${e.jahrgang}` }
+      if (jgIds.length === 0) return { lesen: [], warnungen: [`Jahrgang ${e.jahrgang} ist nicht angelegt.`], titel: `Jahrgang ${e.jahrgang}`, herkunftChargen: null }
     }
     let qp = pwAbfrage()
     let qt = tvAbfrage()
@@ -228,7 +242,10 @@ export async function ladeRvWeingarten(supabase: any, tenantId: string, e: RvEin
       },
     })
     const key = keyJePw.get(String(z.id))
+    const ueber = chargeJePw.get(String(z.id)) ?? null
     info.set(id, {
+      ueberCharge: ueber && ueber !== e.charge ? { id: ueber, name: text(herkunftChargen?.get(ueber)?.name) } : null,
+      pressung: p,
       quelle: 'pressung', jahrgang, leseText: leseText(jahrgang, p.lese as R | null),
       weingarten: text((z.weingarten as R | null)?.name), katastralgemeinde: text(g?.katastralgemeinde), gstNr: text(g?.gst_nr),
       feldstueck: text(g?.ama_feldnummer), rebsorte: text(z.rebsorte), lesedatum: tag(z.ernte_datum) || null,
@@ -251,6 +268,7 @@ export async function ladeRvWeingarten(supabase: any, tenantId: string, e: RvEin
       },
     })
     info.set(id, {
+      ueberCharge: null, pressung: null,
       quelle: 'traubenverkauf', jahrgang, leseText: leseText(jahrgang, t.lese as R | null),
       weingarten: text((t.weingarten as R | null)?.name), katastralgemeinde: text(g?.katastralgemeinde), gstNr: text(g?.gst_nr),
       feldstueck: text(g?.ama_feldnummer), rebsorte: null, lesedatum: datum,
@@ -264,7 +282,7 @@ export async function ladeRvWeingarten(supabase: any, tenantId: string, e: RvEin
   warnungen.push(...leseWarnungen(lesen))
   const verletzt = lesen.filter(l => l.massnahmen.some(m => massnahmeWartezeit(m, l.fenster).ampel === 'verletzt')).length
   if (verletzt > 0) warnungen.unshift(`Bei ${verletzt} ${verletzt === 1 ? 'Lese liegt' : 'Lesen liegt'} der Lesetag vor dem frühesten Lesetermin eines Pflanzenschutzmittels (Wartezeit nicht eingehalten).`)
-  return { lesen, warnungen, titel }
+  return { lesen, warnungen, titel, herkunftChargen }
 }
 
 // ── CSV ─────────────────────────────────────────────────────────────────────

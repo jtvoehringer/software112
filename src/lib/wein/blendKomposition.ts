@@ -329,11 +329,11 @@ export async function ladeZusammensetzungFuellung(supabase: any, tenantId: strin
  */
 export async function ladeHerkunftLesezeilen(
   supabase: any, tenantId: string, art: 'charge' | 'fuellung', id: string,
-): Promise<{ lesezeilen: GraphLesezeile[]; anteilJeKey: Map<string, number>; warnungen: string[] } | null> {
+): Promise<{ lesezeilen: GraphLesezeile[]; anteilJeKey: Map<string, number>; warnungen: string[]; chargen: Map<string, R> } | null> {
   if (art === 'charge') {
     const g = await ladeBewegungsgraph(supabase, tenantId, [id])
     if (!g.chargen.has(id)) return null
-    return { lesezeilen: g.lesezeilen, anteilJeKey: new Map(), warnungen: g.warnungen }
+    return { lesezeilen: g.lesezeilen, anteilJeKey: new Map(), warnungen: g.warnungen, chargen: g.chargen }
   }
   const [fc, f] = await Promise.all([
     liste((supabase.from('fuellung_chargen') as any)
@@ -342,13 +342,13 @@ export async function ladeHerkunftLesezeilen(
   ])
   if (!(f.data as R | null)) return null
   const ids = [...new Set([...fc.map(r => r.weinausbau_id as string), (f.data as R).weinausbau_id as string | undefined].filter((x): x is string => !!x))]
-  if (ids.length === 0) return { lesezeilen: [], anteilJeKey: new Map(), warnungen: ['Die Füllung ist keiner Charge zugeordnet – Rückverfolgung nur bis zur Abfüllung.'] }
+  if (ids.length === 0) return { lesezeilen: [], anteilJeKey: new Map(), chargen: new Map(), warnungen: ['Die Füllung ist keiner Charge zugeordnet – Rückverfolgung nur bis zur Abfüllung.'] }
   const g = await ladeBewegungsgraph(supabase, tenantId, ids)
   const z = zusammensetzungEntnahme(g.ereignisse, `fuellung:${id}`)
   const anteilJeKey = new Map(z.anteile.filter(a => a.liter > 0 || a.anteil_pct > 0).map(a => [a.key, a.anteil_pct]))
   // ohne auswertbare Entnahme (z. B. Füllung ohne Liter): alle Lesezeilen der Chargen
   const lesezeilen = anteilJeKey.size > 0 ? g.lesezeilen.filter(l => anteilJeKey.has(l.key)) : g.lesezeilen
-  return { lesezeilen, anteilJeKey, warnungen: [...g.warnungen, ...z.warnungen] }
+  return { lesezeilen, anteilJeKey, warnungen: [...g.warnungen, ...z.warnungen], chargen: g.chargen }
 }
 
 /** Kompatibel zu früheren Aufrufen: nur die Anteile einer Charge (heute) */

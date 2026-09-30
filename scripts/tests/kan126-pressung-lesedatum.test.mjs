@@ -202,11 +202,12 @@ describe('Einfrieren verpresster Lesedaten und Weinbuch je Pressung', () => {
     assert.ok(a.includes(".eq('weingarten_id', alt.weingarten_id).eq('ernte_datum', altesDatum)"))
   })
 
-  test('Weinbuch: Lesen der Pressungen (Lesedatum je Traubenzeile) vor den Erntemeldungs-Einträgen', () => {
+  // KAN-127: Lesen nur noch aus den Lesezeilen der Charge (und ihrer Vorgänger) – Lesedatum der Traubenzeile,
+  // sonst laut Erntemeldung (Fensterende), sonst Pressungsdatum; keine Erntemeldungs-Einträge aller Weingärten mehr
+  test('Weinbuch: Lesen aus den Lesezeilen der Charge (Lesedatum je Traubenzeile zuerst)', () => {
     const w = quelle('src/lib/wein/weinbuch.ts')
-    const i = w.indexOf('if (!wg.ernte_datum || !wg.weingarten_id) continue')
-    const j = w.indexOf('if (ernteDaten.length === 0 && weingartenIds.size > 0) {')
-    assert.ok(i > 0 && j > i, 'Pressungs-Lesen zuerst, Erntemeldung nur als Rückfall')
-    assert.ok(w.includes('grundstueck:grundstueck_id(gst_nr)'))
+    assert.ok(w.includes('const datum = l.lesedatum ?? ausErnte ?? tag(l.pressung.datum)'))
+    assert.doesNotMatch(w, /from('ernte_parzellen')/)
+    assert.ok(quelle('src/lib/behoerden/rv-weingarten.ts').includes('grundstueck:grundstueck_id(gst_nr, katastralgemeinde, ama_feldnummer)'))
   })
 })

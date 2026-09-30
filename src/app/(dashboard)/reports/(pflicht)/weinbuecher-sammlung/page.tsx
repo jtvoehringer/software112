@@ -129,6 +129,15 @@ export default async function WeinbuecherSammlungPage({
                 {wb.wa.behaelter_name ? ` · ${wb.wa.behaelter_name}` : ''}
               </p>
             </div>
+            {/* KAN-127: Hinweise der Charge auch im Ausdruck */}
+            {wb.abgeschlossenAm && (
+              <p className="text-xs text-s112-muted mb-2">Weinbuch abgeschlossen mit der Füllung am {new Date(`${wb.abgeschlossenAm}T12:00:00`).toLocaleDateString('de-AT')}.</p>
+            )}
+            {wb.warnungen.length > 0 && (
+              <ul className="text-xs text-s112-warn-fg list-disc pl-4 space-y-0.5 mb-4">
+                {wb.warnungen.map((w, j) => <li key={j}>{w}</li>)}
+              </ul>
+            )}
             <WeinbuchTimeline events={wb.events} zeigeLegende={i === weinbuecher.length - 1} />
           </div>
         ))

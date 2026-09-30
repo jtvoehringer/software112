@@ -278,7 +278,7 @@ export async function ladeMassnahmenZuLesezeilen(
     let q = (supabase.from('behandlungen') as any)
       .select(`
         id, datum, datum_bis, art, weingarten_id, aufwandmenge, aufwandmenge_einheit, schaderreger, witterung, notizen,
-        ernte_fruehesteins, wartezeit_eingehalten,
+        ernte_fruehesteins, wartezeit_eingehalten, bbch_stadium,
         psm:psm_id(name, handelsname, zulassungsnr, wartezeit_tage),
         behandlung_grundstuecke(grundstueck_id, flaeche_ha)
       `)
