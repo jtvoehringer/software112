@@ -25,8 +25,8 @@ import 'server-only'
 // Bestand gemindert wurde: schwund_buchen (p_bestand_mindern) ändert die Charge in derselben
 // Transaktion – das Bestandsprotokoll hat dann eine weinausbau-Änderung von menge_liter mit
 // identischem Zeitstempel. Zurückgebucht wird genau diese Minderung (alt − neu, samt
-// aktiv/Status), nur solange an der Charge seither nichts erfasst wurde. Das Protokoll
-// lesen nur Betriebs-Manager – für alle anderen bleibt Schwund gesperrt. Nachbuchungen
+// aktiv/Status), nur solange an der Charge seither nichts erfasst wurde. Die Minderung liest die RPC
+// s112_schwund_minderung (KAN-145 B4 – auch für Mitarbeiter mit Schreibmodul). Nachbuchungen
 // (ohne Minderung) und Buchungen vor KAN-35 bleiben gesperrt: eine Rückbuchung würde Liter
 // erzeugen. Menge und Datum einer Schwundbuchung sind nie änderbar (nur stornieren).
 //
@@ -553,18 +553,12 @@ async function planeSchwundStorno(
     return gesperrt('sie keiner Charge eindeutig zugeordnet ist')
   }
 
-  const { data: prot, error: protErr } = await (supabase.from('bestandsprotokoll') as any)
-    .select('alt, neu, geaenderte_spalten')
-    .eq('tenant_id', tenantId)
-    .eq('tabelle', 'weinausbau')
-    .eq('datensatz_id', chargeId)
-    .eq('aktion', 'UPDATE')
-    .eq('erstellt_am', z.erstellt_am)
-    .contains('geaenderte_spalten', ['menge_liter'])
+  // KAN-145 B4: protokollierte Minderung über die RPC (Rolle, Betrieb, Schreibmodul) statt direkt aus dem Protokoll
+  const { data: prot, error: protErr } = await (supabase.rpc as any)('s112_schwund_minderung', { p_tenant_id: tenantId, p_umzug_id: z.id })
   if (protErr) return gesperrt(`das Bestandsprotokoll nicht gelesen werden konnte (${dbFehlerText(protErr).replace(/[.\s]+$/, '')})`)
-  const protZeilen = (prot ?? []) as R[]
+  const protZeilen = (Array.isArray(prot) ? prot : []) as R[]
   if (protZeilen.length !== 1) {
-    return gesperrt('nicht nachvollziehbar ist, dass sie den Bestand der Charge gemindert hat (Nachbuchung ins Bewegungsbuch, Buchung vor dem 24.09.2026 oder keine Leseberechtigung für das Bestandsprotokoll – das dürfen nur Betriebs-Manager)')
+    return gesperrt('nicht nachvollziehbar ist, dass sie den Bestand der Charge gemindert hat (Nachbuchung ins Bewegungsbuch oder Buchung vor dem 24.09.2026)')
   }
   const alt = (protZeilen[0].alt ?? {}) as R
   const neu = (protZeilen[0].neu ?? {}) as R

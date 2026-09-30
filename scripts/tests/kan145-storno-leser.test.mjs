@@ -75,3 +75,18 @@ test('B3: Kellerbehandlung und Zukauf werden mit Grund storniert statt gelöscht
   assert.match(dz, /\.update\(\{ aktiv: false, storniert_am: new Date\(\)\.toISOString\(\), storno_grund: grund\.trim\(\) \}\)/)
   assert.match(readFileSync(path.join(SRC, 'app/(dashboard)/weinhandel/zukauf/ZukaufLoeschen.tsx'), 'utf8'), /<StornoButton/)
 })
+
+test('B4: endgültig löschen nur über die RPC, Schwund-Storno ohne Admin-Sperre (auch Mitarbeiter)', () => {
+  const k = readFileSync(path.join(SRC, 'app/(dashboard)/kellerbuch/actions.ts'), 'utf8')
+  const eg = k.slice(k.indexOf('export async function endgueltigLoeschen'), k.indexOf('// KELLERBEHANDLUNG STORNIEREN'))
+  assert.match(eg, /\(supabase\.rpc as any\)\('s112_storniert_loeschen'/)
+  assert.doesNotMatch(eg, /\.delete\(\)/)
+  const g = readFileSync(path.join(SRC, 'app/(dashboard)/kellerbuch/gebinde-actions.ts'), 'utf8')
+  assert.doesNotMatch(g, /Schwundbuchungen können nur Betriebs-Manager stornieren/)
+  const st = readFileSync(path.join(SRC, 'lib/kellerbuch/storno.ts'), 'utf8')
+  assert.match(st, /\(supabase\.rpc as any\)\('s112_schwund_minderung'/)
+  assert.doesNotMatch(st, /from\('bestandsprotokoll'\)/)
+  for (const f of ['app/(dashboard)/kellerbuch/gebinde/page.tsx', 'app/(dashboard)/kellerbuch/umziehen/UmziehenClient.tsx']) {
+    assert.doesNotMatch(readFileSync(path.join(SRC, f), 'utf8'), /istSchwund \|\| adminOk/, f)
+  }
+})

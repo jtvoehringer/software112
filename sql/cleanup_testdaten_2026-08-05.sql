@@ -66,6 +66,8 @@ DO $$
 DECLARE
   v_tid UUID := 'fa22dc07-eca5-43df-af96-f7b9b09f0471';
 BEGIN
+  -- KAN-145 B4 (30.09.2026): Löschsperre im Kellerbuch – Wartung nur mit transaktionslokalem Flag für diesen Betrieb
+  PERFORM set_config('s112.loeschen_erlaubt', v_tid::text, true);
 
   RAISE NOTICE '--- Starte Cleanup für Tenant % ---', v_tid;
 

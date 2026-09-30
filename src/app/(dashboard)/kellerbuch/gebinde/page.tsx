@@ -10,6 +10,7 @@ import LoeschenButton from '@/components/kellerbuch/LoeschenButton'
 import { createBehaelter, updateBehaelter, deleteBehaelter } from '../actions'
 import { createEroeffnungsbestand, deleteEroeffnungsbestand, deleteUmzug } from '../gebinde-actions'
 import StornoButton from '@/components/StornoButton'
+import { endgueltigLoeschen } from '../actions'
 import { stornoAngaben } from '@/lib/kellerbuch/stornoFilter'
 import { ladeKellergemeinschaft } from '@/lib/keller/behaelter'
 import { Users } from 'lucide-react'
@@ -568,20 +569,25 @@ export default async function GebindePage({
                         ? fmtLiter(u.schwund) : '–'}
                     </td>
                     <td className="px-4 py-2.5 text-s112-text-2 text-xs">{u.notizen ?? '–'}</td>
-                    {writeOk && u.storno && <td className="px-4 py-2.5 text-right text-[11px] text-s112-muted">storniert</td>}
+                    {writeOk && u.storno && (
+                      <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                        {/* KAN-145 B4: endgültig löschen nur stornierter Buchungen, mit Grund */}
+                        <StornoButton modus="loeschen" label="Endgültig löschen"
+                          action={endgueltigLoeschen.bind(null, 'keller_umzuege', u.ersteId)}
+                          hinweis="Nur bei Fehlbuchungen: Die stornierte Buchung wird endgültig entfernt – Grund und Benutzer stehen im Änderungsprotokoll." />
+                      </td>
+                    )}
                     {writeOk && !u.storno && (
                       <td className="px-4 py-2.5 text-right whitespace-nowrap">
                         {/* KAN-35: Umzüge nur stornierbar, solange die Ziel-Charge nicht weiterbewegt
-                            wurde; Schwundbuchungen nur durch Betriebs-Manager (Menge/Datum nie änderbar) */}
+                            wurde; Schwundbuchungen: Menge/Datum nie änderbar */}
                         <Link href={`/kellerbuch/umzug/${u.ersteId}/edit`}
                           title={u.istSchwund ? 'Notizen bearbeiten' : 'Bearbeiten'} aria-label="Bearbeiten"
                           className="text-s112-blue-700 hover:text-s112-blue-700/70 mr-3 inline-flex"><Pencil className="w-4 h-4" /></Link>
-                        {(!u.istSchwund || adminOk) && (
-                          // KAN-145: Stornieren mit Grund – die Buchung bleibt gekennzeichnet stehen
-                          <StornoButton
-                            action={deleteUmzug.bind(null, u.ersteId)}
-                            hinweis={u.istSchwund ? 'Die Menge wird auf die Charge zurückgebucht; die Schwundbuchung bleibt als storniert stehen – nur wenn sie den Bestand gemindert hat und an der Charge seither nichts gebucht wurde.' : 'Die Bestände werden zurückgebucht; der Umzug bleibt als storniert im Bewegungsbuch – nur solange die Ziel-Charge seither nicht weiterbewegt wurde.'} />
-                        )}
+                        {/* KAN-145: Stornieren mit Grund – die Buchung bleibt gekennzeichnet stehen; Schwund seit B4 auch für Mitarbeiter */}
+                        <StornoButton
+                          action={deleteUmzug.bind(null, u.ersteId)}
+                          hinweis={u.istSchwund ? 'Die Menge wird auf die Charge zurückgebucht; die Schwundbuchung bleibt als storniert stehen – nur wenn sie den Bestand gemindert hat und an der Charge seither nichts gebucht wurde.' : 'Die Bestände werden zurückgebucht; der Umzug bleibt als storniert im Bewegungsbuch – nur solange die Ziel-Charge seither nicht weiterbewegt wurde.'} />
                       </td>
                     )}
                   </tr>

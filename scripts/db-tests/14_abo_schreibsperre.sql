@@ -96,8 +96,9 @@ DECLARE
   c_eigentuemer constant text[] := ARRAY['assistent_unterhaltungen', 'assistent_aktionen', 'assistent_nachrichten',
                                          'benachrichtigungen', 'user_email_connections'];
   -- Mindestabdeckung je Persona mit freiem Abo (Stand 29.09.2026 ausgezählt): lesen, ins (k1 oder E23xxx), upd, del
-  c_min_b_ta  constant int[] := ARRAY[93, 81, 76, 71];
-  c_min_b_w   constant int[] := ARRAY[91, 77, 71, 47];
+  -- del seit KAN-145 B4 (30.09.2026) ohne die Tabellen mit Löschsperre: 71 → 65 bzw. 47 → 42
+  c_min_b_ta  constant int[] := ARRAY[93, 81, 76, 65];
+  c_min_b_w   constant int[] := ARRAY[91, 77, 71, 42];
   -- md5 der Sandbox-ID (SANDBOX_TENANT_ID in src/lib/abo/regeln.ts) – die ID selbst darf hier nicht stehen.
   c_sandbox_md5 constant text := 'c925cef2213a9938ec2714439901a74e';
   v_t0        timestamptz := clock_timestamp();

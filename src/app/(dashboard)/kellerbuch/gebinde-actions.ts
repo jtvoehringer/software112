@@ -4,7 +4,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { ladeBehaelter, gebindeFehlerText } from '@/lib/keller/behaelter'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { getCurrentMembership, canWrite, canAdmin } from '@/lib/auth/roles'
+import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { fmtNum, dezimal, zahlAus } from '@/lib/format'
@@ -570,12 +570,7 @@ export async function deleteUmzug(id: string, grund: string) {
 
   const zeilen = await ladeUmzugZeilen(supabase, tenantId, id)
   if (!zeilen) throw new AktionsFehler('Umzug nicht gefunden')
-  if (zeilen.some(z => z.umzug_typ === 'schwund')) {
-    const m = await getCurrentMembership()
-    if (!canAdmin(m?.role ?? null)) {
-      throw new AktionsFehler('Schwundbuchungen können nur Betriebs-Manager stornieren (sie sehen im Bestandsprotokoll, ob die Buchung den Bestand gemindert hat).')
-    }
-  }
+  // KAN-145 B4 / KAN-166: Schwund stornieren auch Mitarbeiter – die Minderung liefert die RPC s112_schwund_minderung
   const plan = await planeUmzugStorno(supabase, tenantId, zeilen)
   await storniereUmzug(supabase, tenantId, plan, grund)   // wirft bei Sperre bzw. fehlendem Grund die deutsche Meldung
 

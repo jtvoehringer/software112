@@ -190,12 +190,12 @@ DECLARE
   c_leser_eigen constant text[] := ARRAY['benachrichtigungen:UPDATE', 'benachrichtigungen:DELETE', 'profiles:INSERT',
     'profiles:UPDATE', 'release_notes_gesehen:INSERT', 'release_notes_gesehen:UPDATE', 'release_notes_gesehen:DELETE',
     'user_email_connections:DELETE'];
-  c_kein_delete constant text[] := ARRAY['ama_meldepositionen', 'sonstige_artikel', 'sumup_checkouts',
-    'weinbaugebiete_custom', 'zukauf_posten'];
+  c_kein_delete constant text[] := ARRAY['ama_meldepositionen', 'fuellungen', 'sonstige_artikel', 'sumup_checkouts',
+    'weinbaugebiete_custom', 'zukauf_posten'];   -- fuellungen: KAN-145 B4 (nur über s112_storniert_loeschen)
   c_kein_update constant text[] := ARRAY['aktivitaet_dokumente', 'konto_umbuchungen', 'behandlung_grundstuecke',
     'buchhaltung_export_protokoll', 'pipeline_verlauf', 'assistent_aktionen', 'assistent_nachrichten'];
   c_delete_nur_admin constant text[] := ARRAY['ama_erntemeldungen', 'behaelter', 'behandlungen', 'dac_antrag',
-    'duengemittel', 'ea_transaktionen', 'ernte_parzellen', 'fuellungen', 'grundstuecke', 'kellerplaene',
+    'duengemittel', 'ea_transaktionen', 'ernte_parzellen', 'grundstuecke', 'kellerplaene',
     'konto_umbuchungen', 'lagen', 'lesen', 'pflanzenschutzmittel', 'saetze_massnahmen', 'verkauf_positionen', 'verkaufsposten',
     'weinanalysen', 'weinausbau', 'weingarten', 'weingarten_rebsorten', 'weinjahrgaenge', 'zahlungen'];
   c_nur_admin constant text[] := ARRAY['buchhaltung_kontenmapping', 'ea_monatsabschluss', 'konten', 'sumup_terminals',

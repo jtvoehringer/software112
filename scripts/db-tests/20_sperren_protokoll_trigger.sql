@@ -415,15 +415,22 @@ BEGIN
   PERFORM pg_temp.s112_als_postgres();
   v_erg := v_erg || pg_temp.s112_erwarte('protokoll_update_frei_keine_zeile', pg_temp.t20_bp('weinausbau', v_wa_m) - v_n, 0::bigint);
 
-  -- DELETE keller_umzuege (m_ta) → Zeile 'DELETE' mit alt
+  -- DELETE keller_umzuege (m_ta) → Zeile 'DELETE' mit alt. Seit KAN-145 B4 direkt gesperrt: stornieren, dann
+  -- endgültig löschen über s112_storniert_loeschen (auth.uid() bleibt der Benutzer)
   PERFORM pg_temp.s112_als(v_mta);
+  v_erg := v_erg || pg_temp.s112_erwarte('protokoll_delete_direkt_gesperrt',
+    pg_temp.s112_fehlertext(format('DELETE FROM public.keller_umzuege WHERE id = %L', v_ku[1])) || '/'
+      || (SELECT count(*) FROM public.keller_umzuege WHERE id = v_ku[1]), 'ok/1');
   v_erg := v_erg || pg_temp.s112_erwarte('protokoll_delete_ausfuehren',
-    pg_temp.s112_fehlertext(format('DELETE FROM public.keller_umzuege WHERE id = %L', v_ku[1])), 'ok');
+    pg_temp.s112_fehlertext(format('UPDATE public.keller_umzuege SET storniert_am = now(), storno_grund = %L WHERE id = %L', 's112test Storno Protokoll', v_ku[1]))
+      || '/' || pg_temp.s112_fehlertext(format('SELECT public.s112_storniert_loeschen(%L, %L, %L, %L)', v_m, 'keller_umzuege', v_ku[1], 's112test endgültig löschen')),
+    'ok/ok');
   PERFORM pg_temp.s112_als_postgres();
   v_erg := v_erg || pg_temp.s112_erwarte('protokoll_delete_geloescht', (SELECT count(*) FROM public.keller_umzuege WHERE id = v_ku[1]), 0::bigint);
   SELECT count(*), max(b.aktion), max(b.tenant_id::text), bool_and(b.alt ->> 'id' = v_ku[1]::text)::text, max(b.benutzer_id::text)
     INTO v_n, v_txt, v_t1, v_t2, v_t3
-    FROM public.bestandsprotokoll b WHERE b.tabelle = 'keller_umzuege' AND b.datensatz_id = v_ku[1];
+    FROM public.bestandsprotokoll b WHERE b.tabelle = 'keller_umzuege' AND b.datensatz_id = v_ku[1]
+     AND b.aktion = 'DELETE';   -- davor protokolliert: das Storno (UPDATE)
   v_erg := v_erg || pg_temp.s112_erwarte('protokoll_delete_zeile',
     concat_ws('|', v_n, v_txt, v_t1, v_t2, v_t3), concat_ws('|', 1, 'DELETE', v_m, 'true', v_mta));
   -- DELETE einer Kindzeile ohne tenant_id → Mandant über die Eltern (pressungen)
@@ -439,6 +446,7 @@ BEGIN
   -- Beispielzeile in B anlegen und als postgres löschen → genau eine Zeile mit tenant_id = B. Eine neue
   -- Kindtabelle ohne CASE-Zweig oder ein falscher Spaltenname im Zweig ergäbe tenant_id NULL.
   v_arr := '{}';
+  PERFORM set_config('s112.loeschen_erlaubt', v_b::text, true);   -- KAN-145 B4: Wartungs-Flag für die Löschsperre
   FOR r IN SELECT x AS tab FROM unnest(pg_temp.s112_soll_liste('protokoll_tabellen')) x
             WHERE to_regclass(format('public.%I', x)) IS NOT NULL
               AND NOT EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid = to_regclass(format('public.%I', x))
@@ -458,25 +466,31 @@ BEGIN
       v_erg := v_erg || pg_temp.s112_fehler('protokoll_kind_tenant:' || r.tab, SQLSTATE || ' ' || SQLERRM);
     END;
   END LOOP;
+  PERFORM set_config('s112.loeschen_erlaubt', '', true);
   v_erg := v_erg || pg_temp.s112_erwarte('protokoll_kind_abgedeckt',
     ARRAY['ama_meldepositionen', 'ernte_parzellen', 'pressung_behaelter', 'pressung_weingaerten', 'verschneidung_quellen'] <@ v_arr, true);
 
   -- Bypass s112.protokoll_aus: als m_ta wirkungslos; als postgres nur für den Musterhof
+  -- (als authenticated an einem UPDATE geprüft – DELETE auf keller_umzuege ist dort seit KAN-145 B4 gesperrt)
+  v_n := pg_temp.t20_bp('weinausbau', v_wa_m);
   PERFORM pg_temp.s112_als(v_mta);
   PERFORM set_config('s112.protokoll_aus', v_m::text, true);
-  v_txt := pg_temp.s112_fehlertext(format('DELETE FROM public.keller_umzuege WHERE id = %L', v_ku[2]));
+  v_txt := pg_temp.s112_fehlertext(format('UPDATE public.weinausbau SET menge_liter = menge_liter + 1 WHERE id = %L', v_wa_m));
+  PERFORM set_config('s112.protokoll_aus', '', true);
   PERFORM pg_temp.s112_als_postgres();
-  v_erg := v_erg || pg_temp.s112_erwarte('bypass_authenticated_protokolliert', v_txt || '/' || pg_temp.t20_bp('keller_umzuege', v_ku[2]), 'ok/1');
+  v_erg := v_erg || pg_temp.s112_erwarte('bypass_authenticated_protokolliert', v_txt || '/' || (pg_temp.t20_bp('weinausbau', v_wa_m) - v_n), 'ok/1');
   PERFORM set_config('s112.protokoll_aus', v_m::text, true);
   v_txt := pg_temp.s112_fehlertext(format('DELETE FROM public.keller_umzuege WHERE id = %L', v_ku[3]));
   PERFORM set_config('s112.protokoll_aus', '', true);
   v_erg := v_erg || pg_temp.s112_erwarte('demo_reset_postgres_musterhof_ohne_protokoll',
     v_txt || '/' || (SELECT count(*) FROM public.keller_umzuege WHERE id = v_ku[3]) || '/' || pg_temp.t20_bp('keller_umzuege', v_ku[3]), 'ok/0/0');
+  PERFORM set_config('s112.loeschen_erlaubt', v_b::text, true);   -- KAN-145 B4: Löschsperre (Wartungs-Flag)
   PERFORM set_config('s112.protokoll_aus', v_b::text, true);
   v_txt := pg_temp.s112_fehlertext(format('DELETE FROM public.keller_umzuege WHERE id = %L', v_ku_b1));
   PERFORM set_config('s112.protokoll_aus', v_m::text, true);
   v_txt := v_txt || '/' || pg_temp.s112_fehlertext(format('DELETE FROM public.keller_umzuege WHERE id = %L', v_ku_b2));
   PERFORM set_config('s112.protokoll_aus', '', true);
+  PERFORM set_config('s112.loeschen_erlaubt', '', true);
   v_erg := v_erg || pg_temp.s112_erwarte('bypass_postgres_betrieb_b_protokolliert',
     v_txt || '/' || pg_temp.t20_bp('keller_umzuege', v_ku_b1) || '/' || pg_temp.t20_bp('keller_umzuege', v_ku_b2)
       || '/' || (SELECT count(*) FROM public.bestandsprotokoll WHERE datensatz_id IN (v_ku_b1, v_ku_b2) AND tenant_id = v_b),
@@ -559,6 +573,19 @@ BEGIN
 
   -- ── 7. TRUNCATE-Verbot (als postgres; zum Schluss) ───────────────────────────────────────────────────
   PERFORM set_config('lock_timeout', '5s', true);
+  SELECT coalesce(array_agg(c.relname::text ORDER BY c.relname), '{}') INTO v_arr
+    FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid
+   WHERE c.relnamespace = 'public'::regnamespace AND t.tgname = 'z_protokoll_truncate' AND NOT t.tgisinternal;
+  -- KAN-145 B4: Löschsperre (a_loeschsperre → s112_loeschsperre) und keine_direktloeschung genau auf der Soll-Liste
+  SELECT coalesce(array_agg(c.relname::text ORDER BY c.relname), '{}') INTO v_arr
+    FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid
+   WHERE c.relnamespace = 'public'::regnamespace AND NOT t.tgisinternal AND t.tgfoid = 'public.s112_loeschsperre()'::regprocedure;
+  v_erg := v_erg || pg_temp.s112_erwarte('loeschsperre_katalog', array_to_string(v_arr, ','),
+    (SELECT array_to_string(array_agg(x ORDER BY x), ',') FROM unnest(pg_temp.s112_soll_liste('loeschsperre_tabellen')) x));
+  SELECT coalesce(array_agg(p.tablename::text ORDER BY p.tablename), '{}') INTO v_arr
+    FROM pg_policies p WHERE p.schemaname = 'public' AND p.policyname = 'keine_direktloeschung' AND p.permissive = 'RESTRICTIVE' AND p.cmd = 'DELETE';
+  v_erg := v_erg || pg_temp.s112_erwarte('keine_direktloeschung_katalog', array_to_string(v_arr, ','),
+    (SELECT array_to_string(array_agg(x ORDER BY x), ',') FROM unnest(pg_temp.s112_soll_liste('loeschsperre_tabellen')) x));
   SELECT coalesce(array_agg(c.relname::text ORDER BY c.relname), '{}') INTO v_arr
     FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid
    WHERE c.relnamespace = 'public'::regnamespace AND t.tgname = 'z_protokoll_truncate' AND NOT t.tgisinternal;

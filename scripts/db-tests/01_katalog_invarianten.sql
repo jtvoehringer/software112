@@ -543,6 +543,8 @@ BEGIN
     SELECT p.tablename || '.' || p.policyname AS schluessel, 'kein Bezug auf eine Eltern-Mandantentabelle' AS beleg
       FROM pg_policies p CROSS JOIN tt
      WHERE p.schemaname = 'public' AND pg_temp.s112_klasse(p.tablename) = 'K' AND p.policyname <> 'zwei_faktor_aal'
+       -- KAN-145 B4: keine_direktloeschung (RESTRICTIVE, USING false) gibt nie Zeilen frei – kein Elternbezug nötig
+       AND NOT (p.policyname = 'keine_direktloeschung' AND p.permissive = 'RESTRICTIVE' AND p.qual = 'false')
        AND NOT (coalesce(p.qual, '') || ' ' || coalesce(p.with_check, '') ~ tt.re)
      ORDER BY 1$q$);
   v_erg := v_erg || pg_temp.t01_liste('k_lesepfad', $q$

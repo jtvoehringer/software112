@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from '@/components/ui/Link'
 import { umziehen, deleteUmzug, updateUmzug } from './actions'
+import { endgueltigLoeschen } from '../actions'
 import { ArrowLeftRight, Filter, X, AlertTriangle, CheckCircle2, Pencil } from 'lucide-react'
 import StornoButton from '@/components/StornoButton'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
@@ -373,7 +374,7 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
 
 // ── Protokoll-Zeile mit Edit / Delete ─────────────────────────────────────────
 
-function UmzugZeile({ u, writeOk, adminOk }: { u: UmzugRow; writeOk: boolean; adminOk: boolean }) {
+function UmzugZeile({ u, writeOk }: { u: UmzugRow; writeOk: boolean }) {
   // KAN-35: Bei Schwundbuchungen sind Datum/Menge nie änderbar (nur Notizen); stornieren dürfen
   // sie nur Betriebs-Manager. Umzüge sind nur stornierbar bzw. im Datum änderbar, solange die
   // Ziel-Charge nicht weiterbewegt wurde – der Server meldet sonst den Grund.
@@ -456,18 +457,23 @@ function UmzugZeile({ u, writeOk, adminOk }: { u: UmzugRow; writeOk: boolean; ad
         {u.schwund_liter > 0 ? fmt(u.schwund_liter) : '–'}
         {u.notizen && <span className="block text-xs text-s112-muted truncate max-w-[120px]">{u.notizen}</span>}
       </td>
-      {writeOk && u.storno && <td className="px-4 py-2.5 text-right text-[11px] text-s112-muted">storniert</td>}
+      {writeOk && u.storno && (
+        <td className="px-4 py-2.5 text-right whitespace-nowrap">
+          {/* KAN-145 B4: endgültig löschen nur stornierter Buchungen, mit Grund */}
+          <StornoButton modus="loeschen" label="Endgültig löschen" danach={() => router.refresh()}
+            action={grund => endgueltigLoeschen('keller_umzuege', u.id, grund)}
+            hinweis="Nur bei Fehlbuchungen: Die stornierte Buchung wird endgültig entfernt – Grund und Benutzer stehen im Änderungsprotokoll." />
+        </td>
+      )}
       {writeOk && !u.storno && (
         <td className="px-4 py-2.5 text-right whitespace-nowrap">
           <span className="inline-flex items-start gap-2">
             <button onClick={() => setEditing(true)}
               title={istSchwund ? 'Notizen bearbeiten' : 'Bearbeiten'} aria-label="Bearbeiten"
               className="text-s112-blue-700 hover:text-s112-blue-700/70"><Pencil size={15} strokeWidth={1.75} /></button>
-            {(!istSchwund || adminOk) && (
-              // KAN-145: Stornieren mit Grund – die Buchung bleibt gekennzeichnet stehen
-              <StornoButton action={grund => deleteUmzug(u.id, grund)} danach={() => router.refresh()}
-                hinweis={istSchwund ? 'Die Menge wird auf die Charge zurückgebucht; die Schwundbuchung bleibt als storniert stehen – nur wenn sie den Bestand gemindert hat und an der Charge seither nichts gebucht wurde.' : 'Die Bestände werden zurückgebucht; der Umzug bleibt als storniert im Bewegungsbuch – nur solange die Ziel-Charge seither nicht weiterbewegt wurde.'} />
-            )}
+            {/* KAN-145: Stornieren mit Grund – die Buchung bleibt gekennzeichnet stehen; Schwund seit B4 auch für Mitarbeiter */}
+            <StornoButton action={grund => deleteUmzug(u.id, grund)} danach={() => router.refresh()}
+              hinweis={istSchwund ? 'Die Menge wird auf die Charge zurückgebucht; die Schwundbuchung bleibt als storniert stehen – nur wenn sie den Bestand gemindert hat und an der Charge seither nichts gebucht wurde.' : 'Die Bestände werden zurückgebucht; der Umzug bleibt als storniert im Bewegungsbuch – nur solange die Ziel-Charge seither nicht weiterbewegt wurde.'} />
           </span>
           {error && (
             <p role="alert" className="text-xs text-s112-err-fg mt-0.5 ml-auto w-[260px] max-w-[70vw] text-left whitespace-normal break-words">{error}</p>
@@ -481,13 +487,12 @@ function UmzugZeile({ u, writeOk, adminOk }: { u: UmzugRow; writeOk: boolean; ad
 // ── Hauptkomponente ───────────────────────────────────────────────────────────
 
 export default function UmziehenClient({
-  behaelterMitChargen, behaelter, umzuege, writeOk, adminOk = false, initialShowForm = false,
+  behaelterMitChargen, behaelter, umzuege, writeOk, initialShowForm = false,
 }: {
   behaelterMitChargen: BehaelterMitCharge[]
   behaelter:           Behaelter[]
   umzuege:             UmzugRow[]
   writeOk:             boolean
-  adminOk?:            boolean
   initialShowForm?:    boolean
 }) {
   const [showForm, setShowForm] = useState(initialShowForm)
@@ -536,7 +541,7 @@ export default function UmziehenClient({
               </thead>
               <tbody>
                 {umzuege.map(u => (
-                  <UmzugZeile key={u.id} u={u} writeOk={writeOk} adminOk={adminOk} />
+                  <UmzugZeile key={u.id} u={u} writeOk={writeOk} />
                 ))}
               </tbody>
             </table>
