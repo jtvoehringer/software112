@@ -42,3 +42,14 @@ test('ganzes Projekt ohne Fund; Migrationen erst ab dem Stichtag; im prebuild', 
   assert.match(pkg.scripts.prebuild, /check-storno\.js/)
   assert.ok(c.TABELLEN.includes('keller_umzuege') && c.TABELLEN.includes('ea_transaktionen'))
 })
+
+test('KAN-145 B4: "scharf" in storno-tabellen.json = Soll-Liste loeschsperre_tabellen der DB-Tests (dort gegen die Trigger geprüft)', async () => {
+  const { readFileSync } = await import('node:fs')
+  const liste = JSON.parse(readFileSync(new URL('../storno-tabellen.json', import.meta.url), 'utf8'))
+  const helfer = readFileSync(new URL('../db-tests/_helfer.sql', import.meta.url), 'utf8')
+  const m = /WHEN 'loeschsperre_tabellen' THEN ARRAY\[([^\]]*)\]/.exec(helfer)
+  assert.ok(m, 'loeschsperre_tabellen in _helfer.sql')
+  const soll = [...m[1].matchAll(/'([a-z_]+)'/g)].map(x => x[1]).sort()
+  assert.deepEqual([...liste.scharf].sort(), soll)
+  for (const t of liste.scharf) assert.ok(liste.berichtsrelevant.includes(t), `${t} ist berichtsrelevant gelistet`)
+})

@@ -549,8 +549,24 @@ describe('planeUmzugStorno – Schwundbuchung', nurMitHooks, () => {
     bestandsprotokoll: [prot({ menge_liter: 100, aktiv: true, status: 'ausbau' }, { menge_liter: 95, aktiv: true, status: 'ausbau' })],
     ...teil,
   })
-  const plane = async (t, opt) => {
-    const db = datenbank(t, opt)
+  // KAN-145 B4: die Minderung liefert die RPC s112_schwund_minderung – hier aus denselben Testdaten nachgebildet
+  // (Filter wie in der Funktion: Betrieb, Schwundzeile, Charge, UPDATE mit identischem Zeitstempel und menge_liter)
+  const schwundRpc = t => (name, a) => {
+    if (name !== 's112_schwund_minderung') return { data: null, error: { message: `rpc ${name} nicht nachgebildet` } }
+    const u = (t.keller_umzuege ?? []).find(z => z.id === a.p_umzug_id && z.umzug_typ === 'schwund')
+    if (!u || !u.von_weinausbau_id) return { data: [], error: null }
+    const treffer = (t.bestandsprotokoll ?? []).filter(b => b.tenant_id === a.p_tenant_id && b.tabelle === 'weinausbau'
+      && b.datensatz_id === u.von_weinausbau_id && b.aktion === 'UPDATE' && b.erstellt_am === u.erstellt_am
+      && (b.geaenderte_spalten ?? []).includes('menge_liter'))
+    return { data: treffer.map(b => {
+      const alt = { menge_liter: b.alt?.menge_liter }
+      if (b.alt && 'aktiv' in b.alt) alt.aktiv = b.alt.aktiv
+      if (b.alt && 'status' in b.alt) alt.status = b.alt.status
+      return { alt, neu: { menge_liter: b.neu?.menge_liter } }
+    }), error: null }
+  }
+  const plane = async (t, opt = {}) => {
+    const db = datenbank(t, { rpc: schwundRpc(t), ...opt })
     return { db, plan: await s.planeUmzugStorno(db, T, t.keller_umzuege) }
   }
 
@@ -561,10 +577,9 @@ describe('planeUmzugStorno – Schwundbuchung', nurMitHooks, () => {
     assert.deepEqual(plan.aenderungen.map(({ id, vorher, neu, payload }) => ({ id, vorher, neu, payload })), [
       { id: S, vorher: 95, neu: 100, payload: { menge_liter: 100, aktiv: true, status: 'ausbau' } },
     ])
-    const p = db.aufrufe.find(a => a.tabelle === 'bestandsprotokoll')
-    for (const [art, k, v] of [['eq', 'tenant_id', T], ['eq', 'tabelle', 'weinausbau'], ['eq', 'datensatz_id', S], ['eq', 'aktion', 'UPDATE'], ['eq', 'erstellt_am', SW_ZEIT], ['contains', 'geaenderte_spalten', ['menge_liter']]]) {
-      assert.ok(hatFilter(p, art, k, v), `${art} ${k}`)
-    }
+    // KAN-145 B4: über die RPC (auch Mitarbeiter), nicht mehr direkt aus dem Bestandsprotokoll
+    assert.deepEqual(db.aufrufe.find(a => a.tabelle === 'rpc:s112_schwund_minderung')?.werte, { p_tenant_id: T, p_umzug_id: uuid(21) })
+    assert.equal(db.aufrufe.some(a => a.tabelle === 'bestandsprotokoll'), false)
     assert.deepEqual(ohneMandant(db, T, OHNE_VERSCHNITT), [])
     db.aufrufe.length = 0
     await s.storniereUmzug(db, T, plan, GRUND)
@@ -593,8 +608,8 @@ describe('planeUmzugStorno – Schwundbuchung', nurMitHooks, () => {
     assert.deepEqual(plan.aenderungen[0].payload, { menge_liter: 5, aktiv: true, status: 'ausbau' })
   })
 
-  test('kein oder mehrdeutiger Protokolleintrag (Nachbuchung, Altbuchung, keine Leseberechtigung): Sperre', async () => {
-    const grund = 'nicht nachvollziehbar ist, dass sie den Bestand der Charge gemindert hat (Nachbuchung ins Bewegungsbuch, Buchung vor dem 24.09.2026 oder keine Leseberechtigung für das Bestandsprotokoll – das dürfen nur Betriebs-Manager)'
+  test('kein oder mehrdeutiger Protokolleintrag (Nachbuchung, Altbuchung): Sperre', async () => {
+    const grund = 'nicht nachvollziehbar ist, dass sie den Bestand der Charge gemindert hat (Nachbuchung ins Bewegungsbuch oder Buchung vor dem 24.09.2026)'
     let { plan } = await plane(tabellen({ bestandsprotokoll: [] }))
     assert.equal(plan.sperre.grund, grund)
     assert.equal(plan.sperre.hinweis, `Schwund bleibt als datierte Buchung im Bewegungsbuch. ${h.KORREKTUR_NACH_OBEN_HINWEIS}`)
@@ -608,7 +623,7 @@ describe('planeUmzugStorno – Schwundbuchung', nurMitHooks, () => {
   })
 
   test('Protokoll nicht lesbar: Sperre mit Fehlertext (kein Fehler)', async () => {
-    const { plan } = await plane(tabellen(), { vorher: fehlerBei('bestandsprotokoll', 'select', { message: 'permission denied for table bestandsprotokoll' }) })
+    const { plan } = await plane(tabellen(), { rpc: () => ({ data: null, error: { message: 'permission denied for table bestandsprotokoll' } }) })
     assert.equal(plan.sperre.grund, 'das Bestandsprotokoll nicht gelesen werden konnte (Keine Berechtigung für „bestandsprotokoll“)')
   })
 
@@ -638,7 +653,7 @@ describe('planeUmzugStorno – Schwundbuchung', nurMitHooks, () => {
     const t = tabellen()
     t.keller_umzuege.push(swZeile({ id: uuid(23), erstellt_am: '2026-09-23T08:00:00.000Z' }))
     t.zukauf_posten = [{ id: 'zk', tenant_id: T, ziel_weinausbau_id: S, aktiv: true, erstellt_am: '2026-09-23T09:00:00.000Z' }]
-    const plan = await s.planeUmzugStorno(datenbank(t), T, [t.keller_umzuege[0]])
+    const plan = await s.planeUmzugStorno(datenbank(t, { rpc: schwundRpc(t) }), T, [t.keller_umzuege[0]])
     assert.equal(plan.sperre.grund, 'an der Charge seither weitergebucht wurde (1 Schwundbuchung und 1 Zukauf)')
   })
 

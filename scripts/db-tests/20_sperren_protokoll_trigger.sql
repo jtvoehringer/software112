@@ -562,6 +562,19 @@ BEGIN
   SELECT coalesce(array_agg(c.relname::text ORDER BY c.relname), '{}') INTO v_arr
     FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid
    WHERE c.relnamespace = 'public'::regnamespace AND t.tgname = 'z_protokoll_truncate' AND NOT t.tgisinternal;
+  -- KAN-145 B4: Löschsperre (a_loeschsperre → s112_loeschsperre) und keine_direktloeschung genau auf der Soll-Liste
+  SELECT coalesce(array_agg(c.relname::text ORDER BY c.relname), '{}') INTO v_arr
+    FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid
+   WHERE c.relnamespace = 'public'::regnamespace AND NOT t.tgisinternal AND t.tgfoid = 'public.s112_loeschsperre()'::regprocedure;
+  v_erg := v_erg || pg_temp.s112_erwarte('loeschsperre_katalog', array_to_string(v_arr, ','),
+    (SELECT array_to_string(array_agg(x ORDER BY x), ',') FROM unnest(pg_temp.s112_soll_liste('loeschsperre_tabellen')) x));
+  SELECT coalesce(array_agg(p.tablename::text ORDER BY p.tablename), '{}') INTO v_arr
+    FROM pg_policies p WHERE p.schemaname = 'public' AND p.policyname = 'keine_direktloeschung' AND p.permissive = 'RESTRICTIVE' AND p.cmd = 'DELETE';
+  v_erg := v_erg || pg_temp.s112_erwarte('keine_direktloeschung_katalog', array_to_string(v_arr, ','),
+    (SELECT array_to_string(array_agg(x ORDER BY x), ',') FROM unnest(pg_temp.s112_soll_liste('loeschsperre_tabellen')) x));
+  SELECT coalesce(array_agg(c.relname::text ORDER BY c.relname), '{}') INTO v_arr
+    FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid
+   WHERE c.relnamespace = 'public'::regnamespace AND t.tgname = 'z_protokoll_truncate' AND NOT t.tgisinternal;
   v_erg := v_erg || pg_temp.s112_erwarte('truncate_trigger_katalog', array_to_string(v_arr, ','),
     (SELECT array_to_string(array_agg(x ORDER BY x), ',') FROM unnest(pg_temp.s112_soll_liste('protokoll_tabellen')) x));
   FOR r IN SELECT DISTINCT x AS tab FROM unnest(v_arr || pg_temp.s112_soll_liste('protokoll_tabellen')) x ORDER BY 1 LOOP

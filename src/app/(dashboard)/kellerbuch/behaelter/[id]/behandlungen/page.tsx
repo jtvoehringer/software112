@@ -9,7 +9,7 @@ import { FlaskConical, BarChart3, ArrowLeftRight, Pencil } from 'lucide-react'
 import StornoButton from '@/components/StornoButton'
 import { fmtNum, dezimal } from '@/lib/format'
 import { dbFehlerText } from '@/lib/fehler'
-import { deleteKellerbehandlung } from '../../../actions'
+import { deleteKellerbehandlung, endgueltigLoeschen } from '../../../actions'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { csvPfad } from '@/lib/behoerden/katalog'
 import DruckKnopf from '../../../_behoerden/DruckKnopf'
@@ -480,7 +480,12 @@ export default function KellerbehandlungenPage() {
                       {vol != null ? `${fmtNum(vol)} L` : '–'}
                     </td>
                     <td className="px-4 py-2.5 text-right print:hidden">
-                      {b.storniert_am ? <span className="text-[11px] text-s112-muted">storniert</span> : (
+                      {b.storniert_am ? (
+                        // KAN-145 B4: endgültig löschen nur stornierter Buchungen, mit Grund
+                        <StornoButton modus="loeschen" label="Endgültig löschen" danach={() => loadData()}
+                          action={grund => endgueltigLoeschen('keller_behandlungen', b.id, grund)}
+                          hinweis="Nur bei Fehlbuchungen: Die stornierte Buchung wird endgültig entfernt – Grund und Benutzer stehen im Änderungsprotokoll." />
+                      ) : (
                       <div className="flex items-start justify-end gap-3">
                         <button onClick={() => openEdit(b)}
                           title="Bearbeiten" aria-label="Bearbeiten"

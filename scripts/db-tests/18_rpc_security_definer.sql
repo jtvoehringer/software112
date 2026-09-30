@@ -194,7 +194,8 @@ DECLARE
   v_weingarten_m bigint;
   -- 4b: RPCs mit Objekt-Argument, dynamisch mit fremdem Objekt geprüft
   c_idor  constant text[] := ARRAY['fuellung_bestand_buchen', 'schwund_buchen',
-                                   'setze_kontobewegung_abgeglichen', 's112_storniert_loeschen', 's112_buchung_loeschen'];
+                                   'setze_kontobewegung_abgeglichen', 's112_storniert_loeschen', 's112_buchung_loeschen',
+                                   's112_schwund_minderung'];
   v_pl_m  uuid;
   v_pl_b  uuid;
   v_kb_m  uuid;
@@ -300,8 +301,8 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('rpc_liste_vollstaendig', v_n >= 30, true);   -- 30 seit KAN-127 (get_behandlungen_fuer_grundstuecke entfernt)
   SELECT count(*) INTO v_n FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace AND n.nspname = 'public'
    WHERE p.prosecdef AND 'p_tenant_id' = ANY (p.proargnames) AND p.prosrc ~ 'pruefe_tenant_zugriff\s*\(';
-  v_erg := v_erg || pg_temp.s112_erwarte('rpc_mit_pruefe_tenant_zugriff', v_n, 19);   -- +s112_storniert_loeschen (KAN-145), s112_buchung_loeschen (KAN-166)
-  v_erg := v_erg || pg_temp.s112_erwarte('pruefe_liste_dynamisch', coalesce(array_length(v_namen, 1), 0), 18);
+  v_erg := v_erg || pg_temp.s112_erwarte('rpc_mit_pruefe_tenant_zugriff', v_n, 20);   -- +s112_schwund_minderung (KAN-145 B4)   -- +s112_storniert_loeschen (KAN-145), s112_buchung_loeschen (KAN-166)
+  v_erg := v_erg || pg_temp.s112_erwarte('pruefe_liste_dynamisch', coalesce(array_length(v_namen, 1), 0), 19);
   -- Soll-Einträge mit p_tenant_id, die es nicht (mehr) gibt
   SELECT string_agg(s.funktion, ', ') INTO v_txt FROM pg_temp.s112_soll_rpc() s
    WHERE s.funktion LIKE '%p_tenant_id %'

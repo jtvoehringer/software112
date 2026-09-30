@@ -747,6 +747,50 @@ export async function createKellerbehandlung(formData: FormData): Promise<{ id: 
   return { id: (data as R).id as string }
 }
 
+// ENDGÜLTIG LÖSCHEN (KAN-145 B4, 30.09.2026) – nur stornierte Buchungen, mit Grund, über die RPC
+// s112_storniert_loeschen (Rolle inkl. Mitarbeiter, Schreibmodul, Abo; Grund ins Änderungsprotokoll). Ein Umzug
+// besteht aus mehreren Zeilen (Batch) – alle stornierten Zeilen der Buchung werden gelöscht.
+export async function endgueltigLoeschen(
+  tabelle: 'keller_umzuege' | 'keller_behandlungen' | 'verschneidungen',
+  id: string,
+  grund: string,
+): Promise<void> {
+  const supabase = await createSupabaseServerClient()
+  const tenantId = await kellerbuchSchreibrecht()
+  const f = stornoGrundFehler(grund)
+  if (f) throw new AktionsFehler(f.replace('den Storno', 'das endgültige Löschen'))
+  let ids = [id]
+  if (tabelle === 'keller_umzuege') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: rec, error } = await (supabase.from('keller_umzuege') as any)
+      .select('id, umzug_batch_id')
+      // storno-sichtbar: endgültig gelöscht werden nur stornierte Zeilen (Filter unten)
+      .eq('id', id).eq('tenant_id', tenantId).maybeSingle()
+    if (error) throw new AktionsFehler(dbFehlerText(error, 'Buchung konnte nicht geladen werden'))
+    if (!rec) throw new AktionsFehler('Buchung nicht gefunden.')
+    if ((rec as R).umzug_batch_id) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: batch, error: e2 } = await (supabase.from('keller_umzuege') as any)
+        .select('id')
+        // storno-sichtbar: alle stornierten Zeilen derselben Buchung
+        .eq('umzug_batch_id', (rec as R).umzug_batch_id).eq('tenant_id', tenantId).not('storniert_am', 'is', null)
+      if (e2) throw new AktionsFehler(dbFehlerText(e2, 'Buchung konnte nicht geladen werden'))
+      ids = ((batch ?? []) as R[]).map(r => r.id as string)
+    }
+  }
+  for (const zeile of ids) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase.rpc as any)('s112_storniert_loeschen', {
+      p_tenant_id: tenantId, p_tabelle: tabelle, p_id: zeile, p_grund: grund.trim(),
+    })
+    if (error) throw new AktionsFehler(dbFehlerText(error, 'Endgültig löschen fehlgeschlagen'))
+  }
+  revalidatePath('/kellerbuch')
+  revalidatePath('/kellerbuch/gebinde')
+  revalidatePath('/kellerbuch/umziehen')
+  revalidatePath('/kellerbuch/behaelter', 'layout')
+}
+
 // KELLERBEHANDLUNG STORNIEREN (KAN-35, 24.09.2026; KAN-145 B3, 30.09.2026)
 // Server Action mit Schreibrecht im Kellerbuch, Mandantenfilter und Trefferprüfung. Seit KAN-145 bleibt die
 // Behandlung stehen und wird mit Grund als storniert gekennzeichnet (Zeitpunkt und Benutzer setzt die DB,
