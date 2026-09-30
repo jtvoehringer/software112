@@ -666,7 +666,7 @@ export function jahrZeitraum(jahr: number | null, vorjahre = 0): { von: string |
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /**
- * Ried-Filter aus ?ried=…: Ried-id (= Weingarten, Entscheidung Jörgen 26.09.2026, KAN-132) oder OHNE_RIED;
+ * Ried-Filter aus ?ried=…: Ried-id (Ried = Entität weingarten, KAN-132) oder OHNE_RIED;
  * null = alle Rieden (leer oder „all“), undefined = ungültig. Bis 30.09.2026 war es die Lage-id.
  */
 export function riedFilterAus(wert: string | null | undefined): string | null | undefined {

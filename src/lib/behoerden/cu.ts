@@ -322,7 +322,7 @@ function gstAmpel(jahr: number | null, fuenf: number | null, sieben: number | nu
   return { gstMaxKgHa: r(jahr), gstMaxKgHa5J: r(fuenf), gstMaxKgHa7J: r(sieben), gstStatus: schlimmste ? CU_STATUS_LABEL[schlimmste] : '–' }
 }
 
-// KAN-132: „Ried“ = Weingarten, „Lage“ darüber (Entscheidung Jörgen 26.09.2026)
+// KAN-132: „Ried“ = Entität weingarten, „Lage“ die Ebene darüber
 export const SPALTEN_CU_BILANZ: CsvSpalte<CuWeingartenZeile>[] = [
   { kopf: 'Jahr', typ: 'ganzzahl', wert: z => z.jahr },
   { kopf: 'Ried', typ: 'text', wert: z => z.weingarten },

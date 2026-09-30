@@ -24,7 +24,7 @@ function fmtHa(n: number) {
   return n.toLocaleString(ZAHL_LOCALE, { maximumFractionDigits: 4 }) + ' ha'
 }
 
-/** KAN-132: Ried = Weingarten (Entscheidung Jörgen 26.09.2026) – Schlüssel ist die Weingarten-id */
+/** KAN-132: Ried = Entität weingarten – Schlüssel ist die weingarten-id */
 function riedSchluessel(weingartenId: string | null) {
   return weingartenId ?? OHNE_RIED
 }
