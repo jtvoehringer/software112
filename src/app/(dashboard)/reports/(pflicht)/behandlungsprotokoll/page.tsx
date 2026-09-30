@@ -143,7 +143,8 @@ export default async function BehandlungsprotokollPage({ searchParams }: { searc
                   </td>
                   <td className="px-2 py-1.5 border border-s112-line">{ART_LABEL[b.art] ?? b.art}</td>
                   <td className="px-2 py-1.5 border border-s112-line">
-                    {rieden.length > 0 ? rieden.join(', ') : '–'}
+                    {/* Rückmeldung 30.09.2026: ab vier Rieden kompakt – die vollständige Liste (je Grundstück) steht im CSV */}
+                    {rieden.length === 0 ? '–' : rieden.length <= 3 ? rieden.join(', ') : `${rieden.length} Rieden · Details siehe CSV`}
                     {b.anwender && <span className="block text-[10px] text-s112-tertiary">Anwender: {b.anwender}</span>}
                   </td>
                   <td className="px-2 py-1.5 border border-s112-line text-right tabular-nums whitespace-nowrap">
