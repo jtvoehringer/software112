@@ -62,12 +62,12 @@ export default async function RiedenRueckverfolgungPage({ searchParams }: { sear
   const [jgRes, gstRes] = tenantId
     ? await Promise.all([
         (supabase.from('weinjahrgaenge') as R).select('jahrgang').eq('tenant_id', tenantId).order('jahrgang', { ascending: false }),
-        (supabase.from('grundstuecke') as R).select('id, gst_nr, katastralgemeinde, weingarten:weingarten_id(name)').eq('tenant_id', tenantId).order('gst_nr'),
+        (supabase.from('grundstuecke') as R).select('id, gst_nr, katastralgemeinde, weingarten_id, weingarten:weingarten_id(name)').eq('tenant_id', tenantId).order('gst_nr'),
       ])
     : [{ data: [] }, { data: [] }]
   const jahrgaenge = [...new Set(((jgRes.data ?? []) as R[]).map(j => Number(j.jahrgang)))]
   const grundstuecke = ((gstRes.data ?? []) as R[])
-    .map(g => ({ id: String(g.id), text: `${(g.weingarten as R | null)?.name ?? '–'} · GST ${g.gst_nr ?? '?'}${g.katastralgemeinde ? ` (KG ${g.katastralgemeinde})` : ''}` }))
+    .map(g => ({ id: String(g.id), weingartenId: g.weingarten_id ? String(g.weingarten_id) : null, text: `${(g.weingarten as R | null)?.name ?? '–'} · GST ${g.gst_nr ?? '?'}${g.katastralgemeinde ? ` (KG ${g.katastralgemeinde})` : ''}` }))
     .sort((a, b) => a.text.localeCompare(b.text, 'de-AT'))
 
   const csvParameter: Record<string, string | number | null> = {
@@ -143,9 +143,27 @@ export default async function RiedenRueckverfolgungPage({ searchParams }: { sear
         </p>
       ))}
 
-      {ergebnis && lesen.length === 0 && (
-        <p className="text-sm text-s112-muted">Keine Lese erfasst.</p>
-      )}
+      {ergebnis && lesen.length === 0 && (() => {
+        // Rückmeldung 30.09.2026: statt nur „Keine Lese erfasst.“ erklären, dass die Rückverfolgung bei der Lese
+        // beginnt, und auf den Maßnahmen-Verlauf des Grundstücks verweisen
+        const gst = einstieg.gst ? grundstuecke.find(g => g.id === einstieg.gst) : null
+        const jahr = einstieg.jahrgang ? `im Jahrgang ${einstieg.jahrgang} ` : ''
+        return (
+          <div className="text-sm text-s112-muted space-y-1">
+            <p>
+              {gst ? <>Für <span className="text-s112-text">{gst.text}</span> ist {jahr}keine Lese erfasst.</> : <>Es ist {jahr}keine Lese erfasst.</>}
+              {' '}Die Rückverfolgung „von Ernte bis Ernte“ geht von der Lese aus und zeigt die Maßnahmen, sobald die Lese erfasst ist.
+            </p>
+            {gst?.weingartenId && (
+              <p>
+                Die bisherigen Maßnahmen stehen im{' '}
+                <Link href={`/weingarten/${gst.weingartenId}`} className="underline hover:text-s112-text">Maßnahmen-Verlauf der Ried</Link>
+                {' '}(Grundstück aufklappen).
+              </p>
+            )}
+          </div>
+        )
+      })()}
 
       {lesen.map(l => (
         <div key={l.leseId} className="card p-5 space-y-3 break-inside-avoid">

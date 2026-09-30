@@ -352,6 +352,25 @@ export function riedText(b: PsmBehandlung): string | null {
   return r.length ? r.join(', ') : null
 }
 
+const KOLLATOR = new Intl.Collator('de', { numeric: true, sensitivity: 'base' })
+
+/**
+ * Rieden der Maßnahme für Druckseiten (Rückmeldung 30.09.2026): je Ried einmal, alphabetisch; die Lage in Klammern
+ * nur, wenn sie anders heißt als die Ried – ohne Lage fällt riedAus auf weingarten.ried zurück, das oft denselben
+ * Namen trägt (bei Gebeshuber stand so jede Ried doppelt im Behandlungsprotokoll).
+ */
+export function riedenMitLage(b: PsmBehandlung): string[] {
+  const je = new Map<string, string | null>()
+  for (const g of b.grundstuecke) {
+    if (!g.weingarten || je.has(g.weingarten)) continue
+    const lage = g.ried && g.ried.trim().toLocaleLowerCase('de') !== g.weingarten.trim().toLocaleLowerCase('de') ? g.ried : null
+    je.set(g.weingarten, lage)
+  }
+  return [...je.entries()]
+    .sort(([a], [b2]) => KOLLATOR.compare(a, b2))
+    .map(([ried, lage]) => lage ? `${ried} (${lage})` : ried)
+}
+
 /** Anzahl zugeordneter Grundstücke (ohne die Ersatzzeile je Weingarten) */
 export function gstAnzahl(b: PsmBehandlung): number {
   return b.grundstuecke.filter(g => g.grundstueckId !== null).length
