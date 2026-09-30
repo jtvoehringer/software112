@@ -164,7 +164,8 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
       .order('datum', { ascending: true })),
 
     tf((supabase.from('keller_behandlungen') as any)
-      .select('datum, typ_name_snapshot, menge, einheit, volumen_liter_ist, notizen, typ:typ_id(name)')
+      .select('datum, typ_name_snapshot, menge, einheit, volumen_liter_ist, notizen, typ:typ_id(name), storniert_am, storno_grund, storniert_von_name')
+      // storno-sichtbar: das Weinbuch zeigt stornierte Kellerbehandlungen gekennzeichnet (KAN-145 B3)
       .eq('weinausbau_id', id)
       .order('datum', { ascending: true })),
 
@@ -225,7 +226,8 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
   // (alle Behandlungen des Gebindes) nichts still verlieren (Review 25.09.2026).
   if (kellerBeh.length === 0 && wa.behaelter_id && tenantId) {
     const { data: kbFallbackRaw, error: kbFallbackErr } = await (supabase.from('keller_behandlungen') as any)
-      .select('datum, typ_name_snapshot, menge, einheit, volumen_liter_ist, notizen, typ:typ_id(name)')
+      .select('datum, typ_name_snapshot, menge, einheit, volumen_liter_ist, notizen, typ:typ_id(name), storniert_am, storno_grund, storniert_von_name')
+      // storno-sichtbar: das Weinbuch zeigt stornierte Kellerbehandlungen gekennzeichnet (KAN-145 B3)
       .eq('tenant_id', tenantId)
       .eq('behaelter_id', wa.behaelter_id)
       .is('weinausbau_id', null)
@@ -479,6 +481,7 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
 
   for (const kb of kellerBeh) {
     const typName = (kb.typ as R | null)?.name ?? kb.typ_name_snapshot ?? 'Kellerbehandlung'
+    merkeStorno(kb)
     events.push({
       datum: kb.datum,
       typ: 'kellerbehandlung',

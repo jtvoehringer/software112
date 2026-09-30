@@ -167,6 +167,7 @@ export async function folgebuchungenDerCharge(
     mit('behandlung')
       ? (supabase.from('keller_behandlungen') as any)
           .select('id', { count: 'exact', head: true })
+          .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
           .eq('weinausbau_id', id)
           .eq('tenant_id', tenantId)
       : leer,

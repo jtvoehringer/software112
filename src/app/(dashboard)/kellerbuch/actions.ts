@@ -14,6 +14,7 @@ import { dezimal, zahlAus, fmtNum } from '@/lib/format'
 import { gebindeFehlerText } from '@/lib/keller/behaelter'
 import { sperreBeiFolgebuchungen } from '@/lib/kellerbuch/folgebuchungen'
 import { planeVerschneidungStorno, storniereVerschneidung, GEBINDEWECHSEL_OHNE } from '@/lib/kellerbuch/storno'
+import { stornoGrundFehler } from '@/lib/storno/grund'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -174,6 +175,7 @@ export async function deleteBehaelter(id: string): Promise<{ error?: string }> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('keller_behandlungen') as any)
       .select('id', { count: 'exact', head: true }).eq('behaelter_id', id).eq('tenant_id', tenantId),
+      // storno-sichtbar: auch stornierte Behandlungen sind Historie des Gebindes – dann nicht löschen
   ])
   if (chargenRes.error) return { error: dbFehlerText(chargenRes.error, 'Prüfung fehlgeschlagen (weinausbau)') }
   if (behandlungenRes.error) return { error: dbFehlerText(behandlungenRes.error, 'Prüfung fehlgeschlagen (keller_behandlungen)') }
@@ -745,25 +747,27 @@ export async function createKellerbehandlung(formData: FormData): Promise<{ id: 
   return { id: (data as R).id as string }
 }
 
-// KELLERBEHANDLUNG LÖSCHEN (KAN-35, 24.09.2026)
-// Bisher löschte die Kellerbehandlungen-Seite direkt über den Browser-Client, ohne Rollen-
-// und Ergebnisprüfung. Jetzt als Server Action: Schreibrecht im Kellerbuch, Mandantenfilter,
-// Prüfung, dass wirklich eine Zeile gelöscht wurde. Das Löschen bleibt erlaubt (Behandlungen
-// bewegen keine Liter) und wird von der DB protokolliert (bestandsprotokoll).
-export async function deleteKellerbehandlung(id: string): Promise<void> {
+// KELLERBEHANDLUNG STORNIEREN (KAN-35, 24.09.2026; KAN-145 B3, 30.09.2026)
+// Server Action mit Schreibrecht im Kellerbuch, Mandantenfilter und Trefferprüfung. Seit KAN-145 bleibt die
+// Behandlung stehen und wird mit Grund als storniert gekennzeichnet (Zeitpunkt und Benutzer setzt die DB,
+// Änderungsprotokoll); Bewegungsbuch und Weinbuch zeigen sie mit Vermerk, die Auswertungen zählen sie nicht.
+export async function deleteKellerbehandlung(id: string, grund: string): Promise<void> {
   const supabase = await createSupabaseServerClient()
   const tenantId = await kellerbuchSchreibrecht()
   if (!id) throw new AktionsFehler('Keine Kellerbehandlung angegeben')
+  const f = stornoGrundFehler(grund)
+  if (f) throw new AktionsFehler(f)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase.from('keller_behandlungen') as any)
-    .delete()
+    .update({ storniert_am: new Date().toISOString(), storno_grund: grund.trim() })
     .eq('id', id)
     .eq('tenant_id', tenantId)
+    .is('storniert_am', null)
     .select('id, behaelter_id, weinausbau_id')
-  if (error) throw new AktionsFehler(dbFehlerText(error, 'Löschen fehlgeschlagen (keller_behandlungen)'))
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Stornieren fehlgeschlagen (keller_behandlungen)'))
   const zeile = ((data ?? []) as R[])[0]
-  if (!zeile) throw new AktionsFehler('Kellerbehandlung nicht gefunden oder keine Berechtigung zum Löschen.')
+  if (!zeile) throw new AktionsFehler('Kellerbehandlung nicht gefunden, bereits storniert oder keine Berechtigung.')
 
   revalidatePath(`/kellerbuch/behaelter/${zeile.behaelter_id}/behandlungen`)
   revalidatePath(`/kellerbuch/behaelter/${zeile.behaelter_id}/bewegungen`)

@@ -80,6 +80,7 @@ export async function ladeKellerBehandlungen(
   let q = (supabase.from('keller_behandlungen') as any)
     .select('id, datum, typ_name_snapshot, menge, einheit, volumen_liter_ist, notizen, behaelter_id, weinausbau_id, typ:typ_id(name), weinausbau:weinausbau_id(name), behaelter:behaelter_id(name)')
     .eq('tenant_id', tenantId)
+    .is('storniert_am', null)   // KAN-145: stornierte Kellerbehandlungen zählen nicht
   if (p.behaelterId) q = q.eq('behaelter_id', p.behaelterId)
   if (p.von) q = q.gte('datum', p.von)
   if (p.bis) q = q.lte('datum', p.bis)

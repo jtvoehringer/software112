@@ -126,7 +126,8 @@ async function ladeRoh(supabase: any, tenantId: string, behaelterId: string): Pr
       .eq('von_behaelter_id', behaelterId)
       .order('id', { ascending: true }), 'keller_umzuege'),
     liste((supabase.from('keller_behandlungen') as any)
-      .select('id, datum, menge, einheit, notizen, weinausbau_id, typ_name_snapshot, typ:typ_id(name)')
+      .select('id, datum, menge, einheit, notizen, weinausbau_id, typ_name_snapshot, typ:typ_id(name), storniert_am, storno_grund, storniert_von_name')
+      // storno-sichtbar: stornierte Kellerbehandlungen mit Vermerk (KAN-145 B3)
       .eq('tenant_id', tenantId)
       .eq('behaelter_id', behaelterId)
       .order('datum', { ascending: true })
@@ -419,6 +420,7 @@ function bewegungenAus(roh: Roh): Bewegung[] {
       charge: name(b.weinausbau_id),
       gegenstelle: null,
       beleg: null,
+      ...stornoFeld(b),
     })
   }
 
@@ -467,7 +469,7 @@ function bewegungenAus(roh: Roh): Bewegung[] {
 
   // KAN-145: Gegenbuchung am Storno-Tag (umgekehrte Menge) – die Buchung selbst bleibt an ihrem Tag stehen
   for (const b of [...bewegungen]) {
-    if (!b.storno) continue
+    if (!b.storno || b.menge === 0) continue   // ohne Menge (Kellerbehandlung) genügt der Vermerk
     bewegungen.push({
       ...b,
       datum: b.storno.am,
