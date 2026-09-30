@@ -214,7 +214,7 @@ Titel immer mit der Lücken-ID beginnen (der Runner dedupliziert über den Titel
 | ~~B1~~ | behoben (KAN-159, 29.09.2026): Zahlung auf einen fremden Verkaufsposten wird abgelehnt – 11 |
 | B2 | Fremd-FK allgemein (z. B. `kontakt_firmen` mit fremder Firma → k1) – Baseline |
 | B3 | `profiles_read_all`: jeder sieht alle Profile |
-| B4 | inaktives Mitglied sieht die `tenants`-Zeile und bekommt über `get_behandlungen_fuer_grundstuecke` Behandlungen |
+| B4 | inaktives Mitglied sieht die `tenants`-Zeile (der Teil `get_behandlungen_fuer_grundstuecke` ist behoben: Funktion entfernt, KAN-127, 30.09.2026) |
 | B5 | NULL-Falle: aktiv in B, inaktiv im Musterhof → 0 statt der globalen `ea_kategorien` |
 | B6 | `ki_readonly_query` liest bei zwei Betrieben Kontakte des anderen |
 | B7 | E&A-Perioden nur in der App gesperrt (Insert in abgeschlossenen Monat, `is_locked`, Datum verschieben, UVA entsperren/löschen, Monatsabschluss löschen) |

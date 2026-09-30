@@ -2,7 +2,7 @@
 -- @ziel: aktiv = false entzieht sofort jeden Lese- und Schreibzugriff auf den Betrieb – über RLS (dynamisch über
 -- @ziel: alle T/K-Tabellen), RPCs und Storage. Kontrolle: dieselbe Persona, als postgres auf aktiv = true
 -- @ziel: umgeschaltet, sieht bzw. ändert die Zeilen – aktiv ist also die Ursache. Bekannte Ausnahmen (tenants-Zeile,
--- @ziel: get_behandlungen_fuer_grundstuecke, NULL-Falle bei globalen Zeilen) werden als Ratsche sichtbar gezählt.
+-- @ziel: NULL-Falle bei globalen Zeilen) werden als Ratsche sichtbar gezählt (get_behandlungen_fuer_grundstuecke seit KAN-127 entfernt).
 -- @mutation gesperrte_tenants_leer: s112_gesperrte_tenants() liefert nichts mehr – alle mitgliedschaft_aktiv-Policies wirkungslos | rot: select_inaktiv_.*|tenant_memberships_eigene_inaktiv_unsichtbar
 -- @mutation meine_tenants_ohne_aktiv: s112_meine_tenants() filtert nicht mehr auf aktiv (Storage, RPC-Hilfe) | rot: storage_.*|rpc_meine_tenants_ohne_m
 -- @mutation pruefe_zugriff_ohne_aktiv: pruefe_tenant_zugriff() prüft aktiv nicht mehr | rot: rpc_pruefe_tenant_zugriff_.*|rpc_get_next_rechnungsnummer_inaktiv
@@ -24,7 +24,7 @@
 --   3. tenant_memberships: eigene inaktive Zeile unsichtbar; tenants: Betriebszeile noch sichtbar (Ratsche B4).
 --   4. RPCs: pruefe_tenant_zugriff, get_next_rechnungsnummer → 42501; get_user_role_in_tenant → NULL;
 --      s112_meine_tenants ohne M; s112_darf_schreiben = false; s112_mandant_mitglieder → 0 Zeilen;
---      get_behandlungen_fuer_grundstuecke liefert weiter Behandlungen (Ratsche B4, Grundstück-IDs als postgres).
+--      get_behandlungen_fuer_grundstuecke ist entfernt (KAN-127, 30.09.2026 – vorher Ratsche B4).
 --   5. NULL-Falle (mix): globale Zeilen (tenant_id NULL) in ea_kategorien, duengemittel, pflanzenschutzmittel,
 --      saetze_massnahmen verschwinden (Ratsche B5); Kontrolle b_w sieht sie.
 --   6. Storage ea-belege: Objekt im Musterhof-Ordner unsichtbar, Upload → R, Löschen → k0.
@@ -157,7 +157,7 @@ BEGIN
       pg_temp.s112_zaehle(format('SELECT count(*) FROM public.%I WHERE %s', v_tabs[v_i], v_wheres[v_i])), '1');
   END LOOP;
 
-  -- get_behandlungen_fuer_grundstuecke: Grundstück-IDs und erwartete Zeilenzahl als postgres (nicht unter RLS!)
+  -- Grundstück-IDs und Behandlungen des Musterhofs als postgres (nicht unter RLS!) – Plausibilität der Testdaten
   SELECT array_agg(g.id ORDER BY g.id) INTO v_gids FROM public.grundstuecke g WHERE g.tenant_id = c_m;
   SELECT count(*) INTO v_beh_soll FROM (
     SELECT 1 FROM public.behandlung_grundstuecke bg
@@ -239,10 +239,7 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('rpc_darf_schreiben_inaktiv', public.s112_darf_schreiben(c_m, 'crm'), false);
   v_erg := v_erg || pg_temp.s112_erwarte('rpc_mandant_mitglieder_inaktiv',
     pg_temp.s112_zaehle(format('SELECT count(*) FROM public.s112_mandant_mitglieder(%L::uuid)', c_m)), '0');
-  v_erg := v_erg || pg_temp.s112_luecke('rpc_get_behandlungen_inaktiv',
-    pg_temp.s112_zaehle(format('SELECT count(*) FROM public.get_behandlungen_fuer_grundstuecke(%L::uuid[], %L::uuid)', v_gids, c_m)),
-    '0', v_beh_soll::text,
-    'B4 get_behandlungen_fuer_grundstuecke: inaktive Mitglieder lesen Behandlungen, ohne pruefe_tenant_zugriff');
+  v_erg := v_erg || pg_temp.s112_erwarte('rpc_get_behandlungen_entfernt', to_regprocedure('public.get_behandlungen_fuer_grundstuecke(uuid[], uuid)') IS NULL, true);
 
   -- 6. Storage als m_inak
   v_erg := v_erg || pg_temp.s112_erwarte('storage_select_inaktiv',
@@ -386,9 +383,6 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('kontrolle_darf_schreiben', public.s112_darf_schreiben(c_m, 'crm'), true);
   v_erg := v_erg || pg_temp.s112_erwarte('kontrolle_mandant_mitglieder',
     pg_temp.s112_zaehle(format('SELECT count(*) FROM public.s112_mandant_mitglieder(%L::uuid)', c_m)), v_mitglieder_aktiv::text);
-  v_erg := v_erg || pg_temp.s112_erwarte('kontrolle_get_behandlungen',
-    pg_temp.s112_zaehle(format('SELECT count(*) FROM public.get_behandlungen_fuer_grundstuecke(%L::uuid[], %L::uuid)', v_gids, c_m)),
-    v_beh_soll::text);
   v_erg := v_erg || pg_temp.s112_erwarte('kontrolle_storage_select',
     pg_temp.s112_zaehle(format('SELECT count(*) FROM storage.objects WHERE bucket_id = %L AND name = %L', 'ea-belege', v_obj_name)), '1');
   v_erg := v_erg || pg_temp.s112_erwarte('kontrolle_storage_upload',

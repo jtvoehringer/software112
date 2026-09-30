@@ -1126,7 +1126,6 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('intern',        '--S', false, 'demo_musterhof_y2_kette()'),
     ('intern',        '--S', false, 'demo_musterhof_zuruecksetzen()'),
     ('mandant',       '-US', true , 'fuellung_bestand_buchen(p_tenant_id uuid, p_fuellung_id uuid, p_art text, p_datum date, p_menge_stk integer, p_ist_bestand integer, p_grund text)'),
-    ('mandant_eigen', '-US', false, 'get_behandlungen_fuer_grundstuecke(p_grundstueck_ids uuid[], p_tenant_id uuid)'),
     ('mandant',       '-US', true , 'get_next_accountnummer(p_tenant_id uuid)'),
     ('mandant',       '-US', true , 'get_next_chargennummer(p_tenant_id uuid)'),
     ('mandant',       '-US', true , 'get_next_liefernummer(p_tenant_id uuid)'),

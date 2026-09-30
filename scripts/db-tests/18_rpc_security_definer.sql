@@ -37,7 +37,7 @@
 --      anon/PUBLIC-Funktionen = Soll + bekannt (Ratsche B10), interne Funktionen ohne EXECUTE für authenticated,
 --      Triggerfunktionen mit EXECUTE für authenticated (Ratsche B11).
 --   7. Modulprüfung (seit KAN-159 hart, vorher B9): jede schreibende RPC für Winzer ruft s112_darf_schreiben bzw.
---      s112_pruefe_schreibmodul auf; is_locked bleibt beim Kontenabgleich bewusst ungeprüft. Bekannte Lücken: B4 (get_behandlungen_fuer_grundstuecke ohne pruefe_tenant_zugriff), B6
+--      s112_pruefe_schreibmodul auf; is_locked bleibt beim Kontenabgleich bewusst ungeprüft. Bekannte Lücken: B6
 --      (ki_readonly_query filtert nur GUT-Tabellen auf den aktiven Betrieb).
 --   4b. Eigener Betrieb, fremdes Objekt (IDOR): b_ta ruft die RPCs mit p_tenant_id = B, aber mit echten Objekten
 --      des Musterhofs auf (Füllung, Charge, E&A-Buchung, Grundstücke). Als postgres wird im selben Unterblock
@@ -193,7 +193,7 @@ DECLARE
   v_kontakte_m bigint;
   v_weingarten_m bigint;
   -- 4b: RPCs mit Objekt-Argument, dynamisch mit fremdem Objekt geprüft
-  c_idor  constant text[] := ARRAY['fuellung_bestand_buchen', 'get_behandlungen_fuer_grundstuecke', 'schwund_buchen',
+  c_idor  constant text[] := ARRAY['fuellung_bestand_buchen', 'schwund_buchen',
                                    'setze_kontobewegung_abgeglichen'];
   v_f_m   uuid;
   v_f_b   uuid;
@@ -293,7 +293,7 @@ BEGIN
       v_abo := v_abo || r.abo;
     END IF;
   END LOOP;
-  v_erg := v_erg || pg_temp.s112_erwarte('rpc_liste_vollstaendig', v_n >= 31, true);
+  v_erg := v_erg || pg_temp.s112_erwarte('rpc_liste_vollstaendig', v_n >= 30, true);   -- 30 seit KAN-127 (get_behandlungen_fuer_grundstuecke entfernt)
   SELECT count(*) INTO v_n FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace AND n.nspname = 'public'
    WHERE p.prosecdef AND 'p_tenant_id' = ANY (p.proargnames) AND p.prosrc ~ 'pruefe_tenant_zugriff\s*\(';
   v_erg := v_erg || pg_temp.s112_erwarte('rpc_mit_pruefe_tenant_zugriff', v_n, 17);
@@ -388,21 +388,8 @@ BEGIN
     pg_temp.t18_ruf(format('SELECT public.user_has_role_in_tenant(%L, ARRAY[''tenant_admin''])::text', v_m)), 'ok|true');
   PERFORM pg_temp.s112_als_postgres();
 
-  -- get_behandlungen_fuer_grundstuecke (Einstufung „bekannt“: prüft nur get_user_tenant_ids(), ohne aktiv)
-  SELECT array_agg(DISTINCT bg.grundstueck_id) INTO v_grst
-    FROM public.behandlung_grundstuecke bg JOIN public.behandlungen b ON b.id = bg.behandlung_id
-   WHERE b.tenant_id = v_m;
-  v_erg := v_erg || pg_temp.s112_erwarte('musterhof_behandlungen_existieren', coalesce(array_length(v_grst, 1), 0) > 0, true);
-  PERFORM pg_temp.s112_als(v_mta);
-  v_r := pg_temp.t18_ruf(format('SELECT count(*)::text FROM public.get_behandlungen_fuer_grundstuecke(%L::uuid[], %L)', v_grst, v_m));
-  v_erg := v_erg || pg_temp.s112_erwarte('eigen_get_behandlungen_fuer_grundstuecke', v_r LIKE 'ok|%' AND v_r <> 'ok|0', true);
-  PERFORM pg_temp.s112_als(v_bta);
-  v_erg := v_erg || pg_temp.s112_erwarte('fremd_get_behandlungen_fuer_grundstuecke',
-    pg_temp.t18_ruf(format('SELECT count(*)::text FROM public.get_behandlungen_fuer_grundstuecke(%L::uuid[], %L)', v_grst, v_m)), 'ok|0');
-  PERFORM pg_temp.s112_als_postgres();
-  v_erg := v_erg || pg_temp.s112_luecke('behandlungen_rpc_ohne_pruefe_tenant_zugriff', (SELECT p.prosrc ~ 'pruefe_tenant_zugriff\s*\(' FROM pg_proc p
-     WHERE p.oid = 'public.get_behandlungen_fuer_grundstuecke(uuid[], uuid)'::regprocedure), true, false,
-    'B4 get_behandlungen_fuer_grundstuecke ohne pruefe_tenant_zugriff (aktiv und Zwei-Faktor ungeprüft)');
+  -- B4 (RPC-Teil) behoben: get_behandlungen_fuer_grundstuecke entfernt (KAN-127, 30.09.2026)
+  v_erg := v_erg || pg_temp.s112_erwarte('get_behandlungen_fuer_grundstuecke_entfernt', to_regprocedure('public.get_behandlungen_fuer_grundstuecke(uuid[], uuid)') IS NULL, true);
 
   -- ── 4b. Eigener Betrieb, fremdes Objekt (IDOR) ─────────────────────────────────────────────────────────
   -- Katalog: jede SD-Funktion mit p_tenant_id und weiteren uuid-Argumenten ist hier abgedeckt
@@ -520,11 +507,6 @@ BEGIN
     END IF;
   END LOOP;
 
-  -- get_behandlungen_fuer_grundstuecke: eigener Betrieb B, Grundstücke des Musterhofs → 0 Zeilen
-  PERFORM pg_temp.s112_als(v_bta);
-  v_erg := v_erg || pg_temp.s112_erwarte('idor_get_behandlungen_fuer_grundstuecke',
-    pg_temp.t18_ruf(format('SELECT count(*)::text FROM public.get_behandlungen_fuer_grundstuecke(%L::uuid[], %L)', v_grst, v_b)), 'ok|0');
-  PERFORM pg_temp.s112_als_postgres();
 
   -- ── 5. 'session_user': nur statisch (Laufzeitprüfung über PostgREST/E2E, session_user = authenticator) ──
   v_n := 0;

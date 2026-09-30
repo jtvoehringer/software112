@@ -49,7 +49,7 @@
 --      s112_soll deckt genau alle Tabellen ab.
 --   7. Funktionen: search_path überall; keine SECURITY-DEFINER-Funktion für anon/PUBLIC; anon/PUBLIC-Menge = Soll
 --      + Ratsche B10; SECURITY-DEFINER-Menge = s112_soll_rpc (Rechte A/U/S und Abo-Prüfung gleich); p_tenant_id
---      ohne pruefe_tenant_zugriff nur mit passender Einstufung (dieselbe Quelle wie 18), bekannt: B4.
+--      ohne pruefe_tenant_zugriff nur mit passender Einstufung (dieselbe Quelle wie 18), B4-Teil RPC behoben (get_behandlungen_fuer_grundstuecke entfernt, KAN-127, 30.09.2026).
 --      Unabhängig vom Handflag abo: jede SECURITY-DEFINER-Funktion mit p_tenant_id, EXECUTE für authenticated und
 --      einer Schreibanweisung im Quelltext (INSERT INTO, UPDATE … SET, DELETE FROM, ON CONFLICT) ruft
 --      s112_pruefe_abo_schreibsperre auf oder steht begründet in s112_soll_liste('abo_rpc_ausnahmen').
@@ -212,7 +212,6 @@ DECLARE
   -- Schreibanweisung im Quelltext ohne Kommentare (Heuristik, Groß-/Kleinschreibung egal, Vergleich mit ~*)
   c_re_schreibt constant text := '\m(INSERT\s+INTO|UPDATE\s+[a-z_."]+(\s+(AS\s+)?[a-z_]+)?\s+SET|DELETE\s+FROM|ON\s+CONFLICT)\M';
   c_re_aal constant text := 'IF\s+NOT\s+(public\.)?s112_aal_ok\(\)\s+THEN\s+RAISE\s+EXCEPTION\s[^;]*ERRCODE\s*=\s*''42501''';
-  c_titel_b4 constant text := 'B4 get_behandlungen_fuer_grundstuecke ohne pruefe_tenant_zugriff (aktiv und Zwei-Faktor ungeprüft)';
   c_titel_b5 constant text := 'B5 NULL-Falle mitgliedschaft_aktiv: Policy ohne „tenant_id IS NULL OR …“ auf Tabellen mit globalen Zeilen';
   c_titel_b10 constant text := 'B10 anon/PUBLIC-EXECUTE auf Funktionen entgegen der REVOKE-Regel (keine SECURITY DEFINER)';
   v_t0    timestamptz := clock_timestamp();
@@ -670,15 +669,15 @@ BEGIN
   -- Plausibilität: die Menge der INVOKER-Funktionen mit p_tenant_id ist nicht leer (sonst prüfte ptz_invoker nichts)
   SELECT count(*) INTO v_n FROM pg_temp.t01_funktionen() f WHERE NOT f.sd AND f.sig ~ '\mp_tenant_id\M';
   v_erg := v_erg || pg_temp.s112_erwarte('ptz_invoker_kandidaten_vorhanden', v_n >= 1, true);
-  -- eigene Mitgliedsprüfung muss die aktive Mitgliedschaft prüfen (get_behandlungen_fuer_grundstuecke: B4)
+  -- eigene Mitgliedsprüfung muss die aktive Mitgliedschaft prüfen
   v_erg := v_erg || pg_temp.t01_liste('ptz_eigen_aktiv', $q$
     SELECT f.sig AS schluessel, 'eigene Mitgliedsprüfung ohne Bezug auf aktiv' AS beleg
       FROM pg_temp.t01_funktionen() f JOIN pg_temp.s112_soll_rpc() s ON s.funktion = f.sig
-     WHERE s.einstufung IN ('mandant_eigen', 'session_user') AND f.fn <> 'get_behandlungen_fuer_grundstuecke'
+     WHERE s.einstufung IN ('mandant_eigen', 'session_user')
        AND f.src !~ '\maktiv\M'
      ORDER BY 1$q$);
-  SELECT bool_or(f.src ~ c_re_ptz) INTO v_bool FROM pg_temp.t01_funktionen() f WHERE f.fn = 'get_behandlungen_fuer_grundstuecke';
-  v_erg := v_erg || pg_temp.s112_luecke('ptz_get_behandlungen_fuer_grundstuecke', v_bool, true, false, c_titel_b4);
+  -- B4 (RPC-Teil) behoben: get_behandlungen_fuer_grundstuecke entfernt (KAN-127, 30.09.2026) – darf nicht wiederkommen
+  v_erg := v_erg || pg_temp.s112_erwarte('get_behandlungen_fuer_grundstuecke_entfernt', to_regprocedure('public.get_behandlungen_fuer_grundstuecke(uuid[], uuid)') IS NULL, true);
   -- echte Stufenprüfung „IF NOT public.s112_aal_ok() THEN RAISE EXCEPTION … ERRCODE = '42501'“ (ohne Kommentare);
   -- ein neutralisiertes „IF false AND NOT s112_aal_ok()“ zählt nicht
   SELECT bool_and(f.src ~ c_re_aal) INTO v_bool FROM pg_temp.t01_funktionen() f WHERE f.fn = 'pruefe_tenant_zugriff';
