@@ -125,7 +125,7 @@ const PW_SELECT = `
   id, trauben_kg, rebsorte, ernte_datum, kmw, oechsle, mostgewicht_einheit, weingarten_id, grundstueck_id, zukauf_posten_id,
   weingarten:weingarten_id(id, name),
   grundstueck:grundstueck_id(gst_nr, katastralgemeinde, ama_feldnummer),
-  pressung:pressung_id!inner(id, datum, tenant_id, jahrgang_id, lese_id, most_liter_gesamt, weinbezeichnung, jahrgang:jahrgang_id(jahrgang), lese:lesen!pressungen_lese_fkey(lfd_nr, art))
+  pressung:pressung_id!inner(id, datum, tenant_id, jahrgang_id, lese_id, most_liter_gesamt, weinbezeichnung, storniert_am, jahrgang:jahrgang_id(jahrgang), lese:lesen!pressungen_lese_fkey(lfd_nr, art))
 `
 
 const TV_SELECT = `
@@ -195,7 +195,7 @@ export async function ladeRvWeingarten(supabase: any, tenantId: string, e: RvEin
   const epAbfrage = () => (supabase.from('ernte_parzellen') as any).select(EP_SELECT).eq('jahrgang.tenant_id', tenantId).is('storniert_am', null)
 
   // tenant-isolation-ignore: pressung_weingaerten ohne tenant_id, Filter über die Pressung (!inner)
-  const pwAbfrage = () => (supabase.from('pressung_weingaerten') as any).select(PW_SELECT).eq('pressung.tenant_id', tenantId)
+  const pwAbfrage = () => (supabase.from('pressung_weingaerten') as any).select(PW_SELECT).eq('pressung.tenant_id', tenantId).is('storniert_am', null)
   const tvAbfrage = () => (supabase.from('traubenverkauf') as any).select(TV_SELECT).eq('tenant_id', tenantId).is('storniert_am', null)
 
   if (e.charge || e.fuellung) {

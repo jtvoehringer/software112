@@ -104,7 +104,8 @@ async function ladeRoh(supabase: any, tenantId: string, behaelterId: string): Pr
     // pressung_behaelter hat keine tenant_id – Mandant über die Pressung (Kellergemeinschaft,
     // Mehrfach-Mitgliedschaft: fremde Pressungen im selben Gebinde nicht mitzählen)
     liste((supabase.from('pressung_behaelter') as any)
-      .select('id, menge_liter, weinausbau_id, notizen, pressung:pressung_id(id, datum, notizen, tenant_id)')
+      .select('id, menge_liter, weinausbau_id, notizen, storniert_am, storno_grund, storniert_von_name, pressung:pressung_id(id, datum, notizen, tenant_id, storniert_am)')
+      // storno-sichtbar: das Bewegungsbuch zeigt den Pressungszugang und am Storno-Tag die Gegenbuchung (KAN-148 C1c)
       .eq('behaelter_id', behaelterId)
       .order('id', { ascending: true }), 'pressung_behaelter'),
     liste((supabase.from('keller_umzuege') as any)
@@ -296,6 +297,7 @@ function bewegungenAus(roh: Roh): Bewegung[] {
       charge: name(p.weinausbau_id),
       gegenstelle: 'Pressung',
       beleg: null,
+      ...stornoFeld(p),   // KAN-148 C1c: stornierte Pressung – Gegenbuchung am Storno-Tag
     })
   }
 
@@ -600,7 +602,7 @@ export async function ladeBewegungsbuch(
   const literByCharge: Record<string, number> = {}
   const plus = (id: string | null | undefined, l: number) => { if (id) literByCharge[id] = (literByCharge[id] ?? 0) + l }
   for (const z of roh.zukauf) plus(z.ziel_weinausbau_id, num(z.menge))
-  for (const pb of roh.pressungen) plus(pb.weinausbau_id, num(pb.menge_liter))
+  for (const pb of roh.pressungen) if (!istStorniert(pb)) plus(pb.weinausbau_id, num(pb.menge_liter))
   for (const v of roh.verschnEin) if (!istStorniert(v)) plus(v.ziel_weinausbau_id, ((v.quellen ?? []) as R[]).reduce((s: number, q: R) => s + num(q.menge_liter), 0))
   for (const vq of roh.verschnAus) if (!istStorniert(vq)) plus(vq.quell_weinausbau_id, -num(vq.menge_liter))
   for (const u of roh.umzuegeEin) {

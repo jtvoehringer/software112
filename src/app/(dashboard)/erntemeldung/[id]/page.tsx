@@ -117,11 +117,12 @@ export default async function ErnteDetailPage({ params, searchParams }: Props) {
       .eq('jahrgang_id', id).maybeSingle()),
 
     // Pressungen mit Sub-Tabellen
+    // storno-sichtbar: Liste zeigt stornierte Pressungen gekennzeichnet (KAN-148 C1c); verfügbare kg ohne sie
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tf((supabase.from('pressungen') as any)
-      .select(`id, lese_id, datum, most_liter_gesamt, weinbezeichnung, notizen, kmw_grad,
-        weingaerten:pressung_weingaerten(id, weingarten_id, grundstueck_id, zukauf_posten_id, trauben_kg, rebsorte, notizen, ernte_datum, kmw, oechsle, mostgewicht_einheit, weingarten:weingarten_id(name)),
-        behaelter:pressung_behaelter(id, behaelter_id, weinausbau_id, menge_liter, notizen, behaelter:behaelter_id(name), weinausbau:weinausbau_id(name, jahrgang, qualitaetsstufe))`)
+      .select(`id, lese_id, datum, most_liter_gesamt, weinbezeichnung, notizen, kmw_grad, storniert_am, storno_grund, storniert_von_name,
+        weingaerten:pressung_weingaerten(id, weingarten_id, grundstueck_id, zukauf_posten_id, trauben_kg, rebsorte, notizen, ernte_datum, kmw, oechsle, mostgewicht_einheit, storniert_am, weingarten:weingarten_id(name)),
+        behaelter:pressung_behaelter(id, behaelter_id, weinausbau_id, menge_liter, notizen, storniert_am, behaelter:behaelter_id(name), weinausbau:weinausbau_id(name, jahrgang, qualitaetsstufe))`)
       .eq('jahrgang_id', id).order('datum', { ascending: false })),
 
     // Gebinde für die Pressung: eigene + freigegebene, fremd belegte ausgenommen (Migration 203)
@@ -247,11 +248,14 @@ export default async function ErnteDetailPage({ params, searchParams }: Props) {
     amaMeldung = { ...(rawA as AR), positionen: (rawPos ?? []) as AMAMeldung['positionen'] } as AMAMeldung
   }
 
+  // KAN-148 C1c: stornierte Pressung mit allen Zeilen (gekennzeichnet); sonst nur nicht stornierte Zeilen
+  const zeileZeigen = (p: AR) => (z: AR) => !!p.storniert_am || !z.storniert_am
   const allePressungen: (Pressung & { lese_id: string | null })[] = rawPressungenAlle.map(p => ({
     lese_id: p.lese_id ?? null,
     id: p.id, datum: p.datum, most_liter_gesamt: p.most_liter_gesamt ?? null,
     weinbezeichnung: p.weinbezeichnung ?? null, notizen: p.notizen ?? null, kmw_grad: p.kmw_grad ?? null,
-    weingaerten: ((p.weingaerten ?? []) as AR[]).map((w: AR): PressungWG => ({
+    storno: p.storniert_am ? { am: p.storniert_am as string, von: (p.storniert_von_name as string | null) ?? null, grund: (p.storno_grund as string | null) ?? null } : null,
+    weingaerten: ((p.weingaerten ?? []) as AR[]).filter(zeileZeigen(p)).map((w: AR): PressungWG => ({
       id: w.id, weingarten_id: w.weingarten_id,
       grundstueck_id: w.grundstueck_id ?? null,
       zukauf_posten_id: w.zukauf_posten_id ?? null,
@@ -260,7 +264,7 @@ export default async function ErnteDetailPage({ params, searchParams }: Props) {
       // KAN-126: Lesetag und Mostgewicht der Traubenzeile
       ernte_datum: w.ernte_datum ?? null, kmw: w.kmw ?? null, oechsle: w.oechsle ?? null, mostgewicht_einheit: w.mostgewicht_einheit ?? null,
     })),
-    behaelter: ((p.behaelter ?? []) as AR[]).map((b: AR): PressungBeh => ({
+    behaelter: ((p.behaelter ?? []) as AR[]).filter(zeileZeigen(p)).map((b: AR): PressungBeh => ({
       id: b.id, behaelter_id: b.behaelter_id ?? null,
       behaelter_name: b.behaelter?.name ?? null,
       weinausbau_id: b.weinausbau_id ?? null,
@@ -271,6 +275,8 @@ export default async function ErnteDetailPage({ params, searchParams }: Props) {
   }))
 
   const pressungen: Pressung[] = allePressungen.filter(p => inLese(p.lese_id))
+  // KAN-148 C1c: stornierte Pressungen zählen in keiner Menge (verpresst, verfügbar)
+  const gueltigePressungen = pressungen.filter(p => !p.storno)
   const wgOptions: WGOption[]  = weingaerten.map(w => ({ id: w.id, name: w.name, rebsorte: w.rebsorte }))
 
   // Verfügbare kg pro WG: geerntet − verpresst (für alle Pressungen dieses Jahrgangs)
@@ -279,7 +285,7 @@ export default async function ErnteDetailPage({ params, searchParams }: Props) {
     if (p.menge_kg) harvestedKgByWG[p.weingarten_id] = (harvestedKgByWG[p.weingarten_id] ?? 0) + p.menge_kg
   }
   const pressedKgByWG: Record<string, number> = {}
-  for (const p of pressungen) {
+  for (const p of gueltigePressungen) {
     for (const w of p.weingaerten) {
       if (w.weingarten_id) pressedKgByWG[w.weingarten_id] = (pressedKgByWG[w.weingarten_id] ?? 0) + w.trauben_kg
     }
@@ -300,7 +306,7 @@ export default async function ErnteDetailPage({ params, searchParams }: Props) {
       harvestedKgByGST[p.grundstueck_id] = (harvestedKgByGST[p.grundstueck_id] ?? 0) + p.menge_kg
   }
   const pressedKgByGST: Record<string, number> = {}
-  for (const p of pressungen) {
+  for (const p of gueltigePressungen) {
     for (const w of p.weingaerten) {
       if (w.grundstueck_id)
         pressedKgByGST[w.grundstueck_id] = (pressedKgByGST[w.grundstueck_id] ?? 0) + w.trauben_kg
@@ -318,7 +324,7 @@ export default async function ErnteDetailPage({ params, searchParams }: Props) {
 
   // Verfügbare kg pro Trauben-Zukauf: zugekaufte Menge − bereits verpresst − bereits verkauft
   const pressedKgByZukauf: Record<string, number> = {}
-  for (const p of allePressungen) {
+  for (const p of allePressungen.filter(x => !x.storno)) {
     for (const w of p.weingaerten) {
       if (w.zukauf_posten_id) pressedKgByZukauf[w.zukauf_posten_id] = (pressedKgByZukauf[w.zukauf_posten_id] ?? 0) + w.trauben_kg
     }

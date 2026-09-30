@@ -84,8 +84,9 @@ export default async function TraubenverkaufPage() {
   }).sort((a, b) => (b.jahrgang - a.jahrgang) || (b.lfd_nr - a.lfd_nr))
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- tenant-isolation-ignore: pressung_weingaerten ohne tenant_id, Filter über die Pressung
   const { data: pwRaw, error: pwFehler } = await alle<R>((supabase.from('pressung_weingaerten') as any)
-    .select('id, weingarten_id, grundstueck_id, trauben_kg, pressung:pressung_id!inner(tenant_id, lese_id)')
+    .select('id, weingarten_id, grundstueck_id, trauben_kg, pressung:pressung_id!inner(tenant_id, lese_id, storniert_am)')
     .eq('pressung.tenant_id', membership.tenantId)
+    .is('storniert_am', null)
     .not('weingarten_id', 'is', null)
     .order('id'))
   if (pwFehler) throw new Error(`Pressungen konnten nicht geladen werden: ${pwFehler.message}`)
@@ -136,6 +137,7 @@ export default async function TraubenverkaufPage() {
     const { data: pressedRaw } = await (supabase.from('pressung_weingaerten') as any)
       .select('zukauf_posten_id, trauben_kg')
       .in('zukauf_posten_id', zukaufIds)
+      .is('storniert_am', null)
     for (const p of (pressedRaw ?? []) as R[]) {
       pressedKgByZukauf[p.zukauf_posten_id] = (pressedKgByZukauf[p.zukauf_posten_id] ?? 0) + (parseFloat(p.trauben_kg) || 0)
     }

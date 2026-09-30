@@ -148,8 +148,9 @@ export async function ladePruefnummerDaten(
         .order('id')),
       // pressung_behaelter hat keine tenant_id – Mandant über die Pressung
       alle<R>((supabase.from('pressung_behaelter') as any)
-        .select('id, weinausbau_id, pressung:pressung_id(datum, tenant_id)')
+        .select('id, weinausbau_id, pressung:pressung_id(datum, tenant_id, storniert_am)')
         .in('weinausbau_id', block)
+        .is('storniert_am', null)
         .order('id')),
       alle<R>((supabase.from('fuellungen') as any)
         .select('id, datum, weinausbau_id, menge_liter_gefuellt, anzahl_flaschen, flaschengroesse_ml, dac_antrag_id')
@@ -292,8 +293,9 @@ async function einzigeUmzugsquelle(supabase: any, tenantId: string, chargeId: st
       .limit(1),
     // pressung_behaelter hat keine tenant_id – Mandant über die Pressung
     alle<R>((supabase.from('pressung_behaelter') as any)
-      .select('id, pressung:pressung_id(tenant_id)')
+      .select('id, pressung:pressung_id(tenant_id, storniert_am)')
       .eq('weinausbau_id', chargeId)
+      .is('storniert_am', null)
       .order('id')),
     alle<R>((supabase.from('keller_umzuege') as any)
       .select('id, datum, von_weinausbau_id, nach_weinausbau_id, umzug_batch_id, zeilen_typ')
