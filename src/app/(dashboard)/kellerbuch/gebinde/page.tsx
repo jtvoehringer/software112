@@ -492,10 +492,11 @@ export default async function GebindePage({
                         <Link href={`/kellerbuch/eroeffnungsbestand/${e.id}/edit`}
                           title="Bearbeiten" aria-label="Bearbeiten"
                           className="text-s112-blue-700 hover:text-s112-blue-700/70 mr-3 inline-flex"><Pencil className="w-4 h-4" /></Link>
-                        <LoeschenButton
-                          label="Eröffnungsbestand löschen"
+                        {/* KAN-145 B3: stornieren mit Grund – der Anfangsbestand bleibt stehen */}
+                        <StornoButton
+                          label="Eröffnungsbestand stornieren"
                           action={deleteEroeffnungsbestand.bind(null, e.id)}
-                          bestaetigung="Eröffnungsbestand wirklich löschen? Anfangsbestand und Bestand werden auf 0 gesetzt – nur möglich, solange an der Charge keine Folgebuchungen hängen." />
+                          hinweis="Der Eröffnungsbestand bleibt als storniert stehen (Anfangsbestand unverändert) und zählt in keinem Bestand – nur möglich, solange an der Charge keine Folgebuchungen hängen." />
                       </td>
                     )}
                   </tr>

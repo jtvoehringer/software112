@@ -16,7 +16,7 @@ import {
   OHNE_MENGENWIRKUNG, GEBINDEWECHSEL_OHNE, type UmzugStornoPlan, type UmzugEingabe,
 } from '@/lib/kellerbuch/storno'
 import { KORREKTUR_NACH_OBEN_HINWEIS, KORREKTUR_NACH_UNTEN_HINWEIS } from '@/lib/kellerbuch/hinweise'
-import { GRUND_BEARBEITET } from '@/lib/storno/grund'
+import { GRUND_BEARBEITET, stornoGrundFehler } from '@/lib/storno/grund'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -224,26 +224,29 @@ export async function updateEroeffnungsbestand(id: string, formData: FormData) {
   redirect('/kellerbuch/gebinde?tab=eroeffnungsbestand')
 }
 
-// Eröffnungsbestand löschen (KAN-35): nur ohne Folgebuchungen. Die Charge bleibt als
-// Datensatz erhalten (Historie, Protokoll), wird aber auf Anfangsbestand 0, Bestand 0 und
-// inaktiv gesetzt – so zeigen View, Gebindeanzeige und Dashboard übereinstimmend 0
-// (vorher nur aktiv=false: die View zählte den Anfangsbestand weiter).
-export async function deleteEroeffnungsbestand(id: string) {
+// Eröffnungsbestand stornieren (KAN-35; KAN-145 B3, 30.09.2026): nur ohne Folgebuchungen. Die Charge bleibt als
+// Datensatz erhalten, der Anfangsbestand bleibt stehen („Wert bleibt, Storno statt 0 L“); Bestand 0, inaktiv,
+// abgeschlossen und das Storno-Kennzeichen mit Grund. Füllstand-Sicht und Bewegungsbuch lassen stornierte
+// Eröffnungsbestände aus bzw. zeigen Buchung und Gegenbuchung.
+export async function deleteEroeffnungsbestand(id: string, grund: string) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
+  const grundFehler = stornoGrundFehler(grund)
+  if (grundFehler) throw new AktionsFehler(grundFehler)
 
   await sperreBeiFolgebuchungen(supabase, id, 'Das Löschen des Eröffnungsbestands', {
     hinweis: 'Der Eröffnungsbestand bleibt als Historie erhalten – Korrekturen bitte als eigene, datierte Buchung erfassen (z. B. „Schwund buchen“ auf der Chargen-Seite).',
   })
 
   const { data, error } = await (supabase.from('weinausbau') as any)
-    .update({ anfangsbestand_liter: 0, menge_liter: 0, aktiv: false, status: 'abgeschlossen' })
+    .update({ menge_liter: 0, aktiv: false, status: 'abgeschlossen', storniert_am: new Date().toISOString(), storno_grund: grund.trim() })
     .eq('id', id)
     .eq('ist_eroeffnungsbestand', true)
     .eq('tenant_id', tenantId)
+    .is('storniert_am', null)
     .select('id')
-  if (error) throw new AktionsFehler(dbFehlerText(error, 'Löschen fehlgeschlagen (weinausbau)'))
-  if (!data || (data as R[]).length === 0) throw new AktionsFehler('Eröffnungsbestand nicht gefunden oder keine Berechtigung.')
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Stornieren fehlgeschlagen (weinausbau)'))
+  if (!data || (data as R[]).length === 0) throw new AktionsFehler('Eröffnungsbestand nicht gefunden, bereits storniert oder keine Berechtigung.')
   revalidatePath('/kellerbuch/gebinde')
 }
 

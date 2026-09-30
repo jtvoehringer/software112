@@ -115,7 +115,7 @@ async function ladeRoh(supabase: any, tenantId: string, behaelterId: string): Pr
       .order('datum', { ascending: true })
       .order('id', { ascending: true }), 'keller_umzuege'),
     liste((supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, menge_liter, aktiv, ist_eroeffnungsbestand, anfangsbestand_liter, created_at, transaktions_nr')
+      .select('id, name, jahrgang, menge_liter, aktiv, ist_eroeffnungsbestand, anfangsbestand_liter, created_at, transaktions_nr, storniert_am, storno_grund, storniert_von_name')
       .eq('tenant_id', tenantId)
       .eq('behaelter_id', behaelterId)
       .order('id', { ascending: true }), 'weinausbau'),
@@ -261,6 +261,7 @@ function bewegungenAus(roh: Roh): Bewegung[] {
         charge: text(eroeffnungsCharge.name),
         gegenstelle: 'Eröffnungsbestand (Altsystem)',
         beleg: text(eroeffnungsCharge.transaktions_nr),
+        ...stornoFeld(eroeffnungsCharge),   // KAN-145 B3: stornierter Eröffnungsbestand – Gegenbuchung am Storno-Tag
       })
     }
   }
