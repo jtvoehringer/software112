@@ -10,9 +10,13 @@
 //     Die Mittelmenge einer Spritzung kommt seit KAN-133 (26.09.2026) nur aus dem Aufwand – „Menge
 //     gesamt“ ist die Spritzbrühe und steht nur zur Information in der CSV.
 //   • Cu (kg/ha) je Maßnahme = Cu (kg) / behandelte Fläche (Σ Grundstücke der Maßnahme).
-//   • Je Weingarten: Cu anteilig nach Grundstücksfläche, geteilt durch die Stammdaten-Fläche
-//     des Weingartens; dazu die gleitenden Summen über 5 Jahre (ÖPUL, 20 kg/ha) und 7 Jahre
+//   • Je Ried (= Weingarten, KAN-132): Cu je GST-Zeile über verteileMassnahme() (lib/wein/massnahmeAnteile.ts,
+//     Methode des größten Rests; Maßnahmen nur am Weingarten auf dessen aktuelle WI-GST), Σ der GST-Anteile
+//     geteilt durch die WI-GST-Fläche der Ried (bis 30.09.2026 die Stammdaten-Fläche weingarten.flaeche_ha –
+//     bei Gebeshuber leer); dazu die gleitenden Summen über 5 Jahre (ÖPUL, 20 kg/ha) und 7 Jahre
 //     (DVO (EU) 2021/1165 Anhang II, 28 kg/ha).
+//   • Höchste GST-Belastung (KAN-132 Regel 6): je GST-Zeile Σ der ungerundeten Cu je ha ihrer Maßnahmen im
+//     Jahr bzw. in 5/7 Jahren, davon das Maximum je Ried – gegen alle drei Schwellen (Ampel „GST“).
 //   • Betrieb: Σ Cu (kg) / Σ Fläche der WI-Grundstücke der aktiven Weingärten (betriebsflaecheWi,
 //     KAN-133 Nr. 5). Bis 26.09.2026 Σ weingarten.flaeche_ha – bei Betrieben ohne Stammdaten-Fläche
 //     0 ha und damit kein Wert. (Der Berichte-Tab teilte bis 24.09.2026 durch die Summe der
@@ -21,7 +25,8 @@
 //   • Ampel je Jahr gegen 4 kg/ha (EU-Bio-VO 2018/848, bisherige App-Regel; fachlich offen:
 //     28 kg in 7 Jahren) – Warnschwelle ab 80 %.
 
-import { runden, STELLEN, type CsvSpalte } from '@/lib/csv'
+import { runden, STELLEN, wienHeute, type CsvSpalte } from '@/lib/csv'
+import { verteileMassnahme, type Verteilung, type WiGst } from '@/lib/wein/massnahmeAnteile'
 import type { LadeErgebnis } from './typen'
 import {
   behandlungKurz, betriebsflaecheWi, jahrZeitraum, ladeBehandlungen, ladeWeingaerten, liste,
@@ -106,6 +111,12 @@ export type CuWeingartenZeile = {
   status: string
   cuKgHa5J: number | null
   cuKgHa7J: number | null
+  /** höchste Belastung einer GST-Zeile dieser Ried im Jahr bzw. über 5/7 Jahre (kg/ha, Regel 6) */
+  gstMaxKgHa: number | null
+  gstMaxKgHa5J: number | null
+  gstMaxKgHa7J: number | null
+  /** Ampel der GST-Zeilen gegen 4 kg/ha/Jahr, 20 kg/ha in 5 und 28 kg/ha in 7 Jahren */
+  gstStatus: string
 }
 
 export type CuJahr = {
@@ -154,8 +165,11 @@ export function cuBilanz(behandlungen: readonly PsmBehandlung[], weingaerten: re
 
   // 1. Einzelbehandlungen
   const alleZeilen: CuBehandlungZeile[] = []
-  // je Jahr → Weingarten-id → { cu (ungerundet), anzahl, name, ried, fläche aus GST (Ersatz) }
+  // je Jahr → Ried-id → { cu (Σ gerundeter GST-Anteile), anzahl, name, lage, WI-Fläche der verteilten GST (Ersatz) }
   const jeWg = new Map<number, Map<string, { cu: number; anzahl: number; name: string; ried: string | null; gstHa: number }>>()
+  // je Jahr → GST-Zeile → { kg/ha (ungerundet), Ried-id }
+  const jeGst = new Map<number, Map<string, { kgHa: number; wgId: string }>>()
+  const wiGst = new Map<string, WiGst[]>(weingaerten.map(w => [w.id, w.wiGst ?? []]))
 
   for (const b of [...behandlungen].sort((a, c) => a.datum.localeCompare(c.datum) || a.id.localeCompare(c.id))) {
     const gehalt = cuGehalt(b)
@@ -185,22 +199,30 @@ export function cuBilanz(behandlungen: readonly PsmBehandlung[], weingaerten: re
       maxAnwendungen: b.psm?.maxAnwendungen && b.psm.maxAnwendungen > 0 ? b.psm.maxAnwendungen : null,
     })
 
-    // Anteile je Weingarten nach Grundstücksfläche (ohne Flächenangaben: gleich verteilt)
-    const orte = b.grundstuecke.filter(g => g.weingartenId)
+    // KAN-132: Anteile je GST-Zeile (zentrale Funktion), Cu der Maßnahme = cuKg (dieselbe Rundung)
+    const v: Verteilung = verteileMassnahme(b, { cuPct: gehalt.pct, literAlsKg: true, wiGstJeWeingarten: wiGst })
+    const orte = v.anteile.filter(a => a.weingartenId)
     if (orte.length === 0) continue
-    const summeHa = orte.reduce((s, g) => s + (g.flaecheHa ?? 0), 0)
     const jahrMap: Map<string, { cu: number; anzahl: number; name: string; ried: string | null; gstHa: number }> = jeWg.get(b.jahr) ?? new Map()
+    const gstMap = jeGst.get(b.jahr) ?? new Map<string, { kgHa: number; wgId: string }>()
     const gezaehlt = new Set<string>()
-    for (const g of orte) {
-      const anteil = summeHa > 0 ? (g.flaecheHa ?? 0) / summeHa : 1 / orte.length
-      const id = g.weingartenId as string
-      const e = jahrMap.get(id) ?? { cu: 0, anzahl: 0, name: g.weingarten ?? '–', ried: g.ried, gstHa: 0 }
-      e.cu += cuKg * anteil
-      e.gstHa = Math.max(e.gstHa, orte.filter(o => o.weingartenId === id).reduce((s, o) => s + (o.flaecheHa ?? 0), 0))
-      if (!gezaehlt.has(id)) { e.anzahl += 1; gezaehlt.add(id) }
+    for (const a of orte) {
+      const id = a.weingartenId as string
+      const e = jahrMap.get(id) ?? { cu: 0, anzahl: 0, name: a.weingarten ?? '–', ried: a.lage, gstHa: 0 }
+      e.cu = runden(e.cu + (a.cuKg ?? 0), STELLEN_CU)
+      if (!gezaehlt.has(id)) {
+        e.anzahl += 1; gezaehlt.add(id)
+        e.gstHa = Math.max(e.gstHa, orte.filter(o => o.weingartenId === id).reduce((s, o) => s + (o.flaecheHa ?? 0), 0))
+      }
       jahrMap.set(id, e)
+      if (a.grundstueckId && a.cuKgHa !== null) {
+        const g = gstMap.get(a.grundstueckId) ?? { kgHa: 0, wgId: id }
+        g.kgHa += a.cuKgHa
+        gstMap.set(a.grundstueckId, g)
+      }
     }
     jeWg.set(b.jahr, jahrMap)
+    jeGst.set(b.jahr, gstMap)
   }
 
   // Anwendungen je Mittel und Jahr
@@ -219,6 +241,14 @@ export function cuBilanz(behandlungen: readonly PsmBehandlung[], weingaerten: re
     return s
   }
   const wgCuGerundet = (jahr: number, id: string) => runden(jeWg.get(jahr)?.get(id)?.cu ?? 0, STELLEN_CU)
+  /** höchste Σ kg/ha einer GST-Zeile der Ried über n Jahre bis jahr (Regel 6, ungerundet) */
+  const gstMax = (jahr: number, wgId: string, n: number): number | null => {
+    const summe = new Map<string, number>()
+    for (let j = jahr - n + 1; j <= jahr; j++) {
+      for (const [gid, g] of jeGst.get(j) ?? []) if (g.wgId === wgId) summe.set(gid, (summe.get(gid) ?? 0) + g.kgHa)
+    }
+    return summe.size > 0 ? Math.max(...summe.values()) : null
+  }
   const summeWg = (jahr: number, id: string, n: number) => {
     let s = 0
     for (let j = jahr - n + 1; j <= jahr; j++) s += wgCuGerundet(j, id)
@@ -231,7 +261,8 @@ export function cuBilanz(behandlungen: readonly PsmBehandlung[], weingaerten: re
     const cuKgHa = durch(cuKg, gesamtHa)
     const wgZeilen: CuWeingartenZeile[] = [...(jeWg.get(jahr)?.entries() ?? [])].map(([id, e]) => {
       const stamm = wgStamm.get(id)
-      const flaeche = stamm?.flaecheHa && stamm.flaecheHa > 0 ? stamm.flaecheHa : (e.gstHa > 0 ? runden(e.gstHa, STELLEN.ha) : null)
+      // KAN-132 Regel 8: Nenner = WI-GST-Fläche der Ried (Stand heute), sonst die Fläche der verteilten GST
+      const flaeche = stamm && stamm.wiFlaecheHa > 0 ? stamm.wiFlaecheHa : (e.gstHa > 0 ? runden(e.gstHa, STELLEN.ha) : null)
       const cu = wgCuGerundet(jahr, id)
       const kgHa = durch(cu, flaeche)
       const st = cuStatus(kgHa)
@@ -243,6 +274,7 @@ export function cuBilanz(behandlungen: readonly PsmBehandlung[], weingaerten: re
         status: st ? CU_STATUS_LABEL[st] : 'Fläche fehlt',
         cuKgHa5J: durch(summeWg(jahr, id, 5), flaeche),
         cuKgHa7J: durch(summeWg(jahr, id, 7), flaeche),
+        ...gstAmpel(gstMax(jahr, id, 1), gstMax(jahr, id, 5), gstMax(jahr, id, 7)),
       }
     }).sort((a, b) => (a.ried ?? '').localeCompare(b.ried ?? '', 'de') || a.weingarten.localeCompare(b.weingarten, 'de'))
     return {
@@ -269,7 +301,8 @@ export function cuBilanz(behandlungen: readonly PsmBehandlung[], weingaerten: re
   if (aLiter.length > 0) warnungen.push(`${aLiter.length} Kupfer-${aLiter.length === 1 ? 'Anwendung' : 'Anwendungen'} mit Mittelmenge in Litern – Dichte 1 kg/l angenommen (wie bisher): ${liste(aLiter)}`)
   if (aCu.length > 0) warnungen.push(`Cu-Gehalt fehlt in den Mittel-Stammdaten (${liste(aCu)}) – Wirkstoffgehalt als Näherung verwendet; bitte Cu-Gehalt unter Betriebsmittel ergänzen.`)
   const ohneWgFlaeche = jahre.flatMap(j => j.weingaerten.filter(w => w.flaecheHa === null).map(w => w.weingarten))
-  if (ohneWgFlaeche.length > 0) warnungen.push(`Weingarten ohne Fläche in den Stammdaten – Cu (kg/ha) bleibt leer: ${liste([...new Set(ohneWgFlaeche)])}`)
+  if (ohneWgFlaeche.length > 0) warnungen.push(`Ried ohne Grundstücke mit Nutzart WI und ohne Fläche – Cu (kg/ha) bleibt leer: ${liste([...new Set(ohneWgFlaeche)])}`)
+  if (jahre.some(j => String(j.jahr) < wienHeute().slice(0, 4) && j.weingaerten.length > 0)) warnungen.push('Cu je ha der Rieden in Vorjahren: Fläche Stand heute (WI-Grundstücke).')
   if (gesamtHa <= 0 && alleZeilen.some(z => ausgabeSet.has(z.jahr))) warnungen.push('Keine Grundstücke mit Nutzart WI in aktiven Weingärten – Cu je ha des Betriebs nicht berechenbar.')
 
   return {
@@ -281,10 +314,19 @@ export function cuBilanz(behandlungen: readonly PsmBehandlung[], weingaerten: re
   }
 }
 
+/** Ampel der GST-Zeilen (KAN-132 Frage 8): alle drei Cu-Schwellen, Warnung ab 80 % */
+function gstAmpel(jahr: number | null, fuenf: number | null, sieben: number | null): Pick<CuWeingartenZeile, 'gstMaxKgHa' | 'gstMaxKgHa5J' | 'gstMaxKgHa7J' | 'gstStatus'> {
+  const r = (x: number | null) => (x === null ? null : runden(x, STELLEN_CU))
+  const st = [cuStatus(jahr, CU_GRENZWERT_KG_HA_JAHR), cuStatus(fuenf, CU_GRENZWERT_KG_HA_5J), cuStatus(sieben, CU_GRENZWERT_KG_HA_7J)]
+  const schlimmste = st.includes('ueber') ? 'ueber' : st.includes('warnung') ? 'warnung' : st.includes('ok') ? 'ok' : null
+  return { gstMaxKgHa: r(jahr), gstMaxKgHa5J: r(fuenf), gstMaxKgHa7J: r(sieben), gstStatus: schlimmste ? CU_STATUS_LABEL[schlimmste] : '–' }
+}
+
+// KAN-132: „Ried“ = Weingarten, „Lage“ darüber (Entscheidung Jörgen 26.09.2026)
 export const SPALTEN_CU_BILANZ: CsvSpalte<CuWeingartenZeile>[] = [
   { kopf: 'Jahr', typ: 'ganzzahl', wert: z => z.jahr },
-  { kopf: 'Weingarten', typ: 'text', wert: z => z.weingarten },
-  { kopf: 'Ried', typ: 'text', wert: z => z.ried },
+  { kopf: 'Ried', typ: 'text', wert: z => z.weingarten },
+  { kopf: 'Lage', typ: 'text', wert: z => z.ried },
   { kopf: 'Fläche (ha)', typ: 'dezimal', stellen: STELLEN.ha, wert: z => z.flaecheHa },
   { kopf: 'Kupfer-Anwendungen', typ: 'ganzzahl', wert: z => z.behandlungen },
   { kopf: 'Cu (kg)', typ: 'dezimal', stellen: STELLEN_CU, wert: z => z.cuKg },
@@ -294,12 +336,16 @@ export const SPALTEN_CU_BILANZ: CsvSpalte<CuWeingartenZeile>[] = [
   { kopf: 'Status', typ: 'text', wert: z => z.status },
   { kopf: 'Cu 5 Jahre (kg/ha)', typ: 'dezimal', stellen: STELLEN_CU, wert: z => z.cuKgHa5J },
   { kopf: 'Cu 7 Jahre (kg/ha)', typ: 'dezimal', stellen: STELLEN_CU, wert: z => z.cuKgHa7J },
+  { kopf: 'Höchste GST-Belastung (kg/ha)', typ: 'dezimal', stellen: STELLEN_CU, wert: z => z.gstMaxKgHa },
+  { kopf: 'Höchste GST-Belastung 5 Jahre (kg/ha)', typ: 'dezimal', stellen: STELLEN_CU, wert: z => z.gstMaxKgHa5J },
+  { kopf: 'Höchste GST-Belastung 7 Jahre (kg/ha)', typ: 'dezimal', stellen: STELLEN_CU, wert: z => z.gstMaxKgHa7J },
+  { kopf: 'Status GST', typ: 'text', wert: z => z.gstStatus },
 ]
 
 export const SPALTEN_CU_BEHANDLUNGEN: CsvSpalte<CuBehandlungZeile>[] = [
   { kopf: 'Datum', typ: 'datum', wert: z => z.datum },
-  { kopf: 'Weingarten', typ: 'text', wert: z => z.weingarten },
-  { kopf: 'Ried', typ: 'text', wert: z => z.ried },
+  { kopf: 'Ried', typ: 'text', wert: z => z.weingarten },
+  { kopf: 'Lage', typ: 'text', wert: z => z.ried },
   { kopf: 'Mittel', typ: 'text', wert: z => z.mittel },
   { kopf: 'Zulassungsnr.', typ: 'code', wert: z => z.zulassungsnr },
   { kopf: 'Cu-Gehalt (%)', typ: 'prozent', wert: z => z.cuGehaltPct },
