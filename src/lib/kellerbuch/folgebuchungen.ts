@@ -35,6 +35,7 @@ import 'server-only'
 
 import { AktionsFehler } from '@/lib/fehler'
 import { fmtNum } from '@/lib/format'
+import { ohneStornierteVerschnitte } from '@/lib/kellerbuch/stornoFilter'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -125,17 +126,19 @@ export async function folgebuchungenDerCharge(
     mit('umzug') || mit('schwund')
       ? (supabase.from('keller_umzuege') as any)
           .select('id, umzug_batch_id, umzug_typ')
+          .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
           .or(`von_weinausbau_id.eq.${id},nach_weinausbau_id.eq.${id}`)
           .eq('tenant_id', tenantId)
       : leer,
     mit('verschnitt_quelle')
       ? (supabase.from('verschneidung_quellen') as any)   // ohne tenant_id-Spalte, RLS über verschneidungen
-          .select('verschneidung_id')
+          .select('verschneidung_id, verschneidung:verschneidung_id(storniert_am)')
           .eq('quell_weinausbau_id', id)
       : leer,
     mit('verschnitt_ziel')
       ? (supabase.from('verschneidungen') as any)
           .select('id', { count: 'exact', head: true })
+          .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
           .eq('ziel_weinausbau_id', id)
           .eq('tenant_id', tenantId)
       : leer,
@@ -204,7 +207,7 @@ export async function folgebuchungenDerCharge(
   const werte: Record<FolgebuchungArt, number> = {
     umzug:             umzugKeys.size,
     schwund,
-    verschnitt_quelle: new Set(zeilen('verschneidung_quellen', vQuellen).map(z => z.verschneidung_id)).size,
+    verschnitt_quelle: new Set(ohneStornierteVerschnitte(zeilen('verschneidung_quellen', vQuellen)).map(z => z.verschneidung_id)).size,   // KAN-145
     verschnitt_ziel:   anzahl('verschneidungen', vZiel),
     fuellung:          fuellungIds.size,
     tankverkauf:       new Set(zeilen('verkauf_positionen', tank).map(z => z.verkaufsposten_id)).size,

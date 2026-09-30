@@ -45,6 +45,7 @@ export default async function BehaelterUmzuegePage({ params }: { params: Promise
     `
   const { data: initialRaw } = await tf((supabase.from('keller_umzuege') as any)
     .select(UMZUG_SELECT)
+    .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
     .or(`von_behaelter_id.eq.${id},nach_behaelter_id.eq.${id}`)
     .order('datum', { ascending: false }))
 
@@ -56,6 +57,7 @@ export default async function BehaelterUmzuegePage({ params }: { params: Promise
   const { data: batchRowsRaw } = batchIds.length > 0
     ? await tf((supabase.from('keller_umzuege') as any)
         .select(UMZUG_SELECT)
+        .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
         .in('umzug_batch_id', batchIds))
     : { data: [] }
   const batchRows = (batchRowsRaw ?? []) as R[]

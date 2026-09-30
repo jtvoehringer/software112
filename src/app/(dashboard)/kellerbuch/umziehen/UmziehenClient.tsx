@@ -4,7 +4,8 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from '@/components/ui/Link'
 import { umziehen, deleteUmzug, updateUmzug } from './actions'
-import { ArrowLeftRight, Filter, X, AlertTriangle, CheckCircle2, Pencil, Trash2 } from 'lucide-react'
+import { ArrowLeftRight, Filter, X, AlertTriangle, CheckCircle2, Pencil } from 'lucide-react'
+import StornoButton from '@/components/StornoButton'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
@@ -376,7 +377,6 @@ function UmzugZeile({ u, writeOk, adminOk }: { u: UmzugRow; writeOk: boolean; ad
   // Ziel-Charge nicht weiterbewegt wurde – der Server meldet sonst den Grund.
   const istSchwund = u.umzug_typ === 'schwund'
   const [editing, setEditing]       = useState(false)
-  const [confirming, setConfirming] = useState(false)
   const [datum, setDatum]           = useState(u.datum)
   const [notizen, setNotizen]       = useState(u.notizen ?? '')
   const [pending, startTransition]  = useTransition()
@@ -392,19 +392,6 @@ function UmzugZeile({ u, writeOk, adminOk }: { u: UmzugRow; writeOk: boolean; ad
         router.refresh()   // Server-Daten neu laden
       } catch (err) {
         setError(fehlerText(err, 'Fehler beim Speichern'))
-      }
-    })
-  }
-
-  function handleDelete() {
-    setError(null)
-    startTransition(async () => {
-      try {
-        await deleteUmzug(u.id)
-        router.refresh()   // Protokoll-Liste aktualisieren
-      } catch (err) {
-        setError(fehlerText(err, 'Storno fehlgeschlagen'))
-        setConfirming(false)
       }
     })
   }
@@ -464,28 +451,16 @@ function UmzugZeile({ u, writeOk, adminOk }: { u: UmzugRow; writeOk: boolean; ad
       </td>
       {writeOk && (
         <td className="px-4 py-2.5 text-right whitespace-nowrap">
-          {confirming ? (
-            <span className="inline-flex items-center gap-1">
-              <span className="text-xs text-s112-err-fg whitespace-normal">{istSchwund ? 'Schwundbuchung stornieren? Die Menge wird auf die Charge zurückgebucht.' : 'Umzug stornieren? Die Bestände werden zurückgebucht.'}</span>
-              <button onClick={handleDelete} disabled={pending}
-                className="text-xs text-white bg-s112-err hover:bg-s112-err-fg px-2 py-0.5 rounded disabled:opacity-40">
-                {pending ? '…' : 'Ja'}
-              </button>
-              <button onClick={() => setConfirming(false)}
-                className="text-xs text-s112-muted hover:text-s112-text-1">Nein</button>
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-2">
-              <button onClick={() => setEditing(true)}
-                title={istSchwund ? 'Notizen bearbeiten' : 'Bearbeiten'} aria-label="Bearbeiten"
-                className="text-s112-blue-700 hover:text-s112-blue-700/70"><Pencil size={15} strokeWidth={1.75} /></button>
-              {(!istSchwund || adminOk) && (
-                <button onClick={() => setConfirming(true)}
-                  title={istSchwund ? 'Stornieren (nur wenn an der Charge seither nichts gebucht wurde)' : 'Stornieren (nur solange die Ziel-Charge nicht weiterbewegt wurde)'} aria-label="Stornieren"
-                  className="text-s112-err hover:text-s112-err-fg"><Trash2 size={15} strokeWidth={1.75} /></button>
-              )}
-            </span>
-          )}
+          <span className="inline-flex items-start gap-2">
+            <button onClick={() => setEditing(true)}
+              title={istSchwund ? 'Notizen bearbeiten' : 'Bearbeiten'} aria-label="Bearbeiten"
+              className="text-s112-blue-700 hover:text-s112-blue-700/70"><Pencil size={15} strokeWidth={1.75} /></button>
+            {(!istSchwund || adminOk) && (
+              // KAN-145: Stornieren mit Grund – die Buchung bleibt gekennzeichnet stehen
+              <StornoButton action={grund => deleteUmzug(u.id, grund)} danach={() => router.refresh()}
+                hinweis={istSchwund ? 'Die Menge wird auf die Charge zurückgebucht; die Schwundbuchung bleibt als storniert stehen – nur wenn sie den Bestand gemindert hat und an der Charge seither nichts gebucht wurde.' : 'Die Bestände werden zurückgebucht; der Umzug bleibt als storniert im Bewegungsbuch – nur solange die Ziel-Charge seither nicht weiterbewegt wurde.'} />
+            )}
+          </span>
           {error && (
             <p role="alert" className="text-xs text-s112-err-fg mt-0.5 ml-auto w-[260px] max-w-[70vw] text-left whitespace-normal break-words">{error}</p>
           )}

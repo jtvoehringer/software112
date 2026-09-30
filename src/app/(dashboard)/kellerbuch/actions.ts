@@ -457,7 +457,8 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
   // Verschneidungs-Datensatz anlegen
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: neu, error: ve } = await (supabase.from('verschneidungen') as any)
-    .insert({ tenant_id: tenantId, datum, ziel_weinausbau_id: zielId, notizen, ziel_qualitaet_vorher: zielQualitaetVorher, ziel_herkunft_code_vorher: zielHerkunftVorher })
+    .insert({ tenant_id: tenantId, datum, ziel_weinausbau_id: zielId, notizen, ziel_qualitaet_vorher: zielQualitaetVorher, ziel_herkunft_code_vorher: zielHerkunftVorher,
+      ziel_rebsorte_vorher: (zielVorher.rebsorte as string | null) ?? null })   // KAN-145: Storno stellt die Rebsorte wieder her
     .select('id').single()
   if (ve) throw new AktionsFehler(dbFehlerText(ve, 'Speichern fehlgeschlagen (verschneidungen)'))
   const vId = (neu as R).id as string
@@ -580,9 +581,9 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
 // erfasste Mengenbewegung – dadurch ist es immer der jüngste Verschnitt auf das Ziel, und der
 // Qualitäts-/Herkunfts-Snapshot stimmt) und die Ziel-Charge die Menge noch vollständig hat
 // (kein Kappen bei 0 mehr). Quellen, die durch den Verschnitt abgeschlossen wurden, werden
-// wieder aktiv. Das Löschen des Verschnitts protokolliert die DB (bestandsprotokoll).
-// Offen (braucht eine Vorher-Spalte): die Rebsorte der Ziel-Charge wird nicht zurückgesetzt.
-export async function deleteVerschneidung(verschneidungId: string) {
+// wieder aktiv. Seit KAN-145 bleibt der Verschnitt stehen und wird mit Grund als storniert gekennzeichnet
+// (Protokoll); die Rebsorte der Ziel-Charge kommt aus ziel_rebsorte_vorher zurück (Verschnitte ab 30.09.2026).
+export async function deleteVerschneidung(verschneidungId: string, grund: string) {
   const supabase = await createSupabaseServerClient()
   const tenantId  = await kellerbuchSchreibrecht()
 
@@ -592,10 +593,10 @@ export async function deleteVerschneidung(verschneidungId: string) {
   const quellen = (v.quellen ?? []) as R[]
 
   // Quellen gutschreiben (ggf. wieder aktiv), Ziel reduzieren (ggf. abschließen) samt
-  // Qualitätsstufe/Herkunft-Code aus dem Snapshot, danach den Verschnitt löschen (CASCADE
-  // löscht verschneidung_quellen; beides wird protokolliert). Alles oder nichts: scheitert
+  // Qualitätsstufe/Herkunft-Code/Rebsorte aus dem Snapshot, danach den Verschnitt als storniert
+  // kennzeichnen (bleibt samt Quellen stehen, Protokoll). Alles oder nichts: scheitert
   // ein Schritt, werden die bereits ausgeführten Rückbuchungen zurückgenommen.
-  await storniereVerschneidung(supabase, tenantId, plan)
+  await storniereVerschneidung(supabase, tenantId, plan, grund)
 
   revalidatePath('/kellerbuch')
   quellen.forEach((q: R) => revalidatePath(`/kellerbuch/weinausbau/${q.quell_weinausbau_id}`))

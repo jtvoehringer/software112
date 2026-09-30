@@ -13,6 +13,7 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Projektkonvention (supabase.from('…') as any), siehe CLAUDE.md */
 import { alle } from '@/lib/supabase/alle'
+import { ohneStornierteVerschnitte } from '@/lib/kellerbuch/stornoFilter'
 import {
   zusammensetzung, zusammensetzungEntnahme, type Ereignis, type Herkunftsanteil, type HerkunftInfo, type HerkunftLiter,
   type Zusammensetzung,
@@ -99,17 +100,20 @@ export async function ladeBewegungsgraph(supabase: any, tenantId: string, startI
         .eq('tenant_id', tenantId).in('ziel_weinausbau_id', ids).eq('aktiv', true).in('art', ['wein', 'most']).order('id'), 'Zukäufe'),
       liste((supabase.from('keller_umzuege') as any)
         .select('id, datum, erstellt_am, menge_liter, brutto_liter, schwund_liter, umzug_typ, zeilen_typ, umzug_batch_id, von_weinausbau_id, nach_weinausbau_id')
+        .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
         .eq('tenant_id', tenantId).in('von_weinausbau_id', ids).order('id'), 'Umzüge'),
       liste((supabase.from('keller_umzuege') as any)
         .select('id, datum, erstellt_am, menge_liter, brutto_liter, schwund_liter, umzug_typ, zeilen_typ, umzug_batch_id, von_weinausbau_id, nach_weinausbau_id')
+        .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
         .eq('tenant_id', tenantId).in('nach_weinausbau_id', ids).order('id'), 'Umzüge'),
       liste((supabase.from('verschneidungen') as any)
         .select('id, datum, created_at, ziel_weinausbau_id, quellen:verschneidung_quellen(id, quell_weinausbau_id, menge_liter)')
+        .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
         .eq('tenant_id', tenantId).in('ziel_weinausbau_id', ids).order('id'), 'Verschnitte'),
       // verschneidung_quellen ohne tenant_id – Mandant über die Verschneidung
       liste((supabase.from('verschneidung_quellen') as any)
-        .select('id, verschneidung:verschneidung_id(id, datum, created_at, tenant_id, ziel_weinausbau_id, quellen:verschneidung_quellen(id, quell_weinausbau_id, menge_liter))')
-        .in('quell_weinausbau_id', ids).order('id'), 'Verschnitte'),
+        .select('id, verschneidung:verschneidung_id(id, datum, created_at, tenant_id, storniert_am, ziel_weinausbau_id, quellen:verschneidung_quellen(id, quell_weinausbau_id, menge_liter))')
+        .in('quell_weinausbau_id', ids).order('id'), 'Verschnitte'),   // KAN-145: Quellen stornierter Verschnitte zählen nicht
       liste((supabase.from('fuellung_chargen') as any)
         .select('id, fuellung_id, weinausbau_id, anteil_liter, fuellung:fuellung_id(id, datum, erstellt_am, aktiv)')
         .eq('tenant_id', tenantId).in('weinausbau_id', ids).order('id'), 'Füllungen'),
@@ -191,6 +195,7 @@ export async function ladeBewegungsgraph(supabase: any, tenantId: string, startI
     if (batchIds.length > 0) {
       const batchZeilen = await liste((supabase.from('keller_umzuege') as any)
         .select('id, datum, erstellt_am, menge_liter, brutto_liter, schwund_liter, umzug_typ, zeilen_typ, umzug_batch_id, von_weinausbau_id, nach_weinausbau_id')
+        .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
         .eq('tenant_id', tenantId).in('umzug_batch_id', batchIds).order('id'), 'Umzüge')
       for (const z of batchZeilen) kuAlle.set(z.id, z)
     }
@@ -233,7 +238,7 @@ export async function ladeBewegungsgraph(supabase: any, tenantId: string, startI
     // Verschnitte (als Ziel und als Quelle)
     const vsAlle = new Map<string, R>()
     for (const v of vsZiel) vsAlle.set(v.id, v)
-    for (const q of vsQuelle) {
+    for (const q of ohneStornierteVerschnitte(vsQuelle)) {   // KAN-145
       const v = q.verschneidung as R | null
       if (v && v.tenant_id === tenantId) vsAlle.set(v.id, v)
     }

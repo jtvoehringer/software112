@@ -58,6 +58,7 @@ async function umzugsquellenJeBatch(supabase: any, tenantId: string, zielzeilen:
   for (const b of bloecke(batchIds)) {
     const { data, error } = await alle<R>((supabase.from('keller_umzuege') as any)
       .select('id, umzug_batch_id, von_weinausbau_id')
+      .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
       .eq('tenant_id', tenantId)
       .eq('zeilen_typ', 'quelle')
       .in('umzug_batch_id', b)
@@ -129,6 +130,7 @@ export async function ladePruefnummerDaten(
         .order('id')),
       alle<R>((supabase.from('verschneidungen') as any)
         .select('id, datum, ziel_weinausbau_id')
+        .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
         .eq('tenant_id', tenantId)
         .in('ziel_weinausbau_id', block)
         .order('id')),
@@ -140,6 +142,7 @@ export async function ladePruefnummerDaten(
         .order('id')),
       alle<R>((supabase.from('keller_umzuege') as any)
         .select('id, datum, von_weinausbau_id, nach_weinausbau_id, umzug_batch_id, zeilen_typ')
+        .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
         .eq('tenant_id', tenantId)
         .in('nach_weinausbau_id', block)
         .order('id')),
@@ -277,6 +280,7 @@ async function einzigeUmzugsquelle(supabase: any, tenantId: string, chargeId: st
       .maybeSingle(),
     (supabase.from('verschneidungen') as any)
       .select('id')
+      .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
       .eq('tenant_id', tenantId)
       .eq('ziel_weinausbau_id', chargeId)
       .limit(1),
@@ -293,6 +297,7 @@ async function einzigeUmzugsquelle(supabase: any, tenantId: string, chargeId: st
       .order('id')),
     alle<R>((supabase.from('keller_umzuege') as any)
       .select('id, datum, von_weinausbau_id, nach_weinausbau_id, umzug_batch_id, zeilen_typ')
+      .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
       .eq('tenant_id', tenantId)
       .eq('nach_weinausbau_id', chargeId)
       .order('id')),
@@ -338,6 +343,7 @@ async function einzigeUmzugsquelle(supabase: any, tenantId: string, chargeId: st
 async function umzuegeAusCharge(supabase: any, tenantId: string, chargeId: string): Promise<PnUmzugAbgang[]> {
   const { data, error } = await alle<R>((supabase.from('keller_umzuege') as any)
     .select('id, datum, menge_liter, von_weinausbau_id, nach_weinausbau_id, umzug_batch_id, zeilen_typ')
+    .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
     .eq('tenant_id', tenantId)
     .eq('von_weinausbau_id', chargeId)
     .order('id'))
@@ -358,6 +364,7 @@ async function umzuegeAusCharge(supabase: any, tenantId: string, chargeId: strin
   for (const b of bloecke([...jeBatch.keys()])) {
     const { data: ziele, error: e } = await alle<R>((supabase.from('keller_umzuege') as any)
       .select('id, umzug_batch_id, nach_weinausbau_id, menge_liter')
+      .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
       .eq('tenant_id', tenantId)
       .eq('zeilen_typ', 'ziel')
       .in('umzug_batch_id', b)

@@ -431,6 +431,7 @@ export async function ladeChargeKette(
             von_behaelter:von_behaelter_id(name),
             nach_behaelter:nach_behaelter_id(name)
           `)
+          .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
           .eq('tenant_id', tenantId)
           .eq('von_weinausbau_id', wId)
           .order('datum', { ascending: true })
@@ -452,6 +453,7 @@ export async function ladeChargeKette(
   if (quelleBatchIds.length > 0) {
     const zielRows = pruefen(await alle<R>((supabase.from('keller_umzuege') as any)
       .select('id, umzug_batch_id, nach_behaelter:nach_behaelter_id(name), nach_weinausbau:nach_weinausbau_id(name), menge_liter')
+      .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
       .eq('tenant_id', tenantId)
       .in('umzug_batch_id', quelleBatchIds)
       .eq('zeilen_typ', 'ziel')

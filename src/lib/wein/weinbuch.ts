@@ -20,6 +20,7 @@
 
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum } from '@/lib/format'
+import { ohneStornierteVerschnitte } from '@/lib/kellerbuch/stornoFilter'
 import { ladeBelegungen } from '@/lib/behoerden/bewegungsbuch'
 import { mostgewichtWeinbuchText } from '@/lib/behoerden/mostgewicht_export'
 import { tag, text } from '@/lib/behoerden/kellerbuch-hilfen'
@@ -153,6 +154,7 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
         von_behaelter:von_behaelter_id(name),
         nach_behaelter:nach_behaelter_id(name)
       `)
+      .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
       .eq('von_weinausbau_id', id)
       .order('datum', { ascending: true })),
 
@@ -193,12 +195,13 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
       .select(`datum, notizen,
         quellen:verschneidung_quellen(menge_liter, anteil_pct,
           quelle:quell_weinausbau_id(id, name, rebsorte))`)
+      .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
       .eq('ziel_weinausbau_id', id)
       .order('datum', { ascending: true })),
 
     (supabase.from('verschneidung_quellen') as any)
       .select(`menge_liter, anteil_pct,
-        verschneidung:verschneidung_id(id, datum, notizen,
+        verschneidung:verschneidung_id(id, datum, notizen, storniert_am,
           ziel:ziel_weinausbau_id(id, name))`)
       .eq('quell_weinausbau_id', id),
   ])
@@ -257,7 +260,7 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
   const alleFuellungen = [...fuellChargen, ...direktFuellungen]
 
   const verschnEin = (verschnEinRes.data ?? []) as R[]
-  const verschnAus = (verschnAusRes.data ?? []) as R[]
+  const verschnAus = ohneStornierteVerschnitte((verschnAusRes.data ?? []) as R[])   // KAN-145
 
   // Umzüge: Ziel-Behälter via Batch-Lookup ergänzen
   const batchIds = [...new Set(
@@ -267,6 +270,7 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
   if (batchIds.length > 0) {
     const { data: zielRows } = await tf((supabase.from('keller_umzuege') as any)
       .select('umzug_batch_id, nach_behaelter:nach_behaelter_id(name)')
+      .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
       .in('umzug_batch_id', batchIds)
       .eq('zeilen_typ', 'ziel'))
     for (const z of ((zielRows ?? []) as R[])) {

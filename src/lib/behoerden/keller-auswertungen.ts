@@ -52,6 +52,7 @@ export async function ladeKellerUmzuege(
 
   let q = (supabase.from('keller_umzuege') as any)
     .select('id, datum, menge_liter, brutto_liter, schwund_liter, umzug_typ, zeilen_typ, umzug_batch_id, transaktions_nr, notizen, von_behaelter_id, nach_behaelter_id, von_behaelter:von_behaelter_id(name), nach_behaelter:nach_behaelter_id(name), von_weinausbau:von_weinausbau_id(name)')
+    .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
     .eq('tenant_id', tenantId)
     .not('zeilen_typ', 'eq', 'ziel')
   if (z.von) q = q.gte('datum', z.von)
@@ -65,6 +66,7 @@ export async function ladeKellerUmzuege(
   if (batchIds.length > 0) {
     const ziele = await alle<R>((supabase.from('keller_umzuege') as any)
       .select('id, umzug_batch_id, nach_behaelter_id, nach_behaelter:nach_behaelter_id(name)')
+      .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
       .eq('tenant_id', tenantId)
       .in('umzug_batch_id', batchIds)
       .eq('zeilen_typ', 'ziel')

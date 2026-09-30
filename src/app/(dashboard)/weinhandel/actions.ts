@@ -680,6 +680,7 @@ export async function deactivateFuellung(id: string): Promise<void> {
       // Abschluss-Schwund dieser Abfüllung (createFuellung → schwund_buchen, früher direkt)
       const { data: swRaw, error: swErr } = await (supabase.from('keller_umzuege') as any)
         .select('id, datum, erstellt_am, brutto_liter, schwund_liter, notizen')
+        .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
         .eq('tenant_id', tenantId)
         .eq('von_weinausbau_id', f.weinausbau_id)
         .eq('umzug_typ', 'schwund')
