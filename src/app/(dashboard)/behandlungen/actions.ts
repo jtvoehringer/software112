@@ -347,7 +347,7 @@ export async function createBehandlung(formData: FormData) {
   // 1. Betroffene Grundstücke ermitteln (vor dem Anlegen – ihre Fläche braucht die Mengenprüfung):
   //    a) alle aktiven Grundstücke der ganz ausgewählten Weingärten (Ried-Auswahl)
   //    b) die einzeln ausgewählten Grundstücke (GST-Feinauswahl)
-  //    Brache + Gerodet werden automatisch übersprungen
+  //    nur Grundstücke mit Nutzart WI (Weingarten) – alle anderen Nutzarten (z. B. Grünbrache) werden übersprungen
   const grundstueckeById = new Map<string, { id: string; weingarten_id: string; flaeche_ha: number | null }>()
 
   if (weingartenIds.length > 0) {
@@ -374,6 +374,12 @@ export async function createBehandlung(formData: FormData) {
     for (const g of ((gEinzeln ?? []) as AR[])) {
       grundstueckeById.set(g.id, { id: g.id, weingarten_id: g.weingarten_id, flaeche_ha: g.flaeche_ha ?? null })
     }
+  }
+
+  // KAN-132 (Frage 6): keine Maßnahme ohne Grundstück – sie wäre auf kein GST verteilbar (Auswertungen, Cu, N/P,
+  // Kosten); gilt für Formular und Assistent (der ruft diese Action)
+  if (grundstueckeById.size === 0) {
+    throw new AktionsFehler('Die gewählten Rieden bzw. Grundstücke haben kein Grundstück mit Nutzart WI (Weingarten) – eine Maßnahme ohne Grundstück lässt sich nicht auswerten. Bitte eine Ried mit Weingarten-Grundstücken wählen oder die Nutzart der Grundstücke prüfen.')
   }
 
   // 2. Mengen prüfen und ergänzen (KAN-133): Fläche = Σ der gewählten WI-GST

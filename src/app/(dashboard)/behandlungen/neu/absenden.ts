@@ -43,4 +43,4 @@ export function erfassenKnopfText(pending: boolean, auswahl: number): string {
 
 // ── Ried-Auswahl: Gruppen und „Alle auswählen“ ↔ „Alle abwählen“ (KAN-155, Pilotbetrieb) ──────────────
 // Seit KAN-160 gemeinsam mit der Lese-Erfassung in lib/wein/riedAuswahl.ts – hier nur weitergereicht.
-export { OHNE_RIED_GRUPPE, riedGruppen, alleAuswahlModus, type RiedGruppe } from '@/lib/wein/riedAuswahl'
+export { OHNE_RIED_GRUPPE, riedGruppen, alleAuswahlModus, istEinzelRied, weingartenZusatz, type RiedGruppe } from '@/lib/wein/riedAuswahl'
