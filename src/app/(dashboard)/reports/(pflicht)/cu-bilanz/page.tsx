@@ -130,12 +130,12 @@ export default async function CuBilanzPage({ searchParams }: { searchParams: Pro
           {wgUeber > 0 && <span className="text-s112-err-fg font-medium"> · {wgUeber} {wgUeber === 1 ? 'Weingarten' : 'Weingärten'} über {CU_GRENZWERT_KG_HA_JAHR} kg/ha</span>}
         </p>
 
-        {/* Je Weingarten */}
-        <h2 className="text-sm font-semibold text-s112-text mb-2">Je Weingarten</h2>
+        {/* Je Ried (= Weingarten, KAN-132) */}
+        <h2 className="text-sm font-semibold text-s112-text mb-2">Je Ried</h2>
         <table className="w-full text-sm border-collapse mb-6">
           <thead>
             <tr className="bg-[#F2F3F5]">
-              {['Weingarten', 'Ried', 'Fläche ha', 'Anw.', 'Cu kg', 'Cu kg/ha', '5 J. kg/ha', '7 J. kg/ha', 'Status'].map(h => (
+              {['Ried', 'Lage', 'Fläche ha', 'Anw.', 'Cu kg', 'Cu kg/ha', '5 J. kg/ha', '7 J. kg/ha', 'Status', 'GST max. kg/ha (Jahr / 5 J. / 7 J.)', 'Status GST'].map(h => (
                 <th key={h} className="text-left px-2 py-2 border border-s112-line-str font-semibold text-xs whitespace-nowrap">{h}</th>
               ))}
             </tr>
@@ -152,6 +152,8 @@ export default async function CuBilanzPage({ searchParams }: { searchParams: Pro
                 <td className="px-2 py-1.5 border border-s112-line text-right tabular-nums text-xs">{kg(w.cuKgHa5J)}</td>
                 <td className="px-2 py-1.5 border border-s112-line text-right tabular-nums text-xs">{kg(w.cuKgHa7J)}</td>
                 <td className="px-2 py-1.5 border border-s112-line text-xs whitespace-nowrap">{w.status}</td>
+                <td className="px-2 py-1.5 border border-s112-line text-right tabular-nums text-xs whitespace-nowrap">{kg(w.gstMaxKgHa)} / {kg(w.gstMaxKgHa5J)} / {kg(w.gstMaxKgHa7J)}</td>
+                <td className="px-2 py-1.5 border border-s112-line text-xs whitespace-nowrap">{w.gstStatus}</td>
               </tr>
             ))}
           </tbody>
@@ -218,8 +220,10 @@ export default async function CuBilanzPage({ searchParams }: { searchParams: Pro
           Österreich: max. {CU_GRENZWERT_KG_HA_5J} kg Cu/ha über 5 Jahre (ÖPUL) · EU: {CU_GRENZWERT_KG_HA_7J} kg Cu/ha über 7 Jahre (DVO (EU) 2021/1165 Anhang II).
           Cu je Behandlung = Mittelmenge × Cu-Gehalt; Mittelmenge = Aufwand × Fläche (bzw. Konzentration im Tank ×
           Spritzbrühe), nie die Spritzbrühe selbst; Mittel in Litern mit 1 kg/l. Je ha bezogen auf die behandelte Fläche
-          (Summe der Grundstücke); je Weingarten anteilig nach Grundstücksfläche, bezogen auf die Weingartenfläche; Betrieb
-          bezogen auf die Fläche der Grundstücke mit Nutzart WI aller aktiven Weingärten.
+          (Summe der Grundstücke); je Ried anteilig nach Grundstücksfläche (Methode des größten Rests), bezogen auf die Fläche
+          der Grundstücke mit Nutzart WI der Ried (Stand heute); Betrieb bezogen auf die Fläche der Grundstücke mit Nutzart WI
+          aller aktiven Rieden. „GST max.“ = höchste Belastung eines einzelnen Grundstücks der Ried (Summe Cu je ha seiner
+          Behandlungen), geprüft gegen alle drei Grenzwerte (Status GST).
           Status: {CU_STATUS_LABEL.warnung} ab {fmtNum(CU_GRENZWERT_KG_HA_JAHR * 0.8, 1)} kg/ha.
         </p>
 

@@ -187,3 +187,34 @@ describe('KAN-132 verteileMassnahme', nurMitHooks, () => {
     assert.equal(s.nKg, 7); assert.equal(s.pKg, 1)
   })
 })
+
+describe('KAN-132 Cu-Bilanz über die GST-Anteile', nurMitHooks, () => {
+  const stamm = (w, gst) => ({
+    id: w.id, name: w.name, ried: w.lagen?.name ?? null, lageId: w.lage_id, flaecheHa: null, aktiv: true,
+    wiFlaecheHa: gst.reduce((s, g) => s + g.flaecheHa, 0),
+    wiGst: gst.map(g => ({ weingartenId: w.id, weingarten: w.name, ried: w.lagen?.name ?? null, lageId: w.lage_id, kgNr: '1', kgName: null, ...g })),
+  })
+  test('Kleinst-GST: Ried-Schnitt im Rahmen, höchste GST-Belastung über 4 kg/ha → Status GST', async () => {
+    const psm = await laden('lib/behoerden/psm.ts')
+    const cu = await laden('lib/behoerden/cu.ts')
+    // 8 Spritzungen je 1,5 kg/ha × 35 % = 4,2 kg Cu/ha nur auf dem Kleinst-GST; das große GST bekommt nur eine
+    const klein = n => psm.normalisiereBehandlung(roh(`k${n}`, { datum: `2026-0${n}-01`, aufwandmenge: 1.5, aufwandmenge_einheit: 'kg_ha', psm: { id: 'cu', name: 'Cu', cu_gehalt_pct: 35 } },
+      [['klein', '99/1', 0.0001, WG.eik]]))
+    const gross = psm.normalisiereBehandlung(roh('g', { aufwandmenge: 1.5, aufwandmenge_einheit: 'kg_ha', psm: { id: 'cu', name: 'Cu', cu_gehalt_pct: 35 } }, [['gross', '99/2', 1, WG.eik]]))
+    const b = [1, 2, 3, 4, 5, 6, 7, 8].map(klein).concat(gross)
+    const wg = [stamm(WG.eik, [{ grundstueckId: 'klein', gstNr: '99/1', flaecheHa: 0.0001 }, { grundstueckId: 'gross', gstNr: '99/2', flaecheHa: 1 }])]
+    const z = cu.cuBilanz(b, wg, { jahre: [2026] }).weingartenZeilen[0]
+    assert.equal(z.flaecheHa, 1.0001)
+    assert.equal(z.status, 'im Rahmen')
+    assert.equal(z.gstMaxKgHa, 4.2)
+    assert.equal(z.gstStatus, 'über Grenzwert')
+  })
+  test('Maßnahme nur am Weingarten: in der Cu-Bilanz auf die WI-GST der Ried verteilt', async () => {
+    const psm = await laden('lib/behoerden/psm.ts')
+    const cu = await laden('lib/behoerden/cu.ts')
+    const nurWg = psm.normalisiereBehandlung(roh('w', { aufwandmenge: 2, aufwandmenge_einheit: 'kg', weingarten_id: WG.kre.id, weingarten: { ...WG.kre, flaeche_ha: null }, psm: { id: 'cu', name: 'Cu', cu_gehalt_pct: 50 } }, []))
+    const wg = [stamm(WG.kre, [{ grundstueckId: 'a', gstNr: '1', flaecheHa: 0.5 }, { grundstueckId: 'b', gstNr: '2', flaecheHa: 1.5 }])]
+    const z = cu.cuBilanz([nurWg], wg, { jahre: [2026] }).weingartenZeilen[0]
+    assert.deepEqual([z.weingarten, z.flaecheHa, z.cuKg, z.cuKgHa, z.gstMaxKgHa], ['Kremsleithen Grüner Veltliner', 2, 1, 0.5, 0.5])
+  })
+})

@@ -351,12 +351,12 @@ describe('cu-bilanz', nurMitHooks, () => {
     assert.ok(bilanz.warnungen.every(w => !w.includes('Bordeaux')), 'Hinweise der Vorjahre gehören nicht in das Jahr')
 
     const [kopf, z1, z2] = zeilenVon(csv.csvText(bilanz.weingartenZeilen, cu.SPALTEN_CU_BILANZ))
-    assert.equal(kopf, 'Jahr;Weingarten;Ried;Fläche (ha);Kupfer-Anwendungen;Cu (kg);Cu (kg/ha);Grenzwert (kg/ha/Jahr);Auslastung (%);Status;Cu 5 Jahre (kg/ha);Cu 7 Jahre (kg/ha)')
-    assert.equal(z1, '2026;Pfaffenberg Riesling;Ried Pfaffenberg;1,2000;1;0,6300;0,5250;4,00;13,1;im Rahmen;2,1917;2,1917')
-    assert.equal(z2, '2026;Steiner Hund Riesling;Ried Steiner Hund;0,9000;1;0,4725;0,5250;4,00;13,1;im Rahmen;0,5250;0,5250')
+    assert.equal(kopf, 'Jahr;Ried;Lage;Fläche (ha);Kupfer-Anwendungen;Cu (kg);Cu (kg/ha);Grenzwert (kg/ha/Jahr);Auslastung (%);Status;Cu 5 Jahre (kg/ha);Cu 7 Jahre (kg/ha);Höchste GST-Belastung (kg/ha);Höchste GST-Belastung 5 Jahre (kg/ha);Höchste GST-Belastung 7 Jahre (kg/ha);Status GST')
+    assert.equal(z1, '2026;Pfaffenberg Riesling;Ried Pfaffenberg;1,2000;1;0,6300;0,5250;4,00;13,1;im Rahmen;2,1917;2,1917;0,5250;2,1917;2,1917;im Rahmen')
+    assert.equal(z2, '2026;Steiner Hund Riesling;Ried Steiner Hund;0,9000;1;0,4725;0,5250;4,00;13,1;im Rahmen;0,5250;0,5250;0,5250;0,5250;0,5250;im Rahmen')
 
     const [kopfB, zB] = zeilenVon(csv.csvText(bilanz.behandlungsZeilen, cu.SPALTEN_CU_BEHANDLUNGEN))
-    assert.equal(kopfB, 'Datum;Weingarten;Ried;Mittel;Zulassungsnr.;Cu-Gehalt (%);Cu-Gehalt Quelle;Spritzbrühe (l);Aufwand;Aufwand-Einheit;Mittelmenge (kg);Mengenbasis;Behandelte Fläche (ha);Cu (kg);Cu (kg/ha)')
+    assert.equal(kopfB, 'Datum;Ried;Lage;Mittel;Zulassungsnr.;Cu-Gehalt (%);Cu-Gehalt Quelle;Spritzbrühe (l);Aufwand;Aufwand-Einheit;Mittelmenge (kg);Mengenbasis;Behandelte Fläche (ha);Cu (kg);Cu (kg/ha)')
     // Spritzbrühe nur zur Information; Mittelmenge 1,5 kg/ha × 2,1 ha aus dem Aufwand
     assert.equal(zB, '10.07.2026;Pfaffenberg Riesling, Steiner Hund Riesling;Ried Pfaffenberg, Ried Steiner Hund;Cuprozin progress;3212-0;35,00;Stammdaten;1260,000;1,500;kg/ha;3,150;Aufwand × Fläche;2,1000;1,1025;0,5250')
     assert.ok(bilanz.behandlungsZeilen.every(z => z.mengeBasis !== 'Gesamtmenge'))

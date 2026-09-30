@@ -32,7 +32,7 @@ import { alle } from '@/lib/supabase/alle'
 import { MASSNAHMEN_ART_LABEL } from '@/lib/behandlungen/arten'
 import type { LadeErgebnis } from './typen'
 // KAN-132: zentrale Anteilsfunktion (Zyklus psm ↔ massnahmeAnteile ist unkritisch: nur Funktionen, keine Werte beim Laden)
-import { verteileMassnahme, WARNUNG_GLEICH, type GstAnteil } from '@/lib/wein/massnahmeAnteile'
+import { verteileMassnahme, WARNUNG_GLEICH, type GstAnteil, type WiGst } from '@/lib/wein/massnahmeAnteile'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -112,6 +112,8 @@ export type WeingartenStamm = {
   aktiv: boolean
   /** Σ Fläche der Grundstücke mit Nutzart WI (ha, 4 Stellen) – wie createBehandlung die WI-GST bestimmt */
   wiFlaecheHa: number
+  /** aktuelle WI-GST (KAN-132 Regel 9: Maßnahmen nur am Weingarten werden in Bilanzen darauf verteilt) */
+  wiGst?: WiGst[]
 }
 
 export type PsmGrundstueck = {
@@ -607,7 +609,7 @@ export async function ladeBehandlungen(supabase: any, tenantId: string, f: Behan
 export async function ladeWeingaerten(supabase: any, tenantId: string): Promise<WeingartenStamm[]> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await alle<R>((supabase.from('weingarten') as any)
-    .select('id, name, ried, flaeche_ha, aktiv, lage_id, lagen:lage_id(name), grundstuecke(flaeche_ha, nutzart)')
+    .select('id, name, ried, flaeche_ha, aktiv, lage_id, lagen:lage_id(name), grundstuecke(id, gst_nr, katastralgemeinde, kg_bezeichnung, flaeche_ha, nutzart)')
     .eq('tenant_id', tenantId)
     .order('name').order('id'))
   if (error) throw new Error(`Weingärten konnten nicht geladen werden: ${error.message}`)
@@ -621,6 +623,11 @@ export async function ladeWeingaerten(supabase: any, tenantId: string): Promise<
       flaecheHa: rund(zahl(w.flaeche_ha), STELLEN.ha),
       aktiv: w.aktiv !== false,
       wiFlaecheHa: runden(wi.reduce((s, g) => s + (zahl(g.flaeche_ha) ?? 0), 0), STELLEN.ha),
+      wiGst: wi.filter(g => g.id).map(g => ({
+        grundstueckId: String(g.id), gstNr: textOderNull(g.gst_nr), kgNr: textOderNull(g.katastralgemeinde), kgName: textOderNull(g.kg_bezeichnung),
+        weingartenId: String(w.id), weingarten: textOderNull(w.name), ried: riedAus(w), lageId: textOderNull(w.lage_id),
+        flaecheHa: rund(zahl(g.flaeche_ha), STELLEN.ha),
+      })),
     }
   })
 }
