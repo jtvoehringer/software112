@@ -111,6 +111,10 @@ export type LeseZeile = {
   qualitaetsstufe: string | null
   lesemethode: string | null
   notizen: string | null
+  /** KAN-148 C1b: Storno (Zeitpunkt, Grund, Benutzer) – nur mit `mitStornierten` geladen, sonst immer null */
+  storniertAm: string | null
+  stornoGrund: string | null
+  storniertVon: string | null
 }
 
 function leseFelder(l: R | null): { lese: string | null; leseNr: number | null } {
@@ -152,6 +156,9 @@ function zuLeseZeile(p: R): LeseZeile {
     qualitaetsstufe: textOderNull(p.qualitaetsstufe),
     lesemethode: textOderNull(p.lesemethode),
     notizen: textOderNull(p.notizen),
+    storniertAm: textOderNull(p.storniert_am),
+    stornoGrund: textOderNull(p.storno_grund),
+    storniertVon: textOderNull(p.storniert_von_name),
   }
 }
 
@@ -168,21 +175,25 @@ function vergleicheLese(a: LeseZeile, b: LeseZeile): number {
  * Lesedaten eines Jahrgangs, chronologisch (Lesedatum, Ried, GST-Nr.).
  * ernte_parzellen hat keine tenant_id – nur mit einer Jahrgangs-id aufrufen, die per
  * .eq('tenant_id', …) geprüft ist (jahrgangFinden() bzw. die Jahrgangsabfrage der Seite).
+ * KAN-148 C1b: stornierte Einträge nur mit `mitStornierten` (Lesedaten-Druck und -CSV, Liste der Lese-Seite
+ * zeigen sie gekennzeichnet) – Summen, Erntemeldung, AMA und Hektarhöchstertrag laden ohne sie.
  */
-export async function ladeLesedaten(supabase: Client, jahrgangId: string): Promise<{ zeilen: LeseZeile[]; warnungen: string[] }> {
-  const { data, error } = await alle<R>(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase.from('ernte_parzellen') as any)
-      .select('id, lese_id, lese:lesen!ernte_parzellen_lese_fkey(lfd_nr, art, jahrgang:weinjahrgaenge!lesen_jahrgang_fkey(jahrgang)), weingarten_id, grundstueck_id, ernte_datum, menge_kg, menge_hl, oechsle, klosterneuburger, mostgewicht_einheit, qualitaetsstufe, lesemethode, notizen, weingarten:weingarten_id(name, rebsorte, flaeche_ha), grundstueck:grundstueck_id(gst_nr, katastralgemeinde, rebsorte, flaeche_ha)')
-      .eq('jahrgang_id', jahrgangId)
-      .order('ernte_datum', { ascending: true })
-      .order('id'),
-  )
+export async function ladeLesedaten(
+  supabase: Client, jahrgangId: string, opt: { mitStornierten?: boolean } = {},
+): Promise<{ zeilen: LeseZeile[]; warnungen: string[] }> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let abfrage = (supabase.from('ernte_parzellen') as any)
+    .select('id, lese_id, lese:lesen!ernte_parzellen_lese_fkey(lfd_nr, art, jahrgang:weinjahrgaenge!lesen_jahrgang_fkey(jahrgang)), weingarten_id, grundstueck_id, ernte_datum, menge_kg, menge_hl, oechsle, klosterneuburger, mostgewicht_einheit, qualitaetsstufe, lesemethode, notizen, storniert_am, storno_grund, storniert_von_name, weingarten:weingarten_id(name, rebsorte, flaeche_ha), grundstueck:grundstueck_id(gst_nr, katastralgemeinde, rebsorte, flaeche_ha)')
+    .eq('jahrgang_id', jahrgangId)
+    // storno-sichtbar: stornierte nur mit opt.mitStornierten (gekennzeichnet in Druck, CSV und Liste)
+  if (!opt.mitStornierten) abfrage = abfrage.is('storniert_am', null)
+  const { data, error } = await alle<R>(abfrage.order('ernte_datum', { ascending: true }).order('id'))
   if (error) throw new Error(`Laden fehlgeschlagen (ernte_parzellen): ${error.message}`)
   const zeilen = data.map(zuLeseZeile).sort(vergleicheLese)
   // X-Warnung nur, wenn die exportierte Rundung eines Messwerts die Stufe ändert (KAN-128, Absicherung)
   const mostgewicht = new Hinweise(['Lese', 'Lesen'])
   for (const z of zeilen) {
+    if (z.storniertAm) continue
     if (z.mostgewicht.stufenHinweis) {
       mostgewicht.add(z.mostgewicht.stufenHinweis, [datumAT(z.datum), z.ried, z.gstNr ? `GST ${z.gstNr}` : null].filter(Boolean).join(' '))
     }
@@ -209,7 +220,15 @@ export const SPALTEN_LESEDATEN: CsvSpalte<LeseZeile>[] = [
   { kopf: 'Notizen', typ: 'text', wert: z => z.notizen },
   // KAN-129 (Frage 8): Lese als letzte Spalte – die bisherigen Spaltenpositionen bleiben
   { kopf: 'Lese', typ: 'text', wert: z => z.lese },
+  // KAN-148 C1b: stornierte Einträge bleiben in der Liste, gekennzeichnet – wieder hinten angefügt
+  { kopf: 'Storniert am', typ: 'zeitpunkt', wert: z => z.storniertAm },
+  { kopf: 'Storno-Grund', typ: 'text', wert: z => z.stornoGrund },
 ]
+
+/** KAN-148 C1b: nur nicht stornierte Lesedaten (Summen, Meldungen) */
+export function ohneStornierteLese<Z extends { storniertAm: string | null }>(zeilen: readonly Z[]): Z[] {
+  return zeilen.filter(z => !z.storniertAm)
+}
 
 // ── Stichtag 30.11. (KAN-129 Frage 7, Entscheidung Jörgen 29.09.2026) ─────────────────────────────────────
 // Die Erntemeldung erfasst das Lesegut zum 30. November (§ 29 Abs. 1 WeinG). Später Gelesenes (z. B. Eiswein im
@@ -467,9 +486,10 @@ export function summeErnte(zeilen: readonly ErnteZeile[]): ErntemeldungDaten['su
  */
 async function ladeVerkaufteTraubenJeRebsorte(supabase: Client, tenantId: string, jahrgangId: string): Promise<{ je: Map<string, number>; hinweis: string | null }> {
   const { data, error } = await alle<R>(
+    // storno-sichtbar: stornierte Traubenverkäufe (KAN-148) und stornierte Rechnungen filtert ohneStornierte() mit Hinweis
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('traubenverkauf') as any)
-      .select('id, datum, liefernummer, menge_kg, weingarten_id, weingarten:weingarten_id(rebsorte), grundstueck:grundstueck_id(rebsorte), verkaufsposten:verkaufsposten_id(storniert, rechnungsnummer)')
+      .select('id, datum, liefernummer, menge_kg, weingarten_id, storniert_am, weingarten:weingarten_id(rebsorte), grundstueck:grundstueck_id(rebsorte), verkaufsposten:verkaufsposten_id(storniert, rechnungsnummer)')
       .eq('tenant_id', tenantId)
       .eq('jahrgang_id', jahrgangId)
       .order('id'),

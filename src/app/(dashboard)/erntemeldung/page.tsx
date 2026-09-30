@@ -54,6 +54,7 @@ export default async function ErntemeldungPage() {
       ? (supabase.from('ernte_parzellen') as any)
           .select('jahrgang_id, menge_kg, klosterneuburger')
           .in('jahrgang_id', jahrgangIds)
+          .is('storniert_am', null)
       : Promise.resolve({ data: [] }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('ama_erntemeldungen') as any)
@@ -64,6 +65,7 @@ export default async function ErntemeldungPage() {
     (supabase.from('pressungen') as any)
       .select('jahrgang_id')
       .eq('tenant_id', tenantId),
+    // storno-sichtbar: Löschsperre – auch ein stornierter Traubenverkauf sperrt den Jahrgang (wie deleteJahrgang)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('traubenverkauf') as any)
       .select('jahrgang_id')

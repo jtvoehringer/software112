@@ -318,14 +318,15 @@ export async function bestandBuchenAllesOderNichts(
  *     (z. B. Gebinde inzwischen fremd belegt), wird alles zurückgenommen: nichts geändert.
  *  2. Kennzeichen storniert/storniert_am setzen – nur wenn noch nicht storniert; sonst
  *     (Doppelklick, zweiter Tab) wird die Rückbuchung zurückgenommen.
- *  3. Traubenverkauf-Datensätze des Postens löschen (gibt die kg frei; über
- *     verkauf_positionen.traubenverkauf_id UND traubenverkauf.verkaufsposten_id –
- *     auch Rechnungen aus Traubenverkauf/Erntemeldung). Die Löschung wird protokolliert.
+ *  3. Traubenverkauf-Datensätze des Postens stornieren (KAN-148: Kennzeichen statt Löschen – die Zeile, ihre
+ *     Liefernummer und verkauf_positionen.traubenverkauf_id bleiben, die kg werden frei; über
+ *     verkauf_positionen.traubenverkauf_id UND traubenverkauf.verkaufsposten_id – auch Rechnungen aus
+ *     Traubenverkauf/Erntemeldung). Grund: `tvGrund` bzw. „Rechnung <Nr.> storniert“.
  *  4. Nicht gesperrte E&A-Einnahmebuchungen entfernen, CRM-Aktivität kennzeichnen.
  * Scheitert Schritt 3 oder 4, ist der Verkauf storniert und der Bestand zurückgebucht:
  * am Ende kommt eine Fehlermeldung mit den offenen Punkten.
  */
-export async function verkaufspostenStornieren(supabase: SB, tenantId: string, postenId: string): Promise<void> {
+export async function verkaufspostenStornieren(supabase: SB, tenantId: string, postenId: string, tvGrund?: string): Promise<void> {
   const { data: postenRaw, error: postenErr } = await (supabase.from('verkaufsposten') as any)
     .select('id, rechnungsnummer, storniert')
     .eq('id', postenId)
@@ -351,6 +352,7 @@ export async function verkaufspostenStornieren(supabase: SB, tenantId: string, p
     .select('id')
     .eq('verkaufsposten_id', postenId)
     .eq('tenant_id', tenantId)
+    .is('storniert_am', null)
   if (tvErr) throw new AktionsFehler(dbFehlerText(tvErr, 'Traubenverkäufe des Verkaufs konnten nicht geladen werden'))
   const tvIds = [...new Set<string>([
     ...((tvRaw ?? []) as R[]).map(t => t.id as string),
@@ -414,16 +416,28 @@ export async function verkaufspostenStornieren(supabase: SB, tenantId: string, p
 
   const probleme: string[] = []
 
-  // 3. Traubenverkauf-Datensätze löschen → verfügbare kg werden wieder frei
+  // 3. Traubenverkauf-Datensätze stornieren (KAN-148) → verfügbare kg werden wieder frei; Zeile, Liefernummer und
+  //    Rechnungsbezug bleiben. Schon stornierte (Verweis aus einer Position) bleiben unverändert.
   if (tvIds.length > 0) {
-    const { data: geloescht, error: delErr } = await (supabase.from('traubenverkauf') as any)
-      .delete()
+    const grund = tvGrund?.trim() || `Rechnung ${posten.rechnungsnummer ?? '(ohne Nummer)'} storniert`
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: stornoErr } = await (supabase.from('traubenverkauf') as any)
+      .update({ storniert_am: new Date().toISOString(), storno_grund: grund })
       .in('id', tvIds)
       .eq('tenant_id', tenantId)
-      .select('id')
-    if (delErr) probleme.push(dbFehlerText(delErr, 'Traubenverkauf (BKI) konnte nicht entfernt werden'))
-    else if (((geloescht ?? []) as R[]).length < tvIds.length) {
-      probleme.push('Traubenverkauf (BKI) konnte nicht entfernt werden – keine Löschberechtigung. Bitte unter Weinhandel › Traubenverkauf löschen')
+      .is('storniert_am', null)
+    if (stornoErr) probleme.push(dbFehlerText(stornoErr, 'Traubenverkauf (BKI) konnte nicht storniert werden'))
+    else {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { count: offen, error: offenErr } = await (supabase.from('traubenverkauf') as any)
+        .select('id', { count: 'exact', head: true })
+        .in('id', tvIds)
+        .eq('tenant_id', tenantId)
+        .is('storniert_am', null)
+      if (offenErr) probleme.push(dbFehlerText(offenErr, 'Storno des Traubenverkaufs (BKI) konnte nicht geprüft werden'))
+      else if ((offen ?? 0) > 0) {
+        probleme.push('Traubenverkauf (BKI) konnte nicht storniert werden – keine Schreibberechtigung. Bitte unter Weinhandel › Traubenverkauf stornieren')
+      }
     }
   }
 

@@ -188,7 +188,8 @@ describe('KAN-144: Notiz-Spalte in der Lese-Tabelle', () => {
     assert.deepEqual(spalten, ['Ried', 'GST', 'Sorte', 'Datum', 'kg', 'Notizen', 'Mostgewicht', 'Qualität'])
     // Erste Zeile im tbody: die Zellen liegen unter den passenden Köpfen
     // KAN-129: vor der ersten Datenzeile kann eine Gruppenzeile je Lese stehen – die Datenzeile hat die Klasse „group“
-    const tbody = c.indexOf('<tr className="group', c.indexOf('<tbody>', iKopf))
+    const ab = c.indexOf('<tbody>', iKopf)
+    const tbody = ab + c.slice(ab).search(/<tr className=\{?`?"?group/)   // KAN-148: Klasse mit Storno-Kennzeichen
     const zeile = c.slice(tbody, c.indexOf('</tr>', tbody))
     const zellen = zeile.split(/<td\b/).slice(1)
     const spalteVon = (muster) => zellen.findIndex(z => muster.test(z))

@@ -479,7 +479,11 @@
 "grundstueck_id",
 "herkunft_code",
 "mostgewicht_einheit",
-"lese_id"
+"lese_id",
+"storniert_am",
+"storniert_von",
+"storniert_von_name",
+"storno_grund"
 ],
 "export_dokumente": [
 "id",
@@ -1007,7 +1011,11 @@
 "behaelter_id",
 "weinausbau_id",
 "menge_liter",
-"notizen"
+"notizen",
+"storniert_am",
+"storniert_von",
+"storniert_von_name",
+"storno_grund"
 ],
 "pressung_weingaerten": [
 "id",
@@ -1021,7 +1029,11 @@
 "grundstueck_id",
 "zukauf_posten_id",
 "oechsle",
-"mostgewicht_einheit"
+"mostgewicht_einheit",
+"storniert_am",
+"storniert_von",
+"storniert_von_name",
+"storno_grund"
 ],
 "pressungen": [
 "id",
@@ -1035,7 +1047,11 @@
 "kmw_grad",
 "oechsle",
 "mostgewicht_einheit",
-"lese_id"
+"lese_id",
+"storniert_am",
+"storniert_von",
+"storniert_von_name",
+"storno_grund"
 ],
 "profiles": [
 "id",
@@ -1382,7 +1398,11 @@
 "zukauf_posten_id",
 "oechsle",
 "mostgewicht_einheit",
-"lese_id"
+"lese_id",
+"storniert_am",
+"storniert_von",
+"storniert_von_name",
+"storno_grund"
 ],
 "user_email_connections": [
 "id",

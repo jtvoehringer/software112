@@ -1,14 +1,15 @@
 'use client'
 
 import React, { useEffect, useState, useTransition } from 'react'
-import { upsertErnteParzelle, deleteErnteParzelle, createOrUpdateAMAMeldung, createMultipleErnteParzellen } from '../actions'
+import { upsertErnteParzelle, stornoErnteParzelle, createOrUpdateAMAMeldung, createMultipleErnteParzellen } from '../actions'
 import { qualitaetLabel, LESE_QUALITAETEN, mitGespeichertemWert } from '@/lib/wein/qualitaet'
 import { kmwZuQualitaet } from '@/lib/weinqualitaet'
 import type { ErnteParzelle, WeingartenOpt, GSTOpt, AMAMeldung, HektarhoechstertragStatus } from './page'
 import PressungSection from './PressungSection'
 import type { Pressung, WGOption, BehOption, WAOption, ZukaufTraubenOpt } from './PressungSection'
 import { fmtHa, fmtZahl, fmtProzent, fmtNum, zahlAus } from '@/lib/format'
-import { Pencil, Trash2, AlertTriangle, Plus } from 'lucide-react'
+import { Pencil, AlertTriangle, Plus } from 'lucide-react'
+import StornoButton from '@/components/StornoButton'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fehlerText } from '@/lib/fehler'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
@@ -695,26 +696,15 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
-  const [leseFehler, setLeseFehler] = useState<string | null>(null)
   const [amaFehler, setAmaFehler]   = useState<string | null>(null)
 
-  const gesamtKg = tabellenParzellen.reduce((s, p) => s + (p.menge_kg ?? 0), 0)
+  // KAN-148 C1b: stornierte Einträge stehen gekennzeichnet in der Tabelle, zählen aber in keiner Summe
+  const gueltigeParzellen = tabellenParzellen.filter(p => !p.storno)
+  const stornierteAnzahl = tabellenParzellen.length - gueltigeParzellen.length
+  const gesamtKg = gueltigeParzellen.reduce((s, p) => s + (p.menge_kg ?? 0), 0)
   const mitAktionen = writeOk || adminOk
   // Spalten der Lesedaten-Tabelle: Ried, GST, Sorte, Datum, kg, Notizen, Mostgewicht, Qualität (+ Aktionen)
   const spaltenAnzahl = 8 + (mitAktionen ? 1 : 0)
-
-  function handleDelete(id: string) {
-    if (!confirm('Lesedaten löschen?')) return
-    setLeseFehler(null)
-    startTransition(async () => {
-      try {
-        await deleteErnteParzelle(id, jahrgang.id)
-      } catch (err) {
-        // z. B. KAN-35-Sperre: Lesemenge schon verpresst/verkauft
-        setLeseFehler(fehlerText(err, 'Die Lesedaten konnten nicht gelöscht werden.'))
-      }
-    })
-  }
 
   function handleAMA() {
     if (!confirm('AMA-Meldung aus aktuellen Lesedaten aufbauen?')) return
@@ -745,7 +735,7 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
         <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
           <h2 className="text-base font-semibold text-s112-text">Lesedaten{mehrereLesen ? ' – alle Lesen des Jahrgangs' : ''}</h2>
           <div className="flex items-start gap-3 flex-wrap">
-            <span className="text-sm text-s112-muted">{tabellenParzellen.length} Parzellen · {fmtZahl(gesamtKg/1000, 2)} t</span>
+            <span className="text-sm text-s112-muted">{gueltigeParzellen.length} Parzellen · {fmtZahl(gesamtKg/1000, 2)} t{stornierteAnzahl > 0 ? ` · ${stornierteAnzahl} storniert` : ''}</span>
             {writeOk && !showForm && (
               <button onClick={() => { setShowForm(true); setEditId(null) }}
                 data-print="hide"
@@ -766,13 +756,6 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
             )}
           </div>
         </div>
-
-        {leseFehler && (
-          <div role="alert" className="mb-4 flex items-start gap-2 text-xs text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2" data-print="hide">
-            <span className="flex-1">{leseFehler}</span>
-            <button type="button" onClick={() => setLeseFehler(null)} aria-label="Meldung schließen" className="shrink-0 font-semibold hover:opacity-70">×</button>
-          </div>
-        )}
 
         {showForm && !editId && (
           <div className="mb-4" data-print="hide">
@@ -812,9 +795,14 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
                         </td>
                       </tr>
                     )}
-                    <tr className="group border-b border-s112-border/40 last:border-0 hover:bg-s112-bg/30">
+                    <tr className={`group border-b border-s112-border/40 last:border-0 hover:bg-s112-bg/30 ${p.storno ? 'text-s112-muted opacity-70' : ''}`}>
                       <td className="px-3 py-2 font-medium text-s112-text">
                         {p.weingarten_name}
+                        {p.storno && (
+                          <span className="block text-[11px] font-normal text-s112-warn-fg">
+                            storniert am {new Date(p.storno.am).toLocaleDateString('de-AT')}{p.storno.von ? ` von ${p.storno.von}` : ''}{p.storno.grund ? ` – ${p.storno.grund}` : ''}
+                          </span>
+                        )}
                       </td>
                       <td className="px-3 py-2 text-xs text-s112-muted font-mono">{p.grundstueck_nr ?? '–'}</td>
                       <td className="px-3 py-2 text-xs text-s112-muted">{formatRebsorteMitKuerzel(p.grundstueck_rebsorte ?? p.weingarten_rebsorte)}</td>
@@ -830,15 +818,16 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
                       {mitAktionen && (
                         <td className="px-3 py-2 text-right sticky right-0 bg-white border-l border-s112-border/40" data-print="hide">
                           <div className="flex items-center justify-end gap-2">
-                            {writeOk && (
+                            {writeOk && !p.storno && (
                               <button onClick={() => { setEditId(p.id); setShowForm(false) }}
                                 title="Bearbeiten" aria-label="Bearbeiten"
                                 className="text-s112-blue-700 hover:text-s112-blue-700/70"><Pencil size={14} /></button>
                             )}
-                            {adminOk && (
-                              <button onClick={() => handleDelete(p.id)}
-                                title="Löschen" aria-label="Löschen"
-                                className="text-s112-err hover:text-s112-err-fg"><Trash2 size={14} /></button>
+                            {/* KAN-148 C1b: stornieren statt löschen – wer bearbeiten darf, darf stornieren (KAN-166) */}
+                            {writeOk && !p.storno && (
+                              <StornoButton
+                                action={grund => stornoErnteParzelle(p.id, jahrgang.id, grund)}
+                                hinweis="Der Eintrag bleibt als storniert in den Lesedaten stehen und zählt in keiner Menge, Erntemeldung oder Verfügbarkeit – nur möglich, solange die Menge nicht schon verpresst oder als Trauben verkauft ist." />
                             )}
                           </div>
                         </td>
@@ -1030,14 +1019,14 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
           ) : (
             <div>
               <p className="text-sm text-s112-muted mb-4" data-print="hide">
-                Lesedaten aus {tabellenParzellen.length} Parzellen zu AMA-Meldung aggregieren.
+                Lesedaten aus {gueltigeParzellen.length} Parzellen zu AMA-Meldung aggregieren.
               </p>
               {amaFehler && (
                 <div role="alert" className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-lg px-3 py-2 text-xs mb-3" data-print="hide">
                   {amaFehler}
                 </div>
               )}
-              <button onClick={handleAMA} disabled={tabellenParzellen.length === 0}
+              <button onClick={handleAMA} disabled={gueltigeParzellen.length === 0}
                 data-print="hide"
                 className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50 transition-colors">
                 AMA-Meldung erstellen

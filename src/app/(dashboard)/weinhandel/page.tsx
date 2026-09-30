@@ -79,6 +79,7 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tf((supabase.from('traubenverkauf') as any)
       .select('id, datum, menge_kg, preis_per_kg, liefernummer, weingarten:weingarten_id(name), firma:firma_id(name), kontakt:kontakt_id(vorname, nachname)')
+      .is('storniert_am', null)
       .order('datum', { ascending: false })
       .limit(5)),
   ])

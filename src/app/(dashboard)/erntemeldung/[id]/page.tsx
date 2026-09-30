@@ -10,7 +10,7 @@ import ErnteDetailClient from './ErnteDetailClient'
 import type { Pressung, PressungWG, PressungBeh, WGOption, BehOption, WAOption, ZukaufTraubenOpt } from './PressungSection'
 import TraubenverkaufSection, { type Traubenverkauf, type TVWGOption, type TVKontaktOption, type TVFirmaOption, type TVQuelleOption } from './TraubenverkaufSection'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
-import { berechneHektarhoechstertrag, ladeLesedaten, stichtagHinweis, teileNachStichtag, weinbauflaecheHa, type HektarhoechstertragStatus, type LeseZeile } from '@/lib/behoerden/erntemeldung'
+import { berechneHektarhoechstertrag, ladeLesedaten, ohneStornierteLese, stichtagHinweis, teileNachStichtag, weinbauflaecheHa, type HektarhoechstertragStatus, type LeseZeile } from '@/lib/behoerden/erntemeldung'
 import { KATALOG_ERNTE } from '@/lib/behoerden/katalog/ernte'
 import { betriebUndModuleLaden, zugriffsFehler } from '@/lib/behoerden/zugriff'
 import { istErntebar } from '@/lib/wein/leseErfassung'
@@ -36,6 +36,8 @@ export type ErnteParzelle = {
   qualitaetsstufe: string | null; lesemethode: string | null; notizen: string | null
   /** KAN-129: Lese des Eintrags („2026/1 Hauptlese“) und ihre Nummer – Gruppierung der Lesedaten */
   lese_titel: string | null; lese_nr: number | null
+  /** KAN-148 C1b: storniert – Vermerk statt Aktionen, zählt in keiner Summe */
+  storno: { am: string; von: string | null; grund: string | null } | null
 }
 export type WeingartenOpt = {
   id: string; name: string; rebsorte: string | null; lage_name: string | null
@@ -64,6 +66,7 @@ function zuErnteParzelle(z: LeseZeile): ErnteParzelle {
     oechsle: z.oechsle, klosterneuburger: z.kmw, mostgewicht_einheit: z.mostgewichtEinheit,
     qualitaetsstufe: z.qualitaetsstufe, lesemethode: z.lesemethode, notizen: z.notizen,
     lese_titel: z.lese, lese_nr: z.leseNr,
+    storno: z.storniertAm ? { am: z.storniertAm, von: z.storniertVon, grund: z.stornoGrund } : null,
   }
 }
 
@@ -101,8 +104,8 @@ export default async function ErnteDetailPage({ params, searchParams }: Props) {
 
     // Lesedaten: dieselbe Ladefunktion wie die CSV „Lesedaten“ (/meldungen/lesedaten/csv).
     // ernte_parzellen hat keine tenant_id – der Jahrgang wird oben mandantengefiltert
-    // geladen, ohne ihn endet die Seite unten mit notFound().
-    ladeLesedaten(supabase, id),
+    // geladen, ohne ihn endet die Seite unten mit notFound(). KAN-148: stornierte gekennzeichnet in der Tabelle.
+    ladeLesedaten(supabase, id, { mitStornierten: true }),
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tf((supabase.from('weingarten') as any)
@@ -140,10 +143,11 @@ export default async function ErnteDetailPage({ params, searchParams }: Props) {
       tf((supabase.from('grundstuecke') as any).select('id, weingarten_id').order('id')),
     ),
 
-    // Traubenverkäufe dieses Jahrgangs (mit Rechnung: Löschen storniert sie, KAN-35)
+    // Traubenverkäufe dieses Jahrgangs (mit Rechnung: Stornieren storniert sie mit, KAN-35/KAN-148)
+    // storno-sichtbar: Liste zeigt stornierte gekennzeichnet; verfügbare kg rechnen unten ohne sie (tvGueltig)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tf((supabase.from('traubenverkauf') as any)
-      .select('id, lese_id, weingarten_id, grundstueck_id, zukauf_posten_id, kontakt_id, firma_id, datum, menge_kg, preis_per_kg, kmw_grad, oechsle, mostgewicht_einheit, qualitaetsstufe, gesundheit, herkunft_code, notizen, liefernummer, verkaufsposten_id, weingarten:weingarten_id(name), grundstueck:grundstueck_id(gst_nr), kontakt:kontakt_id(vorname, nachname), firma:firma_id(name), verkaufsposten:verkaufsposten_id(rechnungsnummer, storniert)')
+      .select('id, lese_id, storniert_am, storno_grund, storniert_von_name, weingarten_id, grundstueck_id, zukauf_posten_id, kontakt_id, firma_id, datum, menge_kg, preis_per_kg, kmw_grad, oechsle, mostgewicht_einheit, qualitaetsstufe, gesundheit, herkunft_code, notizen, liefernummer, verkaufsposten_id, weingarten:weingarten_id(name), grundstueck:grundstueck_id(gst_nr), kontakt:kontakt_id(vorname, nachname), firma:firma_id(name), verkaufsposten:verkaufsposten_id(rechnungsnummer, storniert)')
       .eq('jahrgang_id', id).order('datum', { ascending: false })),
 
     // Kontakte + Firmen für Abnehmer-Dropdown
@@ -172,6 +176,9 @@ export default async function ErnteDetailPage({ params, searchParams }: Props) {
   const rawPressungenAlle = (rawPressungen ?? []) as AR[]
   const rawTVAlle = (rawTV ?? []) as AR[]
   const rawTVLese = rawTVAlle.filter(v => v.zukauf_posten_id || inLese(v.lese_id))
+  // KAN-148: stornierte Traubenverkäufe und Lesedaten zählen in keiner Menge (Liste zeigt sie gekennzeichnet)
+  const tvGueltig = (v: AR) => !v.storniert_am
+  const leseGueltig = ohneStornierteLese(lese.zeilen)
   const lesenMitSperre: LeseMitSperre[] = lesen.map(l => ({
     ...l,
     loeschsperre: leseLoeschsperre(l, lesen.map(x => x.lfd_nr), {
@@ -206,9 +213,9 @@ export default async function ErnteDetailPage({ params, searchParams }: Props) {
     (a.ernte_datum === b.ernte_datum ? 0 : a.ernte_datum === null ? -1 : b.ernte_datum === null ? 1 : b.ernte_datum.localeCompare(a.ernte_datum))
   const alleParzellen: ErnteParzelle[] = lese.zeilen.map(zuErnteParzelle)
     .sort((a, b) => (lesen.length > 1 ? (b.lese_nr ?? 0) - (a.lese_nr ?? 0) : 0) || nachDatum(a, b))
-  const parzellen: ErnteParzelle[] = alleParzellen.filter(p => inLese(lese.zeilen.find(z => z.id === p.id)?.leseId))
+  const parzellen: ErnteParzelle[] = alleParzellen.filter(p => !p.storno && inLese(lese.zeilen.find(z => z.id === p.id)?.leseId))
   // KAN-129 Frage 7: Lesegut nach dem 30.11. zählt nicht in die Erntemeldung
-  const nachStichtag = stichtagHinweis(teileNachStichtag(lese.zeilen, Number((jg as AR).jahrgang)).danach, Number((jg as AR).jahrgang))
+  const nachStichtag = stichtagHinweis(teileNachStichtag(leseGueltig, Number((jg as AR).jahrgang)).danach, Number((jg as AR).jahrgang))
 
   const gstByWeingarten: Record<string, GSTOpt[]> = {}
   for (const g of rawGST) {
@@ -230,7 +237,7 @@ export default async function ErnteDetailPage({ params, searchParams }: Props) {
   // Erntebetrag darf 10.000 kg/ha nicht überschreiten, betriebsweit gerechnet.
   // Reine Info-/Warnfunktion – ersetzt keine rechtliche Prüfung. Dieselbe Berechnung
   // steht in der Erntemeldung (Druck /reports/ama und CSV).
-  const hektarhoechstertrag: HektarhoechstertragStatus = berechneHektarhoechstertrag(lese.zeilen, weinbauflaecheHa(rawGST))
+  const hektarhoechstertrag: HektarhoechstertragStatus = berechneHektarhoechstertrag(leseGueltig, weinbauflaecheHa(rawGST))
 
   let amaMeldung: AMAMeldung | null = null
   if (rawA) {
@@ -279,7 +286,7 @@ export default async function ErnteDetailPage({ params, searchParams }: Props) {
   }
   // Verkaufte kg pro WG aus Traubenverkauf (dieses Jahrgangs) abziehen
   const soldKgByWG: Record<string, number> = {}
-  for (const v of rawTVLese) {
+  for (const v of rawTVLese.filter(tvGueltig)) {
     if (v.weingarten_id) soldKgByWG[v.weingarten_id] = (soldKgByWG[v.weingarten_id] ?? 0) + (parseFloat(v.menge_kg) || 0)
   }
   const verfuegbareKg: Record<string, number> = {}
@@ -300,7 +307,7 @@ export default async function ErnteDetailPage({ params, searchParams }: Props) {
     }
   }
   const soldKgByGST: Record<string, number> = {}
-  for (const v of rawTVLese) {
+  for (const v of rawTVLese.filter(tvGueltig)) {
     if (v.grundstueck_id)
       soldKgByGST[v.grundstueck_id] = (soldKgByGST[v.grundstueck_id] ?? 0) + (parseFloat(v.menge_kg) || 0)
   }
@@ -317,7 +324,7 @@ export default async function ErnteDetailPage({ params, searchParams }: Props) {
     }
   }
   const soldKgByZukauf: Record<string, number> = {}
-  for (const v of rawTVAlle) {
+  for (const v of rawTVAlle.filter(tvGueltig)) {
     if (v.zukauf_posten_id) soldKgByZukauf[v.zukauf_posten_id] = (soldKgByZukauf[v.zukauf_posten_id] ?? 0) + (parseFloat(v.menge_kg) || 0)
   }
   const zukaufTrauben: ZukaufTraubenOpt[] = ((rawZukaufTrauben ?? []) as AR[]).map(z => {
@@ -385,6 +392,7 @@ export default async function ErnteDetailPage({ params, searchParams }: Props) {
     liefernummer: v.liefernummer ?? null,
     rechnungsnummer: (v.verkaufsposten as AR | null)?.rechnungsnummer ?? null,
     rechnung_storniert: !!(v.verkaufsposten as AR | null)?.storniert,
+    storno: v.storniert_am ? { am: v.storniert_am as string, von: (v.storniert_von_name as string | null) ?? null, grund: (v.storno_grund as string | null) ?? null } : null,
     }
   })
   // WG-Optionen für Traubenverkauf: alle WGs die in diesem Jahrgang geerntet wurden

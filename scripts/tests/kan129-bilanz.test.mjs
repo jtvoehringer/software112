@@ -65,10 +65,9 @@ test('Stichtag 30.11.: Lesegut danach nicht in der Erntemeldung, Hinweis je Rebs
   assert.equal(ernte.stichtagHinweis([], 2026), null)
 })
 
-test('Lesedaten-CSV: Spalte „Lese“ als letzte', () => {
+test('Lesedaten-CSV: Spalte „Lese“ nach „Notizen“, danach nur die Storno-Spalten (KAN-148)', () => {
   const k = ernte.SPALTEN_LESEDATEN.map(s => s.kopf)
-  assert.equal(k.at(-1), 'Lese')
-  assert.equal(k.at(-2), 'Notizen')
+  assert.deepEqual(k.slice(-4), ['Notizen', 'Lese', 'Storniert am', 'Storno-Grund'])
 })
 
 const lies = p => fs.readFileSync(p, 'utf8')

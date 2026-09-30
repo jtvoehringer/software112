@@ -76,6 +76,7 @@ export async function GET() {
       (supabase.from('ernte_parzellen') as any)
         .select('weingarten_id, grundstueck_id, menge_kg, klosterneuburger, oechsle, mostgewicht_einheit, qualitaetsstufe, ernte_datum, jahrgang_id, lese_id, jahrgang:jahrgang_id!inner(tenant_id)')
         .eq('jahrgang.tenant_id', tenantId)
+        .is('storniert_am', null)
         .order('ernte_datum', { ascending: false }),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       // tenant-isolation-ignore: pressung_weingaerten ohne tenant_id, Filter über die Pressung
@@ -85,7 +86,8 @@ export async function GET() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('traubenverkauf') as any)
         .select('weingarten_id, grundstueck_id, menge_kg, lese_id')
-        .eq('tenant_id', tenantId),
+        .eq('tenant_id', tenantId)
+        .is('storniert_am', null),
       // KAN-129: Lesen des Betriebs (Auswahl je Trauben-Position)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('lesen') as any)
