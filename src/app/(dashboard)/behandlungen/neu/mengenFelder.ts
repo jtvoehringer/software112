@@ -15,7 +15,7 @@ import { fmtNum, zahlAus } from '@/lib/format'
 import { runden, STELLEN } from '@/lib/csv'
 import { AUFWAND_EINHEIT_LABEL, STELLEN_MENGE, mengeInEinheit } from '@/lib/behoerden/psm'
 import {
-  AUFWAND_EINHEITEN, AUFWAND_EINHEITEN_DUENGUNG, AUFWAND_EINHEITEN_SONSTIGES, pruefeMassnahmeMengen, wasseraufwandAusKonzentration,
+  AUFWAND_EINHEITEN, AUFWAND_EINHEITEN_DUENGUNG, AUFWAND_EINHEITEN_SONSTIGES, aufwandJeHa, pruefeMassnahmeMengen, wasseraufwandAusKonzentration,
   type MassnahmeMengenEingabe, type MassnahmeMengenErgebnis, type MassnahmeMengenWerte,
 } from '@/lib/behandlungen/massnahmeMengen'
 import type { MassnahmenArt } from '@/lib/behandlungen/arten'
@@ -230,19 +230,21 @@ export type MengenFelderWerte = {
   pruefung: MassnahmeMengenErgebnis
 }
 
-// Konzentration (%) aus der Aufwandmenge und umgekehrt: g/hl, ml/hl ÷ 1000 ≈ %; kg/ha, l/ha nur mit
-// Wasseraufwand (Konzentration % = Aufwand ÷ Wasseraufwand × 100). Die Mittelmenge rechnet nie aus
-// der Konzentration (%) – die Spalte hat nur 2 Nachkommastellen.
-function konzentrationAus(aufwand: number | null, einheit: string, wasserLHa: number | null): number | null {
+// Konzentration (%) aus der Aufwandmenge und umgekehrt: g/hl, ml/hl ÷ 1000 ≈ %; kg/ha, l/ha mit Wasseraufwand
+// (Konzentration % = Aufwand ÷ Wasseraufwand × 100), kg bzw. l (gesamt) zusätzlich über die Fläche (Bug 30.09.2026).
+// Die Mittelmenge rechnet nie aus der Konzentration (%) – die Spalte hat nur 2 Nachkommastellen.
+function konzentrationAus(aufwand: number | null, einheit: string, wasserLHa: number | null, ha: number | null): number | null {
   if (aufwand === null || !Number.isFinite(aufwand)) return null
   if (istJeHl(einheit)) return aufwand / 1000
-  if ((einheit === 'kg_ha' || einheit === 'l_ha') && wasserLHa) return (aufwand / wasserLHa) * 100
+  const jeHa = aufwandJeHa(aufwand, einheit, ha)
+  if (jeHa !== null && wasserLHa) return (jeHa / wasserLHa) * 100
   return null
 }
-function aufwandAus(konz: number | null, einheit: string, wasserLHa: number | null): number | null {
+function aufwandAus(konz: number | null, einheit: string, wasserLHa: number | null, ha: number | null): number | null {
   if (konz === null || !Number.isFinite(konz)) return null
   if (istJeHl(einheit)) return runden(konz * 1000, STELLEN_MENGE)
   if ((einheit === 'kg_ha' || einheit === 'l_ha') && wasserLHa) return runden((konz / 100) * wasserLHa, STELLEN_MENGE)
+  if ((einheit === 'kg' || einheit === 'l') && wasserLHa && ha) return runden((konz / 100) * wasserLHa * ha, STELLEN_MENGE)
   return null
 }
 
@@ -261,7 +263,9 @@ export function mengenFelder(e: MengenFelderEingaben): MengenFelderWerte {
   const zulaessig = aufwandEinheiten(e.art, duengerInLiter)
   const aufwandEinheit = e.aufwandmengeEinheit
   const einheiten = zulaessig.includes(aufwandEinheit) ? zulaessig : [...zulaessig, aufwandEinheit]
-  const jeHaEinheit = aufwandEinheit === 'kg_ha' || aufwandEinheit === 'l_ha'
+  // kg bzw. l (gesamt) rechnen wie kg/ha bzw. l/ha, sobald die Fläche bekannt ist (Bug 30.09.2026)
+  const gesamtEinheit = aufwandEinheit === 'kg' || aufwandEinheit === 'l'
+  const jeHaEinheit = aufwandEinheit === 'kg_ha' || aufwandEinheit === 'l_ha' || (gesamtEinheit && ha !== null)
 
   const menge = eingabeZahl(e.mengeGesamt)
   const wasser = eingabeZahl(e.wasseraufwand)
@@ -279,7 +283,7 @@ export function mengenFelder(e: MengenFelderEingaben): MengenFelderWerte {
     : null
 
   // Wasseraufwand aus Aufwand und Konzentration (KAN-155); nicht berechenbar (z. B. Konzentration 0) → Felder wie bisher
-  const wasserAusAK = ziel === 'wasser' && istSpritzung ? wasseraufwandAusKonzentration(aufwand, aufwandEinheit, konz) : null
+  const wasserAusAK = ziel === 'wasser' && istSpritzung ? wasseraufwandAusKonzentration(aufwand, aufwandEinheit, konz, ha) : null
   const wasserAusAKAktiv = wasserAusAK !== null
 
   // Spritzbrühe gesamt (l) ↔ Wasseraufwand (l/ha) über die Fläche, nur bei Spritzungen: das zuletzt befüllte Feld
@@ -297,8 +301,8 @@ export function mengenFelder(e: MengenFelderEingaben): MengenFelderWerte {
 
   // Aufwandmenge ↔ Konzentration (%) mit dem Wasseraufwand (kg/ha, l/ha) bzw. direkt (g/hl, ml/hl)
   const wasserLHa = wasserNum !== null && wasserNum > 0 ? wasserNum : null
-  const konzentrationBerechnet = ziel === 'konzentration' ? konzentrationAus(aufwand, aufwandEinheit, wasserLHa) : null
-  const aufwandmengeBerechnet = ziel === 'aufwand' ? aufwandAus(konz, aufwandEinheit, wasserLHa) : null
+  const konzentrationBerechnet = ziel === 'konzentration' ? konzentrationAus(aufwand, aufwandEinheit, wasserLHa, ha) : null
+  const aufwandmengeBerechnet = ziel === 'aufwand' ? aufwandAus(konz, aufwandEinheit, wasserLHa, ha) : null
   const aufwandNum = aufwandmengeBerechnet ?? aufwand
   const konzentrationNum = konzentrationBerechnet ?? konz
   const konzentrationFehler = e.felder.konzentration === 'hidden' || konzentrationNum === null ? null
@@ -321,11 +325,13 @@ export function mengenFelder(e: MengenFelderEingaben): MengenFelderWerte {
   const berechnetHinweis = {
     aufwandmenge: aufwandmengeBerechnet === null ? null
       : jeHl ? 'Automatisch berechnet aus Konzentration (%) × 1000.'
+      : gesamtEinheit ? 'Automatisch berechnet aus Konzentration (%) × Wasseraufwand (l/ha) × Fläche ÷ 100.'
       : 'Automatisch berechnet aus Konzentration (%) × Wasseraufwand (l/ha) ÷ 100.',
     konzentration: konzentrationBerechnet === null ? null
       : jeHl ? 'Automatisch berechnet aus der Konzentration im Tank ÷ 1000.'
+      : gesamtEinheit ? 'Automatisch berechnet aus Aufwandmenge ÷ Fläche ÷ Wasseraufwand (l/ha) × 100.'
       : 'Automatisch berechnet aus Aufwandmenge ÷ Wasseraufwand (l/ha) × 100.',
-    wasser: wasserAusAKAktiv ? 'Automatisch berechnet aus Aufwandmenge ÷ Konzentration (%) × 100.'
+    wasser: wasserAusAKAktiv ? (gesamtEinheit ? 'Automatisch berechnet aus Aufwandmenge ÷ Fläche ÷ Konzentration (%) × 100.' : 'Automatisch berechnet aus Aufwandmenge ÷ Konzentration (%) × 100.')
       : wasserBerechnet !== null ? 'Automatisch berechnet aus Spritzbrühe gesamt ÷ Fläche.'
       : istSpritzung && e.mengeQuelle === 'gesamt' && menge !== null && menge > 0 ? ohneFlaeche
       : null,
@@ -337,7 +343,15 @@ export function mengenFelder(e: MengenFelderEingaben): MengenFelderWerte {
   // Hinweis unter „Konzentration (%)“ (kg/ha, l/ha): es wurde etwas eingegeben, aber keine der drei Größen lässt
   // sich berechnen – er nennt, was tatsächlich fehlt. Steht die Spritzbrühe gesamt schon da, fehlt die Fläche
   // (Ried-Auswahl bzw. zugeordnete Grundstücke) oder der Wasseraufwand, nicht die Brühe.
-  const konzentrationHinweis = e.felder.konzentration === 'hidden' || e.folge.length === 0 || !jeHaEinheit
+  // Bug 30.09.2026: bei g/hl, ml/hl und bei kg, l (gesamt) ohne Fläche sagt der Hinweis, warum nichts berechnet wird
+  const konzentrationHinweis = e.felder.konzentration === 'hidden' || !istSpritzung ? null
+    : jeHl && !(mengeNum !== null && mengeNum > 0) && wasserLHa === null && aufwand !== null
+      ? 'Bei g/hl bzw. ml/hl (Konzentration im Tank) ergeben sich Spritzbrühe und Wasseraufwand nicht aus der Aufwandmenge – bitte Spritzbrühe gesamt oder Wasseraufwand (l/ha) angeben; daraus ergibt sich die Mittelmenge.'
+    : gesamtEinheit && ha === null && aufwand !== null && (konz !== null || wasser !== null)
+      ? (e.formular === 'bearbeiten'
+        ? 'Bei kg bzw. l (gesamt) rechnen Konzentration und Wasseraufwand über die Fläche – ohne zugeordnete Grundstücke nicht berechenbar.'
+        : 'Bei kg bzw. l (gesamt) rechnen Konzentration und Wasseraufwand über die Fläche – wird berechnet, sobald Ried(en) ausgewählt sind.')
+    : e.folge.length === 0 || !jeHaEinheit
     || berechnet !== null || wasserLHa !== null || konzentrationFehler !== null
     ? null
     : ziel === 'wasser' && konz === 0
