@@ -554,6 +554,8 @@ export type BehandlungenFilter = {
   bis?: string | null
   /** Maßnahmenart (ART_LABEL-Schlüssel); null = alle */
   art?: string | null
+  /** nur diese Maßnahmen (KAN-132: Weingarten-Detail); in Blöcken zu 100 abgefragt (URL-Länge) */
+  ids?: readonly string[] | null
 }
 
 /**
@@ -563,6 +565,15 @@ export type BehandlungenFilter = {
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function ladeBehandlungen(supabase: any, tenantId: string, f: BehandlungenFilter = {}): Promise<{ behandlungen: PsmBehandlung[]; warnungen: string[] }> {
+  if (f.ids) {
+    const ids = [...new Set(f.ids)]
+    const teile: { behandlungen: PsmBehandlung[]; warnungen: string[] }[] = []
+    for (let i = 0; i < ids.length; i += 100) teile.push(await ladeBehandlungen(supabase, tenantId, { ...f, ids: null, nurIds: ids.slice(i, i + 100) } as BehandlungenFilter))
+    return {
+      behandlungen: teile.flatMap(t => t.behandlungen).sort((a, b) => a.datum.localeCompare(b.datum) || a.id.localeCompare(b.id)),
+      warnungen: [...new Set(teile.flatMap(t => t.warnungen))],
+    }
+  }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let q = (supabase.from('behandlungen') as any)
     .select(`
@@ -579,6 +590,8 @@ export async function ladeBehandlungen(supabase: any, tenantId: string, f: Behan
   if (f.von) q = q.gte('datum', f.von)
   if (f.bis) q = q.lte('datum', f.bis)
   if (f.art) q = q.eq('art', f.art)
+  const nurIds = (f as { nurIds?: string[] }).nurIds
+  if (nurIds) q = q.in('id', nurIds.length > 0 ? nurIds : ['00000000-0000-0000-0000-000000000000'])
   const { data, error } = await alle<R>(q.order('datum').order('id'))
   if (error) throw new Error(`Maßnahmen konnten nicht geladen werden: ${error.message}`)
 

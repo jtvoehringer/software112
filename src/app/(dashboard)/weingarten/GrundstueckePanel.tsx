@@ -31,6 +31,19 @@ export type MassnahmeHistorie = {
   id: string; datum: string; art: string
   psm_name: string | null
   aufwandmenge: number | null; aufwandmenge_einheit: string | null
+  /** KAN-132: Mittel- bzw. Düngermenge und Spritzbrühe anteilig auf dieses GST (verteileMassnahme) */
+  menge?: number | null; menge_einheit?: string | null
+  bruehe?: number | null
+  /** Fläche dieses GST bei der Maßnahme (ha) und Anteil an der Maßnahme (%) */
+  flaeche_ha?: number | null; anteil_pct?: number | null
+  vermerk?: string | null
+}
+
+/** Aufwand je ha bzw. je hl gilt für jedes GST gleich; „kg/l (gesamt)“ ist ein Wert der ganzen Maßnahme (KAN-132) */
+const AUFWAND_JE_FLAECHE = new Set(['kg_ha', 'l_ha', 'g_hl', 'ml_hl'])
+
+function zahlDe(n: number, stellen = 3) {
+  return n.toLocaleString('de-AT', { maximumFractionDigits: stellen })
 }
 
 // Bezeichnungen der Maßnahmenarten (lib/behandlungen/arten.ts, seit KAN-143 mit Laubschneiden)
@@ -83,7 +96,9 @@ function GstMassnahmenPanel({ massnahmen }: { massnahmen: MassnahmeHistorie[] })
             <th className="text-left py-1 pr-3 font-medium">Datum</th>
             <th className="text-left py-1 pr-3 font-medium">Art</th>
             <th className="text-left py-1 pr-3 font-medium">Mittel</th>
-            <th className="text-right py-1 font-medium">Aufwandmenge</th>
+            <th className="text-right py-1 pr-3 font-medium">Aufwand</th>
+            <th className="text-right py-1 pr-3 font-medium">Menge anteilig</th>
+            <th className="text-right py-1 font-medium">Anteil</th>
           </tr>
         </thead>
         <tbody>
@@ -93,11 +108,23 @@ function GstMassnahmenPanel({ massnahmen }: { massnahmen: MassnahmeHistorie[] })
                 {new Date(m.datum).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })}
               </td>
               <td className="py-1 pr-3 text-s112-text-1">{MASSNAHME_ART_LABEL[m.art] ?? m.art}</td>
-              <td className="py-1 pr-3 text-s112-text-1">{m.psm_name ?? '–'}</td>
-              <td className="py-1 text-right font-mono text-s112-text-2">
-                {m.aufwandmenge != null
-                  ? `${m.aufwandmenge} ${m.aufwandmenge_einheit ? MASSNAHME_EINHEIT_LABEL[m.aufwandmenge_einheit] ?? m.aufwandmenge_einheit : ''}`
+              <td className="py-1 pr-3 text-s112-text-1">
+                {m.psm_name ?? '–'}
+                {m.vermerk && <span className="block text-[10px] text-s112-muted">{m.vermerk}</span>}
+              </td>
+              <td className="py-1 pr-3 text-right font-mono text-s112-text-2"
+                title={m.aufwandmenge != null && m.aufwandmenge_einheit && !AUFWAND_JE_FLAECHE.has(m.aufwandmenge_einheit) ? `Aufwand der ganzen Maßnahme: ${zahlDe(m.aufwandmenge)} ${MASSNAHME_EINHEIT_LABEL[m.aufwandmenge_einheit] ?? m.aufwandmenge_einheit}` : undefined}>
+                {m.aufwandmenge != null && m.aufwandmenge_einheit && AUFWAND_JE_FLAECHE.has(m.aufwandmenge_einheit)
+                  ? `${zahlDe(m.aufwandmenge)} ${MASSNAHME_EINHEIT_LABEL[m.aufwandmenge_einheit] ?? m.aufwandmenge_einheit}`
                   : '–'}
+              </td>
+              <td className="py-1 pr-3 text-right font-mono text-s112-text-1">
+                {m.menge != null ? `${zahlDe(m.menge)} ${m.menge_einheit ?? ''}` : '–'}
+                {m.bruehe != null && <span className="block text-[10px] text-s112-muted">Brühe {zahlDe(m.bruehe)} l</span>}
+              </td>
+              <td className="py-1 text-right font-mono text-s112-text-2">
+                {m.flaeche_ha != null ? `${zahlDe(m.flaeche_ha, 4)} ha` : ''}
+                {m.anteil_pct != null && <span className="block text-[10px] text-s112-muted">{zahlDe(m.anteil_pct, 1)} %</span>}
               </td>
             </tr>
           ))}

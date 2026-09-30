@@ -194,6 +194,7 @@ export default async function RiedenRueckverfolgungPage({ searchParams }: { sear
                     <th className="py-1.5 pr-3 font-medium">Maßnahme / Mittel</th>
                     <th className="py-1.5 pr-3 font-medium">Reg.-Nr.</th>
                     <th className="py-1.5 pr-3 font-medium">Aufwand</th>
+                    <th className="py-1.5 pr-3 font-medium">Menge anteilig</th>
                     <th className="py-1.5 pr-3 font-medium">Wartezeit</th>
                     <th className="py-1.5 font-medium">Frühester Lesetermin</th>
                   </tr>
@@ -217,6 +218,7 @@ export default async function RiedenRueckverfolgungPage({ searchParams }: { sear
                         </td>
                         <td className="py-1.5 pr-3 text-xs">{psm?.zulassungsnr ?? '–'}</td>
                         <td className="py-1.5 pr-3 text-xs whitespace-nowrap">{b.aufwandmenge != null ? `${fmtNum(Number(b.aufwandmenge))} ${b.aufwandmenge_einheit ?? ''}`.trim() : '–'}</td>
+                        <td className="py-1.5 pr-3 text-xs whitespace-nowrap">{m.menge != null ? `${fmtNum(m.menge)} ${m.mengeEinheit ?? ''}`.trim() : '–'}</td>
                         <td className="py-1.5 pr-3 text-xs">{psm?.wartezeit_tage != null ? `${psm.wartezeit_tage} Tage` : '–'}</td>
                         <td className="py-1.5 text-xs">
                           {w.fruehester ? <span className="tabular-nums mr-2">{ttmmjjjj(w.fruehester)}</span> : '–'}

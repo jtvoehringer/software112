@@ -25,6 +25,8 @@ import { runden, STELLEN, type CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
 import { bkiRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
 import { MASSNAHMEN_ART_LABEL } from '@/lib/behandlungen/arten'
+import { normalisiereBehandlung } from './psm'
+import { verteileMassnahme, type Verteilung } from '@/lib/wein/massnahmeAnteile'
 import { num, numOderNull, tag, text, type R } from './kellerbuch-hilfen'
 import {
   kalendertag, ladebereich, leseFenster, leseWarnungen, ordneMassnahmenZu, ttmmjjjj,
@@ -44,6 +46,9 @@ export type LeseMassnahme = {
   grundstuecke: string[]
   /** behandelte Fläche auf diesen GST laut behandlung_grundstuecke; null = nicht erfasst */
   flaecheHa: number | null
+  /** KAN-132: Mittel- bzw. Düngermenge anteilig auf diese GST (verteileMassnahme); null = keine Menge bzw. nur am Weingarten */
+  menge: number | null
+  mengeEinheit: string | null
 }
 
 /** Maßnahmen im Weingarten bis zur Lese – je Lesezeile (pressung_weingaerten) einmal */
@@ -279,8 +284,10 @@ export async function ladeMassnahmenZuLesezeilen(
       .select(`
         id, datum, datum_bis, art, weingarten_id, aufwandmenge, aufwandmenge_einheit, schaderreger, witterung, notizen,
         ernte_fruehesteins, wartezeit_eingehalten, bbch_stadium,
+        menge_gesamt, menge_einheit, wasseraufwand_l_ha, behandelte_flaeche_ha,
         psm:psm_id(name, handelsname, zulassungsnr, wartezeit_tage),
-        behandlung_grundstuecke(grundstueck_id, flaeche_ha)
+        duengemittel:duengemittel_id(id, name, einheit),
+        behandlung_grundstuecke(grundstueck_id, flaeche_ha, grundstueck:grundstueck_id(id, gst_nr, katastralgemeinde, flaeche_ha))
       `)
       .eq('tenant_id', tenantId)
     if (bereich.bis) q = q.lte('datum', bereich.bis)
@@ -298,6 +305,13 @@ export async function ladeMassnahmenZuLesezeilen(
   }
 
   const zuordnung = ordneMassnahmenZu(eingaben, massnahmen, gstJeWeingarten, weingartenJeGst, ernte, verpresst, fruehere)
+  // KAN-132: Menge je GST über die zentrale Anteilsfunktion – je Maßnahme einmal verteilt
+  const verteilungen = new Map<string, Verteilung>()
+  const verteilung = (m: MassnahmeRoh) => {
+    let v = verteilungen.get(m.id)
+    if (!v) { v = verteileMassnahme(normalisiereBehandlung(m.roh)); verteilungen.set(m.id, v) }
+    return v
+  }
   const lesen: LeseMassnahmen[] = zuordnung.map(z => {
     const { lese, pressungDatum } = zeilen.get(z.leseId)!
     return {
@@ -309,11 +323,16 @@ export async function ladeMassnahmenZuLesezeilen(
       hinweise: z.hinweise,
       massnahmen: z.massnahmen.map(t => {
         const flaechen = t.grundstueckIds.map(g => t.massnahme.flaeche.get(g) ?? null).filter((f): f is number => f !== null)
+        const orte = new Set(t.grundstueckIds)
+        const anteile = t.nurWeingarten ? [] : verteilung(t.massnahme).anteile.filter(a => a.grundstueckId && orte.has(a.grundstueckId))
+        const mitMenge = anteile.filter(a => a.mittel !== null)
         return {
           behandlung: t.massnahme.roh,
           nurWeingarten: t.nurWeingarten,
           grundstuecke: t.grundstueckIds.map(g => gstNr.get(g) ?? '?'),
           flaecheHa: flaechen.length > 0 ? flaechen.reduce((s, f) => s + f, 0) : null,
+          menge: mitMenge.length > 0 ? runden(mitMenge.reduce((s, a) => s + (a.mittel as number), 0), 3) : null,
+          mengeEinheit: mitMenge[0]?.mittelEinheit ?? null,
         }
       }),
     }

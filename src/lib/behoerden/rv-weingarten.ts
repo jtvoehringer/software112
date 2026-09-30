@@ -312,6 +312,9 @@ export type RvZeile = {
   registernummer: string | null
   aufwand: number | null
   aufwandEinheit: string | null
+  /** KAN-132: Mittel- bzw. Düngermenge anteilig auf die gelesenen GST */
+  mengeAnteil: number | null
+  mengeEinheit: string | null
   grundstuecke: string | null
   wartezeitTage: number | null
   fruehesterLesetermin: string | null
@@ -333,7 +336,7 @@ export function rvZeilen(lesen: readonly RvLese[]): RvZeile[] {
     }
     const leer = {
       massnahmeVon: null, massnahmeBis: null, art: null, mittel: null, registernummer: null, aufwand: null,
-      aufwandEinheit: null, grundstuecke: null, wartezeitTage: null, fruehesterLesetermin: null, wartezeit: null,
+      aufwandEinheit: null, mengeAnteil: null, mengeEinheit: null, grundstuecke: null, wartezeitTage: null, fruehesterLesetermin: null, wartezeit: null,
     }
     if (l.massnahmen.length === 0) { zeilen.push({ ...basis, ...leer }); continue }
     for (const m of l.massnahmen) {
@@ -349,6 +352,7 @@ export function rvZeilen(lesen: readonly RvLese[]): RvZeile[] {
         registernummer: text(psm?.zulassungsnr),
         aufwand: numOderNull(b.aufwandmenge),
         aufwandEinheit: text(b.aufwandmenge_einheit),
+        mengeAnteil: m.menge, mengeEinheit: m.mengeEinheit,
         grundstuecke: m.nurWeingarten ? 'am Weingarten erfasst' : m.grundstuecke.join(', ') || null,
         wartezeitTage: numOderNull(psm?.wartezeit_tage),
         fruehesterLesetermin: w.fruehester,
@@ -383,6 +387,8 @@ export const SPALTEN_RV_WEINGARTEN: CsvSpalte<RvZeile>[] = [
   { kopf: 'Registernummer', typ: 'code', wert: z => z.registernummer },
   { kopf: 'Aufwand', typ: 'dezimal', stellen: 3, wert: z => z.aufwand },
   { kopf: 'Einheit Aufwand', typ: 'text', wert: z => z.aufwandEinheit },
+  { kopf: 'Menge anteilig (gelesene GST)', typ: 'dezimal', stellen: 3, wert: z => z.mengeAnteil },
+  { kopf: 'Einheit Menge', typ: 'text', wert: z => z.mengeEinheit },
   { kopf: 'Grundstücke', typ: 'text', wert: z => z.grundstuecke },
   { kopf: 'Wartezeit (Tage)', typ: 'ganzzahl', wert: z => z.wartezeitTage },
   { kopf: 'Frühester Lesetermin', typ: 'datum', wert: z => z.fruehesterLesetermin },

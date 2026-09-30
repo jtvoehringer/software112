@@ -178,3 +178,20 @@ describe('KAN-108 Lader', nurMitHooks, () => {
     assert.equal(await rv.ladeRvWeingarten(db(), T, { ...leer, lese: '00000000-0000-4000-8000-000000000000' }), null)
   })
 })
+
+describe('KAN-132 Menge anteilig in der Rückverfolgung', nurMitHooks, () => {
+  test('Maßnahme auf zwei GST: je gelesenem GST nur der Flächenanteil der Mittelmenge (nicht die Gesamtmenge)', async () => {
+    const rv = await laden('lib/behoerden/rv-weingarten.ts')
+    const d = db()
+    d.tabellen.behandlungen.push(behandlung('beide-mai', '2025-05-10', null, CUPROZIN, {
+      aufwandmenge: 2, aufwandmenge_einheit: 'kg_ha',
+      behandlung_grundstuecke: [{ grundstueck_id: GA, flaeche_ha: 1.5, grundstueck: { id: GA, gst_nr: '1305/1', katastralgemeinde: '12119', flaeche_ha: 1.5 } },
+        { grundstueck_id: GB, flaeche_ha: 0.5, grundstueck: { id: GB, gst_nr: '1305/2', katastralgemeinde: '12119', flaeche_ha: 0.5 } }],
+    }))
+    const r = await rv.ladeRvWeingarten(d, T, { lese: null, jahrgang: 2025, gst: GA, weingarten: null, charge: null, fuellung: null })
+    const m = r.lesen[0].massnahmen.find(x => x.behandlung.id === 'beide-mai')
+    assert.deepEqual([m.menge, m.mengeEinheit], [3, 'kg'])            // 2 kg/ha × 2 ha = 4 kg, davon 1,5/2 auf GST A
+    const zeile = rv.rvZeilen(r.lesen).find(z => z.massnahmeVon === '2025-05-10')
+    assert.deepEqual([zeile.mengeAnteil, zeile.mengeEinheit], [3, 'kg'])
+  })
+})
