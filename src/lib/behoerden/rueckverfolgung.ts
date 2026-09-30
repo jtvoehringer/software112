@@ -152,7 +152,7 @@ export function vorjahrgaenge(eingaben: readonly LeseZeile[]): number[] {
 export async function ladeLeseMassnahmen(supabase: any, tenantId: string, pressungen: readonly R[]): Promise<LeseMassnahmen[]> {
   // Lesezeilen der Charge – je pressung_weingaerten-Zeile einmal (eine Pressung kann über
   // mehrere Behälter in dieselbe Charge fließen)
-  const zeilen = new Map<string, { lese: R; pressungDatum: string | null; eingabe: LeseZeile }>()
+  const zeilen = new Map<string, LesezeileEingabe>()
   for (const pb of pressungen) {
     const p = pb.pressung as R | null
     if (!p) continue
@@ -176,6 +176,23 @@ export async function ladeLeseMassnahmen(supabase: any, tenantId: string, pressu
       })
     }
   }
+  return ladeMassnahmenZuLesezeilen(supabase, tenantId, zeilen)
+}
+
+/** Eine Lesezeile für die Maßnahmen-Zuordnung: Anzeige-Zeile (lese), Pressungsdatum und Eingabe des Fensters */
+export type LesezeileEingabe = { lese: R; pressungDatum: string | null; eingabe: LeseZeile }
+
+/**
+ * Maßnahmen je Lesezeile – gemeinsamer Kern von ladeLeseMassnahmen (Kellerbuch-Rückverfolgung) und der
+ * Rieden-Rückverfolgung (rv-weingarten.ts, KAN-108): lädt GST, Erntemeldung, verpresste Trauben,
+ * Vorjahres-Lesen und Maßnahmen (je Mandant gefiltert) und ordnet sie mit rueckverfolgungFenster.ts zu.
+ * lese: Anzeige-Zeile mit ernte_datum, weingarten.name, grundstueck.gst_nr (Sortierung).
+ */
+export async function ladeMassnahmenZuLesezeilen(
+  supabase: any,
+  tenantId: string,
+  zeilen: ReadonlyMap<string, LesezeileEingabe>,
+): Promise<LeseMassnahmen[]> {
   if (zeilen.size === 0) return []
   const eingaben = [...zeilen.values()].map(z => z.eingabe)
   const gstIds = [...new Set(eingaben.map(e => e.grundstueckId).filter((x): x is string => !!x))]
@@ -261,7 +278,8 @@ export async function ladeLeseMassnahmen(supabase: any, tenantId: string, pressu
     let q = (supabase.from('behandlungen') as any)
       .select(`
         id, datum, datum_bis, art, weingarten_id, aufwandmenge, aufwandmenge_einheit, schaderreger, witterung, notizen,
-        psm:psm_id(name, handelsname),
+        ernte_fruehesteins, wartezeit_eingehalten,
+        psm:psm_id(name, handelsname, zulassungsnr, wartezeit_tage),
         behandlung_grundstuecke(grundstueck_id, flaeche_ha)
       `)
       .eq('tenant_id', tenantId)

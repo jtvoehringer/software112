@@ -10,7 +10,7 @@
 //    '@/lib/auth/roles' (Mitgliedschaft aus globalThis.__membership, canWrite wie das Original
 //    für Membership-Objekte).
 // 2. datenbank(): Supabase-Attrappe. Sie wertet aus:
-//    - Filter eq, neq, in, is, not(…, 'is', …), gte, lte, or (nur 'a.eq.x,b.eq.y'), contains;
+//    - Filter eq, neq, in, is, not(…, 'is', …), gte, lte, or (nur eq, gte, lte), contains;
 //      unbekannte Operatoren scheitern laut
 //    - die select-Liste: zurück kommen nur die genannten Spalten, auch bei .update/.delete/.insert
 //      mit .select('id'); '*' = alle Schlüssel der Testzeile, Alias 'a:spalte'. Fehlt eine
@@ -115,13 +115,15 @@ const gleich = (a, b) => {
   return String(a) === String(b)
 }
 
-/** PostgREST-or-Filter der Form 'a.eq.x,b.eq.y' */
+/** PostgREST-or-Filter der Form 'a.eq.x,b.gte.y' (eq, gte, lte) */
 function orBedingung(ausdruck) {
   const teile = ausdruck.split(',').map(t => {
     const [k, op, ...rest] = t.split('.')
     const v = rest.join('.')
-    if (op !== 'eq') throw new Error(`Attrappe: or-Operator ${op} nicht nachgebildet`)
-    return r => gleich(feld(r, k), v)
+    if (op === 'eq') return r => gleich(feld(r, k), v)
+    if (op === 'gte') return r => (vergleich(feld(r, k), v) ?? -1) >= 0
+    if (op === 'lte') return r => (vergleich(feld(r, k), v) ?? 1) <= 0
+    throw new Error(`Attrappe: or-Operator ${op} nicht nachgebildet`)
   })
   return r => teile.some(b => b(r))
 }

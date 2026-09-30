@@ -64,6 +64,13 @@ export default async function WeinbuchPage({
           >
             <GitMerge size={15} strokeWidth={1.75} />Blend-Protokoll
           </Link>
+          {/* KAN-108: Lesen der Charge und ihrer Vorgänger mit Maßnahmen und Wartezeiten */}
+          <Link
+            href={`/weingarten/rueckverfolgung?charge=${id}`}
+            className="text-sm font-medium text-s112-blue-700 hover:underline"
+          >
+            Rückverfolgung Weingarten
+          </Link>
           <PrintButton />
           <CsvExportKnopf href={csvPfad('weinbuch', { charge: id })} />
         </div>
