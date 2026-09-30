@@ -32,7 +32,7 @@ test('keine Maßnahme ohne Grundstück: Action lehnt ab, Formular bietet Rieden 
   const p = quelle('src/app/(dashboard)/behandlungen/neu/riedOptionen.ts')
   assert.match(p, /spritzbar: gsts\.some\(g => g\.nutzart === 'WI'\)/)
   // Bearbeiten: dieselbe Regel, und die Grundstücke kommen aus derselben Hilfsfunktion
-  assert.match(a, /neueGst = await grundstueckeDerAuswahl\(supabase, tenantId, formData\)\n\s+if \(neueGst\.size === 0\) throw new AktionsFehler\(OHNE_WI_GST\)/)
+  assert.match(a, /neueGst = await grundstueckeDerAuswahl\(supabase, tenantId, formData\)\r?\n\s+if \(neueGst\.size === 0\) throw new AktionsFehler\(OHNE_WI_GST\)/)
 })
 
 test('Bug 30.09.2026: ganze Ried gewählt → ihre GST angehakt, Einzel-Klick nimmt nur dieses GST heraus; eine Lage mit einer Ried = eine Zeile', () => {
@@ -63,7 +63,7 @@ test('Rückmeldung 30.09.2026: Rieden beim Bearbeiten änderbar, Snapshots bleib
   assert.match(upd, /if \(formData\.get\('ried_auswahl'\) === '1'\)/)
   assert.match(upd, /if \(snapshot\.has\(g\.id\)\) g\.flaeche_ha = snapshot\.get\(g\.id\)/)   // bisherige Fläche bleibt
   assert.match(upd, /\.delete\(\)\.eq\('behandlung_id', id\)\.in\('grundstueck_id', weg\)/)
-  assert.ok(upd.indexOf("from('behandlung_grundstuecke') as any)\n        .insert") > 0 || upd.includes(".insert(dazu.map("), 'neue GST eingefügt')
+  assert.ok(upd.includes('.insert(dazu.map('), 'neue GST eingefügt')
   assert.ok(upd.indexOf('.in(\'grundstueck_id\', weg)') < upd.indexOf('await ggfKostenEintragAktualisieren'), 'Kosten nach der neuen Zuordnung')
 })
 

@@ -12,7 +12,7 @@ import { wienHeute } from '@/lib/csv'
 import { fmtNum } from '@/lib/format'
 import {
   ART_LABEL, artAus, aufwandEinheitText, datumDe, gstAnzahl, jahrAus, ladePsmAufzeichnung, mittelmenge, mittelName,
-  riedText, spritzbruehe, weingartenText, windText, witterungText, type PsmBehandlung,
+  riedenMitLage, spritzbruehe, windText, witterungText, type PsmBehandlung,
 } from '@/lib/behoerden/psm'
 
 export const metadata: Metadata = { title: 'Behandlungsprotokoll – software:112' }
@@ -122,15 +122,14 @@ export default async function BehandlungsprotokollPage({ searchParams }: { searc
         <table className="w-full text-xs border-collapse">
           <thead>
             <tr className="bg-[#F2F3F5]">
-              {['Datum', 'Art', 'Ried / Weingarten', 'Fläche (ha)', 'Mittel (Zulassungsnr.)', 'Wirkstoff', 'Schaderreger', 'BBCH', 'Aufwand', 'Wartezeit', 'Öko', 'Witterung', 'Notiz'].map(h => (
+              {['Datum', 'Art', 'Ried (Lage)', 'Fläche (ha)', 'Mittel (Zulassungsnr.)', 'Wirkstoff', 'Schaderreger', 'BBCH', 'Aufwand', 'Wartezeit', 'Öko', 'Witterung', 'Notiz'].map(h => (
                 <th key={h} className="text-left px-2 py-2 border border-s112-line-str font-semibold whitespace-nowrap">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {behandlungen.map((b, i) => {
-              const wg = weingartenText(b)
-              const ried = riedText(b)
+              const rieden = riedenMitLage(b)
               const nGst = gstAnzahl(b)
               const wetter = [witterungText(b.witterung), b.temperaturC !== null ? `${fmtNum(b.temperaturC, { max: 1 })} °C` : null, windText(b.wind)].filter(Boolean).join(', ')
               const mengen = mengenText(b)
@@ -141,7 +140,7 @@ export default async function BehandlungsprotokollPage({ searchParams }: { searc
                   </td>
                   <td className="px-2 py-1.5 border border-s112-line">{ART_LABEL[b.art] ?? b.art}</td>
                   <td className="px-2 py-1.5 border border-s112-line">
-                    {wg ?? '–'}{ried ? <span className="text-s112-text-2"> ({ried})</span> : null}
+                    {rieden.length > 0 ? rieden.join(', ') : '–'}
                     {b.anwender && <span className="block text-[10px] text-s112-tertiary">Anwender: {b.anwender}</span>}
                   </td>
                   <td className="px-2 py-1.5 border border-s112-line text-right tabular-nums whitespace-nowrap">
