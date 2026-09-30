@@ -10,7 +10,7 @@
 //   Spritzbrühe – nur l oder ml (gespeichert in l), kg/g werden abgelehnt; g/hl bzw. ml/hl
 //   (Konzentration im Tank) nur mit Spritzbrühe oder Wasseraufwand. Fehlt eines von Spritzbrühe und
 //   Wasseraufwand, wird es aus dem anderen und der Fläche ergänzt. Fehlen beide, ergibt sich der
-//   Wasseraufwand bei kg/ha bzw. l/ha aus Aufwand und Konzentration (%) (KAN-155,
+//   Wasseraufwand bei kg/ha, l/ha bzw. kg, l (gesamt, über die Fläche) aus Aufwand und Konzentration (%) (KAN-155,
 //   wasseraufwandAusKonzentration) und daraus über die Fläche die Spritzbrühe. reinkupfer_kg_ha = Mittelmenge ×
 //   Cu-Gehalt ÷ Fläche, gerundet wie die Kupfer-Bilanz (cu.ts); über numeric(8,4) hinaus leer + Hinweis.
 // Düngung: g/hl und ml/hl abgelehnt; Düngermenge in der Einheit des Düngemittels – kg (g → kg), bei
@@ -116,13 +116,25 @@ export function summeFlaecheHa(flaechen: Iterable<unknown>): number | null {
 }
 
 /**
- * Wasseraufwand (l/ha) aus Aufwand je ha und Konzentration (%) (KAN-155): Aufwand = Wasseraufwand × Konzentration ÷ 100,
- * also Wasseraufwand = Aufwand ÷ Konzentration × 100 (1 kg bzw. l Mittel je l Brühe, wie bei g/hl ↔ %). Nur kg/ha und
- * l/ha, Aufwand > 0 und Konzentration über 0 bis 100 % – sonst null (nie durch 0 teilen); 2 Stellen wie die Spalte.
- * Beispiel: 2 l/ha bei 0,5 % → 400 l/ha. Gemeinsam für die Formulare (mengenFelder) und pruefeMassnahmeMengen.
+ * Aufwand je ha (kg/ha bzw. l/ha): kg/ha und l/ha unverändert, kg bzw. l (gesamt) ÷ behandelte Fläche (Bug 30.09.2026:
+ * bei „gesamt“ rechnete die Kopplung nicht); g/hl, ml/hl (Konzentration im Tank) und ohne Fläche null.
  */
-export function wasseraufwandAusKonzentration(aufwand: number | null, einheit: string | null, konzentrationPct: number | null): number | null {
-  if (einheit !== 'kg_ha' && einheit !== 'l_ha') return null
+export function aufwandJeHa(aufwand: number | null, einheit: string | null, flaecheHa?: number | null): number | null {
+  if (aufwand === null || !Number.isFinite(aufwand)) return null
+  if (einheit === 'kg_ha' || einheit === 'l_ha') return aufwand
+  if ((einheit === 'kg' || einheit === 'l') && flaecheHa != null && Number.isFinite(flaecheHa) && flaecheHa > 0) return aufwand / flaecheHa
+  return null
+}
+
+/**
+ * Wasseraufwand (l/ha) aus Aufwand je ha und Konzentration (%) (KAN-155): Aufwand = Wasseraufwand × Konzentration ÷ 100,
+ * also Wasseraufwand = Aufwand ÷ Konzentration × 100 (1 kg bzw. l Mittel je l Brühe, wie bei g/hl ↔ %). kg/ha und
+ * l/ha sowie kg bzw. l (gesamt) mit Fläche (aufwandJeHa), Aufwand > 0 und Konzentration über 0 bis 100 % – sonst null
+ * (nie durch 0 teilen); 2 Stellen wie die Spalte. Beispiel: 2 l/ha bei 0,5 % → 400 l/ha.
+ * Gemeinsam für die Formulare (mengenFelder) und pruefeMassnahmeMengen.
+ */
+export function wasseraufwandAusKonzentration(aufwandRoh: number | null, einheit: string | null, konzentrationPct: number | null, flaecheHa?: number | null): number | null {
+  const aufwand = aufwandJeHa(aufwandRoh, einheit, flaecheHa)
   if (aufwand === null || !Number.isFinite(aufwand) || aufwand <= 0) return null
   if (konzentrationPct === null || !Number.isFinite(konzentrationPct) || konzentrationPct <= 0 || konzentrationPct > 100) return null
   const w = runden(aufwand / konzentrationPct * 100, 2)
@@ -243,7 +255,7 @@ export function pruefeMassnahmeMengen(e: MassnahmeMengenEingabe, opt: { bruehePf
   if (wasser !== null && wasser > MAX_WASSER_L_HA) return fehler('„Wasseraufwand“ ist zu groß.')
   // KAN-155: weder Spritzbrühe noch Wasseraufwand – bei kg/ha bzw. l/ha aus Aufwand und Konzentration (%)
   if (bruehe === null && wasser === null) {
-    const w = wasseraufwandAusKonzentration(e.aufwand, ae, e.konzentrationPct ?? null)
+    const w = wasseraufwandAusKonzentration(e.aufwand, ae, e.konzentrationPct ?? null, ha)
     if (w !== null && w <= MAX_WASSER_L_HA) wasser = w
     else if (w !== null) hinweise.push(`Wasseraufwand nicht ergänzt: ${zahlText(w, 2)} l/ha aus Aufwand und Konzentration wären zu groß – bitte prüfen.`)
   }
@@ -252,7 +264,7 @@ export function pruefeMassnahmeMengen(e: MassnahmeMengenEingabe, opt: { bruehePf
     return fehler('Bei g/hl bzw. ml/hl (Konzentration im Tank) ist die Spritzbrühe gesamt (l) oder der Wasseraufwand (l/ha) Pflicht.')
   }
   if (opt.bruehePflicht && bruehe === null && wasser === null) {
-    return fehler('Bei einer Spritzung bitte die Spritzbrühe gesamt (l) oder den Wasseraufwand (l/ha) angeben – bei kg/ha bzw. l/ha genügt auch die Konzentration (%).')
+    return fehler('Bei einer Spritzung bitte die Spritzbrühe gesamt (l) oder den Wasseraufwand (l/ha) angeben – bei kg/ha, l/ha bzw. kg, l (gesamt) genügt auch die Konzentration (%).')
   }
 
   // Spritzbrühe ↔ Wasseraufwand über die Fläche ergänzen bzw. abgleichen

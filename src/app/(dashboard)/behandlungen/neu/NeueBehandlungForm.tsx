@@ -600,7 +600,7 @@ export default function NeueBehandlungForm({
             </div>
             <p className="text-xs text-s112-muted mt-1">
               Spritzbrühe = Mittel + Wasser. Eines der beiden Felder ist Pflicht, das andere ergibt sich über die Fläche.
-              Aufwandmenge (kg/ha, l/ha), Konzentration (%) und Wasseraufwand: je zwei ergeben die dritte (Aufwand = Wasseraufwand × Konzentration ÷ 100).
+              Aufwandmenge (kg/ha, l/ha bzw. kg, l gesamt über die Fläche), Konzentration (%) und Wasseraufwand: je zwei ergeben die dritte (Aufwand je ha = Wasseraufwand × Konzentration ÷ 100). Bei g/hl bzw. ml/hl (im Tank) ist die Aufwandmenge schon die Konzentration – dann Spritzbrühe oder Wasseraufwand angeben.
             </p>
           </div>
         )}

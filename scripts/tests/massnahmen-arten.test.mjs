@@ -1430,7 +1430,7 @@ describe('KAN-155: Spritzung ohne BBCH-Stadium und Schaderreger – anlegen, bea
     globalThis.__kan143Aufrufe.length = 0
     const ohne = await tool.fuehreMassnahmeDokumentierenAus(eingabe, supabaseAttrappe())
     assert.equal(ohne.erfolg, false)
-    assert.match(ohne.hinweis, /Spritzbrühe gesamt \(l\) oder den Wasseraufwand \(l\/ha\) angeben – bei kg\/ha bzw\. l\/ha genügt auch die Konzentration/)
+    assert.match(ohne.hinweis, /Spritzbrühe gesamt \(l\) oder den Wasseraufwand \(l\/ha\) angeben – bei kg\/ha, l\/ha bzw\. kg, l \(gesamt\) genügt auch die Konzentration/)
     assert.equal(globalThis.__kan143Aufrufe.length, 0)
   })
 

@@ -438,8 +438,8 @@ describe('Formulare: Hinweis unter „Konzentration (%)“ nennt, was fehlt', nu
     assert.ok(Math.abs(nurWasser.konzentrationBerechnet - 0.15) < 1e-9)
     assert.equal(nurWasser.konzentrationHinweis, null)
     for (const x of [
-      { aufwandmenge: '25', aufwandmengeEinheit: 'g_hl' },   // g/hl → % ohne Wasseraufwand
-      { aufwandmenge: '1,2', aufwandmengeEinheit: 'kg' },    // gesamt: keine Umrechnung in %
+      { aufwandmenge: '25', aufwandmengeEinheit: 'g_hl', mengeGesamt: '800', mengeQuelle: 'gesamt' },   // g/hl mit Spritzbrühe
+      { aufwandmenge: '1,2', aufwandmengeEinheit: 'kg' },    // gesamt ohne Konzentration und Wasser: nichts zu rechnen
       { aufwandmenge: '', folge: [] },                       // nichts eingegeben
       { art: 'duengung', felder: mf.MENGEN_SICHT.duengung }, // Düngung ohne Konzentrationsfeld
     ]) assert.equal(mf.mengenFelder(eingaben(mf, x)).konzentrationHinweis, null, JSON.stringify(x))
@@ -649,9 +649,29 @@ describe('KAN-155: Formular – welches Feld berechnet wird', nurMitHooks, () =>
     assert.deepEqual([g.berechnet, g.konzentrationBerechnet], ['konzentration', 0.025])
     const k = tippe(mf, [['konzentration', '0,05'], ['wasser', '400']], { aufwandmengeEinheit: 'ml_hl' })
     assert.deepEqual([k.berechnet, k.aufwandmengeBerechnet, k.wasserBerechnet, k.gesperrt.wasser], ['aufwand', 50, null, false])
-    // kg bzw. l gesamt: nichts wird berechnet
+    // Bug 30.09.2026: kg bzw. l gesamt rechnen über die Fläche wie je ha (3 l ÷ 1,5 ha = 2 l/ha bei 0,5 % → 400 l/ha)
     const gesamt = tippe(mf, [['aufwand', '3'], ['konzentration', '0,5']], { aufwandmengeEinheit: 'l' })
-    assert.deepEqual([gesamt.berechnet, gesamt.wasserBerechnet, gesamt.konzentrationHinweis], [null, null, null])
+    assert.deepEqual([gesamt.berechnet, gesamt.wasserBerechnet, gesamt.konzentrationHinweis], ['wasser', 400, null])
+  })
+
+  test('Bug 30.09.2026: kg/l (gesamt) über die Fläche, ohne Fläche und bei g/hl ein Hinweis statt stiller Leere', async () => {
+    const mf = await laden()
+    // kg gesamt mit Fläche 2 ha: 1,2 kg → 0,6 kg/ha; Wasser 400 l/ha → Konzentration 0,15 %
+    const k = mf.mengenFelder(eingaben(mf, { aufwandmenge: '1,2', aufwandmengeEinheit: 'kg', wasseraufwand: '400', mengeQuelle: 'wasser', flaecheHa: 2, folge: ['aufwand', 'wasser'] }))
+    assert.ok(Math.abs(k.konzentrationBerechnet - 0.15) < 1e-9, JSON.stringify(k.konzentrationBerechnet))
+    assert.equal(k.mengeGesamtBerechnet, 800)
+    // Konzentration und Wasser → Aufwand gesamt = 0,15 % × 400 l/ha × 2 ha ÷ 100 = 1,2 kg
+    const a = mf.mengenFelder(eingaben(mf, { aufwandmenge: '', aufwandmengeEinheit: 'kg', konzentration: '0,15', wasseraufwand: '400', mengeQuelle: 'wasser', flaecheHa: 2, folge: ['konzentration', 'wasser'] }))
+    assert.equal(a.aufwandmengeBerechnet, 1.2)
+    // ohne Fläche: Hinweis
+    const ohne = mf.mengenFelder(eingaben(mf, { aufwandmenge: '1,2', aufwandmengeEinheit: 'kg', konzentration: '0,15', flaecheHa: null, folge: ['aufwand', 'konzentration'] }))
+    assert.match(ohne.konzentrationHinweis, /Bei kg bzw\. l \(gesamt\) rechnen Konzentration und Wasseraufwand über die Fläche/)
+    // g/hl ohne Spritzbrühe und Wasser: Hinweis, dass die Brühe angegeben werden muss
+    const ghl = mf.mengenFelder(eingaben(mf, { aufwandmenge: '25', aufwandmengeEinheit: 'g_hl', folge: ['aufwand'] }))
+    assert.match(ghl.konzentrationHinweis, /Bei g\/hl bzw\. ml\/hl \(Konzentration im Tank\) ergeben sich Spritzbrühe und Wasseraufwand nicht aus der Aufwandmenge/)
+    // Server-Regel: kg gesamt + Konzentration ergänzt den Wasseraufwand über die Fläche
+    const mm = await import(new URL('../../src/lib/behandlungen/massnahmeMengen.ts', import.meta.url).href).catch(() => null)
+    if (mm) assert.equal(mm.wasseraufwandAusKonzentration(1.2, 'kg', 0.15, 2), 400)
   })
 
   test('Randfälle: Konzentration 0 teilt nicht durch 0, leere und ungültige Eingaben rechnen nicht', async () => {
