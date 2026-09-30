@@ -218,3 +218,29 @@ describe('KAN-132 Cu-Bilanz über die GST-Anteile', nurMitHooks, () => {
     assert.deepEqual([z.weingarten, z.flaecheHa, z.cuKg, z.cuKgHa, z.gstMaxKgHa], ['Kremsleithen Grüner Veltliner', 2, 1, 0.5, 0.5])
   })
 })
+
+describe('KAN-132 Nährstoffbilanz je Ried', nurMitHooks, () => {
+  test('N/P je Ried aus den GST-Anteilen, Nenner WI-Fläche, Düngung nur am Weingarten verteilt, CSV je Jahr × Ried', async () => {
+    const psm = await laden('lib/behoerden/psm.ts')
+    const nst = await laden('lib/behoerden/naehrstoff.ts')
+    const csv = await laden('lib/csv/index.ts')
+    const dm = { id: 'dm', name: 'Biosol', einheit: 'kg', naehrstoff_n_pct: 7, naehrstoff_p_pct: 1 }
+    const d1 = psm.normalisiereBehandlung(roh('d1', { art: 'duengung', psm: null, duengemittel: dm, menge_gesamt: 1000, menge_einheit: 'kg' },
+      [['a', '1', 1, WG.kre], ['b', '2', 0.5, WG.kre], ['c', '3', 0.5, WG.sgv]]))
+    const d2 = psm.normalisiereBehandlung(roh('d2', { art: 'duengung', psm: null, duengemittel: dm, menge_gesamt: 400, menge_einheit: 'kg', weingarten_id: WG.sgv.id, weingarten: WG.sgv }, []))
+    const stamm = (w, gst) => ({ id: w.id, name: w.name, ried: w.lagen?.name ?? null, lageId: w.lage_id, flaecheHa: null, aktiv: true,
+      wiFlaecheHa: gst.reduce((s, g) => s + g.flaecheHa, 0),
+      wiGst: gst.map(g => ({ weingartenId: w.id, weingarten: w.name, ried: w.lagen?.name ?? null, lageId: w.lage_id, kgNr: '1', kgName: null, ...g })) })
+    const wg = [stamm(WG.kre, [{ grundstueckId: 'a', gstNr: '1', flaecheHa: 1 }, { grundstueckId: 'b', gstNr: '2', flaecheHa: 0.5 }]),
+      stamm(WG.sgv, [{ grundstueckId: 'c', gstNr: '3', flaecheHa: 0.5 }])]
+    const b = nst.naehrstoffbilanz([d1, d2], wg)
+    assert.equal(b.gesamtHa, 2)
+    assert.deepEqual(b.riedZeilen.map(r => [r.ried, r.flaecheHa, r.duengungen, r.nKg, r.nKgHa, r.status]), [
+      ['Kremsleithen Grüner Veltliner', 1.5, 1, 52.5, 35, 'im Rahmen'],        // 70 kg N × 1,5/2
+      ['Sandgrube Grüner Veltliner', 0.5, 2, 45.5, 91, 'über Richtwert'],     // 17,5 + 28 (nur am Weingarten)
+    ])
+    assert.equal(Math.round(b.riedZeilen.reduce((s, r) => s + r.nKg, 0) * 1000), Math.round(b.nKg * 1000))
+    const [kopf] = csv.csvText(b.riedZeilen, nst.SPALTEN_NAEHRSTOFFBILANZ_RIED).replace('﻿', '').split('\r\n')
+    assert.equal(kopf, 'Jahr;Ried;Lage;Fläche WI (ha);Düngungen;N (kg);P (kg);N (kg/ha);P (kg/ha);Richtwert N (kg/ha/Jahr);Status N')
+  })
+})

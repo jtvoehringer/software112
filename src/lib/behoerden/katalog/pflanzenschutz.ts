@@ -59,7 +59,18 @@ export const KATALOG_PFLANZENSCHUTZ = katalogGruppe('pflanzenschutz', {
     standardParameter: laufendesJahr,
     pflicht: true,
     rechtsgrundlage: 'Nitrat-Aktionsprogramm-Verordnung (NAPV) 2023',
-    beschreibung: 'Eine Zeile je Düngung: Datum, Weingarten, Fläche, Düngemittel, Düngermenge (kg), N/P-Gehalt, N/P (kg) und (kg/ha).',
+    beschreibung: 'Eine Zeile je Düngung: Datum, Ried, Lage, Fläche, Düngemittel, Düngermenge (kg), N/P-Gehalt, N/P (kg) und (kg/ha).',
+  },
+  // KAN-132: N/P je Ried aus den GST-Anteilen der Düngungen
+  'naehrstoffbilanz-weingarten': {
+    titel: 'Nährstoffbilanz je Ried',
+    behoerde: 'Landwirtschaftskammer / Landesbehörde, AMA (Konditionalität)',
+    zugriff: 'betriebsleitung',
+    druckPfad: '/reports/naehrstoffbilanz',
+    standardParameter: laufendesJahr,
+    pflicht: true,
+    rechtsgrundlage: 'Nitrat-Aktionsprogramm-Verordnung (NAPV) 2023',
+    beschreibung: 'Eine Zeile je Jahr und Ried: WI-Fläche, Anzahl Düngungen, N/P (kg) und (kg/ha) anteilig nach Grundstücksfläche, Vergleich mit dem Richtwert 50 kg N/ha.',
   },
   // KAN-108: Rückverfolgung geteilt in Weingarten und Weinkeller (BKI R19) – wie die Kellerbuch-Rückverfolgung
   // für jedes Mitglied abrufbar; Einstieg über Jahrgang/GST, Lese, Charge oder Füllung

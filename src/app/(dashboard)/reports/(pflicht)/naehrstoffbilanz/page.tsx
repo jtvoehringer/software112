@@ -1,4 +1,4 @@
-// behoerdenmeldung: naehrstoffbilanz
+// behoerdenmeldung: naehrstoffbilanz, naehrstoffbilanz-weingarten
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
@@ -80,6 +80,7 @@ export default async function NaehrstoffbilanzPage({ searchParams }: { searchPar
           </form>
           <PrintButton />
           <CsvExportKnopf href={csvPfad('naehrstoffbilanz', { jahr: aktJahr })} />
+          <CsvExportKnopf label="Je Ried als CSV" href={csvPfad('naehrstoffbilanz-weingarten', { jahr: aktJahr })} />
         </div>
       </div>
 
@@ -130,11 +131,42 @@ export default async function NaehrstoffbilanzPage({ searchParams }: { searchPar
           Gesamtfläche: <strong>{fmtNum(gesamtHa, 2)} ha</strong>
         </p>
 
+        {/* Je Ried (= Weingarten, KAN-132): N/P anteilig nach Grundstücksfläche */}
+        {bilanz.riedZeilen.length > 0 && (
+          <>
+            <h2 className="text-sm font-semibold text-s112-text mb-2">Je Ried</h2>
+            <table className="w-full text-sm border-collapse mb-6">
+              <thead>
+                <tr className="bg-[#F2F3F5]">
+                  {['Ried', 'Lage', 'Fläche WI ha', 'Düngungen', 'N kg', 'N kg/ha', 'P kg', 'P kg/ha', 'Status N'].map(h => (
+                    <th key={h} className="text-left px-2 py-2 border border-s112-line-str font-semibold text-xs whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {bilanz.riedZeilen.map((r, i) => (
+                  <tr key={r.weingartenId} className={i % 2 === 1 ? 'bg-s112-bg' : ''}>
+                    <td className="px-2 py-1.5 border border-s112-line text-xs">{r.ried}</td>
+                    <td className="px-2 py-1.5 border border-s112-line text-xs">{r.lage ?? '–'}</td>
+                    <td className="px-2 py-1.5 border border-s112-line text-right tabular-nums text-xs">{r.flaecheHa !== null ? fmtNum(r.flaecheHa, { min: 2, max: 4 }) : '–'}</td>
+                    <td className="px-2 py-1.5 border border-s112-line text-right tabular-nums text-xs">{r.duengungen}</td>
+                    <td className="px-2 py-1.5 border border-s112-line text-right tabular-nums text-xs">{np(r.nKg)}</td>
+                    <td className={`px-2 py-1.5 border border-s112-line text-right tabular-nums text-xs ${r.nKgHa !== null && r.nKgHa > N_RICHTWERT_KG_HA ? 'text-s112-err-fg font-medium' : ''}`}>{np(r.nKgHa)}</td>
+                    <td className="px-2 py-1.5 border border-s112-line text-right tabular-nums text-xs">{np(r.pKg)}</td>
+                    <td className="px-2 py-1.5 border border-s112-line text-right tabular-nums text-xs">{np(r.pKgHa)}</td>
+                    <td className="px-2 py-1.5 border border-s112-line text-xs whitespace-nowrap">{r.status}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
+
         {/* Detailtabelle */}
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="bg-[#F2F3F5]">
-              {['Datum', 'Weingarten', 'Düngemittel', 'N %', 'P %', 'Menge kg', 'Fläche ha', 'N kg', 'N kg/ha', 'P kg', 'P kg/ha'].map(h => (
+              {['Datum', 'Ried', 'Düngemittel', 'N %', 'P %', 'Menge kg', 'Fläche ha', 'N kg', 'N kg/ha', 'P kg', 'P kg/ha'].map(h => (
                 <th key={h} className="text-left px-2 py-2 border border-s112-line-str font-semibold text-xs whitespace-nowrap">{h}</th>
               ))}
             </tr>
@@ -193,7 +225,9 @@ export default async function NaehrstoffbilanzPage({ searchParams }: { searchPar
 
         <p className="text-xs text-s112-tertiary mt-4">
           Menge (kg) = Düngermenge in kg, sonst Aufwand (kg/ha) × behandelte Fläche; N/P je ha bezogen auf die behandelte
-          Fläche (Summe der Grundstücke), Gesamtwerte je ha bezogen auf die Fläche aller aktiven Weingärten.
+          Fläche (Summe der Grundstücke); je Ried anteilig nach Grundstücksfläche, bezogen auf die Fläche der Grundstücke mit
+          Nutzart WI der Ried (Stand heute); Gesamtwerte je ha bezogen auf die Fläche der Grundstücke mit Nutzart WI aller
+          aktiven Rieden.
           Richtwert Stickstoff: {N_RICHTWERT_KG_HA} kg N/ha/Jahr (Nitrat-Aktionsprogramm-Verordnung 2023,
           Düngeobergrenze Wein in Gebieten mit verstärkten Aktionen – außerhalb dieser Gebiete besteht keine
           eigene gesetzliche Obergrenze für Wein, der Wert dient dort nur als Orientierung) · Richtwert

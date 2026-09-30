@@ -435,7 +435,7 @@ describe('naehrstoffbilanz', nurMitHooks, () => {
     assert.equal(bilanz.nKg, 196.5)
     assert.equal(bilanz.nKgHa, 93.571)                     // 196,5 / 2,1 ha (aktive Weingärten)
     const [kopf, z1] = zeilenVon(csv.csvText(bilanz.zeilen, nst.SPALTEN_NAEHRSTOFFBILANZ))
-    assert.equal(kopf, 'Datum;Weingarten;Ried;Fläche (ha);Düngemittel;Typ;Menge;Einheit;Menge (kg);Mengenbasis;N (%);P (%);N (kg);P (kg);N (kg/ha);P (kg/ha)')
+    assert.equal(kopf, 'Datum;Ried;Lage;Fläche (ha);Düngemittel;Typ;Menge;Einheit;Menge (kg);Mengenbasis;N (%);P (%);N (kg);P (kg);N (kg/ha);P (kg/ha)')
     assert.equal(z1, '25.03.2026;Pfaffenberg Riesling;Ried Pfaffenberg;1,2000;Biosol;organisch;3275,000;kg;3275,000;Düngermenge;6,00;1,00;196,500;32,750;163,750;27,292')
   })
 
