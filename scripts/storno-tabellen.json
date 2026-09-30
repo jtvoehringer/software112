@@ -11,5 +11,5 @@
     "dac_antrag", "weinanalysen", "pruefnummernantraege", "transportbescheinigungen",
     "exportauftraege", "exportauftrag_positionen", "export_dokumente"
   ],
-  "scharf": ["fuellung_chargen", "fuellungen", "keller_behandlungen", "keller_umzuege", "verschneidung_quellen", "verschneidungen", "zukauf_posten"]
+  "scharf": ["ernte_parzellen", "fuellung_chargen", "fuellungen", "keller_behandlungen", "keller_umzuege", "pressung_behaelter", "pressung_weingaerten", "pressungen", "traubenverkauf", "verschneidung_quellen", "verschneidungen", "weinausbau", "zukauf_posten"]
 }

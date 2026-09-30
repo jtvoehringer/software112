@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { Pencil, X, ChevronDown, Plus } from 'lucide-react'
-import { upsertPressung, stornoPressung } from '../actions'
+import { upsertPressung, stornoPressung, endgueltigLoeschenLese } from '../actions'
 import StornoButton from '@/components/StornoButton'
 import { fmtProzent, fmtNum, dezimal } from '@/lib/format'
 import { kmwZuQualitaet } from '@/lib/weinqualitaet'
@@ -961,6 +961,12 @@ export default function PressungSection({ jahrgangId, leseId, leseArt, pressunge
                           {/* KAN-148 C1c: stornieren statt löschen – wer Pressungen bearbeiten darf (KAN-166) */}
                           {writeOk && !p.storno && (
                             <StornoButton action={grund => stornoPressung(p.id, jahrgangId, grund)} hinweis={stornoHinweis(p)} />
+                          )}
+                          {/* KAN-148 C1d: endgültig löschen nur stornierter Pressungen (samt Zeilen und Chargen) */}
+                          {writeOk && p.storno && (
+                            <StornoButton modus="loeschen" label="Endgültig löschen"
+                              action={grund => endgueltigLoeschenLese('pressungen', p.id, jahrgangId, grund)}
+                              hinweis="Nur bei einer Fehlerfassung: Die stornierte Pressung wird samt Behälter- und Traubenzeilen und ihren stornierten Chargen endgültig entfernt – nur solange an den Chargen nichts mehr hängt (auch keine stornierten Buchungen) und die Erntemeldung nicht eingereicht ist. Grund und Benutzer stehen im Änderungsprotokoll." />
                           )}
                         </span>
                       </div>

@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState, useTransition } from 'react'
-import { upsertErnteParzelle, stornoErnteParzelle, createOrUpdateAMAMeldung, createMultipleErnteParzellen } from '../actions'
+import { upsertErnteParzelle, stornoErnteParzelle, endgueltigLoeschenLese, createOrUpdateAMAMeldung, createMultipleErnteParzellen } from '../actions'
 import { qualitaetLabel, LESE_QUALITAETEN, mitGespeichertemWert } from '@/lib/wein/qualitaet'
 import { kmwZuQualitaet } from '@/lib/weinqualitaet'
 import type { ErnteParzelle, WeingartenOpt, GSTOpt, AMAMeldung, HektarhoechstertragStatus } from './page'
@@ -828,6 +828,12 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
                               <StornoButton
                                 action={grund => stornoErnteParzelle(p.id, jahrgang.id, grund)}
                                 hinweis="Der Eintrag bleibt als storniert in den Lesedaten stehen und zählt in keiner Menge, Erntemeldung oder Verfügbarkeit – nur möglich, solange die Menge nicht schon verpresst oder als Trauben verkauft ist." />
+                            )}
+                            {/* KAN-148 C1d: endgültig löschen nur stornierter Einträge, mit Grund */}
+                            {writeOk && p.storno && (
+                              <StornoButton modus="loeschen" label="Endgültig löschen"
+                                action={grund => endgueltigLoeschenLese('ernte_parzellen', p.id, jahrgang.id, grund)}
+                                hinweis="Nur bei einer Fehlerfassung: Der stornierte Eintrag wird endgültig entfernt – Grund und Benutzer stehen im Änderungsprotokoll. Nach einer eingereichten Erntemeldung nicht mehr möglich." />
                             )}
                           </div>
                         </td>

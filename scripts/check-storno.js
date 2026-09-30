@@ -54,6 +54,16 @@ const ALTFAELLE = {
   'src/app/(dashboard)/weinhandel/actions.ts': ['keller_umzuege', 'fuellung_chargen'],
 }
 
+/**
+ * Eingespielte Migrationen (Remote-Historie, Datei nicht mehr änderbar), deren DELETE in der Lösch-RPC
+ * s112_storniert_loeschen steht: löscht nur stornierte Zeilen, nur mit dem Kennzeichen s112.storno_loeschen, mit Grund
+ * im Protokoll – Datei → [Tabellen, Grund]. Nur für solche RPC-Migrationen verwenden.
+ */
+const LOESCH_RPC_MIGRATIONEN = {
+  'supabase/migrations/20260930153205_kan148c1d_loeschsperre_lese.sql': [['ernte_parzellen', 'weinausbau'],
+    'Lösch-RPC s112_storniert_loeschen (KAN-148 C1d): nur stornierte Zeilen, Kennzeichen s112.storno_loeschen, Grund im Protokoll'],
+}
+
 function rel(datei) { return path.relative(WURZEL, datei).split(path.sep).join('/') }
 
 /** Ausnahme mit Grund in der Zeile oder allein in der Zeile davor; liefert Grund, '' (zu kurz) oder null */
@@ -78,6 +88,8 @@ function pruefeText(text, art, datei = '') {
     const z = zeileVon(i)
     const grund = ausnahmeGrund(zeilen, z)
     if (grund) { ausnahmen.push({ datei, zeile: z + 1, regel, tabelle, grund }); return }
+    const rpc = LOESCH_RPC_MIGRATIONEN[datei]
+    if (rpc && tabelle && rpc[0].includes(tabelle)) { ausnahmen.push({ datei, zeile: z + 1, regel, tabelle, grund: rpc[1] }); return }
     if (grund === '') { funde.push({ datei, zeile: z + 1, regel, tabelle, text: 'storno-ausnahme ohne ausreichenden Grund (mind. 15 Zeichen)' }); return }
     if (alt.includes('*') || (tabelle && alt.includes(tabelle))) { altfaelle.push({ datei, zeile: z + 1, regel, tabelle }); return }
     funde.push({ datei, zeile: z + 1, regel, tabelle, text })
