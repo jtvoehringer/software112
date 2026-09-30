@@ -86,7 +86,7 @@ const NAV: NavGroup[] = [
       // „Maßnahmen“, „Betriebsmittel“ ans Ende – Reihenfolge Rieden · Maßnahmen · • Behandlungsprotokoll
       // · • Cu-Bilanz · • Nährstoffbilanz · Lese · • AMA-Erntemeldung · Betriebsmittel. Jeder
       // Unterpunkt bleibt bei seinem Hauptpunkt (Variante von Jörgen gewählt).
-      { href: '/erntemeldung',       label: 'Lese',           phase: 1, keywords: 'ernte jahrgang pressung erntemeldung neue lese eiswein hauptlese' },
+      { href: '/erntemeldung',       label: 'Lese',           phase: 1, keywords: 'ernte jahrgang lesedaten erntemeldung neue lese eiswein hauptlese' },
       { href: '/reports/ama',        label: 'AMA-Erntemeldung', child: true, pflichtmeldung: true, keywords: 'weinerntemeldung lesedaten weinbestandsmeldung bestandsmeldung stichtag weindatenbank behörde meldung druck csv' },
       // KAN-108: Rückverfolgung Weingarten (Maßnahmen je Lese-Grundstück, Wartezeiten) – Unterpunkt der Lese
       { href: '/weingarten/rueckverfolgung', label: 'Rückverfolgung', child: true, keywords: 'wartezeit pflanzenschutz lese grundstück maßnahmen ernte bis ernte lebensmittelsicherheit bki csv' },
@@ -97,6 +97,10 @@ const NAV: NavGroup[] = [
     key: 'kellerbuch', label: 'Kellerbuch', icon: BookOpen,
     items: [
       { href: '/kellerbuch',                 label: 'Übersicht',      phase: 1, keywords: 'behälter tank fass chargen' },
+      // Pilottest 30.09.2026: Pressungen (vorher auf der Lese-Seite) und Zukauf (vorher Warenwirtschaft) direkt nach
+      // der Übersicht; die Zukauf-Seiten behalten ihre Adresse /weinhandel/zukauf (activeGroup: längster Treffer).
+      { href: '/kellerbuch/pressungen',      label: 'Pressungen',     phase: 1, keywords: 'pressung most trauben keltern presse lese charge' },
+      { href: '/weinhandel/zukauf',          label: 'Zukauf',         phase: 1, keywords: 'trauben most wein einkauf zukauf' },
       { href: '/kellerbuch/kellerplan',      label: 'Kellerplan',     phase: 1, keywords: 'grundriss' },
       { href: '/dac',                        label: 'Prüfnummer',     phase: 1, keywords: 'dac antrag staatliche prüfnummer' },
       { href: '/kellerbuch/rueckverfolgung', label: 'Rückverfolgung', phase: 1, keywords: 'herkunft charge grundstück' },
@@ -109,7 +113,6 @@ const NAV: NavGroup[] = [
       { href: '/weinhandel',                  label: 'Warenlager',         phase: 1, keywords: 'flaschen füllungen bestand' },
       { href: '/weinhandel/verkauf',          label: 'Verkauf',            phase: 1, keywords: 'rechnung auftrag lieferschein' },
       { href: '/weinhandel/offene-posten',    label: 'Offene Posten',      phase: 1, keywords: 'überfällig zahlung mahnung' },
-      { href: '/weinhandel/zukauf',           label: 'Zukauf',             phase: 1, keywords: 'trauben most wein einkauf' },
       { href: '/weinhandel/sonstige-artikel', label: 'Sonstiges-Produkte', phase: 1, keywords: 'artikel' },
       { href: '/weinhandel/rabattgruppen',    label: 'Rabattgruppen',      phase: 1 },
       { href: '/weinexport',                  label: 'Exportaufträge',     requireModul: 'modul_export', keywords: 'eur.1 cmr export' },

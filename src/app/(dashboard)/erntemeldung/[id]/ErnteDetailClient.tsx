@@ -5,9 +5,8 @@ import { upsertErnteParzelle, stornoErnteParzelle, endgueltigLoeschenLese, creat
 import { qualitaetLabel, LESE_QUALITAETEN, mitGespeichertemWert } from '@/lib/wein/qualitaet'
 import { kmwZuQualitaet } from '@/lib/weinqualitaet'
 import type { ErnteParzelle, WeingartenOpt, GSTOpt, AMAMeldung, HektarhoechstertragStatus } from './page'
-import PressungSection from './PressungSection'
+import Link from '@/components/ui/Link'
 import AmaMeldungKarte from './AmaMeldungKarte'
-import type { Pressung, WGOption, BehOption, WAOption, ZukaufTraubenOpt } from './PressungSection'
 import { fmtHa, fmtZahl, fmtProzent, fmtNum, zahlAus } from '@/lib/format'
 import { Pencil, AlertTriangle, Plus } from 'lucide-react'
 import StornoButton from '@/components/StornoButton'
@@ -663,7 +662,7 @@ function ParzellForm({
 
 
 // ── Hauptkomponente ─────────────────────────────────────────────────────────────
-export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel, mehrereLesen, tabellenParzellen, stichtagHinweis, parzellen, weingaerten, gstByWeingarten, amaMeldung, hektarhoechstertrag, pressungen, wgOptions, behOptions, waOptions, verfuegbareKg, verfuegbareKgByGST, zukaufTrauben, behaelterMitCharge, writeOk, adminOk, betriebName, csvErlaubt }: {
+export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel, mehrereLesen, tabellenParzellen, stichtagHinweis, parzellen, weingaerten, gstByWeingarten, amaMeldung, hektarhoechstertrag, pressungenAnzahl, pressungenHref, writeOk, adminOk, betriebName, csvErlaubt }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   jahrgang: Record<string, any>; parzellen: ErnteParzelle[]
   /** KAN-129: gewählte Lese (Reiter der Seite) – neue Einträge und Pressungen landen in ihr */
@@ -679,10 +678,9 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
   stichtagHinweis: string | null
   weingaerten: WeingartenOpt[]; gstByWeingarten: Record<string, GSTOpt[]>; amaMeldung: AMAMeldung | null
   hektarhoechstertrag: HektarhoechstertragStatus
-  pressungen: Pressung[]; wgOptions: WGOption[]; behOptions: BehOption[]; waOptions: WAOption[]
-  verfuegbareKg: Record<string, number>; verfuegbareKgByGST: Record<string, number>
-  zukaufTrauben: ZukaufTraubenOpt[]
-  behaelterMitCharge: Record<string, { weinausbau_id: string; name: string; rebsorte?: string | null; menge_liter?: number | null }[]>; writeOk: boolean; adminOk: boolean
+  /** Pilot 30.09.2026: Pressungen stehen im Kellerbuch – hier nur Anzahl (gültige, gewählte Lese) und Verweis */
+  pressungenAnzahl: number; pressungenHref: string
+  writeOk: boolean; adminOk: boolean
   /** Mandantenname für den Druckkopf (tenant_einstellungen.betrieb_name) */
   betriebName: string | null
   /** Pflichtmeldungen als CSV (Lesedaten, Erntemeldung) – gleiche Regel wie die CSV-Route */
@@ -883,55 +881,19 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
         </div>
       )}
 
-      {/* Pressungen / Lese */}
-      <PressungSection
-        jahrgangId={jahrgang.id}
-        leseId={leseId}
-        leseArt={leseArt}
-        pressungen={pressungen}
-        wgOptions={wgOptions}
-        behOptions={behOptions}
-        waOptions={waOptions}
-        verfuegbareKgByGST={verfuegbareKgByGST}
-        zukaufTrauben={zukaufTrauben}
-        behaelterMitCharge={behaelterMitCharge}
-        leseParzellen={(() => {
-          // Deduplizieren: eine Zeile pro (weingarten_id, grundstueck_id) für Pressung-Formular.
-          // Ein GST kann mehrere ernte_parzellen-Einträge haben (z.B. Kabinett + Spätlese).
-          // Wenn mehrere Einträge vorhanden: denjenigen wählen, dessen menge_kg am nächsten
-          // zur verfügbaren Restmenge liegt – das ist der noch nicht verpresste Anteil.
-          const bestByKey = new Map<string, typeof parzellen[0]>()
-          for (const p of parzellen) {
-            const key = `${p.weingarten_id}|${p.grundstueck_id ?? ''}`
-            const verfuegbar = p.grundstueck_id ? (verfuegbareKgByGST[p.grundstueck_id] ?? 0) : 0
-            const existing = bestByKey.get(key)
-            if (!existing) {
-              bestByKey.set(key, p)
-            } else {
-              const existingDiff = Math.abs((existing.menge_kg ?? 0) - verfuegbar)
-              const newDiff      = Math.abs((p.menge_kg ?? 0) - verfuegbar)
-              if (newDiff < existingDiff) bestByKey.set(key, p)
-            }
-          }
-          return Array.from(bestByKey.values()).map(p => ({
-            weingarten_id: p.weingarten_id,
-            weingarten_name: p.weingarten_name,
-            grundstueck_id: p.grundstueck_id,
-            grundstueck_nr: p.grundstueck_nr,
-            grundstueck_rebsorte: p.grundstueck_rebsorte,
-            menge_kg: p.menge_kg,
-            rebsorte: p.weingarten_rebsorte,
-            klosterneuburger: p.klosterneuburger,
-          }))
-        })()}
-        // KAN-126: alle Lese-Einträge – Lesetage und Mostgewicht je Ort für die Pressung
-        leseEintraege={parzellen.map(p => ({
-          weingarten_id: p.weingarten_id, grundstueck_id: p.grundstueck_id, ernte_datum: p.ernte_datum,
-          kmw: p.klosterneuburger, oechsle: p.oechsle, mostgewicht_einheit: p.mostgewicht_einheit,
-        }))}
-        writeOk={writeOk}
-        adminOk={adminOk}
-      />
+      {/* Pressungen: seit dem Pilottest (30.09.2026) im Kellerbuch – hier nur der Verweis */}
+      <div className="card flex items-center justify-between gap-3 flex-wrap" data-print="hide">
+        <div>
+          <h2 className="text-base font-semibold text-s112-text">Pressungen</h2>
+          <p className="text-sm text-s112-muted mt-0.5">
+            {pressungenAnzahl === 0 ? 'Noch keine Pressungen' : `${pressungenAnzahl} ${pressungenAnzahl === 1 ? 'Pressung' : 'Pressungen'}`}
+            {leseTitel ? ` in ${leseTitel}` : ''} – erfasst und bearbeitet im Kellerbuch.
+          </p>
+        </div>
+        <Link href={pressungenHref} className="text-sm text-s112-blue-700 hover:underline font-medium whitespace-nowrap">
+          Kellerbuch › Pressungen →
+        </Link>
+      </div>
 
       {/* AMA-Erntemeldung: Status, Einreichen, Rückmeldung, Korrekturmeldung (KAN-148 C2) */}
       {writeOk && (

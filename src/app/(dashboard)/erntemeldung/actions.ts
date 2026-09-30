@@ -1484,6 +1484,7 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
 
   revalidatePath(`/erntemeldung/${jahrgangId}`)
   revalidatePath('/kellerbuch')
+  revalidatePath('/kellerbuch/pressungen')   // Pilot 30.09.2026: Pressungen im Kellerbuch
   // KAN-129: Eiswein unter 25 °KMW – nur Hinweis
   const eiswein = eisweinHinweis(lesePressung?.art, kmwGrad != null && !isNaN(kmwGrad) ? kmwGrad : null)
   if (fehlgeschlagen.length > 0) {
@@ -1550,6 +1551,7 @@ export async function stornoPressung(id: string, jahrgangId: string, grund: stri
 
   revalidatePath(`/erntemeldung/${(p as AR).jahrgang_id ?? jahrgangId}`)
   revalidatePath('/kellerbuch')
+  revalidatePath('/kellerbuch/pressungen')
 }
 
 // ENDGÜLTIG LÖSCHEN (KAN-148 C1d, 30.09.2026) – nur stornierte Pressungen, Lesedaten und Traubenverkäufe, mit Grund,
@@ -1573,7 +1575,7 @@ export async function endgueltigLoeschenLese(
   if (error) throw new AktionsFehler(dbFehlerText(error, 'Endgültig löschen fehlgeschlagen'))
   revalidatePath(`/erntemeldung/${jahrgangId}`)
   revalidatePath('/erntemeldung')
-  if (tabelle === 'pressungen') revalidatePath('/kellerbuch')
+  if (tabelle === 'pressungen') { revalidatePath('/kellerbuch'); revalidatePath('/kellerbuch/pressungen') }
   if (tabelle === 'traubenverkauf') revalidatePath('/weinhandel/traubenverkauf')
 }
 

@@ -377,7 +377,7 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
                       <td className="px-4 py-3 text-right">
                         {writeOk && (
                           <Link
-                            href={(d.pressung as R | null)?.jahrgang_id ? `/erntemeldung/${(d.pressung as R).jahrgang_id}${((d.pressung as R).lese as R | null)?.lfd_nr ? `?lese=${((d.pressung as R).lese as R).lfd_nr}` : ''}` : '/erntemeldung'}
+                            href={(d.pressung as R | null)?.jahrgang_id ? `/kellerbuch/pressungen?jahrgang=${(d.pressung as R).jahrgang_id}${((d.pressung as R).lese as R | null)?.lfd_nr ? `&lese=${((d.pressung as R).lese as R).lfd_nr}` : ''}` : '/kellerbuch/pressungen'}
                             className="text-xs text-s112-blue-700 hover:underline font-medium whitespace-nowrap">
                             Pressung bearbeiten →
                           </Link>
