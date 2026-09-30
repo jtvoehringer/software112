@@ -10,6 +10,7 @@ import { AktionsFehler, dbFehlerText, LESE_WAEHLEN_MELDUNG } from '@/lib/fehler'
 import { traubenverkaufLese } from '@/lib/wein/leseBilanz'
 import { dezimal } from '@/lib/format'
 import { traubenverkaufStornieren } from '@/lib/verkauf/traubenverkaufStorno'
+import { stornoGrundFehler } from '@/lib/storno/grund'
 import { qualitaetFehler } from '@/lib/wein/qualitaet'
 import { mostgewichtAusFormular, mostgewichtSpalten } from '@/lib/wein/mostgewichtFormular'
 
@@ -353,6 +354,24 @@ export async function upsertTraubenverkauf(formData: FormData) {
 // Traubenverkauf enthält, wird über den normalen Verkaufsstorno storniert (Beleg bleibt, Rechnungsnummer lückenlos,
 // E&A wie beim Storno); eine Mischrechnung nur als Ganzes unter Weinhandel › Verkauf. Siehe
 // lib/verkauf/traubenverkaufStorno.ts; jeder Storno landet im bestandsprotokoll.
+
+// ENDGÜLTIG LÖSCHEN (KAN-148 C1d) – nur stornierte Traubenverkäufe ohne Rechnungsbezug, mit Grund (RPC s112_storniert_loeschen)
+export async function endgueltigLoeschenTraubenverkauf(id: string, grund: string) {
+  const f = stornoGrundFehler(grund)
+  if (f) throw new AktionsFehler(f.replace('den Storno', 'das endgültige Löschen'))
+  const supabase = await createSupabaseServerClient()
+  const membership = await getCurrentMembership()
+  if (!membership) throw new AktionsFehler('Nicht angemeldet')
+  await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
+  await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.rpc as any)('s112_storniert_loeschen', {
+    p_tenant_id: membership.tenantId, p_tabelle: 'traubenverkauf', p_id: id, p_grund: grund.trim(),
+  })
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Endgültig löschen fehlgeschlagen'))
+  revalidatePath('/weinhandel/traubenverkauf')
+  revalidatePath('/erntemeldung/[id]', 'page')
+}
 
 export async function stornoTraubenverkauf(id: string, grund: string) {
   const supabase = await createSupabaseServerClient()

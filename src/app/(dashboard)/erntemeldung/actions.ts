@@ -1532,6 +1532,31 @@ export async function stornoPressung(id: string, jahrgangId: string, grund: stri
   revalidatePath('/kellerbuch')
 }
 
+// ENDGÜLTIG LÖSCHEN (KAN-148 C1d, 30.09.2026) – nur stornierte Pressungen, Lesedaten und Traubenverkäufe, mit Grund,
+// über die RPC s112_storniert_loeschen (Rolle inkl. Mitarbeiter, Schreibmodul, Abo; Grund ins Änderungsprotokoll).
+// Die RPC lehnt ab nach einer eingereichten Erntemeldung, bei Rechnungsbezug (Traubenverkauf) und wenn an einer
+// Charge der Pressung noch etwas hängt. Eine Pressung geht samt Zeilen und Chargen.
+export async function endgueltigLoeschenLese(
+  tabelle: 'pressungen' | 'ernte_parzellen' | 'traubenverkauf',
+  id: string,
+  jahrgangId: string,
+  grund: string,
+): Promise<void> {
+  const f = stornoGrundFehler(grund)
+  if (f) throw new AktionsFehler(f.replace('den Storno', 'das endgültige Löschen'))
+  const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.rpc as any)('s112_storniert_loeschen', {
+    p_tenant_id: tenantId, p_tabelle: tabelle, p_id: id, p_grund: grund.trim(),
+  })
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Endgültig löschen fehlgeschlagen'))
+  revalidatePath(`/erntemeldung/${jahrgangId}`)
+  revalidatePath('/erntemeldung')
+  if (tabelle === 'pressungen') revalidatePath('/kellerbuch')
+  if (tabelle === 'traubenverkauf') revalidatePath('/weinhandel/traubenverkauf')
+}
+
 // Jahrgang löschen (KAN-35): gesperrt, sobald Pressungen (und damit Kellerbuch-
 // Chargen), Traubenverkäufe oder eine eingereichte/bestätigte/abgelehnte AMA-
 // Erntemeldung daran hängen. Sonst genügt das Löschen des Jahrgangs: ernte_parzellen,
@@ -1548,7 +1573,12 @@ export async function deleteJahrgang(id: string) {
   const tenantId = await getTenantId()
   const jg = await ladeJahrgang(supabase, tenantId, id)
 
-  const [pressRes, tvRes, amaRes] = await Promise.all([
+  const [epRes, pressRes, tvRes, amaRes] = await Promise.all([
+    // storno-sichtbar: auch stornierte Lesedaten sperren das Löschen des Jahrgangs (KAN-148 C1d, Trigger a_jahrgang_loeschsperre)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from('ernte_parzellen') as any)
+      .select('id', { count: 'exact', head: true }).eq('jahrgang_id', id),
+    // storno-sichtbar: auch stornierte Pressungen sperren das Löschen des Jahrgangs (KAN-148 C1d)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('pressungen') as any)
       .select('id', { count: 'exact', head: true }).eq('jahrgang_id', id).eq('tenant_id', tenantId),
@@ -1560,20 +1590,22 @@ export async function deleteJahrgang(id: string) {
     (supabase.from('ama_erntemeldungen') as any)
       .select('status').eq('jahrgang_id', id).eq('tenant_id', tenantId),
   ])
-  for (const [tabelle, res] of [['pressungen', pressRes], ['traubenverkauf', tvRes], ['ama_erntemeldungen', amaRes]] as const) {
+  for (const [tabelle, res] of [['ernte_parzellen', epRes], ['pressungen', pressRes], ['traubenverkauf', tvRes], ['ama_erntemeldungen', amaRes]] as const) {
     if (res.error) throw new AktionsFehler(dbFehlerText(res.error, `Jahrgang konnte nicht geprüft werden (${tabelle})`))
   }
+  const nLese  = (epRes.count as number | null) ?? 0
   const nPress = (pressRes.count as number | null) ?? 0
   const nTv    = (tvRes.count as number | null) ?? 0
   const amaStatus = ((amaRes.data ?? []) as AR[]).map(a => a.status as string).find(s => s in AMA_GESPERRT)
 
   const gruende: string[] = []
+  if (nLese > 0)  gruende.push(`${fmtNum(nLese, 0)} ${nLese === 1 ? 'Lesedaten-Eintrag ist' : 'Lesedaten-Einträge sind'} erfasst (auch stornierte zählen)`)
   if (nPress > 0) gruende.push(`${fmtNum(nPress, 0)} ${nPress === 1 ? 'Pressung ist' : 'Pressungen sind'} erfasst (daraus sind Kellerbuch-Chargen entstanden)`)
   if (nTv > 0)    gruende.push(`${fmtNum(nTv, 0)} ${nTv === 1 ? 'Traubenverkauf ist' : 'Traubenverkäufe sind'} erfasst`)
   if (amaStatus)  gruende.push(`die AMA-Erntemeldung ist bereits ${AMA_GESPERRT[amaStatus]}`)
   if (gruende.length > 0) {
     throw new AktionsFehler(`Der Jahrgang ${jg.jahrgang} kann nicht gelöscht werden: ${gruende.join('; ')}. Der Jahrgang bleibt als Historie erhalten.`
-      + (nPress > 0 || nTv > 0 ? ' Pressungen ohne Folgebuchungen und Traubenverkäufe lassen sich vorher einzeln in der Lese löschen.' : ''))
+      + (nLese > 0 || nPress > 0 || nTv > 0 ? ' Einträge lassen sich einzeln in der Lese stornieren und – nur bei einer Fehlerfassung – danach endgültig löschen.' : ''))
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

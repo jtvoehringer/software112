@@ -714,8 +714,13 @@ BEGIN
      ORDER BY cardinality(k.conkey), k.conname
      LIMIT 1;
     IF FOUND AND v_fk.refschema = 'public' AND v_fk.reftab = 'lesen' THEN
-      -- KAN-129: lese_id (FK lese_id + jahrgang_id) setzt der Trigger a_lese_zuordnen passend zum Jahrgang
-      v_val := 'NULL';
+      -- KAN-129: lese_id (FK lese_id + jahrgang_id) – die erste Lese des schon gewählten Jahrgangs; sonst setzt der
+      -- Trigger a_lese_zuordnen sie. Seit KAN-148 C1d bleiben Test-Lesen mit (nicht löschbaren) Lesezeilen stehen –
+      -- bei mehreren Lesen bräuchte der Trigger ein passendes Datum.
+      v_val := CASE WHEN 'jahrgang_id' = ANY (v_cols)
+        THEN format('(SELECT l.id FROM public.lesen l WHERE l.jahrgang_id = %s ORDER BY l.lfd_nr LIMIT 1)',
+                    v_vals[array_position(v_cols, 'jahrgang_id')])
+        ELSE 'NULL' END;
     ELSIF FOUND THEN
       v_klasse := CASE WHEN v_fk.refschema = 'public' THEN pg_temp.s112_klasse(v_fk.reftab) END;
       IF v_fk.refschema = 'auth' AND v_fk.reftab = 'users' THEN
@@ -941,7 +946,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('ea_transaktionen',              'SA,TA,W*{ea}',                           'SA,TA,W*{ea}',                           'SA,TA{ea}'),
     ('ea_uva',                        'SA,TA,W*{ea}',                           'SA,TA,W*{ea}',                           'SA,TA,W*{ea}'),
     ('email_lead_ignoriert',          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}'),
-    ('ernte_parzellen',               'SA,TA,W*{rieden|kellerbuch}',            'SA,TA,W*{rieden|kellerbuch}',            'SA,TA{rieden|kellerbuch}'),
+    ('ernte_parzellen',               'SA,TA,W*{rieden|kellerbuch}',            'SA,TA,W*{rieden|kellerbuch}',            '-{rieden|kellerbuch}'),   -- KAN-148 C1d
     ('export_dokumente',              'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}'),
     ('exportauftraege',               'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}'),
     ('exportauftrag_positionen',      'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}'),
@@ -975,9 +980,9 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('pipeline_eintraege',            'SA,TA,W*{crm}',                          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}'),
     ('pipeline_verlauf',              'SA,TA,W*{crm}',                          '-{crm}',                                 '-{crm}'),
     ('plattform_admins',              '-',                                      '-',                                      '-'),
-    ('pressung_behaelter',            'SA,TA,W*{kellerbuch|rieden}',            'SA,TA,W*{kellerbuch|rieden}',            'SA,TA,W*{kellerbuch|rieden}'),
-    ('pressung_weingaerten',          'SA,TA,W*{kellerbuch|rieden}',            'SA,TA,W*{kellerbuch|rieden}',            'SA,TA,W*{kellerbuch|rieden}'),
-    ('pressungen',                    'SA,TA,W*{kellerbuch|rieden}',            'SA,TA,W*{kellerbuch|rieden}',            'SA,TA,W*{kellerbuch|rieden}'),
+    ('pressung_behaelter',            'SA,TA,W*{kellerbuch|rieden}',            'SA,TA,W*{kellerbuch|rieden}',            '-{kellerbuch|rieden}'),   -- KAN-148 C1d
+    ('pressung_weingaerten',          'SA,TA,W*{kellerbuch|rieden}',            'SA,TA,W*{kellerbuch|rieden}',            '-{kellerbuch|rieden}'),   -- KAN-148 C1d
+    ('pressungen',                    'SA,TA,W*{kellerbuch|rieden}',            'SA,TA,W*{kellerbuch|rieden}',            '-{kellerbuch|rieden}'),   -- KAN-148 C1d
     ('profiles',                      'L,SA,TA,W',                              'L,SA,TA,W',                              '-'),
     ('pruefnummernantraege',          'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}'),
     ('psm_lager_bewegungen',          'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}'),
@@ -998,14 +1003,14 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('tenants',                       'PA',                                     'SA,TA',                                  '-'),
     ('transaktionszaehler',           '-',                                      '-',                                      '-'),
     ('transportbescheinigungen',      'SA,TA,W*{kellerbuch|warenwirtschaft}',   'SA,TA,W*{kellerbuch|warenwirtschaft}',   'SA,TA,W*{kellerbuch|warenwirtschaft}'),
-    ('traubenverkauf',                'SA,TA,W*{rieden|warenwirtschaft}',       'SA,TA,W*{rieden|warenwirtschaft}',       'SA,TA,W*{rieden|warenwirtschaft}'),
+    ('traubenverkauf',                'SA,TA,W*{rieden|warenwirtschaft}',       'SA,TA,W*{rieden|warenwirtschaft}',       '-{rieden|warenwirtschaft}'),   -- KAN-148 C1d
     ('user_email_connections',        '-',                                      '-',                                      'L,SA,TA,W'),
     ('verkauf_positionen',            'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              'SA,TA{warenwirtschaft}'),
     ('verkaufsposten',                'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              'SA,TA{warenwirtschaft}'),
     ('verschneidung_quellen',         'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   '-{kellerbuch}'),   -- KAN-145 B4
     ('verschneidungen',               'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   '-{kellerbuch}'),   -- KAN-145 B4
     ('weinanalysen',                  'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   'SA,TA{kellerbuch}'),
-    ('weinausbau',                    'SA,TA,W*{kellerbuch|rieden}',            'SA,TA,W*{kellerbuch|rieden}',            'SA,TA{kellerbuch|rieden}'),
+    ('weinausbau',                    'SA,TA,W*{kellerbuch|rieden}',            'SA,TA,W*{kellerbuch|rieden}',            '-{kellerbuch|rieden}'),   -- KAN-148 C1d
     ('weinausbau_weingaerten',        'SA,TA,W*{kellerbuch|rieden}',            'SA,TA,W*{kellerbuch|rieden}',            'SA,TA,W*{kellerbuch|rieden}'),
     ('weinbaugebiete_custom',         'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       '-{rieden}'),
     ('weingarten',                    'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       'SA,TA{rieden}'),
@@ -1068,7 +1073,7 @@ BEGIN
       'keller_freigaben', 'plattform_admins', 'profiles', 'rebsorten', 'release_notes', 'release_notes_gesehen',
       'svs_parameter', 'tenants']
     -- KAN-145 B4: Tabellen mit Löschsperre (a_loeschsperre) = "scharf" in scripts/storno-tabellen.json (Test check-storno)
-    WHEN 'loeschsperre_tabellen' THEN ARRAY['fuellung_chargen', 'fuellungen', 'keller_behandlungen', 'keller_umzuege', 'verschneidung_quellen', 'verschneidungen', 'zukauf_posten']
+    WHEN 'loeschsperre_tabellen' THEN ARRAY['ernte_parzellen', 'fuellung_chargen', 'fuellungen', 'keller_behandlungen', 'keller_umzuege', 'pressung_behaelter', 'pressung_weingaerten', 'pressungen', 'traubenverkauf', 'verschneidung_quellen', 'verschneidungen', 'weinausbau', 'zukauf_posten']
     WHEN 'protokoll_tabellen' THEN ARRAY[
       'ama_erntemeldungen', 'ama_meldepositionen', 'behandlungen', 'bestandsprotokoll', 'duengemittel_lager_bewegungen',
       'ernte_parzellen', 'fuellung_bewegungen', 'fuellung_chargen', 'fuellungen', 'keller_behandlungen', 'keller_umzuege',
@@ -1167,6 +1172,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('mandant',       '-US', true , 's112_pressung_stornieren(p_tenant_id uuid, p_pressung_id uuid, p_grund text)'),   -- KAN-148 C1c
     ('mandant',       '-US', true , 's112_pressung_zeilen_stornieren(p_tenant_id uuid, p_pressung_id uuid, p_behaelter_zeilen uuid[], p_trauben_zeilen uuid[], p_grund text)'),   -- KAN-148 C1c-2
     ('mandant',       '-US', false, 's112_schwund_minderung(p_tenant_id uuid, p_umzug_id uuid)'),   -- KAN-145 B4 (lesend)
+    ('trigger',       '--S', false, 's112_jahrgang_loeschsperre()'),           -- KAN-148 C1d: Jahrgang nur ohne Bezüge
     ('trigger',       '--S', false, 's112_loeschsperre()'),                    -- KAN-145 A: BEFORE-DELETE-Sperre
     ('mandant',       '-US', true , 's112_storniert_loeschen(p_tenant_id uuid, p_tabelle text, p_id uuid, p_grund text)'),   -- KAN-145 A
     ('trigger',       '--S', false, 's112_storno_schutz()'),                   -- KAN-145 B1: Storno-Spalten

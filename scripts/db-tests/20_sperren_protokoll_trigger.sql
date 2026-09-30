@@ -433,11 +433,12 @@ BEGIN
      AND b.aktion = 'DELETE';   -- davor protokolliert: das Storno (UPDATE)
   v_erg := v_erg || pg_temp.s112_erwarte('protokoll_delete_zeile',
     concat_ws('|', v_n, v_txt, v_t1, v_t2, v_t3), concat_ws('|', 1, 'DELETE', v_m, 'true', v_mta));
-  -- DELETE einer Kindzeile ohne tenant_id → Mandant über die Eltern (pressungen)
-  PERFORM pg_temp.s112_als(v_mta);
+  -- DELETE einer Kindzeile ohne tenant_id → Mandant über die Eltern (pressungen). Seit KAN-148 C1d gesperrt – als
+  -- Wartung (postgres) mit Flag
+  PERFORM set_config('s112.loeschen_erlaubt', v_m::text, true);
   v_erg := v_erg || pg_temp.s112_erwarte('protokoll_delete_kind_ausfuehren',
     pg_temp.s112_fehlertext(format('DELETE FROM public.pressung_behaelter WHERE id = %L', v_pb)), 'ok');
-  PERFORM pg_temp.s112_als_postgres();
+  PERFORM set_config('s112.loeschen_erlaubt', '', true);
   v_erg := v_erg || pg_temp.s112_erwarte('protokoll_delete_kind_tenant',
     (SELECT string_agg(coalesce(b.tenant_id::text, 'NULL') || '/' || b.aktion, ',') FROM public.bestandsprotokoll b
       WHERE b.tabelle = 'pressung_behaelter' AND b.datensatz_id = v_pb), v_m::text || '/DELETE');

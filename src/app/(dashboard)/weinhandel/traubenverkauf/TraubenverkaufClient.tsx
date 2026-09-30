@@ -2,7 +2,7 @@
 
 import React, { useState, useTransition } from 'react'
 import { Pencil } from 'lucide-react'
-import { upsertTraubenverkauf, stornoTraubenverkauf } from './actions'
+import { upsertTraubenverkauf, stornoTraubenverkauf, endgueltigLoeschenTraubenverkauf } from './actions'
 import StornoButton from '@/components/StornoButton'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum } from '@/lib/format'
@@ -620,6 +620,14 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnte
                         <StornoButton
                           action={grund => stornoTraubenverkauf(v.id, grund)}
                           hinweis={`Der Traubenverkauf bleibt samt Liefernummer als storniert stehen, die kg werden wieder frei.${v.verkaufsposten_id ? ' Eine offene Rechnung, die nur diesen Traubenverkauf enthält, wird dabei storniert – sie bleibt als stornierter Beleg erhalten.' : ''}`} />
+                      </div>
+                    )}
+                    {/* KAN-148 C1d: endgültig löschen nur stornierter Traubenverkäufe ohne Rechnung */}
+                    {writeOk && v.storniert_am && !v.verkaufsposten_id && (
+                      <div className="flex items-center gap-2 shrink-0 text-xs">
+                        <StornoButton modus="loeschen" label="Endgültig löschen"
+                          action={grund => endgueltigLoeschenTraubenverkauf(v.id, grund)}
+                          hinweis="Nur bei einer Fehlerfassung: Der stornierte Eintrag wird endgültig entfernt – Grund und Benutzer stehen im Änderungsprotokoll. Nach einer eingereichten Erntemeldung nicht mehr möglich." />
                       </div>
                     )}
                   </div>
