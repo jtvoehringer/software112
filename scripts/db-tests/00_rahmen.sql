@@ -309,7 +309,7 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('soll_listen_laengen',
     array_length(pg_temp.s112_soll_liste('geheimnis_spalten'), 1) || '/' || array_length(pg_temp.s112_soll_liste('public_policies'), 1)
     || '/' || array_length(pg_temp.s112_soll_liste('protokoll_tabellen'), 1) || '/' || array_length(pg_temp.s112_soll_liste('g_tabellen'), 1),
-    '12/6/24/8');   -- KAN-129: protokoll_tabellen + lesen
+    '12/6/27/8');   -- KAN-129: protokoll_tabellen + lesen; KAN-149 D2: + ea_transaktionen, zahlungen, konto_umbuchungen
   v_erg := v_erg || pg_temp.s112_erwarte('soll_truncate_anon_wie_authenticated',
     pg_temp.s112_soll_liste('truncate_anon'), pg_temp.s112_soll_liste('truncate_authenticated'));
   SELECT count(*) INTO v_n FROM pg_temp.s112_soll_rpc()

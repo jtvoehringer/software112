@@ -3,11 +3,12 @@ import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/r
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
-import { stornoVerkauf, createZahlung, deleteZahlung } from '../actions'
+import { stornoVerkauf, createZahlung, stornoZahlung } from '../actions'
+import StornoButton from '@/components/StornoButton'
 import PrintButton from '@/app/(dashboard)/kellerbuch/kellerplan/[id]/PrintButton'
 import StornoKnopf from './StornoKnopf'
 import RechnungVersandPanel from './RechnungVersandPanel'
-import { Trash2, Mail, Phone, Info, CreditCard, FileText } from 'lucide-react'
+import { Mail, Phone, Info, CreditCard, FileText } from 'lucide-react'
 import { fmtEur, fmtNum } from '@/lib/format'
 
 export const dynamic = 'force-dynamic'
@@ -80,7 +81,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
       .single(),
     getTenantSettings(supabase, tenantId),
     (supabase.from('zahlungen') as any)
-      .select('id, betrag, art, datum, notizen, erstellt_am')
+      .select('id, betrag, art, datum, notizen, erstellt_am, storniert_am, storniert_von_name, storno_grund')
       .eq('verkaufsposten_id', id)
       .eq('tenant_id', tenantId ?? '')
       .order('datum', { ascending: true }),
@@ -135,7 +136,11 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
   const hatTraubenverkauf = (traubenverkaufAnzahl ?? 0) > 0 || positionen.some((p: R) => p.typ === 'trauben')
   const stornoMeldung =
     'Der Lagerbestand wird zurückgebucht, der Beleg bleibt mit Datum, Benutzer und Grund als storniert erhalten.' +
-    (hatTraubenverkauf ? ' Die zugehörigen Traubenverkäufe (BKI) werden mitstorniert, die Menge wird wieder frei.' : '')
+    (hatTraubenverkauf ? ' Die zugehörigen Traubenverkäufe (BKI) werden mitstorniert, die Menge wird wieder frei.' : '') +
+    // KAN-149 D2b (Ticket Frage 1): Einnahmen bleiben, solange nicht erstattet
+    (((zahlungenRaw ?? []) as R[]).some(z => !z.storniert_am)
+      ? ' Bezahlte Beträge bleiben als Einnahme stehen – mit „Erstattet am“ werden die Zahlungen an diesem Tag storniert und in der E&A gegengebucht.'
+      : '')
   const info = kundenInfo(posten)
 
   const FLASCHEN_LABEL: Record<number, string> = {
@@ -189,8 +194,10 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
     : null
   const skontoBetrag = skontoAktiv ? (gesamt * (posten.skonto_pct ?? 0)) / 100 : 0
 
+  // storno-sichtbar: stornierte Zahlungen stehen gekennzeichnet in der Liste, zählen aber nicht (KAN-149 D2b)
   const zahlungen      = (zahlungenRaw ?? []) as R[]
-  const bezahltSumme   = zahlungen.reduce((s: number, z: R) => s + Number(z.betrag ?? 0), 0)
+  const gueltigeZahlungen = zahlungen.filter((z: R) => !z.storniert_am)
+  const bezahltSumme   = gueltigeZahlungen.reduce((s: number, z: R) => s + Number(z.betrag ?? 0), 0)
   const offenerBetrag  = gesamt - bezahltSumme
   const vollBezahlt    = offenerBetrag <= 0.01
   const teilBezahlt    = bezahltSumme > 0.01 && !vollBezahlt
@@ -241,7 +248,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
           )}
           <PrintButton />
           {writeOk && !posten.storniert && (
-            <StornoKnopf action={stornoWithId} meldung={stornoMeldung} />
+            <StornoKnopf action={stornoWithId} meldung={stornoMeldung} erstattung={gueltigeZahlungen.length > 0} />
           )}
           <div className="flex items-center border border-s112-border rounded-lg overflow-hidden text-xs">
             <a href={`/weinhandel/verkauf/${id}?mode=lieferschein`}
@@ -542,19 +549,26 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
                 </thead>
                 <tbody>
                   {zahlungen.map((z: R) => (
-                    <tr key={z.id} className="border-b border-s112-border last:border-0">
+                    <tr key={z.id} className={`border-b border-s112-border last:border-0 ${z.storniert_am ? 'text-s112-muted' : ''}`}>
                       <td className="px-3 py-2 text-s112-text-1">{new Date(z.datum).toLocaleDateString('de-AT')}</td>
-                      <td className="px-3 py-2">{ART_LABELS[z.art] ?? z.art}</td>
-                      <td className="px-3 py-2 text-right font-semibold tabular-nums text-s112-blue-700">
+                      <td className="px-3 py-2">
+                        {ART_LABELS[z.art] ?? z.art}
+                        {/* KAN-149 D2b: stornierte Zahlung mit Datum, Benutzer und Grund */}
+                        {z.storniert_am && (
+                          <span className="block text-[11px] text-s112-err-fg">
+                            storniert am {new Date(z.storniert_am).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}
+                            {z.storniert_von_name ? ` von ${z.storniert_von_name}` : ''}{z.storno_grund ? ` – ${z.storno_grund}` : ''}
+                          </span>
+                        )}
+                      </td>
+                      <td className={`px-3 py-2 text-right font-semibold tabular-nums ${z.storniert_am ? 'line-through' : 'text-s112-blue-700'}`}>
                         {fmtEur(Number(z.betrag))}
                       </td>
                       <td className="px-3 py-2 text-right">
-                        {writeOk && (
-                          <form action={deleteZahlung.bind(null, z.id, id)}>
-                            <button type="submit" title="Löschen" aria-label="Löschen" className="text-s112-err hover:text-s112-err-fg inline-flex">
-                              <Trash2 size={14} />
-                            </button>
-                          </form>
+                        {writeOk && !z.storniert_am && (
+                          <StornoButton action={stornoZahlung.bind(null, z.id, id)} label="Zahlung stornieren"
+                            hinweis="Die Zahlung bleibt gekennzeichnet stehen und zählt nicht mehr; ihre E&A-Einnahme wird gegengebucht."
+                            datumFeld={{ label: 'Erstattet am (optional)', hilfe: 'Leer: Gegenbuchung am Tag der Einnahme (offener Zeitraum), sonst heute.' }} />
                         )}
                       </td>
                     </tr>

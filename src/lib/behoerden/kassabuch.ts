@@ -14,6 +14,7 @@ import { rundeText, runden, type CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
 import { betrag, datumText, text } from './buchhaltung-gemeinsam'
 import { MeldungsFehler } from './typen'
+import { mitStornoGegenzeile } from '@/lib/finanzen/stornoGegenzeile'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -145,7 +146,7 @@ export async function ladeKassabuch(supabase: any, tenantId: string, p: Kassabuc
   const [zRes, tRes, vonRes, nachRes] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     alle<R>((supabase.from('zahlungen') as any)
-      .select('id, betrag, datum, abgeglichen, erstellt_am, verkaufsposten(rechnungsnummer)')
+      .select('id, betrag, datum, abgeglichen, erstellt_am, storniert_am, storno_grund, verkaufsposten(rechnungsnummer)')
       .eq('tenant_id', tenantId).eq('konto_id', konto.id).lte('datum', p.bis).order('datum').order('id')),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     alle<R>((supabase.from('ea_transaktionen') as any)
@@ -153,11 +154,11 @@ export async function ladeKassabuch(supabase: any, tenantId: string, p: Kassabuc
       .eq('tenant_id', tenantId).eq('konto_id', konto.id).lte('datum', p.bis).order('datum').order('id')),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     alle<R>((supabase.from('konto_umbuchungen') as any)
-      .select('id, betrag, datum, beschreibung, von_abgeglichen, erstellt_am, nach:konten!nach_konto_id(name)')
+      .select('id, betrag, datum, beschreibung, von_abgeglichen, erstellt_am, storniert_am, storno_grund, nach:konten!nach_konto_id(name)')
       .eq('tenant_id', tenantId).eq('von_konto_id', konto.id).lte('datum', p.bis).order('datum').order('id')),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     alle<R>((supabase.from('konto_umbuchungen') as any)
-      .select('id, betrag, datum, beschreibung, nach_abgeglichen, erstellt_am, von:konten!von_konto_id(name)')
+      .select('id, betrag, datum, beschreibung, nach_abgeglichen, erstellt_am, storniert_am, storno_grund, von:konten!von_konto_id(name)')
       .eq('tenant_id', tenantId).eq('nach_konto_id', konto.id).lte('datum', p.bis).order('datum').order('id')),
   ])
   for (const [r, tabelle] of [[zRes, 'zahlungen'], [tRes, 'ea_transaktionen'], [vonRes, 'konto_umbuchungen'], [nachRes, 'konto_umbuchungen']] as const) {
@@ -165,14 +166,17 @@ export async function ladeKassabuch(supabase: any, tenantId: string, p: Kassabuc
   }
 
   const s = (v: unknown) => String(v ?? '')
+  // KAN-149 D2b (Ticket Soll 6): stornierte Zahlung/Umbuchung an ihrem Tag gekennzeichnet, Gegenzeile am Storno-Tag
+  const storno = (b: KassaBewegung, z: R) => mitStornoGegenzeile(b, { storniertAm: z.storniert_am, grund: z.storno_grund }, 'text',
+    { abgeglichen: false, erfasst: s(z.storniert_am) })
   const bewegungen: KassaBewegung[] = [
-    ...zRes.data.map(z => {
+    ...zRes.data.flatMap(z => {
       const re = text(z.verkaufsposten?.rechnungsnummer)
-      return {
+      return storno({
         id: s(z.id), datum: s(z.datum).slice(0, 10), erfasst: s(z.erstellt_am), beleg: re,
         text: `Zahlungseingang${re ? ` RE ${re}` : ''}`, art: 'Zahlungseingang',
         betrag: betrag(z.betrag) ?? 0, gegenkonto: null, abgeglichen: !!z.abgeglichen,
-      }
+      }, z)
     }),
     ...tRes.data.map(t => ({
       id: s(t.id), datum: s(t.datum).slice(0, 10), erfasst: s(t.erstellt_am),
@@ -180,16 +184,16 @@ export async function ladeKassabuch(supabase: any, tenantId: string, p: Kassabuc
       text: text(t.beschreibung) ?? '', art: t.typ === 'einnahme' ? 'Einnahme (E&A)' : 'Ausgabe (E&A)',
       betrag: (t.typ === 'einnahme' ? 1 : -1) * (betrag(t.betrag_brutto) ?? 0), gegenkonto: null, abgeglichen: !!t.abgeglichen,
     })),
-    ...vonRes.data.map(u => ({
+    ...vonRes.data.flatMap(u => storno({
       id: s(u.id), datum: s(u.datum).slice(0, 10), erfasst: s(u.erstellt_am), beleg: null,
       text: text(u.beschreibung) ?? `Umbuchung an ${text(u.nach?.name) ?? 'anderes Konto'}`, art: 'Umbuchung',
       betrag: -(betrag(u.betrag) ?? 0), gegenkonto: text(u.nach?.name), abgeglichen: !!u.von_abgeglichen,
-    })),
-    ...nachRes.data.map(u => ({
+    }, u)),
+    ...nachRes.data.flatMap(u => storno({
       id: s(u.id), datum: s(u.datum).slice(0, 10), erfasst: s(u.erstellt_am), beleg: null,
       text: text(u.beschreibung) ?? `Umbuchung von ${text(u.von?.name) ?? 'anderem Konto'}`, art: 'Umbuchung',
       betrag: betrag(u.betrag) ?? 0, gegenkonto: text(u.von?.name), abgeglichen: !!u.nach_abgeglichen,
-    })),
+    }, u)),
   ]
 
   const { zeilen, warnungen } = kassabuchZeilen(konto, bewegungen, p.von, p.bis)

@@ -2,8 +2,8 @@
 
 import { useState, useTransition } from 'react'
 import Link from '@/components/ui/Link'
-import { createUmbuchung, deleteUmbuchung, setzeAbgeglichen } from '../../actions'
-import ConfirmDeleteForm from '@/components/ui/ConfirmDeleteForm'
+import { createUmbuchung, stornoUmbuchung, setzeAbgeglichen } from '../../actions'
+import StornoButton from '@/components/StornoButton'
 import { AlertTriangle, Lock } from 'lucide-react'
 import type { Bewegung } from './page'
 import { fmtEur } from '@/lib/format'
@@ -26,7 +26,7 @@ function BewegungsZeile({ b, kontoId, writeOk }: { b: Bewegung; kontoId: string;
   const [pending, startTransition] = useTransition()
 
   return (
-    <tr className="border-b border-s112-border/50 hover:bg-s112-bg/50">
+    <tr className={`border-b border-s112-border/50 hover:bg-s112-bg/50 ${b.storniert || b.gegenzeile ? 'text-s112-muted' : ''}`}>
       <td className="px-4 py-2.5 text-s112-text-2 whitespace-nowrap text-sm">
         {new Date(b.datum).toLocaleDateString('de-AT')}
       </td>
@@ -48,19 +48,22 @@ function BewegungsZeile({ b, kontoId, writeOk }: { b: Bewegung; kontoId: string;
         <input
           type="checkbox"
           checked={b.abgeglichen}
-          disabled={!writeOk || pending}
+          disabled={!writeOk || pending || !!b.gegenzeile}
           onChange={() => startTransition(() => { setzeAbgeglichen(kontoId, b.quelle, b.id, !b.abgeglichen) })}
           className="rounded accent-s112-teal cursor-pointer disabled:cursor-not-allowed"
           title="Gegen Kontoauszug abgeglichen"
         />
       </td>
       <td className="px-2 py-2.5">
-        {writeOk && (b.quelle === 'umbuchung_von' || b.quelle === 'umbuchung_nach') && (
-          <ConfirmDeleteForm
-            action={async () => { await deleteUmbuchung(b.id, kontoId, b.andereKontoId ?? kontoId) }}
-            message="Diese Umbuchung löschen? Sie wird auf beiden Konten entfernt."
-            title="Umbuchung löschen"
-            className="text-xs text-s112-err hover:text-s112-err-fg"
+        {/* KAN-149 D2b: stornieren statt löschen – nicht an stornierten Umbuchungen und Gegenzeilen */}
+        {writeOk && (b.quelle === 'umbuchung_von' || b.quelle === 'umbuchung_nach') && !b.storniert && !b.gegenzeile && (
+          <StornoButton
+            label="Umbuchung stornieren"
+            hinweis="Die Umbuchung bleibt auf beiden Konten gekennzeichnet stehen; am Storno-Tag steht die Gegenzeile."
+            action={async grund => {
+              const r = await stornoUmbuchung(b.id, kontoId, b.andereKontoId ?? kontoId, grund)
+              if (r && 'error' in r && r.error) return { error: r.error }
+            }}
           />
         )}
       </td>

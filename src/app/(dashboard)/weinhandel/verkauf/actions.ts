@@ -9,6 +9,7 @@ import { randomUUID } from 'crypto'
 import { syncEaEinnahmeFuerVerkauf } from '@/app/(dashboard)/buchhaltung/actions'
 import { fmtEur, fmtNum, dezimal } from '@/lib/format'
 import { AktionsFehler, dbFehlerText, fehlerText, LESE_WAEHLEN_MELDUNG } from '@/lib/fehler'
+import { stornoGrundFehler } from '@/lib/storno/grund'
 import { traubenverkaufLese } from '@/lib/wein/leseBilanz'
 import { qualitaetFehler } from '@/lib/wein/qualitaet'
 import { mostgewichtAusWert, mostgewichtSpalten } from '@/lib/wein/mostgewichtFormular'
@@ -44,7 +45,8 @@ async function getTenantId(): Promise<string> {
 // Synchronisierung buchte den doppelten Zahlungseingang in die E&A.
 const EA_VORGANG = {
   gespeichert: 'Die Zahlung ist gespeichert (bitte nicht erneut erfassen)',
-  gelöscht:    'Die Zahlung ist gelöscht',
+  storniert:   'Die Zahlung ist storniert',
+  verkauf:     'Der Verkauf ist storniert',
   bezahlt:     'Der Verkauf ist als bezahlt markiert (Zahlung bitte nicht erneut erfassen)',
 } as const
 
@@ -483,13 +485,18 @@ export async function deactivateVerkauf(id: string): Promise<never> {
 // Chargen werden wieder aktiv), dann Kennzeichen nur bei storniert = false (sonst wird die
 // Rückbuchung zurückgenommen). Zukauf-/Pressungsmengen bleiben unverändert.
 
-// KAN-149 D1: Grund Pflicht (mind. 10 Zeichen) – Datum und Benutzer setzt die Datenbank
-export async function stornoVerkauf(id: string, grund: string) {
+// KAN-149 D1: Grund Pflicht (mind. 10 Zeichen) – Datum und Benutzer setzt die Datenbank.
+// KAN-149 D2b: `erstattetAm` (JJJJ-MM-TT) – bezahlte Beträge erstattet: Zahlungen an diesem Tag stornieren, ihre
+// E&A-Einnahmen gegenbuchen. Ohne Erstattung bleiben Zahlungen und Einnahmen stehen (Geld ist eingegangen).
+export async function stornoVerkauf(id: string, grund: string, erstattetAm?: string | null) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
+  if (erstattetAm && !/^\d{4}-\d{2}-\d{2}$/.test(erstattetAm)) throw new AktionsFehler('Bitte ein gültiges Erstattungsdatum angeben.')
 
   try {
-    await verkaufspostenStornieren(supabase, tenantId, id, grund)
+    await verkaufspostenStornieren(supabase, tenantId, id, grund, { erstattetAm: erstattetAm || null })
+    // Alt-Einnahmen ohne Zahlungsbezug und die stornierten Zahlungen abgleichen
+    if (erstattetAm) eaErgebnisPruefen(await syncEaEinnahmeFuerVerkauf(id), 'verkauf')
   } finally {
     revalidatePath('/weinhandel/verkauf')
     revalidatePath(`/weinhandel/verkauf/${id}`)
@@ -529,10 +536,12 @@ export async function markiereAlsBezahlt(id: string) {
     return s + brutto * (1 - rabatt) * (1 - sonder)
   }, 0)
 
+  // KAN-149 D2b: stornierte Zahlungen zählen nicht
   const { data: zahlungenRaw } = await (supabase.from('zahlungen') as any)
     .select('betrag')
     .eq('verkaufsposten_id', id)
     .eq('tenant_id', tenantId)
+    .is('storniert_am', null)
   const bereitsBezahlt = ((zahlungenRaw ?? []) as AR[]).reduce((s, z) => s + Number(z.betrag ?? 0), 0)
   const offen = gesamt - bereitsBezahlt
 
@@ -627,20 +636,39 @@ export async function createZahlung(
   eaErgebnisPruefen(ea, 'gespeichert')
 }
 
-export async function deleteZahlung(
+// Zahlung stornieren statt löschen (KAN-149 D2b): Die Zahlung bleibt mit Datum, Benutzer und Grund stehen und zählt
+// nirgends mehr (bezahlt, offene Posten, Kassabuch, Kontosaldo). Ihre E&A-Einnahmen bucht die RPC gegen – am Tag der
+// Erstattung (`erstattetAm`), sonst am Tag der Einnahme, solange deren Zeitraum offen ist, sonst heute.
+// Darf, wer Zahlungen erfassen darf (Warenwirtschaft oder E&A, RPC s112_zahlung_stornieren).
+export async function stornoZahlung(
   zahlungId: string,
-  verkaufspostenId: string
+  verkaufspostenId: string,
+  grund: string,
+  erstattetAm?: string | null,
 ): Promise<void> {
-  'use server'
+  const fehler = stornoGrundFehler(grund)
+  if (fehler) throw new AktionsFehler(fehler)
+  if (erstattetAm && !/^\d{4}-\d{2}-\d{2}$/.test(erstattetAm)) throw new AktionsFehler('Bitte ein gültiges Erstattungsdatum angeben.')
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
-  const { error } = await (supabase.from('zahlungen') as any).delete().eq('id', zahlungId).eq('tenant_id', tenantId)
-  if (error) throw new AktionsFehler(dbFehlerText(error))
+  // Zahlung muss zu diesem Verkauf gehören (die RPC prüft den Betrieb)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: z, error: zErr } = await (supabase.from('zahlungen') as any)
+    .select('id').eq('id', zahlungId).eq('verkaufsposten_id', verkaufspostenId).eq('tenant_id', tenantId).maybeSingle()
+  if (zErr) throw new AktionsFehler(dbFehlerText(zErr, 'Zahlung konnte nicht geladen werden'))
+  if (!z) throw new AktionsFehler('Zahlung nicht gefunden – bitte die Seite neu laden.')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.rpc as any)('s112_zahlung_stornieren', {
+    p_tenant_id: tenantId, p_zahlung_id: zahlungId, p_grund: grund.trim(), p_datum: erstattetAm || null,
+  })
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Zahlung konnte nicht storniert werden'))
 
+  // Alt-Einnahmen ohne Zahlungsbezug (vor KAN-149 D2) abgleichen
   const ea = await syncEaEinnahmeFuerVerkauf(verkaufspostenId)
 
   revalidatePath(`/weinhandel/verkauf/${verkaufspostenId}`)
   revalidatePath('/weinhandel/offene-posten')
   revalidatePath('/buchhaltung')
-  eaErgebnisPruefen(ea, 'gelöscht')
+  revalidatePath('/konten')
+  eaErgebnisPruefen(ea, 'storniert')
 }

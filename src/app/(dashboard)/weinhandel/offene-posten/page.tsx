@@ -43,7 +43,8 @@ export default async function OffenePostenPage() {
   if (offeneIds.length > 0) {
     const { data: zahlungenRaw } = await tf((supabase.from('zahlungen') as any)
       .select('verkaufsposten_id, betrag')
-      .in('verkaufsposten_id', offeneIds))
+      .in('verkaufsposten_id', offeneIds)
+      .is('storniert_am', null))   // KAN-149 D2b: stornierte Zahlungen zählen nicht
     for (const z of (zahlungenRaw ?? []) as R[]) {
       const key = z.verkaufsposten_id as string
       bereitsBezahltMap.set(key, (bereitsBezahltMap.get(key) ?? 0) + Number(z.betrag ?? 0))

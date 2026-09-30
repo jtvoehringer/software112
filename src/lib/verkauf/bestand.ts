@@ -32,7 +32,6 @@ import { AktionsFehler, dbFehlerText, fehlerText } from '@/lib/fehler'
 import { fmtNum } from '@/lib/format'
 import { gebindeFehlerText } from '@/lib/keller/behaelter'
 import { getCurrentMembership, canWrite, type Membership } from '@/lib/auth/roles'
-import { ersetzeVerkaufsEinnahmen } from '@/lib/ea/verkaufEinnahmen'
 import { lokalerTag, wienJetzt } from '@/lib/datum/wien'
 import { stornoGrundFehler } from '@/lib/storno/grund'
 import type { createSupabaseServerClient } from '@/lib/supabase/server'
@@ -316,11 +315,17 @@ export async function bestandBuchenAllesOderNichts(
  *     Liefernummer und verkauf_positionen.traubenverkauf_id bleiben, die kg werden frei; über
  *     verkauf_positionen.traubenverkauf_id UND traubenverkauf.verkaufsposten_id – auch Rechnungen aus
  *     Traubenverkauf/Erntemeldung). Grund: derselbe wie beim Verkauf.
- *  4. Nicht gesperrte E&A-Einnahmebuchungen entfernen, CRM-Aktivität kennzeichnen.
+ *  4. Mit Erstattung (KAN-149 D2b, Ticket Frage 1): die gültigen Zahlungen am Erstattungstag stornieren – ihre
+ *     E&A-Einnahmen bucht s112_zahlung_stornieren an diesem Tag gegen. Ohne Erstattung bleiben Zahlungen und
+ *     Einnahmen stehen (das Geld ist eingegangen). CRM-Aktivität kennzeichnen.
  * Scheitert Schritt 3 oder 4, ist der Verkauf storniert und der Bestand zurückgebucht:
  * am Ende kommt eine Fehlermeldung mit den offenen Punkten.
  */
-export async function verkaufspostenStornieren(supabase: SB, tenantId: string, postenId: string, grund: string): Promise<void> {
+export async function verkaufspostenStornieren(
+  supabase: SB, tenantId: string, postenId: string, grund: string,
+  /** KAN-149 D2b: bezahlte Beträge am Tag erstattet (JJJJ-MM-TT) → Zahlungen stornieren, Einnahmen gegenbuchen */
+  opt: { erstattetAm?: string | null } = {},
+): Promise<void> {
   // KAN-149 D1: Grund Pflicht (mind. 10 Zeichen) – Beleg, Flaschenzeilen und Traubenverkauf tragen ihn
   const grundFehler = stornoGrundFehler(grund)
   if (grundFehler) throw new AktionsFehler(grundFehler)
@@ -440,17 +445,25 @@ export async function verkaufspostenStornieren(supabase: SB, tenantId: string, p
     }
   }
 
-  // 4a. Verknüpfte, nicht gesperrte E&A-Einnahmen entfernen – ein Storno macht den
-  //     zugehörigen Zahlungseingang ungültig. Die Einnahmen sind aus den Zahlungen abgeleitet
-  //     und gehen über ersetzeVerkaufsEinnahmen (Service-Role, KAN-149 Nebenbefund 2): Wer
-  //     stornieren darf, nimmt sie mit zurück – per RLS dürften sonst nur Betriebs-Manager
-  //     löschen. Gesperrte Einnahmen (übermittelte UVA) bleiben stehen (Gegenbuchung: KAN-149).
-  //     Die Einnahmen liest erst der Helfer, also nach Rückbuchung und Storno-Kennzeichen:
-  //     Fehler beim Lesen oder Entfernen landen nur als offener Punkt in `probleme` – der
-  //     Storno ist dann schon durchgeführt.
-  {
-    const ea = await ersetzeVerkaufsEinnahmen(tenantId, postenId, [], { beiGesperrtenNichtsAendern: false })
-    if (!ea.ok) probleme.push(`${ea.fehler.replace(/[.\s]+$/, '')} – bitte in der E&A-Rechnung prüfen, sonst stimmt die UVA nicht`)
+  // 4a. Erstattung (KAN-149 D2b): gültige Zahlungen am Erstattungstag stornieren – die RPC bucht ihre E&A-Einnahmen an
+  //     diesem Tag gegen (offener Zeitraum). Ohne Erstattung bleiben Zahlungen und Einnahmen stehen; der Aufrufer
+  //     gleicht danach die Einnahmen ab (Alt-Einnahmen ohne Zahlungsbezug). Fehler landen als offener Punkt in
+  //     `probleme` – der Storno ist dann schon durchgeführt.
+  if (opt.erstattetAm) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: zRaw, error: zErr } = await (supabase.from('zahlungen') as any)
+      .select('id')
+      .eq('verkaufsposten_id', postenId)
+      .eq('tenant_id', tenantId)
+      .is('storniert_am', null)
+    if (zErr) probleme.push(dbFehlerText(zErr, 'Zahlungen des Verkaufs konnten nicht geladen werden'))
+    for (const z of ((zRaw ?? []) as R[])) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.rpc as any)('s112_zahlung_stornieren', {
+        p_tenant_id: tenantId, p_zahlung_id: z.id, p_grund: `Erstattung – ${stornoGrund}`, p_datum: opt.erstattetAm,
+      })
+      if (error) probleme.push(dbFehlerText(error, 'Zahlung konnte nicht storniert werden (Erstattung)'))
+    }
   }
 
   // 4b. CRM-Aktivität auf STORNIERT setzen (nicht kritisch)

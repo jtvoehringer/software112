@@ -23,6 +23,7 @@ async function berechneSaldo(supabase: R, tenantId: string, konto: R): Promise<n
   const { data: zahlungenRaw } = await (supabase.from('zahlungen') as any)
     .select('betrag, datum').eq('tenant_id', tenantId).eq('konto_id', konto.id)
     .gt('datum', konto.eroeffnungsdatum)
+    .is('storniert_am', null)   // KAN-149 D2b: stornierte Zahlungen zählen nicht
   saldo += ((zahlungenRaw ?? []) as R[]).reduce((s, z) => s + Number(z.betrag ?? 0), 0)
 
   const { data: txRaw } = await (supabase.from('ea_transaktionen') as any)
@@ -33,11 +34,13 @@ async function berechneSaldo(supabase: R, tenantId: string, konto: R): Promise<n
   const { data: umbVonRaw } = await (supabase.from('konto_umbuchungen') as any)
     .select('betrag, datum').eq('tenant_id', tenantId).eq('von_konto_id', konto.id)
     .gt('datum', konto.eroeffnungsdatum)
+    .is('storniert_am', null)
   saldo -= ((umbVonRaw ?? []) as R[]).reduce((s, u) => s + Number(u.betrag ?? 0), 0)
 
   const { data: umbNachRaw } = await (supabase.from('konto_umbuchungen') as any)
     .select('betrag, datum').eq('tenant_id', tenantId).eq('nach_konto_id', konto.id)
     .gt('datum', konto.eroeffnungsdatum)
+    .is('storniert_am', null)
   saldo += ((umbNachRaw ?? []) as R[]).reduce((s, u) => s + Number(u.betrag ?? 0), 0)
 
   return saldo
