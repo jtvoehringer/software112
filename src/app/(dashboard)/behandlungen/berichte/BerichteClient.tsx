@@ -13,6 +13,7 @@ import {
   type PsmBehandlung, type WeingartenStamm,
 } from '@/lib/behoerden/psm'
 import { cuBilanz, CU_GRENZWERT_KG_HA_5J, CU_GRENZWERT_KG_HA_JAHR, CU_WARNSCHWELLE } from '@/lib/behoerden/cu'
+import { summiereJe, verteileMassnahme, type Verteilung } from '@/lib/wein/massnahmeAnteile'
 
 type Tab = 'ried' | 'mittel' | 'cu'
 
@@ -23,43 +24,52 @@ function fmtHa(n: number) {
   return n.toLocaleString(ZAHL_LOCALE, { maximumFractionDigits: 4 }) + ' ha'
 }
 
-function riedSchluessel(lageId: string | null) {
-  return lageId ?? OHNE_RIED
+/** KAN-132: Ried = Weingarten (Entscheidung Jörgen 26.09.2026) – Schlüssel ist die Weingarten-id */
+function riedSchluessel(weingartenId: string | null) {
+  return weingartenId ?? OHNE_RIED
 }
 
 // ─── Ried Tab ─────────────────────────────────────────────────────────────────
-// Ersetzt die frühere getrennte "Pro Weingarten"/"Pro Ried"-Ansicht (beide Tabs
-// waren identisch beschriftet "Pro Ried" und verwirrend). Ein Tab, gruppiert
-// nach Ried (Lage), mit Auswahl "Alle Rieden" / einzelnes Ried sowie Art.
-// Seit KAN-133 (26.09.2026) die Mittelmenge aus mittelmenge() statt „Menge gesamt“ – die ist bei
-// Spritzungen die Spritzbrühe und steht nur als Zusatzzeile da (nie summiert); Anteil nach Fläche
-// wie die CSV „psm-aufzeichnung“.
+// Seit KAN-132 (30.09.2026): gruppiert nach Ried = Weingarten (die Lage steht daneben), Anteile je GST über
+// verteileMassnahme() (lib/wein/massnahmeAnteile.ts) wie die CSV „psm-aufzeichnung“: Methode des größten Rests,
+// ohne Fläche gleichmäßig, GST ohne Fläche ohne Anteil. Je Ried eine Summe je Mittel × Einheit (nie über Mittel
+// oder Einheiten hinweg). Die Mittelmenge kommt aus mittelmenge() (KAN-133), nie aus „Menge gesamt“.
 function TabRied({ behandlungen, jahr, ried, art }: { behandlungen: PsmBehandlung[]; jahr: string; ried: string; art: string }) {
   const filtered = behandlungen.filter(b =>
     (jahr === 'all' || String(b.jahr) === jahr) &&
     (art === 'all' || b.art === art)
   )
 
-  const lageMap = new Map<string, { name: string; behandlungen: PsmBehandlung[] }>()
+  const riedMap = new Map<string, { name: string; lage: string | null; zeilen: { b: PsmBehandlung; v: Verteilung; ha: number; mittel: number | null; ohneFlaeche: boolean }[] }>()
   for (const b of filtered) {
-    const lageIds = new Set(b.grundstuecke.map(g => riedSchluessel(g.lageId)))
-    for (const lId of lageIds) {
-      const g0 = b.grundstuecke.find(g => riedSchluessel(g.lageId) === lId)
-      const lName = lId === OHNE_RIED ? 'Ohne Ried' : (g0?.ried ?? 'Ohne Ried')
-      if (!lageMap.has(lId)) lageMap.set(lId, { name: lName, behandlungen: [] })
-      lageMap.get(lId)!.behandlungen.push(b)
+    const v = verteileMassnahme(b)
+    const ids = new Set(v.anteile.map(a => riedSchluessel(a.weingartenId)))
+    for (const rId of ids) {
+      const eigene = v.anteile.filter(a => riedSchluessel(a.weingartenId) === rId)
+      const a0 = eigene[0]
+      if (!riedMap.has(rId)) riedMap.set(rId, { name: rId === OHNE_RIED ? 'Ohne Ried' : (a0?.weingarten ?? 'Ohne Ried'), lage: a0?.lage ?? null, zeilen: [] })
+      riedMap.get(rId)!.zeilen.push({
+        b, v: { ...v, anteile: eigene },
+        ha: eigene.reduce((sum, a) => sum + (a.flaecheHa ?? 0), 0),
+        mittel: eigene.every(a => a.mittel === null) ? null : eigene.reduce((sum, a) => sum + (a.mittel ?? 0), 0),
+        ohneFlaeche: v.warnungen.length > 0,
+      })
     }
   }
-  let lagen = Array.from(lageMap.entries()).sort(([, a], [, b]) => a.name.localeCompare(b.name, 'de'))
-  if (ried !== 'all') lagen = lagen.filter(([lId]) => lId === ried)
+  let rieden = Array.from(riedMap.entries()).sort(([, a], [, b]) => a.name.localeCompare(b.name, 'de'))
+  if (ried !== 'all') rieden = rieden.filter(([rId]) => rId === ried)
 
-  if (lagen.length === 0) return <EmptyState />
+  if (rieden.length === 0) return <EmptyState />
 
   return (
     <div className="space-y-4">
-      {lagen.map(([lId, lage]) => (
-        <div key={lId} className="card">
-          <h3 className="font-semibold text-s112-text mb-3">{lage.name}</h3>
+      {rieden.map(([rId, r]) => {
+        const summe = summiereJe(r.zeilen.map(z => z.v), 'betrieb').get('betrieb')
+        return (
+        <div key={rId} className="card">
+          <h3 className="font-semibold text-s112-text mb-3">
+            {r.name}{r.lage && <span className="font-normal text-s112-muted"> · Lage {r.lage}</span>}
+          </h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm border-collapse">
               <thead>
@@ -73,18 +83,9 @@ function TabRied({ behandlungen, jahr, ried, art }: { behandlungen: PsmBehandlun
                 </tr>
               </thead>
               <tbody>
-                {lage.behandlungen.map(b => {
+                {r.zeilen.map(({ b, ha, mittel, ohneFlaeche }) => {
                   const mm = mittelmenge(b)
                   const bruehe = spritzbruehe(b)
-                  const totalHa = b.grundstuecke.reduce((s, g) => s + (g.flaecheHa ?? 0), 0)
-                  const lageHa = b.grundstuecke.filter(g => riedSchluessel(g.lageId) === lId).reduce((s, g) => s + (g.flaecheHa ?? 0), 0)
-                  // ein einziger Ort trägt die ganze Menge (wie die CSV)
-                  const anteil = b.grundstuecke.length <= 1 ? 1 : totalHa > 0 ? lageHa / totalHa : null
-                  const anteilMenge = mm.menge !== null && anteil !== null ? mm.menge * anteil : null
-                  // GST dieser Ried ohne Fläche: kein bzw. nur anteiliger Wert (wie der Hinweis der CSV)
-                  const ohneFlaeche = b.grundstuecke.length > 1 && (mm.menge !== null || bruehe !== null) &&
-                    b.grundstuecke.some(g => riedSchluessel(g.lageId) === lId && g.flaecheHa == null)
-
                   return (
                     <tr key={b.id} className="border-b border-s112-border/40 hover:bg-s112-bg/30">
                       <td className="py-2 pr-3 tabular-nums">{datumDe(b.datum)}</td>
@@ -95,23 +96,36 @@ function TabRied({ behandlungen, jahr, ried, art }: { behandlungen: PsmBehandlun
                         {mm.menge === null && mm.grund !== 'art' && <span className="block text-xs text-s112-warn-fg">{mm.warnung}</span>}
                         {bruehe !== null && <span className="block text-xs text-s112-muted">Brühe {fmtNum(bruehe, 3)} l</span>}
                       </td>
-                      <td className="py-2 pr-3 text-right tabular-nums">{fmtHa(lageHa)}</td>
+                      <td className="py-2 pr-3 text-right tabular-nums">{ha > 0 ? fmtHa(ha) : '–'}</td>
                       <td className="py-2 text-right tabular-nums font-medium text-s112-blue-700">
-                        {anteilMenge !== null ? `${fmtNum(anteilMenge, 3)} ${mm.einheit}` : '–'}
-                        {ohneFlaeche && (
-                          <span className="block text-xs font-normal text-s112-warn-fg">
-                            {anteil === null ? 'GST ohne Fläche – nicht verteilt' : 'GST ohne Fläche – nur auf GST mit Fläche verteilt'}
-                          </span>
+                        {mittel !== null ? `${fmtNum(mittel, 3)} ${mm.einheit}` : '–'}
+                        {ohneFlaeche && (mm.menge !== null || bruehe !== null) && (
+                          <span className="block text-xs font-normal text-s112-warn-fg">GST ohne Fläche – siehe Hinweis in der CSV</span>
                         )}
                       </td>
                     </tr>
                   )
                 })}
               </tbody>
+              {summe && summe.mittel.size > 0 && (
+                <tfoot>
+                  {[...summe.mittel.values()].sort((a, b) => a.mittel.localeCompare(b.mittel, 'de')).map(m => (
+                    <tr key={`${m.mittel}|${m.einheit}`} className="border-t border-s112-border">
+                      <td colSpan={5} className="py-1.5 pr-3 text-xs text-s112-muted">Summe {m.mittel}</td>
+                      <td className="py-1.5 text-right tabular-nums font-semibold">{fmtNum(m.menge, 3)} {m.einheit}</td>
+                    </tr>
+                  ))}
+                  {summe.cuKg > 0 && (
+                    <tr><td colSpan={5} className="py-1.5 pr-3 text-xs text-s112-muted">Summe Reinkupfer</td>
+                      <td className="py-1.5 text-right tabular-nums font-semibold">{fmtNum(summe.cuKg, 4)} kg</td></tr>
+                  )}
+                </tfoot>
+              )}
             </table>
           </div>
         </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
@@ -403,8 +417,8 @@ function getRieden(behandlungen: PsmBehandlung[]) {
   const map = new Map<string, string>()
   for (const b of behandlungen) {
     for (const g of b.grundstuecke) {
-      const key = riedSchluessel(g.lageId)
-      if (!map.has(key)) map.set(key, key === OHNE_RIED ? 'Ohne Ried' : (g.ried ?? 'Ohne Ried'))
+      const key = riedSchluessel(g.weingartenId)
+      if (!map.has(key)) map.set(key, key === OHNE_RIED ? 'Ohne Ried' : (g.weingarten ?? 'Ohne Ried'))
     }
   }
   return Array.from(map.entries()).sort(([, a], [, b]) => a.localeCompare(b, 'de'))

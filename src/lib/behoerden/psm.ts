@@ -28,10 +28,11 @@
 // Fläche des EINEN Weingartens aus weingarten_id – bei Maßnahmen über mehrere Rieden viel zu hoch.
 
 import { runden, STELLEN, type CsvSpalte } from '@/lib/csv'
-import { fmtNum } from '@/lib/format'
 import { alle } from '@/lib/supabase/alle'
 import { MASSNAHMEN_ART_LABEL } from '@/lib/behandlungen/arten'
 import type { LadeErgebnis } from './typen'
+// KAN-132: zentrale Anteilsfunktion (Zyklus psm ↔ massnahmeAnteile ist unkritisch: nur Funktionen, keine Werte beim Laden)
+import { verteileMassnahme, WARNUNG_GLEICH, type GstAnteil } from '@/lib/wein/massnahmeAnteile'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -122,6 +123,8 @@ export type PsmGrundstueck = {
   kgName: string | null
   /** Fläche dieses Grundstücks bei der Maßnahme (ha, 4 Stellen) */
   flaecheHa: number | null
+  /** KAN-132 Regel 1: Snapshot behandlung_grundstuecke.flaeche_ha bzw. (nur wenn leer) aktuelle grundstuecke.flaeche_ha */
+  flaechenQuelle?: 'snapshot' | 'aktuell' | null
   weingartenId: string | null
   weingarten: string | null
   /** Ried (lagen.name, sonst weingarten.ried) */
@@ -239,6 +242,7 @@ export function normalisiereBehandlung(roh: R, anwenderNamen?: ReadonlyMap<strin
       kgNr: textOderNull(g?.katastralgemeinde),
       kgName: textOderNull(g?.kg_bezeichnung),
       flaecheHa: rund(zahl(bg.flaeche_ha) ?? zahl(g?.flaeche_ha), STELLEN.ha),
+      flaechenQuelle: zahl(bg.flaeche_ha) !== null ? 'snapshot' : zahl(g?.flaeche_ha) !== null ? 'aktuell' : null,
       weingartenId: textOderNull(wg?.id),
       weingarten: textOderNull(wg?.name),
       ried: riedAus(wg),
@@ -654,7 +658,10 @@ export function jahrZeitraum(jahr: number | null, vorjahre = 0): { von: string |
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-/** Ried-Filter aus ?ried=…: Lage-id oder OHNE_RIED; null = alle Rieden (leer oder „all“), undefined = ungültig */
+/**
+ * Ried-Filter aus ?ried=…: Ried-id (= Weingarten, Entscheidung Jörgen 26.09.2026, KAN-132) oder OHNE_RIED;
+ * null = alle Rieden (leer oder „all“), undefined = ungültig. Bis 30.09.2026 war es die Lage-id.
+ */
 export function riedFilterAus(wert: string | null | undefined): string | null | undefined {
   const s = (wert ?? '').trim()
   if (s === '' || s === 'all') return null
@@ -675,8 +682,10 @@ export type PsmAufzeichnungZeile = {
   datum: string
   datumBis: string | null
   art: string
+  /** Ried = Weingarten (KAN-132) */
   ried: string | null
-  weingarten: string | null
+  /** Lage (lagen.name, sonst weingarten.ried) – Ebene über der Ried */
+  lage: string | null
   kgNr: string | null
   kgName: string | null
   gstNr: string | null
@@ -691,7 +700,7 @@ export type PsmAufzeichnungZeile = {
   bbch: string | null
   aufwand: number | null
   aufwandEinheit: string
-  /** Mittelmenge (mittelmenge(): Mittel bzw. Dünger) anteilig nach Fläche des Grundstücks */
+  /** Mittelmenge (mittelmenge(): Mittel bzw. Dünger) anteilig nach Fläche des Grundstücks – verteileMassnahme() (KAN-132, Restausgleich) */
   mittelmengeAnteil: number | null
   /** kg oder l; leer ohne Mittelmenge */
   mittelmengeEinheit: string
@@ -717,7 +726,9 @@ export type PsmAufzeichnungFilter = { ried?: string | null }
 /**
  * Zeilen je Maßnahme × Grundstück (bereits gerundet) plus Hinweise. Mittelmenge und Spritzbrühe der
  * Maßnahme stehen nur anteilig nach Grundstücksfläche in der Zeile (KAN-133 Nr. 7) – nie die
- * Gesamtwerte der Maßnahme, sonst ergäbe die Spaltensumme in Excel ein Vielfaches.
+ * Gesamtwerte der Maßnahme, sonst ergäbe die Spaltensumme in Excel ein Vielfaches. Seit KAN-132 über
+ * verteileMassnahme() (lib/wein/massnahmeAnteile.ts): Methode des größten Rests, Σ der Zeilen = Wert der
+ * Maßnahme; Maßnahmen nur am Weingarten bleiben eine Zeile ohne GST (keine GST-Zeilen erfinden).
  */
 export function psmAufzeichnungZeilen(behandlungen: readonly PsmBehandlung[], filter: PsmAufzeichnungFilter = {}): { zeilen: PsmAufzeichnungZeile[]; warnungen: string[] } {
   const zeilen: PsmAufzeichnungZeile[] = []
@@ -727,10 +738,11 @@ export function psmAufzeichnungZeilen(behandlungen: readonly PsmBehandlung[], fi
   const altwerte: string[] = []
   const nichtVerteilt: string[] = []
   for (const b of behandlungen) {
-    let orte: (PsmGrundstueck | null)[] = b.grundstuecke
-    if (filter.ried) orte = b.grundstuecke.filter(g => (g.lageId ?? OHNE_RIED) === filter.ried)
+    const v = verteileMassnahme(b)
+    let orte: (GstAnteil | null)[] = v.anteile
+    if (filter.ried) orte = v.anteile.filter(a => (a.weingartenId ?? OHNE_RIED) === filter.ried)
     if (filter.ried && orte.length === 0) continue
-    if (b.grundstuecke.length === 0) { ohneOrt.push(behandlungKurz(b)); orte = [null] }
+    if (v.ohneOrt) { ohneOrt.push(behandlungKurz(b)); orte = [null] }
     else if (gstAnzahl(b) === 0) ohneGst.push(behandlungKurz(b))
 
     const mm = mittelmenge(b)
@@ -738,22 +750,15 @@ export function psmAufzeichnungZeilen(behandlungen: readonly PsmBehandlung[], fi
     if (mm.menge === null && mm.grund !== 'art') ohneMittelmenge.push(`${behandlungKurz(b)} – ${mm.warnung}`)
     if (bruehenAltwert(b)) altwerte.push(behandlungKurz(b))
 
-    const summeHa = b.grundstuecke.reduce((s, g) => s + (g.flaecheHa ?? 0), 0)
     const istPsm = b.psm !== null
-    let ohneAnteil = false
     for (const g of orte) {
-      // Anteil nach Fläche wie bisher (ohne Restausgleich); ein einziger Ort trägt die ganze Menge
-      let anteil: number | null = null
-      if (b.grundstuecke.length <= 1) anteil = 1
-      else if (summeHa > 0 && g?.flaecheHa != null) anteil = g.flaecheHa / summeHa
-      if (anteil === null) ohneAnteil = true
       zeilen.push({
         behandlungId: b.id,
         datum: b.datum,
         datumBis: b.datumBis,
         art: ART_LABEL[b.art] ?? b.art,
-        ried: g?.ried ?? null,
-        weingarten: g?.weingarten ?? null,
+        ried: g?.weingarten ?? null,
+        lage: g?.lage ?? null,
         kgNr: g?.kgNr ?? null,
         kgName: g?.kgName ?? null,
         gstNr: g?.gstNr ?? null,
@@ -768,10 +773,10 @@ export function psmAufzeichnungZeilen(behandlungen: readonly PsmBehandlung[], fi
         aufwand: rund(b.aufwand, STELLEN_MENGE),
         // „kg (gesamt)“ bzw. „l (gesamt)“: Wert der Maßnahme, keine Menge je Grundstück (die steht in „Mittelmenge anteilig“)
         aufwandEinheit: aufwandEinheitText(b.aufwandEinheit),
-        mittelmengeAnteil: mm.menge !== null && anteil !== null ? runden(mm.menge * anteil, STELLEN_MENGE) : null,
+        mittelmengeAnteil: g ? g.mittel : mm.menge,
         mittelmengeEinheit: mm.einheit ?? '',
         mittelmengeBasis: mm.basis,
-        spritzbruehAnteil: bruehe !== null && anteil !== null ? runden(bruehe * anteil, STELLEN_MENGE) : null,
+        spritzbruehAnteil: g ? g.bruehe : bruehe,
         wasserLHa: rund(b.wasserLHa, 1),
         konzentrationPct: rund(b.konzentrationPct, STELLEN.prozent),
         wartezeitTage: b.psm?.wartezeitTage ?? null,
@@ -785,14 +790,9 @@ export function psmAufzeichnungZeilen(behandlungen: readonly PsmBehandlung[], fi
         notiz: b.notiz,
       })
     }
-    // Grundstücke ohne Fläche: dort bleiben die Anteile leer – ohne jede Fläche fehlen Mittelmenge und
-    // Spritzbrühe der Maßnahme in den Zeilen ganz (seit Nr. 7 gibt es keine Gesamtspalte mehr)
-    if (ohneAnteil && (mm.menge !== null || bruehe !== null)) {
-      const werte = [
-        mm.menge !== null ? `${b.art === 'duengung' ? 'Düngermenge' : 'Mittelmenge'} ${fmtNum(mm.menge, { max: STELLEN_MENGE })} ${mm.einheit}` : null,
-        bruehe !== null ? `Spritzbrühe ${fmtNum(bruehe, { max: STELLEN_MENGE })} l` : null,
-      ].filter(Boolean).join(', ')
-      nichtVerteilt.push(`${behandlungKurz(b)} – ${werte} ${summeHa > 0 ? '(nur auf GST mit Fläche verteilt)' : '(nicht verteilt)'}`)
+    // KAN-132 Regel 2: GST ohne Fläche bekommen keinen Anteil; ganz ohne Fläche gleichmäßig verteilt
+    if ((mm.menge !== null || bruehe !== null) && v.warnungen.length > 0) {
+      nichtVerteilt.push(`${behandlungKurz(b)} – ${v.warnungen.includes(WARNUNG_GLEICH) ? 'ohne Fläche gleichmäßig verteilt' : 'nur auf GST mit Fläche verteilt'}`)
     }
   }
   const warnungen: string[] = []
@@ -800,7 +800,7 @@ export function psmAufzeichnungZeilen(behandlungen: readonly PsmBehandlung[], fi
   if (ohneOrt.length > 0) warnungen.push(`${ohneOrt.length} ${ohneOrt.length === 1 ? 'Maßnahme hat' : 'Maßnahmen haben'} weder Grundstück noch Weingarten – Ried, GST-Nr. und Fläche bleiben leer: ${liste(ohneOrt)}`)
   if (ohneMittelmenge.length > 0) warnungen.push(`${ohneMittelmenge.length} ${ohneMittelmenge.length === 1 ? 'Maßnahme' : 'Maßnahmen'} ohne berechenbare Mittelmenge – „Mittelmenge anteilig (GST)“ bleibt leer: ${liste(ohneMittelmenge)}`)
   if (altwerte.length > 0) warnungen.push(`${altwerte.length} ${altwerte.length === 1 ? 'Spritzung hat' : 'Spritzungen haben'} „Menge gesamt“ noch in kg bzw. g (früher als Mittelmenge erfasst) – zählt weder als Spritzbrühe noch als Mittelmenge; Spritzbrühe nur aus Wasseraufwand × Fläche, Mittelmenge aus dem Aufwand: ${liste(altwerte)}`)
-  if (nichtVerteilt.length > 0) warnungen.push(`${nichtVerteilt.length} ${nichtVerteilt.length === 1 ? 'Maßnahme hat' : 'Maßnahmen haben'} Grundstücke ohne Fläche – „Mittelmenge anteilig (GST)“ und „Spritzbrühe anteilig (GST, l)“ bleiben dort leer, die Werte je Maßnahme stehen im Druck: ${liste(nichtVerteilt)}`)
+  if (nichtVerteilt.length > 0) warnungen.push(`${nichtVerteilt.length} ${nichtVerteilt.length === 1 ? 'Maßnahme hat' : 'Maßnahmen haben'} Grundstücke ohne Fläche – dort kein Anteil an „Mittelmenge anteilig (GST)“ und „Spritzbrühe anteilig (GST, l)“ (ganz ohne Fläche gleichmäßig verteilt): ${liste(nichtVerteilt)}`)
   return { zeilen, warnungen }
 }
 
@@ -813,8 +813,9 @@ export const SPALTEN_PSM_AUFZEICHNUNG: CsvSpalte<PsmAufzeichnungZeile>[] = [
   { kopf: 'Datum', typ: 'datum', wert: z => z.datum },
   { kopf: 'Datum bis', typ: 'datum', wert: z => z.datumBis },
   { kopf: 'Art', typ: 'text', wert: z => z.art },
+  // KAN-132: Ried = Weingarten, darüber die Lage
   { kopf: 'Ried', typ: 'text', wert: z => z.ried },
-  { kopf: 'Weingarten', typ: 'text', wert: z => z.weingarten },
+  { kopf: 'Lage', typ: 'text', wert: z => z.lage },
   { kopf: 'KG-Nr.', typ: 'code', wert: z => z.kgNr },
   { kopf: 'Katastralgemeinde', typ: 'text', wert: z => z.kgName },
   { kopf: 'GST-Nr.', typ: 'code', wert: z => z.gstNr },
@@ -852,7 +853,7 @@ export type PsmAufzeichnungParameter = { jahr: number | null; art: string | null
 export async function ladePsmAufzeichnung(supabase: any, tenantId: string, p: PsmAufzeichnungParameter): Promise<LadeErgebnis<PsmAufzeichnungZeile> & { behandlungen: PsmBehandlung[]; warnungen: string[] }> {
   const { behandlungen, warnungen } = await ladeBehandlungen(supabase, tenantId, { ...jahrZeitraum(p.jahr), art: p.art })
   const auswahl = p.ried
-    ? behandlungen.filter(b => b.grundstuecke.some(g => (g.lageId ?? OHNE_RIED) === p.ried))
+    ? behandlungen.filter(b => b.grundstuecke.some(g => (g.weingartenId ?? OHNE_RIED) === p.ried))
     : behandlungen
   const e = psmAufzeichnungZeilen(auswahl, { ried: p.ried })
   return { zeilen: e.zeilen, behandlungen: auswahl, warnungen: [...warnungen, ...e.warnungen] }

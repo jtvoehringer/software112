@@ -161,13 +161,13 @@ describe('psm-aufzeichnung', nurMitHooks, () => {
     const datei = csv.csvDatei(zeilen, psm.SPALTEN_PSM_AUFZEICHNUNG)
     assert.deepEqual(datei.warnungen, [])
     const [kopf, z1, z2, z3] = zeilenVon(datei.text)
-    assert.equal(kopf, 'Datum;Datum bis;Art;Ried;Weingarten;KG-Nr.;Katastralgemeinde;GST-Nr.;Fläche (ha);Kultur;EPPO-Code Kultur;Mittel;Zulassungsnr.;Wirkstoff;Schaderreger;BBCH;Aufwand;Aufwand-Einheit;Mittelmenge anteilig (GST);Mittelmenge Einheit;Mittelmenge Basis;Spritzbrühe anteilig (GST, l);Wasseraufwand (l/ha);Konzentration (%);Wartezeit (Tage);Frühester Lesetermin;Wartezeit eingehalten;Öko-zugelassen;Anwender;Witterung;Temperatur (°C);Wind;Notiz')
-    // sortiert nach Ried: Pfaffenberg vor Steiner Hund; Mittelmenge 1,5 kg/ha × 2,1 ha = 3,15 kg,
+    assert.equal(kopf, 'Datum;Datum bis;Art;Ried;Lage;KG-Nr.;Katastralgemeinde;GST-Nr.;Fläche (ha);Kultur;EPPO-Code Kultur;Mittel;Zulassungsnr.;Wirkstoff;Schaderreger;BBCH;Aufwand;Aufwand-Einheit;Mittelmenge anteilig (GST);Mittelmenge Einheit;Mittelmenge Basis;Spritzbrühe anteilig (GST, l);Wasseraufwand (l/ha);Konzentration (%);Wartezeit (Tage);Frühester Lesetermin;Wartezeit eingehalten;Öko-zugelassen;Anwender;Witterung;Temperatur (°C);Wind;Notiz')
+    // KAN-132: Spalte „Ried“ = Weingarten, „Lage“ darüber; Reihenfolge größere Fläche zuerst; Mittelmenge 1,5 kg/ha × 2,1 ha = 3,15 kg,
     // anteilig 3,15 × 1,2/2,1 = 1,8 kg; Spritzbrühe 1260 l anteilig 720 l – keine Maßnahmen-Gesamtwerte je Zeile
-    assert.equal(z1, '10.07.2026;;Spritzung;Ried Pfaffenberg;Pfaffenberg Riesling;04023;Stein;123/1;1,2000;Weinrebe;VITVI;Cuprozin progress;3212-0;Kupferhydroxid;Peronospora;75;1,500;kg/ha;1,800;kg;Aufwand × Fläche;720,000;600,0;0,25;21;31.07.2026;Ja;Ja;Maria Muster;bewölkt;28,0;mäßig;"Test; ""Zitat"" zweite Zeile"')
-    assert.equal(z2, "10.07.2026;;Spritzung;Ried Steiner Hund;Steiner Hund Riesling;12127;Stein;'=1+1;0,9000;Weinrebe;VITVI;Cuprozin progress;3212-0;Kupferhydroxid;Peronospora;75;1,500;kg/ha;1,350;kg;Aufwand × Fläche;540,000;600,0;0,25;21;31.07.2026;Ja;Ja;Maria Muster;bewölkt;28,0;mäßig;\"Test; \"\"Zitat\"\" zweite Zeile\"")
+    assert.equal(z1, '10.07.2026;;Spritzung;Pfaffenberg Riesling;Ried Pfaffenberg;04023;Stein;123/1;1,2000;Weinrebe;VITVI;Cuprozin progress;3212-0;Kupferhydroxid;Peronospora;75;1,500;kg/ha;1,800;kg;Aufwand × Fläche;720,000;600,0;0,25;21;31.07.2026;Ja;Ja;Maria Muster;bewölkt;28,0;mäßig;"Test; ""Zitat"" zweite Zeile"')
+    assert.equal(z2, "10.07.2026;;Spritzung;Steiner Hund Riesling;Ried Steiner Hund;12127;Stein;'=1+1;0,9000;Weinrebe;VITVI;Cuprozin progress;3212-0;Kupferhydroxid;Peronospora;75;1,500;kg/ha;1,350;kg;Aufwand × Fläche;540,000;600,0;0,25;21;31.07.2026;Ja;Ja;Maria Muster;bewölkt;28,0;mäßig;\"Test; \"\"Zitat\"\" zweite Zeile\"")
     // ohne GST: Weingarten-Zeile, Fläche = Weingartenfläche, ganze Menge (1 kg/ha × 1,2 ha), BBCH „05“ bleibt Code
-    assert.equal(z3, '14.06.2026;;Spritzung;Ried Pfaffenberg;Pfaffenberg Riesling;;;;1,2000;Weinrebe;VITVI;Folpan 80 WDG;2648-0;Folpet;;05;1,000;kg/ha;1,200;kg;Aufwand × Fläche;480,000;;;35;;;Nein;;;;;')
+    assert.equal(z3, '14.06.2026;;Spritzung;Pfaffenberg Riesling;Ried Pfaffenberg;;;;1,2000;Weinrebe;VITVI;Folpan 80 WDG;2648-0;Folpet;;05;1,000;kg/ha;1,200;kg;Aufwand × Fläche;480,000;;;35;;;Nein;;;;;')
   })
 
   test('Funguran 0,6 kg/ha auf 2 GST: Σ Mittelmenge anteilig 1,2 kg, Σ Spritzbrühe anteilig 800 l', () => {
@@ -215,7 +215,8 @@ describe('psm-aufzeichnung', nurMitHooks, () => {
     assert.match(warnungen[1], /1 Spritzung hat „Menge gesamt“ noch in kg bzw\. g/)
   })
 
-  test('mehrere GST ohne Fläche: Anteile leer, Hinweis mit Mittelmenge und Spritzbrühe der Maßnahme', () => {
+  // KAN-132 Regel 2: ganz ohne Fläche gleichmäßig verteilt, einzelnes GST ohne Fläche ohne Anteil – immer mit Hinweis
+  test('GST ohne Fläche: ganz ohne Fläche gleichmäßig, einzelnes GST ohne Fläche ohne Anteil (Σ = Maßnahme)', () => {
     const ohneFlaeche = [
       { grundstueck_id: 'g-1', flaeche_ha: null, grundstueck: { ...GST1, flaeche_ha: null } },
       { grundstueck_id: 'g-3', flaeche_ha: null, grundstueck: { ...GST3, flaeche_ha: null } },
@@ -223,31 +224,31 @@ describe('psm-aufzeichnung', nurMitHooks, () => {
     const b = spritzung({ aufwandmenge: 1.2, aufwandmenge_einheit: 'kg', behandlung_grundstuecke: ohneFlaeche })
     assert.deepEqual([psm.mittelmenge(b).menge, psm.mittelmenge(b).basis, psm.spritzbruehe(b)], [1.2, 'Aufwand (gesamt)', 800])
     const { zeilen, warnungen } = psm.psmAufzeichnungZeilen([b])
-    assert.deepEqual(zeilen.map(z => [z.gstNr, z.mittelmengeAnteil, z.spritzbruehAnteil]), [['123/1', null, null], ['124', null, null]])
+    assert.deepEqual(zeilen.map(z => [z.gstNr, z.mittelmengeAnteil, z.spritzbruehAnteil]), [['123/1', 0.6, 400], ['124', 0.6, 400]])
     assert.equal(warnungen.length, 1)
-    assert.match(warnungen[0], /^1 Maßnahme hat Grundstücke ohne Fläche – .* bleiben dort leer, .*: Spritzung am 30\.05\.2026 \(Pfaffenberg Riesling\) – Mittelmenge 1,2 kg, Spritzbrühe 800 l \(nicht verteilt\)$/)
-    // nur ein GST ohne Fläche: das andere trägt die ganze Menge (ohne Restausgleich, KAN-132), Hinweis trotzdem
+    assert.match(warnungen[0], /^1 Maßnahme hat Grundstücke ohne Fläche – .*: Spritzung am 30\.05\.2026 \(Pfaffenberg Riesling\) – ohne Fläche gleichmäßig verteilt$/)
+    // nur ein GST ohne Fläche: das andere trägt die ganze Menge, das GST ohne Fläche 0 – Hinweis
     const teil = spritzung({ aufwandmenge: 1.2, aufwandmenge_einheit: 'kg', behandlung_grundstuecke: [ZWEI_HA[0], ohneFlaeche[1]] })
     const t = psm.psmAufzeichnungZeilen([teil])
-    assert.deepEqual(t.zeilen.map(z => [z.mittelmengeAnteil, z.spritzbruehAnteil]), [[1.2, 800], [null, null]])
+    assert.deepEqual(t.zeilen.map(z => [z.mittelmengeAnteil, z.spritzbruehAnteil]), [[1.2, 800], [0, 0]])
     assert.equal(t.warnungen.length, 1)
-    assert.match(t.warnungen[0], /Mittelmenge 1,2 kg, Spritzbrühe 800 l \(nur auf GST mit Fläche verteilt\)$/)
-    // Düngung ohne Fläche: Düngermenge genannt, keine Spritzbrühe
-    const dueng = duengung({ menge_gesamt: 1000, menge_einheit: 'kg', behandlung_grundstuecke: ohneFlaeche })
-    assert.match(psm.psmAufzeichnungZeilen([dueng]).warnungen[0], /Düngung am 25\.03\.2026 \(Pfaffenberg Riesling\) – Düngermenge 1\.000 kg \(nicht verteilt\)$/)
-    // ohne Mittelmenge und ohne Spritzbrühe nur der bisherige Hinweis „ohne berechenbare Mittelmenge“
+    assert.match(t.warnungen[0], /– nur auf GST mit Fläche verteilt$/)
+    // ohne Mittelmenge und ohne Spritzbrühe nur der Hinweis „ohne berechenbare Mittelmenge“
     const leer = spritzung({ menge_gesamt: null, menge_einheit: null, wasseraufwand_l_ha: null, behandlung_grundstuecke: ohneFlaeche })
     const l = psm.psmAufzeichnungZeilen([leer]).warnungen
     assert.equal(l.length, 1)
     assert.match(l[0], /ohne berechenbare Mittelmenge/)
   })
 
-  test('Ried-Filter nur auf die Grundstücke dieser Ried', () => {
+  test('Ried-Filter (Ried = Weingarten, KAN-132) nur auf die Grundstücke dieser Ried', () => {
     const b = [psm.normalisiereBehandlung(A), psm.normalisiereBehandlung(E)]
-    const { zeilen } = psm.psmAufzeichnungZeilen(b, { ried: L2 })
+    const { zeilen } = psm.psmAufzeichnungZeilen(b, { ried: WG2.id })
     assert.equal(zeilen.length, 1)
     assert.equal(zeilen[0].gstNr, '=1+1')
     assert.equal(psm.psmAufzeichnungZeilen(b, { ried: psm.OHNE_RIED }).zeilen.length, 0)
+    // Summe der Anteile = Mittelmenge der Maßnahme (Restausgleich)
+    const alle = psm.psmAufzeichnungZeilen([psm.normalisiereBehandlung(A)]).zeilen
+    assert.equal(csv.runden(alle.reduce((s, z) => s + z.mittelmengeAnteil, 0), 3), psm.mittelmenge(psm.normalisiereBehandlung(A)).menge)
   })
 
   test('Leermeldung: nur Kopfzeile', () => {
