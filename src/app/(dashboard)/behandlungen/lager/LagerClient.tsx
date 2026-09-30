@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Pencil } from 'lucide-react'
 import { upsertLagerBewegung, deleteLagerBewegung } from './actions'
+import StornoButton from '@/components/StornoButton'
 import type { PSMLager, PSMOption } from './page'
 import LagerHinweise from './LagerHinweise'
 import { fmtNum } from '@/lib/format'
@@ -163,17 +164,13 @@ function PsmKarte({
 }) {
   const [showForm, setShowForm] = useState(false)
   const [editBew, setEditBew] = useState<(PSMLager['bewegungen'][0] & { psm_id: string }) | null>(null)
-  const [pending, startTransition] = useTransition()
+  const [pending] = useTransition()
 
   // Alle Mengen in der Lager-Einheit; Verbrauch = Σ Mittelmenge der Spritzungen (lib/behandlungen/lagerVerbrauch.ts)
   const { einheit, zugang, abgang, verbrauch, bestand, hinweise } = psm.konto
 
   const bestandColor = bestand < 0 ? 'text-s112-err-fg' : bestand < 1 ? 'text-s112-warn-fg' : 'text-s112-blue-700'
 
-  function handleDelete(id: string) {
-    if (!confirm('Buchung löschen?')) return
-    startTransition(() => deleteLagerBewegung(id))
-  }
 
   return (
     <div className={`card ${pending ? 'opacity-60 pointer-events-none' : ''}`}>
@@ -265,10 +262,10 @@ function PsmKarte({
                             title="Bearbeiten" aria-label="Bearbeiten"
                             className="text-s112-blue-700 hover:text-s112-blue-700/70"><Pencil className="w-4 h-4" /></button>
                         )}
-                        {adminOk && (
-                          <button onClick={() => handleDelete(b.id)}
-                            title="Löschen" aria-label="Löschen"
-                            className="text-s112-err hover:text-s112-err-fg"><Trash2 className="w-4 h-4" /></button>
+                        {writeOk && (
+                          // KAN-166: auch Mitarbeiter, Löschen mit Grund (Änderungsprotokoll)
+                          <StornoButton modus="loeschen" action={grund => deleteLagerBewegung(b.id, grund)}
+                            hinweis="Die Lagerbewegung wird gelöscht; Grund und Benutzer stehen im Änderungsprotokoll." />
                         )}
                       </div>
                     </td>

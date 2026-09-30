@@ -2,8 +2,9 @@
 
 import { useState, useTransition } from 'react'
 import Link from '@/components/ui/Link'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Pencil } from 'lucide-react'
 import { deleteBehandlung } from './actions'
+import StornoButton from '@/components/StornoButton'
 import type { Behandlung } from './page'
 import { fmtNum } from '@/lib/format'
 import { MASSNAHMEN_ART_LABEL, artFilterOptionen, filterMassnahmen } from '@/lib/behandlungen/arten'
@@ -74,11 +75,12 @@ function groupByDate(behandlungen: Behandlung[]) {
 }
 
 export default function BehandlungenClient({
-  behandlungen, adminOk,
+  behandlungen, schreibOk,
 }: {
-  behandlungen: Behandlung[]; adminOk: boolean
+  /** KAN-166: bearbeiten und löschen dürfen alle mit Schreibrecht Rieden (auch Mitarbeiter) */
+  behandlungen: Behandlung[]; schreibOk: boolean
 }) {
-  const [pending, startTransition] = useTransition()
+  const [pending] = useTransition()
   const [filter, setFilter] = useState('')
   const [artFilter, setArtFilter] = useState('')
 
@@ -87,11 +89,6 @@ export default function BehandlungenClient({
   const gefiltert = filterMassnahmen(behandlungen, artFilter, filter)
 
   const grouped = groupByDate(gefiltert)
-
-  function handleDelete(id: string) {
-    if (!confirm('Maßnahme löschen?')) return
-    startTransition(() => deleteBehandlung(id))
-  }
 
   if (behandlungen.length === 0) {
     return (
@@ -152,7 +149,7 @@ export default function BehandlungenClient({
                   <th className="px-3 py-2 text-left w-[11%]">Erntefrei ab</th>
                   <th className="px-3 py-2 text-left">Ried(en)</th>
                   <th className="px-3 py-2 text-right w-[8%]">Kosten</th>
-                  {adminOk && <th className="px-3 py-2 text-right w-[8%]">Aktionen</th>}
+                  {schreibOk && <th className="px-3 py-2 text-right w-[8%]">Aktionen</th>}
                 </tr>
               </thead>
               <tbody>
@@ -185,7 +182,7 @@ export default function BehandlungenClient({
                     <td className="px-3 py-2.5 text-right tabular-nums text-xs">
                       {b.kosten_betrag != null ? <span className="text-s112-text-1 font-medium">{formatEuro(b.kosten_betrag)} €</span> : <span className="text-s112-muted">–</span>}
                     </td>
-                    {adminOk && (
+                    {schreibOk && (
                       <td className="px-3 py-2.5 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <Link
@@ -195,13 +192,8 @@ export default function BehandlungenClient({
                           >
                             <Pencil size={16} />
                           </Link>
-                          <button
-                            onClick={() => handleDelete(b.id)}
-                            title="Löschen" aria-label="Löschen"
-                            className="text-s112-err hover:text-s112-err-fg"
-                          >
-                            <Trash2 size={16} />
-                          </button>
+                          <StornoButton modus="loeschen" action={grund => deleteBehandlung(b.id, grund)}
+                            hinweis="Die Maßnahme wird samt Grundstücks-Zuordnung gelöscht; Grund und Benutzer stehen im Änderungsprotokoll." />
                         </div>
                       </td>
                     )}

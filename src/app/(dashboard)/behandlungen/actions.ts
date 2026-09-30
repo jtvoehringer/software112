@@ -5,7 +5,8 @@ import { getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { revalidatePath } from 'next/cache'
-import { AktionsFehler } from '@/lib/fehler'
+import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
+import { stornoGrundFehler } from '@/lib/storno/grund'
 import { dezimal, zahlAus } from '@/lib/format'
 import { pruefeMassnahmeMengen, summeFlaecheHa, type MassnahmeMengenEingabe } from '@/lib/behandlungen/massnahmeMengen'
 import {
@@ -574,12 +575,19 @@ export async function updateBehandlung(id: string, formData: FormData) {
   return { hinweise: mengen.hinweise }
 }
 
-export async function deleteBehandlung(id: string) {
+// Löschen mit Grund (KAN-166, 30.09.2026): auch Mitarbeiter mit Schreibmodul Rieden; die RPC prüft Rolle, Modul,
+// Betrieb und Abo, löscht genau die eine Maßnahme (FK-Kaskade: GST-Zuordnung) und schreibt den Grund ins
+// Änderungsprotokoll – kein stilles Nichts mehr, wenn nichts gelöscht wurde.
+export async function deleteBehandlung(id: string, grund: string) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
-  // CASCADE löscht behandlung_grundstuecke automatisch mit
+  const f = stornoGrundFehler(grund)
+  if (f) throw new AktionsFehler(f.replace('den Storno', 'das Löschen'))
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('behandlungen') as any).delete().eq('id', id).eq('tenant_id', tenantId)
-  if (error) throw new AktionsFehler((error as AR).message)
+  const { error } = await (supabase.rpc as any)('s112_buchung_loeschen', {
+    p_tenant_id: tenantId, p_tabelle: 'behandlungen', p_id: id, p_grund: grund.trim(),
+  })
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Löschen fehlgeschlagen'))
   revalidatePath('/behandlungen')
+  revalidatePath('/behandlungen/berichte')
 }
