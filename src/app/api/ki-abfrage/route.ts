@@ -98,6 +98,14 @@ const TABELLEN_KONTEXT = `
   eine) mit derselben Brühe. Summen über Maßnahmen nur für die Mittelmenge, getrennt je Mittel und Einheit (kg und
   l nie addieren). Beim JOIN auf behandlung_grundstuecke wiederholt sich jede Maßnahme je Grundstück – die Fläche
   daher zuerst je behandlung_id summieren (Unterabfrage/CTE), Werte der Maßnahme nicht über die Join-Zeilen summieren.
+  VERTEILUNG AUF GRUNDSTÜCKE (KAN-132): „Ried“ = Tabelle weingarten, „Lage“ = lagen (weingarten.lage_id). Der Anteil
+  eines Grundstücks an einer Maßnahme = behandlung_grundstuecke.flaeche_ha / SUM(behandlung_grundstuecke.flaeche_ha)
+  derselben behandlung_id (Fläche leer → aktuelle grundstuecke.flaeche_ha; alle Flächen 0 → gleichmäßig 1/n).
+  Absolute Werte (Mittelmenge, Spritzbrühe, Düngermenge, Cu/N/P in kg, Kosten) je Grundstück = Wert der Maßnahme ×
+  Anteil; Summen je Ried/Lage/Betrieb = Summe dieser Grundstücksanteile. Werte je ha, je hl oder in %
+  (aufwandmenge in kg_ha/l_ha/g_hl/ml_hl, wasseraufwand_l_ha, konzentration) gelten für jedes Grundstück gleich und
+  werden NIE summiert. Kupfer bzw. N je ha einer Ried = Summe der Anteile / Summe der Fläche der Grundstücke mit
+  nutzart = 'WI' dieser Ried (nicht weingarten.flaeche_ha).
 - ernte_parzellen: Lesedaten je Grundstück und Jahrgang (jahrgang_id → weinjahrgaenge.id), menge_kg, oechsle, klosterneuburger (°KMW).
 - weinausbau: Kellerbuch-Chargen (der "Keller-Bestand"). DREI VERSCHIEDENE, oft unterschiedliche Textfelder –
   name = frei vergebener Produkt-/Chargenname (z.B. "Partywein Kängaru", oft eine Fantasiebezeichnung, KEINE
@@ -129,7 +137,10 @@ const TABELLEN_KONTEXT = `
   da 11 verkaufte Flaschen à 0,75L z.B. 8,25L sind, nicht 11L). Bei typ='tank' ist menge bereits in Liter
   (Direktverkauf aus einer Weinausbau-Charge, einheit='L').
 - zukauf_posten: zugekaufte Trauben/Most/Wein von Lieferanten. traubenverkauf: verkaufte (nicht zugekaufte) Trauben.
-- kosteneintraege ↔ kostenstellen/kostenarten, kosteneintrag_weingaerten/kosteneintrag_behaelter: Kostenrechnung, Kosten auf Weingärten/Behälter aufgeteilt.
+- kosteneintraege ↔ kostenstellen/kostenarten, kosteneintrag_weingaerten/kosteneintrag_behaelter: Kostenrechnung, Kosten auf Rieden (weingarten)/Behälter aufgeteilt.
+  KOSTEN JE RIED (KAN-132): nur aus kosteneintrag_weingaerten.betrag_anteil. Einträge OHNE Aufteilung (keine Zeile in
+  kosteneintrag_weingaerten) gesondert als „ohne Aufteilung“ ausweisen – NIE den vollen kosteneintraege.betrag
+  zusätzlich zu den Anteilen addieren (Doppelzählung). kosteneintraege.weingarten_id ist immer NULL.
 - ea_transaktionen ↔ ea_kategorien: einfache Einnahmen-Ausgaben-Rechnung.
 - zahlungen: eingegangene Zahlungen (z.B. via SumUp), meist mit Bezug zu verkaufsposten.
 `.trim()

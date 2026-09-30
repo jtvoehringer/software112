@@ -150,10 +150,52 @@ function friendlyFkError(err: AnyRecord): string | null {
   return null
 }
 
+/**
+ * KAN-132 Soll 0 (Löschschutz): Rieden bzw. Grundstücke mit erfassten Maßnahmen oder Kostenaufteilungen nicht löschen –
+ * die Kaskaden (grundstuecke → behandlung_grundstuecke, kosteneintrag_weingaerten) veränderten sonst nachträglich die
+ * Anteile früherer Maßnahmen, das Behandlungsprotokoll verlöre Zeilen und Σ Kostenanteile ≠ Betrag.
+ * Liefert den Grund oder null. (Ein FK auf RESTRICT folgt nur per Migration nach OK.)
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function loeschSperre(supabase: any, tenantId: string, p: { weingartenIds?: string[]; grundstueckIds?: string[] }): Promise<string | null> {
+  const wgIds = p.weingartenIds ?? []
+  let gstIds = p.grundstueckIds ?? []
+  if (wgIds.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase.from('grundstuecke') as any).select('id').eq('tenant_id', tenantId).in('weingarten_id', wgIds)
+    if (error) throw new AktionsFehler((error as AnyRecord).message)
+    gstIds = [...gstIds, ...((data ?? []) as AnyRecord[]).map(g => String(g.id))]
+  }
+  const zaehle = async (q: Promise<{ count: number | null; error: AnyRecord | null }>) => {
+    const { count, error } = await q
+    if (error) throw new AktionsFehler(String(error.message))
+    return count ?? 0
+  }
+  const [massnahmenGst, massnahmenWg, kosten] = await Promise.all([
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    gstIds.length > 0 ? zaehle((supabase.from('behandlung_grundstuecke') as any).select('behandlung_id', { count: 'exact', head: true }).in('grundstueck_id', gstIds)) : 0,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    wgIds.length > 0 ? zaehle((supabase.from('behandlungen') as any).select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).in('weingarten_id', wgIds)) : 0,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    wgIds.length > 0 ? zaehle((supabase.from('kosteneintrag_weingaerten') as any).select('id', { count: 'exact', head: true }).in('weingarten_id', wgIds)) : 0,
+  ])
+  const teile = [
+    massnahmenGst + massnahmenWg > 0 ? `${massnahmenGst + massnahmenWg} Maßnahmen-${massnahmenGst + massnahmenWg === 1 ? 'Eintrag' : 'Einträge'}` : null,
+    kosten > 0 ? `${kosten} ${kosten === 1 ? 'Kostenaufteilung' : 'Kostenaufteilungen'}` : null,
+  ].filter(Boolean)
+  if (teile.length === 0) return null
+  const was = p.grundstueckIds && !p.weingartenIds ? 'Dieses Grundstück' : 'Diese Ried'
+  return `${was} hat erfasste Daten (${teile.join(', ')}) und kann nicht gelöscht werden – das würde die Anteile früherer Maßnahmen, `
+    + 'das Behandlungsprotokoll und die Kostenaufteilung nachträglich verändern. Bitte die Ried stattdessen deaktivieren '
+    + '(bzw. beim Grundstück die Nutzart ändern).'
+}
+
 export async function deleteWeingarten(id: string): Promise<{ error?: string }> {
   try {
     const supabase = await createSupabaseServerClient()
     const { tenantId } = await requireAdmin()
+    const sperre = await loeschSperre(supabase, tenantId, { weingartenIds: [id] })
+    if (sperre) return { error: sperre }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase.from('weingarten') as any).delete().eq('id', id).eq('tenant_id', tenantId)
     if (error) {
@@ -182,6 +224,8 @@ export async function deleteRied(weingartenIds: string[]): Promise<{ error?: str
     if (weingartenIds.length === 0) return { error: 'Keine Weingarten-Datensätze zum Löschen übergeben' }
     const supabase = await createSupabaseServerClient()
     const { tenantId } = await requireAdmin()
+    const sperre = await loeschSperre(supabase, tenantId, { weingartenIds })
+    if (sperre) return { error: sperre }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase.from('weingarten') as any)
       .delete()
@@ -284,6 +328,8 @@ export async function updateGrundstueck(id: string, weingartenId: string, formDa
 export async function deleteGrundstueck(id: string, weingartenId: string) {
   const supabase = await createSupabaseServerClient()
   const { tenantId } = await requireAdmin()
+  const sperre = await loeschSperre(supabase, tenantId, { grundstueckIds: [id] })
+  if (sperre) throw new AktionsFehler(sperre)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('grundstuecke') as any).delete().eq('id', id).eq('tenant_id', tenantId)
   if (error) throw new AktionsFehler((error as AnyRecord).message)

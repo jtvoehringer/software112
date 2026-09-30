@@ -20,7 +20,7 @@ import {
   schaderregerFeld,
 } from './feldMatrix'
 import {
-  RIED_AUSWAHL_FEHLT, absendenHindernis, alleAuswahlModus, auswahlKopf, erfassenKnopfText, riedGruppen,
+  RIED_AUSWAHL_FEHLT, absendenHindernis, alleAuswahlModus, auswahlKopf, erfassenKnopfText, riedGruppen, istEinzelRied, weingartenZusatz,
 } from './absenden'
 import { ART_OPTIONS } from './artOptionen'
 import MengenZusammenfassung from './MengenZusammenfassung'
@@ -276,11 +276,15 @@ export default function NeueBehandlungForm({
   }
 
   function toggleGST(gstId: string, wgId: string) {
-    const wasSelected = selectedGSTs.has(gstId)
-    // Einzel-GST-Auswahl ersetzt eine etwaige Komplett-Auswahl der Ried
+    // Bug 30.09.2026 (Gebeshuber): Ist die ganze Ried gewählt, sind alle ihre WI-GST angehakt. Ein Klick auf ein
+    // GST nimmt nur dieses heraus – die Ried wird zur Einzelauswahl aller übrigen GST (bisher war danach gar
+    // nichts mehr gewählt bzw. die GST standen trotz Ried-Auswahl leer da).
+    const riedGewaehlt = selectedWGs.has(wgId)
+    const wasSelected = riedGewaehlt || selectedGSTs.has(gstId)
     setSelectedWGs(prev => { const n = new Set(prev); n.delete(wgId); return n })
     setSelectedGSTs(prev => {
       const n = new Map(prev)
+      if (riedGewaehlt) for (const g of gstByWeingarten[wgId] ?? []) n.set(g.id, wgId)
       wasSelected ? n.delete(gstId) : n.set(gstId, wgId)
       return n
     })
@@ -777,7 +781,11 @@ export default function NeueBehandlungForm({
 
         {riedenExpanded && (
         <div className="space-y-3">
-          {lagen.map(({ schluessel, name: lageName, weingaerten: wgs }) => {
+          {lagen.map((gruppe) => {
+            const { schluessel, name: lageName, weingaerten: wgs } = gruppe
+            // Bug 30.09.2026 / wie die Ernte (KAN-160): Lage mit genau einer Ried (bei Gebeshuber der Regelfall,
+            // gleicher Name) als EINE Zeile statt Lage-Kopf und Ried darunter
+            const einzelRied = istEinzelRied(gruppe)
             const spritzbare = wgs.filter(w => w.spritzbar)
             const allSelected = spritzbare.length > 0 && spritzbare.every(w => selectedWGs.has(w.id))
             const someSelected = spritzbare.some(w => selectedWGs.has(w.id) || [...selectedGSTs.values()].includes(w.id))
@@ -789,8 +797,8 @@ export default function NeueBehandlungForm({
 
             return (
               <div key={schluessel} className="border border-s112-border rounded-xl overflow-hidden">
-                {/* Lage-Header */}
-                <div
+                {/* Lage-Header (nicht bei einer Lage mit nur einer Ried) */}
+                {!einzelRied && <div
                   className="flex items-center gap-3 px-3 py-2 bg-s112-bg cursor-pointer hover:bg-s112-bg/80 transition-colors"
                   onClick={() => toggleLage(wgs)}
                 >
@@ -808,7 +816,7 @@ export default function NeueBehandlungForm({
                   {lageHa > 0 && (
                     <span className="ml-auto text-xs text-s112-blue-700">{fmtHa(lageHa)}</span>
                   )}
-                </div>
+                </div>}
                 {/* Rieden mit GST-Feinauswahl */}
                 <div className="divide-y divide-s112-border/40">
                   {wgs.map(w => {
@@ -842,7 +850,10 @@ export default function NeueBehandlungForm({
                                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                               </svg>
-                              <span className={`font-medium ${isActive ? 'text-s112-blue-700' : 'text-s112-text'}`}>{w.name}</span>
+                              <span className={`font-medium ${isActive ? 'text-s112-blue-700' : 'text-s112-text'}`}>
+                                {einzelRied ? lageName : w.name}
+                                {einzelRied && weingartenZusatz(lageName, w.name) && <span className="font-normal text-s112-text-1"> · {w.name}</span>}
+                              </span>
                               <span className="text-xs text-s112-muted">{gsts.length} GST</span>
                               {w.gst_ha_aktiv > 0 && (
                                 <span className="text-xs text-s112-muted ml-auto">{fmtHa(w.gst_ha_aktiv)}</span>
@@ -850,7 +861,8 @@ export default function NeueBehandlungForm({
                             </button>
                           ) : (
                             <span className={`font-medium flex-1 ${isActive ? 'text-s112-blue-700' : 'text-s112-text'}`}>
-                              {w.name}
+                              {einzelRied ? lageName : w.name}
+                              {einzelRied && weingartenZusatz(lageName, w.name) && <span className="font-normal text-s112-text-1"> · {w.name}</span>}
                             </span>
                           )}
                           {!w.spritzbar && (
@@ -862,7 +874,8 @@ export default function NeueBehandlungForm({
                         {isExpanded && gsts.length > 0 && w.spritzbar && (
                           <div className="bg-white border-t border-s112-border/20">
                             {gsts.map(g => {
-                              const isGstSel = selectedGSTs.has(g.id)
+                              // ganze Ried gewählt = alle ihre WI-GST gewählt (so rechnet auch der Server)
+                              const isGstSel = wgSel || selectedGSTs.has(g.id)
                               return (
                                 <Fragment key={g.id}>
                                   <label className={`flex items-center gap-2 pl-10 pr-4 py-1.5 text-xs cursor-pointer hover:bg-s112-bg/30 ${isGstSel ? 'bg-s112-teal/5' : ''}`}>

@@ -163,7 +163,8 @@ export default async function NeueBehandlungPage() {
 
   const weingaerten: WeingartenOption[] = ((rawW ?? []) as AR[]).map(w => {
     const gsts = gstByWG.get(w.id) ?? []
-    const spritzbar = gsts.length === 0 || gsts.some(g => g.nutzart === 'WI')
+    // KAN-132 (Frage 6): nur Rieden mit Grundstück der Nutzart WI – eine Maßnahme ohne Grundstück ist nicht verteilbar
+    const spritzbar = gsts.some(g => g.nutzart === 'WI')
     const gst_ha_aktiv = gsts.filter(g => g.nutzart === 'WI').reduce((s, g) => s + g.ha, 0)
     return {
       id:           w.id,
