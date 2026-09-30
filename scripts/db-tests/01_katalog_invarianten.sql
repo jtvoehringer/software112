@@ -192,17 +192,17 @@ DECLARE
     'ama_meldepositionen=meldung_id,menge_hl,menge_kg',
     'behandlungen=art,aufwandmenge,aufwandmenge_einheit,datum,datum_bis,duengemittel_id,ernte_fruehesteins,konzentration,menge_einheit,menge_gesamt,psm_id,tenant_id,wasseraufwand_l_ha,weingarten_id',
     'duengemittel_lager_bewegungen=datum,duengemittel_id,einheit,menge,tenant_id,typ',
-    'ernte_parzellen=ernte_datum,grundstueck_id,jahrgang_id,klosterneuburger,lese_id,menge_hl,menge_kg,mostgewicht_einheit,oechsle,weingarten_id',
+    'ernte_parzellen=ernte_datum,grundstueck_id,jahrgang_id,klosterneuburger,lese_id,menge_hl,menge_kg,mostgewicht_einheit,oechsle,storniert_am,storno_grund,weingarten_id',
     'fuellung_chargen=anteil_liter,fuellung_id,tenant_id,weinausbau_id',
     'fuellungen=aktiv,anbaugebiet,anzahl_flaschen,bestand_flaschen,datum,flaschengroesse_ml,herkunft_code,jahrgang,menge_liter_gefuellt,pruefnummer,qualitaet,rebsorte,storniert_am,storno_grund,tenant_id,weinausbau_id',
     'psm_lager_bewegungen=datum,einheit,menge,psm_id,tenant_id,typ',
     'keller_behandlungen=behaelter_id,datum,einheit,menge,storniert_am,storno_grund,tenant_id,typ_id,volumen_liter_ist,weinausbau_id',
     'lesen=art,beginn,ende,jahrgang_id,lfd_nr,tenant_id',
     'keller_umzuege=brutto_liter,datum,menge_liter,nach_behaelter_id,nach_weinausbau_id,schwund_liter,storniert_am,storno_grund,tenant_id,umzug_batch_id,umzug_typ,von_behaelter_id,von_weinausbau_id,zeilen_typ',
-    'pressung_behaelter=behaelter_id,menge_liter,pressung_id,weinausbau_id',
-    'pressung_weingaerten=ernte_datum,grundstueck_id,kmw,mostgewicht_einheit,oechsle,pressung_id,trauben_kg,weingarten_id,zukauf_posten_id',
-    'pressungen=datum,jahrgang_id,kmw_grad,lese_id,most_liter_gesamt,mostgewicht_einheit,oechsle,tenant_id',
-    'traubenverkauf=datum,grundstueck_id,jahrgang_id,kmw_grad,lese_id,menge_kg,mostgewicht_einheit,oechsle,tenant_id,verkaufsposten_id,weingarten_id,zukauf_posten_id',
+    'pressung_behaelter=behaelter_id,menge_liter,pressung_id,storniert_am,storno_grund,weinausbau_id',
+    'pressung_weingaerten=ernte_datum,grundstueck_id,kmw,mostgewicht_einheit,oechsle,pressung_id,storniert_am,storno_grund,trauben_kg,weingarten_id,zukauf_posten_id',
+    'pressungen=datum,jahrgang_id,kmw_grad,lese_id,most_liter_gesamt,mostgewicht_einheit,oechsle,storniert_am,storno_grund,tenant_id',
+    'traubenverkauf=datum,grundstueck_id,jahrgang_id,kmw_grad,lese_id,menge_kg,mostgewicht_einheit,oechsle,storniert_am,storno_grund,tenant_id,verkaufsposten_id,weingarten_id,zukauf_posten_id',
     'verkauf_positionen=einheit,fuellung_id,menge,pressung_behaelter_id,tenant_id,traubenverkauf_id,typ,verkaufsposten_id,weinausbau_id,zukauf_id',
     'verkaufsposten=aktiv,datum,storniert,storniert_am,tenant_id',
     'verschneidung_quellen=menge_liter,quell_weinausbau_id,verschneidung_id',
@@ -618,7 +618,7 @@ BEGIN
      WHERE f.sd AND s.abo IS DISTINCT FROM (f.src ~ %L)
      ORDER BY 1$q$, c_re_abo));
   SELECT count(*) INTO v_n FROM pg_temp.s112_soll_rpc() s WHERE s.abo;
-  v_erg := v_erg || pg_temp.s112_erwarte('rpc_abo_anzahl', v_n, 14::bigint);   -- +s112_storniert_loeschen (KAN-145), s112_buchung_loeschen (KAN-166)
+  v_erg := v_erg || pg_temp.s112_erwarte('rpc_abo_anzahl', v_n, 15::bigint);   -- +s112_storniert_loeschen (KAN-145), s112_buchung_loeschen (KAN-166), s112_pressung_stornieren (KAN-148)
   -- Unabhängig vom Handflag: schreibende SECURITY-DEFINER-RPC (p_tenant_id, EXECUTE für authenticated, Schreib-
   -- anweisung im Quelltext) ohne Abo-Prüfung → FEHLER, außer begründet in s112_soll_liste('abo_rpc_ausnahmen').
   v_erg := v_erg || pg_temp.t01_liste('rpc_schreibt_ohne_abo', format($q$
@@ -639,7 +639,7 @@ BEGIN
   -- Plausibilität der Heuristik: sie erkennt alle 12 RPCs mit Abo-Prüfung als schreibend
   SELECT count(*) INTO v_n FROM pg_temp.t01_funktionen() f JOIN pg_temp.s112_soll_rpc() s ON s.funktion = f.sig
    WHERE s.abo AND f.src ~* c_re_schreibt;
-  v_erg := v_erg || pg_temp.s112_erwarte('rpc_schreibt_heuristik_abo_rpcs', v_n, 14::bigint);
+  v_erg := v_erg || pg_temp.s112_erwarte('rpc_schreibt_heuristik_abo_rpcs', v_n, 15::bigint);
   -- p_tenant_id ohne pruefe_tenant_zugriff: nur mit Einstufung mandant_eigen, session_user, intern oder rls_hilfe
   v_erg := v_erg || pg_temp.t01_liste('ptz_nicht_eingestuft', format($q$
     SELECT f.sig AS schluessel,
