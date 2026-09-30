@@ -1157,6 +1157,9 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('intern',        '--S', false, 's112_mandant_mitglieder_mit_email(p_tenant_id uuid)'),
     ('rls_hilfe',     '-US', false, 's112_meine_tenants()'),
     ('rls_hilfe',     '-US', false, 's112_schreibgesperrte_tenants()'),
+    ('trigger',       '--S', false, 's112_loeschsperre()'),                    -- KAN-145 A: BEFORE-DELETE-Sperre
+    ('mandant',       '-US', true , 's112_storniert_loeschen(p_tenant_id uuid, p_tabelle text, p_id uuid, p_grund text)'),   -- KAN-145 A
+    ('trigger',       '--S', false, 's112_storno_schutz()'),                   -- KAN-145 B1: Storno-Spalten
     ('mandant',       '-US', true , 'schwund_buchen(p_tenant_id uuid, p_weinausbau_id uuid, p_liter numeric, p_datum date, p_notiz text, p_abschliessen boolean, p_bestand_mindern boolean)'),
     ('intern',        '--S', false, 'set_verkauf_storniert(p_posten_id uuid)'),
     ('mandant',       '-US', true , 'setze_kontobewegung_abgeglichen(p_tenant_id uuid, p_quelle text, p_id uuid, p_abgeglichen boolean)'),

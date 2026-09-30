@@ -194,7 +194,9 @@ DECLARE
   v_weingarten_m bigint;
   -- 4b: RPCs mit Objekt-Argument, dynamisch mit fremdem Objekt geprüft
   c_idor  constant text[] := ARRAY['fuellung_bestand_buchen', 'schwund_buchen',
-                                   'setze_kontobewegung_abgeglichen'];
+                                   'setze_kontobewegung_abgeglichen', 's112_storniert_loeschen'];
+  v_kb_m  uuid;
+  v_kb_b  uuid;
   v_f_m   uuid;
   v_f_b   uuid;
   v_w_m   uuid;
@@ -296,8 +298,8 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('rpc_liste_vollstaendig', v_n >= 30, true);   -- 30 seit KAN-127 (get_behandlungen_fuer_grundstuecke entfernt)
   SELECT count(*) INTO v_n FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace AND n.nspname = 'public'
    WHERE p.prosecdef AND 'p_tenant_id' = ANY (p.proargnames) AND p.prosrc ~ 'pruefe_tenant_zugriff\s*\(';
-  v_erg := v_erg || pg_temp.s112_erwarte('rpc_mit_pruefe_tenant_zugriff', v_n, 17);
-  v_erg := v_erg || pg_temp.s112_erwarte('pruefe_liste_dynamisch', coalesce(array_length(v_namen, 1), 0), 16);
+  v_erg := v_erg || pg_temp.s112_erwarte('rpc_mit_pruefe_tenant_zugriff', v_n, 18);   -- +s112_storniert_loeschen (KAN-145)
+  v_erg := v_erg || pg_temp.s112_erwarte('pruefe_liste_dynamisch', coalesce(array_length(v_namen, 1), 0), 17);
   -- Soll-Einträge mit p_tenant_id, die es nicht (mehr) gibt
   SELECT string_agg(s.funktion, ', ') INTO v_txt FROM pg_temp.s112_soll_rpc() s
    WHERE s.funktion LIKE '%p_tenant_id %'
@@ -367,7 +369,7 @@ BEGIN
   END LOOP;
   PERFORM pg_temp.s112_als_postgres();
   UPDATE public.tenants SET stripe_status = NULL WHERE id = v_b;
-  v_erg := v_erg || pg_temp.s112_erwarte('abo_rpcs_geprueft', v_n, 11);
+  v_erg := v_erg || pg_temp.s112_erwarte('abo_rpcs_geprueft', v_n, 12);
 
   -- ── 4. 'eigen': eigene Mitgliedsprüfung (ohne pruefe_tenant_zugriff) ──────────────────────────────────
   SELECT count(*) INTO v_n FROM public.tenant_memberships WHERE tenant_id = v_m AND aktiv;
@@ -459,6 +461,23 @@ BEGIN
         split_part(v_r, '|', 2), '100.00/0');
     ELSE
       v_erg := v_erg || pg_temp.s112_erwarte('idor_positiv_schwund_buchen', v_r, 'ok|99.00/1');
+    END IF;
+  END LOOP;
+
+  -- s112_storniert_loeschen (KAN-145): stornierte Kellerbehandlung – fremde (M) bleibt, eigene (B) wird gelöscht
+  v_kb_m := (pg_temp.s112_beispiel('keller_behandlungen', v_m, v_mw,
+    '{"storniert_am": "2026-09-30T10:00:00Z", "storno_grund": "S112TEST storniert"}') ->> 'id')::uuid;
+  v_kb_b := (pg_temp.s112_beispiel('keller_behandlungen', v_b, (v_a ->> 'b_w')::uuid,
+    '{"storniert_am": "2026-09-30T10:00:00Z", "storno_grund": "S112TEST storniert"}') ->> 'id')::uuid;
+  FOREACH v_txt IN ARRAY ARRAY['m', 'b'] LOOP
+    v_sql := format('SELECT public.s112_storniert_loeschen(%L, %L, %L, %L)',
+      v_b, 'keller_behandlungen', CASE v_txt WHEN 'm' THEN v_kb_m ELSE v_kb_b END, 'S112TEST endgültig löschen');
+    v_pruef := format('SELECT count(*)::text FROM public.keller_behandlungen WHERE id = %L', CASE v_txt WHEN 'm' THEN v_kb_m ELSE v_kb_b END);
+    v_r := pg_temp.t18_idor(v_bta, v_sql, v_pruef);
+    IF v_txt = 'm' THEN
+      v_erg := v_erg || pg_temp.s112_erwarte('idor_s112_storniert_loeschen', split_part(v_r, '|', 2), '1');
+    ELSE
+      v_erg := v_erg || pg_temp.s112_erwarte('idor_positiv_s112_storniert_loeschen', v_r, 'ok|0');
     END IF;
   END LOOP;
 
