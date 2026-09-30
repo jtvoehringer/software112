@@ -618,10 +618,10 @@ describe('register/pflanzenschutz', nurMitHooks, () => {
   const M = () => register.MELDUNGEN_PFLANZENSCHUTZ
   const ctx = (sb) => ({ supabase: sb, tenantId: 't-1', membership: { tenantId: 't-1', role: 'winzer', schreibmodule: [] }, betrieb: { name: 'Weingut Test', betriebsnummer: '1234567' } })
 
-  test('Register = Katalog, Zugriff betriebsleitung, Druckpfade', () => {
+  test('Register = Katalog, Zugriff betriebsleitung (Rückverfolgung Weingarten: jedes Mitglied), Druckpfade', () => {
     assert.deepEqual(Object.keys(M()).sort(), Object.keys(katalog.KATALOG_PFLANZENSCHUTZ).sort())
     for (const m of Object.values(M())) {
-      assert.equal(m.zugriff, 'betriebsleitung')
+      assert.equal(m.zugriff, m.id === 'rueckverfolgung-weingarten' ? 'mitglied' : 'betriebsleitung')
       assert.equal(m.gruppe, 'pflanzenschutz')
       assert.ok(m.druckPfad, `${m.id}: druckPfad fehlt`)
       assert.ok(m.spalten.length > 0)

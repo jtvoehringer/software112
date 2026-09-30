@@ -102,6 +102,10 @@ export default function LeseReiter({ jahrgangId, jahrgang, lesen, aktiv, writeOk
             {aktiv.notizen && <p className="text-xs text-s112-text-2 mt-1 whitespace-pre-line">{aktiv.notizen}</p>}
           </div>
           <div className="flex items-center gap-3">
+            {/* KAN-108: Maßnahmen je Lese-Grundstück bis zur Ernte, Wartezeiten */}
+            <Link href={`/weingarten/rueckverfolgung?lese=${aktiv.id}`} className="text-xs font-medium text-s112-blue-700 hover:underline">
+              Rückverfolgung Weingarten
+            </Link>
             {writeOk && (
               <button type="button" onClick={() => { setBearbeiten(true); setFehler(null) }}
                 title="Lese bearbeiten" aria-label="Lese bearbeiten"

@@ -413,7 +413,8 @@ export default async function RueckverfolgungPage({
           <Search className="w-5 h-5" />Rückverfolgung
         </h1>
         <p className="text-sm text-s112-muted mt-1">
-          Nach Jahrgang, Sorte oder Bezeichnung filtern, oder direkt Chargennummer/Prüfnummer eingeben → vollständige Kette von der Flasche zum Weingarten
+          Nach Jahrgang, Sorte oder Bezeichnung filtern, oder direkt Chargennummer/Prüfnummer eingeben → vollständige Kette von der Flasche zum Weingarten.
+          Maßnahmen und Wartezeiten je Lese-Grundstück: <Link href="/weingarten/rueckverfolgung" className="underline">Rückverfolgung Weingarten</Link>.
         </p>
       </div>
 
@@ -426,6 +427,7 @@ export default async function RueckverfolgungPage({
             <div className="flex items-start gap-3 shrink-0">
               <RueckverfolgungPrintButton />
               <CsvExportKnopf label="Rückverfolgung als CSV" href={csvPfad('rueckverfolgung', { fuellung_id: fuellung.id })} />
+              <Link href={`/weingarten/rueckverfolgung?fuellung=${fuellung.id}`} className="text-sm text-s112-blue-700 hover:underline py-1">Weingarten (Wartezeiten) →</Link>
               <Link href="/kellerbuch/rueckverfolgung" className="text-sm text-s112-blue-700 hover:underline py-1">← alle Füllungen</Link>
             </div>
           </div>

@@ -52,14 +52,14 @@ function ohneAusdruck(q, anfang) {
 const regexText = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 describe('KAN-142: Menüpfade unter „Rieden“', () => {
-  test('Reihenfolge: Rieden · Maßnahmen · • Behandlungsprotokoll · • Cu-Bilanz · • Nährstoffbilanz · Lese · • AMA-Erntemeldung · Betriebsmittel', () => {
+  test('Reihenfolge: Rieden · Maßnahmen · • Behandlungsprotokoll · • Cu-Bilanz · • Nährstoffbilanz · Lese · • AMA-Erntemeldung · • Rückverfolgung (KAN-108) · Betriebsmittel', () => {
     const nav = quelle('src/lib/navigation/index.ts')
     const start = nav.indexOf("key: 'rieden'")
     assert.ok(start >= 0, 'Gruppe „rieden“ fehlt')
     const gruppe = nav.slice(start, nav.indexOf("key: '", start + 1))
     const punkte = [...gruppe.matchAll(/\{ href: '[^']+',\s*label: '([^']+)'([^}]*)\}/g)]
       .map(m => (/\bchild: true\b/.test(m[2]) ? '• ' : '') + m[1])
-    assert.deepEqual(punkte, ['Rieden', 'Maßnahmen', '• Behandlungsprotokoll', '• Cu-Bilanz', '• Nährstoffbilanz', 'Lese', '• AMA-Erntemeldung', 'Betriebsmittel'])
+    assert.deepEqual(punkte, ['Rieden', 'Maßnahmen', '• Behandlungsprotokoll', '• Cu-Bilanz', '• Nährstoffbilanz', 'Lese', '• AMA-Erntemeldung', '• Rückverfolgung', 'Betriebsmittel'])
   })
 
   test('FAQ, Handbuch und Onboarding nennen keine flachen Pfade (Pflichtmeldungen ohne „Maßnahmen“, AMA ohne „Lese“)', () => {
