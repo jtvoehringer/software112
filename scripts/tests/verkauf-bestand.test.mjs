@@ -10,7 +10,8 @@
 //                                 gleichzeitige Änderung, still gefiltertes UPDATE (RLS), DB-Fehler,
 //                                 Gebinde-Trigger (P0001), fremder Mandant, ungültige Menge
 //   chargeBuchungZuruecknehmen    exakte Rücknahme bzw. Gegen-Delta nach Zwischenbuchung
-//   fuellungBestandAendern        Flaschen: ganzzahlig, negativ, null-Bestand, RLS, Fehler
+//   fuellungBestandAendern        Flaschen über die RPC s112_fuellung_verkauf_buchen (KAN-149 D1): Parameter,
+//                                 Zeile in fuellung_bewegungen, ganzzahlig, Überverkauf, Fehlertexte
 //   bestandsBuchungenZuruecknehmen / bestandBuchenAllesOderNichts  Reihenfolge, Rücknahme, Texte
 //   verkaufspostenStornieren      Normalfall (Flasche + Tank + Traubenverkauf + E&A + CRM), jeder
 //                                 Fehlerpfad (was ist danach geschrieben?), Rechte, Mandantenfilter
@@ -44,6 +45,43 @@ async function fehlerVon(p) {
   try { await p } catch (e) { return e }
   assert.fail('Fehler erwartet')
 }
+
+// ── KAN-149 D1: Flaschen über die RPC s112_fuellung_verkauf_buchen ───────────────────────────────────────────
+
+const RPC_FLASCHEN = 'rpc:s112_fuellung_verkauf_buchen'
+const G = 'Kunde hat storniert'
+const K = { postenId: VP, datum: '2026-09-30' }
+
+/** Nachbildung der RPC auf der Attrappe (ohne Sperre): Bestand und Zeile in fuellung_bewegungen wie die Datenbank */
+function flaschenRpc(tabellen, name, a) {
+  if (name !== 's112_fuellung_verkauf_buchen') return { data: null, error: { message: `rpc ${name} nicht nachgebildet` } }
+  const f = (tabellen.fuellungen ?? []).find(x => x.id === a.p_fuellung_id && x.tenant_id === a.p_tenant_id)
+  if (!f) return { data: null, error: { code: 'P0002', message: 'Füllung nicht gefunden – bitte Seite neu laden' } }
+  const alt = Number(f.bestand_flaschen ?? 0)
+  const neu = alt + a.p_menge_stk
+  if (neu < 0) return { data: null, error: { code: '22023', message: `„${f.name}“: nur noch ${alt} Flaschen verfügbar, ${-a.p_menge_stk} angefragt.` } }
+  f.bestand_flaschen = neu
+  ;(tabellen.fuellung_bewegungen ??= []).push({
+    fuellung_id: f.id, tenant_id: a.p_tenant_id, datum: a.p_datum, art: a.p_menge_stk < 0 ? 'verkauf' : 'verkauf_storno',
+    menge_stk: a.p_menge_stk, bestand_vorher: alt, bestand_nachher: neu, grund: a.p_grund ?? null, verkaufsposten_id: a.p_verkaufsposten_id,
+  })
+  return { data: neu, error: null }
+}
+
+/** Attrappe mit Flaschen-RPC; `rpcFehler(nr)` liefert für den n-ten RPC-Aufruf einen Datenbankfehler */
+function mitFlaschenRpc(t, opt = {}) {
+  const { rpcFehler, ...rest } = opt
+  let nr = 0
+  const db = datenbank(t, { ...rest, rpc: (name, a) => {
+    nr++
+    const f = rpcFehler?.(nr)
+    return f ? { data: null, error: f } : flaschenRpc(db.tabellen, name, a)
+  } })
+  return db
+}
+
+/** Schreibzugriffe samt RPC-Aufrufen in Reihenfolge */
+const ablauf = db => db.aufrufe.filter(a => a.art !== 'select').map(a => (a.art === 'rpc' ? a.tabelle : `${a.art} ${a.tabelle}`))
 
 // ── Rechte ────────────────────────────────────────────────────────────────────
 
@@ -264,57 +302,48 @@ describe('chargeBuchungZuruecknehmen – Rücknahme einer Chargen-Buchung', nurM
 
 // ── Füllung ───────────────────────────────────────────────────────────────────
 
-describe('fuellungBestandAendern – Flaschenbestand', nurMitHooks, () => {
-  test('Abgang: Vergleich auf den gelesenen Bestand, aktualisiert_am gesetzt, liefert neuen Bestand', async () => {
-    const db = datenbank({ fuellungen: [fuellung(F1)] })
-    const neu = await b.fuellungBestandAendern(db, T, F1, -12)
+describe('fuellungBestandAendern – Flaschenbestand über die RPC (KAN-149 D1)', nurMitHooks, () => {
+  test('Verkauf: RPC mit Mandant, Füllung, Beleg, Menge, Tag und Grund; Zeile mit Bestand vorher/nachher; kein direktes UPDATE', async () => {
+    const db = mitFlaschenRpc({ fuellungen: [fuellung(F1)] })
+    const neu = await b.fuellungBestandAendern(db, T, F1, -12, K)
     assert.equal(neu, 108)
-    const u = db.aufrufe[1]
-    assert.equal(u.werte.bestand_flaschen, 108)
-    assert.match(u.werte.aktualisiert_am, /^\d{4}-\d\d-\d\dT/)
-    assert.ok(hatFilter(u, 'eq', 'bestand_flaschen', 120) && hatFilter(u, 'eq', 'tenant_id', T) && hatFilter(u, 'eq', 'id', F1))
-    assert.deepEqual(ohneMandant(db, T), [])
+    assert.deepEqual(ablauf(db), [RPC_FLASCHEN])
+    assert.deepEqual(db.aufrufe[0].werte, {
+      p_tenant_id: T, p_fuellung_id: F1, p_verkaufsposten_id: VP, p_menge_stk: -12, p_datum: '2026-09-30', p_grund: null,
+    })
+    assert.deepEqual(db.tabellen.fuellung_bewegungen.map(z => [z.art, z.menge_stk, z.bestand_vorher, z.bestand_nachher, z.verkaufsposten_id]),
+      [['verkauf', -12, 120, 108, VP]])
+    assert.ok(!ablauf(db).includes('update fuellungen'), 'kein direktes UPDATE mehr')
   })
 
   test('nur ganze Stück – sonst Fehler ohne Datenbankzugriff', async () => {
-    const db = datenbank({ fuellungen: [fuellung(F1)] })
-    const e = await fehlerVon(b.fuellungBestandAendern(db, T, F1, 1.5))
+    const db = mitFlaschenRpc({ fuellungen: [fuellung(F1)] })
+    const e = await fehlerVon(b.fuellungBestandAendern(db, T, F1, 1.5, K))
     assert.equal(e.message, 'Flaschen können nur in ganzen Stück gebucht werden.')
     assert.deepEqual(db.aufrufe, [])
   })
 
-  test('mehr als vorhanden: Fehler, kein UPDATE', async () => {
-    const db = datenbank({ fuellungen: [fuellung(F1, { bestand_flaschen: 5 })] })
-    const e = await fehlerVon(b.fuellungBestandAendern(db, T, F1, -6))
+  test('mehr als vorhanden: Meldung der Datenbank, nichts gebucht', async () => {
+    const db = mitFlaschenRpc({ fuellungen: [fuellung(F1, { bestand_flaschen: 5 })] })
+    const e = await fehlerVon(b.fuellungBestandAendern(db, T, F1, -6, K))
     assert.equal(e.message, '„Rosé 2025 0,75“: nur noch 5 Flaschen verfügbar, 6 angefragt.')
-    assert.deepEqual(schreibzugriffe(db), [])
+    assert.equal(zeile(db, 'fuellungen', F1).bestand_flaschen, 5)
+    assert.equal(db.tabellen.fuellung_bewegungen, undefined)
   })
 
-  test('Bestand NULL zählt als 0 (IS NULL-Vergleich); Delta 0 schreibt trotzdem', async () => {
-    const db = datenbank({ fuellungen: [fuellung(F1, { bestand_flaschen: null })] })
-    assert.equal(await b.fuellungBestandAendern(db, T, F1, 6), 6)
-    assert.ok(hatFilter(db.aufrufe[1], 'is', 'bestand_flaschen', null))
-    const db2 = datenbank({ fuellungen: [fuellung(F1)] })
-    assert.equal(await b.fuellungBestandAendern(db2, T, F1, 0), 120)
-    assert.deepEqual(schreibzugriffe(db2), ['update fuellungen'])
+  test('Storno-Rückbuchung (positiv) mit Grund; Bestand NULL zählt als 0', async () => {
+    const db = mitFlaschenRpc({ fuellungen: [fuellung(F1, { bestand_flaschen: null })] })
+    assert.equal(await b.fuellungBestandAendern(db, T, F1, 6, { ...K, grund: G }), 6)
+    assert.deepEqual(db.tabellen.fuellung_bewegungen.map(z => [z.art, z.menge_stk, z.grund]), [['verkauf_storno', 6, G]])
   })
 
-  test('nicht gefunden, fremder Mandant, Lese- und Schreibfehler', async () => {
-    let e = await fehlerVon(b.fuellungBestandAendern(datenbank({ fuellungen: [fuellung(F1, { tenant_id: FREMD })] }), T, F1, -1))
-    assert.equal(e.message, 'Füllung nicht gefunden – bitte Seite neu laden.')
-    e = await fehlerVon(b.fuellungBestandAendern(datenbank({ fuellungen: [fuellung(F1)] }, { vorher: fehlerBei('fuellungen', 'select', { message: 'x' }) }), T, F1, -1))
-    assert.equal(e.message, 'Flaschenbestand konnte nicht gelesen werden: x')
-    e = await fehlerVon(b.fuellungBestandAendern(datenbank({ fuellungen: [fuellung(F1)] }, { vorher: fehlerBei('fuellungen', 'update', { message: 'y' }) }), T, F1, -1))
-    assert.equal(e.message, 'Flaschenbestand von „Rosé 2025 0,75“ konnte nicht gespeichert werden: y')
-  })
-
-  test('still gefiltertes UPDATE: Meldung „Schreibberechtigung für das Lager“; ständige Änderung: Abbruch nach 4 Versuchen', async () => {
-    let e = await fehlerVon(b.fuellungBestandAendern(datenbank({ fuellungen: [fuellung(F1)] }, { rls: a => a.art !== 'update' }), T, F1, -1))
-    assert.equal(e.message, 'Der Flaschenbestand von „Rosé 2025 0,75“ konnte nicht geändert werden – vermutlich fehlt die Schreibberechtigung für das Lager')
-    const db = datenbank({ fuellungen: [fuellung(F1)] }, { vorher: (a, t) => { if (a.art === 'update') t.fuellungen[0].bestand_flaschen += 1 } })
-    e = await fehlerVon(b.fuellungBestandAendern(db, T, F1, -1))
-    assert.equal(e.message, 'Der Flaschenbestand wurde gleichzeitig mehrfach geändert – bitte erneut versuchen.')
-    assert.equal(db.aufrufe.length, 8)
+  test('fremder Mandant bzw. Datenbankfehler: Meldung durchgereicht bzw. mit Kontext', async () => {
+    let e = await fehlerVon(b.fuellungBestandAendern(mitFlaschenRpc({ fuellungen: [fuellung(F1, { tenant_id: FREMD })] }), T, F1, -1, K))
+    assert.equal(e.message, 'Füllung nicht gefunden – bitte Seite neu laden')
+    e = await fehlerVon(b.fuellungBestandAendern(mitFlaschenRpc({ fuellungen: [fuellung(F1)] }, { rpcFehler: () => ({ message: 'y' }) }), T, F1, -1, K))
+    assert.equal(e.message, 'Flaschenbestand konnte nicht gebucht werden: y')
+    e = await fehlerVon(b.fuellungBestandAendern(mitFlaschenRpc({ fuellungen: [fuellung(F1)] }, { rpcFehler: () => ({ code: '42501', message: 'Keine Schreibberechtigung für den Flaschenbestand in diesem Betrieb' }) }), T, F1, -1, K))
+    assert.equal(e.message, 'Keine Schreibberechtigung für den Flaschenbestand in diesem Betrieb')
   })
 })
 
@@ -327,13 +356,13 @@ describe('bestandBuchenAllesOderNichts und bestandsBuchungenZuruecknehmen', nurM
   })
 
   test('erst alle Flaschen, dann alle Chargen; 0 Stück und Liter unter 0,0005 werden übersprungen', async () => {
-    const db = datenbank(tabellen())
+    const db = mitFlaschenRpc(tabellen())
     const r = await b.bestandBuchenAllesOderNichts(db, T,
       new Map([[C1, -20], [C2, 0.0004]]),
-      new Map([[F1, -6], [F2, 0]]))
-    assert.deepEqual(schreibzugriffe(db), ['update fuellungen', 'update weinausbau'])
+      new Map([[F1, -6], [F2, 0]]), K)
+    assert.deepEqual(ablauf(db), [RPC_FLASCHEN, 'update weinausbau'])
     assert.deepEqual(r.map(x => x.art), ['flasche', 'charge'])
-    assert.deepEqual(r[0], { art: 'flasche', fuellungId: F1, stueck: -6 })
+    assert.deepEqual(r[0], { art: 'flasche', fuellungId: F1, stueck: -6, kontext: K })
     assert.equal(r[1].buchung.id, C1)
     assert.equal(zeile(db, 'fuellungen', F1).bestand_flaschen, 114)
     assert.equal(zeile(db, 'weinausbau', C1).menge_liter, 80)
@@ -341,31 +370,35 @@ describe('bestandBuchenAllesOderNichts und bestandsBuchungenZuruecknehmen', nurM
   })
 
   test('zweite Charge reicht nicht: alles in umgekehrter Reihenfolge zurück, Meldung mit Punkt', async () => {
-    const db = datenbank(tabellen())
-    const e = await fehlerVon(b.bestandBuchenAllesOderNichts(db, T, new Map([[C1, -20], [C2, -60]]), new Map([[F1, -6]])))
+    const db = mitFlaschenRpc(tabellen())
+    const e = await fehlerVon(b.bestandBuchenAllesOderNichts(db, T, new Map([[C1, -20], [C2, -60]]), new Map([[F1, -6]]), K))
     assert.equal(e.message, '„Zweigelt 2024“: nur noch 50 L verfügbar, 60 L angefragt.')
-    assert.deepEqual(schreibzugriffe(db), ['update fuellungen', 'update weinausbau', 'update weinausbau', 'update fuellungen'])
+    assert.deepEqual(ablauf(db), [RPC_FLASCHEN, 'update weinausbau', 'update weinausbau', RPC_FLASCHEN])
     assert.deepEqual(db.tabellen.weinausbau.map(c => c.menge_liter), [100, 50])
     assert.equal(zeile(db, 'fuellungen', F1).bestand_flaschen, 120)
+    // KAN-149 D1: die Rücknahme ist eine Gegenzeile (Bestandskette vollständig)
+    assert.deepEqual(db.tabellen.fuellung_bewegungen.map(z => [z.art, z.menge_stk, z.grund]),
+      [['verkauf', -6, null], ['verkauf_storno', 6, 'Rücknahme: Buchung nicht abgeschlossen']])
   })
 
   test('Rücknahme scheitert auch: „Achtung“-Meldung mit den offenen Punkten', async () => {
-    // 1. update fuellungen (Abgang) ok, 2. update weinausbau C1 → Fehler, Rücknahme der Flaschen → 2. update fuellungen Fehler
-    const f1 = fehlerBei('weinausbau', 'update', { message: 'Charge kaputt' })
-    const f2 = fehlerBei('fuellungen', 'update', { message: 'Lager kaputt' }, 2)
-    const db = datenbank(tabellen(), { vorher: (e, t) => f1(e, t) ?? f2(e, t) })
-    const e = await fehlerVon(b.bestandBuchenAllesOderNichts(db, T, new Map([[C1, -20]]), new Map([[F1, -6]])))
-    assert.equal(e.message, 'Bestand der Charge „Grüner Veltliner 2025“ konnte nicht gespeichert werden: Charge kaputt. Achtung: Bereits gebuchte Bestände konnten nicht zurückgesetzt werden (Flaschenbestand von „Rosé 2025 0,75“ konnte nicht gespeichert werden: Lager kaputt) – bitte Bestand prüfen und Support kontaktieren.')
+    // 1. RPC (Abgang) ok, 2. update weinausbau C1 → Fehler, Rücknahme der Flaschen → 2. RPC Fehler
+    const db = mitFlaschenRpc(tabellen(), {
+      vorher: fehlerBei('weinausbau', 'update', { message: 'Charge kaputt' }),
+      rpcFehler: nr => (nr === 2 ? { message: 'Lager kaputt' } : null),
+    })
+    const e = await fehlerVon(b.bestandBuchenAllesOderNichts(db, T, new Map([[C1, -20]]), new Map([[F1, -6]]), K))
+    assert.equal(e.message, 'Bestand der Charge „Grüner Veltliner 2025“ konnte nicht gespeichert werden: Charge kaputt. Achtung: Bereits gebuchte Bestände konnten nicht zurückgesetzt werden (Flaschenbestand konnte nicht gebucht werden: Lager kaputt) – bitte Bestand prüfen und Support kontaktieren.')
     assert.equal(zeile(db, 'fuellungen', F1).bestand_flaschen, 114, 'Abgang bleibt stehen')
   })
 
   test('bestandsBuchungenZuruecknehmen: umgekehrte Reihenfolge, sammelt Fehler und macht weiter', async () => {
-    const db = datenbank(tabellen())
-    const buchungen = await b.bestandBuchenAllesOderNichts(db, T, new Map([[C1, -20]]), new Map([[F1, -6], [F2, -2]]))
+    const db = mitFlaschenRpc(tabellen())
+    const buchungen = await b.bestandBuchenAllesOderNichts(db, T, new Map([[C1, -20]]), new Map([[F1, -6], [F2, -2]]), K)
     zeile(db, 'fuellungen', F2).tenant_id = FREMD // F2 nicht mehr sichtbar → Rücknahme scheitert
     const fehler = await b.bestandsBuchungenZuruecknehmen(db, T, buchungen)
     assert.deepEqual(fehler, ['Füllung nicht gefunden – bitte Seite neu laden'])
-    assert.deepEqual(schreibzugriffe(db).slice(3), ['update weinausbau', 'update fuellungen'])
+    assert.deepEqual(ablauf(db).slice(3), ['update weinausbau', RPC_FLASCHEN, RPC_FLASCHEN])
     assert.equal(zeile(db, 'weinausbau', C1).menge_liter, 100)
     assert.equal(zeile(db, 'fuellungen', F1).bestand_flaschen, 120)
     assert.equal(zeile(db, 'fuellungen', F2).bestand_flaschen, 8)
@@ -405,7 +438,7 @@ describe('verkaufspostenStornieren – Verkauf zurücknehmen', nurMitHooks, () =
 
   /** Server- und Service-Role-Client teilen sich eine Attrappe: ein Protokoll für alle Schreibzugriffe */
   const neueDb = (t, opt) => {
-    const db = datenbank(t, opt)
+    const db = mitFlaschenRpc(t, opt)
     globalThis.__adminFake = db
     globalThis.__serverFake = db
     return db
@@ -414,11 +447,15 @@ describe('verkaufspostenStornieren – Verkauf zurücknehmen', nurMitHooks, () =
 
   test('Normalfall: Flaschen und Liter zurück, storniert, Traubenverkäufe und offene E&A-Einnahme weg, CRM markiert', async () => {
     const db = neueDb(vollerPosten())
-    await b.verkaufspostenStornieren(db, T, VP)
-    assert.deepEqual(schreibzugriffe(db), [
-      'update fuellungen', 'update weinausbau', 'update verkaufsposten',
+    await b.verkaufspostenStornieren(db, T, VP, G)
+    assert.deepEqual(ablauf(db), [
+      RPC_FLASCHEN, 'update weinausbau', 'update verkaufsposten',
       'update traubenverkauf', 'delete ea_transaktionen', 'update aktivitaeten',
     ])
+    // KAN-149 D1: Rückbuchung als Zeile mit Beleg und Grund, Kennzeichen mit Grund
+    assert.deepEqual(db.tabellen.fuellung_bewegungen.map(z => [z.art, z.menge_stk, z.grund, z.verkaufsposten_id]),
+      [['verkauf_storno', 12, G, VP]])
+    assert.equal(db.aufrufe.find(a => a.art === 'update' && a.tabelle === 'verkaufsposten').werte.storno_grund, G)
     assert.equal(zeile(db, 'fuellungen', F1).bestand_flaschen, 12, 'zwei Positionen derselben Füllung summiert')
     assert.equal(zeile(db, 'fuellungen', F2).bestand_flaschen, 3, 'Position eines anderen Postens unberührt')
     assert.deepEqual(
@@ -432,7 +469,7 @@ describe('verkaufspostenStornieren – Verkauf zurücknehmen', nurMitHooks, () =
     assert.deepEqual(db.tabellen.traubenverkauf.map(t => t.id).sort(), [TV1, TV2, TV3].sort())
     for (const id of [TV1, TV2]) {
       assert.match(zeile(db, 'traubenverkauf', id).storniert_am ?? '', /^\d{4}-\d\d-\d\dT/, `${id} storniert`)
-      assert.equal(zeile(db, 'traubenverkauf', id).storno_grund, 'Rechnung RE-2026-001 storniert')
+      assert.equal(zeile(db, 'traubenverkauf', id).storno_grund, `Rechnung RE-2026-001 storniert: ${G}`)
     }
     assert.equal(zeile(db, 'traubenverkauf', TV3).storniert_am ?? null, null)
     const tvStorno = db.aufrufe.find(a => a.art === 'update' && a.tabelle === 'traubenverkauf')
@@ -451,15 +488,24 @@ describe('verkaufspostenStornieren – Verkauf zurücknehmen', nurMitHooks, () =
     const t = vollerPosten()
     t.verkaufsposten[0].rechnungsnummer = null
     const db = neueDb(t)
-    await b.verkaufspostenStornieren(db, T, VP)
+    await b.verkaufspostenStornieren(db, T, VP, G)
     assert.equal(zeile(db, 'aktivitaeten', 'akt-1').betreff, 'Verkauf  · STORNIERT')
+  })
+
+  test('Grund fehlt oder ist zu kurz (KAN-149 D1): Meldung, nichts gelesen oder geschrieben', async () => {
+    for (const grund of [undefined, '', 'zu kurz']) {
+      const db = neueDb(vollerPosten())
+      const e = await fehlerVon(b.verkaufspostenStornieren(db, T, VP, grund))
+      assert.equal(e.message, 'Bitte einen Grund für den Storno angeben (mindestens 10 Zeichen).')
+      assert.deepEqual(db.aufrufe, [])
+    }
   })
 
   test('bereits storniert: Fehler, nichts geschrieben', async () => {
     const t = vollerPosten()
     t.verkaufsposten[0].storniert = true
     const db = neueDb(t)
-    const e = await fehlerVon(b.verkaufspostenStornieren(db, T, VP))
+    const e = await fehlerVon(b.verkaufspostenStornieren(db, T, VP, G))
     assert.equal(e.message, 'Dieser Verkauf ist bereits storniert – der Bestand wurde schon zurückgebucht.')
     assert.deepEqual(schreibzugriffe(db), [])
   })
@@ -468,7 +514,7 @@ describe('verkaufspostenStornieren – Verkauf zurücknehmen', nurMitHooks, () =
     const t = vollerPosten()
     t.verkaufsposten[0].tenant_id = FREMD
     const db = neueDb(t)
-    const e = await fehlerVon(b.verkaufspostenStornieren(db, T, VP))
+    const e = await fehlerVon(b.verkaufspostenStornieren(db, T, VP, G))
     assert.equal(e.message, 'Verkauf nicht gefunden – bitte Seite neu laden.')
     assert.deepEqual(schreibzugriffe(db), [])
   })
@@ -481,7 +527,7 @@ describe('verkaufspostenStornieren – Verkauf zurücknehmen', nurMitHooks, () =
     ]
     for (const [tabelle, meldung] of faelle) {
       const db = neueDb(vollerPosten(), { vorher: fehlerBei(tabelle, 'select', { message: 'x' }) })
-      const e = await fehlerVon(b.verkaufspostenStornieren(db, T, VP))
+      const e = await fehlerVon(b.verkaufspostenStornieren(db, T, VP, G))
       assert.equal(e.message, meldung)
       assert.deepEqual(schreibzugriffe(db), [], tabelle)
     }
@@ -491,7 +537,7 @@ describe('verkaufspostenStornieren – Verkauf zurücknehmen', nurMitHooks, () =
     for (const m of [null, { ...admin, tenantId: FREMD }]) {
       globalThis.__membership = m
       const db = neueDb(vollerPosten())
-      const e = await fehlerVon(b.verkaufspostenStornieren(db, T, VP))
+      const e = await fehlerVon(b.verkaufspostenStornieren(db, T, VP, G))
       assert.equal(e.message, 'Kein aktiver Mandant gefunden')
       assert.deepEqual(schreibzugriffe(db), [])
     }
@@ -500,7 +546,7 @@ describe('verkaufspostenStornieren – Verkauf zurücknehmen', nurMitHooks, () =
   test('Mitarbeiter ohne Kellerbuch bei Tankposition: Rechte-Meldung mit Rechnungsnummer, nichts geschrieben', async () => {
     globalThis.__membership = winzer('warenwirtschaft')
     const db = neueDb(vollerPosten())
-    const e = await fehlerVon(b.verkaufspostenStornieren(db, T, VP))
+    const e = await fehlerVon(b.verkaufspostenStornieren(db, T, VP, G))
     assert.match(e.message, /^Die Rechnung RE-2026-001 enthält offenen Wein \(Tank\)/)
     assert.deepEqual(schreibzugriffe(db), [])
   })
@@ -510,7 +556,7 @@ describe('verkaufspostenStornieren – Verkauf zurücknehmen', nurMitHooks, () =
     const t = vollerPosten()
     t.verkauf_positionen = t.verkauf_positionen.filter(p => p.typ === 'flasche')
     const db = neueDb(t)
-    await b.verkaufspostenStornieren(db, T, VP)
+    await b.verkaufspostenStornieren(db, T, VP, G)
     assert.equal(zeile(db, 'verkaufsposten', VP).storniert, true)
   })
 
@@ -520,15 +566,15 @@ describe('verkaufspostenStornieren – Verkauf zurücknehmen', nurMitHooks, () =
     t.traubenverkauf = []
     t.ea_transaktionen = []
     const db = neueDb(t)
-    await b.verkaufspostenStornieren(db, T, VP)
-    assert.deepEqual(schreibzugriffe(db), ['update verkaufsposten', 'update aktivitaeten'])
+    await b.verkaufspostenStornieren(db, T, VP, G)
+    assert.deepEqual(ablauf(db), ['update verkaufsposten', 'update aktivitaeten'])
   })
 
   test('Flaschenmenge mit Nachkommastellen (ältere Positionen) wird kaufmännisch gerundet', async () => {
     const t = vollerPosten()
     t.verkauf_positionen = [pos({ id: 'q1', fuellung_id: F1, menge: 2.6 }), pos({ id: 'q2', fuellung_id: F1, menge: '1.4' })]
     const db = neueDb(t)
-    await b.verkaufspostenStornieren(db, T, VP)
+    await b.verkaufspostenStornieren(db, T, VP, G)
     assert.equal(zeile(db, 'fuellungen', F1).bestand_flaschen, 4, 'round(2,6) + round(1,4) = 3 + 1')
   })
 
@@ -536,9 +582,9 @@ describe('verkaufspostenStornieren – Verkauf zurücknehmen', nurMitHooks, () =
     const db = neueDb(vollerPosten(), {
       vorher: fehlerBei('weinausbau', 'update', { code: 'P0001', message: 'Gebinde „T3“ ist durch Weingut Nachbar belegt.' }),
     })
-    const e = await fehlerVon(b.verkaufspostenStornieren(db, T, VP))
+    const e = await fehlerVon(b.verkaufspostenStornieren(db, T, VP, G))
     assert.equal(e.message, 'Der Verkauf konnte nicht storniert werden – der Bestand ließ sich nicht zurückbuchen: Charge „Grüner Veltliner 2025“: Gebinde „T3“ ist durch Weingut Nachbar belegt. Bitte das Gebinde freimachen bzw. Support kontaktieren. Es wurde nichts geändert.')
-    assert.deepEqual(schreibzugriffe(db), ['update fuellungen', 'update weinausbau', 'update fuellungen'])
+    assert.deepEqual(ablauf(db), [RPC_FLASCHEN, 'update weinausbau', RPC_FLASCHEN])
     assert.equal(zeile(db, 'fuellungen', F1).bestand_flaschen, 0)
     assert.equal(zeile(db, 'verkaufsposten', VP).storniert, false)
     assert.equal(db.tabellen.traubenverkauf.length, 3)
@@ -547,9 +593,9 @@ describe('verkaufspostenStornieren – Verkauf zurücknehmen', nurMitHooks, () =
 
   test('Kennzeichen setzen scheitert (DB-Fehler): Rückbuchung zurückgenommen, „nichts geändert“', async () => {
     const db = neueDb(vollerPosten(), { vorher: fehlerBei('verkaufsposten', 'update', { message: 'boom' }) })
-    const e = await fehlerVon(b.verkaufspostenStornieren(db, T, VP))
+    const e = await fehlerVon(b.verkaufspostenStornieren(db, T, VP, G))
     assert.equal(e.message, 'Storno fehlgeschlagen (verkaufsposten): boom. Es wurde nichts geändert.')
-    assert.deepEqual(schreibzugriffe(db), ['update fuellungen', 'update weinausbau', 'update verkaufsposten', 'update weinausbau', 'update fuellungen'])
+    assert.deepEqual(ablauf(db), [RPC_FLASCHEN, 'update weinausbau', 'update verkaufsposten', 'update weinausbau', RPC_FLASCHEN])
     assert.equal(zeile(db, 'fuellungen', F1).bestand_flaschen, 0)
     assert.deepEqual(
       (({ menge_liter, aktiv, status }) => ({ menge_liter, aktiv, status }))(zeile(db, 'weinausbau', C1)),
@@ -560,7 +606,7 @@ describe('verkaufspostenStornieren – Verkauf zurücknehmen', nurMitHooks, () =
     const db = neueDb(vollerPosten(), {
       vorher: (e, t) => { if (e.tabelle === 'verkaufsposten' && e.art === 'update') t.verkaufsposten[0].storniert = true },
     })
-    const e = await fehlerVon(b.verkaufspostenStornieren(db, T, VP))
+    const e = await fehlerVon(b.verkaufspostenStornieren(db, T, VP, G))
     assert.equal(e.message, 'Dieser Verkauf wurde soeben bereits storniert – bitte Seite neu laden. Es wurde nichts geändert.')
     assert.equal(zeile(db, 'fuellungen', F1).bestand_flaschen, 0)
     assert.equal(zeile(db, 'weinausbau', C1).menge_liter, 0)
@@ -568,23 +614,24 @@ describe('verkaufspostenStornieren – Verkauf zurücknehmen', nurMitHooks, () =
 
   test('Kennzeichen still gefiltert (RLS): Meldung „Schreibberechtigung für Verkäufe“', async () => {
     const db = neueDb(vollerPosten(), { rls: (e, r) => !(e.tabelle === 'verkaufsposten' && e.art === 'update') || r.id !== VP })
-    const e = await fehlerVon(b.verkaufspostenStornieren(db, T, VP))
+    const e = await fehlerVon(b.verkaufspostenStornieren(db, T, VP, G))
     assert.equal(e.message, 'Der Verkauf konnte nicht storniert werden – vermutlich fehlt die Schreibberechtigung für Verkäufe. Es wurde nichts geändert.')
   })
 
   test('Kennzeichen scheitert und die Rücknahme auch: „Achtung“-Meldung', async () => {
-    const f1 = fehlerBei('verkaufsposten', 'update', { message: 'boom' })
-    const f2 = fehlerBei('fuellungen', 'update', { message: 'Lager weg' }, 2)
-    const db = neueDb(vollerPosten(), { vorher: (e, t) => f1(e, t) ?? f2(e, t) })
-    const e = await fehlerVon(b.verkaufspostenStornieren(db, T, VP))
-    assert.equal(e.message, 'Storno fehlgeschlagen (verkaufsposten): boom. Achtung: Der bereits zurückgebuchte Bestand konnte nicht zurückgesetzt werden (Flaschenbestand von „Rosé 2025 0,75“ konnte nicht gespeichert werden: Lager weg) – bitte Bestand prüfen und Support kontaktieren.')
+    const db = neueDb(vollerPosten(), {
+      vorher: fehlerBei('verkaufsposten', 'update', { message: 'boom' }),
+      rpcFehler: nr => (nr === 2 ? { message: 'Lager weg' } : null),
+    })
+    const e = await fehlerVon(b.verkaufspostenStornieren(db, T, VP, G))
+    assert.equal(e.message, 'Storno fehlgeschlagen (verkaufsposten): boom. Achtung: Der bereits zurückgebuchte Bestand konnte nicht zurückgesetzt werden (Flaschenbestand konnte nicht gebucht werden: Lager weg) – bitte Bestand prüfen und Support kontaktieren.')
     assert.equal(zeile(db, 'fuellungen', F1).bestand_flaschen, 12, 'Flaschen bleiben zurückgebucht, obwohl nicht storniert')
     assert.equal(zeile(db, 'verkaufsposten', VP).storniert, false)
   })
 
   test('Traubenverkauf-Storno scheitert: Rechnungsstorno bleibt, E&A und CRM laufen weiter, Sammelmeldung am Ende', async () => {
     const db = neueDb(vollerPosten(), { vorher: fehlerBei('traubenverkauf', 'update', { message: 'fk' }) })
-    const e = await fehlerVon(b.verkaufspostenStornieren(db, T, VP))
+    const e = await fehlerVon(b.verkaufspostenStornieren(db, T, VP, G))
     assert.equal(e.message, 'Der Verkauf ist storniert und der Bestand zurückgebucht, aber: Traubenverkauf (BKI) konnte nicht storniert werden: fk.')
     assert.equal(zeile(db, 'verkaufsposten', VP).storniert, true)
     assert.deepEqual(db.tabellen.ea_transaktionen.map(r => r.id), ['ea-gesperrt', 'ea-manuell'],
@@ -597,7 +644,7 @@ describe('verkaufspostenStornieren – Verkauf zurücknehmen', nurMitHooks, () =
       rls: (e, r) => !(e.tabelle === 'traubenverkauf' && e.art === 'update' && r.id === TV1),
       vorher: fehlerBei('ea_transaktionen', 'select', { message: 'timeout' }),
     })
-    const e = await fehlerVon(b.verkaufspostenStornieren(db, T, VP))
+    const e = await fehlerVon(b.verkaufspostenStornieren(db, T, VP, G))
     assert.equal(e.message, 'Der Verkauf ist storniert und der Bestand zurückgebucht, aber: Traubenverkauf (BKI) konnte nicht storniert werden – keine Schreibberechtigung. Bitte unter Weinhandel › Traubenverkauf stornieren · E&A-Einnahmen des Verkaufs konnten nicht geladen werden: timeout – bitte in der E&A-Rechnung prüfen, sonst stimmt die UVA nicht.')
     assert.equal(zeile(db, 'traubenverkauf', TV1).storniert_am ?? null, null)
     assert.match(zeile(db, 'traubenverkauf', TV2).storniert_am ?? '', /^\d{4}-/)
@@ -608,7 +655,7 @@ describe('verkaufspostenStornieren – Verkauf zurücknehmen', nurMitHooks, () =
     t.verkauf_positionen = t.verkauf_positionen.filter(p => p.typ !== 'traube')
     t.traubenverkauf = []
     const db = neueDb(t)
-    await b.verkaufspostenStornieren(db, T, VP)
+    await b.verkaufspostenStornieren(db, T, VP, G)
     assert.ok(!schreibzugriffe(db).includes('update traubenverkauf'))
     assert.equal(zeile(db, 'verkaufsposten', VP).storniert, true)
   })
@@ -619,7 +666,7 @@ describe('verkaufspostenStornieren – Verkauf zurücknehmen', nurMitHooks, () =
   // hier eine Gegenbuchung anlegen: Dann ändert sich dieser Test bewusst.
   test('Befund: gesperrte E&A-Einnahme (übermittelte UVA) bleibt nach dem Storno ohne Meldung stehen – Gegenbuchung offen (KAN-149)', async () => {
     const db = neueDb(vollerPosten())
-    await b.verkaufspostenStornieren(db, T, VP) // löst keinen Fehler aus, also keine Meldung
+    await b.verkaufspostenStornieren(db, T, VP, G) // löst keinen Fehler aus, also keine Meldung
     assert.equal(zeile(db, 'verkaufsposten', VP).storniert, true)
     assert.ok(zeile(db, 'ea_transaktionen', 'ea-gesperrt'), 'gesperrte Einnahme bleibt stehen')
     const eaSchreib = db.aufrufe.filter(a => a.tabelle === 'ea_transaktionen' && a.art !== 'select')
@@ -629,7 +676,7 @@ describe('verkaufspostenStornieren – Verkauf zurücknehmen', nurMitHooks, () =
     const t = vollerPosten()
     t.ea_transaktionen = [{ ...t.ea_transaktionen[1] }]
     const db2 = neueDb(t)
-    await b.verkaufspostenStornieren(db2, T, VP)
+    await b.verkaufspostenStornieren(db2, T, VP, G)
     assert.deepEqual(db2.tabellen.ea_transaktionen.map(r => r.id), ['ea-gesperrt'])
     assert.ok(!schreibzugriffe(db2).some(z => z.endsWith(' ea_transaktionen')))
   })
@@ -637,7 +684,7 @@ describe('verkaufspostenStornieren – Verkauf zurücknehmen', nurMitHooks, () =
   test('CRM-Fehler ist nicht kritisch: nur Konsolenmeldung, kein Fehler', async (t) => {
     const log = t.mock.method(console, 'error', () => {})
     const db = neueDb(vollerPosten(), { vorher: fehlerBei('aktivitaeten', 'update', { message: 'crm weg' }) })
-    await b.verkaufspostenStornieren(db, T, VP)
+    await b.verkaufspostenStornieren(db, T, VP, G)
     assert.equal(log.mock.callCount(), 1)
     assert.deepEqual(log.mock.calls[0].arguments, ['verkaufspostenStornieren – CRM-Aktivität:', 'crm weg'])
     assert.equal(zeile(db, 'verkaufsposten', VP).storniert, true)

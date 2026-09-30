@@ -37,10 +37,12 @@ export async function folgebuchungenDerFuellung(
       .eq('typ', 'flasche')
       .eq('tenant_id', tenantId)
       .eq('verkaufsposten.storniert', false),
+    // Bestandsbuchungen ohne die Verkaufszeilen (KAN-149 D1) – Verkäufe zählen oben aus verkauf_positionen
     (supabase.from('fuellung_bewegungen') as any)
       .select('id', { count: 'exact', head: true })
       .eq('fuellung_id', fuellungId)
-      .eq('tenant_id', tenantId),
+      .eq('tenant_id', tenantId)
+      .not('art', 'in', '(verkauf,verkauf_storno)'),
   ])
   if (vk.error) throw new AktionsFehler(dbFehlerText(vk.error, 'Verkäufe der Füllung konnten nicht geprüft werden'))
   if (bw.error) throw new AktionsFehler(dbFehlerText(bw.error, 'Bestandsbuchungen der Füllung konnten nicht geprüft werden'))

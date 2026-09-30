@@ -48,6 +48,9 @@ export type RechnungsjournalZeile = {
   storniert: boolean
   /** verkaufsposten.storniert_am (timestamptz) */
   storniertAm: string | null
+  /** KAN-149 D1: wer storniert hat und warum (ältere Stornos ohne) */
+  storniertVon: string | null
+  stornoGrund: string | null
   bezahlt: boolean
   /** verkaufsposten.bezahlt_am (timestamptz) */
   bezahltAm: string | null
@@ -72,6 +75,8 @@ export const SPALTEN_RECHNUNGSJOURNAL: CsvSpalte<RechnungsjournalZeile>[] = [
   { kopf: 'Brutto (€)', typ: 'betrag', wert: z => z.brutto },
   { kopf: 'Storniert', typ: 'janein', wert: z => z.storniert },
   { kopf: 'Storniert am', typ: 'datum', wert: z => z.storniertAm },
+  { kopf: 'Storniert von', typ: 'text', wert: z => z.storniertVon },
+  { kopf: 'Storno-Grund', typ: 'text', wert: z => z.stornoGrund },
   { kopf: 'Bezahlt', typ: 'janein', wert: z => z.bezahlt },
   { kopf: 'Bezahlt am', typ: 'datum', wert: z => z.bezahltAm },
 ]
@@ -119,6 +124,8 @@ export function rechnungsjournalZeile(p: R): { zeile: RechnungsjournalZeile; son
       nettoGesamt, ustGesamt, brutto,
       storniert: !!p.storniert,
       storniertAm: p.storniert ? text(p.storniert_am) : null,
+      storniertVon: p.storniert ? text(p.storniert_von_name) : null,
+      stornoGrund: p.storniert ? text(p.storno_grund) : null,
       bezahlt: !!p.bezahlt,
       bezahltAm: p.bezahlt ? text(p.bezahlt_am) : null,
     },
@@ -178,7 +185,7 @@ function nummernVergleich(a: string | null, b: string | null): number {
 export async function ladeRechnungsjournal(supabase: any, tenantId: string, p: RechnungsjournalParameter): Promise<{ zeilen: RechnungsjournalZeile[]; warnungen: string[] }> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await alle<R>((supabase.from('verkaufsposten') as any)
-    .select(`id, datum, rechnungsnummer, aktiv, storniert, storniert_am, bezahlt, bezahlt_am,
+    .select(`id, datum, rechnungsnummer, aktiv, storniert, storniert_am, storniert_von_name, storno_grund, bezahlt, bezahlt_am,
       kontakt:kontakte!kontakt_id(vorname, nachname, accountnummer, debitor_nr, land),
       firma:firmen!firma_id(name, uid_nummer, accountnummer, debitor_nr, land),
       verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct, ust_satz)`)

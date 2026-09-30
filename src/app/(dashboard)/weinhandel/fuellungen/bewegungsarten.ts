@@ -21,6 +21,13 @@ export function istBewegungsart(x: unknown): x is BewegungsArt {
   return typeof x === 'string' && BEWEGUNGSARTEN.some(a => a.value === x)
 }
 
+/** KAN-149 D1: Verkauf und Storno-Rückbuchung – nur über den Verkauf (RPC s112_fuellung_verkauf_buchen), nicht im
+ *  Formular „Bestand korrigieren“ wählbar */
+export const VERKAUFSARTEN: Record<string, string> = {
+  verkauf:        'Verkauf',
+  verkauf_storno: 'Verkauf storniert (Rückbuchung)',
+}
+
 export function bewegungsartLabel(art: string): string {
-  return BEWEGUNGSARTEN.find(a => a.value === art)?.label ?? art
+  return BEWEGUNGSARTEN.find(a => a.value === art)?.label ?? VERKAUFSARTEN[art] ?? art
 }

@@ -161,7 +161,7 @@ async function ladeRoh(supabase: any, tenantId: string, behaelterId: string): Pr
         .order('datum', { ascending: true })
         .order('id', { ascending: true }), 'fuellungen'),
       liste((supabase.from('verkauf_positionen') as any)
-        .select('id, menge, einheit, weinausbau_id, verkaufsposten:verkaufsposten_id(datum, storniert, rechnungsnummer, kontakt:kontakt_id(vorname, nachname), firma:firma_id(name))')
+        .select('id, menge, einheit, weinausbau_id, verkaufsposten:verkaufsposten_id(datum, storniert, storniert_am, storno_grund, storniert_von_name, rechnungsnummer, kontakt:kontakt_id(vorname, nachname), firma:firma_id(name))')
         .eq('tenant_id', tenantId)
         .in('weinausbau_id', ids)
         .eq('typ', 'tank')
@@ -395,7 +395,9 @@ function bewegungenAus(roh: Roh): Bewegung[] {
 
   for (const v of roh.verkauf) {
     const vp = v.verkaufsposten as R | null
-    if (vp?.storniert) continue
+    // KAN-149 D1: ein stornierter Verkauf bleibt am Verkaufstag stehen und bekommt am Storno-Tag die Gegenbuchung
+    // (wie Umzug, Verschnitt, Füllung, KAN-145) – nur Alt-Stornos ohne Zeitpunkt entfallen wie bisher
+    if (vp?.storniert && !vp.storniert_am) continue
     const l = num(v.menge)
     if (l <= 0) continue
     bewegungen.push({
@@ -407,6 +409,7 @@ function bewegungenAus(roh: Roh): Bewegung[] {
       charge: name(v.weinausbau_id),
       gegenstelle: text((vp?.firma as R | null)?.name) ?? personName(vp?.kontakt as R | null),
       beleg: text(vp?.rechnungsnummer),
+      ...(vp?.storniert ? stornoFeld(vp) : {}),
     })
   }
 

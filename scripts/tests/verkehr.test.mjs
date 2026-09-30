@@ -334,24 +334,31 @@ describe('transportbescheinigung', () => {
     assert.ok(!sb.abfragen.some(a => a.tabelle === 'dac_antrag'))   // Prüfnummern nur für die Vorbelegung
   })
 
-  test('Zeitraumliste: nur TB-pflichtige, nicht stornierte Verkäufe im Zeitraum', async () => {
-    const storno = { ...POSTEN, id: '44444444-4444-4444-8444-444444444444', rechnungsnummer: 'RE-2026-0043', storniert: true }
+  test('Zeitraumliste: nur TB-pflichtige Verkäufe im Zeitraum, stornierte gekennzeichnet (KAN-149 D1)', async () => {
+    const storno = { ...POSTEN, id: '44444444-4444-4444-8444-444444444444', rechnungsnummer: 'RE-2026-0043', storniert: true,
+      storniert_am: '2026-09-20T22:30:00Z', storno_grund: 'Kunde hat storniert' }
     const nurKarton = { ...POSTEN, id: '55555555-5555-4555-8555-555555555555', rechnungsnummer: 'RE-2026-0044', positionen: [POSTEN.positionen[3]] }
     const spaeter = { ...POSTEN, id: '66666666-6666-4666-8666-666666666666', datum: '2026-10-02' }
     const sb = fakeSupabase({
       verkaufsposten: [POSTEN, storno, nurKarton, spaeter], tenant_einstellungen: [CFG], dac_antrag: [], transportbescheinigungen: [],
     })
     const r = await tb.ladeTransportbescheinigungen(sb, T, { von: '2026-09-01', bis: '2026-09-30' })
-    assert.equal(new Set(r.zeilen.map(z => z.verkaufspostenId)).size, 1)
-    assert.equal(r.zeilen.length, 3)
-    assert.match(r.warnungen[0], /1 von 1 Transportbescheinigungen sind nicht gespeichert.*RE-2026-0042/)
-    assert.ok(r.warnungen.some(x => /1 stornierter Verkaufsposten nicht enthalten/.test(x)))
+    assert.equal(new Set(r.zeilen.map(z => z.verkaufspostenId)).size, 2)
+    assert.equal(r.zeilen.length, 6)
+    assert.match(r.warnungen[0], /2 von 2 Transportbescheinigungen sind nicht gespeichert.*RE-2026-0042, RE-2026-0043/)
+    assert.ok(r.warnungen.some(x => /1 stornierter Verkaufsposten ist enthalten und gekennzeichnet/.test(x)))
+    // stornierte Zeilen: Storniert am (Wiener Tag) und Grund als letzte Spalten; nicht stornierte leer
+    const s = r.zeilen.filter(z => z.rechnungsnummer === 'RE-2026-0043')
+    assert.ok(s.every(z => z.storniertAm === '2026-09-20T22:30:00Z' && z.stornoGrund === 'Kunde hat storniert'))
+    assert.ok(r.zeilen.filter(z => z.rechnungsnummer === 'RE-2026-0042').every(z => z.storniertAm === null && z.stornoGrund === null))
+    const kopf = tb.SPALTEN_TRANSPORTBESCHEINIGUNG.map(sp => sp.kopf)
+    assert.deepEqual(kopf.slice(-2), ['Storniert am', 'Storno-Grund'])
     mandantGefiltert(sb, ['verkaufsposten', 'tenant_einstellungen', 'transportbescheinigungen', 'dac_antrag'])
 
     // Filter „nur gespeicherte“: Vorbelegungen entfallen (mit Hinweis) → Leermeldung
     const nur = await tb.ladeTransportbescheinigungen(sb, T, { von: '2026-09-01', bis: '2026-09-30', nurGespeichert: true })
     assert.equal(nur.zeilen.length, 0)
-    assert.ok(nur.warnungen.some(x => /1 Verkauf ohne gespeicherte Transportbescheinigung ausgeblendet/.test(x)))
+    assert.ok(nur.warnungen.some(x => /2 Verkäufe ohne gespeicherte Transportbescheinigung ausgeblendet/.test(x)))
     assert.equal(csvDatei(nur.zeilen, tb.SPALTEN_TRANSPORTBESCHEINIGUNG).zeilen, 0)
   })
 })

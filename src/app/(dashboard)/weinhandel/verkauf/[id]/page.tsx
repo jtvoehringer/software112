@@ -62,7 +62,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
   const [{ data: postenRaw }, settings, { data: zahlungenRaw }, { count: traubenverkaufAnzahl }] = await Promise.all([
     (supabase.from('verkaufsposten') as any)
       .select(`
-        id, datum, rechnungsnummer, notizen, erstellt_am, storniert, storniert_am,
+        id, datum, rechnungsnummer, notizen, erstellt_am, storniert, storniert_am, storniert_von_name, storno_grund,
         bezahlt, bezahlt_am, skonto_pct, skonto_tage, skonto_aktiv,
         rechnung_versendet_am, rechnung_versendet_an,
         kontakt:kontakte!kontakt_id(id, vorname, nachname, email, telefon, strasse, plz, ort, zahlungsziel_tage),
@@ -134,8 +134,8 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
   const stornoWithId     = stornoVerkauf.bind(null, id)
   const hatTraubenverkauf = (traubenverkaufAnzahl ?? 0) > 0 || positionen.some((p: R) => p.typ === 'trauben')
   const stornoMeldung =
-    'Verkauf stornieren? Der Lagerbestand wird zurückgebucht, der Beleg bleibt als storniert erhalten.' +
-    (hatTraubenverkauf ? ' Die zugehörigen Traubenverkäufe (BKI) werden entfernt, die Menge wird wieder frei.' : '')
+    'Der Lagerbestand wird zurückgebucht, der Beleg bleibt mit Datum, Benutzer und Grund als storniert erhalten.' +
+    (hatTraubenverkauf ? ' Die zugehörigen Traubenverkäufe (BKI) werden mitstorniert, die Menge wird wieder frei.' : '')
   const info = kundenInfo(posten)
 
   const FLASCHEN_LABEL: Record<number, string> = {
@@ -255,6 +255,15 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
           </div>
         </div>
       </div>
+
+      {/* KAN-149 D1: Storno mit Datum, Benutzer und Grund (ältere Stornos ohne Grund) */}
+      {posten.storniert && (
+        <p role="note" className="text-sm text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2">
+          Storniert{posten.storniert_am ? ` am ${new Date(posten.storniert_am).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}` : ''}
+          {posten.storniert_von_name ? ` von ${posten.storniert_von_name}` : ''}
+          {posten.storno_grund ? ` – ${posten.storno_grund}` : ''}
+        </p>
+      )}
 
       {/* Rechnungsversand per E-Mail */}
       {!posten.storniert && (

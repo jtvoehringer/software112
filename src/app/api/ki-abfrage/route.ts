@@ -124,10 +124,11 @@ const TABELLEN_KONTEXT = `
   bezeichnung!); bezeichnung = zusätzliches Prädikat/Zusatzbezeichnung (z.B. "Reserve"), ist bei sehr vielen
   Weinen leer/NULL. bestand_flaschen = aktueller Lagerbestand, flaschengroesse_ml, vk_preis_brutto,
   einstandspreis. fuellung_chargen verknüpft eine Füllung mit ihrer/ihren Ursprungs-Charge(n) aus weinausbau.
-- fuellung_bewegungen: Flaschenbewegungen je Füllung (fuellung_id → fuellungen.id) AUSSERHALB von Verkauf/Storno,
-  art (inventur|bruch|eigenverbrauch|schwund|korrektur|anfangsbestand), datum, menge_stk = Veränderung in Stück
-  (Abgänge wie Bruch/Eigenverbrauch/Schwund negativ), bestand_vorher/bestand_nachher, grund. Verkaufte Flaschen
-  stehen NICHT hier, sondern in verkauf_positionen.
+- fuellung_bewegungen: Flaschenbewegungen je Füllung (fuellung_id → fuellungen.id),
+  art (inventur|bruch|eigenverbrauch|schwund|korrektur|anfangsbestand|verkauf|verkauf_storno), datum, menge_stk =
+  Veränderung in Stück (Abgänge wie Bruch/Eigenverbrauch/Schwund/Verkauf negativ), bestand_vorher/bestand_nachher,
+  grund, verkaufsposten_id (nur bei verkauf/verkauf_storno). Verkaufszeilen gibt es erst seit 30.09.2026 – verkaufte
+  Mengen und Umsätze daher immer aus verkauf_positionen rechnen, nicht aus dieser Tabelle.
 - kontakte / firmen: Kunden (auch is_lead=true für Leads), segment (privat|gastro|handel|export|grosshandel), stammkunde, plz/ort/land.
 - verkaufsposten (Rechnungskopf) ↔ verkauf_positionen (Zeilen): datum, kontakt_id/firma_id, bezahlt, storniert. verkauf_positionen.typ (flasche|tank|sonstiges|trauben), fuellung_id/weinausbau_id/zukauf_id verknüpfen zur verkauften Sache, menge, preis_brutto, rabatt_pct, sonderrabatt_pct (Netto-Betrag = preis_brutto*menge*(1-rabatt_pct/100)*(1-sonderrabatt_pct/100)).
   WICHTIG bei typ='flasche': menge ist die ANZAHL FLASCHEN (Stück, einheit='Stk'), NICHT Liter! Um die

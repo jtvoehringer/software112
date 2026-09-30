@@ -260,6 +260,26 @@ describe('bewegungsbuch', () => {
     assert.equal(r.zeilen, 8)
   })
 
+  test('KAN-149 D1: stornierter Tankverkauf – Abgang am Verkaufstag, Gegenbuchung am Storno-Tag; Alt-Storno ohne Zeitpunkt entfällt', async () => {
+    const d = kellerDaten()
+    // v2 (Alt-Storno ohne storniert_am) bleibt ausgelassen; v3 neu mit Zeitpunkt, Grund und Benutzer
+    d.verkauf_positionen.push({ id: 'v3', tenant_id: d.verkauf_positionen[0].tenant_id, weinausbau_id: C1, typ: 'tank', menge: '15', einheit: 'L',
+      verkaufsposten: { datum: '2026-04-03', storniert: true, storniert_am: '2026-04-05T22:30:00+00:00', storno_grund: 'Kunde hat storniert',
+        storniert_von_name: 'Karin', rechnungsnummer: 'RE-2026-0009', firma: { name: 'Vinothek Nord' }, kontakt: null } })
+    const sb = attrappe(d, gebindeRpc(gebindeKeller))
+    const r = await ausfuehren('bewegungsbuch', `behaelter=${G1}`, sb)
+    const [kopf, ...z] = r.tabelle
+    const iStorno = kopf.indexOf('Storno')
+    const vk = z.filter(c => c[2] === 'Tankverkauf' && c[9] === 'RE-2026-0009')
+    assert.equal(vk.length, 2, 'Buchung und Gegenbuchung')
+    const [buchung, gegen] = vk
+    assert.deepEqual([buchung[0], buchung[5], buchung[6], buchung[iStorno]], ['03.04.2026', '', '15,00', 'storniert am 06.04.2026'])
+    assert.deepEqual([gegen[0], gegen[5], gegen[6], gegen[iStorno]], ['06.04.2026', '15,00', '', 'Gegenbuchung (Storno) zur Buchung vom 03.04.2026'])
+    assert.match(gegen[10], /Grund: Kunde hat storniert · storniert von Karin/)
+    assert.ok(!z.some(c => c[9] === 'RE-2026-0008'), 'Alt-Storno ohne Zeitpunkt weiter ausgelassen')
+    assert.equal(r.zeilen, 8)
+  })
+
   test('gesamter Zeitraum: Zu-/Abgänge, Saldo, fremder Betrieb und Storno ausgelassen', async () => {
     const sb = attrappe(kellerDaten(), gebindeRpc(gebindeKeller))
     const r = await ausfuehren('bewegungsbuch', `behaelter=${G1}`, sb)

@@ -81,7 +81,8 @@ DECLARE
   c_ta_liest   constant text[] := ARRAY['bestandsprotokoll', 'zeiterfassung'];
   c_min_ins    constant int := 75;
   c_min_upd    constant int := 70;
-  c_min_del    constant int := 60;   -- KAN-145 B4 / KAN-148 C1d: Löschsperre auf Kellerbuch, Lese, Pressung, Chargen; C2: bestätigte AMA-Meldung (30.09.2026)
+  c_min_del    constant int := 58;   -- KAN-145 B4 / KAN-148 C1d: Löschsperre auf Kellerbuch, Lese, Pressung, Chargen; C2: bestätigte AMA-Meldung;
+                                     -- 58: Musterhof-Daten auf Staging nach der Abnahme KAN-148 (Lese-Stornos, AMA eingereicht, 30.09.2026)
   c_ok_re      constant text := '^(k[1-9][0-9]*|E23[0-9A-Z]{3})$';
   v_ok_ins     int := 0;
   v_ok_upd     int := 0;

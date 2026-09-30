@@ -379,9 +379,9 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_luecke('luecke_jahrgang_abgeschlossen_update',
     pg_temp.s112_versuch(format('UPDATE public.weinjahrgaenge SET abgeschlossen = false WHERE id = %L', v_jg_abg)),
     'k0'::text, 'k1'::text, 'B8 abgeschlossener Jahrgang änderbar (winzer)');
-  v_erg := v_erg || pg_temp.s112_luecke('luecke_storno_rueckgaengig',
-    pg_temp.s112_versuch(format('UPDATE public.verkaufsposten SET storniert = false WHERE id = %L', v_vp_storno)),
-    'k0'::text, 'k1'::text, 'B8 Storno eines Verkaufspostens rückgängig machbar (winzer)');
+  -- B8 behoben (KAN-149 D1, Trigger a_verkauf_storno_schutz): Storno eines Verkaufs nicht rückgängig machbar
+  v_erg := v_erg || pg_temp.s112_erwarte('storno_rueckgaengig',
+    pg_temp.s112_versuch(format('UPDATE public.verkaufsposten SET storniert = false WHERE id = %L', v_vp_storno)), 'T');
   PERFORM pg_temp.s112_als(v_mta);
   v_erg := v_erg || pg_temp.s112_luecke('luecke_monatsabschluss_loeschen',
     pg_temp.s112_versuch(format('DELETE FROM public.ea_monatsabschluss WHERE id = %L', v_ma)),
