@@ -58,7 +58,7 @@ export default async function ErntemeldungPage() {
       : Promise.resolve({ data: [] }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('ama_erntemeldungen') as any)
-      .select('jahrgang_id, status')
+      .select('jahrgang_id, status, version')
       .eq('tenant_id', tenantId),
     // Löschsperre: Pressungen und Traubenverkäufe je Jahrgang
     // storno-sichtbar: auch eine stornierte Pressung sperrt das Löschen des Jahrgangs (KAN-148)
@@ -91,8 +91,16 @@ export default async function ErntemeldungPage() {
     parzellenByJG.set(p.jahrgang_id, curr)
   }
 
+  // KAN-148 C2: je Jahrgang mehrere Versionen (Korrekturmeldungen) – angezeigt wird die neueste, das Löschen sperrt
+  // jede schon eingereichte Version
   const amaByJG = new Map<string, string>()
-  for (const a of (rawA ?? []) as AR[]) amaByJG.set(a.jahrgang_id, a.status)
+  const amaVersionByJG = new Map<string, number>()
+  const amaGesperrtByJG = new Map<string, string>()
+  for (const a of (rawA ?? []) as AR[]) {
+    const v = (a.version as number | null) ?? 1
+    if (v >= (amaVersionByJG.get(a.jahrgang_id) ?? 0)) { amaByJG.set(a.jahrgang_id, a.status); amaVersionByJG.set(a.jahrgang_id, v) }
+    if (AMA_STATUS_GESPERRT[a.status] && !amaGesperrtByJG.has(a.jahrgang_id)) amaGesperrtByJG.set(a.jahrgang_id, a.status)
+  }
 
   const jahrgaenge: Jahrgang[] = ((rawJ ?? []) as AR[]).map(j => ({
     id:               j.id,
@@ -111,7 +119,7 @@ export default async function ErntemeldungPage() {
       const gruende: string[] = []
       const nP = pressungenByJG.get(j.id) ?? 0
       const nT = tvByJG.get(j.id) ?? 0
-      const ama = amaByJG.get(j.id)
+      const ama = amaGesperrtByJG.get(j.id)
       if (nP > 0) gruende.push(`${nP} ${nP === 1 ? 'Pressung ist' : 'Pressungen sind'} erfasst (daraus sind Kellerbuch-Chargen entstanden)`)
       if (nT > 0) gruende.push(`${nT} ${nT === 1 ? 'Traubenverkauf ist' : 'Traubenverkäufe sind'} erfasst`)
       if (ama && AMA_STATUS_GESPERRT[ama]) gruende.push(`die AMA-Erntemeldung ist bereits ${AMA_STATUS_GESPERRT[ama]}`)

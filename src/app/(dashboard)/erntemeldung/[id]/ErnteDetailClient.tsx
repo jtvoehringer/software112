@@ -1,11 +1,12 @@
 'use client'
 
 import React, { useEffect, useState, useTransition } from 'react'
-import { upsertErnteParzelle, stornoErnteParzelle, endgueltigLoeschenLese, createOrUpdateAMAMeldung, createMultipleErnteParzellen } from '../actions'
+import { upsertErnteParzelle, stornoErnteParzelle, endgueltigLoeschenLese, createMultipleErnteParzellen } from '../actions'
 import { qualitaetLabel, LESE_QUALITAETEN, mitGespeichertemWert } from '@/lib/wein/qualitaet'
 import { kmwZuQualitaet } from '@/lib/weinqualitaet'
 import type { ErnteParzelle, WeingartenOpt, GSTOpt, AMAMeldung, HektarhoechstertragStatus } from './page'
 import PressungSection from './PressungSection'
+import AmaMeldungKarte from './AmaMeldungKarte'
 import type { Pressung, WGOption, BehOption, WAOption, ZukaufTraubenOpt } from './PressungSection'
 import { fmtHa, fmtZahl, fmtProzent, fmtNum, zahlAus } from '@/lib/format'
 import { Pencil, AlertTriangle, Plus } from 'lucide-react'
@@ -31,13 +32,6 @@ const LESEMETHODE_OPTS = [
   { value: 'maschinenlese', label: 'Maschinenlese' },
   { value: 'selektionslese', label: 'Selektionslese' },
 ]
-const AMA_STATUS_BADGE: Record<string, { label: string; cls: string }> = {
-  entwurf:     { label: 'Entwurf',     cls: 'bg-[#F2F3F5] text-s112-text-2' },
-  bereit:      { label: 'Bereit',      cls: 'bg-s112-blue-100 text-s112-blue-700' },
-  eingereicht: { label: 'Eingereicht', cls: 'bg-s112-warn-bg text-s112-warn-fg' },
-  bestaetigt:  { label: 'Bestätigt',   cls: 'bg-s112-ok-bg text-s112-ok-fg' },
-  abgelehnt:   { label: 'Abgelehnt',   cls: 'bg-s112-err-bg text-s112-err-fg' },
-}
 
 // Erfassung je Grundstück in der Sammelerfassung („Mengen je Grundstück einzeln erfassen“, KAN-161). Mostgewicht (KAN-128) als Messwert mit Einheit aus
 // der Eingabe-Komponente – im Zustand, weil die Zeile beim Abwählen oder Umschalten verschwindet:
@@ -695,8 +689,6 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
 }) {
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
-  const [pending, startTransition] = useTransition()
-  const [amaFehler, setAmaFehler]   = useState<string | null>(null)
 
   // KAN-148 C1b: stornierte Einträge stehen gekennzeichnet in der Tabelle, zählen aber in keiner Summe
   const gueltigeParzellen = tabellenParzellen.filter(p => !p.storno)
@@ -706,22 +698,10 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
   // Spalten der Lesedaten-Tabelle: Ried, GST, Sorte, Datum, kg, Notizen, Mostgewicht, Qualität (+ Aktionen)
   const spaltenAnzahl = 8 + (mitAktionen ? 1 : 0)
 
-  function handleAMA() {
-    if (!confirm('AMA-Meldung aus aktuellen Lesedaten aufbauen?')) return
-    setAmaFehler(null)
-    startTransition(async () => {
-      try {
-        await createOrUpdateAMAMeldung(jahrgang.id)
-      } catch (err) {
-        setAmaFehler(fehlerText(err, 'Die AMA-Meldung konnte nicht aufgebaut werden.'))
-      }
-    })
-  }
-
   const heute = new Date().toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })
 
   return (
-    <div className={`space-y-6 ${pending ? 'opacity-60 pointer-events-none' : ''}`}>
+    <div className="space-y-6">
 
       {/* Print-Header (nur beim Drucken sichtbar) */}
       <div className="hidden print:block mb-4 pb-4 border-b-2 border-s112-line-str">
@@ -948,98 +928,10 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
         adminOk={adminOk}
       />
 
-      {/* AMA Meldung */}
+      {/* AMA-Erntemeldung: Status, Einreichen, Rückmeldung, Korrekturmeldung (KAN-148 C2) */}
       {writeOk && (
-        <div className="card">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-semibold text-s112-text">AMA Erntemeldung</h2>
-            {amaMeldung && (
-              <span className={`text-xs px-2 py-1 rounded-full font-medium ${AMA_STATUS_BADGE[amaMeldung.status]?.cls ?? 'bg-[#F2F3F5] text-s112-text-2'}`}>
-                {AMA_STATUS_BADGE[amaMeldung.status]?.label ?? amaMeldung.status}
-              </span>
-            )}
-          </div>
-
-          {stichtagHinweis && (
-            <p role="note" className="mb-3 rounded-lg border border-s112-warn/30 bg-s112-warn-bg px-3 py-2 text-xs text-s112-warn-fg">
-              {stichtagHinweis}
-            </p>
-          )}
-
-          {amaMeldung ? (
-            <div>
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div className="bg-s112-bg rounded-xl p-3">
-                  <p className="text-lg font-semibold text-s112-text">{(amaMeldung.gesamtmenge_kg == null ? undefined : fmtNum(amaMeldung.gesamtmenge_kg))} kg</p>
-                  <p className="text-xs text-s112-muted">Gesamtmenge</p>
-                </div>
-                <div className="bg-s112-bg rounded-xl p-3">
-                  <p className="text-lg font-semibold text-s112-text">{fmtProzent(amaMeldung.gesamtmenge_hl)} hl</p>
-                  <p className="text-xs text-s112-muted">Most (≈)</p>
-                </div>
-              </div>
-
-              {amaMeldung.positionen.length > 0 && (
-                <table className="w-full text-sm mb-4">
-                  <thead>
-                    <tr className="border-b border-s112-border text-xs text-s112-text-2">
-                      <th className="text-left pb-1 font-semibold">Rebsorte</th>
-                      <th className="text-right pb-1 font-semibold">Fläche (ha)</th>
-                      <th className="text-right pb-1 font-semibold">Menge (kg)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {amaMeldung.positionen.map((pos, i) => (
-                      <tr key={i} className="border-b border-s112-border/40 last:border-0">
-                        <td className="py-1.5">{formatRebsorteMitKuerzel(pos.rebsorte_name)}</td>
-                        <td className="py-1.5 text-right tabular-nums">{fmtHa(pos.flaeche_ha)}</td>
-                        <td className="py-1.5 text-right tabular-nums">{(pos.menge_kg == null ? undefined : fmtNum(pos.menge_kg)) ?? '–'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-
-              {amaFehler && (
-                <div role="alert" className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-lg px-3 py-2 text-xs mb-3" data-print="hide">
-                  {amaFehler}
-                </div>
-              )}
-
-              {amaMeldung.n8n_fehler && (
-                <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-lg px-3 py-2 text-xs mb-3">
-                  Fehler: {amaMeldung.n8n_fehler}
-                </div>
-              )}
-
-              <div className="flex items-start gap-2 flex-wrap" data-print="hide">
-                <button onClick={handleAMA}
-                  className="text-sm bg-s112-bg border border-s112-border hover:border-s112-teal text-s112-text-1 hover:text-s112-blue-700 px-4 py-2 rounded-lg transition-colors">
-                  Neu berechnen
-                </button>
-                {csvErlaubt && (
-                  <CsvExportKnopf label="Erntemeldung als CSV" href={csvPfad('erntemeldung', { jahrgang: jahrgang.jahrgang })} />
-                )}
-              </div>
-            </div>
-          ) : (
-            <div>
-              <p className="text-sm text-s112-muted mb-4" data-print="hide">
-                Lesedaten aus {gueltigeParzellen.length} Parzellen zu AMA-Meldung aggregieren.
-              </p>
-              {amaFehler && (
-                <div role="alert" className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-lg px-3 py-2 text-xs mb-3" data-print="hide">
-                  {amaFehler}
-                </div>
-              )}
-              <button onClick={handleAMA} disabled={gueltigeParzellen.length === 0}
-                data-print="hide"
-                className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50 transition-colors">
-                AMA-Meldung erstellen
-              </button>
-            </div>
-          )}
-        </div>
+        <AmaMeldungKarte jahrgangId={jahrgang.id} jahrgang={jahrgang.jahrgang} amaMeldung={amaMeldung}
+          stichtagHinweis={stichtagHinweis} anzahlParzellen={gueltigeParzellen.length} csvErlaubt={csvErlaubt} />
       )}
     </div>
   )

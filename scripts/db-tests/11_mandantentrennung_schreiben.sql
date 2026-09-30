@@ -49,7 +49,7 @@
 CREATE FUNCTION pg_temp.t11_fremd_fk_bekannt() RETURNS text[] LANGUAGE sql IMMUTABLE AS $f$
   SELECT ARRAY[
     'aktivitaet_dokumente.aktivitaet_id', 'aktivitaeten.firma_id', 'aktivitaeten.kontakt_id',
-    'ama_erntemeldungen.jahrgang_id', 'behandlung_grundstuecke.grundstueck_id', 'behandlungen.duengemittel_id',
+    'behandlung_grundstuecke.grundstueck_id', 'behandlungen.duengemittel_id',
     'behandlungen.psm_id', 'behandlungen.weingarten_id', 'bestellung_positionen.weinausbau_id', 'bestellungen.firma_id',
     'bestellungen.kontakt_id', 'checklisten_punkte.checkliste_id', 'dac_antrag.weinausbau_id',
     'duengemittel_lager_bewegungen.duengemittel_id', 'ea_belege.ea_transaktion_id', 'ea_dauerauftraege.kategorie_id',

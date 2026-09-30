@@ -342,8 +342,9 @@ BEGIN
     pg_temp.s112_versuch(format('UPDATE public.ama_erntemeldungen SET notizen = notizen WHERE id = %L', v_ama_best)), 'k0');
   v_erg := v_erg || pg_temp.s112_erwarte('ama_entwurf_update',
     pg_temp.s112_versuch(format('UPDATE public.ama_erntemeldungen SET notizen = notizen WHERE id = %L', v_ama_entw)), 'k1');
+  -- KAN-148 C2: Trigger a_ama_position_schutz lehnt vor der RLS-Prüfung ab (T statt R)
   v_erg := v_erg || pg_temp.s112_erwarte('ama_pos_insert_bestaetigt',
-    pg_temp.s112_versuch(pg_temp.s112_klon_sql('ama_meldepositionen', v_pos_best)), 'R');
+    pg_temp.s112_versuch(pg_temp.s112_klon_sql('ama_meldepositionen', v_pos_best)), 'T');
   v_erg := v_erg || pg_temp.s112_erwarte('ama_pos_update_bestaetigt',
     pg_temp.s112_versuch(format('UPDATE public.ama_meldepositionen SET menge_kg = menge_kg WHERE meldung_id = %L', v_ama_best)), 'k0');
   v_erg := v_erg || pg_temp.s112_erwarte('ama_pos_bestaetigt_sichtbar',
@@ -385,9 +386,9 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_luecke('luecke_monatsabschluss_loeschen',
     pg_temp.s112_versuch(format('DELETE FROM public.ea_monatsabschluss WHERE id = %L', v_ma)),
     'k0'::text, 'k1'::text, 'B7 E&A: Monatsabschluss löschbar (tenant_admin öffnet den Monat wieder)');
-  v_erg := v_erg || pg_temp.s112_luecke('luecke_ama_bestaetigt_loeschen',
-    pg_temp.s112_versuch(format('DELETE FROM public.ama_erntemeldungen WHERE id = %L', v_ama_best)),
-    'k0'::text, 'k1'::text, 'B8 bestätigte AMA-Meldung löschbar (tenant_admin)');
+  -- B8 behoben (KAN-148 C2, Trigger a_ama_schutz): bestätigte AMA-Meldung nicht löschbar, auch nicht als tenant_admin
+  v_erg := v_erg || pg_temp.s112_erwarte('ama_bestaetigt_loeschen',
+    pg_temp.s112_versuch(format('DELETE FROM public.ama_erntemeldungen WHERE id = %L', v_ama_best)), 'T');
   PERFORM pg_temp.s112_als_postgres();
 
   -- ── 4. Bestandsprotokoll ──────────────────────────────────────────────────────────────────────────────

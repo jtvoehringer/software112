@@ -62,6 +62,8 @@ const ALTFAELLE = {
 const LOESCH_RPC_MIGRATIONEN = {
   'supabase/migrations/20260930153205_kan148c1d_loeschsperre_lese.sql': [['ernte_parzellen', 'weinausbau'],
     'Lösch-RPC s112_storniert_loeschen (KAN-148 C1d): nur stornierte Zeilen, Kennzeichen s112.storno_loeschen, Grund im Protokoll'],
+  'supabase/migrations/20260930161020_kan148c2a_ama_versionen.sql': [['ama_meldepositionen'],
+    'RPC s112_ama_meldung_speichern (KAN-148 C2): ersetzt nur die Positionen einer offenen (nicht eingereichten) Meldung; eingereichte Versionen schützt a_ama_position_schutz'],
 }
 
 function rel(datei) { return path.relative(WURZEL, datei).split(path.sep).join('/') }

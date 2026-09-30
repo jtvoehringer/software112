@@ -188,7 +188,7 @@ DECLARE
   -- z_protokoll_aendern: überwachte Spalten je Tabelle (Trigger-Argumente = UPDATE OF …, alphabetisch, Stand
   -- 28.09.2026). Kommt eine Spalte per Migration dazu, hier nachziehen – fehlt eine, feuert das Protokoll nicht mehr.
   c_protokoll_aendern constant text[] := ARRAY[
-    'ama_erntemeldungen=gesamtmenge_hl,gesamtmenge_kg,jahrgang_id,status,tenant_id',
+    'ama_erntemeldungen=ama_referenznr,bestaetigt_am,eingereicht_am,gesamtmenge_hl,gesamtmenge_kg,jahrgang_id,status,tenant_id,version',   -- KAN-148 C2
     'ama_meldepositionen=meldung_id,menge_hl,menge_kg',
     'behandlungen=art,aufwandmenge,aufwandmenge_einheit,datum,datum_bis,duengemittel_id,ernte_fruehesteins,konzentration,menge_einheit,menge_gesamt,psm_id,tenant_id,wasseraufwand_l_ha,weingarten_id',
     'duengemittel_lager_bewegungen=datum,duengemittel_id,einheit,menge,tenant_id,typ',
@@ -618,7 +618,7 @@ BEGIN
      WHERE f.sd AND s.abo IS DISTINCT FROM (f.src ~ %L)
      ORDER BY 1$q$, c_re_abo));
   SELECT count(*) INTO v_n FROM pg_temp.s112_soll_rpc() s WHERE s.abo;
-  v_erg := v_erg || pg_temp.s112_erwarte('rpc_abo_anzahl', v_n, 18::bigint);   -- +s112_storniert_loeschen (KAN-145), s112_buchung_loeschen (KAN-166), s112_pressung_stornieren (KAN-148)
+  v_erg := v_erg || pg_temp.s112_erwarte('rpc_abo_anzahl', v_n, 21::bigint);   -- +3 KAN-148 C2 (s112_ama_*)   -- +s112_storniert_loeschen (KAN-145), s112_buchung_loeschen (KAN-166), s112_pressung_stornieren (KAN-148)
   -- Unabhängig vom Handflag: schreibende SECURITY-DEFINER-RPC (p_tenant_id, EXECUTE für authenticated, Schreib-
   -- anweisung im Quelltext) ohne Abo-Prüfung → FEHLER, außer begründet in s112_soll_liste('abo_rpc_ausnahmen').
   v_erg := v_erg || pg_temp.t01_liste('rpc_schreibt_ohne_abo', format($q$
@@ -639,7 +639,7 @@ BEGIN
   -- Plausibilität der Heuristik: sie erkennt alle 12 RPCs mit Abo-Prüfung als schreibend
   SELECT count(*) INTO v_n FROM pg_temp.t01_funktionen() f JOIN pg_temp.s112_soll_rpc() s ON s.funktion = f.sig
    WHERE s.abo AND f.src ~* c_re_schreibt;
-  v_erg := v_erg || pg_temp.s112_erwarte('rpc_schreibt_heuristik_abo_rpcs', v_n, 18::bigint);   -- +3 KAN-148 C1c-2
+  v_erg := v_erg || pg_temp.s112_erwarte('rpc_schreibt_heuristik_abo_rpcs', v_n, 21::bigint);   -- +3 KAN-148 C2   -- +3 KAN-148 C1c-2
   -- p_tenant_id ohne pruefe_tenant_zugriff: nur mit Einstufung mandant_eigen, session_user, intern oder rls_hilfe
   v_erg := v_erg || pg_temp.t01_liste('ptz_nicht_eingestuft', format($q$
     SELECT f.sig AS schluessel,

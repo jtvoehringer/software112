@@ -56,7 +56,9 @@
 "n8n_letzte_aktion",
 "notizen",
 "created_at",
-"updated_at"
+"updated_at",
+"version",
+"vorgaenger_id"
 ],
 "ama_meldepositionen": [
 "id",
