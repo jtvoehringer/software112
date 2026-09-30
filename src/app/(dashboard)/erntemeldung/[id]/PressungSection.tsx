@@ -169,10 +169,10 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, wgOptions, behOpt
 
   function entferneBehRow(i: number) {
     const row = behRows[i]
-    // Bestehende Zeile mit Kellerbuch-Charge: die Charge wird beim Speichern mitgelöscht
+    // Bestehende Zeile mit Kellerbuch-Charge: Zeile und Charge werden beim Speichern storniert (KAN-148 C1c-2)
     // (nur ohne Folgebuchungen möglich – sonst lehnt der Server ab)
     if (row?.id && row.weinausbau_id
-      && !confirm(`Beim Speichern wird auch die daraus entstandene Kellerbuch-Charge „${row.weinausbau_name || 'ohne Namen'}“ gelöscht. Das geht nur, solange an ihr noch keine Folgebuchungen hängen. Fortfahren?`)) return
+      && !confirm(`Beim Speichern werden der Behälter und die daraus entstandene Kellerbuch-Charge „${row.weinausbau_name || 'ohne Namen'}“ storniert (sie bleiben gekennzeichnet stehen). Das geht nur, solange an der Charge noch keine Folgebuchungen hängen. Fortfahren?`)) return
     setBehRows(r => r.filter((_, j) => j !== i))
   }
 

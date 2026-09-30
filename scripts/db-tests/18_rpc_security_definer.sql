@@ -195,12 +195,17 @@ DECLARE
   -- 4b: RPCs mit Objekt-Argument, dynamisch mit fremdem Objekt geprüft
   c_idor  constant text[] := ARRAY['fuellung_bestand_buchen', 'schwund_buchen',
                                    'setze_kontobewegung_abgeglichen', 's112_storniert_loeschen', 's112_buchung_loeschen',
-                                   's112_schwund_minderung', 's112_pressung_stornieren'];
+                                   's112_schwund_minderung', 's112_pressung_stornieren', 's112_pressung_zeilen_stornieren', 's112_mostzeile_anlegen'];
   v_pl_m  uuid;
   v_pl_b  uuid;
   v_kb_m  uuid;
   v_pr_m  uuid;
   v_pr_b  uuid;
+  v_pz_m  uuid;
+  v_pz_b  uuid;
+  v_pw_m  uuid;
+  v_pw_b  uuid;
+  v_beh_b uuid;
   v_kb_b  uuid;
   v_f_m   uuid;
   v_f_b   uuid;
@@ -303,8 +308,8 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('rpc_liste_vollstaendig', v_n >= 30, true);   -- 30 seit KAN-127 (get_behandlungen_fuer_grundstuecke entfernt)
   SELECT count(*) INTO v_n FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace AND n.nspname = 'public'
    WHERE p.prosecdef AND 'p_tenant_id' = ANY (p.proargnames) AND p.prosrc ~ 'pruefe_tenant_zugriff\s*\(';
-  v_erg := v_erg || pg_temp.s112_erwarte('rpc_mit_pruefe_tenant_zugriff', v_n, 21);   -- +s112_pressung_stornieren (KAN-148 C1c)   -- +s112_schwund_minderung (KAN-145 B4)   -- +s112_storniert_loeschen (KAN-145), s112_buchung_loeschen (KAN-166)
-  v_erg := v_erg || pg_temp.s112_erwarte('pruefe_liste_dynamisch', coalesce(array_length(v_namen, 1), 0), 20);
+  v_erg := v_erg || pg_temp.s112_erwarte('rpc_mit_pruefe_tenant_zugriff', v_n, 24);   -- +3 KAN-148 C1c-2   -- +s112_pressung_stornieren (KAN-148 C1c)   -- +s112_schwund_minderung (KAN-145 B4)   -- +s112_storniert_loeschen (KAN-145), s112_buchung_loeschen (KAN-166)
+  v_erg := v_erg || pg_temp.s112_erwarte('pruefe_liste_dynamisch', coalesce(array_length(v_namen, 1), 0), 23);
   -- Soll-Einträge mit p_tenant_id, die es nicht (mehr) gibt
   SELECT string_agg(s.funktion, ', ') INTO v_txt FROM pg_temp.s112_soll_rpc() s
    WHERE s.funktion LIKE '%p_tenant_id %'
@@ -374,7 +379,7 @@ BEGIN
   END LOOP;
   PERFORM pg_temp.s112_als_postgres();
   UPDATE public.tenants SET stripe_status = NULL WHERE id = v_b;
-  v_erg := v_erg || pg_temp.s112_erwarte('abo_rpcs_geprueft', v_n, 14);   -- +s112_pressung_stornieren (KAN-148)
+  v_erg := v_erg || pg_temp.s112_erwarte('abo_rpcs_geprueft', v_n, 17);   -- +3 KAN-148 C1c-2   -- +s112_pressung_stornieren (KAN-148)
 
   -- ── 4. 'eigen': eigene Mitgliedsprüfung (ohne pruefe_tenant_zugriff) ──────────────────────────────────
   SELECT count(*) INTO v_n FROM public.tenant_memberships WHERE tenant_id = v_m AND aktiv;
@@ -498,6 +503,37 @@ BEGIN
       v_erg := v_erg || pg_temp.s112_erwarte('idor_s112_pressung_stornieren', split_part(v_r, '|', 2), 'false');
     ELSE
       v_erg := v_erg || pg_temp.s112_erwarte('idor_positiv_s112_pressung_stornieren', v_r, 'ok|true');
+    END IF;
+  END LOOP;
+
+  -- s112_pressung_zeilen_stornieren (KAN-148 C1c-2): Traubenzeile – fremde (M) bleibt, eigene (B) storniert
+  v_pz_m := (pg_temp.s112_beispiel('pressungen', v_m, v_mw) ->> 'id')::uuid;
+  v_pz_b := (pg_temp.s112_beispiel('pressungen', v_b, (v_a ->> 'b_w')::uuid) ->> 'id')::uuid;
+  v_pw_m := (pg_temp.s112_beispiel('pressung_weingaerten', v_m, v_mw, jsonb_build_object('pressung_id', v_pz_m)) ->> 'id')::uuid;
+  v_pw_b := (pg_temp.s112_beispiel('pressung_weingaerten', v_b, (v_a ->> 'b_w')::uuid, jsonb_build_object('pressung_id', v_pz_b)) ->> 'id')::uuid;
+  FOREACH v_txt IN ARRAY ARRAY['m', 'b'] LOOP
+    v_sql := format('SELECT public.s112_pressung_zeilen_stornieren(%L, %L, %L::uuid[], ARRAY[%L]::uuid[], %L)',
+      v_b, CASE v_txt WHEN 'm' THEN v_pz_m ELSE v_pz_b END, '{}', CASE v_txt WHEN 'm' THEN v_pw_m ELSE v_pw_b END, 'S112TEST Bearbeiten');
+    v_pruef := format('SELECT (storniert_am IS NOT NULL)::text FROM public.pressung_weingaerten WHERE id = %L', CASE v_txt WHEN 'm' THEN v_pw_m ELSE v_pw_b END);
+    v_r := pg_temp.t18_idor(v_bta, v_sql, v_pruef);
+    IF v_txt = 'm' THEN
+      v_erg := v_erg || pg_temp.s112_erwarte('idor_s112_pressung_zeilen_stornieren', split_part(v_r, '|', 2), 'false');
+    ELSE
+      v_erg := v_erg || pg_temp.s112_erwarte('idor_positiv_s112_pressung_zeilen_stornieren', v_r, 'ok|true');
+    END IF;
+  END LOOP;
+
+  -- s112_mostzeile_anlegen (KAN-148 C1c-2): Behälterzeile an fremder Pressung (M) – keine, an eigener (B) – eine
+  v_beh_b := (pg_temp.s112_beispiel('behaelter', v_b, (v_a ->> 'b_w')::uuid) ->> 'id')::uuid;
+  FOREACH v_txt IN ARRAY ARRAY['m', 'b'] LOOP
+    v_sql := format('SELECT public.s112_mostzeile_anlegen(%L, %L, %L, 5, NULL, %L::jsonb)',
+      v_b, CASE v_txt WHEN 'm' THEN v_pz_m ELSE v_pz_b END, v_beh_b, '{"name": "S112TEST"}');
+    v_pruef := format('SELECT count(*)::text FROM public.pressung_behaelter WHERE pressung_id = %L', CASE v_txt WHEN 'm' THEN v_pz_m ELSE v_pz_b END);
+    v_r := pg_temp.t18_idor(v_bta, v_sql, v_pruef);
+    IF v_txt = 'm' THEN
+      v_erg := v_erg || pg_temp.s112_erwarte('idor_s112_mostzeile_anlegen', split_part(v_r, '|', 2), '0');
+    ELSE
+      v_erg := v_erg || pg_temp.s112_erwarte('idor_positiv_s112_mostzeile_anlegen', v_r, 'ok|1');
     END IF;
   END LOOP;
 

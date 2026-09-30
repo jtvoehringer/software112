@@ -1161,7 +1161,11 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('rls_hilfe',     '-US', false, 's112_meine_tenants()'),
     ('rls_hilfe',     '-US', false, 's112_schreibgesperrte_tenants()'),
     ('mandant',       '-US', true , 's112_buchung_loeschen(p_tenant_id uuid, p_tabelle text, p_id uuid, p_grund text)'),   -- KAN-166
+    ('intern',        '--S', false, 's112_charge_folgebuchung(p_tenant_id uuid, p_charge_id uuid)'),   -- KAN-148 C1c-2 (Hilfsfunktion)
+    ('mandant',       '-US', true , 's112_mostzeile_anlegen(p_tenant_id uuid, p_pressung_id uuid, p_behaelter_id uuid, p_menge_liter numeric, p_notizen text, p_charge jsonb)'),   -- KAN-148 C1c-2
+    ('mandant',       '-US', true , 's112_pressung_anlegen(p_tenant_id uuid, p_kopf jsonb, p_trauben jsonb)'),   -- KAN-148 C1c-2
     ('mandant',       '-US', true , 's112_pressung_stornieren(p_tenant_id uuid, p_pressung_id uuid, p_grund text)'),   -- KAN-148 C1c
+    ('mandant',       '-US', true , 's112_pressung_zeilen_stornieren(p_tenant_id uuid, p_pressung_id uuid, p_behaelter_zeilen uuid[], p_trauben_zeilen uuid[], p_grund text)'),   -- KAN-148 C1c-2
     ('mandant',       '-US', false, 's112_schwund_minderung(p_tenant_id uuid, p_umzug_id uuid)'),   -- KAN-145 B4 (lesend)
     ('trigger',       '--S', false, 's112_loeschsperre()'),                    -- KAN-145 A: BEFORE-DELETE-Sperre
     ('mandant',       '-US', true , 's112_storniert_loeschen(p_tenant_id uuid, p_tabelle text, p_id uuid, p_grund text)'),   -- KAN-145 A
