@@ -18,6 +18,7 @@ import { GEBINDEWECHSEL_OHNE } from '@/lib/kellerbuch/storno'
 import { KORREKTUR_NACH_OBEN_HINWEIS } from '@/lib/kellerbuch/hinweise'
 import { aggregiereJeRebsorte, KG_JE_HL, ladeLesedaten, parzelleFuerMeldung, teileNachStichtag } from '@/lib/behoerden/erntemeldung'
 import { runden, STELLEN } from '@/lib/csv'
+import { amaDatumFehler, amaStatusFehler, type AmaZielStatus } from '@/lib/behoerden/amaMeldung'
 import { mostgewichtAusFormular, mostgewichtAusWert, mostgewichtSpalten } from '@/lib/wein/mostgewichtFormular'
 import type { Mostgewicht } from '@/lib/wein/mostgewicht'
 import { istErntebar, leseZiele, verteileKg, type LeseGst, type LeseZiel } from '@/lib/wein/leseErfassung'
@@ -759,38 +760,10 @@ export async function createOrUpdateAMAMeldung(jahrgangId: string) {
     weinbaugebiet:  weinbaugebiete.length === 1 ? weinbaugebiete[0] : (weinbaugebiete[0] ?? null),
   }
 
-  // Meldung anlegen oder aktualisieren
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: existing } = await (supabase.from('ama_erntemeldungen') as any)
-    .select('id').eq('jahrgang_id', jahrgangId).eq('tenant_id', tenantId).maybeSingle()
-
-  const meldungPayload: AR = {
-    tenant_id:       tenantId,
-    jahrgang_id:     jahrgangId,
-    betriebsnummer:  (tenant as AR)?.betriebsnummer ?? null,
-    weinbaugebiet:   (tenant as AR)?.weinbaugebiet ?? null,
-    gesamtmenge_kg:  gesamtKg,
-    gesamtmenge_hl:  gesamtHl,
-    status:          'bereit',
-  }
-
-  let meldungId: string
-  if (existing) {
-    meldungId = (existing as AR).id
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    { const { error: e } = await (supabase.from('ama_erntemeldungen') as any).update(meldungPayload).eq('id', meldungId).eq('tenant_id', tenantId)
-      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (ama_erntemeldungen): ${e.message}`) }
-    // Positionen löschen und neu aufbauen
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    { const { error: e } = await (supabase.from('ama_meldepositionen') as any).delete().eq('meldung_id', meldungId)
-      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (ama_meldepositionen): ${e.message}`) }
-  } else {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: neu } = await (supabase.from('ama_erntemeldungen') as any)
-      .insert(meldungPayload).eq('tenant_id', tenantId).select('id').single()
-    meldungId = (neu as AR).id
-  }
-
+  // KAN-148 C2 (30.09.2026): Kopf und Positionen in EINER Transaktion über s112_ama_meldung_speichern – bisher
+  // löschte der Positionen-DELETE mangels Policy still 0 Zeilen und „Neu berechnen“ verdoppelte die Positionen.
+  // Die RPC nimmt die offene Version (Entwurf/Bereit) des Jahrgangs bzw. legt Version 1 an; ist die Meldung schon
+  // eingereicht, lehnt sie ab (Korrektur nur als neue Version). Zugriff, Abo-Sperre und Schreibmodul prüft sie selbst.
   // Positionen je Rebsorte (lib/behoerden/erntemeldung.ts, aggregiereJeRebsorte):
   // Rebsorte vom Grundstück, sonst vom Ried; die Fläche ist die des Grundstücks (falls
   // gesetzt), NICHT die volle Ried-Fläche, und zählt je Grundstück nur einmal – auch bei
@@ -800,21 +773,68 @@ export async function createOrUpdateAMAMeldung(jahrgangId: string) {
   // mit den erfassten hl (leer, wenn nicht alle Lesen hl haben → Ausgabe kg ÷ 130). So zeigt
   // die gespeicherte Meldung dieselben Werte wie die Vorschau aus den Lesedaten.
   const positionen = summen.map(r => ({
-    meldung_id:      meldungId,
     rebsorte_name:   r.rebsorte,
     flaeche_ha:      r.flaecheHa,
     menge_kg:        r.mengeKg,
     menge_hl:        r.hlGeschaetzt ? null : runden(r.mengeHl, STELLEN.hl),
     qualitaetsstufe: r.qualitaetsstufen.length === 1 ? r.qualitaetsstufen[0] : null,
   }))
-
-  if (positionen.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    { const { error: e } = await (supabase.from('ama_meldepositionen') as any).insert(positionen)
-      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (ama_meldepositionen): ${e.message}`) }
+  const kopf = {
+    betriebsnummer: tenant.betriebsnummer,
+    weinbaugebiet:  tenant.weinbaugebiet,
+    gesamtmenge_kg: gesamtKg,
+    gesamtmenge_hl: gesamtHl,
   }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.rpc as any)('s112_ama_meldung_speichern', {
+    p_tenant_id: tenantId, p_jahrgang_id: jahrgangId, p_kopf: kopf, p_positionen: positionen,
+  })
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Die AMA-Meldung konnte nicht gespeichert werden'))
 
   revalidatePath(`/erntemeldung/${jahrgangId}`)
+  revalidatePath('/erntemeldung')
+}
+
+// AMA-Meldung als eingereicht markieren bzw. die Rückmeldung der AMA (bestätigt/abgelehnt) erfassen – KAN-148 C2.
+// Nur vorwärts und nur für die neueste Version; Datum (nicht in der Zukunft) ist Pflicht, die Referenznummer optional.
+// „Eingereicht“ setzt am Jahrgang ama_gemeldet/ama_meldedatum/ama_meldungsnr mit (RPC s112_ama_status_setzen).
+// Darf, wer die Erntemeldung schreiben darf – auch Mitarbeiter (KAN-166).
+export async function amaStatusSetzen(meldungId: string, jahrgangId: string, status: AmaZielStatus, datum: string, referenznr: string) {
+  const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
+  await ladeJahrgang(supabase, tenantId, jahrgangId)
+  const heute = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Vienna' })
+  const datumFehler = amaDatumFehler(datum, heute)
+  if (datumFehler) throw new AktionsFehler(datumFehler)
+  const ref = (referenznr ?? '').trim()
+  if (ref.length > 80) throw new AktionsFehler('Die Referenznummer ist zu lang (höchstens 80 Zeichen).')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: m, error: mFehler } = await (supabase.from('ama_erntemeldungen') as any)
+    .select('id, status').eq('id', meldungId).eq('tenant_id', tenantId).eq('jahrgang_id', jahrgangId).maybeSingle()
+  if (mFehler) throw new AktionsFehler(dbFehlerText(mFehler, 'Die AMA-Meldung konnte nicht geladen werden'))
+  if (!m) throw new AktionsFehler('AMA-Erntemeldung nicht gefunden – bitte die Seite neu laden.')
+  const statusFehler = amaStatusFehler((m as AR).status, status)
+  if (statusFehler) throw new AktionsFehler(statusFehler)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.rpc as any)('s112_ama_status_setzen', {
+    p_tenant_id: tenantId, p_meldung_id: meldungId, p_status: status, p_datum: datum, p_referenznr: ref || null,
+  })
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Der Status der AMA-Meldung konnte nicht gesetzt werden'))
+  revalidatePath(`/erntemeldung/${jahrgangId}`)
+  revalidatePath('/erntemeldung')
+}
+
+// Korrekturmeldung (KAN-148 C2): ab „eingereicht“ eine neue Version als Entwurf mit Kopie der Positionen anlegen; die
+// eingereichte Version bleibt unverändert. Danach „Neu berechnen“ übernimmt die aktuellen Lesedaten.
+export async function amaKorrekturAnlegen(meldungId: string, jahrgangId: string) {
+  const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
+  await ladeJahrgang(supabase, tenantId, jahrgangId)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.rpc as any)('s112_ama_korrektur_anlegen', { p_tenant_id: tenantId, p_meldung_id: meldungId })
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Die Korrekturmeldung konnte nicht angelegt werden'))
+  revalidatePath(`/erntemeldung/${jahrgangId}`)
+  revalidatePath('/erntemeldung')
 }
 
 // ── Pressungen ────────────────────────────────────────────────────────────────

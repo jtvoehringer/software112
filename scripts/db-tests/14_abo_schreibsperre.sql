@@ -87,10 +87,10 @@ DECLARE
   c_m         constant uuid := '33333333-3333-4333-8333-333333333333';
   -- Muss mit ABO_GESPERRTE_STATUS in src/lib/abo/regeln.ts (und s112_abo_gesperrt) übereinstimmen.
   c_gesperrt  constant text[] := ARRAY['unpaid', 'canceled', 'cancelled', 'incomplete', 'incomplete_expired', 'paused'];
-  -- Schreibende SECURITY-DEFINER-RPCs mit s112_pruefe_abo_schreibsperre (Soll-Liste, 18 Stück; s112_storniert_loeschen seit KAN-145, s112_buchung_loeschen seit KAN-166, s112_pressung_stornieren/_zeilen_stornieren, s112_mostzeile_anlegen, s112_pressung_anlegen seit KAN-148).
+  -- Schreibende SECURITY-DEFINER-RPCs mit s112_pruefe_abo_schreibsperre (Soll-Liste, 21 Stück; s112_storniert_loeschen seit KAN-145, s112_buchung_loeschen seit KAN-166, s112_pressung_stornieren/_zeilen_stornieren, s112_mostzeile_anlegen, s112_pressung_anlegen seit KAN-148, s112_ama_* seit KAN-148 C2).
   c_abo_rpcs  constant text[] := ARRAY['fuellung_bestand_buchen', 'get_next_accountnummer', 'get_next_chargennummer',
                                        'get_next_liefernummer', 'get_next_personenkonto', 'get_next_rechnungsnummer',
-                                       'get_next_transaktionsnr', 'kontakte_zusammenfuehren', 's112_buchung_loeschen', 's112_mostzeile_anlegen', 's112_pressung_anlegen', 's112_pressung_stornieren', 's112_pressung_zeilen_stornieren', 's112_storniert_loeschen', 'schwund_buchen',
+                                       'get_next_transaktionsnr', 'kontakte_zusammenfuehren', 's112_ama_korrektur_anlegen', 's112_ama_meldung_speichern', 's112_ama_status_setzen', 's112_buchung_loeschen', 's112_mostzeile_anlegen', 's112_pressung_anlegen', 's112_pressung_stornieren', 's112_pressung_zeilen_stornieren', 's112_storniert_loeschen', 'schwund_buchen',
                                        'setze_kontobewegung_abgeglichen', 'sperre_ea_monat', 'sperre_ea_uva'];
   -- Tabellen, deren Policies auth.uid() gegen eine Eigentümerspalte prüfen (wie t12_pro_persona in Datei 12)
   c_eigentuemer constant text[] := ARRAY['assistent_unterhaltungen', 'assistent_aktionen', 'assistent_nachrichten',
@@ -139,6 +139,10 @@ DECLARE
   v_kb        uuid;
   v_pr        uuid;
   v_pr_jg     uuid;
+  v_ama_jg    uuid;   -- KAN-148 C2: Jahrgang mit eingereichter Meldung (Korrektur)
+  v_ama_ein   uuid;
+  v_ama_ber   uuid;   -- bereite Meldung an eigenem Jahrgang (Status setzen, Speichern)
+  v_ama_jg2   uuid;
   v_beh_b     uuid;
   v_pl        uuid;
   v_k1        uuid;
@@ -203,6 +207,13 @@ BEGIN
   v_pl := (pg_temp.s112_beispiel('psm_lager_bewegungen', v_b, v_bw) ->> 'id')::uuid;   -- KAN-166
   v_pr := (pg_temp.s112_beispiel('pressungen', v_b, v_bw) ->> 'id')::uuid;   -- KAN-148 C1c
   SELECT jahrgang_id INTO v_pr_jg FROM public.pressungen WHERE id = v_pr;
+  -- KAN-148 C2: AMA-Meldungen in B – eine bereit, eine eingereicht, je an einem eigenen, sicher unbenutzten Jahrgang
+  -- (die Beispielzeilen der Tabellenproben hängen sonst schon eine Meldung an einen vorhandenen Jahrgang)
+  v_ama_jg2 := (pg_temp.s112_beispiel('weinjahrgaenge', v_b, v_bw, jsonb_build_object('jahrgang', (SELECT coalesce(min(j.jahrgang), 2000) - 1 FROM public.weinjahrgaenge j WHERE j.tenant_id = v_b))) ->> 'id')::uuid;
+  v_ama_ber := (pg_temp.s112_beispiel('ama_erntemeldungen', v_b, v_bw, jsonb_build_object('jahrgang_id', v_ama_jg2, 'status', 'bereit')) ->> 'id')::uuid;
+  v_ama_jg  := (pg_temp.s112_beispiel('weinjahrgaenge', v_b, v_bw, jsonb_build_object('jahrgang', (SELECT coalesce(min(j.jahrgang), 2000) - 1 FROM public.weinjahrgaenge j WHERE j.tenant_id = v_b))) ->> 'id')::uuid;
+  v_ama_ein := (pg_temp.s112_beispiel('ama_erntemeldungen', v_b, v_bw,
+                 jsonb_build_object('jahrgang_id', v_ama_jg, 'status', 'eingereicht', 'eingereicht_am', '2026-09-01')) ->> 'id')::uuid;
   v_beh_b := (pg_temp.s112_beispiel('behaelter', v_b, v_bw) ->> 'id')::uuid;   -- KAN-148 C1c-2
   v_k1 := (pg_temp.s112_zeile('kontakte', v_b, '{"nachname": "S112TEST Behalten"}') ->> 'id')::uuid;
   v_k2 := (pg_temp.s112_zeile('kontakte', v_b, '{"nachname": "S112TEST Weg"}') ->> 'id')::uuid;
@@ -402,6 +413,9 @@ BEGIN
     'get_next_transaktionsnr', format('SELECT public.get_next_transaktionsnr(%L, %L)', v_b, 'umzug'),
     'kontakte_zusammenfuehren', format('SELECT public.kontakte_zusammenfuehren(%L, %L, ARRAY[%L]::uuid[])', v_b, v_k1, v_k2),
     's112_buchung_loeschen', format('SELECT public.s112_buchung_loeschen(%L, %L, %L, %L)', v_b, 'psm_lager_bewegungen', v_pl, 'S112TEST löschen mit Grund'),
+    's112_ama_korrektur_anlegen', format('SELECT public.s112_ama_korrektur_anlegen(%L, %L)', v_b, v_ama_ein),
+    's112_ama_meldung_speichern', format('SELECT public.s112_ama_meldung_speichern(%L, %L, %L::jsonb, %L::jsonb)', v_b, v_ama_jg2, '{}', '[]'),
+    's112_ama_status_setzen', format('SELECT public.s112_ama_status_setzen(%L, %L, %L, current_date, NULL)', v_b, v_ama_ber, 'eingereicht'),
     's112_pressung_stornieren', format('SELECT public.s112_pressung_stornieren(%L, %L, %L)', v_b, v_pr, 'S112TEST Pressung storniert'),
     's112_pressung_zeilen_stornieren', format('SELECT public.s112_pressung_zeilen_stornieren(%L, %L, %L::uuid[], %L::uuid[], %L)', v_b, v_pr, '{}', '{}', 'S112TEST Bearbeiten'),
     's112_mostzeile_anlegen', format('SELECT public.s112_mostzeile_anlegen(%L, %L, %L, 1, NULL, %L::jsonb)', v_b, v_pr, v_beh_b, '{"name": "S112TEST"}'),

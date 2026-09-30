@@ -12,6 +12,7 @@ import type { Charge, Frist, FristStatus } from './types'
 import { periodeVorBeginn } from '@/lib/ea/betriebsbeginn'
 import { afaBuchungsStatus } from '@/lib/ea/anlagen'
 import { ladeMandantMitglieder } from '@/lib/aufgaben/mitglieder'
+import { neuesteAmaVersion } from '@/lib/behoerden/amaMeldung'
 
 const fmtEurKurz = (n: number) => `€ ${n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 export { STATUS_LABEL } from './types'
@@ -291,7 +292,7 @@ export async function ladeFristen(ctx: Ctx, opts: { modulEa: boolean; uvaZeitrau
   const [{ data: eigeneRaw }, { data: uvaRaw }, { data: jgRaw }, { data: dacRaw }, { data: wfRaw }, { data: offenVpRaw }, { data: offenEaRaw }] = await Promise.all([
     ctx.tf(ctx.q('fristen').select('id, bezeichnung, beschreibung, kategorie, faellig_am, wiederholung, href, status, erledigt_am').order('faellig_am')),
     opts.modulEa && !doppik ? ctx.tf(ctx.q('ea_uva').select('jahr, zeitraum, gesperrt, gesperrt_am')) : Promise.resolve({ data: [] }),
-    ctx.tf(ctx.q('weinjahrgaenge').select('id, jahrgang, ama_gemeldet, ama_meldedatum, ama_erntemeldungen(status, eingereicht_am)').eq('jahrgang', jahr).limit(1)),
+    ctx.tf(ctx.q('weinjahrgaenge').select('id, jahrgang, ama_gemeldet, ama_meldedatum, ama_erntemeldungen(status, eingereicht_am, version)').eq('jahrgang', jahr).limit(1)),
     ctx.tf(ctx.q('dac_antrag').select('id, bezeichnung, status, eingereicht_am').eq('aktiv', true).in('status', ['entwurf', 'eingereicht', 'in_pruefung']).order('created_at', { ascending: false }).limit(20)),
     ctx.tf(ctx.q('behandlungen').select('id, ernte_fruehesteins').gte('ernte_fruehesteins', ctx.heuteStr).order('ernte_fruehesteins').limit(50)),
     // Doppik (Migration 197): noch nicht an BMD übergebene Belege der letzten 12 Monate
@@ -395,8 +396,10 @@ export async function ladeFristen(ctx: Ctx, opts: { modulEa: boolean; uvaZeitrau
   // Erntemeldung des laufenden Jahrgangs (bis 15.12.)
   {
     const jg = ((jgRaw ?? []) as R[])[0]
-    const am = jg?.ama_erntemeldungen?.[0] ?? (Array.isArray(jg?.ama_erntemeldungen) ? null : jg?.ama_erntemeldungen)
-    const eingereicht = !!jg?.ama_gemeldet || ['eingereicht', 'bestaetigt'].includes(am?.status)
+    // KAN-148 C2: mehrere Versionen (Korrekturmeldungen) – Status der neuesten; gemeldet, sobald eine eingereicht ist
+    const amVersionen = (Array.isArray(jg?.ama_erntemeldungen) ? jg.ama_erntemeldungen : jg?.ama_erntemeldungen ? [jg.ama_erntemeldungen] : []) as R[]
+    const am = neuesteAmaVersion(amVersionen)
+    const eingereicht = !!jg?.ama_gemeldet || amVersionen.some(v => ['eingereicht', 'bestaetigt'].includes(v.status))
     const faelligAm = `${jahr}-12-15`
     const st = statusAus(faelligAm, eingereicht, ctx.heuteStr, vt)
     fristen.push({

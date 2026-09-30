@@ -16,6 +16,7 @@ import { betriebUndModuleLaden, zugriffsFehler } from '@/lib/behoerden/zugriff'
 import { istErntebar } from '@/lib/wein/leseErfassung'
 import { gewaehlteLese, leseLoeschsperre, leseTitel, type Lese } from '@/lib/wein/lesen'
 import LeseReiter, { type LeseMitSperre } from './LeseReiter'
+import { neuesteAmaVersion } from '@/lib/behoerden/amaMeldung'
 
 export const metadata: Metadata = { title: 'Lese – software:112' }
 export const dynamic = 'force-dynamic'
@@ -48,10 +49,17 @@ export type WeingartenOpt = {
   /** mind. ein Grundstück der Nutzart WI oder gar keine Grundstücke (lib/wein/leseErfassung.ts, KAN-160) */
   erntebar: boolean
 }
-export type AMAMeldung = {
-  id: string; status: string; gesamtmenge_kg: number | null; gesamtmenge_hl: number | null
-  n8n_status: string | null; n8n_fehler: string | null; eingereicht_am: string | null
+/** Version einer AMA-Erntemeldung (KAN-148 C2: Korrekturmeldungen = weitere Versionen) */
+export type AMAVersion = {
+  id: string; version: number; status: string; gesamtmenge_kg: number | null
+  eingereicht_am: string | null; bestaetigt_am: string | null; ama_referenznr: string | null
+}
+/** Neueste Version der AMA-Erntemeldung des Jahrgangs mit ihren Positionen und allen Versionen (absteigend) */
+export type AMAMeldung = AMAVersion & {
+  gesamtmenge_hl: number | null
+  n8n_status: string | null; n8n_fehler: string | null
   positionen: { rebsorte_name: string; flaeche_ha: number | null; menge_kg: number | null }[]
+  versionen: AMAVersion[]
 }
 // Hektarhöchstertrag: Berechnung gemeinsam mit Erntemeldung-Druck und -CSV (lib/behoerden/erntemeldung.ts)
 export type { HektarhoechstertragStatus }
@@ -113,8 +121,8 @@ export default async function ErnteDetailPage({ params, searchParams }: Props) {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tf((supabase.from('ama_erntemeldungen') as any)
-      .select('id, status, gesamtmenge_kg, gesamtmenge_hl, n8n_status, n8n_fehler, eingereicht_am')
-      .eq('jahrgang_id', id).maybeSingle()),
+      .select('id, version, status, gesamtmenge_kg, gesamtmenge_hl, n8n_status, n8n_fehler, eingereicht_am, bestaetigt_am, ama_referenznr')
+      .eq('jahrgang_id', id).order('version', { ascending: false })),
 
     // Pressungen mit Sub-Tabellen
     // storno-sichtbar: Liste zeigt stornierte Pressungen gekennzeichnet (KAN-148 C1c); verfügbare kg ohne sie
@@ -241,11 +249,17 @@ export default async function ErnteDetailPage({ params, searchParams }: Props) {
   const hektarhoechstertrag: HektarhoechstertragStatus = berechneHektarhoechstertrag(leseGueltig, weinbauflaecheHa(rawGST))
 
   let amaMeldung: AMAMeldung | null = null
-  if (rawA) {
+  const amaVersionen: AMAVersion[] = ((rawA ?? []) as AR[]).map(v => ({ ...v, version: (v.version as number | null) ?? 1 }) as AMAVersion)
+  const amaNeueste = neuesteAmaVersion(amaVersionen)
+  if (amaNeueste) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: rawPos } = await (supabase.from('ama_meldepositionen') as any)
-      .select('rebsorte_name, flaeche_ha, menge_kg').eq('meldung_id', (rawA as AR).id)
-    amaMeldung = { ...(rawA as AR), positionen: (rawPos ?? []) as AMAMeldung['positionen'] } as AMAMeldung
+      .select('rebsorte_name, flaeche_ha, menge_kg').eq('meldung_id', amaNeueste.id).order('rebsorte_name')
+    amaMeldung = {
+      ...amaNeueste,
+      positionen: (rawPos ?? []) as AMAMeldung['positionen'],
+      versionen: amaVersionen,
+    } as AMAMeldung
   }
 
   // KAN-148 C1c: stornierte Pressung mit allen Zeilen (gekennzeichnet); sonst nur nicht stornierte Zeilen

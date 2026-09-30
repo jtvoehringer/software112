@@ -518,9 +518,12 @@ export async function ladeErntemeldung(supabase: Client, tenantId: string, jg: J
   const [meldungRes, lese, flaecheBetrieb, verkaufRes] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('ama_erntemeldungen') as any)
-      .select('id, status, gesamtmenge_kg, gesamtmenge_hl')
+      .select('id, status, gesamtmenge_kg, gesamtmenge_hl, version')
       .eq('tenant_id', tenantId)
       .eq('jahrgang_id', jg.id)
+      // KAN-148 C2: Korrekturmeldungen sind weitere Versionen – es gilt die neueste
+      .order('version', { ascending: false })
+      .limit(1)
       .maybeSingle(),
     ladeLesedaten(supabase, jg.id),
     ladeWeinbauflaecheHa(supabase, tenantId),
