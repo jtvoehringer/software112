@@ -8,6 +8,7 @@ import { istNiedrigerAls as herkunftIstNiedrigerAls, HERKUNFT_LABEL } from '@/li
 import { getCurrentMembership, canWrite, type Membership } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
+import { stornoGrundFehler } from '@/lib/storno/grund'
 import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { dezimal, zahlAus, fmtNum } from '@/lib/format'
 import { folgebuchungenDerFuellung, folgebuchungenFuellungText, heuteOrtsdatum, datumDe } from './fuellungen/folgebuchungen'
@@ -622,18 +623,22 @@ export async function schwundAusbuchen(fuellungId: string): Promise<void> {
 // Abfüllung von der Charge genommen hat: die Füllmenge (fuellung_chargen.anteil_liter) und –
 // hat die Abfüllung die Charge mit „Abschließen“ beendet – die Abschluss-Schwundzeile derselben
 // Füllung (Notiz beginnt mit ABFUELL_SCHWUND_NOTIZ, Datum der Füllung, direkt nach ihr erfasst).
-// Die Schwundzeile wird dabei gelöscht (protokolliert), die Charge wieder aktiv. Wurde an der
-// Charge seither weitergebucht, bleibt die Füllung stehen. Alles oder nichts: scheitert ein
-// Schritt, werden die vorherigen zurückgenommen.
+// Seit KAN-145 (B3, 30.09.2026) wird die Füllung mit Grund storniert (aktiv = false + Storno-Kennzeichen) und die
+// Abschluss-Schwundzeile ebenfalls storniert statt gelöscht; die Charge wird wieder aktiv. Wurde an der Charge seither
+// weitergebucht, bleibt die Füllung stehen. Scheitert ein Schritt, werden die vorherigen soweit möglich
+// zurückgenommen – ein Storno selbst lässt sich nicht zurücknehmen (s112_storno_schutz), deshalb kommt die Füllung
+// vor der Schwundzeile (deren Recht ist mit pruefeChargenRecht vorab geprüft).
 
 /** Abschluss-Schwund muss so kurz nach der Füllung erfasst sein (gleicher Vorgang createFuellung) */
 const ABSCHLUSS_SCHWUND_FENSTER_MS = 10 * 60 * 1000
 
-export async function deactivateFuellung(id: string): Promise<void> {
+export async function deactivateFuellung(id: string, grund: string): Promise<void> {
   const supabase   = await createSupabaseServerClient()
   const membership = await getMembership()
   const tenantId   = membership.tenantId
   pruefeFuellungsRecht(membership)
+  const grundFehler = stornoGrundFehler(grund)
+  if (grundFehler) throw new AktionsFehler(grundFehler)
 
   const { data: fRaw, error: fErr } = await (supabase.from('fuellungen') as any)
     .select('name, aktiv, datum, erstellt_am, bestand_flaschen, weinausbau_id, menge_liter_gefuellt')
@@ -743,43 +748,36 @@ export async function deactivateFuellung(id: string): Promise<void> {
     }
   }
 
-  // 2. Füllung deaktivieren – nur, wenn seit der Prüfung kein Verkauf den Bestand geändert hat
+  // 2. Füllung stornieren (aktiv = false + Kennzeichen) – nur, wenn seit der Prüfung kein Verkauf den Bestand geändert hat
   const { data: dData, error } = await (supabase.from('fuellungen') as any)
-    .update({ aktiv: false, aktualisiert_am: new Date().toISOString() })
+    .update({ aktiv: false, aktualisiert_am: new Date().toISOString(), storniert_am: new Date().toISOString(), storno_grund: grund.trim() })
     .eq('id', id)
     .eq('tenant_id', tenantId)
     .eq('aktiv', true)
+    .is('storniert_am', null)
     .eq('bestand_flaschen', f.bestand_flaschen)
     .select('id')
   if (error || !dData || (dData as AR[]).length === 0) {
     const meldung = error
-      ? dbFehlerText(error, 'Löschen fehlgeschlagen (fuellungen)')
+      ? dbFehlerText(error, 'Stornieren fehlgeschlagen (fuellungen)')
       : 'Die Füllung wurde zwischenzeitlich geändert (z. B. durch einen Verkauf) – bitte die Seite neu laden.'
     throw new AktionsFehler(`${meldung}${await chargeZuruecksetzen()}`)
   }
 
-  // 3. Abschluss-Schwundzeile löschen (protokolliert) – ihre Liter sind oben zurückgebucht
+  // 3. Abschluss-Schwundzeile stornieren (KAN-145) – ihre Liter sind oben zurückgebucht
   if (rueck?.schwund) {
-    const { data: sDel, error: sErr } = await (supabase.from('keller_umzuege') as any)
-      .delete()
+    const { data: sUpd, error: sErr } = await (supabase.from('keller_umzuege') as any)
+      .update({ storniert_am: new Date().toISOString(), storno_grund: `Storno der Füllung „${f.name}“: ${grund.trim()}` })
       .eq('id', rueck.schwund.id)
       .eq('tenant_id', tenantId)
+      .is('storniert_am', null)
       .select('id')
-    if (sErr || !(sDel as AR[] | null)?.length) {
+    if (sErr || !(sUpd as AR[] | null)?.length) {
       const meldung = sErr
-        ? dbFehlerText(sErr, 'Die Abschluss-Schwundbuchung konnte nicht gelöscht werden')
-        : 'Die Abschluss-Schwundbuchung konnte nicht gelöscht werden – vermutlich fehlt die Berechtigung.'
-      // Füllung wieder aktiv, Charge zurück – es bleibt nichts halb
-      const { data: reakt, error: reErr } = await (supabase.from('fuellungen') as any)
-        .update({ aktiv: true, aktualisiert_am: new Date().toISOString() })
-        .eq('id', id)
-        .eq('tenant_id', tenantId)
-        .eq('aktiv', false)
-        .select('id')
-      const fuellungHinweis = reErr || !(reakt as AR[] | null)?.length
-        ? ` – Achtung: Die Füllung ist bereits deaktiviert und konnte nicht wieder aktiviert werden (${reErr ? dbFehlerText(reErr) : 'keine Berechtigung'}). Bitte Support kontaktieren.`
-        : ''
-      throw new AktionsFehler(`${meldung.replace(/[.\s]+$/, '')}. Die Füllung wurde nicht gelöscht${fuellungHinweis}${await chargeZuruecksetzen()}`)
+        ? dbFehlerText(sErr, 'Die Abschluss-Schwundbuchung konnte nicht storniert werden')
+        : 'Die Abschluss-Schwundbuchung konnte nicht storniert werden – vermutlich fehlt die Berechtigung.'
+      // Die Füllung ist bereits storniert (nicht rücknehmbar) – Charge zurücksetzen, Support informieren
+      throw new AktionsFehler(`${meldung.replace(/[.\s]+$/, '')}. Achtung: Die Füllung ist bereits storniert – bitte Support kontaktieren${await chargeZuruecksetzen()}`)
     }
   }
 

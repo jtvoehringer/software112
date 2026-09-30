@@ -167,6 +167,7 @@ export async function ladeKellerAuswertungen(supabase: any, tenantId: string, z:
   let fq = (supabase.from('fuellungen') as any)
     .select('id, datum, menge_liter_gefuellt')
     .eq('tenant_id', tenantId)
+    .eq('aktiv', true)   // KAN-145: stornierte bzw. gelöschte (aktiv = false) Füllungen zählen nicht
   if (z.von) fq = fq.gte('datum', z.von)
   if (z.bis) fq = fq.lte('datum', z.bis)
   const [chargenRes, behandlungen, umzuege, fuellungenRes] = await Promise.all([
