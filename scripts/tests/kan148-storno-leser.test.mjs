@@ -37,7 +37,7 @@ test('jede lesende Abfrage auf ernte_parzellen/traubenverkauf filtert stornierte
   let geprueft = 0
   for (const f of dateien(SRC)) {
     const s = readFileSync(f, 'utf8').replace(/\r\n/g, '\n')
-    const re = /\.from\('(ernte_parzellen|traubenverkauf)'\)/g
+    const re = /\.from\('(ernte_parzellen|traubenverkauf|pressungen|pressung_behaelter|pressung_weingaerten)'\)/g   // Pressung seit C1c
     let m
     while ((m = re.exec(s))) {
       const k = kette(s, m.index)
@@ -58,13 +58,13 @@ test('Einbettungen von ernte_parzellen/traubenverkauf holen storniert_am mit ode
   for (const f of dateien(SRC)) {
     const s = readFileSync(f, 'utf8').replace(/\r\n/g, '\n')
     // PostgREST-Einbettung in einem select-String: name(…) oder alias:name(…) bzw. alias:fk_spalte(…)
-    // (auch über die FK-Spalte: alias:traubenverkauf_id(…))
-    const re = /[\s,'`(](?:\w+:)?(ernte_parzellen|traubenverkauf)(?:_id)?(?:!\w+)?\(/g
+    // (auch über die FK-Spalte: alias:traubenverkauf_id(…), pressung:pressung_id(…); Pressung seit C1c)
+    const re = /[\s,'`(](?:\w+:)?(ernte_parzellen|traubenverkauf|pressungen|pressung_behaelter|pressung_weingaerten|pressung(?=_id))(?:_id)?(?:!\w+)?\(/g
     let m
     while ((m = re.exec(s))) {
       const zeile = s.slice(s.lastIndexOf('\n', m.index) + 1, s.indexOf('\n', m.index))
       // Code statt select-Liste (Aufrufe, Deklarationen, Kommentare)
-      if (/\.from\(|function |=>|^\s*\/\/|^\s*\*|import |\b(ernte_parzellen|traubenverkauf)\w*\((?!\s*[a-z_*])/.test(zeile)) continue
+      if (/\.from\(|function |=>|^\s*\/\/|^\s*\*|import |\b(ernte_parzellen|traubenverkauf|pressung)\w*\((?!\s*[a-z_*])/.test(zeile)) continue
       // Klammerinhalt der Einbettung
       let tiefe = 0, j = m.index + m[0].length - 1, innen = ''
       for (; j < s.length && j < m.index + 800; j++) {
@@ -93,4 +93,15 @@ test('Lesedaten und Traubenverkäufe werden storniert, nicht gelöscht (KAN-148 
   assert.match(ernte, /export async function stornoTraubenverkauf\(id: string, jahrgangId: string, grund: string\)/)
   assert.match(handel, /export async function stornoTraubenverkauf\(id: string, grund: string\)/)
   assert.match(bestand, /storniert_am: new Date\(\)\.toISOString\(\), storno_grund:/)
+})
+
+test('Pressung wird über die RPC storniert, nicht gelöscht (KAN-148 C1c)', () => {
+  const s = readFileSync(path.join(SRC, 'app/(dashboard)/erntemeldung/actions.ts'), 'utf8').replace(/\r\n/g, '\n')
+  const i = s.indexOf('export async function stornoPressung(id: string, jahrgangId: string, grund: string)')
+  assert.ok(i > 0, 'stornoPressung fehlt')
+  const rumpf = s.slice(i, s.indexOf('\n}\n', i))
+  assert.match(rumpf, /rpc as any\)\('s112_pressung_stornieren', \{ p_tenant_id: tenantId, p_pressung_id: id, p_grund: grund\.trim\(\) \}\)/)
+  assert.ok(!/\.delete\(/.test(rumpf), 'kein .delete() mehr')
+  assert.ok(!/canAdmin/.test(rumpf), 'Mitarbeiter dürfen stornieren (KAN-166)')
+  assert.ok(!s.includes('export async function deletePressung('), 'deletePressung entfernt')
 })

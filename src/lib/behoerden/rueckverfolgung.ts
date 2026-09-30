@@ -100,9 +100,10 @@ export async function ladeFruehereLesen(supabase: any, tenantId: string, jahrgae
   const [pwRes, epRes, tvRes] = await Promise.all([
     // tenant-isolation-ignore: pressung_weingaerten ohne tenant_id, Filter über die Pressung
     alle<R>((supabase.from('pressung_weingaerten') as any)
-      .select('id, weingarten_id, grundstueck_id, ernte_datum, zukauf_posten_id, pressung:pressung_id!inner(tenant_id, jahrgang_id)')
+      .select('id, weingarten_id, grundstueck_id, ernte_datum, zukauf_posten_id, pressung:pressung_id!inner(tenant_id, jahrgang_id, storniert_am)')
       .eq('pressung.tenant_id', tenantId)
       .in('pressung.jahrgang_id', ids)
+      .is('storniert_am', null)
       .not('ernte_datum', 'is', null)
       .order('id')),
     // tenant-isolation-ignore: ernte_parzellen ohne tenant_id, Filter über den Jahrgang
@@ -246,9 +247,10 @@ export async function ladeMassnahmenZuLesezeilen(
     jgOhneLesedatum.length > 0
       // tenant-isolation-ignore: pressung_weingaerten ohne tenant_id, Filter über die Pressung
       ? alle<R>((supabase.from('pressung_weingaerten') as any)
-          .select('id, weingarten_id, grundstueck_id, trauben_kg, pressung:pressung_id!inner(tenant_id, datum, jahrgang_id, lese_id)')
+          .select('id, weingarten_id, grundstueck_id, trauben_kg, pressung:pressung_id!inner(tenant_id, datum, jahrgang_id, lese_id, storniert_am)')
           .eq('pressung.tenant_id', tenantId)
           .in('pressung.jahrgang_id', jgOhneLesedatum)
+          .is('storniert_am', null)
           .order('id'))
       : leer,
     // Lesen der Vorjahrgänge – Fensterbeginn „Ernte bis Ernte“ (KAN-108)
@@ -407,16 +409,17 @@ export async function ladeChargeKette(
       .select(`
         id, menge_liter, notizen,
         pressung:pressung_id(
-          id, datum, most_liter_gesamt, tenant_id, jahrgang_id, lese_id, jahrgang:jahrgang_id(jahrgang),
+          id, datum, most_liter_gesamt, tenant_id, jahrgang_id, lese_id, storniert_am, jahrgang:jahrgang_id(jahrgang),
           lese:lesen!pressungen_lese_fkey(lfd_nr, art),
           pressung_weingaerten(
-            id, trauben_kg, rebsorte, ernte_datum, kmw, weingarten_id, grundstueck_id,
+            id, trauben_kg, rebsorte, ernte_datum, kmw, weingarten_id, grundstueck_id, storniert_am,
             weingarten:weingarten_id(id, name, flaeche_ha),
             grundstueck:grundstueck_id(gst_nr, katastralgemeinde)
           )
         )
       `)
       .eq('weinausbau_id', wId)
+      .is('storniert_am', null)   // KAN-148 C1c: stornierte Pressungszeilen sind keine Herkunft
       .order('id')),
     opts.details
       ? alle<R>((supabase.from('weinanalysen') as any)

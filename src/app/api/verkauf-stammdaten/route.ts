@@ -81,8 +81,9 @@ export async function GET() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       // tenant-isolation-ignore: pressung_weingaerten ohne tenant_id, Filter über die Pressung
       (supabase.from('pressung_weingaerten') as any)
-        .select('weingarten_id, grundstueck_id, trauben_kg, pressung:pressung_id!inner(tenant_id, lese_id)')
-        .eq('pressung.tenant_id', tenantId),
+        .select('weingarten_id, grundstueck_id, trauben_kg, pressung:pressung_id!inner(tenant_id, lese_id, storniert_am)')
+        .eq('pressung.tenant_id', tenantId)
+        .is('storniert_am', null),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('traubenverkauf') as any)
         .select('weingarten_id, grundstueck_id, menge_kg, lese_id')

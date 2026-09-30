@@ -61,6 +61,7 @@ export default async function ErntemeldungPage() {
       .select('jahrgang_id, status')
       .eq('tenant_id', tenantId),
     // Löschsperre: Pressungen und Traubenverkäufe je Jahrgang
+    // storno-sichtbar: auch eine stornierte Pressung sperrt das Löschen des Jahrgangs (KAN-148)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('pressungen') as any)
       .select('jahrgang_id')

@@ -139,12 +139,13 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
   ] = await Promise.all([
     // tenant-isolation-ignore: pressung_behaelter ohne tenant_id, Filter über die Pressung (!inner)
     (tenantId ? (q: any) => q.eq('pressung.tenant_id', tenantId) : (q: any) => q)((supabase.from('pressung_behaelter') as any)
+      // storno-sichtbar: das Weinbuch zeigt eine stornierte Pressung gekennzeichnet und den Storno (KAN-148 C1c)
       .select(`
-        menge_liter,
+        menge_liter, storniert_am, storno_grund, storniert_von_name,
         pressung:pressung_id!inner(
-          id, datum, most_liter_gesamt, weinbezeichnung, lese_id, tenant_id,
+          id, datum, most_liter_gesamt, weinbezeichnung, lese_id, tenant_id, storniert_am,
           pressung_weingaerten(
-            trauben_kg, rebsorte, ernte_datum, kmw, oechsle, mostgewicht_einheit, weingarten_id,
+            trauben_kg, rebsorte, ernte_datum, kmw, oechsle, mostgewicht_einheit, weingarten_id, storniert_am,
             weingarten:weingarten_id(id, name, flaeche_ha),
             grundstueck:grundstueck_id(gst_nr)
           )
@@ -409,9 +410,15 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
     })
   }
 
+  // KAN-145 B2b: Storno-Angaben je Ereignis – merkeStorno(zeile) direkt vor dem push merkt den Index des Eintrags
+  // (bis zum Sortieren wird nur angehängt, der Index bleibt gültig); seit KAN-148 C1c auch für Pressungen
+  const stornoIdx: [number, NonNullable<ReturnType<typeof stornoAngaben>>][] = []
+  const merkeStorno = (z: R) => { const st = stornoAngaben(z); if (st) stornoIdx.push([events.length, st]) }
+
   for (const pb of pressungen) {
     const p = pb.pressung as R | null
     if (!p || !p.datum) continue
+    merkeStorno(pb)
     const wgListe = (p.pressung_weingaerten ?? []) as R[]
     const weingaertenText = wgListe
       .map((wg: R) => (wg.weingarten as R | null)?.name)
@@ -448,10 +455,6 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
     })
   }
 
-  // KAN-145 B2b: Storno-Angaben je Ereignis – merkeStorno(zeile) direkt vor dem push merkt den Index des Eintrags
-  // (bis zum Sortieren wird nur angehängt, der Index bleibt gültig)
-  const stornoIdx: [number, NonNullable<ReturnType<typeof stornoAngaben>>][] = []
-  const merkeStorno = (z: R) => { const st = stornoAngaben(z); if (st) stornoIdx.push([events.length, st]) }
 
   for (const u of umzuege) {
     if (u.umzug_typ === 'schwund') {

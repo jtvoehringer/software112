@@ -298,6 +298,7 @@ export async function updateWeinausbau(id: string, formData: FormData) {
       const { count: pbAnzahl, error: pbErr } = await (supabase.from('pressung_behaelter') as any)
         .select('id', { count: 'exact', head: true })
         .eq('weinausbau_id', id)
+        .is('storniert_am', null)
       if (pbErr) throw new AktionsFehler(dbFehlerText(pbErr, 'Pressung der Charge konnte nicht geprüft werden'))
       if ((pbAnzahl ?? 0) > 0) {
         throw new AktionsFehler('Der Gebindewechsel ist nicht möglich: Die Charge stammt aus einer Pressung. Bitte das Gebinde in der Erntemeldung ändern bzw. den Wechsel als Umzug buchen (Kellerbuch › Umziehen).')

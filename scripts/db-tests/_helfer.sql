@@ -1161,6 +1161,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('rls_hilfe',     '-US', false, 's112_meine_tenants()'),
     ('rls_hilfe',     '-US', false, 's112_schreibgesperrte_tenants()'),
     ('mandant',       '-US', true , 's112_buchung_loeschen(p_tenant_id uuid, p_tabelle text, p_id uuid, p_grund text)'),   -- KAN-166
+    ('mandant',       '-US', true , 's112_pressung_stornieren(p_tenant_id uuid, p_pressung_id uuid, p_grund text)'),   -- KAN-148 C1c
     ('mandant',       '-US', false, 's112_schwund_minderung(p_tenant_id uuid, p_umzug_id uuid)'),   -- KAN-145 B4 (lesend)
     ('trigger',       '--S', false, 's112_loeschsperre()'),                    -- KAN-145 A: BEFORE-DELETE-Sperre
     ('mandant',       '-US', true , 's112_storniert_loeschen(p_tenant_id uuid, p_tabelle text, p_id uuid, p_grund text)'),   -- KAN-145 A

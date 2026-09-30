@@ -424,14 +424,14 @@ async function pruefeLesedatumNichtVerpresst(
   if (!altesDatum || altesDatum === (neuesDatum ?? null)) return
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: pRows, error: pErr } = await (supabase.from('pressungen') as any)
-    .select('id, datum').eq('jahrgang_id', jahrgangId).eq('tenant_id', tenantId)
+    .select('id, datum').eq('jahrgang_id', jahrgangId).eq('tenant_id', tenantId).is('storniert_am', null)
   if (pErr) throw new AktionsFehler(dbFehlerText(pErr, 'Pressungen konnten nicht geprüft werden'))
   const pressungen = (pRows ?? []) as AR[]
   if (pressungen.length === 0) return
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let q = (supabase.from('pressung_weingaerten') as any)
     .select('pressung_id, grundstueck_id').in('pressung_id', pressungen.map(p => p.id))
-    .eq('weingarten_id', alt.weingarten_id).eq('ernte_datum', altesDatum)
+    .eq('weingarten_id', alt.weingarten_id).eq('ernte_datum', altesDatum).is('storniert_am', null)
   if (alt.grundstueck_id) q = q.or(`grundstueck_id.eq.${alt.grundstueck_id},grundstueck_id.is.null`)
   const { data: pwRows, error: pwErr } = await q
   if (pwErr) throw new AktionsFehler(dbFehlerText(pwErr, 'Pressungen konnten nicht geprüft werden'))
@@ -467,7 +467,7 @@ async function pruefeLesemengeGedeckt(
       .select('grundstueck_id, menge_kg').eq('jahrgang_id', jahrgangId).eq('lese_id', leseId).eq('weingarten_id', alt.weingarten_id)
       .is('storniert_am', null),
     (supabase.from('pressungen') as any)
-      .select('id').eq('jahrgang_id', jahrgangId).eq('lese_id', leseId).eq('tenant_id', tenantId),
+      .select('id').eq('jahrgang_id', jahrgangId).eq('lese_id', leseId).eq('tenant_id', tenantId).is('storniert_am', null),
     (supabase.from('traubenverkauf') as any)
       .select('grundstueck_id, menge_kg').eq('jahrgang_id', jahrgangId).eq('lese_id', leseId).eq('weingarten_id', alt.weingarten_id).eq('tenant_id', tenantId)
       .is('storniert_am', null),
@@ -479,7 +479,7 @@ async function pruefeLesemengeGedeckt(
   let pwZeilen: AR[] = []
   if (pressIds.length > 0) {
     const { data, error } = await (supabase.from('pressung_weingaerten') as any)
-      .select('grundstueck_id, trauben_kg').in('pressung_id', pressIds).eq('weingarten_id', alt.weingarten_id)
+      .select('grundstueck_id, trauben_kg').in('pressung_id', pressIds).eq('weingarten_id', alt.weingarten_id).is('storniert_am', null)
     if (error) throw new AktionsFehler(dbFehlerText(error, 'Lesemenge konnte nicht geprüft werden (pressung_weingaerten)'))
     pwZeilen = (data ?? []) as AR[]
   }
@@ -1118,20 +1118,20 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
   if (existingId) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: pAlt, error: pAltErr } = await (supabase.from('pressungen') as any)
-      .select('id, jahrgang_id, lese_id, datum, most_liter_gesamt').eq('id', existingId).eq('tenant_id', tenantId).maybeSingle()
+      .select('id, jahrgang_id, lese_id, datum, most_liter_gesamt').eq('id', existingId).eq('tenant_id', tenantId).is('storniert_am', null).maybeSingle()
     if (pAltErr) throw new AktionsFehler(dbFehlerText(pAltErr, 'Pressung konnte nicht geladen werden'))
-    if (!pAlt) throw new AktionsFehler('Pressung nicht gefunden – bitte die Seite neu laden.')
+    if (!pAlt) throw new AktionsFehler('Pressung nicht gefunden oder storniert – bitte die Seite neu laden.')
     jahrgangId = (pAlt as AR).jahrgang_id as string
     kopfAlt = pAlt as AR
     const [pwRes, pbRes] = await Promise.all([
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('pressung_weingaerten') as any)
         .select('id, weingarten_id, grundstueck_id, zukauf_posten_id, trauben_kg, rebsorte, notizen, ernte_datum, kmw, oechsle, mostgewicht_einheit')
-        .eq('pressung_id', existingId),
+        .eq('pressung_id', existingId).is('storniert_am', null),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('pressung_behaelter') as any)
         .select('id, behaelter_id, weinausbau_id, menge_liter, notizen, weinausbau:weinausbau_id(name, menge_liter), behaelter:behaelter_id(name)')
-        .eq('pressung_id', existingId),
+        .eq('pressung_id', existingId).is('storniert_am', null),
     ])
     if (pwRes.error) throw new AktionsFehler(dbFehlerText(pwRes.error, 'Pressung konnte nicht geladen werden (pressung_weingaerten)'))
     if (pbRes.error) throw new AktionsFehler(dbFehlerText(pbRes.error, 'Pressung konnte nicht geladen werden (pressung_behaelter)'))
@@ -1557,26 +1557,30 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
   return eiswein ? { neu: neuChargen, warnung: eiswein } : { neu: neuChargen }
 }
 
-// Pressung löschen (KAN-35): nur, wenn an keiner der daraus entstandenen Chargen
-// Folgebuchungen hängen (alle Arten, auch Behandlung/Analyse/DAC) und nicht direkt
-// aus der Pressung verkauft wurde. Dann Behälterzeilen → Chargen → Traubenzeilen →
-// Pressung löschen, jedes Ergebnis prüfen (RLS löscht ohne Berechtigung still 0 Zeilen).
-export async function deletePressung(id: string, jahrgangId: string) {
+// Pressung stornieren (KAN-148 C1c, 30.09.2026; vorher KAN-35 löschen): nur, wenn an keiner der daraus
+// entstandenen Chargen Folgebuchungen hängen (alle Arten, auch Behandlung/Analyse/DAC) und nicht direkt aus der
+// Pressung verkauft wurde. Die RPC s112_pressung_stornieren storniert Behälterzeilen, Chargen (0 L, inaktiv,
+// abgeschlossen), Traubenzeilen und Kopf in EINER Transaktion und prüft die Bestandsbuchungen selbst noch einmal; die
+// Vorprüfung hier liefert die verständlicheren Texte. Stornieren darf, wer Pressungen bearbeiten darf (KAN-166).
+export async function stornoPressung(id: string, jahrgangId: string, grund: string) {
+  const grundFehler = stornoGrundFehler(grund)
+  if (grundFehler) throw new AktionsFehler(grundFehler)
   const supabase   = await createSupabaseServerClient()
   const membership = await getMembership()
   const tenantId   = membership.tenantId
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: p, error: pErr } = await (supabase.from('pressungen') as any)
-    .select('id, datum, jahrgang_id').eq('id', id).eq('tenant_id', tenantId).maybeSingle()
+    .select('id, datum, jahrgang_id').eq('id', id).eq('tenant_id', tenantId).is('storniert_am', null).maybeSingle()
   if (pErr) throw new AktionsFehler(dbFehlerText(pErr, 'Pressung konnte nicht geladen werden'))
-  if (!p) throw new AktionsFehler('Pressung nicht gefunden – bitte die Seite neu laden.')
+  if (!p) throw new AktionsFehler('Pressung nicht gefunden oder bereits storniert – bitte die Seite neu laden.')
   const titel = `Die Pressung vom ${datumText((p as AR).datum)}`
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: pbRaw, error: pbErr } = await (supabase.from('pressung_behaelter') as any)
     .select('id, behaelter_id, weinausbau_id, menge_liter, notizen, weinausbau:weinausbau_id(name), behaelter:behaelter_id(name)')
     .eq('pressung_id', id)
+    .is('storniert_am', null)
   if (pbErr) throw new AktionsFehler(dbFehlerText(pbErr, 'Pressung konnte nicht geladen werden (pressung_behaelter)'))
   const pbs = (pbRaw ?? []) as AR[]
 
@@ -1587,7 +1591,7 @@ export async function deletePressung(id: string, jahrgangId: string) {
       .in('pressung_behaelter_id', pbs.map(b => b.id)).eq('tenant_id', tenantId)
     if (vpErr) throw new AktionsFehler(dbFehlerText(vpErr, 'Verkäufe aus der Pressung konnten nicht geprüft werden'))
     if ((nVerkauf ?? 0) > 0) {
-      throw new AktionsFehler(`${titel} kann nicht gelöscht werden: Aus ihren Behältern wurde bereits direkt verkauft (${fmtNum(nVerkauf ?? 0, 0)} ${nVerkauf === 1 ? 'Verkaufsposition' : 'Verkaufspositionen'}). ${CHARGE_HINWEIS}`)
+      throw new AktionsFehler(`${titel} kann nicht storniert werden: Aus ihren Behältern wurde bereits direkt verkauft (${fmtNum(nVerkauf ?? 0, 0)} ${nVerkauf === 1 ? 'Verkaufsposition' : 'Verkaufspositionen'}). ${CHARGE_HINWEIS}`)
     }
   }
 
@@ -1597,61 +1601,14 @@ export async function deletePressung(id: string, jahrgangId: string) {
   if (gesperrt.length > 0) {
     const teile = gesperrt.map(x =>
       `an der Charge ${chargeBezeichnung(x.b)} ${x.f.length === 1 && x.f[0].anzahl === 1 ? 'hängt' : 'hängen'} bereits ${folgebuchungenText(x.f)}`)
-    throw new AktionsFehler(`${titel} kann nicht gelöscht werden: ${teile.join('; ')}. ${CHARGE_HINWEIS}`)
-  }
-  if (mitCharge.length > 0 && !canAdmin(membership.role)) {
-    throw new AktionsFehler(`${titel} kann nur von Betriebsleitern (Admin) gelöscht werden, weil dabei auch die daraus entstandenen Kellerbuch-Chargen gelöscht werden.`)
+    throw new AktionsFehler(`${titel} kann nicht storniert werden: ${teile.join('; ')}. ${CHARGE_HINWEIS}`)
   }
 
-  // 1. Behälterzeilen (verweisen per NO ACTION auf die Chargen)
-  if (pbs.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: pbDel, error: pbDelErr } = await (supabase.from('pressung_behaelter') as any)
-      .delete().eq('pressung_id', id).select('id')
-    if (pbDelErr) throw new AktionsFehler(dbFehlerText(pbDelErr, 'Löschen fehlgeschlagen (pressung_behaelter)'))
-    if (((pbDel ?? []) as AR[]).length !== pbs.length) {
-      throw new AktionsFehler('Die Behälterzeilen der Pressung konnten nicht gelöscht werden – keine Berechtigung oder inzwischen geändert. Bitte die Seite neu laden.')
-    }
-  }
-
-  // 2. Chargen
-  if (mitCharge.length > 0) {
-    const waIds = [...new Set(mitCharge.map(b => b.weinausbau_id as string))]
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: wDel, error: wDelErr } = await (supabase.from('weinausbau') as any)
-      .delete().in('id', waIds).eq('tenant_id', tenantId).select('id')
-    const geloescht = new Set(((wDel ?? []) as AR[]).map(w => w.id as string))
-    if (wDelErr || geloescht.size !== waIds.length) {
-      // Behälterzeilen der nicht gelöschten Chargen wiederherstellen – sonst blieben
-      // Chargen ohne Zugang (Bewegungsbuch) zurück
-      const wiederherstellen = pbs.filter(b => !b.weinausbau_id || !geloescht.has(b.weinausbau_id))
-      let zusatz = ''
-      if (wiederherstellen.length > 0) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error: rErr } = await (supabase.from('pressung_behaelter') as any).insert(wiederherstellen.map(b => ({
-          id: b.id, pressung_id: id, behaelter_id: b.behaelter_id ?? null, weinausbau_id: b.weinausbau_id ?? null,
-          menge_liter: b.menge_liter ?? null, notizen: b.notizen ?? null,
-        })))
-        zusatz = rErr
-          ? ` Achtung: Die Behälterzeilen konnten nicht wiederhergestellt werden (${dbFehlerText(rErr)}) – bitte die Pressung prüfen.`
-          : ' Die Pressung bleibt unverändert erhalten.'
-      }
-      throw new AktionsFehler(`Die Chargen der Pressung konnten nicht gelöscht werden: ${wDelErr ? dbFehlerText(wDelErr) : 'keine Berechtigung (nur Betriebsleiter)'}.${zusatz}`)
-    }
-  }
-
-  // 3. Traubenzeilen
+  // Alles in einer Transaktion (Behälterzeilen, Chargen, Traubenzeilen, Kopf); die RPC prüft Zugriff, Abo-Sperre,
+  // Schreibmodul und die Bestandsbuchungen der Chargen selbst
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: pwDelErr } = await (supabase.from('pressung_weingaerten') as any)
-    .delete().eq('pressung_id', id).select('id')
-  if (pwDelErr) throw new AktionsFehler(dbFehlerText(pwDelErr, 'Löschen fehlgeschlagen (pressung_weingaerten)'))
-
-  // 4. Pressung
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: pDel, error: pDelErr } = await (supabase.from('pressungen') as any)
-    .delete().eq('id', id).eq('tenant_id', tenantId).select('id')
-  if (pDelErr) throw new AktionsFehler(dbFehlerText(pDelErr, 'Löschen fehlgeschlagen (pressungen)'))
-  if (!(pDel as AR[] | null)?.length) throw new AktionsFehler('Die Pressung konnte nicht gelöscht werden – keine Berechtigung. Bitte die Seite neu laden.')
+  const { error } = await (supabase.rpc as any)('s112_pressung_stornieren', { p_tenant_id: tenantId, p_pressung_id: id, p_grund: grund.trim() })
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Stornieren fehlgeschlagen (Pressung)'))
 
   revalidatePath(`/erntemeldung/${(p as AR).jahrgang_id ?? jahrgangId}`)
   revalidatePath('/kellerbuch')

@@ -72,7 +72,8 @@ export async function zukaufVerweise(
     // bereits mandantengeprüft – ein Verweis aus einem anderen Betrieb zählt mit (sichere Richtung).
     (supabase.from('pressung_weingaerten') as any)
       .select('pressung_id, trauben_kg')
-      .eq('zukauf_posten_id', zukaufId),
+      .eq('zukauf_posten_id', zukaufId)
+      .is('storniert_am', null),   // KAN-148: eine stornierte Pressung bindet keine kg mehr
     (supabase.from('traubenverkauf') as any)
       .select('id, menge_kg')
       .eq('zukauf_posten_id', zukaufId)

@@ -62,14 +62,15 @@ export default async function WeinpassPage({ params }: { params: Promise<{ charg
     const { data: pbRaw } = await (supabase.from('pressung_behaelter') as any)
       .select(`
         pressung:pressung_id(
-          datum,
+          datum, storniert_am,
           pressung_weingaerten(
-            trauben_kg, rebsorte, ernte_datum, kmw,
+            trauben_kg, rebsorte, ernte_datum, kmw, storniert_am,
             weingarten:weingarten_id(name, flaeche_ha)
           )
         )
       `)
       .eq('weinausbau_id', f.weinausbau_id)
+      .is('storniert_am', null)
 
     weingaerten = ((pbRaw ?? []) as R[])
       .flatMap((pb: R) => (pb.pressung?.pressung_weingaerten ?? []) as R[])

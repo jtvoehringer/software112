@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Pencil, Trash2, X, ChevronDown, Plus } from 'lucide-react'
-import { upsertPressung, deletePressung } from '../actions'
+import { Pencil, X, ChevronDown, Plus } from 'lucide-react'
+import { upsertPressung, stornoPressung } from '../actions'
+import StornoButton from '@/components/StornoButton'
 import { fmtProzent, fmtNum, dezimal } from '@/lib/format'
 import { kmwZuQualitaet } from '@/lib/weinqualitaet'
 import { abstufungsOptionen, minQualitaet, qualitaetLabel, QUALITAET_OPTS } from '@/lib/wein/qualitaet'
@@ -53,6 +54,8 @@ export type Pressung = {
   id: string; datum: string; most_liter_gesamt: number | null
   weinbezeichnung: string | null; notizen: string | null; kmw_grad: number | null
   weingaerten: PressungWG[]; behaelter: PressungBeh[]
+  /** KAN-148 C1c: storniert – Vermerk statt Aktionen, zählt in keiner Summe */
+  storno?: { am: string; von: string | null; grund: string | null } | null
 }
 export type WGOption  = { id: string; name: string; rebsorte: string | null }
 export type BehOption = { id: string; name: string; volumen_liter?: number | null }
@@ -805,7 +808,7 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, wgOptions, behOpt
 
 // ── Hauptexport ───────────────────────────────────────────────────────────────
 
-export default function PressungSection({ jahrgangId, leseId, leseArt, pressungen, wgOptions, behOptions, waOptions, leseParzellen, leseEintraege, verfuegbareKgByGST, zukaufTrauben, behaelterMitCharge, writeOk, adminOk }: {
+export default function PressungSection({ jahrgangId, leseId, leseArt, pressungen, wgOptions, behOptions, waOptions, leseParzellen, leseEintraege, verfuegbareKgByGST, zukaufTrauben, behaelterMitCharge, writeOk }: {
   jahrgangId: string; pressungen: Pressung[]
   /** KAN-129: gewählte Lese (Reiter) – Pressungen und Lese-Einträge dieser Lese */
   leseId: string | null
@@ -819,34 +822,26 @@ export default function PressungSection({ jahrgangId, leseId, leseArt, pressunge
 }) {
   const [showForm, setShowForm]    = useState(false)
   const [editId, setEditId]        = useState<string | null>(null)
-  const [pending, startTransition] = useTransition()
   const [collapsed, setCollapsed]  = useState(false)
-  const [fehler, setFehler]        = useState<string | null>(null)
 
-  const gesamtKg    = pressungen.flatMap(p => p.weingaerten).reduce((s, w) => s + w.trauben_kg, 0)
-  const gesamtLiter = pressungen.reduce((s, p) => s + (p.most_liter_gesamt ?? 0), 0)
+  // KAN-148 C1c: stornierte Pressungen stehen gekennzeichnet in der Liste, zählen aber in keiner Summe
+  const gueltige    = pressungen.filter(p => !p.storno)
+  const gesamtKg    = gueltige.flatMap(p => p.weingaerten).reduce((s, w) => s + w.trauben_kg, 0)
+  const gesamtLiter = gueltige.reduce((s, p) => s + (p.most_liter_gesamt ?? 0), 0)
   const ausbeute    = gesamtKg > 0 && gesamtLiter > 0 ? (gesamtLiter / gesamtKg) * 100 : null
   const gesamtVerfuegbarKg = Object.values(verfuegbareKgByGST).reduce((s, v) => s + v, 0)
     + zukaufTrauben.reduce((s, z) => s + z.verfuegbar_kg, 0)
 
-  function handleDelete(p: Pressung) {
+  // KAN-148 C1c: Hinweis im Storno-Dialog – die Chargen der Pressung werden mitstorniert
+  function stornoHinweis(p: Pressung): string {
     const chargen = p.behaelter.filter(b => b.weinausbau_id).map(b => `„${b.weinausbau_name ?? 'ohne Namen'}“`)
-    const frage = chargen.length > 0
-      ? `Pressung vom ${fmtDate(p.datum)} löschen? Dabei werden auch die daraus entstandenen Kellerbuch-Chargen ${chargen.join(', ')} gelöscht. Das geht nur, solange an ihnen noch keine Folgebuchungen (Umzug, Füllung, Behandlung …) hängen.`
-      : `Pressung vom ${fmtDate(p.datum)} löschen?`
-    if (!confirm(frage)) return
-    setFehler(null)
-    startTransition(async () => {
-      try {
-        await deletePressung(p.id, jahrgangId)
-      } catch (err) {
-        setFehler(fehlerText(err, 'Die Pressung konnte nicht gelöscht werden.'))
-      }
-    })
+    return `Die Pressung bleibt als storniert stehen, die Trauben-kg werden wieder frei.${chargen.length > 0
+      ? ` Die daraus entstandenen Kellerbuch-Chargen ${chargen.join(', ')} werden mitstorniert (0 L). Das geht nur, solange an ihnen noch keine Folgebuchungen (Umzug, Füllung, Behandlung …) hängen.`
+      : ''}`
   }
 
   return (
-    <div className={`card space-y-4 ${pending ? 'opacity-60 pointer-events-none' : ''}`}>
+    <div className="card space-y-4">
       <div className="flex items-center justify-between">
         <button type="button" onClick={() => setCollapsed(c => !c)}
           className="flex items-center gap-1.5 text-left" title={collapsed ? 'Pressungen einblenden' : 'Pressungen ausblenden'}>
@@ -873,7 +868,6 @@ export default function PressungSection({ jahrgangId, leseId, leseArt, pressunge
         </div>
       </div>
 
-      {fehler && <Fehlermeldung text={fehler} onClose={() => setFehler(null)} />}
 
       {collapsed ? null : (
       <>
@@ -924,7 +918,7 @@ export default function PressungSection({ jahrgangId, leseId, leseArt, pressunge
                     behaelterMitCharge={undefined}
                     onDone={() => setEditId(null)} />
                 ) : (
-                  <div className="group border border-s112-border rounded-xl p-3">
+                  <div className={`group border border-s112-border rounded-xl p-3 ${p.storno ? 'text-s112-muted opacity-70' : ''}`}>
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div>
                         <div className="flex items-center gap-2">
@@ -936,6 +930,11 @@ export default function PressungSection({ jahrgangId, leseId, leseArt, pressunge
                           )}
                         </div>
                         {p.notizen && <span className="text-xs text-s112-muted">{p.notizen}</span>}
+                        {p.storno && (
+                          <span className="block text-[11px] text-s112-warn-fg">
+                            storniert am {new Date(p.storno.am).toLocaleDateString('de-AT')}{p.storno.von ? ` von ${p.storno.von}` : ''}{p.storno.grund ? ` – ${p.storno.grund}` : ''}
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-3 text-xs shrink-0">
                         <span className="text-s112-text-2">{fmt(pKg)} kg</span>
@@ -958,8 +957,11 @@ export default function PressungSection({ jahrgangId, leseId, leseArt, pressunge
                           </span>
                         )}
                         <span className="flex items-center gap-2">
-                          {writeOk && <button onClick={() => setEditId(p.id)} title="Bearbeiten" aria-label="Bearbeiten" className="text-s112-blue-700 hover:text-s112-blue-700/70"><Pencil size={14} /></button>}
-                          {adminOk && <button onClick={() => handleDelete(p)} title="Löschen" aria-label="Löschen" className="text-s112-err hover:text-s112-err-fg"><Trash2 size={14} /></button>}
+                          {writeOk && !p.storno && <button onClick={() => setEditId(p.id)} title="Bearbeiten" aria-label="Bearbeiten" className="text-s112-blue-700 hover:text-s112-blue-700/70"><Pencil size={14} /></button>}
+                          {/* KAN-148 C1c: stornieren statt löschen – wer Pressungen bearbeiten darf (KAN-166) */}
+                          {writeOk && !p.storno && (
+                            <StornoButton action={grund => stornoPressung(p.id, jahrgangId, grund)} hinweis={stornoHinweis(p)} />
+                          )}
                         </span>
                       </div>
                     </div>

@@ -72,8 +72,9 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
     // pressung_behaelter hat keine tenant_id – Mandantenfilter über die Pressung (!inner).
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('pressung_behaelter') as any)
-      .select('id, menge_liter, behaelter:behaelter_id(name), pressung:pressung_id!inner(datum, weinbezeichnung, kmw_grad, jahrgang_id, tenant_id, jahrgang:jahrgang_id(jahrgang), lese:lesen!pressungen_lese_fkey(lfd_nr))')
+      .select('id, menge_liter, behaelter:behaelter_id(name), pressung:pressung_id!inner(datum, weinbezeichnung, kmw_grad, jahrgang_id, tenant_id, storniert_am, jahrgang:jahrgang_id(jahrgang), lese:lesen!pressungen_lese_fkey(lfd_nr))')
       .eq('pressung.tenant_id', tenantId ?? '')
+      .is('storniert_am', null)
       .is('weinausbau_id', null)
       .gt('menge_liter', 0),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

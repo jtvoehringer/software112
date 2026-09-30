@@ -91,10 +91,10 @@ export async function ladeBewegungsgraph(supabase: any, tenantId: string, startI
       // pressung_behaelter ohne tenant_id – Mandant über die Pressung
       liste((supabase.from('pressung_behaelter') as any)
         .select(`id, menge_liter, weinausbau_id,
-          pressung:pressung_id(id, datum, erstellt_am, tenant_id, jahrgang_id, lese_id, jahrgang:jahrgang_id(jahrgang),
-            pressung_weingaerten(id, trauben_kg, rebsorte, ernte_datum, kmw, zukauf_posten_id, weingarten_id, grundstueck_id,
+          pressung:pressung_id(id, datum, erstellt_am, tenant_id, jahrgang_id, lese_id, storniert_am, jahrgang:jahrgang_id(jahrgang),
+            pressung_weingaerten(id, trauben_kg, rebsorte, ernte_datum, kmw, zukauf_posten_id, weingarten_id, grundstueck_id, storniert_am,
               weingarten:weingarten_id(id, name), grundstueck:grundstueck_id(gst_nr, katastralgemeinde)))`)
-        .in('weinausbau_id', ids).order('id'), 'Pressungen'),
+        .in('weinausbau_id', ids).is('storniert_am', null).order('id'), 'Pressungen'),   // KAN-148 C1c: stornierte Pressungszeilen sind keine Herkunft
       liste((supabase.from('zukauf_posten') as any)
         .select('id, datum, erstellt_am, menge, rebsorte, jahrgang, ziel_weinausbau_id, lieferant_firma:firmen!lieferant_firma_id(name), lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname)')
         .eq('tenant_id', tenantId).in('ziel_weinausbau_id', ids).eq('aktiv', true).in('art', ['wein', 'most']).order('id'), 'Zukäufe'),

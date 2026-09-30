@@ -102,7 +102,7 @@ test('Etappe 3: Weinhandel-Wege mit Lese (Traubenverkauf-Seite, Verkauf mit Trau
   assert.ok(v.includes('erg = await traubenverkaufLese(') && v.includes('lese_id:         leseJePosition[i],'))
   assert.ok(v.indexOf('await pruefePositionen(supabase, membership, positionen, datum)') < v.indexOf("get_next_liefernummer"), 'Prüfung vor Liefernummer')
   const r = lies('src/app/api/verkauf-stammdaten/route.ts')
-  assert.ok(r.includes('const verfuegbar = verfuegbarJeLese(') && r.includes('pressung:pressung_id!inner(tenant_id, lese_id)'))
+  assert.ok(r.includes('const verfuegbar = verfuegbarJeLese(') && r.includes('pressung:pressung_id!inner(tenant_id, lese_id, storniert_am)'))
   const c = lies('src/app/(dashboard)/weinhandel/traubenverkauf/TraubenverkaufClient.tsx')
   assert.ok(c.includes("fd.set('lese_id', leseId)") && c.includes('const verfuegbar = verfuegbarJeLese('))
   const p = lies('src/app/(dashboard)/weinhandel/traubenverkauf/page.tsx')

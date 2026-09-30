@@ -97,8 +97,9 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
       .eq('typ', 'tank')
       .order('id', { ascending: true })),
     // Pressungen / Ernte
+    // storno-sichtbar: die Chargen-Seite zeigt die Herkunft auch einer stornierten Pressungs-Charge (KAN-148 C1c)
     (supabase.from('pressung_behaelter') as any)
-      .select('id, menge_liter, notizen, pressung:pressung_id(datum, notizen, kmw_grad)')
+      .select('id, menge_liter, notizen, storniert_am, pressung:pressung_id(datum, notizen, kmw_grad, storniert_am)')
       .eq('weinausbau_id', id)
       .order('id', { ascending: true }),
     // Verknüpfte Rieden / Weingärten
