@@ -22,7 +22,7 @@
 --   3. Dynamisch je T/K-Tabelle mit Abo-Policy, als b_ta und b_w: Lesen bleibt, INSERT → R/T, UPDATE → k0/R,
 --      DELETE → k0; Positivkontrolle mit stripe_status NULL (UPDATE/INSERT/DELETE k1, wo die Rolle darf).
 --   4. tenants (bio_status) und die Ausnahmen: system_admin in B, Test-Plattform-Admin, Musterhof, Sandbox.
---   5. Die 13 schreibenden RPCs mit s112_pruefe_abo_schreibsperre → 42501 / HINT abo_gesperrt; lesende RPCs nicht;
+--   5. Die 14 schreibenden RPCs mit s112_pruefe_abo_schreibsperre → 42501 / HINT abo_gesperrt; lesende RPCs nicht;
 --      increment_ki_tokens (Ausnahme abo_rpc_ausnahmen, schreibt nur den KI-Tokenzähler) mit Ist-Stand „ok“.
 --   6. Storage (ea-belege, dokumente): Hochladen → R, Lesen bleibt, Löschen → k0.
 --
@@ -87,10 +87,10 @@ DECLARE
   c_m         constant uuid := '33333333-3333-4333-8333-333333333333';
   -- Muss mit ABO_GESPERRTE_STATUS in src/lib/abo/regeln.ts (und s112_abo_gesperrt) übereinstimmen.
   c_gesperrt  constant text[] := ARRAY['unpaid', 'canceled', 'cancelled', 'incomplete', 'incomplete_expired', 'paused'];
-  -- Schreibende SECURITY-DEFINER-RPCs mit s112_pruefe_abo_schreibsperre (Soll-Liste, 13 Stück; s112_storniert_loeschen seit KAN-145).
+  -- Schreibende SECURITY-DEFINER-RPCs mit s112_pruefe_abo_schreibsperre (Soll-Liste, 14 Stück; s112_storniert_loeschen seit KAN-145, s112_buchung_loeschen seit KAN-166).
   c_abo_rpcs  constant text[] := ARRAY['fuellung_bestand_buchen', 'get_next_accountnummer', 'get_next_chargennummer',
                                        'get_next_liefernummer', 'get_next_personenkonto', 'get_next_rechnungsnummer',
-                                       'get_next_transaktionsnr', 'kontakte_zusammenfuehren', 's112_storniert_loeschen', 'schwund_buchen',
+                                       'get_next_transaktionsnr', 'kontakte_zusammenfuehren', 's112_buchung_loeschen', 's112_storniert_loeschen', 'schwund_buchen',
                                        'setze_kontobewegung_abgeglichen', 'sperre_ea_monat', 'sperre_ea_uva'];
   -- Tabellen, deren Policies auth.uid() gegen eine Eigentümerspalte prüfen (wie t12_pro_persona in Datei 12)
   c_eigentuemer constant text[] := ARRAY['assistent_unterhaltungen', 'assistent_aktionen', 'assistent_nachrichten',
@@ -136,6 +136,7 @@ DECLARE
   v_wa        uuid;
   v_eatx      uuid;
   v_kb        uuid;
+  v_pl        uuid;
   v_k1        uuid;
   v_k2        uuid;
   v_abdeckung jsonb := '{}';
@@ -195,6 +196,7 @@ BEGIN
   v_eatx := (pg_temp.s112_beispiel('ea_transaktionen', v_b, v_bw) ->> 'id')::uuid;
   v_kb := (pg_temp.s112_beispiel('keller_behandlungen', v_b, v_bw,
     '{"storniert_am": "2026-09-30T10:00:00Z", "storno_grund": "S112TEST storniert"}') ->> 'id')::uuid;   -- KAN-145
+  v_pl := (pg_temp.s112_beispiel('psm_lager_bewegungen', v_b, v_bw) ->> 'id')::uuid;   -- KAN-166
   v_k1 := (pg_temp.s112_zeile('kontakte', v_b, '{"nachname": "S112TEST Behalten"}') ->> 'id')::uuid;
   v_k2 := (pg_temp.s112_zeile('kontakte', v_b, '{"nachname": "S112TEST Weg"}') ->> 'id')::uuid;
   INSERT INTO public.ea_monatsabschluss (tenant_id, jahr, monat) VALUES (v_b, 2020, 1);
@@ -392,6 +394,7 @@ BEGIN
     'get_next_rechnungsnummer', format('SELECT public.get_next_rechnungsnummer(%L)', v_b),
     'get_next_transaktionsnr', format('SELECT public.get_next_transaktionsnr(%L, %L)', v_b, 'umzug'),
     'kontakte_zusammenfuehren', format('SELECT public.kontakte_zusammenfuehren(%L, %L, ARRAY[%L]::uuid[])', v_b, v_k1, v_k2),
+    's112_buchung_loeschen', format('SELECT public.s112_buchung_loeschen(%L, %L, %L, %L)', v_b, 'psm_lager_bewegungen', v_pl, 'S112TEST löschen mit Grund'),
     's112_storniert_loeschen', format('SELECT public.s112_storniert_loeschen(%L, %L, %L, %L)', v_b, 'keller_behandlungen', v_kb, 'S112TEST endgültig löschen'),
     'schwund_buchen', format('SELECT public.schwund_buchen(%L, %L, 1, current_date, %L, false, true)', v_b, v_wa, 'S112TEST'),
     'setze_kontobewegung_abgeglichen', format('SELECT public.setze_kontobewegung_abgeglichen(%L, %L, %L, true)', v_b, 'ea_transaktion', v_eatx),
