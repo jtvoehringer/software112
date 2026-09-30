@@ -12,11 +12,15 @@
 //
 // belegungszeitraeume() leitet daraus ab, wann welche Charge im Gebinde lag – für
 // Kellerbehandlungen ohne erfasste Charge (keller-behandlungen.ts, Weinbuch-Fallback).
+//
+// Storno (KAN-145 B2b, 30.09.2026): Ein stornierter Umzug bzw. Verschnitt bleibt am Buchungstag stehen (Vermerk
+// „storniert am …“) und bekommt am Storno-Tag eine Gegenbuchung mit umgekehrter Menge – so stimmt der Saldo zu
+// jedem Stichtag. Belegungszeiträume und Liter je Charge lassen das Paar aus.
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Projektkonvention (supabase.from('…') as any), siehe CLAUDE.md */
 import { runden, STELLEN, type CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
-import { ohneStornierteVerschnitte } from '@/lib/kellerbuch/stornoFilter'
+import { istStorniert, stornoAngaben } from '@/lib/kellerbuch/stornoFilter'
 import { ladeBehaelterEinzeln, type BehaelterZeile } from '@/lib/keller/behaelter'
 import { fmtNum } from '@/lib/format'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
@@ -59,6 +63,10 @@ export type Bewegung = {
   gegenstelle: string | null
   /** Beleg: Transaktionsnummer, Rechnungs-, Prüf- oder Chargennummer */
   beleg: string | null
+  /** KAN-145: Buchung später storniert (Kalendertag des Stornos, Grund, Benutzer) */
+  storno?: { am: string; grund: string | null; von: string | null }
+  /** KAN-145: Gegenbuchung eines Stornos – Kalendertag der stornierten Buchung */
+  gegenbuchungZu?: string
 }
 
 export type BewegungMitSaldo = Bewegung & { saldo: number }
@@ -100,8 +108,8 @@ async function ladeRoh(supabase: any, tenantId: string, behaelterId: string): Pr
       .eq('behaelter_id', behaelterId)
       .order('id', { ascending: true }), 'pressung_behaelter'),
     liste((supabase.from('keller_umzuege') as any)
-      .select('id, datum, menge_liter, brutto_liter, schwund_liter, umzug_typ, nach_weinausbau_id, transaktions_nr, von_behaelter:von_behaelter_id(name), von_weinausbau:von_weinausbau_id(name, jahrgang, behaelter:behaelter_id(name)), notizen, umzug_batch_id, zeilen_typ')
-      .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
+      .select('id, datum, menge_liter, brutto_liter, schwund_liter, umzug_typ, nach_weinausbau_id, transaktions_nr, von_behaelter:von_behaelter_id(name), von_weinausbau:von_weinausbau_id(name, jahrgang, behaelter:behaelter_id(name)), notizen, umzug_batch_id, zeilen_typ, storniert_am, storno_grund, storniert_von_name')
+      // storno-sichtbar: das Bewegungsbuch zeigt Buchung und Gegenbuchung (KAN-145 B2b)
       .eq('tenant_id', tenantId)
       .eq('nach_behaelter_id', behaelterId)
       .order('datum', { ascending: true })
@@ -113,7 +121,7 @@ async function ladeRoh(supabase: any, tenantId: string, behaelterId: string): Pr
       .order('id', { ascending: true }), 'weinausbau'),
     liste((supabase.from('keller_umzuege') as any)
       .select('id, von_weinausbau_id')
-      .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
+      // storno-sichtbar: das Bewegungsbuch zeigt Buchung und Gegenbuchung (KAN-145 B2b)
       .eq('tenant_id', tenantId)
       .eq('von_behaelter_id', behaelterId)
       .order('id', { ascending: true }), 'keller_umzuege'),
@@ -137,8 +145,8 @@ async function ladeRoh(supabase: any, tenantId: string, behaelterId: string): Pr
   if (ids.length > 0) {
     ;[umzuegeAus, fuellungen, verkauf, zukauf, verschnAus, verschnEin] = await Promise.all([
       liste((supabase.from('keller_umzuege') as any)
-        .select('id, datum, menge_liter, brutto_liter, schwund_liter, zeilen_typ, umzug_typ, transaktions_nr, nach_behaelter:nach_behaelter_id(name), von_weinausbau_id, von_weinausbau:von_weinausbau_id(name), notizen, umzug_batch_id')
-        .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
+        .select('id, datum, menge_liter, brutto_liter, schwund_liter, zeilen_typ, umzug_typ, transaktions_nr, nach_behaelter:nach_behaelter_id(name), von_weinausbau_id, von_weinausbau:von_weinausbau_id(name), notizen, umzug_batch_id, storniert_am, storno_grund, storniert_von_name')
+        // storno-sichtbar: das Bewegungsbuch zeigt Buchung und Gegenbuchung (KAN-145 B2b)
         .eq('tenant_id', tenantId)
         .in('von_weinausbau_id', ids)
         .order('datum', { ascending: true })
@@ -168,18 +176,18 @@ async function ladeRoh(supabase: any, tenantId: string, behaelterId: string): Pr
         .order('id', { ascending: true }), 'zukauf_posten'),
       // verschneidung_quellen hat keine tenant_id – Mandant über die Verschneidung
       liste((supabase.from('verschneidung_quellen') as any)
-        .select('id, menge_liter, quell_weinausbau_id, verschneidung:verschneidung_id(datum, notizen, tenant_id, storniert_am, ziel:ziel_weinausbau_id(name, behaelter:behaelter_id(name)))')
+        .select('id, menge_liter, quell_weinausbau_id, verschneidung:verschneidung_id(datum, notizen, tenant_id, storniert_am, storno_grund, storniert_von_name, ziel:ziel_weinausbau_id(name, behaelter:behaelter_id(name)))')
         .in('quell_weinausbau_id', ids)
         .order('id', { ascending: true }), 'verschneidung_quellen'),
       liste((supabase.from('verschneidungen') as any)
-        .select('id, datum, notizen, ziel_weinausbau_id, quellen:verschneidung_quellen(menge_liter, quelle:quell_weinausbau_id(name, behaelter:behaelter_id(name)))')
-        .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
+        .select('id, datum, notizen, ziel_weinausbau_id, storniert_am, storno_grund, storniert_von_name, quellen:verschneidung_quellen(menge_liter, quelle:quell_weinausbau_id(name, behaelter:behaelter_id(name)))')
+        // storno-sichtbar: das Bewegungsbuch zeigt Buchung und Gegenbuchung (KAN-145 B2b)
         .eq('tenant_id', tenantId)
         .in('ziel_weinausbau_id', ids)
         .order('datum', { ascending: true })
         .order('id', { ascending: true }), 'verschneidungen'),
     ])
-    verschnAus = ohneStornierteVerschnitte(verschnAus.filter(v => (v.verschneidung as R | null)?.tenant_id === tenantId))   // KAN-145
+    verschnAus = verschnAus.filter(v => (v.verschneidung as R | null)?.tenant_id === tenantId)
   }
 
   const einZielBatchIds = [...new Set(umzuegeEin.filter(u => u.zeilen_typ === 'ziel' && u.umzug_batch_id).map(u => u.umzug_batch_id as string))]
@@ -190,7 +198,7 @@ async function ladeRoh(supabase: any, tenantId: string, behaelterId: string): Pr
     einZielBatchIds.length > 0
       ? liste((supabase.from('keller_umzuege') as any)
           .select('id, umzug_batch_id, von_behaelter:von_behaelter_id(name), von_weinausbau:von_weinausbau_id(name, behaelter:behaelter_id(name))')
-          .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
+          // storno-sichtbar: nur Namen der Gegenseite (die Zeilen einer Buchung sind gemeinsam storniert)
           .eq('tenant_id', tenantId)
           .in('umzug_batch_id', einZielBatchIds)
           .eq('zeilen_typ', 'quelle')
@@ -199,7 +207,7 @@ async function ladeRoh(supabase: any, tenantId: string, behaelterId: string): Pr
     ausQuelleBatchIds.length > 0
       ? liste((supabase.from('keller_umzuege') as any)
           .select('id, umzug_batch_id, nach_behaelter:nach_behaelter_id(name), nach_weinausbau:nach_weinausbau_id(name), menge_liter')
-          .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
+          // storno-sichtbar: nur Namen der Gegenseite (die Zeilen einer Buchung sind gemeinsam storniert)
           .eq('tenant_id', tenantId)
           .in('umzug_batch_id', ausQuelleBatchIds)
           .eq('zeilen_typ', 'ziel')
@@ -321,6 +329,7 @@ function bewegungenAus(roh: Roh): Bewegung[] {
       charge: name(u.nach_weinausbau_id),
       gegenstelle: von,
       beleg: text(u.transaktions_nr),
+      ...stornoFeld(u),
     })
   }
 
@@ -358,6 +367,7 @@ function bewegungenAus(roh: Roh): Bewegung[] {
       charge: text(vonCharge?.name) ?? name(u.von_weinausbau_id),
       gegenstelle: istSchwund ? null : nach,
       beleg: text(u.transaktions_nr),
+      ...stornoFeld(u),
     })
   }
 
@@ -429,6 +439,7 @@ function bewegungenAus(roh: Roh): Bewegung[] {
       charge: name(vq.quell_weinausbau_id),
       gegenstelle: zielBeh ? `${zielBeh} (${zielName})` : zielName,
       beleg: null,
+      ...stornoFeld(vq),
     })
   }
 
@@ -450,12 +461,38 @@ function bewegungenAus(roh: Roh): Bewegung[] {
       charge: name(v.ziel_weinausbau_id),
       gegenstelle: quellenNamen,
       beleg: null,
+      ...stornoFeld(v),
     })
   }
 
-  // Stabil nach Datum (innerhalb eines Tages die Reihenfolge oben – wie bisher)
+  // KAN-145: Gegenbuchung am Storno-Tag (umgekehrte Menge) – die Buchung selbst bleibt an ihrem Tag stehen
+  for (const b of [...bewegungen]) {
+    if (!b.storno) continue
+    bewegungen.push({
+      ...b,
+      datum: b.storno.am,
+      beschreibung: `Storno: ${b.beschreibung}`,
+      menge: b.menge === 0 ? 0 : -b.menge,
+      extra: [b.storno.grund ? `Grund: ${b.storno.grund}` : null, b.storno.von ? `storniert von ${b.storno.von}` : null].filter(Boolean).join(' · ') || undefined,
+      storno: undefined,
+      gegenbuchungZu: b.datum,
+    })
+  }
+
+  // Stabil nach Datum (innerhalb eines Tages die Reihenfolge oben – wie bisher; Gegenbuchungen danach)
   bewegungen.sort((a, b) => a.datum.localeCompare(b.datum))
   return bewegungen
+}
+
+/** Storno-Angaben einer Zeile als Bewegungsfeld (Kalendertag in Wien) */
+function stornoFeld(z: R): Pick<Bewegung, 'storno'> {
+  const s = stornoAngaben(z)
+  return s ? { storno: { am: tag(s.am), grund: s.grund, von: s.von } } : {}
+}
+
+/** Bewegungen ohne stornierte Buchungen und ohne deren Gegenbuchungen (Belegung, Bestand je Charge) */
+export function ohneStornoPaare(bewegungen: readonly Bewegung[]): Bewegung[] {
+  return bewegungen.filter(b => !b.storno && !b.gegenbuchungZu)
 }
 
 /** Laufenden Saldo anfügen – Summe der gerundeten Mengen */
@@ -521,7 +558,7 @@ export function chargeAmTag(belegungen: readonly Belegung[], datum: string): Bel
 /** Bewegungen und Belegungszeiträume eines Gebindes (ohne Gebinde-Stammdaten) */
 export async function ladeBelegungen(supabase: any, tenantId: string, behaelterId: string): Promise<Belegung[]> {
   const roh = await ladeRoh(supabase, tenantId, behaelterId)
-  return belegungszeitraeume(bewegungenAus(roh), roh.chargen)
+  return belegungszeitraeume(ohneStornoPaare(bewegungenAus(roh)), roh.chargen)
 }
 
 export type Bewegungsbuch = {
@@ -560,13 +597,15 @@ export async function ladeBewegungsbuch(
   const plus = (id: string | null | undefined, l: number) => { if (id) literByCharge[id] = (literByCharge[id] ?? 0) + l }
   for (const z of roh.zukauf) plus(z.ziel_weinausbau_id, num(z.menge))
   for (const pb of roh.pressungen) plus(pb.weinausbau_id, num(pb.menge_liter))
-  for (const v of roh.verschnEin) plus(v.ziel_weinausbau_id, ((v.quellen ?? []) as R[]).reduce((s: number, q: R) => s + num(q.menge_liter), 0))
-  for (const vq of roh.verschnAus) plus(vq.quell_weinausbau_id, -num(vq.menge_liter))
+  for (const v of roh.verschnEin) if (!istStorniert(v)) plus(v.ziel_weinausbau_id, ((v.quellen ?? []) as R[]).reduce((s: number, q: R) => s + num(q.menge_liter), 0))
+  for (const vq of roh.verschnAus) if (!istStorniert(vq)) plus(vq.quell_weinausbau_id, -num(vq.menge_liter))
   for (const u of roh.umzuegeEin) {
+    if (istStorniert(u)) continue
     const rohmenge = num(u.menge_liter), schwund = num(u.schwund_liter)
     plus(u.nach_weinausbau_id, u.brutto_liter != null ? rohmenge : Math.max(0, rohmenge - schwund))
   }
   for (const u of roh.umzuegeAus) {
+    if (istStorniert(u)) continue
     plus(u.von_weinausbau_id, -(u.zeilen_typ === 'quelle' ? num(u.menge_liter) : (num(u.brutto_liter) || num(u.menge_liter))))
   }
   for (const f of roh.fuellungen) plus(f.weinausbau_id, -(num(f.menge_liter_gefuellt) || (num(f.anzahl_flaschen) * num(f.flaschengroesse_ml) / 1000)))
@@ -614,6 +653,8 @@ export type BewegungsbuchZeile = {
   gegenstelle: string | null
   beleg: string | null
   hinweis: string | null
+  /** KAN-145: „storniert am …“ bzw. „Gegenbuchung zur Buchung vom …“ */
+  storno: string | null
   gebinde: string
 }
 
@@ -629,8 +670,17 @@ export function bewegungsbuchZeilen(bb: Pick<Bewegungsbuch, 'behaelter' | 'zeitr
     gegenstelle: b.gegenstelle,
     beleg: b.beleg,
     hinweis: b.extra ?? null,
+    storno: stornoText(b),
     gebinde: bb.behaelter.anzeigeName,
   }))
+}
+
+/** Storno-Vermerk einer Bewegung (Seite und CSV) – null ohne Storno */
+export function stornoText(b: Pick<Bewegung, 'storno' | 'gegenbuchungZu'>): string | null {
+  const d = (t: string) => t.split('-').reverse().join('.')
+  if (b.storno) return `storniert am ${d(b.storno.am)}`
+  if (b.gegenbuchungZu) return `Gegenbuchung (Storno) zur Buchung vom ${d(b.gegenbuchungZu)}`
+  return null
 }
 
 export const SPALTEN_BEWEGUNGSBUCH: CsvSpalte<BewegungsbuchZeile>[] = [
@@ -645,4 +695,5 @@ export const SPALTEN_BEWEGUNGSBUCH: CsvSpalte<BewegungsbuchZeile>[] = [
   { kopf: 'Gegenstelle', typ: 'text', wert: z => z.gegenstelle },
   { kopf: 'Beleg', typ: 'code', wert: z => z.beleg },
   { kopf: 'Hinweis', typ: 'text', wert: z => z.hinweis },
+  { kopf: 'Storno', typ: 'text', wert: z => z.storno },
 ]

@@ -10,7 +10,7 @@ import AktionsFormular from '@/components/ui/AktionsFormular'
 import { Boxes, Droplet } from 'lucide-react'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { csvPfad } from '@/lib/behoerden/katalog'
-import { ladeBewegungsbuch } from '@/lib/behoerden/bewegungsbuch'
+import { ladeBewegungsbuch, stornoText } from '@/lib/behoerden/bewegungsbuch'
 import { istTag, zeitraumAnzeige } from '@/lib/behoerden/kellerbuch-hilfen'
 import { wienHeute } from '@/lib/csv'
 import DruckKnopf from '../../../_behoerden/DruckKnopf'
@@ -272,6 +272,10 @@ export default async function BehaelterBewegungsPage({
                               )}
                             </div>
                             {bew.extra && <p className="text-xs text-s112-muted">{bew.extra}</p>}
+                            {/* KAN-145: stornierte Buchung bzw. ihre Gegenbuchung kennzeichnen */}
+                            {stornoText(bew) && (
+                              <p className="text-[11px] font-medium text-s112-warn-fg">{stornoText(bew)}</p>
+                            )}
                           </div>
                         </div>
                       </td>

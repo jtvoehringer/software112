@@ -10,6 +10,7 @@ import LoeschenButton from '@/components/kellerbuch/LoeschenButton'
 import { createBehaelter, updateBehaelter, deleteBehaelter } from '../actions'
 import { createEroeffnungsbestand, deleteEroeffnungsbestand, deleteUmzug } from '../gebinde-actions'
 import StornoButton from '@/components/StornoButton'
+import { stornoAngaben } from '@/lib/kellerbuch/stornoFilter'
 import { ladeKellergemeinschaft } from '@/lib/keller/behaelter'
 import { Users } from 'lucide-react'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
@@ -65,8 +66,8 @@ export default async function GebindePage({
       .eq('aktiv', true)
       .order('jahrgang', { ascending: false })),
     tf((supabase.from('keller_umzuege') as any)
-      .select('id, datum, menge_liter, schwund_liter, brutto_liter, umzug_batch_id, zeilen_typ, umzug_typ, notizen, transaktions_nr, von_weinausbau:von_weinausbau_id(name, jahrgang), von_behaelter:von_behaelter_id(name), nach_behaelter:nach_behaelter_id(name)')
-      .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
+      .select('id, datum, menge_liter, schwund_liter, brutto_liter, umzug_batch_id, zeilen_typ, umzug_typ, notizen, transaktions_nr, von_weinausbau:von_weinausbau_id(name, jahrgang), von_behaelter:von_behaelter_id(name), nach_behaelter:nach_behaelter_id(name), storniert_am, storno_grund, storniert_von_name')
+      // storno-sichtbar: Liste zeigt stornierte Buchungen gekennzeichnet, ohne Aktionen (KAN-145 B2b)
       .order('datum', { ascending: false })
       .limit(200)),
   ])
@@ -90,6 +91,8 @@ export default async function GebindePage({
     ersteId: string
     /** Schwundbuchung (umzug_typ 'schwund') – nicht stornierbar (KAN-35) */
     istSchwund?: boolean
+    /** KAN-145: storniert (Vermerk statt Aktionen) */
+    storno: ReturnType<typeof stornoAngaben>
   }
   const umzuege: UmzugGruppe[] = []
   const seenBatches = new Set<string>()
@@ -120,6 +123,7 @@ export default async function GebindePage({
           notizen:      quelleRecs[0]?.notizen ?? null,
           transaktions_nr: quelleRecs[0]?.transaktions_nr ?? null,
           ersteId:      quelleRecs[0]?.id ?? batch[0].id,
+          storno:       stornoAngaben(quelleRecs[0] ?? batch[0]),
         })
       } else {
         // Altes Format (transfer)
@@ -136,6 +140,7 @@ export default async function GebindePage({
           notizen:      haupt.notizen ?? null,
           transaktions_nr: haupt.transaktions_nr ?? null,
           ersteId:      batch[0].id,
+          storno:       stornoAngaben(haupt),
         })
       }
     } else {
@@ -151,6 +156,7 @@ export default async function GebindePage({
         transaktions_nr: u.transaktions_nr ?? null,
         ersteId:      u.id,
         istSchwund:   u.umzug_typ === 'schwund',
+        storno:       stornoAngaben(u),
       })
     }
   }
@@ -526,7 +532,7 @@ export default async function GebindePage({
               </thead>
               <tbody>
                 {umzuege.map((u, i) => (
-                  <tr key={u.key} className={`border-b border-s112-border/30 last:border-0 ${i % 2 === 1 ? 'bg-s112-bg/30' : ''}`}>
+                  <tr key={u.key} className={`border-b border-s112-border/30 last:border-0 ${u.storno ? 'text-s112-muted opacity-70' : i % 2 === 1 ? 'bg-s112-bg/30' : ''}`}>
                     <td className="px-4 py-2.5 text-xs font-mono text-s112-muted whitespace-nowrap">{u.transaktions_nr ?? '–'}</td>
                     <td className="px-4 py-2.5 text-s112-text-2 whitespace-nowrap">
                       {new Date(u.datum).toLocaleDateString('de-AT')}
@@ -535,6 +541,11 @@ export default async function GebindePage({
                       {u.quellenNames.join(' · ')}
                       {u.istSchwund && (
                         <span className="ml-1.5 text-xs bg-s112-warn-bg text-s112-warn-fg px-1.5 py-0.5 rounded-full">Schwund</span>
+                      )}
+                      {u.storno && (
+                        <span className="block text-[11px] text-s112-warn-fg">
+                          storniert am {new Date(u.storno.am).toLocaleDateString('de-AT')}{u.storno.von ? ` von ${u.storno.von}` : ''}{u.storno.grund ? ` – ${u.storno.grund}` : ''}
+                        </span>
                       )}
                     </td>
                     <td className="px-4 py-2.5 text-s112-text-2">
@@ -556,7 +567,8 @@ export default async function GebindePage({
                         ? fmtLiter(u.schwund) : '–'}
                     </td>
                     <td className="px-4 py-2.5 text-s112-text-2 text-xs">{u.notizen ?? '–'}</td>
-                    {writeOk && (
+                    {writeOk && u.storno && <td className="px-4 py-2.5 text-right text-[11px] text-s112-muted">storniert</td>}
+                    {writeOk && !u.storno && (
                       <td className="px-4 py-2.5 text-right whitespace-nowrap">
                         {/* KAN-35: Umzüge nur stornierbar, solange die Ziel-Charge nicht weiterbewegt
                             wurde; Schwundbuchungen nur durch Betriebs-Manager (Menge/Datum nie änderbar) */}

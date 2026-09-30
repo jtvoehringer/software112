@@ -17,10 +17,14 @@
 //     „Ried-Maßnahmen vor der Übernahme nicht in software:112 erfasst“. Hinweise auf Seite, Ausdruck und CSV.
 //   - Ende: Ist die Charge leer, endet das Weinbuch mit der letzten Füllung – spätere Einträge (Analysen,
 //     Prüfnummern, Kellerarbeiten) gehören nicht mehr dazu.
+//
+// Storno (KAN-145 B2b, 30.09.2026): Stornierte Umzüge, Schwundbuchungen und Verschnitte bleiben am Buchungstag
+// stehen (Kennzeichen „storniert“) und bekommen am Storno-Tag einen eigenen Eintrag „Storno: …“ mit Grund und
+// Benutzer.
 
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum } from '@/lib/format'
-import { ohneStornierteVerschnitte } from '@/lib/kellerbuch/stornoFilter'
+import { istStorniert, stornoAngaben } from '@/lib/kellerbuch/stornoFilter'
 import { ladeBelegungen } from '@/lib/behoerden/bewegungsbuch'
 import { mostgewichtWeinbuchText } from '@/lib/behoerden/mostgewicht_export'
 import { tag, text } from '@/lib/behoerden/kellerbuch-hilfen'
@@ -151,10 +155,11 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
     tf((supabase.from('keller_umzuege') as any)
       .select(`
         datum, menge_liter, brutto_liter, schwund_liter, zeilen_typ, umzug_batch_id, umzug_typ, notizen,
+        storniert_am, storno_grund, storniert_von_name,
         von_behaelter:von_behaelter_id(name),
         nach_behaelter:nach_behaelter_id(name)
       `)
-      .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
+      // storno-sichtbar: das Weinbuch zeigt die Buchung (gekennzeichnet) und den Storno (KAN-145 B2b)
       .eq('von_weinausbau_id', id)
       .order('datum', { ascending: true })),
 
@@ -192,16 +197,16 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
       .eq('weinausbau_id', id)),
 
     tf((supabase.from('verschneidungen') as any)
-      .select(`datum, notizen,
+      .select(`datum, notizen, storniert_am, storno_grund, storniert_von_name,
         quellen:verschneidung_quellen(menge_liter, anteil_pct,
           quelle:quell_weinausbau_id(id, name, rebsorte))`)
-      .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
+      // storno-sichtbar: das Weinbuch zeigt die Buchung (gekennzeichnet) und den Storno (KAN-145 B2b)
       .eq('ziel_weinausbau_id', id)
       .order('datum', { ascending: true })),
 
     (supabase.from('verschneidung_quellen') as any)
       .select(`menge_liter, anteil_pct,
-        verschneidung:verschneidung_id(id, datum, notizen, storniert_am,
+        verschneidung:verschneidung_id(id, datum, notizen, storniert_am, storno_grund, storniert_von_name,
           ziel:ziel_weinausbau_id(id, name))`)
       .eq('quell_weinausbau_id', id),
   ])
@@ -260,7 +265,7 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
   const alleFuellungen = [...fuellChargen, ...direktFuellungen]
 
   const verschnEin = (verschnEinRes.data ?? []) as R[]
-  const verschnAus = ohneStornierteVerschnitte((verschnAusRes.data ?? []) as R[])   // KAN-145
+  const verschnAus = (verschnAusRes.data ?? []) as R[]   // stornierte mit Kennzeichen (KAN-145 B2b)
 
   // Umzüge: Ziel-Behälter via Batch-Lookup ergänzen
   const batchIds = [...new Set(
@@ -270,7 +275,7 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
   if (batchIds.length > 0) {
     const { data: zielRows } = await tf((supabase.from('keller_umzuege') as any)
       .select('umzug_batch_id, nach_behaelter:nach_behaelter_id(name)')
-      .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
+      // storno-sichtbar: nur der Name des Ziel-Gebindes (die Zeilen einer Buchung sind gemeinsam storniert)
       .in('umzug_batch_id', batchIds)
       .eq('zeilen_typ', 'ziel'))
     for (const z of ((zielRows ?? []) as R[])) {
@@ -436,8 +441,14 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
     })
   }
 
+  // KAN-145 B2b: Storno-Angaben je Ereignis – merkeStorno(zeile) direkt vor dem push merkt den Index des Eintrags
+  // (bis zum Sortieren wird nur angehängt, der Index bleibt gültig)
+  const stornoIdx: [number, NonNullable<ReturnType<typeof stornoAngaben>>][] = []
+  const merkeStorno = (z: R) => { const st = stornoAngaben(z); if (st) stornoIdx.push([events.length, st]) }
+
   for (const u of umzuege) {
     if (u.umzug_typ === 'schwund') {
+      merkeStorno(u)
       const behaelterName = (u.nach_behaelter as R | null)?.name ?? null
       const menge = u.schwund_liter ?? u.brutto_liter ?? u.menge_liter
       events.push({
@@ -454,6 +465,7 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
     const von = (u.von_behaelter as R | null)?.name ?? '?'
     const nach = (u.nach_behaelter as R | null)?.name ?? '?'
     const liter = u.brutto_liter ?? u.menge_liter
+    merkeStorno(u)
     events.push({
       datum: u.datum,
       typ: 'umzug',
@@ -525,6 +537,7 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
   }
 
   for (const v of verschnEin) {
+    merkeStorno(v)
     const quelleTexte = ((v.quellen ?? []) as R[]).map((q: R) => {
       const name = (q.quelle as R | null)?.name ?? '?'
       return q.anteil_pct != null
@@ -546,6 +559,7 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
     const detail = vq.anteil_pct != null
       ? `→ ${zielName}: ${vq.anteil_pct} % (${fmtNum(parseFloat(vq.menge_liter ?? 0))} L)`
       : `→ ${zielName}: ${fmtNum(parseFloat(vq.menge_liter ?? 0))} L`
+    merkeStorno(vq)
     events.push({
       datum: v.datum,
       typ: 'verschneidung',
@@ -559,7 +573,7 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
     if (!f || !f.datum) continue
 
     const schwundZurFuellung = umzuege.find(
-      (u) => u.umzug_typ === 'schwund' && u.datum === f.datum
+      (u) => u.umzug_typ === 'schwund' && u.datum === f.datum && !istStorniert(u)   // KAN-145
     )
     const schwundMenge = schwundZurFuellung
       ? parseFloat(schwundZurFuellung.schwund_liter ?? schwundZurFuellung.brutto_liter ?? '0')
@@ -584,6 +598,24 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
         fc.anteil_liter
           ? `Anteil diese Charge: ${fmtNum(parseFloat(fc.anteil_liter))} L`
           : null,
+      ].filter(Boolean) as string[],
+    })
+  }
+
+  // KAN-145 B2b: stornierte Buchungen kennzeichnen und je einen Storno-Eintrag am Storno-Tag ergänzen
+  for (const [i, st] of stornoIdx) {
+    const ev = events[i]
+    if (!ev) continue
+    ev.badge = 'storniert'
+    events.push({
+      datum: tag(st.am),
+      typ: ev.typ,
+      titel: `Storno: ${ev.titel}`,
+      badge: 'Storno',
+      details: [
+        `Buchung vom ${String(ev.datum).slice(0, 10).split('-').reverse().join('.')} storniert`,
+        st.grund ? `Grund: ${st.grund}` : null,
+        st.von ? `von ${st.von}` : null,
       ].filter(Boolean) as string[],
     })
   }

@@ -22,7 +22,9 @@ type BehaelterMitCharge = {
   menge_liter:    number
 }
 type Behaelter = { id: string; name: string; kapazitaet_liter: number | null }
-type UmzugRow  = { id: string; von_name: string; nach_name: string; menge_liter: number; schwund_liter: number; datum: string; notizen: string | null; umzug_typ?: string }
+type UmzugRow  = { id: string; von_name: string; nach_name: string; menge_liter: number; schwund_liter: number; datum: string; notizen: string | null; umzug_typ?: string
+  /** KAN-145: storniert – Vermerk statt Aktionen */
+  storno?: { am: string; grund: string | null; von: string | null } | null }
 
 function fmt(n: number | null) {
   if (n == null) return '–'
@@ -430,7 +432,7 @@ function UmzugZeile({ u, writeOk, adminOk }: { u: UmzugRow; writeOk: boolean; ad
   }
 
   return (
-    <tr className="border-b border-s112-border last:border-0 hover:bg-s112-bg/50">
+    <tr className={`border-b border-s112-border last:border-0 ${u.storno ? 'opacity-70' : 'hover:bg-s112-bg/50'}`}>
       <td className="px-4 py-2.5 tabular-nums text-s112-muted text-xs">
         {new Date(u.datum).toLocaleDateString('de-AT')}
       </td>
@@ -442,6 +444,11 @@ function UmzugZeile({ u, writeOk, adminOk }: { u: UmzugRow; writeOk: boolean; ad
         {istSchwund && (
           <span className="ml-1.5 text-xs bg-s112-warn-bg text-s112-warn-fg px-1.5 py-0.5 rounded-full">Schwund</span>
         )}
+        {u.storno && (
+          <span className="block text-[11px] text-s112-warn-fg">
+            storniert am {new Date(u.storno.am).toLocaleDateString('de-AT')}{u.storno.von ? ` von ${u.storno.von}` : ''}{u.storno.grund ? ` – ${u.storno.grund}` : ''}
+          </span>
+        )}
       </td>
       <td className="px-4 py-2.5 text-s112-text-2 text-sm">{u.nach_name}</td>
       <td className="px-4 py-2.5 text-right tabular-nums text-s112-blue-700 font-semibold text-sm">{fmt(u.menge_liter)}</td>
@@ -449,7 +456,8 @@ function UmzugZeile({ u, writeOk, adminOk }: { u: UmzugRow; writeOk: boolean; ad
         {u.schwund_liter > 0 ? fmt(u.schwund_liter) : '–'}
         {u.notizen && <span className="block text-xs text-s112-muted truncate max-w-[120px]">{u.notizen}</span>}
       </td>
-      {writeOk && (
+      {writeOk && u.storno && <td className="px-4 py-2.5 text-right text-[11px] text-s112-muted">storniert</td>}
+      {writeOk && !u.storno && (
         <td className="px-4 py-2.5 text-right whitespace-nowrap">
           <span className="inline-flex items-start gap-2">
             <button onClick={() => setEditing(true)}
