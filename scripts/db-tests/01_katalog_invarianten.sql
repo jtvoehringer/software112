@@ -204,7 +204,7 @@ DECLARE
     'pressungen=datum,jahrgang_id,kmw_grad,lese_id,most_liter_gesamt,mostgewicht_einheit,oechsle,storniert_am,storno_grund,tenant_id',
     'traubenverkauf=datum,grundstueck_id,jahrgang_id,kmw_grad,lese_id,menge_kg,mostgewicht_einheit,oechsle,storniert_am,storno_grund,tenant_id,verkaufsposten_id,weingarten_id,zukauf_posten_id',
     'verkauf_positionen=einheit,fuellung_id,menge,pressung_behaelter_id,tenant_id,traubenverkauf_id,typ,verkaufsposten_id,weinausbau_id,zukauf_id',
-    'verkaufsposten=aktiv,datum,storniert,storniert_am,tenant_id',
+    'verkaufsposten=aktiv,datum,storniert,storniert_am,storniert_von,storno_grund,tenant_id',   -- KAN-149 D1
     'verschneidung_quellen=menge_liter,quell_weinausbau_id,verschneidung_id',
     'verschneidungen=datum,storniert_am,storno_grund,tenant_id,ziel_weinausbau_id',
     'weinausbau=aktiv,anfangsbestand_liter,behaelter_id,herkunft_code,ist_eroeffnungsbestand,jahrgang,kmw,menge_liter,mostgewicht_einheit,oechsle,qualitaetsstufe,rebsorte,status,storniert_am,storno_grund,tenant_id,weinart',
@@ -618,7 +618,7 @@ BEGIN
      WHERE f.sd AND s.abo IS DISTINCT FROM (f.src ~ %L)
      ORDER BY 1$q$, c_re_abo));
   SELECT count(*) INTO v_n FROM pg_temp.s112_soll_rpc() s WHERE s.abo;
-  v_erg := v_erg || pg_temp.s112_erwarte('rpc_abo_anzahl', v_n, 21::bigint);   -- +3 KAN-148 C2 (s112_ama_*)   -- +s112_storniert_loeschen (KAN-145), s112_buchung_loeschen (KAN-166), s112_pressung_stornieren (KAN-148)
+  v_erg := v_erg || pg_temp.s112_erwarte('rpc_abo_anzahl', v_n, 22::bigint);   -- +1 KAN-149 D1   -- +3 KAN-148 C2 (s112_ama_*)   -- +s112_storniert_loeschen (KAN-145), s112_buchung_loeschen (KAN-166), s112_pressung_stornieren (KAN-148)
   -- Unabhängig vom Handflag: schreibende SECURITY-DEFINER-RPC (p_tenant_id, EXECUTE für authenticated, Schreib-
   -- anweisung im Quelltext) ohne Abo-Prüfung → FEHLER, außer begründet in s112_soll_liste('abo_rpc_ausnahmen').
   v_erg := v_erg || pg_temp.t01_liste('rpc_schreibt_ohne_abo', format($q$
@@ -639,7 +639,7 @@ BEGIN
   -- Plausibilität der Heuristik: sie erkennt alle 12 RPCs mit Abo-Prüfung als schreibend
   SELECT count(*) INTO v_n FROM pg_temp.t01_funktionen() f JOIN pg_temp.s112_soll_rpc() s ON s.funktion = f.sig
    WHERE s.abo AND f.src ~* c_re_schreibt;
-  v_erg := v_erg || pg_temp.s112_erwarte('rpc_schreibt_heuristik_abo_rpcs', v_n, 21::bigint);   -- +3 KAN-148 C2   -- +3 KAN-148 C1c-2
+  v_erg := v_erg || pg_temp.s112_erwarte('rpc_schreibt_heuristik_abo_rpcs', v_n, 22::bigint);   -- +1 KAN-149 D1   -- +3 KAN-148 C2   -- +3 KAN-148 C1c-2
   -- p_tenant_id ohne pruefe_tenant_zugriff: nur mit Einstufung mandant_eigen, session_user, intern oder rls_hilfe
   v_erg := v_erg || pg_temp.t01_liste('ptz_nicht_eingestuft', format($q$
     SELECT f.sig AS schluessel,

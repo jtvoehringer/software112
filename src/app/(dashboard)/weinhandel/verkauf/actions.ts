@@ -279,11 +279,16 @@ export async function createVerkauf(formData: FormData) {
   //    eine Ablehnung hinterlässt so keine Lücke im Nummernkreis)
   const { literJeCharge, stueckJeFuellung, mostgewichtJePosition, leseJePosition } = await pruefePositionen(supabase, membership, positionen, datum)
 
+  // Beleg-ID vorab: die Flaschenzeilen (fuellung_bewegungen, KAN-149 D1) verweisen auf den Verkauf, der erst nach der
+  // Abbuchung angelegt wird (keine Lücke im Nummernkreis bei einer Ablehnung, KAN-35)
+  const postenId = randomUUID()
+
   // ── 1. Bestand abbuchen – alles oder nichts (vor Rechnungsnummer und Beleg; eine
   //    gleichzeitige Buchung wird per Vergleichen und Setzen erkannt, dann nichts geändert)
   let abbuchungen: BestandsBuchung[]
   try {
-    abbuchungen = await bestandBuchenAllesOderNichts(supabase, tenantId, alsAbgang(literJeCharge), alsAbgang(stueckJeFuellung))
+    abbuchungen = await bestandBuchenAllesOderNichts(supabase, tenantId, alsAbgang(literJeCharge), alsAbgang(stueckJeFuellung),
+      { postenId, datum })
   } catch (e) {
     throw new AktionsFehler(`Der Verkauf wurde nicht gespeichert: ${fehlerText(e).replace(/[.\s]+$/, '')}.`)
   }
@@ -296,7 +301,7 @@ export async function createVerkauf(formData: FormData) {
     const teile: string[] = [meldung.replace(/[.\s]+$/, '')]
     if (postenStornieren) {
       try {
-        await verkaufspostenStornieren(supabase, tenantId, postenStornieren)
+        await verkaufspostenStornieren(supabase, tenantId, postenStornieren, 'Automatisch storniert: Verkauf konnte nicht vollständig gespeichert werden')
         teile.push(`Der angelegte Beleg${rechnungsnummer ? ` ${rechnungsnummer}` : ''} wurde sofort storniert`)
       } catch (e) {
         teile.push(`Achtung: Der angelegte Beleg${rechnungsnummer ? ` ${rechnungsnummer}` : ''} konnte nicht storniert werden (${fehlerText(e).replace(/[.\s]+$/, '')}) – bitte unter Verkauf stornieren`)
@@ -312,8 +317,7 @@ export async function createVerkauf(formData: FormData) {
   // Transaktionsnummer vergeben
   const { data: txnVk } = await (supabase.rpc as any)('get_next_transaktionsnr', { p_tenant_id: tenantId, p_typ: 'verkauf' })
 
-  // 2. Verkaufsposten anlegen (UUID selbst generieren)
-  const postenId = randomUUID()
+  // 2. Verkaufsposten anlegen (UUID oben vergeben)
   const { error: postenErr } = await (supabase.from('verkaufsposten') as any).insert({
     id:              postenId,
     tenant_id:       tenantId,
@@ -479,12 +483,13 @@ export async function deactivateVerkauf(id: string): Promise<never> {
 // Chargen werden wieder aktiv), dann Kennzeichen nur bei storniert = false (sonst wird die
 // Rückbuchung zurückgenommen). Zukauf-/Pressungsmengen bleiben unverändert.
 
-export async function stornoVerkauf(id: string) {
+// KAN-149 D1: Grund Pflicht (mind. 10 Zeichen) – Datum und Benutzer setzt die Datenbank
+export async function stornoVerkauf(id: string, grund: string) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
 
   try {
-    await verkaufspostenStornieren(supabase, tenantId, id)
+    await verkaufspostenStornieren(supabase, tenantId, id, grund)
   } finally {
     revalidatePath('/weinhandel/verkauf')
     revalidatePath(`/weinhandel/verkauf/${id}`)

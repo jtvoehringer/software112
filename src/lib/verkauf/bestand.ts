@@ -33,6 +33,8 @@ import { fmtNum } from '@/lib/format'
 import { gebindeFehlerText } from '@/lib/keller/behaelter'
 import { getCurrentMembership, canWrite, type Membership } from '@/lib/auth/roles'
 import { ersetzeVerkaufsEinnahmen } from '@/lib/ea/verkaufEinnahmen'
+import { lokalerTag, wienJetzt } from '@/lib/datum/wien'
+import { stornoGrundFehler } from '@/lib/storno/grund'
 import type { createSupabaseServerClient } from '@/lib/supabase/server'
 
 type SB = Awaited<ReturnType<typeof createSupabaseServerClient>>
@@ -201,58 +203,45 @@ export async function chargeBuchungZuruecknehmen(supabase: SB, tenantId: string,
 
 // ── Füllung (Flaschen) ────────────────────────────────────────────────────────
 
+/** Bezug einer Flaschenbuchung zum Verkauf (KAN-149 D1): Beleg, Buchungstag, optional Grund */
+export type FlaschenKontext = { postenId: string; datum: string; grund?: string | null }
+
+/** Heutiger Tag in Wien (JJJJ-MM-TT) – Buchungstag von Storno und Rücknahme */
+export function heuteWien(): string {
+  return lokalerTag(wienJetzt())
+}
+
 /**
- * Flaschenbestand einer Füllung um `deltaStk` ändern (negativ = Abgang, ganze Stück).
- * Lehnt ab, wenn der Bestand dadurch negativ würde. Liefert den neuen Bestand.
- * Nur für Verkauf und Storno – alle anderen Korrekturen laufen über die RPC
- * fuellung_bestand_buchen (datierte Zeile in fuellung_bewegungen).
+ * Flaschenbestand einer Füllung um `deltaStk` ändern (negativ = Verkauf, positiv = Storno-Rückbuchung, ganze Stück).
+ * Seit KAN-149 D1 über die RPC s112_fuellung_verkauf_buchen: Sperre auf der Füllung, datierte Zeile in
+ * fuellung_bewegungen (Art verkauf/verkauf_storno mit Bestand vorher/nachher und Verkaufsbezug) – die Bestandskette
+ * hat so keine Lücken mehr. Lehnt ab, wenn der Bestand negativ würde. Liefert den neuen Bestand.
  */
 export async function fuellungBestandAendern(
   supabase: SB,
   tenantId: string,
   fuellungId: string,
   deltaStk: number,
+  kontext: FlaschenKontext,
 ): Promise<number> {
   if (!Number.isInteger(deltaStk)) throw new AktionsFehler('Flaschen können nur in ganzen Stück gebucht werden.')
-  let vorher: string | undefined
-  for (let versuch = 0; versuch < VERSUCHE; versuch++) {
-    const { data, error } = await (supabase.from('fuellungen') as any)
-      .select('name, bestand_flaschen')
-      .eq('id', fuellungId)
-      .eq('tenant_id', tenantId)
-      .maybeSingle()
-    if (error) throw new AktionsFehler(dbFehlerText(error, 'Flaschenbestand konnte nicht gelesen werden'))
-    if (!data) throw new AktionsFehler('Füllung nicht gefunden – bitte Seite neu laden.')
-    const f = data as R
-    const roh = f.bestand_flaschen as number | null
-    if (versuch > 0 && String(roh) === vorher) {
-      throw new AktionsFehler(`Der Flaschenbestand von „${f.name}“ konnte nicht geändert werden – vermutlich fehlt die Schreibberechtigung für das Lager`)
-    }
-    vorher = String(roh)
-
-    const aktuell = Number(roh ?? 0)
-    const neu = aktuell + deltaStk
-    if (neu < 0) {
-      throw new AktionsFehler(`„${f.name}“: nur noch ${fmtNum(aktuell)} Flaschen verfügbar, ${fmtNum(-deltaStk)} angefragt.`)
-    }
-
-    let q = (supabase.from('fuellungen') as any)
-      .update({ bestand_flaschen: neu, aktualisiert_am: new Date().toISOString() })
-      .eq('id', fuellungId)
-      .eq('tenant_id', tenantId)
-    q = roh == null ? q.is('bestand_flaschen', null) : q.eq('bestand_flaschen', roh)
-    const { data: geaendert, error: uErr } = await q.select('id')
-    if (uErr) throw new AktionsFehler(dbFehlerText(uErr, `Flaschenbestand von „${f.name}“ konnte nicht gespeichert werden`))
-    if ((geaendert as R[] | null)?.length) return neu
-  }
-  throw new AktionsFehler('Der Flaschenbestand wurde gleichzeitig mehrfach geändert – bitte erneut versuchen.')
+  const { data, error } = await (supabase.rpc as any)('s112_fuellung_verkauf_buchen', {
+    p_tenant_id: tenantId,
+    p_fuellung_id: fuellungId,
+    p_verkaufsposten_id: kontext.postenId,
+    p_menge_stk: deltaStk,
+    p_datum: kontext.datum,
+    p_grund: kontext.grund ?? null,
+  })
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Flaschenbestand konnte nicht gebucht werden'))
+  return Number(data)
 }
 
 // ── Mehrere Buchungen mit Rücknahme ───────────────────────────────────────────
 
 export type BestandsBuchung =
   | { art: 'charge'; buchung: ChargeBuchung }
-  | { art: 'flasche'; fuellungId: string; stueck: number }
+  | { art: 'flasche'; fuellungId: string; stueck: number; kontext: FlaschenKontext }
 
 /** Ausgeführte Buchungen in umgekehrter Reihenfolge zurücknehmen; liefert die Fehlschläge als Text */
 export async function bestandsBuchungenZuruecknehmen(
@@ -264,7 +253,9 @@ export async function bestandsBuchungenZuruecknehmen(
   for (const b of [...buchungen].reverse()) {
     try {
       if (b.art === 'charge') await chargeBuchungZuruecknehmen(supabase, tenantId, b.buchung)
-      else await fuellungBestandAendern(supabase, tenantId, b.fuellungId, -b.stueck)
+      // Rücknahme als Gegenzeile am heutigen Tag (die Bestandskette bleibt vollständig)
+      else await fuellungBestandAendern(supabase, tenantId, b.fuellungId, -b.stueck,
+        { postenId: b.kontext.postenId, datum: heuteWien(), grund: 'Rücknahme: Buchung nicht abgeschlossen' })
     } catch (e) {
       fehler.push(fehlerText(e, 'Rücknahme fehlgeschlagen').replace(/[.\s]+$/, ''))
     }
@@ -282,13 +273,15 @@ export async function bestandBuchenAllesOderNichts(
   tenantId: string,
   literJeCharge: Map<string, number>,
   stueckJeFuellung: Map<string, number>,
+  /** Verkauf, Buchungstag und Grund der Flaschenzeilen (KAN-149 D1) */
+  flaschen: FlaschenKontext,
 ): Promise<BestandsBuchung[]> {
   const ausgefuehrt: BestandsBuchung[] = []
   try {
     for (const [fuellungId, stueck] of stueckJeFuellung) {
       if (stueck === 0) continue
-      await fuellungBestandAendern(supabase, tenantId, fuellungId, stueck)
-      ausgefuehrt.push({ art: 'flasche', fuellungId, stueck })
+      await fuellungBestandAendern(supabase, tenantId, fuellungId, stueck, flaschen)
+      ausgefuehrt.push({ art: 'flasche', fuellungId, stueck, kontext: flaschen })
     }
     for (const [weinausbauId, liter] of literJeCharge) {
       if (Math.abs(liter) < LITER_TOLERANZ) continue
@@ -316,17 +309,22 @@ export async function bestandBuchenAllesOderNichts(
  *     Positionen mit Zukauf-/Pressungsbezug (Altbestand, 0 Zeilen) werden nicht
  *     zurückgebucht – Zugangsmengen bleiben unverändert. Scheitert eine Rückbuchung
  *     (z. B. Gebinde inzwischen fremd belegt), wird alles zurückgenommen: nichts geändert.
- *  2. Kennzeichen storniert/storniert_am setzen – nur wenn noch nicht storniert; sonst
+ *  2. Kennzeichen storniert/storniert_am mit Grund setzen (KAN-149 D1: Benutzer und Zeitpunkt setzt die Datenbank,
+ *     Trigger a_verkauf_storno_schutz) – nur wenn noch nicht storniert; sonst
  *     (Doppelklick, zweiter Tab) wird die Rückbuchung zurückgenommen.
  *  3. Traubenverkauf-Datensätze des Postens stornieren (KAN-148: Kennzeichen statt Löschen – die Zeile, ihre
  *     Liefernummer und verkauf_positionen.traubenverkauf_id bleiben, die kg werden frei; über
  *     verkauf_positionen.traubenverkauf_id UND traubenverkauf.verkaufsposten_id – auch Rechnungen aus
- *     Traubenverkauf/Erntemeldung). Grund: `tvGrund` bzw. „Rechnung <Nr.> storniert“.
+ *     Traubenverkauf/Erntemeldung). Grund: derselbe wie beim Verkauf.
  *  4. Nicht gesperrte E&A-Einnahmebuchungen entfernen, CRM-Aktivität kennzeichnen.
  * Scheitert Schritt 3 oder 4, ist der Verkauf storniert und der Bestand zurückgebucht:
  * am Ende kommt eine Fehlermeldung mit den offenen Punkten.
  */
-export async function verkaufspostenStornieren(supabase: SB, tenantId: string, postenId: string, tvGrund?: string): Promise<void> {
+export async function verkaufspostenStornieren(supabase: SB, tenantId: string, postenId: string, grund: string): Promise<void> {
+  // KAN-149 D1: Grund Pflicht (mind. 10 Zeichen) – Beleg, Flaschenzeilen und Traubenverkauf tragen ihn
+  const grundFehler = stornoGrundFehler(grund)
+  if (grundFehler) throw new AktionsFehler(grundFehler)
+  const stornoGrund = grund.trim()
   const { data: postenRaw, error: postenErr } = await (supabase.from('verkaufsposten') as any)
     .select('id, rechnungsnummer, storniert')
     .eq('id', postenId)
@@ -382,14 +380,15 @@ export async function verkaufspostenStornieren(supabase: SB, tenantId: string, p
   // 1. Bestand zurückbuchen – alles oder nichts
   let rueckbuchungen: BestandsBuchung[]
   try {
-    rueckbuchungen = await bestandBuchenAllesOderNichts(supabase, tenantId, literJeCharge, stueckJeFuellung)
+    rueckbuchungen = await bestandBuchenAllesOderNichts(supabase, tenantId, literJeCharge, stueckJeFuellung,
+      { postenId, datum: heuteWien(), grund: stornoGrund })
   } catch (e) {
     throw new AktionsFehler(`Der Verkauf konnte nicht storniert werden – der Bestand ließ sich nicht zurückbuchen: ${fehlerText(e).replace(/[.\s]+$/, '')}. Es wurde nichts geändert.`)
   }
 
   // 2. Kennzeichen setzen – nur, wenn der Posten noch nicht storniert ist
   const { data: gesetzt, error: setzErr } = await (supabase.from('verkaufsposten') as any)
-    .update({ storniert: true, storniert_am: new Date().toISOString() })
+    .update({ storniert: true, storniert_am: new Date().toISOString(), storno_grund: stornoGrund })
     .eq('id', postenId)
     .eq('tenant_id', tenantId)
     .eq('storniert', false)
@@ -419,10 +418,10 @@ export async function verkaufspostenStornieren(supabase: SB, tenantId: string, p
   // 3. Traubenverkauf-Datensätze stornieren (KAN-148) → verfügbare kg werden wieder frei; Zeile, Liefernummer und
   //    Rechnungsbezug bleiben. Schon stornierte (Verweis aus einer Position) bleiben unverändert.
   if (tvIds.length > 0) {
-    const grund = tvGrund?.trim() || `Rechnung ${posten.rechnungsnummer ?? '(ohne Nummer)'} storniert`
+    const tvGrund = `Rechnung ${posten.rechnungsnummer ?? '(ohne Nummer)'} storniert: ${stornoGrund}`
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error: stornoErr } = await (supabase.from('traubenverkauf') as any)
-      .update({ storniert_am: new Date().toISOString(), storno_grund: grund })
+      .update({ storniert_am: new Date().toISOString(), storno_grund: tvGrund })
       .in('id', tvIds)
       .eq('tenant_id', tenantId)
       .is('storniert_am', null)

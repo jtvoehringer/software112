@@ -598,7 +598,8 @@
 "bestand_nachher",
 "grund",
 "erstellt_von",
-"erstellt_am"
+"erstellt_am",
+"verkaufsposten_id"
 ],
 "fuellung_chargen": [
 "id",
@@ -1480,7 +1481,10 @@
 "skonto_aktiv",
 "rechnung_versendet_am",
 "rechnung_versendet_an",
-"bmd_export_id"
+"bmd_export_id",
+"storniert_von",
+"storniert_von_name",
+"storno_grund"
 ],
 "verschneidung_quellen": [
 "id",

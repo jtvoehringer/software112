@@ -147,7 +147,13 @@ function JournalZeile({ z, td, tdNum, eur }: { z: RechnungsjournalZeile; td: str
       <td className={tdNum}>{eur(z.netto10)}</td><td className={tdNum}>{eur(z.ust10)}</td>
       <td className={tdNum}>{eur(z.netto0)}</td>
       <td className={tdNum + ' font-semibold'}>{fmtEur(z.brutto)}</td>
-      <td className={td + ' whitespace-nowrap'}>{z.storniert ? `storniert${z.storniertAm ? ` ${datumText(wienDatum(z.storniertAm))}` : ''}` : ''}</td>
+      <td className={td}>
+        {z.storniert ? <span className="whitespace-nowrap">storniert{z.storniertAm ? ` ${datumText(wienDatum(z.storniertAm))}` : ''}</span> : ''}
+        {/* KAN-149 D1: wer und warum */}
+        {z.storniert && (z.storniertVon || z.stornoGrund) && (
+          <span className="block text-xs text-s112-muted">{[z.storniertVon, z.stornoGrund].filter(Boolean).join(' – ')}</span>
+        )}
+      </td>
     </tr>
   )
 }

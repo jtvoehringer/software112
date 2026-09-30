@@ -95,6 +95,9 @@ export const FORMULAR_VORBELEGUNG = 'nicht gespeicherte Vorbelegung'
 
 export type TBZeile = {
   verkaufspostenId: string
+  /** KAN-149 D1: Verkauf storniert (Zeitpunkt, Grund) – die Zeitraumliste kennzeichnet ihn, statt ihn auszulassen */
+  storniertAm: string | null
+  stornoGrund: string | null
   rechnungsnummer: string | null
   verkaufsdatum: string | null
   empfaengerKurz: string
@@ -187,6 +190,9 @@ export const SPALTEN_TRANSPORTBESCHEINIGUNG: CsvSpalte<TBZeile>[] = [
   { kopf: 'Staatliche Prüfnummer', typ: 'code', wert: z => z.pruefnummer },
   { kopf: 'Angereichert', typ: 'janein', wert: z => z.angereichert },
   { kopf: 'Alkohol (% vol) / KMW (°)', typ: 'text', wert: z => z.alkohol },
+  // KAN-149 D1: stornierte Verkäufe stehen gekennzeichnet in der Zeitraumliste (neue Spalten am Ende)
+  { kopf: 'Storniert am', typ: 'datum', wert: z => z.storniertAm },
+  { kopf: 'Storno-Grund', typ: 'text', wert: z => z.stornoGrund },
 ]
 
 // ── Vorbelegung (wie die Druckansicht sie zeigt) ─────────────────────────────
@@ -377,6 +383,9 @@ export type TBMeta = {
   gespeichertAm: string | null
   /** Einheit für Positionen ohne Angabe: 'l'/'kg', wenn alle TB-Positionen des Verkaufs dieselbe haben */
   einheitStandard: string | null
+  /** KAN-149 D1: Storno des Verkaufs (nur Zeitraumliste) */
+  storniertAm?: string | null
+  stornoGrund?: string | null
 }
 
 function positionLeer(p: R): boolean {
@@ -391,6 +400,8 @@ export function tbZeilen(formular: R, meta: TBMeta, warnungen: string[], praefix
   const lokal: string[] = []
   const kopf = {
     verkaufspostenId: meta.verkaufspostenId,
+    storniertAm: meta.storniertAm ?? null,
+    stornoGrund: meta.stornoGrund ?? null,
     rechnungsnummer: meta.rechnungsnummer,
     verkaufsdatum: meta.verkaufsdatum,
     empfaengerKurz: [feld(f.e_name), feld(f.e_vorname)].filter(Boolean).join(' '),
@@ -473,7 +484,7 @@ function einheitStandard(posten: R): string | null {
 // ── Laden ────────────────────────────────────────────────────────────────────
 
 const POSTEN_SELECT = `
-  id, rechnungsnummer, datum, storniert,
+  id, rechnungsnummer, datum, storniert, storniert_am, storno_grund,
   kontakt:kontakte!verkaufsposten_kontakt_id_fkey(vorname, nachname, telefon, strasse, plz, ort, betrieb_nr),
   firma:firmen(name, telefon, strasse, plz, ort, betrieb_nr),
   positionen:verkauf_positionen(
@@ -608,7 +619,7 @@ export async function ladeTransportbescheinigung(supabase: Client, tenantId: str
 /**
  * Zeitraumliste: alle aktiven Verkaufsposten mit Verkaufsdatum von–bis, die eine
  * Transportbescheinigung brauchen (Tank-, Flaschen- oder Traubenposition) oder eine
- * gespeicherte haben. Stornierte Verkäufe entfallen (Hinweis). Gleiche Spalten wie die
+ * gespeicherte haben. Stornierte Verkäufe stehen gekennzeichnet darin (KAN-149 D1, Hinweis). Gleiche Spalten wie die
  * einzelne Transportbescheinigung – für die Druckseite /weinhandel/transportbescheinigungen und die CSV.
  * nurGespeichert: nur tatsächlich gespeicherte Transportbescheinigungen (ohne Vorbelegungen).
  */
@@ -648,7 +659,7 @@ export async function ladeTransportbescheinigungen(supabase: Client, tenantId: s
   const kandidaten = postenRes.data.filter(v => {
     const brauchtTb = ((v.positionen ?? []) as R[]).some(x => (TB_POSITIONSTYPEN as readonly string[]).includes(x.typ))
     if (!brauchtTb && !tbJePosten.has(String(v.id))) return false
-    if (v.storniert === true) { storniert++; return false }
+    if (v.storniert === true) storniert++
     if (p.nurGespeichert && !hatFormular(v)) { ungespeichertAusgeblendet++; return false }
     return true
   })
@@ -673,6 +684,8 @@ export async function ladeTransportbescheinigungen(supabase: Client, tenantId: s
       gespeichert: !!daten,
       gespeichertAm: t ? (t.aktualisiert_am ?? t.erstellt_am ?? null) : null,
       einheitStandard: einheitStandard(v),
+      storniertAm: v.storniert === true ? (textOderNull(v.storniert_am) ?? textOderNull(v.datum)) : null,
+      stornoGrund: v.storniert === true ? textOderNull(v.storno_grund) : null,
     }, warnungen, `${beleg}: `))
   }
 
@@ -681,7 +694,7 @@ export async function ladeTransportbescheinigungen(supabase: Client, tenantId: s
     const liste = belege.slice(0, 10).join(', ') + (belege.length > 10 ? ' …' : '')
     warnungen.unshift(`${ohneFormular.length} von ${kandidaten.length} Transportbescheinigungen sind nicht gespeichert – ausgegeben ist die Vorbelegung wie in der Druckansicht (Spalte „Formularstand“), bitte prüfen: ${liste}`)
   }
-  if (storniert > 0) warnungen.push(`${storniert} ${storniert === 1 ? 'stornierter Verkaufsposten' : 'stornierte Verkaufsposten'} nicht enthalten`)
+  if (storniert > 0) warnungen.push(`${storniert} ${storniert === 1 ? 'stornierter Verkaufsposten ist' : 'stornierte Verkaufsposten sind'} enthalten und gekennzeichnet (Spalte „Storniert am“)`)
   if (ungespeichertAusgeblendet > 0) warnungen.push(`${ungespeichertAusgeblendet} ${ungespeichertAusgeblendet === 1 ? 'Verkauf' : 'Verkäufe'} ohne gespeicherte Transportbescheinigung ausgeblendet (Filter „nur gespeicherte“)`)
   return { zeilen, warnungen }
 }

@@ -286,7 +286,7 @@ describe('kassabuch – Saldovortrag und laufender Kassastand', () => {
 
 describe('rechnungsausgangsjournal – Netto/USt je Satz, Storno, Lücken', () => {
   const posten = {
-    id: 'vp1', tenant_id: T, datum: '2026-03-02', rechnungsnummer: 'RE-2026-0002', aktiv: true, storniert: true, storniert_am: '2026-03-31T22:15:00Z', bezahlt: false, bezahlt_am: null,
+    id: 'vp1', tenant_id: T, datum: '2026-03-02', rechnungsnummer: 'RE-2026-0002', aktiv: true, storniert: true, storniert_am: '2026-03-31T22:15:00Z', storniert_von_name: 'Karin K.', storno_grund: 'Kunde hat die Bestellung storniert', bezahlt: false, bezahlt_am: null,
     kontakt: null, firma: { name: 'Weinhandel Huber; Wien', uid_nummer: 'ATU12345678', accountnummer: 'K-0107', debitor_nr: '200002', land: 'AT' },
     verkauf_positionen: [
       { preis_brutto: 12, menge: 6, rabatt_pct: 10, sonderrabatt_pct: 0, ust_satz: 20 },
@@ -310,7 +310,7 @@ describe('rechnungsausgangsjournal – Netto/USt je Satz, Storno, Lücken', () =
     assert.equal(z.nettoGesamt, 148.97)
     assert.equal(z.ustGesamt, 15.05)
     const t = zeilen(csvText([z], rj.SPALTEN_RECHNUNGSJOURNAL))
-    assert.equal(t[1], 'RE-2026-0002;02.03.2026;"Weinhandel Huber; Wien";K-0107;ATU12345678;AT;54,00;10,80;24,97;3,25;;;50,00;148,97;15,05;164,02;Ja;01.04.2026;Nein;')
+    assert.equal(t[1], 'RE-2026-0002;02.03.2026;"Weinhandel Huber; Wien";K-0107;ATU12345678;AT;54,00;10,80;24,97;3,25;;;50,00;148,97;15,05;164,02;Ja;01.04.2026;Karin K.;Kunde hat die Bestellung storniert;Nein;')   // KAN-149 D1: Storniert von, Storno-Grund
   })
 
   test('Rechnungsnummern: Lücken und Doppelte je Muster', () => {

@@ -120,12 +120,16 @@ export default async function TransportbescheinigungenPage({ searchParams }: { s
             </thead>
             <tbody>
               {zeilen.map(z => (
-                <tr key={`${z.verkaufspostenId}-${z.position}`} className="border-b border-s112-border last:border-0 align-top">
+                <tr key={`${z.verkaufspostenId}-${z.position}`} className={`border-b border-s112-border last:border-0 align-top ${z.storniertAm ? 'text-s112-muted' : ''}`}>
                   <td className="px-3 py-1.5 tabular-nums">{tag(z.verkaufsdatum)}</td>
                   <td className="px-3 py-1.5">
                     <Link href={`/weinhandel/verkauf/${z.verkaufspostenId}/transportbescheinigung`} className="text-s112-blue-700 hover:underline">
                       {z.rechnungsnummer ?? 'Formular'}
                     </Link>
+                    {/* KAN-149 D1: stornierter Verkauf gekennzeichnet statt ausgelassen */}
+                    {z.storniertAm && (
+                      <span className="block text-xs text-s112-err-fg" title={z.stornoGrund ?? undefined}>storniert {new Date(z.storniertAm).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Vienna' })}</span>
+                    )}
                   </td>
                   <td className="px-3 py-1.5">{z.empfaengerKurz || '–'}</td>
                   <td className="px-3 py-1.5 tabular-nums">{tag(z.lieferdatum)}</td>
