@@ -115,7 +115,7 @@ async function ladeRoh(supabase: any, tenantId: string, behaelterId: string): Pr
       .order('datum', { ascending: true })
       .order('id', { ascending: true }), 'keller_umzuege'),
     liste((supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, menge_liter, aktiv, ist_eroeffnungsbestand, anfangsbestand_liter, created_at, transaktions_nr')
+      .select('id, name, jahrgang, menge_liter, aktiv, ist_eroeffnungsbestand, anfangsbestand_liter, created_at, transaktions_nr, storniert_am, storno_grund, storniert_von_name')
       .eq('tenant_id', tenantId)
       .eq('behaelter_id', behaelterId)
       .order('id', { ascending: true }), 'weinausbau'),
@@ -153,10 +153,10 @@ async function ladeRoh(supabase: any, tenantId: string, behaelterId: string): Pr
         .order('datum', { ascending: true })
         .order('id', { ascending: true }), 'keller_umzuege'),
       liste((supabase.from('fuellungen') as any)
-        .select('id, datum, name, anzahl_flaschen, menge_liter_gefuellt, flaschengroesse_ml, pruefnummer, chargennummer, weinausbau_id')
+        .select('id, datum, name, anzahl_flaschen, menge_liter_gefuellt, flaschengroesse_ml, pruefnummer, chargennummer, weinausbau_id, storniert_am, storno_grund, storniert_von_name')
         .eq('tenant_id', tenantId)
         .in('weinausbau_id', ids)
-        .eq('aktiv', true)
+        .or('aktiv.eq.true,storniert_am.not.is.null')   // KAN-145 B3: stornierte Füllung als Buchung + Gegenbuchung
         .order('datum', { ascending: true })
         .order('id', { ascending: true }), 'fuellungen'),
       liste((supabase.from('verkauf_positionen') as any)
@@ -261,6 +261,7 @@ function bewegungenAus(roh: Roh): Bewegung[] {
         charge: text(eroeffnungsCharge.name),
         gegenstelle: 'Eröffnungsbestand (Altsystem)',
         beleg: text(eroeffnungsCharge.transaktions_nr),
+        ...stornoFeld(eroeffnungsCharge),   // KAN-145 B3: stornierter Eröffnungsbestand – Gegenbuchung am Storno-Tag
       })
     }
   }
@@ -386,6 +387,7 @@ function bewegungenAus(roh: Roh): Bewegung[] {
       charge: name(f.weinausbau_id),
       gegenstelle: text(f.name),
       beleg: text(f.pruefnummer) ?? text(f.chargennummer),
+      ...stornoFeld(f),
     })
   }
 
@@ -610,7 +612,7 @@ export async function ladeBewegungsbuch(
     if (istStorniert(u)) continue
     plus(u.von_weinausbau_id, -(u.zeilen_typ === 'quelle' ? num(u.menge_liter) : (num(u.brutto_liter) || num(u.menge_liter))))
   }
-  for (const f of roh.fuellungen) plus(f.weinausbau_id, -(num(f.menge_liter_gefuellt) || (num(f.anzahl_flaschen) * num(f.flaschengroesse_ml) / 1000)))
+  for (const f of roh.fuellungen) if (!istStorniert(f)) plus(f.weinausbau_id, -(num(f.menge_liter_gefuellt) || (num(f.anzahl_flaschen) * num(f.flaschengroesse_ml) / 1000)))
   for (const v of roh.verkauf) if (!(v.verkaufsposten as R | null)?.storniert) plus(v.weinausbau_id, -num(v.menge))
 
   const aktiveChargen = roh.chargen.filter(c => c.aktiv && !c.ist_eroeffnungsbestand && (literByCharge[c.id] ?? num(c.menge_liter)) > 0.001)

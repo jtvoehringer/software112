@@ -184,13 +184,13 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
         anteil_liter,
         fuellung:fuellung_id(
           id, datum, chargennummer, pruefnummer, name,
-          anzahl_flaschen, flaschengroesse_ml, menge_liter_gefuellt
+          anzahl_flaschen, flaschengroesse_ml, menge_liter_gefuellt, aktiv, storniert_am, storno_grund, storniert_von_name
         )
       `)
       .eq('weinausbau_id', id)),
 
     tf((supabase.from('fuellungen') as any)
-      .select('id, datum, chargennummer, pruefnummer, name, anzahl_flaschen, flaschengroesse_ml, menge_liter_gefuellt')
+      .select('id, datum, chargennummer, pruefnummer, name, anzahl_flaschen, flaschengroesse_ml, menge_liter_gefuellt, aktiv, storniert_am, storno_grund, storniert_von_name')
       .eq('weinausbau_id', id)),
 
     tf((supabase.from('weinausbau_weingaerten') as any)
@@ -264,7 +264,12 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
   const direktFuellungen = ((fuellDirektRes.data ?? []) as R[])
     .filter((f: R) => !fuellChargenIds.has(f.id))
     .map((f: R) => ({ anteil_liter: null, fuellung: f }))
-  const alleFuellungen = [...fuellChargen, ...direktFuellungen]
+  // KAN-145 B3: aktive und stornierte Füllungen (gekennzeichnet); vor KAN-145 „gelöschte“ (aktiv = false ohne
+  // Storno-Kennzeichen) zählen nicht – ihre Liter wurden auf die Charge zurückgebucht
+  const alleFuellungen = [...fuellChargen, ...direktFuellungen].filter((fc: R) => {
+    const f = fc.fuellung as R | null
+    return !f || f.aktiv !== false || !!f.storniert_am
+  })
 
   const verschnEin = (verschnEinRes.data ?? []) as R[]
   const verschnAus = (verschnAusRes.data ?? []) as R[]   // stornierte mit Kennzeichen (KAN-145 B2b)
@@ -584,6 +589,7 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
     const gefuellt = f.menge_liter_gefuellt ? parseFloat(f.menge_liter_gefuellt) : null
     const verarbeitet = gefuellt != null && schwundMenge ? gefuellt + schwundMenge : null
 
+    merkeStorno(f)
     events.push({
       datum: f.datum,
       typ: 'fuellung',
@@ -626,7 +632,7 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
   events.sort((a, b) => a.datum.localeCompare(b.datum))
 
   // Ende (KAN-127): leere Charge mit Füllungen → nach der letzten Füllung keine Einträge mehr
-  const fuellTage = alleFuellungen.map(fc => tag((fc.fuellung as R | null)?.datum)).filter(Boolean).sort()
+  const fuellTage = alleFuellungen.filter(fc => !istStorniert(fc.fuellung as R | null)).map(fc => tag((fc.fuellung as R | null)?.datum)).filter(Boolean).sort()
   const abgeschlossenAm = parseFloat(String(wa.menge_liter ?? 0)) <= 0.5 && fuellTage.length > 0 ? fuellTage[fuellTage.length - 1] : null
   const imWeinbuch = abgeschlossenAm ? events.filter(ev => !tag(ev.datum) || tag(ev.datum) <= abgeschlossenAm) : events
 

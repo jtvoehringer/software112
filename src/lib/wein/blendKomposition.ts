@@ -86,7 +86,7 @@ export async function ladeBewegungsgraph(supabase: any, tenantId: string, startI
     const ids = frontier
     const [wa, pb, zk, kuVon, kuNach, vsZiel, vsQuelle, fc, fu, vk] = await Promise.all([
       liste((supabase.from('weinausbau') as any)
-        .select('id, name, rebsorte, jahrgang, menge_liter, ist_eroeffnungsbestand, anfangsbestand_liter, created_at')
+        .select('id, name, rebsorte, jahrgang, menge_liter, ist_eroeffnungsbestand, anfangsbestand_liter, storniert_am, created_at')
         .eq('tenant_id', tenantId).in('id', ids).order('id'), 'Chargen'),
       // pressung_behaelter ohne tenant_id – Mandant über die Pressung
       liste((supabase.from('pressung_behaelter') as any)
@@ -128,7 +128,7 @@ export async function ladeBewegungsgraph(supabase: any, tenantId: string, startI
     // Chargen, Eröffnungsbestand
     for (const c of wa) {
       chargen.set(c.id, c)
-      if (!c.ist_eroeffnungsbestand) continue
+      if (!c.ist_eroeffnungsbestand || c.storniert_am) continue   // KAN-145: stornierter Eröffnungsbestand zählt nicht
       const l = num(c.anfangsbestand_liter) || num(c.menge_liter)
       if (l <= 0) continue
       ereignisse.set(`eb:${c.id}`, {

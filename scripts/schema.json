@@ -1536,7 +1536,11 @@
 "herkunft_code",
 "referenz_altsystem",
 "oechsle",
-"mostgewicht_einheit"
+"mostgewicht_einheit",
+"storniert_am",
+"storniert_von",
+"storniert_von_name",
+"storno_grund"
 ],
 "weinausbau_weingaerten": [
 "id",

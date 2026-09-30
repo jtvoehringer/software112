@@ -207,7 +207,7 @@ DECLARE
     'verkaufsposten=aktiv,datum,storniert,storniert_am,tenant_id',
     'verschneidung_quellen=menge_liter,quell_weinausbau_id,verschneidung_id',
     'verschneidungen=datum,storniert_am,storno_grund,tenant_id,ziel_weinausbau_id',
-    'weinausbau=aktiv,anfangsbestand_liter,behaelter_id,herkunft_code,ist_eroeffnungsbestand,jahrgang,kmw,menge_liter,mostgewicht_einheit,oechsle,qualitaetsstufe,rebsorte,status,tenant_id,weinart',
+    'weinausbau=aktiv,anfangsbestand_liter,behaelter_id,herkunft_code,ist_eroeffnungsbestand,jahrgang,kmw,menge_liter,mostgewicht_einheit,oechsle,qualitaetsstufe,rebsorte,status,storniert_am,storno_grund,tenant_id,weinart',
     'zukauf_posten=aktiv,art,datum,einheit,kmw,menge,mostgewicht_einheit,oechsle,storniert_am,storno_grund,tenant_id,ziel_weinausbau_id'];
   -- echte Prüfaufrufe (auf Quelltext ohne Kommentare)
   c_re_ptz constant text := 'PERFORM\s+(public\.)?pruefe_tenant_zugriff\s*\(\s*p_tenant_id\M';
