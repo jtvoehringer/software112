@@ -119,6 +119,9 @@ export default async function BehandlungsprotokollPage({ searchParams }: { searc
           </div>
         </div>
 
+        {/* Bildschirm: breite Tabelle scrollt in der Karte statt über den Rand zu laufen (Rückmeldung 30.09.2026);
+            im Druck hebt globals.css den Scroll-Container auf (Querformat, Zellen brechen um) */}
+        <div className="overflow-x-auto">
         <table className="w-full text-xs border-collapse">
           <thead>
             <tr className="bg-[#F2F3F5]">
@@ -171,6 +174,7 @@ export default async function BehandlungsprotokollPage({ searchParams }: { searc
             })}
           </tbody>
         </table>
+        </div>
 
         {behandlungen.length === 0 && <p className="text-center text-s112-muted py-12">Keine Behandlungen für {aktJahr} erfasst.</p>}
 

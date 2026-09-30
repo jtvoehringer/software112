@@ -80,6 +80,8 @@ export default async function RiedenRueckverfolgungPage({ searchParams }: { sear
 
   return (
     <div className="max-w-5xl space-y-6">
+      {/* Maßnahmen-Tabelle mit 9 Spalten – im Querformat drucken (Rückmeldung 30.09.2026: rechts abgeschnitten) */}
+      <style>{`@media print { @page { size: A4 landscape; margin: 10mm 10mm 12mm; } }`}</style>
       <div>
         <nav className="flex items-center gap-2 text-sm text-s112-muted mb-4 print:hidden">
           <Link href="/weingarten" className="hover:text-s112-blue-700">Rieden</Link>
