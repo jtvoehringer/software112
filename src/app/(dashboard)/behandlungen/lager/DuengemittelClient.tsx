@@ -5,6 +5,7 @@ import { Pencil, Trash2 } from 'lucide-react'
 import { upsertDuengemittel, deactivateDuengemittel } from './actions'
 import type { DuengemittelEintrag } from './page'
 import { fehlerText } from '@/lib/fehler'
+import { LagerJahrKopf, LagerJahrZellen, LagerJahrHinweis } from './LagerJahrSpalten'
 
 const TYP_OPTS = [
   { value: 'organisch',  label: 'Organisch' },
@@ -155,9 +156,9 @@ function DuengemittelForm({ duengemittel, onDone }: { duengemittel?: Duengemitte
 }
 
 export default function DuengemittelClient({
-  duengemittel, writeOk, adminOk,
+  duengemittel, jahr, writeOk, adminOk,
 }: {
-  duengemittel: DuengemittelEintrag[]; writeOk: boolean; adminOk: boolean
+  duengemittel: DuengemittelEintrag[]; jahr: number; writeOk: boolean; adminOk: boolean
 }) {
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
@@ -193,11 +194,13 @@ export default function DuengemittelClient({
             <thead>
               <tr className="border-b border-s112-border">
                 <th className="text-left text-xs text-s112-muted font-semibold py-2 pr-3">Name</th>
-                <th className="text-left text-xs text-s112-muted font-semibold py-2 pr-3">Typ</th>
-                <th className="text-right text-xs text-s112-muted font-semibold py-2 pr-3">N-P-K %</th>
-                <th className="text-right text-xs text-s112-muted font-semibold py-2 pr-3">Preis/Einheit</th>
-                <th className="text-right text-xs text-s112-muted font-semibold py-2 pr-3">Wartezeit</th>
-                <th className="text-center text-xs text-s112-muted font-semibold py-2 pr-3">Bio</th>
+                {/* KAN-173: Detailspalten je nach Breite ausblenden, damit die Lagerspalten ohne seitliches Scrollen passen */}
+                <th className="hidden lg:table-cell text-left text-xs text-s112-muted font-semibold py-2 pr-3">Typ</th>
+                <th className="hidden md:table-cell text-right text-xs text-s112-muted font-semibold py-2 pr-3">N-P-K %</th>
+                <th className="hidden xl:table-cell text-right text-xs text-s112-muted font-semibold py-2 pr-3">Preis/Einheit</th>
+                <th className="hidden xl:table-cell text-right text-xs text-s112-muted font-semibold py-2 pr-3">Wartezeit</th>
+                <th className="hidden sm:table-cell text-center text-xs text-s112-muted font-semibold py-2 pr-3">Bio</th>
+                <LagerJahrKopf jahr={jahr} />
                 {(writeOk || adminOk) && (
                   <th className="py-2 px-3 sticky right-0 bg-white border-l border-s112-border" />
                 )}
@@ -213,29 +216,30 @@ export default function DuengemittelClient({
                         <span className="ml-1 text-xs text-s112-muted">({d.handelsname})</span>
                       )}
                     </td>
-                    <td className="py-2.5 pr-3">
+                    <td className="hidden lg:table-cell py-2.5 pr-3">
                       {d.typ ? (
                         <span className={`text-xs px-2 py-0.5 rounded-full border ${TYP_COLOR[d.typ] ?? 'bg-s112-bg text-s112-text-2 border-s112-line'}`}>
                           {TYP_OPTS.find(o => o.value === d.typ)?.label ?? d.typ}
                         </span>
                       ) : '–'}
                     </td>
-                    <td className="py-2.5 pr-3 text-right tabular-nums text-xs text-s112-muted">
+                    <td className="hidden md:table-cell py-2.5 pr-3 text-right tabular-nums text-xs text-s112-muted">
                       {(d.naehrstoff_n_pct != null || d.naehrstoff_p_pct != null || d.naehrstoff_k_pct != null)
                         ? `${d.naehrstoff_n_pct ?? '–'}-${d.naehrstoff_p_pct ?? '–'}-${d.naehrstoff_k_pct ?? '–'}`
                         : '–'}
                     </td>
-                    <td className="py-2.5 pr-3 text-right tabular-nums text-xs text-s112-muted">
+                    <td className="hidden xl:table-cell py-2.5 pr-3 text-right tabular-nums text-xs text-s112-muted">
                       {d.preis_pro_einheit ? `${d.preis_pro_einheit} €/${d.einheit ?? 'kg'}` : '–'}
                     </td>
-                    <td className="py-2.5 pr-3 text-right tabular-nums text-xs text-s112-muted">
+                    <td className="hidden xl:table-cell py-2.5 pr-3 text-right tabular-nums text-xs text-s112-muted">
                       {d.wartezeit_tage ? `${d.wartezeit_tage} T` : '–'}
                     </td>
-                    <td className="py-2.5 pr-3 text-center">
+                    <td className="hidden sm:table-cell py-2.5 pr-3 text-center">
                       {d.oeko_zugelassen
                         ? <span className="text-s112-ok-fg">Ja</span>
                         : <span className="text-s112-tertiary">–</span>}
                     </td>
+                    <LagerJahrZellen lager={d.lager} />
                     {(writeOk || adminOk) && (
                       <td className="py-2.5 px-3 text-right sticky right-0 bg-white border-l border-s112-border/40">
                         <div className="flex items-center justify-end gap-2">
@@ -255,7 +259,7 @@ export default function DuengemittelClient({
                   </tr>
                   {editId === d.id && (
                     <tr key={`edit-${d.id}`}>
-                      <td colSpan={7} className="px-0 py-2">
+                      <td colSpan={11} className="px-0 py-2">
                         <DuengemittelForm duengemittel={d} onDone={() => setEditId(null)} />
                       </td>
                     </tr>
@@ -264,6 +268,7 @@ export default function DuengemittelClient({
               ))}
             </tbody>
           </table>
+          {duengemittel.length > 0 && <LagerJahrHinweis jahr={jahr} />}
           {duengemittel.length === 0 && (
             <p className="text-center py-12 text-s112-muted text-sm">
               Noch keine Düngemittel angelegt.

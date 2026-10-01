@@ -13,6 +13,7 @@
 import { runden } from '@/lib/csv'
 import { fmtNum } from '@/lib/format'
 import type { LagerHinweis, LagerKonto, VerbrauchZeile } from './lagerVerbrauch'
+import { jahresBewegung, type GezaehlteBuchung } from './lagerJahr'
 
 export const BETRIEBSMITTEL_GRUPPEN = ['weinbehandlung', 'produktion'] as const
 export type BetriebsmittelGruppe = typeof BETRIEBSMITTEL_GRUPPEN[number]
@@ -92,16 +93,18 @@ export function bmVerbrauch(b: BmVerbrauchEingabe, mittelEinheit: string): { men
   return { menge: m, basis, warnung: null }
 }
 
-export type BmBuchung = { datum: string; menge: number; einheit: string; storniert: boolean }
+export type BmBuchung = { datum: string; menge: number; einheit: string; storniert: boolean; typ?: string | null }
 export type BmVerbrauchPosten = BmVerbrauchEingabe & {
   behandlungId: string; datum: string; kurz: string; art: string; ort: string | null
 }
 
 /** Bestand eines Betriebsmittels in seiner Einheit (gleiche Form wie LagerKonto für PSM/Dünger) */
-export function bmKonto(buchungen: readonly BmBuchung[], verbrauch: readonly BmVerbrauchPosten[], einheit: string): LagerKonto {
+/** Mit `jahr` zusätzlich die Lagerbewegung im Geschäftsjahr (KAN-173, lagerJahr.ts) */
+export function bmKonto(buchungen: readonly BmBuchung[], verbrauch: readonly BmVerbrauchPosten[], einheit: string, jahr?: number): LagerKonto {
   const hinweise: LagerHinweis[] = []
   const label = BM_EINHEIT_LABEL[einheit] ?? einheit
   let zugang = 0, abgang = 0
+  const gezaehlt: GezaehlteBuchung[] = []
   for (const b of buchungen) {
     if (b.storniert) continue
     const m = bmInEinheit(b.menge, b.einheit, einheit)
@@ -109,6 +112,7 @@ export function bmKonto(buchungen: readonly BmBuchung[], verbrauch: readonly BmV
       hinweise.push({ text: `Buchung vom ${b.datum.split('-').reverse().join('.')}: ${BM_EINHEIT_LABEL[b.einheit] ?? b.einheit} nicht in ${label} umrechenbar – nicht berücksichtigt.`, behandlungId: null })
       continue
     }
+    gezaehlt.push({ datum: b.datum, menge: m, typ: b.typ })
     if (m > 0) zugang += m
     else abgang -= m
   }
@@ -127,7 +131,10 @@ export function bmKonto(buchungen: readonly BmBuchung[], verbrauch: readonly BmV
   zugang = runden(zugang, STELLEN)
   abgang = runden(abgang, STELLEN)
   const verbrauchGesamt = runden(summe, STELLEN)
-  return { einheit: label, zugang, abgang, verbrauch: verbrauchGesamt, posten, bestand: runden(zugang - abgang - verbrauchGesamt, STELLEN), hinweise }
+  return {
+    einheit: label, zugang, abgang, verbrauch: verbrauchGesamt, posten, bestand: runden(zugang - abgang - verbrauchGesamt, STELLEN), hinweise,
+    ...(jahr === undefined ? {} : { jahr: jahresBewegung(gezaehlt, posten, jahr, STELLEN) }),
+  }
 }
 
 /** Brutto aus Netto und USt-Satz (kaufmännisch gerundet, 2 Stellen) */
