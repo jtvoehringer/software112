@@ -192,6 +192,9 @@ DECLARE
     'ama_meldepositionen=meldung_id,menge_hl,menge_kg',
     'behandlungen=art,aufwandmenge,aufwandmenge_einheit,datum,datum_bis,duengemittel_id,ernte_fruehesteins,konzentration,menge_einheit,menge_gesamt,psm_id,tenant_id,wasseraufwand_l_ha,weingarten_id',
     'ea_transaktionen=betrag_netto,datum,is_locked,kategorie_id,storniert_am,storno_grund,tenant_id,typ,ust_satz',   -- KAN-149 D2
+    'ea_belege=dateiname,ea_transaktion_id,status,storage_pfad,tenant_id',   -- KAN-149 D3
+    'ea_monatsabschluss=jahr,monat,tenant_id',   -- KAN-149 D3
+    'ea_uva=gesperrt,gesperrt_am,jahr,tenant_id,ust_gesamt,vst_gesamt,zahllast,zeitraum',   -- KAN-149 D3
     'duengemittel_lager_bewegungen=datum,duengemittel_id,einheit,menge,tenant_id,typ',
     'ernte_parzellen=ernte_datum,grundstueck_id,jahrgang_id,klosterneuburger,lese_id,menge_hl,menge_kg,mostgewicht_einheit,oechsle,storniert_am,storno_grund,weingarten_id',
     'fuellung_chargen=anteil_liter,fuellung_id,tenant_id,weinausbau_id',
@@ -811,7 +814,7 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('schutz_plattformfelder_trigger', v_txt, c_schutz);
 
   -- ── 12. Härtung als Ratsche ─────────────────────────────────────────────────────────────────────────
-  -- TRUNCATE unterliegt keiner RLS (über PostgREST nicht erreichbar). Die 20 Protokolltabellen haben das Recht nicht
+  -- TRUNCATE unterliegt keiner RLS (über PostgREST nicht erreichbar). Die Protokolltabellen (30, s112_soll_liste) haben das Recht nicht
   -- und sind zusätzlich durch z_protokoll_truncate gesperrt.
   FOR v_r IN SELECT unnest(ARRAY['authenticated', 'anon']) AS rolle LOOP
     v_erg := v_erg || pg_temp.t01_liste('truncate_neu_' || v_r.rolle, format($q$

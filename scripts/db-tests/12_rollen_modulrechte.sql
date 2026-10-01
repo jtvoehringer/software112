@@ -190,14 +190,15 @@ DECLARE
   c_leser_eigen constant text[] := ARRAY['benachrichtigungen:UPDATE', 'benachrichtigungen:DELETE', 'profiles:INSERT',
     'profiles:UPDATE', 'release_notes_gesehen:INSERT', 'release_notes_gesehen:UPDATE', 'release_notes_gesehen:DELETE',
     'user_email_connections:DELETE'];
-  c_kein_delete constant text[] := ARRAY['ama_meldepositionen', 'ernte_parzellen', 'fuellungen', 'sonstige_artikel', 'sumup_checkouts',
-    'weinausbau', 'weinbaugebiete_custom', 'zukauf_posten'];   -- fuellungen: KAN-145 B4, ernte_parzellen/weinausbau: KAN-148 C1d (nur über s112_storniert_loeschen)
+  c_kein_delete constant text[] := ARRAY['ama_meldepositionen', 'ea_transaktionen', 'ernte_parzellen', 'fuellungen',
+    'konto_umbuchungen', 'sonstige_artikel', 'sumup_checkouts', 'verkauf_positionen', 'verkaufsposten', 'weinausbau',
+    'weinbaugebiete_custom', 'zahlungen', 'zukauf_posten'];   -- fuellungen: KAN-145 B4, ernte_parzellen/weinausbau: KAN-148 C1d (nur über s112_storniert_loeschen);
+                                                               -- Verkauf/E-A: KAN-149 D3 (nur stornieren, keine Lösch-RPC)
   c_kein_update constant text[] := ARRAY['aktivitaet_dokumente', 'konto_umbuchungen', 'behandlung_grundstuecke',
     'buchhaltung_export_protokoll', 'pipeline_verlauf', 'assistent_aktionen', 'assistent_nachrichten'];
   c_delete_nur_admin constant text[] := ARRAY['ama_erntemeldungen', 'behaelter', 'behandlungen', 'dac_antrag',
-    'duengemittel', 'ea_transaktionen', 'grundstuecke', 'kellerplaene',
-    'konto_umbuchungen', 'lagen', 'lesen', 'pflanzenschutzmittel', 'saetze_massnahmen', 'verkauf_positionen', 'verkaufsposten',
-    'weinanalysen', 'weingarten', 'weingarten_rebsorten', 'weinjahrgaenge', 'zahlungen'];
+    'duengemittel', 'grundstuecke', 'kellerplaene', 'lagen', 'lesen', 'pflanzenschutzmittel', 'saetze_massnahmen',
+    'weinanalysen', 'weingarten', 'weingarten_rebsorten', 'weinjahrgaenge'];   -- Verkauf/E-A seit KAN-149 D3 in c_kein_delete
   c_nur_admin constant text[] := ARRAY['buchhaltung_kontenmapping', 'ea_monatsabschluss', 'konten', 'sumup_terminals',
     'zeiterfassung'];
   c_ohne_schreibrecht constant text[] := ARRAY['bestandsprotokoll', 'fuellung_bewegungen', 'ea_dauerauftrag_log',

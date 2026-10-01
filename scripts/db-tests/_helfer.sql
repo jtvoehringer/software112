@@ -942,8 +942,8 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('ea_dauerauftraege',             'SA,TA,W*{ea}',                           'SA,TA,W*{ea}',                           'SA,TA,W*{ea}'),
     ('ea_dauerauftrag_log',           '-',                                      '-',                                      '-'),
     ('ea_kategorien',                 'SA,TA,W*{ea}',                           'SA,TA,W*{ea}',                           'SA,TA,W*{ea}'),
-    ('ea_monatsabschluss',            'SA,TA{ea}',                              'SA,TA{ea}',                              'SA,TA{ea}'),
-    ('ea_transaktionen',              'SA,TA,W*{ea}',                           'SA,TA,W*{ea}',                           'SA,TA{ea}'),
+    ('ea_monatsabschluss',            'SA,TA{ea}',                              '-{ea}',                                  '-{ea}'),   -- KAN-149 D3: Abschluss unveränderlich
+    ('ea_transaktionen',              'SA,TA,W*{ea}',                           'SA,TA,W*{ea}',                           '-{ea}'),   -- KAN-149 D3
     ('ea_uva',                        'SA,TA,W*{ea}',                           'SA,TA,W*{ea}',                           'SA,TA,W*{ea}'),
     ('email_lead_ignoriert',          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}'),
     ('ernte_parzellen',               'SA,TA,W*{rieden|kellerbuch}',            'SA,TA,W*{rieden|kellerbuch}',            '-{rieden|kellerbuch}'),   -- KAN-148 C1d
@@ -966,7 +966,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('kontakt_praeferenzen',          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}'),
     ('kontakte',                      'SA,TA,W*{crm}',                          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}'),
     ('konten',                        'SA,TA{ea}',                              'SA,TA{ea}',                              'SA,TA{ea}'),
-    ('konto_umbuchungen',             'SA,TA,W*{ea}',                           '-{ea}',                                  'SA,TA{ea}'),
+    ('konto_umbuchungen',             'SA,TA,W*{ea}',                           '-{ea}',                                  '-{ea}'),   -- KAN-149 D3
     ('kostenarten',                   'SA,TA,W*{auswertungen|rieden|kellerbuch}','SA,TA,W*{auswertungen|rieden|kellerbuch}','SA,TA,W*{auswertungen|rieden|kellerbuch}'),
     ('kosteneintraege',               'SA,TA,W*{auswertungen|rieden|kellerbuch}','SA,TA,W*{auswertungen|rieden|kellerbuch}','SA,TA,W*{auswertungen|rieden|kellerbuch}'),
     ('kosteneintrag_behaelter',       'SA,TA,W*{auswertungen|rieden|kellerbuch}','SA,TA,W*{auswertungen|rieden|kellerbuch}','SA,TA,W*{auswertungen|rieden|kellerbuch}'),
@@ -1005,8 +1005,8 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('transportbescheinigungen',      'SA,TA,W*{kellerbuch|warenwirtschaft}',   'SA,TA,W*{kellerbuch|warenwirtschaft}',   'SA,TA,W*{kellerbuch|warenwirtschaft}'),
     ('traubenverkauf',                'SA,TA,W*{rieden|warenwirtschaft}',       'SA,TA,W*{rieden|warenwirtschaft}',       '-{rieden|warenwirtschaft}'),   -- KAN-148 C1d
     ('user_email_connections',        '-',                                      '-',                                      'L,SA,TA,W'),
-    ('verkauf_positionen',            'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              'SA,TA{warenwirtschaft}'),
-    ('verkaufsposten',                'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              'SA,TA{warenwirtschaft}'),
+    ('verkauf_positionen',            'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              '-{warenwirtschaft}'),   -- KAN-149 D3
+    ('verkaufsposten',                'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              '-{warenwirtschaft}'),   -- KAN-149 D3
     ('verschneidung_quellen',         'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   '-{kellerbuch}'),   -- KAN-145 B4
     ('verschneidungen',               'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   '-{kellerbuch}'),   -- KAN-145 B4
     ('weinanalysen',                  'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   'SA,TA{kellerbuch}'),
@@ -1017,7 +1017,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('weingarten_rebsorten',          'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       'SA,TA{rieden}'),
     ('weinjahrgaenge',                'SA,TA,W*{rieden|kellerbuch}',            'SA,TA,W*{rieden|kellerbuch}',            'SA,TA{rieden|kellerbuch}'),
     ('wetter_stunden',                '-',                                      '-',                                      '-'),
-    ('zahlungen',                     'SA,TA,W*{warenwirtschaft|ea}',           'SA,TA,W*{warenwirtschaft|ea}',           'SA,TA{warenwirtschaft|ea}'),
+    ('zahlungen',                     'SA,TA,W*{warenwirtschaft|ea}',           'SA,TA,W*{warenwirtschaft|ea}',           '-{warenwirtschaft|ea}'),   -- KAN-149 D3
     ('zeiterfassung',                 'SA,TA',                                  'SA,TA',                                  'SA,TA'),
     ('zukauf_posten',                 'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              '-{warenwirtschaft}')
   )
@@ -1073,13 +1073,15 @@ BEGIN
       'keller_freigaben', 'plattform_admins', 'profiles', 'rebsorten', 'release_notes', 'release_notes_gesehen',
       'svs_parameter', 'tenants']
     -- KAN-145 B4: Tabellen mit Löschsperre (a_loeschsperre) = "scharf" in scripts/storno-tabellen.json (Test check-storno)
-    WHEN 'loeschsperre_tabellen' THEN ARRAY['ernte_parzellen', 'fuellung_chargen', 'fuellungen', 'keller_behandlungen', 'keller_umzuege', 'pressung_behaelter', 'pressung_weingaerten', 'pressungen', 'traubenverkauf', 'verschneidung_quellen', 'verschneidungen', 'weinausbau', 'zukauf_posten']
+    -- KAN-149 D3: + ea_transaktionen, konto_umbuchungen, verkauf_positionen, verkaufsposten, zahlungen (dort ohne Lösch-RPC)
+    WHEN 'loeschsperre_tabellen' THEN ARRAY['ea_transaktionen', 'ernte_parzellen', 'fuellung_chargen', 'fuellungen', 'keller_behandlungen', 'keller_umzuege', 'konto_umbuchungen', 'pressung_behaelter', 'pressung_weingaerten', 'pressungen', 'traubenverkauf', 'verkauf_positionen', 'verkaufsposten', 'verschneidung_quellen', 'verschneidungen', 'weinausbau', 'zahlungen', 'zukauf_posten']
     WHEN 'protokoll_tabellen' THEN ARRAY[
       'ama_erntemeldungen', 'ama_meldepositionen', 'behandlungen', 'bestandsprotokoll', 'duengemittel_lager_bewegungen',
-      'ea_transaktionen', 'ernte_parzellen', 'fuellung_bewegungen', 'fuellung_chargen', 'fuellungen', 'keller_behandlungen',
-      'keller_umzuege', 'konto_umbuchungen', 'lesen', 'pressung_behaelter', 'pressung_weingaerten', 'pressungen',
-      'psm_lager_bewegungen', 'traubenverkauf', 'verkauf_positionen', 'verkaufsposten', 'verschneidung_quellen',
-      'verschneidungen', 'weinausbau', 'weinjahrgaenge', 'zahlungen', 'zukauf_posten']   -- KAN-166: behandlungen und die beiden Lagertabellen; KAN-149 D2: ea_transaktionen, zahlungen, konto_umbuchungen
+      'ea_belege', 'ea_monatsabschluss', 'ea_transaktionen', 'ea_uva', 'ernte_parzellen', 'fuellung_bewegungen',
+      'fuellung_chargen', 'fuellungen', 'keller_behandlungen', 'keller_umzuege', 'konto_umbuchungen', 'lesen',
+      'pressung_behaelter', 'pressung_weingaerten', 'pressungen', 'psm_lager_bewegungen', 'traubenverkauf',
+      'verkauf_positionen', 'verkaufsposten', 'verschneidung_quellen', 'verschneidungen', 'weinausbau', 'weinjahrgaenge',
+      'zahlungen', 'zukauf_posten']   -- KAN-166: behandlungen und die beiden Lagertabellen; KAN-149 D2: ea_transaktionen, zahlungen, konto_umbuchungen; KAN-149 D3: ea_belege, ea_monatsabschluss, ea_uva
     WHEN 'abo_ausnahmen' THEN ARRAY[
       'benachrichtigungen', 'keller_freigaben', 'plattform_admins', 'profiles', 'rebsorten', 'release_notes',
       'release_notes_gesehen', 'svs_parameter', 'system_ereignisse', 'tenant_memberships', 'user_email_connections']
@@ -1177,15 +1179,19 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('trigger',       '--S', false, 's112_ama_schutz()'),                      -- KAN-148 C2: Status/Versionen nur per RPC
     ('mandant',       '-US', true , 's112_ama_status_setzen(p_tenant_id uuid, p_meldung_id uuid, p_status text, p_datum date, p_referenznr text)'),   -- KAN-148 C2
     ('mandant',       '-US', true , 's112_fuellung_verkauf_buchen(p_tenant_id uuid, p_fuellung_id uuid, p_verkaufsposten_id uuid, p_menge_stk integer, p_datum date, p_grund text)'),   -- KAN-149 D1
+    ('trigger',       '--S', false, 's112_ea_abschluss_schutz()'),             -- KAN-149 D3: Monatsabschluss, gesperrte UVA, verbuchte Belege
     ('intern',        '--S', false, 's112_ea_gegenbuchung(p_tenant_id uuid, p_id uuid, p_grund text, p_datum date)'),   -- KAN-149 D2 (Hilfsfunktion)
+    ('trigger',       '--S', false, 's112_ea_periodensperre()'),               -- KAN-149 D3: Periodensperre E/A, Zahlungen, Umbuchungen
     ('mandant',       '-US', true , 's112_ea_stornieren(p_tenant_id uuid, p_id uuid, p_grund text, p_datum date)'),   -- KAN-149 D2
     ('trigger',       '--S', false, 's112_ea_storno_schutz()'),                -- KAN-149 D2: E/A, Zahlungen, Umbuchungen
+    ('intern',        '--S', false, 's112_ea_zeitraum_sperrgrund(p_tenant_id uuid, p_datum date)'),   -- KAN-149 D3 (Hilfsfunktion ohne Zugriffsprüfung)
     ('intern',        '--S', false, 's112_storno_benutzername(p_uid uuid)'),   -- KAN-149 D2 (Hilfsfunktion)
     ('mandant',       '-US', true , 's112_umbuchung_stornieren(p_tenant_id uuid, p_id uuid, p_grund text)'),   -- KAN-149 D2
     ('mandant',       '-US', true , 's112_zahlung_stornieren(p_tenant_id uuid, p_zahlung_id uuid, p_grund text, p_datum date)'),   -- KAN-149 D2
     ('mandant',       '-US', false, 's112_schwund_minderung(p_tenant_id uuid, p_umzug_id uuid)'),   -- KAN-145 B4 (lesend)
     ('trigger',       '--S', false, 's112_verkauf_storno_schutz()'),           -- KAN-149 D1: Verkaufsstorno mit Grund, unveränderlich
-    ('trigger',       '--S', false, 's112_jahrgang_loeschsperre()'),           -- KAN-148 C1d: Jahrgang nur ohne Bezüge
+    ('trigger',       '--S', false, 's112_konto_loeschsperre()'),              -- KAN-149 D3: Konto nur ohne Bewegungen
+    ('trigger',       '--S', false, 's112_jahrgang_loeschsperre()'),          -- KAN-148 C1d: Jahrgang nur ohne Bezüge
     ('trigger',       '--S', false, 's112_loeschsperre()'),                    -- KAN-145 A: BEFORE-DELETE-Sperre
     ('mandant',       '-US', true , 's112_storniert_loeschen(p_tenant_id uuid, p_tabelle text, p_id uuid, p_grund text)'),   -- KAN-145 A
     ('trigger',       '--S', false, 's112_storno_schutz()'),                   -- KAN-145 B1: Storno-Spalten

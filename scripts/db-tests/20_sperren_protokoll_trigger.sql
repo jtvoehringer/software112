@@ -1,12 +1,18 @@
 -- @bereich: Sperren, Protokoll- und Konsistenz-Trigger
 -- @ziel: Was die Datenbank als Sperre durchsetzt, hält: ea_transaktionen.is_locked (weder ändern, löschen, sperren
 -- @ziel: noch entsperren durch Benutzer; sperre_ea_monat/sperre_ea_uva wirken), AMA-Status (bestätigte Meldung und
--- @ziel: ihre Positionen unveränderlich), TRUNCATE-Verbot auf den 20 Protokolltabellen, Bestandsprotokoll (UPDATE
+-- @ziel: ihre Positionen unveränderlich), TRUNCATE-Verbot auf allen 30 Protokolltabellen, Bestandsprotokoll (UPDATE
 -- @ziel: überwachter Spalten und DELETE werden mit Mandant, Benutzer und Rolle protokolliert, kein Bypass für
 -- @ziel: Benutzer oder echte Mandanten, Tabelle für Benutzer nur lesbar) sowie die Mandantengleichheit von Gebinden
 -- @ziel: (weinausbau_gebinde_pruefen, Kellergemeinschaft) und Anlagen/Buchungen (trg_ea_*_tenant); keller_freigaben
--- @ziel: sind für Benutzer nicht schreibbar. Was nur die App prüft (Periodensperren, Storno, Jahrgangsabschluss,
--- @ziel: Löschen bestätigter AMA-Meldungen), steht als bekannte Lücke (B7, B8) mit Ratsche im Bericht.
+-- @ziel: sind für Benutzer nicht schreibbar. Seit KAN-149 D3 erzwingt die Datenbank die E&A-Periodensperre
+-- @ziel: (a_ea_periodensperre: kein Einfügen, Ändern, Löschen oder Datum-Verschieben in abgeschlossenen Monaten bzw.
+-- @ziel: per UVA übermittelten Zeiträumen, nichts gesperrt anlegen oder entsperren; Abgleich und Storno bleiben
+-- @ziel: möglich), den Abschluss (a_ea_abschluss_schutz: Monatsabschluss, gesperrte UVA, verbuchte Belege
+-- @ziel: unveränderlich; sperren nur über sperre_ea_uva), die Löschsperre auf Verkauf/E-A (keine_direktloeschung
+-- @ziel: und a_loeschsperre, Wartung nur mit s112.loeschen_erlaubt), Konten nur ohne Bewegungen löschbar und den
+-- @ziel: Storno-Grund beim Verkauf. Was nur die App prüft (Jahrgangsabschluss), steht als bekannte Lücke B8 mit
+-- @ziel: Ratsche im Bericht.
 -- @mutation is_locked_offen: ea_tx_update ohne NOT is_locked | rot: ea_locked_.*|ea_sperren_offen
 -- @mutation ama_status_offen: UPDATE-Policy der AMA-Meldung ohne Statusprüfung | rot: ama_bestaetigt_update
 -- @mutation ama_pos_delete_offen: DELETE-Policy auf ama_meldepositionen ohne Statusprüfung | rot: ama_pos_delete_bestaetigt
@@ -18,6 +24,8 @@
 -- @mutation sperre_monat_fremd: sperre_ea_monat prüft den eigenen Admin-Betrieb statt p_tenant_id | rot: ea_sperre_monat_fremd
 -- @mutation anlage_tenant_offen: trg_ea_transaktion_anlage_tenant lässt fremde Anlagen zu | rot: anlage_fremd
 -- @mutation freigaben_schreibbar: PERMISSIVE-Policy ALL USING/WITH CHECK (true) auf keller_freigaben | rot: freigabe_.*
+-- @mutation periodensperre_weg: DROP TRIGGER a_ea_periodensperre auf ea_transaktionen | rot: d3_.*ea_transaktionen.*|ea_insert_.*|ea_datum_.*
+-- @mutation abschluss_schutz_weg: DROP TRIGGER a_ea_abschluss_schutz auf ea_monatsabschluss | rot: .*monatsabschluss_(loeschen|aendern)
 -- @mutation kind_tenant_ama_weg: bestandsprotokoll_schreiben() ohne CASE-Zweig ama_meldepositionen (kein Ersatzweg) – Protokollzeile mit tenant_id NULL | rot: protokoll_kind_tenant:.*
 --
 -- software:112 – SQL-Testsuite, Datei 20 (Stand 28.09.2026). Nur Staging; die ganze Datei ist EINE Transaktion
@@ -25,7 +33,9 @@
 -- transaktional, es entstehen harmlose Nummernlücken).
 --
 -- Alle Beispieldaten legt die Datei selbst an (als postgres, im Musterhof M = v_a ->> 'm' bzw. in B): gesperrte
--- Buchung, gesperrte UVA und Monatsabschluss 2032, bestätigte AMA-Meldung samt Position, abgeschlossener
+-- Buchung, gesperrte UVA und Monatsabschluss 2032 (gesperrte Zeilen seit KAN-149 D3 nur mit dem Wartungs-Flag
+-- s112.loeschen_erlaubt), Abschluss 2033/03 samt Buchungen, Zahlungen, Umbuchungen, Konten, UVA und verbuchtem
+-- Beleg (D3), bestätigte AMA-Meldung samt Position, abgeschlossener
 -- Jahrgang, stornierter Verkaufsposten, Wein mit Menge, gemeinsamer belegter Behälter – unabhängig vom
 -- Demo-Datenstand (ein Demo-Reset macht den Test nicht rot).
 --
@@ -36,7 +46,18 @@
 --      b_ta keinen Monat von M (T, danach kein Abschluss für M angelegt).
 --   2. AMA: bestätigte Meldung und ihre Positionen sind unveränderlich (k0/R; Positionen auch nicht löschbar),
 --      unter einem Entwurf erlaubt (k1).
---   3. Bekannte Lücken B7/B8 (Ratsche s112_luecke, Planungsprobe 28.09.2026 jeweils k1).
+--   3. Ehemals Lücke B7 (seit KAN-149 D3 in der Datenbank gesperrt, harte Prüfungen, T): Buchung in abgeschlossenen
+--      Monat, gleich gesperrt anlegen, Datum in abgeschlossenen Monat verschieben (m_w), gesperrte UVA entsperren/
+--      löschen (m_w), Monatsabschluss löschen (m_ta). Bekannte Lücke B8 (Jahrgang, Ratsche s112_luecke).
+--   3b. KAN-149 D3 im Einzelnen (synthetischer Abschluss 2033/03, offen 2033/05, im Musterhof): Einfügen/Ändern/Datum
+--      in den abgeschlossenen Monat für ea_transaktionen, zahlungen, konto_umbuchungen → T (konto_umbuchungen ohne
+--      UPDATE-Policy: als postgres ohne Flag), offener Monat → k1; is_locked beim Anlegen → T; Abgleich
+--      (setze_kontobewegung_abgeglichen) und Storno (s112_ea_stornieren, Gegenbuchung im offenen Monat) einer
+--      gesperrten Buchung gehen, Storno mit Datum im abgeschlossenen Monat → 42501; gesperrte UVA ändern/löschen → T,
+--      UVA direkt sperren → T, über sperre_ea_uva → ok; Monatsabschluss ändern/löschen → T; Konto mit Buchungen
+--      löschen → T, leeres Konto → k1; verbuchten Beleg ändern/löschen → T; Verkaufsstorno ohne Grund → E23514, mit
+--      Grund → k1; DELETE auf den fünf Verkaufs-/E-A-Tabellen als m_ta/m_w → k0 (Policy 'nein'), als postgres ohne
+--      Flag → T (Löschsperre bzw. Periodensperre), mit s112.loeschen_erlaubt = Musterhof → k1.
 --   4. Bestandsprotokoll: UPDATE überwachter Spalte (aus pg_trigger.tgargs) → genau 1 Zeile mit Mandant, Tabelle,
 --      Aktion, Spalten, Benutzer und db_rolle; nicht überwachte Spalte → 0; DELETE mit alt; Kindzeile
 --      (pressung_behaelter) mit Mandant über die Eltern; dazu dynamisch JEDE Protokolltabelle ohne tenant_id
@@ -133,6 +154,26 @@ DECLARE
   v_uva_gesp   uuid;
   v_ma         uuid;
   v_ma_datum   date;
+  -- KAN-149 D3 (Abschluss 2033/03, offen 2033/05)
+  v_k1         uuid;
+  v_k2         uuid;
+  v_k_leer     uuid;
+  v_vp         uuid;
+  v_vp_leer    jsonb;
+  v_vpos       jsonb;
+  v_tx_zu      uuid;
+  v_tx_gesp    uuid;
+  v_tx_of      jsonb;
+  v_za_zu      uuid;
+  v_za_of      jsonb;
+  v_ub_zu      uuid;
+  v_ub_of      jsonb;
+  v_ma_d3      uuid;
+  v_uva_d3_g   uuid;
+  v_uva_d3_o   uuid;
+  v_beleg      uuid;
+  v_tab        text;
+  v_zd3        jsonb;
   -- AMA
   v_ama_best   uuid;
   v_ama_entw   uuid;
@@ -172,10 +213,14 @@ BEGIN
   v_mw := (v_a ->> 'm_w')::uuid;
   v_bta := (v_a ->> 'b_ta')::uuid;
 
-  -- E&A: eigene gesperrte Buchung, gesperrte UVA und Monatsabschluss 2032/06 im Musterhof
+  -- E&A: eigene gesperrte Buchung, gesperrte UVA und Monatsabschluss 2032/06 im Musterhof. Gesperrt anlegen lehnen
+  -- a_ea_periodensperre/a_ea_abschluss_schutz seit KAN-149 D3 auch für postgres ab – deshalb als Wartung mit Flag
+  -- (nur für diese drei Zeilen; die Prüfungen unten laufen ohne Flag)
+  PERFORM set_config('s112.loeschen_erlaubt', v_m::text, true);
   v_tx_locked := (pg_temp.s112_beispiel('ea_transaktionen', v_m, v_mta, '{"datum": "2032-06-15", "is_locked": "true"}') ->> 'id')::uuid;
   v_uva_gesp := (pg_temp.s112_zeile('ea_uva', v_m, '{"jahr": "2032", "zeitraum": "Q2", "gesperrt": "true"}') ->> 'id')::uuid;
   v_ma := (pg_temp.s112_zeile('ea_monatsabschluss', v_m, '{"jahr": "2032", "monat": "6"}') ->> 'id')::uuid;
+  PERFORM set_config('s112.loeschen_erlaubt', '', true);
   v_ma_datum := DATE '2032-06-15';
   -- eigene offene Buchungen 2031 (Monate ohne Abschluss) und eine offene UVA 2031 Q1
   v_tx_jan := (pg_temp.s112_beispiel('ea_transaktionen', v_m, v_mta, '{"datum": "2031-01-15", "is_locked": "false"}') ->> 'id')::uuid;
@@ -184,6 +229,35 @@ BEGIN
   v_tx_mai_z := pg_temp.s112_beispiel('ea_transaktionen', v_m, v_mta, '{"datum": "2031-05-10", "is_locked": "false"}');
   v_tx_mai := (v_tx_mai_z ->> 'id')::uuid;
   v_uva_neu := (pg_temp.s112_zeile('ea_uva', v_m, '{"jahr": "2031", "zeitraum": "Q1", "gesperrt": "false"}') ->> 'id')::uuid;
+
+  -- KAN-149 D3: zwei Konten mit Bewegungen, ein leeres; offener Verkauf (mit Position, Zahlungen) und ein Verkauf ohne
+  -- Kinder; je Tabelle eine Zeile im Monat 2033/03 (danach abgeschlossen) und eine im offenen Monat 2033/05; eine
+  -- gesperrte Buchung 2033/03 (Wartungs-Flag); gesperrte UVA 2033/Q4 (Flag), offene UVA 2033/03; verbuchter Beleg
+  v_k1 := (pg_temp.s112_zeile('konten', v_m, '{"name": "S112TEST D3 Konto 1"}') ->> 'id')::uuid;
+  v_k2 := (pg_temp.s112_zeile('konten', v_m, '{"name": "S112TEST D3 Konto 2"}') ->> 'id')::uuid;
+  v_k_leer := (pg_temp.s112_zeile('konten', v_m, '{"name": "S112TEST D3 Konto leer"}') ->> 'id')::uuid;
+  v_vp := (pg_temp.s112_beispiel('verkaufsposten', v_m, v_mta) ->> 'id')::uuid;
+  v_vp_leer := pg_temp.s112_beispiel('verkaufsposten', v_m, v_mta);
+  v_vpos := pg_temp.s112_beispiel('verkauf_positionen', v_m, v_mta, jsonb_build_object('verkaufsposten_id', v_vp));
+  v_tx_zu := (pg_temp.s112_beispiel('ea_transaktionen', v_m, v_mta,
+                jsonb_build_object('datum', '2033-03-10', 'is_locked', false, 'konto_id', v_k1)) ->> 'id')::uuid;
+  v_tx_of := pg_temp.s112_beispiel('ea_transaktionen', v_m, v_mta, jsonb_build_object('datum', '2033-05-10', 'is_locked', false, 'konto_id', v_k1));
+  v_za_zu := (pg_temp.s112_beispiel('zahlungen', v_m, v_mta,
+                jsonb_build_object('datum', '2033-03-10', 'verkaufsposten_id', v_vp, 'konto_id', v_k1)) ->> 'id')::uuid;
+  v_za_of := pg_temp.s112_beispiel('zahlungen', v_m, v_mta, jsonb_build_object('datum', '2033-05-10', 'verkaufsposten_id', v_vp, 'konto_id', v_k1));
+  v_ub_zu := (pg_temp.s112_beispiel('konto_umbuchungen', v_m, v_mta,
+                jsonb_build_object('datum', '2033-03-10', 'von_konto_id', v_k1, 'nach_konto_id', v_k2)) ->> 'id')::uuid;
+  v_ub_of := pg_temp.s112_beispiel('konto_umbuchungen', v_m, v_mta,
+               jsonb_build_object('datum', '2033-05-10', 'von_konto_id', v_k1, 'nach_konto_id', v_k2));
+  v_uva_d3_o := (pg_temp.s112_zeile('ea_uva', v_m, '{"jahr": "2033", "zeitraum": "03", "gesperrt": "false"}') ->> 'id')::uuid;
+  v_beleg := (pg_temp.s112_zeile('ea_belege', v_m, jsonb_build_object('status', 'verbucht', 'dateiname', 'S112TEST D3 Beleg.pdf',
+                'storage_pfad', v_m::text || '/s112test/d3-beleg.pdf', 'ea_transaktion_id', v_tx_zu)) ->> 'id')::uuid;
+  PERFORM set_config('s112.loeschen_erlaubt', v_m::text, true);
+  v_tx_gesp := (pg_temp.s112_beispiel('ea_transaktionen', v_m, v_mta,
+                  jsonb_build_object('datum', '2033-03-12', 'is_locked', true, 'konto_id', v_k1)) ->> 'id')::uuid;
+  v_uva_d3_g := (pg_temp.s112_zeile('ea_uva', v_m, '{"jahr": "2033", "zeitraum": "Q4", "gesperrt": "true"}') ->> 'id')::uuid;
+  PERFORM set_config('s112.loeschen_erlaubt', '', true);
+  v_ma_d3 := (pg_temp.s112_zeile('ea_monatsabschluss', v_m, '{"jahr": "2033", "monat": "3"}') ->> 'id')::uuid;
 
   -- abgeschlossener Jahrgang (eigener, nächstes freies Jahr), stornierter Verkaufsposten
   v_jg_abg := (pg_temp.s112_zeile('weinjahrgaenge', v_m, '{"abgeschlossen": "true"}') ->> 'id')::uuid;
@@ -241,6 +315,15 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('beleg_behaelter_belegt', v_beh_bel IS NOT NULL, true);
   v_erg := v_erg || pg_temp.s112_erwarte('beleg_2031_offen',
     (SELECT count(*) FROM public.ea_monatsabschluss WHERE tenant_id = v_m AND jahr = 2031), 0::bigint);
+  v_erg := v_erg || pg_temp.s112_erwarte('beleg_d3_zeilen',
+    concat_ws('|', (SELECT count(*) FROM public.ea_monatsabschluss WHERE tenant_id = v_m AND jahr = 2033),
+                   (SELECT count(*) FROM public.ea_transaktionen WHERE id = v_tx_gesp AND is_locked),
+                   (SELECT count(*) FROM public.ea_uva WHERE id = v_uva_d3_g AND gesperrt),
+                   (SELECT count(*) FROM public.ea_uva WHERE id = v_uva_d3_o AND NOT gesperrt),
+                   (SELECT count(*) FROM public.ea_belege WHERE id = v_beleg AND status = 'verbucht'),
+                   (v_tx_zu IS NOT NULL AND v_za_zu IS NOT NULL AND v_ub_zu IS NOT NULL AND v_tx_of IS NOT NULL
+                    AND v_za_of IS NOT NULL AND v_ub_of IS NOT NULL AND v_vpos IS NOT NULL AND v_vp_leer IS NOT NULL)),
+    '1|1|1|1|1|t');
 
   -- ── Mutationen (nur im Mutationsmodus; nach dem Aufbau, vor den Prüfungen) ──────────────────────────
   PERFORM pg_temp.s112_mutiere('is_locked_offen',
@@ -273,6 +356,8 @@ BEGIN
        'WHEN ''ama_meldepositionen'' THEN', 'WHEN ''s112test_nie'' THEN')$m$);
   PERFORM pg_temp.s112_mutiere('freigaben_schreibbar',
     $m$CREATE POLICY s112test_freigaben_offen ON public.keller_freigaben FOR ALL TO authenticated USING (true) WITH CHECK (true)$m$);
+  PERFORM pg_temp.s112_mutiere('periodensperre_weg', $m$DROP TRIGGER a_ea_periodensperre ON public.ea_transaktionen$m$);
+  PERFORM pg_temp.s112_mutiere('abschluss_schutz_weg', $m$DROP TRIGGER a_ea_abschluss_schutz ON public.ea_monatsabschluss$m$);
 
   -- ── 1. E&A-Sperren ────────────────────────────────────────────────────────────────────────────────────
   PERFORM pg_temp.s112_als(v_mta);
@@ -359,23 +444,19 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('ama_pos_bestaetigt_existiert',
     (SELECT count(*) > 0 FROM public.ama_meldepositionen WHERE meldung_id = v_ama_best), true);
 
-  -- ── 3. Bekannte Lücken B7/B8: nur in der App gesperrt (Soll: verweigert) ─────────────────────────────
+  -- ── 3. Ehemals Lücke B7 (seit KAN-149 D3 in der Datenbank gesperrt) und bekannte Lücke B8 ─────────────
+  -- a_ea_periodensperre bzw. a_ea_abschluss_schutz lehnen ab (42501 → T), bevor RLS die Zeile prüft
   PERFORM pg_temp.s112_als(v_mw);
-  v_erg := v_erg || pg_temp.s112_luecke('luecke_ea_insert_abgeschlossener_monat',
-    pg_temp.s112_versuch(pg_temp.s112_klon_sql('ea_transaktionen', v_tx_mai_z, jsonb_build_object('datum', v_ma_datum))),
-    'R'::text, 'k1'::text, 'B7 E&A-Periode nur in der App gesperrt: Buchung in abgeschlossenen Monat einfügbar');
-  v_erg := v_erg || pg_temp.s112_luecke('luecke_ea_insert_is_locked',
-    pg_temp.s112_versuch(pg_temp.s112_klon_sql('ea_transaktionen', v_tx_mai_z, '{"is_locked": true}'::jsonb)),
-    'R'::text, 'k1'::text, 'B7 E&A: Buchung gleich mit is_locked = true einfügbar');
-  v_erg := v_erg || pg_temp.s112_luecke('luecke_ea_datum_in_abgeschlossenen_monat',
-    pg_temp.s112_versuch(format('UPDATE public.ea_transaktionen SET datum = %L::date WHERE id = %L', v_ma_datum, v_tx_mai)),
-    'R'::text, 'k1'::text, 'B7 E&A: offene Buchung per Datum in abgeschlossenen Monat verschiebbar');
-  v_erg := v_erg || pg_temp.s112_luecke('luecke_ea_uva_entsperren',
-    pg_temp.s112_versuch(format('UPDATE public.ea_uva SET gesperrt = false WHERE id = %L', v_uva_gesp)),
-    'k0'::text, 'k1'::text, 'B7 E&A: gesperrte UVA per UPDATE entsperrbar (winzer)');
-  v_erg := v_erg || pg_temp.s112_luecke('luecke_ea_uva_loeschen',
-    pg_temp.s112_versuch(format('DELETE FROM public.ea_uva WHERE id = %L', v_uva_gesp)),
-    'k0'::text, 'k1'::text, 'B7 E&A: gesperrte UVA löschbar (winzer)');
+  v_erg := v_erg || pg_temp.s112_erwarte('ea_insert_abgeschlossener_monat',
+    pg_temp.s112_versuch(pg_temp.s112_klon_sql('ea_transaktionen', v_tx_mai_z, jsonb_build_object('datum', v_ma_datum))), 'T');
+  v_erg := v_erg || pg_temp.s112_erwarte('ea_insert_is_locked',
+    pg_temp.s112_versuch(pg_temp.s112_klon_sql('ea_transaktionen', v_tx_mai_z, '{"is_locked": true}'::jsonb)), 'T');
+  v_erg := v_erg || pg_temp.s112_erwarte('ea_datum_in_abgeschlossenen_monat',
+    pg_temp.s112_versuch(format('UPDATE public.ea_transaktionen SET datum = %L::date WHERE id = %L', v_ma_datum, v_tx_mai)), 'T');
+  v_erg := v_erg || pg_temp.s112_erwarte('ea_uva_entsperren',
+    pg_temp.s112_versuch(format('UPDATE public.ea_uva SET gesperrt = false WHERE id = %L', v_uva_gesp)), 'T');
+  v_erg := v_erg || pg_temp.s112_erwarte('ea_uva_loeschen',
+    pg_temp.s112_versuch(format('DELETE FROM public.ea_uva WHERE id = %L', v_uva_gesp)), 'T');
   v_erg := v_erg || pg_temp.s112_luecke('luecke_jahrgang_abgeschlossen_update',
     pg_temp.s112_versuch(format('UPDATE public.weinjahrgaenge SET abgeschlossen = false WHERE id = %L', v_jg_abg)),
     'k0'::text, 'k1'::text, 'B8 abgeschlossener Jahrgang änderbar (winzer)');
@@ -383,13 +464,159 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('storno_rueckgaengig',
     pg_temp.s112_versuch(format('UPDATE public.verkaufsposten SET storniert = false WHERE id = %L', v_vp_storno)), 'T');
   PERFORM pg_temp.s112_als(v_mta);
-  v_erg := v_erg || pg_temp.s112_luecke('luecke_monatsabschluss_loeschen',
-    pg_temp.s112_versuch(format('DELETE FROM public.ea_monatsabschluss WHERE id = %L', v_ma)),
-    'k0'::text, 'k1'::text, 'B7 E&A: Monatsabschluss löschbar (tenant_admin öffnet den Monat wieder)');
+  v_erg := v_erg || pg_temp.s112_erwarte('monatsabschluss_loeschen',
+    pg_temp.s112_versuch(format('DELETE FROM public.ea_monatsabschluss WHERE id = %L', v_ma)), 'T');
   -- B8 behoben (KAN-148 C2, Trigger a_ama_schutz): bestätigte AMA-Meldung nicht löschbar, auch nicht als tenant_admin
   v_erg := v_erg || pg_temp.s112_erwarte('ama_bestaetigt_loeschen',
     pg_temp.s112_versuch(format('DELETE FROM public.ama_erntemeldungen WHERE id = %L', v_ama_best)), 'T');
   PERFORM pg_temp.s112_als_postgres();
+
+  -- ── 3b. KAN-149 D3: Periodensperre, Abschluss, Löschsperre, Konten, Verkaufsstorno ───────────────────
+  -- Einfügen, Ändern und Datum-Verschieben in den abgeschlossenen Monat 2033/03 (m_ta); Gegenprobe im offenen 2033/05
+  PERFORM pg_temp.s112_als(v_mta);
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_insert_abgeschlossen:ea_transaktionen',
+    pg_temp.s112_versuch(pg_temp.s112_klon_sql('ea_transaktionen', v_tx_of, '{"datum": "2033-03-20"}'::jsonb)), 'T');
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_insert_abgeschlossen:zahlungen',
+    pg_temp.s112_versuch(pg_temp.s112_klon_sql('zahlungen', v_za_of, '{"datum": "2033-03-20"}'::jsonb)), 'T');
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_insert_abgeschlossen:konto_umbuchungen',
+    pg_temp.s112_versuch(pg_temp.s112_klon_sql('konto_umbuchungen', v_ub_of, '{"datum": "2033-03-20"}'::jsonb)), 'T');
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_insert_offen:ea_transaktionen',
+    pg_temp.s112_versuch(pg_temp.s112_klon_sql('ea_transaktionen', v_tx_of, '{"datum": "2033-05-20"}'::jsonb)), 'k1');
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_insert_offen:zahlungen',
+    pg_temp.s112_versuch(pg_temp.s112_klon_sql('zahlungen', v_za_of, '{"datum": "2033-05-20"}'::jsonb)), 'k1');
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_insert_offen:konto_umbuchungen',
+    pg_temp.s112_versuch(pg_temp.s112_klon_sql('konto_umbuchungen', v_ub_of, '{"datum": "2033-05-20"}'::jsonb)), 'k1');
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_insert_is_locked:ea_transaktionen',
+    pg_temp.s112_versuch(pg_temp.s112_klon_sql('ea_transaktionen', v_tx_of, '{"is_locked": true}'::jsonb)), 'T');
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_update_abgeschlossen:ea_transaktionen',
+    pg_temp.s112_versuch(format('UPDATE public.ea_transaktionen SET beschreibung = coalesce(beschreibung, '''') || '' D3'' WHERE id = %L', v_tx_zu)), 'T');
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_update_abgeschlossen:zahlungen',
+    pg_temp.s112_versuch(format('UPDATE public.zahlungen SET betrag = betrag + 1 WHERE id = %L', v_za_zu)), 'T');
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_datum_in_abgeschlossen:ea_transaktionen',
+    pg_temp.s112_versuch(format('UPDATE public.ea_transaktionen SET datum = %L::date WHERE id = %L', '2033-03-20', v_tx_of ->> 'id')), 'T');
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_datum_in_abgeschlossen:zahlungen',
+    pg_temp.s112_versuch(format('UPDATE public.zahlungen SET datum = %L::date WHERE id = %L', '2033-03-20', v_za_of ->> 'id')), 'T');
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_update_offen:ea_transaktionen',
+    pg_temp.s112_versuch(format('UPDATE public.ea_transaktionen SET beschreibung = coalesce(beschreibung, '''') || '' D3'' WHERE id = %L', v_tx_of ->> 'id')), 'k1');
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_update_offen:zahlungen',
+    pg_temp.s112_versuch(format('UPDATE public.zahlungen SET betrag = betrag + 1 WHERE id = %L', v_za_of ->> 'id')), 'k1');
+  -- Winzer ebenso
+  PERFORM pg_temp.s112_als(v_mw);
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_insert_abgeschlossen_winzer:zahlungen',
+    pg_temp.s112_versuch(pg_temp.s112_klon_sql('zahlungen', v_za_of, '{"datum": "2033-03-20"}'::jsonb)), 'T');
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_update_abgeschlossen_winzer:ea_transaktionen',
+    pg_temp.s112_versuch(format('UPDATE public.ea_transaktionen SET beschreibung = coalesce(beschreibung, '''') || '' D3'' WHERE id = %L', v_tx_zu)), 'T');
+  PERFORM pg_temp.s112_als_postgres();
+  -- konto_umbuchungen hat keine UPDATE-Policy (k0 für alle Benutzer) – die Periodensperre gilt auch für postgres
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_update_abgeschlossen_postgres:konto_umbuchungen',
+    pg_temp.s112_versuch(format('UPDATE public.konto_umbuchungen SET betrag = betrag + 1 WHERE id = %L', v_ub_zu)), 'T');
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_update_abgeschlossen_postgres:ea_transaktionen',
+    pg_temp.s112_versuch(format('UPDATE public.ea_transaktionen SET betrag_netto = betrag_netto + 1 WHERE id = %L', v_tx_zu)), 'T');
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_update_offen_postgres:konto_umbuchungen',
+    pg_temp.s112_versuch(format('UPDATE public.konto_umbuchungen SET betrag = betrag + 1 WHERE id = %L', v_ub_of ->> 'id')), 'k1');
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_entsperren_postgres:ea_transaktionen',
+    pg_temp.s112_versuch(format('UPDATE public.ea_transaktionen SET is_locked = false WHERE id = %L', v_tx_gesp)), 'T');
+
+  -- Abgleich und Storno einer gesperrten Buchung im abgeschlossenen Monat bleiben möglich (m_ta)
+  PERFORM pg_temp.s112_als(v_mta);
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_abgleich_gesperrt',
+    pg_temp.s112_fehlertext(format('SELECT public.setze_kontobewegung_abgeglichen(%L::uuid, %L, %L::uuid, true)', v_m, 'ea_transaktion', v_tx_gesp))
+      || '/' || pg_temp.s112_fehlertext(format('SELECT public.setze_kontobewegung_abgeglichen(%L::uuid, %L, %L::uuid, true)', v_m, 'zahlung', v_za_zu))
+      || '/' || pg_temp.s112_fehlertext(format('SELECT public.setze_kontobewegung_abgeglichen(%L::uuid, %L, %L::uuid, true)', v_m, 'umbuchung_von', v_ub_zu)),
+    'ok/ok/ok');
+  v_txt := pg_temp.s112_fehlertext(format('SELECT public.s112_ea_stornieren(%L::uuid, %L::uuid, %L, %L::date)',
+                                          v_m, v_tx_of ->> 'id', 'S112TEST Storno D3 ins Abgeschlossene', '2033-03-25'));
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_storno_datum_abgeschlossen', pg_temp.t20_muster(v_txt, '42501:%', '42501'), '42501');
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_storno_gesperrt',
+    pg_temp.s112_fehlertext(format('SELECT public.s112_ea_stornieren(%L::uuid, %L::uuid, %L, %L::date)',
+                                   v_m, v_tx_gesp, 'S112TEST Storno D3 gesperrt', '2033-05-25')), 'ok');
+  PERFORM pg_temp.s112_als_postgres();
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_abgleich_wirkung',
+    concat_ws('|', (SELECT abgeglichen FROM public.ea_transaktionen WHERE id = v_tx_gesp),
+                   (SELECT abgeglichen FROM public.zahlungen WHERE id = v_za_zu),
+                   (SELECT von_abgeglichen FROM public.konto_umbuchungen WHERE id = v_ub_zu)), 't|t|t');
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_storno_wirkung',
+    concat_ws('|', (SELECT storniert_am IS NOT NULL AND is_locked FROM public.ea_transaktionen WHERE id = v_tx_gesp),
+                   (SELECT count(*) FROM public.ea_transaktionen WHERE storno_von_id = v_tx_gesp AND datum = DATE '2033-05-25' AND NOT is_locked)),
+    't|1');
+
+  -- Abschluss: gesperrte UVA, Monatsabschluss, verbuchter Beleg unveränderlich; UVA nur über sperre_ea_uva sperren
+  PERFORM pg_temp.s112_als(v_mta);
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_uva_gesperrt_aendern',
+    pg_temp.s112_versuch(format('UPDATE public.ea_uva SET notizen = %L WHERE id = %L', 'S112TEST D3', v_uva_d3_g)), 'T');
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_uva_gesperrt_loeschen',
+    pg_temp.s112_versuch(format('DELETE FROM public.ea_uva WHERE id = %L', v_uva_d3_g)), 'T');
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_uva_direkt_sperren',
+    pg_temp.s112_versuch(format('UPDATE public.ea_uva SET gesperrt = true WHERE id = %L', v_uva_d3_o)), 'T');
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_uva_gesperrt_anlegen',
+    pg_temp.s112_versuch(format('INSERT INTO public.ea_uva (tenant_id, jahr, zeitraum, gesperrt) VALUES (%L, 2033, %L, true)', v_m, 'Q3')), 'T');
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_uva_offen_aendern',
+    pg_temp.s112_versuch(format('UPDATE public.ea_uva SET notizen = %L WHERE id = %L', 'S112TEST D3', v_uva_d3_o)), 'k1');
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_monatsabschluss_aendern',
+    pg_temp.s112_versuch(format('UPDATE public.ea_monatsabschluss SET monat = 4 WHERE id = %L', v_ma_d3)), 'T');
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_monatsabschluss_loeschen',
+    pg_temp.s112_versuch(format('DELETE FROM public.ea_monatsabschluss WHERE id = %L', v_ma_d3)), 'T');
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_beleg_verbucht_aendern',
+    pg_temp.s112_versuch(format('UPDATE public.ea_belege SET dateiname = dateiname || %L WHERE id = %L', ' x', v_beleg)), 'T');
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_beleg_verbucht_loeschen',
+    pg_temp.s112_versuch(format('DELETE FROM public.ea_belege WHERE id = %L', v_beleg)), 'T');
+
+  -- Konten: mit Bewegungen nicht löschbar, leeres Konto schon
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_konto_mit_buchungen_loeschen',
+    pg_temp.s112_versuch(format('DELETE FROM public.konten WHERE id = %L', v_k2)), 'T');
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_konto_leer_loeschen',
+    pg_temp.s112_versuch(format('DELETE FROM public.konten WHERE id = %L', v_k_leer)), 'k1');
+
+  -- Verkaufsstorno: Grund Pflicht (mindestens 10 Zeichen)
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_verkauf_storno_ohne_grund',
+    pg_temp.s112_versuch(format('UPDATE public.verkaufsposten SET storniert = true WHERE id = %L', v_vp_leer ->> 'id')), 'E23514');
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_verkauf_storno_kurzer_grund',
+    pg_temp.s112_versuch(format('UPDATE public.verkaufsposten SET storniert = true, storno_grund = %L WHERE id = %L', 'zu kurz', v_vp_leer ->> 'id')), 'E23514');
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_verkauf_storno_mit_grund',
+    pg_temp.s112_versuch(format('UPDATE public.verkaufsposten SET storniert = true, storno_grund = %L WHERE id = %L',
+                                'S112TEST Storno-Grund D3', v_vp_leer ->> 'id')), 'k1');
+
+  -- Löschsperre: DELETE auf den fünf Tabellen (offener Monat) als m_ta und m_w → k0, Policy-Schicht 'nein'
+  FOREACH v_txt IN ARRAY ARRAY['m_ta', 'm_w'] LOOP
+    PERFORM pg_temp.s112_als(CASE v_txt WHEN 'm_ta' THEN v_mta ELSE v_mw END);
+    FOR v_tab, v_zd3 IN SELECT x.t, x.z FROM (VALUES ('ea_transaktionen', v_tx_of), ('zahlungen', v_za_of),
+                                                     ('konto_umbuchungen', v_ub_of), ('verkaufsposten', v_vp_leer),
+                                                     ('verkauf_positionen', v_vpos)) x (t, z) LOOP
+      v_erg := v_erg || pg_temp.s112_erwarte('d3_delete_' || v_txt || ':' || v_tab,
+        pg_temp.s112_versuch(format('DELETE FROM public.%I WHERE %s', v_tab, pg_temp.s112_pk_where(v_tab, v_zd3)))
+          || '/' || pg_temp.s112_policy(v_tab, 'DELETE', v_zd3), 'k0/nein');
+    END LOOP;
+  END LOOP;
+  PERFORM pg_temp.s112_als_postgres();
+  -- als postgres ohne Flag: Löschsperre (T); mit s112.loeschen_erlaubt = Musterhof (Wartung): gelöscht (k1, sofort
+  -- zurückgerollt); im abgeschlossenen Monat antwortet zuerst die Periodensperre; ein fremdes Flag gibt nichts frei
+  FOR v_tab, v_zd3 IN SELECT x.t, x.z FROM (VALUES ('ea_transaktionen', v_tx_of), ('zahlungen', v_za_of),
+                                                   ('konto_umbuchungen', v_ub_of), ('verkaufsposten', v_vp_leer),
+                                                   ('verkauf_positionen', v_vpos)) x (t, z) LOOP
+    v_t1 := pg_temp.s112_versuch(format('DELETE FROM public.%I WHERE %s', v_tab, pg_temp.s112_pk_where(v_tab, v_zd3)));
+    PERFORM set_config('s112.loeschen_erlaubt', v_m::text, true);
+    v_t2 := pg_temp.s112_versuch(format('DELETE FROM public.%I WHERE %s', v_tab, pg_temp.s112_pk_where(v_tab, v_zd3)));
+    PERFORM set_config('s112.loeschen_erlaubt', '', true);
+    v_erg := v_erg || pg_temp.s112_erwarte('d3_delete_postgres:' || v_tab, v_t1 || '/' || v_t2, 'T/k1');
+  END LOOP;
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_delete_postgres_abgeschlossen:ea_transaktionen',
+    pg_temp.t20_muster(pg_temp.t20_probe(format('DELETE FROM public.ea_transaktionen WHERE id = %L', v_tx_zu)),
+                       '42501: %abgeschlossen%', '42501 abgeschlossen'), '42501 abgeschlossen');
+  PERFORM set_config('s112.loeschen_erlaubt', v_b::text, true);
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_delete_postgres_fremdes_flag',
+    pg_temp.s112_versuch(format('DELETE FROM public.zahlungen WHERE id = %L', v_za_of ->> 'id')), 'T');
+  PERFORM set_config('s112.loeschen_erlaubt', '', true);
+
+  -- UVA sperren über sperre_ea_uva (m_ta; Monat 2033/03 abgeschlossen) – zum Schluss, sperrt auch die Buchungen 2033/03
+  PERFORM pg_temp.s112_als(v_mta);
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_uva_sperren_rpc',
+    pg_temp.s112_fehlertext(format('SELECT public.sperre_ea_uva(%L::uuid, 2033::smallint, %L)', v_m, '03')), 'ok');
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_uva_sperren_flag_zurueck',
+    coalesce(nullif(current_setting('s112.ea_sperre', true), ''), 'leer'), 'leer');
+  PERFORM pg_temp.s112_als_postgres();
+  v_erg := v_erg || pg_temp.s112_erwarte('d3_uva_sperren_wirkung',
+    concat_ws('|', (SELECT gesperrt FROM public.ea_uva WHERE id = v_uva_d3_o),
+                   (SELECT is_locked FROM public.ea_transaktionen WHERE id = v_tx_zu)), 't|t');
 
   -- ── 4. Bestandsprotokoll ──────────────────────────────────────────────────────────────────────────────
   v_arr := pg_temp.t20_tgargs('weinausbau');
@@ -605,6 +832,6 @@ BEGIN
     v_erg := v_erg || pg_temp.s112_erwarte('truncate_zeilen:' || r.tab, v_n2, v_n);
   END LOOP;
 
-  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 94);
+  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 140);
 END
 $test$;

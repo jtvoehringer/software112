@@ -217,7 +217,7 @@ Titel immer mit der Lücken-ID beginnen (der Runner dedupliziert über den Titel
 | B4 | inaktives Mitglied sieht die `tenants`-Zeile (der Teil `get_behandlungen_fuer_grundstuecke` ist behoben: Funktion entfernt, KAN-127, 30.09.2026) |
 | B5 | NULL-Falle: aktiv in B, inaktiv im Musterhof → 0 statt der globalen `ea_kategorien` |
 | B6 | `ki_readonly_query` liest bei zwei Betrieben Kontakte des anderen |
-| B7 | E&A-Perioden nur in der App gesperrt (Insert in abgeschlossenen Monat, `is_locked`, Datum verschieben, UVA entsperren/löschen, Monatsabschluss löschen) |
+| ~~B7~~ | behoben (KAN-149 D3, 01.10.2026): Periodensperre (`a_ea_periodensperre`), unveränderlicher Abschluss (`a_ea_abschluss_schutz`: Monatsabschluss, gesperrte UVA, verbuchte Belege) und Löschsperre für Verkauf/E-A in der Datenbank – 20 |
 | B8 | abgeschlossener Jahrgang änderbar, Storno rückgängig, bestätigte AMA-Meldung löschbar |
 | ~~B9~~ | behoben (KAN-159): schreibende RPCs prüfen das Schreibmodul (`s112_pruefe_schreibmodul`); `is_locked` beim Kontenabgleich bewusst offen – 18 |
 | B10 | anon/PUBLIC-EXECUTE auf Funktionen entgegen der REVOKE-Regel (keine SECURITY DEFINER) – 01, 18 |
