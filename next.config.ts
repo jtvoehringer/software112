@@ -18,6 +18,7 @@ const CSP = [
   "form-action 'self' https://login.microsoftonline.com https://checkout.stripe.com",
   "base-uri 'self'",
   "manifest-src 'self'",   // KAN-179: App-Manifest (PWA)
+  "worker-src 'self'",     // KAN-180: Service Worker (public/sw.js)
   "object-src 'none'",
   'report-uri /api/csp-bericht',
 ].join('; ')
@@ -45,7 +46,14 @@ const nextConfig: NextConfig = {
   // funktioniert) – offizielle Empfehlung von react-pdf.org/compatibility.
   serverExternalPackages: ['@react-pdf/renderer'],
   async headers() {
-    return [{ source: '/:path*', headers: SICHERHEITS_HEADER }]
+    return [
+      { source: '/:path*', headers: SICHERHEITS_HEADER },
+      // KAN-180: Service Worker nie aus einem HTTP-Cache – sonst kämen neue Versionen verspätet an
+      { source: '/sw.js', headers: [
+        { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
+        { key: 'Service-Worker-Allowed', value: '/' },
+      ] },
+    ]
   },
   // Router-Cache (17.9.2026): dynamische Seiten nie aus dem Client-Cache
   // wiederverwenden, vorab geladene statische Teile höchstens 30 s - zusammen

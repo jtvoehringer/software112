@@ -17,6 +17,7 @@ import '@fontsource/ibm-plex-sans/latin-600.css'
 import '@fontsource/ibm-plex-mono/latin-400.css'
 import '@fontsource/ibm-plex-mono/latin-500.css'
 import './globals.css'
+import ServiceWorker from '@/components/pwa/ServiceWorker'
 
 export const metadata: Metadata = {
   title: {
@@ -54,7 +55,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="de">
-      <body>{children}</body>
+      <body>
+        {children}
+        {/* KAN-180: Service Worker (Offline-Seite, Hinweis auf neue Version) – nur Produktion */}
+        <ServiceWorker />
+      </body>
     </html>
   )
 }
