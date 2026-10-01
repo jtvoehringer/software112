@@ -35,11 +35,7 @@ const ALTFAELLE = {
   // C Lese/AMA (nach KAN-129)
   'src/app/(dashboard)/erntemeldung/actions.ts': ['ernte_parzellen', 'ama_meldepositionen', 'pressung_behaelter', 'pressung_weingaerten', 'pressungen', 'weinausbau', 'weinjahrgaenge', 'traubenverkauf', 'ama_erntemeldungen'],
   'src/app/(dashboard)/weinhandel/traubenverkauf/actions.ts': ['traubenverkauf'],
-  'src/lib/verkauf/bestand.ts': ['traubenverkauf', 'ea_transaktionen'],
-  // D Verkauf/E/A
-  'src/app/(dashboard)/weinhandel/verkauf/actions.ts': ['zahlungen', 'verkauf_positionen'],
-  'src/app/(dashboard)/konten/actions.ts': ['konto_umbuchungen'],
-  'src/lib/ea/verkaufEinnahmen.ts': ['ea_transaktionen'],
+  // D Verkauf/E/A: abgebaut (KAN-149 D1–D3, 01.10.2026)
   // G Aufräumen: Wartungs- und Cleanup-Skripte (künftig mit s112.loeschen_erlaubt)
   'sql/cleanup_gebeshuber_kompletter_reset.sql': ['*'],
   'sql/cleanup_testdaten_2026-08-05.sql': ['*'],
