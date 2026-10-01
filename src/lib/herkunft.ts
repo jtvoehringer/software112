@@ -20,7 +20,7 @@
 // aus den genannten Sorten erlaubt, ist der passende Sortenverschnitt (SW weiß, SO rot) zugelassen – dessen
 // Zusammensetzung prüft die Software nicht.
 
-import { bkiRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
+import { bkiRebsorteKuerzel, HERKUNFT_BKI } from '@/lib/wein/bki_kuerzel'
 
 export type HerkunftEbene = 'oesterreich' | 'landwein' | 'qualitaetswein' | 'dac_gebiet' | 'dac_ort' | 'dac_ried'
 
@@ -161,6 +161,58 @@ export function herkunftKnoten(code: string | null | undefined): HerkunftKnoten 
 /** Weinbaugebiet (bzw. Region) eines Codes, z. B. „Kremstal“ – null außerhalb des Katalogs. */
 export function herkunftGebiet(code: string | null | undefined): string | null {
   return herkunftKnoten(code)?.gebiet ?? null
+}
+
+function gebietSchluessel(s: string): string {
+  return s.normalize('NFC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('de')
+}
+let breitesterJeKuerzel: Map<string, HerkunftKnoten> | null = null
+let breitesterJeGebiet: Map<string, HerkunftKnoten> | null = null
+
+/**
+ * Wie herkunftKnoten, aber auch für Werte außerhalb des Katalogs, die ein Gebiet eindeutig nennen (KAN-165):
+ * ein BKI-Herkunftskürzel („WLTH“, z. B. als eigenes Weinbaugebiet angelegt) oder der Name eines Gebiets
+ * („Kremstal“, Freitext an Ried bzw. Lage) → die breiteste Stufe dieses Gebiets (Gebietswein bzw. DAC).
+ */
+export function herkunftKnotenTolerant(wert: string | null | undefined): HerkunftKnoten | undefined {
+  const roh = typeof wert === 'string' ? wert.trim() : ''
+  if (!roh) return undefined
+  const direkt = KNOTEN.get(roh)
+  if (direkt) return direkt
+  if (!breitesterJeKuerzel || !breitesterJeGebiet) {
+    breitesterJeKuerzel = new Map()
+    breitesterJeGebiet = new Map()
+    for (const n of HERKUNFT_KATALOG) {   // Katalog-Reihenfolge: je Ast zuerst die breiteste Stufe
+      if (!breitesterJeKuerzel.has(n.bki)) breitesterJeKuerzel.set(n.bki, n)
+      const g = gebietSchluessel(n.gebiet)
+      if (!breitesterJeGebiet.has(g)) breitesterJeGebiet.set(g, n)
+    }
+    // Bezeichnungen der BKI-Kürzelliste („Österreich“, „Niederösterreich“) zusätzlich über das Kürzel
+    for (const [name, kuerzel] of Object.entries(HERKUNFT_BKI)) {
+      const n = breitesterJeKuerzel.get(kuerzel)
+      if (n && !breitesterJeGebiet.has(gebietSchluessel(name))) breitesterJeGebiet.set(gebietSchluessel(name), n)
+    }
+  }
+  return breitesterJeKuerzel.get(roh.toUpperCase()) ?? breitesterJeGebiet.get(gebietSchluessel(roh))
+}
+
+/**
+ * Bundesland-Gebiet einer Herkunft (KAN-165, Entscheidung Jörgen 01.10.2026): Niederösterreich, Burgenland, Wien,
+ * Steiermark bzw. das Bergland-Bundesland – die Qualitätswein-Stufe des Asts. Geografisch immer richtig, auch wenn
+ * der Code abgestuft ist (ein Grüner Veltliner der Thermenregion steht auf „wlnoe“). Gliederung der Erntemeldung.
+ * null bei Österreich bzw. Landwein (mehrere Bundesländer) und bei Werten außerhalb des Katalogs.
+ */
+export function herkunftBundesland(wert: string | null | undefined): string | null {
+  for (const c of herkunftKette(herkunftKnotenTolerant(wert)?.code)) {
+    const n = KNOTEN.get(c)
+    if (n?.ebene === 'qualitaetswein') return n.gebiet
+  }
+  return null
+}
+
+/** Genauestes Gebiet einer Herkunft (z. B. „Kremstal“, „Thermenregion“, „Niederösterreich“) – auch tolerant. */
+export function herkunftGebietTolerant(wert: string | null | undefined): string | null {
+  return herkunftKnotenTolerant(wert)?.gebiet ?? null
 }
 
 /** Auswahlgruppen für Formulare: Österreich, dann je Weinbauregion. */

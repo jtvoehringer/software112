@@ -61,7 +61,10 @@ function LageKarte({
           <div>
             <span className="font-semibold text-s112-text">{lage.name}</span>
             {lage.gemeinde && <span className="ml-2 text-xs text-s112-muted">{lage.gemeinde}</span>}
-            {lage.weinbaugebiet && <span className="ml-2 text-xs text-s112-tertiary">{lage.weinbaugebiet}</span>}
+            {/* KAN-165: aus den Grundstücken abgeleitet, sonst der früher erfasste Freitext */}
+            {lage.gebieteAbgeleitet.length > 0
+              ? <span className="ml-2 text-xs text-s112-tertiary" title="aus dem Herkunft-Code (BKI) der Grundstücke">{lage.gebieteAbgeleitet.join(', ')}</span>
+              : lage.weinbaugebiet && <span className="ml-2 text-xs text-s112-tertiary" title="früher erfasst – Herkunft-Code der Grundstücke fehlt">{lage.weinbaugebiet}</span>}
           </div>
           <span className="text-xs text-s112-muted bg-white px-2 py-0.5 rounded-full border border-s112-border">
             {weingaerten.length} WG · {fmtHa(haTotal, 2)} ha

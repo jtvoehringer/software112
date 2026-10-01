@@ -28,7 +28,7 @@ export async function createLage(formData: FormData) {
     tenant_id:    tenantId,
     name:         formData.get('name') as string,
     gemeinde:     (formData.get('gemeinde') as string) || null,
-    weinbaugebiet:(formData.get('weinbaugebiet') as string) || null,
+    // KAN-165: kein weinbaugebiet mehr – es ergibt sich aus dem Herkunft-Code der Grundstücke (bestehende Werte bleiben)
     notizen:      (formData.get('notizen') as string) || null,
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -45,7 +45,7 @@ export async function updateLage(id: string, formData: FormData) {
   const payload: AR = {
     name,
     gemeinde:     (formData.get('gemeinde') as string) || null,
-    weinbaugebiet:(formData.get('weinbaugebiet') as string) || null,
+    // KAN-165: weinbaugebiet nicht mehr aus dem Formular (abgeleitet aus den Grundstücken, bestehende Werte bleiben)
     notizen:      (formData.get('notizen') as string) || null,
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

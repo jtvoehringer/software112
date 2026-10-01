@@ -46,6 +46,8 @@ const LOESCH_RPC_MIGRATIONEN = {
     'RPC s112_ama_meldung_speichern (KAN-148 C2): ersetzt nur die Positionen einer offenen (nicht eingereichten) Meldung; eingereichte Versionen schützt a_ama_position_schutz'],
   'supabase/migrations/20261001131300_kan150f2a_antraege_storno.sql': [['ernte_parzellen', 'weinausbau'],
     'Lösch-RPC s112_storniert_loeschen (KAN-150 F2a): nur stornierte Zeilen bzw. freigegebene Entwürfe, Kennzeichen s112.storno_loeschen, Grund im Protokoll'],
+  'supabase/migrations/20261001162909_kan165c_ama_position_weinbaugebiet.sql': [['ama_meldepositionen'],
+    'RPC s112_ama_meldung_speichern (KAN-165 C, Gebiet je Position): ersetzt nur die Positionen einer offenen (nicht eingereichten) Meldung; eingereichte Versionen schützt a_ama_position_schutz'],
   'supabase/migrations/20261001124303_kan150f1d_herkunft_charge.sql': [['weinausbau_weingaerten'],
     'RPC s112_herkunft_setzen (KAN-150 F1d): entfernt nur abgewählte Rieden einer nicht stornierten Charge, Kennzeichen s112.storno_loeschen, alte und neue Rieden samt Grund im Protokoll'],
   'supabase/migrations/20261001150355_kan167a_betriebsmittel.sql': [['ernte_parzellen', 'weinausbau'],

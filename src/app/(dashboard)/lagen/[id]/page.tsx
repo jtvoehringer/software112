@@ -47,11 +47,10 @@ export default async function EditLagePage({ params }: Props) {
             <input aria-label="Gemeinde" name="gemeinde" defaultValue={lage.gemeinde ?? ''}
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-s112-text-1 mb-1">Weinbaugebiet</label>
-            <input aria-label="Weinbaugebiet" name="weinbaugebiet" defaultValue={lage.weinbaugebiet ?? ''}
-              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
-          </div>
+          {/* KAN-165: das Weinbaugebiet ergibt sich aus dem Herkunft-Code (BKI) der Grundstücke – kein eigenes Feld mehr */}
+          <p className="text-xs text-s112-muted">
+            Das Weinbaugebiet ergibt sich aus dem Herkunft-Code (BKI) der Grundstücke der Rieden dieser Lage.
+          </p>
           <div>
             <label className="block text-sm font-medium text-s112-text-1 mb-1">Notizen</label>
             <textarea aria-label="Notizen" name="notizen" rows={3} defaultValue={lage.notizen ?? ''}

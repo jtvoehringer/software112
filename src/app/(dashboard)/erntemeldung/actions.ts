@@ -16,7 +16,7 @@ import { dezimal, fmtNum, zahlAus } from '@/lib/format'
 import { folgebuchungenDerCharge, folgebuchungenText, sperreBeiFolgebuchungen } from '@/lib/kellerbuch/folgebuchungen'
 import { GEBINDEWECHSEL_OHNE } from '@/lib/kellerbuch/storno'
 import { KORREKTUR_NACH_OBEN_HINWEIS } from '@/lib/kellerbuch/hinweise'
-import { aggregiereJeRebsorte, KG_JE_HL, ladeLesedaten, parzelleFuerMeldung, teileNachStichtag } from '@/lib/behoerden/erntemeldung'
+import { aggregiereJeRebsorte, KG_JE_HL, kopfGebiete, ladeLesedaten, parzelleFuerMeldung, teileNachStichtag } from '@/lib/behoerden/erntemeldung'
 import { runden, STELLEN } from '@/lib/csv'
 import { amaDatumFehler, amaStatusFehler, type AmaZielStatus } from '@/lib/behoerden/amaMeldung'
 import { mostgewichtAusFormular, mostgewichtAusWert, mostgewichtSpalten } from '@/lib/wein/mostgewichtFormular'
@@ -736,14 +736,6 @@ export async function createOrUpdateAMAMeldung(jahrgangId: string) {
   // Druck, CSV-Vorschau und die hier gespeicherte Meldung rechnen damit gleich.
   // KAN-129: nur Lesegut bis zum Stichtag 30.11. (späteres gesondert, wie ladeErntemeldung)
   const lese = teileNachStichtag((await ladeLesedaten(supabase, jahrgangId)).zeilen, Number(jgMeldung.jahrgang)).bis
-  // Weinbaugebiet steht nur am Ried – für die Meldung aus den geernteten Rieden ableiten
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: parzellen, error: pFehler } = await (supabase.from('ernte_parzellen') as any)
-    .select('id, weingarten:weingarten_id(weinbaugebiet)')
-    .eq('jahrgang_id', jahrgangId)
-    .is('storniert_am', null)
-  if (pFehler) throw new AktionsFehler(dbFehlerText(pFehler, 'Lesedaten konnten nicht geladen werden'))
-
   // Je Rebsorte wie Vorschau, Druck und CSV (lib/behoerden/erntemeldung.ts, aggregiereJeRebsorte)
   const summen = aggregiereJeRebsorte(lese.map(parzelleFuerMeldung))
   const gesamtKg = lese.reduce((s, p) => s + (p.mengeKg ?? 0), 0)
@@ -751,17 +743,15 @@ export async function createOrUpdateAMAMeldung(jahrgangId: string) {
   const hlJeSorte = (r: (typeof summen)[number]) => (r.hlGeschaetzt ? r.mengeKg / KG_JE_HL : r.mengeHl)
   const gesamtHl = runden(summen.reduce((s, r) => s + hlJeSorte(r), 0), STELLEN.hl)
 
-  // Betriebsnummer liegt auf tenant_einstellungen (nicht auf tenants); Weinbaugebiet gibt es
-  // nur auf Ried-/Grundstücksebene – aus den geernteten Rieden ableiten
+  // Betriebsnummer liegt auf tenant_einstellungen (nicht auf tenants). KAN-165: Weinbaugebiet je Position aus dem
+  // Herkunft-Code der Grundstücke (Bundesland-Gebiet, lib/behoerden/erntemeldung.ts gebietDerLese); der Kopf nennt
+  // alle Gebiete der Meldung (je Bundesland das genaue Gebiet, wenn eindeutig) – vorher still das erste
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: einst } = await (supabase.from('tenant_einstellungen') as any)
     .select('betrieb_betriebsnummer').eq('tenant_id', tenantId).maybeSingle()
-  const weinbaugebiete = [...new Set(
-    ((parzellen as AR[] ?? []).map(p => (p.weingarten as AR | null)?.weinbaugebiet).filter(Boolean))
-  )] as string[]
   const tenant = {
     betriebsnummer: (einst as AR | null)?.betrieb_betriebsnummer ?? null,
-    weinbaugebiet:  weinbaugebiete.length === 1 ? weinbaugebiete[0] : (weinbaugebiete[0] ?? null),
+    weinbaugebiet:  kopfGebiete(lese).join(', ') || null,
   }
 
   // KAN-148 C2 (30.09.2026): Kopf und Positionen in EINER Transaktion über s112_ama_meldung_speichern – bisher
@@ -778,6 +768,7 @@ export async function createOrUpdateAMAMeldung(jahrgangId: string) {
   // die gespeicherte Meldung dieselben Werte wie die Vorschau aus den Lesedaten.
   const positionen = summen.map(r => ({
     rebsorte_name:   r.rebsorte,
+    weinbaugebiet:   r.weinbaugebiet,
     flaeche_ha:      r.flaecheHa,
     menge_kg:        r.mengeKg,
     menge_hl:        r.hlGeschaetzt ? null : runden(r.mengeHl, STELLEN.hl),
