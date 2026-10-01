@@ -75,7 +75,8 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // KAN-179: manifest.webmanifest ohne Anmeldung abrufbar (sonst Umleitung auf den Login – App nicht installierbar)
-    '/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|api/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    // KAN-179: manifest.webmanifest ohne Anmeldung abrufbar (sonst Umleitung auf den Login – App nicht installierbar);
+    // KAN-180: ebenso der Service Worker (sw.js) und seine statische Offline-Seite (offline.html)
+    '/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|sw\\.js$|offline\\.html$|api/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }
