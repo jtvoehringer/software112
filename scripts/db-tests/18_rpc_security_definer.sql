@@ -197,7 +197,8 @@ DECLARE
                                    'setze_kontobewegung_abgeglichen', 's112_storniert_loeschen', 's112_buchung_loeschen',
                                    's112_schwund_minderung', 's112_pressung_stornieren', 's112_pressung_zeilen_stornieren', 's112_mostzeile_anlegen',
                                    's112_ama_korrektur_anlegen', 's112_ama_meldung_speichern', 's112_ama_status_setzen',
-                                   's112_fuellung_verkauf_buchen', 's112_ea_stornieren', 's112_zahlung_stornieren', 's112_umbuchung_stornieren'];
+                                   's112_fuellung_verkauf_buchen', 's112_ea_stornieren', 's112_zahlung_stornieren', 's112_umbuchung_stornieren',
+                                   's112_stammdaten_bezuege'];   -- KAN-150 F1a
   v_pl_m  uuid;
   v_pl_b  uuid;
   v_kb_m  uuid;
@@ -217,6 +218,8 @@ DECLARE
   v_x_m   uuid;   -- KAN-149 D2: E/A-Buchung, Zahlung, Umbuchung in M und B
   v_x_b   uuid;
   v_kb_b  uuid;
+  v_sd_m  uuid;   -- KAN-150 F1a: Ried in M und B
+  v_sd_b  uuid;
   v_f_m   uuid;
   v_f_b   uuid;
   v_w_m   uuid;
@@ -318,8 +321,8 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('rpc_liste_vollstaendig', v_n >= 30, true);   -- 30 seit KAN-127 (get_behandlungen_fuer_grundstuecke entfernt)
   SELECT count(*) INTO v_n FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace AND n.nspname = 'public'
    WHERE p.prosecdef AND 'p_tenant_id' = ANY (p.proargnames) AND p.prosrc ~ 'pruefe_tenant_zugriff\s*\(';
-  v_erg := v_erg || pg_temp.s112_erwarte('rpc_mit_pruefe_tenant_zugriff', v_n, 31);   -- +3 KAN-149 D2   -- +1 KAN-149 D1   -- +3 KAN-148 C2 (s112_ama_*)   -- +3 KAN-148 C1c-2   -- +s112_pressung_stornieren (KAN-148 C1c)   -- +s112_schwund_minderung (KAN-145 B4)   -- +s112_storniert_loeschen (KAN-145), s112_buchung_loeschen (KAN-166)
-  v_erg := v_erg || pg_temp.s112_erwarte('pruefe_liste_dynamisch', coalesce(array_length(v_namen, 1), 0), 30);   -- +3 KAN-149 D2   -- +1 KAN-149 D1   -- +3 KAN-148 C2
+  v_erg := v_erg || pg_temp.s112_erwarte('rpc_mit_pruefe_tenant_zugriff', v_n, 32);   -- +1 KAN-150 F1a (s112_stammdaten_bezuege)   -- +3 KAN-149 D2   -- +1 KAN-149 D1   -- +3 KAN-148 C2 (s112_ama_*)   -- +3 KAN-148 C1c-2   -- +s112_pressung_stornieren (KAN-148 C1c)   -- +s112_schwund_minderung (KAN-145 B4)   -- +s112_storniert_loeschen (KAN-145), s112_buchung_loeschen (KAN-166)
+  v_erg := v_erg || pg_temp.s112_erwarte('pruefe_liste_dynamisch', coalesce(array_length(v_namen, 1), 0), 31);   -- +1 KAN-150 F1a   -- +3 KAN-149 D2   -- +1 KAN-149 D1   -- +3 KAN-148 C2
   -- Soll-Einträge mit p_tenant_id, die es nicht (mehr) gibt
   SELECT string_agg(s.funktion, ', ') INTO v_txt FROM pg_temp.s112_soll_rpc() s
    WHERE s.funktion LIKE '%p_tenant_id %'
@@ -630,6 +633,17 @@ BEGIN
     ELSE
       v_erg := v_erg || pg_temp.s112_erwarte('idor_positiv_s112_buchung_loeschen', v_r, 'ok|0');
     END IF;
+  END LOOP;
+
+  -- s112_stammdaten_bezuege (KAN-150 F1a, lesend): Ried des Musterhofs mit p_tenant_id = B → P0002 (keine fremden
+  -- IDs abfragbar), eigenes Ried in B → ok
+  v_sd_m := (pg_temp.s112_beispiel('weingarten', v_m, v_mw) ->> 'id')::uuid;
+  v_sd_b := (pg_temp.s112_beispiel('weingarten', v_b, (v_a ->> 'b_w')::uuid) ->> 'id')::uuid;
+  FOREACH v_txt IN ARRAY ARRAY['m', 'b'] LOOP
+    v_sql := format('SELECT public.s112_stammdaten_bezuege(%L, %L, %L)', v_b, 'weingarten', CASE v_txt WHEN 'm' THEN v_sd_m ELSE v_sd_b END);
+    v_r := pg_temp.t18_idor(v_bta, v_sql, 'SELECT 1');
+    v_erg := v_erg || pg_temp.s112_erwarte(CASE v_txt WHEN 'm' THEN 'idor_s112_stammdaten_bezuege' ELSE 'idor_positiv_s112_stammdaten_bezuege' END,
+      v_r, CASE v_txt WHEN 'm' THEN 'P0002|1' ELSE 'ok|1' END);
   END LOOP;
 
   -- ── 4c. Modulprüfung in fuellung_bestand_buchen und schwund_buchen (eigener Betrieb B, ausgeführt) ─────

@@ -97,8 +97,9 @@ DECLARE
                                          'benachrichtigungen', 'user_email_connections'];
   -- Mindestabdeckung je Persona mit freiem Abo (Stand 29.09.2026 ausgezählt): lesen, ins (k1 oder E23xxx), upd, del
   -- del ohne die Tabellen mit Löschsperre: KAN-145 B4 71 → 65 bzw. 47 → 42, KAN-148 C1d → 59 bzw. 38 (30.09.2026),
-  -- KAN-149 D3 → 53 (b_ta: Löschsperre Verkauf/E-A auf 5 Tabellen, Monatsabschluss unveränderlich)
-  c_min_b_ta  constant int[] := ARRAY[93, 81, 76, 53];
+  -- KAN-149 D3 → 53 (b_ta: Löschsperre Verkauf/E-A auf 5 Tabellen, Monatsabschluss unveränderlich), KAN-150 F1a → 52
+  -- (Stammdaten-Löschsperre: eine Beispielzeile mit Bezug lässt sich nicht durch eine bezugsfreie ersetzen)
+  c_min_b_ta  constant int[] := ARRAY[93, 81, 76, 52];
   c_min_b_w   constant int[] := ARRAY[91, 77, 71, 38];
   -- md5 der Sandbox-ID (SANDBOX_TENANT_ID in src/lib/abo/regeln.ts) – die ID selbst darf hier nicht stehen.
   c_sandbox_md5 constant text := 'c925cef2213a9938ec2714439901a74e';
@@ -187,6 +188,14 @@ BEGIN
     EXCEPTION WHEN OTHERS THEN
       v_erg := v_erg || pg_temp.s112_fehler('beispiel:' || r.tabelle, SQLSTATE || ' ' || SQLERRM);
     END;
+  END LOOP;
+  -- KAN-150 F1a: spätere Beispielzeilen verweisen auf frühere Stammdaten (z. B. Maßnahme → Ried) – mit Bezug greift
+  -- die Löschsperre (T) vor der Abo-Policy. Solche Stammdaten-Zeilen durch eine frische Zeile ohne Bezug ersetzen.
+  FOR r IN SELECT e.key AS tab FROM jsonb_each(v_zeilen) e
+            WHERE e.key = ANY (pg_temp.s112_soll_liste('stammdaten_loeschsperre'))
+              AND public.s112_stammdaten_bezuege_intern(e.key, (e.value #>> '{z,id}')::uuid) <> '{}'::jsonb ORDER BY 1 LOOP
+    v_zeile := pg_temp.s112_beispiel(r.tab, v_b, v_bw);
+    v_zeilen := v_zeilen || jsonb_build_object(r.tab, (v_zeilen -> r.tab) || jsonb_build_object('z', v_zeile, 'w', pg_temp.s112_pk_where(r.tab, v_zeile)));
   END LOOP;
   -- Jede Beispielzeile existiert (als postgres belegt) – sonst wäre „0 Zeilen“ unten wertlos
   v_n2 := 0;

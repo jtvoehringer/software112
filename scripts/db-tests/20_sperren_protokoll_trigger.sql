@@ -1,7 +1,7 @@
 -- @bereich: Sperren, Protokoll- und Konsistenz-Trigger
 -- @ziel: Was die Datenbank als Sperre durchsetzt, hält: ea_transaktionen.is_locked (weder ändern, löschen, sperren
 -- @ziel: noch entsperren durch Benutzer; sperre_ea_monat/sperre_ea_uva wirken), AMA-Status (bestätigte Meldung und
--- @ziel: ihre Positionen unveränderlich), TRUNCATE-Verbot auf allen 30 Protokolltabellen, Bestandsprotokoll (UPDATE
+-- @ziel: ihre Positionen unveränderlich), TRUNCATE-Verbot auf allen 37 Protokolltabellen, Bestandsprotokoll (UPDATE
 -- @ziel: überwachter Spalten und DELETE werden mit Mandant, Benutzer und Rolle protokolliert, kein Bypass für
 -- @ziel: Benutzer oder echte Mandanten, Tabelle für Benutzer nur lesbar) sowie die Mandantengleichheit von Gebinden
 -- @ziel: (weinausbau_gebinde_pruefen, Kellergemeinschaft) und Anlagen/Buchungen (trg_ea_*_tenant); keller_freigaben
@@ -12,7 +12,10 @@
 -- @ziel: unveränderlich; sperren nur über sperre_ea_uva), die Löschsperre auf Verkauf/E-A (keine_direktloeschung
 -- @ziel: und a_loeschsperre, Wartung nur mit s112.loeschen_erlaubt), Konten nur ohne Bewegungen löschbar und den
 -- @ziel: Storno-Grund beim Verkauf. Was nur die App prüft (Jahrgangsabschluss), steht als bekannte Lücke B8 mit
--- @ziel: Ratsche im Bericht.
+-- @ziel: Ratsche im Bericht. KAN-150 F1a: Stammdaten mit berichtsrelevantem Bezug sind nicht löschbar
+-- @ziel: (a_stammdaten_loeschsperre, auch in der Kaskade; Wartung nur mit s112.loeschen_erlaubt), ohne Bezug schon;
+-- @ziel: s112_stammdaten_bezuege zählt die Bezüge für jedes Mitglied des eigenen Betriebs; Grundstück nur mit
+-- @ziel: Stichtag deaktivierbar, Deaktivieren und Umhängen des Kontakts am Verkauf werden protokolliert.
 -- @mutation is_locked_offen: ea_tx_update ohne NOT is_locked | rot: ea_locked_.*|ea_sperren_offen
 -- @mutation ama_status_offen: UPDATE-Policy der AMA-Meldung ohne Statusprüfung | rot: ama_bestaetigt_update
 -- @mutation ama_pos_delete_offen: DELETE-Policy auf ama_meldepositionen ohne Statusprüfung | rot: ama_pos_delete_bestaetigt
@@ -26,6 +29,8 @@
 -- @mutation freigaben_schreibbar: PERMISSIVE-Policy ALL USING/WITH CHECK (true) auf keller_freigaben | rot: freigabe_.*
 -- @mutation periodensperre_weg: DROP TRIGGER a_ea_periodensperre auf ea_transaktionen | rot: d3_.*ea_transaktionen.*|ea_insert_.*|ea_datum_.*
 -- @mutation abschluss_schutz_weg: DROP TRIGGER a_ea_abschluss_schutz auf ea_monatsabschluss | rot: .*monatsabschluss_(loeschen|aendern)
+-- @mutation stammdaten_loeschsperre_weg: DROP TRIGGER a_stammdaten_loeschsperre auf kontakte (KAN-150 F1a) | rot: f1a_.*kontakte.*|f1a_stammdaten_katalog
+-- @mutation grundstueck_protokoll_weg: DROP TRIGGER z_protokoll_aendern auf grundstuecke (KAN-150 F1a) | rot: f1a_grundstueck_deaktiviert_protokoll
 -- @mutation kind_tenant_ama_weg: bestandsprotokoll_schreiben() ohne CASE-Zweig ama_meldepositionen (kein Ersatzweg) – Protokollzeile mit tenant_id NULL | rot: protokoll_kind_tenant:.*
 --
 -- software:112 – SQL-Testsuite, Datei 20 (Stand 28.09.2026). Nur Staging; die ganze Datei ist EINE Transaktion
@@ -58,6 +63,13 @@
 --      löschen → T, leeres Konto → k1; verbuchten Beleg ändern/löschen → T; Verkaufsstorno ohne Grund → E23514, mit
 --      Grund → k1; DELETE auf den fünf Verkaufs-/E-A-Tabellen als m_ta/m_w → k0 (Policy 'nein'), als postgres ohne
 --      Flag → T (Löschsperre bzw. Periodensperre), mit s112.loeschen_erlaubt = Musterhof → k1.
+--   3c. KAN-150 F1a (synthetische Stammdaten im Musterhof): a_stammdaten_loeschsperre genau auf den 9 Soll-Tabellen;
+--      s112_stammdaten_bezuege als Leser → {"Maßnahmen": 1} für Ried (nur über sein Grundstück), Grundstück und
+--      PSM, {"Verkäufe": 1} für Kontakt und Firma, {} ohne Bezug; unbekannte ID → P0002, unbekannte Tabelle →
+--      22023, fremder Betrieb (b_ta) → 42501. DELETE als m_ta mit Bezug → T (Klartext „deaktivieren statt
+--      löschen“, Zeilen bleiben), ohne Bezug → k1; postgres ohne Flag → T, mit s112.loeschen_erlaubt = Musterhof
+--      → k1, mit dem Flag von B → T. Grundstück aktiv = false ohne deaktiviert_am → E23514, mit → ok und eine
+--      Protokollzeile (aktiv, deaktiviert_am); Kontakt am Verkauf umhängen → Protokollzeile mit kontakt_id.
 --   4. Bestandsprotokoll: UPDATE überwachter Spalte (aus pg_trigger.tgargs) → genau 1 Zeile mit Mandant, Tabelle,
 --      Aktion, Spalten, Benutzer und db_rolle; nicht überwachte Spalte → 0; DELETE mit alt; Kindzeile
 --      (pressung_behaelter) mit Mandant über die Eltern; dazu dynamisch JEDE Protokolltabelle ohne tenant_id
@@ -174,6 +186,20 @@ DECLARE
   v_beleg      uuid;
   v_tab        text;
   v_zd3        jsonb;
+  -- KAN-150 F1a: Stammdaten mit und ohne Bezug
+  v_f_wg       uuid;
+  v_f_gs       uuid;
+  v_f_psm      uuid;
+  v_f_bh       uuid;
+  v_f_ko       uuid;
+  v_f_fi       uuid;
+  v_f_vp       uuid;
+  v_f_wg0      uuid;
+  v_f_gs0      uuid;
+  v_f_ko0      uuid;
+  v_f_ko1      uuid;
+  v_f_fi0      uuid;
+  v_f_psm0     uuid;
   -- AMA
   v_ama_best   uuid;
   v_ama_entw   uuid;
@@ -356,6 +382,8 @@ BEGIN
        'WHEN ''ama_meldepositionen'' THEN', 'WHEN ''s112test_nie'' THEN')$m$);
   PERFORM pg_temp.s112_mutiere('freigaben_schreibbar',
     $m$CREATE POLICY s112test_freigaben_offen ON public.keller_freigaben FOR ALL TO authenticated USING (true) WITH CHECK (true)$m$);
+  PERFORM pg_temp.s112_mutiere('stammdaten_loeschsperre_weg', $m$DROP TRIGGER a_stammdaten_loeschsperre ON public.kontakte$m$);   -- KAN-150 F1a
+  PERFORM pg_temp.s112_mutiere('grundstueck_protokoll_weg', $m$DROP TRIGGER z_protokoll_aendern ON public.grundstuecke$m$);   -- KAN-150 F1a
   PERFORM pg_temp.s112_mutiere('periodensperre_weg', $m$DROP TRIGGER a_ea_periodensperre ON public.ea_transaktionen$m$);
   PERFORM pg_temp.s112_mutiere('abschluss_schutz_weg', $m$DROP TRIGGER a_ea_abschluss_schutz ON public.ea_monatsabschluss$m$);
 
@@ -618,6 +646,117 @@ BEGIN
     concat_ws('|', (SELECT gesperrt FROM public.ea_uva WHERE id = v_uva_d3_o),
                    (SELECT is_locked FROM public.ea_transaktionen WHERE id = v_tx_zu)), 't|t');
 
+  -- ── 3c. KAN-150 F1a: Stammdaten mit Bezug nur deaktivieren ──────────────────────────────────────────────
+  -- Synthetische Stammdaten im Musterhof (als postgres): Ried A mit Grundstück A, Maßnahme nur über das Grundstück
+  -- (behandlung_grundstuecke, Maßnahme ohne weingarten_id) mit PSM A; Verkauf mit Kontakt A und Firma A. Ohne
+  -- Bezug: Ried/Grundstück/Kontakt/Firma/PSM „leer“ (zuletzt angelegt, damit keine Beispielzeile auf sie verweist).
+  v_f_wg := (pg_temp.s112_beispiel('weingarten', v_m, v_mta) ->> 'id')::uuid;
+  v_f_gs := (pg_temp.s112_beispiel('grundstuecke', v_m, v_mta, jsonb_build_object('weingarten_id', v_f_wg)) ->> 'id')::uuid;
+  v_f_psm := (pg_temp.s112_zeile('pflanzenschutzmittel', v_m, '{"name": "S112TEST F1a PSM"}') ->> 'id')::uuid;
+  v_f_bh := (pg_temp.s112_beispiel('behandlungen', v_m, v_mta,
+               jsonb_build_object('weingarten_id', NULL, 'psm_id', v_f_psm, 'duengemittel_id', NULL)) ->> 'id')::uuid;
+  PERFORM pg_temp.s112_zeile('behandlung_grundstuecke', v_m, jsonb_build_object('behandlung_id', v_f_bh, 'grundstueck_id', v_f_gs));
+  v_f_ko := (pg_temp.s112_beispiel('kontakte', v_m, v_mta) ->> 'id')::uuid;
+  v_f_fi := (pg_temp.s112_beispiel('firmen', v_m, v_mta) ->> 'id')::uuid;
+  v_f_vp := (pg_temp.s112_beispiel('verkaufsposten', v_m, v_mta,
+               jsonb_build_object('kontakt_id', v_f_ko, 'firma_id', v_f_fi, 'zh_kontakt_id', NULL)) ->> 'id')::uuid;
+  v_f_wg0 := (pg_temp.s112_beispiel('weingarten', v_m, v_mta) ->> 'id')::uuid;
+  v_f_gs0 := (pg_temp.s112_beispiel('grundstuecke', v_m, v_mta, jsonb_build_object('weingarten_id', v_f_wg0)) ->> 'id')::uuid;
+  v_f_ko0 := (pg_temp.s112_beispiel('kontakte', v_m, v_mta) ->> 'id')::uuid;
+  v_f_ko1 := (pg_temp.s112_beispiel('kontakte', v_m, v_mta) ->> 'id')::uuid;
+  v_f_fi0 := (pg_temp.s112_beispiel('firmen', v_m, v_mta) ->> 'id')::uuid;
+  v_f_psm0 := (pg_temp.s112_zeile('pflanzenschutzmittel', v_m, '{"name": "S112TEST F1a PSM leer"}') ->> 'id')::uuid;
+  v_erg := v_erg || pg_temp.s112_erwarte('f1a_beleg_fixtures',
+    concat_ws('|', (SELECT count(*) FROM public.behandlung_grundstuecke WHERE behandlung_id = v_f_bh AND grundstueck_id = v_f_gs),
+                   (SELECT weingarten_id IS NULL AND psm_id = v_f_psm FROM public.behandlungen WHERE id = v_f_bh),
+                   (SELECT kontakt_id = v_f_ko AND firma_id = v_f_fi FROM public.verkaufsposten WHERE id = v_f_vp),
+                   (SELECT count(*) FROM public.grundstuecke WHERE id = v_f_gs0 AND weingarten_id = v_f_wg0 AND aktiv AND deaktiviert_am IS NULL)),
+    '1|t|t|1');
+
+  -- Katalog: a_stammdaten_loeschsperre (BEFORE DELETE FOR EACH ROW = tgtype 11) genau auf der Soll-Liste
+  SELECT coalesce(array_agg(c.relname::text ORDER BY c.relname), '{}') INTO v_arr
+    FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid
+   WHERE c.relnamespace = 'public'::regnamespace AND NOT t.tgisinternal AND t.tgname = 'a_stammdaten_loeschsperre'
+     AND t.tgfoid = 'public.s112_stammdaten_loeschsperre()'::regprocedure AND t.tgtype = 11 AND t.tgenabled = 'O';
+  v_erg := v_erg || pg_temp.s112_erwarte('f1a_stammdaten_katalog', array_to_string(v_arr, ','),
+    (SELECT array_to_string(array_agg(x ORDER BY x), ',') FROM unnest(pg_temp.s112_soll_liste('stammdaten_loeschsperre')) x));
+
+  -- Bezugszähler (RPC s112_stammdaten_bezuege): jedes Mitglied (hier der Leser), nur der eigene Betrieb; direkt
+  -- aufgerufen (s112_zaehle erwartet eine Zahl), Fehlerfälle über s112_zaehle
+  PERFORM pg_temp.s112_als((v_a ->> 'm_l')::uuid);
+  v_erg := v_erg || pg_temp.s112_erwarte('f1a_bezuege_zaehler',
+    concat_ws('|',
+      public.s112_stammdaten_bezuege(v_m, 'weingarten', v_f_wg)::text,
+      public.s112_stammdaten_bezuege(v_m, 'grundstuecke', v_f_gs)::text,
+      public.s112_stammdaten_bezuege(v_m, 'pflanzenschutzmittel', v_f_psm)::text,
+      public.s112_stammdaten_bezuege(v_m, 'kontakte', v_f_ko)::text,
+      public.s112_stammdaten_bezuege(v_m, 'firmen', v_f_fi)::text,
+      public.s112_stammdaten_bezuege(v_m, 'weingarten', v_f_wg0)::text),
+    '{"Maßnahmen": 1}|{"Maßnahmen": 1}|{"Maßnahmen": 1}|{"Verkäufe": 1}|{"Verkäufe": 1}|{}');
+  v_erg := v_erg || pg_temp.s112_erwarte('f1a_bezuege_unbekannte_id',
+    pg_temp.s112_zaehle(format('SELECT public.s112_stammdaten_bezuege(%L, %L, %L)::text', v_m, 'weingarten', gen_random_uuid())), 'EP0002');
+  v_erg := v_erg || pg_temp.s112_erwarte('f1a_bezuege_unbekannte_tabelle',
+    pg_temp.s112_zaehle(format('SELECT public.s112_stammdaten_bezuege(%L, %L, %L)::text', v_m, 'lagen', v_f_wg)), 'E22023');
+  -- fremder Betrieb: b_ta fragt den Musterhof ab → pruefe_tenant_zugriff (42501)
+  PERFORM pg_temp.s112_als(v_bta);
+  v_erg := v_erg || pg_temp.s112_erwarte('f1a_bezuege_fremd',
+    pg_temp.s112_zaehle(format('SELECT public.s112_stammdaten_bezuege(%L, %L, %L)::text', v_m, 'weingarten', v_f_wg)), 'T');
+  PERFORM pg_temp.s112_als_postgres();
+
+  -- Löschen als tenant_admin: mit Bezug → T (auch das Ried, dessen Grundstück die Maßnahme trägt), ohne → k1
+  PERFORM pg_temp.s112_als(v_mta);
+  FOR v_tab, v_t1, v_t2 IN SELECT x.t, x.soll, x.id::text FROM (VALUES
+        ('weingarten', 'T', v_f_wg), ('grundstuecke', 'T', v_f_gs), ('pflanzenschutzmittel', 'T', v_f_psm),
+        ('kontakte', 'T', v_f_ko), ('firmen', 'T', v_f_fi),
+        ('weingarten', 'k1', v_f_wg0), ('grundstuecke', 'k1', v_f_gs0), ('kontakte', 'k1', v_f_ko0),
+        ('firmen', 'k1', v_f_fi0), ('pflanzenschutzmittel', 'k1', v_f_psm0)) x (t, soll, id) LOOP
+    v_erg := v_erg || pg_temp.s112_erwarte('f1a_delete_ta:' || v_tab || CASE v_t1 WHEN 'T' THEN '_mit_bezug' ELSE '_ohne_bezug' END,
+      pg_temp.s112_versuch(format('DELETE FROM public.%I WHERE id = %L', v_tab, v_t2)), v_t1);
+  END LOOP;
+  v_erg := v_erg || pg_temp.s112_erwarte('f1a_delete_ta_meldung:weingarten',
+    pg_temp.t20_muster(pg_temp.t20_probe(format('DELETE FROM public.weingarten WHERE id = %L', v_f_wg)),
+                       '42501: %hat noch 1 Maßnahmen – bitte deaktivieren statt löschen.', '42501 deaktivieren'), '42501 deaktivieren');
+  PERFORM pg_temp.s112_als_postgres();
+  v_erg := v_erg || pg_temp.s112_erwarte('f1a_delete_ta_zeilen_bleiben:weingarten',
+    concat_ws('|', (SELECT count(*) FROM public.weingarten WHERE id = v_f_wg), (SELECT count(*) FROM public.grundstuecke WHERE id = v_f_gs),
+                   (SELECT count(*) FROM public.behandlung_grundstuecke WHERE grundstueck_id = v_f_gs)), '1|1|1');
+
+  -- Wartung: postgres ohne Flag → T, mit s112.loeschen_erlaubt = Musterhof → gelöscht (Kaskade Grundstück und
+  -- Maßnahmen-Zuordnung; Kontakt am Verkauf → SET NULL; sofort zurückgerollt), mit dem Flag von B → T
+  v_t1 := pg_temp.s112_versuch(format('DELETE FROM public.weingarten WHERE id = %L', v_f_wg));
+  PERFORM set_config('s112.loeschen_erlaubt', v_m::text, true);
+  v_t2 := pg_temp.s112_versuch(format('DELETE FROM public.weingarten WHERE id = %L', v_f_wg))
+          || ',' || pg_temp.s112_versuch(format('DELETE FROM public.kontakte WHERE id = %L', v_f_ko));
+  PERFORM set_config('s112.loeschen_erlaubt', v_b::text, true);
+  v_t3 := pg_temp.s112_versuch(format('DELETE FROM public.weingarten WHERE id = %L', v_f_wg));
+  PERFORM set_config('s112.loeschen_erlaubt', '', true);
+  v_erg := v_erg || pg_temp.s112_erwarte('f1a_delete_postgres:weingarten', v_t1 || '/' || v_t2 || '/' || v_t3, 'T/k1,k1/T');
+
+  -- Grundstück deaktivieren (m_ta): ohne Stichtag → CHECK (E23514), mit Stichtag → ok und genau eine Protokollzeile;
+  -- Kontakt am Verkauf umhängen (Soll 6) → Protokollzeile mit kontakt_id
+  PERFORM pg_temp.s112_als(v_mta);
+  v_erg := v_erg || pg_temp.s112_erwarte('f1a_grundstueck_deaktiviert_ohne_datum',
+    pg_temp.s112_versuch(format('UPDATE public.grundstuecke SET aktiv = false WHERE id = %L', v_f_gs)), 'E23514');
+  v_n := pg_temp.t20_bp('grundstuecke', v_f_gs);
+  v_erg := v_erg || pg_temp.s112_erwarte('f1a_grundstueck_deaktiviert_mit_datum',
+    pg_temp.s112_fehlertext(format('UPDATE public.grundstuecke SET aktiv = false, deaktiviert_am = DATE %L WHERE id = %L', '2026-09-30', v_f_gs)), 'ok');
+  v_n2 := pg_temp.t20_bp('verkaufsposten', v_f_vp);
+  v_erg := v_erg || pg_temp.s112_erwarte('f1a_verkauf_kontakt_umhaengen',
+    pg_temp.s112_fehlertext(format('UPDATE public.verkaufsposten SET kontakt_id = %L WHERE id = %L', v_f_ko1, v_f_vp)), 'ok');
+  PERFORM pg_temp.s112_als_postgres();
+  SELECT b.* INTO v_bp FROM public.bestandsprotokoll b
+   WHERE b.tabelle = 'grundstuecke' AND b.datensatz_id = v_f_gs ORDER BY b.id DESC LIMIT 1;
+  v_erg := v_erg || pg_temp.s112_erwarte('f1a_grundstueck_deaktiviert_protokoll',
+    concat_ws('|', pg_temp.t20_bp('grundstuecke', v_f_gs) - v_n, v_bp.tenant_id, v_bp.aktion,
+              array_to_string(v_bp.geaenderte_spalten, ','), v_bp.benutzer_id),
+    concat_ws('|', 1, v_m, 'UPDATE', 'aktiv,deaktiviert_am', v_mta));
+  SELECT b.* INTO v_bp FROM public.bestandsprotokoll b
+   WHERE b.tabelle = 'verkaufsposten' AND b.datensatz_id = v_f_vp ORDER BY b.id DESC LIMIT 1;
+  v_erg := v_erg || pg_temp.s112_erwarte('f1a_verkauf_kontakt_protokoll',
+    concat_ws('|', pg_temp.t20_bp('verkaufsposten', v_f_vp) - v_n2, v_bp.aktion, array_to_string(v_bp.geaenderte_spalten, ','),
+              v_bp.alt ->> 'kontakt_id', v_bp.neu ->> 'kontakt_id'),
+    concat_ws('|', 1, 'UPDATE', 'kontakt_id', v_f_ko, v_f_ko1));
+
   -- ── 4. Bestandsprotokoll ──────────────────────────────────────────────────────────────────────────────
   v_arr := pg_temp.t20_tgargs('weinausbau');
   v_erg := v_erg || pg_temp.s112_erwarte('protokoll_update_menge_ueberwacht', 'menge_liter' = ANY (v_arr), true);
@@ -832,6 +971,6 @@ BEGIN
     v_erg := v_erg || pg_temp.s112_erwarte('truncate_zeilen:' || r.tab, v_n2, v_n);
   END LOOP;
 
-  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 140);
+  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 170);   -- KAN-150 F1a: 140 → 170
 END
 $test$;
