@@ -42,19 +42,21 @@ describe('herkunftBki()', () => {
     assert.equal(kuerzel.herkunftBki('Wien').kuerzel, 'WIEN')
   })
 
-  test('interne Herkunftsstufen (Migration 132): nur mit eindeutigem Weinbaugebiet', () => {
+  test('interne Herkunftsstufen: Kürzel aus dem Katalog (KAN-165)', () => {
     assert.deepEqual(kuerzel.herkunftBki('wlnoe'), { kuerzel: 'WLNO', hinweis: null })
     for (const s of ['thermenregion_gebietswein', 'thermenregion_ortswein', 'thermenregion_riedenwein']) {
       assert.deepEqual(kuerzel.herkunftBki(s), { kuerzel: 'WLTH', hinweis: null }, s)
     }
-    const wein = kuerzel.herkunftBki('wein')
-    assert.equal(wein.kuerzel, '')
-    assert.match(wein.hinweis, /^Herkunft „Wein \/ Landwein“ ist keinem BKI-Herkunftskürzel eindeutig zuzuordnen .* – Spalte leer gelassen$/)
+    // KAN-165: „wein“ ist die Wurzel „Wein aus Österreich“ (Landwein jetzt eigene Stufen weinland/steirerland/bergland)
+    assert.deepEqual(kuerzel.herkunftBki('wein'), { kuerzel: 'OEST', hinweis: null })
+    assert.deepEqual(kuerzel.herkunftBki('weinland'), { kuerzel: 'WLXX', hinweis: null })
+    assert.deepEqual(kuerzel.herkunftBki('kremstal_riedenwein'), { kuerzel: 'WLKT', hinweis: null })
+    assert.deepEqual(kuerzel.herkunftBki('wiener_gemischter_satz_dac'), { kuerzel: 'WIEN', hinweis: null })
     assert.deepEqual(kuerzel.herkunftBki('sonstiges'), { kuerzel: '', hinweis: 'Herkunft „Sonstiges“ ist kein BKI-Herkunftskürzel – Spalte leer gelassen' })
-    // jede Stufe aus lib/herkunft.ts ist entschieden: Kürzel oder bewusst leer mit Hinweis
-    for (const s of [...HERKUNFT_ORDER, 'sonstiges']) {
+    // jede Stufe des Katalogs hat ein amtliches Kürzel
+    for (const s of HERKUNFT_ORDER) {
       const r = kuerzel.herkunftBki(s)
-      assert.ok(r.kuerzel ? r.hinweis === null : r.hinweis !== null, s)
+      assert.ok(r.kuerzel && r.hinweis === null, s)
     }
   })
 
@@ -95,7 +97,7 @@ describe('herkunftDerLieferung()', () => {
     const r = tv.herkunftDerLieferung(lieferung({
       herkunft_code: 'Kremstal DAC',
       grundstueck: { trauben_herkunft_code: 'Kremstal DAC' },
-      weingarten: { trauben_herkunft_code: 'sonstiges', grundstuecke: [{ trauben_herkunft_code: 'wein' }] },
+      weingarten: { trauben_herkunft_code: 'sonstiges', grundstuecke: [{ trauben_herkunft_code: 'Neckenmarkt' }] },
       zukauf: { herkunft: 'Neckenmarkt' },
     }))
     assert.deepEqual(r, { kuerzel: null, hinweis: 'Herkunft „Kremstal DAC“ (Traubenverkauf) ist kein BKI-Herkunftskürzel – Spalte leer gelassen.' })
@@ -116,8 +118,7 @@ describe('herkunftDerLieferung()', () => {
       grundstueck: { trauben_herkunft_code: 'thermenregion_ortswein' },
       weingarten: { trauben_herkunft_code: 'wlnoe', grundstuecke: [] },
     }))
-    assert.equal(a.kuerzel, null)
-    assert.match(a.hinweis, /^Herkunft „Wein \/ Landwein“ \(Traubenverkauf\) ist keinem BKI-Herkunftskürzel eindeutig zuzuordnen .* – Spalte leer gelassen, nicht ersatzweise WLTH \(Grundstück\) gemeldet, bitte prüfen\.$/)
+    assert.deepEqual(a, { kuerzel: 'OEST', hinweis: null })   // KAN-165: Österreich, nicht WLTH aus dem Grundstück
     const b = tv.herkunftDerLieferung(lieferung({ grundstueck: { trauben_herkunft_code: 'sonstiges' }, weingarten: { trauben_herkunft_code: 'wlnoe' } }))
     assert.deepEqual(b, { kuerzel: null, hinweis: 'Herkunft „Sonstiges“ (Grundstück) ist kein BKI-Herkunftskürzel – Spalte leer gelassen, nicht ersatzweise WLNO (Ried) gemeldet, bitte prüfen.' })
   })
@@ -142,9 +143,9 @@ describe('herkunftDerLieferung()', () => {
 
   test('Grundstücke des Rieds: nicht abbildbarer Wert neben gültigem = uneinheitlich (keine Aufstufung)', () => {
     const gst = codes => lieferung({ weingarten: { trauben_herkunft_code: null, grundstuecke: codes.map(c => ({ trauben_herkunft_code: c })) } })
-    const a = tv.herkunftDerLieferung(gst(['wein', 'wlnoe']))
-    assert.deepEqual(a, tv.herkunftDerLieferung(gst(['wlnoe', 'wein'])))
-    assert.deepEqual(a, { kuerzel: null, hinweis: 'Die Grundstücke des Rieds haben unterschiedliche Herkunft (WLNO, „Wein / Landwein“) – Spalte leer gelassen.' })
+    const a = tv.herkunftDerLieferung(gst(['sonstiges', 'wlnoe']))
+    assert.deepEqual(a, tv.herkunftDerLieferung(gst(['wlnoe', 'sonstiges'])))
+    assert.deepEqual(a, { kuerzel: null, hinweis: 'Die Grundstücke des Rieds haben unterschiedliche Herkunft (WLNO, „Sonstiges“) – Spalte leer gelassen.' })
     assert.deepEqual(tv.herkunftDerLieferung(gst(['thermenregion_ortswein', 'Kremstal DAC'])), {
       kuerzel: null, hinweis: 'Die Grundstücke des Rieds haben unterschiedliche Herkunft (WLTH, „Kremstal DAC“) – Spalte leer gelassen.',
     })
