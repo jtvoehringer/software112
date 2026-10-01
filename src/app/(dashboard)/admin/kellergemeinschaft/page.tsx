@@ -4,7 +4,7 @@
 // des Admins (wie unter Administration > Mandanten).
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole } from '@/lib/auth/roles'
+import { istPlattformAdmin } from '@/lib/auth/plattformAdmin'
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import KellergemeinschaftClient from './KellergemeinschaftClient'
@@ -29,8 +29,8 @@ export type FreigabeRow = {
 }
 
 export default async function KellergemeinschaftPage() {
-  const role = await getCurrentUserRole()
-  if (role !== 'system_admin') redirect('/dashboard')
+  // 01.10.2026 (Backlog-Abgleich): Plattform-Admin statt Rolle im aktiven Betrieb
+  if (!(await istPlattformAdmin())) redirect('/dashboard')
   const authClient = await createSupabaseServerClient()
   const { data: { user } } = await authClient.auth.getUser()
   if (!user) redirect('/login')

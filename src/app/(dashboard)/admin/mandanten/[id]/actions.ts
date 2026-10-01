@@ -6,7 +6,9 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { encryptPass } from '@/lib/email/crypto'
 import { geheimSpeichern, geheimFeld } from '@/lib/email/geheimnis'
-import { getCurrentUserRole, isSandboxAdminUnlock } from '@/lib/auth/roles'
+import { isSandboxAdminUnlock } from '@/lib/auth/roles'
+import { istPlattformAdmin } from '@/lib/auth/plattformAdmin'
+import { SANDBOX_TENANT_ID } from '@/lib/abo/regeln'
 import { revalidatePath } from 'next/cache'
 import { getStripe } from '@/lib/stripe/client'
 import { pruefeBenutzerlimit, benutzerlimitFehler, wendePaketAn, ladePaket } from '@/lib/pakete-server'
@@ -29,18 +31,29 @@ type R = Record<string, any>
 // das lässt sich nur prüfen, wenn die Ziel-tenantId hier bekannt ist. Jede
 // aufrufende Funktion unten hat bereits ein eigenes tenantId-Parameter in
 // Scope, der Aufruf wird daher einheitlich zu assertSystemAdmin(tenantId).
-async function assertSystemAdmin(tenantId: string) {
-  const role = await getCurrentUserRole()
-  if (role === 'system_admin') return
+//
+// 01.10.2026 (Backlog-Abgleich, KAN-10): Plattform-Admin statt Rolle im AKTIVEN Betrieb (getCurrentUserRole prüfte
+// nicht den Ziel-Betrieb), Sandbox über die feste ID statt über den Namen „Sandbox“, und die Sonderfreigabe gilt
+// nicht für Stripe und das Umbenennen (sandboxFreigabe: false).
+async function assertSystemAdmin(tenantId: string, { sandboxFreigabe = true }: { sandboxFreigabe?: boolean } = {}) {
+  if (await istPlattformAdmin()) return
 
-  const authClient = await createSupabaseServerClient()
-  const { data: { user } } = await authClient.auth.getUser()
-  const admin = createSupabaseAdminClient()
-  const { data: sandboxTenantRow } = await (admin.from('tenants') as any).select('id').eq('name', 'Sandbox').maybeSingle()
-  const isSandboxTarget = (sandboxTenantRow as R | null)?.id === tenantId
-  if (isSandboxAdminUnlock(user?.email, isSandboxTarget)) return
+  if (sandboxFreigabe && tenantId === SANDBOX_TENANT_ID) {
+    const authClient = await createSupabaseServerClient()
+    const { data: { user } } = await authClient.auth.getUser()
+    if (isSandboxAdminUnlock(user?.email, true)) return
+  }
 
-  throw new AktionsFehler('Nur system_admin erlaubt')
+  throw new AktionsFehler('Nur Plattform-Admins erlaubt')
+}
+
+/** Benutzer ist Mitglied des Ziel-Betriebs – sonst ließen sich über die Verwaltung eines Betriebs Name bzw. Einladung
+ *  beliebiger Benutzer ändern (01.10.2026, Backlog-Abgleich). */
+async function pruefeMitglied(userId: string, tenantId: string) {
+  const { data, error } = await (createSupabaseAdminClient().from('tenant_memberships') as any)
+    .select('id').eq('user_id', userId).eq('tenant_id', tenantId).maybeSingle()
+  if (error) throw new AktionsFehler(`Prüfung fehlgeschlagen (tenant_memberships): ${(error as R).message}`)
+  if (!data) throw new AktionsFehler('Dieser Benutzer ist kein Mitglied des Betriebs.')
 }
 
 // ── Branding + Module + Brevo speichern ───────────────────────────────────────
@@ -200,6 +213,7 @@ export async function inviteUserToTenant(tenantId: string, email: string, role: 
 // erneut über dieselbe Supabase-Mail (kein separates E-Mail-System nötig).
 export async function resendInvite(userId: string, tenantId: string) {
   await assertSystemAdmin(tenantId)
+  await pruefeMitglied(userId, tenantId)
   const admin = createSupabaseAdminClient()
 
   const { data: userRes, error: getErr } = await admin.auth.admin.getUserById(userId)
@@ -224,6 +238,7 @@ export async function resendInvite(userId: string, tenantId: string) {
 
 export async function updateMemberNameAdmin(userId: string, fullName: string, tenantId: string) {
   await assertSystemAdmin(tenantId)
+  await pruefeMitglied(userId, tenantId)
   const admin = createSupabaseAdminClient()
 
   const name = fullName.trim()
@@ -487,7 +502,7 @@ export async function resetKundenZaehler(tenantId: string, auf: number) {
 // ── Tenant umbenennen ─────────────────────────────────────────────────────────
 
 export async function renameTenantAdmin(tenantId: string, name: string) {
-  await assertSystemAdmin(tenantId)
+  await assertSystemAdmin(tenantId, { sandboxFreigabe: false })
   const admin = createSupabaseAdminClient()
 
   const { error } = await (admin.from('tenants') as any)
@@ -545,7 +560,7 @@ export async function saveBawbZugangsdaten(tenantId: string, formData: FormData)
 // ── Stripe: Mandant als Customer anlegen ──────────────────────────────────────
 
 export async function createStripeCustomer(tenantId: string, tenantName: string, email: string) {
-  await assertSystemAdmin(tenantId)
+  await assertSystemAdmin(tenantId, { sandboxFreigabe: false })
   const admin = createSupabaseAdminClient()
 
   // Prüfen ob schon ein Customer existiert
@@ -608,7 +623,7 @@ export async function createStripeCheckoutSession(
 // ── Stripe: Customer Portal (Mandant verwaltet Abo selbst) ────────────────────
 
 export async function createStripePortalSession(tenantId: string, customerId: string) {
-  await assertSystemAdmin(tenantId)
+  await assertSystemAdmin(tenantId, { sandboxFreigabe: false })
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://software112.icp-consultants.at'
 
@@ -626,7 +641,7 @@ export async function createStripePortalSession(tenantId: string, customerId: st
 // ── Stripe: Subscription direkt kündigen ─────────────────────────────────────
 
 export async function cancelStripeSubscription(tenantId: string, subscriptionId: string) {
-  await assertSystemAdmin(tenantId)
+  await assertSystemAdmin(tenantId, { sandboxFreigabe: false })
 
   try {
     await getStripe().subscriptions.cancel(subscriptionId)

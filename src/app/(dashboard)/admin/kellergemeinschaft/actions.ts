@@ -8,16 +8,15 @@
 
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole } from '@/lib/auth/roles'
+import { pruefePlattformAdmin } from '@/lib/auth/plattformAdmin'
 import { revalidatePath } from 'next/cache'
-import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
 
+// 01.10.2026 (Backlog-Abgleich): Plattform-Admin statt Rolle im aktiven Betrieb (siehe lib/auth/plattformAdmin.ts)
 async function assertSystemAdmin() {
-  const role = await getCurrentUserRole()
-  if (role !== 'system_admin') throw new AktionsFehler('Nur system_admin erlaubt')
+  await pruefePlattformAdmin()
 }
 
 export async function createFreigabe(formData: FormData): Promise<{ error?: string }> {
