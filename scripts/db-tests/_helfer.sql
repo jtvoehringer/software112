@@ -1011,7 +1011,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('verschneidungen',               'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   '-{kellerbuch}'),   -- KAN-145 B4
     ('weinanalysen',                  'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   'SA,TA{kellerbuch}'),
     ('weinausbau',                    'SA,TA,W*{kellerbuch|rieden}',            'SA,TA,W*{kellerbuch|rieden}',            '-{kellerbuch|rieden}'),   -- KAN-148 C1d
-    ('weinausbau_weingaerten',        'SA,TA,W*{kellerbuch|rieden}',            'SA,TA,W*{kellerbuch|rieden}',            'SA,TA,W*{kellerbuch|rieden}'),
+    ('weinausbau_weingaerten',        'SA,TA,W*{kellerbuch|rieden}',            'SA,TA,W*{kellerbuch|rieden}',            '-{kellerbuch|rieden}'),   -- KAN-150 F1d (löschen nur über s112_herkunft_setzen)
     ('weinbaugebiete_custom',         'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       '-{rieden}'),
     ('weingarten',                    'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       'SA,TA{rieden}'),
     ('weingarten_rebsorten',          'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       'SA,TA{rieden}'),
@@ -1074,7 +1074,7 @@ BEGIN
       'svs_parameter', 'tenants']
     -- KAN-145 B4: Tabellen mit Löschsperre (a_loeschsperre) = "scharf" in scripts/storno-tabellen.json (Test check-storno)
     -- KAN-149 D3: + ea_transaktionen, konto_umbuchungen, verkauf_positionen, verkaufsposten, zahlungen (dort ohne Lösch-RPC)
-    WHEN 'loeschsperre_tabellen' THEN ARRAY['ea_transaktionen', 'ernte_parzellen', 'fuellung_chargen', 'fuellungen', 'keller_behandlungen', 'keller_umzuege', 'konto_umbuchungen', 'pressung_behaelter', 'pressung_weingaerten', 'pressungen', 'traubenverkauf', 'verkauf_positionen', 'verkaufsposten', 'verschneidung_quellen', 'verschneidungen', 'weinausbau', 'zahlungen', 'zukauf_posten']
+    WHEN 'loeschsperre_tabellen' THEN ARRAY['ea_transaktionen', 'ernte_parzellen', 'fuellung_chargen', 'fuellungen', 'keller_behandlungen', 'keller_umzuege', 'konto_umbuchungen', 'pressung_behaelter', 'pressung_weingaerten', 'pressungen', 'traubenverkauf', 'verkauf_positionen', 'verkaufsposten', 'verschneidung_quellen', 'verschneidungen', 'weinausbau', 'weinausbau_weingaerten', 'zahlungen', 'zukauf_posten']
     -- KAN-150 F1a: Stammdaten mit Löschsperre bei berichtsrelevantem Bezug (a_stammdaten_loeschsperre)
     WHEN 'stammdaten_loeschsperre' THEN ARRAY['duengemittel', 'ea_dauerauftraege', 'ea_kategorien', 'firmen', 'grundstuecke',
       'keller_behandlungstypen', 'kontakte', 'pflanzenschutzmittel', 'weingarten']
@@ -1199,6 +1199,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('trigger',       '--S', false, 's112_konto_loeschsperre()'),              -- KAN-149 D3: Konto nur ohne Bewegungen
     ('intern',        '--S', false, 's112_firma_momentaufnahme(p_id uuid)'),   -- KAN-150 F1c (Hilfsfunktion)
     ('mandant',       '-US', true , 's112_kontakt_historie_zu_firma(p_tenant_id uuid, p_kontakt_id uuid, p_firma_id uuid)'),   -- KAN-150 F1c: Umwandeln
+    ('mandant',       '-US', true , 's112_herkunft_setzen(p_tenant_id uuid, p_weinausbau_id uuid, p_weingarten_ids uuid[], p_grund text)'),   -- KAN-150 F1d: Herkunft der Charge
     ('intern',        '--S', false, 's112_kontakt_momentaufnahme(p_id uuid)'),   -- KAN-150 F1c (Hilfsfunktion)
     ('trigger',       '--S', false, 's112_momentaufnahme()'),                  -- KAN-150 F1c: Belege
     ('mandant',       '-US', false, 's112_stammdaten_bezuege(p_tenant_id uuid, p_tabelle text, p_id uuid)'),   -- KAN-150 F1a (lesend, jedes Mitglied)

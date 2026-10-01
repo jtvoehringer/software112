@@ -12,9 +12,9 @@ import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { dezimal, zahlAus, fmtNum } from '@/lib/format'
 import { gebindeFehlerText } from '@/lib/keller/behaelter'
-import { sperreBeiFolgebuchungen } from '@/lib/kellerbuch/folgebuchungen'
+import { sperreBeiFolgebuchungen, folgebuchungenDerCharge, folgebuchungenText } from '@/lib/kellerbuch/folgebuchungen'
 import { planeVerschneidungStorno, storniereVerschneidung, GEBINDEWECHSEL_OHNE } from '@/lib/kellerbuch/storno'
-import { stornoGrundFehler } from '@/lib/storno/grund'
+import { stornoGrundFehler, STORNO_GRUND_MIN } from '@/lib/storno/grund'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -289,6 +289,26 @@ export async function updateWeinausbau(id: string, formData: FormData) {
     )
   }
 
+  // KAN-150 F1d: Herkunft geändert? Ab der ersten Folgebuchung nur mit Grund (vor dem Speichern prüfen)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: wgAltRaw, error: wgAltErr } = await (supabase.from('weinausbau_weingaerten') as any)
+    .select('weingarten_id')
+    .eq('weinausbau_id', id)
+    .eq('tenant_id', tenantId)
+  if (wgAltErr) throw new AktionsFehler(dbFehlerText(wgAltErr, 'Herkunft der Charge konnte nicht geladen werden'))
+  const wgAlt = new Set(((wgAltRaw ?? []) as R[]).map(r => r.weingarten_id as string))
+  const wgNeu = new Set(wgIds)
+  const herkunftGeaendert = wgAlt.size !== wgNeu.size || [...wgNeu].some(x => !wgAlt.has(x))
+  const herkunftGrund = ((formData.get('herkunft_grund') as string | null) ?? '').trim()
+  if (herkunftGeaendert && herkunftGrund.length < STORNO_GRUND_MIN) {
+    const f = await folgebuchungenDerCharge(supabase, id)
+    if (f.length > 0) {
+      throw new AktionsFehler(
+        `An der Charge ${f.length === 1 && f[0].anzahl === 1 ? 'hängt' : 'hängen'} bereits ${folgebuchungenText(f)} – bitte einen Grund für die Änderung der Herkunft angeben (mindestens ${STORNO_GRUND_MIN} Zeichen).`,
+      )
+    }
+  }
+
   // Gebindewechsel nur ohne Folgebuchungen
   if (formData.has('behaelter_id')) {
     const neuesGebinde = (formData.get('behaelter_id') as string) || null
@@ -315,16 +335,14 @@ export async function updateWeinausbau(id: string, formData: FormData) {
   const { error } = await (supabase.from('weinausbau') as any).update(payload).eq('id', id).eq('tenant_id', tenantId)
   if (error) throw new AktionsFehler(gebindeFehlerText(dbFehlerText(error, 'Speichern fehlgeschlagen (weinausbau)')))
 
-  // Junction-Tabelle: Rieden/Weingärten neu setzen (delete + insert)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  { const { error: e } = await (supabase.from('weinausbau_weingaerten') as any).delete().eq('weinausbau_id', id).eq('tenant_id', tenantId)
-    if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weinausbau_weingaerten): ${e.message}`) }
-  if (wgIds.length > 0) {
+  // KAN-150 F1d: Herkunft (Rieden) nur als Differenz ändern – die RPC protokolliert alte und neue Rieden samt Grund.
+  // Ab der ersten Folgebuchung ist der Grund Pflicht (dann steht die Charge schon in Weinbuch bzw. Meldungen).
+  if (herkunftGeaendert) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    { const { error: e } = await (supabase.from('weinausbau_weingaerten') as any).insert(
-      wgIds.map(wgId => ({ tenant_id: tenantId, weinausbau_id: id, weingarten_id: wgId }))
-    )
-      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weinausbau_weingaerten): ${e.message}`) }
+    const { error: e } = await (supabase as any).rpc('s112_herkunft_setzen', {
+      p_tenant_id: tenantId, p_weinausbau_id: id, p_weingarten_ids: wgIds, p_grund: herkunftGrund || null,
+    })
+    if (e) throw new AktionsFehler(dbFehlerText(e, 'Herkunft der Charge konnte nicht gespeichert werden'))
   }
 
   // KEIN Sync auf pressung_behaelter.menge_liter – das ist der historische Pressbetrag

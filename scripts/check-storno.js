@@ -44,7 +44,7 @@ const ALTFAELLE = {
   'src/app/(dashboard)/behandlungen/lager/actions.ts': ['psm_lager_bewegungen', 'duengemittel_lager_bewegungen'],
   // B Kellerbuch – wird in diesem Ticket (Block B) abgebaut
   'src/lib/kellerbuch/storno.ts': ['*'],
-  'src/app/(dashboard)/kellerbuch/actions.ts': ['keller_behandlungen', 'weinausbau_weingaerten'],
+  'src/app/(dashboard)/kellerbuch/actions.ts': ['keller_behandlungen'],
   'src/app/(dashboard)/weinhandel/actions.ts': ['keller_umzuege', 'fuellung_chargen'],
 }
 
@@ -58,6 +58,8 @@ const LOESCH_RPC_MIGRATIONEN = {
     'Lösch-RPC s112_storniert_loeschen (KAN-148 C1d): nur stornierte Zeilen, Kennzeichen s112.storno_loeschen, Grund im Protokoll'],
   'supabase/migrations/20260930161020_kan148c2a_ama_versionen.sql': [['ama_meldepositionen'],
     'RPC s112_ama_meldung_speichern (KAN-148 C2): ersetzt nur die Positionen einer offenen (nicht eingereichten) Meldung; eingereichte Versionen schützt a_ama_position_schutz'],
+  'supabase/migrations/20261001124303_kan150f1d_herkunft_charge.sql': [['weinausbau_weingaerten'],
+    'RPC s112_herkunft_setzen (KAN-150 F1d): entfernt nur abgewählte Rieden einer nicht stornierten Charge, Kennzeichen s112.storno_loeschen, alte und neue Rieden samt Grund im Protokoll'],
 }
 
 function rel(datei) { return path.relative(WURZEL, datei).split(path.sep).join('/') }

@@ -42,14 +42,17 @@ interface Props {
   vonPressung?: boolean
   /** KAN-35: Grund, warum das Gebinde nicht mehr direkt geändert werden kann (Folgebuchungen) → nur per Umzug */
   gebindeSperre?: string | null
+  /** KAN-150 F1d: Folgebuchungen vorhanden → eine Änderung der Rieden braucht einen Grund (Text der Folgebuchungen) */
+  herkunftGrundNoetig?: string | null
 }
 
-export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, selectedWeingaertenIds = [], action, maxQualitaetsstufe, vonPressung = false, gebindeSperre = null }: Props) {
+export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, selectedWeingaertenIds = [], action, maxQualitaetsstufe, vonPressung = false, gebindeSperre = null, herkunftGrundNoetig = null }: Props) {
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [selWg, setSelWg] = useState<Set<string>>(new Set(selectedWeingaertenIds))
   const [wgOpen, setWgOpen] = useState(false)
+  const herkunftGeaendert = selWg.size !== selectedWeingaertenIds.length || selectedWeingaertenIds.some(x => !selWg.has(x))
 
   function toggleWg(id: string) {
     setSelWg(prev => {
@@ -272,6 +275,16 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
                         ))}
                       </div>
                     )}
+                  </div>
+                )}
+                {weinausbau && herkunftGeaendert && herkunftGrundNoetig && (
+                  <div className="mt-2">
+                    <label className="form-label" htmlFor="herkunft_grund">Grund der Herkunftsänderung *</label>
+                    <textarea id="herkunft_grund" name="herkunft_grund" rows={2} required minLength={10}
+                      className="form-input resize-none" placeholder="z. B. Ried bei der Lese falsch zugeordnet" />
+                    <p className="text-xs text-s112-muted mt-1">
+                      An der Charge {herkunftGrundNoetig} – die Änderung kommt mit Grund ins Änderungsprotokoll.
+                    </p>
                   </div>
                 )}
               </>
