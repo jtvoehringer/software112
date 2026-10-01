@@ -14,4 +14,4 @@ export const KORREKTUR_NACH_UNTEN_HINWEIS =
 
 /** Falsch erfasste Schwundbuchung */
 export const SCHWUND_STORNO_HINWEIS =
-  'Eine falsch erfasste Schwundbuchung kann ein Betriebs-Manager im Umzugsprotokoll (Kellerbuch › Gebinde › Umziehen) stornieren, solange an der Charge seither nichts weiter gebucht wurde.'
+  'Eine falsch erfasste Schwundbuchung kann ein Betriebs-Manager oder ein Mitarbeiter mit Kellerbuch im Umzugsprotokoll (Kellerbuch › Gebinde › Umziehen) mit Grund stornieren, solange an der Charge seither nichts weiter gebucht wurde.'

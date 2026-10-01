@@ -1636,7 +1636,7 @@ export async function deleteJahrgang(id: string) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: del, error } = await (supabase.from('weinjahrgaenge') as any)
-    .delete().eq('id', id).eq('tenant_id', tenantId).select('id')
+    .delete().eq('id', id).eq('tenant_id', tenantId).select('id')   // storno-ausnahme: nur ein leerer Jahrgang (Prüfung oben: keine Lese, Pressung, Traubenverkauf, AMA-Meldung)
   if (error) throw new AktionsFehler(dbFehlerText(error, 'Löschen fehlgeschlagen (weinjahrgaenge)'))
   if (!(del as AR[] | null)?.length) throw new AktionsFehler('Der Jahrgang konnte nicht gelöscht werden – Löschen ist Betriebsleitern (Admin) vorbehalten. Bitte die Seite neu laden.')
   revalidatePath('/erntemeldung')

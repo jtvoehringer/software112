@@ -12,8 +12,8 @@
  *                   erst ab STICHTAG_MIGRATION (die eingespielte Remote-Historie davor bleibt unverändert).
  * Kommentare zählen nicht (Scanner aus check-replica.js). Ausnahme je Stelle: „// storno-ausnahme: <Grund>“ bzw.
  * „-- storno-ausnahme: <Grund>“ in derselben Zeile oder allein in der Zeile davor, Grund mind. 15 Zeichen.
- * ALTFAELLE: bekannte Stellen aus der Zeit vor KAN-145 (Datei → Tabellen); sie werden mit den Folgetickets C, D, F
- * und G abgebaut. Eine neue Stelle in einer Altfall-Datei ist trotzdem ein Fund, sobald die Tabelle nicht gelistet ist.
+ * ALTFAELLE: bekannte Stellen aus der Zeit vor KAN-145 (Datei → Tabellen) – seit KAN-151 leer. Ein Eintrag ohne Treffer
+ * ergibt einen Hinweis (wie check-behoerden-csv.js); eine neue Stelle in einer Altfall-Datei bleibt ein Fund.
  *
  * Aufruf: node scripts/check-storno.js [--liste]   (Exit 1 bei Funden; --liste zeigt Ausnahmen und Altfälle)
  * Für Tests: require('./check-storno.js') → { pruefeText, pruefeWurzel, TABELLEN } ohne Seiteneffekte;
@@ -30,23 +30,9 @@ const STICHTAG_MIGRATION = '20260930120000'
 const MIN_GRUND = 15
 const AUSNAHME = /storno-ausnahme\s*:\s*(.*)$/i
 
-/** Bekannte Stellen vor KAN-145: Datei (relativ, mit /) → Tabellen; Abbau in den Folgetickets */
-const ALTFAELLE = {
-  // C Lese/AMA (nach KAN-129)
-  'src/app/(dashboard)/erntemeldung/actions.ts': ['ernte_parzellen', 'ama_meldepositionen', 'pressung_behaelter', 'pressung_weingaerten', 'pressungen', 'weinausbau', 'weinjahrgaenge', 'traubenverkauf', 'ama_erntemeldungen'],
-  'src/app/(dashboard)/weinhandel/traubenverkauf/actions.ts': ['traubenverkauf'],
-  // D Verkauf/E/A: abgebaut (KAN-149 D1–D3, 01.10.2026)
-  // G Aufräumen: Wartungs- und Cleanup-Skripte (künftig mit s112.loeschen_erlaubt)
-  'sql/cleanup_gebeshuber_kompletter_reset.sql': ['*'],
-  'sql/cleanup_testdaten_2026-08-05.sql': ['*'],
-  // E = KAN-88 Maßnahmen, Lager
-  'src/app/(dashboard)/behandlungen/actions.ts': ['behandlungen', 'behandlung_grundstuecke'],
-  'src/app/(dashboard)/behandlungen/lager/actions.ts': ['psm_lager_bewegungen', 'duengemittel_lager_bewegungen'],
-  // B Kellerbuch – wird in diesem Ticket (Block B) abgebaut
-  'src/lib/kellerbuch/storno.ts': ['*'],
-  'src/app/(dashboard)/kellerbuch/actions.ts': ['keller_behandlungen'],
-  'src/app/(dashboard)/weinhandel/actions.ts': ['keller_umzuege', 'fuellung_chargen'],
-}
+/** Bekannte Stellen vor KAN-145: Datei (relativ, mit /) → Tabellen. Seit KAN-151 (01.10.2026) leer – alle Stellen sind
+ *  abgebaut bzw. begründet (storno-ausnahme). Neue Einträge nur übergangsweise; ohne Treffer meldet das Skript einen Hinweis. */
+const ALTFAELLE = {}
 
 /**
  * Eingespielte Migrationen (Remote-Historie, Datei nicht mehr änderbar), deren DELETE in der Lösch-RPC
@@ -160,13 +146,18 @@ if (require.main === module) {
     for (const a of erg.ausnahmen) console.log(`  Ausnahme  ${a.datei}:${a.zeile} ${a.regel} ${a.tabelle ?? ''} – ${a.grund}`)
     for (const a of erg.altfaelle) console.log(`  Altfall   ${a.datei}:${a.zeile} ${a.regel} ${a.tabelle ?? ''}`)
   }
+  // Altfall-Einträge ohne Treffer: Eintrag entfernen (Hinweis, kein Fehler)
+  const gesehen = new Set(erg.altfaelle.map(a => a.datei))
+  for (const d of Object.keys(ALTFAELLE)) {
+    if (!gesehen.has(d)) console.log(`  Hinweis  ${d}  ALTFALL ohne Treffer (bzw. Datei fehlt) – Eintrag in ALTFAELLE entfernen`)
+  }
   if (erg.funde.length > 0) {
     console.error(`\n✖ check-storno: ${erg.funde.length} Fund(e) – Stornieren statt Löschen (KAN-145, CLAUDE.md):\n`)
     for (const f of erg.funde) console.error(`  ${f.datei}:${f.zeile}  ${f.regel}  ${f.text}`)
     console.error('\nBegründete Ausnahme je Stelle: // storno-ausnahme: <Grund> bzw. -- storno-ausnahme: <Grund> (mind. 15 Zeichen).\n')
     process.exit(1)
   }
-  console.log(`✓ check-storno: ${erg.anzahl} Dateien geprüft, ${TABELLEN.length} berichtsrelevante Tabellen; ${erg.ausnahmen.length} begründete Ausnahme(n), ${erg.altfaelle.length} Altfall-Stelle(n) (Abbau in KAN-145 B und den Folgetickets).`)
+  console.log(`✓ check-storno: ${erg.anzahl} Dateien geprüft, ${TABELLEN.length} berichtsrelevante Tabellen; ${erg.ausnahmen.length} begründete Ausnahme(n), ${erg.altfaelle.length} Altfall-Stelle(n).`)
 }
 
 module.exports = { pruefeText, pruefeWurzel, TABELLEN, ALTFAELLE, STICHTAG_MIGRATION }
