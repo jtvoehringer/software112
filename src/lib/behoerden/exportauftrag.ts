@@ -15,6 +15,7 @@
 // Isomorph ohne Server-Importe (Konstanten auch für WeinexportDetailClient) – Tests: scripts/tests/verkehr.test.mjs
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Supabase-Abfragen nach Projektkonvention mit „as any“ (CLAUDE.md) */
+import { momentaufnahmeAnwenden } from '../stammdaten/momentaufnahme'
 import { STELLEN, runden, type CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
 import { UUID_RE, feld, inBloecken, textOderNull, type R } from './verkehr-hilfen'
@@ -96,6 +97,7 @@ function zahlOderNull(v: unknown): number | null {
 
 /** Importeur wie auf den Papieren: Firma, sonst Vor- und Nachname des Kontakts */
 export function importeurName(a: R): string | null {
+  momentaufnahmeAnwenden(a, { kontakte: 'kontakt', firmen: 'firma' })   // KAN-150 F1c: Empfänger wie beim Anlegen des Auftrags
   const firma = feld(a.firmen?.name)
   if (firma) return firma
   const person = [a.kontakte?.vorname, a.kontakte?.nachname].map(feld).filter(Boolean).join(' ')
@@ -335,7 +337,7 @@ export function exportListenZeile(a: R, positionen: readonly R[], dokumente: rea
 /** Alle aktiven Exportaufträge (neueste zuerst) mit Positionssummen und Dokumentstatus – für /weinexport und die CSV */
 export async function ladeExportauftraege(supabase: Client, tenantId: string): Promise<{ zeilen: ExportauftragListenZeile[]; warnungen: string[] }> {
   const auftraegeRes = await alle<R>((supabase.from('exportauftraege') as any)
-    .select('id, referenz, datum, lieferdatum, incoterms, transport_art, destination_land, destination_stadt, eori_kunde, taric_code, ursprungsland, versicherungswert, status, emcs_arc_nummer, emcs_status, emcs_datum, created_at, kontakte(vorname, nachname), firmen(name)')
+    .select('id, referenz, datum, lieferdatum, incoterms, transport_art, destination_land, destination_stadt, eori_kunde, taric_code, ursprungsland, versicherungswert, status, emcs_arc_nummer, emcs_status, emcs_datum, created_at, partner_daten, kontakte(vorname, nachname), firmen(name)')
     .eq('tenant_id', tenantId)
     .eq('aktiv', true)
     .order('created_at', { ascending: false })

@@ -76,3 +76,31 @@ describe('grundstueckAktiv – Stichtag der Deaktivierung', () => {
     assert.equal(ga.gstImJahr({ aktiv: false, deaktiviert_am: '2026-01-01' }, 2026), false)
   })
 })
+
+// KAN-150 F1c: Momentaufnahmen auf Belegen (src/lib/stammdaten/momentaufnahme.ts)
+const mo = await import('../../src/lib/stammdaten/momentaufnahme.ts')
+describe('momentaufnahmeAnwenden – Beleg statt Stammdaten', () => {
+  test('Momentaufnahme gilt, Felder ohne Momentaufnahme (id, email) bleiben aus den Stammdaten', () => {
+    const z = { partner_daten: { kontakt: { vorname: 'Anna', nachname: 'Huber', ort: 'Krems' }, firma: null },
+      kontakt: { id: 'k1', vorname: 'Anna', nachname: 'Huber-Neu', ort: 'Wien', email: 'a@x.at' }, firma: { name: 'Neu GmbH' } }
+    mo.momentaufnahmeAnwenden(z, ['kontakt', 'firma'])
+    assert.deepEqual(z.kontakt, { id: 'k1', vorname: 'Anna', nachname: 'Huber', ort: 'Krems', email: 'a@x.at' })
+    assert.equal(z.firma, null, 'nachträglich umgehängte Firma erscheint nicht auf dem Beleg')
+  })
+  test('ohne Momentaufnahme (alt bzw. leer) bleibt die Einbettung; Zuordnung mit anderen Namen (Export)', () => {
+    const alt = { partner_daten: null, firma: { name: 'Live' } }
+    mo.momentaufnahmeAnwenden(alt, ['firma'])
+    assert.deepEqual(alt.firma, { name: 'Live' })
+    const leer = { partner_daten: {}, firma: { name: 'Live' } }
+    mo.momentaufnahmeAnwenden(leer, ['firma'])
+    assert.deepEqual(leer.firma, { name: 'Live' })
+    const ex = { partner_daten: { kontakt: null, firma: { name: 'Importeur alt' } }, kontakte: { vorname: 'X' }, firmen: { name: 'neu' } }
+    mo.momentaufnahmeAnwenden(ex, { kontakte: 'kontakt', firmen: 'firma' })
+    assert.equal(ex.kontakte, null)
+    assert.equal(ex.firmen.name, 'Importeur alt')
+    const ea = { stamm_daten: { kategorie: { name: 'Alt', konto_nr: 7777 } }, kategorie: { name: 'Neu', konto_nr: 7777 } }
+    mo.momentaufnahmeAnwenden(ea, ['kategorie'], 'stamm_daten')
+    assert.equal(ea.kategorie.name, 'Alt')
+    assert.equal(mo.momentaufnahmeAnwenden(null, ['kontakt']), null)
+  })
+})

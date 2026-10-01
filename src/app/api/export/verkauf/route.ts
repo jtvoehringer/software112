@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { momentaufnahmenAnwenden } from '@/lib/stammdaten/momentaufnahme'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { darfDatenexport } from '@/lib/auth/modul'
 import { alle } from '@/lib/supabase/alle'
@@ -24,11 +25,11 @@ export async function GET() {
 
   const supabase = await createSupabaseServerClient()
   const { data, error } = await alle((supabase.from('verkaufsposten') as any)
-    .select('datum, rechnungsnummer, bezahlt, storniert, kontakt:kontakte!kontakt_id(vorname,nachname,accountnummer), firma:firmen(name,accountnummer,debitor_nr), verkauf_positionen(name,menge,einheit,preis_brutto,rabatt_pct,sonderrabatt_pct,ust_satz)')
+    .select('datum, rechnungsnummer, bezahlt, storniert, partner_daten, kontakt:kontakte!kontakt_id(vorname,nachname,accountnummer), firma:firmen(name,accountnummer,debitor_nr), verkauf_positionen(name,menge,einheit,preis_brutto,rabatt_pct,sonderrabatt_pct,ust_satz)')
     .eq('tenant_id', tenantId).eq('aktiv', true).order('datum', { ascending: false }).order('id'))
   // alle() statt 1.000er-Deckel; bei einem Fehler kein halber Export
   if (error) return fehlerAntwort(500, 'Export fehlgeschlagen')
 
-  const csv = verkaufCsv(data ?? [])
+  const csv = verkaufCsv(momentaufnahmenAnwenden((data ?? []) as Record<string, unknown>[], ['kontakt', 'firma']))   // KAN-150 F1c
   return csvAntwort(csv.text, csvDateiname(['verkauf']), csv.zeilen, csv.warnungen)
 }

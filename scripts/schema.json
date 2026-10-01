@@ -437,7 +437,8 @@
 "storniert_von_name",
 "storno_grund",
 "storno_von_id",
-"zahlung_id"
+"zahlung_id",
+"stamm_daten"
 ],
 "ea_uva": [
 "id",
@@ -524,7 +525,8 @@
 "aktiv",
 "emcs_arc_nummer",
 "emcs_status",
-"emcs_datum"
+"emcs_datum",
+"partner_daten"
 ],
 "exportauftrag_positionen": [
 "id",
@@ -1417,7 +1419,8 @@
 "storniert_am",
 "storniert_von",
 "storniert_von_name",
-"storno_grund"
+"storno_grund",
+"partner_daten"
 ],
 "user_email_connections": [
 "id",
@@ -1496,7 +1499,8 @@
 "bmd_export_id",
 "storniert_von",
 "storniert_von_name",
-"storno_grund"
+"storno_grund",
+"partner_daten"
 ],
 "verschneidung_quellen": [
 "id",
@@ -1736,6 +1740,7 @@
 "storniert_am",
 "storniert_von",
 "storniert_von_name",
-"storno_grund"
+"storno_grund",
+"partner_daten"
 ]
 }

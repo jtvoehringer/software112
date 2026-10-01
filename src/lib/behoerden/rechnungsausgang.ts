@@ -13,6 +13,7 @@
 // (1 − Sonderrabatt), Netto je Satz = Σ Brutto / (1 + Satz), USt = Netto × Satz;
 // Positionen ohne Preis zählen nicht, fehlender Satz = 13 %.
 
+import { momentaufnahmenAnwenden } from '../stammdaten/momentaufnahme'
 import { rundeText, runden, type CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
 import { text, zahl } from './buchhaltung-gemeinsam'
@@ -185,7 +186,7 @@ function nummernVergleich(a: string | null, b: string | null): number {
 export async function ladeRechnungsjournal(supabase: any, tenantId: string, p: RechnungsjournalParameter): Promise<{ zeilen: RechnungsjournalZeile[]; warnungen: string[] }> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await alle<R>((supabase.from('verkaufsposten') as any)
-    .select(`id, datum, rechnungsnummer, aktiv, storniert, storniert_am, storniert_von_name, storno_grund, bezahlt, bezahlt_am,
+    .select(`id, datum, rechnungsnummer, aktiv, storniert, storniert_am, storniert_von_name, storno_grund, bezahlt, bezahlt_am, partner_daten,
       kontakt:kontakte!kontakt_id(vorname, nachname, accountnummer, debitor_nr, land),
       firma:firmen!firma_id(name, uid_nummer, accountnummer, debitor_nr, land),
       verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct, ust_satz)`)
@@ -194,6 +195,7 @@ export async function ladeRechnungsjournal(supabase: any, tenantId: string, p: R
     .lte('datum', p.bis)
     .order('datum').order('id'))
   if (error) throw new Error(`Laden fehlgeschlagen (verkaufsposten): ${error.message}`)
+  momentaufnahmenAnwenden(data, ['kontakt', 'firma'])   // KAN-150 F1c: Käufer wie auf der Rechnung
 
   const warnungen: string[] = []
   const zeilen: RechnungsjournalZeile[] = []

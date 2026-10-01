@@ -627,7 +627,7 @@ BEGIN
      WHERE f.sd AND s.abo IS DISTINCT FROM (f.src ~ %L)
      ORDER BY 1$q$, c_re_abo));
   SELECT count(*) INTO v_n FROM pg_temp.s112_soll_rpc() s WHERE s.abo;
-  v_erg := v_erg || pg_temp.s112_erwarte('rpc_abo_anzahl', v_n, 25::bigint);   -- +3 KAN-149 D2   -- +1 KAN-149 D1   -- +3 KAN-148 C2 (s112_ama_*)   -- +s112_storniert_loeschen (KAN-145), s112_buchung_loeschen (KAN-166), s112_pressung_stornieren (KAN-148)
+  v_erg := v_erg || pg_temp.s112_erwarte('rpc_abo_anzahl', v_n, 26::bigint);   -- +1 KAN-150 F1c   -- +3 KAN-149 D2   -- +1 KAN-149 D1   -- +3 KAN-148 C2 (s112_ama_*)   -- +s112_storniert_loeschen (KAN-145), s112_buchung_loeschen (KAN-166), s112_pressung_stornieren (KAN-148)
   -- Unabhängig vom Handflag: schreibende SECURITY-DEFINER-RPC (p_tenant_id, EXECUTE für authenticated, Schreib-
   -- anweisung im Quelltext) ohne Abo-Prüfung → FEHLER, außer begründet in s112_soll_liste('abo_rpc_ausnahmen').
   v_erg := v_erg || pg_temp.t01_liste('rpc_schreibt_ohne_abo', format($q$

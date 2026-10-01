@@ -218,7 +218,9 @@ export async function deleteKontakt(id: string): Promise<LoeschErgebnis> {
 // (kontakt_id) erhalten, Umsatzauswertungen laufen ab jetzt über die Firma.
 // Entscheidungen 2.9.2026: Kontakt bleibt bestehen (nicht deaktivieren),
 // Historie wandert vollständig mit, nur diese Richtung (keine Firma → Kontakt).
-const HISTORIE_TABELLEN = ['aktivitaeten', 'pipeline_eintraege', 'verkaufsposten', 'bestellungen', 'exportauftraege', 'traubenverkauf'] as const
+// Historie (aktivitaeten, pipeline_eintraege, verkaufsposten, bestellungen, exportauftraege, traubenverkauf) hängt die
+// RPC s112_kontakt_historie_zu_firma um (KAN-150 F1c): in einem Schritt, Belege behalten ihre Momentaufnahme des
+// Käufers, auch stornierte Verkäufe lassen sich umhängen.
 
 export async function kontaktZuFirmaUmwandeln(
   kontaktId: string,
@@ -286,18 +288,12 @@ export async function kontaktZuFirmaUmwandeln(
       .eq('id', kontaktId).eq('tenant_id', tenantId)
     if (linkErr) return { error: `Firma angelegt, Kontakt konnte aber nicht zugeordnet werden: ${(linkErr as AR).message}` }
 
-    // Historie umhängen: firma_id setzen, kontakt_id bleibt (Person an der Firma)
-    const verschoben: Record<string, number> = {}
-    for (const tabelle of HISTORIE_TABELLEN) {
-      const { error, count } = await (supabase.from(tabelle) as any)
-        .update({ firma_id: firmaId }, { count: 'exact' })
-        .eq('kontakt_id', kontaktId).eq('tenant_id', tenantId)
-      if (error) {
-        console.error(`kontaktZuFirmaUmwandeln: ${tabelle} konnte nicht umgehängt werden:`, (error as AR).message)
-        continue
-      }
-      verschoben[tabelle] = count ?? 0
-    }
+    // Historie umhängen: firma_id setzen, kontakt_id bleibt (Person an der Firma) – KAN-150 F1c per RPC
+    const { data: umRaw, error: umErr } = await (supabase.rpc as any)('s112_kontakt_historie_zu_firma', {
+      p_tenant_id: tenantId, p_kontakt_id: kontaktId, p_firma_id: firmaId,
+    })
+    if (umErr) return { error: `Firma angelegt und Kontakt zugeordnet, die Historie konnte aber nicht umgehängt werden: ${dbFehlerText(umErr)}`, firmaId }
+    const verschoben = (umRaw ?? {}) as Record<string, number>
 
     revalidatePath('/crm/kontakte')
     revalidatePath(`/crm/kontakte/${kontaktId}`)

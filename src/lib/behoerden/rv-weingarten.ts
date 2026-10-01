@@ -27,6 +27,7 @@
 //   –           keine Wartezeit hinterlegt
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Projektkonvention (supabase.from('…') as any), siehe CLAUDE.md */
+import { momentaufnahmeAnwenden } from '../stammdaten/momentaufnahme'
 import { runden, STELLEN, type CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
 import { ladeHerkunftLesezeilen } from '@/lib/wein/blendKomposition'
@@ -134,6 +135,7 @@ const TV_SELECT = `
   grundstueck:grundstueck_id(gst_nr, katastralgemeinde, ama_feldnummer),
   jahrgang:jahrgang_id(jahrgang),
   lese:lesen!traubenverkauf_lese_fkey(lfd_nr, art),
+  partner_daten,
   kontakt:kontakt_id(vorname, nachname),
   firma:firma_id(name)
 `
@@ -162,6 +164,7 @@ function leseText(jahrgang: number | null, lese: R | null): string | null {
 }
 
 function abnehmer(tv: R): string | null {
+  momentaufnahmeAnwenden(tv, ['kontakt', 'firma'])   // KAN-150 F1c: Abnehmer wie beim Traubenverkauf
   const f = text((tv.firma as R | null)?.name)
   const k = tv.kontakt as R | null
   const kn = k ? [k.vorname, k.nachname].filter(Boolean).join(' ') : ''

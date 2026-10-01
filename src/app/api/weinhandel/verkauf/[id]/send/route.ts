@@ -7,6 +7,7 @@
 // (tenant_einstellungen). Aktualisiert verkaufsposten.rechnung_versendet_am /
 // rechnung_versendet_an bei Erfolg und legt eine CRM-Aktivität an.
 
+import { momentaufnahmeAnwenden } from '@/lib/stammdaten/momentaufnahme'
 import { NextRequest, NextResponse } from 'next/server'
 import nodemailer from 'nodemailer'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     (supabase.from('verkaufsposten') as any)
       .select(`
         id, datum, rechnungsnummer, storniert, skonto_pct, skonto_tage, skonto_aktiv,
-        kontakt_id, firma_id,
+        kontakt_id, firma_id, partner_daten,
         kontakt:kontakte!kontakt_id(vorname, nachname, email, strasse, plz, ort, zahlungsziel_tage),
         firma:firmen(name, email, strasse, plz, ort, zahlungsziel_tage),
         zh_kontakt:kontakte!zh_kontakt_id(vorname, nachname),
@@ -73,7 +74,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   ])
 
   if (!postenRaw) return NextResponse.json({ error: 'Verkauf nicht gefunden' }, { status: 404 })
-  const posten = postenRaw as R
+  const posten = momentaufnahmeAnwenden(postenRaw as R, ['kontakt', 'firma', 'zh_kontakt'])   // KAN-150 F1c
   if (posten.storniert) return NextResponse.json({ error: 'Stornierte Verkäufe können nicht versendet werden' }, { status: 400 })
 
   const positionen = (posten.positionen ?? []) as R[]

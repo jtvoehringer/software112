@@ -18,6 +18,7 @@
 // jedem Stichtag. Belegungszeiträume und Liter je Charge lassen das Paar aus.
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Projektkonvention (supabase.from('…') as any), siehe CLAUDE.md */
+import { momentaufnahmeAnwenden } from '../stammdaten/momentaufnahme'
 import { runden, STELLEN, type CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
 import { istStorniert, stornoAngaben } from '@/lib/kellerbuch/stornoFilter'
@@ -161,7 +162,7 @@ async function ladeRoh(supabase: any, tenantId: string, behaelterId: string): Pr
         .order('datum', { ascending: true })
         .order('id', { ascending: true }), 'fuellungen'),
       liste((supabase.from('verkauf_positionen') as any)
-        .select('id, menge, einheit, weinausbau_id, verkaufsposten:verkaufsposten_id(datum, storniert, storniert_am, storno_grund, storniert_von_name, rechnungsnummer, kontakt:kontakt_id(vorname, nachname), firma:firma_id(name))')
+        .select('id, menge, einheit, weinausbau_id, verkaufsposten:verkaufsposten_id(datum, storniert, storniert_am, storno_grund, storniert_von_name, rechnungsnummer, partner_daten, kontakt:kontakt_id(vorname, nachname), firma:firma_id(name))')
         .eq('tenant_id', tenantId)
         .in('weinausbau_id', ids)
         .eq('typ', 'tank')
@@ -169,7 +170,7 @@ async function ladeRoh(supabase: any, tenantId: string, behaelterId: string): Pr
       // Zukauf-Eingang (Wein/Most direkt in eine Charge dieses Gebindes) – rechnet
       // v_behaelter_fuellstand (Migration 127) ebenfalls mit
       liste((supabase.from('zukauf_posten') as any)
-        .select('id, datum, menge, ziel_weinausbau_id, rebsorte, jahrgang, eingangsrechnungsnummer, staatliche_pruefnummer, lieferant_firma:firmen!lieferant_firma_id(name), lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname)')
+        .select('id, datum, menge, ziel_weinausbau_id, rebsorte, jahrgang, eingangsrechnungsnummer, staatliche_pruefnummer, partner_daten, lieferant_firma:firmen!lieferant_firma_id(name), lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname)')
         .eq('tenant_id', tenantId)
         .in('ziel_weinausbau_id', ids)
         .eq('aktiv', true)
@@ -278,7 +279,7 @@ function bewegungenAus(roh: Roh): Bewegung[] {
       menge: liter(l),
       chargeId: z.ziel_weinausbau_id ?? null,
       charge: name(z.ziel_weinausbau_id),
-      gegenstelle: text((z.lieferant_firma as R | null)?.name) ?? personName(z.lieferant_kontakt as R | null),
+      gegenstelle: text((momentaufnahmeAnwenden(z, ['lieferant_firma', 'lieferant_kontakt']).lieferant_firma as R | null)?.name) ?? personName(z.lieferant_kontakt as R | null),
       beleg: text(z.eingangsrechnungsnummer) ?? text(z.staatliche_pruefnummer),
     })
   }
@@ -407,7 +408,7 @@ function bewegungenAus(roh: Roh): Bewegung[] {
       menge: -liter(l),
       chargeId: v.weinausbau_id ?? null,
       charge: name(v.weinausbau_id),
-      gegenstelle: text((vp?.firma as R | null)?.name) ?? personName(vp?.kontakt as R | null),
+      gegenstelle: text((momentaufnahmeAnwenden(vp, ['kontakt', 'firma'])?.firma as R | null)?.name) ?? personName(vp?.kontakt as R | null),
       beleg: text(vp?.rechnungsnummer),
       ...(vp?.storniert ? stornoFeld(vp) : {}),
     })

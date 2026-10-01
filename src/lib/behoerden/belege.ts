@@ -8,6 +8,7 @@
 // Eine Ladefunktion für die Druckseite /buchhaltung/belege/verzeichnis UND die CSV
 // (/meldungen/belegverzeichnis/csv?jahr=).
 
+import { momentaufnahmeAnwenden } from '../stammdaten/momentaufnahme'
 import { STELLEN, wienDatum, type CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
 import { betrag, istIsoDatum, text, zahl } from './buchhaltung-gemeinsam'
@@ -95,11 +96,12 @@ export async function ladeBelegverzeichnis(supabase: any, tenantId: string, p: B
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await alle<R>((supabase.from('ea_belege') as any)
     .select(`id, dateiname, dateityp, status, erkannte_daten, hochgeladen_am, verbucht_am, ea_transaktion_id,
-      buchung:ea_transaktionen!ea_transaktion_id(datum, typ, beschreibung, betrag_brutto, storniert_am, kategorie:ea_kategorien!kategorie_id(name))`)
+      buchung:ea_transaktionen!ea_transaktion_id(datum, typ, beschreibung, betrag_brutto, storniert_am, stamm_daten, kategorie:ea_kategorien!kategorie_id(name))`)
     .eq('tenant_id', tenantId)
     .order('hochgeladen_am').order('id'))
   if (error) throw new Error(`Laden fehlgeschlagen (ea_belege): ${error.message}`)
 
+  for (const b of data) momentaufnahmeAnwenden(b.buchung, ['kategorie'], 'stamm_daten')   // KAN-150 F1c
   const imJahr = data.filter(b => belegJahr(b) === p.jahr)
   const basis = imJahr.map(belegZeile)
   basis.sort((a, b) =>

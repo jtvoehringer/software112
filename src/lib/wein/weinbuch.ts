@@ -22,6 +22,7 @@
 // stehen (Kennzeichen „storniert“) und bekommen am Storno-Tag einen eigenen Eintrag „Storno: …“ mit Grund und
 // Benutzer.
 
+import { momentaufnahmeAnwenden } from '../stammdaten/momentaufnahme'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum } from '@/lib/format'
 import { istStorniert, stornoAngaben } from '@/lib/kellerbuch/stornoFilter'
@@ -83,6 +84,7 @@ const ZUKAUF_ART: Record<string, string> = { wein: 'Wein', most: 'Most', trauben
 
 /** Hinweis zu einem Zukauf: Ried-Maßnahmen liegen beim Lieferbetrieb (KAN-127; Transportschein-Nr. kommt mit KAN-90) */
 export function zukaufHinweis(z: R, ueberCharge: string | null): string {
+  momentaufnahmeAnwenden(z, ['lieferant_firma', 'lieferant_kontakt'])   // KAN-150 F1c: Lieferant wie beim Zukauf
   const firma = z.lieferant_firma as R | null
   const kontakt = z.lieferant_kontakt as R | null
   const name = text(firma?.name) ?? ([kontakt?.vorname, kontakt?.nachname].filter(Boolean).join(' ') || 'Lieferant nicht erfasst')
@@ -310,7 +312,7 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
   // Hinweise: Zukauf (beim Lieferbetrieb), Eröffnungsbestand, Charge ohne Lese
   const trauben = [...new Set(rvLesen.map(l => text(l.lese.zukauf_posten_id)).filter((x): x is string => !!x))]
   if (tenantId) {
-    const zkSelect = 'id, datum, art, menge, einheit, rebsorte, jahrgang, ziel_weinausbau_id, lieferant_firma:firmen!lieferant_firma_id(name, betrieb_nr), lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname, betrieb_nr)'
+    const zkSelect = 'id, datum, art, menge, einheit, rebsorte, jahrgang, ziel_weinausbau_id, partner_daten, lieferant_firma:firmen!lieferant_firma_id(name, betrieb_nr), lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname, betrieb_nr)'
     const [zkZiel, zkTrauben] = await Promise.all([
       (supabase.from('zukauf_posten') as any).select(zkSelect).eq('tenant_id', tenantId).eq('aktiv', true)
         .in('ziel_weinausbau_id', [...herkunft.keys()]).order('datum'),

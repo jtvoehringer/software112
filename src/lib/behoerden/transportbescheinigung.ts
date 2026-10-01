@@ -14,6 +14,7 @@
 // Isomorph ohne Server-Importe (Supabase-Client wird übergeben) – Tests: scripts/tests/verkehr.test.mjs
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Supabase-Abfragen nach Projektkonvention mit „as any“ (CLAUDE.md) */
+import { momentaufnahmeAnwenden } from '../stammdaten/momentaufnahme'
 import { STELLEN, runden, wienHeute, type CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
 import { bkiFarbe, formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
@@ -242,6 +243,7 @@ export const TB_PN_NICHT_VORBELEGT = 'Prüfnummer nicht vorbelegt.'
 export function tbVorbelegung(posten: R, cfg: R, pn: TBPruefnummern, heute: string, hinweise: string[]): TBDaten {
   const [jahr, monat, tag] = heute.split('-')
   const verkaufstag = pnTag(posten.datum) ?? heute
+  momentaufnahmeAnwenden(posten, ['kontakt', 'firma'])   // KAN-150 F1c: Empfänger wie auf der Rechnung
   const kunde = (posten.kontakt ?? posten.firma ?? {}) as R
   const eName = posten.kontakt
     ? [kunde.vorname, kunde.nachname].map(feld).filter(Boolean).join(' ')
@@ -484,7 +486,7 @@ function einheitStandard(posten: R): string | null {
 // ── Laden ────────────────────────────────────────────────────────────────────
 
 const POSTEN_SELECT = `
-  id, rechnungsnummer, datum, storniert, storniert_am, storno_grund,
+  id, rechnungsnummer, datum, storniert, storniert_am, storno_grund, partner_daten,
   kontakt:kontakte!verkaufsposten_kontakt_id_fkey(vorname, nachname, telefon, strasse, plz, ort, betrieb_nr),
   firma:firmen(name, telefon, strasse, plz, ort, betrieb_nr),
   positionen:verkauf_positionen(
