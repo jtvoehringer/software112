@@ -10,6 +10,8 @@ import { AktionsFehler, dbFehlerText, fehlerText } from '@/lib/fehler'
 import { stornoGrundFehler } from '@/lib/storno/grund'
 import { dezimal, fmtNum } from '@/lib/format'
 import { qualitaetFehler } from '@/lib/wein/qualitaet'
+import { pruefePruefnummernSchaden } from '@/lib/kellerbuch/pruefnummerLaden'
+import { mitPnNotiz } from '@/lib/kellerbuch/pruefnummer'
 import {
   folgebuchungenDerZielcharge, zielchargeText, zukaufVerweise, traubenGebundenText, loeschSperreText,
 } from './sperren'
@@ -175,12 +177,30 @@ function chargeStammdaten(f: ZukaufFormular): AR {
   }
 }
 
-export async function createZukauf(formData: FormData) {
+// KAN-83: bestaetigung = Rückfrage „Prüfnummer gilt nicht mehr“ – nichts gebucht; mit pn_bestaetigt=1 erneut senden
+export async function createZukauf(formData: FormData): Promise<{ bestaetigung?: string } | void> {
   const supabase = await createSupabaseServerClient()
   const tenantId = await schreibKontext()
   const f = parseZukaufFormData(formData)
 
   if (f.menge <= 0) throw new AktionsFehler('Menge muss größer als 0 sein')
+
+  // KAN-83 (01.10.2026): Wein/Most in ein Gebinde, in dem eine Charge mit geltender Prüfnummer
+  // liegt – der Tankbestand dieser Charge verliert die Nummer. Eingereichter Antrag: Ablehnung;
+  // sonst erst nachfragen, nach der Bestätigung buchen und am Zukauf vermerken. VOR der ersten Buchung.
+  if ((f.art === 'wein' || f.art === 'most') && f.zielBehaelterId) {
+    const { data: imGebinde, error: gErr } = await (supabase.from('weinausbau') as any)
+      .select('id, name')
+      .eq('behaelter_id', f.zielBehaelterId)
+      .eq('tenant_id', tenantId)
+      .eq('aktiv', true)
+      .neq('status', 'abgeschlossen')
+    if (gErr) throw new AktionsFehler(dbFehlerText(gErr, 'Chargen im Ziel-Gebinde konnten nicht geladen werden'))
+    const pn = await pruefePruefnummernSchaden(supabase, tenantId, 'zukauf',
+      ((imGebinde ?? []) as AR[]).map(c => ({ chargeId: String(c.id), name: (c.name as string | null) ?? null, zugangLiter: f.menge })), f.datum)
+    if (pn && formData.get('pn_bestaetigt') !== '1') return { bestaetigung: pn.frage }
+    if (pn) f.notizen = mitPnNotiz(f.notizen, pn.notiz)
+  }
 
   let zielWeinausbauId: string | null = null
   if ((f.art === 'wein' || f.art === 'most') && f.zielBehaelterId) {

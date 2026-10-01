@@ -136,7 +136,14 @@ export default function ZukaufNeuPage() {
     fd.set('ziel_behaelter_id',       zielBehaelter)
     fd.set('notizen',                 notizen)
     startTransition(async () => {
-      try { await createZukauf(fd) }
+      try {
+        const result = await createZukauf(fd)
+        // KAN-83: Prüfnummer einer Charge im Ziel-Gebinde erlischt – nur nach Bestätigung buchen
+        if (result?.bestaetigung && window.confirm(result.bestaetigung)) {
+          fd.set('pn_bestaetigt', '1')
+          await createZukauf(fd)
+        }
+      }
       catch (err) { setError(fehlerText(err, 'Fehler beim Speichern')) }
     })
   }
