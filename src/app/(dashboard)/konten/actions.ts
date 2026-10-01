@@ -4,7 +4,8 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canAdmin, canWrite } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
-import { AktionsFehler } from '@/lib/fehler'
+import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
+import { stornoGrundFehler } from '@/lib/storno/grund'
 import { dezimal } from '@/lib/format'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -88,14 +89,17 @@ export async function createUmbuchung(formData: FormData) {
 
 // ── Umbuchung löschen (nur Admin – entfernt beide Seiten in einem Schritt) ──
 
-export async function deleteUmbuchung(id: string, vonKontoId: string, nachKontoId: string) {
-  const { supabase, tenantId, role } = await getCtx()
-  if (!canAdmin(role)) return { error: 'Keine Berechtigung.' }
+// Umbuchung stornieren statt löschen (KAN-149 D2b): bleibt mit Datum, Benutzer und Grund auf beiden Konten stehen, das
+// Kassabuch und die Abstimmung zeigen am Storno-Tag die Gegenzeile. Rechte und Grund prüft die RPC (E&A-Schreibrecht).
+export async function stornoUmbuchung(id: string, vonKontoId: string, nachKontoId: string, grund: string) {
+  const fehler = stornoGrundFehler(grund)
+  if (fehler) return { error: fehler }
+  const { supabase, tenantId } = await getCtx()
 
-  const { error } = await (supabase.from('konto_umbuchungen') as any)
-    .delete().eq('id', id).eq('tenant_id', tenantId)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.rpc as any)('s112_umbuchung_stornieren', { p_tenant_id: tenantId, p_id: id, p_grund: grund.trim() })
 
-  if (error) return { error: (error as R).message }
+  if (error) return { error: dbFehlerText(error, 'Umbuchung konnte nicht storniert werden') }
   revalidatePath(`/konten/${vonKontoId}/abstimmung`)
   revalidatePath(`/konten/${nachKontoId}/abstimmung`)
   return { ok: true }

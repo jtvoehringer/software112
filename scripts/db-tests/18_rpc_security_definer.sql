@@ -197,7 +197,7 @@ DECLARE
                                    'setze_kontobewegung_abgeglichen', 's112_storniert_loeschen', 's112_buchung_loeschen',
                                    's112_schwund_minderung', 's112_pressung_stornieren', 's112_pressung_zeilen_stornieren', 's112_mostzeile_anlegen',
                                    's112_ama_korrektur_anlegen', 's112_ama_meldung_speichern', 's112_ama_status_setzen',
-                                   's112_fuellung_verkauf_buchen'];
+                                   's112_fuellung_verkauf_buchen', 's112_ea_stornieren', 's112_zahlung_stornieren', 's112_umbuchung_stornieren'];
   v_pl_m  uuid;
   v_pl_b  uuid;
   v_kb_m  uuid;
@@ -214,6 +214,8 @@ DECLARE
   v_am_b  uuid;
   v_fz_m  uuid;   -- KAN-149 D1: Füllungen in M und B
   v_fz_b  uuid;
+  v_x_m   uuid;   -- KAN-149 D2: E/A-Buchung, Zahlung, Umbuchung in M und B
+  v_x_b   uuid;
   v_kb_b  uuid;
   v_f_m   uuid;
   v_f_b   uuid;
@@ -316,8 +318,8 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('rpc_liste_vollstaendig', v_n >= 30, true);   -- 30 seit KAN-127 (get_behandlungen_fuer_grundstuecke entfernt)
   SELECT count(*) INTO v_n FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace AND n.nspname = 'public'
    WHERE p.prosecdef AND 'p_tenant_id' = ANY (p.proargnames) AND p.prosrc ~ 'pruefe_tenant_zugriff\s*\(';
-  v_erg := v_erg || pg_temp.s112_erwarte('rpc_mit_pruefe_tenant_zugriff', v_n, 28);   -- +1 KAN-149 D1   -- +3 KAN-148 C2 (s112_ama_*)   -- +3 KAN-148 C1c-2   -- +s112_pressung_stornieren (KAN-148 C1c)   -- +s112_schwund_minderung (KAN-145 B4)   -- +s112_storniert_loeschen (KAN-145), s112_buchung_loeschen (KAN-166)
-  v_erg := v_erg || pg_temp.s112_erwarte('pruefe_liste_dynamisch', coalesce(array_length(v_namen, 1), 0), 27);   -- +1 KAN-149 D1   -- +3 KAN-148 C2
+  v_erg := v_erg || pg_temp.s112_erwarte('rpc_mit_pruefe_tenant_zugriff', v_n, 31);   -- +3 KAN-149 D2   -- +1 KAN-149 D1   -- +3 KAN-148 C2 (s112_ama_*)   -- +3 KAN-148 C1c-2   -- +s112_pressung_stornieren (KAN-148 C1c)   -- +s112_schwund_minderung (KAN-145 B4)   -- +s112_storniert_loeschen (KAN-145), s112_buchung_loeschen (KAN-166)
+  v_erg := v_erg || pg_temp.s112_erwarte('pruefe_liste_dynamisch', coalesce(array_length(v_namen, 1), 0), 30);   -- +3 KAN-149 D2   -- +1 KAN-149 D1   -- +3 KAN-148 C2
   -- Soll-Einträge mit p_tenant_id, die es nicht (mehr) gibt
   SELECT string_agg(s.funktion, ', ') INTO v_txt FROM pg_temp.s112_soll_rpc() s
    WHERE s.funktion LIKE '%p_tenant_id %'
@@ -387,7 +389,7 @@ BEGIN
   END LOOP;
   PERFORM pg_temp.s112_als_postgres();
   UPDATE public.tenants SET stripe_status = NULL WHERE id = v_b;
-  v_erg := v_erg || pg_temp.s112_erwarte('abo_rpcs_geprueft', v_n, 21);   -- +1 KAN-149 D1   -- +3 KAN-148 C2   -- +3 KAN-148 C1c-2   -- +s112_pressung_stornieren (KAN-148)
+  v_erg := v_erg || pg_temp.s112_erwarte('abo_rpcs_geprueft', v_n, 24);   -- +3 KAN-149 D2   -- +1 KAN-149 D1   -- +3 KAN-148 C2   -- +3 KAN-148 C1c-2   -- +s112_pressung_stornieren (KAN-148)
 
   -- ── 4. 'eigen': eigene Mitgliedsprüfung (ohne pruefe_tenant_zugriff) ──────────────────────────────────
   SELECT count(*) INTO v_n FROM public.tenant_memberships WHERE tenant_id = v_m AND aktiv;
@@ -596,6 +598,23 @@ BEGIN
     ELSE
       v_erg := v_erg || pg_temp.s112_erwarte('idor_positiv_s112_fuellung_verkauf_buchen', v_r, 'ok|11');
     END IF;
+  END LOOP;
+
+  -- s112_ea_/zahlung_/umbuchung_stornieren (KAN-149 D2): fremdes Objekt (M) bleibt unstorniert, eigenes (B) storniert
+  FOREACH v_txt IN ARRAY ARRAY['ea_transaktionen', 'zahlungen', 'konto_umbuchungen'] LOOP
+    v_x_m := (pg_temp.s112_beispiel(v_txt, v_m, v_mw, CASE WHEN v_txt = 'ea_transaktionen' THEN jsonb_build_object('datum', current_date) ELSE '{}'::jsonb END) ->> 'id')::uuid;
+    v_x_b := (pg_temp.s112_beispiel(v_txt, v_b, (v_a ->> 'b_w')::uuid, CASE WHEN v_txt = 'ea_transaktionen' THEN jsonb_build_object('datum', current_date) ELSE '{}'::jsonb END) ->> 'id')::uuid;
+    FOREACH v_r IN ARRAY ARRAY['m', 'b'] LOOP
+      v_sql := format('SELECT public.%s(%L, %L, %L)',
+        CASE v_txt WHEN 'ea_transaktionen' THEN 's112_ea_stornieren' WHEN 'zahlungen' THEN 's112_zahlung_stornieren' ELSE 's112_umbuchung_stornieren' END,
+        v_b, CASE v_r WHEN 'm' THEN v_x_m ELSE v_x_b END, 'S112TEST Storno fremd/eigen');
+      v_pruef := format('SELECT (storniert_am IS NOT NULL)::text FROM public.%I WHERE id = %L', v_txt, CASE v_r WHEN 'm' THEN v_x_m ELSE v_x_b END);
+      IF v_r = 'm' THEN
+        v_erg := v_erg || pg_temp.s112_erwarte('idor_storno_' || v_txt, split_part(pg_temp.t18_idor(v_bta, v_sql, v_pruef), '|', 2), 'false');
+      ELSE
+        v_erg := v_erg || pg_temp.s112_erwarte('idor_positiv_storno_' || v_txt, pg_temp.t18_idor(v_bta, v_sql, v_pruef), 'ok|true');
+      END IF;
+    END LOOP;
   END LOOP;
 
   -- s112_buchung_loeschen (KAN-166): PSM-Lagerbewegung – fremde (M) bleibt, eigene (B) wird gelöscht

@@ -10,18 +10,22 @@ import StornoButton from '@/components/StornoButton'
 export default function StornoKnopf({
   action,
   meldung,
+  erstattung = false,
 }: {
-  action: (grund: string) => Promise<void>
+  action: (grund: string, erstattetAm: string | null) => Promise<void>
   meldung: string
+  /** KAN-149 D2b: Zahlungen vorhanden → Feld „Erstattet am“ (Zahlungen stornieren, Einnahmen gegenbuchen) */
+  erstattung?: boolean
 }) {
   const router = useRouter()
   return (
     <StornoButton
       hinweis={meldung}
       label="Verkauf stornieren"
-      action={async grund => {
+      datumFeld={erstattung ? { label: 'Erstattet am (optional)', hilfe: 'Nur, wenn bezahlte Beträge zurückgezahlt wurden.' } : undefined}
+      action={async (grund, datum) => {
         try {
-          await action(grund)
+          await action(grund, datum)
         } finally {
           router.refresh()
         }

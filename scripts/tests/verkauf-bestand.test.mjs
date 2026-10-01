@@ -54,6 +54,13 @@ const K = { postenId: VP, datum: '2026-09-30' }
 
 /** Nachbildung der RPC auf der Attrappe (ohne Sperre): Bestand und Zeile in fuellung_bewegungen wie die Datenbank */
 function flaschenRpc(tabellen, name, a) {
+  // KAN-149 D2b: Zahlungsstorno (Erstattung) – kennzeichnet die Zahlung; die Gegenbuchung ihrer Einnahmen macht die DB
+  if (name === 's112_zahlung_stornieren') {
+    const z = (tabellen.zahlungen ?? []).find(x => x.id === a.p_zahlung_id && x.tenant_id === a.p_tenant_id)
+    if (!z) return { data: null, error: { code: 'P0002', message: 'Zahlung nicht gefunden – bitte die Seite neu laden.' } }
+    Object.assign(z, { storniert_am: '2026-09-30T10:00:00Z', storno_grund: a.p_grund, erstattet_am: a.p_datum })
+    return { data: 0, error: null }
+  }
   if (name !== 's112_fuellung_verkauf_buchen') return { data: null, error: { message: `rpc ${name} nicht nachgebildet` } }
   const f = (tabellen.fuellungen ?? []).find(x => x.id === a.p_fuellung_id && x.tenant_id === a.p_tenant_id)
   if (!f) return { data: null, error: { code: 'P0002', message: 'Füllung nicht gefunden – bitte Seite neu laden' } }
@@ -445,12 +452,12 @@ describe('verkaufspostenStornieren – Verkauf zurücknehmen', nurMitHooks, () =
   }
   beforeEach(() => { globalThis.__membership = admin })
 
-  test('Normalfall: Flaschen und Liter zurück, storniert, Traubenverkäufe und offene E&A-Einnahme weg, CRM markiert', async () => {
+  test('Normalfall: Flaschen und Liter zurück, storniert, Traubenverkäufe storniert, E&A unverändert, CRM markiert', async () => {
     const db = neueDb(vollerPosten())
     await b.verkaufspostenStornieren(db, T, VP, G)
     assert.deepEqual(ablauf(db), [
       RPC_FLASCHEN, 'update weinausbau', 'update verkaufsposten',
-      'update traubenverkauf', 'delete ea_transaktionen', 'update aktivitaeten',
+      'update traubenverkauf', 'update aktivitaeten',
     ])
     // KAN-149 D1: Rückbuchung als Zeile mit Beleg und Grund, Kennzeichen mit Grund
     assert.deepEqual(db.tabellen.fuellung_bewegungen.map(z => [z.art, z.menge_stk, z.grund, z.verkaufsposten_id]),
@@ -475,8 +482,8 @@ describe('verkaufspostenStornieren – Verkauf zurücknehmen', nurMitHooks, () =
     const tvStorno = db.aufrufe.find(a => a.art === 'update' && a.tabelle === 'traubenverkauf')
     assert.deepEqual(tvStorno.filter.find(f => f[0] === 'in'), ['in', 'id', [TV2, TV1]], 'erst über verkaufsposten_id, dann über die Position')
     assert.ok(hatFilter(tvStorno, 'is', 'storniert_am', null), 'nur noch nicht stornierte')
-    assert.deepEqual(db.tabellen.ea_transaktionen.map(r => r.id), ['ea-gesperrt', 'ea-manuell'],
-      'Befund (KAN-149): gesperrte Einnahme bleibt ohne Meldung stehen – eigener Test unten')
+    // KAN-149 D2b: ohne Erstattung bleiben die Einnahmen (Geld ist eingegangen) – kein Löschen mehr
+    assert.deepEqual(db.tabellen.ea_transaktionen.map(r => r.id), ['ea-offen', 'ea-gesperrt', 'ea-manuell'])
     assert.equal(zeile(db, 'aktivitaeten', 'akt-1').betreff, 'Verkauf RE-2026-001 · STORNIERT')
     assert.equal(zeile(db, 'aktivitaeten', 'akt-2').betreff, 'fremd')
     assert.deepEqual(ohneMandant(db, T), [])
@@ -634,18 +641,17 @@ describe('verkaufspostenStornieren – Verkauf zurücknehmen', nurMitHooks, () =
     const e = await fehlerVon(b.verkaufspostenStornieren(db, T, VP, G))
     assert.equal(e.message, 'Der Verkauf ist storniert und der Bestand zurückgebucht, aber: Traubenverkauf (BKI) konnte nicht storniert werden: fk.')
     assert.equal(zeile(db, 'verkaufsposten', VP).storniert, true)
-    assert.deepEqual(db.tabellen.ea_transaktionen.map(r => r.id), ['ea-gesperrt', 'ea-manuell'],
-      'Befund (KAN-149): die gesperrte Einnahme fehlt auch in der Sammelmeldung')
+    assert.deepEqual(db.tabellen.ea_transaktionen.map(r => r.id), ['ea-offen', 'ea-gesperrt', 'ea-manuell'])
     assert.equal(zeile(db, 'aktivitaeten', 'akt-1').betreff, 'Verkauf RE-2026-001 · STORNIERT')
   })
 
-  test('Traubenverkauf nur teilweise storniert (RLS) und E&A-Lesefehler: beide Punkte, mit „ · “ verbunden', async () => {
+  test('Traubenverkauf nur teilweise storniert (RLS) und Zahlungen nicht lesbar (Erstattung): beide Punkte, mit „ · “ verbunden', async () => {
     const db = neueDb(vollerPosten(), {
       rls: (e, r) => !(e.tabelle === 'traubenverkauf' && e.art === 'update' && r.id === TV1),
-      vorher: fehlerBei('ea_transaktionen', 'select', { message: 'timeout' }),
+      vorher: fehlerBei('zahlungen', 'select', { message: 'timeout' }),
     })
-    const e = await fehlerVon(b.verkaufspostenStornieren(db, T, VP, G))
-    assert.equal(e.message, 'Der Verkauf ist storniert und der Bestand zurückgebucht, aber: Traubenverkauf (BKI) konnte nicht storniert werden – keine Schreibberechtigung. Bitte unter Weinhandel › Traubenverkauf stornieren · E&A-Einnahmen des Verkaufs konnten nicht geladen werden: timeout – bitte in der E&A-Rechnung prüfen, sonst stimmt die UVA nicht.')
+    const e = await fehlerVon(b.verkaufspostenStornieren(db, T, VP, G, { erstattetAm: '2026-09-30' }))
+    assert.equal(e.message, 'Der Verkauf ist storniert und der Bestand zurückgebucht, aber: Traubenverkauf (BKI) konnte nicht storniert werden – keine Schreibberechtigung. Bitte unter Weinhandel › Traubenverkauf stornieren · Zahlungen des Verkaufs konnten nicht geladen werden: timeout.')
     assert.equal(zeile(db, 'traubenverkauf', TV1).storniert_am ?? null, null)
     assert.match(zeile(db, 'traubenverkauf', TV2).storniert_am ?? '', /^\d{4}-/)
   })
@@ -660,25 +666,31 @@ describe('verkaufspostenStornieren – Verkauf zurücknehmen', nurMitHooks, () =
     assert.equal(zeile(db, 'verkaufsposten', VP).storniert, true)
   })
 
-  // Befund: verkaufspostenStornieren wertet `gesperrt: true` aus ersetzeVerkaufsEinnahmen nicht
-  // aus (bestand.ts, Block 4a) – kein Punkt in `probleme`, kein Hinweis in der Storno-Abfrage.
-  // Die E&A bzw. die schon übermittelte UVA ist danach zu hoch. Der Storno-Umbau KAN-149 soll
-  // hier eine Gegenbuchung anlegen: Dann ändert sich dieser Test bewusst.
-  test('Befund: gesperrte E&A-Einnahme (übermittelte UVA) bleibt nach dem Storno ohne Meldung stehen – Gegenbuchung offen (KAN-149)', async () => {
-    const db = neueDb(vollerPosten())
-    await b.verkaufspostenStornieren(db, T, VP, G) // löst keinen Fehler aus, also keine Meldung
-    assert.equal(zeile(db, 'verkaufsposten', VP).storniert, true)
-    assert.ok(zeile(db, 'ea_transaktionen', 'ea-gesperrt'), 'gesperrte Einnahme bleibt stehen')
-    const eaSchreib = db.aufrufe.filter(a => a.tabelle === 'ea_transaktionen' && a.art !== 'select')
-    assert.deepEqual(eaSchreib.map(a => [a.art, a.getroffen]), [['delete', ['ea-offen']]], 'nur die offene entfernt, keine Gegenbuchung')
-
-    // nur gesperrte Einnahmen: gar kein E&A-Schreibzugriff, ebenfalls ohne Meldung
+  // KAN-149 D2b (Ticket Frage 1): ohne Erstattung bleiben Zahlungen und Einnahmen stehen; mit Erstattung werden die
+  // gültigen Zahlungen am Erstattungstag storniert (RPC s112_zahlung_stornieren bucht ihre Einnahmen gegen).
+  test('ohne Erstattung: Zahlungen und E&A-Einnahmen bleiben unverändert', async () => {
     const t = vollerPosten()
-    t.ea_transaktionen = [{ ...t.ea_transaktionen[1] }]
-    const db2 = neueDb(t)
-    await b.verkaufspostenStornieren(db2, T, VP, G)
-    assert.deepEqual(db2.tabellen.ea_transaktionen.map(r => r.id), ['ea-gesperrt'])
-    assert.ok(!schreibzugriffe(db2).some(z => z.endsWith(' ea_transaktionen')))
+    t.zahlungen = [{ id: 'za-1', tenant_id: T, verkaufsposten_id: VP, betrag: 50, storniert_am: null }]
+    const db = neueDb(t)
+    await b.verkaufspostenStornieren(db, T, VP, G)
+    assert.equal(zeile(db, 'zahlungen', 'za-1').storniert_am, null)
+    assert.ok(!db.aufrufe.some(a => a.art === 'rpc' && a.tabelle === 'rpc:s112_zahlung_stornieren'))
+    assert.ok(!db.aufrufe.some(a => a.tabelle === 'ea_transaktionen' && a.art !== 'select'))
+  })
+
+  test('mit Erstattung: gültige Zahlungen des Postens am Erstattungstag storniert – mit Grund, stornierte und fremde nicht', async () => {
+    const t = vollerPosten()
+    t.zahlungen = [
+      { id: 'za-1', tenant_id: T, verkaufsposten_id: VP, betrag: 50, storniert_am: null },
+      { id: 'za-2', tenant_id: T, verkaufsposten_id: VP, betrag: 20, storniert_am: '2026-09-01T08:00:00Z' },
+      { id: 'za-3', tenant_id: T, verkaufsposten_id: uuid(399), betrag: 10, storniert_am: null },
+      { id: 'za-4', tenant_id: FREMD, verkaufsposten_id: VP, betrag: 10, storniert_am: null },
+    ]
+    const db = neueDb(t)
+    await b.verkaufspostenStornieren(db, T, VP, G, { erstattetAm: '2026-09-30' })
+    const rpcs = db.aufrufe.filter(a => a.tabelle === 'rpc:s112_zahlung_stornieren').map(a => a.werte)
+    assert.deepEqual(rpcs, [{ p_tenant_id: T, p_zahlung_id: 'za-1', p_grund: `Erstattung – ${G}`, p_datum: '2026-09-30' }])
+    assert.equal(zeile(db, 'zahlungen', 'za-3').storniert_am, null)
   })
 
   test('CRM-Fehler ist nicht kritisch: nur Konsolenmeldung, kein Fehler', async (t) => {

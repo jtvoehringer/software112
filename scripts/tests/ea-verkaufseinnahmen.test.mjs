@@ -1,5 +1,5 @@
-// Tests zu KAN-149 Nebenbefund 2 (26.09.2026): abgeleitete E&A-Einnahmen aus Zahlungen
-// (src/lib/ea/verkaufEinnahmen.ts, Service-Role) und das Löschen alter AfA-Buchungen
+// Tests zu KAN-149 Nebenbefund 2 (26.09.2026) und D2b (30.09.2026): abgeleitete E&A-Einnahmen je Zahlung
+// (src/lib/ea/verkaufEinnahmenPlan.ts, src/lib/ea/verkaufEinnahmen.ts, Service-Role) und das Löschen alter AfA-Buchungen
 // (src/app/(dashboard)/buchhaltung/anlagen/actions.ts) – ohne Datenbank.
 //
 // Aufruf:  npm run -s test:csv   (alle scripts/tests/*.test.mjs)
@@ -66,13 +66,12 @@ if (hooksMoeglich) {
 }
 
 const laden = async rel => import(pathToFileURL(path.join(SRC, rel)).href)
-const [ve, afa] = hooksMoeglich
-  ? await Promise.all([laden('lib/ea/verkaufEinnahmen.ts'), laden('app/(dashboard)/buchhaltung/anlagen/actions.ts')])
+const [ve, plan, afa] = hooksMoeglich
+  ? await Promise.all([laden('lib/ea/verkaufEinnahmen.ts'), laden('lib/ea/verkaufEinnahmenPlan.ts'), laden('app/(dashboard)/buchhaltung/anlagen/actions.ts')])
   : []
 const nurMitHooks = { skip: hooksMoeglich ? false : 'module.registerHooks fehlt (Node ≥ 22.15 nötig)' }
 
 const T = 'tenant-1'
-const FREMD = 'tenant-2'
 const VP = 'vp-1'
 
 // ── Supabase-Doppel: from().select/delete/insert mit eq/in/is/not, protokolliert jeden Aufruf ──
@@ -123,10 +122,6 @@ function datenbank(tabellen, { darfLoeschen = () => true, vorher = () => null } 
 }
 
 const ea = (id, teil) => ({ id, tenant_id: T, typ: 'einnahme', is_locked: false, import_quelle: 'verkauf', verkaufsposten_id: VP, betrag_netto: 10, ...teil })
-const einnahme = (betrag, satz = 13) => ({
-  datum: '2026-09-20', beschreibung: 'Zahlungseingang RE 2026-001', betrag_netto: betrag, ust_satz: satz,
-  notizen: 'Automatisch erzeugt aus Zahlungseingang (Verkauf)',
-})
 const idsIn = (db, tabelle = 'ea_transaktionen') => (db.tabellen[tabelle] ?? []).map(r => r.id).sort()
 const arten = db => db.aufrufe.filter(a => a.tabelle === 'ea_transaktionen').map(a => a.art)
 
@@ -147,84 +142,131 @@ function mandantUndPosten(db) {
   }
 }
 
-describe('ersetzeVerkaufsEinnahmen – abgeleitete E&A-Einnahmen eines Verkaufs', nurMitHooks, () => {
-  test('ohne bestehende Einnahme: legt die neuen Zeilen markiert an', async () => {
-    const db = globalThis.__adminFake = datenbank({ ea_transaktionen: [] })
-    const r = await ve.ersetzeVerkaufsEinnahmen(T, VP, [einnahme(88.5), einnahme(20, 20)], { beiGesperrtenNichtsAendern: true })
-    assert.deepEqual(r, { ok: true, gesperrt: false, entfernt: 0, angelegt: 2 })
-    assert.deepEqual(arten(db), ['select', 'insert'])
-    assert.equal(db.tabellen.ea_transaktionen.length, 2)
-    mandantUndPosten(db)
+// ── KAN-149 D2b: Einnahmen je Zahlung ────────────────────────────────────────────────────────────────────────
+
+const POS_13 = [{ preis_brutto: 100, menge: 1, ust_satz: 13 }]
+const zahlung = (id, betrag, datum = '2026-09-20', teil = {}) => ({ id, betrag, datum, erstelltAm: `${datum}T10:00:00Z`, ...teil })
+
+describe('verkaufEinnahmenPlan – Soll je Zahlung und Abgleich (rein)', nurMitHooks, () => {
+  test('Teilzahlungen: je Zahlung am Zahlungstag, Rundungsrest auf der letzten, Summe = Gesamtquote', () => {
+    const soll = plan.sollJeZahlung(POS_13, [zahlung('z2', 70, '2026-10-05'), zahlung('z1', 30, '2026-09-20')])
+    assert.deepEqual(soll, [
+      { zahlung_id: 'z1', datum: '2026-09-20', betrag_netto: 26.55, ust_satz: 13 },
+      { zahlung_id: 'z2', datum: '2026-10-05', betrag_netto: 61.95, ust_satz: 13 },
+    ])
+    assert.equal(Math.round(soll.reduce((x, r) => x + r.betrag_netto, 0) * 100) / 100, 88.5)
   })
 
-  test('zweite Zahlung: ersetzt nur die eigene Einnahme – manuelle, fremde und andere Posten bleiben', async () => {
-    const db = globalThis.__adminFake = datenbank({
-      ea_transaktionen: [
-        ea('alt'),
-        ea('manuell-verknuepft', { import_quelle: 'manuell' }),
-        ea('fremder-betrieb', { tenant_id: FREMD }),
-        ea('anderer-posten', { verkaufsposten_id: 'vp-2' }),
-      ],
-    })
-    const r = await ve.ersetzeVerkaufsEinnahmen(T, VP, [einnahme(150)], { beiGesperrtenNichtsAendern: true })
-    assert.deepEqual(r, { ok: true, gesperrt: false, entfernt: 1, angelegt: 1 })
-    assert.deepEqual(idsIn(db), ['anderer-posten', 'fremder-betrieb', 'manuell-verknuepft', 'neu-1'])
-    const loeschen = db.aufrufe.find(a => a.art === 'delete')
-    assert.deepEqual(loeschen.filter.find(([art]) => art === 'in'), ['in', 'id', ['alt']])
-    assert.ok(loeschen.filter.some(([art, k, v]) => art === 'eq' && k === 'is_locked' && v === false), 'Löschen ohne is_locked = false')
-    mandantUndPosten(db)
+  test('Überzahlung: gedeckelt auf den Rechnungsbetrag; zwei Steuersätze anteilig', () => {
+    assert.deepEqual(plan.sollJeZahlung(POS_13, [zahlung('a', 80), zahlung('b', 50, '2026-09-21')]).map(r => [r.zahlung_id, r.betrag_netto]),
+      [['a', 70.8], ['b', 17.7]])
+    const zwei = plan.sollJeZahlung([{ preis_brutto: 120, menge: 1, ust_satz: 20 }, { preis_brutto: 113, menge: 1, ust_satz: 13 }], [zahlung('z', 233)])
+    assert.deepEqual(zwei.map(r => [r.ust_satz, r.betrag_netto]).sort(), [[13, 100], [20, 100]])
   })
 
-  test('Sync mit gesperrter Einnahme (übermittelte UVA): nichts ändern', async () => {
-    const db = globalThis.__adminFake = datenbank({ ea_transaktionen: [ea('gesperrt', { is_locked: true }), ea('offen')] })
-    const r = await ve.ersetzeVerkaufsEinnahmen(T, VP, [einnahme(150)], { beiGesperrtenNichtsAendern: true })
-    assert.deepEqual(r, { ok: true, gesperrt: true, entfernt: 0, angelegt: 0 })
-    assert.deepEqual(arten(db), ['select'])
-    assert.deepEqual(idsIn(db), ['gesperrt', 'offen'])
+  const best = (id, teil) => ({ id, zahlung_id: null, betrag_netto: 88.5, ust_satz: 13, is_locked: false, import_quelle: 'verkauf', storniert_am: null, storno_von_id: null, ...teil })
+
+  test('Bestand passt: nichts tun; abweichender Betrag: gegenbuchen und neu buchen', () => {
+    assert.deepEqual(plan.planeVerkaufsEinnahmen(POS_13, [zahlung('z1', 100)], [best('e1', { zahlung_id: 'z1' })]),
+      { gesperrt: false, stornieren: [], anlegen: [] })
+    const p = plan.planeVerkaufsEinnahmen(POS_13, [zahlung('z1', 100)], [best('e1', { zahlung_id: 'z1', betrag_netto: 50 })])
+    assert.deepEqual(p.stornieren, ['e1'])
+    assert.deepEqual(p.anlegen.map(x => [x.zahlung_id, x.betrag_netto]), [['z1', 88.5]])
   })
 
-  test('Storno (neu = []): entfernt nur die nicht gesperrten Verkaufs-Einnahmen, legt nichts an', async () => {
-    const db = globalThis.__adminFake = datenbank({
-      ea_transaktionen: [ea('gesperrt', { is_locked: true }), ea('offen-1'), ea('offen-2'), ea('manuell', { import_quelle: 'manuell' })],
-    })
-    const r = await ve.ersetzeVerkaufsEinnahmen(T, VP, [], { beiGesperrtenNichtsAendern: false })
-    assert.deepEqual(r, { ok: true, gesperrt: true, entfernt: 2, angelegt: 0 })
-    assert.deepEqual(arten(db), ['select', 'delete'])
-    assert.deepEqual(idsIn(db), ['gesperrt', 'manuell'])
-    mandantUndPosten(db)
+  test('Alt-Einnahme ohne Zahlungsbezug: gegenbuchen und je Zahlung neu; gesperrt: nichts ändern', () => {
+    const p = plan.planeVerkaufsEinnahmen(POS_13, [zahlung('z1', 30), zahlung('z2', 70, '2026-10-05')], [best('alt')])
+    assert.deepEqual(p.stornieren, ['alt'])
+    assert.deepEqual(p.anlegen.map(x => x.zahlung_id), ['z1', 'z2'])
+    assert.deepEqual(plan.planeVerkaufsEinnahmen(POS_13, [zahlung('z1', 100)], [best('alt', { is_locked: true })]),
+      { gesperrt: true, stornieren: [], anlegen: [] })
   })
 
-  test('paralleler Vorgang sperrt eine Zeile zwischen Lesen und Löschen: nichts neu buchen, sachliche Meldung', async () => {
-    const sperren = (eintrag, tabellen) => {
-      if (eintrag.art === 'delete') tabellen.ea_transaktionen.find(r => r.id === 'b').is_locked = true
-    }
-    const db = globalThis.__adminFake = datenbank({ ea_transaktionen: [ea('a'), ea('b')] }, { vorher: sperren })
-    const r = await ve.ersetzeVerkaufsEinnahmen(T, VP, [einnahme(150)], { beiGesperrtenNichtsAendern: true })
-    assert.equal(r.ok, false)
-    assert.deepEqual(arten(db), ['select', 'delete'], 'kein Insert nach unvollständigem Entfernen')
-    assert.equal(r.fehler, 'Von 2 E&A-Einnahmen des Verkaufs wurde nur 1 entfernt (inzwischen gesperrt oder geändert) – es wurde nichts neu gebucht.')
-    assert.doesNotMatch(r.fehler, /erneut|Zahlung/, 'keine vorgangsbezogene Anweisung im gemeinsamen Helfer')
-
-    // Storno: kein „nichts neu gebucht“, Einzahl richtig
-    const db2 = globalThis.__adminFake = datenbank({ ea_transaktionen: [ea('b')] }, { vorher: sperren })
-    const r2 = await ve.ersetzeVerkaufsEinnahmen(T, VP, [], { beiGesperrtenNichtsAendern: false })
-    assert.equal(r2.ok, false)
-    assert.equal(r2.fehler, 'Von 1 E&A-Einnahme des Verkaufs wurde keine entfernt (inzwischen gesperrt oder geändert).')
-    assert.deepEqual(arten(db2), ['select', 'delete'])
-  })
-
-  test('Lesefehler: nichts entfernen, nichts anlegen', async () => {
-    const db = globalThis.__adminFake = datenbank({ ea_transaktionen: [ea('a')] }, {
-      vorher: e => (e.art === 'select' ? { error: { message: 'timeout' } } : null),
-    })
-    const r = await ve.ersetzeVerkaufsEinnahmen(T, VP, [einnahme(10)], { beiGesperrtenNichtsAendern: true })
-    assert.deepEqual(r, { ok: false, fehler: 'E&A-Einnahmen des Verkaufs konnten nicht geladen werden: timeout' })
-    assert.deepEqual(arten(db), ['select'])
-    assert.deepEqual(idsIn(db), ['a'])
+  test('stornierte Originale, Gegenbuchungen und manuelle Buchungen zählen nicht; Einnahme einer ungültigen Zahlung wird gegengebucht', () => {
+    const p = plan.planeVerkaufsEinnahmen(POS_13, [zahlung('z1', 100)], [
+      best('storniert', { zahlung_id: 'z1', storniert_am: '2026-09-21T08:00:00Z' }),
+      best('gegen', { zahlung_id: 'z1', betrag_netto: -88.5, storno_von_id: 'storniert' }),
+      best('manuell', { import_quelle: 'manuell' }),
+      best('weg', { zahlung_id: 'z-storniert' }),
+    ])
+    assert.deepEqual(p.stornieren, ['weg'])
+    assert.deepEqual(p.anlegen.map(x => x.zahlung_id), ['z1'])
   })
 })
 
-// ── AfA: Löschen alter Buchungen (RLS ea_tx_delete: nur Betriebs-Manager, nur nicht gesperrte) ──
+/** Datenbank-Doppel mit RPCs: pruefe_ea_zeitraum_offen (Tage in `zu` gesperrt) und s112_ea_stornieren (Gegenbuchung) */
+function mitRpcs(tabellen, { zu = [], rpcFehler = null } = {}) {
+  const db = datenbank(tabellen)
+  const rpcAufrufe = []
+  db.rpc = async (name, args) => {
+    rpcAufrufe.push([name, args])
+    if (rpcFehler?.(name)) return { data: null, error: { message: rpcFehler(name) } }
+    if (name === 'pruefe_ea_zeitraum_offen') return { data: [{ offen: !zu.includes(args.p_datum) }], error: null }
+    if (name === 's112_ea_stornieren') {
+      const o = db.tabellen.ea_transaktionen.find(r => r.id === args.p_id && r.tenant_id === args.p_tenant_id)
+      o.storniert_am = '2026-09-30T10:00:00Z'
+      o.storno_grund = args.p_grund
+      db.tabellen.ea_transaktionen.push({ ...o, id: `gegen-${o.id}`, betrag_netto: -o.betrag_netto, storniert_am: null, storno_von_id: o.id })
+      return { data: `gegen-${o.id}`, error: null }
+    }
+    return { data: null, error: { message: `rpc ${name}` } }
+  }
+  db.rpcAufrufe = rpcAufrufe
+  return db
+}
+
+describe('abgleichVerkaufsEinnahmen – Ausführung über Service-Role und RPC', nurMitHooks, () => {
+  const daten = (zahlungen) => ({ positionen: POS_13, zahlungen, beleg: 'RE 2026-001' })
+
+  test('erste Zahlung: Einnahme am Zahlungstag mit Zahlungsbezug, markiert; kein Löschen', async () => {
+    const db = globalThis.__adminFake = mitRpcs({ ea_transaktionen: [ea('manuell', { import_quelle: 'manuell' })] })
+    const r = await ve.abgleichVerkaufsEinnahmen(T, VP, daten([zahlung('z1', 30)]))
+    assert.deepEqual(r, { ok: true, gesperrt: false, storniert: 0, angelegt: 1 })
+    const neu = db.tabellen.ea_transaktionen.find(x => x.zahlung_id === 'z1')
+    assert.deepEqual([neu.datum, neu.betrag_netto, neu.ust_satz, neu.beschreibung], ['2026-09-20', 26.55, 13, 'Zahlungseingang RE 2026-001'])
+    assert.ok(!arten(db).includes('delete'))
+    mandantUndPosten(db)
+  })
+
+  test('Alt-Einnahme: per RPC gegengebucht (mit Grund), danach je Zahlung neu gebucht', async () => {
+    const db = globalThis.__adminFake = mitRpcs({ ea_transaktionen: [ea('alt', { betrag_netto: 88.5, ust_satz: 13 })] })
+    const r = await ve.abgleichVerkaufsEinnahmen(T, VP, daten([zahlung('z1', 30), zahlung('z2', 70, '2026-10-05')]))
+    assert.deepEqual(r, { ok: true, gesperrt: false, storniert: 1, angelegt: 2 })
+    const storno = db.rpcAufrufe.find(([n]) => n === 's112_ea_stornieren')
+    assert.deepEqual(storno[1], { p_tenant_id: T, p_id: 'alt', p_grund: ve.GRUND_EINNAHMEN_NEU })
+    const summe = db.tabellen.ea_transaktionen.filter(x => !x.storniert_am && !x.storno_von_id).reduce((x, e2) => x + e2.betrag_netto, 0)
+    assert.equal(Math.round(summe * 100) / 100, 88.5, 'aktive Einnahmen: 26,55 + 61,95 (Alt-Zeile storniert, Gegenbuchung −88,50 gleicht sie aus)')
+  })
+
+  test('Zahlungstag in abgeschlossenem Zeitraum: heute gebucht, mit Vermerk', async () => {
+    const db = globalThis.__adminFake = mitRpcs({ ea_transaktionen: [] }, { zu: ['2025-01-05'] })
+    await ve.abgleichVerkaufsEinnahmen(T, VP, daten([zahlung('z1', 100, '2025-01-05')]))
+    const neu = db.tabellen.ea_transaktionen[0]
+    assert.notEqual(neu.datum, '2025-01-05')
+    assert.match(neu.beschreibung, /\(Zahlung vom 05\.01\.2025\)$/)
+  })
+
+  test('stornierte Zahlung wird ausgelassen; gesperrte Alt-Einnahme: nichts ändern', async () => {
+    let db = globalThis.__adminFake = mitRpcs({ ea_transaktionen: [] })
+    let r = await ve.abgleichVerkaufsEinnahmen(T, VP, daten([zahlung('z1', 100, '2026-09-20', { storniertAm: '2026-09-21T08:00:00Z' })]))
+    assert.deepEqual(r, { ok: true, gesperrt: false, storniert: 0, angelegt: 0 })
+    db = globalThis.__adminFake = mitRpcs({ ea_transaktionen: [ea('alt', { is_locked: true })] })
+    r = await ve.abgleichVerkaufsEinnahmen(T, VP, daten([zahlung('z1', 100)]))
+    assert.deepEqual(r, { ok: true, gesperrt: true, storniert: 0, angelegt: 0 })
+    assert.deepEqual(arten(db), ['select'])
+  })
+
+  test('Lese- und RPC-Fehler: sachliche Meldung, nichts angelegt', async () => {
+    let db = globalThis.__adminFake = mitRpcs({ ea_transaktionen: [] })
+    db.from = () => ({ select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: null, error: { message: 'timeout' } }) }) }) })
+    let r = await ve.abgleichVerkaufsEinnahmen(T, VP, daten([zahlung('z1', 100)]))
+    assert.deepEqual(r, { ok: false, fehler: 'E&A-Einnahmen des Verkaufs konnten nicht geladen werden: timeout' })
+    db = globalThis.__adminFake = mitRpcs({ ea_transaktionen: [ea('alt')] }, { rpcFehler: n => (n === 's112_ea_stornieren' ? 'gesperrt' : null) })
+    r = await ve.abgleichVerkaufsEinnahmen(T, VP, daten([zahlung('z1', 100)]))
+    assert.deepEqual(r, { ok: false, fehler: 'E&A-Einnahme des Verkaufs konnte nicht gegengebucht werden: gesperrt' })
+    assert.ok(!arten(db).includes('insert'))
+  })
+})
 
 describe('AfA buchen und zurücknehmen – Rolle vor dem Löschen, abweichende Trefferzahl', nurMitHooks, () => {
   const afaZeile = (id, teil) => ({ id, tenant_id: T, typ: 'ausgabe', is_locked: false, anlage_id: `anl-${id}`, import_quelle: 'manuell', ...teil })

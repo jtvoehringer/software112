@@ -142,8 +142,11 @@ const TABELLEN_KONTEXT = `
   KOSTEN JE RIED (KAN-132): nur aus kosteneintrag_weingaerten.betrag_anteil. Einträge OHNE Aufteilung (keine Zeile in
   kosteneintrag_weingaerten) gesondert als „ohne Aufteilung“ ausweisen – NIE den vollen kosteneintraege.betrag
   zusätzlich zu den Anteilen addieren (Doppelzählung). kosteneintraege.weingarten_id ist immer NULL.
-- ea_transaktionen ↔ ea_kategorien: einfache Einnahmen-Ausgaben-Rechnung.
-- zahlungen: eingegangene Zahlungen (z.B. via SumUp), meist mit Bezug zu verkaufsposten.
+- ea_transaktionen ↔ ea_kategorien: einfache Einnahmen-Ausgaben-Rechnung. Stornos (seit 30.09.2026): das Original trägt
+  storniert_am, dazu gibt es eine Gegenbuchung mit negativem betrag_netto und storno_von_id = Original – Summen über ALLE
+  Zeilen stimmen (Original + Gegenbuchung = 0); beim Zählen von Buchungen Gegenbuchungen (storno_von_id IS NOT NULL) auslassen.
+- zahlungen: eingegangene Zahlungen (z.B. via SumUp), meist mit Bezug zu verkaufsposten. Stornierte Zahlungen
+  (storniert_am IS NOT NULL) zählen nicht – immer „storniert_am IS NULL“ filtern.
 `.trim()
 
 let schemaCache: { text: string; stamp: number } | null = null

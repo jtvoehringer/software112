@@ -1076,10 +1076,10 @@ BEGIN
     WHEN 'loeschsperre_tabellen' THEN ARRAY['ernte_parzellen', 'fuellung_chargen', 'fuellungen', 'keller_behandlungen', 'keller_umzuege', 'pressung_behaelter', 'pressung_weingaerten', 'pressungen', 'traubenverkauf', 'verschneidung_quellen', 'verschneidungen', 'weinausbau', 'zukauf_posten']
     WHEN 'protokoll_tabellen' THEN ARRAY[
       'ama_erntemeldungen', 'ama_meldepositionen', 'behandlungen', 'bestandsprotokoll', 'duengemittel_lager_bewegungen',
-      'ernte_parzellen', 'fuellung_bewegungen', 'fuellung_chargen', 'fuellungen', 'keller_behandlungen', 'keller_umzuege',
-      'lesen', 'pressung_behaelter', 'pressung_weingaerten', 'pressungen', 'psm_lager_bewegungen', 'traubenverkauf',
-      'verkauf_positionen', 'verkaufsposten', 'verschneidung_quellen', 'verschneidungen', 'weinausbau', 'weinjahrgaenge',
-      'zukauf_posten']   -- KAN-166: behandlungen und die beiden Lagertabellen
+      'ea_transaktionen', 'ernte_parzellen', 'fuellung_bewegungen', 'fuellung_chargen', 'fuellungen', 'keller_behandlungen',
+      'keller_umzuege', 'konto_umbuchungen', 'lesen', 'pressung_behaelter', 'pressung_weingaerten', 'pressungen',
+      'psm_lager_bewegungen', 'traubenverkauf', 'verkauf_positionen', 'verkaufsposten', 'verschneidung_quellen',
+      'verschneidungen', 'weinausbau', 'weinjahrgaenge', 'zahlungen', 'zukauf_posten']   -- KAN-166: behandlungen und die beiden Lagertabellen; KAN-149 D2: ea_transaktionen, zahlungen, konto_umbuchungen
     WHEN 'abo_ausnahmen' THEN ARRAY[
       'benachrichtigungen', 'keller_freigaben', 'plattform_admins', 'profiles', 'rebsorten', 'release_notes',
       'release_notes_gesehen', 'svs_parameter', 'system_ereignisse', 'tenant_memberships', 'user_email_connections']
@@ -1177,6 +1177,12 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('trigger',       '--S', false, 's112_ama_schutz()'),                      -- KAN-148 C2: Status/Versionen nur per RPC
     ('mandant',       '-US', true , 's112_ama_status_setzen(p_tenant_id uuid, p_meldung_id uuid, p_status text, p_datum date, p_referenznr text)'),   -- KAN-148 C2
     ('mandant',       '-US', true , 's112_fuellung_verkauf_buchen(p_tenant_id uuid, p_fuellung_id uuid, p_verkaufsposten_id uuid, p_menge_stk integer, p_datum date, p_grund text)'),   -- KAN-149 D1
+    ('intern',        '--S', false, 's112_ea_gegenbuchung(p_tenant_id uuid, p_id uuid, p_grund text, p_datum date)'),   -- KAN-149 D2 (Hilfsfunktion)
+    ('mandant',       '-US', true , 's112_ea_stornieren(p_tenant_id uuid, p_id uuid, p_grund text, p_datum date)'),   -- KAN-149 D2
+    ('trigger',       '--S', false, 's112_ea_storno_schutz()'),                -- KAN-149 D2: E/A, Zahlungen, Umbuchungen
+    ('intern',        '--S', false, 's112_storno_benutzername(p_uid uuid)'),   -- KAN-149 D2 (Hilfsfunktion)
+    ('mandant',       '-US', true , 's112_umbuchung_stornieren(p_tenant_id uuid, p_id uuid, p_grund text)'),   -- KAN-149 D2
+    ('mandant',       '-US', true , 's112_zahlung_stornieren(p_tenant_id uuid, p_zahlung_id uuid, p_grund text, p_datum date)'),   -- KAN-149 D2
     ('mandant',       '-US', false, 's112_schwund_minderung(p_tenant_id uuid, p_umzug_id uuid)'),   -- KAN-145 B4 (lesend)
     ('trigger',       '--S', false, 's112_verkauf_storno_schutz()'),           -- KAN-149 D1: Verkaufsstorno mit Grund, unveränderlich
     ('trigger',       '--S', false, 's112_jahrgang_loeschsperre()'),           -- KAN-148 C1d: Jahrgang nur ohne Bezüge

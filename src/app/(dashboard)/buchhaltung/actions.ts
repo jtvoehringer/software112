@@ -7,7 +7,7 @@ import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { AktionsFehler } from '@/lib/fehler'
 import { dezimal } from '@/lib/format'
-import { ersetzeVerkaufsEinnahmen, type VerkaufsEinnahme } from '@/lib/ea/verkaufEinnahmen'
+import { abgleichVerkaufsEinnahmen } from '@/lib/ea/verkaufEinnahmen'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -213,15 +213,10 @@ export async function berechneUndSpeichereUva(jahr: number, zeitraum: string) {
 
 // ── Zahlungseingang → E&A-Einnahme synchronisieren (Punkt 7) ──────────────────
 //
-// Wird nach jeder Änderung an den Zahlungen eines Verkaufspostens aufgerufen
-// (Zahlung erfasst/gelöscht, "Als bezahlt markiert", Storno/Löschung). Baut die
-// verknüpften ea_transaktionen-Zeilen für diesen Verkaufsposten komplett neu
-// auf (idempotent) – dadurch entstehen bei mehreren Teilzahlungen keine
-// Duplikate. Bereits über eine übermittelte UVA gesperrte Zeilen werden nie
-// angefasst. Lesen, Entfernen und Anlegen der Einnahmen laufen über
-// ersetzeVerkaufsEinnahmen (Service-Role, KAN-149 Nebenbefund 2): Wer Zahlungen
-// erfassen darf, aktualisiert damit auch die abgeleitete Einnahme – ohne eigenes
-// Löschrecht in der E&A (sonst Doppelbuchung) und ohne Freigabe E&A (sonst fehlte sie).
+// Wird nach jeder Änderung an den Zahlungen eines Verkaufspostens aufgerufen (Zahlung erfasst oder storniert,
+// „Als bezahlt markiert“). Gleicht die Einnahmen je Zahlung ab (KAN-149 D2b, abgleichVerkaufsEinnahmen über die
+// Service-Role, Nebenbefund 2): Wer Zahlungen erfassen darf, aktualisiert damit auch die abgeleitete Einnahme – ohne
+// eigenes Recht in der E&A. Idempotent: Stimmt der Bestand, passiert nichts.
 export async function syncEaEinnahmeFuerVerkauf(
   verkaufspostenId: string
 ): Promise<{ ok: boolean; error?: string; skipped?: boolean }> {
@@ -249,57 +244,24 @@ export async function syncEaEinnahmeFuerVerkauf(
   const posten = postenRaw as R
   const positionen = (posten.positionen ?? []) as R[]
 
-  // Neue Einnahmen berechnen – leer bei Storno, ohne Zahlung oder ohne Rechnungssumme
-  const neu: VerkaufsEinnahme[] = []
-  if (!posten.storniert) {
-    // Zahlungen summieren
-    const { data: zahlungenRaw, error: zahlErr } = await (supabase.from('zahlungen') as any)
-      .select('betrag, datum')
-      .eq('verkaufsposten_id', verkaufspostenId)
-      .eq('tenant_id', tenantId)
-      .order('datum', { ascending: false })
-    if (zahlErr) return { ok: false, error: `Zahlungen konnten nicht geladen werden: ${(zahlErr as R).message}` }
-    const zahlungen = (zahlungenRaw ?? []) as R[]
-    const bezahltSumme = zahlungen.reduce((s: number, z: R) => s + Number(z.betrag ?? 0), 0)
-
-    // Rechnungssumme je USt-Satz (brutto/netto) – analog zur Rechnungsdruck-Logik
-    const gruppen: Record<string, { brutto: number; netto: number }> = {}
-    for (const pos of positionen) {
-      if (pos.preis_brutto == null) continue
-      const satz = Number(pos.ust_satz ?? 13)
-      const brutto = Number(pos.preis_brutto) * Number(pos.menge)
-      const rabatt = Number(pos.rabatt_pct ?? 0) / 100
-      const sonder = Number(pos.sonderrabatt_pct ?? 0) / 100
-      const effektiv = brutto * (1 - rabatt) * (1 - sonder)
-      const netto = effektiv / (1 + satz / 100)
-      const key = String(satz)
-      if (!gruppen[key]) gruppen[key] = { brutto: 0, netto: 0 }
-      gruppen[key].brutto += effektiv
-      gruppen[key].netto += netto
-    }
-    const gesamtBrutto = Object.values(gruppen).reduce((s, g) => s + g.brutto, 0)
-
-    if (bezahltSumme > 0.005 && gesamtBrutto > 0) {
-      // Anteilig zugeordneter Zahlungseingang je USt-Satz (bei Teilzahlung proportional)
-      const quote = Math.min(bezahltSumme, gesamtBrutto) / gesamtBrutto
-      const re = posten.rechnungsnummer ? `RE ${posten.rechnungsnummer}` : `Beleg ${verkaufspostenId.slice(0, 8)}`
-      const buchungsDatum = zahlungen[0]?.datum ?? posten.datum
-      for (const [satz, g] of Object.entries(gruppen)) {
-        const nettoAnteil = Math.round(g.netto * quote * 100) / 100
-        if (nettoAnteil <= 0) continue
-        neu.push({
-          datum:        buchungsDatum,
-          beschreibung: `Zahlungseingang ${re}`,
-          betrag_netto: nettoAnteil,
-          ust_satz:     Number(satz),
-          notizen:      'Automatisch erzeugt aus Zahlungseingang (Verkauf)',
-        })
-      }
-    }
-  }
-
-  // Zeitraum bereits per UVA übermittelt (gesperrte Einnahme) – dann nichts verändern
-  const r = await ersetzeVerkaufsEinnahmen(tenantId, verkaufspostenId, neu, { beiGesperrtenNichtsAendern: true })
+  // KAN-149 D2b: Einnahmen je Zahlung (am Zahlungstag, je USt-Satz anteilig), Abweichungen per Gegenbuchung – kein
+  // Löschen und Neuaufbau mehr. Ein stornierter Verkauf behält seine Einnahmen, solange die Zahlung nicht storniert
+  // (erstattet) ist: Das Geld ist eingegangen. Plan: lib/ea/verkaufEinnahmenPlan.ts
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: zahlungenRaw, error: zahlErr } = await (supabase.from('zahlungen') as any)
+    .select('id, betrag, datum, erstellt_am, storniert_am')
+    .eq('verkaufsposten_id', verkaufspostenId)
+    .eq('tenant_id', tenantId)
+  if (zahlErr) return { ok: false, error: `Zahlungen konnten nicht geladen werden: ${(zahlErr as R).message}` }
+  const zahlungen = ((zahlungenRaw ?? []) as R[]).map(z => ({
+    id: z.id as string, betrag: Number(z.betrag ?? 0), datum: z.datum as string, erstelltAm: z.erstellt_am ?? null, storniertAm: z.storniert_am ?? null,
+  }))
+  const beleg = posten.rechnungsnummer ? `RE ${posten.rechnungsnummer}` : `Beleg ${verkaufspostenId.slice(0, 8)}`
+  const plan = positionen.map(p => ({
+    preis_brutto: p.preis_brutto == null ? null : Number(p.preis_brutto), menge: Number(p.menge ?? 0),
+    rabatt_pct: p.rabatt_pct ?? null, sonderrabatt_pct: p.sonderrabatt_pct ?? null, ust_satz: p.ust_satz ?? null,
+  }))
+  const r = await abgleichVerkaufsEinnahmen(tenantId, verkaufspostenId, { positionen: plan, zahlungen, beleg })
   if (!r.ok) return { ok: false, error: r.fehler }
 
   revalidatePath('/buchhaltung')

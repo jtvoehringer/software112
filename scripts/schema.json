@@ -431,7 +431,13 @@
 "abzugsfaehig_pct",
 "betrag_abzugsfaehig",
 "bmd_export_id",
-"anlage_id"
+"anlage_id",
+"storniert_am",
+"storniert_von",
+"storniert_von_name",
+"storno_grund",
+"storno_von_id",
+"zahlung_id"
 ],
 "ea_uva": [
 "id",
@@ -851,7 +857,11 @@
 "von_abgeglichen",
 "nach_abgeglichen",
 "erstellt_von",
-"erstellt_am"
+"erstellt_am",
+"storniert_am",
+"storniert_von",
+"storniert_von_name",
+"storno_grund"
 ],
 "kostenarten": [
 "id",
@@ -1668,7 +1678,11 @@
 "sumup_transaction_id",
 "erstellt_am",
 "konto_id",
-"abgeglichen"
+"abgeglichen",
+"storniert_am",
+"storniert_von",
+"storniert_von_name",
+"storno_grund"
 ],
 "zeiterfassung": [
 "id",

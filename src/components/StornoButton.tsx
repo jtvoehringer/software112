@@ -11,8 +11,8 @@ import { fehlerText } from '@/lib/fehler'
 import { STORNO_GRUND_MIN, stornoGrundFehler } from '@/lib/storno/grund'
 
 interface Props {
-  /** Server Action mit dem Grund */
-  action: (grund: string) => Promise<void | { error?: string }>
+  /** Server Action mit dem Grund (und dem optionalen Datum, siehe `datumFeld`) */
+  action: (grund: string, datum: string | null) => Promise<void | { error?: string }>
   /** Was passiert (z. B. „Quelle und Ziel werden zurückgebucht …“) */
   hinweis: string
   /** Beschriftung (Tooltip/Screenreader); Standard je Modus */
@@ -21,14 +21,17 @@ interface Props {
   modus?: 'storno' | 'loeschen'
   /** Nach Erfolg (z. B. router.refresh) */
   danach?: () => void
+  /** KAN-149 D2b: optionales Datumsfeld (z. B. „Erstattet am“) – leer = null */
+  datumFeld?: { label: string; hilfe?: string }
 }
 
-export default function StornoButton({ action, hinweis, label, modus = 'storno', danach }: Props) {
+export default function StornoButton({ action, hinweis, label, modus = 'storno', danach, datumFeld }: Props) {
   const loeschen = modus === 'loeschen'
   const text = label ?? (loeschen ? 'Löschen' : 'Stornieren')
   const id = useId()
   const [offen, setOffen] = useState(false)
   const [grund, setGrund] = useState('')
+  const [datum, setDatum] = useState('')
   const [fehler, setFehler] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
@@ -38,10 +41,11 @@ export default function StornoButton({ action, hinweis, label, modus = 'storno',
     setFehler(null)
     setPending(true)
     try {
-      const r = await action(grund.trim())
+      const r = await action(grund.trim(), datum || null)
       if (r && 'error' in r && r.error) { setFehler(r.error); return }
       setOffen(false)
       setGrund('')
+      setDatum('')
       danach?.()
     } catch (err) {
       setFehler(fehlerText(err, loeschen ? 'Löschen fehlgeschlagen' : 'Storno fehlgeschlagen'))
@@ -74,6 +78,14 @@ export default function StornoButton({ action, hinweis, label, modus = 'storno',
         minLength={STORNO_GRUND_MIN} aria-invalid={!!fehler || undefined} aria-describedby={fehler ? `${id}-f` : undefined}
         placeholder="z. B. Menge falsch erfasst, doppelt gebucht"
         className="w-full border border-s112-border rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+      {datumFeld && (
+        <label className="text-[11px] font-medium text-s112-text-1">
+          {datumFeld.label}
+          <input type="date" value={datum} onChange={e => setDatum(e.target.value)}
+            className="mt-0.5 block w-full border border-s112-border rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+          {datumFeld.hilfe && <span className="block font-normal text-s112-muted">{datumFeld.hilfe}</span>}
+        </label>
+      )}
       {fehler && <span id={`${id}-f`} role="alert" className="text-[11px] leading-snug text-s112-err-fg">{fehler}</span>}
       <span className="flex justify-end gap-2">
         <button type="button" onClick={() => { setOffen(false); setFehler(null) }} disabled={pending}

@@ -99,8 +99,9 @@ export async function ladeFinanzen(ctx: Ctx, opts: { art: 'ea' | 'doppik'; uvaZe
       .select('id, datum, bezahlt, bmd_export_id, verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct, ust_satz)')
       .eq('aktiv', true).eq('storniert', false).gte('datum', von).lte('datum', bis).order('datum').order('id'))),
     ctx.tf(ctx.q('konten').select('id, name, typ, eroeffnungssaldo, sortierung').eq('aktiv', true).order('sortierung')),
-    alle<R>(ctx.tf(ctx.q('zahlungen').select('betrag, konto_id').not('konto_id', 'is', null).order('id'))),
-    ctx.tf(ctx.q('konto_umbuchungen').select('betrag, von_konto_id, nach_konto_id')),
+    // KAN-149 D2b: stornierte Zahlungen/Umbuchungen zählen nicht
+    alle<R>(ctx.tf(ctx.q('zahlungen').select('betrag, konto_id').not('konto_id', 'is', null).is('storniert_am', null).order('id'))),
+    ctx.tf(ctx.q('konto_umbuchungen').select('betrag, von_konto_id, nach_konto_id').is('storniert_am', null)),
     ctx.tf(ctx.q('ea_uva').select('jahr, zeitraum, zahllast, gesperrt')),
     ctx.tf(ctx.q('ea_monatsabschluss').select('jahr, monat')),
     ctx.tf(ctx.q('ea_belege').select('id', { count: 'exact', head: true }).eq('status', 'erkannt')),
