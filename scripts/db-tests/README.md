@@ -216,7 +216,7 @@ Titel immer mit der Lücken-ID beginnen (der Runner dedupliziert über den Titel
 | B3 | `profiles_read_all`: jeder sieht alle Profile |
 | B4 | inaktives Mitglied sieht die `tenants`-Zeile (der Teil `get_behandlungen_fuer_grundstuecke` ist behoben: Funktion entfernt, KAN-127, 30.09.2026) |
 | B5 | NULL-Falle: aktiv in B, inaktiv im Musterhof → 0 statt der globalen `ea_kategorien` |
-| B6 | `ki_readonly_query` liest bei zwei Betrieben Kontakte des anderen |
+| ~~B6~~ | behoben (KAN-159, 01.10.2026): `ki_readonly_query` liest nur den aktiven Betrieb – RESTRICTIVE-Policy `ki_aktiver_betrieb` auf allen KI-Tabellen mit `tenant_id` – 18, Regel für neue KI-Tabellen in 01 |
 | ~~B7~~ | behoben (KAN-149 D3, 01.10.2026): Periodensperre (`a_ea_periodensperre`), unveränderlicher Abschluss (`a_ea_abschluss_schutz`: Monatsabschluss, gesperrte UVA, verbuchte Belege) und Löschsperre für Verkauf/E-A in der Datenbank – 20 |
 | B8 | abgeschlossener Jahrgang änderbar, Storno rückgängig, bestätigte AMA-Meldung löschbar |
 | ~~B9~~ | behoben (KAN-159): schreibende RPCs prüfen das Schreibmodul (`s112_pruefe_schreibmodul`); `is_locked` beim Kontenabgleich bewusst offen – 18 |

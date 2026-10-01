@@ -848,6 +848,17 @@ BEGIN
    WHERE c.relname = ANY (pg_temp.s112_soll_liste('protokoll_tabellen')) AND c.relnamespace = 'public'::regnamespace
      AND (has_table_privilege('authenticated', c.oid, 'TRUNCATE') OR has_table_privilege('anon', c.oid, 'TRUNCATE'));
   v_erg := v_erg || pg_temp.s112_erwarte('protokoll_tabellen_ohne_truncate_recht', v_n, 0::bigint);
+  -- KAN-159 B6: jede KI-Tabelle (ki_erlaubte_tabellen) mit tenant_id hat die RESTRICTIVE-Policy ki_aktiver_betrieb –
+  -- sonst liest die KI-Abfrage bei mehreren Mitgliedschaften auch andere Betriebe
+  v_erg := v_erg || pg_temp.t01_liste('ki_tabelle_ohne_aktiven_betrieb', $q$
+    SELECT t.tab AS schluessel, 'KI-Tabelle mit tenant_id ohne RESTRICTIVE-Policy ki_aktiver_betrieb' AS beleg
+      FROM unnest(public.ki_erlaubte_tabellen()) AS t(tab)
+     WHERE EXISTS (SELECT 1 FROM information_schema.columns c
+                    WHERE c.table_schema = 'public' AND c.table_name = t.tab AND c.column_name = 'tenant_id')
+       AND NOT EXISTS (SELECT 1 FROM pg_policies p
+                        WHERE p.schemaname = 'public' AND p.tablename = t.tab AND p.policyname = 'ki_aktiver_betrieb'
+                          AND p.permissive = 'RESTRICTIVE' AND p.cmd = 'SELECT')
+  $q$);
   -- tenant_id ohne FK auf tenants
   v_erg := v_erg || pg_temp.t01_liste('tid_ohne_fk_neu', format($q$
     SELECT c.relname AS schluessel, 'tenant_id ohne FK auf tenants, nicht in der Baseline' AS beleg

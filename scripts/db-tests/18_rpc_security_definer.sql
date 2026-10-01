@@ -2,7 +2,7 @@
 -- @ziel: Jede SECURITY-DEFINER-Funktion mit p_tenant_id ist eingestuft und lehnt einen fremden Betrieb ab
 -- @ziel: (pruefe_tenant_zugriff bzw. eigene Mitgliedsprüfung), Rollenlisten und Abo-Schreibsperre greifen in den
 -- @ziel: RPCs, anon führt keine SECURITY-DEFINER-Funktion aus, interne Funktionen sind für Benutzer nicht
--- @ziel: aufrufbar, schreibende RPCs prüfen das Schreibmodul (KAN-159). Lücken bei ki_readonly_query (B6) und EXECUTE-Rechte
+-- @ziel: aufrufbar, schreibende RPCs prüfen das Schreibmodul (KAN-159); ki_readonly_query liest nur den aktiven Betrieb (B6 behoben). Lücken bei EXECUTE-Rechte
 -- @ziel: entgegen der REVOKE-Regel (B10, B11) werden als Ratsche gezählt.
 -- @mutation pruefe_offen: pruefe_tenant_zugriff prüft nichts mehr | rot: fremd_.*|rolle_.*
 -- @mutation eigen_offen: get_user_role_in_tenant ohne auth.uid()-Bezug | rot: fremd_get_user_role_in_tenant
@@ -37,8 +37,8 @@
 --      anon/PUBLIC-Funktionen = Soll + bekannt (Ratsche B10), interne Funktionen ohne EXECUTE für authenticated,
 --      Triggerfunktionen mit EXECUTE für authenticated (Ratsche B11).
 --   7. Modulprüfung (seit KAN-159 hart, vorher B9): jede schreibende RPC für Winzer ruft s112_darf_schreiben bzw.
---      s112_pruefe_schreibmodul auf; is_locked bleibt beim Kontenabgleich bewusst ungeprüft. Bekannte Lücken: B6
---      (ki_readonly_query filtert nur GUT-Tabellen auf den aktiven Betrieb).
+--      s112_pruefe_schreibmodul auf; is_locked bleibt beim Kontenabgleich bewusst ungeprüft. B6 (ki_readonly_query las bei
+--      zwei Betrieben Kontakte des anderen) ist seit kan159b6_ki_aktiver_betrieb behoben und hart geprüft.
 --   4b. Eigener Betrieb, fremdes Objekt (IDOR): b_ta ruft die RPCs mit p_tenant_id = B, aber mit echten Objekten
 --      des Musterhofs auf (Füllung, Charge, E&A-Buchung, Grundstücke). Als postgres wird im selben Unterblock
 --      belegt, dass die M-Zeile unverändert ist; die Positivkontrolle mit B-Objekten ändert die B-Zeile. Jede
@@ -879,9 +879,9 @@ BEGIN
   PERFORM pg_temp.s112_als(v_mbta);
   v_r := pg_temp.t18_ruf(format('SELECT public.ki_readonly_query(%L, %L)::text',
     format('select count(*) as n from kontakte where tenant_id = %L', v_m), v_b));
-  v_erg := v_erg || pg_temp.s112_luecke('ki_kontext_b_liest_kontakte_m',
-    CASE WHEN v_r LIKE 'ok|%' THEN (substr(v_r, 4)::jsonb -> 0 ->> 'n') ELSE v_r END, '0', v_kontakte_m::text,
-    'B6 ki_readonly_query liest bei zwei Betrieben Kontakte des anderen');
+  -- B6 behoben (KAN-159, 01.10.2026): RESTRICTIVE-Policy ki_aktiver_betrieb auf allen KI-Tabellen mit tenant_id
+  v_erg := v_erg || pg_temp.s112_erwarte('ki_kontext_b_liest_kontakte_m',
+    CASE WHEN v_r LIKE 'ok|%' THEN (substr(v_r, 4)::jsonb -> 0 ->> 'n') ELSE v_r END, '0');
   -- GUT-Tabellen (get_user_tenant_ids) werden auf den aktiven Betrieb gefiltert
   PERFORM pg_temp.s112_als(v_mbta);
   v_r := pg_temp.t18_ruf(format('SELECT public.ki_readonly_query(%L, %L)::text',
