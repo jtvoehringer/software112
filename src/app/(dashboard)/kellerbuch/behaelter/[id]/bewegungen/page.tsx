@@ -55,7 +55,7 @@ export default async function BehaelterBewegungsPage({
 
   const kapazitaet = bh.volumen_liter ? bh.volumen_liter : null
   const auslastung = kapazitaet && kapazitaet > 0 ? Math.min(100, (aktuell / kapazitaet) * 100) : null
-  const inputCls = 'border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 bg-white'
+  const inputCls = 'border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 bg-white'
   const mitZeitraum = !!(von || bis)
   const endSaldo = bewegungenMitSaldo.length > 0 ? bewegungenMitSaldo[bewegungenMitSaldo.length - 1].saldo : 0
 
@@ -115,7 +115,7 @@ export default async function BehaelterBewegungsPage({
         </div>
       </div>
 
-      <div className="flex gap-1 border-b border-s112-border print:hidden">
+      <div className="flex gap-1 overflow-x-auto sm:overflow-visible whitespace-nowrap border-b border-s112-border print:hidden">
         <span className="px-4 py-2 text-sm font-medium text-s112-blue-700 border-b-2 border-s112-teal -mb-px">
           Bewegungsbuch
         </span>
@@ -162,12 +162,12 @@ export default async function BehaelterBewegungsPage({
               </p>
             </div>
           </div>
-          <AktionsFormular action={manuellSchwundBuchen} className="flex flex-wrap gap-3 items-end"
+          <AktionsFormular action={manuellSchwundBuchen} className="grid grid-cols-2 gap-3 items-end sm:flex sm:flex-wrap"
             erfolgsMeldung="Schwund nachgebucht." fehlerErsatz="Schwund konnte nicht gebucht werden">
             <input type="hidden" name="behaelter_id" value={id} />
-            <div>
+            <div className="col-span-2 sm:col-span-1">
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Charge</label>
-              <select aria-label="Charge" name="weinausbau_id" required className={inputCls}>
+              <select aria-label="Charge" name="weinausbau_id" required className={`w-full sm:w-auto ${inputCls}`}>
                 {chargenRaw.map((c: R) => (
                   <option key={c.id} value={c.id}>
                     {c.name}{c.jahrgang ? ` (${c.jahrgang})` : ''}{!c.aktiv ? ' abgeschlossen' : ''}
@@ -180,12 +180,13 @@ export default async function BehaelterBewegungsPage({
               <input aria-label="Menge (L)"
                 name="menge"
                 type="number"
+                inputMode="decimal"
                 step="0.01"
                 min="0.01"
                 max={nichtVerbuchterSchwund.toFixed(2)}
                 defaultValue={nichtVerbuchterSchwund.toFixed(2)}
                 required
-                className={`w-28 ${inputCls}`}
+                className={`w-full sm:w-28 ${inputCls}`}
               />
             </div>
             <div>
@@ -195,12 +196,12 @@ export default async function BehaelterBewegungsPage({
                 type="date"
                 defaultValue={wienHeute()}
                 required
-                className={inputCls}
+                className={`w-full sm:w-auto ${inputCls}`}
               />
             </div>
             <button
               type="submit"
-              className="bg-s112-warn-fg text-white px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-90 transition-colors"
+              className="col-span-2 sm:col-span-1 w-full sm:w-auto bg-s112-warn-fg text-white px-4 py-3 sm:py-2 rounded-lg text-base sm:text-sm font-semibold hover:opacity-90 transition-colors"
             >
               Schwund nachbuchen
             </button>

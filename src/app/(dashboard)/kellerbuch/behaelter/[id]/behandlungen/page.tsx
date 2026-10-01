@@ -269,7 +269,7 @@ export default function KellerbehandlungenPage() {
       )}
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-s112-border print:hidden">
+      <div className="flex gap-1 overflow-x-auto sm:overflow-visible whitespace-nowrap border-b border-s112-border print:hidden">
         <Link href={`/kellerbuch/behaelter/${behaelterId}/bewegungen`}
           className="px-4 py-2 text-sm font-medium text-s112-muted hover:text-s112-text-1 border-b-2 border-transparent hover:border-s112-line-str -mb-px transition-colors inline-flex items-center gap-1.5">
           <BarChart3 size={14} strokeWidth={1.75} />Bewegungsbuch
@@ -289,12 +289,12 @@ export default function KellerbehandlungenPage() {
           <label className="text-xs text-s112-text-2">
             <span className="block mb-0.5 font-medium">Von</span>
             <input type="date" value={von} onChange={e => setVon(e.target.value)} aria-label="Zeitraum von"
-              className="border border-s112-border rounded-lg px-2.5 py-1.5 text-sm bg-white" />
+              className="border border-s112-border rounded-lg px-2.5 py-2 sm:py-1.5 text-base sm:text-sm bg-white" />
           </label>
           <label className="text-xs text-s112-text-2">
             <span className="block mb-0.5 font-medium">Bis</span>
             <input type="date" value={bis} onChange={e => setBis(e.target.value)} aria-label="Zeitraum bis"
-              className="border border-s112-border rounded-lg px-2.5 py-1.5 text-sm bg-white" />
+              className="border border-s112-border rounded-lg px-2.5 py-2 sm:py-1.5 text-base sm:text-sm bg-white" />
           </label>
           {(von || bis) && (
             <button type="button" onClick={() => { setVon(''); setBis('') }} className="text-xs text-s112-muted hover:text-s112-blue-700 py-1.5">
@@ -316,18 +316,18 @@ export default function KellerbehandlungenPage() {
             {editId ? 'Behandlung bearbeiten' : 'Neue Behandlung'}
           </h2>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum *</label>
                 <input aria-label="Datum" type="date" value={formDatum} onChange={e => setFormDatum(e.target.value)}
-                  className="input w-full" required />
+                  className="input w-full py-2.5 sm:py-2 text-base sm:text-sm" required />
               </div>
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Behandlungstyp *</label>
                 {!showNeuerTyp ? (
                   <div className="flex gap-2">
                     <select value={formTypId} onChange={e => onTypChange(e.target.value)}
-                      className="input flex-1" required>
+                      className="input flex-1 py-2.5 sm:py-2 text-base sm:text-sm" required>
                       <option value="">– wählen –</option>
                       {typen.map(t => (
                         <option key={t.id} value={t.id}>{t.name}</option>
@@ -339,11 +339,11 @@ export default function KellerbehandlungenPage() {
                     </button>
                   </div>
                 ) : (
-                  <div className="flex gap-2 items-end">
+                  <div className="flex flex-wrap gap-2 items-end">
                     <input type="text" value={neuerTypName} onChange={e => setNeuerTypName(e.target.value)}
-                      placeholder="Typbezeichnung" className="input flex-1" autoFocus />
+                      placeholder="Typbezeichnung" className="input flex-1 basis-full sm:basis-0 py-2.5 sm:py-2 text-base sm:text-sm" autoFocus />
                     <select value={neuerTypEinheit} onChange={e => setNeuerTypEinheit(e.target.value)}
-                      className="input w-20">
+                      className="input w-20 py-2.5 sm:py-2 text-base sm:text-sm">
                       {EINHEITEN.map(e => <option key={e} value={e}>{e}</option>)}
                     </select>
                     <button type="button" onClick={saveNeuerTyp} disabled={typSaving}
@@ -357,28 +357,28 @@ export default function KellerbehandlungenPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Menge</label>
-                <input aria-label="Menge" type="text" value={formMenge} onChange={e => setFormMenge(e.target.value)}
-                  placeholder="0,00" className="input w-full" />
+                <input aria-label="Menge" type="text" inputMode="decimal" value={formMenge} onChange={e => setFormMenge(e.target.value)}
+                  placeholder="0,00" className="input w-full py-2.5 sm:py-2 text-base sm:text-sm" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Einheit</label>
-                <select aria-label="Einheit" value={formEinheit} onChange={e => setFormEinheit(e.target.value)} className="input w-full">
+                <select aria-label="Einheit" value={formEinheit} onChange={e => setFormEinheit(e.target.value)} className="input w-full py-2.5 sm:py-2 text-base sm:text-sm">
                   {EINHEITEN.map(e => <option key={e} value={e}>{e}</option>)}
                 </select>
               </div>
-              <div>
+              <div className="col-span-2 sm:col-span-1">
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">
                   Volumen Ist (L)
                   {gHl && (
                     <span className="ml-2 text-s112-blue-700 font-semibold">= {gHl} g/hl</span>
                   )}
                 </label>
-                <input type="text" value={formVolumen} onChange={e => setFormVolumen(e.target.value)}
+                <input type="text" inputMode="decimal" value={formVolumen} onChange={e => setFormVolumen(e.target.value)}
                   placeholder={aktuellerInhalt > 0 ? fmtNum(aktuellerInhalt) : '0'}
-                  className="input w-full" />
+                  className="input w-full py-2.5 sm:py-2 text-base sm:text-sm" />
               </div>
             </div>
 
@@ -386,7 +386,7 @@ export default function KellerbehandlungenPage() {
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Kellerbuch-Charge</label>
                 <select aria-label="Kellerbuch-Charge" value={formWeinausbauId} onChange={e => setFormWeinausbauId(e.target.value)}
-                  className="input w-full">
+                  className="input w-full py-2.5 sm:py-2 text-base sm:text-sm">
                   <option value="">– keine Zuordnung –</option>
                   {/* Bisher zugeordnete Charge, die nicht mehr aktiv im Behälter liegt – bleibt wählbar */}
                   {formWeinausbauId && !chargenImBehaelter.some((c: R) => c.id === formWeinausbauId) && (
@@ -402,18 +402,19 @@ export default function KellerbehandlungenPage() {
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
               <textarea aria-label="Notizen" value={formNotizen} onChange={e => setFormNotizen(e.target.value)}
-                rows={2} className="input w-full resize-none" placeholder="Optionale Anmerkungen…" />
+                rows={2} className="input w-full resize-none py-2.5 sm:py-2 text-base sm:text-sm" placeholder="Optionale Anmerkungen…" />
             </div>
 
             {formError && <p className="text-s112-err text-xs">{formError}</p>}
 
-            <div className="flex justify-end gap-2 pt-1">
+            {/* KAN-181: am Handy bleibt die Leiste beim Scrollen unten sichtbar */}
+            <div className="flex justify-end gap-2 pt-1 max-sm:sticky max-sm:bottom-0 max-sm:-mx-5 max-sm:-mb-5 max-sm:px-5 max-sm:py-3 max-sm:bg-s112-bg max-sm:border-t max-sm:border-s112-line max-sm:z-10">
               <button type="button" onClick={() => setShowForm(false)}
-                className="text-xs text-s112-muted border border-s112-line px-4 py-1.5 rounded-lg hover:border-s112-line-str">
+                className="flex-1 sm:flex-none text-base sm:text-xs text-s112-muted border border-s112-line px-4 py-3 sm:py-1.5 rounded-lg hover:border-s112-line-str">
                 Abbrechen
               </button>
               <button type="submit" disabled={isPending}
-                className="text-xs bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg hover:bg-opacity-90 disabled:opacity-50">
+                className="flex-1 sm:flex-none text-base sm:text-xs bg-s112-teal text-s112-yellow px-4 py-3 sm:py-1.5 rounded-lg hover:bg-opacity-90 disabled:opacity-50">
                 {isPending ? 'Speichern…' : (editId ? 'Aktualisieren' : 'Speichern')}
               </button>
             </div>
@@ -434,8 +435,8 @@ export default function KellerbehandlungenPage() {
           )}
         </div>
       ) : (
-        <div className="card p-0 overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="card p-0 overflow-x-auto">
+          <table className="w-full min-w-[600px] text-sm">
             <thead>
               <tr className="bg-s112-bg border-b border-s112-border">
                 <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Datum</th>

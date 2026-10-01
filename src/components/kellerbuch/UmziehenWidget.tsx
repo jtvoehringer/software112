@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useEffect } from 'react'
+import { useState, useTransition, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { AlertTriangle } from 'lucide-react'
 import { weinartKonflikt, WEINART_LABEL } from '@/lib/keller/weinart'
@@ -27,6 +27,14 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
   const router  = useRouter()
   const [open,  setOpen]  = useState(initialOpen)
   useEffect(() => { setOpen(initialOpen) }, [initialOpen])
+  // KAN-181: über ?form=umziehen geöffnet steht das Formular weit unten – einmalig hinscrollen
+  const sectionRef = useRef<HTMLElement>(null)
+  const gescrollt  = useRef(false)
+  useEffect(() => {
+    if (!open || !initialOpen || gescrollt.current) return
+    gescrollt.current = true
+    sectionRef.current?.scrollIntoView({ block: 'start' })
+  }, [open, initialOpen])
   const [brutto, setBrutto] = useState('')
   const [netto,  setNetto]  = useState('')
   const [zielId, setZielId] = useState('')
@@ -133,7 +141,7 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
   if (!open) return null
 
   return (
-    <section>
+    <section ref={sectionRef} className="scroll-mt-4">
       <h2 className="font-semibold text-s112-text mb-3">Umziehen</h2>
       <div className="card space-y-4">
         {error && (
@@ -144,19 +152,19 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="form-label">Datum *</label>
-              <input aria-label="Datum" type="date" value={datum} onChange={e => setDatum(e.target.value)} className="form-input" required />
+              <input aria-label="Datum" type="date" value={datum} onChange={e => setDatum(e.target.value)} className="form-input py-2.5 sm:py-2 text-base sm:text-sm" required />
             </div>
             <div>
               <label className="form-label">Notizen</label>
               <input aria-label="Notizen" type="text" value={notizen} onChange={e => setNotizen(e.target.value)}
-                placeholder="z.B. Abstich nach Gärung …" className="form-input" />
+                placeholder="z.B. Abstich nach Gärung …" className="form-input py-2.5 sm:py-2 text-base sm:text-sm" />
             </div>
           </div>
 
           {/* Quelle – gesperrt */}
           <div>
             <label className="form-label">Quelle (diese Partie)</label>
-            <div className="form-input bg-s112-bg text-s112-text-2 cursor-not-allowed select-none">{chargeName}</div>
+            <div className="form-input py-2.5 sm:py-2 text-base sm:text-sm bg-s112-bg text-s112-text-2 cursor-not-allowed select-none">{chargeName}</div>
             <p className="text-xs text-s112-muted mt-1">
               Verfügbar: <span className="text-s112-blue-700 font-medium">
                 {fmtNum(verfuegbarLiter, { max: 2 })} L
@@ -168,7 +176,7 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
             <div>
               <label className="form-label">Brutto (Liter) *</label>
               <input aria-label="Brutto (Liter)" type="text" inputMode="decimal" value={brutto}
-                onChange={e => setBrutto(e.target.value)} placeholder="z.B. 1.200" className="form-input" />
+                onChange={e => setBrutto(e.target.value)} placeholder="z.B. 1.200" className="form-input py-2.5 sm:py-2 text-base sm:text-sm" />
               {bruttoVal > verfuegbarLiter + 0.01 && (
                 <p className="text-xs text-s112-err-fg mt-1">Überschreitet verfügbaren Bestand</p>
               )}
@@ -176,7 +184,7 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
             <div>
               <label className="form-label">Netto (Liter) *</label>
               <input aria-label="Netto (Liter)" type="text" inputMode="decimal" value={netto}
-                onChange={e => setNetto(e.target.value)} placeholder="z.B. 1.190" className="form-input" />
+                onChange={e => setNetto(e.target.value)} placeholder="z.B. 1.190" className="form-input py-2.5 sm:py-2 text-base sm:text-sm" />
               {nettoVal > bruttoVal + 0.01 && (
                 <p className="text-xs text-s112-err-fg mt-1">Netto &gt; Brutto nicht erlaubt</p>
               )}
@@ -196,7 +204,7 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
           {/* Ziel-Gebinde */}
           <div>
             <label className="form-label">Ziel-Gebinde *</label>
-            <select aria-label="Ziel-Gebinde" value={zielId} onChange={e => setZielId(e.target.value)} className="form-input">
+            <select aria-label="Ziel-Gebinde" value={zielId} onChange={e => setZielId(e.target.value)} className="form-input py-2.5 sm:py-2 text-base sm:text-sm">
               <option value="">– Gebinde wählen –</option>
               {gebinde.map(g => {
                 const inh = inhalt[g.id] ?? 0
@@ -274,9 +282,10 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
             )}
           </div>
 
-          <div className="flex items-center gap-3">
+          {/* KAN-181: am Handy bleibt die Leiste beim Scrollen unten sichtbar */}
+          <div className="flex items-center gap-3 max-sm:sticky max-sm:bottom-0 max-sm:-mx-6 max-sm:-mb-6 max-sm:px-6 max-sm:py-3 max-sm:bg-s112-bg max-sm:border-t max-sm:border-s112-line max-sm:z-10">
             <button type="submit" disabled={!canSubmit || pending}
-              className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+              className="flex-1 sm:flex-none bg-s112-teal text-s112-yellow px-5 py-3 sm:py-2 rounded-xl text-base sm:text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
               {pending ? 'Wird gebucht …' : 'Umzug buchen'}
             </button>
              <button type="button" onClick={handleClose}

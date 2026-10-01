@@ -517,7 +517,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
       )}
 
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-s112-text">{weinausbau.name}</h1>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -526,9 +526,11 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
             {weinausbau.behaelter && <span className="text-xs text-s112-muted">in {weinausbau.behaelter.name}</span>}
           </div>
         </div>
-        <div className="text-right shrink-0">
+        <div className="sm:text-right shrink-0">
           <p className="text-2xl font-semibold text-s112-blue-700 tabular-nums">{fmtLiter(aktuell)}</p>
           <p className="text-xs text-s112-muted mt-0.5">verfügbarer Bestand</p>
+          {/* KAN-181: am Handy als umbrechende Knopfzeile; ab sm wie bisher (Block, mt der Knöpfe gilt) */}
+          <div className="flex flex-wrap gap-2 mt-2 sm:block sm:mt-0 max-sm:[&>*]:mt-0">
           {writeOk && aktuell > 0.01 && (
             <Link href={`/weinhandel/fuellungen/neu?charge=${weinausbau.id}`}
               className="mt-2 inline-flex items-center gap-1 text-xs bg-s112-teal text-s112-yellow px-3 py-1 rounded-lg hover:bg-opacity-90 transition-colors">
@@ -561,6 +563,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
               <Award size={13} strokeWidth={1.75} />Prüfnummer
             </Link>
           )}
+          </div>
         </div>
       </div>
 

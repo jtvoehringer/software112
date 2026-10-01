@@ -44,8 +44,10 @@ export default async function WeinausbauListePage() {
     if (liste.length === 0) {
       return <p className="text-sm text-s112-muted italic px-4 py-3">Keine Einträge</p>
     }
+    // KAN-181: am Handy waagrecht scrollbar statt gequetscht (die Karte bleibt overflow-hidden für die Ecken)
     return (
-      <table className="w-full text-sm">
+      <div className="overflow-x-auto">
+      <table className="w-full min-w-[640px] text-sm">
         <thead>
           <tr className="border-b border-s112-border/50">
             <th className="text-left px-4 py-2 text-xs font-medium text-s112-text-2">Charge</th>
@@ -82,6 +84,7 @@ export default async function WeinausbauListePage() {
           })}
         </tbody>
       </table>
+      </div>
     )
   }
 
