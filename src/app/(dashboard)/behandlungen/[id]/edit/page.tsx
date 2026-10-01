@@ -121,7 +121,7 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
   const flaecheHa = summeFlaecheHa(((b.behandlung_grundstuecke ?? []) as AR[]).map(bg => bg.flaeche_ha ?? bg.grundstueck?.flaeche_ha))
 
   // Rieden änderbar (Rückmeldung 30.09.2026): bisherige Auswahl – ganze Ried, wenn alle ihre WI-GST dabei sind
-  const { weingaerten, gstByWeingarten } = await ladeRiedOptionen(supabase, tenantId)
+  const { weingaerten, gstByWeingarten } = await ladeRiedOptionen(supabase, tenantId, String(b.datum ?? '').slice(0, 10) || undefined)
   const bisherGst = new Map<string, string>()
   for (const bg of ((b.behandlung_grundstuecke ?? []) as AR[])) {
     if (bg.grundstueck_id && bg.grundstueck?.weingarten_id) bisherGst.set(String(bg.grundstueck_id), String(bg.grundstueck.weingarten_id))

@@ -25,6 +25,7 @@ import { istErntebar, leseZiele, verteileKg, type LeseGst, type LeseZiel } from 
 import { lesedatumFehler, behaelterPruefung } from '@/lib/wein/pressungLesedatum'
 import { eisweinHinweis, istLeseArt, jahrgangAusEingabe, leseLoeschsperre, leseStufe, leseZeitraumFehler } from '@/lib/wein/lesen'
 import { ladeLesenDesJahrgangs, leseDeckungFehler, leseFuerDatum, traubenverkaufLese } from '@/lib/wein/leseBilanz'
+import { gstAktivAm } from '@/lib/wein/grundstueckAktiv'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -570,7 +571,7 @@ export async function createMultipleErnteParzellen(jahrgangId: string, formData:
   const einzelIds = [...new Set(gstEntries.map(g => g.gst_id).filter((x): x is string => typeof x === 'string' && x !== ''))]
   const ohneGstWg = [...new Set(gstEntries.filter(g => !g.gst_id).map(g => g.weingarten_id).filter(Boolean))]
   const ganzOderOhneGst = [...new Set([...weingartenIds, ...ohneGstWg])]
-  const gstSpalten = 'id, weingarten_id, gst_nr, flaeche_ha, nutzart, trauben_herkunft_code, rebsorte'
+  const gstSpalten = 'id, weingarten_id, gst_nr, flaeche_ha, nutzart, trauben_herkunft_code, rebsorte, aktiv, deaktiviert_am'
   const [ganzRes, einzelRes] = await Promise.all([
     ganzOderOhneGst.length > 0
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -584,7 +585,10 @@ export async function createMultipleErnteParzellen(jahrgangId: string, formData:
   if (ganzRes.error) throw new AktionsFehler(dbFehlerText(ganzRes.error, 'Grundstücke konnten nicht geladen werden'))
   if (einzelRes.error) throw new AktionsFehler(dbFehlerText(einzelRes.error, 'Grundstücke konnten nicht geladen werden'))
   const gstStammdatenMap = new Map<string, AR>()
-  for (const g of [...(ganzRes.data ?? []), ...(einzelRes.data ?? [])] as AR[]) gstStammdatenMap.set(g.id, g)
+  // KAN-150 F1: bei ganzen Rieden nur Grundstücke, die am Lesetag bewirtschaftet werden (einzeln gewählte bleiben)
+  const leseTag = (ernteDatum ?? '').slice(0, 10)
+  for (const g of (ganzRes.data ?? []) as AR[]) if (!leseTag || gstAktivAm(g, leseTag)) gstStammdatenMap.set(g.id, g)
+  for (const g of (einzelRes.data ?? []) as AR[]) gstStammdatenMap.set(g.id, g)
   for (const id of einzelIds) {
     const g = gstStammdatenMap.get(id)
     if (!g) throw new AktionsFehler('Ein gewähltes Grundstück wurde nicht gefunden – bitte die Seite neu laden.')
@@ -603,7 +607,7 @@ export async function createMultipleErnteParzellen(jahrgangId: string, formData:
 
   // WI-Grundstücke je Weingarten; ganz gewählt werden nur erntebare Weingärten (lib/wein/leseErfassung.ts)
   const alleJeWg = new Map<string, AR[]>()
-  for (const g of (ganzRes.data ?? []) as AR[]) alleJeWg.set(g.weingarten_id, [...(alleJeWg.get(g.weingarten_id) ?? []), g])
+  for (const g of ((ganzRes.data ?? []) as AR[]).filter(g => !leseTag || gstAktivAm(g, leseTag))) alleJeWg.set(g.weingarten_id, [...(alleJeWg.get(g.weingarten_id) ?? []), g])
   const wiJeWg: Record<string, LeseGst[]> = {}
   for (const wgId of ganzOderOhneGst) {
     const alle = alleJeWg.get(wgId) ?? []

@@ -15,6 +15,7 @@ import {
 } from '@/lib/behandlungen/arten'
 import { einarbeitungAus } from './neu/feldMatrix'
 import { kostenAufteilung } from '@/lib/wein/massnahmeAnteile'
+import { gstAktivAm } from '@/lib/wein/grundstueckAktiv'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -298,7 +299,7 @@ type GstAuswahl = Map<string, { id: string; weingarten_id: string; flaeche_ha: n
 
 // Betroffene Grundstücke aus der Formular-Auswahl: a) alle WI-GST der ganz gewählten Rieden, b) die einzeln gewählten
 // GST – nur Nutzart WI (andere Nutzarten, z. B. Grünbrache, werden übersprungen). Anlegen und – seit 30.09.2026 –
-// Bearbeiten.
+// Bearbeiten. KAN-150 F1: bei ganzen Rieden nur Grundstücke, die am Tag der Maßnahme bewirtschaftet werden.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function grundstueckeDerAuswahl(supabase: any, tenantId: string, formData: FormData): Promise<GstAuswahl> {
   const weingartenIds = formData.getAll('weingarten_ids') as string[]
@@ -308,12 +309,16 @@ async function grundstueckeDerAuswahl(supabase: any, tenantId: string, formData:
     if (ids.length === 0) return
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (supabase.from('grundstuecke') as any)
-      .select('id, weingarten_id, flaeche_ha')
+      .select('id, weingarten_id, flaeche_ha, aktiv, deaktiviert_am')
       .in(spalte, ids)
       .eq('nutzart', 'WI')
       .eq('tenant_id', tenantId)
     if (error) throw new AktionsFehler((error as AR).message)
-    for (const g of ((data ?? []) as AR[])) out.set(g.id, { id: g.id, weingarten_id: g.weingarten_id, flaeche_ha: g.flaeche_ha ?? null })
+    const tag = String(formData.get('datum') ?? '').slice(0, 10)
+    for (const g of ((data ?? []) as AR[])) {
+      if (spalte === 'weingarten_id' && tag && !gstAktivAm(g, tag)) continue
+      out.set(g.id, { id: g.id, weingarten_id: g.weingarten_id, flaeche_ha: g.flaeche_ha ?? null })
+    }
   }
   await laden('weingarten_id', weingartenIds)
   await laden('id', grundstueckIds)

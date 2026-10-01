@@ -9,6 +9,7 @@ import { getCurrentUserRole, canWrite, canAdmin, getCurrentMembership } from '@/
 import { notFound } from 'next/navigation'
 import type { Pressung, PressungWG, PressungBeh, WGOption, BehOption, WAOption, ZukaufTraubenOpt, LeseParzelle } from './PressungSection'
 import type { LeseEintrag } from '@/lib/wein/pressungLesedatum'
+import { gstImJahr } from '@/lib/wein/grundstueckAktiv'
 import type { Traubenverkauf, TVWGOption, TVKontaktOption, TVFirmaOption, TVQuelleOption } from './TraubenverkaufSection'
 import type { AMAMeldung, AMAVersion, ErnteParzelle, GSTOpt, WeingartenOpt } from './page'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
@@ -102,12 +103,12 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
     alle<AR>(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       tf((supabase.from('grundstuecke') as any)
-        .select('id, weingarten_id, gst_nr, rebsorte, flaeche_ha').eq('nutzart', 'WI').order('gst_nr').order('id')),
+        .select('id, weingarten_id, gst_nr, rebsorte, flaeche_ha, aktiv, deaktiviert_am').eq('nutzart', 'WI').order('gst_nr').order('id')),
     ),
     // Alle Grundstücke (jede Nutzart) – ein Weingarten nur mit Acker/Grünland/Brache ist nicht erntebar (KAN-160)
     alle<AR>(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      tf((supabase.from('grundstuecke') as any).select('id, weingarten_id').order('id')),
+      tf((supabase.from('grundstuecke') as any).select('id, weingarten_id, aktiv, deaktiviert_am').order('id')),
     ),
 
     // Traubenverkäufe dieses Jahrgangs (mit Rechnung: Stornieren storniert sie mit, KAN-35/KAN-148)
@@ -184,13 +185,17 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
   // KAN-129 Frage 7: Lesegut nach dem 30.11. zählt nicht in die Erntemeldung
   const nachStichtag = stichtagHinweis(teileNachStichtag(leseGueltig, Number((jg as AR).jahrgang)).danach, Number((jg as AR).jahrgang))
 
+  // KAN-150 F1: nur Grundstücke, die im Jahrgang (Stichtag 1.1.) bewirtschaftet wurden – Auswahl und Bezugsfläche
+  const jgJahr = Number((jg as AR).jahrgang)
+  const gstWi = (rawGST as AR[]).filter(g => gstImJahr(g, jgJahr))
+  const gstAlle = (rawGstAlle as AR[]).filter(g => gstImJahr(g, jgJahr))
   const gstByWeingarten: Record<string, GSTOpt[]> = {}
-  for (const g of rawGST) {
+  for (const g of gstWi) {
     if (!gstByWeingarten[g.weingarten_id]) gstByWeingarten[g.weingarten_id] = []
     gstByWeingarten[g.weingarten_id].push({ id: g.id, gst_nr: g.gst_nr, rebsorte: g.rebsorte ?? null, flaeche_ha: g.flaeche_ha ?? null })
   }
   const gstAnzahlJeWeingarten = new Map<string, number>()
-  for (const g of rawGstAlle as AR[]) gstAnzahlJeWeingarten.set(g.weingarten_id, (gstAnzahlJeWeingarten.get(g.weingarten_id) ?? 0) + 1)
+  for (const g of gstAlle) gstAnzahlJeWeingarten.set(g.weingarten_id, (gstAnzahlJeWeingarten.get(g.weingarten_id) ?? 0) + 1)
 
   const weingaerten: WeingartenOpt[] = ((rawW ?? []) as AR[]).map(w => ({
     id: w.id, name: w.name, rebsorte: w.rebsorte ?? null, lage_name: w.lagen?.name ?? null,
@@ -204,7 +209,7 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
   // Erntebetrag darf 10.000 kg/ha nicht überschreiten, betriebsweit gerechnet.
   // Reine Info-/Warnfunktion – ersetzt keine rechtliche Prüfung. Dieselbe Berechnung
   // steht in der Erntemeldung (Druck /reports/ama und CSV).
-  const hektarhoechstertrag: HektarhoechstertragStatus = berechneHektarhoechstertrag(leseGueltig, weinbauflaecheHa(rawGST))
+  const hektarhoechstertrag: HektarhoechstertragStatus = berechneHektarhoechstertrag(leseGueltig, weinbauflaecheHa(gstWi))
 
   let amaMeldung: AMAMeldung | null = null
   const amaVersionen: AMAVersion[] = ((rawA ?? []) as AR[]).map(v => ({ ...v, version: (v.version as number | null) ?? 1 }) as AMAVersion)

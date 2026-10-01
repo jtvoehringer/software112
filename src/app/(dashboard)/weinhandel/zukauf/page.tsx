@@ -7,6 +7,7 @@ import ClickableTableRow from '@/components/ui/ClickableTableRow'
 import StopPropagation from '@/components/ui/StopPropagation'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtEur, fmtNum } from '@/lib/format'
+import { gstImJahr } from '@/lib/wein/grundstueckAktiv'
 
 export const dynamic = 'force-dynamic'
 
@@ -69,7 +70,8 @@ export default async function ZukaufPage({
 
     if (istWeinproduzent) {
       const [{ data: rawGSTFl }, { data: rawTraubenZukauf }] = await Promise.all([
-        (supabase.from('grundstuecke') as any).select('flaeche_ha').eq('nutzart', 'WI').eq('tenant_id', membership.tenantId),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase.from('grundstuecke') as any).select('flaeche_ha, aktiv, deaktiviert_am').eq('nutzart', 'WI').eq('tenant_id', membership.tenantId),
         (supabase.from('zukauf_posten') as any)
           .select('menge')
           .eq('art', 'trauben')
@@ -78,7 +80,8 @@ export default async function ZukaufPage({
           .gte('datum', `${zjahr}-01-01`)
           .lte('datum', `${zjahr}-12-31`),
       ])
-      const gesamtFlaecheHaBetrieb = ((rawGSTFl ?? []) as R[]).reduce((s, g) => s + (Number(g.flaeche_ha) || 0), 0)
+      // KAN-150 F1: deaktivierte Grundstücke nur, wenn sie am 1.1. des Jahres noch bewirtschaftet wurden
+      const gesamtFlaecheHaBetrieb = ((rawGSTFl ?? []) as R[]).filter(g => gstImJahr(g, zjahr)).reduce((s, g) => s + (Number(g.flaeche_ha) || 0), 0)
       const summeKg = ((rawTraubenZukauf ?? []) as R[]).reduce((s, z) => s + (Number(z.menge) || 0), 0)
       const maxKg = TRAUBENZUKAUFSGRENZE_KG_HA * gesamtFlaecheHaBetrieb
       traubenzukaufsgrenze = {

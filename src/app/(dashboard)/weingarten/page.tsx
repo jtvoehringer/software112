@@ -30,7 +30,8 @@ export default async function WeingartenPage() {
   const aktive = weingaerten.filter(w => w.aktiv)
   // Ha-Summe AMA: Grundstücks-Summe falls vorhanden, sonst Weingarten-Fläche
   const gstHaMap = new Map<string, number>()
-  for (const g of grundstuecke) {
+  // KAN-150 F1: Summen nur über heute bewirtschaftete Grundstücke (deaktivierte bleiben in der Liste sichtbar)
+  for (const g of grundstuecke.filter(x => x.aktiv !== false)) {
     gstHaMap.set(g.weingarten_id, (gstHaMap.get(g.weingarten_id) ?? 0) + (g.flaeche_ha ?? 0))
   }
   const gesamtHaAma = aktive.reduce((s, w) => {
@@ -38,7 +39,7 @@ export default async function WeingartenPage() {
   }, 0)
 
   const gstKatasterMap = new Map<string, number>()
-  for (const g of grundstuecke) {
+  for (const g of grundstuecke.filter(x => x.aktiv !== false)) {
     if (g.flaeche_ha_kataster) gstKatasterMap.set(g.weingarten_id, (gstKatasterMap.get(g.weingarten_id) ?? 0) + g.flaeche_ha_kataster)
   }
   const gesamtHaKataster = aktive.reduce((s, w) => s + (gstKatasterMap.get(w.id) ?? 0), 0)

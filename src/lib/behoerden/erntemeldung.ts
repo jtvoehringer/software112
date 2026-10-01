@@ -26,6 +26,7 @@ import { MeldungsFehler } from './typen'
 import { Hinweise, datumAT, kuerzelWarnungen, textOderNull, zahlOderNull } from './ernte_hilfen'
 import { gemessenInText, mostgewichtFuerExport, type MostgewichtExport } from './mostgewicht_export'
 import { ohneStornierte } from './traubenverkauf'
+import { gstImJahr } from '../wein/grundstueckAktiv'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -353,17 +354,18 @@ export function weinbauflaecheHa(grundstuecke: readonly { flaeche_ha?: unknown }
   return grundstuecke.reduce((s, g) => s + (zahlOderNull(g.flaeche_ha) ?? 0), 0)
 }
 
-async function ladeWeinbauflaecheHa(supabase: Client, tenantId: string): Promise<number> {
+// KAN-150 F1: deaktivierte Grundstücke nur, wenn sie am 1.1. des Jahrgangs noch bewirtschaftet wurden
+async function ladeWeinbauflaecheHa(supabase: Client, tenantId: string, jahr: number): Promise<number> {
   const { data, error } = await alle<R>(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('grundstuecke') as any)
-      .select('id, flaeche_ha')
+      .select('id, flaeche_ha, aktiv, deaktiviert_am')
       .eq('tenant_id', tenantId)
       .eq('nutzart', 'WI')
       .order('id'),
   )
   if (error) throw new Error(`Laden fehlgeschlagen (grundstuecke): ${error.message}`)
-  return weinbauflaecheHa(data)
+  return weinbauflaecheHa(data.filter(g => gstImJahr(g, jahr)))
 }
 
 // ── Weinerntemeldung je Rebsorte ────────────────────────────────────────────
@@ -527,7 +529,7 @@ export async function ladeErntemeldung(supabase: Client, tenantId: string, jg: J
       .limit(1)
       .maybeSingle(),
     ladeLesedaten(supabase, jg.id),
-    ladeWeinbauflaecheHa(supabase, tenantId),
+    ladeWeinbauflaecheHa(supabase, tenantId, jg.jahrgang),
     ladeVerkaufteTraubenJeRebsorte(supabase, tenantId, jg.id),
   ])
   if (meldungRes.error) throw new Error(`Laden fehlgeschlagen (ama_erntemeldungen): ${meldungRes.error.message}`)

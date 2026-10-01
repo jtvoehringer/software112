@@ -113,6 +113,9 @@ export type GSTRow = {
   status?: string | null
   nutzart: string | null
   ama_feldnummer: string | null
+  /** KAN-150: deaktiviert (nicht mehr bewirtschaftet) ab deaktiviert_am */
+  aktiv?: boolean
+  deaktiviert_am?: string | null
 }
 
 function ChevronIcon({ open }: { open: boolean }) {
@@ -129,9 +132,9 @@ function GSTZeile({ gst, verschachtelt = false }: { gst: GSTRow; verschachtelt?:
   const router = useRouter()
   return (
     <tr
-      className="border-b border-s112-border/50 last:border-0 bg-white hover:bg-s112-bg/30 cursor-pointer transition-colors"
+      className={`border-b border-s112-border/50 last:border-0 bg-white hover:bg-s112-bg/30 cursor-pointer transition-colors ${gst.aktiv === false ? "opacity-50" : ""}`}
       onClick={() => router.push(`/weingarten/${gst.weingarten_id}`)}
-      title="Zum Weingarten (Grundstück bearbeiten)"
+      title={gst.aktiv === false ? `Deaktiviert seit ${gst.deaktiviert_am ?? "–"} – zum Weingarten` : "Zum Weingarten (Grundstück bearbeiten)"}
     >
       {/* Zwei Kontexte: direkt unter dem Ried (verschachtelt=false, "flatGst" in
           LageGruppe - ersetzt dort die Weingarten-Zeile komplett) vs. als
