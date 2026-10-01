@@ -47,7 +47,7 @@ export function Card({ children, className = '', title, right, pad = true }: { c
   return (
     <div className={`bg-white border border-s112-line rounded-xl ${pad ? 'p-[18px]' : ''} ${className}`}>
       {(title || right) && (
-        <div className={`flex items-center justify-between gap-3 mb-3 ${pad ? '' : 'px-[18px] pt-4'}`}>
+        <div className={`flex max-sm:flex-wrap items-center justify-between gap-3 mb-3 ${pad ? '' : 'px-[18px] pt-4'}`}>
           {title && <h2 className="font-display font-semibold text-[14.5px] text-s112-text">{title}</h2>}
           {right}
         </div>
@@ -67,11 +67,11 @@ export function Tile({ label, value, sub, icon: Icon, href, tone }: {
         {Icon && <Icon size={18} strokeWidth={1.5} className="text-s112-tertiary" />}
         <p className="text-[11.5px] font-semibold text-s112-text-2 tracking-[.02em]">{label}</p>
       </div>
-      <p className="font-mono text-[24px] leading-[1.15] text-s112-text tabular-nums">{value}</p>
+      <p className="font-mono text-[19px] sm:text-[24px] leading-[1.15] text-s112-text tabular-nums">{value}</p>
       {sub && <p className={`text-[11.5px] ${subCls}`}>{sub}</p>}
     </>
   )
-  const cls = 'bg-white border border-s112-line rounded-xl p-4 flex flex-col gap-2'
+  const cls = 'bg-white border border-s112-line rounded-xl p-4 flex flex-col gap-2 min-w-0'
   return href
     ? <Link href={href} className={`${cls} hover:shadow-sm hover:border-s112-blue-100 transition-all`}>{inner}</Link>
     : <div className={cls}>{inner}</div>

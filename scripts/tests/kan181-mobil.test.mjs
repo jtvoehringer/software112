@@ -111,3 +111,63 @@ describe('Kellerbuch (Etappe 3)', () => {
     assert.match(quelle(`${KB}/weinausbau/page.tsx`), /<div className="overflow-x-auto">\s*<table className="w-full min-w-\[640px\]/)
   })
 })
+
+describe('Verkauf (Etappe 4)', () => {
+  const WH = 'src/app/(dashboard)/weinhandel'
+  test('Neuer Verkauf: Trauben-Block sprengt das Raster nicht mehr, Felder mit 16 px', () => {
+    const q = quelle(`${WH}/verkauf/neu/page.tsx`)
+    assert.doesNotMatch(q, /"col-span-4 grid grid-cols-2 sm:grid-cols-3/)
+    assert.match(q, /col-span-2 sm:col-span-4 grid grid-cols-2 sm:grid-cols-3/)
+    assert.match(q, /const inputCls = '[^']*py-2\.5 sm:py-2 text-base sm:text-sm/)
+    assert.match(q, /grid grid-cols-1 sm:grid-cols-2 gap-4/)
+    assert.doesNotMatch(q, /<div className="col-span-2">\s*<label className=\{labelCls\}>(Kunde|Notizen)/)
+    assert.match(q, /inputMode=\{pos\.typ === 'flasche' \? 'numeric' : 'decimal'\}/)
+    assert.match(q, /text-base sm:text-xs/)
+  })
+  test('Neuer Verkauf: Speichern-Leiste unten mit Gesamtsumme nur am Handy', () => {
+    const q = quelle(`${WH}/verkauf/neu/page.tsx`)
+    assert.match(q, /max-sm:sticky max-sm:bottom-0 max-sm:-mx-4/)
+    assert.match(q, /<span className="sm:hidden mr-auto self-center font-semibold tabular-nums">\{fmtEur\(gesamt\)\}<\/span>/)
+    assert.match(q, /flex-1 sm:flex-none bg-s112-teal/)
+  })
+  test('Partnersuche mit 16 px am Handy', () => {
+    const q = quelle('src/components/crm/PartnerSuche.tsx')
+    assert.match(q, /const inputCls = '[^']*text-base sm:text-sm/)
+    assert.match(q, /py-2\.5 sm:py-2 bg-white text-base sm:text-sm/)
+  })
+  test('Verkaufsliste, Detail und Warenlager: Tabellen scrollen waagrecht', () => {
+    assert.match(quelle(`${WH}/verkauf/page.tsx`), /card p-0 overflow-x-auto">\s*<table className="w-full min-w-\[720px\]/)
+    const detail = quelle(`${WH}/verkauf/[id]/page.tsx`)
+    assert.doesNotMatch(detail, /overflow-hidden">\s*<table/)
+    assert.match(detail, /className="form-input py-2\.5 sm:py-2 text-base sm:text-sm w-full"/)
+    assert.doesNotMatch(detail, /className="form-input text-sm w-full"/)
+    const lager = quelle(`${WH}/page.tsx`)
+    assert.doesNotMatch(lager, /overflow-hidden[^"]*">\s*<table/)
+    assert.match(lager, /grid grid-cols-1 sm:grid-cols-3 gap-4/)
+  })
+})
+
+describe('Dashboard (Etappe 5)', () => {
+  const DB = 'src/app/(dashboard)/dashboard'
+  test('Schnellaktionen nur am Handy, je nach Schreibrecht', () => {
+    const q = quelle(`${DB}/page.tsx`)
+    assert.match(q, /<div className="sm:hidden grid grid-cols-2 gap-2">/)
+    for (const href of ['/erntemeldung/erfassen', '/behandlungen/neu', '/kellerbuch/umziehen?neu=1', '/weinhandel/verkauf/neu']) {
+      assert.ok(q.includes(`href: '${href}'`), href)
+    }
+    assert.match(q, /\.filter\(a => canWrite\(ctx\.role, a\.modul\)\)/)
+    assert.match(q, /schnellaktionen\.length > 0 &&/)
+    assert.ok(q.includes("${schnellaktionen.length > 0 ? 'max-sm:hidden ' : ''}lg:col-span-2 2xl:col-span-1"))   // Leser ohne Schnellaktionen behalten den Schnellzugriff
+  })
+  test('Kacheln, Fristen und überfällige Rechnungen passen auf 375 px', () => {
+    const ui = quelle(`${DB}/_shared/ui.tsx`)
+    assert.match(ui, /font-mono text-\[19px\] sm:text-\[24px\]/)
+    assert.match(ui, /rounded-xl p-4 flex flex-col gap-2 min-w-0'/)
+    const fristen = quelle(`${DB}/fristen/FristenClient.tsx`)
+    assert.match(fristen, /<table className="w-full min-w-\[520px\]">/)
+    assert.doesNotMatch(fristen, /className="form-input"/)
+    const verkauf = quelle(`${DB}/verkauf/page.tsx`)
+    assert.equal((verkauf.match(/grid-cols-\[1\.6fr_\.9fr_\.9fr\] sm:grid-cols-\[1\.6fr_1fr_\.9fr_\.9fr_40px\]/g) ?? []).length, 2)
+    assert.doesNotMatch(quelle(`${DB}/weingarten/LeseCheckliste.tsx`), /className="form-input"/)
+  })
+})

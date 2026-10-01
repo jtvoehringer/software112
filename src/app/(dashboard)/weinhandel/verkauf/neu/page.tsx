@@ -118,7 +118,7 @@ const FLASCHEN_LABEL: Record<number, string> = {
   1000: '1,0 L', 1500: '1,5 L', 3000: '3,0 L', 6000: '6,0 L',
 }
 
-const inputCls = 'border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 bg-white'
+const inputCls = 'border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 bg-white'
 const labelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
 
 // ── Kunden-Suche: serverseitig über components/crm/PartnerSuche (17.9.2026) ──
@@ -435,7 +435,7 @@ export default function NeuerVerkaufPage() {
         {/* Kopfdaten */}
         <div className="card p-5 space-y-4">
           <h2 className="font-semibold text-s112-text-1 text-sm">Belegdaten</h2>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className={labelCls}>Datum *</label>
               <input aria-label="Datum" type="date" value={datum} onChange={e => setDatum(e.target.value)}
@@ -448,7 +448,7 @@ export default function NeuerVerkaufPage() {
                 className={inputCls + ' w-full bg-s112-bg text-s112-muted cursor-not-allowed'} />
               <p className="text-xs text-s112-muted mt-1">Automatisch generiert beim Speichern</p>
             </div>
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <label className={labelCls}>Kunde *</label>
               {/* Serverseitige Suche (17.9.2026): Kontakte + Firmen mit Häkchen
                   "Kunde" (Feedback 12.8.2026), Konditionen kommen mit dem Treffer. */}
@@ -490,7 +490,7 @@ export default function NeuerVerkaufPage() {
               <p className="text-xs text-s112-muted mt-1">Bei Firmen kann zusätzlich ein Ansprechpartner (z.H.) angegeben werden.</p>
             </div>
             {firmaId && (
-              <div className="col-span-2">
+              <div className="sm:col-span-2">
                 <label className={labelCls}>z.H. (zu Händen) — optional</label>
                 <PartnerSuche
                   key={firmaId}
@@ -504,7 +504,7 @@ export default function NeuerVerkaufPage() {
                 <p className="text-xs text-s112-muted mt-1">Erscheint auf Rechnung/Lieferschein als „z.H. Vorname Nachname"</p>
               </div>
             )}
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <label className={labelCls}>Notizen</label>
               <input aria-label="Notizen" type="text" value={notizen} onChange={e => setNotizen(e.target.value)}
                 placeholder="Interne Notizen zum Vorgang"
@@ -512,7 +512,7 @@ export default function NeuerVerkaufPage() {
             </div>
 
             {/* Skonto */}
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <label className="flex items-center gap-2 cursor-pointer select-none">
                 <input type="checkbox" checked={skontoAktiv}
                   onChange={e => setSkontoAktiv(e.target.checked)}
@@ -520,9 +520,9 @@ export default function NeuerVerkaufPage() {
                 <span className="text-sm font-medium text-s112-text-1">Skonto gewähren</span>
               </label>
               {skontoAktiv && (
-                <div className="flex gap-3 mt-2">
+                <div className="flex flex-wrap gap-3 mt-2">
                   <div className="flex items-center gap-1.5">
-                    <input type="number" value={skontoPct}
+                    <input type="number" inputMode="decimal" value={skontoPct}
                       onChange={e => setSkontoPct(parseFloat(e.target.value) || 0)}
                       min="0" max="20" step="0.5" placeholder="2"
                       className={inputCls + ' w-20'} />
@@ -530,7 +530,7 @@ export default function NeuerVerkaufPage() {
                   </div>
                   <div className="flex items-center gap-1.5">
                     <span className="text-sm text-s112-text-2">bei Zahlung innerhalb von</span>
-                    <input type="number" value={skontoTage}
+                    <input type="number" inputMode="numeric" value={skontoTage}
                       onChange={e => setSkontoTage(parseInt(e.target.value) || 0)}
                       min="1" max="60" step="1" placeholder="10"
                       className={inputCls + ' w-20'} />
@@ -555,7 +555,7 @@ export default function NeuerVerkaufPage() {
                 <span className="text-xs font-semibold text-s112-text-2">Produkt {idx + 1}</span>
                 {positionen.length > 1 && (
                   <button type="button" onClick={() => removePosition(idx)}
-                    className="text-xs text-s112-err hover:text-s112-err-fg">
+                    className="text-xs text-s112-err hover:text-s112-err-fg max-sm:py-1.5 max-sm:px-2">
                     × entfernen
                   </button>
                 )}
@@ -564,7 +564,7 @@ export default function NeuerVerkaufPage() {
               {/* Typ */}
               <div className="flex gap-3 flex-wrap">
                 {(['flasche', 'tank', 'sonstiges', 'trauben'] as const).map(t => (
-                  <label key={t} className="flex items-center gap-1.5 cursor-pointer">
+                  <label key={t} className="flex items-center gap-1.5 cursor-pointer max-sm:py-1.5">
                     <input type="radio" name={`typ-${pos.id}`} value={t}
                       checked={pos.typ === t}
                       onChange={() => updatePos(idx, {
@@ -634,7 +634,7 @@ export default function NeuerVerkaufPage() {
 
                 {/* Trauben-Felder */}
                 {pos.typ === 'trauben' && (
-                  <div className="col-span-4 grid grid-cols-2 sm:grid-cols-3 gap-3 mb-1 p-3 bg-s112-ok-bg rounded-lg border border-s112-ok/30">
+                  <div className="col-span-2 sm:col-span-4 grid grid-cols-2 sm:grid-cols-3 gap-3 mb-1 p-3 bg-s112-ok-bg rounded-lg border border-s112-ok/30">
                     <div>
                       <label className={labelCls}>Ried *</label>
                       <select aria-label="Ried" value={pos.trauben_weingarten_id}
@@ -785,7 +785,8 @@ export default function NeuerVerkaufPage() {
                 {/* Menge */}
                 <div>
                   <label className={labelCls}>Menge *</label>
-                  <input aria-label="Menge" type="number" value={pos.menge}
+                  <input aria-label="Menge" type="number"
+                    inputMode={pos.typ === 'flasche' ? 'numeric' : 'decimal'} value={pos.menge}
                     onChange={e => updatePos(idx, { menge: e.target.value })}
                     required
                     min={pos.typ === 'tank' || pos.typ === 'trauben' ? 0.01 : 1}
@@ -814,7 +815,7 @@ export default function NeuerVerkaufPage() {
                 {/* Preis */}
                 <div>
                   <label className={labelCls}>Preis/Einheit (€, brutto)</label>
-                  <input aria-label="Preis/Einheit (€, brutto)" type="number" value={pos.preis_brutto}
+                  <input aria-label="Preis/Einheit (€, brutto)" type="number" inputMode="decimal" value={pos.preis_brutto}
                     onChange={e => updatePos(idx, { preis_brutto: e.target.value })}
                     step="0.01" min={0} placeholder="0.00"
                     className={inputCls + ' w-full'} />
@@ -835,7 +836,7 @@ export default function NeuerVerkaufPage() {
               {/* Rabatt-Zeile */}
               <div className="flex items-center gap-4 mt-2 flex-wrap">
                 {parseFloat(pos.rabatt_pct) > 0 && (
-                  <label className="flex items-center gap-1.5 text-xs cursor-pointer select-none">
+                  <label className="flex items-center gap-1.5 text-xs cursor-pointer select-none max-sm:py-1.5">
                     <input type="checkbox" checked={pos.rabatt_aktiv}
                       onChange={e => updatePos(idx, { rabatt_aktiv: e.target.checked })}
                       className="rounded accent-s112-teal" />
@@ -844,7 +845,7 @@ export default function NeuerVerkaufPage() {
                     </span>
                   </label>
                 )}
-                <label className="flex items-center gap-1.5 text-xs text-s112-text-2 cursor-pointer select-none">
+                <label className="flex items-center gap-1.5 text-xs text-s112-text-2 cursor-pointer select-none max-sm:py-1.5">
                   <input type="checkbox" checked={pos.sonderrabatt_aktiv}
                     onChange={e => updatePos(idx, { sonderrabatt_aktiv: e.target.checked })}
                     className="rounded accent-s112-teal" />
@@ -852,10 +853,10 @@ export default function NeuerVerkaufPage() {
                 </label>
                 {pos.sonderrabatt_aktiv && (
                   <div className="flex items-center gap-1.5">
-                    <input type="number" value={pos.sonderrabatt}
+                    <input type="number" inputMode="decimal" value={pos.sonderrabatt}
                       onChange={e => updatePos(idx, { sonderrabatt: e.target.value })}
                         min="0" max="100" step="0.1" placeholder="0"
-                      className="w-20 border border-s112-border rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-s112-teal/40" />
+                      className="w-20 border border-s112-border rounded px-2 py-2 sm:py-1 text-base sm:text-xsfocus:outline-none focus:ring-1 focus:ring-s112-teal/40" />
                     <span className="text-xs text-s112-text-2">%</span>
                   </div>
                 )}
@@ -864,7 +865,7 @@ export default function NeuerVerkaufPage() {
                   <span>USt:</span>
                   <select value={pos.ust_satz}
                     onChange={e => updatePos(idx, { ust_satz: e.target.value })}
-                    className="border border-s112-border rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-s112-teal/40">
+                    className="border border-s112-border rounded px-1.5 py-2 sm:py-0.5 text-base sm:text-xsfocus:outline-none focus:ring-1 focus:ring-s112-teal/40">
                     <option value="0">0 %</option>
                     <option value="10">10 %</option>
                     <option value="13">13 %</option>
@@ -900,12 +901,14 @@ export default function NeuerVerkaufPage() {
         </div>
 
         {/* ── Submit ── */}
-        <div className="flex justify-end gap-3 pb-8">
-          <Link href="/weinhandel/verkauf" className="text-sm text-s112-muted hover:text-s112-text-1 px-4 py-2">
+        <div className="flex justify-end gap-3 pb-8 max-sm:sticky max-sm:bottom-0 max-sm:-mx-4 max-sm:px-4 max-sm:py-3 max-sm:pb-3 max-sm:bg-s112-bg max-sm:border-t max-sm:border-s112-line max-sm:z-10">
+          {/* Gesamtsumme nur am Handy in der Leiste (KAN-181) */}
+          <span className="sm:hidden mr-auto self-center font-semibold tabular-nums">{fmtEur(gesamt)}</span>
+          <Link href="/weinhandel/verkauf" className="text-sm text-s112-muted hover:text-s112-text-1 px-4 py-3 sm:py-2">
             Abbrechen
           </Link>
           <button type="submit" disabled={isPending}
-            className="bg-s112-teal text-s112-yellow px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-50">
+            className="flex-1 sm:flex-none bg-s112-teal text-s112-yellow px-6 py-3 sm:py-2 rounded-xl text-base sm:text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-50">
             {isPending ? 'Speichern…' : 'Verkauf anlegen'}
           </button>
         </div>

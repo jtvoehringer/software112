@@ -69,9 +69,9 @@ export default function LeseCheckliste({ listeId, jahr, punkte, darfSchreiben }:
         formOffen ? (
           <form className="mt-3 grid grid-cols-1 sm:grid-cols-[1fr_120px_110px_auto] gap-2"
             onSubmit={e => { e.preventDefault(); run(async () => { await punktHinzufuegen(listeId, neu.text, neu.zustaendig, neu.hinweis); setNeu({ text: '', zustaendig: '', hinweis: '' }); setFormOffen(false) }) }}>
-            <input className="form-input" placeholder="Neuer Punkt" value={neu.text} onChange={e => setNeu({ ...neu, text: e.target.value })} required autoFocus />
-            <input className="form-input" placeholder="Zuständig" value={neu.zustaendig} onChange={e => setNeu({ ...neu, zustaendig: e.target.value })} />
-            <input className="form-input" placeholder="Wann" value={neu.hinweis} onChange={e => setNeu({ ...neu, hinweis: e.target.value })} />
+            <input className="form-input py-2.5 sm:py-2 text-base sm:text-sm" placeholder="Neuer Punkt" value={neu.text} onChange={e => setNeu({ ...neu, text: e.target.value })} required autoFocus />
+            <input className="form-input py-2.5 sm:py-2 text-base sm:text-sm" placeholder="Zuständig" value={neu.zustaendig} onChange={e => setNeu({ ...neu, zustaendig: e.target.value })} />
+            <input className="form-input py-2.5 sm:py-2 text-base sm:text-sm" placeholder="Wann" value={neu.hinweis} onChange={e => setNeu({ ...neu, hinweis: e.target.value })} />
             <div className="flex gap-1.5">
               <button type="submit" disabled={pending} className="btn-primary text-[13px] py-1.5">Hinzufügen</button>
               <button type="button" onClick={() => setFormOffen(false)} className="btn-secondary text-[13px] py-1.5">Abbrechen</button>

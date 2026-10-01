@@ -257,7 +257,7 @@ export default async function DashboardPage() {
             <ReceiptText size={18} strokeWidth={1.5} className="text-s112-tertiary" />
             <p className="text-[11.5px] font-semibold text-s112-text-2">Offene Rechnungen</p>
           </div>
-          <p className="font-mono text-2xl text-s112-text tabular-nums">
+          <p className="font-mono text-xl sm:text-2xl text-s112-text tabular-nums">
             {fmtEur(offenePosten)}
           </p>
           <p className={`text-[11.5px] ${offenePostenUeberfaellig > 0 ? 'text-s112-err-fg' : 'text-s112-tertiary'}`}>
@@ -273,7 +273,7 @@ export default async function DashboardPage() {
             <Package size={18} strokeWidth={1.5} className="text-s112-tertiary" />
             <p className="text-[11.5px] font-semibold text-s112-text-2">Aufträge diese Woche</p>
           </div>
-          <p className="font-mono text-2xl text-s112-text tabular-nums">{auftraegeWoche}</p>
+          <p className="font-mono text-xl sm:text-2xl text-s112-text tabular-nums">{auftraegeWoche}</p>
           <p className={`text-[11.5px] ${auftraegeDelta >= 0 ? 'text-s112-ok-fg' : 'text-s112-err-fg'}`}>
             {auftraegeDelta >= 0 ? '▲' : '▼'} {Math.abs(auftraegeDelta)} gegenüber Vorwoche
           </p>
@@ -294,7 +294,7 @@ export default async function DashboardPage() {
             <Users size={18} strokeWidth={1.5} className="text-s112-tertiary" />
             <p className="text-[11.5px] font-semibold text-s112-text-2">Leads</p>
           </div>
-          <p className="font-mono text-2xl text-s112-text tabular-nums">{(leadCount ?? 0) + (firmaLeadCount ?? 0)}</p>
+          <p className="font-mono text-xl sm:text-2xl text-s112-text tabular-nums">{(leadCount ?? 0) + (firmaLeadCount ?? 0)}</p>
           <p className="text-[11.5px] text-s112-tertiary">
             <Link href="/crm/kontakte?filter=lead" className="hover:text-s112-blue-700 hover:underline">
               {leadCount ?? 0} {(leadCount ?? 0) === 1 ? 'Kontakt' : 'Kontakte'}
@@ -344,19 +344,19 @@ export default async function DashboardPage() {
             <p className="text-sm text-s112-text-2 px-[18px] pb-5">Keine überfälligen Rechnungen.</p>
           ) : (
             <div>
-              <div className="grid grid-cols-[1.6fr_1fr_.9fr_.9fr_40px] px-[18px] py-[11px] bg-[#F7F8FA] border-b border-s112-line text-[11px] font-semibold uppercase tracking-[.08em] text-s112-tertiary">
+              <div className="grid grid-cols-[1.6fr_.9fr_.9fr] sm:grid-cols-[1.6fr_1fr_.9fr_.9fr_40px] px-[18px] py-[11px] bg-[#F7F8FA] border-b border-s112-line text-[11px] font-semibold uppercase tracking-[.08em] text-s112-tertiary">
                 <span>Kunde</span>
-                <span>Beleg-Nr.</span>
+                <span className="max-sm:hidden">Beleg-Nr.</span>
                 <span>Überfällig</span>
                 <span className="text-right">Betrag</span>
-                <span />
+                <span className="max-sm:hidden" />
               </div>
               {belege.map(v => (
                 <Link key={v.id} href={`/weinhandel/verkauf/${v.id}`}
                   className="contents">
-                  <div className="col-span-5 grid grid-cols-[1.6fr_1fr_.9fr_.9fr_40px] items-center px-[18px] py-[13px] border-t border-[#F2F3F5] text-[13px] hover:bg-[#F7F8FA] transition-colors">
+                  <div className="col-span-5 grid grid-cols-[1.6fr_.9fr_.9fr] sm:grid-cols-[1.6fr_1fr_.9fr_.9fr_40px] items-center px-[18px] py-[13px] border-t border-[#F2F3F5] text-[13px] hover:bg-[#F7F8FA] transition-colors">
                     <span className="text-s112-text truncate">{v.kunde}</span>
-                    <span className="font-mono text-s112-text-2">{v.rechnungsnummer ?? '–'}</span>
+                    <span className="max-sm:hidden font-mono text-s112-text-2">{v.rechnungsnummer ?? '–'}</span>
                     <span>
                       <span className="inline-block px-2.5 py-1 rounded-full text-[11.5px] font-semibold bg-s112-err-bg text-s112-err-fg">
                         {v.tage} Tage
@@ -365,7 +365,7 @@ export default async function DashboardPage() {
                     <span className="font-mono text-right text-s112-text tabular-nums">
                       {fmtEur(v.betrag)}
                     </span>
-                    <span className="text-right text-s112-tertiary">⋯</span>
+                    <span className="max-sm:hidden text-right text-s112-tertiary">⋯</span>
                   </div>
                 </Link>
               ))}
