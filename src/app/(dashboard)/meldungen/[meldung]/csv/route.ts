@@ -2,9 +2,10 @@ import type { NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { ereignisMelden } from '@/lib/system/ereignis'
-import { csvDatei, csvDateiname, PROFIL_EXCEL_AT } from '@/lib/csv'
+import { csvDatei, PROFIL_EXCEL_AT } from '@/lib/csv'
 import { csvAntwort, fehlerAntwort } from '@/lib/csv/antwort'
 import { meldungFinden } from '@/lib/behoerden/register'
+import { meldungsDateiname } from '@/lib/behoerden/dateiname'
 import { betriebUndModuleLaden, zugriffsFehler } from '@/lib/behoerden/zugriff'
 import { istParameterFehler, MeldungsFehler } from '@/lib/behoerden/typen'
 import { SPERR_TEXT, sitzungsSperre } from '@/lib/auth/sperren'
@@ -53,8 +54,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ meld
 
     const ergebnis = await meldung.laden({ supabase, tenantId, membership, betrieb }, p)
     const datei = csvDatei(ergebnis.zeilen, meldung.spalten, meldung.profil ?? PROFIL_EXCEL_AT)
-    const dateiname = csvDateiname(meldung.dateiteile(p, betrieb))
-    return csvAntwort(datei.text, dateiname, datei.zeilen, [...(ergebnis.warnungen ?? []), ...datei.warnungen])
+    // KAN-95: BKI-Berichte heißen <Betriebsnummer>_<Jahr>_<Bericht>[_von_…_bis_…].csv
+    const { dateiname, warnungen: namensWarnungen } = meldungsDateiname(meldung, p, betrieb)
+    return csvAntwort(datei.text, dateiname, datei.zeilen, [...namensWarnungen, ...(ergebnis.warnungen ?? []), ...datei.warnungen])
   } catch (e) {
     if (e instanceof MeldungsFehler) return fehlerAntwort(e.status, e.message)
     await ereignisMelden({

@@ -148,6 +148,21 @@ export type MeldungsTeile<P, Z> = {
   spalten: CsvSpalte<Z>[]
   /** Teile des Dateinamens ohne Erstelldatum: [Meldung, Betriebsnummer, Jahrgang|Zeitraum|Beleg] */
   dateiteile: (p: P, betrieb: Betriebsdaten) => Dateiteil[]
+  /** KAN-95 (01.10.2026): BKI-Bericht – die Route benennt die Datei dann nach dem BKI-Schema
+   *  <Betriebsnummer>_<Jahr>_<Berichtsname>[_von_JJJJMMTT_bis_JJJJMMTT].csv (meldungsDateiname()
+   *  in dateiname.ts) statt nach dateiteile. Gesetzt für alle Katalogeinträge, deren Behörde die
+   *  BKI nennt, und die Bestandsmeldung (Test kan95-bki-dateiname). */
+  bki?: (p: P) => BkiBericht
+}
+
+/** KAN-95: Angaben für den BKI-Dateinamen. jahr nur bei Stichtag (Ernte-, Bestandsmeldung) – sonst Exporttag. */
+export type BkiBericht = {
+  /** Berichtsname, ggf. mit Zusätzen (Gebinde, Charge, Beleg …) */
+  bericht: string | readonly Dateiteil[]
+  /** Jahr des Stichtags; ohne Angabe das Jahr des Exporttags (Wiener Zeit) */
+  jahr?: number | null
+  von?: string | null
+  bis?: string | null
 }
 
 export type Behoerdenmeldung<P, Z> = KatalogEintrag & MeldungsTeile<P, Z>

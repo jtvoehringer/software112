@@ -38,6 +38,7 @@ export const MELDUNGEN_KELLERBUCH = {
     },
     spalten: SPALTEN_BEWEGUNGSBUCH,
     dateiteile: (p, betrieb) => ['Bewegungsbuch', betrieb.betriebsnummer, p.anzeige.name, zeitraumTeil(p)],
+    bki: p => ({ bericht: ['Bewegungsbuch', p.anzeige.name], von: p.von, bis: p.bis }),
   }),
 
   // je Gebinde (Pflicht-Parameter behaelter) – jedes Mitglied, wie die Gebinde-Seite
@@ -57,6 +58,7 @@ export const MELDUNGEN_KELLERBUCH = {
     },
     spalten: SPALTEN_KELLER_BEHANDLUNGEN,
     dateiteile: (p, betrieb) => ['Kellerbehandlungen', betrieb.betriebsnummer, p.anzeige.name, zeitraumTeil(p)],
+    bki: p => ({ bericht: ['Kellerbehandlungen', p.anzeige.name], von: p.von, bis: p.bis }),
   }),
 
   // alle Gebinde im Zeitraum – Modul Controlling + Auswertungsrecht (/reports/keller)
@@ -68,6 +70,7 @@ export const MELDUNGEN_KELLERBUCH = {
     },
     spalten: SPALTEN_KELLER_BEHANDLUNGEN,
     dateiteile: (p, betrieb) => ['Kellerbehandlungen', betrieb.betriebsnummer, 'alle-Gebinde', zeitraumTeil(p)],
+    bki: p => ({ bericht: ['Kellerbehandlungen', 'alle-Gebinde'], von: p.von, bis: p.bis }),
   }),
 
   gebindeverzeichnis: definiereMeldung(KATALOG_KELLERBUCH.gebindeverzeichnis, {
@@ -82,6 +85,7 @@ export const MELDUNGEN_KELLERBUCH = {
     },
     spalten: SPALTEN_GEBINDEVERZEICHNIS,
     dateiteile: (p, betrieb) => ['Gebindeverzeichnis', betrieb.betriebsnummer, p.nurAktiv ? 'aktive' : null],
+    bki: p => ({ bericht: ['Gebindeverzeichnis', p.nurAktiv ? 'aktive' : null] }),
   }),
 
   weinbuch: definiereMeldung(KATALOG_KELLERBUCH.weinbuch, {
@@ -98,6 +102,7 @@ export const MELDUNGEN_KELLERBUCH = {
     },
     spalten: SPALTEN_WEINBUCH,
     dateiteile: (p, betrieb) => ['Weinbuch', betrieb.betriebsnummer, p.anzeige.name],
+    bki: p => ({ bericht: ['Weinbuch', p.anzeige.name] }),
   }),
 
   'weinbuch-sammlung': definiereMeldung(KATALOG_KELLERBUCH['weinbuch-sammlung'], {
@@ -116,6 +121,7 @@ export const MELDUNGEN_KELLERBUCH = {
     },
     spalten: SPALTEN_WEINBUCH,
     dateiteile: (p, betrieb) => ['Weinbuch-Sammlung', betrieb.betriebsnummer, p.jahrgang, p.sorte, p.bezeichnung],
+    bki: p => ({ bericht: ['Weinbuch-Sammlung', p.jahrgang, p.sorte, p.bezeichnung] }),
   }),
 
   rueckverfolgung: definiereMeldung(KATALOG_KELLERBUCH.rueckverfolgung, {
@@ -142,6 +148,7 @@ export const MELDUNGEN_KELLERBUCH = {
     dateiteile: (p, betrieb) => p.fuellungId
       ? ['Rückverfolgung', betrieb.betriebsnummer, p.anzeige.name]
       : ['Rückverfolgung', betrieb.betriebsnummer, p.jahrgang, p.sorte, p.bezeichnung],
+    bki: p => ({ bericht: p.fuellungId ? ['Rückverfolgung', p.anzeige.name] : ['Rückverfolgung', p.jahrgang, p.sorte, p.bezeichnung] }),
   }),
 
   'blend-protokoll': definiereMeldung(KATALOG_KELLERBUCH['blend-protokoll'], {
@@ -168,6 +175,7 @@ export const MELDUNGEN_KELLERBUCH = {
     },
     spalten: SPALTEN_BLEND,
     dateiteile: (p, betrieb) => ['Blend-Protokoll', betrieb.betriebsnummer, p.anzeige.name, (p as { stichtag?: string | null }).stichtag ?? null],
+    bki: p => ({ bericht: ['Blend-Protokoll', p.anzeige.name, p.stichtag ? `Stand-${p.stichtag.replace(/-/g, '')}` : null] }),
   }),
 
   'keller-auswertungen': definiereMeldung(KATALOG_KELLERBUCH['keller-auswertungen'], {
@@ -175,6 +183,7 @@ export const MELDUNGEN_KELLERBUCH = {
     laden: (ctx, p) => ladeKellerUmzuege(ctx.supabase, ctx.tenantId, p),
     spalten: SPALTEN_KELLER_UMZUEGE,
     dateiteile: (p, betrieb) => ['Keller-Umzüge', betrieb.betriebsnummer, zeitraumTeil(p)],
+    bki: p => ({ bericht: 'Keller-Umzüge', von: p.von, bis: p.bis }),
   }),
 
   aenderungsprotokoll: definiereMeldung(KATALOG_KELLERBUCH.aenderungsprotokoll, {
@@ -182,5 +191,6 @@ export const MELDUNGEN_KELLERBUCH = {
     laden: (ctx, p) => ladeAenderungsprotokoll(ctx.supabase, ctx.tenantId, ctx.membership, p),
     spalten: SPALTEN_AENDERUNGSPROTOKOLL,
     dateiteile: (p, betrieb) => ['Änderungsprotokoll', betrieb.betriebsnummer, zeitraumTeil(p)],
+    bki: p => ({ bericht: 'Änderungsprotokoll', von: p.von, bis: p.bis }),
   }),
 } satisfies MeldungenZu<typeof KATALOG_KELLERBUCH>
