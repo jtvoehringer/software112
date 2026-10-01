@@ -3,7 +3,8 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from '@/components/ui/Link'
-import { createAktivitaet, createPipelineEintrag, toggleAktivitaetErledigt, updateAktivitaet, deleteAktivitaet, deleteKontakt, kontaktZuFirmaUmwandeln } from '../../actions'
+import { createAktivitaet, createPipelineEintrag, toggleAktivitaetErledigt, updateAktivitaet, deleteAktivitaet, deleteKontakt, setzeKontaktAktiv, kontaktZuFirmaUmwandeln } from '../../actions'
+import { loeschenOderDeaktivieren } from '@/lib/stammdaten/loeschDialog'
 import {
   SEGMENTE, AKTIVITAET_ARTEN, PIPELINE_STUFEN,
   segmentLabel, segmentFarbe, fmtUhrzeit,
@@ -14,7 +15,7 @@ import { KontaktForm } from '../KontakteClient'
 import {
   Receipt, Trash2, Pencil, Mail, Phone, Smartphone, Home, MapPin,
   Reply, Check, X, ClipboardCheck, CheckCircle2, Handshake, Wine, Building2, Car, FileText,
-  ShoppingCart, MoreHorizontal, Palmtree, UserX, StickyNote, ArrowRightLeft,
+  ShoppingCart, MoreHorizontal, Palmtree, UserX, StickyNote, ArrowRightLeft, PowerOff, RotateCcw,
 } from 'lucide-react'
 import { fmtEur } from '@/lib/format'
 import { useDialog } from '@/components/ui/useDialog'
@@ -407,8 +408,16 @@ export default function KontaktDetailClient({
     const name = [kontakt.vorname, kontakt.nachname].filter(Boolean).join(' ')
     if (!confirm(`Kontakt „${name}" wirklich löschen?`)) return
     startDeleteTransition(async () => {
-      await deleteKontakt(kontakt.id)
-      router.push('/crm/kontakte')
+      const ergebnis = await loeschenOderDeaktivieren(() => deleteKontakt(kontakt.id), () => setzeKontaktAktiv(kontakt.id, false))
+      if (ergebnis === 'geloescht') router.push('/crm/kontakte')
+      router.refresh()
+    })
+  }
+  // KAN-150 F1: deaktivieren statt löschen bzw. wieder aktivieren
+  function handleAktiv(aktiv: boolean) {
+    startDeleteTransition(async () => {
+      const r = await setzeKontaktAktiv(kontakt.id, aktiv)
+      if (r.error) alert(r.error)
       router.refresh()
     })
   }
@@ -541,6 +550,7 @@ export default function KontaktDetailClient({
           </div>
           <div className="flex-1 min-w-0">
             <h1 className="text-2xl font-semibold text-s112-text">{name}</h1>
+            {kontakt.aktiv === false && <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-[#F2F3F5] text-s112-text-2" title="Deaktiviert – bleibt auf bestehenden Belegen, erscheint nicht in Auswahllisten">inaktiv</span>}
             <div className="flex items-center gap-2 mt-1 flex-wrap">
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${segmentFarbe(kontakt.segment)}`}>
                 {segmentLabel(kontakt.segment)}
@@ -575,6 +585,13 @@ export default function KontaktDetailClient({
                   <ArrowRightLeft size={15} />
                 </button>
               )}
+              <button
+                onClick={() => handleAktiv(kontakt.aktiv === false)}
+                disabled={deletePending}
+                title={kontakt.aktiv === false ? 'Reaktivieren' : 'Deaktivieren'} aria-label={kontakt.aktiv === false ? 'Reaktivieren' : 'Deaktivieren'}
+                className="inline-flex items-center justify-center border border-s112-border text-s112-text-2 w-8 h-8 rounded-lg hover:bg-s112-bg transition-colors disabled:opacity-40">
+                {kontakt.aktiv === false ? <RotateCcw size={15} /> : <PowerOff size={15} />}
+              </button>
               <button
                 onClick={handleDelete}
                 disabled={deletePending}

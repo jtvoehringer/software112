@@ -3,9 +3,9 @@
 import { useState, useTransition } from 'react'
 import Link from '@/components/ui/Link'
 import { useRouter } from 'next/navigation'
-import { Pencil, Trash2, MapPin } from 'lucide-react'
+import { Pencil, Trash2, MapPin, RotateCcw } from 'lucide-react'
 import { googleMapsUrl } from '@/lib/geo/rieden'
-import { deactivateWeingarten, deleteWeingarten, deleteRied } from './actions'
+import { deleteWeingarten, deleteRied, setzeWeingartenAktiv } from './actions'
 import { fmtHa } from '@/lib/format'
 import { NutzungBadge } from '@/lib/wein/grundstueckStatus'
 import { bkiRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
@@ -16,6 +16,21 @@ import { bkiRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
 // dürfen (nur bei einer echten Lage sinnvoll) oder ob jeder Weingarten weiterhin
 // seine eigene, benannte/bearbeitbare Zeile behalten muss (siehe LageGruppe).
 const KEIN_RIED = 'Rieden'
+
+// KAN-150 F1: Rieden mit Bezug (Maßnahmen, Lese, Chargen …) werden nicht gelöscht, sondern deaktiviert – die Action
+// meldet das mit deaktivierbar: true, hier wird dann „Stattdessen deaktivieren?“ angeboten.
+async function loeschenOderDeaktivieren(
+  ergebnis: { error?: string; deaktivierbar?: boolean } | undefined, ids: string[], refresh: () => void,
+) {
+  if (!ergebnis?.error) { refresh(); return }
+  if (ergebnis.deaktivierbar && confirm(`${ergebnis.error}\n\nStattdessen deaktivieren?`)) {
+    const r = await setzeWeingartenAktiv(ids, false)
+    if (r.error) alert(r.error)
+    refresh()
+    return
+  }
+  if (!ergebnis.deaktivierbar) alert(`Fehler beim Löschen: ${ergebnis.error}`)
+}
 
 // AMA-Feldstücknr. und Codes hängen am Weingarten-Datensatz (Ried-Formular),
 // eine Lage/Ried kann aber aus mehreren Weingarten-Datensätzen bestehen -
@@ -156,16 +171,20 @@ function WeingartenZeile({
 }) {
   const [open, setOpen] = useState(false)
   const [pending, startTransition] = useTransition()
+  const router = useRouter()
 
   function handleDelete() {
     if (!confirm(`"${w.name}" wirklich löschen?`)) return
     startTransition(async () => {
-      const result = await deleteWeingarten(w.id)
-      if (result?.error) alert(`Fehler beim Löschen: ${result.error}`)
+      await loeschenOderDeaktivieren(await deleteWeingarten(w.id), [w.id], () => router.refresh())
     })
   }
-  function handleDeactivate() {
-    startTransition(() => deactivateWeingarten(w.id))
+  function handleReaktivieren() {
+    startTransition(async () => {
+      const r = await setzeWeingartenAktiv([w.id], true)
+      if (r.error) alert(r.error)
+      router.refresh()
+    })
   }
 
   const gstHa        = gsts.reduce((s, g) => s + (g.flaeche_ha ?? 0), 0)
@@ -244,6 +263,13 @@ function WeingartenZeile({
                 <Pencil size={14} />
               </Link>
             )}
+            {adminOk && !w.aktiv && (
+              <button onClick={handleReaktivieren}
+                title="Reaktivieren" aria-label="Reaktivieren"
+                className="text-s112-blue-700 hover:text-s112-blue-700/70">
+                <RotateCcw size={14} />
+              </button>
+            )}
             {adminOk && (
               <button onClick={handleDelete}
                 title="Löschen" aria-label="Löschen"
@@ -273,6 +299,7 @@ function LageGruppe({
   // starten statt aufgeklappt.
   const [open, setOpen] = useState(false)
   const [pending, startTransition] = useTransition()
+  const router = useRouter()
 
   const totalHa = weingaerten.reduce((s, w) => {
     const gsts = gstMap.get(w.id) ?? []
@@ -342,9 +369,17 @@ function LageGruppe({
       `Sie sind im Begriff die Ried "${ried}" mit allen ${anzahlGst} Grundstücken unwiderruflich zu löschen.\n\nDiese Aktion kann nicht rückgängig gemacht werden. Fortfahren?`
     )
     if (!bestaetigt) return
+    const ids = weingaerten.map(w => w.id)
     startTransition(async () => {
-      const result = await deleteRied(weingaerten.map(w => w.id))
-      if (result?.error) alert(`Fehler beim Löschen: ${result.error}`)
+      await loeschenOderDeaktivieren(await deleteRied(ids), ids, () => router.refresh())
+    })
+  }
+  const alleInaktiv = weingaerten.length > 0 && weingaerten.every(w => !w.aktiv)
+  function handleReaktivierenRied() {
+    startTransition(async () => {
+      const r = await setzeWeingartenAktiv(weingaerten.map(w => w.id), true)
+      if (r.error) alert(r.error)
+      router.refresh()
     })
   }
 
@@ -392,6 +427,12 @@ function LageGruppe({
         <td className="px-4 py-2.5 text-sm text-right tabular-nums text-s112-tertiary">{totalKatasterHa > 0 ? fmtHa(totalKatasterHa) : '–'}</td>
         <td className="px-4 py-2.5 text-sm text-right tabular-nums text-s112-text-2">{fmtHa(totalHa)}</td>
         <td className="px-4 py-2.5" onClick={e => e.stopPropagation()}>
+          {istEchteLage && adminOk && alleInaktiv && (
+            <button onClick={handleReaktivierenRied} title="Ried reaktivieren" aria-label="Ried reaktivieren"
+              className="text-s112-blue-700 hover:text-s112-blue-700/70 mr-3">
+              <RotateCcw size={14} />
+            </button>
+          )}
           {istEchteLage && adminOk && (
             <button
               onClick={handleDeleteRied}

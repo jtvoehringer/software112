@@ -104,6 +104,6 @@ export const KATALOG_KELLERBUCH = katalogGruppe('kellerbuch', {
     zugriff: 'verwaltung',
     druckPfad: '/kellerbuch/gebinde',
     rechtsgrundlage: 'Nachvollziehbarkeit nachträglicher Änderungen der Aufzeichnungen – zu prüfen',
-    beschreibung: 'Nachträgliche Änderungen und Löschungen in Kellerbuch, Lese und Verkauf – nur Betriebs-Manager und Super-Admins.',
+    beschreibung: 'Nachträgliche Änderungen und Löschungen in Kellerbuch, Lese, Verkauf, E&A und Stammdaten (Rieden, Grundstücke, Mittel) – nur Betriebs-Manager und Super-Admins.',
   },
 })

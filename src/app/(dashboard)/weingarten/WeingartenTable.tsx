@@ -83,7 +83,7 @@ export default function WeingartenTable({
   }
 
   function handleDeactivate(id: string) {
-    startTransition(() => deactivateWeingarten(id))
+    startTransition(async () => { await deactivateWeingarten(id) })
   }
 
   return (

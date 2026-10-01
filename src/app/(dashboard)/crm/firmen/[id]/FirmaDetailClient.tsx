@@ -3,7 +3,8 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from '@/components/ui/Link'
-import { createAktivitaet, createPipelineEintrag, toggleAktivitaetErledigt, updateAktivitaet, deleteAktivitaet, deleteFirma } from '../../actions'
+import { createAktivitaet, createPipelineEintrag, toggleAktivitaetErledigt, updateAktivitaet, deleteAktivitaet, deleteFirma, setzeFirmaAktiv } from '../../actions'
+import { loeschenOderDeaktivieren } from '@/lib/stammdaten/loeschDialog'
 import {
   AKTIVITAET_ARTEN, PIPELINE_STUFEN,
   segmentLabel, segmentFarbe, fmtUhrzeit,
@@ -14,7 +15,7 @@ import { FirmaForm } from '../FirmenClient'
 import {
   Receipt, Trash2, Pencil, Mail, Phone, Smartphone, Globe, MapPin, Reply, Check, X,
   ClipboardCheck, Handshake, Wine, Building2, Car, FileText, ShoppingCart,
-  MoreHorizontal, Palmtree, UserX, StickyNote,
+  MoreHorizontal, Palmtree, UserX, StickyNote, PowerOff, RotateCcw,
 } from 'lucide-react'
 import { fmtEur } from '@/lib/format'
 import { useDialog } from '@/components/ui/useDialog'
@@ -417,8 +418,16 @@ export default function FirmaDetailClient({
   function handleDelete() {
     if (!confirm(`Firma „${firma.name}" wirklich löschen?`)) return
     startDeleteTransition(async () => {
-      await deleteFirma(firma.id)
-      router.push('/crm/firmen')
+      const ergebnis = await loeschenOderDeaktivieren(() => deleteFirma(firma.id), () => setzeFirmaAktiv(firma.id, false))
+      if (ergebnis === 'geloescht') router.push('/crm/firmen')
+      router.refresh()
+    })
+  }
+  // KAN-150 F1: deaktivieren statt löschen bzw. wieder aktivieren
+  function handleAktiv(aktiv: boolean) {
+    startDeleteTransition(async () => {
+      const r = await setzeFirmaAktiv(firma.id, aktiv)
+      if (r.error) alert(r.error)
       router.refresh()
     })
   }
@@ -508,6 +517,7 @@ export default function FirmaDetailClient({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-2xl font-semibold text-s112-text">{firma.name}</h1>
+              {firma.aktiv === false && <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-[#F2F3F5] text-s112-text-2" title="Deaktiviert – bleibt auf bestehenden Belegen, erscheint nicht in Auswahllisten">inaktiv</span>}
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${segmentFarbe(firma.segment)}`}>
                 {segmentLabel(firma.segment)}
               </span>
@@ -583,6 +593,13 @@ export default function FirmaDetailClient({
                 title="Bearbeiten" aria-label="Bearbeiten"
                 className="inline-flex items-center justify-center border border-s112-border text-s112-text-2 w-8 h-8 rounded-lg hover:bg-s112-bg transition-colors">
                 <Pencil size={15} />
+              </button>
+              <button
+                onClick={() => handleAktiv(firma.aktiv === false)}
+                disabled={deletePending}
+                title={firma.aktiv === false ? 'Reaktivieren' : 'Deaktivieren'} aria-label={firma.aktiv === false ? 'Reaktivieren' : 'Deaktivieren'}
+                className="inline-flex items-center justify-center border border-s112-border text-s112-text-2 w-8 h-8 rounded-lg hover:bg-s112-bg transition-colors disabled:opacity-40">
+                {firma.aktiv === false ? <RotateCcw size={15} /> : <PowerOff size={15} />}
               </button>
               <button
                 onClick={handleDelete}

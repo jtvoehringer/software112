@@ -2,11 +2,13 @@
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { getCurrentMembership } from '@/lib/auth/roles'
+import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { absenderIndexVerwerfen } from '@/lib/crm/absender'
-import { AktionsFehler } from '@/lib/fehler'
+import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
+import { ladeBezuege, istBezugsSperre } from '@/lib/stammdaten/bezuege'
+import { bezugsMeldung, hatBezug } from '@/lib/stammdaten/bezugText'
 import { pruefeEmailFelder, einzelneEmail } from '@/lib/crm/email'
 import { dezimal } from '@/lib/format'
 import { ladeMandantMitglieder } from '@/lib/aufgaben/mitglieder'
@@ -22,6 +24,68 @@ async function getTenantId(): Promise<string> {
   await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb? (Kundennummernkreis)
   await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
   return membership.tenantId
+}
+
+// KAN-150 F1: Löschen und Deaktivieren von Kontakten/Firmen – mit Schreibrecht CRM (bisher prüfte nur die RLS)
+async function crmSchreibTenant(): Promise<string> {
+  const membership = await getCurrentMembership()
+  if (!membership) throw new AktionsFehler('Kein aktiver Mandant gefunden')
+  await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30
+  await pruefeSchreibzugriff(membership)   // KAN-5
+  if (!canWrite(membership.role, 'crm')) throw new AktionsFehler('Keine Berechtigung: Kontakte und Firmen bearbeiten Betriebs-Manager und Mitarbeiter mit Modulrecht CRM.')
+  return membership.tenantId
+}
+
+type LoeschErgebnis = { error?: string; deaktivierbar?: boolean }
+
+/** Stammdatum mit Bezug (Verkäufe, Zukäufe, Export, E/A, Traubenverkäufe) nur deaktivieren – sonst löschen */
+async function crmLoeschen(tabelle: 'kontakte' | 'firmen', id: string, name: (r: AR) => string): Promise<LoeschErgebnis> {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const tenantId = await crmSchreibTenant()
+    const bezug = await ladeBezuege(supabase, tenantId, tabelle, id)
+    if (hatBezug(bezug)) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (supabase.from(tabelle) as any).select('*').eq('id', id).eq('tenant_id', tenantId).maybeSingle()
+      return { error: bezugsMeldung(name((data ?? {}) as AR), bezug, tabelle === 'kontakte' ? 'der Kontakt' : 'die Firma'), deaktivierbar: true }
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase.from(tabelle) as any).delete().eq('id', id).eq('tenant_id', tenantId).select('id')   // storno-ausnahme: Stammdaten (Kontakt/Firma) ohne Bezug – Bezug vorher geprüft, die DB sperrt sonst (KAN-150)
+    if (error) {
+      if (istBezugsSperre(error)) return { error: (error as AR).message, deaktivierbar: true }
+      return { error: dbFehlerText(error, 'Löschen fehlgeschlagen') }
+    }
+    if (((data ?? []) as AR[]).length !== 1) return { error: 'Nicht gelöscht – keine Berechtigung oder bereits entfernt. Bitte die Seite neu laden.' }
+    revalidatePath(tabelle === 'kontakte' ? '/crm/kontakte' : '/crm/firmen')
+    return {}
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Unbekannter Fehler' }
+  }
+}
+
+async function crmAktivSetzen(tabelle: 'kontakte' | 'firmen', id: string, aktiv: boolean): Promise<{ error?: string }> {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const tenantId = await crmSchreibTenant()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase.from(tabelle) as any).update({ aktiv }).eq('id', id).eq('tenant_id', tenantId).select('id')
+    if (error) return { error: dbFehlerText(error, aktiv ? 'Reaktivieren fehlgeschlagen' : 'Deaktivieren fehlgeschlagen') }
+    if (((data ?? []) as AR[]).length !== 1) return { error: 'Nicht geändert – keine Berechtigung oder Datensatz nicht gefunden. Bitte die Seite neu laden.' }
+    const basis = tabelle === 'kontakte' ? '/crm/kontakte' : '/crm/firmen'
+    revalidatePath(basis)
+    revalidatePath(`${basis}/${id}`)
+    return {}
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Unbekannter Fehler' }
+  }
+}
+
+export async function setzeKontaktAktiv(id: string, aktiv: boolean): Promise<{ error?: string }> {
+  return crmAktivSetzen('kontakte', id, aktiv)
+}
+
+export async function setzeFirmaAktiv(id: string, aktiv: boolean): Promise<{ error?: string }> {
+  return crmAktivSetzen('firmen', id, aktiv)
 }
 
 async function generateAccountnummer(tenantId: string): Promise<string | null> {
@@ -139,12 +203,8 @@ export async function updateKontakt(id: string, formData: FormData): Promise<{ e
   }
 }
 
-export async function deleteKontakt(id: string) {
-  const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId()
-  const { error } = await (supabase.from('kontakte') as any).delete().eq('id', id).eq('tenant_id', tenantId)
-  if (error) throw new AktionsFehler((error as AR).message)
-  revalidatePath('/crm/kontakte')
+export async function deleteKontakt(id: string): Promise<LoeschErgebnis> {
+  return crmLoeschen('kontakte', id, r => [r.vorname, r.nachname].filter(Boolean).join(' ') || 'Kontakt')
 }
 
 // ── Kontakt → Firma umwandeln (Rückmeldung 2.9.2026) ──────────────────────────
@@ -348,12 +408,8 @@ export async function updateFirma(id: string, formData: FormData): Promise<{ err
   }
 }
 
-export async function deleteFirma(id: string) {
-  const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId()
-  const { error } = await (supabase.from('firmen') as any).delete().eq('id', id).eq('tenant_id', tenantId)
-  if (error) throw new AktionsFehler((error as AR).message)
-  revalidatePath('/crm/firmen')
+export async function deleteFirma(id: string): Promise<LoeschErgebnis> {
+  return crmLoeschen('firmen', id, r => String(r.name ?? 'Firma'))
 }
 
 // ── Aktivitäten ───────────────────────────────────────────────────────────────

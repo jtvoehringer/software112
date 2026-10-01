@@ -20,6 +20,8 @@ export type ListenFilter = {
   kunde: boolean           // nur Firmen
   lieferant: boolean       // nur Firmen
   sort: 'nachname' | 'vorname' | 'name'
+  /** KAN-150: deaktivierte Kontakte/Firmen mit anzeigen (?inaktiv=1) */
+  inaktiv: boolean
   n: number                // Anzahl Zeilen (Schritte à LISTE_SCHRITT)
 }
 
@@ -36,6 +38,7 @@ export function filterAusParams(sp: Record<string, string | string[] | undefined
     kunde: s('kunde') === '1',
     lieferant: s('lieferant') === '1',
     sort: art === 'firma' ? 'name' : (s('sort') === 'vorname' ? 'vorname' : 'nachname'),
+    inaktiv: s('inaktiv') === '1',
     n,
   }
 }
@@ -49,6 +52,7 @@ export function paramsAusFilter(f: Partial<ListenFilter>): string {
   if (f.kunde) p.set('kunde', '1')
   if (f.lieferant) p.set('lieferant', '1')
   if (f.sort && f.sort === 'vorname') p.set('sort', 'vorname')
+  if (f.inaktiv) p.set('inaktiv', '1')
   if (f.n && f.n > LISTE_SCHRITT) p.set('n', String(f.n))
   const s = p.toString()
   return s ? `?${s}` : ''
@@ -89,7 +93,8 @@ export async function ladeKontakteSeite(client: any, tenantId: string | null, f:
   if (!tenantId) return { rows: [], gesamt: 0 }
   let q = (client.from('kontakte') as any)
     .select('id, accountnummer, vorname, nachname, segment, firma_id, firmen:firma_id(name), email, telefon, telefon_vorwahl, mobil, mobil_vorwahl, strasse, plz, ort, land, newsletter, newsletter_bestaetigt, stammkunde, aktiv, notizen, erstellt_am, is_lead, sonderrabatt_pct, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct), zahlungsziel_tage', { count: 'exact' })
-    .eq('tenant_id', tenantId).eq('aktiv', true)
+    .eq('tenant_id', tenantId)
+  if (!f.inaktiv) q = q.eq('aktiv', true)
   if (f.segment !== 'alle') q = q.eq('segment', f.segment)
   if (f.buchstabe !== 'Alle') q = q.ilike(f.sort === 'vorname' ? 'vorname' : 'nachname', `${f.buchstabe}%`)
   if (f.lead === 'lead') q = q.eq('is_lead', true)
@@ -109,7 +114,8 @@ export async function ladeFirmenSeite(client: any, tenantId: string | null, f: L
   if (!tenantId) return { rows: [], gesamt: 0 }
   let q = (client.from('firmen') as any)
     .select('id, accountnummer, name, segment, strasse, plz, ort, land, telefon, telefon_vorwahl, mobil, mobil_vorwahl, email, website, uid_nummer, betrieb_nr, debitor_nr, kreditlimit, zahlungsziel_tage, skonto_pct, skonto_tage, waehrung, notizen, aktiv, is_lead, ist_kunde, ist_lieferant, sonderrabatt_pct, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct)', { count: 'exact' })
-    .eq('tenant_id', tenantId).eq('aktiv', true)
+    .eq('tenant_id', tenantId)
+  if (!f.inaktiv) q = q.eq('aktiv', true)
   if (f.segment !== 'alle') q = q.eq('segment', f.segment)
   if (f.buchstabe !== 'Alle') q = q.ilike('name', `${f.buchstabe}%`)
   if (f.lead === 'lead') q = q.eq('is_lead', true)
