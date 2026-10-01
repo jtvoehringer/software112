@@ -684,7 +684,9 @@
 "einheitswert",
 "einheitswert_bescheid",
 "einheitswert_quelle",
-"svs_zurechnung"
+"svs_zurechnung",
+"aktiv",
+"deaktiviert_am"
 ],
 "keller_behandlungen": [
 "id",

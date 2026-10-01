@@ -198,7 +198,7 @@ DECLARE
     'duengemittel_lager_bewegungen=datum,duengemittel_id,einheit,menge,tenant_id,typ',
     'ernte_parzellen=ernte_datum,grundstueck_id,jahrgang_id,klosterneuburger,lese_id,menge_hl,menge_kg,mostgewicht_einheit,oechsle,storniert_am,storno_grund,weingarten_id',
     'fuellung_chargen=anteil_liter,fuellung_id,tenant_id,weinausbau_id',
-    'fuellungen=aktiv,anbaugebiet,anzahl_flaschen,bestand_flaschen,datum,flaschengroesse_ml,herkunft_code,jahrgang,menge_liter_gefuellt,pruefnummer,qualitaet,rebsorte,storniert_am,storno_grund,tenant_id,weinausbau_id',
+    'fuellungen=aktiv,anbaugebiet,anzahl_flaschen,bestand_flaschen,dac_antrag_id,datum,flaschengroesse_ml,herkunft_code,jahrgang,menge_liter_gefuellt,pruefnummer,qualitaet,rebsorte,storniert_am,storno_grund,tenant_id,weinausbau_id',   -- KAN-150 F1a: + dac_antrag_id
     'psm_lager_bewegungen=datum,einheit,menge,psm_id,tenant_id,typ',
     'keller_behandlungen=behaelter_id,datum,einheit,menge,storniert_am,storno_grund,tenant_id,typ_id,volumen_liter_ist,weinausbau_id',
     'lesen=art,beginn,ende,jahrgang_id,lfd_nr,tenant_id',
@@ -206,15 +206,18 @@ DECLARE
     'pressung_behaelter=behaelter_id,menge_liter,pressung_id,storniert_am,storno_grund,weinausbau_id',
     'pressung_weingaerten=ernte_datum,grundstueck_id,kmw,mostgewicht_einheit,oechsle,pressung_id,storniert_am,storno_grund,trauben_kg,weingarten_id,zukauf_posten_id',
     'pressungen=datum,jahrgang_id,kmw_grad,lese_id,most_liter_gesamt,mostgewicht_einheit,oechsle,storniert_am,storno_grund,tenant_id',
-    'traubenverkauf=datum,grundstueck_id,jahrgang_id,kmw_grad,lese_id,menge_kg,mostgewicht_einheit,oechsle,storniert_am,storno_grund,tenant_id,verkaufsposten_id,weingarten_id,zukauf_posten_id',
+    'traubenverkauf=datum,firma_id,grundstueck_id,jahrgang_id,kmw_grad,kontakt_id,lese_id,menge_kg,mostgewicht_einheit,oechsle,storniert_am,storno_grund,tenant_id,verkaufsposten_id,weingarten_id,zukauf_posten_id',   -- KAN-150 F1a: + kontakt_id, firma_id
     'verkauf_positionen=einheit,fuellung_id,menge,pressung_behaelter_id,tenant_id,traubenverkauf_id,typ,verkaufsposten_id,weinausbau_id,zukauf_id',
-    'verkaufsposten=aktiv,datum,storniert,storniert_am,storniert_von,storno_grund,tenant_id',   -- KAN-149 D1
+    'verkaufsposten=aktiv,datum,firma_id,kontakt_id,storniert,storniert_am,storniert_von,storno_grund,tenant_id,zh_kontakt_id',   -- KAN-149 D1; KAN-150 F1a: + kontakt_id, firma_id, zh_kontakt_id
     'konto_umbuchungen=betrag,datum,nach_konto_id,storniert_am,storno_grund,tenant_id,von_konto_id',   -- KAN-149 D2
     'zahlungen=betrag,datum,konto_id,storniert_am,storno_grund,tenant_id,verkaufsposten_id',   -- KAN-149 D2
     'verschneidung_quellen=menge_liter,quell_weinausbau_id,verschneidung_id',
     'verschneidungen=datum,storniert_am,storno_grund,tenant_id,ziel_weinausbau_id',
-    'weinausbau=aktiv,anfangsbestand_liter,behaelter_id,herkunft_code,ist_eroeffnungsbestand,jahrgang,kmw,menge_liter,mostgewicht_einheit,oechsle,qualitaetsstufe,rebsorte,status,storniert_am,storno_grund,tenant_id,weinart',
-    'zukauf_posten=aktiv,art,datum,einheit,kmw,menge,mostgewicht_einheit,oechsle,storniert_am,storno_grund,tenant_id,ziel_weinausbau_id'];
+    'weinausbau=aktiv,anfangsbestand_liter,behaelter_id,herkunft_code,ist_eroeffnungsbestand,jahrgang,kmw,menge_liter,mostgewicht_einheit,oechsle,qualitaetsstufe,rebsorte,status,storniert_am,storno_grund,tenant_id,weinart,weingarten_id',   -- KAN-150 F1a: + weingarten_id
+    'zukauf_posten=aktiv,art,datum,einheit,kmw,lieferant_firma_id,lieferant_kontakt_id,menge,mostgewicht_einheit,oechsle,storniert_am,storno_grund,tenant_id,zh_kontakt_id,ziel_weinausbau_id',   -- KAN-150 F1a: + lieferant_kontakt_id, lieferant_firma_id, zh_kontakt_id
+    -- KAN-150 F1a: Stammdaten – Deaktivieren (aktiv) und Umhängen protokolliert
+    'weingarten=aktiv,tenant_id', 'grundstuecke=aktiv,deaktiviert_am,tenant_id,weingarten_id', 'pflanzenschutzmittel=aktiv,tenant_id',
+    'duengemittel=aktiv,tenant_id', 'ea_kategorien=aktiv,tenant_id', 'ea_dauerauftraege=aktiv,tenant_id'];
   -- echte Prüfaufrufe (auf Quelltext ohne Kommentare)
   c_re_ptz constant text := 'PERFORM\s+(public\.)?pruefe_tenant_zugriff\s*\(\s*p_tenant_id\M';
   c_re_abo constant text := 'PERFORM\s+(public\.)?s112_pruefe_abo_schreibsperre\s*\(';
@@ -766,13 +769,14 @@ BEGIN
     pg_temp.t01_trigger_tabellen('z_protokoll_truncate'), pg_temp.t01_sortiert(v_liste));
   v_erg := v_erg || pg_temp.s112_erwarte('protokoll_loeschen_tabellen',
     pg_temp.t01_trigger_tabellen('z_protokoll_loeschen'), pg_temp.t01_sortiert(array_remove(v_liste, 'bestandsprotokoll')));
+  -- KAN-150 F1a: keller_behandlungstypen nur Löschen/TRUNCATE (keine aktiv-Spalte)
   v_erg := v_erg || pg_temp.s112_erwarte('protokoll_aendern_tabellen',
     pg_temp.t01_trigger_tabellen('z_protokoll_aendern'),
-    pg_temp.t01_sortiert(ARRAY(SELECT x FROM unnest(v_liste) x WHERE x NOT IN ('bestandsprotokoll', 'fuellung_bewegungen', 'weinjahrgaenge'))));
+    pg_temp.t01_sortiert(ARRAY(SELECT x FROM unnest(v_liste) x WHERE x NOT IN ('bestandsprotokoll', 'fuellung_bewegungen', 'weinjahrgaenge', 'keller_behandlungstypen'))));
   v_erg := v_erg || pg_temp.s112_erwarte('protokoll_liste_plausibel', cardinality(v_liste) >= 17, true);
   v_erg := v_erg || pg_temp.s112_erwarte('protokoll_aendern_soll_konsistent',
     pg_temp.t01_sortiert(ARRAY(SELECT split_part(x, '=', 1) FROM unnest(c_protokoll_aendern) x)),
-    pg_temp.t01_sortiert(ARRAY(SELECT x FROM unnest(v_liste) x WHERE x NOT IN ('bestandsprotokoll', 'fuellung_bewegungen', 'weinjahrgaenge'))));
+    pg_temp.t01_sortiert(ARRAY(SELECT x FROM unnest(v_liste) x WHERE x NOT IN ('bestandsprotokoll', 'fuellung_bewegungen', 'weinjahrgaenge', 'keller_behandlungstypen'))));
   -- truncate = BEFORE TRUNCATE (34), loeschen = AFTER DELETE FOR EACH ROW (9), aendern = AFTER UPDATE FOR EACH ROW (17);
   -- tgtype allein genügt nicht: WHEN (tgqual) und UPDATE OF (tgattr) ändern tgtype nicht. Daher: nie WHEN;
   -- truncate/loeschen ohne Spaltenliste und ohne Argumente; aendern mit UPDATE OF = genau den Argumentspalten
@@ -814,7 +818,7 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('schutz_plattformfelder_trigger', v_txt, c_schutz);
 
   -- ── 12. Härtung als Ratsche ─────────────────────────────────────────────────────────────────────────
-  -- TRUNCATE unterliegt keiner RLS (über PostgREST nicht erreichbar). Die Protokolltabellen (30, s112_soll_liste) haben das Recht nicht
+  -- TRUNCATE unterliegt keiner RLS (über PostgREST nicht erreichbar). Die Protokolltabellen (37, s112_soll_liste) haben das Recht nicht
   -- und sind zusätzlich durch z_protokoll_truncate gesperrt.
   FOR v_r IN SELECT unnest(ARRAY['authenticated', 'anon']) AS rolle LOOP
     v_erg := v_erg || pg_temp.t01_liste('truncate_neu_' || v_r.rolle, format($q$

@@ -144,6 +144,13 @@ BEGIN
       -- ea_anlagen mit Buchung (AfA): der INVOKER-Trigger trg_ea_anlagen_transaktion_tenant sucht die Buchung unter
       -- RLS – für ein inaktives Mitglied unsichtbar → P0001 vor der RLS-Prüfung. Klon ohne Buchung (Stand 01.10.2026:
       -- Staging-Musterhof hat eine Anlage samt Buchung), damit die RLS-Ablehnung selbst geprüft wird.
+      -- KAN-150 F1a: Stammdaten mit berichtsrelevantem Bezug sind nicht löschbar (a_stammdaten_loeschsperre, T) –
+      -- vorhandene Musterhof-Zeile mit Bezug durch eine eigene Beispielzeile ohne Bezug ersetzen, damit die
+      -- Löschprobe die RLS (und nicht die Löschsperre) prüft
+      IF r.tabelle = ANY (pg_temp.s112_soll_liste('stammdaten_loeschsperre'))
+         AND public.s112_stammdaten_bezuege_intern(r.tabelle, (v_zeile ->> 'id')::uuid) <> '{}'::jsonb THEN
+        v_zeile := pg_temp.s112_beispiel(r.tabelle, c_m, v_inak);
+      END IF;
       IF r.tabelle = 'ea_anlagen' THEN
         v_zeile := v_zeile || '{"transaktion_id": null}'::jsonb;
       END IF;

@@ -1075,13 +1075,19 @@ BEGIN
     -- KAN-145 B4: Tabellen mit Löschsperre (a_loeschsperre) = "scharf" in scripts/storno-tabellen.json (Test check-storno)
     -- KAN-149 D3: + ea_transaktionen, konto_umbuchungen, verkauf_positionen, verkaufsposten, zahlungen (dort ohne Lösch-RPC)
     WHEN 'loeschsperre_tabellen' THEN ARRAY['ea_transaktionen', 'ernte_parzellen', 'fuellung_chargen', 'fuellungen', 'keller_behandlungen', 'keller_umzuege', 'konto_umbuchungen', 'pressung_behaelter', 'pressung_weingaerten', 'pressungen', 'traubenverkauf', 'verkauf_positionen', 'verkaufsposten', 'verschneidung_quellen', 'verschneidungen', 'weinausbau', 'zahlungen', 'zukauf_posten']
+    -- KAN-150 F1a: Stammdaten mit Löschsperre bei berichtsrelevantem Bezug (a_stammdaten_loeschsperre)
+    WHEN 'stammdaten_loeschsperre' THEN ARRAY['duengemittel', 'ea_dauerauftraege', 'ea_kategorien', 'firmen', 'grundstuecke',
+      'keller_behandlungstypen', 'kontakte', 'pflanzenschutzmittel', 'weingarten']
     WHEN 'protokoll_tabellen' THEN ARRAY[
       'ama_erntemeldungen', 'ama_meldepositionen', 'behandlungen', 'bestandsprotokoll', 'duengemittel_lager_bewegungen',
       'ea_belege', 'ea_monatsabschluss', 'ea_transaktionen', 'ea_uva', 'ernte_parzellen', 'fuellung_bewegungen',
       'fuellung_chargen', 'fuellungen', 'keller_behandlungen', 'keller_umzuege', 'konto_umbuchungen', 'lesen',
       'pressung_behaelter', 'pressung_weingaerten', 'pressungen', 'psm_lager_bewegungen', 'traubenverkauf',
       'verkauf_positionen', 'verkaufsposten', 'verschneidung_quellen', 'verschneidungen', 'weinausbau', 'weinjahrgaenge',
-      'zahlungen', 'zukauf_posten']   -- KAN-166: behandlungen und die beiden Lagertabellen; KAN-149 D2: ea_transaktionen, zahlungen, konto_umbuchungen; KAN-149 D3: ea_belege, ea_monatsabschluss, ea_uva
+      'zahlungen', 'zukauf_posten',   -- KAN-166: behandlungen und die beiden Lagertabellen; KAN-149 D2: ea_transaktionen, zahlungen, konto_umbuchungen; KAN-149 D3: ea_belege, ea_monatsabschluss, ea_uva
+      -- KAN-150 F1a: Stammdaten (Löschen/TRUNCATE; Ändern von aktiv außer keller_behandlungstypen; kontakte/firmen bewusst nicht)
+      'weingarten', 'grundstuecke', 'pflanzenschutzmittel', 'duengemittel', 'ea_kategorien', 'ea_dauerauftraege',
+      'keller_behandlungstypen']
     WHEN 'abo_ausnahmen' THEN ARRAY[
       'benachrichtigungen', 'keller_freigaben', 'plattform_admins', 'profiles', 'rebsorten', 'release_notes',
       'release_notes_gesehen', 'svs_parameter', 'system_ereignisse', 'tenant_memberships', 'user_email_connections']
@@ -1191,6 +1197,9 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('mandant',       '-US', false, 's112_schwund_minderung(p_tenant_id uuid, p_umzug_id uuid)'),   -- KAN-145 B4 (lesend)
     ('trigger',       '--S', false, 's112_verkauf_storno_schutz()'),           -- KAN-149 D1: Verkaufsstorno mit Grund, unveränderlich
     ('trigger',       '--S', false, 's112_konto_loeschsperre()'),              -- KAN-149 D3: Konto nur ohne Bewegungen
+    ('mandant',       '-US', false, 's112_stammdaten_bezuege(p_tenant_id uuid, p_tabelle text, p_id uuid)'),   -- KAN-150 F1a (lesend, jedes Mitglied)
+    ('intern',        '--S', false, 's112_stammdaten_bezuege_intern(p_tabelle text, p_id uuid)'),   -- KAN-150 F1a (Hilfsfunktion ohne Zugriffsprüfung)
+    ('trigger',       '--S', false, 's112_stammdaten_loeschsperre()'),         -- KAN-150 F1a: Stammdaten mit Bezug nur deaktivieren
     ('trigger',       '--S', false, 's112_jahrgang_loeschsperre()'),          -- KAN-148 C1d: Jahrgang nur ohne Bezüge
     ('trigger',       '--S', false, 's112_loeschsperre()'),                    -- KAN-145 A: BEFORE-DELETE-Sperre
     ('mandant',       '-US', true , 's112_storniert_loeschen(p_tenant_id uuid, p_tabelle text, p_id uuid, p_grund text)'),   -- KAN-145 A
