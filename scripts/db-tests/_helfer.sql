@@ -933,7 +933,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('checklisten',                   'SA,TA,W*{betrieb}',                      'SA,TA,W*{betrieb}',                      'SA,TA,W*{betrieb}'),
     ('checklisten_punkte',            'SA,TA,W*{betrieb}',                      'SA,TA,W*{betrieb}',                      'SA,TA,W*{betrieb}'),
     ('crm_dubletten_ignoriert',       'SA,TA,W*{crm}',                          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}'),
-    ('dac_antrag',                    'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   'SA,TA{kellerbuch}'),
+    ('dac_antrag',                    'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   '-{kellerbuch}'),   -- KAN-150 F2a (löschen nur über s112_storniert_loeschen)
     ('datenschutz_consents',          'SA,TA,W*{crm}',                          '-',                                      '-'),
     ('duengemittel',                  'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       'SA,TA{rieden}'),
     ('duengemittel_lager_bewegungen', 'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}'),
@@ -947,9 +947,9 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('ea_uva',                        'SA,TA,W*{ea}',                           'SA,TA,W*{ea}',                           'SA,TA,W*{ea}'),
     ('email_lead_ignoriert',          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}'),
     ('ernte_parzellen',               'SA,TA,W*{rieden|kellerbuch}',            'SA,TA,W*{rieden|kellerbuch}',            '-{rieden|kellerbuch}'),   -- KAN-148 C1d
-    ('export_dokumente',              'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}'),
-    ('exportauftraege',               'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}'),
-    ('exportauftrag_positionen',      'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}'),
+    ('export_dokumente',              'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              '-{warenwirtschaft}'),   -- KAN-150 F2a (löschen nur über s112_storniert_loeschen)
+    ('exportauftraege',               'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              '-{warenwirtschaft}'),   -- KAN-150 F2a (löschen nur über s112_storniert_loeschen)
+    ('exportauftrag_positionen',      'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              '-{warenwirtschaft}'),   -- KAN-150 F2a (löschen nur über s112_storniert_loeschen)
     ('firmen',                        'SA,TA,W*{crm}',                          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}'),
     ('fristen',                       'SA,TA,W*{betrieb}',                      'SA,TA,W*{betrieb}',                      'SA,TA,W*{betrieb}'),
     ('fuellung_bewegungen',           '-',                                      '-',                                      '-'),
@@ -984,7 +984,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('pressung_weingaerten',          'SA,TA,W*{kellerbuch|rieden}',            'SA,TA,W*{kellerbuch|rieden}',            '-{kellerbuch|rieden}'),   -- KAN-148 C1d
     ('pressungen',                    'SA,TA,W*{kellerbuch|rieden}',            'SA,TA,W*{kellerbuch|rieden}',            '-{kellerbuch|rieden}'),   -- KAN-148 C1d
     ('profiles',                      'L,SA,TA,W',                              'L,SA,TA,W',                              '-'),
-    ('pruefnummernantraege',          'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}'),
+    ('pruefnummernantraege',          'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   '-{kellerbuch}'),   -- KAN-150 F2a (löschen nur über s112_storniert_loeschen)
     ('psm_lager_bewegungen',          'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}'),
     ('rabattgruppen',                 'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}'),
     ('rebsorten',                     'PA',                                     'PA',                                     'PA'),
@@ -1002,14 +1002,14 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('tenant_memberships',            'PA',                                     'PA',                                     'SA,TA'),
     ('tenants',                       'PA',                                     'SA,TA',                                  '-'),
     ('transaktionszaehler',           '-',                                      '-',                                      '-'),
-    ('transportbescheinigungen',      'SA,TA,W*{kellerbuch|warenwirtschaft}',   'SA,TA,W*{kellerbuch|warenwirtschaft}',   'SA,TA,W*{kellerbuch|warenwirtschaft}'),
+    ('transportbescheinigungen',      'SA,TA,W*{kellerbuch|warenwirtschaft}',   'SA,TA,W*{kellerbuch|warenwirtschaft}',   '-{kellerbuch|warenwirtschaft}'),   -- KAN-150 F2a (löschen nur über s112_storniert_loeschen)
     ('traubenverkauf',                'SA,TA,W*{rieden|warenwirtschaft}',       'SA,TA,W*{rieden|warenwirtschaft}',       '-{rieden|warenwirtschaft}'),   -- KAN-148 C1d
     ('user_email_connections',        '-',                                      '-',                                      'L,SA,TA,W'),
     ('verkauf_positionen',            'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              '-{warenwirtschaft}'),   -- KAN-149 D3
     ('verkaufsposten',                'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              '-{warenwirtschaft}'),   -- KAN-149 D3
     ('verschneidung_quellen',         'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   '-{kellerbuch}'),   -- KAN-145 B4
     ('verschneidungen',               'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   '-{kellerbuch}'),   -- KAN-145 B4
-    ('weinanalysen',                  'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   'SA,TA{kellerbuch}'),
+    ('weinanalysen',                  'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   '-{kellerbuch}'),   -- KAN-150 F2a (löschen nur über s112_storniert_loeschen)
     ('weinausbau',                    'SA,TA,W*{kellerbuch|rieden}',            'SA,TA,W*{kellerbuch|rieden}',            '-{kellerbuch|rieden}'),   -- KAN-148 C1d
     ('weinausbau_weingaerten',        'SA,TA,W*{kellerbuch|rieden}',            'SA,TA,W*{kellerbuch|rieden}',            '-{kellerbuch|rieden}'),   -- KAN-150 F1d (löschen nur über s112_herkunft_setzen)
     ('weinbaugebiete_custom',         'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       '-{rieden}'),
@@ -1074,7 +1074,9 @@ BEGIN
       'svs_parameter', 'tenants']
     -- KAN-145 B4: Tabellen mit Löschsperre (a_loeschsperre) = "scharf" in scripts/storno-tabellen.json (Test check-storno)
     -- KAN-149 D3: + ea_transaktionen, konto_umbuchungen, verkauf_positionen, verkaufsposten, zahlungen (dort ohne Lösch-RPC)
-    WHEN 'loeschsperre_tabellen' THEN ARRAY['ea_transaktionen', 'ernte_parzellen', 'fuellung_chargen', 'fuellungen', 'keller_behandlungen', 'keller_umzuege', 'konto_umbuchungen', 'pressung_behaelter', 'pressung_weingaerten', 'pressungen', 'traubenverkauf', 'verkauf_positionen', 'verkaufsposten', 'verschneidung_quellen', 'verschneidungen', 'weinausbau', 'weinausbau_weingaerten', 'zahlungen', 'zukauf_posten']
+    -- KAN-150 F2a: + dac_antrag, weinanalysen, pruefnummernantraege, transportbescheinigungen, exportauftraege (storno) und
+    --              exportauftrag_positionen, export_dokumente (kind)
+    WHEN 'loeschsperre_tabellen' THEN ARRAY['dac_antrag', 'ea_transaktionen', 'ernte_parzellen', 'export_dokumente', 'exportauftraege', 'exportauftrag_positionen', 'fuellung_chargen', 'fuellungen', 'keller_behandlungen', 'keller_umzuege', 'konto_umbuchungen', 'pressung_behaelter', 'pressung_weingaerten', 'pressungen', 'pruefnummernantraege', 'transportbescheinigungen', 'traubenverkauf', 'verkauf_positionen', 'verkaufsposten', 'verschneidung_quellen', 'verschneidungen', 'weinanalysen', 'weinausbau', 'weinausbau_weingaerten', 'zahlungen', 'zukauf_posten']
     -- KAN-150 F1a: Stammdaten mit Löschsperre bei berichtsrelevantem Bezug (a_stammdaten_loeschsperre)
     WHEN 'stammdaten_loeschsperre' THEN ARRAY['duengemittel', 'ea_dauerauftraege', 'ea_kategorien', 'firmen', 'grundstuecke',
       'keller_behandlungstypen', 'kontakte', 'pflanzenschutzmittel', 'weingarten']
@@ -1087,7 +1089,9 @@ BEGIN
       'zahlungen', 'zukauf_posten',   -- KAN-166: behandlungen und die beiden Lagertabellen; KAN-149 D2: ea_transaktionen, zahlungen, konto_umbuchungen; KAN-149 D3: ea_belege, ea_monatsabschluss, ea_uva
       -- KAN-150 F1a: Stammdaten (Löschen/TRUNCATE; Ändern von aktiv außer keller_behandlungstypen; kontakte/firmen bewusst nicht)
       'weingarten', 'grundstuecke', 'pflanzenschutzmittel', 'duengemittel', 'ea_kategorien', 'ea_dauerauftraege',
-      'keller_behandlungstypen']
+      'keller_behandlungstypen',
+      -- KAN-150 F2a: Anträge und Aufzeichnungen (Ändern, Löschen, TRUNCATE)
+      'dac_antrag', 'weinanalysen', 'pruefnummernantraege', 'transportbescheinigungen', 'exportauftraege']
     WHEN 'abo_ausnahmen' THEN ARRAY[
       'benachrichtigungen', 'keller_freigaben', 'plattform_admins', 'profiles', 'rebsorten', 'release_notes',
       'release_notes_gesehen', 'svs_parameter', 'system_ereignisse', 'tenant_memberships', 'user_email_connections']
@@ -1209,6 +1213,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('trigger',       '--S', false, 's112_loeschsperre()'),                    -- KAN-145 A: BEFORE-DELETE-Sperre
     ('mandant',       '-US', true , 's112_storniert_loeschen(p_tenant_id uuid, p_tabelle text, p_id uuid, p_grund text)'),   -- KAN-145 A
     ('trigger',       '--S', false, 's112_storno_schutz()'),                   -- KAN-145 B1: Storno-Spalten
+    ('trigger',       '--S', false, 's112_export_kind_schutz()'),              -- KAN-150 F2a: Kinder eines stornierten Exportauftrags
     ('mandant',       '-US', true , 'schwund_buchen(p_tenant_id uuid, p_weinausbau_id uuid, p_liter numeric, p_datum date, p_notiz text, p_abschliessen boolean, p_bestand_mindern boolean)'),
     ('intern',        '--S', false, 'set_verkauf_storniert(p_posten_id uuid)'),
     ('mandant',       '-US', true , 'setze_kontobewegung_abgeglichen(p_tenant_id uuid, p_quelle text, p_id uuid, p_abgeglichen boolean)'),

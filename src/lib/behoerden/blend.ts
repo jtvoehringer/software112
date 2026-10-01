@@ -142,6 +142,7 @@ export async function ladeBlendProtokoll(
     let pruefnummer = text(f.pruefnummer)
     let pnHinweis: string | null = null
     if (!pruefnummer && f.dac_antrag_id) {
+      // storno-sichtbar: antragAusZeile führt stornierte DAC-Anträge als inaktiv (keine gültige Prüfnummer, KAN-150 F2)
       const { data: dac, error: dacErr } = await (supabase.from('dac_antrag') as any)
         .select(PN_ANTRAG_SELECT)
         .eq('tenant_id', tenantId)

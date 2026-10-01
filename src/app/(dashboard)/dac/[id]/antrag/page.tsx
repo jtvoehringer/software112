@@ -1,6 +1,8 @@
 // behoerdenmeldung: pruefnummernantrag
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentMembership } from '@/lib/auth/roles'
+import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
+import StornoKarte from '@/components/StornoKarte'
+import { stornoPNA, loeschePNA } from './actions'
 import { notFound } from 'next/navigation'
 import Link from '@/components/ui/Link'
 import type { Metadata } from 'next'
@@ -23,6 +25,16 @@ export default async function PruefnummernantragPage({ params }: { params: Promi
   const pna = await ladePruefnummernantrag(supabase, tenantId, { id })
   if (!pna) notFound()
 
+  // KAN-150 F2: stornierte Fassungen (gekennzeichnet, endgültig löschbar) – die gültige lädt die Ladefunktion
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: stornRaw } = await (supabase.from('pruefnummernantraege') as any)
+    // storno-sichtbar: nur die stornierten Fassungen für den Vermerk und „Endgültig löschen“
+    .select('id, storniert_am, storniert_von_name, storno_grund')
+    .eq('tenant_id', tenantId).eq('dac_antrag_id', id).not('storniert_am', 'is', null)
+    .order('storniert_am', { ascending: false })
+  const stornierte = (stornRaw ?? []) as { id: string; storniert_am: string; storniert_von_name: string | null; storno_grund: string | null }[]
+  const schreiben = !!membership && canWrite(membership, 'kellerbuch')
+
   return (
     <div className="max-w-4xl space-y-4">
       {/* Breadcrumb */}
@@ -34,11 +46,23 @@ export default async function PruefnummernantragPage({ params }: { params: Promi
         <span className="text-s112-text-1 font-medium">Prüfnummernantrag</span>
       </div>
 
+      {/* key: nach einem Storno neu aufbauen (Vorbelegung statt der stornierten Fassung) */}
       <PNAFormular
+        key={pna.gespeichertId ?? 'vorbelegung'}
         dacAntragId={id}
         initial={pna.formular}
         csvHref={csvPfad('pruefnummernantrag', { id, bez: pna.dac.bezeichnung })}
       />
+
+      {schreiben && pna.gespeichertId && (
+        <StornoKarte was="der Prüfnummernantrag" stand={{ storniert_am: null }}
+          stornieren={stornoPNA.bind(null, id, pna.gespeichertId)}
+          hinweis="Der gespeicherte Antrag bleibt als storniert im Änderungsprotokoll; danach zeigt das Formular wieder die Vorbelegung." />
+      )}
+      {schreiben && stornierte.map(s => (
+        <StornoKarte key={s.id} was="der Prüfnummernantrag" stand={s} loeschen={loeschePNA.bind(null, id, s.id)}
+          hinweis="" />
+      ))}
     </div>
   )
 }

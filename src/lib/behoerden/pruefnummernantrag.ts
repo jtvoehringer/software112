@@ -344,6 +344,8 @@ export type PNAErgebnis = {
   formular: PNADaten
   gespeichert: boolean
   gespeichertAm: string | null
+  /** KAN-150 F2: id des gespeicherten (nicht stornierten) Antrags – für Stornieren */
+  gespeichertId: string | null
   zeilen: PNAZeile[]
   warnungen: string[]
 }
@@ -357,6 +359,7 @@ const HINWEIS_VORBELEGUNG = 'Prüfnummernantrag ist noch nicht gespeichert – a
 export async function ladePruefnummernantrag(supabase: Client, tenantId: string, p: { id: string }): Promise<PNAErgebnis | null> {
   if (!UUID_RE.test(p.id)) return null
   const [dacRes, cfgRes, pnaRes] = await Promise.all([
+    // storno-sichtbar: der Druck zeigt auch einen stornierten DAC-Antrag, mit Vermerk (KAN-150 F2)
     (supabase.from('dac_antrag') as any)
       .select('id, bezeichnung, dac_region, jahrgang, rebsorte, menge_liter, weinausbau_id')
       .eq('id', p.id)
@@ -368,9 +371,10 @@ export async function ladePruefnummernantrag(supabase: Client, tenantId: string,
       .eq('tenant_id', tenantId)
       .limit(1).maybeSingle(),
     (supabase.from('pruefnummernantraege') as any)
-      .select('formular_daten, erstellt_am, aktualisiert_am')
+      .select('id, formular_daten, erstellt_am, aktualisiert_am')
       .eq('dac_antrag_id', p.id)
       .eq('tenant_id', tenantId)
+      .is('storniert_am', null)   // KAN-150 F2: ein stornierter Antrag gilt nicht mehr – danach wieder die Vorbelegung
       .maybeSingle(),
   ])
   if (dacRes.error) throw new Error(`Laden fehlgeschlagen (dac_antrag): ${dacRes.error.message}`)
@@ -389,5 +393,5 @@ export async function ladePruefnummernantrag(supabase: Client, tenantId: string,
   if (!gespeicherteDaten) warnungen.push(HINWEIS_VORBELEGUNG)
 
   const zeilen = pnaZeilen(formular, { dacBezeichnung: textOderNull(dac.bezeichnung), gespeichert: !!gespeicherteDaten, gespeichertAm }, warnungen)
-  return { dac: { id: dac.id, bezeichnung: textOderNull(dac.bezeichnung) }, formular, gespeichert: !!gespeicherteDaten, gespeichertAm, zeilen, warnungen }
+  return { dac: { id: dac.id, bezeichnung: textOderNull(dac.bezeichnung) }, formular, gespeichert: !!gespeicherteDaten, gespeichertAm, gespeichertId: pna?.id ? String(pna.id) : null, zeilen, warnungen }
 }

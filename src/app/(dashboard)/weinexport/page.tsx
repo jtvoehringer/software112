@@ -88,9 +88,17 @@ export default async function WeinexportPage() {
                   </td>
                   <td className="px-5 py-3 text-s112-text-2">{a.incoterms ?? '–'}</td>
                   <td className="px-5 py-3">
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${(a.status && STATUS_COLOR[a.status]) || 'bg-[#F2F3F5] text-s112-text-2'}`}>
-                      {a.statusLabel ?? a.status}
-                    </span>
+                    {a.storniertAm ? (
+                      // KAN-150 F2: stornierter Auftrag bleibt gekennzeichnet stehen
+                      <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-s112-err-bg text-s112-err-fg"
+                        title={`storniert am ${new Date(a.storniertAm).toLocaleDateString('de-AT')}${a.storniertVon ? ` von ${a.storniertVon}` : ''}${a.stornoGrund ? ` – ${a.stornoGrund}` : ''}`}>
+                        Storniert
+                      </span>
+                    ) : (
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${(a.status && STATUS_COLOR[a.status]) || 'bg-[#F2F3F5] text-s112-text-2'}`}>
+                        {a.statusLabel ?? a.status}
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))}

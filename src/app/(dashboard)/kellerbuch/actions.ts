@@ -837,3 +837,36 @@ export async function deleteKellerbehandlung(id: string, grund: string): Promise
   if (zeile.weinausbau_id) revalidatePath(`/kellerbuch/weinausbau/${zeile.weinausbau_id}/buch`)
   revalidatePath('/kellerbuch')
 }
+
+// ANALYSE STORNIEREN / ENDGÜLTIG LÖSCHEN (KAN-150 F2, 01.10.2026) – die Analyse bleibt mit Grund stehen (Weinbuch zeigt
+// sie gekennzeichnet) und gilt nicht mehr (DAC-Vorbelegung, Dashboard, Rückverfolgung). Endgültig löschen nur
+// stornierter Analysen über die RPC s112_storniert_loeschen (Grund ins Änderungsprotokoll).
+export async function stornoAnalyse(id: string, chargeId: string, grund: string): Promise<void> {
+  const supabase = await createSupabaseServerClient()
+  const tenantId = await kellerbuchSchreibrecht()
+  const f = stornoGrundFehler(grund)
+  if (f) throw new AktionsFehler(f)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.from('weinanalysen') as any)
+    .update({ storniert_am: new Date().toISOString(), storno_grund: grund.trim() })
+    .eq('id', id).eq('tenant_id', tenantId).eq('weinausbau_id', chargeId).is('storniert_am', null)
+    .select('id')
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Storno fehlgeschlagen'))
+  if (!data || (data as R[]).length === 0) throw new AktionsFehler('Analyse nicht gefunden oder bereits storniert.')
+  revalidatePath(`/kellerbuch/weinausbau/${chargeId}`)
+  revalidatePath(`/kellerbuch/weinausbau/${chargeId}/analysen`)
+}
+
+export async function endgueltigLoeschenAnalyse(id: string, chargeId: string, grund: string): Promise<void> {
+  const supabase = await createSupabaseServerClient()
+  const tenantId = await kellerbuchSchreibrecht()
+  const f = stornoGrundFehler(grund)
+  if (f) throw new AktionsFehler(f.replace('den Storno', 'das endgültige Löschen'))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.rpc as any)('s112_storniert_loeschen', {
+    p_tenant_id: tenantId, p_tabelle: 'weinanalysen', p_id: id, p_grund: grund.trim(),
+  })
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Endgültig löschen fehlgeschlagen'))
+  revalidatePath(`/kellerbuch/weinausbau/${chargeId}`)
+  revalidatePath(`/kellerbuch/weinausbau/${chargeId}/analysen`)
+}

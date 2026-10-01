@@ -29,8 +29,8 @@ type R = Record<string, any>
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const BLOCK = 100
 
-/** Spalten von dac_antrag für antragAusZeile */
-export const PN_ANTRAG_SELECT = 'id, weinausbau_id, bezeichnung, status, aktiv, pruefnummer, menge_liter, eingereicht_am, bescheid_am, created_at'
+/** Spalten von dac_antrag für antragAusZeile (KAN-150 F2: storniert_am – ein stornierter Antrag gilt als inaktiv) */
+export const PN_ANTRAG_SELECT = 'id, weinausbau_id, bezeichnung, status, aktiv, pruefnummer, menge_liter, eingereicht_am, bescheid_am, created_at, storniert_am'
 
 function bloecke<T>(liste: readonly T[]): T[][] {
   const out: T[][] = []
@@ -79,7 +79,8 @@ export function antragAusZeile(r: R): PnAntrag {
     id: String(r.id),
     weinausbauId: r.weinausbau_id ? String(r.weinausbau_id) : null,
     status: String(r.status ?? ''),
-    aktiv: r.aktiv !== false,
+    // KAN-150 F2: stornierter Antrag zählt wie ein inaktiver (keine gültige Prüfnummer, nicht wählbar)
+    aktiv: r.aktiv !== false && !r.storniert_am,
     pruefnummer: typeof r.pruefnummer === 'string' && r.pruefnummer.trim() ? r.pruefnummer.trim() : null,
     mengeLiter: zahl(r.menge_liter),
     eingereichtAm: pnTag(r.eingereicht_am),
@@ -107,6 +108,7 @@ export async function ladePruefnummerDaten(
 
   // 1. Anträge
   for (const block of bloecke(ids)) {
+    // storno-sichtbar: antragAusZeile führt stornierte DAC-Anträge als inaktiv (keine gültige Prüfnummer, KAN-150 F2)
     const { data, error } = await alle<R>((supabase.from('dac_antrag') as any)
       .select(PN_ANTRAG_SELECT)
       .eq('tenant_id', tenantId)
@@ -252,6 +254,7 @@ export async function ladePruefnummerStatus(
 
 /** Alle DAC-Anträge des Betriebs mit Nummer (Prüfung freier Eingaben, freiePruefnummerPruefen) */
 export async function ladeAntraegeMitNummer(supabase: any, tenantId: string): Promise<PnAntrag[]> {
+  // storno-sichtbar: antragAusZeile führt stornierte DAC-Anträge als inaktiv (keine gültige Prüfnummer, KAN-150 F2)
   const { data, error } = await alle<R>((supabase.from('dac_antrag') as any)
     .select(PN_ANTRAG_SELECT)
     .eq('tenant_id', tenantId)
@@ -587,6 +590,7 @@ export async function pruefnummerBeiDatumsaenderung(
     let antrag: PnAntrag | null = null
     let chargeId = fuellung.weinausbauId
     if (dacAntragId) {
+      // storno-sichtbar: antragAusZeile führt stornierte DAC-Anträge als inaktiv (keine gültige Prüfnummer, KAN-150 F2)
       const { data, error } = await (supabase.from('dac_antrag') as any)
         .select(PN_ANTRAG_SELECT)
         .eq('tenant_id', tenantId)

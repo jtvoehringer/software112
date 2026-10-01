@@ -1,6 +1,8 @@
 // behoerdenmeldung: transportbescheinigung
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentMembership } from '@/lib/auth/roles'
+import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
+import StornoKarte from '@/components/StornoKarte'
+import { stornoTB, loescheTB } from './actions'
 import { notFound } from 'next/navigation'
 import Link from '@/components/ui/Link'
 import type { Metadata } from 'next'
@@ -23,6 +25,16 @@ export default async function TransportbescheinigungPage({ params }: { params: P
   const tb = await ladeTransportbescheinigung(supabase, tenantId, { id })
   if (!tb) notFound()
   const { posten } = tb
+
+  // KAN-150 F2: stornierte Fassungen (gekennzeichnet, endgültig löschbar) – die gültige lädt die Ladefunktion
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: stornRaw } = await (supabase.from('transportbescheinigungen') as any)
+    // storno-sichtbar: nur die stornierten Fassungen für den Vermerk und „Endgültig löschen“
+    .select('id, storniert_am, storniert_von_name, storno_grund')
+    .eq('tenant_id', tenantId).eq('verkaufsposten_id', id).not('storniert_am', 'is', null)
+    .order('storniert_am', { ascending: false })
+  const stornierte = (stornRaw ?? []) as { id: string; storniert_am: string; storniert_von_name: string | null; storno_grund: string | null }[]
+  const schreiben = !!membership && canWrite(membership, 'warenwirtschaft')
 
   return (
     <div className="max-w-5xl space-y-4">
@@ -47,11 +59,23 @@ export default async function TransportbescheinigungPage({ params }: { params: P
         </div>
       )}
 
+      {/* key: nach einem Storno neu aufbauen (Vorbelegung statt der stornierten Fassung) */}
       <TBFormular
+        key={tb.gespeichertId ?? 'vorbelegung'}
         verkaufspostenId={id}
         initial={tb.formular}
         csvHref={csvPfad('transportbescheinigung', { id, beleg: posten.rechnungsnummer })}
       />
+
+      {schreiben && tb.gespeichertId && (
+        <StornoKarte was="die Transportbescheinigung" stand={{ storniert_am: null }}
+          stornieren={stornoTB.bind(null, id, tb.gespeichertId)}
+          hinweis="Die gespeicherte Bescheinigung bleibt als storniert im Änderungsprotokoll; danach zeigt das Formular wieder die Vorbelegung." />
+      )}
+      {schreiben && stornierte.map(s => (
+        <StornoKarte key={s.id} was="die Transportbescheinigung" stand={s} loeschen={loescheTB.bind(null, id, s.id)}
+          hinweis="" />
+      ))}
     </div>
   )
 }

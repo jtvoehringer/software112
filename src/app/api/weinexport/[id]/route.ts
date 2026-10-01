@@ -73,7 +73,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // Zusätzlich zu RLS (tenant_exportauftraege + modul_update) explizit auf den aktiven Tenant filtern
   const { data, error } = await (supabase.from('exportauftraege') as any)
     .update(update).eq('id', id).eq('tenant_id', tenantId).select('id')
-  if (error) return fehler(error.message, 500)
+  if (error) return fehler(error.message, error.code === '42501' ? 409 : 500)   // KAN-150 F2: stornierter Auftrag ist unveränderlich
   if (!data || data.length === 0) return fehler('Nicht gefunden', 404)
   return NextResponse.json({ ok: true })
 }

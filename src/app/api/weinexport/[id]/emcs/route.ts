@@ -36,7 +36,9 @@ export async function GET(
   const [{ data: a }, { data: pos }, { data: b }] = await Promise.all([
     (supabase.from('exportauftraege') as any)
       .select('*, kontakte(vorname,nachname), firmen(name)')
-      .eq('id', id).eq('tenant_id', tenantId).single(),
+      .eq('id', id).eq('tenant_id', tenantId)
+      .is('storniert_am', null)   // KAN-150 F2: kein e-AD für einen stornierten Auftrag
+      .single(),
     (supabase.from('exportauftrag_positionen') as any)
       .select('*, fuellungen(bezeichnung)').eq('exportauftrag_id', id).order('sort_order'),
     (admin.from('tenant_einstellungen') as any)

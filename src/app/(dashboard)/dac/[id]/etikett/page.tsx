@@ -41,7 +41,9 @@ export default async function EtikettPage({ params }: { params: Promise<{ id: st
   const [{ data: rows }, { data: settingsRaw }] = await Promise.all([
     tf((supabase.from('dac_antrag') as any)
       .select('id, bezeichnung, dac_region, jahrgang, rebsorte, menge_liter, alkohol_prozent, status, pruefnummer, bescheid_am')
-      .eq('id', id).limit(1)),
+      .eq('id', id)
+      .is('storniert_am', null)   // KAN-150 F2: kein Etikett mit der Nummer eines stornierten Antrags
+      .limit(1)),
     tf((supabase.from('tenant_einstellungen') as any)
       .select('betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort, betrieb_uid, logo_url')
       .limit(1)).maybeSingle(),

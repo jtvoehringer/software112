@@ -81,7 +81,7 @@ export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dok
           <p className="text-sm text-s112-muted mt-0.5">{importeur}</p>
         </div>
         <div className="flex items-center gap-3">
-          <select value={status} onChange={e => updateStatus(e.target.value)} disabled={saving}
+          <select value={status} onChange={e => updateStatus(e.target.value)} disabled={saving || !!auftrag.storniert_am}
             className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none">
             {Object.entries(STATUS_LABEL).map(([v,l]) => <option key={v} value={v}>{l}</option>)}
           </select>

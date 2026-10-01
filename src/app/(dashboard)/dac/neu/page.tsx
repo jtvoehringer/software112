@@ -28,6 +28,7 @@ export default async function NeuePage({
           .select('analyse_datum, labor, alkohol_vol, restzucker_gl, gesamtsaeure_gl, ph_wert, flüchtige_saeure_gl, freie_so2_mgl, gesamt_so2_mgl')
           .eq('weinausbau_id', preCharge)
           .eq('tenant_id', tenantId)
+          .is('storniert_am', null)   // KAN-150 F2: stornierte Analysen gelten nicht
           .order('analyse_datum', { ascending: false })
       : Promise.resolve({ data: [] }),
   ])
