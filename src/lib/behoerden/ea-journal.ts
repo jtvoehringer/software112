@@ -10,6 +10,7 @@
 // KAN-149 D2c (01.10.2026): Stornierte Buchungen und ihre Gegenbuchungen (negativer Betrag) bleiben im Journal –
 // gekennzeichnet (Spalten Storno, Storno-Grund, Storniert am/von); Summen über alle Zeilen stimmen damit.
 
+import { momentaufnahmeAnwenden } from '../stammdaten/momentaufnahme'
 import { STELLEN, type CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
 import { betrag, KONTOART_LABEL, sachkonto, text, zahl } from './buchhaltung-gemeinsam'
@@ -168,11 +169,11 @@ export async function ladeEaJournal(supabase: any, tenantId: string, p: EaJourna
   let q = (supabase.from('ea_transaktionen') as any)
     .select(`id, typ, datum, beschreibung, betrag_netto, ust_satz, ust_betrag, betrag_brutto, abzugsfaehig_pct, betrag_abzugsfaehig,
       is_locked, import_quelle, bank_ref, notizen, verkaufsposten_id, anlage_id, dauerauftrag_id, erstellt_am,
-      storniert_am, storniert_von_name, storno_grund, storno_von_id,
+      storniert_am, storniert_von_name, storno_grund, storno_von_id, stamm_daten,
       kategorie:ea_kategorien!kategorie_id(name, konto_nr),
       konto:konten!konto_id(name, typ),
       firma:firmen!firma_id(name),
-      verkaufsposten(rechnungsnummer, kontakt:kontakte!kontakt_id(vorname, nachname, accountnummer), firma:firmen!firma_id(name, debitor_nr, accountnummer)),
+      verkaufsposten(rechnungsnummer, partner_daten, kontakt:kontakte!kontakt_id(vorname, nachname, accountnummer), firma:firmen!firma_id(name, debitor_nr, accountnummer)),
       ea_belege(dateiname, hochgeladen_am)`)
     .eq('tenant_id', tenantId)
     .gte('datum', `${p.jahr}-01-01`)
@@ -182,6 +183,11 @@ export async function ladeEaJournal(supabase: any, tenantId: string, p: EaJourna
   const { data, error } = await alle<R>(q.order('datum').order('erstellt_am').order('id'))
   if (error) throw new Error(`Laden fehlgeschlagen (ea_transaktionen): ${error.message}`)
 
+  // KAN-150 F1c: Kategorie, Firma und Käufer wie beim Buchen
+  for (const r of data) {
+    momentaufnahmeAnwenden(r, ['kategorie', 'firma'], 'stamm_daten')
+    momentaufnahmeAnwenden(r.verkaufsposten, ['kontakt', 'firma'])
+  }
   const zeilen = data.map(eaJournalZeile)
   const warnungen: string[] = []
   if (p.typ || p.q) {

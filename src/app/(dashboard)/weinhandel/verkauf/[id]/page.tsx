@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { momentaufnahmeAnwenden } from '@/lib/stammdaten/momentaufnahme'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
@@ -65,7 +66,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
       .select(`
         id, datum, rechnungsnummer, notizen, erstellt_am, storniert, storniert_am, storniert_von_name, storno_grund,
         bezahlt, bezahlt_am, skonto_pct, skonto_tage, skonto_aktiv,
-        rechnung_versendet_am, rechnung_versendet_an,
+        rechnung_versendet_am, rechnung_versendet_an, partner_daten,
         kontakt:kontakte!kontakt_id(id, vorname, nachname, email, telefon, strasse, plz, ort, zahlungsziel_tage),
         firma:firmen(id, name, email, telefon, strasse, plz, ort, zahlungsziel_tage),
         zh_kontakt:kontakte!zh_kontakt_id(vorname, nachname),
@@ -95,7 +96,8 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
 
   if (!postenRaw) notFound()
 
-  const posten    = postenRaw as R
+  // KAN-150 F1c: Käufer, Anschrift und z. H. wie beim Anlegen der Rechnung (id/E-Mail weiter aus den Stammdaten)
+  const posten    = momentaufnahmeAnwenden(postenRaw as R, ['kontakt', 'firma', 'zh_kontakt'])
   const positionen = (posten.positionen ?? []) as R[]
   const hasTank   = positionen.some((p: R) => p.typ === 'tank')
   const tankPos   = positionen.filter((p: R) => p.typ === 'tank')

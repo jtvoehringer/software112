@@ -22,6 +22,7 @@
 // und /erntemeldung/[id]) nutzt SPALTEN_TRAUBENVERKAUF_LISTE mit PROFIL_EXCEL_AT.
 // Isomorph (auch in Client-Komponenten) – keine Server-/Next-Importe.
 
+import { momentaufnahmenAnwenden } from '../stammdaten/momentaufnahme'
 import { STELLEN, runden, type CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
 import { bkiFarbe, bkiRebsorteKuerzel, herkunftPruefen, qualitaetBki } from '@/lib/wein/bki_kuerzel'
@@ -269,7 +270,7 @@ export async function ladeBkiTraubenverkauf(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let abfrage = (supabase.from('traubenverkauf') as any)
     .select(`
-      id, datum, liefernummer, menge_kg, kmw_grad, oechsle, mostgewicht_einheit, qualitaetsstufe, herkunft_code, storniert_am,
+      id, datum, liefernummer, menge_kg, kmw_grad, oechsle, mostgewicht_einheit, qualitaetsstufe, herkunft_code, storniert_am, partner_daten,
       weingarten:weingarten_id(name, rebsorte, trauben_herkunft_code, grundstuecke(trauben_herkunft_code)),
       grundstueck:grundstueck_id(rebsorte, trauben_herkunft_code),
       zukauf:zukauf_posten_id(rebsorte, herkunft),
@@ -287,7 +288,7 @@ export async function ladeBkiTraubenverkauf(
   ])
   if (eFehler) throw new Error(`Laden fehlgeschlagen (tenant_einstellungen): ${eFehler.message}`)
   if (vFehler) throw new Error(`Laden fehlgeschlagen (traubenverkauf): ${vFehler.message}`)
-  return bkiZeilen(verkaeufe, (betrieb ?? null) as R | null)
+  return bkiZeilen(momentaufnahmenAnwenden(verkaeufe, ['kontakt', 'firma']), (betrieb ?? null) as R | null)   // KAN-150 F1c: Empfänger wie beim Verkauf
 }
 
 const adr = (feld: keyof Adresse, seite: 'empf' | 'vers', kopf: string): CsvSpalte<BkiZeile> =>

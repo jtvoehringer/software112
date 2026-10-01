@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { momentaufnahmeAnwenden } from '@/lib/stammdaten/momentaufnahme'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
@@ -46,6 +47,7 @@ export async function GET(
   if (!a) return NextResponse.json({ fehler: 'Nicht gefunden' }, { status: 404 })
   const auftrag = a as R; const betrieb = (b ?? {}) as R
   const positionen = (pos ?? []) as R[]
+  momentaufnahmeAnwenden(auftrag, { kontakte: 'kontakt', firmen: 'firma' })   // KAN-150 F1c: Empfänger wie beim Anlegen des Auftrags
   const importeur = auftrag.firmen?.name ?? [auftrag.kontakte?.vorname, auftrag.kontakte?.nachname].filter(Boolean).join(' ') ?? ''
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>

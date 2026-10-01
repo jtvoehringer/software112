@@ -12,6 +12,7 @@
 // Blend-Protokoll (Seite und CSV) und Rückverfolgung nutzen dieselben Funktionen.
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Projektkonvention (supabase.from('…') as any), siehe CLAUDE.md */
+import { momentaufnahmeAnwenden } from '../stammdaten/momentaufnahme'
 import { alle } from '@/lib/supabase/alle'
 import { ohneStornierteVerschnitte } from '@/lib/kellerbuch/stornoFilter'
 import {
@@ -52,6 +53,7 @@ function info(p: Partial<HerkunftInfo> & { typ: HerkunftInfo['typ'] }): Herkunft
 }
 
 function lieferant(z: R): string | null {
+  momentaufnahmeAnwenden(z, ['lieferant_firma', 'lieferant_kontakt'])   // KAN-150 F1c: Lieferant wie beim Zukauf
   const f = (z.lieferant_firma as R | null)?.name ?? null
   const k = z.lieferant_kontakt as R | null
   const kn = k ? [k.vorname, k.nachname].filter(Boolean).join(' ') : ''
@@ -96,7 +98,7 @@ export async function ladeBewegungsgraph(supabase: any, tenantId: string, startI
               weingarten:weingarten_id(id, name), grundstueck:grundstueck_id(gst_nr, katastralgemeinde)))`)
         .in('weinausbau_id', ids).is('storniert_am', null).order('id'), 'Pressungen'),   // KAN-148 C1c: stornierte Pressungszeilen sind keine Herkunft
       liste((supabase.from('zukauf_posten') as any)
-        .select('id, datum, erstellt_am, menge, rebsorte, jahrgang, ziel_weinausbau_id, lieferant_firma:firmen!lieferant_firma_id(name), lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname)')
+        .select('id, datum, erstellt_am, menge, rebsorte, jahrgang, ziel_weinausbau_id, partner_daten, lieferant_firma:firmen!lieferant_firma_id(name), lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname)')
         .eq('tenant_id', tenantId).in('ziel_weinausbau_id', ids).eq('aktiv', true).in('art', ['wein', 'most']).order('id'), 'Zukäufe'),
       liste((supabase.from('keller_umzuege') as any)
         .select('id, datum, erstellt_am, menge_liter, brutto_liter, schwund_liter, umzug_typ, zeilen_typ, umzug_batch_id, von_weinausbau_id, nach_weinausbau_id')
