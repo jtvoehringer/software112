@@ -1,135 +1,241 @@
-// Herkunft-Code (BKI) – Weinrechtliche Herkunftspyramide.
-// Spiegelt bewusst das Muster von weinqualitaet.ts (QUALITAET_ORDER / minQualitaet / istNiedrigerAls),
-// damit beide Felder ("Qualität" und "Herkunft-Code") im Kellerbuch/Verschneiden/Füllen identisch
-// behandelt werden können: Abstufungen sind erlaubt, Aufstufungen nie.
+// Herkunft-Code (BKI) – weinrechtliche Herkunftspyramide für ganz Österreich (KAN-165, 01.10.2026).
 //
-// v1-Scope (mit Nutzer abgestimmt): nur Weinland Niederösterreich (WLNÖ) + Thermenregion DAC.
-// Weitere Weinbaugebiete können später einfach als zusätzliche HERKUNFT_ORDER-Einträge +
-// eigener SORTENSPIEGEL-Eintrag ergänzt werden, ohne das bestehende Modell zu ändern.
+// Bis KAN-165 eine lineare Rangfolge (wein < wlnoe < thermenregion_*). Seither ein BAUM:
+//   Österreich (Wein) › Weinbauregion (Landwein) › Weinbaugebiet (Qualitätswein) › DAC Gebiets-/Orts-/Riedenwein.
+// Abstufen heißt im Baum nach oben gehen; der Verschnitt verschiedener Herkünfte bekommt den
+// gemeinsamen Oberbegriff (Kremstal + Kamptal → Niederösterreich; Niederösterreich + Wien → Landwein
+// Weinland; Niederösterreich + Steiermark → Österreich). Aufstufen ist nie erlaubt.
 //
-// Quelle Thermenregion-Sortenspiegel: BGBl. II Nr. 191/2023 (DAC-Verordnung Thermenregion),
-// geändert durch BGBl. II Nr. 250/2024.
+// Die gespeicherten Codes der v1 (wein, wlnoe, thermenregion_*) bleiben unverändert – bestehende
+// Daten brauchen keine Migration. Eigene Weinbaugebiete (weinbaugebiete_custom, Freitext) und
+// „sonstiges“ liegen außerhalb des Baums: keine Abstufung, kein Sortenspiegel.
+//
+// Quellen (RIS, geltende Fassung, abgerufen 01.10.2026):
+//  - Regionen und Gebiete: § 21 Abs. 2 und 3 Weingesetz 2009 (BGBl. I Nr. 111/2009 idF BGBl. I Nr. 91/2023);
+//    Landwein § 9 Abs. 2, Qualitätswein § 10, Herkunftsangaben § 21 Abs. 6 und 7.
+//  - Sortenspiegel: die DAC-Verordnungen (§ 34 Abs. 1 WeinG), Gesetzesnummer im RIS je Knoten (`quelle`).
+//  - BKI-Kürzel: „Kürzelliste für Weinformulare“ der Bundeskellereiinspektion, Stand 01.10.2024.
+// Sortenspiegel als BKI-Sortenkürzel (lib/wein/bki_kuerzel.ts) – Synonyme wie Morillon/Chardonnay oder
+// Weißburgunder/Weißer Burgunder/Pinot Blanc treffen so dieselbe Sorte. Wo eine Verordnung Verschnitte
+// aus den genannten Sorten erlaubt, ist der passende Sortenverschnitt (SW weiß, SO rot) zugelassen – dessen
+// Zusammensetzung prüft die Software nicht.
 
-// Aufsteigend nach Enge/Anforderung der Herkunftsbezeichnung (breit → eng).
-export const HERKUNFT_ORDER = [
-  'wein',                        // Wein / Landwein – keine Herkunftsangabe
-  'wlnoe',                       // WLNÖ – Weinland Niederösterreich, Qualitätswein g.U.
-  'thermenregion_gebietswein',   // Thermenregion DAC – Gebietswein
-  'thermenregion_ortswein',      // Thermenregion DAC – Ortswein
-  'thermenregion_riedenwein',    // Thermenregion DAC – Riedenwein/Lagenwein
-] as const
+import { bkiRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
 
-export type HerkunftCode = typeof HERKUNFT_ORDER[number] | 'sonstiges' | null
+export type HerkunftEbene = 'oesterreich' | 'landwein' | 'qualitaetswein' | 'dac_gebiet' | 'dac_ort' | 'dac_ried'
 
-export const HERKUNFT_LABEL: Record<string, string> = {
-  wein:                       'Wein / Landwein',
-  wlnoe:                      'WLNÖ – Weinland Niederösterreich (Qualitätswein)',
-  thermenregion_gebietswein:  'Thermenregion DAC – Gebietswein',
-  thermenregion_ortswein:     'Thermenregion DAC – Ortswein',
-  thermenregion_riedenwein:   'Thermenregion DAC – Riedenwein',
-  sonstiges:                  'Sonstiges',
+export type HerkunftKnoten = {
+  code: string
+  label: string
+  /** Übergeordneter Code (eine Stufe breiter); null nur bei „wein“ (Österreich) */
+  eltern: string | null
+  ebene: HerkunftEbene
+  /** Amtliches BKI-Herkunftskürzel (Datenblatt, Weindatenbank) */
+  bki: string
+  /** Weinbaugebiet bzw. Weinbauregion, z. B. „Kremstal“, „Niederösterreich“, „Weinland“ */
+  gebiet: string
+  /** Weinbauregion (Weinland, Steirerland, Bergland); null bei Österreich */
+  region: 'Weinland' | 'Steirerland' | 'Bergland' | null
+  /** Zulässige Rebsorten als BKI-Sortenkürzel; null = keine Einschränkung auf dieser Stufe */
+  sorten: readonly string[] | null
+  /** Rechtsgrundlage (RIS-Gesetzesnummer bzw. Paragraph) */
+  quelle: string
 }
 
-// Zu welchem Weinbaugebiet gehört eine Stufe? (für spätere Mandanten-/Regionsfilterung)
-export const HERKUNFT_REGION: Record<string, string | null> = {
-  wein:                       null,
-  wlnoe:                      'weinland_noe',
-  thermenregion_gebietswein:  'thermenregion',
-  thermenregion_ortswein:     'thermenregion',
-  thermenregion_riedenwein:   'thermenregion',
+const WEING = 'WeinG 2009 § 21'
+const ris = (nr: string, vo: string) => `${vo}, RIS ${nr}`
+
+// Sortenlisten (BKI-Kürzel) ──────────────────────────────────────────────────────────────────────────
+const THERMEN_GEBIET = ['RG', 'ZF', 'WB', 'GR', 'CH', 'NB', 'BB', 'SL', 'BP', 'ZW', 'GW'] as const   // § 3 inkl. „Gemischter Satz“-Flächen
+const THERMEN_ORT    = ['RG', 'ZF', 'WB', 'GR', 'CH', 'BB', 'SL', 'ZW'] as const                     // § 4
+const THERMEN_RIED   = ['RG', 'ZF', 'WB', 'CH', 'BB', 'SL'] as const                                 // § 5
+const GV_RR          = ['GV', 'RR'] as const                                                         // Kremstal, Traisental
+const KAMPTAL        = ['GV', 'RR', 'CH', 'WB', 'GR', 'SW'] as const                                 // § 3 Z 1, sortenrein oder Cuvée
+const WACHAU_GEBIET  = ['GV', 'RR', 'WB', 'GR', 'CH', 'NB', 'MU', 'SB', 'TR', 'FV', 'MT', 'MO', 'RV', 'GW', 'BB', 'SL', 'ZW'] as const
+const WACHAU_ORT     = ['GV', 'RR', 'WB', 'GR', 'CH', 'NB', 'MU', 'SB', 'TR'] as const
+const WAGRAM_GEBIET  = ['CH', 'FV', 'GR', 'GV', 'MU', 'RV', 'SB', 'TR', 'WB', 'RR', 'BB', 'SL', 'ZW', 'SW', 'SO', 'GW'] as const
+const WAGRAM_ORT     = ['CH', 'GV', 'RV', 'WB', 'RR', 'BB', 'ZW'] as const                           // nur sortenrein
+const WAGRAM_RIED    = ['GV', 'RV', 'RR'] as const
+const CARNUNTUM      = ['CH', 'WB', 'GV', 'ZW', 'BF', 'SW', 'SO'] as const                           // Verschnitt mind. 2/3 aus diesen Sorten
+const STMK_GEBIET    = ['WR', 'WB', 'CH', 'GR', 'RR', 'MU', 'SB', 'TR', 'SW'] as const               // § 2 Z 7, „sowie Verschnitte daraus“
+// Ortswein: Leitsorten je Ort laut Anhang – der Ort ist nicht Teil des Codes, geprüft wird die
+// Vereinigung aller Leitsorten des Gebiets (notwendige Bedingung).
+const SUEDSTMK_ORT   = ['SB', 'RR', 'MU', 'CH'] as const
+const VULKAN_ORT     = ['SB', 'WB', 'CH', 'TR', 'GR'] as const                                       // „Burgundercuvée“ (Tieschen) ist nicht definiert – offen
+const WESTSTMK_ORT   = ['BW', 'SB'] as const
+
+function k(
+  code: string, label: string, eltern: string | null, ebene: HerkunftEbene, bki: string, gebiet: string,
+  region: HerkunftKnoten['region'], sorten: readonly string[] | null, quelle: string,
+): HerkunftKnoten {
+  return { code, label, eltern, ebene, bki, gebiet, region, sorten, quelle }
 }
 
-// Sortenspiegel je Stufe: welche Rebsorten (Freitext-Schreibweisen wie im übrigen Code, s. bki_kuerzel.ts)
-// sind zulässig? null = keine Sortenspiegel-Einschränkung auf dieser Stufe.
-const THERMENREGION_GEBIETSWEIN_SORTEN = [
-  'Rotgipfler', 'Zierfandler',
-  'Weißburgunder', 'Pinot Blanc',
-  'Grauburgunder', 'Pinot Gris',
-  'Chardonnay', 'Morillon',
-  'Neuburger',
-  'Blauburgunder', 'Pinot Noir',
-  'St. Laurent', 'Sankt Laurent',
-  'Blauer Portugieser',
-  'Zweigelt',
+/** Alle Herkunftsstufen, vom Breitesten zum Engsten je Ast (Reihenfolge = Auswahllisten). */
+export const HERKUNFT_KATALOG: readonly HerkunftKnoten[] = [
+  k('wein', 'Wein aus Österreich', null, 'oesterreich', 'OEST', 'Österreich', null, null, `${WEING} Abs. 1`),
+
+  // ── Weinland (Burgenland, Niederösterreich, Wien) ──
+  k('weinland', 'Landwein Weinland', 'wein', 'landwein', 'WLXX', 'Weinland', 'Weinland', null, `${WEING} Abs. 2 Z 1, § 9 Abs. 2`),
+  k('wlnoe', 'Niederösterreich – Qualitätswein', 'weinland', 'qualitaetswein', 'WLNO', 'Niederösterreich', 'Weinland', null, `${WEING} Abs. 3 Z 1 lit. k`),
+  k('weinviertel_dac', 'Weinviertel DAC', 'wlnoe', 'dac_gebiet', 'WLWV', 'Weinviertel', 'Weinland', ['GV'], ris('20006693', 'Weinviertel-DAC-VO')),
+  k('kremstal_gebietswein', 'Kremstal DAC – Gebietswein', 'wlnoe', 'dac_gebiet', 'WLKT', 'Kremstal', 'Weinland', GV_RR, ris('20010006', 'Kremstal-DAC-VO')),
+  k('kremstal_ortswein', 'Kremstal DAC – Ortswein', 'kremstal_gebietswein', 'dac_ort', 'WLKT', 'Kremstal', 'Weinland', GV_RR, ris('20010006', 'Kremstal-DAC-VO')),
+  k('kremstal_riedenwein', 'Kremstal DAC – Riedenwein', 'kremstal_ortswein', 'dac_ried', 'WLKT', 'Kremstal', 'Weinland', GV_RR, ris('20010006', 'Kremstal-DAC-VO (Ried nur mit Ortsangabe)')),
+  k('kamptal_gebietswein', 'Kamptal DAC – Gebietswein', 'wlnoe', 'dac_gebiet', 'WLKA', 'Kamptal', 'Weinland', KAMPTAL, ris('20012689', 'Kamptal-DAC-VO')),
+  k('kamptal_ortswein', 'Kamptal DAC – Ortswein', 'kamptal_gebietswein', 'dac_ort', 'WLKA', 'Kamptal', 'Weinland', KAMPTAL, ris('20012689', 'Kamptal-DAC-VO')),
+  k('kamptal_riedenwein', 'Kamptal DAC – Riedenwein', 'kamptal_ortswein', 'dac_ried', 'WLKA', 'Kamptal', 'Weinland', KAMPTAL, ris('20012689', 'Kamptal-DAC-VO')),
+  k('traisental_gebietswein', 'Traisental DAC – Gebietswein', 'wlnoe', 'dac_gebiet', 'WLTT', 'Traisental', 'Weinland', GV_RR, ris('20010004', 'Traisental-DAC-VO')),
+  k('traisental_ortswein', 'Traisental DAC – Ortswein', 'traisental_gebietswein', 'dac_ort', 'WLTT', 'Traisental', 'Weinland', GV_RR, ris('20010004', 'Traisental-DAC-VO')),
+  k('traisental_riedenwein', 'Traisental DAC – Riedenwein', 'traisental_ortswein', 'dac_ried', 'WLTT', 'Traisental', 'Weinland', GV_RR, ris('20010004', 'Traisental-DAC-VO')),
+  k('wachau_gebietswein', 'Wachau DAC – Gebietswein', 'wlnoe', 'dac_gebiet', 'WLWA', 'Wachau', 'Weinland', WACHAU_GEBIET, ris('20011163', 'Wachau-DAC-VO')),
+  k('wachau_ortswein', 'Wachau DAC – Ortswein', 'wachau_gebietswein', 'dac_ort', 'WLWA', 'Wachau', 'Weinland', WACHAU_ORT, ris('20011163', 'Wachau-DAC-VO')),
+  k('wachau_riedenwein', 'Wachau DAC – Riedenwein', 'wachau_ortswein', 'dac_ried', 'WLWA', 'Wachau', 'Weinland', GV_RR, ris('20011163', 'Wachau-DAC-VO')),
+  k('wagram_gebietswein', 'Wagram DAC – Gebietswein', 'wlnoe', 'dac_gebiet', 'WLWG', 'Wagram', 'Weinland', WAGRAM_GEBIET, ris('20011803', 'Wagram-DAC-VO')),
+  k('wagram_ortswein', 'Wagram DAC – Ortswein', 'wagram_gebietswein', 'dac_ort', 'WLWG', 'Wagram', 'Weinland', WAGRAM_ORT, ris('20011803', 'Wagram-DAC-VO')),
+  k('wagram_riedenwein', 'Wagram DAC – Riedenwein', 'wagram_ortswein', 'dac_ried', 'WLWG', 'Wagram', 'Weinland', WAGRAM_RIED, ris('20011803', 'Wagram-DAC-VO')),
+  k('carnuntum_gebietswein', 'Carnuntum DAC – Gebietswein', 'wlnoe', 'dac_gebiet', 'WLCA', 'Carnuntum', 'Weinland', CARNUNTUM, ris('20010766', 'Carnuntum-DAC-VO')),
+  k('carnuntum_ortswein', 'Carnuntum DAC – Ortswein', 'carnuntum_gebietswein', 'dac_ort', 'WLCA', 'Carnuntum', 'Weinland', CARNUNTUM, ris('20010766', 'Carnuntum-DAC-VO')),
+  k('carnuntum_riedenwein', 'Carnuntum DAC – Riedenwein', 'carnuntum_ortswein', 'dac_ried', 'WLCA', 'Carnuntum', 'Weinland', CARNUNTUM, ris('20010766', 'Carnuntum-DAC-VO')),
+  k('thermenregion_gebietswein', 'Thermenregion DAC – Gebietswein', 'wlnoe', 'dac_gebiet', 'WLTH', 'Thermenregion', 'Weinland', THERMEN_GEBIET, ris('20012293', 'Thermenregion-DAC-VO')),
+  k('thermenregion_ortswein', 'Thermenregion DAC – Ortswein', 'thermenregion_gebietswein', 'dac_ort', 'WLTH', 'Thermenregion', 'Weinland', THERMEN_ORT, ris('20012293', 'Thermenregion-DAC-VO')),
+  k('thermenregion_riedenwein', 'Thermenregion DAC – Riedenwein', 'thermenregion_ortswein', 'dac_ried', 'WLTH', 'Thermenregion', 'Weinland', THERMEN_RIED, ris('20012293', 'Thermenregion-DAC-VO')),
+
+  k('burgenland', 'Burgenland – Qualitätswein', 'weinland', 'qualitaetswein', 'WLBL', 'Burgenland', 'Weinland', null, `${WEING} Abs. 3 Z 1 lit. j`),
+  // Neusiedlersee: Zweigelt; fruchtsüß/edelsüß alle weißen Qualitätsrebsorten – hängt am Prädikat, daher hier keine Sortenprüfung
+  k('neusiedlersee_dac', 'Neusiedlersee DAC', 'burgenland', 'dac_gebiet', 'WLNS', 'Neusiedlersee', 'Weinland', null, ris('20011293', 'Neusiedlersee-DAC-VO')),
+  k('leithaberg_dac', 'Leithaberg DAC', 'burgenland', 'dac_gebiet', 'WLLB', 'Leithaberg', 'Weinland', ['BF', 'WB', 'CH', 'NB', 'GV', 'SW'], ris('20006414', 'Leithaberg-DAC-VO')),
+  k('mittelburgenland_dac', 'Mittelburgenland DAC', 'burgenland', 'dac_gebiet', 'WLMB', 'Mittelburgenland', 'Weinland', ['BF'], ris('20006694', 'Mittelburgenland-DAC-VO')),
+  k('eisenberg_gebietswein', 'Eisenberg DAC – Gebietswein', 'burgenland', 'dac_gebiet', 'WLEB', 'Eisenberg', 'Weinland', ['BF'], ris('20012292', 'Eisenberg-DAC-VO')),
+  k('eisenberg_ortswein', 'Eisenberg DAC – Ortswein', 'eisenberg_gebietswein', 'dac_ort', 'WLEB', 'Eisenberg', 'Weinland', ['BF', 'WR'], ris('20012292', 'Eisenberg-DAC-VO')),
+  k('eisenberg_riedenwein', 'Eisenberg DAC – Riedenwein', 'eisenberg_ortswein', 'dac_ried', 'WLEB', 'Eisenberg', 'Weinland', ['BF', 'WR'], ris('20012292', 'Eisenberg-DAC-VO')),
+  // Rosalia DAC: Blaufränkisch oder Zweigelt; „Rosalia DAC Rosé“ aus roten Qualitätsrebsorten (Sortenverschnitt Rosé)
+  k('rosalia_dac', 'Rosalia DAC', 'burgenland', 'dac_gebiet', 'WLRO', 'Rosalia', 'Weinland', ['BF', 'ZW', 'SR'], ris('20010167', 'Rosalia-DAC-VO')),
+  // Ruster Ausbruch: weiße Qualitätsrebsorten, Anforderungen einer Trockenbeerenauslese – hängt am Prädikat
+  k('ruster_ausbruch_dac', 'Ruster Ausbruch DAC', 'burgenland', 'dac_gebiet', 'WLRU', 'Ruster Ausbruch', 'Weinland', null, ris('20011292', 'Ruster-Ausbruch-DAC-VO')),
+
+  k('wien', 'Wien – Qualitätswein', 'weinland', 'qualitaetswein', 'WIEN', 'Wien', 'Weinland', null, `${WEING} Abs. 3 Z 1 lit. i`),
+  // Wiener Gemischter Satz: mind. 3 weiße Qualitätsrebsorten aus einem Gemischten-Satz-Weingarten (BKI GW)
+  k('wiener_gemischter_satz_dac', 'Wiener Gemischter Satz DAC', 'wien', 'dac_gebiet', 'WIEN', 'Wien', 'Weinland', ['GW'], ris('20008544', 'Wiener-Gemischter-Satz-DAC-VO')),
+
+  // ── Steirerland (Steiermark) ──
+  k('steirerland', 'Landwein Steirerland', 'wein', 'landwein', 'SLXX', 'Steirerland', 'Steirerland', null, `${WEING} Abs. 2 Z 3, § 9 Abs. 2`),
+  k('steiermark', 'Steiermark – Qualitätswein', 'steirerland', 'qualitaetswein', 'SLST', 'Steiermark', 'Steirerland', null, `${WEING} Abs. 3 Z 3`),
+  // Steiermark: Riedenwein hängt am Gebietswein (Rieden auch außerhalb der Ortsgebiete, § 9 Abs. 7), Sorten wie Gebietswein (§ 9)
+  k('suedsteiermark_gebietswein', 'Südsteiermark DAC – Gebietswein', 'steiermark', 'dac_gebiet', 'SLSS', 'Südsteiermark', 'Steirerland', STMK_GEBIET, ris('20010438', 'Südsteiermark-DAC-VO')),
+  k('suedsteiermark_ortswein', 'Südsteiermark DAC – Ortswein', 'suedsteiermark_gebietswein', 'dac_ort', 'SLSS', 'Südsteiermark', 'Steirerland', SUEDSTMK_ORT, ris('20010438', 'Südsteiermark-DAC-VO, Anhang Leitsorten')),
+  k('suedsteiermark_riedenwein', 'Südsteiermark DAC – Riedenwein', 'suedsteiermark_gebietswein', 'dac_ried', 'SLSS', 'Südsteiermark', 'Steirerland', STMK_GEBIET, ris('20010438', 'Südsteiermark-DAC-VO § 9')),
+  k('vulkanland_gebietswein', 'Vulkanland Steiermark DAC – Gebietswein', 'steiermark', 'dac_gebiet', 'SLVL', 'Vulkanland Steiermark', 'Steirerland', STMK_GEBIET, ris('20010439', 'Vulkanland-Steiermark-DAC-VO')),
+  k('vulkanland_ortswein', 'Vulkanland Steiermark DAC – Ortswein', 'vulkanland_gebietswein', 'dac_ort', 'SLVL', 'Vulkanland Steiermark', 'Steirerland', VULKAN_ORT, ris('20010439', 'Vulkanland-Steiermark-DAC-VO, Anhang Leitsorten')),
+  k('vulkanland_riedenwein', 'Vulkanland Steiermark DAC – Riedenwein', 'vulkanland_gebietswein', 'dac_ried', 'SLVL', 'Vulkanland Steiermark', 'Steirerland', STMK_GEBIET, ris('20010439', 'Vulkanland-Steiermark-DAC-VO § 9')),
+  k('weststeiermark_gebietswein', 'Weststeiermark DAC – Gebietswein', 'steiermark', 'dac_gebiet', 'SLWS', 'Weststeiermark', 'Steirerland', ['BW', ...STMK_GEBIET], ris('20010440', 'Weststeiermark-DAC-VO')),
+  k('weststeiermark_ortswein', 'Weststeiermark DAC – Ortswein', 'weststeiermark_gebietswein', 'dac_ort', 'SLWS', 'Weststeiermark', 'Steirerland', WESTSTMK_ORT, ris('20010440', 'Weststeiermark-DAC-VO, Anhang Leitsorten')),
+  k('weststeiermark_riedenwein', 'Weststeiermark DAC – Riedenwein', 'weststeiermark_gebietswein', 'dac_ried', 'SLWS', 'Weststeiermark', 'Steirerland', ['BW', ...STMK_GEBIET], ris('20010440', 'Weststeiermark-DAC-VO § 9')),
+
+  // ── Bergland (Kärnten, Oberösterreich, Salzburg, Tirol, Vorarlberg) – keine DAC ──
+  k('bergland', 'Landwein Bergland', 'wein', 'landwein', 'BLXX', 'Bergland', 'Bergland', null, `${WEING} Abs. 2 Z 2, § 9 Abs. 2`),
+  k('kaernten', 'Kärnten – Qualitätswein', 'bergland', 'qualitaetswein', 'BLKA', 'Kärnten', 'Bergland', null, `${WEING} Abs. 3 Z 2`),
+  k('oberoesterreich', 'Oberösterreich – Qualitätswein', 'bergland', 'qualitaetswein', 'BLOO', 'Oberösterreich', 'Bergland', null, `${WEING} Abs. 3 Z 2`),
+  k('salzburg', 'Salzburg – Qualitätswein', 'bergland', 'qualitaetswein', 'BLSB', 'Salzburg', 'Bergland', null, `${WEING} Abs. 3 Z 2`),
+  k('tirol', 'Tirol – Qualitätswein', 'bergland', 'qualitaetswein', 'BLTI', 'Tirol', 'Bergland', null, `${WEING} Abs. 3 Z 2`),
+  k('vorarlberg', 'Vorarlberg – Qualitätswein', 'bergland', 'qualitaetswein', 'BLVO', 'Vorarlberg', 'Bergland', null, `${WEING} Abs. 3 Z 2`),
 ]
 
-const THERMENREGION_ORTSWEIN_SORTEN = THERMENREGION_GEBIETSWEIN_SORTEN.filter(
-  s => s !== 'Neuburger' && s !== 'Blauer Portugieser'
-)
+const KNOTEN = new Map(HERKUNFT_KATALOG.map(n => [n.code, n]))
 
-const THERMENREGION_RIEDENWEIN_SORTEN = THERMENREGION_ORTSWEIN_SORTEN.filter(
-  s => s !== 'Grauburgunder' && s !== 'Pinot Gris' && s !== 'Zweigelt'
-)
+/** Alle Codes des Baums in Katalog-Reihenfolge (Auswahllisten, Tests). */
+export const HERKUNFT_ORDER: readonly string[] = HERKUNFT_KATALOG.map(n => n.code)
 
-export const SORTENSPIEGEL: Record<string, string[] | null> = {
-  wein:                       null,
-  wlnoe:                      null, // Qualitätswein g.U. – allgemeine Qualitätsweinsorten, keine Einschränkung
-  thermenregion_gebietswein:  THERMENREGION_GEBIETSWEIN_SORTEN,
-  thermenregion_ortswein:     THERMENREGION_ORTSWEIN_SORTEN,
-  thermenregion_riedenwein:   THERMENREGION_RIEDENWEIN_SORTEN,
+export type HerkunftCode = string | null
+
+export const HERKUNFT_LABEL: Record<string, string> = {
+  ...Object.fromEntries(HERKUNFT_KATALOG.map(n => [n.code, n.label])),
+  sonstiges: 'Sonstiges',
+}
+
+/** Katalogeintrag zu einem Code (undefined bei eigenen Weinbaugebieten, „sonstiges“, leer). */
+export function herkunftKnoten(code: string | null | undefined): HerkunftKnoten | undefined {
+  return code ? KNOTEN.get(code) : undefined
+}
+
+/** Weinbaugebiet (bzw. Region) eines Codes, z. B. „Kremstal“ – null außerhalb des Katalogs. */
+export function herkunftGebiet(code: string | null | undefined): string | null {
+  return herkunftKnoten(code)?.gebiet ?? null
+}
+
+/** Auswahlgruppen für Formulare: Österreich, dann je Weinbauregion. */
+export const HERKUNFT_GRUPPEN: readonly { label: string; codes: readonly string[] }[] = [
+  { label: 'Österreich', codes: HERKUNFT_KATALOG.filter(n => n.region === null).map(n => n.code) },
+  ...(['Weinland', 'Steirerland', 'Bergland'] as const).map(r => ({
+    label: r === 'Weinland' ? 'Weinland (Niederösterreich, Burgenland, Wien)' : r === 'Steirerland' ? 'Steirerland (Steiermark)' : 'Bergland',
+    codes: HERKUNFT_KATALOG.filter(n => n.region === r).map(n => n.code),
+  })),
+]
+
+/** Auswahl-Optionen samt Gruppe (Weinbauregion) – optional auf bestimmte Codes beschränkt (Abstufung). */
+export function herkunftOptionen(nur?: readonly string[]): { value: string; label: string; gruppe: string }[] {
+  const erlaubt = nur ? new Set(nur) : null
+  return HERKUNFT_GRUPPEN.flatMap(g => g.codes
+    .filter(c => !erlaubt || erlaubt.has(c))
+    .map(c => ({ value: c, label: HERKUNFT_LABEL[c], gruppe: g.label })))
+}
+
+/** Der Code selbst und alle übergeordneten Stufen, vom Engsten zum Breitesten. Leer außerhalb des Katalogs. */
+export function herkunftKette(code: string | null | undefined): string[] {
+  const kette: string[] = []
+  let n = herkunftKnoten(code)
+  while (n) { kette.push(n.code); n = n.eltern ? KNOTEN.get(n.eltern) : undefined }
+  return kette
 }
 
 /** Prüft ob eine Rebsorte auf der gegebenen Herkunftsstufe laut Sortenspiegel zulässig ist. */
 export function istRebsorteZulaessig(code: string | null | undefined, rebsorte: string | null | undefined): boolean {
-  if (!code) return true
-  const liste = SORTENSPIEGEL[code]
-  if (liste === undefined) return true // unbekannter Code (z.B. 'sonstiges') -> keine Prüfung
-  if (liste === null) return true // keine Einschränkung auf dieser Stufe
-  if (!rebsorte) return true // Rebsorte (noch) unbekannt -> nicht blockieren, nur bei bekannter Sorte prüfen
-  return liste.includes(rebsorte)
+  const n = herkunftKnoten(code)
+  if (!n || n.sorten === null) return true        // außerhalb des Katalogs bzw. keine Einschränkung
+  if (!rebsorte) return true                       // Rebsorte (noch) unbekannt → nicht blockieren
+  const kuerzel = bkiRebsorteKuerzel(rebsorte)
+  return !!kuerzel && n.sorten.includes(kuerzel)
 }
 
-/** Gibt den niedrigsten (breitesten) Herkunft-Code unter den übergebenen zurück.
- *  Wird für die Abstufung beim Verschneiden verwendet (min. Herkunft aller Beteiligten gewinnt). */
+/** Gemeinsamer Oberbegriff aller übergebenen Herkünfte (Abstufung beim Verschneiden bzw. Pressen):
+ *  engste Stufe, die alle enthält. Eigene Weinbaugebiete, „sonstiges“ und leere Werte zählen nicht. */
 export function minHerkunft(codes: (string | null | undefined)[]): string | null {
-  let minIdx = Infinity
-  let minVal: string | null = null
+  let gemeinsam: string[] | null = null
   for (const c of codes) {
-    if (!c || c === 'sonstiges') continue
-    const idx = HERKUNFT_ORDER.indexOf(c as typeof HERKUNFT_ORDER[number])
-    if (idx !== -1 && idx < minIdx) { minIdx = idx; minVal = c }
+    const kette = herkunftKette(c)
+    if (kette.length === 0) continue
+    gemeinsam = gemeinsam === null ? kette : gemeinsam.filter(x => kette.includes(x))
   }
-  return minVal
+  return gemeinsam?.[0] ?? null
 }
 
-/** Gibt den höchsten (engsten) Herkunft-Code unter den übergebenen zurück (für "abgestuft von X auf Y"-Meldungen). */
+/** Engste der übergebenen Herkünfte (für „abgestuft von X auf Y“-Meldungen): größte Tiefe im Baum. */
 export function maxHerkunft(codes: (string | null | undefined)[]): string | null {
-  let maxIdx = -1
-  let maxVal: string | null = null
+  let best: string | null = null
+  let bestTiefe = -1
   for (const c of codes) {
-    if (!c || c === 'sonstiges') continue
-    const idx = HERKUNFT_ORDER.indexOf(c as typeof HERKUNFT_ORDER[number])
-    if (idx !== -1 && idx > maxIdx) { maxIdx = idx; maxVal = c }
+    const tiefe = herkunftKette(c).length
+    if (tiefe > bestTiefe) { bestTiefe = tiefe; best = c ?? null }
   }
-  return maxVal
+  return bestTiefe > 0 ? best : null
 }
 
-/** Prüft ob Herkunft-Code `a` im Rang niedriger (breiter) ist als `b`. */
+/** Ist `a` eine echte übergeordnete (breitere) Stufe von `b`? Nur dann ist b → a eine Abstufung. */
 export function istNiedrigerAls(a: string | null | undefined, b: string | null | undefined): boolean {
-  if (!a || !b) return false
-  const idxA = HERKUNFT_ORDER.indexOf(a as typeof HERKUNFT_ORDER[number])
-  const idxB = HERKUNFT_ORDER.indexOf(b as typeof HERKUNFT_ORDER[number])
-  if (idxA === -1 || idxB === -1) return false
-  return idxA < idxB
+  if (!a || !b || a === b) return false
+  return herkunftKette(b).includes(a)
 }
 
-/** Sucht ausgehend von `code` abwärts die höchste Herkunftsstufe, auf der `rebsorte` laut
+/** Sucht ausgehend von `code` nach oben die engste Herkunftsstufe, auf der `rebsorte` laut
  *  Sortenspiegel zulässig ist (automatische Abstufung bei Sortenspiegel-Verstoß).
- *  Gibt den ursprünglichen Code zurück, falls er bereits zulässig ist oder Rebsorte unbekannt ist. */
+ *  Gibt den ursprünglichen Code zurück, falls er bereits zulässig ist oder die Rebsorte unbekannt ist. */
 export function findePassendeHerkunftsstufe(
   code: string | null | undefined,
-  rebsorte: string | null | undefined
+  rebsorte: string | null | undefined,
 ): { code: string | null; abgestuft: boolean } {
-  if (!code || code === 'sonstiges' || !rebsorte) return { code: code ?? null, abgestuft: false }
-  const startIdx = HERKUNFT_ORDER.indexOf(code as typeof HERKUNFT_ORDER[number])
-  if (startIdx === -1) return { code, abgestuft: false }
-  if (istRebsorteZulaessig(code, rebsorte)) return { code, abgestuft: false }
-  for (let idx = startIdx - 1; idx >= 0; idx--) {
-    const kandidat = HERKUNFT_ORDER[idx]
-    if (istRebsorteZulaessig(kandidat, rebsorte)) {
-      return { code: kandidat, abgestuft: true }
-    }
+  if (!code || !rebsorte || !herkunftKnoten(code)) return { code: code ?? null, abgestuft: false }
+  for (const kandidat of herkunftKette(code)) {
+    if (istRebsorteZulaessig(kandidat, rebsorte)) return { code: kandidat, abgestuft: kandidat !== code }
   }
-  // Sollte nie eintreten, da 'wein'/'wlnoe' keine Einschränkung haben – Fallback sicherheitshalber.
-  return { code: 'wein', abgestuft: true }
+  return { code: 'wein', abgestuft: true }   // „wein“ hat keine Einschränkung – nur zur Sicherheit
 }

@@ -6,7 +6,7 @@ import { createGrundstueck, updateGrundstueck, deleteGrundstueck, setzeGrundstue
 import { wienHeute } from '@/lib/csv'
 import { fmtHa } from '@/lib/format'
 import { getKgBezeichnung } from '@/lib/wein/katastralgemeinden'
-import { HERKUNFT_ORDER, HERKUNFT_LABEL } from '@/lib/herkunft'
+import { HERKUNFT_LABEL, herkunftOptionen } from '@/lib/herkunft'
 
 /** Kurzform des Herkunft-Codes für die Grundstückstabelle (vollständig im Tooltip) */
 function herkunftKurz(code: string): string {
@@ -21,7 +21,7 @@ import { NUTZART_OPTIONS, NutzungBadge } from '@/lib/wein/grundstueckStatus'
 import { fehlerText } from '@/lib/fehler'
 import { MASSNAHMEN_ART_LABEL } from '@/lib/behandlungen/arten'
 
-const HERKUNFT_OPTIONS = HERKUNFT_ORDER.map(code => ({ value: code, label: HERKUNFT_LABEL[code] }))
+const HERKUNFT_OPTIONS = herkunftOptionen()   // KAN-165: alle Weinbaugebiete Österreichs, nach Region gruppiert
 
 export type GST = {
   id: string; weingarten_id: string; gst_nr: string

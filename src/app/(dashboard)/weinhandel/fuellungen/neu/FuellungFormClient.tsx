@@ -4,7 +4,7 @@ import { useState, useMemo, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from '@/components/ui/Link'
 import { KN_CODES } from '@/lib/wein/zolltarif'
-import { HERKUNFT_ORDER, HERKUNFT_LABEL, istNiedrigerAls as istHerkunftNiedriger } from '@/lib/herkunft'
+import { HERKUNFT_ORDER, HERKUNFT_LABEL, herkunftOptionen, istNiedrigerAls as istHerkunftNiedriger } from '@/lib/herkunft'
 import { QUALITAET_LABEL, istNiedrigerAls as istQualitaetNiedriger } from '@/lib/weinqualitaet'
 import { FUELLUNG_QUALITAETEN } from '@/lib/wein/qualitaet'
 import { AlertTriangle, CheckCircle2, Droplet } from 'lucide-react'
@@ -131,7 +131,7 @@ export default function FuellungFormClient({
     const codes = !aktuellIstRanking
       ? HERKUNFT_ORDER
       : HERKUNFT_ORDER.filter(code => code === aktuell || istHerkunftNiedriger(code, aktuell as string))
-    return codes.map(code => ({ value: code, label: HERKUNFT_LABEL[code] }))
+    return herkunftOptionen(codes)
   }, [selectedCharge])
 
   // Auto-Berechnung: Flaschen × Flaschengröße

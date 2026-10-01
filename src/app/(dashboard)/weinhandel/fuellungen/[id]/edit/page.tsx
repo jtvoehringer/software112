@@ -6,7 +6,7 @@ import Link from '@/components/ui/Link'
 import { Wine } from 'lucide-react'
 import { updateFuellung } from '../../../actions'
 import { KN_CODES } from '@/lib/wein/zolltarif'
-import { HERKUNFT_ORDER, HERKUNFT_LABEL, istNiedrigerAls as istHerkunftNiedriger } from '@/lib/herkunft'
+import { HERKUNFT_ORDER, HERKUNFT_LABEL, herkunftOptionen, istNiedrigerAls as istHerkunftNiedriger } from '@/lib/herkunft'
 import { QUALITAET_LABEL, istNiedrigerAls as istQualitaetNiedriger } from '@/lib/weinqualitaet'
 import { FUELLUNG_QUALITAETEN, mitGespeichertemWert } from '@/lib/wein/qualitaet'
 import { ladeCustomWeinbaugebiete } from '../../../../weinbaugebiete/actions'
@@ -159,7 +159,7 @@ export default async function EditFuellungPage({
     const codes = aktuellIstRanking
       ? HERKUNFT_ORDER.filter(code => code === waCeilingHerkunft || istHerkunftNiedriger(code, waCeilingHerkunft as string))
       : HERKUNFT_ORDER
-    return codes.map(code => ({ value: code, label: HERKUNFT_LABEL[code] }))
+    return herkunftOptionen(codes)
   })()
 
   // Bereits gespeicherter eigener Wert bleibt wählbar, auch falls das Weinbaugebiet

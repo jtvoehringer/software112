@@ -4,7 +4,19 @@ import { useState } from 'react'
 import { createCustomWeinbaugebiet, type CustomWeinbaugebiet } from '@/app/(dashboard)/weinbaugebiete/actions'
 import { fehlerText } from '@/lib/fehler'
 
-type Option = { value: string; label: string }
+/** gruppe (optional, KAN-165): Weinbauregion – aufeinanderfolgende Optionen derselben Gruppe werden als optgroup gezeigt */
+type Option = { value: string; label: string; gruppe?: string }
+
+function gruppiert(optionen: Option[]): { gruppe: string | null; optionen: Option[] }[] {
+  const out: { gruppe: string | null; optionen: Option[] }[] = []
+  for (const o of optionen) {
+    const g = o.gruppe ?? null
+    const letzte = out[out.length - 1]
+    if (letzte && letzte.gruppe === g) letzte.optionen.push(o)
+    else out.push({ gruppe: g, optionen: [o] })
+  }
+  return out
+}
 
 // Herkunft-Code(BKI)-Auswahl mit Inline-"+ Neues Weinbaugebiet hinzufügen".
 // `builtinOptions` sind die fix hinterlegten, ranggeprüften Stufen aus
@@ -129,9 +141,11 @@ export default function HerkunftCodeSelect({
           className={className}
         >
           <option value="">{emptyLabel}</option>
-          {builtinOptions.map(o => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
+          {gruppiert(builtinOptions).map((g, i) => g.gruppe ? (
+            <optgroup key={`${g.gruppe}-${i}`} label={g.gruppe}>
+              {g.optionen.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </optgroup>
+          ) : g.optionen.map(o => <option key={o.value} value={o.value}>{o.label}</option>))}
           {eigene.length > 0 && (
             <optgroup label="Eigene Weinbaugebiete">
               {eigene.map(w => (

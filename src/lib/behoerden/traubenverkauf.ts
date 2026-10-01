@@ -122,7 +122,7 @@ function herkunftDerRiedGrundstuecke(v: R): HerkunftQuelle | null {
  * Herkunft einer Lieferung als amtliches BKI-Kürzel (KAN-36): am Verkauf erfasst → Grundstück
  * → Ried → Grundstücke des Rieds → Zukauf. Es zählt die erste Quelle mit einem Wert; nur über
  * LEERE Quellen wird weitergeschaltet. Ist der erste erfasste Wert nicht abbildbar (Freitext,
- * eigenes Weinbaugebiet, „wein“/„sonstiges“), bleibt die Spalte leer – kein Ersatz aus einer
+ * eigenes Weinbaugebiet, „sonstiges“), bleibt die Spalte leer – kein Ersatz aus einer
  * gröberen Quelle, denn der genauere Wert kann eine bewusste Abstufung sein (traubenverkauf.
  * herkunft_code ist die Kopie zum Erfassungszeitpunkt; lib/herkunft.ts: Aufstufungen nie).
  * Höchstens ein Hinweis je Lieferung: keine Herkunft erfasst bzw. keine gültige (Spalte leer).

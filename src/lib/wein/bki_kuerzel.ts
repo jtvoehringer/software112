@@ -1,4 +1,6 @@
-import { HERKUNFT_LABEL } from '@/lib/herkunft'
+// lib/herkunft importiert bkiRebsorteKuerzel (Sortenspiegel) – deshalb hier nur zur Aufrufzeit auf den Katalog
+// zugreifen (kein Zugriff beim Laden des Moduls, sonst bricht der Import-Zyklus je nach Ladereihenfolge)
+import { herkunftKnoten, HERKUNFT_LABEL } from '@/lib/herkunft'
 
 /**
  * Mapping Rebsorten-Freitext → offizielles BKI-Kürzel.
@@ -334,24 +336,13 @@ export const HERKUNFT_BKI: Record<string, string> = {
 }
 
 /**
- * Herkunftsstufen aus lib/herkunft.ts (Migration 132; gespeichert in grundstuecke, ernte_parzellen,
- * weinausbau, fuellungen und als Kopie in traubenverkauf.herkunft_code) sind KEINE BKI-Kürzel.
- * Abgebildet nur, wo das Weinbaugebiet eindeutig ist – HERKUNFT_REGION in lib/herkunft.ts, ebenso
- * der DKB-Import vom 16.09.2026 (docs/Kellergemeinschaft.md: WLNO → wlnoe, WLTH → thermenregion_*).
- * „wein“ (Wein / Landwein) ist offen – Österreich (OEST) oder eine Landweinregion (…XX) –,
- * „sonstiges“ ebenso; beide bleiben leer.
+ * Herkunftsstufen aus lib/herkunft.ts (gespeichert in grundstuecke, ernte_parzellen, weinausbau, fuellungen
+ * und als Kopie in traubenverkauf.herkunft_code) sind KEINE BKI-Kürzel. Seit KAN-165 trägt jeder Katalogeintrag
+ * sein Kürzel selbst (HerkunftKnoten.bki) – „wein“ = Österreich (OEST), Landwein = Region (…XX). Eigene
+ * Weinbaugebiete und „sonstiges“ bleiben leer.
  */
-export const HERKUNFT_STUFE_BKI: Record<string, string> = {
-  'wlnoe':                     'WLNO',
-  'thermenregion_gebietswein': 'WLTH',
-  'thermenregion_ortswein':    'WLTH',
-  'thermenregion_riedenwein':  'WLTH',
-}
-
 // Maps statt Objekt-Lookup: Freitext wie „constructor“ darf keinen Prototyp-Eintrag treffen
 const HERKUNFT_KUERZEL = new Set(Object.values(HERKUNFT_BKI))
-const HERKUNFT_STUFE = new Map(Object.entries(HERKUNFT_STUFE_BKI))
-const HERKUNFT_ANZEIGE = new Map(Object.entries(HERKUNFT_LABEL))
 let herkunftNachName: Map<string, string> | null = null
 
 /**
@@ -368,17 +359,15 @@ export function herkunftPruefen(wert: string | null | undefined, quelle?: string
   if (!roh) return { kuerzel: '', grund: null }
   const gross = roh.toUpperCase()
   if (HERKUNFT_KUERZEL.has(gross)) return { kuerzel: gross, grund: null }
-  const stufe = HERKUNFT_STUFE.get(roh.toLowerCase())
+  const stufe = herkunftKnoten(roh.toLowerCase())?.bki
   if (stufe) return { kuerzel: stufe, grund: null }
   if (!herkunftNachName) {
     herkunftNachName = new Map(Object.entries(HERKUNFT_BKI).map(([name, k]) => [sortenSchluessel(name), k]))
   }
   const nachName = herkunftNachName.get(sortenSchluessel(roh))
   if (nachName) return { kuerzel: nachName, grund: null }
-  const bezug = `Herkunft „${HERKUNFT_ANZEIGE.get(roh) ?? roh}“${quelle ? ` (${quelle})` : ''}`
-  if (roh === 'wein') {
-    return { kuerzel: '', grund: `${bezug} ist keinem BKI-Herkunftskürzel eindeutig zuzuordnen (Österreich OEST oder eine Landweinregion wie Weinland WLXX)` }
-  }
+  const anzeige = Object.prototype.hasOwnProperty.call(HERKUNFT_LABEL, roh) ? HERKUNFT_LABEL[roh] : roh
+  const bezug = `Herkunft „${anzeige}“${quelle ? ` (${quelle})` : ''}`
   return { kuerzel: '', grund: `${bezug} ist kein BKI-Herkunftskürzel` }
 }
 
