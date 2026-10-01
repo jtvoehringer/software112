@@ -7,7 +7,7 @@ import { ladeFinanzen } from '@/lib/finanzen/uebersicht'
 import { ladeMorgenbericht } from '@/lib/morgenbericht/erstellen'
 import { canWrite } from '@/lib/auth/roles'
 import MorgenberichtKarte from './morgenbericht/MorgenberichtKarte'
-import { TrendingUp } from 'lucide-react'
+import { TrendingUp, ArrowRightLeft } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'Übersicht – software:112' }
 export const dynamic = 'force-dynamic'
@@ -76,12 +76,33 @@ export default async function UebersichtPage() {
   // Termine/Aufgaben stehen seit 22.9.2026 in der eigenen Karte „Aufgaben & Termine“ (Meine / Betrieb)
   schritte.sort((a, b) => a.rang - b.rang)
 
+  // ── Schnellaktionen nur am Handy (KAN-181): je nach Schreibrecht im Modul ──
+  const schnellaktionen = [
+    { href: '/erntemeldung/erfassen',        icon: Grape,          label: 'Lese erfassen', modul: 'rieden' as const },
+    { href: '/behandlungen/neu',             icon: FlaskConical,   label: 'Maßnahme',      modul: 'rieden' as const },
+    { href: '/kellerbuch/umziehen?neu=1',    icon: ArrowRightLeft, label: 'Umziehen',      modul: 'kellerbuch' as const },
+    { href: '/weinhandel/verkauf/neu',       icon: ShoppingCart,   label: 'Verkauf',       modul: 'warenwirtschaft' as const },
+  ].filter(a => canWrite(ctx.role, a.modul))
+
   return (
     <div className="space-y-6 2xl:space-y-4">
       <DashHeader einzeilig
         title={`${gruss}${vorname ? `, ${vorname}` : ''} 👋`}
-        sub={<>Kellerbuch, Weingarten, Verkauf und Meldungen an einem Ort – alles, was heute ansteht, auf einen Blick. {ctx.tenantName && <span className="text-s112-tertiary">{ctx.tenantName} · </span>}<span className="text-s112-tertiary">Stand {fmtDate(ctx.heute, { weekday: 'long', day: '2-digit', month: 'long' })}</span></>}
+        sub={<><span className="max-sm:hidden">Kellerbuch, Weingarten, Verkauf und Meldungen an einem Ort – alles, was heute ansteht, auf einen Blick. </span>{ctx.tenantName && <span className="text-s112-tertiary">{ctx.tenantName} · </span>}<span className="text-s112-tertiary">Stand {fmtDate(ctx.heute, { weekday: 'long', day: '2-digit', month: 'long' })}</span></>}
       />
+
+      {/* ── Schnellaktionen (nur Handy) ─────────────────────────────────────── */}
+      {schnellaktionen.length > 0 && (
+        <div className="sm:hidden grid grid-cols-2 gap-2">
+          {schnellaktionen.map(a => (
+            <Link key={a.href} href={a.href}
+              className="bg-white border border-s112-line rounded-xl px-3 py-3 flex items-center gap-2 text-base font-medium text-s112-text">
+              <a.icon size={20} strokeWidth={1.75} className="text-s112-blue-700 shrink-0" aria-hidden="true" />
+              <span>{a.label}</span>
+            </Link>
+          ))}
+        </div>
+      )}
 
       {/* ── Kennzahlen ─────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
@@ -115,7 +136,7 @@ export default async function UebersichtPage() {
                 <span className="font-display font-semibold text-[14.5px] text-s112-text">Finanzen {jahr}</span>
                 <span className="text-[12px] text-s112-tertiary">bis heute · {einst.doppik ? 'Belege für den Steuerberater' : 'E&A-Rechnung'}</span>
               </div>
-              <div className="flex items-center gap-6 flex-wrap text-[13px]">
+              <div className="flex items-center gap-x-6 gap-y-1 sm:gap-y-6 flex-wrap text-[13px]">
                 <span><span className="text-s112-text-2">Ergebnis </span><span className={`font-mono font-semibold ${f.ytd.ergebnis < 0 ? 'text-s112-err-fg' : ''}`}>{fmtEur(f.ytd.ergebnis)}</span>{d !== null && <span className={`ml-1 text-[12px] ${d < 0 ? 'text-s112-err-fg' : 'text-s112-ok-fg'}`}>{d >= 0 ? '+' : ''}{d.toFixed(0)} % VJ</span>}</span>
                 <span><span className="text-s112-text-2">Liquidität </span><span className={`font-mono font-semibold ${f.liquiditaet.summe < 0 ? 'text-s112-err-fg' : ''}`}>{fmtEur(f.liquiditaet.summe)}</span></span>
                 <span><span className="text-s112-text-2">Forderungen </span><span className="font-mono font-semibold">{fmtEur(f.forderungen.summe)}</span></span>
@@ -173,7 +194,8 @@ export default async function UebersichtPage() {
         </Card>
 
       {/* ── Schnellzugriff ─────────────────────────────────────────────────── */}
-      <div className="lg:col-span-2 2xl:col-span-1">
+      {/* am Handy durch die Schnellaktionen oben ersetzt – nur wenn es welche gibt (Leser behalten den Schnellzugriff) */}
+      <div className={`${schnellaktionen.length > 0 ? 'max-sm:hidden ' : ''}lg:col-span-2 2xl:col-span-1`}>
         <h2 className="text-xs font-semibold text-s112-muted uppercase tracking-wider mb-3">Schnellzugriff</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 2xl:grid-cols-1 gap-3">
           {[

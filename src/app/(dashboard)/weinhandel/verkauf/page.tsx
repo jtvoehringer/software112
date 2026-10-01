@@ -81,7 +81,7 @@ export default async function VerkaufPage() {
         {writeOk && (
           <Link
             href="/weinhandel/verkauf/neu"
-            className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors"
+            className="bg-s112-teal text-s112-yellow px-4 py-2.5 sm:py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors"
           >
             + Neuer Verkauf
           </Link>
@@ -89,17 +89,17 @@ export default async function VerkaufPage() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="card p-5">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4">
+        <div className="card p-4 sm:p-5">
           <p className="text-xs text-s112-muted">{monatName}</p>
-          <p className="text-2xl font-semibold text-s112-blue-700 mt-1 tabular-nums">
+          <p className="text-xl sm:text-2xl font-semibold text-s112-blue-700 mt-1 tabular-nums">
             {fmtEur(monatUmsatz)}
           </p>
           <p className="text-xs text-s112-muted mt-0.5">{monatPosten.length} {monatPosten.length === 1 ? 'Vorgang' : 'Vorgänge'}</p>
         </div>
-        <div className="card p-5">
+        <div className="card p-4 sm:p-5">
           <p className="text-xs text-s112-muted">Gesamt (aktive)</p>
-          <p className="text-2xl font-semibold text-s112-text mt-1 tabular-nums">
+          <p className="text-xl sm:text-2xl font-semibold text-s112-text mt-1 tabular-nums">
             {fmtEur(gesamtUmsatz)}
           </p>
           <p className="text-xs text-s112-muted mt-0.5">{posten.length} {posten.length === 1 ? 'Vorgang' : 'Vorgänge'}</p>
@@ -117,8 +117,8 @@ export default async function VerkaufPage() {
           )}
         </div>
       ) : (
-        <div className="card p-0 overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="card p-0 overflow-x-auto">
+          <table className="w-full min-w-[720px] text-sm">
             <thead>
               <tr className="bg-s112-bg border-b border-s112-border">
                 <th className="text-left px-4 py-3 font-semibold text-s112-text-1">Datum</th>

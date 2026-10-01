@@ -138,14 +138,14 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Link href="/weinhandel" className="card text-center p-4 hover:shadow-sm hover:border-s112-teal/30 transition-all cursor-pointer">
-          <p className="text-3xl font-semibold text-s112-blue-700">{fmtNum(gesamtFlaschen)}</p>
+          <p className="text-2xl sm:text-3xl font-semibold text-s112-blue-700">{fmtNum(gesamtFlaschen)}</p>
           <p className="text-xs text-s112-muted mt-1">Flaschen auf Lager</p>
           <p className="text-[11px] text-s112-blue-700/60 mt-1">→ Warenlager</p>
         </Link>
         <Link href="/weinhandel/verkauf" className="card text-center p-4 hover:shadow-sm hover:border-s112-teal/30 transition-all cursor-pointer">
-          <p className="text-3xl font-semibold text-s112-blue-700">
+          <p className="text-2xl sm:text-3xl font-semibold text-s112-blue-700">
             {gesamtWertGesamt > 0
               ? fmtEur(gesamtWertGesamt)
               : '–'}
@@ -154,7 +154,7 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
           <p className="text-[11px] text-s112-blue-700/60 mt-1">→ Verkauf</p>
         </Link>
         <Link href="/weinhandel" className="card text-center p-4 hover:shadow-sm hover:border-s112-teal/30 transition-all cursor-pointer">
-          <p className="text-3xl font-semibold text-s112-blue-700">
+          <p className="text-2xl sm:text-3xl font-semibold text-s112-blue-700">
             {gesamtLiterTank > 0 ? `${fmtNum(gesamtLiterTank)} L` : '–'}
           </p>
           <p className="text-xs text-s112-muted mt-1">Liter im Tank (Direktverkauf)</p>
@@ -191,8 +191,8 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
             </p>
           </div>
         ) : (
-          <div className="card p-0 overflow-hidden">
-            <table className="w-full text-sm">
+          <div className="card p-0 overflow-x-auto">
+            <table className="w-full min-w-[640px] text-sm">
               <thead>
                 <tr className="bg-s112-bg border-b border-s112-border">
                   <th className="text-left px-4 py-3 font-semibold text-s112-text-1">Produkt</th>
@@ -297,8 +297,8 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
             <p className="text-sm text-s112-muted">Keine Chargen im Status „Ausbau“ oder „Abfüllung“ vorhanden.</p>
           </div>
         ) : (
-          <div className="card p-0 overflow-hidden mb-5">
-            <table className="w-full text-sm">
+          <div className="card p-0 overflow-x-auto mb-5">
+            <table className="w-full min-w-[640px] text-sm">
               <thead>
                 <tr className="bg-s112-bg border-b border-s112-border">
                   <th className="text-left px-4 py-3 font-semibold text-s112-text-1">Charge</th>
@@ -356,8 +356,8 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
             <p className="text-xs text-s112-muted mb-2">
               Nicht direkt verkaufbar – verkauft wird nur aus einer Kellerbuch-Charge. Eine Charge entsteht, wenn die Behälterzeile in der Pressung entfernt und neu eingetragen wird (Erntemeldung › Pressung bearbeiten); bei Fragen bitte den Support kontaktieren.
             </p>
-            <div className="card p-0 overflow-hidden mb-5">
-              <table className="w-full text-sm">
+            <div className="card p-0 overflow-x-auto mb-5">
+              <table className="w-full min-w-[560px] text-sm">
                 <thead>
                   <tr className="bg-s112-bg border-b border-s112-border">
                     <th className="text-left px-4 py-3 font-semibold text-s112-text-1">Behälter</th>
@@ -400,8 +400,8 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
             )}
           </div>
         ) : (
-          <div className="card p-0 overflow-hidden">
-            <table className="w-full text-sm">
+          <div className="card p-0 overflow-x-auto">
+            <table className="w-full min-w-[640px] text-sm">
               <thead>
                 <tr className="bg-s112-bg border-b border-s112-border">
                   <th className="text-left px-4 py-3 font-semibold text-s112-text-1">Art</th>

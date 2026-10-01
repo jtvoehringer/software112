@@ -18,7 +18,7 @@ export type PartnerTreffer = {
   daten?: { typ: 'kontakt' | 'firma'; firma_id: string | null; rabatt_pct: number | null; sonderrabatt_pct: number; skonto_pct: number; skonto_tage: number }
 }
 
-const inputCls = 'border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 bg-white'
+const inputCls = 'border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 bg-white'
 
 export default function PartnerSuche({ art, firmaId, value, onChange, placeholder, disabled }: {
   art: 'kunde' | 'lieferant' | 'kontakt' | 'firma'
@@ -74,7 +74,7 @@ export default function PartnerSuche({ art, firmaId, value, onChange, placeholde
 
   if (value) {
     return (
-      <div className="flex items-center gap-2 border border-s112-border rounded-lg px-3 py-2 bg-white text-sm">
+      <div className="flex items-center gap-2 border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 bg-white text-base sm:text-sm">
         <span className="flex-1 truncate font-medium text-s112-text">{selected?.label ?? '…'}</span>
         {selected?.sub && <span className="text-xs text-s112-muted truncate">{selected.sub}</span>}
         {!disabled && (

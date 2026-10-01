@@ -108,7 +108,7 @@ export default async function WeingartenSichtPage() {
 
           {wg.wartefristen.length > 0 && (
             <Card title="Laufende Wartefristen" right={<Link href="/behandlungen" className="text-[11.5px] text-s112-blue-700 hover:underline">Maßnahmen →</Link>}>
-              <table className="w-full">
+              <div className="overflow-x-auto"><table className="w-full">
                 <thead><tr><Th>Ried</Th><Th>Behandlung</Th><Th right>Lese frei ab</Th></tr></thead>
                 <tbody>
                   {wg.wartefristen.slice(0, 6).map(w => (
@@ -119,7 +119,7 @@ export default async function WeingartenSichtPage() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
             </Card>
           )}
         </div>

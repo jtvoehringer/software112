@@ -40,7 +40,7 @@ export default function FristenClient({ fristen, darfSchreiben, vorwarnungTage }
   return (
     <div>
       <div className="overflow-x-auto">
-        <table className="w-full">
+        <table className="w-full min-w-[520px]">
           <thead><tr><Th>Meldung / Regel</Th><Th>Frist / Bezug</Th><Th>Status</Th>{darfSchreiben && <Th />}</tr></thead>
           <tbody>
             {sichtbar.length === 0 && <tr><td colSpan={4} className="py-6 text-center text-[13px] text-s112-text-2">Keine Fristen vorhanden.</td></tr>}
@@ -57,9 +57,9 @@ export default function FristenClient({ fristen, darfSchreiben, vorwarnungTage }
                     {f.quelle === 'betrieb' && f.id && (
                       <span className="inline-flex gap-1">
                         {f.status === 'erledigt'
-                          ? <button type="button" title="Wieder öffnen" disabled={pending} onClick={() => run(() => fristWiedereroeffnen(f.id!))} className="p-1 rounded text-s112-tertiary hover:text-s112-blue-700 hover:bg-s112-blue-50"><RotateCcw size={14} strokeWidth={1.75} /></button>
-                          : <button type="button" title="Als erledigt markieren" disabled={pending} onClick={() => run(() => fristErledigen(f.id!))} className="p-1 rounded text-s112-tertiary hover:text-s112-ok-fg hover:bg-s112-ok-bg"><Check size={14} strokeWidth={1.75} /></button>}
-                        <button type="button" title="Löschen" disabled={pending} onClick={() => run(() => fristLoeschen(f.id!))} className="p-1 rounded text-s112-tertiary hover:text-s112-err-fg hover:bg-s112-err-bg"><Trash2 size={14} strokeWidth={1.75} /></button>
+                          ? <button type="button" title="Wieder öffnen" disabled={pending} onClick={() => run(() => fristWiedereroeffnen(f.id!))} className="p-2 sm:p-1 rounded text-s112-tertiary hover:text-s112-blue-700 hover:bg-s112-blue-50"><RotateCcw size={14} strokeWidth={1.75} /></button>
+                          : <button type="button" title="Als erledigt markieren" disabled={pending} onClick={() => run(() => fristErledigen(f.id!))} className="p-2 sm:p-1 rounded text-s112-tertiary hover:text-s112-ok-fg hover:bg-s112-ok-bg"><Check size={14} strokeWidth={1.75} /></button>}
+                        <button type="button" title="Löschen" disabled={pending} onClick={() => run(() => fristLoeschen(f.id!))} className="p-2 sm:p-1 rounded text-s112-tertiary hover:text-s112-err-fg hover:bg-s112-err-bg"><Trash2 size={14} strokeWidth={1.75} /></button>
                       </span>
                     )}
                     {f.quelle === 'system' && <span className="font-mono text-[11px] text-s112-tertiary">automatisch</span>}
@@ -92,19 +92,19 @@ export default function FristenClient({ fristen, darfSchreiben, vorwarnungTage }
       {formOffen && darfSchreiben && (
         <form className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_130px_140px_130px] gap-2 items-end"
           onSubmit={e => { e.preventDefault(); run(async () => { await fristAnlegen(neu); setNeu({ bezeichnung: '', beschreibung: '', kategorie: 'meldung', faellig_am: '', wiederholung: 'jaehrlich' }); setFormOffen(false) }) }}>
-          <label className="block"><span className="form-label">Bezeichnung</span><input className="form-input" required value={neu.bezeichnung} onChange={e => setNeu({ ...neu, bezeichnung: e.target.value })} /></label>
-          <label className="block"><span className="form-label">Hinweis</span><input className="form-input" value={neu.beschreibung} onChange={e => setNeu({ ...neu, beschreibung: e.target.value })} /></label>
+          <label className="block"><span className="form-label">Bezeichnung</span><input className="form-input py-2.5 sm:py-2 text-base sm:text-sm" required value={neu.bezeichnung} onChange={e => setNeu({ ...neu, bezeichnung: e.target.value })} /></label>
+          <label className="block"><span className="form-label">Hinweis</span><input className="form-input py-2.5 sm:py-2 text-base sm:text-sm" value={neu.beschreibung} onChange={e => setNeu({ ...neu, beschreibung: e.target.value })} /></label>
           <label className="block"><span className="form-label">Kategorie</span>
-            <select className="form-input" value={neu.kategorie} onChange={e => setNeu({ ...neu, kategorie: e.target.value })}>
+            <select className="form-input py-2.5 sm:py-2 text-base sm:text-sm" value={neu.kategorie} onChange={e => setNeu({ ...neu, kategorie: e.target.value })}>
               {Object.entries(KATEGORIE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select></label>
-          <label className="block"><span className="form-label">Fällig am</span><input type="date" className="form-input" required value={neu.faellig_am} onChange={e => setNeu({ ...neu, faellig_am: e.target.value })} /></label>
+          <label className="block"><span className="form-label">Fällig am</span><input type="date" className="form-input py-2.5 sm:py-2 text-base sm:text-sm" required value={neu.faellig_am} onChange={e => setNeu({ ...neu, faellig_am: e.target.value })} /></label>
           <div className="flex items-end gap-2">
             <label className="block flex-1"><span className="form-label">Wiederholung</span>
-              <select className="form-input" value={neu.wiederholung} onChange={e => setNeu({ ...neu, wiederholung: e.target.value })}>
+              <select className="form-input py-2.5 sm:py-2 text-base sm:text-sm" value={neu.wiederholung} onChange={e => setNeu({ ...neu, wiederholung: e.target.value })}>
                 <option value="jaehrlich">jährlich</option><option value="einmalig">einmalig</option>
               </select></label>
-            <button type="submit" disabled={pending} className="btn-primary text-[13px] py-2">Speichern</button>
+            <button type="submit" disabled={pending} className="btn-primary text-base sm:text-[13px] py-3 sm:py-2">Speichern</button>
           </div>
         </form>
       )}

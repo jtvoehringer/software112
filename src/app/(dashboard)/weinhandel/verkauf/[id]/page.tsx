@@ -225,7 +225,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
       `}</style>
 
       {/* Breadcrumb */}
-      <div className="flex items-center justify-between no-print">
+      <div className="flex flex-wrap gap-2 items-center justify-between no-print">
         <nav className="flex items-center gap-2 text-sm text-s112-muted">
           <Link href="/weinhandel/verkauf" className="hover:text-s112-blue-700">Verkauf</Link>
           <span>/</span>
@@ -406,8 +406,8 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
       </div>
 
       {/* Positionen-Tabelle – Lieferschein vs Rechnung */}
-      <div className="card p-0 overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="card p-0 overflow-x-auto">
+        <table className="w-full min-w-[560px] text-sm">
           <thead>
             <tr className="bg-s112-bg border-b border-s112-border">
               <th className="text-left px-4 py-3 font-semibold text-s112-text-1">Bezeichnung</th>
@@ -539,8 +539,8 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
 
           {/* Bestehende Zahlungen */}
           {zahlungen.length > 0 && (
-            <div className="rounded-lg border border-s112-border overflow-hidden">
-              <table className="w-full text-sm">
+            <div className="rounded-lg border border-s112-border overflow-x-auto">
+              <table className="w-full min-w-[560px] text-sm">
                 <thead>
                   <tr className="bg-s112-bg border-b border-s112-border">
                     <th className="text-left px-3 py-2 font-medium text-s112-text-2">Datum</th>
@@ -619,11 +619,11 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <div>
                   <label className="block text-xs text-s112-text-2 mb-1">Datum</label>
-                  <input aria-label="Datum" name="datum" type="date" defaultValue={new Date().toISOString().slice(0, 10)} className="form-input text-sm w-full" />
+                  <input aria-label="Datum" name="datum" type="date" defaultValue={new Date().toISOString().slice(0, 10)} className="form-input py-2.5 sm:py-2 text-base sm:text-sm w-full" />
                 </div>
                 <div>
                   <label className="block text-xs text-s112-text-2 mb-1">Art</label>
-                  <select aria-label="Art" name="art" className="form-input text-sm w-full">
+                  <select aria-label="Art" name="art" className="form-input py-2.5 sm:py-2 text-base sm:text-sm w-full">
                     <option value="bar">Bar</option>
                     <option value="karte">Karte</option>
                     <option value="bank">Bank</option>
@@ -633,15 +633,15 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
                 </div>
                 <div>
                   <label className="block text-xs text-s112-text-2 mb-1">Betrag (€)</label>
-                  <input aria-label="Betrag (€)" name="betrag" type="text" inputMode="decimal" required placeholder="0,00" className="form-input text-sm w-full" />
+                  <input aria-label="Betrag (€)" name="betrag" type="text" inputMode="decimal" required placeholder="0,00" className="form-input py-2.5 sm:py-2 text-base sm:text-sm w-full" />
                 </div>
                 <div>
                   <label className="block text-xs text-s112-text-2 mb-1">Notiz</label>
-                  <input aria-label="Notiz" name="notizen" type="text" placeholder="Optional…" className="form-input text-sm w-full" />
+                  <input aria-label="Notiz" name="notizen" type="text" placeholder="Optional…" className="form-input py-2.5 sm:py-2 text-base sm:text-sm w-full" />
                 </div>
               </div>
               <div className="flex justify-end">
-                <button type="submit" className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 transition-colors">
+                <button type="submit" className="flex-1 sm:flex-none bg-s112-teal text-s112-yellow px-4 py-3 sm:py-1.5 rounded-lg text-base sm:text-sm font-semibold hover:bg-opacity-90 transition-colors">
                   Zahlung buchen
                 </button>
               </div>
