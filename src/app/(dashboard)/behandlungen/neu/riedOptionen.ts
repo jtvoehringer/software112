@@ -4,12 +4,15 @@ import 'server-only'
 // aktive Rieden mit Lage, Spritzbarkeit (nur mit Grundstück der Nutzart WI, KAN-132 Frage 6) und die WI-GST je Ried.
 
 import type { WeingartenOption, GSTOption } from './page'
+import { gstAktivAm } from '@/lib/wein/grundstueckAktiv'
+import { wienHeute } from '@/lib/csv'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
 
+// KAN-150 F1: nur Grundstücke, die am Stichtag bewirtschaftet werden (Neue Maßnahme: heute, Bearbeiten: Tag der Maßnahme)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function ladeRiedOptionen(supabase: any, tenantId: string): Promise<{ weingaerten: WeingartenOption[]; gstByWeingarten: Record<string, GSTOption[]> }> {
+export async function ladeRiedOptionen(supabase: any, tenantId: string, stichtag: string = wienHeute()): Promise<{ weingaerten: WeingartenOption[]; gstByWeingarten: Record<string, GSTOption[]> }> {
   const [{ data: rawW }, { data: rawG }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('weingarten') as any)
@@ -20,11 +23,12 @@ export async function ladeRiedOptionen(supabase: any, tenantId: string): Promise
     // Rückmeldung 24.8.2026: Nutzart WI ersetzt den Status als Quelle für die Spritzbarkeit
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('grundstuecke') as any)
-      .select('id, weingarten_id, gst_nr, rebsorte, nutzart, flaeche_ha')
+      .select('id, weingarten_id, gst_nr, rebsorte, nutzart, flaeche_ha, aktiv, deaktiviert_am')
       .eq('tenant_id', tenantId),
   ])
+  const gstAktiv = ((rawG ?? []) as AR[]).filter(g => gstAktivAm(g, stichtag))
   const gstByWG = new Map<string, { nutzart: string | null; ha: number }[]>()
-  for (const g of ((rawG ?? []) as AR[])) {
+  for (const g of gstAktiv) {
     const arr = gstByWG.get(g.weingarten_id) ?? []
     arr.push({ nutzart: g.nutzart, ha: g.flaeche_ha ?? 0 })
     gstByWG.set(g.weingarten_id, arr)
@@ -39,7 +43,7 @@ export async function ladeRiedOptionen(supabase: any, tenantId: string): Promise
     }
   })
   const gstByWeingarten: Record<string, GSTOption[]> = {}
-  for (const g of ((rawG ?? []) as AR[])) {
+  for (const g of gstAktiv) {
     if (g.nutzart !== 'WI') continue
     ;(gstByWeingarten[g.weingarten_id] ??= []).push({
       id: g.id, weingarten_id: g.weingarten_id, gst_nr: g.gst_nr, rebsorte: g.rebsorte ?? null, flaeche_ha: g.flaeche_ha ?? null,

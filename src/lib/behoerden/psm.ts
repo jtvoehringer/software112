@@ -33,6 +33,7 @@ import { MASSNAHMEN_ART_LABEL } from '@/lib/behandlungen/arten'
 import type { LadeErgebnis } from './typen'
 // KAN-132: zentrale Anteilsfunktion (Zyklus psm ↔ massnahmeAnteile ist unkritisch: nur Funktionen, keine Werte beim Laden)
 import { verteileMassnahme, WARNUNG_GLEICH, type GstAnteil, type WiGst } from '@/lib/wein/massnahmeAnteile'
+import { gstAktiv, gstImJahr } from '@/lib/wein/grundstueckAktiv'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -637,11 +638,13 @@ export async function ladeBehandlungen(supabase: any, tenantId: string, f: Behan
  * Die Grundstücke kommen eingebettet über den mandantengefilterten Weingarten; Nutzart WI wie in
  * createBehandlung (Brache, Gerodet usw. zählen nicht).
  */
+// KAN-150 F1: opt.jahr – deaktivierte Grundstücke zählen in der WI-Fläche nur, wenn sie am 1.1. des Jahres noch
+// bewirtschaftet wurden; ohne Jahr nur heute aktive. Die GST-Liste (wiGst) bleibt vollständig (frühere Maßnahmen).
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function ladeWeingaerten(supabase: any, tenantId: string): Promise<WeingartenStamm[]> {
+export async function ladeWeingaerten(supabase: any, tenantId: string, opt: { jahr?: number | null } = {}): Promise<WeingartenStamm[]> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await alle<R>((supabase.from('weingarten') as any)
-    .select('id, name, ried, flaeche_ha, aktiv, lage_id, lagen:lage_id(name), grundstuecke(id, gst_nr, katastralgemeinde, kg_bezeichnung, flaeche_ha, nutzart)')
+    .select('id, name, ried, flaeche_ha, aktiv, lage_id, lagen:lage_id(name), grundstuecke(id, gst_nr, katastralgemeinde, kg_bezeichnung, flaeche_ha, nutzart, aktiv, deaktiviert_am)')
     .eq('tenant_id', tenantId)
     .order('name').order('id'))
   if (error) throw new Error(`Weingärten konnten nicht geladen werden: ${error.message}`)
@@ -654,7 +657,7 @@ export async function ladeWeingaerten(supabase: any, tenantId: string): Promise<
       lageId: textOderNull(w.lage_id),
       flaecheHa: rund(zahl(w.flaeche_ha), STELLEN.ha),
       aktiv: w.aktiv !== false,
-      wiFlaecheHa: runden(wi.reduce((s, g) => s + (zahl(g.flaeche_ha) ?? 0), 0), STELLEN.ha),
+      wiFlaecheHa: runden(wi.filter(g => (opt.jahr ? gstImJahr(g, opt.jahr) : gstAktiv(g))).reduce((s, g) => s + (zahl(g.flaeche_ha) ?? 0), 0), STELLEN.ha),
       wiGst: wi.filter(g => g.id).map(g => ({
         grundstueckId: String(g.id), gstNr: textOderNull(g.gst_nr), kgNr: textOderNull(g.katastralgemeinde), kgName: textOderNull(g.kg_bezeichnung),
         weingartenId: String(w.id), weingarten: textOderNull(w.name), ried: riedAus(w), lageId: textOderNull(w.lage_id),

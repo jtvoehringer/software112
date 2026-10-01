@@ -203,7 +203,8 @@ export async function ladeWeingarten(ctx: Ctx) {
   const jahr = ctx.heute.getFullYear()
   const [{ data: wRaw }, { data: gRaw }, { data: bRaw }] = await Promise.all([
     ctx.tf(ctx.q('weingarten').select('id, name, ried, rebsorte, weinart, flaeche_ha, bewirtschaftung, aktiv, ama_feldnummer, codes, interne_bezeichnung, zentrum_lat, zentrum_lon').eq('aktiv', true).order('name')),
-    ctx.tf(ctx.q('grundstuecke').select('id, weingarten_id, flaeche_ha, ama_feldnummer')),
+    // KAN-150 F1: nur heute bewirtschaftete Grundstücke
+    ctx.tf(ctx.q('grundstuecke').select('id, weingarten_id, flaeche_ha, ama_feldnummer').eq('aktiv', true)),
     ctx.tf(ctx.q('behandlungen').select('id, datum, ernte_fruehesteins, weingarten_id, weingarten:weingarten_id(name)').gte('datum', `${jahr}-01-01`).order('datum', { ascending: false }).limit(500)),
   ])
   const rieden = ((wRaw ?? []) as R[])

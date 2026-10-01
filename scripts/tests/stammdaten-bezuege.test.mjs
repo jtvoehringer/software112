@@ -56,3 +56,23 @@ describe('loeschenOderDeaktivieren – Dialogablauf', () => {
     assert.equal(deaktiviert, false)
   })
 })
+
+// KAN-150 F1: deaktivierte Grundstücke (src/lib/wein/grundstueckAktiv.ts)
+const ga = await import('../../src/lib/wein/grundstueckAktiv.ts')
+describe('grundstueckAktiv – Stichtag der Deaktivierung', () => {
+  test('aktiv immer; deaktiviert nur bis zum Vortag des Stichtags', () => {
+    assert.equal(ga.gstAktivAm({ aktiv: true }, '2030-01-01'), true)
+    assert.equal(ga.gstAktivAm({}, '2030-01-01'), true)
+    const g = { aktiv: false, deaktiviert_am: '2026-09-30' }
+    assert.equal(ga.gstAktivAm(g, '2026-09-29'), true)
+    assert.equal(ga.gstAktivAm(g, '2026-09-30'), false)
+    assert.equal(ga.gstAktiv(g), false)
+    assert.equal(ga.gstAktivAm({ aktiv: false, deaktiviert_am: null }, '1990-01-01'), false)
+  })
+  test('Jahr: zählt, wenn am 1.1. noch bewirtschaftet', () => {
+    const g = { aktiv: false, deaktiviert_am: '2026-09-30' }
+    assert.equal(ga.gstImJahr(g, 2026), true)
+    assert.equal(ga.gstImJahr(g, 2027), false)
+    assert.equal(ga.gstImJahr({ aktiv: false, deaktiviert_am: '2026-01-01' }, 2026), false)
+  })
+})

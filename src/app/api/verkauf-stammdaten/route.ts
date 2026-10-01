@@ -69,6 +69,7 @@ export async function GET() {
       (supabase.from('grundstuecke') as any)
         .select('id, gst_nr, weingarten_id, rebsorte')
         .eq('tenant_id', tenantId)
+        .eq('aktiv', true)   // KAN-150 F1: nur bewirtschaftete Grundstücke zur Auswahl
         .order('gst_nr'),
       // Verfügbare kg: Lesemeldungen − Pressungen − bereits verkaufte Trauben
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

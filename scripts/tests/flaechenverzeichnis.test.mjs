@@ -142,6 +142,18 @@ describe('Flächenverzeichnis – Zeilen (flaechenZeilen)', { skip: OHNE_HOOKS }
     assert.equal(waise.aktiv, null)
   })
 
+  // KAN-150 F1: deaktiviertes Grundstück – Aktiv nein, Datum in eigener Spalte, kein KG-Hinweis
+  test('deaktiviertes Grundstück: Aktiv nein, Deaktiviert ab, nicht im KG-Hinweis', () => {
+    const gs = [gst({ id: 'g9', weingarten_id: 'w3', gst_nr: '79', katastralgemeinde: null, aktiv: false, deaktiviert_am: '2026-09-30' })]
+    const { zeilen, warnungen } = zeilenMod.flaechenZeilen(WEINGAERTEN, gs, nutzungLabel)
+    const z = zeilen.find(x => x.gstNr === '79')
+    assert.equal(z.aktiv, false)
+    assert.equal(z.deaktiviertAm, '2026-09-30')
+    assert.ok(!warnungen.some(w => /GST 79/.test(w)))
+    const andere = zeilen.find(x => x.ried === 'Kirchberg')
+    assert.equal(andere?.deaktiviertAm ?? null, null)
+  })
+
   test('Hinweise: Waisen, fehlende KG-Nr. (nur aktive), Rebsorten ohne amtliches Kürzel', () => {
     const { warnungen } = zeilenMod.flaechenZeilen(WEINGAERTEN, GRUNDSTUECKE, nutzungLabel)
     assert.equal(warnungen.length, 3)
@@ -156,14 +168,14 @@ describe('Flächenverzeichnis – Zeilen (flaechenZeilen)', { skip: OHNE_HOOKS }
     const t = csvMod.csvText(r.zeilen, zeilenMod.SPALTEN_FLAECHENVERZEICHNIS)
     assert.equal(t.split('\r\n').length, 2)
     assert.ok(t.startsWith(BOM + 'Ried / Lage;'))
-    assert.ok(t.endsWith('Aktiv\r\n'))
+    assert.ok(t.endsWith('Aktiv;Deaktiviert ab\r\n'))
   })
 })
 
 // ── Flächenverzeichnis: CSV ───────────────────────────────────────────────────
 
 describe('Flächenverzeichnis – CSV (PROFIL_EXCEL_AT)', { skip: OHNE_HOOKS }, () => {
-  const KOPF = 'Ried / Lage;Interne Bezeichnung;AMA-Feldstücknr.;Codes;KG-Nr.;Katastralgemeinde;GST-Nr;Einlagezahl (EZ);AMA-Schlagnr.;Rebsorte;BKI-Kürzel;Nutzart;Nutzung;LSE (Stk.);Weinart;Bewirtschaftung;Pflanzjahr;Unterlagsrebe;Rechtsverhältnis;GST-Fläche lt. Kataster (ha);GST-Fläche lt. AMA (ha);Aktiv'
+  const KOPF = 'Ried / Lage;Interne Bezeichnung;AMA-Feldstücknr.;Codes;KG-Nr.;Katastralgemeinde;GST-Nr;Einlagezahl (EZ);AMA-Schlagnr.;Rebsorte;BKI-Kürzel;Nutzart;Nutzung;LSE (Stk.);Weinart;Bewirtschaftung;Pflanzjahr;Unterlagsrebe;Rechtsverhältnis;GST-Fläche lt. Kataster (ha);GST-Fläche lt. AMA (ha);Aktiv;Deaktiviert ab'
 
   test('Kopfzeile, Hektar mit 4 Stellen ohne Tausenderpunkt, Codes unverändert, Formelschutz, CRLF', () => {
     const { zeilen } = zeilenMod.flaechenZeilen(WEINGAERTEN, GRUNDSTUECKE, nutzungLabel)
@@ -173,14 +185,14 @@ describe('Flächenverzeichnis – CSV (PROFIL_EXCEL_AT)', { skip: OHNE_HOOKS }, 
     const linien = r.text.split('\r\n')
     assert.equal(linien[0], BOM + KOPF)
     assert.equal(linien.at(-1), '', 'CRLF auch nach der letzten Zeile')
-    assert.equal(linien[1], 'Kirchberg;Hausweingarten;12;EOP;12105;Meine KG;9;;;Rotgipfler;RG;WI;Wein;;;biodynamisch;;;Eigentum;;1,0050;Ja')
+    assert.equal(linien[1], 'Kirchberg;Hausweingarten;12;EOP;12105;Meine KG;9;;;Rotgipfler;RG;WI;Wein;;;biodynamisch;;;Eigentum;;1,0050;Ja;')
     assert.ok(linien[2].startsWith('Kirchberg;Hausweingarten;12;EOP;04023;'), 'KG-Nr. mit führender Null bleibt')
-    assert.ok(linien[2].endsWith(';10;0815;3;Grüner Veltliner;GV;WI;Wein;;Weiß;konventionell;2004;Kober 5BB;Pacht;0,1234;0,1235;Ja'))
+    assert.ok(linien[2].endsWith(';10;0815;3;Grüner Veltliner;GV;WI;Wein;;Weiß;konventionell;2004;Kober 5BB;Pacht;0,1234;0,1235;Ja;'))
     // Ried beginnt mit „=“ → Apostroph; enthält " → gequotet; 1234,5 ha ohne Tausenderpunkt
-    assert.equal(linien[3], `"'=HYPERLINK(""http://x"")";;;;;;;;;Zweigelt;ZW;;;;Rot;;1998;;;;1234,5000;Nein`)
-    assert.ok(linien[4].includes(';77/2;;;;;LSE;LSE Bäume / Büsche;5;;;;;;;0,0100;Ja'))
+    assert.equal(linien[3], `"'=HYPERLINK(""http://x"")";;;;;;;;;Zweigelt;ZW;;;;Rot;;1998;;;;1234,5000;Nein;`)
+    assert.ok(linien[4].includes(';77/2;;;;;LSE;LSE Bäume / Büsche;5;;;;;;;0,0100;Ja;'))
     assert.ok(linien[6].startsWith(';;;;12105;'))
-    assert.ok(linien[6].endsWith(';500;;;;;WI;Wein;;;;;;;;0,5000;'), 'Waise: Aktiv leer')
+    assert.ok(linien[6].endsWith(';500;;;;;WI;Wein;;;;;;;;0,5000;;'), 'Waise: Aktiv leer')
   })
 
   test('Dateiname nach Muster, Umlaut nur in der UTF-8-Fassung', () => {

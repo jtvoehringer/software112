@@ -56,7 +56,7 @@ test('Rückmeldung 30.09.2026: Rieden beim Bearbeiten änderbar, Snapshots bleib
   assert.match(edit, /flaecheHa: flaecheAktuell,/)
   assert.doesNotMatch(edit, /nicht änderbar/)
   const page = quelle('src/app/(dashboard)/behandlungen/[id]/edit/page.tsx')
-  assert.match(page, /ladeRiedOptionen\(supabase, tenantId\)/)
+  assert.match(page, /ladeRiedOptionen\(supabase, tenantId[,)]/)   // KAN-150: optionaler Stichtag (Tag der Maßnahme)
   assert.match(page, /gsts\.every\(g => bisherGst\.has\(g\.id\)\)/)   // ganze Ried vorausgewählt, wenn alle WI-GST dabei
   const a = quelle('src/app/(dashboard)/behandlungen/actions.ts')
   const upd = a.slice(a.indexOf('export async function updateBehandlung'), a.indexOf('export async function deleteBehandlung'))

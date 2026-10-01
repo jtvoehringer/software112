@@ -240,7 +240,7 @@ export const SPALTEN_NAEHRSTOFFBILANZ_RIED: CsvSpalte<NaehrstoffRiedZeile>[] = [
 export async function ladeNaehrstoffbilanz(supabase: any, tenantId: string, p: { jahr: number | null }): Promise<LadeErgebnis<NaehrstoffZeile> & Naehrstoffbilanz> {
   const [{ behandlungen, warnungen }, weingaerten] = await Promise.all([
     ladeBehandlungen(supabase, tenantId, { ...jahrZeitraum(p.jahr), art: 'duengung' }),
-    ladeWeingaerten(supabase, tenantId),
+    ladeWeingaerten(supabase, tenantId, { jahr: p.jahr }),
   ])
   const bilanz = naehrstoffbilanz(behandlungen, weingaerten)
   return { ...bilanz, warnungen: [...warnungen, ...bilanz.warnungen] }

@@ -370,7 +370,7 @@ export type CuBilanzParameter = { jahr: number | null }
 export async function ladeCuBilanz(supabase: any, tenantId: string, p: CuBilanzParameter): Promise<LadeErgebnis<CuWeingartenZeile> & CuBilanz & { warnungen: string[] }> {
   const [{ behandlungen, warnungen }, weingaerten] = await Promise.all([
     ladeBehandlungen(supabase, tenantId, jahrZeitraum(p.jahr, 6)),
-    ladeWeingaerten(supabase, tenantId),
+    ladeWeingaerten(supabase, tenantId, { jahr: p.jahr }),
   ])
   const bilanz = cuBilanz(behandlungen, weingaerten, { jahre: p.jahr !== null ? [p.jahr] : null })
   return { ...bilanz, zeilen: bilanz.weingartenZeilen, warnungen: [...warnungen, ...bilanz.warnungen] }

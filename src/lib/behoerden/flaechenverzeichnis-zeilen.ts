@@ -55,6 +55,9 @@ export type GstStamm = {
   rechtsverhaeltnis: string | null
   weinart: string | null
   bewirtschaftung: string | null
+  /** KAN-150: Grundstück deaktiviert (nicht mehr bewirtschaftet) ab deaktiviert_am */
+  aktiv: boolean
+  deaktiviert_am: string | null
 }
 
 /** Eine Zeile des Flächenverzeichnisses – Flächen bereits auf 4 Stellen gerundet */
@@ -80,8 +83,10 @@ export type FlaechenZeile = {
   rechtsverhaeltnis: string | null
   flaecheKatasterHa: number | null
   flaecheAmaHa: number | null
-  /** Weingarten aktiv – leer bei Grundstücken ohne Ried */
+  /** Weingarten und Grundstück aktiv – leer bei Grundstücken ohne Ried (KAN-150: auch das Grundstück) */
   aktiv: boolean | null
+  /** KAN-150: Grundstück deaktiviert ab (JJJJ-MM-TT) */
+  deaktiviertAm: string | null
 }
 
 export const WEINART_LABEL: Record<string, string> = { rot: 'Rot', weiss: 'Weiß', rose: 'Rosé' }
@@ -114,6 +119,7 @@ export const SPALTEN_FLAECHENVERZEICHNIS: CsvSpalte<FlaechenZeile>[] = [
   { kopf: 'GST-Fläche lt. Kataster (ha)', typ: 'dezimal', stellen: STELLEN.ha, wert: z => z.flaecheKatasterHa },
   { kopf: 'GST-Fläche lt. AMA (ha)', typ: 'dezimal', stellen: STELLEN.ha, wert: z => z.flaecheAmaHa },
   { kopf: 'Aktiv', typ: 'janein', wert: z => z.aktiv },
+  { kopf: 'Deaktiviert ab', typ: 'datum', wert: z => z.deaktiviertAm },
 ]
 
 /** Hektar auf die feste Stellenzahl der Spalte (4) – Seite und CSV rechnen mit denselben Werten */
@@ -182,7 +188,8 @@ export function flaechenZeilen(
       rechtsverhaeltnis: rv ? RECHTSVERHAELTNIS_LABEL[rv] ?? rv : null,
       flaecheKatasterHa: hektar(g.flaeche_ha_kataster),
       flaecheAmaHa: hektar(g.flaeche_ha),
-      aktiv: w ? w.aktiv : null,
+      aktiv: w ? w.aktiv && g.aktiv !== false : (g.aktiv === false ? false : null),
+      deaktiviertAm: g.aktiv === false ? text(g.deaktiviert_am) : null,
     }
   }
 
@@ -193,7 +200,7 @@ export function flaechenZeilen(
     if (gsts.length > 0) {
       for (const g of gsts) {
         zeilen.push(gstZeile(w, g))
-        if (w.aktiv && !text(g.katastralgemeinde)) ohneKg.push(`GST ${g.gst_nr} (${w.ried ?? w.name})`)
+        if (w.aktiv && g.aktiv !== false && !text(g.katastralgemeinde)) ohneKg.push(`GST ${g.gst_nr} (${w.ried ?? w.name})`)
       }
     } else {
       // Weingarten-Datensatz ohne eigene Grundstücke: Felder auf Ried-/Weingarten-Ebene,
@@ -221,6 +228,7 @@ export function flaechenZeilen(
         flaecheKatasterHa: null,
         flaecheAmaHa: hektar(w.flaeche_ha),
         aktiv: w.aktiv,
+        deaktiviertAm: null,
       })
     }
   }

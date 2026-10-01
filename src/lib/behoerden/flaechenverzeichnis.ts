@@ -16,7 +16,7 @@ export { SPALTEN_FLAECHENVERZEICHNIS } from './flaechenverzeichnis-zeilen'
 export type { FlaechenZeile, GstStamm, RiedStamm } from './flaechenverzeichnis-zeilen'
 
 const RIED_SPALTEN = 'id, name, ried, rebsorte, weinart, flaeche_ha, bewirtschaftung, aktiv, ama_feldnummer, codes, interne_bezeichnung, pflanzjahr, zentrum_lat, zentrum_lon'
-const GST_SPALTEN = 'id, weingarten_id, gst_nr, rebsorte, flaeche_ha, flaeche_ha_kataster, spritzbar, katastralgemeinde, kg_bezeichnung, einlagezahl, nutzart, lse_stueckzahl, ama_feldnummer, pflanzjahr, unterlagsrebe, rechtsverhaeltnis, weinart, bewirtschaftung'
+const GST_SPALTEN = 'id, weingarten_id, gst_nr, rebsorte, flaeche_ha, flaeche_ha_kataster, spritzbar, katastralgemeinde, kg_bezeichnung, einlagezahl, nutzart, lse_stueckzahl, ama_feldnummer, pflanzjahr, unterlagsrebe, rechtsverhaeltnis, weinart, bewirtschaftung, aktiv, deaktiviert_am'
 
 type Roh = Record<string, unknown>
 
@@ -75,6 +75,8 @@ function gstAus(r: Roh): GstStamm {
     rechtsverhaeltnis: str(r.rechtsverhaeltnis),
     weinart: str(r.weinart),
     bewirtschaftung: str(r.bewirtschaftung),
+    aktiv: r.aktiv !== false,
+    deaktiviert_am: str(r.deaktiviert_am),
   }
 }
 
