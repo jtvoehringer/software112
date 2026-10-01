@@ -23,9 +23,12 @@ interface Props {
   danach?: () => void
   /** KAN-149 D2b: optionales Datumsfeld (z. B. „Erstattet am“) – leer = null */
   datumFeld?: { label: string; hilfe?: string }
+  /** Formular schwebend unter dem Knopf (rechtsbündig) statt in der Zelle – für schmale Aktionsspalten in Tabellen,
+   *  deren Spaltenbreite sich beim Öffnen nicht ändern soll */
+  schwebend?: boolean
 }
 
-export default function StornoButton({ action, hinweis, label, modus = 'storno', danach, datumFeld }: Props) {
+export default function StornoButton({ action, hinweis, label, modus = 'storno', danach, datumFeld, schwebend }: Props) {
   const loeschen = modus === 'loeschen'
   const text = label ?? (loeschen ? 'Löschen' : 'Stornieren')
   const id = useId()
@@ -54,13 +57,18 @@ export default function StornoButton({ action, hinweis, label, modus = 'storno',
     }
   }
 
+  const knopf = (
+    <button type="button" onClick={() => { setOffen(o => (schwebend ? !o : true)); setFehler(null) }} title={text} aria-label={text}
+      aria-expanded={schwebend ? offen : undefined}
+      className="text-s112-err hover:text-s112-err-fg">
+      {loeschen ? <Trash2 className="w-4 h-4" /> : <Undo2 className="w-4 h-4" />}
+    </button>
+  )
+
   if (!offen) {
     return (
       <span className="inline-flex flex-col items-end gap-0.5 align-top">
-        <button type="button" onClick={() => { setOffen(true); setFehler(null) }} title={text} aria-label={text}
-          className="text-s112-err hover:text-s112-err-fg">
-          {loeschen ? <Trash2 className="w-4 h-4" /> : <Undo2 className="w-4 h-4" />}
-        </button>
+        {knopf}
         {fehler && (
           <span role="alert" className="block text-[11px] leading-snug text-s112-err-fg w-[240px] max-w-[70vw] text-left whitespace-normal break-words">{fehler}</span>
         )}
@@ -68,8 +76,10 @@ export default function StornoButton({ action, hinweis, label, modus = 'storno',
     )
   }
 
-  return (
-    <span className="inline-flex flex-col items-stretch gap-1 w-[280px] max-w-[80vw] text-left whitespace-normal align-top">
+  const formular = (
+    <span className={schwebend
+      ? 'absolute right-0 top-full mt-1 z-30 flex flex-col items-stretch gap-1 w-[300px] max-w-[85vw] p-3 rounded-lg border border-s112-border bg-white shadow-lg text-left whitespace-normal'
+      : 'inline-flex flex-col items-stretch gap-1 w-[280px] max-w-[80vw] text-left whitespace-normal align-top'}>
       <span className="text-[11px] leading-snug text-s112-text-2">{hinweis}</span>
       <label htmlFor={id} className="text-[11px] font-medium text-s112-text-1">
         {loeschen ? 'Grund des Löschens' : 'Grund des Stornos'} <span className="text-s112-err">*</span>
@@ -95,6 +105,14 @@ export default function StornoButton({ action, hinweis, label, modus = 'storno',
           {pending ? '…' : text}
         </button>
       </span>
+    </span>
+  )
+
+  if (!schwebend) return formular
+  return (
+    <span className="relative inline-flex flex-col items-end align-top">
+      {knopf}
+      {formular}
     </span>
   )
 }

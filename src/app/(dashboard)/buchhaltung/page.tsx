@@ -163,10 +163,10 @@ export default async function BuchhaltungPage({
       </div>
 
       {/* Tabelle */}
-      <div className="bg-white rounded-xl border border-s112-border overflow-hidden">
+      <div className="bg-white rounded-xl border border-s112-border">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-s112-border bg-s112-bg">
+            <tr className="border-b border-s112-border [&>th]:bg-s112-bg [&>th:first-child]:rounded-tl-xl [&>th:last-child]:rounded-tr-xl">
               <th className="text-left px-4 py-3 font-medium text-s112-text-2">Datum</th>
               <th className="text-left px-4 py-3 font-medium text-s112-text-2">Bezeichnung</th>
               <th className="text-left px-4 py-3 font-medium text-s112-text-2">Kategorie</th>
@@ -176,7 +176,7 @@ export default async function BuchhaltungPage({
               <th className="px-4 py-3"></th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="[&>tr:last-child>td:first-child]:rounded-bl-xl [&>tr:last-child>td:last-child]:rounded-br-xl">
             {buchungen.length === 0 && (
               <tr>
                 <td colSpan={7} className="text-center py-10 text-s112-muted">
@@ -186,7 +186,7 @@ export default async function BuchhaltungPage({
               </tr>
             )}
             {buchungen.map(b => (
-              <tr key={b.id} className={`border-b border-s112-border/50 hover:bg-s112-bg/50 ${b.stornoStatus === 'storniert' ? 'text-s112-muted' : ''}`}>
+              <tr key={b.id} className={`border-b border-s112-border/50 hover:[&>td]:bg-s112-bg/50 ${b.stornoStatus === 'storniert' ? 'text-s112-muted' : ''}`}>
                 <td className="px-4 py-3 text-s112-text-2 whitespace-nowrap">
                   {datumText(b.datum)}
                 </td>
@@ -229,8 +229,8 @@ export default async function BuchhaltungPage({
                   )}
                 </td>
                 <td className="px-4 py-3 text-s112-text-2">{b.ustSatz === null ? '–' : `${b.ustSatz}%`}</td>
-                <td className="px-4 py-3 text-right font-mono">€ {fmt(b.netto)}</td>
-                <td className={`px-4 py-3 text-right font-mono font-semibold ${b.typ === 'einnahme' ? 'text-s112-ok-fg' : 'text-s112-err'}`}>
+                <td className="px-4 py-3 text-right font-mono whitespace-nowrap">€ {fmt(b.netto)}</td>
+                <td className={`px-4 py-3 text-right font-mono font-semibold whitespace-nowrap ${b.typ === 'einnahme' ? 'text-s112-ok-fg' : 'text-s112-err'}`}>
                   € {fmt(b.brutto)}
                 </td>
                 <td className="px-4 py-3 text-right">
@@ -244,6 +244,7 @@ export default async function BuchhaltungPage({
                     </Link>
                   ) : b.anlageId || b.stornoStatus ? null : (
                     <StornoButton
+                      schwebend
                       label="Buchung stornieren"
                       hinweis="Die Buchung bleibt gekennzeichnet stehen, eine Gegenbuchung mit negativem Betrag hebt sie auf."
                       datumFeld={{ label: 'Datum der Gegenbuchung', hilfe: 'leer = Buchungsdatum, ist dessen Zeitraum abgeschlossen: heute' }}
