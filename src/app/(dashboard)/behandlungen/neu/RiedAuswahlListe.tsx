@@ -103,7 +103,7 @@ export default function RiedAuswahlListe({
               <div key={schluessel} className="border border-s112-border rounded-xl overflow-hidden">
                 {/* Lage-Header (nicht bei einer Lage mit nur einer Ried) */}
                 {!einzelRied && <div
-                  className="flex items-center gap-3 px-3 py-2 bg-s112-bg cursor-pointer hover:bg-s112-bg/80 transition-colors"
+                  className="flex items-center gap-3 px-3 py-3 sm:py-2 bg-s112-bg cursor-pointer hover:bg-s112-bg/80 transition-colors"
                   onClick={() => toggleLage(wgs)}
                 >
                   <input
@@ -113,7 +113,7 @@ export default function RiedAuswahlListe({
                     aria-invalid={riedHinweis || undefined} aria-describedby={riedMeldung}
                     checked={allSelected}
                     ref={el => { if (el) el.indeterminate = someSelected && !allSelected }}
-                    className="accent-s112-teal"
+                    className="accent-s112-teal w-5 h-5 sm:w-auto sm:h-auto shrink-0"
                   />
                   <span className="text-sm font-semibold text-s112-text">{lageName}</span>
                   <span className="text-xs text-s112-muted">{spritzbare.length} spritzbar</span>
@@ -134,7 +134,7 @@ export default function RiedAuswahlListe({
 
                     return (
                       <div key={w.id} className={!w.spritzbar ? 'bg-s112-bg' : ''}>
-                        <div className={`flex items-center gap-3 px-4 py-2 text-sm transition-colors
+                        <div className={`flex items-center gap-3 px-4 py-3 sm:py-2 text-sm transition-colors
                           ${w.spritzbar ? 'hover:bg-s112-bg/40' : 'opacity-40'}`}>
                           <input
                             type="checkbox"
@@ -144,7 +144,7 @@ export default function RiedAuswahlListe({
                             ref={el => { if (el) el.indeterminate = someGstSel && !allGstSel && !wgSel }}
                             onChange={() => toggleWG(w.id, w.spritzbar)}
                             disabled={!w.spritzbar}
-                            className="accent-s112-teal cursor-pointer"
+                            className="accent-s112-teal cursor-pointer w-5 h-5 sm:w-auto sm:h-auto shrink-0"
                           />
                           {gsts.length > 0 ? (
                             <button type="button" onClick={() => toggleExpand(w.id)}
@@ -182,12 +182,12 @@ export default function RiedAuswahlListe({
                               const isGstSel = wgSel || selectedGSTs.has(g.id)
                               return (
                                 <Fragment key={g.id}>
-                                  <label className={`flex items-center gap-2 pl-10 pr-4 py-1.5 text-xs cursor-pointer hover:bg-s112-bg/30 ${isGstSel ? 'bg-s112-teal/5' : ''}`}>
+                                  <label className={`flex items-center gap-2 pl-10 pr-4 py-3 sm:py-1.5 text-xs cursor-pointer hover:bg-s112-bg/30 ${isGstSel ? 'bg-s112-teal/5' : ''}`}>
                                     <input type="checkbox"
                                       aria-invalid={riedHinweis || undefined} aria-describedby={riedMeldung}
                                       checked={isGstSel}
                                       onChange={() => toggleGST(g.id, w.id)}
-                                      className="accent-s112-teal" />
+                                      className="accent-s112-teal w-5 h-5 sm:w-auto sm:h-auto shrink-0" />
                                     <span className={`font-mono ${isGstSel ? 'text-s112-blue-700 font-medium' : 'text-s112-text-2'}`}>
                                       GST {g.gst_nr}
                                     </span>

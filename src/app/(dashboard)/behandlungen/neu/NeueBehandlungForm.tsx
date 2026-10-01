@@ -315,7 +315,7 @@ export default function NeueBehandlungForm({
           <label className="block text-sm font-medium text-s112-text-1 mb-1">Art <span className="text-s112-err">*</span></label>
           <div className="flex flex-wrap gap-2">
             {ART_OPTIONS.map(o => (
-              <label key={o.value} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm cursor-pointer transition-colors
+              <label key={o.value} className={`flex items-center gap-1.5 px-3 py-2.5 sm:py-1.5 rounded-lg border text-sm cursor-pointer transition-colors
                 ${art === o.value
                   ? 'bg-s112-teal text-s112-yellow border-s112-teal'
                   : 'bg-white text-s112-text-1 border-s112-border hover:border-s112-teal/50'}`}>
@@ -335,12 +335,12 @@ export default function NeueBehandlungForm({
             </label>
             <input aria-label="Datum von" name="datum" type="date" required
               defaultValue={new Date().toISOString().split('T')[0]}
-              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+              className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
           </div>
           <div>
             <label className="block text-sm font-medium text-s112-text-1 mb-1">Datum bis</label>
             <input aria-label="Datum bis" name="datum_bis" type="date"
-              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+              className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
           </div>
         </div>
 
@@ -355,7 +355,7 @@ export default function NeueBehandlungForm({
               disabled={art === 'sonstiges' && !!selectedBmId}
               aria-invalid={bioSperre || undefined} aria-describedby={bioSperre ? 'bio-sperre-grund' : undefined}
               onChange={e => setSelectedPsmId(e.target.value)}
-              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+              className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
               <option value="">{felder.psm === 'pflicht' ? '– Auswählen –' : '– keines –'}</option>
               {psm.map(p => (
                 <option key={p.id} value={p.id}>
@@ -404,7 +404,7 @@ export default function NeueBehandlungForm({
                 if (hinweis) setEinheitHinweis(hinweis)
                 setSelectedDuengemittelId(e.target.value)
               }}
-              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+              className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
               <option value="">– Auswählen –</option>
               {duengemittel.map(d => (
                 <option key={d.id} value={d.id}>
@@ -457,7 +457,7 @@ export default function NeueBehandlungForm({
               placeholder="z.B. 950"
               value={mengeGesamt}
               onChange={e => { setMengeGesamt(e.target.value); setEinheitHinweis(null) }}
-              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+              className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
             {einheitHinweis && (
               <p className="text-xs text-s112-warn-fg mt-1 flex items-start gap-1">
                 <AlertTriangle size={12} className="mt-0.5 flex-shrink-0" />{einheitHinweis}
@@ -469,7 +469,7 @@ export default function NeueBehandlungForm({
         {/* Aufwandmenge bzw. Konzentration im Tank – einzige Grundlage der Mittelmenge einer Spritzung */}
         {(felder.aufwandmenge !== 'hidden' || felder.konzentration !== 'hidden') && (
           <div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {felder.aufwandmenge !== 'hidden' && (
                 <>
                   <div>
@@ -483,7 +483,7 @@ export default function NeueBehandlungForm({
                       value={m.aufwandmengeBerechnet !== null ? fmtNum(m.aufwandmengeBerechnet, { max: 3 }) : aufwandmenge}
                       disabled={aufwandmengeGesperrt}
                       onChange={e => { const v = e.target.value; setAufwandmenge(v); setFolge(f => eingabeFolge(f, 'aufwand', v)) }}
-                      className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-s112-text-2" />
+                      className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-s112-text-2" />
                     {m.berechnetHinweis.aufwandmenge && (
                       <p className="text-xs text-s112-muted mt-1">{m.berechnetHinweis.aufwandmenge}</p>
                     )}
@@ -492,7 +492,7 @@ export default function NeueBehandlungForm({
                     <label className="block text-sm font-medium text-s112-text-1 mb-1">Einheit</label>
                     <select aria-label="Einheit" name="aufwandmenge_einheit" value={m.aufwandEinheit}
                       onChange={e => setAufwandmengeEinheit(e.target.value)}
-                      className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                      className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                       {m.einheiten.map(e => <option key={e} value={e}>{aufwandEinheitText(e, m.zulaessig)}</option>)}
                     </select>
                   </div>
@@ -506,7 +506,7 @@ export default function NeueBehandlungForm({
                     value={m.konzentrationBerechnet !== null ? fmtNum(m.konzentrationBerechnet, { max: 3 }) : konzentration}
                     disabled={konzentrationGesperrt}
                     onChange={e => { const v = e.target.value; setKonzentration(v); setFolge(f => eingabeFolge(f, 'konzentration', v)) }}
-                    className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-s112-text-2" />
+                    className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-s112-text-2" />
                   {(m.berechnetHinweis.konzentration ?? m.konzentrationHinweis) && (
                     <p className="text-xs text-s112-muted mt-1">{m.berechnetHinweis.konzentration ?? m.konzentrationHinweis}</p>
                   )}
@@ -542,7 +542,7 @@ export default function NeueBehandlungForm({
                     value={m.mengeGesamtBerechnet !== null ? fmtNum(m.mengeGesamtBerechnet, { max: 3 }) : mengeGesamtGesperrt ? '' : mengeGesamt}
                     disabled={mengeGesamtGesperrt}
                     onChange={e => { const v = e.target.value; setMengeGesamt(v); setMengeQuelle(v.trim() === '' ? null : 'gesamt'); setFolge(f => eingabeFolge(f, 'wasser', v)) }}
-                    className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-s112-text-2" />
+                    className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-s112-text-2" />
                   {m.berechnetHinweis.mengeGesamt && (
                     <p className="text-xs text-s112-muted mt-1">{m.berechnetHinweis.mengeGesamt}</p>
                   )}
@@ -559,7 +559,7 @@ export default function NeueBehandlungForm({
                     value={m.wasserBerechnet !== null ? fmtNum(m.wasserBerechnet, { max: 2 }) : wasseraufwand}
                     disabled={wasserGesperrt}
                     onChange={e => { const v = e.target.value; setWasseraufwand(v); setMengeQuelle(v.trim() === '' ? null : 'wasser'); setFolge(f => eingabeFolge(f, 'wasser', v)) }}
-                    className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-s112-text-2" />
+                    className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:bg-s112-bg disabled:text-s112-text-2" />
                   {m.berechnetHinweis.wasser && (
                     <p className="text-xs text-s112-muted mt-1">{m.berechnetHinweis.wasser}</p>
                   )}
@@ -585,7 +585,7 @@ export default function NeueBehandlungForm({
                   {felder.bbch === 'pflicht' && <span className="text-s112-err"> *</span>}
                 </label>
                 <select name="bbch_stadium" required={felder.bbch === 'pflicht'}
-                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                  className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                   <option value="">– Auswählen –</option>
                   {BBCH_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
@@ -600,7 +600,7 @@ export default function NeueBehandlungForm({
                 <input aria-label={schaderreger.label} name="schaderreger" type="text" required={felder.schaderreger === 'pflicht'}
                   placeholder={schaderreger.placeholder}
                   list={schaderreger.vorschlaege ? 'schaderreger-kb' : undefined}
-                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+                  className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
                 {schaderreger.vorschlaege && (
                   <datalist id="schaderreger-kb">
                     {SCHADERREGER_OPTIONEN.map(s => <option key={s} value={s} />)}
@@ -617,13 +617,13 @@ export default function NeueBehandlungForm({
           <div className="grid grid-cols-2 gap-3 items-end">
             <input type="hidden" name={EINARBEITUNG_GESENDET} value="1" />
             <label className="flex items-center gap-2 text-sm text-s112-text-1">
-              <input type="checkbox" name="einarbeitung" className="accent-s112-teal" />
+              <input type="checkbox" name="einarbeitung" className="accent-s112-teal w-5 h-5 sm:w-auto sm:h-auto" />
               Eingearbeitet
             </label>
             <div>
               <label className="block text-sm font-medium text-s112-text-1 mb-1">Zeitpunkt Einarbeitung</label>
               <input aria-label="Zeitpunkt Einarbeitung" name="einarbeitung_zeitpunkt" type="date"
-                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+                className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
             </div>
           </div>
         )}
@@ -638,7 +638,7 @@ export default function NeueBehandlungForm({
               </label>
               <input aria-label="Bearbeitungstiefe (cm)" name="bearbeitungstiefe_cm" type="number" step="1" min="0" placeholder="z.B. 10"
                 required={felder.bearbeitungstiefe === 'pflicht'}
-                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+                className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
             </div>
             <div>
               <label className="block text-sm font-medium text-s112-text-1 mb-1">
@@ -647,7 +647,7 @@ export default function NeueBehandlungForm({
               </label>
               <input aria-label="Gerät" name="bearbeitungsgeraet" type="text" placeholder="z.B. Grubber"
                 required={felder.bearbeitungsgeraet === 'pflicht'}
-                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+                className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
             </div>
           </div>
         )}
@@ -661,7 +661,7 @@ export default function NeueBehandlungForm({
             </label>
             <input name="schnittart" type="text" placeholder="z.B. Guyot, Kordon"
               required={felder.schnittart === 'pflicht'}
-              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+              className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
           </div>
         )}
 
@@ -673,7 +673,7 @@ export default function NeueBehandlungForm({
               {felder.laubarbeitArt === 'pflicht' && <span className="text-s112-err"> *</span>}
             </label>
             <select name="laubarbeit_art" required={felder.laubarbeitArt === 'pflicht'}
-              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+              className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
               <option value="">– Auswählen –</option>
               {LAUBARBEIT_OPTIONEN.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
@@ -686,7 +686,7 @@ export default function NeueBehandlungForm({
               <div>
                 <label className="block text-sm font-medium text-s112-text-1 mb-1">Witterung</label>
                 <select aria-label="Witterung" name="witterung"
-                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                  className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                   <option value="">–</option>
                   {WITTERUNG_OPTIONEN.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
@@ -696,7 +696,7 @@ export default function NeueBehandlungForm({
               <div>
                 <label className="block text-sm font-medium text-s112-text-1 mb-1">Temperatur (°C)</label>
                 <input aria-label="Temperatur (°C)" name="temperatur_c" type="number" step="0.1" placeholder="z.B. 18.5"
-                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+                  className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
               </div>
             )}
           </div>
@@ -705,7 +705,7 @@ export default function NeueBehandlungForm({
         <div>
           <label className="block text-sm font-medium text-s112-text-1 mb-1">Notizen</label>
           <textarea aria-label="Notizen" name="notizen" rows={2}
-            className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
       </div>
 
@@ -813,7 +813,7 @@ export default function NeueBehandlungForm({
                 <label className="block text-sm font-medium text-s112-text-1 mb-1">Hektarsatz</label>
                 <select aria-label="Hektarsatz" value={selectedSatzId || passendeSaetze[0].id}
                   onChange={e => { setSelectedSatzId(e.target.value); betragManuellGeaendert.current = false }}
-                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                  className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                   {passendeSaetze.map(s => (
                     <option key={s.id} value={s.id}>{s.bezeichnung} – {fmtEuro(s.satz_pro_ha)} €/ha</option>
                   ))}
@@ -831,7 +831,7 @@ export default function NeueBehandlungForm({
                 <label className="block text-sm font-medium text-s112-text-1 mb-1">Kostenart</label>
                 <select aria-label="Kostenart" name="kosten_kostenart_id" value={kostenKostenartId}
                   onChange={e => setKostenKostenartId(e.target.value)}
-                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                  className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                   <option value="">– Auswählen –</option>
                   {kostenarten.map(k => <option key={k.id} value={k.id}>{k.name}</option>)}
                 </select>
@@ -841,7 +841,7 @@ export default function NeueBehandlungForm({
                 <input aria-label="Betrag (€)" name="kosten_betrag" type="number" step="0.01" min="0"
                   value={kostenBetrag}
                   onChange={e => { setKostenBetrag(e.target.value); betragManuellGeaendert.current = true }}
-                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+                  className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
               </div>
             </div>
 
@@ -849,7 +849,7 @@ export default function NeueBehandlungForm({
               <label className="block text-sm font-medium text-s112-text-1 mb-1">Beschreibung</label>
               <input aria-label="Beschreibung" name="kosten_beschreibung" type="text" value={kostenBeschreibung}
                 onChange={e => setKostenBeschreibung(e.target.value)}
-                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+                className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
             </div>
           </div>
         )}
@@ -861,10 +861,11 @@ export default function NeueBehandlungForm({
         </div>
       )}
 
-      <div className="flex gap-3">
+      <div className="flex gap-3 max-sm:sticky max-sm:bottom-0 max-sm:-mx-4 max-sm:px-4 max-sm:py-3 max-sm:bg-s112-bg max-sm:border-t max-sm:border-s112-line max-sm:z-10">
+        {/* KAN-181: am Handy bleibt die Leiste beim Scrollen unten sichtbar */}
         {/* nur beim Speichern gesperrt – fehlende Auswahl bzw. Bio-Sperre zeigt der Klick (absendenHindernis, KAN-153) */}
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-s112-yellow px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50 transition-colors">
+          className="flex-1 sm:flex-none bg-s112-teal text-s112-yellow px-6 py-3 sm:py-2.5 rounded-xl text-base sm:text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50 transition-colors">
           {erfassenKnopfText(pending, totalSelCount)}
         </button>
         <a href="/behandlungen" className="px-5 py-2.5 rounded-xl text-sm font-medium text-s112-text-2 hover:text-s112-text">
