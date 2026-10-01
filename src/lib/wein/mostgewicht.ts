@@ -199,7 +199,8 @@ export interface MischTeil {
  * 88,8 °Oe; das °Oe-Mittel wäre 89,2). Liter werden über die Dichte ρ ≈ 1 + °Oe/1000 in kg
  * umgerechnet. Ergebnis auf 2 Stellen abgerundet, °Oe daraus, Einheit 'kmw'.
  * Teile ohne gültige Menge > 0 oder ohne °KMW zählen nicht (wie heute im Pressungs-Ø);
- * ohne zählenden Teil → null. Umgang mit fehlenden Quellen: KAN-130, offene Frage 1.
+ * ohne zählenden Teil → null. Fehlende Quellen (KAN-130, Jörgen 01.10.2026): nur die Teile mit Wert zählen,
+ * das Ergebnis gilt dann als „teilweise“ – siehe mischenMitAnteil().
  */
 export function mischen(teile: readonly MischTeil[], mengeneinheit: 'kg' | 'l' = 'kg'): Mostgewicht | null {
   if (mengeneinheit !== 'kg' && mengeneinheit !== 'l') throw new RangeError(`mischen: Mengeneinheit 'kg' oder 'l' erwartet: ${String(mengeneinheit)}`)
@@ -216,6 +217,27 @@ export function mischen(teile: readonly MischTeil[], mengeneinheit: 'kg' | 'l' =
   if (!(masse > 0)) return null
   const h = Math.round(abrunden(zucker / masse, KMW_STELLEN) * 100)
   return { kmw: h / 100, oechsle: oeZehntel(h) / 10, einheit: 'kmw' }
+}
+
+/** Ergebnis von mischenMitAnteil(): Mittel plus Anzahl der Teile mit Menge (gesamt) bzw. mit Menge und °KMW (mitWert) */
+export interface MischErgebnis {
+  mostgewicht: Mostgewicht | null
+  /** true, wenn mindestens ein Teil mit Menge > 0 kein °KMW hat, aber andere eines haben */
+  teilweise: boolean
+  mitWert: number
+  gesamt: number
+}
+
+/**
+ * mischen() samt Kennzeichnung fehlender Quellen (KAN-130, Entscheidung 1, Jörgen 01.10.2026): Teile ohne
+ * Mostgewicht bleiben draußen, das Mittel heißt dann „teilweise“. Pressungs-Ø (Formular und Server Action)
+ * und später Umzug/Verschnitt rechnen damit, damit Anzeige, Stufe und gespeicherter Wert gleich sind.
+ */
+export function mischenMitAnteil(teile: readonly MischTeil[], mengeneinheit: 'kg' | 'l' = 'kg'): MischErgebnis {
+  const mitMenge = teile.filter(t => typeof t.menge === 'number' && Number.isFinite(t.menge) && t.menge > 0)
+  const mitWert = mitMenge.filter(t => typeof t.kmw === 'number' && Number.isFinite(t.kmw) && t.kmw >= 0).length
+  const mostgewicht = mischen(mitMenge, mengeneinheit)
+  return { mostgewicht, teilweise: mostgewicht != null && mitWert < mitMenge.length, mitWert, gesamt: mitMenge.length }
 }
 
 // ── Grenzfall ───────────────────────────────────────────────────────────────

@@ -14,7 +14,7 @@ import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fehlerText } from '@/lib/fehler'
 import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
 import { messwertText, mostgewichtAusGespeichert, type GespeichertesMostgewicht } from '@/lib/wein/mostgewichtFormular'
-import type { Mostgewicht } from '@/lib/wein/mostgewicht'
+import { abrunden, formatKmw, KMW_STELLEN, mischenMitAnteil, type Mostgewicht } from '@/lib/wein/mostgewicht'
 import { datumText, lesedatumFehler, lesetageFuerOrt, vorbelegterLesetag, type LeseEintrag, type Lesetag } from '@/lib/wein/pressungLesedatum'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -182,37 +182,28 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, wgOptions, behOpt
   // auch zugekaufte Trauben (kmw_grad aus zukaufTrauben, beim Zukauf erfasst) – vorher
   // wurden Zukauf-Zeilen (kein weingarten_id) hier komplett übergangen und der KMW-Wert
   // blieb bei reinen Zukauf-Pressungen immer leer, obwohl er beim Zukauf erfasst worden war.
+  // KAN-130 (01.10.2026): Rechnung wie der Server – mischenMitAnteil() aus den Mostgewichten der Traubenzeilen, auf
+  // 2 Stellen abgerundet (bis dahin hier auf 1 Stelle kaufmännisch gerundet, die Stufe konnte so zu hoch werden).
+  // Der Server rechnet selbst und nimmt den Formularwert nur, wenn keine Zeile ein Mostgewicht hat; dann gelten wie
+  // bisher Zukauf bzw. Lese-Parzelle als Rückfall (alte Pressungen ohne Mostgewicht je Zeile).
+  const mittelZeilen = mischenMitAnteil(wgRows.map(row => ({ menge: parseFloat(dezimal(row.trauben_kg)) || 0, kmw: row.mg?.kmw ?? null })))
   const kmwFromWgRows = (() => {
-    let sumKg = 0, sumKmw = 0
-    for (const row of wgRows) {
-      const kg = parseFloat(dezimal(row.trauben_kg)) || 0
-      if (kg <= 0) continue
-      if (row.mg) {
-        sumKg  += kg
-        sumKmw += row.mg.kmw * kg
-        continue
-      }
-      if (row.zukauf_posten_id) {
-        const zukauf = zukaufTrauben.find(z => z.id === row.zukauf_posten_id)
-        if (zukauf?.kmw_grad != null) {
-          sumKg  += kg
-          sumKmw += zukauf.kmw_grad * kg
-        }
-        continue
-      }
+    if (mittelZeilen.mostgewicht) return mittelZeilen.mostgewicht.kmw
+    const rueckfall = mischenMitAnteil(wgRows.map(row => {
+      const menge = parseFloat(dezimal(row.trauben_kg)) || 0
+      if (row.zukauf_posten_id) return { menge, kmw: zukaufTrauben.find(z => z.id === row.zukauf_posten_id)?.kmw_grad ?? null }
       const parzelle = leseParzellen.find(p =>
         p.weingarten_id === row.weingarten_id &&
         (p.grundstueck_id ?? '') === row.grundstueck_id
       )
-      if (parzelle?.klosterneuburger != null) {
-        sumKg  += kg
-        sumKmw += parzelle.klosterneuburger * kg
-      }
-    }
-    if (sumKg === 0) return pressung?.kmw_grad ?? null
-    return Math.round((sumKmw / sumKg) * 10) / 10
+      return { menge, kmw: parzelle?.klosterneuburger ?? null }
+    }))
+    if (rueckfall.mostgewicht) return rueckfall.mostgewicht.kmw
+    return pressung?.kmw_grad != null ? abrunden(pressung.kmw_grad, KMW_STELLEN) : null
   })()
-  const kmwGrad      = kmwFromWgRows?.toString().replace('.', ',') ?? ''
+  // „teilweise“: nicht jede Traubenzeile mit Menge hat ein Mostgewicht (KAN-130, Entscheidung 1)
+  const kmwTeilweise = mittelZeilen.teilweise
+  const kmwGrad      = kmwFromWgRows != null ? formatKmw(kmwFromWgRows) : ''
   const kmwNum       = parseFloat(dezimal(kmwGrad))
   // wie der Server (zahlAus → kmwZuQualitaet): jede gültige Zahl zählt, auch 0 °KMW (→ Wein)
   const kmwQualitaet = kmwGrad !== '' && Number.isFinite(kmwNum) ? kmwZuQualitaet(kmwNum) : null
@@ -499,6 +490,11 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, wgOptions, behOpt
           <div className="flex items-center gap-2">
             <div className="border border-s112-border rounded-lg px-2 py-1.5 text-sm bg-s112-bg text-s112-text-1 cursor-not-allowed whitespace-nowrap shrink-0">
               {kmwGrad ? `${kmwGrad} °KMW` : <span className="text-s112-muted text-xs">– kein KMW</span>}
+              {kmwGrad && kmwTeilweise && (
+                <span className="ml-1 text-xs text-amber-700" title="Nicht jede Traubenzeile hat ein Mostgewicht – der Durchschnitt zählt nur die Zeilen mit Wert.">
+                  (teilweise: {mittelZeilen.mitWert} von {mittelZeilen.gesamt} Zeilen)
+                </span>
+              )}
             </div>
             <div className="flex-1 flex items-center gap-2">
               <select aria-label="Qualitätsstufe der neuen Charge" value={stufeWert} onChange={e => setAbgestuft(e.target.value)}

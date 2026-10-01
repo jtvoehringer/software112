@@ -20,7 +20,7 @@ import { aggregiereJeRebsorte, KG_JE_HL, kopfGebiete, ladeLesedaten, parzelleFue
 import { runden, STELLEN } from '@/lib/csv'
 import { amaDatumFehler, amaStatusFehler, type AmaZielStatus } from '@/lib/behoerden/amaMeldung'
 import { mostgewichtAusFormular, mostgewichtAusWert, mostgewichtSpalten } from '@/lib/wein/mostgewichtFormular'
-import type { Mostgewicht } from '@/lib/wein/mostgewicht'
+import { abrunden, KMW_STELLEN, mischenMitAnteil, type Mostgewicht } from '@/lib/wein/mostgewicht'
 import { istErntebar, leseZiele, verteileKg, type LeseGst, type LeseZiel } from '@/lib/wein/leseErfassung'
 import { lesedatumFehler, behaelterPruefung } from '@/lib/wein/pressungLesedatum'
 import { eisweinHinweis, istLeseArt, jahrgangAusEingabe, leseLoeschsperre, leseStufe, leseZeitraumFehler } from '@/lib/wein/lesen'
@@ -872,6 +872,8 @@ type BehZeile = {
 type ChargenVorgaben = {
   name: string; jahr: number | null; rebsorte: string | null
   qualitaet: string; herkunft: string | null; weinart: string
+  /** KAN-130: Mostgewicht der Pressung in °KMW (gewichteter Ø) – geht in die neue Charge */
+  kmw: number | null
 }
 
 const PW_FELDER = ['weingarten_id', 'grundstueck_id', 'zukauf_posten_id', 'trauben_kg', 'rebsorte', 'notizen', 'ernte_datum', 'kmw', 'oechsle', 'mostgewicht_einheit'] as const
@@ -972,7 +974,7 @@ async function chargenVorgabenErmitteln(
       ? dominantRebsorte
       : `Pressung ${datumText(kopf.datum)}`
 
-  return { name, jahr, rebsorte: dominantRebsorte, qualitaet, herkunft, weinart }
+  return { name, jahr, rebsorte: dominantRebsorte, qualitaet, herkunft, weinart, kmw: kopf.kmwGrad != null && !isNaN(kopf.kmwGrad) ? kopf.kmwGrad : null }
 }
 
 /**
@@ -990,7 +992,11 @@ async function mostzeileMitChargeAnlegen(
 ): Promise<NeueCharge> {
   const { data, error } = await (supabase.rpc as (fn: string, args: AR) => Promise<{ data: AR | null; error: AR | null }>)('s112_mostzeile_anlegen', {
     p_tenant_id: tenantId, p_pressung_id: pressId, p_behaelter_id: b.behaelter_id, p_menge_liter: b.menge_liter, p_notizen: b.notizen,
-    p_charge: { name: v.name, jahrgang: v.jahr, rebsorte: v.rebsorte, qualitaetsstufe: v.qualitaet, herkunft_code: v.herkunft, weinart: v.weinart },
+    p_charge: {
+      name: v.name, jahrgang: v.jahr, rebsorte: v.rebsorte, qualitaetsstufe: v.qualitaet, herkunft_code: v.herkunft, weinart: v.weinart,
+      // KAN-130: Mostgewicht der Pressung; °Oe ergänzt der Trigger b_mostgewicht (Migration kan130a)
+      ...(v.kmw != null ? { kmw: v.kmw, mostgewicht_einheit: 'kmw' } : {}),
+    },
   })
   if (error || !data?.weinausbau_id) throw new AktionsFehler(dbFehlerText(error, 'Behälterzeile mit Kellerbuch-Charge konnte nicht angelegt werden'))
   return { behaelter_id: b.behaelter_id as string, weinausbau_id: data.weinausbau_id as string, name: v.name, menge_liter: b.menge_liter, qualitaetsstufe: v.qualitaet, herkunft_code: v.herkunft }
@@ -1011,7 +1017,8 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
   const datum            = (fd.get('datum') as string) || ''
   const mostLiter        = zahlAus(fd.get('most_liter_gesamt'))
   const weinbezeichnung  = (fd.get('weinbezeichnung') as string) || null
-  const kmwGrad          = zahlAus(fd.get('kmw_grad'))
+  // KAN-130: nur noch Rückfall für alte Pressungen ohne Mostgewicht je Traubenzeile – sonst rechnet der Server (unten)
+  const kmwGradFormular  = zahlAus(fd.get('kmw_grad'))
   const notizen          = (fd.get('notizen') as string) || null
   const qualitaetsstufeInput = (fd.get('qualitaetsstufe') as string) || null
   if (!datum) throw new AktionsFehler('Bitte das Datum der Pressung angeben.')
@@ -1041,6 +1048,13 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
       mostgewicht_einheit: spalten.mostgewicht_einheit,
     }
   })
+  // KAN-130 (Jörgen 01.10.2026): Mostgewicht der Pressung = massegewichteter Ø der Traubenzeilen in °KMW, auf 2 Stellen
+  // abgerundet (mischen, Rechenregel 7) – serverseitig statt aus dem Formular (dort bis 01.10.2026 auf 1 Stelle
+  // kaufmännisch gerundet: je 50 % 18,9 und 19,0 °KMW ergaben 19,0 = Spätlese statt 18,95 = Kabinett). Zeilen ohne
+  // Mostgewicht zählen nicht („teilweise“). Ohne Wert in allen Zeilen (alte Pressungen) gilt der Formularwert, abgerundet.
+  const mittel = mischenMitAnteil(weingaerten.map(w => ({ menge: w.trauben_kg, kmw: w.kmw })))
+  const kmwGrad = mittel.mostgewicht?.kmw
+    ?? (kmwGradFormular != null && !isNaN(kmwGradFormular) ? abrunden(kmwGradFormular, KMW_STELLEN) : null)
   const behaelter: BehZeile[] = leseFormularJson<PressungBehInput>(fd, 'behaelter_json').map((b, i) => {
     const menge = zahlOderNull(b.menge_liter)
     return {
