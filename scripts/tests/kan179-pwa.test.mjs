@@ -25,7 +25,7 @@ describe('Manifest', () => {
   })
   test('alle Icons und Schnellzugriffe zeigen auf vorhandene Dateien bzw. Seiten', () => {
     for (const i of m.icons) assert.ok(existsSync(datei(`public${i.src}`)), i.src)
-    const seite = { '/erntemeldung': 'src/app/(dashboard)/erntemeldung/page.tsx', '/behandlungen/neu': 'src/app/(dashboard)/behandlungen/neu/page.tsx', '/kellerbuch': 'src/app/(dashboard)/kellerbuch/page.tsx' }
+    const seite = { '/erntemeldung/erfassen': 'src/app/(dashboard)/erntemeldung/erfassen/page.tsx', '/behandlungen/neu': 'src/app/(dashboard)/behandlungen/neu/page.tsx', '/kellerbuch': 'src/app/(dashboard)/kellerbuch/page.tsx' }
     for (const s of m.shortcuts) assert.ok(existsSync(datei(seite[s.url])), s.url)
   })
 })

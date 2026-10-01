@@ -3,8 +3,8 @@
 // ── Horizontale Hauptnavigation (Dashboard-Relaunch 27.8.2026) ────────────────
 // Zeile 1: Bereiche als Tabs mit Unterstrich in der Aktionsfarbe (s112-teal,
 // per Mandant überschreibbar). Zeile 2: Seiten des aktiven Bereichs als Chips.
-// Beide Zeilen scrollen auf schmalen Bildschirmen horizontal – ein Mobile-
-// Drawer ist damit nicht mehr nötig.
+// Beide Zeilen scrollen auf schmalen Bildschirmen horizontal. KAN-181 (01.10.2026): unter 768 px
+// ersetzt das Mobilmenü (MobileNav, Knopf in der Kopfleiste) die Zeile 1; Zeile 2 bleibt als Kontext.
 
 import Link, { LinkSpinner } from '@/components/ui/Link'
 import { usePathname } from 'next/navigation'
@@ -17,7 +17,7 @@ export default function TabNav({ groups }: { groups: NavGroup[] }) {
   return (
     <nav className="bg-s112-surface border-b border-s112-line shrink-0 z-30" aria-label="Hauptnavigation">
       {/* Zeile 1: Bereiche */}
-      <div className="max-w-[1280px] 2xl:max-w-[1600px] mx-auto px-2 lg:px-3 flex gap-0.5 overflow-x-auto [scrollbar-width:none]">
+      <div className="max-w-[1280px] 2xl:max-w-[1600px] mx-auto px-2 lg:px-3 hidden md:flex gap-0.5 overflow-x-auto [scrollbar-width:none]">
         {groups.map(g => {
           const active = g.key === aktiv?.key
           return (
@@ -40,7 +40,7 @@ export default function TabNav({ groups }: { groups: NavGroup[] }) {
 
       {/* Zeile 2: Seiten des aktiven Bereichs */}
       {aktiv && (
-        <div className="border-t border-s112-line bg-s112-bg/70">
+        <div className="md:border-t border-s112-line bg-s112-bg/70">
           <div className="max-w-[1280px] 2xl:max-w-[1600px] mx-auto px-3 lg:px-4 py-1.5 flex gap-1 overflow-x-auto [scrollbar-width:none]">
             {aktiv.items.map(item => {
               const active = isActivePath(item.href, pathname)
@@ -60,7 +60,7 @@ export default function TabNav({ groups }: { groups: NavGroup[] }) {
                   key={item.href}
                   href={item.href}
                   aria-current={active ? 'page' : undefined}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-[5px] rounded-md text-[13px] whitespace-nowrap transition-colors duration-[120ms] ${item.child ? 'ml-[-2px] text-[12.5px]' : ''} ${
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-2 md:py-[5px] rounded-md text-[13px] whitespace-nowrap transition-colors duration-[120ms] ${item.child ? 'ml-[-2px] text-[12.5px]' : ''} ${
                     active
                       ? 'bg-s112-blue-50 text-s112-blue-700 font-semibold'
                       : 'text-s112-text-1 hover:bg-s112-line/60 hover:text-s112-text'

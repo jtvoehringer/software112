@@ -92,7 +92,7 @@ export default function CommandPalette({
       { id: 'a:aktivitaet', gruppe: 'Aktionen', label: 'Aktivität / Termin anlegen', icon: Calendar,   href: '/crm',                       keywords: 'kalender neu' },
       { id: 'a:fuellung',   gruppe: 'Aktionen', label: 'Neue Füllung',             icon: Droplets,     href: '/weinhandel/fuellungen/neu', keywords: 'abfüllen flaschen neu' },
       { id: 'a:massnahme',  gruppe: 'Aktionen', label: 'Maßnahme erfassen',        icon: FlaskConical, href: '/behandlungen/neu',          keywords: 'pflanzenschutz spritzung neu' },
-      { id: 'a:ernte',      gruppe: 'Aktionen', label: 'Lesedaten erfassen',       icon: Wine,         href: '/erntemeldung',              keywords: 'ernte jahrgang lese neu' },
+      { id: 'a:ernte',      gruppe: 'Aktionen', label: 'Lesedaten erfassen',       icon: Wine,         href: '/erntemeldung/erfassen',            keywords: 'ernte jahrgang lese neu' },
       // Pilottest 30.09.2026: Pressungen im Kellerbuch
       { id: 'a:pressung',   gruppe: 'Aktionen', label: 'Pressung erfassen',        icon: Wine,         href: '/kellerbuch/pressungen',     keywords: 'pressung most keltern charge neu' },
       // KAN-129: eine Lese im Jahrgang anlegen (Hauptlese, Eiswein …) – der Jahrgang entsteht bei Bedarf mit

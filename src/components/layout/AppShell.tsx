@@ -13,6 +13,7 @@ import { useMemo } from 'react'
 import Image from 'next/image'
 import Topbar from './Topbar'
 import TabNav from './TabNav'
+import MobileNav from './MobileNav'
 import AssistantPanel from './AssistantPanel'
 import CommandPalette from '@/components/CommandPalette'
 import { MostgewichtEinheitProvider } from '@/components/wein/MostgewichtEinheit'
@@ -64,6 +65,8 @@ export default function AppShell({
       <Topbar userEmail={userEmail} userName={userName} roleLabel={roleLabel} branding={branding} betriebCount={betriebCount} />
       <CommandPalette groups={groups} darfSchreiben={darfSchreiben} branding={branding} betriebCount={betriebCount} />
       <TabNav groups={groups} />
+      {/* KAN-181: unter 768 px Bereiche über das Menü (Knopf links in der Kopfleiste) */}
+      <MobileNav groups={groups} />
 
       <div className="flex-1 min-h-0 flex overflow-hidden">
         {/* Inhaltsbreite: 1280 px, auf großen Bildschirmen (≥ 1536 px, Tailwind 2xl)

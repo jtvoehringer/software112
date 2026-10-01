@@ -25,7 +25,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from '@/components/ui/Link'
-import { Search, Bell, LogOut, ArrowLeftRight, User, ChevronDown } from 'lucide-react'
+import { Search, Bell, LogOut, ArrowLeftRight, User, ChevronDown, Menu } from 'lucide-react'
+import { MOBILNAV_EVENT } from './MobileNav'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import type { TenantBranding } from '@/app/(dashboard)/layout'
 import type { Hinweis, Benachrichtigung } from '@/app/api/dashboard/hinweise/route'
@@ -117,12 +118,13 @@ export default function Topbar({
   // Dropdowns bei Außenklick schließen
   useEffect(() => {
     if (!menuOpen && !notifOpen) return
-    const handler = (e: MouseEvent) => {
+    const handler = (e: PointerEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false)
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) setNotifOpen(false)
     }
-    window.addEventListener('mousedown', handler)
-    return () => window.removeEventListener('mousedown', handler)
+    // pointerdown statt mousedown: auch Tippen am Handy schließt das Menü (KAN-181)
+    window.addEventListener('pointerdown', handler)
+    return () => window.removeEventListener('pointerdown', handler)
   }, [menuOpen, notifOpen])
 
   const handleLogout = async () => {
@@ -134,19 +136,26 @@ export default function Topbar({
 
   return (
     <header className="bg-s112-kopf text-s112-kopf-text shrink-0 z-40 shadow-[0_1px_4px_rgba(31,66,115,.35)]">
-      <div className="h-14 max-w-[1280px] 2xl:max-w-[1600px] mx-auto px-4 lg:px-6 flex items-center gap-3 lg:gap-5">
+      <div className="h-14 max-w-[1280px] 2xl:max-w-[1600px] mx-auto px-2 sm:px-4 lg:px-6 flex items-center gap-2 sm:gap-3 lg:gap-5">
+
+        {/* KAN-181: Menü-Knopf unter 768 px – öffnet das Mobilmenü mit allen Bereichen */}
+        <button type="button" onClick={() => window.dispatchEvent(new Event(MOBILNAV_EVENT))}
+          aria-label="Menü öffnen" title="Menü"
+          className={`md:hidden w-10 h-10 shrink-0 flex items-center justify-center rounded-md text-s112-kopf-text hover:bg-black/15 transition-colors ${FOKUS_HELL}`}>
+          <Menu size={22} strokeWidth={1.75} />
+        </button>
 
         {/* Wortmarke software:112 – auf Blau einfarbig Weiß (siehe Dateikopf) */}
-        <Link href="/dashboard" className={`shrink-0 font-display text-[21px] font-light tracking-[.04em] whitespace-nowrap leading-none hover:opacity-90 transition-opacity ${FOKUS_HELL}`}>
+        <Link href="/dashboard" className={`shrink-0 font-display text-[18px] sm:text-[21px] font-light tracking-[.04em] whitespace-nowrap leading-none hover:opacity-90 transition-opacity ${FOKUS_HELL}`}>
           software<b className="font-semibold">:</b>112
         </Link>
 
         {/* Mandant: Logo und/oder Anzeigename (tenant_einstellungen) */}
-        <div className="min-w-0 flex-1 flex items-center gap-2.5 border-l border-s112-kopf-text/35 pl-3 lg:pl-5 h-8" title={`Betrieb: ${branding.anzeigename}`}>
+        <div className="min-w-0 flex-1 flex items-center gap-2.5 border-l border-s112-kopf-text/35 pl-2 sm:pl-3 lg:pl-5 h-8" title={`Betrieb: ${branding.anzeigename}`}>
           {branding.logo_url && (
             // Logo-Kachel voll weiß: Mandantenlogos sind für hellen Grund gemacht
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={branding.logo_url} alt={branding.anzeigename} className="h-7 w-auto max-w-[140px] object-contain bg-white rounded px-1 py-0.5 shrink-0" />
+            <img src={branding.logo_url} alt={branding.anzeigename} className="hidden sm:block h-7 w-auto max-w-[140px] object-contain bg-white rounded px-1 py-0.5 shrink-0" />
           )}
           {/* Label und Name auf einer Grundlinie (Mono-Schrift sitzt sonst optisch zu hoch) */}
           <div className="min-w-0 flex items-baseline gap-2.5 leading-none">
@@ -155,12 +164,12 @@ export default function Topbar({
           </div>
         </div>
 
-        <div className="ml-auto flex items-center gap-1.5 lg:gap-2.5 shrink-0">
+        <div className="ml-auto flex items-center gap-0.5 sm:gap-1.5 lg:gap-2.5 shrink-0">
           {/* Befehlspalette */}
           <button
             type="button"
             onClick={() => window.dispatchEvent(new Event(PALETTE_EVENT))}
-            className={`inline-flex items-center gap-2 h-8 px-2.5 rounded-md bg-black/15 hover:bg-black/25 text-s112-kopf-text/85 hover:text-s112-kopf-text text-[13px] transition-colors ${FOKUS_HELL}`}
+            className={`inline-flex items-center justify-center gap-2 h-10 w-10 md:h-8 md:w-auto md:px-2.5 rounded-md bg-black/15 hover:bg-black/25 text-s112-kopf-text/85 hover:text-s112-kopf-text text-[13px] transition-colors ${FOKUS_HELL}`}
             title="Suchen oder Befehl (Strg K)"
           >
             <Search size={15} strokeWidth={1.75} />
@@ -173,7 +182,7 @@ export default function Topbar({
             <button
               type="button"
               onClick={() => setNotifOpen(o => !o)}
-              className={`relative w-8 h-8 flex items-center justify-center rounded-md text-s112-kopf-text/90 hover:bg-black/15 hover:text-s112-kopf-text transition-colors ${FOKUS_HELL}`}
+              className={`relative w-10 h-10 md:w-8 md:h-8 flex items-center justify-center rounded-md text-s112-kopf-text/90 hover:bg-black/15 hover:text-s112-kopf-text transition-colors ${FOKUS_HELL}`}
               aria-label={anzahl ? `${anzahl} Hinweise` : 'Benachrichtigungen'}
               title={anzahl ? `${anzahl} offene Hinweise (Aufgaben, Fristen, Gärkontrollen)` : 'Benachrichtigungen'}
             >
@@ -185,7 +194,7 @@ export default function Topbar({
               )}
             </button>
             {notifOpen && (
-              <div className="absolute right-0 top-10 z-50 w-80 bg-white rounded-xl border border-s112-line shadow-lg text-s112-text overflow-hidden">
+              <div className="absolute right-0 top-11 md:top-10 z-50 w-[calc(100vw-1rem)] max-w-80 bg-white rounded-xl border border-s112-line shadow-lg text-s112-text overflow-hidden">
                 {/* Persönliche Benachrichtigungen (Aufgabe zugewiesen, für alle, @Erwähnung) */}
                 {benachr.length > 0 && (
                   <>
@@ -243,7 +252,7 @@ export default function Topbar({
               type="button"
               onClick={() => setMenuOpen(o => !o)}
               aria-expanded={menuOpen}
-              className={`flex items-center gap-2 h-8 pl-1 pr-2 rounded-md hover:bg-black/15 transition-colors ${FOKUS_HELL}`}
+              className={`flex items-center gap-2 h-10 md:h-8 pl-1 pr-1.5 md:pr-2 rounded-md hover:bg-black/15 transition-colors ${FOKUS_HELL}`}
               title={displayName}
             >
               {/* Avatar hellblau mit blauen Initialen (5,4:1); Logo-Grau mit Weiß hätte 2,8:1 */}
@@ -254,7 +263,7 @@ export default function Topbar({
               <ChevronDown size={13} strokeWidth={1.75} className={`text-s112-kopf-text/85 transition-transform ${menuOpen ? 'rotate-180' : ''}`} />
             </button>
             {menuOpen && (
-              <div className="absolute right-0 top-10 z-50 w-60 bg-white rounded-xl border border-s112-line shadow-lg p-1.5 text-s112-text">
+              <div className="absolute right-0 top-11 md:top-10 z-50 w-60 bg-white rounded-xl border border-s112-line shadow-lg p-1.5 text-s112-text">
                 <div className="px-2.5 py-2 border-b border-s112-line mb-1">
                   <p className="text-[12.5px] font-semibold truncate">{displayName}</p>
                   <p className="text-[11px] text-s112-tertiary truncate">{userEmail}</p>
