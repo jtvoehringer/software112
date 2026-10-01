@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole, getCurrentMembership, roleLabel, canWrite, canSeeAuswertungen, isSandboxAdminUnlock } from '@/lib/auth/roles'
-import { aboStandErmitteln } from '@/lib/abo/regeln'
+import { aboStandErmitteln, SANDBOX_TENANT_ID } from '@/lib/abo/regeln'
 import AppShell from '@/components/layout/AppShell'
 import ReleaseNotesModal from '@/components/ReleaseNotesModal'
 import SessionTimeout from '@/components/SessionTimeout'
@@ -132,7 +132,8 @@ export default async function DashboardLayout({
       // ohne tenant_einstellungen-Zeile ebenfalls den Betriebsnamen zeigen (KAN-163)
       branding = { ...branding, anzeigename: seitenBetriebName }
     }
-    isSandbox = (tenantRow as R | null)?.name === 'Sandbox'
+    // KAN-10 (01.10.2026): Sandbox über die feste ID statt über den (nicht eindeutigen) Namen
+    isSandbox = membership.tenantId === SANDBOX_TENANT_ID
 
     // Dieselbe Regel prüfen Server Actions und API-Routen (lib/auth/sperren.ts: schreibSperre);
     // den schon geladenen Kopf wiederverwenden, vor „gesperrt“ ungecacht gegenprüfen

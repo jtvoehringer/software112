@@ -2,7 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { graphPost, getValidAccessToken } from '@/lib/m365/graph'
-import { getCurrentMembership } from '@/lib/auth/roles'
+import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
 import { ereignisMelden } from '@/lib/system/ereignis'
 import { erzeugeClientState } from '@/lib/m365/clientState'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
@@ -52,6 +52,9 @@ export async function POST(req: NextRequest) {
     const tenantId = membership?.tenantId
     if (!tenantId && !hasCronAuth) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
     if (!hasCronAuth) {
+      // KAN-25 (01.10.2026): Sitzungszweig nur für Betriebs-Admins (tenant_admin/system_admin) –
+      // bisher konnte jedes Mitglied, auch ein Leser, die Webhook-Subscription des Betriebs erneuern
+      if (!membership || !canAdmin(membership.role)) return NextResponse.json({ fehler: 'Keine Berechtigung' }, { status: 403 })
       // KAN-5: Sitzungszweig schreibt die Graph-Subscription des Betriebs – im Nur-Lesen-Modus
       // gesperrt; der Cron-Zweig (CRON_SECRET) erneuert bestehende Subscriptions weiter
       const gesperrt = await schreibSperreKonflikt(membership)
