@@ -14,6 +14,7 @@ import BetriebsmittelLagerClient, { type BmBewegung, type BmKarte, type BmOption
 import { BETRIEBSMITTEL_GRUPPEN, GRUPPE_LABEL, bmKonto, type BetriebsmittelGruppe, type BmVerbrauchPosten } from '@/lib/behandlungen/betriebsmittel'
 import { MASSNAHMEN_ART_LABEL } from '@/lib/behandlungen/arten'
 import { summeFlaecheHa } from '@/lib/behandlungen/massnahmeMengen'
+import { riedText } from '@/lib/behandlungen/rieden'
 
 export const metadata: Metadata = { title: 'Betriebsmittel – software:112' }
 export const dynamic = 'force-dynamic'
@@ -289,13 +290,13 @@ export default async function LagerPage({
   // Verbrauch aus Maßnahmen (Sonstiges, Laubarbeit) mit Betriebsmittel – Aufwand × behandelte Fläche bzw. gesamt
   const { data: rawBmVerbrauch } = zeigtBestand
     ? await tf((supabase.from('behandlungen') as any)   // eslint-disable-line @typescript-eslint/no-explicit-any
-        .select('id, datum, art, aufwandmenge, aufwandmenge_einheit, betriebsmittel_id, weingarten:weingarten_id(name), behandlung_grundstuecke(flaeche_ha, grundstueck:grundstueck_id(flaeche_ha))')
+        .select('id, datum, art, aufwandmenge, aufwandmenge_einheit, betriebsmittel_id, weingarten_id, weingarten:weingarten_id(id, name, ried), behandlung_grundstuecke(flaeche_ha, grundstueck:grundstueck_id(flaeche_ha, weingarten_id, weingarten:weingarten_id(id, name, ried)))')
         .not('betriebsmittel_id', 'is', null))
     : { data: [] }
   const bmVerbrauch = new Map<string, BmVerbrauchPosten[]>()
   for (const b of ((rawBmVerbrauch ?? []) as AR[])) {
     const art = MASSNAHMEN_ART_LABEL[b.art as keyof typeof MASSNAHMEN_ART_LABEL] ?? b.art
-    const ort = (b.weingarten as AR | null)?.name ?? null
+    const ort = riedText(b, { leer: '' }) || null   // KAN-121 (01.10.2026): Rieden auch über die Grundstücke
     const liste = bmVerbrauch.get(b.betriebsmittel_id) ?? []
     liste.push({
       behandlungId: b.id, datum: b.datum, art, ort,

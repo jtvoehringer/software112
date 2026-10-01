@@ -13,6 +13,7 @@ import { periodeVorBeginn } from '@/lib/ea/betriebsbeginn'
 import { afaBuchungsStatus } from '@/lib/ea/anlagen'
 import { ladeMandantMitglieder } from '@/lib/aufgaben/mitglieder'
 import { neuesteAmaVersion } from '@/lib/behoerden/amaMeldung'
+import { BEHANDLUNG_RIEDEN_SELECT, riedText } from '@/lib/behandlungen/rieden'
 
 const fmtEurKurz = (n: number) => `€ ${n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 export { STATUS_LABEL } from './types'
@@ -205,7 +206,8 @@ export async function ladeWeingarten(ctx: Ctx) {
     ctx.tf(ctx.q('weingarten').select('id, name, ried, rebsorte, weinart, flaeche_ha, bewirtschaftung, aktiv, ama_feldnummer, codes, interne_bezeichnung, zentrum_lat, zentrum_lon').eq('aktiv', true).order('name')),
     // KAN-150 F1: nur heute bewirtschaftete Grundstücke
     ctx.tf(ctx.q('grundstuecke').select('id, weingarten_id, flaeche_ha, ama_feldnummer').eq('aktiv', true)),
-    ctx.tf(ctx.q('behandlungen').select('id, datum, ernte_fruehesteins, weingarten_id, weingarten:weingarten_id(name)').gte('datum', `${jahr}-01-01`).order('datum', { ascending: false }).limit(500)),
+    // KAN-121 (01.10.2026): Ried auch über die Grundstücke der Maßnahme (App-Maßnahmen haben kein weingarten_id)
+    ctx.tf(ctx.q('behandlungen').select(`id, datum, ernte_fruehesteins, ${BEHANDLUNG_RIEDEN_SELECT}`).gte('datum', `${jahr}-01-01`).order('datum', { ascending: false }).limit(500)),
   ])
   const rieden = ((wRaw ?? []) as R[])
   const grundstuecke = ((gRaw ?? []) as R[])
@@ -230,7 +232,7 @@ export async function ladeWeingarten(ctx: Ctx) {
   })
   const wartefristen = behandlungen
     .filter(b => b.ernte_fruehesteins && b.ernte_fruehesteins >= ctx.heuteStr)
-    .map(b => ({ id: b.id as string, datum: b.datum as string, freiAb: b.ernte_fruehesteins as string, ried: (b.weingarten?.name ?? '–') as string }))
+    .map(b => ({ id: b.id as string, datum: b.datum as string, freiAb: b.ernte_fruehesteins as string, ried: riedText(b) }))
     .sort((a, b) => a.freiAb.localeCompare(b.freiAb))
   return {
     rieden: riedenListe,
