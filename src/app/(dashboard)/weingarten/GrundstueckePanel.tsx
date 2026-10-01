@@ -7,6 +7,14 @@ import { wienHeute } from '@/lib/csv'
 import { fmtHa } from '@/lib/format'
 import { getKgBezeichnung } from '@/lib/wein/katastralgemeinden'
 import { HERKUNFT_ORDER, HERKUNFT_LABEL } from '@/lib/herkunft'
+
+/** Kurzform des Herkunft-Codes für die Grundstückstabelle (vollständig im Tooltip) */
+function herkunftKurz(code: string): string {
+  if (code === 'wlnoe') return 'WLNÖ'
+  const m = /^thermenregion_(gebiets|orts|rieden)wein$/.exec(code)
+  if (m) return `Thermenregion DAC ${m[1][0].toUpperCase()}${m[1].slice(1)}wein`
+  return HERKUNFT_LABEL[code] ?? code
+}
 import HerkunftCodeSelect from '@/components/weinbaugebiete/HerkunftCodeSelect'
 import type { CustomWeinbaugebiet } from '../weinbaugebiete/actions'
 import { NUTZART_OPTIONS, NutzungBadge } from '@/lib/wein/grundstueckStatus'
@@ -560,15 +568,15 @@ export default function GrundstueckePanel({
             <thead>
               <tr className="bg-s112-bg border-b border-s112-border text-xs text-s112-text-2">
                 <th className="w-6 px-2 py-2" />
-                <th className="text-left px-3 py-2 font-semibold">GST-Nr</th>
-                <th className="text-left px-3 py-2 font-semibold">Rebsorte</th>
-                <th className="text-left px-3 py-2 font-semibold">Bewirtschaftung</th>
-                <th className="text-right px-3 py-2 font-semibold leading-tight">GST-Fläche<br/>lt. AMA</th>
-                <th className="text-right px-3 py-2 font-semibold leading-tight">GST-Fläche<br/>lt. Kataster</th>
-                <th className="text-right px-3 py-2 font-semibold">Pflanzjahr</th>
-                <th className="text-center px-3 py-2 font-semibold">Nutzart</th>
-                <th className="text-center px-3 py-2 font-semibold">Nutzung</th>
-                <th className="px-3 py-2 sticky right-0 bg-s112-bg border-l border-s112-border" />
+                <th className="text-left px-2 py-2 font-semibold">GST-Nr</th>
+                <th className="text-left px-2 py-2 font-semibold">Rebsorte</th>
+                <th className="text-left px-2 py-2 font-semibold">Bewirtschaftung</th>
+                <th className="text-left px-2 py-2 font-semibold leading-tight">Herkunft-Code<br/>(BKI)</th>
+                <th className="text-right px-2 py-2 font-semibold leading-tight">GST-Fläche<br/>lt. AMA</th>
+                <th className="text-right px-2 py-2 font-semibold leading-tight">GST-Fläche<br/>lt. Kataster</th>
+                <th className="text-right px-2 py-2 font-semibold">Pflanzjahr</th>
+                <th className="text-center px-2 py-2 font-semibold">Nutzung</th>
+                <th className="px-2 py-2 sticky right-0 bg-s112-bg border-l border-s112-border" />
               </tr>
             </thead>
             <tbody>
@@ -597,7 +605,7 @@ export default function GrundstueckePanel({
                           <span className="text-s112-tertiary text-xs">▶</span>
                         )}
                       </td>
-                      <td className="px-3 py-2 font-mono text-xs font-medium">
+                      <td className="px-2 py-2 font-mono text-xs font-medium">
                         {g.gst_nr}
                         {g.aktiv === false && (
                           <span className="ml-1.5 inline-block px-1.5 py-0 rounded-full text-[11px] font-sans font-medium bg-[#F2F3F5] text-s112-text-2"
@@ -606,7 +614,7 @@ export default function GrundstueckePanel({
                           </span>
                         )}
                       </td>
-                      <td className="px-3 py-2 text-s112-muted text-xs">
+                      <td className="px-2 py-2 text-s112-muted text-xs">
                         {g.rebsorte ?? '–'}
                         {g.weinart && g.weinart !== 'unbekannt' && (
                           <span className={`ml-1 inline-block px-1 py-0 rounded-full text-xs font-medium ${
@@ -614,7 +622,7 @@ export default function GrundstueckePanel({
                           }`}>{g.weinart === 'rot' ? 'Rot' : 'Weiß'}</span>
                         )}
                       </td>
-                      <td className="px-3 py-2">
+                      <td className="px-2 py-2">
                         {g.bewirtschaftung ? (
                           <span className={`inline-block px-1.5 py-0 rounded-full text-xs font-medium ${BEWIRTSCHAFTUNG_BADGE[g.bewirtschaftung] ?? 'bg-[#F2F3F5] text-s112-text-2'}`}>
                             {BEWIRTSCHAFTUNG_LABEL[g.bewirtschaftung] ?? g.bewirtschaftung}
@@ -624,21 +632,27 @@ export default function GrundstueckePanel({
                           </span>
                         ) : <span className="text-s112-muted text-xs">–</span>}
                       </td>
-                      <td className="px-3 py-2 text-right tabular-nums text-xs">{fmtHa(g.flaeche_ha)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums text-xs text-s112-muted">
+                      {/* Herkunft-Code (BKI) wie im Formular – Anzeigetext, Schlüssel im Tooltip */}
+                      <td className="px-2 py-2 text-xs text-s112-text-2 leading-tight">
+                        {g.trauben_herkunft_code ? (
+                          <span title={`${HERKUNFT_LABEL[g.trauben_herkunft_code] ?? g.trauben_herkunft_code} (${g.trauben_herkunft_code})`}>
+                            {herkunftKurz(g.trauben_herkunft_code)}
+                          </span>
+                        ) : <span className="text-s112-muted">–</span>}
+                      </td>
+                      <td className="px-2 py-2 text-right tabular-nums text-xs">{fmtHa(g.flaeche_ha)}</td>
+                      <td className="px-2 py-2 text-right tabular-nums text-xs text-s112-muted">
                         {g.flaeche_ha_kataster != null ? fmtHa(g.flaeche_ha_kataster) : '–'}
                       </td>
-                      <td className="px-3 py-2 text-right text-s112-muted text-xs">{g.pflanzjahr ?? '–'}</td>
-                      <td className="px-3 py-2 text-center text-xs text-s112-muted" title={NUTZART_OPTIONS.find(o => o.value === g.nutzart)?.label ?? ''}>
-                        {g.nutzart ?? '–'}
-                      </td>
-                      <td className="px-3 py-2 text-center">
+                      <td className="px-2 py-2 text-right text-s112-muted text-xs">{g.pflanzjahr ?? '–'}</td>
+                      <td className="px-2 py-2 text-center" title={g.nutzart ? `Nutzart ${g.nutzart}` : undefined}>
                         <NutzungBadge nutzart={g.nutzart} />
+                        {g.nutzart && <span className="block text-[11px] text-s112-muted mt-0.5">{g.nutzart}</span>}
                         {g.nutzart === 'LSE' && g.lse_stueckzahl != null && (
                           <span className="block text-[11px] text-s112-muted mt-0.5">{g.lse_stueckzahl} Stk.</span>
                         )}
                       </td>
-                      <td className="px-3 py-2 text-right sticky right-0 bg-white border-l border-s112-border/40" onClick={e => e.stopPropagation()}>
+                      <td className="px-2 py-2 text-right sticky right-0 bg-white border-l border-s112-border/40" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-2">
                           {writeOk && (
                             <button onClick={() => { setEditId(g.id); setShowForm(false) }}
@@ -674,7 +688,7 @@ export default function GrundstueckePanel({
                     {/* Bearbeiten-Formular */}
                     {writeOk && editId === g.id && (
                       <tr>
-                        <td colSpan={10} className="px-3 py-2">
+                        <td colSpan={10} className="px-2 py-2">
                           <GSTForm weingartenId={weingartenId} gst={g} customWeinbaugebiete={eigeneWeinbaugebiete} onNeuesWeinbaugebiet={handleNeuesWeinbaugebiet} onDone={() => setEditId(null)} />
                         </td>
                       </tr>
