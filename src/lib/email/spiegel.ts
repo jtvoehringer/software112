@@ -6,16 +6,25 @@
 // unter Nachrichten: exakte Adresse oder Firmendomain) werden als Aktivität
 // art='email' angelegt (Upsert auf tenant_id,email_id - nichts doppelt).
 // Erster Lauf: 90 Tage zurück. Fehler je Postfach werden gesammelt, nicht geworfen.
+//
+// KAN-69 (01.10.2026): Vor dem Lesen wird je Verbindung geprüft, ob der Verbindungs-User im
+// Betrieb eine AKTIVE Mitgliedschaft hat und ob das Abo des Betriebs gesperrt ist (Nur-Lesen-
+// Modus, KAN-5) – sonst Postfach überspringen (lib/email/spiegelFreigabe.ts). Das gilt für alle
+// Aufrufer: Cron (/api/cron/taeglich), manuell (/api/email/spiegel, /api/nachrichten/spiegeln)
+// und „nebenbei“ beim Öffnen der Nachrichten (spiegleNebenbei). Übersprungene Postfächer zählen
+// nicht als Fehler (bewusste Auslassung); scheitert die Prüfung selbst, läuft nichts (fail-closed).
 
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getValidUserAccessToken, getMailboxBase } from '@/lib/m365/graph'
 import { ladeAbsenderIndex, findeAbsender, type AbsenderIndex } from '@/lib/crm/absender'
 import { ereignisMelden } from '@/lib/system/ereignis'
+import { spiegelFreigabe, SPIEGEL_SPERR_TEXT, type SpiegelBetrieb, type SpiegelMitgliedschaft } from '@/lib/email/spiegelFreigabe'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
-export type SpiegelErgebnis = { postfaecher: number; nachrichten: number; angelegt: number; fehler: string[]; dauerMs: number }
+/** uebersprungen (KAN-69): Postfächer ohne aktive Mitgliedschaft oder mit gesperrtem Abo, je mit Grund */
+export type SpiegelErgebnis = { postfaecher: number; nachrichten: number; angelegt: number; fehler: string[]; uebersprungen: string[]; dauerMs: number }
 
 const ERSTER_LAUF_TAGE = 90
 const MAX_JE_ORDNER = 300
@@ -24,7 +33,7 @@ export async function spiegleMailboxen(zeitbudgetMs = 40000, nurTenantId?: strin
   const start = Date.now()
   const deadline = start + zeitbudgetMs
   const admin = createSupabaseAdminClient()
-  const erg: SpiegelErgebnis = { postfaecher: 0, nachrichten: 0, angelegt: 0, fehler: [], dauerMs: 0 }
+  const erg: SpiegelErgebnis = { postfaecher: 0, nachrichten: 0, angelegt: 0, fehler: [], uebersprungen: [], dauerMs: 0 }
 
   // tenant-isolation-ignore: Cron über alle verbundenen Postfächer (Service-Role), je Zeile nach tenant_id verarbeitet
   let q = (admin.from('user_email_connections') as any)
@@ -35,10 +44,33 @@ export async function spiegleMailboxen(zeitbudgetMs = 40000, nurTenantId?: strin
   const { data: verbindungen, error } = await q
   if (error) { erg.fehler.push(error.message); erg.dauerMs = Date.now() - start; return erg }
 
+  // KAN-69: nur Verbindungen mit aktiver Mitgliedschaft in einem Betrieb ohne Abo-Sperre
+  const alle = (verbindungen ?? []) as (R & { tenant_id: string; user_id: string })[]
+  let freigegeben: R[] = []
+  if (alle.length) {
+    const tenantIds = [...new Set(alle.map(v => v.tenant_id))]
+    const userIds = [...new Set(alle.map(v => v.user_id))]
+    const db = admin as unknown as R
+    const [{ data: mitglieder, error: me }, { data: betriebe, error: be }] = await Promise.all([
+      // tenant-isolation-ignore: Mitgliedschaften genau der gelesenen Verbindungen (tenant_id IN …, user_id IN …)
+      db.from('tenant_memberships').select('tenant_id, user_id, aktiv').in('tenant_id', tenantIds).in('user_id', userIds),
+      // tenant-isolation-ignore: Abo-Stand genau der Betriebe der gelesenen Verbindungen
+      db.from('tenants').select('id, stripe_status, stripe_trial_ends_at').in('id', tenantIds),
+    ])
+    if (me || be) {
+      erg.fehler.push(`Freigabeprüfung (Mitgliedschaft/Abo) nicht möglich: ${(me ?? be)?.message ?? 'unbekannter Fehler'}`)
+      erg.dauerMs = Date.now() - start
+      return erg
+    }
+    const f = spiegelFreigabe(alle, (mitglieder ?? []) as SpiegelMitgliedschaft[], (betriebe ?? []) as SpiegelBetrieb[])
+    freigegeben = f.freigegeben
+    for (const u of f.uebersprungen) erg.uebersprungen.push(`${u.verbindung.email_address ?? u.verbindung.user_id}: ${SPIEGEL_SPERR_TEXT[u.grund]}`)
+  }
+
   const indexCache = new Map<string, AbsenderIndex>()
   const tenantCfgCache = new Map<string, R | null>()
 
-  for (const uc of (verbindungen ?? []) as R[]) {
+  for (const uc of freigegeben) {
     if (Date.now() - start > zeitbudgetMs) { erg.fehler.push('Zeitbudget erschöpft – Rest beim nächsten Lauf'); break }
     const tenantId = uc.tenant_id as string
     try {
@@ -159,6 +191,8 @@ async function spiegleOrdner(
  * als 15 Minuten ist - so landen neue Mails bekannter Kontakte zeitnah als
  * Aktivität, nicht erst beim Tageslauf. Läuft nach der Antwort (next/server
  * after()), kurzes Budget, Fehler nur im Protokoll.
+ * KAN-69 (01.10.2026): Mitgliedschaft und Abo-Sperre prüft spiegleMailboxen() – im
+ * Nur-Lesen-Modus entsteht hier also keine Aktivität und der Stand bleibt unverändert.
  */
 export async function spiegleNebenbei(tenantId: string, userId: string, budgetMs = 12000): Promise<void> {
   try {
