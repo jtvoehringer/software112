@@ -24,6 +24,8 @@ import {
 } from '../../neu/feldMatrix'
 import { ART_OPTIONS } from '../../neu/artOptionen'
 import MengenZusammenfassung from '../../neu/MengenZusammenfassung'
+import BetriebsmittelFeld, { bmStandardAufwand, type BmMassnahmeOption } from '../../neu/BetriebsmittelFeld'
+import { artMitBetriebsmittel } from '@/lib/behandlungen/betriebsmittel'
 
 // Welche Mengen-Felder pro Art sichtbar/pflicht sind, kommt aus MENGEN_SICHT (neu/mengenFelder.ts) -
 // identisch zum Anlegen-Formular, damit Anlegen und Bearbeiten konsistent sind (siehe "Analyse
@@ -44,6 +46,8 @@ export type BehandlungEdit = {
   art: string
   psm_id: string | null
   duengemittel_id: string | null
+  /** KAN-167: Weinbehandlungs- bzw. Produktionsmittel (Sonstiges, Laubarbeit); Aufwand dann in aufwandmenge */
+  betriebsmittel_id: string | null
   aufwandmenge: number | null
   aufwandmenge_einheit: string | null
   menge_gesamt: number | null
@@ -99,8 +103,10 @@ const labelCls = 'block text-sm font-medium text-s112-text-1 mb-1'
 
 export default function BehandlungEditForm({
   behandlung, psm, duengemittel, bioStatus, kostenarten, bestehenderKostenEintrag, flaecheHa,
-  weingaerten, gstByWeingarten, startWGs, startGSTs,
+  weingaerten, gstByWeingarten, startWGs, startGSTs, betriebsmittel = [],
 }: {
+  /** KAN-167: Betriebsmittel (aktiv bzw. das gespeicherte) */
+  betriebsmittel?: BmMassnahmeOption[]
   behandlung: BehandlungEdit
   psm: PSMOption[]
   duengemittel: DuengemittelOption[]
@@ -146,6 +152,17 @@ export default function BehandlungEditForm({
   const schaderreger = schaderregerFeld(art)
   const [selectedPsmId, setSelectedPsmId] = useState(behandlung.psm_id ?? '')
   const [selectedDuengemittelId, setSelectedDuengemittelId] = useState(behandlung.duengemittel_id ?? '')
+  // KAN-167: Betriebsmittel samt Aufwand (gespeichert in aufwandmenge/aufwandmenge_einheit)
+  const bmStart = {
+    id: behandlung.betriebsmittel_id ?? '',
+    aufwand: behandlung.betriebsmittel_id ? alsFeld(behandlung.aufwandmenge) : '',
+    einheit: behandlung.betriebsmittel_id && behandlung.aufwandmenge_einheit
+      ? behandlung.aufwandmenge_einheit
+      : bmStandardAufwand(betriebsmittel.find(o => o.id === behandlung.betriebsmittel_id)?.einheit),
+  }
+  const [selectedBmId, setSelectedBmId] = useState(bmStart.id)
+  const [bmAufwand, setBmAufwand] = useState(bmStart.aufwand)
+  const [bmAufwandEinheit, setBmAufwandEinheit] = useState(bmStart.einheit)
   // Gespeicherte Mengen als Formularwerte (Dezimalkomma, siehe alsFeld)
   const [start] = useState(() => ({
     aufwand: alsFeld(behandlung.aufwandmenge),
@@ -234,6 +251,8 @@ export default function BehandlungEditForm({
     else if (zurueck) setSelectedPsmId(behandlung.psm_id ?? '')
     if (!artMitDuengemittel(neu)) setSelectedDuengemittelId('')
     else if (zurueck) setSelectedDuengemittelId(behandlung.duengemittel_id ?? '')
+    if (!artMitBetriebsmittel(neu)) { setSelectedBmId(''); setBmAufwand('') }
+    else if (zurueck) { setSelectedBmId(bmStart.id); setBmAufwand(bmStart.aufwand); setBmAufwandEinheit(bmStart.einheit) }
     // Vorbelegung zum gespeicherten Düngemittel (die Auswahl ist beim Zurückwechseln erst im nächsten Render gesetzt)
     setMengeGesamt(zurueck ? mengeVorbelegung(behandlung, gespeichertEinheit, gespeichertEinheit).text : '')
     setEinheitHinweis(null)
@@ -415,7 +434,7 @@ export default function BehandlungEditForm({
               {feldPflicht('psm', art) && <span className="text-s112-err"> *</span>}
             </label>
             <select ref={psmRef} aria-label="Spritzmittel / Mittel (PSM)" name="psm_id" value={selectedPsmId}
-              required={feldPflicht('psm', art)}
+              required={feldPflicht('psm', art)} disabled={art === 'sonstiges' && !!selectedBmId}
               aria-invalid={bioSperre || undefined} aria-describedby={bioSperre ? 'bio-sperre-grund' : undefined}
               onChange={e => setSelectedPsmId(e.target.value)}
               className={inputCls}>
@@ -434,6 +453,13 @@ export default function BehandlungEditForm({
               </p>
             )}
           </div>
+        )}
+
+        {/* KAN-167: Betriebsmittel bei Sonstiges und Laubarbeit */}
+        {artMitBetriebsmittel(art) && betriebsmittel.length > 0 && (
+          <BetriebsmittelFeld optionen={betriebsmittel} wert={selectedBmId} aufwand={bmAufwand} aufwandEinheit={bmAufwandEinheit}
+            flaecheHa={flaecheAktuell ?? 0} gesperrtDurchPsm={art === 'sonstiges' && !!selectedPsmId}
+            onWert={setSelectedBmId} onAufwand={setBmAufwand} onAufwandEinheit={setBmAufwandEinheit} />
         )}
 
         {/* Düngemittel */}

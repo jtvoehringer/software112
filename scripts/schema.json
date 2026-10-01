@@ -162,7 +162,8 @@
 "laubarbeit_art",
 "einarbeitung",
 "einarbeitung_zeitpunkt",
-"reinkupfer_kg_ha"
+"reinkupfer_kg_ha",
+"betriebsmittel_id"
 ],
 "benachrichtigungen": [
 "id",
@@ -218,6 +219,38 @@
 "notizen",
 "erstellt_am",
 "aktualisiert_am"
+],
+"betriebsmittel": [
+"id",
+"tenant_id",
+"gruppe",
+"name",
+"einheit",
+"preis_pro_einheit",
+"ea_kategorie_id",
+"notizen",
+"aktiv",
+"created_at",
+"updated_at"
+],
+"betriebsmittel_lager_bewegungen": [
+"id",
+"tenant_id",
+"betriebsmittel_id",
+"datum",
+"typ",
+"menge",
+"einheit",
+"betrag_netto",
+"ust_satz",
+"lieferant_firma_id",
+"ea_transaktion_id",
+"notizen",
+"erstellt_am",
+"storniert_am",
+"storniert_von",
+"storniert_von_name",
+"storno_grund"
 ],
 "buchhaltung_export_protokoll": [
 "id",

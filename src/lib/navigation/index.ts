@@ -90,7 +90,7 @@ const NAV: NavGroup[] = [
       { href: '/reports/ama',        label: 'AMA-Erntemeldung', child: true, pflichtmeldung: true, keywords: 'weinerntemeldung lesedaten weinbestandsmeldung bestandsmeldung stichtag weindatenbank behörde meldung druck csv' },
       // KAN-108: Rückverfolgung Weingarten (Maßnahmen je Lese-Grundstück, Wartezeiten) – Unterpunkt der Lese
       { href: '/weingarten/rueckverfolgung', label: 'Rückverfolgung', child: true, keywords: 'wartezeit pflanzenschutz lese grundstück maßnahmen ernte bis ernte lebensmittelsicherheit bki csv' },
-      { href: '/behandlungen/lager', label: 'Betriebsmittel', phase: 1, keywords: 'psm lager dünger' },
+      { href: '/behandlungen/lager', label: 'Betriebsmittel', phase: 1, keywords: 'psm lager dünger weinbehandlungsmittel produktionsmittel korken flaschen bindedraht einkauf' },
     ],
   },
   {

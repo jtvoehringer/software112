@@ -5,6 +5,7 @@ import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/r
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import { ladeRiedOptionen } from './riedOptionen'
+import type { BmMassnahmeOption } from './BetriebsmittelFeld'
 import NeueBehandlungForm from './NeueBehandlungForm'
 
 export const metadata: Metadata = { title: 'Neue Maßnahme – software:112' }
@@ -140,6 +141,16 @@ export default async function NeueBehandlungPage() {
     id: s.id, art: s.art, bezeichnung: s.bezeichnung, satz_pro_ha: s.satz_pro_ha,
   }))
 
+  // KAN-167: Betriebsmittel (aktiv, eigener Betrieb) für Sonstiges und Laubarbeit
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: rawBm } = tenantId ? await (supabase.from('betriebsmittel') as any)
+    .select('id, name, gruppe, einheit, preis_pro_einheit')
+    .eq('tenant_id', tenantId).eq('aktiv', true).order('name') : { data: [] }
+  const betriebsmittel: BmMassnahmeOption[] = ((rawBm ?? []) as AR[]).map(m => ({
+    id: m.id, name: m.name, gruppe: m.gruppe, einheit: m.einheit,
+    preis_pro_einheit: m.preis_pro_einheit == null ? null : Number(m.preis_pro_einheit),
+  }))
+
   // Rieden und WI-GST (gemeinsam mit „Maßnahme bearbeiten“)
   const { weingaerten, gstByWeingarten } = tenantId
     ? await ladeRiedOptionen(supabase, tenantId)
@@ -161,6 +172,7 @@ export default async function NeueBehandlungPage() {
         bioStatus={bioStatus}
         kostenarten={kostenarten}
         saetzeMassnahmen={saetzeMassnahmen}
+        betriebsmittel={betriebsmittel}
       />
     </div>
   )

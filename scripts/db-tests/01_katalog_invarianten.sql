@@ -190,7 +190,7 @@ DECLARE
   c_protokoll_aendern constant text[] := ARRAY[
     'ama_erntemeldungen=ama_referenznr,bestaetigt_am,eingereicht_am,gesamtmenge_hl,gesamtmenge_kg,jahrgang_id,status,tenant_id,version',   -- KAN-148 C2
     'ama_meldepositionen=meldung_id,menge_hl,menge_kg',
-    'behandlungen=art,aufwandmenge,aufwandmenge_einheit,datum,datum_bis,duengemittel_id,ernte_fruehesteins,konzentration,menge_einheit,menge_gesamt,psm_id,tenant_id,wasseraufwand_l_ha,weingarten_id',
+    'behandlungen=art,aufwandmenge,aufwandmenge_einheit,betriebsmittel_id,datum,datum_bis,duengemittel_id,ernte_fruehesteins,konzentration,menge_einheit,menge_gesamt,psm_id,tenant_id,wasseraufwand_l_ha,weingarten_id',   -- KAN-167: + betriebsmittel_id
     'ea_transaktionen=betrag_netto,datum,is_locked,kategorie_id,storniert_am,storno_grund,tenant_id,typ,ust_satz',   -- KAN-149 D2
     'ea_belege=dateiname,ea_transaktion_id,status,storage_pfad,tenant_id',   -- KAN-149 D3
     'ea_monatsabschluss=jahr,monat,tenant_id',   -- KAN-149 D3
@@ -223,7 +223,10 @@ DECLARE
     'weinanalysen=alkohol_vol,analyse_datum,apfelsaeure_gl,dichte,extrakt_gl,flüchtige_saeure_gl,freie_so2_mgl,gesamt_so2_mgl,gesamtalkohol_vol,gesamtsaeure_gl,labor,milchsaeure_gl,ph_wert,probe_nr,restzucker_gl,storniert_am,storno_grund,tenant_id,weinausbau_id,weinsaeure_gl',
     'pruefnummernantraege=dac_antrag_id,formular_daten,storniert_am,storno_grund,tenant_id',
     'transportbescheinigungen=formular_daten,storniert_am,storno_grund,tenant_id,verkaufsposten_id',
-    'exportauftraege=aktiv,datum,destination_land,emcs_arc_nummer,emcs_datum,emcs_status,firma_id,kontakt_id,lieferdatum,status,storniert_am,storno_grund,tenant_id'];
+    'exportauftraege=aktiv,datum,destination_land,emcs_arc_nummer,emcs_datum,emcs_status,firma_id,kontakt_id,lieferdatum,status,storniert_am,storno_grund,tenant_id',
+    -- KAN-167: Betriebsmittel (Stammdaten: aktiv; Lagerbuchungen: Mengen, Einkaufsdaten, Storno)
+    'betriebsmittel=aktiv,tenant_id',
+    'betriebsmittel_lager_bewegungen=betrag_netto,betriebsmittel_id,datum,einheit,lieferant_firma_id,menge,storniert_am,storno_grund,tenant_id,typ,ust_satz'];
   -- echte Prüfaufrufe (auf Quelltext ohne Kommentare)
   c_re_ptz constant text := 'PERFORM\s+(public\.)?pruefe_tenant_zugriff\s*\(\s*p_tenant_id\M';
   c_re_abo constant text := 'PERFORM\s+(public\.)?s112_pruefe_abo_schreibsperre\s*\(';
@@ -633,7 +636,7 @@ BEGIN
      WHERE f.sd AND s.abo IS DISTINCT FROM (f.src ~ %L)
      ORDER BY 1$q$, c_re_abo));
   SELECT count(*) INTO v_n FROM pg_temp.s112_soll_rpc() s WHERE s.abo;
-  v_erg := v_erg || pg_temp.s112_erwarte('rpc_abo_anzahl', v_n, 27::bigint);   -- +1 KAN-150 F1d   -- +1 KAN-150 F1c   -- +3 KAN-149 D2   -- +1 KAN-149 D1   -- +3 KAN-148 C2 (s112_ama_*)   -- +s112_storniert_loeschen (KAN-145), s112_buchung_loeschen (KAN-166), s112_pressung_stornieren (KAN-148)
+  v_erg := v_erg || pg_temp.s112_erwarte('rpc_abo_anzahl', v_n, 29::bigint);   -- +2 KAN-167 (s112_betriebsmittel_einkauf, s112_betriebsmittel_stornieren)   -- +1 KAN-150 F1d   -- +1 KAN-150 F1c   -- +3 KAN-149 D2   -- +1 KAN-149 D1   -- +3 KAN-148 C2 (s112_ama_*)   -- +s112_storniert_loeschen (KAN-145), s112_buchung_loeschen (KAN-166), s112_pressung_stornieren (KAN-148)
   -- Unabhängig vom Handflag: schreibende SECURITY-DEFINER-RPC (p_tenant_id, EXECUTE für authenticated, Schreib-
   -- anweisung im Quelltext) ohne Abo-Prüfung → FEHLER, außer begründet in s112_soll_liste('abo_rpc_ausnahmen').
   v_erg := v_erg || pg_temp.t01_liste('rpc_schreibt_ohne_abo', format($q$
@@ -654,7 +657,7 @@ BEGIN
   -- Plausibilität der Heuristik: sie erkennt alle 12 RPCs mit Abo-Prüfung als schreibend
   SELECT count(*) INTO v_n FROM pg_temp.t01_funktionen() f JOIN pg_temp.s112_soll_rpc() s ON s.funktion = f.sig
    WHERE s.abo AND f.src ~* c_re_schreibt;
-  v_erg := v_erg || pg_temp.s112_erwarte('rpc_schreibt_heuristik_abo_rpcs', v_n, 25::bigint);   -- +1 KAN-150 F1d (s112_herkunft_setzen)   -- +2 KAN-149 D2 (s112_ea_stornieren schreibt über s112_ea_gegenbuchung)   -- +1 KAN-149 D1   -- +3 KAN-148 C2   -- +3 KAN-148 C1c-2
+  v_erg := v_erg || pg_temp.s112_erwarte('rpc_schreibt_heuristik_abo_rpcs', v_n, 27::bigint);   -- +2 KAN-167 (s112_betriebsmittel_einkauf, s112_betriebsmittel_stornieren)   -- +1 KAN-150 F1d (s112_herkunft_setzen)   -- +2 KAN-149 D2 (s112_ea_stornieren schreibt über s112_ea_gegenbuchung)   -- +1 KAN-149 D1   -- +3 KAN-148 C2   -- +3 KAN-148 C1c-2
   -- p_tenant_id ohne pruefe_tenant_zugriff: nur mit Einstufung mandant_eigen, session_user, intern oder rls_hilfe
   v_erg := v_erg || pg_temp.t01_liste('ptz_nicht_eingestuft', format($q$
     SELECT f.sig AS schluessel,

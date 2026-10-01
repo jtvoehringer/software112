@@ -242,6 +242,15 @@ export default async function BuchhaltungPage({
                     >
                       <Link2 className="w-3.5 h-3.5" /> Verkauf
                     </Link>
+                  ) : b.ausBetriebsmittel && !b.stornoStatus ? (
+                    // KAN-167: Ausgabe eines Betriebsmittel-Einkaufs – Storno über den Einkauf (storniert die Ausgabe mit)
+                    <Link
+                      href="/behandlungen/lager"
+                      className="inline-flex items-center gap-1 text-xs text-s112-tertiary hover:text-s112-blue-700"
+                      title="Automatisch aus einem Betriebsmittel-Einkauf – zum Stornieren den Einkauf unter Rieden › Betriebsmittel stornieren"
+                    >
+                      <Link2 className="w-3.5 h-3.5" /> Einkauf
+                    </Link>
                   ) : b.anlageId || b.stornoStatus ? null : (
                     <StornoButton
                       schwebend

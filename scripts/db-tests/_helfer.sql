@@ -797,6 +797,7 @@ END $f$;
 --   * traubenverkauf, pressung_weingaerten: weingarten_id des Betriebs (CHECK: genau eine von
 --     weingarten_id/zukauf_posten_id),
 --   * verschneidung_quellen: menge_liter 1 (CHECK menge_liter > 0),
+--   * betriebsmittel_lager_bewegungen: typ 'anfangsbestand' (Einkäufe nur per RPC, RLS lehnt typ 'einkauf' ab; KAN-167),
 --   * tenant_einstellungen: die vorhandene Zeile des Betriebs (je Betrieb genau eine),
 --   * tenant_memberships: neuer Test-Benutzer als leser (user_id aus p_werte, sonst neu; nie p_persona).
 -- p_werte überschreibt alles. Bei einem Schlüsselkonflikt ein zweiter Versuch mit neuen Elternzeilen
@@ -853,6 +854,8 @@ BEGIN
     v_w := v_w || jsonb_build_object('weingarten_id', v_a);
   ELSIF p_tab = 'verschneidung_quellen' THEN
     v_w := v_w || '{"menge_liter": 1}'::jsonb;
+  ELSIF p_tab = 'betriebsmittel_lager_bewegungen' THEN   -- KAN-167
+    v_w := v_w || '{"typ": "anfangsbestand"}'::jsonb;
   END IF;
   BEGIN
     RETURN pg_temp.s112_zeile(p_tab, p_tenant, v_w || coalesce(p_werte, '{}'::jsonb));
@@ -928,6 +931,8 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('bestandsprotokoll',             '-',                                      '-',                                      '-'),
     ('bestellung_positionen',         'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}'),
     ('bestellungen',                  'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}'),
+    ('betriebsmittel',                'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       'SA,TA{rieden}'),   -- KAN-167 (Stammdaten, Löschen nur ohne Bezug)
+    ('betriebsmittel_lager_bewegungen','SA,TA,W*{rieden}',                      'SA,TA,W*{rieden}',                       '-{rieden}'),   -- KAN-167 (Einkauf nur per RPC; löschen nur über s112_storniert_loeschen)
     ('buchhaltung_export_protokoll',  'SA,TA,W*{ea}',                           '-{ea}',                                  '-{ea}'),
     ('buchhaltung_kontenmapping',     'SA,TA{ea}',                              'SA,TA{ea}',                              'SA,TA{ea}'),
     ('checklisten',                   'SA,TA,W*{betrieb}',                      'SA,TA,W*{betrieb}',                      'SA,TA,W*{betrieb}'),
@@ -1076,9 +1081,10 @@ BEGIN
     -- KAN-149 D3: + ea_transaktionen, konto_umbuchungen, verkauf_positionen, verkaufsposten, zahlungen (dort ohne Lösch-RPC)
     -- KAN-150 F2a: + dac_antrag, weinanalysen, pruefnummernantraege, transportbescheinigungen, exportauftraege (storno) und
     --              exportauftrag_positionen, export_dokumente (kind)
-    WHEN 'loeschsperre_tabellen' THEN ARRAY['dac_antrag', 'ea_transaktionen', 'ernte_parzellen', 'export_dokumente', 'exportauftraege', 'exportauftrag_positionen', 'fuellung_chargen', 'fuellungen', 'keller_behandlungen', 'keller_umzuege', 'konto_umbuchungen', 'pressung_behaelter', 'pressung_weingaerten', 'pressungen', 'pruefnummernantraege', 'transportbescheinigungen', 'traubenverkauf', 'verkauf_positionen', 'verkaufsposten', 'verschneidung_quellen', 'verschneidungen', 'weinanalysen', 'weinausbau', 'weinausbau_weingaerten', 'zahlungen', 'zukauf_posten']
+    -- KAN-167: + betriebsmittel_lager_bewegungen (storno)
+    WHEN 'loeschsperre_tabellen' THEN ARRAY['betriebsmittel_lager_bewegungen', 'dac_antrag', 'ea_transaktionen', 'ernte_parzellen', 'export_dokumente', 'exportauftraege', 'exportauftrag_positionen', 'fuellung_chargen', 'fuellungen', 'keller_behandlungen', 'keller_umzuege', 'konto_umbuchungen', 'pressung_behaelter', 'pressung_weingaerten', 'pressungen', 'pruefnummernantraege', 'transportbescheinigungen', 'traubenverkauf', 'verkauf_positionen', 'verkaufsposten', 'verschneidung_quellen', 'verschneidungen', 'weinanalysen', 'weinausbau', 'weinausbau_weingaerten', 'zahlungen', 'zukauf_posten']
     -- KAN-150 F1a: Stammdaten mit Löschsperre bei berichtsrelevantem Bezug (a_stammdaten_loeschsperre)
-    WHEN 'stammdaten_loeschsperre' THEN ARRAY['duengemittel', 'ea_dauerauftraege', 'ea_kategorien', 'firmen', 'grundstuecke',
+    WHEN 'stammdaten_loeschsperre' THEN ARRAY['betriebsmittel', 'duengemittel', 'ea_dauerauftraege', 'ea_kategorien', 'firmen', 'grundstuecke',   -- KAN-167: + betriebsmittel
       'keller_behandlungstypen', 'kontakte', 'pflanzenschutzmittel', 'weingarten']
     WHEN 'protokoll_tabellen' THEN ARRAY[
       'ama_erntemeldungen', 'ama_meldepositionen', 'behandlungen', 'bestandsprotokoll', 'duengemittel_lager_bewegungen',
@@ -1091,7 +1097,9 @@ BEGIN
       'weingarten', 'grundstuecke', 'pflanzenschutzmittel', 'duengemittel', 'ea_kategorien', 'ea_dauerauftraege',
       'keller_behandlungstypen',
       -- KAN-150 F2a: Anträge und Aufzeichnungen (Ändern, Löschen, TRUNCATE)
-      'dac_antrag', 'weinanalysen', 'pruefnummernantraege', 'transportbescheinigungen', 'exportauftraege']
+      'dac_antrag', 'weinanalysen', 'pruefnummernantraege', 'transportbescheinigungen', 'exportauftraege',
+      -- KAN-167: Betriebsmittel (Stammdaten: Löschen/TRUNCATE, aktiv; Lagerbuchungen: Ändern, Storno, Löschen, TRUNCATE)
+      'betriebsmittel', 'betriebsmittel_lager_bewegungen']
     WHEN 'abo_ausnahmen' THEN ARRAY[
       'benachrichtigungen', 'keller_freigaben', 'plattform_admins', 'profiles', 'rebsorten', 'release_notes',
       'release_notes_gesehen', 'svs_parameter', 'system_ereignisse', 'tenant_memberships', 'user_email_connections']
@@ -1177,6 +1185,8 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('intern',        '--S', false, 's112_mandant_mitglieder_mit_email(p_tenant_id uuid)'),
     ('rls_hilfe',     '-US', false, 's112_meine_tenants()'),
     ('rls_hilfe',     '-US', false, 's112_schreibgesperrte_tenants()'),
+    ('mandant',       '-US', true , 's112_betriebsmittel_einkauf(p_tenant_id uuid, p_betriebsmittel_id uuid, p_datum date, p_menge numeric, p_einheit text, p_betrag_netto numeric, p_ust_satz numeric, p_lieferant_firma_id uuid, p_ea_kategorie_id uuid, p_notizen text)'),   -- KAN-167: Einkauf mit E/A-Ausgabe
+    ('mandant',       '-US', true , 's112_betriebsmittel_stornieren(p_tenant_id uuid, p_id uuid, p_grund text, p_datum date)'),   -- KAN-167: Storno Lagerbuchung (Einkauf samt Ausgabe)
     ('mandant',       '-US', true , 's112_buchung_loeschen(p_tenant_id uuid, p_tabelle text, p_id uuid, p_grund text)'),   -- KAN-166
     ('intern',        '--S', false, 's112_charge_folgebuchung(p_tenant_id uuid, p_charge_id uuid)'),   -- KAN-148 C1c-2 (Hilfsfunktion)
     ('mandant',       '-US', true , 's112_mostzeile_anlegen(p_tenant_id uuid, p_pressung_id uuid, p_behaelter_id uuid, p_menge_liter numeric, p_notizen text, p_charge jsonb)'),   -- KAN-148 C1c-2

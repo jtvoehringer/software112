@@ -9,7 +9,8 @@
     "ea_transaktionen", "ea_uva", "ea_monatsabschluss",
     "behandlungen", "behandlung_grundstuecke", "psm_lager_bewegungen", "duengemittel_lager_bewegungen",
     "dac_antrag", "weinanalysen", "pruefnummernantraege", "transportbescheinigungen",
-    "exportauftraege", "exportauftrag_positionen", "export_dokumente"
+    "exportauftraege", "exportauftrag_positionen", "export_dokumente",
+    "betriebsmittel_lager_bewegungen"
   ],
-  "scharf": ["dac_antrag", "ea_transaktionen", "ernte_parzellen", "export_dokumente", "exportauftraege", "exportauftrag_positionen", "fuellung_chargen", "fuellungen", "keller_behandlungen", "keller_umzuege", "konto_umbuchungen", "pressung_behaelter", "pressung_weingaerten", "pressungen", "pruefnummernantraege", "transportbescheinigungen", "traubenverkauf", "verkauf_positionen", "verkaufsposten", "verschneidung_quellen", "verschneidungen", "weinanalysen", "weinausbau", "weinausbau_weingaerten", "zahlungen", "zukauf_posten"]
+  "scharf": ["betriebsmittel_lager_bewegungen", "dac_antrag", "ea_transaktionen", "ernte_parzellen", "export_dokumente", "exportauftraege", "exportauftrag_positionen", "fuellung_chargen", "fuellungen", "keller_behandlungen", "keller_umzuege", "konto_umbuchungen", "pressung_behaelter", "pressung_weingaerten", "pressungen", "pruefnummernantraege", "transportbescheinigungen", "traubenverkauf", "verkauf_positionen", "verkaufsposten", "verschneidung_quellen", "verschneidungen", "weinanalysen", "weinausbau", "weinausbau_weingaerten", "zahlungen", "zukauf_posten"]
 }

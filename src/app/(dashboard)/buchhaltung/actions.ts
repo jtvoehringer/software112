@@ -104,6 +104,9 @@ export async function stornoEaTransaktion(id: string, grund: string, datum: stri
     return { error: 'Diese Einnahme stammt aus einem Zahlungseingang – bitte die Zahlung im Verkauf stornieren.' }
   }
   if ((b as R).anlage_id) return { error: 'AfA-Buchungen bitte unter Anlagen & AfA zurücknehmen.' }
+  if ((b as R).import_quelle === 'betriebsmittel') {   // KAN-167: Lagerbuchung und Ausgabe gehören zusammen
+    return { error: 'Diese Ausgabe stammt aus einem Betriebsmittel-Einkauf – bitte den Einkauf unter Rieden › Betriebsmittel stornieren.' }
+  }
 
   const { error } = await (supabase.rpc as any)('s112_ea_stornieren', {
     p_tenant_id: tenantId, p_id: id, p_grund: grund.trim(), p_datum: datum || null,

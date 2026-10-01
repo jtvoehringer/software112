@@ -4,6 +4,7 @@ import { notFound, redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import BehandlungEditForm from './BehandlungEditForm'
+import type { BmMassnahmeOption } from '../../neu/BetriebsmittelFeld'
 import { ladeRiedOptionen } from '../../neu/riedOptionen'
 import type { BehandlungEdit, PSMOption, DuengemittelOption, BestehenderKostenEintrag } from './BehandlungEditForm'
 import type { KostenartOption } from '../../neu/page'
@@ -41,7 +42,7 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('behandlungen') as any)
       .select(`
-        id, datum, datum_bis, art, psm_id, duengemittel_id, aufwandmenge, aufwandmenge_einheit,
+        id, datum, datum_bis, art, psm_id, duengemittel_id, betriebsmittel_id, aufwandmenge, aufwandmenge_einheit,
         menge_gesamt, menge_einheit, konzentration, wasseraufwand_l_ha,
         bbch_stadium, schaderreger, witterung, temperatur_c, notizen,
         bearbeitungstiefe_cm, bearbeitungsgeraet, schnittart, laubarbeit_art,
@@ -95,6 +96,7 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
     art:                  b.art ?? 'spritzung',
     psm_id:               b.psm_id ?? null,
     duengemittel_id:      b.duengemittel_id ?? null,
+    betriebsmittel_id:    b.betriebsmittel_id ?? null,
     aufwandmenge:         b.aufwandmenge ?? null,
     aufwandmenge_einheit: b.aufwandmenge_einheit ?? null,
     menge_gesamt:         b.menge_gesamt ?? null,
@@ -156,6 +158,18 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
     einheit:         d.einheit ?? null,
   }))
 
+  // KAN-167: Betriebsmittel (aktiv, eigener Betrieb) für Sonstiges und Laubarbeit
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: rawBm } = await (supabase.from('betriebsmittel') as any)
+    .select('id, name, gruppe, einheit, preis_pro_einheit')
+    .eq('tenant_id', tenantId)
+    // die gespeicherte Auswahl auch dann, wenn das Mittel inzwischen deaktiviert ist (Speichern verlangt ein aktives)
+    .or(`aktiv.eq.true${b.betriebsmittel_id ? `,id.eq.${b.betriebsmittel_id}` : ''}`).order('name')
+  const betriebsmittel: BmMassnahmeOption[] = ((rawBm ?? []) as AR[]).map(m => ({
+    id: m.id, name: m.name, gruppe: m.gruppe, einheit: m.einheit,
+    preis_pro_einheit: m.preis_pro_einheit == null ? null : Number(m.preis_pro_einheit),
+  }))
+
   const kostenarten: KostenartOption[] = ((rawKostenarten ?? []) as AR[]).map(k => ({
     id: k.id, name: k.name, kategorie: k.kategorie ?? null,
   }))
@@ -179,7 +193,7 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
       <BehandlungEditForm
         behandlung={behandlung} psm={psm} duengemittel={duengemittel} bioStatus={bioStatus}
         kostenarten={kostenarten} bestehenderKostenEintrag={bestehenderKostenEintrag}
-        flaecheHa={flaecheHa}
+        flaecheHa={flaecheHa} betriebsmittel={betriebsmittel}
         weingaerten={weingaerten} gstByWeingarten={gstByWeingarten} startWGs={startWGs} startGSTs={startGSTs}
       />
     </div>
