@@ -1150,6 +1150,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('session_user',  '-US', false, 'crm_dubletten(p_tenant_id uuid)'),
     ('session_user',  '-US', false, 'crm_filterwerte(p_tenant_id uuid)'),
     ('session_user',  '-US', false, 'crm_zaehler(p_tenant_id uuid)'),
+    ('intern',        '--S', false, 'demo_musterhof_gebiete()'),          -- KAN-165 D: Rieden in weiteren Weinbaugebieten
     ('intern',        '--S', false, 'demo_musterhof_info()'),
     ('intern',        '--S', false, 'demo_musterhof_lesen()'),
     ('intern',        '--S', false, 'demo_musterhof_y2_kette()'),
