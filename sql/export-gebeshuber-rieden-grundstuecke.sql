@@ -11,7 +11,7 @@
 -- 2. Query 2 ausführen, genauso als CSV speichern → für den Import-Tab
 --    "Grundstücke".
 -- 3. Erst NACHDEM beide CSVs gespeichert sind: den Mandanten löschen
---    (separates Script cleanup_gebeshuber_kompletter_reset.sql), neuen
+--    (seit KAN-151 über public.s112_mandant_loeschen, Runbook docs/Mandant_loeschen.md), neuen
 --    leeren Mandanten anlegen, dort unter /admin/import beide CSVs
 --    hochladen (zuerst "Rieden", danach "Grundstücke" - "Grundstücke"
 --    braucht die "Rieden"-Bezeichnung als Zuordnung).

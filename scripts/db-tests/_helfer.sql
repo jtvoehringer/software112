@@ -1135,6 +1135,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('intern',        '--S', false, 'behaelter_nutzbar(p_behaelter_id uuid, p_tenant_id uuid)'),
     ('mandant',       '-US', false, 'berechne_ea_uva(p_tenant_id uuid, p_jahr smallint, p_zeitraum text)'),
     ('intern',        '--S', false, 'bestandsprotokoll_mandant_loeschen(p_tenant_id uuid)'),
+    ('intern',        '--S', false, 's112_mandant_loeschen(p_tenant_id uuid, p_bestaetigung text)'),   -- KAN-151 G1: Mandanten-Löschung (nur Service-Role)
     ('trigger',       '--S', false, 'bestandsprotokoll_schreiben()'),
     ('mandant',       '-US', false, 'check_und_increment_ki_abfrage(p_tenant_id uuid)'),
     ('trigger',       '--S', false, 'create_profile_on_signup()'),
@@ -1166,7 +1167,6 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('trigger',       '--S', false, 'lesen_vor_loeschen()'),
     ('trigger',       '--S', false, 'lesen_vor_schreiben()'),
     ('trigger',       '--S', false, 'weinjahrgang_erste_lese()'),
-    ('intern',        '--S', false, 'mark_verkauf_bezahlt(p_posten_id uuid)'),
     ('intern',        '--S', false, 'process_ea_dauerauftraege()'),
     ('mandant',       '-US', false, 'pruefe_ea_zeitraum_offen(p_tenant_id uuid, p_datum date)'),
     ('rls_hilfe',     '-US', false, 'pruefe_tenant_zugriff(p_tenant_id uuid, p_rollen text[])'),
@@ -1215,7 +1215,6 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('trigger',       '--S', false, 's112_storno_schutz()'),                   -- KAN-145 B1: Storno-Spalten
     ('trigger',       '--S', false, 's112_export_kind_schutz()'),              -- KAN-150 F2a: Kinder eines stornierten Exportauftrags
     ('mandant',       '-US', true , 'schwund_buchen(p_tenant_id uuid, p_weinausbau_id uuid, p_liter numeric, p_datum date, p_notiz text, p_abschliessen boolean, p_bestand_mindern boolean)'),
-    ('intern',        '--S', false, 'set_verkauf_storniert(p_posten_id uuid)'),
     ('mandant',       '-US', true , 'setze_kontobewegung_abgeglichen(p_tenant_id uuid, p_quelle text, p_id uuid, p_abgeglichen boolean)'),
     ('mandant',       '-US', true , 'sperre_ea_monat(p_tenant_id uuid, p_jahr smallint, p_monat smallint)'),
     ('mandant',       '-US', true , 'sperre_ea_uva(p_tenant_id uuid, p_jahr smallint, p_zeitraum text)'),

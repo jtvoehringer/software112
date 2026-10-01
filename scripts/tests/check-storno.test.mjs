@@ -27,12 +27,14 @@ test('Ausnahme mit Grund ≥ 15 Zeichen in der Zeile davor; zu kurz ist ein Fund
   assert.equal(c.pruefeText(`// await supabase.from('fuellungen').delete()`, 'app', 'src/z.ts').funde.length, 0)
 })
 
-test('SQL: DELETE FROM auf gelisteter Tabelle (auch public. und in DO-Rümpfen), Altfälle je Datei', () => {
+test('SQL: DELETE FROM auf gelisteter Tabelle (auch public. und in DO-Rümpfen); ALTFAELLE seit KAN-151 leer', () => {
   const r = c.pruefeText(`DO $$ BEGIN DELETE FROM public.verschneidungen WHERE id = x; END $$;\nDELETE FROM kontakte;`, 'sql', 'sql/neu.sql')
   assert.deepEqual(r.funde.map(f => [f.regel, f.tabelle]), [['DELETE_SQL', 'verschneidungen']])
-  const alt = c.pruefeText(`DELETE FROM zukauf_posten WHERE tenant_id = x;`, 'sql', 'sql/cleanup_gebeshuber_kompletter_reset.sql')
-  assert.equal(alt.funde.length, 0)
-  assert.equal(alt.altfaelle.length, 1)
+  assert.deepEqual(c.ALTFAELLE, {})
+  // ein früherer Altfall (entferntes Reset-Skript) wäre heute ein Fund
+  const frueher = c.pruefeText(`DELETE FROM zukauf_posten WHERE tenant_id = x;`, 'sql', 'sql/cleanup_gebeshuber_kompletter_reset.sql')
+  assert.equal(frueher.funde.length, 1)
+  assert.equal(c.pruefeWurzel().altfaelle.length, 0)
 })
 
 test('ganzes Projekt ohne Fund; Migrationen erst ab dem Stichtag; im prebuild', () => {
