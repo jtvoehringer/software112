@@ -217,7 +217,13 @@ DECLARE
     'zukauf_posten=aktiv,art,datum,einheit,kmw,lieferant_firma_id,lieferant_kontakt_id,menge,mostgewicht_einheit,oechsle,storniert_am,storno_grund,tenant_id,zh_kontakt_id,ziel_weinausbau_id',   -- KAN-150 F1a: + lieferant_kontakt_id, lieferant_firma_id, zh_kontakt_id
     -- KAN-150 F1a: Stammdaten – Deaktivieren (aktiv) und Umhängen protokolliert
     'weingarten=aktiv,tenant_id', 'grundstuecke=aktiv,deaktiviert_am,tenant_id,weingarten_id', 'pflanzenschutzmittel=aktiv,tenant_id',
-    'duengemittel=aktiv,tenant_id', 'ea_kategorien=aktiv,tenant_id', 'ea_dauerauftraege=aktiv,tenant_id'];
+    'duengemittel=aktiv,tenant_id', 'ea_kategorien=aktiv,tenant_id', 'ea_dauerauftraege=aktiv,tenant_id',
+    -- KAN-150 F2a: Anträge und Aufzeichnungen (Status, Prüfnummer, Mengen, Messwerte, formular_daten, EMCS, Storno)
+    'dac_antrag=aktiv,alkohol_prozent,bescheid_am,dac_region,eingereicht_am,jahrgang,menge_liter,pruefnummer,rebsorte,status,storniert_am,storno_grund,tenant_id,weinausbau_id',
+    'weinanalysen=alkohol_vol,analyse_datum,apfelsaeure_gl,dichte,extrakt_gl,flüchtige_saeure_gl,freie_so2_mgl,gesamt_so2_mgl,gesamtalkohol_vol,gesamtsaeure_gl,labor,milchsaeure_gl,ph_wert,probe_nr,restzucker_gl,storniert_am,storno_grund,tenant_id,weinausbau_id,weinsaeure_gl',
+    'pruefnummernantraege=dac_antrag_id,formular_daten,storniert_am,storno_grund,tenant_id',
+    'transportbescheinigungen=formular_daten,storniert_am,storno_grund,tenant_id,verkaufsposten_id',
+    'exportauftraege=aktiv,datum,destination_land,emcs_arc_nummer,emcs_datum,emcs_status,firma_id,kontakt_id,lieferdatum,status,storniert_am,storno_grund,tenant_id'];
   -- echte Prüfaufrufe (auf Quelltext ohne Kommentare)
   c_re_ptz constant text := 'PERFORM\s+(public\.)?pruefe_tenant_zugriff\s*\(\s*p_tenant_id\M';
   c_re_abo constant text := 'PERFORM\s+(public\.)?s112_pruefe_abo_schreibsperre\s*\(';
@@ -786,11 +792,13 @@ BEGIN
       SELECT c.relname::text AS tabelle, g.tgname::text AS tgname, g.tgtype, g.tgfoid, g.tgenabled, g.tgnargs,
              pg_get_expr(g.tgqual, g.tgrelid) AS wenn,
              (SELECT coalesce(string_agg(x::text, ',' ORDER BY x), '') FROM unnest(g.tgattr::int2[]) x) AS attr,
-             (SELECT coalesce(string_agg(u.a, ',' ORDER BY u.a COLLATE "C"), '')
+             -- KAN-150 F2a: Argumente zurück nach UTF-8 (encode … 'escape' liefert Umlaute als \ooo, z. B. flüchtige_saeure_gl)
+             (SELECT coalesce(string_agg(convert_from(decode(u.a, 'escape'), 'UTF8'), ',' ORDER BY convert_from(decode(u.a, 'escape'), 'UTF8') COLLATE "C"), '')
                 FROM unnest(string_to_array(encode(g.tgargs, 'escape'), '\000')) u (a) WHERE u.a <> '') AS args,
              (SELECT coalesce(string_agg(a.attnum::text, ',' ORDER BY a.attnum), '')
                 FROM unnest(string_to_array(encode(g.tgargs, 'escape'), '\000')) u (a)
-                JOIN pg_attribute a ON a.attrelid = g.tgrelid AND a.attname = u.a AND a.attnum > 0 AND NOT a.attisdropped) AS args_attnum
+                JOIN pg_attribute a ON a.attrelid = g.tgrelid AND a.attname = convert_from(decode(u.a, 'escape'), 'UTF8')
+                 AND a.attnum > 0 AND NOT a.attisdropped) AS args_attnum
         FROM pg_trigger g JOIN pg_class c ON c.oid = g.tgrelid
        WHERE c.relnamespace = 'public'::regnamespace AND NOT g.tgisinternal
          AND g.tgname IN ('z_protokoll_truncate', 'z_protokoll_loeschen', 'z_protokoll_aendern'))
@@ -818,7 +826,7 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('schutz_plattformfelder_trigger', v_txt, c_schutz);
 
   -- ── 12. Härtung als Ratsche ─────────────────────────────────────────────────────────────────────────
-  -- TRUNCATE unterliegt keiner RLS (über PostgREST nicht erreichbar). Die Protokolltabellen (37, s112_soll_liste) haben das Recht nicht
+  -- TRUNCATE unterliegt keiner RLS (über PostgREST nicht erreichbar). Die Protokolltabellen (42, s112_soll_liste) haben das Recht nicht
   -- und sind zusätzlich durch z_protokoll_truncate gesperrt.
   FOR v_r IN SELECT unnest(ARRAY['authenticated', 'anon']) AS rolle LOOP
     v_erg := v_erg || pg_temp.t01_liste('truncate_neu_' || v_r.rolle, format($q$

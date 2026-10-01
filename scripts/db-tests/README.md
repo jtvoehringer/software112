@@ -153,8 +153,8 @@ $test$;
 | `s112_klon_sql(tab, zeile, änderungen)` / `s112_klon(…)` | Kopie einfügen (für `s112_versuch` bzw. als postgres) |
 | `s112_pk_where(tab, zeile)` | typisierte PK-Bedingung (`%I = %L::<typ>`) |
 | `s112_soll()` | Rollenmatrix (tabelle, aktion, rollen, module, roh) aus `inventar/matrix.txt` |
-| `s112_soll_liste(art)` | Soll-Listen: `geheimnis_spalten`, `public_policies`, `g_tabellen`, `protokoll_tabellen` (37), `loeschsperre_tabellen`, `stammdaten_loeschsperre` (KAN-150 F1a: 9 Stammdatentabellen mit `a_stammdaten_loeschsperre`), `abo_ausnahmen`, `abo_status_gesperrt`, `anon_execute_erlaubt`, `anon_execute_bekannt`, `tid_nullable`, `tid_ohne_fk`, `truncate_authenticated`, `truncate_anon`, `schreibmodule`, `abo_rpc_ausnahmen` (schreibende SECURITY-DEFINER-RPCs ohne Abo-Prüfung, begründet), `ptz_ausnahmen` (INVOKER-Funktionen mit `p_tenant_id` ohne `pruefe_tenant_zugriff`) |
-| `s112_soll_rpc()` | Einstufung der 87 SECURITY-DEFINER-Funktionen (Stand KAN-150 F1a) (`rls_hilfe`, `mandant`, `mandant_eigen`, `session_user`, `intern`, `trigger`), Soll-Rechte `A/U/S`, Abo-Prüfung |
+| `s112_soll_liste(art)` | Soll-Listen: `geheimnis_spalten`, `public_policies`, `g_tabellen`, `protokoll_tabellen` (42), `loeschsperre_tabellen` (26; KAN-150 F2a: + Anträge, Analysen, Export), `stammdaten_loeschsperre` (KAN-150 F1a: 9 Stammdatentabellen mit `a_stammdaten_loeschsperre`), `abo_ausnahmen`, `abo_status_gesperrt`, `anon_execute_erlaubt`, `anon_execute_bekannt`, `tid_nullable`, `tid_ohne_fk`, `truncate_authenticated`, `truncate_anon`, `schreibmodule`, `abo_rpc_ausnahmen` (schreibende SECURITY-DEFINER-RPCs ohne Abo-Prüfung, begründet), `ptz_ausnahmen` (INVOKER-Funktionen mit `p_tenant_id` ohne `pruefe_tenant_zugriff`) |
+| `s112_soll_rpc()` | Einstufung der 93 SECURITY-DEFINER-Funktionen (Stand KAN-150 F2a) (`rls_hilfe`, `mandant`, `mandant_eigen`, `session_user`, `intern`, `trigger`), Soll-Rechte `A/U/S`, Abo-Prüfung |
 
 Ergebnisse gehören in die lokale Variable `v_erg text[]` – nicht in GUCs (ein scheiternder Unterblock setzt sie
 zurück) und nicht in temporäre Tabellen (authenticated darf die von postgres nicht lesen). Rollen- und

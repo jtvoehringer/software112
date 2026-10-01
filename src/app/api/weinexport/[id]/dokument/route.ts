@@ -40,6 +40,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   // Sicherstellen, dass der Exportauftrag tatsächlich zum aktiven Tenant gehört,
   // bevor überhaupt ein Dokument dafür angelegt wird (IDOR-Schutz).
+  // storno-sichtbar: nur Eigentumsprüfung – Schreiben an einem stornierten Auftrag lehnt die DB ab (a_export_kind_schutz)
   const { data: auftrag } = await (supabase.from('exportauftraege') as any)
     .select('id').eq('id', id).eq('tenant_id', tenantId).maybeSingle()
   if (!auftrag) return NextResponse.json({ fehler: 'Nicht gefunden' }, { status: 404 })
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .select().single()
   if (error?.code === '23505')   // UNIQUE(exportauftrag_id, dokument_art)
     return NextResponse.json({ fehler: 'Dieses Dokument ist bereits vorhanden' }, { status: 409 })
-  if (error) return NextResponse.json({ fehler: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ fehler: error.message }, { status: error.code === '42501' ? 409 : 500 })   // KAN-150 F2: stornierter Auftrag
   return NextResponse.json(data)
 }
 
@@ -79,6 +80,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   // export_dokumente hat keine eigene tenant_id-Spalte: zuerst prüfen, ob der Exportauftrag
   // aus der URL zum aktiven Tenant gehört (IDOR-Schutz) …
+  // storno-sichtbar: nur Eigentumsprüfung – Schreiben an einem stornierten Auftrag lehnt die DB ab (a_export_kind_schutz)
   const { data: auftrag } = await (supabase.from('exportauftraege') as any)
     .select('id').eq('id', auftragId).eq('tenant_id', tenantId).maybeSingle()
   if (!auftrag) return NextResponse.json({ fehler: 'Nicht gefunden' }, { status: 404 })
@@ -91,7 +93,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // anderen Auftrags trifft dann keine Zeile.
   const { data: getroffen, error } = await (supabase.from('export_dokumente') as any)
     .update(update).eq('id', dokId).eq('exportauftrag_id', auftragId).select('id')
-  if (error) return NextResponse.json({ fehler: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ fehler: error.message }, { status: error.code === '42501' ? 409 : 500 })   // KAN-150 F2: stornierter Auftrag
   if (!getroffen?.length) return NextResponse.json({ fehler: 'Nicht gefunden' }, { status: 404 })
   return NextResponse.json({ ok: true })
 }

@@ -133,7 +133,7 @@ export async function ladeKeller(ctx: Ctx, messintervallTage: number = GAERUNG_M
 
   const [{ data: analysenRaw }, { data: massnahmenRaw }] = await Promise.all([
     ids.length
-      ? ctx.tf(ctx.q('weinanalysen').select('weinausbau_id, analyse_datum, alkohol_vol, restzucker_gl, freie_so2_mgl, gesamtsaeure_gl').in('weinausbau_id', ids).order('analyse_datum', { ascending: false }).limit(500))
+      ? ctx.tf(ctx.q('weinanalysen').select('weinausbau_id, analyse_datum, alkohol_vol, restzucker_gl, freie_so2_mgl, gesamtsaeure_gl').in('weinausbau_id', ids).is('storniert_am', null).order('analyse_datum', { ascending: false }).limit(500))
       : Promise.resolve({ data: [] }),
     behaelterIds.length
       ? ctx.tf(ctx.q('keller_behandlungen').select('behaelter_id, datum, typ_name_snapshot, menge, einheit').in('behaelter_id', behaelterIds).order('datum', { ascending: false }).limit(500))
@@ -294,7 +294,7 @@ export async function ladeFristen(ctx: Ctx, opts: { modulEa: boolean; uvaZeitrau
     ctx.tf(ctx.q('fristen').select('id, bezeichnung, beschreibung, kategorie, faellig_am, wiederholung, href, status, erledigt_am').order('faellig_am')),
     opts.modulEa && !doppik ? ctx.tf(ctx.q('ea_uva').select('jahr, zeitraum, gesperrt, gesperrt_am')) : Promise.resolve({ data: [] }),
     ctx.tf(ctx.q('weinjahrgaenge').select('id, jahrgang, ama_gemeldet, ama_meldedatum, ama_erntemeldungen(status, eingereicht_am, version)').eq('jahrgang', jahr).limit(1)),
-    ctx.tf(ctx.q('dac_antrag').select('id, bezeichnung, status, eingereicht_am').eq('aktiv', true).in('status', ['entwurf', 'eingereicht', 'in_pruefung']).order('created_at', { ascending: false }).limit(20)),
+    ctx.tf(ctx.q('dac_antrag').select('id, bezeichnung, status, eingereicht_am').eq('aktiv', true).is('storniert_am', null).in('status', ['entwurf', 'eingereicht', 'in_pruefung']).order('created_at', { ascending: false }).limit(20)),
     ctx.tf(ctx.q('behandlungen').select('id, ernte_fruehesteins').gte('ernte_fruehesteins', ctx.heuteStr).order('ernte_fruehesteins').limit(50)),
     // Doppik (Migration 197): noch nicht an BMD übergebene Belege der letzten 12 Monate
     doppik ? ctx.tf(ctx.q('verkaufsposten').select('datum').eq('aktiv', true).eq('storniert', false).is('bmd_export_id', null).gte('datum', seit).limit(1000)) : Promise.resolve({ data: [] }),

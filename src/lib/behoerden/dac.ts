@@ -3,7 +3,7 @@
 // Eine Ladefunktion für die Übersicht /dac UND die CSV (/meldungen/dac-antraege/csv):
 // alle DAC-Anträge des Betriebs (wie die Übersicht: auch inaktive, neueste zuerst)
 // mit Bezeichnung, DAC-Region, Jahrgang, Rebsorte, Menge, Alkohol, Status,
-// Einreichung, Prüfnummer und Bescheid.
+// Einreichung, Prüfnummer und Bescheid. KAN-150 F2: stornierte Anträge bleiben mit Vermerk in der Liste.
 //
 // Isomorph ohne Server-Importe – Tests: scripts/tests/verkehr.test.mjs
 
@@ -44,6 +44,10 @@ export type DacAntragZeile = {
   pruefnummer: string | null
   bescheidAm: string | null
   aktiv: boolean
+  /** KAN-150 F2: Zeitpunkt, Benutzer und Grund des Stornos (null = gültig) */
+  storniertAm: string | null
+  storniertVon: string | null
+  stornoGrund: string | null
 }
 
 export const SPALTEN_DAC_ANTRAEGE: CsvSpalte<DacAntragZeile>[] = [
@@ -58,6 +62,8 @@ export const SPALTEN_DAC_ANTRAEGE: CsvSpalte<DacAntragZeile>[] = [
   { kopf: 'Staatliche Prüfnummer', typ: 'code', wert: z => z.pruefnummer },
   { kopf: 'Bescheid am', typ: 'datum', wert: z => z.bescheidAm },
   { kopf: 'Aktiv', typ: 'janein', wert: z => z.aktiv },
+  { kopf: 'Storniert am', typ: 'zeitpunkt', wert: z => z.storniertAm },
+  { kopf: 'Storno-Grund', typ: 'text', wert: z => z.stornoGrund },
 ]
 
 function zahlOderNull(v: unknown): number | null {
@@ -88,6 +94,9 @@ export function dacZeile(a: R): DacAntragZeile {
     pruefnummer: feld(a.pruefnummer) || null,
     bescheidAm: textOderNull(a.bescheid_am),
     aktiv: a.aktiv !== false,
+    storniertAm: textOderNull(a.storniert_am),
+    storniertVon: textOderNull(a.storniert_von_name),
+    stornoGrund: textOderNull(a.storno_grund),
   }
 }
 
@@ -96,7 +105,7 @@ type Client = any
 /** Alle DAC-Anträge des Betriebs (neueste zuerst, inkl. inaktiver) – für /dac und die CSV */
 export async function ladeDacAntraege(supabase: Client, tenantId: string): Promise<{ zeilen: DacAntragZeile[]; warnungen: string[] }> {
   const { data, error } = await alle<R>((supabase.from('dac_antrag') as any)
-    .select('id, bezeichnung, dac_region, jahrgang, rebsorte, menge_liter, alkohol_prozent, status, pruefnummer, eingereicht_am, bescheid_am, aktiv, created_at')
+    .select('id, bezeichnung, dac_region, jahrgang, rebsorte, menge_liter, alkohol_prozent, status, pruefnummer, eingereicht_am, bescheid_am, aktiv, created_at, storniert_am, storniert_von_name, storno_grund')   // storno-sichtbar: Liste zeigt Stornos mit Vermerk
     .eq('tenant_id', tenantId)
     .order('created_at', { ascending: false })
     .order('id'))

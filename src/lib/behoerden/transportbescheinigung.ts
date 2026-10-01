@@ -531,6 +531,7 @@ async function pruefnummernLaden(supabase: Client, tenantId: string, posten: R[]
     for (const [id, daten] of await ladePruefnummerDaten(supabase, tenantId, waIds)) pn.jeWeinausbau[id] = daten
   }
   for (const block of inBloecken(dacIds)) {
+    // storno-sichtbar: antragAusZeile führt stornierte DAC-Anträge als inaktiv (keine gültige Prüfnummer, KAN-150 F2)
     const { data, error } = await alle<R>((supabase.from('dac_antrag') as any)
       .select(PN_ANTRAG_SELECT)
       .eq('tenant_id', tenantId)
@@ -548,6 +549,8 @@ export type TBErgebnis = {
   formular: TBDaten
   gespeichert: boolean
   gespeichertAm: string | null
+  /** KAN-150 F2: id der gespeicherten (nicht stornierten) Bescheinigung – für Stornieren */
+  gespeichertId: string | null
   zeilen: TBZeile[]
   warnungen: string[]
   /** Hinweise zur nicht gespeicherten Vorbelegung (Farbe, Flaschengröße, Prüfnummer) – für die Druckseite */
@@ -570,9 +573,10 @@ export async function ladeTransportbescheinigung(supabase: Client, tenantId: str
       .maybeSingle(),
     betriebLaden(supabase, tenantId),
     (supabase.from('transportbescheinigungen') as any)
-      .select('formular_daten, erstellt_am, aktualisiert_am')
+      .select('id, formular_daten, erstellt_am, aktualisiert_am')
       .eq('verkaufsposten_id', p.id)
       .eq('tenant_id', tenantId)
+      .is('storniert_am', null)   // KAN-150 F2: eine stornierte Bescheinigung gilt nicht mehr – danach wieder die Vorbelegung
       .maybeSingle(),
   ])
   if (postenRes.error) throw new Error(`Laden fehlgeschlagen (verkaufsposten): ${postenRes.error.message}`)
@@ -612,6 +616,7 @@ export async function ladeTransportbescheinigung(supabase: Client, tenantId: str
     formular,
     gespeichert: !!gespeicherteDaten,
     gespeichertAm,
+    gespeichertId: tb?.id ? String(tb.id) : null,
     zeilen,
     warnungen,
     vorbelegungHinweise,
@@ -645,6 +650,7 @@ export async function ladeTransportbescheinigungen(supabase: Client, tenantId: s
     const { data, error } = await alle<R>((supabase.from('transportbescheinigungen') as any)
       .select('verkaufsposten_id, formular_daten, erstellt_am, aktualisiert_am')
       .eq('tenant_id', tenantId)
+      .is('storniert_am', null)   // KAN-150 F2: stornierte Bescheinigungen gelten nicht
       .in('verkaufsposten_id', block)
       .order('id'))
     if (error) throw new Error(`Laden fehlgeschlagen (transportbescheinigungen): ${error.message}`)

@@ -42,6 +42,7 @@ export default async function NeueFuellungPage({
   tf((supabase.from('dac_antrag') as any)
     .select('id, bezeichnung, dac_region, jahrgang, rebsorte, pruefnummer, status, weinausbau_id')
     .eq('aktiv', true)
+    .is('storniert_am', null)   // KAN-150 F2: stornierte Anträge nicht wählbar
     .neq('status', 'abgelehnt')
     .order('jahrgang', { ascending: false })),
   ])

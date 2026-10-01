@@ -172,12 +172,14 @@ export async function folgebuchungenDerCharge(
           .eq('tenant_id', tenantId)
       : leer,
     mit('analyse')
+      // storno-sichtbar: zählt auch stornierte Analysen – der Verweis auf die Charge bleibt bestehen (KAN-150 F2)
       ? (supabase.from('weinanalysen') as any)
           .select('id', { count: 'exact', head: true })
           .eq('weinausbau_id', id)
           .eq('tenant_id', tenantId)
       : leer,
     mit('dac')
+      // storno-sichtbar: zählt auch stornierte Anträge – der Verweis auf die Charge bleibt bestehen (KAN-150 F2)
       ? (supabase.from('dac_antrag') as any)
           .select('id', { count: 'exact', head: true })
           .eq('weinausbau_id', id)

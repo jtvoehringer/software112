@@ -1,11 +1,12 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentMembership } from '@/lib/auth/roles'
+import { getCurrentMembership, canWrite, canAdmin } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import { notFound } from 'next/navigation'
 import { FileText, Tag } from 'lucide-react'
 import DacForm from '@/components/dac/DacForm'
-import { updateDacAntrag } from '../actions'
+import { updateDacAntrag, stornoDacAntrag, loescheDacAntrag } from '../actions'
+import StornoKarte from '@/components/StornoKarte'
 
 export const metadata: Metadata = { title: 'Prüfnummern-Antrag bearbeiten – software:112' }
 export const dynamic = 'force-dynamic'
@@ -25,8 +26,9 @@ export default async function DacEditPage({ params }: { params: Promise<{ id: st
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [{ data: rows }, { data: waRaw }] = await Promise.all([
+    // storno-sichtbar: die Detailseite zeigt den stornierten Antrag mit Vermerk (KAN-150 F2)
     tf((supabase.from('dac_antrag') as any)
-      .select('id, weinausbau_id, bezeichnung, dac_region, jahrgang, rebsorte, menge_liter, alkohol_prozent, status, pruefnummer, eingereicht_am, bescheid_am, notizen, aktiv')
+      .select('id, weinausbau_id, bezeichnung, dac_region, jahrgang, rebsorte, menge_liter, alkohol_prozent, status, pruefnummer, eingereicht_am, bescheid_am, notizen, aktiv, storniert_am, storniert_von_name, storno_grund')
       .eq('id', id).limit(1)),
     tf((supabase.from('weinausbau') as any).select('id, name').eq('aktiv', true).order('name')),
   ])
@@ -36,11 +38,12 @@ export default async function DacEditPage({ params }: { params: Promise<{ id: st
     ? await tf((supabase.from('weinanalysen') as any)
         .select('analyse_datum, labor, alkohol_vol, restzucker_gl, gesamtsaeure_gl, ph_wert, flüchtige_saeure_gl, freie_so2_mgl, gesamt_so2_mgl')
         .eq('weinausbau_id', dac0.weinausbau_id)
+        .is('storniert_am', null)   // KAN-150 F2: stornierte Analysen gelten nicht
         .order('analyse_datum', { ascending: false }))
     : { data: [] }
   const analysen = (anRaw ?? []) as R[]
 
-  type DacRow = { id: string; weinausbau_id: string | null; bezeichnung: string; dac_region: string; jahrgang: number | null; rebsorte: string | null; menge_liter: number | null; alkohol_prozent: number | null; status: string; pruefnummer: string | null; eingereicht_am: string | null; bescheid_am: string | null; notizen: string | null; aktiv: boolean }
+  type DacRow = { id: string; weinausbau_id: string | null; bezeichnung: string; dac_region: string; jahrgang: number | null; rebsorte: string | null; menge_liter: number | null; alkohol_prozent: number | null; status: string; pruefnummer: string | null; eingereicht_am: string | null; bescheid_am: string | null; notizen: string | null; aktiv: boolean; storniert_am: string | null; storniert_von_name: string | null; storno_grund: string | null }
   type NameRow = { id: string; name: string }
 
   const dac       = dac0 as DacRow | null
@@ -78,7 +81,18 @@ export default async function DacEditPage({ params }: { params: Promise<{ id: st
           )}
         </div>
       </div>
-      <DacForm dac={dac} weinausbau={weinausbau} analysen={analysen} action={updateDacAntrag.bind(null, id)} />
+      {/* KAN-150 F2: stornierter Antrag ist unveränderlich – nur der Vermerk, kein Formular */}
+      {!dac.storniert_am && <DacForm dac={dac} weinausbau={weinausbau} analysen={analysen} action={updateDacAntrag.bind(null, id)} />}
+      {membership && canWrite(membership, 'kellerbuch') && (
+        <div className="mt-6">
+          <StornoKarte was="der Antrag" stand={dac}
+            stornieren={dac.storniert_am ? undefined : stornoDacAntrag.bind(null, id)}
+            loeschen={loescheDacAntrag.bind(null, id)}
+            entwurfLoeschbar={dac.status === 'entwurf' && canAdmin(membership.role)}
+            nachLoeschen="/dac"
+            hinweis="Der Antrag bleibt als storniert stehen, gilt aber nicht mehr als Prüfnummer und wird nicht mehr zur Auswahl angeboten." />
+        </div>
+      )}
     </div>
   )
 }

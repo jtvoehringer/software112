@@ -30,9 +30,11 @@ export default async function DacPage() {
 
   // Dieselbe Ladefunktion wie die CSV (/meldungen/dac-antraege/csv)
   const antraege: DacAntragZeile[] = tenantId ? (await ladeDacAntraege(supabase, tenantId)).zeilen : []
-  const genehmigt   = antraege.filter(a => a.status === 'genehmigt').length
-  const offen       = antraege.filter(a => ['eingereicht','in_pruefung'].includes(a.status ?? '')).length
-  const entwuerfe   = antraege.filter(a => a.status === 'entwurf').length
+  // KAN-150 F2: stornierte Anträge zählen in keiner Kennzahl (bleiben in der Liste mit Vermerk)
+  const gueltig     = antraege.filter(a => !a.storniertAm)
+  const genehmigt   = gueltig.filter(a => a.status === 'genehmigt').length
+  const offen       = gueltig.filter(a => ['eingereicht','in_pruefung'].includes(a.status ?? '')).length
+  const entwuerfe   = gueltig.filter(a => a.status === 'entwurf').length
 
   return (
     <div>
@@ -86,12 +88,21 @@ export default async function DacPage() {
               {antraege.map((a, i) => {
                 const st = { label: a.statusLabel ?? (a.status ? (DAC_STATUS_LABEL[a.status] ?? a.status) : ''), color: (a.status && STATUS_FARBE[a.status]) || 'bg-[#F2F3F5] text-s112-text-2' }
                 return (
-                  <tr key={a.id} className={`border-b border-s112-border last:border-0 ${!a.aktiv ? 'opacity-40' : ''} ${i%2===1 ? 'bg-s112-bg/50' : ''}`}>
-                    <td className="px-4 py-3 font-medium">{a.bezeichnung}</td>
+                  <tr key={a.id} className={`border-b border-s112-border last:border-0 ${a.storniertAm ? 'opacity-70' : !a.aktiv ? 'opacity-40' : ''} ${i%2===1 ? 'bg-s112-bg/50' : ''}`}>
+                    <td className="px-4 py-3 font-medium">
+                      {a.bezeichnung}
+                      {a.storniertAm && (
+                        <p className="text-[11px] font-normal text-s112-warn-fg">
+                          storniert am {new Date(a.storniertAm).toLocaleDateString('de-AT')}{a.storniertVon ? ` von ${a.storniertVon}` : ''}{a.stornoGrund ? ` – ${a.stornoGrund}` : ''}
+                        </p>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-s112-muted">{a.dacRegionLabel}</td>
                     <td className="px-4 py-3 text-center tabular-nums">{a.jahrgang ?? '–'}</td>
                     <td className="px-4 py-3">
-                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}>{st.label}</span>
+                      {a.storniertAm
+                        ? <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-s112-err-bg text-s112-err-fg">Storniert</span>
+                        : <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}>{st.label}</span>}
                     </td>
                     <td className="px-4 py-3 font-mono text-xs">
                       {a.pruefnummer ? (
@@ -104,7 +115,7 @@ export default async function DacPage() {
                     <td className="px-4 py-3 text-right">
                       {writeOk && (
                         <Link href={`/dac/${a.id}`}
-                          title="Bearbeiten" aria-label="Bearbeiten"
+                          title={a.storniertAm ? 'Ansehen' : 'Bearbeiten'} aria-label={a.storniertAm ? 'Ansehen' : 'Bearbeiten'}
                           className="text-s112-blue-700 hover:text-s112-blue-700/70"><Pencil size={16} /></Link>
                       )}
                     </td>

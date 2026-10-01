@@ -99,8 +99,8 @@ DECLARE
   -- del ohne die Tabellen mit Löschsperre: KAN-145 B4 71 → 65 bzw. 47 → 42, KAN-148 C1d → 59 bzw. 38 (30.09.2026),
   -- KAN-149 D3 → 53 (b_ta: Löschsperre Verkauf/E-A auf 5 Tabellen, Monatsabschluss unveränderlich), KAN-150 F1a → 52
   -- (Stammdaten-Löschsperre: eine Beispielzeile mit Bezug lässt sich nicht durch eine bezugsfreie ersetzen)
-  c_min_b_ta  constant int[] := ARRAY[93, 81, 76, 51];   -- del −1 KAN-150 F1d (weinausbau_weingaerten mit Löschsperre)
-  c_min_b_w   constant int[] := ARRAY[91, 77, 71, 37];   -- del −1 KAN-150 F1d (weinausbau_weingaerten mit Löschsperre)
+  c_min_b_ta  constant int[] := ARRAY[93, 81, 76, 45];   -- del −6 KAN-150 F2a (Anträge/Analysen/Export mit Löschsperre)   -- del −1 KAN-150 F1d (weinausbau_weingaerten mit Löschsperre)
+  c_min_b_w   constant int[] := ARRAY[91, 77, 71, 32];   -- del −5 KAN-150 F2a (Anträge/Analysen/Export mit Löschsperre)   -- del −1 KAN-150 F1d (weinausbau_weingaerten mit Löschsperre)
   -- md5 der Sandbox-ID (SANDBOX_TENANT_ID in src/lib/abo/regeln.ts) – die ID selbst darf hier nicht stehen.
   c_sandbox_md5 constant text := 'c925cef2213a9938ec2714439901a74e';
   v_t0        timestamptz := clock_timestamp();

@@ -426,6 +426,7 @@ export async function ladeChargeKette(
           .select('id, analyse_datum, labor, probe_nr, alkohol_vol, restzucker_gl, gesamtsaeure_gl, ph_wert, flüchtige_saeure_gl, freie_so2_mgl, gesamt_so2_mgl, bewertung, notizen')
           .eq('tenant_id', tenantId)
           .eq('weinausbau_id', wId)
+          .is('storniert_am', null)   // KAN-150 F2: stornierte Analysen sind kein Nachweis
           .order('analyse_datum', { ascending: true })
           .order('id'))
       : Promise.resolve({ data: [] as R[], error: null }),

@@ -172,13 +172,15 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
       .eq('weinausbau_id', id)
       .order('datum', { ascending: true })),
 
+    // storno-sichtbar: das Weinbuch zeigt stornierte Analysen gekennzeichnet (KAN-150 F2)
     tf((supabase.from('weinanalysen') as any)
-      .select('analyse_datum, labor, probe_nr, alkohol_vol, restzucker_gl, gesamtsaeure_gl, ph_wert, flüchtige_saeure_gl, freie_so2_mgl, gesamt_so2_mgl, bewertung, notizen')
+      .select('analyse_datum, labor, probe_nr, alkohol_vol, restzucker_gl, gesamtsaeure_gl, ph_wert, flüchtige_saeure_gl, freie_so2_mgl, gesamt_so2_mgl, bewertung, notizen, storniert_am, storno_grund, storniert_von_name')
       .eq('weinausbau_id', id)
       .order('analyse_datum', { ascending: true })),
 
+    // storno-sichtbar: das Weinbuch zeigt stornierte DAC-Anträge gekennzeichnet (KAN-150 F2)
     tf((supabase.from('dac_antrag') as any)
-      .select('id, bezeichnung, dac_region, status, pruefnummer, eingereicht_am, bescheid_am, created_at')
+      .select('id, bezeichnung, dac_region, status, pruefnummer, eingereicht_am, bescheid_am, created_at, storniert_am, storno_grund, storniert_von_name')
       .eq('weinausbau_id', id)
       .order('created_at', { ascending: true })),
 
@@ -518,6 +520,7 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
       a.bewertung,
       a.notizen,
     ].filter(Boolean) as string[]
+    merkeStorno(a)   // KAN-150 F2
     events.push({
       datum: a.analyse_datum,
       typ: 'analyse',
@@ -536,6 +539,7 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
       dac.status === 'abgelehnt'   ? 'Abgelehnt' :
       dac.status === 'entwurf'     ? 'Entwurf' :
       dac.status
+    merkeStorno(dac)   // KAN-150 F2
     events.push({
       datum,
       typ: 'dac',

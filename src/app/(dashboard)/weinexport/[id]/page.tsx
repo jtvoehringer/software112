@@ -1,7 +1,9 @@
 // behoerdenmeldung: exportauftrag
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentMembership } from '@/lib/auth/roles'
+import { getCurrentMembership, canWrite, canAdmin } from '@/lib/auth/roles'
+import StornoKarte from '@/components/StornoKarte'
+import { stornoExportauftrag, loescheExportauftrag } from './actions'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import WeinexportDetailClient from './WeinexportDetailClient'
@@ -36,11 +38,29 @@ export default async function WeinexportDetailPage({ params }: { params: Promise
     </div>
   )
 
-  return <WeinexportDetailClient
-    auftrag={ergebnis.auftrag}
-    zeilen={ergebnis.zeilen}
-    gesamtEur={ergebnis.gesamtEur}
-    dokumente={ergebnis.dokumente}
-    csvHref={csvPfad('exportauftrag', { id, referenz: ergebnis.auftrag.referenz })}
-  />
+  const a = ergebnis.auftrag
+  // KAN-150 F2 (Frage 8): Entwurf ohne ausgestelltes Dokument und ohne ARC direkt löschbar (nur Betriebsleitung)
+  const entwurfLoeschbar = a.status === 'entwurf' && !a.emcs_arc_nummer && canAdmin(membership?.role ?? null)
+    && !ergebnis.dokumente.some(d => d.status === 'ausgestellt')
+  return (
+    <>
+      <WeinexportDetailClient
+        auftrag={a}
+        zeilen={ergebnis.zeilen}
+        gesamtEur={ergebnis.gesamtEur}
+        dokumente={ergebnis.dokumente}
+        csvHref={csvPfad('exportauftrag', { id, referenz: a.referenz })}
+      />
+      {membership && canWrite(membership, 'warenwirtschaft') && (
+        <div className="max-w-5xl mt-6">
+          <StornoKarte was="der Exportauftrag" stand={a as { storniert_am: string | null }}
+            stornieren={a.storniert_am ? undefined : stornoExportauftrag.bind(null, id)}
+            loeschen={loescheExportauftrag.bind(null, id)}
+            entwurfLoeschbar={entwurfLoeschbar}
+            nachLoeschen="/weinexport"
+            hinweis="Der Auftrag bleibt als storniert in Liste und CSV stehen; Status, EMCS und Dokumente lassen sich danach nicht mehr ändern." />
+        </div>
+      )}
+    </>
+  )
 }

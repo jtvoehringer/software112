@@ -285,7 +285,11 @@
 "notizen",
 "aktiv",
 "created_at",
-"updated_at"
+"updated_at",
+"storniert_am",
+"storniert_von",
+"storniert_von_name",
+"storno_grund"
 ],
 "datenschutz_consents": [
 "id",
@@ -526,7 +530,11 @@
 "emcs_arc_nummer",
 "emcs_status",
 "emcs_datum",
-"partner_daten"
+"partner_daten",
+"storniert_am",
+"storniert_von",
+"storniert_von_name",
+"storno_grund"
 ],
 "exportauftrag_positionen": [
 "id",
@@ -1087,7 +1095,11 @@
 "dac_antrag_id",
 "formular_daten",
 "erstellt_am",
-"aktualisiert_am"
+"aktualisiert_am",
+"storniert_am",
+"storniert_von",
+"storniert_von_name",
+"storno_grund"
 ],
 "psm_lager_bewegungen": [
 "id",
@@ -1390,7 +1402,11 @@
 "verkaufsposten_id",
 "formular_daten",
 "erstellt_am",
-"aktualisiert_am"
+"aktualisiert_am",
+"storniert_am",
+"storniert_von",
+"storniert_von_name",
+"storno_grund"
 ],
 "traubenverkauf": [
 "id",
@@ -1552,7 +1568,11 @@
 "datei_name",
 "notizen",
 "created_at",
-"updated_at"
+"updated_at",
+"storniert_am",
+"storniert_von",
+"storniert_von_name",
+"storno_grund"
 ],
 "weinausbau": [
 "id",

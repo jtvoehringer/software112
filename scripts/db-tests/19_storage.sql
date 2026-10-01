@@ -1,7 +1,7 @@
 -- @bereich: Storage – Ordner-Policies der 6 Buckets (storage.objects)
 -- @ziel: Objekte liegen je Betrieb im Ordner <tenant_id>/…; niemand liest, legt an, verschiebt oder löscht im
 -- @ziel: Ordner eines fremden Betriebs. Schreibrechte je Bucket folgen Rolle und Schreibmodul (aktivitaet-dokumente
--- @ziel: crm|warenwirtschaft, analysen kellerbuch bzw. Löschen SA/TA, dokumente jeder Winzer, ea-belege ea, etiketten
+-- @ziel: crm|warenwirtschaft, analysen kellerbuch (Löschen niemand, KAN-150 F2a), dokumente jeder Winzer, ea-belege ea, etiketten
 -- @ziel: SA/TA); kein Bucket hat eine UPDATE-Policy außer mandant-logos (nur Plattform-Admin). mandant-logos ist
 -- @ziel: öffentlich lesbar (auch anon, auch fremde Logos), schreiben darf dort nur der Plattform-Admin. Objekte ohne
 -- @ziel: Mandantenordner sieht niemand (NULL-sicher, ohne Fehler); Stichproben zu Abo-Sperre, inaktiver
@@ -10,10 +10,10 @@
 -- @ziel: storage.buckets hat keine Policy; Benutzer ändern, legen an oder löschen keine Buckets.
 -- @mutation meine_tenants_alle: s112_meine_tenants liefert alle Betriebe statt der eigenen aktiven | rot: sel_(akt|ana|dok|ea|eti)_.*_fremd|sel_.*_ohne_betrieb|inaktiv_.*|mix_sel_ea_m
 -- @mutation darf_schreiben_offen: s112_darf_schreiben prüft nur noch die aktive Mitgliedschaft (Rolle und Modul egal) | rot: ins_.*_eigen|del_.*_eigen
--- @mutation rolle_offen: user_has_role_in_tenant liefert immer true (etiketten-Upload, analysen-Löschen) | rot: ins_eti_.*|del_ana_.*
+-- @mutation rolle_offen: user_has_role_in_tenant liefert immer true (etiketten-Upload; analysen-Löschen seit KAN-150 F2a ohne Policy) | rot: ins_eti_.*
 -- @mutation pa_fuer_alle: alle Test-Benutzer werden Plattform-Admin (mandant-logos schreibbar) | rot: ins_logo_.*|upd_logo_.*|del_logo_.*|abo_.*
 -- @mutation darf_schreiben_ohne_tenant: s112_darf_schreiben ignoriert p_tenant (Rolle/Modul aus irgendeinem eigenen Betrieb genügt) | rot: (ins|del)_.*_x0?_in_m
--- @mutation rolle_ohne_tenant: user_has_role_in_tenant ignoriert p_tenant_id (SA/TA in irgendeinem Betrieb genügt) | rot: ins_eti_x0?_in_m|del_ana_x0?_in_m
+-- @mutation rolle_ohne_tenant: user_has_role_in_tenant ignoriert p_tenant_id (SA/TA in irgendeinem Betrieb genügt) | rot: ins_eti_x0?_in_m
 --
 -- software:112 – SQL-Testrahmen, Datei 19 (Stand 28.09.2026). Nur Staging; eine Transaktion, endet mit
 -- pg_temp.s112_ende(…) = RAISE → alles zurückgerollt, auch die Test-Objekte in storage.objects.
@@ -26,7 +26,7 @@
 -- Soll je Bucket (Policies auf Staging, 28.09.2026; identisch mit der Produktion):
 --   Bucket                 Lesen          Hochladen                 Löschen                  Ändern/Verschieben
 --   aktivitaet-dokumente   Mitglieder     crm | warenwirtschaft     crm | warenwirtschaft    niemand
---   analysen               Mitglieder     kellerbuch                SA/TA                    niemand
+--   analysen               Mitglieder     kellerbuch                niemand (KAN-150 F2a)    niemand
 --   dokumente              Mitglieder     jeder Winzer ('betrieb')  niemand                  niemand
 --   ea-belege              Mitglieder     ea                        ea                       niemand
 --   etiketten              Mitglieder     SA/TA                     niemand                  niemand
@@ -92,11 +92,10 @@ CREATE FUNCTION pg_temp.t19_soll(p_aktion text, p_kurz text, p_persona text) RET
     END
     WHEN 'del' THEN CASE
       WHEN p_kurz = 'logo' THEN CASE WHEN p_persona = 'pa' THEN 'k1' ELSE 'k0' END
-      WHEN p_kurz IN ('dok', 'eti') THEN 'k0'   -- keine DELETE-Policy
+      WHEN p_kurz IN ('dok', 'eti', 'ana') THEN 'k0'   -- keine DELETE-Policy (ana: KAN-150 F2a, „analysen: Admins löschen“ entfallen)
       WHEN p_persona IN ('b_ta', 'pa') THEN 'k1'
       WHEN p_persona = 'b_l' THEN 'k0'
       WHEN p_kurz = 'akt' THEN CASE WHEN p_persona IN ('b_w', 'b_w_crm', 'b_w_ww') THEN 'k1' ELSE 'k0' END
-      WHEN p_kurz = 'ana' THEN 'k0'          -- Löschen nur SA/TA
       WHEN p_kurz = 'ea' THEN CASE WHEN p_persona = 'b_w' THEN 'k1' ELSE 'k0' END
     END
     WHEN 'upd' THEN CASE WHEN p_kurz = 'logo' AND p_persona = 'pa' THEN 'k1' ELSE 'k0' END
@@ -279,7 +278,7 @@ BEGIN
     v_erg := v_erg || pg_temp.s112_erwarte(format('ins_dok_%s_in_m', v_pers), pg_temp.t19_ins('dokumente', pg_temp.t19_pfad(v_m, 'x-dok.dat')),
                                            CASE WHEN v_pers = 'x0' THEN 'k1' ELSE 'R' END);
     PERFORM set_config('storage.allow_delete_query', 'true', true);   -- NACH s112_als
-    v_erg := v_erg || pg_temp.s112_erwarte(format('del_ana_%s_in_b', v_pers), pg_temp.t19_del('analysen', pg_temp.t19_pfad(v_b, 'ana-b.dat')), 'k1');
+    v_erg := v_erg || pg_temp.s112_erwarte(format('del_ana_%s_in_b', v_pers), pg_temp.t19_del('analysen', pg_temp.t19_pfad(v_b, 'ana-b.dat')), 'k0');   -- KAN-150 F2a: vorher k1 (TA in B)
     v_erg := v_erg || pg_temp.s112_erwarte(format('del_ana_%s_in_m', v_pers), pg_temp.t19_del('analysen', pg_temp.t19_pfad(v_m, 'ana-m.dat')), 'k0');
     v_erg := v_erg || pg_temp.s112_erwarte(format('del_ea_%s_in_m', v_pers), pg_temp.t19_del('ea-belege', pg_temp.t19_pfad(v_m, 'ea-m.dat')), 'k0');
     v_erg := v_erg || pg_temp.s112_erwarte(format('del_akt_%s_in_m', v_pers), pg_temp.t19_del('aktivitaet-dokumente', pg_temp.t19_pfad(v_m, 'akt-m.dat')), 'k0');

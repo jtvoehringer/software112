@@ -5,6 +5,7 @@ import Link from '@/components/ui/Link'
 import { notFound } from 'next/navigation'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { ZAHL_LOCALE } from '@/lib/format'
+import AnalyseStorno from './AnalyseStorno'
 
 export const metadata: Metadata = { title: 'Laboranalysen – software:112' }
 export const dynamic = 'force-dynamic'
@@ -36,6 +37,9 @@ type Analyse = {
   gesamt_so2_mgl: number | null
   bewertung: string | null
   notizen: string | null
+  storniert_am: string | null
+  storniert_von_name: string | null
+  storno_grund: string | null
 }
 
 export default async function AnalysenPage({ params }: { params: Promise<{ id: string }> }) {
@@ -54,8 +58,9 @@ export default async function AnalysenPage({ params }: { params: Promise<{ id: s
     tf((supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, rebsorte')
       .eq('id', id).maybeSingle()),
+    // storno-sichtbar: die Liste zeigt stornierte Analysen gekennzeichnet (KAN-150 F2)
     tf((supabase.from('weinanalysen') as any)
-      .select('id, analyse_datum, labor, probe_nr, alkohol_vol, restzucker_gl, gesamtsaeure_gl, ph_wert, flüchtige_saeure_gl, freie_so2_mgl, gesamt_so2_mgl, bewertung, notizen')
+      .select('id, analyse_datum, labor, probe_nr, alkohol_vol, restzucker_gl, gesamtsaeure_gl, ph_wert, flüchtige_saeure_gl, freie_so2_mgl, gesamt_so2_mgl, bewertung, notizen, storniert_am, storniert_von_name, storno_grund')
       .eq('weinausbau_id', id)
       .order('analyse_datum', { ascending: false })),
   ])
@@ -110,7 +115,7 @@ export default async function AnalysenPage({ params }: { params: Promise<{ id: s
       ) : (
         <div className="space-y-4">
           {analysen.map((a) => (
-            <div key={a.id} className="card space-y-4">
+            <div key={a.id} className={`card space-y-4 ${a.storniert_am ? 'opacity-70' : ''}`}>
               {/* Kopf */}
               <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div>
@@ -119,10 +124,23 @@ export default async function AnalysenPage({ params }: { params: Promise<{ id: s
                     {a.labor ? a.labor : 'Eigenlabor'}
                     {a.probe_nr ? ` · Probe-Nr. ${a.probe_nr}` : ''}
                   </p>
+                  {a.storniert_am && (
+                    <p className="text-[11px] text-s112-warn-fg">
+                      storniert am {new Date(a.storniert_am).toLocaleDateString('de-AT')}{a.storniert_von_name ? ` von ${a.storniert_von_name}` : ''}{a.storno_grund ? ` – ${a.storno_grund}` : ''}
+                    </p>
+                  )}
                 </div>
-                <span className="text-xs bg-s112-blue-50 text-s112-blue-700 border border-s112-blue-100 px-2 py-0.5 rounded-lg font-medium">
-                  Analyse
-                </span>
+                <div className="flex items-center gap-3">
+                  {a.storniert_am
+                    ? <span className="text-xs px-2 py-0.5 rounded-full bg-s112-err-bg text-s112-err-fg font-medium">Storniert</span>
+                    : (
+                      <span className="text-xs bg-s112-blue-50 text-s112-blue-700 border border-s112-blue-100 px-2 py-0.5 rounded-lg font-medium">
+                        Analyse
+                      </span>
+                    )}
+                  {/* KAN-150 F2: stornieren statt löschen; stornierte endgültig löschen */}
+                  {writeOk && <AnalyseStorno id={a.id} chargeId={id} storniert={!!a.storniert_am} />}
+                </div>
               </div>
 
               {/* Parameter-Tabelle */}

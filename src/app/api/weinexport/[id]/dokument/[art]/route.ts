@@ -58,6 +58,7 @@ export async function GET(
   if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
 
   const [{ data: auftrag }, { data: positionen }, { data: betriebData }] = await Promise.all([
+    // storno-sichtbar: der Druck zeigt auch stornierte Aufträge, mit Vermerk (KAN-150 F2)
     (supabase.from('exportauftraege') as any)
       .select('*, kontakte(vorname,nachname,email), firmen(name,email)')
       .eq('id', auftragId).eq('tenant_id', tenantId).single(),
