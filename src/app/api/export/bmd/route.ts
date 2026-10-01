@@ -268,6 +268,7 @@ async function ausgangsrechnungen(supabase: any, tenantId: string, m: Mapping, k
   // Manuelle Einnahmen aus der E&A-Rechnung (ohne Verkaufsbeleg dahinter)
   let qe = (supabase.from('ea_transaktionen') as any)
     .select(`id, datum, beschreibung, betrag_brutto, betrag_netto, ust_satz, ust_betrag, bank_ref, bmd_export_id,
+      storno_von_id,
       kategorie:ea_kategorien!kategorie_id(name, konto_nr),
       firma:firmen!firma_id(id, name, land, zahlungsziel_tage, debitor_nr),
       ea_belege(dateiname)`)
@@ -275,6 +276,7 @@ async function ausgangsrechnungen(supabase: any, tenantId: string, m: Mapping, k
     .gte('datum', von).lte('datum', bis)
   if (nurNeue) qe = qe.is('bmd_export_id', null)
   const { data: einnahmen } = await alle<R>(qe.order('datum').order('id'))
+  const eaBelegnr = await belegnrMitStorno(supabase, tenantId, einnahmen)
 
   for (const t of einnahmen) {
     const brutto = Number(t.betrag_brutto) || 0
@@ -282,7 +284,7 @@ async function ausgangsrechnungen(supabase: any, tenantId: string, m: Mapping, k
     const satz = Number(t.ust_satz) || 0
     const land = t.firma?.land ?? 'AT'
     const fall = steuerfall(satz, land)
-    const belegnr = t.bank_ref || `EA-${t.id.slice(0, 8).toUpperCase()}`
+    const belegnr = eaBelegnr(t)
     zeilen.push({
       satzart: '0', konto: await konten.debitor(t.firma ?? null, null),
       gkonto: t.kategorie?.konto_nr ? String(t.kategorie.konto_nr).padStart(4, '0') : m.ertrag_fallback,
@@ -302,6 +304,22 @@ async function ausgangsrechnungen(supabase: any, tenantId: string, m: Mapping, k
   return { zeilen, anzahl, summe, ids }
 }
 
+// KAN-149 D2c: Eine Gegenbuchung (Storno, negativer Betrag) trägt die Belegnummer des stornierten Originals – BMD
+// gleicht damit den offenen Posten aus; das Original kann schon übergeben sein.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function belegnrMitStorno(supabase: any, tenantId: string, zeilen: R[]): Promise<(t: R) => string> {
+  const ids = [...new Set(zeilen.map(t => t.storno_von_id).filter(Boolean))] as string[]
+  const original = new Map<string, R>()
+  if (ids.length) {
+    const { data } = await alle<R>(supabase.from('ea_transaktionen').select('id, bank_ref').eq('tenant_id', tenantId).in('id', ids).order('id'))
+    for (const o of data) original.set(o.id, o)
+  }
+  return t => {
+    const b = (t.storno_von_id && original.get(t.storno_von_id)) || t
+    return b.bank_ref || `EA-${String(b.id).slice(0, 8).toUpperCase()}`
+  }
+}
+
 // ── Eingangsbelege (Ausgaben der E&A-Rechnung) ──────────────────────────────
 async function eingangsbelege(supabase: any, tenantId: string, m: Mapping, konten: Personenkonten, von: string, bis: string, nurNeue: boolean) { // eslint-disable-line @typescript-eslint/no-explicit-any
   const zeilen: BmdZeile[] = []
@@ -310,6 +328,7 @@ async function eingangsbelege(supabase: any, tenantId: string, m: Mapping, konte
 
   let q = (supabase.from('ea_transaktionen') as any)
     .select(`id, datum, beschreibung, betrag_brutto, betrag_netto, ust_satz, ust_betrag, bank_ref, bmd_export_id,
+      storno_von_id,
       kategorie:ea_kategorien!kategorie_id(name, konto_nr),
       firma:firmen!firma_id(id, name, land, zahlungsziel_tage, kreditor_nr),
       ea_belege(dateiname)`)
@@ -317,13 +336,14 @@ async function eingangsbelege(supabase: any, tenantId: string, m: Mapping, konte
     .gte('datum', von).lte('datum', bis)
   if (nurNeue) q = q.is('bmd_export_id', null)
   const { data: ausgaben } = await alle<R>(q.order('datum').order('id'))
+  const eaBelegnr = await belegnrMitStorno(supabase, tenantId, ausgaben)
 
   for (const t of ausgaben) {
     const brutto = Number(t.betrag_brutto) || 0
     if (!brutto) continue
     const satz = Number(t.ust_satz) || 0
     const zahlungsziel = Number(t.firma?.zahlungsziel_tage ?? STANDARD_ZAHLUNGSZIEL)
-    const belegnr = t.bank_ref || `EA-${t.id.slice(0, 8).toUpperCase()}`
+    const belegnr = eaBelegnr(t)
     const lieferant = t.firma?.name ? `${t.firma.name}: ` : ''
     zeilen.push({
       satzart: '0', konto: await konten.kreditor(t.firma ?? null),

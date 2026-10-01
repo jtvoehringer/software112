@@ -93,7 +93,7 @@ export async function ladeFinanzen(ctx: Ctx, opts: { art: 'ea' | 'doppik'; uvaZe
   const [{ data: txRaw, error: txErr }, { data: vpRaw, error: vpErr }, { data: kontenRaw, error: kontenErr }, { data: zahlRaw, error: zahlErr },
     { data: umbRaw, error: umbErr }, { data: uvaRaw, error: uvaErr }, { data: maRaw, error: maErr }, { count: belegeErkannt, error: belegeErr }, prot, offenePosten] = await Promise.all([
     alle<R>(ctx.tf(ctx.q('ea_transaktionen')
-      .select('id, datum, typ, betrag_netto, betrag_brutto, kategorie_id, konto_id, bmd_export_id, anlage_id, import_quelle, kategorie:ea_kategorien!kategorie_id(name, konto_nr)')
+      .select('id, datum, typ, betrag_netto, betrag_brutto, kategorie_id, konto_id, bmd_export_id, anlage_id, import_quelle, storniert_am, storno_von_id, kategorie:ea_kategorien!kategorie_id(name, konto_nr)')
       .gte('datum', von).lte('datum', bis).order('datum').order('id'))),
     alle<R>(ctx.tf(ctx.q('verkaufsposten')
       .select('id, datum, bezahlt, bmd_export_id, verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct, ust_satz)')
@@ -134,6 +134,8 @@ export async function ladeFinanzen(ctx: Ctx, opts: { art: 'ea' | 'doppik'; uvaZe
   // steuerlich keine Betriebsausgabe, sondern werden über die AfA abgesetzt.
   let afaGebuchtJahr = 0, afaGebuchtVj = 0, anlagenkaeufeJahr = 0, anlagenkaeufeVj = 0, anlagenkaeufeVjGesamt = 0
   const anlagenkaufIds = new Set<string>()
+  // KAN-149 D2c: Stornierte Buchungen und Gegenbuchungen gehen in die Summen ein (zusammen 0), zählen aber nicht als
+  // Buchung, nicht als „ohne Kategorie“ und nicht als offener Anlagenkauf
 
   for (const t of tx) {
     const d = String(t.datum).slice(0, 10)
@@ -141,6 +143,7 @@ export async function ladeFinanzen(ctx: Ctx, opts: { art: 'ea' | 'doppik'; uvaZe
     const netto = Number(t.betrag_netto ?? 0) || 0
     const istEinnahme = t.typ === 'einnahme'
     const kat = (t.kategorie?.name as string | undefined) ?? (t.import_quelle === 'verkauf' ? VERKAUF_KATEGORIE : OHNE_KATEGORIE)
+    const storno = !!t.storniert_am || !!t.storno_von_id
     if (t.anlage_id) {
       if (j === jahr && d <= stichtag) afaGebuchtJahr += netto
       else if (j === jahr - 1 && d <= stichtagVj) afaGebuchtVj += netto
@@ -148,13 +151,15 @@ export async function ladeFinanzen(ctx: Ctx, opts: { art: 'ea' | 'doppik'; uvaZe
     }
     const istAnlagenkauf = !istEinnahme && t.kategorie?.konto_nr !== null && t.kategorie?.konto_nr !== undefined && Number(t.kategorie.konto_nr) < 1000
     if (istAnlagenkauf) {
-      if (j === jahr && d <= stichtag) { anlagenkaeufeJahr += netto; anlagenkaufIds.add(t.id) }
+      if (j === jahr && d <= stichtag) { anlagenkaeufeJahr += netto; if (!storno) anlagenkaufIds.add(t.id) }
       else if (j === jahr - 1) { anlagenkaeufeVjGesamt += netto; if (d <= stichtagVj) anlagenkaeufeVj += netto }
     }
     if (j === jahr) {
       if (d > stichtag) continue
-      buchungenJahr++
-      if (!t.kategorie_id && t.import_quelle !== 'verkauf') ohneKategorie++
+      if (!storno) {
+        buchungenJahr++
+        if (!t.kategorie_id && t.import_quelle !== 'verkauf') ohneKategorie++
+      }
       if (istEinnahme) { monate[m - 1].einnahmen += netto; ytd.einnahmen += netto } else { monate[m - 1].ausgaben += netto; ytd.ausgaben += netto }
       katZeile(t.typ, kat).betrag += netto
     } else if (j === jahr - 1) {

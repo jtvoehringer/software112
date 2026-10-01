@@ -5,7 +5,8 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canAdmin, canWrite } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
-import { AktionsFehler } from '@/lib/fehler'
+import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
+import { stornoGrundFehler } from '@/lib/storno/grund'
 import { dezimal } from '@/lib/format'
 import { abgleichVerkaufsEinnahmen } from '@/lib/ea/verkaufEinnahmen'
 
@@ -83,18 +84,32 @@ export async function createEaTransaktion(formData: FormData) {
   return { ok: true }
 }
 
-// ── Buchung löschen ───────────────────────────────────────────────────────────
+// ── Buchung stornieren (KAN-149 D2c) ─────────────────────────────────────────
+// Statt Löschen: Gegenbuchung mit negativem Betrag (RPC s112_ea_stornieren), das Original bleibt gekennzeichnet
+// stehen (§ 131 Abs. 1 Z 8, § 132 BAO). Datum: vorgegeben, sonst das der Buchung, solange deren Zeitraum offen ist,
+// sonst heute – so lassen sich auch Buchungen abgeschlossener Monate berichtigen. Rolle, Modul und Abo-Sperre
+// prüft die RPC; Verkaufs-Einnahmen (über die Zahlung) und AfA (Anlagenverzeichnis) lehnt die Seite vorher ab.
 
-export async function deleteEaTransaktion(id: string) {
+export async function stornoEaTransaktion(id: string, grund: string, datum: string | null = null) {
+  const fehler = stornoGrundFehler(grund)
+  if (fehler) return { error: fehler }
   const { supabase, tenantId } = await getCtx()
 
-  const { error } = await (supabase.from('ea_transaktionen') as any)
-    .delete()
-    .eq('id', id)
-    .eq('tenant_id', tenantId)
-    .eq('is_locked', false)
+  // Abgeleitete Buchungen haben ihren eigenen Weg – sonst liefen Zahlung bzw. Anlagenverzeichnis auseinander
+  const { data: b, error: leseErr } = await (supabase.from('ea_transaktionen') as any)
+    .select('import_quelle, verkaufsposten_id, anlage_id').eq('id', id).eq('tenant_id', tenantId).maybeSingle()
+  if (leseErr) return { error: dbFehlerText(leseErr, 'Buchung konnte nicht geladen werden') }
+  if (!b) return { error: 'Buchung nicht gefunden – bitte die Seite neu laden.' }
+  if ((b as R).import_quelle === 'verkauf' && (b as R).verkaufsposten_id) {
+    return { error: 'Diese Einnahme stammt aus einem Zahlungseingang – bitte die Zahlung im Verkauf stornieren.' }
+  }
+  if ((b as R).anlage_id) return { error: 'AfA-Buchungen bitte unter Anlagen & AfA zurücknehmen.' }
 
-  if (error) return { error: (error as R).message }
+  const { error } = await (supabase.rpc as any)('s112_ea_stornieren', {
+    p_tenant_id: tenantId, p_id: id, p_grund: grund.trim(), p_datum: datum || null,
+  })
+
+  if (error) return { error: dbFehlerText(error, 'Buchung konnte nicht storniert werden') }
   revalidatePath('/buchhaltung')
   return { ok: true }
 }

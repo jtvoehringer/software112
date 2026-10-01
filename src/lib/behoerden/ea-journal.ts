@@ -7,6 +7,8 @@
 // mit führenden Nullen, feste 2 Nachkommastellen, fehlender USt-Satz bleibt leer,
 // Formelschutz – und neu die Spalten Zahlungskonto (Bank/Kassa) und Belegverweis.
 // Chronologisch aufsteigend (Datum, Erfassung); die Seite zeigt die Liste umgekehrt.
+// KAN-149 D2c (01.10.2026): Stornierte Buchungen und ihre Gegenbuchungen (negativer Betrag) bleiben im Journal –
+// gekennzeichnet (Spalten Storno, Storno-Grund, Storniert am/von); Summen über alle Zeilen stimmen damit.
 
 import { STELLEN, type CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
@@ -45,7 +47,15 @@ export type EaJournalZeile = {
   quelle: string
   gesperrt: boolean
   notizen: string | null
+  /** KAN-149 D2c: 'storniert' (Original), 'gegenbuchung' (negative Kopie) oder null */
+  stornoStatus: 'storniert' | 'gegenbuchung' | null
+  stornoGrund: string | null
+  /** timestamptz des Stornos (nur am Original) */
+  storniertAm: string | null
+  storniertVon: string | null
   // nur für die Buchungsliste
+  /** Gegenbuchung: id des stornierten Originals */
+  stornoVonId: string | null
   verkaufspostenId: string | null
   anlageId: string | null
   /** ea_kategorien.konto_nr als Zahl (Kontenklasse 0 → Anlagenkauf) */
@@ -76,6 +86,7 @@ export function eaJournalZeile(r: R): EaJournalZeile {
   const netto = betrag(r.betrag_netto)
   const abzugsfaehig = betrag(r.betrag_abzugsfaehig)
   const konto = (r.konto ?? null) as R | null
+  const gegen = !!r.storno_von_id
   return {
     id: String(r.id),
     datum: String(r.datum).slice(0, 10),
@@ -88,7 +99,8 @@ export function eaJournalZeile(r: R): EaJournalZeile {
     ust: betrag(r.ust_betrag),
     brutto: betrag(r.betrag_brutto),
     abzugsfaehigPct: zahl(r.abzugsfaehig_pct),
-    nichtAbzugsfaehig: typ === 'ausgabe' && netto !== null ? Math.max(0, betrag(netto - (abzugsfaehig ?? netto)) ?? 0) : 0,
+    // mit Vorzeichen: Gegenbuchungen (negativ) heben den Anteil des Originals auf
+    nichtAbzugsfaehig: typ === 'ausgabe' && netto !== null ? (betrag(netto - (abzugsfaehig ?? netto)) ?? 0) : 0,
     zahlungskonto: text(konto?.name),
     kontoart: konto?.typ ? (KONTOART_LABEL[konto.typ] ?? String(konto.typ)) : null,
     rechnungsnummer: text(vp?.rechnungsnummer),
@@ -101,6 +113,12 @@ export function eaJournalZeile(r: R): EaJournalZeile {
     quelle: eaQuelle(r),
     gesperrt: !!r.is_locked,
     notizen: text(r.notizen),
+    stornoStatus: gegen ? 'gegenbuchung' : r.storniert_am ? 'storniert' : null,
+    // Gegenbuchung: der Grund steht dort in den Notizen (s112_ea_gegenbuchung)
+    stornoGrund: text(r.storno_grund) ?? (gegen ? text(r.notizen) : null),
+    storniertAm: text(r.storniert_am),
+    storniertVon: text(r.storniert_von_name),
+    stornoVonId: text(r.storno_von_id),
     verkaufspostenId: text(r.verkaufsposten_id),
     anlageId: text(r.anlage_id),
     kategorieKontoNr: zahl(r.kategorie?.konto_nr),
@@ -129,6 +147,10 @@ export const SPALTEN_EA_JOURNAL: CsvSpalte<EaJournalZeile>[] = [
   { kopf: 'Quelle', typ: 'text', wert: z => z.quelle },
   { kopf: 'Gesperrt', typ: 'janein', wert: z => z.gesperrt },
   { kopf: 'Notizen', typ: 'text', wert: z => z.notizen },
+  { kopf: 'Storno', typ: 'text', wert: z => (z.stornoStatus === 'storniert' ? 'storniert' : z.stornoStatus === 'gegenbuchung' ? 'Gegenbuchung' : null) },
+  { kopf: 'Storno-Grund', typ: 'text', wert: z => z.stornoGrund },
+  { kopf: 'Storniert am', typ: 'datum', wert: z => z.storniertAm },
+  { kopf: 'Storniert von', typ: 'text', wert: z => z.storniertVon },
 ]
 
 /** ?typ= (optional: einnahme | ausgabe) und ?q= (Suche in der Bezeichnung) */
@@ -146,6 +168,7 @@ export async function ladeEaJournal(supabase: any, tenantId: string, p: EaJourna
   let q = (supabase.from('ea_transaktionen') as any)
     .select(`id, typ, datum, beschreibung, betrag_netto, ust_satz, ust_betrag, betrag_brutto, abzugsfaehig_pct, betrag_abzugsfaehig,
       is_locked, import_quelle, bank_ref, notizen, verkaufsposten_id, anlage_id, dauerauftrag_id, erstellt_am,
+      storniert_am, storniert_von_name, storno_grund, storno_von_id,
       kategorie:ea_kategorien!kategorie_id(name, konto_nr),
       konto:konten!konto_id(name, typ),
       firma:firmen!firma_id(name),

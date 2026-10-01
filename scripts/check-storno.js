@@ -37,8 +37,6 @@ const ALTFAELLE = {
   'src/app/(dashboard)/weinhandel/traubenverkauf/actions.ts': ['traubenverkauf'],
   'src/lib/verkauf/bestand.ts': ['traubenverkauf', 'ea_transaktionen'],
   // D Verkauf/E/A
-  'src/app/(dashboard)/buchhaltung/actions.ts': ['ea_transaktionen'],
-  'src/app/(dashboard)/buchhaltung/anlagen/actions.ts': ['ea_transaktionen'],
   'src/app/(dashboard)/weinhandel/verkauf/actions.ts': ['zahlungen', 'verkauf_positionen'],
   'src/app/(dashboard)/konten/actions.ts': ['konto_umbuchungen'],
   'src/lib/ea/verkaufEinnahmen.ts': ['ea_transaktionen'],

@@ -1,6 +1,6 @@
 // Tests zu KAN-149 Nebenbefund 2 (26.09.2026) und D2b (30.09.2026): abgeleitete E&A-Einnahmen je Zahlung
-// (src/lib/ea/verkaufEinnahmenPlan.ts, src/lib/ea/verkaufEinnahmen.ts, Service-Role) und das Löschen alter AfA-Buchungen
-// (src/app/(dashboard)/buchhaltung/anlagen/actions.ts) – ohne Datenbank.
+// (src/lib/ea/verkaufEinnahmenPlan.ts, src/lib/ea/verkaufEinnahmen.ts, Service-Role) und das Stornieren alter AfA-Buchungen
+// (src/app/(dashboard)/buchhaltung/anlagen/actions.ts, D2c 01.10.2026) – ohne Datenbank.
 //
 // Aufruf:  npm run -s test:csv   (alle scripts/tests/*.test.mjs)
 //          bzw. node --experimental-strip-types --disable-warning=ExperimentalWarning \
@@ -268,101 +268,135 @@ describe('abgleichVerkaufsEinnahmen – Ausführung über Service-Role und RPC',
   })
 })
 
-describe('AfA buchen und zurücknehmen – Rolle vor dem Löschen, abweichende Trefferzahl', nurMitHooks, () => {
-  const afaZeile = (id, teil) => ({ id, tenant_id: T, typ: 'ausgabe', is_locked: false, anlage_id: `anl-${id}`, import_quelle: 'manuell', ...teil })
-  const RLS = r => !r.is_locked
-  let db
-  const neueDb = (zeilen, opt = {}) => {
+// KAN-149 D2c (01.10.2026): AfA wird storniert statt gelöscht (RPC s112_ea_stornieren, Gegenbuchung per 31.12.) –
+// auch von Mitarbeitern (winzer); veraltete Tabs (Buchung inzwischen storniert/weg) brechen ohne Änderung ab.
+describe('AfA buchen und zurücknehmen – Storno statt Löschen', nurMitHooks, () => {
+  const afaZeile = (id, teil) => ({ id, tenant_id: T, typ: 'ausgabe', is_locked: false, anlage_id: `anl-${id}`, import_quelle: 'manuell', betrag_netto: 50, storniert_am: null, storno_von_id: null, ...teil })
+  let db, rpcs
+  const neueDb = (zeilen, { rpcFehler = () => null } = {}) => {
     db = globalThis.__serverFake = datenbank({
       ea_kategorien: [{ id: 'kat-afa', tenant_id: null, name: 'Abschreibung (AfA)' }],
       ea_transaktionen: zeilen,
-    }, { darfLoeschen: RLS, ...opt })
+    })
+    rpcs = []
+    // Nachbildung von s112_ea_stornieren: Original kennzeichnen, negative Kopie anlegen
+    db.rpc = async (name, a) => {
+      if (name === 'pruefe_ea_zeitraum_offen') return { data: [{ offen: true }], error: null }
+      if (name !== 's112_ea_stornieren') return { data: null, error: { message: `rpc ${name}` } }
+      rpcs.push(a)
+      const f = rpcFehler(a)
+      if (f) return { data: null, error: f }
+      const o = db.tabellen.ea_transaktionen.find(r => r.id === a.p_id && r.tenant_id === a.p_tenant_id)
+      o.storniert_am = '2026-10-01T08:00:00Z'
+      o.storno_grund = a.p_grund
+      db.tabellen.ea_transaktionen.push({ ...o, id: `gegen-${o.id}`, storniert_am: null, storno_grund: null, storno_von_id: o.id, betrag_netto: -o.betrag_netto, datum: a.p_datum })
+      return { data: `gegen-${o.id}`, error: null }
+    }
     return db
   }
-  const zeilenFuer = ids => ids.map((id, i) => ({ anlageId: `anl-${id ?? i}`, name: `Anlage ${i + 1}`, soll: 100 + i, buchungId: id }))
+  const zeilenFuer = (ids, soll = i => 100 + i) => ids.map((id, i) => ({ anlageId: `anl-${id ?? i}`, name: `Anlage ${i + 1}`, soll: soll(i), buchungId: id }))
   const alsRolle = role => { globalThis.__membership = { tenantId: T, role, schreibmodule: ['ea'] } }
+  const GRUND = 'Nutzungsdauer falsch erfasst'
 
   beforeEach(() => { globalThis.__revalidiert = [] })
 
-  test('Mitarbeiter ersetzt bereits gebuchte AfA: Abbruch vor dem ersten Löschen', async () => {
+  test('Mitarbeiter ersetzt abweichende AfA: Gegenbuchung per 31.12. mit automatischem Grund, gleiche bleibt, nichts gelöscht', async () => {
     alsRolle('winzer')
-    neueDb([afaZeile('b1'), afaZeile('b2')])
+    neueDb([afaZeile('b1', { betrag_netto: 50 }), afaZeile('b2', { betrag_netto: 101 })])
     const r = await afa.bucheAfa(2026, zeilenFuer(['b1', 'b2']))
-    assert.equal(r.ok, false)
-    assert.match(r.fehler, /nur ein Betriebs-Manager ersetzen .* es wurde nichts gebucht/)
-    assert.deepEqual(arten(db), [], 'kein Zugriff auf ea_transaktionen')
-    assert.deepEqual(idsIn(db), ['b1', 'b2'])
+    assert.deepEqual(r, { ok: true, gebucht: 1 })
+    assert.deepEqual(rpcs, [{ p_tenant_id: T, p_id: 'b1', p_grund: 'AfA 2026 laut Anlagenverzeichnis neu berechnet', p_datum: '2026-12-31' }])
+    assert.ok(!arten(db).includes('delete'))
+    const neu = db.tabellen.ea_transaktionen.filter(x => x.id.startsWith('neu-'))
+    assert.deepEqual(neu.map(x => [x.anlage_id, x.betrag_netto, x.datum, x.tenant_id]), [['anl-b1', 100, '2026-12-31', T]])
+    assert.ok(globalThis.__revalidiert.includes('/buchhaltung/anlagen'))
   })
 
-  test('Mitarbeiter bucht erstmals: erlaubt (nichts zu löschen)', async () => {
+  test('erstmals buchen: nur Insert, kein Storno', async () => {
     alsRolle('winzer')
     neueDb([])
     const r = await afa.bucheAfa(2026, zeilenFuer([null, null]))
     assert.deepEqual(r, { ok: true, gebucht: 2 })
     assert.deepEqual(arten(db), ['insert'])
+    assert.deepEqual(rpcs, [])
   })
 
-  test('Betriebs-Manager: alte Buchungen ersetzt', async () => {
-    alsRolle('tenant_admin')
-    neueDb([afaZeile('b1'), afaZeile('b2')])
-    const r = await afa.bucheAfa(2026, zeilenFuer(['b1', 'b2']))
-    assert.deepEqual(r, { ok: true, gebucht: 2 })
-    assert.deepEqual(arten(db), ['delete', 'insert'])
-    assert.deepEqual(idsIn(db), ['neu-1', 'neu-2'])
-    assert.ok(globalThis.__revalidiert.includes('/buchhaltung/anlagen'))
-  })
-
-  test('Betriebs-Manager, veralteter Tab (eine Buchung inzwischen gelöscht): trotzdem vollständig neu buchen', async () => {
+  test('überflüssige AfA (Soll 0): nur stornieren, nichts neu', async () => {
     alsRolle('tenant_admin')
     neueDb([afaZeile('b1')])
-    const r = await afa.bucheAfa(2026, zeilenFuer(['b1', 'weg']))
-    assert.deepEqual(r, { ok: true, gebucht: 2 })
-    assert.deepEqual(arten(db), ['delete', 'select', 'insert'])
-    const pruefung = db.aufrufe.filter(a => a.tabelle === 'ea_transaktionen')[1]
-    assert.deepEqual(pruefung.filter.find(([art]) => art === 'in'), ['in', 'id', ['weg']])
-    assert.ok(pruefung.filter.some(([art, k, v]) => art === 'eq' && k === 'tenant_id' && v === T))
-    assert.deepEqual(idsIn(db), ['neu-1', 'neu-2'])
+    const r = await afa.bucheAfa(2026, zeilenFuer(['b1'], () => 0))
+    assert.deepEqual(r, { ok: true, gebucht: 0 })
+    assert.deepEqual(rpcs.map(a => a.p_id), ['b1'])
+    assert.ok(!arten(db).includes('insert'))
   })
 
-  test('Betriebs-Manager, Buchung inzwischen gesperrt: nicht neu buchen, Seite aktualisieren', async () => {
+  test('veralteter Tab (Buchung inzwischen storniert oder weg): nichts tun, Seite aktualisieren', async () => {
     alsRolle('tenant_admin')
-    neueDb([afaZeile('b1'), afaZeile('b2', { is_locked: true })])
+    for (const zeilen of [[afaZeile('b1'), afaZeile('b2', { storniert_am: '2026-09-30T10:00:00Z' })], [afaZeile('b1')]]) {
+      globalThis.__revalidiert = []
+      neueDb(zeilen)
+      const r = await afa.bucheAfa(2026, zeilenFuer(['b1', 'b2']))
+      assert.deepEqual(r, { ok: false, fehler: 'Die AfA-Buchungen wurden inzwischen geändert – die Seite wurde aktualisiert, bitte erneut buchen.' })
+      assert.deepEqual(rpcs, [])
+      assert.deepEqual(arten(db), ['select'], 'kein Insert')
+      const pruefung = db.aufrufe.find(a => a.tabelle === 'ea_transaktionen')
+      for (const f of [['eq', 'tenant_id', T], ['not', 'anlage_id', null], ['is', 'storniert_am', null], ['is', 'storno_von_id', null]]) {
+        assert.ok(pruefung.filter.some(x => JSON.stringify(x) === JSON.stringify(f)), `Filter ${f.join(' ')}`)
+      }
+      assert.ok(globalThis.__revalidiert.includes('/buchhaltung/anlagen'))
+    }
+  })
+
+  test('Storno scheitert bei der zweiten Buchung: Meldung mit Zahl, kein Insert', async () => {
+    alsRolle('tenant_admin')
+    neueDb([afaZeile('b1'), afaZeile('b2')], { rpcFehler: a => (a.p_id === 'b2' ? { message: 'Die Gegenbuchung am 31.12.2026 ist nicht möglich: UVA übermittelt' } : null) })
     const r = await afa.bucheAfa(2026, zeilenFuer(['b1', 'b2']))
     assert.equal(r.ok, false)
-    assert.equal(r.fehler, 'Die AfA-Buchungen wurden inzwischen geändert – die Seite wurde aktualisiert, bitte erneut buchen.')
-    assert.deepEqual(arten(db), ['delete', 'select'], 'kein Insert')
-    assert.deepEqual(idsIn(db), ['b2'])
-    assert.ok(globalThis.__revalidiert.includes('/buchhaltung/anlagen'), 'pfade() aufgerufen')
+    assert.match(r.fehler, /UVA übermittelt \(1 bereits gegengebucht\)$/)
+    assert.ok(!arten(db).includes('insert'))
   })
 
-  test('Rücknahme: Mitarbeiter – Abbruch ohne Löschen', async () => {
+  test('Rücknahme ohne ausreichenden Grund: Abbruch ohne Datenbankzugriff', async () => {
     alsRolle('winzer')
     neueDb([afaZeile('b1')])
-    const r = await afa.nimmAfaZurueck(2026, ['b1'])
-    assert.equal(r.ok, false)
-    assert.match(r.fehler, /nur ein Betriebs-Manager zurücknehmen/)
-    assert.deepEqual(arten(db), [])
-    assert.deepEqual(idsIn(db), ['b1'])
+    const r = await afa.nimmAfaZurueck(2026, ['b1'], 'kurz')
+    assert.deepEqual(r, { ok: false, fehler: 'Bitte einen Grund für den Storno angeben (mindestens 10 Zeichen).' })
+    assert.deepEqual(db.aufrufe, [])
+    assert.deepEqual(rpcs, [])
   })
 
-  test('Rücknahme: Betriebs-Manager, eine Buchung schon weg – Ziel erreicht', async () => {
-    alsRolle('system_admin')
-    neueDb([afaZeile('b1'), { ...afaZeile('keine-afa'), anlage_id: null }])
-    const r = await afa.nimmAfaZurueck(2026, ['b1', 'weg', 'keine-afa'])
+  test('Rücknahme durch Mitarbeiter: alle storniert (Grund, 31.12.), Original und Gegenbuchung bleiben', async () => {
+    alsRolle('winzer')
+    neueDb([afaZeile('b1'), afaZeile('b2')])
+    const r = await afa.nimmAfaZurueck(2026, ['b1', 'b2'], `  ${GRUND} `)
     assert.deepEqual(r, { ok: true })
-    assert.deepEqual(idsIn(db), ['keine-afa'], 'Buchungen ohne Anlage fasst die Rücknahme nicht an')
-    const pruefung = db.aufrufe.filter(a => a.tabelle === 'ea_transaktionen')[1]
-    assert.ok(pruefung.filter.some(([art, k]) => art === 'not' && k === 'anlage_id'), 'Prüfung wie das Löschen nur auf AfA-Buchungen')
+    assert.deepEqual(rpcs, ['b1', 'b2'].map(id => ({ p_tenant_id: T, p_id: id, p_grund: GRUND, p_datum: '2026-12-31' })))
+    assert.deepEqual(idsIn(db), ['b1', 'b2', 'gegen-b1', 'gegen-b2'])
+    assert.ok(!arten(db).includes('delete'))
+  })
+
+  test('Rücknahme, veralteter Tab (eine Buchung storniert, eine ohne Anlage): nichts storniert, Meldung', async () => {
+    alsRolle('tenant_admin')
+    neueDb([afaZeile('b1'), afaZeile('b2', { storniert_am: '2026-09-30T10:00:00Z' }), { ...afaZeile('keine-afa'), anlage_id: null }])
+    const r = await afa.nimmAfaZurueck(2026, ['b1', 'b2'], GRUND)
+    assert.deepEqual(r, { ok: false, fehler: 'Die AfA-Buchungen wurden inzwischen geändert – die Seite wurde aktualisiert, bitte erneut zurücknehmen.' })
+    assert.deepEqual(rpcs, [])
+    const r2 = await afa.nimmAfaZurueck(2026, ['b1', 'keine-afa'], GRUND)
+    assert.equal(r2.ok, false, 'Buchungen ohne Anlage fasst die Rücknahme nicht an')
+    assert.deepEqual(rpcs, [])
     assert.ok(globalThis.__revalidiert.includes('/buchhaltung/anlagen'))
   })
 
-  test('Rücknahme: Betriebs-Manager, Buchung gesperrt – Meldung und Seite aktualisieren', async () => {
+  test('Anlage löschen: gebuchte AfA blockiert; nur stornierte AfA ebenfalls (Verweis bleibt) – mit eigener Meldung', async () => {
     alsRolle('tenant_admin')
-    neueDb([afaZeile('b1'), afaZeile('b2', { is_locked: true })])
-    const r = await afa.nimmAfaZurueck(2026, ['b1', 'b2'])
+    neueDb([afaZeile('b1', { anlage_id: 'anl-x', datum: '2025-12-31' })])
+    let r = await afa.loescheAnlage('anl-x')
+    assert.deepEqual(r, { ok: false, fehler: 'Für diese Anlage ist die AfA 2025 gebucht. Bitte zuerst im Anlagenverzeichnis die AfA-Buchungen zurücknehmen.' })
+    neueDb([afaZeile('b1', { anlage_id: 'anl-x', datum: '2025-12-31', storniert_am: '2026-01-05T08:00:00Z' }),
+      afaZeile('g1', { anlage_id: 'anl-x', datum: '2025-12-31', storno_von_id: 'b1', betrag_netto: -50 })])
+    r = await afa.loescheAnlage('anl-x')
     assert.equal(r.ok, false)
-    assert.equal(r.fehler, 'Die AfA-Buchungen wurden inzwischen geändert – die Seite wurde aktualisiert, bitte erneut zurücknehmen.')
-    assert.deepEqual(idsIn(db), ['b2'])
-    assert.ok(globalThis.__revalidiert.includes('/buchhaltung/anlagen'))
+    assert.match(r.fehler, /stornierte AfA-Buchungen .* Abgang eintragen/)
+    assert.ok(!db.aufrufe.some(a => a.tabelle === 'ea_anlagen'), 'kein Löschversuch')
   })
 })

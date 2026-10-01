@@ -3,9 +3,10 @@ import { redirect } from 'next/navigation'
 import Link from '@/components/ui/Link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
-import { deleteEaTransaktion } from './actions'
+import { stornoEaTransaktion } from './actions'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
-import { Trash2, Link2, Lock } from 'lucide-react'
+import StornoButton from '@/components/StornoButton'
+import { Link2, Lock } from 'lucide-react'
 import { fmtNum } from '@/lib/format'
 import { wienHeute } from '@/lib/csv'
 import { csvPfad } from '@/lib/behoerden/katalog'
@@ -24,6 +25,14 @@ function fmt(n: number | null | undefined) {
 // Behördenmeldung „ea-journal“ (24.09.2026): Die Buchungsliste kommt aus ladeEaJournal()
 // (lib/behoerden/ea-journal.ts) – dieselbe Ladefunktion liefert die CSV
 // (/meldungen/ea-journal/csv?jahr=&typ=&q=, gleicher Filter wie die Seite, ohne 1.000er-Deckel).
+// KAN-149 D2c: Stornieren (Gegenbuchung, mit Grund) statt Löschen – auch in abgeschlossenen Zeiträumen; Original und
+// Gegenbuchung bleiben in der Liste und gehen beide in die Summen ein (zusammen 0).
+
+function stornoTitel(b: { stornoGrund: string | null; storniertAm: string | null; storniertVon: string | null }): string {
+  const am = b.storniertAm ? new Date(b.storniertAm).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' }) : null
+  return [am ? `storniert am ${am}` : null, b.storniertVon ? `von ${b.storniertVon}` : null, b.stornoGrund ? `Grund: ${b.stornoGrund}` : null]
+    .filter(Boolean).join(' · ')
+}
 
 export default async function BuchhaltungPage({
   searchParams,
@@ -177,13 +186,23 @@ export default async function BuchhaltungPage({
               </tr>
             )}
             {buchungen.map(b => (
-              <tr key={b.id} className="border-b border-s112-border/50 hover:bg-s112-bg/50">
+              <tr key={b.id} className={`border-b border-s112-border/50 hover:bg-s112-bg/50 ${b.stornoStatus === 'storniert' ? 'text-s112-muted' : ''}`}>
                 <td className="px-4 py-3 text-s112-text-2 whitespace-nowrap">
                   {datumText(b.datum)}
                 </td>
                 <td className="px-4 py-3">
                   <span className={`inline-block w-1.5 h-1.5 rounded-full mr-2 ${b.typ === 'einnahme' ? 'bg-s112-ok' : 'bg-s112-err'}`} />
-                  {b.bezeichnung}
+                  <span className={b.stornoStatus === 'storniert' ? 'line-through' : ''}>{b.bezeichnung}</span>
+                  {b.stornoStatus === 'storniert' && (
+                    <span className="ml-1.5 inline-block px-1.5 py-0.5 rounded-full text-[11px] font-medium bg-s112-err-bg text-s112-err-fg" title={stornoTitel(b)}>
+                      storniert
+                    </span>
+                  )}
+                  {b.stornoStatus === 'gegenbuchung' && (
+                    <span className="ml-1.5 inline-block px-1.5 py-0.5 rounded-full text-[11px] font-medium bg-[#F2F3F5] text-s112-text-1" title={b.stornoGrund ? `Gegenbuchung zum Storno · Grund: ${b.stornoGrund}` : 'Gegenbuchung zum Storno'}>
+                      Gegenbuchung
+                    </span>
+                  )}
                   {b.gesperrt && (
                     <span title="Zeitraum gesperrt (Monatsabschluss oder UVA übermittelt)">
                       <Lock className="inline-block w-3 h-3 text-s112-tertiary ml-1.5 -mt-0.5" />
@@ -197,7 +216,7 @@ export default async function BuchhaltungPage({
                       AfA
                     </Link>
                   )}
-                  {!b.anlageId && b.typ === 'ausgabe' && b.kategorieKontoNr !== null && b.kategorieKontoNr < 1000 && (
+                  {!b.anlageId && !b.stornoStatus && b.typ === 'ausgabe' && b.kategorieKontoNr !== null && b.kategorieKontoNr < 1000 && (
                     anlageZuBuchung.has(b.id)
                       ? <Link href={`/buchhaltung/anlagen/${anlageZuBuchung.get(b.id)}`} className="ml-1.5 inline-block px-1.5 py-0.5 rounded-full text-[11px] font-medium bg-[#F2F3F5] text-s112-text-1 hover:underline" title="Als Anlage erfasst">Anlage</Link>
                       : <Link href={`/buchhaltung/anlagen/neu?buchung=${b.id}`} className="ml-1.5 inline-block px-1.5 py-0.5 rounded-full text-[11px] font-medium bg-s112-warn-bg text-s112-warn-fg hover:underline" title="Anschaffung noch nicht im Anlagenverzeichnis">Anlage anlegen</Link>
@@ -219,21 +238,20 @@ export default async function BuchhaltungPage({
                     <Link
                       href={`/weinhandel/verkauf/${b.verkaufspostenId}`}
                       className="inline-flex items-center gap-1 text-xs text-s112-tertiary hover:text-s112-blue-700"
-                      title={`Automatisch aus Zahlungseingang${b.rechnungsnummer ? ` (${b.rechnungsnummer})` : ''} – zur Löschung Zahlung stornieren`}
+                      title={`Automatisch aus Zahlungseingang${b.rechnungsnummer ? ` (${b.rechnungsnummer})` : ''} – zum Stornieren die Zahlung im Verkauf stornieren`}
                     >
                       <Link2 className="w-3.5 h-3.5" /> Verkauf
                     </Link>
-                  ) : b.anlageId ? null : !b.gesperrt && (
-                    <form action={async () => {
-                      'use server'
-                      await deleteEaTransaktion(b.id)
-                    }}>
-                      <button type="submit"
-                        className="text-xs text-s112-err hover:text-s112-err-fg"
-                        title="Buchung löschen">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </form>
+                  ) : b.anlageId || b.stornoStatus ? null : (
+                    <StornoButton
+                      label="Buchung stornieren"
+                      hinweis="Die Buchung bleibt gekennzeichnet stehen, eine Gegenbuchung mit negativem Betrag hebt sie auf."
+                      datumFeld={{ label: 'Datum der Gegenbuchung', hilfe: 'leer = Buchungsdatum, ist dessen Zeitraum abgeschlossen: heute' }}
+                      action={async (grund: string, datum: string | null) => {
+                        'use server'
+                        return stornoEaTransaktion(b.id, grund, datum)
+                      }}
+                    />
                   )}
                 </td>
               </tr>

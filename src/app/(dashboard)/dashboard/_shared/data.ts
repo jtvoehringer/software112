@@ -346,7 +346,7 @@ export async function ladeFristen(ctx: Ctx, opts: { modulEa: boolean; uvaZeitrau
     const vj = jahr - 1
     const [{ data: anlRaw }, { data: afaRaw }] = await Promise.all([
       ctx.tf(ctx.q('ea_anlagen').select('id, name, gruppe, konto_nr, anschaffung_am, ak_netto, nutzungsdauer_jahre, methode, degressiv_satz, restwert, abgang_am, veraeusserungserloes').lte('anschaffung_am', `${vj}-12-31`)),
-      ctx.tf(ctx.q('ea_transaktionen').select('id, anlage_id, betrag_netto, datum, is_locked').not('anlage_id', 'is', null).gte('datum', `${vj}-01-01`).lte('datum', `${vj}-12-31`)),
+      ctx.tf(ctx.q('ea_transaktionen').select('id, anlage_id, betrag_netto, datum, is_locked').not('anlage_id', 'is', null).is('storniert_am', null).is('storno_von_id', null).gte('datum', `${vj}-01-01`).lte('datum', `${vj}-12-31`)),
     ])
     const anl = ((anlRaw ?? []) as R[]).map(a => ({
       id: a.id, name: a.name, gruppe: a.gruppe ?? null, konto_nr: a.konto_nr == null ? null : Number(a.konto_nr),

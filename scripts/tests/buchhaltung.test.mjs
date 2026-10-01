@@ -186,9 +186,28 @@ describe('ea-journal – Einnahmen-Ausgaben-Journal', () => {
     assert.equal(z.nichtAbzugsfaehig, 50)
     assert.equal(z.belegdatei, 'bon_1.jpg, bon_2.jpg')
     const t = zeilen(csvText([z, ea.eaJournalZeile(einnahme)], ea.SPALTEN_EA_JOURNAL))
-    assert.equal(t[0], 'Datum;Typ;Bezeichnung;Kategorie;Sachkonto;USt-Satz (%);Netto (€);USt (€);Brutto (€);Abzugsfähig (%);Zahlungskonto;Kontoart;Rechnungsnr. (Verkauf);Bankreferenz;Geschäftspartner;DebitorNr.;Belegdatei;Beleg erfasst am;Quelle;Gesperrt;Notizen')
-    assert.equal(t[1], `05.03.2026;Ausgabe;'=SUMME(A1) Bewirtung;Anlagenkauf;0660;;100,00;0,00;100,00;50,00;Handkassa;Kassa;;;"Gasthaus ""Zur Linde""";;bon_1.jpg, bon_2.jpg;05.03.2026;manuell;Ja;Zeile 1 Zeile 2`)
-    assert.equal(t[2], '10.01.2026;Einnahme;Zahlungseingang RE 2026-0001;;;13,00;88,50;11,51;100,01;100,00;;;2026-0001;;Anna Huber;K-0042;;;Automatisch (Verkauf);Nein;')
+    assert.equal(t[0], 'Datum;Typ;Bezeichnung;Kategorie;Sachkonto;USt-Satz (%);Netto (€);USt (€);Brutto (€);Abzugsfähig (%);Zahlungskonto;Kontoart;Rechnungsnr. (Verkauf);Bankreferenz;Geschäftspartner;DebitorNr.;Belegdatei;Beleg erfasst am;Quelle;Gesperrt;Notizen;Storno;Storno-Grund;Storniert am;Storniert von')
+    assert.equal(t[1], `05.03.2026;Ausgabe;'=SUMME(A1) Bewirtung;Anlagenkauf;0660;;100,00;0,00;100,00;50,00;Handkassa;Kassa;;;"Gasthaus ""Zur Linde""";;bon_1.jpg, bon_2.jpg;05.03.2026;manuell;Ja;Zeile 1 Zeile 2;;;;`)
+    assert.equal(t[2], '10.01.2026;Einnahme;Zahlungseingang RE 2026-0001;;;13,00;88,50;11,51;100,01;100,00;;;2026-0001;;Anna Huber;K-0042;;;Automatisch (Verkauf);Nein;;;;;')
+  })
+
+  // KAN-149 D2c: Original und Gegenbuchung bleiben im Journal, gekennzeichnet; Summen (auch der nicht abzugsfähige
+  // Anteil) heben sich auf
+  test('Storno: Original gekennzeichnet, Gegenbuchung negativ mit Grund, nicht abzugsfähiger Anteil mit Vorzeichen', () => {
+    const orig = ea.eaJournalZeile({ ...buchung, storniert_am: '2026-03-31T22:30:00Z', storniert_von_name: 'Karin', storno_grund: 'doppelt erfasst' })
+    const gegen = ea.eaJournalZeile({ ...buchung, id: 'g1', datum: '2026-04-01', beschreibung: 'Storno: Bewirtung', betrag_netto: -100, betrag_brutto: -100,
+      betrag_abzugsfaehig: -50, is_locked: false, storno_von_id: 'b1', notizen: 'doppelt erfasst', ea_belege: [] })
+    assert.equal(orig.stornoStatus, 'storniert')
+    assert.equal(gegen.stornoStatus, 'gegenbuchung')
+    assert.equal(gegen.stornoVonId, 'b1')
+    assert.equal(gegen.stornoGrund, 'doppelt erfasst')
+    assert.equal(orig.nichtAbzugsfaehig + gegen.nichtAbzugsfaehig, 0)
+    assert.equal(orig.brutto + gegen.brutto, 0)
+    const t = zeilen(csvText([orig, gegen], ea.SPALTEN_EA_JOURNAL))
+    assert.ok(t[1].endsWith(';storniert;doppelt erfasst;01.04.2026;Karin'), t[1])   // 31.03. 22:30 UTC = 01.04. in Wien
+    assert.ok(t[2].startsWith('01.04.2026;Ausgabe;Storno: Bewirtung;'), t[2])
+    assert.ok(t[2].endsWith(';Gegenbuchung;doppelt erfasst;;'), t[2])
+    assert.match(t[2], /;-100,00;0,00;-100,00;/)
   })
 
   test('Quelle: AfA, Dauerauftrag, Bankimport', () => {
