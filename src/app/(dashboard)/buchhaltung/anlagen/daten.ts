@@ -18,22 +18,22 @@ export async function ladeAnlagen(ctx: Ctx): Promise<(Anlage & { transaktion_id:
   return ((data ?? []) as R[]).map(r => ({ ...zuAnlage(r), transaktion_id: r.transaktion_id ?? null, notizen: r.notizen ?? null }))
 }
 
-/** Gebuchte AfA (ea_transaktionen mit anlage_id) eines Jahres */
+/** Gebuchte AfA (ea_transaktionen mit anlage_id) eines Jahres – ohne stornierte und Gegenbuchungen (KAN-149 D2c) */
 export async function ladeAfaBuchungen(ctx: Ctx, jahr: number): Promise<AfaBuchungRoh[]> {
   const { data } = await ctx.tf(ctx.q('ea_transaktionen').select('id, anlage_id, betrag_netto, datum, is_locked')
-    .not('anlage_id', 'is', null).gte('datum', `${jahr}-01-01`).lte('datum', `${jahr}-12-31`))
+    .not('anlage_id', 'is', null).is('storniert_am', null).is('storno_von_id', null).gte('datum', `${jahr}-01-01`).lte('datum', `${jahr}-12-31`))
   return ((data ?? []) as R[]).map(b => ({ id: b.id, anlage_id: b.anlage_id, betrag_netto: Number(b.betrag_netto), datum: String(b.datum).slice(0, 10), is_locked: !!b.is_locked }))
 }
 
 /**
  * Anschaffungsbuchungen, die sich mit einer Anlage verknüpfen lassen: Ausgaben
  * in Kategorien der Kontenklasse 0 (konto_nr < 1000) ohne Zuordnung - bzw. die
- * Buchung der gerade bearbeiteten Anlage.
+ * Buchung der gerade bearbeiteten Anlage. Stornierte Buchungen und Gegenbuchungen nicht (KAN-149 D2c).
  */
 export async function ladeKandidaten(ctx: Ctx, eigeneTransaktionId: string | null = null): Promise<BuchungsKandidat[]> {
   const [{ data: buchungen }, { data: belegt }] = await Promise.all([
     ctx.tf(ctx.q('ea_transaktionen').select('id, datum, beschreibung, betrag_netto, ea_kategorien!kategorie_id!inner(name, konto_nr)')
-      .eq('typ', 'ausgabe').is('anlage_id', null).lt('ea_kategorien.konto_nr', 1000).order('datum', { ascending: false }).limit(200)),
+      .eq('typ', 'ausgabe').is('anlage_id', null).is('storniert_am', null).is('storno_von_id', null).lt('ea_kategorien.konto_nr', 1000).order('datum', { ascending: false }).limit(200)),
     ctx.tf(ctx.q('ea_anlagen').select('transaktion_id').not('transaktion_id', 'is', null)),
   ])
   const vergeben = new Set(((belegt ?? []) as R[]).map(a => a.transaktion_id as string))

@@ -29,9 +29,9 @@ export async function pruefeBetrieb(ctx: Ctx, einst: Einstellungen, paket: { ist
     ladeKeller(ctx, einst.messintervallTage),
     ctx.tf(ctx.q('verkaufsposten').select('id, rechnungsnummer, datum, verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
       .eq('aktiv', true).eq('storniert', false).eq('bezahlt', false).lt('datum', new Date(heute.getTime() - ZAHLUNGSZIEL_TAGE * 86400000).toISOString().slice(0, 10)).limit(500)),
-    einst.modulEa ? ctx.tf(ctx.q('ea_transaktionen').select('id').is('kategorie_id', null).gte('datum', seit90).limit(200)) : Promise.resolve({ data: [] }),
+    einst.modulEa ? ctx.tf(ctx.q('ea_transaktionen').select('id').is('kategorie_id', null).is('storniert_am', null).is('storno_von_id', null).gte('datum', seit90).limit(200)) : Promise.resolve({ data: [] }),
     einst.modulEa ? ctx.tf(ctx.q('ea_belege').select('id', { count: 'exact', head: true }).eq('status', 'erkannt')) : Promise.resolve({ count: 0 }),
-    einst.modulEa ? alle(ctx.tf(ctx.q('ea_transaktionen').select('id, datum, beschreibung, betrag_netto, kategorie_id, typ').gte('datum', seit365).is('anlage_id', null).order('datum').order('id'))) : Promise.resolve({ data: [] }),   // Sweep 20.9.: .limit(5000) wurde bei 1.000 gekappt
+    einst.modulEa ? alle(ctx.tf(ctx.q('ea_transaktionen').select('id, datum, beschreibung, betrag_netto, kategorie_id, typ').gte('datum', seit365).is('anlage_id', null).is('storniert_am', null).is('storno_von_id', null).order('datum').order('id'))) : Promise.resolve({ data: [] }),   // Sweep 20.9.: .limit(5000) wurde bei 1.000 gekappt
     ctx.tf(ctx.q('fuellungen').select('id, name, jahrgang, bestand_flaschen').eq('aktiv', true).lt('bestand_flaschen', 0).limit(20)),
     ctx.tf(ctx.q('weinausbau').select('id, name, jahrgang, menge_liter').eq('aktiv', true).lt('menge_liter', 0).limit(20)),
     // Dubletten serverseitig (Migration 213): alle aktiven Kontakte, gleiche E-Mail (Standard + weitere) oder gleicher Name, ohne "keine Dublette"-Markierungen

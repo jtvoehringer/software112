@@ -74,7 +74,7 @@ export default async function AbstimmungPage({
       .select('id, betrag, datum, abgeglichen, storniert_am, storno_grund, verkaufsposten(rechnungsnummer)')
       .eq('tenant_id', tenantId).eq('konto_id', kontoId),
     (supabase.from('ea_transaktionen') as any)
-      .select('id, typ, betrag_brutto, datum, beschreibung, abgeglichen, is_locked')
+      .select('id, typ, betrag_brutto, datum, beschreibung, abgeglichen, is_locked, storniert_am, storno_von_id')
       .eq('tenant_id', tenantId).eq('konto_id', kontoId),
     (supabase.from('konto_umbuchungen') as any)
       .select('id, betrag, datum, beschreibung, von_abgeglichen, nach_konto_id, storniert_am, storno_grund')
@@ -91,11 +91,14 @@ export default async function AbstimmungPage({
       beschreibung: `Zahlungseingang${z.verkaufsposten?.rechnungsnummer ? ` RE ${z.verkaufsposten.rechnungsnummer}` : ''}`,
       betrag: Number(z.betrag ?? 0), abgeglichen: !!z.abgeglichen, gesperrt: false,
     }, z)),
+    // KAN-149 D2c: E&A-Stornos sind echte Gegenbuchungen (negativer Betrag, eigener Abgleich) – Original und
+    // Gegenbuchung nur grau gekennzeichnet
     ...((txRaw ?? []) as R[]).map(t => ({
       id: t.id as string, quelle: 'ea_transaktion' as const, datum: t.datum as string,
-      beschreibung: t.beschreibung as string,
+      beschreibung: `${t.beschreibung as string}${t.storniert_am ? ' (storniert)' : ''}`,
       betrag: (t.typ === 'einnahme' ? 1 : -1) * Number(t.betrag_brutto ?? 0),
       abgeglichen: !!t.abgeglichen, gesperrt: !!t.is_locked,
+      storniert: !!t.storniert_am || !!t.storno_von_id,
     })),
     ...((umbVonRaw ?? []) as R[]).flatMap(u => stornoPaar({
       id: u.id as string, quelle: 'umbuchung_von' as const, datum: u.datum as string,

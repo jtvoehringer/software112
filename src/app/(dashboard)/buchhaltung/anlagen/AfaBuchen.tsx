@@ -3,6 +3,8 @@
 // Verzeichnis mit den gebuchten AfA-Buchungen des Jahres und bucht fehlende
 // bzw. abweichende Beträge als Ausgabe „Abschreibung (AfA)“ per 31.12. -
 // ohne Zahlungskonto, 0 % USt. Bei Doppik beim Steuerberater nur Anzeige.
+// KAN-149 D2c: Abweichende AfA wird beim Buchen storniert (Gegenbuchung per 31.12.) und neu gebucht; Zurücknehmen
+// storniert alle AfA-Buchungen des Jahres – mit Grund.
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
@@ -10,6 +12,7 @@ import Link from '@/components/ui/Link'
 import { CalendarCheck, RotateCcw } from 'lucide-react'
 import type { AfaBuchungsStatus } from '@/lib/ea/anlagen'
 import { fmtEur } from '@/lib/format'
+import { STORNO_GRUND_MIN, stornoGrundFehler } from '@/lib/storno/grund'
 import { Card, Badge, Note, Th, Td, type BadgeTone } from '@/app/(dashboard)/dashboard/_shared/ui'
 import { bucheAfa, nimmAfaZurueck } from './actions'
 
@@ -33,6 +36,8 @@ export default function AfaBuchen({ status, dezemberGesperrt, laufend, doppik, d
   const [pending, start] = useTransition()
   const [fehler, setFehler] = useState<string | null>(null)
   const [alleZeigen, setAlleZeigen] = useState(false)
+  const [rueckOffen, setRueckOffen] = useState(false)
+  const [grund, setGrund] = useState('')
   const { jahr, zeilen } = status
 
   const zuBuchen = zeilen.filter(z => z.status !== 'gebucht' && !z.gesperrt)
@@ -44,7 +49,10 @@ export default function AfaBuchen({ status, dezemberGesperrt, laufend, doppik, d
     const text = zuBuchen.length === 1
       ? `AfA ${jahr} für „${zuBuchen[0].anlage.name}“ (${fmtEur(zuBuchen[0].soll)}) per 31.12.${jahr} buchen?`
       : `AfA ${jahr} für ${zuBuchen.length} Anlagen (${fmtEur(zuBuchen.reduce((s, z) => s + z.soll, 0))}) per 31.12.${jahr} buchen?`
-    if (!confirm(text)) return
+    const ersetzt = zuBuchen.filter(z => z.buchungId).length
+    if (!confirm(ersetzt ? `${text}
+
+${ersetzt === 1 ? 'Die abweichende AfA-Buchung wird' : `${ersetzt} abweichende AfA-Buchungen werden`} dabei storniert (Gegenbuchung per 31.12.${jahr}).` : text)) return
     setFehler(null)
     start(async () => {
       const r = await bucheAfa(jahr, zuBuchen.map(z => ({ anlageId: z.anlage.id, name: z.anlage.name, soll: z.soll, buchungId: z.buchungId })))
@@ -54,11 +62,14 @@ export default function AfaBuchen({ status, dezemberGesperrt, laufend, doppik, d
   }
   function zuruecknehmen() {
     if (gebuchte.length === 0) return
-    if (!confirm(`Alle ${gebuchte.length} AfA-Buchungen ${jahr} löschen? Das Anlagenverzeichnis bleibt unverändert.`)) return
+    const f = stornoGrundFehler(grund)
+    if (f) { setFehler(f); return }
     setFehler(null)
     start(async () => {
-      const r = await nimmAfaZurueck(jahr, gebuchte.map(z => z.buchungId as string))
-      if (!r.ok) { setFehler(r.fehler ?? 'Zurücknehmen fehlgeschlagen'); return }
+      const r = await nimmAfaZurueck(jahr, gebuchte.map(z => z.buchungId as string), grund.trim())
+      if (!r.ok) { setFehler(r.fehler ?? 'Zurücknehmen fehlgeschlagen'); router.refresh(); return }
+      setRueckOffen(false)
+      setGrund('')
       router.refresh()
     })
   }
@@ -126,11 +137,27 @@ export default function AfaBuchen({ status, dezemberGesperrt, laufend, doppik, d
             <CalendarCheck size={15} strokeWidth={2} />
             {zuBuchen.length === 0 ? `AfA ${jahr} gebucht` : `AfA ${jahr} buchen (${zuBuchen.length})`}
           </button>
-          {gebuchte.length > 0 && (
-            <button type="button" onClick={zuruecknehmen} disabled={pending || blockiert}
+          {gebuchte.length > 0 && !rueckOffen && (
+            <button type="button" onClick={() => { setRueckOffen(true); setFehler(null) }} disabled={pending || blockiert}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-medium text-s112-err-fg border border-s112-err/30 bg-white hover:bg-s112-err-bg disabled:opacity-40">
               <RotateCcw size={14} strokeWidth={2} />AfA-Buchungen {jahr} zurücknehmen
             </button>
+          )}
+          {gebuchte.length > 0 && rueckOffen && (
+            <div className="w-full max-w-md flex flex-col gap-1.5 rounded-lg border border-s112-err/30 bg-s112-err-bg/40 p-3">
+              <p className="text-[12.5px] text-s112-text-2">
+                {gebuchte.length === 1 ? 'Die AfA-Buchung' : `Alle ${gebuchte.length} AfA-Buchungen`} {jahr} werden storniert – je eine Gegenbuchung per 31.12.{jahr}, die Buchungen bleiben gekennzeichnet in der E&A. Das Anlagenverzeichnis bleibt unverändert.
+              </p>
+              <label htmlFor="afa-rueck-grund" className="text-[12px] font-medium text-s112-text-1">Grund des Stornos <span className="text-s112-err">*</span></label>
+              <textarea id="afa-rueck-grund" value={grund} onChange={ev => setGrund(ev.target.value)} rows={2} autoFocus minLength={STORNO_GRUND_MIN}
+                placeholder="z. B. Nutzungsdauer falsch erfasst"
+                className="w-full border border-s112-border rounded px-2 py-1 text-[12.5px] bg-white focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => { setRueckOffen(false); setFehler(null) }} disabled={pending} className="text-[12.5px] text-s112-text-2 hover:text-s112-text-1 px-1">Abbrechen</button>
+                <button type="button" onClick={zuruecknehmen} disabled={pending}
+                  className="text-[12.5px] bg-s112-err text-white px-3 py-1 rounded font-medium disabled:opacity-50">{pending ? '…' : 'Stornieren'}</button>
+              </div>
+            </div>
           )}
           {status.komplett && (
             <Link href={`/buchhaltung?jahr=${jahr}&q=AfA`} className="text-[12.5px] text-s112-blue-700 hover:underline ml-auto">Buchungen {jahr} ansehen →</Link>

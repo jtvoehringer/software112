@@ -75,7 +75,8 @@ export function belegZeile(b: R): Omit<BelegZeile, 'lfdNr'> {
     id: String(b.id),
     dateiname: text(b.dateiname) ?? '',
     dateityp: text(b.dateityp),
-    status: BELEG_STATUS[status] ?? status,
+    // KAN-149 D2c: Buchung storniert – der Beleg bleibt, die Gegenbuchung hebt die Buchung auf
+    status: `${BELEG_STATUS[status] ?? status}${buchung?.storniert_am ? ' (Buchung storniert)' : ''}`,
     hochgeladenAm: text(b.hochgeladen_am),
     verbuchtAm: text(b.verbucht_am),
     buchungsdatum: buchung?.datum ? String(buchung.datum).slice(0, 10) : null,
@@ -94,7 +95,7 @@ export async function ladeBelegverzeichnis(supabase: any, tenantId: string, p: B
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await alle<R>((supabase.from('ea_belege') as any)
     .select(`id, dateiname, dateityp, status, erkannte_daten, hochgeladen_am, verbucht_am, ea_transaktion_id,
-      buchung:ea_transaktionen!ea_transaktion_id(datum, typ, beschreibung, betrag_brutto, kategorie:ea_kategorien!kategorie_id(name))`)
+      buchung:ea_transaktionen!ea_transaktion_id(datum, typ, beschreibung, betrag_brutto, storniert_am, kategorie:ea_kategorien!kategorie_id(name))`)
     .eq('tenant_id', tenantId)
     .order('hochgeladen_am').order('id'))
   if (error) throw new Error(`Laden fehlgeschlagen (ea_belege): ${error.message}`)
