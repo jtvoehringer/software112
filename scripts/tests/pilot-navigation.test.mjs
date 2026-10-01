@@ -30,6 +30,9 @@ test('Warenwirtschaft ohne Zukauf, Warenlager und Verkauf unverändert', () => {
   const w = bereiche().warenwirtschaft
   assert.ok(!w.some(i => i.href === '/weinhandel/zukauf'))
   assert.deepEqual(w.slice(0, 2).map(i => i.href), ['/weinhandel', '/weinhandel/verkauf'])
+  // 30.09.2026: Liste der Transportbescheinigungen als eigener Tab nach „Offene Posten“
+  const i = w.findIndex(x => x.href === '/weinhandel/offene-posten')
+  assert.deepEqual(w[i + 1], { href: '/weinhandel/transportbescheinigungen', label: 'Transportbescheinigungen' })
 })
 
 test('Rieden: Lese und AMA-Erntemeldung bleiben', () => {

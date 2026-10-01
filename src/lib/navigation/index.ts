@@ -113,6 +113,8 @@ const NAV: NavGroup[] = [
       { href: '/weinhandel',                  label: 'Warenlager',         phase: 1, keywords: 'flaschen füllungen bestand' },
       { href: '/weinhandel/verkauf',          label: 'Verkauf',            phase: 1, keywords: 'rechnung auftrag lieferschein' },
       { href: '/weinhandel/offene-posten',    label: 'Offene Posten',      phase: 1, keywords: 'überfällig zahlung mahnung' },
+      // 30.09.2026: Liste der Transportbescheinigungen eines Zeitraums (Druck + CSV) – bisher nur über die Behördenmeldungen
+      { href: '/weinhandel/transportbescheinigungen', label: 'Transportbescheinigungen', phase: 1, keywords: 'transportschein tbs begleitpapier weingesetz bki zeitraum' },
       { href: '/weinhandel/sonstige-artikel', label: 'Sonstiges-Produkte', phase: 1, keywords: 'artikel' },
       { href: '/weinhandel/rabattgruppen',    label: 'Rabattgruppen',      phase: 1 },
       { href: '/weinexport',                  label: 'Exportaufträge',     requireModul: 'modul_export', keywords: 'eur.1 cmr export' },
