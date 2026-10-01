@@ -1,6 +1,8 @@
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole, getCurrentMembership, isSandboxAdminUnlock } from '@/lib/auth/roles'
+import { getCurrentMembership, isSandboxAdminUnlock } from '@/lib/auth/roles'
+import { istPlattformAdmin } from '@/lib/auth/plattformAdmin'
+import { SANDBOX_TENANT_ID } from '@/lib/abo/regeln'
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import MandantenClient from './MandantenClient'
@@ -26,7 +28,8 @@ export type MandantRow = {
 }
 
 export default async function MandantenPage() {
-  const role = await getCurrentUserRole()
+  // 01.10.2026 (Backlog-Abgleich): Plattform-Admin statt Rolle im aktiven Betrieb; Sandbox über die feste ID
+  const plattform = await istPlattformAdmin()
 
   const authClient = await createSupabaseServerClient()
   const { data: { user } } = await authClient.auth.getUser()
@@ -37,22 +40,20 @@ export default async function MandantenPage() {
   // Sandbox-Tenant-ID ermitteln - wird für die Sonderfreigabe (siehe unten)
   // UND für deren Härtung gebraucht (Sonderfreigabe darf NIE echte Mandanten
   // sehen, siehe isSandboxAdminUnlock in lib/auth/roles.ts).
-  const { data: sandboxTenantRow } = await (supabase.from('tenants') as any)
-    .select('id').eq('name', 'Sandbox').maybeSingle()
-  const sandboxTenantId = (sandboxTenantRow as R | null)?.id ?? null
+  const sandboxTenantId: string | null = SANDBOX_TENANT_ID
 
   const membership = await getCurrentMembership()
   const isSandboxActive = !!sandboxTenantId && membership?.tenantId === sandboxTenantId
   const sandboxUnlock = isSandboxAdminUnlock(user.email, isSandboxActive)
 
-  if (role !== 'system_admin' && !sandboxUnlock) redirect('/dashboard')
+  if (!plattform && !sandboxUnlock) redirect('/dashboard')
 
   // Nur Mandanten zeigen, wo der aktuelle User eine AKTIVE Mitgliedschaft hat -
   // nicht pauschal alle Mandanten der Instanz. Wenn ein Betriebsleiter Jörgens
   // Mitgliedschaft über /benutzer deaktiviert (Migration 159 Aktiv-Toggle),
   // verschwindet der Mandant dadurch automatisch auch aus dieser Übersicht.
   let eigeneTenantIds: string[]
-  if (role !== 'system_admin' && sandboxUnlock) {
+  if (!plattform && sandboxUnlock) {
     // Sandbox-Sonderfreigabe: zeigt IMMER nur den Sandbox-Mandanten selbst,
     // unabhängig davon, in welchen echten Mandanten dieser User sonst noch
     // aktive Mitgliedschaften hat (z.B. der echte Weingut-Gebeshuber-Betrieb
@@ -143,7 +144,7 @@ export default async function MandantenPage() {
         </div>
         <span className="text-sm text-s112-muted">{mandanten.length} Mandanten</span>
       </div>
-      <MandantenClient mandanten={mandanten} canCreate={role === 'system_admin'} />
+      <MandantenClient mandanten={mandanten} canCreate={plattform} />
     </div>
   )
 }

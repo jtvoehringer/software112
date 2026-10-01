@@ -76,6 +76,8 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
   if (!tenantId) throw new AktionsFehler('Kein aktiver Mandant gefunden')
   await pruefeSeitenBetrieb(tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
   await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
+  // KAN-94: Modulrecht wie beim Bearbeiten – vorher konnte ein Leser bzw. Mitarbeiter ohne Kellerbuch umziehen
+  if (!canWrite(membership, 'kellerbuch')) throw new AktionsFehler('Keine Schreibberechtigung für das Kellerbuch in diesem Betrieb.')
 
   // Ziele vorab prüfen (Kellergemeinschaft, Migration 203): eigenes oder freigegebenes,
   // aktives Gebinde, nicht durch einen anderen Betrieb belegt - bevor Quellen reduziert werden.

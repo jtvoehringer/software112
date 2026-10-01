@@ -1,6 +1,8 @@
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole, isSandboxAdminUnlock } from '@/lib/auth/roles'
+import { isSandboxAdminUnlock } from '@/lib/auth/roles'
+import { istPlattformAdmin } from '@/lib/auth/plattformAdmin'
+import { SANDBOX_TENANT_ID } from '@/lib/abo/regeln'
 import { notFound, redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import MandantDetailClient from './MandantDetailClient'
@@ -126,10 +128,10 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function MandantDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const role = await getCurrentUserRole()
   const admin = createSupabaseAdminClient()
 
-  if (role !== 'system_admin') {
+  // 01.10.2026 (Backlog-Abgleich): Plattform-Admin statt Rolle im aktiven Betrieb; Sandbox über die feste ID
+  if (!(await istPlattformAdmin())) {
     // Sandbox-Sonderfreigabe (siehe isSandboxAdminUnlock in lib/auth/roles.ts):
     // die beiden freigeschalteten E-Mails dürfen ausschließlich den
     // Sandbox-Mandanten SELBST hier öffnen - nie einen echten Kunden-
@@ -137,9 +139,7 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
     // ("sonst NIE", Rückmeldung 19.8.2026).
     const authClient = await createSupabaseServerClient()
     const { data: { user } } = await authClient.auth.getUser()
-    const { data: sandboxTenantRow } = await (admin.from('tenants') as any).select('id').eq('name', 'Sandbox').maybeSingle()
-    const isSandboxTarget = (sandboxTenantRow as R | null)?.id === id
-    if (!isSandboxAdminUnlock(user?.email, isSandboxTarget)) redirect('/dashboard')
+    if (!isSandboxAdminUnlock(user?.email, id === SANDBOX_TENANT_ID)) redirect('/dashboard')
   }
 
   const [

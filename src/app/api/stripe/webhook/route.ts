@@ -126,6 +126,11 @@ export async function POST(req: NextRequest) {
   const body      = await req.text()
   const signature = req.headers.get('stripe-signature') ?? ''
   const secret    = process.env.STRIPE_WEBHOOK_SECRET ?? ''
+  // KAN-9: ohne Secret nie weiterverarbeiten (fail-closed) – Konfigurationsfehler, kein Signaturfehler des Absenders
+  if (!secret) {
+    console.error('[Stripe Webhook] STRIPE_WEBHOOK_SECRET fehlt – Ereignis abgelehnt')
+    return NextResponse.json({ fehler: 'Webhook nicht konfiguriert' }, { status: 500 })
+  }
 
   let event: Stripe.Event
   try {
