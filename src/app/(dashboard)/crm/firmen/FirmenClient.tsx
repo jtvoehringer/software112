@@ -6,7 +6,8 @@ import { paramsAusFilter, LISTE_SCHRITT, type ListenFilter, type Zaehler } from 
 import { useListenSuche } from '@/lib/crm/listenSuche'
 import Link from '@/components/ui/Link'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
-import { createFirma, updateFirma, deleteFirma, pruefeFirmaDublette } from '../actions'
+import { createFirma, updateFirma, deleteFirma, setzeFirmaAktiv, pruefeFirmaDublette } from '../actions'
+import { loeschenOderDeaktivieren } from '@/lib/stammdaten/loeschDialog'
 import { SEGMENTE, LAENDER, DIAL_CODES, segmentLabel, segmentFarbe } from '@/lib/crm/types'
 import type { FirmaRow } from '@/lib/crm/types'
 import { AlertTriangle, Pencil, Trash2 } from 'lucide-react'
@@ -351,19 +352,21 @@ function FirmaKarte({
 
   function handleDelete() {
     if (!confirm(`Firma "${firma.name}" wirklich löschen?`)) return
-    startTransition(async () => { await deleteFirma(firma.id) })
+    // KAN-150 F1: mit Verkäufen/Zukäufen … nur deaktivieren
+    startTransition(async () => { await loeschenOderDeaktivieren(() => deleteFirma(firma.id), () => setzeFirmaAktiv(firma.id, false)) })
   }
 
   if (editing) return <FirmaForm initial={firma} rabattgruppen={rabattgruppen} onDone={() => setEditing(false)} />
 
   return (
-    <div className="card p-4">
+    <div className={`card p-4 ${firma.aktiv === false ? 'opacity-60' : ''}`}>
       <div className="flex items-start gap-3">
         <div className="w-9 h-9 rounded-lg bg-s112-teal/10 flex items-center justify-center text-s112-blue-700 font-semibold text-sm flex-shrink-0">
           {firma.name[0].toUpperCase()}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
+            {firma.aktiv === false && <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-[#F2F3F5] text-s112-text-2" title="Deaktiviert – bleibt auf bestehenden Belegen, erscheint nicht in Auswahllisten">inaktiv</span>}
             {firma.accountnummer && (
               <span className="text-xs font-mono text-s112-muted">{firma.accountnummer}</span>
             )}
@@ -534,6 +537,10 @@ export default function FirmenClient({
             Lieferant ({zaehler.istLieferant})
           </button>
         </div>
+        <label className="inline-flex items-center gap-1.5 text-xs text-s112-text-2 cursor-pointer">
+          <input type="checkbox" checked={filter.inaktiv} onChange={() => setzeFilter({ inaktiv: !filter.inaktiv })} />
+          Inaktive anzeigen
+        </label>
         <div className="ml-auto flex items-center gap-2">
           {/* Export nur mit CRM-Schreibrecht – dieselbe Regel prüft /api/export/firmen (KAN-54);
               der Knopf zeigt Fehler und Hinweise der Route (X-Warnungen) statt sie als Datei zu speichern */}

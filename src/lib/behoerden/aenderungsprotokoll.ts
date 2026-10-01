@@ -53,6 +53,20 @@ export const TABELLE_LABEL: Record<string, string> = {
   ama_erntemeldungen: 'AMA-Erntemeldung',
   ama_meldepositionen: 'AMA-Meldeposition',
   weinjahrgaenge: 'Jahrgang',
+  // KAN-149 D3 / KAN-150 F1a: E&A-Abschluss und Stammdaten (Löschen, Deaktivieren)
+  ea_transaktionen: 'E&A-Buchung',
+  zahlungen: 'Zahlung',
+  konto_umbuchungen: 'Umbuchung',
+  ea_uva: 'UVA',
+  ea_monatsabschluss: 'Monatsabschluss',
+  ea_belege: 'Beleg',
+  weingarten: 'Ried',
+  grundstuecke: 'Grundstück',
+  pflanzenschutzmittel: 'Pflanzenschutzmittel',
+  duengemittel: 'Düngemittel',
+  ea_kategorien: 'E&A-Kategorie',
+  ea_dauerauftraege: 'Dauerauftrag',
+  keller_behandlungstypen: 'Kellerbehandlungstyp',
 }
 
 const AKTION_LABEL: Record<string, string> = { UPDATE: 'Änderung', DELETE: 'Löschung' }
@@ -110,7 +124,8 @@ export function aenderungText(aktion: string, alt: R | null, neu: R | null, spal
 /** Bezeichnung des Datensatzes, soweit sie im Protokoll steht (bei Änderungen meist nur die geänderten Spalten) */
 export function datensatzText(alt: R | null, neu: R | null): string | null {
   const q = { ...(alt ?? {}), ...(neu ?? {}) }
-  for (const k of ['name', 'bezeichnung', 'rechnungsnummer', 'transaktions_nr', 'chargennummer', 'liefernummer', 'weinbezeichnung']) {
+  for (const k of ['name', 'bezeichnung', 'rechnungsnummer', 'transaktions_nr', 'chargennummer', 'liefernummer', 'weinbezeichnung',
+    'gst_nr', 'beschreibung', 'dateiname']) {
     const t = text(q[k])
     if (t) return t
   }

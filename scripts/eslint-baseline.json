@@ -1,8 +1,8 @@
 {
   "regeln": {
-    "@typescript-eslint/no-explicit-any": 898,
+    "@typescript-eslint/no-explicit-any": 896,
     "react/no-unescaped-entities": 33,
-    "@typescript-eslint/no-unused-vars": 30,
+    "@typescript-eslint/no-unused-vars": 29,
     "react-hooks/set-state-in-effect": 27,
     "react-hooks/exhaustive-deps": 24,
     "(unbenutzte eslint-disable-Kommentare)": 22,

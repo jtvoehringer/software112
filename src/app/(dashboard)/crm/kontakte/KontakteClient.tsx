@@ -6,7 +6,8 @@ import { paramsAusFilter, LISTE_SCHRITT, type ListenFilter, type Zaehler } from 
 import { useListenSuche } from '@/lib/crm/listenSuche'
 import Link from '@/components/ui/Link'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
-import { createKontakt, updateKontakt, pruefeKontaktDublette, deleteKontakt, createAktivitaet, createPipelineEintrag } from '../actions'
+import { createKontakt, updateKontakt, pruefeKontaktDublette, deleteKontakt, setzeKontaktAktiv, createAktivitaet, createPipelineEintrag } from '../actions'
+import { loeschenOderDeaktivieren } from '@/lib/stammdaten/loeschDialog'
 import { SEGMENTE, AKTIVITAET_ARTEN, PIPELINE_STUFEN, LAENDER, DIAL_CODES, segmentLabel, segmentFarbe } from '@/lib/crm/types'
 import type { KontaktRow } from '@/lib/crm/types'
 import { AlertTriangle, Trash2, Pencil } from 'lucide-react'
@@ -427,7 +428,8 @@ function KontaktKarte({
 
   function handleDelete() {
     if (!confirm(`Kontakt "${name}" wirklich löschen?`)) return
-    startTransition(async () => { await deleteKontakt(kontakt.id) })
+    // KAN-150 F1: mit Verkäufen/Zukäufen … nur deaktivieren
+    startTransition(async () => { await loeschenOderDeaktivieren(() => deleteKontakt(kontakt.id), () => setzeKontaktAktiv(kontakt.id, false)) })
   }
 
   if (editing) return (
@@ -435,10 +437,11 @@ function KontaktKarte({
   )
 
   return (
-    <div className="card p-4">
+    <div className={`card p-4 ${kontakt.aktiv === false ? 'opacity-60' : ''}`}>
       <div className="flex items-start gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
+            {kontakt.aktiv === false && <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-[#F2F3F5] text-s112-text-2" title="Deaktiviert – bleibt auf bestehenden Belegen, erscheint nicht in Auswahllisten">inaktiv</span>}
             {kontakt.accountnummer && (
               <span className="text-xs font-semibold text-s112-blue-700 font-mono bg-s112-teal/10 px-2 py-0.5 rounded">{kontakt.accountnummer}</span>
             )}
@@ -699,6 +702,10 @@ export default function KontakteClient({
             </button>
           ))}
         </div>
+        <label className="inline-flex items-center gap-1.5 text-xs text-s112-text-2 cursor-pointer">
+          <input type="checkbox" checked={filter.inaktiv} onChange={() => setzeFilter({ inaktiv: !filter.inaktiv })} />
+          Inaktive anzeigen
+        </label>
         <div className="ml-auto flex items-center gap-2">
           {/* Export nur mit CRM-Schreibrecht – dieselbe Regel prüft /api/export/kontakte (KAN-54);
               der Knopf zeigt Fehler und Hinweise der Route (X-Warnungen) statt sie als Datei zu speichern */}

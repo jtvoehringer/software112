@@ -1,8 +1,9 @@
 'use client'
 
 import React, { useState, useTransition } from 'react'
-import { Pencil, Trash2 } from 'lucide-react'
-import { createGrundstueck, updateGrundstueck, deleteGrundstueck, fetchBevFlaeche, type BevNutzung } from './actions'
+import { Pencil, Trash2, PowerOff, RotateCcw } from 'lucide-react'
+import { createGrundstueck, updateGrundstueck, deleteGrundstueck, setzeGrundstueckAktiv, fetchBevFlaeche, type BevNutzung } from './actions'
+import { wienHeute } from '@/lib/csv'
 import { fmtHa } from '@/lib/format'
 import { getKgBezeichnung } from '@/lib/wein/katastralgemeinden'
 import { HERKUNFT_ORDER, HERKUNFT_LABEL } from '@/lib/herkunft'
@@ -25,6 +26,18 @@ export type GST = {
   boden: string | null; rechtsverhaeltnis: string | null; unterlagsrebe: string | null
   status: string; nutzart: string | null; notizen: string | null
   lse_stueckzahl: number | null
+  /** KAN-150: deaktiviert (nicht mehr bewirtschaftet) seit deaktiviert_am */
+  aktiv?: boolean
+  deaktiviert_am?: string | null
+}
+
+const datumDe = (iso: string) => { const [j, m, t] = iso.slice(0, 10).split('-'); return `${t}.${m}.${j}` }
+/** TT.MM.JJJJ bzw. JJJJ-MM-TT → JJJJ-MM-TT, sonst null */
+function isoAusEingabe(s: string | null): string | null {
+  const t = (s ?? '').trim()
+  const de = /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/.exec(t)
+  const iso = de ? `${de[3]}-${de[2].padStart(2, '0')}-${de[1].padStart(2, '0')}` : t
+  return /^\d{4}-\d{2}-\d{2}$/.test(iso) && !Number.isNaN(Date.parse(iso)) ? iso : null
 }
 
 export type MassnahmeHistorie = {
@@ -477,7 +490,8 @@ export default function GrundstueckePanel({
 
   const totalAma      = grundstuecke.reduce((s, g) => s + (g.flaeche_ha ?? 0), 0)
   const totalKataster = grundstuecke.reduce((s, g) => s + (g.flaeche_ha_kataster ?? 0), 0)
-  const aktiv         = grundstuecke.filter(g => g.nutzart === 'WI').length
+  const aktiv         = grundstuecke.filter(g => g.nutzart === 'WI' && g.aktiv !== false).length
+  const inaktiv       = grundstuecke.filter(g => g.aktiv === false).length
 
   function toggleExpand(id: string) {
     setExpandedIds(prev => {
@@ -488,9 +502,32 @@ export default function GrundstueckePanel({
     })
   }
 
+  // KAN-150 F1: Grundstücke mit Bezug (Maßnahmen, Lese, Pressungen, Traubenverkäufe) werden nicht gelöscht, sondern
+  // mit Stichtag deaktiviert – für frühere Zeiträume zählen sie in den Meldungen weiter.
+  function deaktivieren(id: string, gstNr: string, hinweis?: string) {
+    const eingabe = prompt(`${hinweis ? hinweis + '\n\n' : ''}GST ${gstNr} deaktivieren – ab welchem Tag wird es nicht mehr bewirtschaftet? (TT.MM.JJJJ)`, datumDe(wienHeute()))
+    if (eingabe == null) return
+    const datum = isoAusEingabe(eingabe)
+    if (!datum) { alert('Bitte ein gültiges Datum im Format TT.MM.JJJJ angeben.'); return }
+    startTransition(async () => {
+      const r = await setzeGrundstueckAktiv(id, weingartenId, false, datum)
+      if (r.error) alert(r.error)
+    })
+  }
+  function reaktivieren(id: string) {
+    startTransition(async () => {
+      const r = await setzeGrundstueckAktiv(id, weingartenId, true, null)
+      if (r.error) alert(r.error)
+    })
+  }
   function handleDelete(id: string, gstNr: string) {
     if (!confirm(`GST ${gstNr} wirklich löschen?`)) return
-    startTransition(() => deleteGrundstueck(id, weingartenId))
+    startTransition(async () => {
+      const r = await deleteGrundstueck(id, weingartenId)
+      if (!r.error) return
+      if (r.deaktivierbar) deaktivieren(id, gstNr, r.error)
+      else alert(`Fehler beim Löschen: ${r.error}`)
+    })
   }
 
   return (
@@ -499,7 +536,7 @@ export default function GrundstueckePanel({
         <div className="flex items-center gap-3">
           <h2 className="text-base font-semibold text-s112-text">Grundstücke</h2>
           <span className="text-xs text-s112-muted">
-            {grundstuecke.length} GST · {aktiv} aktiv · AMA: {fmtHa(totalAma)} ha
+            {grundstuecke.length} GST · {aktiv} aktiv{inaktiv > 0 && ` · ${inaktiv} deaktiviert`} · AMA: {fmtHa(totalAma)} ha
             {totalKataster > 0 && ` · Kataster: ${fmtHa(totalKataster)} ha`}
           </span>
         </div>
@@ -542,7 +579,7 @@ export default function GrundstueckePanel({
                 return (
                   <React.Fragment key={g.id}>
                     <tr
-                      className={`group border-b border-s112-border/50 transition-colors ${writeOk ? 'cursor-pointer hover:bg-s112-bg/40' : ''} ${!isExpanded ? 'last:border-0' : ''} ${g.nutzart !== 'WI' ? 'opacity-60' : ''}`}
+                      className={`group border-b border-s112-border/50 transition-colors ${writeOk ? 'cursor-pointer hover:bg-s112-bg/40' : ''} ${!isExpanded ? 'last:border-0' : ''} ${g.nutzart !== 'WI' || g.aktiv === false ? 'opacity-60' : ''}`}
                       onClick={() => { if (writeOk) { setEditId(g.id); setShowForm(false) } }}
                       title={writeOk ? 'Grundstück bearbeiten' : undefined}
                     >
@@ -562,6 +599,12 @@ export default function GrundstueckePanel({
                       </td>
                       <td className="px-3 py-2 font-mono text-xs font-medium">
                         {g.gst_nr}
+                        {g.aktiv === false && (
+                          <span className="ml-1.5 inline-block px-1.5 py-0 rounded-full text-[11px] font-sans font-medium bg-[#F2F3F5] text-s112-text-2"
+                            title="Nicht mehr bewirtschaftet – zählt in Meldungen nur für Zeiträume bis zu diesem Tag">
+                            deaktiviert{g.deaktiviert_am ? ` seit ${datumDe(g.deaktiviert_am)}` : ''}
+                          </span>
+                        )}
                       </td>
                       <td className="px-3 py-2 text-s112-muted text-xs">
                         {g.rebsorte ?? '–'}
@@ -601,6 +644,16 @@ export default function GrundstueckePanel({
                             <button onClick={() => { setEditId(g.id); setShowForm(false) }}
                               title="Bearbeiten" aria-label="Bearbeiten"
                               className="text-s112-blue-700 hover:text-s112-blue-700/70"><Pencil size={14} /></button>
+                          )}
+                          {adminOk && g.aktiv === false && (
+                            <button onClick={() => reaktivieren(g.id)}
+                              title="Reaktivieren" aria-label="Reaktivieren"
+                              className="text-s112-blue-700 hover:text-s112-blue-700/70"><RotateCcw size={14} /></button>
+                          )}
+                          {adminOk && g.aktiv !== false && (
+                            <button onClick={() => deaktivieren(g.id, g.gst_nr)}
+                              title="Deaktivieren (nicht mehr bewirtschaftet)" aria-label="Deaktivieren"
+                              className="text-s112-text-2 hover:text-s112-text"><PowerOff size={14} /></button>
                           )}
                           {adminOk && (
                             <button onClick={() => handleDelete(g.id, g.gst_nr)}

@@ -5,7 +5,9 @@ import { getCurrentMembership, canWrite, canAdmin } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { revalidatePath } from 'next/cache'
-import { AktionsFehler } from '@/lib/fehler'
+import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
+import { ladeBezuege, istBezugsSperre } from '@/lib/stammdaten/bezuege'
+import { bezuegeSumme, bezugsMeldung, hatBezug } from '@/lib/stammdaten/bezugText'
 import { dezimal } from '@/lib/format'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -126,13 +128,26 @@ export async function updateWeingarten(id: string, formData: FormData) {
   revalidatePath('/lagen')
 }
 
-export async function deactivateWeingarten(id: string) {
-  const supabase = await createSupabaseServerClient()
-  const { tenantId } = await requireAdmin()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('weingarten') as any).update({ aktiv: false }).eq('id', id).eq('tenant_id', tenantId)
-  if (error) throw new AktionsFehler((error as AnyRecord).message)
-  revalidatePath('/weingarten')
+/** Ried-Datensätze deaktivieren bzw. reaktivieren (KAN-150: Stammdaten mit Bezug nur deaktivieren) */
+export async function setzeWeingartenAktiv(ids: string[], aktiv: boolean): Promise<{ error?: string }> {
+  try {
+    if (ids.length === 0) return { error: 'Keine Ried übergeben' }
+    const supabase = await createSupabaseServerClient()
+    const { tenantId } = await requireAdmin()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase.from('weingarten') as any).update({ aktiv }).in('id', ids).eq('tenant_id', tenantId).select('id')
+    if (error) return { error: dbFehlerText(error, aktiv ? 'Reaktivieren fehlgeschlagen' : 'Deaktivieren fehlgeschlagen') }
+    if (((data ?? []) as AnyRecord[]).length !== ids.length) return { error: 'Die Ried wurde inzwischen geändert – bitte die Seite neu laden.' }
+    revalidatePath('/weingarten')
+    revalidatePath('/lagen')
+    return {}
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Unbekannter Fehler' }
+  }
+}
+
+export async function deactivateWeingarten(id: string): Promise<{ error?: string }> {
+  return setzeWeingartenAktiv([id], false)
 }
 
 // Gemeinsame Fehlermeldung für FK-Verletzungen beim Löschen eines oder
@@ -190,15 +205,34 @@ async function loeschSperre(supabase: any, tenantId: string, p: { weingartenIds?
     + '(bzw. beim Grundstück die Nutzart ändern).'
 }
 
-export async function deleteWeingarten(id: string): Promise<{ error?: string }> {
+/**
+ * KAN-150 F1: berichtsrelevante Bezüge (Maßnahmen, Lese, Chargen, Pressungen, Traubenverkäufe – auch über die
+ * Grundstücke) je Ried-Datensatz; bei Bezug Meldung mit Zählern, die App bietet dann „Deaktivieren“ an.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function riedBezugsMeldung(supabase: any, tenantId: string, ids: string[]): Promise<string | null> {
+  const summe = bezuegeSumme(await Promise.all(ids.map(id => ladeBezuege(supabase, tenantId, 'weingarten', id))))
+  if (!hatBezug(summe)) return null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data } = await (supabase.from('weingarten') as any).select('name').in('id', ids).eq('tenant_id', tenantId).limit(1)
+  const name = String(((data ?? []) as AnyRecord[])[0]?.name ?? 'Ried')
+  return bezugsMeldung(name, summe, 'die Ried')
+}
+
+type LoeschErgebnis = { error?: string; deaktivierbar?: boolean }
+
+export async function deleteWeingarten(id: string): Promise<LoeschErgebnis> {
   try {
     const supabase = await createSupabaseServerClient()
     const { tenantId } = await requireAdmin()
+    const bezug = await riedBezugsMeldung(supabase, tenantId, [id])
+    if (bezug) return { error: bezug, deaktivierbar: true }
     const sperre = await loeschSperre(supabase, tenantId, { weingartenIds: [id] })
-    if (sperre) return { error: sperre }
+    if (sperre) return { error: sperre, deaktivierbar: true }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase.from('weingarten') as any).delete().eq('id', id).eq('tenant_id', tenantId)
     if (error) {
+      if (istBezugsSperre(error)) return { error: (error as AnyRecord).message, deaktivierbar: true }
       const friendly = friendlyFkError(error as AnyRecord)
       if (friendly) return { error: friendly }
       return { error: (error as AnyRecord).message }
@@ -219,19 +253,22 @@ export async function deleteWeingarten(id: string): Promise<{ error?: string }> 
 // alle oder keine, z.B. falls eine davon noch verknüpfte Pressungen hat) -
 // die zugehörigen grundstuecke-Zeilen werden dank "on delete cascade"
 // automatisch mitgelöscht.
-export async function deleteRied(weingartenIds: string[]): Promise<{ error?: string }> {
+export async function deleteRied(weingartenIds: string[]): Promise<LoeschErgebnis> {
   try {
     if (weingartenIds.length === 0) return { error: 'Keine Weingarten-Datensätze zum Löschen übergeben' }
     const supabase = await createSupabaseServerClient()
     const { tenantId } = await requireAdmin()
+    const bezug = await riedBezugsMeldung(supabase, tenantId, weingartenIds)
+    if (bezug) return { error: bezug, deaktivierbar: true }
     const sperre = await loeschSperre(supabase, tenantId, { weingartenIds })
-    if (sperre) return { error: sperre }
+    if (sperre) return { error: sperre, deaktivierbar: true }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase.from('weingarten') as any)
       .delete()
       .in('id', weingartenIds)
       .eq('tenant_id', tenantId)
     if (error) {
+      if (istBezugsSperre(error)) return { error: (error as AnyRecord).message, deaktivierbar: true }
       const friendly = friendlyFkError(error as AnyRecord)
       if (friendly) return { error: friendly }
       return { error: (error as AnyRecord).message }
@@ -325,16 +362,56 @@ export async function updateGrundstueck(id: string, weingartenId: string, formDa
   revalidatePath(`/weingarten/${weingartenId}`)
 }
 
-export async function deleteGrundstueck(id: string, weingartenId: string) {
-  const supabase = await createSupabaseServerClient()
-  const { tenantId } = await requireAdmin()
-  const sperre = await loeschSperre(supabase, tenantId, { grundstueckIds: [id] })
-  if (sperre) throw new AktionsFehler(sperre)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('grundstuecke') as any).delete().eq('id', id).eq('tenant_id', tenantId)
-  if (error) throw new AktionsFehler((error as AnyRecord).message)
-  revalidatePath('/weingarten')
-  revalidatePath(`/weingarten/${weingartenId}`)
+export async function deleteGrundstueck(id: string, weingartenId: string): Promise<LoeschErgebnis> {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const { tenantId } = await requireAdmin()
+    // KAN-150 F1: mit Bezug nur deaktivieren
+    const bezug = await ladeBezuege(supabase, tenantId, 'grundstuecke', id)
+    if (hatBezug(bezug)) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (supabase.from('grundstuecke') as any).select('gst_nr').eq('id', id).eq('tenant_id', tenantId).maybeSingle()
+      return { error: bezugsMeldung(`Grundstück ${(data as AnyRecord | null)?.gst_nr ?? ''}`.trim(), bezug, 'das Grundstück'), deaktivierbar: true }
+    }
+    const sperre = await loeschSperre(supabase, tenantId, { grundstueckIds: [id] })
+    if (sperre) return { error: sperre, deaktivierbar: true }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase.from('grundstuecke') as any).delete().eq('id', id).eq('tenant_id', tenantId)
+    if (error) {
+      if (istBezugsSperre(error)) return { error: (error as AnyRecord).message, deaktivierbar: true }
+      return { error: dbFehlerText(error, 'Grundstück konnte nicht gelöscht werden') }
+    }
+    revalidatePath('/weingarten')
+    revalidatePath(`/weingarten/${weingartenId}`)
+    return {}
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Unbekannter Fehler beim Löschen des Grundstücks' }
+  }
+}
+
+/**
+ * KAN-150 F1 (Frage 1): Grundstück deaktivieren mit Stichtag (nicht mehr bewirtschaftet, verkauft, verpachtet) – es
+ * bleibt für frühere Zeiträume in den Meldungen (Flächenverzeichnis, Kupfer, Erntemeldung) bis zu diesem Tag.
+ * aktiv und deaktiviert_am immer gemeinsam (CHECK grundstuecke_deaktiviert_check).
+ */
+export async function setzeGrundstueckAktiv(id: string, weingartenId: string, aktiv: boolean, datum: string | null): Promise<{ error?: string }> {
+  try {
+    if (!aktiv && (!datum || !/^\d{4}-\d{2}-\d{2}$/.test(datum) || Number.isNaN(Date.parse(datum)))) {
+      return { error: 'Bitte das Datum angeben, ab dem das Grundstück nicht mehr bewirtschaftet wird.' }
+    }
+    const supabase = await createSupabaseServerClient()
+    const { tenantId } = await requireAdmin()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase.from('grundstuecke') as any)
+      .update({ aktiv, deaktiviert_am: aktiv ? null : datum }).eq('id', id).eq('tenant_id', tenantId).select('id')
+    if (error) return { error: dbFehlerText(error, aktiv ? 'Reaktivieren fehlgeschlagen' : 'Deaktivieren fehlgeschlagen') }
+    if (((data ?? []) as AnyRecord[]).length !== 1) return { error: 'Grundstück nicht gefunden – bitte die Seite neu laden.' }
+    revalidatePath('/weingarten')
+    revalidatePath(`/weingarten/${weingartenId}`)
+    return {}
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Unbekannter Fehler' }
+  }
 }
 
 // ── BEV Kataster-API ────────────────────────────────────────────────────────────────────────────
