@@ -98,7 +98,8 @@ export type BestehenderKostenEintrag = {
   beschreibung: string | null
 }
 
-const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+// KAN-181: am Handy 16 px (kein iOS-Zoom) und höhere Felder
+const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
 const labelCls = 'block text-sm font-medium text-s112-text-1 mb-1'
 
 export default function BehandlungEditForm({
@@ -402,7 +403,7 @@ export default function BehandlungEditForm({
           <label className={labelCls}>Art</label>
           <div className="flex flex-wrap gap-2">
             {ART_OPTIONS.map(o => (
-              <label key={o.value} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm cursor-pointer transition-colors
+              <label key={o.value} className={`flex items-center gap-1.5 px-3 py-2.5 sm:py-1.5 rounded-lg border text-sm cursor-pointer transition-colors
                 ${art === o.value
                   ? 'bg-s112-teal text-s112-yellow border-s112-teal'
                   : 'bg-white text-s112-text-1 border-s112-border hover:border-s112-teal/50'}`}>
@@ -556,7 +557,7 @@ export default function BehandlungEditForm({
         {/* Aufwandmenge bzw. Konzentration im Tank – einzige Grundlage der Mittelmenge einer Spritzung */}
         {(felder.aufwandmenge !== 'hidden' || felder.konzentration !== 'hidden') && (
           <div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {felder.aufwandmenge !== 'hidden' && (
                 <>
                   <div>
@@ -872,10 +873,11 @@ export default function BehandlungEditForm({
         <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-xl px-4 py-3 text-sm">{error}</div>
       )}
 
-      <div className="flex gap-3">
+      {/* KAN-181: am Handy bleibt die Leiste beim Scrollen unten sichtbar */}
+      <div className="flex gap-3 max-sm:sticky max-sm:bottom-0 max-sm:-mx-4 max-sm:px-4 max-sm:py-3 max-sm:bg-s112-bg max-sm:border-t max-sm:border-s112-line max-sm:z-10">
         {/* nur beim Speichern gesperrt – eine Bio-Sperre zeigt der Klick am Mittel (KAN-154 wie KAN-153) */}
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-s112-yellow px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50 transition-colors">
+          className="flex-1 sm:flex-none bg-s112-teal text-s112-yellow px-6 py-3 sm:py-2.5 rounded-xl text-base sm:text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50 transition-colors">
           {pending ? 'Speichert…' : 'Änderungen speichern'}
         </button>
         <a href="/behandlungen" className="px-5 py-2.5 rounded-xl text-sm font-medium text-s112-text-2 hover:text-s112-text">

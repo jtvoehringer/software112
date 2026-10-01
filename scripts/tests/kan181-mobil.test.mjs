@@ -53,3 +53,20 @@ describe('Lese erfassen', () => {
     assert.match(quelle('src/components/wein/MostgewichtEingabe.tsx'), /text-base sm:text-sm tabular-nums/)
   })
 })
+
+describe('Maßnahme erfassen (Etappe 2)', () => {
+  const NEU = 'src/app/(dashboard)/behandlungen/neu/NeueBehandlungForm.tsx'
+  const EDIT = 'src/app/(dashboard)/behandlungen/[id]/edit/BehandlungEditForm.tsx'
+  test('keine 14-px-Eingabefelder mehr am Handy (iOS-Zoom): Anlegen, Bearbeiten, Betriebsmittel', () => {
+    for (const f of [NEU, EDIT, 'src/app/(dashboard)/behandlungen/neu/BetriebsmittelFeld.tsx']) {
+      const q = quelle(f)
+      assert.doesNotMatch(q, /px-3 py-2 text-sm focus:/, f)
+      assert.match(q, /text-base sm:text-sm/, f)
+    }
+  })
+  test('Speichern-Leiste bleibt am Handy unten sichtbar; Ried-Auswahl mit großen Häkchen', () => {
+    for (const f of [NEU, EDIT]) assert.match(quelle(f), /max-sm:sticky max-sm:bottom-0/, f)
+    const ried = quelle('src/app/(dashboard)/behandlungen/neu/RiedAuswahlListe.tsx')
+    assert.equal((ried.match(/w-5 h-5 sm:w-auto sm:h-auto/g) ?? []).length, 3)
+  })
+})
