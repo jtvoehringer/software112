@@ -1211,6 +1211,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('mandant',       '-US', false, 's112_schwund_minderung(p_tenant_id uuid, p_umzug_id uuid)'),   -- KAN-145 B4 (lesend)
     ('trigger',       '--S', false, 's112_verkauf_storno_schutz()'),           -- KAN-149 D1: Verkaufsstorno mit Grund, unveränderlich
     ('trigger',       '--S', false, 's112_konto_loeschsperre()'),              -- KAN-149 D3: Konto nur ohne Bewegungen
+    ('trigger',       '--S', false, 's112_betriebsmittel_kategorie_pruefen()'), -- KAN-167b: E/A-Kategorie global oder eigener Betrieb
     ('intern',        '--S', false, 's112_firma_momentaufnahme(p_id uuid)'),   -- KAN-150 F1c (Hilfsfunktion)
     ('mandant',       '-US', true , 's112_kontakt_historie_zu_firma(p_tenant_id uuid, p_kontakt_id uuid, p_firma_id uuid)'),   -- KAN-150 F1c: Umwandeln
     ('mandant',       '-US', true , 's112_herkunft_setzen(p_tenant_id uuid, p_weinausbau_id uuid, p_weingarten_ids uuid[], p_grund text)'),   -- KAN-150 F1d: Herkunft der Charge
