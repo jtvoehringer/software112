@@ -439,6 +439,19 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
   // Gebindewechsel im Formular nur ohne Folgebuchungen (Server prüft dasselbe)
   const vonPressung = ((pressungenRaw ?? []) as R[]).length > 0
   let gebindeSperre: string | null = null
+  // KAN-150 F1d: mit Folgebuchungen braucht eine Änderung der Rieden einen Grund (Server prüft dasselbe)
+  let herkunftGrundNoetig: string | null = null
+  if (writeOk) {
+    try {
+      const alle = await folgebuchungenDerCharge(supabase, id)
+      if (alle.length > 0) {
+        const einzeln = alle.length === 1 && alle[0].anzahl === 1
+        herkunftGrundNoetig = `${einzeln ? 'hängt' : 'hängen'} bereits ${folgebuchungenText(alle)}`
+      }
+    } catch {
+      herkunftGrundNoetig = 'hängen möglicherweise Folgebuchungen (Prüfung fehlgeschlagen)'
+    }
+  }
   if (writeOk && !vonPressung) {
     try {
       const f = await folgebuchungenDerCharge(supabase, id, { ohne: GEBINDEWECHSEL_OHNE })
@@ -698,6 +711,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
             maxQualitaetsstufe={maxQualitaetsstufe}
             vonPressung={vonPressung}
             gebindeSperre={gebindeSperre}
+            herkunftGrundNoetig={herkunftGrundNoetig}
             action={updateWeinausbau.bind(null, id)}
           />
         </section>
