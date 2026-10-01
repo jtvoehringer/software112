@@ -319,11 +319,12 @@ describe('erntemeldung', () => {
     assert.equal(daten.quelle, 'lesedaten')
     const text = csv.csvText(daten.zeilen, ernte.SPALTEN_ERNTEMELDUNG)
     assert.equal(text, BOM + [
-      'Rebsorte;BKI-Kürzel;Fläche (ha);Menge (kg);davon als Trauben verkauft (kg);Menge (hl);Mostgewicht (°KMW);Mostgewicht (°Oe);Qualitätsstufe;Ertrag (kg/ha);Höchstertrag (kg/ha);Übermenge (kg)',
-      'Gemischer Satz;;0,2500;1000;0;7,69;;;Qualitätswein;4000;10000;0',
+      'Rebsorte;BKI-Kürzel;Fläche (ha);Menge (kg);davon als Trauben verkauft (kg);Menge (hl);Mostgewicht (°KMW);Mostgewicht (°Oe);Qualitätsstufe;Ertrag (kg/ha);Höchstertrag (kg/ha);Übermenge (kg);Weinbaugebiet',
+      // KAN-165: ohne Herkunft-Code bzw. Weinbaugebiet am Ried bleibt die Spalte leer (eine Position je Sorte wie bisher)
+      'Gemischer Satz;;0,2500;1000;0;7,69;;;Qualitätswein;4000;10000;0;',
       // °KMW mengengewichtet: (9000 × 17,4 + 2500 × 19,25) / 11500 = 17,802… → 17,80; °Oe = f(17,80) = 87,8
-      'Grüner Veltliner;GV;1,0000;11500;800;88,46;17,80;87,8;Qualitätswein;11500;10000;1500',
-      'Zweigelt;ZW;0,8000;6000;0;46,15;19,00;94,2;Kabinett;7500;;',
+      'Grüner Veltliner;GV;1,0000;11500;800;88,46;17,80;87,8;Qualitätswein;11500;10000;1500;',
+      'Zweigelt;ZW;0,8000;6000;0;46,15;19,00;94,2;Kabinett;7500;;;',
     ].join('\r\n') + '\r\n')
     // Ausdruck summiert die gerundeten Zeilenwerte
     assert.deepEqual(daten.summe, { flaecheHa: 2.05, mengeKg: 18500, verkauftKg: 800, mengeHl: 142.3 })

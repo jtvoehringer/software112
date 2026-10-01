@@ -15,6 +15,7 @@
 // zusätzlich mit der gemessenen Einheit – Regeln in mostgewicht_export.ts.
 // Ohne 'server-only' und ohne Next-Importe: scripts/tests/ernte.test.mjs lädt die Datei direkt.
 
+import { herkunftBundesland, herkunftGebietTolerant } from '@/lib/herkunft'
 import { amaAktualisierenText } from './amaMeldung'
 import { STELLEN, runden, type CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
@@ -95,6 +96,11 @@ export type LeseZeile = {
   grundstueckFlaecheHa: number | null
   /** Rebsorte des Grundstücks, sonst die des Rieds (wie in der Lesedaten-Tabelle) */
   rebsorte: string | null
+  /** KAN-165: Bundesland-Gebiet (Niederösterreich, Burgenland, Wien, Steiermark, Bergland-Bundesland) aus dem
+   *  Herkunft-Code des Grundstücks, sonst des Rieds, der Lese bzw. dem Weinbaugebiet am Ried – Gliederung der Erntemeldung */
+  weinbaugebiet: string | null
+  /** KAN-165: genauestes Gebiet im selben Bundesland (Weinbaugebiet am Ried, sonst aus dem Code) – Kopf der AMA-Meldung */
+  gebietGenau: string | null
   kuerzel: string | null
   /** Lesedatum 'JJJJ-MM-TT' */
   datum: string | null
@@ -126,6 +132,21 @@ function leseFelder(l: R | null): { lese: string | null; leseNr: number | null }
   return { lese: jahr === null ? String(nr) : leseTitel(jahr, { lfd_nr: nr, art: textOderNull(l?.art) ?? '', bezeichnung: null }), leseNr: nr }
 }
 
+/**
+ * KAN-165: Gebiet einer Lese. Bundesland aus dem ersten erfassten Wert: Herkunft-Code des Grundstücks, des Rieds, der
+ * Lese, zuletzt das Weinbaugebiet am Ried (Freitext). Das genaue Gebiet bevorzugt das Weinbaugebiet am Ried (geografisch –
+ * der Code kann abgestuft sein), sonst den Code – nur wenn es im selben Bundesland liegt.
+ */
+export function gebietDerLese(p: R, wg: R | null, gst: R | null): { weinbaugebiet: string | null; gebietGenau: string | null } {
+  const codes = [gst?.trauben_herkunft_code, wg?.trauben_herkunft_code, p.herkunft_code].map(textOderNull)
+  const freitext = textOderNull(wg?.weinbaugebiet)
+  const weinbaugebiet = [...codes, freitext].map(herkunftBundesland).find(Boolean) ?? null
+  if (!weinbaugebiet) return { weinbaugebiet: null, gebietGenau: null }
+  const gebietGenau = [freitext, ...codes].map(herkunftGebietTolerant)
+    .find(g => !!g && herkunftBundesland(g) === weinbaugebiet) ?? weinbaugebiet
+  return { weinbaugebiet, gebietGenau }
+}
+
 function zuLeseZeile(p: R): LeseZeile {
   const wg = (p.weingarten ?? null) as R | null
   const gst = (p.grundstueck ?? null) as R | null
@@ -133,6 +154,7 @@ function zuLeseZeile(p: R): LeseZeile {
   const grundstueckRebsorte = textOderNull(gst?.rebsorte)
   const rebsorte = grundstueckRebsorte ?? weingartenRebsorte
   const kg = zahlOderNull(p.menge_kg)
+  const { weinbaugebiet, gebietGenau } = gebietDerLese(p, wg, gst)
   return {
     id: p.id,
     leseId: textOderNull(p.lese_id),
@@ -147,6 +169,8 @@ function zuLeseZeile(p: R): LeseZeile {
     grundstueckRebsorte,
     grundstueckFlaecheHa: zahlOderNull(gst?.flaeche_ha),
     rebsorte,
+    weinbaugebiet,
+    gebietGenau,
     kuerzel: bkiRebsorteKuerzel(rebsorte),
     datum: textOderNull(p.ernte_datum),
     mengeKg: kg === null ? null : runden(kg, STELLEN.kgGenau),
@@ -185,7 +209,7 @@ export async function ladeLesedaten(
 ): Promise<{ zeilen: LeseZeile[]; warnungen: string[] }> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let abfrage = (supabase.from('ernte_parzellen') as any)
-    .select('id, lese_id, lese:lesen!ernte_parzellen_lese_fkey(lfd_nr, art, jahrgang:weinjahrgaenge!lesen_jahrgang_fkey(jahrgang)), weingarten_id, grundstueck_id, ernte_datum, menge_kg, menge_hl, oechsle, klosterneuburger, mostgewicht_einheit, qualitaetsstufe, lesemethode, notizen, storniert_am, storno_grund, storniert_von_name, weingarten:weingarten_id(name, rebsorte, flaeche_ha), grundstueck:grundstueck_id(gst_nr, katastralgemeinde, rebsorte, flaeche_ha)')
+    .select('id, lese_id, lese:lesen!ernte_parzellen_lese_fkey(lfd_nr, art, jahrgang:weinjahrgaenge!lesen_jahrgang_fkey(jahrgang)), weingarten_id, grundstueck_id, ernte_datum, menge_kg, menge_hl, oechsle, klosterneuburger, mostgewicht_einheit, qualitaetsstufe, lesemethode, notizen, storniert_am, storno_grund, storniert_von_name, herkunft_code, weingarten:weingarten_id(name, rebsorte, flaeche_ha, weinbaugebiet, trauben_herkunft_code), grundstueck:grundstueck_id(gst_nr, katastralgemeinde, rebsorte, flaeche_ha, trauben_herkunft_code)')
     .eq('jahrgang_id', jahrgangId)
     // storno-sichtbar: stornierte nur mit opt.mitStornierten (gekennzeichnet in Druck, CSV und Liste)
   if (!opt.mitStornierten) abfrage = abfrage.is('storniert_am', null)
@@ -260,6 +284,8 @@ export function stichtagHinweis(danach: readonly LeseZeile[], jahrgang: number):
 // ── Aggregation je Rebsorte (Vorschau, Druck, „AMA-Meldung erstellen“) ───────
 
 export type ParzelleFuerMeldung = {
+  /** KAN-165: Bundesland-Gebiet – eigene Position je Gebiet und Rebsorte (fehlt = ohne Gebiet, wie bisher) */
+  weinbaugebiet?: string | null
   weingartenId: string | null
   grundstueckId: string | null
   rebsorte: string | null
@@ -272,6 +298,8 @@ export type ParzelleFuerMeldung = {
 
 export type RebsortenSumme = {
   rebsorte: string
+  /** KAN-165: Bundesland-Gebiet der Position (null = ohne Gebiet) */
+  weinbaugebiet: string | null
   flaecheHa: number
   mengeKg: number
   mengeHl: number
@@ -283,6 +311,7 @@ export type RebsortenSumme = {
 /** Lesezeile → Eingabe der Aggregation (Rebsorte und Fläche vom Grundstück, sonst vom Ried) */
 export function parzelleFuerMeldung(z: LeseZeile): ParzelleFuerMeldung {
   return {
+    weinbaugebiet: z.weinbaugebiet,
     weingartenId: z.weingartenId,
     grundstueckId: z.grundstueckId,
     rebsorte: z.rebsorte,
@@ -293,17 +322,45 @@ export function parzelleFuerMeldung(z: LeseZeile): ParzelleFuerMeldung {
   }
 }
 
+/** KAN-165: Schlüssel einer Position – Rebsorte, bei mehreren Gebieten zusätzlich das Gebiet (ohne Gebiet wie bisher) */
+export function positionsKey(weinbaugebiet: string | null | undefined, rebsorte: string | null | undefined): string {
+  const sorte = rebsorte?.trim() || REBSORTE_UNBEKANNT
+  return weinbaugebiet ? `${weinbaugebiet}\u0000${sorte}` : sorte
+}
+
+/** Kopf der AMA-Meldung (KAN-165): je Bundesland-Gebiet das genaue Gebiet, wenn alle Lesen dort dasselbe haben
+ *  („Thermenregion“), sonst das Bundesland („Niederösterreich“); sortiert. */
+export function kopfGebiete(lese: readonly Pick<LeseZeile, 'weinbaugebiet' | 'gebietGenau'>[]): string[] {
+  const je = new Map<string, Set<string>>()
+  for (const z of lese) {
+    if (!z.weinbaugebiet) continue
+    const s = je.get(z.weinbaugebiet) ?? new Set<string>()
+    s.add(z.gebietGenau ?? z.weinbaugebiet)
+    je.set(z.weinbaugebiet, s)
+  }
+  return [...je].map(([land, genau]) => (genau.size === 1 ? [...genau][0] : land)).sort((a, b) => a.localeCompare(b, 'de'))
+}
+
+/** Lesbare Bezeichnung eines Positionsschlüssels: „Zweigelt (Burgenland)“ bzw. nur die Sorte */
+export function positionsName(key: string): string {
+  const i = key.indexOf('\u0000')
+  return i < 0 ? key : `${key.slice(i + 1)} (${key.slice(0, i)})`
+}
+
 /**
- * Lesedaten je Rebsorte summieren. Die Fläche jedes Grundstücks (bzw. Rieds ohne
+ * Lesedaten je Weinbaugebiet und Rebsorte summieren (KAN-165: Gebiet = Bundesland, siehe gebietDerLese).
+ * Die Fläche jedes Grundstücks (bzw. Rieds ohne
  * Grundstück) zählt je Rebsorte nur EINMAL – zwei Lesedurchgänge auf demselben
  * Grundstück verdoppeln die Ertragsfläche nicht mehr (vorher: Fläche je Lesezeile).
  */
 export function aggregiereJeRebsorte(parzellen: readonly ParzelleFuerMeldung[]): RebsortenSumme[] {
   const summen = new Map<string, { s: RebsortenSumme; flaechen: Set<string> }>()
   for (const p of parzellen) {
-    const key = p.rebsorte?.trim() || REBSORTE_UNBEKANNT
+    const sorte = p.rebsorte?.trim() || REBSORTE_UNBEKANNT
+    const gebiet = p.weinbaugebiet ?? null
+    const key = positionsKey(gebiet, sorte)
     const e = summen.get(key) ?? {
-      s: { rebsorte: key, flaecheHa: 0, mengeKg: 0, mengeHl: 0, hlGeschaetzt: false, qualitaetsstufen: [] },
+      s: { rebsorte: sorte, weinbaugebiet: gebiet, flaecheHa: 0, mengeKg: 0, mengeHl: 0, hlGeschaetzt: false, qualitaetsstufen: [] },
       flaechen: new Set<string>(),
     }
     const flaechenKey = p.grundstueckId ? `gst:${p.grundstueckId}` : `wg:${p.weingartenId ?? ''}`
@@ -318,7 +375,8 @@ export function aggregiereJeRebsorte(parzellen: readonly ParzelleFuerMeldung[]):
     if (p.qualitaetsstufe && !e.s.qualitaetsstufen.includes(p.qualitaetsstufe)) e.s.qualitaetsstufen.push(p.qualitaetsstufe)
     summen.set(key, e)
   }
-  return [...summen.values()].map(e => e.s).sort((a, b) => a.rebsorte.localeCompare(b.rebsorte, 'de'))
+  return [...summen.values()].map(e => e.s).sort((a, b) =>
+    (a.weinbaugebiet ?? '\uffff').localeCompare(b.weinbaugebiet ?? '\uffff', 'de') || a.rebsorte.localeCompare(b.rebsorte, 'de'))
 }
 
 // ── Hektarhöchstertrag (betriebsweit) ───────────────────────────────────────
@@ -372,6 +430,8 @@ async function ladeWeinbauflaecheHa(supabase: Client, tenantId: string, jahr: nu
 
 export type ErnteZeile = {
   rebsorte: string
+  /** KAN-165: Bundesland-Gebiet der Position (null = ohne Gebiet bzw. Meldung vor KAN-165) */
+  weinbaugebiet: string | null
   kuerzel: string | null
   /** Ertragsfläche (ha), 4 Stellen */
   flaecheHa: number | null
@@ -402,18 +462,15 @@ export type ErntemeldungDaten = {
   quelle: 'meldung' | 'lesedaten'
   status: string | null
   zeilen: ErnteZeile[]
+  /** KAN-165: Gebiete der Zeilen (mehr als eines → Spalte „Weinbaugebiet“ im Ausdruck) */
+  gebiete: string[]
   /** Summen der gerundeten Zeilenwerte (Ausdruck) */
   summe: { flaecheHa: number; mengeKg: number; verkauftKg: number; mengeHl: number }
   hektarhoechstertrag: HektarhoechstertragStatus
   warnungen: string[]
 }
 
-type ErnteRoh = { rebsorte: string; flaecheHa: number | null; mengeKg: number | null; mengeHl: number | null; qualitaetsstufe: string | null; kmw?: number | null; oechsle?: number | null }
-
-/** Schlüssel der Rebsorte wie in aggregiereJeRebsorte() */
-function sortenKey(rebsorte: string | null | undefined): string {
-  return rebsorte?.trim() || REBSORTE_UNBEKANNT
-}
+type ErnteRoh = { rebsorte: string; weinbaugebiet?: string | null; flaecheHa: number | null; mengeKg: number | null; mengeHl: number | null; qualitaetsstufe: string | null; kmw?: number | null; oechsle?: number | null }
 
 /**
  * Mostgewicht je Rebsorte: kg-gewichtetes Mittel der °KMW aller Lesen mit erfasstem Mostgewicht
@@ -423,14 +480,14 @@ function sortenKey(rebsorte: string | null | undefined): string {
  * Lese der Sorte mit Menge, aber ohne Mostgewicht.
  */
 export function kmwJeRebsorte(
-  lese: readonly (Pick<LeseZeile, 'rebsorte' | 'mengeKg' | 'kmw'> & { mostgewicht?: Pick<MostgewichtExport, 'kmw'> })[],
+  lese: readonly (Pick<LeseZeile, 'rebsorte' | 'mengeKg' | 'kmw'> & { weinbaugebiet?: string | null; mostgewicht?: Pick<MostgewichtExport, 'kmw'> })[],
 ): Map<string, { kmw: number; oechsle: number; teilweise: boolean }> {
   const teile = new Map<string, { menge: number; kmw: number }[]>()
   const teilweise = new Set<string>()
   for (const z of lese) {
     const kg = z.mengeKg ?? 0
     if (kg <= 0) continue
-    const key = sortenKey(z.rebsorte)
+    const key = positionsKey(z.weinbaugebiet, z.rebsorte)   // KAN-165: je Gebiet und Rebsorte
     const kmw = z.mostgewicht ? z.mostgewicht.kmw : z.kmw
     const liste = teile.get(key) ?? []
     teile.set(key, liste)
@@ -460,6 +517,7 @@ export function ernteZeile(roh: ErnteRoh, verkauftKg: number | null = null): Ern
     : null
   return {
     rebsorte: roh.rebsorte,
+    weinbaugebiet: roh.weinbaugebiet ?? null,
     kuerzel: bkiRebsorteKuerzel(roh.rebsorte),
     flaecheHa, mengeKg,
     verkauftKg: verkauftKg === null ? null : runden(verkauftKg, STELLEN.kg),
@@ -492,7 +550,7 @@ async function ladeVerkaufteTraubenJeRebsorte(supabase: Client, tenantId: string
     // storno-sichtbar: stornierte Traubenverkäufe (KAN-148) und stornierte Rechnungen filtert ohneStornierte() mit Hinweis
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('traubenverkauf') as any)
-      .select('id, datum, liefernummer, menge_kg, weingarten_id, storniert_am, weingarten:weingarten_id(rebsorte), grundstueck:grundstueck_id(rebsorte), verkaufsposten:verkaufsposten_id(storniert, rechnungsnummer)')
+      .select('id, datum, liefernummer, menge_kg, weingarten_id, storniert_am, herkunft_code, weingarten:weingarten_id(rebsorte, weinbaugebiet, trauben_herkunft_code), grundstueck:grundstueck_id(rebsorte, trauben_herkunft_code), verkaufsposten:verkaufsposten_id(storniert, rechnungsnummer)')
       .eq('tenant_id', tenantId)
       .eq('jahrgang_id', jahrgangId)
       .order('id'),
@@ -502,7 +560,8 @@ async function ladeVerkaufteTraubenJeRebsorte(supabase: Client, tenantId: string
   const { gueltig, hinweis } = ohneStornierte(eigene)
   const je = new Map<string, number>()
   for (const v of gueltig) {
-    const key = textOderNull(v.grundstueck?.rebsorte) ?? textOderNull(v.weingarten?.rebsorte) ?? REBSORTE_UNBEKANNT
+    const sorte = textOderNull(v.grundstueck?.rebsorte) ?? textOderNull(v.weingarten?.rebsorte) ?? REBSORTE_UNBEKANNT
+    const key = positionsKey(gebietDerLese(v, v.weingarten ?? null, v.grundstueck ?? null).weinbaugebiet, sorte)
     je.set(key, (je.get(key) ?? 0) + (zahlOderNull(v.menge_kg) ?? 0))
   }
   return { je, hinweis: hinweis ? `„davon als Trauben verkauft“: ${hinweis}` : null }
@@ -551,7 +610,11 @@ export async function ladeErntemeldung(supabase: Client, tenantId: string, jg: J
 
   // Vorschau je Rebsorte aus den Lesedaten – Grundlage ohne Meldung und Abgleich mit Meldung
   const summen = aggregiereJeRebsorte(stichtag.bis.map(parzelleFuerMeldung))
-  const vorschau = new Map(summen.map(s => [s.rebsorte, s]))
+  const vorschau = new Map(summen.map(s => [positionsKey(s.weinbaugebiet, s.rebsorte), s]))
+  // KAN-165: Meldungen vor KAN-165 haben kein Gebiet je Position – bei genau einem Gebiet in den Lesedaten gilt dieses
+  const leseGebiete = [...new Set(summen.map(s => s.weinbaugebiet))]
+  const einzigesGebiet = leseGebiete.length === 1 ? leseGebiete[0] : null
+  const key = (r: { weinbaugebiet?: string | null; rebsorte: string }) => positionsKey(r.weinbaugebiet, r.rebsorte)
   const kmw = kmwJeRebsorte(stichtag.bis)
   const stufeAusLese = (s: RebsortenSumme) => (s.qualitaetsstufen.length === 1 ? s.qualitaetsstufen[0] : null)
   const hlAusLese = (s: RebsortenSumme) => (s.hlGeschaetzt ? null : s.mengeHl)
@@ -562,7 +625,7 @@ export async function ladeErntemeldung(supabase: Client, tenantId: string, jg: J
       // ama_meldepositionen hat keine tenant_id – die Meldung ist oben mandantengefiltert
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('ama_meldepositionen') as any)
-        .select('id, rebsorte_name, flaeche_ha, menge_kg, menge_hl, qualitaetsstufe')
+        .select('id, rebsorte_name, weinbaugebiet, flaeche_ha, menge_kg, menge_hl, qualitaetsstufe')
         .eq('meldung_id', meldung.id)
         .order('rebsorte_name')
         .order('id'),
@@ -570,14 +633,17 @@ export async function ladeErntemeldung(supabase: Client, tenantId: string, jg: J
     if (error) throw new Error(`Laden fehlgeschlagen (ama_meldepositionen): ${error.message}`)
     roh = data.map(p => {
       const rebsorte = textOderNull(p.rebsorte_name) ?? REBSORTE_UNBEKANNT
+      const weinbaugebiet = textOderNull(p.weinbaugebiet) ?? einzigesGebiet
+      const k = positionsKey(weinbaugebiet, rebsorte)
       return {
         rebsorte,
+        weinbaugebiet,
         flaecheHa: zahlOderNull(p.flaeche_ha),
         mengeKg: zahlOderNull(p.menge_kg),
         mengeHl: zahlOderNull(p.menge_hl),
         qualitaetsstufe: textOderNull(p.qualitaetsstufe),
-        kmw: kmw.get(rebsorte)?.kmw ?? null,
-        oechsle: kmw.get(rebsorte)?.oechsle ?? null,
+        kmw: kmw.get(k)?.kmw ?? null,
+        oechsle: kmw.get(k)?.oechsle ?? null,
       }
     })
     const leseKg = runden(stichtag.bis.reduce((s, z) => s + (z.mengeKg ?? 0), 0), STELLEN.kg)
@@ -589,7 +655,7 @@ export async function ladeErntemeldung(supabase: Client, tenantId: string, jg: J
     // 25.09.2026 erstellt wurden, tragen fest „Qualitätswein“ und keine hl.
     const abweichend: string[] = []
     for (const r of roh) {
-      const s = vorschau.get(r.rebsorte)
+      const s = vorschau.get(key(r))
       if (!s) continue
       const stufe = stufeAusLese(s)
       const gruende: string[] = []
@@ -600,7 +666,7 @@ export async function ladeErntemeldung(supabase: Client, tenantId: string, jg: J
       if (hl !== null && (r.mengeHl === null || runden(r.mengeHl, STELLEN.hl) !== runden(hl, STELLEN.hl))) {
         gruende.push(r.mengeHl === null ? `erfasste ${runden(hl, STELLEN.hl).toLocaleString('de-DE')} hl nicht übernommen (Meldung rechnet kg ÷ ${KG_JE_HL})` : 'Menge (hl) weicht ab')
       }
-      if (gruende.length > 0) abweichend.push(`„${r.rebsorte}“ (${gruende.join('; ')})`)
+      if (gruende.length > 0) abweichend.push(`„${positionsName(key(r))}“ (${gruende.join('; ')})`)
     }
     if (abweichend.length > 0) {
       warnungen.push(`Die gespeicherte AMA-Meldung weicht von den Lesedaten ab: ${abweichend.join(', ')} – auf der Lese-Seite ${aktualisieren} und die Datei neu erstellen.`)
@@ -608,33 +674,34 @@ export async function ladeErntemeldung(supabase: Client, tenantId: string, jg: J
   } else {
     roh = summen.map(s => ({
       rebsorte: s.rebsorte,
+      weinbaugebiet: s.weinbaugebiet,
       flaecheHa: s.flaecheHa,
       mengeKg: s.mengeKg,
       mengeHl: hlAusLese(s),
       qualitaetsstufe: stufeAusLese(s),
-      kmw: kmw.get(s.rebsorte)?.kmw ?? null,
-      oechsle: kmw.get(s.rebsorte)?.oechsle ?? null,
+      kmw: kmw.get(key(s))?.kmw ?? null,
+      oechsle: kmw.get(key(s))?.oechsle ?? null,
     }))
     if (roh.length > 0) {
       warnungen.unshift(`Für den Jahrgang ${jg.jahrgang} ist noch keine AMA-Meldung erstellt – die Zeilen sind eine Vorschau aus den Lesedaten. Auf der Lese-Seite „AMA-Meldung erstellen“.`)
     }
   }
   for (const r of roh) {
-    const s = vorschau.get(r.rebsorte)
+    const s = vorschau.get(key(r))
     if (s && s.qualitaetsstufen.length > 1 && r.qualitaetsstufe === null) {
-      warnungen.push(`Rebsorte „${s.rebsorte}“: Lesedaten mit mehreren Qualitätsstufen (${s.qualitaetsstufen.map(qualitaetLabel).join(', ')}) – Qualitätsstufe leer gelassen.`)
+      warnungen.push(`Rebsorte „${positionsName(key(s))}“: Lesedaten mit mehreren Qualitätsstufen (${s.qualitaetsstufen.map(qualitaetLabel).join(', ')}) – Qualitätsstufe leer gelassen.`)
     }
   }
-  const kmwTeilweise = [...kmw].filter(([, k]) => k.teilweise).map(([s]) => s)
+  const kmwTeilweise = [...kmw].filter(([, k]) => k.teilweise).map(([s]) => positionsName(s))
   if (kmwTeilweise.length > 0) {
     warnungen.push(`Mostgewicht bei ${kmwTeilweise.join(', ')} nur aus den Lesen mit erfasstem Mostgewicht gemittelt (mengengewichtet in °KMW, °Oe daraus umgerechnet).`)
   }
 
-  const zeilen = roh.map(r => ernteZeile(r, verkauft.get(r.rebsorte) ?? 0))
-  const sorten = new Set(zeilen.map(z => z.rebsorte))
+  const zeilen = roh.map(r => ernteZeile(r, verkauft.get(key(r)) ?? 0))
+  const sorten = new Set(zeilen.map(z => key(z)))
   for (const [sorte, kg] of verkauft) {
     if (!sorten.has(sorte) && kg > 0) {
-      warnungen.push(`Traubenverkauf „${sorte}“ (${fmtKg(kg)} kg) passt zu keiner Rebsorte der Erntemeldung – Rebsorte von Ried/Grundstück prüfen bzw. die AMA-Meldung neu berechnen.`)
+      warnungen.push(`Traubenverkauf „${positionsName(sorte)}“ (${fmtKg(kg)} kg) passt zu keiner Rebsorte der Erntemeldung – Rebsorte von Ried/Grundstück prüfen bzw. die AMA-Meldung neu berechnen.`)
     }
   }
 
@@ -642,7 +709,7 @@ export async function ladeErntemeldung(supabase: Client, tenantId: string, jg: J
   if (geschaetzt > 0) {
     warnungen.push(`Menge (hl) bei ${geschaetzt} ${geschaetzt === 1 ? 'Rebsorte' : 'Rebsorten'} aus Menge (kg) ÷ ${KG_JE_HL} umgerechnet (keine bzw. nicht für alle Lesen hl erfasst${meldung ? ' oder nicht in die AMA-Meldung übernommen' : ''}).`)
   }
-  const ohneFlaeche = zeilen.filter(z => z.mengeKg !== null && (z.flaecheHa === null || z.flaecheHa <= 0)).map(z => z.rebsorte)
+  const ohneFlaeche = zeilen.filter(z => z.mengeKg !== null && (z.flaecheHa === null || z.flaecheHa <= 0)).map(z => positionsName(key(z)))
   if (ohneFlaeche.length > 0) {
     warnungen.push(`Ohne Fläche (Ertrag, Übermenge leer): ${ohneFlaeche.join(', ')} – Fläche am Grundstück bzw. Ried ergänzen.`)
   }
@@ -663,6 +730,7 @@ export async function ladeErntemeldung(supabase: Client, tenantId: string, jg: J
     quelle: meldung ? 'meldung' : 'lesedaten',
     status: meldung ? textOderNull(meldung.status) : null,
     zeilen,
+    gebiete: [...new Set(zeilen.map(z => z.weinbaugebiet).filter((g): g is string => !!g))],
     summe: summeErnte(zeilen),
     hektarhoechstertrag,
     warnungen,
@@ -682,4 +750,6 @@ export const SPALTEN_ERNTEMELDUNG: CsvSpalte<ErnteZeile>[] = [
   { kopf: 'Ertrag (kg/ha)', typ: 'ganzzahl', wert: z => z.ertragKgHa },
   { kopf: 'Höchstertrag (kg/ha)', typ: 'ganzzahl', wert: z => z.hoechstertragKgHa },
   { kopf: 'Übermenge (kg)', typ: 'ganzzahl', wert: z => z.uebermengeKg },
+  // KAN-165: Bundesland-Gebiet der Position – hinten angefügt, die bisherigen Spaltenpositionen bleiben
+  { kopf: 'Weinbaugebiet', typ: 'text', wert: z => z.weinbaugebiet },
 ]

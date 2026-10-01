@@ -148,7 +148,11 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
               </tr>
             ) : zeilen.map((z, i) => (
               <tr key={i} className={i % 2 === 1 ? 'bg-s112-bg' : ''}>
-                <td className="px-3 py-2 border border-s112-line font-medium">{sorteMitKuerzel(z.rebsorte, z.kuerzel)}</td>
+                <td className="px-3 py-2 border border-s112-line font-medium">
+                  {sorteMitKuerzel(z.rebsorte, z.kuerzel)}
+                  {/* KAN-165: bei Rieden aus mehreren Bundesländern eine Position je Weinbaugebiet */}
+                  {(ernte?.gebiete.length ?? 0) > 1 && <span className="block text-xs font-normal text-s112-tertiary">{z.weinbaugebiet ?? 'ohne Weinbaugebiet'}</span>}
+                </td>
                 <td className="px-3 py-2 border border-s112-line text-right tabular-nums">{zahl(z.flaecheHa, 4)}</td>
                 <td className="px-3 py-2 border border-s112-line text-right tabular-nums font-medium">{zahl(z.mengeKg, 0)}</td>
                 <td className="px-3 py-2 border border-s112-line text-right tabular-nums">{zahl(z.verkauftKg, 0)}</td>

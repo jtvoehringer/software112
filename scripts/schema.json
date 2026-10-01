@@ -70,7 +70,8 @@
 "menge_kg",
 "menge_hl",
 "qualitaetsstufe",
-"oechsle"
+"oechsle",
+"weinbaugebiet"
 ],
 "assistent_aktionen": [
 "id",

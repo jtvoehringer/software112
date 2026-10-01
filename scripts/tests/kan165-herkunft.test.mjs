@@ -113,3 +113,56 @@ describe('Sortenspiegel', () => {
     assert.deepEqual(h.findePassendeHerkunftsstufe('WLTH', 'Zweigelt'), { code: 'WLTH', abgestuft: false })
   })
 })
+
+describe('Gebiet aus Werten außerhalb des Katalogs', () => {
+  test('BKI-Kürzel und Gebietsnamen (eigene Weinbaugebiete, Freitext am Ried)', () => {
+    assert.equal(h.herkunftKnotenTolerant('WLTH').code, 'thermenregion_gebietswein')
+    assert.equal(h.herkunftKnotenTolerant('Kremstal').code, 'kremstal_gebietswein')
+    assert.equal(h.herkunftKnotenTolerant(' wien ').code, 'wien')
+    assert.equal(h.herkunftKnotenTolerant('Niederösterreich').code, 'wlnoe')
+    assert.equal(h.herkunftKnotenTolerant('Kremstal DAC'), undefined)
+    assert.equal(h.herkunftKnotenTolerant('constructor'), undefined)
+  })
+  test('Bundesland-Gebiet: geografisch auch bei abgestuftem Code; Landwein/Österreich ohne', () => {
+    assert.equal(h.herkunftBundesland('thermenregion_riedenwein'), 'Niederösterreich')
+    assert.equal(h.herkunftBundesland('wlnoe'), 'Niederösterreich')
+    assert.equal(h.herkunftBundesland('WLTH'), 'Niederösterreich')
+    assert.equal(h.herkunftBundesland('wiener_gemischter_satz_dac'), 'Wien')
+    assert.equal(h.herkunftBundesland('leithaberg_dac'), 'Burgenland')
+    assert.equal(h.herkunftBundesland('vulkanland_ortswein'), 'Steiermark')
+    assert.equal(h.herkunftBundesland('tirol'), 'Tirol')
+    assert.equal(h.herkunftBundesland('weinland'), null)
+    assert.equal(h.herkunftBundesland('wein'), null)
+    assert.equal(h.herkunftBundesland('sonstiges'), null)
+  })
+})
+
+describe('Erntemeldung je Weinbaugebiet (KAN-165 C)', async () => {
+  const ernte = await import('../../src/lib/behoerden/erntemeldung.ts')
+  test('gebietDerLese: Code des Grundstücks vor Ried und Lese; genaues Gebiet bevorzugt den Freitext am Ried', () => {
+    // Grüner Veltliner der Thermenregion steht auf wlnoe (Sortenspiegel) – Bundesland bleibt NÖ, genau „Thermenregion“
+    assert.deepEqual(ernte.gebietDerLese({ herkunft_code: 'wlnoe' }, { weinbaugebiet: 'Thermenregion', trauben_herkunft_code: 'wlnoe' }, { trauben_herkunft_code: 'wlnoe' }),
+      { weinbaugebiet: 'Niederösterreich', gebietGenau: 'Thermenregion' })
+    assert.deepEqual(ernte.gebietDerLese({}, { trauben_herkunft_code: 'wiener_gemischter_satz_dac' }, null), { weinbaugebiet: 'Wien', gebietGenau: 'Wien' })
+    assert.deepEqual(ernte.gebietDerLese({}, { weinbaugebiet: 'Kremstal' }, { trauben_herkunft_code: 'kremstal_riedenwein' }), { weinbaugebiet: 'Niederösterreich', gebietGenau: 'Kremstal' })
+    // Freitext eines anderen Bundeslands zählt nicht als genaues Gebiet
+    assert.deepEqual(ernte.gebietDerLese({}, { weinbaugebiet: 'Wachau' }, { trauben_herkunft_code: 'leithaberg_dac' }), { weinbaugebiet: 'Burgenland', gebietGenau: 'Leithaberg' })
+    assert.deepEqual(ernte.gebietDerLese({}, null, null), { weinbaugebiet: null, gebietGenau: null })
+  })
+  test('Positionen je Gebiet und Rebsorte; ein Gebiet = wie bisher je Rebsorte', () => {
+    const p = (weinbaugebiet, rebsorte, kg, gst) => ({ weinbaugebiet, rebsorte, mengeKg: kg, grundstueckId: gst, weingartenId: null, flaecheHa: 1, qualitaetsstufe: null })
+    const s = ernte.aggregiereJeRebsorte([p('Niederösterreich', 'Grüner Veltliner', 100, 'a'), p('Wien', 'Grüner Veltliner', 50, 'b'), p('Niederösterreich', 'Grüner Veltliner', 20, 'c')])
+    assert.deepEqual(s.map(x => [x.weinbaugebiet, x.rebsorte, x.mengeKg, x.flaecheHa]), [['Niederösterreich', 'Grüner Veltliner', 120, 2], ['Wien', 'Grüner Veltliner', 50, 1]])
+    assert.equal(ernte.positionsName(ernte.positionsKey('Wien', 'Riesling')), 'Riesling (Wien)')
+    assert.equal(ernte.positionsName(ernte.positionsKey(null, 'Riesling')), 'Riesling')
+  })
+  test('Kopf: je Bundesland das genaue Gebiet, wenn eindeutig', () => {
+    assert.deepEqual(ernte.kopfGebiete([
+      { weinbaugebiet: 'Niederösterreich', gebietGenau: 'Kremstal' }, { weinbaugebiet: 'Niederösterreich', gebietGenau: 'Kremstal' },
+      { weinbaugebiet: 'Wien', gebietGenau: 'Wien' }, { weinbaugebiet: null, gebietGenau: null },
+    ]), ['Kremstal', 'Wien'])
+    assert.deepEqual(ernte.kopfGebiete([
+      { weinbaugebiet: 'Niederösterreich', gebietGenau: 'Kremstal' }, { weinbaugebiet: 'Niederösterreich', gebietGenau: 'Kamptal' },
+    ]), ['Niederösterreich'])
+  })
+})
