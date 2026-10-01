@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState, useTransition } from 'react'
+import React, { useEffect, useRef, useState, useTransition } from 'react'
 import { upsertErnteParzelle, stornoErnteParzelle, endgueltigLoeschenLese, createMultipleErnteParzellen } from '../actions'
 import { qualitaetLabel, LESE_QUALITAETEN, mitGespeichertemWert } from '@/lib/wein/qualitaet'
 import { kmwZuQualitaet } from '@/lib/weinqualitaet'
@@ -241,8 +241,9 @@ function NeueParzellenForm({
     })
   }
 
-  const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
-  const zeileCls = 'w-full border border-s112-border rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-s112-teal/40 bg-white'
+  // KAN-181: am Handy 16 px Schrift (sonst zoomt iOS beim Antippen hinein) und höhere Felder; ab sm wie bisher
+  const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-1.5 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+  const zeileCls = 'w-full border border-s112-border rounded px-2 py-2 sm:py-1 text-base sm:text-xs focus:outline-none focus:ring-1 focus:ring-s112-teal/40 bg-white'
   const sichtbareGruppen = gruppen
     .map(g => ({ ...g, weingaerten: g.weingaerten.filter(w => sucheErg.weingaerten.has(w.id)) }))
     .filter(g => g.weingaerten.length > 0)
@@ -290,12 +291,12 @@ function NeueParzellenForm({
           const einzelRied = istEinzelRied(gruppe)
           return (
             <div key={gruppe.schluessel} className="border border-s112-border rounded-lg overflow-hidden">
-              {!einzelRied && <label className={`flex items-center gap-2 px-3 py-1.5 bg-white ${keinErntebar ? 'opacity-60' : 'cursor-pointer hover:bg-s112-bg/60'}`}>
+              {!einzelRied && <label className={`flex items-center gap-2 px-3 py-3 sm:py-1.5 bg-white ${keinErntebar ? 'opacity-60' : 'cursor-pointer hover:bg-s112-bg/60'}`}>
                 <input type="checkbox" checked={alleGruppe} disabled={keinErntebar}
                   aria-label={`${gruppe.name}: alle ${sucheErg.aktiv ? 'Treffer' : 'erntebaren'} auswählen`}
                   ref={el => { if (el) el.indeterminate = teilGruppe && !alleGruppe }}
                   onChange={() => umschalten(gt)}
-                  className="accent-s112-teal" />
+                  className="accent-s112-teal w-5 h-5 sm:w-auto sm:h-auto" />
                 <span className={`text-xs font-semibold ${gruppe.ohneRied ? 'text-s112-text-2 italic' : 'text-s112-text'}`}>{gruppe.name}</span>
                 <span className="text-xs text-s112-muted ml-1">{wgs.length} {wgs.length === 1 ? 'Ried' : 'Rieden'}</span>
               </label>}
@@ -317,14 +318,14 @@ function NeueParzellenForm({
                     : <span className={`text-xs ${isActive ? 'font-medium text-s112-blue-700' : 'text-s112-text-1'}`}>{w.name}</span>
                   return (
                     <div key={w.id} className={!w.erntebar ? 'bg-s112-bg' : ''}>
-                      <div className={`flex items-center gap-2 ${einzelRied ? 'px-3 bg-white' : 'px-4'} py-1.5 ${w.erntebar ? 'hover:bg-s112-bg/40' : 'opacity-50'}`}>
+                      <div className={`flex items-center gap-2 ${einzelRied ? 'px-3 bg-white' : 'px-4'} py-3 sm:py-1.5 ${w.erntebar ? 'hover:bg-s112-bg/40' : 'opacity-50'}`}>
                         <input type="checkbox"
                           aria-label={`${w.name} auswählen`}
                           checked={wgVoll}
                           disabled={!w.erntebar}
                           ref={el => { if (el) el.indeterminate = wgTeil && !wgVoll }}
                           onChange={() => umschalten(wt)}
-                          className="accent-s112-teal cursor-pointer disabled:cursor-not-allowed" />
+                          className="accent-s112-teal cursor-pointer disabled:cursor-not-allowed w-5 h-5 sm:w-auto sm:h-auto shrink-0" />
                         {alleGsts.length > 0 && w.erntebar ? (
                           <button type="button" onClick={() => toggleExpand(w.id)} aria-expanded={isExpanded}
                             className="flex items-center gap-1.5 flex-1 text-left">
@@ -351,11 +352,11 @@ function NeueParzellenForm({
                           {gsts.map(g => {
                             const isGstSel = selectedGSTs.has(g.id) || selectedWGs.has(w.id)
                             return (
-                              <label key={g.id} className={`flex items-center gap-2 pl-10 pr-4 py-1 text-xs cursor-pointer hover:bg-s112-bg/30 ${isGstSel ? 'bg-s112-teal/5' : ''}`}>
+                              <label key={g.id} className={`flex items-center gap-2 pl-10 pr-4 py-3 sm:py-1 text-xs cursor-pointer hover:bg-s112-bg/30 ${isGstSel ? 'bg-s112-teal/5' : ''}`}>
                                 <input type="checkbox"
                                   checked={isGstSel}
                                   onChange={() => umschalten({ ganze: [], einzeln: [{ gst_id: g.id, weingarten_id: w.id }] })}
-                                  className="accent-s112-teal" />
+                                  className="accent-s112-teal w-5 h-5 sm:w-auto sm:h-auto shrink-0" />
                                 <span className={`font-mono ${isGstSel ? 'text-s112-blue-700 font-medium' : 'text-s112-text-2'}`}>
                                   GST {g.gst_nr}
                                 </span>
@@ -375,7 +376,7 @@ function NeueParzellenForm({
         })}
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Ernte-Datum</label>
           <input aria-label="Ernte-Datum" name="ernte_datum" type="date" defaultValue={new Date().toISOString().split('T')[0]} className={inputCls} />
@@ -388,7 +389,7 @@ function NeueParzellenForm({
           </select>
         </div>
         {!einzeln && (
-          <div className="col-span-2">
+          <div className="sm:col-span-2">
             <label htmlFor="lese-menge-gesamt" className="block text-xs font-medium text-s112-text-2 mb-1">
               Menge kg gesamt <span className="text-s112-muted font-normal">(nach Fläche auf alle gewählten Grundstücke aufgeteilt)</span>
             </label>
@@ -399,14 +400,14 @@ function NeueParzellenForm({
             {mengeUngueltig && <p className="text-xs text-s112-err-fg mt-0.5">Bitte eine Zahl ≥ 0 eingeben.</p>}
           </div>
         )}
-        <div className="col-span-2">
+        <div className="sm:col-span-2">
           {/* Mostgewicht in °KMW oder °Oe (KAN-128) – die Qualitätsstufe folgt aus den °KMW
               (bei °Oe-Messung aus dem umgerechneten, gespeicherten °KMW; ohne Mostgewicht Qualitätswein).
               Bei Einzelerfassung gilt es für jede Zeile ohne eigenes Mostgewicht. */}
           <MostgewichtEingabe name="mostgewicht" label="Mostgewicht & Qualitätsstufe" qualitaetsVorschau />
           <p className="text-xs text-s112-muted mt-0.5">Qualitätsstufe wird automatisch aus den °KMW abgeleitet (ohne Mostgewicht: Qualitätswein).</p>
         </div>
-        <div className="col-span-2">
+        <div className="sm:col-span-2">
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
           <input aria-label="Notizen" name="notizen" className={inputCls} placeholder="optional" />
         </div>
@@ -419,20 +420,20 @@ function NeueParzellenForm({
             <p className="text-xs font-medium text-s112-text-2">
               {einzeln ? 'Mengen je Grundstück' : 'Verteilung der Menge'}
             </p>
-            <label className="flex items-center gap-1.5 text-xs text-s112-text-2 cursor-pointer">
-              <input type="checkbox" checked={einzeln} onChange={e => setEinzeln(e.target.checked)} className="accent-s112-teal" />
+            <label className="flex items-center gap-1.5 text-xs text-s112-text-2 cursor-pointer py-2 sm:py-0">
+              <input type="checkbox" checked={einzeln} onChange={e => setEinzeln(e.target.checked)} className="accent-s112-teal w-5 h-5 sm:w-auto sm:h-auto" />
               Mengen je Grundstück einzeln erfassen
             </label>
           </div>
           {hinweis && <p role="status" className="text-xs text-s112-warn-fg bg-s112-warn-bg rounded-lg px-3 py-1.5">{hinweis}</p>}
-          <div className="border border-s112-border rounded-lg bg-white divide-y divide-s112-border/40 max-h-96 overflow-y-auto">
+          <div className="border border-s112-border rounded-lg bg-white divide-y divide-s112-border/40 sm:max-h-96 sm:overflow-y-auto">
             {ziele.map((z, i) => {
               const gstId = zielKey(z)
               const name = zielName(z)
               const ha = bezugsflaeche(z.flaeche_ha)
               return (
-                <div key={gstId} className="px-3 py-1.5 text-xs">
-                  <div className="flex items-center gap-2">
+                <div key={gstId} className="px-3 py-2 sm:py-1.5 text-xs">
+                  <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
                     <span className="text-s112-text-1 truncate">{name.ried}</span>
                     <span className="font-mono text-s112-text-2">{name.gst}</span>
                     <span className="text-s112-muted">{ha != null ? `${fmtNum(ha, { max: 4 })} ha` : 'ohne Fläche'}</span>
@@ -443,7 +444,7 @@ function NeueParzellenForm({
                     )}
                   </div>
                   {einzeln && (
-                    <div className="grid grid-cols-4 gap-2 mt-1">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-1">
                       <div>
                         <label className="block text-xs text-s112-text-2 mb-0.5">Menge kg</label>
                         <input aria-label={`Menge kg ${name.ried} ${name.gst}`} type="text" inputMode="decimal" placeholder="–"
@@ -469,7 +470,7 @@ function NeueParzellenForm({
                           className={zeileCls} />
                       </div>
                       {/* Mostgewicht in °KMW oder °Oe (KAN-128); leer = gemeinsames Mostgewicht */}
-                      <div className="col-span-4">
+                      <div className="col-span-2 sm:col-span-4">
                         <GstMostgewicht gstId={gstId} zeile={gstData.get(gstId)?.mg ?? ZEILE_OHNE_MOSTGEWICHT}
                           onChange={zustand => gstMostgewichtAendern(gstId, zustand)} />
                       </div>
@@ -489,13 +490,14 @@ function NeueParzellenForm({
 
       {error && <p role="alert" className="text-xs text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2">{error}</p>}
 
-      <div className="flex gap-2 pt-1">
+      {/* KAN-181: am Handy bleibt die Leiste beim Scrollen unten sichtbar, Knöpfe in voller Höhe */}
+      <div className="flex gap-2 pt-1 max-sm:sticky max-sm:bottom-0 max-sm:-mx-4 max-sm:-mb-4 max-sm:px-4 max-sm:py-3 max-sm:bg-s112-bg max-sm:border-t max-sm:border-s112-border">
         <button type="submit" disabled={pending || ziele.length === 0}
-          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-50 transition-colors">
+          className="flex-1 sm:flex-none bg-s112-teal text-s112-yellow px-4 py-3 sm:py-1.5 rounded-lg text-base sm:text-sm font-medium hover:bg-opacity-90 disabled:opacity-50 transition-colors">
           {pending ? 'Speichert…' : `${ziele.length > 0 ? `${ziele.length} × ` : ''}Speichern`}
         </button>
         <button type="button" onClick={onDone}
-          className="px-4 py-1.5 rounded-lg text-sm font-medium text-s112-text-2 hover:text-s112-text">
+          className="px-4 py-3 sm:py-1.5 rounded-lg text-base sm:text-sm font-medium text-s112-text-2 hover:text-s112-text">
           Abbrechen
         </button>
       </div>
@@ -553,12 +555,12 @@ function ParzellForm({
         {parzelle ? 'Lesedaten bearbeiten' : 'Lesedaten erfassen'}
       </h3>
       {parzelle && <input type="hidden" name="existing_id" value={parzelle.id} />}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="col-span-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="sm:col-span-2">
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Weingarten <span className="text-s112-err">*</span></label>
           <select aria-label="Weingarten" name="weingarten_id" required value={selWgId}
             onChange={e => { setSelWgId(e.target.value); setSelGstId('') }}
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+            className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-1.5 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
             <option value="">– Auswählen –</option>
             {lagen.map(g => istEinzelRied(g) ? (
               <option key={g.weingaerten[0].id} value={g.weingaerten[0].id}>
@@ -574,11 +576,11 @@ function ParzellForm({
           </select>
         </div>
         {verfuegbareGSTs.length > 0 && (
-          <div className="col-span-2">
+          <div className="sm:col-span-2">
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Grundstück (GST)</label>
             <input type="hidden" name="grundstueck_id" value={selGstId} />
             <select value={selGstId} onChange={e => setSelGstId(e.target.value)}
-              className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+              className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-1.5 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
               <option value="">– kein GST –</option>
               {verfuegbareGSTs.map(g => (
                 <option key={g.id} value={g.id}>
@@ -591,12 +593,12 @@ function ParzellForm({
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Ernte-Datum</label>
           <input aria-label="Ernte-Datum" name="ernte_datum" type="date" defaultValue={parzelle?.ernte_datum ?? ''}
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-1.5 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Lesemethode</label>
           <select aria-label="Lesemethode" name="lesemethode" defaultValue={parzelle?.lesemethode ?? ''}
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+            className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-1.5 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
             <option value="">–</option>
             {LESEMETHODE_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
@@ -605,12 +607,12 @@ function ParzellForm({
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Menge (kg)</label>
           <input aria-label="Menge (kg)" name="menge_kg" type="text" inputMode="decimal"
             defaultValue={parzelle?.menge_kg ?? ''}
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-1.5 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         {/* Mostgewicht in °KMW oder °Oe (KAN-128): Messwert + Einheit als versteckte Felder
             mostgewicht_wert/_einheit – kein leeres Feld „oechsle“ mehr, das °Oe beim Speichern löschte.
             „Lese bearbeiten“ behält die gewählte Stufe (Rechenregel 6), höchstens ein Prüfhinweis. */}
-        <div className="col-span-2">
+        <div className="sm:col-span-2">
           <MostgewichtEingabe name="mostgewicht" startwert={mgStart}
             onChange={wert => {
               setKmwEdit(wert ? wert.kmw : null)
@@ -622,7 +624,7 @@ function ParzellForm({
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Qualitätsstufe</label>
           <select aria-label="Qualitätsstufe" name="qualitaetsstufe" value={effectiveQualitaetEdit}
             onChange={e => setQualitaetEdit(e.target.value)}
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+            className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-1.5 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
             {mitGespeichertemWert(LESE_QUALITAETEN, parzelle?.qualitaetsstufe).map(o => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
@@ -639,20 +641,20 @@ function ParzellForm({
             </p>
           )}
         </div>
-        <div className="col-span-2">
+        <div className="sm:col-span-2">
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
           <input aria-label="Notizen" name="notizen" defaultValue={parzelle?.notizen ?? ''}
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-1.5 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
       </div>
       {error && <p role="alert" className="text-xs text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2">{error}</p>}
       <div className="flex gap-2 pt-1">
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-50 transition-colors">
+          className="flex-1 sm:flex-none bg-s112-teal text-s112-yellow px-4 py-3 sm:py-1.5 rounded-lg text-base sm:text-sm font-medium hover:bg-opacity-90 disabled:opacity-50 transition-colors">
           {pending ? 'Speichert…' : 'Speichern'}
         </button>
         <button type="button" onClick={onDone}
-          className="px-4 py-1.5 rounded-lg text-sm font-medium text-s112-text-2 hover:text-s112-text">
+          className="px-4 py-3 sm:py-1.5 rounded-lg text-base sm:text-sm font-medium text-s112-text-2 hover:text-s112-text">
           Abbrechen
         </button>
       </div>
@@ -661,8 +663,82 @@ function ParzellForm({
 }
 
 
+// ── Lesedaten am Handy (KAN-181): Karten statt der achtspaltigen Tabelle ───────────────────────────────
+function LesedatenKarten({ zeilen, mehrereLesen, gesamtKg, writeOk, editId, setEditId, jahrgangId, weingaerten, gstByWeingarten }: {
+  zeilen: ErnteParzelle[]; mehrereLesen: boolean; gesamtKg: number; writeOk: boolean
+  editId: string | null; setEditId: (id: string | null) => void
+  jahrgangId: string; weingaerten: WeingartenOpt[]; gstByWeingarten: Record<string, GSTOpt[]>
+}) {
+  return (
+    <div className="md:hidden print:hidden space-y-2">
+      {zeilen.map((p, i) => (
+        <React.Fragment key={p.id}>
+          {mehrereLesen && (i === 0 || zeilen[i - 1].lese_nr !== p.lese_nr) && (
+            <p className="pt-2 text-xs font-semibold text-s112-text-2">Lese {p.lese_titel ?? '–'}</p>
+          )}
+          <div className={`border border-s112-border rounded-xl bg-white px-3 py-2.5 ${p.storno ? 'opacity-70' : ''}`}>
+            <div className="flex items-start gap-2">
+              <div className="min-w-0 flex-1">
+                <p className={`text-sm font-medium ${p.storno ? 'text-s112-muted' : 'text-s112-text'}`}>
+                  {p.weingarten_name}
+                  {p.grundstueck_nr && <span className="ml-1.5 font-mono text-xs font-normal text-s112-muted">GST {p.grundstueck_nr}</span>}
+                </p>
+                <p className="text-xs text-s112-muted">
+                  {formatRebsorteMitKuerzel(p.grundstueck_rebsorte ?? p.weingarten_rebsorte)} · {formatDate(p.ernte_datum)}
+                </p>
+              </div>
+              <p className="text-sm font-semibold tabular-nums text-s112-text whitespace-nowrap">
+                {p.menge_kg == null ? '–' : `${fmtNum(p.menge_kg)} kg`}
+              </p>
+            </div>
+            <div className="mt-1 flex items-center gap-2 flex-wrap text-xs text-s112-text-2">
+              <MostgewichtAnzeige wert={{ kmw: p.klosterneuburger, oechsle: p.oechsle, einheit: p.mostgewicht_einheit }} />
+              <span className="text-s112-muted">{qualitaetLabel(p.qualitaetsstufe)}</span>
+            </div>
+            {p.notizen && <p className="mt-1 text-xs text-s112-text-2 break-words">{p.notizen}</p>}
+            {p.storno && (
+              <p className="mt-1 text-[11px] text-s112-warn-fg">
+                storniert am {new Date(p.storno.am).toLocaleDateString('de-AT')}{p.storno.von ? ` von ${p.storno.von}` : ''}{p.storno.grund ? ` – ${p.storno.grund}` : ''}
+              </p>
+            )}
+            {writeOk && (
+              <div className="mt-2 flex items-center justify-end gap-1 border-t border-s112-border/40 pt-1.5">
+                {!p.storno && (
+                  <button type="button" onClick={() => setEditId(editId === p.id ? null : p.id)} aria-label="Bearbeiten"
+                    className="w-11 h-11 flex items-center justify-center rounded-lg text-s112-blue-700 hover:bg-s112-bg">
+                    <Pencil size={17} />
+                  </button>
+                )}
+                {!p.storno && (
+                  <StornoButton
+                    action={grund => stornoErnteParzelle(p.id, jahrgangId, grund)}
+                    hinweis="Der Eintrag bleibt als storniert in den Lesedaten stehen und zählt in keiner Menge, Erntemeldung oder Verfügbarkeit – nur möglich, solange die Menge nicht schon verpresst oder als Trauben verkauft ist." />
+                )}
+                {p.storno && (
+                  <StornoButton modus="loeschen" label="Endgültig löschen"
+                    action={grund => endgueltigLoeschenLese('ernte_parzellen', p.id, jahrgangId, grund)}
+                    hinweis="Nur bei einer Fehlerfassung: Der stornierte Eintrag wird endgültig entfernt – Grund und Benutzer stehen im Änderungsprotokoll. Nach einer eingereichten Erntemeldung nicht mehr möglich." />
+                )}
+              </div>
+            )}
+            {editId === p.id && (
+              <div className="mt-2">
+                <ParzellForm jahrgangId={jahrgangId} weingaerten={weingaerten} gstByWeingarten={gstByWeingarten} parzelle={p} onDone={() => setEditId(null)} />
+              </div>
+            )}
+          </div>
+        </React.Fragment>
+      ))}
+      <p className="pt-1 text-sm font-semibold text-s112-text-1 flex justify-between">
+        <span>Gesamt</span>
+        <span className="tabular-nums">{fmtNum(gesamtKg)} kg <span className="text-xs font-normal text-s112-muted">≈ {fmtProzent(gesamtKg / 130)} hl</span></span>
+      </p>
+    </div>
+  )
+}
+
 // ── Hauptkomponente ─────────────────────────────────────────────────────────────
-export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel, mehrereLesen, tabellenParzellen, stichtagHinweis, parzellen, weingaerten, gstByWeingarten, amaMeldung, hektarhoechstertrag, pressungenAnzahl, pressungenHref, writeOk, adminOk, betriebName, csvErlaubt }: {
+export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel, mehrereLesen, tabellenParzellen, stichtagHinweis, parzellen, weingaerten, gstByWeingarten, amaMeldung, hektarhoechstertrag, pressungenAnzahl, pressungenHref, writeOk, adminOk, betriebName, csvErlaubt, erfassenOffen }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   jahrgang: Record<string, any>; parzellen: ErnteParzelle[]
   /** KAN-129: gewählte Lese (Reiter der Seite) – neue Einträge und Pressungen landen in ihr */
@@ -685,8 +761,14 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
   betriebName: string | null
   /** Pflichtmeldungen als CSV (Lesedaten, Erntemeldung) – gleiche Regel wie die CSV-Route */
   csvErlaubt: boolean
+  /** KAN-181: Einstieg „Lese erfassen“ (/erntemeldung/erfassen → ?erfassen=1) – Formular gleich offen */
+  erfassenOffen?: boolean
 }) {
-  const [showForm, setShowForm] = useState(false)
+  const [showForm, setShowForm] = useState(!!erfassenOffen && writeOk)
+  const formRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (erfassenOffen && writeOk) formRef.current?.scrollIntoView({ block: 'start' })
+  }, [erfassenOffen, writeOk])
   const [editId, setEditId] = useState<string | null>(null)
 
   // KAN-148 C1b: stornierte Einträge stehen gekennzeichnet in der Tabelle, zählen aber in keiner Summe
@@ -722,7 +804,7 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
             {writeOk && !showForm && (
               <button onClick={() => { setShowForm(true); setEditId(null) }}
                 data-print="hide"
-                className="inline-flex items-center gap-1.5 bg-s112-teal text-s112-yellow font-semibold px-3 py-1.5 rounded-lg text-xs hover:bg-opacity-90 transition-colors shadow-sm">
+                className="inline-flex items-center gap-1.5 bg-s112-teal text-s112-yellow font-semibold px-4 py-2.5 sm:px-3 sm:py-1.5 rounded-lg text-sm sm:text-xs hover:bg-opacity-90 transition-colors shadow-sm">
                 <Plus size={14} strokeWidth={2.5} /> Ernte
               </button>
             )}
@@ -741,7 +823,7 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
         </div>
 
         {showForm && !editId && (
-          <div className="mb-4" data-print="hide">
+          <div ref={formRef} className="mb-4 scroll-mt-4" data-print="hide">
             <NeueParzellenForm jahrgangId={jahrgang.id} leseId={leseId} leseArt={leseArt} weingaerten={weingaerten} gstByWeingarten={gstByWeingarten} onDone={() => setShowForm(false)} />
           </div>
         )}
@@ -750,8 +832,13 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
           <p className="mb-3 text-xs text-s112-muted" data-print="hide">Neue Einträge über „Ernte“ landen in der Lese {leseTitel}.</p>
         )}
 
+        {tabellenParzellen.length > 0 && (
+          <LesedatenKarten zeilen={tabellenZeilen} mehrereLesen={mehrereLesen} gesamtKg={gesamtKg}
+            writeOk={writeOk} editId={editId} setEditId={id => { setEditId(id); setShowForm(false) }}
+            jahrgangId={jahrgang.id} weingaerten={weingaerten} gstByWeingarten={gstByWeingarten} />
+        )}
         {tabellenParzellen.length > 0 ? (
-          <div className="border border-s112-border rounded-xl overflow-x-auto print:overflow-visible">
+          <div className="hidden md:block print:block border border-s112-border rounded-xl overflow-x-auto print:overflow-visible">
             <table className="w-full text-sm min-w-[700px] print:min-w-0">
               <thead>
                 <tr className="bg-s112-bg border-b border-s112-border text-xs text-s112-text-2">

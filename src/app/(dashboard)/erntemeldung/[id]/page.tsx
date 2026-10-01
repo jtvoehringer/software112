@@ -12,7 +12,7 @@ import { ladeLeseKontext } from './leseKontext'
 export const metadata: Metadata = { title: 'Lese – software:112' }
 export const dynamic = 'force-dynamic'
 
-interface Props { params: Promise<{ id: string }>; searchParams: Promise<{ lese?: string | string[] }> }
+interface Props { params: Promise<{ id: string }>; searchParams: Promise<{ lese?: string | string[]; erfassen?: string }> }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -59,7 +59,7 @@ export type { HektarhoechstertragStatus }
 
 export default async function ErnteDetailPage({ params, searchParams }: Props) {
   const { id } = await params
-  const { lese: leseParam } = await searchParams
+  const { lese: leseParam, erfassen } = await searchParams
   // Pilot 30.09.2026: Laden gemeinsam mit den Pressungen im Kellerbuch (leseKontext.ts)
   const {
     jg, writeOk, adminOk, betrieb, csvErlaubt, bkiErlaubt, lesen, lesenMitSperre, aktiveLese, aktiveLeseMitSperre,
@@ -113,6 +113,7 @@ export default async function ErnteDetailPage({ params, searchParams }: Props) {
         adminOk={adminOk}
         betriebName={betrieb.name}
         csvErlaubt={csvErlaubt}
+        erfassenOffen={erfassen === '1'}
       />
 
       {(tvQuelleOptions.length > 0 || verkauefe.length > 0 || zukaufTrauben.length > 0) && (

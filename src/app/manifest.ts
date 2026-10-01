@@ -25,7 +25,7 @@ export default function manifest(): MetadataRoute.Manifest {
     ],
     // Schnellzugriffe (langes Drücken auf das App-Symbol, Android)
     shortcuts: [
-      { name: 'Lese erfassen', url: '/erntemeldung', icons: [{ src: '/favicon-192.png', sizes: '192x192' }] },
+      { name: 'Lese erfassen', url: '/erntemeldung/erfassen', icons: [{ src: '/favicon-192.png', sizes: '192x192' }] },
       { name: 'Maßnahme erfassen', url: '/behandlungen/neu', icons: [{ src: '/favicon-192.png', sizes: '192x192' }] },
       { name: 'Kellerbuch', url: '/kellerbuch', icons: [{ src: '/favicon-192.png', sizes: '192x192' }] },
     ],
