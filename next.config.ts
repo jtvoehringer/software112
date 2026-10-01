@@ -17,6 +17,7 @@ const CSP = [
   "frame-ancestors 'self'",
   "form-action 'self' https://login.microsoftonline.com https://checkout.stripe.com",
   "base-uri 'self'",
+  "manifest-src 'self'",   // KAN-179: App-Manifest (PWA)
   "object-src 'none'",
   'report-uri /api/csp-bericht',
 ].join('; ')

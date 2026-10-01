@@ -33,6 +33,13 @@ export const metadata: Metadata = {
     apple: '/favicon-180.png',
     shortcut: '/favicon.ico',
   },
+  // KAN-179: als App installierbar – das Manifest (app/manifest.ts) verlinkt Next selbst; hier iOS „Zum Home-Bildschirm“ im Vollbild
+  appleWebApp: {
+    capable: true,
+    title: 'software:112',
+    statusBarStyle: 'default',
+  },
+  applicationName: 'software:112',
 }
 
 // Next 16: themeColor gehört in viewport, nicht mehr in metadata.
