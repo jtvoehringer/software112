@@ -257,17 +257,17 @@ export default async function KellerbuchPage() {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4 mb-8">
         <Link href="/kellerbuch/gebinde" className="card text-center p-4 hover:shadow-sm hover:border-s112-teal/30 transition-all cursor-pointer">
-          <p className="text-3xl font-semibold text-s112-blue-700">{behaelter.filter(b => b.aktiv).length}</p>
+          <p className="text-xl sm:text-3xl font-semibold text-s112-blue-700">{behaelter.filter(b => b.aktiv).length}</p>
           <p className="text-xs text-s112-muted mt-1">Aktive Behälter</p>
           <p className="text-[11px] text-s112-blue-700/60 mt-1">→ Gebinde verwalten</p>
         </Link>
         <Link href="/kellerbuch/weinausbau" className="card text-center p-4 hover:shadow-sm hover:border-s112-teal/30 transition-all cursor-pointer">
-          <p className="text-3xl font-semibold text-s112-blue-700">{aktiveChargen.length}</p>
+          <p className="text-xl sm:text-3xl font-semibold text-s112-blue-700">{aktiveChargen.length}</p>
           <p className="text-xs text-s112-muted mt-1">Laufende Chargen</p>
           <p className="text-[11px] text-s112-blue-700/60 mt-1">→ Weinausbau</p>
         </Link>
         <Link href="/kellerbuch/rueckverfolgung" className="card text-center p-4 hover:shadow-sm hover:border-s112-teal/30 transition-all cursor-pointer">
-          <p className="text-3xl font-semibold text-s112-blue-700">{fmtLiter(gesamtLiter)}</p>
+          <p className="text-xl sm:text-3xl font-semibold text-s112-blue-700">{fmtLiter(gesamtLiter)}</p>
           <p className="text-xs text-s112-muted mt-1">Liter in Ausbau</p>
           <p className="text-[11px] text-s112-blue-700/60 mt-1">→ Rückverfolgung</p>
         </Link>

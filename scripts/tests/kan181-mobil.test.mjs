@@ -70,3 +70,44 @@ describe('Maßnahme erfassen (Etappe 2)', () => {
     assert.equal((ried.match(/w-5 h-5 sm:w-auto sm:h-auto/g) ?? []).length, 3)
   })
 })
+
+describe('Kellerbuch (Etappe 3)', () => {
+  const KB = 'src/app/(dashboard)/kellerbuch'
+  const STICKY = [
+    `${KB}/umziehen/UmziehenClient.tsx`,
+    'src/components/kellerbuch/UmziehenWidget.tsx',
+    'src/components/kellerbuch/UmziehenFormClient.tsx',
+    `${KB}/behaelter/[id]/behandlungen/page.tsx`,
+    `${KB}/weinausbau/[id]/analysen/neu/page.tsx`,
+  ]
+  const RASTER = [
+    `${KB}/weinausbau/[id]/SchwundBuchenForm.tsx`,
+    `${KB}/behaelter/[id]/bewegungen/page.tsx`,
+  ]
+  test('16 px am Handy in allen Kellerbuch-Formularen (kein iOS-Zoom)', () => {
+    for (const f of [...STICKY, ...RASTER]) assert.match(quelle(f), /text-base sm:text-sm/, f)
+    assert.match(quelle(`${KB}/umzug/[id]/edit/page.tsx`), /const inputCls = '[^']*text-base sm:text-sm/)
+  })
+  test('Speichern-Leiste bleibt am Handy unten sichtbar; Schwund-Formulare als Raster mit breitem Knopf', () => {
+    for (const f of STICKY) assert.match(quelle(f), /max-sm:sticky max-sm:bottom-0/, f)
+    for (const f of RASTER) {
+      const q = quelle(f)
+      assert.match(q, /grid grid-cols-2 gap-3 items-end sm:flex sm:flex-wrap/, f)
+      assert.match(q, /col-span-2 sm:col-span-1 w-full sm:w-auto/, f)
+    }
+  })
+  test('globale Feldklassen nur mit Handy-Zusatz', () => {
+    const widget = quelle('src/components/kellerbuch/UmziehenWidget.tsx')
+    assert.doesNotMatch(widget, /className="form-input"/)
+    assert.match(widget, /scrollIntoView\(\{ block: 'start' \}\)/)
+    assert.doesNotMatch(quelle(`${KB}/weinausbau/[id]/analysen/neu/page.tsx`), /className="form-input"/)
+    const beh = quelle(`${KB}/behaelter/[id]/behandlungen/page.tsx`)
+    assert.doesNotMatch(beh, /className="input"/)
+    assert.equal((beh.match(/className="input /g) ?? []).length, (beh.match(/className="input [^"]*text-base sm:text-sm/g) ?? []).length)
+  })
+  test('Tabellen scrollen waagrecht statt zu quetschen', () => {
+    assert.match(quelle(`${KB}/umziehen/UmziehenClient.tsx`), /card p-0 overflow-x-auto">\s*<table className="w-full min-w-\[640px\]/)
+    assert.match(quelle(`${KB}/behaelter/[id]/behandlungen/page.tsx`), /card p-0 overflow-x-auto">\s*<table className="w-full min-w-\[600px\]/)
+    assert.match(quelle(`${KB}/weinausbau/page.tsx`), /<div className="overflow-x-auto">\s*<table className="w-full min-w-\[640px\]/)
+  })
+})

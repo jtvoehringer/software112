@@ -55,7 +55,7 @@ export default function SchwundBuchenForm({ bestandLiter, action }: Props) {
     })
   }
 
-  const inputCls = 'border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 bg-white'
+  const inputCls = 'border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 bg-white'
 
   return (
     <details className="card p-5">
@@ -67,24 +67,24 @@ export default function SchwundBuchenForm({ bestandLiter, action }: Props) {
         ({fmtLiter(bestandLiter)}) wird um die Menge gemindert. Bleiben höchstens 0,01 L übrig, wird die Charge abgeschlossen.
         Falsch gebucht? {SCHWUND_STORNO_HINWEIS}
       </p>
-      <form onSubmit={absenden} className="mt-3 flex flex-wrap gap-3 items-end">
+      <form onSubmit={absenden} className="mt-3 grid grid-cols-2 gap-3 items-end sm:flex sm:flex-wrap">
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Menge (L) *</label>
           <input aria-label="Schwundmenge (L)" type="text" inputMode="decimal" value={menge}
             onChange={e => setMenge(e.target.value)} placeholder="z.B. 12,5" required
-            className={`w-28 ${inputCls} ${zuViel ? 'border-s112-err/50' : ''}`} />
+            className={`w-full sm:w-28 ${inputCls} ${zuViel ? 'border-s112-err/50' : ''}`} />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum *</label>
-          <input aria-label="Datum" type="date" value={datum} onChange={e => setDatum(e.target.value)} required className={inputCls} />
+          <input aria-label="Datum" type="date" value={datum} onChange={e => setDatum(e.target.value)} required className={`w-full sm:w-auto ${inputCls}`} />
         </div>
-        <div className="flex-1 min-w-[180px]">
+        <div className="col-span-2 sm:flex-1 sm:min-w-[180px]">
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Notiz</label>
           <input aria-label="Notiz" type="text" value={notiz} onChange={e => setNotiz(e.target.value)}
             placeholder="z.B. Verdunstung Barrique" className={`w-full ${inputCls}`} />
         </div>
         <button type="submit" disabled={pending}
-          className="bg-s112-warn-fg text-white px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-50">
+          className="col-span-2 sm:col-span-1 w-full sm:w-auto bg-s112-warn-fg text-white px-4 py-3 sm:py-2 rounded-lg text-base sm:text-sm font-semibold hover:opacity-90 disabled:opacity-50">
           {pending ? 'Wird gebucht …' : 'Schwund buchen'}
         </button>
       </form>

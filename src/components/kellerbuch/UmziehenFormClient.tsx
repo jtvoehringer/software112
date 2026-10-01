@@ -118,8 +118,8 @@ export default function UmziehenFormClient({
             const bh     = (charge?.behaelter as R | null)?.name
             const verf   = charge ? parseFloat(String(charge.menge_liter)) : null
             return (
-              <div key={i} className="flex gap-2 items-start">
-                <div className="flex-1 min-w-0">
+              <div key={i} className="flex flex-wrap sm:flex-nowrap gap-2 items-start">
+                <div className="flex-1 basis-full sm:basis-0 min-w-0">
                   <select
                     value={q.weinausbau_id}
                     onChange={e => updateQuelle(i, 'weinausbau_id', e.target.value)}
@@ -144,9 +144,9 @@ export default function UmziehenFormClient({
                     </p>
                   )}
                 </div>
-                <div className="w-36 shrink-0">
+                <div className="flex-1 sm:flex-none sm:w-36 shrink-0">
                   <input
-                    type="number" step="0.01" min={0} placeholder="Brutto L"
+                    type="number" inputMode="decimal" step="0.01" min={0} placeholder="Brutto L"
                     value={q.brutto || ''}
                     onChange={e => updateQuelle(i, 'brutto', parseFloat(e.target.value) || 0)}
                     className={inputCls}
@@ -175,11 +175,11 @@ export default function UmziehenFormClient({
         </div>
         <div className="space-y-2">
           {ziele.map((z: Ziel, i: number) => (
-            <div key={i} className="flex gap-2 items-center">
+            <div key={i} className="flex flex-wrap sm:flex-nowrap gap-2 items-center">
               <select
                 value={z.behaelter_id}
                 onChange={e => updateZiel(i, 'behaelter_id', e.target.value)}
-                className={`${inputCls} flex-1`}
+                className={`${inputCls} flex-1 basis-full sm:basis-0`}
               >
                 <option value="">– Gebinde –</option>
                 {gebinde.filter((g: R) => g.aktiv).map((g: R) => {
@@ -193,10 +193,10 @@ export default function UmziehenFormClient({
                 })}
               </select>
               <input
-                type="number" step="0.01" min={0} placeholder="Netto L"
+                type="number" inputMode="decimal" step="0.01" min={0} placeholder="Netto L"
                 value={z.menge_netto || ''}
                 onChange={e => updateZiel(i, 'menge_netto', parseFloat(e.target.value) || 0)}
-                className={`${inputCls} w-36`}
+                className={`${inputCls} flex-1 sm:flex-initial w-36`}
               />
               {ziele.length > 1 && (
                 <button type="button" onClick={() => removeZiel(i)}
@@ -242,10 +242,13 @@ export default function UmziehenFormClient({
         </p>
       )}
 
-      <button type="submit" disabled={!canSubmit || pending}
-        className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-        {pending ? 'Wird gespeichert …' : (submitLabel ?? 'Umzug buchen')}
-      </button>
+      {/* KAN-181: am Handy bleibt die Leiste beim Scrollen unten sichtbar (Formular steht in einer .card mit p-6) */}
+      <div className="max-sm:sticky max-sm:bottom-0 max-sm:-mx-6 max-sm:-mb-6 max-sm:px-6 max-sm:py-3 max-sm:bg-s112-bg max-sm:border-t max-sm:border-s112-line max-sm:z-10">
+        <button type="submit" disabled={!canSubmit || pending}
+          className="w-full sm:w-auto bg-s112-teal text-s112-yellow px-5 py-3 sm:py-2 rounded-xl text-base sm:text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+          {pending ? 'Wird gespeichert …' : (submitLabel ?? 'Umzug buchen')}
+        </button>
+      </div>
     </form>
   )
 }

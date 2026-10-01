@@ -21,7 +21,7 @@ function DecimalInput({ name, label, unit, placeholder }: {
         name={name}
         type="text"
         inputMode="decimal"
-        className="form-input"
+        className="form-input py-2.5 sm:py-2 text-base sm:text-sm"
         placeholder={placeholder ?? '–'}
       />
     </div>
@@ -100,7 +100,7 @@ export default function AnalyseNeuPage({ params }: Props) {
                 type="date"
                 required
                 defaultValue={new Date().toISOString().slice(0, 10)}
-                className="form-input"
+                className="form-input py-2.5 sm:py-2 text-base sm:text-sm"
               />
             </div>
             <div>
@@ -109,7 +109,7 @@ export default function AnalyseNeuPage({ params }: Props) {
                 name="labor"
                 type="text"
                 list="labor-list"
-                className="form-input"
+                className="form-input py-2.5 sm:py-2 text-base sm:text-sm"
                 placeholder="z.B. Eigenlabor, BOKU Wien"
               />
               <datalist id="labor-list">
@@ -121,7 +121,7 @@ export default function AnalyseNeuPage({ params }: Props) {
             </div>
             <div>
               <label className="form-label">Probe-Nr.</label>
-              <input aria-label="Probe-Nr." name="probe_nr" type="text" className="form-input" placeholder="Interne Probennummer" />
+              <input aria-label="Probe-Nr." name="probe_nr" type="text" className="form-input py-2.5 sm:py-2 text-base sm:text-sm" placeholder="Interne Probennummer" />
             </div>
           </div>
         </div>
@@ -146,21 +146,22 @@ export default function AnalyseNeuPage({ params }: Props) {
           <h2 className="text-sm font-semibold text-s112-muted uppercase tracking-wider">Bewertung & Notizen</h2>
           <div>
             <label className="form-label">Bewertung</label>
-            <textarea aria-label="Bewertung" name="bewertung" rows={2} className="form-input resize-none"
+            <textarea aria-label="Bewertung" name="bewertung" rows={2} className="form-input resize-none py-2.5 sm:py-2 text-base sm:text-sm"
               placeholder="Kommentar zur Analyse …" />
           </div>
           <div>
             <label className="form-label">Notizen</label>
-            <textarea aria-label="Notizen" name="notizen" rows={2} className="form-input resize-none"
+            <textarea aria-label="Notizen" name="notizen" rows={2} className="form-input resize-none py-2.5 sm:py-2 text-base sm:text-sm"
               placeholder="Interne Notizen …" />
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        {/* KAN-181: am Handy bleibt die Leiste beim Scrollen unten sichtbar */}
+        <div className="flex items-center gap-3 max-sm:sticky max-sm:bottom-0 max-sm:-mx-4 max-sm:px-4 max-sm:py-3 max-sm:bg-s112-bg max-sm:border-t max-sm:border-s112-line max-sm:z-10">
           <button
             type="submit"
             disabled={saving}
-            className="bg-s112-teal text-s112-yellow px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-50"
+            className="flex-1 sm:flex-none bg-s112-teal text-s112-yellow px-6 py-3 sm:py-2 rounded-xl text-base sm:text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-50"
           >
             {saving ? 'Wird gespeichert …' : 'Analyse speichern'}
           </button>

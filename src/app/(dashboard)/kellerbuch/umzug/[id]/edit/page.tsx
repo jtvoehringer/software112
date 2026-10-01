@@ -44,7 +44,7 @@ export default async function UmzugEditPage({ params }: { params: Promise<{ id: 
   // Schwundbuchung nie – nur die Notizen (falsch erfasst: stornieren und neu erfassen).
   const plan = await planeUmzugStorno(supabase, tenantId, zeilen)
 
-  const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+  const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
   const labelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
 
   const kopf = (

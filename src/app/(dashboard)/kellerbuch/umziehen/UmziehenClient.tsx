@@ -57,7 +57,7 @@ function QuelleZeile({
             onChange(e.target.value, beh ? String(beh.menge_liter) : '')
           }}
           required
-          className="border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 flex-1 min-w-[220px]"
+          className="border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 flex-1 basis-full sm:basis-0 sm:min-w-[220px]"
         >
           <option value="">– Behälter wählen –</option>
           {quellen.map(q => (
@@ -68,6 +68,7 @@ function QuelleZeile({
         </select>
         <input
           type="number"
+          inputMode="decimal"
           value={menge}
           onChange={e => onChange(value, e.target.value)}
           min="0.001"
@@ -75,13 +76,13 @@ function QuelleZeile({
           max={selected?.menge_liter ?? undefined}
           placeholder="Liter"
           required
-          className={`border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 w-28 tabular-nums ${ueberzogen ? 'border-s112-err/50 focus:ring-s112-err/30' : 'border-s112-border focus:ring-s112-teal/40'}`}
+          className={`border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 w-28 tabular-nums ${ueberzogen ? 'border-s112-err/50 focus:ring-s112-err/30' : 'border-s112-border focus:ring-s112-teal/40'}`}
         />
         <span className="text-xs text-s112-muted w-8">L</span>
         {selected && !ueberzogen && (
           <span className="text-xs text-s112-muted">max {fmt(selected.menge_liter)}</span>
         )}
-        <button aria-label="Zeile entfernen" type="button" onClick={onRemove} className="text-xs text-s112-err hover:text-s112-err-fg px-1"><X size={13} strokeWidth={2} /></button>
+        <button aria-label="Zeile entfernen" type="button" onClick={onRemove} className="text-xs text-s112-err hover:text-s112-err-fg p-2 sm:py-0 sm:px-1"><X size={13} strokeWidth={2} /></button>
       </div>
       {selected && (
         <p className="text-xs text-s112-muted pl-1">
@@ -128,7 +129,7 @@ function ZielZeile({
         value={value}
         onChange={e => onChange(e.target.value, menge)}
         required
-        className="border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 flex-1 min-w-[200px]"
+        className="border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 flex-1 basis-full sm:basis-0 sm:min-w-[200px]"
       >
         <option value="">– Behälter wählen –</option>
         {behaelter.map(b => {
@@ -147,16 +148,17 @@ function ZielZeile({
       </select>
       <input
         type="number"
+        inputMode="decimal"
         value={menge}
         onChange={e => onChange(value, e.target.value)}
         min="0.001"
         step="0.001"
         placeholder="Liter"
         required
-        className="border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 w-28 tabular-nums"
+        className="border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 w-28 tabular-nums"
       />
       <span className="text-xs text-s112-muted w-8">L</span>
-      <button aria-label="Zeile entfernen" type="button" onClick={onRemove} className="text-xs text-s112-err hover:text-s112-err-fg px-1"><X size={13} /></button>
+      <button aria-label="Zeile entfernen" type="button" onClick={onRemove} className="text-xs text-s112-err hover:text-s112-err-fg p-2 sm:py-0 sm:px-1"><X size={13} /></button>
     </div>
   )
 }
@@ -285,11 +287,11 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum *</label>
           <input aria-label="Datum" type="date" value={datum} onChange={e => setDatum(e.target.value)} required
-            className="border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 w-full" />
+            className="border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 w-full" />
         </div>
       </div>
 
@@ -354,20 +356,23 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
       <div>
         <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
         <input aria-label="Notizen" type="text" value={notizen} onChange={e => setNotizen(e.target.value)}
-          className="border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 w-full"
+          className="border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 w-full"
           placeholder="Optional" />
       </div>
 
-      {success ? (
-        <div className="flex items-center justify-center gap-2 bg-s112-ok-bg border border-s112-ok/30 text-s112-ok-fg rounded-xl px-5 py-3 text-sm font-semibold">
-          <CheckCircle2 size={16} strokeWidth={1.75} />Gespeichert – weiterleiten…
-        </div>
-      ) : (
-        <button type="submit" disabled={pending}
-          className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40 w-full">
-          {pending ? 'Wird verarbeitet…' : `Umziehen (${fmt(totalVon)} → ${fmt(totalNach)}${schwund > 0 ? `, ${fmt(schwund)} Schwund` : ''})`}
-        </button>
-      )}
+      {/* KAN-181: am Handy bleibt die Leiste beim Scrollen unten sichtbar */}
+      <div className="max-sm:sticky max-sm:bottom-0 max-sm:-mx-5 max-sm:-mb-5 max-sm:px-5 max-sm:py-3 max-sm:bg-s112-bg max-sm:border-t max-sm:border-s112-line max-sm:z-10">
+        {success ? (
+          <div className="flex items-center justify-center gap-2 bg-s112-ok-bg border border-s112-ok/30 text-s112-ok-fg rounded-xl px-5 py-3 text-sm font-semibold">
+            <CheckCircle2 size={16} strokeWidth={1.75} />Gespeichert – weiterleiten…
+          </div>
+        ) : (
+          <button type="submit" disabled={pending}
+            className="bg-s112-teal text-s112-yellow px-5 py-3 sm:py-2 rounded-xl text-base sm:text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40 w-full">
+            {pending ? 'Wird verarbeitet…' : `Umziehen (${fmt(totalVon)} → ${fmt(totalNach)}${schwund > 0 ? `, ${fmt(schwund)} Schwund` : ''})`}
+          </button>
+        )}
+      </div>
     </form>
   )
 }
@@ -408,7 +413,7 @@ function UmzugZeile({ u, writeOk }: { u: UmzugRow; writeOk: boolean }) {
           ) : (
             <input type="date" value={datum} onChange={e => setDatum(e.target.value)}
               title="Ein neues Datum gilt für den ganzen Umzug (Quell- und Zielzeilen)"
-              className="border border-s112-border rounded px-2 py-1 text-xs w-32" />
+              className="border border-s112-border rounded px-2 py-1 text-base sm:text-xs w-32" />
           )}
         </td>
         <td className="px-3 py-2 text-xs text-s112-text-2">{u.von_name}</td>
@@ -417,7 +422,7 @@ function UmzugZeile({ u, writeOk }: { u: UmzugRow; writeOk: boolean }) {
         <td className="px-3 py-2">
           <input type="text" value={notizen} onChange={e => setNotizen(e.target.value)}
             placeholder="Notizen…"
-            className="border border-s112-border rounded px-2 py-1 text-xs w-full min-w-[120px]" />
+            className="border border-s112-border rounded px-2 py-1 text-base sm:text-xs w-full min-w-[120px]" />
           {error && <p role="alert" className="text-xs text-s112-err-fg mt-0.5 whitespace-normal break-words">{error}</p>}
         </td>
         <td className="px-3 py-2 text-right whitespace-nowrap">
@@ -527,8 +532,8 @@ export default function UmziehenClient({
         {umzuege.length === 0 ? (
           <div className="card p-6 text-center text-s112-muted text-sm">Noch keine Umzüge protokolliert.</div>
         ) : (
-          <div className="card p-0 overflow-hidden">
-            <table className="w-full text-sm">
+          <div className="card p-0 overflow-x-auto">
+            <table className="w-full min-w-[640px] text-sm">
               <thead>
                 <tr className="bg-s112-bg border-b border-s112-border">
                   <th className="text-left px-4 py-2.5 font-semibold text-s112-text-1">Datum</th>
