@@ -5,7 +5,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { escHtml as e, escHtmlMehrzeilig, sichererDateiname, DOKUMENT_CSP } from '@/lib/utils/html'
+import { druckCsp, druckleiste, DRUCKLEISTE_CSS } from '@/lib/utils/druckknopf'
 export const dynamic = 'force-dynamic'
+// KAN-141 (01.10.2026): Dokument-CSP plus genau ein per Hash freigegebenes Skript für den Drucken-Knopf
+const DRUCK_CSP = druckCsp(DOKUMENT_CSP)
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
 function fmt(d: string | null) {
@@ -33,6 +36,7 @@ function css() {
     .sign{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8mm;margin-top:8mm}
     .sign-box{border-top:1px solid #333;padding-top:2mm;font-size:8pt;text-align:center}
     @media print{body{padding:0}@page{margin:15mm}}
+    ${DRUCKLEISTE_CSS}
   </style>`
 }
 
@@ -85,7 +89,7 @@ export async function GET(
   switch (art) {
     // ── V1/V2 Simplified Accompanying Document ────────────────────────────────
     case 'v1v2':
-      html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>V1/V2 – ${e(a.referenz)}</title>${css()}</head><body>
+      html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>V1/V2 – ${e(a.referenz)}</title>${css()}</head><body>${druckleiste()}
         ${header(b)}
         <h1>SIMPLIFIED ACCOMPANYING DOCUMENT (SAD)</h1>
         <p class="subtitle">V-Dokument für Weinbewegungen – Reg. (EG) Nr. 436/2009</p>
@@ -131,7 +135,7 @@ export async function GET(
 
     // ── EUR.1 Ursprungszeugnis ────────────────────────────────────────────────
     case 'eur1':
-      html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>EUR.1 – ${e(a.referenz)}</title>${css()}</head><body>
+      html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>EUR.1 – ${e(a.referenz)}</title>${css()}</head><body>${druckleiste()}
         ${header(b)}
         <h1>WARENVERKEHRSBESCHEINIGUNG EUR.1</h1>
         <p class="subtitle">Movement Certificate – Used in preferential trade</p>
@@ -187,7 +191,7 @@ export async function GET(
 
     // ── CMR Frachtbrief ──────────────────────────────────────────────────────
     case 'cmr':
-      html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>CMR – ${e(a.referenz)}</title>${css()}</head><body>
+      html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>CMR – ${e(a.referenz)}</title>${css()}</head><body>${druckleiste()}
         ${header(b)}
         <h1>INTERNATIONALER FRACHTBRIEF / CMR</h1>
         <p class="subtitle">Convention relative au contrat de transport international de marchandises par route</p>
@@ -242,7 +246,7 @@ export async function GET(
 
     // ── Certificate of Origin ────────────────────────────────────────────────
     case 'certificate_of_origin':
-      html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Certificate of Origin – ${e(a.referenz)}</title>${css()}</head><body>
+      html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Certificate of Origin – ${e(a.referenz)}</title>${css()}</head><body>${druckleiste()}
         ${header(b)}
         <h1>CERTIFICATE OF ORIGIN</h1>
         <p class="subtitle">Handelsursprungszeugnis / Certificat d'origine</p>
@@ -293,7 +297,7 @@ export async function GET(
 
     // ── Lieferschein ─────────────────────────────────────────────────────────
     case 'lieferschein':
-      html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Lieferschein – ${e(a.referenz)}</title>${css()}</head><body>
+      html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Lieferschein – ${e(a.referenz)}</title>${css()}</head><body>${druckleiste()}
         ${header(b)}
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6mm">
           <h1 style="text-align:left;margin:0">LIEFERSCHEIN<br/><span style="font-size:10pt;font-weight:normal;color:#666">DELIVERY NOTE</span></h1>
@@ -342,7 +346,7 @@ export async function GET(
 
     // ── Exportrechnung ────────────────────────────────────────────────────────
     case 'rechnung':
-      html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Exportrechnung – ${e(a.referenz)}</title>${css()}</head><body>
+      html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Exportrechnung – ${e(a.referenz)}</title>${css()}</head><body>${druckleiste()}
         ${header(b)}
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6mm">
           <h1 style="text-align:left;margin:0">EXPORTRECHNUNG<br/><span style="font-size:10pt;font-weight:normal;color:#666">COMMERCIAL INVOICE</span></h1>
@@ -410,8 +414,9 @@ export async function GET(
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
       'Content-Disposition': `inline; filename="${sichererDateiname(`${art}-${a.referenz ?? auftragId}`)}.html"`,
-      // KAN-138: eigene Sandbox-Origin ohne Script – eingeschleustes HTML kann nichts ausführen
-      'Content-Security-Policy': DOKUMENT_CSP,
+      // KAN-138: eigene Sandbox-Origin – eingeschleustes HTML kann nichts ausführen. KAN-141: einziges Skript ist der
+      // Drucken-Knopf (per Hash freigegeben, kein Inline-Handler, weiterhin ohne allow-same-origin)
+      'Content-Security-Policy': DRUCK_CSP,
       'X-Content-Type-Options': 'nosniff',
       'Referrer-Policy': 'no-referrer',
     },
