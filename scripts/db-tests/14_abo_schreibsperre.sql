@@ -87,10 +87,10 @@ DECLARE
   c_m         constant uuid := '33333333-3333-4333-8333-333333333333';
   -- Muss mit ABO_GESPERRTE_STATUS in src/lib/abo/regeln.ts (und s112_abo_gesperrt) übereinstimmen.
   c_gesperrt  constant text[] := ARRAY['unpaid', 'canceled', 'cancelled', 'incomplete', 'incomplete_expired', 'paused'];
-  -- Schreibende SECURITY-DEFINER-RPCs mit s112_pruefe_abo_schreibsperre (Soll-Liste, 27 Stück; s112_herkunft_setzen seit KAN-150 F1d; s112_kontakt_historie_zu_firma seit KAN-150 F1c; s112_fuellung_verkauf_buchen seit KAN-149 D1; s112_ea_/zahlung_/umbuchung_stornieren seit D2; s112_storniert_loeschen seit KAN-145, s112_buchung_loeschen seit KAN-166, s112_pressung_stornieren/_zeilen_stornieren, s112_mostzeile_anlegen, s112_pressung_anlegen seit KAN-148, s112_ama_* seit KAN-148 C2).
+  -- Schreibende SECURITY-DEFINER-RPCs mit s112_pruefe_abo_schreibsperre (Soll-Liste, 29 Stück; s112_betriebsmittel_einkauf/_stornieren seit KAN-167; s112_herkunft_setzen seit KAN-150 F1d; s112_kontakt_historie_zu_firma seit KAN-150 F1c; s112_fuellung_verkauf_buchen seit KAN-149 D1; s112_ea_/zahlung_/umbuchung_stornieren seit D2; s112_storniert_loeschen seit KAN-145, s112_buchung_loeschen seit KAN-166, s112_pressung_stornieren/_zeilen_stornieren, s112_mostzeile_anlegen, s112_pressung_anlegen seit KAN-148, s112_ama_* seit KAN-148 C2).
   c_abo_rpcs  constant text[] := ARRAY['fuellung_bestand_buchen', 'get_next_accountnummer', 'get_next_chargennummer',
                                        'get_next_liefernummer', 'get_next_personenkonto', 'get_next_rechnungsnummer',
-                                       'get_next_transaktionsnr', 'kontakte_zusammenfuehren', 's112_ama_korrektur_anlegen', 's112_ama_meldung_speichern', 's112_ama_status_setzen', 's112_buchung_loeschen', 's112_ea_stornieren', 's112_fuellung_verkauf_buchen', 's112_herkunft_setzen', 's112_kontakt_historie_zu_firma', 's112_mostzeile_anlegen', 's112_pressung_anlegen', 's112_pressung_stornieren', 's112_pressung_zeilen_stornieren', 's112_storniert_loeschen', 's112_umbuchung_stornieren', 's112_zahlung_stornieren', 'schwund_buchen',
+                                       'get_next_transaktionsnr', 'kontakte_zusammenfuehren', 's112_ama_korrektur_anlegen', 's112_ama_meldung_speichern', 's112_ama_status_setzen', 's112_betriebsmittel_einkauf', 's112_betriebsmittel_stornieren', 's112_buchung_loeschen', 's112_ea_stornieren', 's112_fuellung_verkauf_buchen', 's112_herkunft_setzen', 's112_kontakt_historie_zu_firma', 's112_mostzeile_anlegen', 's112_pressung_anlegen', 's112_pressung_stornieren', 's112_pressung_zeilen_stornieren', 's112_storniert_loeschen', 's112_umbuchung_stornieren', 's112_zahlung_stornieren', 'schwund_buchen',
                                        'setze_kontobewegung_abgeglichen', 'sperre_ea_monat', 'sperre_ea_uva'];
   -- Tabellen, deren Policies auth.uid() gegen eine Eigentümerspalte prüfen (wie t12_pro_persona in Datei 12)
   c_eigentuemer constant text[] := ARRAY['assistent_unterhaltungen', 'assistent_aktionen', 'assistent_nachrichten',
@@ -155,6 +155,9 @@ DECLARE
   v_k2        uuid;
   v_fi_b      uuid;   -- KAN-150 F1c: Firma in B (Umwandeln)
   v_wg_b      uuid;   -- KAN-150 F1d: Ried in B (Herkunft der Charge)
+  v_bm_b      uuid;   -- KAN-167: Betriebsmittel, Lagerbuchung und Ausgaben-Kategorie (global) für B
+  v_bml_b     uuid;
+  v_eakat     uuid;
   v_abdeckung jsonb := '{}';
 BEGIN
   PERFORM pg_temp.s112_nur_staging();
@@ -239,6 +242,11 @@ BEGIN
   v_k2 := (pg_temp.s112_zeile('kontakte', v_b, '{"nachname": "S112TEST Weg"}') ->> 'id')::uuid;
   v_fi_b := (pg_temp.s112_zeile('firmen', v_b, '{"name": "S112TEST Firma"}') ->> 'id')::uuid;   -- KAN-150 F1c
   v_wg_b := (pg_temp.s112_beispiel('weingarten', v_b, v_bw) ->> 'id')::uuid;   -- KAN-150 F1d
+  -- KAN-167: Einkauf braucht E&A (modul_ea, buchhaltungsart 'ea') und eine Ausgaben-Kategorie; Storno eine Lagerbuchung
+  UPDATE public.tenant_einstellungen SET modul_ea = true, buchhaltungsart = 'ea' WHERE tenant_id = v_b;
+  SELECT k.id INTO v_eakat FROM public.ea_kategorien k WHERE k.tenant_id IS NULL AND k.typ = 'ausgabe' AND k.aktiv ORDER BY k.id LIMIT 1;
+  v_bm_b := (pg_temp.s112_beispiel('betriebsmittel', v_b, v_bw) ->> 'id')::uuid;
+  v_bml_b := (pg_temp.s112_beispiel('betriebsmittel_lager_bewegungen', v_b, v_bw, jsonb_build_object('betriebsmittel_id', v_bm_b)) ->> 'id')::uuid;
   INSERT INTO public.ea_monatsabschluss (tenant_id, jahr, monat) VALUES (v_b, 2020, 1);
   INSERT INTO storage.objects (bucket_id, name, owner) VALUES
     ('ea-belege', v_b::text || '/s112test/beleg-b.pdf', v_bta),
@@ -436,6 +444,8 @@ BEGIN
     's112_kontakt_historie_zu_firma', format('SELECT public.s112_kontakt_historie_zu_firma(%L, %L, %L)', v_b, v_k1, v_fi_b),   -- KAN-150 F1c
     's112_herkunft_setzen', format('SELECT public.s112_herkunft_setzen(%L, %L, ARRAY[%L]::uuid[], %L)', v_b, v_wa, v_wg_b, 'S112TEST Herkunft geändert'),   -- KAN-150 F1d
     'kontakte_zusammenfuehren', format('SELECT public.kontakte_zusammenfuehren(%L, %L, ARRAY[%L]::uuid[])', v_b, v_k1, v_k2),
+    's112_betriebsmittel_einkauf', format('SELECT public.s112_betriebsmittel_einkauf(%L, %L, current_date, 2, %L, 10, 20, NULL, %L, NULL)', v_b, v_bm_b, 'stk', v_eakat),   -- KAN-167
+    's112_betriebsmittel_stornieren', format('SELECT public.s112_betriebsmittel_stornieren(%L, %L, %L)', v_b, v_bml_b, 'S112TEST Storno Lagerbuchung'),   -- KAN-167
     's112_buchung_loeschen', format('SELECT public.s112_buchung_loeschen(%L, %L, %L, %L)', v_b, 'psm_lager_bewegungen', v_pl, 'S112TEST löschen mit Grund'),
     's112_ea_stornieren', format('SELECT public.s112_ea_stornieren(%L, %L, %L)', v_b, v_ea_b, 'S112TEST Storno E/A'),
     's112_zahlung_stornieren', format('SELECT public.s112_zahlung_stornieren(%L, %L, %L)', v_b, v_za_b, 'S112TEST Storno Zahlung'),

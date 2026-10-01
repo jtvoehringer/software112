@@ -58,6 +58,8 @@ export type EaJournalZeile = {
   /** Gegenbuchung: id des stornierten Originals */
   stornoVonId: string | null
   verkaufspostenId: string | null
+  /** KAN-167: Ausgabe aus einem Betriebsmittel-Einkauf – Storno über den Einkauf (Betriebsmittel) */
+  ausBetriebsmittel: boolean
   anlageId: string | null
   /** ea_kategorien.konto_nr als Zahl (Kontenklasse 0 → Anlagenkauf) */
   kategorieKontoNr: number | null
@@ -65,6 +67,7 @@ export type EaJournalZeile = {
 
 const QUELLE_LABEL: Record<string, string> = {
   manuell: 'manuell', verkauf: 'Automatisch (Verkauf)', camt053: 'Bankimport (camt.053)', csv: 'CSV-Import',
+  betriebsmittel: 'Automatisch (Betriebsmittel-Einkauf)',
 }
 
 export function eaQuelle(r: R): string {
@@ -121,6 +124,7 @@ export function eaJournalZeile(r: R): EaJournalZeile {
     storniertVon: text(r.storniert_von_name),
     stornoVonId: text(r.storno_von_id),
     verkaufspostenId: text(r.verkaufsposten_id),
+    ausBetriebsmittel: r.import_quelle === 'betriebsmittel',
     anlageId: text(r.anlage_id),
     kategorieKontoNr: zahl(r.kategorie?.konto_nr),
   }

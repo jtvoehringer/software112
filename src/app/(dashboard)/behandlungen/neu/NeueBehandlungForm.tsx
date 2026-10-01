@@ -1,5 +1,7 @@
 'use client'
 
+import BetriebsmittelFeld, { bmVerbrauchFormular, type BmMassnahmeOption } from './BetriebsmittelFeld'
+import { artMitBetriebsmittel } from '@/lib/behandlungen/betriebsmittel'
 import { Fragment, useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createBehandlung } from '../actions'
@@ -56,9 +58,11 @@ const BIO_SPERRE = new Set(['bio_eu', 'biodynamisch'])
 const BIO_WARNUNG = new Set(['kip', 'nachhaltig'])
 
 export default function NeueBehandlungForm({
-  psm, duengemittel, weingaerten, gstByWeingarten, bioStatus, kostenarten, saetzeMassnahmen,
+  psm, duengemittel, weingaerten, gstByWeingarten, bioStatus, kostenarten, saetzeMassnahmen, betriebsmittel = [],
 }: {
   psm: PSM[]; duengemittel: DuengemittelOption[]
+  /** KAN-167: Weinbehandlungs- und Produktionsmittel (aktiv) für Sonstiges und Laubarbeit */
+  betriebsmittel?: BmMassnahmeOption[]
   weingaerten: WeingartenOption[]; gstByWeingarten: Record<string, GSTOption[]>
   bioStatus: string
   kostenarten: KostenartOption[]; saetzeMassnahmen: SatzOption[]
@@ -67,6 +71,10 @@ export default function NeueBehandlungForm({
   const [pending, startTransition] = useTransition()
   const [selectedPsmId, setSelectedPsmId] = useState('')
   const [selectedDuengemittelId, setSelectedDuengemittelId] = useState('')
+  // KAN-167: Betriebsmittel bei Sonstiges/Laubarbeit (statt eines PSM)
+  const [selectedBmId, setSelectedBmId] = useState('')
+  const [bmAufwand, setBmAufwand] = useState('')
+  const [bmAufwandEinheit, setBmAufwandEinheit] = useState('stk_ha')
   const [selectedWGs, setSelectedWGs] = useState<Set<string>>(new Set())
   const [selectedGSTs, setSelectedGSTs] = useState<Map<string, string>>(new Map())
   const [riedenExpanded, setRiedenExpanded] = useState(false)
@@ -112,6 +120,7 @@ export default function NeueBehandlungForm({
   useEffect(() => {
     if (FELD_MATRIX[art].psm === 'hidden') setSelectedPsmId('')
     if (FELD_MATRIX[art].duengemittel === 'hidden') setSelectedDuengemittelId('')
+    if (!artMitBetriebsmittel(art)) { setSelectedBmId(''); setBmAufwand('') }
     setSelectedSatzId('')
     // Menge und Aufwand bedeuten je Art etwas anderes (Spritzbrühe in l bzw. Düngermenge, Mittel bzw.
     // Dünger; g/hl nur bei Spritzungen) – nicht in die neue Art übernehmen
@@ -214,7 +223,11 @@ export default function NeueBehandlungForm({
   // Material = Preis je kg bzw. l × Mittelmenge (nie × Spritzbrühe); der Preis gilt beim PSM je kg bzw. l
   // (Grundeinheit des Lagers, auch bei Buchungen in g bzw. ml), beim Düngemittel je dessen Einheit; das PSM
   // auch bei Sonstiges (KAN-154)
+  // KAN-167: Betriebsmittel – Preis je Einheit des Mittels × Verbrauch (Aufwand × Fläche bzw. gesamt)
+  const selectedBm = artMitBetriebsmittel(art) ? betriebsmittel.find(b => b.id === selectedBmId) : undefined
+  const bmV = bmVerbrauchFormular(selectedBm, bmAufwand, bmAufwandEinheit, totalHaAktiv)
   const materialpreisProEinheit =
+    selectedBm ? selectedBm.preis_pro_einheit ?? undefined :
     felder.psm !== 'hidden' ? selectedPsm?.preis_pro_einheit :
     art === 'duengung'      ? selectedDuengemittel?.preis_pro_einheit :
     undefined
@@ -222,7 +235,9 @@ export default function NeueBehandlungForm({
     felder.psm !== 'hidden' ? selectedPsm?.einheit ?? null :
     art === 'duengung'      ? selectedDuengemittel?.einheit ?? 'kg' :
     null
-  const material = materialpreisProEinheit
+  const material = selectedBm
+    ? { menge: bmV?.menge ?? null, hinweis: bmV && bmV.menge === null && bmAufwand.trim() ? `Kein Material-Vorschlag: ${bmV.warnung}.` : null }
+    : materialpreisProEinheit
     ? materialMenge(m.pruefung.ok ? m.pruefung.mittelmenge : null, materialEinheit)
     : { menge: null, hinweis: null }
   const materialkosten = materialpreisProEinheit && material.menge !== null
@@ -337,6 +352,7 @@ export default function NeueBehandlungForm({
               {felder.psm === 'pflicht' && <span className="text-s112-err"> *</span>}
             </label>
             <select ref={psmRef} aria-label="Spritzmittel / Mittel (PSM)" name="psm_id" value={selectedPsmId} required={felder.psm === 'pflicht'}
+              disabled={art === 'sonstiges' && !!selectedBmId}
               aria-invalid={bioSperre || undefined} aria-describedby={bioSperre ? 'bio-sperre-grund' : undefined}
               onChange={e => setSelectedPsmId(e.target.value)}
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
@@ -361,6 +377,13 @@ export default function NeueBehandlungForm({
             ) : null}
             <input type="hidden" name="wartezeit_tage" value={selectedPsm?.wartezeit_tage ?? ''} />
           </div>
+        )}
+
+        {/* KAN-167: Betriebsmittel bei Sonstiges und Laubarbeit */}
+        {artMitBetriebsmittel(art) && betriebsmittel.length > 0 && (
+          <BetriebsmittelFeld optionen={betriebsmittel} wert={selectedBmId} aufwand={bmAufwand} aufwandEinheit={bmAufwandEinheit}
+            flaecheHa={totalHaAktiv} gesperrtDurchPsm={art === 'sonstiges' && !!selectedPsmId}
+            onWert={setSelectedBmId} onAufwand={setBmAufwand} onAufwandEinheit={setBmAufwandEinheit} />
         )}
 
         {/* Düngemittel */}

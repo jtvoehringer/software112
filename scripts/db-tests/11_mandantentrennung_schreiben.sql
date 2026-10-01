@@ -49,9 +49,11 @@
 CREATE FUNCTION pg_temp.t11_fremd_fk_bekannt() RETURNS text[] LANGUAGE sql IMMUTABLE AS $f$
   SELECT ARRAY[
     'aktivitaet_dokumente.aktivitaet_id', 'aktivitaeten.firma_id', 'aktivitaeten.kontakt_id',
-    'behandlung_grundstuecke.grundstueck_id', 'behandlungen.duengemittel_id',
+    'behandlung_grundstuecke.grundstueck_id', 'behandlungen.betriebsmittel_id', 'behandlungen.duengemittel_id',   -- KAN-167: + behandlungen.betriebsmittel_id
     'behandlungen.psm_id', 'behandlungen.weingarten_id', 'bestellung_positionen.weinausbau_id', 'bestellungen.firma_id',
     'bestellungen.kontakt_id', 'checklisten_punkte.checkliste_id', 'dac_antrag.weinausbau_id',
+    'betriebsmittel.ea_kategorie_id', 'betriebsmittel_lager_bewegungen.betriebsmittel_id',   -- KAN-167 (wie duengemittel/psm; Einkauf prüft per RPC)
+    'betriebsmittel_lager_bewegungen.lieferant_firma_id',
     'duengemittel_lager_bewegungen.duengemittel_id', 'ea_belege.ea_transaktion_id', 'ea_dauerauftraege.kategorie_id',
     'ea_dauerauftraege.konto_id', 'ea_transaktionen.bmd_export_id', 'ea_transaktionen.dauerauftrag_id',
     'ea_transaktionen.firma_id', 'ea_transaktionen.kategorie_id', 'ea_transaktionen.konto_id',

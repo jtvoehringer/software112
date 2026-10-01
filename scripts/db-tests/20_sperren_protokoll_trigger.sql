@@ -63,7 +63,7 @@
 --      löschen → T, leeres Konto → k1; verbuchten Beleg ändern/löschen → T; Verkaufsstorno ohne Grund → E23514, mit
 --      Grund → k1; DELETE auf den fünf Verkaufs-/E-A-Tabellen als m_ta/m_w → k0 (Policy 'nein'), als postgres ohne
 --      Flag → T (Löschsperre bzw. Periodensperre), mit s112.loeschen_erlaubt = Musterhof → k1.
---   3c. KAN-150 F1a (synthetische Stammdaten im Musterhof): a_stammdaten_loeschsperre genau auf den 9 Soll-Tabellen;
+--   3c. KAN-150 F1a (synthetische Stammdaten im Musterhof): a_stammdaten_loeschsperre genau auf den 10 Soll-Tabellen (KAN-167: + betriebsmittel);
 --      s112_stammdaten_bezuege als Leser → {"Maßnahmen": 1} für Ried (nur über sein Grundstück), Grundstück und
 --      PSM, {"Verkäufe": 1} für Kontakt und Firma, {} ohne Bezug; unbekannte ID → P0002, unbekannte Tabelle →
 --      22023, fremder Betrieb (b_ta) → 42501. DELETE als m_ta mit Bezug → T (Klartext „deaktivieren statt

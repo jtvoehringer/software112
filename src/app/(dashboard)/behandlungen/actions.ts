@@ -16,6 +16,7 @@ import {
 import { einarbeitungAus } from './neu/feldMatrix'
 import { kostenAufteilung } from '@/lib/wein/massnahmeAnteile'
 import { gstAktivAm } from '@/lib/wein/grundstueckAktiv'
+import { artMitBetriebsmittel, BM_AUFWAND_EINHEITEN } from '@/lib/behandlungen/betriebsmittel'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -327,6 +328,38 @@ async function grundstueckeDerAuswahl(supabase: any, tenantId: string, formData:
 
 const OHNE_WI_GST = 'Die gewählten Rieden bzw. Grundstücke haben kein Grundstück mit Nutzart WI (Weingarten) – eine Maßnahme ohne Grundstück lässt sich nicht auswerten. Bitte eine Ried mit Weingarten-Grundstücken wählen oder die Nutzart der Grundstücke prüfen.'
 
+// KAN-167 (01.10.2026): Betriebsmittel (Weinbehandlungs- bzw. Produktionsmittel) bei Sonstiges und Laubarbeit – nur
+// ein aktives Mittel des eigenen Betriebs, nie zusammen mit einem Pflanzenschutzmittel. Aufwand optional (je ha oder
+// gesamt); er ersetzt die Aufwand-Spalten der Mengenprüfung, die bei diesen Arten sonst leer bleiben.
+type BmAuswahl = { id: string | null; aufwand: number | null; einheit: string | null }
+async function betriebsmittelAus(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any, tenantId: string, art: string, formData: FormData, psmId: string | null,
+  /** Bearbeiten: das bisher gespeicherte Mittel darf bleiben, auch wenn es inzwischen deaktiviert ist */
+  bisherId: string | null = null,
+): Promise<BmAuswahl> {
+  const id = artMitBetriebsmittel(art) ? ((formData.get('betriebsmittel_id') as string) || null) : null
+  if (!id) return { id: null, aufwand: null, einheit: null }
+  if (psmId) throw new AktionsFehler('Je Maßnahme entweder ein Pflanzenschutzmittel oder ein Betriebsmittel wählen.')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.from('betriebsmittel') as any)
+    .select('id, aktiv').eq('id', id).eq('tenant_id', tenantId).maybeSingle()
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Betriebsmittel konnte nicht geprüft werden'))
+  if (!data || (data.aktiv === false && id !== bisherId)) throw new AktionsFehler('Das gewählte Betriebsmittel gibt es nicht (mehr) oder es ist deaktiviert – bitte die Seite neu laden.')
+  const roh = ((formData.get('bm_aufwand') as string) ?? '').trim()
+  if (!roh) return { id, aufwand: null, einheit: null }
+  const aufwand = Number(dezimal(roh))
+  if (!Number.isFinite(aufwand) || aufwand <= 0) throw new AktionsFehler('Der Aufwand des Betriebsmittels muss eine Zahl größer als 0 sein.')
+  const einheit = (formData.get('bm_aufwand_einheit') as string) || ''
+  if (!(BM_AUFWAND_EINHEITEN as readonly string[]).includes(einheit)) throw new AktionsFehler('Bitte die Einheit des Aufwands wählen.')
+  return { id, aufwand, einheit }
+}
+
+/** Spalten für behandlungen: Betriebsmittel samt Aufwand (überschreibt die Aufwand-Spalten nur mit Betriebsmittel) */
+function betriebsmittelSpalten(bm: BmAuswahl): Record<string, unknown> {
+  return bm.id ? { betriebsmittel_id: bm.id, aufwandmenge: bm.aufwand, aufwandmenge_einheit: bm.einheit } : { betriebsmittel_id: null }
+}
+
 export async function createBehandlung(formData: FormData) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
@@ -397,6 +430,7 @@ export async function createBehandlung(formData: FormData) {
     flaecheHa: summeFlaecheHa(Array.from(grundstueckeById.values(), g => g.flaeche_ha)),
   })
   if (!mengen.ok) throw new AktionsFehler(mengen.fehler)
+  const bm = await betriebsmittelAus(supabase, tenantId, art, formData, psmId)   // KAN-167
 
   // 3. Behandlung anlegen – Aufwand, Spritzbrühe/Düngermenge, Wasseraufwand und Reinkupfer aus der Prüfung
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -409,6 +443,7 @@ export async function createBehandlung(formData: FormData) {
       datum,
       datum_bis:            datumBis,
       ...mengen.werte,
+      ...betriebsmittelSpalten(bm),
       konzentration,
       bbch_stadium:         bbch,
       schaderreger,
@@ -506,7 +541,7 @@ export async function updateBehandlung(id: string, formData: FormData) {
   // keine tenant_id, daher eingebettet über die Maßnahme des Betriebs.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: bisher, error: bisherErr } = await (supabase.from('behandlungen') as any)
-    .select('id, behandlung_grundstuecke(grundstueck_id, flaeche_ha, grundstueck:grundstueck_id(flaeche_ha))')
+    .select('id, betriebsmittel_id, behandlung_grundstuecke(grundstueck_id, flaeche_ha, grundstueck:grundstueck_id(flaeche_ha))')
     .eq('id', id)
     .eq('tenant_id', tenantId)
     .maybeSingle()
@@ -537,12 +572,14 @@ export async function updateBehandlung(id: string, formData: FormData) {
     flaecheHa: summeFlaecheHa(flaechen),
   })
   if (!mengen.ok) throw new AktionsFehler(mengen.fehler)
+  const bm = await betriebsmittelAus(supabase, tenantId, art, formData, psmId, (bisher as AR).betriebsmittel_id ?? null)   // KAN-167
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('behandlungen') as any)
     .update({
       art, psm_id: psmId, duengemittel_id: duengemittelId, datum, datum_bis: datumBis,
       ...mengen.werte,
+      ...betriebsmittelSpalten(bm),
       konzentration,
       bbch_stadium: bbch, schaderreger, witterung, temperatur_c: temperatur,
       ernte_fruehesteins: ernteFruehesteins, notizen,

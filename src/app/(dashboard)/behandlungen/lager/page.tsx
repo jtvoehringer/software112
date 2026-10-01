@@ -9,6 +9,11 @@ import DuengerLagerClient from './DuengerLagerClient'
 import PSMClient from './PSMClient'
 import DuengemittelClient from './DuengemittelClient'
 import SaetzeClient from './SaetzeClient'
+import BetriebsmittelStammClient, { type BmStamm } from './BetriebsmittelStammClient'
+import BetriebsmittelLagerClient, { type BmBewegung, type BmKarte, type BmOption } from './BetriebsmittelLagerClient'
+import { BETRIEBSMITTEL_GRUPPEN, GRUPPE_LABEL, bmKonto, type BetriebsmittelGruppe, type BmVerbrauchPosten } from '@/lib/behandlungen/betriebsmittel'
+import { MASSNAHMEN_ART_LABEL } from '@/lib/behandlungen/arten'
+import { summeFlaecheHa } from '@/lib/behandlungen/massnahmeMengen'
 
 export const metadata: Metadata = { title: 'Betriebsmittel – software:112' }
 export const dynamic = 'force-dynamic'
@@ -177,7 +182,7 @@ export default async function LagerPage({
   // Spritzbrühe und zählt nie), Düngemittel
   // nur aus Düngungen. ladeBehandlungen() filtert nach dem Betrieb und liefert die behandelte Fläche
   // (Σ GST). Nur für den Bestand-Tab; ein Ladefehler erscheint dort, statt still ohne Verbrauch zu rechnen.
-  const zeigtBestand = tab !== 'stammdaten' && tab !== 'duengemittel' && tab !== 'saetze'
+  const zeigtBestand = !['stammdaten', 'duengemittel', 'saetze', 'weinbehandlung', 'produktion'].includes(tab)
   let mitPsm: PsmBehandlung[] = []
   let duengungen: PsmBehandlung[] = []
   let verbrauchFehler: string | null = null
@@ -270,10 +275,93 @@ export default async function LagerPage({
     })
     .sort((a, b) => a.duengemittel_name.localeCompare(b.duengemittel_name, 'de'))
 
+  // ── KAN-167: Weinbehandlungs- und Produktionsmittel ──────────────────────────────────────────────────
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: rawBm } = await tf((supabase.from('betriebsmittel') as any)
+    .select('id, gruppe, name, einheit, preis_pro_einheit, ea_kategorie_id, notizen, aktiv')
+    .order('name'))
+  const bmAlle = ((rawBm ?? []) as AR[])
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: rawBmBew } = await tf((supabase.from('betriebsmittel_lager_bewegungen') as any)
+    // storno-sichtbar: stornierte Buchungen stehen gekennzeichnet in der Liste, zählen aber nicht zum Bestand
+    .select('id, betriebsmittel_id, datum, typ, menge, einheit, betrag_netto, ust_satz, notizen, storniert_am, storniert_von_name, storno_grund, lieferant:firmen!lieferant_firma_id(name)')
+    .order('datum', { ascending: true }))
+  // Verbrauch aus Maßnahmen (Sonstiges, Laubarbeit) mit Betriebsmittel – Aufwand × behandelte Fläche bzw. gesamt
+  const { data: rawBmVerbrauch } = zeigtBestand
+    ? await tf((supabase.from('behandlungen') as any)   // eslint-disable-line @typescript-eslint/no-explicit-any
+        .select('id, datum, art, aufwandmenge, aufwandmenge_einheit, betriebsmittel_id, weingarten:weingarten_id(name), behandlung_grundstuecke(flaeche_ha, grundstueck:grundstueck_id(flaeche_ha))')
+        .not('betriebsmittel_id', 'is', null))
+    : { data: [] }
+  const bmVerbrauch = new Map<string, BmVerbrauchPosten[]>()
+  for (const b of ((rawBmVerbrauch ?? []) as AR[])) {
+    const art = MASSNAHMEN_ART_LABEL[b.art as keyof typeof MASSNAHMEN_ART_LABEL] ?? b.art
+    const ort = (b.weingarten as AR | null)?.name ?? null
+    const liste = bmVerbrauch.get(b.betriebsmittel_id) ?? []
+    liste.push({
+      behandlungId: b.id, datum: b.datum, art, ort,
+      kurz: `${art} am ${String(b.datum).split('-').reverse().join('.')}${ort ? ` (${ort})` : ''}`,
+      aufwand: b.aufwandmenge == null ? null : Number(b.aufwandmenge),
+      aufwandEinheit: b.aufwandmenge_einheit ?? null,
+      // behandelte Fläche = Σ Grundstücke der Maßnahme (wie Bearbeiten und updateBehandlung)
+      flaecheHa: summeFlaecheHa(((b.behandlung_grundstuecke ?? []) as AR[]).map(bg => bg.flaeche_ha ?? bg.grundstueck?.flaeche_ha)),
+    })
+    bmVerbrauch.set(b.betriebsmittel_id, liste)
+  }
+  const bmBewegungen = new Map<string, BmBewegung[]>()
+  for (const b of ((rawBmBew ?? []) as AR[])) {
+    const liste = bmBewegungen.get(b.betriebsmittel_id) ?? []
+    liste.push({
+      id: b.id, datum: b.datum, typ: b.typ, menge: Number(b.menge), einheit: b.einheit,
+      betrag_netto: b.betrag_netto == null ? null : Number(b.betrag_netto), ust_satz: b.ust_satz == null ? null : Number(b.ust_satz),
+      lieferant: (b.lieferant as AR | null)?.name ?? null, notizen: b.notizen ?? null,
+      storniert_am: b.storniert_am ?? null, storniert_von_name: b.storniert_von_name ?? null, storno_grund: b.storno_grund ?? null,
+    })
+    bmBewegungen.set(b.betriebsmittel_id, liste)
+  }
+  // Ausgaben-Kategorien (global und eigene) und Lieferanten (Firmen mit „Lieferant“) für den Einkauf
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: rawKat } = await (supabase.from('ea_kategorien') as any)
+    .select('id, name, tenant_id').eq('typ', 'ausgabe').eq('aktiv', true)
+    .or(tenantId ? `tenant_id.is.null,tenant_id.eq.${tenantId}` : 'tenant_id.is.null')
+    .order('name')
+  const kategorien = ((rawKat ?? []) as AR[]).map(k => ({ id: k.id as string, name: k.name as string }))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: rawLief } = await tf((supabase.from('firmen') as any)
+    .select('id, name').eq('ist_lieferant', true).eq('aktiv', true).order('name').limit(500))
+  const lieferanten = ((rawLief ?? []) as AR[]).map(l => ({ id: l.id as string, name: l.name as string }))
+  // Einkauf (mit Pflicht-E/A-Ausgabe) nur mit E&A-Rechnung (Buchhaltungsart E/A) und Schreibrecht E&A
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: einst } = await tf((supabase.from('tenant_einstellungen') as any).select('modul_ea, buchhaltungsart')).maybeSingle()
+  const einkaufSperre = !(einst as AR | null)?.modul_ea || (einst as AR | null)?.buchhaltungsart !== 'ea'
+    ? 'die E&A-Rechnung ist für diesen Betrieb nicht aktiv – bitte Anfangsbestand bzw. Inventurkorrektur verwenden.'
+    : !(membership && canWrite(membership, 'ea'))
+    ? 'dir fehlt das Schreibrecht für die E&A-Rechnung.'
+    : null
+  const bmStamm = (g: BetriebsmittelGruppe): BmStamm[] => bmAlle.filter(m => m.gruppe === g).map(m => ({
+    id: m.id, name: m.name, einheit: m.einheit, preis_pro_einheit: m.preis_pro_einheit == null ? null : Number(m.preis_pro_einheit),
+    ea_kategorie_id: m.ea_kategorie_id ?? null, notizen: m.notizen ?? null, aktiv: m.aktiv !== false,
+  }))
+  const bmOptionen = (g: BetriebsmittelGruppe): BmOption[] => bmAlle.filter(m => m.gruppe === g && m.aktiv !== false).map(m => ({
+    id: m.id, name: m.name, einheit: m.einheit, ea_kategorie_id: m.ea_kategorie_id ?? null,
+    preis_pro_einheit: m.preis_pro_einheit == null ? null : Number(m.preis_pro_einheit),
+  }))
+  const bmKarten = (g: BetriebsmittelGruppe): BmKarte[] => bmAlle
+    .filter(m => m.gruppe === g && (bmBewegungen.has(m.id) || bmVerbrauch.has(m.id)))
+    .map(m => {
+      const bewegungen = bmBewegungen.get(m.id) ?? []
+      return {
+        id: m.id, name: m.aktiv === false ? `${m.name} (deaktiviert)` : m.name, einheit: m.einheit, bewegungen,
+        konto: bmKonto(bewegungen.map(b => ({ datum: b.datum, menge: b.menge, einheit: b.einheit, storniert: !!b.storniert_am })),
+          bmVerbrauch.get(m.id) ?? [], m.einheit),
+      }
+    })
+
   const TABS = [
     { key: 'bestand',      label: 'Bestand & Bewegungen' },
     { key: 'stammdaten',   label: 'PSM-Stammdaten' },
     { key: 'duengemittel', label: 'Düngemittel' },
+    { key: 'weinbehandlung', label: GRUPPE_LABEL.weinbehandlung },
+    { key: 'produktion',   label: GRUPPE_LABEL.produktion },
     { key: 'saetze',       label: 'Stundensätze' },
   ]
 
@@ -295,6 +383,8 @@ export default async function LagerPage({
               ? 'Düngemittel anlegen und pflegen · N-P-K-Gehalt · Preis · Bio-Zulassung'
               : tab === 'saetze'
               ? 'Hektarsätze je Maßnahmenart für die Kosten-Vorschlagsfunktion'
+              : tab === 'weinbehandlung' || tab === 'produktion'
+              ? `${GRUPPE_LABEL[tab as BetriebsmittelGruppe]} anlegen und pflegen · Einheit · Einkaufspreis · E/A-Kategorie`
               : 'Anfangsbestand · Einkauf · Verbrauch · Inventurkorrektur'}
           </p>
         </div>
@@ -321,6 +411,8 @@ export default async function LagerPage({
         <DuengemittelClient duengemittel={duengemittelStammdaten} writeOk={writeOk} adminOk={adminOk} />
       ) : tab === 'saetze' ? (
         <SaetzeClient saetze={saetzeMassnahmen} writeOk={writeOk} adminOk={adminOk} />
+      ) : tab === 'weinbehandlung' || tab === 'produktion' ? (
+        <BetriebsmittelStammClient gruppe={tab} mittel={bmStamm(tab)} kategorien={kategorien} writeOk={writeOk} adminOk={adminOk} />
       ) : (
         <div className="space-y-8">
           {verbrauchFehler && (
@@ -346,6 +438,13 @@ export default async function LagerPage({
               adminOk={adminOk}
             />
           </div>
+          {BETRIEBSMITTEL_GRUPPEN.map(g => (
+            <div key={g}>
+              <h2 className="text-sm font-semibold text-s112-text-2 uppercase tracking-wide mb-3">{GRUPPE_LABEL[g]}</h2>
+              <BetriebsmittelLagerClient gruppe={g} karten={bmKarten(g)} writeOk={writeOk}
+                ctx={{ alle: bmOptionen(g), kategorien, lieferanten, einkaufSperre }} />
+            </div>
+          ))}
         </div>
       )}
     </div>

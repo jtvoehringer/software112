@@ -48,6 +48,8 @@ const LOESCH_RPC_MIGRATIONEN = {
     'Lösch-RPC s112_storniert_loeschen (KAN-150 F2a): nur stornierte Zeilen bzw. freigegebene Entwürfe, Kennzeichen s112.storno_loeschen, Grund im Protokoll'],
   'supabase/migrations/20261001124303_kan150f1d_herkunft_charge.sql': [['weinausbau_weingaerten'],
     'RPC s112_herkunft_setzen (KAN-150 F1d): entfernt nur abgewählte Rieden einer nicht stornierten Charge, Kennzeichen s112.storno_loeschen, alte und neue Rieden samt Grund im Protokoll'],
+  'supabase/migrations/20261001150355_kan167a_betriebsmittel.sql': [['ernte_parzellen', 'weinausbau'],
+    'Lösch-RPC s112_storniert_loeschen (KAN-167, um betriebsmittel_lager_bewegungen erweitert): nur stornierte Zeilen bzw. freigegebene Entwürfe, Kennzeichen s112.storno_loeschen, Grund im Protokoll'],
 }
 
 function rel(datei) { return path.relative(WURZEL, datei).split(path.sep).join('/') }

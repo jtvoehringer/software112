@@ -52,9 +52,11 @@ const SRC_DIR = path.join(ROOT, 'src')
 // KAN-35 (24.09.2026): bestandsprotokoll (nur lesbar, tenant_id NULL-fähig – RLS lässt
 // Betriebsleiter ALLE ihre Betriebe sehen, daher ebenfalls explizit filtern) und
 // fuellung_bewegungen (Schreiben nur per RPC fuellung_bestand_buchen).
+// KAN-167 (01.10.2026): betriebsmittel, betriebsmittel_lager_bewegungen.
 const PROTECTED_TABLES = [
   'aktivitaet_dokumente', 'aktivitaeten', 'ama_erntemeldungen', 'assistent_korrekturen',
-  'assistent_unterhaltungen', 'behaelter', 'benachrichtigungen', 'behandlungen', 'bestandsprotokoll', 'bestellungen', 'dac_antrag',
+  'assistent_unterhaltungen', 'behaelter', 'benachrichtigungen', 'behandlungen', 'bestandsprotokoll', 'bestellungen',
+  'betriebsmittel', 'betriebsmittel_lager_bewegungen', 'dac_antrag',
   'datenschutz_consents', 'duengemittel', 'duengemittel_lager_bewegungen', 'ea_belege', 'ea_dauerauftraege',
   'ea_dauerauftrag_log', 'ea_kategorien', 'ea_monatsabschluss', 'ea_transaktionen', 'ea_uva',
   'exportauftraege', 'fibu_buchungssaetze',

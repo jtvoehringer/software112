@@ -309,7 +309,7 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('soll_listen_laengen',
     array_length(pg_temp.s112_soll_liste('geheimnis_spalten'), 1) || '/' || array_length(pg_temp.s112_soll_liste('public_policies'), 1)
     || '/' || array_length(pg_temp.s112_soll_liste('protokoll_tabellen'), 1) || '/' || array_length(pg_temp.s112_soll_liste('g_tabellen'), 1),
-    '12/6/42/8');   -- KAN-150 F2a: + 5 Antrags-/Aufzeichnungstabellen; KAN-129: protokoll_tabellen + lesen; KAN-149 D2: + ea_transaktionen, zahlungen, konto_umbuchungen; KAN-149 D3: + ea_belege, ea_monatsabschluss, ea_uva; KAN-150 F1a: + 7 Stammdatentabellen
+    '12/6/44/8');   -- KAN-167: + betriebsmittel, betriebsmittel_lager_bewegungen; KAN-150 F2a: + 5 Antrags-/Aufzeichnungstabellen; KAN-129: protokoll_tabellen + lesen; KAN-149 D2: + ea_transaktionen, zahlungen, konto_umbuchungen; KAN-149 D3: + ea_belege, ea_monatsabschluss, ea_uva; KAN-150 F1a: + 7 Stammdatentabellen
   v_erg := v_erg || pg_temp.s112_erwarte('soll_truncate_anon_wie_authenticated',
     pg_temp.s112_soll_liste('truncate_anon'), pg_temp.s112_soll_liste('truncate_authenticated'));
   SELECT count(*) INTO v_n FROM pg_temp.s112_soll_rpc()
