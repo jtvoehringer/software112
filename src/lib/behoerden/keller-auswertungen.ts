@@ -15,7 +15,36 @@ import { alle } from '@/lib/supabase/alle'
 import { ladeBehaelter, type BehaelterZeile } from '@/lib/keller/behaelter'
 import { bkiRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
 import { ladeKellerBehandlungen, behandlungenJeTyp, type KellerBehandlungZeile } from './keller-behandlungen'
-import { num, tag, text, type R, type Zeitraum } from './kellerbuch-hilfen'
+import { istTag, num, tag, text, type R, type Zeitraum } from './kellerbuch-hilfen'
+
+/**
+ * Zeitraum der Seite /reports/keller aus ?von=&bis= (KAN-177, 01.10.2026).
+ * Ohne ?von (erster Aufruf): 1.1. des laufenden Jahres bis offen; ?von= (leer) = ohne Untergrenze.
+ * Bisher fiel ein ungültiges Datum stillschweigend weg und ein „bis“ vor „von“ wurde verworfen –
+ * dann zeigte die Seite mehr als gewählt („gesamter Zeitraum“). Jetzt: vertauschte Grenzen werden
+ * getauscht, ein ungültiges Datum wird gemeldet.
+ */
+export function kellerZeitraum(
+  sp: { von?: string | string[]; bis?: string | string[] },
+  heute: string,
+): { zeitraum: Zeitraum; hinweise: string[] } {
+  const hinweise: string[] = []
+  const wert = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v)?.trim()
+  const grenze = (roh: string | undefined, name: string): string | null => {
+    if (!roh) return null
+    if (istTag(roh)) return roh
+    hinweise.push(`„${name}“ ist kein gültiges Datum (${roh}) und wurde nicht berücksichtigt.`)
+    return null
+  }
+  const vonRoh = wert(sp.von)
+  let von = vonRoh === undefined ? `${heute.slice(0, 4)}-01-01` : grenze(vonRoh, 'Von')
+  let bis = grenze(wert(sp.bis), 'Bis')
+  if (von && bis && bis < von) {
+    ;[von, bis] = [bis, von]
+    hinweise.push('„Bis“ lag vor „Von“ – die beiden Grenzen wurden getauscht.')
+  }
+  return { zeitraum: { von, bis }, hinweise }
+}
 
 /** umzug_typ → Bezeichnung. 'normal' ist der Standardwert beim Umziehen (umziehen/actions.ts). */
 export const UMZUG_TYP_LABEL: Record<string, string> = {
