@@ -100,7 +100,7 @@ export const KAT_FARBE: Readonly<Record<MeldeFarbe, string>> = { W: 'weiß', R: 
 /** katalog_mapping: interner Wert → Katalogcode */
 export const KATALOG_MAPPING = {
   qualitaetsstufe: {
-    wein: 'WEI', tafelwein: 'WEI', landwein: 'LDW', qualitaetswein: 'QUW', dac: 'DAC', kabinett: 'KAB', spaetlese: 'SPL',
+    wein: 'WEI', landwein: 'LDW', qualitaetswein: 'QUW', dac: 'DAC', kabinett: 'KAB', spaetlese: 'SPL',
     auslese: 'ALW', beerenauslese: 'BAL', eiswein: 'EIW', strohwein: 'STW', ausbruch: 'AUB', trockenbeerenauslese: 'TBA',
     tba: 'TBA', reserve: 'QUW', erste_lage: 'QUW', grosses_gewachs: 'QUW', sekt: 'QUW', sonstiges: 'SOE',
   },
