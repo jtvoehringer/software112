@@ -8,6 +8,8 @@ import { AlertTriangle } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
+import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
+import type { GespeichertesMostgewicht } from '@/lib/wein/mostgewichtFormular'
 
 interface Behaelter { id: string; name: string; typ: string; volumen_liter: number | null }
 
@@ -38,7 +40,8 @@ interface InitialValues {
   transport_anhaenger2:     string
   herkunft:                 string
   anreicherung:             boolean
-  kmw:                      string
+  // KAN-130 Etappe 3: gespeichertes Mostgewicht (°KMW, °Oe, gemessene Einheit)
+  mostgewicht:              GespeichertesMostgewicht | null
   alkohol_pct:              string
   qualitaetsstufe:          string
   staatliche_pruefnummer:   string
@@ -98,7 +101,6 @@ export default function ZukaufEditForm({
   const [jahrgang,            setJahrgang]          = useState(initial.jahrgang)
   const [herkunft,            setHerkunft]          = useState(initial.herkunft)
   const [anreicherung,        setAnreicherung]      = useState(initial.anreicherung)
-  const [kmw,                 setKmw]               = useState(initial.kmw)
   const [alkohol,             setAlkohol]           = useState(initial.alkohol_pct)
   const [pruefnummer,         setPruefnummer]       = useState(initial.staatliche_pruefnummer)
   const [zugmaschine,         setZugmaschine]       = useState(initial.transport_zugmaschine)
@@ -188,7 +190,13 @@ export default function ZukaufEditForm({
     fd.set('jahrgang',                 jahrgang)
     fd.set('herkunft',                 herkunft)
     fd.set('anreicherung',             anreicherung ? 'true' : 'false')
-    fd.set('kmw',                      kmw)
+    // KAN-130 Etappe 3 (01.10.2026): Mostgewicht = versteckte Felder der Eingabe (Messwert und
+    // Einheit); fehlen sie (Art Wein, kein Feld), bleibt das gespeicherte Mostgewicht unverändert
+    const formular = new FormData(e.currentTarget as HTMLFormElement)
+    for (const feld of ['mostgewicht_wert', 'mostgewicht_einheit']) {
+      const wert = formular.get(feld)
+      if (wert !== null) fd.set(feld, wert)
+    }
     fd.set('alkohol_pct',              alkohol)
     fd.set('staatliche_pruefnummer',   pruefnummer)
     fd.set('menge',                    menge)
@@ -345,11 +353,10 @@ export default function ZukaufEditForm({
               <input aria-label="Herkunft" type="text" value={herkunft} onChange={e => setHerkunft(e.target.value)}
                 placeholder="z.B. Kamptal, Wachau" className={inputCls + ' w-full'} />
             </div>
+            {/* Mostgewicht in °KMW oder °Oe (KAN-130 Etappe 3) – gespeicherter Messwert samt Einheit */}
             {(art === 'trauben' || art === 'most') && (
-              <div>
-                <label className={labelCls}>°KMW</label>
-                <input aria-label="°KMW" type="number" value={kmw} onChange={e => setKmw(e.target.value)}
-                  step="0.1" min="0" max="50" placeholder="z.B. 19.5" className={inputCls + ' w-full'} />
+              <div className="col-span-2">
+                <MostgewichtEingabe name="mostgewicht" startwert={initial.mostgewicht} />
               </div>
             )}
             {art === 'wein' && (
