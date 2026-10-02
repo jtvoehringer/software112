@@ -33,6 +33,8 @@ export const MELDUNGEN_ERNTE = {
     },
     spalten: SPALTEN_ERNTEMELDUNG,
     dateiteile: (p, betrieb) => ['Erntemeldung', betrieb.betriebsnummer, p.jahrgang],
+    // KAN-95: Jahr = Stichtag der Erntemeldung (30.11. des Jahrgangs), auch bei Export im Folgejahr
+    bki: p => ({ bericht: 'Erntemeldung', jahr: p.jahrgang }),
   }),
 
   lesedaten: definiereMeldung(KATALOG_ERNTE.lesedaten, {
@@ -44,6 +46,8 @@ export const MELDUNGEN_ERNTE = {
     },
     spalten: SPALTEN_LESEDATEN,
     dateiteile: (p, betrieb) => ['Lesedaten', betrieb.betriebsnummer, p.jahrgang],
+    // KAN-95: keine Stichtagsmeldung → Jahr des Exporttags, der Jahrgang steht im Berichtsnamen
+    bki: p => ({ bericht: ['Lesedaten', p.jahrgang] }),
   }),
 
   // Bestand am Abrufdatum – KEIN Stichtagsbestand (KAN-43). Das Abrufdatum wird einmal
@@ -58,6 +62,8 @@ export const MELDUNGEN_ERNTE = {
     },
     spalten: SPALTEN_BESTANDSMELDUNG,
     dateiteile: (p, betrieb) => ['Weinbestand', betrieb.betriebsnummer, bestandKennzeichnung(p.bestandAm)],
+    // KAN-95: Jahr = Stichtag; bis KAN-43 ist das das Abrufdatum (Bestand am Abrufdatum)
+    bki: p => ({ bericht: ['Weinbestand', bestandKennzeichnung(p.bestandAm)], jahr: Number(p.bestandAm.slice(0, 4)) }),
   }),
 
   // Maschinen-Upload in die Weindatenbank: PROFIL_BKI (Vorspann, kein Formelschutz)
@@ -67,5 +73,6 @@ export const MELDUNGEN_ERNTE = {
     laden: (ctx, p) => ladeBkiTraubenverkauf(ctx.supabase, ctx.tenantId, p),
     spalten: SPALTEN_BKI_TRAUBENVERKAUF,
     dateiteile: (p, betrieb) => ['BKI_Traubenverkauf', betrieb.betriebsnummer, p.jahrgang ?? 'alle Jahrgänge'],
+    bki: p => ({ bericht: ['Traubenverkauf', p.jahrgang ?? 'alle Jahrgänge'] }),
   }),
 } satisfies MeldungenZu<typeof KATALOG_ERNTE>
