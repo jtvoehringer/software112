@@ -6,6 +6,7 @@ import { jahrgangOptional, jahrgangParameter } from '../ernte_hilfen'
 import { jahrgangFinden, ladeErntemeldung, ladeLesedaten, SPALTEN_ERNTEMELDUNG, SPALTEN_LESEDATEN } from '../erntemeldung'
 import { bestandKennzeichnung, ladeBestandsmeldung, SPALTEN_BESTANDSMELDUNG, stichtagParameter } from '../bestandsmeldung'
 import { ladeBkiTraubenverkauf, SPALTEN_BKI_TRAUBENVERKAUF } from '../traubenverkauf'
+import { bsmJournal, bsmKennzeichnung, bsmParameter, ladeBsm, SPALTEN_BSM, SPALTEN_BSM_JOURNAL } from '../bsm'
 
 // Register der Behördenmeldungen – Gruppe „Ernte & Lese“ (Weinerntemeldung, Lesedaten, BKI-Datenblatt Traubenverkauf, Weinbestandsmeldung (KAN-43)).
 // Je Katalog-Eintrag aus katalog/ernte.ts genau ein Eintrag mit CSV (laden + spalten).
@@ -62,6 +63,31 @@ export const MELDUNGEN_ERNTE = {
     dateiteile: (p, betrieb) => ['Weinbestand', betrieb.betriebsnummer, bestandKennzeichnung(p.stichtag)],
     // KAN-95: Jahr = Jahr des Stichtags
     bki: p => ({ bericht: ['Weinbestand', bestandKennzeichnung(p.stichtag)], jahr: Number(p.stichtag.slice(0, 4)) }),
+  }),
+
+  // KAN-43 Etappe 2: BSM nach Buchungsarten (?von=&bis=, Standard Weinwirtschaftsjahr – Entscheidung Jörgen 02.10.2026:
+  // BSM = 1.8.–31.7.); Dateiname und BKI-Jahr nach „bis“. Summentabelle und Kontrolljournal aus derselben Ladung.
+  bsm: definiereMeldung(KATALOG_ERNTE.bsm, {
+    parameter: sp => bsmParameter(sp),
+    laden: async (ctx, p) => {
+      const daten = await ladeBsm(ctx.supabase, ctx.tenantId, p)
+      return { zeilen: daten.summen, warnungen: daten.warnungen }
+    },
+    spalten: SPALTEN_BSM,
+    dateiteile: (p, betrieb) => ['BSM', betrieb.betriebsnummer, bsmKennzeichnung(p)],
+    bki: p => ({ bericht: 'Bestandsmeldung-BSM', jahr: Number(p.bis.slice(0, 4)), von: p.von, bis: p.bis }),
+  }),
+
+  // ?art=CODE[,CODE] filtert auf Buchungsarten (z. B. ZU_ABW,AB_ABW)
+  'bsm-kontrolljournal': definiereMeldung(KATALOG_ERNTE['bsm-kontrolljournal'], {
+    parameter: sp => bsmParameter(sp),
+    laden: async (ctx, p) => {
+      const daten = await ladeBsm(ctx.supabase, ctx.tenantId, p)
+      return { zeilen: bsmJournal(daten, p.arten), warnungen: daten.warnungen }
+    },
+    spalten: SPALTEN_BSM_JOURNAL,
+    dateiteile: (p, betrieb) => ['BSM-Kontrolljournal', betrieb.betriebsnummer, bsmKennzeichnung(p), p.arten.join('-') || null],
+    bki: p => ({ bericht: ['BSM-Kontrolljournal', p.arten.join('-') || null], jahr: Number(p.bis.slice(0, 4)), von: p.von, bis: p.bis }),
   }),
 
   // Maschinen-Upload in die Weindatenbank: PROFIL_BKI (Vorspann, kein Formelschutz)

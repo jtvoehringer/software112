@@ -1,4 +1,4 @@
-// Katalog der Behördenmeldungen – Gruppe „Ernte & Lese“ (Weinerntemeldung, Lesedaten, BKI-Datenblatt Traubenverkauf, Weinbestandsmeldung (KAN-43)).
+// Katalog der Behördenmeldungen – Gruppe „Ernte & Lese“ (Weinerntemeldung, Lesedaten, BKI-Datenblatt Traubenverkauf, Weinbestandsmeldung (KAN-43) samt BSM nach Buchungsarten und Kontrolljournal).
 // Isomorph (auch in Client-Komponenten nutzbar). Je Eintrag: Schlüssel = id (URL /meldungen/<id>/csv).
 // Zu jedem Eintrag gehört genau ein Eintrag in register/ernte.ts (erzwingt der Typ MeldungenZu).
 //
@@ -35,6 +35,25 @@ export const KATALOG_ERNTE = katalogGruppe('ernte', {
     pflicht: true,
     rechtsgrundlage: '§ 29 Weingesetz 2009 (Stichtag 31. Juli, Meldefrist 15. August)',
     beschreibung: 'Flaschenwein und Wein in Gebinden – Bestand zum Stichtag (Standard 31. Juli), aus dem heutigen Bestand und den Buchungen danach zurückgerechnet.',
+  },
+  // KAN-43 Etappe 2: BSM je Meldezeitraum (Entscheidung Jörgen 02.10.2026: BSM = 1.8.–31.7.), gegliedert nach Buchungsarten
+  bsm: {
+    titel: 'Weinbestandsmeldung nach Buchungsarten (BSM)',
+    behoerde: 'BMLUK-Weindatenbank',
+    zugriff: 'betriebsleitung',
+    druckPfad: '/reports/bestandsmeldung-bsm',
+    pflicht: true,
+    rechtsgrundlage: '§ 29 Weingesetz 2009 (Weinwirtschaftsjahr 1. August – 31. Juli, Meldefrist 15. August)',
+    beschreibung: 'Anfangsbestand + Zugänge − Abgänge je BSM-Buchungsart = Endbestand, je Herkunft, BSM-Spalte (Wein … Prädikatswein, Perl-/Schaumwein, Sonstige), weiß/rot und offen/Flasche – mit Abgleich gegen den Stichtagsbestand.',
+  },
+  'bsm-kontrolljournal': {
+    titel: 'Kontrolljournal zur Bestandsmeldung (BSM)',
+    behoerde: 'BMLUK-Weindatenbank',
+    zugriff: 'betriebsleitung',
+    druckPfad: '/reports/bestandsmeldung-bsm',
+    pflicht: true,
+    rechtsgrundlage: '§ 29 Weingesetz 2009',
+    beschreibung: 'Jede Buchung der BSM mit Datum, Beleg, Charge/Füllung, Buchungsart, Spalte, Farbe, Herkunft und offen/Flasche – filterbar nach Buchungsart (z. B. nur Abwertung).',
   },
   'bki-traubenverkauf': {
     titel: 'BKI-Datenblatt Traubenverkauf',
