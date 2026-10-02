@@ -54,7 +54,7 @@ const SRC_DIR = path.join(ROOT, 'src')
 // fuellung_bewegungen (Schreiben nur per RPC fuellung_bestand_buchen).
 // KAN-167 (01.10.2026): betriebsmittel, betriebsmittel_lager_bewegungen.
 const PROTECTED_TABLES = [
-  'aktivitaet_dokumente', 'aktivitaeten', 'ama_erntemeldungen', 'assistent_korrekturen',
+  'aktivitaet_dokumente', 'aktivitaeten', 'ama_erntemeldungen', 'assistent_korrekturen', 'meldung_abgaben',
   'assistent_unterhaltungen', 'behaelter', 'benachrichtigungen', 'behandlungen', 'bestandsprotokoll', 'bestellungen',
   'betriebsmittel', 'betriebsmittel_lager_bewegungen', 'dac_antrag',
   'datenschutz_consents', 'duengemittel', 'duengemittel_lager_bewegungen', 'ea_belege', 'ea_dauerauftraege',

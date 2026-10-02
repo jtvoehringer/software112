@@ -982,6 +982,27 @@
 "created_at",
 "updated_at"
 ],
+"meldung_abgaben": [
+"id",
+"tenant_id",
+"meldung",
+"ama_meldung_id",
+"meldungs_version",
+"eingereicht_am",
+"parameter",
+"zeilen",
+"zeilen_anzahl",
+"warnungen",
+"spalten",
+"spalten_sha256",
+"profil",
+"dateiname",
+"csv_text",
+"csv_sha256",
+"csv_bytes",
+"erstellt_von",
+"erstellt_am"
+],
 "module_flags": [
 "id",
 "tenant_id",

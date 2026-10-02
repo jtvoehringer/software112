@@ -6,7 +6,7 @@
 
 import { useState, useTransition } from 'react'
 import { amaKorrekturAnlegen, amaStatusSetzen, createOrUpdateAMAMeldung } from '../actions'
-import type { AMAMeldung } from './page'
+import type { AMAMeldung, AMAVersion } from './page'
 import { fmtHa, fmtNum, fmtProzent } from '@/lib/format'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fehlerText } from '@/lib/fehler'
@@ -33,6 +33,21 @@ function StatusBadge({ status }: { status: string }) {
 function datumDe(d: string | null | undefined): string {
   if (!d) return '–'
   return new Date(d).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Vienna' })
+}
+
+/** KAN-37 B: Download der beim Einreichen gespeicherten Datei (byte-gleich, mit SHA-256) */
+function AbgabeKnopf({ version, csvErlaubt }: { version: AMAVersion; csvErlaubt: boolean }) {
+  if (AMA_OFFEN.includes(version.status)) return null
+  if (!version.abgabe) {
+    return <span className="text-xs text-s112-muted">Keine gespeicherte Datei (vor dem 02.10.2026 eingereicht)</span>
+  }
+  if (!csvErlaubt) return null
+  return (
+    <span className="inline-flex flex-col gap-0.5">
+      <CsvExportKnopf label="Abgegebene Datei (CSV)" href={csvPfad('erntemeldung', { abgabe: version.abgabe.id })} />
+      <span className="text-[11px] text-s112-muted font-mono" title={version.abgabe.csv_sha256}>SHA-256 {version.abgabe.csv_sha256.slice(0, 16)}…</span>
+    </span>
+  )
 }
 
 function heuteIso(): string {
@@ -220,7 +235,7 @@ export default function AmaMeldungKarte({ jahrgangId, jahrgang, amaMeldung, stic
                 </label>
               </div>
               {dialog === 'einreichen' && (
-                <p className="text-xs text-s112-muted">Danach bleibt die Meldung unverändert; Korrekturen gehen als neue Version.</p>
+                <p className="text-xs text-s112-muted">Danach bleibt die Meldung unverändert; Korrekturen gehen als neue Version. Die Erntemeldung wird dabei als Datei (CSV mit SHA-256) gespeichert und bleibt so abrufbar, wie sie abgegeben wurde.</p>
               )}
               <div className="flex gap-2">
                 <button onClick={statusSpeichern} disabled={!datum} className={knopfHaupt}>Speichern</button>
@@ -241,8 +256,9 @@ export default function AmaMeldungKarte({ jahrgangId, jahrgang, amaMeldung, stic
               <button onClick={korrektur} className={knopfNeben}>Korrekturmeldung anlegen</button>
             )}
             {csvErlaubt && (
-              <CsvExportKnopf label="Erntemeldung als CSV" href={csvPfad('erntemeldung', { jahrgang: String(jahrgang) })} />
+              <CsvExportKnopf label={offen ? 'Erntemeldung als CSV' : 'Aktuelle Daten als CSV'} href={csvPfad('erntemeldung', { jahrgang: String(jahrgang) })} />
             )}
+            <AbgabeKnopf version={amaMeldung} csvErlaubt={csvErlaubt} />
           </div>
 
           {aeltere.length > 0 && (
@@ -257,6 +273,7 @@ export default function AmaMeldungKarte({ jahrgangId, jahrgang, amaMeldung, stic
                     <th className="text-left pb-1 font-semibold">Rückmeldung</th>
                     <th className="text-left pb-1 font-semibold">Referenz</th>
                     <th className="text-right pb-1 font-semibold">Menge (kg)</th>
+                    <th className="text-left pb-1 pl-3 font-semibold">Abgegebene Datei</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -268,6 +285,7 @@ export default function AmaMeldungKarte({ jahrgangId, jahrgang, amaMeldung, stic
                       <td className="py-1">{datumDe(v.bestaetigt_am)}</td>
                       <td className="py-1">{v.ama_referenznr ?? '–'}</td>
                       <td className="py-1 text-right tabular-nums">{v.gesamtmenge_kg == null ? '–' : fmtNum(v.gesamtmenge_kg)}</td>
+                      <td className="py-1 pl-3"><AbgabeKnopf version={v} csvErlaubt={csvErlaubt} /></td>
                     </tr>
                   ))}
                 </tbody>

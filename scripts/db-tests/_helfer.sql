@@ -798,6 +798,7 @@ END $f$;
 --     weingarten_id/zukauf_posten_id),
 --   * verschneidung_quellen: menge_liter 1 (CHECK menge_liter > 0),
 --   * betriebsmittel_lager_bewegungen: typ 'anfangsbestand' (Einkäufe nur per RPC, RLS lehnt typ 'einkauf' ab; KAN-167),
+--   * meldung_abgaben: Abgabe einer Bestandsmeldung ohne AMA-Bezug (KAN-37 B),
 --   * tenant_einstellungen: die vorhandene Zeile des Betriebs (je Betrieb genau eine),
 --   * tenant_memberships: neuer Test-Benutzer als leser (user_id aus p_werte, sonst neu; nie p_persona).
 -- p_werte überschreibt alles. Bei einem Schlüsselkonflikt ein zweiter Versuch mit neuen Elternzeilen
@@ -856,6 +857,10 @@ BEGIN
     v_w := v_w || '{"menge_liter": 1}'::jsonb;
   ELSIF p_tab = 'betriebsmittel_lager_bewegungen' THEN   -- KAN-167
     v_w := v_w || '{"typ": "anfangsbestand"}'::jsonb;
+  ELSIF p_tab = 'meldung_abgaben' THEN   -- KAN-37 B: Abgabe ohne AMA-Bezug (CHECKs auf Meldung, jsonb-Typen, Spalten)
+    v_w := v_w || jsonb_build_object('meldung', 'bestandsmeldung', 'parameter', '{}'::jsonb, 'zeilen', '[]'::jsonb, 'warnungen', '[]'::jsonb,
+      'spalten', '[{"kopf": "S112TEST", "typ": "text"}]'::jsonb, 'profil', 'EXCEL_AT', 'dateiname', 'S112TEST.csv', 'csv_text', 'S112TEST',
+      'eingereicht_am', current_date);
   END IF;
   BEGIN
     RETURN pg_temp.s112_zeile(p_tab, p_tenant, v_w || coalesce(p_werte, '{}'::jsonb));
@@ -979,6 +984,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('kostenstellen',                 'SA,TA,W*{auswertungen|rieden|kellerbuch}','SA,TA,W*{auswertungen|rieden|kellerbuch}','SA,TA,W*{auswertungen|rieden|kellerbuch}'),
     ('lagen',                         'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       'SA,TA{rieden}'),
     ('lesen',                         'SA,TA,W*{rieden|kellerbuch}',            'SA,TA,W*{rieden|kellerbuch}',            'SA,TA{rieden|kellerbuch}'),
+    ('meldung_abgaben',               '-',                                      '-',                                      '-'),   -- KAN-37 B: nur per RPC, unveränderlich
     ('module_flags',                  'PA',                                     'PA',                                     '-'),
     ('morgenberichte',                '-',                                      '-',                                      '-'),
     ('pflanzenschutzmittel',          'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       'SA,TA{rieden}'),
@@ -1199,6 +1205,8 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('trigger',       '--S', false, 's112_ama_position_schutz()'),             -- KAN-148 C2: Positionen eingereichter Meldungen
     ('trigger',       '--S', false, 's112_ama_schutz()'),                      -- KAN-148 C2: Status/Versionen nur per RPC
     ('mandant',       '-US', true , 's112_ama_status_setzen(p_tenant_id uuid, p_meldung_id uuid, p_status text, p_datum date, p_referenznr text)'),   -- KAN-148 C2
+    ('mandant',       '-US', true , 's112_ama_einreichen(p_tenant_id uuid, p_meldung_id uuid, p_datum date, p_referenznr text, p_abgabe jsonb)'),   -- KAN-37 B
+    ('trigger',       '--S', false, 's112_meldung_abgabe_schutz()'),           -- KAN-37 B: Abgaben unveränderlich
     ('mandant',       '-US', true , 's112_fuellung_verkauf_buchen(p_tenant_id uuid, p_fuellung_id uuid, p_verkaufsposten_id uuid, p_menge_stk integer, p_datum date, p_grund text)'),   -- KAN-149 D1
     ('trigger',       '--S', false, 's112_ea_abschluss_schutz()'),             -- KAN-149 D3: Monatsabschluss, gesperrte UVA, verbuchte Belege
     ('intern',        '--S', false, 's112_ea_gegenbuchung(p_tenant_id uuid, p_id uuid, p_grund text, p_datum date)'),   -- KAN-149 D2 (Hilfsfunktion)

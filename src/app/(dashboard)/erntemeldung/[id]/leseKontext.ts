@@ -212,7 +212,17 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
   const hektarhoechstertrag: HektarhoechstertragStatus = berechneHektarhoechstertrag(leseGueltig, weinbauflaecheHa(gstWi))
 
   let amaMeldung: AMAMeldung | null = null
-  const amaVersionen: AMAVersion[] = ((rawA ?? []) as AR[]).map(v => ({ ...v, version: (v.version as number | null) ?? 1 }) as AMAVersion)
+  // KAN-37 B: gespeicherte Abgaben (Snapshot der eingereichten CSV) je Version
+  const amaIds = ((rawA ?? []) as AR[]).map(v => v.id as string)
+  const abgabeJe = new Map<string, { id: string; csv_sha256: string }>()
+  if (amaIds.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: rawAbg } = await (supabase.from('meldung_abgaben') as any)
+      .select('id, ama_meldung_id, csv_sha256').eq('tenant_id', tenantId).in('ama_meldung_id', amaIds)
+    for (const a of (rawAbg ?? []) as AR[]) abgabeJe.set(a.ama_meldung_id, { id: a.id, csv_sha256: a.csv_sha256 })
+  }
+  const amaVersionen: AMAVersion[] = ((rawA ?? []) as AR[])
+    .map(v => ({ ...v, version: (v.version as number | null) ?? 1, abgabe: abgabeJe.get(v.id) ?? null }) as AMAVersion)
   const amaNeueste = neuesteAmaVersion(amaVersionen)
   if (amaNeueste) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
