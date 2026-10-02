@@ -34,6 +34,13 @@ Qualitätsstufe bzw. die weiteste Herkunftsstufe). Das Tool-Ergebnis enthält da
 qualitaet_abgestuft/herkunft_abgestuft, falls das passiert ist – diese Information MUSST du dem
 User nach dem Speichern explizit mitteilen (nicht nur "erledigt, danke"), da es sich um eine
 für den Betrieb rechtlich relevante automatische Änderung handelt.
+
+PRÜFNUMMER (KAN-83): Hat die Ziel-Charge eine geltende staatliche Prüfnummer, bucht das Tool
+nicht, sondern meldet bestaetigung_noetig mit einer Rückfrage („Die Prüfnummer … gilt für den
+Tankbestand … nicht mehr … Fortfahren?“). Gib diese Frage wörtlich an den User weiter und rufe
+das Tool nur nach seiner ausdrücklichen Zustimmung erneut mit pruefnummer_verlust_bestaetigt=true
+auf. Ist der DAC-Antrag eingereicht, lehnt der Server ab – dann muss der Antrag zuerst
+zurückgezogen werden.
 `.trim()
 
 export const VERSCHNEIDEN_TOOL = {
@@ -50,6 +57,10 @@ export const VERSCHNEIDEN_TOOL = {
       bestaetigt_vom_user: {
         type: 'boolean',
         description: 'true NUR wenn der User die Zusammenfassung in seiner letzten Nachricht ausdrücklich bestätigt hat.',
+      },
+      pruefnummer_verlust_bestaetigt: {
+        type: 'boolean',
+        description: 'KAN-83: true NUR wenn das Tool zuvor bestaetigung_noetig gemeldet, du die Rückfrage zur Prüfnummer wörtlich weitergegeben und der User ihr in seiner letzten Nachricht ausdrücklich zugestimmt hat.',
       },
       datum: { type: 'string', description: 'Datum der Verschneidung, Format YYYY-MM-DD' },
       ziel_weinausbau_id: { type: 'string', description: 'ID der Ziel-Charge aus dem Stammdaten-Kontext' },
@@ -120,8 +131,19 @@ export async function fuehreVerschneidenAus(
     weinausbau_id: String(q.weinausbau_id), menge_liter: Number(q.menge_liter),
   }))))
 
+  // KAN-83: zweite Stufe – der User hat die Rückfrage zur Prüfnummer bestätigt
+  if (input.pruefnummer_verlust_bestaetigt === true) fd.set('pn_bestaetigt', '1')
+
   try {
     const result = await createVerschneidung(fd)
+    if ((result as R | undefined)?.bestaetigung) {
+      return {
+        erfolg: false,
+        bestaetigung_noetig: true,
+        hinweis: `Rückfrage an den User (wörtlich weitergeben): „${(result as R).bestaetigung}“ Nur wenn er ausdrücklich ` +
+          'zustimmt, dieses Tool erneut mit pruefnummer_verlust_bestaetigt=true aufrufen. Es wurde NICHTS gespeichert.',
+      }
+    }
     return {
       erfolg: true,
       ziel_weinausbau_id: input.ziel_weinausbau_id,

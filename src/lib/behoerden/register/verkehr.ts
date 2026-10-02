@@ -33,6 +33,7 @@ export const MELDUNGEN_VERKEHR = {
     },
     spalten: SPALTEN_TRANSPORTBESCHEINIGUNG,
     dateiteile: (p, betrieb) => ['Transportbescheinigung', betrieb.betriebsnummer, p.beleg ?? p.id.slice(0, 8)],
+    bki: p => ({ bericht: ['Transportbescheinigung', p.beleg ?? p.id.slice(0, 8)] }),
   }),
 
   transportbescheinigungen: definiereMeldung(KATALOG_VERKEHR.transportbescheinigungen, {
@@ -47,6 +48,7 @@ export const MELDUNGEN_VERKEHR = {
     laden: (ctx, p) => ladeTransportbescheinigungen(ctx.supabase, ctx.tenantId, p),
     spalten: SPALTEN_TRANSPORTBESCHEINIGUNG,
     dateiteile: (p, betrieb) => ['Transportbescheinigungen', betrieb.betriebsnummer, `${p.von}_bis_${p.bis}`, p.nurGespeichert ? 'gespeichert' : null],
+    bki: p => ({ bericht: ['Transportbescheinigungen', p.nurGespeichert ? 'gespeichert' : null], von: p.von, bis: p.bis }),
   }),
 
   pruefnummernantrag: definiereMeldung(KATALOG_VERKEHR.pruefnummernantrag, {

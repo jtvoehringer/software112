@@ -144,7 +144,13 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
     fd.set('ziel_weinausbau_id', zielCharge.id)
     startTransition(async () => {
       try {
-        const result = await createVerschneidung(fd)
+        let result = await createVerschneidung(fd)
+        // KAN-83: Prüfnummer der Ziel-Charge erlischt – nur nach ausdrücklicher Bestätigung buchen
+        if (result?.bestaetigung) {
+          if (!window.confirm(result.bestaetigung)) return
+          fd.set('pn_bestaetigt', '1')
+          result = await createVerschneidung(fd)
+        }
         if (result?.qualitaetAbgestuft || result?.herkunftAbgestuft) {
           setQualitaetAbgestufInfo(result.qualitaetAbgestuft ?? null)
           setHerkunftAbgestufInfo(result.herkunftAbgestuft ?? null)

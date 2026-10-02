@@ -21,6 +21,8 @@ import { alle } from '@/lib/supabase/alle'
 import {
   antragGenehmigt, chargeHatAntrag, freiePruefnummerPruefen, fuellungAntragPruefen, fuellungDatumText, fuellungDatumVerletzung,
   pnDatumDe, pnNormiert, pruefnummerAusAntrag, pruefnummerGueltig, pnTag,
+  pruefnummernSchaden, pruefnummernSchadenFrage, pruefnummernSchadenNotiz,
+  type PnVorgang,
   type PnAbfuellung, type PnAntrag, type PnChargeDaten, type PnErgebnis, type PnUmzugAbgang, type PnUmzugsherkunft, type PnZugang,
 } from './pruefnummer'
 
@@ -612,4 +614,30 @@ export async function pruefnummerBeiDatumsaenderung(
       throw new AktionsFehler(`Das Abfülldatum kann nicht auf den ${pnDatumDe(datum)} geändert werden: ${fuellungDatumText(v, datum, antrag)} – die Prüfnummer bzw. der DAC-Antrag der Füllung gälte dann nicht. Ist das Datum falsch erfasst, bitte die Füllung löschen (nur ohne Verkäufe und Bestandsbuchungen möglich) und neu anlegen.`)
     }
   })
+}
+
+/**
+ * KAN-83 (01.10.2026): Übergangswarnung vor Verschnitt, Zusammenführung per Umzug und Zukauf.
+ * Wirft AktionsFehler, wenn ein Antrag der Charge eingereicht bzw. in Prüfung ist (Antrag zuerst
+ * zurückziehen); liefert sonst die Rückfrage und den Vermerk für den Vorgang, oder null, wenn
+ * keine geltende Prüfnummer betroffen ist. Aufruf VOR der ersten Buchung.
+ */
+export async function pruefePruefnummernSchaden(
+  supabase: any,
+  tenantId: string,
+  vorgang: PnVorgang,
+  ziele: readonly { chargeId: string; name?: string | null; zugangLiter?: number | null }[],
+  datum: string,
+): Promise<{ frage: string; notiz: string } | null> {
+  const gueltige = ziele.filter(z => UUID_RE.test(z.chargeId))
+  if (gueltige.length === 0) return null
+  const daten = await ladePruefnummerDaten(supabase, tenantId, gueltige.map(z => z.chargeId))
+  const ergebnis = pruefnummernSchaden(vorgang, gueltige.flatMap(z => {
+    const d = daten.get(z.chargeId)
+    return d ? [{ daten: d, name: z.name ?? null, zugangLiter: z.zugangLiter ?? null }] : []
+  }), pnTag(datum) ?? wienHeute())
+  if (ergebnis.ablehnung) throw new AktionsFehler(ergebnis.ablehnung)
+  const frage = pruefnummernSchadenFrage(ergebnis.schaeden)
+  const notiz = pruefnummernSchadenNotiz(ergebnis.schaeden, vorgang === 'zukauf')
+  return frage && notiz ? { frage, notiz } : null
 }

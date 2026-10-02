@@ -15,6 +15,8 @@ import { gebindeFehlerText } from '@/lib/keller/behaelter'
 import { sperreBeiFolgebuchungen, folgebuchungenDerCharge, folgebuchungenText } from '@/lib/kellerbuch/folgebuchungen'
 import { planeVerschneidungStorno, storniereVerschneidung, GEBINDEWECHSEL_OHNE } from '@/lib/kellerbuch/storno'
 import { stornoGrundFehler, STORNO_GRUND_MIN } from '@/lib/storno/grund'
+import { pruefePruefnummernSchaden } from '@/lib/kellerbuch/pruefnummerLaden'
+import { mitPnNotiz } from '@/lib/kellerbuch/pruefnummer'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -400,14 +402,15 @@ export async function createAnalyse(formData: FormData) {
 // die Weinart-Sperre greift ebenfalls vorher (bisher erst nach dem Anlegen des Verschnitts).
 // Die Quellen werden nicht mehr mit Math.max(0, …) gekappt, sondern bei Rest ≤ 0,01 L
 // abgeschlossen – ein Mehr als der Bestand wird vorher abgelehnt.
-export async function createVerschneidung(formData: FormData): Promise<{ qualitaetAbgestuft: { von: string; nach: string } | null; herkunftAbgestuft: { von: string; nach: string } | null }> {
+// KAN-83: bestaetigung = Rückfrage „Prüfnummer gilt nicht mehr“ – nichts gebucht; mit pn_bestaetigt=1 erneut senden
+export async function createVerschneidung(formData: FormData): Promise<{ qualitaetAbgestuft: { von: string; nach: string } | null; herkunftAbgestuft: { von: string; nach: string } | null; bestaetigung?: string }> {
   const supabase  = await createSupabaseServerClient()
   const tenantId  = await getTenantId()
   if (!tenantId) throw new AktionsFehler('Kein Betrieb gefunden')
 
   const datum        = formData.get('datum') as string
   const zielId       = formData.get('ziel_weinausbau_id') as string
-  const notizen      = (formData.get('notizen') as string) || null
+  let notizen        = (formData.get('notizen') as string) || null
   const quellenJson  = formData.get('quellen_json') as string
   let quellenRoh: unknown
   try {
@@ -434,7 +437,7 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
   // Ziel-Charge laden (Mandant) – Qualitätsstufe + Herkunft-Code vor der Verschneidung sichern
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: zielRaw, error: zielErr } = await (supabase.from('weinausbau') as any)
-    .select('id, menge_liter, rebsorte, weinart, qualitaetsstufe, herkunft_code')
+    .select('id, name, menge_liter, rebsorte, weinart, qualitaetsstufe, herkunft_code')
     .eq('id', zielId).eq('tenant_id', tenantId).maybeSingle()
   if (zielErr) throw new AktionsFehler(dbFehlerText(zielErr, 'Ziel-Charge konnte nicht geladen werden'))
   if (!zielRaw) throw new AktionsFehler('Ziel-Charge nicht gefunden')
@@ -474,6 +477,15 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
   const zielWeinart = artVon(zielVorher)
   const quelleKonflikt = quellenRows.find((q: R) => weinartKonflikt(artVon(q), zielWeinart))
   if (quelleKonflikt) throw new AktionsFehler(`Rot- und Weißwein dürfen laut Weingesetz nicht verschnitten werden (${WEINART_LABEL[artVon(quelleKonflikt)]} in ${WEINART_LABEL[zielWeinart]}).`)
+
+  // KAN-83 (01.10.2026): Prüfnummer der Ziel-Charge – eingereichter Antrag: Ablehnung; geltende
+  // Nummer: erst nachfragen, nach der Bestätigung buchen und am Verschnitt vermerken
+  {
+    const pn = await pruefePruefnummernSchaden(supabase, tenantId, 'verschnitt',
+      [{ chargeId: zielId, name: (zielVorher.name as string | null) ?? null, zugangLiter: quellen.reduce((s, q) => s + q.menge_liter, 0) }], datum)
+    if (pn && formData.get('pn_bestaetigt') !== '1') return { qualitaetAbgestuft: null, herkunftAbgestuft: null, bestaetigung: pn.frage }
+    if (pn) notizen = mitPnNotiz(notizen, pn.notiz)
+  }
 
   // Verschneidungs-Datensatz anlegen
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

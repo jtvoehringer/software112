@@ -107,5 +107,6 @@ export const MELDUNGEN_PFLANZENSCHUTZ = {
     },
     spalten: SPALTEN_RV_WEINGARTEN,
     dateiteile: (p, betrieb) => ['Rückverfolgung-Weingarten', betrieb.betriebsnummer, p.anzeige.titel ?? p.jahrgang],
+    bki: p => ({ bericht: ['Rückverfolgung-Weingarten', p.anzeige.titel ?? p.jahrgang] }),
   }),
 } satisfies MeldungenZu<typeof KATALOG_PFLANZENSCHUTZ>

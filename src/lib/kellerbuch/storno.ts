@@ -455,7 +455,7 @@ export function verschneidungSperrMeldung(plan: VerschneidungStornoPlan): string
 // ── Umzug ─────────────────────────────────────────────────────────────────────
 
 const UMZUG_SPALTEN =
-  'id, datum, erstellt_am, zeilen_typ, umzug_typ, umzug_batch_id, von_weinausbau_id, nach_weinausbau_id, von_behaelter_id, nach_behaelter_id, brutto_liter, menge_liter, schwund_liter, notizen, qualitaet_vorher, qualitaet_nachher'
+  'id, datum, erstellt_am, zeilen_typ, umzug_typ, umzug_batch_id, von_weinausbau_id, nach_weinausbau_id, von_behaelter_id, nach_behaelter_id, brutto_liter, menge_liter, schwund_liter, notizen, qualitaet_vorher, qualitaet_nachher, herkunft_code_vorher, herkunft_code_nachher'
 
 /** Alle Zeilen der Umzugsbuchung (ganzer Batch) zu einer Zeile – null, wenn nicht gefunden */
 export async function ladeUmzugZeilen(
@@ -613,6 +613,13 @@ function qualitaetsCode(text: string): string | null {
 function nimmAbstufungZurueck(zeilenDerBuchung: R[], aenderungen: ChargenRueckbuchung[], chargen: Map<string, R>): void {
   for (const z of zeilenDerBuchung) {
     if (z.zeilen_typ !== 'ziel' || !z.nach_weinausbau_id) continue
+    // KAN-94 (01.10.2026): Herkunft-Abstufung der Zusammenführung zurücknehmen – Momentaufnahme
+    // herkunft_code_vorher/_nachher an der Ziel-Zeile, nur wenn die Charge noch auf „nachher“ steht
+    if (z.herkunft_code_nachher && z.herkunft_code_vorher !== z.herkunft_code_nachher) {
+      const a = aenderungen.find(x => x.id === z.nach_weinausbau_id)
+      const c = chargen.get(z.nach_weinausbau_id)
+      if (a && c && a.neu > TOLERANZ && c.herkunft_code === z.herkunft_code_nachher) a.payload.herkunft_code = z.herkunft_code_vorher ?? null
+    }
     // KAN-145: Momentaufnahme der Ziel-Charge an der Ziel-Zeile (ab 30.09.2026) – zurück, wenn sie noch auf „nachher“ steht
     if (z.qualitaet_vorher && z.qualitaet_nachher && z.qualitaet_vorher !== z.qualitaet_nachher) {
       const a = aenderungen.find(x => x.id === z.nach_weinausbau_id)

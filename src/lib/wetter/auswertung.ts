@@ -6,6 +6,7 @@
 
 import { aktualisiereWetter, ladeWetterdaten, wetterPunkte, type WetterRied } from './daten'
 import { werteWetterAus, type RegelRied, type WetterAuswertung } from './regeln'
+import { BEHANDLUNG_RIEDEN_SELECT, riedIdsDerMassnahme } from '@/lib/behandlungen/rieden'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -23,7 +24,7 @@ export async function ladeWetterAuswertung(
   const seit = new Date(heute.getTime() - BEHANDLUNG_RUECKBLICK_TAGE * 86400000).toISOString().slice(0, 10)
   const [{ data: wgRaw }, { data: bhRaw }] = await Promise.all([
     (client.from('weingarten') as any).select('id, name, ried, zentrum_lat, zentrum_lon').eq('tenant_id', tenantId).eq('aktiv', true).order('name'),
-    (client.from('behandlungen') as any).select('id, weingarten_id, datum, art, ernte_fruehesteins, psm:pflanzenschutzmittel!psm_id(name, handelsname, wartezeit_tage)')
+    (client.from('behandlungen') as any).select(`id, datum, art, ernte_fruehesteins, psm:pflanzenschutzmittel!psm_id(name, handelsname, wartezeit_tage), ${BEHANDLUNG_RIEDEN_SELECT}`)
       .eq('tenant_id', tenantId).eq('art', 'spritzung').gte('datum', seit).order('datum', { ascending: false }),
   ])
   const rieden: WetterRied[] = ((wgRaw ?? []) as R[]).map(w => ({
@@ -43,9 +44,10 @@ export async function ladeWetterAuswertung(
   }
   const wetter = await ladeWetterdaten(client, tenantId, punkte)
 
-  // letzte Spritzung je Ried
+  // letzte Spritzung je Ried – KAN-121 (01.10.2026): über weingarten_id und die Grundstücke der Maßnahme;
+  // eine Spritzung über mehrere Rieden zählt für jede davon
   const letzte = new Map<string, R>()
-  for (const b of (bhRaw ?? []) as R[]) if (b.weingarten_id && !letzte.has(b.weingarten_id)) letzte.set(b.weingarten_id, b)
+  for (const b of (bhRaw ?? []) as R[]) for (const wgId of riedIdsDerMassnahme(b)) if (!letzte.has(wgId)) letzte.set(wgId, b)
   const regelRieden: RegelRied[] = rieden.map(r => {
     const b = letzte.get(r.id)
     const p = punkte.find(x => x.riedIds.includes(r.id))
