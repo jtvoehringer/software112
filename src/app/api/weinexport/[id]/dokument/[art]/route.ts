@@ -6,6 +6,7 @@ import { getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { escHtml as e, escHtmlMehrzeilig, sichererDateiname, DOKUMENT_CSP } from '@/lib/utils/html'
 import { druckCsp, druckleiste, DRUCKLEISTE_CSS } from '@/lib/utils/druckknopf'
+import { landAnzeige } from '@/lib/katalog/laender'   // KAN-187: ISO-Code → Ländername (Altdaten mit Namen unverändert)
 export const dynamic = 'force-dynamic'
 // KAN-141 (01.10.2026): Dokument-CSP plus genau ein per Hash freigegebenes Skript für den Drucken-Knopf
 const DRUCK_CSP = druckCsp(DOKUMENT_CSP)
@@ -103,7 +104,7 @@ export async function GET(
           <div class="box">
             <div class="label">Empfänger / Konsignatar</div>
             <div class="value">${e(importeur)}</div>
-            <div style="font-size:9pt;margin-top:1mm">${e(a.destination_stadt ?? '')}, ${e(a.destination_land ?? '')}</div>
+            <div style="font-size:9pt;margin-top:1mm">${e(a.destination_stadt ?? '')}, ${e(landAnzeige(a.destination_land))}</div>
             ${a.eori_kunde ? `<div style="font-size:9pt">EORI: ${e(a.eori_kunde)}</div>` : ''}
           </div>
         </div>
@@ -153,7 +154,7 @@ export async function GET(
           <div class="box">
             <div class="label">3. Empfänger</div>
             <div class="value">${e(importeur)}</div>
-            <div style="font-size:9pt">${e(a.destination_stadt ?? '')}, ${e(a.destination_land ?? '')}</div>
+            <div style="font-size:9pt">${e(a.destination_stadt ?? '')}, ${e(landAnzeige(a.destination_land))}</div>
           </div>
           <div class="box">
             <div class="label">4. Land / Ländergruppe Ursprung</div>
@@ -162,7 +163,7 @@ export async function GET(
         </div>
         <div class="box">
           <div class="label">5. Bestimmungsland / -ländergruppe</div>
-          <div class="value">${e(a.destination_land ?? '–')}</div>
+          <div class="value">${e(landAnzeige(a.destination_land) || '–')}</div>
         </div>
         <div class="box">
           <div class="label">6. Beförderungsangaben (Angabe freigestellt)</div>
@@ -206,11 +207,11 @@ export async function GET(
             <div class="label">2. Empfänger (Name, Adresse, Land)</div>
             <div class="value">${e(importeur)}</div>
             <div style="font-size:9pt">${e(a.destination_stadt ?? '')}</div>
-            <div style="font-size:9pt">${e(a.destination_land ?? '')}</div>
+            <div style="font-size:9pt">${e(landAnzeige(a.destination_land))}</div>
           </div>
           <div class="box">
             <div class="label">3. Auslieferungsort (Ort, Land)</div>
-            <div class="value">${e([a.destination_stadt, a.destination_land].filter(Boolean).join(', '))}</div>
+            <div class="value">${e([a.destination_stadt, landAnzeige(a.destination_land)].filter(Boolean).join(', '))}</div>
           </div>
           <div class="box">
             <div class="label">4. Übernahmeort und -datum</div>
@@ -260,7 +261,7 @@ export async function GET(
           <div class="box">
             <div class="label">Importer / Importeur</div>
             <div class="value">${e(importeur)}</div>
-            <div style="font-size:9pt">${e(a.destination_stadt ?? '')}, ${e(a.destination_land ?? '')}</div>
+            <div style="font-size:9pt">${e(a.destination_stadt ?? '')}, ${e(landAnzeige(a.destination_land))}</div>
           </div>
           <div class="box">
             <div class="label">Country of Origin / Ursprungsland</div>
@@ -268,7 +269,7 @@ export async function GET(
           </div>
           <div class="box">
             <div class="label">Country of Destination / Bestimmungsland</div>
-            <div class="value">${e(a.destination_land ?? '–')}</div>
+            <div class="value">${e(landAnzeige(a.destination_land) || '–')}</div>
           </div>
         </div>
         <h2>Description of Goods / Warenbeschreibung</h2>
@@ -316,7 +317,7 @@ export async function GET(
           <div class="box">
             <div class="label">Empfänger / Recipient</div>
             <div class="value">${e(importeur)}</div>
-            <div style="font-size:9pt">${e(a.destination_stadt ?? '')}, ${e(a.destination_land ?? '')}</div>
+            <div style="font-size:9pt">${e(a.destination_stadt ?? '')}, ${e(landAnzeige(a.destination_land))}</div>
           </div>
         </div>
         <div class="grid3">
@@ -366,7 +367,7 @@ export async function GET(
           <div class="box">
             <div class="label">Käufer / Buyer</div>
             <div class="value">${e(importeur)}</div>
-            <div style="font-size:9pt">${e(a.destination_stadt ?? '')}, ${e(a.destination_land ?? '')}</div>
+            <div style="font-size:9pt">${e(a.destination_stadt ?? '')}, ${e(landAnzeige(a.destination_land))}</div>
             ${a.eori_kunde ? `<div style="font-size:9pt">EORI: ${e(a.eori_kunde)}</div>` : ''}
           </div>
         </div>

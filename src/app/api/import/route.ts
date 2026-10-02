@@ -5,6 +5,7 @@ import { getKgBezeichnung } from '@/lib/wein/katastralgemeinden'
 import { zerlegeTelefon } from '@/lib/crm/telefon'
 import { pruefeEmailFelder } from '@/lib/crm/email'
 import { dezimal } from '@/lib/format'
+import { normalisiereLand } from '@/lib/katalog/laender'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
@@ -41,6 +42,16 @@ const SEGMENT_MAP: Record<string, string> = {
   'medien': 'medien', 'presse': 'medien',
   'importeur': 'importeur', 'import': 'importeur',
   'sonstige': 'sonstige', 'sonstiges': 'sonstige', 'other': 'sonstige',
+}
+
+// KAN-187: Land über den Länderkatalog (ISO-Code, Namen wie „Österreich“/„Germany“, UK → GB).
+// Leer → AT wie bisher; nicht erkannt → Land leer lassen, Zeile trotzdem importieren, Hinweis im Bericht.
+function importLand(roh: unknown, zeile: number, warnungen: string[]): string | null {
+  const t = typeof roh === 'string' ? roh.trim() : ''
+  if (!t) return 'AT'
+  const iso = normalisiereLand(t)
+  if (!iso) warnungen.push(`Zeile ${zeile}: Land „${t}“ nicht erkannt – leer gelassen`)
+  return iso
 }
 
 function mapVal(row: R, csvKey: string | undefined, transform?: (v: string) => unknown): unknown {
@@ -184,6 +195,7 @@ export async function POST(req: NextRequest) {
 
     let ok = 0
     const details: string[] = []
+    const warnungen: string[] = []   // Zeile importiert, aber mit Hinweis (z. B. Land nicht erkannt)
     const duplikate: { zeile: number; name: string; email: string | null; grund: string }[] = []
 
     // Lead-Import (Rückmeldung 1.9.2026): Kunden und Leads kommen aus getrennten
@@ -301,7 +313,7 @@ export async function POST(req: NextRequest) {
           // Telefon/Mobil in Vorwahl + nationale Nummer zerlegen (Rückmeldung
           // 3.9.2026: "+49 (36041) 428 95" landete komplett im Feld telefon,
           // Vorwahl blieb +43 -> Anzeige "+43 +49 ..."). Siehe lib/crm/telefon.ts.
-          const landK = ((mapVal(row, mapping.land) as string | null | undefined) || 'AT').toUpperCase()
+          const landK = importLand(mapVal(row, mapping.land), i+zeilenBasis, warnungen)
           const telK = zerlegeTelefon(mapVal(row, mapping.telefon) as string | null | undefined, landK)
           const mobK = zerlegeTelefon(mapVal(row, mapping.mobil) as string | null | undefined, landK)
           const { error } = await (supabase.from('kontakte') as any).insert({
@@ -342,7 +354,7 @@ export async function POST(req: NextRequest) {
             }
           }
           const segment = SEGMENT_MAP[(mapVal(row, mapping.segment) as string)?.toLowerCase() ?? ''] ?? 'gastronomie'
-          const landF = ((mapVal(row, mapping.land) as string | null | undefined) || 'AT').toUpperCase()
+          const landF = importLand(mapVal(row, mapping.land), i+zeilenBasis, warnungen)
           const telF = zerlegeTelefon(mapVal(row, mapping.telefon) as string | null | undefined, landF)
           const mobF = zerlegeTelefon(mapVal(row, mapping.mobil) as string | null | undefined, landF)
           const { error } = await (supabase.from('firmen') as any).insert({
@@ -488,7 +500,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ ok, fehler: rows.length - ok - duplikate.length, duplikate, details })
+    return NextResponse.json({ ok, fehler: rows.length - ok - duplikate.length, duplikate, details, warnungen })
   } catch (err) {
     return NextResponse.json({ fehler: String(err) }, { status: 500 })
   }

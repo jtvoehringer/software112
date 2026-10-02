@@ -4,6 +4,7 @@ import Link from '@/components/ui/Link'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
 import EmcsPanel from './EmcsPanel'
 import { fmtNum } from '@/lib/format'
+import { landAnzeige } from '@/lib/katalog/laender'
 import {
   EXPORT_STATUS_LABEL as STATUS_LABEL, EXPORT_DOK_LABEL as DOK_LABEL, EXPORT_DOK_STATUS_LABEL as DOK_STATUS_LABEL,
   importeurName, type ExportPositionZeile,
@@ -104,7 +105,7 @@ export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dok
               <div><dt className="text-xs text-s112-muted">Datum</dt><dd>{auftrag.datum ? new Date(auftrag.datum).toLocaleDateString('de-AT') : '–'}</dd></div>
               <div><dt className="text-xs text-s112-muted">Lieferdatum</dt><dd>{auftrag.lieferdatum ? new Date(auftrag.lieferdatum).toLocaleDateString('de-AT') : '–'}</dd></div>
               <div><dt className="text-xs text-s112-muted">Transportart</dt><dd>{auftrag.transport_art ?? '–'}</dd></div>
-              <div><dt className="text-xs text-s112-muted">Destination</dt><dd>{[auftrag.destination_stadt, auftrag.destination_land].filter(Boolean).join(', ') || '–'}</dd></div>
+              <div><dt className="text-xs text-s112-muted">Destination</dt><dd>{[auftrag.destination_stadt, landAnzeige(auftrag.destination_land)].filter(Boolean).join(', ') || '–'}</dd></div>
               <div><dt className="text-xs text-s112-muted">EORI Importeur</dt><dd className="font-mono text-xs">{auftrag.eori_kunde ?? '–'}</dd></div>
               <div><dt className="text-xs text-s112-muted">Versicherungswert</dt><dd>{auftrag.versicherungswert ? `EUR ${fmtNum(parseFloat(auftrag.versicherungswert), 2)}` : '–'}</dd></div>
             </dl>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { landAnzeige } from '@/lib/katalog/laender'
 import { useRouter } from 'next/navigation'
 import Link from '@/components/ui/Link'
 import { createAktivitaet, createPipelineEintrag, toggleAktivitaetErledigt, updateAktivitaet, deleteAktivitaet, deleteKontakt, setzeKontaktAktiv, kontaktZuFirmaUmwandeln } from '../../actions'
@@ -747,7 +748,7 @@ export default function KontaktDetailClient({
             {kontakt.ort && (
               <div className="flex items-center gap-2 text-sm">
                 <MapPin size={16} className="text-s112-text-2" />
-                <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([kontakt.strasse, kontakt.plz, kontakt.ort, kontakt.land ?? 'Österreich'].filter(Boolean).join(', '))}`} target="_blank" rel="noopener noreferrer" className="text-s112-text-1 hover:text-s112-blue-700">{kontakt.plz ? `${kontakt.plz} ` : ''}{kontakt.ort}{kontakt.land && kontakt.land !== 'AT' ? `, ${kontakt.land}` : ''}</a>
+                <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([kontakt.strasse, kontakt.plz, kontakt.ort, landAnzeige(kontakt.land ?? 'AT')].filter(Boolean).join(', '))}`} target="_blank" rel="noopener noreferrer" className="text-s112-text-1 hover:text-s112-blue-700">{kontakt.plz ? `${kontakt.plz} ` : ''}{kontakt.ort}{kontakt.land && kontakt.land !== 'AT' ? `, ${landAnzeige(kontakt.land)}` : ''}</a>
               </div>
             )}
             {kontakt.firma_name && (

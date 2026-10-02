@@ -6,9 +6,10 @@ import { paramsAusFilter, LISTE_SCHRITT, POSITION_MAX, QUELLE_MAX, QUELLE_OHNE, 
 import { useListenSuche } from '@/lib/crm/listenSuche'
 import Link from '@/components/ui/Link'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
+import LandOptionen from '@/components/crm/LandOptionen'
 import { createKontakt, updateKontakt, pruefeKontaktDublette, deleteKontakt, setzeKontaktAktiv, createAktivitaet, createPipelineEintrag } from '../actions'
 import { loeschenOderDeaktivieren } from '@/lib/stammdaten/loeschDialog'
-import { SEGMENTE, AKTIVITAET_ARTEN, PIPELINE_STUFEN, LAENDER, DIAL_CODES, segmentLabel, segmentFarbe } from '@/lib/crm/types'
+import { SEGMENTE, AKTIVITAET_ARTEN, PIPELINE_STUFEN, DIAL_CODES, segmentLabel, segmentFarbe } from '@/lib/crm/types'
 import type { KontaktRow } from '@/lib/crm/types'
 import { AlertTriangle, Trash2, Pencil } from 'lucide-react'
 import { fmtEur } from '@/lib/format'
@@ -248,7 +249,7 @@ export function KontaktForm({
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Land</label>
           <select aria-label="Land" name="land" value={landVal} onChange={e => setLandVal(e.target.value)} className={inputCls()}>
-            {LAENDER.map(l => <option key={l} value={l}>{l}</option>)}
+            <LandOptionen aktuell={landVal} />
           </select>
         </div>
         <div>

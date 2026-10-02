@@ -12,6 +12,7 @@ import { bezugsMeldung, hatBezug } from '@/lib/stammdaten/bezugText'
 import { pruefeEmailFelder, einzelneEmail } from '@/lib/crm/email'
 import { dezimal } from '@/lib/format'
 import { POSITION_MAX, QUELLE_MAX } from '@/lib/crm/liste'
+import { normalisiereLand } from '@/lib/katalog/laender'
 import { nurGesendeteFelder } from '@/lib/crm/formFelder'   // Bearbeiten: nur gesendete Felder ändern (02.10.2026)
 import { ladeMandantMitglieder } from '@/lib/aufgaben/mitglieder'
 import { benachrichtigeAktivitaet } from '@/lib/benachrichtigungen/server'
@@ -130,6 +131,15 @@ function optionalerText(formData: FormData, feld: string, bezeichnung: string, m
   return wert
 }
 
+/** KAN-187: Land aus Formular/Dialog → ISO-Code aus dem Länderkatalog; leer → 'AT' (wie bisher), unbekannt → Fehler */
+function landPruefen(roh: unknown): string {
+  const wert = typeof roh === 'string' ? roh.trim() : ''
+  if (!wert) return 'AT'
+  const iso = normalisiereLand(wert)
+  if (!iso) throw new AktionsFehler(`Unbekanntes Land „${wert}“ – bitte ein Land aus der Liste wählen.`)
+  return iso
+}
+
 function kontaktPositionQuelle(formData: FormData): { position: string | null; quelle: string | null } {
   return {
     position: optionalerText(formData, 'position', 'Position', POSITION_MAX),
@@ -159,7 +169,7 @@ export async function createKontakt(formData: FormData): Promise<{ error?: strin
       strasse:     (formData.get('strasse') as string) || null,
       plz:         (formData.get('plz')     as string) || null,
       ort:         (formData.get('ort')     as string) || null,
-      land:        (formData.get('land') as string) || 'AT',
+      land:        landPruefen(formData.get('land')),
       betrieb_nr:  (formData.get('betrieb_nr') as string) || null,
       stammkunde:  formData.get('stammkunde') === 'true',
       notizen:         (formData.get('notizen')         as string) || null,
@@ -202,7 +212,7 @@ export async function updateKontakt(id: string, formData: FormData): Promise<{ e
       strasse:    (formData.get('strasse') as string) || null,
       plz:        (formData.get('plz')     as string) || null,
       ort:        (formData.get('ort')     as string) || null,
-      land:       (formData.get('land') as string) || 'AT',
+      land:       landPruefen(formData.get('land')),
       betrieb_nr: (formData.get('betrieb_nr') as string) || null,   // fehlte bis 02.10.2026 (Änderung ging verloren)
       stammkunde: formData.get('stammkunde') === 'true',
       notizen:         (formData.get('notizen')         as string) || null,
@@ -342,7 +352,7 @@ export async function createFirma(formData: FormData): Promise<{ error?: string;
       strasse:            (formData.get('strasse') as string) || null,
       plz:                (formData.get('plz') as string) || null,
       ort:                (formData.get('ort') as string) || null,
-      land:               (formData.get('land') as string) || 'AT',
+      land:               landPruefen(formData.get('land')),
       telefon:            (formData.get('telefon')          as string) || null,
       telefon_vorwahl:    (formData.get('telefon_vorwahl') as string) || '+43',
       mobil:              (formData.get('mobil')          as string) || null,
@@ -392,7 +402,7 @@ export async function updateFirma(id: string, formData: FormData): Promise<{ err
       strasse:            (formData.get('strasse') as string) || null,
       plz:                (formData.get('plz') as string) || null,
       ort:                (formData.get('ort') as string) || null,
-      land:               (formData.get('land') as string) || 'AT',
+      land:               landPruefen(formData.get('land')),
       telefon:            (formData.get('telefon')          as string) || null,
       telefon_vorwahl:    (formData.get('telefon_vorwahl') as string) || '+43',
       mobil:              (formData.get('mobil')          as string) || null,
@@ -665,7 +675,7 @@ export async function createLeadFromVisitkarte(kontakt: {
     if (kontakt.firma) {
       const { data: f, error: firmaError } = await (supabase.from('firmen') as any).insert({
         tenant_id: tenantId, name: kontakt.firma, aktiv: true, is_lead: true,
-        strasse: kontakt.strasse, plz: kontakt.plz, ort: kontakt.ort, land: kontakt.land ?? 'AT',
+        strasse: kontakt.strasse, plz: kontakt.plz, ort: kontakt.ort, land: normalisiereLand(kontakt.land) ?? 'AT',
       }).eq('tenant_id', tenantId).select().single()
       if (firmaError) return { error: (firmaError as AR).message }
       firmaId = (f as AR | null)?.id ?? null
@@ -682,7 +692,7 @@ export async function createLeadFromVisitkarte(kontakt: {
       strasse: kontakt.strasse || null,
       plz: kontakt.plz || null,
       ort: kontakt.ort || null,
-      land: kontakt.land ?? 'AT',
+      land: normalisiereLand(kontakt.land) ?? 'AT',
       firma_id: firmaId,
       notizen: kontakt.position ? `Position: ${kontakt.position}` : null,
       aktiv: true, stammkunde: false, newsletter: false,
@@ -737,7 +747,7 @@ export async function createLeadAusEmail(d: LeadAusEmailDaten): Promise<{ kontak
     const { data: { user } } = await supabase.auth.getUser()
     const nachname = (d.nachname ?? '').trim()
     if (!nachname) return { error: 'Nachname fehlt' }
-    const land = (d.land ?? 'AT').toUpperCase().slice(0, 2) || 'AT'
+    const land = landPruefen(d.land)   // KAN-187: Auswahl aus dem Länderkatalog
 
     // Firma: neu (als Lead) oder bestehende
     let firmaId: string | null = null

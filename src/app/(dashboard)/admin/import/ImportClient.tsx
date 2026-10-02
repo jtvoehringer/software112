@@ -20,6 +20,9 @@ const QUALITAETEN = QUALITAET_OPTS
 // Wertelisten (z.B. alle Segment-Werte) standen bisher direkt im Label und
 // haben das Zuordnungs-Raster gesprengt. Jetzt kurzes Label + optionaler
 // `hinweis`, der nur als Tooltip (ⓘ) erscheint.
+// KAN-187: Land wird über den Länderkatalog erkannt (lib/katalog/laender.ts)
+const LAND_HINWEIS = 'ISO-Code (AT, DE …) oder Ländername (Österreich, Germany, UK …); leer = AT. Nicht erkannte Werte bleiben leer und stehen im Bericht.'
+
 const FELDER: Record<ImportTyp, { key: string; label: string; pflicht?: boolean; hinweis?: string }[]> = {
   kontakte: [
     { key: 'vorname',    label: 'Vorname' },
@@ -30,7 +33,7 @@ const FELDER: Record<ImportTyp, { key: string; label: string; pflicht?: boolean;
     { key: 'strasse',    label: 'Straße' },
     { key: 'plz',        label: 'PLZ' },
     { key: 'ort',        label: 'Ort' },
-    { key: 'land',       label: 'Land' },
+    { key: 'land',       label: 'Land', hinweis: LAND_HINWEIS },
     { key: 'segment',    label: 'Segment', hinweis: 'Erlaubte Werte: privat, gastronomie, handel, export – unbekannte Werte werden zu „privat"' },
     { key: 'firma',      label: 'Firma', hinweis: 'Firmenname – der Kontakt wird einer bestehenden Firma dieses Betriebs zugeordnet (Namensabgleich, Groß-/Kleinschreibung egal). Firmen daher zuerst importieren; nicht gefundene Firmen landen als Vermerk in den Notizen.' },
     { key: 'notizen',    label: 'Notizen' },
@@ -43,7 +46,7 @@ const FELDER: Record<ImportTyp, { key: string; label: string; pflicht?: boolean;
     { key: 'strasse',            label: 'Straße' },
     { key: 'plz',                label: 'PLZ' },
     { key: 'ort',                label: 'Ort' },
-    { key: 'land',               label: 'Land' },
+    { key: 'land',               label: 'Land', hinweis: LAND_HINWEIS },
     { key: 'segment',            label: 'Segment', hinweis: 'Erlaubte Werte: gastronomie, handel, export, grosshandel, firmenkunde, vinothek, ab hof, restaurant, tourismus, medien, importeur, sonstige – unbekannte Werte werden zu „gastronomie"' },
     { key: 'uid_nummer',         label: 'UID-Nummer' },
     { key: 'betrieb_nr',         label: 'Betriebsnummer (BKI)' },
@@ -193,6 +196,7 @@ export default function ImportClient({
   const [importing, setImporting]   = useState(false)
   const [result, setResult]         = useState<{
     ok: number; fehler: number; details: string[]
+    warnungen?: string[]   // KAN-187: importiert, aber mit Hinweis (z. B. Land nicht erkannt)
     duplikate?: { zeile: number; name: string; email: string | null; grund: string }[]
   } | null>(null)
   // Separater State fuer echte Fehlerantworten (401/403/500). Die API liefert bei
@@ -234,7 +238,7 @@ export default function ImportClient({
     if (!parsed) return
     setImporting(true); setResult(null); setErrorMsg(null)
     const gesamt = parsed.rows.length
-    const summe = { ok: 0, fehler: 0, details: [] as string[], duplikate: [] as { zeile: number; name: string; email: string | null; grund: string }[] }
+    const summe = { ok: 0, fehler: 0, details: [] as string[], warnungen: [] as string[], duplikate: [] as { zeile: number; name: string; email: string | null; grund: string }[] }
     try {
       for (let start = 0; start < gesamt; start += IMPORT_BLOCKGROESSE) {
         setFortschritt({ erledigt: start, gesamt })
@@ -256,8 +260,9 @@ export default function ImportClient({
         summe.ok += Number(data.ok ?? 0)
         summe.fehler += Number(data.fehler ?? 0)
         summe.details.push(...((data.details ?? []) as string[]))
+        summe.warnungen.push(...((data.warnungen ?? []) as string[]))
         summe.duplikate.push(...((data.duplikate ?? []) as typeof summe.duplikate))
-        setResult({ ...summe, details: [...summe.details], duplikate: [...summe.duplikate] })
+        setResult({ ...summe, details: [...summe.details], warnungen: [...summe.warnungen], duplikate: [...summe.duplikate] })
       }
     } catch (err) {
       setErrorMsg(fehlerText(err))
@@ -528,6 +533,15 @@ export default function ImportClient({
                   {result.details.slice(0, 10).map((d, i) => <li key={i}>{d}</li>)}
                   {result.details.length > 10 && <li>… und {result.details.length - 10} weitere</li>}
                 </ul>
+              )}
+              {(result.warnungen?.length ?? 0) > 0 && (
+                <div className="mt-3 pt-3 border-t border-s112-warn/30">
+                  <p className="text-xs font-semibold text-s112-text-1 mb-1">Importiert mit Hinweis ({result.warnungen!.length}):</p>
+                  <ul className="text-xs text-s112-text-2 space-y-0.5">
+                    {result.warnungen!.slice(0, 20).map((d, i) => <li key={i}>{d}</li>)}
+                    {result.warnungen!.length > 20 && <li>… und {result.warnungen!.length - 20} weitere</li>}
+                  </ul>
+                </div>
               )}
               {(result.duplikate?.length ?? 0) > 0 && (
                 <div className="mt-3 pt-3 border-t border-s112-warn/30">

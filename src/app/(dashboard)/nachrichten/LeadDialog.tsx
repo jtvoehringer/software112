@@ -11,7 +11,9 @@
 import { useEffect, useState } from 'react'
 import Link from '@/components/ui/Link'
 import { X, Sparkles, UserPlus, Building2 } from 'lucide-react'
-import { SEGMENTE, LAENDER } from '@/lib/crm/types'
+import { SEGMENTE } from '@/lib/crm/types'
+import { normalisiereLand } from '@/lib/katalog/laender'
+import LandOptionen from '@/components/crm/LandOptionen'
 import type { LeadVorbelegung } from '@/lib/crm/leadEmail'
 import { createLeadAusEmail, type LeadAusEmailDaten } from '../crm/actions'
 import { useDialog } from '@/components/ui/useDialog'
@@ -79,7 +81,7 @@ export default function LeadDialog({ mail, onClose, onAngelegt }: Props) {
         const v = d.vorbelegung as LeadVorbelegung
         setVorname(v.vorname ?? ''); setNachname(v.nachname ?? ''); setEmail(v.email ?? mail.von)
         setTelefon(v.telefon ?? ''); setMobil(v.mobil ?? ''); setPosition(v.position ?? '')
-        setStrasse(v.strasse ?? ''); setPlz(v.plz ?? ''); setOrt(v.ort ?? ''); setLand(v.land && LAENDER.includes(v.land) ? v.land : 'AT')
+        setStrasse(v.strasse ?? ''); setPlz(v.plz ?? ''); setOrt(v.ort ?? ''); setLand(normalisiereLand(v.land) ?? 'AT')
         setSegment(v.segment ?? 'privat')
         setNotizen([v.anliegen ? `Anliegen: ${v.anliegen}` : null, `Lead aus E-Mail vom ${new Date(mail.datum).toLocaleDateString('de-AT')} („${mail.betreff}“)`].filter(Boolean).join('\n'))
         setFirmen(d.firmen ?? []); setKandidaten(d.kandidaten ?? []); setRabattgruppen(d.rabattgruppen ?? [])
@@ -194,7 +196,7 @@ export default function LeadDialog({ mail, onClose, onAngelegt }: Props) {
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div><label className={labelCls}>Land</label>
-                  <select aria-label="Land" value={land} onChange={e => setLand(e.target.value)} className={inputCls}>{LAENDER.map(l => <option key={l} value={l}>{l}</option>)}</select></div>
+                  <select aria-label="Land" value={land} onChange={e => setLand(e.target.value)} className={inputCls}><LandOptionen aktuell={land} /></select></div>
                 <div><label className={labelCls}>Segment *</label>
                   <select aria-label="Segment" value={segment} onChange={e => setSegment(e.target.value)} className={inputCls}>{SEGMENTE.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}</select></div>
                 <div><label className={labelCls}>Rabattgruppe</label>

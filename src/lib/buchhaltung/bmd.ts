@@ -27,6 +27,9 @@
 
 // @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den CSV-Tests ohne Bundler lädt (tsconfig ohne allowImportingTsExtensions)
 import { csvText, PROFIL_BMD, type CsvSpalte } from '../csv/index.ts'
+// KAN-187: EU-Kennzeichen aus dem Länderkatalog (kat_land) statt eigener EU-Liste
+// @ts-expect-error TS5097 – siehe oben
+import { istEuLand } from '../katalog/laender.ts'
 
 export type MappingGruppe = 'erloese' | 'personenkonten' | 'steuercodes' | 'sonstiges'
 
@@ -92,7 +95,6 @@ export function mappingAufloesen(overrides: Record<string, string | null | undef
 }
 
 // ── Länder / Steuer-Einordnung ──────────────────────────────────────────────
-const EU = new Set(['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE'])
 
 export type Steuerfall = 'inland' | 'ig' | 'export' | 'steuerfrei'
 
@@ -101,7 +103,7 @@ export function steuerfall(ustSatz: number, kundenLand: string | null | undefine
   if (ustSatz > 0) return 'inland'
   const land = (kundenLand ?? 'AT').toUpperCase()
   if (land === 'AT') return 'steuerfrei'
-  return EU.has(land) ? 'ig' : 'export'
+  return istEuLand(land) ? 'ig' : 'export'
 }
 
 /** Erlöskonto-Schlüssel für eine Verkaufsposition */
