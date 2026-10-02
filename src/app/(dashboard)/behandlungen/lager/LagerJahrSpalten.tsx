@@ -15,6 +15,13 @@ const breit = 'hidden md:table-cell'
 
 const zahl = (n: number) => fmtNum(n, { max: 3 })
 
+// Nachtrag KAN-173 (02.10.2026, Jörgen): Inventurkorrekturen in Zukäufen/Verbräuchen kenntlich machen –
+// klein unter der Summe, nur wenn ≠ 0
+function DavonKorrektur({ menge, vorzeichen }: { menge: number; vorzeichen: '+' | '−' }) {
+  if (!menge) return null
+  return <span className="block text-[10px] leading-tight text-s112-tertiary">davon Inventurkorrektur {vorzeichen}{zahl(menge)}</span>
+}
+
 export function LagerJahrKopf({ jahr, klasse = th }: { jahr: number; klasse?: string }) {
   return (
     <>
@@ -40,8 +47,14 @@ export function LagerJahrZellen({ lager, klasse = td }: { lager: StammLager | nu
   return (
     <>
       <td className={`${klasse} ${breit} border-l border-s112-border/40 text-s112-muted`}>{zahl(lager.anfangsbestand)}</td>
-      <td className={`${klasse} ${breit} text-s112-muted`}>{lager.zukauf ? `+${zahl(lager.zukauf)}` : '0'}</td>
-      <td className={`${klasse} ${breit} text-s112-muted`}>{lager.verbrauch ? `−${zahl(lager.verbrauch)}` : '0'}</td>
+      <td className={`${klasse} ${breit} text-s112-muted`}>
+        {lager.zukauf ? `+${zahl(lager.zukauf)}` : '0'}
+        <DavonKorrektur menge={lager.korrekturPlus} vorzeichen="+" />
+      </td>
+      <td className={`${klasse} ${breit} text-s112-muted`}>
+        {lager.verbrauch ? `−${zahl(lager.verbrauch)}` : '0'}
+        <DavonKorrektur menge={lager.korrekturMinus} vorzeichen="−" />
+      </td>
       <td className={`${klasse} font-semibold ${lager.saldo < 0 ? 'text-s112-err-fg' : 'text-s112-text'}`}
         title={lager.hinweise > 0 ? `${lager.hinweise} Hinweis(e) – nicht berücksichtigte Buchungen bzw. Maßnahmen, siehe „Bestand & Bewegungen“` : undefined}>
         {zahl(lager.saldo)} {lager.einheit}
@@ -56,6 +69,7 @@ export function LagerJahrHinweis({ jahr }: { jahr: number }) {
   return (
     <p className="mt-2 text-xs text-s112-muted">
       Lagerbewegung im Geschäftsjahr {jahr} (seit 1.1.) in der Lager-Einheit; Saldo = aktueller Bestand wie unter „Bestand &amp; Bewegungen“.
+      Zukäufe und Verbräuche enthalten Inventurkorrekturen nach oben bzw. unten – ausgewiesen als „davon Inventurkorrektur“.
       <span className="md:hidden"> Anfangsbestand, Zukäufe und Verbräuche auf breiteren Bildschirmen.</span>
     </p>
   )

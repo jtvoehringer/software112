@@ -696,8 +696,12 @@ export function pruefnummernSchaden(vorgang: PnVorgang, ziele: readonly PnSchade
       if (a.weinausbauId !== d.chargeId || !a.aktiv || !OFFEN_EINGEREICHT[a.status]) continue
       if (antragVerletzung(a, d, stichtag) === null && antragVerletzung(a, nachher, stichtag) !== null) {
         const nr = nummer(a.pruefnummer)
+        // Nachtrag 02.10.2026 (Jörgen): klarer sagen, warum – „Das ist NICHT zulässig; der Prüfnummernantrag
+        // wird da ungültig und müsste neu beantragt werden.“
         return {
-          ablehnung: `Der DAC-Antrag${nr ? ` (Prüfnummer ${nr})` : ''} der Charge „${z.name ?? 'ohne Namen'}“ ist ${OFFEN_EINGEREICHT[a.status]} – ein ${VORGANG_TEXT[vorgang]} würde den eingereichten Wein verändern (§ 25 Abs. 6 WeinG). Bitte den Antrag zuerst zurückziehen.`,
+          ablehnung: `Für die Charge „${z.name ?? 'ohne Namen'}“ läuft ein Prüfnummernantrag${nr ? ` (Prüfnummer ${nr})` : ''} (Status: ${OFFEN_EINGEREICHT[a.status]}). `
+            + `Ein ${VORGANG_TEXT[vorgang]} zwischen Antrag und Bescheid ist nicht zulässig – der Antrag würde ungültig und müsste neu gestellt werden (§ 25 Abs. 6 WeinG). `
+            + 'Bitte erst nach dem Bescheid buchen oder den Antrag zurückziehen.',
           schaeden: [],
         }
       }

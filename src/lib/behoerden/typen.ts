@@ -155,7 +155,7 @@ export type MeldungsTeile<P, Z> = {
   bki?: (p: P) => BkiBericht
 }
 
-/** KAN-95: Angaben für den BKI-Dateinamen. jahr nur bei Stichtag (Ernte-, Bestandsmeldung) – sonst Exporttag. */
+/** KAN-95: Angaben für den BKI-Dateinamen. jahr bei Stichtag bzw. Jahrgang (Ernte-, Bestandsmeldung, Lesedaten) – sonst Exporttag. */
 export type BkiBericht = {
   /** Berichtsname, ggf. mit Zusätzen (Gebinde, Charge, Beleg …) */
   bericht: string | readonly Dateiteil[]

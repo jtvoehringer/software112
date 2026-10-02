@@ -79,11 +79,13 @@ describe('pruefnummernSchaden (KAN-83)', nurMitHooks, () => {
     assert.deepEqual(pn.pruefnummernSchaden('zukauf', [{ daten: daten({ antraege: [antrag({ status: 'entwurf', pruefnummer: null, eingereichtAm: null })] }), zugangLiter: 5 }], '2026-09-25'),
       { ablehnung: null, schaeden: [] })
   })
-  test('Antrag eingereicht bzw. in Prüfung → harte Ablehnung „Antrag zuerst zurückziehen“', () => {
+  test('Antrag eingereicht bzw. in Prüfung → harte Ablehnung „nicht zulässig – Antrag würde ungültig“ (Nachtrag 02.10.2026)', () => {
     for (const status of ['eingereicht', 'in_pruefung']) {
       const d = daten({ antraege: [antrag({ status, pruefnummer: null, bescheidAm: null })] })
       const e = pn.pruefnummernSchaden('verschnitt', [{ daten: d, name: 'Riesling Ried Pfaffenberg', zugangLiter: 48 }], '2026-09-25')
-      assert.match(e.ablehnung, /Antrag zuerst zurückziehen/, status)
+      assert.match(e.ablehnung, /^Für die Charge „Riesling Ried Pfaffenberg“ läuft ein Prüfnummernantrag \(Status: (eingereicht|in Prüfung)\)\. /, status)
+      assert.match(e.ablehnung, /Ein Verschnitt zwischen Antrag und Bescheid ist nicht zulässig – der Antrag würde ungültig und müsste neu gestellt werden/)
+      assert.match(e.ablehnung, /Bitte erst nach dem Bescheid buchen oder den Antrag zurückziehen\.$/)
       assert.match(e.ablehnung, /„Riesling Ried Pfaffenberg“/)
       assert.deepEqual(e.schaeden, [])
     }
@@ -260,7 +262,7 @@ describe('umziehen() – Prüfnummer (KAN-83)', nurMitHooks, () => {
   test('Antrag eingereicht → Ablehnung, nichts gebucht', async () => {
     const d = db(tabellen({ antragStatus: 'eingereicht' }))
     const e = await fehlerVon(um.umziehen(umzugFd([{ weinausbau_id: A1, menge: 48 }], [{ behaelter_id: G2, menge: 48 }], { pn_bestaetigt: '1' })))
-    assert.match(e.message, /Antrag zuerst zurückziehen/)
+    assert.match(e.message, /zwischen Antrag und Bescheid ist nicht zulässig – der Antrag würde ungültig/)
     assert.equal(d.tabellen.keller_umzuege.length, 0)
   })
   test('Umzug in ein leeres Gebinde und Umzug AUS der Antrags-Charge → keine Rückfrage', async () => {
@@ -297,7 +299,7 @@ describe('createVerschneidung() / createZukauf() – Prüfnummer (KAN-83)', nurM
   test('Verschnitt bei eingereichtem Antrag → Ablehnung', async () => {
     const d = db(tabellen({ antragStatus: 'eingereicht' }))
     const e = await fehlerVon(kb.createVerschneidung(verschnittFd({ pn_bestaetigt: '1' })))
-    assert.match(e.message, /Antrag zuerst zurückziehen/)
+    assert.match(e.message, /zwischen Antrag und Bescheid ist nicht zulässig – der Antrag würde ungültig/)
     assert.equal(d.tabellen.verschneidungen.length, 0)
   })
   test('Zukauf Wein in das Gebinde der Antrags-Charge: Rückfrage, mit Bestätigung Vermerk am Zukauf', async () => {

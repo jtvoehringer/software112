@@ -57,11 +57,30 @@ describe('Jahressicht (KAN-173)', opt, () => {
       [{ datum: '2025-07-01', menge: 30 }, { datum: '2026-07-01', menge: 12.5 }],
       2026,
     )
-    assert.deepEqual(j, { jahr: 2026, anfangsbestand: 85, zukauf: 53, verbrauch: 14.5, saldo: 123.5 })
+    assert.deepEqual(j, { jahr: 2026, anfangsbestand: 85, zukauf: 53, verbrauch: 14.5, saldo: 123.5, korrekturPlus: 3, korrekturMinus: 2 })
+  })
+
+  test('Nachtrag 02.10.2026: Inventurkorrekturen getrennt ausgewiesen, Vorjahre und Einkäufe nicht', () => {
+    const j = lj.jahresBewegung(
+      [
+        { datum: '2025-12-31', menge: 7, typ: 'korrektur' },
+        { datum: '2026-02-01', menge: 10, typ: 'einkauf' },
+        { datum: '2026-03-01', menge: 1.25, typ: 'korrektur' },
+        { datum: '2026-03-02', menge: 0.5, typ: 'korrektur' },
+        { datum: '2026-04-01', menge: -0.75, typ: 'korrektur' },
+      ],
+      [{ datum: '2026-05-01', menge: 2 }],
+      2026,
+    )
+    assert.equal(j.zukauf, 11.75)
+    assert.equal(j.korrekturPlus, 1.75)
+    assert.equal(j.verbrauch, 2.75)
+    assert.equal(j.korrekturMinus, 0.75)
+    assert.equal(j.saldo, 16)
   })
 
   test('ohne Bewegungen alles 0', () => {
-    assert.deepEqual(lj.jahresBewegung([], [], 2026), { jahr: 2026, anfangsbestand: 0, zukauf: 0, verbrauch: 0, saldo: 0 })
+    assert.deepEqual(lj.jahresBewegung([], [], 2026), { jahr: 2026, anfangsbestand: 0, zukauf: 0, verbrauch: 0, saldo: 0, korrekturPlus: 0, korrekturMinus: 0 })
   })
 
   test('lagerKonto: Saldo = Bestand, Buchungen in g in die Lager-Einheit kg umgerechnet', () => {
@@ -79,7 +98,7 @@ describe('Jahressicht (KAN-173)', opt, () => {
       2026,
     )
     assert.equal(k.einheit, 'kg')
-    assert.deepEqual(k.jahr, { jahr: 2026, anfangsbestand: 6, zukauf: 2.5, verbrauch: 1.5, saldo: 7 })
+    assert.deepEqual(k.jahr, { jahr: 2026, anfangsbestand: 6, zukauf: 2.5, verbrauch: 1.5, saldo: 7, korrekturPlus: 0, korrekturMinus: 0 })
     assert.equal(k.jahr.saldo, k.bestand)
   })
 
@@ -101,7 +120,7 @@ describe('Jahressicht (KAN-173)', opt, () => {
       'stk',
       2026,
     )
-    assert.deepEqual(k.jahr, { jahr: 2026, anfangsbestand: 100, zukauf: 500, verbrauch: 110, saldo: 490 })
+    assert.deepEqual(k.jahr, { jahr: 2026, anfangsbestand: 100, zukauf: 500, verbrauch: 110, saldo: 490, korrekturPlus: 0, korrekturMinus: 10 })
     assert.equal(k.jahr.saldo, k.bestand)
   })
 })
@@ -122,6 +141,14 @@ describe('Stammdaten-Tabellen zeigen die Jahressicht (KAN-173)', () => {
     assert.match(s, /const breit = 'hidden md:table-cell'/)
     for (const t of ['Anfangsbestand', 'Zukäufe', 'Verbräuche']) assert.match(s, new RegExp(`\\$\\{breit\\}[^>]*>${t}<`))
     assert.match(s, /<th className=\{klasse\} title="Aktueller Bestand">Saldo<\/th>/)
+  })
+
+  test('Nachtrag 02.10.2026: „davon Inventurkorrektur“ unter Zukäufen und Verbräuchen, nur wenn ≠ 0', () => {
+    const s = quelle('LagerJahrSpalten.tsx')
+    assert.match(s, /<DavonKorrektur menge=\{lager\.korrekturPlus\} vorzeichen="\+" \/>/)
+    assert.match(s, /<DavonKorrektur menge=\{lager\.korrekturMinus\} vorzeichen="−" \/>/)
+    assert.match(s, /if \(!menge\) return null/)
+    assert.match(s, /davon Inventurkorrektur \{vorzeichen\}\{zahl\(menge\)\}/)
   })
 
   test('page.tsx rechnet mit lagerKonto/bmKonto und dem Jahr und lädt den Verbrauch auch für die Stammdaten-Tabs', () => {
