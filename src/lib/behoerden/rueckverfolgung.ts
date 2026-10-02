@@ -24,6 +24,7 @@
 import { runden, STELLEN, type CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
 import { bkiRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
+import { qualitaetAnzeigeOderNull } from '@/lib/wein/qualitaet'
 import { MASSNAHMEN_ART_LABEL } from '@/lib/behandlungen/arten'
 import { normalisiereBehandlung } from './psm'
 import { verteileMassnahme, type Verteilung } from '@/lib/wein/massnahmeAnteile'
@@ -399,7 +400,7 @@ export async function ladeChargeKette(
 ): Promise<Kette> {
   const [waRes, prRes, anRes, umRes] = await Promise.all([
     (supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, rebsorte, status, qualitaetsstufe, behaelter_id, behaelter:behaelter_id(name, typ, volumen_liter)')
+      .select('id, name, jahrgang, rebsorte, status, qualitaetsstufe, zusatzbezeichnung, erzeugnis, behaelter_id, behaelter:behaelter_id(name, typ, volumen_liter)')
       .eq('tenant_id', tenantId)
       .eq('id', wId)
       .maybeSingle(),
@@ -529,7 +530,7 @@ export async function ladeFuellungKette(
 
 export type RueckverfolgungFilter = { jahrgang: number | null; sorte: string | null; bezeichnung: string | null }
 
-const TREFFER_SELECT = 'id, name, bezeichnung, jahrgang, rebsorte, qualitaet, chargennummer, pruefnummer, bestand_flaschen, flaschengroesse_ml, anzahl_flaschen, menge_liter_gefuellt, datum, weinausbau_id, aktiv'
+const TREFFER_SELECT = 'id, name, bezeichnung, jahrgang, rebsorte, qualitaet, zusatzbezeichnung, erzeugnis, chargennummer, pruefnummer, bestand_flaschen, flaschengroesse_ml, anzahl_flaschen, menge_liter_gefuellt, datum, weinausbau_id, aktiv'
 
 /** Trefferliste: alle Füllungen des Betriebs nach Jahrgang/Sorte/Bezeichnung (neueste Jahrgänge zuerst) */
 export async function ladeRueckverfolgungTreffer(supabase: any, tenantId: string, f: RueckverfolgungFilter): Promise<R[]> {
@@ -742,7 +743,7 @@ export const SPALTEN_RUECKVERFOLGUNG_TREFFER: CsvSpalte<R>[] = [
   { kopf: 'Jahrgang', typ: 'ganzzahl', wert: f => f.jahrgang },
   { kopf: 'Sorte', typ: 'text', wert: f => f.rebsorte },
   { kopf: 'BKI-Kürzel', typ: 'code', wert: f => bkiRebsorteKuerzel(text(f.rebsorte)) },
-  { kopf: 'Qualität', typ: 'text', wert: f => f.qualitaet },
+  { kopf: 'Qualität', typ: 'text', wert: f => qualitaetAnzeigeOderNull(f) },   // KAN-186: Stufe + Zusatzbezeichnung/Erzeugnis
   { kopf: 'Chargennummer', typ: 'code', wert: f => f.chargennummer },
   { kopf: 'Prüfnummer', typ: 'code', wert: f => f.pruefnummer },
   { kopf: 'Flaschengröße (ml)', typ: 'ganzzahl', wert: f => f.flaschengroesse_ml },

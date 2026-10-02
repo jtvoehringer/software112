@@ -10,6 +10,8 @@ import { OHNE_MENGENWIRKUNG, GEBINDEWECHSEL_OHNE } from '@/lib/kellerbuch/storno
 import { fmtNum } from '@/lib/format'
 import { KORREKTUR_NACH_OBEN_HINWEIS } from '@/lib/kellerbuch/hinweise'
 import { QUALITAET_OPTS, mitGespeichertemWert } from '@/lib/wein/qualitaet'
+import { normalisiereQualitaet } from '@/lib/wein/qualitaetsrang'
+import ZusatzErzeugnisFelder from '@/components/wein/ZusatzErzeugnisFelder'
 import { Info } from 'lucide-react'
 import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
 import type { Metadata } from 'next'
@@ -38,7 +40,7 @@ export default async function EroeffnungsbestandEditPage({ params, searchParams 
 
   const [{ data: rowRaw }, gebindeRows] = await Promise.all([
     tf((supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, kmw, oechsle, mostgewicht_einheit, menge_liter, anfangsbestand_liter, qualitaetsstufe, behaelter_id, notizen, einstandspreis_pro_liter, referenz_altsystem')
+      .select('id, name, jahrgang, kmw, oechsle, mostgewicht_einheit, menge_liter, anfangsbestand_liter, qualitaetsstufe, zusatzbezeichnung, erzeugnis, behaelter_id, notizen, einstandspreis_pro_liter, referenz_altsystem')
       .eq('id', id).eq('ist_eroeffnungsbestand', true).limit(1)),
     // Ziele: eigene + freigegebene Gebinde, fremd belegte ausgenommen (Migration 203)
     ladeBehaelter(supabase, tenantId, { alsZiel: true }),
@@ -46,6 +48,7 @@ export default async function EroeffnungsbestandEditPage({ params, searchParams 
 
   const eintrag = (((rowRaw ?? []) as R[])[0] ?? null) as R | null
   if (!eintrag) notFound()
+  const angabe = normalisiereQualitaet(eintrag)   // KAN-186: Altwerte (reserve, sekt …) → Stufe + Zusatz/Erzeugnis
 
   // KAN-35: Die Menge ist der Anfangsbestand (ändert anfangsbestand_liter und menge_liter
   // gemeinsam) – nur ohne Mengenbewegungen und solange der Bestand noch dem Anfangsbestand
@@ -155,13 +158,15 @@ export default async function EroeffnungsbestandEditPage({ params, searchParams 
           </div>
           <div>
             <label className={labelCls}>Qualitätsstufe</label>
-            <select aria-label="Qualitätsstufe" name="qualitaetsstufe" defaultValue={eintrag.qualitaetsstufe ?? ''} className={inputCls}>
+            <select aria-label="Qualitätsstufe" name="qualitaetsstufe" defaultValue={angabe.stufe ?? ''} className={inputCls}>
               <option value="">– keine –</option>
-              {mitGespeichertemWert(QUALITAET_OPTS, eintrag.qualitaetsstufe).map(q => (
+              {mitGespeichertemWert(QUALITAET_OPTS, angabe.stufe).map(q => (
                 <option key={q.value} value={q.value}>{q.label}</option>
               ))}
             </select>
           </div>
+          {/* KAN-186: Zusatzbezeichnung und Erzeugnis (Altwerte im Qualitätsfeld normalisiert) */}
+          <ZusatzErzeugnisFelder zusatz={angabe.zusatz} erzeugnis={angabe.erzeugnis} feldKlasse={inputCls} labelKlasse={labelCls} />
           <div>
             <label className={labelCls}>Referenz Altsystem</label>
             <input aria-label="Referenz Altsystem" name="referenz_altsystem" defaultValue={eintrag.referenz_altsystem ?? ''} className={inputCls} />

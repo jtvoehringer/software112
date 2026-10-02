@@ -5,12 +5,12 @@ import { useRouter } from 'next/navigation'
 import VerschneidungForm from '@/components/kellerbuch/VerschneidungForm'
 import { deleteVerschneidung } from '@/app/(dashboard)/kellerbuch/actions'
 import StornoButton from '@/components/StornoButton'
-import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
+import { qualitaetText } from '@/lib/weinqualitaet'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { GitMerge } from 'lucide-react'
 import { fmtNum } from '@/lib/format'
 
-type ChargeOpt = { id: string; name: string; menge_liter: number | null; qualitaetsstufe?: string | null; herkunft_code?: string | null; rebsorte?: string | null; weinart?: string | null; behaelter_id?: string | null; behaelter_volumen_liter?: number | null }
+type ChargeOpt = { id: string; name: string; menge_liter: number | null; qualitaetsstufe?: string | null; zusatzbezeichnung?: string | null; erzeugnis?: string | null; herkunft_code?: string | null; rebsorte?: string | null; weinart?: string | null; behaelter_id?: string | null; behaelter_volumen_liter?: number | null }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
@@ -124,7 +124,7 @@ export default function VerschneidungWidget({ bestehtAus = null, zielCharge, all
                   <td className="px-4 py-2.5">
                     <div className="space-y-0.5">
                       {((v.quellen ?? []) as R[]).map((q: R, i: number) => {
-                        const ql = (q.quelle as R | null)?.qualitaetsstufe
+                        const ql = (q.quelle as R | null)?.qualitaetsstufe ? qualitaetText(q.quelle as R) : null
                         return (
                           <p key={i} className="text-xs flex items-center gap-1.5">
                             <span className="font-medium text-s112-text">{(q.quelle as R | null)?.name ?? '?'}</span>
@@ -136,7 +136,7 @@ export default function VerschneidungWidget({ bestehtAus = null, zielCharge, all
                             )}
                             {ql && (
                               <span className="text-xs bg-s112-warn-bg border border-s112-warn/30 text-s112-warn-fg px-1.5 py-0.5 rounded-full">
-                                {QUALITAET_LABEL[ql] ?? ql}
+                                {ql}
                               </span>
                             )}
                           </p>

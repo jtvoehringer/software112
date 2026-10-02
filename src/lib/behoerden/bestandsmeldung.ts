@@ -28,7 +28,7 @@ import { fmtNum } from '@/lib/format'
 import { alle } from '@/lib/supabase/alle'
 import { ladeBehaelter } from '@/lib/keller/behaelter'
 import { bkiFarbe, bkiRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
-import { qualitaetLabel } from '@/lib/wein/qualitaet'
+import { qualitaetAnzeigeOderNull } from '@/lib/wein/qualitaet'
 import { datumAT, kuerzelWarnungen, textOderNull, zahlOderNull } from './ernte_hilfen'
 import { ladeBewegungenBetrieb } from './bewegungsbuch'
 import { bestandAmStichtag, fruehesterTag, standardStichtag, type MengenBuchung } from './bestandZum'
@@ -227,7 +227,7 @@ export async function ladeBestandsmeldung(
       jahrgang: zahlOderNull(c.jahrgang),
       rebsorte, kuerzel: bkiRebsorteKuerzel(rebsorte),
       farbe: farbeAus(c.weinart, rebsorte),
-      qualitaet: textOderNull(c.qualitaetsstufe) ? qualitaetLabel(c.qualitaetsstufe) : null,
+      qualitaet: qualitaetAnzeigeOderNull(c),   // KAN-186: Stufe + Zusatzbezeichnung/Erzeugnis
       behaelter: (c.behaelter_id ? gebindeName.get(c.behaelter_id) : undefined) ?? textOderNull((c.behaelter as R | null)?.name),
       flaschengroesseMl: null,
       flaschen: null,
@@ -314,7 +314,7 @@ export async function ladeBestandsmeldung(
       jahrgang: zahlOderNull(f.jahrgang),
       rebsorte, kuerzel: bkiRebsorteKuerzel(rebsorte),
       farbe: farbeAus((f.weinausbau as R | null)?.weinart, rebsorte),
-      qualitaet: textOderNull(f.qualitaet) ? qualitaetLabel(f.qualitaet) : null,
+      qualitaet: qualitaetAnzeigeOderNull(f),   // KAN-186: Stufe + Zusatzbezeichnung/Erzeugnis
       behaelter: null,
       flaschengroesseMl: ml,
       flaschen: r.bestand,

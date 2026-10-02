@@ -76,7 +76,10 @@ describe('KAN-39: Kataloge lib ↔ Migration', () => {
     const m = readFileSync(new URL(name, migDir), 'utf8')
     assert.match(m, /v_q IN \('reserve', 'erste_lage', 'grosses_gewachs'\)/)
     assert.match(m, /WHEN v_q = 'sekt' THEN 'SEKTGU' WHEN v_q = 'perlwein' THEN 'PERLWEIN' WHEN v_art = 'most' THEN 'MOST'/)
-    assert.deepEqual([...kat.ZUSATZBEZEICHNUNGEN], ['reserve', 'erste_lage', 'grosses_gewachs'])
+    // KAN-186 Etappe 2c: + grosse_reserve (CHECKs per Migration kan186c); dieselbe Liste in lib/wein/qualitaetsrang
+    assert.deepEqual([...kat.ZUSATZBEZEICHNUNGEN], ['reserve', 'grosse_reserve', 'erste_lage', 'grosses_gewachs'])
+    assert.deepEqual([...rang.ZUSATZ_WERTE], [...kat.ZUSATZBEZEICHNUNGEN])
+    assert.deepEqual(kat.katalogAusQualitaet('grosse_reserve'), { zusatzbezeichnung: null, erzeugnis: null }, 'grosse_reserve gab es nie im Qualitätsfeld')
   })
   test('Länder: 249 ISO-Codes, 27 EU-Staaten, Österreich in der EU', () => {
     const l = werte('kat_land')

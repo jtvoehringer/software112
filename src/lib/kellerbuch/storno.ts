@@ -51,7 +51,7 @@ import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { folgebuchungenText, type Folgebuchung, type FolgebuchungArt } from '@/lib/kellerbuch/folgebuchungen'
 import { gebindeFehlerText } from '@/lib/keller/behaelter'
 import { fmtNum } from '@/lib/format'
-import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
+import { umzugQualitaetZurueck, verschnittQualitaetZurueck } from '@/lib/kellerbuch/qualitaetMomentaufnahme'
 import { KORREKTUR_NACH_OBEN_HINWEIS, SCHWUND_STORNO_HINWEIS } from '@/lib/kellerbuch/hinweise'
 import { stornoGrundFehler } from '@/lib/storno/grund'
 import { ohneStornierteVerschnitte } from '@/lib/kellerbuch/stornoFilter'
@@ -268,7 +268,7 @@ async function planeRueckbuchung(
   if (ids.length === 0) return { sperre: null, aenderungen: [], chargen }
 
   const { data, error } = await (supabase.from('weinausbau') as any)
-    .select('id, name, menge_liter, aktiv, status, qualitaetsstufe, herkunft_code, notizen, kmw, oechsle, mostgewicht_einheit, rebsorte, jahrgang')
+    .select('id, name, menge_liter, aktiv, status, qualitaetsstufe, zusatzbezeichnung, erzeugnis, herkunft_code, notizen, kmw, oechsle, mostgewicht_einheit, rebsorte, jahrgang')
     .in('id', ids)
     .eq('tenant_id', tenantId)
   if (error) throw new AktionsFehler(dbFehlerText(error, 'Chargen konnten nicht geladen werden'))
@@ -456,7 +456,7 @@ export function verschneidungSperrMeldung(plan: VerschneidungStornoPlan): string
 // ── Umzug ─────────────────────────────────────────────────────────────────────
 
 const UMZUG_SPALTEN =
-  'id, datum, erstellt_am, zeilen_typ, umzug_typ, umzug_batch_id, von_weinausbau_id, nach_weinausbau_id, von_behaelter_id, nach_behaelter_id, brutto_liter, menge_liter, schwund_liter, notizen, qualitaet_vorher, qualitaet_nachher, herkunft_code_vorher, herkunft_code_nachher, kmw_vorher, kmw_nachher, oechsle_vorher, oechsle_nachher, mostgewicht_einheit_vorher, mostgewicht_einheit_nachher'
+  'id, datum, erstellt_am, zeilen_typ, umzug_typ, umzug_batch_id, von_weinausbau_id, nach_weinausbau_id, von_behaelter_id, nach_behaelter_id, brutto_liter, menge_liter, schwund_liter, notizen, qualitaet_vorher, qualitaet_nachher, zusatz_vorher, zusatz_nachher, erzeugnis_vorher, erzeugnis_nachher, herkunft_code_vorher, herkunft_code_nachher, kmw_vorher, kmw_nachher, oechsle_vorher, oechsle_nachher, mostgewicht_einheit_vorher, mostgewicht_einheit_nachher'
 
 /** Alle Zeilen der Umzugsbuchung (ganzer Batch) zu einer Zeile – null, wenn nicht gefunden */
 export async function ladeUmzugZeilen(
@@ -597,13 +597,6 @@ export function nurNotizenAenderbar(plan: UmzugStornoPlan): boolean {
   return plan.istSchwund || !!plan.sperre
 }
 
-/** Qualitätscode zu einer Bezeichnung aus QUALITAET_LABEL (umziehen() schreibt Label ?? Code) */
-function qualitaetsCode(text: string): string | null {
-  const t = text.trim()
-  if (QUALITAET_LABEL[t]) return t
-  return Object.entries(QUALITAET_LABEL).find(([, label]) => label === t)?.[0] ?? null
-}
-
 /**
  * Qualitätsabstufung einer zusammengeführten Ziel-Charge beim Storno zurücknehmen.
  * umziehen() vermerkt sie an der Zielzeile („Abstufung von X auf Y“) und in den Notizen der
@@ -629,23 +622,14 @@ function nimmAbstufungZurueck(zeilenDerBuchung: R[], aenderungen: ChargenRueckbu
       const c = chargen.get(z.nach_weinausbau_id)
       if (a && c && a.neu > TOLERANZ && c.herkunft_code === z.herkunft_code_nachher) a.payload.herkunft_code = z.herkunft_code_vorher ?? null
     }
-    // KAN-145: Momentaufnahme der Ziel-Charge an der Ziel-Zeile (ab 30.09.2026) – zurück, wenn sie noch auf „nachher“ steht
-    if (z.qualitaet_vorher && z.qualitaet_nachher && z.qualitaet_vorher !== z.qualitaet_nachher) {
+    // KAN-145: Momentaufnahme der Ziel-Charge an der Ziel-Zeile (ab 30.09.2026) – zurück, wenn sie noch auf „nachher“
+    // steht; ältere Umzüge über den Vermerk „Abstufung von X auf Y“. KAN-186: samt Zusatzbezeichnung und Erzeugnis
+    // (zusatz_*/erzeugnis_*; Altwerte wie 'reserve' im Qualitätsfeld bzw. „Reserve“ im Vermerk werden zurückgeführt).
+    {
       const a = aenderungen.find(x => x.id === z.nach_weinausbau_id)
       const c = chargen.get(z.nach_weinausbau_id)
-      if (a && c && a.neu > TOLERANZ && c.qualitaetsstufe === z.qualitaet_nachher) a.payload.qualitaetsstufe = z.qualitaet_vorher
-      continue
-    }
-    const m = /^Abstufung von (.+) auf (.+)$/.exec(String(z.notizen ?? '').trim())
-    if (!m) continue
-    const a = aenderungen.find(x => x.id === z.nach_weinausbau_id)
-    const c = chargen.get(z.nach_weinausbau_id)
-    if (!a || !c || a.neu <= TOLERANZ) continue
-    const vonCode = qualitaetsCode(m[1])
-    const nachCode = qualitaetsCode(m[2])
-    const vermerk = `Abstufung von ${m[1]} auf ${m[2]} (Zusammenführung per Umziehen)`
-    if (vonCode && nachCode && c.qualitaetsstufe === nachCode && String(c.notizen ?? '').includes(vermerk)) {
-      a.payload.qualitaetsstufe = vonCode
+      const q = a && c && a.neu > TOLERANZ ? umzugQualitaetZurueck(z, c) : null
+      if (a && q) Object.assign(a.payload, q)
     }
   }
 }
@@ -722,7 +706,7 @@ export async function planeVerschneidungStorno(
 ): Promise<VerschneidungStornoPlan> {
   // storno-sichtbar: lädt den Verschnitt auch storniert, um „bereits storniert“ zu melden
   const { data, error } = await (supabase.from('verschneidungen') as any)
-    .select('id, datum, created_at, storniert_am, ziel_weinausbau_id, ziel_qualitaet_vorher, ziel_herkunft_code_vorher, ziel_rebsorte_vorher, ziel_jahrgang_vorher, ziel_kmw_vorher, ziel_oechsle_vorher, ziel_mostgewicht_einheit_vorher, quellen:verschneidung_quellen(quell_weinausbau_id, menge_liter)')
+    .select('id, datum, created_at, storniert_am, ziel_weinausbau_id, ziel_qualitaet_vorher, ziel_zusatz_vorher, ziel_erzeugnis_vorher, ziel_herkunft_code_vorher, ziel_rebsorte_vorher, ziel_jahrgang_vorher, ziel_kmw_vorher, ziel_oechsle_vorher, ziel_mostgewicht_einheit_vorher, quellen:verschneidung_quellen(quell_weinausbau_id, menge_liter)')
     .eq('id', verschneidungId)
     .eq('tenant_id', tenantId)
     .maybeSingle()
@@ -755,7 +739,8 @@ export async function planeVerschneidungStorno(
   if (!sperre) {
     const ziel = aenderungen.find(a => a.id === v.ziel_weinausbau_id)
     if (ziel) {
-      if (v.ziel_qualitaet_vorher) ziel.payload.qualitaetsstufe = v.ziel_qualitaet_vorher
+      // KAN-186: samt Zusatzbezeichnung und Erzeugnis (Altwert im Snapshot wird normalisiert)
+      { const q = verschnittQualitaetZurueck(v); if (q) Object.assign(ziel.payload, q) }
       if (v.ziel_herkunft_code_vorher) ziel.payload.herkunft_code = v.ziel_herkunft_code_vorher
       // KAN-145: Rebsorte (Momentaufnahme ab 30.09.2026; ältere Verschnitte haben keine – dann unverändert)
       if (v.ziel_rebsorte_vorher) ziel.payload.rebsorte = v.ziel_rebsorte_vorher

@@ -14,10 +14,17 @@
 //                           (traubenverkauf.qualitaetsstufe, ohne CHECK)
 //   FUELLUNG_QUALITAETEN  → fuellungen.qualitaet (Füllung neu/bearbeiten) – fuellungen_qualitaet_check
 // Server Actions prüfen vor dem Schreiben mit qualitaetFehler() (verständliche Meldung statt 23514).
-// Einziger Import: die Rangfolge (mit .ts-Endung, damit node:test die Datei direkt laden kann).
+// Importe: die Rangfolge und der Erzeugnis-Katalog (mit .ts-Endung, damit node:test die Dateien direkt laden kann).
+//
+// KAN-186 Etappe 2b/2c (02.10.2026): Die Qualitätsauswahl bietet Reserve, Erste Lage, Großes Gewächs, Sekt und
+// Perlwein nicht mehr an. Dafür gibt es die Felder „Zusatzbezeichnung“ (ZUSATZ_OPTS, nur Stillwein auf Qualitätswein)
+// und „Erzeugnis“ (ERZEUGNIS_OPTS, leer = Wein). Prüfung vor dem Schreiben: qualitaetsAngabeFehler(); Anzeige mit
+// Stufe, Zusatz und Erzeugnis: qualitaetAnzeige().
 
 // @ts-expect-error TS5097 – Pfad mit .ts-Endung für node:test (wie lib/buchhaltung/bmd.ts)
-import { niedrigsteQualitaet } from './qualitaetsrang.ts'
+import { niedrigsteQualitaet, normalisiereQualitaet, qualitaetsRang, istZusatz, istAltwertQualitaet, GRUNDSTUFE_ZUSATZ, type QualitaetsAngabe, type QualitaetsZeile, type Zusatz } from './qualitaetsrang.ts'
+// @ts-expect-error TS5097 – siehe oben
+import { KAT_ERZEUGNIS } from '../katalog/bki.ts'
 
 export const QUALITAET_OPTS = [
   { value: 'wein',                 label: 'Wein (ohne Herkunft)',           rang: 0 },
@@ -31,13 +38,9 @@ export const QUALITAET_OPTS = [
   { value: 'trockenbeerenauslese', label: 'Trockenbeerenauslese (TBA)',     rang: 8 },
   { value: 'eiswein',              label: 'Eiswein',                        rang: 6 },
   { value: 'strohwein',            label: 'Strohwein / Schilfwein',         rang: 6 },
-  // Ergänzende Bezeichnungen (Zusatz auf Qualitätswein) und Erzeugnisse
+  // Herkunftsbezeichnung auf Qualitätswein. KAN-186: Reserve, Erste Lage, Großes Gewächs stehen in ZUSATZ_OPTS
+  // (Spalte zusatzbezeichnung), Sekt und Perlwein in ERZEUGNIS_OPTS (Spalte erzeugnis)
   { value: 'dac',                  label: 'DAC',                            rang: 2 },
-  { value: 'reserve',              label: 'Reservé / Reserve',              rang: 2 },
-  { value: 'erste_lage',           label: 'Erste Lage (ÖTW)',               rang: 2 },
-  { value: 'grosses_gewachs',      label: 'Großes Gewächs',                 rang: 2 },
-  { value: 'sekt',                 label: 'Sekt b.A.',                      rang: 2 },
-  { value: 'perlwein',             label: 'Perlwein',                       rang: 0 },
   { value: 'sonstiges',            label: 'Sonstiges',                      rang: 0 },
 ] as const
 
@@ -131,7 +134,114 @@ export function mitGespeichertemWert(
 
 export function qualitaetLabel(value: string | null | undefined): string {
   if (!value) return '–'
+  // KAN-186: Altwert im Qualitätsfeld (bis zur Datenumstellung) → „Qualitätswein Reserve“ bzw. „Sekt g.U. (Qualitätswein)“
+  if (istAltwertQualitaet(value)) return qualitaetAnzeige({ qualitaetsstufe: value })
   return QUALITAET_OPTS.find(o => o.value === value)?.label ?? value
+}
+
+// ── KAN-186: Zusatzbezeichnung und Erzeugnis ─────────────────────────────────────────────────────────────
+
+/** Zusatzbezeichnungen (Spalte zusatzbezeichnung; CHECK reserve | grosse_reserve | erste_lage | grosses_gewachs) */
+export const ZUSATZ_OPTS: readonly { readonly value: Zusatz; readonly label: string }[] = [
+  { value: 'reserve',         label: 'Reserve' },
+  { value: 'grosse_reserve',  label: 'Große Reserve' },
+  { value: 'erste_lage',      label: 'Erste Lage (ÖTW)' },
+  { value: 'grosses_gewachs', label: 'Großes Gewächs' },
+]
+
+/** Erzeugnisse, bei denen es keine Zusatzbezeichnung gibt (Sekt-Stufen eigenes Ticket KAN-190) */
+export const ERZEUGNIS_OHNE_ZUSATZ: readonly string[] = ['SEKTGU', 'PERLWEIN', 'SCHAUMW', 'PETNAT']
+
+/** Kurze Anzeigenamen einzelner Erzeugnisse (sonst die Katalogbezeichnung) */
+const ERZEUGNIS_LABEL: Record<string, string> = { SEKTGU: 'Sekt g.U.', PERLWEIN: 'Perlwein', SCHAUMW: 'Schaumwein', PETNAT: 'PetNat (Pétillant Naturel)' }
+
+/** Erzeugnisse im Weg der Stufe: Wein ohne/mit g.g.A./g.U. ergibt sich aus der Qualitätsstufe, Traubensaft ist kein Wein */
+const ERZEUGNIS_AUS_STUFE = ['WEIN', 'WEINSORT', 'WEINGGA', 'WEINGU']
+
+/**
+ * Auswahl „Erzeugnis“ (Spalte erzeugnis, FK kat_erzeugnis): bestandsmeldepflichtige Erzeugnisse ohne die, die sich
+ * aus der Stufe ergeben. Sekt g.U. und Perlwein zuerst; leer (eigene Option im Formular) = Wein.
+ */
+export const ERZEUGNIS_OPTS: readonly { readonly value: string; readonly label: string }[] = (() => {
+  const liste = (KAT_ERZEUGNIS as readonly { code: string; bezeichnung: string; bsmRelevant: boolean }[])
+    .filter(e => e.bsmRelevant && !ERZEUGNIS_AUS_STUFE.includes(e.code))
+    .map(e => ({ value: e.code, label: ERZEUGNIS_LABEL[e.code] ?? e.bezeichnung }))
+  const vorne = ['SEKTGU', 'PERLWEIN']
+  return [...vorne.map(v => liste.find(o => o.value === v)!).filter(Boolean), ...liste.filter(o => !vorne.includes(o.value))]
+})()
+
+/** Bezeichnung eines Erzeugnisses (Katalog) – leer → null */
+export function erzeugnisLabel(code: string | null | undefined): string | null {
+  if (!code) return null
+  return ERZEUGNIS_LABEL[code] ?? (KAT_ERZEUGNIS as readonly { code: string; bezeichnung: string }[]).find(e => e.code === code)?.bezeichnung ?? code
+}
+
+/** Bezeichnung einer Zusatzbezeichnung – leer → null */
+export function zusatzLabel(code: string | null | undefined): string | null {
+  if (!code) return null
+  return ZUSATZ_OPTS.find(o => o.value === code)?.label ?? code
+}
+
+/**
+ * Anzeige einer Qualitätsangabe für Listen und Berichte (lange Labels): „Qualitätswein Reserve“,
+ * „Sekt g.U. (Qualitätswein)“, „Kabinett“. Nimmt eine Zeile (Altwerte werden normalisiert) oder eine Angabe.
+ */
+export function qualitaetAnzeige(q: QualitaetsZeile | QualitaetsAngabe | null | undefined): string {
+  if (!q) return '–'
+  const a: QualitaetsAngabe = 'stufe' in q ? q as QualitaetsAngabe : normalisiereQualitaet(q as QualitaetsZeile)
+  const basis = a.stufe ? (QUALITAET_OPTS.find(o => o.value === a.stufe)?.label ?? a.stufe) : ''
+  const mitZusatz = [basis, zusatzLabel(a.zusatz)].filter(Boolean).join(' ')
+  const e = a.erzeugnis && !ERZEUGNIS_AUS_STUFE.includes(a.erzeugnis) ? erzeugnisLabel(a.erzeugnis) : null
+  if (e) return mitZusatz ? `${e} (${mitZusatz})` : e
+  return mitZusatz || '–'
+}
+
+/** Wie qualitaetAnzeige, aber null statt „–“, wenn die Zeile keine Stufe hat (Berichte, CSV) */
+export function qualitaetAnzeigeOderNull(q: QualitaetsZeile | null | undefined): string | null {
+  const a = normalisiereQualitaet(q)
+  return a.stufe ? qualitaetAnzeige(a) : null
+}
+
+/** Angabe aus einem Formular: Stufe (Feld `feld`), zusatzbezeichnung, erzeugnis – Altwerte normalisiert */
+export function qualitaetsAngabeAusFormular(formData: FormData, feld: 'qualitaetsstufe' | 'qualitaet' = 'qualitaetsstufe'): QualitaetsAngabe {
+  const text = (k: string) => {
+    const v = formData.get(k)
+    return typeof v === 'string' && v.trim() ? v.trim() : null
+  }
+  const zusatz = text('zusatzbezeichnung')
+  const a = normalisiereQualitaet({ qualitaetsstufe: text(feld), zusatzbezeichnung: zusatz, erzeugnis: text('erzeugnis') })
+  // Unbekannte Zusatzbezeichnung nicht still verwerfen – qualitaetsAngabeFehler meldet sie
+  return zusatz && !istZusatz(zusatz) ? { ...a, zusatz: zusatz as Zusatz } : a
+}
+
+/**
+ * Serverprüfung von Zusatzbezeichnung und Erzeugnis (KAN-186) – null = zulässig, sonst die Meldung:
+ *  - Zusatzbezeichnung nur Reserve, Große Reserve, Erste Lage, Großes Gewächs; nur auf Qualitätswein (auch bei
+ *    DAC-Herkunft) und nicht bei Sekt, Perlwein, Schaumwein oder PetNat
+ *  - Erzeugnis aus dem Katalog; Sekt g.U. erst ab Qualitätswein
+ * Die Stufe selbst prüft qualitaetFehler().
+ */
+export function qualitaetsAngabeFehler(a: QualitaetsAngabe): string | null {
+  const roh = a as { zusatz: unknown; erzeugnis: unknown; stufe: string | null }
+  if (roh.zusatz != null && !istZusatz(roh.zusatz)) return `Die Zusatzbezeichnung „${String(roh.zusatz)}“ ist unbekannt. Möglich: ${ZUSATZ_OPTS.map(o => o.label).join(', ')}.`
+  if (roh.erzeugnis != null && !(KAT_ERZEUGNIS as readonly { code: string }[]).some(e => e.code === roh.erzeugnis)) {
+    return `Das Erzeugnis „${String(roh.erzeugnis)}“ ist unbekannt – bitte aus der Auswahlliste wählen.`
+  }
+  if (a.zusatz) {
+    if (a.erzeugnis && ERZEUGNIS_OHNE_ZUSATZ.includes(a.erzeugnis)) {
+      return `Die Zusatzbezeichnung „${zusatzLabel(a.zusatz)}“ gibt es nur bei Stillwein – nicht bei ${erzeugnisLabel(a.erzeugnis)}.`
+    }
+    if (a.stufe !== GRUNDSTUFE_ZUSATZ) {
+      return `Die Zusatzbezeichnung „${zusatzLabel(a.zusatz)}“ setzt die Qualitätsstufe „Qualitätswein“ voraus (auch bei DAC-Herkunft) – bitte als Stufe „Qualitätswein“ wählen.`
+    }
+  }
+  if (a.erzeugnis === 'SEKTGU') {
+    const r = qualitaetsRang(a.stufe)
+    if (!r || r.stufe < (qualitaetsRang(GRUNDSTUFE_ZUSATZ)?.stufe ?? 2)) {
+      return 'Sekt g.U. setzt mindestens die Qualitätsstufe „Qualitätswein“ voraus.'
+    }
+  }
+  return null
 }
 
 /** Ergebnis aus zwei Stufen (Umzug/Zusammenführung) – dieselbe Regel wie der Verschnitt (KAN-74):

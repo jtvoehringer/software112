@@ -22,6 +22,7 @@ import { bestandVorVerkauf, ersatzPruefnummer, pnDatumDe, pnTag, pruefnummerGuel
 import { antragAusZeile, ladePruefnummerDaten, PN_ANTRAG_SELECT } from '@/lib/kellerbuch/pruefnummerLaden'
 import { rebsorteDerLieferung } from './traubenverkauf'
 import { mostgewichtAusGespeichert } from '@/lib/wein/mostgewichtFormular'
+import { qualitaetAnzeigeOderNull } from '@/lib/wein/qualitaet'
 import { tbAlkoholText, tbMostgewichtFelder } from './tbMostgewicht'
 import {
   UUID_RE, datumAusTeilen, feld, formularZahl, inBloecken, jaNeinFeld, strasseTeilen, textOderNull, zahlFeld, type R,
@@ -286,7 +287,7 @@ export function tbVorbelegung(posten: R, cfg: R, pn: TBPruefnummern, heute: stri
         einheit:         'l',
         art:             art ?? 'Weiß',
         traubensorte:    wa?.rebsorte ? formatRebsorteMitKuerzel(wa.rebsorte) : '',
-        qualitaetsstufe: feld(wa?.qualitaetsstufe),
+        qualitaetsstufe: wa ? qualitaetAnzeigeOderNull(wa) ?? '' : '',   // KAN-186: Stufe + Zusatzbezeichnung/Erzeugnis
         jahrgang:        wa?.jahrgang ? String(wa.jahrgang) : '',
         herkunft:        feld(cfg.betrieb_ort),
         pruefnummer:     e?.gueltig ? (e.pruefnummer ?? '') : '',
@@ -325,7 +326,7 @@ export function tbVorbelegung(posten: R, cfg: R, pn: TBPruefnummern, heute: stri
         einheit:         hatGroesse ? 'l' : '',
         art:             art ?? 'Weiß',
         traubensorte:    f?.rebsorte ? formatRebsorteMitKuerzel(f.rebsorte) : '',
-        qualitaetsstufe: feld(f?.qualitaet),
+        qualitaetsstufe: f ? qualitaetAnzeigeOderNull(f) ?? '' : '',   // KAN-186: Stufe + Zusatzbezeichnung/Erzeugnis
         jahrgang:        f?.jahrgang ? String(f.jahrgang) : '',
         herkunft:        feld(f?.anbaugebiet) || feld(cfg.betrieb_ort),
         pruefnummer:     pruef,
@@ -508,8 +509,8 @@ const POSTEN_SELECT = `
   firma:firmen(name, telefon, strasse, plz, ort, betrieb_nr),
   positionen:verkauf_positionen(
     id, typ, name, menge, einheit,
-    weinausbau:weinausbau(id, name, jahrgang, qualitaetsstufe, rebsorte, weinart, status, kmw, oechsle, mostgewicht_einheit),
-    fuellung:fuellungen(id, name, jahrgang, qualitaet, rebsorte, anbaugebiet, flaschengroesse_ml, datum, pruefnummer, dac_antrag_id, weinausbau_id),
+    weinausbau:weinausbau(id, name, jahrgang, qualitaetsstufe, zusatzbezeichnung, erzeugnis, rebsorte, weinart, status, kmw, oechsle, mostgewicht_einheit),
+    fuellung:fuellungen(id, name, jahrgang, qualitaet, zusatzbezeichnung, erzeugnis, rebsorte, anbaugebiet, flaschengroesse_ml, datum, pruefnummer, dac_antrag_id, weinausbau_id),
     traubenverkauf:traubenverkauf(id, storniert_am, datum, kmw_grad, oechsle, mostgewicht_einheit, qualitaetsstufe, herkunft_code, grundstueck:grundstueck_id(rebsorte), weingarten:weingarten_id(rebsorte), zukauf:zukauf_posten_id(rebsorte))
   )
 `

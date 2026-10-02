@@ -35,7 +35,7 @@ export default async function NeueFuellungPage({
   // oder inaktiven Anträge mehr (früher wählbar, samt ihrer Prüfnummer)
   const [{ data: chargenRaw }, { data: dacRaw }] = await Promise.all([
   tf((supabase.from('weinausbau') as any)
-    .select('id, name, jahrgang, rebsorte, menge_liter, status, qualitaetsstufe, herkunft_code')
+    .select('id, name, jahrgang, rebsorte, menge_liter, status, qualitaetsstufe, zusatzbezeichnung, erzeugnis, herkunft_code')
     .eq('aktiv', true)
     .neq('status', 'abgeschlossen')
     .order('jahrgang', { ascending: false })),
@@ -57,7 +57,7 @@ export default async function NeueFuellungPage({
   // auch wenn Status 'abgeschlossen' ist (Füllung kann trotzdem angelegt werden)
   if (chargeId && !chargen.find((c: R) => c.id === chargeId)) {
     const { data: extraRaw } = await tf((supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, rebsorte, menge_liter, status, qualitaetsstufe, herkunft_code')
+      .select('id, name, jahrgang, rebsorte, menge_liter, status, qualitaetsstufe, zusatzbezeichnung, erzeugnis, herkunft_code')
       .eq('id', chargeId))
       .single()
     if (extraRaw) chargen = [extraRaw as R, ...chargen]

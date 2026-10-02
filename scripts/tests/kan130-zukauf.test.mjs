@@ -72,9 +72,10 @@ describe('Server Actions (Quelltext)', () => {
   test('alle Aufrufe von createZukaufCharge geben das Mostgewicht mit', () => {
     const aufrufe = A.split('await createZukaufCharge(').slice(1)
     assert.equal(aufrufe.length, 3)
-    assert.match(aufrufe[0], /^[^)]*f\.mostgewicht,\s*\)/)          // createZukauf
-    assert.match(aufrufe[1], /^[^)]*mostgewichtCharge,\s*\)/)       // updateZukauf: Gebinde gewechselt
-    assert.match(aufrufe[2], /^[^)]*mostgewichtCharge,\s*\)/)       // updateZukauf: nachträglich ein Gebinde
+    // KAN-186: danach das Ursprungsland (f.landIso)
+    assert.match(aufrufe[0], /^[^)]*f\.mostgewicht, f\.landIso,\s*\)/)          // createZukauf
+    assert.match(aufrufe[1], /^[^)]*mostgewichtCharge, f\.landIso,\s*\)/)       // updateZukauf: Gebinde gewechselt
+    assert.match(aufrufe[2], /^[^)]*mostgewichtCharge, f\.landIso,\s*\)/)       // updateZukauf: nachträglich ein Gebinde
   })
   test('createZukauf speichert Messwert samt Einheit in zukauf_posten', () => {
     const fn = A.slice(A.indexOf('export async function createZukauf'), A.indexOf('export async function updateZukauf'))
@@ -96,7 +97,7 @@ describe('Server Actions (Quelltext)', () => {
   })
   test('Rückbau stellt das Mostgewicht der Charge samt Einheit wieder her', () => {
     assert.match(A, /kmw: c\.kmw, oechsle: c\.oechsle, mostgewicht_einheit: c\.mostgewicht_einheit/)
-    assert.match(A, /qualitaetsstufe, kmw, oechsle, mostgewicht_einheit'\)/)
+    assert.match(A, /qualitaetsstufe, zusatzbezeichnung, erzeugnis, land_iso, kmw, oechsle, mostgewicht_einheit'\)/)   // KAN-186
   })
   test('Qualitätsstufe wird nicht aus dem Mostgewicht abgeleitet (Rechenregel 6)', () => {
     assert.doesNotMatch(A, /kmwZuQualitaet|qualitaetAusKmw/)
@@ -112,7 +113,7 @@ describe('Formulare', () => {
       assert.match(f, /import MostgewichtEingabe from '@\/components\/wein\/MostgewichtEingabe'/)
       assert.doesNotMatch(f, /aria-label="°KMW"/)
       assert.doesNotMatch(f, /fd\.set\('kmw'/)
-      assert.match(f, /for \(const feld of \['mostgewicht_wert', 'mostgewicht_einheit'\]\)/)
+      assert.match(f, /for \(const feld of \['mostgewicht_wert', 'mostgewicht_einheit', 'zusatzbezeichnung', 'erzeugnis'\]\)/)   // KAN-186
     }
     // KAN-80 Nachtrag (02.10.2026): Mostgewicht ist bei Trauben und Most Pflicht
     assert.match(NEU, /<MostgewichtEingabe name="mostgewicht" required \/>/)

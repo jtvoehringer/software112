@@ -13,6 +13,8 @@ import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
 import HerkunftCodeSelect from '@/components/weinbaugebiete/HerkunftCodeSelect'
 import { herkunftOptionen } from '@/lib/herkunft'
 import { pruefnummerPflicht } from '@/lib/zukauf/ware'
+import ZusatzErzeugnisFelder from '@/components/wein/ZusatzErzeugnisFelder'
+import LandSelect, { type Land } from '@/components/wein/LandSelect'
 import { ladeCustomWeinbaugebiete, type CustomWeinbaugebiet } from '@/app/(dashboard)/weinbaugebiete/actions'
 
 interface Behaelter { id: string; name: string; typ: string; volumen_liter: number | null }
@@ -66,6 +68,9 @@ export default function ZukaufNeuPage() {
   const [qualitaet,     setQualitaet]     = useState('')
   const [jahrgang,      setJahrgang]      = useState('')
   const [herkunft,      setHerkunft]      = useState('')
+  // KAN-186: Ursprungsland (kat_land), Österreich vorbelegt
+  const [landIso,       setLandIso]       = useState('AT')
+  const [laender,       setLaender]       = useState<Land[]>([])
   // Eigene Weinbaugebiete des Betriebs (wie am GST, ladeCustomWeinbaugebiete) – null = noch nicht geladen
   const [eigeneGebiete, setEigeneGebiete] = useState<CustomWeinbaugebiet[] | null>(null)
   const [anreicherung,  setAnreicherung]  = useState(false)
@@ -109,7 +114,7 @@ export default function ZukaufNeuPage() {
         // werden seit 17.9.2026 serverseitig gesucht (PartnerSuche) - hier nur noch
         // Behälter/Chargen laden.
         const r2 = await fetch('/api/zukauf-stammdaten')
-        if (r2.ok) { const j2 = await r2.json(); setBehaelter(j2.behaelter ?? []); setWeinausbauListe(j2.weinausbau ?? []) }
+        if (r2.ok) { const j2 = await r2.json(); setBehaelter(j2.behaelter ?? []); setWeinausbauListe(j2.weinausbau ?? []); setLaender(j2.laender ?? []) }
       } catch { /* ignore */ } finally { setLoading(false) }
     }
     load()
@@ -145,11 +150,13 @@ export default function ZukaufNeuPage() {
     fd.set('qualitaetsstufe',         qualitaet)
     fd.set('jahrgang',                jahrgang)
     fd.set('herkunft',                herkunft)
+    fd.set('land_iso',                landIso)
     fd.set('anreicherung',            anreicherung ? 'true' : 'false')
     // KAN-130 Etappe 3 (01.10.2026): Mostgewicht = versteckte Felder der Eingabe (Messwert und
     // Einheit); fehlen sie (Art Wein, kein Feld), schickt das Formular kein Mostgewicht
     const formular = new FormData(e.currentTarget as HTMLFormElement)
-    for (const feld of ['mostgewicht_wert', 'mostgewicht_einheit']) {
+    // KAN-186: Zusatzbezeichnung und Erzeugnis (ZusatzErzeugnisFelder, nur bei Wein/Most)
+    for (const feld of ['mostgewicht_wert', 'mostgewicht_einheit', 'zusatzbezeichnung', 'erzeugnis']) {
       const wert = formular.get(feld)
       if (wert !== null) fd.set(feld, wert)
     }
@@ -351,6 +358,17 @@ export default function ZukaufNeuPage() {
                 ))}
               </select>
             </div>
+
+            {/* KAN-186: Ursprungsland (EU-Wein, Drittland) */}
+            <div>
+              <label className={labelCls}>Ursprungsland *</label>
+              <LandSelect laender={laender} value={landIso} onChange={setLandIso} className={inputCls + ' w-full'} />
+            </div>
+
+            {/* KAN-186: Zusatzbezeichnung (Reserve …) und Erzeugnis (Sekt g.U., Perlwein …) – nicht bei Trauben */}
+            {art !== 'trauben' && (
+              <ZusatzErzeugnisFelder key={art} stufe={qualitaet} feldKlasse={inputCls + ' w-full'} labelKlasse={labelCls} />
+            )}
 
             {/* Herkunfts-Code (BKI) – dieselbe Auswahl wie am GST, samt eigener Weinbaugebiete (KAN-80 Nachtrag) */}
             <div className="col-span-2">

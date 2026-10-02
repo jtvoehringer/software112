@@ -15,6 +15,7 @@
 import { createFuellung } from '@/app/(dashboard)/weinhandel/actions'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { FUELLUNG_QUALITAETEN, qualitaetFehler } from '@/lib/wein/qualitaet'
+import { normalisiereQualitaet } from '@/lib/wein/qualitaetsrang'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -132,7 +133,7 @@ export async function fuehreAbfuellenAus(
   }
 
   const { data: charge } = await (supabase.from('weinausbau') as any)
-    .select('id, name, jahrgang, rebsorte, menge_liter, qualitaetsstufe, herkunft_code')
+    .select('id, name, jahrgang, rebsorte, menge_liter, qualitaetsstufe, zusatzbezeichnung, erzeugnis, herkunft_code')
     .eq('id', input.weinausbau_id).eq('tenant_id', tenantId).eq('aktiv', true).maybeSingle()
   if (!charge) {
     return { erfolg: false, hinweis: `Charge mit ID ${input.weinausbau_id} nicht gefunden. Beim User nachfragen bzw. Stammdaten-Kontext erneut prüfen.` }
@@ -146,7 +147,12 @@ export async function fuehreAbfuellenAus(
   fd.set('flaschengroesse_ml', String(input.flaschengroesse_ml))
   fd.set('anzahl_flaschen', String(input.anzahl_flaschen))
   if (input.menge_liter_gefuellt != null) fd.set('menge_liter_gefuellt', String(input.menge_liter_gefuellt))
-  fd.set('qualitaet', input.qualitaet ? String(input.qualitaet) : String(ch.qualitaetsstufe ?? 'qualitaetswein'))
+  // KAN-186: Angabe der Charge normalisiert (Altwerte); Zusatzbezeichnung nur bei unveränderter Stufe, Erzeugnis immer
+  const chAngabe = normalisiereQualitaet(ch)
+  const stufe = input.qualitaet ? String(input.qualitaet) : (chAngabe.stufe ?? 'qualitaetswein')
+  fd.set('qualitaet', stufe)
+  if (chAngabe.zusatz && stufe === chAngabe.stufe) fd.set('zusatzbezeichnung', chAngabe.zusatz)
+  if (chAngabe.erzeugnis) fd.set('erzeugnis', chAngabe.erzeugnis)
   if (input.herkunft_code) fd.set('herkunft_code', String(input.herkunft_code))
   else if (ch.herkunft_code) fd.set('herkunft_code', String(ch.herkunft_code))
   fd.set('jahrgang', input.jahrgang != null ? String(input.jahrgang) : String(ch.jahrgang ?? ''))

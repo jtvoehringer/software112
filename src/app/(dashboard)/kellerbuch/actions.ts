@@ -2,11 +2,14 @@
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { minQualitaet, maxQualitaet, istNiedrigerAls, QUALITAET_LABEL } from '@/lib/weinqualitaet'
-import { istAufwertung } from '@/lib/wein/qualitaetsrang'
+import { qualitaetText } from '@/lib/weinqualitaet'
+import {
+  istAufwertungQualitaet, istAbstufungQualitaet, mischeQualitaet, hoechsteQualitaetsAngabe, normalisiereQualitaet, qualitaetsSpalten,
+  type QualitaetsAngabe,
+} from '@/lib/wein/qualitaetsrang'
 import { sortenBezeichnung } from '@/lib/wein/sortenangabe'
 import { verschnittGruppen } from '@/lib/kellerbuch/verschnittSorten'
-import { qualitaetFehler } from '@/lib/wein/qualitaet'
+import { qualitaetFehler, qualitaetsAngabeAusFormular, qualitaetsAngabeFehler } from '@/lib/wein/qualitaet'
 import { minHerkunft, maxHerkunft, istNiedrigerAls as herkunftIstNiedrigerAls, HERKUNFT_LABEL } from '@/lib/herkunft'
 import { weinartKonflikt, weinartBekannt, weinartAusFarbe, WEINART_LABEL } from '@/lib/keller/weinart'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
@@ -22,6 +25,7 @@ import { pruefePruefnummernSchaden } from '@/lib/kellerbuch/pruefnummerLaden'
 import { mitPnNotiz } from '@/lib/kellerbuch/pruefnummer'
 import { mostgewichtZusammenfuehren, teilweiseVermerk, verschnittMomentaufnahme } from '@/lib/kellerbuch/mostgewichtKette'
 import { mostgewichtAusFormular, mostgewichtSpalten } from '@/lib/wein/mostgewichtFormular'
+import { verschnittQualitaetsSpalten } from '@/lib/kellerbuch/qualitaetMomentaufnahme'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -49,13 +53,17 @@ async function kellerbuchSchreibrecht(): Promise<string> {
 
 const rund2 = (n: number): number => Math.round(n * 100) / 100
 
-/** Qualitätsstufe einer Charge aus dem Formular – KAN-73: nur Werte des CHECK weinausbau
- *  (QUALITAET_OPTS), sonst verständliche Meldung statt 23514; leer bleibt null wie bisher. */
-function chargenQualitaetAusFormular(formData: FormData): string | null {
-  const wert = (formData.get('qualitaetsstufe') as string) || null
-  const fehler = qualitaetFehler('charge', wert)
+/** Qualitätsangabe einer Charge aus dem Formular – KAN-73: nur Werte des CHECK weinausbau
+ *  (QUALITAET_OPTS), sonst verständliche Meldung statt 23514; leer bleibt null wie bisher.
+ *  KAN-186: dazu Zusatzbezeichnung und Erzeugnis; ein Altwert im Qualitätsfeld (reserve, sekt …) wird
+ *  normalisiert – geschrieben wird nie ein Altwert. */
+function chargenQualitaetAusFormular(formData: FormData): QualitaetsAngabe {
+  const angabe = qualitaetsAngabeAusFormular(formData)
+  const fehler = qualitaetFehler('charge', angabe.stufe)
   if (fehler) throw new AktionsFehler(fehler)
-  return wert
+  const angabeFehler = qualitaetsAngabeFehler(angabe)
+  if (angabeFehler) throw new AktionsFehler(angabeFehler)
+  return angabe
 }
 
 // BEHAELTER
@@ -226,7 +234,7 @@ export async function createWeinausbau(formData: FormData) {
     behaelter_id:    (formData.get('behaelter_id') as string) || null,
     menge_liter:          formData.get('menge_liter') ? Number(dezimal((formData.get('menge_liter') as string))) : null,
     anfangsbestand_liter: formData.get('menge_liter') ? Number(dezimal((formData.get('menge_liter') as string))) : null,
-    qualitaetsstufe:      chargenQualitaetAusFormular(formData),
+    ...qualitaetsSpalten(chargenQualitaetAusFormular(formData)),
     ...mostgewichtSpalten(mostgewicht.wert, 'kmw'),
     status:               (formData.get('status') as string) || 'ernte',
     notizen:              (formData.get('notizen') as string) || null,
@@ -266,7 +274,7 @@ export async function updateWeinausbau(id: string, formData: FormData) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: altRaw, error: altErr } = await (supabase.from('weinausbau') as any)
-    .select('id, behaelter_id, menge_liter, aktiv, status, qualitaetsstufe, jahrgang, rebsorte, weinart')
+    .select('id, behaelter_id, menge_liter, aktiv, status, qualitaetsstufe, zusatzbezeichnung, erzeugnis, jahrgang, rebsorte, weinart')
     .eq('id', id)
     .eq('tenant_id', tenantId)
     .maybeSingle()
@@ -290,7 +298,7 @@ export async function updateWeinausbau(id: string, formData: FormData) {
     jahrgang:        formData.get('jahrgang') ? Number(dezimal(formData.get('jahrgang'))) : null,
     rebsorte:        (formData.get('rebsorte') as string) || null,
     weingarten_id:   wgIds[0] ?? null,
-    qualitaetsstufe:      chargenQualitaetAusFormular(formData),
+    ...qualitaetsSpalten(chargenQualitaetAusFormular(formData)),
     weinart:              (formData.get('weinart') as string) || 'unbekannt',
     ...(mostgewicht.uebermittelt ? mostgewichtSpalten(mostgewicht.wert, 'kmw') : {}),
     status:               neuStatus,
@@ -302,11 +310,13 @@ export async function updateWeinausbau(id: string, formData: FormData) {
   }
 
   // KAN-80 (02.10.2026): „händisch downgraden, aber nicht upgraden“ – serverseitig, nicht nur im Formular. Eine
-  // Rangfolge (KAN-74): höhere Stufe oder z. B. Landwein → DAC/Reserve/Sekt wird abgelehnt.
-  const altQualitaet = (alt.qualitaetsstufe as string | null) ?? null
-  if (istAufwertung(altQualitaet, payload.qualitaetsstufe as string | null)) {
+  // Rangfolge (KAN-74): höhere Stufe oder z. B. Landwein → DAC wird abgelehnt; KAN-186: ebenso eine neue bzw. höhere
+  // Zusatzbezeichnung (Qualitätswein → Reserve). Die bisherige Angabe wird normalisiert (Altwerte).
+  const altQualitaet = normalisiereQualitaet(alt)
+  const neuQualitaet = normalisiereQualitaet(payload)
+  if (istAufwertungQualitaet(altQualitaet, neuQualitaet)) {
     throw new AktionsFehler(
-      `Die Qualitätsstufe kann nicht von „${QUALITAET_LABEL[altQualitaet!] ?? altQualitaet}“ auf „${QUALITAET_LABEL[payload.qualitaetsstufe] ?? payload.qualitaetsstufe}“ angehoben werden – nur gleich bleiben oder abstufen ist zulässig. War die bisherige Stufe falsch erfasst, bitte die zugrunde liegende Buchung (Lese, Pressung, Zukauf) korrigieren.`,
+      `Die Qualitätsstufe kann nicht von „${qualitaetText(altQualitaet)}“ auf „${qualitaetText(neuQualitaet)}“ angehoben werden – nur gleich bleiben oder abstufen ist zulässig. War die bisherige Stufe falsch erfasst, bitte die zugrunde liegende Buchung (Lese, Pressung, Zukauf) korrigieren.`,
     )
   }
   // KAN-80: Chargen aus Pressung oder Zukauf – Jahrgang, Rebsorte und Weinart kommen von dort und sind auch
@@ -490,12 +500,13 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
   // Ziel-Charge laden (Mandant) – Qualitätsstufe + Herkunft-Code vor der Verschneidung sichern
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: zielRaw, error: zielErr } = await (supabase.from('weinausbau') as any)
-    .select('id, name, menge_liter, rebsorte, jahrgang, weinart, qualitaetsstufe, herkunft_code, kmw, oechsle, mostgewicht_einheit')
+    .select('id, name, menge_liter, rebsorte, jahrgang, weinart, qualitaetsstufe, zusatzbezeichnung, erzeugnis, herkunft_code, kmw, oechsle, mostgewicht_einheit')
     .eq('id', zielId).eq('tenant_id', tenantId).maybeSingle()
   if (zielErr) throw new AktionsFehler(dbFehlerText(zielErr, 'Ziel-Charge konnte nicht geladen werden'))
   if (!zielRaw) throw new AktionsFehler('Ziel-Charge nicht gefunden')
   const zielVorher = zielRaw as R
-  const zielQualitaetVorher = (zielVorher.qualitaetsstufe as string | null) ?? null
+  // KAN-186: Angabe normalisiert (Altwerte im Qualitätsfeld) – Momentaufnahme in ziel_qualitaet_vorher/ziel_zusatz_vorher/ziel_erzeugnis_vorher
+  const zielQualitaetVorher = normalisiereQualitaet(zielVorher)
   const zielHerkunftVorher  = (zielVorher.herkunft_code as string | null) ?? null
 
   // Quell-Chargen: gehören zum Betrieb, Menge ≤ Bestand (je Charge summiert)
@@ -503,7 +514,7 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
   for (const q of quellen) bedarf.set(q.weinausbau_id, (bedarf.get(q.weinausbau_id) ?? 0) + q.menge_liter)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: quellenData, error: quellenErr } = await (supabase.from('weinausbau') as any)
-    .select('id, name, menge_liter, qualitaetsstufe, rebsorte, jahrgang, weinart, herkunft_code, kmw, oechsle, mostgewicht_einheit')
+    .select('id, name, menge_liter, qualitaetsstufe, zusatzbezeichnung, erzeugnis, rebsorte, jahrgang, weinart, herkunft_code, kmw, oechsle, mostgewicht_einheit')
     .in('id', [...bedarf.keys()])
     .eq('tenant_id', tenantId)
   if (quellenErr) throw new AktionsFehler(dbFehlerText(quellenErr, 'Quell-Chargen konnten nicht geladen werden'))
@@ -558,7 +569,8 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
   // Verschneidungs-Datensatz anlegen
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: neu, error: ve } = await (supabase.from('verschneidungen') as any)
-    .insert({ tenant_id: tenantId, datum, ziel_weinausbau_id: zielId, notizen, ziel_qualitaet_vorher: zielQualitaetVorher, ziel_herkunft_code_vorher: zielHerkunftVorher,
+    .insert({ tenant_id: tenantId, datum, ziel_weinausbau_id: zielId, notizen, ziel_herkunft_code_vorher: zielHerkunftVorher,
+      ...verschnittQualitaetsSpalten(zielQualitaetVorher),   // KAN-186: nie ein Altwert, Zusatz/Erzeugnis eigene Spalten
       ziel_rebsorte_vorher: (zielVorher.rebsorte as string | null) ?? null,   // KAN-145: Storno stellt die Rebsorte wieder her
       ziel_jahrgang_vorher: zielVorher.jahrgang ?? null,   // KAN-93: und den Jahrgang
       ...verschnittMomentaufnahme(zielVorher) })   // KAN-130 Etappe 2: und das Mostgewicht samt Einheit
@@ -579,9 +591,9 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
   )
     if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (verschneidung_quellen): ${dbFehlerText(e)}`) }
 
-  // Niedrigste Qualitaetsstufe aus Quellen + Ziel bestimmen
-  const alleQualitaeten = [zielQualitaetVorher, ...quellenRows.map((q: R) => q.qualitaetsstufe as string | null)]
-  const neueQualitaet = minQualitaet(alleQualitaeten)
+  // Niedrigste Qualität aus Quellen + Ziel (KAN-186: Zusatzbezeichnung/Erzeugnis nur, wenn alle sie tragen)
+  const alleQualitaeten: QualitaetsAngabe[] = [zielQualitaetVorher, ...quellenRows.map((q: R) => normalisiereQualitaet(q))]
+  const neueQualitaet = mischeQualitaet(alleQualitaeten)
   // Niedrigsten (breitesten) Herkunft-Code aus Quellen + Ziel bestimmen – kann durch Verschneiden
   // rechnerisch nie aufgestuft werden (dieselbe Logik wie bei der Qualität).
   const alleHerkuenfte = [zielHerkunftVorher, ...quellenRows.map((q: R) => q.herkunft_code as string | null)]
@@ -600,7 +612,7 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
       menge_liter: rund2(aktuell + gesamtLiter),
       rebsorte: neueRebsorte,
       jahrgang: angabe.jahrgang,
-      qualitaetsstufe: neueQualitaet,
+      ...qualitaetsSpalten(neueQualitaet),
       herkunft_code: neueHerkunft,
       ...(mg.werte ?? {}),
     })
@@ -625,11 +637,11 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
 
   // Qualitäts-Abstufung: Vergleich gegen HÖCHSTE Qualität aller Beteiligten (Ziel + Quellen).
   // Beispiel: Ziel Kabinett + Quelle Auslese → Ergebnis Kabinett → Abstufung von Auslese auf Kabinett.
-  const alleQualitaetenBeteiligt = [zielQualitaetVorher, ...quellenRows.map((q: R) => q.qualitaetsstufe as string | null)]
-  const hoechsteQualitaet = maxQualitaet(alleQualitaetenBeteiligt)
+  // KAN-186: von/nach als Text samt Zusatzbezeichnung („Qualitätswein Reserve“ → „Qualitätswein“)
+  const hoechsteQualitaet = hoechsteQualitaetsAngabe(alleQualitaeten)
   const qualitaetAbgestuft: { von: string; nach: string } | null =
-    (neueQualitaet && hoechsteQualitaet && istNiedrigerAls(neueQualitaet, hoechsteQualitaet))
-      ? { von: hoechsteQualitaet, nach: neueQualitaet }
+    (neueQualitaet && hoechsteQualitaet && istAbstufungQualitaet(hoechsteQualitaet, neueQualitaet))
+      ? { von: qualitaetText(hoechsteQualitaet), nach: qualitaetText(neueQualitaet) }
       : null
 
   // Herkunft-Abstufung: Vergleich gegen die ENGSTE Herkunftsstufe aller Beteiligten (Ziel + Quellen).
@@ -643,9 +655,7 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
   // Abstufungs-Info automatisch in Notizen speichern
   const abstufTexte: string[] = []
   if (qualitaetAbgestuft) {
-    const vonLabel  = QUALITAET_LABEL[qualitaetAbgestuft.von]  ?? qualitaetAbgestuft.von
-    const nachLabel = QUALITAET_LABEL[qualitaetAbgestuft.nach] ?? qualitaetAbgestuft.nach
-    abstufTexte.push(`Abstufung Qualität von ${vonLabel} auf ${nachLabel}`)
+    abstufTexte.push(`Abstufung Qualität von ${qualitaetAbgestuft.von} auf ${qualitaetAbgestuft.nach}`)
   }
   if (herkunftAbgestuft) {
     const vonLabel  = HERKUNFT_LABEL[herkunftAbgestuft.von]  ?? herkunftAbgestuft.von

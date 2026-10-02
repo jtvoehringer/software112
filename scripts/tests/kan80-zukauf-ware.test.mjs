@@ -121,17 +121,17 @@ describe('Server Actions (Quelltext)', () => {
     const fn = rumpf('async function createZukaufCharge', 'async function chargeAendern')
     assert.match(fn, /herkunftCode: string \| null,/)
     assert.match(fn, /herkunft_code: herkunftCode \?\? null/)
-    assert.match(fn, /qualitaetsstufe: qualitaetsstufe \?\? null/)
+    assert.match(fn, /\.\.\.qualitaetsSpalten\(qualitaet\),\r?\n\s+land_iso: landIso,/)   // KAN-186: Stufe, Zusatz, Erzeugnis, Ursprungsland
   })
   test('alle Aufrufe von createZukaufCharge geben die Herkunft des Zukaufs mit', () => {
     const aufrufe = A.split('await createZukaufCharge(').slice(1)
     assert.equal(aufrufe.length, 3)
-    for (const a of aufrufe) assert.match(a, /^[^)]*f\.qualitaetsstufe, f\.herkunft,/)
+    for (const a of aufrufe) assert.match(a, /^[^)]*f\.qualitaet, f\.herkunft,/)   // KAN-186: ganze Angabe
   })
   test('chargeStammdaten und Rückbau führen herkunft_code mit', () => {
     assert.match(rumpf('function chargeStammdaten', 'async function pruefeWare'), /herkunft_code:\s+f\.herkunft \?\? null/)
     assert.match(A, /herkunft_code: c\.herkunft_code/)
-    assert.match(A, /weinart, herkunft_code, qualitaetsstufe, kmw, oechsle, mostgewicht_einheit'\)/)
+    assert.match(A, /weinart, herkunft_code, qualitaetsstufe, zusatzbezeichnung, erzeugnis, land_iso, kmw, oechsle, mostgewicht_einheit'\)/)
   })
   test('pruefeWare prüft Pflicht und Herkunft gegen die eigenen Weinbaugebiete', () => {
     const fn = rumpf('async function pruefeWare', 'export async function createZukauf')

@@ -21,7 +21,7 @@
 import { runden, STELLEN, wienHeute, type CsvSpalte } from '@/lib/csv'
 import { ladeZusammensetzungCharge, ladeZusammensetzungFuellung, type KompositionUrsprung } from '@/lib/wein/blendKomposition'
 import { bkiRebsorteKuerzel, fehlendeKuerzelHinweise } from '@/lib/wein/bki_kuerzel'
-import { qualitaetLabel } from '@/lib/wein/qualitaet'
+import { qualitaetAnzeigeOderNull } from '@/lib/wein/qualitaet'
 import { ersatzPruefnummer, pruefnummerAusAntrag, pruefnummerGueltig, pruefnummerHinweis } from '@/lib/kellerbuch/pruefnummer'
 import { antragAusZeile, ladePruefnummerDaten, PN_ANTRAG_SELECT } from '@/lib/kellerbuch/pruefnummerLaden'
 import { num, numOderNull, tag, text, type R } from './kellerbuch-hilfen'
@@ -128,7 +128,7 @@ export async function ladeBlendProtokoll(
   const warnungen: string[] = []
   if (p.art === 'fuellung') {
     const { data, error } = await (supabase.from('fuellungen') as any)
-      .select('id, name, chargennummer, pruefnummer, dac_antrag_id, weinausbau_id, jahrgang, rebsorte, qualitaet, datum, anzahl_flaschen, flaschengroesse_ml, menge_liter_gefuellt')
+      .select('id, name, chargennummer, pruefnummer, dac_antrag_id, weinausbau_id, jahrgang, rebsorte, qualitaet, zusatzbezeichnung, erzeugnis, datum, anzahl_flaschen, flaschengroesse_ml, menge_liter_gefuellt')
       .eq('tenant_id', tenantId)
       .eq('id', p.id)
       .maybeSingle()
@@ -164,7 +164,7 @@ export async function ladeBlendProtokoll(
     const bezug = num(f.menge_liter_gefuellt) || (flaschen && groesse ? flaschen * groesse / 1000 : 0)
     kopf = {
       art: 'fuellung', id: f.id, name: text(f.name) ?? 'Füllung',
-      jahrgang: numOderNull(f.jahrgang), rebsorte: text(f.rebsorte), qualitaet: f.qualitaet ? qualitaetLabel(f.qualitaet) : null,
+      jahrgang: numOderNull(f.jahrgang), rebsorte: text(f.rebsorte), qualitaet: qualitaetAnzeigeOderNull(f),
       pruefnummer, pruefnummerHinweis: pnHinweis, chargennummer: text(f.chargennummer), datum: tag(f.datum) || null,
       anzahlFlaschen: flaschen === null ? null : Math.trunc(flaschen), flaschengroesseMl: groesse,
       bezugLiter: bezug > 0 ? runden(bezug, STELLEN.liter) : null,
@@ -178,7 +178,7 @@ export async function ladeBlendProtokoll(
     const heute = stichtag ?? wienHeute()
     const [waRes, pnDaten] = await Promise.all([
       (supabase.from('weinausbau') as any)
-        .select('id, name, jahrgang, rebsorte, qualitaetsstufe, menge_liter')
+        .select('id, name, jahrgang, rebsorte, qualitaetsstufe, zusatzbezeichnung, erzeugnis, menge_liter')
         .eq('tenant_id', tenantId)
         .eq('id', p.id)
         .maybeSingle(),
@@ -197,7 +197,7 @@ export async function ladeBlendProtokoll(
     const bestand = stichtag ? z.saldoLiter : num(wa.menge_liter)
     kopf = {
       art: 'charge', id: wa.id, name: text(wa.name) ?? 'Charge',
-      jahrgang: numOderNull(wa.jahrgang), rebsorte: text(wa.rebsorte), qualitaet: wa.qualitaetsstufe ? qualitaetLabel(wa.qualitaetsstufe) : null,
+      jahrgang: numOderNull(wa.jahrgang), rebsorte: text(wa.rebsorte), qualitaet: qualitaetAnzeigeOderNull(wa),
       pruefnummer: pn?.gueltig ? pn.pruefnummer : null, pruefnummerHinweis: hinweis, chargennummer: null, datum: stichtag,
       anzahlFlaschen: null, flaschengroesseMl: null,
       bezugLiter: bestand > 0 ? runden(bestand, STELLEN.liter) : null,

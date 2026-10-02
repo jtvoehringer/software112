@@ -19,7 +19,8 @@ import { csvPfad } from '@/lib/behoerden/katalog'
 import { ladeGebindeverzeichnis } from '@/lib/behoerden/gebindeverzeichnis'
 import DruckKnopf from '../_behoerden/DruckKnopf'
 import ZeitraumCsvKnopf from '../_behoerden/ZeitraumCsvKnopf'
-import { QUALITAET_OPTS, qualitaetLabel } from '@/lib/wein/qualitaet'
+import { QUALITAET_OPTS, qualitaetAnzeige } from '@/lib/wein/qualitaet'
+import ZusatzErzeugnisFelder from '@/components/wein/ZusatzErzeugnisFelder'
 import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
 import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
 
@@ -64,7 +65,7 @@ export default async function GebindePage({
     tenantId ? ladeGebindeverzeichnis(supabase, tenantId) : Promise.resolve({ eintraege: [], zeilen: [], warnungen: [] }),
     ladeKellergemeinschaft(supabase, tenantId),
     tf((supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, kmw, oechsle, mostgewicht_einheit, menge_liter, qualitaetsstufe, behaelter_id, behaelter:behaelter_id(name), notizen, einstandspreis_pro_liter, referenz_altsystem, transaktions_nr, aktiv')
+      .select('id, name, jahrgang, kmw, oechsle, mostgewicht_einheit, menge_liter, qualitaetsstufe, zusatzbezeichnung, erzeugnis, behaelter_id, behaelter:behaelter_id(name), notizen, einstandspreis_pro_liter, referenz_altsystem, transaktions_nr, aktiv')
       .eq('ist_eroeffnungsbestand', true)
       .eq('aktiv', true)
       .order('jahrgang', { ascending: false })),
@@ -430,6 +431,8 @@ export default async function GebindePage({
                     ))}
                   </select>
                 </div>
+                {/* KAN-186: Zusatzbezeichnung (Reserve …) und Erzeugnis (Sekt g.U., Perlwein …) */}
+                <ZusatzErzeugnisFelder feldKlasse={inputCls} labelKlasse={labelCls} />
                 <div>
                   <label className={labelCls}>Referenz Altsystem</label>
                   <input aria-label="Referenz Altsystem" name="referenz_altsystem" placeholder="z.B. Chargen-Nr. Altsystem" className={inputCls} />
@@ -481,7 +484,7 @@ export default async function GebindePage({
                         : '–'}
                     </td>
                     <td className="px-4 py-2.5 text-s112-text-2">{(e.behaelter as R | null)?.name ?? '–'}</td>
-                    <td className="px-4 py-2.5 text-s112-text-2 text-xs">{qualitaetLabel(e.qualitaetsstufe)}</td>
+                    <td className="px-4 py-2.5 text-s112-text-2 text-xs">{qualitaetAnzeige(e)}</td>
                     <td className="px-4 py-2.5 text-s112-text-2 text-xs">{e.referenz_altsystem ?? '–'}</td>
                     {writeOk && (
                       <td className="px-4 py-2.5 text-right whitespace-nowrap">

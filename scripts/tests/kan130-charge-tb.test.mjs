@@ -90,7 +90,7 @@ describe('Manuelle Charge: optionales Mostgewicht', () => {
   test('updateWeinausbau schreibt nur bei uebermittelt; Qualitätsstufe nur aus dem Formular (DAC bleibt DAC)', () => {
     const r = rumpf(actions, 'updateWeinausbau')
     assert.match(r, /mostgewicht\.uebermittelt \? mostgewichtSpalten\(mostgewicht\.wert, 'kmw'\) : \{\}/)
-    assert.match(r, /qualitaetsstufe:\s+chargenQualitaetAusFormular\(formData\)/)
+    assert.match(r, /\.\.\.qualitaetsSpalten\(chargenQualitaetAusFormular\(formData\)\)/)   // KAN-186: samt Zusatz/Erzeugnis
     assert.doesNotMatch(r, /kmwZuQualitaet|stufeAusKmw|mostgewicht\.wert\?*\.kmw/)
     // Fehler vor dem Schreiben (die Prüfung steht vor dem update())
     assert.ok(r.indexOf('!mostgewicht.ok') < r.indexOf(".update(payload)"))

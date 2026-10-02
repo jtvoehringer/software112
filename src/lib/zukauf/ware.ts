@@ -3,8 +3,9 @@
 // „Wein | Traubenmost | Trauben wird mit Qualitätsstufe und Herkunfts-Code (BKI) zugekauft. Im Bereich Ware
 // sind alle Felder Mussfelder. Herkunft wird Herkunfts-Code (BKI) wie bei den Ried-GST; daraus gelten die
 // gleichen Regeln wie für Weinabstufungen.“ Dazu entschieden:
-//  (a) Staatliche Prüfnummer bei Art „Wein“ Pflicht ab Qualitätswein (inkl. DAC, Reserve, Erste Lage,
-//      Großes Gewächs, Sekt – Stufe ≥ 2 der Rangfolge, nicht „Sonstiges“), sonst optional;
+//  (a) Staatliche Prüfnummer bei Art „Wein“ Pflicht ab Qualitätswein (inkl. DAC – Stufe ≥ 2 der Rangfolge, nicht
+//      „Sonstiges“), sonst optional. Seit KAN-186 stehen Reserve & Co. (Zusatzbezeichnung) sowie Sekt und Perlwein
+//      (Erzeugnis) auf der Stufe Qualitätswein bzw. der gewählten Stufe – maßgeblich ist nur die Stufe;
 //  (b) keine neue Spalte: zukauf_posten.herkunft speichert den Code. Altwerte (Freitext) bleiben – Anzeige
 //      über herkunftAnzeige, im Bearbeiten-Formular per herkunftVorbelegung (nur eindeutig, sonst leer).
 //

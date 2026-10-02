@@ -14,6 +14,7 @@ import { afaBuchungsStatus } from '@/lib/ea/anlagen'
 import { ladeMandantMitglieder } from '@/lib/aufgaben/mitglieder'
 import { neuesteAmaVersion } from '@/lib/behoerden/amaMeldung'
 import { BEHANDLUNG_RIEDEN_SELECT, riedText } from '@/lib/behandlungen/rieden'
+import { qualitaetAnzeigeOderNull } from '@/lib/wein/qualitaet'
 
 const fmtEurKurz = (n: number) => `€ ${n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 export { STATUS_LABEL } from './types'
@@ -118,7 +119,7 @@ export async function ladeKeller(ctx: Ctx, messintervallTage: number = GAERUNG_M
   const [{ data: behaelterRaw }, { data: chargenRaw }, { data: fuellstandRaw }] = await Promise.all([
     ctx.tf(ctx.q('behaelter').select('id, name, typ, volumen_liter, aktiv')),
     ctx.tf(ctx.q('weinausbau')
-      .select('id, name, jahrgang, rebsorte, weinart, menge_liter, status, aktiv, behaelter_id, ist_eroeffnungsbestand, qualitaetsstufe, notizen')
+      .select('id, name, jahrgang, rebsorte, weinart, menge_liter, status, aktiv, behaelter_id, ist_eroeffnungsbestand, qualitaetsstufe, zusatzbezeichnung, erzeugnis, notizen')
       .neq('status', 'abgeschlossen')
       .order('jahrgang', { ascending: false }).order('name')),
     ctx.tf(ctx.q('v_behaelter_fuellstand').select('behaelter_id, liter_aktuell')),
@@ -154,7 +155,7 @@ export async function ladeKeller(ctx: Ctx, messintervallTage: number = GAERUNG_M
       id: c.id, name: c.name, jahrgang: c.jahrgang ?? null, rebsorte: c.rebsorte ?? null, weinart: c.weinart ?? null,
       status: c.status, menge_liter: Number(c.menge_liter) || 0,
       behaelter: c.behaelter_id ? (behaelterMap.get(c.behaelter_id)?.name ?? null) : null, behaelter_id: c.behaelter_id ?? null,
-      qualitaetsstufe: c.qualitaetsstufe ?? null, notizen: c.notizen ?? null,
+      qualitaetsstufe: qualitaetAnzeigeOderNull(c), notizen: c.notizen ?? null,   // KAN-186: Anzeige samt Zusatz/Erzeugnis
       letzteAnalyse: a ? { datum: a.analyse_datum, alkohol_vol: a.alkohol_vol, restzucker_gl: a.restzucker_gl, freie_so2_mgl: a.freie_so2_mgl, gesamtsaeure_gl: a.gesamtsaeure_gl } : null,
       letzteMassnahme: m ? { datum: m.datum, typ: m.typ_name_snapshot ?? null, menge: m.menge, einheit: m.einheit } : null,
       messungFaellig: c.status === 'gaerung' && (tage === null || tage >= messintervallTage),

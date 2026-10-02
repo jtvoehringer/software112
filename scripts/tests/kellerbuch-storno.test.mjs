@@ -371,7 +371,20 @@ describe('planeUmzugStorno – Umzug', nurMitHooks, () => {
     })
     t.keller_umzuege[1].notizen = 'Abstufung von Qualitätswein auf Landwein'
     let plan = await s.planeUmzugStorno(datenbank(t), T, t.keller_umzuege)
-    assert.deepEqual(plan.aenderungen[1].payload, { menge_liter: 300, qualitaetsstufe: 'qualitaetswein' })
+    // KAN-186: samt Zusatzbezeichnung und Erzeugnis (hier keine)
+    assert.deepEqual(plan.aenderungen[1].payload, { menge_liter: 300, qualitaetsstufe: 'qualitaetswein', zusatzbezeichnung: null, erzeugnis: null })
+
+    // KAN-186 Altdaten: Vermerk mit der alten Bezeichnung „Reserve“ → Qualitätswein + Zusatzbezeichnung reserve
+    t.weinausbau[1].notizen = 'Abstufung von Reserve auf Landwein (Zusammenführung per Umziehen)'
+    t.keller_umzuege[1].notizen = 'Abstufung von Reserve auf Landwein'
+    plan = await s.planeUmzugStorno(datenbank(t), T, t.keller_umzuege)
+    assert.deepEqual(plan.aenderungen[1].payload, { menge_liter: 300, qualitaetsstufe: 'qualitaetswein', zusatzbezeichnung: 'reserve', erzeugnis: null })
+    // … und der neue Text „Qualitätswein Reserve“ (umziehen() seit KAN-186)
+    t.weinausbau[1].notizen = 'Abstufung von Qualitätswein Reserve auf Landwein (Zusammenführung per Umziehen)'
+    t.keller_umzuege[1].notizen = 'Abstufung von Qualitätswein Reserve auf Landwein'
+    plan = await s.planeUmzugStorno(datenbank(t), T, t.keller_umzuege)
+    assert.deepEqual(plan.aenderungen[1].payload, { menge_liter: 300, qualitaetsstufe: 'qualitaetswein', zusatzbezeichnung: 'reserve', erzeugnis: null })
+    t.keller_umzuege[1].notizen = 'Abstufung von Qualitätswein auf Landwein'
 
     // Vermerk fehlt an der Charge bzw. Charge steht nicht mehr auf der abgestuften Stufe: Qualität bleibt
     t.weinausbau[1].notizen = null
@@ -381,6 +394,27 @@ describe('planeUmzugStorno – Umzug', nurMitHooks, () => {
     t.weinausbau[1].qualitaetsstufe = 'wein'
     plan = await s.planeUmzugStorno(datenbank(t), T, t.keller_umzuege)
     assert.deepEqual(plan.aenderungen[1].payload, { menge_liter: 300 })
+  })
+
+  test('KAN-186: Momentaufnahme mit Zusatzbezeichnung zurück (neu); Altwert im Qualitäts-Snapshot normalisiert', async () => {
+    const t = umzugTabellen()
+    t.weinausbau[1] = charge(B, 'Welschriesling Tank 2', { menge_liter: 800, qualitaetsstufe: 'qualitaetswein', zusatzbezeichnung: null })
+    Object.assign(t.keller_umzuege[1], {
+      qualitaet_vorher: 'qualitaetswein', qualitaet_nachher: 'qualitaetswein',
+      zusatz_vorher: 'reserve', zusatz_nachher: null, erzeugnis_vorher: null, erzeugnis_nachher: null,
+    })
+    let plan = await s.planeUmzugStorno(datenbank(t), T, t.keller_umzuege)
+    assert.deepEqual(plan.aenderungen[1].payload, { menge_liter: 300, qualitaetsstufe: 'qualitaetswein', zusatzbezeichnung: 'reserve', erzeugnis: null })
+    // Charge steht nicht mehr auf „nachher“ (inzwischen Landwein): unverändert
+    t.weinausbau[1].qualitaetsstufe = 'landwein'
+    plan = await s.planeUmzugStorno(datenbank(t), T, t.keller_umzuege)
+    assert.deepEqual(plan.aenderungen[1].payload, { menge_liter: 300 })
+    // Altdaten (vor kan186c): qualitaet_vorher = 'reserve', ohne Zusatz-Spalten
+    t.weinausbau[1].qualitaetsstufe = 'qualitaetswein'
+    for (const k of ['zusatz_vorher', 'zusatz_nachher', 'erzeugnis_vorher', 'erzeugnis_nachher']) delete t.keller_umzuege[1][k]
+    t.keller_umzuege[1].qualitaet_vorher = 'reserve'
+    plan = await s.planeUmzugStorno(datenbank(t), T, t.keller_umzuege)
+    assert.deepEqual(plan.aenderungen[1].payload, { menge_liter: 300, qualitaetsstufe: 'qualitaetswein', zusatzbezeichnung: 'reserve', erzeugnis: null })
   })
 
   test('Abstufung wird nicht angefasst, wenn das Ziel durch den Storno leer wird', async () => {
@@ -700,7 +734,7 @@ describe('planeVerschneidungStorno / storniereVerschneidung', nurMitHooks, () =>
     assert.deepEqual(plan.aenderungen.map(({ id, vorher, neu, payload }) => ({ id, vorher, neu, payload })), [
       { id: V1, vorher: 0, neu: 300, payload: { menge_liter: 300, aktiv: true, status: 'ausbau' } },
       { id: V2, vorher: 100, neu: 300, payload: { menge_liter: 300 } },
-      { id: Z, vorher: 500, neu: 0, payload: { menge_liter: 0, aktiv: false, status: 'abgeschlossen', qualitaetsstufe: 'qualitaetswein', herkunft_code: 'AT-NOE' } },
+      { id: Z, vorher: 500, neu: 0, payload: { menge_liter: 0, aktiv: false, status: 'abgeschlossen', qualitaetsstufe: 'qualitaetswein', zusatzbezeichnung: null, erzeugnis: null, herkunft_code: 'AT-NOE' } },
     ])
     assert.deepEqual(ohneMandant(db, T, OHNE_VERSCHNITT), [])
     db.aufrufe.length = 0
@@ -711,6 +745,25 @@ describe('planeVerschneidungStorno / storniereVerschneidung', nurMitHooks, () =>
     assert.equal(db.tabellen.verschneidungen.length, 1, 'KAN-145: Buchung bleibt stehen')
     assert.ok(db.tabellen.verschneidungen.every(z => z.storniert_am && z.storno_grund === GRUND), 'KAN-145: gekennzeichnet mit Grund')
     assert.equal(db.tabellen.verschneidung_quellen.length, 2, 'Quellzeilen bleiben (stornierter Verschnitt)')
+  })
+
+  test('KAN-186: Zusatzbezeichnung/Erzeugnis aus ziel_zusatz_vorher/ziel_erzeugnis_vorher; Altwert im Snapshot normalisiert', async () => {
+    const t = tabellen()
+    t.weinausbau[2].menge_liter = 800 // Ziel hatte vorher 300 L
+    t.verschneidungen[0].ziel_zusatz_vorher = 'grosse_reserve'
+    let plan = await s.planeVerschneidungStorno(datenbank(t), T, VS)
+    let p = plan.aenderungen.find(a => a.id === Z).payload
+    assert.deepEqual([p.qualitaetsstufe, p.zusatzbezeichnung, p.erzeugnis], ['qualitaetswein', 'grosse_reserve', null])
+    // Altdaten (vor kan186c): ziel_qualitaet_vorher = 'reserve' bzw. 'sekt', keine Zusatz-/Erzeugnis-Spalten
+    delete t.verschneidungen[0].ziel_zusatz_vorher
+    t.verschneidungen[0].ziel_qualitaet_vorher = 'reserve'
+    plan = await s.planeVerschneidungStorno(datenbank(t), T, VS)
+    p = plan.aenderungen.find(a => a.id === Z).payload
+    assert.deepEqual([p.qualitaetsstufe, p.zusatzbezeichnung, p.erzeugnis], ['qualitaetswein', 'reserve', null])
+    t.verschneidungen[0].ziel_qualitaet_vorher = 'sekt'
+    plan = await s.planeVerschneidungStorno(datenbank(t), T, VS)
+    p = plan.aenderungen.find(a => a.id === Z).payload
+    assert.deepEqual([p.qualitaetsstufe, p.zusatzbezeichnung, p.erzeugnis], ['qualitaetswein', null, 'SEKTGU'])
   })
 
   test('Befund: ohne Snapshot (Ziel hatte vorher keine Qualitätsstufe) bleibt die Verschnitt-Qualität am Ziel stehen', async () => {

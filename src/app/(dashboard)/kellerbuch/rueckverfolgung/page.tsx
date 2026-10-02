@@ -6,6 +6,7 @@ import Link from '@/components/ui/Link'
 import { Boxes, ArrowLeftRight, Filter, Microscope, Leaf, Wine, Search, GitMerge } from 'lucide-react'
 import { resolveBlendKompositionFuellung, type KompositionUrsprung } from '@/lib/wein/blendKomposition'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
+import { qualitaetAnzeige } from '@/lib/wein/qualitaet'
 import RueckverfolgungPrintButton from './PrintButton'
 import RueckverfolgungCsvExportButton from './CsvExportButton'
 import { fmtNum } from '@/lib/format'
@@ -85,7 +86,7 @@ function ChargeKette({
         <InfoRow label="Charge" value={weinausbau.name} />
         <InfoRow label="Jahrgang" value={weinausbau.jahrgang} />
         <InfoRow label="Rebsorte" value={weinausbau.rebsorte ? formatRebsorteMitKuerzel(weinausbau.rebsorte) : null} />
-        <InfoRow label="Qualität" value={weinausbau.qualitaetsstufe} />
+        <InfoRow label="Qualität" value={weinausbau.qualitaetsstufe ? qualitaetAnzeige(weinausbau) : null} />
         <InfoRow label="Status" value={weinausbau.status} />
         <InfoRow label="Behälter" value={(weinausbau.behaelter as R | null)?.name} />
         {anteilLiter != null && (
@@ -439,7 +440,7 @@ export default async function RueckverfolgungPage({
             <InfoRow label="Produktname" value={fuellung.name} />
             <InfoRow label="Jahrgang" value={fuellung.jahrgang} />
             <InfoRow label="Rebsorte" value={fuellung.rebsorte ? formatRebsorteMitKuerzel(fuellung.rebsorte) : null} />
-            <InfoRow label="Qualität" value={fuellung.qualitaet} />
+            <InfoRow label="Qualität" value={fuellung.qualitaet ? qualitaetAnzeige(fuellung) : null} />
             <InfoRow label="Anbaugebiet" value={fuellung.anbaugebiet} />
             <InfoRow label="Ried / Bezeichnung" value={fuellung.bezeichnung} />
             <InfoRow label="Abfülldatum" value={fuellung.datum ? new Date(fuellung.datum).toLocaleDateString('de-AT') : null} />

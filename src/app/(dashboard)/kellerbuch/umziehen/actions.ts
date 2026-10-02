@@ -3,9 +3,10 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { ladeBehaelter, gebindeFehlerText } from '@/lib/keller/behaelter'
 import { revalidatePath } from 'next/cache'
-import { minQualitaet } from '@/lib/wein/qualitaet'
+import { mischeQualitaet, normalisiereQualitaet, qualitaetsSpalten, gleicheQualitaet, type QualitaetsAngabe } from '@/lib/wein/qualitaetsrang'
 import { minHerkunft, maxHerkunft, istNiedrigerAls as herkunftIstNiedrigerAls, HERKUNFT_LABEL } from '@/lib/herkunft'
-import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
+import { qualitaetText } from '@/lib/weinqualitaet'
+import { umzugQualitaetsSpalten } from '@/lib/kellerbuch/qualitaetMomentaufnahme'
 import { deleteUmzug as _deleteUmzug } from '../gebinde-actions'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
@@ -207,7 +208,8 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
   let abstufung: { von: string; nach: string; vonLabel: string; nachLabel: string } | undefined
 
   // ── Phase 1: Quellen validieren, reduzieren, Quelle-Records anlegen ──────────
-  let minQualStufe: string | null = null
+  // KAN-186: Qualitätsangabe samt Zusatzbezeichnung und Erzeugnis (Altwerte normalisiert)
+  let minQual: QualitaetsAngabe | null = null
   const quellenDaten: R[] = []
 
   for (let i = 0; i < quellen.length; i++) {
@@ -226,7 +228,8 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
     }
 
     quellenDaten.push(von)
-    minQualStufe = minQualitaet(minQualStufe, von.qualitaetsstufe ?? null)
+    const vonQual = normalisiereQualitaet(von)
+    minQual = mischeQualitaet([minQual, vonQual])
 
     // Bestand reduzieren / Charge abschließen (Rest ≤ 0,01 L wird mit ausgebucht –
     // die Menge ist oben gegen den Bestand geprüft, hier wird nichts gekappt).
@@ -245,8 +248,7 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
       menge_liter:       q.menge,   // für quelle-Records: menge = brutto
       schwund_liter:     i === 0 ? schwund : 0,
       umzug_typ:         umzugTyp,
-      qualitaet_vorher:  von.qualitaetsstufe ?? null,
-      qualitaet_nachher: minQualStufe,
+      ...umzugQualitaetsSpalten(vonQual, minQual),
       // KAN-94: Herkunft der Quell-Charge (bleibt unverändert) – Audit
       herkunft_code_vorher:  von.herkunft_code ?? null,
       herkunft_code_nachher: von.herkunft_code ?? null,
@@ -283,9 +285,9 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
     const vorhandenListe = (vorhandenRaw ?? []) as R[]
 
     let nachWeinausbauId: string | null = null
-    // KAN-145: Qualität der Ziel-Charge vor/nach der Zusammenführung (Momentaufnahme für den Storno)
-    let zielVorher: string | null = null
-    let zielNachher: string | null = null
+    // KAN-145: Qualität der Ziel-Charge vor/nach der Zusammenführung (Momentaufnahme für den Storno; KAN-186: samt Zusatz/Erzeugnis)
+    let zielVorher: QualitaetsAngabe | null = null
+    let zielNachher: QualitaetsAngabe | null = null
     // KAN-94: dasselbe für den Herkunft-Code (keller_umzuege.herkunft_code_vorher/_nachher)
     let herkunftVorher: string | null = null
     let herkunftNachher: string | null = null
@@ -298,17 +300,18 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
 
     if (vorhanden && !istRebsortenmix) {
       // Gleiche Rebsorte: direkt zusammenführen
-      const altQualitaet = vorhanden.qualitaetsstufe as string | null
-      const neueQualitaet = minQualitaet(altQualitaet, minQualStufe)
+      const altQualitaet = normalisiereQualitaet(vorhanden)
+      const neueQualitaet = mischeQualitaet([altQualitaet, minQual])
       const chargeVermerke: string[] = []
 
       // Qualitätsabstufung erkennen und als Notiz persistieren (Text wie bisher – der Storno liest ihn)
-      if (neueQualitaet && altQualitaet && neueQualitaet !== altQualitaet) {
-        const vonLabel  = QUALITAET_LABEL[altQualitaet]    ?? altQualitaet
-        const nachLabel = QUALITAET_LABEL[neueQualitaet]   ?? neueQualitaet
+      // KAN-186: Text samt Zusatzbezeichnung („Abstufung von Qualitätswein Reserve auf Qualitätswein“)
+      if (neueQualitaet && altQualitaet.stufe && !gleicheQualitaet(neueQualitaet, altQualitaet)) {
+        const vonLabel  = qualitaetText(altQualitaet)
+        const nachLabel = qualitaetText(neueQualitaet)
         chargeVermerke.push(`Abstufung von ${vonLabel} auf ${nachLabel} (Zusammenführung per Umziehen)`)
         zielVermerke.push(`Abstufung von ${vonLabel} auf ${nachLabel}`)
-        abstufung = { von: altQualitaet, nach: neueQualitaet, vonLabel, nachLabel }
+        abstufung = { von: vonLabel, nach: nachLabel, vonLabel, nachLabel }
       }
 
       // KAN-94 (Übergang bis KAN-112): Herkunft wie beim Verschnitt auf den gemeinsamen Oberbegriff
@@ -334,7 +337,7 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
       const bestehend = ((vorhanden.notizen as string | null) ?? '').trim()
       const werte: R = {
         menge_liter:     +((parseFloat(vorhanden.menge_liter) || 0) + z.menge).toFixed(3),
-        qualitaetsstufe: neueQualitaet,
+        ...qualitaetsSpalten(neueQualitaet ?? altQualitaet),
         herkunft_code:   neueHerkunft,
         ...(mg.werte ?? {}),
       }
@@ -368,7 +371,7 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
         // zählen (siehe Bugreport 5.8.2026, Charge "Partywein Kängaru": Anfangsbestand
         // +3350L UND Zugang aus A01 +3350L nebeneinander, Saldo dadurch um 3350L zu hoch).
         anfangsbestand_liter: null,
-        qualitaetsstufe:      minQualStufe,
+        ...qualitaetsSpalten(minQual),
         status:               von0?.status ?? 'ausbau',
         notizen:              `Umzug aus „${von0?.name ?? ''}"`,
         aktiv:                true,
@@ -397,7 +400,7 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
         // derselbe Doppelzählungs-Bug betrifft auch diesen Zweig (neue Charge, kein
         // bestehendes Ziel).
         anfangsbestand_liter: null,
-        qualitaetsstufe:      minQualStufe,
+        ...qualitaetsSpalten(minQual),
         status:               von0?.status ?? 'ausbau',
         notizen:              quellen.length > 1
           ? `Zusammengeführt aus ${quellen.length} Chargen`
@@ -420,8 +423,7 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
       schwund_liter:      0,
       brutto_liter:       null,
       umzug_typ:          umzugTyp,
-      qualitaet_vorher:   zielVorher,
-      qualitaet_nachher:  zielNachher,
+      ...umzugQualitaetsSpalten(zielVorher, zielNachher),
       herkunft_code_vorher:  herkunftVorher,
       herkunft_code_nachher: herkunftNachher,
       ...mostgewichtSnapshot,
