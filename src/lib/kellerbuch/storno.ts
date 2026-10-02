@@ -268,7 +268,7 @@ async function planeRueckbuchung(
   if (ids.length === 0) return { sperre: null, aenderungen: [], chargen }
 
   const { data, error } = await (supabase.from('weinausbau') as any)
-    .select('id, name, menge_liter, aktiv, status, qualitaetsstufe, herkunft_code, notizen, kmw, oechsle, mostgewicht_einheit')
+    .select('id, name, menge_liter, aktiv, status, qualitaetsstufe, herkunft_code, notizen, kmw, oechsle, mostgewicht_einheit, rebsorte, jahrgang')
     .in('id', ids)
     .eq('tenant_id', tenantId)
   if (error) throw new AktionsFehler(dbFehlerText(error, 'Chargen konnten nicht geladen werden'))
@@ -722,7 +722,7 @@ export async function planeVerschneidungStorno(
 ): Promise<VerschneidungStornoPlan> {
   // storno-sichtbar: lädt den Verschnitt auch storniert, um „bereits storniert“ zu melden
   const { data, error } = await (supabase.from('verschneidungen') as any)
-    .select('id, datum, created_at, storniert_am, ziel_weinausbau_id, ziel_qualitaet_vorher, ziel_herkunft_code_vorher, ziel_rebsorte_vorher, ziel_kmw_vorher, ziel_oechsle_vorher, ziel_mostgewicht_einheit_vorher, quellen:verschneidung_quellen(quell_weinausbau_id, menge_liter)')
+    .select('id, datum, created_at, storniert_am, ziel_weinausbau_id, ziel_qualitaet_vorher, ziel_herkunft_code_vorher, ziel_rebsorte_vorher, ziel_jahrgang_vorher, ziel_kmw_vorher, ziel_oechsle_vorher, ziel_mostgewicht_einheit_vorher, quellen:verschneidung_quellen(quell_weinausbau_id, menge_liter)')
     .eq('id', verschneidungId)
     .eq('tenant_id', tenantId)
     .maybeSingle()
@@ -759,6 +759,8 @@ export async function planeVerschneidungStorno(
       if (v.ziel_herkunft_code_vorher) ziel.payload.herkunft_code = v.ziel_herkunft_code_vorher
       // KAN-145: Rebsorte (Momentaufnahme ab 30.09.2026; ältere Verschnitte haben keine – dann unverändert)
       if (v.ziel_rebsorte_vorher) ziel.payload.rebsorte = v.ziel_rebsorte_vorher
+      // KAN-93: Jahrgang (Momentaufnahme ab 02.10.2026; ein Verschnitt gibt einer Charge ohne Jahrgang nie einen)
+      if (v.ziel_jahrgang_vorher != null) ziel.payload.jahrgang = v.ziel_jahrgang_vorher
       // KAN-130 Etappe 2: Mostgewicht samt Einheit (Momentaufnahme ab 02.10.2026; ältere Verschnitte: unverändert)
       const mg = verschnittRuecknahme(v)
       if (mg) Object.assign(ziel.payload, mg)

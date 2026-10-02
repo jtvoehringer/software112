@@ -1,6 +1,10 @@
 // Österreichische Weingesetz-Qualitätsstufen (aufsteigend nach Rang)
 // Enthält alle Werte die in den Formularen vorkommen können
 //
+// KAN-74 (02.10.2026): `rang` ist die Stufe der einen Rangfolge aus lib/wein/qualitaetsrang.ts (Test prüft das):
+// Eiswein/Strohwein = Beerenauslese, Ausbruch zwischen BA und TBA, DAC/Reserve/Erste Lage/Großes Gewächs und Sekt
+// auf Qualitätswein, Perlwein und Sonstiges auf Wein. Vorher DAC = Kabinett und Eiswein über TBA.
+//
 // KAN-73 (25.09.2026): Jede Auswahlliste bietet genau die Werte an, die der CHECK ihrer
 // Zieltabelle zulässt (scripts/tests/qualitaet.test.mjs liest die CHECKs aus den Migrationen):
 //   QUALITAET_OPTS        → weinausbau.qualitaetsstufe (Charge, Eröffnungsbestand, Datenimport,
@@ -10,7 +14,10 @@
 //                           (traubenverkauf.qualitaetsstufe, ohne CHECK)
 //   FUELLUNG_QUALITAETEN  → fuellungen.qualitaet (Füllung neu/bearbeiten) – fuellungen_qualitaet_check
 // Server Actions prüfen vor dem Schreiben mit qualitaetFehler() (verständliche Meldung statt 23514).
-// Die Datei bleibt bewusst ohne Importe, damit node:test sie direkt laden kann.
+// Einziger Import: die Rangfolge (mit .ts-Endung, damit node:test die Datei direkt laden kann).
+
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung für node:test (wie lib/buchhaltung/bmd.ts)
+import { niedrigsteQualitaet } from './qualitaetsrang.ts'
 
 export const QUALITAET_OPTS = [
   { value: 'wein',                 label: 'Wein (ohne Herkunft)',           rang: 0 },
@@ -22,15 +29,15 @@ export const QUALITAET_OPTS = [
   { value: 'beerenauslese',        label: 'Beerenauslese (BA)',             rang: 6 },
   { value: 'ausbruch',             label: 'Ausbruch',                       rang: 7 },
   { value: 'trockenbeerenauslese', label: 'Trockenbeerenauslese (TBA)',     rang: 8 },
-  { value: 'eiswein',              label: 'Eiswein',                        rang: 9 },
-  { value: 'strohwein',            label: 'Strohwein / Schilfwein',         rang: 9 },
-  // Ergänzende Bezeichnungen (in Füllungsformular wählbar)
-  { value: 'dac',                  label: 'DAC',                            rang: 3 },
-  { value: 'reserve',              label: 'Reservé / Reserve',              rang: 4 },
-  { value: 'erste_lage',           label: 'Erste Lage (ÖTW)',               rang: 5 },
-  { value: 'grosses_gewachs',      label: 'Großes Gewächs',                 rang: 6 },
+  { value: 'eiswein',              label: 'Eiswein',                        rang: 6 },
+  { value: 'strohwein',            label: 'Strohwein / Schilfwein',         rang: 6 },
+  // Ergänzende Bezeichnungen (Zusatz auf Qualitätswein) und Erzeugnisse
+  { value: 'dac',                  label: 'DAC',                            rang: 2 },
+  { value: 'reserve',              label: 'Reservé / Reserve',              rang: 2 },
+  { value: 'erste_lage',           label: 'Erste Lage (ÖTW)',               rang: 2 },
+  { value: 'grosses_gewachs',      label: 'Großes Gewächs',                 rang: 2 },
   { value: 'sekt',                 label: 'Sekt b.A.',                      rang: 2 },
-  { value: 'perlwein',             label: 'Perlwein',                       rang: 1 },
+  { value: 'perlwein',             label: 'Perlwein',                       rang: 0 },
   { value: 'sonstiges',            label: 'Sonstiges',                      rang: 0 },
 ] as const
 
@@ -127,14 +134,10 @@ export function qualitaetLabel(value: string | null | undefined): string {
   return QUALITAET_OPTS.find(o => o.value === value)?.label ?? value
 }
 
-/** Gibt die niedrigere der beiden Qualitätsstufen zurück (Verschnitt-Regel) */
+/** Ergebnis aus zwei Stufen (Umzug/Zusammenführung) – dieselbe Regel wie der Verschnitt (KAN-74):
+ *  gleiche bleiben, sonst die niedrigste Stufe der Achse, Zusatzbezeichnungen nur, wenn beide sie tragen */
 export function minQualitaet(a: string | null, b: string | null): string | null {
-  if (!a && !b) return null
-  if (!a) return b
-  if (!b) return a
-  const ra = QUALITAET_OPTS.find(o => o.value === a)?.rang ?? 99
-  const rb = QUALITAET_OPTS.find(o => o.value === b)?.rang ?? 99
-  return ra <= rb ? a : b
+  return niedrigsteQualitaet([a, b])
 }
 
 // ── Abstufen (KAN-81, Pressung seit KAN-126-Nachtrag 29.09.2026) ─────────────────────────────────────

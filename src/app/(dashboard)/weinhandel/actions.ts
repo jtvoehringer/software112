@@ -3,6 +3,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { istNiedrigerAls, QUALITAET_LABEL } from '@/lib/weinqualitaet'
+import { istAufwertung } from '@/lib/wein/qualitaetsrang'
 import { qualitaetFehler } from '@/lib/wein/qualitaet'
 import { istNiedrigerAls as herkunftIstNiedrigerAls, HERKUNFT_LABEL } from '@/lib/herkunft'
 import { getCurrentMembership, canWrite, type Membership } from '@/lib/auth/roles'
@@ -125,6 +126,11 @@ async function chargeAktualisieren(
 
 // Neue Füllung anlegen
 
+/** KAN-80: Meldung für eine abgelehnte Aufwertung der Füllung gegenüber der Charge */
+function aufwertungText(charge: string, neu: string): string {
+  return `Die Füllung kann nicht als „${QUALITAET_LABEL[neu] ?? neu}“ gefüllt werden, die Charge ist „${QUALITAET_LABEL[charge] ?? charge}“ – nur gleich oder niedriger (Abstufen) ist zulässig.`
+}
+
 export async function createFuellung(formData: FormData): Promise<{ id: string; hinweis?: string }> {
   const supabase   = await createSupabaseServerClient()
   const membership = await getMembership()
@@ -179,10 +185,9 @@ export async function createFuellung(formData: FormData): Promise<{ id: string; 
     const chargeQualitaet = charge.qualitaetsstufe as string | null ?? null
     const chargeHerkunft  = charge.herkunft_code as string | null ?? null
 
-    if (qualitaetInput && chargeQualitaet && istNiedrigerAls(chargeQualitaet, qualitaetInput)) {
-      throw new AktionsFehler(
-        `Qualitätswein kann nicht von ${QUALITAET_LABEL[chargeQualitaet] ?? chargeQualitaet} auf ${QUALITAET_LABEL[qualitaetInput] ?? qualitaetInput} AUFgestuft werden. Nur Abstufungen sind zulässig.`
-      )
+    // KAN-80: eine Rangfolge (KAN-74) – auch Landwein → DAC/Reserve/Sekt ist eine Aufwertung
+    if (qualitaetInput && chargeQualitaet && istAufwertung(chargeQualitaet, qualitaetInput)) {
+      throw new AktionsFehler(aufwertungText(chargeQualitaet, qualitaetInput))
     }
     if (herkunftCodeInput && chargeHerkunft && herkunftIstNiedrigerAls(chargeHerkunft, herkunftCodeInput)) {
       throw new AktionsFehler(
@@ -430,10 +435,9 @@ export async function updateFuellung(id: string, formData: FormData): Promise<vo
     const chargeQualitaet = (wa as AR | null)?.qualitaetsstufe as string | null ?? null
     const chargeHerkunft  = (wa as AR | null)?.herkunft_code as string | null ?? null
 
-    if (qualitaetInput && chargeQualitaet && istNiedrigerAls(chargeQualitaet, qualitaetInput)) {
-      throw new AktionsFehler(
-        `Qualitätswein kann nicht von ${QUALITAET_LABEL[chargeQualitaet] ?? chargeQualitaet} auf ${QUALITAET_LABEL[qualitaetInput] ?? qualitaetInput} AUFgestuft werden. Nur Abstufungen sind zulässig.`
-      )
+    // KAN-80: eine Rangfolge (KAN-74) – auch Landwein → DAC/Reserve/Sekt ist eine Aufwertung
+    if (qualitaetInput && chargeQualitaet && istAufwertung(chargeQualitaet, qualitaetInput)) {
+      throw new AktionsFehler(aufwertungText(chargeQualitaet, qualitaetInput))
     }
     if (herkunftCodeInput && chargeHerkunft && herkunftIstNiedrigerAls(chargeHerkunft, herkunftCodeInput)) {
       throw new AktionsFehler(

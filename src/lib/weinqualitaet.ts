@@ -1,5 +1,9 @@
 // Österreichische Weinqualitätsstufen – aufsteigend nach Qualität
-// Wird für Verschneidungs-Abstufung (niedrigste Stufe gewinnt) verwendet.
+// KAN-74 (02.10.2026): Rang, Mischung und Abstufung kommen nur noch aus lib/wein/qualitaetsrang.ts – die Funktionen
+// hier (minQualitaet, maxQualitaet, istNiedrigerAls) sind dünne Hüllen, damit die Aufrufer gleich bleiben.
+
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt (wie lib/buchhaltung/bmd.ts)
+import { hoechsteQualitaet, istAbstufung, niedrigsteQualitaet } from './wein/qualitaetsrang.ts'
 
 export const QUALITAET_ORDER = [
   'wein', 'landwein', 'qualitaetswein',
@@ -38,18 +42,11 @@ export const QUALITAET_LABEL: Record<string, string> = {
   sonstiges:               'Sonstiges',
 }
 
-/** Gibt den niedrigsten Qualitätslevel unter den übergebenen zurück.
- *  Berücksichtigt NUR die Prädikatswein-Stufen (keine DAC, Reserve etc.).
- *  Gibt null zurück wenn keine bekannte Prädikatswein-Stufe dabei ist. */
+/** Ergebnis einer Mischung (Verschnitt): gleiche Werte bleiben (DAC + DAC = DAC), sonst die niedrigste Stufe der
+ *  Achse – eine Zusatzbezeichnung (DAC, Reserve …) nur, wenn alle sie tragen. Nie null, solange ein Wert bekannt
+ *  ist (KAN-74; vorher nur Prädikatsskala, DAC/Reserve/Sekt ergaben null). */
 export function minQualitaet(stufen: (string | null | undefined)[]): string | null {
-  let minIdx = Infinity
-  let minVal: string | null = null
-  for (const s of stufen) {
-    if (!s || s === 'sonstiges') continue
-    const idx = PRAEDIKATSWEIN_ORDER.indexOf(s as typeof PRAEDIKATSWEIN_ORDER[number])
-    if (idx !== -1 && idx < minIdx) { minIdx = idx; minVal = s }
-  }
-  return minVal
+  return niedrigsteQualitaet(stufen)
 }
 
 /** Leitet die Qualitätsstufe aus dem KMW-Grad (Klosterneuburger Mostwaage) ab.
@@ -81,9 +78,8 @@ export function kmwZuQualitaet(kmw: number): string {
   return 'wein'
 }
 
-// Nur diese Stufen werden für die Abstufungs-Prüfung beim Verschneiden herangezogen.
-// DAC, Reserve, Erste Lage, Sekt etc. sind eigenständige Kategorien und nicht mit
-// der Prädikatswein-Skala vergleichbar.
+// Die Stufen der Achse ohne Zusatzbezeichnungen und Erzeugnisse (nur noch als Werteliste; der Rang kommt aus
+// lib/wein/qualitaetsrang.ts – KAN-74).
 export const PRAEDIKATSWEIN_ORDER = [
   'wein', 'landwein', 'qualitaetswein',
   'kabinett', 'spaetlese', 'auslese',
@@ -91,26 +87,13 @@ export const PRAEDIKATSWEIN_ORDER = [
   'eiswein', 'strohwein',
 ] as const
 
-/** Gibt den höchsten Qualitätslevel unter den übergebenen zurück.
- *  Berücksichtigt NUR die Prädikatswein-Stufen (keine DAC, Reserve etc.).
- *  Gibt null zurück wenn keine bekannte Stufe dabei ist. */
+/** Höchster Wert der Beteiligten (für „Abstufung von … auf …“) – mit Zusatzbezeichnungen (KAN-74) */
 export function maxQualitaet(stufen: (string | null | undefined)[]): string | null {
-  let maxIdx = -1
-  let maxVal: string | null = null
-  for (const s of stufen) {
-    if (!s || s === 'sonstiges') continue
-    const idx = PRAEDIKATSWEIN_ORDER.indexOf(s as typeof PRAEDIKATSWEIN_ORDER[number])
-    if (idx !== -1 && idx > maxIdx) { maxIdx = idx; maxVal = s }
-  }
-  return maxVal
+  return hoechsteQualitaet(stufen)
 }
 
-/** Prüft ob Stufe `a` im Prädikatswein-Rang niedriger ist als Stufe `b`.
- *  Gibt false zurück wenn eine der Stufen nicht auf der Prädikatswein-Skala liegt. */
+/** `a` liegt unter `b` (Abstufung von b auf a): niedrigere Stufe oder verlorene Zusatzbezeichnung
+ *  (Qualitätswein unter Reserve) – KAN-74. Für die Aufwertungssperre: istAufwertung (lib/wein/qualitaetsrang). */
 export function istNiedrigerAls(a: string | null | undefined, b: string | null | undefined): boolean {
-  if (!a || !b) return false
-  const idxA = PRAEDIKATSWEIN_ORDER.indexOf(a as typeof PRAEDIKATSWEIN_ORDER[number])
-  const idxB = PRAEDIKATSWEIN_ORDER.indexOf(b as typeof PRAEDIKATSWEIN_ORDER[number])
-  if (idxA === -1 || idxB === -1) return false
-  return idxA < idxB
+  return istAbstufung(b, a)
 }

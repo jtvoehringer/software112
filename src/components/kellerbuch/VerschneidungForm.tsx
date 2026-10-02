@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from 'react'
 import { createVerschneidung } from '@/app/(dashboard)/kellerbuch/actions'
-import { QUALITAET_LABEL, QUALITAET_ORDER, istNiedrigerAls, minQualitaet } from '@/lib/weinqualitaet'
+import { sortenverschnittBezeichnung, SCHWELLE } from '@/lib/wein/sortenangabe'
+import { QUALITAET_LABEL, istNiedrigerAls, minQualitaet } from '@/lib/weinqualitaet'
 import { HERKUNFT_LABEL, istNiedrigerAls as herkunftIstNiedrigerAls, minHerkunft } from '@/lib/herkunft'
 import { GitMerge, AlertTriangle, Ban, CheckCircle2, Info, X } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
@@ -31,6 +32,8 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
   const [error, setError] = useState<string | null>(null)
   const [qualitaetAbgestufInfo, setQualitaetAbgestufInfo] = useState<{ von: string; nach: string } | null>(null)
   const [herkunftAbgestufInfo, setHerkunftAbgestufInfo] = useState<{ von: string; nach: string } | null>(null)
+  // KAN-93: Rebsorte/Jahrgang entfällt oder wechselt (vom Server aus den tatsächlichen Anteilen)
+  const [sortenHinweise, setSortenHinweise] = useState<string[]>([])
   const [quellen, setQuellen] = useState<{ weinausbau_id: string; menge: string }[]>(
     initialQuelleId
       ? [{ weinausbau_id: initialQuelleId, menge: initialQuelleMenge ?? '' }]
@@ -60,6 +63,8 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
     // Viele Chargen wurden vor dem Pressung-Fix ohne rebsorte angelegt; der Name
     // (z.B. „Gelber Muskateller") entspricht aber der Rebsorte.
     // Kein Abbruch – Berechnung läuft mit bestem verfügbarem Wert weiter.
+    // KAN-93: Vorschau nach den Rebsorten der Chargen; beim Buchen zählt die tatsächliche Zusammensetzung
+    // (Herkunftsanteile, auch schon enthaltene andere Sorten) – Abweichungen meldet der Server danach.
 
     const anteile: Record<string, number> = {}
     // Ziel-Rebsorte: wie bei Quellen Fallback auf Namen wenn rebsorte fehlt
@@ -81,7 +86,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
     const dominante = Object.entries(anteile).sort((a, b) => b[1] - a[1])[0]
     const anteilPct = dominante && total > 0 ? Math.round(dominante[1] / total * 1000) / 10 : 0
     if (anteilPct >= 100) return { typ: 'unveraendert' as const, anteilPct, rebsorte: dominante![0] }
-    if (anteilPct >= 85)  return { typ: 'bezeichnungsunschaedlich' as const, anteilPct, rebsorte: dominante![0] }
+    if (dominante && dominante[1] / total >= SCHWELLE - 1e-9)  return { typ: 'bezeichnungsunschaedlich' as const, anteilPct, rebsorte: dominante[0] }
     return { typ: 'sortenverschnitt' as const, anteilPct: null, rebsorte: null }
   })()
 
@@ -151,9 +156,10 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
           fd.set('pn_bestaetigt', '1')
           result = await createVerschneidung(fd)
         }
-        if (result?.qualitaetAbgestuft || result?.herkunftAbgestuft) {
+        if (result?.qualitaetAbgestuft || result?.herkunftAbgestuft || (result?.sortenHinweise?.length ?? 0) > 0) {
           setQualitaetAbgestufInfo(result.qualitaetAbgestuft ?? null)
           setHerkunftAbgestufInfo(result.herkunftAbgestuft ?? null)
+          setSortenHinweise(result.sortenHinweise ?? [])
         } else {
           onDone()
         }
@@ -166,13 +172,14 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
   const inputCls = 'border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
 
   // Qualitäts-/Herkunft-Abstufung nach erfolgreichem Speichern
-  if (qualitaetAbgestufInfo || herkunftAbgestufInfo) {
+  if (qualitaetAbgestufInfo || herkunftAbgestufInfo || sortenHinweise.length > 0) {
     return (
       <div className="bg-s112-warn-bg border border-s112-warn/30 rounded-xl p-5 space-y-3">
         <div className="flex items-start gap-3">
           <AlertTriangle size={22} strokeWidth={1.75} className="text-s112-warn-fg shrink-0" />
           <div className="space-y-1">
-            <p className="font-semibold text-s112-warn-fg text-sm">Verschneidung gespeichert – Abstufung erfolgt</p>
+            <p className="font-semibold text-s112-warn-fg text-sm">Verschneidung gespeichert – {qualitaetAbgestufInfo || herkunftAbgestufInfo ? 'Abstufung erfolgt' : 'Angaben angepasst'}</p>
+            {sortenHinweise.map(h => <p key={h} className="text-sm text-s112-warn-fg">{h}.</p>)}
             {qualitaetAbgestufInfo && (
               <p className="text-sm text-s112-warn-fg">
                 Qualität: von{' '}
@@ -230,9 +237,8 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
           const src = verfuegbar.find(c => c.id === q.weinausbau_id)
           const menge = parseFloat(dezimal(q.menge))
           const anteil = gesamtLiter > 0 && !isNaN(menge) ? Math.round(menge / gesamtLiter * 1000) / 10 : null
-          const srcQIdx = src?.qualitaetsstufe ? QUALITAET_ORDER.indexOf(src.qualitaetsstufe as typeof QUALITAET_ORDER[number]) : -1
-          const zielQIdx = zielCharge.qualitaetsstufe ? QUALITAET_ORDER.indexOf(zielCharge.qualitaetsstufe as typeof QUALITAET_ORDER[number]) : -1
-          const isNiederwertig = srcQIdx !== -1 && zielQIdx !== -1 && srcQIdx < zielQIdx
+          // KAN-74: dieselbe Rangfolge wie der Server (vorher Index in QUALITAET_ORDER – DAC lag dort über TBA)
+          const isNiederwertig = istNiedrigerAls(src?.qualitaetsstufe ?? null, zielCharge.qualitaetsstufe ?? null)
           return (
             <div key={i} className="flex items-center gap-2">
               <select
@@ -413,7 +419,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
             )}
             {rebsortenPreview.typ === 'sortenverschnitt' && (
               <>
-                <p className="font-medium">Sortenverschnitt – Rebsorte wird auf „Sortenverschnitt" gesetzt</p>
+                <p className="font-medium">Sortenverschnitt – Rebsorte wird auf „{sortenverschnittBezeichnung(zielCharge.weinart)}“ gesetzt</p>
                 <p className="text-xs mt-0.5">Keine Rebsorte erreicht 85 % Anteil</p>
               </>
             )}
