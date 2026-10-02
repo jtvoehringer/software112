@@ -1218,7 +1218,8 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('trigger',       '--S', false, 's112_meldung_abgabe_schutz()'),           -- KAN-37 B: Abgaben unveränderlich
     ('trigger',       '--S', false, 's112_ama_rahmen()'),                      -- KAN-37 C: Stichtag/Abgabefrist aus dem Jahrgang
     ('trigger',       '--S', false, 's112_lese_meldesperre()'),
-    ('trigger',       '--S', false, 's112_fuellung_weinart()'),               -- KAN-39: Farbe der Füllung aus der Charge                -- KAN-37 C: Lese-Sperre nach dem Einreichen
+    ('trigger',       '--S', false, 's112_fuellung_weinart()'),               -- KAN-39: Farbe der Füllung aus der Charge
+    ('trigger',       '--S', false, 's112_katalog_ableiten()'),               -- KAN-186: Erzeugnis/Zusatz aus der Qualität                -- KAN-37 C: Lese-Sperre nach dem Einreichen
     ('mandant',       '-US', true , 's112_fuellung_verkauf_buchen(p_tenant_id uuid, p_fuellung_id uuid, p_verkaufsposten_id uuid, p_menge_stk integer, p_datum date, p_grund text)'),   -- KAN-149 D1
     ('trigger',       '--S', false, 's112_ea_abschluss_schutz()'),             -- KAN-149 D3: Monatsabschluss, gesperrte UVA, verbuchte Belege
     ('intern',        '--S', false, 's112_ea_gegenbuchung(p_tenant_id uuid, p_id uuid, p_grund text, p_datum date)'),   -- KAN-149 D2 (Hilfsfunktion)
