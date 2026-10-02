@@ -1,0 +1,74 @@
+// KAN-39 Etappe 1 (02.10.2026): Kataloge der BKI-Schnittstelle – lib/katalog/bki.ts muss genau der Migration
+// kan39a_kataloge entsprechen (Codes, Bezeichnungen, Rang, BSM-Spalte, Richtung/Einheit, Zuordnungen), und die
+// Rangfolge passt zur Qualitätsachse aus lib/wein/qualitaetsrang.ts.
+//
+// Aufruf:  node --experimental-strip-types --test scripts/tests/kan39-kataloge.test.mjs
+//          (läuft auch über npm run test:csv)
+
+import { test, describe } from 'node:test'
+import assert from 'node:assert/strict'
+import { readFileSync, readdirSync } from 'node:fs'
+
+// @ts-expect-error TS5097 – node:test lädt die .ts-Datei direkt (wie bmd.ts)
+const kat = await import('../../src/lib/katalog/bki.ts')
+// @ts-expect-error TS5097 – siehe oben
+const rang = await import('../../src/lib/wein/qualitaetsrang.ts')
+
+const migDir = new URL('../../supabase/migrations/', import.meta.url)
+const migName = readdirSync(migDir).find(f => /_kan39a_kataloge\.sql$/.test(f))
+const sql = migName ? readFileSync(new URL(migName, migDir), 'utf8').replace(/\r\n/g, '\n') : ''
+
+/** Zeilen eines INSERT … VALUES-Blocks als Arrays (Text in '…', NULL, true/false, Zahlen) */
+function werte(tabelle) {
+  const start = sql.indexOf(`INSERT INTO public.${tabelle} (`)
+  assert.ok(start >= 0, `INSERT in ${tabelle} fehlt`)
+  const block = sql.slice(sql.indexOf('VALUES', start) + 6, sql.indexOf(';\n', start))
+  return [...block.matchAll(/^\s*\((.*)\),?$/gm)].map(m =>
+    [...m[1].matchAll(/'((?:[^']|'')*)'|(NULL|true|false|-?\d+)/g)].map(t =>
+      t[1] !== undefined ? t[1].replace(/''/g, "'") : t[2] === 'NULL' ? null : t[2] === 'true' ? true : t[2] === 'false' ? false : Number(t[2])))
+}
+
+describe('KAN-39: Kataloge lib ↔ Migration', () => {
+  test('Migration kan39a_kataloge liegt in supabase/migrations', () => assert.ok(migName))
+  test('Qualitätsstufen', () => {
+    assert.deepEqual(werte('kat_qualitaetsstufe').map(r => r.slice(0, 5)),
+      kat.KAT_QUALITAETSSTUFE.map(k => [k.code, k.bezeichnung, k.rang, k.bsmSpalte, k.vorlaeufig]))
+  })
+  test('Erzeugnisse', () => {
+    assert.deepEqual(werte('kat_erzeugnis').map(r => r.slice(0, 3)), kat.KAT_ERZEUGNIS.map(k => [k.code, k.bezeichnung, k.bsmRelevant]))
+  })
+  test('Buchungsarten: 17 BSM-Werte, interne mit Zuordnung', () => {
+    assert.deepEqual(werte('kat_buchungsart').map(r => r.slice(0, 6)),
+      kat.KAT_BUCHUNGSART.map(k => [k.code, k.bezeichnung, k.richtung, k.einheit, k.bsm, k.bsmCode]))
+    assert.equal(kat.KAT_BUCHUNGSART.filter(k => k.bsm).length, 17)
+  })
+  test('Farbe und Zuordnungen', () => {
+    assert.deepEqual(Object.fromEntries(werte('kat_farbe')), kat.KAT_FARBE)
+    const m = {}
+    for (const [k, i, c] of werte('katalog_mapping')) (m[k] ??= {})[i] = c
+    assert.deepEqual(m, kat.KATALOG_MAPPING)
+  })
+  test('Rosé zählt zu rot, grau zu weiß, unbekannt ohne Farbe', () => {
+    assert.equal(kat.meldeFarbe('rose'), 'R')
+    assert.equal(kat.meldeFarbe('grau'), 'W')
+    assert.equal(kat.meldeFarbe('unbekannt'), null)
+    assert.equal(kat.meldeFarbe(null), null)
+  })
+  test('Rang folgt der Qualitätsachse (qualitaetsrang.ts)', () => {
+    const intern = ['wein', 'landwein', 'qualitaetswein', 'kabinett', 'spaetlese', 'auslese', 'beerenauslese', 'ausbruch', 'trockenbeerenauslese']
+    for (let i = 1; i < intern.length; i++) {
+      const a = kat.katalogQualitaet(intern[i - 1]), b = kat.katalogQualitaet(intern[i])
+      assert.ok(a.rang < b.rang, `${intern[i - 1]} < ${intern[i]}`)
+      assert.ok(rang.qualitaetsStufe(intern[i - 1]) < rang.qualitaetsStufe(intern[i]), `qualitaetsrang ${intern[i - 1]} < ${intern[i]}`)
+    }
+    assert.equal(kat.katalogQualitaet('eiswein').rang, kat.katalogQualitaet('beerenauslese').rang)
+    assert.equal(kat.katalogQualitaet('dac').rang, kat.katalogQualitaet('qualitaetswein').rang)
+  })
+  test('Länder: 249 ISO-Codes, 27 EU-Staaten, Österreich in der EU', () => {
+    const l = werte('kat_land')
+    assert.equal(l.length, 249)
+    assert.equal(l.filter(r => r[2] === true).length, 27)
+    assert.deepEqual(l.find(r => r[0] === 'AT'), ['AT', 'Österreich', true])
+    assert.ok(!l.some(r => r[0] === 'UK'))
+  })
+})
