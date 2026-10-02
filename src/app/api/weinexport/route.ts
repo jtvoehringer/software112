@@ -6,6 +6,7 @@ import { ereignisMelden } from '@/lib/system/ereignis'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
+import { normalisiereLand } from '@/lib/katalog/laender'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -36,6 +37,12 @@ export async function POST(req: NextRequest) {
     if (!canWrite(membership, 'warenwirtschaft'))   // Admin-Client umgeht RLS → Modulrecht hier prüfen
       return NextResponse.json({ fehler: 'Keine Berechtigung' }, { status: 403 })
 
+    // KAN-187: Bestimmungsland als ISO-Code aus dem Länderkatalog (vor der Referenznummer – sonst ginge eine Nummer verloren)
+    const destLandRoh = typeof body.destination_land === 'string' ? body.destination_land.trim() : ''
+    const destinationLand = normalisiereLand(destLandRoh)
+    if (destLandRoh && !destinationLand)
+      return NextResponse.json({ fehler: `Unbekanntes Land „${destLandRoh}“ – bitte ein Land aus der Liste wählen.` }, { status: 400 })
+
     // Referenznummer generieren
     const { data: refData } = await (admin.rpc as any)('get_next_exportnummer', { p_tenant_id: tenantId })
     const referenz = refData ?? null
@@ -49,7 +56,7 @@ export async function POST(req: NextRequest) {
       lieferdatum:       body.lieferdatum,
       incoterms:         body.incoterms,
       transport_art:     body.transport_art,
-      destination_land:  body.destination_land,
+      destination_land:  destinationLand,
       destination_stadt: body.destination_stadt,
       eori_kunde:        body.eori_kunde,
       versicherungswert: body.versicherungswert,

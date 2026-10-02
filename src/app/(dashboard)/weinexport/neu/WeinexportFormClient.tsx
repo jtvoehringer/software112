@@ -4,11 +4,11 @@ import { useRouter } from 'next/navigation'
 import Link from '@/components/ui/Link'
 import { Trash2 } from 'lucide-react'
 import { fmtNum } from '@/lib/format'
+import LandOptionen from '@/components/crm/LandOptionen'   // KAN-187: Bestimmungsland als ISO-Code aus dem Länderkatalog
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
 const INCOTERMS = ['EXW','FCA','FAS','FOB','CFR','CIF','CPT','CIP','DAP','DPU','DDP']
 const TRANSPORT = ['LKW','Bahn','Schiff','Flugzeug','Kurier']
-const LAENDER   = ['Deutschland','Österreich','Schweiz','USA','China','Japan','Großbritannien','Kanada','Australien','Andere']
 
 interface Props { kontakte: R[]; firmen: R[]; fuellungen: R[]; tenantId: string }
 
@@ -157,7 +157,7 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
               <select aria-label="Destination Land" value={destLand} onChange={e => setDestLand(e.target.value)} required
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
                 <option value="">– Land wählen –</option>
-                {LAENDER.map(l => <option key={l}>{l}</option>)}
+                <LandOptionen aktuell={destLand} />
               </select>
             </div>
             <div>
