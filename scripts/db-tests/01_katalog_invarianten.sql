@@ -198,7 +198,7 @@ DECLARE
     'duengemittel_lager_bewegungen=datum,duengemittel_id,einheit,menge,tenant_id,typ',
     'ernte_parzellen=ernte_datum,grundstueck_id,jahrgang_id,klosterneuburger,lese_id,menge_hl,menge_kg,mostgewicht_einheit,oechsle,storniert_am,storno_grund,weingarten_id',
     'fuellung_chargen=anteil_liter,fuellung_id,tenant_id,weinausbau_id',
-    'fuellungen=aktiv,anbaugebiet,anzahl_flaschen,bestand_flaschen,dac_antrag_id,datum,flaschengroesse_ml,herkunft_code,jahrgang,menge_liter_gefuellt,pruefnummer,qualitaet,rebsorte,storniert_am,storno_grund,tenant_id,weinausbau_id',   -- KAN-150 F1a: + dac_antrag_id
+    'fuellungen=aktiv,anbaugebiet,anzahl_flaschen,bestand_flaschen,dac_antrag_id,datum,erzeugnis,flaschengroesse_ml,herkunft_code,jahrgang,land_iso,menge_liter_gefuellt,pruefnummer,qualitaet,rebsorte,storniert_am,storno_grund,tenant_id,weinart,weinausbau_id,zusatzbezeichnung',   -- KAN-150 F1a: + dac_antrag_id; KAN-186: + erzeugnis, land_iso, weinart, zusatzbezeichnung
     'psm_lager_bewegungen=datum,einheit,menge,psm_id,tenant_id,typ',
     'keller_behandlungen=behaelter_id,datum,einheit,menge,storniert_am,storno_grund,tenant_id,typ_id,volumen_liter_ist,weinausbau_id',
     'lesen=art,beginn,ende,jahrgang_id,lfd_nr,tenant_id',
@@ -213,8 +213,8 @@ DECLARE
     'zahlungen=betrag,datum,konto_id,storniert_am,storno_grund,tenant_id,verkaufsposten_id',   -- KAN-149 D2
     'verschneidung_quellen=menge_liter,quell_weinausbau_id,verschneidung_id',
     'verschneidungen=datum,storniert_am,storno_grund,tenant_id,ziel_weinausbau_id',
-    'weinausbau=aktiv,anfangsbestand_liter,behaelter_id,herkunft_code,ist_eroeffnungsbestand,jahrgang,kmw,menge_liter,mostgewicht_einheit,oechsle,qualitaetsstufe,rebsorte,status,storniert_am,storno_grund,tenant_id,weinart,weingarten_id',   -- KAN-150 F1a: + weingarten_id
-    'zukauf_posten=aktiv,art,datum,einheit,kmw,lieferant_firma_id,lieferant_kontakt_id,menge,mostgewicht_einheit,oechsle,storniert_am,storno_grund,tenant_id,zh_kontakt_id,ziel_weinausbau_id',   -- KAN-150 F1a: + lieferant_kontakt_id, lieferant_firma_id, zh_kontakt_id
+    'weinausbau=aktiv,anfangsbestand_liter,behaelter_id,erzeugnis,herkunft_code,ist_eroeffnungsbestand,jahrgang,kmw,land_iso,menge_liter,mostgewicht_einheit,oechsle,qualitaetsstufe,rebsorte,status,storniert_am,storno_grund,tenant_id,weinart,weingarten_id,zusatzbezeichnung',   -- KAN-150 F1a: + weingarten_id; KAN-186: + erzeugnis, land_iso, zusatzbezeichnung
+    'zukauf_posten=aktiv,art,datum,einheit,erzeugnis,kmw,land_iso,lieferant_firma_id,lieferant_kontakt_id,menge,mostgewicht_einheit,oechsle,storniert_am,storno_grund,tenant_id,zh_kontakt_id,ziel_weinausbau_id,zusatzbezeichnung',   -- KAN-186: + erzeugnis, land_iso, zusatzbezeichnung;   -- KAN-150 F1a: + lieferant_kontakt_id, lieferant_firma_id, zh_kontakt_id
     -- KAN-150 F1a: Stammdaten – Deaktivieren (aktiv) und Umhängen protokolliert
     'weingarten=aktiv,tenant_id', 'grundstuecke=aktiv,deaktiviert_am,tenant_id,weingarten_id', 'pflanzenschutzmittel=aktiv,tenant_id',
     'duengemittel=aktiv,tenant_id', 'ea_kategorien=aktiv,tenant_id', 'ea_dauerauftraege=aktiv,tenant_id',
