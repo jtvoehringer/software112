@@ -30,8 +30,8 @@ import { ladeBehaelter } from '@/lib/keller/behaelter'
 import { bkiFarbe, bkiRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
 import { qualitaetAnzeigeOderNull } from '@/lib/wein/qualitaet'
 import { datumAT, kuerzelWarnungen, textOderNull, zahlOderNull } from './ernte_hilfen'
-import { ladeBewegungenBetrieb } from './bewegungsbuch'
-import { bestandAmStichtag, fruehesterTag, standardStichtag, type MengenBuchung } from './bestandZum'
+import { ladeBewegungenBetrieb, type BetriebsBewegungen } from './bewegungsbuch'
+import { bestandAmStichtag, fruehesterTag, standardStichtag, type MengenBuchung, type StichtagsBestand } from './bestandZum'
 import { istTag, tag } from './kellerbuch-hilfen'
 import { parameterFehler, type ParameterFehler } from './typen'
 
@@ -121,15 +121,41 @@ const anzahl = (n: number, eins: string, mehr: string) => `${n} ${n === 1 ? eins
 /** Namen für Hinweise: höchstens fünf, Rest mit „…“ */
 const auszug = (namen: readonly string[]) => [...new Set(namen)].slice(0, 5).join(', ') + (new Set(namen).size > 5 ? ' …' : '')
 
-export async function ladeBestandsmeldung(
-  supabase: Client,
-  tenantId: string,
-  opts: { stichtag?: string; heute?: string } = {},
-): Promise<BestandsmeldungDaten> {
-  const heute = opts.heute ?? wienHeute()
-  const stichtag = opts.stichtag ?? heute
-  const warnungen: string[] = []
+// ── Grundlage und Bestand je Posten (KAN-43 Etappe 2: auch für die BSM nach Buchungsarten, lib/behoerden/bsm.ts) ──
 
+/** Flaschenbuchung einer Füllung (Stück, + Zugang, − Abgang) mit Herkunft der Buchung */
+export type FlaschenBuchung = MengenBuchung & {
+  /** 'abfuellung' | 'storno_fuellung' | fuellung_bewegungen.art | 'verkauf_alt' | 'verkauf_alt_storno' */
+  art: string
+  verkaufspostenId: string | null
+}
+
+/** Charge mit heutigem Bestand und allen Kellerbuchungen */
+export type ChargenPosten = { c: R; heuteLiter: number; buchungen: MengenBuchung[]; beginn: string | null }
+
+/** Füllung mit heutigem Bestand (Stück) und allen Flaschenbuchungen samt Abfüllung und Storno */
+export type FuellungsPosten = {
+  f: R
+  heuteStk: number
+  buchungen: FlaschenBuchung[]
+  beginn: string | null
+  /** Flaschengröße (ml), ohne Angabe FLASCHE_ML_STANDARD */
+  ml: number
+  mlErfasst: boolean
+}
+
+export type BestandsGrundlage = {
+  betrieb: BetriebsBewegungen
+  chargen: ChargenPosten[]
+  fuellungen: FuellungsPosten[]
+  /** Kellerbuchungen ohne Datum (zählen als vor jedem Stichtag) */
+  ohneDatum: number
+  /** deaktivierte Füllungen mit Restbestand ohne Storno-Datum – nicht enthalten */
+  deaktiviertOhneDatum: number
+}
+
+/** Alle Daten für den Bestand zu beliebigen Stichtagen – einmal geladen (Bestandsmeldung, BSM) */
+export async function ladeBestandsGrundlage(supabase: Client, tenantId: string): Promise<BestandsGrundlage> {
   const [betrieb, fbRes, vpRes] = await Promise.all([
     ladeBewegungenBetrieb(supabase, tenantId),
     alle<R>(
@@ -153,14 +179,7 @@ export async function ladeBestandsmeldung(
   if (fbRes.error) throw new Error(`Laden fehlgeschlagen (fuellung_bewegungen): ${fbRes.error.message}`)
   if (vpRes.error) throw new Error(`Laden fehlgeschlagen (verkauf_positionen): ${vpRes.error.message}`)
 
-  if (stichtag < heute) {
-    warnungen.push(`Bestand zum Stichtag ${datumAT(stichtag)} (Ende des Tages), zurückgerechnet aus dem Bestand am ${datumAT(heute)} und allen Buchungen danach. Bestandsänderungen ohne Buchung (z. B. Flaschenkorrekturen vor dem 24.09.2026 oder ein Gebindewechsel über „Charge bearbeiten“) sind darin nicht enthalten; Bezeichnung, Rebsorte, Qualitätsstufe und Gebinde sind die heutigen.`)
-  }
-  if (stichtag.slice(5) !== '07-31') {
-    warnungen.push(`Stichtag ${datumAT(stichtag)} – die Weinbestandsmeldung (§ 29 Weingesetz 2009) verlangt den Bestand zum 31. Juli.`)
-  }
-
-  // ── B: Chargen ──────────────────────────────────────────────────────────────────────────────────────
+  // Chargen: Buchungen aus den Bewegungen (Kellerbehandlungen ohne Menge zählen nicht)
   const buchungenJeCharge = new Map<string, MengenBuchung[]>()
   const ersterTagJeCharge = new Map<string, string>()
   let ohneDatum = 0
@@ -173,24 +192,120 @@ export async function ladeBestandsmeldung(
     const erster = ersterTagJeCharge.get(b.chargeId)
     if (b.datum && (!erster || b.datum < erster)) ersterTagJeCharge.set(b.chargeId, b.datum)
   }
-  if (ohneDatum > 0) warnungen.push(`${anzahl(ohneDatum, 'Kellerbuchung hat', 'Kellerbuchungen haben')} kein Datum – sie zählen als vor dem Stichtag gebucht.`)
+  const chargen: ChargenPosten[] = []
+  for (const c of betrieb.chargen) {
+    const heuteLiter = c.aktiv && c.status !== 'abgeschlossen' ? (zahlOderNull(c.menge_liter) ?? 0) : 0
+    const buchungen = buchungenJeCharge.get(c.id) ?? []
+    if (heuteLiter < LEER_UNTER && buchungen.length === 0) continue
+    chargen.push({ c, heuteLiter, buchungen, beginn: fruehesterTag(ersterTagJeCharge.get(c.id), tag(c.created_at) || null) })
+  }
+
+  // Flaschen: Bestandsbuchungen, Flaschenverkäufe ohne Bewegungszeile (vor KAN-149 D1): Abgang am Verkaufstag,
+  // Storno-Rückbuchung am Storno-Tag; Alt-Stornos ohne Zeitpunkt entfallen ganz (wie im Bewegungsbuch)
+  const buchungenJeFuellung = new Map<string, FlaschenBuchung[]>()
+  const plus = (id: string, b: FlaschenBuchung) => {
+    const liste = buchungenJeFuellung.get(id) ?? []
+    liste.push(b)
+    buchungenJeFuellung.set(id, liste)
+  }
+  const verkaufMitZeile = new Set<string>()
+  const stornoMitZeile = new Set<string>()
+  for (const fb of fbRes.data) {
+    if (!fb.fuellung_id) continue
+    plus(fb.fuellung_id, { datum: tag(fb.datum), menge: Math.trunc(zahlOderNull(fb.menge_stk) ?? 0), art: String(fb.art ?? ''), verkaufspostenId: fb.verkaufsposten_id ?? null })
+    if (fb.verkaufsposten_id && fb.art === 'verkauf') verkaufMitZeile.add(`${fb.verkaufsposten_id}|${fb.fuellung_id}`)
+    if (fb.verkaufsposten_id && fb.art === 'verkauf_storno') stornoMitZeile.add(`${fb.verkaufsposten_id}|${fb.fuellung_id}`)
+  }
+  for (const p of vpRes.data) {
+    const vp = p.verkaufsposten as R | null
+    const schluessel = `${p.verkaufsposten_id}|${p.fuellung_id}`
+    const stk = Math.round(zahlOderNull(p.menge) ?? 0)
+    if (!vp || stk === 0) continue
+    if (vp.storniert && !vp.storniert_am) continue
+    if (!verkaufMitZeile.has(schluessel)) plus(p.fuellung_id, { datum: tag(vp.datum), menge: -stk, art: 'verkauf_alt', verkaufspostenId: p.verkaufsposten_id ?? null })
+    if (vp.storniert && !stornoMitZeile.has(schluessel)) plus(p.fuellung_id, { datum: tag(vp.storniert_am), menge: stk, art: 'verkauf_alt_storno', verkaufspostenId: p.verkaufsposten_id ?? null })
+  }
+
+  let deaktiviertOhneDatum = 0
+  const fuellungen: FuellungsPosten[] = []
+  for (const f of betrieb.fuellungen) {
+    const bestandHeute = Math.trunc(zahlOderNull(f.bestand_flaschen) ?? 0)
+    const buchungen = [...(buchungenJeFuellung.get(f.id) ?? [])]
+    const abfuelltag = tag(f.datum)
+    const abgefuellt = Math.trunc(zahlOderNull(f.anzahl_flaschen) ?? 0)
+    if (abgefuellt > 0) buchungen.push({ datum: abfuelltag, menge: abgefuellt, art: 'abfuellung', verkaufspostenId: null })
+    let heuteStk = bestandHeute
+    if (!f.aktiv) {
+      heuteStk = 0
+      if (f.storniert_am) {
+        // KAN-145 B3: der Storno lässt bestand_flaschen stehen – der Rest geht am Storno-Tag ab
+        if (bestandHeute !== 0) buchungen.push({ datum: tag(f.storniert_am), menge: -bestandHeute, art: 'storno_fuellung', verkaufspostenId: null })
+      } else if (bestandHeute > 0) {
+        deaktiviertOhneDatum++
+        continue
+      }
+    }
+    if (heuteStk === 0 && buchungen.length === 0) continue
+    const erfasst = zahlOderNull(f.flaschengroesse_ml)
+    fuellungen.push({
+      f, heuteStk, buchungen,
+      beginn: abfuelltag || tag(f.erstellt_am) || null,
+      ml: erfasst ?? FLASCHE_ML_STANDARD,
+      mlErfasst: erfasst !== null,
+    })
+  }
+
+  return { betrieb, chargen, fuellungen, ohneDatum, deaktiviertOhneDatum }
+}
+
+/** Bestand jeder Charge (Liter) und jeder Füllung (Stück) am Ende des Stichtags – ohne Filter (auch 0 und negativ) */
+export function bestandJePosten(g: BestandsGrundlage, stichtag: string): {
+  chargen: { p: ChargenPosten; r: StichtagsBestand }[]
+  fuellungen: { p: FuellungsPosten; r: StichtagsBestand }[]
+} {
+  return {
+    chargen: g.chargen.map(p => ({ p, r: bestandAmStichtag(p.heuteLiter, p.buchungen, stichtag, p.beginn, STELLEN.liter) })),
+    fuellungen: g.fuellungen.map(p => ({ p, r: bestandAmStichtag(p.heuteStk, p.buchungen, stichtag, p.beginn, 0) })),
+  }
+}
+
+/** Gilt eine Charge mit diesem Bestand als leer bzw. negativ? (menge_liter ist numeric(10,2)) */
+export const istLeer = (liter: number) => Math.abs(liter) < LEER_UNTER
+export const istNegativ = (liter: number) => liter <= -LEER_UNTER
+
+export async function ladeBestandsmeldung(
+  supabase: Client,
+  tenantId: string,
+  opts: { stichtag?: string; heute?: string } = {},
+): Promise<BestandsmeldungDaten> {
+  const heute = opts.heute ?? wienHeute()
+  const stichtag = opts.stichtag ?? heute
+  const warnungen: string[] = []
+
+  const g = await ladeBestandsGrundlage(supabase, tenantId)
+  const je = bestandJePosten(g, stichtag)
+
+  if (stichtag < heute) {
+    warnungen.push(`Bestand zum Stichtag ${datumAT(stichtag)} (Ende des Tages), zurückgerechnet aus dem Bestand am ${datumAT(heute)} und allen Buchungen danach. Bestandsänderungen ohne Buchung (z. B. Flaschenkorrekturen vor dem 24.09.2026 oder ein Gebindewechsel über „Charge bearbeiten“) sind darin nicht enthalten; Bezeichnung, Rebsorte, Qualitätsstufe und Gebinde sind die heutigen.`)
+  }
+  if (stichtag.slice(5) !== '07-31') {
+    warnungen.push(`Stichtag ${datumAT(stichtag)} – die Weinbestandsmeldung (§ 29 Weingesetz 2009) verlangt den Bestand zum 31. Juli.`)
+  }
+
+  // ── B: Chargen ──────────────────────────────────────────────────────────────────────────────────────
+  if (g.ohneDatum > 0) warnungen.push(`${anzahl(g.ohneDatum, 'Kellerbuchung hat', 'Kellerbuchungen haben')} kein Datum – sie zählen als vor dem Stichtag gebucht.`)
 
   const ungeklaertChargen: string[] = []
   let ungeklaertLiter = 0
   const negativChargen: string[] = []
   const chargenImBestand: { c: R; liter: number }[] = []
-  for (const c of betrieb.chargen) {
-    const heuteLiter = c.aktiv && c.status !== 'abgeschlossen' ? (zahlOderNull(c.menge_liter) ?? 0) : 0
-    const buchungen = buchungenJeCharge.get(c.id) ?? []
-    if (heuteLiter < LEER_UNTER && buchungen.length === 0) continue
-    const beginn = fruehesterTag(ersterTagJeCharge.get(c.id), tag(c.created_at) || null)
-    const r = bestandAmStichtag(heuteLiter, buchungen, stichtag, beginn, STELLEN.liter)
+  for (const { p: { c }, r } of je.chargen) {
     const name = textOderNull(c.name) ?? 'ohne Bezeichnung'
     if (Math.abs(r.ungeklaert) >= LEER_UNTER) {
       ungeklaertChargen.push(name)
       ungeklaertLiter = runden(ungeklaertLiter + r.ungeklaert, STELLEN.liter)
     }
-    if (r.bestand <= -LEER_UNTER) { negativChargen.push(`${name} (${fmtNum(r.bestand, 2)} l)`); continue }
+    if (istNegativ(r.bestand)) { negativChargen.push(`${name} (${fmtNum(r.bestand, 2)} l)`); continue }
     if (r.bestand >= LEER_UNTER) chargenImBestand.push({ c, liter: r.bestand })
   }
   if (ungeklaertChargen.length > 0) {
@@ -249,64 +364,17 @@ export async function ladeBestandsmeldung(
   }
 
   // ── A: Flaschen ─────────────────────────────────────────────────────────────────────────────────────
-  const buchungenJeFuellung = new Map<string, MengenBuchung[]>()
-  const plus = (id: string, b: MengenBuchung) => {
-    const liste = buchungenJeFuellung.get(id) ?? []
-    liste.push(b)
-    buchungenJeFuellung.set(id, liste)
-  }
-  const verkaufMitZeile = new Set<string>()
-  const stornoMitZeile = new Set<string>()
-  for (const fb of fbRes.data) {
-    if (!fb.fuellung_id) continue
-    plus(fb.fuellung_id, { datum: tag(fb.datum), menge: Math.trunc(zahlOderNull(fb.menge_stk) ?? 0) })
-    if (fb.verkaufsposten_id && fb.art === 'verkauf') verkaufMitZeile.add(`${fb.verkaufsposten_id}|${fb.fuellung_id}`)
-    if (fb.verkaufsposten_id && fb.art === 'verkauf_storno') stornoMitZeile.add(`${fb.verkaufsposten_id}|${fb.fuellung_id}`)
-  }
-  // Flaschenverkäufe vor KAN-149 D1 (ohne Bewegungszeile): Abgang am Verkaufstag, Storno-Rückbuchung am Storno-Tag;
-  // Alt-Stornos ohne Zeitpunkt entfallen ganz (wie im Bewegungsbuch)
-  for (const p of vpRes.data) {
-    const vp = p.verkaufsposten as R | null
-    const schluessel = `${p.verkaufsposten_id}|${p.fuellung_id}`
-    const stk = Math.round(zahlOderNull(p.menge) ?? 0)
-    if (!vp || stk === 0) continue
-    if (vp.storniert && !vp.storniert_am) continue
-    if (!verkaufMitZeile.has(schluessel)) plus(p.fuellung_id, { datum: tag(vp.datum), menge: -stk })
-    if (vp.storniert && !stornoMitZeile.has(schluessel)) plus(p.fuellung_id, { datum: tag(vp.storniert_am), menge: stk })
-  }
-
   let ohneGroesse = 0
-  let deaktiviertOhneDatum = 0
+  const deaktiviertOhneDatum = g.deaktiviertOhneDatum
   const ungeklaertFuellungen: string[] = []
   const negativFuellungen: string[] = []
   const flaschen: BestandZeile[] = []
-  for (const f of betrieb.fuellungen) {
-    const bestandHeute = Math.trunc(zahlOderNull(f.bestand_flaschen) ?? 0)
+  for (const { p: { f, ml, mlErfasst }, r } of je.fuellungen) {
     const name = textOderNull(f.name) ?? 'ohne Bezeichnung'
-    const buchungen = [...(buchungenJeFuellung.get(f.id) ?? [])]
-    const abfuelltag = tag(f.datum)
-    const abgefuellt = Math.trunc(zahlOderNull(f.anzahl_flaschen) ?? 0)
-    if (abgefuellt > 0) buchungen.push({ datum: abfuelltag, menge: abgefuellt })
-    let heuteStk = bestandHeute
-    if (!f.aktiv) {
-      heuteStk = 0
-      if (f.storniert_am) {
-        // KAN-145 B3: der Storno lässt bestand_flaschen stehen – der Rest geht am Storno-Tag ab
-        if (bestandHeute !== 0) buchungen.push({ datum: tag(f.storniert_am), menge: -bestandHeute })
-      } else if (bestandHeute > 0) {
-        deaktiviertOhneDatum++
-        continue
-      }
-    }
-    if (heuteStk === 0 && buchungen.length === 0) continue
-    const beginn = abfuelltag || tag(f.erstellt_am) || null
-    const r = bestandAmStichtag(heuteStk, buchungen, stichtag, beginn, 0)
     if (r.ungeklaert !== 0) ungeklaertFuellungen.push(name)
     if (r.bestand < 0) { negativFuellungen.push(`${name} (${r.bestand} Fl.)`); continue }
     if (r.bestand === 0) continue
-    const erfasst = zahlOderNull(f.flaschengroesse_ml)
-    if (erfasst === null) ohneGroesse++
-    const ml = erfasst ?? FLASCHE_ML_STANDARD
+    if (!mlErfasst) ohneGroesse++
     const rebsorte = textOderNull(f.rebsorte)
     flaschen.push({
       abschnitt: 'A', bestandAm: stichtag,

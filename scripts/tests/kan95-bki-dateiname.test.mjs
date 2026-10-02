@@ -88,14 +88,14 @@ describe('KAN-95 Dateinamen der Meldungen (wie die CSV-Route)', () => {
 
 describe('KAN-95 Auswahl der BKI-Berichte', () => {
   const BKI = /\bBKI\b|Bundeskellereiinspektion/
-  test('bki genau dort, wo die Behörde die BKI nennt – plus Bestandsmeldung', () => {
+  test('bki genau dort, wo die Behörde die BKI nennt – plus Bestandsmeldung und BSM', () => {
     for (const [id, m] of Object.entries(M)) {
-      const soll = BKI.test(m.behoerde) || id === 'bestandsmeldung'
+      const soll = BKI.test(m.behoerde) || id === 'bestandsmeldung' || id.startsWith('bsm')   // KAN-43: BSM samt Kontrolljournal
       assert.equal(typeof m.bki === 'function', soll, `${id} (${m.behoerde})`)
     }
     const liste = Object.keys(M).filter(id => M[id].bki).sort()
     assert.deepEqual(liste, [
-      'aenderungsprotokoll', 'bestandsmeldung', 'bewegungsbuch', 'bki-traubenverkauf', 'blend-protokoll', 'erntemeldung',
+      'aenderungsprotokoll', 'bestandsmeldung', 'bewegungsbuch', 'bki-traubenverkauf', 'blend-protokoll', 'bsm', 'bsm-kontrolljournal', 'erntemeldung',
       'gebindeverzeichnis', 'keller-auswertungen', 'keller-behandlungen', 'keller-behandlungen-alle', 'lesedaten',
       'rueckverfolgung', 'rueckverfolgung-weingarten', 'transportbescheinigung', 'transportbescheinigungen', 'weinbuch', 'weinbuch-sammlung',
     ])
