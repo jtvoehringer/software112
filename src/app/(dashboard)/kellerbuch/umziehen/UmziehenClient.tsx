@@ -32,7 +32,9 @@ function fmt(n: number | null) {
   return fmtNum(n, 2) + ' L'
 }
 
-// ── Quell-Zeile: Behälter wählen → Charge + Menge auto-befüllt ───────────────
+// ── Quell-Zeile: Charge wählen (Behälter · Charge) → Menge auto-befüllt ──────
+// KAN-94 (01.10.2026): gewählt wird die Charge, nicht der Behälter – liegen mehrere Chargen in
+// einem Gebinde, war bisher immer die erste die Quelle.
 
 function QuelleZeile({
   quellen, value, menge, onChange, onRemove,
@@ -40,10 +42,10 @@ function QuelleZeile({
   quellen:  BehaelterMitCharge[]
   value:    string
   menge:    string
-  onChange: (behId: string, menge: string) => void
+  onChange: (chargeId: string, menge: string) => void
   onRemove: () => void
 }) {
-  const selected  = quellen.find(q => q.behaelter_id === value) ?? null
+  const selected  = quellen.find(q => q.charge_id === value) ?? null
   const mengeNum  = parseFloat(menge) || 0
   const ueberzogen = selected && mengeNum > selected.menge_liter + 0.001
 
@@ -53,15 +55,15 @@ function QuelleZeile({
         <select
           value={value}
           onChange={e => {
-            const beh = quellen.find(q => q.behaelter_id === e.target.value)
-            onChange(e.target.value, beh ? String(beh.menge_liter) : '')
+            const charge = quellen.find(q => q.charge_id === e.target.value)
+            onChange(e.target.value, charge ? String(charge.menge_liter) : '')
           }}
           required
           className="border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 flex-1 basis-full sm:basis-0 sm:min-w-[220px]"
         >
-          <option value="">– Behälter wählen –</option>
+          <option value="">– Behälter · Charge wählen –</option>
           {quellen.map(q => (
-            <option key={q.behaelter_id} value={q.behaelter_id}>
+            <option key={q.charge_id} value={q.charge_id}>
               {q.behaelter_name} · {q.charge_name}{q.jahrgang ? ` ${q.jahrgang}` : ''} · {fmt(q.menge_liter)}
             </option>
           ))}
@@ -174,10 +176,10 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
   const [umzugTyp, setUmzugTyp]   = useState<'normal' | 'filtration'>('normal')
   const router = useRouter()
 
-  type QEntry = { id: string; behId: string; menge: string }
+  type QEntry = { id: string; chargeId: string; menge: string }
   type ZEntry = { id: string; behId: string; menge: string }
 
-  const [quellenState, setQuellen] = useState<QEntry[]>([{ id: crypto.randomUUID(), behId: '', menge: '' }])
+  const [quellenState, setQuellen] = useState<QEntry[]>([{ id: crypto.randomUUID(), chargeId: '', menge: '' }])
   const [ziele, setZiele]         = useState<ZEntry[]>([{ id: crypto.randomUUID(), behId: '', menge: '' }])
 
   const totalVon  = quellenState.reduce((s, q) => s + (parseFloat(q.menge) || 0), 0)
@@ -190,7 +192,7 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
   // Erkennung, hier zeigen wir dann bewusst keine Vorab-Warnung an, um niemanden mit einer
   // falschen "passt schon"-Aussage in die Irre zu führen.
   const quelleRebsorte = quellenState.length === 1
-    ? (quellen.find(q => q.behaelter_id === quellenState[0].behId)?.rebsorte ?? null)
+    ? (quellen.find(q => q.charge_id === quellenState[0].chargeId)?.rebsorte ?? null)
     : null
   const zielBehId = ziele.length === 1 ? ziele[0].behId : null
   const andereRebsorten = zielBehId && quelleRebsorte
@@ -205,7 +207,7 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
   // Weinart-Sperre (21.9.2026): Rot + Weiß dürfen nicht in ein Gebinde – weder Quellen
   // untereinander noch Quelle gegen Inhalt eines Ziel-Gebindes. Der Server prüft dasselbe
   // (inkl. Rebsortenfarbe bei fehlender Weinart) und lehnt den Umzug ab.
-  const quellChargen = quellenState.map(q => quellen.find(x => x.behaelter_id === q.behId)).filter((x): x is BehaelterMitCharge => !!x)
+  const quellChargen = quellenState.map(q => quellen.find(x => x.charge_id === q.chargeId)).filter((x): x is BehaelterMitCharge => !!x)
   const zielChargen = ziele.flatMap(z => quellen.filter(c => c.behaelter_id === z.behId && !quellChargen.some(q => q.charge_id === c.charge_id)))
   let weinartSperre: string | null = null
   for (let i = 1; i < quellChargen.length && !weinartSperre; i++) {
@@ -220,16 +222,12 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
     e.preventDefault()
     setError(null)
     if (weinartSperre) { setError(`Rot- und Weißwein dürfen laut Weingesetz nicht vermischt werden: ${weinartSperre}`); return }
-    if (quellenState.some(q => !q.behId || !q.menge)) { setError('Alle Quell-Zeilen ausfüllen.'); return }
+    if (quellenState.some(q => !q.chargeId || !q.menge)) { setError('Alle Quell-Zeilen ausfüllen.'); return }
     if (ziele.some(z => !z.behId || !z.menge))         { setError('Alle Ziel-Zeilen ausfüllen.'); return }
     if (schwund < 0)                                    { setError('Ziel-Menge größer als Quell-Menge.'); return }
 
-    // Behälter → weinausbau_id auflösen
-    const quellenResolved = quellenState.map(q => {
-      const match = quellen.find(x => x.behaelter_id === q.behId)
-      if (!match) { setError('Keine Charge für gewählten Behälter gefunden.'); throw new Error() }
-      return { weinausbau_id: match.charge_id, menge: parseFloat(q.menge) }
-    })
+    // KAN-94: die gewählte Charge ist direkt die Quelle
+    const quellenResolved = quellenState.map(q => ({ weinausbau_id: q.chargeId, menge: parseFloat(q.menge) }))
 
     const fd = new FormData()
     fd.set('quellen_json', JSON.stringify(quellenResolved))
@@ -239,7 +237,13 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
     fd.set('umzug_typ', umzugTyp)
     startTransition(async () => {
       try {
-        const result = await umziehen(fd)
+        let result = await umziehen(fd)
+        // KAN-83: Zusammenführung mit einer Charge mit Prüfnummer – nur nach Bestätigung buchen
+        if (result?.bestaetigung) {
+          if (!window.confirm(result.bestaetigung)) return
+          fd.set('pn_bestaetigt', '1')
+          result = await umziehen(fd)
+        }
         // Bugreport 5.8.2026: diese allgemeine Umziehen-Seite hat das Ergebnis von
         // umziehen() bisher komplett verworfen - selbst wenn der Server einen
         // Rebsortenmix erkannt und eine Verschneidung ausgelöst hat, landete man
@@ -300,12 +304,12 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-s112-text-1">Von Behälter</h3>
           <button type="button"
-            onClick={() => setQuellen(p => [...p, { id: crypto.randomUUID(), behId: '', menge: '' }])}
+            onClick={() => setQuellen(p => [...p, { id: crypto.randomUUID(), chargeId: '', menge: '' }])}
             className="text-xs text-s112-blue-700 hover:underline">+ Quelle</button>
         </div>
         {quellenState.map(q => (
-          <QuelleZeile key={q.id} quellen={quellen} value={q.behId} menge={q.menge}
-            onChange={(bId, m) => setQuellen(p => p.map(x => x.id === q.id ? { ...x, behId: bId, menge: m } : x))}
+          <QuelleZeile key={q.id} quellen={quellen} value={q.chargeId} menge={q.menge}
+            onChange={(cId, m) => setQuellen(p => p.map(x => x.id === q.id ? { ...x, chargeId: cId, menge: m } : x))}
             onRemove={() => quellenState.length > 1 && setQuellen(p => p.filter(x => x.id !== q.id))} />
         ))}
         <div className="text-xs text-s112-muted text-right tabular-nums">

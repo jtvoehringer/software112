@@ -17,7 +17,7 @@ interface Props {
   verfuegbarLiter: number
   gebinde:         Gebinde[]
   alleChargen:     Charge[]
-  action:          (fd: FormData) => Promise<{ verschneidungNeeded?: { existingChargeId: string; newChargeId: string; menge: number }; abstufung?: { von: string; nach: string; vonLabel: string; nachLabel: string } } | void>
+  action:          (fd: FormData) => Promise<{ verschneidungNeeded?: { existingChargeId: string; newChargeId: string; menge: number }; abstufung?: { von: string; nach: string; vonLabel: string; nachLabel: string }; bestaetigung?: string } | void>
   initialOpen?:    boolean
   quelleRebsorte?: string | null
   quelleWeinart?:  string | null
@@ -103,7 +103,13 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
     fd.set('notizen', notizen)
     start(async () => {
       try {
-        const result = await action(fd)
+        let result = await action(fd)
+        // KAN-83: Zusammenführung mit einer Charge mit Prüfnummer – nur nach Bestätigung buchen
+        if (result?.bestaetigung) {
+          if (!window.confirm(result.bestaetigung)) return
+          fd.set('pn_bestaetigt', '1')
+          result = await action(fd)
+        }
         setBrutto(''); setNetto(''); setZielId(''); setNotizen('')
         if (result?.verschneidungNeeded) {
           // Navigiert auf eine ANDERE Charge (die Ziel-Charge des Verschnitts).

@@ -636,3 +636,104 @@ export function freiePruefnummerPruefen(
     ? `Die Prüfnummer ${nummer(fremd.pruefnummer)} gehört zum DAC-Antrag${bez(fremd)} einer anderen Charge und kann nicht für diese Füllung verwendet werden.`
     : `Die Prüfnummer ${nummer(fremd.pruefnummer)} gehört zum DAC-Antrag${bez(fremd)} einer Kellerbuch-Charge – bitte diese Charge wählen, dann wird die Nummer aus dem Antrag übernommen.`
 }
+
+// ── Übergangswarnung „Prüfnummer gilt nicht mehr“ (KAN-83, 01.10.2026) ───────
+//
+// Verschnitt, Zusammenführung per Umzug und Zukauf in ein Gebinde mit Wein bringen fremden Wein
+// in eine Charge mit Prüfnummer – danach gilt die Nummer für den Tankbestand nicht mehr (§ 25
+// Abs. 6 WeinG; bereits abgefüllte Flaschen behalten sie). Die Actions fragen deshalb vorher nach
+// (zwei Stufen: ohne Bestätigung `{ bestaetigung }`, mit Bestätigung buchen und am Vorgang
+// „PN … für Tankbestand erloschen“ vermerken). Ist ein Antrag der Charge eingereicht bzw. in
+// Prüfung, wird hart abgelehnt (Jörgen, 25.09.2026: ein Verschnitt zwischen Antrag und Bescheid
+// ist bereits ein Verstoß). Ermittelt wird durch Simulation: dieselbe Auswertung wie KAN-72
+// (pruefnummerGueltig/antragVerletzung) vor und nach dem gedachten Zugang. Umzug in ein leeres
+// Gebinde, Abfüllung und Schwund sind Abgänge bzw. keine Zugänge in eine Charge mit Antrag und
+// werden gar nicht geprüft. Bis KAN-100 (atomare Buchung, Kellerbehandlungen).
+
+export type PnVorgang = 'verschnitt' | 'umzug' | 'zukauf'
+
+const VORGANG_ZUGANG: Record<PnVorgang, PnZugangArt> = { verschnitt: 'verschnitt', umzug: 'zugang', zukauf: 'zukauf' }
+const VORGANG_TEXT: Record<PnVorgang, string> = { verschnitt: 'Verschnitt', umzug: 'Umzug in diese Charge', zukauf: 'Zukauf in dieses Gebinde' }
+const OFFEN_EINGEREICHT: Record<string, string> = { eingereicht: 'eingereicht', in_pruefung: 'in Prüfung' }
+
+/** Charge, in die der Vorgang Wein bringt: Daten aus ladePruefnummerDaten, Name, zugebuchte Liter */
+export type PnSchadenZiel = { daten: PnChargeDaten; name?: string | null; zugangLiter?: number | null }
+
+/** Charge, deren Prüfnummer durch den Vorgang für den Tankbestand erlischt */
+export type PnSchaden = { chargeId: string; name: string | null; pruefnummer: string; bestandLiter: number | null }
+
+export type PnSchadenErgebnis = {
+  /** Harte Ablehnung (Antrag eingereicht/in Prüfung) – Text für den Benutzer; null = keine */
+  ablehnung: string | null
+  schaeden: PnSchaden[]
+}
+
+const literKurz = (n: number) => `${n.toLocaleString('de-DE', { maximumFractionDigits: 2 })} L`
+
+/**
+ * Was ein Vorgang mit Buchungsdatum `datum` an Prüfnummern zerstört. Stichtag = der spätere von
+ * Buchungs- und Bestandstag (der Bestand des Laders ist der heutige); der gedachte Zugang erhöht
+ * auch den Bestand (Mengenregel – erfasst einen auf vor die Einreichung rückdatierten Zugang).
+ */
+export function pruefnummernSchaden(vorgang: PnVorgang, ziele: readonly PnSchadenZiel[], datum: string): PnSchadenErgebnis {
+  const schaeden: PnSchaden[] = []
+  const art = VORGANG_ZUGANG[vorgang]
+  for (const z of ziele) {
+    const d = z.daten
+    const tag = pnTag(datum) ?? pnTag(d.bestandAm)
+    if (!tag || d.antraege.length === 0) continue
+    const bestandAm = pnTag(d.bestandAm)
+    const stichtag = bestandAm && bestandAm > tag ? bestandAm : tag
+    const plus = Number.isFinite(z.zugangLiter ?? NaN) ? Number(z.zugangLiter) : 0
+    const nachher: PnChargeDaten = {
+      ...d,
+      zugaenge: [...d.zugaenge, { art, datum: tag }],
+      bestandLiter: d.bestandLiter === null ? null : d.bestandLiter + plus,
+    }
+
+    // Harte Ablehnung: ein eingereichter (bzw. in Prüfung befindlicher) Antrag würde verletzt
+    for (const a of d.antraege) {
+      if (a.weinausbauId !== d.chargeId || !a.aktiv || !OFFEN_EINGEREICHT[a.status]) continue
+      if (antragVerletzung(a, d, stichtag) === null && antragVerletzung(a, nachher, stichtag) !== null) {
+        const nr = nummer(a.pruefnummer)
+        return {
+          ablehnung: `Der DAC-Antrag${nr ? ` (Prüfnummer ${nr})` : ''} der Charge „${z.name ?? 'ohne Namen'}“ ist ${OFFEN_EINGEREICHT[a.status]} – ein ${VORGANG_TEXT[vorgang]} würde den eingereichten Wein verändern (§ 25 Abs. 6 WeinG). Bitte den Antrag zuerst zurückziehen.`,
+          schaeden: [],
+        }
+      }
+    }
+
+    const vorher = pruefnummerGueltig(d, stichtag)
+    if (!vorher.gueltig || !vorher.pruefnummer) continue
+    if (pruefnummerGueltig(nachher, stichtag).gueltig) continue
+    schaeden.push({ chargeId: d.chargeId, name: z.name ?? null, pruefnummer: vorher.pruefnummer, bestandLiter: d.bestandLiter })
+  }
+  return { ablehnung: null, schaeden }
+}
+
+/** Rückfrage: „Die Prüfnummer N 10716/26 gilt für den Tankbestand dieser Charge (548 L) nicht mehr – … Fortfahren?“ */
+export function pruefnummernSchadenFrage(schaeden: readonly PnSchaden[]): string | null {
+  if (schaeden.length === 0) return null
+  const saetze = schaeden.map(s => {
+    const charge = schaeden.length === 1 && !s.name ? 'dieser Charge' : `der Charge „${s.name ?? 'ohne Namen'}“`
+    const menge = s.bestandLiter !== null && Number.isFinite(s.bestandLiter) ? ` (${literKurz(s.bestandLiter)})` : ''
+    return `Die Prüfnummer ${s.pruefnummer} gilt für den Tankbestand ${charge}${menge} nicht mehr – bereits abgefüllte Flaschen behalten sie.`
+  })
+  return `${saetze.join(' ')} Fortfahren?`
+}
+
+/** Vermerk am Vorgang nach der Bestätigung: „PN N 10716/26 für Tankbestand erloschen“ (mitName:
+ *  Charge nennen – beim Zukauf ist sie nicht die Charge des Vorgangs) */
+export function pruefnummernSchadenNotiz(schaeden: readonly PnSchaden[], mitName = false): string | null {
+  if (schaeden.length === 0) return null
+  return schaeden
+    .map(s => schaeden.length === 1 && !mitName ? `PN ${s.pruefnummer} für Tankbestand erloschen` : `PN ${s.pruefnummer} für Tankbestand „${s.name ?? 'ohne Namen'}“ erloschen`)
+    .join('; ')
+}
+
+/** Notiz um den Vermerk ergänzen (eigene Zeile) */
+export function mitPnNotiz(notizen: string | null | undefined, vermerk: string | null): string | null {
+  const alt = (notizen ?? '').trim()
+  if (!vermerk) return alt || null
+  return alt ? `${alt}\n${vermerk}` : vermerk
+}

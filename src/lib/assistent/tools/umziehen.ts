@@ -43,6 +43,12 @@ Rebsorten jetzt eine Verschneidung nötig ist (Ergebnis enthält dann verschneid
 Diese Information MUSST du dem User nach dem Speichern explizit mitteilen. Bei
 verschneidung_noetig biete an, die Verschneidung gleich im Anschluss mit dem Tool
 "verschneiden" zu erledigen.
+
+PRÜFNUMMER (KAN-83): Wird der Wein mit einer Charge zusammengeführt, die eine geltende staatliche
+Prüfnummer hat, bucht das Tool nicht, sondern meldet bestaetigung_noetig mit einer Rückfrage
+(„Die Prüfnummer … gilt für den Tankbestand … nicht mehr … Fortfahren?“). Gib diese Frage
+wörtlich an den User weiter und rufe das Tool nur nach seiner ausdrücklichen Zustimmung erneut
+mit pruefnummer_verlust_bestaetigt=true auf. Ist der DAC-Antrag eingereicht, lehnt der Server ab.
 `.trim()
 
 export const UMZIEHEN_TOOL = {
@@ -59,6 +65,10 @@ export const UMZIEHEN_TOOL = {
       bestaetigt_vom_user: {
         type: 'boolean',
         description: 'true NUR wenn der User die Zusammenfassung in seiner letzten Nachricht ausdrücklich bestätigt hat.',
+      },
+      pruefnummer_verlust_bestaetigt: {
+        type: 'boolean',
+        description: 'KAN-83: true NUR wenn das Tool zuvor bestaetigung_noetig gemeldet, du die Rückfrage zur Prüfnummer wörtlich weitergegeben und der User ihr in seiner letzten Nachricht ausdrücklich zugestimmt hat.',
       },
       datum: { type: 'string', description: 'Datum des Umzugs, Format YYYY-MM-DD' },
       weinausbau_id: { type: 'string', description: 'ID der Quell-Charge aus dem Stammdaten-Kontext' },
@@ -120,8 +130,19 @@ export async function fuehreUmziehenAus(
   fd.set('quellen_json', JSON.stringify([{ weinausbau_id: String(input.weinausbau_id), menge: Number(input.menge) }]))
   fd.set('ziele_json', JSON.stringify([{ behaelter_id: String(input.ziel_behaelter_id), menge: Number(input.menge) }]))
 
+  // KAN-83: zweite Stufe – der User hat die Rückfrage zur Prüfnummer bestätigt
+  if (input.pruefnummer_verlust_bestaetigt === true) fd.set('pn_bestaetigt', '1')
+
   try {
     const result = await umziehen(fd)
+    if ((result as R | undefined)?.bestaetigung) {
+      return {
+        erfolg: false,
+        bestaetigung_noetig: true,
+        hinweis: `Rückfrage an den User (wörtlich weitergeben): „${(result as R).bestaetigung}“ Nur wenn er ausdrücklich ` +
+          'zustimmt, dieses Tool erneut mit pruefnummer_verlust_bestaetigt=true aufrufen. Es wurde NICHTS gespeichert.',
+      }
+    }
     return {
       erfolg: true,
       verschneidung_noetig: (result as R | undefined)?.verschneidungNeeded ?? null,
