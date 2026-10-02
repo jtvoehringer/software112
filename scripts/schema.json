@@ -697,7 +697,10 @@
 "storniert_von",
 "storniert_von_name",
 "storno_grund",
-"weinart"
+"weinart",
+"erzeugnis",
+"zusatzbezeichnung",
+"land_iso"
 ],
 "grundstuecke": [
 "id",
@@ -1705,7 +1708,10 @@
 "storniert_am",
 "storniert_von",
 "storniert_von_name",
-"storno_grund"
+"storno_grund",
+"erzeugnis",
+"zusatzbezeichnung",
+"land_iso"
 ],
 "weinausbau_weingaerten": [
 "id",
@@ -1864,6 +1870,9 @@
 "storniert_von",
 "storniert_von_name",
 "storno_grund",
-"partner_daten"
+"partner_daten",
+"erzeugnis",
+"zusatzbezeichnung",
+"land_iso"
 ]
 }
