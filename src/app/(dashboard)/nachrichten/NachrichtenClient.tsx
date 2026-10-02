@@ -145,7 +145,10 @@ export default function NachrichtenClient() {
       if (typeof d.fehler === 'string') { setFehler(d.fehler); return }
       const probleme: string[] = Array.isArray(d.fehler) ? d.fehler : []
       const teile = [`${new Date().toISOString().slice(0, 16)}`, `${d.nachrichten ?? 0} geprüft`, `${d.angelegt ?? 0} neu`]
-      if ((d.postfaecher ?? 0) === 0) teile.push('kein verbundenes Postfach')
+      // KAN-69 (01.10.2026): übersprungen = Mitgliedschaft inaktiv bzw. Abo gesperrt – Grund statt „kein Postfach“
+      const uebersprungen: string[] = Array.isArray(d.uebersprungen) ? d.uebersprungen : []
+      if (uebersprungen.length) teile.push(`übersprungen – ${uebersprungen[0]}`)
+      else if ((d.postfaecher ?? 0) === 0) teile.push('kein verbundenes Postfach')
       if (probleme.length) teile.push(probleme[0])
       setSpiegelInfo(teile.join(' · '))
     } catch (e) { setFehler(String(e)) }

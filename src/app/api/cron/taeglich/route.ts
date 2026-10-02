@@ -71,8 +71,9 @@ async function handle(req: NextRequest) {
   const bereinigt = await ereignisseBereinigen()
   await ereignisMelden({
     art: 'cron', quelle: TAEGLICH_QUELLE,
-    meldung: `Täglicher Lauf: ${daErr ? 'Daueraufträge FEHLER' : `${da?.erstellt ?? 0} Daueraufträge`}, ${emailSpiegel.angelegt} E-Mails gespiegelt, ${mbText}, ${fehlerAnzahl} Fehler, ${Math.round((Date.now() - start) / 1000)} s`,
-    details: { fehler: fehlerAnzahl, dauerauftraege, emailSpiegel: { ...emailSpiegel, fehler: emailSpiegel.fehler.slice(0, 20) }, morgenbericht: { ...morgenbericht, ergebnis: morgenbericht.ergebnis.filter(e => ergebnisArt(e) !== 'ok' || e.wetterFehler) }, bereinigt },
+    meldung: `Täglicher Lauf: ${daErr ? 'Daueraufträge FEHLER' : `${da?.erstellt ?? 0} Daueraufträge`}, ${emailSpiegel.angelegt} E-Mails gespiegelt${emailSpiegel.uebersprungen.length ? ` (${emailSpiegel.uebersprungen.length} ${emailSpiegel.uebersprungen.length === 1 ? 'Postfach' : 'Postfächer'} bewusst ausgelassen)` : ''}, ${mbText}, ${fehlerAnzahl} Fehler, ${Math.round((Date.now() - start) / 1000)} s`,
+    // KAN-69: ausgelassene Postfächer (inaktive Mitgliedschaft, Abo gesperrt) zählen nicht als Fehler
+    details: { fehler: fehlerAnzahl, dauerauftraege, emailSpiegel: { ...emailSpiegel, fehler: emailSpiegel.fehler.slice(0, 20), uebersprungen: emailSpiegel.uebersprungen.slice(0, 20) }, morgenbericht: { ...morgenbericht, ergebnis: morgenbericht.ergebnis.filter(e => ergebnisArt(e) !== 'ok' || e.wetterFehler) }, bereinigt },
   })
 
   return NextResponse.json({ dauerMs: Date.now() - start, dauerauftraege, emailSpiegel, morgenbericht })
