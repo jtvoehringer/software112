@@ -5,6 +5,7 @@ import { createEroeffnungsbestandVonImport } from '@/app/(dashboard)/kellerbuch/
 import { exportCSV } from '@/lib/utils/csv'
 import { csvDateiname } from '@/lib/csv'
 import { fehlerText } from '@/lib/fehler'
+import { POSITION_MAX, QUELLE_MAX } from '@/lib/crm/liste'
 import { QUALITAET_OPTS } from '@/lib/wein/qualitaet'
 import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
 
@@ -23,7 +24,8 @@ const QUALITAETEN = QUALITAET_OPTS
 // KAN-187: Land wird über den Länderkatalog erkannt (lib/katalog/laender.ts)
 const LAND_HINWEIS = 'ISO-Code (AT, DE …) oder Ländername (Österreich, Germany, UK …); leer = AT. Nicht erkannte Werte bleiben leer und stehen im Bericht.'
 
-const FELDER: Record<ImportTyp, { key: string; label: string; pflicht?: boolean; hinweis?: string }[]> = {
+// erkennen: weitere Spaltenüberschriften (Groß-/Kleinschreibung egal) für die automatische Zuordnung
+const FELDER: Record<ImportTyp, { key: string; label: string; pflicht?: boolean; hinweis?: string; erkennen?: string[] }[]> = {
   kontakte: [
     { key: 'vorname',    label: 'Vorname' },
     { key: 'nachname',   label: 'Nachname', pflicht: true },
@@ -35,6 +37,11 @@ const FELDER: Record<ImportTyp, { key: string; label: string; pflicht?: boolean;
     { key: 'ort',        label: 'Ort' },
     { key: 'land',       label: 'Land', hinweis: LAND_HINWEIS },
     { key: 'segment',    label: 'Segment', hinweis: 'Erlaubte Werte: privat, gastronomie, handel, export – unbekannte Werte werden zu „privat"' },
+    // Hotfix 02.10.2026: Kontaktfelder Position/Quelle (Migration crm_kontakt_position_quelle)
+    { key: 'position',   label: 'Position', hinweis: `Funktion im Betrieb, z. B. Einkauf – höchstens ${POSITION_MAX} Zeichen, Längeres wird gekürzt (Hinweis im Bericht)`,
+      erkennen: ['Funktion', 'Job Title', 'Jobtitle', 'Jobtitel', 'Berufsbezeichnung', 'Stellung'] },
+    { key: 'quelle',     label: 'Quelle', hinweis: `Woher der Kontakt stammt, z. B. Messe – höchstens ${QUELLE_MAX} Zeichen, Längeres wird gekürzt (Hinweis im Bericht)`,
+      erkennen: ['Source', 'Lead Source', 'Leadquelle', 'Lead-Quelle', 'Kontaktquelle'] },
     { key: 'firma',      label: 'Firma', hinweis: 'Firmenname – der Kontakt wird einer bestehenden Firma dieses Betriebs zugeordnet (Namensabgleich, Groß-/Kleinschreibung egal). Firmen daher zuerst importieren; nicht gefundene Firmen landen als Vermerk in den Notizen.' },
     { key: 'notizen',    label: 'Notizen' },
   ],
@@ -220,10 +227,8 @@ export default function ImportClient({
       // Auto-Mapping: CSV-Spalte = Feldname
       const autoMap: Record<string, string> = {}
       FELDER[typ].forEach(f => {
-        const match = p.headers.find(h =>
-          h.toLowerCase() === f.key.toLowerCase() ||
-          h.toLowerCase() === f.label.toLowerCase()
-        )
+        const namen = [f.key, f.label, ...(f.erkennen ?? [])].map(n => n.toLowerCase())
+        const match = p.headers.find(h => namen.includes(h.trim().toLowerCase()))
         if (match) autoMap[f.key] = match
       })
       setMapping(autoMap)

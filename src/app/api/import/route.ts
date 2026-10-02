@@ -6,6 +6,7 @@ import { zerlegeTelefon } from '@/lib/crm/telefon'
 import { pruefeEmailFelder } from '@/lib/crm/email'
 import { dezimal } from '@/lib/format'
 import { normalisiereLand } from '@/lib/katalog/laender'
+import { POSITION_MAX, QUELLE_MAX, bereinigterText } from '@/lib/crm/liste'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
@@ -52,6 +53,18 @@ function importLand(roh: unknown, zeile: number, warnungen: string[]): string | 
   const iso = normalisiereLand(t)
   if (!iso) warnungen.push(`Zeile ${zeile}: Land „${t}“ nicht erkannt – leer gelassen`)
   return iso
+}
+
+// Kontaktfelder Position/Quelle (Hotfix 02.10.2026): gleiche Bereinigung wie das Formular
+// (bereinigterText: trimmen, Leerzeichen zusammenfassen, leer → null). Zu lang → statt die Zeile
+// abzulehnen auf die Höchstlänge kürzen (nach Zeichen, wie char_length im DB-CHECK) + Hinweis im Bericht.
+function importText(roh: unknown, bezeichnung: string, max: number, zeile: number, warnungen: string[]): string | null {
+  const wert = bereinigterText(roh)
+  if (!wert) return null
+  const zeichen = Array.from(wert)
+  if (zeichen.length <= max) return wert
+  warnungen.push(`Zeile ${zeile}: ${bezeichnung} auf ${max} Zeichen gekürzt (waren ${zeichen.length})`)
+  return zeichen.slice(0, max).join('').trimEnd()
 }
 
 function mapVal(row: R, csvKey: string | undefined, transform?: (v: string) => unknown): unknown {
@@ -332,6 +345,8 @@ export async function POST(req: NextRequest) {
             plz:       mapVal(row, mapping.plz) ?? null,
             ort:       mapVal(row, mapping.ort) ?? null,
             land:      landK,
+            position:  importText(mapVal(row, mapping.position), 'Position', POSITION_MAX, i+zeilenBasis, warnungen),
+            quelle:    importText(mapVal(row, mapping.quelle), 'Quelle', QUELLE_MAX, i+zeilenBasis, warnungen),
             segment,
             notizen:   mitHerkunft(notizKontakt),
             ...herkunftFelder,

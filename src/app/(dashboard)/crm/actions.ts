@@ -11,7 +11,7 @@ import { ladeBezuege, istBezugsSperre } from '@/lib/stammdaten/bezuege'
 import { bezugsMeldung, hatBezug } from '@/lib/stammdaten/bezugText'
 import { pruefeEmailFelder, einzelneEmail } from '@/lib/crm/email'
 import { dezimal } from '@/lib/format'
-import { POSITION_MAX, QUELLE_MAX } from '@/lib/crm/liste'
+import { POSITION_MAX, QUELLE_MAX, bereinigterText } from '@/lib/crm/liste'
 import { normalisiereLand } from '@/lib/katalog/laender'
 import { nurGesendeteFelder } from '@/lib/crm/formFelder'   // Bearbeiten: nur gesendete Felder ändern (02.10.2026)
 import { ladeMandantMitglieder } from '@/lib/aufgaben/mitglieder'
@@ -124,8 +124,7 @@ function emailFelder(formData: FormData) {
 // Position und Quelle (02.10.2026): optionaler Freitext – getrimmt, leer → null,
 // zu lang → verständlicher Fehler (die Datenbank begrenzt ebenfalls per CHECK).
 function optionalerText(formData: FormData, feld: string, bezeichnung: string, max: number): string | null {
-  const roh = formData.get(feld)
-  const wert = typeof roh === 'string' ? roh.trim().replace(/\s+/g, ' ') : ''
+  const wert = bereinigterText(formData.get(feld))   // gleiche Bereinigung wie der Datenimport (lib/crm/liste.ts)
   if (!wert) return null
   if (wert.length > max) throw new AktionsFehler(`${bezeichnung} ist zu lang (höchstens ${max} Zeichen, eingegeben ${wert.length}).`)
   return wert
