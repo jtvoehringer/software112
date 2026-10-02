@@ -147,6 +147,10 @@ export default function AmaMeldungKarte({ jahrgangId, jahrgang, amaMeldung, stic
             </div>
           </div>
 
+          <p className="text-xs text-s112-muted mb-3">
+            Stichtag {datumDe(amaMeldung.stichtag)} · Abgabe bis {datumDe(amaMeldung.abgabefrist)}
+          </p>
+
           {(amaMeldung.eingereicht_am || amaMeldung.ama_referenznr) && (
             <dl className="grid grid-cols-3 gap-2 text-xs mb-4">
               <div><dt className="text-s112-muted">Eingereicht am</dt><dd className="text-s112-text-1">{datumDe(amaMeldung.eingereicht_am)}</dd></div>
@@ -195,7 +199,8 @@ export default function AmaMeldungKarte({ jahrgangId, jahrgang, amaMeldung, stic
           {!offen && (
             <p role="note" className="mb-3 text-xs text-s112-muted" data-print="hide">
               Die Meldung ist {AMA_STATUS_LABEL[amaMeldung.status]?.toLowerCase() ?? amaMeldung.status} und bleibt unverändert.
-              Änderungen an den Lesedaten gehen als Korrekturmeldung (neue Version) an die AMA.
+              Lesedaten und Lesen bis zum Stichtag {datumDe(amaMeldung.stichtag)} sind gesperrt; für Änderungen eine
+              Korrekturmeldung (neue Version) anlegen – solange sie offen ist, lassen sich die Lesedaten wieder bearbeiten.
             </p>
           )}
 

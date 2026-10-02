@@ -58,7 +58,11 @@
 "created_at",
 "updated_at",
 "version",
-"vorgaenger_id"
+"vorgaenger_id",
+"meldungsart",
+"stichtag",
+"abgabefrist",
+"eingereicht_von"
 ],
 "ama_meldepositionen": [
 "id",

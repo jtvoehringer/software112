@@ -8,6 +8,7 @@ import type { ErnteParzelle, WeingartenOpt, GSTOpt, AMAMeldung, Hektarhoechstert
 import { HOECHSTERTRAG_RECHTSFOLGE } from '@/lib/behoerden/hoechstertragText'
 import Link from '@/components/ui/Link'
 import AmaMeldungKarte from './AmaMeldungKarte'
+import { AMA_OFFEN } from '@/lib/behoerden/amaMeldung'
 import { fmtHa, fmtZahl, fmtProzent, fmtNum, zahlAus } from '@/lib/format'
 import { Pencil, AlertTriangle, Plus } from 'lucide-react'
 import StornoButton from '@/components/StornoButton'
@@ -784,9 +785,20 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
   const spaltenAnzahl = 8 + (mitAktionen ? 1 : 0)
 
   const heute = new Date().toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  // KAN-37 C: abgegebene Erntemeldung sperrt Lesedaten und Lesen bis zum Stichtag (DB-Trigger s112_lese_meldesperre)
+  const meldesperre = amaMeldung && !AMA_OFFEN.includes(amaMeldung.status)
+    ? new Date(amaMeldung.stichtag).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Vienna' })
+    : null
 
   return (
     <div className="space-y-6">
+
+      {meldesperre && (
+        <p role="note" className="rounded-lg border border-s112-warn/30 bg-s112-warn-bg px-3 py-2 text-sm text-s112-warn-fg" data-print="hide">
+          Die Erntemeldung {jahrgang.jahrgang} ist abgegeben – Lesedaten und Lesen bis zum Stichtag {meldesperre} sind gesperrt.
+          Für Änderungen unten bei der AMA-Erntemeldung „Korrekturmeldung anlegen“. Spätere Lesen (nach dem Stichtag) bleiben frei.
+        </p>
+      )}
 
       {/* Print-Header (nur beim Drucken sichtbar) */}
       <div className="hidden print:block mb-4 pb-4 border-b-2 border-s112-line-str">

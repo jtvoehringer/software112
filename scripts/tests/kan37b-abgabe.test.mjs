@@ -44,3 +44,14 @@ describe('KAN-37 B: Abgabe mit Snapshot', () => {
     assert.match(l, /from\('meldung_abgaben'\)[\s\S]*?\.eq\('tenant_id', tenantId\)/)
   })
 })
+
+describe('KAN-37 C: Meldungsrahmen und Lese-Sperre', () => {
+  test('Lese-Seite zeigt Stichtag/Abgabefrist und den Sperrhinweis nach dem Einreichen', () => {
+    const k = quelle('src/app/(dashboard)/erntemeldung/[id]/AmaMeldungKarte.tsx')
+    assert.match(k, /Stichtag \{datumDe\(amaMeldung\.stichtag\)\} · Abgabe bis \{datumDe\(amaMeldung\.abgabefrist\)\}/)
+    const c = quelle('src/app/(dashboard)/erntemeldung/[id]/ErnteDetailClient.tsx')
+    assert.match(c, /const meldesperre = amaMeldung && !AMA_OFFEN\.includes\(amaMeldung\.status\)/)
+    const l = quelle('src/app/(dashboard)/erntemeldung/[id]/leseKontext.ts')
+    assert.match(l, /ama_referenznr, stichtag, abgabefrist'\)/)
+  })
+})

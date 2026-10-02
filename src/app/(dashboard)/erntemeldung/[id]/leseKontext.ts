@@ -80,7 +80,7 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tf((supabase.from('ama_erntemeldungen') as any)
-      .select('id, version, status, gesamtmenge_kg, gesamtmenge_hl, n8n_status, n8n_fehler, eingereicht_am, bestaetigt_am, ama_referenznr')
+      .select('id, version, status, gesamtmenge_kg, gesamtmenge_hl, n8n_status, n8n_fehler, eingereicht_am, bestaetigt_am, ama_referenznr, stichtag, abgabefrist')
       .eq('jahrgang_id', id).order('version', { ascending: false })),
 
     // Pressungen mit Sub-Tabellen

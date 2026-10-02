@@ -212,6 +212,10 @@ DECLARE
   -- KAN-37 B: Einreichen mit Snapshot (meldung_abgaben)
   v_ama_b2     uuid;
   v_abg        uuid;
+  -- KAN-37 C: Lese-Sperre nach dem Einreichen
+  v_jg_c       uuid;
+  v_ama_c      uuid;
+  v_ep_c       uuid;
   -- sonstige Sperren
   v_jg_abg     uuid;
   v_jg_ama     uuid;
@@ -1052,6 +1056,36 @@ S112TEST
       '42501:%nur vorwärts%', 'abgelehnt'), 'abgelehnt');
   PERFORM pg_temp.s112_als_postgres();
 
-  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 186);   -- KAN-150 F1a: 140 → 170; KAN-37: +6; KAN-37 B: +10
+  -- ── KAN-37 C: Meldungsrahmen und Lese-Sperre bis zum Stichtag ───────────────────────────────────────────
+  v_jg_c := (pg_temp.s112_beispiel('weinjahrgaenge', v_b, v_bta, '{"jahrgang": 1904}'::jsonb) ->> 'id')::uuid;
+  v_ep_c := (pg_temp.s112_beispiel('ernte_parzellen', v_b, v_bta, jsonb_build_object('jahrgang_id', v_jg_c, 'ernte_datum', '1904-09-20', 'menge_kg', 100)) ->> 'id')::uuid;
+  v_ama_c := (pg_temp.s112_beispiel('ama_erntemeldungen', v_b, v_bta, jsonb_build_object('jahrgang_id', v_jg_c, 'status', 'bereit')) ->> 'id')::uuid;
+  v_erg := v_erg || pg_temp.s112_erwarte('kan37c_rahmen',
+    (SELECT concat_ws('|', meldungsart, stichtag, abgabefrist) FROM public.ama_erntemeldungen WHERE id = v_ama_c), 'erntemeldung|1904-11-30|1904-12-15');
+  PERFORM pg_temp.s112_als(v_bta);
+  v_erg := v_erg || pg_temp.s112_erwarte('kan37c_offen_frei',
+    pg_temp.s112_versuch(format('UPDATE public.ernte_parzellen SET menge_kg = 110 WHERE id = %L', v_ep_c)), 'k1');
+  PERFORM public.s112_ama_einreichen(v_b, v_ama_c, current_date, NULL, jsonb_build_object('meldung', 'erntemeldung',
+    'parameter', '{"jahrgang": 1904}'::jsonb, 'zeilen', '[]'::jsonb, 'spalten', '[{"kopf": "S112TEST", "typ": "text"}]'::jsonb,
+    'profil', 'EXCEL_AT', 'dateiname', 'S112TEST.csv', 'csv', 'S112TEST'));
+  v_erg := v_erg || pg_temp.s112_erwarte('kan37c_benutzer_gesperrt',
+    pg_temp.s112_versuch(format('UPDATE public.ernte_parzellen SET menge_kg = 120 WHERE id = %L', v_ep_c)), 'T');
+  v_erg := v_erg || pg_temp.s112_erwarte('kan37c_notiz_frei',
+    pg_temp.s112_versuch(format('UPDATE public.ernte_parzellen SET notizen = %L WHERE id = %L', 'S112TEST Notiz', v_ep_c)), 'k1');
+  PERFORM pg_temp.s112_als_postgres();
+  v_erg := v_erg || pg_temp.s112_erwarte('kan37c_eingereicht_von',
+    (SELECT eingereicht_von FROM public.ama_erntemeldungen WHERE id = v_ama_c), v_bta);
+  v_erg := v_erg || pg_temp.s112_erwarte('kan37c_postgres_gesperrt',
+    pg_temp.t20_muster(pg_temp.s112_fehlertext(format('DELETE FROM public.ernte_parzellen WHERE id = %L', v_ep_c)),
+      '42501:%bis zum Stichtag 30.11.1904 sind gesperrt%', 'gesperrt'), 'gesperrt');
+  v_erg := v_erg || pg_temp.s112_erwarte('kan37c_nach_stichtag_frei',
+    pg_temp.s112_versuch(format('INSERT INTO public.ernte_parzellen (jahrgang_id, ernte_datum, menge_kg) VALUES (%L, %L, 5)', v_jg_c, '1904-12-05')), 'k1');
+  PERFORM pg_temp.s112_als(v_bta);
+  PERFORM public.s112_ama_korrektur_anlegen(v_b, v_ama_c);
+  v_erg := v_erg || pg_temp.s112_erwarte('kan37c_korrektur_frei',
+    pg_temp.s112_versuch(format('UPDATE public.ernte_parzellen SET menge_kg = 130 WHERE id = %L', v_ep_c)), 'k1');
+  PERFORM pg_temp.s112_als_postgres();
+
+  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 194);   -- KAN-150 F1a: 140 → 170; KAN-37: +6; KAN-37 B: +10; KAN-37 C: +8
 END
 $test$;

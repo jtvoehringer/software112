@@ -836,7 +836,8 @@ BEGIN
     END LOOP;
   END IF;
   IF p_tab = 'ama_erntemeldungen' THEN
-    v_w := v_w || '{"status": "entwurf"}'::jsonb;
+    -- KAN-37 C: eingereicht_von ist keine Eigentümerspalte – setzt nur das Einreichen
+    v_w := v_w || '{"status": "entwurf", "eingereicht_von": null}'::jsonb;
   ELSIF p_tab = 'konto_umbuchungen' THEN
     SELECT k.id::text INTO v_a FROM public.konten k WHERE k.tenant_id = p_tenant ORDER BY k.id LIMIT 1;
     IF v_a IS NULL THEN
@@ -1207,6 +1208,8 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('mandant',       '-US', true , 's112_ama_status_setzen(p_tenant_id uuid, p_meldung_id uuid, p_status text, p_datum date, p_referenznr text)'),   -- KAN-148 C2
     ('mandant',       '-US', true , 's112_ama_einreichen(p_tenant_id uuid, p_meldung_id uuid, p_datum date, p_referenznr text, p_abgabe jsonb)'),   -- KAN-37 B
     ('trigger',       '--S', false, 's112_meldung_abgabe_schutz()'),           -- KAN-37 B: Abgaben unveränderlich
+    ('trigger',       '--S', false, 's112_ama_rahmen()'),                      -- KAN-37 C: Stichtag/Abgabefrist aus dem Jahrgang
+    ('trigger',       '--S', false, 's112_lese_meldesperre()'),                -- KAN-37 C: Lese-Sperre nach dem Einreichen
     ('mandant',       '-US', true , 's112_fuellung_verkauf_buchen(p_tenant_id uuid, p_fuellung_id uuid, p_verkaufsposten_id uuid, p_menge_stk integer, p_datum date, p_grund text)'),   -- KAN-149 D1
     ('trigger',       '--S', false, 's112_ea_abschluss_schutz()'),             -- KAN-149 D3: Monatsabschluss, gesperrte UVA, verbuchte Belege
     ('intern',        '--S', false, 's112_ea_gegenbuchung(p_tenant_id uuid, p_id uuid, p_grund text, p_datum date)'),   -- KAN-149 D2 (Hilfsfunktion)
