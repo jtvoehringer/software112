@@ -42,6 +42,8 @@ export type NavItem = {
   pflichtmeldung?: boolean
   /** Synonyme für die Befehlspalette */
   keywords?: string
+  /** /admin/*-Seite, die zusätzlich Betriebs-Manager (tenant_admin) sehen – Hotfix 02.10.2026: Datenimport */
+  betriebsleiter?: boolean
 }
 
 export type NavGroup = {
@@ -186,7 +188,7 @@ const NAV: NavGroup[] = [
       { href: '/admin/kellergemeinschaft', label: 'Kellergemeinschaft', adminOnly: true, keywords: 'administration gebinde freigabe partner keller' },
       { href: '/admin/release-notes',  label: 'Release Notes',     adminOnly: true, keywords: 'administration' },
       { href: '/admin/system',         label: 'Systembericht',     adminOnly: true, keywords: 'administration fehler protokoll log' },
-      { href: '/admin/import',         label: 'Datenimport',       adminOnly: true, keywords: 'administration csv' },
+      { href: '/admin/import',         label: 'Datenimport',       adminOnly: true, betriebsleiter: true, keywords: 'administration csv import' },
       { href: '/admin/benutzer',       label: 'Super-Admin',      adminOnly: true, keywords: 'administration benutzer' },
       { href: '/admin/onboarding',     label: 'Onboarding Guide',  adminOnly: true, keywords: 'administration' },
       { href: '/admin/zeiterfassung',  label: 'Zeiterfassung',     adminOnly: true, sandboxOnly: true },
@@ -230,7 +232,8 @@ function pflichtmeldungenSichtbar(ctx: NavContext): boolean {
  * Regeln (unverändert aus Sidebar.tsx übernommen):
  *  - adminOnly-Items: system_admin ODER tenant_admin
  *  - /admin/*-Items (frühere Gruppe "Administration", systemAdminOnly):
- *    nur system_admin ODER Sandbox-Sonderfreigabe – Betriebsleiter sehen sie nicht
+ *    nur system_admin ODER Sandbox-Sonderfreigabe – Betriebsleiter sehen sie nicht, außer das Item trägt
+ *    betriebsleiter: true (Datenimport, Hotfix 02.10.2026: auch Betriebs-Manager)
  *  - modulKey/requireModul/hideIfModul gegen die Tenant-Modul-Toggles
  *  - sandboxOnly nur im Sandbox-Mandanten
  *  - pflichtmeldung: Betriebsleiter immer, sonst Modul Controlling + Auswertungsrecht
@@ -249,7 +252,7 @@ export function buildNav(ctx: NavContext): NavGroup[] {
 
     const items = g.items.filter(it => {
       if (it.href.startsWith(ADMIN_PREFIX)) {
-        if (!isSysAdmin && !ctx.sandboxAdminUnlock) return false
+        if (!isSysAdmin && !ctx.sandboxAdminUnlock && !(it.betriebsleiter && isAdmin)) return false
       } else if (it.adminOnly && !isAdmin) {
         // z.B. "Mein Betrieb": Betriebsleiter + System-Admin, KEINE Sonderfreigabe
         return false
