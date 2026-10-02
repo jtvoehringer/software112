@@ -205,6 +205,10 @@ DECLARE
   v_ama_entw   uuid;
   v_pos_best   jsonb;
   v_pos_entw   jsonb;
+  -- KAN-37: abgegebene Meldung in B (echter Betrieb) – Sperre auch für postgres/Service-Role
+  v_jg_ama_b   uuid;
+  v_ama_b      uuid;
+  v_pos_b      jsonb;
   -- sonstige Sperren
   v_jg_abg     uuid;
   v_jg_ama     uuid;
@@ -971,6 +975,32 @@ BEGIN
     v_erg := v_erg || pg_temp.s112_erwarte('truncate_zeilen:' || r.tab, v_n2, v_n);
   END LOOP;
 
-  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 170);   -- KAN-150 F1a: 140 → 170
+  -- ── KAN-37: abgegebene Meldung auch für postgres (SQL-Editor/Service-Role) unveränderlich ─────────────────
+  -- eingereichte Meldung samt Position in B (der Musterhof ist für Wartung ausgenommen); erst hier angelegt, weil
+  -- protokoll_kind_tenant oben Beispielpositionen in B anlegt und wieder löscht
+  PERFORM pg_temp.s112_als_postgres();
+  v_jg_ama_b := (pg_temp.s112_zeile('weinjahrgaenge', v_b) ->> 'id')::uuid;
+  v_ama_b := (pg_temp.s112_beispiel('ama_erntemeldungen', v_b, v_bta, jsonb_build_object('jahrgang_id', v_jg_ama_b)) ->> 'id')::uuid;
+  v_pos_b := pg_temp.s112_zeile('ama_meldepositionen', v_b, jsonb_build_object('meldung_id', v_ama_b));
+  UPDATE public.ama_erntemeldungen SET status = 'eingereicht', eingereicht_am = now() WHERE id = v_ama_b;
+  v_erg := v_erg || pg_temp.s112_erwarte('kan37_postgres_inhalt',
+    pg_temp.t20_muster(pg_temp.s112_fehlertext(format('UPDATE public.ama_erntemeldungen SET notizen = %L WHERE id = %L', 'x', v_ama_b)),
+      '42501:%ihr Inhalt bleibt unverändert (KAN-37)%', 'gesperrt'), 'gesperrt');
+  v_erg := v_erg || pg_temp.s112_erwarte('kan37_postgres_loeschen',
+    pg_temp.t20_muster(pg_temp.s112_fehlertext(format('DELETE FROM public.ama_erntemeldungen WHERE id = %L', v_ama_b)),
+      '42501:%nie gelöscht (KAN-37)%', 'gesperrt'), 'gesperrt');
+  v_erg := v_erg || pg_temp.s112_erwarte('kan37_postgres_position',
+    pg_temp.t20_muster(pg_temp.s112_fehlertext(format('DELETE FROM public.ama_meldepositionen WHERE meldung_id = %L', v_ama_b)),
+      '42501:%Positionen bleiben unverändert (KAN-37)%', 'gesperrt'), 'gesperrt');
+  v_erg := v_erg || pg_temp.s112_erwarte('kan37_postgres_zurueck',
+    pg_temp.t20_muster(pg_temp.s112_fehlertext(format('UPDATE public.ama_erntemeldungen SET status = %L WHERE id = %L', 'bereit', v_ama_b)),
+      '42501:%nur vorwärts%', 'gesperrt'), 'gesperrt');
+  v_erg := v_erg || pg_temp.s112_erwarte('kan37_postgres_bestaetigen',
+    pg_temp.s112_versuch(format('UPDATE public.ama_erntemeldungen SET status = %L, bestaetigt_am = now() WHERE id = %L', 'bestaetigt', v_ama_b)), 'k1');
+  v_erg := v_erg || pg_temp.s112_erwarte('kan37_mandant_loeschen',
+    pg_temp.t20_muster(pg_temp.s112_fehlertext(format('SELECT public.s112_mandant_loeschen(%L, (SELECT name FROM public.tenants WHERE id = %L))', v_b, v_b)),
+      '55000:%abgegebene AMA-Erntemeldungen%', 'abgelehnt'), 'abgelehnt');
+
+  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 176);   -- KAN-150 F1a: 140 → 170; KAN-37: +6
 END
 $test$;
