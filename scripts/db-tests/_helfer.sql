@@ -836,7 +836,8 @@ BEGIN
     END LOOP;
   END IF;
   IF p_tab = 'ama_erntemeldungen' THEN
-    v_w := v_w || '{"status": "entwurf"}'::jsonb;
+    -- KAN-37 C: eingereicht_von ist keine Eigentümerspalte – setzt nur das Einreichen
+    v_w := v_w || '{"status": "entwurf", "eingereicht_von": null}'::jsonb;
   ELSIF p_tab = 'konto_umbuchungen' THEN
     SELECT k.id::text INTO v_a FROM public.konten k WHERE k.tenant_id = p_tenant ORDER BY k.id LIMIT 1;
     IF v_a IS NULL THEN
