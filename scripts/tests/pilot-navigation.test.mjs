@@ -66,3 +66,13 @@ test('Lese-Seite zeigt nur noch den Verweis, Pressungen-Seite nutzt dieselbe Lad
   const aktionen = quelle('src/app/(dashboard)/erntemeldung/actions.ts')
   assert.equal((aktionen.match(/revalidatePath\('\/kellerbuch\/pressungen'\)/g) ?? []).length, 3)
 })
+
+test('Hotfix 02.10.2026: Datenimport auch für Betriebs-Manager (Navigation und Seite)', () => {
+  const nav = quelle('src/lib/navigation/index.ts')
+  assert.match(nav, /href: '\/admin\/import',\s+label: 'Datenimport',\s+adminOnly: true, betriebsleiter: true/)
+  assert.match(nav, /if \(!isSysAdmin && !ctx\.sandboxAdminUnlock && !\(it\.betriebsleiter && isAdmin\)\) return false/)
+  // übrige /admin/*-Seiten bleiben Super-Admin vorbehalten
+  assert.equal((nav.match(/, betriebsleiter: true,/g) ?? []).length, 1)
+  const seite = quelle('src/app/(dashboard)/admin/import/page.tsx')
+  assert.match(seite, /membership\?\.role !== 'system_admin' && membership\?\.role !== 'tenant_admin'\) redirect\('\/dashboard'\)/)
+})

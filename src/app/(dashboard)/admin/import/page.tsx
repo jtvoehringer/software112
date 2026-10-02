@@ -3,6 +3,7 @@ import ImportClient from './ImportClient'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { ladeBehaelter } from '@/lib/keller/behaelter'
 import { getCurrentMembership } from '@/lib/auth/roles'
+import { redirect } from 'next/navigation'
 export const metadata: Metadata = { title: 'Datenimport – software:112' }
 export const dynamic = 'force-dynamic'
 
@@ -20,6 +21,9 @@ export default async function ImportPage({
   // des Nutzers, nicht nur dem aktiv gewählten Betrieb.
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId ?? null
+  // Hotfix 02.10.2026 (Jörgen): Datenimport auch für Betriebs-Manager – Super-Admin und Betriebs-Manager des aktiven
+  // Betriebs; alle anderen Rollen sehen die Seite nicht (der Import selbst prüft zusätzlich canWrite, /api/import)
+  if (membership?.role !== 'system_admin' && membership?.role !== 'tenant_admin') redirect('/dashboard')
 
   // Gebinde-Liste fuer die Anfangsbestandsbuchung (Datenimport > Gebinde) - wird nur
   // dort benoetigt, deshalb hier serverseitig geladen und als Prop durchgereicht.
