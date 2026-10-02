@@ -74,5 +74,5 @@ test('Hotfix 02.10.2026: Datenimport auch für Betriebs-Manager (Navigation und 
   // übrige /admin/*-Seiten bleiben Super-Admin vorbehalten
   assert.equal((nav.match(/betriebsleiter: true/g) ?? []).length, 1)
   const seite = quelle('src/app/(dashboard)/admin/import/page.tsx')
-  assert.match(seite, /\['system_admin', 'tenant_admin'\]\.includes\(membership\.role\)\) redirect\('\/dashboard'\)/)
+  assert.match(seite, /membership\?\.role !== 'system_admin' && membership\?\.role !== 'tenant_admin'\) redirect\('\/dashboard'\)/)
 })

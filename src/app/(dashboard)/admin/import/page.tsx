@@ -23,7 +23,7 @@ export default async function ImportPage({
   const tenantId = membership?.tenantId ?? null
   // Hotfix 02.10.2026 (Jörgen): Datenimport auch für Betriebs-Manager – Super-Admin und Betriebs-Manager des aktiven
   // Betriebs; alle anderen Rollen sehen die Seite nicht (der Import selbst prüft zusätzlich canWrite, /api/import)
-  if (!membership || !['system_admin', 'tenant_admin'].includes(membership.role)) redirect('/dashboard')
+  if (membership?.role !== 'system_admin' && membership?.role !== 'tenant_admin') redirect('/dashboard')
 
   // Gebinde-Liste fuer die Anfangsbestandsbuchung (Datenimport > Gebinde) - wird nur
   // dort benoetigt, deshalb hier serverseitig geladen und als Prop durchgereicht.
