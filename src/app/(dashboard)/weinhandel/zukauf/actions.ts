@@ -12,6 +12,8 @@ import { dezimal, fmtNum } from '@/lib/format'
 import { qualitaetFehler } from '@/lib/wein/qualitaet'
 import { pruefePruefnummernSchaden } from '@/lib/kellerbuch/pruefnummerLaden'
 import { mitPnNotiz } from '@/lib/kellerbuch/pruefnummer'
+import { mostgewichtAusFormular, mostgewichtAusGespeichert, mostgewichtSpalten } from '@/lib/wein/mostgewichtFormular'
+import type { Mostgewicht } from '@/lib/wein/mostgewicht'
 import {
   folgebuchungenDerZielcharge, zielchargeText, zukaufVerweise, traubenGebundenText, loeschSperreText,
 } from './sperren'
@@ -56,6 +58,7 @@ async function createZukaufCharge(
   einstandspreisProLiter: number | null,
   weinart: string | null,
   qualitaetsstufe: string | null,
+  mostgewicht: Mostgewicht | null,
 ): Promise<string> {
   const name = rebsorte || 'Zukauf'
   const { data: neu, error } = await (supabase.from('weinausbau') as any)
@@ -72,6 +75,9 @@ async function createZukaufCharge(
       aktiv:       true,
       weinart:     weinart ?? 'unbekannt',
       qualitaetsstufe: qualitaetsstufe ?? null,
+      // KAN-130 Etappe 3 (01.10.2026): Mostgewicht des Zukaufs als Momentaufnahme – Messwert samt
+      // Einheit (°Oe bleibt °Oe), nie nur °KMW. Die Stufe bleibt die Angabe des Zukaufs (Rechenregel 6).
+      ...mostgewichtSpalten(mostgewicht, 'kmw'),
     })
     .select('id')
     .single()
@@ -133,6 +139,11 @@ function parseZukaufFormData(formData: FormData) {
   const qualitaetsstufe = (formData.get('qualitaetsstufe') as string)?.trim() || null
   const qualitaetUnzulaessig = qualitaetFehler('charge', qualitaetsstufe)
   if (qualitaetUnzulaessig) throw new AktionsFehler(qualitaetUnzulaessig)
+  // KAN-130 Etappe 3 (01.10.2026): Mostgewicht aus Messwert und Einheit der Eingabe
+  // (mostgewicht_wert/_einheit; übergangsweise das alte Feld kmw als °KMW), serverseitig gerechnet.
+  // uebermittelt = false (Feld nicht im Formular, z. B. Art Wein): gespeicherte Werte bleiben.
+  const mg = mostgewichtAusFormular(formData, 'mostgewicht', { altesFeld: 'kmw' })
+  if (!mg.ok) throw new AktionsFehler(mg.fehler)
   return {
     datum,
     lieferungUhrzeit:    (formData.get('lieferung_uhrzeit')        as string)?.trim() || null,
@@ -152,7 +163,8 @@ function parseZukaufFormData(formData: FormData) {
     jahrgang,
     herkunft:            (formData.get('herkunft')                 as string)?.trim() || null,
     anreicherung:        formData.get('anreicherung') === 'true',
-    kmw:                 parseFloat(dezimal(formData.get('kmw')            as string)) || null,
+    mostgewicht:         mg.wert,
+    mostgewichtUebermittelt: mg.uebermittelt,
     alkohol:             parseFloat(dezimal(formData.get('alkohol_pct')    as string)) || null,
     pruefnummer:         (formData.get('staatliche_pruefnummer')   as string)?.trim() || null,
     menge:               parseFloat(dezimal(formData.get('menge')          as string)) || 0,
@@ -166,7 +178,11 @@ function parseZukaufFormData(formData: FormData) {
 
 type ZukaufFormular = ReturnType<typeof parseZukaufFormData>
 
-/** Stammdaten, die die Zielcharge vom Zukauf übernimmt (ohne Menge und Gebinde) */
+/** Stammdaten, die die Zielcharge vom Zukauf übernimmt (ohne Menge und Gebinde).
+ *  KAN-130 Etappe 3 (01.10.2026): auch das Mostgewicht samt Einheit – nur, wenn das Formular es
+ *  übermittelt hat (sonst bliebe ein Formular ohne Feld nicht folgenlos). Aufgerufen wird das nur
+ *  ohne Folgebuchungen an der Zielcharge (siehe updateZukauf) – nach Umzug, Verschnitt oder
+ *  Zusammenführung bleibt das Mostgewicht der Charge unangetastet. */
 function chargeStammdaten(f: ZukaufFormular): AR {
   return {
     rebsorte:                 f.rebsorte ?? null,
@@ -174,6 +190,7 @@ function chargeStammdaten(f: ZukaufFormular): AR {
     einstandspreis_pro_liter: f.einstandspreisLiter ?? null,
     weinart:                  f.weinart ?? 'unbekannt',
     qualitaetsstufe:          f.qualitaetsstufe ?? null,
+    ...(f.mostgewichtUebermittelt ? mostgewichtSpalten(f.mostgewicht, 'kmw') : {}),
   }
 }
 
@@ -206,6 +223,7 @@ export async function createZukauf(formData: FormData): Promise<{ bestaetigung?:
   if ((f.art === 'wein' || f.art === 'most') && f.zielBehaelterId) {
     zielWeinausbauId = await createZukaufCharge(
       supabase, tenantId, f.zielBehaelterId, f.rebsorte, f.jahrgang, f.menge, f.einstandspreisLiter, f.weinart, f.qualitaetsstufe,
+      f.mostgewicht,
     )
   }
   // Scheitert der Beleg, die eben angelegte Charge wieder schließen (sonst Bestand ohne Zugang)
@@ -231,7 +249,8 @@ export async function createZukauf(formData: FormData): Promise<{ bestaetigung?:
       jahrgang:                 f.jahrgang,
       herkunft:                 f.herkunft,
       anreicherung:             f.anreicherung,
-      kmw:                      f.kmw,
+      // KAN-130 Etappe 3: °KMW, °Oe und gemessene Einheit (leer = beide NULL)
+      ...mostgewichtSpalten(f.mostgewicht, 'kmw'),
       alkohol_pct:              f.alkohol,
       staatliche_pruefnummer:   f.pruefnummer,
       menge:                    f.menge,
@@ -294,7 +313,7 @@ export async function updateZukauf(id: string, formData: FormData) {
   if (f.menge <= 0) throw new AktionsFehler('Menge muss größer als 0 sein')
 
   const { data: alt, error: altErr } = await (supabase.from('zukauf_posten') as any)
-    .select('ziel_weinausbau_id, menge, einheit, art')
+    .select('ziel_weinausbau_id, menge, einheit, art, kmw, oechsle, mostgewicht_einheit')
     .eq('id', id)
     .eq('tenant_id', tenantId)
     .eq('aktiv', true)
@@ -302,6 +321,11 @@ export async function updateZukauf(id: string, formData: FormData) {
   if (altErr) throw new AktionsFehler(dbFehlerText(altErr, 'Zukauf konnte nicht gelesen werden'))
   if (!alt) throw new AktionsFehler('Zukauf nicht gefunden – er wurde inzwischen gelöscht.')
   const a = alt as AR
+  // KAN-130 Etappe 3: Mostgewicht einer neu angelegten Zielcharge – das übermittelte, sonst das
+  // gespeicherte des Zukaufs (Messwert und Einheit wie gespeichert, nichts neu gerechnet)
+  const mostgewichtCharge: Mostgewicht | null = f.mostgewichtUebermittelt
+    ? f.mostgewicht
+    : mostgewichtAusGespeichert({ kmw: a.kmw, oechsle: a.oechsle, einheit: a.mostgewicht_einheit })
   const altWeinausbauId: string | null = a.ziel_weinausbau_id ?? null
   const alteMenge        = Number(a.menge) || 0
   const mengeGeaendert   = Math.abs(f.menge - alteMenge) > TOLERANZ
@@ -332,7 +356,7 @@ export async function updateZukauf(id: string, formData: FormData) {
     const chargeId = altWeinausbauId
     const folge = await folgebuchungenDerZielcharge(supabase, chargeId)
     const { data: charge, error: chErr } = await (supabase.from('weinausbau') as any)
-      .select('behaelter_id, menge_liter, aktiv, status, rebsorte, jahrgang, einstandspreis_pro_liter, weinart, qualitaetsstufe')
+      .select('behaelter_id, menge_liter, aktiv, status, rebsorte, jahrgang, einstandspreis_pro_liter, weinart, qualitaetsstufe, kmw, oechsle, mostgewicht_einheit')
       .eq('id', chargeId)
       .eq('tenant_id', tenantId)
       .maybeSingle()
@@ -344,6 +368,8 @@ export async function updateZukauf(id: string, formData: FormData) {
     const vorherStammdaten: AR = {
       rebsorte: c.rebsorte, jahrgang: c.jahrgang, einstandspreis_pro_liter: c.einstandspreis_pro_liter,
       weinart: c.weinart, qualitaetsstufe: c.qualitaetsstufe,
+      // KAN-130 Etappe 3: Mostgewicht samt Einheit – beide Werte wie gespeichert zurück
+      kmw: c.kmw, oechsle: c.oechsle, mostgewicht_einheit: c.mostgewicht_einheit,
     }
     const vorherBestand: AR = { menge_liter: c.menge_liter, status: c.status, aktiv: c.aktiv }
 
@@ -403,6 +429,7 @@ export async function updateZukauf(id: string, formData: FormData) {
         try {
           neueId = await createZukaufCharge(
             supabase, tenantId, f.zielBehaelterId, f.rebsorte, f.jahrgang, f.menge, f.einstandspreisLiter, f.weinart, f.qualitaetsstufe,
+            mostgewichtCharge,
           )
         } catch (e) {
           await mitRueckbau(e, alteChargeZurueck)
@@ -419,6 +446,7 @@ export async function updateZukauf(id: string, formData: FormData) {
     // (Tankverkäufe direkt aus dem Zukauf gibt es nicht mehr – es ist nichts abzuziehen)
     const neueId = await createZukaufCharge(
       supabase, tenantId, f.zielBehaelterId, f.rebsorte, f.jahrgang, f.menge, f.einstandspreisLiter, f.weinart, f.qualitaetsstufe,
+      mostgewichtCharge,
     )
     zielWeinausbauId = neueId
     rueckbau = () => bereinigCharge(supabase, neueId, tenantId)
@@ -441,7 +469,8 @@ export async function updateZukauf(id: string, formData: FormData) {
       jahrgang:                 f.jahrgang,
       herkunft:                 f.herkunft,
       anreicherung:             f.anreicherung,
-      kmw:                      f.kmw,
+      // KAN-130 Etappe 3: nur, wenn das Formular ein Mostgewicht mitschickt (leer = beide NULL)
+      ...(f.mostgewichtUebermittelt ? mostgewichtSpalten(f.mostgewicht, 'kmw') : {}),
       alkohol_pct:              f.alkohol,
       staatliche_pruefnummer:   f.pruefnummer,
       menge:                    f.menge,

@@ -9,6 +9,7 @@ import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum } from '@/lib/format'
 import PartnerSuche from '@/components/crm/PartnerSuche'
 import { fehlerText } from '@/lib/fehler'
+import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
 
 interface Behaelter { id: string; name: string; typ: string; volumen_liter: number | null }
 
@@ -56,7 +57,6 @@ export default function ZukaufNeuPage() {
   const [jahrgang,      setJahrgang]      = useState('')
   const [herkunft,      setHerkunft]      = useState('')
   const [anreicherung,  setAnreicherung]  = useState(false)
-  const [kmw,           setKmw]           = useState('')
   const [alkohol,       setAlkohol]       = useState('')
   const [pruefnummer,   setPruefnummer]   = useState('')
 
@@ -126,7 +126,13 @@ export default function ZukaufNeuPage() {
     fd.set('jahrgang',                jahrgang)
     fd.set('herkunft',                herkunft)
     fd.set('anreicherung',            anreicherung ? 'true' : 'false')
-    fd.set('kmw',                     kmw)
+    // KAN-130 Etappe 3 (01.10.2026): Mostgewicht = versteckte Felder der Eingabe (Messwert und
+    // Einheit); fehlen sie (Art Wein, kein Feld), schickt das Formular kein Mostgewicht
+    const formular = new FormData(e.currentTarget as HTMLFormElement)
+    for (const feld of ['mostgewicht_wert', 'mostgewicht_einheit']) {
+      const wert = formular.get(feld)
+      if (wert !== null) fd.set(feld, wert)
+    }
     fd.set('alkohol_pct',             alkohol)
     fd.set('staatliche_pruefnummer',  pruefnummer)
     fd.set('menge',                   menge)
@@ -335,13 +341,11 @@ export default function ZukaufNeuPage() {
                 className={inputCls + ' w-full'} />
             </div>
 
-            {/* KMW – bei Trauben und Traubenmost */}
+            {/* Mostgewicht in °KMW oder °Oe – bei Trauben und Traubenmost (KAN-130 Etappe 3);
+                bevorzugte Einheit des Betriebs zuerst */}
             {(art === 'trauben' || art === 'most') && (
-              <div>
-                <label className={labelCls}>°KMW</label>
-                <input aria-label="°KMW" type="number" value={kmw} onChange={e => setKmw(e.target.value)}
-                  step="0.1" min="0" max="50" placeholder="z.B. 19.5"
-                  className={inputCls + ' w-full'} />
+              <div className="col-span-2">
+                <MostgewichtEingabe name="mostgewicht" />
               </div>
             )}
 
