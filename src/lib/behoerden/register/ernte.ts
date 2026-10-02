@@ -1,10 +1,10 @@
 import 'server-only'
-import { PROFIL_BKI, wienHeute } from '@/lib/csv'
-import { definiereMeldung, parameterFehler, type MeldungenZu } from '../typen'
+import { PROFIL_BKI } from '@/lib/csv'
+import { definiereMeldung, type MeldungenZu } from '../typen'
 import { KATALOG_ERNTE } from '../katalog/ernte'
 import { jahrgangOptional, jahrgangParameter } from '../ernte_hilfen'
 import { jahrgangFinden, ladeErntemeldung, ladeLesedaten, SPALTEN_ERNTEMELDUNG, SPALTEN_LESEDATEN } from '../erntemeldung'
-import { bestandKennzeichnung, ladeBestandsmeldung, SPALTEN_BESTANDSMELDUNG } from '../bestandsmeldung'
+import { bestandKennzeichnung, ladeBestandsmeldung, SPALTEN_BESTANDSMELDUNG, stichtagParameter } from '../bestandsmeldung'
 import { ladeBkiTraubenverkauf, SPALTEN_BKI_TRAUBENVERKAUF } from '../traubenverkauf'
 
 // Register der Behördenmeldungen – Gruppe „Ernte & Lese“ (Weinerntemeldung, Lesedaten, BKI-Datenblatt Traubenverkauf, Weinbestandsmeldung (KAN-43)).
@@ -50,20 +50,18 @@ export const MELDUNGEN_ERNTE = {
     bki: p => ({ bericht: 'Lesedaten', jahr: p.jahrgang }),
   }),
 
-  // Bestand am Abrufdatum – KEIN Stichtagsbestand (KAN-43). Das Abrufdatum wird einmal
-  // bestimmt und gilt für Dateiname, Spalte „Bestand am“ und Warnung gleichermaßen.
+  // KAN-43: Bestand zum Stichtag (?stichtag=JJJJ-MM-TT, Standard 31.07. des laufenden Weinwirtschaftsjahres,
+  // „heute“ = Ist-Bestand, Zukunft → 400). Der Stichtag gilt für Dateiname, Spalte „Bestand am“ und BKI-Jahr.
   bestandsmeldung: definiereMeldung(KATALOG_ERNTE.bestandsmeldung, {
-    parameter: sp => (sp.get('stichtag')
-      ? parameterFehler('Ein Stichtag kann noch nicht gewählt werden – die Datei enthält den Bestand am Abrufdatum (Stichtagsbestand folgt mit KAN-43).')
-      : { bestandAm: wienHeute() }),
+    parameter: sp => stichtagParameter(sp),
     laden: async (ctx, p) => {
-      const daten = await ladeBestandsmeldung(ctx.supabase, ctx.tenantId, { bestandAm: p.bestandAm })
+      const daten = await ladeBestandsmeldung(ctx.supabase, ctx.tenantId, { stichtag: p.stichtag })
       return { zeilen: daten.zeilen, warnungen: daten.warnungen }
     },
     spalten: SPALTEN_BESTANDSMELDUNG,
-    dateiteile: (p, betrieb) => ['Weinbestand', betrieb.betriebsnummer, bestandKennzeichnung(p.bestandAm)],
-    // KAN-95: Jahr = Stichtag; bis KAN-43 ist das das Abrufdatum (Bestand am Abrufdatum)
-    bki: p => ({ bericht: ['Weinbestand', bestandKennzeichnung(p.bestandAm)], jahr: Number(p.bestandAm.slice(0, 4)) }),
+    dateiteile: (p, betrieb) => ['Weinbestand', betrieb.betriebsnummer, bestandKennzeichnung(p.stichtag)],
+    // KAN-95: Jahr = Jahr des Stichtags
+    bki: p => ({ bericht: ['Weinbestand', bestandKennzeichnung(p.stichtag)], jahr: Number(p.stichtag.slice(0, 4)) }),
   }),
 
   // Maschinen-Upload in die Weindatenbank: PROFIL_BKI (Vorspann, kein Formelschutz)

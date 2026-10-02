@@ -8,7 +8,8 @@ import PrintButton from '../../PrintButton'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { csvPfad } from '@/lib/behoerden/katalog'
 import { HEKTARHOECHSTERTRAG_KG_HA, HOECHSTERTRAG_RECHTSFOLGE, ladeErntemeldung, type ErnteZeile } from '@/lib/behoerden/erntemeldung'
-import { HL_STELLEN_BESTAND, ladeBestandsmeldung, type BestandZeile } from '@/lib/behoerden/bestandsmeldung'
+import { HL_STELLEN_BESTAND, ladeBestandsmeldung, standardStichtag, stichtagParameter, type BestandZeile } from '@/lib/behoerden/bestandsmeldung'
+import { istParameterFehler } from '@/lib/behoerden/typen'
 import { datumAT } from '@/lib/behoerden/ernte_hilfen'
 import { qualitaetLabel } from '@/lib/wein/qualitaet'
 import { fmtNum } from '@/lib/format'
@@ -23,6 +24,8 @@ type R = Record<string, any>
 // Weinerntemeldung und Weinbestandsmeldung (Pflichtmeldungen, reports/(pflicht)/layout.tsx).
 // Druck und CSV (/meldungen/erntemeldung/csv, /meldungen/bestandsmeldung/csv) kommen aus
 // denselben Ladefunktionen in lib/behoerden – die Summen addieren die gerundeten Zeilenwerte.
+// Weinbestand zum Stichtag (KAN-43): ?stichtag= wie die CSV (stichtagParameter), Standard 31.07. des laufenden
+// Weinwirtschaftsjahres; ein ungültiger Stichtag zeigt einen Hinweis und den Standard-Stichtag.
 
 /** Rebsorte mit amtlichem Kürzel – ohne Ersatzkürzel (Behördenausdruck) */
 function sorteMitKuerzel(rebsorte: string | null, kuerzel: string | null): string {
@@ -35,8 +38,8 @@ const zahl = (n: number | null, stellen: number) => (n === null ? '–' : fmtNum
 /** Farbe und Qualitätsstufe einer Bestandsposition (wie die CSV-Spalten „Farbe“, „Qualitätsstufe“) */
 const farbeQualitaet = (z: BestandZeile) => [z.farbe, z.qualitaet].filter(Boolean).join(' · ') || '–'
 
-export default async function AMAPage({ searchParams }: { searchParams: Promise<{ jahrgang?: string }> }) {
-  const { jahrgang: jahrgangParam } = await searchParams
+export default async function AMAPage({ searchParams }: { searchParams: Promise<{ jahrgang?: string; stichtag?: string }> }) {
+  const { jahrgang: jahrgangParam, stichtag: stichtagParam } = await searchParams
   const supabase = await createSupabaseServerClient()
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId ?? null
@@ -60,13 +63,19 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
   const aktJahrgang = jahrgaenge.find(j => String(j.jahrgang) === jahrgangParam) ?? jahrgaenge[0]
   // Brotkrume wie die Navigation: Rieden › Lese › AMA-Erntemeldung (Review 25.09.2026)
 
+  const heuteIso = wienHeute()
+  const stichtagPruefung = stichtagParameter(new URLSearchParams({ stichtag: stichtagParam ?? '' }), heuteIso)
+  const stichtag = istParameterFehler(stichtagPruefung) ? standardStichtag(heuteIso) : stichtagPruefung.stichtag
+  const stichtagFehler = istParameterFehler(stichtagPruefung) ? stichtagPruefung.fehler : null
+
   const [ernte, bestand] = await Promise.all([
     aktJahrgang ? ladeErntemeldung(supabase, tenantId, { id: aktJahrgang.id, jahrgang: Number(aktJahrgang.jahrgang) }) : Promise.resolve(null),
-    ladeBestandsmeldung(supabase, tenantId),
+    ladeBestandsmeldung(supabase, tenantId, { stichtag, heute: heuteIso }),
   ])
   const zeilen: ErnteZeile[] = ernte?.zeilen ?? []
   const hht = ernte?.hektarhoechstertrag ?? null
-  const heute = datumAT(bestand.bestandAm)
+  const heute = datumAT(heuteIso)
+  const stichtagText = datumAT(stichtag)
 
   return (
     <div className="max-w-5xl space-y-4">
@@ -80,22 +89,35 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
           <span className="font-medium text-s112-text">AMA-Erntemeldung</span>
         </nav>
         <div className="flex items-start gap-2 flex-wrap">
-          <form method="GET" action="/reports/ama">
+          <form method="GET" action="/reports/ama" className="flex items-center gap-1 flex-wrap">
             <select name="jahrgang" aria-label="Jahrgang"
               defaultValue={aktJahrgang?.jahrgang ?? ''}
               className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none">
               {jahrgaenge.map(j => <option key={j.id} value={j.jahrgang}>{j.jahrgang}</option>)}
             </select>
-            <button type="submit" aria-label="Jahrgang anzeigen" className="border border-s112-border rounded-lg px-3 py-1.5 text-sm hover:bg-s112-bg ml-1">
+            {/* KAN-43: Stichtag der Weinbestandsmeldung (Ende des Tages), höchstens heute */}
+            <label className="flex items-center gap-1 text-xs text-s112-text-2 ml-1">
+              Bestand am
+              <input type="date" name="stichtag" aria-label="Stichtag der Weinbestandsmeldung"
+                defaultValue={stichtag} max={heuteIso}
+                className="border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none" />
+            </label>
+            <button type="submit" aria-label="Jahrgang und Stichtag anzeigen" className="border border-s112-border rounded-lg px-3 py-1.5 text-sm hover:bg-s112-bg">
               ↻
             </button>
           </form>
           <PrintButton />
           {/* Ohne angelegten Jahrgang: Leermeldung (nur Kopfzeile) für das laufende Jahr */}
           <CsvExportKnopf label="Erntemeldung als CSV" href={csvPfad('erntemeldung', { jahrgang: aktJahrgang?.jahrgang ?? wienHeute().slice(0, 4) })} />
-          <CsvExportKnopf label="Weinbestand als CSV" href={csvPfad('bestandsmeldung')} />
+          <CsvExportKnopf label="Weinbestand als CSV" href={csvPfad('bestandsmeldung', { stichtag })} />
         </div>
       </div>
+
+      {stichtagFehler && (
+        <div role="alert" className="print:hidden rounded-xl border border-s112-border bg-s112-bg px-4 py-3 text-xs text-s112-err-fg">
+          {stichtagFehler} Angezeigt wird der Standard-Stichtag {stichtagText}.
+        </div>
+      )}
 
       {ernte && ernte.warnungen.length > 0 && (
         <div className="print:hidden rounded-xl border border-s112-border bg-s112-bg px-4 py-3 text-xs text-s112-text-2">
@@ -200,9 +222,17 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
         <div className="mt-10 pt-6 border-t-2 border-s112-line-str">
           <h2 className="text-base font-semibold text-s112-text mb-1">Weinbestandsmeldung</h2>
           <p className="text-xs text-s112-text-2 mb-1">§ 29 Weingesetz 2009 · Stichtag: <strong>31. Juli</strong> · Meldefrist: <strong>15. August</strong> · Weindatenbank: online.wein.bmluk.gv.at</p>
-          <p className="text-xs text-s112-warn-fg mb-3">
-            Angezeigt wird der Bestand am <strong>{heute}</strong> (Abrufdatum) – kein Stichtagsbestand zum 31. Juli.
+          <p className="text-xs text-s112-text-2 mb-3">
+            Bestand am <strong>{stichtagText}</strong> (Ende des Tages){stichtag === heuteIso ? ' – heutiger Bestand' : ''}.
           </p>
+          {bestand.warnungen.length > 0 && (
+            <div className="print:hidden rounded-xl border border-s112-border bg-s112-bg px-4 py-3 text-xs text-s112-text-2 mb-3">
+              <p className="font-semibold text-s112-text mb-1">Hinweise zur Weinbestandsmeldung</p>
+              <ul className="list-disc pl-4 space-y-0.5">
+                {bestand.warnungen.map((w, i) => <li key={i}>{w}</li>)}
+              </ul>
+            </div>
+          )}
 
           {/* Abschnitt A: Flaschen */}
           <p className="text-xs font-semibold text-s112-text-2 uppercase tracking-wider mb-1">A – Flaschenwein</p>

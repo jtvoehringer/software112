@@ -16,7 +16,6 @@ register('./ernte.aufloesung.mjs', import.meta.url)
 const csv = await import('../../src/lib/csv/index.ts')
 const kuerzel = await import('../../src/lib/wein/bki_kuerzel.ts')
 const ernte = await import('../../src/lib/behoerden/erntemeldung.ts')
-const bestand = await import('../../src/lib/behoerden/bestandsmeldung.ts')
 const tv = await import('../../src/lib/behoerden/traubenverkauf.ts')
 const { KATALOG_ERNTE } = await import('../../src/lib/behoerden/katalog/ernte.ts')
 const { MELDUNGEN_ERNTE } = await import('../../src/lib/behoerden/register/ernte.ts')
@@ -429,54 +428,8 @@ describe('erntemeldung', () => {
 })
 
 // ── Weinbestandsmeldung ─────────────────────────────────────────────────────
-
-describe('bestandsmeldung', () => {
-  const TABELLEN = {
-    fuellungen: [
-      { id: 'f1', tenant_id: T, aktiv: true, name: 'Grüner Veltliner Federspiel', jahrgang: 2025, rebsorte: 'Grüner Veltliner', qualitaet: 'qualitaetswein', flaschengroesse_ml: 750, bestand_flaschen: 120 },
-      { id: 'f2', tenant_id: T, aktiv: true, name: 'Rosé', jahrgang: 2025, rebsorte: 'Zweigelt', flaschengroesse_ml: null, bestand_flaschen: 13, weinausbau: { weinart: 'rose' } },
-      { id: 'f3', tenant_id: T, aktiv: true, name: 'Leer', jahrgang: 2024, rebsorte: 'Zweigelt', flaschengroesse_ml: 750, bestand_flaschen: 0 },
-      { id: 'f9', tenant_id: FREMD, aktiv: true, name: 'Fremd', jahrgang: 2025, rebsorte: 'Zweigelt', flaschengroesse_ml: 750, bestand_flaschen: 99 },
-    ],
-    weinausbau: [
-      { id: 'w1', tenant_id: T, aktiv: true, status: 'gaerung', name: 'ZW 26/1', jahrgang: 2026, rebsorte: 'Zweigelt', qualitaetsstufe: 'kabinett', menge_liter: 1234.567, behaelter_id: 'b1', behaelter: { name: 'T1' } },
-      { id: 'w2', tenant_id: T, aktiv: true, status: 'abgeschlossen', name: 'Alt', jahrgang: 2024, rebsorte: 'Zweigelt', menge_liter: 50, behaelter_id: 'b1', behaelter: { name: 'T1' } },
-      { id: 'w3', tenant_id: T, aktiv: true, status: 'lagerung', name: 'RR 25', jahrgang: 2025, rebsorte: 'Riesling', menge_liter: 500, behaelter_id: 'b9', behaelter: null },
-    ],
-  }
-  const RPC = {
-    lade_behaelter: () => [
-      { id: 'b1', tenant_id: T, name: 'T1', fremd: false, eigentuemer_name: 'Weingut Muster' },
-      { id: 'b9', tenant_id: FREMD, name: 'a1', fremd: true, eigentuemer_name: 'Weingut Partner' },
-    ],
-  }
-
-  test('genau der Ausdruck: A Flaschen + B Gebinde, Bestand am Abrufdatum, Summen aus gerundeten Zeilen', async () => {
-    const db = supabaseDoppel(TABELLEN, RPC)
-    const d = await bestand.ladeBestandsmeldung(db, T, { bestandAm: '2026-09-24' })
-    mandantengefiltert(db)
-    const text = csv.csvText(d.zeilen, bestand.SPALTEN_BESTANDSMELDUNG)
-    assert.equal(text, BOM + [
-      'Bestand am;Abschnitt;Bezeichnung;Jahrgang;Rebsorte;BKI-Kürzel;Farbe;Qualitätsstufe;Behälter;Flaschengröße (ml);Flaschen;Menge (l);Menge (hl)',
-      '24.09.2026;A – Flaschenwein;Grüner Veltliner Federspiel;2025;Grüner Veltliner;GV;Weiß;Qualitätswein;;750;120;90,00;0,900',
-      // Farbe: Weinart der Charge vor der Rebsorte (Rosé aus Zweigelt)
-      '24.09.2026;A – Flaschenwein;Rosé;2025;Zweigelt;ZW;Rosé;;;750;13;9,75;0,098',
-      '24.09.2026;B – Wein in Gebinden (Tank / Fass);ZW 26/1;2026;Zweigelt;ZW;Rot;Kabinett;T1;;;1234,57;12,346',
-      '24.09.2026;B – Wein in Gebinden (Tank / Fass);RR 25;2025;Riesling;RR;Weiß;;a1 · Weingut Partner;;;500,00;5,000',
-    ].join('\r\n') + '\r\n')
-    assert.deepEqual(d.summe, { flaschen: 133, flaschenHl: 0.998, gebindeHl: 17.346, gesamtHl: 18.344 })
-    assert.match(d.warnungen[0], /Bestand am 24\.09\.2026 \(Abrufdatum\) – KEIN Stichtagsbestand zum 31\. Juli/)
-    assert.ok(d.warnungen.some(w => /1 Füllung ohne Flaschengröße – 750 ml angenommen/.test(w)))
-  })
-
-  test('Leermeldung: nur Kopfzeile, Hinweis auf das Abrufdatum bleibt', async () => {
-    const d = await bestand.ladeBestandsmeldung(supabaseDoppel({}), T, { bestandAm: '2026-09-24' })
-    const datei = csv.csvDatei(d.zeilen, bestand.SPALTEN_BESTANDSMELDUNG)
-    assert.equal(datei.zeilen, 0)
-    assert.equal(datei.text.split('\r\n').length, 2)
-    assert.equal(d.warnungen.length, 1)
-  })
-})
+// Seit KAN-43 (02.10.2026) Bestand zum Stichtag – Ladefunktion, Parameter und Dateinamen prüft
+// scripts/tests/kan43-stichtag.test.mjs (Supabase-Attrappe mit Bewegungen).
 
 // ── BKI-Datenblatt Traubenverkauf ───────────────────────────────────────────
 
@@ -663,19 +616,20 @@ describe('Register „Ernte & Lese“', () => {
     assert.deepEqual(MELDUNGEN_ERNTE['bki-traubenverkauf'].parameter(sp('')), { jahrgang: null })
     assert.deepEqual(MELDUNGEN_ERNTE['bki-traubenverkauf'].parameter(sp('jahrgang=2025')), { jahrgang: 2025 })
     assert.ok(istParameterFehler(MELDUNGEN_ERNTE['bki-traubenverkauf'].parameter(sp('jahrgang=abc'))))
-    assert.ok(istParameterFehler(MELDUNGEN_ERNTE.bestandsmeldung.parameter(sp('stichtag=2026-07-31'))))
-    assert.match(MELDUNGEN_ERNTE.bestandsmeldung.parameter(sp('')).bestandAm, /^\d{4}-\d{2}-\d{2}$/)
+    // KAN-43: Stichtag statt Abrufdatum (Details in kan43-stichtag.test.mjs)
+    assert.deepEqual(MELDUNGEN_ERNTE.bestandsmeldung.parameter(sp('stichtag=2026-07-31')), { stichtag: '2026-07-31' })
+    assert.match(MELDUNGEN_ERNTE.bestandsmeldung.parameter(sp('')).stichtag, /^\d{4}-07-31$/)
   })
 
-  test('Dateinamen: Betriebsnummer, Jahrgang bzw. „kein Stichtagsbestand“', () => {
+  test('Dateinamen: Betriebsnummer, Jahrgang bzw. Stichtag', () => {
     const b = { name: 'Weingut Muster', betriebsnummer: '9988776' }
     const n = m => csv.csvDateiname(m.dateiteile(m.parameter(new URLSearchParams('jahrgang=2026')), b), '2026-09-24')
     assert.equal(n(MELDUNGEN_ERNTE.erntemeldung).ascii, 'Erntemeldung_9988776_2026_2026-09-24.csv')
     assert.equal(n(MELDUNGEN_ERNTE.lesedaten).ascii, 'Lesedaten_9988776_2026_2026-09-24.csv')
     assert.equal(n(MELDUNGEN_ERNTE['bki-traubenverkauf']).ascii, 'BKI_Traubenverkauf_9988776_2026_2026-09-24.csv')
     const bsm = MELDUNGEN_ERNTE.bestandsmeldung
-    assert.equal(csv.csvDateiname(bsm.dateiteile({ bestandAm: '2026-09-24' }, b), '2026-09-24').ascii,
-      'Weinbestand_9988776_Bestand-am-2026-09-24-kein-Stichtagsbestand_2026-09-24.csv')
+    assert.equal(csv.csvDateiname(bsm.dateiteile({ stichtag: '2026-07-31' }, b), '2026-09-24').ascii,
+      'Weinbestand_9988776_Stichtag-2026-07-31_2026-09-24.csv')
     const alle = MELDUNGEN_ERNTE['bki-traubenverkauf']
     assert.equal(csv.csvDateiname(alle.dateiteile({ jahrgang: null }, b), '2026-09-24').utf8, 'BKI_Traubenverkauf_9988776_alle-Jahrgänge_2026-09-24.csv')
   })
