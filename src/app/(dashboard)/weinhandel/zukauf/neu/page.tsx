@@ -12,7 +12,6 @@ import { fehlerText } from '@/lib/fehler'
 import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
 import HerkunftCodeSelect from '@/components/weinbaugebiete/HerkunftCodeSelect'
 import { herkunftOptionen } from '@/lib/herkunft'
-import { pruefnummerPflicht } from '@/lib/zukauf/ware'
 import ZusatzErzeugnisFelder from '@/components/wein/ZusatzErzeugnisFelder'
 import LandSelect, { type Land } from '@/components/wein/LandSelect'
 import { ladeCustomWeinbaugebiete, type CustomWeinbaugebiet } from '@/app/(dashboard)/weinbaugebiete/actions'
@@ -407,12 +406,12 @@ export default function ZukaufNeuPage() {
               </div>
             )}
 
-            {/* Staatl. Prüfnummer – bei Wein; Pflicht ab Qualitätswein (KAN-80 Nachtrag, Regel a) */}
+            {/* Staatl. Prüfnummer – bei Wein, optional (Entscheidung Jörgen 02.10.2026, ersetzt KAN-80 Regel a) */}
             {art === 'wein' && (
               <div>
-                <label className={labelCls}>Staatl. Prüfnummer{pruefnummerPflicht(art, qualitaet) ? ' *' : ''}</label>
+                <label className={labelCls}>Staatl. Prüfnummer (optional)</label>
                 <input aria-label="Staatl. Prüfnummer" type="text" value={pruefnummer} onChange={e => setPruefnummer(e.target.value)}
-                  placeholder="z.B. 1234/26" required={pruefnummerPflicht(art, qualitaet)}
+                  placeholder="z.B. 1234/26"
                   className={inputCls + ' w-full'} />
               </div>
             )}

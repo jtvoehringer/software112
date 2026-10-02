@@ -331,11 +331,12 @@ describe('createVerschneidung() / createZukauf() – Prüfnummer (KAN-83)', nurM
   })
   test('KAN-80 Nachtrag: unvollständige Ware bzw. Freitext-Herkunft → Ablehnung, nichts gebucht', async () => {
     const d = db(tabellen())
-    for (const ohne of [{ herkunft: '' }, { herkunft: 'Kamptal' }, { qualitaetsstufe: '' }, { qualitaetsstufe: 'qualitaetswein' }]) {
+    // Qualitätswein ohne Prüfnummer ist seit 02.10.2026 zulässig (Entscheidung Jörgen: keine Prüfnummernpflicht beim Zukauf)
+    for (const ohne of [{ herkunft: '' }, { herkunft: 'Kamptal' }, { qualitaetsstufe: '' }]) {
       const fd = new FormData()
       for (const [k, v] of Object.entries({ datum: '2026-10-01', art: 'wein', menge: '100', einheit: 'l', ziel_behaelter_id: G3, rebsorte: 'Riesling', weinart: 'weiss', ...WARE, ...ohne })) fd.set(k, v)
       const e = await fehlerVon(zk.createZukauf(fd))
-      assert.match(e.message, /Herkunfts-Code|Qualitätsstufe|Prüfnummer/, JSON.stringify(ohne))
+      assert.match(e.message, /Herkunfts-Code|Qualitätsstufe/, JSON.stringify(ohne))
     }
     assert.equal(d.tabellen.zukauf_posten.length, 0)
     assert.equal(d.tabellen.weinausbau.length, 3)

@@ -14,7 +14,7 @@ import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
 import type { GespeichertesMostgewicht } from '@/lib/wein/mostgewichtFormular'
 import HerkunftCodeSelect from '@/components/weinbaugebiete/HerkunftCodeSelect'
 import { herkunftOptionen } from '@/lib/herkunft'
-import { herkunftAnzeige, pruefnummerPflicht } from '@/lib/zukauf/ware'
+import { herkunftAnzeige } from '@/lib/zukauf/ware'
 import type { CustomWeinbaugebiet } from '@/app/(dashboard)/weinbaugebiete/actions'
 
 interface Behaelter { id: string; name: string; typ: string; volumen_liter: number | null }
@@ -423,9 +423,9 @@ export default function ZukaufEditForm({
             )}
             {art === 'wein' && (
               <div>
-                <label className={labelCls}>Staatl. Prüfnummer{pruefnummerPflicht(art, qualitaet) ? ' *' : ''}</label>
+                <label className={labelCls}>Staatl. Prüfnummer (optional)</label>
                 <input aria-label="Staatl. Prüfnummer" type="text" value={pruefnummer} onChange={e => setPruefnummer(e.target.value)}
-                  placeholder="z.B. 1234/26" required={pruefnummerPflicht(art, qualitaet)} className={inputCls + ' w-full'} />
+                  placeholder="z.B. 1234/26" className={inputCls + ' w-full'} />
               </div>
             )}
           </div>

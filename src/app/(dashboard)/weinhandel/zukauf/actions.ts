@@ -231,7 +231,7 @@ function chargeStammdaten(f: ZukaufFormular): AR {
 
 /** KAN-80 Nachtrag (02.10.2026, Entscheidungen Jörgen): alle Felder im Bereich Ware sind Pflicht, die Herkunft ist
  *  ein Herkunfts-Code (BKI) aus dem Katalog oder ein eigenes Weinbaugebiet des Betriebs (dieselbe Auswahl wie am GST),
- *  die Prüfnummer ist bei Wein ab Qualitätswein Pflicht. Vor dem ersten Schreibzugriff aufrufen. */
+ *  die Prüfnummer bleibt optional (Entscheidung Jörgen 02.10.2026). Vor dem ersten Schreibzugriff aufrufen. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function pruefeWare(supabase: any, tenantId: string, f: ZukaufFormular): Promise<void> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -249,7 +249,6 @@ async function pruefeWare(supabase: any, tenantId: string, f: ZukaufFormular): P
     herkunft:        f.herkunft,
     mostgewicht:     f.mostgewicht != null,
     alkohol:         f.alkohol,
-    pruefnummer:     f.pruefnummer,
   }, ((eigene ?? []) as AR[]).map(e => String(e.name ?? '')))
   if (fehler) throw new AktionsFehler(fehler)
 }
