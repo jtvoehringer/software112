@@ -217,6 +217,8 @@ export type KontaktRow = {
   plz: string | null
   ort: string | null
   land: string | null
+  /** BKI-Betriebsnummer des Abnehmers (Migration 110) */
+  betrieb_nr?: string | null
   newsletter: boolean
   newsletter_bestaetigt: boolean
   stammkunde: boolean

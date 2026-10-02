@@ -177,6 +177,10 @@ export function KontaktForm({
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Firma</label>
             <select aria-label="Firma" name="firma_id" defaultValue={v('firma_id')} className={inputCls()}>
               <option value="">– keine –</option>
+              {/* zugeordnete, aber deaktivierte Firma bleibt wählbar – sonst würde Speichern sie entfernen */}
+              {initial?.firma_id && !firmen.some(f => f.id === initial.firma_id) && (
+                <option value={initial.firma_id}>{initial.firma_name ?? 'zugeordnete Firma'} (inaktiv)</option>
+              )}
               {firmen.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
             </select>
           </div>
@@ -249,7 +253,7 @@ export function KontaktForm({
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">BKI-Betriebsnummer</label>
-          <input aria-label="BKI-Betriebsnummer" name="betrieb_nr" defaultValue={v('betrieb_nr' as keyof typeof initial)} placeholder="z.B. 4285221" className={inputCls()} />
+          <input aria-label="BKI-Betriebsnummer" name="betrieb_nr" defaultValue={v('betrieb_nr')} placeholder="z.B. 4285221" className={inputCls()} />
           <p className="text-[11px] text-s112-tertiary mt-0.5">Betriebsnummer des Abnehmers für BKI-Transportliste</p>
         </div>
         <div className="flex items-center gap-2 pt-5">
@@ -262,6 +266,9 @@ export function KontaktForm({
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Rabattgruppe</label>
           <select aria-label="Rabattgruppe" name="rabattgruppe_id" defaultValue={initial?.rabattgruppe_id ?? ''} className={inputCls()}>
             <option value="">– kein Rabatt –</option>
+            {initial?.rabattgruppe_id && !rabattgruppen.some(r => r.id === initial.rabattgruppe_id) && (
+              <option value={initial.rabattgruppe_id}>{initial.rabattgruppe_name ?? 'zugeordnete Rabattgruppe'}{initial.rabattgruppe_pct != null ? ` (${initial.rabattgruppe_pct}%)` : ''}</option>
+            )}
             {rabattgruppen.map(r => (
               <option key={r.id} value={r.id}>{r.name} ({r.rabatt_pct}%)</option>
             ))}

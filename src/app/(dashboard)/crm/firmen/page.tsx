@@ -43,6 +43,7 @@ export default async function FirmenPage({ searchParams }: { searchParams: Promi
     uid_nummer: f.uid_nummer ?? null, betrieb_nr: f.betrieb_nr ?? null, debitor_nr: f.debitor_nr ?? null, kreditlimit: f.kreditlimit ?? null,
     mobil: f.mobil ?? null, mobil_vorwahl: (f.mobil_vorwahl as string | null) ?? '+43',
     zahlungsziel_tage: f.zahlungsziel_tage ?? 30, waehrung: f.waehrung ?? null,
+    skonto_pct: f.skonto_pct ?? 0, skonto_tage: f.skonto_tage ?? 10,   // fehlten bis 02.10.2026 – Speichern aus der Liste setzte Skonto zurück
     notizen: f.notizen ?? null, aktiv: f.aktiv ?? true,
     rabattgruppe_id: f.rabattgruppe_id ?? null,
     rabattgruppe_name: (f.rabattgruppe as R | null)?.name ?? null,

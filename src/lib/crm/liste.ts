@@ -18,6 +18,54 @@ export const POSITION_MAX = 120
 export const QUELLE_MAX = 80
 export const QUELLE_OHNE = '__ohne__'
 
+// Kontaktspalten für Liste UND Detailseite (02.10.2026): enthält jedes Feld, das
+// das Bearbeiten-Formular (KontaktForm) vorbelegt und updateKontakt schreibt –
+// fehlte eines (bis 02.10.2026: email_weitere, skonto_pct, skonto_tage,
+// betrieb_nr), setzte Speichern es auf leer bzw. den Standardwert zurück.
+// Geprüft in scripts/tests/crm-bearbeiten-datenverlust.test.mjs.
+export const KONTAKT_SPALTEN = 'id, accountnummer, vorname, nachname, segment, firma_id, email, email_weitere, telefon, telefon_vorwahl, mobil, mobil_vorwahl, strasse, plz, ort, land, betrieb_nr, newsletter, newsletter_bestaetigt, stammkunde, aktiv, notizen, erstellt_am, is_lead, sonderrabatt_pct, skonto_pct, skonto_tage, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct), zahlungsziel_tage, position, quelle'
+
+/** Zeile aus KONTAKT_SPALTEN (+ firmen:firma_id(name…)) → KontaktRow-Felder */
+export function kontaktAusZeile(k: R) {
+  const zahl = (x: unknown, standard: number) => { const n = parseFloat(String(x)); return Number.isFinite(n) ? n : standard }
+  return {
+    id:                    k.id as string,
+    accountnummer:         (k.accountnummer as string | null) ?? null,
+    vorname:               (k.vorname as string | null) ?? null,
+    nachname:              k.nachname as string,
+    segment:               k.segment,
+    firma_id:              (k.firma_id as string | null) ?? null,
+    firma_name:            ((k.firmen as R | null)?.name as string | undefined) ?? null,
+    email:                 (k.email as string | null) ?? null,
+    email_weitere:         (k.email_weitere as string[] | null) ?? [],
+    telefon:               (k.telefon as string | null) ?? null,
+    telefon_vorwahl:       (k.telefon_vorwahl as string | null) ?? '+43',
+    mobil:                 (k.mobil as string | null) ?? null,
+    mobil_vorwahl:         (k.mobil_vorwahl as string | null) ?? '+43',
+    strasse:               (k.strasse as string | null) ?? null,
+    plz:                   (k.plz as string | null) ?? null,
+    ort:                   (k.ort as string | null) ?? null,
+    land:                  (k.land as string | null) ?? null,
+    betrieb_nr:            (k.betrieb_nr as string | null) ?? null,
+    newsletter:            (k.newsletter as boolean | null) ?? false,
+    newsletter_bestaetigt: (k.newsletter_bestaetigt as boolean | null) ?? false,
+    stammkunde:            (k.stammkunde as boolean | null) ?? false,
+    notizen:               (k.notizen as string | null) ?? null,
+    rabattgruppe_id:       (k.rabattgruppe_id as string | null) ?? null,
+    rabattgruppe_name:     ((k.rabattgruppe as R | null)?.name as string | undefined) ?? null,
+    rabattgruppe_pct:      ((k.rabattgruppe as R | null)?.rabatt_pct as number | undefined) ?? null,
+    sonderrabatt_pct:      zahl(k.sonderrabatt_pct, 0),
+    skonto_pct:            zahl(k.skonto_pct, 0),
+    skonto_tage:           k.skonto_tage == null ? 10 : zahl(k.skonto_tage, 10),
+    zahlungsziel_tage:     (k.zahlungsziel_tage as number | null) ?? 14,
+    is_lead:               !!k.is_lead,
+    position:              (k.position as string | null) ?? null,
+    quelle:                (k.quelle as string | null) ?? null,
+    aktiv:                 (k.aktiv as boolean | null) ?? true,
+    erstellt_am:           k.erstellt_am as string,
+  }
+}
+
 export type ListenFilter = {
   q: string
   segment: string          // 'alle' | Segment-Wert
@@ -102,7 +150,7 @@ export async function ladeZaehler(client: any, tenantId: string | null, art: 'ko
 export async function ladeKontakteSeite(client: any, tenantId: string | null, f: ListenFilter): Promise<{ rows: R[]; gesamt: number }> {
   if (!tenantId) return { rows: [], gesamt: 0 }
   let q = (client.from('kontakte') as any)
-    .select('id, accountnummer, vorname, nachname, segment, firma_id, firmen:firma_id(name), email, telefon, telefon_vorwahl, mobil, mobil_vorwahl, strasse, plz, ort, land, newsletter, newsletter_bestaetigt, stammkunde, aktiv, notizen, erstellt_am, is_lead, sonderrabatt_pct, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct), zahlungsziel_tage, position, quelle', { count: 'exact' })
+    .select(`${KONTAKT_SPALTEN}, firmen:firma_id(name)`, { count: 'exact' })
     .eq('tenant_id', tenantId)
   if (!f.inaktiv) q = q.eq('aktiv', true)
   if (f.segment !== 'alle') q = q.eq('segment', f.segment)
@@ -148,7 +196,7 @@ export function zaehleQuellen(rows: readonly R[]): QuellenZaehler {
 export async function ladeFirmenSeite(client: any, tenantId: string | null, f: ListenFilter): Promise<{ rows: R[]; gesamt: number }> {
   if (!tenantId) return { rows: [], gesamt: 0 }
   let q = (client.from('firmen') as any)
-    .select('id, accountnummer, name, segment, strasse, plz, ort, land, telefon, telefon_vorwahl, mobil, mobil_vorwahl, email, website, uid_nummer, betrieb_nr, debitor_nr, kreditlimit, zahlungsziel_tage, skonto_pct, skonto_tage, waehrung, notizen, aktiv, is_lead, ist_kunde, ist_lieferant, sonderrabatt_pct, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct)', { count: 'exact' })
+    .select('id, accountnummer, name, segment, strasse, plz, ort, land, telefon, telefon_vorwahl, mobil, mobil_vorwahl, email, email_weitere, website, uid_nummer, betrieb_nr, debitor_nr, kreditlimit, zahlungsziel_tage, skonto_pct, skonto_tage, waehrung, notizen, aktiv, is_lead, ist_kunde, ist_lieferant, sonderrabatt_pct, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct)', { count: 'exact' })
     .eq('tenant_id', tenantId)
   if (!f.inaktiv) q = q.eq('aktiv', true)
   if (f.segment !== 'alle') q = q.eq('segment', f.segment)

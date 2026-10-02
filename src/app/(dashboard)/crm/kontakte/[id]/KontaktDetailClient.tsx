@@ -386,11 +386,14 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
 }
 
 export default function KontaktDetailClient({
-  kontakt, quellen = [], firmaSegment, aktivitaeten, pipeline, verkaeufe = [], writeOk,
+  kontakt, quellen = [], firmen = [], rabattgruppen = [], firmaSegment, aktivitaeten, pipeline, verkaeufe = [], writeOk,
 }: {
   kontakt: KontaktRow
   /** im Betrieb verwendete Quellen (Auswahl im Bearbeiten-Formular) */
   quellen?: string[]
+  /** Auswahllisten im Bearbeiten-Formular – fehlen sie, gingen Firma und Rabattgruppe beim Speichern verloren */
+  firmen?: { id: string; name: string; segment: string }[]
+  rabattgruppen?: { id: string; name: string; rabatt_pct: number }[]
   firmaSegment: string | null
   aktivitaeten: AktivitaetRow[]
   pipeline: PipelineEintragRow[]
@@ -543,6 +546,8 @@ export default function KontaktDetailClient({
         <KontaktForm
           initial={kontakt}
           quellen={quellen}
+          firmen={firmen}
+          rabattgruppen={rabattgruppen}
           onDone={() => { setEditing(false); router.refresh() }}
         />
       ) : (

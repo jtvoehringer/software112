@@ -12,6 +12,7 @@ import { bezugsMeldung, hatBezug } from '@/lib/stammdaten/bezugText'
 import { pruefeEmailFelder, einzelneEmail } from '@/lib/crm/email'
 import { dezimal } from '@/lib/format'
 import { POSITION_MAX, QUELLE_MAX } from '@/lib/crm/liste'
+import { nurGesendeteFelder } from '@/lib/crm/formFelder'   // Bearbeiten: nur gesendete Felder ändern (02.10.2026)
 import { ladeMandantMitglieder } from '@/lib/aufgaben/mitglieder'
 import { benachrichtigeAktivitaet } from '@/lib/benachrichtigungen/server'
 import { ladeMailAusPostfach } from '@/lib/email/mailLaden'
@@ -186,7 +187,7 @@ export async function updateKontakt(id: string, formData: FormData): Promise<{ e
     const tenantId = await getTenantId()
     const em = emailFelder(formData)
     if (em.fehler) return { error: em.fehler }
-    const payload: AR = {
+    const payload: AR = nurGesendeteFelder(formData, {
       ...kontaktPositionQuelle(formData),
       vorname:    (formData.get('vorname') as string) || null,
       nachname:   formData.get('nachname') as string,
@@ -202,16 +203,17 @@ export async function updateKontakt(id: string, formData: FormData): Promise<{ e
       plz:        (formData.get('plz')     as string) || null,
       ort:        (formData.get('ort')     as string) || null,
       land:       (formData.get('land') as string) || 'AT',
+      betrieb_nr: (formData.get('betrieb_nr') as string) || null,   // fehlte bis 02.10.2026 (Änderung ging verloren)
       stammkunde: formData.get('stammkunde') === 'true',
       notizen:         (formData.get('notizen')         as string) || null,
-      ...(formData.get('rabattgruppe_id') !== undefined ? { rabattgruppe_id: (formData.get('rabattgruppe_id') as string) || null } : {}),
+      rabattgruppe_id: (formData.get('rabattgruppe_id') as string) || null,
       sonderrabatt_pct: parseFloat(dezimal(formData.get('sonderrabatt_pct') as string)) || 0,
       skonto_pct:       parseFloat(dezimal(formData.get('skonto_pct') as string)) || 0,
       skonto_tage:      parseInt(dezimal(formData.get('skonto_tage') as string)) || 10,
-      zahlungsziel_tage: parseZahlungszielTage(formData),
+      ...(formData.has('zahlungsziel_tage') ? { zahlungsziel_tage: parseZahlungszielTage(formData) } : {}),
       is_lead: formData.get('is_lead') === 'true',
-      aktualisiert_am: new Date().toISOString(),
-    }
+    })
+    payload.aktualisiert_am = new Date().toISOString()
     const { error } = await (supabase.from('kontakte') as any).update(payload).eq('id', id).eq('tenant_id', tenantId)
     if (error) return { error: (error as AR).message }
     absenderIndexVerwerfen(tenantId)
@@ -384,7 +386,7 @@ export async function updateFirma(id: string, formData: FormData): Promise<{ err
     const tenantId = await getTenantId()
     const em = emailFelder(formData)
     if (em.fehler) return { error: em.fehler }
-    const payload: AR = {
+    const payload: AR = nurGesendeteFelder(formData, {
       name:               formData.get('name') as string,
       segment:            formData.get('segment') as string,
       strasse:            (formData.get('strasse') as string) || null,
@@ -401,18 +403,18 @@ export async function updateFirma(id: string, formData: FormData): Promise<{ err
       uid_nummer:         (formData.get('uid_nummer') as string) || null,
       betrieb_nr:         (formData.get('betrieb_nr') as string) || null,
       debitor_nr:         (formData.get('debitor_nr') as string) || null,
-      zahlungsziel_tage:  parseZahlungszielTage(formData),
+      ...(formData.has('zahlungsziel_tage') ? { zahlungsziel_tage: parseZahlungszielTage(formData) } : {}),
       waehrung:           (formData.get('waehrung') as string) || 'EUR',
       notizen:            (formData.get('notizen')         as string) || null,
-      ...(formData.get('rabattgruppe_id') !== undefined ? { rabattgruppe_id: (formData.get('rabattgruppe_id') as string) || null } : {}),
+      rabattgruppe_id:    (formData.get('rabattgruppe_id') as string) || null,
       sonderrabatt_pct: parseFloat(dezimal(formData.get('sonderrabatt_pct') as string)) || 0,
       skonto_pct:       parseFloat(dezimal(formData.get('skonto_pct') as string)) || 0,
       skonto_tage:      parseInt(dezimal(formData.get('skonto_tage') as string)) || 10,
       is_lead: formData.get('is_lead') === 'true',
       ist_kunde:     formData.get('ist_kunde')     !== 'false',
       ist_lieferant: formData.get('ist_lieferant') === 'true',
-      aktualisiert_am:    new Date().toISOString(),
-    }
+    })
+    payload.aktualisiert_am = new Date().toISOString()
     const { error } = await (supabase.from('firmen') as any).update(payload).eq('id', id).eq('tenant_id', tenantId)
     if (error) return { error: (error as AR).message }
     absenderIndexVerwerfen(tenantId)

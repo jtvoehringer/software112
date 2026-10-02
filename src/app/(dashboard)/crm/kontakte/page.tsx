@@ -1,6 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { alle } from '@/lib/supabase/alle'
-import { filterAusParams, ladeKontakteSeite, ladeZaehler, zaehleQuellen } from '@/lib/crm/liste'
+import { filterAusParams, ladeKontakteSeite, ladeZaehler, zaehleQuellen, kontaktAusZeile } from '@/lib/crm/liste'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
@@ -59,39 +59,7 @@ export default async function KontaktePage({ searchParams }: { searchParams: Pro
       .order('aktualisiert_am', { ascending: false })),
   ])
 
-  const kontakte: KontaktRow[] = ((kRaw ?? []) as R[]).map(k => ({
-    id:                    k.id,
-    accountnummer:          k.accountnummer ?? null,
-    vorname:               k.vorname ?? null,
-    nachname:              k.nachname,
-    segment:               k.segment,
-    firma_id:              k.firma_id ?? null,
-    firma_name:            (k.firmen as R | null)?.name ?? null,
-    email:                 k.email ?? null,
-    email_weitere:         (k.email_weitere as string[] | null) ?? [],
-    telefon:               k.telefon ?? null,
-    mobil:                 k.mobil ?? null,
-    ort:                   k.ort ?? null,
-    land:                  k.land ?? null,
-    newsletter:            k.newsletter ?? false,
-    newsletter_bestaetigt: k.newsletter_bestaetigt ?? false,
-    stammkunde:            k.stammkunde ?? false,
-    notizen:               k.notizen ?? null,
-    rabattgruppe_id:       k.rabattgruppe_id ?? null,
-    rabattgruppe_name:     (k.rabattgruppe as R | null)?.name ?? null,
-    rabattgruppe_pct:      (k.rabattgruppe as R | null)?.rabatt_pct ?? null,
-    sonderrabatt_pct:      parseFloat(k.sonderrabatt_pct) || 0,
-    zahlungsziel_tage:     k.zahlungsziel_tage ?? 14,
-    position:              (k.position as string | null) ?? null,
-    quelle:                (k.quelle   as string | null) ?? null,
-    is_lead:               !!(k.is_lead as boolean),
-    telefon_vorwahl:       (k.telefon_vorwahl as string | null) ?? '+43',
-    mobil_vorwahl:         (k.mobil_vorwahl   as string | null) ?? '+43',
-    strasse:               (k.strasse          as string | null) ?? null,
-    plz:                   (k.plz              as string | null) ?? null,
-    aktiv:                 k.aktiv ?? true,
-    erstellt_am:           k.erstellt_am,
-  }))
+  const kontakte: KontaktRow[] = ((kRaw ?? []) as R[]).map(kontaktAusZeile)
 
   const firmen = ((fRaw ?? []) as R[]).map(f => ({
     id: f.id, name: f.name, segment: f.segment,
