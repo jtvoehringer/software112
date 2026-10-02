@@ -1,15 +1,12 @@
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
-import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole, getCurrentMembership, isSandboxAdminUnlock } from '@/lib/auth/roles'
+import { SANDBOX_TENANT_ID } from '@/lib/abo/regeln'
 import ReleaseNotesAdminClient from './ReleaseNotesAdminClient'
 
 export const metadata: Metadata = { title: 'Release Notes – software:112' }
 export const dynamic = 'force-dynamic'
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type R = Record<string, any>
 
 // Diese Seite war bisher komplett ungeschützt (reine 'use client'-Komponente
 // ohne serverseitige Rollenprüfung) - jeder eingeloggte Nutzer jeder Rolle
@@ -23,11 +20,9 @@ export default async function ReleaseNotesPage() {
   if (role !== 'system_admin') {
     const authClient = await createSupabaseServerClient()
     const { data: { user } } = await authClient.auth.getUser()
-    const admin = createSupabaseAdminClient()
-    const { data: sandboxTenantRow } = await (admin.from('tenants') as any).select('id').eq('name', 'Sandbox').maybeSingle()
-    const sandboxTenantId = (sandboxTenantRow as R | null)?.id ?? null
+    // KAN-10 (01.10.2026): Sandbox über die feste ID statt über den Namen
     const membership = await getCurrentMembership()
-    const isSandboxActive = !!sandboxTenantId && membership?.tenantId === sandboxTenantId
+    const isSandboxActive = membership?.tenantId === SANDBOX_TENANT_ID
     if (!isSandboxAdminUnlock(user?.email, isSandboxActive)) redirect('/dashboard')
   }
 

@@ -10,6 +10,7 @@ import { alle } from '@/lib/supabase/alle'
 import { ereignisseLaden } from '@/lib/system/ereignis'
 import { weinbauBetriebsnummerFehlt } from '@/lib/betrieb/betriebsnummer'
 import { betriebeOhneMorgenberichtAmVortag } from './vortag'
+import { SANDBOX_TENANT_ID } from '@/lib/abo/regeln'
 import { BEHANDLUNG_RIEDEN_SELECT, riedText } from '@/lib/behandlungen/rieden'
 
 export type { Befund }
@@ -38,7 +39,7 @@ export async function pruefeBetrieb(ctx: Ctx, einst: Einstellungen, paket: { ist
     // Dubletten serverseitig (Migration 213): alle aktiven Kontakte, gleiche E-Mail (Standard + weitere) oder gleicher Name, ohne "keine Dublette"-Markierungen
     ctx.supabase.rpc('crm_dubletten', { p_tenant_id: ctx.tenantId }),
     // tenant-isolation-ignore: tenants hat keine tenant_id-Spalte, Filter über die eigene id
-    ctx.q('tenants').select('stripe_status, stripe_trial_ends_at, stripe_plan, slug').eq('id', ctx.tenantId).maybeSingle(),
+    ctx.q('tenants').select('stripe_status, stripe_trial_ends_at, stripe_plan').eq('id', ctx.tenantId).maybeSingle(),
     // KAN-121 (01.10.2026): Ried auch über die Grundstücke der Maßnahme (App-Maßnahmen haben kein weingarten_id)
     ctx.tf(ctx.q('behandlungen').select(`id, datum, ernte_fruehesteins, ${BEHANDLUNG_RIEDEN_SELECT}`).gte('ernte_fruehesteins', new Date(heute.getTime() - 60 * 86400000).toISOString().slice(0, 10)).limit(500)),
     ctx.tf(ctx.q('pressungen').select('id, datum, weinbezeichnung').gte('datum', `${heute.getFullYear()}-01-01`).limit(500)),
@@ -141,7 +142,8 @@ export async function pruefeBetrieb(ctx: Ctx, einst: Einstellungen, paket: { ist
 
   // 10. Systembericht (nur Sandbox = Betrieb der Super-Admins): Server-/Browser-Fehler
   //     aller Betriebe der letzten 24 h aus system_ereignisse (Migration 222)
-  if (t.slug === 'sandbox') {
+  //     KAN-10 (01.10.2026): Sandbox über die feste ID statt über den Slug
+  if (ctx.tenantId === SANDBOX_TENANT_ID) {
     try {
       const ereignisse = (await ereignisseLaden(new Date(heute.getTime() - 86400000))).filter(e => e.art !== 'cron')
       if (ereignisse.length) {

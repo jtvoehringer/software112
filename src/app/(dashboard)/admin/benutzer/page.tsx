@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { getCurrentUserRole, getCurrentMembership, isSandboxAdminUnlock } from '@/lib/auth/roles'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { SANDBOX_TENANT_ID } from '@/lib/abo/regeln'
 import SystemAdminClient from './SystemAdminClient'
 
 export const metadata: Metadata = { title: 'Super-Admin – software:112' }
@@ -25,8 +26,8 @@ export default async function SystemAdminPage() {
 
   // Sandbox-Tenant-ID ermitteln - für die Sonderfreigabe UND deren Härtung
   // (siehe isSandboxAdminUnlock in lib/auth/roles.ts).
-  const { data: sandboxTenantRow } = await (admin.from('tenants') as any).select('id').eq('name', 'Sandbox').maybeSingle()
-  const sandboxTenantId = (sandboxTenantRow as R | null)?.id ?? null
+  // KAN-10 (01.10.2026): feste ID statt Suche nach dem Namen „Sandbox“
+  const sandboxTenantId: string = SANDBOX_TENANT_ID
 
   let sandboxUnlock = false
   if (role !== 'system_admin') {

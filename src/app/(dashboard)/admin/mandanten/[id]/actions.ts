@@ -12,7 +12,7 @@ import { SANDBOX_TENANT_ID } from '@/lib/abo/regeln'
 import { revalidatePath } from 'next/cache'
 import { getStripe } from '@/lib/stripe/client'
 import { pruefeBenutzerlimit, benutzerlimitFehler, wendePaketAn, ladePaket } from '@/lib/pakete-server'
-import { istPaketKey, PAKETE } from '@/lib/pakete'
+import { istPaketKey, paketPriceId, PAKETE } from '@/lib/pakete'
 import { tenantKopfInvalidieren } from '@/lib/tenant/kopf'
 import { stripeKundennummerSync } from '@/lib/stripe/kundennummer'
 import { AktionsFehler } from '@/lib/fehler'
@@ -76,36 +76,44 @@ export async function saveTenantSettings(tenantId: string, formData: FormData) {
   const dsRoh = formData.has('newsletter_datenschutz_url') ? String(formData.get('newsletter_datenschutz_url') ?? '').trim() : null
   if (dsRoh && !/^https:\/\//.test(dsRoh)) throw new AktionsFehler('Datenschutz-Link muss mit https:// beginnen.')
 
+  // KAN-24 (01.10.2026): jedes Feld nur schreiben, wenn der aufrufende Tab es mitschickt – der Tab „Module“
+  // schickt z. B. kein session_timeout_minuten und hat das Sitzungs-Timeout bisher bei jedem Speichern auf
+  // leer gesetzt. Fehlende Felder bleiben unverändert (bzw. beim Anlegen der Zeile auf dem DB-Standardwert).
+  const feld = <T,>(key: string, wert: () => T): Record<string, T> => (formData.has(key) ? { [key]: wert() } : {})
+  const text = (key: string) => feld(key, () => (formData.get(key) as string) || null)
+  const schalter = (key: string) => feld(key, () => formData.get(key) === 'true')
+  const zahl = (key: string) => feld(key, () => num(key))
+
   const payload = {
     tenant_id:          tenantId,
-    anzeigename:        (formData.get('anzeigename') as string) || null,
-    logo_url:           (formData.get('logo_url') as string) || null,
-    primary_color:      (formData.get('primary_color') as string) || '#4F86D6',
-    secondary_color:    (formData.get('secondary_color') as string) || '#FFFFFF',
-    modul_newsletter:   formData.get('modul_newsletter') === 'true',
-    modul_crm:          formData.get('modul_crm') === 'true',
-    modul_kellerbuch:   formData.get('modul_kellerbuch') === 'true',
-    modul_weingarten:   formData.get('modul_weingarten') === 'true',
-    modul_ea:           formData.get('modul_ea')           === 'true',
-    modul_sumup:        formData.get('modul_sumup')        === 'true',
-    modul_export:       formData.get('modul_export')       === 'true',
-    modul_controlling:  formData.get('modul_controlling')  === 'true',
+    ...text('anzeigename'),
+    ...text('logo_url'),
+    ...feld('primary_color', () => (formData.get('primary_color') as string) || '#4F86D6'),
+    ...feld('secondary_color', () => (formData.get('secondary_color') as string) || '#FFFFFF'),
+    ...schalter('modul_newsletter'),
+    ...schalter('modul_crm'),
+    ...schalter('modul_kellerbuch'),
+    ...schalter('modul_weingarten'),
+    ...schalter('modul_ea'),
+    ...schalter('modul_sumup'),
+    ...schalter('modul_export'),
+    ...schalter('modul_controlling'),
     // Migration 197 – nur schreiben, wenn der Aufrufer sie mitschickt (Tab Module);
     // die anderen Tabs (Branding, Brevo) lassen die Buchhaltungsart unverändert.
     ...(formData.has('buchhaltungsart') ? { buchhaltungsart: formData.get('buchhaltungsart') === 'doppik' ? 'doppik' : 'ea' } : {}),
-    assistent_aktiv:    formData.get('assistent_aktiv')    === 'true',
+    ...schalter('assistent_aktiv'),
     ...(brevoKey !== undefined ? { brevo_api_key: brevoKey } : {}),
     ...(kurzRoh !== null ? { newsletter_kurzname: kurzRoh || null } : {}),
     ...(dsRoh !== null ? { newsletter_datenschutz_url: dsRoh || null } : {}),
     ...(formData.has('newsletter_einleitung') ? { newsletter_einleitung: String(formData.get('newsletter_einleitung') ?? '').trim().slice(0, 600) || null } : {}),
-    brevo_sender_mail:  (formData.get('brevo_sender_mail') as string) || null,
-    brevo_sender_name:  (formData.get('brevo_sender_name') as string) || null,
-    brevo_list_privat:  num('brevo_list_privat'),
-    brevo_list_gastro:  num('brevo_list_gastro'),
-    brevo_list_handel:  num('brevo_list_handel'),
-    brevo_list_export:  num('brevo_list_export'),
-    brevo_list_grossh:          num('brevo_list_grossh'),
-    session_timeout_minuten:    num('session_timeout_minuten'),
+    ...text('brevo_sender_mail'),
+    ...text('brevo_sender_name'),
+    ...zahl('brevo_list_privat'),
+    ...zahl('brevo_list_gastro'),
+    ...zahl('brevo_list_handel'),
+    ...zahl('brevo_list_export'),
+    ...zahl('brevo_list_grossh'),
+    ...zahl('session_timeout_minuten'),
     aktualisiert_am:            new Date().toISOString(),
   }
 
@@ -591,14 +599,28 @@ export async function createStripeCustomer(tenantId: string, tenantName: string,
   return { customerId: customer.id }
 }
 
+// ── Stripe: IDs des Betriebs serverseitig laden ───────────────────────────────
+// KAN-10 (01.10.2026): Customer- und Subscription-ID kommen nicht mehr vom Client, sondern aus
+// tenants – sonst ließen sich Portal, Kündigung und Checkout mit fremden cus_…/sub_… aufrufen.
+async function ladeStripeIds(tenantId: string): Promise<{ customerId: string | null; subscriptionId: string | null }> {
+  const { data, error } = await (createSupabaseAdminClient().from('tenants') as any)
+    .select('stripe_customer_id, stripe_subscription_id').eq('id', tenantId).maybeSingle()
+  if (error) throw new AktionsFehler(`Laden fehlgeschlagen (tenants): ${(error as R).message}`)
+  if (!data) throw new AktionsFehler('Betrieb nicht gefunden.')
+  return { customerId: (data as R).stripe_customer_id ?? null, subscriptionId: (data as R).stripe_subscription_id ?? null }
+}
+
 // ── Stripe: Checkout-Session erstellen (Abo abschließen) ─────────────────────
 
-export async function createStripeCheckoutSession(
-  tenantId: string,
-  customerId: string,
-  priceId: string,
-) {
-  await assertSystemAdmin(tenantId)
+// KAN-10 (01.10.2026): statt einer beliebigen priceId nur noch ein Paket-Schlüssel (basis/standard/premium);
+// die Preis-ID ermittelt der Server über paketPriceId(). Keine Sandbox-Sonderfreigabe.
+export async function createStripeCheckoutSession(tenantId: string, paket: string) {
+  await assertSystemAdmin(tenantId, { sandboxFreigabe: false })
+  if (!istPaketKey(paket)) return { error: 'Unbekanntes Paket.' }
+  const priceId = paketPriceId(paket)
+  if (!priceId) return { error: `Für das Paket ${PAKETE[paket].label} ist kein Stripe-Preis hinterlegt.` }
+  const { customerId } = await ladeStripeIds(tenantId)
+  if (!customerId) return { error: 'Zuerst Stripe Customer anlegen.' }
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://software112.icp-consultants.at'
 
@@ -622,8 +644,11 @@ export async function createStripeCheckoutSession(
 
 // ── Stripe: Customer Portal (Mandant verwaltet Abo selbst) ────────────────────
 
-export async function createStripePortalSession(tenantId: string, customerId: string) {
+export async function createStripePortalSession(tenantId: string) {
   await assertSystemAdmin(tenantId, { sandboxFreigabe: false })
+  // KAN-10 (01.10.2026): Customer-ID aus tenants, nicht vom Client
+  const { customerId } = await ladeStripeIds(tenantId)
+  if (!customerId) return { error: 'Für diesen Betrieb ist kein Stripe Customer hinterlegt.' }
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://software112.icp-consultants.at'
 
@@ -640,8 +665,11 @@ export async function createStripePortalSession(tenantId: string, customerId: st
 
 // ── Stripe: Subscription direkt kündigen ─────────────────────────────────────
 
-export async function cancelStripeSubscription(tenantId: string, subscriptionId: string) {
+export async function cancelStripeSubscription(tenantId: string) {
   await assertSystemAdmin(tenantId, { sandboxFreigabe: false })
+  // KAN-10 (01.10.2026): Subscription-ID aus tenants, nicht vom Client
+  const { subscriptionId } = await ladeStripeIds(tenantId)
+  if (!subscriptionId) return { error: 'Für diesen Betrieb ist kein Stripe-Abo hinterlegt.' }
 
   try {
     await getStripe().subscriptions.cancel(subscriptionId)

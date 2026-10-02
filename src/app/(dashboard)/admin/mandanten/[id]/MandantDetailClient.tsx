@@ -1781,7 +1781,8 @@ function StripeTab({ tenant }: { tenant: TenantDetail }) {
   const [email,  setEmail]   = useState('')
 
   // Paketmodell Basis / Standard / Premium (2.9.2026), Definition lib/pakete.ts
-  const PLANS = PAKET_REIHENFOLGE.map(k => ({ id: paketPriceId(k), label: `${PAKETE[k].label} (${preisText(PAKETE[k])})` }))
+  // KAN-10 (01.10.2026): an den Server geht nur der Paket-Schlüssel, die Preis-ID ermittelt er selbst
+  const PLANS = PAKET_REIHENFOLGE.map(k => ({ key: k, id: paketPriceId(k), label: `${PAKETE[k].label} (${preisText(PAKETE[k])})` }))
 
   const statusMeta = tenant.stripe_status ? (STRIPE_STATUS_META[tenant.stripe_status] ?? null) : null
   const planLabel  = tenant.stripe_plan   ? (STRIPE_PLAN_LABELS[tenant.stripe_plan] ?? tenant.stripe_plan) : null
@@ -1796,11 +1797,11 @@ function StripeTab({ tenant }: { tenant: TenantDetail }) {
     })
   }
 
-  function handleCheckout(priceId: string) {
+  function handleCheckout(paket: PaketKey) {
     if (!tenant.stripe_customer_id) { setError('Zuerst Stripe Customer anlegen'); return }
     setError(null)
     startTransition(async () => {
-      const r = await createStripeCheckoutSession(tenant.id, tenant.stripe_customer_id!, priceId)
+      const r = await createStripeCheckoutSession(tenant.id, paket)
       if (r?.error) setError(r.error)
       else if (r?.url) window.location.href = r.url
     })
@@ -1809,7 +1810,7 @@ function StripeTab({ tenant }: { tenant: TenantDetail }) {
   function handlePortal() {
     if (!tenant.stripe_customer_id) return
     startTransition(async () => {
-      const r = await createStripePortalSession(tenant.id, tenant.stripe_customer_id!)
+      const r = await createStripePortalSession(tenant.id)
       if (r?.error) setError(r.error)
       else if (r?.url) window.location.href = r.url
     })
@@ -1819,7 +1820,7 @@ function StripeTab({ tenant }: { tenant: TenantDetail }) {
     if (!tenant.stripe_subscription_id) return
     if (!confirm('Abo wirklich sofort kündigen?')) return
     startTransition(async () => {
-      const r = await cancelStripeSubscription(tenant.id, tenant.stripe_subscription_id!)
+      const r = await cancelStripeSubscription(tenant.id)
       if (r?.error) setError(r.error)
       else router.refresh()
     })
@@ -1879,7 +1880,7 @@ function StripeTab({ tenant }: { tenant: TenantDetail }) {
           <div className="grid grid-cols-2 gap-2">
             {PLANS.filter(p => p.id).map(p => (
               <button key={p.id} type="button" disabled={pending}
-                onClick={() => handleCheckout(p.id)}
+                onClick={() => handleCheckout(p.key)}
                 className="border border-s112-border rounded-lg px-4 py-3 text-sm text-left hover:border-s112-teal hover:bg-s112-bg transition-colors disabled:opacity-50">
                 <span className="font-medium text-s112-text">{p.label}</span>
                 <span className="text-xs text-s112-muted block mt-0.5">→ Stripe Checkout</span>
