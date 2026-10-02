@@ -396,7 +396,8 @@ export async function ladeFristen(ctx: Ctx, opts: { modulEa: boolean; uvaZeitrau
     if (letzteErledigt) fristen.push(letzteErledigt)
   }
 
-  // Erntemeldung des laufenden Jahrgangs (bis 15.12.)
+  // Erntemeldung des laufenden Jahrgangs: Stichtag 30.11., Abgabe bis 15.12. (KAN-37 Punkt 6, 02.10.2026 –
+  // vorher nur die Abgabe; bis zum Stichtag müssen Lese und Pressungen vollständig erfasst sein)
   {
     const jg = ((jgRaw ?? []) as R[])[0]
     // KAN-148 C2: mehrere Versionen (Korrekturmeldungen) – Status der neuesten; gemeldet, sobald eine eingereicht ist
@@ -404,10 +405,19 @@ export async function ladeFristen(ctx: Ctx, opts: { modulEa: boolean; uvaZeitrau
     const am = neuesteAmaVersion(amVersionen)
     const eingereicht = !!jg?.ama_gemeldet || amVersionen.some(v => ['eingereicht', 'bestaetigt'].includes(v.status))
     const faelligAm = `${jahr}-12-15`
+    const stichtag = `${jahr}-11-30`
     const st = statusAus(faelligAm, eingereicht, ctx.heuteStr, vt)
+    // Stichtag als eigene Frist: erledigt, sobald gemeldet oder der Stichtag vorbei ist (danach zählt die Abgabe)
+    fristen.push({
+      key: `ernte-stichtag:${jahr}`, bezeichnung: `Erntemeldung ${jahr} – Stichtag`, kategorie: 'weinrecht',
+      hinweis: 'Lese, Pressungen und Traubenverkäufe bis zum Stichtag vollständig erfassen – daraus entsteht die Erntemeldung',
+      faelligAm: stichtag, status: statusAus(stichtag, eingereicht || stichtag < ctx.heuteStr, ctx.heuteStr, vt),
+      statusText: `Stichtag ${new Date(stichtag).toLocaleDateString('de-AT')}`,
+      href: jg ? `/erntemeldung/${jg.id}` : '/erntemeldung', quelle: 'system',
+    })
     fristen.push({
       key: `ernte:${jahr}`, bezeichnung: `Erntemeldung ${jahr}`, kategorie: 'weinrecht',
-      hinweis: jg ? (eingereicht ? 'Über eAMA gemeldet' : `Entwurf entsteht aus den Pressungen · Status ${am?.status ?? 'entwurf'}`) : `Jahrgang ${jahr} noch nicht angelegt`,
+      hinweis: jg ? (eingereicht ? 'Über eAMA gemeldet' : `Stichtag 30.11. · Abgabe bis 15.12. · Entwurf entsteht aus den Pressungen · Status ${am?.status ?? 'entwurf'}`) : `Jahrgang ${jahr} noch nicht angelegt`,
       faelligAm, status: st,
       statusText: eingereicht ? `gemeldet ${jg?.ama_meldedatum ? new Date(jg.ama_meldedatum).toLocaleDateString('de-AT') : ''}`.trim() : `bis ${new Date(faelligAm).toLocaleDateString('de-AT')}`,
       href: jg ? `/erntemeldung/${jg.id}` : '/erntemeldung', quelle: 'system',
