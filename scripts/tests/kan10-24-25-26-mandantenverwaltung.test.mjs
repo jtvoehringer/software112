@@ -92,7 +92,7 @@ describe('KAN-24: saveTenantSettings schreibt nur übergebene Felder', () => {
 describe('KAN-25: /api/m365/subscribe verlangt im Sitzungszweig Admin-Rechte', () => {
   const q = quelle('src/app/api/m365/subscribe/route.ts')
   test('canAdmin im Sitzungszweig, 403 sonst', () => {
-    assert.match(q, /if \(!membership \|\| !canAdmin\(membership\.role\)\) return NextResponse\.json\(\{ fehler: 'Keine Berechtigung' \}, \{ status: 403 \}\)/)
+    assert.match(q, /else if \(!membership \|\| !canAdmin\(membership\.role\)\) \{\s*return NextResponse\.json\(\{ fehler: 'Keine Berechtigung' \}, \{ status: 403 \}\)/)
     const sitzung = q.indexOf('if (!hasCronAuth) {\n      // KAN-25') >= 0 ? q.indexOf('if (!hasCronAuth) {\n      // KAN-25') : q.indexOf('if (!hasCronAuth) {\r\n      // KAN-25')
     assert.ok(sitzung > 0, 'Prüfung liegt im Sitzungszweig')
   })
@@ -101,5 +101,15 @@ describe('KAN-25: /api/m365/subscribe verlangt im Sitzungszweig Admin-Rechte', (
 describe('KAN-26: toter Code saveBranding entfernt', () => {
   test('keine Funktion saveBranding in der Mandantenliste', () => {
     assert.doesNotMatch(quelle('src/app/(dashboard)/admin/mandanten/actions.ts'), /export async function saveBranding\(/)
+  })
+})
+
+describe('KAN-25-Nachtrag (02.10.2026): Webhook des angezeigten Betriebs', () => {
+  test('Mandantenverwaltung schickt den Betrieb mit, fremder Betrieb nur für Plattform-Admins', () => {
+    const route = readFileSync(new URL('../../src/app/api/m365/subscribe/route.ts', import.meta.url), 'utf8')
+    assert.match(route, /req\.nextUrl\.searchParams\.get\('tenant'\)/)
+    assert.match(route, /if \(zielParam && zielParam !== tenantId\) \{\s*if \(!\(await istPlattformAdmin\(\)\)\)/)
+    const client = readFileSync(new URL('../../src/app/(dashboard)/admin/mandanten/[id]/MandantDetailClient.tsx', import.meta.url), 'utf8')
+    assert.match(client, /\/api\/m365\/subscribe\?tenant=\$\{encodeURIComponent\(tenant\.id\)\}/)
   })
 })

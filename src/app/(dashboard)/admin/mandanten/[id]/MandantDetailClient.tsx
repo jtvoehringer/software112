@@ -975,7 +975,8 @@ function M365Tab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
   async function handleSubscribe() {
     setSubLoading(true); setSubResult(null)
     try {
-      const res = await fetch('/api/m365/subscribe', { method: 'POST' })
+      // KAN-25-Nachtrag: den hier angezeigten Betrieb erneuern, nicht den aktiven
+      const res = await fetch(`/api/m365/subscribe?tenant=${encodeURIComponent(tenant.id)}`, { method: 'POST' })
       const json = await res.json()
       if (!res.ok || json.fehler) { setSubResult('Fehler: ' + (json.fehler ?? 'Unbekannt')); return }
       setSubResult(`Webhook ${json.aktion} · gültig bis ${new Date(json.expires).toLocaleString('de-AT')}`)
