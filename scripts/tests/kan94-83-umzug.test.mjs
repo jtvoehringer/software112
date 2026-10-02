@@ -355,7 +355,7 @@ describe('Verdrahtung (Quelltext)', () => {
   })
   test('Storno nimmt die Herkunft-Abstufung der Zusammenführung zurück', () => {
     const q = quelle('src/lib/kellerbuch/storno.ts')
-    assert.match(q, /herkunft_code_vorher, herkunft_code_nachher'/)
+    assert.match(q, /herkunft_code_vorher, herkunft_code_nachher[,']/)
     assert.match(q, /a\.payload\.herkunft_code = z\.herkunft_code_vorher \?\? null/)
   })
 })

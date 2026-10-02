@@ -17,6 +17,7 @@ import {
 } from '@/lib/kellerbuch/storno'
 import { KORREKTUR_NACH_OBEN_HINWEIS, KORREKTUR_NACH_UNTEN_HINWEIS } from '@/lib/kellerbuch/hinweise'
 import { GRUND_BEARBEITET, stornoGrundFehler } from '@/lib/storno/grund'
+import { mostgewichtNeu, mostgewichtZusammenfuehren, teilweiseVermerk, umzugMomentaufnahme, type Anteil } from '@/lib/kellerbuch/mostgewichtKette'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -372,6 +373,12 @@ async function pruefeUmzug(
 }
 
 /** Umzug buchen (Nebenweg des Bearbeiten-Formulars; der Hauptweg ist umziehen/actions.ts) */
+/** KAN-130 Etappe 2: Anteile eines Ziels – jede Quelle im Verhältnis ihrer Brutto-Menge */
+function umzugAnteile(e: UmzugNeu, quellCharge: Map<string, R>, liter: number): Anteil[] {
+  const summe = e.quellen.reduce((s, q) => s + q.brutto, 0)
+  return e.quellen.map(q => ({ liter: summe > 0 ? liter * q.brutto / summe : 0, charge: quellCharge.get(q.weinausbau_id) }))
+}
+
 async function umzugAnlegen(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
@@ -431,7 +438,7 @@ async function umzugAnlegen(
     // Chargen ohne Jahrgang (z.B. NV-Cuvées) muss .is() verwendet werden, sonst wird
     // nie das bestehende Lot gefunden und stattdessen jedes Mal ein neues angelegt.
     let existingQuery = (supabase.from('weinausbau') as any)
-      .select('id, menge_liter, rebsorte')
+      .select('id, menge_liter, rebsorte, kmw, oechsle, mostgewicht_einheit')
       .eq('behaelter_id', z.behaelter_id)
       .eq('name', hauptQuelle?.name ?? '')
       .eq('aktiv', true)
@@ -450,18 +457,27 @@ async function umzugAnlegen(
       existing = null
     }
     let nachWeinausbauId: string | null = null
+    // KAN-130 Etappe 2: Mostgewicht – Momentaufnahme an der Zielzeile, Vermerk bei „teilweise“
+    let mostgewichtSnapshot: R = {}
+    let zielNotiz: string | null = null
 
     if (existing) {
       const altMenge = num(existing.menge_liter)
+      const mg = mostgewichtZusammenfuehren(existing, altMenge, umzugAnteile(e, quellCharge, z.menge_netto))
+      mostgewichtSnapshot = umzugMomentaufnahme(mg)
+      if (mg.werte) zielNotiz = teilweiseVermerk(mg)
       { const { error: e2 } = await (supabase.from('weinausbau') as any)
-        .update({ menge_liter: rund2(altMenge + z.menge_netto) })
+        .update({ menge_liter: rund2(altMenge + z.menge_netto), ...(mg.werte ?? {}) })
         .eq('id', existing.id)
         .eq('tenant_id', tenantId)
         if (e2) throw new AktionsFehler(dbFehlerText(e2, 'Speichern fehlgeschlagen (weinausbau)')) }
       nachWeinausbauId = existing.id
     } else {
+      const mg = mostgewichtNeu(umzugAnteile(e, quellCharge, z.menge_netto))
+      if (mg.spalten) zielNotiz = teilweiseVermerk(mg)
       const { data: neu, error: neuErr } = await (supabase.from('weinausbau') as any)
         .insert({
+          ...(mg.spalten ?? {}),
           tenant_id:            tenantId,
           name:                 hauptQuelle?.name ?? 'Unbekannt',
           jahrgang:             hauptQuelle?.jahrgang ?? null,
@@ -488,7 +504,8 @@ async function umzugAnlegen(
       menge_liter:        z.menge_netto,
       schwund_liter:      0,
       brutto_liter:       null,
-      notizen:            null,
+      notizen:            zielNotiz,
+      ...mostgewichtSnapshot,
       umzug_batch_id:     batchId,
       zeilen_typ:         'ziel',
       ...typFeld,
