@@ -7,7 +7,7 @@ import Image from 'next/image'
 import PrintButton from '../../PrintButton'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { csvPfad } from '@/lib/behoerden/katalog'
-import { HEKTARHOECHSTERTRAG_KG_HA, ladeErntemeldung, type ErnteZeile } from '@/lib/behoerden/erntemeldung'
+import { HEKTARHOECHSTERTRAG_KG_HA, HOECHSTERTRAG_RECHTSFOLGE, ladeErntemeldung, type ErnteZeile } from '@/lib/behoerden/erntemeldung'
 import { HL_STELLEN_BESTAND, ladeBestandsmeldung, type BestandZeile } from '@/lib/behoerden/bestandsmeldung'
 import { datumAT } from '@/lib/behoerden/ernte_hilfen'
 import { qualitaetLabel } from '@/lib/wein/qualitaet'
@@ -182,11 +182,11 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
         </table>
 
         {/* Hektarhöchstertrag (betriebsweit, maßgeblich) */}
-        {hht && hht.gesamtKgQualitaetswein > 0 && (
+        {hht && hht.gesamtKg > 0 && (
           <p className={`text-xs mb-6 ${hht.ueberschritten ? 'text-s112-err-fg font-semibold' : 'text-s112-text-2'}`}>
-            Hektarhöchstertrag betriebsweit (Qualitätswein): {fmtNum(hht.gesamtKgQualitaetswein, 0)} kg von max. {fmtNum(hht.maxKg, 0)} kg
+            Hektarhöchstertrag betriebsweit (Landwein, Qualitäts- und Prädikatswein): {fmtNum(hht.gesamtKg, 0)} kg von max. {fmtNum(hht.maxKg, 0)} kg
             {' '}({fmtNum(HEKTARHOECHSTERTRAG_KG_HA, 0)} kg/ha × {fmtNum(hht.gesamtFlaecheHaBetrieb, 4)} ha Weingartenfläche lt. AMA) –{' '}
-            {hht.ueberschritten ? `überschritten um ${fmtNum(hht.ueberschreitungKg, 0)} kg` : 'eingehalten'}.
+            {hht.ueberschritten ? `überschritten um ${fmtNum(hht.ueberschreitungKg, 0)} kg. ${HOECHSTERTRAG_RECHTSFOLGE}` : 'eingehalten'}.
             {' '}Die Spalte „Übermenge“ zeigt die rechnerische Überschreitung je Sorte.
           </p>
         )}

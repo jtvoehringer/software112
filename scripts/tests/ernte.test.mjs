@@ -324,17 +324,18 @@ describe('erntemeldung', () => {
       'Gemischer Satz;;0,2500;1000;0;7,69;;;Qualitätswein;4000;10000;0;',
       // °KMW mengengewichtet: (9000 × 17,4 + 2500 × 19,25) / 11500 = 17,802… → 17,80; °Oe = f(17,80) = 87,8
       'Grüner Veltliner;GV;1,0000;11500;800;88,46;17,80;87,8;Qualitätswein;11500;10000;1500;',
-      'Zweigelt;ZW;0,8000;6000;0;46,15;19,00;94,2;Kabinett;7500;;;',
+      // KAN-79: Höchstertrag gilt auch für Kabinett
+      'Zweigelt;ZW;0,8000;6000;0;46,15;19,00;94,2;Kabinett;7500;10000;0;',
     ].join('\r\n') + '\r\n')
     // Ausdruck summiert die gerundeten Zeilenwerte
     assert.deepEqual(daten.summe, { flaecheHa: 2.05, mengeKg: 18500, verkauftKg: 800, mengeHl: 142.3 })
-    // betriebsweit: 12.500 kg Qualitätswein ≤ 10.000 × 3,25 ha (fremde und Nicht-WI-Grundstücke zählen nicht)
-    assert.deepEqual(daten.hektarhoechstertrag, { gesamtFlaecheHaBetrieb: 3.25, gesamtKgQualitaetswein: 12500, maxKg: 32500, ueberschreitungKg: 0, ueberschritten: false })
+    // betriebsweit: 18.500 kg (KAN-79: Qualitätswein + Kabinett) ≤ 10.000 × 3,25 ha (fremde und Nicht-WI-Grundstücke zählen nicht)
+    assert.deepEqual(daten.hektarhoechstertrag, { gesamtFlaecheHaBetrieb: 3.25, gesamtKg: 18500, maxKg: 32500, ueberschreitungKg: 0, ueberschritten: false })
     const w = daten.warnungen.join('\n')
     assert.match(w, /noch keine AMA-Meldung erstellt/)
     assert.match(w, /Menge \(hl\) bei 3 Rebsorten aus Menge \(kg\) ÷ 130/)
     assert.match(w, /„Gemischer Satz“ steht nicht in der BKI-Kürzelliste/)
-    assert.match(w, /Hektarhöchstertrag betriebsweit \(maßgeblich\): 12\.500 kg .* – eingehalten/)
+    assert.match(w, /Hektarhöchstertrag betriebsweit \(maßgeblich\): 18\.500 kg .* – eingehalten/)
   })
 
   test('gespeicherte Meldung: Positionen, Abweichung zu den Lesedaten, Überschreitung betriebsweit', async () => {
@@ -356,9 +357,9 @@ describe('erntemeldung', () => {
     ])
     const w = daten.warnungen.join('\n')
     assert.match(w, /nach dem Erstellen der AMA-Meldung geändert \(Meldung 18\.000 kg, Lesedaten 18\.500 kg\)/)
-    // betriebsweit: 12.500 kg Qualitätswein (Lesedaten) > 10.000 kg/ha × 1 ha
-    assert.match(w, /12\.500 kg Qualitätswein von max\. 10\.000 kg .* – ÜBERSCHRITTEN um 2\.500 kg/)
-    assert.equal(daten.hektarhoechstertrag.ueberschreitungKg, 2500)
+    // betriebsweit: 18.500 kg (Lesedaten, KAN-79: auch Kabinett) > 10.000 kg/ha × 1 ha
+    assert.match(w, /18\.500 kg Landwein, Qualitäts- und Prädikatswein von max\. 10\.000 kg .* – ÜBERSCHRITTEN um 8\.500 kg\. Rechtsfolge nach § 23 WeinG/)
+    assert.equal(daten.hektarhoechstertrag.ueberschreitungKg, 8500)
     assert.equal(daten.zeilen[0].verkauftKg, 800)
     // Meldung vor dem 25.09.2026: fest „Qualitätswein“ – die Lesedaten sagen Kabinett
     assert.match(w, /gespeicherte AMA-Meldung weicht von den Lesedaten ab: „Zweigelt“ \(Qualitätsstufe „Qualitätswein“, Lesedaten: Kabinett\)/)

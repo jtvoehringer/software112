@@ -36,8 +36,17 @@ type Client = any
 
 /** Hektarhöchstertrag lt. BKI-Hinweis (18.07.2026): 10.000 kg/ha, betriebsweit gegen die GST-Fläche lt. AMA */
 export const HEKTARHOECHSTERTRAG_KG_HA = 10000
-/** Qualitätsstufen, für die der Hektarhöchstertrag geprüft wird (wie bisher auf der Lese-Seite) */
-export const HOECHSTERTRAG_STUFEN: readonly string[] = ['qualitaetswein']
+/** Qualitätsstufen, für die der Hektarhöchstertrag geprüft wird – KAN-79 (02.10.2026): § 23 WeinG gilt für Landwein,
+ *  Qualitätswein inkl. Kabinett und Prädikatswein (DAC = Qualitätswein mit Herkunft), nicht für „Wein“ (bis dahin nur
+ *  'qualitaetswein' – ab 17 °KMW fielen die kg als Kabinett usw. aus der Summe). */
+export function unterliegtHoechstertrag(stufe: string | null | undefined): boolean {
+  const r = qualitaetsRang(stufe)
+  return !!r && (r.art === 'stufe' || r.art === 'zusatz') && r.stufe >= (qualitaetsRang('landwein')?.stufe ?? 1)
+}
+/** Hinweis bei Überschreitung (Erntemeldung, Lese-Seite, Druck, CSV) */
+export { HOECHSTERTRAG_RECHTSFOLGE } from './hoechstertragText'
+import { qualitaetsRang } from '../wein/qualitaetsrang'
+import { HOECHSTERTRAG_RECHTSFOLGE } from './hoechstertragText'
 /** Umrechnung Trauben → Most, wenn keine hl erfasst sind */
 export const KG_JE_HL = 130
 /** Schlüssel für Lesedaten ohne Rebsorte (wie bisher in „AMA-Meldung erstellen“) */
@@ -383,27 +392,28 @@ export function aggregiereJeRebsorte(parzellen: readonly ParzelleFuerMeldung[]):
 
 export type HektarhoechstertragStatus = {
   gesamtFlaecheHaBetrieb: number
-  gesamtKgQualitaetswein: number
+  /** kg aller Stufen, für die der Höchstertrag gilt (unterliegtHoechstertrag) */
+  gesamtKg: number
   maxKg: number
   ueberschreitungKg: number
   ueberschritten: boolean
 }
 
-/** Betriebsweite Prüfung wie auf der Lese-Seite: Qualitätswein-kg gegen 10.000 kg/ha × Weingartenfläche (GST, Nutzart WI) */
+/** Betriebsweite Prüfung wie auf der Lese-Seite: kg aller Stufen ab Landwein gegen 10.000 kg/ha × Weingartenfläche (GST, Nutzart WI) */
 export function berechneHektarhoechstertrag(
   parzellen: readonly { qualitaetsstufe: string | null; mengeKg: number | null }[],
   gesamtFlaecheHaBetrieb: number,
 ): HektarhoechstertragStatus {
-  const gesamtKgQualitaetswein = parzellen
-    .filter(p => p.qualitaetsstufe !== null && HOECHSTERTRAG_STUFEN.includes(p.qualitaetsstufe))
+  const gesamtKg = parzellen
+    .filter(p => unterliegtHoechstertrag(p.qualitaetsstufe))
     .reduce((s, p) => s + (p.mengeKg ?? 0), 0)
   const maxKg = HEKTARHOECHSTERTRAG_KG_HA * gesamtFlaecheHaBetrieb
   return {
     gesamtFlaecheHaBetrieb,
-    gesamtKgQualitaetswein,
+    gesamtKg,
     maxKg,
-    ueberschreitungKg: Math.max(0, gesamtKgQualitaetswein - maxKg),
-    ueberschritten: gesamtFlaecheHaBetrieb > 0 && gesamtKgQualitaetswein > maxKg,
+    ueberschreitungKg: Math.max(0, gesamtKg - maxKg),
+    ueberschritten: gesamtFlaecheHaBetrieb > 0 && gesamtKg > maxKg,
   }
 }
 
@@ -511,7 +521,7 @@ export function ernteZeile(roh: ErnteRoh, verkauftKg: number | null = null): Ern
     ? runden(roh.mengeHl, STELLEN.hl)
     : roh.mengeKg !== null ? runden(roh.mengeKg / KG_JE_HL, STELLEN.hl) : null
   const ertragKgHa = flaecheHa !== null && flaecheHa > 0 && mengeKg !== null ? runden(mengeKg / flaecheHa, 0) : null
-  const hoechstertragKgHa = roh.qualitaetsstufe !== null && HOECHSTERTRAG_STUFEN.includes(roh.qualitaetsstufe) ? HEKTARHOECHSTERTRAG_KG_HA : null
+  const hoechstertragKgHa = unterliegtHoechstertrag(roh.qualitaetsstufe) ? HEKTARHOECHSTERTRAG_KG_HA : null
   const uebermengeKg = hoechstertragKgHa !== null && flaecheHa !== null && mengeKg !== null
     ? runden(Math.max(0, mengeKg - hoechstertragKgHa * flaecheHa), 0)
     : null
@@ -716,10 +726,10 @@ export async function ladeErntemeldung(supabase: Client, tenantId: string, jg: J
   warnungen.push(...kuerzelWarnungen(zeilen.map(z => (z.rebsorte === REBSORTE_UNBEKANNT ? null : z.rebsorte))))
 
   const hektarhoechstertrag = berechneHektarhoechstertrag(lese.zeilen, flaecheBetrieb)
-  if (hektarhoechstertrag.gesamtKgQualitaetswein > 0) {
-    const basis = `Hektarhöchstertrag betriebsweit (maßgeblich): ${fmtKg(hektarhoechstertrag.gesamtKgQualitaetswein)} kg Qualitätswein von max. ${fmtKg(hektarhoechstertrag.maxKg)} kg (${fmtKg(HEKTARHOECHSTERTRAG_KG_HA)} kg/ha × ${runden(flaecheBetrieb, STELLEN.ha).toLocaleString('de-DE', { minimumFractionDigits: 4 })} ha Weingartenfläche lt. AMA)`
+  if (hektarhoechstertrag.gesamtKg > 0) {
+    const basis = `Hektarhöchstertrag betriebsweit (maßgeblich): ${fmtKg(hektarhoechstertrag.gesamtKg)} kg Landwein, Qualitäts- und Prädikatswein von max. ${fmtKg(hektarhoechstertrag.maxKg)} kg (${fmtKg(HEKTARHOECHSTERTRAG_KG_HA)} kg/ha × ${runden(flaecheBetrieb, STELLEN.ha).toLocaleString('de-DE', { minimumFractionDigits: 4 })} ha Weingartenfläche lt. AMA)`
     if (hektarhoechstertrag.ueberschritten) {
-      warnungen.push(`${basis} – ÜBERSCHRITTEN um ${fmtKg(hektarhoechstertrag.ueberschreitungKg)} kg. Die Spalte „Übermenge (kg)“ zeigt die rechnerische Überschreitung je Sorte.`)
+      warnungen.push(`${basis} – ÜBERSCHRITTEN um ${fmtKg(hektarhoechstertrag.ueberschreitungKg)} kg. ${HOECHSTERTRAG_RECHTSFOLGE}. Die Spalte „Übermenge (kg)“ zeigt die rechnerische Überschreitung je Sorte.`)
     } else if (zeilen.some(z => (z.uebermengeKg ?? 0) > 0)) {
       warnungen.push(`${basis} – eingehalten. Die Spalte „Übermenge (kg)“ zeigt nur die rechnerische Überschreitung je Sorte.`)
     }
