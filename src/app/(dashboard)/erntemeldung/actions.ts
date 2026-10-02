@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { kmwZuQualitaet } from '@/lib/weinqualitaet'
 import { abstufungFehler, qualitaetFehler } from '@/lib/wein/qualitaet'
 import { findePassendeHerkunftsstufe, HERKUNFT_LABEL, minHerkunft } from '@/lib/herkunft'
+import { pressungObergrenze } from '@/lib/zukauf/ware'
 import { createVerkaufspostenFuerTrauben, ermittleQuellenName, upsertTraubenverkauf } from '@/app/(dashboard)/weinhandel/traubenverkauf/actions'
 import { traubenverkaufStornieren } from '@/lib/verkauf/traubenverkaufStorno'
 import { GRUND_BEARBEITET, stornoGrundFehler } from '@/lib/storno/grund'
@@ -869,6 +870,9 @@ type BehZeile = {
   nr: number; id: string | null; behaelter_id: string | null; weinausbau_id: string | null
   menge_liter: number | null; notizen: string | null
 }
+/** KAN-80 Nachtrag: Ware eines Trauben-Zukaufs, soweit sie für die Pressung zählt */
+type ZukaufWareStand = { qualitaetsstufe: string | null; herkunft: string | null }
+
 type ChargenVorgaben = {
   name: string; jahr: number | null; rebsorte: string | null
   qualitaet: string; herkunft: string | null; weinart: string
@@ -916,11 +920,18 @@ async function chargenVorgabenErmitteln(
   jahr: number | null,
   weingaerten: WGZeile[],
   kopf: { datum: string; weinbezeichnung: string | null; kmwGrad: number | null; qualitaetsstufe: string | null },
+  /** KAN-80 Nachtrag: Qualitätsstufe und Herkunfts-Code der verpressten Zukauf-Trauben (zukauf_posten.id → Werte) */
+  zukauf: ReadonlyMap<string, ZukaufWareStand> = new Map(),
 ): Promise<ChargenVorgaben> {
   // Qualität: User-Input > KMW-Ableitung > Fallback 'qualitaetswein'
   // ACHTUNG: weinjahrgaenge.qualitaet_gesamt enthält Vintage-Bewertungen ('sehr_gut' etc.) – NICHT als qualitaetsstufe verwenden!
-  const qualitaet = kopf.qualitaetsstufe
-    ?? (kopf.kmwGrad != null && !isNaN(kopf.kmwGrad) ? kmwZuQualitaet(kopf.kmwGrad) : 'qualitaetswein')
+  // KAN-80 Nachtrag (02.10.2026): zugekaufte Trauben zählen wie beim Verschnitt – höchstens die niedrigste Stufe der
+  // Zukäufe (eine gewählte Abstufung liegt schon darunter, der Server hat sie gegen dieselbe Obergrenze geprüft)
+  const zukaufZeilen = weingaerten.map(w => w.zukauf_posten_id ? zukauf.get(w.zukauf_posten_id) ?? null : null)
+  const qualitaet = pressungObergrenze(
+    kopf.qualitaetsstufe ?? (kopf.kmwGrad != null && !isNaN(kopf.kmwGrad) ? kmwZuQualitaet(kopf.kmwGrad) : 'qualitaetswein'),
+    zukaufZeilen.map(z => z?.qualitaetsstufe),
+  )
 
   // Herkunft-Code (BKI): niedrigster (breitester) Wert der verknüpften Ernte-Parzellen übernehmen
   // (analog Qualität – Verschneiden/Pressen kann Herkunft nur ab-, nie aufstufen).
@@ -931,7 +942,9 @@ async function chargenVorgabenErmitteln(
       .select('herkunft_code, weingarten_id, grundstueck_id').eq('jahrgang_id', jahrgangId).is('storniert_am', null)
     if (error) throw new AktionsFehler(dbFehlerText(error, 'Herkunft konnte nicht ermittelt werden (ernte_parzellen)'))
     const epList = ((epRows ?? []) as AR[])
-    const passendeCodes = weingaerten.map(w => {
+    // KAN-80 Nachtrag (02.10.2026): Zukauf-Zeilen tragen den Herkunfts-Code des Zukaufs (statt einer Lese-Parzelle)
+    const passendeCodes = weingaerten.map((w, i) => {
+      if (w.zukauf_posten_id) return zukaufZeilen[i]?.herkunft ?? null
       const match = epList.find((e: AR) =>
         e.weingarten_id === w.weingarten_id &&
         (w.grundstueck_id ? e.grundstueck_id === w.grundstueck_id : true)
@@ -1121,12 +1134,17 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
   // ── KAN-126: Lesedatum je Traubenzeile ─────────────────────────────────────
   // Zukauf-Zeilen: Zukaufsdatum (Entscheidung Jörgen 29.09.2026), unabhängig von der Formulareingabe
   const zukaufIds = [...new Set(weingaerten.map(w => w.zukauf_posten_id).filter(Boolean) as string[])]
+  const zukaufWare = new Map<string, ZukaufWareStand>()
   if (zukaufIds.length > 0) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: zkRows, error: zkErr } = await (supabase.from('zukauf_posten') as any)
-      .select('id, datum').in('id', zukaufIds).eq('tenant_id', tenantId)
+      .select('id, datum, qualitaetsstufe, herkunft').in('id', zukaufIds).eq('tenant_id', tenantId)
     if (zkErr) throw new AktionsFehler(dbFehlerText(zkErr, 'Trauben-Zukauf konnte nicht geladen werden'))
     const zkDatum = new Map(((zkRows ?? []) as AR[]).map(z => [z.id as string, (z.datum as string | null) ?? null]))
+    // KAN-80 Nachtrag (02.10.2026): Stufe und Herkunft der Zukäufe – Obergrenze der Abstufung und Vorgaben der neuen Charge
+    for (const z of (zkRows ?? []) as AR[]) {
+      zukaufWare.set(z.id as string, { qualitaetsstufe: (z.qualitaetsstufe as string | null) ?? null, herkunft: (z.herkunft as string | null) ?? null })
+    }
     for (const w of weingaerten) {
       if (!w.zukauf_posten_id) continue
       if (!zkDatum.has(w.zukauf_posten_id)) throw new AktionsFehler(`Traubenzeile ${w.nr}: Der Trauben-Zukauf wurde nicht gefunden – bitte die Seite neu laden.`)
@@ -1327,8 +1345,10 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
   }
   // KAN-81/KAN-126: nur abstufen – nie über die Stufe aus den °KMW (ohne °KMW: Qualitätswein); bei einer
   // Eiswein-Lese ist die Obergrenze Eiswein (KAN-129 Soll 2)
-  const ueberObergrenze = abstufungFehler(qualitaetsstufeInput, leseStufe(lesePressung?.art,
-    kmwGrad != null && !isNaN(kmwGrad) ? kmwZuQualitaet(kmwGrad) : 'qualitaetswein'))
+  // KAN-80 Nachtrag (02.10.2026): zugekaufte Trauben senken die Obergrenze auf ihre niedrigste Stufe (Regel wie Verschnitt)
+  const ueberObergrenze = abstufungFehler(qualitaetsstufeInput, pressungObergrenze(leseStufe(lesePressung?.art,
+    kmwGrad != null && !isNaN(kmwGrad) ? kmwZuQualitaet(kmwGrad) : 'qualitaetswein'),
+    weingaerten.map(w => w.zukauf_posten_id ? zukaufWare.get(w.zukauf_posten_id)?.qualitaetsstufe : null)))
   if (ueberObergrenze) throw new AktionsFehler(ueberObergrenze)
   if (lesePressung) {
     const deckung = await leseDeckungFehler(supabase, tenantId, jahrgangId, lesePressung, Number(jg.jahrgang), { pressungId: existingId },
@@ -1481,7 +1501,7 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
   const fehlgeschlagen: string[] = []
   if (neuePb.length > 0) {
     const vorgaben = await chargenVorgabenErmitteln(supabase, tenantId, jahrgangId, (jg.jahrgang as number | null) ?? null, weingaerten,
-      { datum, weinbezeichnung, kmwGrad, qualitaetsstufe: qualitaetsstufeInput ?? (lesePressung?.art === 'eiswein' ? 'eiswein' : null) })
+      { datum, weinbezeichnung, kmwGrad, qualitaetsstufe: qualitaetsstufeInput ?? (lesePressung?.art === 'eiswein' ? 'eiswein' : null) }, zukaufWare)
     for (const b of neuePb) {
       try {
         neuChargen.push(await mostzeileMitChargeAnlegen(supabase, tenantId, pressId, b, vorgaben))

@@ -17,6 +17,7 @@ import { SPALTEN_TRAUBENVERKAUF_LISTE, traubenverkaufListenHinweise, type Traube
 import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
 import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
 import type { GespeichertesMostgewicht } from '@/lib/wein/mostgewichtFormular'
+import { herkunftAnzeige } from '@/lib/zukauf/ware'   // KAN-80 Nachtrag: Code → Bezeichnung, Altwert unverändert
 
 function Fehlermeldung({ text, onClose }: { text: string; onClose?: () => void }) {
   return (
@@ -319,11 +320,11 @@ function TVForm({ jahrgangId, leseId, tv, quelleOptions, zukaufOptions, kontaktO
           </select>
         </div>
 
-        {/* Herkunftscode (read-only aus WG, bzw. Freitext bei Zukauf) */}
+        {/* Herkunftscode (read-only aus WG bzw. Zukauf – seit KAN-80 Nachtrag ein Code, Altwerte Freitext) */}
         {herkunft && (
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Herkunftscode (BKI)</label>
-            <div className={inp + ' bg-white text-s112-text-2 cursor-not-allowed'}>{herkunft}</div>
+            <div className={inp + ' bg-white text-s112-text-2 cursor-not-allowed'}>{herkunftAnzeige(herkunft)}</div>
           </div>
         )}
       </div>

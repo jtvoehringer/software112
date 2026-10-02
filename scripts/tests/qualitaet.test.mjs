@@ -473,8 +473,13 @@ describe('(4) Formulare und Server Actions verwenden die Liste ihrer Zieltabelle
     QUALITAET_OPTS: 'charge',
   }
   const ZIEL_LISTE = { lese: LESE_QUALITAETEN, fuellung: FUELLUNG_QUALITAETEN, charge: QUALITAET_OPTS }
+  /** Ziele eines FORMULARE-Eintrags als sortiertes Array (ein Ziel oder mehrere) */
+  const zieleVon = ziel => [ziel].flat().slice().sort()
+  const listenName = ziel => zieleVon(ziel).map(z => Object.keys(LISTEN_ZIEL).find(l => LISTEN_ZIEL[l] === z)).join(' bzw. ')
   // Datei → erwartete Zieltabelle (neue Formulare hier eintragen – der Test verlangt es).
   // Trauben-Qualität (Traubenverkauf, Verkaufsposition Trauben) = Liste der Lese.
+  // Mehrere Ziele (Array) nur, wenn ein Formular je nach Art in verschiedene Tabellen schreibt: der Zukauf
+  // (KAN-80 Nachtrag, 02.10.2026) – Wein/Most → Zielcharge (charge), Trauben → Stufe der Lese (lese).
   const FORMULARE = {
     'src/app/(dashboard)/erntemeldung/[id]/ErnteDetailClient.tsx':             'lese',
     'src/app/(dashboard)/erntemeldung/[id]/TraubenverkaufSection.tsx':         'lese',
@@ -488,8 +493,8 @@ describe('(4) Formulare und Server Actions verwenden die Liste ihrer Zieltabelle
     'src/app/(dashboard)/kellerbuch/eroeffnungsbestand/[id]/edit/page.tsx':    'charge',
     'src/app/(dashboard)/kellerbuch/gebinde/page.tsx':                         'charge',
     'src/app/(dashboard)/admin/import/ImportClient.tsx':                       'charge',
-    'src/app/(dashboard)/weinhandel/zukauf/neu/page.tsx':                      'charge',
-    'src/app/(dashboard)/weinhandel/zukauf/[id]/edit/ZukaufEditForm.tsx':      'charge',
+    'src/app/(dashboard)/weinhandel/zukauf/neu/page.tsx':                      ['charge', 'lese'],
+    'src/app/(dashboard)/weinhandel/zukauf/[id]/edit/ZukaufEditForm.tsx':      ['charge', 'lese'],
     'src/app/(dashboard)/erntemeldung/[id]/PressungSection.tsx':               'charge',   // Abstufen bei der Pressung (KAN-81/KAN-126)
   }
   // Serverprüfung vor dem Schreiben: [Datei, Funktion, Aufruf, weitere Schreibaufrufe (optional),
@@ -516,6 +521,7 @@ describe('(4) Formulare und Server Actions verwenden die Liste ihrer Zieltabelle
     ['src/app/(dashboard)/kellerbuch/gebinde-actions.ts', 'insertEroeffnungsbestand', "qualitaetFehler('charge'"],
     ['src/app/(dashboard)/kellerbuch/gebinde-actions.ts', 'eroeffnungsbestandSpeichern', "qualitaetFehler('charge'"],
     ['src/app/(dashboard)/weinhandel/zukauf/actions.ts', 'parseZukaufFormData', "qualitaetFehler('charge'"],
+    ['src/app/(dashboard)/weinhandel/zukauf/actions.ts', 'parseZukaufFormData', "qualitaetFehler('lese'"],   // KAN-80 Nachtrag: Trauben
     ['src/app/(dashboard)/weinhandel/zukauf/actions.ts', 'createZukauf', 'parseZukaufFormData('],
     ['src/app/(dashboard)/weinhandel/zukauf/actions.ts', 'updateZukauf', 'parseZukaufFormData('],
     // fuellungen
@@ -679,7 +685,7 @@ describe('(4) Formulare und Server Actions verwenden die Liste ihrer Zieltabelle
       const listen = importe(text, 'lib/wein/qualitaet', datei).filter(i => i.name in LISTEN_ZIEL)
       const namen = menge(listen.map(i => i.name))
       const ziele = menge(namen.map(n => LISTEN_ZIEL[n]))
-      if (JSON.stringify(ziele) !== JSON.stringify([ziel])) {
+      if (JSON.stringify(ziele) !== JSON.stringify(zieleVon(ziel))) {
         fehler.push(`${datei}: erwartet Liste für „${ziel}“, importiert ${namen.join(', ') || 'keine'}`)
       }
       if (listen.some(i => i.art === 'dynamisch')) fehler.push(`${datei}: lädt lib/wein/qualitaet dynamisch – Liste statisch importieren`)
@@ -880,13 +886,13 @@ describe('(4) Formulare und Server Actions verwenden die Liste ihrer Zieltabelle
     // = alle 18 Stufen) bei der Lese. Für die übrigen Ziele deckt QUALITAET_LABEL genau deren Liste ab.
     // Ausnahmen je Datei und Name mit Grund: { 'src/…/Datei.tsx': { NAME: 'Grund' } } (bisher keine)
     const AUSNAHMEN = {}
-    const verboten = ziel => ['QUALITAET_ORDER', 'PRAEDIKATSWEIN_ORDER', ...(ziel === 'lese' ? ['QUALITAET_LABEL'] : [])]
+    const verboten = ziel => ['QUALITAET_ORDER', 'PRAEDIKATSWEIN_ORDER', ...(zieleVon(ziel).includes('lese') ? ['QUALITAET_LABEL'] : [])]
     const funde = []
     for (const [datei, ziel] of Object.entries(FORMULARE)) {
       const namen = importierteNamen(readFileSync(path.join(ROOT, ...datei.split('/')), 'utf8'), 'lib/weinqualitaet', datei)
       const ausnahmen = AUSNAHMEN[datei] ?? {}
       for (const n of verboten(ziel)) {
-        if (namen.has(n) && !(n in ausnahmen)) funde.push(`${datei}: importiert ${n} aus lib/weinqualitaet – Liste ${Object.keys(LISTEN_ZIEL).find(l => LISTEN_ZIEL[l] === ziel)} aus lib/wein/qualitaet verwenden`)
+        if (namen.has(n) && !(n in ausnahmen)) funde.push(`${datei}: importiert ${n} aus lib/weinqualitaet – Liste ${listenName(ziel)} aus lib/wein/qualitaet verwenden`)
       }
       for (const [n, grund] of Object.entries(ausnahmen)) {
         if (!namen.has(n)) funde.push(`${datei}: Ausnahme ${n} wird nicht mehr gebraucht – aus AUSNAHMEN entfernen`)
@@ -928,12 +934,12 @@ describe('(4) Formulare und Server Actions verwenden die Liste ihrer Zieltabelle
     const stufen = new Set(werte(QUALITAET_OPTS))
     const funde = []
     for (const [datei, ziel] of Object.entries(FORMULARE)) {
-      const erlaubt = new Set(werte(ZIEL_LISTE[ziel]))
+      const erlaubt = new Set(zieleVon(ziel).flatMap(z => werte(ZIEL_LISTE[z])))
       const ausnahmen = AUSNAHMEN[datei] ?? {}
       const literale = stufenLiterale(readFileSync(path.join(ROOT, ...datei.split('/')), 'utf8'))
       for (const v of new Set(literale)) {
         if (stufen.has(v) && !erlaubt.has(v) && !(v in ausnahmen)) {
-          funde.push(`${datei}: „${v}“ ist keine Stufe für „${ziel}“ – Liste ${Object.keys(LISTEN_ZIEL).find(n => LISTEN_ZIEL[n] === ziel)} verwenden`)
+          funde.push(`${datei}: „${v}“ ist keine Stufe für „${zieleVon(ziel).join('/')}“ – Liste ${listenName(ziel)} verwenden`)
         }
       }
       for (const [v, grund] of Object.entries(ausnahmen)) {
