@@ -636,7 +636,7 @@ BEGIN
      WHERE f.sd AND s.abo IS DISTINCT FROM (f.src ~ %L)
      ORDER BY 1$q$, c_re_abo));
   SELECT count(*) INTO v_n FROM pg_temp.s112_soll_rpc() s WHERE s.abo;
-  v_erg := v_erg || pg_temp.s112_erwarte('rpc_abo_anzahl', v_n, 29::bigint);   -- +2 KAN-167 (s112_betriebsmittel_einkauf, s112_betriebsmittel_stornieren)   -- +1 KAN-150 F1d   -- +1 KAN-150 F1c   -- +3 KAN-149 D2   -- +1 KAN-149 D1   -- +3 KAN-148 C2 (s112_ama_*)   -- +s112_storniert_loeschen (KAN-145), s112_buchung_loeschen (KAN-166), s112_pressung_stornieren (KAN-148)
+  v_erg := v_erg || pg_temp.s112_erwarte('rpc_abo_anzahl', v_n, 30::bigint);   -- +1 KAN-37 B (s112_ama_einreichen)   -- +2 KAN-167 (s112_betriebsmittel_einkauf, s112_betriebsmittel_stornieren)   -- +1 KAN-150 F1d   -- +1 KAN-150 F1c   -- +3 KAN-149 D2   -- +1 KAN-149 D1   -- +3 KAN-148 C2 (s112_ama_*)   -- +s112_storniert_loeschen (KAN-145), s112_buchung_loeschen (KAN-166), s112_pressung_stornieren (KAN-148)
   -- Unabhängig vom Handflag: schreibende SECURITY-DEFINER-RPC (p_tenant_id, EXECUTE für authenticated, Schreib-
   -- anweisung im Quelltext) ohne Abo-Prüfung → FEHLER, außer begründet in s112_soll_liste('abo_rpc_ausnahmen').
   v_erg := v_erg || pg_temp.t01_liste('rpc_schreibt_ohne_abo', format($q$
@@ -657,7 +657,7 @@ BEGIN
   -- Plausibilität der Heuristik: sie erkennt alle 12 RPCs mit Abo-Prüfung als schreibend
   SELECT count(*) INTO v_n FROM pg_temp.t01_funktionen() f JOIN pg_temp.s112_soll_rpc() s ON s.funktion = f.sig
    WHERE s.abo AND f.src ~* c_re_schreibt;
-  v_erg := v_erg || pg_temp.s112_erwarte('rpc_schreibt_heuristik_abo_rpcs', v_n, 27::bigint);   -- +2 KAN-167 (s112_betriebsmittel_einkauf, s112_betriebsmittel_stornieren)   -- +1 KAN-150 F1d (s112_herkunft_setzen)   -- +2 KAN-149 D2 (s112_ea_stornieren schreibt über s112_ea_gegenbuchung)   -- +1 KAN-149 D1   -- +3 KAN-148 C2   -- +3 KAN-148 C1c-2
+  v_erg := v_erg || pg_temp.s112_erwarte('rpc_schreibt_heuristik_abo_rpcs', v_n, 28::bigint);   -- +1 KAN-37 B   -- +2 KAN-167 (s112_betriebsmittel_einkauf, s112_betriebsmittel_stornieren)   -- +1 KAN-150 F1d (s112_herkunft_setzen)   -- +2 KAN-149 D2 (s112_ea_stornieren schreibt über s112_ea_gegenbuchung)   -- +1 KAN-149 D1   -- +3 KAN-148 C2   -- +3 KAN-148 C1c-2
   -- p_tenant_id ohne pruefe_tenant_zugriff: nur mit Einstufung mandant_eigen, session_user, intern oder rls_hilfe
   v_erg := v_erg || pg_temp.t01_liste('ptz_nicht_eingestuft', format($q$
     SELECT f.sig AS schluessel,

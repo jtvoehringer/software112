@@ -26,6 +26,8 @@ import { SPERR_TEXT, sitzungsSperre } from '@/lib/auth/sperren'
 // → 403 Modul/Zugriff → 400 Parameter → laden (dieselbe Ladefunktion wie die Druckseite) → CSV.
 // GET ohne Seiteneffekte (kein Export-Protokoll – das bräuchte eine Migration).
 // Leermeldung: 0 Datensätze → Datei nur mit Kopfzeile, HTTP 200, X-Zeilen: 0.
+// KAN-37 Etappe B (02.10.2026): ?abgabe=<id> liefert die beim Einreichen gespeicherte Datei (meldung_abgaben) byte-gleich
+// aus – statt sie neu zu erzeugen; Zugriff wie die Meldung selbst, die Warnung nennt Datum und SHA-256.
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -48,6 +50,20 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ meld
 
     const verboten = zugriffsFehler(meldung, membership, module)
     if (verboten) return fehlerAntwort(403, verboten)
+
+    const abgabeId = req.nextUrl.searchParams.get('abgabe')
+    if (abgabeId !== null) {
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(abgabeId)) return fehlerAntwort(400, 'Ungültige Abgabe.')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: abgabe, error } = await (supabase.from('meldung_abgaben') as any)
+        .select('csv_text, csv_sha256, dateiname, zeilen_anzahl, eingereicht_am')
+        .eq('tenant_id', tenantId).eq('meldung', id).eq('id', abgabeId).maybeSingle()
+      if (error) throw new Error(`Laden fehlgeschlagen (meldung_abgaben): ${error.message}`)
+      if (!abgabe) return fehlerAntwort(404, 'Diese abgegebene Meldung gibt es nicht (mehr).')
+      const am = String(abgabe.eingereicht_am).split('-').reverse().join('.')
+      return csvAntwort(abgabe.csv_text, abgabe.dateiname, Number(abgabe.zeilen_anzahl) || 0,
+        [`Abgegebene Fassung vom ${am} – unverändert gespeichert (SHA-256 ${abgabe.csv_sha256}).`])
+    }
 
     const p = meldung.parameter(req.nextUrl.searchParams)
     if (istParameterFehler(p)) return fehlerAntwort(400, p.fehler)

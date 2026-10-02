@@ -87,10 +87,10 @@ DECLARE
   c_m         constant uuid := '33333333-3333-4333-8333-333333333333';
   -- Muss mit ABO_GESPERRTE_STATUS in src/lib/abo/regeln.ts (und s112_abo_gesperrt) übereinstimmen.
   c_gesperrt  constant text[] := ARRAY['unpaid', 'canceled', 'cancelled', 'incomplete', 'incomplete_expired', 'paused'];
-  -- Schreibende SECURITY-DEFINER-RPCs mit s112_pruefe_abo_schreibsperre (Soll-Liste, 29 Stück; s112_betriebsmittel_einkauf/_stornieren seit KAN-167; s112_herkunft_setzen seit KAN-150 F1d; s112_kontakt_historie_zu_firma seit KAN-150 F1c; s112_fuellung_verkauf_buchen seit KAN-149 D1; s112_ea_/zahlung_/umbuchung_stornieren seit D2; s112_storniert_loeschen seit KAN-145, s112_buchung_loeschen seit KAN-166, s112_pressung_stornieren/_zeilen_stornieren, s112_mostzeile_anlegen, s112_pressung_anlegen seit KAN-148, s112_ama_* seit KAN-148 C2).
+  -- Schreibende SECURITY-DEFINER-RPCs mit s112_pruefe_abo_schreibsperre (Soll-Liste, 29 Stück; s112_betriebsmittel_einkauf/_stornieren seit KAN-167; s112_herkunft_setzen seit KAN-150 F1d; s112_kontakt_historie_zu_firma seit KAN-150 F1c; s112_fuellung_verkauf_buchen seit KAN-149 D1; s112_ea_/zahlung_/umbuchung_stornieren seit D2; s112_storniert_loeschen seit KAN-145, s112_buchung_loeschen seit KAN-166, s112_pressung_stornieren/_zeilen_stornieren, s112_mostzeile_anlegen, s112_pressung_anlegen seit KAN-148, s112_ama_* seit KAN-148 C2, s112_ama_einreichen seit KAN-37 B).
   c_abo_rpcs  constant text[] := ARRAY['fuellung_bestand_buchen', 'get_next_accountnummer', 'get_next_chargennummer',
                                        'get_next_liefernummer', 'get_next_personenkonto', 'get_next_rechnungsnummer',
-                                       'get_next_transaktionsnr', 'kontakte_zusammenfuehren', 's112_ama_korrektur_anlegen', 's112_ama_meldung_speichern', 's112_ama_status_setzen', 's112_betriebsmittel_einkauf', 's112_betriebsmittel_stornieren', 's112_buchung_loeschen', 's112_ea_stornieren', 's112_fuellung_verkauf_buchen', 's112_herkunft_setzen', 's112_kontakt_historie_zu_firma', 's112_mostzeile_anlegen', 's112_pressung_anlegen', 's112_pressung_stornieren', 's112_pressung_zeilen_stornieren', 's112_storniert_loeschen', 's112_umbuchung_stornieren', 's112_zahlung_stornieren', 'schwund_buchen',
+                                       'get_next_transaktionsnr', 'kontakte_zusammenfuehren', 's112_ama_einreichen', 's112_ama_korrektur_anlegen', 's112_ama_meldung_speichern', 's112_ama_status_setzen', 's112_betriebsmittel_einkauf', 's112_betriebsmittel_stornieren', 's112_buchung_loeschen', 's112_ea_stornieren', 's112_fuellung_verkauf_buchen', 's112_herkunft_setzen', 's112_kontakt_historie_zu_firma', 's112_mostzeile_anlegen', 's112_pressung_anlegen', 's112_pressung_stornieren', 's112_pressung_zeilen_stornieren', 's112_storniert_loeschen', 's112_umbuchung_stornieren', 's112_zahlung_stornieren', 'schwund_buchen',
                                        'setze_kontobewegung_abgeglichen', 'sperre_ea_monat', 'sperre_ea_uva'];
   -- Tabellen, deren Policies auth.uid() gegen eine Eigentümerspalte prüfen (wie t12_pro_persona in Datei 12)
   c_eigentuemer constant text[] := ARRAY['assistent_unterhaltungen', 'assistent_aktionen', 'assistent_nachrichten',
@@ -453,7 +453,11 @@ BEGIN
     's112_fuellung_verkauf_buchen', format('SELECT public.s112_fuellung_verkauf_buchen(%L, %L, gen_random_uuid(), 1, current_date, %L)', v_b, v_fz_b, 'S112TEST Rückbuchung'),
     's112_ama_korrektur_anlegen', format('SELECT public.s112_ama_korrektur_anlegen(%L, %L)', v_b, v_ama_ein),
     's112_ama_meldung_speichern', format('SELECT public.s112_ama_meldung_speichern(%L, %L, %L::jsonb, %L::jsonb)', v_b, v_ama_jg2, '{}', '[]'),
-    's112_ama_status_setzen', format('SELECT public.s112_ama_status_setzen(%L, %L, %L, current_date, NULL)', v_b, v_ama_ber, 'eingereicht'),
+    -- KAN-37 B: „eingereicht“ nur über s112_ama_einreichen; status_setzen hier mit der AMA-Rückmeldung
+    's112_ama_status_setzen', format('SELECT public.s112_ama_status_setzen(%L, %L, %L, current_date, NULL)', v_b, v_ama_ein, 'bestaetigt'),
+    's112_ama_einreichen', format('SELECT public.s112_ama_einreichen(%L, %L, current_date, NULL, %L::jsonb)', v_b, v_ama_ber,
+      jsonb_build_object('meldung', 'erntemeldung', 'parameter', jsonb_build_object('jahrgang', (SELECT j.jahrgang FROM public.weinjahrgaenge j WHERE j.id = v_ama_jg2)),
+        'zeilen', '[]'::jsonb, 'spalten', '[{"kopf": "S112TEST", "typ": "text"}]'::jsonb, 'profil', 'EXCEL_AT', 'dateiname', 'S112TEST.csv', 'csv', 'S112TEST')),
     's112_pressung_stornieren', format('SELECT public.s112_pressung_stornieren(%L, %L, %L)', v_b, v_pr, 'S112TEST Pressung storniert'),
     's112_pressung_zeilen_stornieren', format('SELECT public.s112_pressung_zeilen_stornieren(%L, %L, %L::uuid[], %L::uuid[], %L)', v_b, v_pr, '{}', '{}', 'S112TEST Bearbeiten'),
     's112_mostzeile_anlegen', format('SELECT public.s112_mostzeile_anlegen(%L, %L, %L, 1, NULL, %L::jsonb)', v_b, v_pr, v_beh_b, '{"name": "S112TEST"}'),

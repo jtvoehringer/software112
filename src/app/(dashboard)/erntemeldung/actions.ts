@@ -20,6 +20,7 @@ import { KORREKTUR_NACH_OBEN_HINWEIS } from '@/lib/kellerbuch/hinweise'
 import { aggregiereJeRebsorte, KG_JE_HL, kopfGebiete, ladeLesedaten, parzelleFuerMeldung, teileNachStichtag } from '@/lib/behoerden/erntemeldung'
 import { runden, STELLEN } from '@/lib/csv'
 import { amaDatumFehler, amaStatusFehler, type AmaZielStatus } from '@/lib/behoerden/amaMeldung'
+import { abgabeErzeugen } from '@/lib/behoerden/abgabe'
 import { mostgewichtAusFormular, mostgewichtAusWert, mostgewichtSpalten } from '@/lib/wein/mostgewichtFormular'
 import { abrunden, KMW_STELLEN, mischenMitAnteil, type Mostgewicht } from '@/lib/wein/mostgewicht'
 import { istErntebar, leseZiele, verteileKg, type LeseGst, type LeseZiel } from '@/lib/wein/leseErfassung'
@@ -795,10 +796,14 @@ export async function createOrUpdateAMAMeldung(jahrgangId: string) {
 // Nur vorwärts und nur für die neueste Version; Datum (nicht in der Zukunft) ist Pflicht, die Referenznummer optional.
 // „Eingereicht“ setzt am Jahrgang ama_gemeldet/ama_meldedatum/ama_meldungsnr mit (RPC s112_ama_status_setzen).
 // Darf, wer die Erntemeldung schreiben darf – auch Mitarbeiter (KAN-166).
+// KAN-37 Etappe B (02.10.2026): „Eingereicht“ speichert die Meldung als Snapshot (Zeilen, Parameter, Spalten und die CSV
+// samt SHA-256, Tabelle meldung_abgaben) – erzeugt wie die zentrale CSV-Route und in derselben Transaktion wie der
+// Statuswechsel (RPC s112_ama_einreichen). Die abgegebene Datei bleibt so byte-gleich abrufbar.
 export async function amaStatusSetzen(meldungId: string, jahrgangId: string, status: AmaZielStatus, datum: string, referenznr: string) {
   const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId()
-  await ladeJahrgang(supabase, tenantId, jahrgangId)
+  const membership = await getMembership()
+  const tenantId = membership.tenantId
+  const jg = await ladeJahrgang(supabase, tenantId, jahrgangId)
   const heute = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Vienna' })
   const datumFehler = amaDatumFehler(datum, heute)
   if (datumFehler) throw new AktionsFehler(datumFehler)
@@ -811,11 +816,20 @@ export async function amaStatusSetzen(meldungId: string, jahrgangId: string, sta
   if (!m) throw new AktionsFehler('AMA-Erntemeldung nicht gefunden – bitte die Seite neu laden.')
   const statusFehler = amaStatusFehler((m as AR).status, status)
   if (statusFehler) throw new AktionsFehler(statusFehler)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.rpc as any)('s112_ama_status_setzen', {
-    p_tenant_id: tenantId, p_meldung_id: meldungId, p_status: status, p_datum: datum, p_referenznr: ref || null,
-  })
-  if (error) throw new AktionsFehler(dbFehlerText(error, 'Der Status der AMA-Meldung konnte nicht gesetzt werden'))
+  if (status === 'eingereicht') {
+    const abgabe = await abgabeErzeugen({ supabase, tenantId, membership }, 'erntemeldung', { jahrgang: String(jg.jahrgang) })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase.rpc as any)('s112_ama_einreichen', {
+      p_tenant_id: tenantId, p_meldung_id: meldungId, p_datum: datum, p_referenznr: ref || null, p_abgabe: abgabe,
+    })
+    if (error) throw new AktionsFehler(dbFehlerText(error, 'Die AMA-Meldung konnte nicht eingereicht werden'))
+  } else {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase.rpc as any)('s112_ama_status_setzen', {
+      p_tenant_id: tenantId, p_meldung_id: meldungId, p_status: status, p_datum: datum, p_referenznr: ref || null,
+    })
+    if (error) throw new AktionsFehler(dbFehlerText(error, 'Der Status der AMA-Meldung konnte nicht gesetzt werden'))
+  }
   revalidatePath(`/erntemeldung/${jahrgangId}`)
   revalidatePath('/erntemeldung')
 }

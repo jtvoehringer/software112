@@ -44,6 +44,8 @@ export type WeingartenOpt = {
 export type AMAVersion = {
   id: string; version: number; status: string; gesamtmenge_kg: number | null
   eingereicht_am: string | null; bestaetigt_am: string | null; ama_referenznr: string | null
+  /** KAN-37 B: beim Einreichen gespeicherte Datei (meldung_abgaben); null = offen oder vor KAN-37 B eingereicht */
+  abgabe: { id: string; csv_sha256: string } | null
 }
 /** Neueste Version der AMA-Erntemeldung des Jahrgangs mit ihren Positionen und allen Versionen (absteigend) */
 export type AMAMeldung = AMAVersion & {

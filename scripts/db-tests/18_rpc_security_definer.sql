@@ -196,7 +196,7 @@ DECLARE
   c_idor  constant text[] := ARRAY['fuellung_bestand_buchen', 'schwund_buchen',
                                    'setze_kontobewegung_abgeglichen', 's112_storniert_loeschen', 's112_buchung_loeschen',
                                    's112_schwund_minderung', 's112_pressung_stornieren', 's112_pressung_zeilen_stornieren', 's112_mostzeile_anlegen',
-                                   's112_ama_korrektur_anlegen', 's112_ama_meldung_speichern', 's112_ama_status_setzen',
+                                   's112_ama_korrektur_anlegen', 's112_ama_meldung_speichern', 's112_ama_status_setzen', 's112_ama_einreichen',   -- KAN-37 B
                                    's112_fuellung_verkauf_buchen', 's112_ea_stornieren', 's112_zahlung_stornieren', 's112_umbuchung_stornieren',
                                    's112_stammdaten_bezuege',   -- KAN-150 F1a
                                    's112_kontakt_historie_zu_firma',   -- KAN-150 F1c
@@ -329,8 +329,8 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('rpc_liste_vollstaendig', v_n >= 30, true);   -- 30 seit KAN-127 (get_behandlungen_fuer_grundstuecke entfernt)
   SELECT count(*) INTO v_n FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace AND n.nspname = 'public'
    WHERE p.prosecdef AND 'p_tenant_id' = ANY (p.proargnames) AND p.prosrc ~ 'pruefe_tenant_zugriff\s*\(';
-  v_erg := v_erg || pg_temp.s112_erwarte('rpc_mit_pruefe_tenant_zugriff', v_n, 37);   -- +2 KAN-167 (s112_betriebsmittel_einkauf, _stornieren)   -- +1 KAN-151 G1 (s112_mandant_loeschen)   -- +1 KAN-150 F1d (s112_herkunft_setzen)   -- +1 KAN-150 F1c (s112_kontakt_historie_zu_firma)   -- +1 KAN-150 F1a (s112_stammdaten_bezuege)   -- +3 KAN-149 D2   -- +1 KAN-149 D1   -- +3 KAN-148 C2 (s112_ama_*)   -- +3 KAN-148 C1c-2   -- +s112_pressung_stornieren (KAN-148 C1c)   -- +s112_schwund_minderung (KAN-145 B4)   -- +s112_storniert_loeschen (KAN-145), s112_buchung_loeschen (KAN-166)
-  v_erg := v_erg || pg_temp.s112_erwarte('pruefe_liste_dynamisch', coalesce(array_length(v_namen, 1), 0), 35);   -- +2 KAN-167   -- +1 KAN-150 F1d   -- +1 KAN-150 F1c   -- +1 KAN-150 F1a   -- +3 KAN-149 D2   -- +1 KAN-149 D1   -- +3 KAN-148 C2
+  v_erg := v_erg || pg_temp.s112_erwarte('rpc_mit_pruefe_tenant_zugriff', v_n, 38);   -- +1 KAN-37 B (s112_ama_einreichen)   -- +2 KAN-167 (s112_betriebsmittel_einkauf, _stornieren)   -- +1 KAN-151 G1 (s112_mandant_loeschen)   -- +1 KAN-150 F1d (s112_herkunft_setzen)   -- +1 KAN-150 F1c (s112_kontakt_historie_zu_firma)   -- +1 KAN-150 F1a (s112_stammdaten_bezuege)   -- +3 KAN-149 D2   -- +1 KAN-149 D1   -- +3 KAN-148 C2 (s112_ama_*)   -- +3 KAN-148 C1c-2   -- +s112_pressung_stornieren (KAN-148 C1c)   -- +s112_schwund_minderung (KAN-145 B4)   -- +s112_storniert_loeschen (KAN-145), s112_buchung_loeschen (KAN-166)
+  v_erg := v_erg || pg_temp.s112_erwarte('pruefe_liste_dynamisch', coalesce(array_length(v_namen, 1), 0), 36);   -- +1 KAN-37 B   -- +2 KAN-167   -- +1 KAN-150 F1d   -- +1 KAN-150 F1c   -- +1 KAN-150 F1a   -- +3 KAN-149 D2   -- +1 KAN-149 D1   -- +3 KAN-148 C2
   -- Soll-Einträge mit p_tenant_id, die es nicht (mehr) gibt
   SELECT string_agg(s.funktion, ', ') INTO v_txt FROM pg_temp.s112_soll_rpc() s
    WHERE s.funktion LIKE '%p_tenant_id %'
@@ -400,7 +400,7 @@ BEGIN
   END LOOP;
   PERFORM pg_temp.s112_als_postgres();
   UPDATE public.tenants SET stripe_status = NULL WHERE id = v_b;
-  v_erg := v_erg || pg_temp.s112_erwarte('abo_rpcs_geprueft', v_n, 28);   -- +2 KAN-167   -- +1 KAN-150 F1d   -- +1 KAN-150 F1c   -- +3 KAN-149 D2   -- +1 KAN-149 D1   -- +3 KAN-148 C2   -- +3 KAN-148 C1c-2   -- +s112_pressung_stornieren (KAN-148)
+  v_erg := v_erg || pg_temp.s112_erwarte('abo_rpcs_geprueft', v_n, 29);   -- +1 KAN-37 B   -- +2 KAN-167   -- +1 KAN-150 F1d   -- +1 KAN-150 F1c   -- +3 KAN-149 D2   -- +1 KAN-149 D1   -- +3 KAN-148 C2   -- +3 KAN-148 C1c-2   -- +s112_pressung_stornieren (KAN-148)
 
   -- ── 4. 'eigen': eigene Mitgliedsprüfung (ohne pruefe_tenant_zugriff) ──────────────────────────────────
   SELECT count(*) INTO v_n FROM public.tenant_memberships WHERE tenant_id = v_m AND aktiv;
@@ -575,13 +575,18 @@ BEGIN
   v_am_m := (pg_temp.s112_beispiel('ama_erntemeldungen', v_m, v_mw, jsonb_build_object('jahrgang_id', v_ajg_m, 'status', 'bereit')) ->> 'id')::uuid;
   v_am_b := (pg_temp.s112_beispiel('ama_erntemeldungen', v_b, (v_a ->> 'b_w')::uuid, jsonb_build_object('jahrgang_id', v_ajg_b, 'status', 'bereit')) ->> 'id')::uuid;
   FOREACH v_txt IN ARRAY ARRAY['m', 'b'] LOOP
-    v_sql := format('SELECT public.s112_ama_status_setzen(%L, %L, %L, current_date, NULL)', v_b, CASE v_txt WHEN 'm' THEN v_am_m ELSE v_am_b END, 'eingereicht');
+    -- KAN-37 B: „eingereicht“ nur noch über s112_ama_einreichen (mit Snapshot der CSV)
+    v_sql := format('SELECT public.s112_ama_einreichen(%L, %L, current_date, NULL, %L::jsonb)', v_b, CASE v_txt WHEN 'm' THEN v_am_m ELSE v_am_b END,
+      jsonb_build_object('meldung', 'erntemeldung', 'parameter', jsonb_build_object('jahrgang',
+        (SELECT j.jahrgang FROM public.weinjahrgaenge j WHERE j.id = CASE v_txt WHEN 'm' THEN v_ajg_m ELSE v_ajg_b END)),
+        'zeilen', '[]'::jsonb, 'spalten', '[{"kopf": "S112TEST", "typ": "text"}]'::jsonb, 'profil', 'EXCEL_AT',
+        'dateiname', 'S112TEST.csv', 'csv', 'S112TEST'));
     v_pruef := format('SELECT status FROM public.ama_erntemeldungen WHERE id = %L', CASE v_txt WHEN 'm' THEN v_am_m ELSE v_am_b END);
     v_r := pg_temp.t18_idor(v_bta, v_sql, v_pruef);
     IF v_txt = 'm' THEN
-      v_erg := v_erg || pg_temp.s112_erwarte('idor_s112_ama_status_setzen', split_part(v_r, '|', 2), 'bereit');
+      v_erg := v_erg || pg_temp.s112_erwarte('idor_s112_ama_einreichen', split_part(v_r, '|', 2), 'bereit');
     ELSE
-      v_erg := v_erg || pg_temp.s112_erwarte('idor_positiv_s112_ama_status_setzen', v_r, 'ok|eingereicht');
+      v_erg := v_erg || pg_temp.s112_erwarte('idor_positiv_s112_ama_einreichen', v_r, 'ok|eingereicht');
     END IF;
   END LOOP;
   UPDATE public.ama_erntemeldungen SET status = 'eingereicht', eingereicht_am = current_date WHERE id IN (v_am_m, v_am_b);
@@ -595,6 +600,22 @@ BEGIN
       v_erg := v_erg || pg_temp.s112_erwarte('idor_positiv_s112_ama_korrektur_anlegen', v_r, 'ok|2');
     END IF;
   END LOOP;
+  -- s112_ama_status_setzen: AMA-Rückmeldung (eingereicht → bestätigt); „eingereicht“ selbst nur über s112_ama_einreichen
+  FOREACH v_txt IN ARRAY ARRAY['m', 'b'] LOOP
+    v_sql := format('SELECT public.s112_ama_status_setzen(%L, %L, %L, current_date, NULL)', v_b, CASE v_txt WHEN 'm' THEN v_am_m ELSE v_am_b END, 'bestaetigt');
+    v_pruef := format('SELECT status FROM public.ama_erntemeldungen WHERE id = %L', CASE v_txt WHEN 'm' THEN v_am_m ELSE v_am_b END);
+    v_r := pg_temp.t18_idor(v_bta, v_sql, v_pruef);
+    IF v_txt = 'm' THEN
+      v_erg := v_erg || pg_temp.s112_erwarte('idor_s112_ama_status_setzen', split_part(v_r, '|', 2), 'eingereicht');
+    ELSE
+      v_erg := v_erg || pg_temp.s112_erwarte('idor_positiv_s112_ama_status_setzen', v_r, 'ok|bestaetigt');
+    END IF;
+  END LOOP;
+  v_erg := v_erg || pg_temp.s112_erwarte('kan37b_eingereicht_nur_mit_abgabe',
+    pg_temp.t18_idor(v_bta, format('SELECT public.s112_ama_status_setzen(%L, %L, %L, current_date, NULL)', v_b,
+      (pg_temp.s112_beispiel('ama_erntemeldungen', v_b, (v_a ->> 'b_w')::uuid, jsonb_build_object('jahrgang_id',
+        (pg_temp.s112_beispiel('weinjahrgaenge', v_b, (v_a ->> 'b_w')::uuid, jsonb_build_object('jahrgang', 1901)) ->> 'id')::uuid, 'status', 'bereit')) ->> 'id'),
+      'eingereicht'), 'SELECT 1'), '42501|1');
 
   -- s112_fuellung_verkauf_buchen (KAN-149 D1): Flaschen einer fremden Füllung (M) – Bestand unverändert, eigene (B) – +1
   v_fz_m := (pg_temp.s112_beispiel('fuellungen', v_m, v_mw, '{"bestand_flaschen": 10}'::jsonb) ->> 'id')::uuid;
