@@ -4,7 +4,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { ladeBehaelter, gebindeFehlerText } from '@/lib/keller/behaelter'
 import { revalidatePath } from 'next/cache'
 import { minQualitaet } from '@/lib/wein/qualitaet'
-import { minHerkunft } from '@/lib/herkunft'
+import { minHerkunft, maxHerkunft, istNiedrigerAls as herkunftIstNiedrigerAls, HERKUNFT_LABEL } from '@/lib/herkunft'
 import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
 import { deleteUmzug as _deleteUmzug } from '../gebinde-actions'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
@@ -14,6 +14,8 @@ import { fmtNum, zahlAus } from '@/lib/format'
 import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { weinartKonflikt, weinartKonfliktText, weinartAusFarbe, weinartBekannt } from '@/lib/keller/weinart'
 import { ladeUmzugZeilen, planeUmzugStorno, umzugSperrMeldung, nurNotizenAenderbar } from '@/lib/kellerbuch/storno'
+import { pruefePruefnummernSchaden } from '@/lib/kellerbuch/pruefnummerLaden'
+import { waehleZielCharge } from '@/lib/kellerbuch/umzugZiel'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -49,7 +51,24 @@ function leseZeilen(fd: FormData): { quellen: QuelleInput[]; ziele: ZielInput[] 
   return { quellen, ziele }
 }
 
-export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { existingChargeId: string; newChargeId: string; menge: number }; abstufung?: { von: string; nach: string; vonLabel: string; nachLabel: string } } | void> {
+/** KAN-94 (01.10.2026): Charge ändern und die Zeilenzahl prüfen – bisher wurde nur auf Fehler
+ *  geprüft; lieferte das UPDATE 0 Zeilen (RLS, Charge inzwischen gelöscht), entstand eine
+ *  Umzugszeile ohne Bestandsänderung. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function aendereCharge(supabase: any, tenantId: string, charge: R, werte: R): Promise<void> {
+  const { data, error } = await (supabase.from('weinausbau') as any)
+    .update(werte)
+    .eq('id', charge.id)
+    .eq('tenant_id', tenantId)
+    .select('id')
+  if (error) throw new AktionsFehler(`Speichern fehlgeschlagen (weinausbau): ${dbFehlerText(error)}`)
+  if (((data ?? []) as R[]).length !== 1) {
+    throw new AktionsFehler(`Die Charge „${charge.name ?? '?'}“ konnte nicht geändert werden (keine Berechtigung oder inzwischen geändert). Der Umzug wurde an dieser Stelle abgebrochen – bitte die Seite neu laden und die Bestände im Umzug-Protokoll prüfen.`)
+  }
+}
+
+// KAN-83: bestaetigung = Rückfrage „Prüfnummer gilt nicht mehr“ – nichts gebucht; mit pn_bestaetigt=1 erneut senden
+export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { existingChargeId: string; newChargeId: string; menge: number }; abstufung?: { von: string; nach: string; vonLabel: string; nachLabel: string }; bestaetigung?: string } | void> {
   const supabase = await createSupabaseServerClient()
 
   const { quellen, ziele } = leseZeilen(fd)
@@ -123,20 +142,55 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
 
   // Bestand der Quellen VOR der ersten Buchung prüfen, Menge je Charge summiert (KAN-35) –
   // bisher wurde erst in der Schleife geprüft, wenn frühere Quellen schon reduziert waren.
+  const bedarf = new Map<string, number>()
+  for (const q of quellen) bedarf.set(q.weinausbau_id, (bedarf.get(q.weinausbau_id) ?? 0) + q.menge)
+  let quellRows: R[] = []
   {
-    const bedarf = new Map<string, number>()
-    for (const q of quellen) bedarf.set(q.weinausbau_id, (bedarf.get(q.weinausbau_id) ?? 0) + q.menge)
     const { data: bRows, error: bErr } = await (supabase.from('weinausbau') as any)
-      .select('id, name, menge_liter').in('id', [...bedarf.keys()]).eq('tenant_id', tenantId)
+      .select('id, name, menge_liter, rebsorte').in('id', [...bedarf.keys()]).eq('tenant_id', tenantId)
     if (bErr) throw new AktionsFehler(dbFehlerText(bErr, 'Quell-Chargen konnten nicht geladen werden'))
+    quellRows = (bRows ?? []) as R[]
     for (const [id, menge] of bedarf) {
-      const w = ((bRows ?? []) as R[]).find(r => r.id === id)
+      const w = quellRows.find(r => r.id === id)
       if (!w) throw new AktionsFehler('Charge nicht gefunden')
       const verfuegbar = parseFloat(w.menge_liter) || 0
       if (menge > verfuegbar + 0.01) {
         throw new AktionsFehler(`„${w.name}": Menge (${fmtNum(menge)} L) überschreitet verfügbaren Bestand (${fmtNum(verfuegbar)} L)`)
       }
     }
+  }
+
+  // KAN-83 (01.10.2026): Zusammenführung mit einer Charge, die eine geltende Prüfnummer hat –
+  // VOR der ersten Buchung. Die Ziel-Charge wird mit derselben Regel bestimmt wie unten in
+  // Phase 2 (waehleZielCharge); Quell-Chargen selbst zählen dabei nicht als Ziel. Umzug in ein
+  // leeres Gebinde oder in eine neue Charge (Rebsortenmix → Verschneiden-Formular, das selbst
+  // nachfragt) bleibt ohne Rückfrage.
+  const pnNotizJeCharge = new Map<string, string>()
+  {
+    const quellRebsorten = quellen.map(q => quellRows.find(r => r.id === q.weinausbau_id) as R)
+    const quellIds = new Set(quellen.map(q => q.weinausbau_id))
+    const zielMenge = new Map<string, { name: string | null; liter: number }>()
+    for (const z of ziele) {
+      const { data: vRaw, error: vErr } = await (supabase.from('weinausbau') as any)
+        .select('id, name, rebsorte, menge_liter')
+        .eq('behaelter_id', z.behaelter_id)
+        .eq('aktiv', true)
+        .neq('status', 'abgeschlossen')
+        .eq('tenant_id', tenantId)
+      if (vErr) throw new AktionsFehler(dbFehlerText(vErr, 'Ziel-Chargen konnten nicht geladen werden'))
+      const { vorhanden, istRebsortenmix } = waehleZielCharge(((vRaw ?? []) as R[]).filter(v => !quellIds.has(v.id)), quellRebsorten)
+      if (!vorhanden || istRebsortenmix) continue
+      const bisher = zielMenge.get(vorhanden.id)
+      zielMenge.set(vorhanden.id, { name: vorhanden.name ?? null, liter: (bisher?.liter ?? 0) + z.menge })
+    }
+    const fragen: string[] = []
+    for (const [chargeId, { name, liter }] of zielMenge) {
+      const pn = await pruefePruefnummernSchaden(supabase, tenantId, 'umzug', [{ chargeId, name, zugangLiter: liter }], datum)
+      if (!pn) continue
+      fragen.push(pn.frage)
+      pnNotizJeCharge.set(chargeId, pn.notiz)
+    }
+    if (fragen.length > 0 && fd.get('pn_bestaetigt') !== '1') return { bestaetigung: fragen.join('\n') }
   }
 
   const batchId = crypto.randomUUID()
@@ -151,7 +205,7 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
     const q = quellen[i]
 
     const { data: vonRaw } = await (supabase.from('weinausbau') as any)
-      .select('*').eq('id', q.weinausbau_id).eq('tenant_id', tenantId).single()
+      .select('*').eq('id', q.weinausbau_id).eq('tenant_id', tenantId).maybeSingle()
     const von = vonRaw as R
     if (!von) throw new AktionsFehler('Charge nicht gefunden')
 
@@ -166,21 +220,11 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
     minQualStufe = minQualitaet(minQualStufe, von.qualitaetsstufe ?? null)
 
     // Bestand reduzieren / Charge abschließen (Rest ≤ 0,01 L wird mit ausgebucht –
-    // die Menge ist oben gegen den Bestand geprüft, hier wird nichts gekappt)
+    // die Menge ist oben gegen den Bestand geprüft, hier wird nichts gekappt).
+    // KAN-94: Zeilenzahl prüfen – sonst entstünde eine Umzugszeile ohne Bestandsänderung.
     const restmenge = +(verfuegbar - q.menge).toFixed(3)
-    if (restmenge <= 0.01) {
-      { const { error: e } = await (supabase.from('weinausbau') as any)
-        .update({ menge_liter: 0, aktiv: false, status: 'abgeschlossen' })
-        .eq('id', q.weinausbau_id)
-        .eq('tenant_id', tenantId)
-        if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
-    } else {
-      { const { error: e } = await (supabase.from('weinausbau') as any)
-        .update({ menge_liter: restmenge })
-        .eq('id', q.weinausbau_id)
-        .eq('tenant_id', tenantId)
-        if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
-    }
+    await aendereCharge(supabase, tenantId, von,
+      restmenge <= 0.01 ? { menge_liter: 0, aktiv: false, status: 'abgeschlossen' } : { menge_liter: restmenge })
 
     // Quelle-Record (zeilen_typ = 'quelle') – ein Eintrag pro Quell-Charge
     const { error: qErr } = await (supabase.from('keller_umzuege') as any).insert({
@@ -194,6 +238,9 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
       umzug_typ:         umzugTyp,
       qualitaet_vorher:  von.qualitaetsstufe ?? null,
       qualitaet_nachher: minQualStufe,
+      // KAN-94: Herkunft der Quell-Charge (bleibt unverändert) – Audit
+      herkunft_code_vorher:  von.herkunft_code ?? null,
+      herkunft_code_nachher: von.herkunft_code ?? null,
       verschnitt:        false,
       notizen:           i === 0 ? notizen : null,
       umzug_batch_id:    batchId,
@@ -225,69 +272,60 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
     // KAN-145: Qualität der Ziel-Charge vor/nach der Zusammenführung (Momentaufnahme für den Storno)
     let zielVorher: string | null = null
     let zielNachher: string | null = null
+    // KAN-94: dasselbe für den Herkunft-Code (keller_umzuege.herkunft_code_vorher/_nachher)
+    let herkunftVorher: string | null = null
+    let herkunftNachher: string | null = null
+    const zielVermerke: string[] = []
 
-    // Rebsortenmix-Check: erste Quell-Rebsorte vs. bestehende Charge(n) im Zielbehälter.
-    // Wichtig: eine bestehende Charge OHNE eindeutige Rebsorte (rebsorte = null, typischerweise
-    // weil sie selbst schon ein Verschnitt ist, z.B. "Sortenverschnitt") zählt HIER ebenfalls als
-    // Mix, nicht als "unbedenklich gleich" – vorher wurde in diesem Fall stillschweigend
-    // zusammengeführt, weil `vorhanden.rebsorte != null` fehlschlug, obwohl real zwei
-    // unterschiedliche Herkünfte im selben Tank landeten (Bugreport 5.8.2026: Weisser Riesling
-    // wurde stillschweigend mit einem bestehenden Sortenverschnitt vermischt, ohne dass der
-    // Verschneiden-Dialog bzw. eine Verschneidungs-Buchung ausgelöst wurde).
-    const quelleRebsorte = quellenDaten.length === 1 ? (quellenDaten[0].rebsorte ?? null) : null
-
-    // Liegt bereits eine Charge MIT EXAKT DERSELBEN Rebsorte im Ziel-Gebinde (auch wenn dort
-    // noch weitere, andere Chargen herumstehen)? Dann direkt in DIESE zusammenführen.
-    const gleicheRebsorte = quelleRebsorte != null
-      ? vorhandenListe.find(v => v.rebsorte === quelleRebsorte) ?? null
-      : null
-
-    // Anker-Charge für den Vergleich: bevorzugt die mit gleicher Rebsorte; sonst (falls
-    // mehrere lose Chargen im Ziel liegen) die mengenmäßig größte als sinnvollster Ausgangspunkt
-    // für eine Verschneidung – der User kann im Verschneiden-Formular ohnehin beliebig weitere
-    // Chargen aus demselben Tank ergänzen.
-    const vorhanden = gleicheRebsorte
-      ?? (vorhandenListe.length > 0
-            ? [...vorhandenListe].sort((a, b) => (parseFloat(b.menge_liter) || 0) - (parseFloat(a.menge_liter) || 0))[0]
-            : null)
-
-    const istRebsortenmix = vorhanden != null
-      && quelleRebsorte != null
-      && (vorhanden.rebsorte == null || quelleRebsorte !== vorhanden.rebsorte)
+    // Rebsortenmix-Check und Wahl der Anker-Charge: siehe waehleZielCharge
+    const { vorhanden, istRebsortenmix } = waehleZielCharge(vorhandenListe, quellenDaten)
 
     if (vorhanden && !istRebsortenmix) {
       // Gleiche Rebsorte: direkt zusammenführen
       const altQualitaet = vorhanden.qualitaetsstufe as string | null
       const neueQualitaet = minQualitaet(altQualitaet, minQualStufe)
+      const chargeVermerke: string[] = []
 
-      // Qualitätsabstufung erkennen und als Notiz persistieren
-      let abstufungsText: string | null = null
+      // Qualitätsabstufung erkennen und als Notiz persistieren (Text wie bisher – der Storno liest ihn)
       if (neueQualitaet && altQualitaet && neueQualitaet !== altQualitaet) {
         const vonLabel  = QUALITAET_LABEL[altQualitaet]    ?? altQualitaet
         const nachLabel = QUALITAET_LABEL[neueQualitaet]   ?? neueQualitaet
-        abstufungsText = `Abstufung von ${vonLabel} auf ${nachLabel} (Zusammenführung per Umziehen)`
+        chargeVermerke.push(`Abstufung von ${vonLabel} auf ${nachLabel} (Zusammenführung per Umziehen)`)
+        zielVermerke.push(`Abstufung von ${vonLabel} auf ${nachLabel}`)
         abstufung = { von: altQualitaet, nach: neueQualitaet, vonLabel, nachLabel }
-        // Notiz an weinausbau hängen (sichtbar in Charge bearbeiten)
-        const bestehend = (vorhanden.notizen as string | null) ?? ''
-        const neueNotizen = bestehend ? `${bestehend}\n${abstufungsText}` : abstufungsText
-        { const { error: e } = await (supabase.from('weinausbau') as any)
-          .update({ notizen: neueNotizen })
-          .eq('id', vorhanden.id)
-          .eq('tenant_id', tenantId)
-          if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weinausbau): ${e.message}`) }
       }
 
-      { const { error: e } = await (supabase.from('weinausbau') as any)
-        .update({
-          menge_liter:     +((parseFloat(vorhanden.menge_liter) || 0) + z.menge).toFixed(3),
-          qualitaetsstufe: neueQualitaet,
-        })
-        .eq('id', vorhanden.id)
-        .eq('tenant_id', tenantId)
-        if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weinausbau): ${dbFehlerText(e)}`) }
+      // KAN-94 (Übergang bis KAN-112): Herkunft wie beim Verschnitt auf den gemeinsamen Oberbegriff
+      // (minHerkunft) – vorher behielt die Ziel-Charge ihre Herkunft, das wirkte als Aufwertung
+      // (Riedenwein + Gebietswein blieb Riedenwein). Abstufung als Notiz, Codes als Audit.
+      const altHerkunft = (vorhanden.herkunft_code as string | null) ?? null
+      const beteiligt = [altHerkunft, ...quellenDaten.map(q => q.herkunft_code as string | null)]
+      const neueHerkunft = minHerkunft(beteiligt) ?? altHerkunft
+      const engsteHerkunft = maxHerkunft(beteiligt)
+      if (neueHerkunft && engsteHerkunft && herkunftIstNiedrigerAls(neueHerkunft, engsteHerkunft)) {
+        const text = `Abstufung Herkunft-Code (BKI) von ${HERKUNFT_LABEL[engsteHerkunft] ?? engsteHerkunft} auf ${HERKUNFT_LABEL[neueHerkunft] ?? neueHerkunft}`
+        chargeVermerke.push(`${text} (Zusammenführung per Umziehen)`)
+        zielVermerke.push(text)
+      }
+
+      // Menge, Qualität, Herkunft und Vermerke in EINEM Update (KAN-94: mit Zeilenzahl-Prüfung)
+      const bestehend = ((vorhanden.notizen as string | null) ?? '').trim()
+      const werte: R = {
+        menge_liter:     +((parseFloat(vorhanden.menge_liter) || 0) + z.menge).toFixed(3),
+        qualitaetsstufe: neueQualitaet,
+        herkunft_code:   neueHerkunft,
+      }
+      if (chargeVermerke.length > 0) werte.notizen = bestehend ? `${bestehend}\n${chargeVermerke.join('\n')}` : chargeVermerke.join('\n')
+      await aendereCharge(supabase, tenantId, vorhanden, werte)
+
       nachWeinausbauId = vorhanden.id
       zielVorher = altQualitaet
       zielNachher = neueQualitaet ?? altQualitaet
+      herkunftVorher = altHerkunft
+      herkunftNachher = neueHerkunft
+      // KAN-83: Prüfnummer der Ziel-Charge erlischt (nach Bestätigung, siehe oben)
+      const pnNotiz = pnNotizJeCharge.get(vorhanden.id)
+      if (pnNotiz) zielVermerke.push(pnNotiz)
     } else if (vorhanden && istRebsortenmix) {
       // Rebsortenmix: separate neue Charge anlegen, Verschneidung wird danach getriggert
       const von0 = quellenDaten[0]
@@ -314,18 +352,20 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
       }).select('id')
       if (neuErr) throw new AktionsFehler(gebindeFehlerText((neuErr as R).message))
       nachWeinausbauId = ((newChargeData as R[])?.[0] as R | undefined)?.id ?? null
+      herkunftNachher = (von0?.herkunft_code as string | null) ?? null
       if (nachWeinausbauId) {
         verschneidungNeeded = { existingChargeId: vorhanden.id, newChargeId: nachWeinausbauId, menge: z.menge }
       }
     } else {
       const von0 = quellenDaten[0]
+      const neueHerkunft = minHerkunft(quellenDaten.map(q => q.herkunft_code as string | null))
       const { data: newChargeData, error: neuErr } = await (supabase.from('weinausbau') as any).insert({
         tenant_id:            tenantId,
         name:                 quellenDaten.length > 1 ? 'Zusammenführung' : (von0?.name ?? 'Umzug'),
         jahrgang:             von0?.jahrgang ?? null,
         rebsorte:             von0?.rebsorte ?? null,
         weinart:              von0?.weinart ?? 'unbekannt',
-        herkunft_code:        minHerkunft(quellenDaten.map(q => q.herkunft_code as string | null)),
+        herkunft_code:        neueHerkunft,
         weingarten_id:        von0?.weingarten_id ?? null,
         behaelter_id:         z.behaelter_id,
         menge_liter:          z.menge,
@@ -342,12 +382,10 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
       }).select('id')
       if (neuErr) throw new AktionsFehler(gebindeFehlerText((neuErr as R).message))
       nachWeinausbauId = ((newChargeData as R[])?.[0] as R | undefined)?.id ?? null
+      herkunftNachher = neueHerkunft
     }
 
     // Ziel-Record (zeilen_typ = 'ziel') – ein Eintrag pro Ziel-Gebinde
-    const zielNotizen = abstufung
-      ? `Abstufung von ${abstufung.vonLabel} auf ${abstufung.nachLabel}`
-      : null
     const { error: zErr } = await (supabase.from('keller_umzuege') as any).insert({
       tenant_id:          tenantId,
       datum,
@@ -359,7 +397,9 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
       umzug_typ:          umzugTyp,
       qualitaet_vorher:   zielVorher,
       qualitaet_nachher:  zielNachher,
-      notizen:            zielNotizen,
+      herkunft_code_vorher:  herkunftVorher,
+      herkunft_code_nachher: herkunftNachher,
+      notizen:            zielVermerke.length > 0 ? zielVermerke.join('\n') : null,
       umzug_batch_id:     batchId,
       zeilen_typ:         'ziel',
     })

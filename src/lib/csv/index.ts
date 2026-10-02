@@ -552,6 +552,48 @@ export function csvDateiname(teile: readonly (string | number | null | undefined
   return { utf8: `${utf8}.csv`, ascii: `${ascii}.csv` }
 }
 
+// ── BKI-Dateiname (KAN-95, 01.10.2026) ──────────────────────────────────────
+//
+// Vorgabe aus der BKI-Sitzung vom 24.09.2026 (R26): BKI-Berichte heißen
+//   <Betriebsnummer>_<Jahr>_<Berichtsname>[_von_JJJJMMTT_bis_JJJJMMTT].csv
+// – ohne Erstelldatum. Jahr (Entscheidung Jörgen 25.09.2026): bei Ernte- und
+// Bestandsmeldung das Jahr des Stichtags, sonst das Jahr des Exporttags (Wiener Zeit).
+// Zusätze zum Berichtsnamen (Gebinde, Charge, Beleg …) hängen mit „-“ am Berichtsnamen,
+// damit die Unterstriche nur die vier Teile des Schemas trennen.
+
+/** Platzhalter im Dateinamen, wenn die Weinbau-Betriebsnummer fehlt (Altbestand vor PR #41) */
+export const BKI_BETRIEBSNUMMER_PLATZHALTER = 'Betriebsnummer-fehlt'
+
+export type BkiDateinameTeile = {
+  /** tenant_einstellungen.betrieb_betriebsnummer – leer → Platzhalter */
+  betriebsnummer: string | null | undefined
+  /** Jahr des Stichtags bzw. des Exporttags */
+  jahr: number | string
+  /** Berichtsname, optional mit Zusätzen: ['Bewegungsbuch', 'Tank 3'] → „Bewegungsbuch-Tank-3“ */
+  bericht: string | readonly (string | number | null | undefined)[]
+  /** Zeitraum JJJJ-MM-TT (beide optional) → _von_JJJJMMTT_bis_JJJJMMTT */
+  von?: string | null
+  bis?: string | null
+}
+
+const kompaktTag = (s: string) => s.replace(/-/g, '')
+
+/** Dateiname nach dem BKI-Schema (KAN-95); ascii/utf8 wie csvDateiname */
+export function bkiDateiname(t: BkiDateinameTeile): CsvDateiname {
+  const nr = String(t.betriebsnummer ?? '').trim() || BKI_BETRIEBSNUMMER_PLATZHALTER
+  const bericht = (typeof t.bericht === 'string' ? [t.bericht] : t.bericht)
+    .filter((x): x is string | number => x !== null && x !== undefined && String(x).trim() !== '')
+    .map(String)
+  const zeitraum = [t.von ? `von_${kompaktTag(t.von)}` : null, t.bis ? `bis_${kompaktTag(t.bis)}` : null]
+    .filter((x): x is string => x !== null)
+    .join('_')
+  const baue = (f: (s: string) => string) => {
+    const b = bericht.map(f).filter(Boolean).join('-')
+    return [f(nr), f(String(t.jahr)), b, f(zeitraum)].filter(Boolean).join('_')
+  }
+  return { utf8: `${baue(teilUtf8)}.csv`, ascii: `${baue(teilAscii)}.csv` }
+}
+
 /** Fertigen Dateinamen („Übersicht 2026.csv“) in die ASCII-/UTF-8-Fassung bringen */
 export function csvDateinameAus(name: string): CsvDateiname {
   const basis = name.replace(/\.csv$/i, '')

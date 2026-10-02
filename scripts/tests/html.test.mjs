@@ -61,13 +61,15 @@ describe('Weinexport-Druckansicht', () => {
   test('jede einfache Interpolation läuft über e()/escHtmlMehrzeilig', () => {
     // css()/header(b) liefern fertiges HTML; art und a.referenz ?? auftragId stehen nur in der
     // JSON-Fehlermeldung bzw. innerhalb von sichererDateiname(…) im Content-Disposition-Header.
-    const erlaubt = new Set(['css()', 'header(b)', 'i+1', 'gesamtEUR.toFixed(2)', 'art', 'a.referenz ?? auftragId'])
+    const erlaubt = new Set(['css()', 'header(b)', 'i+1', 'gesamtEUR.toFixed(2)', 'art', 'a.referenz ?? auftragId', 'druckleiste()', 'DRUCKLEISTE_CSS'])
     const roh = [...quelle.matchAll(/\$\{([^{}`]+)\}/g)]
       .map(m => m[1].trim())
       .filter(x => !erlaubt.has(x) && !/^(e|escHtmlMehrzeilig)\(/.test(x))
     assert.deepEqual(roh, [])
   })
   test('Antwort setzt die Dokument-CSP', () => {
-    assert.match(quelle, /'Content-Security-Policy': DOKUMENT_CSP/)
+    // KAN-141: Dokument-CSP plus Hash-Freigabe für den Drucken-Knopf (scripts/tests/kan141-druckknopf.test.mjs)
+    assert.match(quelle, /const DRUCK_CSP = druckCsp\(DOKUMENT_CSP\)/)
+    assert.match(quelle, /'Content-Security-Policy': DRUCK_CSP/)
   })
 })

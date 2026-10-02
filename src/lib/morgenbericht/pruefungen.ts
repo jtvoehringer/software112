@@ -11,6 +11,7 @@ import { ereignisseLaden } from '@/lib/system/ereignis'
 import { weinbauBetriebsnummerFehlt } from '@/lib/betrieb/betriebsnummer'
 import { betriebeOhneMorgenberichtAmVortag } from './vortag'
 import { SANDBOX_TENANT_ID } from '@/lib/abo/regeln'
+import { BEHANDLUNG_RIEDEN_SELECT, riedText } from '@/lib/behandlungen/rieden'
 
 export type { Befund }
 export type Einstellungen = Awaited<ReturnType<typeof import('@/app/(dashboard)/dashboard/_shared/data').ladeEinstellungen>>
@@ -39,7 +40,8 @@ export async function pruefeBetrieb(ctx: Ctx, einst: Einstellungen, paket: { ist
     ctx.supabase.rpc('crm_dubletten', { p_tenant_id: ctx.tenantId }),
     // tenant-isolation-ignore: tenants hat keine tenant_id-Spalte, Filter über die eigene id
     ctx.q('tenants').select('stripe_status, stripe_trial_ends_at, stripe_plan').eq('id', ctx.tenantId).maybeSingle(),
-    ctx.tf(ctx.q('behandlungen').select('id, weingarten_id, datum, ernte_fruehesteins, weingarten:weingarten!weingarten_id(name, ried)').gte('ernte_fruehesteins', new Date(heute.getTime() - 60 * 86400000).toISOString().slice(0, 10)).limit(500)),
+    // KAN-121 (01.10.2026): Ried auch über die Grundstücke der Maßnahme (App-Maßnahmen haben kein weingarten_id)
+    ctx.tf(ctx.q('behandlungen').select(`id, datum, ernte_fruehesteins, ${BEHANDLUNG_RIEDEN_SELECT}`).gte('ernte_fruehesteins', new Date(heute.getTime() - 60 * 86400000).toISOString().slice(0, 10)).limit(500)),
     ctx.tf(ctx.q('pressungen').select('id, datum, weinbezeichnung').gte('datum', `${heute.getFullYear()}-01-01`).limit(500)),
   ])
 
@@ -104,7 +106,7 @@ export async function pruefeBetrieb(ctx: Ctx, einst: Einstellungen, paket: { ist
   if (konflikte.length && pr.length) befunde.push({
     key: 'ps:wartefrist', bereich: 'Weingarten', stufe: 'hoch',
     titel: `Wartefrist möglicherweise unterschritten (${konflikte.length})`,
-    detail: konflikte.slice(0, 3).map(w => `${w.weingarten?.ried || w.weingarten?.name || 'Ried'}: Lese frühestens ${datumDe(w.ernte_fruehesteins)}`).join(' · ') + ' – Pressung vor Ablauf der Wartezeit erfasst, bitte Zuordnung prüfen',
+    detail: konflikte.slice(0, 3).map(w => `${riedText(w, { bevorzugt: 'ried', leer: 'Ried' })}: Lese frühestens ${datumDe(w.ernte_fruehesteins)}`).join(' · ') + ' – Pressung vor Ablauf der Wartezeit erfasst, bitte Zuordnung prüfen',
     href: '/behandlungen',
   })
 
