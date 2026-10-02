@@ -26,6 +26,7 @@ import { ladeBehaelterEinzeln, type BehaelterZeile } from '@/lib/keller/behaelte
 import { fmtNum } from '@/lib/format'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { imZeitraum, num, tag, text, type R, type Zeitraum } from './kellerbuch-hilfen'
+import { eroeffnungsTag, istFlaschenEroeffnung } from '@/lib/kellerbuch/eroeffnungsStichtag'
 
 export type BewegungsArt =
   | 'uebertrag' | 'anfangsbestand' | 'zukauf' | 'pressung' | 'umzug_ein' | 'umzug_aus' | 'filtration_ein'
@@ -253,9 +254,9 @@ function bewegungenAus(roh: Roh): Bewegung[] {
   for (const eroeffnungsCharge of roh.chargen.filter(c => c.ist_eroeffnungsbestand)) {
     const l = num(eroeffnungsCharge.anfangsbestand_liter) || num(eroeffnungsCharge.menge_liter)
     if (l > 0) {
-      const jahr = (tag(eroeffnungsCharge.created_at) || tag(new Date())).slice(0, 4)
       bewegungen.push({
-        datum: `${jahr}-01-01`,
+        // KAN-42: Stichtag des Eröffnungsbestands = Wiener Kalendertag von created_at (bis KAN-42 immer der 01.01.)
+        datum: eroeffnungsTag(eroeffnungsCharge.created_at) ?? tag(new Date()),
         art: 'anfangsbestand',
         beschreibung: `Anfangsbestand${eroeffnungsCharge.jahrgang ? ` ${eroeffnungsCharge.jahrgang}` : ''}`,
         menge: liter(l),
@@ -379,6 +380,23 @@ function bewegungenAus(roh: Roh): Bewegung[] {
   for (const f of roh.fuellungen) {
     const l = num(f.menge_liter_gefuellt) || (num(f.anzahl_flaschen) * num(f.flaschengroesse_ml) / 1000)
     if (!l || l <= 0) continue
+    if (istFlaschenEroeffnung(f)) {
+      // KAN-42: Flaschen-Eröffnungsbestand – Zugang ins Flaschenlager am Stichtag, kein Abgang aus einem Tank
+      bewegungen.push({
+        datum: tag(f.datum),
+        art: 'anfangsbestand',
+        beschreibung: `Eröffnungsbestand Flaschen: ${f.name}${f.pruefnummer ? ` · Prüfnr. ${f.pruefnummer}` : ''}`,
+        menge: 0,
+        extra: num(f.anzahl_flaschen) > 0 ? `${fmtNum(Math.trunc(num(f.anzahl_flaschen)))} Fl. à ${Math.trunc(num(f.flaschengroesse_ml))} ml` : undefined,
+        fuellung_id: f.id,
+        chargeId: null,
+        charge: null,
+        gegenstelle: 'Eröffnungsbestand (Altsystem)',
+        beleg: text(f.pruefnummer) ?? text(f.chargennummer),
+        ...stornoFeld(f),
+      })
+      continue
+    }
     bewegungen.push({
       datum: tag(f.datum),
       art: 'abfuellung',
@@ -600,7 +618,7 @@ export async function ladeBewegungenBetrieb(supabase: any, tenantId: string): Pr
       .eq('pressung.tenant_id', tenantId)
       .order('id', { ascending: true }), 'pressung_behaelter'),
     liste((supabase.from('fuellungen') as any)
-      .select('id, datum, erstellt_am, name, jahrgang, rebsorte, qualitaet, zusatzbezeichnung, erzeugnis, aktiv, bestand_flaschen, anzahl_flaschen, menge_liter_gefuellt, flaschengroesse_ml, pruefnummer, chargennummer, weinausbau_id, storniert_am, storno_grund, storniert_von_name, weinausbau:weinausbau_id(weinart)')
+      .select('id, datum, erstellt_am, name, jahrgang, rebsorte, qualitaet, zusatzbezeichnung, erzeugnis, aktiv, bestand_flaschen, anzahl_flaschen, menge_liter_gefuellt, flaschengroesse_ml, pruefnummer, chargennummer, weinausbau_id, storniert_am, storno_grund, storniert_von_name, import_quelle, weinart, weinausbau:weinausbau_id(weinart)')
       // storno-sichtbar: stornierte Füllung als Buchung + Gegenbuchung (KAN-145 B3), Flaschenbestand zum Stichtag
       .eq('tenant_id', tenantId)
       .order('name', { ascending: true })

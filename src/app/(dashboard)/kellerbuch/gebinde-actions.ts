@@ -20,6 +20,11 @@ import { KORREKTUR_NACH_OBEN_HINWEIS, KORREKTUR_NACH_UNTEN_HINWEIS } from '@/lib
 import { GRUND_BEARBEITET, stornoGrundFehler } from '@/lib/storno/grund'
 import { mostgewichtAusFormular, mostgewichtSpalten } from '@/lib/wein/mostgewichtFormular'
 import { mostgewichtNeu, mostgewichtZusammenfuehren, teilweiseVermerk, umzugMomentaufnahme, type Anteil } from '@/lib/kellerbuch/mostgewichtKette'
+import { wienHeute } from '@/lib/csv'
+import { herkunftKnoten } from '@/lib/herkunft'
+import { eroeffnungsStichtagFehler, eroeffnungsZeitpunkt, standardEroeffnungsStichtag } from '@/lib/kellerbuch/eroeffnungsStichtag'
+import { ladeGebindeStand } from '@/lib/kellerbuch/eroeffnungsGebinde'
+import { eroeffnungsVermerk, pruefeTankZeilen, tankFormularWerte, type DateiBefund, type TankEingabe } from '@/lib/import/eroeffnungsbestand'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -57,13 +62,24 @@ const rund2 = (n: number): number => Math.round(n * 100) / 100
 
 // Gemeinsame Einfuegelogik fuer Eroeffnungsbestand-Chargen - wird sowohl von der
 // "normalen" Erfassung (Kellerbuch > Gebinde > Eroeffnungsbestand) als auch von der
-// Anfangsbestandsbuchung im Datenimport (Gebinde) verwendet ("Chargenformular recyceln").
+// Anfangsbestandsbuchung im Datenimport (Gebinde) verwendet ("Chargenformular recyceln")
+// und seit KAN-42 vom CSV-Import „Eröffnungsbestand Tank“ (importiereEroeffnungTank, je Zeile
+// dieselben Formularfelder). `kontext` = bereits geprüfter Betrieb des Imports (sonst getTenantId()).
 // Gibt bei Erfolg null zurueck, sonst die Fehlermeldung.
-async function insertEroeffnungsbestand(formData: FormData): Promise<string | null> {
-  const supabase  = await createSupabaseServerClient()
-  const tenantId  = await getTenantId()
+async function insertEroeffnungsbestand(
+  formData: FormData,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  kontext?: { supabase: any; tenantId: string },
+): Promise<string | null> {
+  const supabase  = kontext?.supabase ?? await createSupabaseServerClient()
+  const tenantId  = kontext?.tenantId ?? await getTenantId()
   const menge     = parseFloat(dezimal(formData.get('menge_liter') as string))
-  const jahr      = new Date().getFullYear()
+  // KAN-42: Stichtag wählbar (Standard 01.01. des laufenden Jahres, Wiener Zeit) – gespeichert als created_at
+  // 00:00 Uhr Wiener Zeit (eroeffnungsZeitpunkt), gelesen als Wiener Kalendertag (eroeffnungsTag)
+  const heute     = wienHeute()
+  const stichtag  = String(formData.get('stichtag') ?? '').trim() || standardEroeffnungsStichtag(heute)
+  const stichtagUnzulaessig = eroeffnungsStichtagFehler(stichtag, heute)
+  if (stichtagUnzulaessig) return stichtagUnzulaessig
   // Keine aktiven 0-L- oder negativen Chargen (KAN-35; negativ scheitert zusätzlich am CHECK)
   if (!Number.isFinite(menge) || menge < 0.01) return 'Bitte eine Menge von mindestens 0,01 L angeben.'
   // KAN-73: nur Stufen des CHECK weinausbau (QUALITAET_OPTS) – vor der Transaktionsnummer prüfen.
@@ -78,6 +94,12 @@ async function insertEroeffnungsbestand(formData: FormData): Promise<string | nu
   // Transaktionsnummer geprüft. Die Qualitätsstufe bleibt, wie gewählt (Rechenregel 6).
   const mostgewicht = mostgewichtAusFormular(formData, 'mostgewicht', { altesFeld: 'kmw' })
   if (!mostgewicht.ok) return mostgewicht.fehler
+  // KAN-42: optionale Stammdaten (Import „Eröffnungsbestand Tank“) – nur Werte der Auswahllisten
+  const text = (k: string) => { const v = formData.get(k); return typeof v === 'string' && v.trim() ? v.trim() : null }
+  const weinart = text('weinart')
+  if (weinart && !WEINARTEN.includes(weinart)) return `Die Weinart „${weinart}“ ist unbekannt – weiß, rot oder rosé.`
+  const herkunftCode = text('herkunft_code')
+  if (herkunftCode && herkunftCode !== 'sonstiges' && !herkunftKnoten(herkunftCode)) return `Der Herkunfts-Code „${herkunftCode}“ ist unbekannt.`
 
   const epRaw =dezimal(formData.get('einstandspreis_pro_liter') as string) ?? ''
   // Transaktionsnummer vergeben
@@ -98,8 +120,11 @@ async function insertEroeffnungsbestand(formData: FormData): Promise<string | nu
     transaktions_nr:      txnEb ?? null,
     status:               'ausbau',
     ist_eroeffnungsbestand: true,
-    created_at:           new Date(`${jahr}-01-01T00:00:00`).toISOString(),
+    created_at:           eroeffnungsZeitpunkt(stichtag),
     aktiv:                true,
+    ...(text('rebsorte') ? { rebsorte: text('rebsorte') } : {}),
+    ...(weinart ? { weinart } : {}),
+    ...(herkunftCode ? { herkunft_code: herkunftCode } : {}),
   }
 
   const { error } = await (supabase.from('weinausbau') as any).insert(payload)
@@ -110,6 +135,8 @@ async function insertEroeffnungsbestand(formData: FormData): Promise<string | nu
   revalidatePath('/kellerbuch/gebinde')
   return null
 }
+
+const WEINARTEN = ['weiss', 'rot', 'rose', 'unbekannt']
 
 export async function createEroeffnungsbestand(formData: FormData) {
   const fehler = await insertEroeffnungsbestand(formData)
@@ -266,6 +293,82 @@ export async function deleteEroeffnungsbestand(id: string, grund: string) {
   if (error) throw new AktionsFehler(dbFehlerText(error, 'Stornieren fehlgeschlagen (weinausbau)'))
   if (!data || (data as R[]).length === 0) throw new AktionsFehler('Eröffnungsbestand nicht gefunden, bereits storniert oder keine Berechtigung.')
   revalidatePath('/kellerbuch/gebinde')
+}
+
+// ── KAN-42: CSV-Import „Eröffnungsbestand Tank“ (Datenimport) ───────────────────────────────────────────
+// Vorschau (pruefeEroeffnungTank) und Import (importiereEroeffnungTank) prüfen jede Zeile mit derselben
+// Funktion (lib/import/eroeffnungsbestand.ts) gegen den Gebindestand heute und am Stichtag; angelegt wird je
+// gültiger Zeile über insertEroeffnungsbestand – dieselbe Logik wie das Einzelformular. Rechte wie der
+// Datenimport (Super-Admin/Betriebs-Manager) und Schreibrecht Kellerbuch.
+
+async function eroeffnungImportKontext() {
+  const membership = await getCurrentMembership()
+  if (!membership) throw new AktionsFehler('Kein aktiver Mandant gefunden')
+  await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: vor den Rechten
+  await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
+  if (membership.role !== 'system_admin' && membership.role !== 'tenant_admin') {
+    throw new AktionsFehler('Der Datenimport ist Super-Admins und Betriebs-Managern vorbehalten.')
+  }
+  if (!canWrite(membership, 'kellerbuch')) throw new AktionsFehler('Keine Schreibberechtigung für das Kellerbuch in diesem Betrieb.')
+  return { supabase: await createSupabaseServerClient(), tenantId: membership.tenantId }
+}
+
+type ImportZeilen = { kopf: string[]; zeilen: Record<string, string>[]; zeilenOffset?: number }
+
+function importStichtag(stichtag: unknown): string {
+  const s = typeof stichtag === 'string' ? stichtag.trim() : ''
+  const f = eroeffnungsStichtagFehler(s, wienHeute())
+  if (f) throw new AktionsFehler(f)
+  return s
+}
+
+function importDaten(d: ImportZeilen): ImportZeilen {
+  if (!d || !Array.isArray(d.kopf) || !Array.isArray(d.zeilen)) throw new AktionsFehler('Ungültige Importdaten – bitte die Datei erneut wählen.')
+  if (d.zeilen.length > IMPORT_MAX_ZEILEN) throw new AktionsFehler(`Höchstens ${IMPORT_MAX_ZEILEN} Zeilen je Aufruf.`)
+  return {
+    kopf: d.kopf.map(h => String(h ?? '')),
+    zeilen: d.zeilen.map(z => Object.fromEntries(Object.entries(z ?? {}).map(([k, v]) => [String(k), String(v ?? '')]))),
+    zeilenOffset: Number.isInteger(d.zeilenOffset) && (d.zeilenOffset ?? 0) > 0 ? d.zeilenOffset : 0,
+  }
+}
+
+const IMPORT_MAX_ZEILEN = 500
+
+/** Vorschau: jede Zeile geprüft, nichts gespeichert */
+export async function pruefeEroeffnungTank(stichtag: string, daten: ImportZeilen): Promise<DateiBefund<TankEingabe>> {
+  const { supabase, tenantId } = await eroeffnungImportKontext()
+  const tag = importStichtag(stichtag)
+  const d = importDaten(daten)
+  const gebinde = await ladeGebindeStand(supabase, tenantId, tag)
+  return pruefeTankZeilen(d.kopf, d.zeilen, gebinde, { stichtag: tag, zeilenOffset: d.zeilenOffset })
+}
+
+export type EroeffnungImportErgebnis = {
+  importiert: number
+  /** je Zeile: Fehler der Prüfung bzw. beim Speichern (übersprungen) */
+  fehler: { zeile: number; titel: string; meldungen: string[] }[]
+}
+
+/** Import: prüft erneut (nie der Vorschau des Browsers vertrauen) und legt die gültigen Zeilen an */
+export async function importiereEroeffnungTank(stichtag: string, daten: ImportZeilen, herkunft: string): Promise<EroeffnungImportErgebnis> {
+  const kontext = await eroeffnungImportKontext()
+  const tag = importStichtag(stichtag)
+  const d = importDaten(daten)
+  const gebinde = await ladeGebindeStand(kontext.supabase, kontext.tenantId, tag)
+  const befund = pruefeTankZeilen(d.kopf, d.zeilen, gebinde, { stichtag: tag, zeilenOffset: d.zeilenOffset })
+  if (befund.dateiFehler.length > 0) throw new AktionsFehler(befund.dateiFehler.join(' '))
+  const vermerk = eroeffnungsVermerk(tag, String(herkunft ?? '').slice(0, 120), wienHeute())
+  const ergebnis: EroeffnungImportErgebnis = { importiert: 0, fehler: [] }
+  for (const z of befund.zeilen) {
+    if (!z.eingabe) { ergebnis.fehler.push({ zeile: z.zeile, titel: z.titel, meldungen: z.fehler }); continue }
+    const fd = new FormData()
+    for (const [k, v] of Object.entries(tankFormularWerte(z.eingabe, tag, vermerk))) fd.set(k, v)
+    const fehler = await insertEroeffnungsbestand(fd, kontext)
+    if (fehler) ergebnis.fehler.push({ zeile: z.zeile, titel: z.titel, meldungen: [fehler] })
+    else ergebnis.importiert++
+  }
+  revalidatePath('/kellerbuch')
+  return ergebnis
 }
 
 // UMZIEHEN

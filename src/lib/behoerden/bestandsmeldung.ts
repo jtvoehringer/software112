@@ -313,7 +313,8 @@ export async function ladeBestandsmeldung(
       bezeichnung: textOderNull(f.name),
       jahrgang: zahlOderNull(f.jahrgang),
       rebsorte, kuerzel: bkiRebsorteKuerzel(rebsorte),
-      farbe: farbeAus((f.weinausbau as R | null)?.weinart, rebsorte),
+      // KAN-42: Füllung ohne Charge (Flaschen-Eröffnungsbestand) – Weinart der Füllung
+      farbe: farbeAus(((f.weinausbau as R | null)?.weinart ?? null) || (f.weinart !== 'unbekannt' ? f.weinart : null), rebsorte),
       qualitaet: qualitaetAnzeigeOderNull(f),   // KAN-186: Stufe + Zusatzbezeichnung/Erzeugnis
       behaelter: null,
       flaschengroesseMl: ml,

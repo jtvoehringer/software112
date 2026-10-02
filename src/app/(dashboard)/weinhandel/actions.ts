@@ -21,6 +21,9 @@ import { folgebuchungenText } from '@/lib/kellerbuch/folgebuchungen'
 import { KORREKTUR_NACH_OBEN_HINWEIS } from '@/lib/kellerbuch/hinweise'
 import { pruefnummerBeiChargenzuordnung, pruefnummerBeiDatumsaenderung, pruefnummerFuerFuellung } from '@/lib/kellerbuch/pruefnummerLaden'
 import { pnTag } from '@/lib/kellerbuch/pruefnummer'
+import { wienHeute } from '@/lib/csv'
+import { eroeffnungsStichtagFehler, IMPORT_QUELLE_EROEFFNUNG } from '@/lib/kellerbuch/eroeffnungsStichtag'
+import { eroeffnungsVermerk, flaschenFormularWerte, pruefeFlaschenZeilen, type DateiBefund, type FlaschenEingabe } from '@/lib/import/eroeffnungsbestand'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -142,12 +145,22 @@ function abstufungsVermerk(charge: QualitaetsAngabe, neu: QualitaetsAngabe): str
 }
 
 export async function createFuellung(formData: FormData): Promise<{ id: string; hinweis?: string }> {
+  return fuellungAnlegen(formData, null)
+}
+
+/** KAN-42: Füllung als Flaschen-Eröffnungsbestand – ohne Charge, Datum = Stichtag, Kennzeichen import_quelle */
+type FlaschenEroeffnung = { weinart: string | null; landIso: string; importiertAm: string }
+
+// Kernlogik des Füllungsformulars (createFuellung) – seit KAN-42 auch für den Import „Eröffnungsbestand Flaschen“
+// (importiereEroeffnungFlaschen); nicht exportiert, damit `eroeffnung` nie aus dem Browser kommt.
+async function fuellungAnlegen(formData: FormData, eroeffnung: FlaschenEroeffnung | null): Promise<{ id: string; hinweis?: string }> {
   const supabase   = await createSupabaseServerClient()
   const membership = await getMembership()
   const tenantId   = membership.tenantId
   pruefeFuellungsRecht(membership)
 
   const weinausbauId    = (formData.get('weinausbau_id') as string) || null
+  if (eroeffnung && weinausbauId) throw new AktionsFehler('Ein Flaschen-Eröffnungsbestand hat keine Kellerbuch-Charge.')
   const anzahl          = parseInt(dezimal(formData.get('anzahl_flaschen') as string))
   const flGroesseML     = parseInt(dezimal(formData.get('flaschengroesse_ml') as string)) || 750
   const mengeFormular   = parseFloat(dezimal(formData.get('menge_liter_gefuellt') as string)) || null
@@ -278,6 +291,13 @@ export async function createFuellung(formData: FormData): Promise<{ id: string; 
     einstandspreis:       parseFloat(dezimal(formData.get('einstandspreis') as string)) || null,
     zolltarifnummer:      (formData.get('zolltarifnummer') as string) || null,
     notizen:              notizen,
+    // KAN-42: Flaschen-Eröffnungsbestand – Weinart/Land der Zeile und Kennzeichen für Berichte (Zugang am Stichtag)
+    ...(eroeffnung ? {
+      weinart:       eroeffnung.weinart ?? 'unbekannt',
+      land_iso:      eroeffnung.landIso,
+      import_quelle: IMPORT_QUELLE_EROEFFNUNG,
+      importiert_am: eroeffnung.importiertAm,
+    } : {}),
   }
 
   const { error, data: fuellungData } = await (supabase.from('fuellungen') as any)
@@ -796,4 +816,107 @@ export async function deactivateFuellung(id: string, grund: string): Promise<voi
   revalidatePath('/weinhandel')
   revalidatePath('/kellerbuch')
   if (f.weinausbau_id) revalidatePath(`/kellerbuch/weinausbau/${f.weinausbau_id}`)
+}
+
+// ── KAN-42: CSV-Import „Eröffnungsbestand Flaschen“ (Datenimport) ───────────────────────────────────────
+// Je gültiger Zeile eine Füllung ohne Charge über fuellungAnlegen – dieselbe Logik wie das Füllungsformular
+// (Qualität, geprüfte Prüfnummer, Chargennummer), Datum = Stichtag, Kennzeichen import_quelle 'eroeffnungsbestand'.
+// Bestand zum Stichtag (KAN-43) zählt die Füllung ab dem Stichtag (Abfülltag); das Bewegungsbuch führt sie als
+// Eröffnungsbestand ohne Tankabgang. Rechte wie der Datenimport (Super-Admin/Betriebs-Manager).
+
+type ImportZeilen = { kopf: string[]; zeilen: Record<string, string>[]; zeilenOffset?: number }
+const IMPORT_MAX_ZEILEN = 500
+
+async function eroeffnungImportKontext() {
+  const membership = await getMembership()   // KAN-30 Seitenbetrieb + KAN-5 Schreibsperre
+  if (membership.role !== 'system_admin' && membership.role !== 'tenant_admin') {
+    throw new AktionsFehler('Der Datenimport ist Super-Admins und Betriebs-Managern vorbehalten.')
+  }
+  pruefeFuellungsRecht(membership)
+  return { supabase: await createSupabaseServerClient(), tenantId: membership.tenantId }
+}
+
+function importStichtag(stichtag: unknown): string {
+  const s = typeof stichtag === 'string' ? stichtag.trim() : ''
+  const f = eroeffnungsStichtagFehler(s, wienHeute())
+  if (f) throw new AktionsFehler(f)
+  return s
+}
+
+function importDaten(d: ImportZeilen): ImportZeilen {
+  if (!d || !Array.isArray(d.kopf) || !Array.isArray(d.zeilen)) throw new AktionsFehler('Ungültige Importdaten – bitte die Datei erneut wählen.')
+  if (d.zeilen.length > IMPORT_MAX_ZEILEN) throw new AktionsFehler(`Höchstens ${IMPORT_MAX_ZEILEN} Zeilen je Aufruf.`)
+  return {
+    kopf: d.kopf.map(h => String(h ?? '')),
+    zeilen: d.zeilen.map(z => Object.fromEntries(Object.entries(z ?? {}).map(([k, v]) => [String(k), String(v ?? '')]))),
+    zeilenOffset: Number.isInteger(d.zeilenOffset) && (d.zeilenOffset ?? 0) > 0 ? d.zeilenOffset : 0,
+  }
+}
+
+/** Prüfung je Zeile + freie Prüfnummer wie beim Abfüllen (pruefnummerFuerFuellung, nur lesend) */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function pruefeFlaschenImport(supabase: any, tenantId: string, stichtag: string, d: ImportZeilen): Promise<DateiBefund<FlaschenEingabe>> {
+  const befund = pruefeFlaschenZeilen(d.kopf, d.zeilen, { zeilenOffset: d.zeilenOffset })
+  // schon importiert? (gleicher Wein, Jahrgang und Flaschengröße als Eröffnungsbestand zum selben Stichtag)
+  const { data: vorhanden, error: vErr } = await supabase.from('fuellungen')
+    .select('name, jahrgang, flaschengroesse_ml')
+    .eq('tenant_id', tenantId)
+    .eq('import_quelle', IMPORT_QUELLE_EROEFFNUNG)
+    .eq('datum', stichtag)
+    .eq('aktiv', true)
+  if (vErr) throw new AktionsFehler(dbFehlerText(vErr, 'Vorhandene Eröffnungsbestände konnten nicht geladen werden'))
+  const schluessel = (name: unknown, jahrgang: unknown, ml: unknown) => `${String(name ?? '').trim().toLocaleLowerCase('de')}|${jahrgang ?? ''}|${ml ?? ''}`
+  const schonDa = new Set(((vorhanden ?? []) as AR[]).map(f => schluessel(f.name, f.jahrgang, f.flaschengroesse_ml)))
+  for (const z of befund.zeilen) {
+    if (z.eingabe && schonDa.has(schluessel(z.eingabe.name, z.eingabe.jahrgang, z.eingabe.ml))) {
+      z.fehler.push('Bereits als Eröffnungsbestand zum Stichtag vorhanden (gleicher Name, Jahrgang und Flaschengröße) – nicht doppelt importieren.')
+      z.eingabe = null
+    }
+  }
+  for (const z of befund.zeilen) {
+    if (!z.eingabe?.pruefnummer) continue
+    try {
+      await pruefnummerFuerFuellung(supabase, tenantId, { dacAntragId: null, pruefnummer: z.eingabe.pruefnummer },
+        { weinausbauId: null, chargeName: null, abfuelldatum: stichtag })
+    } catch (e) {
+      z.fehler.push(e instanceof AktionsFehler ? e.message : `Prüfnummer konnte nicht geprüft werden: ${String((e as Error)?.message ?? e)}`)
+      z.eingabe = null
+    }
+  }
+  return befund
+}
+
+/** Vorschau: jede Zeile geprüft, nichts gespeichert */
+export async function pruefeEroeffnungFlaschen(stichtag: string, daten: ImportZeilen): Promise<DateiBefund<FlaschenEingabe>> {
+  const { supabase, tenantId } = await eroeffnungImportKontext()
+  return pruefeFlaschenImport(supabase, tenantId, importStichtag(stichtag), importDaten(daten))
+}
+
+/** Import: prüft erneut und legt je gültiger Zeile eine Füllung ohne Charge an */
+export async function importiereEroeffnungFlaschen(
+  stichtag: string,
+  daten: ImportZeilen,
+  herkunft: string,
+): Promise<{ importiert: number; fehler: { zeile: number; titel: string; meldungen: string[] }[] }> {
+  const { supabase, tenantId } = await eroeffnungImportKontext()
+  const tag = importStichtag(stichtag)
+  const befund = await pruefeFlaschenImport(supabase, tenantId, tag, importDaten(daten))
+  if (befund.dateiFehler.length > 0) throw new AktionsFehler(befund.dateiFehler.join(' '))
+  const heute = wienHeute()
+  const vermerk = eroeffnungsVermerk(tag, String(herkunft ?? '').slice(0, 120), heute)
+  const importiertAm = new Date().toISOString()
+  const ergebnis = { importiert: 0, fehler: [] as { zeile: number; titel: string; meldungen: string[] }[] }
+  for (const z of befund.zeilen) {
+    if (!z.eingabe) { ergebnis.fehler.push({ zeile: z.zeile, titel: z.titel, meldungen: z.fehler }); continue }
+    const fd = new FormData()
+    for (const [k, v] of Object.entries(flaschenFormularWerte(z.eingabe, tag, vermerk))) fd.set(k, v)
+    try {
+      const r = await fuellungAnlegen(fd, { weinart: z.eingabe.weinart, landIso: z.eingabe.land, importiertAm })
+      ergebnis.importiert++
+      if (r.hinweis) ergebnis.fehler.push({ zeile: z.zeile, titel: z.titel, meldungen: [`Angelegt, aber: ${r.hinweis}`] })
+    } catch (e) {
+      ergebnis.fehler.push({ zeile: z.zeile, titel: z.titel, meldungen: [e instanceof AktionsFehler ? e.message : String((e as Error)?.message ?? e)] })
+    }
+  }
+  return ergebnis
 }

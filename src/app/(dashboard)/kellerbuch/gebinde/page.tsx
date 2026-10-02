@@ -23,6 +23,8 @@ import { QUALITAET_OPTS, qualitaetAnzeige } from '@/lib/wein/qualitaet'
 import ZusatzErzeugnisFelder from '@/components/wein/ZusatzErzeugnisFelder'
 import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
 import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
+import { wienHeute } from '@/lib/csv'
+import { eroeffnungsTag, standardEroeffnungsStichtag, stichtagText } from '@/lib/kellerbuch/eroeffnungsStichtag'
 
 export const metadata: Metadata = { title: 'Gebinde – software:112' }
 export const dynamic = 'force-dynamic'
@@ -65,7 +67,7 @@ export default async function GebindePage({
     tenantId ? ladeGebindeverzeichnis(supabase, tenantId) : Promise.resolve({ eintraege: [], zeilen: [], warnungen: [] }),
     ladeKellergemeinschaft(supabase, tenantId),
     tf((supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, kmw, oechsle, mostgewicht_einheit, menge_liter, qualitaetsstufe, zusatzbezeichnung, erzeugnis, behaelter_id, behaelter:behaelter_id(name), notizen, einstandspreis_pro_liter, referenz_altsystem, transaktions_nr, aktiv')
+      .select('id, name, jahrgang, kmw, oechsle, mostgewicht_einheit, menge_liter, qualitaetsstufe, zusatzbezeichnung, erzeugnis, behaelter_id, behaelter:behaelter_id(name), notizen, einstandspreis_pro_liter, referenz_altsystem, transaktions_nr, aktiv, created_at')
       .eq('ist_eroeffnungsbestand', true)
       .eq('aktiv', true)
       .order('jahrgang', { ascending: false })),
@@ -375,7 +377,8 @@ export default async function GebindePage({
       {tab === 'eroeffnungsbestand' && (
         <div className="space-y-6">
           <p className="text-sm text-s112-muted">
-            Bestände aus dem Altsystem werden auf den 1.1. des laufenden Jahres eingebucht.
+            Bestände aus dem Altsystem werden zum gewählten Stichtag eingebucht (Standard: 1.1. des laufenden Jahres).
+            Viele Tanks auf einmal: Datenimport › „Eröffnungsbestand Tank“ (CSV).
           </p>
 
           {err && (
@@ -390,6 +393,12 @@ export default async function GebindePage({
                 + Eröffnungsbestand erfassen
               </summary>
               <form action={createEroeffnungsbestand} className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  {/* KAN-42: Stichtag wählbar (gespeichert 00:00 Uhr Wiener Zeit) */}
+                  <label className={labelCls}>Stichtag *</label>
+                  <input aria-label="Stichtag" name="stichtag" type="date" required
+                    defaultValue={standardEroeffnungsStichtag(wienHeute())} className={inputCls} />
+                </div>
                 <div className="sm:col-span-2">
                   <label className={labelCls}>Weinbezeichnung *</label>
                   <input aria-label="Weinbezeichnung" name="name" required placeholder="z.B. Grüner Veltliner Ried Hohenberg" className={inputCls} />
@@ -455,6 +464,7 @@ export default async function GebindePage({
               <thead>
                 <tr className="bg-s112-bg border-b border-s112-border">
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">TXN</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Stichtag</th>
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Wein</th>
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">JG</th>
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-s112-text-2">Mostgewicht</th>
@@ -470,6 +480,7 @@ export default async function GebindePage({
                 {eroeffnungen.map((e: R, i: number) => (
                   <tr key={e.id} className={`border-b border-s112-border/30 last:border-0 ${i % 2 === 1 ? 'bg-s112-bg/30' : ''}`}>
                     <td className="px-4 py-2.5 text-xs font-mono text-s112-muted whitespace-nowrap">{e.transaktions_nr ?? '–'}</td>
+                    <td className="px-4 py-2.5 text-xs text-s112-text-2 whitespace-nowrap tabular-nums">{(() => { const t = eroeffnungsTag(e.created_at); return t ? stichtagText(t) : '–' })()}</td>
                     <td className="px-4 py-2.5 font-medium text-s112-text">{e.name}</td>
                     <td className="px-4 py-2.5 text-s112-text-2">{e.jahrgang ?? '–'}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-s112-text-2">
@@ -507,7 +518,7 @@ export default async function GebindePage({
                   </tr>
                 ))}
                 {eroeffnungen.length === 0 && (
-                  <tr><td colSpan={writeOk ? 10 : 9} className="px-4 py-6 text-center text-xs text-s112-muted italic">Noch keine Eröffnungsbestände erfasst</td></tr>
+                  <tr><td colSpan={writeOk ? 11 : 10} className="px-4 py-6 text-center text-xs text-s112-muted italic">Noch keine Eröffnungsbestände erfasst</td></tr>
                 )}
               </tbody>
             </table>
