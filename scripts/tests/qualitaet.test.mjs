@@ -435,6 +435,7 @@ describe('(3) übrige Qualitätslisten', () => {
       path.join('src', 'lib', 'weinqualitaet.ts'),
       path.join('src', 'lib', 'wein', 'qualitaetsrang.ts'),   // KAN-74: die eine Rangfolge
       path.join('src', 'lib', 'wein', 'bki_kuerzel.ts'),
+      path.join('src', 'lib', 'katalog', 'bki.ts'),   // KAN-39: Spiegel von katalog_mapping (inkl. Altwert tafelwein)
     ])
     const funde = []
     ;(function durchsuche(dir) {

@@ -983,6 +983,12 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('kosteneintrag_behaelter',       'SA,TA,W*{auswertungen|rieden|kellerbuch}','SA,TA,W*{auswertungen|rieden|kellerbuch}','SA,TA,W*{auswertungen|rieden|kellerbuch}'),
     ('kosteneintrag_weingaerten',     'SA,TA,W*{auswertungen|rieden|kellerbuch}','SA,TA,W*{auswertungen|rieden|kellerbuch}','SA,TA,W*{auswertungen|rieden|kellerbuch}'),
     ('kostenstellen',                 'SA,TA,W*{auswertungen|rieden|kellerbuch}','SA,TA,W*{auswertungen|rieden|kellerbuch}','SA,TA,W*{auswertungen|rieden|kellerbuch}'),
+    ('kat_buchungsart',                '-',                                      '-',                                      '-'),   -- KAN-39: Katalog, nur per Migration
+    ('kat_erzeugnis',                  '-',                                      '-',                                      '-'),   -- KAN-39: Katalog, nur per Migration
+    ('kat_farbe',                      '-',                                      '-',                                      '-'),   -- KAN-39: Katalog, nur per Migration
+    ('kat_land',                       '-',                                      '-',                                      '-'),   -- KAN-39: Katalog, nur per Migration
+    ('kat_qualitaetsstufe',            '-',                                      '-',                                      '-'),   -- KAN-39: Katalog, nur per Migration
+    ('katalog_mapping',                '-',                                      '-',                                      '-'),   -- KAN-39: Katalog, nur per Migration
     ('lagen',                         'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       'SA,TA{rieden}'),
     ('lesen',                         'SA,TA,W*{rieden|kellerbuch}',            'SA,TA,W*{rieden|kellerbuch}',            'SA,TA{rieden|kellerbuch}'),
     ('meldung_abgaben',               '-',                                      '-',                                      '-'),   -- KAN-37 B: nur per RPC, unveränderlich
@@ -1083,7 +1089,8 @@ BEGIN
       'rebsorten.rebsorten: everyone can read', 'release_notes_gesehen.rng_own', 'svs_parameter.svsp_select']
     WHEN 'g_tabellen' THEN ARRAY[
       'keller_freigaben', 'plattform_admins', 'profiles', 'rebsorten', 'release_notes', 'release_notes_gesehen',
-      'svs_parameter', 'tenants']
+      'svs_parameter', 'tenants',
+      'kat_buchungsart', 'kat_erzeugnis', 'kat_farbe', 'kat_land', 'kat_qualitaetsstufe', 'katalog_mapping']   -- KAN-39
     -- KAN-145 B4: Tabellen mit Löschsperre (a_loeschsperre) = "scharf" in scripts/storno-tabellen.json (Test check-storno)
     -- KAN-149 D3: + ea_transaktionen, konto_umbuchungen, verkauf_positionen, verkaufsposten, zahlungen (dort ohne Lösch-RPC)
     -- KAN-150 F2a: + dac_antrag, weinanalysen, pruefnummernantraege, transportbescheinigungen, exportauftraege (storno) und
@@ -1109,7 +1116,8 @@ BEGIN
       'betriebsmittel', 'betriebsmittel_lager_bewegungen']
     WHEN 'abo_ausnahmen' THEN ARRAY[
       'benachrichtigungen', 'keller_freigaben', 'plattform_admins', 'profiles', 'rebsorten', 'release_notes',
-      'release_notes_gesehen', 'svs_parameter', 'system_ereignisse', 'tenant_memberships', 'user_email_connections']
+      'release_notes_gesehen', 'svs_parameter', 'system_ereignisse', 'tenant_memberships', 'user_email_connections',
+      'kat_buchungsart', 'kat_erzeugnis', 'kat_farbe', 'kat_land', 'kat_qualitaetsstufe', 'katalog_mapping']   -- KAN-39: globale Kataloge
     WHEN 'abo_status_gesperrt' THEN ARRAY['unpaid', 'canceled', 'cancelled', 'incomplete', 'incomplete_expired', 'paused']
     WHEN 'anon_execute_erlaubt' THEN ARRAY['s112_pre_request()']
     WHEN 'anon_execute_bekannt' THEN ARRAY[
@@ -1209,7 +1217,8 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('mandant',       '-US', true , 's112_ama_einreichen(p_tenant_id uuid, p_meldung_id uuid, p_datum date, p_referenznr text, p_abgabe jsonb)'),   -- KAN-37 B
     ('trigger',       '--S', false, 's112_meldung_abgabe_schutz()'),           -- KAN-37 B: Abgaben unveränderlich
     ('trigger',       '--S', false, 's112_ama_rahmen()'),                      -- KAN-37 C: Stichtag/Abgabefrist aus dem Jahrgang
-    ('trigger',       '--S', false, 's112_lese_meldesperre()'),                -- KAN-37 C: Lese-Sperre nach dem Einreichen
+    ('trigger',       '--S', false, 's112_lese_meldesperre()'),
+    ('trigger',       '--S', false, 's112_fuellung_weinart()'),               -- KAN-39: Farbe der Füllung aus der Charge                -- KAN-37 C: Lese-Sperre nach dem Einreichen
     ('mandant',       '-US', true , 's112_fuellung_verkauf_buchen(p_tenant_id uuid, p_fuellung_id uuid, p_verkaufsposten_id uuid, p_menge_stk integer, p_datum date, p_grund text)'),   -- KAN-149 D1
     ('trigger',       '--S', false, 's112_ea_abschluss_schutz()'),             -- KAN-149 D3: Monatsabschluss, gesperrte UVA, verbuchte Belege
     ('intern',        '--S', false, 's112_ea_gegenbuchung(p_tenant_id uuid, p_id uuid, p_grund text, p_datum date)'),   -- KAN-149 D2 (Hilfsfunktion)
