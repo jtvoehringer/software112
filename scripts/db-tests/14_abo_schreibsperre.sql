@@ -87,10 +87,10 @@ DECLARE
   c_m         constant uuid := '33333333-3333-4333-8333-333333333333';
   -- Muss mit ABO_GESPERRTE_STATUS in src/lib/abo/regeln.ts (und s112_abo_gesperrt) übereinstimmen.
   c_gesperrt  constant text[] := ARRAY['unpaid', 'canceled', 'cancelled', 'incomplete', 'incomplete_expired', 'paused'];
-  -- Schreibende SECURITY-DEFINER-RPCs mit s112_pruefe_abo_schreibsperre (Soll-Liste, 29 Stück; s112_betriebsmittel_einkauf/_stornieren seit KAN-167; s112_herkunft_setzen seit KAN-150 F1d; s112_kontakt_historie_zu_firma seit KAN-150 F1c; s112_fuellung_verkauf_buchen seit KAN-149 D1; s112_ea_/zahlung_/umbuchung_stornieren seit D2; s112_storniert_loeschen seit KAN-145, s112_buchung_loeschen seit KAN-166, s112_pressung_stornieren/_zeilen_stornieren, s112_mostzeile_anlegen, s112_pressung_anlegen seit KAN-148, s112_ama_* seit KAN-148 C2, s112_ama_einreichen seit KAN-37 B).
+  -- Schreibende SECURITY-DEFINER-RPCs mit s112_pruefe_abo_schreibsperre (Soll-Liste, 29 Stück; s112_betriebsmittel_einkauf/_stornieren seit KAN-167; s112_herkunft_setzen seit KAN-150 F1d; s112_kontakt_historie_zu_firma seit KAN-150 F1c; s112_fuellung_verkauf_buchen seit KAN-149 D1; s112_ea_/zahlung_/umbuchung_stornieren seit D2; s112_storniert_loeschen seit KAN-145, s112_buchung_loeschen seit KAN-166, s112_pressung_stornieren/_zeilen_stornieren, s112_mostzeile_anlegen, s112_pressung_anlegen seit KAN-148, s112_ama_* seit KAN-148 C2, s112_ama_einreichen seit KAN-37 B, journal_eroeffnen/journal_abgleichen seit KAN-40).
   c_abo_rpcs  constant text[] := ARRAY['fuellung_bestand_buchen', 'get_next_accountnummer', 'get_next_chargennummer',
                                        'get_next_liefernummer', 'get_next_personenkonto', 'get_next_rechnungsnummer',
-                                       'get_next_transaktionsnr', 'kontakte_zusammenfuehren', 's112_ama_einreichen', 's112_ama_korrektur_anlegen', 's112_ama_meldung_speichern', 's112_ama_status_setzen', 's112_betriebsmittel_einkauf', 's112_betriebsmittel_stornieren', 's112_buchung_loeschen', 's112_ea_stornieren', 's112_fuellung_verkauf_buchen', 's112_herkunft_setzen', 's112_kontakt_historie_zu_firma', 's112_mostzeile_anlegen', 's112_pressung_anlegen', 's112_pressung_stornieren', 's112_pressung_zeilen_stornieren', 's112_storniert_loeschen', 's112_umbuchung_stornieren', 's112_zahlung_stornieren', 'schwund_buchen',
+                                       'get_next_transaktionsnr', 'journal_abgleichen', 'journal_eroeffnen', 'kontakte_zusammenfuehren', 's112_ama_einreichen', 's112_ama_korrektur_anlegen', 's112_ama_meldung_speichern', 's112_ama_status_setzen', 's112_betriebsmittel_einkauf', 's112_betriebsmittel_stornieren', 's112_buchung_loeschen', 's112_ea_stornieren', 's112_fuellung_verkauf_buchen', 's112_herkunft_setzen', 's112_kontakt_historie_zu_firma', 's112_mostzeile_anlegen', 's112_pressung_anlegen', 's112_pressung_stornieren', 's112_pressung_zeilen_stornieren', 's112_storniert_loeschen', 's112_umbuchung_stornieren', 's112_zahlung_stornieren', 'schwund_buchen',
                                        'setze_kontobewegung_abgeglichen', 'sperre_ea_monat', 'sperre_ea_uva'];
   -- Tabellen, deren Policies auth.uid() gegen eine Eigentümerspalte prüfen (wie t12_pro_persona in Datei 12)
   c_eigentuemer constant text[] := ARRAY['assistent_unterhaltungen', 'assistent_aktionen', 'assistent_nachrichten',
@@ -135,6 +135,7 @@ DECLARE
   v_rpc       jsonb;
   v_rpc_frei  jsonb := '{}';
   v_rpc_gesp  jsonb := '{}';
+  v_journal   jsonb;   -- KAN-40: Beispielzeilen des Journals in B (für journal_eroeffnen kurz entfernt)
   v_fuellung  uuid;
   v_wa        uuid;
   v_eatx      uuid;
@@ -432,6 +433,14 @@ BEGIN
   PERFORM set_config('storage.allow_delete_query', 'true', true);
   v_erg := v_erg || pg_temp.s112_erwarte('storage_delete_frei_ea_belege',
     pg_temp.s112_versuch(format('DELETE FROM storage.objects WHERE bucket_id = %L AND name = %L', 'ea-belege', v_b::text || '/s112test/beleg-b.pdf')), 'k1');
+  -- KAN-40: die Beispielzeile des Bewegungsjournals in B entfernen (Wartung mit Kennzeichen) – sonst gilt das Journal
+  -- als eröffnet und journal_eroeffnen lehnt mit 55000 ab
+  PERFORM pg_temp.s112_als_postgres();
+  SELECT jsonb_agg(to_jsonb(k)) INTO v_journal FROM public.kellerbuch_buchungen k WHERE k.tenant_id = v_b;
+  PERFORM set_config('s112.loeschen_erlaubt', v_b::text, true);
+  DELETE FROM public.kellerbuch_buchungen WHERE tenant_id = v_b;
+  PERFORM set_config('s112.loeschen_erlaubt', '', true);
+  PERFORM pg_temp.s112_als(v_bta);
   -- RPCs mit freiem Abo (Wirkung sofort zurückgerollt)
   v_rpc := jsonb_build_object(
     'fuellung_bestand_buchen', format('SELECT public.fuellung_bestand_buchen(%L, %L, %L, current_date, 1, NULL, %L)', v_b, v_fuellung, 'korrektur', 'S112TEST'),
@@ -444,6 +453,8 @@ BEGIN
     's112_kontakt_historie_zu_firma', format('SELECT public.s112_kontakt_historie_zu_firma(%L, %L, %L)', v_b, v_k1, v_fi_b),   -- KAN-150 F1c
     's112_herkunft_setzen', format('SELECT public.s112_herkunft_setzen(%L, %L, ARRAY[%L]::uuid[], %L)', v_b, v_wa, v_wg_b, 'S112TEST Herkunft geändert'),   -- KAN-150 F1d
     'kontakte_zusammenfuehren', format('SELECT public.kontakte_zusammenfuehren(%L, %L, ARRAY[%L]::uuid[])', v_b, v_k1, v_k2),
+    'journal_eroeffnen', format('SELECT public.journal_eroeffnen(%L, current_date)', v_b),   -- KAN-40
+    'journal_abgleichen', format('SELECT public.journal_abgleichen(%L, interval %L)', v_b, '0'),   -- KAN-40
     's112_betriebsmittel_einkauf', format('SELECT public.s112_betriebsmittel_einkauf(%L, %L, current_date, 2, %L, 10, 20, NULL, %L, NULL)', v_b, v_bm_b, 'stk', v_eakat),   -- KAN-167
     's112_betriebsmittel_stornieren', format('SELECT public.s112_betriebsmittel_stornieren(%L, %L, %L)', v_b, v_bml_b, 'S112TEST Storno Lagerbuchung'),   -- KAN-167
     's112_buchung_loeschen', format('SELECT public.s112_buchung_loeschen(%L, %L, %L, %L)', v_b, 'psm_lager_bewegungen', v_pl, 'S112TEST löschen mit Grund'),
@@ -476,6 +487,8 @@ BEGIN
     v_rpc_frei := v_rpc_frei || jsonb_build_object(r.name, pg_temp.t14_rpc(r.sql));
   END LOOP;
   PERFORM pg_temp.s112_als_postgres();
+  -- KAN-40: Beispielzeilen des Journals wiederherstellen (Lese-Vergleich frei/gesperrt)
+  INSERT INTO public.kellerbuch_buchungen SELECT * FROM jsonb_populate_recordset(NULL::public.kellerbuch_buchungen, coalesce(v_journal, '[]'::jsonb));
 
   -- ── 4. B gesperrt: Abo gekündigt ─────────────────────────────────────────────────────────────────────
   UPDATE public.tenants SET stripe_status = 'canceled', stripe_trial_ends_at = NULL WHERE id = v_b;

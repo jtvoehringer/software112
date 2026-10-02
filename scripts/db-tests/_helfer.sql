@@ -799,6 +799,7 @@ END $f$;
 --   * verschneidung_quellen: menge_liter 1 (CHECK menge_liter > 0),
 --   * betriebsmittel_lager_bewegungen: typ 'anfangsbestand' (Einkäufe nur per RPC, RLS lehnt typ 'einkauf' ab; KAN-167),
 --   * meldung_abgaben: Abgabe einer Bestandsmeldung ohne AMA-Bezug (KAN-37 B),
+--   * kellerbuch_buchungen: Korrekturzeile INV_PLUS einer erfundenen Charge mit freier Belegnummer (KAN-40),
 --   * tenant_einstellungen: die vorhandene Zeile des Betriebs (je Betrieb genau eine),
 --   * tenant_memberships: neuer Test-Benutzer als leser (user_id aus p_werte, sonst neu; nie p_persona).
 -- p_werte überschreibt alles. Bei einem Schlüsselkonflikt ein zweiter Versuch mit neuen Elternzeilen
@@ -862,6 +863,11 @@ BEGIN
     v_w := v_w || jsonb_build_object('meldung', 'bestandsmeldung', 'parameter', '{}'::jsonb, 'zeilen', '[]'::jsonb, 'warnungen', '[]'::jsonb,
       'spalten', '[{"kopf": "S112TEST", "typ": "text"}]'::jsonb, 'profil', 'EXCEL_AT', 'dateiname', 'S112TEST.csv', 'csv_text', 'S112TEST',
       'eingereicht_am', current_date);
+  ELSIF p_tab = 'kellerbuch_buchungen' THEN   -- KAN-40: CHECK bestand/Bezug, eindeutige Belegnummer je Betrieb
+    v_w := v_w || jsonb_build_object('bestand', 'offen', 'weinausbau_id', gen_random_uuid(), 'fuellung_id', NULL, 'menge_stk', 0,
+      'buchungsart_code', 'INV_PLUS', 'quelle_tabelle', 's112test', 'storno_von_id', NULL, 'pos', 1, 'datum', current_date,
+      'beleg_nr', 1 + coalesce((SELECT max(k.beleg_nr) FROM public.kellerbuch_buchungen k WHERE k.tenant_id = p_tenant), 0)
+                    + (random() * 100000)::integer);
   END IF;
   BEGIN
     RETURN pg_temp.s112_zeile(p_tab, p_tenant, v_w || coalesce(p_werte, '{}'::jsonb));
@@ -971,6 +977,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('keller_behandlungstypen',       'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}'),
     ('keller_freigaben',              '-',                                      '-',                                      '-'),
     ('keller_umzuege',                'SA,TA,W*{kellerbuch|warenwirtschaft}',   'SA,TA,W*{kellerbuch|warenwirtschaft}',   '-{kellerbuch|warenwirtschaft}'),   -- KAN-145 B4
+    ('kellerbuch_buchungen',          '-',                                      '-',                                      '-'),   -- KAN-40: Bewegungsjournal, nur per Trigger/RPC, unveränderlich
     ('kellerplaene',                  'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   'SA,TA{kellerbuch}'),
     ('kellerplan_positionen',         'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}'),
     ('kontakt_firmen',                'SA,TA,W*{crm}',                          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}'),
@@ -1216,6 +1223,21 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('mandant',       '-US', true , 's112_ama_status_setzen(p_tenant_id uuid, p_meldung_id uuid, p_status text, p_datum date, p_referenznr text)'),   -- KAN-148 C2
     ('mandant',       '-US', true , 's112_ama_einreichen(p_tenant_id uuid, p_meldung_id uuid, p_datum date, p_referenznr text, p_abgabe jsonb)'),   -- KAN-37 B
     ('trigger',       '--S', false, 's112_meldung_abgabe_schutz()'),           -- KAN-37 B: Abgaben unveränderlich
+    ('trigger',       '--S', false, 's112_journal_schutz()'),                  -- KAN-40: Bewegungsjournal unveränderlich
+    ('trigger',       '--S', false, 's112_journal_trg_charge()'),              -- KAN-40: Eröffnungsbestand Tank, Umstufung
+    ('trigger',       '--S', false, 's112_journal_trg_flaschenbuchung()'),     -- KAN-40: fuellung_bewegungen
+    ('trigger',       '--S', false, 's112_journal_trg_fuellung()'),            -- KAN-40: Füllung, Flaschen-Eröffnung/-Zukauf, Umstufung
+    ('trigger',       '--S', false, 's112_journal_trg_pressung()'),            -- KAN-40: Pressungskopf (Datum, Storno)
+    ('trigger',       '--S', false, 's112_journal_trg_pressung_behaelter()'),  -- KAN-40: ERNTE/ZK_TRAUB
+    ('trigger',       '--S', false, 's112_journal_trg_umzug()'),               -- KAN-40: Umzug, Filtration, Schwund
+    ('trigger',       '--S', false, 's112_journal_trg_verkauf_position()'),    -- KAN-40: VK_FA_*/VK_FL_*
+    ('trigger',       '--S', false, 's112_journal_trg_verkaufsposten()'),      -- KAN-40: Verkaufskopf (Datum, Storno)
+    ('trigger',       '--S', false, 's112_journal_trg_verschnitt()'),          -- KAN-40: Verschnittkopf (Datum, Ziel, Storno)
+    ('trigger',       '--S', false, 's112_journal_trg_verschnitt_quelle()'),   -- KAN-40: VS_AB/VS_ZU
+    ('trigger',       '--S', false, 's112_journal_trg_zukauf()'),              -- KAN-40: ZK_FASS/ZK_MOST
+    ('mandant',       '-US', true , 'journal_abgleichen(p_tenant_id uuid, p_mindestalter interval)'),   -- KAN-40: Korrektur INV_PLUS/INV_MIN
+    ('mandant',       '-US', true , 'journal_eroeffnen(p_tenant_id uuid, p_stichtag date)'),   -- KAN-40: Journalbeginn + EROEFF
+    ('mandant',       '-US', false, 'journal_konsistenz(p_tenant_id uuid)'),   -- KAN-40 (lesend, jedes Mitglied)
     ('trigger',       '--S', false, 's112_ama_rahmen()'),                      -- KAN-37 C: Stichtag/Abgabefrist aus dem Jahrgang
     ('trigger',       '--S', false, 's112_lese_meldesperre()'),
     ('trigger',       '--S', false, 's112_fuellung_weinart()'),               -- KAN-39: Farbe der Füllung aus der Charge
