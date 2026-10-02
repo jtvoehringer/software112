@@ -7,6 +7,7 @@ import { ereignisMelden } from '@/lib/system/ereignis'
 import { erzeugeClientState } from '@/lib/m365/clientState'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
+import { istPlattformAdmin } from '@/lib/auth/plattformAdmin'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -49,15 +50,24 @@ export async function POST(req: NextRequest) {
     // Cron-Aufruf (kein Session-Cookie) liefert es null -> tenantId bleibt undefined und
     // der Cron-Zweig unten (alle Tenants) greift wie zuvor.
     const membership = await getCurrentMembership()
-    const tenantId = membership?.tenantId
+    // KAN-25-Nachtrag (02.10.2026): Der Knopf in der Mandantenverwaltung schickt den angezeigten Betrieb mit
+    // (?tenant=<id>) – vorher wurde immer der aktive Betrieb aus dem Cookie erneuert. Ein anderer als der aktive
+    // Betrieb nur für Plattform-Admins.
+    const zielParam = hasCronAuth ? null : req.nextUrl.searchParams.get('tenant')
+    let tenantId = membership?.tenantId
     if (!tenantId && !hasCronAuth) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
     if (!hasCronAuth) {
       // KAN-25 (01.10.2026): Sitzungszweig nur für Betriebs-Admins (tenant_admin/system_admin) –
       // bisher konnte jedes Mitglied, auch ein Leser, die Webhook-Subscription des Betriebs erneuern
-      if (!membership || !canAdmin(membership.role)) return NextResponse.json({ fehler: 'Keine Berechtigung' }, { status: 403 })
+      if (zielParam && zielParam !== tenantId) {
+        if (!(await istPlattformAdmin())) return NextResponse.json({ fehler: 'Keine Berechtigung' }, { status: 403 })
+        tenantId = zielParam
+      } else if (!membership || !canAdmin(membership.role)) {
+        return NextResponse.json({ fehler: 'Keine Berechtigung' }, { status: 403 })
+      }
       // KAN-5: Sitzungszweig schreibt die Graph-Subscription des Betriebs – im Nur-Lesen-Modus
       // gesperrt; der Cron-Zweig (CRON_SECRET) erneuert bestehende Subscriptions weiter
-      const gesperrt = await schreibSperreKonflikt(membership)
+      const gesperrt = await schreibSperreKonflikt(membership!)   // membership ist hier gesetzt (sonst oben 401)
       if (gesperrt) return gesperrt
     }
 
