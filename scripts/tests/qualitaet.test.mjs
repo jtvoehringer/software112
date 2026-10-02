@@ -261,6 +261,16 @@ describe('(1) Auswahllisten ⊆ CHECK der Zieltabelle', () => {
     assert.deepEqual(menge(werte(LESE_QUALITAETEN)), menge(checkListe('ernte_parzellen_qualitaetsstufe_check')))
   })
 
+  // Die Migration kan186c wird erst nach dem Deploy eingespielt (Code läuft vorher und nachher) – bis ihre Datei in
+  // supabase/migrations liegt, wird dieser Abgleich übersprungen.
+  const KAN186C = readdirSync(path.join(ROOT, 'supabase', 'migrations')).some(f => /_kan186c_qualitaet_umstellen\.sql$/.test(f))
+  test('KAN-186: CHECK weinausbau = CHECK fuellungen = QUALITAET_OPTS (ohne die fünf Altwerte)', { skip: KAN186C ? false : 'Migration kan186c_qualitaet_umstellen noch nicht in supabase/migrations' }, () => {
+    for (const name of ['weinausbau_qualitaetsstufe_check', 'fuellungen_qualitaet_check']) {
+      assert.deepEqual(menge(checkListe(name)), menge(werte(QUALITAET_OPTS)), name)
+      for (const alt of ['reserve', 'erste_lage', 'grosses_gewachs', 'sekt', 'perlwein']) assert.ok(!checkListe(name).includes(alt), `${name}: ${alt}`)
+    }
+  })
+
   test('Charge: QUALITAET_OPTS ⊆ CHECK weinausbau', () => {
     const check = new Set(checkListe('weinausbau_qualitaetsstufe_check'))
     for (const v of werte(QUALITAET_OPTS)) assert.ok(check.has(v), `weinausbau lässt „${v}“ nicht zu`)
@@ -299,8 +309,8 @@ describe('Listen in lib/wein/qualitaet.ts', () => {
     }
   })
 
-  test('Füllung = alle 18 Stufen der Charge (inkl. Wein und Ausbruch)', () => {
-    assert.equal(FUELLUNG_QUALITAETEN.length, 18)
+  test('Füllung = alle 13 Stufen der Charge (inkl. Wein und Ausbruch; KAN-186 ohne Reserve & Co., Sekt, Perlwein)', () => {
+    assert.equal(FUELLUNG_QUALITAETEN.length, 13)
     assert.deepEqual(werte(FUELLUNG_QUALITAETEN), werte(QUALITAET_OPTS))
     assert.ok(istFuellungQualitaet('wein') && istFuellungQualitaet('ausbruch'))
     assert.equal(new Set(werte(QUALITAET_OPTS)).size, QUALITAET_OPTS.length, 'Werte eindeutig')

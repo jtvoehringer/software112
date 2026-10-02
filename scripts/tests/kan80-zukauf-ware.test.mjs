@@ -3,7 +3,7 @@
 // Aufruf:  node --experimental-strip-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/tests/kan80-zukauf-ware.test.mjs
 //          (läuft auch über npm run test:csv)
 //
-// Geprüft: Pflichtfelder im Bereich Ware samt Prüfnummer-Regel (Wein ab Qualitätswein), Herkunft nur als Code bzw.
+// Geprüft: Pflichtfelder im Bereich Ware (Prüfnummer seit 02.10.2026 nie Pflicht), Herkunft nur als Code bzw.
 // eigenes Weinbaugebiet, Altwerte (Freitext) in Anzeige und Vorbelegung, Weitergabe von Stufe und Herkunft an die
 // Charge, Pressung aus Zukauf-Trauben: Herkunft und Qualität als Minimum (Regeln wie Weinabstufung).
 
@@ -53,18 +53,23 @@ describe('Pflichtfelder im Bereich Ware', () => {
   })
 })
 
-describe('Staatliche Prüfnummer (Regel a)', () => {
-  test('Pflicht bei Wein ab Qualitätswein – auch DAC, Reserve, Erste Lage, Großes Gewächs, Sekt und Prädikate', () => {
-    for (const s of ['qualitaetswein', 'kabinett', 'spaetlese', 'trockenbeerenauslese', 'eiswein', 'dac', 'reserve', 'erste_lage', 'grosses_gewachs', 'sekt']) {
-      assert.equal(w.pruefnummerPflicht('wein', s), true, s)
-      assert.match(w.zukaufWareFehler({ ...WEIN, qualitaetsstufe: s }, []), /Prüfnummer/, s)
-      assert.equal(w.zukaufWareFehler({ ...WEIN, qualitaetsstufe: s, pruefnummer: '1234/26' }, []), null, s)
+// Entscheidung Jörgen 02.10.2026 (ersetzt KAN-80 Regel a „Pflicht ab Qualitätswein“): der Zukauf hat keine
+// Prüfnummernpflicht – erst ein abzufüllender Wein wird zur Prüfnummer angemeldet.
+describe('Staatliche Prüfnummer beim Zukauf: nie Pflicht', () => {
+  test('bei keiner Stufe Pflicht, auch nicht bei Sekt/Perlwein oder Reserve & Co.', () => {
+    assert.equal(w.pruefnummerPflicht, undefined, 'pruefnummerPflicht entfernt')
+    for (const s of ['wein', 'landwein', 'qualitaetswein', 'kabinett', 'spaetlese', 'trockenbeerenauslese', 'eiswein', 'dac', 'sonstiges', 'reserve', 'sekt', 'perlwein']) {
+      assert.equal(w.zukaufWareFehler({ ...WEIN, qualitaetsstufe: s, pruefnummer: null }, []), null, s)
     }
+    assert.equal(w.zukaufWareFehler({ ...TRAUBEN, art: 'most', qualitaetsstufe: 'kabinett' }, []), null)
   })
-  test('optional bei Wein, Landwein, Perlwein und Sonstiges sowie bei Most und Trauben', () => {
-    for (const s of ['wein', 'landwein', 'perlwein', 'sonstiges']) assert.equal(w.pruefnummerPflicht('wein', s), false, s)
-    assert.equal(w.pruefnummerPflicht('most', 'kabinett'), false)
-    assert.equal(w.pruefnummerPflicht('trauben', 'spaetlese'), false)
+  test('Formulare: Feld optional, ohne Pflichtkennzeichen', () => {
+    for (const p of ['src/app/(dashboard)/weinhandel/zukauf/neu/page.tsx', 'src/app/(dashboard)/weinhandel/zukauf/[id]/edit/ZukaufEditForm.tsx']) {
+      const f = quelle(p)
+      assert.match(f, /Staatl\. Prüfnummer \(optional\)/, p)
+      assert.doesNotMatch(f, /pruefnummerPflicht/, p)
+    }
+    assert.doesNotMatch(quelle('src/app/(dashboard)/weinhandel/zukauf/actions.ts'), /pruefnummer:\s+f\.pruefnummer,\n\s+\}, \(\(eigene/)
   })
 })
 
@@ -121,17 +126,17 @@ describe('Server Actions (Quelltext)', () => {
     const fn = rumpf('async function createZukaufCharge', 'async function chargeAendern')
     assert.match(fn, /herkunftCode: string \| null,/)
     assert.match(fn, /herkunft_code: herkunftCode \?\? null/)
-    assert.match(fn, /qualitaetsstufe: qualitaetsstufe \?\? null/)
+    assert.match(fn, /\.\.\.qualitaetsSpalten\(qualitaet\),\r?\n\s+land_iso: landIso,/)   // KAN-186: Stufe, Zusatz, Erzeugnis, Ursprungsland
   })
   test('alle Aufrufe von createZukaufCharge geben die Herkunft des Zukaufs mit', () => {
     const aufrufe = A.split('await createZukaufCharge(').slice(1)
     assert.equal(aufrufe.length, 3)
-    for (const a of aufrufe) assert.match(a, /^[^)]*f\.qualitaetsstufe, f\.herkunft,/)
+    for (const a of aufrufe) assert.match(a, /^[^)]*f\.qualitaet, f\.herkunft,/)   // KAN-186: ganze Angabe
   })
   test('chargeStammdaten und Rückbau führen herkunft_code mit', () => {
     assert.match(rumpf('function chargeStammdaten', 'async function pruefeWare'), /herkunft_code:\s+f\.herkunft \?\? null/)
     assert.match(A, /herkunft_code: c\.herkunft_code/)
-    assert.match(A, /weinart, herkunft_code, qualitaetsstufe, kmw, oechsle, mostgewicht_einheit'\)/)
+    assert.match(A, /weinart, herkunft_code, qualitaetsstufe, zusatzbezeichnung, erzeugnis, land_iso, kmw, oechsle, mostgewicht_einheit'\)/)
   })
   test('pruefeWare prüft Pflicht und Herkunft gegen die eigenen Weinbaugebiete', () => {
     const fn = rumpf('async function pruefeWare', 'export async function createZukauf')
@@ -196,10 +201,10 @@ describe('Formulare (Quelltext)', () => {
     assert.match(EDIT_PAGE, /ladeCustomWeinbaugebiete\(\)/)
     assert.match(EDIT_PAGE, /herkunftVorbelegung\(z\.herkunft, customWeinbaugebiete\.map\(g => g\.name\)\)/)
   })
-  test('alle Ware-Felder Pflicht, Prüfnummer dynamisch', () => {
+  test('alle Ware-Felder Pflicht, Prüfnummer optional', () => {
     for (const f of [NEU, EDIT]) {
       for (const label of ['Weinart \\*', 'Rebsorte\\(n\\) \\*', 'Jahrgang \\*', 'Qualitätsstufe \\*', 'Alkoholgehalt \\(%vol\\) \\*']) assert.match(f, new RegExp(label))
-      assert.match(f, /required=\{pruefnummerPflicht\(art, qualitaet\)\}/)
+      assert.doesNotMatch(f, /aria-label="Staatl\. Prüfnummer"[^>]*required/)
       assert.doesNotMatch(f, /'unbekannt','Unbekannt'/)
       assert.match(f, /const qualitaetsListe = \(art: string\) => art === 'trauben' \? LESE_QUALITAETEN : QUALITAET_OPTS/)
     }

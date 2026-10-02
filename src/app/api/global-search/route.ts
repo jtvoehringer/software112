@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { LESE_ARTEN, LESE_ART_LABEL, leseTitel } from '@/lib/wein/lesen'
+import { qualitaetAnzeigeOderNull } from '@/lib/wein/qualitaet'
 
 export const dynamic = 'force-dynamic'
 
@@ -187,7 +188,7 @@ export async function GET(req: NextRequest) {
 
   // ── Kellerbuch (Weinausbau-Chargen) ──────────────────────────────────────
   const { data: chargen } = await (supabase.from('weinausbau') as any)
-    .select('id, name, jahrgang, rebsorte, qualitaetsstufe, status')
+    .select('id, name, jahrgang, rebsorte, qualitaetsstufe, zusatzbezeichnung, erzeugnis, status')
     .or(`name.ilike.%${q}%,rebsorte.ilike.%${q}%,jahrgang::text.ilike.%${q}%`)
     .eq('tenant_id', tenantId)
     .eq('aktiv', true)
@@ -198,7 +199,7 @@ export async function GET(req: NextRequest) {
       id:         c.id,
       kategorie:  'kellerbuch',
       titel:      c.name ?? `${c.jahrgang} ${c.rebsorte}`,
-      untertitel: [c.jahrgang, c.rebsorte, c.qualitaetsstufe, c.status].filter(Boolean).join(' · '),
+      untertitel: [c.jahrgang, c.rebsorte, qualitaetAnzeigeOderNull(c), c.status].filter(Boolean).join(' · '),
       href:       `/kellerbuch`,
     })
   })

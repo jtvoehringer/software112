@@ -3,14 +3,15 @@
 import { useState, useTransition } from 'react'
 import { createVerschneidung } from '@/app/(dashboard)/kellerbuch/actions'
 import { sortenverschnittBezeichnung, SCHWELLE } from '@/lib/wein/sortenangabe'
-import { QUALITAET_LABEL, istNiedrigerAls, minQualitaet } from '@/lib/weinqualitaet'
+import { qualitaetText } from '@/lib/weinqualitaet'
+import { istAbstufungQualitaet, mischeQualitaet, normalisiereQualitaet } from '@/lib/wein/qualitaetsrang'
 import { HERKUNFT_LABEL, istNiedrigerAls as herkunftIstNiedrigerAls, minHerkunft } from '@/lib/herkunft'
 import { GitMerge, AlertTriangle, Ban, CheckCircle2, Info, X } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum, dezimal } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
 
-type ChargeOpt = { id: string; name: string; menge_liter: number | null; qualitaetsstufe?: string | null; herkunft_code?: string | null; rebsorte?: string | null; weinart?: string | null; behaelter_id?: string | null; behaelter_volumen_liter?: number | null }
+type ChargeOpt = { id: string; name: string; menge_liter: number | null; qualitaetsstufe?: string | null; zusatzbezeichnung?: string | null; erzeugnis?: string | null; herkunft_code?: string | null; rebsorte?: string | null; weinart?: string | null; behaelter_id?: string | null; behaelter_volumen_liter?: number | null }
 
 // Weinart-Kompatibilität: Rot+Weiß ist nicht zulässig
 function weinartKompatibel(a: string | null | undefined, b: string | null | undefined): boolean {
@@ -94,18 +95,14 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
   const selectedChargen = quellen
     .map(q => verfuegbar.find(c => c.id === q.weinausbau_id))
     .filter(Boolean) as ChargeOpt[]
-  const alleQualitaeten = [
-    zielCharge.qualitaetsstufe,
-    ...selectedChargen.map(c => c.qualitaetsstufe),
-  ]
-  // Niedrigste Qualitätsstufe aller beteiligten Chargen
-  const abstufungsZiel = selectedChargen.length > 0 ? minQualitaet(alleQualitaeten) : null
-  // Warnung wenn IRGENDEINE Charge (Quelle oder Ziel) eine höhere Stufe hat als das Minimum
-  // → diese Charge verliert ihre Qualitätsbezeichnung durch die Verschneidung
-  const hatAbstufung = abstufungsZiel != null && (
-    istNiedrigerAls(zielCharge.qualitaetsstufe ?? null, abstufungsZiel) ||
-    selectedChargen.some(c => istNiedrigerAls(c.qualitaetsstufe ?? null, abstufungsZiel))
-  )
+  // KAN-186: Qualitätsangabe samt Zusatzbezeichnung und Erzeugnis (Altwerte normalisiert) – dieselbe Regel wie der Server
+  const zielAngabe = normalisiereQualitaet(zielCharge)
+  const alleQualitaeten = [zielAngabe, ...selectedChargen.map(c => normalisiereQualitaet(c))]
+  // Ergebnis der Mischung aller beteiligten Chargen
+  const abstufungsZiel = selectedChargen.length > 0 ? mischeQualitaet(alleQualitaeten) : null
+  // Charge liegt über dem Ergebnis → sie verliert durch die Verschneidung Stufe bzw. Zusatzbezeichnung
+  const wirdAbgestuft = (c: ChargeOpt) => abstufungsZiel != null && istAbstufungQualitaet(normalisiereQualitaet(c), abstufungsZiel)
+  const hatAbstufung = abstufungsZiel != null && (wirdAbgestuft(zielCharge) || selectedChargen.some(wirdAbgestuft))
   // Herkunft-Code-Abstufungs-Check (analog Qualität) – nur Abstufungen möglich, nie Aufstufungen
   const alleHerkuenfte = [
     zielCharge.herkunft_code,
@@ -131,9 +128,9 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
 
   // Welche Chargen werden abgestuft?
   const betroffeneChargen = selectedChargen.length > 0 ? [
-    ...(istNiedrigerAls(zielCharge.qualitaetsstufe ?? null, abstufungsZiel ?? '') ? [zielCharge.name] : []),
+    ...(wirdAbgestuft(zielCharge) ? [zielCharge.name] : []),
     ...selectedChargen
-      .filter(c => istNiedrigerAls(c.qualitaetsstufe ?? null, abstufungsZiel ?? ''))
+      .filter(wirdAbgestuft)
       .map(c => c.name),
   ] : []
 
@@ -183,9 +180,9 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
             {qualitaetAbgestufInfo && (
               <p className="text-sm text-s112-warn-fg">
                 Qualität: von{' '}
-                <strong>{QUALITAET_LABEL[qualitaetAbgestufInfo.von] ?? qualitaetAbgestufInfo.von}</strong>
+                <strong>{qualitaetAbgestufInfo.von}</strong>
                 {' '}auf{' '}
-                <strong>{QUALITAET_LABEL[qualitaetAbgestufInfo.nach] ?? qualitaetAbgestufInfo.nach}</strong>
+                <strong>{qualitaetAbgestufInfo.nach}</strong>
                 {' '}abgestuft.
               </p>
             )}
@@ -216,9 +213,9 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
       <div className="flex items-center gap-2">
         <GitMerge size={17} strokeWidth={1.75} className="text-s112-text-1" />
         <h3 className="text-sm font-semibold text-s112-text">Verschneidung in <span className="text-s112-blue-700">{zielCharge.name}</span></h3>
-        {zielCharge.qualitaetsstufe && (
+        {zielAngabe.stufe && (
           <span className="text-xs bg-white border border-s112-blue-100 text-s112-blue-700 px-2 py-0.5 rounded-full">
-            {QUALITAET_LABEL[zielCharge.qualitaetsstufe] ?? zielCharge.qualitaetsstufe}
+            {qualitaetText(zielAngabe)}
           </span>
         )}
       </div>
@@ -238,7 +235,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
           const menge = parseFloat(dezimal(q.menge))
           const anteil = gesamtLiter > 0 && !isNaN(menge) ? Math.round(menge / gesamtLiter * 1000) / 10 : null
           // KAN-74: dieselbe Rangfolge wie der Server (vorher Index in QUALITAET_ORDER – DAC lag dort über TBA)
-          const isNiederwertig = istNiedrigerAls(src?.qualitaetsstufe ?? null, zielCharge.qualitaetsstufe ?? null)
+          const isNiederwertig = !!src && istAbstufungQualitaet(zielAngabe, normalisiereQualitaet(src))
           return (
             <div key={i} className="flex items-center gap-2">
               <select
@@ -251,7 +248,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
                   <option key={c.id} value={c.id}>
                     {c.name}{c.menge_liter != null ? ` (${fmtNum(c.menge_liter)} L)` : ''}
                     {c.rebsorte ? ` · ${formatRebsorteMitKuerzel(c.rebsorte)}` : ''}
-                    {c.qualitaetsstufe ? ` · ${QUALITAET_LABEL[c.qualitaetsstufe] ?? c.qualitaetsstufe}` : ''}
+                    {c.qualitaetsstufe ? ` · ${qualitaetText(c)}` : ''}
                   </option>
                 ))}
               </select>
@@ -285,11 +282,11 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
         <div className="flex items-start gap-2 bg-s112-warn-bg border border-s112-warn/30 rounded-lg px-3 py-2.5 text-sm">
           <AlertTriangle size={15} strokeWidth={1.75} className="text-s112-warn-fg mt-0.5 shrink-0" />
           <div>
-            <p className="font-medium text-s112-warn-fg">Qualitätsabstufung auf {QUALITAET_LABEL[abstufungsZiel] ?? abstufungsZiel}</p>
+            <p className="font-medium text-s112-warn-fg">Qualitätsabstufung auf {qualitaetText(abstufungsZiel)}</p>
             <p className="text-xs text-s112-warn-fg mt-0.5">
               {betroffeneChargen.length > 0
                 ? <>Folgende Chargen verlieren ihre Qualitätsbezeichnung: <strong>{betroffeneChargen.join(', ')}</strong></>
-                : <>Der Verschnitt wird auf <strong>{QUALITAET_LABEL[abstufungsZiel] ?? abstufungsZiel}</strong> abgestuft.</>
+                : <>Der Verschnitt wird auf <strong>{qualitaetText(abstufungsZiel)}</strong> abgestuft.</>
               }
             </p>
           </div>

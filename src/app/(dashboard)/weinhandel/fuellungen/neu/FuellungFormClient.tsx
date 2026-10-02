@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation'
 import Link from '@/components/ui/Link'
 import { KN_CODES } from '@/lib/wein/zolltarif'
 import { HERKUNFT_ORDER, HERKUNFT_LABEL, herkunftOptionen, istNiedrigerAls as istHerkunftNiedriger } from '@/lib/herkunft'
-import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
-import { istAufwertung } from '@/lib/wein/qualitaetsrang'
+import { qualitaetText } from '@/lib/weinqualitaet'
+import { istAufwertung, normalisiereQualitaet } from '@/lib/wein/qualitaetsrang'
+import ZusatzErzeugnisFelder from '@/components/wein/ZusatzErzeugnisFelder'
 import { FUELLUNG_QUALITAETEN } from '@/lib/wein/qualitaet'
 import { AlertTriangle, CheckCircle2, Droplet } from 'lucide-react'
 import HerkunftCodeSelect from '@/components/weinbaugebiete/HerkunftCodeSelect'
@@ -23,6 +24,9 @@ type Charge = {
   menge_liter: number | null
   status: string
   qualitaetsstufe?: string | null
+  /** KAN-186: Zusatzbezeichnung und Erzeugnis der Charge (Altwerte im Qualitätsfeld werden normalisiert) */
+  zusatzbezeichnung?: string | null
+  erzeugnis?: string | null
   herkunft_code?: string | null
 }
 
@@ -89,7 +93,7 @@ export default function FuellungFormClient({
     String(defaultCharge?.jahrgang ?? new Date().getFullYear())
   )
   const [rebsorteVal, setRebsorteVal] = useState(defaultCharge?.rebsorte ?? '')
-  const [qualitaetVal, setQualitaetVal] = useState(defaultCharge?.qualitaetsstufe ?? 'qualitaetswein')
+  const [qualitaetVal, setQualitaetVal] = useState(normalisiereQualitaet(defaultCharge ?? null).stufe ?? 'qualitaetswein')
   const [herkunftCodeVal, setHerkunftCodeVal] = useState(defaultCharge?.herkunft_code ?? '')
   // Bewusst NICHT vorbelegt (false) - ein versehentlich stehen gelassenes Häkchen hat
   // sonst schon unbemerkt hohe Restmengen als Schwund ausgebucht. Der User muss die
@@ -116,13 +120,15 @@ export default function FuellungFormClient({
   // aktuelle Stufe der Charge und alle rechtlich niedrigeren Stufen (+ "Sonstiges"
   // als generischer Fallback ohne Schutzangabe). Ist keine Charge verknüpft,
   // stehen alle Stufen zur Auswahl (kein Bezugswert zum Einschränken vorhanden).
+  // KAN-186: Angabe der Charge samt Zusatzbezeichnung/Erzeugnis (Altwerte normalisiert)
+  const chargeAngabe = useMemo(() => (selectedCharge ? normalisiereQualitaet({ ...selectedCharge }) : null), [selectedCharge])
   const qualitaetOptions = useMemo(() => {
-    const aktuell = selectedCharge?.qualitaetsstufe
+    const aktuell = chargeAngabe?.stufe ?? null
     if (!aktuell) return QUALITAETEN
     return QUALITAETEN.filter(q =>
       q.value === 'sonstiges' || !istAufwertung(aktuell, q.value)   // KAN-80: wie der Server
     )
-  }, [selectedCharge])
+  }, [chargeAngabe])
 
   const herkunftOptions = useMemo(() => {
     const aktuell = selectedCharge?.herkunft_code
@@ -162,7 +168,7 @@ export default function FuellungFormClient({
       setNameVal(c.name)
       setJahrgangVal(String(c.jahrgang ?? new Date().getFullYear()))
       setRebsorteVal(c.rebsorte ?? '')
-      setQualitaetVal(c.qualitaetsstufe ?? 'qualitaetswein')
+      setQualitaetVal(normalisiereQualitaet(c).stufe ?? 'qualitaetswein')
       setHerkunftCodeVal(c.herkunft_code ?? '')
     }
     // KAN-72: Prüfnummer und Antrag der vorigen Charge immer verwerfen (Freitext und Hidden-
@@ -272,12 +278,16 @@ export default function FuellungFormClient({
                 <option key={q.value} value={q.value}>{q.label}</option>
               ))}
             </select>
-            {selectedCharge?.qualitaetsstufe && (
+            {chargeAngabe?.stufe && (
               <p className="text-xs text-s112-muted mt-1">
-                Charge aktuell: <strong>{QUALITAET_LABEL[selectedCharge.qualitaetsstufe] ?? selectedCharge.qualitaetsstufe}</strong> – nur Abstufung möglich, keine Aufstufung
+                Charge aktuell: <strong>{qualitaetText(chargeAngabe)}</strong> – nur Abstufung möglich, keine Aufstufung
               </p>
             )}
           </div>
+          {/* KAN-186: Zusatzbezeichnung und Erzeugnis – aus der Charge vorbelegt, frei wählbar (keine Aufwertung) */}
+          <ZusatzErzeugnisFelder key={selectedChargeId || 'ohne-charge'}
+            zusatz={chargeAngabe?.zusatz ?? null} erzeugnis={chargeAngabe?.erzeugnis ?? null} stufe={qualitaetVal}
+            feldKlasse={inputCls} labelKlasse={labelCls} />
           <div>
             <label className={labelCls}>Herkunft-Code (BKI)</label>
             <HerkunftCodeSelect

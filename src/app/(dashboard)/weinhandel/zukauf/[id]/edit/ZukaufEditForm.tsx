@@ -4,6 +4,8 @@ import { useState, useTransition, useEffect } from 'react'
 import Link from '@/components/ui/Link'
 import { updateZukauf } from '../../actions'
 import { LESE_QUALITAETEN, QUALITAET_OPTS, mitGespeichertemWert } from '@/lib/wein/qualitaet'
+import ZusatzErzeugnisFelder from '@/components/wein/ZusatzErzeugnisFelder'
+import LandSelect, { type Land } from '@/components/wein/LandSelect'
 import { AlertTriangle } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum } from '@/lib/format'
@@ -12,7 +14,7 @@ import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
 import type { GespeichertesMostgewicht } from '@/lib/wein/mostgewichtFormular'
 import HerkunftCodeSelect from '@/components/weinbaugebiete/HerkunftCodeSelect'
 import { herkunftOptionen } from '@/lib/herkunft'
-import { herkunftAnzeige, pruefnummerPflicht } from '@/lib/zukauf/ware'
+import { herkunftAnzeige } from '@/lib/zukauf/ware'
 import type { CustomWeinbaugebiet } from '@/app/(dashboard)/weinbaugebiete/actions'
 
 interface Behaelter { id: string; name: string; typ: string; volumen_liter: number | null }
@@ -51,6 +53,10 @@ interface InitialValues {
   mostgewicht:              GespeichertesMostgewicht | null
   alkohol_pct:              string
   qualitaetsstufe:          string
+  /** KAN-186: Zusatzbezeichnung, Erzeugnis (normalisiert) und Ursprungsland */
+  zusatzbezeichnung:        string
+  erzeugnis:                string
+  land_iso:                 string
   staatliche_pruefnummer:   string
 }
 
@@ -116,6 +122,8 @@ export default function ZukaufEditForm({
   const [qualitaet,           setQualitaet]         = useState(initial.qualitaetsstufe)
   const [jahrgang,            setJahrgang]          = useState(initial.jahrgang)
   const [herkunft,            setHerkunft]          = useState(initial.herkunft)
+  const [landIso,             setLandIso]           = useState(initial.land_iso || 'AT')
+  const [laender,             setLaender]           = useState<Land[]>([])
   const [anreicherung,        setAnreicherung]      = useState(initial.anreicherung)
   const [alkohol,             setAlkohol]           = useState(initial.alkohol_pct)
   const [pruefnummer,         setPruefnummer]       = useState(initial.staatliche_pruefnummer)
@@ -170,6 +178,7 @@ export default function ZukaufEditForm({
     fetch('/api/zukauf-stammdaten').then(r => r.json()).then(j => {
       setBehaelter(j.behaelter ?? [])
       setWeinausbauListe(j.weinausbau ?? [])
+      setLaender(j.laender ?? [])
     }).catch(() => {})
   }, [])
 
@@ -207,11 +216,13 @@ export default function ZukaufEditForm({
     fd.set('qualitaetsstufe',          qualitaet)
     fd.set('jahrgang',                 jahrgang)
     fd.set('herkunft',                 herkunft)
+    fd.set('land_iso',                 landIso)
     fd.set('anreicherung',             anreicherung ? 'true' : 'false')
     // KAN-130 Etappe 3 (01.10.2026): Mostgewicht = versteckte Felder der Eingabe (Messwert und
     // Einheit); fehlen sie (Art Wein, kein Feld), bleibt das gespeicherte Mostgewicht unverändert
     const formular = new FormData(e.currentTarget as HTMLFormElement)
-    for (const feld of ['mostgewicht_wert', 'mostgewicht_einheit']) {
+    // KAN-186: Zusatzbezeichnung und Erzeugnis (ZusatzErzeugnisFelder, nur bei Wein/Most)
+    for (const feld of ['mostgewicht_wert', 'mostgewicht_einheit', 'zusatzbezeichnung', 'erzeugnis']) {
       const wert = formular.get(feld)
       if (wert !== null) fd.set(feld, wert)
     }
@@ -369,6 +380,18 @@ export default function ZukaufEditForm({
                 ))}
               </select>
             </div>
+            {/* KAN-186: Ursprungsland (EU-Wein, Drittland) */}
+            <div>
+              <label className={labelCls}>Ursprungsland *</label>
+              <LandSelect laender={laender} value={landIso} onChange={setLandIso} className={inputCls + ' w-full'} />
+            </div>
+            {/* KAN-186: Zusatzbezeichnung (Reserve …) und Erzeugnis (Sekt g.U., Perlwein …) – nicht bei Trauben */}
+            {art !== 'trauben' && (
+              <ZusatzErzeugnisFelder key={art}
+                zusatz={art === initial.art ? initial.zusatzbezeichnung || null : null}
+                erzeugnis={art === initial.art ? initial.erzeugnis || null : null}
+                stufe={qualitaet} feldKlasse={inputCls + ' w-full'} labelKlasse={labelCls} />
+            )}
             {/* Herkunfts-Code (BKI) – dieselbe Auswahl wie am GST, samt eigener Weinbaugebiete (KAN-80 Nachtrag) */}
             <div className="col-span-2">
               <label className={labelCls}>Herkunfts-Code (BKI) *</label>
@@ -400,9 +423,9 @@ export default function ZukaufEditForm({
             )}
             {art === 'wein' && (
               <div>
-                <label className={labelCls}>Staatl. Prüfnummer{pruefnummerPflicht(art, qualitaet) ? ' *' : ''}</label>
+                <label className={labelCls}>Staatl. Prüfnummer (optional)</label>
                 <input aria-label="Staatl. Prüfnummer" type="text" value={pruefnummer} onChange={e => setPruefnummer(e.target.value)}
-                  placeholder="z.B. 1234/26" required={pruefnummerPflicht(art, qualitaet)} className={inputCls + ' w-full'} />
+                  placeholder="z.B. 1234/26" className={inputCls + ' w-full'} />
               </div>
             )}
           </div>

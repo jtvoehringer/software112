@@ -64,7 +64,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
     { data: verschnAusRaw },
   ] = await Promise.all([
     tf((supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, rebsorte, weingarten_id, behaelter_id, menge_liter, anfangsbestand_liter, ist_eroeffnungsbestand, status, qualitaetsstufe, herkunft_code, weinart, notizen, aktiv, einstandspreis_pro_liter, kmw, oechsle, mostgewicht_einheit, behaelter:behaelter_id(name)')
+      .select('id, name, jahrgang, rebsorte, weingarten_id, behaelter_id, menge_liter, anfangsbestand_liter, ist_eroeffnungsbestand, status, qualitaetsstufe, zusatzbezeichnung, erzeugnis, herkunft_code, weinart, notizen, aktiv, einstandspreis_pro_liter, kmw, oechsle, mostgewicht_einheit, behaelter:behaelter_id(name)')
       .eq('id', id).limit(1)),
     tf((supabase.from('weingarten') as any).select('id, name').eq('aktiv', true).order('name')),
     // Gebinde als Umzugsziele: eigene + freigegebene, fremd belegte ausgenommen (Migration 203).
@@ -109,7 +109,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
 
     // Alle anderen aktiven Chargen (für Verschneidungs- und Umziehen-Formular)
     tf((supabase.from('weinausbau') as any)
-      .select('id, name, menge_liter, qualitaetsstufe, herkunft_code, behaelter_id, rebsorte, weinart')
+      .select('id, name, menge_liter, qualitaetsstufe, zusatzbezeichnung, erzeugnis, herkunft_code, behaelter_id, rebsorte, weinart')
       .eq('aktiv', true)
       .neq('id', id)
       .order('name')),
@@ -186,7 +186,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
   type WeinausbauRow = {
     id: string; name: string; jahrgang: number | null; rebsorte: string | null; weinart: string | null
     weingarten_id: string | null; behaelter_id: string | null; menge_liter: number | null
-    anfangsbestand_liter: number | null; ist_eroeffnungsbestand: boolean | null; status: string; qualitaetsstufe: string | null; herkunft_code: string | null
+    anfangsbestand_liter: number | null; ist_eroeffnungsbestand: boolean | null; status: string; qualitaetsstufe: string | null; zusatzbezeichnung?: string | null; erzeugnis?: string | null; herkunft_code: string | null
     notizen: string | null; aktiv: boolean; einstandspreis_pro_liter: number | null
     kmw: number | string | null; oechsle: number | string | null; mostgewicht_einheit: string | null
     behaelter: { name: string } | null
@@ -200,7 +200,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
   const behaelter   = bhRows.filter(b => !b.gesperrt).map(b => ({ id: b.id, name: b.anzeigeName, volumen_liter: b.volumen_liter })) as (NameRow & { volumen_liter: number | null })[]
   const selectedWeingaertenIds = ((wawRaw ?? []) as R[]).map(r => r.weingarten_id as string)
 
-  const alleChargen = (alleChargenRaw ?? []) as { id: string; name: string; menge_liter: number | null; qualitaetsstufe: string | null; herkunft_code?: string | null; behaelter_id: string | null; rebsorte?: string | null; weinart?: string | null }[]
+  const alleChargen = (alleChargenRaw ?? []) as { id: string; name: string; menge_liter: number | null; qualitaetsstufe: string | null; zusatzbezeichnung?: string | null; erzeugnis?: string | null; herkunft_code?: string | null; behaelter_id: string | null; rebsorte?: string | null; weinart?: string | null }[]
   const verschneidungenEin = (verschnEinRaw ?? []) as R[]
 
   const anfangsbestand    = parseFloat(String(weinausbau.anfangsbestand_liter ?? 0)) || 0
@@ -695,7 +695,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
       {writeOk && (
         <VerschneidungWidget
           bestehtAus={bestehtAus}
-          zielCharge={{ id: weinausbau.id, name: weinausbau.name, menge_liter: aktuell, qualitaetsstufe: weinausbau.qualitaetsstufe ?? null, herkunft_code: weinausbau.herkunft_code ?? null, rebsorte: weinausbau.rebsorte ?? null, weinart: weinausbau.weinart ?? null, behaelter_id: weinausbau.behaelter_id ?? null, behaelter_volumen_liter: bhRows.find(b => b.id === weinausbau.behaelter_id)?.volumen_liter ?? null }}
+          zielCharge={{ id: weinausbau.id, name: weinausbau.name, menge_liter: aktuell, qualitaetsstufe: weinausbau.qualitaetsstufe ?? null, zusatzbezeichnung: weinausbau.zusatzbezeichnung ?? null, erzeugnis: weinausbau.erzeugnis ?? null, herkunft_code: weinausbau.herkunft_code ?? null, rebsorte: weinausbau.rebsorte ?? null, weinart: weinausbau.weinart ?? null, behaelter_id: weinausbau.behaelter_id ?? null, behaelter_volumen_liter: bhRows.find(b => b.id === weinausbau.behaelter_id)?.volumen_liter ?? null }}
           alleChargen={alleChargen}
           verschneidungen={verschneidungenEin}
           initialOpen={openForm === 'verschneiden'}

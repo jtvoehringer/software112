@@ -14,7 +14,7 @@ import { runden, STELLEN, type CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
 import { ladeBehaelter, type BehaelterZeile } from '@/lib/keller/behaelter'
 import { bkiRebsorteKuerzel, fehlendeKuerzelHinweise } from '@/lib/wein/bki_kuerzel'
-import { qualitaetLabel } from '@/lib/wein/qualitaet'
+import { qualitaetAnzeigeOderNull } from '@/lib/wein/qualitaet'
 import { num, text, type R } from './kellerbuch-hilfen'
 
 export const GEBINDE_TYP_LABEL: Record<string, string> = {
@@ -68,7 +68,7 @@ export async function ladeGebindeverzeichnis(
   const [gebinde, chargenRes] = await Promise.all([
     ladeBehaelter(supabase, tenantId, { nurAktiv: p.nurAktiv }),
     alle<R>((supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, rebsorte, qualitaetsstufe, menge_liter, behaelter_id, status, aktiv')
+      .select('id, name, jahrgang, rebsorte, qualitaetsstufe, zusatzbezeichnung, erzeugnis, menge_liter, behaelter_id, status, aktiv')
       .eq('tenant_id', tenantId)
       .eq('aktiv', true)
       .order('name')
@@ -109,7 +109,7 @@ export async function ladeGebindeverzeichnis(
         jahrgang: typeof c.jahrgang === 'number' ? c.jahrgang : null,
         rebsorte: text(c.rebsorte),
         kuerzel: bkiRebsorteKuerzel(text(c.rebsorte)),
-        qualitaet: c.qualitaetsstufe ? qualitaetLabel(c.qualitaetsstufe) : null,
+        qualitaet: qualitaetAnzeigeOderNull(c),   // KAN-186: Stufe + Zusatzbezeichnung/Erzeugnis
         mengeCharge: runden(num(c.menge_liter), STELLEN.liter),
       })
     }

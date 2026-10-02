@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Info, AlertTriangle } from 'lucide-react'
 import { QUALITAET_OPTS, mitGespeichertemWert } from '@/lib/wein/qualitaet'
+import { normalisiereQualitaet } from '@/lib/wein/qualitaetsrang'
+import ZusatzErzeugnisFelder from '@/components/wein/ZusatzErzeugnisFelder'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum, dezimal } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
@@ -20,6 +22,8 @@ type WeinausbauRow = {
   id: string; name: string; jahrgang: number | null; rebsorte: string | null
   weingarten_id: string | null; behaelter_id: string | null
   menge_liter: number | null; status: string; qualitaetsstufe: string | null
+  /** KAN-186: Zusatzbezeichnung und Erzeugnis (Altwerte im Qualitätsfeld werden normalisiert) */
+  zusatzbezeichnung?: string | null; erzeugnis?: string | null
   weinart?: string | null
   notizen: string | null; aktiv: boolean; einstandspreis_pro_liter: number | null
   /** KAN-130 Etappe 3: gespeichertes Mostgewicht (Messwert und Einheit) */
@@ -89,6 +93,9 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
   }
 
   const rdOnly = "form-input bg-s112-bg text-s112-text-2 cursor-not-allowed select-none"
+  // KAN-186: Altwerte (reserve, sekt …) im Qualitätsfeld → Stufe + Zusatzbezeichnung/Erzeugnis
+  const angabe = normalisiereQualitaet(weinausbau ?? null)
+  const [stufe, setStufe] = useState<string>(angabe.stufe ?? maxQualitaetsstufe ?? '')
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -154,27 +161,27 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
             <label className="form-label">Qualitätsstufe</label>
             {vonPressung ? (
               <>
-                <input type="hidden" name="qualitaetsstufe" value={weinausbau?.qualitaetsstufe ?? ''} />
+                <input type="hidden" name="qualitaetsstufe" value={angabe.stufe ?? ''} />
                 <div className={rdOnly}>
-                  {weinausbau?.qualitaetsstufe
-                    ? (QUALITAET_OPTS.find(o => o.value === weinausbau.qualitaetsstufe)?.label ?? weinausbau.qualitaetsstufe)
+                  {angabe.stufe
+                    ? (QUALITAET_OPTS.find(o => o.value === angabe.stufe)?.label ?? angabe.stufe)
                     : '– noch nicht festgelegt –'}
                 </div>
                 <p className="text-xs text-s112-muted mt-1">Wird aus dem KMW-Wert der Pressung abgeleitet</p>
               </>
             ) : (
               (() => {
-                const basisQ = weinausbau?.qualitaetsstufe ?? maxQualitaetsstufe ?? null
+                const basisQ = angabe.stufe ?? maxQualitaetsstufe ?? null
                 const maxRang = basisQ ? (QUALITAET_OPTS.find(o => o.value === basisQ)?.rang ?? 99) : 99
                 // KAN-73: Charge = QUALITAET_OPTS (CHECK weinausbau); „Wein“ (Rang 0) lässt nur Wein
                 // und Sonstiges zu. Ein gespeicherter Wert außerhalb der Liste bleibt sichtbar.
                 const erlaubteOptionen = mitGespeichertemWert(
                   basisQ ? QUALITAET_OPTS.filter(o => o.rang <= maxRang) : QUALITAET_OPTS,
-                  weinausbau?.qualitaetsstufe,
+                  angabe.stufe,
                 )
                 return (
                   <>
-                    <select name="qualitaetsstufe" defaultValue={weinausbau?.qualitaetsstufe ?? maxQualitaetsstufe ?? ''} className="form-input">
+                    <select name="qualitaetsstufe" value={stufe} onChange={e => setStufe(e.target.value)} className="form-input">
                       <option value="">– noch nicht festgelegt –</option>
                       {erlaubteOptionen.map(o => (
                         <option key={o.value} value={o.value}>{o.label}</option>
@@ -201,6 +208,16 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
               <option value="abgeschlossen">Abgeschlossen</option>
             </select>
           </div>
+        </div>
+
+        {/* KAN-186: Zusatzbezeichnung (Reserve …) und Erzeugnis (Sekt g.U., Perlwein …) – auch nachträglich setzbar bzw.
+            wechselbar (keine Aufwertung, Korrektur 02.10.2026) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <ZusatzErzeugnisFelder
+            zusatz={angabe.zusatz}
+            erzeugnis={angabe.erzeugnis}
+            stufe={vonPressung ? angabe.stufe : stufe}
+          />
         </div>
 
         {/* Weinart */}

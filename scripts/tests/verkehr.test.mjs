@@ -398,6 +398,22 @@ describe('pruefnummernantrag', () => {
     assert.deepEqual(w, [])
   })
 
+  test('KAN-186: Reserve/Große Reserve aus der Zusatzbezeichnung der Charge vorbelegt (Altwert normalisiert)', async () => {
+    assert.deepEqual([pna.pnaVorbelegung(DAC, CFG).reserve, pna.pnaVorbelegung(DAC, CFG).grosse_reserve], [false, false])
+    const gr = pna.pnaVorbelegung(DAC, CFG, { qualitaetsstufe: 'qualitaetswein', zusatzbezeichnung: 'grosse_reserve' })
+    assert.deepEqual([gr.reserve, gr.grosse_reserve], [false, true])
+    const alt = pna.pnaVorbelegung(DAC, CFG, { qualitaetsstufe: 'reserve', zusatzbezeichnung: null })
+    assert.deepEqual([alt.reserve, alt.grosse_reserve], [true, false])
+    const WA = '88888888-8888-4888-8888-888888888888'
+    const sb = fakeSupabase({
+      dac_antrag: [{ ...DAC, weinausbau_id: WA }], tenant_einstellungen: [CFG], pruefnummernantraege: [],
+      weinausbau: [{ id: WA, tenant_id: T, qualitaetsstufe: 'qualitaetswein', zusatzbezeichnung: 'reserve' }],
+    })
+    const r = await pna.ladePruefnummernantrag(sb, T, { id: DAC_ID })
+    assert.equal(r.formular.reserve, true)
+    mandantGefiltert(sb, ['dac_antrag', 'tenant_einstellungen', 'pruefnummernantraege', 'weinausbau'])
+  })
+
   test('Ladefunktion: Vorbelegung gekennzeichnet, Mandantenfilter, nicht gefunden → null', async () => {
     const sb = fakeSupabase({ dac_antrag: [DAC], tenant_einstellungen: [CFG], pruefnummernantraege: [] })
     const r = await pna.ladePruefnummernantrag(sb, T, { id: DAC_ID })

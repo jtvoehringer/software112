@@ -16,7 +16,7 @@ export async function GET() {
 
     const supabase = await createSupabaseServerClient()
 
-    const [behaelterRows, { data: weinausbau }] = await Promise.all([
+    const [behaelterRows, { data: weinausbau }, { data: laender }] = await Promise.all([
       // eigene + freigegebene Gebinde, fremd belegte ausgenommen (Kellergemeinschaft, Migration 203)
       ladeBehaelter(supabase, tenantId, { alsZiel: true }),
       (supabase.from('weinausbau') as any)
@@ -24,10 +24,13 @@ export async function GET() {
         .eq('tenant_id', tenantId)
         .eq('aktiv', true)
         .order('name'),
+      // KAN-186: Ursprungsland des Zukaufs (land_iso) – globaler Katalog ohne tenant_id (ISO-Länder)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase.from('kat_land') as any).select('iso2, name_de, eu').order('name_de'),
     ])
 
     const behaelter = behaelterRows.map(b => ({ id: b.id, name: b.anzeigeName, typ: b.typ, volumen_liter: b.volumen_liter }))
-    return NextResponse.json({ behaelter, weinausbau: weinausbau ?? [] })
+    return NextResponse.json({ behaelter, weinausbau: weinausbau ?? [], laender: laender ?? [] })
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 })
   }

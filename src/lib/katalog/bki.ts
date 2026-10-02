@@ -126,12 +126,14 @@ export function katalogQualitaet(intern: string | null | undefined): KatQualitae
 // Die Spalten erzeugnis, zusatzbezeichnung und land_iso leitet der Trigger s112_katalog_ableiten (Migration
 // kan186a_erzeugnis_zusatz_land) aus dem Qualitätswert ab – diese Funktion ist sein Spiegel (Test kan39-kataloge).
 
-export const ZUSATZBEZEICHNUNGEN = ['reserve', 'erste_lage', 'grosses_gewachs'] as const
+// KAN-186 Etappe 2c: + grosse_reserve (nur Stillwein; Migration kan186c ergänzt die drei CHECKs). Die Ableitung aus dem
+// Qualitätsfeld kennt grosse_reserve nicht – den Wert gab es dort nie, er kommt nur über die Spalte selbst.
+export const ZUSATZBEZEICHNUNGEN = ['reserve', 'grosse_reserve', 'erste_lage', 'grosses_gewachs'] as const
 export type Zusatzbezeichnung = (typeof ZUSATZBEZEICHNUNGEN)[number]
 
 /** Ableitung wie s112_katalog_ableiten: Zusatz aus Reserve/Erste Lage/GG, Erzeugnis aus Sekt/Perlwein bzw. Zukauf-Art Most */
 export function katalogAusQualitaet(qualitaet: string | null | undefined, zukaufArt?: string | null): { zusatzbezeichnung: Zusatzbezeichnung | null; erzeugnis: string | null } {
-  const zusatz = (ZUSATZBEZEICHNUNGEN as readonly string[]).includes(qualitaet ?? '') ? qualitaet as Zusatzbezeichnung : null
+  const zusatz = qualitaet && qualitaet !== 'grosse_reserve' && (ZUSATZBEZEICHNUNGEN as readonly string[]).includes(qualitaet) ? qualitaet as Zusatzbezeichnung : null
   const m: Record<string, string> = KATALOG_MAPPING.erzeugnis
   const erzeugnis = (qualitaet ? m[qualitaet] : undefined) ?? (zukaufArt === 'most' ? 'MOST' : null)
   return { zusatzbezeichnung: zusatz, erzeugnis }

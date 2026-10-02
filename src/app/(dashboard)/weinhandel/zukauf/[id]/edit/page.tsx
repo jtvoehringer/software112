@@ -5,6 +5,7 @@ import ZukaufEditForm from './ZukaufEditForm'
 import { folgebuchungenDerZielcharge, zielchargeText, zukaufVerweise, traubenGebundenText } from '../../sperren'
 import { ladeCustomWeinbaugebiete } from '../../../../weinbaugebiete/actions'
 import { herkunftVorbelegung } from '@/lib/zukauf/ware'
+import { normalisiereQualitaet } from '@/lib/wein/qualitaetsrang'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,7 +24,7 @@ export default async function ZukaufEditPage({ params }: { params: Promise<{ id:
       id, datum, art, menge, einheit, preis_gesamt, einstandspreis_pro_liter,
       rebsorte, jahrgang, notizen, weinart, eingangsrechnungsnummer,
       lieferung_uhrzeit, transport_zugmaschine, transport_anhaenger1, transport_anhaenger2,
-      herkunft, anreicherung, kmw, oechsle, mostgewicht_einheit, alkohol_pct, qualitaetsstufe, staatliche_pruefnummer,
+      herkunft, anreicherung, kmw, oechsle, mostgewicht_einheit, alkohol_pct, qualitaetsstufe, zusatzbezeichnung, erzeugnis, land_iso, staatliche_pruefnummer,
       lieferant_kontakt_id, lieferant_firma_id, ziel_weinausbau_id,
       lieferant_kontakt:kontakte!lieferant_kontakt_id(id, vorname, nachname),
       lieferant_firma:firmen!lieferant_firma_id(id, name),
@@ -89,7 +90,11 @@ export default async function ZukaufEditPage({ params }: { params: Promise<{ id:
         anreicherung:             z.anreicherung ?? false,
         mostgewicht:              z.kmw != null || z.oechsle != null ? { kmw: z.kmw, oechsle: z.oechsle, einheit: z.mostgewicht_einheit } : null,
         alkohol_pct:              z.alkohol_pct != null ? String(z.alkohol_pct) : '',
-        qualitaetsstufe:          z.qualitaetsstufe ?? '',
+        // KAN-186: Altwerte (reserve, sekt …) → Stufe + Zusatzbezeichnung/Erzeugnis
+        qualitaetsstufe:          normalisiereQualitaet(z).stufe ?? '',
+        zusatzbezeichnung:        normalisiereQualitaet(z).zusatz ?? '',
+        erzeugnis:                normalisiereQualitaet(z).erzeugnis ?? '',
+        land_iso:                 z.land_iso ?? 'AT',
         staatliche_pruefnummer:   z.staatliche_pruefnummer ?? '',
       }}
       hatBewegungen={hatBewegungen}

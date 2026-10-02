@@ -9,7 +9,8 @@ import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { fmtNum, dezimal, zahlAus } from '@/lib/format'
 import { AktionsFehler, dbFehlerText, fehlerText } from '@/lib/fehler'
-import { qualitaetFehler } from '@/lib/wein/qualitaet'
+import { qualitaetFehler, qualitaetsAngabeAusFormular, qualitaetsAngabeFehler } from '@/lib/wein/qualitaet'
+import { normalisiereQualitaet, qualitaetsSpalten } from '@/lib/wein/qualitaetsrang'
 import { sperreBeiFolgebuchungen } from '@/lib/kellerbuch/folgebuchungen'
 import {
   ladeUmzugZeilen, planeUmzugStorno, storniereUmzug, umzugSperrMeldung, umzugAlsEingabe, nurNotizenAenderbar,
@@ -65,10 +66,13 @@ async function insertEroeffnungsbestand(formData: FormData): Promise<string | nu
   const jahr      = new Date().getFullYear()
   // Keine aktiven 0-L- oder negativen Chargen (KAN-35; negativ scheitert zusätzlich am CHECK)
   if (!Number.isFinite(menge) || menge < 0.01) return 'Bitte eine Menge von mindestens 0,01 L angeben.'
-  // KAN-73: nur Stufen des CHECK weinausbau (QUALITAET_OPTS) – vor der Transaktionsnummer prüfen
-  const qualitaetsstufe = (formData.get('qualitaetsstufe') as string) || null
-  const qualitaetUnzulaessig = qualitaetFehler('charge', qualitaetsstufe)
+  // KAN-73: nur Stufen des CHECK weinausbau (QUALITAET_OPTS) – vor der Transaktionsnummer prüfen.
+  // KAN-186: dazu Zusatzbezeichnung und Erzeugnis; ein Altwert (reserve, sekt …) wird normalisiert.
+  const angabe = qualitaetsAngabeAusFormular(formData)
+  const qualitaetUnzulaessig = qualitaetFehler('charge', angabe.stufe)
   if (qualitaetUnzulaessig) return qualitaetUnzulaessig
+  const angabeUnzulaessig = qualitaetsAngabeFehler(angabe)
+  if (angabeUnzulaessig) return angabeUnzulaessig
   // KAN-130 Etappe 3 (02.10.2026): Mostgewicht aus Messwert und Einheit (MostgewichtEingabe, °KMW oder °Oe;
   // übergangsweise das alte Feld kmw als °KMW) – beide Werte serverseitig gerechnet und vor der
   // Transaktionsnummer geprüft. Die Qualitätsstufe bleibt, wie gewählt (Rechenregel 6).
@@ -86,7 +90,7 @@ async function insertEroeffnungsbestand(formData: FormData): Promise<string | nu
     ...mostgewichtSpalten(mostgewicht.wert, 'kmw'),   // kmw, oechsle, mostgewicht_einheit
     menge_liter:          menge,
     anfangsbestand_liter: menge,
-    qualitaetsstufe:      qualitaetsstufe,
+    ...qualitaetsSpalten(angabe),
     behaelter_id:         (formData.get('behaelter_id') as string) || null,
     notizen:              (formData.get('notizen') as string) || null,
     einstandspreis_pro_liter: epRaw ? parseFloat(epRaw) : null,
@@ -150,9 +154,12 @@ async function eroeffnungsbestandSpeichern(id: string, formData: FormData): Prom
   const alt = altRaw as R
 
   // KAN-73: nur Stufen des CHECK weinausbau (QUALITAET_OPTS) – verständliche Meldung statt 23514
-  const qualitaetsstufe = (formData.get('qualitaetsstufe') as string) || null
-  const qualitaetUnzulaessig = qualitaetFehler('charge', qualitaetsstufe)
+  // KAN-186: dazu Zusatzbezeichnung und Erzeugnis; ein Altwert (reserve, sekt …) wird normalisiert.
+  const angabe = qualitaetsAngabeAusFormular(formData)
+  const qualitaetUnzulaessig = qualitaetFehler('charge', angabe.stufe)
   if (qualitaetUnzulaessig) throw new AktionsFehler(qualitaetUnzulaessig)
+  const angabeUnzulaessig = qualitaetsAngabeFehler(angabe)
+  if (angabeUnzulaessig) throw new AktionsFehler(angabeUnzulaessig)
   // KAN-130 Etappe 3 (02.10.2026): Mostgewicht wie beim Anlegen – geschrieben nur, wenn das Formular es
   // mitschickt (ein Formular ohne Feld lässt das gespeicherte stehen); leer = beide Spalten NULL.
   const mostgewicht = mostgewichtAusFormular(formData, 'mostgewicht', { altesFeld: 'kmw' })
@@ -163,7 +170,7 @@ async function eroeffnungsbestandSpeichern(id: string, formData: FormData): Prom
     name:            formData.get('name') as string,
     jahrgang:        parseInt(dezimal(formData.get('jahrgang') as string)) || null,
     ...(mostgewicht.uebermittelt ? mostgewichtSpalten(mostgewicht.wert, 'kmw') : {}),
-    qualitaetsstufe: qualitaetsstufe,
+    ...qualitaetsSpalten(angabe),
     notizen:         (formData.get('notizen') as string) || null,
     einstandspreis_pro_liter: epRaw2 ? parseFloat(epRaw2) : null,
     referenz_altsystem: (formData.get('referenz_altsystem') as string) || null,
@@ -492,7 +499,7 @@ async function umzugAnlegen(
           name:                 hauptQuelle?.name ?? 'Unbekannt',
           jahrgang:             hauptQuelle?.jahrgang ?? null,
           rebsorte:             hauptQuelle?.rebsorte ?? null,
-          qualitaetsstufe:      hauptQuelle?.qualitaetsstufe ?? null,
+          ...qualitaetsSpalten(normalisiereQualitaet(hauptQuelle)),   // KAN-186: samt Zusatz/Erzeugnis, nie ein Altwert
           status:               hauptQuelle?.status && hauptQuelle.status !== 'abgeschlossen' ? hauptQuelle.status : 'ausbau',
           behaelter_id:         z.behaelter_id,
           menge_liter:          z.menge_netto,

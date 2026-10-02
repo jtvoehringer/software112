@@ -7,7 +7,7 @@ import { notFound } from 'next/navigation'
 import { Sprout } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum } from '@/lib/format'
-import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
+import { qualitaetText } from '@/lib/weinqualitaet'
 
 export const dynamic = 'force-dynamic'
 
@@ -46,7 +46,7 @@ export default async function WeinpassPage({ params }: { params: Promise<{ charg
   // tenant-isolation-ignore: oeffentliche, unangemeldete Seite ohne aktiven Mandanten - siehe Kommentar oben
   const { data: fuellungRaw } = await (supabase.from('fuellungen') as any)
     .select(`
-      chargennummer, pruefnummer, name, jahrgang, rebsorte, qualitaet,
+      chargennummer, pruefnummer, name, jahrgang, rebsorte, qualitaet, zusatzbezeichnung, erzeugnis,
       anbaugebiet, bezeichnung, datum, flaschengroesse_ml, anzahl_flaschen,
       weinausbau_id
     `)
@@ -77,12 +77,8 @@ export default async function WeinpassPage({ params }: { params: Promise<{ charg
       .filter((wg: R) => wg.weingarten)
   }
 
-  // Kurzbezeichnungen aus lib/weinqualitaet (deckt alle 18 Stufen der Füllung ab, KAN-73: auch
-  // „Wein“ und „Ausbruch“) – die bisherigen Schreibweisen dieser Seite bleiben unverändert
-  const qualitaetLabels: Record<string, string> = {
-    ...QUALITAET_LABEL,
-    reserve: 'Reservé', erste_lage: 'Erste Lage (ÖTW)', sekt: 'Sekt b.A.',
-  }
+  // Kurzbezeichnungen aus lib/weinqualitaet (alle Stufen der Füllung, KAN-73: auch „Wein“ und „Ausbruch“);
+  // KAN-186: samt Zusatzbezeichnung und Erzeugnis („Qualitätswein Reserve“, „Sekt g.U. (Qualitätswein)“)
 
   return (
     <div className="min-h-screen bg-[#F7F8FA] flex items-center justify-center p-4">
@@ -113,7 +109,7 @@ export default async function WeinpassPage({ params }: { params: Promise<{ charg
           {f.qualitaet && (
             <div className="flex justify-between text-sm">
               <span className="text-s112-text-2">Qualität</span>
-              <span className="font-semibold text-s112-text">{qualitaetLabels[f.qualitaet] ?? f.qualitaet}</span>
+              <span className="font-semibold text-s112-text">{qualitaetText(f)}</span>
             </div>
           )}
           {f.datum && (

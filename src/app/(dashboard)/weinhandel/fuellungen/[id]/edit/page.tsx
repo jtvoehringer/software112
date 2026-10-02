@@ -7,8 +7,9 @@ import { Wine } from 'lucide-react'
 import { updateFuellung } from '../../../actions'
 import { KN_CODES } from '@/lib/wein/zolltarif'
 import { HERKUNFT_ORDER, HERKUNFT_LABEL, herkunftOptionen, istNiedrigerAls as istHerkunftNiedriger } from '@/lib/herkunft'
-import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
-import { istAufwertung } from '@/lib/wein/qualitaetsrang'
+import { qualitaetText } from '@/lib/weinqualitaet'
+import { istAufwertung, normalisiereQualitaet, type QualitaetsAngabe } from '@/lib/wein/qualitaetsrang'
+import ZusatzErzeugnisFelder from '@/components/wein/ZusatzErzeugnisFelder'
 import { FUELLUNG_QUALITAETEN, mitGespeichertemWert } from '@/lib/wein/qualitaet'
 import { ladeCustomWeinbaugebiete } from '../../../../weinbaugebiete/actions'
 import HerkunftCodeSelect from '@/components/weinbaugebiete/HerkunftCodeSelect'
@@ -72,16 +73,18 @@ export default async function EditFuellungPage({
   let waRestmenge: number | null = null
   let waName: string | null = null
   let waCeilingQualitaet: string | null = null
+  let waAngabe: QualitaetsAngabe | null = null   // KAN-186: Angabe der Charge samt Zusatz/Erzeugnis
   let waCeilingHerkunft: string | null = null
   if (f.weinausbau_id) {
     const { data: waAktuell } = await tf((supabase.from('weinausbau') as any)
-      .select('name, menge_liter, status, qualitaetsstufe, herkunft_code').eq('id', f.weinausbau_id)).single()
+      .select('name, menge_liter, status, qualitaetsstufe, zusatzbezeichnung, erzeugnis, herkunft_code').eq('id', f.weinausbau_id)).single()
     const wa = waAktuell as R | null
     if (wa && wa.status !== 'abgeschlossen') {
       waRestmenge = parseFloat(wa.menge_liter ?? '0') || 0
     }
     waName             = wa?.name ?? null
-    waCeilingQualitaet = wa?.qualitaetsstufe ?? null
+    waAngabe           = wa ? normalisiereQualitaet(wa) : null
+    waCeilingQualitaet = waAngabe?.stufe ?? null
     waCeilingHerkunft  = wa?.herkunft_code ?? null
   }
 
@@ -141,16 +144,18 @@ export default async function EditFuellungPage({
   // dieser Füllung gespeicherte Wert bleibt immer wählbar, auch falls er durch
   // eine spätere Änderung an der Charge nicht mehr in der erlaubten Liste wäre
   // (verhindert Datenverlust beim Speichern).
+  // KAN-186: gespeicherte Angabe der Füllung normalisiert (Altwerte reserve, sekt … → Stufe + Zusatz/Erzeugnis)
+  const fAngabe = normalisiereQualitaet(f)
   const qualitaetOptionsEdit = (() => {
     const basis = waCeilingQualitaet
       ? QUALITAETEN.filter(q => q.value === 'sonstiges' || !istAufwertung(waCeilingQualitaet, q.value))   // KAN-80: wie der Server
       : QUALITAETEN
-    if (f.qualitaet && !basis.some(q => q.value === f.qualitaet)) {
-      const bestehend = QUALITAETEN.find(q => q.value === f.qualitaet)
+    if (fAngabe.stufe && !basis.some(q => q.value === fAngabe.stufe)) {
+      const bestehend = QUALITAETEN.find(q => q.value === fAngabe.stufe)
       if (bestehend) return [bestehend, ...basis]
     }
     // KAN-73: auch ein Wert außerhalb der Liste bleibt sichtbar (statt still die erste Option)
-    return mitGespeichertemWert(basis, f.qualitaet)
+    return mitGespeichertemWert(basis, fAngabe.stufe)
   })()
 
   // Ein eigenes (nicht in HERKUNFT_ORDER geführtes) Weinbaugebiet liegt außerhalb der
@@ -315,17 +320,20 @@ export default async function EditFuellungPage({
             </div>
             <div>
               <label className={labelCls}>Qualitätsbezeichnung *</label>
-              <select aria-label="Qualitätsbezeichnung" name="qualitaet" defaultValue={f.qualitaet} required className={inputCls}>
+              <select aria-label="Qualitätsbezeichnung" name="qualitaet" defaultValue={fAngabe.stufe ?? ''} required className={inputCls}>
                 {qualitaetOptionsEdit.map(q => (
                   <option key={q.value} value={q.value}>{q.label}</option>
                 ))}
               </select>
-              {waCeilingQualitaet && (
+              {waAngabe?.stufe && (
                 <p className="text-xs text-s112-muted mt-1">
-                  Charge aktuell: <strong>{QUALITAET_LABEL[waCeilingQualitaet] ?? waCeilingQualitaet}</strong> – nur Abstufung möglich, keine Aufstufung
+                  Charge aktuell: <strong>{qualitaetText(waAngabe)}</strong> – nur Abstufung möglich, keine Aufstufung
                 </p>
               )}
             </div>
+            {/* KAN-186: Zusatzbezeichnung und Erzeugnis – frei wählbar (setzen/wechseln ist keine Aufwertung) */}
+            <ZusatzErzeugnisFelder zusatz={fAngabe.zusatz} erzeugnis={fAngabe.erzeugnis}
+              feldKlasse={inputCls} labelKlasse={labelCls} />
             <div>
               <label className={labelCls}>Herkunft-Code (BKI)</label>
               <HerkunftCodeSelect

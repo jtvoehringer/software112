@@ -3,8 +3,9 @@
 // „Wein | Traubenmost | Trauben wird mit Qualitätsstufe und Herkunfts-Code (BKI) zugekauft. Im Bereich Ware
 // sind alle Felder Mussfelder. Herkunft wird Herkunfts-Code (BKI) wie bei den Ried-GST; daraus gelten die
 // gleichen Regeln wie für Weinabstufungen.“ Dazu entschieden:
-//  (a) Staatliche Prüfnummer bei Art „Wein“ Pflicht ab Qualitätswein (inkl. DAC, Reserve, Erste Lage,
-//      Großes Gewächs, Sekt – Stufe ≥ 2 der Rangfolge, nicht „Sonstiges“), sonst optional;
+//  (a) Staatliche Prüfnummer: beim Zukauf NIE Pflicht, bei keiner Stufe und auch nicht bei Sekt/Perlwein (Entscheidung
+//      Jörgen 02.10.2026, ersetzt die frühere Regel „Pflicht ab Qualitätswein“). Erst ein abzufüllender Wein wird zur
+//      Prüfnummer angemeldet – ob er eine bekommt, ist eine andere Frage. Das Feld bleibt optional;
 //  (b) keine neue Spalte: zukauf_posten.herkunft speichert den Code. Altwerte (Freitext) bleiben – Anzeige
 //      über herkunftAnzeige, im Bearbeiten-Formular per herkunftVorbelegung (nur eindeutig, sonst leer).
 //
@@ -18,13 +19,6 @@ export type ZukaufArt = 'wein' | 'most' | 'trauben'
 
 /** Wählbare Weinarten im Bereich Ware – „unbekannt“ (Altbestand) ist keine Angabe mehr */
 export const ZUKAUF_WEINARTEN = ['weiss', 'rot', 'rose'] as const
-
-/** Staatliche Prüfnummer Pflicht? Nur bei Art Wein und Qualitätswein oder höher (Regel a). */
-export function pruefnummerPflicht(art: string | null | undefined, qualitaetsstufe: string | null | undefined): boolean {
-  if (art !== 'wein') return false
-  const r = qualitaetsRang(qualitaetsstufe)
-  return !!r && r.art !== 'sonstiges' && r.stufe >= 2
-}
 
 /** Ist `wert` ein eigenes Weinbaugebiet des Betriebs (weinbaugebiete_custom.name)? Groß-/Kleinschreibung egal. */
 function eigenesGebiet(wert: string, eigene: readonly string[]): string | null {
@@ -74,7 +68,6 @@ export type ZukaufWare = {
   /** Mostgewicht vorhanden (Trauben, Most) */
   mostgewicht: boolean
   alkohol: number | null
-  pruefnummer: string | null
 }
 
 /**
@@ -92,7 +85,7 @@ export function zukaufWareFehler(w: ZukaufWare, eigeneWeinbaugebiete: readonly s
   if (!w.herkunft?.trim()) fehlt.push('Herkunfts-Code (BKI)')
   if (mitMost && !w.mostgewicht) fehlt.push('Mostgewicht')
   if (w.art === 'wein' && !(w.alkohol != null && w.alkohol > 0)) fehlt.push('Alkoholgehalt')
-  if (pruefnummerPflicht(w.art, w.qualitaetsstufe) && !w.pruefnummer?.trim()) fehlt.push('Staatl. Prüfnummer (Pflicht ab Qualitätswein)')
+  // Prüfnummer beim Zukauf optional (Entscheidung Jörgen 02.10.2026, ersetzt KAN-80 Regel a „Pflicht ab Qualitätswein“)
   if (fehlt.length > 0) return `Bitte im Bereich Ware ausfüllen: ${fehlt.join(', ')}.`
   if (!weinMost && !mitMost) return 'Unbekannte Art – bitte Wein, Traubenmost oder Trauben wählen.'
   if (w.jahrgang! < 1900 || w.jahrgang! > 2100) return 'Der Jahrgang muss zwischen 1900 und 2100 liegen.'

@@ -68,14 +68,16 @@ describe('KAN-80: keine Aufwertung', () => {
     const q = quelle('src/app/(dashboard)/kellerbuch/actions.ts')
     const start = q.indexOf('export async function updateWeinausbau(')
     const teil = q.slice(start, q.indexOf('// Deaktivieren/Abschließen nur ohne Bestand', start))
-    assert.match(teil, /istAufwertung\(altQualitaet, payload\.qualitaetsstufe/)
+    // KAN-186: ganze Angabe (Stufe + Zusatzbezeichnung), Altwerte normalisiert
+    assert.match(teil, /istAufwertungQualitaet\(altQualitaet, neuQualitaet\)/)
+    assert.match(teil, /const altQualitaet = normalisiereQualitaet\(alt\)/)
     assert.match(teil, /\['jahrgang', 'Jahrgang'\], \['rebsorte', 'Rebsorte'\], \['weinart', 'Weinart'\]/)
     assert.match(teil, /from\('pressung_behaelter'\)/)
     assert.match(teil, /from\('zukauf_posten'\)/)
   })
-  test('Füllung (neu und bearbeiten) lehnt Aufwertungen über istAufwertung ab', () => {
+  test('Füllung (neu und bearbeiten) lehnt Aufwertungen über istAufwertungQualitaet ab', () => {
     const q = quelle('src/app/(dashboard)/weinhandel/actions.ts')
-    assert.equal((q.match(/istAufwertung\(chargeQualitaet, qualitaetInput\)/g) ?? []).length, 2)
+    assert.equal((q.match(/istAufwertungQualitaet\(chargeQualitaet, qualitaetInput\)/g) ?? []).length, 2)
   })
 })
 

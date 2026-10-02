@@ -9,7 +9,8 @@ import { redirect } from 'next/navigation'
 import { AktionsFehler, dbFehlerText, fehlerText } from '@/lib/fehler'
 import { stornoGrundFehler } from '@/lib/storno/grund'
 import { dezimal, fmtNum } from '@/lib/format'
-import { qualitaetFehler } from '@/lib/wein/qualitaet'
+import { qualitaetFehler, qualitaetsAngabeAusFormular, qualitaetsAngabeFehler } from '@/lib/wein/qualitaet'
+import { gleicheQualitaet, normalisiereQualitaet, qualitaetsSpalten, type QualitaetsAngabe } from '@/lib/wein/qualitaetsrang'
 import { pruefePruefnummernSchaden } from '@/lib/kellerbuch/pruefnummerLaden'
 import { mitPnNotiz } from '@/lib/kellerbuch/pruefnummer'
 import { mostgewichtAusFormular, mostgewichtAusGespeichert, mostgewichtSpalten } from '@/lib/wein/mostgewichtFormular'
@@ -58,9 +59,10 @@ async function createZukaufCharge(
   menge: number,
   einstandspreisProLiter: number | null,
   weinart: string | null,
-  qualitaetsstufe: string | null,
+  qualitaet: QualitaetsAngabe,
   herkunftCode: string | null,
   mostgewicht: Mostgewicht | null,
+  landIso: string,
 ): Promise<string> {
   const name = rebsorte || 'Zukauf'
   const { data: neu, error } = await (supabase.from('weinausbau') as any)
@@ -76,7 +78,9 @@ async function createZukaufCharge(
       status:      'ausbau',
       aktiv:       true,
       weinart:     weinart ?? 'unbekannt',
-      qualitaetsstufe: qualitaetsstufe ?? null,
+      // KAN-186: Stufe, Zusatzbezeichnung, Erzeugnis und Ursprungsland des Zukaufs an die Charge (nie ein Altwert)
+      ...qualitaetsSpalten(qualitaet),
+      land_iso: landIso,
       // KAN-80 Nachtrag (02.10.2026): Herkunfts-Code (BKI) des Zukaufs an die Charge – fehlte bisher; damit gelten
       // für Verschnitt, Umzug und Füllung dieselben Abstufungsregeln wie für eigene Chargen
       herkunft_code: herkunftCode ?? null,
@@ -145,11 +149,19 @@ function parseZukaufFormData(formData: FormData) {
   // KAN-73: die Stufe geht bei Wein/Most in die Zielcharge (weinausbau) – nur Werte des
   // CHECK weinausbau (QUALITAET_OPTS), sonst verständliche Meldung statt 23514.
   // KAN-80 Nachtrag (02.10.2026): auch Trauben haben eine Stufe – dort die Liste der Lese (LESE_QUALITAETEN).
-  const qualitaetsstufe = (formData.get('qualitaetsstufe') as string)?.trim() || null
+  // KAN-186: ein Altwert (reserve, sekt …) wird normalisiert; Zusatzbezeichnung und Erzeugnis nur bei Wein/Most
+  const angabe = qualitaetsAngabeAusFormular(formData)
+  const qualitaetsstufe = angabe.stufe
   const qualitaetUnzulaessig = qualitaetFehler('charge', qualitaetsstufe)
   if (qualitaetUnzulaessig && art !== 'trauben') throw new AktionsFehler(qualitaetUnzulaessig)
   const traubenQualitaetUnzulaessig = qualitaetFehler('lese', qualitaetsstufe)
   if (traubenQualitaetUnzulaessig && art === 'trauben') throw new AktionsFehler(traubenQualitaetUnzulaessig)
+  const qualitaet: QualitaetsAngabe = art === 'trauben' ? { stufe: qualitaetsstufe, zusatz: null, erzeugnis: null } : angabe
+  const angabeUnzulaessig = qualitaetsAngabeFehler(qualitaet)
+  if (angabeUnzulaessig) throw new AktionsFehler(angabeUnzulaessig)
+  // KAN-186: Ursprungsland (kat_land, Standard Österreich) – der Fremdschlüssel prüft, ob es das Land gibt
+  const landIso = String(formData.get('land_iso') ?? '').trim().toUpperCase() || 'AT'
+  if (!/^[A-Z]{2}$/.test(landIso)) throw new AktionsFehler('Bitte das Ursprungsland aus der Auswahl wählen.')
   // KAN-130 Etappe 3 (01.10.2026): Mostgewicht aus Messwert und Einheit der Eingabe
   // (mostgewicht_wert/_einheit; übergangsweise das alte Feld kmw als °KMW), serverseitig gerechnet.
   // uebermittelt = false (Feld nicht im Formular, z. B. Art Wein): gespeicherte Werte bleiben.
@@ -171,6 +183,8 @@ function parseZukaufFormData(formData: FormData) {
     weinart:             (formData.get('weinart')                  as string) || 'unbekannt',
     rebsorte:            (formData.get('rebsorte')                 as string)?.trim() || null,
     qualitaetsstufe,
+    qualitaet,
+    landIso,
     jahrgang,
     jahrgangEingabe:     isNaN(jahrgangEingabe) ? null : jahrgangEingabe,
     // KAN-80 Nachtrag: Herkunfts-Code (BKI) bzw. eigenes Weinbaugebiet – Prüfung in pruefeWare
@@ -191,6 +205,12 @@ function parseZukaufFormData(formData: FormData) {
 
 type ZukaufFormular = ReturnType<typeof parseZukaufFormData>
 
+/** KAN-186: Qualitätsspalten des Belegs (zukauf_posten) – nie ein Altwert; Traubenmost ohne gewähltes Erzeugnis = MOST */
+function zukaufQualitaetsSpalten(f: ZukaufFormular): AR {
+  const s = qualitaetsSpalten(f.qualitaet)
+  return { ...s, erzeugnis: s.erzeugnis ?? (f.art === 'most' ? 'MOST' : null), land_iso: f.landIso }
+}
+
 /** Stammdaten, die die Zielcharge vom Zukauf übernimmt (ohne Menge und Gebinde).
  *  KAN-130 Etappe 3 (01.10.2026): auch das Mostgewicht samt Einheit – nur, wenn das Formular es
  *  übermittelt hat (sonst bliebe ein Formular ohne Feld nicht folgenlos). Aufgerufen wird das nur
@@ -202,7 +222,8 @@ function chargeStammdaten(f: ZukaufFormular): AR {
     jahrgang:                 f.jahrgang,
     einstandspreis_pro_liter: f.einstandspreisLiter ?? null,
     weinart:                  f.weinart ?? 'unbekannt',
-    qualitaetsstufe:          f.qualitaetsstufe ?? null,
+    ...qualitaetsSpalten(f.qualitaet),   // KAN-186: samt Zusatzbezeichnung und Erzeugnis
+    land_iso:                 f.landIso,
     herkunft_code:            f.herkunft ?? null,   // KAN-80 Nachtrag (02.10.2026): Herkunfts-Code an die Charge
     ...(f.mostgewichtUebermittelt ? mostgewichtSpalten(f.mostgewicht, 'kmw') : {}),
   }
@@ -210,7 +231,7 @@ function chargeStammdaten(f: ZukaufFormular): AR {
 
 /** KAN-80 Nachtrag (02.10.2026, Entscheidungen Jörgen): alle Felder im Bereich Ware sind Pflicht, die Herkunft ist
  *  ein Herkunfts-Code (BKI) aus dem Katalog oder ein eigenes Weinbaugebiet des Betriebs (dieselbe Auswahl wie am GST),
- *  die Prüfnummer ist bei Wein ab Qualitätswein Pflicht. Vor dem ersten Schreibzugriff aufrufen. */
+ *  die Prüfnummer bleibt optional (Entscheidung Jörgen 02.10.2026). Vor dem ersten Schreibzugriff aufrufen. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function pruefeWare(supabase: any, tenantId: string, f: ZukaufFormular): Promise<void> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -228,7 +249,6 @@ async function pruefeWare(supabase: any, tenantId: string, f: ZukaufFormular): P
     herkunft:        f.herkunft,
     mostgewicht:     f.mostgewicht != null,
     alkohol:         f.alkohol,
-    pruefnummer:     f.pruefnummer,
   }, ((eigene ?? []) as AR[]).map(e => String(e.name ?? '')))
   if (fehler) throw new AktionsFehler(fehler)
 }
@@ -262,8 +282,8 @@ export async function createZukauf(formData: FormData): Promise<{ bestaetigung?:
   let zielWeinausbauId: string | null = null
   if ((f.art === 'wein' || f.art === 'most') && f.zielBehaelterId) {
     zielWeinausbauId = await createZukaufCharge(
-      supabase, tenantId, f.zielBehaelterId, f.rebsorte, f.jahrgang, f.menge, f.einstandspreisLiter, f.weinart, f.qualitaetsstufe, f.herkunft,
-      f.mostgewicht,
+      supabase, tenantId, f.zielBehaelterId, f.rebsorte, f.jahrgang, f.menge, f.einstandspreisLiter, f.weinart, f.qualitaet, f.herkunft,
+      f.mostgewicht, f.landIso,
     )
   }
   // Scheitert der Beleg, die eben angelegte Charge wieder schließen (sonst Bestand ohne Zugang)
@@ -285,7 +305,7 @@ export async function createZukauf(formData: FormData): Promise<{ bestaetigung?:
       transport_anhaenger2:     f.anhaenger2,
       weinart:                  f.weinart,
       rebsorte:                 f.rebsorte,
-      qualitaetsstufe:          f.qualitaetsstufe,
+      ...zukaufQualitaetsSpalten(f),
       jahrgang:                 f.jahrgang,
       herkunft:                 f.herkunft,
       anreicherung:             f.anreicherung,
@@ -325,7 +345,7 @@ export async function createZukauf(formData: FormData): Promise<{ bestaetigung?:
     // Prüfung 2: Gleiche Rebsorte, andere Qualitätsstufe → Verschneidung (ggf. Abstufung)
     if (f.qualitaetsstufe) {
       const { data: gleicheRebsorte } = await (supabase.from('weinausbau') as any)
-        .select('id, qualitaetsstufe')
+        .select('id, qualitaetsstufe, zusatzbezeichnung, erzeugnis')
         .eq('behaelter_id', f.zielBehaelterId)
         .eq('tenant_id', tenantId)
         .eq('aktiv', true)
@@ -334,7 +354,7 @@ export async function createZukauf(formData: FormData): Promise<{ bestaetigung?:
         .not('qualitaetsstufe', 'is', null)
         .limit(10)
       const treffer = ((gleicheRebsorte as any[]) ?? []).find(
-        (c: any) => c.qualitaetsstufe !== f.qualitaetsstufe
+        (c: AR) => !gleicheQualitaet(normalisiereQualitaet(c), f.qualitaet)   // KAN-186: samt Zusatz/Erzeugnis
       )
       if (treffer) {
         redirect(`/kellerbuch/weinausbau/${treffer.id}?form=verschneiden&quelle=${zielWeinausbauId}&menge=${f.menge}`)
@@ -397,7 +417,7 @@ export async function updateZukauf(id: string, formData: FormData) {
     const chargeId = altWeinausbauId
     const folge = await folgebuchungenDerZielcharge(supabase, chargeId)
     const { data: charge, error: chErr } = await (supabase.from('weinausbau') as any)
-      .select('behaelter_id, menge_liter, aktiv, status, rebsorte, jahrgang, einstandspreis_pro_liter, weinart, herkunft_code, qualitaetsstufe, kmw, oechsle, mostgewicht_einheit')
+      .select('behaelter_id, menge_liter, aktiv, status, rebsorte, jahrgang, einstandspreis_pro_liter, weinart, herkunft_code, qualitaetsstufe, zusatzbezeichnung, erzeugnis, land_iso, kmw, oechsle, mostgewicht_einheit')
       .eq('id', chargeId)
       .eq('tenant_id', tenantId)
       .maybeSingle()
@@ -409,6 +429,7 @@ export async function updateZukauf(id: string, formData: FormData) {
     const vorherStammdaten: AR = {
       rebsorte: c.rebsorte, jahrgang: c.jahrgang, einstandspreis_pro_liter: c.einstandspreis_pro_liter,
       weinart: c.weinart, qualitaetsstufe: c.qualitaetsstufe, herkunft_code: c.herkunft_code,
+      zusatzbezeichnung: c.zusatzbezeichnung ?? null, erzeugnis: c.erzeugnis ?? null, land_iso: c.land_iso ?? 'AT',   // KAN-186
       // KAN-130 Etappe 3: Mostgewicht samt Einheit – beide Werte wie gespeichert zurück
       kmw: c.kmw, oechsle: c.oechsle, mostgewicht_einheit: c.mostgewicht_einheit,
     }
@@ -469,8 +490,8 @@ export async function updateZukauf(id: string, formData: FormData) {
         let neueId = ''
         try {
           neueId = await createZukaufCharge(
-            supabase, tenantId, f.zielBehaelterId, f.rebsorte, f.jahrgang, f.menge, f.einstandspreisLiter, f.weinart, f.qualitaetsstufe, f.herkunft,
-            mostgewichtCharge,
+            supabase, tenantId, f.zielBehaelterId, f.rebsorte, f.jahrgang, f.menge, f.einstandspreisLiter, f.weinart, f.qualitaet, f.herkunft,
+            mostgewichtCharge, f.landIso,
           )
         } catch (e) {
           await mitRueckbau(e, alteChargeZurueck)
@@ -486,8 +507,8 @@ export async function updateZukauf(id: string, formData: FormData) {
     // Nachträglich einem Gebinde zugeordnet: neue Charge mit der vollen Belegmenge
     // (Tankverkäufe direkt aus dem Zukauf gibt es nicht mehr – es ist nichts abzuziehen)
     const neueId = await createZukaufCharge(
-      supabase, tenantId, f.zielBehaelterId, f.rebsorte, f.jahrgang, f.menge, f.einstandspreisLiter, f.weinart, f.qualitaetsstufe, f.herkunft,
-      mostgewichtCharge,
+      supabase, tenantId, f.zielBehaelterId, f.rebsorte, f.jahrgang, f.menge, f.einstandspreisLiter, f.weinart, f.qualitaet, f.herkunft,
+      mostgewichtCharge, f.landIso,
     )
     zielWeinausbauId = neueId
     rueckbau = () => bereinigCharge(supabase, neueId, tenantId)
@@ -506,7 +527,7 @@ export async function updateZukauf(id: string, formData: FormData) {
       transport_anhaenger2:     f.anhaenger2,
       weinart:                  f.weinart,
       rebsorte:                 f.rebsorte,
-      qualitaetsstufe:          f.qualitaetsstufe,
+      ...zukaufQualitaetsSpalten(f),
       jahrgang:                 f.jahrgang,
       herkunft:                 f.herkunft,
       anreicherung:             f.anreicherung,

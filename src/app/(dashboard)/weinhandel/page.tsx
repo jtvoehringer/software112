@@ -1,4 +1,4 @@
-import { qualitaetLabel } from '@/lib/wein/qualitaet'
+import { qualitaetAnzeige } from '@/lib/wein/qualitaet'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
@@ -50,7 +50,7 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
     { data: tvRaw },
   ] = await Promise.all([
     tf((supabase.from('fuellungen') as any)
-      .select('id, name, jahrgang, rebsorte, qualitaet, anbaugebiet, bezeichnung, datum, flaschengroesse_ml, anzahl_flaschen, bestand_flaschen, vk_preis_brutto, einstandspreis, aktiv')
+      .select('id, name, jahrgang, rebsorte, qualitaet, zusatzbezeichnung, erzeugnis, anbaugebiet, bezeichnung, datum, flaschengroesse_ml, anzahl_flaschen, bestand_flaschen, vk_preis_brutto, einstandspreis, aktiv')
       .eq('aktiv', true)
       .order('datum', { ascending: false })),
     tf((supabase.from('weinausbau') as any)
@@ -233,7 +233,7 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
                           {f.anbaugebiet && <span>{f.anbaugebiet}</span>}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-s112-muted">{qualitaetLabel(f.qualitaet)}</td>
+                      <td className="px-4 py-3 text-s112-muted">{qualitaetAnzeige(f)}</td>
                       <td className="px-4 py-3 text-s112-muted whitespace-nowrap">
                         {FLASCHEN_LABEL[f.flaschengroesse_ml] ?? `${f.flaschengroesse_ml} ml`}
                       </td>

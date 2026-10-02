@@ -15,6 +15,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Supabase-Abfragen nach Projektkonvention mit „as any“ (CLAUDE.md) */
 import { STELLEN, runden, type CsvSpalte } from '@/lib/csv'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
+import { normalisiereQualitaet } from '@/lib/wein/qualitaetsrang'
 import { UUID_RE, datumAusEingabe, feld, strasseTeilen, textOderNull, zahlFeld, type R } from './verkehr-hilfen'
 import { FORMULAR_GESPEICHERT, FORMULAR_VORBELEGUNG } from './transportbescheinigung'
 
@@ -84,8 +85,11 @@ export type PNADaten = {
 
 const LEERE_MOSTCHARGE: PNAMostcharge = { betriebsnummer: '', laufende_nr: '', jahr: '', teilmenge: '' }
 
-/** Vorbelegung eines noch nicht gespeicherten Antrags (unverändert wie bisher in der Druckansicht) */
-export function pnaVorbelegung(dac: R, cfg: R): PNADaten {
+/** Vorbelegung eines noch nicht gespeicherten Antrags (unverändert wie bisher in der Druckansicht).
+ *  KAN-186: Reserve/Große Reserve aus der Zusatzbezeichnung der Charge (`charge`: qualitaetsstufe,
+ *  zusatzbezeichnung – Altwert 'reserve' im Qualitätsfeld wird normalisiert). */
+export function pnaVorbelegung(dac: R, cfg: R, charge?: R | null): PNADaten {
+  const zusatz = charge ? normalisiereQualitaet(charge).zusatz : null
   const { strasse, hausnr } = strasseTeilen(cfg.betrieb_strasse)
   const menge = dac.menge_liter === null || dac.menge_liter === undefined ? NaN : Number(dac.menge_liter)
   return {
@@ -122,8 +126,8 @@ export function pnaVorbelegung(dac: R, cfg: R): PNADaten {
     qualitaetsstufe: feld(dac.dac_region),
     weinbaugebiet: feld(dac.dac_region),
     bez_jahrgang: dac.jahrgang ? String(dac.jahrgang) : '',
-    reserve: false,
-    grosse_reserve: false,
+    reserve: zusatz === 'reserve',
+    grosse_reserve: zusatz === 'grosse_reserve',
     premium: false,
     barrique: false,
     ried: '',
@@ -387,9 +391,20 @@ export async function ladePruefnummernantrag(supabase: Client, tenantId: string,
   const pna = pnaRes.data as R | null
   const gespeicherteDaten = pna?.formular_daten && typeof pna.formular_daten === 'object' ? (pna.formular_daten as PNADaten) : null
   const gespeichertAm = pna ? (pna.aktualisiert_am ?? pna.erstellt_am ?? null) : null
+  // KAN-186: Zusatzbezeichnung der Charge für die Vorbelegung (Reserve/Große Reserve) – nur ohne gespeichertes Formular
+  let charge: R | null = null
+  if (!gespeicherteDaten && dac.weinausbau_id && UUID_RE.test(String(dac.weinausbau_id))) {
+    const chRes = await (supabase.from('weinausbau') as any)
+      .select('qualitaetsstufe, zusatzbezeichnung')
+      .eq('id', dac.weinausbau_id)
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+    if (chRes.error) throw new Error(`Laden fehlgeschlagen (weinausbau): ${chRes.error.message}`)
+    charge = (chRes.data ?? null) as R | null
+  }
   const formular: PNADaten = gespeicherteDaten
     ? { ...gespeicherteDaten, mostchargen: Array.isArray(gespeicherteDaten.mostchargen) ? gespeicherteDaten.mostchargen : [] }
-    : pnaVorbelegung(dac, (cfgRes.data ?? {}) as R)
+    : pnaVorbelegung(dac, (cfgRes.data ?? {}) as R, charge)
   if (!gespeicherteDaten) warnungen.push(HINWEIS_VORBELEGUNG)
 
   const zeilen = pnaZeilen(formular, { dacBezeichnung: textOderNull(dac.bezeichnung), gespeichert: !!gespeicherteDaten, gespeichertAm }, warnungen)

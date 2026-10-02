@@ -2,9 +2,11 @@
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { istNiedrigerAls, QUALITAET_LABEL } from '@/lib/weinqualitaet'
-import { istAufwertung } from '@/lib/wein/qualitaetsrang'
-import { qualitaetFehler } from '@/lib/wein/qualitaet'
+import { qualitaetText } from '@/lib/weinqualitaet'
+import {
+  istAufwertungQualitaet, istAbstufungQualitaet, normalisiereQualitaet, fuellungsQualitaetsSpalten, type QualitaetsAngabe,
+} from '@/lib/wein/qualitaetsrang'
+import { qualitaetFehler, qualitaetsAngabeAusFormular, qualitaetsAngabeFehler } from '@/lib/wein/qualitaet'
 import { istNiedrigerAls as herkunftIstNiedrigerAls, HERKUNFT_LABEL } from '@/lib/herkunft'
 import { getCurrentMembership, canWrite, type Membership } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
@@ -65,12 +67,15 @@ function pruefeChargenRecht(m: Membership) {
 /** Qualitätsbezeichnung einer Füllung aus dem Formular (KAN-73): Pflichtfeld (fuellungen.qualitaet
  *  ist NOT NULL) und nur Werte des CHECK fuellungen (FUELLUNG_QUALITAETEN) – verständliche Meldung
  *  statt 23502/23514, vor jedem Schreibzugriff. */
-function fuellungQualitaetAusFormular(formData: FormData): string {
-  const wert = (formData.get('qualitaet') as string) || null
-  if (!wert) throw new AktionsFehler('Bitte eine Qualitätsbezeichnung für die Füllung wählen.')
-  const fehler = qualitaetFehler('fuellung', wert)
+function fuellungQualitaetAusFormular(formData: FormData): QualitaetsAngabe {
+  // KAN-186: samt Zusatzbezeichnung und Erzeugnis; ein Altwert (reserve, sekt …) wird normalisiert
+  const angabe = qualitaetsAngabeAusFormular(formData, 'qualitaet')
+  if (!angabe.stufe) throw new AktionsFehler('Bitte eine Qualitätsbezeichnung für die Füllung wählen.')
+  const fehler = qualitaetFehler('fuellung', angabe.stufe)
   if (fehler) throw new AktionsFehler(fehler)
-  return wert
+  const angabeFehler = qualitaetsAngabeFehler(angabe)
+  if (angabeFehler) throw new AktionsFehler(angabeFehler)
+  return angabe
 }
 
 /** Notiz der Abschluss-Schwundzeile einer Füllung (deactivateFuellung erkennt sie am Anfang) */
@@ -127,8 +132,13 @@ async function chargeAktualisieren(
 // Neue Füllung anlegen
 
 /** KAN-80: Meldung für eine abgelehnte Aufwertung der Füllung gegenüber der Charge */
-function aufwertungText(charge: string, neu: string): string {
-  return `Die Füllung kann nicht als „${QUALITAET_LABEL[neu] ?? neu}“ gefüllt werden, die Charge ist „${QUALITAET_LABEL[charge] ?? charge}“ – nur gleich oder niedriger (Abstufen) ist zulässig.`
+function aufwertungText(charge: QualitaetsAngabe, neu: QualitaetsAngabe): string {
+  return `Die Füllung kann nicht als „${qualitaetText(neu)}“ gefüllt werden, die Charge ist „${qualitaetText(charge)}“ – nur gleich oder niedriger (Abstufen) ist zulässig.`
+}
+
+/** KAN-186: Vermerk, wenn die Füllung unter der Charge liegt (Stufe, Zusatzbezeichnung oder Erzeugnis) */
+function abstufungsVermerk(charge: QualitaetsAngabe, neu: QualitaetsAngabe): string {
+  return istAbstufungQualitaet(charge, neu) ? `Qualität manuell abgestuft von ${qualitaetText(charge)} auf ${qualitaetText(neu)}. ` : ''
 }
 
 export async function createFuellung(formData: FormData): Promise<{ id: string; hinweis?: string }> {
@@ -164,7 +174,7 @@ export async function createFuellung(formData: FormData): Promise<{ id: string; 
   if (weinausbauId) {
     pruefeChargenRecht(membership)
     const { data: wa, error: waErr } = await (supabase.from('weinausbau') as any)
-      .select('name, menge_liter, status, aktiv, qualitaetsstufe, herkunft_code')
+      .select('name, menge_liter, status, aktiv, qualitaetsstufe, zusatzbezeichnung, erzeugnis, herkunft_code')
       .eq('id', weinausbauId)
       .eq('tenant_id', tenantId)
       .maybeSingle()
@@ -182,11 +192,12 @@ export async function createFuellung(formData: FormData): Promise<{ id: string; 
       )
     }
 
-    const chargeQualitaet = charge.qualitaetsstufe as string | null ?? null
+    const chargeQualitaet = normalisiereQualitaet(charge)   // KAN-186: Altwerte normalisiert
     const chargeHerkunft  = charge.herkunft_code as string | null ?? null
 
-    // KAN-80: eine Rangfolge (KAN-74) – auch Landwein → DAC/Reserve/Sekt ist eine Aufwertung
-    if (qualitaetInput && chargeQualitaet && istAufwertung(chargeQualitaet, qualitaetInput)) {
+    // KAN-80: eine Rangfolge (KAN-74) – Landwein → DAC ist eine Aufwertung; KAN-186: ebenso eine neue bzw. höhere
+    // Zusatzbezeichnung (Charge Qualitätswein → Füllung Reserve)
+    if (istAufwertungQualitaet(chargeQualitaet, qualitaetInput)) {
       throw new AktionsFehler(aufwertungText(chargeQualitaet, qualitaetInput))
     }
     if (herkunftCodeInput && chargeHerkunft && herkunftIstNiedrigerAls(chargeHerkunft, herkunftCodeInput)) {
@@ -194,9 +205,7 @@ export async function createFuellung(formData: FormData): Promise<{ id: string; 
         `Herkunft-Code (BKI) kann nicht von ${HERKUNFT_LABEL[chargeHerkunft] ?? chargeHerkunft} auf ${HERKUNFT_LABEL[herkunftCodeInput] ?? herkunftCodeInput} AUFgestuft werden. Nur Abstufungen sind zulässig.`
       )
     }
-    if (qualitaetInput && chargeQualitaet && qualitaetInput !== chargeQualitaet && istNiedrigerAls(qualitaetInput, chargeQualitaet)) {
-      notizenZusatz += `Qualität manuell abgestuft von ${QUALITAET_LABEL[chargeQualitaet] ?? chargeQualitaet} auf ${QUALITAET_LABEL[qualitaetInput] ?? qualitaetInput}. `
-    }
+    notizenZusatz += abstufungsVermerk(chargeQualitaet, qualitaetInput)
     if (herkunftCodeInput && chargeHerkunft && herkunftCodeInput !== chargeHerkunft && herkunftIstNiedrigerAls(herkunftCodeInput, chargeHerkunft)) {
       notizenZusatz += `Herkunft-Code (BKI) manuell abgestuft von ${HERKUNFT_LABEL[chargeHerkunft] ?? chargeHerkunft} auf ${HERKUNFT_LABEL[herkunftCodeInput] ?? herkunftCodeInput}. `
     }
@@ -253,7 +262,7 @@ export async function createFuellung(formData: FormData): Promise<{ id: string; 
     name:                 formData.get('name') as string,
     jahrgang:             parseInt(dezimal(formData.get('jahrgang') as string)) || null,
     rebsorte:             (formData.get('rebsorte') as string) || null,
-    qualitaet:            qualitaetInput,   // KAN-73: geprüft (fuellungQualitaetAusFormular)
+    ...fuellungsQualitaetsSpalten(qualitaetInput),   // KAN-73/KAN-186: geprüft (fuellungQualitaetAusFormular)
     herkunft_code:        herkunftCodeInput,
     anbaugebiet:          (formData.get('anbaugebiet') as string) || null,
     bezeichnung:          (formData.get('bezeichnung') as string) || null,
@@ -417,7 +426,7 @@ export async function updateFuellung(id: string, formData: FormData): Promise<vo
   // dürfen beim Bearbeiten einer Füllung nur abgestuft, nie aufgestuft werden (hart blockiert).
   if (weinausbauId) {
     const { data: wa, error: waErr } = await (supabase.from('weinausbau') as any)
-      .select('name, qualitaetsstufe, herkunft_code')
+      .select('name, qualitaetsstufe, zusatzbezeichnung, erzeugnis, herkunft_code')
       .eq('id', weinausbauId)
       .eq('tenant_id', tenantId)
       .maybeSingle()
@@ -432,11 +441,12 @@ export async function updateFuellung(id: string, formData: FormData): Promise<vo
         weinausbauId, chargeName: ((wa as AR | null)?.name as string | undefined) ?? null, datum: abfuelldatum,
       })
     }
-    const chargeQualitaet = (wa as AR | null)?.qualitaetsstufe as string | null ?? null
+    const chargeQualitaet = normalisiereQualitaet(wa as AR)   // KAN-186: Altwerte normalisiert
     const chargeHerkunft  = (wa as AR | null)?.herkunft_code as string | null ?? null
 
-    // KAN-80: eine Rangfolge (KAN-74) – auch Landwein → DAC/Reserve/Sekt ist eine Aufwertung
-    if (qualitaetInput && chargeQualitaet && istAufwertung(chargeQualitaet, qualitaetInput)) {
+    // KAN-80: eine Rangfolge (KAN-74) – Landwein → DAC ist eine Aufwertung; KAN-186: ebenso eine neue bzw. höhere
+    // Zusatzbezeichnung (Charge Qualitätswein → Füllung Reserve)
+    if (istAufwertungQualitaet(chargeQualitaet, qualitaetInput)) {
       throw new AktionsFehler(aufwertungText(chargeQualitaet, qualitaetInput))
     }
     if (herkunftCodeInput && chargeHerkunft && herkunftIstNiedrigerAls(chargeHerkunft, herkunftCodeInput)) {
@@ -444,9 +454,7 @@ export async function updateFuellung(id: string, formData: FormData): Promise<vo
         `Herkunft-Code (BKI) kann nicht von ${HERKUNFT_LABEL[chargeHerkunft] ?? chargeHerkunft} auf ${HERKUNFT_LABEL[herkunftCodeInput] ?? herkunftCodeInput} AUFgestuft werden. Nur Abstufungen sind zulässig.`
       )
     }
-    if (qualitaetInput && chargeQualitaet && qualitaetInput !== chargeQualitaet && istNiedrigerAls(qualitaetInput, chargeQualitaet)) {
-      notizenZusatz += `Qualität manuell abgestuft von ${QUALITAET_LABEL[chargeQualitaet] ?? chargeQualitaet} auf ${QUALITAET_LABEL[qualitaetInput] ?? qualitaetInput}. `
-    }
+    notizenZusatz += abstufungsVermerk(chargeQualitaet, qualitaetInput)
     if (herkunftCodeInput && chargeHerkunft && herkunftCodeInput !== chargeHerkunft && herkunftIstNiedrigerAls(herkunftCodeInput, chargeHerkunft)) {
       notizenZusatz += `Herkunft-Code (BKI) manuell abgestuft von ${HERKUNFT_LABEL[chargeHerkunft] ?? chargeHerkunft} auf ${HERKUNFT_LABEL[herkunftCodeInput] ?? herkunftCodeInput}. `
     }
@@ -461,7 +469,7 @@ export async function updateFuellung(id: string, formData: FormData): Promise<vo
     name:                 formData.get('name') as string,
     jahrgang:             parseInt(dezimal(formData.get('jahrgang') as string)) || null,
     rebsorte:             (formData.get('rebsorte') as string) || null,
-    qualitaet:            qualitaetInput,   // KAN-73: geprüft (fuellungQualitaetAusFormular)
+    ...fuellungsQualitaetsSpalten(qualitaetInput),   // KAN-73/KAN-186: geprüft (fuellungQualitaetAusFormular)
     herkunft_code:        herkunftCodeInput,
     anbaugebiet:          (formData.get('anbaugebiet') as string) || null,
     bezeichnung:          (formData.get('bezeichnung') as string) || null,

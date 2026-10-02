@@ -117,3 +117,170 @@ export function vergleicheQualitaet(a: string | null | undefined, b: string | nu
   const gewicht = (r: QualitaetsRang) => (r.art === 'stufe' ? 0 : 1)
   return gewicht(ra) - gewicht(rb)
 }
+
+// ── KAN-186 Etappe 2b/2c (02.10.2026): Qualitätsangabe = Stufe + Zusatzbezeichnung + Erzeugnis ─────────────────
+// Reserve, Große Reserve, Erste Lage und Großes Gewächs sind keine Stufen mehr, sondern eine eigene Spalte
+// (zusatzbezeichnung) auf der Grundstufe Qualitätswein – auch bei DAC-Herkunft (Entscheidung Jörgen 02.10.2026).
+// Sekt und Perlwein sind Erzeugnisse (Spalte erzeugnis: SEKTGU bzw. PERLWEIN) auf einer Stufe der Achse.
+// Altdaten können im Qualitätsfeld noch 'reserve', 'erste_lage', 'grosses_gewachs', 'sekt' oder 'perlwein' tragen,
+// bis die Migration kan186c sie umstellt – normalisiereQualitaet() liefert für beide Fälle dieselbe Angabe.
+//
+// Regeln:
+//  • Mischen (mischeQualitaet): Stufe nach niedrigsteQualitaet; die Zusatzbezeichnung bleibt nur, wenn alle Teile
+//    dieselbe tragen (KAN-74), sonst entfällt sie; ebenso das Erzeugnis.
+//  • Aufwertung (istAufwertungQualitaet): nur eine höhere Stufe der Achse. Eine Zusatzbezeichnung nachträglich setzen
+//    oder wechseln ist KEINE Aufwertung (Korrektur Jörgen 02.10.2026 – wie bisher lag Reserve auf derselben Stufe wie
+//    Qualitätswein, und der Betrieb entscheidet Reserve oft erst nach dem Ausbau). Ein Erzeugnis allein ist nie eine
+//    Aufwertung (Sekt setzt Qualitätswein voraus – das prüft die Stufe bzw. qualitaetsAngabeFehler in lib/wein/qualitaet).
+//  • Abstufung (istAbstufungQualitaet): niedrigere Stufe, eine verlorene Zusatzbezeichnung (bzw. Große Reserve →
+//    Reserve, Großes Gewächs → Erste Lage) oder ein verlorenes Erzeugnis Sekt/Perlwein – für Vermerke
+//    („Abstufung von Qualitätswein Reserve auf Qualitätswein“). Ein Wechsel (Reserve → Erste Lage) ist keine Abstufung.
+
+/** Zusatzbezeichnungen (Spiegel von ZUSATZBEZEICHNUNGEN in lib/katalog/bki.ts und der CHECKs, Test kan39-kataloge) */
+export const ZUSATZ_WERTE = ['reserve', 'grosse_reserve', 'erste_lage', 'grosses_gewachs'] as const
+export type Zusatz = (typeof ZUSATZ_WERTE)[number]
+
+/** Altwerte des Qualitätsfelds, die seit KAN-186 in Zusatzbezeichnung bzw. Erzeugnis stehen */
+export const ALTWERTE_QUALITAET = ['reserve', 'erste_lage', 'grosses_gewachs', 'sekt', 'perlwein'] as const
+const ALT_ZUSATZ: Readonly<Record<string, Zusatz>> = { reserve: 'reserve', erste_lage: 'erste_lage', grosses_gewachs: 'grosses_gewachs' }
+const ALT_ERZEUGNIS: Readonly<Record<string, string>> = { sekt: 'SEKTGU', perlwein: 'PERLWEIN' }
+/** Grundstufe der Zusatzbezeichnungen und der Altwerte Sekt/Perlwein (Entscheidung Jörgen 02.10.2026) */
+export const GRUNDSTUFE_ZUSATZ = 'qualitaetswein'
+
+/** Qualitätsangabe einer Charge, Füllung oder eines Zukaufs */
+export interface QualitaetsAngabe {
+  stufe: string | null
+  zusatz: Zusatz | null
+  erzeugnis: string | null
+}
+
+/** Zeile mit Qualitätsfeld (weinausbau/zukauf_posten: qualitaetsstufe, fuellungen: qualitaet) */
+export type QualitaetsZeile = {
+  qualitaetsstufe?: string | null
+  qualitaet?: string | null
+  zusatzbezeichnung?: string | null
+  erzeugnis?: string | null
+}
+
+export function istZusatz(wert: unknown): wert is Zusatz {
+  return typeof wert === 'string' && (ZUSATZ_WERTE as readonly string[]).includes(wert)
+}
+
+/** Ist `wert` ein Altwert des Qualitätsfelds (reserve, erste_lage, grosses_gewachs, sekt, perlwein)? */
+export function istAltwertQualitaet(wert: unknown): boolean {
+  return typeof wert === 'string' && (ALTWERTE_QUALITAET as readonly string[]).includes(wert)
+}
+
+const hat = (o: object, k: string): boolean => Object.prototype.hasOwnProperty.call(o, k)
+
+/**
+ * Normalisierte Angabe – tolerant für Altdaten: Altwert im Qualitätsfeld → Qualitätswein + Zusatz bzw. Erzeugnis
+ * (ausdrücklich gespeicherte Spalten haben Vorrang). Leere Texte zählen als null.
+ */
+export function normalisiereQualitaet(zeile: QualitaetsZeile | null | undefined): QualitaetsAngabe {
+  if (!zeile) return { stufe: null, zusatz: null, erzeugnis: null }
+  const roh = hat(zeile, 'qualitaetsstufe') ? zeile.qualitaetsstufe : zeile.qualitaet
+  let stufe: string | null = typeof roh === 'string' && roh.trim() ? roh.trim() : null
+  let zusatz: Zusatz | null = istZusatz(zeile.zusatzbezeichnung) ? zeile.zusatzbezeichnung : null
+  let erzeugnis: string | null = typeof zeile.erzeugnis === 'string' && zeile.erzeugnis.trim() ? zeile.erzeugnis.trim() : null
+  if (stufe && hat(ALT_ZUSATZ, stufe)) {
+    zusatz = zusatz ?? ALT_ZUSATZ[stufe]
+    stufe = GRUNDSTUFE_ZUSATZ
+  } else if (stufe && hat(ALT_ERZEUGNIS, stufe)) {
+    erzeugnis = erzeugnis ?? ALT_ERZEUGNIS[stufe]
+    stufe = GRUNDSTUFE_ZUSATZ
+  }
+  return { stufe, zusatz, erzeugnis }
+}
+
+/** Kurzform: normalisierte Angabe aus Stufe, Zusatz und Erzeugnis */
+export function qualitaetsAngabe(stufe: string | null | undefined, zusatz?: string | null, erzeugnis?: string | null): QualitaetsAngabe {
+  return normalisiereQualitaet({ qualitaetsstufe: stufe ?? null, zusatzbezeichnung: zusatz ?? null, erzeugnis: erzeugnis ?? null })
+}
+
+/** Spalten zum Schreiben (weinausbau/zukauf_posten) – nie ein Altwert im Qualitätsfeld */
+export function qualitaetsSpalten(a: QualitaetsAngabe | null | undefined): { qualitaetsstufe: string | null; zusatzbezeichnung: Zusatz | null; erzeugnis: string | null } {
+  return { qualitaetsstufe: a?.stufe ?? null, zusatzbezeichnung: a?.zusatz ?? null, erzeugnis: a?.erzeugnis ?? null }
+}
+
+/** Spalten zum Schreiben in fuellungen (Qualitätsfeld heißt dort qualitaet) */
+export function fuellungsQualitaetsSpalten(a: QualitaetsAngabe | null | undefined): { qualitaet: string | null; zusatzbezeichnung: Zusatz | null; erzeugnis: string | null } {
+  return { qualitaet: a?.stufe ?? null, zusatzbezeichnung: a?.zusatz ?? null, erzeugnis: a?.erzeugnis ?? null }
+}
+
+/** Beide Angaben gleich (nach Normalisierung)? */
+export function gleicheQualitaet(a: QualitaetsAngabe | null | undefined, b: QualitaetsAngabe | null | undefined): boolean {
+  return (a?.stufe ?? null) === (b?.stufe ?? null) && (a?.zusatz ?? null) === (b?.zusatz ?? null) && (a?.erzeugnis ?? null) === (b?.erzeugnis ?? null)
+}
+
+const leer = (a: QualitaetsAngabe | null | undefined): boolean => !a || (!a.stufe && !a.zusatz && !a.erzeugnis)
+
+/** Zusatz und Erzeugnis passen zur Stufe? Zusatz nur auf Qualitätswein, Sekt g.U. erst ab Qualitätswein. */
+function bereinigt(a: QualitaetsAngabe): QualitaetsAngabe {
+  const zusatz = a.zusatz && a.stufe === GRUNDSTUFE_ZUSATZ ? a.zusatz : null
+  const r = qualitaetsRang(a.stufe)
+  const erzeugnis = a.erzeugnis === 'SEKTGU' && (!r || r.stufe < QUW) ? null : a.erzeugnis
+  return { stufe: a.stufe, zusatz, erzeugnis }
+}
+
+/**
+ * Ergebnis einer Mischung (Verschnitt, Zusammenführung): Stufe wie niedrigsteQualitaet, Zusatzbezeichnung und
+ * Erzeugnis nur, wenn alle Teile mit bekannter Stufe dieselben tragen. Ohne jeden Wert → null.
+ */
+export function mischeQualitaet(liste: readonly (QualitaetsAngabe | null | undefined)[]): QualitaetsAngabe | null {
+  const teile = liste.filter((a): a is QualitaetsAngabe => !leer(a))
+  if (teile.length === 0) return null
+  const stufe = niedrigsteQualitaet(teile.map(a => a.stufe))
+  const bewertet = teile.filter(a => a.stufe && a.stufe !== 'sonstiges' && qualitaetsRang(a.stufe) != null)
+  const basis = bewertet.length > 0 ? bewertet : teile
+  const zusatz = basis.every(a => a.zusatz && a.zusatz === basis[0].zusatz) ? basis[0].zusatz : null
+  const erzeugnis = basis.every(a => (a.erzeugnis ?? null) === (basis[0].erzeugnis ?? null)) ? basis[0].erzeugnis ?? null : null
+  return bereinigt({ stufe, zusatz, erzeugnis })
+}
+
+/** Rang einer Zusatzbezeichnung (0 = keine; Reserve/Erste Lage 1; Große Reserve/Großes Gewächs 2) */
+const ZUSATZ_RANG: Readonly<Record<Zusatz, number>> = { reserve: 1, erste_lage: 1, grosse_reserve: 2, grosses_gewachs: 2 }
+/** Absteigen innerhalb einer Zusatzbezeichnung (für den Abstufungsvermerk) */
+const ZUSATZ_DARUNTER: Readonly<Partial<Record<Zusatz, Zusatz>>> = { grosse_reserve: 'reserve', grosses_gewachs: 'erste_lage' }
+
+/** Vergleich für Sortierungen und die höchste Angabe: Stufe, dann Zusatzbezeichnung, dann Erzeugnis Sekt/Perlwein */
+export function vergleicheQualitaetsAngabe(a: QualitaetsAngabe | null | undefined, b: QualitaetsAngabe | null | undefined): number {
+  const s = vergleicheQualitaet(a?.stufe, b?.stufe)
+  if (s !== 0) return s
+  const z = (a?.zusatz ? ZUSATZ_RANG[a.zusatz] : 0) - (b?.zusatz ? ZUSATZ_RANG[b.zusatz] : 0)
+  if (z !== 0) return z
+  const e = (x: QualitaetsAngabe | null | undefined) => (x?.erzeugnis === 'SEKTGU' || x?.erzeugnis === 'PERLWEIN' ? 1 : 0)
+  return e(a) - e(b)
+}
+
+/** Höchste Angabe der Beteiligten (für „Abstufung von … auf …“); ohne bekannte Stufe zählt eine Angabe nicht */
+export function hoechsteQualitaetsAngabe(liste: readonly (QualitaetsAngabe | null | undefined)[]): QualitaetsAngabe | null {
+  let best: QualitaetsAngabe | null = null
+  for (const a of liste) {
+    if (!a || !a.stufe || a.stufe === 'sonstiges' || qualitaetsRang(a.stufe) == null) continue
+    if (!best || vergleicheQualitaetsAngabe(a, best) > 0) best = a
+  }
+  return best
+}
+
+/**
+ * Unzulässige Aufwertung von `alt` auf `neu` (KAN-80 „händisch downgraden, aber nicht upgraden“): nur eine höhere
+ * Stufe der Achse. Zusatzbezeichnung setzen oder wechseln bleibt erlaubt (KAN-186, Korrektur 02.10.2026).
+ * Ohne bisherige Stufe ist nichts eine Aufwertung.
+ */
+export function istAufwertungQualitaet(alt: QualitaetsAngabe | null | undefined, neu: QualitaetsAngabe | null | undefined): boolean {
+  if (!alt?.stufe || !neu?.stufe) return false
+  return istAufwertung(alt.stufe, neu.stufe)
+}
+
+/**
+ * `neu` liegt unter `alt` (Vermerk „Abstufung von … auf …“): niedrigere Stufe, verlorene bzw. niedrigere
+ * Zusatzbezeichnung (Große Reserve → Reserve zählt mit, ein Wechsel nicht) oder verlorenes Erzeugnis Sekt/Perlwein.
+ */
+export function istAbstufungQualitaet(alt: QualitaetsAngabe | null | undefined, neu: QualitaetsAngabe | null | undefined): boolean {
+  if (!alt?.stufe || !neu?.stufe || gleicheQualitaet(alt, neu) || istAufwertungQualitaet(alt, neu)) return false
+  if (istAbstufung(alt.stufe, neu.stufe)) return true
+  if (istAufwertung(alt.stufe, neu.stufe)) return false
+  if (alt.zusatz && (!neu.zusatz || ZUSATZ_DARUNTER[alt.zusatz] === neu.zusatz)) return true
+  return (alt.erzeugnis === 'SEKTGU' || alt.erzeugnis === 'PERLWEIN') && neu.erzeugnis !== alt.erzeugnis
+}

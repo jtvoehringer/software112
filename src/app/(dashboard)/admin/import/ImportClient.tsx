@@ -7,6 +7,7 @@ import { csvDateiname } from '@/lib/csv'
 import { fehlerText } from '@/lib/fehler'
 import { POSITION_MAX, QUELLE_MAX } from '@/lib/crm/liste'
 import { QUALITAET_OPTS } from '@/lib/wein/qualitaet'
+import ZusatzErzeugnisFelder from '@/components/wein/ZusatzErzeugnisFelder'
 import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
 
 type ImportTyp = 'kontakte' | 'firmen' | 'fuellungen' | 'rieden_details' | 'grundstuecke' | 'gebinde'
@@ -425,6 +426,8 @@ export default function ImportClient({
                   ))}
                 </select>
               </div>
+              {/* KAN-186: Zusatzbezeichnung (Reserve …) und Erzeugnis (Sekt g.U., Perlwein …) */}
+              <ZusatzErzeugnisFelder feldKlasse={ebInputCls} labelKlasse={ebLabelCls} />
               <div>
                 <label className={ebLabelCls}>Referenz Altsystem</label>
                 <input aria-label="Referenz Altsystem" name="referenz_altsystem" placeholder="z.B. Chargen-Nr. Altsystem" className={ebInputCls} />
