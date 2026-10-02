@@ -46,8 +46,8 @@ export const MELDUNGEN_ERNTE = {
     },
     spalten: SPALTEN_LESEDATEN,
     dateiteile: (p, betrieb) => ['Lesedaten', betrieb.betriebsnummer, p.jahrgang],
-    // KAN-95: keine Stichtagsmeldung → Jahr des Exporttags, der Jahrgang steht im Berichtsnamen
-    bki: p => ({ bericht: ['Lesedaten', p.jahrgang] }),
+    // KAN-95 (Nachtrag 02.10.2026, Jörgen): Jahr = Jahrgang wie bei der Erntemeldung, auch bei Export im Folgejahr
+    bki: p => ({ bericht: 'Lesedaten', jahr: p.jahrgang }),
   }),
 
   // Bestand am Abrufdatum – KEIN Stichtagsbestand (KAN-43). Das Abrufdatum wird einmal

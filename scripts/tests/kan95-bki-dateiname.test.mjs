@@ -1,7 +1,7 @@
 // KAN-95 (01.10.2026): Dateinamen der BKI-CSV nach dem Schema
 //   <Betriebsnummer>_<Jahr>_<Berichtsname>[_von_JJJJMMTT_bis_JJJJMMTT].csv
 // Geprüft: bkiDateiname() (lib/csv), meldungsDateiname() (lib/behoerden/dateiname.ts, von der
-// zentralen CSV-Route genutzt), die Jahr-Regel (Stichtag bei Ernte-/Bestandsmeldung, sonst
+// zentralen CSV-Route genutzt), die Jahr-Regel (Stichtag bzw. Jahrgang bei Ernte-/Bestandsmeldung und Lesedaten, sonst
 // Exporttag), Platzhalter + Warnung ohne Betriebsnummer, unveränderte Namen ohne BKI-Bezug und
 // welche Register-Einträge die Option `bki` tragen (Behörde nennt die BKI, dazu die Bestandsmeldung).
 
@@ -58,8 +58,11 @@ describe('KAN-95 Dateinamen der Meldungen (wie die CSV-Route)', () => {
   test('Erntemeldung 2026 heißt auch beim Export 2027 …_2026_Erntemeldung.csv (Stichtag)', () => {
     assert.equal(name('erntemeldung', 'jahrgang=2026', B, '2027-01-15').dateiname.utf8, '9988776_2026_Erntemeldung.csv')
   })
+  test('Lesedaten 2026 heißen auch beim Export 2027 …_2026_Lesedaten.csv (Jahrgang, Nachtrag 02.10.2026)', () => {
+    assert.equal(name('lesedaten', 'jahrgang=2026', B, '2027-01-15').dateiname.utf8, '9988776_2026_Lesedaten.csv')
+    assert.equal(name('lesedaten', 'jahrgang=2025', B, '2026-10-01').dateiname.utf8, '9988776_2025_Lesedaten.csv')
+  })
   test('ohne Stichtag zählt der Exporttag', () => {
-    assert.equal(name('lesedaten', 'jahrgang=2026', B, '2027-01-15').dateiname.utf8, '9988776_2027_Lesedaten-2026.csv')
     assert.equal(name('keller-auswertungen', 'von=2026-01-01&bis=2026-09-25').dateiname.ascii, '9988776_2026_Keller-Umzuege_von_20260101_bis_20260925.csv')
     assert.equal(name('transportbescheinigungen', 'von=2026-01-01&bis=2026-09-25&nur=gespeichert').dateiname.utf8,
       '9988776_2026_Transportbescheinigungen-gespeichert_von_20260101_bis_20260925.csv')
