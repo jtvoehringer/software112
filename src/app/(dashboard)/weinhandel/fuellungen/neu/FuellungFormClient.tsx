@@ -6,7 +6,7 @@ import Link from '@/components/ui/Link'
 import { KN_CODES } from '@/lib/wein/zolltarif'
 import { HERKUNFT_ORDER, HERKUNFT_LABEL, herkunftOptionen, istNiedrigerAls as istHerkunftNiedriger } from '@/lib/herkunft'
 import { qualitaetText } from '@/lib/weinqualitaet'
-import { istAufwertung, normalisiereQualitaet, zusaetzeOhneAufwertung } from '@/lib/wein/qualitaetsrang'
+import { istAufwertung, normalisiereQualitaet } from '@/lib/wein/qualitaetsrang'
 import ZusatzErzeugnisFelder from '@/components/wein/ZusatzErzeugnisFelder'
 import { FUELLUNG_QUALITAETEN } from '@/lib/wein/qualitaet'
 import { AlertTriangle, CheckCircle2, Droplet } from 'lucide-react'
@@ -284,10 +284,9 @@ export default function FuellungFormClient({
               </p>
             )}
           </div>
-          {/* KAN-186: Zusatzbezeichnung und Erzeugnis – aus der Charge vorbelegt, keine neue/höhere Zusatzbezeichnung */}
+          {/* KAN-186: Zusatzbezeichnung und Erzeugnis – aus der Charge vorbelegt, frei wählbar (keine Aufwertung) */}
           <ZusatzErzeugnisFelder key={selectedChargeId || 'ohne-charge'}
             zusatz={chargeAngabe?.zusatz ?? null} erzeugnis={chargeAngabe?.erzeugnis ?? null} stufe={qualitaetVal}
-            erlaubteZusaetze={chargeAngabe?.stufe ? zusaetzeOhneAufwertung(chargeAngabe.zusatz) : undefined}
             feldKlasse={inputCls} labelKlasse={labelCls} />
           <div>
             <label className={labelCls}>Herkunft-Code (BKI)</label>

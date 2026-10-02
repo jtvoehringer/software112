@@ -8,7 +8,7 @@ import { updateFuellung } from '../../../actions'
 import { KN_CODES } from '@/lib/wein/zolltarif'
 import { HERKUNFT_ORDER, HERKUNFT_LABEL, herkunftOptionen, istNiedrigerAls as istHerkunftNiedriger } from '@/lib/herkunft'
 import { qualitaetText } from '@/lib/weinqualitaet'
-import { istAufwertung, normalisiereQualitaet, zusaetzeOhneAufwertung, type QualitaetsAngabe } from '@/lib/wein/qualitaetsrang'
+import { istAufwertung, normalisiereQualitaet, type QualitaetsAngabe } from '@/lib/wein/qualitaetsrang'
 import ZusatzErzeugnisFelder from '@/components/wein/ZusatzErzeugnisFelder'
 import { FUELLUNG_QUALITAETEN, mitGespeichertemWert } from '@/lib/wein/qualitaet'
 import { ladeCustomWeinbaugebiete } from '../../../../weinbaugebiete/actions'
@@ -331,9 +331,8 @@ export default async function EditFuellungPage({
                 </p>
               )}
             </div>
-            {/* KAN-186: Zusatzbezeichnung und Erzeugnis – keine neue/höhere Zusatzbezeichnung als die Charge */}
+            {/* KAN-186: Zusatzbezeichnung und Erzeugnis – frei wählbar (setzen/wechseln ist keine Aufwertung) */}
             <ZusatzErzeugnisFelder zusatz={fAngabe.zusatz} erzeugnis={fAngabe.erzeugnis}
-              erlaubteZusaetze={waAngabe?.stufe ? zusaetzeOhneAufwertung(waAngabe.zusatz) : undefined}
               feldKlasse={inputCls} labelKlasse={labelCls} />
             <div>
               <label className={labelCls}>Herkunft-Code (BKI)</label>

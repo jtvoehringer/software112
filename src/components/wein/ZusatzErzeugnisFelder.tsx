@@ -9,7 +9,7 @@
 
 import { useState } from 'react'
 import { ERZEUGNIS_OPTS, ERZEUGNIS_OHNE_ZUSATZ, ZUSATZ_OPTS, zusatzLabel } from '@/lib/wein/qualitaet'
-import { GRUNDSTUFE_ZUSATZ, type Zusatz } from '@/lib/wein/qualitaetsrang'
+import { GRUNDSTUFE_ZUSATZ } from '@/lib/wein/qualitaetsrang'
 
 export interface ZusatzErzeugnisFelderProps {
   /** gespeicherte bzw. vorbelegte Werte (normalisiert, siehe normalisiereQualitaet) */
@@ -17,8 +17,6 @@ export interface ZusatzErzeugnisFelderProps {
   erzeugnis?: string | null
   /** gewählte Qualitätsstufe, falls das Formular sie kennt – Zusatzbezeichnung nur bei Qualitätswein */
   stufe?: string | null
-  /** nur Abstufen (Füllung einer Charge): diese Zusatzbezeichnungen sind erlaubt (leer immer); undefined = alle */
-  erlaubteZusaetze?: readonly Zusatz[]
   /** Felder nur anzeigen (z. B. Charge aus einer Pressung); die Werte gehen als versteckte Felder mit */
   nurAnzeige?: boolean
   /** CSS-Klassen der Auswahlfelder (Standard form-input) */
@@ -27,13 +25,12 @@ export interface ZusatzErzeugnisFelderProps {
 }
 
 export default function ZusatzErzeugnisFelder({
-  zusatz = null, erzeugnis = null, stufe, erlaubteZusaetze, nurAnzeige = false, feldKlasse = 'form-input', labelKlasse = 'form-label',
+  zusatz = null, erzeugnis = null, stufe, nurAnzeige = false, feldKlasse = 'form-input', labelKlasse = 'form-label',
 }: ZusatzErzeugnisFelderProps) {
   const [z, setZ] = useState<string>(zusatz ?? '')
   const [e, setE] = useState<string>(erzeugnis ?? '')
   const ohneZusatz = !!e && ERZEUGNIS_OHNE_ZUSATZ.includes(e)
   const stufePasst = stufe === undefined || stufe === null || stufe === '' || stufe === GRUNDSTUFE_ZUSATZ
-  const zusatzOptionen = ZUSATZ_OPTS.filter(o => !erlaubteZusaetze || erlaubteZusaetze.includes(o.value) || o.value === zusatz)
   // Erzeugnis außerhalb der Auswahl (z. B. MOST am Zukauf) bleibt sichtbar
   const erzeugnisOptionen = erzeugnis && !ERZEUGNIS_OPTS.some(o => o.value === erzeugnis)
     ? [{ value: erzeugnis, label: `${erzeugnis} (bisheriger Wert)` }, ...ERZEUGNIS_OPTS]
@@ -64,7 +61,7 @@ export default function ZusatzErzeugnisFelder({
         <select id="zusatzbezeichnung" name="zusatzbezeichnung" aria-label="Zusatzbezeichnung" className={feldKlasse}
           value={zusatzWert} disabled={ohneZusatz} onChange={ev => setZ(ev.target.value)}>
           <option value="">– keine –</option>
-          {zusatzOptionen.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          {ZUSATZ_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
         {ohneZusatz
           ? <p className="text-xs text-s112-muted mt-1">Bei Sekt, Perlwein, Schaumwein und PetNat gibt es keine Zusatzbezeichnung.</p>

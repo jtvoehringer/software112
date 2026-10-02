@@ -4,7 +4,7 @@
 // Aufruf:  node --experimental-strip-types --test scripts/tests/kan186-qualitaet.test.mjs
 //          (läuft auch über npm run test:csv)
 //
-// Geprüft: Normalisierung (Altwerte tolerant), Mischung mit Zusatzbezeichnung, Aufwertungssperre, Abstufungsvermerk
+// Geprüft: Normalisierung (Altwerte tolerant), Mischung mit Zusatzbezeichnung, Aufwertungssperre (nur Stufe), Abstufungsvermerk
 // samt Rücklesen (Storno), Momentaufnahmen und Storno-Rückführung (neu und Altdaten), Serverprüfung, Formulare ohne
 // Altwerte und Schreibpfade, die normalisiert schreiben.
 
@@ -77,28 +77,29 @@ describe('Rangfolge, Mischung, Aufwertungssperre', () => {
     assert.deepEqual(r.mischeQualitaet([A('landwein', null, 'PERLWEIN'), A('qualitaetswein', null, 'PERLWEIN')]), A('landwein', null, 'PERLWEIN'))
     assert.deepEqual(r.mischeQualitaet([A('landwein', null, 'SEKTGU'), A('qualitaetswein', null, 'SEKTGU')]), A('landwein'))
   })
-  test('Aufwertung: höhere Stufe oder neue/höhere Zusatzbezeichnung; Abstieg Große Reserve → Reserve erlaubt', () => {
-    assert.ok(r.istAufwertungQualitaet(A('qualitaetswein'), A('qualitaetswein', 'reserve')), 'Qualitätswein → Reserve')
-    assert.ok(r.istAufwertungQualitaet(A('qualitaetswein', 'reserve'), A('qualitaetswein', 'grosse_reserve')))
-    assert.ok(r.istAufwertungQualitaet(A('qualitaetswein', 'reserve'), A('qualitaetswein', 'erste_lage')))
+  test('Aufwertung: nur eine höhere Stufe – Zusatzbezeichnung setzen oder wechseln ist KEINE Aufwertung (Korrektur 02.10.2026)', () => {
     assert.ok(r.istAufwertungQualitaet(A('landwein'), A('kabinett')))
+    assert.ok(r.istAufwertungQualitaet(A('qualitaetswein', 'reserve'), A('kabinett')))
+    assert.ok(r.istAufwertungQualitaet(A('landwein'), A('qualitaetswein', 'reserve')), 'Landwein → Qualitätswein Reserve: höhere Stufe')
+    assert.ok(!r.istAufwertungQualitaet(A('qualitaetswein'), A('qualitaetswein', 'reserve')), 'Qualitätswein → Reserve (nach dem Ausbau)')
+    assert.ok(!r.istAufwertungQualitaet(A('qualitaetswein', 'reserve'), A('qualitaetswein', 'grosse_reserve')))
+    assert.ok(!r.istAufwertungQualitaet(A('qualitaetswein', 'reserve'), A('qualitaetswein', 'erste_lage')))
     assert.ok(!r.istAufwertungQualitaet(A('qualitaetswein', 'reserve'), A('qualitaetswein')), 'Reserve → Qualitätswein')
     assert.ok(!r.istAufwertungQualitaet(A('qualitaetswein', 'grosse_reserve'), A('qualitaetswein', 'reserve')))
-    assert.ok(!r.istAufwertungQualitaet(A('qualitaetswein', 'grosses_gewachs'), A('qualitaetswein', 'erste_lage')))
     assert.ok(!r.istAufwertungQualitaet(A('qualitaetswein'), A('qualitaetswein', null, 'SEKTGU')), 'Erzeugnis allein ist keine Aufwertung')
     assert.ok(!r.istAufwertungQualitaet(A('qualitaetswein'), A('landwein', null, 'PERLWEIN')))
     assert.ok(!r.istAufwertungQualitaet(A(null), A('qualitaetswein', 'reserve')), 'ohne bisherige Stufe nie')
-    // Altdaten: Charge 'reserve' → Füllung Qualitätswein + Reserve ist gleich, keine Aufwertung
     assert.ok(!r.istAufwertungQualitaet(r.qualitaetsAngabe('reserve'), A('qualitaetswein', 'reserve')))
-    assert.deepEqual(r.zusaetzeOhneAufwertung('grosse_reserve'), ['grosse_reserve', 'reserve'])
-    assert.deepEqual(r.zusaetzeOhneAufwertung(null), [])
+    // Sekt-Regel wie bisher: Sekt g.U. verlangt Qualitätswein (Serverprüfung), Landwein → Sekt ist über die Stufe gesperrt
+    assert.ok(r.istAufwertungQualitaet(A('landwein'), A('qualitaetswein', null, 'SEKTGU')))
   })
   test('Abstufung: niedrigere Stufe, verlorene Zusatzbezeichnung, verlorenes Sekt/Perlwein', () => {
     assert.ok(r.istAbstufungQualitaet(A('qualitaetswein', 'reserve'), A('qualitaetswein')))
     assert.ok(r.istAbstufungQualitaet(A('qualitaetswein', 'grosse_reserve'), A('qualitaetswein', 'reserve')))
     assert.ok(r.istAbstufungQualitaet(A('qualitaetswein', null, 'SEKTGU'), A('qualitaetswein')))
     assert.ok(r.istAbstufungQualitaet(A('kabinett'), A('qualitaetswein')))
-    assert.ok(!r.istAbstufungQualitaet(A('qualitaetswein'), A('qualitaetswein', 'reserve')), 'Aufwertung ist keine Abstufung')
+    assert.ok(!r.istAbstufungQualitaet(A('qualitaetswein'), A('qualitaetswein', 'reserve')), 'Zusatz setzen ist keine Abstufung')
+    assert.ok(!r.istAbstufungQualitaet(A('qualitaetswein', 'reserve'), A('qualitaetswein', 'erste_lage')), 'Wechsel ist keine Abstufung')
     assert.ok(!r.istAbstufungQualitaet(A('qualitaetswein', 'reserve'), A('qualitaetswein', 'reserve')))
     assert.deepEqual(r.hoechsteQualitaetsAngabe([A('qualitaetswein'), A('qualitaetswein', 'reserve'), A('landwein')]), A('qualitaetswein', 'reserve'))
   })

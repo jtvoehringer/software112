@@ -128,12 +128,13 @@ export function vergleicheQualitaet(a: string | null | undefined, b: string | nu
 // Regeln:
 //  • Mischen (mischeQualitaet): Stufe nach niedrigsteQualitaet; die Zusatzbezeichnung bleibt nur, wenn alle Teile
 //    dieselbe tragen (KAN-74), sonst entfällt sie; ebenso das Erzeugnis.
-//  • Aufwertung (istAufwertungQualitaet): höhere Stufe ODER eine Zusatzbezeichnung, die vorher fehlte bzw. höher ist
-//    (Qualitätswein → Reserve, Reserve → Große Reserve, Reserve → Erste Lage). Erlaubt bleibt das Absteigen innerhalb
-//    der Paare Große Reserve → Reserve und Großes Gewächs → Erste Lage. Ein Erzeugnis allein ist nie eine Aufwertung
-//    (Sekt setzt Qualitätswein voraus – das prüft die Stufe bzw. qualitaetsAngabeFehler in lib/wein/qualitaet).
-//  • Abstufung (istAbstufungQualitaet): niedrigere Stufe, eine verlorene bzw. niedrigere Zusatzbezeichnung oder ein
-//    verlorenes Erzeugnis Sekt/Perlwein – für Vermerke („Abstufung von Qualitätswein Reserve auf Qualitätswein“).
+//  • Aufwertung (istAufwertungQualitaet): nur eine höhere Stufe der Achse. Eine Zusatzbezeichnung nachträglich setzen
+//    oder wechseln ist KEINE Aufwertung (Korrektur Jörgen 02.10.2026 – wie bisher lag Reserve auf derselben Stufe wie
+//    Qualitätswein, und der Betrieb entscheidet Reserve oft erst nach dem Ausbau). Ein Erzeugnis allein ist nie eine
+//    Aufwertung (Sekt setzt Qualitätswein voraus – das prüft die Stufe bzw. qualitaetsAngabeFehler in lib/wein/qualitaet).
+//  • Abstufung (istAbstufungQualitaet): niedrigere Stufe, eine verlorene Zusatzbezeichnung (bzw. Große Reserve →
+//    Reserve, Großes Gewächs → Erste Lage) oder ein verlorenes Erzeugnis Sekt/Perlwein – für Vermerke
+//    („Abstufung von Qualitätswein Reserve auf Qualitätswein“). Ein Wechsel (Reserve → Erste Lage) ist keine Abstufung.
 
 /** Zusatzbezeichnungen (Spiegel von ZUSATZBEZEICHNUNGEN in lib/katalog/bki.ts und der CHECKs, Test kan39-kataloge) */
 export const ZUSATZ_WERTE = ['reserve', 'grosse_reserve', 'erste_lage', 'grosses_gewachs'] as const
@@ -239,21 +240,8 @@ export function mischeQualitaet(liste: readonly (QualitaetsAngabe | null | undef
 
 /** Rang einer Zusatzbezeichnung (0 = keine; Reserve/Erste Lage 1; Große Reserve/Großes Gewächs 2) */
 const ZUSATZ_RANG: Readonly<Record<Zusatz, number>> = { reserve: 1, erste_lage: 1, grosse_reserve: 2, grosses_gewachs: 2 }
-/** Erlaubtes Absteigen innerhalb einer Zusatzbezeichnung */
+/** Absteigen innerhalb einer Zusatzbezeichnung (für den Abstufungsvermerk) */
 const ZUSATZ_DARUNTER: Readonly<Partial<Record<Zusatz, Zusatz>>> = { grosse_reserve: 'reserve', grosses_gewachs: 'erste_lage' }
-
-/** Zusatzbezeichnungen, die gegenüber `alt` keine Aufwertung sind (bisherige und die darunter); ohne bisherige keine */
-export function zusaetzeOhneAufwertung(alt: Zusatz | null | undefined): Zusatz[] {
-  if (!alt) return []
-  const darunter = ZUSATZ_DARUNTER[alt]
-  return darunter ? [alt, darunter] : [alt]
-}
-
-/** `neu` ist eine neue bzw. höhere Zusatzbezeichnung gegenüber `alt` */
-function zusatzAufgewertet(alt: Zusatz | null, neu: Zusatz | null): boolean {
-  if (!neu || neu === alt) return false
-  return !(alt && ZUSATZ_DARUNTER[alt] === neu)
-}
 
 /** Vergleich für Sortierungen und die höchste Angabe: Stufe, dann Zusatzbezeichnung, dann Erzeugnis Sekt/Perlwein */
 export function vergleicheQualitaetsAngabe(a: QualitaetsAngabe | null | undefined, b: QualitaetsAngabe | null | undefined): number {
@@ -276,23 +264,23 @@ export function hoechsteQualitaetsAngabe(liste: readonly (QualitaetsAngabe | nul
 }
 
 /**
- * Unzulässige Aufwertung von `alt` auf `neu` (KAN-80 „händisch downgraden, aber nicht upgraden“, KAN-186):
- * höhere Stufe der Achse oder neue/höhere Zusatzbezeichnung. Ohne bisherige Stufe ist nichts eine Aufwertung.
+ * Unzulässige Aufwertung von `alt` auf `neu` (KAN-80 „händisch downgraden, aber nicht upgraden“): nur eine höhere
+ * Stufe der Achse. Zusatzbezeichnung setzen oder wechseln bleibt erlaubt (KAN-186, Korrektur 02.10.2026).
+ * Ohne bisherige Stufe ist nichts eine Aufwertung.
  */
 export function istAufwertungQualitaet(alt: QualitaetsAngabe | null | undefined, neu: QualitaetsAngabe | null | undefined): boolean {
-  if (!alt?.stufe || !neu || leer(neu)) return false
-  if (neu.stufe && istAufwertung(alt.stufe, neu.stufe)) return true
-  return zusatzAufgewertet(alt.zusatz ?? null, neu.zusatz ?? null)
+  if (!alt?.stufe || !neu?.stufe) return false
+  return istAufwertung(alt.stufe, neu.stufe)
 }
 
 /**
  * `neu` liegt unter `alt` (Vermerk „Abstufung von … auf …“): niedrigere Stufe, verlorene bzw. niedrigere
- * Zusatzbezeichnung oder verlorenes Erzeugnis Sekt/Perlwein – sofern es keine Aufwertung ist.
+ * Zusatzbezeichnung (Große Reserve → Reserve zählt mit, ein Wechsel nicht) oder verlorenes Erzeugnis Sekt/Perlwein.
  */
 export function istAbstufungQualitaet(alt: QualitaetsAngabe | null | undefined, neu: QualitaetsAngabe | null | undefined): boolean {
   if (!alt?.stufe || !neu?.stufe || gleicheQualitaet(alt, neu) || istAufwertungQualitaet(alt, neu)) return false
   if (istAbstufung(alt.stufe, neu.stufe)) return true
   if (istAufwertung(alt.stufe, neu.stufe)) return false
-  if (alt.zusatz && alt.zusatz !== neu.zusatz) return true
+  if (alt.zusatz && (!neu.zusatz || ZUSATZ_DARUNTER[alt.zusatz] === neu.zusatz)) return true
   return (alt.erzeugnis === 'SEKTGU' || alt.erzeugnis === 'PERLWEIN') && neu.erzeugnis !== alt.erzeugnis
 }

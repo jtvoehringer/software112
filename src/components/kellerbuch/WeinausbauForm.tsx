@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Info, AlertTriangle } from 'lucide-react'
 import { QUALITAET_OPTS, mitGespeichertemWert } from '@/lib/wein/qualitaet'
-import { normalisiereQualitaet, zusaetzeOhneAufwertung } from '@/lib/wein/qualitaetsrang'
+import { normalisiereQualitaet } from '@/lib/wein/qualitaetsrang'
 import ZusatzErzeugnisFelder from '@/components/wein/ZusatzErzeugnisFelder'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum, dezimal } from '@/lib/format'
@@ -210,14 +210,13 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
           </div>
         </div>
 
-        {/* KAN-186: Zusatzbezeichnung (Reserve …) und Erzeugnis (Sekt g.U., Perlwein …) – bestehende Charge: keine neue
-            bzw. höhere Zusatzbezeichnung (Aufwertung, der Server lehnt sie ab) */}
+        {/* KAN-186: Zusatzbezeichnung (Reserve …) und Erzeugnis (Sekt g.U., Perlwein …) – auch nachträglich setzbar bzw.
+            wechselbar (keine Aufwertung, Korrektur 02.10.2026) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <ZusatzErzeugnisFelder
             zusatz={angabe.zusatz}
             erzeugnis={angabe.erzeugnis}
             stufe={vonPressung ? angabe.stufe : stufe}
-            erlaubteZusaetze={weinausbau && angabe.stufe ? zusaetzeOhneAufwertung(angabe.zusatz) : undefined}
           />
         </div>
 
