@@ -9,10 +9,13 @@ import { Pencil, PowerOff, RotateCcw } from 'lucide-react'
 import { fehlerText } from '@/lib/fehler'
 import { BM_EINHEITEN, BM_EINHEIT_LABEL, GRUPPE_BEISPIELE, GRUPPE_LABEL, type BetriebsmittelGruppe } from '@/lib/behandlungen/betriebsmittel'
 import { speichereBetriebsmittel, setzeBetriebsmittelAktiv } from './betriebsmittelActions'
+import { LagerJahrKopf, LagerJahrZellen, LagerJahrHinweis, type StammLager } from './LagerJahrSpalten'
 
 export type BmStamm = {
   id: string; name: string; einheit: string; preis_pro_einheit: number | null
   ea_kategorie_id: string | null; notizen: string | null; aktiv: boolean
+  /** KAN-173: Lagerbewegung im laufenden Geschäftsjahr */
+  lager?: StammLager | null
 }
 
 const feld = 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
@@ -74,8 +77,8 @@ function Formular({ gruppe, edit, kategorien, onDone }: { gruppe: Betriebsmittel
   )
 }
 
-export default function BetriebsmittelStammClient({ gruppe, mittel, kategorien, writeOk, adminOk }: {
-  gruppe: BetriebsmittelGruppe; mittel: BmStamm[]; kategorien: { id: string; name: string }[]; writeOk: boolean; adminOk: boolean
+export default function BetriebsmittelStammClient({ gruppe, mittel, jahr, kategorien, writeOk, adminOk }: {
+  gruppe: BetriebsmittelGruppe; mittel: BmStamm[]; jahr: number; kategorien: { id: string; name: string }[]; writeOk: boolean; adminOk: boolean
 }) {
   const router = useRouter()
   const [neu, setNeu] = useState(false)
@@ -122,16 +125,18 @@ export default function BetriebsmittelStammClient({ gruppe, mittel, kategorien, 
             <thead>
               <tr className="bg-s112-bg border-b border-s112-border text-xs text-s112-text-2">
                 <th className="text-left px-3 py-2 font-semibold">Bezeichnung</th>
-                <th className="text-left px-3 py-2 font-semibold">Einheit</th>
-                <th className="text-right px-3 py-2 font-semibold">Preis je Einheit</th>
-                <th className="text-left px-3 py-2 font-semibold">E/A-Kategorie</th>
-                <th className="text-left px-3 py-2 font-semibold">Notizen</th>
+                {/* KAN-173: Detailspalten je nach Breite ausblenden, damit die Lagerspalten ohne seitliches Scrollen passen */}
+                <th className="hidden sm:table-cell text-left px-3 py-2 font-semibold">Einheit</th>
+                <th className="hidden lg:table-cell text-right px-3 py-2 font-semibold">Preis je Einheit</th>
+                <th className="hidden xl:table-cell text-left px-3 py-2 font-semibold">E/A-Kategorie</th>
+                <th className="hidden xl:table-cell text-left px-3 py-2 font-semibold">Notizen</th>
+                <LagerJahrKopf jahr={jahr} klasse="text-right px-3 py-2 font-semibold whitespace-nowrap" />
                 {(writeOk || adminOk) && <th className="px-3 py-2" />}
               </tr>
             </thead>
             <tbody>
               {sichtbar.map(m => editId === m.id ? (
-                <tr key={m.id}><td colSpan={6} className="p-3">
+                <tr key={m.id}><td colSpan={10} className="p-3">
                   <Formular gruppe={gruppe} edit={m} kategorien={kategorien} onDone={() => setEditId(null)} />
                 </td></tr>
               ) : (
@@ -140,12 +145,13 @@ export default function BetriebsmittelStammClient({ gruppe, mittel, kategorien, 
                     {m.name}
                     {!m.aktiv && <span className="ml-2 text-[11px] px-1.5 rounded-full bg-[#F2F3F5] text-s112-text-2">deaktiviert</span>}
                   </td>
-                  <td className="px-3 py-2">{BM_EINHEIT_LABEL[m.einheit] ?? m.einheit}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">
+                  <td className="hidden sm:table-cell px-3 py-2">{BM_EINHEIT_LABEL[m.einheit] ?? m.einheit}</td>
+                  <td className="hidden lg:table-cell px-3 py-2 text-right tabular-nums">
                     {m.preis_pro_einheit != null ? `€ ${m.preis_pro_einheit.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}` : '–'}
                   </td>
-                  <td className="px-3 py-2 text-xs text-s112-muted">{m.ea_kategorie_id ? katName.get(m.ea_kategorie_id) ?? '–' : '–'}</td>
-                  <td className="px-3 py-2 text-xs text-s112-muted">{m.notizen ?? '–'}</td>
+                  <td className="hidden xl:table-cell px-3 py-2 text-xs text-s112-muted">{m.ea_kategorie_id ? katName.get(m.ea_kategorie_id) ?? '–' : '–'}</td>
+                  <td className="hidden xl:table-cell px-3 py-2 text-xs text-s112-muted">{m.notizen ?? '–'}</td>
+                  <LagerJahrZellen lager={m.lager} klasse="px-3 py-2 text-right tabular-nums text-xs whitespace-nowrap" />
                   {(writeOk || adminOk) && (
                     <td className="px-3 py-2 text-right">
                       <div className="flex items-center justify-end gap-2">
@@ -166,6 +172,7 @@ export default function BetriebsmittelStammClient({ gruppe, mittel, kategorien, 
           </table>
         </div>
       )}
+      {sichtbar.length > 0 && <LagerJahrHinweis jahr={jahr} />}
     </div>
   )
 }

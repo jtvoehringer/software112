@@ -19,6 +19,7 @@
 
 import { runden } from '@/lib/csv'
 import { fmtNum } from '@/lib/format'
+import { jahresBewegung, type GezaehlteBuchung, type JahresBewegung } from './lagerJahr'
 import {
   ART_LABEL, behandlungKurz, datumDe, einheitText, mengeInEinheit, mittelmenge, STELLEN_MENGE, weingartenText,
   type MittelEinheit, type PsmBehandlung,
@@ -27,8 +28,8 @@ import {
 /** Lager der Lagerseite: Pflanzenschutzmittel (Verbrauch aus Spritzungen und Sonstiges) bzw. Düngemittel (aus Düngungen) */
 export type LagerArt = 'psm' | 'duenger'
 
-/** Buchung aus psm_lager_bewegungen bzw. duengemittel_lager_bewegungen (Abgänge negativ) */
-export type LagerBuchung = { datum: string; menge: number; einheit: string | null }
+/** Buchung aus psm_lager_bewegungen bzw. duengemittel_lager_bewegungen (Abgänge negativ); typ für die Jahressicht (KAN-173) */
+export type LagerBuchung = { datum: string; menge: number; einheit: string | null; typ?: string | null }
 
 /** Verbrauch einer Maßnahme, noch in der Einheit der Mittelmenge */
 export type VerbrauchPosten = {
@@ -68,6 +69,8 @@ export type LagerKonto = {
   bestand: number
   /** nicht berücksichtigte Buchungen und nicht abgezogene Maßnahmen */
   hinweise: LagerHinweis[]
+  /** Lagerbewegung im laufenden Geschäftsjahr (KAN-173, lagerJahr.ts) – nur, wenn ein Jahr übergeben wurde */
+  jahr?: JahresBewegung
 }
 
 const ARTEN_DES_LAGERS: Readonly<Record<LagerArt, readonly string[]>> = { psm: ['spritzung', 'sonstiges'], duenger: ['duengung'] }
@@ -132,12 +135,13 @@ export function preisEinheit(buchungen: readonly LagerBuchung[]): MittelEinheit 
  * Bestand eines Mittels aus Buchungen und Verbrauchsposten, alles in der Lager-Einheit.
  * Buchungen ohne Einheit zählen wie bisher in der Lager-Einheit.
  */
-export function lagerKonto(buchungen: readonly LagerBuchung[], verbrauch: readonly VerbrauchPosten[], stammEinheit?: string | null): LagerKonto {
+export function lagerKonto(buchungen: readonly LagerBuchung[], verbrauch: readonly VerbrauchPosten[], stammEinheit?: string | null, jahr?: number): LagerKonto {
   const einheit = lagerEinheit(buchungen, verbrauch, stammEinheit)
   const hinweise: LagerHinweis[] = []
   const ohneDichte = (von: string) => `Lager in ${einheit}, ${einheitText(von)} ohne Dichte nicht in ${einheit} umrechenbar`
 
   let zugang = 0, abgang = 0
+  const gezaehlt: GezaehlteBuchung[] = []
   for (const b of buchungen) {
     const gueltig = Number.isFinite(b.menge)
     const m = !gueltig ? null : b.einheit ? mengeInEinheit(b.menge, b.einheit, einheit) : b.menge
@@ -149,6 +153,7 @@ export function lagerKonto(buchungen: readonly LagerBuchung[], verbrauch: readon
       })
       continue
     }
+    gezaehlt.push({ datum: b.datum, menge: m, typ: b.typ })
     if (m > 0) zugang += m
     else abgang -= m
   }
@@ -178,5 +183,6 @@ export function lagerKonto(buchungen: readonly LagerBuchung[], verbrauch: readon
     einheit, zugang, abgang, verbrauch: verbrauchGesamt, posten,
     bestand: runden(zugang - abgang - verbrauchGesamt, STELLEN_MENGE),
     hinweise,
+    ...(jahr === undefined ? {} : { jahr: jahresBewegung(gezaehlt, posten, jahr, STELLEN_MENGE) }),
   }
 }

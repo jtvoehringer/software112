@@ -5,6 +5,7 @@ import { Pencil, Trash2 } from 'lucide-react'
 import { upsertPSM, deactivatePSM } from './actions'
 import type { PSMEintrag } from './page'
 import { fehlerText } from '@/lib/fehler'
+import { LagerJahrKopf, LagerJahrZellen, LagerJahrHinweis } from './LagerJahrSpalten'
 
 const KATEGORIE_OPTS = [
   { value: 'fungizid',         label: 'Fungizid' },
@@ -155,9 +156,9 @@ function PSMForm({ psm, onDone }: { psm?: PSMEintrag; onDone: () => void }) {
 }
 
 export default function PSMClient({
-  psm, writeOk, adminOk,
+  psm, jahr, writeOk, adminOk,
 }: {
-  psm: PSMEintrag[]; writeOk: boolean; adminOk: boolean
+  psm: PSMEintrag[]; jahr: number; writeOk: boolean; adminOk: boolean
 }) {
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
@@ -193,12 +194,14 @@ export default function PSMClient({
             <thead>
               <tr className="border-b border-s112-border">
                 <th className="text-left text-xs text-s112-muted font-semibold py-2 pr-3">Name</th>
-                <th className="text-left text-xs text-s112-muted font-semibold py-2 pr-3">Kategorie</th>
-                <th className="text-left text-xs text-s112-muted font-semibold py-2 pr-3">Wirkstoff</th>
-                <th className="text-right text-xs text-s112-muted font-semibold py-2 pr-3">Cu-%</th>
-                <th className="text-right text-xs text-s112-muted font-semibold py-2 pr-3">Max. kg/ha</th>
-                <th className="text-right text-xs text-s112-muted font-semibold py-2 pr-3">Wartezeit</th>
-                <th className="text-center text-xs text-s112-muted font-semibold py-2 pr-3">Bio</th>
+                {/* KAN-173: Detailspalten je nach Breite ausblenden, damit die Lagerspalten ohne seitliches Scrollen passen */}
+                <th className="hidden lg:table-cell text-left text-xs text-s112-muted font-semibold py-2 pr-3">Kategorie</th>
+                <th className="hidden xl:table-cell text-left text-xs text-s112-muted font-semibold py-2 pr-3">Wirkstoff</th>
+                <th className="hidden md:table-cell text-right text-xs text-s112-muted font-semibold py-2 pr-3">Cu-%</th>
+                <th className="hidden xl:table-cell text-right text-xs text-s112-muted font-semibold py-2 pr-3">Max. kg/ha</th>
+                <th className="hidden xl:table-cell text-right text-xs text-s112-muted font-semibold py-2 pr-3">Wartezeit</th>
+                <th className="hidden sm:table-cell text-center text-xs text-s112-muted font-semibold py-2 pr-3">Bio</th>
+                <LagerJahrKopf jahr={jahr} />
                 {(writeOk || adminOk) && (
                   <th className="py-2 px-3 sticky right-0 bg-white border-l border-s112-border" />
                 )}
@@ -214,30 +217,31 @@ export default function PSMClient({
                         <span className="ml-1 text-xs text-s112-muted">({p.handelsname})</span>
                       )}
                     </td>
-                    <td className="py-2.5 pr-3">
+                    <td className="hidden lg:table-cell py-2.5 pr-3">
                       {p.kategorie ? (
                         <span className={`text-xs px-2 py-0.5 rounded-full border ${KAT_COLOR[p.kategorie] ?? 'bg-s112-bg text-s112-text-2 border-s112-line'}`}>
                           {KATEGORIE_OPTS.find(o => o.value === p.kategorie)?.label ?? p.kategorie}
                         </span>
                       ) : '–'}
                     </td>
-                    <td className="py-2.5 pr-3 text-s112-muted text-xs">{p.wirkstoff ?? '–'}</td>
-                    <td className="py-2.5 pr-3 text-right tabular-nums text-xs">
+                    <td className="hidden xl:table-cell py-2.5 pr-3 text-s112-muted text-xs">{p.wirkstoff ?? '–'}</td>
+                    <td className="hidden md:table-cell py-2.5 pr-3 text-right tabular-nums text-xs">
                       {p.cu_gehalt_pct ? (
                         <span className="text-s112-blue-700 font-medium">{p.cu_gehalt_pct} %</span>
                       ) : '–'}
                     </td>
-                    <td className="py-2.5 pr-3 text-right tabular-nums text-xs text-s112-muted">
+                    <td className="hidden xl:table-cell py-2.5 pr-3 text-right tabular-nums text-xs text-s112-muted">
                       {p.max_aufwand_kg_ha ? `${p.max_aufwand_kg_ha} kg/ha` : '–'}
                     </td>
-                    <td className="py-2.5 pr-3 text-right tabular-nums text-xs text-s112-muted">
+                    <td className="hidden xl:table-cell py-2.5 pr-3 text-right tabular-nums text-xs text-s112-muted">
                       {p.wartezeit_tage ? `${p.wartezeit_tage} T` : '–'}
                     </td>
-                    <td className="py-2.5 pr-3 text-center">
+                    <td className="hidden sm:table-cell py-2.5 pr-3 text-center">
                       {p.oeko_zugelassen
                         ? <span className="text-s112-ok-fg">Ja</span>
                         : <span className="text-s112-tertiary">–</span>}
                     </td>
+                    <LagerJahrZellen lager={p.lager} />
                     {(writeOk || adminOk) && (
                       <td className="py-2.5 px-3 text-right sticky right-0 bg-white border-l border-s112-border/40">
                         <div className="flex items-center justify-end gap-2">
@@ -257,7 +261,7 @@ export default function PSMClient({
                   </tr>
                   {editId === p.id && (
                     <tr key={`edit-${p.id}`}>
-                      <td colSpan={8} className="px-0 py-2">
+                      <td colSpan={12} className="px-0 py-2">
                         <PSMForm psm={p} onDone={() => setEditId(null)} />
                       </td>
                     </tr>
@@ -266,6 +270,7 @@ export default function PSMClient({
               ))}
             </tbody>
           </table>
+          {psm.length > 0 && <LagerJahrHinweis jahr={jahr} />}
           {psm.length === 0 && (
             <p className="text-center py-12 text-s112-muted text-sm">
               Noch keine Pflanzenschutzmittel angelegt.

@@ -14,6 +14,8 @@ import BetriebsmittelLagerClient, { type BmBewegung, type BmKarte, type BmOption
 import { BETRIEBSMITTEL_GRUPPEN, GRUPPE_LABEL, bmKonto, type BetriebsmittelGruppe, type BmVerbrauchPosten } from '@/lib/behandlungen/betriebsmittel'
 import { MASSNAHMEN_ART_LABEL } from '@/lib/behandlungen/arten'
 import { summeFlaecheHa } from '@/lib/behandlungen/massnahmeMengen'
+import { wienJetzt } from '@/lib/datum/wien'
+import { stammLager, type StammLager } from './LagerJahrSpalten'
 import { riedText } from '@/lib/behandlungen/rieden'
 
 export const metadata: Metadata = { title: 'Betriebsmittel – software:112' }
@@ -68,6 +70,8 @@ export type PSMEintrag = {
   max_aufwand_kg_ha: number | null; max_anwendungen: number | null
   wartezeit_tage: number | null; oeko_zugelassen: boolean
   notizen: string | null
+  /** KAN-173: Lagerbewegung im laufenden Geschäftsjahr */
+  lager?: StammLager | null
 }
 
 export type DuengemittelEintrag = {
@@ -78,6 +82,8 @@ export type DuengemittelEintrag = {
   einarbeitung_erforderlich: boolean
   preis_pro_einheit: number | null; einheit: string | null
   notizen: string | null
+  /** KAN-173: Lagerbewegung im laufenden Geschäftsjahr */
+  lager?: StammLager | null
 }
 
 export type SatzEintrag = {
@@ -184,15 +190,22 @@ export default async function LagerPage({
   // nur aus Düngungen. ladeBehandlungen() filtert nach dem Betrieb und liefert die behandelte Fläche
   // (Σ GST). Nur für den Bestand-Tab; ein Ladefehler erscheint dort, statt still ohne Verbrauch zu rechnen.
   const zeigtBestand = !['stammdaten', 'duengemittel', 'saetze', 'weinbehandlung', 'produktion'].includes(tab)
+  // KAN-173 (01.10.2026): die Stammdaten-Tabellen zeigen je Mittel Anfangsbestand | Zukäufe | Verbräuche | Saldo des
+  // laufenden Geschäftsjahrs (Kalenderjahr, Wiener Zeit) – dafür braucht auch der jeweilige Stammdaten-Tab den Verbrauch.
+  const jahr = wienJetzt().getFullYear()
+  const brauchtPsm = zeigtBestand || tab === 'stammdaten'
+  const brauchtDuenger = zeigtBestand || tab === 'duengemittel'
+  const brauchtBm = zeigtBestand || tab === 'weinbehandlung' || tab === 'produktion'
   let mitPsm: PsmBehandlung[] = []
   let duengungen: PsmBehandlung[] = []
   let verbrauchFehler: string | null = null
-  if (zeigtBestand && tenantId) {
+  if ((brauchtPsm || brauchtDuenger) && tenantId) {
     try {
+      const leer = { behandlungen: [] as PsmBehandlung[] }
       const [s, so, d] = await Promise.all([
-        ladeBehandlungen(supabase, tenantId, { art: 'spritzung' }),
-        ladeBehandlungen(supabase, tenantId, { art: 'sonstiges' }),
-        ladeBehandlungen(supabase, tenantId, { art: 'duengung' }),
+        brauchtPsm ? ladeBehandlungen(supabase, tenantId, { art: 'spritzung' }) : leer,
+        brauchtPsm ? ladeBehandlungen(supabase, tenantId, { art: 'sonstiges' }) : leer,
+        brauchtDuenger ? ladeBehandlungen(supabase, tenantId, { art: 'duengung' }) : leer,
       ])
       mitPsm = [...s.behandlungen, ...so.behandlungen]
       duengungen = d.behandlungen
@@ -221,19 +234,22 @@ export default async function LagerPage({
   // Alle PSM für Dropdown (nicht nur aktive mit Bewegungen)
   // bereits in rawPSM enthalten
 
+  // Lagerkonto je PSM (mit Jahressicht, KAN-173); null ohne Buchung und Verbrauch
+  const psmKonto = (id: string): LagerKonto | null => bewegungenByPsm.has(id) || verbrauchByPsm.has(id)
+    ? lagerKonto(bewegungenByPsm.get(id) ?? [], verbrauchByPsm.get(id) ?? [], undefined, jahr)
+    : null
+
   const aktivePsm = psms
     .filter(p => bewegungenByPsm.has(p.id) || verbrauchByPsm.has(p.id))
-    .map(p => {
-      const bewegungen = bewegungenByPsm.get(p.id) ?? []
-      return {
-        psm_id:              p.id,
-        psm_name:            p.name,
-        kategorie:           p.kategorie ?? null,
-        bewegungen,
-        konto:               lagerKonto(bewegungen, verbrauchByPsm.get(p.id) ?? []),
-      } satisfies PSMLager
-    })
+    .map(p => ({
+      psm_id:              p.id,
+      psm_name:            p.name,
+      kategorie:           p.kategorie ?? null,
+      bewegungen:          bewegungenByPsm.get(p.id) ?? [],
+      konto:               psmKonto(p.id) as LagerKonto,
+    } satisfies PSMLager))
     .sort((a, b) => a.psm_name.localeCompare(b.psm_name, 'de'))
+  const psmMitLager: PSMEintrag[] = psmStammdaten.map(p => ({ ...p, lager: stammLager(psmKonto(p.id)) }))
 
   // ── Düngemittel-Lagerbewegungen (Migration 142, analog PSM oben) ────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -260,21 +276,27 @@ export default async function LagerPage({
     id: d.id, name: d.name, einheit_default: d.einheit ?? null, typ: d.typ ?? null,
   }))
 
+  // Lagerkonto je Düngemittel (mit Jahressicht, KAN-173); Lager-Einheit ohne Buchungen: Einheit des Düngemittels
+  const duengerKonto = (d: AR): LagerKonto | null => bewegungenByDuenger.has(d.id) || verbrauchByDuenger.has(d.id)
+    ? lagerKonto(bewegungenByDuenger.get(d.id) ?? [], verbrauchByDuenger.get(d.id) ?? [], d.einheit ?? null, jahr)
+    : null
+
   // Nur Düngemittel mit Bewegungen ODER Verbrauch anzeigen (analog PSM)
   const aktiveDuenger: DuengerLager[] = duenger
     .filter(d => bewegungenByDuenger.has(d.id) || verbrauchByDuenger.has(d.id))
-    .map(d => {
-      const bewegungen = bewegungenByDuenger.get(d.id) ?? []
-      return {
-        duengemittel_id:     d.id,
-        duengemittel_name:   d.name,
-        typ:                 d.typ ?? null,
-        bewegungen,
-        // Lager-Einheit ohne Buchungen: Einheit des Düngemittels (Stammdaten)
-        konto:               lagerKonto(bewegungen, verbrauchByDuenger.get(d.id) ?? [], d.einheit ?? null),
-      } satisfies DuengerLager
-    })
+    .map(d => ({
+      duengemittel_id:     d.id,
+      duengemittel_name:   d.name,
+      typ:                 d.typ ?? null,
+      bewegungen:          bewegungenByDuenger.get(d.id) ?? [],
+      konto:               duengerKonto(d) as LagerKonto,
+    } satisfies DuengerLager))
     .sort((a, b) => a.duengemittel_name.localeCompare(b.duengemittel_name, 'de'))
+  const duengerById = new Map(duenger.map(d => [d.id as string, d]))
+  const duengemittelMitLager: DuengemittelEintrag[] = duengemittelStammdaten.map(d => {
+    const roh = duengerById.get(d.id)
+    return { ...d, lager: stammLager(roh ? duengerKonto(roh) : null) }
+  })
 
   // ── KAN-167: Weinbehandlungs- und Produktionsmittel ──────────────────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -288,7 +310,7 @@ export default async function LagerPage({
     .select('id, betriebsmittel_id, datum, typ, menge, einheit, betrag_netto, ust_satz, notizen, storniert_am, storniert_von_name, storno_grund, lieferant:firmen!lieferant_firma_id(name)')
     .order('datum', { ascending: true }))
   // Verbrauch aus Maßnahmen (Sonstiges, Laubarbeit) mit Betriebsmittel – Aufwand × behandelte Fläche bzw. gesamt
-  const { data: rawBmVerbrauch } = zeigtBestand
+  const { data: rawBmVerbrauch } = brauchtBm
     ? await tf((supabase.from('behandlungen') as any)   // eslint-disable-line @typescript-eslint/no-explicit-any
         .select('id, datum, art, aufwandmenge, aufwandmenge_einheit, betriebsmittel_id, weingarten_id, weingarten:weingarten_id(id, name, ried), behandlung_grundstuecke(flaeche_ha, grundstueck:grundstueck_id(flaeche_ha, weingarten_id, weingarten:weingarten_id(id, name, ried)))')
         .not('betriebsmittel_id', 'is', null))
@@ -338,9 +360,17 @@ export default async function LagerPage({
     : !(membership && canWrite(membership, 'ea'))
     ? 'dir fehlt das Schreibrecht für die E&A-Rechnung.'
     : null
+  // Lagerkonto je Betriebsmittel (mit Jahressicht, KAN-173); null ohne Buchung und Verbrauch
+  const bmKontoVon = (m: AR): LagerKonto | null => {
+    if (!bmBewegungen.has(m.id) && !bmVerbrauch.has(m.id)) return null
+    const bewegungen = bmBewegungen.get(m.id) ?? []
+    return bmKonto(bewegungen.map(b => ({ datum: b.datum, menge: b.menge, einheit: b.einheit, storniert: !!b.storniert_am, typ: b.typ })),
+      bmVerbrauch.get(m.id) ?? [], m.einheit, jahr)
+  }
   const bmStamm = (g: BetriebsmittelGruppe): BmStamm[] => bmAlle.filter(m => m.gruppe === g).map(m => ({
     id: m.id, name: m.name, einheit: m.einheit, preis_pro_einheit: m.preis_pro_einheit == null ? null : Number(m.preis_pro_einheit),
     ea_kategorie_id: m.ea_kategorie_id ?? null, notizen: m.notizen ?? null, aktiv: m.aktiv !== false,
+    lager: stammLager(bmKontoVon(m)),
   }))
   const bmOptionen = (g: BetriebsmittelGruppe): BmOption[] => bmAlle.filter(m => m.gruppe === g && m.aktiv !== false).map(m => ({
     id: m.id, name: m.name, einheit: m.einheit, ea_kategorie_id: m.ea_kategorie_id ?? null,
@@ -348,14 +378,11 @@ export default async function LagerPage({
   }))
   const bmKarten = (g: BetriebsmittelGruppe): BmKarte[] => bmAlle
     .filter(m => m.gruppe === g && (bmBewegungen.has(m.id) || bmVerbrauch.has(m.id)))
-    .map(m => {
-      const bewegungen = bmBewegungen.get(m.id) ?? []
-      return {
-        id: m.id, name: m.aktiv === false ? `${m.name} (deaktiviert)` : m.name, einheit: m.einheit, bewegungen,
-        konto: bmKonto(bewegungen.map(b => ({ datum: b.datum, menge: b.menge, einheit: b.einheit, storniert: !!b.storniert_am })),
-          bmVerbrauch.get(m.id) ?? [], m.einheit),
-      }
-    })
+    .map(m => ({
+      id: m.id, name: m.aktiv === false ? `${m.name} (deaktiviert)` : m.name, einheit: m.einheit,
+      bewegungen: bmBewegungen.get(m.id) ?? [],
+      konto: bmKontoVon(m) as LagerKonto,
+    }))
 
   const TABS = [
     { key: 'bestand',      label: 'Bestand & Bewegungen' },
@@ -406,21 +433,22 @@ export default async function LagerPage({
         ))}
       </div>
 
+      {verbrauchFehler && (
+        <div role="alert" className="mb-6 p-3 bg-s112-err-bg border border-s112-err/30 rounded-lg text-sm text-s112-err-fg">
+          {verbrauchFehler} – der Verbrauch aus Maßnahmen fehlt in den Beständen unten.
+        </div>
+      )}
+
       {tab === 'stammdaten' ? (
-        <PSMClient psm={psmStammdaten} writeOk={writeOk} adminOk={adminOk} />
+        <PSMClient psm={psmMitLager} jahr={jahr} writeOk={writeOk} adminOk={adminOk} />
       ) : tab === 'duengemittel' ? (
-        <DuengemittelClient duengemittel={duengemittelStammdaten} writeOk={writeOk} adminOk={adminOk} />
+        <DuengemittelClient duengemittel={duengemittelMitLager} jahr={jahr} writeOk={writeOk} adminOk={adminOk} />
       ) : tab === 'saetze' ? (
         <SaetzeClient saetze={saetzeMassnahmen} writeOk={writeOk} adminOk={adminOk} />
       ) : tab === 'weinbehandlung' || tab === 'produktion' ? (
-        <BetriebsmittelStammClient gruppe={tab} mittel={bmStamm(tab)} kategorien={kategorien} writeOk={writeOk} adminOk={adminOk} />
+        <BetriebsmittelStammClient gruppe={tab} mittel={bmStamm(tab)} jahr={jahr} kategorien={kategorien} writeOk={writeOk} adminOk={adminOk} />
       ) : (
         <div className="space-y-8">
-          {verbrauchFehler && (
-            <div role="alert" className="p-3 bg-s112-err-bg border border-s112-err/30 rounded-lg text-sm text-s112-err-fg">
-              {verbrauchFehler} – der Verbrauch aus Maßnahmen fehlt in den Beständen unten.
-            </div>
-          )}
           <div>
             <h2 className="text-sm font-semibold text-s112-text-2 uppercase tracking-wide mb-3">Pflanzenschutzmittel</h2>
             <LagerClient
