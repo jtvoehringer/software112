@@ -4,6 +4,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { normalisiereLand } from '@/lib/katalog/laender'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -84,7 +85,7 @@ export async function GET(
         <TraderName>${x(importeur)}</TraderName>
         <StreetName></StreetName>
         <City>${x(auftrag.destination_stadt)}</City>
-        <CountryCode>${x(auftrag.destination_land?.slice(0,2).toUpperCase())}</CountryCode>
+        <CountryCode>${x(normalisiereLand(auftrag.destination_land) ?? auftrag.destination_land?.slice(0,2).toUpperCase())}</CountryCode>
         <EoriNumber>${x(auftrag.eori_kunde)}</EoriNumber>
       </ConsigneeTrader>
 

@@ -1,3 +1,5 @@
+import { landOptionen } from '@/lib/katalog/laender'
+
 // ── Segment-Definitionen ──────────────────────────────────────────────────────
 
 export const SEGMENTE = [
@@ -33,30 +35,14 @@ export function segmentFarbe(value: string | null | undefined): string {
 }
 
 // ── Länder / Vorwahlen ────────────────────────────────────────────────────────
-// Migration 190 (1.9.2026) – zentralisiert (vorher identisch dupliziert in
-// FirmenClient.tsx und KontakteClient.tsx) und um weitere Länder ergänzt,
-// nachdem ein dänischer Kunde weder im Ländercode-Dropdown noch in der
-// Vorwahlen-Liste vorhanden war (Vorwahl ist dadurch fälschlich auf +43
-// zurückgefallen). Rückmeldung 1.9.2026: für exportorientierte Kunden werden
-// nach und nach weitere Länder ergänzt (zunächst Fernost-Exportmärkte:
-// Thailand, Singapur, Südkorea, Japan, Malaysia). Falls weitere Länder
-// fehlen, hier ergänzen statt erneut pro Komponente zu duplizieren.
+// KAN-187 (02.10.2026): die Länderliste kommt vollständig aus dem Länderkatalog
+// (lib/katalog/laender.ts = Tabelle kat_land, 249 ISO-Codes) – vorher eine von
+// Hand gepflegte Teilliste (Migration 190, Exportmärkte 1.9.2026, Dynamics-Import
+// 3.9.2026). Reihenfolge wie in den Auswahlfeldern: häufige Länder oben, dann
+// alphabetisch nach Namen. Auswahlfelder nutzen <LandOptionen /> (components/crm),
+// Speichern normalisiert per normalisiereLand().
 
-export const LAENDER = [
-  'AT', 'DE', 'CH', 'IT', 'FR', 'HU', 'SK', 'CZ', 'SI', 'LI',
-  'NL', 'BE', 'LU', 'DK', 'SE', 'NO', 'FI', 'PL', 'ES', 'PT',
-  'IE', 'GB', 'US', 'CA',
-  // Exportmärkte Fernost (1.9.2026)
-  'JP', 'KR', 'SG', 'MY', 'TH', 'CN',
-  // weitere Exportmärkte (1.9.2026)
-  'MC', 'AE', 'AL', 'BG', 'RO', 'UA',
-  // Dynamics-Lead-Import Gebeshuber (3.9.2026): alle dort vorkommenden Länder,
-  // damit importierte Werte im Formular sichtbar bleiben (ein Wert außerhalb
-  // dieser Liste würde im Auswahlfeld leer angezeigt und beim Speichern verloren gehen).
-  'LK', 'PH', 'RU', 'HK', 'MO', 'TW', 'IN', 'ID', 'VN', 'AU', 'NZ', 'ZA', 'BR', 'MX', 'AR', 'CL', 'PE',
-  'TR', 'IL', 'GR', 'HR', 'RS', 'BA', 'MK', 'LT', 'LV', 'EE', 'MT', 'CY', 'IS', 'BY', 'MD', 'GE', 'AM', 'AZ',
-  'BH', 'QA', 'SA', 'KW', 'OM', 'EG', 'MA', 'TN', 'MU', 'MV', 'SC', 'KH', 'LA', 'MM', 'BN', 'PK', 'BD', 'NP',
-]
+export const LAENDER: readonly string[] = landOptionen().filter(o => !o.trenner).map(o => o.wert)
 
 export const DIAL_CODES = [
   { code: '+43',  flag: '🇦🇹', iso: 'AT' },

@@ -8,6 +8,7 @@ import { Truck } from 'lucide-react'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { csvPfad } from '@/lib/behoerden/katalog'
 import { ladeExportauftraege } from '@/lib/behoerden/exportauftrag'
+import { landAnzeige } from '@/lib/katalog/laender'
 export const metadata: Metadata = { title: 'Weinexport – software:112' }
 export const dynamic = 'force-dynamic'
 
@@ -81,7 +82,7 @@ export default async function WeinexportPage() {
                   </td>
                   <td className="px-5 py-3 text-s112-text-1">{a.importeur ?? '–'}</td>
                   <td className="px-5 py-3 text-s112-text-1">
-                    {[a.bestimmungsort, a.bestimmungsland].filter(Boolean).join(', ') || '–'}
+                    {[a.bestimmungsort, landAnzeige(a.bestimmungsland)].filter(Boolean).join(', ') || '–'}
                   </td>
                   <td className="px-5 py-3 text-s112-muted">
                     {a.datum ? new Date(a.datum).toLocaleDateString('de-AT') : '–'}

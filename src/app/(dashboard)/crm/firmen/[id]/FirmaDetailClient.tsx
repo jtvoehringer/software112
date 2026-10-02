@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { landAnzeige } from '@/lib/katalog/laender'
 import { useRouter } from 'next/navigation'
 import Link from '@/components/ui/Link'
 import { createAktivitaet, createPipelineEintrag, toggleAktivitaetErledigt, updateAktivitaet, deleteAktivitaet, deleteFirma, setzeFirmaAktiv } from '../../actions'
@@ -531,7 +532,7 @@ export default function FirmaDetailClient({
                 <span className="text-xs px-2 py-0.5 rounded-full bg-[#F2F3F5] text-s112-text-1 font-medium">Lieferant</span>
               )}
               {firma.land && firma.land !== 'AT' && (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-[#F2F3F5] text-s112-text-2 font-medium">{firma.land}</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-[#F2F3F5] text-s112-text-2 font-medium" title={firma.land}>{landAnzeige(firma.land)}</span>
               )}
             </div>
             <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1">

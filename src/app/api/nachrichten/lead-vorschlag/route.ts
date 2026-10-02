@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { SEGMENTE } from '@/lib/crm/types'
+import { normalisiereLand } from '@/lib/katalog/laender'
 import { domainVon, FREEMAIL_DOMAINS, normEmail } from '@/lib/crm/absender'
 import { LEER, mailText, type LeadVorbelegung } from '@/lib/crm/leadEmail'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
@@ -96,7 +97,7 @@ ${text || '(kein Text)'}`
           firma: str(j.firma), position: str(j.position),
           email: normEmail(str(j.email)) || von || null,
           telefon: str(j.telefon), mobil: str(j.mobil), strasse: str(j.strasse), plz: str(j.plz), ort: str(j.ort),
-          land: (str(j.land) ?? 'AT').toUpperCase().slice(0, 2),
+          land: normalisiereLand(str(j.land)) ?? 'AT',   // KAN-187: Katalog statt slice(0, 2) ("Germany" wurde sonst GE = Georgien)
           website: str(j.website) ?? fallback.website,
           segment: SEGMENTE.some(s => s.value === str(j.segment)) ? str(j.segment) : null,
           anliegen: str(j.anliegen),

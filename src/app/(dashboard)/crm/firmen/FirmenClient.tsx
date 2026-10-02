@@ -6,9 +6,10 @@ import { paramsAusFilter, LISTE_SCHRITT, type ListenFilter, type Zaehler } from 
 import { useListenSuche } from '@/lib/crm/listenSuche'
 import Link from '@/components/ui/Link'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
+import LandOptionen from '@/components/crm/LandOptionen'
 import { createFirma, updateFirma, deleteFirma, setzeFirmaAktiv, pruefeFirmaDublette } from '../actions'
 import { loeschenOderDeaktivieren } from '@/lib/stammdaten/loeschDialog'
-import { SEGMENTE, LAENDER, DIAL_CODES, segmentLabel, segmentFarbe } from '@/lib/crm/types'
+import { SEGMENTE, DIAL_CODES, segmentLabel, segmentFarbe } from '@/lib/crm/types'
 import type { FirmaRow } from '@/lib/crm/types'
 import { AlertTriangle, Pencil, Trash2 } from 'lucide-react'
 
@@ -205,7 +206,7 @@ export function FirmaForm({
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Land</label>
           <select aria-label="Land" name="land" value={landVal} onChange={e => setLandVal(e.target.value)} className={inputCls()}>
-            {LAENDER.map(l => <option key={l} value={l}>{l}</option>)}
+            <LandOptionen aktuell={landVal} />
           </select>
         </div>
         <div>

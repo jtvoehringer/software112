@@ -18,6 +18,12 @@ export const POSITION_MAX = 120
 export const QUELLE_MAX = 80
 export const QUELLE_OHNE = '__ohne__'
 
+/** Freitext für Position/Quelle: trimmen, Leerzeichen zusammenfassen, leer → null (Formular und Datenimport) */
+export function bereinigterText(roh: unknown): string | null {
+  const wert = typeof roh === 'string' ? roh.trim().replace(/\s+/g, ' ') : ''
+  return wert || null
+}
+
 // Kontaktspalten für Liste UND Detailseite (02.10.2026): enthält jedes Feld, das
 // das Bearbeiten-Formular (KontaktForm) vorbelegt und updateKontakt schreibt –
 // fehlte eines (bis 02.10.2026: email_weitere, skonto_pct, skonto_tage,
