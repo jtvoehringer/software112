@@ -11,6 +11,7 @@ import { fmtNum } from '@/lib/format'
 import { KORREKTUR_NACH_OBEN_HINWEIS } from '@/lib/kellerbuch/hinweise'
 import { QUALITAET_OPTS, mitGespeichertemWert } from '@/lib/wein/qualitaet'
 import { Info } from 'lucide-react'
+import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Eröffnungsbestand bearbeiten – software:112' }
@@ -37,7 +38,7 @@ export default async function EroeffnungsbestandEditPage({ params, searchParams 
 
   const [{ data: rowRaw }, gebindeRows] = await Promise.all([
     tf((supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, kmw, menge_liter, anfangsbestand_liter, qualitaetsstufe, behaelter_id, notizen, einstandspreis_pro_liter, referenz_altsystem')
+      .select('id, name, jahrgang, kmw, oechsle, mostgewicht_einheit, menge_liter, anfangsbestand_liter, qualitaetsstufe, behaelter_id, notizen, einstandspreis_pro_liter, referenz_altsystem')
       .eq('id', id).eq('ist_eroeffnungsbestand', true).limit(1)),
     // Ziele: eigene + freigegebene Gebinde, fremd belegte ausgenommen (Migration 203)
     ladeBehaelter(supabase, tenantId, { alsZiel: true }),
@@ -130,9 +131,10 @@ export default async function EroeffnungsbestandEditPage({ params, searchParams 
               defaultValue={eintrag.jahrgang ?? ''} className={inputCls} />
           </div>
           <div>
-            <label className={labelCls}>KMW (°KMW)</label>
-            <input aria-label="KMW (°KMW)" name="kmw" type="number" step="0.1" min={0} max={50}
-              defaultValue={eintrag.kmw ?? ''} className={inputCls} />
+            {/* KAN-130 Etappe 3 (02.10.2026): gespeicherter Messwert samt Einheit, nichts neu gerechnet;
+                die Qualitätsstufe bleibt, wie gewählt (Rechenregel 6) */}
+            <MostgewichtEingabe name="mostgewicht"
+              startwert={{ kmw: eintrag.kmw, oechsle: eintrag.oechsle, einheit: eintrag.mostgewicht_einheit }} />
           </div>
           <div>
             <p id="eb-menge-label" className={labelCls}>Menge / Anfangsbestand (Liter){mengeSperre ? '' : ' *'}</p>

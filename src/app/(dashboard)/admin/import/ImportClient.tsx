@@ -6,6 +6,7 @@ import { exportCSV } from '@/lib/utils/csv'
 import { csvDateiname } from '@/lib/csv'
 import { fehlerText } from '@/lib/fehler'
 import { QUALITAET_OPTS } from '@/lib/wein/qualitaet'
+import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
 
 type ImportTyp = 'kontakte' | 'firmen' | 'fuellungen' | 'rieden_details' | 'grundstuecke' | 'gebinde'
 
@@ -391,9 +392,9 @@ export default function ImportClient({
                   defaultValue={new Date().getFullYear() - 1} className={ebInputCls} />
               </div>
               <div>
-                <label className={ebLabelCls}>KMW (°KMW)</label>
-                <input aria-label="KMW (°KMW)" name="kmw" type="number" step="0.1" min={0} max={50}
-                  placeholder="z.B. 17.5" className={ebInputCls} />
+                {/* KAN-130 Etappe 3 (02.10.2026): Mostgewicht in °KMW oder °Oe – bevorzugte Einheit des
+                    Betriebs zuerst; der Server rechnet die andere Einheit (createEroeffnungsbestandVonImport) */}
+                <MostgewichtEingabe name="mostgewicht" />
               </div>
               <div>
                 <label className={ebLabelCls}>Menge (Liter) *</label>
