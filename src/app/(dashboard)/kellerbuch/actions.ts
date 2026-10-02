@@ -17,6 +17,7 @@ import { planeVerschneidungStorno, storniereVerschneidung, GEBINDEWECHSEL_OHNE }
 import { stornoGrundFehler, STORNO_GRUND_MIN } from '@/lib/storno/grund'
 import { pruefePruefnummernSchaden } from '@/lib/kellerbuch/pruefnummerLaden'
 import { mitPnNotiz } from '@/lib/kellerbuch/pruefnummer'
+import { mostgewichtZusammenfuehren, teilweiseVermerk, verschnittMomentaufnahme } from '@/lib/kellerbuch/mostgewichtKette'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -437,7 +438,7 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
   // Ziel-Charge laden (Mandant) – Qualitätsstufe + Herkunft-Code vor der Verschneidung sichern
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: zielRaw, error: zielErr } = await (supabase.from('weinausbau') as any)
-    .select('id, name, menge_liter, rebsorte, weinart, qualitaetsstufe, herkunft_code')
+    .select('id, name, menge_liter, rebsorte, weinart, qualitaetsstufe, herkunft_code, kmw, oechsle, mostgewicht_einheit')
     .eq('id', zielId).eq('tenant_id', tenantId).maybeSingle()
   if (zielErr) throw new AktionsFehler(dbFehlerText(zielErr, 'Ziel-Charge konnte nicht geladen werden'))
   if (!zielRaw) throw new AktionsFehler('Ziel-Charge nicht gefunden')
@@ -450,7 +451,7 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
   for (const q of quellen) bedarf.set(q.weinausbau_id, (bedarf.get(q.weinausbau_id) ?? 0) + q.menge_liter)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: quellenData, error: quellenErr } = await (supabase.from('weinausbau') as any)
-    .select('id, name, menge_liter, qualitaetsstufe, rebsorte, weinart, herkunft_code')
+    .select('id, name, menge_liter, qualitaetsstufe, rebsorte, weinart, herkunft_code, kmw, oechsle, mostgewicht_einheit')
     .in('id', [...bedarf.keys()])
     .eq('tenant_id', tenantId)
   if (quellenErr) throw new AktionsFehler(dbFehlerText(quellenErr, 'Quell-Chargen konnten nicht geladen werden'))
@@ -491,7 +492,8 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: neu, error: ve } = await (supabase.from('verschneidungen') as any)
     .insert({ tenant_id: tenantId, datum, ziel_weinausbau_id: zielId, notizen, ziel_qualitaet_vorher: zielQualitaetVorher, ziel_herkunft_code_vorher: zielHerkunftVorher,
-      ziel_rebsorte_vorher: (zielVorher.rebsorte as string | null) ?? null })   // KAN-145: Storno stellt die Rebsorte wieder her
+      ziel_rebsorte_vorher: (zielVorher.rebsorte as string | null) ?? null,   // KAN-145: Storno stellt die Rebsorte wieder her
+      ...verschnittMomentaufnahme(zielVorher) })   // KAN-130 Etappe 2: und das Mostgewicht samt Einheit
     .select('id').single()
   if (ve) throw new AktionsFehler(dbFehlerText(ve, 'Speichern fehlgeschlagen (verschneidungen)'))
   const vId = (neu as R).id as string
@@ -535,6 +537,10 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
   // ≥ 85 %: Rebsorte bleibt; < 85 %: Sortenverschnitt
   // Dominante Rebsorte verwenden (nicht zielRebsorteJetzt, da Quelle dominieren kann)
   const neueRebsorte = dominanterAnteil >= 0.85 ? (dominante[0] ?? zielRebsorteJetzt) : 'Sortenverschnitt'
+  // KAN-130 Etappe 2 (Entscheidung Jörgen 01.10.2026): Mostgewicht = mengengewichteter Mittelwert in °KMW über Ziel
+  // und Quellen (Anteile wie oben), auf 2 Stellen abgerundet; Anteile ohne Mostgewicht zählen nicht („teilweise“)
+  const mg = mostgewichtZusammenfuehren(zielVorher, aktuell,
+    quellen.map(q => ({ liter: q.menge_liter, charge: quellenRows.find((r: R) => r.id === q.weinausbau_id) })))
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error: zielUpdateErr } = await (supabase.from('weinausbau') as any)
     .update({
@@ -542,6 +548,7 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
       rebsorte: neueRebsorte,
       qualitaetsstufe: neueQualitaet,
       herkunft_code: neueHerkunft,
+      ...(mg.werte ?? {}),
     })
     .eq('id', zielId)
     .eq('tenant_id', tenantId)
@@ -591,6 +598,7 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
     const nachLabel = HERKUNFT_LABEL[herkunftAbgestuft.nach] ?? herkunftAbgestuft.nach
     abstufTexte.push(`Abstufung Herkunft-Code (BKI) von ${vonLabel} auf ${nachLabel}`)
   }
+  { const v = mg.werte ? teilweiseVermerk(mg) : null; if (v) abstufTexte.push(v) }
   if (abstufTexte.length > 0) {
     const neueNotizen = notizen ? `${notizen}\n${abstufTexte.join('\n')}` : abstufTexte.join('\n')
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -16,6 +16,7 @@ import { weinartKonflikt, weinartKonfliktText, weinartAusFarbe, weinartBekannt }
 import { ladeUmzugZeilen, planeUmzugStorno, umzugSperrMeldung, nurNotizenAenderbar } from '@/lib/kellerbuch/storno'
 import { pruefePruefnummernSchaden } from '@/lib/kellerbuch/pruefnummerLaden'
 import { waehleZielCharge } from '@/lib/kellerbuch/umzugZiel'
+import { mostgewichtNeu, mostgewichtZusammenfuehren, teilweiseVermerk, umzugMomentaufnahme, type Anteil } from '@/lib/kellerbuch/mostgewichtKette'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -65,6 +66,14 @@ async function aendereCharge(supabase: any, tenantId: string, charge: R, werte: 
   if (((data ?? []) as R[]).length !== 1) {
     throw new AktionsFehler(`Die Charge „${charge.name ?? '?'}“ konnte nicht geändert werden (keine Berechtigung oder inzwischen geändert). Der Umzug wurde an dieser Stelle abgebrochen – bitte die Seite neu laden und die Bestände im Umzug-Protokoll prüfen.`)
   }
+}
+
+/** KAN-130 Etappe 2: Mostgewicht einer neuen Ziel-Charge aus den Quellen; „teilweise“ als Vermerk an der Zielzeile */
+function mostgewichtFuerNeu(anteile: Anteil[], vermerke: string[]): R {
+  const m = mostgewichtNeu(anteile)
+  const v = teilweiseVermerk(m)
+  if (m.spalten && v) vermerke.push(v)
+  return m.spalten ?? {}
 }
 
 // KAN-83: bestaetigung = Rückfrage „Prüfnummer gilt nicht mehr“ – nichts gebucht; mit pn_bestaetigt=1 erneut senden
@@ -250,6 +259,11 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
   }
 
   // ── Phase 2: Ziele befüllen, Ziel-Records anlegen ────────────────────────────
+  // KAN-130 Etappe 2: Mostgewicht – jedes Ziel bekommt die Quellen im Verhältnis ihrer Mengen
+  const anteileFuer = (liter: number): Anteil[] => quellen.map((q, i) => ({
+    liter: totalVon > 0 ? liter * q.menge / totalVon : 0,
+    charge: quellenDaten[i],
+  }))
   for (const z of ziele) {
     // WICHTIG: bewusst OHNE .maybeSingle() – sobald im Ziel-Gebinde bereits MEHR ALS EINE
     // aktive Charge liegt (z.B. weil eine frühere Verschneidung nach einem Rebsortenmix noch
@@ -275,6 +289,8 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
     // KAN-94: dasselbe für den Herkunft-Code (keller_umzuege.herkunft_code_vorher/_nachher)
     let herkunftVorher: string | null = null
     let herkunftNachher: string | null = null
+    // KAN-130 Etappe 2: Momentaufnahme des Mostgewichts (nur Zusammenführung in eine bestehende Charge)
+    let mostgewichtSnapshot: Record<string, unknown> = {}
     const zielVermerke: string[] = []
 
     // Rebsortenmix-Check und Wahl der Anker-Charge: siehe waehleZielCharge
@@ -308,12 +324,19 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
         zielVermerke.push(text)
       }
 
-      // Menge, Qualität, Herkunft und Vermerke in EINEM Update (KAN-94: mit Zeilenzahl-Prüfung)
+      // KAN-130 Etappe 2: Mostgewicht = gewichteter Mittelwert aus Ziel-Charge und Zugang, alter Wert in die Momentaufnahme
+      const mg = mostgewichtZusammenfuehren(vorhanden, parseFloat(vorhanden.menge_liter) || 0, anteileFuer(z.menge))
+      mostgewichtSnapshot = umzugMomentaufnahme(mg)
+      const mgVermerk = teilweiseVermerk(mg)
+      if (mg.werte && mgVermerk) zielVermerke.push(mgVermerk)
+
+      // Menge, Qualität, Herkunft, Mostgewicht und Vermerke in EINEM Update (KAN-94: mit Zeilenzahl-Prüfung)
       const bestehend = ((vorhanden.notizen as string | null) ?? '').trim()
       const werte: R = {
         menge_liter:     +((parseFloat(vorhanden.menge_liter) || 0) + z.menge).toFixed(3),
         qualitaetsstufe: neueQualitaet,
         herkunft_code:   neueHerkunft,
+        ...(mg.werte ?? {}),
       }
       if (chargeVermerke.length > 0) werte.notizen = bestehend ? `${bestehend}\n${chargeVermerke.join('\n')}` : chargeVermerke.join('\n')
       await aendereCharge(supabase, tenantId, vorhanden, werte)
@@ -349,6 +372,7 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
         status:               von0?.status ?? 'ausbau',
         notizen:              `Umzug aus „${von0?.name ?? ''}"`,
         aktiv:                true,
+        ...mostgewichtFuerNeu(anteileFuer(z.menge), zielVermerke),
       }).select('id')
       if (neuErr) throw new AktionsFehler(gebindeFehlerText((neuErr as R).message))
       nachWeinausbauId = ((newChargeData as R[])?.[0] as R | undefined)?.id ?? null
@@ -379,6 +403,7 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
           ? `Zusammengeführt aus ${quellen.length} Chargen`
           : `Umzug aus „${von0?.name ?? ''}"`,
         aktiv:                true,
+        ...mostgewichtFuerNeu(anteileFuer(z.menge), zielVermerke),
       }).select('id')
       if (neuErr) throw new AktionsFehler(gebindeFehlerText((neuErr as R).message))
       nachWeinausbauId = ((newChargeData as R[])?.[0] as R | undefined)?.id ?? null
@@ -399,6 +424,7 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
       qualitaet_nachher:  zielNachher,
       herkunft_code_vorher:  herkunftVorher,
       herkunft_code_nachher: herkunftNachher,
+      ...mostgewichtSnapshot,
       notizen:            zielVermerke.length > 0 ? zielVermerke.join('\n') : null,
       umzug_batch_id:     batchId,
       zeilen_typ:         'ziel',
