@@ -9,8 +9,13 @@ import { POSITION_MAX, QUELLE_MAX } from '@/lib/crm/liste'
 import { QUALITAET_OPTS } from '@/lib/wein/qualitaet'
 import ZusatzErzeugnisFelder from '@/components/wein/ZusatzErzeugnisFelder'
 import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
+import { parseCsv } from '@/lib/import/csvLesen'
+import { wienHeute } from '@/lib/csv'
+import { standardEroeffnungsStichtag } from '@/lib/kellerbuch/eroeffnungsStichtag'
+import EroeffnungImport from './EroeffnungImport'
 
-type ImportTyp = 'kontakte' | 'firmen' | 'fuellungen' | 'rieden_details' | 'grundstuecke' | 'gebinde'
+// KAN-42: eroeffnung_tank/eroeffnung_flaschen = Eröffnungsbestand zum Stichtag (eigene Oberfläche, EroeffnungImport.tsx)
+type ImportTyp = 'kontakte' | 'firmen' | 'fuellungen' | 'rieden_details' | 'grundstuecke' | 'gebinde' | 'eroeffnung_tank' | 'eroeffnung_flaschen'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -100,6 +105,9 @@ const FELDER: Record<ImportTyp, { key: string; label: string; pflicht?: boolean;
     { key: 'volumen_liter',  label: 'Fassungsvermögen (Liter)' },
     { key: 'standort',       label: 'Standort' },
   ],
+  // KAN-42: feste Spalten der CSV-Vorlage (lib/import/eroeffnungsbestand.ts) statt Zuordnung
+  eroeffnung_tank: [],
+  eroeffnung_flaschen: [],
 }
 
 const TYP_LABEL: Record<ImportTyp, string> = {
@@ -109,58 +117,16 @@ const TYP_LABEL: Record<ImportTyp, string> = {
   rieden_details: 'Rieden',
   grundstuecke: 'Grundstücke',
   gebinde:  'Gebinde',
+  eroeffnung_tank: 'Eröffnungsbestand Tank',
+  eroeffnung_flaschen: 'Eröffnungsbestand Flaschen',
 }
+
+const ist_eroeffnung = (t: ImportTyp): t is 'eroeffnung_tank' | 'eroeffnung_flaschen' => t === 'eroeffnung_tank' || t === 'eroeffnung_flaschen'
 
 const ebInputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
 const ebLabelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
 
-// Quote-bewusster CSV-Parser (RFC4180-artig). Ein Feld in Anführungszeichen
-// darf das Trennzeichen (oder einen Zeilenumbruch) enthalten, z.B.
-// "gumpoldskirchen.zierfandler thermenregion DAC;  bio-demeter" bei einer mit
-// ';' getrennten Datei - der frühere naive line.split(';') hat solche Felder
-// mitten im Wert aufgetrennt und dadurch ALLE nachfolgenden Spalten dieser
-// Zeile um eine Position verschoben (Rückmeldung 2.9.2026: Füllungen-Import,
-// "Bezeichnung"/"Gebinde" landeten dadurch vertauscht bzw. abgeschnitten in
-// der falschen Spalte). Escaped-Quotes ("") innerhalb eines Feldes werden zu
-// einem literalen " aufgelöst; ein führendes BOM (Excel-Export unter Windows)
-// wird entfernt.
-function parseCsv(text: string): { headers: string[]; rows: Record<string, string>[] } {
-  const src = text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text
-  const firstLine = src.split(/\r?\n/, 1)[0] ?? ''
-  const sep = firstLine.includes(';') ? ';' : ','
-
-  const table: string[][] = []
-  let field = ''
-  let row: string[] = []
-  let inQuotes = false
-  for (let i = 0; i < src.length; i++) {
-    const c = src[i]
-    if (inQuotes) {
-      if (c === '"') {
-        if (src[i + 1] === '"') { field += '"'; i++ } else { inQuotes = false }
-      } else {
-        field += c
-      }
-    } else if (c === '"') {
-      inQuotes = true
-    } else if (c === sep) {
-      row.push(field); field = ''
-    } else if (c === '\r') {
-      // ignorieren, das folgende '\n' beendet die Zeile
-    } else if (c === '\n') {
-      row.push(field); table.push(row); row = []; field = ''
-    } else {
-      field += c
-    }
-  }
-  if (field !== '' || row.length > 0) { row.push(field); table.push(row) }
-
-  const trimmed = table.map(r => r.map(v => v.trim())).filter(r => r.some(v => v !== ''))
-  if (trimmed.length < 2) return { headers: [], rows: [] }
-  const headers = trimmed[0]
-  const rows = trimmed.slice(1).map(vals => Object.fromEntries(headers.map((h, i) => [h, vals[i] ?? ''])))
-  return { headers, rows }
-}
+// CSV lesen: parseCsv aus lib/import/csvLesen.ts (seit KAN-42 gemeinsam mit dem Eröffnungsbestand-Import)
 
 const ALLE_TYPEN = Object.keys(TYP_LABEL) as ImportTyp[]
 
@@ -294,7 +260,7 @@ export default function ImportClient({
       <p className="text-sm text-s112-muted mb-6">CSV-Datei importieren – Semikolon oder Komma als Trennzeichen</p>
 
       {/* Typ-Wahl */}
-      <div className="flex gap-3 mb-6">
+      <div className="flex flex-wrap gap-3 mb-6">
         {(Object.keys(TYP_LABEL) as ImportTyp[]).map(t => (
           <button key={t} onClick={() => { setTyp(t); setParsed(null); setMapping({}); setResult(null); setErrorMsg(null) }}
             className={`px-4 py-2 rounded-xl text-sm font-medium border transition-colors ${
@@ -365,7 +331,8 @@ export default function ImportClient({
         <div className="bg-white rounded-xl border border-s112-border p-6 mb-5">
           <h2 className="font-semibold text-s112-text mb-1">Anfangsbestandsbuchung: Charge aus Altsystem übernehmen</h2>
           <p className="text-sm text-s112-muted mb-4">
-            Einzelne Charge mit Restbestand aus dem Altsystem direkt in ein Gebinde einbuchen (Bestand wird auf den 1.1. des laufenden Jahres gebucht).
+            Einzelne Charge mit Restbestand aus dem Altsystem direkt in ein Gebinde einbuchen (zum gewählten Stichtag, Standard 1.1. des laufenden Jahres).
+            Viele Tanks auf einmal: Import „Eröffnungsbestand Tank“ (CSV).
           </p>
 
           {ebOk && (
@@ -384,6 +351,12 @@ export default function ImportClient({
               + Anfangsbestand erfassen
             </summary>
             <form action={createEroeffnungsbestandVonImport} className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                {/* KAN-42: Stichtag wählbar (gespeichert 00:00 Uhr Wiener Zeit) */}
+                <label className={ebLabelCls}>Stichtag *</label>
+                <input aria-label="Stichtag" name="stichtag" type="date" required
+                  defaultValue={standardEroeffnungsStichtag(wienHeute())} className={ebInputCls} />
+              </div>
               <div className="sm:col-span-2">
                 <label className={ebLabelCls}>Weinbezeichnung *</label>
                 <input aria-label="Weinbezeichnung" name="name" required placeholder="z.B. Grüner Veltliner Ried Hohenberg" className={ebInputCls} />
@@ -446,7 +419,12 @@ export default function ImportClient({
         </div>
       )}
 
+      {ist_eroeffnung(typ) && (
+        <EroeffnungImport key={typ} art={typ === 'eroeffnung_tank' ? 'tank' : 'flaschen'} herkunft={herkunft.trim() || HERKUNFT_DEFAULT} />
+      )}
+
       {/* CSV-Upload */}
+      {!ist_eroeffnung(typ) && (
       <div className="bg-white rounded-xl border border-s112-border p-6 mb-5">
         <h2 className="font-semibold text-s112-text mb-3">1. CSV-Datei wählen</h2>
         <div className="flex items-center gap-4">
@@ -482,8 +460,10 @@ export default function ImportClient({
         )}
       </div>
 
+      )}
+
       {/* Spalten-Mapping */}
-      {parsed && (
+      {parsed && !ist_eroeffnung(typ) && (
         <div className="bg-white rounded-xl border border-s112-border p-6 mb-5">
           <h2 className="font-semibold text-s112-text mb-4">2. Spalten zuordnen</h2>
           <div className="grid grid-cols-2 gap-3">
@@ -511,7 +491,7 @@ export default function ImportClient({
       )}
 
       {/* Import starten */}
-      {parsed && (
+      {parsed && !ist_eroeffnung(typ) && (
         <div className="bg-white rounded-xl border border-s112-border p-6">
           <h2 className="font-semibold text-s112-text mb-4">3. Import starten</h2>
           {!pflichtMapped && (

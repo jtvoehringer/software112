@@ -119,6 +119,31 @@ export function qualitaetFehler(ziel: QualitaetsZiel, wert: string | null | unde
   return `Die Qualitätsstufe „${bekannt ? qualitaetLabel(wert) : wert}“ ist ${z.wo} ${bekannt ? 'nicht zulässig' : 'unbekannt'}.${z.zusatz}`
 }
 
+/** Vergleichsschlüssel ohne Groß-/Kleinschreibung, Umlaute, Akzente und Satzzeichen */
+function textSchluessel(s: string): string {
+  return s.normalize('NFC').trim().toLocaleLowerCase('de')
+    .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '')
+}
+
+/**
+ * KAN-42 (CSV-Import Eröffnungsbestand): Stufe aus Wert oder Bezeichnung der Liste des Ziels – „Qualitätswein“,
+ * „qualitaetswein“, „Spätlese“, „Beerenauslese (BA)“, „BA“, „Strohwein“. null = leer oder nicht in der Liste
+ * (Altwerte wie „Reserve“ normalisiert der Aufrufer, die Meldung liefert qualitaetFehler()).
+ */
+export function qualitaetAusText(text: string | null | undefined, ziel: QualitaetsZiel): string | null {
+  const s = textSchluessel(String(text ?? ''))
+  if (!s) return null
+  for (const o of ZIELE[ziel].liste) {
+    const ohneKlammer = o.label.replace(/\s*\(.*\)\s*$/, '')
+    const kurz = /\(([^)]+)\)/.exec(o.label)?.[1] ?? null
+    const teile = o.label.split(/\s*\/\s*/)
+    if ([o.value, o.label, ohneKlammer, kurz, ...teile].some(k => k && textSchluessel(k) === s)) return o.value
+  }
+  return null
+}
+
 /**
  * Optionen für Bearbeitungsformulare: Steht der gespeicherte Wert nicht (mehr) in `liste`,
  * bleibt er als eigene Option vorne sichtbar – sonst spränge die Auswahl beim Öffnen still

@@ -14,6 +14,7 @@ import { normalisiereQualitaet } from '@/lib/wein/qualitaetsrang'
 import ZusatzErzeugnisFelder from '@/components/wein/ZusatzErzeugnisFelder'
 import { Info } from 'lucide-react'
 import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
+import { eroeffnungsTag, stichtagText } from '@/lib/kellerbuch/eroeffnungsStichtag'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Eröffnungsbestand bearbeiten – software:112' }
@@ -40,7 +41,7 @@ export default async function EroeffnungsbestandEditPage({ params, searchParams 
 
   const [{ data: rowRaw }, gebindeRows] = await Promise.all([
     tf((supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, kmw, oechsle, mostgewicht_einheit, menge_liter, anfangsbestand_liter, qualitaetsstufe, zusatzbezeichnung, erzeugnis, behaelter_id, notizen, einstandspreis_pro_liter, referenz_altsystem')
+      .select('id, name, jahrgang, kmw, oechsle, mostgewicht_einheit, menge_liter, anfangsbestand_liter, qualitaetsstufe, zusatzbezeichnung, erzeugnis, behaelter_id, notizen, einstandspreis_pro_liter, referenz_altsystem, created_at')
       .eq('id', id).eq('ist_eroeffnungsbestand', true).limit(1)),
     // Ziele: eigene + freigegebene Gebinde, fremd belegte ausgenommen (Migration 203)
     ladeBehaelter(supabase, tenantId, { alsZiel: true }),
@@ -91,6 +92,11 @@ export default async function EroeffnungsbestandEditPage({ params, searchParams 
       </div>
 
       <h1 className="text-2xl font-semibold text-s112-text">Eröffnungsbestand bearbeiten</h1>
+      {/* KAN-42: Stichtag (created_at, Wiener Zeit) – nicht änderbar; bei falschem Stichtag stornieren und neu erfassen */}
+      <p className="text-sm text-s112-muted -mt-4">
+        Stichtag: <span className="font-medium text-s112-text-1">{(() => { const t = eroeffnungsTag(eintrag.created_at); return t ? stichtagText(t) : '–' })()}</span>
+        {' '}– nicht änderbar; bei falschem Stichtag stornieren und neu erfassen.
+      </p>
 
       {err && (
         <div role="alert" className="rounded-lg border border-s112-err/30 bg-s112-err-bg px-4 py-3 text-sm text-s112-err-fg">
