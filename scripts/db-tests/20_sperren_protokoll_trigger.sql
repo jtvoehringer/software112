@@ -1031,10 +1031,11 @@ S112TEST
   PERFORM pg_temp.s112_als_postgres();
   SELECT a.id INTO v_abg FROM public.meldung_abgaben a WHERE a.ama_meldung_id = v_ama_b2;
   v_erg := v_erg || pg_temp.s112_erwarte('kan37b_snapshot',
-    (SELECT concat_ws('|', m.status, a.zeilen_anzahl, a.csv_bytes, a.csv_sha256 = encode(sha256(convert_to(a.csv_text, 'UTF8')), 'hex'),
-                      left(a.csv_text, 1) = E'﻿', length(a.spalten_sha256), a.erstellt_von = v_bta, a.meldungs_version)
+    (SELECT concat_ws('|', m.status, a.zeilen_anzahl, a.csv_bytes = octet_length(convert_to(a.csv_text, 'UTF8')),
+                      a.csv_sha256 = encode(sha256(convert_to(a.csv_text, 'UTF8')), 'hex'), left(a.csv_text, 1) = E'﻿',
+                      length(a.spalten_sha256), a.erstellt_von = v_bta, a.meldungs_version)
        FROM public.meldung_abgaben a JOIN public.ama_erntemeldungen m ON m.id = a.ama_meldung_id WHERE a.id = v_abg),
-    'eingereicht|1|23|true|true|64|true|1');
+    'eingereicht|1|t|t|t|64|t|1');
   v_erg := v_erg || pg_temp.s112_erwarte('kan37b_postgres_aendern',
     pg_temp.t20_muster(pg_temp.s112_fehlertext(format('UPDATE public.meldung_abgaben SET csv_text = %L WHERE id = %L', 'x', v_abg)),
       '42501:%bleibt unverändert%', 'gesperrt'), 'gesperrt');
@@ -1043,11 +1044,13 @@ S112TEST
       '42501:%nie gelöscht%', 'gesperrt'), 'gesperrt');
   v_erg := v_erg || pg_temp.s112_erwarte('kan37b_postgres_truncate',
     pg_temp.t20_muster(pg_temp.s112_fehlertext('TRUNCATE public.meldung_abgaben'), '42501:%nie gelöscht%', 'gesperrt'), 'gesperrt');
+  PERFORM pg_temp.s112_als(v_bta);
   v_erg := v_erg || pg_temp.s112_erwarte('kan37b_zweimal',
     pg_temp.t20_muster(pg_temp.s112_fehlertext(format('SELECT public.s112_ama_einreichen(%L, %L, current_date, NULL, %L::jsonb)', v_b, v_ama_b2,
       jsonb_build_object('meldung', 'erntemeldung', 'parameter', '{"jahrgang": 1902}'::jsonb, 'zeilen', '[]'::jsonb,
         'spalten', '[{"kopf": "Rebsorte", "typ": "text"}]'::jsonb, 'profil', 'EXCEL_AT', 'dateiname', 'S112TEST.csv', 'csv', 'x'))),
       '42501:%nur vorwärts%', 'abgelehnt'), 'abgelehnt');
+  PERFORM pg_temp.s112_als_postgres();
 
   PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 186);   -- KAN-150 F1a: 140 → 170; KAN-37: +6; KAN-37 B: +10
 END

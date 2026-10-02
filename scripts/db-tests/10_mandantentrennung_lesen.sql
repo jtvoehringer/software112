@@ -124,7 +124,7 @@ DECLARE
   -- Winzer wählt das Terminal an der Kasse, keine Geheimnisse in der Tabelle) – Ist-Stand wird festgehalten.
   c_mitglied_liest constant text[] := ARRAY['sumup_terminals'];
   -- Tabellen, die anon derzeit gar nicht lesen darf (kein SELECT-Grant) – erlaubt, aber als Liste festgehalten
-  c_anon_ohne_grant constant text[] := ARRAY['bestandsprotokoll', 'betriebsmittel', 'betriebsmittel_lager_bewegungen', 'fuellung_bewegungen'];   -- KAN-167: REVOKE ALL … FROM anon
+  c_anon_ohne_grant constant text[] := ARRAY['bestandsprotokoll', 'betriebsmittel', 'betriebsmittel_lager_bewegungen', 'fuellung_bewegungen', 'meldung_abgaben'];   -- KAN-167, KAN-37 B: REVOKE ALL … FROM anon
   -- Varianten-Zeilen (Tabelle:boolesche Spalte) – je Betrieb M und B einmal true, einmal false
   c_varianten constant text[] := ARRAY['kontakte:is_lead', 'firmen:is_lead', 'behaelter:gemeinsam'];
   -- Gegenrichtung: Personas aus M und C gegen die B-Zeile
