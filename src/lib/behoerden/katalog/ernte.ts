@@ -28,13 +28,13 @@ export const KATALOG_ERNTE = katalogGruppe('ernte', {
     beschreibung: 'Lese je Ried bzw. Grundstück: Datum, KG- und GST-Nr., Rebsorte, Menge, Mostgewicht in °KMW und °Oe samt gemessener Einheit, Qualitätsstufe, Lesemethode, Notizen (z. B. Grund für 0 kg).',
   },
   bestandsmeldung: {
-    titel: 'Weinbestandsmeldung (Bestand am Abrufdatum)',
+    titel: 'Weinbestandsmeldung (Bestand zum Stichtag)',
     behoerde: 'BMLUK-Weindatenbank',
     zugriff: 'betriebsleitung',
     druckPfad: '/reports/ama',
     pflicht: true,
     rechtsgrundlage: '§ 29 Weingesetz 2009 (Stichtag 31. Juli, Meldefrist 15. August)',
-    beschreibung: 'Flaschenwein und Wein in Gebinden – Bestand am Tag des Abrufs, KEIN Stichtagsbestand (folgt mit KAN-43).',
+    beschreibung: 'Flaschenwein und Wein in Gebinden – Bestand zum Stichtag (Standard 31. Juli), aus dem heutigen Bestand und den Buchungen danach zurückgerechnet.',
   },
   'bki-traubenverkauf': {
     titel: 'BKI-Datenblatt Traubenverkauf',

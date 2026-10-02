@@ -74,8 +74,8 @@ export default async function FristenSichtPage() {
           Jede Meldung gibt es als CSV für Excel (Semikolon, UTF-8, Dezimalkomma, Datum TT.MM.JJJJ), die meisten
           zusätzlich als Ausdruck auf ihrer Seite. „CSV exportieren“ hier nimmt die Standardauswahl der Seite (z. B. laufendes Jahr, ab 1. Jänner bzw. alle Jahrgänge – wie „Öffnen“) – für einen anderen
           Jahrgang, Zeitraum oder einen einzelnen Beleg die Seite öffnen. Codes mit führenden Nullen (KG-Nr., BBCH) exakt
-          übernehmen: in Excel „Daten › Aus Text/CSV“ und die Spalte als Text importieren. Die Weinbestandsmeldung zeigt bis
-          auf Weiteres den Bestand am Abrufdatum, keinen Stichtagsbestand zum 31. Juli.
+          übernehmen: in Excel „Daten › Aus Text/CSV“ und die Spalte als Text importieren. Die Weinbestandsmeldung rechnet den
+          Bestand zum Stichtag (Standard 31. Juli) zurück – einen anderen Stichtag auf ihrer Seite wählen.
         </Note>
       </Card>
     </div>

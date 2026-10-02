@@ -249,8 +249,8 @@ function bewegungenAus(roh: Roh): Bewegung[] {
   const name = (id: string | null | undefined) => (id ? roh.chargeNamen.get(id) ?? null : null)
   const bewegungen: Bewegung[] = []
 
-  const eroeffnungsCharge = roh.chargen.find(c => c.ist_eroeffnungsbestand)
-  if (eroeffnungsCharge) {
+  // je Eröffnungsbestands-Charge eine Zeile (KAN-43: die Sammel-Variante enthält alle Chargen des Betriebs)
+  for (const eroeffnungsCharge of roh.chargen.filter(c => c.ist_eroeffnungsbestand)) {
     const l = num(eroeffnungsCharge.anfangsbestand_liter) || num(eroeffnungsCharge.menge_liter)
     if (l > 0) {
       const jahr = (tag(eroeffnungsCharge.created_at) || tag(new Date())).slice(0, 4)
@@ -563,6 +563,105 @@ export function chargeAmTag(belegungen: readonly Belegung[], datum: string): Bel
   const treffer = belegungen.filter(b => datum >= b.von && (b.bis === null || datum <= b.bis))
   if (treffer.length === 1) return treffer[0]
   return treffer.length > 1 ? 'mehrdeutig' : null
+}
+
+// ── Sammel-Variante: alle Bewegungen des Betriebs (KAN-43, Stichtagsbestand) ──────────────
+//
+// Dieselben Tabellen wie ladeRoh, aber einmal für den ganzen Betrieb statt je Gebinde (kein N+1).
+// bewegungenAus() macht daraus dieselben Bewegungen wie im Bewegungsbuch – jede Buchung genau einmal
+// mit ihrer Charge (chargeId): ein Umzug als Abgang der Quell- und Zugang der Ziel-Charge. Kellerbehandlungen
+// (Menge 0) fehlen bewusst. fuellungen kommen ALLE (auch ohne Charge und deaktivierte) zurück – die
+// Weinbestandsmeldung braucht sie für den Flaschenbestand; in die Bewegungen gehen nur die wie in ladeRoh.
+
+export type BetriebsBewegungen = {
+  bewegungen: Bewegung[]
+  /** alle Chargen des Betriebs (weinausbau), mit Stammdaten für die Bestandsmeldung */
+  chargen: R[]
+  /** alle Füllungen des Betriebs, mit Stammdaten für die Bestandsmeldung */
+  fuellungen: R[]
+}
+
+export async function ladeBewegungenBetrieb(supabase: any, tenantId: string): Promise<BetriebsBewegungen> {
+  const [chargen, umzuege, pressungen, fuellungenAlle, verkauf, zukauf, verschnAus, verschnEin] = await Promise.all([
+    liste((supabase.from('weinausbau') as any)
+      .select('id, name, jahrgang, rebsorte, qualitaetsstufe, weinart, menge_liter, status, aktiv, ist_eroeffnungsbestand, anfangsbestand_liter, created_at, transaktions_nr, storniert_am, storno_grund, storniert_von_name, behaelter_id, behaelter:behaelter_id(name)')
+      .eq('tenant_id', tenantId)
+      .order('id', { ascending: true }), 'weinausbau'),
+    liste((supabase.from('keller_umzuege') as any)
+      .select('id, datum, menge_liter, brutto_liter, schwund_liter, umzug_typ, zeilen_typ, umzug_batch_id, transaktions_nr, notizen, storniert_am, storno_grund, storniert_von_name, von_behaelter_id, nach_behaelter_id, von_weinausbau_id, nach_weinausbau_id, von_behaelter:von_behaelter_id(name), nach_behaelter:nach_behaelter_id(name), von_weinausbau:von_weinausbau_id(name, jahrgang, behaelter:behaelter_id(name)), nach_weinausbau:nach_weinausbau_id(name)')
+      // storno-sichtbar: Buchung und Gegenbuchung wie im Bewegungsbuch (KAN-145 B2b)
+      .eq('tenant_id', tenantId)
+      .order('datum', { ascending: true })
+      .order('id', { ascending: true }), 'keller_umzuege'),
+    // tenant-isolation-ignore: pressung_behaelter ohne tenant_id, Filter über die Pressung (!inner)
+    liste((supabase.from('pressung_behaelter') as any)
+      .select('id, menge_liter, weinausbau_id, behaelter_id, notizen, storniert_am, storno_grund, storniert_von_name, pressung:pressung_id!inner(id, datum, notizen, tenant_id, storniert_am)')
+      // storno-sichtbar: Pressungszugang und Gegenbuchung am Storno-Tag (KAN-148 C1c)
+      .eq('pressung.tenant_id', tenantId)
+      .order('id', { ascending: true }), 'pressung_behaelter'),
+    liste((supabase.from('fuellungen') as any)
+      .select('id, datum, erstellt_am, name, jahrgang, rebsorte, qualitaet, aktiv, bestand_flaschen, anzahl_flaschen, menge_liter_gefuellt, flaschengroesse_ml, pruefnummer, chargennummer, weinausbau_id, storniert_am, storno_grund, storniert_von_name, weinausbau:weinausbau_id(weinart)')
+      // storno-sichtbar: stornierte Füllung als Buchung + Gegenbuchung (KAN-145 B3), Flaschenbestand zum Stichtag
+      .eq('tenant_id', tenantId)
+      .order('name', { ascending: true })
+      .order('id', { ascending: true }), 'fuellungen'),
+    liste((supabase.from('verkauf_positionen') as any)
+      .select('id, menge, einheit, weinausbau_id, verkaufsposten:verkaufsposten_id(datum, storniert, storniert_am, storno_grund, storniert_von_name, rechnungsnummer, partner_daten, kontakt:kontakt_id(vorname, nachname), firma:firma_id(name))')
+      .eq('tenant_id', tenantId)
+      .eq('typ', 'tank')
+      .not('weinausbau_id', 'is', null)
+      .order('id', { ascending: true }), 'verkauf_positionen'),
+    liste((supabase.from('zukauf_posten') as any)
+      .select('id, datum, menge, ziel_weinausbau_id, rebsorte, jahrgang, eingangsrechnungsnummer, staatliche_pruefnummer, partner_daten, lieferant_firma:firmen!lieferant_firma_id(name), lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname)')
+      .eq('tenant_id', tenantId)
+      .not('ziel_weinausbau_id', 'is', null)
+      .eq('aktiv', true)
+      .in('art', ['wein', 'most'])
+      .order('datum', { ascending: true })
+      .order('id', { ascending: true }), 'zukauf_posten'),
+    // tenant-isolation-ignore: verschneidung_quellen ohne tenant_id – Mandant über die Verschneidung, im Code gefiltert
+    // (wie ladeRoh; stornierte Verschnitte bleiben sichtbar, bewegungenAus bucht sie per stornoFeld/istStorniert-Logik)
+    liste((supabase.from('verschneidung_quellen') as any)
+      .select('id, menge_liter, quell_weinausbau_id, verschneidung:verschneidung_id(datum, notizen, tenant_id, storniert_am, storno_grund, storniert_von_name, ziel:ziel_weinausbau_id(name, behaelter:behaelter_id(name)))')
+      .order('id', { ascending: true }), 'verschneidung_quellen'),
+    liste((supabase.from('verschneidungen') as any)
+      .select('id, datum, notizen, ziel_weinausbau_id, storniert_am, storno_grund, storniert_von_name, quellen:verschneidung_quellen(menge_liter, quelle:quell_weinausbau_id(name, behaelter:behaelter_id(name)))')
+      // storno-sichtbar: Buchung und Gegenbuchung wie im Bewegungsbuch (KAN-145 B2b)
+      .eq('tenant_id', tenantId)
+      .not('ziel_weinausbau_id', 'is', null)
+      .order('datum', { ascending: true })
+      .order('id', { ascending: true }), 'verschneidungen'),
+  ])
+
+  // Zuordnung wie in ladeRoh: Zugänge über nach_behaelter_id, Abgänge über die Quell-Charge
+  const umzuegeEin = umzuege.filter(u => u.nach_behaelter_id)
+  const umzuegeAus = umzuege.filter(u => u.von_weinausbau_id)
+  const quelleByBatch: Record<string, R[]> = {}
+  const zielByBatch: Record<string, R[]> = {}
+  for (const u of umzuege) {
+    if (!u.umzug_batch_id) continue
+    if (u.zeilen_typ === 'quelle') (quelleByBatch[u.umzug_batch_id] ??= []).push(u)
+    else if (u.zeilen_typ === 'ziel') (zielByBatch[u.umzug_batch_id] ??= []).push(u)
+  }
+  const chargeNamen = new Map<string, string>()
+  for (const c of chargen) if (c.name) chargeNamen.set(c.id, c.name)
+
+  const roh: Roh = {
+    pressungen,
+    umzuegeEin,
+    chargen,
+    umzuegeAus,
+    fuellungen: fuellungenAlle.filter(f => f.weinausbau_id && (f.aktiv || f.storniert_am)),
+    verkauf,
+    zukauf,
+    behandlungen: [],
+    verschnAus: verschnAus.filter(v => (v.verschneidung as R | null)?.tenant_id === tenantId),
+    verschnEin,
+    quelleByBatch,
+    zielByBatch,
+    chargeNamen,
+  }
+  return { bewegungen: bewegungenAus(roh), chargen, fuellungen: fuellungenAlle }
 }
 
 /** Bewegungen und Belegungszeiträume eines Gebindes (ohne Gebinde-Stammdaten) */

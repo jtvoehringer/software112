@@ -8,7 +8,7 @@
 export type FristVorlage = { bezeichnung: string; beschreibung: string; kategorie: 'meldung' | 'steuer' | 'weinrecht' | 'betrieb'; monat: number; tag: number; href?: string }
 
 export const FRISTEN_VORLAGE: FristVorlage[] = [
-  { bezeichnung: 'Bestandsmeldung Wein',          beschreibung: 'Stichtag 31.07. · Abgabe bis 15.08. · Weinbestandsmeldung (§ 29 Weingesetz 2009) unter Rieden › AMA-Erntemeldung (Druck & CSV, derzeit Bestand am Abrufdatum)', kategorie: 'weinrecht', monat: 8, tag: 15, href: '/reports/ama' },
+  { bezeichnung: 'Bestandsmeldung Wein',          beschreibung: 'Stichtag 31.07. · Abgabe bis 15.08. · Weinbestandsmeldung (§ 29 Weingesetz 2009) unter Rieden › AMA-Erntemeldung (Druck & CSV, Bestand zum Stichtag)', kategorie: 'weinrecht', monat: 8, tag: 15, href: '/reports/ama' },
   { bezeichnung: 'Mehrfachantrag (AMA)',           beschreibung: 'Flächenangaben Weingarten · eAMA · Frist bitte prüfen', kategorie: 'meldung', monat: 4, tag: 15, href: '/weingarten' },
   { bezeichnung: 'PSM-Aufzeichnungen Saison abschließen', beschreibung: 'Behandlungsprotokoll prüfen und exportieren', kategorie: 'weinrecht', monat: 11, tag: 30, href: '/behandlungen/berichte' },
   { bezeichnung: 'Jahresabschluss E/A-Rechnung',   beschreibung: 'Belege vollständig, Monatsabschlüsse gesperrt, Export an Steuerberatung', kategorie: 'steuer', monat: 3, tag: 31, href: '/buchhaltung' },

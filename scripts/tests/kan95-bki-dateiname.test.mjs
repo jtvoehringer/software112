@@ -68,10 +68,10 @@ describe('KAN-95 Dateinamen der Meldungen (wie die CSV-Route)', () => {
       '9988776_2026_Transportbescheinigungen-gespeichert_von_20260101_bis_20260925.csv')
     assert.equal(name('bki-traubenverkauf', 'jahrgang=2025').dateiname.utf8, '9988776_2026_Traubenverkauf-2025.csv')
   })
-  test('Bestandsmeldung: Jahr des Bestandsdatums, Kennzeichnung bleibt im Namen', () => {
+  test('Bestandsmeldung: Jahr des Stichtags, Stichtag im Namen (KAN-43)', () => {
     const m = M.bestandsmeldung
-    assert.equal(meldungsDateiname(m, { bestandAm: '2026-07-31' }, B, '2026-10-01').dateiname.ascii,
-      '9988776_2026_Weinbestand-Bestand-am-2026-07-31-kein-Stichtagsbestand.csv')
+    assert.equal(meldungsDateiname(m, { stichtag: '2025-07-31' }, B, '2026-10-01').dateiname.ascii,
+      '9988776_2025_Weinbestand-Stichtag-2025-07-31.csv')
   })
   test('fehlende Betriebsnummer: Platzhalter und Warnung', () => {
     const r = name('gebindeverzeichnis', '', OHNE)
