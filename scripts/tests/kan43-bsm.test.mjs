@@ -9,6 +9,9 @@
 //    Zeitraum → Endbestand lt. Rechnung = Stichtagsbestand (keine Differenz).
 // 4. Verschnitt mit Spaltenwechsel des vorhandenen Ziel-Weins, Aufwertung als Warnung, Abgleich mit Differenz.
 // 5. Register (Parameter, Dateiname nach „bis“), CSV, Druckseite.
+// 6. Nachtrag (Antworten Jörgen 02.10.2026): Pressung zugekaufter Trauben anteilig als ZK_TRAUB (Beleg nur Info in kg,
+//    Vorschlag 0,7 l/kg, nicht gepresste Trauben als Hinweis), Most/Sturm als eigene Gruppe mit neutraler Umstufung
+//    UMST_MOST, Lieferort (Lieferland → Exportauftrag → Kundenland mit Warnung), negativer Flaschen-Altbestand = SCHWUND.
 
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
@@ -53,6 +56,7 @@ describe('KAN-43 BSM: Zuordnung', nurMitHooks, () => {
     assert.equal(buchungsartFlasche('inventur', -3), 'SCHWUND')
     assert.equal(buchungsartFlasche('korrektur', 3), 'INV_PLUS')
     assert.equal(buchungsartFlasche('anfangsbestand', 30), 'EROEFF')
+    assert.equal(buchungsartFlasche('anfangsbestand', -30), 'SCHWUND')   // Nachtrag 7: Altbestand (−) ist ein Abgang
     assert.equal(buchungsartFlasche('abfuellung', 100, { mitCharge: true }), 'FUELLUNG')
     assert.equal(buchungsartFlasche('abfuellung', 100, { eroeffnung: true }), 'EROEFF')
     assert.equal(buchungsartFlasche('abfuellung', 100, {}), 'ZK_FLA')
@@ -80,6 +84,15 @@ describe('KAN-43 BSM: Zuordnung', nurMitHooks, () => {
     assert.equal(sp(a('sonstiges')).spalte, 'sonstige')
     assert.deepEqual(sp(a(null)), { spalte: 'rebsortenwein', relevant: true, ohneStufe: true })
     assert.equal(sp(a(null, 'TRAUBSFT')).relevant, false)            // R10: Traubensaft nicht meldepflichtig
+    // Nachtrag 4: Most/Sturm – Erzeugnis, Stufe (STU/TGT) oder Status Ernte/Gärung der Charge
+    assert.equal(sp(a('qualitaetswein', 'MOST')).spalte, 'most_sturm')
+    assert.equal(sp(a(null, 'STURM')).spalte, 'most_sturm')
+    assert.equal(sp(a('sturm')).spalte, 'most_sturm')
+    assert.equal(sp(a('TGT')).spalte, 'most_sturm')
+    assert.equal(bsmSpalte({ angabe: a('qualitaetswein'), rebsorte: 'Grüner Veltliner', jahrgang: 2026, status: 'gaerung' }).spalte, 'most_sturm')
+    assert.equal(bsmSpalte({ angabe: a('qualitaetswein'), rebsorte: 'Grüner Veltliner', jahrgang: 2026, status: 'ernte' }).spalte, 'most_sturm')
+    assert.equal(bsmSpalte({ angabe: a('qualitaetswein'), rebsorte: 'Grüner Veltliner', jahrgang: 2026, status: 'ausbau' }).spalte, 'qualitaetswein')
+    assert.equal(bsmSpalte({ angabe: a('qualitaetswein', 'SEKTGU'), rebsorte: null, jahrgang: 2026, status: 'gaerung' }).spalte, 'perl_schaumwein')  // Erzeugnis vor Status
     assert.equal(bsmFarbe({ weinart: 'rose', rebsorte: null }), 'R')  // R17: Rosé zählt zu rot
     assert.equal(bsmFarbe({ weinart: 'unbekannt', rebsorte: 'Zweigelt' }), 'R')
     assert.equal(bsmFarbe({ weinart: null, rebsorte: 'Grüner Veltliner' }), 'W')
@@ -235,9 +248,15 @@ describe('KAN-43 BSM: ladeBsm()', nurMitHooks, () => {
     assert.ok(!d.spalten.includes('ohne'))
     // Plausibilität
     assert.ok(!d.warnungen.some(w => /Abgleich|nicht gleich|Aufwertung|negativ/i.test(w)), d.warnungen.join('\n'))
-    assert.ok(d.warnungen.some(w => /Zukauf Trauben 2\.000 kg: Umrechnung kg → l ist offen/.test(w)), d.warnungen.join('\n'))
+    // Nachtrag 1: Beleg nur nachrichtlich (Vorschlag 0,7 l/kg), ungepresst → Hinweis
+    assert.ok(d.warnungen.some(w => /die Belege im Zeitraum \(2\.000 kg, Vorschlag ≈ 1\.400,00 l bei 0,7 l\/kg\) stehen nur nachrichtlich/.test(w)), d.warnungen.join('\n'))
+    assert.ok(d.warnungen.some(w => /1 Traubenzukauf ist bis 31\.07\.2026 nicht \(vollständig\) gepresst – nur Hinweis, kein Bestand: Zukauf Trauben Grüner Veltliner 2025 \(2\.000 kg\)/.test(w)), d.warnungen.join('\n'))
+    assert.match(d.buchungen[0].hinweis, /Vorschlag ≈ 1\.400,00 l \(0,7 l\/kg\), tatsächliche Menge nach Pressung · bis 31\.07\.2026 noch 2\.000 kg nicht gepresst/)
+    assert.equal(d.traubenLiter, 0)
+    // Nachtrag 5: kein Lieferland, kein Exportauftrag → Land des Kunden mit Warnung
+    assert.ok(d.warnungen.some(w => /^3 Verkäufe: Lieferort unbekannt, Land des Kunden verwendet/.test(w)), d.warnungen.join('\n'))
     // nur eigener Betrieb
-    assert.deepEqual(ohneMandant(db, T, ['pressung_behaelter', 'verschneidung_quellen']), [])
+    assert.deepEqual(ohneMandant(db, T, ['pressung_behaelter', 'pressung_weingaerten', 'verschneidung_quellen']), [])
   })
 
   test('Kalenderjahr als Auswertung: Warnung, Anfangsbestand am 31.12.', async () => {
@@ -319,6 +338,152 @@ describe('KAN-43 BSM: Verschnitt und Aufwertung', nurMitHooks, () => {
   })
 })
 
+// ── 6. Nachtrag (Antworten Jörgen 02.10.2026) ─────────────────────────────────
+
+const pw = (id, pressungId, datum, kg, zukauf = null, tenant = T) => ({ id, pressung_id: pressungId, trauben_kg: kg, zukauf_posten_id: zukauf, storniert_am: null, pressung: { id: pressungId, datum, tenant_id: tenant, storniert_am: null } })
+
+function mostTabellen() {
+  return {
+    weinausbau: [
+      // m1: Most (heute noch in Gärung), Pressung 800 l am 10.09.2025; 300 l am 01.11.2025 in die Wein-Charge m2 umgezogen
+      { id: 'm1', tenant_id: T, name: 'WR Most', jahrgang: 2025, rebsorte: 'Welschriesling', qualitaetsstufe: 'qualitaetswein', weinart: 'weiss', land_iso: 'AT', menge_liter: 500, status: 'gaerung', aktiv: true, created_at: '2025-09-10T10:00:00Z', behaelter_id: 'b1', behaelter: b1 },
+      { id: 'm2', tenant_id: T, name: 'WR Klassik', jahrgang: 2025, rebsorte: 'Welschriesling', qualitaetsstufe: 'qualitaetswein', weinart: 'weiss', land_iso: 'AT', menge_liter: 300, status: 'ausbau', aktiv: true, created_at: '2025-11-01T10:00:00Z', behaelter_id: 'b2', behaelter: b2 },
+      // s1: Sturm (Erzeugnis STURM), Pressung 100 l, Charge im Ausbau-Status – das Erzeugnis entscheidet
+      { id: 's1', tenant_id: T, name: 'Sturm rot', jahrgang: 2025, rebsorte: 'Zweigelt', qualitaetsstufe: null, erzeugnis: 'STURM', weinart: 'rose', land_iso: 'AT', menge_liter: 100, status: 'ausbau', aktiv: true, created_at: '2025-09-12T10:00:00Z', behaelter_id: 'b3', behaelter: b3 },
+    ],
+    pressung_behaelter: [
+      { id: 'pbm', menge_liter: 800, weinausbau_id: 'm1', behaelter_id: 'b1', notizen: null, storniert_am: null, pressung: pressung('pm', '2025-09-10') },
+      { id: 'pbs', menge_liter: 100, weinausbau_id: 's1', behaelter_id: 'b3', notizen: null, storniert_am: null, pressung: pressung('ps', '2025-09-12') },
+    ],
+    keller_umzuege: [
+      { id: 'um1', tenant_id: T, datum: '2025-11-01', menge_liter: 300, brutto_liter: 300, schwund_liter: 0, umzug_typ: 'normal', zeilen_typ: 'quelle', umzug_batch_id: 'bm', von_behaelter_id: 'b1', von_weinausbau_id: 'm1', storniert_am: null, von_behaelter: b1, von_weinausbau: { name: 'WR Most', behaelter: b1 } },
+      { id: 'um2', tenant_id: T, datum: '2025-11-01', menge_liter: 300, brutto_liter: null, schwund_liter: 0, umzug_typ: 'normal', zeilen_typ: 'ziel', umzug_batch_id: 'bm', nach_behaelter_id: 'b2', nach_weinausbau_id: 'm2', storniert_am: null, nach_behaelter: b2, nach_weinausbau: { name: 'WR Klassik' } },
+    ],
+    fuellungen: [], fuellung_bewegungen: [], verkauf_positionen: [], verkaufsposten: [], zukauf_posten: [],
+    verschneidung_quellen: [], verschneidungen: [],
+  }
+}
+
+describe('KAN-43 BSM: Nachtrag 02.10.2026', nurMitHooks, () => {
+  test('1. Pressung mit zugekauften Trauben: Most anteilig nach kg auf ERNTE und ZK_TRAUB, Beleg nur Info', async () => {
+    const { ladeBsm, bsmJournal, TRAUBEN_LITER_JE_KG_VORSCHLAG } = await laden('lib/behoerden/bsm.ts')
+    assert.equal(TRAUBEN_LITER_JE_KG_VORSCHLAG, 0.7)
+    const t = tabellen()
+    // Pressung p1 (1000 l): 1200 kg eigene + 800 kg aus dem Zukauf z1 (2000 kg) → 40 % = 400 l Zukauf Trauben
+    t.pressung_weingaerten = [pw('pw1', 'p1', '2025-09-20', 1200), pw('pw2', 'p1', '2025-09-20', 800, 'z1'), pw('pw9', 'p9', '2025-09-01', 999, 'z9', FREMD)]
+    const db = datenbank(t, { rpc: RPC })
+    const d = await ladeBsm(db, T, WJ, { heute: HEUTE })
+    const kurz = d.buchungen.filter(b => b.datum <= '2025-09-20').map(b => [b.datum, b.code, b.spalte, b.liter, b.kg])
+    assert.deepEqual(kurz, [
+      ['2025-09-15', 'ZK_TRAUB', 'qualitaetswein', 0, 2000],   // Beleg: nur Info in kg
+      ['2025-09-20', 'ERNTE', 'qualitaetswein', 600, null],
+      ['2025-09-20', 'ZK_TRAUB', 'qualitaetswein', 400, null],
+    ])
+    assert.match(d.buchungen[1].hinweis, /800 von 2\.000 kg \(40,0 %\)/)
+    assert.match(d.buchungen[0].hinweis, /bis 31\.07\.2026 noch 1\.200 kg nicht gepresst/)
+    assert.equal(d.traubenLiter, 400)
+    const S = d.summen
+    assert.equal(zelle(S, 'ERNTE').werte.qualitaetswein, 600)
+    assert.equal(zelle(S, 'ZK_TRAUB').werte.qualitaetswein, 400)
+    assert.match(zelle(S, 'ZK_TRAUB').bezeichnung, /Most aus der Pressung in l \(Beleg 2\.000 kg, nur nachrichtlich\)/)
+    assert.deepEqual(zelle(S, 'ENDE').werte, zelle(S, 'STICHTAG').werte)          // nichts doppelt
+    assert.equal(zelle(S, 'DIFFERENZ').summeLiter, 0)
+    assert.ok(d.warnungen.some(w => /mit 400,00 l; die Belege im Zeitraum \(2\.000 kg/.test(w)), d.warnungen.join('\n'))
+    assert.ok(d.warnungen.some(w => /Zukauf Trauben Grüner Veltliner 2025 \(1\.200 kg\)/.test(w)), d.warnungen.join('\n'))
+    assert.equal(bsmJournal(d, ['ZK_TRAUB']).length, 2)
+    assert.deepEqual(ohneMandant(db, T, ['pressung_behaelter', 'pressung_weingaerten', 'verschneidung_quellen']), [])
+    // ganz gepresst → kein Hinweis; nur Zukauf-Trauben in der Pressung → alles ZK_TRAUB
+    t.pressung_weingaerten = [pw('pw2', 'p1', '2025-09-20', 2000, 'z1')]
+    const d2 = await ladeBsm(datenbank(t, { rpc: RPC }), T, WJ, { heute: HEUTE })
+    assert.deepEqual(d2.buchungen.filter(b => b.datum === '2025-09-20').map(b => [b.code, b.liter]), [['ZK_TRAUB', 1000]])
+    assert.ok(!d2.warnungen.some(w => /nicht \(vollständig\) gepresst/.test(w)), d2.warnungen.join('\n'))
+    assert.equal(zelle(d2.summen, 'DIFFERENZ').summeLiter, 0)
+  })
+
+  test('4. Most/Sturm: eigene Gruppe, Übergang Most → Wein als neutrale Umstufung (keine Abwertung)', async () => {
+    const { ladeBsm, bsmJournal, bsmParameter, BSM_SPALTEN, buchungsartLabel } = await laden('lib/behoerden/bsm.ts')
+    assert.deepEqual(BSM_SPALTEN.map(s => s.key).slice(0, 2), ['most_sturm', 'wein'])
+    const d = await ladeBsm(datenbank(mostTabellen(), { rpc: RPC }), T, WJ, { heute: HEUTE })
+    assert.deepEqual(d.buchungen.map(b => [b.datum, b.code, b.spalte, b.farbe, b.liter]), [
+      ['2025-09-10', 'ERNTE', 'most_sturm', 'W', 800],
+      ['2025-09-12', 'ERNTE', 'most_sturm', 'R', 100],          // Sturm aus Rosé: Erzeugnis STURM, Rosé = rot
+      ['2025-11-01', 'UMST_MOST', 'most_sturm', 'W', -300],
+      ['2025-11-01', 'UMST_MOST', 'qualitaetswein', 'W', 300],
+    ])
+    const S = d.summen
+    const u = zelle(S, 'UMST_MOST')
+    assert.deepEqual([u.abschnitt, u.werte.most_sturm, u.werte.qualitaetswein, u.summeLiter], ['Umstufung', -300, 300, 0])
+    assert.equal(zelle(S, 'ENDE').werte.most_sturm, 600)
+    assert.deepEqual(zelle(S, 'ENDE').werte, zelle(S, 'STICHTAG').werte)
+    assert.equal(zelle(S, 'DIFFERENZ').summeLiter, 0)
+    assert.ok(!S.some(z => z.position === 'AB_ABW' && z.summeLiter !== 0))
+    assert.ok(!d.warnungen.some(w => /Aufwertung|Saldo 0|nicht gleich|Abgleich/.test(w)), d.warnungen.join('\n'))
+    assert.equal(bsmJournal(d, ['UMST_MOST']).length, 2)
+    assert.equal(buchungsartLabel('UMST_MOST'), 'Umstufung Most/Sturm → Wein (neutral, keine Abwertung)')
+    assert.deepEqual(bsmParameter(new URLSearchParams('art=umst_most'), HEUTE), { ...WJ, arten: ['UMST_MOST'] })
+  })
+
+  test('5. Lieferort: Lieferland → Exportauftrag → Land des Kunden (Warnung); Spalte lieferland darf fehlen', async () => {
+    const { ladeBsm, fehlendeSpalte } = await laden('lib/behoerden/bsm.ts')
+    const t = tabellen()
+    const vp = id => t.verkaufsposten.find(v => v.id === id)
+    vp('vp2').lieferland = 'AT'                      // Kunde in Deutschland, geliefert nach Österreich → Inland
+    vp('vp1').kontakt_id = 'k1'                      // Kunde in Österreich, Exportauftrag in die Schweiz am selben Tag
+    vp('vp3').firma_id = 'fi3'
+    t.exportauftraege = [
+      { id: 'e1', tenant_id: T, referenz: 'EX-1', datum: '2026-05-20', lieferdatum: '2026-06-01', destination_land: 'CH', kontakt_id: 'k1', firma_id: null, aktiv: true, storniert_am: null },
+      { id: 'e2', tenant_id: T, referenz: 'EX-2', datum: '2026-01-10', lieferdatum: null, destination_land: 'DE', kontakt_id: null, firma_id: 'fi3', aktiv: true, storniert_am: '2026-01-11T08:00:00Z' },  // storniert → zählt nicht
+      { id: 'e9', tenant_id: FREMD, referenz: 'X', datum: '2026-06-01', destination_land: 'US', kontakt_id: 'k1', aktiv: true, storniert_am: null },
+    ]
+    const d = await ladeBsm(datenbank(t, { rpc: RPC }), T, WJ, { heute: HEUTE })
+    const codes = d.buchungen.filter(b => /^VK_/.test(b.code)).map(b => [b.datum, b.code, b.gegenstelle])
+    assert.deepEqual(codes, [
+      ['2026-01-10', 'VK_FA_AT', 'Österreich (Land des Kunden)'],
+      ['2026-02-10', 'VK_FA_AT', 'Österreich (Land des Kunden)'],
+      ['2026-05-01', 'VK_FA_AT', 'Weinhaus München · Österreich'],
+      ['2026-06-01', 'VK_FL_AU', 'Anna Huber · Schweiz (Bestimmungsland lt. Exportauftrag EX-1)'],
+    ])
+    assert.ok(d.warnungen.some(w => /^1 Verkauf: Lieferort unbekannt, Land des Kunden verwendet – /.test(w)), d.warnungen.join('\n'))
+    assert.equal(zelle(d.summen, 'DIFFERENZ').summeLiter, 0)
+    // ohne Spalte lieferland (Migration offen): zweiter Versuch ohne die Spalte, Fallback mit Hinweis
+    assert.equal(fehlendeSpalte({ code: '42703', message: 'column verkaufsposten.lieferland does not exist' }, 'lieferland'), true)
+    assert.equal(fehlendeSpalte({ code: '42501', message: 'permission denied' }, 'lieferland'), false)
+    const ohne = datenbank(tabellen(), {
+      rpc: RPC,
+      vorher: e => (e.tabelle === 'verkaufsposten' && /lieferland/.test(e.spalten ?? '') ? { error: { code: '42703', message: 'column verkaufsposten.lieferland does not exist' } } : null),
+    })
+    const d2 = await ladeBsm(ohne, T, WJ, { heute: HEUTE })
+    assert.ok(d2.warnungen.some(w => /^3 Verkäufe: Lieferort unbekannt, Land des Kunden verwendet \(Lieferland am Verkauf wird noch nicht erfasst\)/.test(w)), d2.warnungen.join('\n'))
+    assert.equal(d2.buchungen.filter(b => b.code === 'VK_FA_AU').length, 1)
+  })
+
+  test('7. Negativer Flaschen-Altbestand ist ein Abgang (SCHWUND), keine Eröffnung', async () => {
+    const { ladeBsm } = await laden('lib/behoerden/bsm.ts')
+    const t = tabellen()
+    // 30 Fl. à 1 l Altbestand-Korrektur (−) am 20.07.2026 → heute 260 Fl.
+    t.fuellung_bewegungen.push({ id: 'fb2', tenant_id: T, fuellung_id: 'f1', datum: '2026-07-20', art: 'anfangsbestand', menge_stk: -30, verkaufsposten_id: null })
+    t.fuellungen[0].bestand_flaschen = 260
+    const d = await ladeBsm(datenbank(t, { rpc: RPC }), T, WJ, { heute: HEUTE })
+    const b = d.buchungen.find(x => x.datum === '2026-07-20')
+    assert.deepEqual([b.code, b.liter, b.gebinde], ['SCHWUND', -30, 'flasche'])
+    assert.match(b.hinweis, /Altbestand-Korrektur \(−\): Abgang, als Eigenverbrauch\/Schwund gezählt/)
+    assert.equal(zelle(d.summen, 'ANFANG').werte.qualitaetswein, 500)        // Anfangsbestand unverändert
+    assert.equal(zelle(d.summen, 'SCHWUND').werte.qualitaetswein, 49)        // 19 + 30
+    assert.equal(zelle(d.summen, 'DIFFERENZ').summeLiter, 0)
+    assert.ok(d.warnungen.some(w => /^1 Flaschenbuchung „Anfangsbestand \(Altbestand, ±\)“ mit negativer Menge \(zusammen 30,00 l\) ist als Abgang Eigenverbrauch\/Schwund gezählt/.test(w)), d.warnungen.join('\n'))
+    assert.ok(!d.warnungen.some(w => /Eröffnungsbuchung/.test(w)))
+  })
+
+  test('2./3. Kabinett bleibt Qualitätswein, Rosé zählt zu rot (bestätigt, im Code dokumentiert)', async () => {
+    const bsm = quelle('src/lib/behoerden/bsm.ts')
+    assert.match(bsm, /Kabinett bleibt vorläufig in der Spalte Qualitätswein \(bestätigt Jörgen 02\.10\.2026, bis BKI-Antwort KAN-38 Frage 12\)/)
+    assert.match(bsm, /Rosé zählt zu rot – auch in den BSM-Spalten \(bestätigt Jörgen 02\.10\.2026/)
+    const { bsmSpalte, bsmFarbe } = await laden('lib/behoerden/bsm.ts')
+    assert.equal(bsmSpalte({ angabe: { stufe: 'kabinett', zusatz: null, erzeugnis: null }, rebsorte: 'Zweigelt', jahrgang: 2025 }).spalte, 'qualitaetswein')
+    assert.equal(bsmFarbe({ weinart: 'rose', rebsorte: 'Grüner Veltliner' }), 'R')
+  })
+})
+
 // ── 5. Register, CSV, Druckseite ──────────────────────────────────────────────
 
 describe('KAN-43 BSM: Register, CSV und Druckseite', nurMitHooks, () => {
@@ -336,11 +501,11 @@ describe('KAN-43 BSM: Register, CSV und Druckseite', nurMitHooks, () => {
     assert.deepEqual(j.parameter(new URLSearchParams('von=2025-08-01&bis=2026-07-31&art=ZU_ABW,AB_ABW')), { ...WJ, arten: ['ZU_ABW', 'AB_ABW'] })
     const d = await ladeBsm(datenbank(tabellen(), { rpc: RPC }), T, WJ, { heute: HEUTE })
     const zeilen = csv.csvText(d.summen, SPALTEN_BSM).split('\r\n')
-    assert.equal(zeilen[0], 'Zeitraum von;Zeitraum bis;Herkunft;Abschnitt;Kürzel;Position;Teil;Wein (l);Rebsortenwein (l);Landwein (l);Qualitätswein (l);Prädikatswein (l);Perlwein und Schaumwein (l);Sonstige Erzeugnisse (l);ohne Zuordnung (l);Summe (l);Summe (hl)'.replace(/^/, '﻿'))
-    assert.equal(zeilen[1], '01.08.2025;31.07.2026;Österreich;Bestand;ANFANG;Anfangsbestand (Ende 31.07.2025, inkl. Eröffnungsbestand im Zeitraum);gesamt;0,00;0,00;0,00;500,00;0,00;0,00;0,00;0,00;500,00;5,000')
+    assert.equal(zeilen[0], 'Zeitraum von;Zeitraum bis;Herkunft;Abschnitt;Kürzel;Position;Teil;Most/Sturm (l);Wein (l);Rebsortenwein (l);Landwein (l);Qualitätswein (l);Prädikatswein (l);Perlwein und Schaumwein (l);Sonstige Erzeugnisse (l);ohne Zuordnung (l);Summe (l);Summe (hl)'.replace(/^/, '﻿'))
+    assert.equal(zeilen[1], '01.08.2025;31.07.2026;Österreich;Bestand;ANFANG;Anfangsbestand (Ende 31.07.2025, inkl. Eröffnungsbestand im Zeitraum);gesamt;0,00;0,00;0,00;0,00;500,00;0,00;0,00;0,00;0,00;500,00;5,000')
     const jz = csv.csvText(bsmJournal(d, ['VK_FA_AU']), SPALTEN_BSM_JOURNAL).split('\r\n')
     assert.equal(jz.length, 3)
-    assert.match(jz[1], /^01\.05\.2026;VK_FA_AU;Fassverkauf ins Ausland;Qualitätswein;weiß;Österreich;offen \(Fass\/Tank\);;100,00;-1,000;;Tank-Verkauf;GV 25;;Weinhaus München · Deutschland;R-2;;/)
+    assert.match(jz[1], /^01\.05\.2026;VK_FA_AU;Fassverkauf ins Ausland;Qualitätswein;weiß;Österreich;offen \(Fass\/Tank\);;100,00;-1,000;;Tank-Verkauf;GV 25;;Weinhaus München · Deutschland \(Land des Kunden\);R-2;;/)
     // Leermeldung: nur Kopfzeile (ohne Daten trotzdem alle Positionen der Summentabelle – Journal leer)
     const leer = await ladeBsm(datenbank({}, { rpc: RPC }), T, WJ, { heute: HEUTE })
     assert.equal(csv.csvDatei(bsmJournal(leer), SPALTEN_BSM_JOURNAL).zeilen, 0)
