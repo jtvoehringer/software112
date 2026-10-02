@@ -426,7 +426,7 @@ export type BsmZusatz = {
 
 /**
  * Lieferland am Verkauf: Die Spalte gibt es noch nicht – geplante Migration (nur beschrieben, KAN-43 Nachtrag 5):
- *   ALTER TABLE public.verkaufsposten ADD COLUMN lieferland text REFERENCES public.kat_land(iso) …;
+ *   ALTER TABLE public.verkaufsposten ADD COLUMN lieferland text REFERENCES public.kat_land(iso2);
  * Bis dahin liest ladeBsm() sie optional (fehlt sie, gilt der Fallback Exportauftrag → Land des Kunden).
  */
 const VP_LIEFERLAND = 'lieferland'
