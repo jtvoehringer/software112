@@ -952,7 +952,7 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
           <div className="flex items-center justify-between flex-wrap gap-2">
             <span className="inline-flex items-start gap-1.5">
               {hektarhoechstertrag.ueberschritten && <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />}
-              <span>Landwein, Qualitäts- und Prädikatswein betriebsweit: <strong>{fmtNum(hektarhoechstertrag.gesamtKg)} kg</strong>
+              <span>Lese betriebsweit (§ 23 WeinG): <strong>{fmtNum(hektarhoechstertrag.gesamtKg)} kg</strong>
               {' '}von max. <strong>{fmtNum(hektarhoechstertrag.maxKg)} kg</strong>
               {' '}(10.000 kg/ha × {fmtHa(hektarhoechstertrag.gesamtFlaecheHaBetrieb)} Gesamtfläche lt. AMA)
               </span>
@@ -967,7 +967,7 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
             <p className="text-xs mt-1 font-medium">{HOECHSTERTRAG_RECHTSFOLGE}.</p>
           )}
           <p className="text-xs mt-1 opacity-75">
-            Hinweis, keine rechtliche Prüfung – zählt alle Lesedaten ab Landwein (Hektarhöchstertrag nach § 23 WeinG), nicht „Wein“.
+            Hinweis, keine rechtliche Prüfung – zählt alle Lesen des Jahrgangs (§ 23 Abs. 1 WeinG: auch Wein mit Sorte/Jahrgang); frei wäre nur Wein ohne Rebsorten- und Jahrgangsbezeichnung.
           </p>
         </div>
       )}
