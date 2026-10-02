@@ -18,6 +18,7 @@ import { stornoGrundFehler, STORNO_GRUND_MIN } from '@/lib/storno/grund'
 import { pruefePruefnummernSchaden } from '@/lib/kellerbuch/pruefnummerLaden'
 import { mitPnNotiz } from '@/lib/kellerbuch/pruefnummer'
 import { mostgewichtZusammenfuehren, teilweiseVermerk, verschnittMomentaufnahme } from '@/lib/kellerbuch/mostgewichtKette'
+import { mostgewichtAusFormular, mostgewichtSpalten } from '@/lib/wein/mostgewichtFormular'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -207,6 +208,11 @@ export async function createWeinausbau(formData: FormData) {
   const tenantId  = await getTenantId()
   if (!tenantId) throw new AktionsFehler('Kein Betrieb gefunden')
 
+  // KAN-130 Etappe 3 (02.10.2026, Entscheidung 3): optionales Mostgewicht (Messwert und Einheit,
+  // serverseitig gerechnet; leer = beide Spalten NULL). Die Qualitätsstufe bleibt, wie gewählt.
+  const mostgewicht = mostgewichtAusFormular(formData, 'mostgewicht')
+  if (!mostgewicht.ok) throw new AktionsFehler(mostgewicht.fehler)
+
   const wgIds = formData.getAll('weingarten_ids').map(v => v.toString()).filter(Boolean)
   const payload: R = {
     tenant_id:       tenantId,
@@ -218,6 +224,7 @@ export async function createWeinausbau(formData: FormData) {
     menge_liter:          formData.get('menge_liter') ? Number(dezimal((formData.get('menge_liter') as string))) : null,
     anfangsbestand_liter: formData.get('menge_liter') ? Number(dezimal((formData.get('menge_liter') as string))) : null,
     qualitaetsstufe:      chargenQualitaetAusFormular(formData),
+    ...mostgewichtSpalten(mostgewicht.wert, 'kmw'),
     status:               (formData.get('status') as string) || 'ernte',
     notizen:              (formData.get('notizen') as string) || null,
     einstandspreis_pro_liter: formData.get('einstandspreis_pro_liter')
@@ -265,6 +272,13 @@ export async function updateWeinausbau(id: string, formData: FormData) {
   const alt = altRaw as R
   const bestand = parseFloat(alt.menge_liter) || 0
 
+  // KAN-130 Etappe 3 (02.10.2026): Mostgewicht nur schreiben, wenn das Formular es mitschickt – ein
+  // Formular ohne Feld lässt das gespeicherte stehen; leer = beide Spalten NULL (Rechenregel 4). Die
+  // Qualitätsstufe kommt weiter nur aus dem Formular, nie aus dem Mostgewicht (Rechenregel 6: eine
+  // DAC-Charge mit 20 °KMW bleibt 'dac').
+  const mostgewicht = mostgewichtAusFormular(formData, 'mostgewicht')
+  if (!mostgewicht.ok) throw new AktionsFehler(mostgewicht.fehler)
+
   const wgIds = formData.getAll('weingarten_ids').map(v => v.toString()).filter(Boolean)
   const neuAktiv  = formData.get('aktiv') === 'true'
   const neuStatus = (formData.get('status') as string) || (alt.status as string)
@@ -275,6 +289,7 @@ export async function updateWeinausbau(id: string, formData: FormData) {
     weingarten_id:   wgIds[0] ?? null,
     qualitaetsstufe:      chargenQualitaetAusFormular(formData),
     weinart:              (formData.get('weinart') as string) || 'unbekannt',
+    ...(mostgewicht.uebermittelt ? mostgewichtSpalten(mostgewicht.wert, 'kmw') : {}),
     status:               neuStatus,
     notizen:              (formData.get('notizen') as string) || null,
     einstandspreis_pro_liter: formData.get('einstandspreis_pro_liter')

@@ -21,7 +21,8 @@ import { bkiFarbe, formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { bestandVorVerkauf, ersatzPruefnummer, pnDatumDe, pnTag, pruefnummerGueltig, pruefnummerHinweis, type PnAntrag, type PnChargeDaten } from '@/lib/kellerbuch/pruefnummer'
 import { antragAusZeile, ladePruefnummerDaten, PN_ANTRAG_SELECT } from '@/lib/kellerbuch/pruefnummerLaden'
 import { rebsorteDerLieferung } from './traubenverkauf'
-import { abrunden } from '@/lib/wein/mostgewicht'
+import { mostgewichtAusGespeichert } from '@/lib/wein/mostgewichtFormular'
+import { tbAlkoholText, tbMostgewichtFelder } from './tbMostgewicht'
 import {
   UUID_RE, datumAusTeilen, feld, formularZahl, inBloecken, jaNeinFeld, strasseTeilen, textOderNull, zahlFeld, type R,
 } from './verkehr-hilfen'
@@ -42,7 +43,12 @@ export type TBWeinposition = {
   pruefnummer: string
   anreicherung: string // J/N
   alkohol_pct: string  // Freitext „% vol / °KMW“
+  /** KAN-130 Etappe 3: Mostgewicht – beide Werte als Text mit Dezimalkomma und die gemessene Einheit
+   *  ('kmw' | 'oechsle'; eigener Name, `einheit` ist die Mengeneinheit). Altformulare haben nur
+   *  `kmw` (Trauben) bzw. nichts – gelesen über tbPositionMostgewicht() (lib/behoerden/tbMostgewicht.ts). */
   kmw: string
+  oechsle?: string
+  mostgewicht_einheit?: string
 }
 
 export type TBDaten = {
@@ -83,11 +89,14 @@ export type TBDaten = {
 export const TB_LEERE_POSITION: TBWeinposition = {
   menge_liter: '', einheit: 'l', art: 'Weiß', traubensorte: '', qualitaetsstufe: '',
   jahrgang: '', herkunft: '', fremd_sorten_pct: '', fremd_jg_pct: '',
-  pruefnummer: '', anreicherung: 'N', alkohol_pct: '', kmw: '',
+  pruefnummer: '', anreicherung: 'N', alkohol_pct: '', kmw: '', oechsle: '', mostgewicht_einheit: '',
 }
 
 /** Positionstypen im Verkauf, die eine Transportbescheinigung brauchen (Most/Wein lose, Flaschenwein, Trauben) */
 export const TB_POSITIONSTYPEN = ['tank', 'flasche', 'trauben'] as const
+
+/** KAN-130 Etappe 3: Chargen-Status, in denen eine Tankposition noch Most ist (Mostgewicht vorbelegen) */
+export const TB_MOST_STATUS: readonly string[] = ['ernte', 'gaerung']
 
 // ── CSV-Zeile ────────────────────────────────────────────────────────────────
 
@@ -265,6 +274,12 @@ export function tbVorbelegung(posten: R, cfg: R, pn: TBPruefnummern, heute: stri
       const e = daten ? pruefnummerGueltig(daten, verkaufstag, { bescheidBisStichtag: true }) : null
       const pnHinweis = e ? pruefnummerHinweis(e, `den Bestand am ${pnDatumDe(verkaufstag)} (Verkaufsdatum)`) : null
       if (pnHinweis) hinweise.push(`Position ${nr}: ${pnHinweis} ${TB_PN_NICHT_VORBELEGT}`)
+      // KAN-130 Etappe 3 (02.10.2026): Most-Charge (Status Ernte/Gärung) – Messwert UND Einheit aus der
+      // Charge (in °Oe gemessen → °Oe als Messwert, nicht der umgerechnete °KMW; Rechenregel 9), auf dem
+      // Formblatt °KMW auf 1 Stelle abgerundet. Wein (Ausbau und später) bekommt kein Mostgewicht.
+      const most = wa && TB_MOST_STATUS.includes(feld(wa.status))
+        ? mostgewichtAusGespeichert({ kmw: wa.kmw, oechsle: wa.oechsle, einheit: wa.mostgewicht_einheit })
+        : null
       return {
         ...TB_LEERE_POSITION,
         menge_liter:     formularZahl(p.menge === null || p.menge === undefined ? null : Number(p.menge), STELLEN.liter),
@@ -275,6 +290,8 @@ export function tbVorbelegung(posten: R, cfg: R, pn: TBPruefnummern, heute: stri
         jahrgang:        wa?.jahrgang ? String(wa.jahrgang) : '',
         herkunft:        feld(cfg.betrieb_ort),
         pruefnummer:     e?.gueltig ? (e.pruefnummer ?? '') : '',
+        alkohol_pct:     tbAlkoholText(most),
+        ...tbMostgewichtFelder(most),
       }
     }
     if (p.typ === 'flasche') {
@@ -322,10 +339,9 @@ export function tbVorbelegung(posten: R, cfg: R, pn: TBPruefnummern, heute: stri
     if (!art) hinweise.push(farbHinweis(nr, rebsorte))
     // KAN-128 (Entscheidung 8): kmw_grad hat nach Migration A 2 Stellen (°Oe-Messung: 94 °Oe = 18,97 °KMW)
     // – auf die 1 Stelle des Formblatts ABRUNDEN, nie über eine Stufenschwelle („18,9“, nicht „19,0“).
-    // °Oe auf dem amtlichen Formblatt: KAN-131 (Entscheidung 7).
-    const kmwRoh = tv?.kmw_grad === null || tv?.kmw_grad === undefined ? null : Number(tv.kmw_grad)
-    const kmw = kmwRoh === null || !Number.isFinite(kmwRoh) ? kmwRoh : abrunden(kmwRoh, STELLEN.kmwBki)
-    const kmwText = formularZahl(kmw, STELLEN.kmwBki)
+    // °Oe auf dem amtlichen Formblatt: KAN-131 (Entscheidung 7). KAN-130 Etappe 3: Messwert und Einheit
+    // der Lieferung in kmw/oechsle/mostgewicht_einheit (bisher nur kmw, auf 1 Stelle).
+    const most = tv ? mostgewichtAusGespeichert({ kmw: tv.kmw_grad, oechsle: tv.oechsle, einheit: tv.mostgewicht_einheit }) : null
     const lieferjahr = /^\d{4}-/.test(feld(tv?.datum)) ? feld(tv?.datum).slice(0, 4) : ''
     return {
       ...TB_LEERE_POSITION,
@@ -336,8 +352,8 @@ export function tbVorbelegung(posten: R, cfg: R, pn: TBPruefnummern, heute: stri
       qualitaetsstufe: feld(tv?.qualitaetsstufe),
       jahrgang:        lieferjahr,
       herkunft:        feld(tv?.herkunft_code) || feld(cfg.betrieb_ort),
-      alkohol_pct:     kmwText ? `${kmwText} °KMW` : '',
-      kmw:             kmwText,
+      alkohol_pct:     tbAlkoholText(most),
+      ...tbMostgewichtFelder(most),
     }
   })
 
@@ -390,8 +406,9 @@ export type TBMeta = {
   stornoGrund?: string | null
 }
 
-function positionLeer(p: R): boolean {
-  return ['menge_liter', 'traubensorte', 'qualitaetsstufe', 'jahrgang', 'herkunft', 'fremd_sorten_pct', 'fremd_jg_pct', 'pruefnummer', 'alkohol_pct']
+/** Position ohne Angaben? KAN-130 Etappe 3: das Mostgewicht (kmw, oechsle) zählt mit */
+export function positionLeer(p: R): boolean {
+  return ['menge_liter', 'traubensorte', 'qualitaetsstufe', 'jahrgang', 'herkunft', 'fremd_sorten_pct', 'fremd_jg_pct', 'pruefnummer', 'alkohol_pct', 'kmw', 'oechsle']
     .every(k => feld(p[k]) === '')
 }
 
@@ -491,9 +508,9 @@ const POSTEN_SELECT = `
   firma:firmen(name, telefon, strasse, plz, ort, betrieb_nr),
   positionen:verkauf_positionen(
     id, typ, name, menge, einheit,
-    weinausbau:weinausbau(id, name, jahrgang, qualitaetsstufe, rebsorte, weinart),
+    weinausbau:weinausbau(id, name, jahrgang, qualitaetsstufe, rebsorte, weinart, status, kmw, oechsle, mostgewicht_einheit),
     fuellung:fuellungen(id, name, jahrgang, qualitaet, rebsorte, anbaugebiet, flaschengroesse_ml, datum, pruefnummer, dac_antrag_id, weinausbau_id),
-    traubenverkauf:traubenverkauf(id, storniert_am, datum, kmw_grad, qualitaetsstufe, herkunft_code, grundstueck:grundstueck_id(rebsorte), weingarten:weingarten_id(rebsorte), zukauf:zukauf_posten_id(rebsorte))
+    traubenverkauf:traubenverkauf(id, storniert_am, datum, kmw_grad, oechsle, mostgewicht_einheit, qualitaetsstufe, herkunft_code, grundstueck:grundstueck_id(rebsorte), weingarten:weingarten_id(rebsorte), zukauf:zukauf_posten_id(rebsorte))
   )
 `
 

@@ -64,7 +64,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
     { data: verschnAusRaw },
   ] = await Promise.all([
     tf((supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, rebsorte, weingarten_id, behaelter_id, menge_liter, anfangsbestand_liter, ist_eroeffnungsbestand, status, qualitaetsstufe, herkunft_code, weinart, notizen, aktiv, einstandspreis_pro_liter, behaelter:behaelter_id(name)')
+      .select('id, name, jahrgang, rebsorte, weingarten_id, behaelter_id, menge_liter, anfangsbestand_liter, ist_eroeffnungsbestand, status, qualitaetsstufe, herkunft_code, weinart, notizen, aktiv, einstandspreis_pro_liter, kmw, oechsle, mostgewicht_einheit, behaelter:behaelter_id(name)')
       .eq('id', id).limit(1)),
     tf((supabase.from('weingarten') as any).select('id, name').eq('aktiv', true).order('name')),
     // Gebinde als Umzugsziele: eigene + freigegebene, fremd belegte ausgenommen (Migration 203).
@@ -187,7 +187,9 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
     id: string; name: string; jahrgang: number | null; rebsorte: string | null; weinart: string | null
     weingarten_id: string | null; behaelter_id: string | null; menge_liter: number | null
     anfangsbestand_liter: number | null; ist_eroeffnungsbestand: boolean | null; status: string; qualitaetsstufe: string | null; herkunft_code: string | null
-    notizen: string | null; aktiv: boolean; einstandspreis_pro_liter: number | null; behaelter: { name: string } | null
+    notizen: string | null; aktiv: boolean; einstandspreis_pro_liter: number | null
+    kmw: number | string | null; oechsle: number | string | null; mostgewicht_einheit: string | null
+    behaelter: { name: string } | null
   }
   type NameRow = { id: string; name: string }
 
