@@ -10,6 +10,8 @@
 -- ENTSCHEIDUNGEN JÖRGEN (02.10.2026)
 --   • Behalten: CRM samt Aktivitäten, Aktivitäts-Dokumenten und Pipeline; Protokolle (bestandsprotokoll,
 --     system_ereignisse), Wetterdaten, Morgenberichte; Anlagen (ea_anlagen, AfA-Stammdaten); abgegebene Meldungen.
+--   • Abräumen (Nachtrag 02.10.2026): auch die Daueraufträge (ea_dauerauftraege samt ea_dauerauftrag_log) – sie werden
+--     für 2027 neu angelegt; sonst buchten fällige Termine nach dem Abräumen weiter in den Dezember 2026.
 --   • Abräumen: auch die Weinjahrgänge (samt Lesen und Lesedaten) – AUSSER ein Jahrgang hat eine abgegebene
 --     AMA-Erntemeldung (Status nicht entwurf/bereit). Abgegebene Meldungen werden nie gelöscht (KAN-37, Sperre gilt
 --     auch für Service-Role und SQL-Editor); mit ihnen bleiben ihr Jahrgang, dessen Lesen und Lesedaten stehen
@@ -19,16 +21,21 @@
 --
 -- NUMMERNKREISE (abgeleitet aus den get_next_*-Funktionen)
 --   rechnung_zaehler      = 1, rechnung_zaehler_jahr = 2027  get_next_rechnungsnummer vergibt den GESPEICHERTEN Wert
---                         und speichert +1. Mit Jahres-Platzhalter im Suffix ({JJ}/{JJJJ}) setzt die Funktion bei
---                         Jahreswechsel ohnehin auf 1; ohne Platzhalter beginnt die Nummerierung wieder bei …-0001
---                         (Achtung: Pilot-Rechnungsnummern ohne Jahr wiederholen sich – siehe NOTICE).
+--                         und speichert +1; mit Jahres-Platzhalter im Suffix ({JJ}/{JJJJ}) setzt sie bei Jahreswechsel
+--                         ohnehin auf 1. Entscheidung Jörgen 02.10.2026: die Rechnungsnummer trägt künftig das Jahr –
+--   rechnung_suffix       enthält er keinen Platzhalter, wird „/{JJ}“ an den vorhandenen Suffix-Text angehängt
+--                         (z. B. „“ → „/{JJ}“ ⇒ RE-0001/27). So wiederholt sich keine Pilot-Rechnungsnummer (§ 11 UStG);
+--                         geprüft im Nachher-Teil, alter/neuer Suffix im Bericht und im system_ereignisse-Eintrag.
 --   charge_zaehler        = 1     get_next_chargennummer vergibt den gespeicherten Wert (Spalten-Default 1), Jahr kommt
 --                                 aus now() → CH-2027-001.
 --   liefernummer_zaehler  = 0     get_next_liefernummer erhöht zuerst und vergibt den neuen Wert (Default 0) → LN-2027-0001.
---   export_zaehler        = 0     get_next_exportnummer erhöht zuerst (Default 0) → EX-0001 (ohne Jahr!).
+--   export_zaehler        BLEIBT  get_next_exportnummer kennt kein Jahr (Präfix + Zähler, kein Suffix/Platzhalter) –
+--                                 ein Zurücksetzen wiederholte EX-Nummern; daher unverändert (Entscheidung Jörgen
+--                                 02.10.2026). Bekommt die Exportnummer je einen Jahres-Platzhalter, hier analog zur
+--                                 Rechnungsnummer zurücksetzen.
 --   transaktionszaehler   Zeilen der beiden Betriebe gelöscht – get_next_transaktionsnr legt je (Betrieb, Typ, Jahr)
 --                                 eine neue Zeile mit 1 an → KU-/EB-/VK-/KE-/TX-2027-0001.
---   NICHT angefasst: account_zaehler, bmd_debitor_zaehler, bmd_kreditor_zaehler, ki_abfragen_zaehler, Kundennummer.
+--   NICHT angefasst: export_zaehler, account_zaehler, bmd_debitor_zaehler, bmd_kreditor_zaehler, ki_abfragen_zaehler, Kundennummer.
 --
 -- ABLAUF (alles in EINER Transaktion – jeder Fehler und jede fehlgeschlagene Prüfung rollt ALLES zurück)
 --   0. Vorprüfungen: Rolle (nie authenticated/anon), Betriebsnamen passen zu den IDs, jede Tabelle in public ist in
@@ -123,6 +130,7 @@ INSERT INTO pilot_tabellen (tabelle, art, eltern, fk, tspalte) VALUES
   ('ea_monatsabschluss', 'abräumen', NULL, NULL, 'tenant_id'),
   ('ea_uva', 'abräumen', NULL, NULL, 'tenant_id'),
   ('ea_dauerauftrag_log', 'abräumen', NULL, NULL, 'tenant_id'),
+  ('ea_dauerauftraege', 'abräumen', NULL, NULL, 'tenant_id'),
   ('konto_umbuchungen', 'abräumen', NULL, NULL, 'tenant_id'),
   ('kosteneintraege', 'abräumen', NULL, NULL, 'tenant_id'),
   ('kosteneintrag_behaelter', 'abräumen', 'kosteneintraege', 'kosteneintrag_id', 'tenant_id'),
@@ -154,7 +162,6 @@ INSERT INTO pilot_tabellen (tabelle, art, eltern, fk, tspalte) VALUES
   ('duengemittel', 'behalten', NULL, NULL, 'tenant_id'),
   ('betriebsmittel', 'behalten', NULL, NULL, 'tenant_id'),
   ('ea_kategorien', 'behalten', NULL, NULL, 'tenant_id'),
-  ('ea_dauerauftraege', 'behalten', NULL, NULL, 'tenant_id'),
   ('ea_anlagen', 'behalten', NULL, NULL, 'tenant_id'),
   ('konten', 'behalten', NULL, NULL, 'tenant_id'),
   ('kostenstellen', 'behalten', NULL, NULL, 'tenant_id'),
@@ -275,6 +282,7 @@ DECLARE
   v_jg_alle  jsonb := '{}';   -- für den Bericht: Betrieb → Jahrgänge, die stehen bleiben
   v_belege   bigint := 0;
   v_details  jsonb;
+  v_suffix_alt jsonb;         -- Rechnungs-Suffix vorher je Betrieb (Bericht)
   r          record;
 BEGIN
   -- ── 0. Vorprüfungen ──────────────────────────────────────────────────────────────────────────────────────
@@ -368,7 +376,9 @@ BEGIN
                                ('rechnung_zaehler_jahr', e.rechnung_zaehler_jahr::bigint, c_jahr::bigint),
                                ('charge_zaehler', e.charge_zaehler::bigint, 1::bigint),
                                ('liefernummer_zaehler', e.liefernummer_zaehler::bigint, 0::bigint),
-                               ('export_zaehler', e.export_zaehler::bigint, 0::bigint)) AS z(feld, wert, soll);
+                               ('export_zaehler', e.export_zaehler::bigint, e.export_zaehler::bigint)) AS z(feld, wert, soll);   -- bleibt (ohne Jahr)
+  SELECT jsonb_object_agg(e.tenant_id::text, COALESCE(e.rechnung_suffix, '')) INTO v_suffix_alt
+    FROM public.tenant_einstellungen e WHERE e.tenant_id = ANY (c_betriebe);
 
   -- ── 2. Löschen je Betrieb ────────────────────────────────────────────────────────────────────────────────
   FOR v_i IN 1 .. array_length(c_betriebe, 1) LOOP
@@ -391,6 +401,8 @@ BEGIN
       GET DIAGNOSTICS v_n = ROW_COUNT;
       EXIT WHEN v_n = 0;
     END LOOP;
+    -- Daueraufträge nach den E/A-Buchungen (Stammdaten-Löschsperre öffnet das Kennzeichen über s112_wartung_frei)
+    DELETE FROM public.ea_dauerauftraege WHERE tenant_id = v_t;
     DELETE FROM public.konto_umbuchungen WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
     DELETE FROM public.ea_monatsabschluss WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
     DELETE FROM public.ea_uva WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185, Kennzeichen s112.loeschen_erlaubt
@@ -449,13 +461,11 @@ BEGIN
     -- h) Nummernkreise auf Start 2027
     DELETE FROM public.transaktionszaehler WHERE tenant_id = v_t;
     UPDATE public.tenant_einstellungen
-       SET rechnung_zaehler = 1, rechnung_zaehler_jahr = c_jahr, charge_zaehler = 1, liefernummer_zaehler = 0, export_zaehler = 0
+       SET rechnung_zaehler = 1, rechnung_zaehler_jahr = c_jahr, charge_zaehler = 1, liefernummer_zaehler = 0,
+           -- Rechnungsnummer mit Jahr: fehlt ein Platzhalter ({JJ}/{JJJJ}), „/{JJ}“ an den Suffix-Text anhängen
+           rechnung_suffix = CASE WHEN COALESCE(rechnung_suffix, '') LIKE '%{JJ%' THEN rechnung_suffix
+                                  ELSE COALESCE(rechnung_suffix, '') || '/{JJ}' END
      WHERE tenant_id = v_t;
-    IF EXISTS (SELECT 1 FROM public.tenant_einstellungen e WHERE e.tenant_id = v_t AND COALESCE(e.rechnung_suffix, '') NOT LIKE '%{JJ%') THEN
-      RAISE NOTICE 'Rechnungsnummern „%“: Suffix ohne Jahres-Platzhalter – die Nummerierung beginnt wieder bei %-%1 und wiederholt Pilot-Rechnungsnummern. Empfehlung: Suffix z. B. „/{JJ}“.',
-        c_namen[v_i], (SELECT rechnung_prefix FROM public.tenant_einstellungen WHERE tenant_id = v_t),
-        repeat('0', GREATEST((SELECT rechnung_stellen FROM public.tenant_einstellungen WHERE tenant_id = v_t) - 1, 0));
-    END IF;
   END LOOP;
   PERFORM set_config('s112.loeschen_erlaubt', '', true);
 
@@ -479,6 +489,14 @@ BEGIN
                    ORDER BY tabelle, reihe)
     INTO v_fehler FROM pg_temp.pilot_kennzahlen WHERE ok IS NOT TRUE;
   v_fehler := COALESCE(v_fehler, '{}');
+
+  -- Rechnungs-Suffix muss jetzt einen Jahres-Platzhalter tragen (eindeutige Nummer je Jahr)
+  SELECT string_agg(format('Rechnungs-Suffix ohne Jahres-Platzhalter: %s („%s“)', c_namen[u.o], COALESCE(e.rechnung_suffix, '')), '; ') INTO v_txt
+    FROM unnest(c_betriebe) WITH ORDINALITY AS u(b, o) JOIN public.tenant_einstellungen e ON e.tenant_id = u.b
+   WHERE COALESCE(e.rechnung_suffix, '') NOT LIKE '%{JJ%';
+  IF v_txt IS NOT NULL THEN
+    v_fehler := v_fehler || v_txt;
+  END IF;
 
   -- FK-Waisen (Logik aus scripts/fk-waisen.sql): jeder Fremdschlüssel in public, Zählweise MATCH SIMPLE
   FOR r IN
@@ -521,6 +539,8 @@ BEGIN
            'bleiben_jahrgaenge_mit_abgegebener_meldung', v_jg_alle,
            'nummernkreise', (SELECT jsonb_object_agg(betrieb || ' ' || tabelle, jsonb_build_array(vorher, nachher))
                                FROM pg_temp.pilot_kennzahlen WHERE art = 'nummernkreis-wert'),
+           'rechnung_suffix', jsonb_build_object('vorher', v_suffix_alt, 'nachher',
+              (SELECT jsonb_object_agg(e.tenant_id::text, e.rechnung_suffix) FROM public.tenant_einstellungen e WHERE e.tenant_id = ANY (c_betriebe))),
            'belegdateien_im_storage_unveraendert', v_belege)
     INTO v_details;
 
@@ -529,8 +549,8 @@ BEGIN
    WHERE tenant_id IS NOT NULL AND art IN ('abräumen', 'nummernkreis', 'nummernkreis-wert') AND (vorher <> 0 OR nachher <> 0);
 
   IF v_probelauf THEN
-    RAISE EXCEPTION E'PROBELAUF (zurückgerollt): alle Prüfungen grün, nichts geändert.\nStehen bleibende Jahrgänge (abgegebene AMA-Meldung): %\nBelegdateien im Storage (bleiben): %\n%',
-      v_jg_alle, v_belege, COALESCE(v_txt, '(keine Bewegungsdaten)');
+    RAISE EXCEPTION E'PROBELAUF (zurückgerollt): alle Prüfungen grün, nichts geändert.\nStehen bleibende Jahrgänge (abgegebene AMA-Meldung): %\nBelegdateien im Storage (bleiben): %\nRechnungs-Suffix: % → %\n%',
+      v_jg_alle, v_belege, v_suffix_alt, v_details -> 'rechnung_suffix' -> 'nachher', COALESCE(v_txt, '(keine Bewegungsdaten)');
   END IF;
 
   INSERT INTO public.system_ereignisse (art, quelle, meldung, tenant_id, user_id, details)

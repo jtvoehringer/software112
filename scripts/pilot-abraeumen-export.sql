@@ -48,6 +48,7 @@ UNION ALL SELECT 'ea_belege' AS tabelle, x.tenant_id, to_jsonb(x) AS zeile FROM 
 UNION ALL SELECT 'ea_monatsabschluss' AS tabelle, x.tenant_id, to_jsonb(x) AS zeile FROM public.ea_monatsabschluss x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
 UNION ALL SELECT 'ea_uva' AS tabelle, x.tenant_id, to_jsonb(x) AS zeile FROM public.ea_uva x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
 UNION ALL SELECT 'ea_dauerauftrag_log' AS tabelle, x.tenant_id, to_jsonb(x) AS zeile FROM public.ea_dauerauftrag_log x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'ea_dauerauftraege' AS tabelle, x.tenant_id, to_jsonb(x) AS zeile FROM public.ea_dauerauftraege x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
 UNION ALL SELECT 'konto_umbuchungen' AS tabelle, x.tenant_id, to_jsonb(x) AS zeile FROM public.konto_umbuchungen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
 UNION ALL SELECT 'kosteneintraege' AS tabelle, x.tenant_id, to_jsonb(x) AS zeile FROM public.kosteneintraege x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
 UNION ALL SELECT 'behandlungen' AS tabelle, x.tenant_id, to_jsonb(x) AS zeile FROM public.behandlungen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
@@ -101,6 +102,7 @@ UNION ALL SELECT 'ea_belege' AS tabelle FROM public.ea_belege x WHERE x.tenant_i
 UNION ALL SELECT 'ea_monatsabschluss' AS tabelle FROM public.ea_monatsabschluss x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
 UNION ALL SELECT 'ea_uva' AS tabelle FROM public.ea_uva x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
 UNION ALL SELECT 'ea_dauerauftrag_log' AS tabelle FROM public.ea_dauerauftrag_log x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
+UNION ALL SELECT 'ea_dauerauftraege' AS tabelle FROM public.ea_dauerauftraege x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
 UNION ALL SELECT 'konto_umbuchungen' AS tabelle FROM public.konto_umbuchungen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
 UNION ALL SELECT 'kosteneintraege' AS tabelle FROM public.kosteneintraege x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
 UNION ALL SELECT 'behandlungen' AS tabelle FROM public.behandlungen x WHERE x.tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d')
@@ -153,6 +155,7 @@ SELECT * FROM public.ea_belege WHERE tenant_id IN ('097f67ed-381e-4bb3-952e-758a
 SELECT * FROM public.ea_monatsabschluss WHERE tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY tenant_id;
 SELECT * FROM public.ea_uva WHERE tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY tenant_id;
 SELECT * FROM public.ea_dauerauftrag_log WHERE tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY tenant_id;
+SELECT * FROM public.ea_dauerauftraege WHERE tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY tenant_id;
 SELECT * FROM public.konto_umbuchungen WHERE tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY tenant_id;
 SELECT * FROM public.kosteneintraege WHERE tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY tenant_id;
 SELECT * FROM public.behandlungen WHERE tenant_id IN ('097f67ed-381e-4bb3-952e-758aa9d3a501', '0569d025-576d-4d47-a102-17173835dc5d') ORDER BY tenant_id;
