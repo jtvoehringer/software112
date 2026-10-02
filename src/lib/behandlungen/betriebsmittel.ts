@@ -99,8 +99,10 @@ export type BmVerbrauchPosten = BmVerbrauchEingabe & {
 }
 
 /** Bestand eines Betriebsmittels in seiner Einheit (gleiche Form wie LagerKonto für PSM/Dünger) */
-/** Mit `jahr` zusätzlich die Lagerbewegung im Geschäftsjahr (KAN-173, lagerJahr.ts) */
-export function bmKonto(buchungen: readonly BmBuchung[], verbrauch: readonly BmVerbrauchPosten[], einheit: string, jahr?: number): LagerKonto {
+/** Mit `jahr` zusätzlich die Lagerbewegung im Geschäftsjahr (KAN-173, lagerJahr.ts; `startJahr` = Jahr von tenants.created_at) */
+export function bmKonto(
+  buchungen: readonly BmBuchung[], verbrauch: readonly BmVerbrauchPosten[], einheit: string, jahr?: number, startJahr?: number | null,
+): LagerKonto {
   const hinweise: LagerHinweis[] = []
   const label = BM_EINHEIT_LABEL[einheit] ?? einheit
   let zugang = 0, abgang = 0
@@ -133,7 +135,7 @@ export function bmKonto(buchungen: readonly BmBuchung[], verbrauch: readonly BmV
   const verbrauchGesamt = runden(summe, STELLEN)
   return {
     einheit: label, zugang, abgang, verbrauch: verbrauchGesamt, posten, bestand: runden(zugang - abgang - verbrauchGesamt, STELLEN), hinweise,
-    ...(jahr === undefined ? {} : { jahr: jahresBewegung(gezaehlt, posten, jahr, STELLEN) }),
+    ...(jahr === undefined ? {} : { jahr: jahresBewegung(gezaehlt, posten, jahr, STELLEN, startJahr) }),
   }
 }
 

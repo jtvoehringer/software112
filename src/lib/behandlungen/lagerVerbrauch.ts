@@ -135,7 +135,11 @@ export function preisEinheit(buchungen: readonly LagerBuchung[]): MittelEinheit 
  * Bestand eines Mittels aus Buchungen und Verbrauchsposten, alles in der Lager-Einheit.
  * Buchungen ohne Einheit zählen wie bisher in der Lager-Einheit.
  */
-export function lagerKonto(buchungen: readonly LagerBuchung[], verbrauch: readonly VerbrauchPosten[], stammEinheit?: string | null, jahr?: number): LagerKonto {
+export function lagerKonto(
+  buchungen: readonly LagerBuchung[], verbrauch: readonly VerbrauchPosten[], stammEinheit?: string | null, jahr?: number,
+  /** Startjahr des Betriebs (Jahr von tenants.created_at) für die Jahressicht (KAN-173, Nachtrag 02.10.2026) */
+  startJahr?: number | null,
+): LagerKonto {
   const einheit = lagerEinheit(buchungen, verbrauch, stammEinheit)
   const hinweise: LagerHinweis[] = []
   const ohneDichte = (von: string) => `Lager in ${einheit}, ${einheitText(von)} ohne Dichte nicht in ${einheit} umrechenbar`
@@ -183,6 +187,6 @@ export function lagerKonto(buchungen: readonly LagerBuchung[], verbrauch: readon
     einheit, zugang, abgang, verbrauch: verbrauchGesamt, posten,
     bestand: runden(zugang - abgang - verbrauchGesamt, STELLEN_MENGE),
     hinweise,
-    ...(jahr === undefined ? {} : { jahr: jahresBewegung(gezaehlt, posten, jahr, STELLEN_MENGE) }),
+    ...(jahr === undefined ? {} : { jahr: jahresBewegung(gezaehlt, posten, jahr, STELLEN_MENGE, startJahr) }),
   }
 }

@@ -12,6 +12,7 @@ import { VerbrauchTr, zeilenChronologisch } from './Verbrauchszeilen'
 import LagerHinweise from './LagerHinweise'
 import { fmtNum, zahlAus } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
+import AnfangsbestandHinweis from './AnfangsbestandHinweis'
 import { BM_EINHEITEN, BM_EINHEIT_LABEL, GRUPPE_LABEL, bmBrutto, type BetriebsmittelGruppe } from '@/lib/behandlungen/betriebsmittel'
 import type { LagerKonto } from '@/lib/behandlungen/lagerVerbrauch'
 import {
@@ -53,6 +54,7 @@ function BuchungsForm({ ctx, mittelId, edit, onDone }: { ctx: Ctx; mittelId?: st
   const [mittel, setMittel] = useState<string>(edit?.betriebsmittel_id ?? mittelId ?? '')
   const [richtung, setRichtung] = useState<'eingang' | 'ausgang'>(edit && edit.menge < 0 ? 'ausgang' : 'eingang')
   const [netto, setNetto] = useState('')
+  const [datum, setDatum] = useState<string>(edit?.datum ?? new Date().toISOString().split('T')[0])
   const [ust, setUst] = useState('20')
   const stamm = ctx.alle.find(m => m.id === mittel)
   const einkauf = typ === 'einkauf'
@@ -96,8 +98,9 @@ function BuchungsForm({ ctx, mittelId, edit, onDone }: { ctx: Ctx; mittelId?: st
         </div>
         <div>
           <label className={lbl}>Datum *</label>
-          <input aria-label="Datum" name="datum" type="date" required defaultValue={edit?.datum ?? new Date().toISOString().split('T')[0]} className={feld} />
+          <input aria-label="Datum" name="datum" type="date" required value={datum} onChange={e => setDatum(e.target.value)} className={feld} />
         </div>
+        <AnfangsbestandHinweis typ={typ} datum={datum} />
         {typ === 'korrektur' && (
           <div className="col-span-2 flex gap-3">
             {(['eingang', 'ausgang'] as const).map(r => (
