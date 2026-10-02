@@ -9,6 +9,7 @@ import type { DuengerLager, DuengerOption } from './page'
 import LagerHinweise from './LagerHinweise'
 import { fmtNum } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
+import AnfangsbestandHinweis from './AnfangsbestandHinweis'
 
 // Analog LagerClient.tsx (PSM) – volle Lagerbewegungs-Erfassung für Düngemittel
 // (Migration 142): Anfangsbestand, Einkauf, Inventurkorrektur, berechneter
@@ -50,6 +51,7 @@ function BuchungsForm({
   const [fehler, setFehler] = useState<string | null>(null)
   const [typ, setTyp] = useState<string>(edit?.typ ?? 'einkauf')
   const isKorrektur = typ === 'korrektur'
+  const [datum, setDatum] = useState<string>(edit?.datum ?? new Date().toISOString().split('T')[0])
   const [richtung, setRichtung] = useState<'eingang' | 'ausgang'>(
     edit ? (edit.menge < 0 ? 'ausgang' : 'eingang') : 'eingang'
   )
@@ -98,9 +100,11 @@ function BuchungsForm({
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum *</label>
           <input aria-label="Datum" name="datum" type="date" required
-            defaultValue={edit?.datum ?? new Date().toISOString().split('T')[0]}
+            value={datum} onChange={e => setDatum(e.target.value)}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
+
+        <AnfangsbestandHinweis typ={typ} datum={datum} />
 
         {/* Richtung (nur bei Korrektur) */}
         {isKorrektur && (
