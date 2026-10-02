@@ -7,6 +7,7 @@ import { QUALITAET_OPTS, mitGespeichertemWert } from '@/lib/wein/qualitaet'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum, dezimal } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
+import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
 
 const REBSORTEN = [
   'Grüner Veltliner','Riesling','Welschriesling','Müller-Thurgau',
@@ -21,6 +22,8 @@ type WeinausbauRow = {
   menge_liter: number | null; status: string; qualitaetsstufe: string | null
   weinart?: string | null
   notizen: string | null; aktiv: boolean; einstandspreis_pro_liter: number | null
+  /** KAN-130 Etappe 3: gespeichertes Mostgewicht (Messwert und Einheit) */
+  kmw?: number | string | null; oechsle?: number | string | null; mostgewicht_einheit?: string | null
 }
 
 const WEINART_OPTS = [
@@ -218,7 +221,18 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
               </select>
             )}
           </div>
-          <div />
+          {/* KAN-130 Etappe 3 (02.10.2026, Entscheidung 3): optionales Mostgewicht in °KMW oder °Oe –
+              bevorzugte Einheit des Betriebs zuerst, leer erlaubt. Auch bei Pressungs-Chargen änderbar
+              (Entscheidung 2: Korrektur an der Charge im Kellerbuch). Die Qualitätsstufe bleibt davon
+              unberührt (Rechenregel 6). */}
+          <div>
+            <MostgewichtEingabe
+              key={weinausbau?.id ?? 'neu'}
+              name="mostgewicht"
+              label="Mostgewicht (optional)"
+              startwert={weinausbau ? { kmw: weinausbau.kmw, oechsle: weinausbau.oechsle, einheit: weinausbau.mostgewicht_einheit } : null}
+            />
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

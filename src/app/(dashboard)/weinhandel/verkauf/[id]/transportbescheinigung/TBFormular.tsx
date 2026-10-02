@@ -1,10 +1,14 @@
 'use client'
 
-import { useState, useCallback, useTransition } from 'react'
+import { Fragment, useState, useCallback, useTransition } from 'react'
 import { Trash2 } from 'lucide-react'
 import Link from '@/components/ui/Link'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { saveTB } from './actions'
+import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
+import { tbMostgewichtFelder, tbPositionMitMostgewicht, tbPositionMostgewicht } from '@/lib/behoerden/tbMostgewicht'
+import type { GespeichertesMostgewicht } from '@/lib/wein/mostgewichtFormular'
+import type { Mostgewicht } from '@/lib/wein/mostgewicht'
 // Nur Typen (werden beim Übersetzen entfernt) – Datenmodell samt Vorbelegung und CSV-Abflachung
 // liegt in lib/behoerden/transportbescheinigung.ts (gemeinsam mit /meldungen/transportbescheinigung/csv)
 import type { TBDaten, TBWeinposition as WeinPosition } from '@/lib/behoerden/transportbescheinigung'
@@ -28,8 +32,27 @@ function FeldGruppe({ label, children, className = '' }: { label: string; childr
   )
 }
 
+/** KAN-130 Etappe 3: Startwert der Mostgewicht-Eingabe einer Position (gespeichert bzw. Vorbelegung;
+ *  Altformulare: °KMW aus „Alkohol % vol / °KMW“). Fest je Zeile – die Eingabe beginnt sonst bei
+ *  jeder Änderung neu (siehe MostgewichtEingabe, startwert). */
+function startwertAus(p: WeinPosition): GespeichertesMostgewicht | null {
+  const m = tbPositionMostgewicht(p)
+  return m ? { kmw: m.kmw, oechsle: m.oechsle, einheit: m.einheit } : null
+}
+
+type Zeile = { key: number; start: GespeichertesMostgewicht | null }
+
 export default function TBFormular({ verkaufspostenId, initial, csvHref }: Props) {
-  const [daten, setDaten] = useState<TBDaten>(initial)
+  // Altformulare: Mostgewicht aus „Alkohol % vol / °KMW“ in die Felder kmw/oechsle/mostgewicht_einheit
+  const [daten, setDaten] = useState<TBDaten>(() => ({
+    ...initial,
+    positionen: initial.positionen.map(p => ({ ...p, ...tbMostgewichtFelder(tbPositionMostgewicht(p)) })),
+  }))
+  // Stabile Schlüssel je Position (Löschen verschiebt sonst den Eingabezustand der Mostgewicht-Felder)
+  const [zeilen, setZeilen] = useState<Zeile[]>(() => initial.positionen.map((p, i) => ({ key: i, start: startwertAus(p) })))
+  // Ungültige Mostgewicht-Eingaben je Zeile – Speichern erst, wenn alle gültig sind
+  const [mgFehler, setMgFehler] = useState<Record<number, string>>({})
+  const mgFehlerText = Object.values(mgFehler)[0] ?? null
   const [gespeichert, setGespeichert] = useState(false)
   // Ungespeicherte Änderungen: die CSV liest den gespeicherten Stand aus der Datenbank
   const [geaendert, setGeaendert] = useState(false)
@@ -51,13 +74,30 @@ export default function TBFormular({ verkaufspostenId, initial, csvHref }: Props
     setGeaendert(true)
   }, [])
 
+  const setMostgewicht = useCallback((i: number, key: number, wert: Mostgewicht | null, fehler: string | null) => {
+    setMgFehler(prev => {
+      const { [key]: _alt, ...rest } = prev
+      void _alt
+      return fehler ? { ...rest, [key]: fehler } : rest
+    })
+    if (fehler) return   // ungültige Eingabe: gespeicherten Wert stehen lassen, Speichern ist gesperrt
+    setDaten(prev => {
+      const pos = [...prev.positionen]
+      pos[i] = tbPositionMitMostgewicht(pos[i], wert)
+      return { ...prev, positionen: pos }
+    })
+    setGespeichert(false)
+    setGeaendert(true)
+  }, [])
+
   function addPos() {
+    setZeilen(prev => [...prev, { key: prev.reduce((m, z) => Math.max(m, z.key), -1) + 1, start: null }])
     setDaten(prev => ({
       ...prev,
       positionen: [...prev.positionen, {
         menge_liter: '', einheit: 'l', art: 'Weiß', traubensorte: '', qualitaetsstufe: '',
         jahrgang: '', herkunft: '', fremd_sorten_pct: '', fremd_jg_pct: '',
-        pruefnummer: '', anreicherung: 'N', alkohol_pct: '', kmw: '',
+        pruefnummer: '', anreicherung: 'N', alkohol_pct: '', kmw: '', oechsle: '', mostgewicht_einheit: '',
       }],
     }))
     setGespeichert(false)
@@ -65,12 +105,16 @@ export default function TBFormular({ verkaufspostenId, initial, csvHref }: Props
   }
 
   function removePos(i: number) {
+    const key = zeilen[i]?.key
+    setZeilen(prev => prev.filter((_, j) => j !== i))
+    if (key !== undefined) setMgFehler(prev => { const { [key]: _alt, ...rest } = prev; void _alt; return rest })
     setDaten(prev => ({ ...prev, positionen: prev.positionen.filter((_, j) => j !== i) }))
     setGespeichert(false)
     setGeaendert(true)
   }
 
   function handleSave() {
+    if (mgFehlerText) return
     startTransition(async () => {
       await saveTB(verkaufspostenId, daten)
       setGespeichert(true)
@@ -85,7 +129,8 @@ export default function TBFormular({ verkaufspostenId, initial, csvHref }: Props
         <div className="flex flex-wrap items-start gap-2">
           <button
             onClick={handleSave}
-            disabled={pending}
+            disabled={pending || !!mgFehlerText}
+            title={mgFehlerText ? `Mostgewicht prüfen: ${mgFehlerText}` : undefined}
             className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50"
           >
             {pending ? 'Speichern…' : 'Speichern'}
@@ -294,8 +339,11 @@ export default function TBFormular({ verkaufspostenId, initial, csvHref }: Props
               </tr>
             </thead>
             <tbody>
-              {daten.positionen.map((pos, i) => (
-                <tr key={i} className="border border-s112-line-str">
+              {daten.positionen.map((pos, i) => {
+                const zeile = zeilen[i] ?? { key: -1 - i, start: null }
+                return (
+                <Fragment key={zeile.key}>
+                <tr className="border border-s112-line-str">
                   <td className="border border-s112-line-str p-0.5">
                     <div className="flex gap-0.5">
                       <input className={inputCls} aria-label={`Menge Position ${i + 1}`} value={pos.menge_liter} onChange={e => setPos(i, 'menge_liter', e.target.value)} />
@@ -351,7 +399,24 @@ export default function TBFormular({ verkaufspostenId, initial, csvHref }: Props
                     )}
                   </td>
                 </tr>
-              ))}
+                {/* KAN-130 Etappe 3 (02.10.2026): Mostgewicht je Position in °KMW oder °Oe (bevorzugte
+                    Einheit des Betriebs zuerst) – gespeichert mit Messwert und Einheit; die Spalte
+                    „Alkohol % vol / °KMW“ zieht mit (°KMW auf 1 Stelle abgerundet), solange dort kein
+                    eigener Text steht. Nicht im Druck. */}
+                <tr className="border border-s112-line-str no-print">
+                  <td colSpan={12} className="px-1.5 py-1 bg-s112-bg/40">
+                    <MostgewichtEingabe
+                      name={`tb_mostgewicht_${zeile.key}`}
+                      label={`Mostgewicht Position ${i + 1} (bei Most und Trauben)`}
+                      startwert={zeile.start}
+                      grenzfallHinweis={false}
+                      onChange={(wert, info) => setMostgewicht(i, zeile.key, wert, info.fehler)}
+                    />
+                  </td>
+                </tr>
+                </Fragment>
+                )
+              })}
             </tbody>
           </table>
         </div>
