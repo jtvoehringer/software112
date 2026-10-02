@@ -613,6 +613,8 @@ export type BetriebsBewegungen = {
     verkauf: R[]
     verschneidungen: R[]
     verschneidungQuellen: R[]
+    /** pressung_behaelter (mit pressung.id) – BSM-Nachtrag 02.10.2026: Anteil zugekaufter Trauben je Pressung */
+    pressungen: R[]
   }
   /** alle Chargen des Betriebs (weinausbau), mit Stammdaten für die Bestandsmeldung */
   chargen: R[]
@@ -704,7 +706,7 @@ export async function ladeBewegungenBetrieb(supabase: any, tenantId: string): Pr
     bewegungen: bewegungenAus(roh),
     chargen,
     fuellungen: fuellungenAlle,
-    quellen: { umzuege, zukauf, verkauf, verschneidungen: verschnEin, verschneidungQuellen: roh.verschnAus },
+    quellen: { umzuege, zukauf, verkauf, verschneidungen: verschnEin, verschneidungQuellen: roh.verschnAus, pressungen },
   }
 }
 

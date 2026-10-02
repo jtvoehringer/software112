@@ -8,7 +8,7 @@ import PrintButton from '../../PrintButton'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { csvPfad } from '@/lib/behoerden/katalog'
 import {
-  BSM_SPALTEN, BSM_ZUORDNUNG, HERKUNFT_LABEL, HL_STELLEN_BSM, SPALTE_OHNE_LABEL,
+  BSM_INTERNE_ARTEN, BSM_SPALTEN, BSM_ZUORDNUNG, HERKUNFT_LABEL, HL_STELLEN_BSM, SPALTE_OHNE_LABEL,
   bsmJournal, bsmKennzeichnung, bsmParameter, bsmSchnellwahlen, buchungsartLabel, ladeBsm, standardBsmZeitraum,
   type BsmSummenZeile, type SpalteSchluessel,
 } from '@/lib/behoerden/bsm'
@@ -34,6 +34,9 @@ type R = Record<string, any>
 const wert = (n: number) => (Math.abs(n) < 0.005 ? '–' : fmtNum(n, 2))
 
 const ABWERTUNG = 'ZU_ABW,AB_ABW'
+/** Buchungsarten des Kontrolljournals: Katalog (kat_buchungsart) + interne (Umstufung Most/Sturm → Wein) */
+const ARTEN = [...KAT_BUCHUNGSART, ...BSM_INTERNE_ARTEN]
+const ABSCHNITT_TITEL: Partial<Record<BsmSummenZeile['abschnitt'], string>> = { Zugang: 'Zugänge', Abgang: 'Abgänge', Umstufung: 'Umstufung (neutral)' }
 
 export default async function BsmPage({ searchParams }: { searchParams: Promise<{ von?: string; bis?: string; art?: string }> }) {
   const sp = await searchParams
@@ -161,17 +164,17 @@ export default async function BsmPage({ searchParams }: { searchParams: Promise<
                 </tr></thead>
                 <tbody>
                   {daten.summen.filter(z => z.herkunft === h).map((z: BsmSummenZeile, i, liste) => {
-                    const neuerAbschnitt = z.teil === 'gesamt' && (i === 0 || liste[i - 1].abschnitt !== z.abschnitt) && (z.abschnitt === 'Zugang' || z.abschnitt === 'Abgang')
+                    const neuerAbschnitt = z.teil === 'gesamt' && (i === 0 || liste[i - 1].abschnitt !== z.abschnitt) && !!ABSCHNITT_TITEL[z.abschnitt]
                     const gesamt = z.teil === 'gesamt'
                     const bestand = z.abschnitt === 'Bestand' && gesamt
                     const pruefung = z.position === 'DIFFERENZ' && gesamt && Math.abs(z.summeLiter) >= 0.005
                     return [
                       neuerAbschnitt ? (
-                        <tr key={`${i}-k`}><td colSpan={spalten.length + 3} className="px-2 pt-2 pb-0.5 font-semibold text-s112-text-2 uppercase tracking-wider text-[10px]">{z.abschnitt === 'Zugang' ? 'Zugänge' : 'Abgänge'}</td></tr>
+                        <tr key={`${i}-k`}><td colSpan={spalten.length + 3} className="px-2 pt-2 pb-0.5 font-semibold text-s112-text-2 uppercase tracking-wider text-[10px]">{ABSCHNITT_TITEL[z.abschnitt]}</td></tr>
                       ) : null,
                       <tr key={i} className={bestand ? 'bg-s112-line font-semibold' : pruefung ? 'text-s112-err-fg font-semibold' : gesamt ? '' : 'text-s112-tertiary'}>
                         <td className={`px-2 py-1 border border-s112-line ${gesamt ? '' : 'pl-5'}`}>
-                          {gesamt ? <>{z.bezeichnung}{/^[A-Z_]+$/.test(z.position) && KAT_BUCHUNGSART.some(b => b.code === z.position) && <span className="ml-1 text-[10px] text-s112-tertiary">{z.position}</span>}</> : z.teil}
+                          {gesamt ? <>{z.bezeichnung}{/^[A-Z_]+$/.test(z.position) && ARTEN.some(b => b.code === z.position) && <span className="ml-1 text-[10px] text-s112-tertiary">{z.position}</span>}</> : z.teil}
                         </td>
                         {spalten.map(k => <td key={k} className="px-2 py-1 border border-s112-line text-right tabular-nums">{wert(z.werte[k])}</td>)}
                         <td className="px-2 py-1 border border-s112-line text-right tabular-nums">{wert(z.summeLiter)}</td>
@@ -220,7 +223,7 @@ export default async function BsmPage({ searchParams }: { searchParams: Promise<
                 className="border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none">
                 <option value="">alle Buchungsarten</option>
                 <option value={ABWERTUNG}>nur Abwertung (ZU_ABW, AB_ABW)</option>
-                {KAT_BUCHUNGSART.map(b => <option key={b.code} value={b.code}>{b.code} – {b.bezeichnung}</option>)}
+                {ARTEN.map(b => <option key={b.code} value={b.code}>{b.code} – {b.bezeichnung}</option>)}
               </select>
               <button type="submit" aria-label="Kontrolljournal filtern" className="border border-s112-border rounded-lg px-3 py-1.5 text-sm hover:bg-s112-bg">Filtern</button>
             </form>
