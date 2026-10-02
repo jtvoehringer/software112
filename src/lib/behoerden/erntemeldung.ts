@@ -36,12 +36,14 @@ type Client = any
 
 /** Hektarhöchstertrag lt. BKI-Hinweis (18.07.2026): 10.000 kg/ha, betriebsweit gegen die GST-Fläche lt. AMA */
 export const HEKTARHOECHSTERTRAG_KG_HA = 10000
-/** Qualitätsstufen, für die der Hektarhöchstertrag geprüft wird – KAN-79 (02.10.2026): § 23 WeinG gilt für Landwein,
- *  Qualitätswein inkl. Kabinett und Prädikatswein (DAC = Qualitätswein mit Herkunft), nicht für „Wein“ (bis dahin nur
- *  'qualitaetswein' – ab 17 °KMW fielen die kg als Kabinett usw. aus der Summe). */
+/** Gilt der Hektarhöchstertrag für eine Lese dieser Stufe? KAN-79 (02.10.2026, Bezugsebene Betrieb lt. Jörgen):
+ *  § 23 Abs. 1 WeinG 2009 erfasst Wein gemäß § 8 (Wein MIT Rebsorten- bzw. Jahrgangsangabe), Land-, Qualitäts- und
+ *  Prädikatswein. Frei ist nur Wein ohne Rebsorten- und Jahrgangsbezeichnung – das unterscheidet die Lese nicht (sie
+ *  trägt immer Sorte und Jahrgang), also zählt jede Lese, auch „Wein“ (bis 01.10.2026 nur 'qualitaetswein'). Ohne
+ *  bzw. mit unbekannter Stufe zählt sie ebenfalls (sichere Richtung). */
 export function unterliegtHoechstertrag(stufe: string | null | undefined): boolean {
   const r = qualitaetsRang(stufe)
-  return !!r && (r.art === 'stufe' || r.art === 'zusatz') && r.stufe >= (qualitaetsRang('landwein')?.stufe ?? 1)
+  return !r || r.art !== 'erzeugnis'
 }
 /** Hinweis bei Überschreitung (Erntemeldung, Lese-Seite, Druck, CSV) */
 export { HOECHSTERTRAG_RECHTSFOLGE } from './hoechstertragText'
@@ -727,7 +729,7 @@ export async function ladeErntemeldung(supabase: Client, tenantId: string, jg: J
 
   const hektarhoechstertrag = berechneHektarhoechstertrag(lese.zeilen, flaecheBetrieb)
   if (hektarhoechstertrag.gesamtKg > 0) {
-    const basis = `Hektarhöchstertrag betriebsweit (maßgeblich): ${fmtKg(hektarhoechstertrag.gesamtKg)} kg Landwein, Qualitäts- und Prädikatswein von max. ${fmtKg(hektarhoechstertrag.maxKg)} kg (${fmtKg(HEKTARHOECHSTERTRAG_KG_HA)} kg/ha × ${runden(flaecheBetrieb, STELLEN.ha).toLocaleString('de-DE', { minimumFractionDigits: 4 })} ha Weingartenfläche lt. AMA)`
+    const basis = `Hektarhöchstertrag betriebsweit (maßgeblich): ${fmtKg(hektarhoechstertrag.gesamtKg)} kg Lese (§ 23 WeinG) von max. ${fmtKg(hektarhoechstertrag.maxKg)} kg (${fmtKg(HEKTARHOECHSTERTRAG_KG_HA)} kg/ha × ${runden(flaecheBetrieb, STELLEN.ha).toLocaleString('de-DE', { minimumFractionDigits: 4 })} ha Weingartenfläche lt. AMA)`
     if (hektarhoechstertrag.ueberschritten) {
       warnungen.push(`${basis} – ÜBERSCHRITTEN um ${fmtKg(hektarhoechstertrag.ueberschreitungKg)} kg. ${HOECHSTERTRAG_RECHTSFOLGE}. Die Spalte „Übermenge (kg)“ zeigt die rechnerische Überschreitung je Sorte.`)
     } else if (zeilen.some(z => (z.uebermengeKg ?? 0) > 0)) {

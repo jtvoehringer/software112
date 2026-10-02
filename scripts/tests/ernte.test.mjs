@@ -358,7 +358,7 @@ describe('erntemeldung', () => {
     const w = daten.warnungen.join('\n')
     assert.match(w, /nach dem Erstellen der AMA-Meldung geändert \(Meldung 18\.000 kg, Lesedaten 18\.500 kg\)/)
     // betriebsweit: 18.500 kg (Lesedaten, KAN-79: auch Kabinett) > 10.000 kg/ha × 1 ha
-    assert.match(w, /18\.500 kg Landwein, Qualitäts- und Prädikatswein von max\. 10\.000 kg .* – ÜBERSCHRITTEN um 8\.500 kg\. Rechtsfolge nach § 23 WeinG/)
+    assert.match(w, /18\.500 kg Lese \(§ 23 WeinG\) von max\. 10\.000 kg .* – ÜBERSCHRITTEN um 8\.500 kg\. Rechtsfolge \(§ 23 Abs\. 3 WeinG 2009\)/)
     assert.equal(daten.hektarhoechstertrag.ueberschreitungKg, 8500)
     assert.equal(daten.zeilen[0].verkauftKg, 800)
     // Meldung vor dem 25.09.2026: fest „Qualitätswein“ – die Lesedaten sagen Kabinett

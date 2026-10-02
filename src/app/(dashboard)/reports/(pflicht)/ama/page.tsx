@@ -184,7 +184,7 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
         {/* Hektarhöchstertrag (betriebsweit, maßgeblich) */}
         {hht && hht.gesamtKg > 0 && (
           <p className={`text-xs mb-6 ${hht.ueberschritten ? 'text-s112-err-fg font-semibold' : 'text-s112-text-2'}`}>
-            Hektarhöchstertrag betriebsweit (Landwein, Qualitäts- und Prädikatswein): {fmtNum(hht.gesamtKg, 0)} kg von max. {fmtNum(hht.maxKg, 0)} kg
+            Hektarhöchstertrag betriebsweit (alle Lesen, § 23 WeinG): {fmtNum(hht.gesamtKg, 0)} kg von max. {fmtNum(hht.maxKg, 0)} kg
             {' '}({fmtNum(HEKTARHOECHSTERTRAG_KG_HA, 0)} kg/ha × {fmtNum(hht.gesamtFlaecheHaBetrieb, 4)} ha Weingartenfläche lt. AMA) –{' '}
             {hht.ueberschritten ? `überschritten um ${fmtNum(hht.ueberschreitungKg, 0)} kg. ${HOECHSTERTRAG_RECHTSFOLGE}` : 'eingehalten'}.
             {' '}Die Spalte „Übermenge“ zeigt die rechnerische Überschreitung je Sorte.

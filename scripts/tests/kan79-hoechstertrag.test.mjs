@@ -18,15 +18,15 @@ describe('KAN-79: Hektarhöchstertrag', () => {
       [{ qualitaetsstufe: 'qualitaetswein', mengeKg: 6000 }, { qualitaetsstufe: 'kabinett', mengeKg: 5000 }], 1)
     assert.deepEqual(r, { gesamtFlaecheHaBetrieb: 1, gesamtKg: 11000, maxKg: 10000, ueberschreitungKg: 1000, ueberschritten: true })
   })
-  test('alle Stufen ab Landwein zählen, „Wein“ und leere Stufen nicht', () => {
-    for (const s of ['landwein', 'qualitaetswein', 'kabinett', 'spaetlese', 'auslese', 'beerenauslese', 'eiswein', 'trockenbeerenauslese', 'dac']) {
-      assert.ok(ernte.unterliegtHoechstertrag(s), s)
+  test('§ 23 Abs. 1 WeinG 2009: jede Lese zählt, auch „Wein“ (Sorte/Jahrgang) und ohne Stufe; Erzeugnisse nicht', () => {
+    for (const s of ['wein', 'landwein', 'qualitaetswein', 'kabinett', 'spaetlese', 'auslese', 'beerenauslese', 'eiswein', 'trockenbeerenauslese', 'dac', 'sonstiges', null]) {
+      assert.ok(ernte.unterliegtHoechstertrag(s), String(s))
     }
-    for (const s of ['wein', 'perlwein', 'sonstiges', null]) assert.ok(!ernte.unterliegtHoechstertrag(s), String(s))
+    for (const s of ['perlwein', 'sekt']) assert.ok(!ernte.unterliegtHoechstertrag(s), s)
     const r = ernte.berechneHektarhoechstertrag(
-      [{ qualitaetsstufe: 'wein', mengeKg: 50000 }, { qualitaetsstufe: null, mengeKg: 9000 }, { qualitaetsstufe: 'landwein', mengeKg: 9000 }], 1)
-    assert.equal(r.gesamtKg, 9000)
-    assert.equal(r.ueberschritten, false)
+      [{ qualitaetsstufe: 'wein', mengeKg: 5000 }, { qualitaetsstufe: null, mengeKg: 3000 }, { qualitaetsstufe: 'landwein', mengeKg: 3000 }], 1)
+    assert.equal(r.gesamtKg, 11000)
+    assert.equal(r.ueberschritten, true)
   })
   test('je Sorte: Höchstertrag und Übermenge auch bei Kabinett', () => {
     const z = ernte.ernteZeile({ rebsorte: 'Zweigelt', flaecheHa: 0.5, mengeKg: 6000, mengeHl: null, qualitaetsstufe: 'kabinett' })
@@ -34,7 +34,7 @@ describe('KAN-79: Hektarhöchstertrag', () => {
     assert.equal(z.uebermengeKg, 1000)
   })
   test('Druck (AMA-Seite), Lese-Seite und CSV-Warnung nennen die Rechtsfolge', () => {
-    assert.match(ernte.HOECHSTERTRAG_RECHTSFOLGE, /§ 23 WeinG/)
+    assert.match(ernte.HOECHSTERTRAG_RECHTSFOLGE, /§ 23 Abs\. 3 WeinG 2009\): Die GESAMTE Ernte des Jahrgangs darf nur als Wein ohne Rebsorten- und Jahrgangsbezeichnung/)
     assert.match(quelle('src/app/(dashboard)/reports/(pflicht)/ama/page.tsx'), /HOECHSTERTRAG_RECHTSFOLGE/)
     assert.match(quelle('src/app/(dashboard)/erntemeldung/[id]/ErnteDetailClient.tsx'), /HOECHSTERTRAG_RECHTSFOLGE/)
     assert.match(quelle('src/lib/behoerden/erntemeldung.ts'), /ÜBERSCHRITTEN um .*\$\{HOECHSTERTRAG_RECHTSFOLGE\}/)
