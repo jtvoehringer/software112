@@ -1,6 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { alle } from '@/lib/supabase/alle'
-import { filterAusParams, ladeKontakteSeite, ladeZaehler } from '@/lib/crm/liste'
+import { filterAusParams, ladeKontakteSeite, ladeZaehler, zaehleQuellen, kontaktAusZeile } from '@/lib/crm/liste'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
@@ -28,14 +28,25 @@ export default async function KontaktePage({ searchParams }: { searchParams: Pro
   // Serverseitig gefiltert und seitenweise (17.9.2026, lib/crm/liste.ts):
   // Filter aus der URL, eine Abfrage mit Zähler; Firmen (für das Formular) und
   // Zähler je Segment parallel dazu.
-  const [{ rows: kRaw, gesamt }, zaehler, { data: fRaw }] = await Promise.all([
+  // Quellen (02.10.2026): ohne RPC – nur die Spalte quelle der Kontakte des
+  // Betriebs laden (inaktive nur bei ?inaktiv=1, wie die Liste) und zählen.
+  const quellenAbfrage = (() => {
+    if (!tenantId) return Promise.resolve({ data: [] as R[] })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let q = (supabase.from('kontakte') as any).select('id, quelle').eq('tenant_id', tenantId)
+    if (!filter.inaktiv) q = q.eq('aktiv', true)
+    return alle(q.order('id'))
+  })()
+  const [{ rows: kRaw, gesamt }, zaehler, { data: fRaw }, { data: qRaw }] = await Promise.all([
     ladeKontakteSeite(supabase, tenantId, filter),
     ladeZaehler(supabase, tenantId, 'kontakt'),
     alle(tf((supabase.from('firmen') as any)
       .select('id, name, segment')
       .eq('aktiv', true)
       .order('name').order('id'))),
+    quellenAbfrage,
   ])
+  const quellenZaehler = zaehleQuellen((qRaw ?? []) as R[])
   const ids = kRaw.map(k => k.id as string)
   const [{ data: aRaw }, { data: pRaw }] = ids.length === 0 ? [{ data: [] }, { data: [] }] : await Promise.all([
     tf((supabase.from('aktivitaeten') as any)
@@ -48,37 +59,7 @@ export default async function KontaktePage({ searchParams }: { searchParams: Pro
       .order('aktualisiert_am', { ascending: false })),
   ])
 
-  const kontakte: KontaktRow[] = ((kRaw ?? []) as R[]).map(k => ({
-    id:                    k.id,
-    accountnummer:          k.accountnummer ?? null,
-    vorname:               k.vorname ?? null,
-    nachname:              k.nachname,
-    segment:               k.segment,
-    firma_id:              k.firma_id ?? null,
-    firma_name:            (k.firmen as R | null)?.name ?? null,
-    email:                 k.email ?? null,
-    email_weitere:         (k.email_weitere as string[] | null) ?? [],
-    telefon:               k.telefon ?? null,
-    mobil:                 k.mobil ?? null,
-    ort:                   k.ort ?? null,
-    land:                  k.land ?? null,
-    newsletter:            k.newsletter ?? false,
-    newsletter_bestaetigt: k.newsletter_bestaetigt ?? false,
-    stammkunde:            k.stammkunde ?? false,
-    notizen:               k.notizen ?? null,
-    rabattgruppe_id:       k.rabattgruppe_id ?? null,
-    rabattgruppe_name:     (k.rabattgruppe as R | null)?.name ?? null,
-    rabattgruppe_pct:      (k.rabattgruppe as R | null)?.rabatt_pct ?? null,
-    sonderrabatt_pct:      parseFloat(k.sonderrabatt_pct) || 0,
-    zahlungsziel_tage:     k.zahlungsziel_tage ?? 14,
-    is_lead:               !!(k.is_lead as boolean),
-    telefon_vorwahl:       (k.telefon_vorwahl as string | null) ?? '+43',
-    mobil_vorwahl:         (k.mobil_vorwahl   as string | null) ?? '+43',
-    strasse:               (k.strasse          as string | null) ?? null,
-    plz:                   (k.plz              as string | null) ?? null,
-    aktiv:                 k.aktiv ?? true,
-    erstellt_am:           k.erstellt_am,
-  }))
+  const kontakte: KontaktRow[] = ((kRaw ?? []) as R[]).map(kontaktAusZeile)
 
   const firmen = ((fRaw ?? []) as R[]).map(f => ({
     id: f.id, name: f.name, segment: f.segment,
@@ -147,6 +128,7 @@ export default async function KontaktePage({ searchParams }: { searchParams: Pro
         filter={filter}
         gesamt={gesamt}
         zaehler={zaehler}
+        quellenZaehler={quellenZaehler}
       />
     </div>
   )

@@ -1,6 +1,8 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { notFound } from 'next/navigation'
+import { alle } from '@/lib/supabase/alle'
+import { zaehleQuellen, kontaktAusZeile, KONTAKT_SPALTEN } from '@/lib/crm/liste'
 import type { Metadata } from 'next'
 import KontaktDetailClient from './KontaktDetailClient'
 import type { KontaktRow, AktivitaetRow, PipelineEintragRow, VerkaufRow } from '@/lib/crm/types'
@@ -38,9 +40,11 @@ export default async function KontaktDetailPage({ params }: { params: Promise<{ 
     { data: aRawAll },
     { data: pRaw },
     { data: vRaw },
+    { data: fRaw },
+    { data: rgRaw },
   ] = await Promise.all([
     tf((supabase.from('kontakte') as any)
-      .select('id, accountnummer, vorname, nachname, segment, firma_id, firmen:firma_id(name, segment), email, telefon, telefon_vorwahl, mobil, mobil_vorwahl, strasse, plz, ort, land, newsletter, newsletter_bestaetigt, stammkunde, notizen, aktiv, erstellt_am, is_lead, sonderrabatt_pct, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct), zahlungsziel_tage')
+      .select(`${KONTAKT_SPALTEN}, firmen:firma_id(name, segment)`)
       .eq('id', id)
       .single()),
 
@@ -63,6 +67,17 @@ export default async function KontaktDetailPage({ params }: { params: Promise<{ 
       .eq('kontakt_id', id)
       .eq('aktiv', true)
       .order('datum', { ascending: false })),
+
+    // Auswahllisten für das Bearbeiten-Formular (02.10.2026) – ohne sie setzte
+    // Speichern auf der Detailseite Firma und Rabattgruppe auf leer
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    alle(tf((supabase.from('firmen') as any)
+      .select('id, name, segment')
+      .eq('aktiv', true)
+      .order('name').order('id'))),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    tf((supabase.from('rabattgruppen') as any)
+      .select('id, name, rabatt_pct').order('rabatt_pct')),
   ])
 
   if (!kRaw) notFound()
@@ -71,37 +86,7 @@ export default async function KontaktDetailPage({ params }: { params: Promise<{ 
   const aRaw = ((aRawAll ?? []) as R[]).filter((a: R) => !a.ist_privat || a.erstellt_von === currentUserId)
 
   const k = kRaw as R
-  const kontakt: KontaktRow = {
-    id:                    k.id,
-    accountnummer:          k.accountnummer ?? null,
-    vorname:               k.vorname ?? null,
-    nachname:              k.nachname,
-    segment:               k.segment,
-    firma_id:              k.firma_id ?? null,
-    firma_name:            (k.firmen as R | null)?.name ?? null,
-    email:                 k.email ?? null,
-    email_weitere:         (k.email_weitere as string[] | null) ?? [],
-    telefon:               k.telefon ?? null,
-    mobil:                 k.mobil ?? null,
-    ort:                   k.ort ?? null,
-    land:                  k.land ?? null,
-    newsletter:            k.newsletter ?? false,
-    newsletter_bestaetigt: k.newsletter_bestaetigt ?? false,
-    stammkunde:            k.stammkunde ?? false,
-    notizen:               k.notizen ?? null,
-    rabattgruppe_id:       k.rabattgruppe_id ?? null,
-    rabattgruppe_name:     (k.rabattgruppe as R | null)?.name ?? null,
-    rabattgruppe_pct:      (k.rabattgruppe as R | null)?.rabatt_pct ?? null,
-    sonderrabatt_pct:      parseFloat(k.sonderrabatt_pct) || 0,
-    zahlungsziel_tage:     k.zahlungsziel_tage ?? 14,
-    is_lead:               !!(k.is_lead as boolean),
-    telefon_vorwahl:       (k.telefon_vorwahl as string | null) ?? '+43',
-    mobil_vorwahl:         (k.mobil_vorwahl   as string | null) ?? '+43',
-    strasse:               (k.strasse          as string | null) ?? null,
-    plz:                   (k.plz              as string | null) ?? null,
-    aktiv:                 k.aktiv ?? true,
-    erstellt_am:           k.erstellt_am,
-  }
+  const kontakt: KontaktRow = kontaktAusZeile(k)
   const firmaSegment: string | null = (k.firmen as R | null)?.segment ?? null
 
   const aktivitaeten: AktivitaetRow[] = ((aRaw ?? []) as R[]).map(a => ({
@@ -149,8 +134,18 @@ export default async function KontaktDetailPage({ params }: { params: Promise<{ 
     })),
   }))
 
+  // Quellen-Auswahl im Bearbeiten-Formular (02.10.2026): im Betrieb verwendete Quellen
+  const { data: qRaw } = tenantId
+    ? await alle((supabase.from('kontakte') as any)   // eslint-disable-line @typescript-eslint/no-explicit-any
+      .select('id, quelle').eq('tenant_id', tenantId).not('quelle', 'is', null).order('id'))
+    : { data: [] as R[] }
+  const quellen = zaehleQuellen((qRaw ?? []) as R[]).quellen.map(q => q.quelle)
+
   return <KontaktDetailClient
     kontakt={kontakt}
+    quellen={quellen}
+    firmen={((fRaw ?? []) as R[]).map(f => ({ id: f.id as string, name: f.name as string, segment: f.segment as string }))}
+    rabattgruppen={((rgRaw ?? []) as R[]).map(r => ({ id: r.id as string, name: r.name as string, rabatt_pct: Number(r.rabatt_pct) }))}
     firmaSegment={firmaSegment}
     aktivitaeten={aktivitaeten}
     pipeline={pipeline}

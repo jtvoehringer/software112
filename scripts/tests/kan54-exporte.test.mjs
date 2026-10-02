@@ -65,8 +65,9 @@ const alsObjekt = (kopf, z) => Object.fromEntries(kopf.map((k, i) => [k, z[i]]))
 
 // Kopfzeilen vor der Umstellung (Stand main 2763962) – Reihenfolge und Inhalt müssen bleiben;
 // geändert ist nur die Einheit im Kopf („Sonderrabatt %“ → „Sonderrabatt (%)“ usw.).
+// Kontakte: „Position“ und „Quelle“ (02.10.2026) hinten angehängt, die übrigen Spalten bleiben, wo sie waren.
 const KOPF_ALT = {
-  kontakte: ['Accountnummer', 'Vorname', 'Nachname', 'Segment', 'E-Mail', 'Weitere E-Mails', 'Tel.-Vorwahl', 'Telefon', 'Mobil-Vorwahl', 'Mobil', 'Straße', 'PLZ', 'Ort', 'Land', 'Stammkunde', 'Lead', 'Sonderrabatt %', 'Notizen', 'Angelegt am'],
+  kontakte: ['Accountnummer', 'Vorname', 'Nachname', 'Segment', 'E-Mail', 'Weitere E-Mails', 'Tel.-Vorwahl', 'Telefon', 'Mobil-Vorwahl', 'Mobil', 'Straße', 'PLZ', 'Ort', 'Land', 'Stammkunde', 'Lead', 'Sonderrabatt %', 'Notizen', 'Angelegt am', 'Position', 'Quelle'],
   firmen: ['Accountnummer', 'Firmenname', 'Segment', 'E-Mail', 'Weitere E-Mails', 'Tel.-Vorwahl', 'Telefon', 'Straße', 'PLZ', 'Ort', 'Land', 'UID-Nummer', 'Zahlungsziel (Tage)', 'Lead', 'Sonderrabatt %', 'Notizen'],
   lager: ['Name', 'Jahrgang', 'Rebsorte', 'Kürzel', 'Flaschengröße', 'Bestand (Fl.)', 'VK-Preis (€)', 'Lagerwert (€)'],
   verkauf: ['Datum', 'Rechnungsnummer', 'Accountnummer', 'DebitorNr.', 'Kunde', 'Artikel', 'Menge', 'Einheit', 'Preis (€)', 'Rabatt %', 'Sonderrabatt %', 'USt %', 'Zeilenbetrag (€)', 'Bezahlt', 'Storniert'],
@@ -125,6 +126,7 @@ describe('Kontakte', () => {
     notizen: '=HYPERLINK("http://böse.example";"Klick")\nzweite Zeile',
     // 31.03.2026 22:30 UTC = 01.04.2026 00:30 in Wien (Sommerzeit)
     erstellt_am: '2026-03-31T22:30:00+00:00',
+    position: 'Einkauf', quelle: null,
   }
 
   test('Beispielzeile: Codes unverändert, Ja/Nein, Datum in Wiener Zeit, Sonderrabatt 0,00', () => {
@@ -142,6 +144,8 @@ describe('Kontakte', () => {
     assert.equal(o.Lead, 'Nein', 'is_lead null → Nein wie bisher')
     assert.equal(o['Sonderrabatt (%)'], '0,00', 'ohne Sonderrabatt 0 % wie bisher')
     assert.equal(o['Angelegt am'], '01.04.2026')
+    assert.equal(o.Position, 'Einkauf')
+    assert.equal(o.Quelle, '', 'ohne Quelle = leeres Feld')
   })
 
   test('Formelschutz: Apostroph vor = + - @, Umbrüche → Leerzeichen, Anführungszeichen verdoppelt', () => {

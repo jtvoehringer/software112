@@ -58,11 +58,16 @@ export type KontaktExportZeile = {
   notizen: string | null
   /** kontakte.erstellt_am (timestamptz) – Kalendertag in Wiener Zeit */
   erstelltAm: string | null
+  /** kontakte.position – Funktion der Person (Freitext, 02.10.2026) */
+  position: string | null
+  /** kontakte.quelle – woher der Kontakt kommt (02.10.2026) */
+  quelle: string | null
 }
 
 /** Spalten für kontakte.select('accountnummer, vorname, nachname, segment, email, email_weitere, telefon,
  *  telefon_vorwahl, mobil, mobil_vorwahl, strasse, plz, ort, land, stammkunde, is_lead, sonderrabatt_pct,
- *  notizen, erstellt_am') */
+ *  notizen, erstellt_am, position, quelle') – Position und Quelle (02.10.2026) hinten angehängt, damit
+ *  bestehende Excel-Auswertungen ihre Spaltenpositionen behalten */
 export const SPALTEN_KONTAKTE: CsvSpalte<KontaktExportZeile>[] = [
   { kopf: 'Accountnummer', typ: 'code', wert: z => z.accountnummer },
   { kopf: 'Vorname', typ: 'text', wert: z => z.vorname },
@@ -83,6 +88,8 @@ export const SPALTEN_KONTAKTE: CsvSpalte<KontaktExportZeile>[] = [
   { kopf: 'Sonderrabatt (%)', typ: 'prozent', stellen: STELLEN.prozent, wert: z => z.sonderrabattPct },
   { kopf: 'Notizen', typ: 'text', wert: z => z.notizen },
   { kopf: 'Angelegt am', typ: 'datum', wert: z => z.erstelltAm },
+  { kopf: 'Position', typ: 'text', wert: z => z.position },
+  { kopf: 'Quelle', typ: 'text', wert: z => z.quelle },
 ]
 
 export function kontaktExportZeile(r: R): KontaktExportZeile {
@@ -107,6 +114,8 @@ export function kontaktExportZeile(r: R): KontaktExportZeile {
     sonderrabattPct: zahlOderNull(r.sonderrabatt_pct) ?? 0,
     notizen: r.notizen ?? null,
     erstelltAm: r.erstellt_am ?? null,
+    position: r.position ?? null,
+    quelle: r.quelle ?? null,
   }
 }
 

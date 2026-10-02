@@ -41,7 +41,7 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
     { data: vRaw },
   ] = await Promise.all([
     tf((supabase.from('firmen') as any)
-      .select('id, accountnummer, name, segment, strasse, plz, ort, land, email, telefon, telefon_vorwahl, mobil, mobil_vorwahl, website, uid_nummer, betrieb_nr, debitor_nr, kreditlimit, zahlungsziel_tage, skonto_pct, skonto_tage, waehrung, notizen, aktiv, is_lead, ist_kunde, ist_lieferant, sonderrabatt_pct, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct)')
+      .select('id, accountnummer, name, segment, strasse, plz, ort, land, email, email_weitere, telefon, telefon_vorwahl, mobil, mobil_vorwahl, website, uid_nummer, betrieb_nr, debitor_nr, kreditlimit, zahlungsziel_tage, skonto_pct, skonto_tage, waehrung, notizen, aktiv, is_lead, ist_kunde, ist_lieferant, sonderrabatt_pct, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct)')
       .eq('id', id)
       .single()),
 
