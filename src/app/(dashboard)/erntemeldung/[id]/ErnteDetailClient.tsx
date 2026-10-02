@@ -5,6 +5,7 @@ import { upsertErnteParzelle, stornoErnteParzelle, endgueltigLoeschenLese, creat
 import { qualitaetLabel, LESE_QUALITAETEN, mitGespeichertemWert } from '@/lib/wein/qualitaet'
 import { kmwZuQualitaet } from '@/lib/weinqualitaet'
 import type { ErnteParzelle, WeingartenOpt, GSTOpt, AMAMeldung, HektarhoechstertragStatus } from './page'
+import { HOECHSTERTRAG_RECHTSFOLGE } from '@/lib/behoerden/hoechstertragText'
 import Link from '@/components/ui/Link'
 import AmaMeldungKarte from './AmaMeldungKarte'
 import { fmtHa, fmtZahl, fmtProzent, fmtNum, zahlAus } from '@/lib/format'
@@ -941,8 +942,8 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
         )}
       </div>
 
-      {/* Hektarhöchstertrag-Prüfung (Qualitätswein, betriebsweit) – reine Info-/Warnfunktion */}
-      {hektarhoechstertrag.gesamtKgQualitaetswein > 0 && (
+      {/* Hektarhöchstertrag-Prüfung (alle Stufen ab Landwein, betriebsweit – KAN-79) – reine Info-/Warnfunktion */}
+      {hektarhoechstertrag.gesamtKg > 0 && (
         <div className={`rounded-xl px-4 py-3 text-sm border ${
           hektarhoechstertrag.ueberschritten
             ? 'bg-s112-err-bg border-s112-err/30 text-s112-err-fg'
@@ -951,7 +952,7 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
           <div className="flex items-center justify-between flex-wrap gap-2">
             <span className="inline-flex items-start gap-1.5">
               {hektarhoechstertrag.ueberschritten && <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />}
-              <span>Qualitätswein betriebsweit: <strong>{fmtNum(hektarhoechstertrag.gesamtKgQualitaetswein)} kg</strong>
+              <span>Landwein, Qualitäts- und Prädikatswein betriebsweit: <strong>{fmtNum(hektarhoechstertrag.gesamtKg)} kg</strong>
               {' '}von max. <strong>{fmtNum(hektarhoechstertrag.maxKg)} kg</strong>
               {' '}(10.000 kg/ha × {fmtHa(hektarhoechstertrag.gesamtFlaecheHaBetrieb)} Gesamtfläche lt. AMA)
               </span>
@@ -962,8 +963,11 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
               </span>
             )}
           </div>
+          {hektarhoechstertrag.ueberschritten && (
+            <p className="text-xs mt-1 font-medium">{HOECHSTERTRAG_RECHTSFOLGE}.</p>
+          )}
           <p className="text-xs mt-1 opacity-75">
-            Hinweis, keine rechtliche Prüfung – betrifft nur als „Qualitätswein" erfasste Lesedaten.
+            Hinweis, keine rechtliche Prüfung – zählt alle Lesedaten ab Landwein (Hektarhöchstertrag nach § 23 WeinG), nicht „Wein“.
           </p>
         </div>
       )}
