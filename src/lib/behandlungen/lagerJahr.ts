@@ -13,6 +13,12 @@
 // Nachtrag 02.10.2026 (Jörgen: „ja, mit Anmerkung ‚Inventurkorrektur‘“): die Inventurkorrektur-Anteile von Zukäufen
 // und Verbräuchen kommen getrennt mit (korrekturPlus/korrekturMinus, beide als positive Menge) – die Tabellen zeigen
 // sie unter der Summe als „davon Inventurkorrektur“.
+// Nachtrag 02.10.2026 (Jörgen: „Wenn der Anfangsbestand zum 01. Jän 0 war, dann gibt es keinen; das heißt unterjährig
+// ist immer ein Zukauf zu machen. Außer der Betrieb startet mit software:112 unterjährig, dann ist der Anfangsbestand
+// der Startpunkt (kein Zukauf).“): im Startjahr des Betriebs (Jahr von tenants.created_at) – oder ohne bekanntes
+// Startjahr – zählen unterjährige Anfangsbestand-Buchungen wie bisher zum Anfangsbestand. In jedem anderen Jahr zählt
+// nur eine Buchung mit Datum 1.1. zum Anfangsbestand; nach dem 1.1. gebuchte zählen zu den Zukäufen und kommen getrennt mit (anfangsbestandUnterjaehrig) – die Tabellen zeigen sie als „davon
+// Anfangsbestand“. Der Saldo ändert sich dadurch nicht.
 // Isomorph, ohne Datenbank und ohne Imports außer lib/csv (node:test: scripts/tests/kan173-lager-jahr.test.mjs).
 
 import { runden } from '@/lib/csv'
@@ -23,6 +29,8 @@ export type JahresBewegung = {
   korrekturPlus: number
   /** davon Inventurkorrekturen nach unten (in verbrauch enthalten, positive Menge) */
   korrekturMinus: number
+  /** davon unterjährig gebuchte Anfangsbestände außerhalb des Startjahrs (in zukauf enthalten, Nachtrag 02.10.2026) */
+  anfangsbestandUnterjaehrig: number
 }
 
 /** Gezählte Buchung in der Lager-Einheit (Abgänge negativ); typ = anfangsbestand | einkauf | korrektur */
@@ -33,13 +41,20 @@ export function jahresBewegung(
   verbrauch: readonly { datum: string; menge: number }[],
   jahr: number,
   stellen = 3,
+  /** Startjahr des Betriebs (Jahr von tenants.created_at); null/undefined = unbekannt → wie im Startjahr */
+  startJahr?: number | null,
 ): JahresBewegung {
   const beginn = `${String(jahr).padStart(4, '0')}-01-01`
-  let vorher = 0, anfang = 0, zukauf = 0, ab = 0, korrPlus = 0, korrMinus = 0
+  // Unterjährige Anfangsbestände sind nur im Startjahr der Startpunkt, sonst ein Zukauf
+  const imStartjahr = startJahr == null || jahr === startJahr
+  let vorher = 0, anfang = 0, zukauf = 0, ab = 0, korrPlus = 0, korrMinus = 0, anfangUnterjaehrig = 0
   for (const b of buchungen) {
     if (String(b.datum).slice(0, 10) < beginn) vorher += b.menge
-    else if (b.typ === 'anfangsbestand') anfang += b.menge
-    else if (b.menge > 0) {
+    else if (b.typ === 'anfangsbestand' && (imStartjahr || String(b.datum).slice(0, 10) === beginn)) anfang += b.menge
+    else if (b.typ === 'anfangsbestand') {
+      zukauf += b.menge
+      anfangUnterjaehrig += b.menge
+    } else if (b.menge > 0) {
       zukauf += b.menge
       if (b.typ === 'korrektur') korrPlus += b.menge
     } else {
@@ -57,5 +72,6 @@ export function jahresBewegung(
   return {
     jahr, anfangsbestand, zukauf: zukaeufe, verbrauch: verbraeuche, saldo: runden(anfangsbestand + zukaeufe - verbraeuche, stellen),
     korrekturPlus: runden(korrPlus, stellen), korrekturMinus: runden(korrMinus, stellen),
+    anfangsbestandUnterjaehrig: runden(anfangUnterjaehrig, stellen),
   }
 }

@@ -22,11 +22,18 @@ function DavonKorrektur({ menge, vorzeichen }: { menge: number; vorzeichen: '+' 
   return <span className="block text-[10px] leading-tight text-s112-tertiary">davon Inventurkorrektur {vorzeichen}{zahl(menge)}</span>
 }
 
+// Nachtrag KAN-173 (02.10.2026, Jörgen): unterjährig gebuchte Anfangsbestände außerhalb des Startjahrs des Betriebs
+// zählen als Zukauf – klein unter der Summe, nur wenn ≠ 0
+function DavonAnfangsbestand({ menge }: { menge: number }) {
+  if (!menge) return null
+  return <span className="block text-[10px] leading-tight text-s112-tertiary">davon Anfangsbestand {menge < 0 ? '−' : '+'}{zahl(Math.abs(menge))}</span>
+}
+
 export function LagerJahrKopf({ jahr, klasse = th }: { jahr: number; klasse?: string }) {
   return (
     <>
-      <th className={`${klasse} ${breit} border-l border-s112-border/60`} title={`Bestand zum 1.1.${jahr} plus im Jahr gebuchte Anfangsbestände`}>Anfangsbestand</th>
-      <th className={`${klasse} ${breit}`} title={`Einkäufe und Inventurkorrekturen nach oben seit 1.1.${jahr}`}>Zukäufe</th>
+      <th className={`${klasse} ${breit} border-l border-s112-border/60`} title={`Bestand zum 1.1.${jahr} (im Startjahr des Betriebs plus im Jahr gebuchte Anfangsbestände)`}>Anfangsbestand</th>
+      <th className={`${klasse} ${breit}`} title={`Einkäufe, Inventurkorrekturen nach oben und unterjährige Anfangsbestände seit 1.1.${jahr}`}>Zukäufe</th>
       <th className={`${klasse} ${breit}`} title={`Verbrauch aus Maßnahmen und Inventurkorrekturen nach unten seit 1.1.${jahr}`}>Verbräuche</th>
       <th className={klasse} title="Aktueller Bestand">Saldo</th>
     </>
@@ -50,6 +57,7 @@ export function LagerJahrZellen({ lager, klasse = td }: { lager: StammLager | nu
       <td className={`${klasse} ${breit} text-s112-muted`}>
         {lager.zukauf ? `+${zahl(lager.zukauf)}` : '0'}
         <DavonKorrektur menge={lager.korrekturPlus} vorzeichen="+" />
+        <DavonAnfangsbestand menge={lager.anfangsbestandUnterjaehrig} />
       </td>
       <td className={`${klasse} ${breit} text-s112-muted`}>
         {lager.verbrauch ? `−${zahl(lager.verbrauch)}` : '0'}
@@ -70,6 +78,8 @@ export function LagerJahrHinweis({ jahr }: { jahr: number }) {
     <p className="mt-2 text-xs text-s112-muted">
       Lagerbewegung im Geschäftsjahr {jahr} (seit 1.1.) in der Lager-Einheit; Saldo = aktueller Bestand wie unter „Bestand &amp; Bewegungen“.
       Zukäufe und Verbräuche enthalten Inventurkorrekturen nach oben bzw. unten – ausgewiesen als „davon Inventurkorrektur“.
+      Ein Anfangsbestand gilt nur zum 1.1. bzw. im Startjahr des Betriebs – nach dem 1.1. gebuchte Anfangsbestände zählen
+      sonst als Zukauf („davon Anfangsbestand“).
       <span className="md:hidden"> Anfangsbestand, Zukäufe und Verbräuche auf breiteren Bildschirmen.</span>
     </p>
   )

@@ -15,7 +15,9 @@ import { BETRIEBSMITTEL_GRUPPEN, GRUPPE_LABEL, bmKonto, type BetriebsmittelGrupp
 import { MASSNAHMEN_ART_LABEL } from '@/lib/behandlungen/arten'
 import { summeFlaecheHa } from '@/lib/behandlungen/massnahmeMengen'
 import { wienJetzt } from '@/lib/datum/wien'
+import { wienDatum } from '@/lib/csv'
 import { stammLager, type StammLager } from './LagerJahrSpalten'
+import { StartJahrRahmen } from './AnfangsbestandHinweis'
 import { riedText } from '@/lib/behandlungen/rieden'
 
 export const metadata: Metadata = { title: 'Betriebsmittel – software:112' }
@@ -193,6 +195,13 @@ export default async function LagerPage({
   // KAN-173 (01.10.2026): die Stammdaten-Tabellen zeigen je Mittel Anfangsbestand | Zukäufe | Verbräuche | Saldo des
   // laufenden Geschäftsjahrs (Kalenderjahr, Wiener Zeit) – dafür braucht auch der jeweilige Stammdaten-Tab den Verbrauch.
   const jahr = wienJetzt().getFullYear()
+  // Nachtrag 02.10.2026 (Jörgen): unterjährige Anfangsbestände zählen nur im Startjahr des Betriebs (Jahr von
+  // tenants.created_at, Wiener Zeit) zum Anfangsbestand, sonst zu den Zukäufen – nur lesen
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: tenantStart } = tenantId ? await (supabase.from('tenants') as any)
+    .select('created_at').eq('id', tenantId).maybeSingle() : { data: null }
+  const startDatum = wienDatum(tenantStart?.created_at)
+  const startJahr = startDatum ? Number(startDatum.slice(0, 4)) : null
   const brauchtPsm = zeigtBestand || tab === 'stammdaten'
   const brauchtDuenger = zeigtBestand || tab === 'duengemittel'
   const brauchtBm = zeigtBestand || tab === 'weinbehandlung' || tab === 'produktion'
@@ -236,7 +245,7 @@ export default async function LagerPage({
 
   // Lagerkonto je PSM (mit Jahressicht, KAN-173); null ohne Buchung und Verbrauch
   const psmKonto = (id: string): LagerKonto | null => bewegungenByPsm.has(id) || verbrauchByPsm.has(id)
-    ? lagerKonto(bewegungenByPsm.get(id) ?? [], verbrauchByPsm.get(id) ?? [], undefined, jahr)
+    ? lagerKonto(bewegungenByPsm.get(id) ?? [], verbrauchByPsm.get(id) ?? [], undefined, jahr, startJahr)
     : null
 
   const aktivePsm = psms
@@ -278,7 +287,7 @@ export default async function LagerPage({
 
   // Lagerkonto je Düngemittel (mit Jahressicht, KAN-173); Lager-Einheit ohne Buchungen: Einheit des Düngemittels
   const duengerKonto = (d: AR): LagerKonto | null => bewegungenByDuenger.has(d.id) || verbrauchByDuenger.has(d.id)
-    ? lagerKonto(bewegungenByDuenger.get(d.id) ?? [], verbrauchByDuenger.get(d.id) ?? [], d.einheit ?? null, jahr)
+    ? lagerKonto(bewegungenByDuenger.get(d.id) ?? [], verbrauchByDuenger.get(d.id) ?? [], d.einheit ?? null, jahr, startJahr)
     : null
 
   // Nur Düngemittel mit Bewegungen ODER Verbrauch anzeigen (analog PSM)
@@ -365,7 +374,7 @@ export default async function LagerPage({
     if (!bmBewegungen.has(m.id) && !bmVerbrauch.has(m.id)) return null
     const bewegungen = bmBewegungen.get(m.id) ?? []
     return bmKonto(bewegungen.map(b => ({ datum: b.datum, menge: b.menge, einheit: b.einheit, storniert: !!b.storniert_am, typ: b.typ })),
-      bmVerbrauch.get(m.id) ?? [], m.einheit, jahr)
+      bmVerbrauch.get(m.id) ?? [], m.einheit, jahr, startJahr)
   }
   const bmStamm = (g: BetriebsmittelGruppe): BmStamm[] => bmAlle.filter(m => m.gruppe === g).map(m => ({
     id: m.id, name: m.name, einheit: m.einheit, preis_pro_einheit: m.preis_pro_einheit == null ? null : Number(m.preis_pro_einheit),
@@ -448,6 +457,7 @@ export default async function LagerPage({
       ) : tab === 'weinbehandlung' || tab === 'produktion' ? (
         <BetriebsmittelStammClient gruppe={tab} mittel={bmStamm(tab)} jahr={jahr} kategorien={kategorien} writeOk={writeOk} adminOk={adminOk} />
       ) : (
+        <StartJahrRahmen startJahr={startJahr}>
         <div className="space-y-8">
           <div>
             <h2 className="text-sm font-semibold text-s112-text-2 uppercase tracking-wide mb-3">Pflanzenschutzmittel</h2>
@@ -475,6 +485,7 @@ export default async function LagerPage({
             </div>
           ))}
         </div>
+        </StartJahrRahmen>
       )}
     </div>
   )
