@@ -696,7 +696,8 @@
 "storniert_am",
 "storniert_von",
 "storniert_von_name",
-"storno_grund"
+"storno_grund",
+"weinart"
 ],
 "grundstuecke": [
 "id",
@@ -735,6 +736,46 @@
 "svs_zurechnung",
 "aktiv",
 "deaktiviert_am"
+],
+"kat_buchungsart": [
+"code",
+"bezeichnung",
+"richtung",
+"einheit",
+"bsm",
+"bsm_code",
+"vorlaeufig",
+"reihenfolge"
+],
+"kat_erzeugnis": [
+"code",
+"bezeichnung",
+"bsm_relevant",
+"vorlaeufig",
+"reihenfolge"
+],
+"kat_farbe": [
+"code",
+"bezeichnung",
+"vorlaeufig"
+],
+"kat_land": [
+"iso2",
+"name_de",
+"eu"
+],
+"kat_qualitaetsstufe": [
+"code",
+"bezeichnung",
+"rang",
+"bsm_spalte",
+"vorlaeufig",
+"reihenfolge"
+],
+"katalog_mapping": [
+"katalog",
+"intern",
+"code"
 ],
 "keller_behandlungen": [
 "id",

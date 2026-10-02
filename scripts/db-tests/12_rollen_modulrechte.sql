@@ -145,6 +145,10 @@ BEGIN
     RETURN v_z;
   ELSIF p_tab IN ('rebsorten', 'release_notes') THEN
     RETURN pg_temp.s112_zeile(p_tab, NULL);
+  ELSIF p_tab IN ('kat_buchungsart', 'kat_erzeugnis', 'kat_farbe', 'kat_land', 'kat_qualitaetsstufe', 'katalog_mapping') THEN
+    -- KAN-39: Kataloge per Migration befüllt (CHECKs auf die Codes) – vorhandene Zeile
+    EXECUTE format('SELECT to_jsonb(x.*) FROM public.%I x LIMIT 1', p_tab) INTO v_z;
+    RETURN v_z;
   ELSIF p_tab = 'keller_freigaben' THEN
     RETURN pg_temp.s112_zeile(p_tab, NULL, jsonb_build_object('eigentuemer_tenant_id', p_m, 'nutzer_tenant_id', p_b));
   ELSIF p_tab = 'module_flags' THEN

@@ -125,6 +125,8 @@ BEGIN
         SELECT to_jsonb(x.*) INTO v_z FROM public.rebsorten x WHERE x.aktiv ORDER BY x.id LIMIT 1;
       ELSIF r.tabelle = 'svs_parameter' THEN
         SELECT to_jsonb(x.*) INTO v_z FROM public.svs_parameter x ORDER BY x.jahr LIMIT 1;
+      ELSIF r.tabelle IN ('kat_buchungsart', 'kat_erzeugnis', 'kat_farbe', 'kat_land', 'kat_qualitaetsstufe', 'katalog_mapping') THEN   -- KAN-39: Kataloge (per Migration befüllt)
+        EXECUTE format('SELECT to_jsonb(x.*) FROM public.%I x LIMIT 1', r.tabelle) INTO v_z;
       ELSIF r.tabelle = 'release_notes' THEN
         v_z := pg_temp.s112_zeile('release_notes', NULL,
                  jsonb_build_object('version', 's112test', 'titel', 'S112TEST Zwei-Faktor', 'aktiv', true));
