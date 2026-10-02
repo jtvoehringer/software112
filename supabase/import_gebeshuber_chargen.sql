@@ -1,3 +1,9 @@
+-- Hinweis KAN-130 Etappe 3 (02.10.2026): Dieses Skript ist bereits gelaufen (DKB-Import 16.09.2026) – nicht
+-- erneut ausführen. Künftige SQL-Importskripte für Chargen geben zum Mostgewicht die gemessene Einheit mit:
+-- Spalte mostgewicht_einheit (Standard 'kmw'; 'oechsle', wenn die Quelle °Oe liefert) und den Messwert in
+-- kmw bzw. oechsle – die jeweils andere Spalte rechnet der Trigger b_mostgewicht (KAN-128, Rechenregeln 1–4).
+-- Beispiel: INSERT INTO weinausbau (…, kmw, mostgewicht_einheit, …) VALUES (…, 17.4, 'kmw', …)
+--          bzw.  INSERT INTO weinausbau (…, oechsle, mostgewicht_einheit, …) VALUES (…, 84, 'oechsle', …)
 -- Gebeshuber: 77 Chargen
 WITH z AS (
   INSERT INTO transaktionszaehler (tenant_id, typ, prefix, zaehler, jahr, stellen)

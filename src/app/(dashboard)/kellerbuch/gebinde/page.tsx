@@ -20,6 +20,8 @@ import { ladeGebindeverzeichnis } from '@/lib/behoerden/gebindeverzeichnis'
 import DruckKnopf from '../_behoerden/DruckKnopf'
 import ZeitraumCsvKnopf from '../_behoerden/ZeitraumCsvKnopf'
 import { QUALITAET_OPTS, qualitaetLabel } from '@/lib/wein/qualitaet'
+import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
+import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
 
 export const metadata: Metadata = { title: 'Gebinde – software:112' }
 export const dynamic = 'force-dynamic'
@@ -62,7 +64,7 @@ export default async function GebindePage({
     tenantId ? ladeGebindeverzeichnis(supabase, tenantId) : Promise.resolve({ eintraege: [], zeilen: [], warnungen: [] }),
     ladeKellergemeinschaft(supabase, tenantId),
     tf((supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, kmw, menge_liter, qualitaetsstufe, behaelter_id, behaelter:behaelter_id(name), notizen, einstandspreis_pro_liter, referenz_altsystem, transaktions_nr, aktiv')
+      .select('id, name, jahrgang, kmw, oechsle, mostgewicht_einheit, menge_liter, qualitaetsstufe, behaelter_id, behaelter:behaelter_id(name), notizen, einstandspreis_pro_liter, referenz_altsystem, transaktions_nr, aktiv')
       .eq('ist_eroeffnungsbestand', true)
       .eq('aktiv', true)
       .order('jahrgang', { ascending: false })),
@@ -406,9 +408,8 @@ export default async function GebindePage({
                     defaultValue={new Date().getFullYear() - 1} className={inputCls} />
                 </div>
                 <div>
-                  <label className={labelCls}>KMW (°KMW)</label>
-                  <input aria-label="KMW (°KMW)" name="kmw" type="number" step="0.1" min={0} max={50}
-                    placeholder="z.B. 17.5" className={inputCls} />
+                  {/* KAN-130 Etappe 3 (02.10.2026): Mostgewicht in °KMW oder °Oe – bevorzugte Einheit des Betriebs zuerst */}
+                  <MostgewichtEingabe name="mostgewicht" />
                 </div>
                 <div>
                   <label className={labelCls}>Menge (Liter) *</label>
@@ -453,7 +454,7 @@ export default async function GebindePage({
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">TXN</th>
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Wein</th>
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">JG</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-s112-text-2">KMW</th>
+                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-s112-text-2">Mostgewicht</th>
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-s112-text-2">Menge</th>
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-s112-text-2">Einstand/L</th>
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-s112-text-2">Gebinde</th>
@@ -469,7 +470,7 @@ export default async function GebindePage({
                     <td className="px-4 py-2.5 font-medium text-s112-text">{e.name}</td>
                     <td className="px-4 py-2.5 text-s112-text-2">{e.jahrgang ?? '–'}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-s112-text-2">
-                      {e.kmw ? `${fmtNum(parseFloat(e.kmw))} °KMW` : '–'}
+                      <MostgewichtAnzeige wert={{ kmw: e.kmw, oechsle: e.oechsle, einheit: e.mostgewicht_einheit }} nurBevorzugt />
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-s112-blue-700 font-medium">
                       {fmtLiter(parseFloat(e.menge_liter))}

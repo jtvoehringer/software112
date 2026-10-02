@@ -17,6 +17,7 @@ import {
 } from '@/lib/kellerbuch/storno'
 import { KORREKTUR_NACH_OBEN_HINWEIS, KORREKTUR_NACH_UNTEN_HINWEIS } from '@/lib/kellerbuch/hinweise'
 import { GRUND_BEARBEITET, stornoGrundFehler } from '@/lib/storno/grund'
+import { mostgewichtAusFormular, mostgewichtSpalten } from '@/lib/wein/mostgewichtFormular'
 import { mostgewichtNeu, mostgewichtZusammenfuehren, teilweiseVermerk, umzugMomentaufnahme, type Anteil } from '@/lib/kellerbuch/mostgewichtKette'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -68,8 +69,13 @@ async function insertEroeffnungsbestand(formData: FormData): Promise<string | nu
   const qualitaetsstufe = (formData.get('qualitaetsstufe') as string) || null
   const qualitaetUnzulaessig = qualitaetFehler('charge', qualitaetsstufe)
   if (qualitaetUnzulaessig) return qualitaetUnzulaessig
+  // KAN-130 Etappe 3 (02.10.2026): Mostgewicht aus Messwert und Einheit (MostgewichtEingabe, °KMW oder °Oe;
+  // übergangsweise das alte Feld kmw als °KMW) – beide Werte serverseitig gerechnet und vor der
+  // Transaktionsnummer geprüft. Die Qualitätsstufe bleibt, wie gewählt (Rechenregel 6).
+  const mostgewicht = mostgewichtAusFormular(formData, 'mostgewicht', { altesFeld: 'kmw' })
+  if (!mostgewicht.ok) return mostgewicht.fehler
 
-  const epRaw = dezimal(formData.get('einstandspreis_pro_liter') as string) ?? ''
+  const epRaw =dezimal(formData.get('einstandspreis_pro_liter') as string) ?? ''
   // Transaktionsnummer vergeben
   const { data: txnEb } = await (supabase.rpc as any)('get_next_transaktionsnr', { p_tenant_id: tenantId, p_typ: 'eroeffnung' })
 
@@ -77,7 +83,7 @@ async function insertEroeffnungsbestand(formData: FormData): Promise<string | nu
     tenant_id:            tenantId,
     name:                 formData.get('name') as string,
     jahrgang:             parseInt(dezimal(formData.get('jahrgang') as string)) || null,
-    kmw:                  parseFloat(dezimal(formData.get('kmw') as string)) || null,
+    ...mostgewichtSpalten(mostgewicht.wert, 'kmw'),   // kmw, oechsle, mostgewicht_einheit
     menge_liter:          menge,
     anfangsbestand_liter: menge,
     qualitaetsstufe:      qualitaetsstufe,
@@ -147,12 +153,16 @@ async function eroeffnungsbestandSpeichern(id: string, formData: FormData): Prom
   const qualitaetsstufe = (formData.get('qualitaetsstufe') as string) || null
   const qualitaetUnzulaessig = qualitaetFehler('charge', qualitaetsstufe)
   if (qualitaetUnzulaessig) throw new AktionsFehler(qualitaetUnzulaessig)
+  // KAN-130 Etappe 3 (02.10.2026): Mostgewicht wie beim Anlegen – geschrieben nur, wenn das Formular es
+  // mitschickt (ein Formular ohne Feld lässt das gespeicherte stehen); leer = beide Spalten NULL.
+  const mostgewicht = mostgewichtAusFormular(formData, 'mostgewicht', { altesFeld: 'kmw' })
+  if (!mostgewicht.ok) throw new AktionsFehler(mostgewicht.fehler)
 
   const epRaw2 = dezimal(formData.get('einstandspreis_pro_liter') as string) ?? ''
   const payload: R = {
     name:            formData.get('name') as string,
     jahrgang:        parseInt(dezimal(formData.get('jahrgang') as string)) || null,
-    kmw:             parseFloat(dezimal(formData.get('kmw') as string)) || null,
+    ...(mostgewicht.uebermittelt ? mostgewichtSpalten(mostgewicht.wert, 'kmw') : {}),
     qualitaetsstufe: qualitaetsstufe,
     notizen:         (formData.get('notizen') as string) || null,
     einstandspreis_pro_liter: epRaw2 ? parseFloat(epRaw2) : null,
