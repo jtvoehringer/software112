@@ -7,7 +7,8 @@ import { Wine } from 'lucide-react'
 import { updateFuellung } from '../../../actions'
 import { KN_CODES } from '@/lib/wein/zolltarif'
 import { HERKUNFT_ORDER, HERKUNFT_LABEL, herkunftOptionen, istNiedrigerAls as istHerkunftNiedriger } from '@/lib/herkunft'
-import { QUALITAET_LABEL, istNiedrigerAls as istQualitaetNiedriger } from '@/lib/weinqualitaet'
+import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
+import { istAufwertung } from '@/lib/wein/qualitaetsrang'
 import { FUELLUNG_QUALITAETEN, mitGespeichertemWert } from '@/lib/wein/qualitaet'
 import { ladeCustomWeinbaugebiete } from '../../../../weinbaugebiete/actions'
 import HerkunftCodeSelect from '@/components/weinbaugebiete/HerkunftCodeSelect'
@@ -142,7 +143,7 @@ export default async function EditFuellungPage({
   // (verhindert Datenverlust beim Speichern).
   const qualitaetOptionsEdit = (() => {
     const basis = waCeilingQualitaet
-      ? QUALITAETEN.filter(q => q.value === waCeilingQualitaet || q.value === 'sonstiges' || istQualitaetNiedriger(q.value, waCeilingQualitaet))
+      ? QUALITAETEN.filter(q => q.value === 'sonstiges' || !istAufwertung(waCeilingQualitaet, q.value))   // KAN-80: wie der Server
       : QUALITAETEN
     if (f.qualitaet && !basis.some(q => q.value === f.qualitaet)) {
       const bestehend = QUALITAETEN.find(q => q.value === f.qualitaet)

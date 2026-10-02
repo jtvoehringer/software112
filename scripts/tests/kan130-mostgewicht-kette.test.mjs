@@ -120,7 +120,7 @@ describe('Verdrahtung (Quelltext)', () => {
     const q = quelle('src/lib/kellerbuch/storno.ts')
     assert.match(q, /kmw_vorher, kmw_nachher, oechsle_vorher, oechsle_nachher, mostgewicht_einheit_vorher, mostgewicht_einheit_nachher'/)
     assert.match(q, /ziel_kmw_vorher, ziel_oechsle_vorher, ziel_mostgewicht_einheit_vorher/)
-    assert.match(q, /notizen, kmw, oechsle, mostgewicht_einheit'\)/)
+    assert.match(q, /notizen, kmw, oechsle, mostgewicht_einheit[,']/)
     assert.match(q, /umzugRuecknahme\(z, c\)/)
     assert.match(q, /verschnittRuecknahme\(v\)/)
   })

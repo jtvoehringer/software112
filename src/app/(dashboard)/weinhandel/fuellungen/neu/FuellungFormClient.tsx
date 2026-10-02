@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import Link from '@/components/ui/Link'
 import { KN_CODES } from '@/lib/wein/zolltarif'
 import { HERKUNFT_ORDER, HERKUNFT_LABEL, herkunftOptionen, istNiedrigerAls as istHerkunftNiedriger } from '@/lib/herkunft'
-import { QUALITAET_LABEL, istNiedrigerAls as istQualitaetNiedriger } from '@/lib/weinqualitaet'
+import { QUALITAET_LABEL } from '@/lib/weinqualitaet'
+import { istAufwertung } from '@/lib/wein/qualitaetsrang'
 import { FUELLUNG_QUALITAETEN } from '@/lib/wein/qualitaet'
 import { AlertTriangle, CheckCircle2, Droplet } from 'lucide-react'
 import HerkunftCodeSelect from '@/components/weinbaugebiete/HerkunftCodeSelect'
@@ -119,7 +120,7 @@ export default function FuellungFormClient({
     const aktuell = selectedCharge?.qualitaetsstufe
     if (!aktuell) return QUALITAETEN
     return QUALITAETEN.filter(q =>
-      q.value === aktuell || q.value === 'sonstiges' || istQualitaetNiedriger(q.value, aktuell)
+      q.value === 'sonstiges' || !istAufwertung(aktuell, q.value)   // KAN-80: wie der Server
     )
   }, [selectedCharge])
 

@@ -287,7 +287,8 @@ describe('Listen in lib/wein/qualitaet.ts', () => {
   test('Lese: genau Wein bis Trockenbeerenauslese und Eiswein, aufsteigend nach Rang, Labels aus QUALITAET_OPTS', () => {
     assert.deepEqual(werte(LESE_QUALITAETEN), [
       'wein', 'landwein', 'qualitaetswein', 'kabinett', 'spaetlese',
-      'auslese', 'beerenauslese', 'trockenbeerenauslese', 'eiswein',
+      // KAN-74: Eiswein steht auf der Stufe der Beerenauslese, also vor der TBA
+      'auslese', 'beerenauslese', 'eiswein', 'trockenbeerenauslese',
     ])
     for (let i = 1; i < LESE_QUALITAETEN.length; i++) {
       assert.ok(LESE_QUALITAETEN[i - 1].rang <= LESE_QUALITAETEN[i].rang, 'Rangfolge')
@@ -432,6 +433,7 @@ describe('(3) übrige Qualitätslisten', () => {
     const erlaubt = new Set([
       path.join('src', 'lib', 'wein', 'qualitaet.ts'),
       path.join('src', 'lib', 'weinqualitaet.ts'),
+      path.join('src', 'lib', 'wein', 'qualitaetsrang.ts'),   // KAN-74: die eine Rangfolge
       path.join('src', 'lib', 'wein', 'bki_kuerzel.ts'),
     ])
     const funde = []

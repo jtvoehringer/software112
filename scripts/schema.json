@@ -1561,6 +1561,7 @@
 ],
 "verschneidungen": [
 "id",
+"ziel_jahrgang_vorher",
 "tenant_id",
 "datum",
 "ziel_weinausbau_id",
