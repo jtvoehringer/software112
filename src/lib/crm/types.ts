@@ -234,6 +234,10 @@ export type KontaktRow = {
   // verkaufRechnungPdf.tsx). Ersetzt das frühere, betriebsweite
   // tenant_einstellungen.rechnung_zahlungsziel (6.8.2026).
   zahlungsziel_tage: number
+  /** Funktion der Person (Freitext, ≤ 120 Zeichen, 02.10.2026) */
+  position?: string | null
+  /** Woher der Kontakt kommt (≤ 80 Zeichen, Auswahl aus den Quellen des Betriebs, 02.10.2026) */
+  quelle?: string | null
   aktiv: boolean
   erstellt_am: string
 }

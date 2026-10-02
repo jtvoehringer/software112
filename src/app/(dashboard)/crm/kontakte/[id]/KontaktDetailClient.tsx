@@ -386,9 +386,11 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
 }
 
 export default function KontaktDetailClient({
-  kontakt, firmaSegment, aktivitaeten, pipeline, verkaeufe = [], writeOk,
+  kontakt, quellen = [], firmaSegment, aktivitaeten, pipeline, verkaeufe = [], writeOk,
 }: {
   kontakt: KontaktRow
+  /** im Betrieb verwendete Quellen (Auswahl im Bearbeiten-Formular) */
+  quellen?: string[]
   firmaSegment: string | null
   aktivitaeten: AktivitaetRow[]
   pipeline: PipelineEintragRow[]
@@ -540,6 +542,7 @@ export default function KontaktDetailClient({
       {editing ? (
         <KontaktForm
           initial={kontakt}
+          quellen={quellen}
           onDone={() => { setEditing(false); router.refresh() }}
         />
       ) : (
@@ -550,6 +553,7 @@ export default function KontaktDetailClient({
           </div>
           <div className="flex-1 min-w-0">
             <h1 className="text-2xl font-semibold text-s112-text">{name}</h1>
+            {kontakt.position && <p className="text-sm text-s112-muted">{kontakt.position}</p>}
             {kontakt.aktiv === false && <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-[#F2F3F5] text-s112-text-2" title="Deaktiviert – bleibt auf bestehenden Belegen, erscheint nicht in Auswahllisten">inaktiv</span>}
             <div className="flex items-center gap-2 mt-1 flex-wrap">
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${segmentFarbe(kontakt.segment)}`}>
@@ -750,6 +754,18 @@ export default function KontaktDetailClient({
                     {segmentLabel(firmaSegment)}
                   </span>
                 )}
+              </div>
+            )}
+            {kontakt.position && (
+              <div className="flex items-baseline gap-2 text-sm">
+                <span className="text-xs text-s112-muted w-16 flex-shrink-0">Position</span>
+                <span className="text-s112-text-1">{kontakt.position}</span>
+              </div>
+            )}
+            {kontakt.quelle && (
+              <div className="flex items-baseline gap-2 text-sm">
+                <span className="text-xs text-s112-muted w-16 flex-shrink-0">Quelle</span>
+                <Link href={`/crm/kontakte?quelle=${encodeURIComponent(kontakt.quelle)}`} className="text-s112-text-1 hover:text-s112-blue-700 hover:underline" title="Alle Kontakte mit dieser Quelle">{kontakt.quelle}</Link>
               </div>
             )}
             {kontakt.notizen && (

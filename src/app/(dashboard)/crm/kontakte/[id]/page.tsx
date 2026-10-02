@@ -1,6 +1,8 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { notFound } from 'next/navigation'
+import { alle } from '@/lib/supabase/alle'
+import { zaehleQuellen } from '@/lib/crm/liste'
 import type { Metadata } from 'next'
 import KontaktDetailClient from './KontaktDetailClient'
 import type { KontaktRow, AktivitaetRow, PipelineEintragRow, VerkaufRow } from '@/lib/crm/types'
@@ -40,7 +42,7 @@ export default async function KontaktDetailPage({ params }: { params: Promise<{ 
     { data: vRaw },
   ] = await Promise.all([
     tf((supabase.from('kontakte') as any)
-      .select('id, accountnummer, vorname, nachname, segment, firma_id, firmen:firma_id(name, segment), email, telefon, telefon_vorwahl, mobil, mobil_vorwahl, strasse, plz, ort, land, newsletter, newsletter_bestaetigt, stammkunde, notizen, aktiv, erstellt_am, is_lead, sonderrabatt_pct, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct), zahlungsziel_tage')
+      .select('id, accountnummer, vorname, nachname, segment, firma_id, firmen:firma_id(name, segment), email, telefon, telefon_vorwahl, mobil, mobil_vorwahl, strasse, plz, ort, land, newsletter, newsletter_bestaetigt, stammkunde, notizen, aktiv, erstellt_am, is_lead, sonderrabatt_pct, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct), zahlungsziel_tage, position, quelle')
       .eq('id', id)
       .single()),
 
@@ -94,6 +96,8 @@ export default async function KontaktDetailPage({ params }: { params: Promise<{ 
     rabattgruppe_pct:      (k.rabattgruppe as R | null)?.rabatt_pct ?? null,
     sonderrabatt_pct:      parseFloat(k.sonderrabatt_pct) || 0,
     zahlungsziel_tage:     k.zahlungsziel_tage ?? 14,
+    position:              (k.position as string | null) ?? null,
+    quelle:                (k.quelle   as string | null) ?? null,
     is_lead:               !!(k.is_lead as boolean),
     telefon_vorwahl:       (k.telefon_vorwahl as string | null) ?? '+43',
     mobil_vorwahl:         (k.mobil_vorwahl   as string | null) ?? '+43',
@@ -149,8 +153,16 @@ export default async function KontaktDetailPage({ params }: { params: Promise<{ 
     })),
   }))
 
+  // Quellen-Auswahl im Bearbeiten-Formular (02.10.2026): im Betrieb verwendete Quellen
+  const { data: qRaw } = tenantId
+    ? await alle((supabase.from('kontakte') as any)   // eslint-disable-line @typescript-eslint/no-explicit-any
+      .select('id, quelle').eq('tenant_id', tenantId).not('quelle', 'is', null).order('id'))
+    : { data: [] as R[] }
+  const quellen = zaehleQuellen((qRaw ?? []) as R[]).quellen.map(q => q.quelle)
+
   return <KontaktDetailClient
     kontakt={kontakt}
+    quellen={quellen}
     firmaSegment={firmaSegment}
     aktivitaeten={aktivitaeten}
     pipeline={pipeline}

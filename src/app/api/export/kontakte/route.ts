@@ -24,7 +24,7 @@ export async function GET() {
 
   const supabase = await createSupabaseServerClient()
   const { data, error } = await alle((supabase.from('kontakte') as any)
-    .select('accountnummer, vorname, nachname, segment, email, email_weitere, telefon, telefon_vorwahl, mobil, mobil_vorwahl, strasse, plz, ort, land, stammkunde, is_lead, sonderrabatt_pct, notizen, erstellt_am')
+    .select('accountnummer, vorname, nachname, segment, email, email_weitere, telefon, telefon_vorwahl, mobil, mobil_vorwahl, strasse, plz, ort, land, stammkunde, is_lead, sonderrabatt_pct, notizen, erstellt_am, position, quelle')
     .eq('tenant_id', tenantId).eq('aktiv', true).order('nachname').order('id'))
   // alle() liefert bei einem Fehler die bis dahin geholten Blöcke – kein halber Export
   if (error) return fehlerAntwort(500, 'Export fehlgeschlagen')

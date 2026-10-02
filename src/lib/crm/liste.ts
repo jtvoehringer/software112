@@ -12,6 +12,12 @@ type R = Record<string, any>
 export const LISTE_SCHRITT = 100
 export const LISTE_MAX = 1000
 
+// Kontakt-Felder „Position“ und „Quelle“ (02.10.2026): Höchstlängen wie in der
+// Datenbank (CHECK), Sonderwert im URL-Parameter ?quelle= für „ohne Quelle“.
+export const POSITION_MAX = 120
+export const QUELLE_MAX = 80
+export const QUELLE_OHNE = '__ohne__'
+
 export type ListenFilter = {
   q: string
   segment: string          // 'alle' | Segment-Wert
@@ -22,6 +28,8 @@ export type ListenFilter = {
   sort: 'nachname' | 'vorname' | 'name'
   /** KAN-150: deaktivierte Kontakte/Firmen mit anzeigen (?inaktiv=1) */
   inaktiv: boolean
+  /** nur Kontakte: '' = alle Quellen, QUELLE_OHNE = ohne Quelle, sonst kontakte.quelle (?quelle=…) */
+  quelle: string
   n: number                // Anzahl Zeilen (Schritte à LISTE_SCHRITT)
 }
 
@@ -39,6 +47,7 @@ export function filterAusParams(sp: Record<string, string | string[] | undefined
     lieferant: s('lieferant') === '1',
     sort: art === 'firma' ? 'name' : (s('sort') === 'vorname' ? 'vorname' : 'nachname'),
     inaktiv: s('inaktiv') === '1',
+    quelle: art === 'kontakt' ? s('quelle').trim().slice(0, QUELLE_MAX) : '',
     n,
   }
 }
@@ -53,6 +62,7 @@ export function paramsAusFilter(f: Partial<ListenFilter>): string {
   if (f.lieferant) p.set('lieferant', '1')
   if (f.sort && f.sort === 'vorname') p.set('sort', 'vorname')
   if (f.inaktiv) p.set('inaktiv', '1')
+  if (f.quelle) p.set('quelle', f.quelle)
   if (f.n && f.n > LISTE_SCHRITT) p.set('n', String(f.n))
   const s = p.toString()
   return s ? `?${s}` : ''
@@ -92,21 +102,46 @@ export async function ladeZaehler(client: any, tenantId: string | null, art: 'ko
 export async function ladeKontakteSeite(client: any, tenantId: string | null, f: ListenFilter): Promise<{ rows: R[]; gesamt: number }> {
   if (!tenantId) return { rows: [], gesamt: 0 }
   let q = (client.from('kontakte') as any)
-    .select('id, accountnummer, vorname, nachname, segment, firma_id, firmen:firma_id(name), email, telefon, telefon_vorwahl, mobil, mobil_vorwahl, strasse, plz, ort, land, newsletter, newsletter_bestaetigt, stammkunde, aktiv, notizen, erstellt_am, is_lead, sonderrabatt_pct, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct), zahlungsziel_tage', { count: 'exact' })
+    .select('id, accountnummer, vorname, nachname, segment, firma_id, firmen:firma_id(name), email, telefon, telefon_vorwahl, mobil, mobil_vorwahl, strasse, plz, ort, land, newsletter, newsletter_bestaetigt, stammkunde, aktiv, notizen, erstellt_am, is_lead, sonderrabatt_pct, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct), zahlungsziel_tage, position, quelle', { count: 'exact' })
     .eq('tenant_id', tenantId)
   if (!f.inaktiv) q = q.eq('aktiv', true)
   if (f.segment !== 'alle') q = q.eq('segment', f.segment)
+  if (f.quelle === QUELLE_OHNE) q = q.is('quelle', null)
+  else if (f.quelle) q = q.eq('quelle', f.quelle)
   if (f.buchstabe !== 'Alle') q = q.ilike(f.sort === 'vorname' ? 'vorname' : 'nachname', `${f.buchstabe}%`)
   if (f.lead === 'lead') q = q.eq('is_lead', true)
   if (f.lead === 'kunde') q = q.eq('is_lead', false)
   if (f.q) {
     const m = muster(f.q)
-    q = q.or(`nachname.ilike.${m},vorname.ilike.${m},email.ilike.${m},accountnummer.ilike.${m},telefon.ilike.${m},mobil.ilike.${m},ort.ilike.${m}`)
+    q = q.or(`nachname.ilike.${m},vorname.ilike.${m},email.ilike.${m},accountnummer.ilike.${m},telefon.ilike.${m},mobil.ilike.${m},ort.ilike.${m},position.ilike.${m}`)
   }
   q = f.sort === 'vorname' ? q.order('vorname', { nullsFirst: false }).order('nachname') : q.order('nachname').order('vorname', { nullsFirst: false })
   const { data, count, error } = await q.order('id').range(0, f.n - 1)
   if (error) throw new Error(error.message)
   return { rows: (data ?? []) as R[], gesamt: count ?? 0 }
+}
+
+export type QuellenZaehler = {
+  /** verwendete Quellen des Betriebs, alphabetisch, mit Anzahl */
+  quellen: { quelle: string; anzahl: number }[]
+  /** Kontakte ohne Quelle */
+  ohne: number
+}
+
+/** Quellen-Werte zählen (02.10.2026) – ohne RPC: nur die Spalte quelle der Kontakte
+ *  des Betriebs laden (mit inaktiven nur bei ?inaktiv=1, wie die Liste) und hier zählen. */
+export function zaehleQuellen(rows: readonly R[]): QuellenZaehler {
+  const m = new Map<string, number>()
+  let ohne = 0
+  for (const r of rows) {
+    const q = typeof r.quelle === 'string' ? r.quelle.trim() : ''
+    if (!q) { ohne++; continue }
+    m.set(q, (m.get(q) ?? 0) + 1)
+  }
+  const quellen = [...m.entries()]
+    .map(([quelle, anzahl]) => ({ quelle, anzahl }))
+    .sort((a, b) => a.quelle.localeCompare(b.quelle, 'de'))
+  return { quellen, ohne }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

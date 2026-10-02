@@ -1,6 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { alle } from '@/lib/supabase/alle'
-import { filterAusParams, ladeKontakteSeite, ladeZaehler } from '@/lib/crm/liste'
+import { filterAusParams, ladeKontakteSeite, ladeZaehler, zaehleQuellen } from '@/lib/crm/liste'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
@@ -28,14 +28,25 @@ export default async function KontaktePage({ searchParams }: { searchParams: Pro
   // Serverseitig gefiltert und seitenweise (17.9.2026, lib/crm/liste.ts):
   // Filter aus der URL, eine Abfrage mit Zähler; Firmen (für das Formular) und
   // Zähler je Segment parallel dazu.
-  const [{ rows: kRaw, gesamt }, zaehler, { data: fRaw }] = await Promise.all([
+  // Quellen (02.10.2026): ohne RPC – nur die Spalte quelle der Kontakte des
+  // Betriebs laden (inaktive nur bei ?inaktiv=1, wie die Liste) und zählen.
+  const quellenAbfrage = (() => {
+    if (!tenantId) return Promise.resolve({ data: [] as R[] })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let q = (supabase.from('kontakte') as any).select('id, quelle').eq('tenant_id', tenantId)
+    if (!filter.inaktiv) q = q.eq('aktiv', true)
+    return alle(q.order('id'))
+  })()
+  const [{ rows: kRaw, gesamt }, zaehler, { data: fRaw }, { data: qRaw }] = await Promise.all([
     ladeKontakteSeite(supabase, tenantId, filter),
     ladeZaehler(supabase, tenantId, 'kontakt'),
     alle(tf((supabase.from('firmen') as any)
       .select('id, name, segment')
       .eq('aktiv', true)
       .order('name').order('id'))),
+    quellenAbfrage,
   ])
+  const quellenZaehler = zaehleQuellen((qRaw ?? []) as R[])
   const ids = kRaw.map(k => k.id as string)
   const [{ data: aRaw }, { data: pRaw }] = ids.length === 0 ? [{ data: [] }, { data: [] }] : await Promise.all([
     tf((supabase.from('aktivitaeten') as any)
@@ -71,6 +82,8 @@ export default async function KontaktePage({ searchParams }: { searchParams: Pro
     rabattgruppe_pct:      (k.rabattgruppe as R | null)?.rabatt_pct ?? null,
     sonderrabatt_pct:      parseFloat(k.sonderrabatt_pct) || 0,
     zahlungsziel_tage:     k.zahlungsziel_tage ?? 14,
+    position:              (k.position as string | null) ?? null,
+    quelle:                (k.quelle   as string | null) ?? null,
     is_lead:               !!(k.is_lead as boolean),
     telefon_vorwahl:       (k.telefon_vorwahl as string | null) ?? '+43',
     mobil_vorwahl:         (k.mobil_vorwahl   as string | null) ?? '+43',
@@ -147,6 +160,7 @@ export default async function KontaktePage({ searchParams }: { searchParams: Pro
         filter={filter}
         gesamt={gesamt}
         zaehler={zaehler}
+        quellenZaehler={quellenZaehler}
       />
     </div>
   )

@@ -11,6 +11,7 @@ import { ladeBezuege, istBezugsSperre } from '@/lib/stammdaten/bezuege'
 import { bezugsMeldung, hatBezug } from '@/lib/stammdaten/bezugText'
 import { pruefeEmailFelder, einzelneEmail } from '@/lib/crm/email'
 import { dezimal } from '@/lib/format'
+import { POSITION_MAX, QUELLE_MAX } from '@/lib/crm/liste'
 import { ladeMandantMitglieder } from '@/lib/aufgaben/mitglieder'
 import { benachrichtigeAktivitaet } from '@/lib/benachrichtigungen/server'
 import { ladeMailAusPostfach } from '@/lib/email/mailLaden'
@@ -118,6 +119,23 @@ function emailFelder(formData: FormData) {
   return pruefeEmailFelder(formData.get('email') as string | null, formData.get('email_weitere') as string | null)
 }
 
+// Position und Quelle (02.10.2026): optionaler Freitext – getrimmt, leer → null,
+// zu lang → verständlicher Fehler (die Datenbank begrenzt ebenfalls per CHECK).
+function optionalerText(formData: FormData, feld: string, bezeichnung: string, max: number): string | null {
+  const roh = formData.get(feld)
+  const wert = typeof roh === 'string' ? roh.trim().replace(/\s+/g, ' ') : ''
+  if (!wert) return null
+  if (wert.length > max) throw new AktionsFehler(`${bezeichnung} ist zu lang (höchstens ${max} Zeichen, eingegeben ${wert.length}).`)
+  return wert
+}
+
+function kontaktPositionQuelle(formData: FormData): { position: string | null; quelle: string | null } {
+  return {
+    position: optionalerText(formData, 'position', 'Position', POSITION_MAX),
+    quelle:   optionalerText(formData, 'quelle', 'Quelle', QUELLE_MAX),
+  }
+}
+
 export async function createKontakt(formData: FormData): Promise<{ error?: string }> {
   try {
     const supabase = await createSupabaseServerClient()
@@ -125,6 +143,7 @@ export async function createKontakt(formData: FormData): Promise<{ error?: strin
     const em = emailFelder(formData)
     if (em.fehler) return { error: em.fehler }
     const payload: AR = {
+      ...kontaktPositionQuelle(formData),
       tenant_id:   tenantId,
       vorname:     (formData.get('vorname') as string) || null,
       nachname:    formData.get('nachname') as string,
@@ -168,6 +187,7 @@ export async function updateKontakt(id: string, formData: FormData): Promise<{ e
     const em = emailFelder(formData)
     if (em.fehler) return { error: em.fehler }
     const payload: AR = {
+      ...kontaktPositionQuelle(formData),
       vorname:    (formData.get('vorname') as string) || null,
       nachname:   formData.get('nachname') as string,
       segment:    formData.get('segment') as string,

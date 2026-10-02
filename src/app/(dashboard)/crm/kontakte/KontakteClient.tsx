@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useTransition } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
-import { paramsAusFilter, LISTE_SCHRITT, type ListenFilter, type Zaehler } from '@/lib/crm/liste'
+import { paramsAusFilter, LISTE_SCHRITT, POSITION_MAX, QUELLE_MAX, QUELLE_OHNE, type ListenFilter, type Zaehler, type QuellenZaehler } from '@/lib/crm/liste'
 import { useListenSuche } from '@/lib/crm/listenSuche'
 import Link from '@/components/ui/Link'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
@@ -32,16 +32,26 @@ function inputCls() {
 
 // ── Formular ──────────────────────────────────────────────────────────────────
 
+const QUELLE_NEU = '__neu__'
+
 export function KontaktForm({
-  initial, firmen = [], rabattgruppen = [], defaultSegment, existingKontakte, onDone,
+  initial, firmen = [], rabattgruppen = [], quellen = [], defaultSegment, existingKontakte, onDone,
 }: {
   initial?: KontaktRow | null
   firmen?: FirmaOption[]
   rabattgruppen?: RabattgruppeOption[]
+  /** im Betrieb verwendete Quellen (distinct kontakte.quelle, sortiert) */
+  quellen?: string[]
   defaultSegment?: string
   existingKontakte?: KontaktRow[]
   onDone: () => void
 }) {
+  const [quelleWahl, setQuelleWahl] = useState(initial?.quelle ?? '')
+  const [quelleNeu, setQuelleNeu]   = useState('')
+  // die eigene Quelle bleibt wählbar, auch wenn sie (z. B. inaktiv) nicht in der Liste steht
+  const quellenAuswahl = initial?.quelle && !quellen.includes(initial.quelle)
+    ? [...quellen, initial.quelle].sort((a, b) => a.localeCompare(b, 'de'))
+    : quellen
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [stammkunde, setStammkunde] = useState(initial?.stammkunde ?? false)
@@ -150,18 +160,26 @@ export function KontaktForm({
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Nachname *</label>
           <input aria-label="Nachname" name="nachname" defaultValue={v('nachname')} required className={inputCls()} />
         </div>
-        <div>
-          <label className="block text-xs font-medium text-s112-text-2 mb-1">Segment *</label>
-          <select aria-label="Segment" name="segment" value={segmentVal} onChange={e => setSegmentVal(e.target.value)} required className={inputCls()}>
-            {SEGMENTE.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-s112-text-2 mb-1">Firma</label>
-          <select aria-label="Firma" name="firma_id" defaultValue={v('firma_id')} className={inputCls()}>
-            <option value="">– keine –</option>
-            {firmen.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
-          </select>
+        {/* Position | Segment | Firma in einer Zeile (02.10.2026) */}
+        <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Position</label>
+            <input aria-label="Position" name="position" defaultValue={v('position')} maxLength={POSITION_MAX}
+              placeholder="z. B. Einkauf, Sommelier" className={inputCls()} />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Segment *</label>
+            <select aria-label="Segment" name="segment" value={segmentVal} onChange={e => setSegmentVal(e.target.value)} required className={inputCls()}>
+              {SEGMENTE.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Firma</label>
+            <select aria-label="Firma" name="firma_id" defaultValue={v('firma_id')} className={inputCls()}>
+              <option value="">– keine –</option>
+              {firmen.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+            </select>
+          </div>
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">E-Mail <span className="text-s112-muted font-normal">(Standard: Newsletter, Rechnung)</span></label>
@@ -277,6 +295,21 @@ export function KontaktForm({
           <input aria-label="Zahlungsziel (Tage)" name="zahlungsziel_tage" type="number" min="0" max="365" step="1" required
             defaultValue={initial?.zahlungsziel_tage ?? 14} placeholder="14" className={inputCls()} />
           <p className="text-[11px] text-s112-tertiary mt-0.5">0 = Rechnung wird mit "bei Erhalt" statt Fälligkeitsdatum gedruckt</p>
+        </div>
+        {/* Quelle (02.10.2026): Auswahl aus den im Betrieb verwendeten Quellen oder neu anlegen */}
+        <div>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Quelle</label>
+          <input type="hidden" name="quelle" value={quelleWahl === QUELLE_NEU ? quelleNeu : quelleWahl} />
+          <select aria-label="Quelle" value={quelleWahl} onChange={e => setQuelleWahl(e.target.value)} className={inputCls()}>
+            <option value="">– keine –</option>
+            {quellenAuswahl.map(q => <option key={q} value={q}>{q}</option>)}
+            <option value={QUELLE_NEU}>+ Neue Quelle …</option>
+          </select>
+          {quelleWahl === QUELLE_NEU && (
+            <input aria-label="Neue Quelle" value={quelleNeu} onChange={e => setQuelleNeu(e.target.value)} maxLength={QUELLE_MAX}
+              placeholder="z. B. Messe, Website, Empfehlung" autoFocus className={inputCls() + ' mt-1.5'} />
+          )}
+          <p className="text-[11px] text-s112-tertiary mt-0.5">Woher kommt der Kontakt?</p>
         </div>
       </div>
 
@@ -405,11 +438,12 @@ function PipelineForm({ kontaktId, onDone }: { kontaktId: string; onDone: () => 
 // ── Kontakt-Karte ─────────────────────────────────────────────────────────────
 
 function KontaktKarte({
-  kontakt, firmen, rabattgruppen, aktivitaeten, pipeline, writeOk, sortBy,
+  kontakt, firmen, rabattgruppen, quellen, aktivitaeten, pipeline, writeOk, sortBy,
 }: {
   kontakt: KontaktRow
   firmen?: FirmaOption[]
   rabattgruppen?: RabattgruppeOption[]
+  quellen?: string[]
   aktivitaeten: AktivitaetRow[]
   pipeline: PipelineRow[]
   writeOk: boolean
@@ -433,7 +467,7 @@ function KontaktKarte({
   }
 
   if (editing) return (
-    <KontaktForm initial={kontakt} firmen={firmen} rabattgruppen={rabattgruppen} onDone={() => setEditing(false)} />
+    <KontaktForm initial={kontakt} firmen={firmen} rabattgruppen={rabattgruppen} quellen={quellen} onDone={() => setEditing(false)} />
   )
 
   return (
@@ -449,6 +483,7 @@ function KontaktKarte({
               className="font-semibold text-s112-text text-sm hover:text-s112-blue-700 hover:underline">
               {name}
             </Link>
+            {kontakt.position && <span className="text-xs text-s112-muted">{kontakt.position}</span>}
             <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${segmentFarbe(kontakt.segment)}`}>
               {segmentLabel(kontakt.segment)}
             </span>
@@ -613,6 +648,7 @@ export type { AktivitaetRow, PipelineRow }
 
 export default function KontakteClient({
   kontakte, firmen, rabattgruppen, aktivitaetenMap, pipelineMap, writeOk, filter, gesamt, zaehler,
+  quellenZaehler = { quellen: [], ohne: 0 },
 }: {
   kontakte: KontaktRow[]
   firmen?: FirmaOption[]
@@ -626,11 +662,18 @@ export default function KontakteClient({
   gesamt: number
   /** Zähler je Segment / Lead über alle Kontakte des Betriebs */
   zaehler: Zaehler
+  /** verwendete Quellen mit Anzahl und Kontakte ohne Quelle (02.10.2026) */
+  quellenZaehler?: QuellenZaehler
 }) {
   const router = useRouter()
   const pathname = usePathname()
   const [pending, startTransition] = useTransition()
   const [showForm, setShowForm] = useState(false)
+  // Quelle-Filterzeile: offen per Klick auf „Quelle“, bei aktivem Filter immer offen
+  const [quelleOffen, setQuelleOffen] = useState(false)
+  const quelleAktiv = filter.quelle !== ''
+  const quelleZeile = quelleOffen || quelleAktiv
+  const quellenListe = quellenZaehler.quellen.map(q => q.quelle)
   // Serverseitige Filter (17.9.2026): jede Änderung schreibt die URL, die Seite
   // lädt nur die passenden Zeilen. Suche mit 300 ms Verzögerung.
   const setzeFilter = (aenderung: Partial<ListenFilter>) => {
@@ -683,6 +726,13 @@ export default function KontakteClient({
               </button>
             )
           })}
+          {/* Quelle (02.10.2026): öffnet darunter die Zeile mit den Quellen-Werten */}
+          <button type="button" aria-expanded={quelleZeile}
+            onClick={() => { if (quelleAktiv) { setQuelleOffen(false); setzeFilter({ quelle: '' }) } else setQuelleOffen(o => !o) }}
+            title={quelleAktiv ? 'Quelle-Filter aufheben' : 'Nach Quelle filtern'}
+            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${quelleAktiv ? 'bg-s112-teal text-s112-yellow' : quelleZeile ? 'bg-s112-teal/10 text-s112-blue-700' : 'bg-s112-bg text-s112-text-2 hover:text-s112-text'}`}>
+            Quelle {quelleZeile ? '▴' : '▾'}
+          </button>
         </div>
         <button
           onClick={() => setzeFilter({ sort: sortBy === 'nachname' ? 'vorname' : 'nachname' })}
@@ -722,11 +772,40 @@ export default function KontakteClient({
         </div>
       </div>
 
+      {/* Quelle-Werte: je verwendete Quelle mit Anzahl, „ohne Quelle“; erneuter Klick hebt den Filter auf */}
+      {quelleZeile && (
+        <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Nach Quelle filtern">
+          <button type="button" onClick={() => setzeFilter({ quelle: '' })}
+            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${!quelleAktiv ? 'bg-s112-teal text-s112-yellow' : 'bg-s112-bg text-s112-text-2 hover:text-s112-text'}`}>
+            Alle Quellen
+          </button>
+          {quellenZaehler.quellen.map(q => (
+            <button key={q.quelle} type="button" aria-pressed={filter.quelle === q.quelle}
+              onClick={() => setzeFilter({ quelle: filter.quelle === q.quelle ? '' : q.quelle })}
+              className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${filter.quelle === q.quelle ? 'bg-s112-teal text-s112-yellow' : 'bg-s112-bg text-s112-text-2 hover:text-s112-text'}`}>
+              {q.quelle} ({q.anzahl})
+            </button>
+          ))}
+          {quelleAktiv && filter.quelle !== QUELLE_OHNE && !quellenListe.includes(filter.quelle) && (
+            <button type="button" aria-pressed onClick={() => setzeFilter({ quelle: '' })}
+              className="px-3 py-1 rounded-lg text-xs font-medium bg-s112-teal text-s112-yellow">
+              {filter.quelle} (0)
+            </button>
+          )}
+          <button type="button" aria-pressed={filter.quelle === QUELLE_OHNE}
+            onClick={() => setzeFilter({ quelle: filter.quelle === QUELLE_OHNE ? '' : QUELLE_OHNE })}
+            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${filter.quelle === QUELLE_OHNE ? 'bg-s112-teal text-s112-yellow' : 'bg-s112-bg text-s112-text-2 hover:text-s112-text'}`}>
+            ohne Quelle ({quellenZaehler.ohne})
+          </button>
+        </div>
+      )}
+
       {/* Formular */}
       {showForm && (
         <KontaktForm
           firmen={firmen}
           rabattgruppen={rabattgruppen}
+          quellen={quellenListe}
           defaultSegment={segment !== 'alle' ? segment : undefined}
           onDone={() => setShowForm(false)}
         />
@@ -746,6 +825,7 @@ export default function KontakteClient({
               kontakt={k}
               firmen={firmen}
               rabattgruppen={rabattgruppen}
+              quellen={quellenListe}
               aktivitaeten={aktivitaetenMap[k.id] ?? []}
               pipeline={pipelineMap[k.id] ?? []}
               writeOk={writeOk}
