@@ -324,6 +324,8 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
       lieferant,
       rebsorte: z.rebsorte ?? null,
       herkunft: z.herkunft ?? null,
+      // KAN-80 Nachtrag (02.10.2026): Stufe der Zukauf-Trauben – Obergrenze der Abstufung in der Pressungs-Vorschau
+      qualitaetsstufe: z.qualitaetsstufe ?? null,
       menge_kg: mengeKg,
       verfuegbar_kg: Math.max(0, mengeKg - (pressedKgByZukauf[z.id] ?? 0) - (soldKgByZukauf[z.id] ?? 0)),
       kmw_grad: z.kmw != null ? parseFloat(z.kmw) : null,

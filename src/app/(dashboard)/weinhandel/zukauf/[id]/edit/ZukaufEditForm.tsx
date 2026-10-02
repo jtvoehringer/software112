@@ -3,13 +3,17 @@
 import { useState, useTransition, useEffect } from 'react'
 import Link from '@/components/ui/Link'
 import { updateZukauf } from '../../actions'
-import { QUALITAET_OPTS, mitGespeichertemWert } from '@/lib/wein/qualitaet'
+import { LESE_QUALITAETEN, QUALITAET_OPTS, mitGespeichertemWert } from '@/lib/wein/qualitaet'
 import { AlertTriangle } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
 import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
 import type { GespeichertesMostgewicht } from '@/lib/wein/mostgewichtFormular'
+import HerkunftCodeSelect from '@/components/weinbaugebiete/HerkunftCodeSelect'
+import { herkunftOptionen } from '@/lib/herkunft'
+import { herkunftAnzeige, pruefnummerPflicht } from '@/lib/zukauf/ware'
+import type { CustomWeinbaugebiet } from '@/app/(dashboard)/weinbaugebiete/actions'
 
 interface Behaelter { id: string; name: string; typ: string; volumen_liter: number | null }
 
@@ -38,7 +42,10 @@ interface InitialValues {
   transport_zugmaschine:    string
   transport_anhaenger1:     string
   transport_anhaenger2:     string
+  /** KAN-80 Nachtrag: Startwert des Herkunfts-Codes (herkunftVorbelegung – Altwert nur, wenn eindeutig) */
   herkunft:                 string
+  /** Gespeicherter Wert wie in der DB (Freitext-Altwert), für den Hinweis bei leerer Vorbelegung */
+  herkunft_gespeichert:     string
   anreicherung:             boolean
   // KAN-130 Etappe 3: gespeichertes Mostgewicht (°KMW, °Oe, gemessene Einheit)
   mostgewicht:              GespeichertesMostgewicht | null
@@ -51,7 +58,12 @@ const inputCls = 'border border-s112-border rounded-lg px-3 py-2 text-sm focus:o
 const labelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
 
 // Qualitätsstufe eines Wein-/Most-Zukaufs: zentrale Chargen-Liste QUALITAET_OPTS wie beim
-// Anlegen (KAN-73); ein gespeicherter Wert außerhalb der Liste bleibt sichtbar
+// Anlegen (KAN-73); ein gespeicherter Wert außerhalb der Liste bleibt sichtbar.
+// KAN-80 Nachtrag (02.10.2026): auch Trauben haben eine Stufe – dort die Liste der Lese (LESE_QUALITAETEN).
+const qualitaetsListe = (art: string) => art === 'trauben' ? LESE_QUALITAETEN : QUALITAET_OPTS
+
+// KAN-80 Nachtrag: Herkunfts-Code (BKI) wie am GST – alle Weinbaugebiete Österreichs, nach Region gruppiert
+const HERKUNFT_OPTIONS = herkunftOptionen()
 
 const ART_OPTIONS: { value: 'wein' | 'most' | 'trauben'; label: string }[] = [
   { value: 'wein',    label: 'Wein' },
@@ -67,6 +79,7 @@ export default function ZukaufEditForm({
   traubenGebunden,
   eigeneAktuelleMenge,
   lieferantName,
+  customWeinbaugebiete,
 }: {
   id: string
   initial: InitialValues
@@ -85,6 +98,8 @@ export default function ZukaufEditForm({
   // JETZT in der DB steht - unabhängig vom unveränderlichen initial.menge.
   eigeneAktuelleMenge: number
   lieferantName: string
+  // Eigene Weinbaugebiete des Betriebs (ladeCustomWeinbaugebiete, wie am GST)
+  customWeinbaugebiete: CustomWeinbaugebiet[]
 }) {
   const [isPending, startTransition] = useTransition()
   const [error, setError]            = useState<string | null>(null)
@@ -95,7 +110,8 @@ export default function ZukaufEditForm({
   const [datum,               setDatum]             = useState(initial.datum)
   const [uhrzeit,             setUhrzeit]           = useState(initial.lieferung_uhrzeit)
   const [art,                 setArt]               = useState<'wein' | 'trauben' | 'most'>(initial.art as any)
-  const [weinart,             setWeinart]           = useState<'weiss' | 'rot' | 'rose' | 'unbekannt'>((initial.weinart as any) || 'unbekannt')
+  // KAN-80 Nachtrag: Weinart Pflicht – ein gespeichertes „unbekannt“ muss neu gewählt werden
+  const [weinart,             setWeinart]           = useState<'weiss' | 'rot' | 'rose' | ''>(['weiss', 'rot', 'rose'].includes(initial.weinart) ? initial.weinart as 'weiss' | 'rot' | 'rose' : '')
   const [rebsorte,            setRebsorte]          = useState(initial.rebsorte)
   const [qualitaet,           setQualitaet]         = useState(initial.qualitaetsstufe)
   const [jahrgang,            setJahrgang]          = useState(initial.jahrgang)
@@ -169,6 +185,8 @@ export default function ZukaufEditForm({
     e.preventDefault()
     setError(null)
     if (!menge || parseFloat(menge) <= 0) { setError('Menge muss größer als 0 sein.'); return }
+    // KAN-80 Nachtrag: die Herkunftsauswahl hat nur ein verstecktes Feld – Pflicht hier prüfen (Server prüft ebenso)
+    if (!herkunft) { setError('Bitte den Herkunfts-Code (BKI) wählen.'); return }
     const neueMenge = parseFloat(menge)
     if (art === 'trauben' && traubenGebunden.kg > 0 && neueMenge < alteZukaufMenge && neueMenge < traubenGebunden.kg - 0.0005) {
       setError(`Die Menge kann nicht unter die bereits gebundene Menge gesenkt werden: Aus diesem Zukauf sind bereits ${traubenGebunden.text}, zusammen ${fmtNum(traubenGebunden.kg)} kg.`)
@@ -271,7 +289,11 @@ export default function ZukaufEditForm({
                   <label key={value} className={`flex items-center gap-1.5 ${gesperrt ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
                     <input type="radio" name="art" value={value} checked={art === value}
                       disabled={gesperrt}
-                      onChange={() => setArt(value)} className="accent-s112-teal" />
+                      onChange={() => {
+                        setArt(value)
+                        // Stufe aus der anderen Liste (Charge ↔ Lese) nicht still mitnehmen
+                        if (qualitaet && !qualitaetsListe(value).some(q => q.value === qualitaet)) setQualitaet('')
+                      }} className="accent-s112-teal" />
                     <span className="text-sm text-s112-text-1">{label}</span>
                   </label>
                 )
@@ -308,9 +330,9 @@ export default function ZukaufEditForm({
           <div>
             <label className={labelCls}>Weinart *</label>
             <div className="flex gap-4 mt-1.5">
-              {([['weiss','Weißwein','bg-s112-tertiary'],['rot','Rotwein','bg-s112-text'],['rose','Rosé','bg-s112-grey'],['unbekannt','Unbekannt','bg-s112-line']] as const).map(([val, lbl, dot]) => (
+              {([['weiss','Weißwein','bg-s112-tertiary'],['rot','Rotwein','bg-s112-text'],['rose','Rosé','bg-s112-grey']] as const).map(([val, lbl, dot]) => (
                 <label key={val} className="flex items-center gap-1.5 cursor-pointer">
-                  <input type="radio" name="weinart" value={val} checked={weinart === val}
+                  <input type="radio" name="weinart" value={val} checked={weinart === val} required
                     onChange={() => setWeinart(val)} className="accent-s112-teal" />
                   <span className={`inline-block w-2.5 h-2.5 rounded-full border border-black/10 ${dot}`} />
                   <span className="text-sm text-s112-text-1">{lbl}</span>
@@ -320,15 +342,15 @@ export default function ZukaufEditForm({
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className={labelCls}>Rebsorte(n)</label>
+              <label className={labelCls}>Rebsorte(n) *</label>
               <input aria-label="Rebsorte(n)" type="text" value={rebsorte} onChange={e => setRebsorte(e.target.value)}
-                placeholder="z.B. Grüner Veltliner" className={inputCls + ' w-full'} />
+                placeholder="z.B. Grüner Veltliner" required className={inputCls + ' w-full'} />
             </div>
             <div>
-              <label className={labelCls}>Jahrgang{art === 'trauben' ? ' *' : ''}</label>
-              <input type="number" value={jahrgang} onChange={e => setJahrgang(e.target.value)}
+              <label className={labelCls}>Jahrgang *</label>
+              <input aria-label="Jahrgang" type="number" value={jahrgang} onChange={e => setJahrgang(e.target.value)}
                 min="1900" max="2100" placeholder="z.B. 2024"
-                required={art === 'trauben'}
+                required
                 className={inputCls + ' w-full'} />
               {art === 'trauben' && (
                 <p className="text-xs text-s112-muted mt-1">
@@ -336,41 +358,51 @@ export default function ZukaufEditForm({
                 </p>
               )}
             </div>
-            {(art === 'wein' || art === 'most') && (
-              <div>
-                <label className={labelCls}>Qualitätsstufe</label>
-                <select aria-label="Qualitätsstufe" value={qualitaet} onChange={e => setQualitaet(e.target.value)}
-                  className={inputCls + ' w-full'}>
-                  <option value="">– nicht angegeben –</option>
-                  {mitGespeichertemWert(QUALITAET_OPTS, initial.qualitaetsstufe).map(q => (
-                    <option key={q.value} value={q.value}>{q.label}</option>
-                  ))}
-                </select>
-              </div>
-            )}
+            {/* Qualitätsstufe – Pflicht für alle Arten (KAN-80 Nachtrag); Trauben: Stufen der Lese */}
             <div>
-              <label className={labelCls}>Herkunft</label>
-              <input aria-label="Herkunft" type="text" value={herkunft} onChange={e => setHerkunft(e.target.value)}
-                placeholder="z.B. Kamptal, Wachau" className={inputCls + ' w-full'} />
+              <label className={labelCls}>Qualitätsstufe *</label>
+              <select aria-label="Qualitätsstufe" value={qualitaet} onChange={e => setQualitaet(e.target.value)}
+                required className={inputCls + ' w-full'}>
+                <option value="">– bitte wählen –</option>
+                {mitGespeichertemWert(qualitaetsListe(art), art === initial.art ? initial.qualitaetsstufe : null).map(q => (
+                  <option key={q.value} value={q.value}>{q.label}</option>
+                ))}
+              </select>
+            </div>
+            {/* Herkunfts-Code (BKI) – dieselbe Auswahl wie am GST, samt eigener Weinbaugebiete (KAN-80 Nachtrag) */}
+            <div className="col-span-2">
+              <label className={labelCls}>Herkunfts-Code (BKI) *</label>
+              <HerkunftCodeSelect
+                name="herkunft"
+                value={herkunft}
+                onChange={setHerkunft}
+                builtinOptions={HERKUNFT_OPTIONS}
+                customOptions={customWeinbaugebiete}
+                emptyLabel="– bitte wählen –"
+                className={inputCls + ' w-full'}
+              />
+              {initial.herkunft_gespeichert && initial.herkunft_gespeichert !== herkunft && (
+                <p className="text-xs text-s112-muted mt-1">Bisher erfasst: „{herkunftAnzeige(initial.herkunft_gespeichert)}“ – bitte als Herkunfts-Code (BKI) wählen.</p>
+              )}
             </div>
             {/* Mostgewicht in °KMW oder °Oe (KAN-130 Etappe 3) – gespeicherter Messwert samt Einheit */}
             {(art === 'trauben' || art === 'most') && (
               <div className="col-span-2">
-                <MostgewichtEingabe name="mostgewicht" startwert={initial.mostgewicht} />
+                <MostgewichtEingabe name="mostgewicht" startwert={initial.mostgewicht} required />
               </div>
             )}
             {art === 'wein' && (
               <div>
-                <label className={labelCls}>Alkoholgehalt (%vol)</label>
+                <label className={labelCls}>Alkoholgehalt (%vol) *</label>
                 <input aria-label="Alkoholgehalt (%vol)" type="number" value={alkohol} onChange={e => setAlkohol(e.target.value)}
-                  step="0.1" min="0" max="25" placeholder="z.B. 12.5" className={inputCls + ' w-full'} />
+                  step="0.1" min="0.1" max="25" placeholder="z.B. 12.5" required className={inputCls + ' w-full'} />
               </div>
             )}
             {art === 'wein' && (
               <div>
-                <label className={labelCls}>Staatl. Prüfnummer</label>
+                <label className={labelCls}>Staatl. Prüfnummer{pruefnummerPflicht(art, qualitaet) ? ' *' : ''}</label>
                 <input aria-label="Staatl. Prüfnummer" type="text" value={pruefnummer} onChange={e => setPruefnummer(e.target.value)}
-                  placeholder="z.B. 1234/26" className={inputCls + ' w-full'} />
+                  placeholder="z.B. 1234/26" required={pruefnummerPflicht(art, qualitaet)} className={inputCls + ' w-full'} />
               </div>
             )}
           </div>

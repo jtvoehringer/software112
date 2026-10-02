@@ -3,6 +3,8 @@ import { getCurrentMembership } from '@/lib/auth/roles'
 import { notFound } from 'next/navigation'
 import ZukaufEditForm from './ZukaufEditForm'
 import { folgebuchungenDerZielcharge, zielchargeText, zukaufVerweise, traubenGebundenText } from '../../sperren'
+import { ladeCustomWeinbaugebiete } from '../../../../weinbaugebiete/actions'
+import { herkunftVorbelegung } from '@/lib/zukauf/ware'
 
 export const dynamic = 'force-dynamic'
 
@@ -51,9 +53,10 @@ export default async function ZukaufEditPage({ params }: { params: Promise<{ id:
   // einen Hinweis, den aktuellen Bestand im Kellerbuch nachzusehen - siehe
   // ZukaufEditForm.tsx.
   const zielWeinausbauId: string | null = z.ziel_weinausbau_id ?? null
-  const [folge, verweise] = await Promise.all([
+  const [folge, verweise, customWeinbaugebiete] = await Promise.all([
     zielWeinausbauId ? folgebuchungenDerZielcharge(supabase, zielWeinausbauId) : Promise.resolve([]),
     zukaufVerweise(supabase, z.id, tenantId),
+    ladeCustomWeinbaugebiete(),   // KAN-80 Nachtrag: eigene Weinbaugebiete wie am GST
   ])
   const hatBewegungen = folge.length > 0
 
@@ -74,13 +77,15 @@ export default async function ZukaufEditPage({ params }: { params: Promise<{ id:
         jahrgang:                 z.jahrgang   != null ? String(z.jahrgang) : '',
         ziel_behaelter_id:        (z.ziel_weinausbau as R | null)?.behaelter_id ?? '',
         ziel_weinausbau_id:       z.ziel_weinausbau_id ?? '',
-        weinart:                  z.weinart ?? (z.ziel_weinausbau as R | null)?.weinart ?? 'unbekannt',
+        weinart:                  z.weinart ?? (z.ziel_weinausbau as R | null)?.weinart ?? '',
         notizen:                  z.notizen ?? '',
         lieferung_uhrzeit:        z.lieferung_uhrzeit ?? '',
         transport_zugmaschine:    z.transport_zugmaschine ?? '',
         transport_anhaenger1:     z.transport_anhaenger1 ?? '',
         transport_anhaenger2:     z.transport_anhaenger2 ?? '',
-        herkunft:                 z.herkunft ?? '',
+        // KAN-80 Nachtrag (02.10.2026): Code bzw. eigenes Gebiet unverändert, Freitext-Altwert nur, wenn eindeutig
+        herkunft:                 herkunftVorbelegung(z.herkunft, customWeinbaugebiete.map(g => g.name)),
+        herkunft_gespeichert:     z.herkunft ?? '',
         anreicherung:             z.anreicherung ?? false,
         mostgewicht:              z.kmw != null || z.oechsle != null ? { kmw: z.kmw, oechsle: z.oechsle, einheit: z.mostgewicht_einheit } : null,
         alkohol_pct:              z.alkohol_pct != null ? String(z.alkohol_pct) : '',
@@ -94,6 +99,7 @@ export default async function ZukaufEditPage({ params }: { params: Promise<{ id:
         text: traubenGebundenText(verweise),
       }}
       eigeneAktuelleMenge={Number((z.ziel_weinausbau as R | null)?.menge_liter ?? 0) || 0}
+      customWeinbaugebiete={customWeinbaugebiete}
       lieferantName={
         z.lieferant_kontakt
           ? [z.lieferant_kontakt.vorname, z.lieferant_kontakt.nachname].filter(Boolean).join(' ')

@@ -114,8 +114,9 @@ describe('Formulare', () => {
       assert.doesNotMatch(f, /fd\.set\('kmw'/)
       assert.match(f, /for \(const feld of \['mostgewicht_wert', 'mostgewicht_einheit'\]\)/)
     }
-    assert.match(NEU, /<MostgewichtEingabe name="mostgewicht" \/>/)
-    assert.match(EDIT, /<MostgewichtEingabe name="mostgewicht" startwert=\{initial\.mostgewicht\} \/>/)
+    // KAN-80 Nachtrag (02.10.2026): Mostgewicht ist bei Trauben und Most Pflicht
+    assert.match(NEU, /<MostgewichtEingabe name="mostgewicht" required \/>/)
+    assert.match(EDIT, /<MostgewichtEingabe name="mostgewicht" startwert=\{initial\.mostgewicht\} required \/>/)
   })
   test('Bearbeiten lädt °KMW, °Oe und Einheit als Startwert', () => {
     assert.match(EDIT_PAGE, /kmw, oechsle, mostgewicht_einheit/)

@@ -3,13 +3,17 @@
 import { useState, useTransition, useEffect } from 'react'
 import Link from '@/components/ui/Link'
 import { createZukauf } from '../actions'
-import { QUALITAET_OPTS } from '@/lib/wein/qualitaet'
+import { LESE_QUALITAETEN, QUALITAET_OPTS } from '@/lib/wein/qualitaet'
 import { AlertTriangle } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum } from '@/lib/format'
 import PartnerSuche from '@/components/crm/PartnerSuche'
 import { fehlerText } from '@/lib/fehler'
 import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
+import HerkunftCodeSelect from '@/components/weinbaugebiete/HerkunftCodeSelect'
+import { herkunftOptionen } from '@/lib/herkunft'
+import { pruefnummerPflicht } from '@/lib/zukauf/ware'
+import { ladeCustomWeinbaugebiete, type CustomWeinbaugebiet } from '@/app/(dashboard)/weinbaugebiete/actions'
 
 interface Behaelter { id: string; name: string; typ: string; volumen_liter: number | null }
 
@@ -22,7 +26,12 @@ const DEFAULT_EINHEIT: Record<string, string> = {
 }
 
 // Qualitätsstufe eines Wein-/Most-Zukaufs: geht in die Zielcharge (weinausbau) – deshalb die
-// zentrale Chargen-Liste QUALITAET_OPTS (KAN-73; vorher eine eigene Teilliste ohne „Wein“)
+// zentrale Chargen-Liste QUALITAET_OPTS (KAN-73; vorher eine eigene Teilliste ohne „Wein“).
+// KAN-80 Nachtrag (02.10.2026): auch Trauben haben eine Stufe – dort die Liste der Lese (LESE_QUALITAETEN).
+const qualitaetsListe = (art: string) => art === 'trauben' ? LESE_QUALITAETEN : QUALITAET_OPTS
+
+// KAN-80 Nachtrag: Herkunfts-Code (BKI) wie am GST – alle Weinbaugebiete Österreichs, nach Region gruppiert
+const HERKUNFT_OPTIONS = herkunftOptionen()
 
 // Lieferanten-Suche: serverseitig über components/crm/PartnerSuche (17.9.2026)
 
@@ -51,11 +60,14 @@ export default function ZukaufNeuPage() {
   const [anhaenger2,   setAnhaenger2]   = useState('')
 
   // ── Ware ──────────────────────────────────────────────────────────────────
-  const [weinart,       setWeinart]       = useState<'weiss' | 'rot' | 'rose' | 'unbekannt'>('unbekannt')
+  // KAN-80 Nachtrag (02.10.2026): Weinart ist Pflicht – keine Vorauswahl „Unbekannt“ mehr
+  const [weinart,       setWeinart]       = useState<'weiss' | 'rot' | 'rose' | ''>('')
   const [rebsorte,      setRebsorte]      = useState('')
   const [qualitaet,     setQualitaet]     = useState('')
   const [jahrgang,      setJahrgang]      = useState('')
   const [herkunft,      setHerkunft]      = useState('')
+  // Eigene Weinbaugebiete des Betriebs (wie am GST, ladeCustomWeinbaugebiete) – null = noch nicht geladen
+  const [eigeneGebiete, setEigeneGebiete] = useState<CustomWeinbaugebiet[] | null>(null)
   const [anreicherung,  setAnreicherung]  = useState(false)
   const [alkohol,       setAlkohol]       = useState('')
   const [pruefnummer,   setPruefnummer]   = useState('')
@@ -80,9 +92,15 @@ export default function ZukaufNeuPage() {
 
   function handleArtChange(a: 'wein' | 'trauben' | 'most') {
     setArt(a)
+    // Stufe aus der anderen Liste (Charge ↔ Lese) nicht still mitnehmen
+    if (qualitaet && !qualitaetsListe(a).some(q => q.value === qualitaet)) setQualitaet('')
     setEinheit(DEFAULT_EINHEIT[a] ?? 'kg')
     if (a === 'trauben') setZielBehaelter('')
   }
+
+  useEffect(() => {
+    ladeCustomWeinbaugebiete().then(setEigeneGebiete).catch(() => setEigeneGebiete([]))
+  }, [])
 
   useEffect(() => {
     async function load() {
@@ -109,6 +127,8 @@ export default function ZukaufNeuPage() {
     e.preventDefault()
     setError(null)
     if (!menge || parseFloat(menge) <= 0) { setError('Menge muss größer als 0 sein.'); return }
+    // KAN-80 Nachtrag: die Herkunftsauswahl hat nur ein verstecktes Feld – Pflicht hier prüfen (Server prüft ebenso)
+    if (!herkunft) { setError('Bitte den Herkunfts-Code (BKI) wählen.'); return }
     const fd = new FormData()
     fd.set('datum',                   datum)
     fd.set('lieferung_uhrzeit',       uhrzeit)
@@ -289,9 +309,9 @@ export default function ZukaufNeuPage() {
           <div>
             <label className={labelCls}>Weinart *</label>
             <div className="flex gap-4 mt-1.5">
-              {([['weiss','Weißwein','bg-s112-tertiary'],['rot','Rotwein','bg-s112-text'],['rose','Rosé','bg-s112-grey'],['unbekannt','Unbekannt','bg-s112-line']] as const).map(([val, lbl, dot]) => (
+              {([['weiss','Weißwein','bg-s112-tertiary'],['rot','Rotwein','bg-s112-text'],['rose','Rosé','bg-s112-grey']] as const).map(([val, lbl, dot]) => (
                 <label key={val} className="flex items-center gap-1.5 cursor-pointer">
-                  <input type="radio" name="weinart" value={val} checked={weinart === val}
+                  <input type="radio" name="weinart" value={val} checked={weinart === val} required
                     onChange={() => setWeinart(val)} className="accent-s112-teal" />
                   <span className={`inline-block w-2.5 h-2.5 rounded-full border border-black/10 ${dot}`} />
                   <span className="text-sm text-s112-text-1">{lbl}</span>
@@ -302,16 +322,16 @@ export default function ZukaufNeuPage() {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className={labelCls}>Rebsorte(n)</label>
+              <label className={labelCls}>Rebsorte(n) *</label>
               <input aria-label="Rebsorte(n)" type="text" value={rebsorte} onChange={e => setRebsorte(e.target.value)}
-                placeholder="z.B. Grüner Veltliner"
+                placeholder="z.B. Grüner Veltliner" required
                 className={inputCls + ' w-full'} />
             </div>
             <div>
-              <label className={labelCls}>Jahrgang{art === 'trauben' ? ' *' : ''}</label>
-              <input type="number" value={jahrgang} onChange={e => setJahrgang(e.target.value)}
+              <label className={labelCls}>Jahrgang *</label>
+              <input aria-label="Jahrgang" type="number" value={jahrgang} onChange={e => setJahrgang(e.target.value)}
                 min="1900" max="2100" placeholder="z.B. 2024"
-                required={art === 'trauben'}
+                required
                 className={inputCls + ' w-full'} />
               {art === 'trauben' && (
                 <p className="text-xs text-s112-muted mt-1">
@@ -320,51 +340,61 @@ export default function ZukaufNeuPage() {
               )}
             </div>
 
-            {/* Qualitätsstufe – nur bei Wein/Most */}
-            {(art === 'wein' || art === 'most') && (
-              <div>
-                <label className={labelCls}>Qualitätsstufe</label>
-                <select aria-label="Qualitätsstufe" value={qualitaet} onChange={e => setQualitaet(e.target.value)}
-                  className={inputCls + ' w-full'}>
-                  <option value="">– nicht angegeben –</option>
-                  {QUALITAET_OPTS.map(q => (
-                    <option key={q.value} value={q.value}>{q.label}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-
+            {/* Qualitätsstufe – Pflicht für alle Arten (KAN-80 Nachtrag); Trauben: Stufen der Lese */}
             <div>
-              <label className={labelCls}>Herkunft</label>
-              <input aria-label="Herkunft" type="text" value={herkunft} onChange={e => setHerkunft(e.target.value)}
-                placeholder="z.B. Kamptal, Wachau"
-                className={inputCls + ' w-full'} />
+              <label className={labelCls}>Qualitätsstufe *</label>
+              <select aria-label="Qualitätsstufe" value={qualitaet} onChange={e => setQualitaet(e.target.value)}
+                required className={inputCls + ' w-full'}>
+                <option value="">– bitte wählen –</option>
+                {qualitaetsListe(art).map(q => (
+                  <option key={q.value} value={q.value}>{q.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Herkunfts-Code (BKI) – dieselbe Auswahl wie am GST, samt eigener Weinbaugebiete (KAN-80 Nachtrag) */}
+            <div className="col-span-2">
+              <label className={labelCls}>Herkunfts-Code (BKI) *</label>
+              {eigeneGebiete === null ? (
+                <div className={inputCls + ' w-full text-s112-muted'}>Lädt …</div>
+              ) : (
+                <HerkunftCodeSelect
+                  name="herkunft"
+                  value={herkunft}
+                  onChange={setHerkunft}
+                  builtinOptions={HERKUNFT_OPTIONS}
+                  customOptions={eigeneGebiete}
+                  emptyLabel="– bitte wählen –"
+                  className={inputCls + ' w-full'}
+                />
+              )}
+              <p className="text-xs text-s112-muted mt-1">Herkunftsstufe gem. Weingesetz/DAC-Verordnung – geht an die Charge bzw. die Pressung (dort nur Abstufungen). Fehlt ein Gebiet, kann es im Dropdown über „+ Neues Weinbaugebiet hinzufügen…“ ergänzt werden.</p>
             </div>
 
             {/* Mostgewicht in °KMW oder °Oe – bei Trauben und Traubenmost (KAN-130 Etappe 3);
                 bevorzugte Einheit des Betriebs zuerst */}
             {(art === 'trauben' || art === 'most') && (
               <div className="col-span-2">
-                <MostgewichtEingabe name="mostgewicht" />
+                <MostgewichtEingabe name="mostgewicht" required />
               </div>
             )}
 
             {/* Alkohol – bei Wein */}
             {art === 'wein' && (
               <div>
-                <label className={labelCls}>Alkoholgehalt (%vol)</label>
+                <label className={labelCls}>Alkoholgehalt (%vol) *</label>
                 <input aria-label="Alkoholgehalt (%vol)" type="number" value={alkohol} onChange={e => setAlkohol(e.target.value)}
-                  step="0.1" min="0" max="25" placeholder="z.B. 12.5"
+                  step="0.1" min="0.1" max="25" placeholder="z.B. 12.5" required
                   className={inputCls + ' w-full'} />
               </div>
             )}
 
-            {/* Staatl. Prüfnummer – bei Wein */}
+            {/* Staatl. Prüfnummer – bei Wein; Pflicht ab Qualitätswein (KAN-80 Nachtrag, Regel a) */}
             {art === 'wein' && (
               <div>
-                <label className={labelCls}>Staatl. Prüfnummer</label>
+                <label className={labelCls}>Staatl. Prüfnummer{pruefnummerPflicht(art, qualitaet) ? ' *' : ''}</label>
                 <input aria-label="Staatl. Prüfnummer" type="text" value={pruefnummer} onChange={e => setPruefnummer(e.target.value)}
-                  placeholder="z.B. 1234/26"
+                  placeholder="z.B. 1234/26" required={pruefnummerPflicht(art, qualitaet)}
                   className={inputCls + ' w-full'} />
               </div>
             )}

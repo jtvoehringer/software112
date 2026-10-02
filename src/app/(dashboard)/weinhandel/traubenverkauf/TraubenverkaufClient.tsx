@@ -17,6 +17,7 @@ import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
 import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
 import type { GespeichertesMostgewicht } from '@/lib/wein/mostgewichtFormular'
 import { leseOrtSchluessel, verfuegbarJeLese } from '@/lib/wein/leseBilanz'
+import { herkunftAnzeige } from '@/lib/zukauf/ware'   // KAN-80 Nachtrag: Code → Bezeichnung, Altwert unverändert
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -488,7 +489,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnte
               {herkunft && (
                 <div>
                   <label className="block text-xs font-medium text-s112-text-2 mb-1">Herkunft-Code (BKI)</label>
-                  <div className={inp + ' bg-s112-bg text-s112-text-2 cursor-not-allowed'}>{herkunft}</div>
+                  <div className={inp + ' bg-s112-bg text-s112-text-2 cursor-not-allowed'}>{herkunftAnzeige(herkunft)}</div>
                 </div>
               )}
 

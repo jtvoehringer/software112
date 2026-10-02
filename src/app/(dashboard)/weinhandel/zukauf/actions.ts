@@ -14,6 +14,7 @@ import { pruefePruefnummernSchaden } from '@/lib/kellerbuch/pruefnummerLaden'
 import { mitPnNotiz } from '@/lib/kellerbuch/pruefnummer'
 import { mostgewichtAusFormular, mostgewichtAusGespeichert, mostgewichtSpalten } from '@/lib/wein/mostgewichtFormular'
 import type { Mostgewicht } from '@/lib/wein/mostgewicht'
+import { zukaufWareFehler } from '@/lib/zukauf/ware'
 import {
   folgebuchungenDerZielcharge, zielchargeText, zukaufVerweise, traubenGebundenText, loeschSperreText,
 } from './sperren'
@@ -58,6 +59,7 @@ async function createZukaufCharge(
   einstandspreisProLiter: number | null,
   weinart: string | null,
   qualitaetsstufe: string | null,
+  herkunftCode: string | null,
   mostgewicht: Mostgewicht | null,
 ): Promise<string> {
   const name = rebsorte || 'Zukauf'
@@ -75,6 +77,9 @@ async function createZukaufCharge(
       aktiv:       true,
       weinart:     weinart ?? 'unbekannt',
       qualitaetsstufe: qualitaetsstufe ?? null,
+      // KAN-80 Nachtrag (02.10.2026): Herkunfts-Code (BKI) des Zukaufs an die Charge – fehlte bisher; damit gelten
+      // für Verschnitt, Umzug und Füllung dieselben Abstufungsregeln wie für eigene Chargen
+      herkunft_code: herkunftCode ?? null,
       // KAN-130 Etappe 3 (01.10.2026): Mostgewicht des Zukaufs als Momentaufnahme – Messwert samt
       // Einheit (°Oe bleibt °Oe), nie nur °KMW. Die Stufe bleibt die Angabe des Zukaufs (Rechenregel 6).
       ...mostgewichtSpalten(mostgewicht, 'kmw'),
@@ -132,13 +137,19 @@ function parseZukaufFormData(formData: FormData) {
   // gegen weinjahrgaenge.jahrgang) – bleibt das Feld leer, auf das Kalenderjahr
   // des Liefer-/Kaufdatums zurückfallen, statt NULL zu speichern und den Posten
   // dadurch unsichtbar für diese Zuordnung zu machen.
+  // KAN-80 Nachtrag (02.10.2026): der Jahrgang ist jetzt Pflicht (zukaufWareFehler) – der Rückfall bleibt nur
+  // als Sicherheitsnetz, geprüft wird die Eingabe selbst (jahrgangEingabe)
   const jahrgangEingabe = parseInt(dezimal(formData.get('jahrgang') as string))
   const jahrgang = !isNaN(jahrgangEingabe) ? jahrgangEingabe : (parseInt(datum.slice(0, 4)) || null)
+  const art = (formData.get('art') as string) || 'wein'
   // KAN-73: die Stufe geht bei Wein/Most in die Zielcharge (weinausbau) – nur Werte des
-  // CHECK weinausbau (QUALITAET_OPTS), sonst verständliche Meldung statt 23514
+  // CHECK weinausbau (QUALITAET_OPTS), sonst verständliche Meldung statt 23514.
+  // KAN-80 Nachtrag (02.10.2026): auch Trauben haben eine Stufe – dort die Liste der Lese (LESE_QUALITAETEN).
   const qualitaetsstufe = (formData.get('qualitaetsstufe') as string)?.trim() || null
   const qualitaetUnzulaessig = qualitaetFehler('charge', qualitaetsstufe)
-  if (qualitaetUnzulaessig) throw new AktionsFehler(qualitaetUnzulaessig)
+  if (qualitaetUnzulaessig && art !== 'trauben') throw new AktionsFehler(qualitaetUnzulaessig)
+  const traubenQualitaetUnzulaessig = qualitaetFehler('lese', qualitaetsstufe)
+  if (traubenQualitaetUnzulaessig && art === 'trauben') throw new AktionsFehler(traubenQualitaetUnzulaessig)
   // KAN-130 Etappe 3 (01.10.2026): Mostgewicht aus Messwert und Einheit der Eingabe
   // (mostgewicht_wert/_einheit; übergangsweise das alte Feld kmw als °KMW), serverseitig gerechnet.
   // uebermittelt = false (Feld nicht im Formular, z. B. Art Wein): gespeicherte Werte bleiben.
@@ -147,7 +158,7 @@ function parseZukaufFormData(formData: FormData) {
   return {
     datum,
     lieferungUhrzeit:    (formData.get('lieferung_uhrzeit')        as string)?.trim() || null,
-    art:                 (formData.get('art')                      as string) || 'wein',
+    art,
     lieferantKontaktId:  (formData.get('lieferant_kontakt_id')     as string) || null,
     lieferantFirmaId:    (formData.get('lieferant_firma_id')       as string) || null,
     // Nur beim Neuanlegen relevant – siehe createZukauf; updateZukauf lässt das Feld
@@ -161,7 +172,9 @@ function parseZukaufFormData(formData: FormData) {
     rebsorte:            (formData.get('rebsorte')                 as string)?.trim() || null,
     qualitaetsstufe,
     jahrgang,
-    herkunft:            (formData.get('herkunft')                 as string)?.trim() || null,
+    jahrgangEingabe:     isNaN(jahrgangEingabe) ? null : jahrgangEingabe,
+    // KAN-80 Nachtrag: Herkunfts-Code (BKI) bzw. eigenes Weinbaugebiet – Prüfung in pruefeWare
+    herkunft:          (formData.get('herkunft')                 as string)?.trim() || null,
     anreicherung:        formData.get('anreicherung') === 'true',
     mostgewicht:         mg.wert,
     mostgewichtUebermittelt: mg.uebermittelt,
@@ -190,8 +203,34 @@ function chargeStammdaten(f: ZukaufFormular): AR {
     einstandspreis_pro_liter: f.einstandspreisLiter ?? null,
     weinart:                  f.weinart ?? 'unbekannt',
     qualitaetsstufe:          f.qualitaetsstufe ?? null,
+    herkunft_code:            f.herkunft ?? null,   // KAN-80 Nachtrag (02.10.2026): Herkunfts-Code an die Charge
     ...(f.mostgewichtUebermittelt ? mostgewichtSpalten(f.mostgewicht, 'kmw') : {}),
   }
+}
+
+/** KAN-80 Nachtrag (02.10.2026, Entscheidungen Jörgen): alle Felder im Bereich Ware sind Pflicht, die Herkunft ist
+ *  ein Herkunfts-Code (BKI) aus dem Katalog oder ein eigenes Weinbaugebiet des Betriebs (dieselbe Auswahl wie am GST),
+ *  die Prüfnummer ist bei Wein ab Qualitätswein Pflicht. Vor dem ersten Schreibzugriff aufrufen. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function pruefeWare(supabase: any, tenantId: string, f: ZukaufFormular): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: eigene, error } = await (supabase.from('weinbaugebiete_custom') as any)
+    .select('name')
+    .eq('tenant_id', tenantId)
+    .eq('aktiv', true)
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Eigene Weinbaugebiete konnten nicht geladen werden'))
+  const fehler = zukaufWareFehler({
+    art:             f.art,
+    weinart:         f.weinart,
+    rebsorte:        f.rebsorte,
+    jahrgang:        f.jahrgangEingabe,
+    qualitaetsstufe: f.qualitaetsstufe,
+    herkunft:        f.herkunft,
+    mostgewicht:     f.mostgewicht != null,
+    alkohol:         f.alkohol,
+    pruefnummer:     f.pruefnummer,
+  }, ((eigene ?? []) as AR[]).map(e => String(e.name ?? '')))
+  if (fehler) throw new AktionsFehler(fehler)
 }
 
 // KAN-83: bestaetigung = Rückfrage „Prüfnummer gilt nicht mehr“ – nichts gebucht; mit pn_bestaetigt=1 erneut senden
@@ -201,6 +240,7 @@ export async function createZukauf(formData: FormData): Promise<{ bestaetigung?:
   const f = parseZukaufFormData(formData)
 
   if (f.menge <= 0) throw new AktionsFehler('Menge muss größer als 0 sein')
+  await pruefeWare(supabase, tenantId, f)
 
   // KAN-83 (01.10.2026): Wein/Most in ein Gebinde, in dem eine Charge mit geltender Prüfnummer
   // liegt – der Tankbestand dieser Charge verliert die Nummer. Eingereichter Antrag: Ablehnung;
@@ -222,7 +262,7 @@ export async function createZukauf(formData: FormData): Promise<{ bestaetigung?:
   let zielWeinausbauId: string | null = null
   if ((f.art === 'wein' || f.art === 'most') && f.zielBehaelterId) {
     zielWeinausbauId = await createZukaufCharge(
-      supabase, tenantId, f.zielBehaelterId, f.rebsorte, f.jahrgang, f.menge, f.einstandspreisLiter, f.weinart, f.qualitaetsstufe,
+      supabase, tenantId, f.zielBehaelterId, f.rebsorte, f.jahrgang, f.menge, f.einstandspreisLiter, f.weinart, f.qualitaetsstufe, f.herkunft,
       f.mostgewicht,
     )
   }
@@ -311,6 +351,7 @@ export async function updateZukauf(id: string, formData: FormData) {
   const f = parseZukaufFormData(formData)
 
   if (f.menge <= 0) throw new AktionsFehler('Menge muss größer als 0 sein')
+  await pruefeWare(supabase, tenantId, f)
 
   const { data: alt, error: altErr } = await (supabase.from('zukauf_posten') as any)
     .select('ziel_weinausbau_id, menge, einheit, art, kmw, oechsle, mostgewicht_einheit')
@@ -356,7 +397,7 @@ export async function updateZukauf(id: string, formData: FormData) {
     const chargeId = altWeinausbauId
     const folge = await folgebuchungenDerZielcharge(supabase, chargeId)
     const { data: charge, error: chErr } = await (supabase.from('weinausbau') as any)
-      .select('behaelter_id, menge_liter, aktiv, status, rebsorte, jahrgang, einstandspreis_pro_liter, weinart, qualitaetsstufe, kmw, oechsle, mostgewicht_einheit')
+      .select('behaelter_id, menge_liter, aktiv, status, rebsorte, jahrgang, einstandspreis_pro_liter, weinart, herkunft_code, qualitaetsstufe, kmw, oechsle, mostgewicht_einheit')
       .eq('id', chargeId)
       .eq('tenant_id', tenantId)
       .maybeSingle()
@@ -367,7 +408,7 @@ export async function updateZukauf(id: string, formData: FormData) {
     // Stand vor dem Speichern – für den Rückbau, falls danach der Zukauf nicht gespeichert werden kann
     const vorherStammdaten: AR = {
       rebsorte: c.rebsorte, jahrgang: c.jahrgang, einstandspreis_pro_liter: c.einstandspreis_pro_liter,
-      weinart: c.weinart, qualitaetsstufe: c.qualitaetsstufe,
+      weinart: c.weinart, qualitaetsstufe: c.qualitaetsstufe, herkunft_code: c.herkunft_code,
       // KAN-130 Etappe 3: Mostgewicht samt Einheit – beide Werte wie gespeichert zurück
       kmw: c.kmw, oechsle: c.oechsle, mostgewicht_einheit: c.mostgewicht_einheit,
     }
@@ -428,7 +469,7 @@ export async function updateZukauf(id: string, formData: FormData) {
         let neueId = ''
         try {
           neueId = await createZukaufCharge(
-            supabase, tenantId, f.zielBehaelterId, f.rebsorte, f.jahrgang, f.menge, f.einstandspreisLiter, f.weinart, f.qualitaetsstufe,
+            supabase, tenantId, f.zielBehaelterId, f.rebsorte, f.jahrgang, f.menge, f.einstandspreisLiter, f.weinart, f.qualitaetsstufe, f.herkunft,
             mostgewichtCharge,
           )
         } catch (e) {
@@ -445,7 +486,7 @@ export async function updateZukauf(id: string, formData: FormData) {
     // Nachträglich einem Gebinde zugeordnet: neue Charge mit der vollen Belegmenge
     // (Tankverkäufe direkt aus dem Zukauf gibt es nicht mehr – es ist nichts abzuziehen)
     const neueId = await createZukaufCharge(
-      supabase, tenantId, f.zielBehaelterId, f.rebsorte, f.jahrgang, f.menge, f.einstandspreisLiter, f.weinart, f.qualitaetsstufe,
+      supabase, tenantId, f.zielBehaelterId, f.rebsorte, f.jahrgang, f.menge, f.einstandspreisLiter, f.weinart, f.qualitaetsstufe, f.herkunft,
       mostgewichtCharge,
     )
     zielWeinausbauId = neueId

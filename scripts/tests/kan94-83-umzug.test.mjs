@@ -275,6 +275,8 @@ describe('umziehen() – Prüfnummer (KAN-83)', nurMitHooks, () => {
 
 // ── 4. Verschnitt und Zukauf ─────────────────────────────────────────────────
 
+// KAN-80 Nachtrag (02.10.2026): Pflichtfelder im Bereich Ware (Landwein – keine Prüfnummer nötig)
+const WARE = { jahrgang: '2025', qualitaetsstufe: 'landwein', herkunft: 'weinland', alkohol_pct: '12' }
 describe('createVerschneidung() / createZukauf() – Prüfnummer (KAN-83)', nurMitHooks, () => {
   const verschnittFd = extra => {
     const fd = new FormData()
@@ -305,7 +307,7 @@ describe('createVerschneidung() / createZukauf() – Prüfnummer (KAN-83)', nurM
   test('Zukauf Wein in das Gebinde der Antrags-Charge: Rückfrage, mit Bestätigung Vermerk am Zukauf', async () => {
     const d = db(tabellen({ antragStatus: 'genehmigt' }))
     const fd = new FormData()
-    for (const [k, v] of Object.entries({ datum: '2026-10-01', art: 'wein', menge: '100', einheit: 'l', ziel_behaelter_id: G2, rebsorte: 'Riesling', weinart: 'weiss' })) fd.set(k, v)
+    for (const [k, v] of Object.entries({ datum: '2026-10-01', art: 'wein', menge: '100', einheit: 'l', ziel_behaelter_id: G2, rebsorte: 'Riesling', weinart: 'weiss', ...WARE })) fd.set(k, v)
     const r = await zk.createZukauf(fd)
     assert.match(r.bestaetigung, /Prüfnummer N 10716\/26/)
     assert.equal(d.tabellen.zukauf_posten.length, 0)
@@ -318,10 +320,25 @@ describe('createVerschneidung() / createZukauf() – Prüfnummer (KAN-83)', nurM
   test('Zukauf in ein leeres Gebinde → keine Rückfrage', async () => {
     const d = db(tabellen({ antragStatus: 'genehmigt' }))
     const fd = new FormData()
-    for (const [k, v] of Object.entries({ datum: '2026-10-01', art: 'wein', menge: '100', einheit: 'l', ziel_behaelter_id: G3, rebsorte: 'Riesling', weinart: 'weiss' })) fd.set(k, v)
+    for (const [k, v] of Object.entries({ datum: '2026-10-01', art: 'wein', menge: '100', einheit: 'l', ziel_behaelter_id: G3, rebsorte: 'Riesling', weinart: 'weiss', ...WARE })) fd.set(k, v)
     const e = await fehlerVon(zk.createZukauf(fd))
     assert.equal(e.message, 'NEXT_REDIRECT')
     assert.equal(d.tabellen.zukauf_posten[0].notizen, null)
+    // KAN-80 Nachtrag: Qualitätsstufe und Herkunfts-Code gehen an die neue Charge
+    const neu = d.tabellen.weinausbau.find(c => c.id === d.tabellen.zukauf_posten[0].ziel_weinausbau_id)
+    assert.equal(neu.qualitaetsstufe, 'landwein')
+    assert.equal(neu.herkunft_code, 'weinland')
+  })
+  test('KAN-80 Nachtrag: unvollständige Ware bzw. Freitext-Herkunft → Ablehnung, nichts gebucht', async () => {
+    const d = db(tabellen())
+    for (const ohne of [{ herkunft: '' }, { herkunft: 'Kamptal' }, { qualitaetsstufe: '' }, { qualitaetsstufe: 'qualitaetswein' }]) {
+      const fd = new FormData()
+      for (const [k, v] of Object.entries({ datum: '2026-10-01', art: 'wein', menge: '100', einheit: 'l', ziel_behaelter_id: G3, rebsorte: 'Riesling', weinart: 'weiss', ...WARE, ...ohne })) fd.set(k, v)
+      const e = await fehlerVon(zk.createZukauf(fd))
+      assert.match(e.message, /Herkunfts-Code|Qualitätsstufe|Prüfnummer/, JSON.stringify(ohne))
+    }
+    assert.equal(d.tabellen.zukauf_posten.length, 0)
+    assert.equal(d.tabellen.weinausbau.length, 3)
   })
 })
 
