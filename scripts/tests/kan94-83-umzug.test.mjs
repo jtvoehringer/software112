@@ -22,7 +22,7 @@ import { fileURLToPath } from 'node:url'
 import {
   DOPPEL, hooksRegistrieren, laden, nurMitHooks, hooksMoeglich, datenbank, uuid, zeile,
 } from './buchung-attrappe.mjs'
-import { verschnittRpc } from './verschnitt-attrappe.mjs'
+import { verschnittRpc, zukaufRpc } from './verschnitt-attrappe.mjs'
 
 const modul = code => 'data:text/javascript,' + encodeURIComponent(code)
 DOPPEL['@/lib/auth/seitenBetrieb'] = modul('export const pruefeSeitenBetrieb = async () => {}')
@@ -165,6 +165,7 @@ function mitSingle(o) {
 function db(t, opt = {}) {
   const d = datenbank(t, { rpc: async (name, args) => name === 'lade_behaelter' ? { data: [gebinde(G1), gebinde(G2), gebinde(G3)], error: null }
     : name === 's112_verschnitt_buchen' ? verschnittRpc(t, args)   // KAN-112
+    : name === 's112_zukauf_buchen' ? zukaufRpc(t, args)           // KAN-193
     : { data: null, error: { message: name } }, ...opt })
   const from = d.from
   d.from = tabelle => mitSingle(from(tabelle))
@@ -326,10 +327,14 @@ describe('createVerschneidung() / createZukauf() – Prüfnummer (KAN-83)', nurM
     assert.match(r.bestaetigung, /Prüfnummer N 10716\/26/)
     assert.equal(d.tabellen.zukauf_posten.length, 0)
     fd.set('pn_bestaetigt', '1')
-    const e = await fehlerVon(zk.createZukauf(fd))   // redirect() der Attrappe wirft
-    assert.equal(e.message, 'NEXT_REDIRECT')
+    // KAN-193: Landwein (Weinland) in den Riedenwein-Tank → sofort Verschnitt, Hinweis statt Weiterleitung
+    const r2 = await zk.createZukauf(fd)
+    assert.deepEqual(r2.verschnitt.unterschiede, ['Herkunft', 'Qualität'])
     assert.equal(d.tabellen.zukauf_posten.length, 1)
     assert.equal(d.tabellen.zukauf_posten[0].notizen, 'PN N 10716/26 für Tankbestand „Riesling Ried Pfaffenberg“ erloschen')
+    assert.equal(d.tabellen.verschneidungen.length, 1)
+    assert.match(d.tabellen.verschneidungen[0].notizen, /^Zukauf als Verschnitt gebucht \(abweichend: Herkunft und Qualität\)\nPN N 10716\/26 für Tankbestand „Riesling Ried Pfaffenberg“ erloschen\nAbstufung Qualität von Qualitätswein auf Landwein\n/)
+    assert.equal(zeile(d, 'weinausbau', Z).menge_liter, 600)
   })
   test('Zukauf in ein leeres Gebinde → keine Rückfrage', async () => {
     const d = db(tabellen({ antragStatus: 'genehmigt' }))

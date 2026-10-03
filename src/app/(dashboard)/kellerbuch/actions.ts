@@ -459,7 +459,8 @@ export async function createAnalyse(formData: FormData) {
 // Die Quellen werden nicht mehr mit Math.max(0, …) gekappt, sondern bei Rest ≤ 0,01 L
 // abgeschlossen – ein Mehr als der Bestand wird vorher abgelehnt.
 // KAN-83: bestaetigung = Rückfrage „Prüfnummer gilt nicht mehr“ – nichts gebucht; mit pn_bestaetigt=1 erneut senden
-export async function createVerschneidung(formData: FormData): Promise<{ qualitaetAbgestuft: { von: string; nach: string } | null; herkunftAbgestuft: { von: string; nach: string } | null; sortenHinweise?: string[]; bestaetigung?: string }> {
+// KAN-193: ebenso die Rückfrage Rot/Weiß (Abstufung auf Wein aus Österreich) – mit rotweiss_bestaetigt=1 erneut senden
+export async function createVerschneidung(formData: FormData): Promise<{ qualitaetAbgestuft: { von: string; nach: string } | null; herkunftAbgestuft: { von: string; nach: string } | null; sortenHinweise?: string[]; rotWeiss?: boolean; bestaetigung?: string }> {
   const supabase  = await createSupabaseServerClient()
   // KAN-112: Schreibrecht im Kellerbuch wie beim Storno (vorher nur Betrieb und Schreibsperre)
   const tenantId  = await kellerbuchSchreibrecht()
@@ -486,6 +487,7 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
   // im gemeinsamen Service – derselbe Weg wie beim Umzug in ein Gebinde mit anderem Wein
   const r = await verschnittBuchen(supabase, tenantId, {
     datum, ziel: { weinausbauId: zielId }, quellen, notizen, pnBestaetigt: formData.get('pn_bestaetigt') === '1',
+    rotWeissBestaetigt: formData.get('rotweiss_bestaetigt') === '1',   // KAN-193
   })
   if (r.bestaetigung) return { qualitaetAbgestuft: null, herkunftAbgestuft: null, bestaetigung: r.bestaetigung }
 
@@ -494,7 +496,7 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
   revalidatePath(`/kellerbuch/weinausbau/${zielId}/buch`)
   revalidatePath(`/kellerbuch/weinausbau/${zielId}`)
 
-  return { qualitaetAbgestuft: r.qualitaetAbgestuft, herkunftAbgestuft: r.herkunftAbgestuft, sortenHinweise: r.sortenHinweise ?? [] }
+  return { qualitaetAbgestuft: r.qualitaetAbgestuft, herkunftAbgestuft: r.herkunftAbgestuft, sortenHinweise: r.sortenHinweise ?? [], rotWeiss: r.rotWeiss === true }
 }
 
 // VERSCHNEIDUNG STORNIEREN (KAN-35, 24.09.2026)

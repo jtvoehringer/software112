@@ -41,6 +41,11 @@ Tankbestand … nicht mehr … Fortfahren?“). Gib diese Frage wörtlich an den
 das Tool nur nach seiner ausdrücklichen Zustimmung erneut mit pruefnummer_verlust_bestaetigt=true
 auf. Ist der DAC-Antrag eingereicht, lehnt der Server ab – dann muss der Antrag zuerst
 zurückgezogen werden.
+
+ROT/WEISS (KAN-193): Rot- und Weißwein dürfen verschnitten werden, wenn das Ergebnis auf „Wein (aus Österreich)“
+abgestuft wird. Das Tool bucht dann zuerst nicht, sondern meldet bestaetigung_noetig mit der Rückfrage – wie bei der
+Prüfnummer wörtlich weitergeben und nur nach ausdrücklicher Zustimmung erneut mit pruefnummer_verlust_bestaetigt=true
+aufrufen (die Zustimmung gilt für die ganze Rückfrage). Nach dem Speichern die Abstufung explizit mitteilen.
 `.trim()
 
 export const VERSCHNEIDEN_TOOL = {
@@ -60,7 +65,7 @@ export const VERSCHNEIDEN_TOOL = {
       },
       pruefnummer_verlust_bestaetigt: {
         type: 'boolean',
-        description: 'KAN-83: true NUR wenn das Tool zuvor bestaetigung_noetig gemeldet, du die Rückfrage zur Prüfnummer wörtlich weitergegeben und der User ihr in seiner letzten Nachricht ausdrücklich zugestimmt hat.',
+        description: 'KAN-83/KAN-193: true NUR wenn das Tool zuvor bestaetigung_noetig gemeldet, du die Rückfrage (Prüfnummer und/oder Rot/Weiß-Verschnitt mit Abstufung auf Wein aus Österreich) wörtlich weitergegeben und der User ihr in seiner letzten Nachricht ausdrücklich zugestimmt hat.',
       },
       datum: { type: 'string', description: 'Datum der Verschneidung, Format YYYY-MM-DD' },
       ziel_weinausbau_id: { type: 'string', description: 'ID der Ziel-Charge aus dem Stammdaten-Kontext' },
@@ -133,6 +138,8 @@ export async function fuehreVerschneidenAus(
 
   // KAN-83: zweite Stufe – der User hat die Rückfrage zur Prüfnummer bestätigt
   if (input.pruefnummer_verlust_bestaetigt === true) fd.set('pn_bestaetigt', '1')
+  // KAN-193: dieselbe Zustimmung deckt die Rückfrage Rot/Weiß (Abstufung auf Wein aus Österreich) – sie steht in derselben Frage
+  if (input.pruefnummer_verlust_bestaetigt === true) fd.set('rotweiss_bestaetigt', '1')
 
   try {
     const result = await createVerschneidung(fd)
@@ -149,6 +156,7 @@ export async function fuehreVerschneidenAus(
       ziel_weinausbau_id: input.ziel_weinausbau_id,
       qualitaet_abgestuft: (result as R | undefined)?.qualitaetAbgestuft ?? null,
       herkunft_abgestuft: (result as R | undefined)?.herkunftAbgestuft ?? null,
+      rot_weiss_abgestuft_auf_wein_oesterreich: (result as R | undefined)?.rotWeiss === true,   // KAN-193
     }
   } catch (err) {
     return { erfolg: false, fehler: (err as Error).message ?? String(err) }

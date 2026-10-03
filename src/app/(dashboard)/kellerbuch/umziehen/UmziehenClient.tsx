@@ -207,24 +207,23 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
     : []
   const hatRebsortenmix = andereRebsorten.length > 0
 
-  // Weinart-Sperre (21.9.2026): Rot + Weiß dürfen nicht in ein Gebinde – weder Quellen
-  // untereinander noch Quelle gegen Inhalt eines Ziel-Gebindes. Der Server prüft dasselbe
-  // (inkl. Rebsortenfarbe bei fehlender Weinart) und lehnt den Umzug ab.
+  // Weinart (21.9.2026): Rot + Weiß in einem Gebinde – Quellen untereinander bzw. Quelle gegen Inhalt eines Ziel-Gebindes.
+  // KAN-193 (Entscheidung Jörgen 03.10.2026): kein Sperren mehr, sondern ein Hinweis – der Server bucht einen Verschnitt
+  // mit Abstufung auf Wein (aus Österreich) nach einer Rückfrage (bzw. lehnt ab, wenn es keiner wäre).
   const quellChargen = quellenState.map(q => quellen.find(x => x.charge_id === q.chargeId)).filter((x): x is BehaelterMitCharge => !!x)
   const zielChargen = ziele.flatMap(z => quellen.filter(c => c.behaelter_id === z.behId && !quellChargen.some(q => q.charge_id === c.charge_id)))
   let weinartSperre: string | null = null
   for (let i = 1; i < quellChargen.length && !weinartSperre; i++) {
-    if (weinartKonflikt(quellChargen[0].weinart, quellChargen[i].weinart)) weinartSperre = `„${quellChargen[0].charge_name}“ (${WEINART_LABEL[quellChargen[0].weinart!]}) und „${quellChargen[i].charge_name}“ (${WEINART_LABEL[quellChargen[i].weinart!]}) können nicht zusammengeführt werden.`
+    if (weinartKonflikt(quellChargen[0].weinart, quellChargen[i].weinart)) weinartSperre = `„${quellChargen[0].charge_name}“ (${WEINART_LABEL[quellChargen[0].weinart!]}) und „${quellChargen[i].charge_name}“ (${WEINART_LABEL[quellChargen[i].weinart!]}).`
   }
   for (const q of quellChargen) for (const z of zielChargen) {
     if (weinartSperre) break
-    if (weinartKonflikt(q.weinart, z.weinart)) weinartSperre = `„${q.charge_name}“ (${WEINART_LABEL[q.weinart!]}) kann nicht nach ${z.behaelter_name} umgezogen werden – dort liegt „${z.charge_name}“ (${WEINART_LABEL[z.weinart!]}).`
+    if (weinartKonflikt(q.weinart, z.weinart)) weinartSperre = `„${q.charge_name}“ (${WEINART_LABEL[q.weinart!]}) nach ${z.behaelter_name} – dort liegt „${z.charge_name}“ (${WEINART_LABEL[z.weinart!]}).`
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
-    if (weinartSperre) { setError(`Rot- und Weißwein dürfen laut Weingesetz nicht vermischt werden: ${weinartSperre}`); return }
     if (quellenState.some(q => !q.chargeId || !q.menge)) { setError('Alle Quell-Zeilen ausfüllen.'); return }
     if (ziele.some(z => !z.behId || !z.menge))         { setError('Alle Ziel-Zeilen ausfüllen.'); return }
     if (schwund < 0)                                    { setError('Ziel-Menge größer als Quell-Menge.'); return }
@@ -245,6 +244,7 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
         if (result?.bestaetigung) {
           if (!window.confirm(result.bestaetigung)) return
           fd.set('pn_bestaetigt', '1')
+          fd.set('rotweiss_bestaetigt', '1')   // KAN-193: Rückfrage Rot/Weiß steht in derselben Bestätigung
           result = await umziehen(fd)
         }
         // KAN-112: abweichender Wein im Ziel-Gebinde – der Server hat den Umzug sofort als Verschnitt gebucht
@@ -337,9 +337,9 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
           Gesamt: <span className="font-semibold text-s112-text-1">{fmt(totalNach)}</span>
         </div>
         {weinartSperre && (
-          <div className="bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2 text-xs text-s112-err-fg flex items-start gap-1.5">
+          <div className="bg-s112-warn-bg border border-s112-warn/30 rounded-lg px-3 py-2 text-xs text-s112-warn-fg flex items-start gap-1.5">
             <AlertTriangle size={14} strokeWidth={2} className="mt-0.5 shrink-0" />
-            <span><span className="font-semibold">Rot- und Weißwein dürfen laut Weingesetz nicht vermischt werden:</span> {weinartSperre}</span>
+            <span><span className="font-semibold">Rot- und Weißwein werden verschnitten – Abstufung auf Wein (aus Österreich):</span> {weinartSperre} Beim Speichern folgt eine Rückfrage.</span>
           </div>
         )}
         {hatRebsortenmix && !weinartSperre && (

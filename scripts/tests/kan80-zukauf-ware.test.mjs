@@ -130,7 +130,7 @@ describe('Server Actions (Quelltext)', () => {
   })
   test('alle Aufrufe von createZukaufCharge geben die Herkunft des Zukaufs mit', () => {
     const aufrufe = A.split('await createZukaufCharge(').slice(1)
-    assert.equal(aufrufe.length, 3)
+    assert.equal(aufrufe.length, 2)   // KAN-193: createZukauf über die RPC (zukaufChargeSpalten → chargeStammdaten mit herkunft_code)
     for (const a of aufrufe) assert.match(a, /^[^)]*f\.qualitaet, f\.herkunft,/)   // KAN-186: ganze Angabe
   })
   test('chargeStammdaten und Rückbau führen herkunft_code mit', () => {
@@ -150,7 +150,7 @@ describe('Server Actions (Quelltext)', () => {
     for (const [start, ende] of [['export async function createZukauf', 'export async function updateZukauf'], ['export async function updateZukauf', 'export async function deleteZukauf']]) {
       const fn = rumpf(start, ende)
       const pruefung = fn.indexOf('await pruefeWare(supabase, tenantId, f)')
-      const schreiben = Math.min(...['.insert(', '.update(', 'createZukaufCharge(', 'chargeAendern(', 'bereinigCharge('].map(s => fn.indexOf(s)).filter(i => i >= 0))
+      const schreiben = Math.min(...['.insert(', '.update(', 'createZukaufCharge(', 'chargeAendern(', 'bereinigCharge(', "'s112_zukauf_buchen'"].map(s => fn.indexOf(s)).filter(i => i >= 0))
       assert.ok(pruefung > 0 && pruefung < schreiben, start)
     }
   })

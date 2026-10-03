@@ -71,11 +71,13 @@ describe('Server Actions (Quelltext)', () => {
   })
   test('alle Aufrufe von createZukaufCharge geben das Mostgewicht mit', () => {
     const aufrufe = A.split('await createZukaufCharge(').slice(1)
-    assert.equal(aufrufe.length, 3)
+    // KAN-193: createZukauf legt die Charge über die RPC s112_zukauf_buchen an (zukaufChargeSpalten)
+    assert.equal(aufrufe.length, 2)
     // KAN-186: danach das Ursprungsland (f.landIso)
-    assert.match(aufrufe[0], /^[^)]*f\.mostgewicht, f\.landIso,\s*\)/)          // createZukauf
-    assert.match(aufrufe[1], /^[^)]*mostgewichtCharge, f\.landIso,\s*\)/)       // updateZukauf: Gebinde gewechselt
-    assert.match(aufrufe[2], /^[^)]*mostgewichtCharge, f\.landIso,\s*\)/)       // updateZukauf: nachträglich ein Gebinde
+    assert.match(aufrufe[0], /^[^)]*mostgewichtCharge, f\.landIso,\s*\)/)       // updateZukauf: Gebinde gewechselt
+    assert.match(aufrufe[1], /^[^)]*mostgewichtCharge, f\.landIso,\s*\)/)       // updateZukauf: nachträglich ein Gebinde
+    const spalten = A.slice(A.indexOf('function zukaufChargeSpalten'), A.indexOf('export type ZukaufVerschnitt'))
+    assert.match(spalten, /\.\.\.chargeStammdaten\(f\),\s*\.\.\.mostgewichtSpalten\(f\.mostgewicht, 'kmw'\)/)
   })
   test('createZukauf speichert Messwert samt Einheit in zukauf_posten', () => {
     const fn = A.slice(A.indexOf('export async function createZukauf'), A.indexOf('export async function updateZukauf'))

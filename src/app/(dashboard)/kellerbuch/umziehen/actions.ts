@@ -89,6 +89,8 @@ export type UmzugVerschnitt = {
   qualitaetAbgestuft: { von: string; nach: string } | null
   herkunftAbgestuft: { von: string; nach: string } | null
   sortenHinweise: string[]
+  /** KAN-193: Rot/Weiß verschnitten – auf Wein (aus Österreich) abgestuft */
+  rotWeiss: boolean
 }
 
 /** Ziel-Gebinde eines Umzugs samt gewählter Ziel-Charge (waehleZielCharge) */
@@ -115,6 +117,8 @@ async function umzugMitVerschnitten(
     notizen: string | null
     umzugTyp: string
     pnBestaetigt: boolean
+    /** KAN-193: Rückfrage Rot/Weiß bestätigt */
+    rotWeissBestaetigt: boolean
   },
 ): Promise<{ verschnitte?: UmzugVerschnitt[]; abstufung?: Abstufungshinweis; bestaetigung?: string }> {
   // Dasselbe Gebinde mehrfach als Ziel = ein Ziel
@@ -147,6 +151,7 @@ async function umzugMitVerschnitten(
         .filter(q => q.menge >= 0.01),
       notizen: [p.notizen?.trim() || null, `${art} als Verschnitt gebucht (abweichend: ${merkmaleText(wahl.unterschiede)})`].filter(Boolean).join('\n'),
       pnBestaetigt: p.pnBestaetigt,
+      rotWeissBestaetigt: p.rotWeissBestaetigt,
     }
   })
 
@@ -154,8 +159,9 @@ async function umzugMitVerschnitten(
   const vorbereitet = await verschnitteVorbereiten(supabase, tenantId, eingaben)
   const umzugWahl = p.wahl.filter(w => !w.istVerschnitt)
   const pnUmzug = await umzugPruefnummern(supabase, tenantId, umzugWahl, p.datum)
-  const fragen = [...vorbereitet.fragen, ...pnUmzug.fragen]
-  if (fragen.length > 0 && !p.pnBestaetigt) return { bestaetigung: fragen.join('\n') }
+  // Der Service liefert nur noch unbestätigte Rückfragen (KAN-193: Rot/Weiß und Prüfnummer getrennt bestätigt)
+  const fragen = [...new Set([...vorbereitet.fragen, ...(p.pnBestaetigt ? [] : pnUmzug.fragen)])]
+  if (fragen.length > 0) return { bestaetigung: fragen.join('\n') }
 
   const ergebnisse = await verschnitteAusfuehren(supabase, tenantId, vorbereitet.buchungen)
   revalidatePath('/kellerbuch')
@@ -166,7 +172,7 @@ async function umzugMitVerschnitten(
   const verschnitte: UmzugVerschnitt[] = ergebnisse.map((r, k) => ({
     verschneidungId: r.verschneidungId ?? null, zielChargeId: r.zielChargeId ?? null, zielName: r.zielName ?? null,
     unterschiede: gruppen[vIdx[k]].wahl.unterschiede, qualitaetAbgestuft: r.qualitaetAbgestuft, herkunftAbgestuft: r.herkunftAbgestuft,
-    sortenHinweise: r.sortenHinweise ?? [],
+    sortenHinweise: r.sortenHinweise ?? [], rotWeiss: r.rotWeiss === true,
   }))
   if (uIdx.length === 0) return { verschnitte }
 
@@ -259,6 +265,11 @@ export async function umziehen(fd: FormData): Promise<{ verschnitte?: UmzugVersc
   // Gebindes vermischt werden. Bisher griff diese Regel erst im Verschneiden-Schritt –
   // da war der Umzug schon gebucht (Musterhof: Zweigelt Reserve im Veltliner-Tank).
   // Chargen ohne Weinart werden über die Rebsortenfarbe (rebsorten.farbe) eingeordnet.
+  // KAN-193 (Entscheidung Jörgen 03.10.2026): Rot und Weiß dürfen jetzt verschnitten werden, wenn das Ergebnis auf
+  // „Wein (aus Österreich)“ abgestuft wird – das übernimmt der Verschnitt-Service (Rückfrage, Abstufung). Hier werden die
+  // Konflikte nur gesammelt; abgelehnt wird unten nur noch, was KEIN Verschnitt in genau diese Charge ist (Zusammenführung,
+  // weitere Chargen im Gebinde neben der Anker-Charge).
+  const weinartSperren: { behaelterId: string | null; chargeId: string | null; text: string }[] = []
   {
     const { data: qRows } = await (supabase.from('weinausbau') as any)
       .select('id, name, weinart, rebsorte').in('id', quellen.map(q => q.weinausbau_id)).eq('tenant_id', tenantId)
@@ -275,13 +286,13 @@ export async function umziehen(fd: FormData): Promise<{ verschnitte?: UmzugVersc
     const artVon = (r: R): string => weinartBekannt(r.weinart) ? r.weinart : weinartAusFarbe(farbe.get(r.rebsorte))
     const qs = (qRows ?? []) as R[]
     for (let i = 1; i < qs.length; i++) {
-      if (weinartKonflikt(artVon(qs[0]), artVon(qs[i]))) throw new AktionsFehler(`Rot- und Weißwein dürfen laut Weingesetz nicht vermischt werden: „${qs[0].name}“ und „${qs[i].name}“ können nicht zusammengeführt werden.`)
+      if (weinartKonflikt(artVon(qs[0]), artVon(qs[i]))) weinartSperren.push({ behaelterId: null, chargeId: null, text: `Rot- und Weißwein dürfen laut Weingesetz nicht vermischt werden: „${qs[0].name}“ und „${qs[i].name}“ können nicht zusammengeführt werden.` })
     }
     for (const z of ziele) {
       const g = zielGebinde.find(b => b.id === z.behaelter_id)
       for (const v of ((zRows ?? []) as R[]).filter(r => r.behaelter_id === z.behaelter_id)) {
         for (const q of qs) {
-          if (weinartKonflikt(artVon(q), artVon(v))) throw new AktionsFehler(weinartKonfliktText(q.name, artVon(q), g?.name ?? 'das Ziel-Gebinde', v.name, artVon(v)))
+          if (weinartKonflikt(artVon(q), artVon(v))) weinartSperren.push({ behaelterId: z.behaelter_id, chargeId: v.id, text: weinartKonfliktText(q.name, artVon(q), g?.name ?? 'das Ziel-Gebinde', v.name, artVon(v)) })
         }
       }
     }
@@ -326,10 +337,18 @@ export async function umziehen(fd: FormData): Promise<{ verschnitte?: UmzugVersc
     if (vErr) throw new AktionsFehler(dbFehlerText(vErr, 'Ziel-Chargen konnten nicht geladen werden'))
     wahl.push({ z, ...waehleZielCharge(((vRaw ?? []) as R[]).filter(v => !quellIds.has(v.id)), quellChargen) })
   }
+  // KAN-193: Rot/Weiß nur als Verschnitt in die Anker-Charge (bzw. gemischte Quellen in eine neue Charge) – sonst wie bisher ablehnen
+  for (const sp of weinartSperren) {
+    const erlaubt = sp.behaelterId === null
+      ? wahl.every(w => w.istVerschnitt)
+      : wahl.some(w => w.z.behaelter_id === sp.behaelterId && w.istVerschnitt && w.vorhanden?.id === sp.chargeId)
+    if (!erlaubt) throw new AktionsFehler(sp.text)
+  }
   // KAN-112 (Entscheidung Jörgen 03.10.2026, „n Zielgebinde“): mindestens ein Ziel ist ein Verschnitt
   if (wahl.some(w => w.istVerschnitt)) {
     return umzugMitVerschnitten(supabase, tenantId, {
       wahl, bedarf, quellChargen, datum, notizen, umzugTyp, pnBestaetigt: fd.get('pn_bestaetigt') === '1',
+      rotWeissBestaetigt: fd.get('rotweiss_bestaetigt') === '1',   // KAN-193
     })
   }
 
