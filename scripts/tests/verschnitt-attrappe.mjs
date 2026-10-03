@@ -66,3 +66,21 @@ export function verschnittRpc(t, { p_tenant_id, p_kopf, p_quellen }) {
   Object.assign(ziel, p_kopf.ziel ?? {})
   return { data: { verschneidung_id: vid, ziel_weinausbau_id: zielId, quellen: zeilen.length, liter: summe, ziel_menge: ziel.menge_liter }, error: null }
 }
+
+/** KAN-112 Nachtrag: Antwort auf rpc('s112_verschnitte_buchen', args) – Buchungen nacheinander in einer „Transaktion“:
+ *  scheitert eine, werden die Tabellen auf den Stand vorher zurückgesetzt (alle oder keiner). */
+export function verschnitteRpc(t, { p_tenant_id, p_buchungen }) {
+  if (!Array.isArray(p_buchungen) || p_buchungen.length === 0) return fehler('22023', 'Bitte mindestens einen Verschnitt angeben.')
+  const vorher = structuredClone(t)
+  const ergebnisse = []
+  for (const b of p_buchungen) {
+    const r = verschnittRpc(t, { p_tenant_id, p_kopf: b?.kopf, p_quellen: b?.quellen })
+    if (r.error) {
+      for (const k of Object.keys(t)) delete t[k]
+      Object.assign(t, vorher)
+      return r
+    }
+    ergebnisse.push(r.data)
+  }
+  return { data: ergebnisse, error: null }
+}

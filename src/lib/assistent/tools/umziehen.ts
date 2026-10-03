@@ -15,7 +15,7 @@
 // bucht umziehen() den Umzug seit KAN-112 sofort als Verschnitt in die Charge
 // dort (keine Zwischencharge, kein eigener Verschneiden-Schritt mehr) – samt
 // möglicher Qualitäts-/Herkunfts-Abstufung und Sortenhinweisen. Der Handler gibt
-// das als verschnitt zurück, der System-Prompt weist den Bot an, dies dem User
+// das als verschnitte (Liste, hier ein Eintrag) zurück, der System-Prompt weist den Bot an, dies dem User
 // explizit mitzuteilen statt nur "erledigt" zu melden.
 import { umziehen } from '@/app/(dashboard)/kellerbuch/umziehen/actions'
 import { ladeBehaelterEinzeln } from '@/lib/keller/behaelter'
@@ -39,7 +39,7 @@ normal/filtration, Standard normal), notizen (optional).
 GANZ WICHTIG: Liegt im Ziel-Gebinde bereits eine Charge mit denselben Merkmalen (Rebsorte,
 Jahrgang, Herkunft, Qualität), werden die Chargen zusammengeführt. Weicht der Wein dort in einem
 dieser Merkmale ab, bucht das Tool den Umzug SOFORT als Verschnitt in die Charge im Ziel-Gebinde
-(KAN-112) – das Ergebnis enthält dann verschnitt (Ziel-Charge, abweichende Merkmale, ggf.
+(KAN-112) – das Ergebnis enthält dann verschnitte (je Eintrag Ziel-Charge, abweichende Merkmale, ggf.
 Qualitäts-/Herkunfts-Abstufung und Hinweise zu Rebsorte/Jahrgang). Weise den User deshalb VOR der
 Bestätigung darauf hin, wenn im Ziel-Gebinde anderer Wein liegt, und teile ihm nach dem Speichern
 den Verschnitt samt Abstufungen explizit mit. Ein eigener Aufruf von "verschneiden" ist danach
@@ -144,11 +144,12 @@ export async function fuehreUmziehenAus(
           'zustimmt, dieses Tool erneut mit pruefnummer_verlust_bestaetigt=true aufrufen. Es wurde NICHTS gespeichert.',
       }
     }
-    const v = (result as R | undefined)?.verschnitt as R | undefined
+    // KAN-112: als Verschnitt gebucht (früher nur Hinweis auf einen eigenen Verschneiden-Schritt); umziehen() liefert
+    // einen Verschnitt je Ziel-Gebinde – der Assistent zieht weiterhin in genau ein Ziel um
+    const liste = ((result as R | undefined)?.verschnitte ?? []) as R[]
     return {
       erfolg: true,
-      // KAN-112: als Verschnitt gebucht (früher nur Hinweis auf einen eigenen Verschneiden-Schritt)
-      verschnitt: v ? {
+      verschnitte: liste.map(v => ({
         verschneidung_id: v.verschneidungId ?? null,
         ziel_weinausbau_id: v.zielChargeId ?? null,
         ziel_charge: v.zielName ?? null,
@@ -156,7 +157,7 @@ export async function fuehreUmziehenAus(
         qualitaet_abgestuft: v.qualitaetAbgestuft ?? null,
         herkunft_abgestuft: v.herkunftAbgestuft ?? null,
         sorten_hinweise: v.sortenHinweise ?? [],
-      } : null,
+      })),
       abstufung: (result as R | undefined)?.abstufung ?? null,
     }
   } catch (err) {

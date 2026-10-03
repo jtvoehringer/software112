@@ -6,7 +6,7 @@
 //    mehrere Quellen, leeres Gebinde.
 // 2. Schwund-Verteilung (verteileLiter) und Fachwerte/RPC-Argumente (verschnittWerte.ts).
 // 3. umziehen() gegen die Attrappe: Verschnitt in die Anker-Charge, neue Charge bei gemischten Quellen im leeren
-//    Gebinde, Ablehnung mit mehreren Zielen, gleiche Quellen in leeres Gebinde bleiben ein Umzug.
+//    Gebinde, gleiche Quellen in leeres Gebinde bleiben ein Umzug (mehrere Ziele: kan112-n-ziele.test.mjs).
 // 4. Storno: Schwund beim Verschnitt geht an die Quelle zurück und wird mit storniert; die Schwundbuchung allein
 //    ist gesperrt.
 // 5. Quellgebinde: Spalte vor Regel, Hinweis „Gebinde rekonstruiert“, Blend-Schritt mit Schwund.
@@ -20,7 +20,7 @@ import { fileURLToPath } from 'node:url'
 import { verteileLiter } from '../../src/lib/wein/mischungsrechnung.ts'
 import { quellGebindeAusDaten, verschnittQuelleText, gebindeText } from '../../src/lib/kellerbuch/quellGebindeKern.ts'
 import { DOPPEL, hooksRegistrieren, laden, nurMitHooks, hooksMoeglich, datenbank, uuid, zeile } from './buchung-attrappe.mjs'
-import { verschnittRpc } from './verschnitt-attrappe.mjs'
+import { verschnittRpc, verschnitteRpc } from './verschnitt-attrappe.mjs'
 
 const modul = code => 'data:text/javascript,' + encodeURIComponent(code)
 DOPPEL['@/lib/auth/seitenBetrieb'] = modul('export const pruefeSeitenBetrieb = async () => {}')
@@ -155,6 +155,7 @@ function db(t) {
   const d = datenbank(t, {
     rpc: async (name, args) => name === 'lade_behaelter' ? { data: [G1, G2, G3, G4].map(gebinde), error: null }
       : name === 's112_verschnitt_buchen' ? verschnittRpc(t, args)
+      : name === 's112_verschnitte_buchen' ? verschnitteRpc(t, args)
       : { data: null, error: { message: name } },
   })
   globalThis.__serverFake = d
@@ -180,9 +181,10 @@ describe('KAN-112 umziehen(): Verschnitt statt Zwischencharge', nurMitHooks, () 
     const d = db(tabellen())
     const r = await um.umziehen(umzugFd([{ weinausbau_id: GV, menge: 100 }], [{ behaelter_id: G1, menge: 100 }]))
     assert.equal(r.verschneidungNeeded, undefined)
-    assert.equal(r.verschnitt.zielChargeId, RR)
-    assert.equal(r.verschnitt.zielName, 'Riesling Ried')
-    assert.deepEqual(r.verschnitt.unterschiede, ['Rebsorte'])
+    assert.equal(r.verschnitte.length, 1)
+    assert.equal(r.verschnitte[0].zielChargeId, RR)
+    assert.equal(r.verschnitte[0].zielName, 'Riesling Ried')
+    assert.deepEqual(r.verschnitte[0].unterschiede, ['Rebsorte'])
     assert.equal(d.tabellen.weinausbau.filter(c => c.behaelter_id === G1).length, 1)
     assert.equal(zeile(d, 'weinausbau', RR).menge_liter, 1100)
     assert.equal(zeile(d, 'weinausbau', GV).menge_liter, 200)
@@ -195,7 +197,7 @@ describe('KAN-112 umziehen(): Verschnitt statt Zwischencharge', nurMitHooks, () 
     const rpc = d.aufrufe.find(a => a.tabelle === 'rpc:s112_verschnitt_buchen').werte
     assert.equal(rpc.p_kopf.neue_ziel_charge.behaelter_id, G4)
     assert.deepEqual(rpc.p_quellen.map(q => [q.weinausbau_id, q.menge_liter, q.schwund_liter]), [[GV, 294, 6], [WR, 196, 4]])
-    const neu = zeile(d, 'weinausbau', r.verschnitt.zielChargeId)
+    const neu = zeile(d, 'weinausbau', r.verschnitte[0].zielChargeId)
     assert.equal(neu.behaelter_id, G4)
     assert.equal(neu.menge_liter, 490)
     assert.equal(neu.weinart, 'weiss')
@@ -204,17 +206,18 @@ describe('KAN-112 umziehen(): Verschnitt statt Zwischencharge', nurMitHooks, () 
     assert.equal(zeile(d, 'weinausbau', GV).aktiv, false)
     assert.match(d.tabellen.verschneidungen[0].notizen, /^Umzug als Verschnitt gebucht \(abweichend: Rebsorte, Jahrgang, Herkunft und Qualität\)/)
   })
-  test('Verschnitt mit mehreren Zielen → Ablehnung, nichts gebucht', async () => {
+  test('Verschnitt mit mehreren Zielen: keine Ablehnung mehr (Entscheidung Jörgen 03.10.2026, „n Zielgebinde“)', async () => {
     const d = db(tabellen())
-    const e = await fehlerVon(um.umziehen(umzugFd([{ weinausbau_id: GV, menge: 100 }], [{ behaelter_id: G1, menge: 50 }, { behaelter_id: G4, menge: 50 }])))
-    assert.match(e.message, /nur in genau ein Ziel-Gebinde/)
-    assert.equal(d.tabellen.verschneidungen.length, 0)
-    assert.equal(zeile(d, 'weinausbau', GV).menge_liter, 300)
+    const r = await um.umziehen(umzugFd([{ weinausbau_id: GV, menge: 100 }], [{ behaelter_id: G1, menge: 50 }, { behaelter_id: G4, menge: 50 }]))
+    // G1: Verschnitt in RR; G4 leer, eine Quelle: Umzug in eine neue Charge
+    assert.deepEqual(r.verschnitte.map(v => v.zielChargeId), [RR])
+    assert.equal(zeile(d, 'weinausbau', GV).menge_liter, 200)
+    assert.equal(d.tabellen.weinausbau.filter(c => c.behaelter_id === G4).length, 1)
   })
   test('gleicher Wein ins Gebinde: Zusammenführung wie bisher (Umzugszeilen, keine RPC)', async () => {
     const d = db(tabellen())
     const r = await um.umziehen(umzugFd([{ weinausbau_id: RR2, menge: 100 }], [{ behaelter_id: G1, menge: 100 }]))
-    assert.equal(r?.verschnitt, undefined)
+    assert.equal(r?.verschnitte, undefined)
     assert.equal(zeile(d, 'weinausbau', RR).menge_liter, 1100)
     assert.deepEqual(d.tabellen.keller_umzuege.map(u => u.zeilen_typ).sort(), ['quelle', 'ziel'])
     assert.equal(d.aufrufe.some(a => a.tabelle === 'rpc:s112_verschnitt_buchen'), false)
@@ -311,7 +314,7 @@ describe('KAN-112 Verdrahtung (Quelltext)', () => {
     for (const datei of ['src/app/(dashboard)/kellerbuch/umziehen/UmziehenClient.tsx', 'src/components/kellerbuch/UmziehenWidget.tsx']) {
       const q = quelle(datei)
       assert.doesNotMatch(q, /verschneidungNeeded|form=verschneiden&quelle=/, datei)
-      assert.match(q, /verschnittHinweis\(result\.verschnitt\)/, datei)
+      assert.match(q, /result\.verschnitte\.map\(v => \(\{ zeilen: verschnittHinweis\(v\), chargeId: v\.zielChargeId \}\)\)/, datei)
     }
     assert.doesNotMatch(quelle('src/app/(dashboard)/kellerbuch/umziehen/actions.ts'), /verschneidungNeeded|istRebsortenmix/)
   })
@@ -332,7 +335,7 @@ describe('KAN-112 Verdrahtung (Quelltext)', () => {
   test('Assistent: verschnitt statt verschneidung_noetig', () => {
     const t = quelle('src/lib/assistent/tools/umziehen.ts')
     assert.doesNotMatch(t, /verschneidung_noetig/)
-    assert.match(t, /verschnitt: v \? \{/)
+    assert.match(t, /verschnitte: liste\.map\(v => \(\{/)
     assert.doesNotMatch(quelle('src/app/api/assistent/chat/route.ts'), /verschneidung_noetig/)
   })
 })
