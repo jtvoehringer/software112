@@ -114,3 +114,31 @@ export async function ladeJournalAbweichungen(supabase: any, tenantId: string): 
 export function journalMenge(z: Pick<JournalBuchung, 'bestand' | 'menge_liter' | 'menge_stk'>): { wert: number; einheit: 'l' | 'Stk' } {
   return z.bestand === 'flasche' ? { wert: z.menge_stk, einheit: 'Stk' } : { wert: z.menge_liter, einheit: 'l' }
 }
+
+export type JournalAbgleichLauf = {
+  betriebe: number
+  korrekturen: number
+  fehler: { tenantId: string; meldung: string }[]
+}
+
+/**
+ * Täglicher Abgleich (Sammel-Cron /api/cron/taeglich, KAN-40 E1, Entscheidung Jörgen 03.10.2026): für jeden Betrieb mit
+ * eröffnetem Journal journal_abgleichen aufrufen – direkte Mengenänderungen ohne Bewegung, die älter als 15 Minuten sind,
+ * werden als INV_PLUS/INV_MIN gebucht. Nur mit dem Admin-Client (Service-Role: Zugriffs-, Modul- und Abo-Prüfung entfallen);
+ * Betriebe ohne journal_ab bleiben unberührt (Demo-Betrieb Musterhof: Journal vorerst aus, Jörgen 03.10.2026).
+ */
+export async function journalAbgleichAlle(admin: any): Promise<JournalAbgleichLauf> {
+  // tenant-isolation-ignore: Cron über alle Betriebe mit eröffnetem Journal
+  const { data, error } = await (admin.from('tenant_einstellungen') as any)
+    .select('tenant_id')
+    .not('journal_ab', 'is', null)
+  if (error) return { betriebe: 0, korrekturen: 0, fehler: [{ tenantId: '-', meldung: error.message }] }
+  const lauf: JournalAbgleichLauf = { betriebe: 0, korrekturen: 0, fehler: [] }
+  for (const { tenant_id: tenantId } of (data ?? []) as { tenant_id: string }[]) {
+    const { data: n, error: e } = await (admin.rpc as any)('journal_abgleichen', { p_tenant_id: tenantId })
+    if (e) { lauf.fehler.push({ tenantId, meldung: e.message }); continue }
+    lauf.betriebe++
+    lauf.korrekturen += zahl(n)
+  }
+  return lauf
+}

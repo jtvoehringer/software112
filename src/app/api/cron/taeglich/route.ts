@@ -6,6 +6,7 @@ import { laufMorgenberichte } from '@/lib/morgenbericht/lauf'
 import { LAUF_RESERVE_MS, TAEGLICH_QUELLE, ergebnisArt, laufBilanz } from '@/lib/morgenbericht/zeitplan'
 import { spiegleMailboxen } from '@/lib/email/spiegel'
 import { ereignisMelden, ereignisseBereinigen } from '@/lib/system/ereignis'
+import { journalAbgleichAlle } from '@/lib/kellerbuch/journal'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 800
@@ -15,7 +16,7 @@ export const maxDuration = 800
 // Seit 23.09.2026 läuft das Projekt auf Vercel Pro mit Fluid Compute: bis 100 Cron-Jobs
 // je Projekt, bis einmal pro Minute, minutengenau, maxDuration bis 800 s (KAN-123 nutzt
 // das volle Limit). Der Sammel-Cron bleibt trotzdem, weil die Reihenfolge zählt:
-// 1. fällige E&A-Daueraufträge, 2. E-Mail-Spiegelung, 3. der Morgenbericht aller
+// 1. fällige E&A-Daueraufträge, 1b. Abgleich des Bewegungsjournals (KAN-40), 2. E-Mail-Spiegelung, 3. der Morgenbericht aller
 // Betriebe – so enthält der Bericht die Buchungen aus den Daueraufträgen bereits.
 // Die Einzelrouten bleiben für manuelle Aufrufe (System-Admin) bestehen.
 
@@ -46,6 +47,10 @@ async function handle(req: NextRequest) {
   const da = (Array.isArray(daRaw) ? daRaw[0] : daRaw) as R | null
   const dauerauftraege = daErr ? { fehler: daErr.message } : { verarbeitet: da?.verarbeitet ?? 0, erstellt: da?.erstellt ?? 0, uebersprungen: da?.uebersprungen ?? 0, fehler: da?.fehler ?? 0 }
 
+  // 1b. Bewegungsjournal (KAN-40 E1): Mengenänderungen ohne Bewegung als Korrekturbuchung nachtragen – nur Betriebe
+  //     mit eröffnetem Journal (journal_ab); Musterhof bleibt vorerst ohne Journal (Jörgen 03.10.2026)
+  const journal = await journalAbgleichAlle(admin)
+
   // 2. E-Mail-Spiegelung ins CRM (Posteingang/Gesendet aller verbundenen Postfächer,
   //    inkrementell) - VOR den Morgenberichten (18.9.2026): der Lauf lief seit dem
   //    11.9. regelmäßig in den 60-s-Timeout (Vercel Runtime Timeout), weil die
@@ -66,15 +71,15 @@ async function handle(req: NextRequest) {
   //    (GeoSphere-Zeitlimit, HTTP-Fehler – der Bericht nutzt dann den Cache) stehen in der Meldung,
   //    zählen aber nicht als Fehler.
   const mb = laufBilanz(morgenbericht.ergebnis)
-  const fehlerAnzahl = (daErr ? 1 : 0) + Number(da?.fehler ?? 0) + emailSpiegel.fehler.length + mb.alsFehler
+  const fehlerAnzahl = (daErr ? 1 : 0) + Number(da?.fehler ?? 0) + journal.fehler.length + emailSpiegel.fehler.length + mb.alsFehler
   const mbText = `${mb.erstellt} Morgenberichte${mb.bewusst ? ` (${mb.bewusst} bewusst ausgelassen)` : ''}${mb.zeitUebersprungen ? `, ${mb.zeitUebersprungen} aus Zeitmangel übersprungen` : ''}${mb.gekuerzt ? `, ${mb.gekuerzt} wegen der Zeitgrenze gekürzt` : ''}${mb.wetterFehler ? `, ${mb.wetterFehler} ${mb.wetterFehler === 1 ? 'Wetterpunkt' : 'Wetterpunkte'} nicht abrufbar` : ''}`
   const bereinigt = await ereignisseBereinigen()
   await ereignisMelden({
     art: 'cron', quelle: TAEGLICH_QUELLE,
-    meldung: `Täglicher Lauf: ${daErr ? 'Daueraufträge FEHLER' : `${da?.erstellt ?? 0} Daueraufträge`}, ${emailSpiegel.angelegt} E-Mails gespiegelt${emailSpiegel.uebersprungen.length ? ` (${emailSpiegel.uebersprungen.length} ${emailSpiegel.uebersprungen.length === 1 ? 'Postfach' : 'Postfächer'} bewusst ausgelassen)` : ''}, ${mbText}, ${fehlerAnzahl} Fehler, ${Math.round((Date.now() - start) / 1000)} s`,
+    meldung: `Täglicher Lauf: ${daErr ? 'Daueraufträge FEHLER' : `${da?.erstellt ?? 0} Daueraufträge`}, ${journal.betriebe ? `Journal ${journal.betriebe} ${journal.betriebe === 1 ? 'Betrieb' : 'Betriebe'}/${journal.korrekturen} Korrekturen, ` : ''}${emailSpiegel.angelegt} E-Mails gespiegelt${emailSpiegel.uebersprungen.length ? ` (${emailSpiegel.uebersprungen.length} ${emailSpiegel.uebersprungen.length === 1 ? 'Postfach' : 'Postfächer'} bewusst ausgelassen)` : ''}, ${mbText}, ${fehlerAnzahl} Fehler, ${Math.round((Date.now() - start) / 1000)} s`,
     // KAN-69: ausgelassene Postfächer (inaktive Mitgliedschaft, Abo gesperrt) zählen nicht als Fehler
-    details: { fehler: fehlerAnzahl, dauerauftraege, emailSpiegel: { ...emailSpiegel, fehler: emailSpiegel.fehler.slice(0, 20), uebersprungen: emailSpiegel.uebersprungen.slice(0, 20) }, morgenbericht: { ...morgenbericht, ergebnis: morgenbericht.ergebnis.filter(e => ergebnisArt(e) !== 'ok' || e.wetterFehler) }, bereinigt },
+    details: { fehler: fehlerAnzahl, dauerauftraege, journal, emailSpiegel: { ...emailSpiegel, fehler: emailSpiegel.fehler.slice(0, 20), uebersprungen: emailSpiegel.uebersprungen.slice(0, 20) }, morgenbericht: { ...morgenbericht, ergebnis: morgenbericht.ergebnis.filter(e => ergebnisArt(e) !== 'ok' || e.wetterFehler) }, bereinigt },
   })
 
-  return NextResponse.json({ dauerMs: Date.now() - start, dauerauftraege, emailSpiegel, morgenbericht })
+  return NextResponse.json({ dauerMs: Date.now() - start, dauerauftraege, journal, emailSpiegel, morgenbericht })
 }
