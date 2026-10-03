@@ -19,6 +19,7 @@ interface Props {
   bestehtAus?:         { wert: string; anteil_pct: number }[] | null
   zielCharge:          ChargeOpt
   alleChargen:         ChargeOpt[]
+  /** KAN-77: Quellen mit `gebinde` (Quellgebinde am Verschnitt-Tag) und `anteil_ergebnis_pct` (Anteil am Ergebnis) */
   verschneidungen:     R[]
   initialOpen?:        boolean
   initialQuelleId?:    string
@@ -127,11 +128,15 @@ export default function VerschneidungWidget({ bestehtAus = null, zielCharge, all
                         const ql = (q.quelle as R | null)?.qualitaetsstufe ? qualitaetText(q.quelle as R) : null
                         return (
                           <p key={i} className="text-xs flex items-center gap-1.5">
-                            <span className="font-medium text-s112-text">{(q.quelle as R | null)?.name ?? '?'}</span>
+                            <span className="font-medium text-s112-text">
+                              {(q.quelle as R | null)?.name ?? '?'}
+                              {q.gebinde && <span className="font-normal text-s112-text-2"> ({q.gebinde})</span>}
+                            </span>
                             {q.menge_liter != null && (
                               <span className="text-s112-muted">
                                 {fmtNum(parseFloat(q.menge_liter))} L
-                                {q.anteil_pct != null && ` (${q.anteil_pct} %)`}
+                                {/* KAN-77: Anteil am Ergebnis des Verschnitts, nicht am Verschnitt allein */}
+                                {q.anteil_ergebnis_pct != null && ` (${fmtNum(q.anteil_ergebnis_pct, 1)} % des Ergebnisses)`}
                               </span>
                             )}
                             {ql && (

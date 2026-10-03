@@ -16,6 +16,9 @@
 // Storno (KAN-145 B2b, 30.09.2026): Ein stornierter Umzug bzw. Verschnitt bleibt am Buchungstag stehen (Vermerk
 // „storniert am …“) und bekommt am Storno-Tag eine Gegenbuchung mit umgekehrter Menge – so stimmt der Saldo zu
 // jedem Stichtag. Belegungszeiträume und Liter je Charge lassen das Paar aus.
+//
+// KAN-77 (03.10.2026): „Verschneidung von …“ nennt das Quellgebinde am Tag des Verschnitts (lib/kellerbuch/quellGebinde.ts,
+// auch bei einer Zwischencharge im Ziel-Tank) statt des heutigen Gebindes der Quell-Charge.
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Projektkonvention (supabase.from('…') as any), siehe CLAUDE.md */
 import { momentaufnahmeAnwenden } from '../stammdaten/momentaufnahme'
@@ -27,6 +30,7 @@ import { fmtNum } from '@/lib/format'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { imZeitraum, num, tag, text, type R, type Zeitraum } from './kellerbuch-hilfen'
 import { eroeffnungsTag, istFlaschenEroeffnung } from '@/lib/kellerbuch/eroeffnungsStichtag'
+import { quellGebindeAusDaten, quellGebindeDesVerschnitts, quellGebindeSchluessel, type Quellgebinde, type UmzugGebinde, type VerschnittGebinde } from '@/lib/kellerbuch/quellGebinde'
 
 export type BewegungsArt =
   | 'uebertrag' | 'anfangsbestand' | 'zukauf' | 'pressung' | 'umzug_ein' | 'umzug_aus' | 'filtration_ein'
@@ -91,6 +95,8 @@ type Roh = {
   quelleByBatch: Record<string, R[]>
   zielByBatch: Record<string, R[]>
   chargeNamen: Map<string, string>
+  /** KAN-77: Quellgebinde je Verschnitt-Quelle (`${verschneidungId}:${quellWeinausbauId}`) */
+  quellGebinde: Map<string, Quellgebinde>
 }
 
 function fehler(tabelle: string, e: { message?: string } | null): never {
@@ -187,7 +193,7 @@ async function ladeRoh(supabase: any, tenantId: string, behaelterId: string): Pr
         .in('quell_weinausbau_id', ids)
         .order('id', { ascending: true }), 'verschneidung_quellen'),
       liste((supabase.from('verschneidungen') as any)
-        .select('id, datum, notizen, ziel_weinausbau_id, storniert_am, storno_grund, storniert_von_name, quellen:verschneidung_quellen(menge_liter, quelle:quell_weinausbau_id(name, behaelter:behaelter_id(name)))')
+        .select('id, datum, notizen, ziel_weinausbau_id, storniert_am, storno_grund, storniert_von_name, quellen:verschneidung_quellen(quell_weinausbau_id, menge_liter, quelle:quell_weinausbau_id(name, behaelter:behaelter_id(name)))')
         // storno-sichtbar: das Bewegungsbuch zeigt Buchung und Gegenbuchung (KAN-145 B2b)
         .eq('tenant_id', tenantId)
         .in('ziel_weinausbau_id', ids)
@@ -238,7 +244,20 @@ async function ladeRoh(supabase: any, tenantId: string, behaelterId: string): Pr
     for (const n of namen) if (n.name) chargeNamen.set(n.id, n.name)
   }
 
-  return { pressungen, umzuegeEin, chargen, umzuegeAus, fuellungen, verkauf, zukauf, behandlungen, verschnAus, verschnEin, quelleByBatch, zielByBatch, chargeNamen }
+  // KAN-77: Quellgebinde der Verschnitte in Chargen dieses Gebindes
+  const quellGebinde = verschnEin.length > 0
+    ? await quellGebindeDesVerschnitts(supabase, tenantId, verschnEin.map(verschnittGebinde))
+    : new Map<string, Quellgebinde>()
+
+  return { pressungen, umzuegeEin, chargen, umzuegeAus, fuellungen, verkauf, zukauf, behandlungen, verschnAus, verschnEin, quelleByBatch, zielByBatch, chargeNamen, quellGebinde }
+}
+
+/** Verschnitt-Zeile → Eingabe für das Quellgebinde (KAN-77) */
+function verschnittGebinde(v: R): VerschnittGebinde {
+  return {
+    id: v.id, datum: v.datum ?? null, ziel_weinausbau_id: v.ziel_weinausbau_id ?? null,
+    quellen: ((v.quellen ?? []) as R[]).map(q => ({ quell_weinausbau_id: q.quell_weinausbau_id ?? null })),
+  }
 }
 
 const liter = (n: number) => runden(n, STELLEN.liter)
@@ -488,7 +507,9 @@ function bewegungenAus(roh: Roh): Bewegung[] {
     const gesamt = quellen.reduce((s: number, q: R) => s + num(q.menge_liter), 0)
     if (gesamt <= 0) continue
     const quellenNamen = quellen.map((q: R) => {
-      const beh = ((q.quelle as R | null)?.behaelter as R | null)?.name ?? null
+      // KAN-77: Gebinde am Tag des Verschnitts; ohne Treffer (Charge ohne Gebinde) wie bisher das heutige
+      const beh = (q.quell_weinausbau_id ? roh.quellGebinde.get(quellGebindeSchluessel(v.id, q.quell_weinausbau_id))?.name : null)
+        ?? ((q.quelle as R | null)?.behaelter as R | null)?.name ?? null
       const n = (q.quelle as R | null)?.name ?? '?'
       return beh ? `${beh} (${n})` : n
     }).join(', ')
@@ -629,7 +650,7 @@ export async function ladeBewegungenBetrieb(supabase: any, tenantId: string): Pr
       .eq('tenant_id', tenantId)
       .order('id', { ascending: true }), 'weinausbau'),
     liste((supabase.from('keller_umzuege') as any)
-      .select('id, datum, menge_liter, brutto_liter, schwund_liter, umzug_typ, zeilen_typ, umzug_batch_id, transaktions_nr, notizen, storniert_am, storno_grund, storniert_von_name, qualitaet_vorher, qualitaet_nachher, zusatz_vorher, zusatz_nachher, erzeugnis_vorher, erzeugnis_nachher, von_behaelter_id, nach_behaelter_id, von_weinausbau_id, nach_weinausbau_id, von_behaelter:von_behaelter_id(name), nach_behaelter:nach_behaelter_id(name), von_weinausbau:von_weinausbau_id(name, jahrgang, behaelter:behaelter_id(name)), nach_weinausbau:nach_weinausbau_id(name)')
+      .select('id, datum, erstellt_am, menge_liter, brutto_liter, schwund_liter, umzug_typ, zeilen_typ, umzug_batch_id, transaktions_nr, notizen, storniert_am, storno_grund, storniert_von_name, qualitaet_vorher, qualitaet_nachher, zusatz_vorher, zusatz_nachher, erzeugnis_vorher, erzeugnis_nachher, von_behaelter_id, nach_behaelter_id, von_weinausbau_id, nach_weinausbau_id, von_behaelter:von_behaelter_id(name), nach_behaelter:nach_behaelter_id(name), von_weinausbau:von_weinausbau_id(name, jahrgang, behaelter:behaelter_id(name)), nach_weinausbau:nach_weinausbau_id(name)')
       // storno-sichtbar: Buchung und Gegenbuchung wie im Bewegungsbuch (KAN-145 B2b)
       .eq('tenant_id', tenantId)
       .order('datum', { ascending: true })
@@ -666,7 +687,7 @@ export async function ladeBewegungenBetrieb(supabase: any, tenantId: string): Pr
       .select('id, menge_liter, quell_weinausbau_id, verschneidung:verschneidung_id(datum, notizen, tenant_id, storniert_am, storno_grund, storniert_von_name, ziel:ziel_weinausbau_id(name, behaelter:behaelter_id(name)))')
       .order('id', { ascending: true }), 'verschneidung_quellen'),
     liste((supabase.from('verschneidungen') as any)
-      .select('id, datum, notizen, ziel_weinausbau_id, storniert_am, storno_grund, storniert_von_name, ziel_qualitaet_vorher, ziel_zusatz_vorher, ziel_erzeugnis_vorher, ziel_rebsorte_vorher, ziel_jahrgang_vorher, quellen:verschneidung_quellen(menge_liter, quelle:quell_weinausbau_id(name, behaelter:behaelter_id(name)))')
+      .select('id, datum, notizen, ziel_weinausbau_id, storniert_am, storno_grund, storniert_von_name, ziel_qualitaet_vorher, ziel_zusatz_vorher, ziel_erzeugnis_vorher, ziel_rebsorte_vorher, ziel_jahrgang_vorher, quellen:verschneidung_quellen(quell_weinausbau_id, menge_liter, quelle:quell_weinausbau_id(name, behaelter:behaelter_id(name)))')
       // storno-sichtbar: Buchung und Gegenbuchung wie im Bewegungsbuch (KAN-145 B2b)
       .eq('tenant_id', tenantId)
       .not('ziel_weinausbau_id', 'is', null)
@@ -701,6 +722,8 @@ export async function ladeBewegungenBetrieb(supabase: any, tenantId: string): Pr
     quelleByBatch,
     zielByBatch,
     chargeNamen,
+    // KAN-77: Quellgebinde aus den schon geladenen Umzügen und Chargen des Betriebs (keine weitere Abfrage)
+    quellGebinde: quellGebindeBetrieb(verschnEin, umzuege, chargen),
   }
   return {
     bewegungen: bewegungenAus(roh),
@@ -708,6 +731,21 @@ export async function ladeBewegungenBetrieb(supabase: any, tenantId: string): Pr
     fuellungen: fuellungenAlle,
     quellen: { umzuege, zukauf, verkauf, verschneidungen: verschnEin, verschneidungQuellen: roh.verschnAus, pressungen },
   }
+}
+
+/** KAN-77: Quellgebinde aller Verschnitte des Betriebs aus den Rohdaten (Namen aus den eingebetteten Gebinden) */
+function quellGebindeBetrieb(verschnEin: readonly R[], umzuege: readonly R[], chargen: readonly R[]): Map<string, Quellgebinde> {
+  const gebindeJeCharge = new Map<string, string | null>()
+  const namen = new Map<string, string>()
+  for (const c of chargen) {
+    gebindeJeCharge.set(c.id, c.behaelter_id ?? null)
+    if (c.behaelter_id && (c.behaelter as R | null)?.name) namen.set(c.behaelter_id, c.behaelter.name)
+  }
+  for (const u of umzuege) {
+    if (u.von_behaelter_id && (u.von_behaelter as R | null)?.name) namen.set(u.von_behaelter_id, u.von_behaelter.name)
+    if (u.nach_behaelter_id && (u.nach_behaelter as R | null)?.name) namen.set(u.nach_behaelter_id, u.nach_behaelter.name)
+  }
+  return quellGebindeAusDaten(verschnEin.map(verschnittGebinde), umzuege as UmzugGebinde[], gebindeJeCharge, namen)
 }
 
 /** Bewegungen und Belegungszeiträume eines Gebindes (ohne Gebinde-Stammdaten) */

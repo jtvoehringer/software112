@@ -6,8 +6,10 @@
 // Eröffnungsbestand, Anteile auf 1 Stelle mit Summe 100,0. Charge: heute oder zum Stichtag (?stichtag=);
 // Füllung: Zusammensetzung unmittelbar vor der Abfüllung. Weicht der Bestand vom Saldo ab: Warnung. Die CSV hat eine Zeile
 // je Herkunftsanteil; Kopfangaben (Bezeichnung, Prüfnummer, Chargennummer) stehen in jeder
-// Zeile. „Menge anteilig“ = Bezugsmenge × Anteil (Füllung: abgefüllte Liter, Charge:
-// aktueller Bestand) – eine rechnerische Aufteilung, keine gebuchte Menge.
+// Zeile. „Menge anteilig“ = Bezugsmenge nach den Litern der Mischungsrechnung (Füllung: abgefüllte Liter,
+// Charge: aktueller Bestand) – eine rechnerische Aufteilung, keine gebuchte Menge. KAN-77 (03.10.2026): nach der
+// Größter-Rest-Methode verteilt, die Spalte summiert genau auf die Bezugsmenge (500,00 + 48,00 = 548,00 L); die
+// Druckseiten zeigen dazu die Spalte „Liter“, die Hinweise und die Verschnitt- und Umzugsschritte (blendSchritte.ts).
 //
 // Prüfnummer (KAN-72, 25.09.2026): Charge – nur eine heute gültige Nummer laut
 // pruefnummerGueltig() (lib/kellerbuch/pruefnummer.ts; nach Verschnitt, Zugang, Zukauf oder
@@ -22,9 +24,11 @@ import { runden, STELLEN, wienHeute, type CsvSpalte } from '@/lib/csv'
 import { ladeZusammensetzungCharge, ladeZusammensetzungFuellung, type KompositionUrsprung } from '@/lib/wein/blendKomposition'
 import { bkiRebsorteKuerzel, fehlendeKuerzelHinweise } from '@/lib/wein/bki_kuerzel'
 import { qualitaetAnzeigeOderNull } from '@/lib/wein/qualitaet'
+import { verteileLiter } from '@/lib/wein/mischungsrechnung'
 import { ersatzPruefnummer, pruefnummerAusAntrag, pruefnummerGueltig, pruefnummerHinweis } from '@/lib/kellerbuch/pruefnummer'
 import { antragAusZeile, ladePruefnummerDaten, PN_ANTRAG_SELECT } from '@/lib/kellerbuch/pruefnummerLaden'
 import { num, numOderNull, tag, text, type R } from './kellerbuch-hilfen'
+import { ladeBlendSchritte, type BlendSchritt } from './blendSchritte'
 
 export type BlendArt = 'fuellung' | 'charge'
 
@@ -85,10 +89,12 @@ export type BlendZeile = {
 
 /** Herkunftsanteile als CSV-Zeilen (reine Umformung, testbar) */
 export function blendZeilen(kopf: BlendKopf, komposition: readonly (Omit<KompositionUrsprung, 'liter'> & { liter?: number })[]): BlendZeile[] {
-  // KAN-76: Liter aus der Mischungsrechnung auf die Bezugsmenge bezogen (Summe = Bezugsmenge);
-  // ohne Liter (ältere Aufrufer) wie bisher Bezugsmenge × Anteil
+  // KAN-76: Liter aus der Mischungsrechnung auf die Bezugsmenge bezogen; ohne Liter (ältere Aufrufer)
+  // nach dem Anteil. KAN-77: Größter-Rest-Verteilung – Σ „Menge anteilig“ = Bezugsmenge exakt
   const literSumme = komposition.reduce((s, u) => s + (u.liter ?? 0), 0)
-  return komposition.map(u => {
+  const gewichte = komposition.map(u => (literSumme > 0 ? u.liter ?? 0 : u.anteil_pct))
+  const mengen = kopf.bezugLiter === null ? null : verteileLiter(gewichte, kopf.bezugLiter)
+  return komposition.map((u, i) => {
     const anteilPct = runden(u.anteil_pct, 1)
     return {
       bezugArt: kopf.art === 'fuellung' ? 'Füllung' : 'Charge',
@@ -108,14 +114,16 @@ export function blendZeilen(kopf: BlendKopf, komposition: readonly (Omit<Komposi
       lieferant: text(u.zukauf_von),
       anteilPct,
       bezugLiter: kopf.bezugLiter,
-      mengeLiter: kopf.bezugLiter === null ? null
-        : u.liter != null && literSumme > 0 ? runden(kopf.bezugLiter * u.liter / literSumme, STELLEN.liter)
-        : runden(kopf.bezugLiter * anteilPct / 100, STELLEN.liter),
+      mengeLiter: mengen === null ? null : runden(mengen[i], STELLEN.liter),
     }
   })
 }
 
-export type BlendProtokoll = { kopf: BlendKopf; komposition: KompositionUrsprung[]; zeilen: BlendZeile[]; warnungen: string[] }
+export type BlendProtokoll = {
+  kopf: BlendKopf; komposition: KompositionUrsprung[]; zeilen: BlendZeile[]; warnungen: string[]
+  /** KAN-77: Verschnitt- und Umzugsschritte (Zuflussmengen) – nur Druckseite, nicht in der CSV */
+  schritte: BlendSchritt[]
+}
 
 /** Blend-Protokoll einer Füllung oder Charge – null, wenn sie im aktiven Betrieb nicht existiert */
 export async function ladeBlendProtokoll(
@@ -125,6 +133,7 @@ export async function ladeBlendProtokoll(
 ): Promise<BlendProtokoll | null> {
   let kopf: BlendKopf
   let komposition: KompositionUrsprung[]
+  let chargenIds: string[]
   const warnungen: string[] = []
   if (p.art === 'fuellung') {
     const { data, error } = await (supabase.from('fuellungen') as any)
@@ -171,6 +180,7 @@ export async function ladeBlendProtokoll(
     }
     const z = await ladeZusammensetzungFuellung(supabase, tenantId, p.id)
     komposition = z.anteile
+    chargenIds = z.chargenIds
     warnungen.push(...z.warnungen)
   } else {
     // KAN-76: Stichtag (optional) – Zusammensetzung, Bestand und Prüfnummer zu diesem Tag
@@ -203,6 +213,7 @@ export async function ladeBlendProtokoll(
       bezugLiter: bestand > 0 ? runden(bestand, STELLEN.liter) : null,
     }
     komposition = z.anteile
+    chargenIds = z.chargenIds
     warnungen.push(...z.warnungen)
   }
 
@@ -214,7 +225,9 @@ export async function ladeBlendProtokoll(
     : 'Die abgefüllte Menge ist unbekannt – „Menge anteilig (l)“ bleibt leer.')
   const zeilen = blendZeilen(kopf, komposition)
   warnungen.push(...fehlendeKuerzelHinweise(zeilen.map(z => z.rebsorte), { einheit: ['Herkunftsanteil', 'Herkunftsanteile'] }))
-  return { kopf, komposition, zeilen, warnungen }
+  // KAN-77: Schritte bis zum Stichtag (Charge) bzw. bis zur Abfüllung (Füllung)
+  const schritte = await ladeBlendSchritte(supabase, tenantId, chargenIds, kopf.datum)
+  return { kopf, komposition, zeilen, warnungen, schritte }
 }
 
 export const SPALTEN_BLEND: CsvSpalte<BlendZeile>[] = [

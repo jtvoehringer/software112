@@ -33,6 +33,7 @@ import { massnahmenArtLabel } from '@/lib/behandlungen/arten'
 import { massnahmeMittel, massnahmeZeitraum } from '@/lib/behoerden/rueckverfolgung'
 import { ladeRvWeingarten, massnahmeWartezeit, type RvLese } from '@/lib/behoerden/rv-weingarten'
 import { ttmmjjjj } from '@/lib/behoerden/rueckverfolgungFenster'
+import { quellGebindeDesVerschnitts, quellGebindeSchluessel, verschnittQuelleText } from '@/lib/kellerbuch/quellGebinde'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -203,8 +204,8 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
       .eq('weinausbau_id', id)),
 
     tf((supabase.from('verschneidungen') as any)
-      .select(`datum, notizen, storniert_am, storno_grund, storniert_von_name,
-        quellen:verschneidung_quellen(menge_liter, anteil_pct,
+      .select(`id, datum, notizen, ziel_weinausbau_id, storniert_am, storno_grund, storniert_von_name,
+        quellen:verschneidung_quellen(quell_weinausbau_id, menge_liter, anteil_pct,
           quelle:quell_weinausbau_id(id, name, rebsorte))`)
       // storno-sichtbar: das Weinbuch zeigt die Buchung (gekennzeichnet) und den Storno (KAN-145 B2b)
       .eq('ziel_weinausbau_id', id)
@@ -553,13 +554,21 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
     })
   }
 
+  // KAN-77: Quelle mit Quellgebinde am Tag des Verschnitts und Litern („Grüner Veltliner Sandgrube (Stahltank 03) · 48 L“).
+  // Die gespeicherten Prozente entfallen hier: bis KAN-77 Anteil am Verschnitt, seither am Ergebnis – das Blend-Protokoll
+  // zeigt die Anteile zeitrichtig.
+  const quellGebinde = tenantId && verschnEin.length > 0
+    ? await quellGebindeDesVerschnitts(supabase, tenantId, verschnEin.map((v: R) => ({
+      id: v.id, datum: v.datum ?? null, ziel_weinausbau_id: v.ziel_weinausbau_id ?? id,
+      quellen: ((v.quellen ?? []) as R[]).map((q: R) => ({ quell_weinausbau_id: q.quell_weinausbau_id ?? (q.quelle as R | null)?.id ?? null })),
+    })))
+    : new Map<string, { name: string | null }>()
   for (const v of verschnEin) {
     merkeStorno(v)
     const quelleTexte = ((v.quellen ?? []) as R[]).map((q: R) => {
-      const name = (q.quelle as R | null)?.name ?? '?'
-      return q.anteil_pct != null
-        ? `${name}: ${q.anteil_pct} % (${fmtNum(parseFloat(q.menge_liter ?? 0))} L)`
-        : `${name}: ${fmtNum(parseFloat(q.menge_liter ?? 0))} L`
+      const qid = q.quell_weinausbau_id ?? (q.quelle as R | null)?.id
+      const gebinde = qid ? quellGebinde.get(quellGebindeSchluessel(v.id, qid))?.name ?? null : null
+      return `Verschneidung von ${verschnittQuelleText((q.quelle as R | null)?.name, gebinde, `${fmtNum(parseFloat(q.menge_liter ?? 0))} L`)}`
     })
     events.push({
       datum: v.datum,
@@ -573,9 +582,8 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
     const v = vq.verschneidung as R | null
     if (!v) continue
     const zielName = (v.ziel as R | null)?.name ?? '?'
-    const detail = vq.anteil_pct != null
-      ? `→ ${zielName}: ${vq.anteil_pct} % (${fmtNum(parseFloat(vq.menge_liter ?? 0))} L)`
-      : `→ ${zielName}: ${fmtNum(parseFloat(vq.menge_liter ?? 0))} L`
+    // KAN-77: ohne die gespeicherten Prozente (Bedeutung bis/seit KAN-77 verschieden, siehe oben)
+    const detail = `→ ${zielName} · ${fmtNum(parseFloat(vq.menge_liter ?? 0))} L`
     merkeStorno(vq)
     events.push({
       datum: v.datum,
