@@ -11,7 +11,8 @@ import PrintButton from './PrintButton'
 import { fmtNum } from '@/lib/format'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { csvPfad } from '@/lib/behoerden/katalog'
-import { herkunftLabel, ladeBlendProtokoll } from '@/lib/behoerden/blend'
+import { ladeBlendProtokoll } from '@/lib/behoerden/blend'
+import { BlendHerkunftTabelle, BlendHinweise, BlendSchritteTabelle } from '@/components/kellerbuch/BlendProtokollTeile'
 
 export const metadata: Metadata = { title: 'Blend-Protokoll – software:112' }
 export const dynamic = 'force-dynamic'
@@ -108,6 +109,9 @@ export default async function BlendProtokollFuellungPage({ params }: { params: P
           </div>
         </div>
 
+        {/* KAN-77: Hinweise der Mischungsrechnung und zur Prüfnummer (bisher nur in der CSV) – auch im Druck */}
+        <BlendHinweise warnungen={protokoll.warnungen} />
+
         {/* Produktbezeichnung */}
         <div className="text-center py-4 border-b border-s112-border">
           <p className="text-2xl font-semibold text-s112-text tracking-tight">{fuellung.name ?? '–'}</p>
@@ -130,37 +134,11 @@ export default async function BlendProtokollFuellungPage({ params }: { params: P
             Keine Herkunftsdaten für diese Füllung ermittelbar.
           </p>
         ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-s112-border text-left">
-                <th className="py-2 font-semibold text-s112-text-2 text-xs uppercase tracking-wide">Herkunft</th>
-                <th className="py-2 font-semibold text-s112-text-2 text-xs uppercase tracking-wide">Rebsorte</th>
-                <th className="py-2 font-semibold text-s112-text-2 text-xs uppercase tracking-wide">Jahrgang</th>
-                <th className="py-2 font-semibold text-s112-text-2 text-xs uppercase tracking-wide text-right">Anteil</th>
-              </tr>
-            </thead>
-            <tbody>
-              {komposition.map(u => (
-                <tr key={u.key} className="border-b border-s112-border/60 last:border-0">
-                  <td className="py-2 text-s112-text">{herkunftLabel(u)}</td>
-                  <td className="py-2 text-s112-text-2">{formatRebsorteMitKuerzel(u.rebsorte)}</td>
-                  <td className="py-2 text-s112-text-2">{u.jahrgang ?? '–'}</td>
-                  <td className="py-2 text-s112-text font-semibold text-right">
-                    {fmtNum(u.anteil_pct, 1)} %
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr>
-                <td colSpan={3} className="pt-2 text-xs text-s112-tertiary">Gesamt</td>
-                <td className="pt-2 text-xs text-s112-tertiary text-right">
-                  {fmtNum(komposition.reduce((s, u) => s + u.anteil_pct, 0), 1)} %
-                </td>
-              </tr>
-            </tfoot>
-          </table>
+          <BlendHerkunftTabelle komposition={komposition} zeilen={protokoll.zeilen} bezugLiter={kopf.bezugLiter} />
         )}
+
+        {/* KAN-77: Verschnitt- und Umzugsschritte (Zuflussmengen) */}
+        <BlendSchritteTabelle schritte={protokoll.schritte} bis={kopf.datum ? 'abfuellung' : null} />
 
         {/* Fußzeile */}
         <div className="border-t border-s112-border pt-4 flex items-end justify-between">

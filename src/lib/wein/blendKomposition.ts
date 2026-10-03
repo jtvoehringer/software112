@@ -25,6 +25,10 @@ type R = Record<string, any>
 /** Herkunftsanteil einer Charge bzw. Füllung (mit Litern bezogen auf die Bezugsmenge) */
 export type KompositionUrsprung = Herkunftsanteil
 
+/** KAN-77: Zusammensetzung samt Chargen des Bewegungsgraphen (Charge bzw. Füllungs-Chargen und alle Vorgänger) –
+ *  für die Verschnitt- und Umzugsschritte im Blend-Protokoll */
+export type ZusammensetzungMitGraph = Zusammensetzung & { chargenIds: string[] }
+
 /** Höchstzahl vorgelagerter Chargen – Schutz gegen entartete Daten */
 const MAX_CHARGEN = 500
 
@@ -302,30 +306,30 @@ export async function ladeBewegungsgraph(supabase: any, tenantId: string, startI
  */
 export async function ladeZusammensetzungCharge(
   supabase: any, tenantId: string, weinausbauId: string, stichtag: string | null = null,
-): Promise<Zusammensetzung> {
+): Promise<ZusammensetzungMitGraph> {
   const g = await ladeBewegungsgraph(supabase, tenantId, [weinausbauId])
   const c = g.chargen.get(weinausbauId)
-  if (!c) return { anteile: [], warnungen: [], saldoLiter: 0 }
+  if (!c) return { anteile: [], warnungen: [], saldoLiter: 0, chargenIds: [] }
   const z = zusammensetzung(g.ereignisse, weinausbauId, {
     stichtag, gebuchterBestand: stichtag ? null : num(c.menge_liter), name: c.name ?? null,
   })
-  return { ...z, warnungen: [...g.warnungen, ...z.warnungen] }
+  return { ...z, warnungen: [...g.warnungen, ...z.warnungen], chargenIds: [...g.chargen.keys()] }
 }
 
 /** Zusammensetzung einer Füllung = was bei der Abfüllung aus ihren Chargen entnommen wurde */
-export async function ladeZusammensetzungFuellung(supabase: any, tenantId: string, fuellungId: string): Promise<Zusammensetzung> {
+export async function ladeZusammensetzungFuellung(supabase: any, tenantId: string, fuellungId: string): Promise<ZusammensetzungMitGraph> {
   const [fc, f] = await Promise.all([
     liste((supabase.from('fuellung_chargen') as any)
       .select('weinausbau_id').eq('tenant_id', tenantId).eq('fuellung_id', fuellungId).order('weinausbau_id'), 'Füllungen'),
     (supabase.from('fuellungen') as any).select('weinausbau_id').eq('tenant_id', tenantId).eq('id', fuellungId).maybeSingle(),
   ])
   const ids = [...new Set([...fc.map(r => r.weinausbau_id as string), (f.data as R | null)?.weinausbau_id as string | undefined].filter((x): x is string => !!x))]
-  if (ids.length === 0) return { anteile: [], warnungen: [], saldoLiter: 0 }
+  if (ids.length === 0) return { anteile: [], warnungen: [], saldoLiter: 0, chargenIds: [] }
   const g = await ladeBewegungsgraph(supabase, tenantId, ids)
   const z = zusammensetzungEntnahme(g.ereignisse, `fuellung:${fuellungId}`)
   const warnungen = [...g.warnungen]
   if (z.anteile.length === 0) warnungen.push('Die Füllung ist keiner Charge mit Bestand zugeordnet – Herkunft nicht ermittelbar.')
-  return { ...z, warnungen }
+  return { ...z, warnungen, chargenIds: [...g.chargen.keys()] }
 }
 
 /**

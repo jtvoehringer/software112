@@ -12,8 +12,9 @@ import { kmwZuQualitaet, minQualitaet } from '@/lib/weinqualitaet'
 import { folgebuchungenDerCharge, folgebuchungenText } from '@/lib/kellerbuch/folgebuchungen'
 import { GEBINDEWECHSEL_OHNE } from '@/lib/kellerbuch/storno'
 import VerschneidungWidget from './VerschneidungWidget'
-import { ladeZusammensetzungCharge } from '@/lib/wein/blendKomposition'
-import { sortenAnteile } from '@/lib/wein/mischungsrechnung'
+import { ladeBewegungsgraph } from '@/lib/wein/blendKomposition'
+import { bestandNachEreignis, sortenAnteile, zusammensetzung } from '@/lib/wein/mischungsrechnung'
+import { quellGebindeDesVerschnitts, quellGebindeSchluessel, verschnittQuelleText, type Quellgebinde } from '@/lib/kellerbuch/quellGebinde'
 import HerkunftJournalKarte from './HerkunftJournalKarte'
 import SchwundBuchenForm from './SchwundBuchenForm'
 import UmziehenWidget from '@/components/kellerbuch/UmziehenWidget'
@@ -115,9 +116,9 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
       .neq('id', id)
       .order('name')),
 
-    // Verschneidungen: diese Charge als Ziel
+    // Verschneidungen: diese Charge als Ziel – KAN-77: mit Quell-Charge (Quellgebinde) und Qualität für das Badge
     tf((supabase.from('verschneidungen') as any)
-      .select('id, datum, notizen, quellen:verschneidung_quellen(menge_liter, anteil_pct, quelle:quell_weinausbau_id(id, name, rebsorte))')
+      .select('id, datum, notizen, ziel_weinausbau_id, quellen:verschneidung_quellen(quell_weinausbau_id, menge_liter, anteil_pct, quelle:quell_weinausbau_id(id, name, rebsorte, qualitaetsstufe, zusatzbezeichnung, erzeugnis))')
       .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
       .eq('ziel_weinausbau_id', id)
       .order('datum', { ascending: false })),
@@ -203,6 +204,17 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
 
   const alleChargen = (alleChargenRaw ?? []) as { id: string; name: string; menge_liter: number | null; qualitaetsstufe: string | null; zusatzbezeichnung?: string | null; erzeugnis?: string | null; herkunft_code?: string | null; behaelter_id: string | null; rebsorte?: string | null; weinart?: string | null }[]
   const verschneidungenEin = (verschnEinRaw ?? []) as R[]
+  // KAN-77: Quellgebinde je Verschnitt-Quelle am Tag des Verschnitts (nicht das heutige Gebinde der Quelle)
+  const quellGebinde: Map<string, Quellgebinde> = tenantId && verschneidungenEin.length > 0
+    ? await quellGebindeDesVerschnitts(supabase, tenantId, verschneidungenEin.map(v => ({
+      id: v.id, datum: v.datum ?? null, ziel_weinausbau_id: v.ziel_weinausbau_id ?? id,
+      quellen: ((v.quellen ?? []) as R[]).map(q => ({ quell_weinausbau_id: q.quell_weinausbau_id ?? (q.quelle as R | null)?.id ?? null })),
+    })))
+    : new Map()
+  const gebindeDerQuelle = (v: R, q: R): string | null => {
+    const qid = q.quell_weinausbau_id ?? (q.quelle as R | null)?.id
+    return qid ? quellGebinde.get(quellGebindeSchluessel(v.id, qid))?.name ?? null : null
+  }
 
   const anfangsbestand    = parseFloat(String(weinausbau.anfangsbestand_liter ?? 0)) || 0
   const aktuell           = parseFloat(String(weinausbau.menge_liter ?? 0)) || 0
@@ -267,7 +279,8 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
     const quellen = (v.quellen ?? []) as R[]
     const gesamtLiter = quellen.reduce((s: number, q: R) => s + (parseFloat(q.menge_liter) || 0), 0)
     if (gesamtLiter <= 0) continue
-    const quellenText = quellen.map((q: R) => (q.quelle as R | null)?.name ?? '?').join(', ')
+    // KAN-77: „Verschneidung von Grüner Veltliner Sandgrube (Stahltank 03) · 48 L“
+    const quellenText = quellen.map((q: R) => verschnittQuelleText((q.quelle as R | null)?.name, gebindeDerQuelle(v, q), `${fmtNum(parseFloat(q.menge_liter) || 0)} L`)).join(', ')
     bewegungen.push({
       datum: v.datum,
       art: 'umziehen_ein',
@@ -471,9 +484,22 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
 
   // KAN-76: „Besteht aus“ aus dem zeitrichtigen Rechenkern (Rebsorten je Liter im heutigen Bestand) statt
   // „Bestand − Summe der Verschnitte“ – nur wenn die Charge Verschnitte hat, wie bisher
-  const bestehtAus = tenantId && verschneidungenEin.length > 0
-    ? sortenAnteile((await ladeZusammensetzungCharge(supabase, tenantId, weinausbau.id)).anteile)
+  const graph = tenantId && verschneidungenEin.length > 0 ? await ladeBewegungsgraph(supabase, tenantId, [weinausbau.id]) : null
+  const bestehtAus = graph
+    ? sortenAnteile(zusammensetzung(graph.ereignisse, weinausbau.id, { gebuchterBestand: aktuell, name: weinausbau.name }).anteile)
     : null
+  // KAN-77: Anteil jeder Quelle am ERGEBNIS des Verschnitts (Quell-Liter / Bestand der Charge unmittelbar danach,
+  // Rechenkern KAN-76) statt am Verschnitt allein („48 L (100 %)“); dazu das Quellgebinde für die Anzeige
+  const verschneidungenAnzeige = verschneidungenEin.map(v => {
+    const ergebnis = graph ? bestandNachEreignis(graph.ereignisse, weinausbau.id, `vs:${v.id}`) : null
+    return {
+      ...v,
+      quellen: ((v.quellen ?? []) as R[]).map(q => {
+        const l = parseFloat(q.menge_liter) || 0
+        return { ...q, gebinde: gebindeDerQuelle(v, q), anteil_ergebnis_pct: ergebnis && ergebnis > 0.005 ? Math.round(l / ergebnis * 1000) / 10 : null }
+      }),
+    }
+  })
 
   return (
     <div className="max-w-4xl space-y-8">
@@ -701,7 +727,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
           bestehtAus={bestehtAus}
           zielCharge={{ id: weinausbau.id, name: weinausbau.name, menge_liter: aktuell, qualitaetsstufe: weinausbau.qualitaetsstufe ?? null, zusatzbezeichnung: weinausbau.zusatzbezeichnung ?? null, erzeugnis: weinausbau.erzeugnis ?? null, herkunft_code: weinausbau.herkunft_code ?? null, rebsorte: weinausbau.rebsorte ?? null, weinart: weinausbau.weinart ?? null, behaelter_id: weinausbau.behaelter_id ?? null, behaelter_volumen_liter: bhRows.find(b => b.id === weinausbau.behaelter_id)?.volumen_liter ?? null }}
           alleChargen={alleChargen}
-          verschneidungen={verschneidungenEin}
+          verschneidungen={verschneidungenAnzeige}
           initialOpen={openForm === 'verschneiden'}
           initialQuelleId={initialQuelleId}
           initialQuelleMenge={initialQuelleMenge}

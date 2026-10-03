@@ -154,7 +154,7 @@ export type Herkunftsanteil = HerkunftInfo & {
 }
 
 /** Größter-Rest-Rundung auf `stellen` Nachkommastellen, Summe = `ziel` (in Rundungseinheiten) */
-function verteileGerundet(werte: readonly number[], ziel: number, stellen: number): number[] {
+export function verteileGerundet(werte: readonly number[], ziel: number, stellen: number): number[] {
   const f = 10 ** stellen
   const summeW = werte.reduce((s, w) => s + w, 0)
   if (summeW <= EPS) return werte.map(() => 0)
@@ -170,8 +170,17 @@ function verteileGerundet(werte: readonly number[], ziel: number, stellen: numbe
 }
 
 /**
+ * KAN-77: Liter auf 2 Stellen nach der Größter-Rest-Methode – die Summe ist genau `ziel` (auf 2 Stellen gerundet),
+ * z. B. Liter je Herkunft im Blend-Protokoll (500,00 + 48,00 = 548,00 L statt Einzelrundung mit Rest).
+ */
+export function verteileLiter(werte: readonly number[], ziel: number): number[] {
+  return verteileGerundet(werte, ziel, 2)
+}
+
+/**
  * Mischung → Anteile, absteigend nach Litern (Gleichstand alphabetisch nach Schlüssel). `bezugLiter` = die
- * Menge, auf die sich die Liter beziehen (ohne Angabe die Summe der Mischung). Prozent summieren auf 100,0.
+ * Menge, auf die sich die Liter beziehen (ohne Angabe die Summe der Mischung). Prozent summieren auf 100,0,
+ * die Liter genau auf die Bezugsmenge (KAN-77).
  */
 export function anteile(m: ReadonlyMap<string, { liter: number; info: HerkunftInfo }>, bezugLiter: number | null = null): Herkunftsanteil[] {
   const eintraege = [...m.entries()].filter(([, v]) => v.liter > EPS)
@@ -179,9 +188,10 @@ export function anteile(m: ReadonlyMap<string, { liter: number; info: HerkunftIn
   const gesamt = eintraege.reduce((s, [, v]) => s + v.liter, 0)
   if (gesamt <= EPS) return []
   const pct = verteileGerundet(eintraege.map(([, v]) => v.liter), 100, 1)
-  const bezug = bezugLiter ?? gesamt
+  // KAN-77: Liter nach dem größten Rest statt einzeln gerundet – Summe = Bezugsmenge
+  const liter = verteileLiter(eintraege.map(([, v]) => v.liter), bezugLiter ?? gesamt)
   return eintraege.map(([key, v], i) => ({
-    key, ...v.info, liter: Math.round(v.liter / gesamt * bezug * 100) / 100, anteil_pct: pct[i],
+    key, ...v.info, liter: liter[i], anteil_pct: pct[i],
   }))
 }
 
@@ -252,4 +262,15 @@ export function zusammensetzungEntnahme(ereignisse: readonly Ereignis[], bezug: 
     for (const [k, v] of e.teil) hinzu(m, k, v.liter, v.info)
   }
   return { anteile: anteile(m), warnungen: [], saldoLiter: summe(m) }
+}
+
+/**
+ * KAN-77: Bestand (Liter) einer Charge unmittelbar nach dem Ereignis `ereignisId` (z. B. 'vs:<verschnitt-id>') –
+ * Bezugsmenge für „Anteil am Ergebnis“ eines Verschnitts. null, wenn das Ereignis fehlt.
+ */
+export function bestandNachEreignis(ereignisse: readonly Ereignis[], charge: string, ereignisId: string): number | null {
+  const e = ereignisse.find(x => x.id === ereignisId)
+  if (!e) return null
+  const sim = simuliere(ereignisse.filter(x => vergleicheEreignisse(x, e) <= 0))
+  return summe(sim.bestand.get(charge) ?? new Map())
 }
