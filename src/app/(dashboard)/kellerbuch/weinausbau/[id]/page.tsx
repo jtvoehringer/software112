@@ -14,6 +14,7 @@ import { GEBINDEWECHSEL_OHNE } from '@/lib/kellerbuch/storno'
 import VerschneidungWidget from './VerschneidungWidget'
 import { ladeZusammensetzungCharge } from '@/lib/wein/blendKomposition'
 import { sortenAnteile } from '@/lib/wein/mischungsrechnung'
+import HerkunftJournalKarte from './HerkunftJournalKarte'
 import SchwundBuchenForm from './SchwundBuchenForm'
 import UmziehenWidget from '@/components/kellerbuch/UmziehenWidget'
 import { umziehen } from '../../umziehen/actions'
@@ -583,6 +584,9 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
           </div>
         </div>
       )}
+
+      {/* KAN-192 B: Herkunft laut Bewegungsjournal (nur bei eröffnetem Journal) */}
+      {tenantId && <HerkunftJournalKarte supabase={supabase} tenantId={tenantId} chargeId={weinausbau.id} />}
 
       {/* Bewegungsbuch */}
       <section>
