@@ -26,6 +26,11 @@
 // Rebsorte), Rebsorte/Jahrgang (Wein vs. Rebsortenwein) und Ursprungsland (land_iso) sind die heutigen Stammdaten –
 // Grenze ohne Bewegungsjournal (AP3). Zukauf und Füllung buchen in den Merkmalen der Charge bzw. der Füllung.
 //
+// KAN-40 Etappe E2 (03.10.2026): Ist das Bewegungsjournal (tenant_einstellungen.journal_ab) spätestens am Zeitraumende
+// eröffnet, rechnet ladeBsm() aus kellerbuch_buchungen (berechneBsmAusJournal): Zellen aus den Merkmalen der Journalzeile
+// zum Buchungszeitpunkt (inkl. Status der Charge für Most/Sturm), Bestände als Summe der Zeilen, gemeinsamer Abschluss
+// (bsmAbschliessen). Die Rekonstruktion unten bleibt für Zeiträume vor dem Journal (Pilot 2026) und Betriebe ohne Journal.
+//
 // Druckseite (/reports/bestandsmeldung-bsm) und CSV (Register „bsm“, „bsm-kontrolljournal“) nutzen ladeBsm();
 // Mengen in Liter (2 Stellen), je Zeile zusätzlich hl (3 Stellen). Die Summen addieren die gerundeten Zeilenwerte.
 // Weindatenbank-Format (Wein-ONLINE) ist nicht spezifiziert – Standardprofil EXCEL_AT (vorerst so, Jörgen 02.10.2026).
@@ -53,6 +58,7 @@ import { normalisiereQualitaet, type QualitaetsAngabe } from '@/lib/wein/qualita
 import { bkiFarbe } from '@/lib/wein/bki_kuerzel'
 import { istFlaschenEroeffnung } from '@/lib/kellerbuch/eroeffnungsStichtag'
 import { momentaufnahmeAnwenden } from '@/lib/stammdaten/momentaufnahme'
+import { JOURNAL_QUELLE_LABEL } from '@/lib/kellerbuch/journal'
 import { fmtNum } from '@/lib/format'
 import { bestandJePosten, istNegativ, ladeBestandsGrundlage, type BestandsGrundlage, type ChargenPosten, type FuellungsPosten } from './bestandsmeldung'
 import { bestandAmStichtag, standardStichtag } from './bestandZum'
@@ -403,7 +409,12 @@ export type BsmDaten = {
   /** Most aus Pressungen zugekaufter Trauben im Zeitraum (l, Buchungsart ZK_TRAUB) */
   traubenLiter: number
   warnungen: string[]
+  /** Rechengrundlage: Bewegungsjournal (KAN-40 E2) oder Rekonstruktion aus den Bewegungstabellen */
+  quelle: BsmQuelle
 }
+
+/** Rechengrundlage der BSM */
+export type BsmQuelle = 'journal' | 'rekonstruktion'
 
 const anzahl = (n: number, eins: string, mehr: string) => `${n} ${n === 1 ? eins : mehr}`
 const auszug = (namen: readonly string[]) => [...new Set(namen)].slice(0, 5).join(', ') + (new Set(namen).size > 5 ? ' …' : '')
@@ -439,8 +450,79 @@ export function fehlendeSpalte(fehler: { code?: string; message?: string } | nul
   return (fehler.code === '42703' || fehler.code === 'PGRST204' || /column|spalte/i.test(text)) && text.includes(spalte)
 }
 
+/** zukauf_posten art 'trauben' (aktiv) – Info-Zeilen in kg */
+function ladeTraubenZukauf(supabase: Client, tenantId: string) {
+  return alle<R>(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from('zukauf_posten') as any)
+      .select('id, datum, art, einheit, menge, rebsorte, jahrgang, weinart, qualitaetsstufe, zusatzbezeichnung, erzeugnis, land_iso, eingangsrechnungsnummer, partner_daten, lieferant_firma:firmen!lieferant_firma_id(name), lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname)')
+      .eq('tenant_id', tenantId)
+      .eq('aktiv', true)
+      .eq('art', 'trauben')
+      .order('datum')
+      .order('id'),
+  )
+}
+
+/** pressung_weingaerten (Trauben-kg je Pressung, zukauf_posten_id) mit der Pressung */
+function ladePressungWeingaerten(supabase: Client, tenantId: string) {
+  // tenant-isolation-ignore: pressung_weingaerten ohne tenant_id, Filter über die Pressung (!inner)
+  return alle<R>(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from('pressung_weingaerten') as any)
+      .select('id, pressung_id, trauben_kg, zukauf_posten_id, storniert_am, pressung:pressung_id!inner(id, datum, tenant_id, storniert_am)')
+      // storno-sichtbar: Anteil zugekaufter Trauben auch für stornierte Pressungen (Gegenbuchung am Storno-Tag)
+      .eq('pressung.tenant_id', tenantId)
+      .order('id'),
+  )
+}
+
+/** Journalbeginn (tenant_einstellungen.journal_ab); null = Journal aus bzw. nicht lesbar (dann Rekonstruktion) */
+async function ladeJournalAb(supabase: Client, tenantId: string): Promise<string | null> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.from('tenant_einstellungen') as any)
+    .select('journal_ab')
+    .eq('tenant_id', tenantId)
+    .maybeSingle()
+  if (error || !data) return null
+  return tag(data.journal_ab) || null
+}
+
+/** Spalten der Journalzeilen für die BSM */
+const JOURNAL_SPALTEN_BSM = 'id, beleg_nr, pos, datum, buchungsart_code, bestand, weinausbau_id, fuellung_id, menge_liter, menge_stk, menge_kg, partner_name, partner_land, quelle_tabelle, quelle_id, gruppe_id, storno_von_id, rekonstruiert, charge_name, fuellung_name, flaschengroesse_ml, erzeugnis, qualitaetsstufe, zusatzbezeichnung, weinart, land_iso, rebsorte, jahrgang, charge_status, hinweis'
+
+/** BSM aus dem Bewegungsjournal (KAN-40 E2): Journalzeilen bis „bis“, Traubenbelege (kg) und heutige Abweichungen */
+async function ladeBsmAusJournal(supabase: Client, tenantId: string, z: BsmZeitraum, heute: string, journalAb: string): Promise<BsmDaten> {
+  const [jRes, tzRes, pwRes, kRes] = await Promise.all([
+    alle<R>(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase.from('kellerbuch_buchungen') as any)
+        .select(JOURNAL_SPALTEN_BSM)
+        .eq('tenant_id', tenantId)
+        .lte('datum', z.bis)
+        .order('beleg_nr')
+        .order('pos'),
+    ),
+    ladeTraubenZukauf(supabase, tenantId),
+    ladePressungWeingaerten(supabase, tenantId),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.rpc as any)('journal_konsistenz', { p_tenant_id: tenantId }),
+  ])
+  if (jRes.error) throw new Error(`Laden fehlgeschlagen (kellerbuch_buchungen): ${jRes.error.message}`)
+  if (tzRes.error) throw new Error(`Laden fehlgeschlagen (zukauf_posten): ${tzRes.error.message}`)
+  if (pwRes.error) throw new Error(`Laden fehlgeschlagen (pressung_weingaerten): ${pwRes.error.message}`)
+  const abweichungen = kRes?.error ? null : ((kRes?.data ?? []) as unknown[]).length
+  return berechneBsmAusJournal(jRes.data, {
+    verkaufsposten: new Map(), traubenZukauf: tzRes.data, pressungWeingaerten: pwRes.data,
+  }, z, heute, { journalAb, abweichungen })
+}
+
 export async function ladeBsm(supabase: Client, tenantId: string, z: BsmZeitraum, opts: { heute?: string } = {}): Promise<BsmDaten> {
   const heute = opts.heute ?? wienHeute()
+  // KAN-40 E2: Ist das Bewegungsjournal spätestens am Zeitraumende eröffnet, rechnet die BSM aus kellerbuch_buchungen
+  // (Merkmale zum Buchungszeitpunkt); sonst wie bisher aus den Bewegungstabellen rekonstruiert.
+  const journalAb = await ladeJournalAb(supabase, tenantId)
+  if (journalAb && journalAb <= z.bis) return ladeBsmAusJournal(supabase, tenantId, z, heute, journalAb)
   const ladeVerkaufsposten = (mitLieferland: boolean) => alle<R>(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('verkaufsposten') as any)
@@ -455,25 +537,8 @@ export async function ladeBsm(supabase: Client, tenantId: string, z: BsmZeitraum
   const [g, vpRes, tzRes, pwRes, exRes] = await Promise.all([
     ladeBestandsGrundlage(supabase, tenantId),
     verkaufspostenMitLieferland(),
-    alle<R>(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase.from('zukauf_posten') as any)
-        .select('id, datum, art, einheit, menge, rebsorte, jahrgang, weinart, qualitaetsstufe, zusatzbezeichnung, erzeugnis, land_iso, eingangsrechnungsnummer, partner_daten, lieferant_firma:firmen!lieferant_firma_id(name), lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname)')
-        .eq('tenant_id', tenantId)
-        .eq('aktiv', true)
-        .eq('art', 'trauben')
-        .order('datum')
-        .order('id'),
-    ),
-    // tenant-isolation-ignore: pressung_weingaerten ohne tenant_id, Filter über die Pressung (!inner)
-    alle<R>(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase.from('pressung_weingaerten') as any)
-        .select('id, pressung_id, trauben_kg, zukauf_posten_id, storniert_am, pressung:pressung_id!inner(id, datum, tenant_id, storniert_am)')
-        // storno-sichtbar: Anteil zugekaufter Trauben auch für stornierte Pressungen (Gegenbuchung am Storno-Tag)
-        .eq('pressung.tenant_id', tenantId)
-        .order('id'),
-    ),
+    ladeTraubenZukauf(supabase, tenantId),
+    ladePressungWeingaerten(supabase, tenantId),
     alle<R>(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('exportauftraege') as any)
@@ -649,57 +714,7 @@ export function berechneBsm(g: BestandsGrundlage, zusatz: BsmZusatz, z: BsmZeitr
   /** Flaschen-„Anfangsbestand (Altbestand, ±)“ mit negativer Menge → Abgang SCHWUND (Nachtrag 7) */
   const altbestandMinus: { name: string; liter: number }[] = []
 
-  /**
-   * Gruppe neutraler Umbuchungen: wechselt die Spalte, werden die Zeilen zu AB_ABW/ZU_ABW (R9). Wechselt Most/Sturm in
-   * eine Weinspalte (oder zurück), ist das keine Abwertung: dieser Teil wird zu UMST_MOST (Nachtrag 4, Saldo 0).
-   */
-  const abwertungsAusgleich = (zeilen: BsmBuchung[], name: string): BsmBuchung[] => {
-    const neutral = zeilen.filter(r => NEUTRALE_CODES.has(r.code))
-    const netto = new Map<string, number>()
-    for (const r of neutral) netto.set(r.spalte ?? 'ohne', l2((netto.get(r.spalte ?? 'ohne') ?? 0) + r.liter))
-    const offen = [...netto].filter(([, v]) => Math.abs(v) >= NULL_UNTER)
-    if (offen.length === 0) return zeilen
-    if (new Set(neutral.map(r => `${r.farbe}|${r.herkunft}`)).size > 1) { gemischt.push(name); return zeilen }
-    const aus = [...zeilen]
-    /** `menge` Liter der noch neutralen Zeilen einer Spalte (Vorzeichen vz) auf `code` umbuchen */
-    const umbuchen = (sp: string, vz: number, menge: number, code: string, text: string) => {
-      let rest = menge
-      for (const r of neutral) {
-        if (rest < NULL_UNTER) break
-        if (!NEUTRALE_CODES.has(r.code) || (r.spalte ?? 'ohne') !== sp || Math.sign(r.liter) !== vz) continue
-        const hinweis = [r.hinweis, text].filter(Boolean).join(' · ')
-        if (Math.abs(r.liter) <= rest + NULL_UNTER) {
-          rest = l2(rest - Math.abs(r.liter))
-          r.code = code
-          r.hinweis = hinweis
-        } else {
-          const teil = l2(vz * rest)
-          r.liter = l2(r.liter - teil)
-          aus.splice(aus.indexOf(r) + 1, 0, { ...r, code, liter: teil, hinweis })
-          rest = 0
-        }
-      }
-    }
-    const mostNetto = netto.get('most_sturm') ?? 0
-    let umstufungRest = Math.abs(mostNetto) >= NULL_UNTER ? Math.abs(mostNetto) : 0
-    for (const [sp, n] of offen) {
-      const vz = Math.sign(n)
-      const menge = Math.abs(n)
-      let umstufung = 0
-      if (sp === 'most_sturm') umstufung = menge
-      else if (umstufungRest > 0 && vz === -Math.sign(mostNetto)) {
-        umstufung = Math.min(menge, umstufungRest)
-        umstufungRest = l2(umstufungRest - umstufung)
-      }
-      if (umstufung >= NULL_UNTER) umbuchen(sp, vz, umstufung, UMSTUFUNG_MOST, mostNetto < 0 ? 'Most/Sturm wird Wein' : 'Wein zurück zu Most/Sturm')
-      if (menge - umstufung >= NULL_UNTER) umbuchen(sp, vz, l2(menge - umstufung), vz < 0 ? 'AB_ABW' : 'ZU_ABW', 'BSM-Spalte gewechselt')
-    }
-    // Aufwertung: das Ergebnis liegt in einer höheren Spalte als jede Quelle (Most/Sturm hat keinen Rang)
-    const rang = (wert: number) => offen.filter(([, v]) => Math.sign(v) === wert).map(([s]) => spalteRang(s === 'ohne' ? null : s as MeldeSpalte)).filter((x): x is number => x !== null)
-    const zu = rang(1), ab = rang(-1)
-    if (zu.length > 0 && ab.length > 0 && Math.max(...zu) > Math.max(...ab)) aufwertungen.push(name)
-    return aus
-  }
+  const abwertungsAusgleich = (zeilen: BsmBuchung[], name: string) => abwertungsAusgleichMit(zeilen, name, aufwertungen, gemischt)
 
   /** Spaltenwechsel des schon vorhandenen Weins einer Ziel-Charge (Verschnitt, Umzug in eine bestehende Charge) */
   const vorhandenerWein = (c: R, datum: string, vorher: QualitaetsAngabe, zugang: number, basis: Omit<BsmBuchung, keyof BsmZelle | 'code' | 'liter' | 'kg'>, name: string): BsmBuchung[] => {
@@ -880,48 +895,16 @@ export function berechneBsm(g: BestandsGrundlage, zusatz: BsmZusatz, z: BsmZeitr
   }
   for (const gr of fuellGruppen.values()) buchungen.push(...(gr.storniert ? gr.zeilen : abwertungsAusgleich(gr.zeilen, `${gr.name} (${datumAT(gr.datum)})`)))
 
-  // ── 3. Zukauf Trauben: Beleg in kg nur als Info-Zeile (nicht in der Literrechnung, Nachtrag 1) ──
-  // Gezählt wird der gepresste Most (ZK_TRAUB aus der Pressung, oben); hier nur Beleg, Vorschlag und offene Restmenge.
-  /** bis zum Zeitraumende gepresste kg je zukauf_posten (aktive Zeilen nicht stornierter Pressungen) */
-  const gepresstBis = new Map<string, number>()
-  for (const pw of zusatz.pressungWeingaerten ?? []) {
-    const press = pw.pressung as R | null
-    if (!pw.zukauf_posten_id || pw.storniert_am || press?.storniert_am || !tag(press?.datum) || tag(press?.datum) > z.bis) continue
-    gepresstBis.set(pw.zukauf_posten_id, (gepresstBis.get(pw.zukauf_posten_id) ?? 0) + Math.max(0, zahlOderNull(pw.trauben_kg) ?? 0))
-  }
-  let traubenKg = 0
-  const nichtGepresst: string[] = []
-  for (const t of zusatz.traubenZukauf) {
-    const d = tag(t.datum)
-    if (!imZeitraum(d)) continue
-    const kg = zahlOderNull(t.menge) ?? 0
-    if (kg <= 0) continue
-    const name = `Zukauf Trauben ${[textOderNull(t.rebsorte), zahlOderNull(t.jahrgang)].filter(Boolean).join(' ')}`.trim()
-    const zl = zelle({ angabe: normalisiereQualitaet(t), weinart: textOderNull(t.weinart), rebsorte: textOderNull(t.rebsorte), jahrgang: zahlOderNull(t.jahrgang), land: textOderNull(t.land_iso) }, 'offen', name)
-    if (!zl) continue
-    traubenKg = runden(traubenKg + kg, STELLEN.kgGenau)
-    const offenKg = runden(kg - (gepresstBis.get(t.id) ?? 0), STELLEN.kgGenau)
-    if (offenKg >= KG_TOLERANZ) nichtGepresst.push(`${name} (${fmtNum(offenKg, 0)} kg)`)
-    const lf = momentaufnahmeAnwenden({ ...t }, ['lieferant_firma', 'lieferant_kontakt'])
-    buchungen.push({
-      ...zl, datum: d, code: 'ZK_TRAUB', liter: 0, kg,
-      vorgang: name, charge: null, fuellung: null,
-      gegenstelle: textOderNull((lf.lieferant_firma as R | null)?.name) ?? textOderNull([(lf.lieferant_kontakt as R | null)?.vorname, (lf.lieferant_kontakt as R | null)?.nachname].filter(Boolean).join(' ')),
-      beleg: textOderNull(t.eingangsrechnungsnummer), storno: null,
-      hinweis: [
-        `Info: Beleg in ${textOderNull(t.einheit) ?? 'kg'}, nicht in der Literrechnung – gezählt wird der Most aus der Pressung`,
-        `Vorschlag ≈ ${fmtL(l2(kg * TRAUBEN_LITER_JE_KG_VORSCHLAG))} (${fmtNum(TRAUBEN_LITER_JE_KG_VORSCHLAG, 1)} l/kg), tatsächliche Menge nach Pressung`,
-        offenKg >= KG_TOLERANZ ? `bis ${datumAT(z.bis)} noch ${fmtNum(offenKg, 0)} kg nicht gepresst` : null,
-      ].filter(Boolean).join(' · '),
-    })
-  }
+  // ── 3. Zukauf Trauben: Beleg in kg nur als Info-Zeile (traubenInfo) ──
+  const ti = traubenInfo(zusatz, z, zelle)
+  buchungen.push(...ti.zeilen)
+  const { traubenKg, nichtGepresst } = ti
   const traubenLiter = l2(buchungen.filter(r => r.code === 'ZK_TRAUB').reduce((s, r) => s + r.liter, 0))
 
   // Kontrolljournal: nach Datum, innerhalb eines Tages in Entstehungsreihenfolge
   buchungen.sort((a, b) => a.datum.localeCompare(b.datum))
 
   // ── 4. Anfangs- und Stichtagsbestand ──
-  type BestandsZelle = BsmZelle & { liter: number }
   const negativ: string[] = []
   const bestandZellen = (stichtag: string): BestandsZelle[] => {
     const je = bestandJePosten(g, stichtag)
@@ -945,6 +928,315 @@ export function berechneBsm(g: BestandsGrundlage, zusatz: BsmZusatz, z: BsmZeitr
   const anfang = bestandZellen(anfangAm)
   const stichtag = bestandZellen(z.bis)
 
+  return bsmAbschliessen({
+    z, anfangAm, heute, buchungen, anfang, stichtag, traubenKg, traubenLiter, warnungen, aufwertungen, gemischt, nichtGepresst,
+    altbestandMinus, negativ, ohneStufe, ohneFarbe, landUnbekannt, lieferortKundenland, kundeLandUnbekannt, nichtRelevant,
+    lieferlandErfasst: zusatz.lieferlandErfasst, ohneDatum: g.ohneDatum, deaktiviertOhneDatum: g.deaktiviertOhneDatum,
+    gliederungsHinweis: gliederungRekonstruktion(heute), quelle: 'rekonstruktion',
+  })
+}
+
+// ── BSM aus dem Bewegungsjournal (KAN-40 Etappe E2, 03.10.2026) ──────────────────────────────────────────────────
+//
+// Jede Zeile von kellerbuch_buchungen trägt Buchungsart und Merkmale zum Buchungszeitpunkt (Erzeugnis, Stufe, Zusatz,
+// Farbe, Land, Sorte, Jahrgang, Status der Charge) – die Zelle der BSM ergibt sich direkt aus der Zeile, ohne Rückrechnung:
+//   Anfangsbestand = Σ Zeilen vor „von“ je Zelle (+ Eröffnung EROEFF im Zeitraum), Buchungen = Zeilen im Zeitraum,
+//   Bestand zum Stichtag = Σ Zeilen bis „bis“ (laut Journal; die Abweichung zum heutigen Ist meldet journal_konsistenz).
+// Neutrale Umbuchungen (Umzug, Filtration, Füllung) eines Belegs mit Spaltenwechsel werden wie bisher zu AB_ABW/ZU_ABW
+// bzw. UMST_MOST (abwertungsAusgleichMit); Umstufungspaare der Datenbank (Merkmals- bzw. Statuswechsel) ohne
+// Zellwechsel entfallen, Most/Sturm ↔ Wein wird UMST_MOST. Belege mit Gegenbuchung bleiben neutral (wie die
+// Storno-Paare der Rekonstruktion). INV_MIN zählt als SCHWUND (kat_buchungsart.bsm_code), INV_PLUS mit Warnung.
+// Lieferort der Verkäufe = Land des Käufers zum Buchungszeitpunkt (partner_land; „Land reicht vorerst“, Jörgen 02.10.2026).
+
+/** Optionen der Journal-Rechnung */
+export type BsmJournalOptionen = {
+  /** tenant_einstellungen.journal_ab */
+  journalAb: string
+  /** Zahl der heutigen Abweichungen Ist ↔ Journal (journal_konsistenz); null = nicht geprüft */
+  abweichungen: number | null
+}
+
+/** Reine Rechnung aus Journalzeilen (Spalten wie JOURNAL_SPALTEN_BSM) – Tests rufen sie direkt */
+export function berechneBsmAusJournal(zeilen: R[], zusatz: BsmZusatz, z: BsmZeitraum, heute: string, opts: BsmJournalOptionen): BsmDaten {
+  const warnungen: string[] = []
+  const anfangAm = vortag(z.von)
+  const ohneStufe = new Set<string>()
+  const ohneFarbe = new Set<string>()
+  const landUnbekannt = new Set<string>()
+  const nichtRelevant = new Set<string>()
+  const kundeLandUnbekannt = new Set<string>()
+  const lieferortKundenland = new Set<string>()
+  const aufwertungen: string[] = []
+  const gemischt: string[] = []
+  const altbestandMinus: { name: string; liter: number }[] = []
+
+  const zelle = (m: Merkmale, gebinde: Gebinde, name: string): BsmZelle | null => {
+    const s = bsmSpalte(m)
+    if (!s.relevant) { nichtRelevant.add(name); return null }
+    if (s.ohneStufe) ohneStufe.add(name)
+    const farbe = bsmFarbe(m)
+    if (!farbe) ohneFarbe.add(name)
+    const h = bsmHerkunft(m.land)
+    if (h.unbekannt) landUnbekannt.add(name)
+    return { spalte: s.spalte, farbe, herkunft: h.herkunft, gebinde }
+  }
+  const merkmale = (r: R): Merkmale => ({
+    angabe: normalisiereQualitaet({ qualitaetsstufe: textOderNull(r.qualitaetsstufe), zusatzbezeichnung: textOderNull(r.zusatzbezeichnung), erzeugnis: textOderNull(r.erzeugnis) }),
+    weinart: textOderNull(r.weinart),
+    rebsorte: textOderNull(r.rebsorte),
+    jahrgang: zahlOderNull(r.jahrgang),
+    land: textOderNull(r.land_iso),
+    status: r.bestand === 'offen' ? textOderNull(r.charge_status) : null,
+  })
+  const name = (r: R) => textOderNull(r.bestand === 'flasche' ? r.fuellung_name : r.charge_name) ?? textOderNull(r.charge_name) ?? 'ohne Bezeichnung'
+  const gebinde = (r: R): Gebinde => (r.bestand === 'flasche' ? 'flasche' : 'offen')
+  const literVon = (r: R) => l2(zahlOderNull(r.menge_liter) ?? 0)
+
+  // Zellen je Zeile (einmal berechnet; null = nicht bestandsmeldepflichtig)
+  const zellen = new Map<string, BsmZelle | null>()
+  for (const r of zeilen) zellen.set(r.id, zelle(merkmale(r), gebinde(r), name(r)))
+  const gegengebucht = new Set<string>(zeilen.map(r => r.storno_von_id).filter(Boolean))
+
+  // ── Bestände je Posten und Zelle ──
+  const negativ: string[] = []
+  const bestand = (bis: string): BestandsZelle[] => {
+    const je = new Map<string, { zl: BsmZelle; liter: number; name: string; posten: string; stk: number; flasche: boolean }>()
+    for (const r of zeilen) {
+      if (tag(r.datum) > bis) continue
+      const zl = zellen.get(r.id)
+      if (!zl) continue
+      const posten = r.bestand === 'flasche' ? `F|${r.fuellung_id}` : `C|${r.weinausbau_id}`
+      const k = `${posten}|${zellSchluesselVon(zl)}`
+      const x = je.get(k) ?? { zl, liter: 0, name: name(r), posten, stk: 0, flasche: r.bestand === 'flasche' }
+      x.liter = l2(x.liter + literVon(r))
+      x.stk += Math.trunc(zahlOderNull(r.menge_stk) ?? 0)
+      je.set(k, x)
+    }
+    const aus: BestandsZelle[] = []
+    for (const x of je.values()) {
+      if (x.flasche ? x.stk < 0 : istNegativ(x.liter)) { negativ.push(`${x.name} am ${datumAT(bis)} (${x.flasche ? `${x.stk} Fl.` : fmtL(x.liter)})`); continue }
+      if (Math.abs(x.liter) < NULL_UNTER) continue
+      aus.push({ ...x.zl, liter: x.liter })
+    }
+    return aus
+  }
+  const anfang = bestand(anfangAm)
+  const stichtag = bestand(z.bis)
+
+  // ── Buchungen im Zeitraum ──
+  const imZeitraum = zeilen.filter(r => { const d = tag(r.datum); return d >= z.von && d <= z.bis })
+  const zuBuchung = (r: R): BsmBuchung | null => {
+    const zl = zellen.get(r.id)
+    if (!zl) return null
+    let code = String(r.buchungsart_code)
+    let hinweis = textOderNull(r.hinweis)
+    if (code === 'INV_MIN') { code = 'SCHWUND'; hinweis = [hinweis, 'Inventur-Mindermenge (INV_MIN)'].filter(Boolean).join(' · ') }
+    if (code === 'EROEFF' && r.bestand === 'flasche' && literVon(r) < 0) { code = 'SCHWUND'; altbestandMinus.push({ name: name(r), liter: literVon(r) }) }
+    const istVerkauf = code.startsWith('VK_')
+    const land = normalisiereLand(r.partner_land)
+    if (istVerkauf) (land ? lieferortKundenland : kundeLandUnbekannt).add(String(r.quelle_id ?? r.id))
+    const fl = r.bestand === 'flasche' ? Math.abs(Math.trunc(zahlOderNull(r.menge_stk) ?? 0)) : 0
+    return {
+      ...zl, datum: tag(r.datum), code, liter: literVon(r), kg: null,
+      vorgang: JOURNAL_QUELLE_LABEL[r.quelle_tabelle] ?? r.quelle_tabelle,
+      charge: textOderNull(r.charge_name),
+      fuellung: textOderNull(r.fuellung_name),
+      gegenstelle: [textOderNull(r.partner_name), land ? landAnzeige(land) : null].filter(Boolean).join(' · ') || null,
+      beleg: `J ${r.beleg_nr}/${r.pos}`,
+      storno: r.storno_von_id ? 'Gegenbuchung (Storno bzw. Änderung)' : gegengebucht.has(r.id) ? 'gegengebucht' : null,
+      hinweis: [hinweis, fl ? `${fmtNum(fl, 0)} Fl.${r.flaschengroesse_ml ? ` à ${r.flaschengroesse_ml} ml` : ''}` : null, r.rekonstruiert ? 'rekonstruiert' : null].filter(Boolean).join(' · ') || null,
+    }
+  }
+
+  const buchungen: BsmBuchung[] = []
+  const belege = new Map<number, R[]>()
+  for (const r of imZeitraum) belege.set(r.beleg_nr, [...(belege.get(r.beleg_nr) ?? []), r])
+  for (const [, rs] of [...belege].sort((a, b) => a[0] - b[0])) {
+    const mitStorno = rs.some(r => r.storno_von_id || gegengebucht.has(r.id))
+    const umstufung = rs.filter(r => /_merkmale$/.test(String(r.quelle_tabelle)))
+    const rest = rs.filter(r => !umstufung.includes(r))
+    // Umstufungspaar der Datenbank: ohne Zellwechsel entfällt es, Most/Sturm ↔ Wein → UMST_MOST, sonst AB_ABW/ZU_ABW
+    if (umstufung.length > 0) {
+      const b = umstufung.map(zuBuchung).filter((x): x is BsmBuchung => !!x)
+      const ab = b.filter(x => x.liter < 0), zu = b.filter(x => x.liter > 0)
+      const gleich = ab.length > 0 && zu.length > 0 && ab.every(a => zu.some(x => zellSchluesselVon(x) === zellSchluesselVon(a)))
+      if (!gleich) {
+        const most = b.some(x => x.spalte === 'most_sturm')
+        if (most) for (const x of b) x.code = UMSTUFUNG_MOST
+        else if (!mitStorno && ab.length > 0 && zu.length > 0 && (spalteRang(zu[0].spalte) ?? -1) > (spalteRang(ab[0].spalte) ?? 99)) aufwertungen.push(`${b[0].charge ?? b[0].fuellung ?? 'Umstufung'} (${datumAT(b[0].datum)})`)
+        buchungen.push(...b)
+      }
+    }
+    const b = rest.map(zuBuchung).filter((x): x is BsmBuchung => !!x)
+    const titel = `${b[0]?.vorgang ?? 'Beleg'} J ${rs[0].beleg_nr} (${datumAT(tag(rs[0].datum))})`
+    buchungen.push(...(mitStorno || !b.some(x => NEUTRALE_CODES.has(x.code)) ? b : abwertungsAusgleichMit(b, titel, aufwertungen, gemischt)))
+  }
+
+  // Zukauf Trauben: Beleg in kg nur als Info-Zeile (gezählt ist ZK_TRAUB aus der Pressung im Journal)
+  const ti = traubenInfo(zusatz, z, zelle)
+  buchungen.push(...ti.zeilen)
+  const traubenLiter = l2(buchungen.filter(r => r.code === 'ZK_TRAUB').reduce((s, r) => s + r.liter, 0))
+  buchungen.sort((a, b) => a.datum.localeCompare(b.datum))
+
+  // ── Hinweise zur Rechengrundlage ──
+  warnungen.push(`Rechengrundlage: Bewegungsjournal (ab ${datumAT(opts.journalAb)}) – Merkmale zum Buchungszeitpunkt.`)
+  if (opts.journalAb > z.von) warnungen.push(`Das Bewegungsjournal beginnt am ${datumAT(opts.journalAb)}, nach dem Beginn des Zeitraums – Bewegungen davor sind nur über den Eröffnungsbestand enthalten.`)
+  if (opts.abweichungen) warnungen.push(`Das Bewegungsjournal weicht heute bei ${anzahl(opts.abweichungen, 'Posten', 'Posten')} vom Bestand ab (Kellerbuch › Bewegungsjournal); der tägliche Abgleich bucht Mengenänderungen ohne Bewegung als Inventurdifferenz nach.`)
+  const rekonstruiert = imZeitraum.filter(r => r.rekonstruiert).length
+  if (rekonstruiert > 0) warnungen.push(`${anzahl(rekonstruiert, 'Journalzeile ist', 'Journalzeilen sind')} rückwirkend rekonstruiert (Testbetrieb) – Merkmale dort aus den Stammdaten zum Zeitpunkt der Rückbefüllung.`)
+
+  return bsmAbschliessen({
+    z, anfangAm, heute, buchungen, anfang, stichtag, traubenKg: ti.traubenKg, traubenLiter, warnungen, aufwertungen, gemischt,
+    nichtGepresst: ti.nichtGepresst, altbestandMinus, negativ, ohneStufe, ohneFarbe, landUnbekannt, lieferortKundenland,
+    kundeLandUnbekannt, nichtRelevant, lieferlandErfasst: false, ohneDatum: 0, deaktiviertOhneDatum: 0,
+    gliederungsHinweis: 'Gliederung zum Buchungszeitpunkt aus dem Bewegungsjournal: Qualitätsstufe, Zusatz, Erzeugnis, Farbe (Rosé = rot), Rebsorte, Jahrgang, Ursprungsland und Status der Charge (Ernte/Gärung = Most/Sturm) wie bei der Buchung festgehalten; Inland/Ausland nach dem Land des Käufers bei der Buchung.',
+    stichtagBezeichnung: `Bestand zum Stichtag ${datumAT(z.bis)} (laut Bewegungsjournal)`,
+    quelle: 'journal',
+  })
+}
+
+/** Zellschlüssel Herkunft|Gebinde|Spalte|Farbe (wie die Aggregation) */
+const zellSchluesselVon = (x: BsmZelle) => `${x.herkunft}|${x.gebinde}|${x.spalte ?? 'ohne'}|${x.farbe ?? '-'}`
+
+/** Hinweis zur Gliederung der rekonstruierten BSM (ohne Bewegungsjournal) */
+const gliederungRekonstruktion = (heute: string) => `Gliederung zum Buchungszeitpunkt: Qualitätsstufe aus den Momentaufnahmen von Verschnitt und Umzug, sonst die heutige; Farbe (Rosé = rot), Rebsorte, Jahrgang und Ursprungsland sind die heutigen Stammdaten (ohne Bewegungsjournal); Most/Sturm nach Erzeugnis bzw. Stufe, sonst nach dem heutigen Status der Charge (Ernte/Gärung – ohne Statusverlauf zählt eine heute ausgebaute Charge auch während ihrer Gärung als Wein). Bestände sind aus dem heutigen Bestand zurückgerechnet (Stand ${datumAT(heute)}).`
+
+/** Bestand einer Zelle (Anfangs- bzw. Stichtagsbestand) */
+type BestandsZelle = BsmZelle & { liter: number }
+
+/**
+ * Gruppe neutraler Umbuchungen: wechselt die Spalte, werden die Zeilen zu AB_ABW/ZU_ABW (R9). Wechselt Most/Sturm in
+ * eine Weinspalte (oder zurück), ist das keine Abwertung: dieser Teil wird zu UMST_MOST (Nachtrag 4, Saldo 0).
+ */
+function abwertungsAusgleichMit(zeilen: BsmBuchung[], name: string, aufwertungen: string[], gemischt: string[]): BsmBuchung[] {
+  const neutral = zeilen.filter(r => NEUTRALE_CODES.has(r.code))
+  const netto = new Map<string, number>()
+  for (const r of neutral) netto.set(r.spalte ?? 'ohne', l2((netto.get(r.spalte ?? 'ohne') ?? 0) + r.liter))
+  const offen = [...netto].filter(([, v]) => Math.abs(v) >= NULL_UNTER)
+  if (offen.length === 0) return zeilen
+  if (new Set(neutral.map(r => `${r.farbe}|${r.herkunft}`)).size > 1) { gemischt.push(name); return zeilen }
+  const aus = [...zeilen]
+  /** `menge` Liter der noch neutralen Zeilen einer Spalte (Vorzeichen vz) auf `code` umbuchen */
+  const umbuchen = (sp: string, vz: number, menge: number, code: string, text: string) => {
+    let rest = menge
+    for (const r of neutral) {
+      if (rest < NULL_UNTER) break
+      if (!NEUTRALE_CODES.has(r.code) || (r.spalte ?? 'ohne') !== sp || Math.sign(r.liter) !== vz) continue
+      const hinweis = [r.hinweis, text].filter(Boolean).join(' · ')
+      if (Math.abs(r.liter) <= rest + NULL_UNTER) {
+        rest = l2(rest - Math.abs(r.liter))
+        r.code = code
+        r.hinweis = hinweis
+      } else {
+        const teil = l2(vz * rest)
+        r.liter = l2(r.liter - teil)
+        aus.splice(aus.indexOf(r) + 1, 0, { ...r, code, liter: teil, hinweis })
+        rest = 0
+      }
+    }
+  }
+  const mostNetto = netto.get('most_sturm') ?? 0
+  let umstufungRest = Math.abs(mostNetto) >= NULL_UNTER ? Math.abs(mostNetto) : 0
+  for (const [sp, n] of offen) {
+    const vz = Math.sign(n)
+    const menge = Math.abs(n)
+    let umstufung = 0
+    if (sp === 'most_sturm') umstufung = menge
+    else if (umstufungRest > 0 && vz === -Math.sign(mostNetto)) {
+      umstufung = Math.min(menge, umstufungRest)
+      umstufungRest = l2(umstufungRest - umstufung)
+    }
+    if (umstufung >= NULL_UNTER) umbuchen(sp, vz, umstufung, UMSTUFUNG_MOST, mostNetto < 0 ? 'Most/Sturm wird Wein' : 'Wein zurück zu Most/Sturm')
+    if (menge - umstufung >= NULL_UNTER) umbuchen(sp, vz, l2(menge - umstufung), vz < 0 ? 'AB_ABW' : 'ZU_ABW', 'BSM-Spalte gewechselt')
+  }
+  // Aufwertung: das Ergebnis liegt in einer höheren Spalte als jede Quelle (Most/Sturm hat keinen Rang)
+  const rang = (wert: number) => offen.filter(([, v]) => Math.sign(v) === wert).map(([s]) => spalteRang(s === 'ohne' ? null : s as MeldeSpalte)).filter((x): x is number => x !== null)
+  const zu = rang(1), ab = rang(-1)
+  if (zu.length > 0 && ab.length > 0 && Math.max(...zu) > Math.max(...ab)) aufwertungen.push(name)
+  return aus
+}
+
+/** Zukauf Trauben: Beleg in kg nur als Info-Zeile (Nachtrag 1) – gemeinsam für Rekonstruktion und Journal */
+function traubenInfo(zusatz: BsmZusatz, z: BsmZeitraum, zelle: (m: Merkmale, gebinde: Gebinde, name: string) => BsmZelle | null): { zeilen: BsmBuchung[]; traubenKg: number; nichtGepresst: string[] } {
+  const zeilen: BsmBuchung[] = []
+  let traubenKg = 0
+  const nichtGepresst: string[] = []
+  // ── 3. Zukauf Trauben: Beleg in kg nur als Info-Zeile (nicht in der Literrechnung, Nachtrag 1) ──
+  // Gezählt wird der gepresste Most (ZK_TRAUB aus der Pressung, oben); hier nur Beleg, Vorschlag und offene Restmenge.
+  /** bis zum Zeitraumende gepresste kg je zukauf_posten (aktive Zeilen nicht stornierter Pressungen) */
+  const gepresstBis = new Map<string, number>()
+  for (const pw of zusatz.pressungWeingaerten ?? []) {
+    const press = pw.pressung as R | null
+    if (!pw.zukauf_posten_id || pw.storniert_am || press?.storniert_am || !tag(press?.datum) || tag(press?.datum) > z.bis) continue
+    gepresstBis.set(pw.zukauf_posten_id, (gepresstBis.get(pw.zukauf_posten_id) ?? 0) + Math.max(0, zahlOderNull(pw.trauben_kg) ?? 0))
+  }
+  for (const t of zusatz.traubenZukauf) {
+    const d = tag(t.datum)
+    if (!d || d < z.von || d > z.bis) continue
+    const kg = zahlOderNull(t.menge) ?? 0
+    if (kg <= 0) continue
+    const name = `Zukauf Trauben ${[textOderNull(t.rebsorte), zahlOderNull(t.jahrgang)].filter(Boolean).join(' ')}`.trim()
+    const zl = zelle({ angabe: normalisiereQualitaet(t), weinart: textOderNull(t.weinart), rebsorte: textOderNull(t.rebsorte), jahrgang: zahlOderNull(t.jahrgang), land: textOderNull(t.land_iso) }, 'offen', name)
+    if (!zl) continue
+    traubenKg = runden(traubenKg + kg, STELLEN.kgGenau)
+    const offenKg = runden(kg - (gepresstBis.get(t.id) ?? 0), STELLEN.kgGenau)
+    if (offenKg >= KG_TOLERANZ) nichtGepresst.push(`${name} (${fmtNum(offenKg, 0)} kg)`)
+    const lf = momentaufnahmeAnwenden({ ...t }, ['lieferant_firma', 'lieferant_kontakt'])
+    zeilen.push({
+      ...zl, datum: d, code: 'ZK_TRAUB', liter: 0, kg,
+      vorgang: name, charge: null, fuellung: null,
+      gegenstelle: textOderNull((lf.lieferant_firma as R | null)?.name) ?? textOderNull([(lf.lieferant_kontakt as R | null)?.vorname, (lf.lieferant_kontakt as R | null)?.nachname].filter(Boolean).join(' ')),
+      beleg: textOderNull(t.eingangsrechnungsnummer), storno: null,
+      hinweis: [
+        `Info: Beleg in ${textOderNull(t.einheit) ?? 'kg'}, nicht in der Literrechnung – gezählt wird der Most aus der Pressung`,
+        `Vorschlag ≈ ${fmtL(l2(kg * TRAUBEN_LITER_JE_KG_VORSCHLAG))} (${fmtNum(TRAUBEN_LITER_JE_KG_VORSCHLAG, 1)} l/kg), tatsächliche Menge nach Pressung`,
+        offenKg >= KG_TOLERANZ ? `bis ${datumAT(z.bis)} noch ${fmtNum(offenKg, 0)} kg nicht gepresst` : null,
+      ].filter(Boolean).join(' · '),
+    })
+  }
+  return { zeilen, traubenKg, nichtGepresst }
+}
+
+/** Eingabe des gemeinsamen Abschlusses (Aggregation, Summentabelle, Prüfhinweise) */
+type BsmAbschluss = {
+  z: BsmZeitraum
+  anfangAm: string
+  heute: string
+  buchungen: BsmBuchung[]
+  anfang: BestandsZelle[]
+  stichtag: BestandsZelle[]
+  traubenKg: number
+  traubenLiter: number
+  warnungen: string[]
+  aufwertungen: string[]
+  gemischt: string[]
+  nichtGepresst: string[]
+  altbestandMinus: { name: string; liter: number }[]
+  negativ: string[]
+  ohneStufe: Set<string>
+  ohneFarbe: Set<string>
+  landUnbekannt: Set<string>
+  lieferortKundenland: Set<string>
+  kundeLandUnbekannt: Set<string>
+  nichtRelevant: Set<string>
+  lieferlandErfasst?: boolean
+  ohneDatum: number
+  deaktiviertOhneDatum: number
+  /** abschließender Hinweis zur Gliederung (Rekonstruktion bzw. Journal) */
+  gliederungsHinweis: string
+  /** Bezeichnung der Zeile STICHTAG (Standard: Bestandsermittlung) */
+  stichtagBezeichnung?: string
+  /** Quelle der Rechnung */
+  quelle: BsmQuelle
+}
+
+/** Aggregation je Position × Zelle, Summentabelle und Prüfhinweise – gemeinsam für Rekonstruktion und Journal */
+function bsmAbschliessen(e: BsmAbschluss): BsmDaten {
+  const {
+    z, anfangAm, heute, buchungen, anfang, stichtag, traubenKg, traubenLiter, warnungen, aufwertungen, gemischt, nichtGepresst,
+    altbestandMinus, negativ, ohneStufe, ohneFarbe, landUnbekannt, lieferortKundenland, kundeLandUnbekannt, nichtRelevant,
+    lieferlandErfasst, ohneDatum, deaktiviertOhneDatum, gliederungsHinweis, stichtagBezeichnung, quelle,
+  } = e
   // ── 5. Aggregation je Position × Zelle ──
   const zellSchluessel = (x: BsmZelle) => `${x.herkunft}|${x.gebinde}|${x.spalte ?? 'ohne'}|${x.farbe ?? '-'}`
   const positionen = new Map<string, Map<string, number>>()
@@ -1034,7 +1326,7 @@ export function berechneBsm(g: BestandsGrundlage, zusatz: BsmZusatz, z: BsmZeitr
     block(UMSTUFUNG_MOST, 'Umstufung Most/Sturm → Wein (Spaltenwechsel ohne Abwertung)', 'Umstufung', FARB_TEILE, 1, false)
     block('NEUTRAL', 'Umbuchungen ohne BSM-Buchungsart (Umzug, Filtration, Füllung) – Saldo', 'Prüfung', BESTAND_TEILE, 1, false)
     block('ENDE', `Endbestand lt. Rechnung (${datumAT(z.bis)})`, 'Bestand', BESTAND_TEILE, 1, true)
-    block('STICHTAG', `Bestand zum Stichtag ${datumAT(z.bis)} (Bestandsermittlung)`, 'Bestand', BESTAND_TEILE, 1, true)
+    block('STICHTAG', stichtagBezeichnung ?? `Bestand zum Stichtag ${datumAT(z.bis)} (Bestandsermittlung)`, 'Bestand', BESTAND_TEILE, 1, true)
     block('DIFFERENZ', 'Differenz Stichtag − Rechnung', 'Prüfung', BESTAND_TEILE, 1, true)
   }
 
@@ -1072,16 +1364,16 @@ export function berechneBsm(g: BestandsGrundlage, zusatz: BsmZusatz, z: BsmZeitr
   if (ohneStufe.size > 0) warnungen.push(`${anzahl(ohneStufe.size, 'Wein', 'Weine')} ohne Qualitätsstufe – als Wein bzw. Rebsortenwein gezählt: ${auszug([...ohneStufe])}.`)
   if (ohneFarbe.size > 0) warnungen.push(`${anzahl(ohneFarbe.size, 'Wein', 'Weine')} ohne bestimmbare Farbe (weder Weinart noch eindeutige Rebsorte) – Zeile „davon ohne Farbe“: ${auszug([...ohneFarbe])}.`)
   if (landUnbekannt.size > 0) warnungen.push(`${anzahl(landUnbekannt.size, 'Wein', 'Weine')} ohne Ursprungsland – als Österreich gezählt: ${auszug([...landUnbekannt])}.`)
-  if (lieferortKundenland.size > 0) warnungen.push(`${anzahl(lieferortKundenland.size, 'Verkauf', 'Verkäufe')}: Lieferort unbekannt, Land des Kunden verwendet${zusatz.lieferlandErfasst === false ? ' (Lieferland am Verkauf wird noch nicht erfasst)' : ''} – Inland/Ausland nach dem Land der Firma bzw. des Kontakts.`)
+  if (lieferortKundenland.size > 0) warnungen.push(`${anzahl(lieferortKundenland.size, 'Verkauf', 'Verkäufe')}: Lieferort unbekannt, Land des Kunden verwendet${lieferlandErfasst === false ? ' (Lieferland am Verkauf wird noch nicht erfasst)' : ''} – Inland/Ausland nach dem Land der Firma bzw. des Kontakts.`)
   if (kundeLandUnbekannt.size > 0) warnungen.push(`${anzahl(kundeLandUnbekannt.size, 'Verkauf', 'Verkäufe')} ohne Lieferort und ohne Land beim Kunden – als Verkauf in Österreich gezählt.`)
   if (nichtRelevant.size > 0) warnungen.push(`${anzahl(nichtRelevant.size, 'Posten', 'Posten')} nicht bestandsmeldepflichtig (Traubensaft) – nicht enthalten: ${auszug([...nichtRelevant])}.`)
-  if (g.ohneDatum > 0) warnungen.push(`${anzahl(g.ohneDatum, 'Kellerbuchung hat', 'Kellerbuchungen haben')} kein Datum – sie zählen zum Anfangsbestand.`)
-  if (g.deaktiviertOhneDatum > 0) warnungen.push(`${anzahl(g.deaktiviertOhneDatum, 'deaktivierte Füllung', 'deaktivierte Füllungen')} mit Restbestand ohne Storno-Datum – nicht enthalten.`)
-  warnungen.push(`Gliederung zum Buchungszeitpunkt: Qualitätsstufe aus den Momentaufnahmen von Verschnitt und Umzug, sonst die heutige; Farbe (Rosé = rot), Rebsorte, Jahrgang und Ursprungsland sind die heutigen Stammdaten (ohne Bewegungsjournal); Most/Sturm nach Erzeugnis bzw. Stufe, sonst nach dem heutigen Status der Charge (Ernte/Gärung – ohne Statusverlauf zählt eine heute ausgebaute Charge auch während ihrer Gärung als Wein). Bestände sind aus dem heutigen Bestand zurückgerechnet (Stand ${datumAT(heute)}).`)
+  if (ohneDatum > 0) warnungen.push(`${anzahl(ohneDatum, 'Kellerbuchung hat', 'Kellerbuchungen haben')} kein Datum – sie zählen zum Anfangsbestand.`)
+  if (deaktiviertOhneDatum > 0) warnungen.push(`${anzahl(deaktiviertOhneDatum, 'deaktivierte Füllung', 'deaktivierte Füllungen')} mit Restbestand ohne Storno-Datum – nicht enthalten.`)
+  warnungen.push(gliederungsHinweis)
 
   return {
     zeitraum: z, anfangAm, heute, istWeinwirtschaftsjahr: istWeinwirtschaftsjahr(z),
-    buchungen, summen, herkuenfte, spalten, traubenKg, traubenLiter, warnungen,
+    buchungen, summen, herkuenfte, spalten, traubenKg, traubenLiter, warnungen, quelle,
   }
 }
 
