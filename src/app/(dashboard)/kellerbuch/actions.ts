@@ -4,14 +4,10 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { qualitaetText } from '@/lib/weinqualitaet'
 import {
-  istAufwertungQualitaet, istAbstufungQualitaet, mischeQualitaet, hoechsteQualitaetsAngabe, normalisiereQualitaet, qualitaetsSpalten,
+  istAufwertungQualitaet, normalisiereQualitaet, qualitaetsSpalten,
   type QualitaetsAngabe,
 } from '@/lib/wein/qualitaetsrang'
-import { sortenBezeichnung } from '@/lib/wein/sortenangabe'
-import { verschnittGruppen } from '@/lib/kellerbuch/verschnittSorten'
 import { qualitaetFehler, qualitaetsAngabeAusFormular, qualitaetsAngabeFehler } from '@/lib/wein/qualitaet'
-import { minHerkunft, maxHerkunft, istNiedrigerAls as herkunftIstNiedrigerAls, HERKUNFT_LABEL } from '@/lib/herkunft'
-import { weinartKonflikt, weinartBekannt, weinartAusFarbe, WEINART_LABEL } from '@/lib/keller/weinart'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
@@ -21,11 +17,8 @@ import { gebindeFehlerText } from '@/lib/keller/behaelter'
 import { sperreBeiFolgebuchungen, folgebuchungenDerCharge, folgebuchungenText } from '@/lib/kellerbuch/folgebuchungen'
 import { planeVerschneidungStorno, storniereVerschneidung, GEBINDEWECHSEL_OHNE } from '@/lib/kellerbuch/storno'
 import { stornoGrundFehler, STORNO_GRUND_MIN } from '@/lib/storno/grund'
-import { pruefePruefnummernSchaden } from '@/lib/kellerbuch/pruefnummerLaden'
-import { mitPnNotiz } from '@/lib/kellerbuch/pruefnummer'
-import { mostgewichtZusammenfuehren, teilweiseVermerk, verschnittMomentaufnahme } from '@/lib/kellerbuch/mostgewichtKette'
+import { verschnittBuchen } from '@/lib/kellerbuch/verschnittBuchen'
 import { mostgewichtAusFormular, mostgewichtSpalten } from '@/lib/wein/mostgewichtFormular'
-import { verschnittQualitaetsSpalten } from '@/lib/kellerbuch/qualitaetMomentaufnahme'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -468,12 +461,12 @@ export async function createAnalyse(formData: FormData) {
 // KAN-83: bestaetigung = Rückfrage „Prüfnummer gilt nicht mehr“ – nichts gebucht; mit pn_bestaetigt=1 erneut senden
 export async function createVerschneidung(formData: FormData): Promise<{ qualitaetAbgestuft: { von: string; nach: string } | null; herkunftAbgestuft: { von: string; nach: string } | null; sortenHinweise?: string[]; bestaetigung?: string }> {
   const supabase  = await createSupabaseServerClient()
-  const tenantId  = await getTenantId()
-  if (!tenantId) throw new AktionsFehler('Kein Betrieb gefunden')
+  // KAN-112: Schreibrecht im Kellerbuch wie beim Storno (vorher nur Betrieb und Schreibsperre)
+  const tenantId  = await kellerbuchSchreibrecht()
 
   const datum        = formData.get('datum') as string
   const zielId       = formData.get('ziel_weinausbau_id') as string
-  let notizen        = (formData.get('notizen') as string) || null
+  const notizen      = (formData.get('notizen') as string) || null
   const quellenJson  = formData.get('quellen_json') as string
   let quellenRoh: unknown
   try {
@@ -483,203 +476,25 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
   }
   if (!Array.isArray(quellenRoh)) throw new AktionsFehler('Ungültige Eingabe: Quellen fehlen.')
   // JSON-Zahlen direkt übernehmen (zahlAus würde „1.234“ als Tausenderpunkt lesen)
-  const quellen: { weinausbau_id: string; menge_liter: number }[] = (quellenRoh as R[]).map(q => ({
+  const quellen: { weinausbau_id: string; menge: number }[] = (quellenRoh as R[]).map(q => ({
     weinausbau_id: typeof q?.weinausbau_id === 'string' ? q.weinausbau_id : '',
-    menge_liter:   typeof q?.menge_liter === 'number' ? q.menge_liter : (zahlAus(q?.menge_liter) ?? NaN),
+    menge:         typeof q?.menge_liter === 'number' ? q.menge_liter : (zahlAus(q?.menge_liter) ?? NaN),
   }))
-
   if (!datum || !zielId || quellen.length === 0) throw new AktionsFehler('Pflichtfelder fehlen')
-  for (const q of quellen) {
-    if (!q.weinausbau_id) throw new AktionsFehler('Bei einer Quelle des Verschnitts fehlt die Charge.')
-    if (!Number.isFinite(q.menge_liter) || q.menge_liter < 0.01) {
-      throw new AktionsFehler('Jede Quelle eines Verschnitts braucht eine Menge von mindestens 0,01 L.')
-    }
-    if (q.weinausbau_id === zielId) throw new AktionsFehler('Die Ziel-Charge kann nicht zugleich Quelle des Verschnitts sein.')
-  }
 
-  // Ziel-Charge laden (Mandant) – Qualitätsstufe + Herkunft-Code vor der Verschneidung sichern
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: zielRaw, error: zielErr } = await (supabase.from('weinausbau') as any)
-    .select('id, name, menge_liter, rebsorte, jahrgang, weinart, qualitaetsstufe, zusatzbezeichnung, erzeugnis, herkunft_code, kmw, oechsle, mostgewicht_einheit')
-    .eq('id', zielId).eq('tenant_id', tenantId).maybeSingle()
-  if (zielErr) throw new AktionsFehler(dbFehlerText(zielErr, 'Ziel-Charge konnte nicht geladen werden'))
-  if (!zielRaw) throw new AktionsFehler('Ziel-Charge nicht gefunden')
-  const zielVorher = zielRaw as R
-  // KAN-186: Angabe normalisiert (Altwerte im Qualitätsfeld) – Momentaufnahme in ziel_qualitaet_vorher/ziel_zusatz_vorher/ziel_erzeugnis_vorher
-  const zielQualitaetVorher = normalisiereQualitaet(zielVorher)
-  const zielHerkunftVorher  = (zielVorher.herkunft_code as string | null) ?? null
-
-  // Quell-Chargen: gehören zum Betrieb, Menge ≤ Bestand (je Charge summiert)
-  const bedarf = new Map<string, number>()
-  for (const q of quellen) bedarf.set(q.weinausbau_id, (bedarf.get(q.weinausbau_id) ?? 0) + q.menge_liter)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: quellenData, error: quellenErr } = await (supabase.from('weinausbau') as any)
-    .select('id, name, menge_liter, qualitaetsstufe, zusatzbezeichnung, erzeugnis, rebsorte, jahrgang, weinart, herkunft_code, kmw, oechsle, mostgewicht_einheit')
-    .in('id', [...bedarf.keys()])
-    .eq('tenant_id', tenantId)
-  if (quellenErr) throw new AktionsFehler(dbFehlerText(quellenErr, 'Quell-Chargen konnten nicht geladen werden'))
-  const quellenRows = (quellenData ?? []) as R[]
-  for (const [qid, menge] of bedarf) {
-    const row = quellenRows.find(r => r.id === qid)
-    if (!row) throw new AktionsFehler('Quell-Charge nicht gefunden – sie gehört nicht zu diesem Betrieb.')
-    const verfuegbar = parseFloat(row.menge_liter) || 0
-    if (menge > verfuegbar + 0.01) {
-      throw new AktionsFehler(`„${row.name}“: Verschnittmenge (${fmtNum(menge, 2)} L) übersteigt den Bestand der Charge (${fmtNum(verfuegbar, 2)} L).`)
-    }
-  }
-
-  // Guard: Rotwein + Weißwein darf nicht verschnitten werden (lib/keller/weinart.ts; Chargen
-  // ohne Weinart werden über die Rebsortenfarbe eingeordnet, 21.9.2026) – vor der ersten Buchung
-  const farbe = new Map<string, string>()
-  {
-    const sorten = [...new Set([...quellenRows, zielVorher].map((r: R) => r.rebsorte).filter(Boolean))] as string[]
-    // tenant-isolation-ignore: rebsorten ist eine globale Stammtabelle ohne tenant_id
-    const { data: rs } = sorten.length ? await (supabase.from('rebsorten') as any).select('name_de, farbe').in('name_de', sorten) : { data: [] }
-    for (const r of (rs ?? []) as R[]) farbe.set(r.name_de, r.farbe)
-  }
-  const artVon = (r: R | null): string => r ? (weinartBekannt(r.weinart) ? r.weinart : weinartAusFarbe(farbe.get(r.rebsorte))) : 'unbekannt'
-  const zielWeinart = artVon(zielVorher)
-  const quelleKonflikt = quellenRows.find((q: R) => weinartKonflikt(artVon(q), zielWeinart))
-  if (quelleKonflikt) throw new AktionsFehler(`Rot- und Weißwein dürfen laut Weingesetz nicht verschnitten werden (${WEINART_LABEL[artVon(quelleKonflikt)]} in ${WEINART_LABEL[zielWeinart]}).`)
-
-  // KAN-83 (01.10.2026): Prüfnummer der Ziel-Charge – eingereichter Antrag: Ablehnung; geltende
-  // Nummer: erst nachfragen, nach der Bestätigung buchen und am Verschnitt vermerken
-  {
-    const pn = await pruefePruefnummernSchaden(supabase, tenantId, 'verschnitt',
-      [{ chargeId: zielId, name: (zielVorher.name as string | null) ?? null, zugangLiter: quellen.reduce((s, q) => s + q.menge_liter, 0) }], datum)
-    if (pn && formData.get('pn_bestaetigt') !== '1') return { qualitaetAbgestuft: null, herkunftAbgestuft: null, bestaetigung: pn.frage }
-    if (pn) notizen = mitPnNotiz(notizen, pn.notiz)
-  }
-
-  // KAN-93: Rebsorte und Jahrgang aus den tatsächlichen Anteilen (Rechenkern KAN-76) – vor dem ersten Schreiben.
-  // Vorher wurde der ganze Zielbestand der aktuellen Rebsorte zugerechnet und der Jahrgang nie geprüft.
-  const angabe = await (async () => {
-    const zielBestand = parseFloat(zielVorher.menge_liter ?? '0') || 0
-    const { sorten, jahrgaenge } = await verschnittGruppen(supabase, tenantId, [
-      { charge: zielVorher, liter: zielBestand },
-      ...quellen.map(q => ({ charge: quellenRows.find((r: R) => r.id === q.weinausbau_id) as R, liter: q.menge_liter })),
-    ])
-    return sortenBezeichnung(sorten, jahrgaenge, {
-      rebsorte: (zielVorher.rebsorte as string | null) ?? null,
-      jahrgang: zielVorher.jahrgang == null ? null : Number(zielVorher.jahrgang),
-      weinart: zielWeinart,
-    })
-  })()
-
-  // Verschneidungs-Datensatz anlegen
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: neu, error: ve } = await (supabase.from('verschneidungen') as any)
-    .insert({ tenant_id: tenantId, datum, ziel_weinausbau_id: zielId, notizen, ziel_herkunft_code_vorher: zielHerkunftVorher,
-      ...verschnittQualitaetsSpalten(zielQualitaetVorher),   // KAN-186: nie ein Altwert, Zusatz/Erzeugnis eigene Spalten
-      ziel_rebsorte_vorher: (zielVorher.rebsorte as string | null) ?? null,   // KAN-145: Storno stellt die Rebsorte wieder her
-      ziel_jahrgang_vorher: zielVorher.jahrgang ?? null,   // KAN-93: und den Jahrgang
-      ...verschnittMomentaufnahme(zielVorher) })   // KAN-130 Etappe 2: und das Mostgewicht samt Einheit
-    .select('id').single()
-  if (ve) throw new AktionsFehler(dbFehlerText(ve, 'Speichern fehlgeschlagen (verschneidungen)'))
-  const vId = (neu as R).id as string
-
-  // Quellen anlegen + anteil_pct berechnen
-  const gesamtLiter = quellen.reduce((s, q) => s + q.menge_liter, 0)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  { const { error: e } = await (supabase.from('verschneidung_quellen') as any).insert(
-    quellen.map(q => ({
-      verschneidung_id:    vId,
-      quell_weinausbau_id: q.weinausbau_id,
-      menge_liter:         q.menge_liter,
-      anteil_pct:          gesamtLiter > 0 ? Math.round((q.menge_liter / gesamtLiter) * 1000) / 10 : null,
-    }))
-  )
-    if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (verschneidung_quellen): ${dbFehlerText(e)}`) }
-
-  // Niedrigste Qualität aus Quellen + Ziel (KAN-186: Zusatzbezeichnung/Erzeugnis nur, wenn alle sie tragen)
-  const alleQualitaeten: QualitaetsAngabe[] = [zielQualitaetVorher, ...quellenRows.map((q: R) => normalisiereQualitaet(q))]
-  const neueQualitaet = mischeQualitaet(alleQualitaeten)
-  // Niedrigsten (breitesten) Herkunft-Code aus Quellen + Ziel bestimmen – kann durch Verschneiden
-  // rechnerisch nie aufgestuft werden (dieselbe Logik wie bei der Qualität).
-  const alleHerkuenfte = [zielHerkunftVorher, ...quellenRows.map((q: R) => q.herkunft_code as string | null)]
-  const neueHerkunft = minHerkunft(alleHerkuenfte)
-
-  // Ziel-Charge: Bestand erhöhen; Rebsorte und Jahrgang nach der 85-%-Regel aus den Anteilen (KAN-93, oben)
-  const aktuell = parseFloat(zielVorher.menge_liter ?? '0') || 0
-  const neueRebsorte = angabe.rebsorte
-  // KAN-130 Etappe 2 (Entscheidung Jörgen 01.10.2026): Mostgewicht = mengengewichteter Mittelwert in °KMW über Ziel
-  // und Quellen (Anteile wie oben), auf 2 Stellen abgerundet; Anteile ohne Mostgewicht zählen nicht („teilweise“)
-  const mg = mostgewichtZusammenfuehren(zielVorher, aktuell,
-    quellen.map(q => ({ liter: q.menge_liter, charge: quellenRows.find((r: R) => r.id === q.weinausbau_id) })))
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: zielUpdateErr } = await (supabase.from('weinausbau') as any)
-    .update({
-      menge_liter: rund2(aktuell + gesamtLiter),
-      rebsorte: neueRebsorte,
-      jahrgang: angabe.jahrgang,
-      ...qualitaetsSpalten(neueQualitaet),
-      herkunft_code: neueHerkunft,
-      ...(mg.werte ?? {}),
-    })
-    .eq('id', zielId)
-    .eq('tenant_id', tenantId)
-  if (zielUpdateErr) throw new AktionsFehler(`Ziel-Charge konnte nicht aktualisiert werden: ${dbFehlerText(zielUpdateErr)}`)
-
-  // Quell-Chargen: Bestand reduzieren (je Charge einmal, oben gegen den Bestand geprüft);
-  // Rest ≤ 0,01 L wird mit ausgebucht und die Charge abgeschlossen
-  for (const [qid, menge] of bedarf) {
-    const row = quellenRows.find(r => r.id === qid)!
-    const rest = rund2((parseFloat(row.menge_liter) || 0) - menge)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    { const { error: e } = await (supabase.from('weinausbau') as any)
-      .update(rest <= 0.01
-        ? { menge_liter: 0, aktiv: false, status: 'abgeschlossen' }
-        : { menge_liter: rest })
-      .eq('id', qid)
-      .eq('tenant_id', tenantId)
-      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weinausbau): ${dbFehlerText(e)}`) }
-  }
-
-  // Qualitäts-Abstufung: Vergleich gegen HÖCHSTE Qualität aller Beteiligten (Ziel + Quellen).
-  // Beispiel: Ziel Kabinett + Quelle Auslese → Ergebnis Kabinett → Abstufung von Auslese auf Kabinett.
-  // KAN-186: von/nach als Text samt Zusatzbezeichnung („Qualitätswein Reserve“ → „Qualitätswein“)
-  const hoechsteQualitaet = hoechsteQualitaetsAngabe(alleQualitaeten)
-  const qualitaetAbgestuft: { von: string; nach: string } | null =
-    (neueQualitaet && hoechsteQualitaet && istAbstufungQualitaet(hoechsteQualitaet, neueQualitaet))
-      ? { von: qualitaetText(hoechsteQualitaet), nach: qualitaetText(neueQualitaet) }
-      : null
-
-  // Herkunft-Abstufung: Vergleich gegen die ENGSTE Herkunftsstufe aller Beteiligten (Ziel + Quellen).
-  const alleHerkuenfteBeteiligt = [zielHerkunftVorher, ...quellenRows.map((q: R) => q.herkunft_code as string | null)]
-  const engsteHerkunft = maxHerkunft(alleHerkuenfteBeteiligt)
-  const herkunftAbgestuft: { von: string; nach: string } | null =
-    (neueHerkunft && engsteHerkunft && herkunftIstNiedrigerAls(neueHerkunft, engsteHerkunft))
-      ? { von: engsteHerkunft, nach: neueHerkunft }
-      : null
-
-  // Abstufungs-Info automatisch in Notizen speichern
-  const abstufTexte: string[] = []
-  if (qualitaetAbgestuft) {
-    abstufTexte.push(`Abstufung Qualität von ${qualitaetAbgestuft.von} auf ${qualitaetAbgestuft.nach}`)
-  }
-  if (herkunftAbgestuft) {
-    const vonLabel  = HERKUNFT_LABEL[herkunftAbgestuft.von]  ?? herkunftAbgestuft.von
-    const nachLabel = HERKUNFT_LABEL[herkunftAbgestuft.nach] ?? herkunftAbgestuft.nach
-    abstufTexte.push(`Abstufung Herkunft-Code (BKI) von ${vonLabel} auf ${nachLabel}`)
-  }
-  { const v = mg.werte ? teilweiseVermerk(mg) : null; if (v) abstufTexte.push(v) }
-  abstufTexte.push(...angabe.hinweise)   // KAN-93: Rebsorte/Jahrgang entfällt oder wechselt
-  if (abstufTexte.length > 0) {
-    const neueNotizen = notizen ? `${notizen}\n${abstufTexte.join('\n')}` : abstufTexte.join('\n')
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    { const { error: e } = await (supabase.from('verschneidungen') as any)
-      .update({ notizen: neueNotizen })
-      .eq('id', vId)
-      .eq('tenant_id', tenantId)
-      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (verschneidungen): ${dbFehlerText(e)}`) }
-  }
+  // KAN-112: Prüfungen, Fachwerte (85-%-Regel, Qualität, Herkunft, Mostgewicht, Vermerke) und EIN RPC-Aufruf
+  // im gemeinsamen Service – derselbe Weg wie beim Umzug in ein Gebinde mit anderem Wein
+  const r = await verschnittBuchen(supabase, tenantId, {
+    datum, ziel: { weinausbauId: zielId }, quellen, notizen, pnBestaetigt: formData.get('pn_bestaetigt') === '1',
+  })
+  if (r.bestaetigung) return { qualitaetAbgestuft: null, herkunftAbgestuft: null, bestaetigung: r.bestaetigung }
 
   revalidatePath('/kellerbuch')
   quellen.forEach(q => revalidatePath(`/kellerbuch/weinausbau/${q.weinausbau_id}/buch`))
   revalidatePath(`/kellerbuch/weinausbau/${zielId}/buch`)
   revalidatePath(`/kellerbuch/weinausbau/${zielId}`)
 
-  return { qualitaetAbgestuft, herkunftAbgestuft, sortenHinweise: angabe.hinweise }
+  return { qualitaetAbgestuft: r.qualitaetAbgestuft, herkunftAbgestuft: r.herkunftAbgestuft, sortenHinweise: r.sortenHinweise ?? [] }
 }
 
 // VERSCHNEIDUNG STORNIEREN (KAN-35, 24.09.2026)

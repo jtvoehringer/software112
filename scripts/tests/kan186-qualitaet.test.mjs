@@ -198,7 +198,9 @@ describe('Momentaufnahmen und Storno-Rückführung', () => {
 
 describe('Schreibpfade (Quelltext)', () => {
   const PFADE = {
-    'src/app/(dashboard)/kellerbuch/actions.ts': [/\.\.\.qualitaetsSpalten\(chargenQualitaetAusFormular\(formData\)\)/, /\.\.\.qualitaetsSpalten\(neueQualitaet\)/, /\.\.\.verschnittQualitaetsSpalten\(zielQualitaetVorher\)/, /mischeQualitaet\(alleQualitaeten\)/],
+    'src/app/(dashboard)/kellerbuch/actions.ts': [/\.\.\.qualitaetsSpalten\(chargenQualitaetAusFormular\(formData\)\)/],
+    // KAN-112: Verschnitt-Werte im Service; die Momentaufnahme (ziel_qualitaet_vorher …) nimmt die RPC aus der gesperrten Zeile
+    'src/lib/kellerbuch/verschnittWerte.ts': [/\.\.\.qualitaetsSpalten\(neueQualitaet\)/, /mischeQualitaet\(alleQualitaeten\)/],
     'src/app/(dashboard)/kellerbuch/umziehen/actions.ts': [/\.\.\.umzugQualitaetsSpalten\(vonQual, minQual\)/, /\.\.\.umzugQualitaetsSpalten\(zielVorher, zielNachher\)/, /\.\.\.qualitaetsSpalten\(minQual\)/],
     'src/app/(dashboard)/kellerbuch/gebinde-actions.ts': [/\.\.\.qualitaetsSpalten\(angabe\)/, /\.\.\.qualitaetsSpalten\(normalisiereQualitaet\(hauptQuelle\)\)/],
     'src/app/(dashboard)/weinhandel/actions.ts': [/\.\.\.fuellungsQualitaetsSpalten\(qualitaetInput\)/],

@@ -1247,6 +1247,8 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('trigger',       '--S', false, 's112_chargennummer_trg()'),              -- KAN-192: Chargennummer vergeben, unveränderlich
     ('trigger',       '--S', false, 's112_kellerbuch_abschluss_schutz()'),    -- KAN-192: Abschlüsse unwiderruflich
     ('trigger',       '--S', false, 's112_kellerbuch_periodensperre()'),      -- KAN-192: Bewegungen im abgeschlossenen Zeitraum   -- KAN-40 E2: Rückbefüllung nur Musterhof/Sandbox (nur Service-Role)
+    ('mandant',       '-US', true , 's112_verschnitt_buchen(p_tenant_id uuid, p_kopf jsonb, p_quellen jsonb)'),   -- KAN-112: Verschnitt atomar (auch Umzug in Gebinde mit anderem Wein)
+    ('trigger',       '--S', false, 's112_verschnitt_verweise_pruefen()'),    -- KAN-112: Gebinde/Schwundbuchung am Verschnitt nur aus dem eigenen Betrieb
     ('mandant',       '-US', false, 'journal_konsistenz(p_tenant_id uuid)'),   -- KAN-40 (lesend, jedes Mitglied)
     ('trigger',       '--S', false, 's112_ama_rahmen()'),                      -- KAN-37 C: Stichtag/Abgabefrist aus dem Jahrgang
     ('trigger',       '--S', false, 's112_lese_meldesperre()'),

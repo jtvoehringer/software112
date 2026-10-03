@@ -110,6 +110,8 @@ export type VerschneidungStornoPlan = {
   datum: string | null
   sperre: Sperre | null
   aenderungen: ChargenRueckbuchung[]
+  /** KAN-112: Schwundbuchungen der Quellen beim Verschnitt (keller_umzuege 'schwund') – werden mit storniert */
+  schwundZeilen?: string[]
 }
 
 /** Werte eines Umzugs in der Form des Bearbeiten-Formulars (UmziehenFormClient) */
@@ -445,6 +447,21 @@ export async function storniereVerschneidung(
   if (plan.sperre) throw new AktionsFehler(verschneidungSperrMeldung(plan))
   const angewandt = await fuehreRueckbuchungAus(supabase, tenantId, plan.aenderungen)
   await kennzeichneNachRueckbuchung(supabase, tenantId, 'verschneidungen', [plan.verschneidung.id as string], grund, angewandt)
+  // KAN-112: Schwund beim Verschnitt (eigene Schwundbuchungen der Quellen) – mit demselben Grund stornieren; der Bestand
+  // ist oben schon zurückgebucht. Scheitert nur dieser Schritt, ist der Verschnitt bereits storniert (keine Rücknahme).
+  const schwund = plan.schwundZeilen ?? []
+  if (schwund.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase.from('keller_umzuege') as any)
+      .update({ storniert_am: new Date().toISOString(), storno_grund: grund.trim() })
+      .in('id', schwund)
+      .eq('tenant_id', tenantId)
+      .is('storniert_am', null)
+      .select('id')
+    if (error || ((data ?? []) as R[]).length !== schwund.length) {
+      throw new AktionsFehler(`Der Verschnitt wurde storniert und die Bestände zurückgebucht, die Schwundbuchung beim Verschnitt konnte aber nicht storniert werden${error ? ` (${dbFehlerText(error).replace(/[.\s]+$/, '')})` : ''}. Bitte Support kontaktieren.`)
+    }
+  }
 }
 
 /** Deutsche Meldung, wenn ein Verschnitt nicht storniert werden kann */
@@ -552,6 +569,19 @@ async function planeSchwundStorno(
   const chargeId = z?.von_weinausbau_id as string | null
   if (basis.zeilen.length !== 1 || !chargeId || !UUID_RE.test(chargeId) || !z.erstellt_am) {
     return gesperrt('sie keiner Charge eindeutig zugeordnet ist')
+  }
+
+  // KAN-112: Schwund beim Verschnitt gehört zum Verschnitt – nur mit ihm stornierbar (die RPC hat Schwund und
+  // Verschnittmenge in einer Änderung gemindert, die Protokoll-Minderung wäre zu hoch)
+  {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: vq, error: vqErr } = await (supabase.from('verschneidung_quellen') as any)   // ohne tenant_id-Spalte, RLS über verschneidungen
+      .select('verschneidung_id, verschneidung:verschneidung_id(storniert_am)')
+      .eq('schwund_umzug_id', z.id)
+    if (vqErr) return gesperrt(`nicht geprüft werden konnte, ob sie zu einem Verschnitt gehört (${dbFehlerText(vqErr).replace(/[.\s]+$/, '')})`)
+    if (ohneStornierteVerschnitte((vq ?? []) as R[]).length > 0) {
+      return { ...basis, sperre: { grund: 'sie der Schwund beim Verschnitt ist', hinweis: 'Bitte den Verschnitt stornieren – der Schwund wird dabei mit zurückgebucht.' } }
+    }
   }
 
   // KAN-145 B4: protokollierte Minderung über die RPC (Rolle, Betrieb, Schreibmodul) statt direkt aus dem Protokoll
@@ -706,7 +736,7 @@ export async function planeVerschneidungStorno(
 ): Promise<VerschneidungStornoPlan> {
   // storno-sichtbar: lädt den Verschnitt auch storniert, um „bereits storniert“ zu melden
   const { data, error } = await (supabase.from('verschneidungen') as any)
-    .select('id, datum, created_at, storniert_am, ziel_weinausbau_id, ziel_qualitaet_vorher, ziel_zusatz_vorher, ziel_erzeugnis_vorher, ziel_herkunft_code_vorher, ziel_rebsorte_vorher, ziel_jahrgang_vorher, ziel_kmw_vorher, ziel_oechsle_vorher, ziel_mostgewicht_einheit_vorher, quellen:verschneidung_quellen(quell_weinausbau_id, menge_liter)')
+    .select('id, datum, created_at, storniert_am, ziel_weinausbau_id, ziel_qualitaet_vorher, ziel_zusatz_vorher, ziel_erzeugnis_vorher, ziel_herkunft_code_vorher, ziel_rebsorte_vorher, ziel_jahrgang_vorher, ziel_kmw_vorher, ziel_oechsle_vorher, ziel_mostgewicht_einheit_vorher, quellen:verschneidung_quellen(quell_weinausbau_id, menge_liter, schwund_umzug_id)')
     .eq('id', verschneidungId)
     .eq('tenant_id', tenantId)
     .maybeSingle()
@@ -729,6 +759,26 @@ export async function planeVerschneidungStorno(
     if (!v.ziel_weinausbau_id) return { ...basis, sperre: { grund: 'die Ziel-Charge fehlt', hinweis: VERSCHNITT_HINWEIS } }
     abgang.set(v.ziel_weinausbau_id, summe)
   }
+
+  // KAN-112: Schwund beim Verschnitt – die Quelle bekommt auch ihn zurück, die Schwundbuchung wird mit storniert
+  const schwundIds = [...new Set(((v.quellen ?? []) as R[]).map(q => q.schwund_umzug_id as string | null).filter((x): x is string => !!x))]
+  const schwundZeilen: string[] = []
+  if (schwundIds.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: sRows, error: sErr } = await (supabase.from('keller_umzuege') as any)
+      .select('id, von_weinausbau_id, schwund_liter, brutto_liter, umzug_typ')
+      .in('id', schwundIds)
+      .eq('tenant_id', tenantId)
+      .is('storniert_am', null)
+    if (sErr) throw new AktionsFehler(dbFehlerText(sErr, 'Schwund des Verschnitts konnte nicht geladen werden'))
+    for (const s of (sRows ?? []) as R[]) {
+      const liter = num(s.schwund_liter) || num(s.brutto_liter)
+      if (s.umzug_typ !== 'schwund' || !s.von_weinausbau_id || liter <= 0) continue
+      zugang.set(s.von_weinausbau_id, (zugang.get(s.von_weinausbau_id) ?? 0) + liter)
+      schwundZeilen.push(s.id as string)
+    }
+  }
+  if (schwundZeilen.length > 0) basis.schwundZeilen = schwundZeilen
 
   const { sperre, aenderungen } = await planeRueckbuchung(supabase, tenantId, zugang, abgang, v.created_at ?? null, {
     verschneidungId: v.id,

@@ -7,6 +7,8 @@ import { weinartKonflikt, WEINART_LABEL } from '@/lib/keller/weinart'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum, dezimal } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
+import Link from '@/components/ui/Link'
+import { verschnittHinweis, type VerschnittHinweisDaten } from '@/lib/kellerbuch/verschnittHinweis'
 
 type Gebinde = { id: string; name: string; volumen_liter?: number | null }
 type Charge  = { id: string; name: string; menge_liter: number | null; behaelter_id?: string | null; rebsorte?: string | null; weinart?: string | null }
@@ -17,7 +19,7 @@ interface Props {
   verfuegbarLiter: number
   gebinde:         Gebinde[]
   alleChargen:     Charge[]
-  action:          (fd: FormData) => Promise<{ verschneidungNeeded?: { existingChargeId: string; newChargeId: string; menge: number }; abstufung?: { von: string; nach: string; vonLabel: string; nachLabel: string }; bestaetigung?: string } | void>
+  action:          (fd: FormData) => Promise<{ verschnitt?: VerschnittHinweisDaten & { zielChargeId: string | null }; abstufung?: { von: string; nach: string; vonLabel: string; nachLabel: string }; bestaetigung?: string } | void>
   initialOpen?:    boolean
   quelleRebsorte?: string | null
   quelleWeinart?:  string | null
@@ -41,6 +43,8 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
   const [datum,  setDatum]  = useState(new Date().toISOString().split('T')[0])
   const [notizen, setNotizen] = useState('')
   const [error,  setError]  = useState<string | null>(null)
+  // KAN-112: Hinweis „Als Verschnitt in … gebucht“ (statt Weiterleitung ins Verschneiden-Formular)
+  const [verschnitt, setVerschnitt] = useState<{ zeilen: string[]; chargeId: string | null } | null>(null)
   const [pending, start]    = useTransition()
 
   // Freie Kapazität pro Gebinde
@@ -96,6 +100,7 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError(null)
+    setVerschnitt(null)
     const fd = new FormData()
     fd.set('quellen_json', JSON.stringify([{ weinausbau_id: chargeId, menge: bruttoVal }]))
     fd.set('ziele_json',   JSON.stringify([{ behaelter_id: zielId, menge: nettoVal }]))
@@ -111,25 +116,13 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
           result = await action(fd)
         }
         setBrutto(''); setNetto(''); setZielId(''); setNotizen('')
-        if (result?.verschneidungNeeded) {
-          // Navigiert auf eine ANDERE Charge (die Ziel-Charge des Verschnitts).
-          // Bugreport 5.8.2026 (zweimal, auch nach einem ersten Fix-Versuch mit
-          // router.push()+bedingtem router.refresh()): der Rebsortenmix wurde serverseitig
-          // korrekt erkannt (neue Charge wurde angelegt), aber das Verschneiden-Formular
-          // öffnete sich nach dem Speichern trotzdem nicht - man landete wieder auf der
-          // Ausgangsseite. Ursache: Next.js führt nach JEDEM Server-Action-Aufruf (auch ohne
-          // eigenes router.refresh()) automatisch ein implizites Neuladen der AUFRUFENDEN
-          // Route aus, um deren Server-Daten zu aktualisieren - dieses interne Neuladen kann
-          // einen direkt danach gestarteten client-seitigen router.push() auf eine ANDERE
-          // Route überholen/verwerfen (Next.js Router-Race, unabhängig von eigenem
-          // refresh()-Code). Ein bloßer router.push() ist hier also nicht robust genug.
-          // Fix: echte (harte) Navigation per window.location statt client-seitigem Router -
-          // das umgeht jede Race-Condition mit dem Router-Cache/impliziten Refresh vollständig.
-          const { existingChargeId, newChargeId, menge } = result.verschneidungNeeded
-          window.location.href = `/kellerbuch/weinausbau/${existingChargeId}?form=verschneiden&quelle=${newChargeId}&menge=${menge}`
+        if (result?.verschnitt) {
+          // KAN-112: abweichender Wein im Ziel-Gebinde – sofort als Verschnitt gebucht; Hinweis zeigen und Daten neu laden
+          setVerschnitt({ zeilen: verschnittHinweis(result.verschnitt), chargeId: result.verschnitt.zielChargeId })
+          router.refresh()
         } else if (result?.abstufung) {
-          // Gleiche Race-Gefahr wie oben (andere Route zwar gleiche Charge, aber neuer
-          // Query-Parameter) - aus Konsistenzgründen ebenfalls harte Navigation.
+          // Harte Navigation (neuer Query-Parameter): ein router.push() direkt nach einer Server Action
+          // kann vom impliziten Neuladen der Route überholt werden (Bugreport 5.8.2026).
           const { vonLabel, nachLabel } = result.abstufung
           window.location.href = `/kellerbuch/weinausbau/${chargeId}?abstufung=${encodeURIComponent(`${vonLabel}→${nachLabel}`)}`
         } else {
@@ -152,6 +145,14 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
       <div className="card space-y-4">
         {error && (
           <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-lg px-4 py-2.5 text-sm">{error}</div>
+        )}
+        {verschnitt && (
+          <div role="status" className="bg-s112-ok-bg border border-s112-ok/30 text-s112-ok-fg rounded-lg px-4 py-2.5 text-sm space-y-1">
+            {verschnitt.zeilen.map((z, i) => <p key={i} className={i === 0 ? 'font-semibold' : 'text-xs'}>{z}</p>)}
+            {verschnitt.chargeId && verschnitt.chargeId !== chargeId && (
+              <p className="text-xs"><Link href={`/kellerbuch/weinausbau/${verschnitt.chargeId}`} className="underline">Zur Ziel-Charge</Link></p>
+            )}
+          </div>
         )}
         <form onSubmit={handleSubmit} className="space-y-4">
 
@@ -282,7 +283,7 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
                 <span>
                   <span className="font-semibold">Rebsortenverschnitt:</span>{' '}
                   Das Ziel-Gebinde enthält bereits Chargen mit Rebsorte <strong>{andereRebsorten.map(r => formatRebsorteMitKuerzel(r)).join(', ')}</strong>.
-                  Nach dem Umzug wird automatisch das Verschneiden-Formular geöffnet.
+                  Der Umzug wird als Verschnitt in die Charge im Ziel-Gebinde gebucht (KAN-112).
                 </span>
               </div>
             )}

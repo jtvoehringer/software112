@@ -1700,7 +1700,10 @@
 "verschneidung_id",
 "quell_weinausbau_id",
 "menge_liter",
-"anteil_pct"
+"anteil_pct",
+"quell_behaelter_id",
+"gebinde_rekonstruiert",
+"schwund_umzug_id"
 ],
 "verschneidungen": [
 "id",
@@ -1721,7 +1724,9 @@
 "storniert_von",
 "storniert_von_name",
 "storno_grund",
-"ziel_rebsorte_vorher"
+"ziel_rebsorte_vorher",
+"ziel_behaelter_id",
+"gebinde_rekonstruiert"
 ],
 "weinanalysen": [
 "id",

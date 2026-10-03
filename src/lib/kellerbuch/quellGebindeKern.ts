@@ -10,7 +10,12 @@
 //     Ziel-Tank Stahltank 04, der Wein kam aber aus Stahltank 03), ist das Quellgebinde das Herkunftsgebinde
 //     des letzten Umzugs in die Quelle (von_behaelter_id; bei n:m-Umzügen das eindeutige Gebinde der Quellzeilen).
 //
-// Ohne '@/'-Importe (node:test). Der Lader steht in quellGebinde.ts; KAN-112 nutzt ihn später mit.
+// KAN-112 (03.10.2026): Seit der Migration kan112a steht das Gebinde als Momentaufnahme am Verschnitt
+// (verschneidung_quellen.quell_behaelter_id) – diese Spalte gilt zuerst, die Regel oben nur noch, wenn sie fehlt.
+// Altdaten wurden mit derselben Regel nachbefüllt (gebinde_rekonstruiert = true) und zeigen den Hinweis
+// „(Gebinde rekonstruiert)“ (Entscheidung Jörgen 03.10.2026).
+//
+// Ohne '@/'-Importe (node:test). Der Lader steht in quellGebinde.ts.
 
 export type UmzugGebinde = {
   id: string
@@ -30,10 +35,21 @@ export type VerschnittGebinde = {
   id: string
   datum: string | null
   ziel_weinausbau_id: string | null
-  quellen: { quell_weinausbau_id: string | null }[]
+  /** KAN-112: quell_behaelter_id/gebinde_rekonstruiert = Momentaufnahme am Verschnitt (Vorrang vor der Regel) */
+  quellen: { quell_weinausbau_id: string | null; quell_behaelter_id?: string | null; gebinde_rekonstruiert?: boolean | null }[]
 }
 
-export type Quellgebinde = { behaelterId: string; name: string | null }
+/** rekonstruiert: Gebinde nachträglich aus den Umzügen ermittelt (KAN-112, nur gesetzt wenn true) */
+export type Quellgebinde = { behaelterId: string; name: string | null; rekonstruiert?: true }
+
+/** KAN-112: Hinweis an nachträglich ermittelten Gebinden */
+export const GEBINDE_REKONSTRUIERT = 'Gebinde rekonstruiert'
+
+/** „Stahltank 03 (Gebinde rekonstruiert)“ – Gebindename mit Hinweis (KAN-112); ohne Namen null */
+export function gebindeText(name: string | null | undefined, rekonstruiert?: boolean | null): string | null {
+  if (!name) return null
+  return rekonstruiert ? `${name} (${GEBINDE_REKONSTRUIERT})` : name
+}
 
 const tagVon = (v: string | null | undefined) => (v ?? '').slice(0, 10)
 const aktiv = (u: UmzugGebinde) => !u.storniert_am   // auch Schwundbuchungen zeigen, wo die Charge lag
@@ -111,14 +127,23 @@ export function quellGebindeAusDaten(
     const datum = tagVon(v.datum)
     for (const q of v.quellen ?? []) {
       if (!q.quell_weinausbau_id) continue
-      const id = quellGebindeId(q.quell_weinausbau_id, v.ziel_weinausbau_id, datum, umzuege, aktuell)
-      if (id) out.set(quellGebindeSchluessel(v.id, q.quell_weinausbau_id), { behaelterId: id, name: behaelterNamen.get(id) ?? null })
+      // KAN-112: Momentaufnahme am Verschnitt zuerst, die Regel nur, wenn sie fehlt
+      const id = q.quell_behaelter_id ?? quellGebindeId(q.quell_weinausbau_id, v.ziel_weinausbau_id, datum, umzuege, aktuell)
+      if (!id) continue
+      out.set(quellGebindeSchluessel(v.id, q.quell_weinausbau_id), {
+        behaelterId: id, name: behaelterNamen.get(id) ?? null,
+        ...(q.quell_behaelter_id && q.gebinde_rekonstruiert ? { rekonstruiert: true as const } : {}),
+      })
     }
   }
   return out
 }
 
-/** „Grüner Veltliner Sandgrube (Stahltank 03) · 48 L“ – Anzeige einer Verschnitt-Quelle (KAN-77) */
-export function verschnittQuelleText(name: string | null | undefined, gebinde: string | null | undefined, liter: string | null): string {
-  return `${name ?? '?'}${gebinde ? ` (${gebinde})` : ''}${liter ? ` · ${liter}` : ''}`
+/**
+ * „Grüner Veltliner Sandgrube (Stahltank 03) · 48 L“ – Anzeige einer Verschnitt-Quelle (KAN-77); KAN-112: nachträglich
+ * ermitteltes Gebinde als „(Stahltank 03, Gebinde rekonstruiert)“
+ */
+export function verschnittQuelleText(name: string | null | undefined, gebinde: string | null | undefined, liter: string | null, rekonstruiert?: boolean | null): string {
+  const g = gebinde ? ` (${gebinde}${rekonstruiert ? `, ${GEBINDE_REKONSTRUIERT}` : ''})` : ''
+  return `${name ?? '?'}${g}${liter ? ` · ${liter}` : ''}`
 }

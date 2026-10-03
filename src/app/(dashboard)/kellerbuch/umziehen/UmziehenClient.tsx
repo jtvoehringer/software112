@@ -11,6 +11,7 @@ import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
 import { weinartKonflikt, WEINART_LABEL } from '@/lib/keller/weinart'
+import { verschnittHinweis } from '@/lib/kellerbuch/verschnittHinweis'
 
 type BehaelterMitCharge = {
   behaelter_id:   string
@@ -171,6 +172,8 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
   const [pending, startTransition] = useTransition()
   const [error, setError]         = useState<string | null>(null)
   const [success, setSuccess]     = useState(false)
+  // KAN-112: Hinweis „Als Verschnitt in … gebucht“
+  const [verschnitt, setVerschnitt] = useState<{ zeilen: string[]; chargeId: string | null } | null>(null)
   const [datum, setDatum]         = useState(new Date().toISOString().split('T')[0])
   const [notizen, setNotizen]     = useState('')
   const [umzugTyp, setUmzugTyp]   = useState<'normal' | 'filtration'>('normal')
@@ -244,17 +247,12 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
           fd.set('pn_bestaetigt', '1')
           result = await umziehen(fd)
         }
-        // Bugreport 5.8.2026: diese allgemeine Umziehen-Seite hat das Ergebnis von
-        // umziehen() bisher komplett verworfen - selbst wenn der Server einen
-        // Rebsortenmix erkannt und eine Verschneidung ausgelöst hat, landete man
-        // stillschweigend wieder auf der Kellerbuch-Übersicht, ohne Hinweis. Analog zum
-        // bereits gefixten Umziehen-Widget auf der einzelnen Charge-Seite: bei
-        // verschneidungNeeded eine harte Navigation (window.location statt router.push)
-        // direkt ins Verschneiden-Formular der Ziel-Charge, das umgeht jede
-        // Router-Race-Problematik zuverlässig.
-        if (result?.verschneidungNeeded) {
-          const { existingChargeId, newChargeId, menge } = result.verschneidungNeeded
-          window.location.href = `/kellerbuch/weinausbau/${existingChargeId}?form=verschneiden&quelle=${newChargeId}&menge=${menge}`
+        // KAN-112: abweichender Wein im Ziel-Gebinde – der Server hat den Umzug sofort als Verschnitt gebucht
+        // (keine Zwischencharge, keine Weiterleitung ins Verschneiden-Formular mehr): Hinweis zeigen, nicht weiterleiten
+        if (result?.verschnitt) {
+          setVerschnitt({ zeilen: verschnittHinweis(result.verschnitt), chargeId: result.verschnitt.zielChargeId })
+          setSuccess(true)
+          router.refresh()
           return
         }
         setSuccess(true)
@@ -345,7 +343,7 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
             <span>
               <span className="font-semibold">Rebsortenverschnitt:</span>{' '}
               Das Ziel-Gebinde enthält bereits Chargen mit Rebsorte <strong>{andereRebsorten.map(r => formatRebsorteMitKuerzel(r)).join(', ')}</strong>.
-              Nach dem Umzug wird automatisch das Verschneiden-Formular geöffnet.
+              Der Umzug wird als Verschnitt in die Charge im Ziel-Gebinde gebucht (KAN-112).
             </span>
           </div>
         )}
@@ -366,7 +364,19 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
 
       {/* KAN-181: am Handy bleibt die Leiste beim Scrollen unten sichtbar */}
       <div className="max-sm:sticky max-sm:bottom-0 max-sm:-mx-5 max-sm:-mb-5 max-sm:px-5 max-sm:py-3 max-sm:bg-s112-bg max-sm:border-t max-sm:border-s112-line max-sm:z-10">
-        {success ? (
+        {success && verschnitt ? (
+          <div role="status" className="bg-s112-ok-bg border border-s112-ok/30 text-s112-ok-fg rounded-xl px-5 py-3 text-sm space-y-1">
+            {verschnitt.zeilen.map((z, i) => (
+              <p key={i} className={i === 0 ? 'font-semibold flex items-center gap-2' : 'text-xs'}>
+                {i === 0 && <CheckCircle2 size={16} strokeWidth={1.75} />}{z}
+              </p>
+            ))}
+            <p className="text-xs pt-1 flex gap-4">
+              {verschnitt.chargeId && <Link href={`/kellerbuch/weinausbau/${verschnitt.chargeId}`} className="underline">Zur Charge</Link>}
+              <Link href="/kellerbuch" className="underline">Zur Übersicht</Link>
+            </p>
+          </div>
+        ) : success ? (
           <div className="flex items-center justify-center gap-2 bg-s112-ok-bg border border-s112-ok/30 text-s112-ok-fg rounded-xl px-5 py-3 text-sm font-semibold">
             <CheckCircle2 size={16} strokeWidth={1.75} />Gespeichert – weiterleiten…
           </div>

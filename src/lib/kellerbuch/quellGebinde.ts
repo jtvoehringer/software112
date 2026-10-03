@@ -3,8 +3,8 @@
 // quellGebindeDesVerschnitts() bestimmt für jede Quelle eines Verschnitts das Gebinde, aus dem der Wein am Tag
 // des Verschnitts kam (Regeln samt Zwischencharge in quellGebindeKern.ts) – für Chargen-Seite, Weinbuch (+ CSV),
 // Bewegungsbuch (+ CSV) und Blend-Protokoll. Keine Migration: nur keller_umzuege (nicht storniert),
-// weinausbau.behaelter_id und behaelter.name, alles mit tenant_id gefiltert. KAN-112 nutzt diesen Lader später
-// ebenfalls.
+// weinausbau.behaelter_id und behaelter.name, alles mit tenant_id gefiltert. KAN-112: Die Aufrufer geben
+// quell_behaelter_id/gebinde_rekonstruiert der Quellen mit – die Momentaufnahme hat Vorrang vor der Regel.
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Projektkonvention (supabase.from('…') as any), siehe CLAUDE.md */
 import { alle } from '@/lib/supabase/alle'
@@ -13,7 +13,7 @@ import {
 } from './quellGebindeKern'
 
 export {
-  gebindeAmTag, quellGebindeAusDaten, quellGebindeId, quellGebindeSchluessel, verschnittQuelleText,
+  gebindeAmTag, gebindeText, GEBINDE_REKONSTRUIERT, quellGebindeAusDaten, quellGebindeId, quellGebindeSchluessel, verschnittQuelleText,
   type Quellgebinde, type UmzugGebinde, type VerschnittGebinde,
 } from './quellGebindeKern'
 
@@ -100,6 +100,7 @@ export async function quellGebindeDesVerschnitts(
   const umzugListe = [...umzuege.values()]
   const namen = await ladeBehaelterNamen(supabase, tenantId, [
     ...gebindeJeCharge.values(), ...umzugListe.flatMap(u => [u.von_behaelter_id, u.nach_behaelter_id]),
+    ...verschneidungen.flatMap(v => (v.quellen ?? []).map(q => q.quell_behaelter_id)),   // KAN-112
   ])
   return quellGebindeAusDaten(verschneidungen, umzugListe, gebindeJeCharge, namen)
 }

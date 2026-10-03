@@ -109,11 +109,13 @@ describe('KAN-93: Rebsorte und Jahrgang aus den Anteilen', () => {
     assert.equal(r.jahrgang, 2026)
   })
   test('Verschnitt nutzt die Anteile, schreibt Jahrgang und Momentaufnahme; Storno stellt den Jahrgang wieder her', () => {
-    const q = quelle('src/app/(dashboard)/kellerbuch/actions.ts')
+    // KAN-112: Service verschnittBuchen.ts/verschnittWerte.ts; ziel_jahrgang_vorher setzt die RPC s112_verschnitt_buchen
+    const q = quelle('src/lib/kellerbuch/verschnittBuchen.ts')
     assert.match(q, /await verschnittGruppen\(supabase, tenantId, \[/)
-    assert.match(q, /jahrgang: angabe\.jahrgang,/)
-    assert.match(q, /ziel_jahrgang_vorher: zielVorher\.jahrgang \?\? null/)
-    assert.doesNotMatch(q, /dominanterAnteil >= 0\.85/)
+    assert.match(q, /\(supabase\.rpc as any\)\('s112_verschnitt_buchen'/)
+    const w = quelle('src/lib/kellerbuch/verschnittWerte.ts')
+    assert.match(w, /jahrgang: angabe\.jahrgang,/)
+    assert.doesNotMatch(q + w + quelle('src/app/(dashboard)/kellerbuch/actions.ts'), /dominanterAnteil >= 0\.85/)
     const s = quelle('src/lib/kellerbuch/storno.ts')
     assert.match(s, /if \(v\.ziel_jahrgang_vorher != null\) ziel\.payload\.jahrgang = v\.ziel_jahrgang_vorher/)
   })
