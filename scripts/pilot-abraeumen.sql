@@ -28,6 +28,7 @@
 --                         geprüft im Nachher-Teil, alter/neuer Suffix im Bericht und im system_ereignisse-Eintrag.
 --   charge_zaehler        = 1     get_next_chargennummer vergibt den gespeicherten Wert (Spalten-Default 1), Jahr kommt
 --                                 aus now() → CH-2027-001.
+--   weinausbau_zaehler    = 1     KAN-192: Chargennummer der Chargen (Trigger a_chargennummer) → WA-2027-001.
 --   liefernummer_zaehler  = 0     get_next_liefernummer erhöht zuerst und vergibt den neuen Wert (Default 0) → LN-2027-0001.
 --   export_zaehler        BLEIBT  get_next_exportnummer kennt kein Jahr (Präfix + Zähler, kein Suffix/Platzhalter) –
 --                                 ein Zurücksetzen wiederholte EX-Nummern; daher unverändert (Entscheidung Jörgen
@@ -38,6 +39,9 @@
 --   journal_ab            = NULL  Bewegungsjournal (KAN-40) aus – seine Zeilen werden mit abgeräumt (der Schutz-Trigger
 --                                 a_journal_schutz lässt sie mit s112.loeschen_erlaubt durch); Eröffnung nach dem Erfassen des
 --                                 Eröffnungsbestands mit journal_eroeffnen(<Betrieb>, '2027-01-01').
+--   kellerbuch_abschluesse        KAN-192: Kellerbuch-Abschlüsse des Pilotbetriebs abgeräumt (unwiderruflich, Wartung mit
+--                                 s112.loeschen_erlaubt) – sonst sperrten sie den Eröffnungsbestand 2027 nicht, aber
+--                                 widersprächen dem leeren Kellerbuch.
 --   NICHT angefasst: export_zaehler, account_zaehler, bmd_debitor_zaehler, bmd_kreditor_zaehler, ki_abfragen_zaehler, Kundennummer.
 --
 -- ABLAUF (alles in EINER Transaktion – jeder Fehler und jede fehlgeschlagene Prüfung rollt ALLES zurück)
@@ -95,6 +99,7 @@ INSERT INTO pilot_tabellen (tabelle, art, eltern, fk, tspalte) VALUES
   -- Keller / Weinbuch
   ('weinausbau', 'abräumen', NULL, NULL, 'tenant_id'),
   ('kellerbuch_buchungen', 'abräumen', NULL, NULL, 'tenant_id'),   -- KAN-40: Bewegungsjournal (unveränderlich, Wartung mit Kennzeichen)
+  ('kellerbuch_abschluesse', 'abräumen', NULL, NULL, 'tenant_id'),   -- KAN-192: Periodensperre (unwiderruflich, Wartung mit Kennzeichen)
   ('weinausbau_weingaerten', 'abräumen', NULL, NULL, 'tenant_id'),
   ('keller_umzuege', 'abräumen', NULL, NULL, 'tenant_id'),
   ('verschneidungen', 'abräumen', NULL, NULL, 'tenant_id'),
@@ -379,6 +384,7 @@ BEGIN
     CROSS JOIN LATERAL (VALUES ('rechnung_zaehler', e.rechnung_zaehler::bigint, 1::bigint),
                                ('rechnung_zaehler_jahr', e.rechnung_zaehler_jahr::bigint, c_jahr::bigint),
                                ('charge_zaehler', e.charge_zaehler::bigint, 1::bigint),
+                               ('weinausbau_zaehler', e.weinausbau_zaehler::bigint, 1::bigint),   -- KAN-192
                                ('liefernummer_zaehler', e.liefernummer_zaehler::bigint, 0::bigint),
                                ('export_zaehler', e.export_zaehler::bigint, e.export_zaehler::bigint)) AS z(feld, wert, soll);   -- bleibt (ohne Jahr)
   SELECT jsonb_object_agg(e.tenant_id::text, COALESCE(e.rechnung_suffix, '')) INTO v_suffix_alt
@@ -395,6 +401,7 @@ BEGIN
     -- 0) Bewegungsjournal (KAN-40): unveränderlich, Löschen nur mit s112.loeschen_erlaubt = Betrieb; eine Anweisung –
     --    Gegenbuchungen verweisen per storno_von_id auf Originale desselben Betriebs (Prüfung am Ende der Anweisung)
     DELETE FROM public.kellerbuch_buchungen WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185/KAN-40, Kennzeichen s112.loeschen_erlaubt
+    DELETE FROM public.kellerbuch_abschluesse WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185/KAN-192, Kennzeichen s112.loeschen_erlaubt
 
     -- a) Kasse/E-A: SumUp, Dauerauftrags-Log, Belege, Betriebsmittel-Bewegungen (verweisen auf ea_transaktionen)
     DELETE FROM public.sumup_transaktionen WHERE tenant_id = v_t;
@@ -470,6 +477,7 @@ BEGIN
     DELETE FROM public.transaktionszaehler WHERE tenant_id = v_t;
     UPDATE public.tenant_einstellungen
        SET rechnung_zaehler = 1, rechnung_zaehler_jahr = c_jahr, charge_zaehler = 1, liefernummer_zaehler = 0,
+           weinausbau_zaehler = 1,   -- KAN-192: Chargennummer WA-2027-001
            journal_ab = NULL,   -- KAN-40: Journal nach dem Eröffnungsbestand 2027 neu eröffnen (journal_eroeffnen)
            -- Rechnungsnummer mit Jahr: fehlt ein Platzhalter ({JJ}/{JJJJ}), „/{JJ}“ an den Suffix-Text anhängen
            rechnung_suffix = CASE WHEN COALESCE(rechnung_suffix, '') LIKE '%{JJ%' THEN rechnung_suffix
@@ -484,6 +492,7 @@ BEGIN
     FROM (SELECT e.tenant_id, x.feld, x.wert FROM public.tenant_einstellungen e
             CROSS JOIN LATERAL (VALUES ('rechnung_zaehler', e.rechnung_zaehler::bigint), ('rechnung_zaehler_jahr', e.rechnung_zaehler_jahr::bigint),
                                        ('charge_zaehler', e.charge_zaehler::bigint), ('liefernummer_zaehler', e.liefernummer_zaehler::bigint),
+                                       ('weinausbau_zaehler', e.weinausbau_zaehler::bigint),
                                        ('export_zaehler', e.export_zaehler::bigint)) AS x(feld, wert)
            WHERE e.tenant_id = ANY (c_betriebe)) z
    WHERE k.art = 'nummernkreis-wert' AND k.tenant_id = z.tenant_id AND k.tabelle = 'tenant_einstellungen.' || z.feld;

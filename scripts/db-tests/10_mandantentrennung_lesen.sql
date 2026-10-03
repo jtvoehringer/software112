@@ -126,7 +126,7 @@ DECLARE
   -- Tabellen, die anon derzeit gar nicht lesen darf (kein SELECT-Grant) – erlaubt, aber als Liste festgehalten
   c_anon_ohne_grant constant text[] := ARRAY['bestandsprotokoll', 'betriebsmittel', 'betriebsmittel_lager_bewegungen', 'fuellung_bewegungen', 'meldung_abgaben',
     'kat_buchungsart', 'kat_erzeugnis', 'kat_farbe', 'kat_land', 'kat_qualitaetsstufe', 'katalog_mapping',
-    'kellerbuch_buchungen'];   -- KAN-167, KAN-37 B, KAN-39, KAN-40: REVOKE ALL … FROM anon
+    'kellerbuch_buchungen', 'kellerbuch_abschluesse', 'charge_herkunft'];   -- KAN-167, KAN-37 B, KAN-39, KAN-40, KAN-192: REVOKE ALL … FROM anon
   -- Varianten-Zeilen (Tabelle:boolesche Spalte) – je Betrieb M und B einmal true, einmal false
   c_varianten constant text[] := ARRAY['kontakte:is_lead', 'firmen:is_lead', 'behaelter:gemeinsam'];
   -- Gegenrichtung: Personas aus M und C gegen die B-Zeile
@@ -604,7 +604,7 @@ BEGIN
       v_erg := v_erg || pg_temp.s112_erwarte('anon_lesen:rebsorten_gewollt', v_ist, v_anon_pg[v_i]::text);
     ELSIF v_ist = '0' THEN
       v_erg := v_erg || pg_temp.s112_ok('anon_lesen:' || v_tab);
-    ELSIF v_ist = '42501: permission denied for table ' || v_tab THEN
+    ELSIF v_ist IN ('42501: permission denied for table ' || v_tab, '42501: permission denied for view ' || v_tab) THEN   -- KAN-192: Sicht charge_herkunft
       v_anon_g := v_anon_g || v_tab;
       v_erg := v_erg || pg_temp.s112_ok('anon_lesen:' || v_tab);
     ELSE

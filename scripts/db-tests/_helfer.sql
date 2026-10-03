@@ -800,6 +800,7 @@ END $f$;
 --   * betriebsmittel_lager_bewegungen: typ 'anfangsbestand' (Einkäufe nur per RPC, RLS lehnt typ 'einkauf' ab; KAN-167),
 --   * meldung_abgaben: Abgabe einer Bestandsmeldung ohne AMA-Bezug (KAN-37 B),
 --   * kellerbuch_buchungen: Korrekturzeile INV_PLUS einer erfundenen Charge mit freier Belegnummer (KAN-40),
+--   * kellerbuch_abschluesse: Abschluss weit in der Vergangenheit mit freiem Datum (KAN-192),
 --   * tenant_einstellungen: die vorhandene Zeile des Betriebs (je Betrieb genau eine),
 --   * tenant_memberships: neuer Test-Benutzer als leser (user_id aus p_werte, sonst neu; nie p_persona).
 -- p_werte überschreibt alles. Bei einem Schlüsselkonflikt ein zweiter Versuch mit neuen Elternzeilen
@@ -868,6 +869,8 @@ BEGIN
       'buchungsart_code', 'INV_PLUS', 'quelle_tabelle', 's112test', 'storno_von_id', NULL, 'pos', 1, 'datum', current_date,
       'beleg_nr', 1 + coalesce((SELECT max(k.beleg_nr) FROM public.kellerbuch_buchungen k WHERE k.tenant_id = p_tenant), 0)
                     + (random() * 100000)::integer);
+  ELSIF p_tab = 'kellerbuch_abschluesse' THEN   -- KAN-192: eindeutiges Datum je Betrieb, weit vor jeder Bewegung
+    v_w := v_w || jsonb_build_object('abgeschlossen_bis', DATE '1990-01-01' - (random() * 3000)::integer, 'bemerkung', 'S112TEST');
   END IF;
   BEGIN
     RETURN pg_temp.s112_zeile(p_tab, p_tenant, v_w || coalesce(p_werte, '{}'::jsonb));
@@ -978,6 +981,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('keller_freigaben',              '-',                                      '-',                                      '-'),
     ('keller_umzuege',                'SA,TA,W*{kellerbuch|warenwirtschaft}',   'SA,TA,W*{kellerbuch|warenwirtschaft}',   '-{kellerbuch|warenwirtschaft}'),   -- KAN-145 B4
     ('kellerbuch_buchungen',          '-',                                      '-',                                      '-'),   -- KAN-40: Bewegungsjournal, nur per Trigger/RPC, unveränderlich
+    ('kellerbuch_abschluesse',        '-',                                      '-',                                      '-'),   -- KAN-192: Periodensperre, nur per RPC, unwiderruflich
     ('kellerplaene',                  'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   'SA,TA{kellerbuch}'),
     ('kellerplan_positionen',         'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}'),
     ('kontakt_firmen',                'SA,TA,W*{crm}',                          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}'),
@@ -1237,7 +1241,12 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('trigger',       '--S', false, 's112_journal_trg_zukauf()'),              -- KAN-40: ZK_FASS/ZK_MOST
     ('mandant',       '-US', true , 'journal_abgleichen(p_tenant_id uuid, p_mindestalter interval)'),   -- KAN-40: Korrektur INV_PLUS/INV_MIN
     ('mandant',       '-US', true , 'journal_eroeffnen(p_tenant_id uuid, p_stichtag date)'),   -- KAN-40: Journalbeginn + EROEFF
-    ('intern',        '--S', false, 'journal_rueckbefuellen(p_tenant_id uuid, p_ab date)'),   -- KAN-40 E2: Rückbefüllung nur Musterhof/Sandbox (nur Service-Role)
+    ('intern',        '--S', false, 'journal_rueckbefuellen(p_tenant_id uuid, p_ab date)'),
+    ('mandant',       '-US', true , 'kellerbuch_abschliessen(p_tenant_id uuid, p_bis date, p_bemerkung text)'),   -- KAN-192: Periodensperre (Betriebsleitung)
+    ('intern',        '--S', false, 's112_naechste_weinausbau_nummer(p_tenant_id uuid, p_zeit timestamp with time zone)'),   -- KAN-192: Chargennummer
+    ('trigger',       '--S', false, 's112_chargennummer_trg()'),              -- KAN-192: Chargennummer vergeben, unveränderlich
+    ('trigger',       '--S', false, 's112_kellerbuch_abschluss_schutz()'),    -- KAN-192: Abschlüsse unwiderruflich
+    ('trigger',       '--S', false, 's112_kellerbuch_periodensperre()'),      -- KAN-192: Bewegungen im abgeschlossenen Zeitraum   -- KAN-40 E2: Rückbefüllung nur Musterhof/Sandbox (nur Service-Role)
     ('mandant',       '-US', false, 'journal_konsistenz(p_tenant_id uuid)'),   -- KAN-40 (lesend, jedes Mitglied)
     ('trigger',       '--S', false, 's112_ama_rahmen()'),                      -- KAN-37 C: Stichtag/Abgabefrist aus dem Jahrgang
     ('trigger',       '--S', false, 's112_lese_meldesperre()'),

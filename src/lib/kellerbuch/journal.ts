@@ -142,3 +142,29 @@ export async function journalAbgleichAlle(admin: any): Promise<JournalAbgleichLa
   }
   return lauf
 }
+
+/** KAN-192: ein Kellerbuch-Abschluss (Periodensperre) */
+export type KellerbuchAbschluss = {
+  id: string
+  abgeschlossen_bis: string
+  abgeschlossen_am: string
+  bemerkung: string | null
+}
+
+/** Kellerbuch-Abschlüsse des Betriebs, neuester zuerst (der erste ist der wirksame) */
+export async function ladeKellerbuchAbschluesse(supabase: any, tenantId: string): Promise<KellerbuchAbschluss[]> {
+  const { data, error } = await (supabase.from('kellerbuch_abschluesse') as any)
+    .select('id, abgeschlossen_bis, abgeschlossen_am, bemerkung')
+    .eq('tenant_id', tenantId)
+    .order('abgeschlossen_bis', { ascending: false })
+  if (error) throw new Error(`Kellerbuch-Abschlüsse konnten nicht geladen werden (${error.message})`)
+  return (data ?? []) as KellerbuchAbschluss[]
+}
+
+/** Vorschlag für den nächsten Abschluss: der letzte 31. Juli vor heute (Stichtag der Bestandsmeldung), sonst gestern */
+export function abschlussVorschlag(heute: string, gesperrtBis: string | null): string {
+  const jahr = Number(heute.slice(0, 4))
+  const juli = `${heute.slice(5) > '07-31' ? jahr : jahr - 1}-07-31`
+  const gestern = new Date(Date.UTC(jahr, Number(heute.slice(5, 7)) - 1, Number(heute.slice(8, 10)) - 1)).toISOString().slice(0, 10)
+  return !gesperrtBis || juli > gesperrtBis ? juli : gestern
+}
