@@ -106,6 +106,8 @@ const NAV: NavGroup[] = [
       { href: '/kellerbuch/kellerplan',      label: 'Kellerplan',     phase: 1, keywords: 'grundriss' },
       { href: '/dac',                        label: 'Prüfnummer',     phase: 1, keywords: 'dac antrag staatliche prüfnummer' },
       { href: '/kellerbuch/rueckverfolgung', label: 'Rückverfolgung', phase: 1, keywords: 'herkunft charge grundstück' },
+      // KAN-40 E1: Bewegungsjournal (nur lesen) mit Journal-Konsistenz
+      { href: '/kellerbuch/journal',         label: 'Bewegungsjournal', phase: 1, keywords: 'journal buchungen beleg konsistenz bestand storno umstufung korrektur' },
       { href: '/reports/weinbuecher-sammlung', label: 'Weinbuch-Sammlung', pflichtmeldung: true, keywords: 'weinbuch kellerbuch aufzeichnungen bki prüfung behörde meldung druck pdf csv' },
       // KAN-43 Etappe 2: BSM nach Buchungsarten je Weinwirtschaftsjahr (Kontrolljournal auf derselben Seite)
       { href: '/reports/bestandsmeldung-bsm', label: 'Bestandsmeldung (BSM)', pflichtmeldung: true, keywords: 'bsm weinbestandsmeldung bestand buchungsarten weinwirtschaftsjahr abwertung zugang abgang kontrolljournal weindatenbank behörde meldung druck csv' },

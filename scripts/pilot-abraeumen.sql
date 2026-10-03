@@ -35,6 +35,9 @@
 --                                 Rechnungsnummer zurücksetzen.
 --   transaktionszaehler   Zeilen der beiden Betriebe gelöscht – get_next_transaktionsnr legt je (Betrieb, Typ, Jahr)
 --                                 eine neue Zeile mit 1 an → KU-/EB-/VK-/KE-/TX-2027-0001.
+--   journal_ab            = NULL  Bewegungsjournal (KAN-40) aus – seine Zeilen werden mit abgeräumt (der Schutz-Trigger
+--                                 a_journal_schutz lässt sie mit s112.loeschen_erlaubt durch); Eröffnung nach dem Erfassen des
+--                                 Eröffnungsbestands mit journal_eroeffnen(<Betrieb>, '2027-01-01').
 --   NICHT angefasst: export_zaehler, account_zaehler, bmd_debitor_zaehler, bmd_kreditor_zaehler, ki_abfragen_zaehler, Kundennummer.
 --
 -- ABLAUF (alles in EINER Transaktion – jeder Fehler und jede fehlgeschlagene Prüfung rollt ALLES zurück)
@@ -91,6 +94,7 @@ CREATE TEMP TABLE pilot_tabellen (tabelle text PRIMARY KEY, art text NOT NULL, e
 INSERT INTO pilot_tabellen (tabelle, art, eltern, fk, tspalte) VALUES
   -- Keller / Weinbuch
   ('weinausbau', 'abräumen', NULL, NULL, 'tenant_id'),
+  ('kellerbuch_buchungen', 'abräumen', NULL, NULL, 'tenant_id'),   -- KAN-40: Bewegungsjournal (unveränderlich, Wartung mit Kennzeichen)
   ('weinausbau_weingaerten', 'abräumen', NULL, NULL, 'tenant_id'),
   ('keller_umzuege', 'abräumen', NULL, NULL, 'tenant_id'),
   ('verschneidungen', 'abräumen', NULL, NULL, 'tenant_id'),
@@ -388,6 +392,10 @@ BEGIN
     SELECT COALESCE(array_agg(DISTINCT m.jahrgang_id), '{}') INTO v_jg
       FROM public.ama_erntemeldungen m WHERE m.tenant_id = v_t AND m.status NOT IN ('entwurf', 'bereit');
 
+    -- 0) Bewegungsjournal (KAN-40): unveränderlich, Löschen nur mit s112.loeschen_erlaubt = Betrieb; eine Anweisung –
+    --    Gegenbuchungen verweisen per storno_von_id auf Originale desselben Betriebs (Prüfung am Ende der Anweisung)
+    DELETE FROM public.kellerbuch_buchungen WHERE tenant_id = v_t;   -- storno-ausnahme: Pilotabschluss KAN-185/KAN-40, Kennzeichen s112.loeschen_erlaubt
+
     -- a) Kasse/E-A: SumUp, Dauerauftrags-Log, Belege, Betriebsmittel-Bewegungen (verweisen auf ea_transaktionen)
     DELETE FROM public.sumup_transaktionen WHERE tenant_id = v_t;
     DELETE FROM public.sumup_checkouts WHERE tenant_id = v_t;
@@ -462,6 +470,7 @@ BEGIN
     DELETE FROM public.transaktionszaehler WHERE tenant_id = v_t;
     UPDATE public.tenant_einstellungen
        SET rechnung_zaehler = 1, rechnung_zaehler_jahr = c_jahr, charge_zaehler = 1, liefernummer_zaehler = 0,
+           journal_ab = NULL,   -- KAN-40: Journal nach dem Eröffnungsbestand 2027 neu eröffnen (journal_eroeffnen)
            -- Rechnungsnummer mit Jahr: fehlt ein Platzhalter ({JJ}/{JJJJ}), „/{JJ}“ an den Suffix-Text anhängen
            rechnung_suffix = CASE WHEN COALESCE(rechnung_suffix, '') LIKE '%{JJ%' THEN rechnung_suffix
                                   ELSE COALESCE(rechnung_suffix, '') || '/{JJ}' END
