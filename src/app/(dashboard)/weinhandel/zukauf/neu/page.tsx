@@ -4,7 +4,8 @@ import { useState, useTransition, useEffect } from 'react'
 import Link from '@/components/ui/Link'
 import { createZukauf } from '../actions'
 import { LESE_QUALITAETEN, QUALITAET_OPTS } from '@/lib/wein/qualitaet'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { verschnittHinweis } from '@/lib/kellerbuch/verschnittHinweis'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum } from '@/lib/format'
 import PartnerSuche from '@/components/crm/PartnerSuche'
@@ -39,6 +40,8 @@ const HERKUNFT_OPTIONS = herkunftOptionen()
 export default function ZukaufNeuPage() {
   const [isPending, startTransition] = useTransition()
   const [error, setError]            = useState<string | null>(null)
+  // KAN-193: Zukauf sofort als Verschnitt in die Charge im Gebinde gebucht – Hinweis statt Weiterleitung
+  const [verschnitt, setVerschnitt]  = useState<{ zeilen: string[]; chargeId: string | null } | null>(null)
 
   const [behaelter,       setBehaelter]       = useState<Behaelter[]>([])
   const [weinausbauListe, setWeinausbauListe] = useState<{ id: string; name: string; behaelter_id: string | null; rebsorte: string | null; menge_liter: number | null }[]>([])
@@ -169,11 +172,19 @@ export default function ZukaufNeuPage() {
     fd.set('notizen',                 notizen)
     startTransition(async () => {
       try {
-        const result = await createZukauf(fd)
+        let result = await createZukauf(fd)
         // KAN-83: Prüfnummer einer Charge im Ziel-Gebinde erlischt – nur nach Bestätigung buchen
-        if (result?.bestaetigung && window.confirm(result.bestaetigung)) {
+        if (result?.bestaetigung) {
+          if (!window.confirm(result.bestaetigung)) return
           fd.set('pn_bestaetigt', '1')
-          await createZukauf(fd)
+          fd.set('rotweiss_bestaetigt', '1')   // KAN-193: Rückfrage Rot/Weiß steht in derselben Bestätigung
+          result = await createZukauf(fd)
+        }
+        // KAN-193: abweichender Wein im Gebinde – der Server hat den Zukauf sofort als Verschnitt gebucht (keine
+        // Weiterleitung ins Verschneiden-Formular mehr): Hinweis zeigen wie beim Umziehen
+        if (result?.verschnitt) {
+          setVerschnitt({ zeilen: verschnittHinweis(result.verschnitt, 'Zukauf'), chargeId: result.verschnitt.zielChargeId })
+          window.scrollTo({ top: 0, behavior: 'smooth' })
         }
       }
       catch (err) { setError(fehlerText(err, 'Fehler beim Speichern')) }
@@ -203,6 +214,20 @@ export default function ZukaufNeuPage() {
 
       {error && (
         <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg px-4 py-3 rounded-lg text-sm">{error}</div>
+      )}
+
+      {verschnitt && (
+        <div role="status" className="bg-s112-ok-bg border border-s112-ok/30 text-s112-ok-fg rounded-xl px-5 py-3 text-sm space-y-1">
+          {verschnitt.zeilen.map((z, i) => (
+            <p key={i} className={i === 0 ? 'font-semibold flex items-center gap-2' : 'text-xs'}>
+              {i === 0 && <CheckCircle2 size={16} strokeWidth={1.75} />}{z}
+            </p>
+          ))}
+          <p className="text-xs pt-1 flex gap-4">
+            {verschnitt.chargeId && <Link href={`/kellerbuch/weinausbau/${verschnitt.chargeId}`} className="underline">Zur Charge</Link>}
+            <Link href="/weinhandel/zukauf" className="underline">Zu den Zukäufen</Link>
+          </p>
+        </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-5">
@@ -561,7 +586,7 @@ export default function ZukaufNeuPage() {
                 <span className="font-semibold inline-flex items-center gap-1.5"><AlertTriangle size={14} /> Rebsortenverschnitt:</span>{' '}
                 Das gewählte Gebinde enthält bereits Chargen mit anderer Rebsorte:{' '}
                 <strong>{andereChargenImZiel.map(c => `${c.name} (${formatRebsorteMitKuerzel(c.rebsorte)})`).join(', ')}</strong>.
-                Nach dem Speichern wird das Verschneiden-Formular geöffnet.
+                Der Zukauf wird beim Speichern sofort als Verschnitt in die Charge im Gebinde gebucht.
               </div>
             )}
           </div>
@@ -581,7 +606,7 @@ export default function ZukaufNeuPage() {
             className="text-sm text-s112-muted hover:text-s112-text-1 px-4 py-2">
             Abbrechen
           </Link>
-          <button type="submit" disabled={isPending}
+          <button type="submit" disabled={isPending || !!verschnitt}
             className="bg-s112-teal text-s112-yellow px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-50">
             {isPending ? 'Speichern…' : 'Zukauf speichern'}
           </button>

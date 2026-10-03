@@ -6,12 +6,17 @@
 // (mischeQualitaet, KAN-186), Herkunft (minHerkunft), Mostgewicht (KAN-130), Abstufungs- und Sortenhinweise in den
 // Notizen – und daraus p_kopf/p_quellen für EINEN RPC-Aufruf. Die RPC sperrt die Chargen, prüft die Bestände gegen die
 // erwarteten Werte (Grundlage dieser Rechnung; abweichend → 40001) und bucht alles in einer Transaktion.
+//
+// KAN-193 (Entscheidung Jörgen 03.10.2026): Rot- und Weißwein dürfen verschnitten werden, wenn das Ergebnis auf
+// „Wein (aus Österreich)“ abgestuft wird – Stufe Wein, keine Zusatzbezeichnung, Herkunft Österreich (Code 'wein'),
+// Farbe nach der Mehrheit der Liter (Rosé zählt als rot). Der Service fragt vorher nach (ROT_WEISS_FRAGE).
 
 import { qualitaetText } from '@/lib/weinqualitaet'
 import { hoechsteQualitaetsAngabe, istAbstufungQualitaet, mischeQualitaet, normalisiereQualitaet, qualitaetsSpalten, type QualitaetsAngabe } from '@/lib/wein/qualitaetsrang'
 import { sortenBezeichnung, type GruppenMenge } from '@/lib/wein/sortenangabe'
 import { minHerkunft, maxHerkunft, istNiedrigerAls as herkunftIstNiedrigerAls, HERKUNFT_LABEL } from '@/lib/herkunft'
 import { mostgewichtNeu, mostgewichtZusammenfuehren, teilweiseVermerk } from '@/lib/kellerbuch/mostgewichtKette'
+import { weinartKonflikt } from '@/lib/keller/weinart'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -33,6 +38,37 @@ export type VerschnittWerteEingabe = {
   gruppen: { sorten: readonly GruppenMenge[]; jahrgaenge: readonly GruppenMenge[] }
   /** Notizen des Benutzers (samt Prüfnummer-Vermerk) */
   notizen: string | null
+  /** KAN-193: Rot und Weiß werden verschnitten (bestätigt) – Abstufung auf Wein (aus Österreich), `weinart` = Mehrheit */
+  rotWeiss?: boolean
+}
+
+/** KAN-193: Rückfrage vor einem Verschnitt von Rot- und Weißwein */
+export const ROT_WEISS_FRAGE = 'Rot- und Weißwein werden verschnitten – das Ergebnis wird auf ‚Wein (aus Österreich)‘ abgestuft. Fortfahren?'
+/** KAN-193: Vermerk in den Notizen des Verschnitts und Zeile im Hinweis */
+export const ROT_WEISS_VERMERK = 'Abstufung auf Wein (aus Österreich) – Verschnitt Rot/Weiß'
+/** KAN-193: Stufe „Wein“ (QUALITAET_OPTS) und Herkunfts-Code „Wein aus Österreich“ (breiteste Stufe im Herkunftsbaum) */
+export const ROT_WEISS_STUFE = 'wein'
+export const ROT_WEISS_HERKUNFT = 'wein'
+
+/**
+ * KAN-193: Werden Rot- und Weißwein gemischt (Weinarten der Beteiligten, Ziel mit seinem Bestand, Quellen mit ihrer
+ * Menge)? Dann die Farbe des Ergebnisses nach der Mehrheit der Liter – mehr Rot (Rosé zählt als rot) → 'rot', sonst 'weiss'.
+ * Unbekannte Weinarten zählen nicht.
+ */
+export function rotWeissMischung(teile: readonly { weinart: string | null | undefined; liter: number }[]): { rotWeiss: boolean; weinart: 'rot' | 'weiss' | null } {
+  let rotWeiss = false
+  for (let i = 0; i < teile.length && !rotWeiss; i++) {
+    for (let j = i + 1; j < teile.length; j++) if (weinartKonflikt(teile[i].weinart, teile[j].weinart)) { rotWeiss = true; break }
+  }
+  if (!rotWeiss) return { rotWeiss: false, weinart: null }
+  let rot = 0
+  let weiss = 0
+  for (const t of teile) {
+    const l = Number.isFinite(t.liter) && t.liter > 0 ? t.liter : 0
+    if (t.weinart === 'rot' || t.weinart === 'rose') rot += l
+    else if (t.weinart === 'weiss') weiss += l
+  }
+  return { rotWeiss: true, weinart: rot > weiss ? 'rot' : 'weiss' }
 }
 
 export type VerschnittWerte = {
@@ -41,6 +77,8 @@ export type VerschnittWerte = {
   qualitaetAbgestuft: Abstufung | null
   herkunftAbgestuft: Abstufung | null
   sortenHinweise: string[]
+  /** KAN-193: auf Wein (aus Österreich) abgestuft (Rot/Weiß) */
+  rotWeiss: boolean
 }
 
 const num = (v: unknown): number => {
@@ -75,9 +113,14 @@ export function verschnittWerte(e: VerschnittWerteEingabe): VerschnittWerte {
   // Qualität (KAN-186) und Herkunft – niedrigste bzw. weiteste Angabe aller Beteiligten
   const zielQualitaet = ziel ? normalisiereQualitaet(ziel) : null
   const alleQualitaeten: QualitaetsAngabe[] = [...(zielQualitaet ? [zielQualitaet] : []), ...quellRows.map(q => normalisiereQualitaet(q))]
-  const neueQualitaet = mischeQualitaet(alleQualitaeten)
+  const gemischt = mischeQualitaet(alleQualitaeten)
   const alleHerkuenfte = [...(ziel ? [(ziel.herkunft_code as string | null) ?? null] : []), ...quellRows.map(q => (q.herkunft_code as string | null) ?? null)]
-  const neueHerkunft = minHerkunft(alleHerkuenfte)
+  // KAN-193: Rot/Weiß → Stufe Wein ohne Zusatzbezeichnung (Erzeugnis bleibt), Herkunft Österreich
+  const rotWeiss = e.rotWeiss === true
+  const neueQualitaet: QualitaetsAngabe | null = rotWeiss
+    ? { stufe: ROT_WEISS_STUFE, zusatz: null, erzeugnis: gemischt?.erzeugnis ?? null }
+    : gemischt
+  const neueHerkunft = rotWeiss ? ROT_WEISS_HERKUNFT : minHerkunft(alleHerkuenfte)
 
   // Mostgewicht (KAN-130 Etappe 2): gewichteter Mittelwert über Ziel und Quellen
   const anteile = e.quellen.map(q => ({ liter: q.menge, charge: q.charge }))
@@ -105,6 +148,7 @@ export function verschnittWerte(e: VerschnittWerteEingabe): VerschnittWerte {
 
   // Vermerke in die Notizen des Verschnitts – vor dem Buchen, damit es EIN Aufruf bleibt
   const texte: string[] = []
+  if (rotWeiss) texte.push(ROT_WEISS_VERMERK)
   if (qualitaetAbgestuft) texte.push(`Abstufung Qualität von ${qualitaetAbgestuft.von} auf ${qualitaetAbgestuft.nach}`)
   if (herkunftAbgestuft) {
     texte.push(`Abstufung Herkunft-Code (BKI) von ${HERKUNFT_LABEL[herkunftAbgestuft.von] ?? herkunftAbgestuft.von} auf ${HERKUNFT_LABEL[herkunftAbgestuft.nach] ?? herkunftAbgestuft.nach}`)
@@ -119,6 +163,8 @@ export function verschnittWerte(e: VerschnittWerteEingabe): VerschnittWerte {
     ...qualitaetsSpalten(neueQualitaet),
     herkunft_code: neueHerkunft,
     ...(mgWerte ?? {}),
+    // KAN-193: Farbe nur mitschicken, wenn ein Rot/Weiß-Verschnitt sie ändert (die RPC kennt das Feld erst ab kan112c)
+    ...(rotWeiss && ziel && ziel.weinart !== e.weinart ? { weinart: e.weinart } : {}),
   }
 
   const kopf: R = { datum: e.datum, ...(notizen ? { notizen } : {}), ziel: zielFelder }
@@ -150,5 +196,5 @@ export function verschnittWerte(e: VerschnittWerteEingabe): VerschnittWerte {
     menge_erwartet: num(q.charge.menge_liter),
   }))
 
-  return { kopf, quellen, qualitaetAbgestuft, herkunftAbgestuft, sortenHinweise: angabe.hinweise }
+  return { kopf, quellen, qualitaetAbgestuft, herkunftAbgestuft, sortenHinweise: angabe.hinweise, rotWeiss }
 }

@@ -17,14 +17,26 @@ import 'server-only'
 // Beständen, die die Quellen nach den früheren Buchungen desselben Aufrufs haben – und verschnitteAusfuehren() bucht
 // sie in EINEM Aufruf der RPC s112_verschnitte_buchen (alle oder keiner). Ein einzelner Verschnitt bleibt bei
 // s112_verschnitt_buchen.
+//
+// KAN-193 (03.10.2026): „virtuelle Quelle“ – beim Zukauf in ein Gebinde mit abweichendem Wein gibt es die Quell-Charge
+// noch nicht (die RPC s112_zukauf_buchen legt sie erst in derselben Transaktion an). verschnittVorbereiten() rechnet
+// dann mit den Merkmalen und Litern des Zukaufs (`virtuelleQuelle`) statt mit einer geladenen Charge; die Ziel-Charge
+// (Anker) ist echt. Die Prüfnummer-Rückfrage stellt dort der Zukauf selbst (Art 'zukauf') – hier entfällt sie.
+//
+// KAN-193 (Entscheidung Jörgen 03.10.2026): Rot- und Weißwein dürfen verschnitten werden, wenn das Ergebnis auf
+// „Wein (aus Österreich)“ abgestuft wird. Statt der bisherigen Ablehnung stellt verschnittVorbereiten() die Rückfrage
+// ROT_WEISS_FRAGE (zusammen mit einer Prüfnummer-Rückfrage in EINER `bestaetigung`); nach der Bestätigung
+// (`rotWeissBestaetigt`, Formularfeld rotweiss_bestaetigt=1) rechnet verschnittWerte die Abstufung und die Farbe nach
+// der Mehrheit der Liter. Gilt für Umziehen, Verschneiden-Formular, Pressung, Assistent und Zukauf gleichermaßen.
 
 import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { fmtNum } from '@/lib/format'
-import { weinartKonflikt, weinartBekannt, weinartAusFarbe, WEINART_LABEL } from '@/lib/keller/weinart'
+import { weinartBekannt, weinartAusFarbe } from '@/lib/keller/weinart'
 import { pruefePruefnummernSchaden } from '@/lib/kellerbuch/pruefnummerLaden'
 import { mitPnNotiz } from '@/lib/kellerbuch/pruefnummer'
 import { verschnittGruppen } from '@/lib/kellerbuch/verschnittSorten'
-import { verschnittWerte, weinartAusQuellen, type Abstufung } from '@/lib/kellerbuch/verschnittWerte'
+import { verschnittWerte, weinartAusQuellen, rotWeissMischung, ROT_WEISS_FRAGE, type Abstufung } from '@/lib/kellerbuch/verschnittWerte'
+import type { GruppenMenge } from '@/lib/wein/sortenangabe'
 
 type R = Record<string, any>
 
@@ -37,7 +49,15 @@ export type VerschnittEingabe = {
   notizen: string | null
   /** KAN-83: Rückfrage „Prüfnummer gilt nicht mehr“ bestätigt */
   pnBestaetigt: boolean
+  /** KAN-193: Rückfrage „Rot- und Weißwein werden verschnitten …“ bestätigt */
+  rotWeissBestaetigt?: boolean
+  /** KAN-193: Quelle ohne Datenbankzeile (Zukauf) – Merkmale wie eine Charge (rebsorte, jahrgang, weinart, herkunft_code,
+   *  Qualität, Mostgewicht, land_iso, name) und die Liter; nur mit einer Ziel-Charge, `quellen` bleibt dann leer */
+  virtuelleQuelle?: VirtuelleQuelle | null
 }
+
+/** KAN-193: Quelle eines Verschnitts, die erst die RPC anlegt (Zukauf) */
+export type VirtuelleQuelle = { charge: R; menge: number }
 
 /** KAN-112: vorbereiteter Verschnitt – Argumente der RPC und Hinweise, noch nichts gebucht */
 export type VerschnittBuchung = {
@@ -46,6 +66,8 @@ export type VerschnittBuchung = {
   qualitaetAbgestuft: Abstufung | null
   herkunftAbgestuft: Abstufung | null
   sortenHinweise: string[]
+  /** KAN-193: auf Wein (aus Österreich) abgestuft (Rot/Weiß) */
+  rotWeiss: boolean
   zielId: string | null
   zielName: string | null
 }
@@ -54,6 +76,8 @@ export type VerschnittErgebnis = {
   qualitaetAbgestuft: Abstufung | null
   herkunftAbgestuft: Abstufung | null
   sortenHinweise?: string[]
+  /** KAN-193: auf Wein (aus Österreich) abgestuft (Rot/Weiß) */
+  rotWeiss?: boolean
   /** KAN-83: Rückfrage – nichts gebucht */
   bestaetigung?: string
   verschneidungId?: string
@@ -83,7 +107,11 @@ export async function verschnittVorbereiten(
 ): Promise<{ bestaetigung: string } | { buchung: VerschnittBuchung }> {
   const zielId = 'weinausbauId' in e.ziel ? e.ziel.weinausbauId : null
   const neueCharge = 'neueCharge' in e.ziel ? e.ziel.neueCharge : null
-  if (!e.datum || (!zielId && !neueCharge?.behaelterId) || e.quellen.length === 0) throw new AktionsFehler('Pflichtfelder fehlen')
+  const virtuell = e.virtuelleQuelle ?? null
+  if (!e.datum || (!zielId && !neueCharge?.behaelterId) || (e.quellen.length === 0 && !virtuell)) throw new AktionsFehler('Pflichtfelder fehlen')
+  // KAN-193: die virtuelle Quelle (Zukauf) nur allein und nur in eine vorhandene Ziel-Charge
+  if (virtuell && (!zielId || e.quellen.length > 0)) throw new AktionsFehler('Ein Zukauf wird nur allein in eine vorhandene Charge verschnitten.')
+  if (virtuell && (!Number.isFinite(virtuell.menge) || virtuell.menge < 0.01)) throw new AktionsFehler('Der Zukauf braucht eine Menge von mindestens 0,01 L.')
 
   // Quellen je Charge zusammenfassen (die RPC bucht jede Charge einmal)
   const jeCharge = new Map<string, { menge: number; schwund: number }>()
@@ -108,10 +136,15 @@ export async function verschnittVorbereiten(
   }
 
   // Quell-Chargen: gehören zum Betrieb, aktiv, Menge + Schwund ≤ Bestand
-  const { data: qData, error: qErr } = await (supabase.from('weinausbau') as any)
-    .select(CHARGE_SPALTEN).in('id', [...jeCharge.keys()]).eq('tenant_id', tenantId)
-  if (qErr) throw new AktionsFehler(dbFehlerText(qErr, 'Quell-Chargen konnten nicht geladen werden'))
-  const quellRows = (qData ?? []) as R[]
+  let quellRows: R[] = []
+  if (jeCharge.size > 0) {
+    const { data: qData, error: qErr } = await (supabase.from('weinausbau') as any)
+      .select(CHARGE_SPALTEN).in('id', [...jeCharge.keys()]).eq('tenant_id', tenantId)
+    if (qErr) throw new AktionsFehler(dbFehlerText(qErr, 'Quell-Chargen konnten nicht geladen werden'))
+    quellRows = (qData ?? []) as R[]
+  }
+  // KAN-193: virtuelle Quelle wie eine Charge mit genau der Zukaufsmenge als Bestand (ohne id – sie gibt es noch nicht)
+  const virtuelleRow: R | null = virtuell ? { ...virtuell.charge, id: null, menge_liter: virtuell.menge } : null
   for (const [qid, { menge, schwund }] of jeCharge) {
     const row = quellRows.find(r => r.id === qid)
     if (!row) throw new AktionsFehler('Quell-Charge nicht gefunden – sie gehört nicht zu diesem Betrieb.')
@@ -121,31 +154,40 @@ export async function verschnittVorbereiten(
     }
   }
 
-  // Rot- und Weißwein dürfen nicht verschnitten werden (Chargen ohne Weinart über die Rebsortenfarbe)
+  // Weinart der Beteiligten (Chargen ohne Weinart über die Rebsortenfarbe)
   const farbe = new Map<string, string>()
   {
-    const sorten = [...new Set([...quellRows, ...(ziel ? [ziel] : [])].map(r => r.rebsorte).filter(Boolean))] as string[]
+    const sorten = [...new Set([...quellRows, ...(virtuelleRow ? [virtuelleRow] : []), ...(ziel ? [ziel] : [])].map(r => r.rebsorte).filter(Boolean))] as string[]
     // tenant-isolation-ignore: rebsorten ist eine globale Stammtabelle ohne tenant_id
     const { data: rs } = sorten.length ? await (supabase.from('rebsorten') as any).select('name_de, farbe').in('name_de', sorten) : { data: [] }
     for (const r of (rs ?? []) as R[]) farbe.set(r.name_de, r.farbe)
   }
   const artVon = (r: R): string => (weinartBekannt(r.weinart) ? r.weinart : weinartAusFarbe(farbe.get(r.rebsorte)))
-  const weinart = ziel ? artVon(ziel) : weinartAusQuellen(quellRows.map(artVon))
-  for (const q of quellRows) {
-    if (weinartKonflikt(artVon(q), weinart)) {
-      throw new AktionsFehler(`Rot- und Weißwein dürfen laut Weingesetz nicht verschnitten werden (${WEINART_LABEL[artVon(q)]} in ${WEINART_LABEL[weinart]}).`)
-    }
-  }
+  // KAN-193: Rot und Weiß → Rückfrage, nach Bestätigung Abstufung auf Wein (aus Österreich) und Farbe nach der Mehrheit
+  // der Liter (Ziel mit seinem Bestand, Quellen mit ihrer Menge) – früher eine harte Ablehnung
+  const mischung = rotWeissMischung([
+    ...(ziel ? [{ weinart: artVon(ziel), liter: num(ziel.menge_liter) }] : []),
+    ...quellRows.map(q => ({ weinart: artVon(q), liter: jeCharge.get(q.id as string)?.menge ?? 0 })),
+    ...(virtuelleRow && virtuell ? [{ weinart: artVon(virtuelleRow), liter: virtuell.menge }] : []),
+  ])
+  const weinart = mischung.rotWeiss && mischung.weinart
+    ? mischung.weinart
+    : ziel ? artVon(ziel) : weinartAusQuellen([...quellRows, ...(virtuelleRow ? [virtuelleRow] : [])].map(artVon))
+  // Rückfragen (Rot/Weiß, Prüfnummer) gesammelt in EINER bestaetigung – nichts gebucht
+  const fragen: string[] = []
+  if (mischung.rotWeiss && !e.rotWeissBestaetigt) fragen.push(ROT_WEISS_FRAGE)
 
   // KAN-83: Prüfnummer der Ziel-Charge – eingereichter Antrag: Ablehnung; geltende Nummer: erst nachfragen
+  // (KAN-193: bei der virtuellen Quelle fragt der Zukauf selbst – Art 'zukauf' –, samt Vermerk in den Notizen)
   let notizen = e.notizen?.trim() || null
-  if (ziel) {
+  if (ziel && !virtuell) {
     const zugang = [...jeCharge.values()].reduce((s, q) => s + q.menge, 0)
     const pn = await pruefePruefnummernSchaden(supabase, tenantId, 'verschnitt',
       [{ chargeId: ziel.id, name: (ziel.name as string | null) ?? null, zugangLiter: zugang }], e.datum)
-    if (pn && !e.pnBestaetigt) return { bestaetigung: pn.frage }
+    if (pn && !e.pnBestaetigt) fragen.push(pn.frage)
     if (pn) notizen = mitPnNotiz(notizen, pn.notiz)
   }
+  if (fragen.length > 0) return { bestaetigung: fragen.join('\n') }
 
   // KAN-93: Rebsorten- und Jahrgangsanteile (Ziel mit ganzem Bestand, Quellen mit der verschnittenen Menge)
   const quellen = [...jeCharge].map(([qid, m]) => ({ charge: quellRows.find(r => r.id === qid) as R, menge: m.menge, schwund: m.schwund }))
@@ -153,6 +195,17 @@ export async function verschnittVorbereiten(
     ...(ziel ? [{ charge: ziel, liter: num(ziel.menge_liter) }] : []),
     ...quellen.map(q => ({ charge: q.charge, liter: q.menge })),
   ])
+  // KAN-193: die virtuelle Quelle hat keine Herkunftsanteile – sie zählt mit ihrer Rebsorte und ihrem Jahrgang
+  if (virtuelleRow && virtuell) {
+    const dazu = (liste: GruppenMenge[], wert: string) => {
+      const g = liste.find(x => x.wert === wert)
+      if (g) g.liter += virtuell.menge
+      else liste.push({ wert, liter: virtuell.menge })
+    }
+    dazu(gruppen.sorten, (virtuelleRow.rebsorte as string | null)?.trim() || 'unbekannt')
+    dazu(gruppen.jahrgaenge, virtuelleRow.jahrgang != null && virtuelleRow.jahrgang !== '' ? String(virtuelleRow.jahrgang) : 'unbekannt')
+    quellen.push({ charge: virtuelleRow, menge: virtuell.menge, schwund: 0 })
+  }
 
   // KAN-112: verschnittGruppen rechnet mit dem geladenen Bestand (Anteile je Liter ändern sich durchs Entnehmen nicht);
   // erwarteter Bestand je Quelle = Stand nach den früheren Buchungen desselben Aufrufs (die RPC speichert jeden Rest
@@ -161,11 +214,13 @@ export async function verschnittVorbereiten(
     const weg = entnommen.get(q.charge.id as string) ?? 0
     return weg > 0 ? { ...q, charge: { ...q.charge, menge_liter: rund2(num(q.charge.menge_liter) - weg) } } : q
   })
-  const w = verschnittWerte({ datum: e.datum, ziel, neueCharge, weinart, quellen: mitBestandDanach, gruppen, notizen })
+  const w = verschnittWerte({ datum: e.datum, ziel, neueCharge, weinart, quellen: mitBestandDanach, gruppen, notizen, rotWeiss: mischung.rotWeiss })
   return {
     buchung: {
-      kopf: w.kopf, quellen: w.quellen,
+      // KAN-193: die virtuelle Quelle (ohne id) bucht die RPC des Zukaufs selbst – nicht in p_quellen
+      kopf: w.kopf, quellen: w.quellen.filter(q => q.weinausbau_id),
       qualitaetAbgestuft: w.qualitaetAbgestuft, herkunftAbgestuft: w.herkunftAbgestuft, sortenHinweise: w.sortenHinweise,
+      rotWeiss: w.rotWeiss,
       zielId: (ziel?.id as string | undefined) ?? null,
       zielName: (ziel?.name as string | null | undefined) ?? (w.kopf.neue_ziel_charge?.name as string | undefined) ?? null,
     },
@@ -184,6 +239,7 @@ function ergebnisAus(b: VerschnittBuchung, roh: unknown): VerschnittErgebnis {
     qualitaetAbgestuft: b.qualitaetAbgestuft,
     herkunftAbgestuft: b.herkunftAbgestuft,
     sortenHinweise: b.sortenHinweise,
+    rotWeiss: b.rotWeiss,
     verschneidungId: (ergebnis.verschneidung_id as string | undefined) ?? undefined,
     zielChargeId: (ergebnis.ziel_weinausbau_id as string | undefined) ?? b.zielId ?? undefined,
     zielName: b.zielName,

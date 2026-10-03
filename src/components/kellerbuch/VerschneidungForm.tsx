@@ -6,7 +6,7 @@ import { sortenverschnittBezeichnung, SCHWELLE } from '@/lib/wein/sortenangabe'
 import { qualitaetText } from '@/lib/weinqualitaet'
 import { istAbstufungQualitaet, mischeQualitaet, normalisiereQualitaet } from '@/lib/wein/qualitaetsrang'
 import { HERKUNFT_LABEL, istNiedrigerAls as herkunftIstNiedrigerAls, minHerkunft } from '@/lib/herkunft'
-import { GitMerge, AlertTriangle, Ban, CheckCircle2, Info, X } from 'lucide-react'
+import { GitMerge, AlertTriangle, CheckCircle2, Info, X } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum, dezimal } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
@@ -120,7 +120,8 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
       .map(c => c.name),
   ] : []
 
-  // Weinart-Konflikte: Rot+Weiß ist nicht zulässig
+  // Weinart-Konflikte: Rot+Weiß – KAN-193 (Entscheidung Jörgen 03.10.2026): zulässig mit Abstufung auf Wein (aus
+  // Österreich); der Server fragt beim Speichern nach
   const weinartKonflikte = selectedChargen.filter(
     c => !weinartKompatibel(zielCharge.weinart, c.weinart)
   )
@@ -151,12 +152,13 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
         if (result?.bestaetigung) {
           if (!window.confirm(result.bestaetigung)) return
           fd.set('pn_bestaetigt', '1')
+          fd.set('rotweiss_bestaetigt', '1')   // KAN-193: Rückfrage Rot/Weiß steht in derselben Bestätigung
           result = await createVerschneidung(fd)
         }
-        if (result?.qualitaetAbgestuft || result?.herkunftAbgestuft || (result?.sortenHinweise?.length ?? 0) > 0) {
+        if (result?.qualitaetAbgestuft || result?.herkunftAbgestuft || (result?.sortenHinweise?.length ?? 0) > 0 || result?.rotWeiss) {
           setQualitaetAbgestufInfo(result.qualitaetAbgestuft ?? null)
           setHerkunftAbgestufInfo(result.herkunftAbgestuft ?? null)
-          setSortenHinweise(result.sortenHinweise ?? [])
+          setSortenHinweise([...(result.rotWeiss ? ['Abstufung auf Wein (aus Österreich) – Verschnitt Rot/Weiß'] : []), ...(result.sortenHinweise ?? [])])
         } else {
           onDone()
         }
@@ -429,14 +431,14 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
         <input aria-label="Notizen" name="notizen" className={`${inputCls} w-full`} placeholder="optional" />
       </div>
 
-      {/* Weinart-Fehler: Rot+Weiß nicht zulässig */}
+      {/* Weinart: Rot+Weiß nur mit Abstufung auf Wein (aus Österreich) – KAN-193 */}
       {hatWeinartFehler && (
-        <div className="flex items-start gap-2 bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2.5 text-sm">
-          <Ban size={16} strokeWidth={1.75} className="text-s112-err mt-0.5 shrink-0" />
+        <div className="flex items-start gap-2 bg-s112-warn-bg border border-s112-warn/30 rounded-lg px-3 py-2.5 text-sm">
+          <AlertTriangle size={16} strokeWidth={1.75} className="text-s112-warn-fg mt-0.5 shrink-0" />
           <div>
-            <p className="font-semibold text-s112-err-fg">Verschneidung nicht zulässig – Weinart-Konflikt</p>
-            <p className="text-xs text-s112-err-fg mt-0.5">
-              Rotwein und Weißwein dürfen gemäß Weingesetz nicht miteinander verschnitten werden.
+            <p className="font-semibold text-s112-warn-fg">Rot- und Weißwein – Abstufung auf Wein (aus Österreich)</p>
+            <p className="text-xs text-s112-warn-fg mt-0.5">
+              Das Ergebnis wird auf „Wein (aus Österreich)“ abgestuft (Farbe nach der Mehrheit der Liter); beim Speichern folgt eine Rückfrage.
               Betroffene Chargen: <strong>{weinartKonflikte.map(c => c.name).join(', ')}</strong>
             </p>
           </div>
@@ -446,7 +448,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
       {error && <p className="text-xs text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2">{error}</p>}
 
       <div className="flex gap-2 pt-1">
-        <button type="submit" disabled={pending || hatWeinartFehler}
+        <button type="submit" disabled={pending}
           className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-colors">
           {pending ? 'Speichert…' : 'Verschneidung speichern'}
         </button>

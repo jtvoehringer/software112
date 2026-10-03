@@ -75,7 +75,8 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
     : []
   const hatRebsortenmix = andereRebsorten.length > 0
 
-  // Weinart-Sperre (21.9.2026): Rot + Weiß nicht in ein Gebinde – Server prüft dasselbe
+  // Weinart (21.9.2026): Rot + Weiß in einem Gebinde – KAN-193: kein Sperren mehr, sondern ein Hinweis (der Server bucht
+  // einen Verschnitt mit Abstufung auf Wein aus Österreich nach einer Rückfrage)
   const weinartKonfliktCharge = zielId
     ? alleChargen.find(c => c.behaelter_id === zielId && c.id !== chargeId && weinartKonflikt(quelleWeinart, c.weinart)) ?? null
     : null
@@ -86,7 +87,7 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
 
   const selectedGebinde = gebinde.find(g => g.id === zielId)
   const restKapGebinde   = selectedGebinde ? frei(selectedGebinde) : null
-  const canSubmit = bruttoVal > 0 && nettoVal > 0 && !weinartKonfliktCharge
+  const canSubmit = bruttoVal > 0 && nettoVal > 0
     && nettoVal <= bruttoVal + 0.01
     && bruttoVal <= verfuegbarLiter + 0.01
     && (restKapGebinde == null || nettoVal <= restKapGebinde + 0.01)
@@ -113,6 +114,7 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
         if (result?.bestaetigung) {
           if (!window.confirm(result.bestaetigung)) return
           fd.set('pn_bestaetigt', '1')
+          fd.set('rotweiss_bestaetigt', '1')   // KAN-193: Rückfrage Rot/Weiß steht in derselben Bestätigung
           result = await action(fd)
         }
         setBrutto(''); setNetto(''); setZielId(''); setNotizen('')
@@ -273,11 +275,11 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
               ) : null
             })()}
             {weinartKonfliktCharge && (
-              <div className="mt-2 bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2 text-xs text-s112-err-fg flex items-start gap-1.5">
+              <div className="mt-2 bg-s112-warn-bg border border-s112-warn/30 rounded-lg px-3 py-2 text-xs text-s112-warn-fg flex items-start gap-1.5">
                 <AlertTriangle size={14} strokeWidth={2} className="mt-0.5 shrink-0" />
                 <span>
-                  <span className="font-semibold">Rot- und Weißwein dürfen laut Weingesetz nicht vermischt werden:</span>{' '}
-                  „{chargeName}“ ({WEINART_LABEL[quelleWeinart ?? 'unbekannt']}) kann nicht in dieses Gebinde – dort liegt „{weinartKonfliktCharge.name}“ ({WEINART_LABEL[weinartKonfliktCharge.weinart ?? 'unbekannt']}).
+                  <span className="font-semibold">Rot- und Weißwein werden verschnitten – Abstufung auf Wein (aus Österreich):</span>{' '}
+                  „{chargeName}“ ({WEINART_LABEL[quelleWeinart ?? 'unbekannt']}) in dieses Gebinde – dort liegt „{weinartKonfliktCharge.name}“ ({WEINART_LABEL[weinartKonfliktCharge.weinart ?? 'unbekannt']}). Beim Speichern folgt eine Rückfrage.
                 </span>
               </div>
             )}

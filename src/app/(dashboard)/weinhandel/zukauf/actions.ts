@@ -10,12 +10,18 @@ import { AktionsFehler, dbFehlerText, fehlerText } from '@/lib/fehler'
 import { stornoGrundFehler } from '@/lib/storno/grund'
 import { dezimal, fmtNum } from '@/lib/format'
 import { qualitaetFehler, qualitaetsAngabeAusFormular, qualitaetsAngabeFehler } from '@/lib/wein/qualitaet'
-import { gleicheQualitaet, normalisiereQualitaet, qualitaetsSpalten, type QualitaetsAngabe } from '@/lib/wein/qualitaetsrang'
+import { qualitaetsSpalten, type QualitaetsAngabe } from '@/lib/wein/qualitaetsrang'
 import { pruefePruefnummernSchaden } from '@/lib/kellerbuch/pruefnummerLaden'
 import { mitPnNotiz } from '@/lib/kellerbuch/pruefnummer'
 import { mostgewichtAusFormular, mostgewichtAusGespeichert, mostgewichtSpalten } from '@/lib/wein/mostgewichtFormular'
 import type { Mostgewicht } from '@/lib/wein/mostgewicht'
 import { zukaufWareFehler } from '@/lib/zukauf/ware'
+import { weinartKonflikt, weinartBekannt, weinartAusFarbe, WEINART_LABEL } from '@/lib/keller/weinart'
+import { waehleZielCharge, merkmaleText } from '@/lib/kellerbuch/umzugZiel'
+import { verschnittVorbereiten } from '@/lib/kellerbuch/verschnittBuchen'
+import { planeVerschneidungStorno, storniereVerschneidung } from '@/lib/kellerbuch/storno'
+import type { Folgebuchung } from '@/lib/kellerbuch/folgebuchungen'
+import { ohneStornierteVerschnitte } from '@/lib/kellerbuch/stornoFilter'
 import {
   folgebuchungenDerZielcharge, zielchargeText, zukaufVerweise, traubenGebundenText, loeschSperreText,
 } from './sperren'
@@ -38,8 +44,9 @@ const TOLERANZ = 0.0005
 const runde = (v: number) => Math.round(v * 10000) / 10000
 
 /** Aktiver Mandant + Schreibrecht Warenwirtschaft. RLS prüft zusätzlich – hier für eine
- *  klare Meldung statt eines still weggefilterten Updates. */
-async function schreibKontext(): Promise<string> {
+ *  klare Meldung statt eines still weggefilterten Updates. KAN-193: darfKellerbuch für den Verschnitt beim Zukauf
+ *  und dessen Storno (die RPC bzw. RLS prüfen das Kellerbuch selbst – hier für eine klare Meldung vorab). */
+async function schreibKontext(): Promise<{ tenantId: string; darfKellerbuch: boolean }> {
   const membership = await getCurrentMembership()
   if (!membership) throw new AktionsFehler('Kein aktiver Mandant gefunden')
   await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: vor den Rechten – sonst meldet ein veralteter Tab die Rechte des neuen Betriebs
@@ -47,7 +54,7 @@ async function schreibKontext(): Promise<string> {
   if (!canWrite(membership, 'warenwirtschaft')) {
     throw new AktionsFehler('Keine Berechtigung: Zukäufe erfassen, ändern und löschen dürfen nur Betriebs-Manager und Mitarbeiter mit Freigabe für die Warenwirtschaft.')
   }
-  return membership.tenantId
+  return { tenantId: membership.tenantId, darfKellerbuch: canWrite(membership, 'kellerbuch') }
 }
 
 async function createZukaufCharge(
@@ -253,46 +260,140 @@ async function pruefeWare(supabase: any, tenantId: string, f: ZukaufFormular): P
   if (fehler) throw new AktionsFehler(fehler)
 }
 
+/** KAN-193: Rot-/Weißwein-Sperre vor dem Buchen – der Zukauf darf mit keiner Charge im Gebinde unverträglich sein
+ *  (wie beim Umziehen; Chargen bzw. Zukauf ohne Weinart über die Rebsortenfarbe). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function pruefeWeinartImGebinde(supabase: any, f: ZukaufFormular, imGebinde: AR[]): Promise<void> {
+  if (imGebinde.length === 0) return
+  const sorten = [...new Set([f.rebsorte, ...imGebinde.map(c => c.rebsorte)].filter(Boolean))] as string[]
+  const farbe = new Map<string, string>()
+  if (sorten.length) {
+    // tenant-isolation-ignore: rebsorten ist eine globale Stammtabelle ohne tenant_id
+    const { data: rs } = await (supabase.from('rebsorten') as any).select('name_de, farbe').in('name_de', sorten)
+    for (const r of (rs ?? []) as AR[]) farbe.set(r.name_de, r.farbe)
+  }
+  const artVon = (weinart: string | null | undefined, rebsorte: string | null | undefined): string =>
+    weinartBekannt(weinart) ? weinart : weinartAusFarbe(farbe.get(rebsorte ?? ''))
+  const zukaufArt = artVon(f.weinart, f.rebsorte)
+  for (const c of imGebinde) {
+    const art = artVon(c.weinart, c.rebsorte)
+    if (weinartKonflikt(zukaufArt, art)) {
+      throw new AktionsFehler(`${WEINART_LABEL[zukaufArt] ?? zukaufArt} und ${WEINART_LABEL[art] ?? art} dürfen laut Weingesetz nicht vermischt werden: Der Zukauf kann nicht in dieses Gebinde, dort liegt „${c.name ?? 'eine Charge'}“.`)
+    }
+  }
+}
+
+/** KAN-193: Spalten der Zukauf-Charge – p_charge der RPC und virtuelle Quelle des Verschnitts (Mostgewicht des Zukaufs
+ *  als Momentaufnahme, KAN-130 Etappe 3: leer = beide NULL) */
+function zukaufChargeSpalten(f: ZukaufFormular, behaelterId: string): AR {
+  return {
+    name:         f.rebsorte || 'Zukauf',
+    behaelter_id: behaelterId,
+    menge_liter:  f.menge,
+    ...chargeStammdaten(f),
+    ...mostgewichtSpalten(f.mostgewicht, 'kmw'),
+  }
+}
+
+/** KAN-193: Ergebnis, wenn der Zukauf sofort als Verschnitt in die Charge im Gebinde gebucht wurde */
+export type ZukaufVerschnitt = {
+  verschneidungId: string | null
+  zielChargeId: string | null
+  zielName: string | null
+  /** abweichende Merkmale (Rebsorte, Jahrgang, Herkunft, Qualität) */
+  unterschiede: string[]
+  qualitaetAbgestuft: { von: string; nach: string } | null
+  herkunftAbgestuft: { von: string; nach: string } | null
+  sortenHinweise: string[]
+  /** Rot/Weiß verschnitten – auf Wein (aus Österreich) abgestuft */
+  rotWeiss: boolean
+}
+
 // KAN-83: bestaetigung = Rückfrage „Prüfnummer gilt nicht mehr“ – nichts gebucht; mit pn_bestaetigt=1 erneut senden
-export async function createZukauf(formData: FormData): Promise<{ bestaetigung?: string } | void> {
+// KAN-193 (03.10.2026, Folge von KAN-112): Zukauf-Charge und Beleg bucht EINE RPC (s112_zukauf_buchen) – kein manueller
+// Rückbau mehr. Liegt im Gebinde Wein mit anderen Merkmalen (Rebsorte, Jahrgang, Herkunft, Qualität – dieselbe Regel wie
+// beim Umziehen, waehleZielCharge), verschneidet dieselbe RPC die ganze Zukauf-Charge sofort in die Anker-Charge
+// (keine zweite aktive Charge, keine Weiterleitung ins Verschneiden-Formular) – Ergebnis `verschnitt` für den Hinweis.
+// Gleiche Merkmale bzw. leeres Gebinde: wie bisher eine eigene Zukauf-Charge im Gebinde (Weiterleitung zur Liste).
+// Rot/Weiß (Entscheidung Jörgen 03.10.2026): als Verschnitt in die Anker-Charge nach Rückfrage mit Abstufung auf Wein
+// (aus Österreich), rotweiss_bestaetigt=1; gegen jede andere Charge im Gebinde weiterhin abgelehnt.
+export async function createZukauf(formData: FormData): Promise<{ bestaetigung?: string; verschnitt?: ZukaufVerschnitt } | void> {
   const supabase = await createSupabaseServerClient()
-  const tenantId = await schreibKontext()
+  const { tenantId, darfKellerbuch } = await schreibKontext()
   const f = parseZukaufFormData(formData)
 
   if (f.menge <= 0) throw new AktionsFehler('Menge muss größer als 0 sein')
   await pruefeWare(supabase, tenantId, f)
 
-  // KAN-83 (01.10.2026): Wein/Most in ein Gebinde, in dem eine Charge mit geltender Prüfnummer
-  // liegt – der Tankbestand dieser Charge verliert die Nummer. Eingereichter Antrag: Ablehnung;
-  // sonst erst nachfragen, nach der Bestätigung buchen und am Zukauf vermerken. VOR der ersten Buchung.
-  if ((f.art === 'wein' || f.art === 'most') && f.zielBehaelterId) {
-    const { data: imGebinde, error: gErr } = await (supabase.from('weinausbau') as any)
-      .select('id, name')
+  const mitCharge = (f.art === 'wein' || f.art === 'most') && !!f.zielBehaelterId
+  let imGebinde: AR[] = []
+  // Rückfragen (Prüfnummer, Rot/Weiß) gesammelt in EINER bestaetigung – vorher wird nichts gebucht
+  const fragen: string[] = []
+  let pnNotiz: string | null = null
+  if (mitCharge) {
+    const { data, error: gErr } = await (supabase.from('weinausbau') as any)
+      .select('id, name, menge_liter, rebsorte, jahrgang, weinart, herkunft_code, qualitaetsstufe, zusatzbezeichnung, erzeugnis')
       .eq('behaelter_id', f.zielBehaelterId)
       .eq('tenant_id', tenantId)
       .eq('aktiv', true)
       .neq('status', 'abgeschlossen')
     if (gErr) throw new AktionsFehler(dbFehlerText(gErr, 'Chargen im Ziel-Gebinde konnten nicht geladen werden'))
+    imGebinde = (data ?? []) as AR[]
+    // KAN-83 (01.10.2026): Wein/Most in ein Gebinde, in dem eine Charge mit geltender Prüfnummer
+    // liegt – der Tankbestand dieser Charge verliert die Nummer. Eingereichter Antrag: Ablehnung;
+    // sonst erst nachfragen, nach der Bestätigung buchen und am Zukauf vermerken. VOR der ersten Buchung.
     const pn = await pruefePruefnummernSchaden(supabase, tenantId, 'zukauf',
-      ((imGebinde ?? []) as AR[]).map(c => ({ chargeId: String(c.id), name: (c.name as string | null) ?? null, zugangLiter: f.menge })), f.datum)
-    if (pn && formData.get('pn_bestaetigt') !== '1') return { bestaetigung: pn.frage }
-    if (pn) f.notizen = mitPnNotiz(f.notizen, pn.notiz)
+      imGebinde.map(c => ({ chargeId: String(c.id), name: (c.name as string | null) ?? null, zugangLiter: f.menge })), f.datum)
+    if (pn && formData.get('pn_bestaetigt') !== '1') fragen.push(pn.frage)
+    if (pn) pnNotiz = pn.notiz
   }
 
-  let zielWeinausbauId: string | null = null
-  if ((f.art === 'wein' || f.art === 'most') && f.zielBehaelterId) {
-    zielWeinausbauId = await createZukaufCharge(
-      supabase, tenantId, f.zielBehaelterId, f.rebsorte, f.jahrgang, f.menge, f.einstandspreisLiter, f.weinart, f.qualitaet, f.herkunft,
-      f.mostgewicht, f.landIso,
-    )
+  // KAN-193: Zukauf-Charge (p_charge) und – bei abweichendem Wein im Gebinde – der Verschnitt in die Anker-Charge
+  const charge = mitCharge ? zukaufChargeSpalten(f, f.zielBehaelterId as string) : null
+  let verschnitt: { kopf: AR; hinweis: Omit<ZukaufVerschnitt, 'verschneidungId'> } | null = null
+  if (charge) {
+    const wahl = waehleZielCharge(imGebinde, [charge])
+    const anker = wahl.istVerschnitt ? wahl.vorhanden : null
+    // Rot/Weiß VOR jeder Buchung: gegen die Anker-Charge entscheidet der Verschnitt-Service (Rückfrage, Abstufung),
+    // gegen jede andere Charge im Gebinde bleibt es eine Ablehnung
+    await pruefeWeinartImGebinde(supabase, f, imGebinde.filter(c => c.id !== anker?.id))
+    if (anker) {
+      const abweichend = merkmaleText(wahl.unterschiede)
+      if (!darfKellerbuch) {
+        throw new AktionsFehler(`Im Gebinde liegt bereits „${anker.name ?? 'eine Charge'}“ (abweichend: ${abweichend}) – der Zukauf würde dorthin verschnitten, dafür fehlt die Schreibfreigabe für das Kellerbuch.`)
+      }
+      const v = await verschnittVorbereiten(supabase, tenantId, {
+        datum: f.datum,
+        ziel: { weinausbauId: anker.id as string },
+        quellen: [],
+        virtuelleQuelle: { charge, menge: f.menge },
+        notizen: [`Zukauf als Verschnitt gebucht (abweichend: ${abweichend})`, pnNotiz].filter(Boolean).join('\n'),
+        pnBestaetigt: true,   // die Prüfnummer-Rückfrage stellt oben der Zukauf (Art 'zukauf')
+        rotWeissBestaetigt: formData.get('rotweiss_bestaetigt') === '1',
+      })
+      if ('bestaetigung' in v) {
+        fragen.push(v.bestaetigung)
+      } else {
+        // Datum setzt die RPC aus dem Zukauf – nicht im Kopf
+        const kopf: AR = { ...v.buchung.kopf }
+        delete kopf.datum
+        verschnitt = {
+          kopf,
+          hinweis: {
+            zielChargeId: v.buchung.zielId, zielName: v.buchung.zielName, unterschiede: wahl.unterschiede,
+            qualitaetAbgestuft: v.buchung.qualitaetAbgestuft, herkunftAbgestuft: v.buchung.herkunftAbgestuft,
+            sortenHinweise: v.buchung.sortenHinweise, rotWeiss: v.buchung.rotWeiss,
+          },
+        }
+      }
+    }
   }
-  // Scheitert der Beleg, die eben angelegte Charge wieder schließen (sonst Bestand ohne Zugang)
-  const neueCharge = zielWeinausbauId
-  const rueckbau = neueCharge ? () => bereinigCharge(supabase, neueCharge, tenantId) : null
+  if (fragen.length > 0) return { bestaetigung: fragen.join('\n') }
+  if (pnNotiz) f.notizen = mitPnNotiz(f.notizen, pnNotiz)
 
-  const { error } = await (supabase.from('zukauf_posten') as any)
-    .insert({
-      tenant_id:                tenantId,
+  const { data: ergebnis, error } = await (supabase.rpc as any)('s112_zukauf_buchen', {
+    p_tenant_id: tenantId,
+    p_zukauf: {
       datum:                    f.datum,
       lieferung_uhrzeit:        f.lieferungUhrzeit,
       art:                      f.art,
@@ -318,56 +419,31 @@ export async function createZukauf(formData: FormData): Promise<{ bestaetigung?:
       preis_gesamt:             f.preisGesamt ?? null,
       einstandspreis_pro_liter: f.einstandspreisLiter ?? null,
       notizen:                  f.notizen,
-      ziel_weinausbau_id:       zielWeinausbauId,
-    })
-
-  if (error) await mitRueckbau(new AktionsFehler(dbFehlerText(error, 'Speichern fehlgeschlagen (zukauf_posten)')), rueckbau)
+    },
+    p_charge: charge,
+    p_verschnitt: verschnitt?.kopf ?? null,
+  })
+  if (error) {
+    // 40001: Bestand der Ziel-Charge seit der Berechnung geändert – Meldung der RPC („bitte erneut buchen“) unverändert
+    const e = error as AR
+    throw new AktionsFehler(e?.code === '40001' && e?.message ? String(e.message) : dbFehlerText(error, 'Zukauf konnte nicht gebucht werden'))
+  }
 
   revalidatePath('/weinhandel/zukauf')
   revalidatePath('/weinhandel')
   revalidatePath('/kellerbuch')
 
-  if (zielWeinausbauId && f.zielBehaelterId && f.rebsorte) {
-    // Prüfung 1: Andere Rebsorte im Gebinde → Verschneidung (Sortenverschnitt)
-    const { data: andereRebsorte } = await (supabase.from('weinausbau') as any)
-      .select('id')
-      .eq('behaelter_id', f.zielBehaelterId)
-      .eq('tenant_id', tenantId)
-      .eq('aktiv', true)
-      .neq('id', zielWeinausbauId)
-      .neq('rebsorte', f.rebsorte)
-      .limit(1)
-    if ((andereRebsorte as any[])?.length > 0) {
-      const existierendeId = (andereRebsorte as any[])[0].id
-      redirect(`/kellerbuch/weinausbau/${existierendeId}?form=verschneiden&quelle=${zielWeinausbauId}&menge=${f.menge}`)
-    }
-
-    // Prüfung 2: Gleiche Rebsorte, andere Qualitätsstufe → Verschneidung (ggf. Abstufung)
-    if (f.qualitaetsstufe) {
-      const { data: gleicheRebsorte } = await (supabase.from('weinausbau') as any)
-        .select('id, qualitaetsstufe, zusatzbezeichnung, erzeugnis')
-        .eq('behaelter_id', f.zielBehaelterId)
-        .eq('tenant_id', tenantId)
-        .eq('aktiv', true)
-        .neq('id', zielWeinausbauId)
-        .eq('rebsorte', f.rebsorte)
-        .not('qualitaetsstufe', 'is', null)
-        .limit(10)
-      const treffer = ((gleicheRebsorte as any[]) ?? []).find(
-        (c: AR) => !gleicheQualitaet(normalisiereQualitaet(c), f.qualitaet)   // KAN-186: samt Zusatz/Erzeugnis
-      )
-      if (treffer) {
-        redirect(`/kellerbuch/weinausbau/${treffer.id}?form=verschneiden&quelle=${zielWeinausbauId}&menge=${f.menge}`)
-      }
-    }
+  if (verschnitt) {
+    const vs = (((ergebnis ?? {}) as AR).verschnitt ?? {}) as AR
+    if (verschnitt.hinweis.zielChargeId) revalidatePath(`/kellerbuch/weinausbau/${verschnitt.hinweis.zielChargeId}`)
+    return { verschnitt: { ...verschnitt.hinweis, verschneidungId: (vs.verschneidung_id as string | undefined) ?? null } }
   }
-
   redirect('/weinhandel/zukauf')
 }
 
 export async function updateZukauf(id: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
-  const tenantId = await schreibKontext()
+  const { tenantId } = await schreibKontext()
   const f = parseZukaufFormData(formData)
 
   if (f.menge <= 0) throw new AktionsFehler('Menge muss größer als 0 sein')
@@ -441,20 +517,25 @@ export async function updateZukauf(id: string, formData: FormData) {
       // ein Verschnitt oder eine Zusammenführung kann sie inzwischen geändert (abgestuft) haben,
       // ein Überschreiben würde das still aufheben. Die Charge pflegt man im Kellerbuch.
       const text = zielchargeText(folge)
+      // KAN-193: beim Buchen als Verschnitt in die Charge im Gebinde verschnitten – Änderungen nur über Storno und Neuerfassung
+      const alsVerschnitt = folge.some(x => x.art === 'verschnitt_quelle')
+      const sperre = (t: string) => new AktionsFehler(alsVerschnitt
+        ? `${t} Wurde der Zukauf als Verschnitt gebucht: Änderungen an Menge, Einheit, Gebinde oder Art bitte über „Stornieren“ (der Verschnitt wird mit storniert) und eine neue Buchung.`
+        : t)
       if (!istWeinMost) {
-        throw new AktionsFehler(`Ändern der Art ist nicht möglich: ${text}. Der Zukauf bleibt der Zugang dieser Charge.`)
+        throw sperre(`Ändern der Art ist nicht möglich: ${text}. Der Zukauf bleibt der Zugang dieser Charge.`)
       }
       if (!gebindeUnveraendert) {
-        throw new AktionsFehler(`${f.zielBehaelterId ? 'Ändern' : 'Entfernen'} des Gebindes ist nicht möglich: ${text}. Den Wein bitte im Kellerbuch über „Umziehen“ in ein anderes Gebinde bringen.`)
+        throw sperre(`${f.zielBehaelterId ? 'Ändern' : 'Entfernen'} des Gebindes ist nicht möglich: ${text}. Den Wein bitte im Kellerbuch über „Umziehen“ in ein anderes Gebinde bringen.`)
       }
       if (mengeGeaendert) {
         const hinweis = f.menge > alteMenge
           ? 'eine Mehrmenge bitte als eigenen Zukauf über die Differenz erfassen'
           : 'eine Mindermenge bitte in der Charge über „Schwund buchen“ erfassen'
-        throw new AktionsFehler(`Ändern der Zukaufsmenge ist nicht möglich: ${text}. Die Belegmenge bleibt als Zugang der Charge erhalten – ${hinweis}.`)
+        throw sperre(`Ändern der Zukaufsmenge ist nicht möglich: ${text}. Die Belegmenge bleibt als Zugang der Charge erhalten – ${hinweis}.`)
       }
       if (einheitGeaendert) {
-        throw new AktionsFehler(`Ändern der Einheit ist nicht möglich: ${text}. Die Belegmenge bleibt als Zugang der Charge erhalten.`)
+        throw sperre(`Ändern der Einheit ist nicht möglich: ${text}. Die Belegmenge bleibt als Zugang der Charge erhalten.`)
       }
       // nur der Beleg wird gespeichert (unten) – die Charge bleibt unverändert
     } else if (istWeinMost && c.aktiv === false) {
@@ -554,20 +635,41 @@ export async function updateZukauf(id: string, formData: FormData) {
   redirect('/weinhandel/zukauf')
 }
 
+/** KAN-193: Verschnitt, mit dem dieser Zukauf beim Buchen in die Charge im Gebinde verschnitten wurde – nur, wenn er die
+ *  EINZIGE Folgebuchung der Zukauf-Charge ist: ein nicht stornierter Verschnitt mit der Zukauf-Charge als Quelle, am
+ *  Zukaufsdatum, über die ganze Zukaufsmenge. Sonst null (dann gilt die Sperre wie bisher). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function verschnittDesZukaufs(supabase: any, tenantId: string, chargeId: string, zukauf: AR, folge: Folgebuchung[]): Promise<string | null> {
+  if (folge.length !== 1 || folge[0].art !== 'verschnitt_quelle' || folge[0].anzahl !== 1) return null
+  const { data, error } = await (supabase.from('verschneidung_quellen') as any)   // ohne tenant_id-Spalte, RLS über verschneidungen
+    .select('verschneidung_id, menge_liter, verschneidung:verschneidung_id(id, datum, tenant_id, storniert_am)')
+    .eq('quell_weinausbau_id', chargeId)
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Verschnitt des Zukaufs konnte nicht geladen werden'))
+  const aktiv = ohneStornierteVerschnitte((data ?? []) as AR[]).filter(q => (q.verschneidung as AR | null)?.tenant_id === tenantId)
+  if (aktiv.length !== 1) return null
+  const q = aktiv[0]
+  const v = q.verschneidung as AR
+  const ganzeMenge = Math.abs((Number(q.menge_liter) || 0) - (Number(zukauf.menge) || 0)) <= 0.01
+  return ganzeMenge && v.datum === zukauf.datum ? String(v.id) : null
+}
+
 // Stornieren (KAN-145 B3, 30.09.2026): aktiv = false wie bisher (alle Leser filtern aktiv) und zusätzlich das
 // Storno-Kennzeichen mit Grund – der Zukauf bleibt als Beleg stehen. KAN-35: nur ohne Folgebuchungen an der Zielcharge und ohne
 // Pressung/Traubenverkauf/Tankverkauf aus dem Zukauf – sonst verschwände ein Zugang
 // rückwirkend, obwohl davon schon etwas abgegangen ist. Die Zielcharge wird vorher auf
 // 0 L/abgeschlossen gesetzt (einziger Zugang war dieser Zukauf); scheitert danach das
 // Deaktivieren, ist ein erneuter Versuch gefahrlos (Charge bleibt 0 L, keine Folgebuchungen).
+// KAN-193: Wurde der Zukauf beim Buchen als Verschnitt in die Charge im Gebinde gebucht und ist das die einzige
+// Folgebuchung, wird zuerst dieser Verschnitt mit demselben Grund storniert (Rückbuchung wie im Kellerbuch – gesperrt,
+// wenn die Ziel-Charge seither bewegt wurde), danach der Zukauf wie bisher.
 export async function deleteZukauf(id: string, grund: string) {
   const supabase = await createSupabaseServerClient()
-  const tenantId = await schreibKontext()
+  const { tenantId, darfKellerbuch } = await schreibKontext()
   const grundFehler = stornoGrundFehler(grund)
   if (grundFehler) throw new AktionsFehler(grundFehler)
 
   const { data: zukauf, error: zErr } = await (supabase.from('zukauf_posten') as any)
-    .select('id, ziel_weinausbau_id')
+    .select('id, ziel_weinausbau_id, datum, menge')
     .eq('id', id)
     .eq('tenant_id', tenantId)
     .eq('aktiv', true)
@@ -580,7 +682,18 @@ export async function deleteZukauf(id: string, grund: string) {
   if (sperre) throw new AktionsFehler(sperre)
 
   if (weinausbauId) {
-    const folge = await folgebuchungenDerZielcharge(supabase, weinausbauId)
+    let folge = await folgebuchungenDerZielcharge(supabase, weinausbauId)
+    const verschneidungId = await verschnittDesZukaufs(supabase, tenantId, weinausbauId, zukauf as AR, folge)
+    if (verschneidungId) {
+      if (!darfKellerbuch) {
+        throw new AktionsFehler('Stornieren nicht möglich: Der Zukauf wurde als Verschnitt gebucht – für das Stornieren des Verschnitts fehlt die Schreibfreigabe für das Kellerbuch.')
+      }
+      const plan = await planeVerschneidungStorno(supabase, tenantId, verschneidungId)
+      await storniereVerschneidung(supabase, tenantId, plan, grund)
+      const zielId = plan.verschneidung.ziel_weinausbau_id as string | null
+      if (zielId) revalidatePath(`/kellerbuch/weinausbau/${zielId}`)
+      folge = await folgebuchungenDerZielcharge(supabase, weinausbauId)
+    }
     if (folge.length > 0) {
       throw new AktionsFehler(`Löschen des Zukaufs ist nicht möglich: ${zielchargeText(folge)}. Der Zukauf ist der Zugang dieser Charge und bleibt als Beleg erhalten – Korrekturen bitte in der Charge als eigene, datierte Buchung erfassen (z. B. „Schwund buchen“).`)
     }
