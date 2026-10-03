@@ -172,8 +172,8 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
   const [pending, startTransition] = useTransition()
   const [error, setError]         = useState<string | null>(null)
   const [success, setSuccess]     = useState(false)
-  // KAN-112: Hinweis „Als Verschnitt in … gebucht“
-  const [verschnitt, setVerschnitt] = useState<{ zeilen: string[]; chargeId: string | null } | null>(null)
+  // KAN-112: Hinweise „Als Verschnitt in … gebucht“ – einer je Ziel-Gebinde mit Verschnitt
+  const [verschnitt, setVerschnitt] = useState<{ zeilen: string[]; chargeId: string | null }[] | null>(null)
   const [datum, setDatum]         = useState(new Date().toISOString().split('T')[0])
   const [notizen, setNotizen]     = useState('')
   const [umzugTyp, setUmzugTyp]   = useState<'normal' | 'filtration'>('normal')
@@ -249,8 +249,13 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
         }
         // KAN-112: abweichender Wein im Ziel-Gebinde – der Server hat den Umzug sofort als Verschnitt gebucht
         // (keine Zwischencharge, keine Weiterleitung ins Verschneiden-Formular mehr): Hinweis zeigen, nicht weiterleiten
-        if (result?.verschnitt) {
-          setVerschnitt({ zeilen: verschnittHinweis(result.verschnitt), chargeId: result.verschnitt.zielChargeId })
+        if (result?.verschnitte?.length) {
+          const bloecke = result.verschnitte.map(v => ({ zeilen: verschnittHinweis(v), chargeId: v.zielChargeId }))
+          // übrige Ziele per Umzug zusammengeführt – deren Qualitätsabstufung mit anzeigen
+          if (result.abstufung) {
+            bloecke.push({ zeilen: [`Umzug in die übrigen Gebinde gebucht – Abstufung von ${result.abstufung.vonLabel} auf ${result.abstufung.nachLabel}.`], chargeId: null })
+          }
+          setVerschnitt(bloecke)
           setSuccess(true)
           router.refresh()
           return
@@ -365,14 +370,18 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
       {/* KAN-181: am Handy bleibt die Leiste beim Scrollen unten sichtbar */}
       <div className="max-sm:sticky max-sm:bottom-0 max-sm:-mx-5 max-sm:-mb-5 max-sm:px-5 max-sm:py-3 max-sm:bg-s112-bg max-sm:border-t max-sm:border-s112-line max-sm:z-10">
         {success && verschnitt ? (
-          <div role="status" className="bg-s112-ok-bg border border-s112-ok/30 text-s112-ok-fg rounded-xl px-5 py-3 text-sm space-y-1">
-            {verschnitt.zeilen.map((z, i) => (
-              <p key={i} className={i === 0 ? 'font-semibold flex items-center gap-2' : 'text-xs'}>
-                {i === 0 && <CheckCircle2 size={16} strokeWidth={1.75} />}{z}
-              </p>
+          <div role="status" className="bg-s112-ok-bg border border-s112-ok/30 text-s112-ok-fg rounded-xl px-5 py-3 text-sm space-y-2">
+            {verschnitt.map((b, k) => (
+              <div key={k} className="space-y-1">
+                {b.zeilen.map((z, i) => (
+                  <p key={i} className={i === 0 ? 'font-semibold flex items-center gap-2' : 'text-xs'}>
+                    {i === 0 && <CheckCircle2 size={16} strokeWidth={1.75} />}{z}
+                  </p>
+                ))}
+                {b.chargeId && <p className="text-xs"><Link href={`/kellerbuch/weinausbau/${b.chargeId}`} className="underline">Zur Charge</Link></p>}
+              </div>
             ))}
-            <p className="text-xs pt-1 flex gap-4">
-              {verschnitt.chargeId && <Link href={`/kellerbuch/weinausbau/${verschnitt.chargeId}`} className="underline">Zur Charge</Link>}
+            <p className="text-xs pt-1">
               <Link href="/kellerbuch" className="underline">Zur Übersicht</Link>
             </p>
           </div>

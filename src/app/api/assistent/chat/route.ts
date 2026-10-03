@@ -111,7 +111,7 @@ User Änderungswünsche äußert, passe die Zusammenfassung an und frage erneut.
 GANZ WICHTIG – Folgeeffekte bei Umziehen/Verschneiden: Diese beiden Prozesse können automatisch
 eine Qualitäts- oder Herkunfts-Abstufung auslösen; ein Umzug in ein Gebinde mit anderem Wein
 (Rebsorte, Jahrgang, Herkunft oder Qualität) wird sofort als Verschnitt gebucht. Prüfe nach jedem
-Aufruf von "umziehen" oder "verschneiden" das Tool-Ergebnis auf abstufung/verschnitt bzw.
+Aufruf von "umziehen" oder "verschneiden" das Tool-Ergebnis auf abstufung/verschnitte bzw.
 qualitaet_abgestuft/herkunft_abgestuft und teile das dem User explizit in der finalen Antwort mit –
 nicht nur "erledigt, danke" melden.
 
@@ -369,7 +369,7 @@ export async function POST(req: NextRequest) {
       } else if (ergebnis?.erfolg && toolUse.name === 'umziehen' && (toolUse.input as R)?.weinausbau_id) {
         // umziehen() liefert für einen Umzug keine eigene neue ID zurück – als ziel_id daher die Quell-Charge aus dem
         // Tool-Aufruf; KAN-112: als Verschnitt gebucht → die Verschneidung (ziel_id passt zur ziel_tabelle, vgl. N6)
-        const vId = (ergebnis.verschnitt as R | null)?.verschneidung_id as string | null | undefined
+        const vId = ((ergebnis.verschnitte as R[] | undefined)?.[0])?.verschneidung_id as string | null | undefined
         { const { error: e } = await (supabase.from('assistent_aktionen') as any).insert({
           unterhaltung_id: unterhaltungId,
           prozess: 'umziehen',

@@ -19,7 +19,7 @@ interface Props {
   verfuegbarLiter: number
   gebinde:         Gebinde[]
   alleChargen:     Charge[]
-  action:          (fd: FormData) => Promise<{ verschnitt?: VerschnittHinweisDaten & { zielChargeId: string | null }; abstufung?: { von: string; nach: string; vonLabel: string; nachLabel: string }; bestaetigung?: string } | void>
+  action:          (fd: FormData) => Promise<{ verschnitte?: (VerschnittHinweisDaten & { zielChargeId: string | null })[]; abstufung?: { von: string; nach: string; vonLabel: string; nachLabel: string }; bestaetigung?: string } | void>
   initialOpen?:    boolean
   quelleRebsorte?: string | null
   quelleWeinart?:  string | null
@@ -44,7 +44,7 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
   const [notizen, setNotizen] = useState('')
   const [error,  setError]  = useState<string | null>(null)
   // KAN-112: Hinweis „Als Verschnitt in … gebucht“ (statt Weiterleitung ins Verschneiden-Formular)
-  const [verschnitt, setVerschnitt] = useState<{ zeilen: string[]; chargeId: string | null } | null>(null)
+  const [verschnitt, setVerschnitt] = useState<{ zeilen: string[]; chargeId: string | null }[] | null>(null)
   const [pending, start]    = useTransition()
 
   // Freie Kapazität pro Gebinde
@@ -116,9 +116,9 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
           result = await action(fd)
         }
         setBrutto(''); setNetto(''); setZielId(''); setNotizen('')
-        if (result?.verschnitt) {
+        if (result?.verschnitte?.length) {
           // KAN-112: abweichender Wein im Ziel-Gebinde – sofort als Verschnitt gebucht; Hinweis zeigen und Daten neu laden
-          setVerschnitt({ zeilen: verschnittHinweis(result.verschnitt), chargeId: result.verschnitt.zielChargeId })
+          setVerschnitt(result.verschnitte.map(v => ({ zeilen: verschnittHinweis(v), chargeId: v.zielChargeId })))
           router.refresh()
         } else if (result?.abstufung) {
           // Harte Navigation (neuer Query-Parameter): ein router.push() direkt nach einer Server Action
@@ -148,10 +148,14 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
         )}
         {verschnitt && (
           <div role="status" className="bg-s112-ok-bg border border-s112-ok/30 text-s112-ok-fg rounded-lg px-4 py-2.5 text-sm space-y-1">
-            {verschnitt.zeilen.map((z, i) => <p key={i} className={i === 0 ? 'font-semibold' : 'text-xs'}>{z}</p>)}
-            {verschnitt.chargeId && verschnitt.chargeId !== chargeId && (
-              <p className="text-xs"><Link href={`/kellerbuch/weinausbau/${verschnitt.chargeId}`} className="underline">Zur Ziel-Charge</Link></p>
-            )}
+            {verschnitt.map((b, k) => (
+              <div key={k} className="space-y-1">
+                {b.zeilen.map((z, i) => <p key={i} className={i === 0 ? 'font-semibold' : 'text-xs'}>{z}</p>)}
+                {b.chargeId && b.chargeId !== chargeId && (
+                  <p className="text-xs"><Link href={`/kellerbuch/weinausbau/${b.chargeId}`} className="underline">Zur Ziel-Charge</Link></p>
+                )}
+              </div>
+            ))}
           </div>
         )}
         <form onSubmit={handleSubmit} className="space-y-4">

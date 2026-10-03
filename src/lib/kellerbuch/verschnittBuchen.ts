@@ -10,6 +10,13 @@ import 'server-only'
 // (verschnittWerte.ts) und EIN Aufruf der RPC s112_verschnitt_buchen – sie bucht Verschnitt, Gebinde-Momentaufnahme,
 // Schwund je Quelle (keller_umzuege 'schwund'), Bestände und Merkmale der Ziel-Charge in einer Transaktion.
 // Der Aufrufer prüft vorher Betrieb (KAN-30), Schreibsperre (KAN-5) und das Schreibrecht im Kellerbuch.
+//
+// KAN-112 Nachtrag (Entscheidung Jörgen 03.10.2026, „n Zielgebinde“): Vorbereiten und Buchen sind getrennt.
+// verschnittVorbereiten() macht alle Prüfungen und Fachwerte EINES Verschnitts ohne RPC (Ergebnis: Rückfrage oder
+// Buchung {kopf, quellen}); verschnitteVorbereiten() bereitet mehrere Verschnitte nacheinander vor – spätere mit den
+// Beständen, die die Quellen nach den früheren Buchungen desselben Aufrufs haben – und verschnitteAusfuehren() bucht
+// sie in EINEM Aufruf der RPC s112_verschnitte_buchen (alle oder keiner). Ein einzelner Verschnitt bleibt bei
+// s112_verschnitt_buchen.
 
 import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { fmtNum } from '@/lib/format'
@@ -32,6 +39,17 @@ export type VerschnittEingabe = {
   pnBestaetigt: boolean
 }
 
+/** KAN-112: vorbereiteter Verschnitt – Argumente der RPC und Hinweise, noch nichts gebucht */
+export type VerschnittBuchung = {
+  kopf: R
+  quellen: R[]
+  qualitaetAbgestuft: Abstufung | null
+  herkunftAbgestuft: Abstufung | null
+  sortenHinweise: string[]
+  zielId: string | null
+  zielName: string | null
+}
+
 export type VerschnittErgebnis = {
   qualitaetAbgestuft: Abstufung | null
   herkunftAbgestuft: Abstufung | null
@@ -50,12 +68,19 @@ const num = (v: unknown): number => {
   return Number.isFinite(n) ? n : 0
 }
 
-/** Verschnitt prüfen und buchen – siehe Dateikopf. Wirft AktionsFehler mit deutscher Meldung. */
-export async function verschnittBuchen(
+const rund2 = (n: number): number => Math.round(n * 100) / 100
+
+/**
+ * KAN-112: Verschnitt prüfen und die RPC-Argumente berechnen, OHNE zu buchen – siehe Dateikopf. `entnommen` = Liter
+ * (Menge + Schwund), die frühere Verschnitte desselben RPC-Aufrufs den Quell-Chargen schon entnehmen: Bestandsprüfung
+ * und erwartete Bestände beziehen sich auf den Stand danach. Wirft AktionsFehler mit deutscher Meldung.
+ */
+export async function verschnittVorbereiten(
   supabase: any,
   tenantId: string,
   e: VerschnittEingabe,
-): Promise<VerschnittErgebnis> {
+  entnommen: ReadonlyMap<string, number> = new Map(),
+): Promise<{ bestaetigung: string } | { buchung: VerschnittBuchung }> {
   const zielId = 'weinausbauId' in e.ziel ? e.ziel.weinausbauId : null
   const neueCharge = 'neueCharge' in e.ziel ? e.ziel.neueCharge : null
   if (!e.datum || (!zielId && !neueCharge?.behaelterId) || e.quellen.length === 0) throw new AktionsFehler('Pflichtfelder fehlen')
@@ -90,7 +115,7 @@ export async function verschnittBuchen(
   for (const [qid, { menge, schwund }] of jeCharge) {
     const row = quellRows.find(r => r.id === qid)
     if (!row) throw new AktionsFehler('Quell-Charge nicht gefunden – sie gehört nicht zu diesem Betrieb.')
-    const verfuegbar = num(row.menge_liter)
+    const verfuegbar = num(row.menge_liter) - (entnommen.get(qid) ?? 0)
     if (menge + schwund > verfuegbar + 0.01) {
       throw new AktionsFehler(`„${row.name}“: Verschnittmenge (${fmtNum(menge + schwund, 2)} L) übersteigt den Bestand der Charge (${fmtNum(verfuegbar, 2)} L).`)
     }
@@ -118,7 +143,7 @@ export async function verschnittBuchen(
     const zugang = [...jeCharge.values()].reduce((s, q) => s + q.menge, 0)
     const pn = await pruefePruefnummernSchaden(supabase, tenantId, 'verschnitt',
       [{ chargeId: ziel.id, name: (ziel.name as string | null) ?? null, zugangLiter: zugang }], e.datum)
-    if (pn && !e.pnBestaetigt) return { qualitaetAbgestuft: null, herkunftAbgestuft: null, bestaetigung: pn.frage }
+    if (pn && !e.pnBestaetigt) return { bestaetigung: pn.frage }
     if (pn) notizen = mitPnNotiz(notizen, pn.notiz)
   }
 
@@ -129,20 +154,102 @@ export async function verschnittBuchen(
     ...quellen.map(q => ({ charge: q.charge, liter: q.menge })),
   ])
 
-  const w = verschnittWerte({ datum: e.datum, ziel, neueCharge, weinart, quellen, gruppen, notizen })
-
-  const { data, error } = await (supabase.rpc as any)('s112_verschnitt_buchen', { p_tenant_id: tenantId, p_kopf: w.kopf, p_quellen: w.quellen })
-  if (error) {
-    // 40001: Bestand seit der Berechnung geändert – Meldung der RPC („bitte erneut buchen“) unverändert
-    throw new AktionsFehler((error as R).code === '40001' && (error as R).message ? String((error as R).message) : dbFehlerText(error, 'Verschnitt konnte nicht gebucht werden'))
-  }
-  const ergebnis = (data ?? {}) as R
+  // KAN-112: verschnittGruppen rechnet mit dem geladenen Bestand (Anteile je Liter ändern sich durchs Entnehmen nicht);
+  // erwarteter Bestand je Quelle = Stand nach den früheren Buchungen desselben Aufrufs (die RPC speichert jeden Rest
+  // auf 2 Stellen gerundet; ohne frühere Entnahme bleibt der geladene Wert ungerundet)
+  const mitBestandDanach = quellen.map(q => {
+    const weg = entnommen.get(q.charge.id as string) ?? 0
+    return weg > 0 ? { ...q, charge: { ...q.charge, menge_liter: rund2(num(q.charge.menge_liter) - weg) } } : q
+  })
+  const w = verschnittWerte({ datum: e.datum, ziel, neueCharge, weinart, quellen: mitBestandDanach, gruppen, notizen })
   return {
-    qualitaetAbgestuft: w.qualitaetAbgestuft,
-    herkunftAbgestuft: w.herkunftAbgestuft,
-    sortenHinweise: w.sortenHinweise,
-    verschneidungId: (ergebnis.verschneidung_id as string | undefined) ?? undefined,
-    zielChargeId: (ergebnis.ziel_weinausbau_id as string | undefined) ?? ziel?.id ?? undefined,
-    zielName: (ziel?.name as string | null | undefined) ?? (w.kopf.neue_ziel_charge?.name as string | undefined) ?? null,
+    buchung: {
+      kopf: w.kopf, quellen: w.quellen,
+      qualitaetAbgestuft: w.qualitaetAbgestuft, herkunftAbgestuft: w.herkunftAbgestuft, sortenHinweise: w.sortenHinweise,
+      zielId: (ziel?.id as string | undefined) ?? null,
+      zielName: (ziel?.name as string | null | undefined) ?? (w.kopf.neue_ziel_charge?.name as string | undefined) ?? null,
+    },
   }
+}
+
+/** RPC-Fehler → AktionsFehler; 40001 (Bestand seit der Berechnung geändert): Meldung der RPC („bitte erneut buchen“) unverändert */
+function rpcFehler(error: unknown): AktionsFehler {
+  const f = error as R
+  return new AktionsFehler(f?.code === '40001' && f?.message ? String(f.message) : dbFehlerText(error, 'Verschnitt konnte nicht gebucht werden'))
+}
+
+function ergebnisAus(b: VerschnittBuchung, roh: unknown): VerschnittErgebnis {
+  const ergebnis = (roh ?? {}) as R
+  return {
+    qualitaetAbgestuft: b.qualitaetAbgestuft,
+    herkunftAbgestuft: b.herkunftAbgestuft,
+    sortenHinweise: b.sortenHinweise,
+    verschneidungId: (ergebnis.verschneidung_id as string | undefined) ?? undefined,
+    zielChargeId: (ergebnis.ziel_weinausbau_id as string | undefined) ?? b.zielId ?? undefined,
+    zielName: b.zielName,
+  }
+}
+
+/**
+ * KAN-112: vorbereitete Verschnitte buchen – einer über s112_verschnitt_buchen, mehrere in EINER Transaktion über
+ * s112_verschnitte_buchen (scheitert einer, wird keiner gebucht). Ergebnisse in derselben Reihenfolge.
+ */
+export async function verschnitteAusfuehren(
+  supabase: any,
+  tenantId: string,
+  buchungen: readonly VerschnittBuchung[],
+): Promise<VerschnittErgebnis[]> {
+  if (buchungen.length === 0) return []
+  if (buchungen.length === 1) {
+    const b = buchungen[0]
+    const { data, error } = await (supabase.rpc as any)('s112_verschnitt_buchen', { p_tenant_id: tenantId, p_kopf: b.kopf, p_quellen: b.quellen })
+    if (error) throw rpcFehler(error)
+    return [ergebnisAus(b, data)]
+  }
+  // Eine Charge darf nicht Ziel des einen und Quelle eines anderen Verschnitts sein (die Reihenfolge wäre fachlich offen)
+  const quellIds = new Set(buchungen.flatMap(b => b.quellen.map(q => q.weinausbau_id as string)))
+  if (buchungen.some(b => b.zielId && quellIds.has(b.zielId))) {
+    throw new AktionsFehler('Eine Charge kann nicht zugleich Ziel des einen und Quelle eines anderen Verschnitts sein.')
+  }
+  const { data, error } = await (supabase.rpc as any)('s112_verschnitte_buchen', {
+    p_tenant_id: tenantId,
+    p_buchungen: buchungen.map(b => ({ kopf: b.kopf, quellen: b.quellen })),
+  })
+  if (error) throw rpcFehler(error)
+  const liste = Array.isArray(data) ? data : []
+  return buchungen.map((b, i) => ergebnisAus(b, liste[i]))
+}
+
+/**
+ * KAN-112: mehrere Verschnitte vorbereiten, alle Prüfnummer-Rückfragen gesammelt – spätere mit den Beständen nach
+ * den früheren. `fragen` nicht leer: nichts buchen, Rückfrage stellen (`buchungen` ist dann unvollständig).
+ */
+export async function verschnitteVorbereiten(
+  supabase: any,
+  tenantId: string,
+  eingaben: readonly VerschnittEingabe[],
+): Promise<{ fragen: string[]; buchungen: VerschnittBuchung[] }> {
+  const entnommen = new Map<string, number>()
+  const fragen: string[] = []
+  const buchungen: VerschnittBuchung[] = []
+  for (const e of eingaben) {
+    const v = await verschnittVorbereiten(supabase, tenantId, e, entnommen)
+    if ('bestaetigung' in v) fragen.push(v.bestaetigung)
+    else buchungen.push(v.buchung)
+    for (const q of e.quellen) {
+      entnommen.set(q.weinausbau_id, rund2((entnommen.get(q.weinausbau_id) ?? 0) + rund2(q.menge) + rund2(q.schwund ?? 0)))
+    }
+  }
+  return { fragen, buchungen }
+}
+
+/** Verschnitt prüfen und buchen (ein Ziel; Formular, Pressung, Assistent) – siehe Dateikopf. */
+export async function verschnittBuchen(
+  supabase: any,
+  tenantId: string,
+  e: VerschnittEingabe,
+): Promise<VerschnittErgebnis> {
+  const v = await verschnittVorbereiten(supabase, tenantId, e)
+  if ('bestaetigung' in v) return { qualitaetAbgestuft: null, herkunftAbgestuft: null, bestaetigung: v.bestaetigung }
+  return (await verschnitteAusfuehren(supabase, tenantId, [v.buchung]))[0]
 }

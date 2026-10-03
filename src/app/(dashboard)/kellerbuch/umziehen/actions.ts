@@ -17,8 +17,8 @@ import { weinartKonflikt, weinartKonfliktText, weinartAusFarbe, weinartBekannt }
 import { ladeUmzugZeilen, planeUmzugStorno, umzugSperrMeldung, nurNotizenAenderbar } from '@/lib/kellerbuch/storno'
 import { pruefePruefnummernSchaden } from '@/lib/kellerbuch/pruefnummerLaden'
 import { waehleZielCharge, merkmaleText, type Merkmal } from '@/lib/kellerbuch/umzugZiel'
-import { verschnittBuchen } from '@/lib/kellerbuch/verschnittBuchen'
-import { verteileLiter } from '@/lib/wein/mischungsrechnung'
+import { verschnitteVorbereiten, verschnitteAusfuehren, type VerschnittEingabe } from '@/lib/kellerbuch/verschnittBuchen'
+import { teileUmzugAuf } from '@/lib/kellerbuch/umzugAufteilung'
 import { mostgewichtNeu, mostgewichtZusammenfuehren, teilweiseVermerk, umzugMomentaufnahme, type Anteil } from '@/lib/kellerbuch/mostgewichtKette'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -91,61 +91,131 @@ export type UmzugVerschnitt = {
   sortenHinweise: string[]
 }
 
+/** Ziel-Gebinde eines Umzugs samt gewählter Ziel-Charge (waehleZielCharge) */
+type ZielWahl = { z: ZielInput; vorhanden: R | null; istVerschnitt: boolean; unterschiede: Merkmal[] }
+type Abstufungshinweis = { von: string; nach: string; vonLabel: string; nachLabel: string }
+
 /**
- * KAN-112 (Entscheidungen Jörgen 03.10.2026): Umzug als Verschnitt buchen – in die Anker-Charge des Ziel-Gebindes bzw.
- * bei leerem Gebinde in eine neue Charge, über den gemeinsamen Service (eine RPC, eine Transaktion). Der Schwund des
- * Umzugs (Σ Quellen − Ziel) wird im Verhältnis der Quellmengen auf die Quellen verteilt (2 Stellen, größter Rest).
+ * KAN-112 (Entscheidungen Jörgen 03.10.2026): Umzug als Verschnitt buchen – in n Ziel-Gebinde („n Zielgebinde“).
+ * Jedes Ziel-Gebinde, in dem der Umzug ein Verschnitt ist (abweichender Wein bzw. gemischte Quellen ins leere
+ * Gebinde), wird EIN Verschnitt in seine Anker-Charge bzw. eine neue Charge; alle diese Verschnitte bucht EIN
+ * RPC-Aufruf (alle oder keiner). Die übrigen Ziele (Zusammenführung bzw. leeres Gebinde) gehen danach den bisherigen
+ * Umzugsweg (mehrstufig, nicht atomar – von Jörgen für jetzt akzeptiert). Aufteilung der Quellen auf die Ziele samt
+ * Schwund: teileUmzugAuf (umzugAufteilung.ts). Prüfnummer-Rückfragen aller Ziele werden vorher gesammelt.
  */
-async function umzugAlsVerschnitt(
+async function umzugMitVerschnitten(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   tenantId: string,
   p: {
-    wahl: { z: ZielInput; vorhanden: R | null; unterschiede: Merkmal[] }
+    wahl: ZielWahl[]
     bedarf: Map<string, number>
     quellChargen: R[]
-    schwund: number
     datum: string
     notizen: string | null
     umzugTyp: string
     pnBestaetigt: boolean
   },
-): Promise<{ verschnitt?: UmzugVerschnitt; bestaetigung?: string }> {
-  const brutto = [...p.bedarf.values()]
-  const schwundJeQuelle = verteileLiter(brutto, p.schwund)
-  const quellen = [...p.bedarf.keys()].map((id, i) => ({
-    weinausbau_id: id,
-    menge: Math.round((brutto[i] - schwundJeQuelle[i]) * 100) / 100,
-    schwund: schwundJeQuelle[i],
-  }))
-  const vermerk = `${p.umzugTyp === 'filtration' ? 'Filtration' : 'Umzug'} als Verschnitt gebucht (abweichend: ${merkmaleText(p.wahl.unterschiede)})`
-  const notizen = [p.notizen?.trim() || null, vermerk].filter(Boolean).join('\n')
+): Promise<{ verschnitte?: UmzugVerschnitt[]; abstufung?: Abstufungshinweis; bestaetigung?: string }> {
+  // Dasselbe Gebinde mehrfach als Ziel = ein Ziel
+  const gruppen: { menge: number; wahl: ZielWahl }[] = []
+  for (const w of p.wahl) {
+    const g = gruppen.find(x => x.wahl.z.behaelter_id === w.z.behaelter_id)
+    if (g) g.menge += w.z.menge
+    else gruppen.push({ menge: w.z.menge, wahl: w })
+  }
+  const quellIds = [...p.bedarf.keys()]
+  const auf = teileUmzugAuf(quellIds.map(id => p.bedarf.get(id) ?? 0), gruppen.map(g => g.menge))
+  if (auf.ohneAnteil.length > 0) {
+    const name = p.quellChargen.find(c => c.id === quellIds[auf.ohneAnteil[0]])?.name ?? '?'
+    throw new AktionsFehler(`„${name}“: Die Menge ist zu klein, um sie auf ${gruppen.length} Ziel-Gebinde aufzuteilen.`)
+  }
+  const vIdx = gruppen.map((_, j) => j).filter(j => gruppen[j].wahl.istVerschnitt)
+  const uIdx = gruppen.map((_, j) => j).filter(j => !gruppen[j].wahl.istVerschnitt)
+
+  const art = p.umzugTyp === 'filtration' ? 'Filtration' : 'Umzug'
   const erste = p.quellChargen[0]
-  const r = await verschnittBuchen(supabase, tenantId, {
-    datum: p.datum,
-    ziel: p.wahl.vorhanden
-      ? { weinausbauId: p.wahl.vorhanden.id as string }
-      : { neueCharge: { behaelterId: p.wahl.z.behaelter_id, status: erste?.status && erste.status !== 'abgeschlossen' ? erste.status : null } },
-    quellen, notizen, pnBestaetigt: p.pnBestaetigt,
+  const eingaben: VerschnittEingabe[] = vIdx.map(j => {
+    const { wahl } = gruppen[j]
+    return {
+      datum: p.datum,
+      ziel: wahl.vorhanden
+        ? { weinausbauId: wahl.vorhanden.id as string }
+        : { neueCharge: { behaelterId: wahl.z.behaelter_id, status: erste?.status && erste.status !== 'abgeschlossen' ? erste.status : null } },
+      quellen: quellIds
+        .map((id, i) => ({ weinausbau_id: id, menge: auf.netto[j][i], schwund: auf.schwund[j][i] }))
+        .filter(q => q.menge >= 0.01),
+      notizen: [p.notizen?.trim() || null, `${art} als Verschnitt gebucht (abweichend: ${merkmaleText(wahl.unterschiede)})`].filter(Boolean).join('\n'),
+      pnBestaetigt: p.pnBestaetigt,
+    }
   })
-  if (r.bestaetigung) return { bestaetigung: r.bestaetigung }
+
+  // Alle Prüfnummer-Rückfragen VOR der ersten Buchung: Verschnitt-Ziele (im Service) und Umzug-Ziele (KAN-83)
+  const vorbereitet = await verschnitteVorbereiten(supabase, tenantId, eingaben)
+  const umzugWahl = p.wahl.filter(w => !w.istVerschnitt)
+  const pnUmzug = await umzugPruefnummern(supabase, tenantId, umzugWahl, p.datum)
+  const fragen = [...vorbereitet.fragen, ...pnUmzug.fragen]
+  if (fragen.length > 0 && !p.pnBestaetigt) return { bestaetigung: fragen.join('\n') }
+
+  const ergebnisse = await verschnitteAusfuehren(supabase, tenantId, vorbereitet.buchungen)
   revalidatePath('/kellerbuch')
   revalidatePath('/kellerbuch/umziehen')
   revalidatePath('/kellerbuch/behaelter', 'layout')
-  for (const id of p.bedarf.keys()) revalidatePath(`/kellerbuch/weinausbau/${id}`)
-  if (r.zielChargeId) revalidatePath(`/kellerbuch/weinausbau/${r.zielChargeId}`)
-  return {
-    verschnitt: {
-      verschneidungId: r.verschneidungId ?? null, zielChargeId: r.zielChargeId ?? null, zielName: r.zielName ?? null,
-      unterschiede: p.wahl.unterschiede, qualitaetAbgestuft: r.qualitaetAbgestuft, herkunftAbgestuft: r.herkunftAbgestuft,
-      sortenHinweise: r.sortenHinweise ?? [],
-    },
+  for (const id of quellIds) revalidatePath(`/kellerbuch/weinausbau/${id}`)
+  for (const r of ergebnisse) if (r.zielChargeId) revalidatePath(`/kellerbuch/weinausbau/${r.zielChargeId}`)
+  const verschnitte: UmzugVerschnitt[] = ergebnisse.map((r, k) => ({
+    verschneidungId: r.verschneidungId ?? null, zielChargeId: r.zielChargeId ?? null, zielName: r.zielName ?? null,
+    unterschiede: gruppen[vIdx[k]].wahl.unterschiede, qualitaetAbgestuft: r.qualitaetAbgestuft, herkunftAbgestuft: r.herkunftAbgestuft,
+    sortenHinweise: r.sortenHinweise ?? [],
+  }))
+  if (uIdx.length === 0) return { verschnitte }
+
+  // Übrige Ziele: bisheriger Umzugsweg mit dem Brutto-Anteil jeder Quelle an diesen Zielen (Schwund wie bisher an der
+  // ersten Quellzeile). Scheitert er, sind die Verschnitte schon gebucht – das sagt die Meldung.
+  const umzugQuellen = quellIds
+    .map((id, i) => ({ weinausbau_id: id, menge: Math.round(uIdx.reduce((s, j) => s + auf.brutto[j][i], 0) * 100) / 100 }))
+    .filter(q => q.menge >= 0.01)
+  const umzugZiele = umzugWahl.map(w => w.z)
+  const schwund = Math.max(0, +(umzugQuellen.reduce((s, q) => s + q.menge, 0) - umzugZiele.reduce((s, z) => s + z.menge, 0)).toFixed(3))
+  try {
+    const abstufung = await umzugBuchen(supabase, tenantId, {
+      quellen: umzugQuellen, ziele: umzugZiele, schwund, datum: p.datum, notizen: p.notizen, umzugTyp: p.umzugTyp,
+      keineZiele: new Set(quellIds), pnNotizJeCharge: pnUmzug.notizJeCharge,
+    })
+    return { verschnitte, ...(abstufung ? { abstufung } : {}) }
+  } catch (err) {
+    if (!(err instanceof AktionsFehler)) throw err
+    const gebucht = verschnitte.map(v => (v.zielName ? `„${v.zielName}“` : 'die Ziel-Charge')).join(', ')
+    throw new AktionsFehler(`Als Verschnitt gebucht: ${gebucht}. Der Umzug in die übrigen Ziel-Gebinde ist fehlgeschlagen: ${err.message}`)
   }
 }
 
+/** KAN-83 (01.10.2026): Zusammenführung mit einer Charge mit geltender Prüfnummer – Rückfragen und Vermerke je Ziel-Charge.
+ *  Umzug in ein leeres Gebinde bleibt ohne Rückfrage (ein Verschnitt fragt im Service selbst). */
+async function umzugPruefnummern(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any, tenantId: string, wahl: readonly ZielWahl[], datum: string,
+): Promise<{ fragen: string[]; notizJeCharge: Map<string, string> }> {
+  const zielMenge = new Map<string, { name: string | null; liter: number }>()
+  for (const { z, vorhanden } of wahl) {
+    if (!vorhanden) continue
+    const bisher = zielMenge.get(vorhanden.id)
+    zielMenge.set(vorhanden.id, { name: vorhanden.name ?? null, liter: (bisher?.liter ?? 0) + z.menge })
+  }
+  const fragen: string[] = []
+  const notizJeCharge = new Map<string, string>()
+  for (const [chargeId, { name, liter }] of zielMenge) {
+    const pn = await pruefePruefnummernSchaden(supabase, tenantId, 'umzug', [{ chargeId, name, zugangLiter: liter }], datum)
+    if (!pn) continue
+    fragen.push(pn.frage)
+    notizJeCharge.set(chargeId, pn.notiz)
+  }
+  return { fragen, notizJeCharge }
+}
+
 // KAN-83: bestaetigung = Rückfrage „Prüfnummer gilt nicht mehr“ – nichts gebucht; mit pn_bestaetigt=1 erneut senden
-// KAN-112: verschnitt = als Verschnitt gebucht (abweichender Wein im Ziel-Gebinde bzw. Quellen mit verschiedenen Merkmalen)
-export async function umziehen(fd: FormData): Promise<{ verschnitt?: UmzugVerschnitt; abstufung?: { von: string; nach: string; vonLabel: string; nachLabel: string }; bestaetigung?: string } | void> {
+// KAN-112: verschnitte = als Verschnitt gebucht, einer je Ziel-Gebinde mit abweichendem Wein bzw. gemischten Quellen
+export async function umziehen(fd: FormData): Promise<{ verschnitte?: UmzugVerschnitt[]; abstufung?: Abstufungshinweis; bestaetigung?: string } | void> {
   const supabase = await createSupabaseServerClient()
 
   const { quellen, ziele } = leseZeilen(fd)
@@ -244,7 +314,7 @@ export async function umziehen(fd: FormData): Promise<{ verschnitt?: UmzugVersch
   // (keine Zwischencharge mehr) – in die Anker-Charge bzw. bei leerem Gebinde in eine neue Charge.
   const quellChargen = [...bedarf.keys()].map(id => quellRows.find(r => r.id === id) as R)
   const quellIds = new Set(bedarf.keys())
-  const wahl: { z: ZielInput; vorhanden: R | null; istVerschnitt: boolean; unterschiede: Merkmal[] }[] = []
+  const wahl: ZielWahl[] = []
   for (const z of ziele) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: vRaw, error: vErr } = await (supabase.from('weinausbau') as any)
@@ -256,38 +326,48 @@ export async function umziehen(fd: FormData): Promise<{ verschnitt?: UmzugVersch
     if (vErr) throw new AktionsFehler(dbFehlerText(vErr, 'Ziel-Chargen konnten nicht geladen werden'))
     wahl.push({ z, ...waehleZielCharge(((vRaw ?? []) as R[]).filter(v => !quellIds.has(v.id)), quellChargen) })
   }
+  // KAN-112 (Entscheidung Jörgen 03.10.2026, „n Zielgebinde“): mindestens ein Ziel ist ein Verschnitt
   if (wahl.some(w => w.istVerschnitt)) {
-    if (ziele.length > 1) {
-      throw new AktionsFehler('Dieser Umzug wäre ein Verschnitt (abweichender Wein im Ziel-Gebinde bzw. Quellen mit verschiedenen Merkmalen) – als Verschnitt geht er nur in genau ein Ziel-Gebinde. Bitte auf mehrere Umzüge aufteilen.')
-    }
-    return umzugAlsVerschnitt(supabase, tenantId, {
-      wahl: wahl[0], bedarf, quellChargen, schwund: Math.max(0, totalVon - totalNach), datum, notizen, umzugTyp,
-      pnBestaetigt: fd.get('pn_bestaetigt') === '1',
+    return umzugMitVerschnitten(supabase, tenantId, {
+      wahl, bedarf, quellChargen, datum, notizen, umzugTyp, pnBestaetigt: fd.get('pn_bestaetigt') === '1',
     })
   }
 
-  // KAN-83 (01.10.2026): Zusammenführung mit einer Charge, die eine geltende Prüfnummer hat –
-  // VOR der ersten Buchung. Umzug in ein leeres Gebinde bleibt ohne Rückfrage (ein Verschnitt fragt im Service selbst).
-  const pnNotizJeCharge = new Map<string, string>()
-  {
-    const zielMenge = new Map<string, { name: string | null; liter: number }>()
-    for (const { z, vorhanden } of wahl) {
-      if (!vorhanden) continue
-      const bisher = zielMenge.get(vorhanden.id)
-      zielMenge.set(vorhanden.id, { name: vorhanden.name ?? null, liter: (bisher?.liter ?? 0) + z.menge })
-    }
-    const fragen: string[] = []
-    for (const [chargeId, { name, liter }] of zielMenge) {
-      const pn = await pruefePruefnummernSchaden(supabase, tenantId, 'umzug', [{ chargeId, name, zugangLiter: liter }], datum)
-      if (!pn) continue
-      fragen.push(pn.frage)
-      pnNotizJeCharge.set(chargeId, pn.notiz)
-    }
-    if (fragen.length > 0 && fd.get('pn_bestaetigt') !== '1') return { bestaetigung: fragen.join('\n') }
-  }
+  // KAN-83 (01.10.2026): Zusammenführung mit einer Charge, die eine geltende Prüfnummer hat – VOR der ersten Buchung
+  const pn = await umzugPruefnummern(supabase, tenantId, wahl, datum)
+  if (pn.fragen.length > 0 && fd.get('pn_bestaetigt') !== '1') return { bestaetigung: pn.fragen.join('\n') }
 
+  const abstufung = await umzugBuchen(supabase, tenantId, {
+    quellen, ziele, schwund, datum, notizen, umzugTyp, keineZiele: quellIds, pnNotizJeCharge: pn.notizJeCharge,
+  })
+  if (abstufung) return { abstufung }
+}
+
+/**
+ * Umzug buchen – Zusammenführung in eine Charge mit denselben Merkmalen bzw. neue Charge im leeren Gebinde (bisheriger
+ * Weg, mehrstufig). `keineZiele` = Quell-Chargen des ganzen Umzugs (zählen nicht als Ziel-Charge, KAN-112),
+ * `pnNotizJeCharge` = Prüfnummer-Vermerke nach bestätigter Rückfrage (KAN-83).
+ */
+async function umzugBuchen(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  tenantId: string,
+  p: {
+    quellen: QuelleInput[]
+    ziele: ZielInput[]
+    schwund: number
+    datum: string
+    notizen: string | null
+    umzugTyp: string
+    keineZiele: ReadonlySet<string>
+    pnNotizJeCharge: ReadonlyMap<string, string>
+  },
+): Promise<Abstufungshinweis | undefined> {
+  const { quellen, ziele, schwund, datum, notizen, umzugTyp, pnNotizJeCharge } = p
+  const quellIds = p.keineZiele
+  const totalVon = quellen.reduce((s, q) => s + q.menge, 0)
   const batchId = crypto.randomUUID()
-  let abstufung: { von: string; nach: string; vonLabel: string; nachLabel: string } | undefined
+  let abstufung: Abstufungshinweis | undefined
 
   // ── Phase 1: Quellen validieren, reduzieren, Quelle-Records anlegen ──────────
   // KAN-186: Qualitätsangabe samt Zusatzbezeichnung und Erzeugnis (Altwerte normalisiert)
@@ -485,7 +565,7 @@ export async function umziehen(fd: FormData): Promise<{ verschnitt?: UmzugVersch
   revalidatePath('/kellerbuch')
   revalidatePath('/kellerbuch/umziehen')
   revalidatePath('/kellerbuch/behaelter', 'layout')
-  if (abstufung) return { abstufung }
+  return abstufung
 }
 
 // ── Umzug stornieren ─────────────────────────────────────────────────────────
