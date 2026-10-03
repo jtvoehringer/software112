@@ -16,7 +16,9 @@ import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { weinartKonflikt, weinartKonfliktText, weinartAusFarbe, weinartBekannt } from '@/lib/keller/weinart'
 import { ladeUmzugZeilen, planeUmzugStorno, umzugSperrMeldung, nurNotizenAenderbar } from '@/lib/kellerbuch/storno'
 import { pruefePruefnummernSchaden } from '@/lib/kellerbuch/pruefnummerLaden'
-import { waehleZielCharge } from '@/lib/kellerbuch/umzugZiel'
+import { waehleZielCharge, merkmaleText, type Merkmal } from '@/lib/kellerbuch/umzugZiel'
+import { verschnittBuchen } from '@/lib/kellerbuch/verschnittBuchen'
+import { verteileLiter } from '@/lib/wein/mischungsrechnung'
 import { mostgewichtNeu, mostgewichtZusammenfuehren, teilweiseVermerk, umzugMomentaufnahme, type Anteil } from '@/lib/kellerbuch/mostgewichtKette'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -77,8 +79,73 @@ function mostgewichtFuerNeu(anteile: Anteil[], vermerke: string[]): R {
   return m.spalten ?? {}
 }
 
+/** KAN-112: Ergebnis, wenn der Umzug als Verschnitt gebucht wurde (Hinweis statt Weiterleitung ins Verschneiden-Formular) */
+export type UmzugVerschnitt = {
+  verschneidungId: string | null
+  zielChargeId: string | null
+  zielName: string | null
+  /** abweichende Merkmale (Rebsorte, Jahrgang, Herkunft, Qualität) */
+  unterschiede: string[]
+  qualitaetAbgestuft: { von: string; nach: string } | null
+  herkunftAbgestuft: { von: string; nach: string } | null
+  sortenHinweise: string[]
+}
+
+/**
+ * KAN-112 (Entscheidungen Jörgen 03.10.2026): Umzug als Verschnitt buchen – in die Anker-Charge des Ziel-Gebindes bzw.
+ * bei leerem Gebinde in eine neue Charge, über den gemeinsamen Service (eine RPC, eine Transaktion). Der Schwund des
+ * Umzugs (Σ Quellen − Ziel) wird im Verhältnis der Quellmengen auf die Quellen verteilt (2 Stellen, größter Rest).
+ */
+async function umzugAlsVerschnitt(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  tenantId: string,
+  p: {
+    wahl: { z: ZielInput; vorhanden: R | null; unterschiede: Merkmal[] }
+    bedarf: Map<string, number>
+    quellChargen: R[]
+    schwund: number
+    datum: string
+    notizen: string | null
+    umzugTyp: string
+    pnBestaetigt: boolean
+  },
+): Promise<{ verschnitt?: UmzugVerschnitt; bestaetigung?: string }> {
+  const brutto = [...p.bedarf.values()]
+  const schwundJeQuelle = verteileLiter(brutto, p.schwund)
+  const quellen = [...p.bedarf.keys()].map((id, i) => ({
+    weinausbau_id: id,
+    menge: Math.round((brutto[i] - schwundJeQuelle[i]) * 100) / 100,
+    schwund: schwundJeQuelle[i],
+  }))
+  const vermerk = `${p.umzugTyp === 'filtration' ? 'Filtration' : 'Umzug'} als Verschnitt gebucht (abweichend: ${merkmaleText(p.wahl.unterschiede)})`
+  const notizen = [p.notizen?.trim() || null, vermerk].filter(Boolean).join('\n')
+  const erste = p.quellChargen[0]
+  const r = await verschnittBuchen(supabase, tenantId, {
+    datum: p.datum,
+    ziel: p.wahl.vorhanden
+      ? { weinausbauId: p.wahl.vorhanden.id as string }
+      : { neueCharge: { behaelterId: p.wahl.z.behaelter_id, status: erste?.status && erste.status !== 'abgeschlossen' ? erste.status : null } },
+    quellen, notizen, pnBestaetigt: p.pnBestaetigt,
+  })
+  if (r.bestaetigung) return { bestaetigung: r.bestaetigung }
+  revalidatePath('/kellerbuch')
+  revalidatePath('/kellerbuch/umziehen')
+  revalidatePath('/kellerbuch/behaelter', 'layout')
+  for (const id of p.bedarf.keys()) revalidatePath(`/kellerbuch/weinausbau/${id}`)
+  if (r.zielChargeId) revalidatePath(`/kellerbuch/weinausbau/${r.zielChargeId}`)
+  return {
+    verschnitt: {
+      verschneidungId: r.verschneidungId ?? null, zielChargeId: r.zielChargeId ?? null, zielName: r.zielName ?? null,
+      unterschiede: p.wahl.unterschiede, qualitaetAbgestuft: r.qualitaetAbgestuft, herkunftAbgestuft: r.herkunftAbgestuft,
+      sortenHinweise: r.sortenHinweise ?? [],
+    },
+  }
+}
+
 // KAN-83: bestaetigung = Rückfrage „Prüfnummer gilt nicht mehr“ – nichts gebucht; mit pn_bestaetigt=1 erneut senden
-export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { existingChargeId: string; newChargeId: string; menge: number }; abstufung?: { von: string; nach: string; vonLabel: string; nachLabel: string }; bestaetigung?: string } | void> {
+// KAN-112: verschnitt = als Verschnitt gebucht (abweichender Wein im Ziel-Gebinde bzw. Quellen mit verschiedenen Merkmalen)
+export async function umziehen(fd: FormData): Promise<{ verschnitt?: UmzugVerschnitt; abstufung?: { von: string; nach: string; vonLabel: string; nachLabel: string }; bestaetigung?: string } | void> {
   const supabase = await createSupabaseServerClient()
 
   const { quellen, ziele } = leseZeilen(fd)
@@ -157,7 +224,8 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
   let quellRows: R[] = []
   {
     const { data: bRows, error: bErr } = await (supabase.from('weinausbau') as any)
-      .select('id, name, menge_liter, rebsorte').in('id', [...bedarf.keys()]).eq('tenant_id', tenantId)
+      .select('id, name, menge_liter, rebsorte, jahrgang, herkunft_code, qualitaetsstufe, zusatzbezeichnung, erzeugnis, status')
+      .in('id', [...bedarf.keys()]).eq('tenant_id', tenantId)
     if (bErr) throw new AktionsFehler(dbFehlerText(bErr, 'Quell-Chargen konnten nicht geladen werden'))
     quellRows = (bRows ?? []) as R[]
     for (const [id, menge] of bedarf) {
@@ -170,26 +238,41 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
     }
   }
 
+  // KAN-112 (Entscheidungen Jörgen 03.10.2026): Ziel-Charge je Ziel-Gebinde mit derselben Regel wie unten in Phase 2
+  // (waehleZielCharge, Quell-Chargen zählen nicht als Ziel). Weicht der Wein im Ziel-Gebinde in Rebsorte, Jahrgang,
+  // Herkunft oder Qualität ab bzw. weichen die Quellen untereinander ab, wird der Umzug sofort als Verschnitt gebucht
+  // (keine Zwischencharge mehr) – in die Anker-Charge bzw. bei leerem Gebinde in eine neue Charge.
+  const quellChargen = [...bedarf.keys()].map(id => quellRows.find(r => r.id === id) as R)
+  const quellIds = new Set(bedarf.keys())
+  const wahl: { z: ZielInput; vorhanden: R | null; istVerschnitt: boolean; unterschiede: Merkmal[] }[] = []
+  for (const z of ziele) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: vRaw, error: vErr } = await (supabase.from('weinausbau') as any)
+      .select('id, name, rebsorte, jahrgang, herkunft_code, qualitaetsstufe, zusatzbezeichnung, erzeugnis, menge_liter')
+      .eq('behaelter_id', z.behaelter_id)
+      .eq('aktiv', true)
+      .neq('status', 'abgeschlossen')
+      .eq('tenant_id', tenantId)
+    if (vErr) throw new AktionsFehler(dbFehlerText(vErr, 'Ziel-Chargen konnten nicht geladen werden'))
+    wahl.push({ z, ...waehleZielCharge(((vRaw ?? []) as R[]).filter(v => !quellIds.has(v.id)), quellChargen) })
+  }
+  if (wahl.some(w => w.istVerschnitt)) {
+    if (ziele.length > 1) {
+      throw new AktionsFehler('Dieser Umzug wäre ein Verschnitt (abweichender Wein im Ziel-Gebinde bzw. Quellen mit verschiedenen Merkmalen) – als Verschnitt geht er nur in genau ein Ziel-Gebinde. Bitte auf mehrere Umzüge aufteilen.')
+    }
+    return umzugAlsVerschnitt(supabase, tenantId, {
+      wahl: wahl[0], bedarf, quellChargen, schwund: Math.max(0, totalVon - totalNach), datum, notizen, umzugTyp,
+      pnBestaetigt: fd.get('pn_bestaetigt') === '1',
+    })
+  }
+
   // KAN-83 (01.10.2026): Zusammenführung mit einer Charge, die eine geltende Prüfnummer hat –
-  // VOR der ersten Buchung. Die Ziel-Charge wird mit derselben Regel bestimmt wie unten in
-  // Phase 2 (waehleZielCharge); Quell-Chargen selbst zählen dabei nicht als Ziel. Umzug in ein
-  // leeres Gebinde oder in eine neue Charge (Rebsortenmix → Verschneiden-Formular, das selbst
-  // nachfragt) bleibt ohne Rückfrage.
+  // VOR der ersten Buchung. Umzug in ein leeres Gebinde bleibt ohne Rückfrage (ein Verschnitt fragt im Service selbst).
   const pnNotizJeCharge = new Map<string, string>()
   {
-    const quellRebsorten = quellen.map(q => quellRows.find(r => r.id === q.weinausbau_id) as R)
-    const quellIds = new Set(quellen.map(q => q.weinausbau_id))
     const zielMenge = new Map<string, { name: string | null; liter: number }>()
-    for (const z of ziele) {
-      const { data: vRaw, error: vErr } = await (supabase.from('weinausbau') as any)
-        .select('id, name, rebsorte, menge_liter')
-        .eq('behaelter_id', z.behaelter_id)
-        .eq('aktiv', true)
-        .neq('status', 'abgeschlossen')
-        .eq('tenant_id', tenantId)
-      if (vErr) throw new AktionsFehler(dbFehlerText(vErr, 'Ziel-Chargen konnten nicht geladen werden'))
-      const { vorhanden, istRebsortenmix } = waehleZielCharge(((vRaw ?? []) as R[]).filter(v => !quellIds.has(v.id)), quellRebsorten)
-      if (!vorhanden || istRebsortenmix) continue
+    for (const { z, vorhanden } of wahl) {
+      if (!vorhanden) continue
       const bisher = zielMenge.get(vorhanden.id)
       zielMenge.set(vorhanden.id, { name: vorhanden.name ?? null, liter: (bisher?.liter ?? 0) + z.menge })
     }
@@ -204,7 +287,6 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
   }
 
   const batchId = crypto.randomUUID()
-  let verschneidungNeeded: { existingChargeId: string; newChargeId: string; menge: number } | undefined
   let abstufung: { von: string; nach: string; vonLabel: string; nachLabel: string } | undefined
 
   // ── Phase 1: Quellen validieren, reduzieren, Quelle-Records anlegen ──────────
@@ -267,22 +349,18 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
     charge: quellenDaten[i],
   }))
   for (const z of ziele) {
-    // WICHTIG: bewusst OHNE .maybeSingle() – sobald im Ziel-Gebinde bereits MEHR ALS EINE
-    // aktive Charge liegt (z.B. weil eine frühere Verschneidung nach einem Rebsortenmix noch
-    // nicht nachgezogen wurde), wirft .maybeSingle() bei >1 Treffern einen Fehler, der hier
-    // nur über `data` (nicht `error`) ausgelesen wurde – dadurch wurde `vorhanden` STILL
-    // schweigend null, der Rebsortenmix-Zweig nie erreicht und einfach eine weitere lose
-    // Charge angelegt, ohne je eine Verschneidung anzustoßen (Bugreport 5.8.2026: Immervoll
-    // 001 sammelte so nacheinander drei getrennte Chargen an, ohne dass der
-    // Verschneiden-Dialog auch nur EIN Mal ausgelöst wurde, obwohl die vorherigen Client-Fixes
-    // für den Redirect selbst bereits korrekt waren).
-    const { data: vorhandenRaw } = await (supabase.from('weinausbau') as any)
+    // WICHTIG: bewusst OHNE .maybeSingle() – im Ziel-Gebinde können mehrere aktive Chargen liegen
+    // (Bugreport 5.8.2026: .maybeSingle() lieferte dann still null und es entstand eine weitere lose Charge).
+    // KAN-112: Quell-Chargen zählen wie oben nicht als Ziel.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: vorhandenRaw, error: vorhandenErr } = await (supabase.from('weinausbau') as any)
       .select('*')
       .eq('behaelter_id', z.behaelter_id)
       .eq('aktiv', true)
       .neq('status', 'abgeschlossen')
       .eq('tenant_id', tenantId)
-    const vorhandenListe = (vorhandenRaw ?? []) as R[]
+    if (vorhandenErr) throw new AktionsFehler(dbFehlerText(vorhandenErr, 'Ziel-Chargen konnten nicht geladen werden'))
+    const vorhandenListe = ((vorhandenRaw ?? []) as R[]).filter(v => !quellIds.has(v.id))
 
     let nachWeinausbauId: string | null = null
     // KAN-145: Qualität der Ziel-Charge vor/nach der Zusammenführung (Momentaufnahme für den Storno; KAN-186: samt Zusatz/Erzeugnis)
@@ -295,11 +373,13 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
     let mostgewichtSnapshot: Record<string, unknown> = {}
     const zielVermerke: string[] = []
 
-    // Rebsortenmix-Check und Wahl der Anker-Charge: siehe waehleZielCharge
-    const { vorhanden, istRebsortenmix } = waehleZielCharge(vorhandenListe, quellenDaten)
+    // Anker-Charge: siehe waehleZielCharge – ein Verschnitt ist oben bereits abgezweigt (KAN-112), hier nur noch
+    // Zusammenführung in eine Charge mit denselben Merkmalen bzw. eine neue Charge im leeren Gebinde
+    const { vorhanden, istVerschnitt } = waehleZielCharge(vorhandenListe, quellenDaten)
+    if (istVerschnitt) throw new AktionsFehler('Der Inhalt des Ziel-Gebindes hat sich während des Umzugs geändert – bitte die Bestände im Umzug-Protokoll prüfen und erneut buchen.')
 
-    if (vorhanden && !istRebsortenmix) {
-      // Gleiche Rebsorte: direkt zusammenführen
+    if (vorhanden) {
+      // Gleiche Merkmale (KAN-112): direkt zusammenführen
       const altQualitaet = normalisiereQualitaet(vorhanden)
       const neueQualitaet = mischeQualitaet([altQualitaet, minQual])
       const chargeVermerke: string[] = []
@@ -352,37 +432,6 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
       // KAN-83: Prüfnummer der Ziel-Charge erlischt (nach Bestätigung, siehe oben)
       const pnNotiz = pnNotizJeCharge.get(vorhanden.id)
       if (pnNotiz) zielVermerke.push(pnNotiz)
-    } else if (vorhanden && istRebsortenmix) {
-      // Rebsortenmix: separate neue Charge anlegen, Verschneidung wird danach getriggert
-      const von0 = quellenDaten[0]
-      const { data: newChargeData, error: neuErr } = await (supabase.from('weinausbau') as any).insert({
-        tenant_id:            tenantId,
-        name:                 von0?.name ?? 'Umzug',
-        jahrgang:             von0?.jahrgang ?? null,
-        rebsorte:             von0?.rebsorte ?? null,
-        weinart:              von0?.weinart ?? 'unbekannt',
-        herkunft_code:        von0?.herkunft_code ?? null,
-        weingarten_id:        von0?.weingarten_id ?? null,
-        behaelter_id:         z.behaelter_id,
-        menge_liter:          z.menge,
-        // anfangsbestand_liter bleibt null: der Zugang wird bereits über den unten
-        // eingefügten keller_umzuege-"ziel"-Datensatz als Bewegung ("Zugang aus X")
-        // erfasst - ein zusätzlicher Anfangsbestand würde denselben Zugang doppelt
-        // zählen (siehe Bugreport 5.8.2026, Charge "Partywein Kängaru": Anfangsbestand
-        // +3350L UND Zugang aus A01 +3350L nebeneinander, Saldo dadurch um 3350L zu hoch).
-        anfangsbestand_liter: null,
-        ...qualitaetsSpalten(minQual),
-        status:               von0?.status ?? 'ausbau',
-        notizen:              `Umzug aus „${von0?.name ?? ''}"`,
-        aktiv:                true,
-        ...mostgewichtFuerNeu(anteileFuer(z.menge), zielVermerke),
-      }).select('id')
-      if (neuErr) throw new AktionsFehler(gebindeFehlerText((neuErr as R).message))
-      nachWeinausbauId = ((newChargeData as R[])?.[0] as R | undefined)?.id ?? null
-      herkunftNachher = (von0?.herkunft_code as string | null) ?? null
-      if (nachWeinausbauId) {
-        verschneidungNeeded = { existingChargeId: vorhanden.id, newChargeId: nachWeinausbauId, menge: z.menge }
-      }
     } else {
       const von0 = quellenDaten[0]
       const neueHerkunft = minHerkunft(quellenDaten.map(q => q.herkunft_code as string | null))
@@ -396,9 +445,8 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
         weingarten_id:        von0?.weingarten_id ?? null,
         behaelter_id:         z.behaelter_id,
         menge_liter:          z.menge,
-        // anfangsbestand_liter bleibt null - siehe Kommentar im Rebsortenmix-Zweig oben,
-        // derselbe Doppelzählungs-Bug betrifft auch diesen Zweig (neue Charge, kein
-        // bestehendes Ziel).
+        // anfangsbestand_liter bleibt null: der Zugang steht schon als keller_umzuege-"ziel"-Zeile im
+        // Bewegungsbuch – ein Anfangsbestand würde ihn doppelt zählen (Bugreport 5.8.2026, „Partywein Kängaru“).
         anfangsbestand_liter: null,
         ...qualitaetsSpalten(minQual),
         status:               von0?.status ?? 'ausbau',
@@ -437,7 +485,6 @@ export async function umziehen(fd: FormData): Promise<{ verschneidungNeeded?: { 
   revalidatePath('/kellerbuch')
   revalidatePath('/kellerbuch/umziehen')
   revalidatePath('/kellerbuch/behaelter', 'layout')
-  if (verschneidungNeeded) return { verschneidungNeeded }
   if (abstufung) return { abstufung }
 }
 

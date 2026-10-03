@@ -14,7 +14,7 @@ import { GEBINDEWECHSEL_OHNE } from '@/lib/kellerbuch/storno'
 import VerschneidungWidget from './VerschneidungWidget'
 import { ladeBewegungsgraph } from '@/lib/wein/blendKomposition'
 import { bestandNachEreignis, sortenAnteile, zusammensetzung } from '@/lib/wein/mischungsrechnung'
-import { quellGebindeDesVerschnitts, quellGebindeSchluessel, verschnittQuelleText, type Quellgebinde } from '@/lib/kellerbuch/quellGebinde'
+import { gebindeText, quellGebindeDesVerschnitts, quellGebindeSchluessel, verschnittQuelleText, type Quellgebinde } from '@/lib/kellerbuch/quellGebinde'
 import HerkunftJournalKarte from './HerkunftJournalKarte'
 import SchwundBuchenForm from './SchwundBuchenForm'
 import UmziehenWidget from '@/components/kellerbuch/UmziehenWidget'
@@ -118,7 +118,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
 
     // Verschneidungen: diese Charge als Ziel – KAN-77: mit Quell-Charge (Quellgebinde) und Qualität für das Badge
     tf((supabase.from('verschneidungen') as any)
-      .select('id, datum, notizen, ziel_weinausbau_id, quellen:verschneidung_quellen(quell_weinausbau_id, menge_liter, anteil_pct, quelle:quell_weinausbau_id(id, name, rebsorte, qualitaetsstufe, zusatzbezeichnung, erzeugnis))')
+      .select('id, datum, notizen, ziel_weinausbau_id, quellen:verschneidung_quellen(quell_weinausbau_id, menge_liter, anteil_pct, quell_behaelter_id, gebinde_rekonstruiert, quelle:quell_weinausbau_id(id, name, rebsorte, qualitaetsstufe, zusatzbezeichnung, erzeugnis))')
       .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
       .eq('ziel_weinausbau_id', id)
       .order('datum', { ascending: false })),
@@ -208,13 +208,16 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
   const quellGebinde: Map<string, Quellgebinde> = tenantId && verschneidungenEin.length > 0
     ? await quellGebindeDesVerschnitts(supabase, tenantId, verschneidungenEin.map(v => ({
       id: v.id, datum: v.datum ?? null, ziel_weinausbau_id: v.ziel_weinausbau_id ?? id,
-      quellen: ((v.quellen ?? []) as R[]).map(q => ({ quell_weinausbau_id: q.quell_weinausbau_id ?? (q.quelle as R | null)?.id ?? null })),
+      // KAN-112: Momentaufnahme des Gebindes am Verschnitt (Vorrang vor der Regel)
+      quellen: ((v.quellen ?? []) as R[]).map(q => ({ quell_weinausbau_id: q.quell_weinausbau_id ?? (q.quelle as R | null)?.id ?? null, quell_behaelter_id: q.quell_behaelter_id ?? null, gebinde_rekonstruiert: q.gebinde_rekonstruiert ?? null })),
     })))
     : new Map()
-  const gebindeDerQuelle = (v: R, q: R): string | null => {
+  const quellGebindeVon = (v: R, q: R): Quellgebinde | null => {
     const qid = q.quell_weinausbau_id ?? (q.quelle as R | null)?.id
-    return qid ? quellGebinde.get(quellGebindeSchluessel(v.id, qid))?.name ?? null : null
+    return qid ? quellGebinde.get(quellGebindeSchluessel(v.id, qid)) ?? null : null
   }
+  // KAN-112: nachträglich ermitteltes Gebinde mit Hinweis „(Gebinde rekonstruiert)“
+  const gebindeDerQuelle = (v: R, q: R): string | null => { const g = quellGebindeVon(v, q); return gebindeText(g?.name, g?.rekonstruiert) }
 
   const anfangsbestand    = parseFloat(String(weinausbau.anfangsbestand_liter ?? 0)) || 0
   const aktuell           = parseFloat(String(weinausbau.menge_liter ?? 0)) || 0
@@ -280,7 +283,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
     const gesamtLiter = quellen.reduce((s: number, q: R) => s + (parseFloat(q.menge_liter) || 0), 0)
     if (gesamtLiter <= 0) continue
     // KAN-77: „Verschneidung von Grüner Veltliner Sandgrube (Stahltank 03) · 48 L“
-    const quellenText = quellen.map((q: R) => verschnittQuelleText((q.quelle as R | null)?.name, gebindeDerQuelle(v, q), `${fmtNum(parseFloat(q.menge_liter) || 0)} L`)).join(', ')
+    const quellenText = quellen.map((q: R) => { const g = quellGebindeVon(v, q); return verschnittQuelleText((q.quelle as R | null)?.name, g?.name, `${fmtNum(parseFloat(q.menge_liter) || 0)} L`, g?.rekonstruiert) }).join(', ')
     bewegungen.push({
       datum: v.datum,
       art: 'umziehen_ein',

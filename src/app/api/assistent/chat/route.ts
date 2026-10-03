@@ -109,10 +109,11 @@ NIEMALS ohne diese vorherige Bestätigung auf – auch nicht, wenn der Fall eind
 User Änderungswünsche äußert, passe die Zusammenfassung an und frage erneut.
 
 GANZ WICHTIG – Folgeeffekte bei Umziehen/Verschneiden: Diese beiden Prozesse können automatisch
-eine Qualitäts- oder Herkunfts-Abstufung auslösen, oder (bei Umziehen) signalisieren, dass wegen
-unterschiedlicher Rebsorten im Ziel-Gebinde jetzt eine Verschneidung nötig ist. Prüfe nach jedem
-Aufruf von "umziehen" oder "verschneiden" das Tool-Ergebnis auf abstufung/verschneidung_noetig und
-teile das dem User explizit in der finalen Antwort mit – nicht nur "erledigt, danke" melden.
+eine Qualitäts- oder Herkunfts-Abstufung auslösen; ein Umzug in ein Gebinde mit anderem Wein
+(Rebsorte, Jahrgang, Herkunft oder Qualität) wird sofort als Verschnitt gebucht. Prüfe nach jedem
+Aufruf von "umziehen" oder "verschneiden" das Tool-Ergebnis auf abstufung/verschnitt bzw.
+qualitaet_abgestuft/herkunft_abgestuft und teile das dem User explizit in der finalen Antwort mit –
+nicht nur "erledigt, danke" melden.
 
 GANZ WICHTIG – Wenn du etwas nicht findest: Wenn eine vom User genannte Charge, ein Behälter,
 Grundstück, Kontakt o.ä. NICHT (auch nicht sinngemäß) im Stammdaten-Kontext unten auftaucht, sag das
@@ -366,13 +367,14 @@ export async function POST(req: NextRequest) {
         })
           if (e) void ereignisMelden({ art: 'db', quelle: 'chat/assistent_aktionen', meldung: e.message }) }
       } else if (ergebnis?.erfolg && toolUse.name === 'umziehen' && (toolUse.input as R)?.weinausbau_id) {
-        // umziehen() liefert keine eigene neue ID zurück (nur optionale Folgeeffekt-Hinweise) –
-        // als ziel_id daher die Quell-Charge aus dem Tool-Aufruf selbst verwenden.
+        // umziehen() liefert für einen Umzug keine eigene neue ID zurück – als ziel_id daher die Quell-Charge aus dem
+        // Tool-Aufruf; KAN-112: als Verschnitt gebucht → die Verschneidung (ziel_id passt zur ziel_tabelle, vgl. N6)
+        const vId = (ergebnis.verschnitt as R | null)?.verschneidung_id as string | null | undefined
         { const { error: e } = await (supabase.from('assistent_aktionen') as any).insert({
           unterhaltung_id: unterhaltungId,
           prozess: 'umziehen',
-          ziel_tabelle: 'keller_umzuege',
-          ziel_id: String((toolUse.input as R).weinausbau_id),
+          ziel_tabelle: vId ? 'verschneidungen' : 'keller_umzuege',
+          ziel_id: vId ?? String((toolUse.input as R).weinausbau_id),
           erstellt_von: user.id,
         })
           if (e) void ereignisMelden({ art: 'db', quelle: 'chat/assistent_aktionen', meldung: e.message }) }

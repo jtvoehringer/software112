@@ -10,13 +10,13 @@
 // Ruft am Ende dieselbe Server Action (umziehen) mit denselben Parametern auf
 // (jeweils als Ein-Element-Array), die auch das bestehende Formular übergibt.
 //
-// WICHTIG – Folgeeffekte (Konzeptdokument Abschnitt 3b): Umziehen kann
-// automatisch (a) eine Qualitäts-Abstufung auslösen, wenn im Ziel-Gebinde
-// bereits eine Charge derselben Rebsorte liegt, oder (b) signalisieren, dass
-// wegen unterschiedlicher Rebsorten im Ziel-Gebinde jetzt eine Verschneidung
-// nötig ist (neue, separate Charge wurde angelegt). Der Handler gibt beides
-// 1:1 zurück, der System-Prompt weist den Bot an, dies dem User explizit
-// mitzuteilen statt nur "erledigt" zu melden.
+// WICHTIG – Folgeeffekte (Konzeptdokument Abschnitt 3b): Liegt im Ziel-Gebinde
+// Wein mit anderer Rebsorte, anderem Jahrgang, anderer Herkunft oder Qualität,
+// bucht umziehen() den Umzug seit KAN-112 sofort als Verschnitt in die Charge
+// dort (keine Zwischencharge, kein eigener Verschneiden-Schritt mehr) – samt
+// möglicher Qualitäts-/Herkunfts-Abstufung und Sortenhinweisen. Der Handler gibt
+// das als verschnitt zurück, der System-Prompt weist den Bot an, dies dem User
+// explizit mitzuteilen statt nur "erledigt" zu melden.
 import { umziehen } from '@/app/(dashboard)/kellerbuch/umziehen/actions'
 import { ladeBehaelterEinzeln } from '@/lib/keller/behaelter'
 import { getCurrentMembership } from '@/lib/auth/roles'
@@ -36,13 +36,14 @@ gesamte Chargenbestand sein für einen Teilumzug), ziel_behaelter_id (pflicht, I
 Ziel-Gebindes aus BEHÄLTER/GEBINDE im Stammdaten-Kontext), umzug_typ (optional:
 normal/filtration, Standard normal), notizen (optional).
 
-GANZ WICHTIG: Liegt im Ziel-Gebinde bereits eine Charge, kann das automatisch (a) eine
-Qualitäts-Abstufung auslösen (bei gleicher Rebsorte werden die Chargen zusammengeführt und
-übernehmen die niedrigere Qualitätsstufe), oder (b) bedeuten, dass wegen unterschiedlicher
-Rebsorten jetzt eine Verschneidung nötig ist (Ergebnis enthält dann verschneidung_noetig).
-Diese Information MUSST du dem User nach dem Speichern explizit mitteilen. Bei
-verschneidung_noetig biete an, die Verschneidung gleich im Anschluss mit dem Tool
-"verschneiden" zu erledigen.
+GANZ WICHTIG: Liegt im Ziel-Gebinde bereits eine Charge mit denselben Merkmalen (Rebsorte,
+Jahrgang, Herkunft, Qualität), werden die Chargen zusammengeführt. Weicht der Wein dort in einem
+dieser Merkmale ab, bucht das Tool den Umzug SOFORT als Verschnitt in die Charge im Ziel-Gebinde
+(KAN-112) – das Ergebnis enthält dann verschnitt (Ziel-Charge, abweichende Merkmale, ggf.
+Qualitäts-/Herkunfts-Abstufung und Hinweise zu Rebsorte/Jahrgang). Weise den User deshalb VOR der
+Bestätigung darauf hin, wenn im Ziel-Gebinde anderer Wein liegt, und teile ihm nach dem Speichern
+den Verschnitt samt Abstufungen explizit mit. Ein eigener Aufruf von "verschneiden" ist danach
+NICHT nötig.
 
 PRÜFNUMMER (KAN-83): Wird der Wein mit einer Charge zusammengeführt, die eine geltende staatliche
 Prüfnummer hat, bucht das Tool nicht, sondern meldet bestaetigung_noetig mit einer Rückfrage
@@ -143,9 +144,19 @@ export async function fuehreUmziehenAus(
           'zustimmt, dieses Tool erneut mit pruefnummer_verlust_bestaetigt=true aufrufen. Es wurde NICHTS gespeichert.',
       }
     }
+    const v = (result as R | undefined)?.verschnitt as R | undefined
     return {
       erfolg: true,
-      verschneidung_noetig: (result as R | undefined)?.verschneidungNeeded ?? null,
+      // KAN-112: als Verschnitt gebucht (früher nur Hinweis auf einen eigenen Verschneiden-Schritt)
+      verschnitt: v ? {
+        verschneidung_id: v.verschneidungId ?? null,
+        ziel_weinausbau_id: v.zielChargeId ?? null,
+        ziel_charge: v.zielName ?? null,
+        abweichende_merkmale: v.unterschiede ?? [],
+        qualitaet_abgestuft: v.qualitaetAbgestuft ?? null,
+        herkunft_abgestuft: v.herkunftAbgestuft ?? null,
+        sorten_hinweise: v.sortenHinweise ?? [],
+      } : null,
       abstufung: (result as R | undefined)?.abstufung ?? null,
     }
   } catch (err) {

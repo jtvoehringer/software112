@@ -102,7 +102,8 @@ describe('Verdrahtung (Quelltext)', () => {
     const q = quelle('src/app/(dashboard)/kellerbuch/umziehen/actions.ts')
     assert.match(q, /mostgewichtZusammenfuehren\(vorhanden, parseFloat\(vorhanden\.menge_liter\) \|\| 0, anteileFuer\(z\.menge\)\)/)
     assert.match(q, /\.\.\.\(mg\.werte \?\? \{\}\)/)
-    assert.equal((q.match(/\.\.\.mostgewichtFuerNeu\(anteileFuer\(z\.menge\), zielVermerke\)/g) ?? []).length, 2)
+    // KAN-112: der Zwischencharge-Zweig entfällt – nur noch die neue Charge im leeren Gebinde
+    assert.equal((q.match(/\.\.\.mostgewichtFuerNeu\(anteileFuer\(z\.menge\), zielVermerke\)/g) ?? []).length, 1)
     assert.match(q, /\.\.\.mostgewichtSnapshot,/)
   })
   test('Gebinde-Umzug (Bearbeiten) macht dasselbe', () => {
@@ -111,10 +112,12 @@ describe('Verdrahtung (Quelltext)', () => {
     assert.match(q, /mostgewichtNeu\(umzugAnteile\(e, quellCharge, z\.menge_netto\)\)/)
     assert.match(q, /\.\.\.mostgewichtSnapshot,/)
   })
-  test('Verschnitt: Mittel über Ziel und Quellen, Momentaufnahme am Verschnitt', () => {
-    const q = quelle('src/app/(dashboard)/kellerbuch/actions.ts')
-    assert.match(q, /\.\.\.verschnittMomentaufnahme\(zielVorher\)/)
-    assert.match(q, /const mg = mostgewichtZusammenfuehren\(zielVorher, aktuell,/)
+  test('Verschnitt: Mittel über Ziel und Quellen (bzw. nur Quellen bei neuer Charge), Momentaufnahme in der RPC', () => {
+    // KAN-112: Fachwerte in verschnittWerte.ts; die Momentaufnahme (ziel_kmw_vorher …) nimmt s112_verschnitt_buchen aus der gesperrten Zeile
+    const q = quelle('src/lib/kellerbuch/verschnittWerte.ts')
+    assert.match(q, /const mg = mostgewichtZusammenfuehren\(ziel, zielBestand, anteile\)/)
+    assert.match(q, /const mg = mostgewichtNeu\(anteile\)/)
+    assert.match(q, /\.\.\.\(mgWerte \?\? \{\}\)/)
   })
   test('Storno lädt die Momentaufnahmen und das Mostgewicht der Chargen (auch für die Rücknahme bei Fehlern)', () => {
     const q = quelle('src/lib/kellerbuch/storno.ts')

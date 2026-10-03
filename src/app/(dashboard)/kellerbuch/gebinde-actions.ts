@@ -21,6 +21,7 @@ import { GRUND_BEARBEITET, stornoGrundFehler } from '@/lib/storno/grund'
 import { mostgewichtAusFormular, mostgewichtSpalten } from '@/lib/wein/mostgewichtFormular'
 import { mostgewichtNeu, mostgewichtZusammenfuehren, teilweiseVermerk, umzugMomentaufnahme, type Anteil } from '@/lib/kellerbuch/mostgewichtKette'
 import { wienHeute } from '@/lib/csv'
+import { waehleZielCharge } from '@/lib/kellerbuch/umzugZiel'
 import { herkunftKnoten } from '@/lib/herkunft'
 import { eroeffnungsStichtagFehler, eroeffnungsZeitpunkt, standardEroeffnungsStichtag } from '@/lib/kellerbuch/eroeffnungsStichtag'
 import { ladeGebindeStand } from '@/lib/kellerbuch/eroeffnungsGebinde'
@@ -489,7 +490,37 @@ async function pruefeUmzug(
       throw new AktionsFehler(`Brutto (${fmtNum(menge, { max: 2 })} L) für Charge „${wa.name}“ übersteigt den Bestand (${fmtNum(verfuegbar, { max: 2 })} L).`)
     }
   }
+
+  // KAN-112: Ein Umzug in ein Gebinde mit abweichendem Wein (Rebsorte, Jahrgang, Herkunft, Qualität) bzw. aus Quellen
+  // mit verschiedenen Merkmalen ist ein Verschnitt – beim Bearbeiten (Storno + Neubuchung) nicht still eine zweite
+  // Charge ins Gebinde legen, sondern ablehnen. Chargen, die der Storno der bisherigen Buchung leert, zählen nicht.
+  for (const z of e.ziele) {
+    const tank = await zielChargenImGebinde(supabase, tenantId, z.behaelter_id, bedarf)
+    const { istVerschnitt } = waehleZielCharge(tank.filter(c => (verfuegbarNach?.get(c.id) ?? 1) > 0.01), [...quellCharge.values()])
+    if (istVerschnitt) throw new AktionsFehler(UMZUG_WAERE_VERSCHNITT)
+  }
   return { quellCharge, bedarf }
+}
+
+const UMZUG_WAERE_VERSCHNITT = 'Dieser Umzug wäre ein Verschnitt – bitte stornieren und über ‚Umziehen‘ neu buchen.'
+
+/** KAN-112: aktive Chargen im Ziel-Gebinde (ohne die Quellen des Umzugs) – Grundlage für waehleZielCharge */
+async function zielChargenImGebinde(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  tenantId: string,
+  behaelterId: string,
+  quellen: Map<string, number>,
+): Promise<R[]> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.from('weinausbau') as any)
+    .select('id, name, menge_liter, rebsorte, jahrgang, herkunft_code, qualitaetsstufe, zusatzbezeichnung, erzeugnis, kmw, oechsle, mostgewicht_einheit')
+    .eq('behaelter_id', behaelterId)
+    .eq('aktiv', true)
+    .neq('status', 'abgeschlossen')
+    .eq('tenant_id', tenantId)
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Ziel-Chargen konnten nicht geladen werden'))
+  return ((data ?? []) as R[]).filter(c => !quellen.has(c.id))
 }
 
 /** Umzug buchen (Nebenweg des Bearbeiten-Formulars; der Hauptweg ist umziehen/actions.ts) */
@@ -553,29 +584,13 @@ async function umzugAnlegen(
   const hauptQuelle = quellCharge.get(e.quellen[0].weinausbau_id)
 
   for (const z of e.ziele) {
-    // Bestehendes Lot im Ziel-Gebinde suchen (Name + Jahrgang).
-    // WICHTIG: .eq('jahrgang', null) matched bei PostgREST NIE echte NULL-Werte – für
-    // Chargen ohne Jahrgang (z.B. NV-Cuvées) muss .is() verwendet werden, sonst wird
-    // nie das bestehende Lot gefunden und stattdessen jedes Mal ein neues angelegt.
-    let existingQuery = (supabase.from('weinausbau') as any)
-      .select('id, menge_liter, rebsorte, kmw, oechsle, mostgewicht_einheit')
-      .eq('behaelter_id', z.behaelter_id)
-      .eq('name', hauptQuelle?.name ?? '')
-      .eq('aktiv', true)
-      .eq('tenant_id', tenantId)
-    existingQuery = (hauptQuelle?.jahrgang == null)
-      ? existingQuery.is('jahrgang', null)
-      : existingQuery.eq('jahrgang', hauptQuelle.jahrgang)
-    const { data: existingArr, error: exErr } = await existingQuery.limit(1)
-    if (exErr) throw new AktionsFehler(dbFehlerText(exErr, 'Ziel-Charge konnte nicht geladen werden'))
-    let existing: R | null = ((existingArr ?? []) as R[])[0] ?? null
-
-    // Rebsortenmix-Schutz: nicht blind in ein Lot mit anderer Rebsorte mischen (wie umziehen()
-    // es für den normalen "neuer Umzug"-Weg bereits verhindert) – sonst würde beim Bearbeiten
-    // eines Umzugs eine Verschneidung ohne Verschneidungs-Workflow/Kennzeichnung entstehen.
-    if (existing && hauptQuelle?.rebsorte && existing.rebsorte && existing.rebsorte !== hauptQuelle.rebsorte) {
-      existing = null
-    }
+    // KAN-112: Ziel-Charge mit derselben Regel wie umziehen() (waehleZielCharge) – gleiche Merkmale → zusammenführen,
+    // leeres Gebinde → neue Charge; ein Verschnitt ist oben in pruefeUmzug abgelehnt (bisher: Suche nach Name + Jahrgang,
+    // bei anderer Rebsorte still eine zweite Charge im Gebinde)
+    const tank = await zielChargenImGebinde(supabase, tenantId, z.behaelter_id, bedarf)
+    const wahl = waehleZielCharge(tank, [...quellCharge.values()])
+    if (wahl.istVerschnitt) throw new AktionsFehler(UMZUG_WAERE_VERSCHNITT)
+    const existing: R | null = wahl.vorhanden
     let nachWeinausbauId: string | null = null
     // KAN-130 Etappe 2: Mostgewicht – Momentaufnahme an der Zielzeile, Vermerk bei „teilweise“
     let mostgewichtSnapshot: R = {}
@@ -602,6 +617,9 @@ async function umzugAnlegen(
           name:                 hauptQuelle?.name ?? 'Unbekannt',
           jahrgang:             hauptQuelle?.jahrgang ?? null,
           rebsorte:             hauptQuelle?.rebsorte ?? null,
+          // KAN-112: Herkunft und Weinart wie die (gleichen) Quellen – sonst wiche die neue Charge von ihnen ab
+          herkunft_code:        hauptQuelle?.herkunft_code ?? null,
+          weinart:              hauptQuelle?.weinart ?? 'unbekannt',
           ...qualitaetsSpalten(normalisiereQualitaet(hauptQuelle)),   // KAN-186: samt Zusatz/Erzeugnis, nie ein Altwert
           status:               hauptQuelle?.status && hauptQuelle.status !== 'abgeschlossen' ? hauptQuelle.status : 'ausbau',
           behaelter_id:         z.behaelter_id,
@@ -632,14 +650,6 @@ async function umzugAnlegen(
     })
     if (zErr) throw new AktionsFehler(dbFehlerText(zErr, 'Speichern fehlgeschlagen (keller_umzuege)'))
   }
-}
-
-export async function createUmzug(formData: FormData) {
-  const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId()
-  await umzugAnlegen(supabase, tenantId, leseUmzugEingabe(formData))
-  revalidatePath('/kellerbuch')
-  revalidatePath('/kellerbuch/gebinde')
 }
 
 function revalidiereUmzug(plan?: UmzugStornoPlan) {

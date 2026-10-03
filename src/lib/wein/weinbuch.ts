@@ -205,7 +205,7 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
 
     tf((supabase.from('verschneidungen') as any)
       .select(`id, datum, notizen, ziel_weinausbau_id, storniert_am, storno_grund, storniert_von_name,
-        quellen:verschneidung_quellen(quell_weinausbau_id, menge_liter, anteil_pct,
+        quellen:verschneidung_quellen(quell_weinausbau_id, menge_liter, anteil_pct, quell_behaelter_id, gebinde_rekonstruiert,
           quelle:quell_weinausbau_id(id, name, rebsorte))`)
       // storno-sichtbar: das Weinbuch zeigt die Buchung (gekennzeichnet) und den Storno (KAN-145 B2b)
       .eq('ziel_weinausbau_id', id)
@@ -560,15 +560,17 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
   const quellGebinde = tenantId && verschnEin.length > 0
     ? await quellGebindeDesVerschnitts(supabase, tenantId, verschnEin.map((v: R) => ({
       id: v.id, datum: v.datum ?? null, ziel_weinausbau_id: v.ziel_weinausbau_id ?? id,
-      quellen: ((v.quellen ?? []) as R[]).map((q: R) => ({ quell_weinausbau_id: q.quell_weinausbau_id ?? (q.quelle as R | null)?.id ?? null })),
+      // KAN-112: Momentaufnahme des Gebindes am Verschnitt (Vorrang vor der Regel)
+      quellen: ((v.quellen ?? []) as R[]).map((q: R) => ({ quell_weinausbau_id: q.quell_weinausbau_id ?? (q.quelle as R | null)?.id ?? null, quell_behaelter_id: q.quell_behaelter_id ?? null, gebinde_rekonstruiert: q.gebinde_rekonstruiert ?? null })),
     })))
-    : new Map<string, { name: string | null }>()
+    : new Map<string, { name: string | null; rekonstruiert?: true }>()
   for (const v of verschnEin) {
     merkeStorno(v)
     const quelleTexte = ((v.quellen ?? []) as R[]).map((q: R) => {
       const qid = q.quell_weinausbau_id ?? (q.quelle as R | null)?.id
-      const gebinde = qid ? quellGebinde.get(quellGebindeSchluessel(v.id, qid))?.name ?? null : null
-      return `Verschneidung von ${verschnittQuelleText((q.quelle as R | null)?.name, gebinde, `${fmtNum(parseFloat(q.menge_liter ?? 0))} L`)}`
+      const g = qid ? quellGebinde.get(quellGebindeSchluessel(v.id, qid)) ?? null : null
+      // KAN-112: nachträglich ermitteltes Gebinde mit Hinweis „Gebinde rekonstruiert“
+      return `Verschneidung von ${verschnittQuelleText((q.quelle as R | null)?.name, g?.name ?? null, `${fmtNum(parseFloat(q.menge_liter ?? 0))} L`, g?.rekonstruiert)}`
     })
     events.push({
       datum: v.datum,

@@ -7,7 +7,7 @@
 // 2. waehleZielCharge (src/lib/kellerbuch/umzugZiel.ts): Zusammenführung vs. Rebsortenmix.
 // 3. umziehen() gegen die Supabase-Attrappe (buchung-attrappe.mjs):
 //    - Quelle je Charge: die zweite Charge eines Gebindes wird gebucht (KAN-94)
-//    - Zusammenführung Riedenwein + Gebietswein → Gebietswein, Audit-Spalten, Notiz (KAN-94)
+//    - Gebietswein in Riedenwein-Tank → seit KAN-112 sofort Verschnitt (RPC-Attrappe verschnitt-attrappe.mjs)
 //    - Update ohne Treffer (RLS) bricht ab statt still weiterzubuchen (KAN-94)
 //    - Prüfnummer: ohne Bestätigung nichts gebucht, mit Bestätigung Vermerk; eingereicht → Ablehnung;
 //      Umzug in ein leeres Gebinde ohne Rückfrage (KAN-83)
@@ -22,6 +22,7 @@ import { fileURLToPath } from 'node:url'
 import {
   DOPPEL, hooksRegistrieren, laden, nurMitHooks, hooksMoeglich, datenbank, uuid, zeile,
 } from './buchung-attrappe.mjs'
+import { verschnittRpc } from './verschnitt-attrappe.mjs'
 
 const modul = code => 'data:text/javascript,' + encodeURIComponent(code)
 DOPPEL['@/lib/auth/seitenBetrieb'] = modul('export const pruefeSeitenBetrieb = async () => {}')
@@ -99,21 +100,23 @@ describe('pruefnummernSchaden (KAN-83)', nurMitHooks, () => {
 
 // ── 2. waehleZielCharge ──────────────────────────────────────────────────────
 
-describe('waehleZielCharge (KAN-94/KAN-83)', nurMitHooks, () => {
+describe('waehleZielCharge (KAN-94/KAN-83, KAN-112)', nurMitHooks, () => {
   const v = (id, rebsorte, menge) => ({ id, rebsorte, menge_liter: menge })
   test('gleiche Rebsorte → Zusammenführung, auch wenn eine größere andere Charge daneben liegt', () => {
     const r = uz.waehleZielCharge([v('a', 'Grüner Veltliner', 900), v('b', 'Riesling', 100)], [{ rebsorte: 'Riesling' }])
     assert.equal(r.vorhanden.id, 'b')
-    assert.equal(r.istRebsortenmix, false)
+    assert.equal(r.istVerschnitt, false)
   })
-  test('andere Rebsorte bzw. Charge ohne Rebsorte → Rebsortenmix mit der größten Charge', () => {
+  test('andere Rebsorte bzw. Charge ohne Rebsorte → Verschnitt in die größte Charge', () => {
     const r = uz.waehleZielCharge([v('a', 'Grüner Veltliner', 900), v('b', null, 100)], [{ rebsorte: 'Riesling' }])
     assert.equal(r.vorhanden.id, 'a')
-    assert.equal(r.istRebsortenmix, true)
+    assert.equal(r.istVerschnitt, true)
+    assert.deepEqual(r.unterschiede, ['Rebsorte'])
   })
-  test('leeres Gebinde → keine Ziel-Charge; mehrere Quellen → nie Rebsortenmix', () => {
-    assert.deepEqual(uz.waehleZielCharge([], [{ rebsorte: 'Riesling' }]), { vorhanden: null, istRebsortenmix: false })
-    assert.equal(uz.waehleZielCharge([v('a', 'Grüner Veltliner', 1)], [{ rebsorte: 'Riesling' }, { rebsorte: 'Riesling' }]).istRebsortenmix, false)
+  test('leeres Gebinde → keine Ziel-Charge; KAN-112: mehrere gleiche Quellen in ein Gebinde mit anderem Wein → Verschnitt', () => {
+    assert.deepEqual(uz.waehleZielCharge([], [{ rebsorte: 'Riesling' }]), { vorhanden: null, istVerschnitt: false, unterschiede: [] })
+    // bis KAN-112 ergaben mehrere Quellen nie einen Rebsortenmix (Entscheidung Jörgen 03.10.2026: jetzt Verschnitt)
+    assert.equal(uz.waehleZielCharge([v('a', 'Grüner Veltliner', 1)], [{ rebsorte: 'Riesling' }, { rebsorte: 'Riesling' }]).istVerschnitt, true)
   })
 })
 
@@ -160,7 +163,9 @@ function mitSingle(o) {
 }
 
 function db(t, opt = {}) {
-  const d = datenbank(t, { rpc: async name => name === 'lade_behaelter' ? { data: [gebinde(G1), gebinde(G2), gebinde(G3)], error: null } : { data: null, error: { message: name } }, ...opt })
+  const d = datenbank(t, { rpc: async (name, args) => name === 'lade_behaelter' ? { data: [gebinde(G1), gebinde(G2), gebinde(G3)], error: null }
+    : name === 's112_verschnitt_buchen' ? verschnittRpc(t, args)   // KAN-112
+    : { data: null, error: { message: name } }, ...opt })
   const from = d.from
   d.from = tabelle => mitSingle(from(tabelle))
   globalThis.__serverFake = d
@@ -199,20 +204,29 @@ describe('umziehen() – KAN-94', nurMitHooks, () => {
     assert.equal(zz.herkunft_code_nachher, 'kamptal_gebietswein')
   })
 
-  test('Zusammenführung Riedenwein + Gebietswein ergibt Gebietswein; Audit-Spalten und Notiz gesetzt', async () => {
+  test('KAN-112: Gebietswein in ein Gebinde mit Riedenwein derselben Sorte → sofort Verschnitt (Herkunft weicht ab), Schwund an der Quelle', async () => {
     const d = db(tabellen())
-    await um.umziehen(umzugFd([{ weinausbau_id: A2, menge: 300 }], [{ behaelter_id: G2, menge: 300 }]))
+    // bis KAN-112: Zusammenführung mit Herkunft-Abstufung am Umzug; jetzt Verschnitt über die RPC (Entscheidung Jörgen 03.10.2026)
+    const r = await um.umziehen(umzugFd([{ weinausbau_id: A2, menge: 300 }], [{ behaelter_id: G2, menge: 290 }]))
+    assert.equal(r.verschnitt.zielChargeId, Z)
+    assert.deepEqual(r.verschnitt.unterschiede, ['Herkunft'])
+    assert.deepEqual(r.verschnitt.herkunftAbgestuft, { von: 'kamptal_riedenwein', nach: 'kamptal_gebietswein' })
     const ziel = zeile(d, 'weinausbau', Z)
-    assert.equal(ziel.menge_liter, 800)
+    assert.equal(ziel.menge_liter, 790)
     assert.equal(ziel.herkunft_code, 'kamptal_gebietswein')
-    assert.match(ziel.notizen, /^Abstufung Herkunft-Code \(BKI\) von .*Riedenwein auf .*Gebietswein \(Zusammenführung per Umziehen\)$/)
-    const zz = d.tabellen.keller_umzuege.find(u => u.zeilen_typ === 'ziel')
-    assert.equal(zz.nach_weinausbau_id, Z)
-    assert.equal(zz.herkunft_code_vorher, 'kamptal_riedenwein')
-    assert.equal(zz.herkunft_code_nachher, 'kamptal_gebietswein')
-    assert.match(zz.notizen, /^Abstufung Herkunft-Code \(BKI\)/)
-    const q = d.tabellen.keller_umzuege.find(u => u.zeilen_typ === 'quelle')
-    assert.equal(q.herkunft_code_vorher, 'kamptal_gebietswein')
+    // keine Umzugszeilen, kein Zwischencharge – ein Verschnitt samt Schwundbuchung an der Quelle
+    assert.equal(d.tabellen.keller_umzuege.filter(u => u.zeilen_typ).length, 0)
+    assert.equal(d.tabellen.weinausbau.length, 3)
+    const vs = d.tabellen.verschneidungen[0]
+    assert.equal(vs.ziel_weinausbau_id, Z)
+    assert.match(vs.notizen, /^Umzug als Verschnitt gebucht \(abweichend: Herkunft\)\nAbstufung Herkunft-Code \(BKI\) von .*Riedenwein auf .*Gebietswein/)
+    const vq = d.tabellen.verschneidung_quellen[0]
+    assert.deepEqual([vq.quell_weinausbau_id, vq.menge_liter, vq.quell_behaelter_id], [A2, 290, G1])
+    const schwund = d.tabellen.keller_umzuege.find(u => u.id === vq.schwund_umzug_id)
+    assert.deepEqual([schwund.umzug_typ, schwund.schwund_liter, schwund.von_weinausbau_id], ['schwund', 10, A2])
+    const rpc = d.aufrufe.find(a => a.tabelle === 'rpc:s112_verschnitt_buchen')
+    assert.equal(rpc.werte.p_kopf.ziel_menge_erwartet, 500)
+    assert.deepEqual(rpc.werte.p_quellen, [{ weinausbau_id: A2, menge_liter: 290, schwund_liter: 10, menge_erwartet: 300 }])
     // Quelle ganz umgezogen → abgeschlossen
     assert.equal(zeile(d, 'weinausbau', A2).aktiv, false)
   })

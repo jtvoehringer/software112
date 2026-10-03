@@ -30,7 +30,7 @@ import { fmtNum } from '@/lib/format'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { imZeitraum, num, tag, text, type R, type Zeitraum } from './kellerbuch-hilfen'
 import { eroeffnungsTag, istFlaschenEroeffnung } from '@/lib/kellerbuch/eroeffnungsStichtag'
-import { quellGebindeAusDaten, quellGebindeDesVerschnitts, quellGebindeSchluessel, type Quellgebinde, type UmzugGebinde, type VerschnittGebinde } from '@/lib/kellerbuch/quellGebinde'
+import { GEBINDE_REKONSTRUIERT, quellGebindeAusDaten, quellGebindeDesVerschnitts, quellGebindeSchluessel, type Quellgebinde, type UmzugGebinde, type VerschnittGebinde } from '@/lib/kellerbuch/quellGebinde'
 
 export type BewegungsArt =
   | 'uebertrag' | 'anfangsbestand' | 'zukauf' | 'pressung' | 'umzug_ein' | 'umzug_aus' | 'filtration_ein'
@@ -193,7 +193,7 @@ async function ladeRoh(supabase: any, tenantId: string, behaelterId: string): Pr
         .in('quell_weinausbau_id', ids)
         .order('id', { ascending: true }), 'verschneidung_quellen'),
       liste((supabase.from('verschneidungen') as any)
-        .select('id, datum, notizen, ziel_weinausbau_id, storniert_am, storno_grund, storniert_von_name, quellen:verschneidung_quellen(quell_weinausbau_id, menge_liter, quelle:quell_weinausbau_id(name, behaelter:behaelter_id(name)))')
+        .select('id, datum, notizen, ziel_weinausbau_id, storniert_am, storno_grund, storniert_von_name, quellen:verschneidung_quellen(quell_weinausbau_id, menge_liter, quell_behaelter_id, gebinde_rekonstruiert, quell_behaelter:quell_behaelter_id(name), quelle:quell_weinausbau_id(name, behaelter:behaelter_id(name)))')
         // storno-sichtbar: das Bewegungsbuch zeigt Buchung und Gegenbuchung (KAN-145 B2b)
         .eq('tenant_id', tenantId)
         .in('ziel_weinausbau_id', ids)
@@ -256,7 +256,8 @@ async function ladeRoh(supabase: any, tenantId: string, behaelterId: string): Pr
 function verschnittGebinde(v: R): VerschnittGebinde {
   return {
     id: v.id, datum: v.datum ?? null, ziel_weinausbau_id: v.ziel_weinausbau_id ?? null,
-    quellen: ((v.quellen ?? []) as R[]).map(q => ({ quell_weinausbau_id: q.quell_weinausbau_id ?? null })),
+    // KAN-112: Momentaufnahme des Gebindes am Verschnitt (Vorrang vor der Regel)
+    quellen: ((v.quellen ?? []) as R[]).map(q => ({ quell_weinausbau_id: q.quell_weinausbau_id ?? null, quell_behaelter_id: q.quell_behaelter_id ?? null, gebinde_rekonstruiert: q.gebinde_rekonstruiert ?? null })),
   }
 }
 
@@ -389,7 +390,8 @@ function bewegungenAus(roh: Roh): Bewegung[] {
       datum: tag(u.datum),
       art: istSchwund ? 'schwund' : filtration ? 'filtration_aus' : 'umzug_aus',
       beschreibung: istSchwund
-        ? `Schwund / Verlust${vonCharge?.name ? ` (${vonCharge.name})` : ''}`
+        // KAN-112: Schwund beim Verschnitt (eigene Schwundbuchung der Quelle, Vermerk der RPC s112_verschnitt_buchen)
+        ? `${String(u.notizen ?? '').startsWith('Schwund beim Verschnitt') ? 'Schwund beim Verschnitt' : 'Schwund / Verlust'}${vonCharge?.name ? ` (${vonCharge.name})` : ''}`
         : filtration ? `Filtration nach ${nach}${schwundText}` : `Umzug nach ${nach}${schwundText}`,
       menge: -liter(abgang),
       extra: istSchwund
@@ -508,10 +510,11 @@ function bewegungenAus(roh: Roh): Bewegung[] {
     if (gesamt <= 0) continue
     const quellenNamen = quellen.map((q: R) => {
       // KAN-77: Gebinde am Tag des Verschnitts; ohne Treffer (Charge ohne Gebinde) wie bisher das heutige
-      const beh = (q.quell_weinausbau_id ? roh.quellGebinde.get(quellGebindeSchluessel(v.id, q.quell_weinausbau_id))?.name : null)
-        ?? ((q.quelle as R | null)?.behaelter as R | null)?.name ?? null
+      const g = q.quell_weinausbau_id ? roh.quellGebinde.get(quellGebindeSchluessel(v.id, q.quell_weinausbau_id)) : undefined
+      const beh = g?.name ?? ((q.quelle as R | null)?.behaelter as R | null)?.name ?? null
       const n = (q.quelle as R | null)?.name ?? '?'
-      return beh ? `${beh} (${n})` : n
+      // KAN-112: nachträglich ermitteltes Gebinde mit Hinweis
+      return beh ? `${beh} (${n}${g?.name && g.rekonstruiert ? `, ${GEBINDE_REKONSTRUIERT}` : ''})` : n
     }).join(', ')
     bewegungen.push({
       datum: tag(v.datum),
@@ -687,7 +690,7 @@ export async function ladeBewegungenBetrieb(supabase: any, tenantId: string): Pr
       .select('id, menge_liter, quell_weinausbau_id, verschneidung:verschneidung_id(datum, notizen, tenant_id, storniert_am, storno_grund, storniert_von_name, ziel:ziel_weinausbau_id(name, behaelter:behaelter_id(name)))')
       .order('id', { ascending: true }), 'verschneidung_quellen'),
     liste((supabase.from('verschneidungen') as any)
-      .select('id, datum, notizen, ziel_weinausbau_id, storniert_am, storno_grund, storniert_von_name, ziel_qualitaet_vorher, ziel_zusatz_vorher, ziel_erzeugnis_vorher, ziel_rebsorte_vorher, ziel_jahrgang_vorher, quellen:verschneidung_quellen(quell_weinausbau_id, menge_liter, quelle:quell_weinausbau_id(name, behaelter:behaelter_id(name)))')
+      .select('id, datum, notizen, ziel_weinausbau_id, storniert_am, storno_grund, storniert_von_name, ziel_qualitaet_vorher, ziel_zusatz_vorher, ziel_erzeugnis_vorher, ziel_rebsorte_vorher, ziel_jahrgang_vorher, quellen:verschneidung_quellen(quell_weinausbau_id, menge_liter, quell_behaelter_id, gebinde_rekonstruiert, quell_behaelter:quell_behaelter_id(name), quelle:quell_weinausbau_id(name, behaelter:behaelter_id(name)))')
       // storno-sichtbar: Buchung und Gegenbuchung wie im Bewegungsbuch (KAN-145 B2b)
       .eq('tenant_id', tenantId)
       .not('ziel_weinausbau_id', 'is', null)
@@ -744,6 +747,10 @@ function quellGebindeBetrieb(verschnEin: readonly R[], umzuege: readonly R[], ch
   for (const u of umzuege) {
     if (u.von_behaelter_id && (u.von_behaelter as R | null)?.name) namen.set(u.von_behaelter_id, u.von_behaelter.name)
     if (u.nach_behaelter_id && (u.nach_behaelter as R | null)?.name) namen.set(u.nach_behaelter_id, u.nach_behaelter.name)
+  }
+  // KAN-112: Namen der Gebinde aus der Momentaufnahme am Verschnitt
+  for (const v of verschnEin) {
+    for (const q of (v.quellen ?? []) as R[]) if (q.quell_behaelter_id && (q.quell_behaelter as R | null)?.name) namen.set(q.quell_behaelter_id, q.quell_behaelter.name)
   }
   return quellGebindeAusDaten(verschnEin.map(verschnittGebinde), umzuege as UmzugGebinde[], gebindeJeCharge, namen)
 }
