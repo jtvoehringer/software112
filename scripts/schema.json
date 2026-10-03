@@ -887,6 +887,7 @@
 "land_iso",
 "rebsorte",
 "jahrgang",
+"charge_status",
 "hinweis",
 "erstellt_von",
 "erstellt_am"

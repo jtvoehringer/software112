@@ -1237,6 +1237,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('trigger',       '--S', false, 's112_journal_trg_zukauf()'),              -- KAN-40: ZK_FASS/ZK_MOST
     ('mandant',       '-US', true , 'journal_abgleichen(p_tenant_id uuid, p_mindestalter interval)'),   -- KAN-40: Korrektur INV_PLUS/INV_MIN
     ('mandant',       '-US', true , 'journal_eroeffnen(p_tenant_id uuid, p_stichtag date)'),   -- KAN-40: Journalbeginn + EROEFF
+    ('intern',        '--S', false, 'journal_rueckbefuellen(p_tenant_id uuid, p_ab date)'),   -- KAN-40 E2: Rückbefüllung nur Musterhof/Sandbox (nur Service-Role)
     ('mandant',       '-US', false, 'journal_konsistenz(p_tenant_id uuid)'),   -- KAN-40 (lesend, jedes Mitglied)
     ('trigger',       '--S', false, 's112_ama_rahmen()'),                      -- KAN-37 C: Stichtag/Abgabefrist aus dem Jahrgang
     ('trigger',       '--S', false, 's112_lese_meldesperre()'),

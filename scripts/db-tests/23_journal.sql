@@ -1,10 +1,12 @@
--- @bereich: Bewegungsjournal kellerbuch_buchungen (KAN-40 Etappe E1)
+-- @bereich: Bewegungsjournal kellerbuch_buchungen (KAN-40 Etappen E1/E2)
 -- @ziel: Ohne journal_ab schreiben die Trigger nichts. journal_eroeffnen nur als Betriebsleitung (tenant_admin/system_admin),
 -- @ziel: einmalig, bucht den Ist-Bestand als EROEFF (rekonstruiert). Danach erzeugen Umzug (als winzer, App-Reihenfolge:
 -- @ziel: Charge zuerst), Storno und Umstufung die erwarteten Zeilen mit gemeinsamer, lückenloser Belegnummer; journal_konsistenz
 -- @ziel: liefert 0 Abweichungen, nach einer direkten Mengenänderung genau eine, die journal_abgleichen als INV_PLUS bucht.
 -- @ziel: Benutzer lesen nur das Journal des eigenen Betriebs und schreiben nie direkt (R/T bzw. k0); UPDATE, DELETE und
 -- @ziel: TRUNCATE scheitern für jede Rolle (42501), DELETE nur als Wartung mit s112.loeschen_erlaubt = Betrieb.
+-- @ziel: E2: Statuswechsel Gärung ↔ Ausbau bucht ein Umstufungspaar mit dem Status als Merkmal; journal_rueckbefuellen
+-- @ziel: nur für Musterhof/Sandbox und nie für Benutzer (42501).
 -- @mutation journal_offen: Schutz-Trigger lässt alles durch und PERMISSIVE-Policy erlaubt INSERT | rot: direkt_.*|postgres_.*
 -- @mutation ohne_umstufung: s112_journal_umstufung bucht nichts | rot: umstufung.*
 -- @mutation ohne_gegenbuchung: s112_journal_gegenbuchen bucht nichts | rot: storno.*
@@ -154,6 +156,27 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('belege_lueckenlos',
     (SELECT max(k.beleg_nr) = count(DISTINCT k.beleg_nr) FROM public.kellerbuch_buchungen k WHERE k.tenant_id = v_b), true);
 
+  -- ── 6b. KAN-40 E2: Status Gärung ↔ Ausbau als Umstufungspaar, Status in jeder Zeile; Rückbefüllung nur Testbetriebe ─
+  PERFORM pg_temp.s112_fehlertext(format('UPDATE public.weinausbau SET status = %L WHERE id = %L', 'ausbau', v_c2));
+  PERFORM pg_temp.s112_als(v_bw);
+  PERFORM pg_temp.s112_fehlertext(format('UPDATE public.weinausbau SET status = %L WHERE id = %L', 'gaerung', v_c2));
+  PERFORM pg_temp.s112_fehlertext(format('UPDATE public.weinausbau SET status = %L WHERE id = %L', 'ausbau', v_c2));
+  PERFORM pg_temp.s112_als_postgres();
+  v_erg := v_erg || pg_temp.s112_erwarte('umstufung_status_most',
+    (SELECT string_agg(format('%s/%s', k.buchungsart_code, k.charge_status), ',' ORDER BY k.beleg_nr, k.pos)
+       FROM (SELECT * FROM public.kellerbuch_buchungen x WHERE x.tenant_id = v_b AND x.quelle_tabelle = 'weinausbau_merkmale' AND x.quelle_id = v_c2
+              ORDER BY x.beleg_nr DESC, x.pos DESC LIMIT 4) k),
+    'AB_ABW/ausbau,ZU_ABW/gaerung,AB_ABW/gaerung,ZU_ABW/ausbau');
+  v_erg := v_erg || pg_temp.s112_erwarte('status_im_journal',
+    (SELECT count(*) FROM public.kellerbuch_buchungen k JOIN public.weinausbau w ON w.id = k.weinausbau_id
+      WHERE k.tenant_id = v_b AND k.bestand = 'offen' AND k.charge_status IS NULL AND w.status IS NOT NULL), 0::bigint);
+  v_erg := v_erg || pg_temp.s112_erwarte('rueckbefuellen_fremd',
+    split_part(pg_temp.s112_fehlertext(format('SELECT public.journal_rueckbefuellen(%L)', v_b)), ':', 1), '42501');
+  PERFORM pg_temp.s112_als(v_bta);
+  v_erg := v_erg || pg_temp.s112_erwarte('rueckbefuellen_benutzer',
+    split_part(pg_temp.s112_fehlertext(format('SELECT public.journal_rueckbefuellen(%L)', v_b)), ':', 1), '42501');
+  PERFORM pg_temp.s112_als_postgres();
+
   -- ── 7. Lesen und direktes Schreiben als Benutzer ──────────────────────────────────────────────────────
   SELECT k.id INTO v_j FROM public.kellerbuch_buchungen k WHERE k.tenant_id = v_b ORDER BY k.beleg_nr, k.pos LIMIT 1;
   PERFORM pg_temp.s112_als(v_bl);
@@ -185,5 +208,5 @@ BEGIN
     pg_temp.s112_versuch(format('DELETE FROM public.kellerbuch_buchungen WHERE tenant_id = %L', v_b)), 'k' || pg_temp.t23_zeilen(v_b));
   PERFORM set_config('s112.loeschen_erlaubt', '', true);
 
-  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 35);
+  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 39);
 END $test$;
