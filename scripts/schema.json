@@ -277,6 +277,23 @@
 "wert",
 "aktualisiert_am"
 ],
+"charge_herkunft": [
+"tenant_id",
+"beleg_nr",
+"datum",
+"art",
+"nach_weinausbau_id",
+"nach_fuellung_id",
+"von_weinausbau_id",
+"zukauf_posten_id",
+"liter",
+"gegenbuchung",
+"quelle_tabelle",
+"quelle_id",
+"gruppe_id",
+"erstellt_am",
+"buchung_id"
+],
 "checklisten": [
 "id",
 "tenant_id",
@@ -852,6 +869,14 @@
 "storniert_von",
 "storniert_von_name",
 "storno_grund"
+],
+"kellerbuch_abschluesse": [
+"id",
+"tenant_id",
+"abgeschlossen_bis",
+"abgeschlossen_am",
+"abgeschlossen_von",
+"bemerkung"
 ],
 "kellerbuch_buchungen": [
 "id",
@@ -1507,7 +1532,10 @@
 "newsletter_datenschutz_url",
 "newsletter_einleitung",
 "mostgewicht_einheit",
-"journal_ab"
+"journal_ab",
+"weinausbau_prefix",
+"weinausbau_stellen",
+"weinausbau_zaehler"
 ],
 "tenant_memberships": [
 "id",
@@ -1757,7 +1785,8 @@
 "storno_grund",
 "erzeugnis",
 "zusatzbezeichnung",
-"land_iso"
+"land_iso",
+"chargennummer"
 ],
 "weinausbau_weingaerten": [
 "id",

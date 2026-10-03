@@ -178,7 +178,7 @@ export async function ladeBlendProtokoll(
     const heute = stichtag ?? wienHeute()
     const [waRes, pnDaten] = await Promise.all([
       (supabase.from('weinausbau') as any)
-        .select('id, name, jahrgang, rebsorte, qualitaetsstufe, zusatzbezeichnung, erzeugnis, menge_liter')
+        .select('id, name, jahrgang, rebsorte, qualitaetsstufe, zusatzbezeichnung, erzeugnis, menge_liter, chargennummer')
         .eq('tenant_id', tenantId)
         .eq('id', p.id)
         .maybeSingle(),
@@ -198,7 +198,7 @@ export async function ladeBlendProtokoll(
     kopf = {
       art: 'charge', id: wa.id, name: text(wa.name) ?? 'Charge',
       jahrgang: numOderNull(wa.jahrgang), rebsorte: text(wa.rebsorte), qualitaet: qualitaetAnzeigeOderNull(wa),
-      pruefnummer: pn?.gueltig ? pn.pruefnummer : null, pruefnummerHinweis: hinweis, chargennummer: null, datum: stichtag,
+      pruefnummer: pn?.gueltig ? pn.pruefnummer : null, pruefnummerHinweis: hinweis, chargennummer: text(wa.chargennummer), datum: stichtag,   // KAN-192: Chargennummer der Charge
       anzahlFlaschen: null, flaschengroesseMl: null,
       bezugLiter: bestand > 0 ? runden(bestand, STELLEN.liter) : null,
     }

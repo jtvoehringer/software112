@@ -1,18 +1,21 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentMembership } from '@/lib/auth/roles'
+import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
+import { wienHeute } from '@/lib/csv'
+import AbschlussForm from './AbschlussForm'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import { fmtNum } from '@/lib/format'
 import { datumAT } from '@/lib/behoerden/ernte_hilfen'
 import { KAT_BUCHUNGSART } from '@/lib/katalog/bki'
 import {
-  JOURNAL_QUELLE_LABEL, journalMenge, ladeJournalAbweichungen, ladeJournalBeginn, ladeJournalZeilen,
+  JOURNAL_QUELLE_LABEL, abschlussVorschlag, journalMenge, ladeJournalAbweichungen, ladeJournalBeginn, ladeJournalZeilen, ladeKellerbuchAbschluesse,
   type JournalAbweichung, type JournalBuchung,
 } from '@/lib/kellerbuch/journal'
 
 // KAN-40 Etappe E1: Bewegungsjournal (nur lesen) – Status, Journal-Konsistenz (Ist ↔ Journal-Saldo) und die letzten Buchungen.
 // Geschrieben wird das Journal ausschließlich von der Datenbank (Trigger); Eröffnen und Abgleichen laufen über die RPCs
 // journal_eroeffnen/journal_abgleichen (Betriebsleitung bzw. Wartung).
+// KAN-192: Kellerbuch-Abschluss (Periodensperre) – Stand für alle, Abschließen nur für die Betriebsleitung.
 
 export const metadata: Metadata = { title: 'Bewegungsjournal – software:112' }
 export const dynamic = 'force-dynamic'
@@ -76,7 +79,10 @@ export default async function JournalPage() {
     return <p className="text-sm text-s112-muted">Kein Betrieb ausgewählt.</p>
   }
   const tenantId = membership.tenantId
-  const beginn = await ladeJournalBeginn(supabase, tenantId)
+  const [beginn, abschluesse] = await Promise.all([ladeJournalBeginn(supabase, tenantId), ladeKellerbuchAbschluesse(supabase, tenantId)])
+  const gesperrtBis = abschluesse[0]?.abgeschlossen_bis ?? null
+  const heute = wienHeute()
+  const gestern = new Date(Date.UTC(Number(heute.slice(0, 4)), Number(heute.slice(5, 7)) - 1, Number(heute.slice(8, 10)) - 1)).toISOString().slice(0, 10)
   const [abweichungen, zeilen] = beginn
     ? await Promise.all([ladeJournalAbweichungen(supabase, tenantId), ladeJournalZeilen(supabase, tenantId, 200)])
     : [[] as JournalAbweichung[], [] as JournalBuchung[]]
@@ -101,6 +107,32 @@ export default async function JournalPage() {
             Das Bewegungsjournal ist für diesen Betrieb noch nicht eröffnet. Eröffnet wird es mit dem Ist-Bestand an einem
             Stichtag (Betriebsleitung bzw. Support).
           </p>
+        )}
+      </div>
+
+      <div className="card p-5 space-y-3">
+        <h2 className="text-sm font-semibold text-s112-text">Kellerbuch-Abschluss</h2>
+        {gesperrtBis ? (
+          <p className="text-sm text-s112-text-2">
+            Das Kellerbuch ist bis <strong>{datumAT(gesperrtBis)}</strong> abgeschlossen: Bewegungen mit einem Datum bis zu
+            diesem Tag lassen sich nicht mehr anlegen, ändern oder löschen. Stornos bleiben möglich – die Gegenbuchung kommt
+            an den Storno-Tag.
+          </p>
+        ) : (
+          <p className="text-sm text-s112-text-2">Das Kellerbuch ist noch nicht abgeschlossen.</p>
+        )}
+        {abschluesse.length > 0 && (
+          <ul className="text-xs text-s112-muted space-y-0.5">
+            {abschluesse.map(a => (
+              <li key={a.id}>
+                bis {datumAT(a.abgeschlossen_bis)} · abgeschlossen am {new Date(a.abgeschlossen_am).toLocaleString('de-AT', { timeZone: 'Europe/Vienna' })}
+                {a.bemerkung ? ` · ${a.bemerkung}` : ''}
+              </li>
+            ))}
+          </ul>
+        )}
+        {canAdmin(membership.role) && (!gesperrtBis || gesperrtBis < gestern) && (
+          <AbschlussForm vorschlag={abschlussVorschlag(heute, gesperrtBis)} maxDatum={gestern} />
         )}
       </div>
 
