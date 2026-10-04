@@ -493,7 +493,18 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
     .order('created_at', { ascending: false }))
   const pnAntraege = (pnRaw ?? []) as R[]
   const pnOffen = pnAntraege.find(a => (PN_OFFENE_ANTRAGS_STATUS as readonly string[]).includes(a.status)) ?? null
-  const pnZugeteilt = pnAntraege.find(a => a.status === 'genehmigt' && a.pruefnummer) ?? null
+  // KAN-99: Gültigkeit je Charge (auch per Umzug weitergegeben) – „PN … gültig“ bzw. „für Tankbestand erloschen am …“
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: pncRaw } = await tf((supabase.from('pruefnummer_chargen') as any)
+    .select('id, dac_antrag_id, gueltig_ab, gueltig_bis, ende_grund, quelle_vorgang, antrag:dac_antrag_id(pruefnummer, status, storniert_am)')
+    .eq('weinausbau_id', weinausbau.id)
+    .order('gueltig_ab', { ascending: false }))
+  const pnGueltigkeit = ((pncRaw ?? []) as R[]).filter(g => (g.antrag as R | null)?.pruefnummer && !(g.antrag as R | null)?.storniert_am)
+  const pnGilt = pnGueltigkeit.find(g => !g.gueltig_bis && (g.antrag as R).status === 'genehmigt') ?? null
+  const pnErloschen = pnGilt ? null : (pnGueltigkeit.find(g => g.gueltig_bis) ?? null)
+  const pnZugeteilt = pnGilt
+    ? { id: pnGilt.dac_antrag_id, pruefnummer: (pnGilt.antrag as R).pruefnummer, geerbt: !!pnGilt.quelle_vorgang }
+    : null
 
   // KAN-76: „Besteht aus“ aus dem zeitrichtigen Rechenkern (Rebsorten je Liter im heutigen Bestand) statt
   // „Bestand − Summe der Verschnitte“ – nur wenn die Charge Verschnitte hat, wie bisher
@@ -567,8 +578,14 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
             {weinausbau.jahrgang && <span className="text-xs text-s112-muted">Jahrgang {weinausbau.jahrgang}</span>}
             {weinausbau.behaelter && <span className="text-xs text-s112-muted">in {weinausbau.behaelter.name}</span>}
             {pnZugeteilt && (
-              <Link href={`/dac/${pnZugeteilt.id}`} className="text-xs font-mono bg-s112-ok-bg text-s112-ok-fg px-2 py-0.5 rounded-full hover:underline">
-                PN {pnZugeteilt.pruefnummer}
+              <Link href={`/dac/${pnZugeteilt.id}`} className="text-xs font-mono bg-s112-ok-bg text-s112-ok-fg px-2 py-0.5 rounded-full hover:underline"
+                title={pnZugeteilt.geerbt ? 'Per Umzug aus der Antrags-Charge übernommen' : undefined}>
+                PN {pnZugeteilt.pruefnummer} gültig{pnZugeteilt.geerbt ? ' (übernommen)' : ''}
+              </Link>
+            )}
+            {pnErloschen && (
+              <Link href={`/dac/${pnErloschen.dac_antrag_id}`} className="text-xs bg-s112-warn-bg text-s112-warn-fg px-2 py-0.5 rounded-full hover:underline">
+                PN {(pnErloschen.antrag as R).pruefnummer} – für Tankbestand erloschen am {new Date(pnErloschen.gueltig_bis).toLocaleDateString('de-AT')}
               </Link>
             )}
             {pnOffen && (

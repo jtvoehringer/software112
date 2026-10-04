@@ -19,7 +19,7 @@ import { STELLEN, runden, wienHeute, type CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
 import { bkiFarbe, formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { bestandVorVerkauf, ersatzPruefnummer, pnDatumDe, pnTag, pruefnummerGueltig, pruefnummerHinweis, type PnAntrag, type PnChargeDaten } from '@/lib/kellerbuch/pruefnummer'
-import { antragAusZeile, ladePruefnummerDaten, PN_ANTRAG_SELECT } from '@/lib/kellerbuch/pruefnummerLaden'
+import { antragAusZeile, chargenDerAntraege, ladePruefnummerDaten, PN_ANTRAG_SELECT } from '@/lib/kellerbuch/pruefnummerLaden'
 import { rebsorteDerLieferung } from './traubenverkauf'
 import { mostgewichtAusGespeichert } from '@/lib/wein/mostgewichtFormular'
 import { qualitaetAnzeigeOderNull } from '@/lib/wein/qualitaet'
@@ -557,6 +557,12 @@ async function pruefnummernLaden(supabase: Client, tenantId: string, posten: R[]
       .order('id'))
     if (error) throw new Error(`Laden fehlgeschlagen (dac_antrag): ${error.message}`)
     for (const d of data) pn.jeDacAntrag[d.id] = antragAusZeile(d)
+  }
+  // KAN-99: per Umzug weitergegebene Chargen – Füllungen daraus tragen die Nummer des Antrags
+  if (dacIds.length > 0) {
+    for (const [id, chargen] of await chargenDerAntraege(supabase, tenantId, dacIds)) {
+      if (pn.jeDacAntrag[id]) pn.jeDacAntrag[id].weitereChargen = chargen
+    }
   }
   return pn
 }

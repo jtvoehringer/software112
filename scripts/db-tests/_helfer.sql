@@ -1014,6 +1014,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('lagen',                         'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       'SA,TA{rieden}'),
     ('lesen',                         'SA,TA,W*{rieden|kellerbuch}',            'SA,TA,W*{rieden|kellerbuch}',            'SA,TA{rieden|kellerbuch}'),
     ('meldung_abgaben',               '-',                                      '-',                                      '-'),   -- KAN-37 B: nur per RPC, unveränderlich
+    ('pruefnummer_chargen',           '-',                                      '-',                                      '-'),   -- KAN-99: nur per Trigger (Gültigkeit je Charge)
     ('pruefnummer_ereignisse',        '-',                                      '-',                                      '-'),   -- KAN-97: nur per RPC (Statuswechsel)
     ('module_flags',                  'PA',                                     'PA',                                     '-'),
     ('morgenberichte',                '-',                                      '-',                                      '-'),
@@ -1185,7 +1186,8 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('trigger',       '--S', false, 'bestandsprotokoll_schreiben()'),
     ('trigger',       '--S', false, 's112_fremdverweis_pruefen()'),
     ('trigger',       '--S', false, 's112_freeze()'),   -- KAN-96: generischer Freeze-Trigger
-    ('trigger',       '--S', false, 's112_pn_workflow_schutz()'),   -- KAN-97: Status nur per RPC, Formular nur zum Entwurf
+    ('trigger',       '--S', false, 's112_pn_workflow_schutz()'),
+    ('trigger',       '--S', false, 's112_pn_chargen_pflegen()'),   -- KAN-99: Gültigkeit je Charge (Einreichen, Umzug, Zugang, Storno)   -- KAN-97: Status nur per RPC, Formular nur zum Entwurf
     ('mandant',       '-US', true , 's112_fuellung_nachtragen(p_tenant_id uuid, p_fuellung_id uuid, p_weinausbau_id uuid, p_dac_antrag_id uuid)'),   -- KAN-101: Charge/DAC-Antrag/Prüfnummer einmal nachtragen
     ('mandant',       '-US', true , 's112_pruefnummernantrag_status_setzen(p_tenant_id uuid, p_antrag_id uuid, p_status text, p_datum date, p_pruefnummer text, p_grund text)'),   -- KAN-97: Statuswechsel
     ('mandant',       '-US', true , 's112_freeze_korrektur(p_tenant_id uuid, p_tabelle text, p_id uuid, p_werte jsonb, p_grund text)'),   -- KAN-96: Korrektur durch den Betriebsleiter   -- KAN-178: Fremdverweise je FK-Spalte

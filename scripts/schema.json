@@ -1269,6 +1269,19 @@
 "full_name",
 "benachrichtigung_email"
 ],
+"pruefnummer_chargen": [
+"id",
+"tenant_id",
+"dac_antrag_id",
+"weinausbau_id",
+"gueltig_ab",
+"gueltig_bis",
+"ende_grund",
+"ende_vorgang",
+"quelle_weinausbau_id",
+"quelle_vorgang",
+"erstellt_am"
+],
 "pruefnummer_ereignisse": [
 "id",
 "tenant_id",

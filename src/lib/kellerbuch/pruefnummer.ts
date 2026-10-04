@@ -65,6 +65,15 @@ export type PnAntrag = {
   /** Anlagetag (created_at in Wiener Zeit) – Ersatz, wenn eingereicht_am fehlt */
   angelegtAm: string | null
   bezeichnung?: string | null
+  // ── KAN-99 (04.10.2026): Gültigkeit je Charge (Tabelle pruefnummer_chargen) ──
+  /** Ende der Gültigkeit für den Tankbestand dieser Charge (danach gilt die Nummer nicht mehr); fehlt: offen */
+  gueltigBis?: string | null
+  /** Art des Vorgangs, der die Gültigkeit beendet hat (Verschnitt, Zukauf, Pressung, Zusammenführung) */
+  endeArt?: PnZugangArt | null
+  /** weitere Chargen, für die der Antrag gilt (Weitergabe per Umzug) – Füllungen daraus tragen seine Nummer */
+  weitereChargen?: string[]
+  /** Teilmengen desselben Antrags in anderen Chargen (Mengenregel rechnet zusammen, Entscheidung Jörgen 04.10.2026) */
+  familie?: { bestandLiter: number; abfuellungen: PnAbfuellung[] } | null
 }
 
 export type PnZugangArt = 'verschnitt' | 'zugang' | 'zukauf' | 'pressung'
@@ -215,7 +224,7 @@ export function antragGenehmigt(a: PnAntrag): boolean {
  */
 export function pruefnummerAusAntrag(a: PnAntrag | null | undefined, chargeId?: string | null): string | null {
   if (!a || !a.aktiv || !(PN_FLASCHEN_STATUS as readonly string[]).includes(a.status) || nummer(a.pruefnummer) === null) return null
-  if (chargeId !== undefined && a.weinausbauId !== (chargeId ?? null)) return null
+  if (chargeId !== undefined && a.weinausbauId !== (chargeId ?? null) && !(chargeId && (a.weitereChargen ?? []).includes(chargeId))) return null
   return nummer(a.pruefnummer)
 }
 
@@ -247,6 +256,9 @@ export function antragVerletzung(antrag: PnAntrag, daten: PnChargeDaten, stichta
   // ohne Beginn (Entwurf, noch keine Probe) keine Zugangsregel
   const schaedlich = beginn === null ? [] : zugaengeZwischen(daten.zugaenge, beginn, stichtag)
   if (schaedlich.length > 0) return { grund: schaedlich[0].art, ereignisDatum: pnTag(schaedlich[0].datum), menge: null }
+  // KAN-99: Gültigkeit für den Tankbestand dieser Charge beendet (pruefnummer_chargen) – auch wenn der Vorgang hier fehlt
+  const bis = pnTag(antrag.gueltigBis)
+  if (bis !== null && stichtag > bis) return { grund: antrag.endeArt ?? 'zugang', ereignisDatum: bis, menge: null }
 
   // Regel 3: Bestand ≤ beantragt − seither abgefüllt (nur mit Bestand am Stichtag)
   const m = mengeRegel(antrag, daten, stichtag)
@@ -275,9 +287,13 @@ function mengeRegel(antrag: PnAntrag, daten: PnChargeDaten, stichtag: string): P
   const bestandAm = pnTag(daten.bestandAm)
   if (antrag.mengeLiter === null || !Number.isFinite(antrag.mengeLiter)) return null
   if (daten.bestandLiter === null || !Number.isFinite(daten.bestandLiter) || bestandAm === null || stichtag < bestandAm) return null
+  // KAN-99: Teilmengen desselben Antrags in anderen Chargen zählen mit (Bestand und Abfüllungen)
+  const familie = antrag.familie ?? null
   const abgefuellt = abgefuelltLiter(antrag, daten)
+    + (familie ? abgefuelltLiter(antrag, { ...daten, abfuellungen: familie.abfuellungen }) : 0)
+  const bestand = daten.bestandLiter + (familie && Number.isFinite(familie.bestandLiter) ? familie.bestandLiter : 0)
   return {
-    bestandLiter: r2(daten.bestandLiter),
+    bestandLiter: r2(bestand),
     beantragtLiter: r2(antrag.mengeLiter),
     abgefuelltLiter: r2(abgefuellt),
     zulaessigLiter: r2(antrag.mengeLiter - abgefuellt),
