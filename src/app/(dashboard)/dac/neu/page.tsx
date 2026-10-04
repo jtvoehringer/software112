@@ -4,6 +4,10 @@ import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import DacForm from '@/components/dac/DacForm'
 import { createDacAntrag } from '../actions'
+import { ladeZusammensetzungCharge } from '@/lib/wein/blendKomposition'
+import { sortenAnteile } from '@/lib/wein/mischungsrechnung'
+import { PN_OFFENE_ANTRAGS_STATUS, pnStatusLabel } from '@/lib/dac/workflow'
+import { fmtNum } from '@/lib/format'
 
 export const metadata: Metadata = { title: 'Neuer Prüfnummern-Antrag – software:112' }
 export const dynamic = 'force-dynamic'
@@ -11,19 +15,32 @@ export const dynamic = 'force-dynamic'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** KAN-98: Sorten der Charge absteigend mit Anteil („Grüner Veltliner 80 %, Riesling 20 %“); eine Sorte ohne Anteil */
+function sortenText(anteile: { wert: string; anteil_pct: number }[]): string | null {
+  const bekannt = anteile.filter(a => a.wert !== 'unbekannt')
+  if (bekannt.length === 0) return null
+  if (bekannt.length === 1) return bekannt[0].wert
+  return bekannt.map(a => `${a.wert} ${fmtNum(a.anteil_pct, 0)} %`).join(', ')
+}
+
 export default async function NeuePage({
   searchParams,
 }: {
   searchParams: Promise<{ charge?: string }>
 }) {
-  const { charge: preCharge } = await searchParams
+  const { charge: chargeParam } = await searchParams
+  const preCharge = chargeParam && UUID_RE.test(chargeParam) ? chargeParam : null
   const supabase = await createSupabaseServerClient()
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId ?? null
 
-  const [{ data: raw }, { data: anRaw }] = await Promise.all([
-    (supabase.from('weinausbau') as any).select('id, name, jahrgang').eq('aktiv', true).eq('tenant_id', tenantId).order('name'),
+  const [{ data: raw }, { data: anRaw }, { data: offenRaw }] = await Promise.all([
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from('weinausbau') as any).select('id, name, jahrgang, rebsorte, menge_liter').eq('aktiv', true).eq('tenant_id', tenantId).order('name'),
     preCharge
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ? (supabase.from('weinanalysen') as any)
           .select('analyse_datum, labor, alkohol_vol, restzucker_gl, gesamtsaeure_gl, ph_wert, flüchtige_saeure_gl, freie_so2_mgl, gesamt_so2_mgl')
           .eq('weinausbau_id', preCharge)
@@ -31,12 +48,34 @@ export default async function NeuePage({
           .is('storniert_am', null)   // KAN-150 F2: stornierte Analysen gelten nicht
           .order('analyse_datum', { ascending: false })
       : Promise.resolve({ data: [] }),
+    // KAN-98: je Charge höchstens ein offener Antrag
+    preCharge
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ? (supabase.from('dac_antrag') as any)
+          .select('id, bezeichnung, status')
+          .eq('tenant_id', tenantId).eq('weinausbau_id', preCharge).is('storniert_am', null)
+          .in('status', [...PN_OFFENE_ANTRAGS_STATUS]).limit(1)
+      : Promise.resolve({ data: [] }),
   ])
 
-  type NameRow = { id: string; name: string; jahrgang: number | null }
+  type NameRow = { id: string; name: string; jahrgang: number | null; rebsorte: string | null; menge_liter: number | null }
   const weinausbau = (raw ?? []) as NameRow[]
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const analysen   = (anRaw ?? []) as R[]
+  const offen = ((offenRaw ?? []) as R[])[0] ?? null
+
+  // KAN-98: Vorbelegung aus der Charge – Sorten absteigend mit Anteil (Rechenkern KAN-76), Menge, Bezeichnung
+  const charge = preCharge ? weinausbau.find(w => w.id === preCharge) ?? null : null
+  let sorten: string | null = null
+  if (charge && tenantId && !offen) {
+    try {
+      sorten = sortenText(sortenAnteile((await ladeZusammensetzungCharge(supabase, tenantId, charge.id)).anteile))
+    } catch {
+      sorten = null   // Vorbelegung ist Komfort – ohne Zusammensetzung bleibt die Sorte der Charge
+    }
+  }
+  const vorbelegung = charge
+    ? { bezeichnung: `${charge.name}${charge.jahrgang ? ` ${charge.jahrgang}` : ''}`, rebsorte: sorten ?? charge.rebsorte, menge_liter: charge.menge_liter }
+    : null
 
   return (
     <div className="max-w-2xl">
@@ -46,12 +85,23 @@ export default async function NeuePage({
         <span className="text-s112-text-1 font-medium">Neuer Antrag</span>
       </div>
       <h1 className="text-2xl font-semibold text-s112-text mb-6">Neuer Prüfnummern-Antrag</h1>
-      <DacForm
-        weinausbau={weinausbau}
-        analysen={analysen}
-        preChargeId={preCharge ?? null}
-        action={createDacAntrag}
-      />
+      {offen ? (
+        <div className="card space-y-2">
+          <p className="text-sm">
+            Für diese Charge gibt es bereits einen offenen Prüfnummernantrag: <strong>{offen.bezeichnung}</strong> ({pnStatusLabel(offen.status)}).
+            Je Charge ist nur ein offener Antrag möglich.
+          </p>
+          <Link href={`/dac/${offen.id}`} className="text-sm text-s112-blue-700 underline">Zum offenen Antrag →</Link>
+        </div>
+      ) : (
+        <DacForm
+          weinausbau={weinausbau}
+          analysen={analysen}
+          preChargeId={preCharge}
+          vorbelegung={vorbelegung}
+          action={createDacAntrag}
+        />
+      )}
     </div>
   )
 }

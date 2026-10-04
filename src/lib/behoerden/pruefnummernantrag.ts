@@ -16,6 +16,8 @@
 import { STELLEN, runden, type CsvSpalte } from '@/lib/csv'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { normalisiereQualitaet } from '@/lib/wein/qualitaetsrang'
+import { qualitaetText } from '@/lib/weinqualitaet'
+import { HERKUNFT_LABEL } from '@/lib/herkunft'
 import { UUID_RE, datumAusEingabe, feld, strasseTeilen, textOderNull, zahlFeld, type R } from './verkehr-hilfen'
 import { FORMULAR_GESPEICHERT, FORMULAR_VORBELEGUNG } from './transportbescheinigung'
 
@@ -85,13 +87,24 @@ export type PNADaten = {
 
 const LEERE_MOSTCHARGE: PNAMostcharge = { betriebsnummer: '', laufende_nr: '', jahr: '', teilmenge: '' }
 
+/** KAN-98: Farbe des Antrags aus der Weinart der Charge (weiss/rot/rose); sonst null */
+export function farbeAusWeinart(weinart: unknown): PNADaten['farbe'] | null {
+  return weinart === 'weiss' ? 'Weiß' : weinart === 'rot' ? 'Rot' : weinart === 'rose' ? 'Rosé' : null
+}
+
 /** Vorbelegung eines noch nicht gespeicherten Antrags (unverändert wie bisher in der Druckansicht).
+ *  KAN-98: aus der Charge zusätzlich Farbe (Weinart), Lesegradation (KMW), Qualitätsstufe und Weinbaugebiet
+ *  (Herkunft) – bei einem DAC-Antrag bleiben Qualitätsstufe/Weinbaugebiet die DAC-Region.
  *  KAN-186: Reserve/Große Reserve aus der Zusatzbezeichnung der Charge (`charge`: qualitaetsstufe,
  *  zusatzbezeichnung – Altwert 'reserve' im Qualitätsfeld wird normalisiert). */
 export function pnaVorbelegung(dac: R, cfg: R, charge?: R | null): PNADaten {
   const zusatz = charge ? normalisiereQualitaet(charge).zusatz : null
   const { strasse, hausnr } = strasseTeilen(cfg.betrieb_strasse)
   const menge = dac.menge_liter === null || dac.menge_liter === undefined ? NaN : Number(dac.menge_liter)
+  const istDac = !!dac.dac_region && dac.dac_region !== 'sonstiges'
+  const kmw = charge?.kmw === null || charge?.kmw === undefined ? NaN : Number(charge.kmw)
+  const herkunft = charge?.herkunft_code ? (HERKUNFT_LABEL[String(charge.herkunft_code)] ?? String(charge.herkunft_code)) : ''
+  const qualitaet = charge ? qualitaetText(normalisiereQualitaet(charge)) : ''
   return {
     antragsnummer: '',
     untersuchungsnummer: '',
@@ -112,10 +125,10 @@ export function pnaVorbelegung(dac: R, cfg: R, charge?: R | null): PNADaten {
     aufbew_ort: '',
     aufbew_strasse: '',
     aufbew_hausnr: '',
-    farbe: 'Weiß',
+    farbe: farbeAusWeinart(charge?.weinart) ?? 'Weiß',
     jahrgangsverschnitt: false,
     jahrgang: dac.jahrgang ? String(dac.jahrgang) : '',
-    lesegradation: '',
+    lesegradation: Number.isFinite(kmw) && kmw > 0 ? `${String(runden(kmw, 1)).replace('.', ',')} °KMW` : '',
     angereichert: false,
     gesuesst: false,
     einreichmenge: Number.isFinite(menge) && menge !== 0 ? String(runden(menge, 0)) : '',
@@ -123,8 +136,8 @@ export function pnaVorbelegung(dac: R, cfg: R, charge?: R | null): PNADaten {
     abgefuellt: '',
     teilmenge_pn: '',
     bez_rebsorte: dac.rebsorte ? formatRebsorteMitKuerzel(dac.rebsorte) : '',
-    qualitaetsstufe: feld(dac.dac_region),
-    weinbaugebiet: feld(dac.dac_region),
+    qualitaetsstufe: istDac || !qualitaet ? feld(dac.dac_region) : qualitaet,
+    weinbaugebiet: istDac || !herkunft ? feld(dac.dac_region) : herkunft,
     bez_jahrgang: dac.jahrgang ? String(dac.jahrgang) : '',
     reserve: zusatz === 'reserve',
     grosse_reserve: zusatz === 'grosse_reserve',
@@ -396,7 +409,7 @@ export async function ladePruefnummernantrag(supabase: Client, tenantId: string,
   let charge: R | null = null
   if (!gespeicherteDaten && dac.weinausbau_id && UUID_RE.test(String(dac.weinausbau_id))) {
     const chRes = await (supabase.from('weinausbau') as any)
-      .select('qualitaetsstufe, zusatzbezeichnung')
+      .select('qualitaetsstufe, zusatzbezeichnung, erzeugnis, weinart, kmw, herkunft_code')
       .eq('id', dac.weinausbau_id)
       .eq('tenant_id', tenantId)
       .maybeSingle()

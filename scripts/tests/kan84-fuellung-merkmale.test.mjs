@@ -65,6 +65,6 @@ describe('KAN-84 Verdrahtung', () => {
   test('DAC-Antrag: Jahrgang aus der Charge vorgeschlagen (Kleinfix KAN-84/KAN-98)', () => {
     const d = quelle('src/components/dac/DacForm.tsx')
     assert.match(d, /String\(dac\?\.jahrgang \?\? jahrgangDerCharge\(dac\?\.weinausbau_id \?\? preChargeId\) \?\? new Date\(\)\.getFullYear\(\)\)/)
-    assert.match(quelle('src/app/(dashboard)/dac/neu/page.tsx'), /select\('id, name, jahrgang'\)/)
+    assert.match(quelle('src/app/(dashboard)/dac/neu/page.tsx'), /select\('id, name, jahrgang/)
   })
 })

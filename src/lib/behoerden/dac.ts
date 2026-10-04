@@ -11,7 +11,7 @@
 import { STELLEN, runden, type CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
 import { feld, textOderNull, type R } from './verkehr-hilfen'
-import { PN_STATUS_LABEL } from '../dac/workflow'
+import { PN_STATUS_LABEL, pnFormatHinweis } from '../dac/workflow'
 
 export const DAC_REGION_LABEL: Record<string, string> = {
   weinviertel: 'Weinviertel', kamptal: 'Kamptal', kremstal: 'Kremstal',
@@ -36,6 +36,8 @@ export type DacAntragZeile = {
   alkoholProzent: number | null
   status: string | null
   statusLabel: string | null
+  /** KAN-98: seit wann der Status gilt (timestamptz) */
+  statusSeit: string | null
   eingereichtAm: string | null
   pruefnummer: string | null
   bescheidAm: string | null
@@ -54,6 +56,7 @@ export const SPALTEN_DAC_ANTRAEGE: CsvSpalte<DacAntragZeile>[] = [
   { kopf: 'Menge (l)', typ: 'dezimal', stellen: STELLEN.liter, wert: z => z.mengeLiter },
   { kopf: 'Alkohol (% vol)', typ: 'prozent', stellen: STELLEN.prozent, wert: z => z.alkoholProzent },
   { kopf: 'Status', typ: 'text', wert: z => z.statusLabel },
+  { kopf: 'Status seit', typ: 'zeitpunkt', wert: z => z.statusSeit },   // KAN-98
   { kopf: 'Eingereicht am', typ: 'datum', wert: z => z.eingereichtAm },
   { kopf: 'Staatliche Prüfnummer', typ: 'code', wert: z => z.pruefnummer },
   { kopf: 'Bescheid am', typ: 'datum', wert: z => z.bescheidAm },
@@ -86,6 +89,7 @@ export function dacZeile(a: R): DacAntragZeile {
     alkoholProzent: alkohol === null ? null : runden(alkohol, STELLEN.prozent),
     status,
     statusLabel: status ? (DAC_STATUS_LABEL[status] ?? status) : null,
+    statusSeit: textOderNull(a.status_seit),
     eingereichtAm: textOderNull(a.eingereicht_am),
     pruefnummer: feld(a.pruefnummer) || null,
     bescheidAm: textOderNull(a.bescheid_am),
@@ -101,10 +105,16 @@ type Client = any
 /** Alle DAC-Anträge des Betriebs (neueste zuerst, inkl. inaktiver) – für /dac und die CSV */
 export async function ladeDacAntraege(supabase: Client, tenantId: string): Promise<{ zeilen: DacAntragZeile[]; warnungen: string[] }> {
   const { data, error } = await alle<R>((supabase.from('dac_antrag') as any)
-    .select('id, bezeichnung, dac_region, jahrgang, rebsorte, menge_liter, alkohol_prozent, status, pruefnummer, eingereicht_am, bescheid_am, aktiv, created_at, storniert_am, storniert_von_name, storno_grund')   // storno-sichtbar: Liste zeigt Stornos mit Vermerk
+    .select('id, bezeichnung, dac_region, jahrgang, rebsorte, menge_liter, alkohol_prozent, status, status_seit, pruefnummer, eingereicht_am, bescheid_am, aktiv, created_at, storniert_am, storniert_von_name, storno_grund')   // storno-sichtbar: Liste zeigt Stornos mit Vermerk
     .eq('tenant_id', tenantId)
     .order('created_at', { ascending: false })
     .order('id'))
   if (error) throw new Error(`Laden fehlgeschlagen (dac_antrag): ${error.message}`)
-  return { zeilen: data.map(dacZeile), warnungen: [] }
+  const zeilen = data.map(dacZeile)
+  // KAN-98: Prüfnummern in ungewöhnlichem Format als Warnung (nicht gesperrt – die Nummer vergibt das Bundesamt)
+  const warnungen = zeilen.filter(z => !z.storniertAm).map(z => {
+    const h = pnFormatHinweis(z.pruefnummer)
+    return h ? `${z.bezeichnung ?? 'Antrag'}: ${h}` : null
+  }).filter((w): w is string => !!w)
+  return { zeilen, warnungen }
 }

@@ -8,7 +8,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { fehlerText } from '@/lib/fehler'
-import { PN_UEBERGAENGE, PN_UEBERGANG_KNOPF, istPnStatus, pnEndstatus, pnStatusLabel, pnUebergangAngaben, type PnStatus } from '@/lib/dac/workflow'
+import { PN_UEBERGAENGE, PN_UEBERGANG_KNOPF, istPnStatus, pnEndstatus, pnFormatHinweis, pnStatusLabel, pnUebergangAngaben, type PnStatus } from '@/lib/dac/workflow'
 
 export type PnEreignis = {
   id: string
@@ -106,6 +106,7 @@ export default function DacStatusKarte({ status, pruefnummer, ereignisse, schrei
               <div>
                 <label className="form-label" htmlFor="pn-nr">Prüfnummer{angaben.pruefnummer === 'pflicht' ? ' *' : ''}</label>
                 <input id="pn-nr" type="text" value={nr} onChange={e => setNr(e.target.value)} className="form-input font-mono" />
+                {pnFormatHinweis(nr) && <p className="text-xs text-s112-warn-fg mt-1">{pnFormatHinweis(nr)}</p>}
               </div>
             )}
           </div>
@@ -114,7 +115,7 @@ export default function DacStatusKarte({ status, pruefnummer, ereignisse, schrei
             <input id="pn-grund" type="text" value={grund} onChange={e => setGrund(e.target.value)} className="form-input" />
           </div>
           {ziel === 'eingereicht' && (
-            <p className="text-xs text-s112-muted">Ab der Einreichung sind Antrags- und Weinangaben, Menge und Charge gesperrt (§ 25 Abs. 6 WeinG); Prüf-, Antrags- und Untersuchungsnummer bleiben bis zur Zuteilung änderbar.</p>
+            <p className="text-xs text-s112-muted">Einreichen geht nur mit vollständigen Pflichtangaben und gespeichertem Antragsformular – fehlt etwas, erscheint die Liste. Ab der Einreichung sind Antrags- und Weinangaben, Menge und Charge gesperrt (§ 25 Abs. 6 WeinG); Prüf-, Antrags- und Untersuchungsnummer bleiben bis zur Zuteilung änderbar.</p>
           )}
           <div className="flex gap-2">
             <button type="button" onClick={bestaetigen} disabled={pending}
