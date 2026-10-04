@@ -178,8 +178,8 @@ DECLARE
   c_storage_rollen_ausnahmen constant text[] := ARRAY['Alle: Logo lesen'];
   -- Mandantentabellen ohne mitgliedschaft_aktiv: system_ereignisse (keine permissive Policy, nur Service-Zugriff)
   c_ohne_ma constant text[] := ARRAY['system_ereignisse'];
-  -- Namens-Heuristik für Geheimnisse: bekannte, für Mitglieder lesbare Spalte (zu klären, Ratsche BK4)
-  c_heuristik_bekannt constant text[] := ARRAY['kontakte.newsletter_token'];
+  -- Namens-Heuristik für Geheimnisse: bewusst lesbare Spalten (BK4 seit KAN-159: newsletter_token_hash, nur Hash)
+  c_heuristik_bekannt constant text[] := '{}'::text[];
   c_buckets constant text := 'aktivitaet-dokumente:false,analysen:false,dokumente:false,ea-belege:false,etiketten:false,mandant-logos:true';
   c_schutz constant text := 'tenant_einstellungen={svs_option,svs_option_seit,svs_einkuenfte_manuell,svs_kv_angehoerige}/23/schutz_plattformfelder/O;'
                             'tenants={bio_status,updated_at}/23/schutz_plattformfelder/O';
@@ -739,9 +739,11 @@ BEGIN
        AND (has_column_privilege('authenticated', c.oid, a.attnum, 'SELECT') OR has_column_privilege('anon', c.oid, a.attnum, 'SELECT'))
        AND NOT (c.relname || '.' || a.attname = ANY (%L::text[]))
      ORDER BY 1$q$, c_heuristik_bekannt));
-  SELECT has_column_privilege('authenticated', 'public.kontakte', 'newsletter_token', 'SELECT') INTO v_bool;
-  v_erg := v_erg || pg_temp.s112_luecke('geheim_heuristik_newsletter_token', v_bool, false, true,
-    'BK4 kontakte.newsletter_token für alle Mitglieder lesbar – zu klären (Abmelde-Link-Token)');
+  -- BK4 behoben (KAN-159): Klartext-Token nicht mehr gespeichert, nur noch der SHA-256-Hash (newsletter_token_hash)
+  v_erg := v_erg || pg_temp.s112_erwarte('newsletter_token_klartext_weg',
+    (SELECT count(*) FROM pg_attribute WHERE attrelid = 'public.kontakte'::regclass AND attname = 'newsletter_token' AND NOT attisdropped), 0::bigint);
+  v_erg := v_erg || pg_temp.s112_erwarte('newsletter_token_hash_vorhanden',
+    (SELECT count(*) FROM pg_attribute WHERE attrelid = 'public.kontakte'::regclass AND attname = 'newsletter_token_hash' AND NOT attisdropped), 1::bigint);
 
   -- ── 10. Views und Buckets ───────────────────────────────────────────────────────────────────────────
   v_erg := v_erg || pg_temp.t01_liste('view_security_invoker', $q$

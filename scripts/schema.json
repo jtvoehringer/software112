@@ -972,7 +972,7 @@
 "geburtsdatum",
 "newsletter",
 "newsletter_opt_in_am",
-"newsletter_token",
+"newsletter_token_hash",
 "newsletter_bestaetigt",
 "sprache",
 "weingut_ansprechpartner",
