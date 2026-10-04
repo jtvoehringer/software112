@@ -275,7 +275,7 @@ export async function POST(req: NextRequest) {
         return (bestehend as R).id
       }
       const { data: neu, error } = await (supabase.from('lagen') as any)
-        .insert({ tenant_id: tenantId, name: name.trim(), notizen: mitHerkunft(null), ...herkunftFelder })
+        .insert({ tenant_id: tenantId, name: name.trim(), amtliche_ried: name.trim() || null, notizen: mitHerkunft(null), ...herkunftFelder })   // KAN-110
         .select('id').single()
       if (error) throw new Error(`Ried "${name}" konnte nicht angelegt werden: ${error.message}`)
       lageCache.set(key, (neu as R).id)

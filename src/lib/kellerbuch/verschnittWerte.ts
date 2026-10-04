@@ -14,6 +14,7 @@
 import { qualitaetText } from '@/lib/weinqualitaet'
 import { hoechsteQualitaetsAngabe, istAbstufungQualitaet, mischeQualitaet, normalisiereQualitaet, qualitaetsSpalten, type QualitaetsAngabe } from '@/lib/wein/qualitaetsrang'
 import { sortenBezeichnung, type GruppenMenge } from '@/lib/wein/sortenangabe'
+import { ermittleHerkunft, type HerkunftsTeil } from '@/lib/wein/herkunftRegel'
 import { minHerkunft, maxHerkunft, istNiedrigerAls as herkunftIstNiedrigerAls, HERKUNFT_LABEL } from '@/lib/herkunft'
 import { mostgewichtNeu, mostgewichtZusammenfuehren, teilweiseVermerk } from '@/lib/kellerbuch/mostgewichtKette'
 import { weinartKonflikt } from '@/lib/keller/weinart'
@@ -35,7 +36,7 @@ export type VerschnittWerteEingabe = {
   weinart: string
   quellen: readonly VerschnittQuelle[]
   /** Rebsorten- und Jahrgangsanteile (verschnittGruppen, KAN-93) */
-  gruppen: { sorten: readonly GruppenMenge[]; jahrgaenge: readonly GruppenMenge[] }
+  gruppen: { sorten: readonly GruppenMenge[]; jahrgaenge: readonly GruppenMenge[]; herkunft?: readonly HerkunftsTeil[] }
   /** Notizen des Benutzers (samt Prüfnummer-Vermerk) */
   notizen: string | null
   /** KAN-193: Rot und Weiß werden verschnitten (bestätigt) – Abstufung auf Wein (aus Österreich), `weinart` = Mehrheit */
@@ -120,7 +121,9 @@ export function verschnittWerte(e: VerschnittWerteEingabe): VerschnittWerte {
   const neueQualitaet: QualitaetsAngabe | null = rotWeiss
     ? { stufe: ROT_WEISS_STUFE, zusatz: null, erzeugnis: gemischt?.erzeugnis ?? null }
     : gemischt
-  const neueHerkunft = rotWeiss ? ROT_WEISS_HERKUNFT : minHerkunft(alleHerkuenfte)
+  // KAN-110: mit Herkunftsteilen (Liter je Ried/Gemeinde) nach § 21 WeinG, sonst der gemeinsame Oberbegriff
+  const regel = !rotWeiss && e.gruppen.herkunft ? ermittleHerkunft(e.gruppen.herkunft) : null
+  const neueHerkunft = rotWeiss ? ROT_WEISS_HERKUNFT : regel ? regel.code : minHerkunft(alleHerkuenfte)
 
   // Mostgewicht (KAN-130 Etappe 2): gewichteter Mittelwert über Ziel und Quellen
   const anteile = e.quellen.map(q => ({ liter: q.menge, charge: q.charge }))
@@ -153,6 +156,7 @@ export function verschnittWerte(e: VerschnittWerteEingabe): VerschnittWerte {
   if (herkunftAbgestuft) {
     texte.push(`Abstufung Herkunft-Code (BKI) von ${HERKUNFT_LABEL[herkunftAbgestuft.von] ?? herkunftAbgestuft.von} auf ${HERKUNFT_LABEL[herkunftAbgestuft.nach] ?? herkunftAbgestuft.nach}`)
   }
+  if (regel) texte.push(...regel.hinweise)
   if (mgVermerk) texte.push(mgVermerk)
   texte.push(...angabe.hinweise)
   const notizen = [e.notizen?.trim() || null, ...texte].filter(Boolean).join('\n') || null

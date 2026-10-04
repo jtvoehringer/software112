@@ -47,6 +47,16 @@ export default async function EditLagePage({ params }: Props) {
             <input aria-label="Gemeinde" name="gemeinde" defaultValue={lage.gemeinde ?? ''}
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
           </div>
+          <div>
+            <label className="block text-sm font-medium text-s112-text-1 mb-1">Amtliche Ried</label>
+            <input aria-label="Amtliche Ried" name="amtliche_ried" defaultValue={lage.amtliche_ried ?? ''}
+              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            {/* KAN-110: Grundlage der 85-%-Regel beim Verschnitt (§ 21 WeinG) */}
+            <p className="text-xs text-s112-muted mt-1">
+              Riedbezeichnung laut Riedenverzeichnis (§ 21 WeinG) – Grundlage der Riedangabe beim Verschnitt (mindestens 85 % aus derselben Ried).
+              Mehrere Lagen können dieselbe Ried tragen, z. B. „Glaslautern I“ und „Glaslautern II“ → „Glaslautern“. Leer = nicht gepflegt.
+            </p>
+          </div>
           {/* KAN-165: das Weinbaugebiet ergibt sich aus dem Herkunft-Code (BKI) der Grundstücke – kein eigenes Feld mehr */}
           <p className="text-xs text-s112-muted">
             Das Weinbaugebiet ergibt sich aus dem Herkunft-Code (BKI) der Grundstücke der Rieden dieser Lage.

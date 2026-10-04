@@ -131,6 +131,24 @@ describe('KAN-112 verschnittWerte: Werte und RPC-Argumente', nurMitHooks, () => 
     assert.equal(vw.weinartAusQuellen(['rose', 'rot']), 'rot')
     assert.equal(vw.weinartAusQuellen(['unbekannt']), 'unbekannt')
   })
+  test('KAN-110: mit Herkunftsteilen gilt die 85-%-Regel (Ried bleibt bzw. fällt weg, Hinweis in den Notizen)', () => {
+    const basis = { datum: '2026-10-04', ziel, weinart: 'weiss', notizen: null, quellen: [{ charge: gv, menge: 100, schwund: 0 }] }
+    const sorten = { sorten: [{ wert: 'Riesling', liter: 1100 }], jahrgaenge: [{ wert: '2025', liter: 1100 }] }
+    const bleibt = vw.verschnittWerte({ ...basis, gruppen: { ...sorten, herkunft: [
+      { liter: 1000, code: 'kamptal_riedenwein', ried: 'Heiligenstein', ort: '12017' },
+      { liter: 100, code: 'kamptal_gebietswein', ried: null, ort: null },
+    ] } })
+    assert.equal(bleibt.kopf.ziel.herkunft_code, 'kamptal_riedenwein')
+    assert.equal(bleibt.herkunftAbgestuft, null)
+    assert.match(bleibt.kopf.notizen, /Ried Heiligenstein mit 90,9 % – Rest aus demselben Weinbaugebiet/)
+    const weg = vw.verschnittWerte({ ...basis, gruppen: { ...sorten, herkunft: [
+      { liter: 600, code: 'kamptal_riedenwein', ried: 'Heiligenstein', ort: '12017' },
+      { liter: 500, code: 'kamptal_riedenwein', ried: 'Gaisberg', ort: '12030' },
+    ] } })
+    assert.equal(weg.kopf.ziel.herkunft_code, 'kamptal_gebietswein')
+    assert.deepEqual(weg.herkunftAbgestuft, { von: 'kamptal_riedenwein', nach: 'kamptal_gebietswein' })
+    assert.match(weg.kopf.notizen, /Keine Ried bzw. Gemeinde mit mindestens 85 %/)
+  })
 })
 
 // ── 3. umziehen() gegen die Attrappe ─────────────────────────────────────────

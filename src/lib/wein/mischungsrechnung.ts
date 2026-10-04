@@ -23,6 +23,8 @@ export type HerkunftInfo = {
   jahrgang: number | null
   /** Ried (Weingarten) */
   weingarten_name: string | null
+  /** KAN-110: amtliche Ried der Lage (lagen.amtliche_ried) – Grundlage der 85-%-Regel; fehlt = nicht gepflegt */
+  ried?: string | null
   gst_nr: string | null
   katastralgemeinde: string | null
   ernte_datum: string | null
