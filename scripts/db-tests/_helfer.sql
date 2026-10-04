@@ -1182,7 +1182,9 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('intern',        '--S', false, 'bestandsprotokoll_mandant_loeschen(p_tenant_id uuid)'),
     ('intern',        '--S', false, 's112_mandant_loeschen(p_tenant_id uuid, p_bestaetigung text)'),   -- KAN-151 G1: Mandanten-Löschung (nur Service-Role)
     ('trigger',       '--S', false, 'bestandsprotokoll_schreiben()'),
-    ('trigger',       '--S', false, 's112_fremdverweis_pruefen()'),   -- KAN-178: Fremdverweise je FK-Spalte
+    ('trigger',       '--S', false, 's112_fremdverweis_pruefen()'),
+    ('trigger',       '--S', false, 's112_freeze()'),   -- KAN-96: generischer Freeze-Trigger
+    ('mandant',       '-US', true , 's112_freeze_korrektur(p_tenant_id uuid, p_tabelle text, p_id uuid, p_werte jsonb, p_grund text)'),   -- KAN-96: Korrektur durch den Betriebsleiter   -- KAN-178: Fremdverweise je FK-Spalte
     ('mandant',       '-US', false, 'check_und_increment_ki_abfrage(p_tenant_id uuid)'),
     ('trigger',       '--S', false, 'create_profile_on_signup()'),
     ('session_user',  '-US', false, 'crm_dubletten(p_tenant_id uuid)'),

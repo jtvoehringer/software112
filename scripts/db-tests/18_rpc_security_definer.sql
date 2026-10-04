@@ -190,7 +190,8 @@ DECLARE
   v_kontakte_m bigint;
   v_weingarten_m bigint;
   -- 4b: RPCs mit Objekt-Argument, dynamisch mit fremdem Objekt geprüft
-  c_idor  constant text[] := ARRAY['fuellung_bestand_buchen', 'schwund_buchen',
+  -- s112_freeze_korrektur: IDOR (fremde Zeile, fremder Betrieb) prüft 27_freeze
+  c_idor  constant text[] := ARRAY['s112_freeze_korrektur', 'fuellung_bestand_buchen', 'schwund_buchen',
                                    'setze_kontobewegung_abgeglichen', 's112_storniert_loeschen', 's112_buchung_loeschen',
                                    's112_schwund_minderung', 's112_pressung_stornieren', 's112_pressung_zeilen_stornieren', 's112_mostzeile_anlegen',
                                    's112_ama_korrektur_anlegen', 's112_ama_meldung_speichern', 's112_ama_status_setzen', 's112_ama_einreichen',   -- KAN-37 B
@@ -326,8 +327,8 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('rpc_liste_vollstaendig', v_n >= 30, true);   -- 30 seit KAN-127 (get_behandlungen_fuer_grundstuecke entfernt)
   SELECT count(*) INTO v_n FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace AND n.nspname = 'public'
    WHERE p.prosecdef AND 'p_tenant_id' = ANY (p.proargnames) AND p.prosrc ~ 'pruefe_tenant_zugriff\s*\(';
-  v_erg := v_erg || pg_temp.s112_erwarte('rpc_mit_pruefe_tenant_zugriff', v_n, 45);   -- +1 KAN-193 (s112_zukauf_buchen)   -- +1 KAN-112 (s112_verschnitte_buchen)   -- +1 KAN-112 (s112_verschnitt_buchen)   -- +1 KAN-192 (kellerbuch_abschliessen)   -- +3 KAN-40 (journal_eroeffnen, journal_abgleichen, journal_konsistenz)   -- +1 KAN-37 B (s112_ama_einreichen)   -- +2 KAN-167 (s112_betriebsmittel_einkauf, _stornieren)   -- +1 KAN-151 G1 (s112_mandant_loeschen)   -- +1 KAN-150 F1d (s112_herkunft_setzen)   -- +1 KAN-150 F1c (s112_kontakt_historie_zu_firma)   -- +1 KAN-150 F1a (s112_stammdaten_bezuege)   -- +3 KAN-149 D2   -- +1 KAN-149 D1   -- +3 KAN-148 C2 (s112_ama_*)   -- +3 KAN-148 C1c-2   -- +s112_pressung_stornieren (KAN-148 C1c)   -- +s112_schwund_minderung (KAN-145 B4)   -- +s112_storniert_loeschen (KAN-145), s112_buchung_loeschen (KAN-166)
-  v_erg := v_erg || pg_temp.s112_erwarte('pruefe_liste_dynamisch', coalesce(array_length(v_namen, 1), 0), 43);   -- +1 KAN-193 (s112_zukauf_buchen)   -- +1 KAN-112 (s112_verschnitte_buchen)   -- +1 KAN-112   -- +1 KAN-192   -- +3 KAN-40   -- +1 KAN-37 B   -- +2 KAN-167   -- +1 KAN-150 F1d   -- +1 KAN-150 F1c   -- +1 KAN-150 F1a   -- +3 KAN-149 D2   -- +1 KAN-149 D1   -- +3 KAN-148 C2
+  v_erg := v_erg || pg_temp.s112_erwarte('rpc_mit_pruefe_tenant_zugriff', v_n, 46);   -- +1 KAN-96 (s112_freeze_korrektur)   -- +1 KAN-193 (s112_zukauf_buchen)   -- +1 KAN-112 (s112_verschnitte_buchen)   -- +1 KAN-112 (s112_verschnitt_buchen)   -- +1 KAN-192 (kellerbuch_abschliessen)   -- +3 KAN-40 (journal_eroeffnen, journal_abgleichen, journal_konsistenz)   -- +1 KAN-37 B (s112_ama_einreichen)   -- +2 KAN-167 (s112_betriebsmittel_einkauf, _stornieren)   -- +1 KAN-151 G1 (s112_mandant_loeschen)   -- +1 KAN-150 F1d (s112_herkunft_setzen)   -- +1 KAN-150 F1c (s112_kontakt_historie_zu_firma)   -- +1 KAN-150 F1a (s112_stammdaten_bezuege)   -- +3 KAN-149 D2   -- +1 KAN-149 D1   -- +3 KAN-148 C2 (s112_ama_*)   -- +3 KAN-148 C1c-2   -- +s112_pressung_stornieren (KAN-148 C1c)   -- +s112_schwund_minderung (KAN-145 B4)   -- +s112_storniert_loeschen (KAN-145), s112_buchung_loeschen (KAN-166)
+  v_erg := v_erg || pg_temp.s112_erwarte('pruefe_liste_dynamisch', coalesce(array_length(v_namen, 1), 0), 44);   -- +1 KAN-96   -- +1 KAN-193 (s112_zukauf_buchen)   -- +1 KAN-112 (s112_verschnitte_buchen)   -- +1 KAN-112   -- +1 KAN-192   -- +3 KAN-40   -- +1 KAN-37 B   -- +2 KAN-167   -- +1 KAN-150 F1d   -- +1 KAN-150 F1c   -- +1 KAN-150 F1a   -- +3 KAN-149 D2   -- +1 KAN-149 D1   -- +3 KAN-148 C2
   -- Soll-Einträge mit p_tenant_id, die es nicht (mehr) gibt
   SELECT string_agg(s.funktion, ', ') INTO v_txt FROM pg_temp.s112_soll_rpc() s
    WHERE s.funktion LIKE '%p_tenant_id %'
@@ -397,7 +398,7 @@ BEGIN
   END LOOP;
   PERFORM pg_temp.s112_als_postgres();
   UPDATE public.tenants SET stripe_status = NULL WHERE id = v_b;
-  v_erg := v_erg || pg_temp.s112_erwarte('abo_rpcs_geprueft', v_n, 35);   -- +1 KAN-193 (s112_zukauf_buchen)   -- +1 KAN-112 (s112_verschnitte_buchen)   -- +1 KAN-112   -- +1 KAN-192   -- +2 KAN-40   -- +1 KAN-37 B   -- +2 KAN-167   -- +1 KAN-150 F1d   -- +1 KAN-150 F1c   -- +3 KAN-149 D2   -- +1 KAN-149 D1   -- +3 KAN-148 C2   -- +3 KAN-148 C1c-2   -- +s112_pressung_stornieren (KAN-148)
+  v_erg := v_erg || pg_temp.s112_erwarte('abo_rpcs_geprueft', v_n, 36);   -- +1 KAN-96   -- +1 KAN-193 (s112_zukauf_buchen)   -- +1 KAN-112 (s112_verschnitte_buchen)   -- +1 KAN-112   -- +1 KAN-192   -- +2 KAN-40   -- +1 KAN-37 B   -- +2 KAN-167   -- +1 KAN-150 F1d   -- +1 KAN-150 F1c   -- +3 KAN-149 D2   -- +1 KAN-149 D1   -- +3 KAN-148 C2   -- +3 KAN-148 C1c-2   -- +s112_pressung_stornieren (KAN-148)
 
   -- ── 4. 'eigen': eigene Mitgliedsprüfung (ohne pruefe_tenant_zugriff) ──────────────────────────────────
   SELECT count(*) INTO v_n FROM public.tenant_memberships WHERE tenant_id = v_m AND aktiv;
