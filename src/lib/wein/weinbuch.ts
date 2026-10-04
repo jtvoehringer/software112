@@ -30,6 +30,7 @@ import { ladeBelegungen } from '@/lib/behoerden/bewegungsbuch'
 import { mostgewichtWeinbuchText } from '@/lib/behoerden/mostgewicht_export'
 import { tag, text } from '@/lib/behoerden/kellerbuch-hilfen'
 import { massnahmenArtLabel } from '@/lib/behandlungen/arten'
+import { pnStatusLabel } from '@/lib/dac/workflow'
 import { massnahmeMittel, massnahmeZeitraum } from '@/lib/behoerden/rueckverfolgung'
 import { ladeRvWeingarten, massnahmeWartezeit, type RvLese } from '@/lib/behoerden/rv-weingarten'
 import { ttmmjjjj } from '@/lib/behoerden/rueckverfolgungFenster'
@@ -533,13 +534,7 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
   for (const dac of dacAntraege) {
     const datum = dac.bescheid_am ?? dac.eingereicht_am ?? dac.created_at ?? null
     if (!datum) continue
-    const statusBadge =
-      dac.status === 'genehmigt'   ? 'Genehmigt' :
-      dac.status === 'eingereicht' ? 'Eingereicht' :
-      dac.status === 'in_pruefung' ? 'In Prüfung' :
-      dac.status === 'abgelehnt'   ? 'Abgelehnt' :
-      dac.status === 'entwurf'     ? 'Entwurf' :
-      dac.status
+    const statusBadge = pnStatusLabel(dac.status)   // KAN-97
     merkeStorno(dac)   // KAN-150 F2
     events.push({
       datum,

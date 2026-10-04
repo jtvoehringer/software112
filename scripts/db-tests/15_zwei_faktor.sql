@@ -288,7 +288,10 @@ BEGIN
       v_erg := v_erg || pg_temp.s112_erwarte('lesen_aal1_isoliert_' || v_tab,
                  pg_temp.s112_zaehle(format('SELECT count(*) FROM public.%I WHERE %s', v_tab, v_w)), '0');
       IF v_ziel ->> 'k' = 'T' THEN
-        v_t_tabellen := v_t_tabellen + 1;
+        -- KAN-97: nur Tabellen, in die laut Soll-Matrix überhaupt jemand per API einfügen darf (nicht z. B. meldung_abgaben,
+        -- pruefnummer_ereignisse – dort schreibt nur die RPC); sonst sänke jede neue RPC-Tabelle den Anteil
+        v_t_tabellen := v_t_tabellen + (EXISTS (SELECT 1 FROM pg_temp.s112_soll() so
+                                                 WHERE so.tabelle = v_tab AND so.aktion = 'INSERT' AND cardinality(so.rollen) > 0))::int;
         -- k1 oder Schlüsselkonflikt (23505 greift erst NACH der RLS-Prüfung) = RLS hat die Zeile zugelassen;
         -- ein fehlendes Recht bzw. ein Trigger-Fehler VOR der RLS-Prüfung darf dann auch hier erscheinen.
         v_ins_k1 := v_ins_k1 + (v_rel_i IN ('k1', 'E23505'))::int;

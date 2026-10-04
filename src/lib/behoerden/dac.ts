@@ -11,6 +11,7 @@
 import { STELLEN, runden, type CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
 import { feld, textOderNull, type R } from './verkehr-hilfen'
+import { PN_STATUS_LABEL } from '../dac/workflow'
 
 export const DAC_REGION_LABEL: Record<string, string> = {
   weinviertel: 'Weinviertel', kamptal: 'Kamptal', kremstal: 'Kremstal',
@@ -20,13 +21,8 @@ export const DAC_REGION_LABEL: Record<string, string> = {
   wiener_gemischter_satz: 'Wiener Gemischter Satz', sonstiges: 'Sonstiges',
 }
 
-export const DAC_STATUS_LABEL: Record<string, string> = {
-  entwurf: 'Entwurf',
-  eingereicht: 'Eingereicht',
-  in_pruefung: 'In Prüfung',
-  genehmigt: 'Genehmigt',
-  abgelehnt: 'Abgelehnt',
-}
+// KAN-97: Statusmodell des Prüfnummernantrags (DB-Wert 'genehmigt' = „Zugeteilt“)
+export const DAC_STATUS_LABEL: Record<string, string> = PN_STATUS_LABEL
 
 export type DacAntragZeile = {
   id: string

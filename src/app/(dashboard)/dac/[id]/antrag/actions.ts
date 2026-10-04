@@ -24,7 +24,9 @@ async function pnaSchreibrecht(): Promise<string> {
   return tenantId
 }
 
-export async function savePNA(dacAntragId: string, daten: R): Promise<{ id: string }> {
+// KAN-97: höchstens ein gültiges Formular je DAC-Antrag (eindeutiger Index) – legen zwei Tabs gleichzeitig an, wird der
+// zweite Insert (23505) zur Änderung des ersten. Ab „Eingereicht“ lehnt die Datenbank Anlegen und Ändern ab (42501).
+export async function savePNA(dacAntragId: string, daten: R, zweiterVersuch = false): Promise<{ id: string }> {
   const supabase = await createSupabaseServerClient()
   const tenantId = await pnaSchreibrecht()
 
@@ -52,6 +54,7 @@ export async function savePNA(dacAntragId: string, daten: R): Promise<{ id: stri
   const { data: neu, error } = await (supabase.from('pruefnummernantraege') as any)
     .insert({ tenant_id: tenantId, dac_antrag_id: dacAntragId, formular_daten: daten })
     .select('id').single()
+  if (error && (error as R).code === '23505' && !zweiterVersuch) return savePNA(dacAntragId, daten, true)
   if (error) throw new AktionsFehler(dbFehlerText(error, 'Speichern fehlgeschlagen (pruefnummernantraege)'))
   revalidatePath(`/dac/${dacAntragId}/antrag`)
   return { id: (neu as R).id }

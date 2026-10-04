@@ -624,6 +624,8 @@ describe('aenderungsprotokoll', () => {
   const daten = () => ({
     bestandsprotokoll: [
       { id: 7, tenant_id: T, tabelle: 'weinausbau', datensatz_id: C1, aktion: 'UPDATE', alt: { menge_liter: 900.5, aktiv: true }, neu: { menge_liter: 889.5, aktiv: false }, geaenderte_spalten: ['aktiv', 'menge_liter'], db_rolle: 'authenticated', benutzer_id: U1, erstellt_am: '2026-03-29T00:59:00+00:00' },
+      // KAN-97: Statuswechsel per RPC mit Grund
+      { id: 10, tenant_id: T, tabelle: 'dac_antrag', datensatz_id: 'd1', aktion: 'UPDATE', alt: { status: 'eingereicht' }, neu: { status: 'genehmigt' }, geaenderte_spalten: ['status'], db_rolle: 'authenticated', benutzer_id: U1, grund: 'Statuswechsel Eingereicht → Zugeteilt: Bescheid BAWB', erstellt_am: '2026-03-30T08:00:00Z' },
       { id: 8, tenant_id: T, tabelle: 'keller_behandlungen', datensatz_id: 'k9', aktion: 'DELETE', alt: { id: 'k9', tenant_id: T, datum: '2026-04-01', menge: 2, einheit: 'g', notizen: '=cmd', created_at: 'x' }, neu: null, geaenderte_spalten: null, db_rolle: 'authenticated', benutzer_id: U2, erstellt_am: '2026-04-01T10:00:00Z' },
       { id: 9, tenant_id: X, tabelle: 'weinausbau', datensatz_id: C2, aktion: 'DELETE', alt: {}, neu: null, db_rolle: 'service_role', benutzer_id: null, erstellt_am: '2026-04-02T10:00:00Z' },
     ],
@@ -639,14 +641,17 @@ describe('aenderungsprotokoll', () => {
     const r = await aend.ladeAenderungsprotokoll(attrappe(daten()), T, { role: 'tenant_admin' }, { von: null, bis: null }, {
       emailsLaden: async ids => new Map(ids.map(id => [id, 'mitarbeiter@weingut.at'])),
     })
-    const [kopf, a, b] = zellen(csv.csvText(r.zeilen, aend.SPALTEN_AENDERUNGSPROTOKOLL))
-    assert.equal(r.zeilen.length, 2)   // fremder Mandant ausgefiltert
+    const [kopf, a, c, b] = zellen(csv.csvText(r.zeilen, aend.SPALTEN_AENDERUNGSPROTOKOLL))
+    assert.equal(r.zeilen.length, 3)   // fremder Mandant ausgefiltert
     assert.equal(kopf[8], 'Alt → Neu')
+    assert.equal(kopf[9], 'Grund')
     assert.deepEqual(a.slice(0, 5), ['7', '29.03.2026 01:59', 'Charge', 'weinausbau', 'Änderung'])
-    assert.deepEqual(a.slice(7), ['aktiv, menge_liter', 'aktiv: ja → nein | menge_liter: 900,5 → 889,5', 'App-Benutzer', 'Mitarbeiter', 'mitarbeiter@weingut.at', ''])   // Benutzer-ID nur ohne E-Mail
+    assert.deepEqual(a.slice(7), ['aktiv, menge_liter', 'aktiv: ja → nein | menge_liter: 900,5 → 889,5', '', 'App-Benutzer', 'Mitarbeiter', 'mitarbeiter@weingut.at', ''])   // Benutzer-ID nur ohne E-Mail
+    assert.deepEqual(c.slice(2, 5), ['DAC-/Prüfnummernantrag', 'dac_antrag', 'Änderung'])
+    assert.deepEqual(c.slice(8, 10), ['status: eingereicht → genehmigt', 'Statuswechsel Eingereicht → Zugeteilt: Bescheid BAWB'])
     assert.deepEqual(b.slice(1, 5), ['01.04.2026 12:00', 'Kellerbehandlung', 'keller_behandlungen', 'Löschung'])
     assert.equal(b[8], 'gelöscht: id=k9 | datum=01.04.2026 | menge=2 | einheit=g | notizen==cmd')
-    assert.deepEqual(b.slice(10), ['', '', U2])
+    assert.deepEqual(b.slice(11), ['', '', U2])
     assert.ok(r.warnungen.some(w => w.includes('nicht (mehr) Mitglied')))
   })
 

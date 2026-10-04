@@ -344,7 +344,13 @@
 "storniert_am",
 "storniert_von",
 "storniert_von_name",
-"storno_grund"
+"storno_grund",
+"status_seit",
+"antragsnummer",
+"untersuchungsnummer",
+"charge_snapshot",
+"entzug_am",
+"entzug_grund"
 ],
 "datenschutz_consents": [
 "id",
@@ -1262,6 +1268,21 @@
 "user_id",
 "full_name",
 "benachrichtigung_email"
+],
+"pruefnummer_ereignisse": [
+"id",
+"tenant_id",
+"dac_antrag_id",
+"weinausbau_id",
+"ereignis",
+"status_alt",
+"status_neu",
+"datum",
+"pruefnummer",
+"grund",
+"benutzer_id",
+"benutzer_name",
+"erstellt_am"
 ],
 "pruefnummernantraege": [
 "id",

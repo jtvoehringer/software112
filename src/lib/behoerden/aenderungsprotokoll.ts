@@ -67,6 +67,9 @@ export const TABELLE_LABEL: Record<string, string> = {
   ea_kategorien: 'E&A-Kategorie',
   ea_dauerauftraege: 'Dauerauftrag',
   keller_behandlungstypen: 'Kellerbehandlungstyp',
+  // KAN-97: Prüfnummernantrag (Statuswechsel mit Grund)
+  dac_antrag: 'DAC-/Prüfnummernantrag',
+  pruefnummernantraege: 'Prüfnummernantrag (Formular)',
 }
 
 const AKTION_LABEL: Record<string, string> = { UPDATE: 'Änderung', DELETE: 'Löschung' }
@@ -142,6 +145,8 @@ export type AenderungsprotokollZeile = {
   datensatz: string | null
   spalten: string | null
   aenderung: string
+  /** Grund einer endgültigen Löschung bzw. (KAN-97) einer Änderung per RPC, z. B. „Statuswechsel Eingereicht → Zugeteilt“ */
+  grund: string | null
   dbRolle: string | null
   betriebsrolle: string | null
   benutzerEmail: string | null
@@ -166,6 +171,7 @@ export function protokollZeilen(roh: readonly R[], emails: ReadonlyMap<string, s
       datensatz: datensatzText(alt, neu),
       spalten: spalten && spalten.length > 0 ? spalten.join(', ') : null,
       aenderung: aenderungText(p.aktion, alt, neu, spalten),
+      grund: text(p.grund),
       dbRolle: p.db_rolle ? (DB_ROLLE_LABEL[p.db_rolle] ?? p.db_rolle) : null,
       betriebsrolle: rolle ? (BETRIEBSROLLE_LABEL[rolle] ?? rolle) : null,
       benutzerEmail: benutzer ? emails.get(benutzer) ?? null : null,
@@ -198,7 +204,7 @@ export async function ladeAenderungsprotokoll(
   }
 
   let q = (supabase.from('bestandsprotokoll') as any)
-    .select('id, tabelle, datensatz_id, aktion, alt, neu, geaenderte_spalten, db_rolle, benutzer_id, erstellt_am')
+    .select('id, tabelle, datensatz_id, aktion, alt, neu, geaenderte_spalten, db_rolle, benutzer_id, grund, erstellt_am')
     .eq('tenant_id', tenantId)
   if (z.von) q = q.gte('erstellt_am', wienTagesbeginnUtc(z.von))
   if (z.bis) q = q.lt('erstellt_am', wienTagesbeginnUtc(folgetag(z.bis)))
@@ -241,6 +247,7 @@ export const SPALTEN_AENDERUNGSPROTOKOLL: CsvSpalte<AenderungsprotokollZeile>[] 
   { kopf: 'Datensatz-ID', typ: 'code', wert: z => z.datensatzId },
   { kopf: 'Geänderte Spalten', typ: 'text', wert: z => z.spalten },
   { kopf: 'Alt → Neu', typ: 'text', wert: z => z.aenderung },
+  { kopf: 'Grund', typ: 'text', wert: z => z.grund },
   { kopf: 'Zugriff über', typ: 'text', wert: z => z.dbRolle },
   { kopf: 'Rolle im Betrieb (heute)', typ: 'text', wert: z => z.betriebsrolle },
   { kopf: 'Benutzer (E-Mail)', typ: 'text', wert: z => z.benutzerEmail },

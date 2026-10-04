@@ -13,6 +13,7 @@ import { AlertTriangle, CheckCircle2, Droplet } from 'lucide-react'
 import HerkunftCodeSelect from '@/components/weinbaugebiete/HerkunftCodeSelect'
 import type { CustomWeinbaugebiet } from '@/app/(dashboard)/weinbaugebiete/actions'
 import { fmtNum } from '@/lib/format'
+import { pnStatusLabel } from '@/lib/dac/workflow'
 import { fehlerText } from '@/lib/fehler'
 import { KORREKTUR_NACH_OBEN_HINWEIS } from '@/lib/kellerbuch/hinweise'
 
@@ -334,13 +335,13 @@ export default function FuellungFormClient({
                   <option value="">– kein DAC-Antrag –</option>
                   {antraegeDerCharge.map(d => (
                     <option key={d.id} value={d.id}>
-                      {d.bezeichnung} · {d.pruefnummer ?? 'keine Prüfnr.'} ({d.status})
+                      {d.bezeichnung} · {d.pruefnummer ?? 'keine Prüfnr.'} ({pnStatusLabel(d.status)})
                     </option>
                   ))}
                 </select>
                 {selectedDacId && dacAntraege.find(d => d.id === selectedDacId)?.status !== 'genehmigt' && (
                   <p className="text-xs text-s112-warn-fg bg-s112-warn-bg border border-s112-warn/30 rounded px-2 py-1 inline-flex items-center gap-1">
-                    <AlertTriangle size={12} strokeWidth={2} />DAC-Antrag noch nicht genehmigt – Abfüllung möglich, aber Prüfnummer fehlt.
+                    <AlertTriangle size={12} strokeWidth={2} />Prüfnummer noch nicht zugeteilt – Abfüllung möglich, aber Prüfnummer fehlt.
                   </p>
                 )}
               </div>

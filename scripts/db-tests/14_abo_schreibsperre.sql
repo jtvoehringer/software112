@@ -87,10 +87,10 @@ DECLARE
   c_m         constant uuid := '33333333-3333-4333-8333-333333333333';
   -- Muss mit ABO_GESPERRTE_STATUS in src/lib/abo/regeln.ts (und s112_abo_gesperrt) übereinstimmen.
   c_gesperrt  constant text[] := ARRAY['unpaid', 'canceled', 'cancelled', 'incomplete', 'incomplete_expired', 'paused'];
-  -- Schreibende SECURITY-DEFINER-RPCs mit s112_pruefe_abo_schreibsperre (Soll-Liste; s112_zukauf_buchen seit KAN-193; s112_verschnitt_buchen/s112_verschnitte_buchen seit KAN-112; s112_betriebsmittel_einkauf/_stornieren seit KAN-167; s112_herkunft_setzen seit KAN-150 F1d; s112_kontakt_historie_zu_firma seit KAN-150 F1c; s112_fuellung_verkauf_buchen seit KAN-149 D1; s112_ea_/zahlung_/umbuchung_stornieren seit D2; s112_storniert_loeschen seit KAN-145, s112_buchung_loeschen seit KAN-166, s112_pressung_stornieren/_zeilen_stornieren, s112_mostzeile_anlegen, s112_pressung_anlegen seit KAN-148, s112_ama_* seit KAN-148 C2, s112_ama_einreichen seit KAN-37 B, journal_eroeffnen/journal_abgleichen seit KAN-40).
+  -- Schreibende SECURITY-DEFINER-RPCs mit s112_pruefe_abo_schreibsperre (Soll-Liste; s112_zukauf_buchen seit KAN-193; s112_verschnitt_buchen/s112_verschnitte_buchen seit KAN-112; s112_betriebsmittel_einkauf/_stornieren seit KAN-167; s112_herkunft_setzen seit KAN-150 F1d; s112_kontakt_historie_zu_firma seit KAN-150 F1c; s112_fuellung_verkauf_buchen seit KAN-149 D1; s112_ea_/zahlung_/umbuchung_stornieren seit D2; s112_storniert_loeschen seit KAN-145, s112_buchung_loeschen seit KAN-166, s112_pressung_stornieren/_zeilen_stornieren, s112_mostzeile_anlegen, s112_pressung_anlegen seit KAN-148, s112_ama_* seit KAN-148 C2, s112_ama_einreichen seit KAN-37 B, journal_eroeffnen/journal_abgleichen seit KAN-40, s112_pruefnummernantrag_status_setzen seit KAN-97).
   c_abo_rpcs  constant text[] := ARRAY['fuellung_bestand_buchen', 'get_next_accountnummer', 'get_next_chargennummer',
                                        'get_next_liefernummer', 'get_next_personenkonto', 'get_next_rechnungsnummer',
-                                       'get_next_transaktionsnr', 'journal_abgleichen', 'journal_eroeffnen', 'kellerbuch_abschliessen', 'kontakte_zusammenfuehren', 's112_ama_einreichen', 's112_ama_korrektur_anlegen', 's112_ama_meldung_speichern', 's112_ama_status_setzen', 's112_betriebsmittel_einkauf', 's112_betriebsmittel_stornieren', 's112_buchung_loeschen', 's112_ea_stornieren', 's112_freeze_korrektur', 's112_fuellung_verkauf_buchen', 's112_herkunft_setzen', 's112_kontakt_historie_zu_firma', 's112_mostzeile_anlegen', 's112_pressung_anlegen', 's112_pressung_stornieren', 's112_pressung_zeilen_stornieren', 's112_storniert_loeschen', 's112_umbuchung_stornieren', 's112_verschnitt_buchen', 's112_verschnitte_buchen', 's112_zahlung_stornieren', 's112_zukauf_buchen', 'schwund_buchen',
+                                       'get_next_transaktionsnr', 'journal_abgleichen', 'journal_eroeffnen', 'kellerbuch_abschliessen', 'kontakte_zusammenfuehren', 's112_ama_einreichen', 's112_ama_korrektur_anlegen', 's112_ama_meldung_speichern', 's112_ama_status_setzen', 's112_betriebsmittel_einkauf', 's112_betriebsmittel_stornieren', 's112_buchung_loeschen', 's112_ea_stornieren', 's112_freeze_korrektur', 's112_fuellung_verkauf_buchen', 's112_herkunft_setzen', 's112_kontakt_historie_zu_firma', 's112_mostzeile_anlegen', 's112_pressung_anlegen', 's112_pressung_stornieren', 's112_pressung_zeilen_stornieren', 's112_pruefnummernantrag_status_setzen', 's112_storniert_loeschen', 's112_umbuchung_stornieren', 's112_verschnitt_buchen', 's112_verschnitte_buchen', 's112_zahlung_stornieren', 's112_zukauf_buchen', 'schwund_buchen',
                                        'setze_kontobewegung_abgeglichen', 'sperre_ea_monat', 'sperre_ea_uva'];
   -- Tabellen, deren Policies auth.uid() gegen eine Eigentümerspalte prüfen (wie t12_pro_persona in Datei 12)
   c_eigentuemer constant text[] := ARRAY['assistent_unterhaltungen', 'assistent_aktionen', 'assistent_nachrichten',
@@ -140,6 +140,7 @@ DECLARE
   v_wa        uuid;
   v_eatx      uuid;
   v_frz       uuid;   -- KAN-96: Zeile der Freeze-Testtabelle
+  v_dac       uuid;   -- KAN-97: Prüfnummernantrag im Entwurf
   v_kb        uuid;
   v_pr        uuid;
   v_pr_jg     uuid;
@@ -227,6 +228,7 @@ BEGIN
   CREATE TABLE public.s112test_freeze (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id uuid NOT NULL, betrag numeric);
   CREATE TRIGGER a_freeze BEFORE UPDATE OR DELETE ON public.s112test_freeze FOR EACH ROW EXECUTE FUNCTION public.s112_freeze('S112TEST', 'true', '');
   INSERT INTO public.s112test_freeze (tenant_id, betrag) VALUES (v_b, 1) RETURNING id INTO v_frz;
+  v_dac := (pg_temp.s112_beispiel('dac_antrag', v_b, v_bw) ->> 'id')::uuid;   -- KAN-97
   v_kb := (pg_temp.s112_beispiel('keller_behandlungen', v_b, v_bw,
     '{"storniert_am": "2026-09-30T10:00:00Z", "storno_grund": "S112TEST storniert"}') ->> 'id')::uuid;   -- KAN-145
   v_pl := (pg_temp.s112_beispiel('psm_lager_bewegungen', v_b, v_bw) ->> 'id')::uuid;   -- KAN-166
@@ -490,6 +492,7 @@ BEGIN
     's112_storniert_loeschen', format('SELECT public.s112_storniert_loeschen(%L, %L, %L, %L)', v_b, 'keller_behandlungen', v_kb, 'S112TEST endgültig löschen'),
     'schwund_buchen', format('SELECT public.schwund_buchen(%L, %L, 1, current_date, %L, false, true)', v_b, v_wa, 'S112TEST'),
     'setze_kontobewegung_abgeglichen', format('SELECT public.setze_kontobewegung_abgeglichen(%L, %L, %L, true)', v_b, 'ea_transaktion', v_eatx),
+    's112_pruefnummernantrag_status_setzen', format('SELECT public.s112_pruefnummernantrag_status_setzen(%L, %L, %L, current_date, NULL, NULL)', v_b, v_dac, 'eingereicht'),   -- KAN-97
     's112_freeze_korrektur', format('SELECT public.s112_freeze_korrektur(%L, %L, %L, %L::jsonb, %L)', v_b, 's112test_freeze', v_frz, '{"betrag": 2}', 'S112TEST Korrektur'),
     'sperre_ea_monat', format('SELECT public.sperre_ea_monat(%L, 2020::smallint, 2::smallint)', v_b),
     'sperre_ea_uva', format('SELECT public.sperre_ea_uva(%L, 2020::smallint, %L)', v_b, '01'),
