@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { alle } from '@/lib/supabase/alle'
 import BetriebListe, { type BetriebEintrag } from './BetriebListe'
 import { BetriebsPruefMelder } from '@/components/BetriebsWaechter'
+import AbmeldenKnopf from './AbmeldenKnopf'
 
 export const dynamic = 'force-dynamic'
 
@@ -38,7 +39,29 @@ export default async function BetriebWaehlenPage() {
     .eq('aktiv', true)
     .order('created_at', { ascending: true }).order('tenant_id'))
 
-  if (!memberships || memberships.length === 0) redirect('/login')
+  // Kein aktiver Betrieb (Mitgliedschaft deaktiviert oder Betrieb deaktiviert, KAN-159 B16 – RLS blendet beide aus):
+  // Hinweis statt Umleitung auf /login (dort landete man ohne Erklärung wieder hier)
+  if (!memberships || memberships.length === 0) {
+    return (
+      <div className="min-h-screen bg-s112-bg flex items-center justify-center p-4">
+        <div className="w-full max-w-md text-center">
+          <h1 className="text-3xl font-semibold text-s112-blue-700 inline-flex items-baseline gap-0">
+            software<span className="text-s112-yellow">:</span>112
+          </h1>
+          <div className="mt-8 rounded-xl border border-s112-border bg-white p-6 text-left">
+            <h2 className="text-lg font-semibold text-s112-text-1">Kein aktiver Betrieb</h2>
+            <p className="mt-2 text-sm text-s112-muted">
+              Dein Zugang ist derzeit keinem aktiven Betrieb zugeordnet – entweder wurde deine Mitgliedschaft
+              oder der Betrieb deaktiviert. Bitte wende dich an die Betriebsleitung oder an den
+              software:112-Support.
+            </p>
+            <AbmeldenKnopf />
+          </div>
+          <p className="text-center text-xs text-s112-muted mt-6">Angemeldet als {user.email}</p>
+        </div>
+      </div>
+    )
+  }
 
   // Einzelner Betrieb: über den Route Handler setzen (Cookies dürfen nicht
   // beim Rendern geschrieben werden – sonst Serverfehler beim ersten Login).

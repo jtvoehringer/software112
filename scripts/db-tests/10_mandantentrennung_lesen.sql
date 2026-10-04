@@ -36,7 +36,7 @@
 --      „Zeile eines anderen Betriebs“: bei T über tenant_id; bei K über eine als postgres ermittelte PK-Liste
 --      (bis 50 Zeilen, nach PK sortiert), deren Elternzeile einem anderen Betrieb gehört.
 --   3. Positivkontrolle: m_ta sieht die M-Zeile, b_ta die B-Zeile. Ausnahmen: stripe_zahlungen_log und
---      system_ereignisse (niemand), benachrichtigungen und user_email_connections (nur Eigentümer),
+--      system_ereignisse (niemand), benachrichtigungen, user_email_connections und assistent_* (nur Eigentümer, B14),
 --      zeiterfassung und bestandsprotokoll (nur SA/TA/PA; sumup_terminals liest jedes Mitglied – Ist-Stand), tenant_memberships (W/L nur die eigene Zeile).
 --   4. Globale Zeilen (tenant_id NULL) für b_w sichtbar; Sonderfälle tenants, tenant_memberships,
 --      plattform_admins, rebsorten, svs_parameter, release_notes(_gesehen), profiles (Lücke B3), Views.
@@ -118,7 +118,9 @@ DECLARE
   c_datei     constant text := '10_mandantentrennung_lesen';
   -- Lesen nur für niemanden per API / nur Eigentümer / nur SA, TA, PA
   c_niemand   constant text[] := ARRAY['stripe_zahlungen_log', 'system_ereignisse'];
-  c_eigner    constant text[] := ARRAY['benachrichtigungen', 'user_email_connections'];
+  -- assistent_*: Verläufe privat je Benutzer (KAN-159 B14)
+  c_eigner    constant text[] := ARRAY['benachrichtigungen', 'user_email_connections',
+                                       'assistent_unterhaltungen', 'assistent_nachrichten', 'assistent_aktionen'];
   c_nur_admin constant text[] := ARRAY['zeiterfassung', 'bestandsprotokoll'];
   -- sumup_terminals: Schreiben nur SA/TA, Lesen bewusst jedes Mitglied (Policy sumup_terminals_select, legacy 097;
   -- Winzer wählt das Terminal an der Kasse, keine Geheimnisse in der Tabelle) – Ist-Stand wird festgehalten.
@@ -468,9 +470,11 @@ BEGIN
     pg_temp.s112_zaehle(format('SELECT count(*) FROM public.release_notes_gesehen WHERE user_id = %L::uuid', v_m_ta)), '0');
   v_erg := v_erg || pg_temp.s112_erwarte('profil_eigenes_b_w',
     pg_temp.s112_zaehle(format('SELECT count(*) FROM public.profiles WHERE id = %L::uuid', v_b_w)), '1');
-  v_erg := v_erg || pg_temp.s112_luecke('profiles_read_all',
-    pg_temp.s112_zaehle(format('SELECT count(*) FROM public.profiles WHERE id = %L::uuid', v_m_ta)), '0', '1',
-    'B3 profiles_read_all: Profile aller Betriebe lesbar (display_name, full_name, telefon, avatar_url)');
+  -- KAN-159 B3: Profile nur im eigenen Umfeld (gemeinsame Betriebe), nicht plattformweit
+  v_erg := v_erg || pg_temp.s112_erwarte('profil_fremder_betrieb_b_w',
+    pg_temp.s112_zaehle(format('SELECT count(*) FROM public.profiles WHERE id = %L::uuid', v_m_ta)), '0');
+  v_erg := v_erg || pg_temp.s112_erwarte('profil_gleicher_betrieb_b_w',
+    pg_temp.s112_zaehle(format('SELECT count(*) FROM public.profiles WHERE id = %L::uuid', v_b_ta)), '1');
 
   PERFORM pg_temp.s112_als(v_m_ta);
   v_erg := v_erg || pg_temp.s112_erwarte('rng_eigen_m_ta',
