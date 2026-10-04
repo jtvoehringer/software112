@@ -58,7 +58,7 @@ const BIO_SPERRE = new Set(['bio_eu', 'biodynamisch'])
 const BIO_WARNUNG = new Set(['kip', 'nachhaltig'])
 
 export default function NeueBehandlungForm({
-  psm, duengemittel, weingaerten, gstByWeingarten, bioStatus, kostenarten, saetzeMassnahmen, betriebsmittel = [],
+  psm, duengemittel, weingaerten, gstByWeingarten, bioStatus, kostenarten, saetzeMassnahmen, betriebsmittel = [], kostenModul = true,
 }: {
   psm: PSM[]; duengemittel: DuengemittelOption[]
   /** KAN-167: Weinbehandlungs- und Produktionsmittel (aktiv) für Sonstiges und Laubarbeit */
@@ -66,6 +66,8 @@ export default function NeueBehandlungForm({
   weingaerten: WeingartenOption[]; gstByWeingarten: Record<string, GSTOption[]>
   bioStatus: string
   kostenarten: KostenartOption[]; saetzeMassnahmen: SatzOption[]
+  /** KAN-195: Kostenrechnung nur mit Paket-Modul Controlling */
+  kostenModul?: boolean
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -767,8 +769,8 @@ export default function NeueBehandlungForm({
         )}
       </div>
 
-      {/* Kosten-Vorschlagsfunktion (optional) */}
-      <div className="card space-y-3">
+      {/* Kosten-Vorschlagsfunktion (optional) – nur mit Modul Controlling (KAN-195) */}
+      <div className={kostenModul ? 'card space-y-3' : 'hidden'}>
         <label className="flex items-center gap-2 cursor-pointer">
           <input type="checkbox" name="kosten_aktiv" checked={kostenAktiv}
             onChange={e => { setKostenAktiv(e.target.checked); betragManuellGeaendert.current = false }}

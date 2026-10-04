@@ -46,6 +46,8 @@ const ATTRAPPEN = {
     'export async function createSupabaseServerClient() { return globalThis.__kan143Supabase }',
   '@/lib/auth/seitenBetrieb': 'export async function pruefeSeitenBetrieb() {}',
   '@/lib/auth/sperren': 'export async function pruefeSchreibzugriff() {}',
+  // KAN-195: Kosten in Maßnahmen nur mit Modul Controlling – hier an, wie bisher
+  '@/lib/auth/modul': 'export async function hatModul() { return true }',
   'next/cache': 'export function revalidatePath() {}',
 }
 

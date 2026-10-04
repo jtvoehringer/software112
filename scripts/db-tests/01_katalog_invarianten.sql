@@ -867,6 +867,13 @@ BEGIN
      AND c.relname = ANY (pg_temp.s112_soll_liste('tid_ohne_fk'));
   -- BK3 seit KAN-159 Teil 2 behoben: ohne FK bleiben nur die Protokolle (überdauern die Mandanten-Löschung)
   v_erg := v_erg || pg_temp.s112_erwarte('tid_ohne_fk_soll', coalesce(v_txt, ''), 'bestandsprotokoll, system_ereignisse');
+  -- KAN-195: Paket-Module – genau die Soll-Tabellen haben die drei RESTRICTIVE-Policies paketmodul_* (TO authenticated)
+  SELECT pg_temp.t01_sortiert(array_agg(p.tablename::text)) INTO v_txt FROM (
+    SELECT p.tablename FROM pg_policies p
+     WHERE p.schemaname = 'public' AND p.policyname IN ('paketmodul_ins', 'paketmodul_upd', 'paketmodul_del')
+       AND p.permissive = 'RESTRICTIVE' AND p.roles = '{authenticated}'::name[] AND (coalesce(p.qual, p.with_check) ~ 's112_paketmodul_frei')
+     GROUP BY p.tablename HAVING count(*) = 3) p;
+  v_erg := v_erg || pg_temp.s112_erwarte('paketmodul_tabellen', v_txt, pg_temp.t01_sortiert(pg_temp.s112_soll_liste('paketmodul_tabellen')));
 
   PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 75);
 END

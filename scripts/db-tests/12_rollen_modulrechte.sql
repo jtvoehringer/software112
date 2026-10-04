@@ -630,9 +630,11 @@ BEGIN
     FOR r IN SELECT k.key AS tab, k.value AS z FROM jsonb_each(v_mz) k ORDER BY k.key LOOP
       v_code := pg_temp.s112_versuch(pg_temp.s112_klon_sql(r.tab, r.z));
       -- durch = RLS hat die neue Zeile angenommen (k≥1 oder ein Constraint danach), abgelehnt = R/G/T
-      v_erg := v_erg || pg_temp.s112_luecke('modul_schalter_schreiben:' || r.tab || ':' || v_pn,
+      -- KAN-195 (vorher B17): Paket-Module (E&A, Export …) sperrt die DB; Kernmodule (Weingarten, Kellerbuch, CRM)
+      -- und Warenwirtschaft sind in jedem Paket enthalten und bleiben frei (Entscheidung Jörgen 04.10.2026)
+      v_erg := v_erg || pg_temp.s112_erwarte('modul_schalter_schreiben:' || r.tab || ':' || v_pn,
         CASE WHEN pg_temp.t12_klasse(v_code) = 'erlaubt' THEN 'durch' WHEN v_code IN ('R', 'G', 'T') THEN 'abgelehnt' ELSE v_code END,
-        'abgelehnt', 'durch', 'B17 Modul-/Paketschalter (tenant_einstellungen.modul_*, module_flags) beim Schreiben nicht in der DB durchgesetzt (zu klären)');
+        CASE WHEN r.tab IN ('ea_transaktionen', 'exportauftraege') THEN 'abgelehnt' ELSE 'durch' END);
     END LOOP;
     PERFORM pg_temp.s112_als_postgres();
   END LOOP;

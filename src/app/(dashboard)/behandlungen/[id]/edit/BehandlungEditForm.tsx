@@ -104,7 +104,7 @@ const labelCls = 'block text-sm font-medium text-s112-text-1 mb-1'
 
 export default function BehandlungEditForm({
   behandlung, psm, duengemittel, bioStatus, kostenarten, bestehenderKostenEintrag, flaecheHa,
-  weingaerten, gstByWeingarten, startWGs, startGSTs, betriebsmittel = [],
+  weingaerten, gstByWeingarten, startWGs, startGSTs, betriebsmittel = [], kostenModul = true,
 }: {
   /** KAN-167: Betriebsmittel (aktiv bzw. das gespeicherte) */
   betriebsmittel?: BmMassnahmeOption[]
@@ -113,6 +113,8 @@ export default function BehandlungEditForm({
   duengemittel: DuengemittelOption[]
   bioStatus: string
   kostenarten: KostenartOption[]
+  /** KAN-195: Kostenrechnung nur mit Paket-Modul Controlling */
+  kostenModul?: boolean
   bestehenderKostenEintrag: BestehenderKostenEintrag | null
   /** Σ Fläche der Grundstücke dieser Maßnahme (ha); null = keine Grundstücke zugeordnet */
   flaecheHa: number | null
@@ -825,8 +827,8 @@ export default function BehandlungEditForm({
         </div>
       </div>
 
-      {/* Kosten (Punkte 6, 9) */}
-      <div className="card space-y-3">
+      {/* Kosten (Punkte 6, 9) – nur mit Modul Controlling (KAN-195) */}
+      <div className={kostenModul ? 'card space-y-3' : 'hidden'}>
         <label className="flex items-center gap-2 cursor-pointer">
           <input type="checkbox" name="kosten_aktiv" checked={kostenAktiv}
             onChange={e => setKostenAktiv(e.target.checked)}

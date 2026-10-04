@@ -445,7 +445,10 @@ BEGIN
   INSERT INTO public.tenants (id, name, slug, stripe_status)
   VALUES (v_id, CASE WHEN p_name LIKE 'S112TEST%' THEN p_name ELSE 'S112TEST ' || coalesce(p_name, 'Betrieb') END,
           's112test-' || v_id, p_stripe_status);
-  INSERT INTO public.tenant_einstellungen (tenant_id) VALUES (v_id);
+  -- KAN-195: Paket-Module wie Premium an (die DB sperrt sonst E&A, Export, SumUp, Kostenrechnung und Assistent);
+  -- modul_ea nur zusammen mit modul_sumup abschalten (chk_sumup_bedingt_buchhaltung). Abschalten prüft 12 (Abschnitt 6).
+  INSERT INTO public.tenant_einstellungen (tenant_id, modul_ea, modul_export, modul_sumup, modul_controlling, assistent_aktiv)
+  VALUES (v_id, true, true, true, true, true);
   RETURN v_id;
 END $f$;
 
@@ -531,6 +534,10 @@ DECLARE
   v_mix uuid;
 BEGIN
   PERFORM pg_temp.s112_nur_postgres('s112_aufbau');
+  -- KAN-195: im Musterhof (Staging-Stand kann abweichen) alle Paket-Module an – Rollen-/Schreibproben setzen sie voraus
+  UPDATE public.tenant_einstellungen
+     SET modul_ea = true, modul_export = true, modul_sumup = true, modul_controlling = true, assistent_aktiv = true
+   WHERE tenant_id = c_m;
   v_pa := pg_temp.s112_plattform_admin(ARRAY[c_m]);
   v_b := pg_temp.s112_betrieb('S112TEST Betrieb B');
   IF p_mit_c THEN
@@ -1136,6 +1143,13 @@ BEGIN
     WHEN 'anon_execute_erlaubt' THEN ARRAY['s112_pre_request()']
     WHEN 'tid_nullable' THEN ARRAY[
       'bestandsprotokoll', 'duengemittel', 'ea_kategorien', 'pflanzenschutzmittel', 'saetze_massnahmen', 'system_ereignisse']
+    -- KAN-195: Tabellen mit den RESTRICTIVE-Policies paketmodul_ins/_upd/_del (Paket-Modul aus → kein Schreiben)
+    WHEN 'paketmodul_tabellen' THEN ARRAY[
+      'assistent_aktionen', 'assistent_korrekturen', 'assistent_nachrichten', 'assistent_unterhaltungen',
+      'buchhaltung_export_protokoll', 'buchhaltung_kontenmapping', 'ea_anlagen', 'ea_belege', 'ea_dauerauftraege',
+      'ea_kategorien', 'ea_monatsabschluss', 'ea_transaktionen', 'ea_uva', 'export_dokumente', 'exportauftraege',
+      'exportauftrag_positionen', 'konten', 'konto_umbuchungen', 'kostenarten', 'kosteneintraege',
+      'kosteneintrag_behaelter', 'kosteneintrag_weingaerten', 'kostenstellen', 'sumup_checkouts', 'sumup_terminals']
     WHEN 'tid_ohne_fk' THEN ARRAY['bestandsprotokoll', 'system_ereignisse']
     WHEN 'truncate_authenticated' THEN '{}'::text[]   -- seit KAN-159 (29.09.2026) kein TRUNCATE mehr
     WHEN 'truncate_anon' THEN pg_temp.s112_soll_liste('truncate_authenticated')
@@ -1204,7 +1218,8 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('rls_hilfe',     '-US', false, 'pruefe_tenant_zugriff(p_tenant_id uuid, p_rollen text[])'),
     ('rls_hilfe',     '-US', false, 's112_aal_ok()'),
     ('rls_hilfe',     '-US', false, 's112_darf_schreiben(p_tenant uuid, VARIADIC p_module text[])'),
-    ('rls_hilfe',     '-US', false, 's112_sichtbare_profile()'),   -- KAN-159 B3: Profile gemeinsamer Betriebe
+    ('rls_hilfe',     '-US', false, 's112_sichtbare_profile()'),
+    ('rls_hilfe',     '-US', false, 's112_paketmodul_frei(p_tenant_id uuid, p_schalter text)'),   -- KAN-195: Paket-Modul frei (Policies paketmodul_*)   -- KAN-159 B3: Profile gemeinsamer Betriebe
     ('rls_hilfe',     '-US', false, 's112_gesperrte_tenants()'),
     ('mandant_eigen', '-US', false, 's112_mandant_mitglieder(p_tenant_id uuid)'),
     ('intern',        '--S', false, 's112_mandant_mitglieder_mit_email(p_tenant_id uuid)'),
