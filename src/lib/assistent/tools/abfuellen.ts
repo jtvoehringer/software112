@@ -36,7 +36,8 @@ datum (pflicht, Abfülldatum YYYY-MM-DD), flaschengroesse_ml (pflicht, eine von
 
 qualitaet (optional – ohne Angabe wird die aktuelle Qualitätsstufe der Charge übernommen;
 NUR Abstufung möglich, eine Aufstufung wird vom Server hart blockiert), herkunft_code
-(optional, gleiche Regel: nur Abstufung), jahrgang/rebsorte/anbaugebiet/bezeichnung/
+(optional, gleiche Regel: nur Abstufung), jahrgang/rebsorte (kommen immer aus der Charge – nur angeben,
+wenn die Charge keinen Wert hat), anbaugebiet/bezeichnung/
 pruefnummer/chargennummer (optional, chargennummer wird sonst automatisch vergeben;
 pruefnummer: hat die Charge einen DAC-Antrag, NUR die Nummer ihres genehmigten Antrags, die der
 User nennt – der Server verknüpft dann den Antrag, wenn die Nummer für den Bestand gilt, sonst
@@ -155,8 +156,9 @@ export async function fuehreAbfuellenAus(
   if (chAngabe.erzeugnis) fd.set('erzeugnis', chAngabe.erzeugnis)
   if (input.herkunft_code) fd.set('herkunft_code', String(input.herkunft_code))
   else if (ch.herkunft_code) fd.set('herkunft_code', String(ch.herkunft_code))
-  fd.set('jahrgang', input.jahrgang != null ? String(input.jahrgang) : String(ch.jahrgang ?? ''))
-  fd.set('rebsorte', input.rebsorte ? String(input.rebsorte) : String(ch.rebsorte ?? ''))
+  // KAN-84: Jahrgang und Rebsorte kommen aus der Charge (der Server übernimmt sie ohnehin von dort)
+  fd.set('jahrgang', ch.jahrgang != null ? String(ch.jahrgang) : (input.jahrgang != null ? String(input.jahrgang) : ''))
+  fd.set('rebsorte', ch.rebsorte ? String(ch.rebsorte) : (input.rebsorte ? String(input.rebsorte) : ''))
   if (input.anbaugebiet) fd.set('anbaugebiet', String(input.anbaugebiet))
   if (input.bezeichnung) fd.set('bezeichnung', String(input.bezeichnung))
   if (input.pruefnummer) fd.set('pruefnummer', String(input.pruefnummer))
