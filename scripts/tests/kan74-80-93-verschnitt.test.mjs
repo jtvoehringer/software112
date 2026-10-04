@@ -75,9 +75,11 @@ describe('KAN-80: keine Aufwertung', () => {
     assert.match(teil, /from\('pressung_behaelter'\)/)
     assert.match(teil, /from\('zukauf_posten'\)/)
   })
-  test('Füllung (neu und bearbeiten) lehnt Aufwertungen über istAufwertungQualitaet ab', () => {
+  test('Füllung (neu) lehnt Aufwertungen über istAufwertungQualitaet ab; Bearbeiten schreibt keine Qualität mehr (KAN-101)', () => {
     const q = quelle('src/app/(dashboard)/weinhandel/actions.ts')
-    assert.equal((q.match(/istAufwertungQualitaet\(chargeQualitaet, qualitaetInput\)/g) ?? []).length, 2)
+    assert.equal((q.match(/istAufwertungQualitaet\(chargeQualitaet, qualitaetInput\)/g) ?? []).length, 1)
+    const upd = q.slice(q.indexOf('export async function updateFuellung'), q.indexOf('export async function pruefnummerNachtragen'))
+    assert.doesNotMatch(upd, /qualitaet|fuellungsQualitaetsSpalten|herkunft_code/)
   })
 })
 

@@ -4,7 +4,9 @@ import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import { Wine } from 'lucide-react'
-import { updateFuellung } from '../../../actions'
+import { updateFuellung, pruefnummerNachtragen } from '../../../actions'
+import GesperrtHinweis from '@/components/GesperrtHinweis'
+import PruefnummerNachtragen, { type NachtragAntrag } from './PruefnummerNachtragen'
 import { KN_CODES } from '@/lib/wein/zolltarif'
 import { HERKUNFT_ORDER, HERKUNFT_LABEL, herkunftOptionen, zulaessigeHerkuenfte } from '@/lib/herkunft'
 import { qualitaetText } from '@/lib/weinqualitaet'
@@ -14,7 +16,7 @@ import { FUELLUNG_QUALITAETEN, mitGespeichertemWert } from '@/lib/wein/qualitaet
 import { ladeCustomWeinbaugebiete } from '../../../../weinbaugebiete/actions'
 import HerkunftCodeSelect from '@/components/weinbaugebiete/HerkunftCodeSelect'
 import { fmtNum } from '@/lib/format'
-import { folgebuchungenDerFuellung, folgebuchungenFuellungText, heuteOrtsdatum, datumDe } from '../../folgebuchungen'
+import { folgebuchungenDerFuellung, heuteOrtsdatum, datumDe } from '../../folgebuchungen'
 import { bewegungsartLabel } from '../../bewegungsarten'
 import FuellungEditFormular from './FuellungEditFormular'
 import SchwundAusbuchenKnopf from './SchwundAusbuchenKnopf'
@@ -132,6 +134,19 @@ export default async function EditFuellungPage({
       .select('id, name, jahrgang, status').eq('id', f.weinausbau_id)).single()
     if (extra) chargenListe = [extra as R, ...chargen]
   }
+
+  // KAN-101: DAC-Anträge der Charge für den einmaligen Prüfnummer-Nachtrag (eingereicht, in Prüfung, zugeteilt)
+  const { data: antrRaw } = f.weinausbau_id && !f.pruefnummer && !f.storniert_am
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ? await tf((supabase.from('dac_antrag') as any)
+        .select('id, bezeichnung, status, pruefnummer')
+        .eq('weinausbau_id', f.weinausbau_id).eq('aktiv', true).is('storniert_am', null)
+        .in('status', ['eingereicht', 'in_pruefung', 'genehmigt', 'erloschen', 'aufgebraucht'])
+        .order('created_at', { ascending: false }))
+    : { data: [] }
+  const nachtragAntraege = ((antrRaw ?? []) as NachtragAntrag[])
+    .filter(a => !f.dac_antrag_id || a.id === f.dac_antrag_id)
+  const gespeichertAm = f.erstellt_am ? new Date(f.erstellt_am).toLocaleDateString('de-AT') : null
 
   const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
   const labelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
@@ -252,16 +267,20 @@ export default async function EditFuellungPage({
 
       <FuellungEditFormular action={updateWithId}>
 
+        {/* KAN-101: nach dem Speichern sperrt die Datenbank alles außer Produktname, Preisen, KN-Code und Notizen */}
+        <GesperrtHinweis grund="Füllung gespeichert" seit={gespeichertAm}
+          erlaubt={['Produktname', 'Preise', 'KN-Code', 'Notizen', ...(f.weinausbau_id ? [] : ['Charge (einmal nachtragbar)'])]} />
+
         {/* Kellerbuch-Charge */}
         <div className="card p-5 space-y-2">
           <h2 className="font-semibold text-s112-text text-sm">Kellerbuch-Charge</h2>
           {!f.weinausbau_id && (
             <p className="text-xs text-s112-warn-fg bg-s112-warn-bg border border-s112-warn/30 rounded-lg px-3 py-2">
-              Keine Charge verknüpft – Rückverfolgung nur bis zur Abfüllung möglich. Bitte hier nachträglich zuordnen.
-              Die nachträgliche Zuordnung dient nur der Rückverfolgung – von der Charge wird dabei nichts abgebucht.
+              Keine Charge verknüpft – Rückverfolgung nur bis zur Abfüllung möglich. Bitte hier nachträglich zuordnen (einmalig,
+              danach gesperrt). Die nachträgliche Zuordnung dient nur der Rückverfolgung – von der Charge wird dabei nichts abgebucht.
             </p>
           )}
-          {literGesperrt ? (
+          {f.weinausbau_id ? (
             <div>
               <p id="charge-label" className={labelCls}>Weinausbau-Charge</p>
               <input type="hidden" name="weinausbau_id" value={f.weinausbau_id} />
@@ -274,8 +293,10 @@ export default async function EditFuellungPage({
                 })()}
               </div>
               <p className="text-xs text-s112-muted mt-1">
-                Fest verknüpft: Die Füllmenge wurde beim Abfüllen von dieser Charge abgebucht. Falsche Charge? Füllung löschen
-                (bucht die Liter zurück, nur ohne Verkäufe und Bestandsbuchungen) und neu anlegen.
+                {literGesperrt
+                  ? 'Fest verknüpft: Die Füllmenge wurde beim Abfüllen von dieser Charge abgebucht.'
+                  : 'Nachträglich zugeordnet – von dieser Charge wurde nichts abgebucht.'}
+                {' '}Falsche Charge? Füllung stornieren (nur ohne Verkäufe und Bestandsbuchungen) und neu anlegen.
               </p>
             </div>
           ) : (
@@ -289,12 +310,6 @@ export default async function EditFuellungPage({
                   </option>
                 ))}
               </select>
-              {f.weinausbau_id && (
-                <p className="text-xs text-s112-muted mt-1">
-                  Nachträglich zugeordnet – von dieser Charge wurde nichts abgebucht. Die Zuordnung (Rückverfolgung, Weinpass)
-                  lässt sich deshalb noch ändern; bitte die richtige Charge sorgfältig wählen.
-                </p>
-              )}
             </div>
           )}
         </div>
@@ -308,6 +323,9 @@ export default async function EditFuellungPage({
               <label className={labelCls}>Produktname *</label>
               <input aria-label="Produktname" name="name" defaultValue={f.name} required className={inputCls} />
             </div>
+          </div>
+          {/* KAN-101: Merkmale gesperrt (aus der Charge bzw. beim Anlegen erfasst) */}
+          <fieldset disabled className="grid grid-cols-1 sm:grid-cols-2 gap-4 min-w-0 border-0 p-0 m-0 opacity-80">
             <div>
               <label className={labelCls}>Jahrgang</label>
               <input aria-label="Jahrgang" name="jahrgang" type="number" min={1900} max={2100} defaultValue={f.jahrgang ?? ''} className={inputCls} />
@@ -355,14 +373,14 @@ export default async function EditFuellungPage({
               <label className={labelCls}>Subbezeichnung / Ried (optional)</label>
               <input aria-label="Subbezeichnung / Ried (optional)" name="bezeichnung" defaultValue={f.bezeichnung ?? ''} placeholder="z.B. Ried Hohenberg · Reserve" className={inputCls} />
             </div>
-          </div>
+          </fieldset>
         </div>
 
         {/* ── Abfüllung ── */}
         <div className="card p-5 space-y-4">
           <h2 className="font-semibold text-s112-text text-sm">Abfüllung</h2>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <fieldset disabled className="grid grid-cols-1 sm:grid-cols-2 gap-4 min-w-0 border-0 p-0 m-0 opacity-80">
             <div>
               <label className={labelCls}>Abfülldatum *</label>
               <input aria-label="Abfülldatum"
@@ -412,19 +430,13 @@ export default async function EditFuellungPage({
                 readOnly={mengenGesperrt || literGesperrt}
                 className={mengenGesperrt || literGesperrt ? `${inputCls} bg-s112-bg text-s112-text-1` : inputCls} />
             </div>
-          </div>
+          </fieldset>
 
-          {mengenGesperrt ? (
-            <p className="text-xs text-s112-text-1 bg-s112-bg border border-s112-border rounded-lg px-3 py-2">
-              Anzahl, Flaschengröße und Füllmenge sind gesperrt, weil es zu dieser Füllung bereits {folgebuchungenFuellungText(folge)} gibt.
-              Abweichungen im Flaschenbestand bitte über <a href="#bestand" className="text-s112-blue-700 hover:underline">„Bestand korrigieren“</a> buchen.
-            </p>
-          ) : literGesperrt ? (
-            <p className="text-xs text-s112-text-1 bg-s112-bg border border-s112-border rounded-lg px-3 py-2">
-              {anzahlGesperrt ? 'Anzahl, Flaschengröße und Füllmenge' : 'Flaschengröße und Füllmenge'} sind gesperrt, weil die Füllmenge bereits
-              von der Charge abgebucht wurde. Falsch erfasst? Füllung löschen (bucht die Liter zurück) und neu anlegen.
-            </p>
-          ) : null}
+          <p className="text-xs text-s112-text-1 bg-s112-bg border border-s112-border rounded-lg px-3 py-2">
+            Abfülldatum, Flaschengröße, Anzahl und Füllmenge sind ab dem Speichern gesperrt. Tippfehler? Füllung stornieren
+            (bucht die Liter auf die Charge zurück) und neu anlegen. Abweichungen im Flaschenbestand bitte über
+            {' '}<a href="#bestand" className="text-s112-blue-700 hover:underline">„Bestand korrigieren“</a> buchen.
+          </p>
         </div>
 
         {/* ── Preise ── */}
@@ -495,6 +507,22 @@ export default async function EditFuellungPage({
 
         {/* Aktionen (Speichern/Abbrechen) und Fehlermeldung rendert FuellungEditFormular */}
       </FuellungEditFormular>
+
+      {/* ── KAN-101: Prüfnummer (einmal nachtragbar, aus dem DAC-Antrag der Charge) ── */}
+      <section className="card p-5 space-y-3 mt-6">
+        <h2 className="font-semibold text-s112-text text-sm">Prüfnummer</h2>
+        {f.pruefnummer ? (
+          <p className="text-sm"><span className="font-mono">{f.pruefnummer}</span>
+            <span className="text-xs text-s112-muted"> – eingetragen, gesperrt (Korrektur nur durch die Betriebsleitung)</span></p>
+        ) : !f.weinausbau_id ? (
+          <p className="text-xs text-s112-muted">Ohne Kellerbuch-Charge keine Prüfnummer aus einem DAC-Antrag – bitte zuerst die Charge nachtragen.</p>
+        ) : f.storniert_am ? (
+          <p className="text-xs text-s112-muted">Die Füllung ist storniert.</p>
+        ) : (
+          <PruefnummerNachtragen antraege={nachtragAntraege} verknuepftId={f.dac_antrag_id ?? null}
+            nachtragen={pruefnummerNachtragen.bind(null, id)} />
+        )}
+      </section>
 
       {/* ── Flaschenbestand (KAN-35): eigenes Formular AUSSERHALB des Bearbeiten-Formulars ── */}
       <section id="bestand" className="card p-5 space-y-4 mt-6 scroll-mt-24">

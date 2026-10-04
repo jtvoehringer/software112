@@ -19,8 +19,9 @@ import { BEWEGUNGSARTEN, istBewegungsart } from './fuellungen/bewegungsarten'
 import { spaetereMengenbewegungen } from '@/lib/kellerbuch/storno'
 import { folgebuchungenText } from '@/lib/kellerbuch/folgebuchungen'
 import { KORREKTUR_NACH_OBEN_HINWEIS } from '@/lib/kellerbuch/hinweise'
-import { pruefnummerBeiChargenzuordnung, pruefnummerBeiDatumsaenderung, pruefnummerFuerFuellung } from '@/lib/kellerbuch/pruefnummerLaden'
-import { pnTag } from '@/lib/kellerbuch/pruefnummer'
+import { ladePruefnummerDaten, pruefnummerBeiChargenzuordnung, pruefnummerFuerFuellung } from '@/lib/kellerbuch/pruefnummerLaden'
+import { ersatzPruefnummer, fuellungDatumText, fuellungDatumVerletzung, pnTag, pruefnummerAusAntrag } from '@/lib/kellerbuch/pruefnummer'
+import { freezeSperreAus, sperrMeldung } from '@/lib/freeze/sperre'
 import { wienHeute } from '@/lib/csv'
 import { eroeffnungsStichtagFehler, IMPORT_QUELLE_EROEFFNUNG } from '@/lib/kellerbuch/eroeffnungsStichtag'
 import { eroeffnungsVermerk, flaschenFormularWerte, pruefeFlaschenZeilen, type DateiBefund, type FlaschenEingabe } from '@/lib/import/eroeffnungsbestand'
@@ -359,6 +360,12 @@ async function fuellungAnlegen(formData: FormData, eroeffnung: FlaschenEroeffnun
 }
 
 // Füllung bearbeiten
+//
+// KAN-101 (04.10.2026): Nach dem Speichern sind nur Produktname, Preise, KN-Code und Notizen änderbar – die Datenbank
+// sperrt alles andere (Freeze-Trigger a_freeze auf fuellungen, 42501). Tippfehler bei Anzahl, Flaschengröße oder
+// Abfülldatum: Füllung stornieren (bucht die Liter zurück) und neu anlegen (Entscheidung Jörgen, 04.10.2026). Die Charge
+// einer Füllung ohne Charge (Import/Altbestand) lässt sich einmal nachtragen (RPC s112_fuellung_nachtragen) – mit den
+// Prüfungen aus KAN-72; die Prüfnummer über pruefnummerNachtragen.
 
 export async function updateFuellung(id: string, formData: FormData): Promise<void> {
   const supabase   = await createSupabaseServerClient()
@@ -366,171 +373,114 @@ export async function updateFuellung(id: string, formData: FormData): Promise<vo
   const tenantId   = membership.tenantId
   pruefeFuellungsRecht(membership)
 
-  // Gespeicherten Stand laden: Mengenfelder werden verglichen statt blind überschrieben
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: altRaw, error: altErr } = await (supabase.from('fuellungen') as any)
-    .select('weinausbau_id, datum, anzahl_flaschen, bestand_flaschen, flaschengroesse_ml, menge_liter_gefuellt, pruefnummer, dac_antrag_id, herkunft_code')
+    .select('weinausbau_id, datum, pruefnummer, dac_antrag_id, storniert_am')
     .eq('id', id)
     .eq('tenant_id', tenantId)
     .maybeSingle()
   if (altErr) throw new AktionsFehler(dbFehlerText(altErr, 'Füllung konnte nicht geladen werden'))
   if (!altRaw) throw new AktionsFehler('Füllung nicht gefunden.')
   const alt = altRaw as AR
+  if (alt.storniert_am) throw new AktionsFehler('Die Füllung ist storniert und kann nicht mehr geändert werden.')
 
-  // Fehlt ein Mengenfeld im Formular, bleibt der gespeicherte Wert
-  const altAnzahl  = Number(alt.anzahl_flaschen)
-  const altGroesse = Number(alt.flaschengroesse_ml) || 750
-  const altMenge   = alt.menge_liter_gefuellt == null ? null : Number(alt.menge_liter_gefuellt)
-  const feld = (name: string) => formData.get(name) as string | null
-
-  const anzahl = feld('anzahl_flaschen') == null ? altAnzahl : parseInt(dezimal(feld('anzahl_flaschen')))
-  if (!Number.isInteger(anzahl) || anzahl <= 0) {
-    throw new AktionsFehler('Bitte die Anzahl der gefüllten Flaschen angeben (ganze Zahl größer als 0).')
+  // Charge: nur einmal nachtragbar (leer → Wert); eine eingetragene Charge bleibt
+  const neueCharge = ((formData.get('weinausbau_id') as string | null) ?? '').trim() || null
+  if (neueCharge && alt.weinausbau_id && neueCharge !== alt.weinausbau_id) {
+    throw new AktionsFehler('Die Charge der Füllung ist bereits eingetragen und lässt sich nicht mehr ändern. Falsche Charge? Füllung stornieren und neu anlegen – oder die Betriebsleitung korrigiert mit Grund.')
   }
-  const flGroesseML = feld('flaschengroesse_ml') == null ? altGroesse : (parseInt(dezimal(feld('flaschengroesse_ml'))) || 750)
-  const mengeGefuellt = feld('menge_liter_gefuellt') == null
-    ? altMenge
-    : (parseFloat(dezimal(feld('menge_liter_gefuellt'))) || null)
-  if (mengeGefuellt != null && mengeGefuellt < 0) throw new AktionsFehler('Die gefüllte Menge darf nicht negativ sein.')
-  const weinausbauId = feld('weinausbau_id') == null ? (alt.weinausbau_id ?? null) : (feld('weinausbau_id') || null)
-
-  // Wirksame Füllmenge wie in v_behaelter_fuellstand: menge_liter_gefuellt, sonst Anzahl × Größe
-  const literWirksam = (menge: number | null, n: number, ml: number) => (menge != null && menge > 0 ? menge : n * ml / 1000)
-  const anzahlGeaendert  = anzahl !== altAnzahl
-  const mengenGeaendert  = anzahlGeaendert
-    || flGroesseML !== altGroesse
-    || Math.abs((mengeGefuellt ?? 0) - (altMenge ?? 0)) > RUNDUNG
-  const literGeaendert   = Math.abs(literWirksam(mengeGefuellt, anzahl, flGroesseML) - literWirksam(altMenge, altAnzahl, altGroesse)) > RUNDUNG
-  const chargeGeaendert  = !!alt.weinausbau_id && weinausbauId !== alt.weinausbau_id
-
-  // KAN-35 Sperren: Anzahl/Größe/Füllmenge nur ohne Verkäufe und Bestandsbuchungen
-  if (mengenGeaendert) {
-    const fb = await folgebuchungenDerFuellung(supabase, tenantId, id)
-    if (fb.verkaeufe > 0 || fb.bewegungen > 0) {
-      throw new AktionsFehler(
-        `Anzahl, Flaschengröße und Füllmenge sind nicht mehr änderbar: Zu dieser Füllung gibt es bereits ${folgebuchungenFuellungText(fb)}. ` +
-        'Abweichungen im Flaschenbestand bitte über „Bestand korrigieren“ buchen (Inventur, Bruch, Eigenverbrauch, Korrektur).'
-      )
-    }
-  }
-  // … und wurden die Liter von der verknüpften Charge abgebucht (fuellung_chargen), weder Menge
-  // noch Charge nachträglich umschreiben (Charge, Bewegungsbuch und Füllstand liefen sonst
-  // auseinander). Eine nachträglich zugeordnete Charge wurde nie gemindert – sie bleibt änderbar.
-  if (alt.weinausbau_id && (chargeGeaendert || literGeaendert)) {
-    const abgebucht = await abgebuchteLiter(supabase, tenantId, id, alt.weinausbau_id as string)
-    if (abgebucht != null) {
-      throw new AktionsFehler(
-        (chargeGeaendert
-          ? 'Die Kellerbuch-Charge dieser Füllung ist nicht mehr änderbar: '
-          : 'Die Füllmenge dieser Füllung ist nicht mehr änderbar: ') +
-        `${fmtNum(abgebucht, 2)} L wurden beim Abfüllen von der verknüpften Charge abgebucht. ` +
-        'Ist die Füllung falsch erfasst, bitte die Füllung löschen (bucht die Liter auf die Charge zurück – nur ohne Verkäufe und Bestandsbuchungen möglich) und neu anlegen.'
-      )
-    }
-  }
-
-  const qualitaetInput    = fuellungQualitaetAusFormular(formData)
-  const herkunftCodeInput = (formData.get('herkunft_code') as string) || null
-  let notizenZusatz = ''
-
-  // KAN-72: Abfülldatum für die Prüfnummern-Prüfungen (Formularwert, sonst der gespeicherte)
-  const abfuelldatum = pnTag(formData.get('datum')) ?? pnTag(alt.datum)
-  const pnFuellung = {
-    pruefnummer: (alt.pruefnummer as string | null) ?? null,
-    dacAntragId: (alt.dac_antrag_id as string | null) ?? null,
-  }
-  // … geändertes Abfülldatum (Charge unverändert): Prüfnummer bzw. DAC-Antrag müssen weiter
-  // gelten – sonst ließe sich die Datumsregel von createFuellung über die Bearbeitung umgehen
-  if (abfuelldatum && abfuelldatum !== pnTag(alt.datum) && weinausbauId === (alt.weinausbau_id ?? null)) {
-    await pruefnummerBeiDatumsaenderung(supabase, tenantId, { ...pnFuellung, weinausbauId }, { datum: abfuelldatum })
-  }
-
-  // Downgrade-only-Prüfung wie bei createFuellung: 'Qualitätswein' und 'Herkunft-Code (BKI)'
-  // dürfen beim Bearbeiten einer Füllung nur abgestuft, nie aufgestuft werden (hart blockiert).
-  if (weinausbauId) {
+  if (neueCharge && !alt.weinausbau_id) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: wa, error: waErr } = await (supabase.from('weinausbau') as any)
-      .select('name, qualitaetsstufe, zusatzbezeichnung, erzeugnis, herkunft_code')
-      .eq('id', weinausbauId)
-      .eq('tenant_id', tenantId)
-      .maybeSingle()
-    // Wie createFuellung: eine Charge eines anderen Betriebs (bzw. eine unbekannte ID) nie speichern
+      .select('name').eq('id', neueCharge).eq('tenant_id', tenantId).maybeSingle()
     if (waErr) throw new AktionsFehler(dbFehlerText(waErr, 'Charge konnte nicht geladen werden'))
     if (!wa) throw new AktionsFehler('Die gewählte Kellerbuch-Charge wurde nicht gefunden.')
-
-    // KAN-72: nachträglich (bzw. neu) zugeordnete Charge – Prüfnummer und DAC-Antrag der Füllung
-    // müssen zu ihr und zum Abfülldatum passen, sonst umginge die Bearbeitung die Prüfung von createFuellung
-    if (weinausbauId !== (alt.weinausbau_id ?? null)) {
-      await pruefnummerBeiChargenzuordnung(supabase, tenantId, pnFuellung, {
-        weinausbauId, chargeName: ((wa as AR | null)?.name as string | undefined) ?? null, datum: abfuelldatum,
-      })
-    }
-    const chargeQualitaet = normalisiereQualitaet(wa as AR)   // KAN-186: Altwerte normalisiert
-    const chargeHerkunft  = (wa as AR | null)?.herkunft_code as string | null ?? null
-
-    // KAN-80: eine Rangfolge (KAN-74) – Landwein → DAC ist eine Aufwertung; KAN-186: ebenso eine neue bzw. höhere
-    // Zusatzbezeichnung (Charge Qualitätswein → Füllung Reserve)
-    if (istAufwertungQualitaet(chargeQualitaet, qualitaetInput)) {
-      throw new AktionsFehler(aufwertungText(chargeQualitaet, qualitaetInput))
-    }
-    // KAN-111: nur die Herkunft der Charge oder eine breitere Stufe – auch kein Wechsel in einen anderen Ast und
-    // bei eigenen Weinbaugebieten nur dieses oder „Wein aus Österreich“ (bisher dort keine Prüfung)
-    // gespeicherter Altwert bleibt speicherbar (das Formular zeigt ihn weiter an)
-    if (herkunftCodeInput !== ((alt.herkunft_code as string | null) ?? null) && !herkunftZulaessig(chargeHerkunft, herkunftCodeInput)) {
-      throw new AktionsFehler(
-        `Herkunft-Code (BKI) ${HERKUNFT_LABEL[herkunftCodeInput as string] ?? herkunftCodeInput} ist für die Charge (${HERKUNFT_LABEL[chargeHerkunft as string] ?? chargeHerkunft}) nicht zulässig. Nur die Herkunft der Charge oder eine Abstufung ist möglich.`
-      )
-    }
-    notizenZusatz += abstufungsVermerk(chargeQualitaet, qualitaetInput)
-    if (herkunftCodeInput && chargeHerkunft && herkunftCodeInput !== chargeHerkunft && herkunftIstNiedrigerAls(herkunftCodeInput, chargeHerkunft)) {
-      notizenZusatz += `Herkunft-Code (BKI) manuell abgestuft von ${HERKUNFT_LABEL[chargeHerkunft] ?? chargeHerkunft} auf ${HERKUNFT_LABEL[herkunftCodeInput] ?? herkunftCodeInput}. `
-    }
+    // KAN-72: Prüfnummer bzw. DAC-Antrag der Füllung müssen zur Charge und zum Abfülldatum passen
+    await pruefnummerBeiChargenzuordnung(supabase, tenantId,
+      { pruefnummer: (alt.pruefnummer as string | null) ?? null, dacAntragId: (alt.dac_antrag_id as string | null) ?? null },
+      { weinausbauId: neueCharge, chargeName: ((wa as AR).name as string | undefined) ?? null, datum: pnTag(alt.datum) })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: nErr } = await (supabase.rpc as any)('s112_fuellung_nachtragen', {
+      p_tenant_id: tenantId, p_fuellung_id: id, p_weinausbau_id: neueCharge, p_dac_antrag_id: null,
+    })
+    if (nErr) throw new AktionsFehler(dbFehlerText(nErr, 'Charge konnte nicht nachgetragen werden'))
   }
 
-  const notizenInput = (formData.get('notizen') as string) || null
-  const notizen = notizenZusatz ? [notizenInput, notizenZusatz.trim()].filter(Boolean).join('\n') : notizenInput
-
-  // bestand_flaschen wird hier NICHT mehr aus dem Formular geschrieben (KAN-35: kein Lost
-  // Update gegenüber Verkäufen, kein „0 → Anzahl“-Fehler). Korrekturen: bestandKorrigieren.
+  // Nur die Spalten der Positivliste (Freeze-Trigger) – Merkmale, Datum, Mengen und Los bleiben unangetastet
   const payload: AR = {
-    name:                 formData.get('name') as string,
-    jahrgang:             parseInt(dezimal(formData.get('jahrgang') as string)) || null,
-    rebsorte:             (formData.get('rebsorte') as string) || null,
-    ...fuellungsQualitaetsSpalten(qualitaetInput),   // KAN-73/KAN-186: geprüft (fuellungQualitaetAusFormular)
-    herkunft_code:        herkunftCodeInput,
-    anbaugebiet:          (formData.get('anbaugebiet') as string) || null,
-    bezeichnung:          (formData.get('bezeichnung') as string) || null,
-    datum:                formData.get('datum') as string,
-    vk_preis_brutto:      parseFloat(dezimal(formData.get('vk_preis_brutto') as string)) || null,
-    weinausbau_id:        weinausbauId,
-    einstandspreis:       parseFloat(dezimal(formData.get('einstandspreis') as string)) || null,
-    zolltarifnummer:      (formData.get('zolltarifnummer') as string) || null,
-    notizen:              notizen,
-    aktualisiert_am:      new Date().toISOString(),
+    name:            ((formData.get('name') as string | null) ?? '').trim(),
+    vk_preis_brutto: parseFloat(dezimal(formData.get('vk_preis_brutto') as string)) || null,
+    einstandspreis:  parseFloat(dezimal(formData.get('einstandspreis') as string)) || null,
+    zolltarifnummer: (formData.get('zolltarifnummer') as string) || null,
+    notizen:         (formData.get('notizen') as string) || null,
+    aktualisiert_am: new Date().toISOString(),
   }
-  if (mengenGeaendert) {
-    // nur hier erreichbar ohne Verkäufe/Bestandsbuchungen (Sperre oben)
-    payload.anzahl_flaschen      = anzahl
-    payload.flaschengroesse_ml   = flGroesseML
-    payload.menge_liter_gefuellt = mengeGefuellt
-    // Tippfehler in der Anzahl: der Bestand zieht um dieselbe Differenz mit, damit
-    // bestand = anzahl − Verkäufe + Bestandsbuchungen weiter stimmt
-    if (anzahlGeaendert) {
-      const neuBestand = Number(alt.bestand_flaschen) + (anzahl - altAnzahl)
-      if (!(neuBestand >= 0)) {
-        throw new AktionsFehler(`Die Anzahl kann nicht auf ${fmtNum(anzahl, 0)} gesenkt werden – der Flaschenbestand würde negativ.`)
-      }
-      payload.bestand_flaschen = neuBestand
-    }
+  if (!payload.name) throw new AktionsFehler('Bitte einen Produktnamen angeben.')
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: updData, error } = await (supabase.from('fuellungen') as any)
+    .update(payload).eq('id', id).eq('tenant_id', tenantId).select('id')
+  if (error) {
+    const sperre = freezeSperreAus(error)
+    throw new AktionsFehler(sperre ? sperrMeldung(sperre, x => FUELLUNG_FELD_LABEL[x] ?? x) : dbFehlerText(error, 'Speichern fehlgeschlagen (fuellungen)'))
+  }
+  if (!updData || (updData as AR[]).length === 0) throw new AktionsFehler('Füllung nicht gefunden – bitte die Seite neu laden.')
+  revalidatePath('/weinhandel')
+  revalidatePath(`/weinhandel/fuellungen/${id}/edit`)
+}
+
+const FUELLUNG_FELD_LABEL: Record<string, string> = {
+  name: 'Produktname', vk_preis_brutto: 'VK-Preis', einstandspreis: 'Einstandspreis', mwst_pct: 'MwSt.',
+  zolltarifnummer: 'KN-Code', notizen: 'Notizen', aktiv: 'aktiv', aktualisiert_am: 'Änderungszeit',
+  storniert_am: 'Storno', storniert_von: 'Storno', storniert_von_name: 'Storno', storno_grund: 'Storno-Grund',
+}
+
+/**
+ * KAN-101: DAC-Antrag bzw. Prüfnummer einer Füllung einmal nachtragen – nur aus einem Antrag der Charge der Füllung.
+ * Zugeteilt: die Nummer muss am Abfülldatum für die Flaschen gelten (ersatzPruefnummer, KAN-72); eingereicht bzw. in
+ * Prüfung: Verknüpfung ohne Nummer, wenn zwischen Abfüllung und Einreichung nichts zugebucht wurde. Die Datenbank
+ * (s112_fuellung_nachtragen) lehnt einen zweiten Nachtrag ab.
+ */
+export async function pruefnummerNachtragen(fuellungId: string, dacAntragId: string): Promise<{ pruefnummer: string | null }> {
+  const supabase   = await createSupabaseServerClient()
+  const membership = await getMembership()
+  const tenantId   = membership.tenantId
+  pruefeFuellungsRecht(membership)
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: fRaw, error: fErr } = await (supabase.from('fuellungen') as any)
+    .select('weinausbau_id, datum, pruefnummer, dac_antrag_id')
+    .eq('id', fuellungId).eq('tenant_id', tenantId).is('storniert_am', null).maybeSingle()
+  if (fErr) throw new AktionsFehler(dbFehlerText(fErr, 'Füllung konnte nicht geladen werden'))
+  if (!fRaw) throw new AktionsFehler('Füllung nicht gefunden oder storniert.')
+  const f = fRaw as AR
+  const chargeId = (f.weinausbau_id as string | null) ?? null
+  if (!chargeId) throw new AktionsFehler('Bitte zuerst die Kellerbuch-Charge der Füllung nachtragen.')
+  if (f.pruefnummer) throw new AktionsFehler(`Die Prüfnummer der Füllung ist bereits eingetragen (${f.pruefnummer}).`)
+
+  const daten = (await ladePruefnummerDaten(supabase, tenantId, [chargeId])).get(chargeId) ?? null
+  const antrag = daten?.antraege.find(a => a.id === dacAntragId) ?? null
+  if (!daten || !antrag) throw new AktionsFehler('Der gewählte DAC-Antrag gehört nicht zur Charge der Füllung – bitte die Seite neu laden.')
+  const datum = pnTag(f.datum)
+  if (pruefnummerAusAntrag(antrag, chargeId)) {
+    const e = ersatzPruefnummer(antrag, { datum, chargeId }, daten.zugaenge)
+    if (!e.pruefnummer) throw new AktionsFehler(e.hinweis ?? 'Die Prüfnummer des DAC-Antrags gilt für diese Füllung nicht.')
+  } else if (datum) {
+    const v = fuellungDatumVerletzung(antrag, daten.zugaenge, datum)
+    if (v) throw new AktionsFehler(`${fuellungDatumText(v, datum, antrag)} – die Füllung kann nicht mit diesem Antrag verknüpft werden.`)
   }
 
-  let upd = (supabase.from('fuellungen') as any).update(payload).eq('id', id).eq('tenant_id', tenantId)
-  // Mengenänderung nur, wenn seit dem Laden kein Verkauf/Storno den Bestand geändert hat
-  if (mengenGeaendert) upd = upd.eq('bestand_flaschen', alt.bestand_flaschen)
-  const { data: updData, error } = await upd.select('id')
-  if (error) throw new AktionsFehler(dbFehlerText(error, 'Speichern fehlgeschlagen (fuellungen)'))
-  if (!updData || (updData as AR[]).length === 0) {
-    throw new AktionsFehler('Die Füllung wurde zwischenzeitlich geändert (z. B. durch einen Verkauf) – bitte die Seite neu laden und erneut speichern.')
-  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.rpc as any)('s112_fuellung_nachtragen', {
+    p_tenant_id: tenantId, p_fuellung_id: fuellungId, p_weinausbau_id: null, p_dac_antrag_id: dacAntragId,
+  })
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Nachtrag fehlgeschlagen'))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: neu } = await (supabase.from('fuellungen') as any)
+    .select('pruefnummer').eq('id', fuellungId).eq('tenant_id', tenantId).maybeSingle()
   revalidatePath('/weinhandel')
+  revalidatePath(`/weinhandel/fuellungen/${fuellungId}/edit`)
+  return { pruefnummer: ((neu as AR | null)?.pruefnummer as string | null) ?? null }
 }
 
 // Flaschenbestand korrigieren (KAN-35): datierte Bestandsbuchung statt Überschreiben
