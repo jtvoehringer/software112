@@ -37,51 +37,18 @@
 --      auf die M-Zeile der Zieltabelle zeigen lassen (UPDATE, sonst INSERT-Klon). R/T/P = geschützt, aber nur wenn
 --      derselbe Schreibweg mit einem EIGENEN Verweis (B-Zeile der Zieltabelle) durchgeht; lehnt auch die Kontrolle ab
 --      (R/G/k0), ist die Tabelle für b_ta gar nicht schreibbar → fremd_fk_nicht_schreibbar. k1 = ungeschützt
---      → Abgleich mit der festen Liste pg_temp.t11_fremd_fk_bekannt() (B2, Baseline).
+--      → muss leer sein (B2 seit KAN-178 behoben, harte Prüfung).
 --   5. b_ta bucht eine Zahlung in B auf einen offenen Verkaufsposten des Musterhofs → abgelehnt, Posten bleibt offen (KAN-159, vorher B1).
 --   6. anon: je Tabelle INSERT → R/G/T, UPDATE/DELETE einer vorhandenen Zeile → k0/G; nie k1, nie E23xxx; dazu
 --      die UPDATE-/DELETE-Policy-Schicht direkt (anon_update_policy/_delete_policy → 'nein', kein Recht oder G).
 --   3b. Positivkontrolle der Policy-Auswertung: b_ta auf der eigenen B-Zeile → 'ja', wo das Soll TA erlaubt.
 --   7. Leser b_l: INSERT-Klon der eigenen B-Zeile → R/G/T in allen Fachtabellen (Quersumme; Einzelprüfung in 12).
 
--- Bekannte ungeschützte Fremd-FKs (B2), Stand Staging 28.09.2026 (Baseline beim ersten Lauf festgelegt). Wird eine Spalte geschützt, meldet der Test
--- „fremdverweis_behoben:<tab.spalte>“ – dann hier streichen. Eine neue ungeschützte Spalte ist ein FEHLER.
+-- Ungeschützte Fremd-FKs (B2): seit KAN-178 keine mehr (Trigger s112_fremdverweis_pruefen je Spalte). Eine neue ungeschützte
+-- Spalte ist ein FEHLER – absichern (Trigger bzw. Verbund-FK), nie hier eintragen.
 CREATE FUNCTION pg_temp.t11_fremd_fk_bekannt() RETURNS text[] LANGUAGE sql IMMUTABLE AS $f$
-  SELECT ARRAY[
-    'aktivitaet_dokumente.aktivitaet_id', 'aktivitaeten.firma_id', 'aktivitaeten.kontakt_id',
-    'behandlung_grundstuecke.grundstueck_id', 'behandlungen.duengemittel_id',
-    'behandlungen.psm_id', 'behandlungen.weingarten_id', 'bestellung_positionen.weinausbau_id', 'bestellungen.firma_id',
-    'bestellungen.kontakt_id', 'checklisten_punkte.checkliste_id', 'dac_antrag.weinausbau_id',
-    -- KAN-167: betriebsmittel_* nicht hier – Verbund-FKs bzw. Kategorie-Trigger seit kan167b_betriebsmittel_mandant_fk
-    'duengemittel_lager_bewegungen.duengemittel_id', 'ea_belege.ea_transaktion_id', 'ea_dauerauftraege.kategorie_id',
-    'ea_dauerauftraege.konto_id', 'ea_transaktionen.bmd_export_id', 'ea_transaktionen.dauerauftrag_id',
-    'ea_transaktionen.firma_id', 'ea_transaktionen.kategorie_id', 'ea_transaktionen.konto_id',
-    'ea_transaktionen.verkaufsposten_id', 'ernte_parzellen.grundstueck_id', 'ernte_parzellen.weingarten_id',
-    'exportauftraege.firma_id', 'exportauftraege.kontakt_id', 'exportauftrag_positionen.fullung_id',
-    'firmen.rabattgruppe_id', 'fuellung_chargen.fuellung_id', 'fuellung_chargen.weinausbau_id',
-    'fuellungen.dac_antrag_id', 'fuellungen.weinausbau_id', 'grundstuecke.weingarten_id',
-    'keller_behandlungen.behaelter_id', 'keller_behandlungen.typ_id', 'keller_behandlungen.weinausbau_id',
-    'keller_umzuege.nach_behaelter_id', 'keller_umzuege.nach_weinausbau_id', 'keller_umzuege.von_behaelter_id',
-    'keller_umzuege.von_weinausbau_id', 'kellerplan_positionen.behaelter_id', 'kellerplan_positionen.kellerplan_id',
-    'kontakt_firmen.firma_id', 'kontakte.firma_id', 'kontakte.rabattgruppe_id', 'konto_umbuchungen.nach_konto_id',
-    'konto_umbuchungen.von_konto_id', 'kosteneintraege.behaelter_id', 'kosteneintraege.behandlung_id',
-    'kosteneintraege.kostenart_id', 'kosteneintraege.kostenstelle_id', 'kosteneintraege.ried_id',
-    'kosteneintraege.weingarten_id', 'kosteneintrag_behaelter.behaelter_id', 'kosteneintrag_weingaerten.weingarten_id',
-    'pipeline_eintraege.firma_id', 'pipeline_eintraege.kontakt_id', 'pressung_behaelter.behaelter_id',
-    'pressung_behaelter.weinausbau_id', 'pressung_weingaerten.grundstueck_id', 'pressung_weingaerten.weingarten_id',
-    'pressung_weingaerten.zukauf_posten_id',
-    'pruefnummernantraege.dac_antrag_id', 'psm_lager_bewegungen.psm_id',
-    'sumup_checkouts.verkaufsposten_id', 'transportbescheinigungen.verkaufsposten_id', 'traubenverkauf.firma_id',
-    'traubenverkauf.grundstueck_id', 'traubenverkauf.kontakt_id',
-    'traubenverkauf.verkaufsposten_id', 'traubenverkauf.weingarten_id', 'traubenverkauf.zukauf_posten_id',
-    'verkauf_positionen.fuellung_id',
-    'verkauf_positionen.traubenverkauf_id', 'verkauf_positionen.verkaufsposten_id', 'verkauf_positionen.weinausbau_id',
-    'verkaufsposten.bmd_export_id', 'verkaufsposten.firma_id', 'verkaufsposten.kontakt_id', 'verkaufsposten.zh_kontakt_id',
-    'verschneidung_quellen.quell_weinausbau_id', 'verschneidungen.ziel_weinausbau_id', 'weinanalysen.weinausbau_id',
-    'weinausbau.weingarten_id', 'weinausbau_weingaerten.weinausbau_id', 'weinausbau_weingaerten.weingarten_id',
-    'weingarten.lage_id', 'zahlungen.konto_id', 'zukauf_posten.lieferant_firma_id',
-    'zukauf_posten.lieferant_kontakt_id', 'zukauf_posten.zh_kontakt_id', 'zukauf_posten.ziel_weinausbau_id'
-  ]::text[]
+  -- seit KAN-178 (04.10.2026) leer: alle 92 Altlast-Spalten prüft s112_fremdverweis_pruefen – nie wieder befüllen
+  SELECT '{}'::text[]
 $f$;
 
 -- Bekannte Umhänge-Lücken (Tabelle → Lücken-ID/Titel): Zeilen, die sich per UPDATE in einen fremden Betrieb schieben
@@ -239,6 +206,10 @@ DECLARE
   v_kontrolle text;
   v_eigen   text;
   v_glob    jsonb;
+  v_k_psm   jsonb;   -- KAN-178: Ausnahmen der Fremdverweis-Prüfung
+  v_k_bew   jsonb;
+  v_k_beh   jsonb;
+  v_k_kb    jsonb;
 BEGIN
   PERFORM pg_temp.s112_nur_staging();
 
@@ -526,10 +497,28 @@ BEGIN
       v_erg := v_erg || pg_temp.s112_fehler('fremdverweis_behoben:' || v_txt, 'BEHOBEN – aus t11_fremd_fk_bekannt() streichen');
     END IF;
   END LOOP;
-  v_erg := v_erg || pg_temp.s112_baseline('fremd_fk_ungeschuetzt', coalesce(array_length(v_unges, 1), 0),
-                                          coalesce(array_length(pg_temp.t11_fremd_fk_bekannt(), 1), 0),
-                                          'B2 Fremd-FK: ' || coalesce(array_length(v_unges, 1), 0) || ' Spalten ohne Mandantenprüfung',
-                                          array_to_string(v_unges, ','));
+  -- B2 seit KAN-178 behoben: keine ungeschützte Fremd-FK-Spalte mehr
+  v_erg := v_erg || pg_temp.s112_erwarte('fremd_fk_ungeschuetzt', coalesce(array_to_string(v_unges, ','), ''), '');
+
+  -- ── 4c. KAN-178: erlaubte Ausnahmen der Fremdverweis-Prüfung (globale Zeile, Partner der Kellergemeinschaft) ──
+  PERFORM pg_temp.s112_als_postgres();
+  v_k_psm := pg_temp.s112_beispiel('pflanzenschutzmittel', v_b);
+  UPDATE public.pflanzenschutzmittel SET tenant_id = NULL WHERE id = (v_k_psm ->> 'id')::uuid;   -- globales Mittel
+  v_k_bew := pg_temp.s112_beispiel('psm_lager_bewegungen', v_b, (v_a ->> 'b_ta')::uuid);
+  v_k_beh := pg_temp.s112_beispiel('behaelter', v_m);
+  UPDATE public.behaelter SET gemeinsam = true WHERE id = (v_k_beh ->> 'id')::uuid;              -- gemeinsamer Tank im Musterhof
+  v_k_kb := pg_temp.s112_beispiel('keller_behandlungen', v_b, (v_a ->> 'b_ta')::uuid);
+  PERFORM pg_temp.s112_als((v_a ->> 'b_ta')::uuid);
+  v_erg := v_erg || pg_temp.s112_erwarte('fremdverweis_global_erlaubt',
+    pg_temp.s112_versuch(pg_temp.s112_klon_sql('psm_lager_bewegungen', v_k_bew, jsonb_build_object('psm_id', v_k_psm ->> 'id'))), 'k1');
+  v_erg := v_erg || pg_temp.s112_erwarte('fremdverweis_keller_ohne_freigabe',
+    pg_temp.s112_fehlertext(pg_temp.s112_klon_sql('keller_behandlungen', v_k_kb, jsonb_build_object('behaelter_id', v_k_beh ->> 'id'))) LIKE '42501: Verweis auf einen Datensatz eines anderen Betriebs%', true);
+  PERFORM pg_temp.s112_als_postgres();
+  INSERT INTO public.keller_freigaben (eigentuemer_tenant_id, nutzer_tenant_id, aktiv, notizen) VALUES (v_m, v_b, true, 'S112TEST KAN-178');
+  PERFORM pg_temp.s112_als((v_a ->> 'b_ta')::uuid);
+  v_erg := v_erg || pg_temp.s112_erwarte('fremdverweis_keller_partner_erlaubt',
+    pg_temp.s112_versuch(pg_temp.s112_klon_sql('keller_behandlungen', v_k_kb, jsonb_build_object('behaelter_id', v_k_beh ->> 'id'))), 'k1');
+  PERFORM pg_temp.s112_als_postgres();
 
   -- ── 5. Zahlung in B auf einen offenen Verkaufsposten des Musterhofs (KAN-159, vorher B1) ──────────────────────────────
   SELECT v.id, v.bezahlt INTO v_vp, v_bez_vor

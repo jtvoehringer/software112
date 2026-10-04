@@ -212,7 +212,7 @@ Titel immer mit der Lücken-ID beginnen (der Runner dedupliziert über den Titel
 | ID | Lücke (Stand Planungsprobe 28.09.2026) |
 |----|--------|
 | ~~B1~~ | behoben (KAN-159, 29.09.2026): Zahlung auf einen fremden Verkaufsposten wird abgelehnt – 11 |
-| B2 | Fremd-FK allgemein (z. B. `kontakt_firmen` mit fremder Firma → k1) – Baseline |
+| ~~B2~~ | behoben (KAN-178, 04.10.2026): alle 92 Fremd-FK-Spalten prüft der Trigger `s112_fremdverweis_pruefen` (eigener Betrieb; global bei PSM/Dünger/Kategorien; Partner der Kellergemeinschaft bei Behältern; Kindtabellen über die Elternzeile) – 11, harte Prüfung |
 | ~~B3~~ | behoben (KAN-159 Teil 2, 04.10.2026): Profile nur eigenes Umfeld (gemeinsame Betriebe, Plattform-Admin alle), Policy `profiles_lesen` – 10 |
 | ~~B4~~ | behoben (KAN-159 Teil 2): `get_user_tenant_ids` nur aktive Mitgliedschaften – inaktives Mitglied sieht die `tenants`-Zeile nicht mehr – 13 (RPC-Teil: KAN-127) |
 | ~~B5~~ | behoben (KAN-159 Teil 2): `mitgliedschaft_aktiv` NULL-sicher auch auf den vier Tabellen mit globalen Zeilen – 01, 13 |
