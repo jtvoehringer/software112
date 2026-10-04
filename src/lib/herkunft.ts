@@ -291,3 +291,24 @@ export function findePassendeHerkunftsstufe(
   }
   return { code: 'wein', abgestuft: true }   // „wein“ hat keine Einschränkung – nur zur Sicherheit
 }
+
+/**
+ * KAN-111 (04.10.2026): Herkünfte, die ein Erzeugnis aus einer Charge mit der Herkunft `charge` tragen darf (Füllung):
+ * die Herkunft selbst und alle breiteren Stufen im Baum – keine Aufstufung und kein Wechsel in einen anderen Ast
+ * (Kremstal → Kamptal). Eigenes Weinbaugebiet: über herkunftKnotenTolerant, sonst nur es selbst und „Wein aus
+ * Österreich“. Ohne Herkunft der Charge: null (keine Einschränkung).
+ */
+export function zulaessigeHerkuenfte(charge: string | null | undefined): string[] | null {
+  const roh = typeof charge === 'string' ? charge.trim() : ''
+  if (!roh) return null
+  const k = herkunftKnotenTolerant(roh)
+  return [...new Set([roh, ...(k ? herkunftKette(k.code) : ['wein'])])]
+}
+
+/** KAN-111: Darf `wahl` aus einer Charge mit der Herkunft `charge` gewählt werden? Leere Wahl ist immer zulässig. */
+export function herkunftZulaessig(charge: string | null | undefined, wahl: string | null | undefined): boolean {
+  const w = typeof wahl === 'string' ? wahl.trim() : ''
+  if (!w) return true
+  const z = zulaessigeHerkuenfte(charge)
+  return !z || z.includes(w)
+}

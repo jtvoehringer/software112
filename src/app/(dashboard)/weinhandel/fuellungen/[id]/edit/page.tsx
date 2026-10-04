@@ -6,7 +6,7 @@ import Link from '@/components/ui/Link'
 import { Wine } from 'lucide-react'
 import { updateFuellung } from '../../../actions'
 import { KN_CODES } from '@/lib/wein/zolltarif'
-import { HERKUNFT_ORDER, HERKUNFT_LABEL, herkunftOptionen, istNiedrigerAls as istHerkunftNiedriger } from '@/lib/herkunft'
+import { HERKUNFT_ORDER, HERKUNFT_LABEL, herkunftOptionen, zulaessigeHerkuenfte } from '@/lib/herkunft'
 import { qualitaetText } from '@/lib/weinqualitaet'
 import { istAufwertung, normalisiereQualitaet, type QualitaetsAngabe } from '@/lib/wein/qualitaetsrang'
 import ZusatzErzeugnisFelder from '@/components/wein/ZusatzErzeugnisFelder'
@@ -158,26 +158,24 @@ export default async function EditFuellungPage({
     return mitGespeichertemWert(basis, fAngabe.stufe)
   })()
 
-  // Ein eigenes (nicht in HERKUNFT_ORDER geführtes) Weinbaugebiet liegt außerhalb der
-  // Rangfolge und schränkt die fixen Stufen daher nicht ein (siehe Migration 140).
-  const herkunftOptionsEdit = (() => {
-    const aktuellIstRanking = !!waCeilingHerkunft && (HERKUNFT_ORDER as readonly string[]).includes(waCeilingHerkunft)
-    const codes = aktuellIstRanking
-      ? HERKUNFT_ORDER.filter(code => code === waCeilingHerkunft || istHerkunftNiedriger(code, waCeilingHerkunft as string))
-      : HERKUNFT_ORDER
-    return herkunftOptionen(codes)
-  })()
+  // KAN-111: nur die Herkunft der Charge und breitere Stufen (dieselbe Regel wie der Server) – auch bei eigenen
+  // Weinbaugebieten; der gespeicherte Wert bleibt sichtbar (kein stiller Wechsel beim Öffnen)
+  const zulaessig = zulaessigeHerkuenfte(waCeilingHerkunft)
+  const herkunftOptionsEdit = herkunftOptionen(zulaessig
+    ? [...zulaessig, ...(f.herkunft_code && (HERKUNFT_ORDER as readonly string[]).includes(f.herkunft_code) ? [f.herkunft_code as string] : [])]
+    : HERKUNFT_ORDER)
 
   // Bereits gespeicherter eigener Wert bleibt wählbar, auch falls das Weinbaugebiet
   // zwischenzeitlich deaktiviert wurde (kein Datenverlust beim Speichern).
   const herkunftCustomOptionsEdit = (() => {
+    const erlaubt = zulaessig ? customWeinbaugebiete.filter(w => zulaessig.includes(w.name) || w.name === f.herkunft_code) : customWeinbaugebiete
     if (f.herkunft_code
       && !(HERKUNFT_ORDER as readonly string[]).includes(f.herkunft_code)
-      && !customWeinbaugebiete.some(w => w.name === f.herkunft_code)
+      && !erlaubt.some(w => w.name === f.herkunft_code)
     ) {
-      return [{ id: `__bestehend__${f.herkunft_code}`, name: f.herkunft_code as string }, ...customWeinbaugebiete]
+      return [{ id: `__bestehend__${f.herkunft_code}`, name: f.herkunft_code as string }, ...erlaubt]
     }
-    return customWeinbaugebiete
+    return erlaubt
   })()
 
   return (

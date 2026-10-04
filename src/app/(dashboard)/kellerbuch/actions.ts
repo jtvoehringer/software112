@@ -17,7 +17,7 @@ import { gebindeFehlerText } from '@/lib/keller/behaelter'
 import { sperreBeiFolgebuchungen, folgebuchungenDerCharge, folgebuchungenText } from '@/lib/kellerbuch/folgebuchungen'
 import { planeVerschneidungStorno, storniereVerschneidung, GEBINDEWECHSEL_OHNE } from '@/lib/kellerbuch/storno'
 import { stornoGrundFehler, STORNO_GRUND_MIN } from '@/lib/storno/grund'
-import { verschnittBuchen } from '@/lib/kellerbuch/verschnittBuchen'
+import { verschnittBuchen, verschnittVorbereiten } from '@/lib/kellerbuch/verschnittBuchen'
 import { mostgewichtAusFormular, mostgewichtSpalten } from '@/lib/wein/mostgewichtFormular'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -453,6 +453,54 @@ export async function createAnalyse(formData: FormData) {
 }
 
 // VERSCHNEIDUNG
+
+/** Quellen aus dem Formularfeld quellen_json (Verschneiden-Formular) */
+function verschnittQuellenAus(formData: FormData): { weinausbau_id: string; menge: number }[] {
+  let roh: unknown
+  try {
+    roh = JSON.parse((formData.get('quellen_json') as string) || '[]')
+  } catch {
+    throw new AktionsFehler('Ungültige Eingabe: Quellen konnten nicht gelesen werden.')
+  }
+  if (!Array.isArray(roh)) throw new AktionsFehler('Ungültige Eingabe: Quellen fehlen.')
+  // JSON-Zahlen direkt übernehmen (zahlAus würde „1.234“ als Tausenderpunkt lesen)
+  return (roh as R[]).map(q => ({
+    weinausbau_id: typeof q?.weinausbau_id === 'string' ? q.weinausbau_id : '',
+    menge:         typeof q?.menge_liter === 'number' ? q.menge_liter : (zahlAus(q?.menge_liter) ?? NaN),
+  }))
+}
+
+export type VerschnittVorschau =
+  | { herkunft_code: string | null; qualitaetsstufe: string | null; zusatzbezeichnung: string | null; erzeugnis: string | null; hinweise: string[] }
+  | { fehler: string }
+
+/**
+ * KAN-111 (04.10.2026): Vorschau des Verschneiden-Formulars – dieselbe Rechnung wie beim Buchen (verschnittVorbereiten:
+ * Herkunft nach § 21 WeinG aus den tatsächlichen Anteilen, Qualität samt Deckel aus der Herkunft), OHNE zu buchen und
+ * ohne Rückfragen. Nur lesend; Fehler kommen als { fehler } zurück (die Vorschau zeigt sie nicht als Ausnahme).
+ */
+export async function verschnittVorschau(formData: FormData): Promise<VerschnittVorschau> {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const tenantId = await kellerbuchSchreibrecht()
+    const zielId = formData.get('ziel_weinausbau_id') as string
+    const quellen = verschnittQuellenAus(formData).filter(q => q.weinausbau_id && q.menge >= 0.01)
+    if (!zielId || quellen.length === 0) return { fehler: 'Noch keine Quelle mit Menge.' }
+    const r = await verschnittVorbereiten(supabase, tenantId, {
+      datum: (formData.get('datum') as string) || new Date().toISOString().slice(0, 10),
+      ziel: { weinausbauId: zielId }, quellen, notizen: null, pnBestaetigt: true, rotWeissBestaetigt: true,
+    })
+    if (!('buchung' in r)) return { fehler: 'Vorschau nicht möglich.' }
+    const z = (r.buchung.kopf.ziel ?? {}) as R
+    return {
+      herkunft_code: z.herkunft_code ?? null,
+      qualitaetsstufe: z.qualitaetsstufe ?? null, zusatzbezeichnung: z.zusatzbezeichnung ?? null, erzeugnis: z.erzeugnis ?? null,
+      hinweise: r.buchung.sortenHinweise,
+    }
+  } catch (err) {
+    return { fehler: err instanceof Error ? err.message : 'Vorschau nicht möglich.' }
+  }
+}
 // KAN-35 (24.09.2026): Alle Prüfungen laufen serverseitig VOR der ersten Buchung – jede Quelle
 // braucht eine Menge ≥ 0,01 L, gehört zum Betrieb und hat genug Bestand (je Charge summiert);
 // die Weinart-Sperre greift ebenfalls vorher (bisher erst nach dem Anlegen des Verschnitts).
@@ -468,19 +516,7 @@ export async function createVerschneidung(formData: FormData): Promise<{ qualita
   const datum        = formData.get('datum') as string
   const zielId       = formData.get('ziel_weinausbau_id') as string
   const notizen      = (formData.get('notizen') as string) || null
-  const quellenJson  = formData.get('quellen_json') as string
-  let quellenRoh: unknown
-  try {
-    quellenRoh = JSON.parse(quellenJson || '[]')
-  } catch {
-    throw new AktionsFehler('Ungültige Eingabe: Quellen konnten nicht gelesen werden.')
-  }
-  if (!Array.isArray(quellenRoh)) throw new AktionsFehler('Ungültige Eingabe: Quellen fehlen.')
-  // JSON-Zahlen direkt übernehmen (zahlAus würde „1.234“ als Tausenderpunkt lesen)
-  const quellen: { weinausbau_id: string; menge: number }[] = (quellenRoh as R[]).map(q => ({
-    weinausbau_id: typeof q?.weinausbau_id === 'string' ? q.weinausbau_id : '',
-    menge:         typeof q?.menge_liter === 'number' ? q.menge_liter : (zahlAus(q?.menge_liter) ?? NaN),
-  }))
+  const quellen = verschnittQuellenAus(formData)
   if (!datum || !zielId || quellen.length === 0) throw new AktionsFehler('Pflichtfelder fehlen')
 
   // KAN-112: Prüfungen, Fachwerte (85-%-Regel, Qualität, Herkunft, Mostgewicht, Vermerke) und EIN RPC-Aufruf

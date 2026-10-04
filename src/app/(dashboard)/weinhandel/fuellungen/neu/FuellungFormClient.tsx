@@ -4,7 +4,7 @@ import { useState, useMemo, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from '@/components/ui/Link'
 import { KN_CODES } from '@/lib/wein/zolltarif'
-import { HERKUNFT_ORDER, HERKUNFT_LABEL, herkunftOptionen, istNiedrigerAls as istHerkunftNiedriger } from '@/lib/herkunft'
+import { HERKUNFT_ORDER, HERKUNFT_LABEL, herkunftOptionen, zulaessigeHerkuenfte } from '@/lib/herkunft'
 import { qualitaetText } from '@/lib/weinqualitaet'
 import { istAufwertung, normalisiereQualitaet } from '@/lib/wein/qualitaetsrang'
 import ZusatzErzeugnisFelder from '@/components/wein/ZusatzErzeugnisFelder'
@@ -130,16 +130,14 @@ export default function FuellungFormClient({
     )
   }, [chargeAngabe])
 
-  const herkunftOptions = useMemo(() => {
-    const aktuell = selectedCharge?.herkunft_code
-    // Ein eigenes (nicht in HERKUNFT_ORDER geführtes) Weinbaugebiet liegt außerhalb
-    // der Rangfolge und schränkt die fixen Stufen daher nicht ein (siehe Migration 140).
-    const aktuellIstRanking = !!aktuell && (HERKUNFT_ORDER as readonly string[]).includes(aktuell)
-    const codes = !aktuellIstRanking
-      ? HERKUNFT_ORDER
-      : HERKUNFT_ORDER.filter(code => code === aktuell || istHerkunftNiedriger(code, aktuell as string))
-    return herkunftOptionen(codes)
-  }, [selectedCharge])
+  // KAN-111: nur die Herkunft der Charge und breitere Stufen – auch bei eigenen Weinbaugebieten (bisher ohne
+  // Einschränkung): dieses selbst bzw. sein Gebiet im Baum und „Wein aus Österreich“; dieselbe Regel wie der Server
+  const zulaessig = useMemo(() => zulaessigeHerkuenfte(selectedCharge?.herkunft_code), [selectedCharge])
+  const herkunftOptions = useMemo(() => herkunftOptionen(zulaessig ?? HERKUNFT_ORDER), [zulaessig])
+  const herkunftCustomOptions = useMemo(
+    () => (zulaessig ? customWeinbaugebiete.filter(w => zulaessig.includes(w.name)) : customWeinbaugebiete),
+    [zulaessig, customWeinbaugebiete],
+  )
 
   // Auto-Berechnung: Flaschen × Flaschengröße
   const berechneteLiter = useMemo(() => {
@@ -295,7 +293,7 @@ export default function FuellungFormClient({
               value={herkunftCodeVal}
               onChange={setHerkunftCodeVal}
               builtinOptions={herkunftOptions}
-              customOptions={customWeinbaugebiete}
+              customOptions={herkunftCustomOptions}
               className={inputCls}
             />
             {selectedCharge?.herkunft_code && (

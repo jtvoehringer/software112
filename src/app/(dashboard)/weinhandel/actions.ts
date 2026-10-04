@@ -7,7 +7,7 @@ import {
   istAufwertungQualitaet, istAbstufungQualitaet, normalisiereQualitaet, fuellungsQualitaetsSpalten, type QualitaetsAngabe,
 } from '@/lib/wein/qualitaetsrang'
 import { qualitaetFehler, qualitaetsAngabeAusFormular, qualitaetsAngabeFehler } from '@/lib/wein/qualitaet'
-import { istNiedrigerAls as herkunftIstNiedrigerAls, HERKUNFT_LABEL } from '@/lib/herkunft'
+import { herkunftZulaessig, istNiedrigerAls as herkunftIstNiedrigerAls, HERKUNFT_LABEL } from '@/lib/herkunft'
 import { getCurrentMembership, canWrite, type Membership } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
@@ -213,9 +213,11 @@ async function fuellungAnlegen(formData: FormData, eroeffnung: FlaschenEroeffnun
     if (istAufwertungQualitaet(chargeQualitaet, qualitaetInput)) {
       throw new AktionsFehler(aufwertungText(chargeQualitaet, qualitaetInput))
     }
-    if (herkunftCodeInput && chargeHerkunft && herkunftIstNiedrigerAls(chargeHerkunft, herkunftCodeInput)) {
+    // KAN-111: nur die Herkunft der Charge oder eine breitere Stufe – auch kein Wechsel in einen anderen Ast und
+    // bei eigenen Weinbaugebieten nur dieses oder „Wein aus Österreich“ (bisher dort keine Prüfung)
+    if (!herkunftZulaessig(chargeHerkunft, herkunftCodeInput)) {
       throw new AktionsFehler(
-        `Herkunft-Code (BKI) kann nicht von ${HERKUNFT_LABEL[chargeHerkunft] ?? chargeHerkunft} auf ${HERKUNFT_LABEL[herkunftCodeInput] ?? herkunftCodeInput} AUFgestuft werden. Nur Abstufungen sind zulässig.`
+        `Herkunft-Code (BKI) ${HERKUNFT_LABEL[herkunftCodeInput as string] ?? herkunftCodeInput} ist für die Charge (${HERKUNFT_LABEL[chargeHerkunft as string] ?? chargeHerkunft}) nicht zulässig. Nur die Herkunft der Charge oder eine Abstufung ist möglich.`
       )
     }
     notizenZusatz += abstufungsVermerk(chargeQualitaet, qualitaetInput)
@@ -366,7 +368,7 @@ export async function updateFuellung(id: string, formData: FormData): Promise<vo
 
   // Gespeicherten Stand laden: Mengenfelder werden verglichen statt blind überschrieben
   const { data: altRaw, error: altErr } = await (supabase.from('fuellungen') as any)
-    .select('weinausbau_id, datum, anzahl_flaschen, bestand_flaschen, flaschengroesse_ml, menge_liter_gefuellt, pruefnummer, dac_antrag_id')
+    .select('weinausbau_id, datum, anzahl_flaschen, bestand_flaschen, flaschengroesse_ml, menge_liter_gefuellt, pruefnummer, dac_antrag_id, herkunft_code')
     .eq('id', id)
     .eq('tenant_id', tenantId)
     .maybeSingle()
@@ -469,9 +471,12 @@ export async function updateFuellung(id: string, formData: FormData): Promise<vo
     if (istAufwertungQualitaet(chargeQualitaet, qualitaetInput)) {
       throw new AktionsFehler(aufwertungText(chargeQualitaet, qualitaetInput))
     }
-    if (herkunftCodeInput && chargeHerkunft && herkunftIstNiedrigerAls(chargeHerkunft, herkunftCodeInput)) {
+    // KAN-111: nur die Herkunft der Charge oder eine breitere Stufe – auch kein Wechsel in einen anderen Ast und
+    // bei eigenen Weinbaugebieten nur dieses oder „Wein aus Österreich“ (bisher dort keine Prüfung)
+    // gespeicherter Altwert bleibt speicherbar (das Formular zeigt ihn weiter an)
+    if (herkunftCodeInput !== ((alt.herkunft_code as string | null) ?? null) && !herkunftZulaessig(chargeHerkunft, herkunftCodeInput)) {
       throw new AktionsFehler(
-        `Herkunft-Code (BKI) kann nicht von ${HERKUNFT_LABEL[chargeHerkunft] ?? chargeHerkunft} auf ${HERKUNFT_LABEL[herkunftCodeInput] ?? herkunftCodeInput} AUFgestuft werden. Nur Abstufungen sind zulässig.`
+        `Herkunft-Code (BKI) ${HERKUNFT_LABEL[herkunftCodeInput as string] ?? herkunftCodeInput} ist für die Charge (${HERKUNFT_LABEL[chargeHerkunft as string] ?? chargeHerkunft}) nicht zulässig. Nur die Herkunft der Charge oder eine Abstufung ist möglich.`
       )
     }
     notizenZusatz += abstufungsVermerk(chargeQualitaet, qualitaetInput)

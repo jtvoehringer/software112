@@ -10,11 +10,17 @@
 // KAN-193 (Entscheidung Jörgen 03.10.2026): Rot- und Weißwein dürfen verschnitten werden, wenn das Ergebnis auf
 // „Wein (aus Österreich)“ abgestuft wird – Stufe Wein, keine Zusatzbezeichnung, Herkunft Österreich (Code 'wein'),
 // Farbe nach der Mehrheit der Liter (Rosé zählt als rot). Der Service fragt vorher nach (ROT_WEISS_FRAGE).
+//
+// KAN-111 (Entscheidung Jörgen 04.10.2026): Die Qualitätsstufe folgt der Herkunft (ermittleHerkunft, KAN-110) –
+// ohne gemeinsames Weinbaugebiet höchstens Landwein (§ 10 WeinG), ohne gemeinsame Region bzw. aus verschiedenen
+// Bundesländern höchstens Wein (§ 9). Automatisch mit Vermerk, der Service fragt vorher nach (herkunftQualitaetFrage).
+// Nennt der Chargenname eine Ried, die nicht mehr zulässig ist, gibt es nur einen Hinweis (keine Umbenennung).
 
 import { qualitaetText } from '@/lib/weinqualitaet'
-import { hoechsteQualitaetsAngabe, istAbstufungQualitaet, mischeQualitaet, normalisiereQualitaet, qualitaetsSpalten, type QualitaetsAngabe } from '@/lib/wein/qualitaetsrang'
+import { qualitaetsStufe, hoechsteQualitaetsAngabe, istAbstufungQualitaet, mischeQualitaet, normalisiereQualitaet, qualitaetsSpalten, type QualitaetsAngabe } from '@/lib/wein/qualitaetsrang'
 import { sortenBezeichnung, type GruppenMenge } from '@/lib/wein/sortenangabe'
 import { ermittleHerkunft, type HerkunftsTeil } from '@/lib/wein/herkunftRegel'
+import { herkunftKnoten } from '@/lib/herkunft'
 import { minHerkunft, maxHerkunft, istNiedrigerAls as herkunftIstNiedrigerAls, HERKUNFT_LABEL } from '@/lib/herkunft'
 import { mostgewichtNeu, mostgewichtZusammenfuehren, teilweiseVermerk } from '@/lib/kellerbuch/mostgewichtKette'
 import { weinartKonflikt } from '@/lib/keller/weinart'
@@ -72,6 +78,32 @@ export function rotWeissMischung(teile: readonly { weinart: string | null | unde
   return { rotWeiss: true, weinart: rot > weiss ? 'rot' : 'weiss' }
 }
 
+/** KAN-111: Qualitätsstufe wegen der Herkunft herabgesetzt */
+export type HerkunftQualitaet = { stufe: 'landwein' | 'wein'; grund: string }
+
+const HERKUNFT_STUFE_GRUND: Record<HerkunftQualitaet['stufe'], string> = {
+  landwein: 'kein gemeinsames Weinbaugebiet (§ 10 WeinG)',
+  wein: 'keine gemeinsame Weinbauregion bzw. verschiedene Bundesländer (§ 9 WeinG)',
+}
+
+/** KAN-111: Rückfrage vor einer Qualitätsabstufung wegen der Herkunft */
+export function herkunftQualitaetFrage(h: HerkunftQualitaet): string {
+  return `Die Herkunft lässt nur noch ${h.stufe === 'landwein' ? 'Landwein' : 'Wein (aus Österreich)'} zu – ${h.grund}. Die Qualitätsstufe wird abgestuft, eine Zusatzbezeichnung entfällt. Fortfahren?`
+}
+
+/** KAN-111: Vermerk in den Notizen */
+export function herkunftQualitaetVermerk(h: HerkunftQualitaet): string {
+  return `Abstufung auf ${h.stufe === 'landwein' ? 'Landwein' : 'Wein'} – ${h.grund}`
+}
+
+/** KAN-111: Chargenname nennt eine Ried („Ried …“), die das Ergebnis nicht mehr tragen darf */
+export function riedImNamenHinweis(name: string | null | undefined, vorher: string | null | undefined, nachher: string | null | undefined): string | null {
+  if (!name || !/\bried\b/i.test(name)) return null
+  if (herkunftKnoten(nachher)?.ebene === 'dac_ried') return null
+  if (vorher && herkunftKnoten(vorher)?.ebene !== 'dac_ried') return null
+  return `Chargenname „${name}“ nennt eine Ried, die nicht mehr zulässig ist – bitte umbenennen`
+}
+
 export type VerschnittWerte = {
   kopf: R
   quellen: R[]
@@ -80,6 +112,10 @@ export type VerschnittWerte = {
   sortenHinweise: string[]
   /** KAN-193: auf Wein (aus Österreich) abgestuft (Rot/Weiß) */
   rotWeiss: boolean
+  /** KAN-111: Qualitätsstufe wegen der Herkunft herabgesetzt (Rückfrage im Service) */
+  herkunftQualitaet: HerkunftQualitaet | null
+  /** KAN-110/111: Hinweise der Herkunftsregel (85 %, nicht prüfbar, Ried im Chargennamen) */
+  herkunftHinweise: string[]
 }
 
 const num = (v: unknown): number => {
@@ -118,12 +154,19 @@ export function verschnittWerte(e: VerschnittWerteEingabe): VerschnittWerte {
   const alleHerkuenfte = [...(ziel ? [(ziel.herkunft_code as string | null) ?? null] : []), ...quellRows.map(q => (q.herkunft_code as string | null) ?? null)]
   // KAN-193: Rot/Weiß → Stufe Wein ohne Zusatzbezeichnung (Erzeugnis bleibt), Herkunft Österreich
   const rotWeiss = e.rotWeiss === true
-  const neueQualitaet: QualitaetsAngabe | null = rotWeiss
-    ? { stufe: ROT_WEISS_STUFE, zusatz: null, erzeugnis: gemischt?.erzeugnis ?? null }
-    : gemischt
   // KAN-110: mit Herkunftsteilen (Liter je Ried/Gemeinde) nach § 21 WeinG, sonst der gemeinsame Oberbegriff
   const regel = !rotWeiss && e.gruppen.herkunft ? ermittleHerkunft(e.gruppen.herkunft) : null
   const neueHerkunft = rotWeiss ? ROT_WEISS_HERKUNFT : regel ? regel.code : minHerkunft(alleHerkuenfte)
+  // KAN-111: Höchststufe aus der Herkunft – liegt die Mischung darüber, Stufe herabsetzen, Zusatzbezeichnung entfällt
+  const deckel = regel?.hoechsteStufe ?? null
+  const herkunftQualitaet: HerkunftQualitaet | null = deckel && gemischt && (qualitaetsStufe(gemischt.stufe) ?? -1) > (qualitaetsStufe(deckel) ?? 0)
+    ? { stufe: deckel, grund: HERKUNFT_STUFE_GRUND[deckel] }
+    : null
+  const neueQualitaet: QualitaetsAngabe | null = rotWeiss
+    ? { stufe: ROT_WEISS_STUFE, zusatz: null, erzeugnis: gemischt?.erzeugnis ?? null }
+    : herkunftQualitaet
+      ? { stufe: herkunftQualitaet.stufe, zusatz: null, erzeugnis: gemischt?.erzeugnis ?? null }
+      : gemischt
 
   // Mostgewicht (KAN-130 Etappe 2): gewichteter Mittelwert über Ziel und Quellen
   const anteile = e.quellen.map(q => ({ liter: q.menge, charge: q.charge }))
@@ -156,7 +199,11 @@ export function verschnittWerte(e: VerschnittWerteEingabe): VerschnittWerte {
   if (herkunftAbgestuft) {
     texte.push(`Abstufung Herkunft-Code (BKI) von ${HERKUNFT_LABEL[herkunftAbgestuft.von] ?? herkunftAbgestuft.von} auf ${HERKUNFT_LABEL[herkunftAbgestuft.nach] ?? herkunftAbgestuft.nach}`)
   }
-  if (regel) texte.push(...regel.hinweise)
+  if (herkunftQualitaet) texte.push(herkunftQualitaetVermerk(herkunftQualitaet))
+  const herkunftHinweise = [...(regel?.hinweise ?? [])]
+  const riedName = riedImNamenHinweis(ziel ? (ziel.name as string | null) : e.neueCharge?.name ?? null, engste, neueHerkunft)
+  if (riedName) herkunftHinweise.push(riedName)
+  texte.push(...herkunftHinweise)
   if (mgVermerk) texte.push(mgVermerk)
   texte.push(...angabe.hinweise)
   const notizen = [e.notizen?.trim() || null, ...texte].filter(Boolean).join('\n') || null
@@ -200,5 +247,5 @@ export function verschnittWerte(e: VerschnittWerteEingabe): VerschnittWerte {
     menge_erwartet: num(q.charge.menge_liter),
   }))
 
-  return { kopf, quellen, qualitaetAbgestuft, herkunftAbgestuft, sortenHinweise: angabe.hinweise, rotWeiss }
+  return { kopf, quellen, qualitaetAbgestuft, herkunftAbgestuft, sortenHinweise: angabe.hinweise, rotWeiss, herkunftQualitaet, herkunftHinweise }
 }

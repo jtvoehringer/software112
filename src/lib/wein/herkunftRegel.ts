@@ -1,6 +1,8 @@
 // KAN-110 (04.10.2026): Herkunft eines Verschnitts nach § 21 WeinG – reine Regel über die Liter je Herkunftseinheit.
 //
 //  - Weinbaugebiet und Weinbauregion verlangen 100 %: gemeinsamer Oberbegriff im Herkunftsbaum (minHerkunft, KAN-165).
+//    Verschiedene Bundesländer ergeben „Wein aus Österreich“, nicht Landwein Weinland (Entscheidung Jörgen 04.10.2026,
+//    R13 „verschiedene Bundesländer: Abwertung zu Weinland Österreich“).
 //  - Ried und Gemeinde (DAC Riedenwein bzw. Ortswein) verlangen mindestens 85 % aus DERSELBEN Ried bzw. Gemeinde, der
 //    Rest aus demselben Weinbaugebiet (§ 21 Abs. 1; Entscheidung Jörgen 04.10.2026: 85 % auch bei DAC).
 //    Gleicher Code allein reicht nicht – Ried A + Ried B sind beide „Riedenwein“, aber keine gemeinsame Ried.
@@ -13,7 +15,7 @@
 //  - Höchste Qualitätsstufe aus der Herkunft: Landwein ohne gemeinsames Gebiet, Wein ohne gemeinsame Region
 //    (§ 9 Landwein aus einer Region, § 10 Qualitätswein aus einem Gebiet) – angewendet in KAN-111.
 
-import { herkunftKette, herkunftKnoten, herkunftKnotenTolerant, minHerkunft, HERKUNFT_LABEL, type HerkunftKnoten } from '@/lib/herkunft'
+import { herkunftBundesland, herkunftKette, herkunftKnoten, herkunftKnotenTolerant, minHerkunft, HERKUNFT_LABEL, type HerkunftKnoten } from '@/lib/herkunft'
 
 /** Mindestanteil einer Ried bzw. Gemeinde (§ 21 Abs. 1 WeinG) */
 export const RIED_ORT_MINDESTANTEIL = 0.85
@@ -131,7 +133,12 @@ export function ermittleHerkunft(eingabe: readonly HerkunftsTeil[]): HerkunftErg
   }
 
   const gesamt = aufgeloest.reduce((s, t) => s + t.liter, 0)
-  const basis = minHerkunft(aufgeloest.map(t => t.code)) ?? 'wein'
+  let basis = minHerkunft(aufgeloest.map(t => t.code)) ?? 'wein'
+  const bundeslaender = new Set(aufgeloest.map(t => herkunftBundesland(t.code)).filter(Boolean))
+  if (herkunftKnoten(basis)?.ebene === 'landwein' && bundeslaender.size > 1) {
+    basis = 'wein'
+    hinweise.push(`Verschiedene Bundesländer (${[...bundeslaender].join(', ')}) – Wein aus Österreich`)
+  }
 
   let code: string | null = null
   const ried = pruefeEbene(aufgeloest, gesamt, 'dac_ried', t => t.ried)

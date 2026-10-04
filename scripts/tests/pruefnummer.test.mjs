@@ -983,7 +983,7 @@ describe('Verdrahtung (Quelltext)', () => {
   test('updateFuellung: neu zugeordnete Charge wird gegen Prüfnummer und DAC-Antrag geprüft, vor dem Speichern', () => {
     const s = quelle('src/app/(dashboard)/weinhandel/actions.ts')
     const upd = s.slice(s.indexOf('export async function updateFuellung'), s.indexOf('export async function bestandKorrigieren'))
-    assert.match(upd, /\.select\('weinausbau_id, [^']*pruefnummer, dac_antrag_id'\)/)
+    assert.match(upd, /\.select\('weinausbau_id, [^']*pruefnummer, dac_antrag_id[^']*'\)/)
     assert.match(upd, /\.select\('weinausbau_id, datum, /)
     assert.match(upd, /if \(weinausbauId !== \(alt\.weinausbau_id \?\? null\)\) \{\s+await pruefnummerBeiChargenzuordnung\(supabase, tenantId, pnFuellung, \{[^}]*datum: abfuelldatum,/)
     assert.ok(upd.indexOf('pruefnummerBeiChargenzuordnung(') < upd.indexOf(".update(payload)"), 'Prüfung vor dem Speichern')

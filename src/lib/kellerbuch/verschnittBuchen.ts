@@ -28,6 +28,10 @@ import 'server-only'
 // ROT_WEISS_FRAGE (zusammen mit einer Prüfnummer-Rückfrage in EINER `bestaetigung`); nach der Bestätigung
 // (`rotWeissBestaetigt`, Formularfeld rotweiss_bestaetigt=1) rechnet verschnittWerte die Abstufung und die Farbe nach
 // der Mehrheit der Liter. Gilt für Umziehen, Verschneiden-Formular, Pressung, Assistent und Zukauf gleichermaßen.
+//
+// KAN-111 (04.10.2026): Lässt die Herkunft nur noch Landwein bzw. Wein zu (ermittleHerkunft), steht die Rückfrage
+// herkunftQualitaetFrage in derselben `bestaetigung` – bestätigt über dasselbe Formularfeld rotweiss_bestaetigt=1
+// (alle Clients setzen es nach window.confirm). Die Rückfragen stehen deshalb erst nach der Berechnung fest.
 
 import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { fmtNum } from '@/lib/format'
@@ -35,7 +39,7 @@ import { weinartBekannt, weinartAusFarbe } from '@/lib/keller/weinart'
 import { pruefePruefnummernSchaden } from '@/lib/kellerbuch/pruefnummerLaden'
 import { mitPnNotiz } from '@/lib/kellerbuch/pruefnummer'
 import { verschnittGruppen } from '@/lib/kellerbuch/verschnittSorten'
-import { verschnittWerte, weinartAusQuellen, rotWeissMischung, ROT_WEISS_FRAGE, type Abstufung } from '@/lib/kellerbuch/verschnittWerte'
+import { verschnittWerte, weinartAusQuellen, rotWeissMischung, herkunftQualitaetFrage, herkunftQualitaetVermerk, ROT_WEISS_FRAGE, type Abstufung } from '@/lib/kellerbuch/verschnittWerte'
 import type { GruppenMenge } from '@/lib/wein/sortenangabe'
 
 type R = Record<string, any>
@@ -187,7 +191,6 @@ export async function verschnittVorbereiten(
     if (pn && !e.pnBestaetigt) fragen.push(pn.frage)
     if (pn) notizen = mitPnNotiz(notizen, pn.notiz)
   }
-  if (fragen.length > 0) return { bestaetigung: fragen.join('\n') }
 
   // KAN-93: Rebsorten- und Jahrgangsanteile (Ziel mit ganzem Bestand, Quellen mit der verschnittenen Menge)
   const quellen = [...jeCharge].map(([qid, m]) => ({ charge: quellRows.find(r => r.id === qid) as R, menge: m.menge, schwund: m.schwund }))
@@ -217,11 +220,16 @@ export async function verschnittVorbereiten(
     return weg > 0 ? { ...q, charge: { ...q.charge, menge_liter: rund2(num(q.charge.menge_liter) - weg) } } : q
   })
   const w = verschnittWerte({ datum: e.datum, ziel, neueCharge, weinart, quellen: mitBestandDanach, gruppen, notizen, rotWeiss: mischung.rotWeiss })
+  // KAN-111: Qualitätsabstufung wegen der Herkunft – Rückfrage zusammen mit Rot/Weiß und Prüfnummer
+  if (w.herkunftQualitaet && !e.rotWeissBestaetigt) fragen.push(herkunftQualitaetFrage(w.herkunftQualitaet))
+  if (fragen.length > 0) return { bestaetigung: fragen.join('\n') }
   return {
     buchung: {
       // KAN-193: die virtuelle Quelle (ohne id) bucht die RPC des Zukaufs selbst – nicht in p_quellen
       kopf: w.kopf, quellen: w.quellen.filter(q => q.weinausbau_id),
-      qualitaetAbgestuft: w.qualitaetAbgestuft, herkunftAbgestuft: w.herkunftAbgestuft, sortenHinweise: w.sortenHinweise,
+      qualitaetAbgestuft: w.qualitaetAbgestuft, herkunftAbgestuft: w.herkunftAbgestuft,
+      // KAN-111: Vermerk und Hinweise der Herkunftsregel mit den Sortenhinweisen an die Oberfläche
+      sortenHinweise: [...(w.herkunftQualitaet ? [herkunftQualitaetVermerk(w.herkunftQualitaet)] : []), ...w.herkunftHinweise, ...w.sortenHinweise],
       rotWeiss: w.rotWeiss,
       zielId: (ziel?.id as string | undefined) ?? null,
       zielName: (ziel?.name as string | null | undefined) ?? (w.kopf.neue_ziel_charge?.name as string | undefined) ?? null,
