@@ -26,7 +26,7 @@ import { bkiRebsorteKuerzel, fehlendeKuerzelHinweise } from '@/lib/wein/bki_kuer
 import { qualitaetAnzeigeOderNull } from '@/lib/wein/qualitaet'
 import { verteileLiter } from '@/lib/wein/mischungsrechnung'
 import { ersatzPruefnummer, pruefnummerAusAntrag, pruefnummerGueltig, pruefnummerHinweis } from '@/lib/kellerbuch/pruefnummer'
-import { antragAusZeile, ladePruefnummerDaten, PN_ANTRAG_SELECT } from '@/lib/kellerbuch/pruefnummerLaden'
+import { antragAusZeile, chargenDerAntraege, ladePruefnummerDaten, PN_ANTRAG_SELECT } from '@/lib/kellerbuch/pruefnummerLaden'
 import { num, numOderNull, tag, text, type R } from './kellerbuch-hilfen'
 import { ladeBlendSchritte, type BlendSchritt } from './blendSchritte'
 
@@ -159,6 +159,8 @@ export async function ladeBlendProtokoll(
         .maybeSingle()
       if (dacErr) throw new Error(`Blend-Protokoll: DAC-Antrag der Füllung konnte nicht geladen werden (${dacErr.message})`)
       const antrag = dac ? antragAusZeile(dac as R) : null
+      // KAN-99: Charge per Umzug weitergegeben → der Antrag gilt auch für sie
+      if (antrag) antrag.weitereChargen = (await chargenDerAntraege(supabase, tenantId, [antrag.id])).get(antrag.id) ?? []
       const chargeId = f.weinausbau_id ? String(f.weinausbau_id) : null
       const zugaenge = antrag && chargeId && pruefnummerAusAntrag(antrag, chargeId)
         ? (await ladePruefnummerDaten(supabase, tenantId, [chargeId])).get(chargeId)?.zugaenge ?? []

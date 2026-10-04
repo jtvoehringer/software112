@@ -100,7 +100,7 @@ export async function ladePruefnummerDaten(
   supabase: any,
   tenantId: string,
   chargeIds: readonly (string | null | undefined)[],
-  opts: { heute?: string } = {},
+  opts: { heute?: string; ohneFamilie?: boolean } = {},
 ): Promise<Map<string, PnChargeDaten>> {
   const heute = opts.heute ?? wienHeute()
   const ids = [...new Set(chargeIds.filter((x): x is string => typeof x === 'string' && UUID_RE.test(x)))]
@@ -120,6 +120,42 @@ export async function ladePruefnummerDaten(
     if (error) fehler('DAC-Anträge', error)
     for (const r of data) daten.get(String(r.weinausbau_id))?.antraege.push(antragAusZeile(r))
   }
+  // KAN-99: Gültigkeit je Charge (pruefnummer_chargen) – Ende für den Tankbestand an den eigenen Anträgen, per Umzug
+  // weitergegebene Anträge als Anträge der neuen Charge (ihr Weitergabe-Umzug zählt nicht als Zugang)
+  const weitergabeUmzuege = new Map<string, Set<string>>()
+  const geerbt: { charge: string; antragId: string; row: R }[] = []
+  for (const block of bloecke(ids)) {
+    const { data, error } = await alle<R>((supabase.from('pruefnummer_chargen') as any)
+      .select('id, dac_antrag_id, weinausbau_id, gueltig_ab, gueltig_bis, ende_grund, quelle_vorgang')
+      .eq('tenant_id', tenantId)
+      .in('weinausbau_id', block)
+      .order('id'))
+    if (error) fehler('Prüfnummer je Charge', error)
+    for (const row of data) {
+      const charge = String(row.weinausbau_id)
+      const eigen = daten.get(charge)?.antraege.find(a => a.id === String(row.dac_antrag_id))
+      if (eigen) Object.assign(eigen, gueltigkeit(row))
+      else geerbt.push({ charge, antragId: String(row.dac_antrag_id), row })
+      const umzug = /^keller_umzuege:(.+)$/.exec(String(row.quelle_vorgang ?? ''))?.[1]
+      if (umzug) weitergabeUmzuege.set(charge, (weitergabeUmzuege.get(charge) ?? new Set()).add(umzug))
+    }
+  }
+  if (geerbt.length > 0) {
+    const antragIds = [...new Set(geerbt.map(g => g.antragId))]
+    const zeilen = new Map<string, R>()
+    for (const block of bloecke(antragIds)) {
+      // storno-sichtbar: antragAusZeile führt stornierte DAC-Anträge als inaktiv (KAN-150 F2)
+      const { data, error } = await alle<R>((supabase.from('dac_antrag') as any)
+        .select(PN_ANTRAG_SELECT).eq('tenant_id', tenantId).in('id', block).order('id'))
+      if (error) fehler('DAC-Anträge (Weitergabe)', error)
+      for (const r of data) zeilen.set(String(r.id), r)
+    }
+    for (const g of geerbt) {
+      const r = zeilen.get(g.antragId)
+      if (r) daten.get(g.charge)?.antraege.push({ ...antragAusZeile(r), weinausbauId: g.charge, ...gueltigkeit(g.row) })
+    }
+  }
+
   const mitAntrag = ids.filter(id => (daten.get(id)?.antraege.length ?? 0) > 0)
   if (mitAntrag.length === 0) return daten
 
@@ -207,7 +243,8 @@ export async function ladePruefnummerDaten(
         const quellen = u.umzug_batch_id ? (quellenJeBatch.get(String(u.umzug_batch_id)) ?? []) : []
         fremd = quellen.length === 0 || quellen.some(q => q !== ziel)
       }
-      if (fremd) zugang(ziel, { art: 'zugang', datum: pnTag(u.datum), id: String(u.id) })
+      // KAN-99: der Umzug, der die Nummer an diese Charge weitergegeben hat, ist kein schädlicher Zugang
+      if (fremd && !weitergabeUmzuege.get(ziel)?.has(String(u.id))) zugang(ziel, { art: 'zugang', datum: pnTag(u.datum), id: String(u.id) })
     }
 
     // Füllungen: fuellung_chargen (Anteil je Charge) hat Vorrang, ältere Füllungen nur über
@@ -237,7 +274,68 @@ export async function ladePruefnummerDaten(
       daten.get(String(v.weinausbau_id))?.tankverkaeufe?.push({ datum: pnTag(vp?.datum), liter: zahl(v.menge) ?? 0 })
     }
   }
+  if (!opts.ohneFamilie) await familienErgaenzen(supabase, tenantId, daten, heute)
   return daten
+}
+
+/**
+ * KAN-99: Chargen je Antrag laut pruefnummer_chargen (auch beendete – abgefüllte Flaschen behalten die Nummer).
+ * Für Lader, die einen einzelnen Antrag über fuellungen.dac_antrag_id laden (Blend-Protokoll, TBS, Datumsänderung):
+ * eine Füllung aus einer per Umzug weitergegebenen Charge trägt damit die Nummer des Antrags.
+ */
+export async function chargenDerAntraege(supabase: any, tenantId: string, antragIds: readonly string[]): Promise<Map<string, string[]>> {
+  const out = new Map<string, string[]>()
+  for (const block of bloecke([...new Set(antragIds)])) {
+    const { data, error } = await alle<R>((supabase.from('pruefnummer_chargen') as any)
+      .select('id, dac_antrag_id, weinausbau_id').eq('tenant_id', tenantId).in('dac_antrag_id', block).order('id'))
+    if (error) fehler('Prüfnummer je Charge', error)
+    for (const r of data) out.set(String(r.dac_antrag_id), [...(out.get(String(r.dac_antrag_id)) ?? []), String(r.weinausbau_id)])
+  }
+  return out
+}
+
+/** KAN-99: Felder der Gültigkeit je Charge aus einer pruefnummer_chargen-Zeile */
+function gueltigkeit(row: R): Pick<PnAntrag, 'gueltigBis' | 'endeArt'> {
+  const art = String(row.ende_grund ?? '')
+  return {
+    gueltigBis: pnTag(row.gueltig_bis),
+    endeArt: art === 'verschnitt' || art === 'zukauf' || art === 'pressung' || art === 'zugang' ? art : null,
+  }
+}
+
+/**
+ * KAN-99: Teilmengen desselben Antrags in anderen Chargen (Teilumzug) – Bestand und Abfüllungen der übrigen Chargen
+ * mit offener Gültigkeit für die Mengenregel (Entscheidung Jörgen 04.10.2026: Menge gemeinsam), dazu weitereChargen.
+ */
+async function familienErgaenzen(supabase: any, tenantId: string, daten: Map<string, PnChargeDaten>, heute: string): Promise<void> {
+  const antragIds = [...new Set([...daten.values()].flatMap(d => d.antraege.map(a => a.id)))]
+  if (antragIds.length === 0) return
+  const offenJeAntrag = new Map<string, string[]>()
+  for (const block of bloecke(antragIds)) {
+    const { data, error } = await alle<R>((supabase.from('pruefnummer_chargen') as any)
+      .select('id, dac_antrag_id, weinausbau_id')
+      .eq('tenant_id', tenantId)
+      .in('dac_antrag_id', block)
+      .is('gueltig_bis', null)
+      .order('id'))
+    if (error) fehler('Prüfnummer je Charge (Teilmengen)', error)
+    for (const r of data) offenJeAntrag.set(String(r.dac_antrag_id), [...(offenJeAntrag.get(String(r.dac_antrag_id)) ?? []), String(r.weinausbau_id)])
+  }
+  const fremde = [...new Set([...offenJeAntrag.values()].flat())].filter(c => !daten.has(c))
+  const weitere = fremde.length > 0 ? await ladePruefnummerDaten(supabase, tenantId, fremde, { heute, ohneFamilie: true }) : new Map<string, PnChargeDaten>()
+  const quelle = (c: string) => daten.get(c) ?? weitere.get(c) ?? null
+  for (const d of daten.values()) {
+    for (const a of d.antraege) {
+      const offen = offenJeAntrag.get(a.id) ?? []
+      a.weitereChargen = offen.filter(c => c !== d.chargeId)
+      const andere = a.weitereChargen.map(quelle).filter((x): x is PnChargeDaten => !!x)
+      if (andere.length === 0 || !offen.includes(d.chargeId)) continue
+      a.familie = {
+        bestandLiter: andere.reduce((s, x) => s + (x.bestandLiter ?? 0), 0),
+        abfuellungen: andere.flatMap(x => x.abfuellungen),
+      }
+    }
+  }
 }
 
 /** Ergebnis von pruefnummerGueltig je Charge am Stichtag (Standard: heute) */
