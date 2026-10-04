@@ -22,7 +22,7 @@ export default async function NeuePage({
   const tenantId = membership?.tenantId ?? null
 
   const [{ data: raw }, { data: anRaw }] = await Promise.all([
-    (supabase.from('weinausbau') as any).select('id, name').eq('aktiv', true).eq('tenant_id', tenantId).order('name'),
+    (supabase.from('weinausbau') as any).select('id, name, jahrgang').eq('aktiv', true).eq('tenant_id', tenantId).order('name'),
     preCharge
       ? (supabase.from('weinanalysen') as any)
           .select('analyse_datum, labor, alkohol_vol, restzucker_gl, gesamtsaeure_gl, ph_wert, flüchtige_saeure_gl, freie_so2_mgl, gesamt_so2_mgl')
@@ -33,7 +33,7 @@ export default async function NeuePage({
       : Promise.resolve({ data: [] }),
   ])
 
-  type NameRow = { id: string; name: string }
+  type NameRow = { id: string; name: string; jahrgang: number | null }
   const weinausbau = (raw ?? []) as NameRow[]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const analysen   = (anRaw ?? []) as R[]

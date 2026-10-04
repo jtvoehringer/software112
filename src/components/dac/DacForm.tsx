@@ -29,7 +29,8 @@ const REBSORTEN = [
   'Grauburgunder','Sauvignon Blanc','Pinot Noir',
 ]
 
-type WeinausbauRow = { id: string; name: string }
+/** jahrgang: KAN-84 – der Antrag übernimmt den Jahrgang der gewählten Charge (statt des aktuellen Jahrs) */
+type WeinausbauRow = { id: string; name: string; jahrgang?: number | null }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnalyseRow = Record<string, any>
 type DacRow = {
@@ -57,6 +58,10 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
   )
 
   const latestAnalyse = analysen[0] ?? null
+  const jahrgangDerCharge = (id: string | null | undefined) => weinausbau.find(w => w.id === id)?.jahrgang ?? null
+  const [jahrgang, setJahrgang] = useState<string>(String(
+    dac ? (dac.jahrgang ?? '') : (jahrgangDerCharge(preChargeId) ?? new Date().getFullYear())
+  ))
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -114,7 +119,8 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
           {!isDac && <input type="hidden" name="dac_region" value="sonstiges" />}
           <div>
             <label className="form-label">Weinausbau-Charge</label>
-            <select aria-label="Weinausbau-Charge" name="weinausbau_id" defaultValue={dac?.weinausbau_id ?? preChargeId ?? ''} className="form-input">
+            <select aria-label="Weinausbau-Charge" name="weinausbau_id" defaultValue={dac?.weinausbau_id ?? preChargeId ?? ''} className="form-input"
+              onChange={e => { const j = jahrgangDerCharge(e.target.value); if (j != null) setJahrgang(String(j)) }}>
               <option value="">– keine Verknüpfung –</option>
               {weinausbau.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
             </select>
@@ -123,7 +129,7 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div>
             <label className="form-label">Jahrgang</label>
-            <input aria-label="Jahrgang" name="jahrgang" type="number" min="1900" max="2100" defaultValue={dac?.jahrgang ?? new Date().getFullYear()} className="form-input" />
+            <input aria-label="Jahrgang" name="jahrgang" type="number" min="1900" max="2100" value={jahrgang} onChange={e => setJahrgang(e.target.value)} className="form-input" />
           </div>
           <div>
             <label className="form-label">Rebsorte</label>
