@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
+import { hatModul } from '@/lib/auth/modul'
 import { revalidatePath } from 'next/cache'
 import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { stornoGrundFehler } from '@/lib/storno/grund'
@@ -483,7 +484,8 @@ export async function createBehandlung(formData: FormData) {
     const curr = haByWeingarten.get(g.weingarten_id) ?? 0
     haByWeingarten.set(g.weingarten_id, curr + (g.flaeche_ha ?? 0))
   }
-  await ggfKostenEintragAnlegen(supabase, tenantId, formData, datum, haByWeingarten, behandlungId)
+  // KAN-195: Kostenrechnung gehört zum Paket-Modul Controlling – ohne Modul sperrt die Datenbank kosteneintraege
+  if (await hatModul('modul_controlling')) await ggfKostenEintragAnlegen(supabase, tenantId, formData, datum, haByWeingarten, behandlungId)
 
   revalidatePath('/behandlungen')
   // hinweise: gespeichert, aber prüfenswert (z. B. Spritzbrühe ≠ Wasseraufwand × Fläche) – für Formular und Assistent
@@ -610,7 +612,8 @@ export async function updateBehandlung(id: string, formData: FormData) {
   }
 
   // Kosten danach – die Aufteilung je Ried liest die (ggf. neue) Grundstücks-Zuordnung
-  await ggfKostenEintragAktualisieren(supabase, tenantId, formData, datum, id)
+  // KAN-195: ohne Modul Controlling bleiben bestehende Kosteneinträge unangetastet (DB-Sperre)
+  if (await hatModul('modul_controlling')) await ggfKostenEintragAktualisieren(supabase, tenantId, formData, datum, id)
 
   revalidatePath('/behandlungen')
   revalidatePath('/behandlungen/berichte')

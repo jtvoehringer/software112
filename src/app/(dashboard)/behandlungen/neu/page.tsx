@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { alle } from '@/lib/supabase/alle'
 import { preisEinheit, type LagerBuchung } from '@/lib/behandlungen/lagerVerbrauch'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
+import { hatModul } from '@/lib/auth/modul'
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import { ladeRiedOptionen } from './riedOptionen'
@@ -173,6 +174,7 @@ export default async function NeueBehandlungPage() {
         kostenarten={kostenarten}
         saetzeMassnahmen={saetzeMassnahmen}
         betriebsmittel={betriebsmittel}
+        kostenModul={await hatModul('modul_controlling')}
       />
     </div>
   )

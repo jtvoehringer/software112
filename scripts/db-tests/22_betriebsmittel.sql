@@ -79,7 +79,7 @@ BEGIN
     'ausgabe/betriebsmittel/12.50/true/true');
 
   -- ── 2. Ablehnungen: ohne E&A, ohne Modul ea, Leser ────────────────────────────────────────────────────
-  UPDATE public.tenant_einstellungen SET modul_ea = false WHERE tenant_id = v_b;
+  UPDATE public.tenant_einstellungen SET modul_ea = false, modul_sumup = false WHERE tenant_id = v_b;   -- KAN-195: SumUp verlangt E&A
   PERFORM pg_temp.s112_als(v_bw);
   v_erg := v_erg || pg_temp.s112_erwarte('ohne_ea_einkauf', pg_temp.s112_versuch(v_ein), 'T');
   PERFORM pg_temp.s112_als_postgres();

@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
+import { hatModul } from '@/lib/auth/modul'
 import { notFound, redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
@@ -193,7 +194,7 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
       <BehandlungEditForm
         behandlung={behandlung} psm={psm} duengemittel={duengemittel} bioStatus={bioStatus}
         kostenarten={kostenarten} bestehenderKostenEintrag={bestehenderKostenEintrag}
-        flaecheHa={flaecheHa} betriebsmittel={betriebsmittel}
+        flaecheHa={flaecheHa} betriebsmittel={betriebsmittel} kostenModul={await hatModul('modul_controlling')}
         weingaerten={weingaerten} gstByWeingarten={gstByWeingarten} startWGs={startWGs} startGSTs={startGSTs}
       />
     </div>

@@ -644,9 +644,10 @@ END $fn$$m$);
     PERFORM pg_temp.s112_als(v_bl);
     v_erg := v_erg || pg_temp.s112_erwarte('einst_upd_b_l:' || r.sp, pg_temp.s112_versuch(v_sql), 'k0');
     PERFORM pg_temp.s112_als(v_pa);
-    -- modul_sumup allein verletzt chk_sumup_bedingt_buchhaltung (modul_ea ist false) – CHECK, kein Schutzfehler
+    -- Testbetriebe haben seit KAN-195 modul_ea und modul_sumup an: modul_ea allein ausschalten verletzt
+    -- chk_sumup_bedingt_buchhaltung – CHECK, kein Schutzfehler
     v_erg := v_erg || pg_temp.s112_erwarte('pa_einst_upd:' || r.sp, pg_temp.s112_versuch(v_sql),
-                                           CASE WHEN r.sp = 'modul_sumup' THEN 'E23514' ELSE 'k1' END);
+                                           CASE WHEN r.sp = 'modul_ea' THEN 'E23514' ELSE 'k1' END);
   END LOOP;
   PERFORM pg_temp.s112_als_postgres();
   v_erg := v_erg || pg_temp.s112_erwarte('einst_update_spalten_vorhanden', v_n >= 90, true);
