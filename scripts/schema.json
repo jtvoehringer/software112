@@ -828,7 +828,8 @@
 "name",
 "einheit_standard",
 "sort_order",
-"created_at"
+"created_at",
+"pn_wirkung"
 ],
 "keller_freigaben": [
 "id",

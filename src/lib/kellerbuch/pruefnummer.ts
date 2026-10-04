@@ -76,10 +76,12 @@ export type PnAntrag = {
   familie?: { bestandLiter: number; abfuellungen: PnAbfuellung[] } | null
 }
 
-export type PnZugangArt = 'verschnitt' | 'zugang' | 'zukauf' | 'pressung'
+export type PnZugangArt = 'verschnitt' | 'zugang' | 'zukauf' | 'pressung' | 'behandlung' | 'abstufung'
 
 /** Buchung mit der Charge als ZIEL: Verschnitt (verschneidungen), Zugang per Umzug aus einer
- *  anderen Charge (keller_umzuege), Zukauf (zukauf_posten), Pressung (pressung_behaelter) */
+ *  anderen Charge (keller_umzuege), Zukauf (zukauf_posten), Pressung (pressung_behaelter);
+ *  KAN-100: Kellerbehandlung, die den Wein verändert (keller_behandlungstypen.pn_wirkung 'veraenderung'),
+ *  und Abstufung bzw. geänderte Bezeichnung der Charge (nur als Ende aus pruefnummer_chargen) */
 export type PnZugang = { art: PnZugangArt; datum: string | null; id?: string }
 
 /** Füllung aus der Charge (für die Mengenregel) */
@@ -234,7 +236,7 @@ function neuesteZuerst(a: PnAntrag, b: PnAntrag): number {
   return a.id < b.id ? 1 : a.id > b.id ? -1 : 0
 }
 
-const ART_REIHENFOLGE: Record<PnZugangArt, number> = { verschnitt: 0, zukauf: 1, pressung: 2, zugang: 3 }
+const ART_REIHENFOLGE: Record<PnZugangArt, number> = { verschnitt: 0, zukauf: 1, pressung: 2, zugang: 3, behandlung: 4, abstufung: 5 }
 
 /** Zugänge mit von < Datum ≤ bis (von = null: ohne Untergrenze), früheste zuerst */
 function zugaengeZwischen(zugaenge: readonly PnZugang[], von: string | null, bis: string): PnZugang[] {
@@ -379,15 +381,18 @@ const ZUGANG_TEXT: Record<PnZugangArt, string> = {
   zukauf: 'Zukauf',
   pressung: 'Pressung in die Charge',
   zugang: 'Zugang per Umzug',
+  behandlung: 'Kellerbehandlung, die den Wein verändert,',
+  abstufung: 'Abstufung bzw. geänderte Bezeichnung der Charge',
 }
 
 /** Buchung mit der Charge als Ziel für Hinweise: „Verschnitt am 25.09.2026 (§ 25 Abs. 6 WeinG)“ */
 export function pnZugangText(art: PnZugangArt, datum: string | null | undefined): string {
-  return `${ZUGANG_TEXT[art]} am ${pnDatumDe(datum)} (§ 25 Abs. 6 WeinG)`
+  // Abstufung: keine Vermischung, sondern eine andere Bezeichnung als beantragt – ohne Verweis auf § 25 Abs. 6
+  return `${ZUGANG_TEXT[art]} am ${pnDatumDe(datum)}${art === 'abstufung' ? '' : ' (§ 25 Abs. 6 WeinG)'}`
 }
 
 function istZugangArt(g: PnGrund | null): g is PnZugangArt {
-  return g === 'verschnitt' || g === 'zugang' || g === 'zukauf' || g === 'pressung'
+  return g === 'verschnitt' || g === 'zugang' || g === 'zukauf' || g === 'pressung' || g === 'behandlung' || g === 'abstufung'
 }
 
 /**
@@ -677,12 +682,22 @@ export function freiePruefnummerPruefen(
 // ist bereits ein Verstoß). Ermittelt wird durch Simulation: dieselbe Auswertung wie KAN-72
 // (pruefnummerGueltig/antragVerletzung) vor und nach dem gedachten Zugang. Umzug in ein leeres
 // Gebinde, Abfüllung und Schwund sind Abgänge bzw. keine Zugänge in eine Charge mit Antrag und
-// werden gar nicht geprüft. Bis KAN-100 (atomare Buchung, Kellerbehandlungen).
+// werden gar nicht geprüft. KAN-100 (04.10.2026): dieselbe Rückfrage vor einer Kellerbehandlung vom Typ
+// „Veränderung“ (pn_wirkung) und vor einer Abstufung bzw. geänderten Bezeichnung der Charge; das Ende der
+// Gültigkeit schreibt die Datenbank in derselben Transaktion (Trigger s112_pn_chargen_pflegen).
 
-export type PnVorgang = 'verschnitt' | 'umzug' | 'zukauf'
+export type PnVorgang = 'verschnitt' | 'umzug' | 'zukauf' | 'behandlung' | 'abstufung'
 
-const VORGANG_ZUGANG: Record<PnVorgang, PnZugangArt> = { verschnitt: 'verschnitt', umzug: 'zugang', zukauf: 'zukauf' }
-const VORGANG_TEXT: Record<PnVorgang, string> = { verschnitt: 'Verschnitt', umzug: 'Umzug in diese Charge', zukauf: 'Zukauf in dieses Gebinde' }
+const VORGANG_ZUGANG: Record<PnVorgang, PnZugangArt> = {
+  verschnitt: 'verschnitt', umzug: 'zugang', zukauf: 'zukauf', behandlung: 'behandlung', abstufung: 'abstufung',
+}
+const VORGANG_SATZ: Record<PnVorgang, string> = {
+  verschnitt: 'Ein Verschnitt',
+  umzug: 'Ein Umzug in diese Charge',
+  zukauf: 'Ein Zukauf in dieses Gebinde',
+  behandlung: 'Eine Kellerbehandlung, die den Wein verändert,',
+  abstufung: 'Eine Abstufung bzw. andere Bezeichnung der Charge',
+}
 const OFFEN_EINGEREICHT: Record<string, string> = { eingereicht: 'eingereicht', in_pruefung: 'in Prüfung' }
 
 /** Charge, in die der Vorgang Wein bringt: Daten aus ladePruefnummerDaten, Name, zugebuchte Liter */
@@ -729,7 +744,7 @@ export function pruefnummernSchaden(vorgang: PnVorgang, ziele: readonly PnSchade
         // wird da ungültig und müsste neu beantragt werden.“
         return {
           ablehnung: `Für die Charge „${z.name ?? 'ohne Namen'}“ läuft ein Prüfnummernantrag${nr ? ` (Prüfnummer ${nr})` : ''} (Status: ${OFFEN_EINGEREICHT[a.status]}). `
-            + `Ein ${VORGANG_TEXT[vorgang]} zwischen Antrag und Bescheid ist nicht zulässig – der Antrag würde ungültig und müsste neu gestellt werden (§ 25 Abs. 6 WeinG). `
+            + `${VORGANG_SATZ[vorgang]} zwischen Antrag und Bescheid ist nicht zulässig – der Antrag würde ungültig und müsste neu gestellt werden${vorgang === 'abstufung' ? '' : ' (§ 25 Abs. 6 WeinG)'}. `
             + 'Bitte erst nach dem Bescheid buchen oder den Antrag zurückziehen.',
           schaeden: [],
         }

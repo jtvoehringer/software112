@@ -23,7 +23,7 @@ import {
   pnDatumDe, pnNormiert, pruefnummerAusAntrag, pruefnummerGueltig, pnTag,
   pruefnummernSchaden, pruefnummernSchadenFrage, pruefnummernSchadenNotiz,
   type PnVorgang,
-  type PnAbfuellung, type PnAntrag, type PnChargeDaten, type PnErgebnis, type PnUmzugAbgang, type PnUmzugsherkunft, type PnZugang,
+  type PnAbfuellung, type PnAntrag, type PnChargeDaten, type PnErgebnis, type PnUmzugAbgang, type PnUmzugsherkunft, type PnZugang, type PnZugangArt,
 } from './pruefnummer'
 
 type R = Record<string, any>
@@ -162,7 +162,7 @@ export async function ladePruefnummerDaten(
   const zugang = (id: unknown, z: PnZugang) => { daten.get(String(id))?.zugaenge.push(z) }
 
   for (const block of bloecke(mitAntrag)) {
-    const [waRes, vRes, zkRes, umRes, pbRes, fRes, fcRes, tvRes] = await Promise.all([
+    const [waRes, vRes, zkRes, umRes, pbRes, fRes, fcRes, tvRes, kbRes] = await Promise.all([
       alle<R>((supabase.from('weinausbau') as any)
         .select('id, menge_liter')
         .eq('tenant_id', tenantId)
@@ -209,6 +209,14 @@ export async function ladePruefnummerDaten(
         .eq('typ', 'tank')
         .in('weinausbau_id', block)
         .order('id')),
+      // KAN-100: Kellerbehandlungen, die den Wein verändern (Einstufung am Behandlungstyp)
+      alle<R>((supabase.from('keller_behandlungen') as any)
+        .select('id, datum, weinausbau_id, typ:typ_id!inner(pn_wirkung)')
+        .is('storniert_am', null)
+        .eq('tenant_id', tenantId)
+        .eq('typ.pn_wirkung', 'veraenderung')
+        .in('weinausbau_id', block)
+        .order('id')),
     ])
     if (waRes.error) fehler('Chargen', waRes.error)
     if (vRes.error) fehler('Verschnitte', vRes.error)
@@ -218,6 +226,7 @@ export async function ladePruefnummerDaten(
     if (fRes.error) fehler('Füllungen', fRes.error)
     if (fcRes.error) fehler('Füllungs-Chargen', fcRes.error)
     if (tvRes.error) fehler('Tankverkäufe', tvRes.error)
+    if (kbRes.error) fehler('Kellerbehandlungen', kbRes.error)
 
     for (const w of waRes.data) {
       const d = daten.get(String(w.id))
@@ -229,6 +238,7 @@ export async function ladePruefnummerDaten(
       const pr = p.pressung as R | null
       if (pr && pr.tenant_id === tenantId) zugang(p.weinausbau_id, { art: 'pressung', datum: pnTag(pr.datum), id: String(p.id) })
     }
+    for (const k of kbRes.data) zugang(k.weinausbau_id, { art: 'behandlung', datum: pnTag(k.datum), id: String(k.id) })
 
     // Umzug: Zugang, wenn Wein aus einer ANDEREN Charge in die Charge kommt. Zielzeilen tragen
     // nach_weinausbau_id, die Quellen stehen in den quelle-Zeilen desselben Batches; ältere
@@ -294,12 +304,14 @@ export async function chargenDerAntraege(supabase: any, tenantId: string, antrag
   return out
 }
 
-/** KAN-99: Felder der Gültigkeit je Charge aus einer pruefnummer_chargen-Zeile */
+const ENDE_VORGANG: readonly PnZugangArt[] = ['verschnitt', 'zukauf', 'pressung', 'zugang', 'behandlung', 'abstufung']
+
+/** KAN-99: Felder der Gültigkeit je Charge aus einer pruefnummer_chargen-Zeile (KAN-100: auch Behandlung, Abstufung) */
 function gueltigkeit(row: R): Pick<PnAntrag, 'gueltigBis' | 'endeArt'> {
   const art = String(row.ende_grund ?? '')
   return {
     gueltigBis: pnTag(row.gueltig_bis),
-    endeArt: art === 'verschnitt' || art === 'zukauf' || art === 'pressung' || art === 'zugang' ? art : null,
+    endeArt: (ENDE_VORGANG as readonly string[]).includes(art) ? art as PnZugangArt : null,
   }
 }
 
@@ -715,7 +727,8 @@ export async function pruefnummerBeiDatumsaenderung(
 }
 
 /**
- * KAN-83 (01.10.2026): Übergangswarnung vor Verschnitt, Zusammenführung per Umzug und Zukauf.
+ * KAN-83 (01.10.2026): Warnung vor Verschnitt, Zusammenführung per Umzug und Zukauf; KAN-100 auch vor einer
+ * Kellerbehandlung vom Typ „Veränderung“ und vor einer Abstufung der Charge.
  * Wirft AktionsFehler, wenn ein Antrag der Charge eingereicht bzw. in Prüfung ist (Antrag zuerst
  * zurückziehen); liefert sonst die Rückfrage und den Vermerk für den Vorgang, oder null, wenn
  * keine geltende Prüfnummer betroffen ist. Aufruf VOR der ersten Buchung.

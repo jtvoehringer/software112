@@ -42,7 +42,7 @@ interface Props {
   weingaerten: Row[]
   behaelter: Row[]
   selectedWeingaertenIds?: string[]
-  action: (formData: FormData) => Promise<void>
+  action: (formData: FormData) => Promise<{ bestaetigung?: string } | void>
   /** Maximale Qualitätsstufe (von der Lese). Upgrade über diesen Wert hinaus ist gesperrt. */
   maxQualitaetsstufe?: string | null
   /** Felder die aus der Pressung abgeleitet werden → gesperrt */
@@ -83,7 +83,13 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
       }
     })
     try {
-      await action(normalized)
+      // KAN-100: Abstufung einer Charge mit Prüfnummer – erst Rückfrage, dann mit Bestätigung erneut senden
+      const r = await action(normalized)
+      if (r?.bestaetigung) {
+        if (!window.confirm(r.bestaetigung)) { setSaving(false); return }
+        normalized.set('pn_bestaetigt', '1')
+        await action(normalized)
+      }
       router.push('/kellerbuch')
       router.refresh()
     } catch (err) {

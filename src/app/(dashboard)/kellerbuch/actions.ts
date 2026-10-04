@@ -4,7 +4,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { qualitaetText } from '@/lib/weinqualitaet'
 import {
-  istAufwertungQualitaet, normalisiereQualitaet, qualitaetsSpalten,
+  gleicheQualitaet, istAufwertungQualitaet, normalisiereQualitaet, qualitaetsSpalten,
   type QualitaetsAngabe,
 } from '@/lib/wein/qualitaetsrang'
 import { qualitaetFehler, qualitaetsAngabeAusFormular, qualitaetsAngabeFehler } from '@/lib/wein/qualitaet'
@@ -19,6 +19,10 @@ import { planeVerschneidungStorno, storniereVerschneidung, GEBINDEWECHSEL_OHNE }
 import { stornoGrundFehler, STORNO_GRUND_MIN } from '@/lib/storno/grund'
 import { verschnittBuchen, verschnittVorbereiten } from '@/lib/kellerbuch/verschnittBuchen'
 import { mostgewichtAusFormular, mostgewichtSpalten } from '@/lib/wein/mostgewichtFormular'
+import { pruefePruefnummernSchaden } from '@/lib/kellerbuch/pruefnummerLaden'
+import { mitPnNotiz } from '@/lib/kellerbuch/pruefnummer'
+import { wienHeute } from '@/lib/csv'
+import { pnWirkungAus, pnWirkungUnklarHinweis, type PnWirkung } from '@/lib/kellerbuch/pnWirkung'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -260,14 +264,15 @@ export async function createWeinausbau(formData: FormData) {
 //   aus Dashboard und Listen, während die View ihn weiterzählt.
 // * Merkmale (Bezeichnung, Rebsorte, Qualität, Weinart, Rieden, Preis, Notizen) bleiben
 //   änderbar; bestandsrelevante Änderungen protokolliert die DB (bestandsprotokoll).
-export async function updateWeinausbau(id: string, formData: FormData) {
+// KAN-100: bestaetigung = Rückfrage „Prüfnummer erlischt“ (Abstufung) – nichts gespeichert; mit pn_bestaetigt=1 erneut senden
+export async function updateWeinausbau(id: string, formData: FormData): Promise<{ bestaetigung?: string } | void> {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
   if (!tenantId) throw new AktionsFehler('Kein Betrieb gefunden')
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: altRaw, error: altErr } = await (supabase.from('weinausbau') as any)
-    .select('id, behaelter_id, menge_liter, aktiv, status, qualitaetsstufe, zusatzbezeichnung, erzeugnis, jahrgang, rebsorte, weinart')
+    .select('id, name, behaelter_id, menge_liter, aktiv, status, qualitaetsstufe, zusatzbezeichnung, erzeugnis, jahrgang, rebsorte, weinart')
     .eq('id', id)
     .eq('tenant_id', tenantId)
     .maybeSingle()
@@ -312,6 +317,19 @@ export async function updateWeinausbau(id: string, formData: FormData) {
       `Die Qualitätsstufe kann nicht von „${qualitaetText(altQualitaet)}“ auf „${qualitaetText(neuQualitaet)}“ angehoben werden – nur gleich bleiben oder abstufen ist zulässig. War die bisherige Stufe falsch erfasst, bitte die zugrunde liegende Buchung (Lese, Pressung, Zukauf) korrigieren.`,
     )
   }
+  // KAN-100: Abstufung bzw. andere Bezeichnung – die Prüfnummer erlischt für den Tankbestand (Entscheidung Jörgen
+  // 04.10.2026; das Ende schreibt der DB-Trigger). Unveränderte Angaben gar nicht schreiben – so löst eine bloße
+  // Normalisierung den Trigger nicht aus. Rückfrage wie beim Verschnitt, Ablehnung bei eingereichtem Antrag.
+  let pnNotiz: string | null = null
+  if (gleicheQualitaet(altQualitaet, neuQualitaet)) {
+    delete payload.qualitaetsstufe; delete payload.zusatzbezeichnung; delete payload.erzeugnis
+  } else {
+    const pn = await pruefePruefnummernSchaden(supabase, tenantId, 'abstufung', [{ chargeId: id, name: (alt.name as string | null) ?? null }], wienHeute())
+    if (pn && formData.get('pn_bestaetigt') !== '1') return { bestaetigung: pn.frage }
+    if (pn) pnNotiz = pn.notiz
+  }
+  if (pnNotiz) payload.notizen = mitPnNotiz(payload.notizen as string | null, pnNotiz)
+
   // KAN-80: Chargen aus Pressung oder Zukauf – Jahrgang, Rebsorte und Weinart kommen von dort und sind auch
   // serverseitig gesperrt (das Formular zeigt sie bei Pressungs-Chargen nur an). Fehlt ein Feld, bleibt der Wert.
   {
@@ -637,18 +655,18 @@ export async function manuellSchwundBuchen(formData: FormData) {
 
 // KELLERBEHANDLUNG
 //
-// Server-Action-Kapselung für keller_behandlungen – dieser Prozess lief bisher
-// ausschließlich über direkte Client-seitige Schreibzugriffe (createSupabaseBrowserClient
-// in der Kellerbehandlungen-Seite). Damit der Prozess-Assistent (Bot) denselben
-// Tool-Handler-Ansatz wie bei den übrigen Prozessen nutzen kann, kapselt diese neue Action
-// exakt dieselbe Insert-Logik in einer Server Action (siehe Konzeptdokument Abschnitt 3b).
-// Die Seite legt an und bearbeitet weiterhin über den Browser-Client; gelöscht wird seit
-// KAN-35 nur noch über deleteKellerbehandlung (unten).
-export async function createKellerbehandlung(formData: FormData): Promise<{ id: string }> {
-  const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId()
-  if (!tenantId) throw new AktionsFehler('Kein Betrieb gefunden')
+// KELLERBEHANDLUNG ANLEGEN / BEARBEITEN – ein Weg für Seite und Prozess-Assistent (KAN-100, 04.10.2026; vorher schrieb
+// die Seite per Browser-Client). Prüfnummer: Ein Behandlungstyp mit pn_wirkung 'veraenderung' (z. B. Säurekorrektur)
+// beendet die Gültigkeit für den Tankbestand der Charge – wie beim Verschnitt erst Rückfrage (`{ bestaetigung }`, mit
+// pn_bestaetigt=1 erneut senden), bei eingereichtem Antrag Ablehnung; das Ende schreibt der DB-Trigger. Ein nicht
+// eingestufter Typ ('unklar') warnt nur (`hinweis`), die Nummer bleibt (Entscheidung Jörgen 04.10.2026).
+export type KellerbehandlungErgebnis = { id?: string; bestaetigung?: string; hinweis?: string }
 
+export async function speichereKellerbehandlung(formData: FormData): Promise<KellerbehandlungErgebnis> {
+  const supabase = await createSupabaseServerClient()
+  const tenantId = await kellerbuchSchreibrecht()
+
+  const id = (formData.get('id') as string) || null
   const behaelterId = formData.get('behaelter_id') as string
   if (!behaelterId) throw new AktionsFehler('Kein Behälter angegeben')
   const datum = formData.get('datum') as string
@@ -658,19 +676,18 @@ export async function createKellerbehandlung(formData: FormData): Promise<{ id: 
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: typRaw } = await (supabase.from('keller_behandlungstypen') as any)
-    .select('id, name, einheit_standard').eq('id', typId).eq('tenant_id', tenantId).maybeSingle()
+    .select('id, name, einheit_standard, pn_wirkung').eq('id', typId).eq('tenant_id', tenantId).maybeSingle()
   if (!typRaw) throw new AktionsFehler('Behandlungstyp nicht gefunden')
   const typ = typRaw as R
 
   const menge   = formData.get('menge') ? parseFloat(dezimal((formData.get('menge') as string))) : null
   const einheit = (formData.get('einheit') as string) || (typ.einheit_standard as string | null) || null
 
-  // Volumen Ist: falls nicht angegeben, aktuellen Gesamtinhalt des Behälters (Summe aktiver
-  // Chargen) als sinnvollen Default nachladen – wie in der bestehenden Seite vorbelegt.
+  // Volumen Ist: beim Anlegen ohne Angabe der aktuelle Gesamtinhalt des Behälters (Summe aktiver Chargen)
   let volumenLiterIst = formData.get('volumen_liter_ist')
     ? parseFloat(dezimal((formData.get('volumen_liter_ist') as string)))
     : null
-  if (volumenLiterIst == null) {
+  if (volumenLiterIst == null && !id) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: chargenImBehaelter } = await (supabase.from('weinausbau') as any)
       .select('menge_liter').eq('behaelter_id', behaelterId).eq('aktiv', true).eq('tenant_id', tenantId)
@@ -678,11 +695,30 @@ export async function createKellerbehandlung(formData: FormData): Promise<{ id: 
     volumenLiterIst = summe > 0 ? summe : null
   }
 
-  const notizen      = (formData.get('notizen') as string) || null
+  let notizen        = (formData.get('notizen') as string) || null
   const weinausbauId = (formData.get('weinausbau_id') as string) || null
 
+  // KAN-100: Prüfnummer der Charge
+  let hinweis: string | undefined
+  if (weinausbauId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: charge } = await (supabase.from('weinausbau') as any)
+      .select('id, name').eq('id', weinausbauId).eq('tenant_id', tenantId).maybeSingle()
+    if (!charge) throw new AktionsFehler('Charge nicht gefunden')
+    const ziel = [{ chargeId: weinausbauId, name: (charge as R).name ?? null }]
+    if (typ.pn_wirkung === 'veraenderung') {
+      const pn = await pruefePruefnummernSchaden(supabase, tenantId, 'behandlung', ziel, datum)   // wirft bei eingereichtem Antrag
+      if (pn && formData.get('pn_bestaetigt') !== '1') return { bestaetigung: pn.frage }
+      if (pn) notizen = mitPnNotiz(notizen, pn.notiz)
+    } else if (typ.pn_wirkung !== 'pflege') {
+      let betroffen: boolean
+      try { betroffen = (await pruefePruefnummernSchaden(supabase, tenantId, 'behandlung', ziel, datum)) !== null }
+      catch { betroffen = true }   // eingereichter Antrag
+      if (betroffen) hinweis = pnWirkungUnklarHinweis(String(typ.name ?? ''))
+    }
+  }
+
   const payload: R = {
-    tenant_id:          tenantId,
     behaelter_id:       behaelterId,
     datum,
     typ_id:             typId,
@@ -694,14 +730,65 @@ export async function createKellerbehandlung(formData: FormData): Promise<{ id: 
     weinausbau_id:      weinausbauId,
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase.from('keller_behandlungen') as any)
-    .insert(payload).select('id').single()
-  if (error) throw new AktionsFehler((error as R).message)
+  let neueId: string
+  if (id) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase.from('keller_behandlungen') as any)
+      .update({ ...payload, updated_at: new Date().toISOString() })
+      .eq('id', id).eq('tenant_id', tenantId).is('storniert_am', null)
+      .select('id')
+    if (error) throw new AktionsFehler(dbFehlerText(error, 'Speichern fehlgeschlagen'))
+    if (!data || (data as R[]).length === 0) throw new AktionsFehler('Speichern fehlgeschlagen: Behandlung nicht gefunden, storniert oder keine Berechtigung.')
+    neueId = id
+  } else {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase.from('keller_behandlungen') as any)
+      .insert({ ...payload, tenant_id: tenantId }).select('id').single()
+    if (error) throw new AktionsFehler(dbFehlerText(error, 'Speichern fehlgeschlagen'))
+    neueId = (data as R).id as string
+  }
 
   revalidatePath(`/kellerbuch/behaelter/${behaelterId}/behandlungen`)
+  revalidatePath(`/kellerbuch/behaelter/${behaelterId}/bewegungen`)
+  if (weinausbauId) {
+    revalidatePath(`/kellerbuch/weinausbau/${weinausbauId}`)
+    revalidatePath(`/kellerbuch/weinausbau/${weinausbauId}/buch`)
+  }
   revalidatePath('/kellerbuch')
-  return { id: (data as R).id as string }
+  return hinweis ? { id: neueId, hinweis } : { id: neueId }
+}
+
+/** Prozess-Assistent: anlegen über denselben Weg wie die Seite (KAN-100) */
+export async function createKellerbehandlung(formData: FormData): Promise<KellerbehandlungErgebnis> {
+  const neu = new FormData()   // nur anlegen: eine mitgeschickte id fällt weg
+  formData.forEach((wert, feld) => { if (feld !== 'id') neu.append(feld, wert) })
+  return speichereKellerbehandlung(neu)
+}
+
+/** Neuer Behandlungstyp mit Einstufung für die Prüfnummer (KAN-100) */
+export async function legeBehandlungstypAn(name: string, einheit: string | null, wirkung: string): Promise<{ id: string; name: string; einheit_standard: string | null; pn_wirkung: PnWirkung }> {
+  const supabase = await createSupabaseServerClient()
+  const tenantId = await kellerbuchSchreibrecht()
+  const n = (name ?? '').trim()
+  if (!n) throw new AktionsFehler('Bitte eine Typbezeichnung angeben.')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.from('keller_behandlungstypen') as any)
+    .insert({ tenant_id: tenantId, name: n, einheit_standard: einheit || null, pn_wirkung: pnWirkungAus(wirkung) })
+    .select('id, name, einheit_standard, pn_wirkung').single()
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Behandlungstyp konnte nicht angelegt werden'))
+  return data as { id: string; name: string; einheit_standard: string | null; pn_wirkung: PnWirkung }
+}
+
+/** Einstufung eines Typs ändern – die Datenbank sperrt das, sobald der Typ in einer Charge mit Prüfnummer verwendet wurde */
+export async function setzeBehandlungstypWirkung(typId: string, wirkung: string): Promise<void> {
+  const supabase = await createSupabaseServerClient()
+  const tenantId = await kellerbuchSchreibrecht()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.from('keller_behandlungstypen') as any)
+    .update({ pn_wirkung: pnWirkungAus(wirkung) }).eq('id', typId).eq('tenant_id', tenantId).select('id')
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Einstufung konnte nicht gespeichert werden'))
+  if (!data || (data as R[]).length === 0) throw new AktionsFehler('Behandlungstyp nicht gefunden oder keine Berechtigung.')
+  revalidatePath('/kellerbuch')
 }
 
 // ENDGÜLTIG LÖSCHEN (KAN-145 B4, 30.09.2026) – nur stornierte Buchungen, mit Grund, über die RPC
