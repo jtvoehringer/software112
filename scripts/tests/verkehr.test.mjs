@@ -440,7 +440,7 @@ describe('dac-antraege', () => {
     assert.equal(zeilen.length, 2)
     const d = csvDatei(zeilen, dac.SPALTEN_DAC_ANTRAEGE)
     assert.equal(zeilenVon(d.text)[0], 'Bezeichnung;DAC-Region;Jahrgang;Rebsorte;Menge (l);Alkohol (% vol);Status;Eingereicht am;Staatliche Prüfnummer;Bescheid am;Aktiv;Storniert am;Storno-Grund')   // KAN-150 F2: Storno-Spalten
-    assert.equal(zeilenVon(d.text)[1], 'ZW Reserve;Carnuntum;2024;Zweigelt;1500,01;13,50;Genehmigt;01.03.2025;N 1/24;15.04.2025;Ja;;')
+    assert.equal(zeilenVon(d.text)[1], 'ZW Reserve;Carnuntum;2024;Zweigelt;1500,01;13,50;Zugeteilt;01.03.2025;N 1/24;15.04.2025;Ja;;')   // KAN-97: genehmigt = „Zugeteilt“
     assert.equal(zeilenVon(d.text)[2], 'Entwurf;unbekannt_neu;;;;;Entwurf;;;;Nein;;')
   })
 })

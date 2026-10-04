@@ -34,6 +34,10 @@ export default async function PruefnummernantragPage({ params }: { params: Promi
     .order('storniert_am', { ascending: false })
   const stornierte = (stornRaw ?? []) as { id: string; storniert_am: string; storniert_von_name: string | null; storno_grund: string | null }[]
   const schreiben = !!membership && canWrite(membership, 'kellerbuch')
+  // KAN-97: ab „Eingereicht“ sperrt die Datenbank das Formular (a_freeze) – Storno erst mit dem DAC-Antrag selbst
+  const gesperrt = !pna.dac.storniert && pna.dac.status && pna.dac.status !== 'entwurf'
+    ? { grund: 'Prüfnummernantrag eingereicht', seit: pna.dac.eingereichtAm } : null
+  const sperrDatum = gesperrt?.seit ? new Date(gesperrt.seit).toLocaleDateString('de-AT') : null
 
   return (
     <div className="max-w-4xl space-y-4">
@@ -52,9 +56,10 @@ export default async function PruefnummernantragPage({ params }: { params: Promi
         dacAntragId={id}
         initial={pna.formular}
         csvHref={csvPfad('pruefnummernantrag', { id, bez: pna.dac.bezeichnung })}
+        gesperrt={gesperrt ? { grund: gesperrt.grund, seit: sperrDatum } : null}
       />
 
-      {schreiben && pna.gespeichertId && (
+      {schreiben && pna.gespeichertId && !gesperrt && (
         <StornoKarte was="der Prüfnummernantrag" stand={{ storniert_am: null }}
           stornieren={stornoPNA.bind(null, id, pna.gespeichertId)}
           hinweis="Der gespeicherte Antrag bleibt als storniert im Änderungsprotokoll; danach zeigt das Formular wieder die Vorbelegung." />

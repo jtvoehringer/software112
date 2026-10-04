@@ -5,7 +5,8 @@ import Link from '@/components/ui/Link'
 import { notFound } from 'next/navigation'
 import { FileText, Tag } from 'lucide-react'
 import DacForm from '@/components/dac/DacForm'
-import { updateDacAntrag, stornoDacAntrag, loescheDacAntrag } from '../actions'
+import { updateDacAntrag, stornoDacAntrag, loescheDacAntrag, setzeDacStatus, kopiereDacAntragAlsEntwurf } from '../actions'
+import DacStatusKarte, { type PnEreignis } from '@/components/dac/DacStatusKarte'
 import StornoKarte from '@/components/StornoKarte'
 
 export const metadata: Metadata = { title: 'Prüfnummern-Antrag bearbeiten – software:112' }
@@ -25,12 +26,17 @@ export default async function DacEditPage({ params }: { params: Promise<{ id: st
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [{ data: rows }, { data: waRaw }] = await Promise.all([
+  const [{ data: rows }, { data: waRaw }, { data: evRaw }] = await Promise.all([
     // storno-sichtbar: die Detailseite zeigt den stornierten Antrag mit Vermerk (KAN-150 F2)
     tf((supabase.from('dac_antrag') as any)
-      .select('id, weinausbau_id, bezeichnung, dac_region, jahrgang, rebsorte, menge_liter, alkohol_prozent, status, pruefnummer, eingereicht_am, bescheid_am, notizen, aktiv, storniert_am, storniert_von_name, storno_grund')
+      .select('id, weinausbau_id, bezeichnung, dac_region, jahrgang, rebsorte, menge_liter, alkohol_prozent, status, pruefnummer, eingereicht_am, bescheid_am, notizen, aktiv, storniert_am, storniert_von_name, storno_grund, status_seit, antragsnummer, untersuchungsnummer, entzug_am, entzug_grund')
       .eq('id', id).limit(1)),
     tf((supabase.from('weinausbau') as any).select('id, name').eq('aktiv', true).order('name')),
+    // KAN-97: Verlauf der Statuswechsel
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    tf((supabase.from('pruefnummer_ereignisse') as any)
+      .select('id, status_alt, status_neu, datum, pruefnummer, grund, benutzer_name, erstellt_am')
+      .eq('dac_antrag_id', id).order('erstellt_am', { ascending: true })),
   ])
 
   const dac0 = (((rows ?? []) as R[])[0] ?? null)
@@ -43,12 +49,14 @@ export default async function DacEditPage({ params }: { params: Promise<{ id: st
     : { data: [] }
   const analysen = (anRaw ?? []) as R[]
 
-  type DacRow = { id: string; weinausbau_id: string | null; bezeichnung: string; dac_region: string; jahrgang: number | null; rebsorte: string | null; menge_liter: number | null; alkohol_prozent: number | null; status: string; pruefnummer: string | null; eingereicht_am: string | null; bescheid_am: string | null; notizen: string | null; aktiv: boolean; storniert_am: string | null; storniert_von_name: string | null; storno_grund: string | null }
+  type DacRow = { id: string; weinausbau_id: string | null; bezeichnung: string; dac_region: string; jahrgang: number | null; rebsorte: string | null; menge_liter: number | null; alkohol_prozent: number | null; status: string; pruefnummer: string | null; eingereicht_am: string | null; bescheid_am: string | null; notizen: string | null; aktiv: boolean; storniert_am: string | null; storniert_von_name: string | null; storno_grund: string | null; status_seit: string | null; antragsnummer: string | null; untersuchungsnummer: string | null; entzug_am: string | null; entzug_grund: string | null }
   type NameRow = { id: string; name: string }
 
   const dac       = dac0 as DacRow | null
   if (!dac) notFound()
   const weinausbau = (waRaw ?? []) as NameRow[]
+  const ereignisse = (evRaw ?? []) as PnEreignis[]
+  const schreiben = !!membership && canWrite(membership, 'kellerbuch')
 
   return (
     <div className="max-w-2xl">
@@ -82,8 +90,12 @@ export default async function DacEditPage({ params }: { params: Promise<{ id: st
         </div>
       </div>
       {/* KAN-150 F2: stornierter Antrag ist unveränderlich – nur der Vermerk, kein Formular */}
+      <div className="mb-6">
+        <DacStatusKarte status={dac.status} pruefnummer={dac.pruefnummer} ereignisse={ereignisse} schreiben={schreiben}
+          storniert={!!dac.storniert_am} setzen={setzeDacStatus.bind(null, id)} kopieren={kopiereDacAntragAlsEntwurf.bind(null, id)} />
+      </div>
       {!dac.storniert_am && <DacForm dac={dac} weinausbau={weinausbau} analysen={analysen} action={updateDacAntrag.bind(null, id)} />}
-      {membership && canWrite(membership, 'kellerbuch') && (
+      {membership && schreiben && (
         <div className="mt-6">
           <StornoKarte was="der Antrag" stand={dac}
             stornieren={dac.storniert_am ? undefined : stornoDacAntrag.bind(null, id)}

@@ -344,7 +344,8 @@ export function pnaZeilen(formular: R, meta: PNAMeta, warnungen: string[]): PNAZ
 type Client = any
 
 export type PNAErgebnis = {
-  dac: { id: string; bezeichnung: string | null }
+  /** KAN-97: status/eingereichtAm/storniert – ab „Eingereicht“ ist das Formular gesperrt */
+  dac: { id: string; bezeichnung: string | null; status: string | null; eingereichtAm: string | null; storniert: boolean }
   formular: PNADaten
   gespeichert: boolean
   gespeichertAm: string | null
@@ -365,7 +366,7 @@ export async function ladePruefnummernantrag(supabase: Client, tenantId: string,
   const [dacRes, cfgRes, pnaRes] = await Promise.all([
     // storno-sichtbar: der Druck zeigt auch einen stornierten DAC-Antrag, mit Vermerk (KAN-150 F2)
     (supabase.from('dac_antrag') as any)
-      .select('id, bezeichnung, dac_region, jahrgang, rebsorte, menge_liter, weinausbau_id')
+      .select('id, bezeichnung, dac_region, jahrgang, rebsorte, menge_liter, weinausbau_id, status, eingereicht_am, storniert_am')
       .eq('id', p.id)
       .eq('tenant_id', tenantId)
       .maybeSingle(),
@@ -408,5 +409,5 @@ export async function ladePruefnummernantrag(supabase: Client, tenantId: string,
   if (!gespeicherteDaten) warnungen.push(HINWEIS_VORBELEGUNG)
 
   const zeilen = pnaZeilen(formular, { dacBezeichnung: textOderNull(dac.bezeichnung), gespeichert: !!gespeicherteDaten, gespeichertAm }, warnungen)
-  return { dac: { id: dac.id, bezeichnung: textOderNull(dac.bezeichnung) }, formular, gespeichert: !!gespeicherteDaten, gespeichertAm, gespeichertId: pna?.id ? String(pna.id) : null, zeilen, warnungen }
+  return { dac: { id: dac.id, bezeichnung: textOderNull(dac.bezeichnung), status: textOderNull(dac.status), eingereichtAm: textOderNull(dac.eingereicht_am), storniert: !!dac.storniert_am }, formular, gespeichert: !!gespeicherteDaten, gespeichertAm, gespeichertId: pna?.id ? String(pna.id) : null, zeilen, warnungen }
 }

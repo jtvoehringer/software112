@@ -17,6 +17,11 @@ const STATUS_FARBE: Record<string, string> = {
   in_pruefung:  'bg-s112-warn-bg text-s112-warn-fg',
   genehmigt:    'bg-s112-ok-bg text-s112-ok-fg',
   abgelehnt:    'bg-s112-err-bg text-s112-err-fg',
+  // KAN-97: Endstatus
+  zurueckgezogen: 'bg-[#F2F3F5] text-s112-text-2',
+  erloschen:      'bg-[#F2F3F5] text-s112-text-2',
+  aufgebraucht:   'bg-[#F2F3F5] text-s112-text-2',
+  entzogen:       'bg-s112-err-bg text-s112-err-fg',
 }
 
 export default async function DacPage() {
@@ -58,7 +63,7 @@ export default async function DacPage() {
       <div className="grid grid-cols-3 gap-4 mb-6">
         <div className="card text-center">
           <p className="text-3xl font-semibold text-s112-ok-fg">{genehmigt}</p>
-          <p className="text-xs text-s112-muted mt-1">Genehmigt</p>
+          <p className="text-xs text-s112-muted mt-1">Zugeteilt</p>
         </div>
         <div className="card text-center">
           <p className="text-3xl font-semibold text-s112-blue-700">{offen}</p>

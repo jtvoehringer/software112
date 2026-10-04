@@ -128,7 +128,7 @@ DECLARE
   -- Tabellen, die anon derzeit gar nicht lesen darf (kein SELECT-Grant) – erlaubt, aber als Liste festgehalten
   c_anon_ohne_grant constant text[] := ARRAY['bestandsprotokoll', 'betriebsmittel', 'betriebsmittel_lager_bewegungen', 'fuellung_bewegungen', 'meldung_abgaben',
     'kat_buchungsart', 'kat_erzeugnis', 'kat_farbe', 'kat_land', 'kat_qualitaetsstufe', 'katalog_mapping',
-    'kellerbuch_buchungen', 'kellerbuch_abschluesse', 'charge_herkunft'];   -- KAN-167, KAN-37 B, KAN-39, KAN-40, KAN-192: REVOKE ALL … FROM anon
+    'kellerbuch_buchungen', 'kellerbuch_abschluesse', 'charge_herkunft', 'pruefnummer_ereignisse'];   -- KAN-167, KAN-37 B, KAN-39, KAN-40, KAN-192, KAN-97: REVOKE ALL … FROM anon
   -- Varianten-Zeilen (Tabelle:boolesche Spalte) – je Betrieb M und B einmal true, einmal false
   c_varianten constant text[] := ARRAY['kontakte:is_lead', 'firmen:is_lead', 'behaelter:gemeinsam'];
   -- Gegenrichtung: Personas aus M und C gegen die B-Zeile

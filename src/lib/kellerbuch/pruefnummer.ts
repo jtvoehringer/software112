@@ -149,6 +149,18 @@ export type PnUmzugAbgang = { datum: string | null; liter: number }
 /** Status, unter denen ein Antrag noch offen ist (Füllung darf ihn ohne Nummer verknüpfen) */
 export const PN_OFFENE_STATUS = ['entwurf', 'eingereicht', 'in_pruefung'] as const
 
+/**
+ * KAN-97: Status, unter denen bereits abgefüllte Flaschen die Nummer behalten – „Zugeteilt“ (genehmigt) sowie
+ * „Erloschen“ (gilt nur für den Tankbestand nicht mehr) und „Aufgebraucht“. Entzogen, abgelehnt, zurückgezogen: nein.
+ * Neue Füllungen verknüpfen nur zugeteilte (antragGenehmigt) bzw. offene Anträge.
+ */
+export const PN_FLASCHEN_STATUS = ['genehmigt', 'erloschen', 'aufgebraucht'] as const
+
+/** KAN-97: Endstatus für Meldungen (Füllung verknüpfen, freie Nummer) */
+const PN_ENDSTATUS_TEXT: Record<string, string> = {
+  abgelehnt: 'abgelehnt', zurueckgezogen: 'zurückgezogen', erloschen: 'erloschen', entzogen: 'entzogen', aufgebraucht: 'aufgebraucht',
+}
+
 const TAG_RE = /^\d{4}-\d{2}-\d{2}/
 /** Toleranz wie numeric(10,2) */
 const RUNDUNG = 0.005
@@ -195,13 +207,14 @@ export function antragGenehmigt(a: PnAntrag): boolean {
 }
 
 /**
- * Nummer eines bestimmten Antrags (Füllung → fuellungen.dac_antrag_id): nur genehmigt und aktiv,
+ * Nummer eines bestimmten Antrags (Füllung → fuellungen.dac_antrag_id): nur aktiv, zugeteilt bzw. – für schon
+ * abgefüllte Flaschen – erloschen oder aufgebraucht (PN_FLASCHEN_STATUS, KAN-97),
  * und – wenn `chargeId` übergeben ist (Charge der Füllung, auch null) – nur, wenn der Antrag zu
  * dieser Charge gehört. Für Füllungen gilt die Nummer der Abfüllung – spätere Zugänge der Charge
  * betreffen die Flaschen nicht mehr (Blend-Protokoll der Füllung, TBS-Flaschenposition).
  */
 export function pruefnummerAusAntrag(a: PnAntrag | null | undefined, chargeId?: string | null): string | null {
-  if (!a || !antragGenehmigt(a)) return null
+  if (!a || !a.aktiv || !(PN_FLASCHEN_STATUS as readonly string[]).includes(a.status) || nummer(a.pruefnummer) === null) return null
   if (chargeId !== undefined && a.weinausbauId !== (chargeId ?? null)) return null
   return nummer(a.pruefnummer)
 }
@@ -468,8 +481,8 @@ export function fuellungAntragPruefen(daten: PnChargeDaten | null | undefined, a
     return { ok: false, fehler: 'Der gewählte DAC-Antrag gehört nicht zur gewählten Kellerbuch-Charge – bitte die Seite neu laden und den Antrag erneut wählen.' }
   }
   const name = antrag.bezeichnung ? ` „${antrag.bezeichnung}“` : ''
-  if (!antrag.aktiv || antrag.status === 'abgelehnt') {
-    return { ok: false, fehler: `Der DAC-Antrag${name} ist ${antrag.status === 'abgelehnt' ? 'abgelehnt' : 'inaktiv'} und kann nicht mit der Füllung verknüpft werden.` }
+  if (!antrag.aktiv || PN_ENDSTATUS_TEXT[antrag.status]) {
+    return { ok: false, fehler: `Der DAC-Antrag${name} ist ${PN_ENDSTATUS_TEXT[antrag.status] ?? 'inaktiv'} und kann nicht mit der Füllung verknüpft werden.` }
   }
   const bestandAm = pnTag(daten.bestandAm)
   const buchungstag = bestandAm !== null && bestandAm > abfuelldatum ? bestandAm : abfuelldatum
@@ -628,7 +641,7 @@ export function freiePruefnummerPruefen(
 
   const eigene = p.chargeId ? treffer.find(a => a.weinausbauId === p.chargeId) : undefined
   if (eigene) {
-    const zustand = eigene.status === 'abgelehnt' ? 'abgelehnt' : !eigene.aktiv ? 'inaktiv' : 'nicht genehmigt'
+    const zustand = PN_ENDSTATUS_TEXT[eigene.status] ?? (!eigene.aktiv ? 'inaktiv' : 'noch nicht zugeteilt')
     return `Die Prüfnummer ${nummer(eigene.pruefnummer)} gehört zum DAC-Antrag${bez(eigene)} dieser Charge, der ${zustand} ist – sie kann nicht frei eingetragen werden.`
   }
   const fremd = treffer[0]

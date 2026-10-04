@@ -3,6 +3,8 @@
 import { useState, useTransition } from 'react'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { savePNA } from './actions'
+import GesperrtHinweis from '@/components/GesperrtHinweis'
+import { fehlerText } from '@/lib/fehler'
 // Nur Typen (werden beim Übersetzen entfernt) – Datenmodell samt Vorbelegung und CSV-Abflachung
 // liegt in lib/behoerden/pruefnummernantrag.ts (gemeinsam mit /meldungen/pruefnummernantrag/csv)
 import type { PNADaten, PNAMostcharge as Mostcharge } from '@/lib/behoerden/pruefnummernantrag'
@@ -15,6 +17,8 @@ interface Props {
   initial: PNADaten
   /** CSV desselben (gespeicherten) Antrags: csvPfad('pruefnummernantrag', …) */
   csvHref: string
+  /** KAN-97: ab „Eingereicht“ unveränderlich (Datenbank-Sperre) – Grund und Datum für den Hinweis */
+  gesperrt?: { grund: string; seit: string | null } | null
 }
 
 const inputCls = 'border border-s112-line-str px-1.5 py-0.5 text-xs w-full focus:outline-none focus:border-s112-teal bg-white'
@@ -39,12 +43,13 @@ function CB({ checked, onChange, label }: { checked: boolean; onChange: (v: bool
   )
 }
 
-export default function PNAFormular({ dacAntragId, initial, csvHref }: Props) {
+export default function PNAFormular({ dacAntragId, initial, csvHref, gesperrt = null }: Props) {
   const [d, setD] = useState<PNADaten>(initial)
   const [gespeichert, setGespeichert] = useState(false)
   // Ungespeicherte Änderungen: die CSV liest den gespeicherten Stand aus der Datenbank
   const [geaendert, setGeaendert] = useState(false)
   const [pending, startTransition] = useTransition()
+  const [fehler, setFehler] = useState<string | null>(null)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function set<K extends keyof PNADaten>(key: K, value: PNADaten[K]) {
@@ -65,20 +70,31 @@ export default function PNAFormular({ dacAntragId, initial, csvHref }: Props) {
 
   function handleSave() {
     startTransition(async () => {
-      await savePNA(dacAntragId, d as unknown as R)
-      setGespeichert(true)
-      setGeaendert(false)
+      setFehler(null)
+      try {
+        await savePNA(dacAntragId, d as unknown as R)
+        setGespeichert(true)
+        setGeaendert(false)
+      } catch (e) {
+        setFehler(fehlerText(e, 'Speichern fehlgeschlagen'))
+      }
     })
   }
 
   return (
     <div className="space-y-6">
+      {gesperrt && (
+        <div className="no-print"><GesperrtHinweis grund={gesperrt.grund} seit={gesperrt.seit} /></div>
+      )}
+      {fehler && <div className="no-print bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-xl px-4 py-3 text-sm"><strong>Fehler:</strong> {fehler}</div>}
       {/* Toolbar */}
       <div className="flex flex-wrap items-start gap-3 no-print">
-        <button onClick={handleSave} disabled={pending}
-          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50">
-          {pending ? 'Speichern…' : 'Speichern'}
-        </button>
+        {!gesperrt && (
+          <button onClick={handleSave} disabled={pending}
+            className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50">
+            {pending ? 'Speichern…' : 'Speichern'}
+          </button>
+        )}
         {gespeichert && <span className="text-xs text-s112-ok-fg self-center">Gespeichert</span>}
         <button onClick={() => window.print()}
           className="border border-s112-border px-4 py-1.5 rounded-lg text-sm hover:bg-s112-bg">
@@ -93,6 +109,8 @@ export default function PNAFormular({ dacAntragId, initial, csvHref }: Props) {
       </div>
 
       {/* ── Offizielles Formular ── */}
+      {/* KAN-97: gesperrt = alle Eingaben schreibgeschützt (Drucken und CSV bleiben) */}
+      <fieldset disabled={!!gesperrt} className="min-w-0 border-0 p-0 m-0">
       <div className="bg-white border border-s112-line-str p-6 space-y-4 font-sans text-xs" id="pna-formular">
 
         {/* Titel + Antragsnummer */}
@@ -340,6 +358,7 @@ export default function PNAFormular({ dacAntragId, initial, csvHref }: Props) {
           Erstellt mittels software:112 (IC&amp;P Consultants) · Unrichtige Angaben ziehen den Verlust der Prüfnummer gemäß § 25 (9) Z. 1 nach sich!
         </p>
       </div>
+      </fieldset>
 
       <style>{`
         @media print {
