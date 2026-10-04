@@ -7,13 +7,13 @@
 
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { sendEmail, upsertContact, removeFromList } from '@/lib/brevo/api'
-import crypto from 'crypto'
 import { AktionsFehler } from '@/lib/fehler'
 import { clientIp, drossel } from '@/lib/sicherheit/drossel'
 import {
   ladeNewsletterBetrieb, ladeNewsletterBetriebNachId, abmeldeLink, pruefeAbmeldeToken,
   SEGMENTE, type Segment, type NewsletterBetrieb,
 } from '@/lib/newsletter/betrieb'
+import { neuesNewsletterToken, istNewsletterToken, newsletterTokenHash } from '@/lib/newsletter/token'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -73,14 +73,16 @@ export async function newsletterAnmelden(formData: FormData): Promise<AnmeldeRes
   const letzte = (existing as AR | null)?.newsletter_opt_in_am
   if (letzte && Date.now() - new Date(letzte).getTime() < ERNEUT_NACH_MS) return { ok: true }
 
-  const token = crypto.randomBytes(32).toString('hex')
+  // KAN-159 BK4: Klartext nur im Link der E-Mail, gespeichert wird der Hash
+  const token = neuesNewsletterToken()
+  const tokenHash = newsletterTokenHash(token)
   const now   = new Date().toISOString()
   let kontaktId: string
 
   if (existing) {
     kontaktId = (existing as AR).id
     const { error } = await (supabase.from('kontakte') as any)
-      .update({ newsletter: true, newsletter_token: token, newsletter_opt_in_am: now, aktualisiert_am: now })
+      .update({ newsletter: true, newsletter_token_hash: tokenHash, newsletter_opt_in_am: now, aktualisiert_am: now })
       .eq('id', kontaktId)
       .eq('tenant_id', tenantId)
     if (error) return { ok: false, error: 'Anmeldung derzeit nicht möglich. Bitte später erneut versuchen.' }
@@ -92,7 +94,7 @@ export async function newsletterAnmelden(formData: FormData): Promise<AnmeldeRes
       segment,
       email,
       newsletter:            true,
-      newsletter_token:      token,
+      newsletter_token_hash: tokenHash,
       newsletter_opt_in_am:  now,
       newsletter_bestaetigt: false,
     }).select('id').single()
@@ -157,13 +159,13 @@ export type BestaetigungResult =
   | { ok: false; error: string; betrieb: NewsletterBetrieb | null }
 
 export async function newsletterBestaetigen(token: string): Promise<BestaetigungResult> {
-  if (!/^[0-9a-f]{64}$/.test(token)) return { ok: false, error: 'Ungültiger Link.', betrieb: null }
+  if (!istNewsletterToken(token)) return { ok: false, error: 'Ungültiger Link.', betrieb: null }
 
   const supabase = createSupabaseAdminClient()
   // tenant-isolation-ignore: öffentlicher Bestätigungslink – der Betrieb ergibt sich aus dem zufälligen Token
   const { data } = await (supabase.from('kontakte') as any)
     .select('id, tenant_id, email, vorname, nachname, segment, newsletter_opt_in_am, newsletter_bestaetigt')
-    .eq('newsletter_token', token)
+    .eq('newsletter_token_hash', newsletterTokenHash(token))
     .limit(1)
     .maybeSingle()
 
@@ -180,7 +182,7 @@ export async function newsletterBestaetigen(token: string): Promise<Bestaetigung
 
   const now = new Date().toISOString()
   const { error: updErr } = await (supabase.from('kontakte') as any)
-    .update({ newsletter_bestaetigt: true, newsletter_token: null, aktualisiert_am: now })
+    .update({ newsletter_bestaetigt: true, newsletter_token_hash: null, aktualisiert_am: now })
     .eq('id', kontakt.id)
     .eq('tenant_id', tenantId)
   if (updErr) return { ok: false, error: 'Bestätigung derzeit nicht möglich. Bitte später erneut versuchen.', betrieb }
@@ -223,7 +225,7 @@ export async function newsletterAbmelden(kontaktId: string, token: string): Prom
   const now = new Date().toISOString()
 
   const { error } = await (supabase.from('kontakte') as any)
-    .update({ newsletter: false, newsletter_bestaetigt: false, newsletter_token: null, aktualisiert_am: now })
+    .update({ newsletter: false, newsletter_bestaetigt: false, newsletter_token_hash: null, aktualisiert_am: now })
     .eq('id', kontakt.id)
     .eq('tenant_id', tenantId)
   if (error) return { ok: false, betrieb }

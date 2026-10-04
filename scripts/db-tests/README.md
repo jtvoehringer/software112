@@ -222,12 +222,13 @@ Titel immer mit der Lücken-ID beginnen (der Runner dedupliziert über den Titel
 | ~~B9~~ | behoben (KAN-159): schreibende RPCs prüfen das Schreibmodul (`s112_pruefe_schreibmodul`); `is_locked` beim Kontenabgleich bewusst offen – 18 |
 | ~~B10~~ | behoben (KAN-159 Teil 2): anon/PUBLIC-EXECUTE nur noch `s112_pre_request` – 01, 18 |
 | ~~B11~~ | behoben (KAN-159 Teil 2): keine Triggerfunktion mit EXECUTE für authenticated – 18 |
-| B12.1 | `aktivitaet_dokumente`: DELETE-Policy „Winzer können eigene Dokumente löschen“ prüft keinen Eigentümer (zu klären) – 12 |
+| ~~B12.1~~ | Soll (Entscheidung Jörgen 04.10.2026): wer im CRM schreiben darf, löscht auch Dokumente anderer Mitglieder – wie die App; hart geprüft (k1) – 12 |
 | ~~B13~~ | behoben (KAN-159): Benutzer ändern an `benachrichtigungen` nur `gelesen_am` (Spaltenrecht) – 11 |
 | ~~B14~~ | behoben (KAN-159 Teil 2, Entscheidung Jörgen 04.10.2026): Assistent-Verläufe privat je Benutzer – 10, 12 |
 | ~~B15~~ | behoben (KAN-159 Teil 2): die sechs RPCs mit eigener Mitgliedsprüfung prüfen `s112_aal_ok` und den deaktivierten Betrieb – 15 |
 | ~~B16~~ | behoben (KAN-159 Teil 2, Entscheidung Jörgen 04.10.2026): deaktivierter Betrieb (`tenants.active = false`) wie inaktive Mitgliedschaft – `s112_betrieb_gesperrt` in `s112_gesperrte_tenants`, `s112_meine_tenants`, `get_user_tenant_ids`, `user_has_role_in_tenant`, `pruefe_tenant_zugriff`; Plattform-Admins ausgenommen – 13 |
 | B17 | Modul-/Paketschalter (`tenant_einstellungen.modul_*`, `module_flags`) werden beim Schreiben nicht in der DB durchgesetzt: mit allen Schaltern aus legen tenant_admin und Winzer per Direkt-API weiter `kontakte`, `weinausbau`, `weingarten`, `verkaufsposten`, `ea_transaktionen`, `exportauftraege` an (die modul_*-Policies prüfen nur die Schreibmodule der Mitgliedschaft; Soll: durchsetzen, eigenes Folgeticket) – 12 |
+| ~~BK4~~ | behoben (KAN-159, 04.10.2026): `kontakte.newsletter_token_hash` enthält nur den SHA-256-Hash des Double-Opt-in-Tokens, der Klartext steht nur im Link – 01 |
 | Baselines | keine mehr: `tenant_id` ohne FK nur noch bewusst `bestandsprotokoll`/`system_ereignisse` (BK3 seit KAN-159 Teil 2), anon-EXECUTE (B10) und TRUNCATE (BK1/BK2) hart geprüft (01, 18) |
 
 ## Mutationsprüfung (`--mutationen`)

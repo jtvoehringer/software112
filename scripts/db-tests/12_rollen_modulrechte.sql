@@ -581,7 +581,8 @@ BEGIN
   END LOOP;
 
   -- ── 5. Bezeichnung vs. Verhalten: aktivitaet_dokumente ──────────────────────────────────────────────
-  -- Policy „Winzer können eigene Dokumente löschen“ prüft keinen Eigentümer: m_w_crm löscht ein Dokument von m_ta.
+  -- Soll (Entscheidung Jörgen 04.10.2026, KAN-159 B12.1): wer im CRM schreiben darf, löscht auch Dokumente anderer
+  -- Mitglieder – wie die App (/api/crm/aktivitaet/[id]/dokument/[dok_id]); m_w_crm löscht ein Dokument von m_ta.
   PERFORM pg_temp.s112_als_postgres();
   v_doc := pg_temp.s112_beispiel('aktivitaet_dokumente', c_m, v_mta);
   v_erg := v_erg || pg_temp.s112_erwarte('dokument_ersteller_m_ta', v_doc ->> 'erstellt_von', v_mta::text);
@@ -590,8 +591,7 @@ BEGIN
   PERFORM pg_temp.s112_als(v_mwcrm);
   v_code := pg_temp.s112_versuch(format('DELETE FROM public.aktivitaet_dokumente WHERE %s', pg_temp.s112_pk_where('aktivitaet_dokumente', v_doc)));
   PERFORM pg_temp.s112_als_postgres();
-  v_erg := v_erg || pg_temp.s112_luecke('dokument_fremder_ersteller_loeschbar', v_code, 'k0', 'k1',
-    'B12.1 aktivitaet_dokumente: DELETE-Policy „Winzer können eigene Dokumente löschen“ prüft keinen Eigentümer (zu klären)');
+  v_erg := v_erg || pg_temp.s112_erwarte('dokument_fremder_ersteller_loeschbar', v_code, 'k1');
 
   -- ── 6. Modul- und Paketschalter beim Schreiben (B17) ────────────────────────────────────────────────
   -- Als postgres in B: je Modul eine Beispielzeile, dann alle modul_*-Schalter aus und alle module_flags weg.
