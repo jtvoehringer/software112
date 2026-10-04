@@ -128,6 +128,9 @@ export type LeseZeile = {
    *  STELLEN.oechsle, gemessene Einheit – nichts neu gerechnet, nur ein fehlender Wert ergänzt */
   mostgewicht: MostgewichtExport
   qualitaetsstufe: string | null
+  /** KAN-81: Herkunft-Code des Eintrags (ggf. abgestuft) und Art der Lese (Obergrenze der Stufe beim Bearbeiten) */
+  herkunftCode: string | null
+  leseArt: string | null
   lesemethode: string | null
   notizen: string | null
   /** KAN-148 C1b: Storno (Zeitpunkt, Grund, Benutzer) – nur mit `mitStornierten` geladen, sonst immer null */
@@ -191,6 +194,8 @@ function zuLeseZeile(p: R): LeseZeile {
     mostgewichtEinheit: textOderNull(p.mostgewicht_einheit),
     mostgewicht: mostgewichtFuerExport({ kmw: p.klosterneuburger, oechsle: p.oechsle, einheit: p.mostgewicht_einheit }, 2),   // 2 = STELLEN.kmw (verlustfrei)
     qualitaetsstufe: textOderNull(p.qualitaetsstufe),
+    herkunftCode: textOderNull(p.herkunft_code),
+    leseArt: textOderNull((p.lese as R | null)?.art),
     lesemethode: textOderNull(p.lesemethode),
     notizen: textOderNull(p.notizen),
     storniertAm: textOderNull(p.storniert_am),

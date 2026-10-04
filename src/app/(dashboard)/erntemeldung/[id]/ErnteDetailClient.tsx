@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState, useTransition } from 'react'
 import { upsertErnteParzelle, stornoErnteParzelle, endgueltigLoeschenLese, createMultipleErnteParzellen } from '../actions'
 import { qualitaetLabel, LESE_QUALITAETEN, mitGespeichertemWert } from '@/lib/wein/qualitaet'
-import { kmwZuQualitaet } from '@/lib/weinqualitaet'
+import { abgestuftVon, gemeinsameHerkunftOptionen, leseHerkunftObergrenze, leseHerkunftOptionen, leseObergrenze, leseStufeFehler, leseStufenOptionen } from '@/lib/wein/leseAbstufung'
 import type { ErnteParzelle, WeingartenOpt, GSTOpt, AMAMeldung, HektarhoechstertragStatus } from './page'
 import { HOECHSTERTRAG_RECHTSFOLGE } from '@/lib/behoerden/hoechstertragText'
 import Link from '@/components/ui/Link'
@@ -177,6 +177,15 @@ function NeueParzellenForm({
   }
   const mengeZahl = zahlAus(mengeGesamt)
   const mengeUngueltig = mengeGesamt.trim() !== '' && (mengeZahl == null || mengeZahl < 0)
+  // KAN-81 (Entscheidung 04.10.2026): gemeinsame Felder „Abstufen auf“ – jede Zeile höchstens bis zu ihrer Obergrenze.
+  // Stufen: Eiswein nur bei einer Eiswein-Lese; Herkunft: nur Stufen, die für jedes gewählte Grundstück zulässig sind.
+  const abstufenOptionen = LESE_QUALITAETEN.filter(o => leseArt === 'eiswein' || o.value !== 'eiswein').slice().sort((a, b) => b.rang - a.rang)
+  const herkunftGemeinsam = ziele.length > 0 && ziele.every(z => z.grundstueck_id)
+    ? gemeinsameHerkunftOptionen(ziele.map(z => {
+        const g = (gstByWeingarten[z.weingarten_id] ?? []).find(x => x.id === z.grundstueck_id)
+        return g ? leseHerkunftObergrenze(g.herkunft_code, g.rebsorte).code : null
+      }))
+    : []
   const vorschau = verteileKg(mengeUngueltig ? null : mengeZahl, ziele.map(z => z.flaeche_ha))
   const hinweis = einzeln ? null : verteilungsHinweis(ziele.map(z => z.flaeche_ha))
   const summeHa = ziele.reduce((s, z) => s + (bezugsflaeche(z.flaeche_ha) ?? 0), 0)
@@ -409,6 +418,24 @@ function NeueParzellenForm({
           <MostgewichtEingabe name="mostgewicht" label="Mostgewicht & Qualitätsstufe" qualitaetsVorschau />
           <p className="text-xs text-s112-muted mt-0.5">Qualitätsstufe wird automatisch aus den °KMW abgeleitet (ohne Mostgewicht: Qualitätswein).</p>
         </div>
+        <div>
+          <label htmlFor="lese-abstufen-auf" className="block text-xs font-medium text-s112-text-2 mb-1">Abstufen auf <span className="text-s112-muted font-normal">(optional)</span></label>
+          <select id="lese-abstufen-auf" name="abstufen_auf" defaultValue="" className={inputCls}>
+            <option value="">– nicht abstufen –</option>
+            {abstufenOptionen.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+          <p className="text-xs text-s112-muted mt-0.5">Jede Fläche bekommt höchstens die Stufe aus ihrem Mostgewicht.</p>
+        </div>
+        {herkunftGemeinsam.length > 0 && (
+          <div>
+            <label htmlFor="lese-herkunft-auf" className="block text-xs font-medium text-s112-text-2 mb-1">Herkunft abstufen auf <span className="text-s112-muted font-normal">(optional)</span></label>
+            <select id="lese-herkunft-auf" name="herkunft_abstufen_auf" defaultValue="" className={inputCls}>
+              <option value="">– vom Grundstück –</option>
+              {herkunftGemeinsam.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+            <p className="text-xs text-s112-muted mt-0.5">Nur Stufen, die für alle gewählten Grundstücke zulässig sind.</p>
+          </div>
+        )}
         <div className="sm:col-span-2">
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
           <input aria-label="Notizen" name="notizen" className={inputCls} placeholder="optional" />
@@ -522,14 +549,23 @@ function ParzellForm({
   const [kmwEdit, setKmwEdit] = useState<number | null>(
     parzelle?.klosterneuburger != null ? Number(parzelle.klosterneuburger) : null
   )
-  const [mgGeaendert, setMgGeaendert] = useState(false)
   const [selWgId, setSelWgId] = useState<string>(parzelle?.weingarten_id ?? '')
   const [selGstId, setSelGstId] = useState<string>(parzelle?.grundstueck_id ?? '')
-  // Stufe nur aus den °KMW von ausMessung() (onChange der Eingabe, Rechenregel 5)
-  const derivedQualitaetEdit = kmwEdit != null && Number.isFinite(kmwEdit) ? kmwZuQualitaet(kmwEdit) : 'qualitaetswein'
+  // Stufe nur aus den °KMW von ausMessung() (onChange der Eingabe, Rechenregel 5); KAN-81: das ist die Obergrenze
+  // (Eiswein-Lese: Eiswein) – wählbar sind nur niedrigere Stufen
+  const derivedQualitaetEdit = leseObergrenze(parzelle?.lese_art, kmwEdit)
   const [qualitaetEdit, setQualitaetEdit] = useState<string | null>(parzelle?.qualitaetsstufe ?? null)
   const effectiveQualitaetEdit = qualitaetEdit ?? derivedQualitaetEdit
   const verfuegbareGSTs = selWgId ? (gstByWeingarten[selWgId] ?? []) : []
+  // KAN-81: Herkunft bis zur Obergrenze des Grundstücks (Sortenspiegel) bzw. eine breitere Stufe; '' = Obergrenze
+  const selGst = verfuegbareGSTs.find(g => g.id === selGstId) ?? null
+  const herkunftGrenze = selGst ? leseHerkunftObergrenze(selGst.herkunft_code, selGst.rebsorte).code : null
+  const herkunftGespeichert = parzelle && (parzelle.grundstueck_id ?? '') === selGstId ? (parzelle.herkunft_code ?? null) : null
+  const [herkunftEdit, setHerkunftEdit] = useState<string>(parzelle?.herkunft_code ?? '')
+  const herkunftGewaehlt = selGstId && (herkunftEdit === herkunftGespeichert || leseHerkunftOptionen(herkunftGrenze).some(o => o.value === herkunftEdit)) ? herkunftEdit : ''
+  const herkunftWert = herkunftGewaehlt === herkunftGrenze ? '' : herkunftGewaehlt   // Obergrenze = leere Auswahl
+  const herkunftOpts = leseHerkunftOptionen(herkunftGrenze)
+  if (herkunftGespeichert && !herkunftOpts.some(o => o.value === herkunftGespeichert)) herkunftOpts.push({ value: herkunftGespeichert, label: `${herkunftGespeichert} (gespeichert)` })
   const [error, setError] = useState<string | null>(null)
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -618,7 +654,6 @@ function ParzellForm({
           <MostgewichtEingabe name="mostgewicht" startwert={mgStart}
             onChange={wert => {
               setKmwEdit(wert ? wert.kmw : null)
-              setMgGeaendert(true)
               if (!parzelle) setQualitaetEdit(null)
             }} />
         </div>
@@ -627,22 +662,38 @@ function ParzellForm({
           <select aria-label="Qualitätsstufe" name="qualitaetsstufe" value={effectiveQualitaetEdit}
             onChange={e => setQualitaetEdit(e.target.value)}
             className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-1.5 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
-            {mitGespeichertemWert(LESE_QUALITAETEN, parzelle?.qualitaetsstufe).map(o => (
+            {mitGespeichertemWert(leseStufenOptionen(derivedQualitaetEdit), parzelle?.qualitaetsstufe).map(o => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </select>
           {qualitaetEdit == null && (
-            <p className="text-xs text-s112-muted mt-0.5">↑ Wird aus °KMW abgeleitet – bei Bedarf anpassen</p>
+            <p className="text-xs text-s112-muted mt-0.5">↑ Obergrenze aus °KMW – nur Abstufen möglich</p>
           )}
-          {qualitaetEdit != null && mgGeaendert && kmwEdit != null && derivedQualitaetEdit !== qualitaetEdit && (
+          {qualitaetEdit != null && leseStufeFehler(qualitaetEdit, derivedQualitaetEdit) && (
             <p role="status" className="text-xs text-s112-warn-fg mt-0.5">
-              Rechnerisch aus dem Mostgewicht: {qualitaetLabel(derivedQualitaetEdit)} – die gewählte Stufe bleibt.{' '}
+              Über der Obergrenze aus dem Mostgewicht ({qualitaetLabel(derivedQualitaetEdit)}) – nur Abstufen ist möglich.{' '}
               <button type="button" onClick={() => setQualitaetEdit(derivedQualitaetEdit)} className="underline hover:no-underline">
                 Übernehmen
               </button>
             </p>
           )}
+          {qualitaetEdit != null && !leseStufeFehler(qualitaetEdit, derivedQualitaetEdit) && abgestuftVon(qualitaetEdit, derivedQualitaetEdit, 'stufe') && (
+            <p className="text-xs text-s112-muted mt-0.5">{abgestuftVon(qualitaetEdit, derivedQualitaetEdit, 'stufe')}</p>
+          )}
         </div>
+        {selGstId && herkunftGrenze && (
+          <div>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Herkunft</label>
+            <select aria-label="Herkunft" name="herkunft_code" value={herkunftWert} onChange={e => setHerkunftEdit(e.target.value)}
+              className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-1.5 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+              <option value="">{herkunftOpts[0]?.label ?? '–'} (vom Grundstück)</option>
+              {herkunftOpts.slice(1).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+            {abgestuftVon(herkunftWert, herkunftGrenze, 'herkunft') && (
+              <p className="text-xs text-s112-muted mt-0.5">{abgestuftVon(herkunftWert, herkunftGrenze, 'herkunft')}</p>
+            )}
+          </div>
+        )}
         <div className="sm:col-span-2">
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
           <input aria-label="Notizen" name="notizen" defaultValue={parzelle?.notizen ?? ''}

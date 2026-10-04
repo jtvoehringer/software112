@@ -19,6 +19,8 @@ export type LeseEintrag = {
   kmw: number | null
   oechsle: number | null
   mostgewicht_einheit: string | null
+  /** KAN-81: Stufe des Eintrags (ggf. abgestuft) – begrenzt die Pressung */
+  qualitaetsstufe?: string | null
 }
 
 /** Ein Lesetag an einem Ort; Mostgewicht nur, wenn alle Einträge dieses Tages dasselbe haben */

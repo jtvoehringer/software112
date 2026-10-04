@@ -168,7 +168,10 @@ describe('Pressung (Quelltext)', () => {
     assert.match(E, /\.select\('id, datum, qualitaetsstufe, herkunft'\)\.in\('id', zukaufIds\)/)
   })
   test('Abstufungsprüfung nutzt die Obergrenze samt Zukauf-Stufen', () => {
-    assert.match(E, /abstufungFehler\(qualitaetsstufeInput, pressungObergrenze\(leseStufe\(/)
+    // KAN-81: die Obergrenze steht in pressungGrenze (KMW bzw. Eiswein-Lese, Lese-Stufen, Zukauf-Stufen)
+    assert.match(E, /const pressungGrenze = pressungObergrenze\(leseStufe\(/)
+    assert.match(E, /\[leseGrenze, \.\.\.weingaerten\.map\(w => w\.zukauf_posten_id \? zukaufWare\.get\(w\.zukauf_posten_id\)\?\.qualitaetsstufe : null\)\]\)/)
+    assert.match(E, /abstufungFehler\(qualitaetsstufeInput, pressungGrenze\)/)
   })
   test('Vorgaben der neuen Charge: Qualität als Minimum, Herkunft über Lese- und Zukauf-Codes', () => {
     const start = E.indexOf('async function chargenVorgabenErmitteln')
@@ -176,7 +179,7 @@ describe('Pressung (Quelltext)', () => {
     assert.match(fn, /const qualitaet = pressungObergrenze\(/)
     assert.match(fn, /if \(w\.zukauf_posten_id\) return zukaufZeilen\[i\]\?\.herkunft \?\? null/)
     assert.match(fn, /herkunft = minHerkunft\(passendeCodes\)/)
-    assert.match(E, /qualitaetsstufeInput \?\? \(lesePressung\?\.art === 'eiswein' \? 'eiswein' : null\) \}, zukaufWare\)/)
+    assert.match(E, /qualitaetsstufeInput \?\? pressungGrenze \}, zukaufWare\)/)
   })
   test('Vorschau im Pressungsformular begrenzt die Auswahl ebenso', () => {
     assert.match(P, /const obergrenze = pressungObergrenze\(obergrenzeAusKmw,/)
