@@ -17,7 +17,9 @@ interface Props { params: Promise<{ id: string }>; searchParams: Promise<{ lese?
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
 
-export type GSTOpt = { id: string; gst_nr: string; rebsorte: string | null; flaeche_ha: number | null }
+export type GSTOpt = { id: string; gst_nr: string; rebsorte: string | null; flaeche_ha: number | null
+  /** KAN-81: Herkunft-Code des Grundstücks (Obergrenze der Herkunft an der Lese) */
+  herkunft_code?: string | null }
 export type ErnteParzelle = {
   id: string; weingarten_id: string; weingarten_name: string; weingarten_rebsorte: string | null
   grundstueck_id: string | null; grundstueck_nr: string | null; grundstueck_rebsorte: string | null
@@ -26,6 +28,8 @@ export type ErnteParzelle = {
   /** gemessene Einheit ('kmw' | 'oechsle', KAN-128) – vor Migration A null */
   mostgewicht_einheit: string | null
   qualitaetsstufe: string | null; lesemethode: string | null; notizen: string | null
+  /** KAN-81: Herkunft des Eintrags und Art seiner Lese (Obergrenze der Stufe) */
+  herkunft_code?: string | null; lese_art?: string | null
   /** KAN-129: Lese des Eintrags („2026/1 Hauptlese“) und ihre Nummer – Gruppierung der Lesedaten */
   lese_titel: string | null; lese_nr: number | null
   /** KAN-148 C1b: storniert – Vermerk statt Aktionen, zählt in keiner Summe */

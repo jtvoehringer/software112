@@ -41,9 +41,11 @@ const lies = p => fs.readFileSync(p, 'utf8')
 
 test('Verdrahtung: Eiswein in Mehrfacherfassung und Pressung, Lese in Rückverfolgung und Weinbuch', () => {
   const a = lies('src/app/(dashboard)/erntemeldung/actions.ts')
-  assert.ok(a.includes('const perQualitaet = leseStufe(leseWirksam?.art,'), 'Mehrfacherfassung')
+  // KAN-81: gedeckelt durch „Abstufen auf“, die Obergrenze kommt weiter aus leseStufe (Eiswein-Lese)
+  assert.ok(a.includes('const perQualitaet = leseStufeGedeckelt(leseStufe(leseWirksam?.art,'), 'Mehrfacherfassung')
   assert.ok(a.includes('const jgMehrfach = await ladeJahrgang(supabase, tenantId, jahrgangId)'), 'N4')
-  assert.ok(a.includes("qualitaetsstufe: qualitaetsstufeInput ?? (lesePressung?.art === 'eiswein' ? 'eiswein' : null)"), 'Charge')
+  // KAN-81: neue Charge ohne Wahl = Obergrenze der Pressung (Eiswein-Lese über leseStufe, dazu Lese- und Zukauf-Stufen)
+  assert.ok(a.includes('const pressungGrenze = pressungObergrenze(leseStufe(lesePressung?.art,') && a.includes('qualitaetsstufe: qualitaetsstufeInput ?? pressungGrenze }'), 'Charge')
   assert.ok(a.indexOf('const ueberObergrenze = abstufungFehler(') > a.indexOf('let lesePressung ='), 'Obergrenze nach der Lese')
   const r = lies('src/lib/behoerden/rueckverfolgung.ts')
   assert.ok(r.includes('leseId: text(p.lese_id)') && r.includes('pressung:pressung_id!inner(tenant_id, datum, jahrgang_id, lese_id, storniert_am)'))

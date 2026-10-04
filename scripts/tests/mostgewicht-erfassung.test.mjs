@@ -108,10 +108,12 @@ describe('Verdrahtung Lese (Quelltext)', () => {
     assert.doesNotMatch(client, /mgFehler/)
   })
 
+  // KAN-81 (04.10.2026): die gewählte Stufe wird nicht neu gerechnet; liegt sie über der Obergrenze aus dem
+  // Mostgewicht, weist das Formular darauf hin (der Server lehnt eine höhere Stufe ab – nur Abstufen)
   test('Lese bearbeiten behält die gewählte Stufe (Rechenregel 6), höchstens ein Prüfhinweis', () => {
     const form = client.slice(client.indexOf('function ParzellForm('), client.indexOf('// ── Hauptkomponente'))
     assert.match(form, /if \(!parzelle\) setQualitaetEdit\(null\)/)
-    assert.match(form, /die gewählte Stufe bleibt/)
+    assert.match(form, /Über der Obergrenze aus dem Mostgewicht/)
     assert.match(form, /einheit: parzelle\.mostgewicht_einheit/)
   })
 

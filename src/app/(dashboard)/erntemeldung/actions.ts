@@ -28,6 +28,7 @@ import { lesedatumFehler, behaelterPruefung } from '@/lib/wein/pressungLesedatum
 import { eisweinHinweis, istLeseArt, jahrgangAusEingabe, leseLoeschsperre, leseStufe, leseZeitraumFehler } from '@/lib/wein/lesen'
 import { ladeLesenDesJahrgangs, leseDeckungFehler, leseFuerDatum, traubenverkaufLese } from '@/lib/wein/leseBilanz'
 import { gstAktivAm } from '@/lib/wein/grundstueckAktiv'
+import { leseHerkunftFehler, leseHerkunftObergrenze, leseObergrenze, leseStufeFehler, leseStufeGedeckelt, pressungLeseGrenze, type LeseStufenEintrag } from '@/lib/wein/leseAbstufung'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -342,6 +343,10 @@ export async function upsertErnteParzelle(jahrgangId: string, formData: FormData
 
   // Herkunft-Code (BKI) vom Grundstück übernehmen + Sortenspiegel-Abstufung, falls die
   // gelesene Rebsorte auf der GST-Stufe nicht zulässig ist (nur Abstufung, nie Aufstufung).
+  // KAN-81: Eine gewählte Herkunft (Feld herkunft_code) darf die Obergrenze oder eine breitere Stufe sein.
+  const existingIdFrueh = (formData.get('existing_id') as string | null) || null
+  const alt = existingIdFrueh ? await ladeErnteParzelle(supabase, existingIdFrueh, jahrgangId) : null
+  const herkunftWahl = ((formData.get('herkunft_code') as string | null) ?? '').trim() || null
   let herkunftCode: string | null = null
   let notizenZusatz = ''
   if (grundstueckId) {
@@ -352,7 +357,14 @@ export async function upsertErnteParzelle(jahrgangId: string, formData: FormData
     const gstRebsorte = (gst as AR | null)?.rebsorte as string | null ?? null
     const passend = findePassendeHerkunftsstufe(gstHerkunft, gstRebsorte)
     herkunftCode = passend.code
-    if (passend.abgestuft && gstHerkunft) {
+    // unveränderter gespeicherter Wert (Altbestand) bleibt ohne Prüfung
+    const unveraendert = !!alt && herkunftWahl === ((alt.herkunft_code as string | null) ?? null)
+    if (herkunftWahl && !unveraendert) {
+      const f = leseHerkunftFehler(herkunftWahl, leseHerkunftObergrenze(gstHerkunft, gstRebsorte).code)
+      if (f) throw new AktionsFehler(f)
+    }
+    if (herkunftWahl) herkunftCode = herkunftWahl
+    else if (passend.abgestuft && gstHerkunft) {
       notizenZusatz = `Herkunft-Code automatisch abgestuft von ${HERKUNFT_LABEL[gstHerkunft] ?? gstHerkunft} auf ${HERKUNFT_LABEL[passend.code ?? ''] ?? passend.code} (Sortenspiegel: ${gstRebsorte ?? 'unbekannte Rebsorte'})`
     }
   }
@@ -375,11 +387,21 @@ export async function upsertErnteParzelle(jahrgangId: string, formData: FormData
     grundstueck_id:   grundstueckId,
   }
 
-  await ladeJahrgang(supabase, tenantId, jahrgangId)
-  const existingId = formData.get('existing_id') as string | null
-  if (existingId) {
+  const jgRow = await ladeJahrgang(supabase, tenantId, jahrgangId)
+  // KAN-81: Stufe nur bis zur Obergrenze (°KMW, ohne Mostgewicht Qualitätswein; Eiswein-Lese = Eiswein). Ohne neue
+  // Mostgewicht-Eingabe zählt das gespeicherte; ein unveränderter gespeicherter Wert (Altbestand) bleibt ohne Prüfung.
+  if (qualitaetsstufe && !(alt && qualitaetsstufe === ((alt.qualitaetsstufe as string | null) ?? null))) {
+    const kmw = mostgewicht.uebermittelt ? (mostgewicht.wert?.kmw ?? null) : (alt ? zahlAus(alt.klosterneuburger) : null)
+    const lesenJg = await ladeLesenDesJahrgangs(supabase, tenantId, jahrgangId)
+    const leseIdWahl = (alt?.lese_id as string | null) ?? (String(formData.get('lese_id') ?? '').trim() || null)
+    const lese = leseIdWahl ? lesenJg.find(l => l.id === leseIdWahl) ?? null
+      : leseFuerDatum(lesenJg, Number(jgRow.jahrgang), (payload.ernte_datum as string | null) ?? null)
+    const f = leseStufeFehler(qualitaetsstufe, leseObergrenze(lese?.art, kmw))
+    if (f) throw new AktionsFehler(f.replace('aus dem Mostgewicht', 'aus dem Mostgewicht der Lese'))
+  }
+  const existingId = existingIdFrueh
+  if (existingId && alt) {
     // KAN-35: Lesemenge nicht unter das bereits Verpresste/Verkaufte senken bzw. verschieben
-    const alt = await ladeErnteParzelle(supabase, existingId, jahrgangId)
     await pruefeLesedatumNichtVerpresst(supabase, tenantId, jahrgangId, alt, (payload.ernte_datum as string | null) ?? null)
     await pruefeLesemengeGedeckt(supabase, tenantId, jahrgangId, alt,
       { weingarten_id: weingartenId, grundstueck_id: grundstueckId, menge_kg: mengeKg }, 'Ändern der Lesedaten')
@@ -408,7 +430,7 @@ export async function upsertErnteParzelle(jahrgangId: string, formData: FormData
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function ladeErnteParzelle(supabase: any, id: string, jahrgangId: string): Promise<AR> {
   const { data, error } = await (supabase.from('ernte_parzellen') as any)
-    .select('id, lese_id, weingarten_id, grundstueck_id, menge_kg, ernte_datum, weingarten:weingarten_id(name), grundstueck:grundstueck_id(gst_nr)')
+    .select('id, lese_id, weingarten_id, grundstueck_id, menge_kg, ernte_datum, qualitaetsstufe, herkunft_code, klosterneuburger, weingarten:weingarten_id(name), grundstueck:grundstueck_id(gst_nr)')
     .eq('id', id).eq('jahrgang_id', jahrgangId).is('storniert_am', null).maybeSingle()
   if (error) throw new AktionsFehler(dbFehlerText(error, 'Lesedaten konnten nicht geladen werden'))
   if (!data) throw new AktionsFehler('Lesedaten nicht gefunden oder bereits storniert – bitte die Seite neu laden.')
@@ -562,6 +584,12 @@ export async function createMultipleErnteParzellen(jahrgangId: string, formData:
   const qualitaetUnzulaessig = qualitaetFehler('lese', qualitaetMitgeschickt)
   if (qualitaetUnzulaessig) throw new AktionsFehler(qualitaetUnzulaessig)
   const qualitaet   = mgGemeinsam ? kmwZuQualitaet(mgGemeinsam.kmw) : 'qualitaetswein'
+  // KAN-81 (Entscheidung Jörgen 04.10.2026): gemeinsame Felder „Abstufen auf“ – jede Zeile bekommt höchstens ihre
+  // Obergrenze (Stufe aus den °KMW bzw. Eiswein-Lese; Herkunft des Grundstücks nach dem Sortenspiegel)
+  const abstufenAuf = ((formData.get('abstufen_auf') as string | null) ?? '').trim() || null
+  const abstufenUnzulaessig = qualitaetFehler('lese', abstufenAuf)
+  if (abstufenUnzulaessig) throw new AktionsFehler(abstufenUnzulaessig)
+  const herkunftAbstufenAuf = ((formData.get('herkunft_abstufen_auf') as string | null) ?? '').trim() || null
   const notizen     = (formData.get('notizen') as string) || null
   // KAN-161: EINE Gesamtmenge für die ganze Auswahl – vorher bekam jede ganz gewählte Ried die volle Menge
   const mengeKgRaw  = formData.get('menge_kg')
@@ -676,7 +704,7 @@ export async function createMultipleErnteParzellen(jahrgangId: string, formData:
   const rows: AR[] = ziele.map((z, i) => {
     const eintrag = eintragVon(z)
     const perMg = eintrag ? (mgJeGst.get(eintrag) ?? null) : mgGemeinsam
-    const perQualitaet = leseStufe(leseWirksam?.art, perMg ? kmwZuQualitaet(perMg.kmw) : qualitaet)
+    const perQualitaet = leseStufeGedeckelt(leseStufe(leseWirksam?.art, perMg ? kmwZuQualitaet(perMg.kmw) : qualitaet), abstufenAuf)
     const perLesemethode = eintrag?.lesemethode || lesemethode
     const perNotizen = eintrag?.notizen || notizen
     const kg = mengen[i]
@@ -691,9 +719,16 @@ export async function createMultipleErnteParzellen(jahrgangId: string, formData:
       const gstStamm = gstStammdatenMap.get(z.grundstueck_id)
       const passend = findePassendeHerkunftsstufe(gstStamm?.trauben_herkunft_code ?? null, gstStamm?.rebsorte ?? null)
       zeile.herkunft_code = passend.code
-      if (passend.abgestuft) {
+      // KAN-81: gemeinsame Herkunft nur, wenn sie für dieses Grundstück zulässig ist (Obergrenze oder breiter)
+      if (herkunftAbstufenAuf) {
+        const f = leseHerkunftFehler(herkunftAbstufenAuf, passend.code, `GST ${gstStamm?.gst_nr ?? '–'}`)
+        if (f) throw new AktionsFehler(f)
+        zeile.herkunft_code = herkunftAbstufenAuf
+      } else if (passend.abgestuft) {
         zeile.notizen = [perNotizen, `Herkunft-Code automatisch abgestuft auf ${HERKUNFT_LABEL[passend.code ?? ''] ?? passend.code} (Sortenspiegel: ${gstStamm?.rebsorte ?? 'unbekannte Rebsorte'})`].filter(Boolean).join('\n')
       }
+    } else if (herkunftAbstufenAuf) {
+      throw new AktionsFehler('Die gemeinsame Herkunft kann nur für Grundstücke mit Herkunfts-Code gewählt werden – bitte die Rieden ohne Grundstück getrennt erfassen.')
     }
     return zeile
   })
@@ -1360,10 +1395,18 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
   // KAN-81/KAN-126: nur abstufen – nie über die Stufe aus den °KMW (ohne °KMW: Qualitätswein); bei einer
   // Eiswein-Lese ist die Obergrenze Eiswein (KAN-129 Soll 2)
   // KAN-80 Nachtrag (02.10.2026): zugekaufte Trauben senken die Obergrenze auf ihre niedrigste Stufe (Regel wie Verschnitt)
-  const ueberObergrenze = abstufungFehler(qualitaetsstufeInput, pressungObergrenze(leseStufe(lesePressung?.art,
+  // KAN-81 (04.10.2026): eine an der Lese abgestufte Stufe begrenzt die Pressung – die niedrigste Stufe der verpressten
+  // Lese-Einträge (gleicher Ort und – wenn vorhanden – gleicher Lesetag, leseStufeFuerZeile)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: leseStufenRows, error: leseStufenErr } = await (supabase.from('ernte_parzellen') as any)
+    .select('weingarten_id, grundstueck_id, ernte_datum, qualitaetsstufe').eq('jahrgang_id', jahrgangId).is('storniert_am', null)
+  if (leseStufenErr) throw new AktionsFehler(dbFehlerText(leseStufenErr, 'Stufen der Lese konnten nicht geladen werden (ernte_parzellen)'))
+  const leseGrenze = pressungLeseGrenze((leseStufenRows ?? []) as LeseStufenEintrag[], weingaerten.filter(w => !w.zukauf_posten_id))
+  const pressungGrenze = pressungObergrenze(leseStufe(lesePressung?.art,
     kmwGrad != null && !isNaN(kmwGrad) ? kmwZuQualitaet(kmwGrad) : 'qualitaetswein'),
-    weingaerten.map(w => w.zukauf_posten_id ? zukaufWare.get(w.zukauf_posten_id)?.qualitaetsstufe : null)))
-  if (ueberObergrenze) throw new AktionsFehler(ueberObergrenze)
+    [leseGrenze, ...weingaerten.map(w => w.zukauf_posten_id ? zukaufWare.get(w.zukauf_posten_id)?.qualitaetsstufe : null)])
+  const ueberObergrenze = abstufungFehler(qualitaetsstufeInput, pressungGrenze)
+  if (ueberObergrenze) throw new AktionsFehler(ueberObergrenze.replace('aus dem Mostgewicht', 'aus Mostgewicht und Lese'))
   if (lesePressung) {
     const deckung = await leseDeckungFehler(supabase, tenantId, jahrgangId, lesePressung, Number(jg.jahrgang), { pressungId: existingId },
       pwAlt.filter(w => w.weingarten_id).map(w => ({ weingarten_id: w.weingarten_id as string, grundstueck_id: (w.grundstueck_id as string | null) ?? null, kg: Number(w.trauben_kg) || 0 })),
@@ -1515,7 +1558,7 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
   const fehlgeschlagen: string[] = []
   if (neuePb.length > 0) {
     const vorgaben = await chargenVorgabenErmitteln(supabase, tenantId, jahrgangId, (jg.jahrgang as number | null) ?? null, weingaerten,
-      { datum, weinbezeichnung, kmwGrad, qualitaetsstufe: qualitaetsstufeInput ?? (lesePressung?.art === 'eiswein' ? 'eiswein' : null) }, zukaufWare)
+      { datum, weinbezeichnung, kmwGrad, qualitaetsstufe: qualitaetsstufeInput ?? pressungGrenze }, zukaufWare)
     for (const b of neuePb) {
       try {
         neuChargen.push(await mostzeileMitChargeAnlegen(supabase, tenantId, pressId, b, vorgaben))

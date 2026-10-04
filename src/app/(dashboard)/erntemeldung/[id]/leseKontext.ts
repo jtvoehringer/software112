@@ -33,6 +33,7 @@ function zuErnteParzelle(z: LeseZeile): ErnteParzelle {
     ernte_datum: z.datum, menge_kg: z.mengeKg, menge_hl: z.mengeHl,
     oechsle: z.oechsle, klosterneuburger: z.kmw, mostgewicht_einheit: z.mostgewichtEinheit,
     qualitaetsstufe: z.qualitaetsstufe, lesemethode: z.lesemethode, notizen: z.notizen,
+    herkunft_code: z.herkunftCode, lese_art: z.leseArt,
     lese_titel: z.lese, lese_nr: z.leseNr,
     storno: z.storniertAm ? { am: z.storniertAm, von: z.storniertVon, grund: z.stornoGrund } : null,
   }
@@ -103,7 +104,7 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
     alle<AR>(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       tf((supabase.from('grundstuecke') as any)
-        .select('id, weingarten_id, gst_nr, rebsorte, flaeche_ha, aktiv, deaktiviert_am').eq('nutzart', 'WI').order('gst_nr').order('id')),
+        .select('id, weingarten_id, gst_nr, rebsorte, flaeche_ha, trauben_herkunft_code, aktiv, deaktiviert_am').eq('nutzart', 'WI').order('gst_nr').order('id')),
     ),
     // Alle Grundstücke (jede Nutzart) – ein Weingarten nur mit Acker/Grünland/Brache ist nicht erntebar (KAN-160)
     alle<AR>(
@@ -192,7 +193,7 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
   const gstByWeingarten: Record<string, GSTOpt[]> = {}
   for (const g of gstWi) {
     if (!gstByWeingarten[g.weingarten_id]) gstByWeingarten[g.weingarten_id] = []
-    gstByWeingarten[g.weingarten_id].push({ id: g.id, gst_nr: g.gst_nr, rebsorte: g.rebsorte ?? null, flaeche_ha: g.flaeche_ha ?? null })
+    gstByWeingarten[g.weingarten_id].push({ id: g.id, gst_nr: g.gst_nr, rebsorte: g.rebsorte ?? null, flaeche_ha: g.flaeche_ha ?? null, herkunft_code: g.trauben_herkunft_code ?? null })
   }
   const gstAnzahlJeWeingarten = new Map<string, number>()
   for (const g of gstAlle) gstAnzahlJeWeingarten.set(g.weingarten_id, (gstAnzahlJeWeingarten.get(g.weingarten_id) ?? 0) + 1)
@@ -488,6 +489,7 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
   const leseEintraege: LeseEintrag[] = parzellen.map(p => ({
     weingarten_id: p.weingarten_id, grundstueck_id: p.grundstueck_id, ernte_datum: p.ernte_datum,
     kmw: p.klosterneuburger, oechsle: p.oechsle, mostgewicht_einheit: p.mostgewicht_einheit,
+    qualitaetsstufe: p.qualitaetsstufe,   // KAN-81: Obergrenze der Pressung
   }))
 
   return {

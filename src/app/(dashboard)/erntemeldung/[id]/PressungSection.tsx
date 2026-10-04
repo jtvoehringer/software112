@@ -10,6 +10,7 @@ import { kmwZuQualitaet } from '@/lib/weinqualitaet'
 import { abstufungsOptionen, minQualitaet, qualitaetLabel, QUALITAET_OPTS } from '@/lib/wein/qualitaet'
 import { leseStufe } from '@/lib/wein/lesen'
 import { herkunftAnzeige, pressungObergrenze } from '@/lib/zukauf/ware'
+import { pressungLeseGrenze } from '@/lib/wein/leseAbstufung'
 import VerschneidungForm from '@/components/kellerbuch/VerschneidungForm'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fehlerText } from '@/lib/fehler'
@@ -215,9 +216,14 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, wgOptions, behOpt
   // KAN-129 Soll 2: bei einer Eiswein-Lese ist die Obergrenze Eiswein (neue Pressung; beim Bearbeiten zählt die Lese der Pressung – der Server prüft)
   const obergrenzeAusKmw = leseStufe(pressung ? null : leseArt, kmwQualitaet ?? 'qualitaetswein')
   // KAN-80 Nachtrag (02.10.2026): zugekaufte Trauben begrenzen die Stufe auf ihre niedrigste (wie der Server)
+  // KAN-81 (04.10.2026): eine an der Lese abgestufte Stufe begrenzt die Pressung (niedrigste der verpressten Lese-Einträge)
+  const leseGrenze = pressungLeseGrenze(leseEintraege.map(e => ({ ...e, qualitaetsstufe: e.qualitaetsstufe ?? null })),
+    wgRows.filter(r => r.weingarten_id && !r.zukauf_posten_id).map(r => ({ weingarten_id: r.weingarten_id, grundstueck_id: r.grundstueck_id || null, ernte_datum: r.ernte_datum || null })))
+  const obergrenzeOhneZukauf = pressungObergrenze(obergrenzeAusKmw, [leseGrenze])
   const obergrenze = pressungObergrenze(obergrenzeAusKmw,
-    wgRows.map(r => r.zukauf_posten_id ? zukaufTrauben.find(z => z.id === r.zukauf_posten_id)?.qualitaetsstufe : null))
-  const obergrenzeAusZukauf = obergrenze !== obergrenzeAusKmw
+    [leseGrenze, ...wgRows.map(r => r.zukauf_posten_id ? zukaufTrauben.find(z => z.id === r.zukauf_posten_id)?.qualitaetsstufe : null)])
+  const obergrenzeAusLese = obergrenzeOhneZukauf !== obergrenzeAusKmw
+  const obergrenzeAusZukauf = obergrenze !== obergrenzeOhneZukauf
   const [abgestuft, setAbgestuft] = useState('')
   // Liste der Zieltabelle (weinausbau, KAN-73), eingeschränkt auf die zulässigen Abstufungen
   const zulaessig = new Set(abstufungsOptionen(obergrenze).map(o => o.value))
@@ -506,7 +512,7 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, wgOptions, behOpt
             <div className="flex-1 flex items-center gap-2">
               <select aria-label="Qualitätsstufe der neuen Charge" value={stufeWert} onChange={e => setAbgestuft(e.target.value)}
                 className="border border-s112-border rounded-lg px-2 py-1.5 text-sm bg-white">
-                <option value="">{qualitaetLabel(obergrenze)} ({obergrenzeAusZukauf ? 'Zukauf-Trauben' : 'aus °KMW'})</option>
+                <option value="">{qualitaetLabel(obergrenze)} ({obergrenzeAusZukauf ? 'Zukauf-Trauben' : obergrenzeAusLese ? 'aus der Lese' : 'aus °KMW'})</option>
                 {stufenOptionen.filter(o => o.value !== obergrenze).map(o => (
                   <option key={o.value} value={o.value}>{o.label} – abgestuft</option>
                 ))}
