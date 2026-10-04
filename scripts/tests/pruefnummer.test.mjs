@@ -980,17 +980,25 @@ describe('Verdrahtung (Quelltext)', () => {
     assert.match(helfer, /if \(!r\.ok\) throw new AktionsFehler\(r\.fehler\)/)
     assert.match(l, /return freiePruefnummerPruefen\(nummer, \{[^}]*herkunft,/)
   })
-  test('updateFuellung: neu zugeordnete Charge wird gegen Prüfnummer und DAC-Antrag geprüft, vor dem Speichern', () => {
+  test('updateFuellung: nachgetragene Charge wird gegen Prüfnummer und DAC-Antrag geprüft, vor dem Nachtrag (KAN-101)', () => {
     const s = quelle('src/app/(dashboard)/weinhandel/actions.ts')
-    const upd = s.slice(s.indexOf('export async function updateFuellung'), s.indexOf('export async function bestandKorrigieren'))
-    assert.match(upd, /\.select\('weinausbau_id, [^']*pruefnummer, dac_antrag_id[^']*'\)/)
-    assert.match(upd, /\.select\('weinausbau_id, datum, /)
-    assert.match(upd, /if \(weinausbauId !== \(alt\.weinausbau_id \?\? null\)\) \{\s+await pruefnummerBeiChargenzuordnung\(supabase, tenantId, pnFuellung, \{[^}]*datum: abfuelldatum,/)
-    assert.ok(upd.indexOf('pruefnummerBeiChargenzuordnung(') < upd.indexOf(".update(payload)"), 'Prüfung vor dem Speichern')
-    // geändertes Abfülldatum bei unveränderter Charge
-    assert.match(upd, /const abfuelldatum = pnTag\(formData\.get\('datum'\)\) \?\? pnTag\(alt\.datum\)/)
-    assert.match(upd, /if \(abfuelldatum && abfuelldatum !== pnTag\(alt\.datum\) && weinausbauId === \(alt\.weinausbau_id \?\? null\)\) \{\s+await pruefnummerBeiDatumsaenderung\(/)
-    assert.ok(upd.indexOf('pruefnummerBeiDatumsaenderung(') < upd.indexOf(".update(payload)"), 'Datumsprüfung vor dem Speichern')
+    const upd = s.slice(s.indexOf('export async function updateFuellung'), s.indexOf('export async function pruefnummerNachtragen'))
+    assert.match(upd, /\.select\('weinausbau_id, datum, pruefnummer, dac_antrag_id[^']*'\)/)
+    // nur leer → Wert (einmal nachtragbar), eingetragene Charge bleibt
+    assert.match(upd, /if \(neueCharge && alt\.weinausbau_id && neueCharge !== alt\.weinausbau_id\) \{\s+throw new AktionsFehler/)
+    assert.match(upd, /if \(neueCharge && !alt\.weinausbau_id\) \{[\s\S]*?await pruefnummerBeiChargenzuordnung\(supabase, tenantId,[\s\S]*?datum: pnTag\(alt\.datum\)/)
+    assert.ok(upd.indexOf('pruefnummerBeiChargenzuordnung(') < upd.indexOf("'s112_fuellung_nachtragen'"), 'Prüfung vor dem Nachtrag')
+    assert.ok(upd.indexOf("'s112_fuellung_nachtragen'") < upd.indexOf('.update(payload)'), 'Nachtrag vor dem Speichern')
+    // Abfülldatum ist gesperrt – keine Datumsänderung mehr über das Formular
+    assert.doesNotMatch(upd, /pruefnummerBeiDatumsaenderung|formData\.get\('datum'\)/)
+  })
+  test('pruefnummerNachtragen: Nummer nur aus dem Antrag der Charge, Datumsregel KAN-72, dann RPC (KAN-101)', () => {
+    const s = quelle('src/app/(dashboard)/weinhandel/actions.ts')
+    const f = s.slice(s.indexOf('export async function pruefnummerNachtragen'), s.indexOf('// Flaschenbestand korrigieren (KAN-35)'))
+    assert.match(f, /ladePruefnummerDaten\(supabase, tenantId, \[chargeId\]\)/)
+    assert.match(f, /ersatzPruefnummer\(antrag, \{ datum, chargeId \}, daten\.zugaenge\)/)
+    assert.match(f, /fuellungDatumVerletzung\(antrag, daten\.zugaenge, datum\)/)
+    assert.ok(f.indexOf('ersatzPruefnummer(') < f.indexOf("'s112_fuellung_nachtragen'"), 'Prüfung vor der RPC')
   })
   test('Formular: Chargenwechsel setzt Antrag und Prüfnummer zurück, Hidden-Input nur bei freier Eingabe', () => {
     const s = quelle('src/app/(dashboard)/weinhandel/fuellungen/neu/FuellungFormClient.tsx')

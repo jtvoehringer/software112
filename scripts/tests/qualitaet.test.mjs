@@ -539,7 +539,7 @@ describe('(4) Formulare und Server Actions verwenden die Liste ihrer Zieltabelle
     ['src/app/(dashboard)/weinhandel/actions.ts', 'fuellungQualitaetAusFormular', "qualitaetFehler('fuellung'"],
     // KAN-42: createFuellung leitet an fuellungAnlegen weiter (auch Import „Eröffnungsbestand Flaschen“)
     ['src/app/(dashboard)/weinhandel/actions.ts', 'fuellungAnlegen', 'fuellungQualitaetAusFormular('],
-    ['src/app/(dashboard)/weinhandel/actions.ts', 'updateFuellung', 'fuellungQualitaetAusFormular('],
+    // KAN-101: updateFuellung schreibt keine Qualität mehr (Freeze nach dem Speichern) – keine Prüfung nötig
     ['src/lib/assistent/tools/abfuellen.ts', 'fuehreAbfuellenAus', "qualitaetFehler('fuellung'", /\bcreateFuellung\s*\(/],
     // Trauben-Qualität (traubenverkauf, ohne CHECK)
     ['src/app/(dashboard)/erntemeldung/actions.ts', 'createTraubenverkauf', "qualitaetFehler('lese'"],
