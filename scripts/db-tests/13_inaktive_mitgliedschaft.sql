@@ -1,8 +1,8 @@
 -- @bereich: Inaktive (gesperrte) Mitgliedschaft
 -- @ziel: aktiv = false entzieht sofort jeden Lese- und Schreibzugriff auf den Betrieb – über RLS (dynamisch über
 -- @ziel: alle T/K-Tabellen), RPCs und Storage. Kontrolle: dieselbe Persona, als postgres auf aktiv = true
--- @ziel: umgeschaltet, sieht bzw. ändert die Zeilen – aktiv ist also die Ursache. Bekannte Ausnahmen (tenants-Zeile,
--- @ziel: NULL-Falle bei globalen Zeilen) werden als Ratsche sichtbar gezählt (get_behandlungen_fuer_grundstuecke seit KAN-127 entfernt).
+-- @ziel: umgeschaltet, sieht bzw. ändert die Zeilen – aktiv ist also die Ursache. Ehemalige Lücken (tenants-Zeile B4,
+-- @ziel: NULL-Falle B5, deaktivierter Betrieb B16) seit KAN-159 Teil 2 hart geprüft (get_behandlungen_fuer_grundstuecke seit KAN-127 entfernt).
 -- @mutation gesperrte_tenants_leer: s112_gesperrte_tenants() liefert nichts mehr – alle mitgliedschaft_aktiv-Policies wirkungslos | rot: select_inaktiv_.*|tenant_memberships_eigene_inaktiv_unsichtbar
 -- @mutation meine_tenants_ohne_aktiv: s112_meine_tenants() filtert nicht mehr auf aktiv (Storage, RPC-Hilfe) | rot: storage_.*|rpc_meine_tenants_ohne_m
 -- @mutation pruefe_zugriff_ohne_aktiv: pruefe_tenant_zugriff() prüft aktiv nicht mehr | rot: rpc_pruefe_tenant_zugriff_.*|rpc_get_next_rechnungsnummer_inaktiv
@@ -21,12 +21,12 @@
 --      m_inak sieht sie nicht (0) – ausdrücklich auch die GUT-Kindtabellen ama_meldepositionen,
 --      behandlung_grundstuecke, ernte_parzellen, weingarten_rebsorten (Eltern-RLS greift: harte Prüfung).
 --      m_ta_inak: INSERT-Klon → R/G/T, UPDATE/DELETE → k0 (G = kein Recht, ebenfalls sicher).
---   3. tenant_memberships: eigene inaktive Zeile unsichtbar; tenants: Betriebszeile noch sichtbar (Ratsche B4).
+--   3. tenant_memberships: eigene inaktive Zeile unsichtbar; tenants: Betriebszeile unsichtbar (B4, seit KAN-159 Teil 2).
 --   4. RPCs: pruefe_tenant_zugriff, get_next_rechnungsnummer → 42501; get_user_role_in_tenant → NULL;
 --      s112_meine_tenants ohne M; s112_darf_schreiben = false; s112_mandant_mitglieder → 0 Zeilen;
 --      get_behandlungen_fuer_grundstuecke ist entfernt (KAN-127, 30.09.2026 – vorher Ratsche B4).
 --   5. NULL-Falle (mix): globale Zeilen (tenant_id NULL) in ea_kategorien, duengemittel, pflanzenschutzmittel,
---      saetze_massnahmen verschwinden (Ratsche B5); Kontrolle b_w sieht sie.
+--      saetze_massnahmen bleiben sichtbar (B5 seit KAN-159 Teil 2 behoben); Kontrolle b_w sieht sie.
 --   6. Storage ea-belege: Objekt im Musterhof-Ordner unsichtbar, Upload → R, Löschen → k0.
 --   7. Kontrolle: m_inak und m_ta_inak als postgres auf aktiv = true → dieselben Zeilen sichtbar, RPCs erlaubt,
 --      Schreiben möglich – auch dieselben INSERT-Klone, UPDATEs und DELETEs aus Abschnitt 2 gehen als aktiver
@@ -36,8 +36,8 @@
 --   8. Kellergemeinschaft: aktive Freigabe M → B, gemeinsamer Behälter in M; b_w sieht Behälter und Freigabe,
 --      mit aktiv = false in B beides nicht mehr (die RESTRICTIVE mitgliedschaft_aktiv auf behaelter prüft den
 --      Eigentümer M – den Ausschluss leistet nur die tenant_memberships-Unterabfrage der Policies).
---   9. tenants.active = false (Betrieb B deaktiviert): b_w liest und schreibt weiter – Ist-Stand als Ratsche B16
---      (Soll zu klären; die App wertet die Spalte nur im Morgenbericht aus).
+--   9. tenants.active = false (Betrieb B deaktiviert): b_w liest und schreibt nichts mehr, tenants- und
+--      Mitgliedschaftszeile unsichtbar, pruefe_tenant_zugriff → 42501 (B16, Entscheidung Jörgen 04.10.2026).
 
 DO $test$
 DECLARE
@@ -98,7 +98,6 @@ DECLARE
   v_beh_g      uuid;
   v_kf         uuid;
   v_kontakt_b  jsonb;
-  c_b16        constant text := 'B16 tenants.active wird in der DB nicht durchgesetzt – deaktivierter Betrieb bleibt les- und schreibbar (Soll zu klären)';
 BEGIN
   PERFORM pg_temp.s112_nur_staging();
 
@@ -140,7 +139,8 @@ BEGIN
         EXECUTE format('SELECT to_jsonb(x.*) FROM public.%I x JOIN public.%I p ON p.%I = x.%I WHERE p.tenant_id = %L LIMIT 1',
                        r.tabelle, r.eltern_tabelle, r.eltern_ref, r.eltern_spalte, c_m) INTO v_zeile;
       END IF;
-      IF v_zeile IS NULL THEN
+      -- KAN-159 B14: Assistent-Verläufe sind privat – eigene Zeile von m_inak, sonst ist die Kontrolle (aktiv) wertlos
+      IF v_zeile IS NULL OR r.tabelle IN ('assistent_unterhaltungen', 'assistent_nachrichten', 'assistent_aktionen') THEN
         v_zeile := pg_temp.s112_beispiel(r.tabelle, c_m, v_inak);
       END IF;
       -- ea_anlagen mit Buchung (AfA): der INVOKER-Trigger trg_ea_anlagen_transaktion_tenant sucht die Buchung unter
@@ -242,9 +242,9 @@ BEGIN
   -- 3. tenant_memberships (eigene inaktive Zeile) und tenants (Betriebszeile)
   v_erg := v_erg || pg_temp.s112_erwarte('tenant_memberships_eigene_inaktiv_unsichtbar',
     pg_temp.s112_zaehle(format('SELECT count(*) FROM public.tenant_memberships WHERE user_id = %L AND tenant_id = %L', v_inak, c_m)), '0');
-  v_erg := v_erg || pg_temp.s112_luecke('tenants_inaktiv_sichtbar',
-    pg_temp.s112_zaehle(format('SELECT count(*) FROM public.tenants WHERE id = %L', c_m)), '0', '1',
-    'B4 tenants für inaktive Mitglieder sichtbar – get_user_tenant_ids ohne aktiv, keine mitgliedschaft_aktiv-Policy');
+  -- B4 seit KAN-159 Teil 2 hart: get_user_tenant_ids nur aktive Mitgliedschaften
+  v_erg := v_erg || pg_temp.s112_erwarte('tenants_inaktiv_unsichtbar',
+    pg_temp.s112_zaehle(format('SELECT count(*) FROM public.tenants WHERE id = %L', c_m)), '0');
 
   -- 4. RPCs als m_inak
   v_erg := v_erg || pg_temp.s112_erwarte('rpc_pruefe_tenant_zugriff_inaktiv',
@@ -306,10 +306,10 @@ BEGIN
   -- ── 5. NULL-Falle als mix (aktiv in B, inaktiv im Musterhof) ─────────────────────────────────────────
   PERFORM pg_temp.s112_als(v_mix);
   FOR v_i IN 1 .. array_length(v_glob, 1) LOOP
-    v_erg := v_erg || pg_temp.s112_luecke('null_falle_mix_' || v_glob[v_i],
+    -- B5 seit KAN-159 Teil 2 hart: globale Zeilen bleiben trotz inaktiver Mitgliedschaft sichtbar
+    v_erg := v_erg || pg_temp.s112_erwarte('null_falle_mix_' || v_glob[v_i],
       pg_temp.s112_zaehle(format('SELECT count(*) FROM public.%I WHERE tenant_id IS NULL', v_glob[v_i])),
-      v_glob_n[v_i]::text, '0',
-      'B5 NULL-Falle mitgliedschaft_aktiv: globale ' || v_glob[v_i] || ' unsichtbar bei irgendeiner inaktiven Mitgliedschaft');
+      v_glob_n[v_i]::text);
   END LOOP;
   v_erg := v_erg || pg_temp.s112_erwarte('mix_select_m_kontakt',
     pg_temp.s112_zaehle(format('SELECT count(*) FROM public.kontakte WHERE %s', pg_temp.s112_pk_where('kontakte', v_kontakt))), '0');
@@ -356,7 +356,7 @@ BEGIN
   PERFORM pg_temp.s112_als_postgres();
   UPDATE public.tenant_memberships SET aktiv = true WHERE user_id = v_bw AND tenant_id = v_b;
 
-  -- ── 9. tenants.active = false: Ist-Stand festhalten (Ratsche B16) ────────────────────────────────────
+  -- ── 9. tenants.active = false: Betrieb gesperrt (B16) ────────────────────────────────────────────────
   v_kontakt_b := pg_temp.s112_beispiel('kontakte', v_b, v_bw);
   UPDATE public.tenants SET active = false WHERE id = v_b;
   GET DIAGNOSTICS v_n = ROW_COUNT;
@@ -364,12 +364,18 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('b16_kontakt_b_existiert',
     pg_temp.s112_zaehle(format('SELECT count(*) FROM public.kontakte WHERE %s', pg_temp.s112_pk_where('kontakte', v_kontakt_b))), '1');
   PERFORM pg_temp.s112_als(v_bw);
-  v_erg := v_erg || pg_temp.s112_luecke('b16_betrieb_inaktiv_lesen',
-    pg_temp.s112_zaehle(format('SELECT count(*) FROM public.kontakte WHERE %s', pg_temp.s112_pk_where('kontakte', v_kontakt_b))), '0', '1', c_b16);
-  v_erg := v_erg || pg_temp.s112_luecke('b16_betrieb_inaktiv_schreiben',
-    pg_temp.s112_versuch(format('UPDATE public.kontakte SET nachname = nachname WHERE %s', pg_temp.s112_pk_where('kontakte', v_kontakt_b))), 'k0', 'k1', c_b16);
-  v_erg := v_erg || pg_temp.s112_luecke('b16_betrieb_inaktiv_einfuegen',
-    pg_temp.s112_versuch(format('INSERT INTO public.kontakte (tenant_id, nachname) VALUES (%L, %L)', v_b, 'S112TEST B16')), 'R', 'k1', c_b16);
+  v_erg := v_erg || pg_temp.s112_erwarte('b16_betrieb_inaktiv_lesen',
+    pg_temp.s112_zaehle(format('SELECT count(*) FROM public.kontakte WHERE %s', pg_temp.s112_pk_where('kontakte', v_kontakt_b))), '0');
+  v_erg := v_erg || pg_temp.s112_erwarte('b16_betrieb_inaktiv_schreiben',
+    pg_temp.s112_versuch(format('UPDATE public.kontakte SET nachname = nachname WHERE %s', pg_temp.s112_pk_where('kontakte', v_kontakt_b))), 'k0');
+  v_erg := v_erg || pg_temp.s112_erwarte('b16_betrieb_inaktiv_einfuegen',
+    pg_temp.s112_versuch(format('INSERT INTO public.kontakte (tenant_id, nachname) VALUES (%L, %L)', v_b, 'S112TEST B16')), 'R');
+  v_erg := v_erg || pg_temp.s112_erwarte('b16_betrieb_inaktiv_tenants',
+    pg_temp.s112_zaehle(format('SELECT count(*) FROM public.tenants WHERE id = %L', v_b)), '0');
+  v_erg := v_erg || pg_temp.s112_erwarte('b16_betrieb_inaktiv_mitgliedschaft',
+    pg_temp.s112_zaehle(format('SELECT count(*) FROM public.tenant_memberships WHERE tenant_id = %L', v_b)), '0');
+  v_erg := v_erg || pg_temp.s112_erwarte('b16_betrieb_inaktiv_rpc',
+    pg_temp.s112_versuch(format('SELECT public.pruefe_tenant_zugriff(%L::uuid)', v_b)), 'T');
   PERFORM pg_temp.s112_als_postgres();
   UPDATE public.tenants SET active = true WHERE id = v_b;
 

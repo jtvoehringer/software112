@@ -43,12 +43,12 @@
 --      abo_schreibsperre-Policies (Ausnahmen: s112_soll_liste('abo_ausnahmen'); tenants nur _upd), modul_* genau
 --      wie in s112_soll (Module je Aktion). Die Ausdrücke müssen GENAU die kanonische Form haben (whitespace-
 --      normalisiert, t01_sperrform/t01_modulform) – ein „… OR true“ fällt auf. NULL-sichere Form bei nullable
---      tenant_id; die NULL-Falle der vier Tabellen mit globalen Zeilen ist Ratsche B5 (Verhalten in 13 belegt).
+--      tenant_id (B5 seit KAN-159 Teil 2 hart; Verhalten in 13 belegt).
 --   6. Klassifikation: jede Tabelle ohne tenant_id ist K (FK auf eine T-Tabelle, alle Policies außer
 --      zwei_faktor_aal greifen per FROM/EXISTS auf eine Mandantentabelle) oder steht auf der G-Liste.
 --      s112_soll deckt genau alle Tabellen ab.
 --   7. Funktionen: search_path überall; keine SECURITY-DEFINER-Funktion für anon/PUBLIC; anon/PUBLIC-Menge = Soll
---      + Ratsche B10; SECURITY-DEFINER-Menge = s112_soll_rpc (Rechte A/U/S und Abo-Prüfung gleich); p_tenant_id
+--      (B10 seit KAN-159 Teil 2 hart); SECURITY-DEFINER-Menge = s112_soll_rpc (Rechte A/U/S und Abo-Prüfung gleich); p_tenant_id
 --      ohne pruefe_tenant_zugriff nur mit passender Einstufung (dieselbe Quelle wie 18), B4-Teil RPC behoben (get_behandlungen_fuer_grundstuecke entfernt, KAN-127, 30.09.2026).
 --      Unabhängig vom Handflag abo: jede SECURITY-DEFINER-Funktion mit p_tenant_id, EXECUTE für authenticated und
 --      einer Schreibanweisung im Quelltext (INSERT INTO, UPDATE … SET, DELETE FROM, ON CONFLICT) ruft
@@ -65,7 +65,7 @@
 --  11. Protokoll-Trigger (20/19/17 Tabellen, bestandsprotokoll_schreiben SECURITY DEFINER) samt Form: ohne WHEN,
 --      truncate/loeschen ohne Spaltenliste und Argumente, aendern mit UPDATE OF = Argumentspalten und genau den
 --      Spalten aus c_protokoll_aendern; a_schutz_plattformfelder mit den erlaubten Spalten als Argumente.
---  12. Härtung: kein TRUNCATE-Recht für authenticated/anon (seit KAN-159 hart), tenant_id ohne FK (BK3, Ratsche).
+--  12. Härtung: kein TRUNCATE-Recht für authenticated/anon (seit KAN-159 hart), tenant_id ohne FK nur bestandsprotokoll/system_ereignisse (BK3, seit KAN-159 Teil 2 hart).
 --
 -- Neue Tabelle → s112_soll (Rollenmatrix) und ggf. g_tabellen/abo_ausnahmen; neue SECURITY-DEFINER-Funktion →
 -- s112_soll_rpc; neues Geheimnis → s112_soll_liste('geheimnis_spalten') – jeweils in _helfer.sql.
@@ -172,14 +172,12 @@ DECLARE
   c_datei constant text := '01_katalog_invarianten';
   -- TO-public-Policies samt Kommando (CLAUDE.md, RLS-Policies); die Namen stehen auch in s112_soll_liste('public_policies')
   c_public_cmd constant text[] := ARRAY['profiles.profiles: insert own=INSERT', 'profiles.profiles: update own=UPDATE',
-    'profiles.profiles_read_all=SELECT', 'rebsorten.rebsorten: everyone can read=SELECT', 'release_notes_gesehen.rng_own=ALL',
+    'rebsorten.rebsorten: everyone can read=SELECT', 'release_notes_gesehen.rng_own=ALL',
     'svs_parameter.svsp_select=SELECT'];
   -- storage.objects: einzige Policy nicht nur TO authenticated (öffentliche Logos, Bucket mandant-logos)
   c_storage_rollen_ausnahmen constant text[] := ARRAY['Alle: Logo lesen'];
   -- Mandantentabellen ohne mitgliedschaft_aktiv: system_ereignisse (keine permissive Policy, nur Service-Zugriff)
   c_ohne_ma constant text[] := ARRAY['system_ereignisse'];
-  -- NULL-Falle mitgliedschaft_aktiv (B5): globale Zeilen (tenant_id NULL) verschwinden bei inaktiver Mitgliedschaft
-  c_null_falle constant text[] := ARRAY['duengemittel', 'ea_kategorien', 'pflanzenschutzmittel', 'saetze_massnahmen'];
   -- Namens-Heuristik für Geheimnisse: bekannte, für Mitglieder lesbare Spalte (zu klären, Ratsche BK4)
   c_heuristik_bekannt constant text[] := ARRAY['kontakte.newsletter_token'];
   c_buckets constant text := 'aktivitaet-dokumente:false,analysen:false,dokumente:false,ea-belege:false,etiketten:false,mandant-logos:true';
@@ -233,8 +231,6 @@ DECLARE
   -- Schreibanweisung im Quelltext ohne Kommentare (Heuristik, Groß-/Kleinschreibung egal, Vergleich mit ~*)
   c_re_schreibt constant text := '\m(INSERT\s+INTO|UPDATE\s+[a-z_."]+(\s+(AS\s+)?[a-z_]+)?\s+SET|DELETE\s+FROM|ON\s+CONFLICT)\M';
   c_re_aal constant text := 'IF\s+NOT\s+(public\.)?s112_aal_ok\(\)\s+THEN\s+RAISE\s+EXCEPTION\s[^;]*ERRCODE\s*=\s*''42501''';
-  c_titel_b5 constant text := 'B5 NULL-Falle mitgliedschaft_aktiv: Policy ohne „tenant_id IS NULL OR …“ auf Tabellen mit globalen Zeilen';
-  c_titel_b10 constant text := 'B10 anon/PUBLIC-EXECUTE auf Funktionen entgegen der REVOKE-Regel (keine SECURITY DEFINER)';
   v_t0    timestamptz := clock_timestamp();
   v_erg   text[] := '{}';
   v_r     record;
@@ -448,11 +444,8 @@ BEGIN
      WHERE m.tid_nullable
      GROUP BY m.tabelle ORDER BY m.tabelle
   LOOP
-    IF v_r.tabelle = ANY (c_null_falle) THEN
-      v_erg := v_erg || pg_temp.s112_luecke('ma_null_sicher:' || v_r.tabelle, v_r.null_sicher, true, false, c_titel_b5);
-    ELSE
-      v_erg := v_erg || pg_temp.s112_erwarte('ma_null_sicher:' || v_r.tabelle, v_r.null_sicher, true);
-    END IF;
+    -- B5 seit KAN-159 Teil 2 hart (vorher NULL-Falle bei duengemittel, ea_kategorien, pflanzenschutzmittel, saetze_massnahmen)
+    v_erg := v_erg || pg_temp.s112_erwarte('ma_null_sicher:' || v_r.tabelle, v_r.null_sicher, true);
   END LOOP;
   -- 5c. abo_schreibsperre_ins/_upd/_del (RESTRICTIVE, TO authenticated, s112_schreibgesperrte_tenants)
   v_erg := v_erg || pg_temp.t01_liste('abo', format($q$
@@ -605,11 +598,7 @@ BEGIN
            || ' – REVOKE EXECUTE … FROM PUBLIC, anon fehlt' AS beleg
       FROM pg_temp.t01_funktionen() f
      WHERE (f.a OR f.pub) AND NOT (f.sig = ANY (%L::text[]))
-     ORDER BY 1$q$, pg_temp.s112_soll_liste('anon_execute_erlaubt') || pg_temp.s112_soll_liste('anon_execute_bekannt')));
-  SELECT count(*), string_agg(f.sig, ', ' ORDER BY f.sig) INTO v_n, v_txt
-    FROM pg_temp.t01_funktionen() f WHERE (f.a OR f.pub) AND f.sig = ANY (pg_temp.s112_soll_liste('anon_execute_bekannt'));
-  v_erg := v_erg || pg_temp.s112_baseline('anon_execute_bekannt', v_n,
-    cardinality(pg_temp.s112_soll_liste('anon_execute_bekannt'))::bigint, c_titel_b10, v_txt);
+     ORDER BY 1$q$, pg_temp.s112_soll_liste('anon_execute_erlaubt')));   -- B10 seit KAN-159 Teil 2 hart
   -- SECURITY-DEFINER-Menge = s112_soll_rpc (dieselbe Einstufung nutzt 18), Rechte und Abo-Prüfung gleich
   v_erg := v_erg || pg_temp.t01_liste('rpc_nicht_eingestuft', $q$
     SELECT f.sig AS schluessel, 'SECURITY DEFINER ohne Eintrag in pg_temp.s112_soll_rpc() (_helfer.sql)' AS beleg
@@ -874,8 +863,8 @@ BEGIN
      AND NOT EXISTS (SELECT 1 FROM pg_constraint k WHERE k.conrelid = c.oid AND k.contype = 'f'
                       AND k.confrelid = 'public.tenants'::regclass AND k.conkey = ARRAY[a.attnum])
      AND c.relname = ANY (pg_temp.s112_soll_liste('tid_ohne_fk'));
-  v_erg := v_erg || pg_temp.s112_baseline('tid_ohne_fk', v_n, cardinality(pg_temp.s112_soll_liste('tid_ohne_fk'))::bigint,
-    'BK3 tenant_id ohne FK auf tenants', v_txt);
+  -- BK3 seit KAN-159 Teil 2 behoben: ohne FK bleiben nur die Protokolle (überdauern die Mandanten-Löschung)
+  v_erg := v_erg || pg_temp.s112_erwarte('tid_ohne_fk_soll', coalesce(v_txt, ''), 'bestandsprotokoll, system_ereignisse');
 
   PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 75);
 END

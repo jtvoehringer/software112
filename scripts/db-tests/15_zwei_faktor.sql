@@ -47,8 +47,8 @@
 --   9. Statisch: zwei_faktor_aal auf jeder RLS-Tabelle in public und auf storage.objects – RESTRICTIVE, ALL,
 --      TO authenticated und USING/WITH CHECK EXAKT „(SELECT s112_aal_ok())“ (Leerraum/Schema normalisiert;
 --      „… OR true“ fällt auf); Tabellen ohne Lesepfad (c_ohne_lesepfad) haben wirklich keine permissive
---      Lese-Policy; BEKANNT/Ratsche B15: die sechs RPCs mit eigener Mitgliedsprüfung (Einstufung
---      session_user) prüfen die Stufe nicht selbst – das deckt nur der Pre-Request ab.
+--      Lese-Policy; die sechs RPCs mit eigener Mitgliedsprüfung (Einstufung session_user) prüfen die Stufe
+--      selbst (s112_aal_ok, B15 seit KAN-159 Teil 2 hart) – zusätzlich zum Pre-Request.
 
 DO $test$
 DECLARE
@@ -62,7 +62,6 @@ DECLARE
   c_min_anteil     constant numeric := 0.8;
   c_iso_fehler     constant text := 'S1I15';
   c_aal_ok_soll    constant text := '(SELECTs112_aal_ok()ASs112_aal_ok)';
-  c_titel_b15      constant text := 'B15 RPCs mit eigener Mitgliedsprüfung – crm_dubletten, crm_filterwerte, crm_zaehler, lade_behaelter, lade_kellergemeinschaft, kontakte_zusammenfuehren – prüfen die Zwei-Faktor-Stufe nicht selbst – nur der PostgREST-Pre-Request deckt sie ab';
   v_t0             timestamptz := clock_timestamp();
   v_erg            text[] := '{}';
   v_a              jsonb;
@@ -485,7 +484,7 @@ BEGIN
                   AND p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')' = s.funktion
    WHERE s.einstufung = 'session_user'
      AND p.prosrc NOT ILIKE '%s112_aal_ok%' AND p.prosrc NOT ILIKE '%pruefe_tenant_zugriff%';
-  v_erg := v_erg || pg_temp.s112_luecke('rpc_eigene_mitgliedspruefung_ohne_stufe', v_n, 0::bigint, 6::bigint, c_titel_b15);
+  v_erg := v_erg || pg_temp.s112_erwarte('rpc_eigene_mitgliedspruefung_ohne_stufe', coalesce(v_x, ''), '');   -- B15 seit KAN-159 Teil 2 hart
 
   PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 400);
 END

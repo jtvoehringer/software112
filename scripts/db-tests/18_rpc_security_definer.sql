@@ -2,8 +2,8 @@
 -- @ziel: Jede SECURITY-DEFINER-Funktion mit p_tenant_id ist eingestuft und lehnt einen fremden Betrieb ab
 -- @ziel: (pruefe_tenant_zugriff bzw. eigene Mitgliedsprüfung), Rollenlisten und Abo-Schreibsperre greifen in den
 -- @ziel: RPCs, anon führt keine SECURITY-DEFINER-Funktion aus, interne Funktionen sind für Benutzer nicht
--- @ziel: aufrufbar, schreibende RPCs prüfen das Schreibmodul (KAN-159); ki_readonly_query liest nur den aktiven Betrieb (B6 behoben). Lücken bei EXECUTE-Rechte
--- @ziel: entgegen der REVOKE-Regel (B10, B11) werden als Ratsche gezählt.
+-- @ziel: aufrufbar, schreibende RPCs prüfen das Schreibmodul (KAN-159); ki_readonly_query liest nur den aktiven Betrieb (B6 behoben). EXECUTE-Rechte
+-- @ziel: nach der REVOKE-Regel (B10, B11 seit KAN-159 Teil 2 hart).
 -- @mutation pruefe_offen: pruefe_tenant_zugriff prüft nichts mehr | rot: fremd_.*|rolle_.*
 -- @mutation eigen_offen: get_user_role_in_tenant ohne auth.uid()-Bezug | rot: fremd_get_user_role_in_tenant
 -- @mutation anon_grant: anon bekommt EXECUTE auf get_next_rechnungsnummer | rot: anon_.*
@@ -34,8 +34,8 @@
 --      Management-API (session_user immer postgres) nicht dynamisch prüfbar, daher nur statisch (Mitgliedsprüfung
 --      mit auth.uid() und m.aktiv, schreibende mit Abo-Prüfung). Die Laufzeitprüfung läuft über PostgREST/E2E.
 --   6. EXECUTE-Rechte: anon auf keiner SECURITY-DEFINER-Funktion, tatsächlicher anon-Aufruf → 42501, Menge der
---      anon/PUBLIC-Funktionen = Soll + bekannt (Ratsche B10), interne Funktionen ohne EXECUTE für authenticated,
---      Triggerfunktionen mit EXECUTE für authenticated (Ratsche B11).
+--      anon/PUBLIC-Funktionen = Soll (B10), interne Funktionen ohne EXECUTE für authenticated,
+--      Triggerfunktionen ohne EXECUTE für authenticated (B11; beides seit KAN-159 Teil 2 hart).
 --   7. Modulprüfung (seit KAN-159 hart, vorher B9): jede schreibende RPC für Winzer ruft s112_darf_schreiben bzw.
 --      s112_pruefe_schreibmodul auf; is_locked bleibt beim Kontenabgleich bewusst ungeprüft. B6 (ki_readonly_query las bei
 --      zwei Betrieben Kontakte des anderen) ist seit kan159b6_ki_aktiver_betrieb behoben und hart geprüft.
@@ -163,9 +163,6 @@ $f$;
 DO $test$
 DECLARE
   c_datei constant text := '18_rpc_security_definer';
-  -- Ratsche B11: Triggerfunktionen mit EXECUTE für authenticated (über PUBLIC), Stand 28.09.2026
-  c_trigger_bekannt constant text[] := ARRAY['kundennummer_unveraenderlich_trg()', 'tenant_memberships_schreibmodule_default()',
-    'trg_ea_anlagen_aktualisiert()', 'trg_ea_anlagen_transaktion_tenant()', 'trg_ea_transaktion_anlage_tenant()'];
   v_t0    timestamptz := clock_timestamp();
   v_erg   text[] := '{}';
   v_a     jsonb;
@@ -803,11 +800,10 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('anon_aufruf_get_next_rechnungsnummer',
     pg_temp.t18_kurz(pg_temp.t18_ruf(format('SELECT public.get_next_rechnungsnummer(%L)', v_m))), 'recht_fehlt');
   PERFORM pg_temp.s112_als_postgres();
-  -- anon/PUBLIC ausführbar: nur Soll (s112_pre_request) und die bekannte Liste (Ratsche B10)
-  SELECT string_agg(x.sig, ', ' ORDER BY x.sig) FILTER (WHERE NOT x.sig = ANY (pg_temp.s112_soll_liste('anon_execute_erlaubt') || pg_temp.s112_soll_liste('anon_execute_bekannt'))),
-         count(*) FILTER (WHERE x.sig = ANY (pg_temp.s112_soll_liste('anon_execute_bekannt'))),
+  -- anon/PUBLIC ausführbar: nur Soll (s112_pre_request); B10 seit KAN-159 Teil 2 hart
+  SELECT string_agg(x.sig, ', ' ORDER BY x.sig) FILTER (WHERE NOT x.sig = ANY (pg_temp.s112_soll_liste('anon_execute_erlaubt'))),
          count(*) FILTER (WHERE x.sig = ANY (pg_temp.s112_soll_liste('anon_execute_erlaubt')))
-    INTO v_txt, v_n, v_n2
+    INTO v_txt, v_n2
     FROM (SELECT p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')' AS sig
             FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace AND n.nspname = 'public'
            WHERE has_function_privilege('anon', p.oid, 'EXECUTE')
@@ -815,8 +811,6 @@ BEGIN
                           WHERE e.grantee = 0 AND e.privilege_type = 'EXECUTE')) x;
   v_erg := v_erg || pg_temp.s112_erwarte('anon_execute_neu', coalesce(v_txt, ''), '');
   v_erg := v_erg || pg_temp.s112_erwarte('anon_execute_erlaubt_vorhanden', v_n2, array_length(pg_temp.s112_soll_liste('anon_execute_erlaubt'), 1)::bigint);
-  v_erg := v_erg || pg_temp.s112_baseline('anon_execute_bekannt', v_n, array_length(pg_temp.s112_soll_liste('anon_execute_bekannt'), 1),
-    'B10 anon/PUBLIC-EXECUTE auf Funktionen entgegen der REVOKE-Regel (keine SECURITY DEFINER)');
 
   -- authenticated: kein EXECUTE auf interne Funktionen (hart)
   FOR r IN
@@ -840,17 +834,14 @@ BEGIN
   SELECT count(*) INTO v_n FROM pg_temp.s112_soll_rpc() s WHERE s.einstufung = 'intern';
   v_erg := v_erg || pg_temp.s112_erwarte('intern_soll_anzahl', v_n >= 10, true);
 
-  -- Triggerfunktionen: SECURITY DEFINER nie für authenticated (hart); übrige nur die bekannte Liste (Ratsche B11)
+  -- Triggerfunktionen: nie EXECUTE für authenticated (SECURITY DEFINER hart; übrige seit KAN-159 Teil 2 hart, vorher B11)
   SELECT string_agg(p.proname::text, ', ') FILTER (WHERE p.prosecdef),
-         string_agg(p.proname || '()', ', ') FILTER (WHERE NOT p.prosecdef AND NOT (p.proname || '()') = ANY (c_trigger_bekannt)),
-         count(*) FILTER (WHERE (p.proname || '()') = ANY (c_trigger_bekannt))
-    INTO v_txt, v_r, v_n
+         string_agg(p.proname || '()', ', ' ORDER BY p.proname) FILTER (WHERE NOT p.prosecdef)
+    INTO v_txt, v_r
     FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace AND n.nspname = 'public'
    WHERE p.prorettype = 'trigger'::regtype AND has_function_privilege('authenticated', p.oid, 'EXECUTE');
   v_erg := v_erg || pg_temp.s112_erwarte('trigger_secdef_authenticated', coalesce(v_txt, ''), '');
-  v_erg := v_erg || pg_temp.s112_erwarte('trigger_execute_neu', coalesce(v_r, ''), '');
-  v_erg := v_erg || pg_temp.s112_baseline('trigger_execute_authenticated', v_n, array_length(c_trigger_bekannt, 1),
-    'B11 Triggerfunktionen mit EXECUTE für authenticated (über PUBLIC, direkt nicht aufrufbar)');
+  v_erg := v_erg || pg_temp.s112_erwarte('trigger_execute_authenticated', coalesce(v_r, ''), '');
 
   -- ── 7. Modulprüfung der schreibenden RPCs (KAN-159, vorher B9) ─────────────────────────────────────────
   -- Schreibende RPCs (Soll abo = true) mit Winzer in der Rollenliste prüfen das Schreibmodul

@@ -213,22 +213,22 @@ Titel immer mit der Lücken-ID beginnen (der Runner dedupliziert über den Titel
 |----|--------|
 | ~~B1~~ | behoben (KAN-159, 29.09.2026): Zahlung auf einen fremden Verkaufsposten wird abgelehnt – 11 |
 | B2 | Fremd-FK allgemein (z. B. `kontakt_firmen` mit fremder Firma → k1) – Baseline |
-| B3 | `profiles_read_all`: jeder sieht alle Profile |
-| B4 | inaktives Mitglied sieht die `tenants`-Zeile (der Teil `get_behandlungen_fuer_grundstuecke` ist behoben: Funktion entfernt, KAN-127, 30.09.2026) |
-| B5 | NULL-Falle: aktiv in B, inaktiv im Musterhof → 0 statt der globalen `ea_kategorien` |
+| ~~B3~~ | behoben (KAN-159 Teil 2, 04.10.2026): Profile nur eigenes Umfeld (gemeinsame Betriebe, Plattform-Admin alle), Policy `profiles_lesen` – 10 |
+| ~~B4~~ | behoben (KAN-159 Teil 2): `get_user_tenant_ids` nur aktive Mitgliedschaften – inaktives Mitglied sieht die `tenants`-Zeile nicht mehr – 13 (RPC-Teil: KAN-127) |
+| ~~B5~~ | behoben (KAN-159 Teil 2): `mitgliedschaft_aktiv` NULL-sicher auch auf den vier Tabellen mit globalen Zeilen – 01, 13 |
 | ~~B6~~ | behoben (KAN-159, 01.10.2026): `ki_readonly_query` liest nur den aktiven Betrieb – RESTRICTIVE-Policy `ki_aktiver_betrieb` auf allen KI-Tabellen mit `tenant_id` – 18, Regel für neue KI-Tabellen in 01 |
 | ~~B7~~ | behoben (KAN-149 D3, 01.10.2026): Periodensperre (`a_ea_periodensperre`), unveränderlicher Abschluss (`a_ea_abschluss_schutz`: Monatsabschluss, gesperrte UVA, verbuchte Belege) und Löschsperre für Verkauf/E-A in der Datenbank – 20 |
-| B8 | abgeschlossener Jahrgang änderbar, Storno rückgängig, bestätigte AMA-Meldung löschbar |
+| ~~B8~~ | behoben: Storno (KAN-149 D1), AMA (KAN-148 C2), abgeschlossener Jahrgang (KAN-159 Teil 2, Trigger `a_jahrgang_abschluss_schutz`, AMA-Felder frei) – 20 |
 | ~~B9~~ | behoben (KAN-159): schreibende RPCs prüfen das Schreibmodul (`s112_pruefe_schreibmodul`); `is_locked` beim Kontenabgleich bewusst offen – 18 |
-| B10 | anon/PUBLIC-EXECUTE auf Funktionen entgegen der REVOKE-Regel (keine SECURITY DEFINER) – 01, 18 |
-| B11 | Triggerfunktionen mit EXECUTE für authenticated (über PUBLIC) – 18 |
+| ~~B10~~ | behoben (KAN-159 Teil 2): anon/PUBLIC-EXECUTE nur noch `s112_pre_request` – 01, 18 |
+| ~~B11~~ | behoben (KAN-159 Teil 2): keine Triggerfunktion mit EXECUTE für authenticated – 18 |
 | B12.1 | `aktivitaet_dokumente`: DELETE-Policy „Winzer können eigene Dokumente löschen“ prüft keinen Eigentümer (zu klären) – 12 |
 | ~~B13~~ | behoben (KAN-159): Benutzer ändern an `benachrichtigungen` nur `gelesen_am` (Spaltenrecht) – 11 |
-| B14 | `assistent_unterhaltungen`/`_nachrichten`/`_aktionen`: Verläufe eines anderen Mitglieds im selben Betrieb lesbar (Soll zu klären; Schreiben ist auf den Eigentümer begrenzt) – 12 |
-| B15 | RPCs mit eigener Mitgliedsprüfung (`crm_dubletten` u. a.) prüfen die Zwei-Faktor-Stufe nicht selbst – 15 |
-| B16 | `tenants.active` wird in der Datenbank nicht durchgesetzt: ein deaktivierter Betrieb bleibt für seine Mitglieder les- und schreibbar (Soll zu klären; die App liest die Spalte nur im Morgenbericht) – 13 |
-| B17 | Modul-/Paketschalter (`tenant_einstellungen.modul_*`, `module_flags`) werden beim Schreiben nicht in der DB durchgesetzt: mit allen Schaltern aus legen tenant_admin und Winzer per Direkt-API weiter `kontakte`, `weinausbau`, `weingarten`, `verkaufsposten`, `ea_transaktionen`, `exportauftraege` an (die modul_*-Policies prüfen nur die Schreibmodule der Mitgliedschaft; Soll zu klären) – 12 |
-| Baselines | `tenant_id` ohne FK (9), anon-EXECUTE (8 Funktionen) – `s112_soll_liste`; TRUNCATE für authenticated/anon (BK1/BK2) seit KAN-159 entzogen und hart geprüft (01) |
+| ~~B14~~ | behoben (KAN-159 Teil 2, Entscheidung Jörgen 04.10.2026): Assistent-Verläufe privat je Benutzer – 10, 12 |
+| ~~B15~~ | behoben (KAN-159 Teil 2): die sechs RPCs mit eigener Mitgliedsprüfung prüfen `s112_aal_ok` und den deaktivierten Betrieb – 15 |
+| ~~B16~~ | behoben (KAN-159 Teil 2, Entscheidung Jörgen 04.10.2026): deaktivierter Betrieb (`tenants.active = false`) wie inaktive Mitgliedschaft – `s112_betrieb_gesperrt` in `s112_gesperrte_tenants`, `s112_meine_tenants`, `get_user_tenant_ids`, `user_has_role_in_tenant`, `pruefe_tenant_zugriff`; Plattform-Admins ausgenommen – 13 |
+| B17 | Modul-/Paketschalter (`tenant_einstellungen.modul_*`, `module_flags`) werden beim Schreiben nicht in der DB durchgesetzt: mit allen Schaltern aus legen tenant_admin und Winzer per Direkt-API weiter `kontakte`, `weinausbau`, `weingarten`, `verkaufsposten`, `ea_transaktionen`, `exportauftraege` an (die modul_*-Policies prüfen nur die Schreibmodule der Mitgliedschaft; Soll: durchsetzen, eigenes Folgeticket) – 12 |
+| Baselines | keine mehr: `tenant_id` ohne FK nur noch bewusst `bestandsprotokoll`/`system_ereignisse` (BK3 seit KAN-159 Teil 2), anon-EXECUTE (B10) und TRUNCATE (BK1/BK2) hart geprüft (01, 18) |
 
 ## Mutationsprüfung (`--mutationen`)
 

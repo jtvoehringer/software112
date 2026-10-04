@@ -11,8 +11,8 @@
 -- @ziel: möglich), den Abschluss (a_ea_abschluss_schutz: Monatsabschluss, gesperrte UVA, verbuchte Belege
 -- @ziel: unveränderlich; sperren nur über sperre_ea_uva), die Löschsperre auf Verkauf/E-A (keine_direktloeschung
 -- @ziel: und a_loeschsperre, Wartung nur mit s112.loeschen_erlaubt), Konten nur ohne Bewegungen löschbar und den
--- @ziel: Storno-Grund beim Verkauf. Was nur die App prüft (Jahrgangsabschluss), steht als bekannte Lücke B8 mit
--- @ziel: Ratsche im Bericht. KAN-150 F1a: Stammdaten mit berichtsrelevantem Bezug sind nicht löschbar
+-- @ziel: Storno-Grund beim Verkauf. Abgeschlossener Jahrgang unveränderlich (a_jahrgang_abschluss_schutz, B8 seit
+-- @ziel: KAN-159 Teil 2 hart). KAN-150 F1a: Stammdaten mit berichtsrelevantem Bezug sind nicht löschbar
 -- @ziel: (a_stammdaten_loeschsperre, auch in der Kaskade; Wartung nur mit s112.loeschen_erlaubt), ohne Bezug schon;
 -- @ziel: s112_stammdaten_bezuege zählt die Bezüge für jedes Mitglied des eigenen Betriebs; Grundstück nur mit
 -- @ziel: Stichtag deaktivierbar, Deaktivieren und Umhängen des Kontakts am Verkauf werden protokolliert.
@@ -53,7 +53,7 @@
 --      unter einem Entwurf erlaubt (k1).
 --   3. Ehemals Lücke B7 (seit KAN-149 D3 in der Datenbank gesperrt, harte Prüfungen, T): Buchung in abgeschlossenen
 --      Monat, gleich gesperrt anlegen, Datum in abgeschlossenen Monat verschieben (m_w), gesperrte UVA entsperren/
---      löschen (m_w), Monatsabschluss löschen (m_ta). Bekannte Lücke B8 (Jahrgang, Ratsche s112_luecke).
+--      löschen (m_w), Monatsabschluss löschen (m_ta). B8: abgeschlossener Jahrgang nicht änderbar (T, seit KAN-159 Teil 2).
 --   3b. KAN-149 D3 im Einzelnen (synthetischer Abschluss 2033/03, offen 2033/05, im Musterhof): Einfügen/Ändern/Datum
 --      in den abgeschlossenen Monat für ea_transaktionen, zahlungen, konto_umbuchungen → T (konto_umbuchungen ohne
 --      UPDATE-Policy: als postgres ohne Flag), offener Monat → k1; is_locked beim Anlegen → T; Abgleich
@@ -496,9 +496,13 @@ BEGIN
     pg_temp.s112_versuch(format('UPDATE public.ea_uva SET gesperrt = false WHERE id = %L', v_uva_gesp)), 'T');
   v_erg := v_erg || pg_temp.s112_erwarte('ea_uva_loeschen',
     pg_temp.s112_versuch(format('DELETE FROM public.ea_uva WHERE id = %L', v_uva_gesp)), 'T');
-  v_erg := v_erg || pg_temp.s112_luecke('luecke_jahrgang_abgeschlossen_update',
-    pg_temp.s112_versuch(format('UPDATE public.weinjahrgaenge SET abgeschlossen = false WHERE id = %L', v_jg_abg)),
-    'k0'::text, 'k1'::text, 'B8 abgeschlossener Jahrgang änderbar (winzer)');
+  -- B8 behoben (KAN-159 Teil 2, Trigger a_jahrgang_abschluss_schutz): abgeschlossener Jahrgang unveränderlich
+  v_erg := v_erg || pg_temp.s112_erwarte('jahrgang_abgeschlossen_wieder_oeffnen',
+    pg_temp.s112_versuch(format('UPDATE public.weinjahrgaenge SET abgeschlossen = false WHERE id = %L', v_jg_abg)), 'T');
+  v_erg := v_erg || pg_temp.s112_erwarte('jahrgang_abgeschlossen_notiz',
+    pg_temp.s112_versuch(format('UPDATE public.weinjahrgaenge SET notizen = %L WHERE id = %L', 'S112TEST', v_jg_abg)), 'T');
+  v_erg := v_erg || pg_temp.s112_erwarte('jahrgang_abgeschlossen_ama_felder_frei',
+    pg_temp.s112_versuch(format('UPDATE public.weinjahrgaenge SET ama_meldungsnr = ama_meldungsnr WHERE id = %L', v_jg_abg)), 'k1');
   -- B8 behoben (KAN-149 D1, Trigger a_verkauf_storno_schutz): Storno eines Verkaufs nicht rückgängig machbar
   v_erg := v_erg || pg_temp.s112_erwarte('storno_rueckgaengig',
     pg_temp.s112_versuch(format('UPDATE public.verkaufsposten SET storniert = false WHERE id = %L', v_vp_storno)), 'T');

@@ -42,7 +42,7 @@
 --      auch ein zu weiter WITH CHECK). Positivkontrolle: der Plattform-Admin ändert dieselbe Anweisung an m_w_crm.
 --   4c. Fremder Eigentümer im selben Betrieb: Zeilen mit Eigentümerbezug (benachrichtigungen, assistent_unterhaltungen
 --      samt Nachrichten und Aktionen, release_notes_gesehen, profiles) eines ANDEREN Mitglieds – m_w auf Zeilen von
---      m_ta und umgekehrt: SELECT → 0 (profiles ausgenommen, B3; assistent_* lesbar = Ratsche B14, zu klären),
+--      m_ta und umgekehrt: SELECT → 0 (profiles ausgenommen – gemeinsamer Betrieb, B3; assistent_* privat seit KAN-159 B14),
 --      UPDATE/DELETE → verweigert, INSERT mit dem
 --      Eigentümer eines anderen → verweigert. Vorher als postgres belegt, dass jede Zeile existiert.
 --   5. Bezeichnung vs. Verhalten: aktivitaet_dokumente-DELETE („Winzer können eigene Dokumente löschen“) prüft
@@ -561,12 +561,8 @@ BEGIN
     PERFORM pg_temp.s112_als(v_uid);
     FOR r IN SELECT k.key AS tab, k.value AS z FROM jsonb_each(v_ez) k ORDER BY k.key LOOP
       v_upd := pg_temp.t12_upd_spalte(r.tab, (SELECT m.upd_spalte FROM pg_temp.s112_mandantentabellen() m WHERE m.tabelle = r.tab));
-      IF r.tab LIKE 'assistent_%' THEN
-        -- Assistent-Verläufe lesen alle Mitglieder des Betriebs (Policy prüft nur den Betrieb) – Soll offen, als Ratsche
-        v_erg := v_erg || pg_temp.s112_luecke('eigner_fremd:' || r.tab || ':SELECT:' || v_pn,
-          pg_temp.s112_zaehle(format('SELECT count(*) FROM public.%I WHERE %s', r.tab, pg_temp.s112_pk_where(r.tab, r.z))), '0', '1',
-          'B14 assistent_*: Assistent-Verläufe eines anderen Mitglieds im selben Betrieb lesbar (zu klären)');
-      ELSIF r.tab <> 'profiles' THEN   -- profiles lesen alle (B3, profiles_read_all; Datei 10)
+      -- Assistent-Verläufe privat je Benutzer (KAN-159 B14, vorher für alle Mitglieder lesbar) – wie die übrigen
+      IF r.tab <> 'profiles' THEN   -- Profile der Mitglieder gemeinsamer Betriebe sind lesbar (B3; Datei 10)
         v_erg := v_erg || pg_temp.s112_erwarte('eigner_fremd:' || r.tab || ':SELECT:' || v_pn,
           pg_temp.s112_zaehle(format('SELECT count(*) FROM public.%I WHERE %s', r.tab, pg_temp.s112_pk_where(r.tab, r.z))), '0');
       END IF;

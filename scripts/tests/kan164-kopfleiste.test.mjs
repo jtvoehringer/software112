@@ -9,6 +9,7 @@ import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const farbe = await import('../../src/lib/farbe.ts')
 const { kopfleistenFarben, kontrast, rgbKanaele, KONTRAST_KOPFLEISTE, CD_KOPFLEISTE } = farbe
@@ -89,7 +90,7 @@ describe('Verdrahtung', () => {
       const p = path.join(d, e.name)
       if (e.isDirectory()) lauf(p); else if (/\.tsx?$/.test(e.name)) dateien.push(p)
     } }
-    lauf(new URL('../../src', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'))
+    lauf(fileURLToPath(new URL('../../src', import.meta.url)))   // auch mit Leerzeichen im Pfad (%20)
     const treffer = []
     for (const f of dateien) {
       for (const abschnitt of readFileSync(f, 'utf8').match(/[^'"`{}$\r\n]+/g) ?? []) {

@@ -856,6 +856,10 @@ BEGIN
       v_a := pg_temp.s112_zeile('weingarten', p_tenant) ->> 'id';
     END IF;
     v_w := v_w || jsonb_build_object('weingarten_id', v_a);
+  ELSIF p_tab IN ('assistent_nachrichten', 'assistent_aktionen') AND p_persona IS NOT NULL
+        AND NOT coalesce(p_werte, '{}'::jsonb) ? 'unterhaltung_id' THEN
+    -- KAN-159 B14: Verläufe sind privat – die Unterhaltung gehört derselben Person
+    v_w := v_w || jsonb_build_object('unterhaltung_id', pg_temp.s112_beispiel('assistent_unterhaltungen', p_tenant, p_persona) ->> 'id');
   ELSIF p_tab = 'verschneidung_quellen' THEN
     v_w := v_w || '{"menge_liter": 1}'::jsonb;
   ELSIF p_tab = 'betriebsmittel_lager_bewegungen' THEN   -- KAN-167
@@ -1063,15 +1067,14 @@ $f$;
 
 -- Benannte Soll-Listen. Unbekannter Name → Fehler.
 --   geheimnis_spalten      Tabelle.Spalte ohne SELECT-Recht für authenticated/anon (KAN-135)
---   public_policies        Tabelle.Policy, die bewusst TO public gelten (CLAUDE.md: genau diese 6)
+--   public_policies        Tabelle.Policy, die bewusst TO public gelten (CLAUDE.md: genau diese 5; profiles_read_all seit KAN-159 B3 weg)
 --   g_tabellen             Klasse G (s112_klasse): ohne Mandantenbezug über tenant_id
 --   protokoll_tabellen     Tabellen mit bestandsprotokoll-Triggern (z_protokoll_*, auch TRUNCATE-Sperre)
 --   abo_ausnahmen          Tabellen mit RLS OHNE die drei abo_schreibsperre-Policies
 --   abo_status_gesperrt    stripe_status, die sperren (zusätzlich 'trialing' mit abgelaufenem stripe_trial_ends_at)
 --   anon_execute_erlaubt   Funktionen in public, die anon ausführen MUSS (PostgREST-Pre-Request)
---   anon_execute_bekannt   Baseline: Funktionen in public mit anon-EXECUTE entgegen der Konvention (Lücke)
 --   tid_nullable           Tabellen mit nullable tenant_id (globale Zeilen, NULL-Falle)
---   tid_ohne_fk            Baseline: tenant_id ohne FK (Lücke)
+--   tid_ohne_fk            tenant_id bewusst ohne FK auf tenants (Protokolle überdauern die Mandanten-Löschung; BK3 seit KAN-159 Teil 2)
 --   truncate_authenticated Tabellen mit TRUNCATE-Recht für authenticated – seit KAN-159 leer (RLS greift bei TRUNCATE nicht)
 --   truncate_anon          dasselbe für anon (identische Liste)
 --   schreibmodule          die sechs Schreibmodule (Default für winzer mit schreibmodule NULL)
@@ -1096,7 +1099,7 @@ BEGIN
       'user_email_connections.m365_access_token_enc', 'user_email_connections.m365_refresh_token_enc',
       'user_email_connections.imap_pass_enc', 'user_email_connections.smtp_pass_enc']
     WHEN 'public_policies' THEN ARRAY[
-      'profiles.profiles: insert own', 'profiles.profiles: update own', 'profiles.profiles_read_all',
+      'profiles.profiles: insert own', 'profiles.profiles: update own',
       'rebsorten.rebsorten: everyone can read', 'release_notes_gesehen.rng_own', 'svs_parameter.svsp_select']
     WHEN 'g_tabellen' THEN ARRAY[
       'keller_freigaben', 'plattform_admins', 'profiles', 'rebsorten', 'release_notes', 'release_notes_gesehen',
@@ -1131,15 +1134,9 @@ BEGIN
       'kat_buchungsart', 'kat_erzeugnis', 'kat_farbe', 'kat_land', 'kat_qualitaetsstufe', 'katalog_mapping']   -- KAN-39: globale Kataloge
     WHEN 'abo_status_gesperrt' THEN ARRAY['unpaid', 'canceled', 'cancelled', 'incomplete', 'incomplete_expired', 'paused']
     WHEN 'anon_execute_erlaubt' THEN ARRAY['s112_pre_request()']
-    WHEN 'anon_execute_bekannt' THEN ARRAY[
-      'crm_dubletten_paar(p_art text, a jsonb, b jsonb)', 'crm_dubletten_stufe(p_art text, p_kontakte jsonb)',
-      'crm_norm_name(p text)', 'kundennummer_unveraenderlich_trg()', 'tenant_memberships_schreibmodule_default()',
-      'trg_ea_anlagen_aktualisiert()', 'trg_ea_anlagen_transaktion_tenant()', 'trg_ea_transaktion_anlage_tenant()']
     WHEN 'tid_nullable' THEN ARRAY[
       'bestandsprotokoll', 'duengemittel', 'ea_kategorien', 'pflanzenschutzmittel', 'saetze_massnahmen', 'system_ereignisse']
-    WHEN 'tid_ohne_fk' THEN ARRAY[
-      'aktivitaet_dokumente', 'bestandsprotokoll', 'exportauftraege', 'pruefnummernantraege', 'sonstige_artikel', 'system_ereignisse',
-      'transportbescheinigungen', 'weinbaugebiete_custom', 'zukauf_posten']
+    WHEN 'tid_ohne_fk' THEN ARRAY['bestandsprotokoll', 'system_ereignisse']
     WHEN 'truncate_authenticated' THEN '{}'::text[]   -- seit KAN-159 (29.09.2026) kein TRUNCATE mehr
     WHEN 'truncate_anon' THEN pg_temp.s112_soll_liste('truncate_authenticated')
     WHEN 'schreibmodule' THEN ARRAY['rieden', 'kellerbuch', 'warenwirtschaft', 'crm', 'ea', 'auswertungen']
@@ -1207,6 +1204,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('rls_hilfe',     '-US', false, 'pruefe_tenant_zugriff(p_tenant_id uuid, p_rollen text[])'),
     ('rls_hilfe',     '-US', false, 's112_aal_ok()'),
     ('rls_hilfe',     '-US', false, 's112_darf_schreiben(p_tenant uuid, VARIADIC p_module text[])'),
+    ('rls_hilfe',     '-US', false, 's112_sichtbare_profile()'),   -- KAN-159 B3: Profile gemeinsamer Betriebe
     ('rls_hilfe',     '-US', false, 's112_gesperrte_tenants()'),
     ('mandant_eigen', '-US', false, 's112_mandant_mitglieder(p_tenant_id uuid)'),
     ('intern',        '--S', false, 's112_mandant_mitglieder_mit_email(p_tenant_id uuid)'),
