@@ -1085,7 +1085,8 @@
 "created_at",
 "updated_at",
 "import_quelle",
-"importiert_am"
+"importiert_am",
+"amtliche_ried"
 ],
 "lesen": [
 "id",

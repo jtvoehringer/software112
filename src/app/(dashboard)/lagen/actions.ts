@@ -28,6 +28,8 @@ export async function createLage(formData: FormData) {
     tenant_id:    tenantId,
     name:         formData.get('name') as string,
     gemeinde:     (formData.get('gemeinde') as string) || null,
+    // KAN-110: amtliche Ried – leer übernimmt den Namen (wie die Vorbelegung der Migration)
+    amtliche_ried: ((formData.get('amtliche_ried') as string | null) ?? '').trim() || ((formData.get('name') as string | null) ?? '').trim() || null,
     // KAN-165: kein weinbaugebiet mehr – es ergibt sich aus dem Herkunft-Code der Grundstücke (bestehende Werte bleiben)
     notizen:      (formData.get('notizen') as string) || null,
   }
@@ -45,6 +47,8 @@ export async function updateLage(id: string, formData: FormData) {
   const payload: AR = {
     name,
     gemeinde:     (formData.get('gemeinde') as string) || null,
+    // KAN-110: amtliche Ried – leer = nicht gepflegt (die Verschnitt-Regel prüft die Ried dann nicht)
+    amtliche_ried: ((formData.get('amtliche_ried') as string | null) ?? '').trim() || null,
     // KAN-165: weinbaugebiet nicht mehr aus dem Formular (abgeleitet aus den Grundstücken, bestehende Werte bleiben)
     notizen:      (formData.get('notizen') as string) || null,
   }

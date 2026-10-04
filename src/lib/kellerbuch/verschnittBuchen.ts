@@ -204,6 +204,8 @@ export async function verschnittVorbereiten(
     }
     dazu(gruppen.sorten, (virtuelleRow.rebsorte as string | null)?.trim() || 'unbekannt')
     dazu(gruppen.jahrgaenge, virtuelleRow.jahrgang != null && virtuelleRow.jahrgang !== '' ? String(virtuelleRow.jahrgang) : 'unbekannt')
+    // KAN-110: Zukauf ohne Ursprung – Ried und Gemeinde unbekannt
+    gruppen.herkunft.push({ liter: virtuell.menge, code: (virtuelleRow.herkunft_code as string | null) ?? null, ried: null, ort: null })
     quellen.push({ charge: virtuelleRow, menge: virtuell.menge, schwund: 0 })
   }
 
