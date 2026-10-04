@@ -8,8 +8,9 @@ import { useParams } from 'next/navigation'
 import { FlaskConical, BarChart3, ArrowLeftRight, Pencil } from 'lucide-react'
 import StornoButton from '@/components/StornoButton'
 import { fmtNum, dezimal } from '@/lib/format'
-import { dbFehlerText } from '@/lib/fehler'
-import { deleteKellerbehandlung, endgueltigLoeschen } from '../../../actions'
+import { fehlerText } from '@/lib/fehler'
+import { deleteKellerbehandlung, endgueltigLoeschen, speichereKellerbehandlung, legeBehandlungstypAn, setzeBehandlungstypWirkung } from '../../../actions'
+import { PN_WIRKUNGEN, PN_WIRKUNG_TEXT, pnWirkungAus } from '@/lib/kellerbuch/pnWirkung'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { csvPfad } from '@/lib/behoerden/katalog'
 import DruckKnopf from '../../../_behoerden/DruckKnopf'
@@ -41,11 +42,6 @@ export default function KellerbehandlungenPage() {
   const [aktuellerInhalt, setAktuellerInhalt] = useState<number>(0)
   const [loading, setLoading]           = useState(true)
   const [isPending, startTransition]    = useTransition()
-  // Aktiver Tenant des Nutzers (client-seitig ermittelt, da diese Seite eine reine
-  // Client-Komponente ist und die serverseitige getCurrentMembership()/Betrieb-Wechsler-
-  // Cookie-Logik hier nicht direkt aufgerufen werden kann). Wird zusätzlich zu RLS als
-  // expliziter Tenant-Filter verwendet, da RLS Zeilen aus JEDER Mitgliedschaft erlaubt.
-  const [tenantId, setTenantId]         = useState<string | null>(null)
 
   // Formular-State
   const [chargenImBehaelter, setChargenImBehaelter] = useState<R[]>([])
@@ -69,6 +65,9 @@ export default function KellerbehandlungenPage() {
   const [showNeuerTyp, setShowNeuerTyp]   = useState(false)
   const [neuerTypName, setNeuerTypName]   = useState('')
   const [neuerTypEinheit, setNeuerTypEinheit] = useState('kg')
+  // KAN-100: Wirkung auf die Prüfnummer (neue Typen: bewusst wählen, Vorgabe „nicht eingestuft“)
+  const [neuerTypWirkung, setNeuerTypWirkung] = useState('unklar')
+  const [formHinweis, setFormHinweis]     = useState('')
   const [typSaving, setTypSaving]         = useState(false)
 
   async function loadData() {
@@ -79,7 +78,6 @@ export default function KellerbehandlungenPage() {
     const activeTenantRes = await fetch('/api/me/active-tenant')
     const activeTenantJson = activeTenantRes.ok ? await activeTenantRes.json() : { tenantId: null }
     const activeTenantId = (activeTenantJson?.tenantId as string | undefined) ?? null
-    setTenantId(activeTenantId)
 
     // Eigenes oder freigegebenes Gebinde (Kellergemeinschaft): über die RPC lade_behaelter,
     // damit auch Partner-Gebinde (Freigabe) sichtbar sind - Behandlungen selbst bleiben tenant-gefiltert.
@@ -93,7 +91,7 @@ export default function KellerbehandlungenPage() {
       // storno-sichtbar: Liste zeigt stornierte Behandlungen gekennzeichnet, ohne Aktionen (KAN-145 B3)
       .eq('behaelter_id', behaelterId)
       .order('datum', { ascending: false })
-    let typenQuery = (supabase.from('keller_behandlungstypen') as any).select('id, name, einheit_standard').order('sort_order').order('name')
+    let typenQuery = (supabase.from('keller_behandlungstypen') as any).select('id, name, einheit_standard, pn_wirkung').order('sort_order').order('name')
     if (activeTenantId) {
       weinausbauQuery   = weinausbauQuery.eq('tenant_id', activeTenantId)
       behandlungenQuery = behandlungenQuery.eq('tenant_id', activeTenantId)
@@ -132,6 +130,7 @@ export default function KellerbehandlungenPage() {
     setFormNotizen('')
     setFormError('')
     setShowNeuerTyp(false)
+    setFormHinweis('')
     // Aktive Charge vorbelegen wenn genau eine im Behälter
     setFormWeinausbauId(chargenImBehaelter.length === 1 ? chargenImBehaelter[0].id : '')
     setFormWeinausbauName(null)
@@ -161,26 +160,32 @@ export default function KellerbehandlungenPage() {
 
   async function saveNeuerTyp() {
     if (!neuerTypName.trim()) return
-    // Aktiver Betrieb aus loadData() (/api/me/active-tenant) – nicht „irgendeine“ Mitgliedschaft
-    if (!tenantId) { setFormError('Aktiver Betrieb konnte nicht ermittelt werden. Bitte Seite neu laden.'); return }
     setTypSaving(true)
-    const { data: neu, error: typErr } = await (supabase.from('keller_behandlungstypen') as any)
-      .insert({ tenant_id: tenantId, name: neuerTypName.trim(), einheit_standard: neuerTypEinheit || null })
-      .select('id, name, einheit_standard').single()
-    if (typErr) {
-      setFormError(dbFehlerText(typErr, 'Behandlungstyp konnte nicht angelegt werden'))
-      setTypSaving(false)
-      return
-    }
-    if (neu) {
+    try {
+      const neu = await legeBehandlungstypAn(neuerTypName.trim(), neuerTypEinheit || null, neuerTypWirkung)
       setTypen(prev => [...prev, neu])
       setFormTypId(neu.id)
       setFormEinheit(neu.einheit_standard ?? 'kg')
+      setNeuerTypName('')
+      setNeuerTypEinheit('kg')
+      setNeuerTypWirkung('unklar')
+      setShowNeuerTyp(false)
+    } catch (err) {
+      setFormError(fehlerText(err, 'Behandlungstyp konnte nicht angelegt werden'))
     }
-    setNeuerTypName('')
-    setNeuerTypEinheit('kg')
-    setShowNeuerTyp(false)
     setTypSaving(false)
+  }
+
+  // KAN-100: Einstufung des gewählten Typs ändern (die Datenbank sperrt das nach der Verwendung in einer Charge mit Prüfnummer)
+  async function wirkungAendern(wirkung: string) {
+    if (!formTypId) return
+    setFormError('')
+    try {
+      await setzeBehandlungstypWirkung(formTypId, wirkung)
+      setTypen(prev => prev.map(t => (t.id === formTypId ? { ...t, pn_wirkung: wirkung } : t)))
+    } catch (err) {
+      setFormError(fehlerText(err, 'Einstufung konnte nicht gespeichert werden'))
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -188,42 +193,30 @@ export default function KellerbehandlungenPage() {
     setFormError('')
     if (!formTypId) { setFormError('Bitte einen Behandlungstyp wählen.'); return }
 
-    const typ = typen.find(t => t.id === formTypId)
-    const payload: R = {
-      behaelter_id:      behaelterId,
-      datum:             formDatum,
-      typ_id:            formTypId,
-      typ_name_snapshot: typ?.name ?? '',
-      menge:             formMenge ? parseFloat(dezimal(formMenge)) : null,
-      einheit:           formEinheit || null,
-      volumen_liter_ist: formVolumen ? parseFloat(dezimal(formVolumen)) : null,
-      notizen:           formNotizen || null,
-      weinausbau_id:     formWeinausbauId || null,
-    }
+    const fd = new FormData()
+    if (editId) fd.set('id', editId)
+    fd.set('behaelter_id', behaelterId)
+    fd.set('datum', formDatum)
+    fd.set('typ_id', formTypId)
+    if (formMenge) fd.set('menge', formMenge)
+    if (formEinheit) fd.set('einheit', formEinheit)
+    if (formVolumen) fd.set('volumen_liter_ist', formVolumen)
+    if (formNotizen) fd.set('notizen', formNotizen)
+    if (formWeinausbauId) fd.set('weinausbau_id', formWeinausbauId)
 
     startTransition(async () => {
-      // tenantId kommt aus loadData() (state, siehe /api/me/active-tenant oben) - kein
-      // eigener Fallback-Lookup mehr hier (der frühere ungefilterte tenant_memberships-
-      // Fallback konnte bei Mehrfach-Mitgliedschaft eine BELIEBIGE statt der aktiven
-      // Mitgliedschaft treffen). Ohne bekannten aktiven Mandanten wird bewusst NICHT
-      // geschrieben, statt zu raten.
-      if (!tenantId) {
-        setFormError('Aktiver Betrieb konnte nicht ermittelt werden. Bitte Seite neu laden.')
+      // KAN-100: ein Weg für Anlegen und Bearbeiten (Server Action) – Rückfrage, wenn die Prüfnummer der Charge erlischt
+      try {
+        let r = await speichereKellerbehandlung(fd)
+        if (r.bestaetigung) {
+          if (!window.confirm(r.bestaetigung)) return
+          fd.set('pn_bestaetigt', '1')
+          r = await speichereKellerbehandlung(fd)
+        }
+        setFormHinweis(r.hinweis ?? '')
+      } catch (err) {
+        setFormError(fehlerText(err, 'Speichern fehlgeschlagen'))
         return
-      }
-      if (editId) {
-        // KAN-35: Ergebnis prüfen – vorher blieb ein Fehler (z. B. fehlende Berechtigung) unbemerkt
-        const { data: geaendert, error: e } = await (supabase.from('keller_behandlungen') as any)
-          .update({ ...payload, updated_at: new Date().toISOString() })
-          .eq('id', editId)
-          .eq('tenant_id', tenantId)
-          .select('id')
-        if (e) { setFormError(dbFehlerText(e, 'Speichern fehlgeschlagen')); return }
-        if (!geaendert || geaendert.length === 0) { setFormError('Speichern fehlgeschlagen: Behandlung nicht gefunden oder keine Berechtigung.'); return }
-      } else {
-        const { error: e } = await (supabase.from('keller_behandlungen') as any)
-          .insert({ ...payload, tenant_id: tenantId })
-        if (e) { setFormError(dbFehlerText(e, 'Speichern fehlgeschlagen')); return }
       }
       setShowForm(false)
       loadData()
@@ -309,6 +302,12 @@ export default function KellerbehandlungenPage() {
         </div>
       </div>
 
+      {formHinweis && !showForm && (
+        <div role="status" className="rounded-lg border border-s112-warn-fg/30 bg-s112-warn-bg text-s112-warn-fg text-xs px-3 py-2 print:hidden">
+          {formHinweis}
+        </div>
+      )}
+
       {/* Formular */}
       {showForm && (
         <div className="card p-5 border-s112-teal/30 border-2 print:hidden">
@@ -346,6 +345,10 @@ export default function KellerbehandlungenPage() {
                       className="input w-20 py-2.5 sm:py-2 text-base sm:text-sm">
                       {EINHEITEN.map(e => <option key={e} value={e}>{e}</option>)}
                     </select>
+                    <select aria-label="Wirkung auf die Prüfnummer" value={neuerTypWirkung} onChange={e => setNeuerTypWirkung(e.target.value)}
+                      className="input basis-full sm:basis-auto py-2.5 sm:py-2 text-base sm:text-sm">
+                      {PN_WIRKUNGEN.map(w => <option key={w} value={w}>{PN_WIRKUNG_TEXT[w]}</option>)}
+                    </select>
                     <button type="button" onClick={saveNeuerTyp} disabled={typSaving}
                       className="text-xs bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg disabled:opacity-50">
                       {typSaving ? '…' : 'Speichern'}
@@ -353,6 +356,16 @@ export default function KellerbehandlungenPage() {
                     <button type="button" onClick={() => setShowNeuerTyp(false)}
                       className="text-xs text-s112-muted hover:text-s112-text-1">Abbrechen</button>
                   </div>
+                )}
+                {!showNeuerTyp && formTypId && (
+                  <label className="flex items-center gap-2 mt-1 text-xs text-s112-muted">
+                    <span className="whitespace-nowrap">Prüfnummer:</span>
+                    <select aria-label="Wirkung des Typs auf die Prüfnummer" value={pnWirkungAus(typen.find(t => t.id === formTypId)?.pn_wirkung)}
+                      onChange={e => wirkungAendern(e.target.value)}
+                      className="input flex-1 py-2 sm:py-1 text-base sm:text-sm">
+                      {PN_WIRKUNGEN.map(w => <option key={w} value={w}>{PN_WIRKUNG_TEXT[w]}</option>)}
+                    </select>
+                  </label>
                 )}
               </div>
             </div>

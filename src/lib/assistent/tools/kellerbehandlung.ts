@@ -55,6 +55,10 @@ export const KELLERBEHANDLUNG_TOOL = {
       volumen_liter_ist: { type: 'number' },
       weinausbau_id: { type: 'string', description: 'Optional: ID einer konkreten Charge aus dem Stammdaten-Kontext' },
       notizen: { type: 'string' },
+      pn_bestaetigt: {
+        type: 'boolean',
+        description: 'true NUR, wenn das Tool vorher eine Rückfrage zur Prüfnummer (pruefnummer_rueckfrage) geliefert hat, du sie dem User gezeigt hast und er ausdrücklich zugestimmt hat.',
+      },
     },
     required: ['bestaetigt_vom_user', 'behaelter_id', 'datum'],
   },
@@ -138,10 +142,19 @@ export async function fuehreKellerbehandlungErfassenAus(
   if (input.volumen_liter_ist != null) fd.set('volumen_liter_ist', String(input.volumen_liter_ist))
   if (input.weinausbau_id) fd.set('weinausbau_id', String(input.weinausbau_id))
   if (input.notizen) fd.set('notizen', String(input.notizen))
+  if (input.pn_bestaetigt === true) fd.set('pn_bestaetigt', '1')
 
   try {
     const result = await createKellerbehandlung(fd)
-    return { erfolg: true, behandlung_id: (result as R | undefined)?.id ?? null }
+    // KAN-100: Prüfnummer der Charge erlischt – gleiche Rückfrage wie in der Seite, nichts gespeichert
+    if (result.bestaetigung) {
+      return {
+        erfolg: false,
+        pruefnummer_rueckfrage: result.bestaetigung,
+        hinweis: 'Es wurde NICHTS gespeichert. Zeige dem User die Rückfrage wörtlich; nur nach ausdrücklicher Zustimmung das Tool erneut mit pn_bestaetigt=true aufrufen.',
+      }
+    }
+    return { erfolg: true, behandlung_id: result.id ?? null, ...(result.hinweis ? { hinweis: result.hinweis } : {}) }
   } catch (err) {
     return { erfolg: false, fehler: (err as Error).message ?? String(err) }
   }
