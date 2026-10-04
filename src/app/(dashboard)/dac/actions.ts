@@ -9,7 +9,8 @@ import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { stornoGrundFehler } from '@/lib/storno/grund'
 import { dezimal } from '@/lib/format'
 import { freezeSperreAus, sperrMeldung } from '@/lib/freeze/sperre'
-import { PN_FELD_LABEL, PN_FORMULAR_FELDER, istPnStatus, pnAenderbareFelder, type PnFormularFeld } from '@/lib/dac/workflow'
+import { PN_FELD_LABEL, PN_FORMULAR_FELDER, PN_OFFENE_ANTRAGS_STATUS, istPnStatus, pnAenderbareFelder, pnPflichtFehlend, pnStatusLabel, type PnFormularFeld } from '@/lib/dac/workflow'
+import { ladePruefnummernantrag } from '@/lib/behoerden/pruefnummernantrag'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -48,6 +49,7 @@ export async function createDacAntrag(formData: FormData) {
   const w = formularWerte(formData)
   const payload: R = { tenant_id: tenantId, status: 'entwurf' }
   for (const k of PN_FORMULAR_FELDER) if (k !== 'aktiv') payload[k] = w[k]
+  if (payload.weinausbau_id) await keinOffenerAntrag(supabase, tenantId, String(payload.weinausbau_id), null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('dac_antrag') as any).insert(payload)
   if (error) throw speicherFehler(error, 'Speichern fehlgeschlagen')
@@ -67,6 +69,7 @@ export async function updateDacAntrag(id: string, formData: FormData) {
   const w = formularWerte(formData)
   const payload: R = {}
   for (const k of pnAenderbareFelder((alt as R).status)) payload[k] = w[k]
+  if (payload.weinausbau_id) await keinOffenerAntrag(supabase, tenantId, String(payload.weinausbau_id), id)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('dac_antrag') as any).update(payload).eq('id', id).eq('tenant_id', tenantId)
   if (error) throw speicherFehler(error, 'Speichern fehlgeschlagen')
@@ -79,6 +82,18 @@ export async function setzeDacStatus(id: string, eingabe: { status: string; datu
   const { tenantId } = await dacSchreibrecht()
   if (!istPnStatus(eingabe.status)) throw new AktionsFehler('Unbekannter Status.')
   if (eingabe.datum && !/^\d{4}-\d{2}-\d{2}$/.test(eingabe.datum)) throw new AktionsFehler('Bitte ein gültiges Datum angeben.')
+  // KAN-98: Einreichen nur mit vollständigen Pflichtangaben (danach sind Antrag und Formular gesperrt)
+  if (eingabe.status === 'eingereicht') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: d, error: dErr } = await (supabase.from('dac_antrag') as any)
+      .select('bezeichnung, jahrgang, rebsorte, menge_liter, weinausbau_id')
+      .eq('id', id).eq('tenant_id', tenantId).is('storniert_am', null).maybeSingle()
+    if (dErr) throw new AktionsFehler(dbFehlerText(dErr, 'Antrag konnte nicht geladen werden'))
+    if (!d) throw new AktionsFehler('Antrag nicht gefunden oder storniert – bitte die Seite neu laden.')
+    const pna = await ladePruefnummernantrag(supabase, tenantId, { id })
+    const fehlend = pnPflichtFehlend(d as R, (pna?.formular ?? null) as R | null, !!pna?.gespeichert)
+    if (fehlend.length > 0) throw new AktionsFehler(`Einreichen nicht möglich – es fehlen: ${fehlend.join(', ')}.`)
+  }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.rpc as any)('s112_pruefnummernantrag_status_setzen', {
     p_tenant_id: tenantId, p_antrag_id: id, p_status: eingabe.status, p_datum: eingabe.datum || null,
@@ -88,6 +103,23 @@ export async function setzeDacStatus(id: string, eingabe: { status: string; datu
   revalidatePath('/dac')
   revalidatePath(`/dac/${id}`)
   revalidatePath(`/dac/${id}/antrag`)
+}
+
+/** KAN-98: je Charge höchstens ein offener Antrag (Entwurf, eingereicht, in Prüfung) */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function keinOffenerAntrag(supabase: any, tenantId: string, weinausbauId: string, ausser: string | null): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let q = (supabase.from('dac_antrag') as any)
+    .select('id, bezeichnung, status')
+    .eq('tenant_id', tenantId).eq('weinausbau_id', weinausbauId).is('storniert_am', null)
+    .in('status', [...PN_OFFENE_ANTRAGS_STATUS]).limit(1)
+  if (ausser) q = q.neq('id', ausser)
+  const { data, error } = await q
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Offene Anträge der Charge konnten nicht geprüft werden'))
+  const offen = ((data ?? []) as R[])[0]
+  if (offen) {
+    throw new AktionsFehler(`Für diese Charge gibt es bereits einen offenen Prüfnummernantrag („${offen.bezeichnung}“, ${pnStatusLabel(offen.status)}) – bitte diesen weiterführen oder zurückziehen.`)
+  }
 }
 
 /** Endstatus: Weiterarbeit als neuer Entwurf mit denselben Antrags- und Weinangaben (ohne Nummern, Daten, Status) */
@@ -101,6 +133,7 @@ export async function kopiereDacAntragAlsEntwurf(id: string): Promise<{ id: stri
     .eq('id', id).eq('tenant_id', tenantId).maybeSingle()
   if (aErr) throw new AktionsFehler(dbFehlerText(aErr, 'Antrag konnte nicht geladen werden'))
   if (!alt) throw new AktionsFehler('Antrag nicht gefunden – bitte die Seite neu laden.')
+  if ((alt as R).weinausbau_id) await keinOffenerAntrag(supabase, tenantId, String((alt as R).weinausbau_id), null)   // KAN-98
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: neu, error } = await (supabase.from('dac_antrag') as any)
     .insert({ ...(alt as R), tenant_id: tenantId, status: 'entwurf' }).select('id').single()

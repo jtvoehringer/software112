@@ -121,3 +121,50 @@ export const PN_UEBERGANG_KNOPF: Record<PnStatus, string> = {
   entzogen: 'Entzogen',
   aufgebraucht: 'Aufgebraucht',
 }
+
+// ── KAN-98 (04.10.2026): offene Anträge, Pflichtangaben beim Einreichen, Format der Prüfnummer ─────────────
+
+/** Status, in denen ein Antrag offen ist – je Charge höchstens einer */
+export const PN_OFFENE_ANTRAGS_STATUS: readonly PnStatus[] = ['entwurf', 'eingereicht', 'in_pruefung']
+
+/**
+ * Format der staatlichen Prüfnummer, z. B. „N 10716/26“ (Kennbuchstabe des Bundeslands, laufende Nummer, Jahr).
+ * Nur Warnung – das Bundesamt vergibt die Nummer, abweichende Schreibweisen bleiben speicherbar.
+ */
+export function pnFormatHinweis(nr: string | null | undefined): string | null {
+  const s = (nr ?? '').trim()
+  if (!s) return null
+  return /^[A-Za-z]{1,2}\s?\d{1,6}\/\d{2}$/.test(s)
+    ? null
+    : `Die Prüfnummer „${s}“ entspricht nicht dem üblichen Format (z. B. „N 10716/26“) – bitte prüfen.`
+}
+
+type PflichtDac = { bezeichnung?: string | null; jahrgang?: number | null; rebsorte?: string | null; menge_liter?: number | null; weinausbau_id?: string | null }
+type PflichtFormular = Record<string, unknown> | null
+
+const leer = (v: unknown) => v === null || v === undefined || (typeof v === 'string' && v.trim() === '')
+
+/**
+ * Fehlende Pflichtangaben vor dem Einreichen (Matrix KAN-85, PN-Antrag): Antragsteller, Farbe, Jahrgang, Sorten,
+ * Menge, Herkunft, Qualität, Mostgewicht, Bezeichnung – aus dem DAC-Antrag und dem gespeicherten Antragsformular
+ * (nach dem Einreichen ist das Formular gesperrt, deshalb muss es vorher gespeichert sein). Leere Liste = vollständig.
+ */
+export function pnPflichtFehlend(dac: PflichtDac, formular: PflichtFormular, formularGespeichert: boolean): string[] {
+  const f: string[] = []
+  if (leer(dac.bezeichnung)) f.push('Bezeichnung')
+  if (!dac.weinausbau_id) f.push('Kellerbuch-Charge')
+  if (dac.jahrgang == null) f.push('Jahrgang')
+  if (leer(dac.rebsorte)) f.push('Rebsorte')
+  if (!(Number(dac.menge_liter) > 0)) f.push('Menge (Liter)')
+  if (!formularGespeichert || !formular) {
+    f.push('Antragsformular (Prüfnummernantrag) speichern')
+    return f
+  }
+  const pflicht: [string, string][] = [
+    ['betriebsnummer', 'Antragsteller: Betriebsnummer'], ['name', 'Antragsteller: Name'],
+    ['farbe', 'Farbe'], ['lesegradation', 'Mostgewicht (Lesegradation)'], ['einreichmenge', 'Einreichmenge'],
+    ['qualitaetsstufe', 'Qualitätsstufe'], ['weinbaugebiet', 'Weinbaugebiet (Herkunft)'],
+  ]
+  for (const [k, label] of pflicht) if (leer(formular[k])) f.push(label)
+  return f
+}

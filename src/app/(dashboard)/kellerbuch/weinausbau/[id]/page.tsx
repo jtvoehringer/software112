@@ -14,6 +14,7 @@ import { GEBINDEWECHSEL_OHNE } from '@/lib/kellerbuch/storno'
 import VerschneidungWidget from './VerschneidungWidget'
 import { ladeBewegungsgraph } from '@/lib/wein/blendKomposition'
 import { bestandNachEreignis, sortenAnteile, zusammensetzung } from '@/lib/wein/mischungsrechnung'
+import { PN_OFFENE_ANTRAGS_STATUS, pnStatusLabel } from '@/lib/dac/workflow'
 import { gebindeText, quellGebindeDesVerschnitts, quellGebindeSchluessel, verschnittQuelleText, type Quellgebinde } from '@/lib/kellerbuch/quellGebinde'
 import HerkunftJournalKarte from './HerkunftJournalKarte'
 import SchwundBuchenForm from './SchwundBuchenForm'
@@ -485,6 +486,15 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
 
   const st = STATUS_LABELS[weinausbau.status] ?? { label: weinausbau.status, color: 'bg-[#F2F3F5] text-s112-text-2' }
 
+  // KAN-98: Prüfnummernanträge der Charge (Badge, offener Antrag statt eines zweiten)
+  const { data: pnRaw } = await tf((supabase.from('dac_antrag') as any)
+    .select('id, bezeichnung, status, pruefnummer, status_seit')
+    .eq('weinausbau_id', weinausbau.id).is('storniert_am', null)
+    .order('created_at', { ascending: false }))
+  const pnAntraege = (pnRaw ?? []) as R[]
+  const pnOffen = pnAntraege.find(a => (PN_OFFENE_ANTRAGS_STATUS as readonly string[]).includes(a.status)) ?? null
+  const pnZugeteilt = pnAntraege.find(a => a.status === 'genehmigt' && a.pruefnummer) ?? null
+
   // KAN-76: „Besteht aus“ aus dem zeitrichtigen Rechenkern (Rebsorten je Liter im heutigen Bestand) statt
   // „Bestand − Summe der Verschnitte“ – nur wenn die Charge Verschnitte hat, wie bisher
   const graph = tenantId && verschneidungenEin.length > 0 ? await ladeBewegungsgraph(supabase, tenantId, [weinausbau.id]) : null
@@ -556,6 +566,16 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
             <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}>{st.label}</span>
             {weinausbau.jahrgang && <span className="text-xs text-s112-muted">Jahrgang {weinausbau.jahrgang}</span>}
             {weinausbau.behaelter && <span className="text-xs text-s112-muted">in {weinausbau.behaelter.name}</span>}
+            {pnZugeteilt && (
+              <Link href={`/dac/${pnZugeteilt.id}`} className="text-xs font-mono bg-s112-ok-bg text-s112-ok-fg px-2 py-0.5 rounded-full hover:underline">
+                PN {pnZugeteilt.pruefnummer}
+              </Link>
+            )}
+            {pnOffen && (
+              <Link href={`/dac/${pnOffen.id}`} className="text-xs bg-s112-blue-100 text-s112-blue-700 px-2 py-0.5 rounded-full hover:underline">
+                Prüfnummernantrag: {pnStatusLabel(pnOffen.status)}
+              </Link>
+            )}
           </div>
         </div>
         <div className="sm:text-right shrink-0">
@@ -590,9 +610,9 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
             <Microscope size={13} strokeWidth={1.75} />Analysen
           </Link>
           {writeOk && (
-            <Link href={`/dac/neu?charge=${weinausbau.id}`}
+            <Link href={pnOffen ? `/dac/${pnOffen.id}` : `/dac/neu?charge=${weinausbau.id}`}
               className="mt-1 inline-flex items-center gap-1 text-xs border border-s112-border text-s112-blue-700 px-3 py-1 rounded-lg hover:bg-s112-bg transition-colors">
-              <Award size={13} strokeWidth={1.75} />Prüfnummer
+              <Award size={13} strokeWidth={1.75} />{pnOffen ? 'Prüfnummernantrag' : 'Prüfnummer'}
             </Link>
           )}
           </div>

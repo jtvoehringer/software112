@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { fehlerText } from '@/lib/fehler'
 import { dezimal } from '@/lib/format'
 import GesperrtHinweis from '@/components/GesperrtHinweis'
-import { PN_FELD_LABEL, pnAenderbareFelder, pnSperre, pnStatusLabel, type PnFormularFeld } from '@/lib/dac/workflow'
+import { PN_FELD_LABEL, pnAenderbareFelder, pnFormatHinweis, pnSperre, pnStatusLabel, type PnFormularFeld } from '@/lib/dac/workflow'
 
 const DAC_REGIONEN = [
   { value: 'weinviertel',           label: 'Weinviertel DAC' },
@@ -31,7 +31,7 @@ const REBSORTEN = [
   'Grauburgunder','Sauvignon Blanc','Pinot Noir',
 ]
 
-type WeinausbauRow = { id: string; name: string; jahrgang?: number | null }
+type WeinausbauRow = { id: string; name: string; jahrgang?: number | null; rebsorte?: string | null; menge_liter?: number | null }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnalyseRow = Record<string, any>
 type DacRow = {
@@ -49,12 +49,14 @@ interface Props {
   weinausbau: WeinausbauRow[]
   analysen?: AnalyseRow[]
   preChargeId?: string | null
+  /** KAN-98: Vorbelegung eines neuen Antrags aus der Charge (Sorten absteigend mit Anteil, Menge, Bezeichnung) */
+  vorbelegung?: { bezeichnung?: string | null; rebsorte?: string | null; menge_liter?: number | null } | null
   action: (formData: FormData) => Promise<void>
 }
 
 const datumDe = (d: string | null | undefined) => (d ? new Date(d).toLocaleDateString('de-AT') : null)
 
-export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, action }: Props) {
+export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, action, vorbelegung = null }: Props) {
   // KAN-97: Felder, die der Status noch zulässt (wie die Freeze-Trigger der Datenbank); neuer Antrag = Entwurf
   const aenderbar = pnAenderbareFelder(dac?.status ?? 'entwurf')
   const gesperrt = (f: PnFormularFeld) => !aenderbar.includes(f)
@@ -67,6 +69,18 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
   const jahrgangDerCharge = (id: string | null | undefined) => weinausbau.find(w => w.id === id)?.jahrgang ?? null
   const [jahrgang, setJahrgang] = useState<string>(
     String(dac?.jahrgang ?? jahrgangDerCharge(dac?.weinausbau_id ?? preChargeId) ?? new Date().getFullYear()))
+  // KAN-98: Rebsorte und Menge aus der Charge vorbelegen (neuer Antrag bzw. Chargenwechsel im Entwurf)
+  const [rebsorte, setRebsorte] = useState<string>(dac?.rebsorte ?? vorbelegung?.rebsorte ?? '')
+  const [menge, setMenge] = useState<string>((dac?.menge_liter ?? vorbelegung?.menge_liter)?.toString().replace('.', ',') ?? '')
+  const [pruefnummer, setPruefnummer] = useState<string>(dac?.pruefnummer ?? '')
+  const pnHinweis = pnFormatHinweis(pruefnummer)
+  function chargeGewaehlt(id: string) {
+    const c = weinausbau.find(w => w.id === id)
+    if (!c) return
+    if (c.jahrgang != null) setJahrgang(String(c.jahrgang))
+    if (c.rebsorte) setRebsorte(c.rebsorte)
+    if (c.menge_liter != null && Number(c.menge_liter) > 0) setMenge(String(c.menge_liter).replace('.', ','))
+  }
   const [alkohol, setAlkohol] = useState<string>(
     dac?.alkohol_prozent?.toString().replace('.', ',') ?? ''
   )
@@ -110,7 +124,7 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="sm:col-span-2">
             <label className="form-label">Bezeichnung *</label>
-            <input aria-label="Bezeichnung" name="bezeichnung" type="text" required disabled={gesperrt('bezeichnung')} defaultValue={dac?.bezeichnung ?? ''} className="form-input" placeholder="z.B. Grüner Veltliner Kremser Schmidt 2025" />
+            <input aria-label="Bezeichnung" name="bezeichnung" type="text" required disabled={gesperrt('bezeichnung')} defaultValue={dac?.bezeichnung ?? vorbelegung?.bezeichnung ?? ''} className="form-input" placeholder="z.B. Grüner Veltliner Kremser Schmidt 2025" />
           </div>
           <div className="sm:col-span-2">
             <label className="flex items-center gap-2.5 cursor-pointer select-none">
@@ -134,7 +148,7 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
           <div>
             <label className="form-label">Weinausbau-Charge</label>
             <select aria-label="Weinausbau-Charge" name="weinausbau_id" disabled={gesperrt('weinausbau_id')} defaultValue={dac?.weinausbau_id ?? preChargeId ?? ''} className="form-input"
-              onChange={e => { const jg = jahrgangDerCharge(e.target.value); if (jg != null) setJahrgang(String(jg)) }}>
+              onChange={e => chargeGewaehlt(e.target.value)}>
               <option value="">– keine Verknüpfung –</option>
               {weinausbau.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
             </select>
@@ -147,12 +161,12 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
           </div>
           <div>
             <label className="form-label">Rebsorte</label>
-            <input aria-label="Rebsorte" name="rebsorte" type="text" disabled={gesperrt('rebsorte')} list="rebsorten-dac" defaultValue={dac?.rebsorte ?? ''} className="form-input" />
+            <input aria-label="Rebsorte" name="rebsorte" type="text" disabled={gesperrt('rebsorte')} list="rebsorten-dac" value={rebsorte} onChange={e => setRebsorte(e.target.value)} className="form-input" />
             <datalist id="rebsorten-dac">{REBSORTEN.map(r => <option key={r} value={r} />)}</datalist>
           </div>
           <div>
             <label className="form-label">Menge (Liter)</label>
-            <input aria-label="Menge (Liter)" name="menge_liter" type="text" disabled={gesperrt('menge_liter')} inputMode="decimal" defaultValue={dac?.menge_liter?.toString().replace('.', ',') ?? ''} className="form-input" placeholder="z.B. 1.500" />
+            <input aria-label="Menge (Liter)" name="menge_liter" type="text" disabled={gesperrt('menge_liter')} inputMode="decimal" value={menge} onChange={e => setMenge(e.target.value)} className="form-input" placeholder="z.B. 1.500" />
           </div>
           <div>
             <label className="form-label">Alkohol (% vol)</label>
@@ -216,7 +230,8 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
             <label className="form-label">Prüfnummer</label>
-            <input aria-label="Prüfnummer" name="pruefnummer" type="text" disabled={gesperrt('pruefnummer')} defaultValue={dac?.pruefnummer ?? ''} className="form-input font-mono" placeholder="bei Einreichung bzw. Zuteilung" />
+            <input aria-label="Prüfnummer" name="pruefnummer" type="text" disabled={gesperrt('pruefnummer')} value={pruefnummer} onChange={e => setPruefnummer(e.target.value)} className="form-input font-mono" placeholder="bei Einreichung bzw. Zuteilung" />
+            {pnHinweis && <p className="text-xs text-s112-warn-fg mt-1">{pnHinweis}</p>}
           </div>
           <div>
             <label className="form-label">Antragsnummer</label>

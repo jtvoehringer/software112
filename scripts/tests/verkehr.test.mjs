@@ -431,17 +431,27 @@ describe('pruefnummernantrag', () => {
 describe('dac-antraege', () => {
   test('Liste mit Labels, gerundeten Zahlen und DATE ohne Verschiebung', async () => {
     const sb = fakeSupabase({ dac_antrag: [
-      { id: 'a', tenant_id: T, bezeichnung: 'ZW Reserve', dac_region: 'carnuntum', jahrgang: 2024, rebsorte: 'Zweigelt', menge_liter: '1500.005', alkohol_prozent: 13.5, status: 'genehmigt', pruefnummer: 'N 1/24', eingereicht_am: '2025-03-01', bescheid_am: '2025-04-15', aktiv: true },
+      { id: 'a', tenant_id: T, bezeichnung: 'ZW Reserve', dac_region: 'carnuntum', jahrgang: 2024, rebsorte: 'Zweigelt', menge_liter: '1500.005', alkohol_prozent: 13.5, status: 'genehmigt', status_seit: '2025-04-15T08:00:00Z', pruefnummer: 'N 1/24', eingereicht_am: '2025-03-01', bescheid_am: '2025-04-15', aktiv: true },
       { id: 'b', tenant_id: T, bezeichnung: 'Entwurf', dac_region: 'unbekannt_neu', jahrgang: null, rebsorte: null, menge_liter: null, alkohol_prozent: null, status: 'entwurf', pruefnummer: null, eingereicht_am: null, bescheid_am: null, aktiv: false },
       { id: 'c', tenant_id: FREMD, bezeichnung: 'Fremd', status: 'entwurf', aktiv: true },
     ] })
-    const { zeilen } = await dac.ladeDacAntraege(sb, T)
+    const { zeilen, warnungen } = await dac.ladeDacAntraege(sb, T)
     mandantGefiltert(sb, ['dac_antrag'])
     assert.equal(zeilen.length, 2)
+    assert.deepEqual(warnungen, [])   // KAN-98: N 1/24 entspricht dem Format
     const d = csvDatei(zeilen, dac.SPALTEN_DAC_ANTRAEGE)
-    assert.equal(zeilenVon(d.text)[0], 'Bezeichnung;DAC-Region;Jahrgang;Rebsorte;Menge (l);Alkohol (% vol);Status;Eingereicht am;Staatliche Prüfnummer;Bescheid am;Aktiv;Storniert am;Storno-Grund')   // KAN-150 F2: Storno-Spalten
-    assert.equal(zeilenVon(d.text)[1], 'ZW Reserve;Carnuntum;2024;Zweigelt;1500,01;13,50;Zugeteilt;01.03.2025;N 1/24;15.04.2025;Ja;;')   // KAN-97: genehmigt = „Zugeteilt“
-    assert.equal(zeilenVon(d.text)[2], 'Entwurf;unbekannt_neu;;;;;Entwurf;;;;Nein;;')
+    assert.equal(zeilenVon(d.text)[0], 'Bezeichnung;DAC-Region;Jahrgang;Rebsorte;Menge (l);Alkohol (% vol);Status;Status seit;Eingereicht am;Staatliche Prüfnummer;Bescheid am;Aktiv;Storniert am;Storno-Grund')   // KAN-150 F2: Storno-Spalten; KAN-98: Status seit
+    assert.equal(zeilenVon(d.text)[1], 'ZW Reserve;Carnuntum;2024;Zweigelt;1500,01;13,50;Zugeteilt;15.04.2025 10:00;01.03.2025;N 1/24;15.04.2025;Ja;;')   // KAN-97: genehmigt = „Zugeteilt“
+    assert.equal(zeilenVon(d.text)[2], 'Entwurf;unbekannt_neu;;;;;Entwurf;;;;;Nein;;')
+  })
+  test('KAN-98: Prüfnummer in ungewöhnlichem Format als Warnung', async () => {
+    const sb = fakeSupabase({ dac_antrag: [
+      { id: 'x', tenant_id: T, bezeichnung: 'GV', dac_region: 'sonstiges', status: 'genehmigt', pruefnummer: '10716-26', aktiv: true },
+      { id: 'y', tenant_id: T, bezeichnung: 'RI', dac_region: 'sonstiges', status: 'genehmigt', pruefnummer: 'N 10716/26', aktiv: true },
+    ] })
+    const { warnungen } = await dac.ladeDacAntraege(sb, T)
+    assert.equal(warnungen.length, 1)
+    assert.match(warnungen[0], /^GV: Die Prüfnummer „10716-26“ entspricht nicht dem üblichen Format/)
   })
 })
 

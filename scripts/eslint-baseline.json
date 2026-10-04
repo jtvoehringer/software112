@@ -1,11 +1,11 @@
 {
   "regeln": {
-    "@typescript-eslint/no-explicit-any": 871,
+    "@typescript-eslint/no-explicit-any": 870,
     "react/no-unescaped-entities": 31,
     "@typescript-eslint/no-unused-vars": 29,
     "react-hooks/set-state-in-effect": 27,
     "react-hooks/exhaustive-deps": 24,
-    "(unbenutzte eslint-disable-Kommentare)": 22,
+    "(unbenutzte eslint-disable-Kommentare)": 21,
     "react-hooks/refs": 12,
     "react-hooks/use-memo": 8,
     "@typescript-eslint/no-unused-expressions": 7,
