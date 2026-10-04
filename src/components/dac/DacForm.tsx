@@ -31,7 +31,7 @@ const REBSORTEN = [
   'Grauburgunder','Sauvignon Blanc','Pinot Noir',
 ]
 
-type WeinausbauRow = { id: string; name: string }
+type WeinausbauRow = { id: string; name: string; jahrgang?: number | null }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnalyseRow = Record<string, any>
 type DacRow = {
@@ -63,6 +63,10 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
   const [isDac, setIsDac] = useState(dac ? !!dac.dac_region && dac.dac_region !== 'sonstiges' : false)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  // KAN-84 (Kleinfix, vgl. KAN-98): Jahrgang aus der gewählten Charge vorschlagen statt des aktuellen Jahrs
+  const jahrgangDerCharge = (id: string | null | undefined) => weinausbau.find(w => w.id === id)?.jahrgang ?? null
+  const [jahrgang, setJahrgang] = useState<string>(
+    String(dac?.jahrgang ?? jahrgangDerCharge(dac?.weinausbau_id ?? preChargeId) ?? new Date().getFullYear()))
   const [alkohol, setAlkohol] = useState<string>(
     dac?.alkohol_prozent?.toString().replace('.', ',') ?? ''
   )
@@ -129,7 +133,8 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
           {!isDac && <input type="hidden" name="dac_region" value="sonstiges" />}
           <div>
             <label className="form-label">Weinausbau-Charge</label>
-            <select aria-label="Weinausbau-Charge" name="weinausbau_id" disabled={gesperrt('weinausbau_id')} defaultValue={dac?.weinausbau_id ?? preChargeId ?? ''} className="form-input">
+            <select aria-label="Weinausbau-Charge" name="weinausbau_id" disabled={gesperrt('weinausbau_id')} defaultValue={dac?.weinausbau_id ?? preChargeId ?? ''} className="form-input"
+              onChange={e => { const jg = jahrgangDerCharge(e.target.value); if (jg != null) setJahrgang(String(jg)) }}>
               <option value="">– keine Verknüpfung –</option>
               {weinausbau.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
             </select>
@@ -138,7 +143,7 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div>
             <label className="form-label">Jahrgang</label>
-            <input aria-label="Jahrgang" name="jahrgang" type="number" disabled={gesperrt('jahrgang')} min="1900" max="2100" defaultValue={dac?.jahrgang ?? new Date().getFullYear()} className="form-input" />
+            <input aria-label="Jahrgang" name="jahrgang" type="number" disabled={gesperrt('jahrgang')} min="1900" max="2100" value={jahrgang} onChange={e => setJahrgang(e.target.value)} className="form-input" />
           </div>
           <div>
             <label className="form-label">Rebsorte</label>

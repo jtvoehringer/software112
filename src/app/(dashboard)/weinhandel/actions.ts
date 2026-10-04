@@ -22,6 +22,7 @@ import { KORREKTUR_NACH_OBEN_HINWEIS } from '@/lib/kellerbuch/hinweise'
 import { ladePruefnummerDaten, pruefnummerBeiChargenzuordnung, pruefnummerFuerFuellung } from '@/lib/kellerbuch/pruefnummerLaden'
 import { ersatzPruefnummer, fuellungDatumText, fuellungDatumVerletzung, pnTag, pruefnummerAusAntrag } from '@/lib/kellerbuch/pruefnummer'
 import { freezeSperreAus, sperrMeldung } from '@/lib/freeze/sperre'
+import { merkmaleAusCharge } from '@/lib/wein/fuellungMerkmale'
 import { wienHeute } from '@/lib/csv'
 import { eroeffnungsStichtagFehler, IMPORT_QUELLE_EROEFFNUNG } from '@/lib/kellerbuch/eroeffnungsStichtag'
 import { eroeffnungsVermerk, flaschenFormularWerte, pruefeFlaschenZeilen, type DateiBefund, type FlaschenEingabe } from '@/lib/import/eroeffnungsbestand'
@@ -162,6 +163,11 @@ async function fuellungAnlegen(formData: FormData, eroeffnung: FlaschenEroeffnun
 
   const weinausbauId    = (formData.get('weinausbau_id') as string) || null
   if (eroeffnung && weinausbauId) throw new AktionsFehler('Ein Flaschen-Eröffnungsbestand hat keine Kellerbuch-Charge.')
+  // KAN-84 (Jörgen, 25.09.2026): eine Füllung aus eigener Produktion braucht immer eine Charge – ohne Charge nur der
+  // Flaschen-Eröffnungsbestand (Import) und später zugekaufte Flaschenware
+  if (!eroeffnung && !weinausbauId) {
+    throw new AktionsFehler('Bitte die Kellerbuch-Charge wählen – eine Füllung aus eigener Produktion braucht immer eine Charge. Flaschen ohne Charge (Eröffnungsbestand) bitte über den Import „Eröffnungsbestand Flaschen“ erfassen.')
+  }
   const anzahl          = parseInt(dezimal(formData.get('anzahl_flaschen') as string))
   const flGroesseML     = parseInt(dezimal(formData.get('flaschengroesse_ml') as string)) || 750
   const mengeFormular   = parseFloat(dezimal(formData.get('menge_liter_gefuellt') as string)) || null
@@ -181,6 +187,10 @@ async function fuellungAnlegen(formData: FormData, eroeffnung: FlaschenEroeffnun
   const herkunftCodeInput  = (formData.get('herkunft_code') as string) || null
   let notizenZusatz = ''
   let charge: AR | null = null
+  // KAN-84: Jahrgang und Rebsorte kommen aus der Charge (Formular bzw. Assistent nur ohne Wert an der Charge)
+  let jahrgang: number | null = parseInt(dezimal(formData.get('jahrgang') as string)) || null
+  let rebsorte: string | null = ((formData.get('rebsorte') as string | null) ?? '').trim() || null
+  const vorabHinweise: string[] = []
 
   // Bestandsprüfung VOR jedem Schreibzugriff: nicht mehr füllen als die Charge hat
   // + Downgrade-only-Prüfung: 'Qualitätswein' und 'Herkunft-Code (BKI)' dürfen beim Füllen nur
@@ -188,13 +198,17 @@ async function fuellungAnlegen(formData: FormData, eroeffnung: FlaschenEroeffnun
   if (weinausbauId) {
     pruefeChargenRecht(membership)
     const { data: wa, error: waErr } = await (supabase.from('weinausbau') as any)
-      .select('name, menge_liter, status, aktiv, qualitaetsstufe, zusatzbezeichnung, erzeugnis, herkunft_code')
+      .select('name, menge_liter, status, aktiv, jahrgang, rebsorte, qualitaetsstufe, zusatzbezeichnung, erzeugnis, herkunft_code')
       .eq('id', weinausbauId)
       .eq('tenant_id', tenantId)
       .maybeSingle()
     if (waErr) throw new AktionsFehler(dbFehlerText(waErr, 'Charge konnte nicht geladen werden'))
     if (!wa) throw new AktionsFehler('Die gewählte Kellerbuch-Charge wurde nicht gefunden.')
     charge = wa as AR
+    const ab = merkmaleAusCharge({ jahrgang, rebsorte }, { jahrgang: charge.jahrgang ?? null, rebsorte: charge.rebsorte ?? null })
+    jahrgang = ab.jahrgang
+    rebsorte = ab.rebsorte
+    if (ab.hinweis) vorabHinweise.push(ab.hinweis)
 
     // KAN-35: keine Toleranz mehr – bisher wurde bis zu einer Flasche mehr angenommen und die
     // Charge danach still auf 0 gekappt (die Füllung trug dann mehr Liter, als abgebucht wurden).
@@ -276,8 +290,8 @@ async function fuellungAnlegen(formData: FormData, eroeffnung: FlaschenEroeffnun
     tenant_id:            tenantId,
     weinausbau_id:        weinausbauId,
     name:                 formData.get('name') as string,
-    jahrgang:             parseInt(dezimal(formData.get('jahrgang') as string)) || null,
-    rebsorte:             (formData.get('rebsorte') as string) || null,
+    jahrgang,             // KAN-84: aus der Charge
+    rebsorte,
     ...fuellungsQualitaetsSpalten(qualitaetInput),   // KAN-73/KAN-186: geprüft (fuellungQualitaetAusFormular)
     herkunft_code:        herkunftCodeInput,
     anbaugebiet:          (formData.get('anbaugebiet') as string) || null,
@@ -322,7 +336,7 @@ async function fuellungAnlegen(formData: FormData, eroeffnung: FlaschenEroeffnun
 
   // Ab hier existiert die Füllung: weitere Fehler als Hinweis zurückgeben statt zu werfen –
   // sonst legt ein erneutes Absenden die Füllung ein zweites Mal an.
-  const hinweise: string[] = []
+  const hinweise: string[] = [...vorabHinweise]
 
   // 3. fuellung_chargen: Charge-Verknüpfung (Rückverfolgung, Rückbuchung beim Löschen)
   if (weinausbauId) {

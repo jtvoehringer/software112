@@ -212,14 +212,16 @@ export default function FuellungFormClient({
       <div className="card p-5 space-y-4">
         <h2 className="font-semibold text-s112-text text-sm">Kellerbuch-Charge</h2>
         <div>
-          <label className={labelCls}>Weinausbau-Charge</label>
+          <label className={labelCls}>Weinausbau-Charge *</label>
+          {/* KAN-84: Charge Pflicht (Flaschen ohne Charge nur als Eröffnungsbestand über den Import) */}
           <select aria-label="Weinausbau-Charge"
             name="weinausbau_id"
             value={selectedChargeId}
             onChange={e => handleChargeChange(e.target.value)}
+            required
             className={inputCls}
           >
-            <option value="">– keine Verknüpfung –</option>
+            <option value="">– bitte wählen –</option>
             {chargen.map(c => (
               <option key={c.id} value={c.id}>
                 {c.name}{c.jahrgang ? ` (${c.jahrgang})` : ''}{c.menge_liter ? ` · ${fmtNum(parseFloat(String(c.menge_liter)))} L` : ''}
@@ -257,7 +259,8 @@ export default function FuellungFormClient({
               min={1900} max={2100}
               value={jahrgangVal}
               onChange={e => setJahrgangVal(e.target.value)}
-              className={inputCls}
+              readOnly={!!selectedCharge?.jahrgang}
+              className={selectedCharge?.jahrgang ? `${inputCls} bg-s112-bg text-s112-text-1` : inputCls}
             />
           </div>
           <div>
@@ -266,8 +269,9 @@ export default function FuellungFormClient({
               name="rebsorte"
               value={rebsorteVal}
               onChange={e => setRebsorteVal(e.target.value)}
+              readOnly={!!selectedCharge?.rebsorte}
               placeholder="z.B. Grüner Veltliner"
-              className={inputCls}
+              className={selectedCharge?.rebsorte ? `${inputCls} bg-s112-bg text-s112-text-1` : inputCls}
             />
           </div>
           <div>
