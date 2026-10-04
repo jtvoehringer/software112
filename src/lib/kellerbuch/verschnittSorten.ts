@@ -3,13 +3,15 @@ import { ladeZusammensetzungCharge } from '@/lib/wein/blendKomposition'
 import type { GruppenMenge } from '@/lib/wein/sortenangabe'
 import { kgSchluessel, type HerkunftsTeil } from '@/lib/wein/herkunftRegel'
 import { getKgBezeichnung } from '@/lib/wein/katastralgemeinden'
+import { gemeindeVonKg, gemeindeName } from '@/lib/wein/kgGemeinde'
 
 // KAN-93 (02.10.2026): Rebsorten- und Jahrgangsanteile eines Verschnitts aus den tatsächlichen Herkunftsanteilen
 // (Rechenkern KAN-76) – Ziel-Charge mit ihrem ganzen Bestand, jede Quelle mit der verschnittenen Menge (anteilig an
 // ihrer Zusammensetzung). Wo der Kern nichts weiß (Altbestand ohne Bewegungen, Herkunft ohne Rebsorte/Jahrgang,
 // Ladefehler), zählen Rebsorte und Jahrgang der Charge selbst – so ist das Ergebnis nie schlechter als bisher.
 // KAN-110 (04.10.2026): dazu die Herkunftsteile für ermittleHerkunft – Herkunft-Code der Charge mit Ried (amtliche Ried
-// der Lage) und Gemeinde (KG-Nr. des Grundstücks) je Ursprung; ohne bekannten Ursprung beides unbekannt.
+// der Lage) und Gemeinde (politische Gemeinde der KG-Nr. des Grundstücks, BEV-Verzeichnis; KG außerhalb des
+// Verzeichnisses zählt als eigene Gemeinde) je Ursprung; ohne bekannten Ursprung beides unbekannt.
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -28,11 +30,13 @@ export async function verschnittGruppen(
   const herkunft = new Map<string, HerkunftsTeil>()
   const herkunftDazu = (code: string | null, ried: string | null, kg: string | null, l: number) => {
     if (!(l > 0)) return
-    const ort = kgSchluessel(kg)
+    const kgNr = kgSchluessel(kg)
+    const gkz = kgNr ? gemeindeVonKg(kgNr) : undefined
+    const ort = gkz ? `G${gkz}` : kgNr ? `KG${kgNr}` : null
     const key = `${code ?? ''}|${ried ?? ''}|${ort ?? ''}`
     const t = herkunft.get(key)
     if (t) t.liter += l
-    else herkunft.set(key, { liter: l, code, ried, ort, ortName: ort ? getKgBezeichnung(ort) ?? `KG ${ort}` : null })
+    else herkunft.set(key, { liter: l, code, ried, ort, ortName: gkz ? gemeindeName(gkz) ?? null : kgNr ? getKgBezeichnung(kgNr) ?? `KG ${kgNr}` : null })
   }
   const sorteVon = (r: unknown, c: R) => (typeof r === 'string' && r.trim()) || (c.rebsorte as string | null)?.trim() || 'unbekannt'
   const jahrVon = (j: unknown, c: R) => (j != null && j !== '' ? String(j) : c.jahrgang != null ? String(c.jahrgang) : 'unbekannt')

@@ -122,3 +122,24 @@ describe('eigene Gebiete und Randfälle', () => {
     assert.equal(ermittleHerkunft([t(100, null), t(100, 'wlnoe')]).code, 'wlnoe')
   })
 })
+
+describe('KG → Gemeinde (BEV-Verzeichnis)', async () => {
+  const kg = await import('../../src/lib/wein/kgGemeinde.ts')
+  test('Traiskirchen und Tribuswinkel sind dieselbe Gemeinde, Gumpoldskirchen eine andere', () => {
+    assert.equal(kg.gemeindeVonKg('04033'), '30639')
+    assert.equal(kg.gemeindeVonKg('4034'), '30639')
+    assert.equal(kg.gemeindeName('30639'), 'Traiskirchen')
+    assert.equal(kg.gemeindeVonKg(16110), '31709')
+    assert.equal(kg.gemeindeName(kg.gemeindeVonKg('16110')), 'Gumpoldskirchen')
+  })
+  test('unbekannte bzw. leere KG-Nr.', () => {
+    assert.equal(kg.gemeindeVonKg('99999'), undefined)
+    assert.equal(kg.gemeindeVonKg(''), undefined)
+    assert.equal(kg.gemeindeVonKg(null), undefined)
+  })
+  test('Regel mit Gemeinde-Schlüsseln: zwei KGs derselben Gemeinde → Ortswein', () => {
+    const e = ermittleHerkunft([t(500, 'thermenregion_riedenwein', 'Ried A', 'G30639'), t(500, 'thermenregion_riedenwein', 'Ried B', 'G30639')])
+    assert.equal(e.code, 'thermenregion_ortswein')
+    assert.equal(ermittleHerkunft([t(500, 'thermenregion_riedenwein', 'Ried A', 'G30639'), t(500, 'thermenregion_riedenwein', 'Ried B', 'G31709')]).code, 'thermenregion_gebietswein')
+  })
+})

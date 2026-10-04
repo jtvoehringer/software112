@@ -4,7 +4,8 @@
 //  - Ried und Gemeinde (DAC Riedenwein bzw. Ortswein) verlangen mindestens 85 % aus DERSELBEN Ried bzw. Gemeinde, der
 //    Rest aus demselben Weinbaugebiet (§ 21 Abs. 1; Entscheidung Jörgen 04.10.2026: 85 % auch bei DAC).
 //    Gleicher Code allein reicht nicht – Ried A + Ried B sind beide „Riedenwein“, aber keine gemeinsame Ried.
-//  - Ried = amtliche Ried der Lage (lagen.amtliche_ried), Gemeinde = KG-Nr. des Grundstücks. Unbekannte Ried bzw.
+//  - Ried = amtliche Ried der Lage (lagen.amtliche_ried), Gemeinde = politische Gemeinde der KG-Nr. des Grundstücks
+//    (kgGemeinde.ts, BEV-Verzeichnis; Tribuswinkel und Traiskirchen sind dieselbe Gemeinde). Unbekannte Ried bzw.
 //    Gemeinde zählt als fremd; ist sie bei ALLEN Teilen unbekannt, ist die Angabe nicht prüfbar – die Stufe bleibt
 //    mit Hinweis (Eröffnungsbestände, Zukäufe).
 //  - Eigene Weinbaugebiete außerhalb des Katalogs: über herkunftKnotenTolerant (Kürzel/Gebietsname); sonst bleibt nur
@@ -22,7 +23,7 @@ export type HerkunftsTeil = {
   liter: number
   code: string | null
   ried: string | null
-  /** Gemeinde-Schlüssel (KG-Nr.) */
+  /** Gemeinde-Schlüssel: beliebiger Text (z. B. „G30639“); reine Ziffern gelten als KG-Nr. („4023“ = „04023“) */
   ort: string | null
   /** Anzeigename der Gemeinde (Hinweise) */
   ortName?: string | null
@@ -46,6 +47,13 @@ export function kgSchluessel(kg: string | number | null | undefined): string | n
   const ziffern = String(kg ?? '').replace(/\D/g, '')
   if (!ziffern || /^0+$/.test(ziffern)) return null
   return ziffern.padStart(5, '0')
+}
+
+/** Gemeinde-Schlüssel: reine Ziffern als KG-Nr. normalisiert, sonst getrimmt */
+function ortSchluessel(ort: string | null | undefined): string | null {
+  const s = typeof ort === 'string' ? ort.trim() : ''
+  if (!s) return null
+  return /^\d+$/.test(s) ? kgSchluessel(s) : s
 }
 
 const pct = (x: number) => `${Math.round(x * 1000) / 10} %`.replace('.', ',')
@@ -113,7 +121,7 @@ export function ermittleHerkunft(eingabe: readonly HerkunftsTeil[]): HerkunftErg
   const eigene = new Set<string>()
   for (const t of mitCode) {
     const k = herkunftKnotenTolerant(t.code)
-    if (k) aufgeloest.push({ liter: t.liter, code: k.code, ried: riedSchluessel(t.ried), riedRoh: t.ried?.trim() || null, ort: kgSchluessel(t.ort), ortName: t.ortName ?? null })
+    if (k) aufgeloest.push({ liter: t.liter, code: k.code, ried: riedSchluessel(t.ried), riedRoh: t.ried?.trim() || null, ort: ortSchluessel(t.ort), ortName: t.ortName ?? null })
     else eigene.add((t.code as string).trim())
   }
   if (eigene.size > 0) {
