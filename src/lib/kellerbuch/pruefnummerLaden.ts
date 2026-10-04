@@ -22,7 +22,7 @@ import { AktionsFehler } from '@/lib/fehler'
 import { alle } from '@/lib/supabase/alle'
 import {
   antragGenehmigt, chargeHatAntrag, freiePruefnummerPruefen, fuellungAntragPruefen, fuellungDatumText, fuellungDatumVerletzung,
-  pnDatumDe, pnNormiert, pruefnummerAusAntrag, pruefnummerGueltig, pruefnummerNachtragPruefen, pnTag,
+  pnDatumDe, pnNormiert, pruefnummerAusAntrag, pruefnummerGueltig, pruefnummerNachtragPruefen, pnTag, umzugsAntragPruefen,
   pruefnummernSchaden, pruefnummernSchadenFrage, pruefnummernSchadenNotiz,
   type PnVorgang,
   type PnAbfuellung, type PnAntrag, type PnChargeDaten, type PnErgebnis, type PnUmzugAbgang, type PnUmzugsherkunft, type PnZugang,
@@ -481,8 +481,10 @@ async function freieNummerFehler(
  *     (Nummer der Antrags-Charge, wenn sie beim Umzug galt) – nicht für Chargen mit Antrag und
  *     nie mit der Nummer eines anderen Antrags des Betriebs (freiePruefnummerPruefen).
  *   * `nurAusAntrag` (KAN-84, createFuellung): eine Füllung aus einer Charge bekommt die Nummer NUR aus
- *     einem Antrag dieser Charge – die freie Eingabe (Lieferanten-Nummer, Umzugs-Charge) entfällt dann;
- *     sie bleibt nur für Füllungen ohne Charge (Eröffnungsbestand per Import).
+ *     einem Antrag dieser Charge oder – bis KAN-99 – aus dem genehmigten Antrag einer Vorgänger-Charge, aus der
+ *     sie vollständig per Umzug stammt (umzugsAntragPruefen; gespeichert wird dann nur die Nummer, dac_antrag_id
+ *     bleibt leer wie bisher bei der Umzugs-Nummer). Die freie Eingabe (Lieferanten-Nummer) entfällt; sie bleibt
+ *     nur für Füllungen ohne Charge (Eröffnungsbestand per Import).
  * `heute` nur für Tests (Tag des Bestands, Standard wienHeute()).
  */
 export async function pruefnummerFuerFuellung(
@@ -502,7 +504,17 @@ export async function pruefnummerFuerFuellung(
     if (!p.weinausbauId) {
       throw new AktionsFehler('Ein DAC-Antrag kann nur zusammen mit seiner Kellerbuch-Charge verknüpft werden – bitte die Charge wählen.')
     }
-    const r = fuellungAntragPruefen(await chargeDaten(), dacAntragId, p.abfuelldatum)
+    const daten = await chargeDaten()
+    // KAN-84: Antrag einer Vorgänger-Charge (vollständig per Umzug) – Nummer ja, Verknüpfung nein
+    if (daten && !daten.antraege.some(a => a.id === dacAntragId)) {
+      const h = await mitFehlertext(() => ladeUmzugsherkunft(supabase, tenantId, p.weinausbauId as string, { heute: p.heute }))
+      if (h?.daten.antraege.some(a => a.id === dacAntragId)) {
+        const u = umzugsAntragPruefen(h, { chargeId: p.weinausbauId, chargeName: p.chargeName, daten }, dacAntragId)
+        if (!u.ok) throw new AktionsFehler(u.fehler)
+        return { pruefnummer: u.pruefnummer, dacAntragId: null }
+      }
+    }
+    const r = fuellungAntragPruefen(daten, dacAntragId, p.abfuelldatum)
     if (!r.ok) throw new AktionsFehler(r.fehler)
     return { pruefnummer: r.pruefnummer, dacAntragId }
   }
@@ -518,6 +530,16 @@ export async function pruefnummerFuerFuellung(
     return { pruefnummer: r.pruefnummer, dacAntragId: passend.id }
   }
   if (p.weinausbauId && p.nurAusAntrag) {
+    // Nummer des genehmigten Antrags einer Vorgänger-Charge (Assistent nennt die Nummer statt den Antrag zu wählen)
+    if (!chargeHatAntrag(charge)) {
+      const h = await mitFehlertext(() => ladeUmzugsherkunft(supabase, tenantId, p.weinausbauId as string, { heute: p.heute }))
+      const vorgaenger = h?.daten.antraege.find(a => pruefnummerAusAntrag(a, h.daten.chargeId) !== null && pnNormiert(a.pruefnummer) === n)
+      if (h && vorgaenger) {
+        const u = umzugsAntragPruefen(h, { chargeId: p.weinausbauId, chargeName: p.chargeName, daten: charge }, vorgaenger.id)
+        if (!u.ok) throw new AktionsFehler(u.fehler)
+        return { pruefnummer: u.pruefnummer, dacAntragId: null }
+      }
+    }
     const name = p.chargeName ? ` „${p.chargeName}“` : ''
     throw new AktionsFehler(`Die Prüfnummer ${freieNummer} gehört zu keinem genehmigten DAC-Antrag der Charge${name}. Die Prüfnummer einer Füllung kommt nur aus dem DAC-Antrag ihrer Charge – bitte den Antrag unter „DAC-Antrag / Prüfnummer“ wählen (ohne gültigen Antrag wird die Füllung ohne Prüfnummer angelegt; nachtragen lässt sie sich später in der Füllungsbearbeitung).`)
   }
@@ -540,7 +562,7 @@ export async function pruefnummerNachtragen(
   fuellung: { weinausbauId: string | null; datum: string | null; dacAntragId: string | null },
   antragId: string,
   p: { heute?: string } = {},
-): Promise<{ pruefnummer: string; dacAntragId: string }> {
+): Promise<{ pruefnummer: string; dacAntragId: string | null }> {
   if (!UUID_RE.test(antragId)) throw new AktionsFehler('Der gewählte DAC-Antrag ist ungültig – bitte die Seite neu laden.')
   if (!fuellung.weinausbauId) {
     throw new AktionsFehler('Diese Füllung hat keine Kellerbuch-Charge – eine Prüfnummer lässt sich nur aus dem DAC-Antrag der Charge nachtragen.')
@@ -548,9 +570,44 @@ export async function pruefnummerNachtragen(
   const datum = pnTag(fuellung.datum)
   if (!datum) throw new AktionsFehler('Die Füllung hat kein gültiges Abfülldatum – die Prüfnummer kann nicht geprüft werden.')
   const daten = await mitFehlertext(async () => (await ladePruefnummerDaten(supabase, tenantId, [fuellung.weinausbauId as string], { heute: p.heute })).get(fuellung.weinausbauId as string) ?? null)
+  // KAN-84: Antrag einer Vorgänger-Charge (vollständig per Umzug) – nur ohne eigene Verknüpfung, gespeichert wird die Nummer
+  if (daten && !daten.antraege.some(a => a.id === antragId) && !fuellung.dacAntragId?.trim()) {
+    const h = await mitFehlertext(() => ladeUmzugsherkunft(supabase, tenantId, fuellung.weinausbauId as string, { heute: p.heute }))
+    if (h?.daten.antraege.some(a => a.id === antragId)) {
+      const u = umzugsAntragPruefen(h, { chargeId: fuellung.weinausbauId, daten }, antragId)
+      if (!u.ok) throw new AktionsFehler(u.fehler)
+      return { pruefnummer: u.pruefnummer as string, dacAntragId: null }
+    }
+  }
   const r = pruefnummerNachtragPruefen(daten, antragId, datum, fuellung.dacAntragId?.trim() || null)
   if (!r.ok) throw new AktionsFehler(r.fehler)
   return { pruefnummer: r.pruefnummer as string, dacAntragId: antragId }
+}
+
+/**
+ * KAN-84: Genehmigte Anträge von Vorgänger-Chargen, aus denen die Charge vollständig per Umzug stammt und deren
+ * Nummer für sie gilt (umzugsAntragPruefen) – Angebot in „Neue Füllung“ und „Prüfnummer nachtragen“, dieselbe Regel
+ * wie der Server. Nur für Chargen ohne eigenen (aktiven, nicht abgelehnten) Antrag. Schlüssel = Charge; Wert = die
+ * wählbaren Anträge samt Name der Antrags-Charge. `daten`: schon geladene Prüfnummer-Daten der Chargen (sonst geladen).
+ */
+export async function ladeUmzugsAntraege(
+  supabase: any,
+  tenantId: string,
+  chargeIds: readonly (string | null | undefined)[],
+  opts: { heute?: string; daten?: Map<string, PnChargeDaten> } = {},
+): Promise<Map<string, { antrag: PnAntrag; herkunftName: string | null }[]>> {
+  const ids = [...new Set(chargeIds.filter((x): x is string => typeof x === 'string' && UUID_RE.test(x)))]
+  const daten = opts.daten ?? await ladePruefnummerDaten(supabase, tenantId, ids, { heute: opts.heute })
+  const aus = new Map<string, { antrag: PnAntrag; herkunftName: string | null }[]>()
+  await Promise.all(ids.filter(id => !chargeHatAntrag(daten.get(id))).map(async id => {
+    const h = await ladeUmzugsherkunft(supabase, tenantId, id, { heute: opts.heute })
+    if (!h) return
+    const liste = h.daten.antraege
+      .filter(a => a.weinausbauId === h.daten.chargeId && umzugsAntragPruefen(h, { chargeId: id, daten: daten.get(id) ?? null }, a.id).ok)
+      .map(antrag => ({ antrag, herkunftName: h.name ?? null }))
+    if (liste.length > 0) aus.set(id, liste)
+  }))
+  return aus
 }
 
 /**

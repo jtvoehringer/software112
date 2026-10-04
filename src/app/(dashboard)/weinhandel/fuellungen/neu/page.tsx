@@ -3,7 +3,7 @@ import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/r
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
-import { createFuellung } from '../../actions'
+import { createFuellung, umzugsAntraegeFuerCharge } from '../../actions'
 import { ladeCustomWeinbaugebiete } from '../../../weinbaugebiete/actions'
 import FuellungFormClient from './FuellungFormClient'
 import { wienHeute } from '@/lib/csv'
@@ -80,6 +80,7 @@ export default async function NeueFuellungPage({
     if (hinweis) pnHinweise[id] = hinweis
   }
   const dacAntraege = alleAntraege.filter(d => waehlbar.has(d.id))
+  // KAN-84: Anträge von Vorgänger-Chargen (Umzug) lädt das Formular erst für die gewählte Charge (umzugsAntraegeFuerCharge)
 
   return (
     <div className="max-w-2xl">
@@ -101,6 +102,7 @@ export default async function NeueFuellungPage({
         pnHinweise={pnHinweise}
         customWeinbaugebiete={customWeinbaugebiete}
         action={createFuellung}
+        umzugsAntraegeLaden={umzugsAntraegeFuerCharge}
         defaultChargeId={chargeId}
       />
     </div>

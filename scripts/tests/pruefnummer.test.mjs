@@ -975,7 +975,10 @@ describe('Verdrahtung (Quelltext)', () => {
     assert.ok(pruefung < create.indexOf(".from('fuellungen')"), 'Prüfung vor dem Anlegen der Füllung')
     const l = quelle('src/lib/kellerbuch/pruefnummerLaden.ts')
     const helfer = l.slice(l.indexOf('export async function pruefnummerFuerFuellung'))
-    assert.match(helfer, /fuellungAntragPruefen\(await chargeDaten\(\), dacAntragId, p\.abfuelldatum\)/)
+    // KAN-84: Antrag einer Vorgänger-Charge (vollständig per Umzug) über umzugsAntragPruefen, sonst wie bisher
+    assert.match(helfer, /const daten = await chargeDaten\(\)/)
+    assert.match(helfer, /umzugsAntragPruefen\(h, \{ chargeId: p\.weinausbauId, chargeName: p\.chargeName, daten \}, dacAntragId\)/)
+    assert.match(helfer, /fuellungAntragPruefen\(daten, dacAntragId, p\.abfuelldatum\)/)
     assert.match(helfer, /ladePruefnummerDaten\(supabase, tenantId, \[p\.weinausbauId\], \{ heute: p\.heute \}\)/)
     assert.match(helfer, /freieNummerFehler\(supabase, tenantId, freieNummer, \{/)
     assert.match(helfer, /if \(!r\.ok\) throw new AktionsFehler\(r\.fehler\)/)
@@ -985,8 +988,13 @@ describe('Verdrahtung (Quelltext)', () => {
     const s = quelle('src/app/(dashboard)/weinhandel/actions.ts')
     const upd = s.slice(s.indexOf('export async function updateFuellung'), s.indexOf('export async function bestandKorrigieren'))
     assert.match(upd, /\.select\('weinausbau_id, datum, [^']*pruefnummer, dac_antrag_id[^']*'\)/)
-    // Charge und Abfülldatum werden nicht mehr geändert (bisher: pruefnummerBeiChargenzuordnung/-Datumsaenderung)
-    assert.doesNotMatch(upd, /pruefnummerBeiChargenzuordnung|pruefnummerBeiDatumsaenderung/)
+    // Abfülldatum wird nicht mehr geändert (bisher: pruefnummerBeiDatumsaenderung); eine Charge nur noch einmal zuordnen,
+    // wenn die Füllung keine hat (Altbestand/Import) – mit der Prüfung von Prüfnummer und DAC-Antrag vor dem Speichern
+    assert.doesNotMatch(upd, /pruefnummerBeiDatumsaenderung/)
+    assert.match(upd, /const neueCharge = alt\.weinausbau_id \? null : /)
+    assert.match(upd, /await pruefnummerBeiChargenzuordnung\(supabase, tenantId, \{/)
+    assert.ok(upd.indexOf('pruefnummerBeiChargenzuordnung(') < upd.indexOf('.update(payload)'), 'Prüfung vor dem Speichern')
+    assert.match(upd, /if \(neueCharge\) upd = upd\.is\('weinausbau_id', null\)/)
     const fest = s.slice(s.indexOf('const FUELLUNG_FESTE_FELDER'), s.indexOf('function festerWertGleich'))
     for (const feld of ['weinausbau_id', 'datum', 'chargennummer']) assert.match(fest, new RegExp(`feld: '${feld}'`), feld)
     assert.match(s, /aus\.push\('Prüfnummer'\)/)
@@ -1036,11 +1044,13 @@ describe('Verdrahtung (Quelltext)', () => {
     assert.match(s, /ersatzPruefnummer\(antrag, \{ datum: pnTag\(f\?\.datum\), chargeId \}/)
     assert.match(quelle('src/lib/behoerden/blend.ts'), /ersatzPruefnummer\(antrag, \{ datum: tag\(f\.datum\) \|\| null, chargeId \}, zugaenge\)/)
   })
-  test('updateFuellung (KAN-84): eine andere Charge wird gar nicht mehr gespeichert – Füllung nur im eigenen Betrieb geladen', () => {
-    // bisher: Charge eines anderen Betriebs (unbekannte ID) beim Zuordnen abgelehnt; seit KAN-84 ist die Charge fest
+  test('updateFuellung (KAN-84): Charge nur bei einer Füllung ohne Charge zuordnen, Charge des eigenen Betriebs, Füllung im eigenen Betrieb geladen', () => {
+    // bisher: Charge eines anderen Betriebs (unbekannte ID) beim Zuordnen abgelehnt – gilt für die einmalige Zuordnung weiter
     const s = quelle('src/app/(dashboard)/weinhandel/actions.ts')
     const upd = s.slice(s.indexOf('export async function updateFuellung'), s.indexOf('export async function bestandKorrigieren'))
-    assert.doesNotMatch(upd, /weinausbau_id:\s/, 'kein weinausbau_id im payload')
+    const wa = upd.slice(upd.indexOf("from('weinausbau')"), upd.indexOf("from('weinausbau')") + 400)
+    assert.match(wa, /\.eq\('tenant_id', tenantId\)\s*\.maybeSingle\(\)/)
+    assert.match(upd, /if \(!wa\) throw new AktionsFehler\('Die gewählte Kellerbuch-Charge wurde nicht gefunden\.'\)/)
     const laden = upd.slice(upd.indexOf("from('fuellungen')"), upd.indexOf("from('fuellungen')") + 600)
     assert.match(laden, /\.eq\('tenant_id', tenantId\)\s*\.maybeSingle\(\)/)
     assert.match(upd, /\.update\(payload\)\.eq\('id', id\)\.eq\('tenant_id', tenantId\)/)

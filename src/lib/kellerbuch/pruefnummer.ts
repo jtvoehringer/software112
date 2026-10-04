@@ -568,6 +568,37 @@ export function pruefnummerNachtragPruefen(
   return { ok: true, pruefnummer: nr }
 }
 
+/**
+ * KAN-84 (04.10.2026, bis KAN-99): Prüfnummer aus dem genehmigten DAC-Antrag einer VORGÄNGER-Charge, aus der die
+ * Charge vollständig per Umzug stammt (`herkunft` aus ladeUmzugsherkunft: jeder Zugang jedes Glieds der Kette ist
+ * ein Umzug aus genau einer Charge – kein Verschnitt, keine Pressung, kein Zukauf, kein Eröffnungsbestand). Statt
+ * Freitext wählt das Formular den Antrag; die Regel ist die der bisherigen freien Eingabe (freiePruefnummerPruefen):
+ * die Nummer muss am ersten und am letzten Umzugstag gegolten haben (pruefnummerGueltig der Antrags-Charge – kein
+ * Zugang seit der Einreichung bis zum Umzug) und der Antrag die Menge decken. Hat die Charge selbst einen (aktiven,
+ * nicht abgelehnten) Antrag, kommt die Nummer aus diesem – Vorgänger-Anträge zählen dann nicht.
+ */
+export function umzugsAntragPruefen(
+  herkunft: PnUmzugsherkunft | null | undefined,
+  ziel: { chargeId: string; chargeName?: string | null; daten: PnChargeDaten | null },
+  antragId: string,
+): PnFuellungPruefung {
+  const antrag = herkunft?.daten.antraege.find(a => a.id === antragId && a.weinausbauId === herkunft.daten.chargeId) ?? null
+  if (!herkunft || !antrag) {
+    return { ok: false, fehler: 'Der gewählte DAC-Antrag gehört weder zur Charge noch zu einer Charge, aus der sie vollständig per Umzug stammt – bitte die Seite neu laden.' }
+  }
+  if (chargeHatAntrag(ziel.daten)) {
+    return { ok: false, fehler: `Für die Charge${ziel.chargeName ? ` „${ziel.chargeName}“` : ''} gibt es einen eigenen DAC-Antrag – die Prüfnummer kommt aus diesem.` }
+  }
+  const nr = pruefnummerAusAntrag(antrag, herkunft.daten.chargeId)
+  if (!nr) {
+    return { ok: false, fehler: `Der DAC-Antrag${antrag.bezeichnung ? ` „${antrag.bezeichnung}“` : ''} der Vorgänger-Charge ist nicht genehmigt, inaktiv oder hat noch keine Prüfnummer.` }
+  }
+  const fehler = freiePruefnummerPruefen(nr, {
+    chargeId: ziel.chargeId, chargeName: ziel.chargeName ?? null, charge: ziel.daten, antraegeMitNummer: [antrag], herkunft,
+  })
+  return fehler ? { ok: false, fehler } : { ok: true, pruefnummer: nr }
+}
+
 /** Hat die Charge einen aktiven, nicht abgelehnten DAC-Antrag? Dann gibt es keine freie Eingabe. */
 export function chargeHatAntrag(daten: PnChargeDaten | null | undefined): boolean {
   return !!daten && daten.antraege.some(a => a.weinausbauId === daten.chargeId && a.aktiv && a.status !== 'abgelehnt')

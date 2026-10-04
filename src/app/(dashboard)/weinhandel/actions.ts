@@ -19,7 +19,7 @@ import { BEWEGUNGSARTEN, istBewegungsart } from './fuellungen/bewegungsarten'
 import { spaetereMengenbewegungen } from '@/lib/kellerbuch/storno'
 import { folgebuchungenText } from '@/lib/kellerbuch/folgebuchungen'
 import { KORREKTUR_NACH_OBEN_HINWEIS } from '@/lib/kellerbuch/hinweise'
-import { pruefnummerFuerFuellung, pruefnummerNachtragen } from '@/lib/kellerbuch/pruefnummerLaden'
+import { ladeUmzugsAntraege, pruefnummerBeiChargenzuordnung, pruefnummerFuerFuellung, pruefnummerNachtragen } from '@/lib/kellerbuch/pruefnummerLaden'
 import { pnNormiert } from '@/lib/kellerbuch/pruefnummer'
 import { WEINART_LABEL } from '@/lib/keller/weinart'
 import { landAnzeige } from '@/lib/katalog/laender'
@@ -178,6 +178,37 @@ function ignorierteMerkmale(formData: FormData, m: ChargenMerkmale): string[] {
   const l = roh('land_iso')
   if (l !== null && l.toUpperCase() !== m.land_iso) aus.push(`Land ${landAnzeige(m.land_iso)} statt „${landAnzeige(l)}“`)
   return aus
+}
+
+/** Antrag einer Vorgänger-Charge im Format der Auswahl „DAC-Antrag / Prüfnummer“ (FuellungFormClient) */
+export type UmzugsAntragAuswahl = {
+  id: string; bezeichnung: string; dac_region: string; jahrgang: number | null; rebsorte: string | null
+  pruefnummer: string | null; status: string; weinausbau_id: string
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * KAN-84 (bis KAN-99): Genehmigte Anträge von Vorgänger-Chargen, aus denen die GEWÄHLTE Charge vollständig per Umzug
+ * stammt – das Formular „Neue Füllung“ fragt sie erst beim Wählen der Charge ab (je Charge mehrere Abfragen über die
+ * Umzugskette; beim Seitenaufbau für alle offenen Chargen wäre das zu langsam). Dieselbe Regel wie createFuellung
+ * (ladeUmzugsAntraege → umzugsAntragPruefen); der Server prüft beim Speichern ohnehin erneut.
+ */
+// schreibsperre-ausnahme: reine Leseabfrage für die Auswahl im Formular „Neue Füllung“, schreibt nichts
+export async function umzugsAntraegeFuerCharge(chargeId: string): Promise<UmzugsAntragAuswahl[]> {
+  const membership = await getCurrentMembership()
+  if (!membership) throw new AktionsFehler('Kein aktiver Mandant gefunden')
+  await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
+  pruefeFuellungsRecht(membership)
+  if (typeof chargeId !== 'string' || !UUID_RE.test(chargeId)) return []
+  const supabase = await createSupabaseServerClient()
+  const liste = (await ladeUmzugsAntraege(supabase, membership.tenantId, [chargeId])).get(chargeId) ?? []
+  return liste.map(({ antrag, herkunftName }) => ({
+    id: antrag.id,
+    bezeichnung: `${antrag.bezeichnung ?? 'DAC-Antrag'} (über Umzug aus „${herkunftName ?? 'Vorgänger-Charge'}“)`,
+    dac_region: '', jahrgang: null, rebsorte: null,
+    pruefnummer: antrag.pruefnummer, status: antrag.status, weinausbau_id: chargeId,
+  }))
 }
 
 export async function createFuellung(formData: FormData): Promise<{ id: string; hinweis?: string }> {
@@ -412,7 +443,9 @@ async function fuellungAnlegen(formData: FormData, eroeffnung: FlaschenEroeffnun
 //
 // KAN-84 (04.10.2026): Nach der Anlage sind nur noch Produktname, Preise (VK brutto, MwSt., Einstandspreis),
 // KN-Code, Notizen und „aktiv“ änderbar; die Prüfnummer lässt sich EINMAL aus dem DAC-Antrag der Charge nachtragen
-// (Feld pn_antrag_id, pruefnummerNachtragen). Weinmerkmale, Abfülldatum, Los, Charge und Mengen sind fest: ein davon
+// (Feld pn_antrag_id, pruefnummerNachtragen). Eine Füllung OHNE Charge (Altbestand/Import) lässt sich EINMAL einer Charge
+// des eigenen Betriebs zuordnen (nur Rückverfolgung, nichts wird abgebucht, Merkmale bleiben; Prüfnummer/Antrag müssen
+// passen – pruefnummerBeiChargenzuordnung). Weinmerkmale, Abfülldatum, Los, Charge und Mengen sind fest: ein davon
 // abweichend gesendeter Wert wird abgelehnt (nicht still ignoriert), ein unverändert mitgesendeter Wert stört nicht.
 // Damit entfallen die bisherigen Sonderfälle der Bearbeitung – Mengen-Sperre bei Folgebuchungen (KAN-35),
 // Prüfnummer/DAC-Antrag bei nachträglicher Chargenzuordnung bzw. geändertem Abfülldatum (KAN-72), Abstufung von
@@ -457,6 +490,8 @@ function festerWertGleich(art: FestesFeld['art'], gesendet: FormDataEntryValue, 
 function geaenderteFesteFelder(formData: FormData, alt: AR): string[] {
   const aus = FUELLUNG_FESTE_FELDER.filter(f => {
     const v = formData.get(f.feld)
+    // Zuordnung einer Charge zu einer Füllung ohne Charge prüft updateFuellung selbst (einmalig erlaubt)
+    if (f.feld === 'weinausbau_id' && alt.weinausbau_id == null && typeof v === 'string' && v.trim()) return false
     return v !== null && !festerWertGleich(f.art, v, alt[f.feld])
   }).map(f => f.label)
   if (['qualitaet', 'zusatzbezeichnung', 'erzeugnis'].some(k => formData.has(k))) {
@@ -530,6 +565,28 @@ export async function updateFuellung(id: string, formData: FormData): Promise<vo
     payload.aktiv = aktiv
   }
 
+  // Füllung ohne Charge (Altbestand/Import): EINMAL einer Charge des eigenen Betriebs zuordnen – nur Rückverfolgung,
+  // von der Charge wird nichts abgebucht, die Merkmale der Füllung bleiben; danach ist die Charge fest
+  const neueCharge = alt.weinausbau_id ? null : (String(formData.get('weinausbau_id') ?? '').trim() || null)
+  if (neueCharge) {
+    const { data: wa, error: waErr } = await (supabase.from('weinausbau') as any)
+      .select('id, name')
+      .eq('id', neueCharge)
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+    if (waErr) throw new AktionsFehler(dbFehlerText(waErr, 'Charge konnte nicht geladen werden'))
+    if (!wa) throw new AktionsFehler('Die gewählte Kellerbuch-Charge wurde nicht gefunden.')
+    // KAN-72: Prüfnummer bzw. DAC-Antrag der Füllung müssen zur Charge und zum Abfülldatum passen
+    await pruefnummerBeiChargenzuordnung(supabase, tenantId, {
+      pruefnummer: (alt.pruefnummer as string | null) ?? null,
+      dacAntragId: (alt.dac_antrag_id as string | null) ?? null,
+    }, { weinausbauId: neueCharge, chargeName: ((wa as AR).name as string | undefined) ?? null, datum: (alt.datum as string | null) ?? null })
+    // Hinweis: Der DB-Trigger a_fuellung_weinart (s112_fuellung_weinart) setzt bei geänderter weinausbau_id die
+    // Weinart der Füllung auf die der Charge (außer „unbekannt“) – gewollt (Jörgen 04.10.2026), die Weinart der Charge
+    // ist dort korrekt; alle anderen Merkmale bleiben unverändert.
+    payload.weinausbau_id = neueCharge
+  }
+
   // Prüfnummer EINMAL nachtragen – nur aus dem DAC-Antrag der Charge, geprüft am Abfülldatum
   const pnAntragId = String(formData.get('pn_antrag_id') ?? '').trim() || null
   let nachtrag = false
@@ -538,7 +595,7 @@ export async function updateFuellung(id: string, formData: FormData): Promise<vo
       throw new AktionsFehler(`Die Füllung hat bereits die Prüfnummer ${alt.pruefnummer} – sie lässt sich nur einmal nachtragen und danach nicht mehr ändern.`)
     }
     const pn = await pruefnummerNachtragen(supabase, tenantId, {
-      weinausbauId: (alt.weinausbau_id as string | null) ?? null,
+      weinausbauId: neueCharge ?? (alt.weinausbau_id as string | null) ?? null,
       datum:        (alt.datum as string | null) ?? null,
       dacAntragId:  (alt.dac_antrag_id as string | null) ?? null,
     }, pnAntragId)
@@ -550,11 +607,13 @@ export async function updateFuellung(id: string, formData: FormData): Promise<vo
   let upd = (supabase.from('fuellungen') as any).update(payload).eq('id', id).eq('tenant_id', tenantId)
   // „einmal“: nur, solange noch keine Nummer eingetragen ist (auch nicht gleichzeitig in einem anderen Tab)
   if (nachtrag) upd = upd.is('pruefnummer', null)
+  // Zuordnung „einmal“: nur, solange die Füllung noch keine Charge hat
+  if (neueCharge) upd = upd.is('weinausbau_id', null)
   const { data: updData, error } = await upd.select('id')
   if (error) throw new AktionsFehler(dbFehlerText(error, 'Speichern fehlgeschlagen (fuellungen)'))
   if (!updData || (updData as AR[]).length === 0) {
-    throw new AktionsFehler(nachtrag
-      ? 'Die Prüfnummer wurde zwischenzeitlich eingetragen – bitte die Seite neu laden.'
+    throw new AktionsFehler(nachtrag || neueCharge
+      ? 'Die Füllung wurde zwischenzeitlich geändert (Prüfnummer bzw. Charge schon eingetragen) – bitte die Seite neu laden.'
       : 'Die Füllung konnte nicht gespeichert werden (nicht gefunden oder keine Berechtigung) – bitte die Seite neu laden.')
   }
   revalidatePath('/weinhandel')

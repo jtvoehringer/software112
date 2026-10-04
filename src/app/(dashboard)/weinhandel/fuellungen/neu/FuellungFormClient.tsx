@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useMemo, useTransition } from 'react'
+import { useEffect, useState, useMemo, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from '@/components/ui/Link'
 import { KN_CODES } from '@/lib/wein/zolltarif'
-import { HERKUNFT_ORDER, HERKUNFT_LABEL, herkunftOptionen, zulaessigeHerkuenfte } from '@/lib/herkunft'
+import { HERKUNFT_ORDER, HERKUNFT_LABEL, herkunftGebietTolerant, herkunftOptionen, zulaessigeHerkuenfte } from '@/lib/herkunft'
 import { qualitaetText } from '@/lib/weinqualitaet'
 import { istAufwertung, normalisiereQualitaet } from '@/lib/wein/qualitaetsrang'
 import ZusatzErzeugnisFelder from '@/components/wein/ZusatzErzeugnisFelder'
@@ -71,6 +71,7 @@ export default function FuellungFormClient({
   pnHinweise = {},
   customWeinbaugebiete,
   action,
+  umzugsAntraegeLaden,
   defaultChargeId,
 }: {
   chargen: Charge[]
@@ -80,6 +81,8 @@ export default function FuellungFormClient({
   pnHinweise?: Record<string, string>
   customWeinbaugebiete: CustomWeinbaugebiet[]
   action: (fd: FormData) => Promise<{ id: string; hinweis?: string }>
+  /** KAN-84: Anträge von Vorgänger-Chargen (Charge vollständig per Umzug) – erst für die gewählte Charge geladen */
+  umzugsAntraegeLaden?: (chargeId: string) => Promise<DacAntrag[]>
   defaultChargeId?: string
 }) {
   const router = useRouter()
@@ -93,6 +96,8 @@ export default function FuellungFormClient({
   const [nameVal, setNameVal]     = useState(defaultCharge?.name ?? '')
   const [qualitaetVal, setQualitaetVal] = useState(normalisiereQualitaet(defaultCharge ?? null).stufe ?? 'qualitaetswein')
   const [herkunftCodeVal, setHerkunftCodeVal] = useState(defaultCharge?.herkunft_code ?? '')
+  // KAN-84: Anbaugebiet aus dem Gebiet der Herkunft der Charge vorbelegt (z. B. „Thermenregion“) – bei der Anlage änderbar
+  const [anbaugebietVal, setAnbaugebietVal] = useState(herkunftGebietTolerant(defaultCharge?.herkunft_code) ?? '')
   // Bewusst NICHT vorbelegt (false) - ein versehentlich stehen gelassenes Häkchen hat
   // sonst schon unbemerkt hohe Restmengen als Schwund ausgebucht. Der User muss die
   // Schwundbuchung aktiv bestätigen (siehe Warnhinweis unten).
@@ -109,7 +114,29 @@ export default function FuellungFormClient({
 
   // KAN-72/KAN-84: Prüfnummer nur aus einem (gültigen bzw. offenen) DAC-Antrag der Charge – keine freie
   // Eingabe mehr (createFuellung lehnt sie mit Charge ab, nurAusAntrag)
-  const antraegeDerCharge = selectedChargeId ? dacAntraege.filter(d => d.weinausbau_id === selectedChargeId) : []
+  // KAN-84 (bis KAN-99): dazu die Anträge von Vorgänger-Chargen, aus denen die Charge vollständig per Umzug stammt –
+  // erst für die gewählte Charge geladen; eine veraltete Antwort (Charge inzwischen gewechselt) wird verworfen
+  const [umzug, setUmzug] = useState<{ chargeId: string; liste: DacAntrag[] } | null>(null)
+  useEffect(() => {
+    if (!selectedChargeId || !umzugsAntraegeLaden) return
+    let aktuell = true
+    const chargeId = selectedChargeId
+    umzugsAntraegeLaden(chargeId)
+      .then(liste => {
+        if (!aktuell) return
+        setUmzug({ chargeId, liste })
+        // Vorschlag wie beim eigenen Antrag: der genehmigte – nur, wenn noch nichts gewählt ist
+        const genehmigt = liste.find(d => d.status === 'genehmigt')
+        if (genehmigt) setSelectedDacId(bisher => bisher || genehmigt.id)
+      })
+      .catch(() => { if (aktuell) setUmzug({ chargeId, liste: [] }) })
+    return () => { aktuell = false }
+  }, [selectedChargeId, umzugsAntraegeLaden])
+  const umzugGeladen = !umzugsAntraegeLaden || umzug?.chargeId === selectedChargeId
+  const umzugsAntraege = umzug && umzug.chargeId === selectedChargeId ? umzug.liste : []
+  const antraegeDerCharge = selectedChargeId
+    ? [...dacAntraege.filter(d => d.weinausbau_id === selectedChargeId), ...umzugsAntraege]
+    : []
   const pnHinweis = selectedChargeId ? (pnHinweise[selectedChargeId] ?? null) : null
 
   // Nur Abstufung erlaubt, keine Aufstufung: Dropdowns zeigen nur noch die
@@ -162,6 +189,7 @@ export default function FuellungFormClient({
       setNameVal(c.name)
       setQualitaetVal(normalisiereQualitaet(c).stufe ?? 'qualitaetswein')
       setHerkunftCodeVal(c.herkunft_code ?? '')
+      setAnbaugebietVal(herkunftGebietTolerant(c.herkunft_code) ?? '')
     }
     // KAN-72: Antrag der vorigen Charge immer verwerfen – bisher blieb die Nummer von Charge A
     // stehen und wurde mit Charge B gespeichert
@@ -292,6 +320,8 @@ export default function FuellungFormClient({
             <label className={labelCls}>Anbaugebiet</label>
             <input aria-label="Anbaugebiet"
               name="anbaugebiet"
+              value={anbaugebietVal}
+              onChange={e => setAnbaugebietVal(e.target.value)}
               placeholder="z.B. Traisental, Wachau, Kamptal …"
               className={inputCls}
             />
@@ -324,12 +354,16 @@ export default function FuellungFormClient({
                     </option>
                   ))}
                 </select>
-                {selectedDacId && dacAntraege.find(d => d.id === selectedDacId)?.status !== 'genehmigt' && (
+                {selectedDacId && antraegeDerCharge.find(d => d.id === selectedDacId)?.status !== 'genehmigt' && (
                   <p className="text-xs text-s112-warn-fg bg-s112-warn-bg border border-s112-warn/30 rounded px-2 py-1 inline-flex items-center gap-1">
                     <AlertTriangle size={12} strokeWidth={2} />DAC-Antrag noch nicht genehmigt – Abfüllung möglich, aber Prüfnummer fehlt.
                   </p>
                 )}
               </div>
+            ) : selectedChargeId && !umzugGeladen ? (
+              <p className="text-xs text-s112-muted border border-s112-border rounded-lg px-3 py-2" aria-live="polite">
+                DAC-Anträge werden geladen …
+              </p>
             ) : (
               // KAN-84: keine freie Eingabe mehr – die Nummer kommt nur aus dem DAC-Antrag der Charge und lässt
               // sich später in der Füllungsbearbeitung einmal nachtragen

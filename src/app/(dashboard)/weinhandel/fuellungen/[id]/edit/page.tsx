@@ -12,7 +12,8 @@ import { normalisiereQualitaet } from '@/lib/wein/qualitaetsrang'
 import { WEINART_LABEL } from '@/lib/keller/weinart'
 import { landAnzeige } from '@/lib/katalog/laender'
 import { pnTag, pruefnummerNachtragPruefen, type PnChargeDaten } from '@/lib/kellerbuch/pruefnummer'
-import { ladePruefnummerDaten } from '@/lib/kellerbuch/pruefnummerLaden'
+import { ladePruefnummerDaten, ladeUmzugsAntraege } from '@/lib/kellerbuch/pruefnummerLaden'
+import { alle } from '@/lib/supabase/alle'
 import { fmtNum } from '@/lib/format'
 import { folgebuchungenDerFuellung, heuteOrtsdatum, datumDe } from '../../folgebuchungen'
 import { bewegungsartLabel } from '../../bewegungsarten'
@@ -70,6 +71,7 @@ export default async function EditFuellungPage({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase-Abfrage nach Projektkonvention (CLAUDE.md)
   const { data: raw } = await tf((supabase.from('fuellungen') as any).select('*').eq('id', id)).single()
   if (!raw) redirect('/weinhandel')
   const f = raw as R
@@ -129,10 +131,33 @@ export default async function EditFuellungPage({
     pnAntraege = (daten?.antraege ?? [])
       .filter(a => pruefnummerNachtragPruefen(daten, a.id, tag, fuellungAntrag).ok)
       .map(a => ({ id: a.id, text: `${a.pruefnummer ?? ''}${a.bezeichnung ? ` · ${a.bezeichnung}` : ''}` }))
+    // KAN-84 (bis KAN-99): auch Anträge von Vorgänger-Chargen, aus denen die Charge vollständig per Umzug stammt –
+    // nur ohne eigene Antrags-Verknüpfung der Füllung (dieselbe Regel wie pruefnummerNachtragen)
+    if (!fuellungAntrag && daten) {
+      const umzug = (await ladeUmzugsAntraege(supabase, tenantId, [f.weinausbau_id], { daten: new Map([[f.weinausbau_id as string, daten]]) })).get(f.weinausbau_id) ?? []
+      for (const { antrag: a, herkunftName } of umzug) {
+        pnAntraege.push({ id: a.id, text: `${a.pruefnummer ?? ''}${a.bezeichnung ? ` · ${a.bezeichnung}` : ''} (über Umzug aus „${herkunftName ?? 'Vorgänger-Charge'}“)` })
+      }
+    }
     if (pnAntraege.length === 0 && fuellungAntrag) {
       const r = pruefnummerNachtragPruefen(daten, fuellungAntrag, tag, fuellungAntrag)
       if (!r.ok) pnHinweis = r.fehler
     }
+  }
+
+  // KAN-84: Füllung ohne Charge (Altbestand/Import) – einmalige Zuordnung; alle Chargen des Betriebs (Bestand egal)
+  let chargenAuswahl: R[] = []
+  if (!f.weinausbau_id && tenantId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase-Abfrage nach Projektkonvention (CLAUDE.md)
+    const { data: wa, error: waErr } = await alle<R>((supabase.from('weinausbau') as any)
+      .select('id, name, jahrgang, status')
+      .eq('tenant_id', tenantId)
+      .is('storniert_am', null)
+      .order('jahrgang', { ascending: false })
+      .order('name')
+      .order('id'))
+    if (waErr) throw new Error(`Chargen konnten nicht geladen werden: ${(waErr as R).message}`)
+    chargenAuswahl = wa
   }
 
   // Bind updateFuellung with id
@@ -229,9 +254,22 @@ export default async function EditFuellungPage({
               </p>
             </>
           ) : (
-            <p className="text-xs text-s112-text-1 bg-s112-bg border border-s112-border rounded-lg px-3 py-2">
-              Keine Charge verknüpft – Flaschen-Eröffnungsbestand bzw. Altbestand aus dem Datenimport.
-            </p>
+            <>
+              <p className="text-xs text-s112-text-1 bg-s112-bg border border-s112-border rounded-lg px-3 py-2">
+                Keine Charge verknüpft – Flaschen-Eröffnungsbestand bzw. Altbestand aus dem Datenimport. Die Charge lässt sich
+                hier einmal nachträglich zuordnen (nur Rückverfolgung: von ihr wird nichts abgebucht, die Angaben der Füllung
+                bleiben); danach ist sie fest.
+              </p>
+              <label className={labelCls}>Charge zuordnen</label>
+              <select aria-label="Charge zuordnen" name="weinausbau_id" defaultValue="" className={inputCls}>
+                <option value="">– keine Zuordnung –</option>
+                {chargenAuswahl.map(c => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}{c.jahrgang ? ` (${c.jahrgang})` : ''}{c.status === 'abgeschlossen' ? ' · abgeschlossen' : ''}
+                  </option>
+                ))}
+              </select>
+            </>
           )}
         </div>
 
