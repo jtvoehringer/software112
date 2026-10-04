@@ -149,6 +149,34 @@ describe('KAN-112 verschnittWerte: Werte und RPC-Argumente', nurMitHooks, () => 
     assert.deepEqual(weg.herkunftAbgestuft, { von: 'kamptal_riedenwein', nach: 'kamptal_gebietswein' })
     assert.match(weg.kopf.notizen, /Keine Ried bzw. Gemeinde mit mindestens 85 %/)
   })
+  test('KAN-111: Herkunft lässt nur Wein zu → Qualität automatisch herabgesetzt, Vermerk; Ried im Chargennamen nur Hinweis', () => {
+    const w = vw.verschnittWerte({
+      datum: '2026-10-04', ziel, weinart: 'weiss', notizen: null, quellen: [{ charge: gv, menge: 100, schwund: 0 }],
+      gruppen: { sorten: [{ wert: 'Riesling', liter: 1100 }], jahrgaenge: [{ wert: '2025', liter: 1100 }], herkunft: [
+        { liter: 1000, code: 'kamptal_riedenwein', ried: 'Heiligenstein', ort: null },
+        { liter: 100, code: 'burgenland', ried: null, ort: null },
+      ] },
+    })
+    assert.equal(w.kopf.ziel.herkunft_code, 'wein')
+    assert.deepEqual([w.kopf.ziel.qualitaetsstufe, w.kopf.ziel.zusatzbezeichnung], ['wein', null])
+    assert.deepEqual(w.herkunftQualitaet?.stufe, 'wein')
+    assert.match(vw.herkunftQualitaetFrage(w.herkunftQualitaet), /nur noch Wein \(aus Österreich\) zu/)
+    assert.match(w.kopf.notizen, /Abstufung auf Wein – keine gemeinsame Weinbauregion bzw. verschiedene Bundesländer/)
+    assert.match(w.kopf.notizen, /Chargenname „Riesling Ried“ nennt eine Ried, die nicht mehr zulässig ist/)
+    assert.equal(w.kopf.ziel.name, undefined)   // Name bleibt unverändert
+  })
+  test('KAN-111: Landwein-Deckel nur, wenn die Mischung darüber liegt; ohne Herkunftsteile kein Deckel', () => {
+    const lw = { ...gv, id: 'L', qualitaetsstufe: 'landwein', herkunft_code: 'weinland' }
+    const basis = { datum: '2026-10-04', ziel: { ...ziel, qualitaetsstufe: 'landwein', zusatzbezeichnung: null, herkunft_code: 'weinland', name: 'Cuvée' }, weinart: 'weiss', notizen: null, quellen: [{ charge: lw, menge: 100, schwund: 0 }] }
+    const w = vw.verschnittWerte({ ...basis, gruppen: { sorten: [{ wert: 'Riesling', liter: 1100 }], jahrgaenge: [{ wert: '2025', liter: 1100 }], herkunft: [
+      { liter: 1000, code: 'weinland', ried: null, ort: null }, { liter: 100, code: 'wlnoe', ried: null, ort: null },
+    ] } })
+    assert.equal(w.herkunftQualitaet, null)
+    assert.equal(w.kopf.ziel.qualitaetsstufe, 'landwein')
+    const ohne = vw.verschnittWerte({ ...basis, gruppen: { sorten: [{ wert: 'Riesling', liter: 1100 }], jahrgaenge: [{ wert: '2025', liter: 1100 }] } })
+    assert.equal(ohne.herkunftQualitaet, null)
+    assert.equal(vw.riedImNamenHinweis('Ried Mandlerin 2025', 'thermenregion_gebietswein', 'thermenregion_gebietswein'), null)
+  })
 })
 
 // ── 3. umziehen() gegen die Attrappe ─────────────────────────────────────────

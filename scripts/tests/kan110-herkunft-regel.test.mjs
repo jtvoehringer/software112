@@ -83,8 +83,14 @@ describe('Gemeinde (85 %)', () => {
 })
 
 describe('Gebiet und Region (100 %)', () => {
-  test('Niederösterreich + Burgenland → Landwein Weinland, höchstens Landwein', () => {
+  test('Niederösterreich + Burgenland → Wein aus Österreich (verschiedene Bundesländer, Entscheidung 04.10.2026)', () => {
     const e = ermittleHerkunft([t(900, 'wlnoe'), t(100, 'burgenland')])
+    assert.equal(e.code, 'wein')
+    assert.equal(e.hoechsteStufe, 'wein')
+    assert.match(e.hinweise.join(), /Verschiedene Bundesländer \(Niederösterreich, Burgenland\)/)
+  })
+  test('Landwein Weinland + Niederösterreich (ein Bundesland bekannt) bleibt Landwein, höchstens Landwein', () => {
+    const e = ermittleHerkunft([t(900, 'weinland'), t(100, 'wlnoe')])
     assert.equal(e.code, 'weinland')
     assert.equal(e.hoechsteStufe, 'landwein')
   })

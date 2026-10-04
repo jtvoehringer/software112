@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { createVerschneidung } from '@/app/(dashboard)/kellerbuch/actions'
+import { useEffect, useState, useTransition } from 'react'
+import { createVerschneidung, verschnittVorschau, type VerschnittVorschau } from '@/app/(dashboard)/kellerbuch/actions'
 import { sortenverschnittBezeichnung, SCHWELLE } from '@/lib/wein/sortenangabe'
 import { qualitaetText } from '@/lib/weinqualitaet'
 import { istAbstufungQualitaet, mischeQualitaet, normalisiereQualitaet } from '@/lib/wein/qualitaetsrang'
@@ -42,6 +42,31 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
   )
 
   const verfuegbar = alleChargen.filter(c => c.id !== zielCharge.id)
+  const [datum, setDatum] = useState(() => new Date().toISOString().split('T')[0])
+
+  // KAN-111: Vorschau vom Server – dieselbe Rechnung wie beim Buchen (Herkunft nach § 21 WeinG aus den tatsächlichen
+  // Anteilen, Qualität samt Deckel aus der Herkunft); ohne Vorschau bleibt die einfache Rechnung im Browser
+  // Ergebnis je Schlüssel gemerkt – eine veraltete Vorschau (andere Quellen/Mengen) zählt nicht
+  const [vorschau, setVorschau] = useState<{ schluessel: string; v: VerschnittVorschau } | null>(null)
+  const vorschauSchluessel = JSON.stringify([datum, quellen
+    .map(q => ({ weinausbau_id: q.weinausbau_id, menge_liter: parseFloat(dezimal(q.menge)) }))
+    .filter(q => q.weinausbau_id && q.menge_liter > 0)])
+  useEffect(() => {
+    const [d, qs] = JSON.parse(vorschauSchluessel) as [string, unknown[]]
+    if (qs.length === 0) return
+    let aktuell = true
+    const t = setTimeout(() => {
+      const fd = new FormData()
+      fd.set('datum', d)
+      fd.set('ziel_weinausbau_id', zielCharge.id)
+      fd.set('quellen_json', JSON.stringify(qs))
+      verschnittVorschau(fd)
+        .then(v => { if (aktuell) setVorschau({ schluessel: vorschauSchluessel, v }) })
+        .catch(() => { if (aktuell) setVorschau(null) })
+    }, 400)
+    return () => { aktuell = false; clearTimeout(t) }
+  }, [vorschauSchluessel, zielCharge.id])
+  const vorschauOk = vorschau && vorschau.schluessel === vorschauSchluessel && !('fehler' in vorschau.v) ? vorschau.v : null
 
   function addQuelle() { setQuellen(q => [...q, { weinausbau_id: '', menge: '' }]) }
   function removeQuelle(i: number) { setQuellen(q => q.filter((_, idx) => idx !== i)) }
@@ -99,7 +124,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
   const zielAngabe = normalisiereQualitaet(zielCharge)
   const alleQualitaeten = [zielAngabe, ...selectedChargen.map(c => normalisiereQualitaet(c))]
   // Ergebnis der Mischung aller beteiligten Chargen
-  const abstufungsZiel = selectedChargen.length > 0 ? mischeQualitaet(alleQualitaeten) : null
+  const abstufungsZiel = selectedChargen.length > 0 ? (vorschauOk ? normalisiereQualitaet(vorschauOk) : mischeQualitaet(alleQualitaeten)) : null
   // Charge liegt über dem Ergebnis → sie verliert durch die Verschneidung Stufe bzw. Zusatzbezeichnung
   const wirdAbgestuft = (c: ChargeOpt) => abstufungsZiel != null && istAbstufungQualitaet(normalisiereQualitaet(c), abstufungsZiel)
   const hatAbstufung = abstufungsZiel != null && (wirdAbgestuft(zielCharge) || selectedChargen.some(wirdAbgestuft))
@@ -108,7 +133,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
     zielCharge.herkunft_code,
     ...selectedChargen.map(c => c.herkunft_code),
   ]
-  const herkunftAbstufungsZiel = selectedChargen.length > 0 ? minHerkunft(alleHerkuenfte) : null
+  const herkunftAbstufungsZiel = selectedChargen.length > 0 ? (vorschauOk ? vorschauOk.herkunft_code : minHerkunft(alleHerkuenfte)) : null
   const hatHerkunftAbstufung = herkunftAbstufungsZiel != null && (
     herkunftIstNiedrigerAls(zielCharge.herkunft_code ?? null, herkunftAbstufungsZiel) ||
     selectedChargen.some(c => herkunftIstNiedrigerAls(c.herkunft_code ?? null, herkunftAbstufungsZiel))
@@ -225,7 +250,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
       <div>
         <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum</label>
         <input aria-label="Datum" name="datum" type="date" required
-          defaultValue={new Date().toISOString().split('T')[0]}
+          value={datum} onChange={e => setDatum(e.target.value)}
           className={`${inputCls} w-48`} />
       </div>
 
@@ -307,6 +332,17 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
                 : <>Der Verschnitt wird auf <strong>{HERKUNFT_LABEL[herkunftAbstufungsZiel] ?? herkunftAbstufungsZiel}</strong> abgestuft.</>
               }
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* KAN-111: Hinweise der Vorschau (Herkunftsregel, Qualität aus der Herkunft, Ried im Chargennamen, Sortenangabe) */}
+      {vorschauOk && vorschauOk.hinweise.length > 0 && (
+        <div className="flex items-start gap-2 bg-s112-bg border border-s112-border rounded-lg px-3 py-2.5 text-sm">
+          <Info size={15} strokeWidth={1.75} className="text-s112-muted mt-0.5 shrink-0" />
+          <div className="space-y-0.5">
+            <p className="font-medium text-s112-text">Vorschau</p>
+            {vorschauOk.hinweise.map(h => <p key={h} className="text-xs text-s112-text-2">{h}</p>)}
           </div>
         </div>
       )}
