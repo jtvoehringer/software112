@@ -226,7 +226,7 @@ describe('Schreibpfade (Quelltext)', () => {
     for (const datei of [
       'src/components/kellerbuch/WeinausbauForm.tsx',
       'src/app/(dashboard)/weinhandel/fuellungen/neu/FuellungFormClient.tsx',
-      'src/app/(dashboard)/weinhandel/fuellungen/[id]/edit/page.tsx',
+      // KAN-84: „Füllung bearbeiten“ zeigt Zusatzbezeichnung/Erzeugnis nur noch an (qualitaetText), nicht mehr änderbar
       'src/app/(dashboard)/weinhandel/zukauf/neu/page.tsx',
       'src/app/(dashboard)/weinhandel/zukauf/[id]/edit/ZukaufEditForm.tsx',
       'src/app/(dashboard)/kellerbuch/eroeffnungsbestand/[id]/edit/page.tsx',

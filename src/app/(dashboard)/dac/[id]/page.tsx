@@ -30,7 +30,7 @@ export default async function DacEditPage({ params }: { params: Promise<{ id: st
     tf((supabase.from('dac_antrag') as any)
       .select('id, weinausbau_id, bezeichnung, dac_region, jahrgang, rebsorte, menge_liter, alkohol_prozent, status, pruefnummer, eingereicht_am, bescheid_am, notizen, aktiv, storniert_am, storniert_von_name, storno_grund')
       .eq('id', id).limit(1)),
-    tf((supabase.from('weinausbau') as any).select('id, name').eq('aktiv', true).order('name')),
+    tf((supabase.from('weinausbau') as any).select('id, name, jahrgang').eq('aktiv', true).order('name')),
   ])
 
   const dac0 = (((rows ?? []) as R[])[0] ?? null)
@@ -44,7 +44,7 @@ export default async function DacEditPage({ params }: { params: Promise<{ id: st
   const analysen = (anRaw ?? []) as R[]
 
   type DacRow = { id: string; weinausbau_id: string | null; bezeichnung: string; dac_region: string; jahrgang: number | null; rebsorte: string | null; menge_liter: number | null; alkohol_prozent: number | null; status: string; pruefnummer: string | null; eingereicht_am: string | null; bescheid_am: string | null; notizen: string | null; aktiv: boolean; storniert_am: string | null; storniert_von_name: string | null; storno_grund: string | null }
-  type NameRow = { id: string; name: string }
+  type NameRow = { id: string; name: string; jahrgang: number | null }
 
   const dac       = dac0 as DacRow | null
   if (!dac) notFound()

@@ -524,6 +524,50 @@ export function waehlbareAntraege(daten: PnChargeDaten, stichtag: string): strin
   return daten.antraege.filter(a => a.weinausbauId === daten.chargeId && fuellungAntragPruefen(daten, a.id, stichtag).ok).map(a => a.id)
 }
 
+/**
+ * KAN-84 (04.10.2026): Prüfnummer einer bestehenden Füllung EINMAL nachtragen – nur aus einem DAC-Antrag
+ * ihrer Charge (Bearbeiten, wenn die Füllung noch keine Nummer hat; typisch: beim Abfüllen war der Antrag
+ * noch offen). Zulässig, wenn
+ *   * der Antrag zur Charge gehört, genehmigt und aktiv ist und eine Nummer trägt,
+ *   * die Füllung nicht schon mit einem ANDEREN Antrag verknüpft ist (`fuellungAntragId`),
+ *   * zwischen Abfüllung und Beginn des Antrags nichts zugebucht wurde (fuellungDatumVerletzung) und
+ *   * – Abfüllung am oder nach dem Beginn – die Nummer laut pruefnummerGueltig am Abfülltag gilt und genau
+ *     dieser Antrag maßgeblich ist (zuletzt eingereichter, genehmigter Antrag).
+ * Abgebucht wird nichts; maßgeblich ist deshalb das Abfülldatum, nicht der heutige Bestand.
+ */
+export function pruefnummerNachtragPruefen(
+  daten: PnChargeDaten | null | undefined,
+  antragId: string,
+  abfuelldatum: string,
+  fuellungAntragId: string | null = null,
+): PnFuellungPruefung {
+  const antrag = daten?.antraege.find(a => a.id === antragId && a.weinausbauId === daten.chargeId) ?? null
+  if (!daten || !antrag) {
+    return { ok: false, fehler: 'Der gewählte DAC-Antrag gehört nicht zur Kellerbuch-Charge dieser Füllung – bitte die Seite neu laden.' }
+  }
+  const name = antrag.bezeichnung ? ` „${antrag.bezeichnung}“` : ''
+  if (fuellungAntragId && fuellungAntragId !== antrag.id) {
+    return { ok: false, fehler: 'Die Füllung ist bereits mit einem anderen DAC-Antrag der Charge verknüpft – nur dessen Prüfnummer lässt sich nachtragen.' }
+  }
+  const nr = pruefnummerAusAntrag(antrag, daten.chargeId)
+  if (!nr) {
+    return { ok: false, fehler: `Der DAC-Antrag${name} ist nicht genehmigt, inaktiv oder hat noch keine Prüfnummer – es gibt nichts nachzutragen.` }
+  }
+  const v = fuellungDatumVerletzung(antrag, daten.zugaenge, abfuelldatum)
+  if (v) return { ok: false, fehler: `${fuellungDatumText(v, abfuelldatum, antrag)} – die Prüfnummer ${nr} gilt für diese Füllung nicht.` }
+  const beginn = antragBeginn(antrag)
+  if (beginn === null || abfuelldatum >= beginn) {
+    const e = pruefnummerGueltig(daten, abfuelldatum)
+    if (e.antragId !== antrag.id) {
+      return { ok: false, fehler: `Die Prüfnummer ${nr} des DAC-Antrags${name} gilt für diese Abfüllung nicht – maßgeblich ist der zuletzt eingereichte, genehmigte Antrag der Charge.` }
+    }
+    if (!e.gueltig) {
+      return { ok: false, fehler: pruefnummerHinweis(e, `die Abfüllung am ${pnDatumDe(abfuelldatum)}`) ?? `Die Prüfnummer ${nr} gilt für diese Abfüllung nicht.` }
+    }
+  }
+  return { ok: true, pruefnummer: nr }
+}
+
 /** Hat die Charge einen aktiven, nicht abgelehnten DAC-Antrag? Dann gibt es keine freie Eingabe. */
 export function chargeHatAntrag(daten: PnChargeDaten | null | undefined): boolean {
   return !!daten && daten.antraege.some(a => a.weinausbauId === daten.chargeId && a.aktiv && a.status !== 'abgelehnt')

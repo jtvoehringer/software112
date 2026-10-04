@@ -965,7 +965,8 @@ describe('Verdrahtung (Quelltext)', () => {
     assert.doesNotMatch(create, /dac_antrag_id:\s*\(formData/)
     assert.match(create, /const \{ pruefnummer, dacAntragId \} = await pruefnummerFuerFuellung\(supabase, tenantId, \{/)
     assert.match(create, /dacAntragId: String\(formData\.get\('dac_antrag_id'\)/)
-    assert.match(create, /abfuelldatum: datum \}\)/)
+    // KAN-84: mit Charge nur aus dem Antrag (nurAusAntrag), ohne Charge (Eröffnungsbestand) weiter die geprüfte freie Eingabe
+    assert.match(create, /abfuelldatum: datum, nurAusAntrag: !eroeffnung \}\)/)
     assert.match(create, /\n\s+pruefnummer,\s/)
     assert.match(create, /dac_antrag_id:\s+dacAntragId,/)
     const pruefung = create.indexOf('pruefnummerFuerFuellung(')
@@ -980,25 +981,28 @@ describe('Verdrahtung (Quelltext)', () => {
     assert.match(helfer, /if \(!r\.ok\) throw new AktionsFehler\(r\.fehler\)/)
     assert.match(l, /return freiePruefnummerPruefen\(nummer, \{[^}]*herkunft,/)
   })
-  test('updateFuellung: neu zugeordnete Charge wird gegen Prüfnummer und DAC-Antrag geprüft, vor dem Speichern', () => {
+  test('updateFuellung (KAN-84): Charge, Abfülldatum, Prüfnummer und DAC-Antrag fest – Nachtrag nur über pruefnummerNachtragen, vor dem Speichern', () => {
     const s = quelle('src/app/(dashboard)/weinhandel/actions.ts')
     const upd = s.slice(s.indexOf('export async function updateFuellung'), s.indexOf('export async function bestandKorrigieren'))
-    assert.match(upd, /\.select\('weinausbau_id, [^']*pruefnummer, dac_antrag_id[^']*'\)/)
-    assert.match(upd, /\.select\('weinausbau_id, datum, /)
-    assert.match(upd, /if \(weinausbauId !== \(alt\.weinausbau_id \?\? null\)\) \{\s+await pruefnummerBeiChargenzuordnung\(supabase, tenantId, pnFuellung, \{[^}]*datum: abfuelldatum,/)
-    assert.ok(upd.indexOf('pruefnummerBeiChargenzuordnung(') < upd.indexOf(".update(payload)"), 'Prüfung vor dem Speichern')
-    // geändertes Abfülldatum bei unveränderter Charge
-    assert.match(upd, /const abfuelldatum = pnTag\(formData\.get\('datum'\)\) \?\? pnTag\(alt\.datum\)/)
-    assert.match(upd, /if \(abfuelldatum && abfuelldatum !== pnTag\(alt\.datum\) && weinausbauId === \(alt\.weinausbau_id \?\? null\)\) \{\s+await pruefnummerBeiDatumsaenderung\(/)
-    assert.ok(upd.indexOf('pruefnummerBeiDatumsaenderung(') < upd.indexOf(".update(payload)"), 'Datumsprüfung vor dem Speichern')
+    assert.match(upd, /\.select\('weinausbau_id, datum, [^']*pruefnummer, dac_antrag_id[^']*'\)/)
+    // Charge und Abfülldatum werden nicht mehr geändert (bisher: pruefnummerBeiChargenzuordnung/-Datumsaenderung)
+    assert.doesNotMatch(upd, /pruefnummerBeiChargenzuordnung|pruefnummerBeiDatumsaenderung/)
+    const fest = s.slice(s.indexOf('const FUELLUNG_FESTE_FELDER'), s.indexOf('function festerWertGleich'))
+    for (const feld of ['weinausbau_id', 'datum', 'chargennummer']) assert.match(fest, new RegExp(`feld: '${feld}'`), feld)
+    assert.match(s, /aus\.push\('Prüfnummer'\)/)
+    assert.match(s, /aus\.push\('DAC-Antrag'\)/)
+    assert.ok(upd.indexOf('geaenderteFesteFelder(formData, alt)') < upd.indexOf('.update(payload)'), 'Ablehnung vor dem Speichern')
+    assert.ok(upd.indexOf('await pruefnummerNachtragen(') < upd.indexOf('.update(payload)'), 'Nachtrag geprüft vor dem Speichern')
+    assert.match(upd, /if \(nachtrag\) upd = upd\.is\('pruefnummer', null\)/)
   })
-  test('Formular: Chargenwechsel setzt Antrag und Prüfnummer zurück, Hidden-Input nur bei freier Eingabe', () => {
+  test('Formular: Chargenwechsel setzt den Antrag zurück; keine freie Prüfnummer mehr (KAN-84)', () => {
     const s = quelle('src/app/(dashboard)/weinhandel/fuellungen/neu/FuellungFormClient.tsx')
     const wechsel = s.slice(s.indexOf('function handleChargeChange'), s.indexOf('function handleDacChange'))
-    const reset = Math.max(wechsel.indexOf("setSelectedDacId('')"), wechsel.indexOf("setPruefnummerVal('')"))
-    assert.ok(wechsel.indexOf("setSelectedDacId('')") > 0 && wechsel.indexOf("setPruefnummerVal('')") > 0)
-    assert.ok(reset < wechsel.indexOf('vorschlag(id)'), 'Zurücksetzen vor dem neuen Vorschlag')
-    assert.match(s, /\{freieEingabe && <input type="hidden" name="pruefnummer" value=\{pruefnummerVal\} \/>\}/)
+    assert.ok(wechsel.indexOf("setSelectedDacId('')") > 0)
+    assert.ok(wechsel.indexOf("setSelectedDacId('')") < wechsel.indexOf('vorschlag(id)'), 'Zurücksetzen vor dem neuen Vorschlag')
+    // KAN-84: weder Freitext noch verstecktes Feld „pruefnummer“ – die Nummer kommt nur aus dem Antrag der Charge
+    assert.doesNotMatch(s, /name="pruefnummer"|freieEingabe|pruefnummer_freitext/)
+    assert.match(s, /<input type="hidden" name="dac_antrag_id" value=\{selectedDacId\} \/>/)
   })
   test('Seite „Neue Füllung“ lädt keine abgelehnten/inaktiven Anträge und bietet nur wählbare an', () => {
     const s = quelle('src/app/(dashboard)/weinhandel/fuellungen/neu/page.tsx')
@@ -1032,12 +1036,13 @@ describe('Verdrahtung (Quelltext)', () => {
     assert.match(s, /ersatzPruefnummer\(antrag, \{ datum: pnTag\(f\?\.datum\), chargeId \}/)
     assert.match(quelle('src/lib/behoerden/blend.ts'), /ersatzPruefnummer\(antrag, \{ datum: tag\(f\.datum\) \|\| null, chargeId \}, zugaenge\)/)
   })
-  test('updateFuellung: Charge eines anderen Betriebs (unbekannte ID) wird abgelehnt, nie gespeichert', () => {
+  test('updateFuellung (KAN-84): eine andere Charge wird gar nicht mehr gespeichert – Füllung nur im eigenen Betrieb geladen', () => {
+    // bisher: Charge eines anderen Betriebs (unbekannte ID) beim Zuordnen abgelehnt; seit KAN-84 ist die Charge fest
     const s = quelle('src/app/(dashboard)/weinhandel/actions.ts')
-    const teil = s.slice(s.indexOf('export async function updateFuellung'))
-    const laden = teil.slice(teil.indexOf("from('weinausbau')"), teil.indexOf("from('weinausbau')") + 600)
+    const upd = s.slice(s.indexOf('export async function updateFuellung'), s.indexOf('export async function bestandKorrigieren'))
+    assert.doesNotMatch(upd, /weinausbau_id:\s/, 'kein weinausbau_id im payload')
+    const laden = upd.slice(upd.indexOf("from('fuellungen')"), upd.indexOf("from('fuellungen')") + 600)
     assert.match(laden, /\.eq\('tenant_id', tenantId\)\s*\.maybeSingle\(\)/)
-    assert.match(laden, /if \(waErr\) throw new AktionsFehler/)
-    assert.match(laden, /if \(!wa\) throw new AktionsFehler\('Die gewählte Kellerbuch-Charge wurde nicht gefunden\.'\)/)
+    assert.match(upd, /\.update\(payload\)\.eq\('id', id\)\.eq\('tenant_id', tenantId\)/)
   })
 })

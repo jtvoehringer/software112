@@ -6,15 +6,15 @@ import Link from '@/components/ui/Link'
 import { Wine } from 'lucide-react'
 import { updateFuellung } from '../../../actions'
 import { KN_CODES } from '@/lib/wein/zolltarif'
-import { HERKUNFT_ORDER, HERKUNFT_LABEL, herkunftOptionen, zulaessigeHerkuenfte } from '@/lib/herkunft'
+import { HERKUNFT_LABEL } from '@/lib/herkunft'
 import { qualitaetText } from '@/lib/weinqualitaet'
-import { istAufwertung, normalisiereQualitaet, type QualitaetsAngabe } from '@/lib/wein/qualitaetsrang'
-import ZusatzErzeugnisFelder from '@/components/wein/ZusatzErzeugnisFelder'
-import { FUELLUNG_QUALITAETEN, mitGespeichertemWert } from '@/lib/wein/qualitaet'
-import { ladeCustomWeinbaugebiete } from '../../../../weinbaugebiete/actions'
-import HerkunftCodeSelect from '@/components/weinbaugebiete/HerkunftCodeSelect'
+import { normalisiereQualitaet } from '@/lib/wein/qualitaetsrang'
+import { WEINART_LABEL } from '@/lib/keller/weinart'
+import { landAnzeige } from '@/lib/katalog/laender'
+import { pnTag, pruefnummerNachtragPruefen, type PnChargeDaten } from '@/lib/kellerbuch/pruefnummer'
+import { ladePruefnummerDaten } from '@/lib/kellerbuch/pruefnummerLaden'
 import { fmtNum } from '@/lib/format'
-import { folgebuchungenDerFuellung, folgebuchungenFuellungText, heuteOrtsdatum, datumDe } from '../../folgebuchungen'
+import { folgebuchungenDerFuellung, heuteOrtsdatum, datumDe } from '../../folgebuchungen'
 import { bewegungsartLabel } from '../../bewegungsarten'
 import FuellungEditFormular from './FuellungEditFormular'
 import SchwundAusbuchenKnopf from './SchwundAusbuchenKnopf'
@@ -25,9 +25,6 @@ export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
-
-// KAN-73: zentrale Liste der Füllung (= CHECK fuellungen_qualitaet_check, alle 18 Stufen inkl. „Wein“ und „Ausbruch“)
-const QUALITAETEN = FUELLUNG_QUALITAETEN
 
 const FLASCHENGROESSEN = [
   { value: 375,  label: '0,375 L – Halbflasche' },
@@ -40,6 +37,24 @@ const FLASCHENGROESSEN = [
   { value: 500,  label: '0,500 L' },
 ]
 
+const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+const labelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
+
+/** KAN-84: feste Angabe der Füllung – nur Anzeige, kein Formularfeld (updateFuellung lehnt Änderungen ab) */
+function Anzeige({ label, wert, breit = false }: { label: string; wert: string | null | undefined; breit?: boolean }) {
+  return (
+    <div className={breit ? 'sm:col-span-2' : undefined}>
+      <p className={labelCls}>{label}</p>
+      <div role="textbox" aria-readonly="true" aria-label={label} className={`${inputCls} bg-s112-bg text-s112-text-1`}>
+        {wert || '–'}
+      </div>
+    </div>
+  )
+}
+
+// KAN-84 (04.10.2026): Nach der Anlage sind nur Produktname, Preise, KN-Code und Notizen änderbar; die Prüfnummer
+// lässt sich einmal aus dem DAC-Antrag der Charge nachtragen. Weinmerkmale, Abfülldatum, Los, Charge und Mengen
+// zeigt die Seite nur an – Korrekturen: Füllung stornieren (bucht die Liter zurück) und neu anlegen.
 export default async function EditFuellungPage({
   params,
 }: {
@@ -55,41 +70,27 @@ export default async function EditFuellungPage({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
-  const [{ data: raw }, { data: waRaw }] = await Promise.all([
-    tf((supabase.from('fuellungen') as any).select('*').eq('id', id)).single(),
-    tf((supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, status')
-      .order('jahrgang', { ascending: false })),
-  ])
-
+  const { data: raw } = await tf((supabase.from('fuellungen') as any).select('*').eq('id', id)).single()
   if (!raw) redirect('/weinhandel')
   const f = raw as R
-  const chargen = (waRaw ?? []) as R[]
 
-  // Eigene, vom Mandanten selbst angelegte Weinbaugebiete (Herkunft-Code-Selbstverwaltung)
-  const customWeinbaugebiete = await ladeCustomWeinbaugebiete()
-
-  // Restmenge der verknüpften Charge laden
+  // Verknüpfte Charge: Name und Restmenge (Schwund ausbuchen)
   let waRestmenge: number | null = null
   let waName: string | null = null
-  let waCeilingQualitaet: string | null = null
-  let waAngabe: QualitaetsAngabe | null = null   // KAN-186: Angabe der Charge samt Zusatz/Erzeugnis
-  let waCeilingHerkunft: string | null = null
+  let waJahrgang: number | null = null
   if (f.weinausbau_id) {
     const { data: waAktuell } = await tf((supabase.from('weinausbau') as any)
-      .select('name, menge_liter, status, qualitaetsstufe, zusatzbezeichnung, erzeugnis, herkunft_code').eq('id', f.weinausbau_id)).single()
+      .select('name, jahrgang, menge_liter, status').eq('id', f.weinausbau_id)).single()
     const wa = waAktuell as R | null
     if (wa && wa.status !== 'abgeschlossen') {
       waRestmenge = parseFloat(wa.menge_liter ?? '0') || 0
     }
-    waName             = wa?.name ?? null
-    waAngabe           = wa ? normalisiereQualitaet(wa) : null
-    waCeilingQualitaet = waAngabe?.stufe ?? null
-    waCeilingHerkunft  = wa?.herkunft_code ?? null
+    waName     = wa?.name ?? null
+    waJahrgang = wa?.jahrgang ?? null
   }
 
-  // KAN-35: Verkäufe und Bestandsbuchungen dieser Füllung – bestimmen, was noch änderbar ist;
-  // fuellung_chargen = die Füllmenge wurde beim Abfüllen von der Charge abgebucht
+  // KAN-35: Verkäufe und Bestandsbuchungen dieser Füllung; fuellung_chargen = die Füllmenge wurde beim
+  // Abfüllen von der Charge abgebucht (nur dann gibt es „Schwund ausbuchen“)
   const [folge, { data: bewRaw, error: bewErr }, { data: fcRaw, error: fcErr }] = await Promise.all([
     folgebuchungenDerFuellung(supabase, tenantId ?? f.tenant_id, id),
     tf((supabase.from('fuellung_bewegungen') as any)
@@ -111,72 +112,35 @@ export default async function EditFuellungPage({
   const summeBewegungen = bewegungen.reduce((s, b) => s + (Number(b.menge_stk) || 0), 0)
   const bestand   = Number(f.bestand_flaschen) || 0
   const sollBestand = (Number(f.anzahl_flaschen) || 0) - folge.flaschenVerkauft + summeBewegungen
-  // Anzahl/Größe/Füllmenge: gesperrt, sobald verkauft oder Bestand gebucht wurde
-  const mengenGesperrt = folge.verkaeufe > 0 || folge.bewegungen > 0
-  // Von der Charge abgebucht (fuellung_chargen) → Größe/Füllmenge (und die Charge) fest; die
-  // Anzahl nur, wenn die Füllmenge sonst aus Anzahl × Größe berechnet würde. Eine nachträglich
-  // zugeordnete Charge wurde nie gemindert – sie bleibt wählbar.
-  const literGesperrt  = !!f.weinausbau_id && abgebucht
-  const anzahlGesperrt = mengenGesperrt || (literGesperrt && f.menge_liter_gefuellt == null)
   const heute = heuteOrtsdatum()
   const abfuelldatum = f.datum ? String(f.datum).slice(0, 10) : null
   const fuellmenge = f.menge_liter_gefuellt != null
     ? Number(f.menge_liter_gefuellt) || 0
     : ((Number(f.anzahl_flaschen) || 0) * (Number(f.flaschengroesse_ml) || 750)) / 1000
 
-  // Aktuell verknüpfte Charge immer einschließen (auch wenn abgeschlossen)
-  const chargeInListe = !f.weinausbau_id || chargen.find((c: R) => c.id === f.weinausbau_id)
-  let chargenListe = chargen
-  if (!chargeInListe && f.weinausbau_id) {
-    const { data: extra } = await tf((supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, status').eq('id', f.weinausbau_id)).single()
-    if (extra) chargenListe = [extra as R, ...chargen]
+  // KAN-84: Prüfnummer nachtragen (einmal) – nur Anträge der Charge, deren Nummer für diese Abfüllung gilt
+  // (dieselbe Regel wie updateFuellung: pruefnummerNachtragPruefen am Abfülldatum)
+  let pnAntraege: { id: string; text: string }[] = []
+  let pnHinweis: string | null = null
+  const tag = pnTag(f.datum)
+  if (!f.pruefnummer && f.weinausbau_id && tenantId && tag) {
+    const daten: PnChargeDaten | null = (await ladePruefnummerDaten(supabase, tenantId, [f.weinausbau_id])).get(f.weinausbau_id) ?? null
+    const fuellungAntrag = (f.dac_antrag_id as string | null) ?? null
+    pnAntraege = (daten?.antraege ?? [])
+      .filter(a => pruefnummerNachtragPruefen(daten, a.id, tag, fuellungAntrag).ok)
+      .map(a => ({ id: a.id, text: `${a.pruefnummer ?? ''}${a.bezeichnung ? ` · ${a.bezeichnung}` : ''}` }))
+    if (pnAntraege.length === 0 && fuellungAntrag) {
+      const r = pruefnummerNachtragPruefen(daten, fuellungAntrag, tag, fuellungAntrag)
+      if (!r.ok) pnHinweis = r.fehler
+    }
   }
-
-  const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
-  const labelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
 
   // Bind updateFuellung with id
   const updateWithId = updateFuellung.bind(null, id)
 
-  // Nur Abstufung erlaubt, keine Aufstufung: Dropdowns auf die aktuelle Stufe
-  // der verknüpften Charge + niedrigere Stufen beschränken. Der bereits auf
-  // dieser Füllung gespeicherte Wert bleibt immer wählbar, auch falls er durch
-  // eine spätere Änderung an der Charge nicht mehr in der erlaubten Liste wäre
-  // (verhindert Datenverlust beim Speichern).
   // KAN-186: gespeicherte Angabe der Füllung normalisiert (Altwerte reserve, sekt … → Stufe + Zusatz/Erzeugnis)
   const fAngabe = normalisiereQualitaet(f)
-  const qualitaetOptionsEdit = (() => {
-    const basis = waCeilingQualitaet
-      ? QUALITAETEN.filter(q => q.value === 'sonstiges' || !istAufwertung(waCeilingQualitaet, q.value))   // KAN-80: wie der Server
-      : QUALITAETEN
-    if (fAngabe.stufe && !basis.some(q => q.value === fAngabe.stufe)) {
-      const bestehend = QUALITAETEN.find(q => q.value === fAngabe.stufe)
-      if (bestehend) return [bestehend, ...basis]
-    }
-    // KAN-73: auch ein Wert außerhalb der Liste bleibt sichtbar (statt still die erste Option)
-    return mitGespeichertemWert(basis, fAngabe.stufe)
-  })()
-
-  // KAN-111: nur die Herkunft der Charge und breitere Stufen (dieselbe Regel wie der Server) – auch bei eigenen
-  // Weinbaugebieten; der gespeicherte Wert bleibt sichtbar (kein stiller Wechsel beim Öffnen)
-  const zulaessig = zulaessigeHerkuenfte(waCeilingHerkunft)
-  const herkunftOptionsEdit = herkunftOptionen(zulaessig
-    ? [...zulaessig, ...(f.herkunft_code && (HERKUNFT_ORDER as readonly string[]).includes(f.herkunft_code) ? [f.herkunft_code as string] : [])]
-    : HERKUNFT_ORDER)
-
-  // Bereits gespeicherter eigener Wert bleibt wählbar, auch falls das Weinbaugebiet
-  // zwischenzeitlich deaktiviert wurde (kein Datenverlust beim Speichern).
-  const herkunftCustomOptionsEdit = (() => {
-    const erlaubt = zulaessig ? customWeinbaugebiete.filter(w => zulaessig.includes(w.name) || w.name === f.herkunft_code) : customWeinbaugebiete
-    if (f.herkunft_code
-      && !(HERKUNFT_ORDER as readonly string[]).includes(f.herkunft_code)
-      && !erlaubt.some(w => w.name === f.herkunft_code)
-    ) {
-      return [{ id: `__bestehend__${f.herkunft_code}`, name: f.herkunft_code as string }, ...erlaubt]
-    }
-    return erlaubt
-  })()
+  const groesseText = FLASCHENGROESSEN.find(fl => fl.value === Number(f.flaschengroesse_ml))?.label ?? `${f.flaschengroesse_ml} ml`
 
   return (
     <div className="max-w-2xl">
@@ -250,52 +214,24 @@ export default async function EditFuellungPage({
         </div>
       )}
 
+
       <FuellungEditFormular action={updateWithId}>
 
-        {/* Kellerbuch-Charge */}
+        {/* Kellerbuch-Charge – fest (KAN-84) */}
         <div className="card p-5 space-y-2">
           <h2 className="font-semibold text-s112-text text-sm">Kellerbuch-Charge</h2>
-          {!f.weinausbau_id && (
-            <p className="text-xs text-s112-warn-fg bg-s112-warn-bg border border-s112-warn/30 rounded-lg px-3 py-2">
-              Keine Charge verknüpft – Rückverfolgung nur bis zur Abfüllung möglich. Bitte hier nachträglich zuordnen.
-              Die nachträgliche Zuordnung dient nur der Rückverfolgung – von der Charge wird dabei nichts abgebucht.
-            </p>
-          )}
-          {literGesperrt ? (
-            <div>
-              <p id="charge-label" className={labelCls}>Weinausbau-Charge</p>
-              <input type="hidden" name="weinausbau_id" value={f.weinausbau_id} />
-              <div role="textbox" aria-readonly="true" aria-labelledby="charge-label" className={`${inputCls} bg-s112-bg text-s112-text-1`}>
-                {(() => {
-                  const c = chargenListe.find((x: R) => x.id === f.weinausbau_id)
-                  return c
-                    ? `${c.name}${c.jahrgang ? ` (${c.jahrgang})` : ''}${c.status === 'abgeschlossen' ? ' · abgeschlossen' : ''}`
-                    : (waName ?? 'verknüpfte Charge')
-                })()}
-              </div>
-              <p className="text-xs text-s112-muted mt-1">
-                Fest verknüpft: Die Füllmenge wurde beim Abfüllen von dieser Charge abgebucht. Falsche Charge? Füllung löschen
-                (bucht die Liter zurück, nur ohne Verkäufe und Bestandsbuchungen) und neu anlegen.
+          {f.weinausbau_id ? (
+            <>
+              <Anzeige label="Weinausbau-Charge" wert={`${waName ?? 'verknüpfte Charge'}${waJahrgang ? ` (${waJahrgang})` : ''}`} />
+              <p className="text-xs text-s112-muted">
+                Fest verknüpft. Falsche Charge? Füllung stornieren (bucht die Liter zurück, nur ohne Verkäufe und
+                Bestandsbuchungen) und neu anlegen.
               </p>
-            </div>
+            </>
           ) : (
-            <div>
-              <label className={labelCls}>Weinausbau-Charge</label>
-              <select aria-label="Weinausbau-Charge" name="weinausbau_id" defaultValue={f.weinausbau_id ?? ''} className={inputCls}>
-                <option value="">– keine Verknüpfung –</option>
-                {chargenListe.map((c: R) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}{c.jahrgang ? ` (${c.jahrgang})` : ''}{c.status === 'abgeschlossen' ? ' · abgeschlossen' : ''}
-                  </option>
-                ))}
-              </select>
-              {f.weinausbau_id && (
-                <p className="text-xs text-s112-muted mt-1">
-                  Nachträglich zugeordnet – von dieser Charge wurde nichts abgebucht. Die Zuordnung (Rückverfolgung, Weinpass)
-                  lässt sich deshalb noch ändern; bitte die richtige Charge sorgfältig wählen.
-                </p>
-              )}
-            </div>
+            <p className="text-xs text-s112-text-1 bg-s112-bg border border-s112-border rounded-lg px-3 py-2">
+              Keine Charge verknüpft – Flaschen-Eröffnungsbestand bzw. Altbestand aus dem Datenimport.
+            </p>
           )}
         </div>
 
@@ -308,54 +244,18 @@ export default async function EditFuellungPage({
               <label className={labelCls}>Produktname *</label>
               <input aria-label="Produktname" name="name" defaultValue={f.name} required className={inputCls} />
             </div>
-            <div>
-              <label className={labelCls}>Jahrgang</label>
-              <input aria-label="Jahrgang" name="jahrgang" type="number" min={1900} max={2100} defaultValue={f.jahrgang ?? ''} className={inputCls} />
-            </div>
-            <div>
-              <label className={labelCls}>Rebsorte</label>
-              <input aria-label="Rebsorte" name="rebsorte" defaultValue={f.rebsorte ?? ''} placeholder="z.B. Grüner Veltliner" className={inputCls} />
-            </div>
-            <div>
-              <label className={labelCls}>Qualitätsbezeichnung *</label>
-              <select aria-label="Qualitätsbezeichnung" name="qualitaet" defaultValue={fAngabe.stufe ?? ''} required className={inputCls}>
-                {qualitaetOptionsEdit.map(q => (
-                  <option key={q.value} value={q.value}>{q.label}</option>
-                ))}
-              </select>
-              {waAngabe?.stufe && (
-                <p className="text-xs text-s112-muted mt-1">
-                  Charge aktuell: <strong>{qualitaetText(waAngabe)}</strong> – nur Abstufung möglich, keine Aufstufung
-                </p>
-              )}
-            </div>
-            {/* KAN-186: Zusatzbezeichnung und Erzeugnis – frei wählbar (setzen/wechseln ist keine Aufwertung) */}
-            <ZusatzErzeugnisFelder zusatz={fAngabe.zusatz} erzeugnis={fAngabe.erzeugnis}
-              feldKlasse={inputCls} labelKlasse={labelCls} />
-            <div>
-              <label className={labelCls}>Herkunft-Code (BKI)</label>
-              <HerkunftCodeSelect
-                name="herkunft_code"
-                defaultValue={f.herkunft_code ?? ''}
-                builtinOptions={herkunftOptionsEdit}
-                customOptions={herkunftCustomOptionsEdit}
-                className={inputCls}
-              />
-              {waCeilingHerkunft && (
-                <p className="text-xs text-s112-muted mt-1">
-                  Charge aktuell: <strong>{HERKUNFT_LABEL[waCeilingHerkunft] ?? waCeilingHerkunft}</strong> – nur Abstufung möglich, keine Aufstufung
-                </p>
-              )}
-            </div>
-            <div>
-              <label className={labelCls}>Anbaugebiet</label>
-              <input aria-label="Anbaugebiet" name="anbaugebiet" defaultValue={f.anbaugebiet ?? ''} placeholder="z.B. Traisental …" className={inputCls} />
-            </div>
-            <div className="sm:col-span-2">
-              <label className={labelCls}>Subbezeichnung / Ried (optional)</label>
-              <input aria-label="Subbezeichnung / Ried (optional)" name="bezeichnung" defaultValue={f.bezeichnung ?? ''} placeholder="z.B. Ried Hohenberg · Reserve" className={inputCls} />
-            </div>
+            <Anzeige label="Jahrgang" wert={f.jahrgang != null ? String(f.jahrgang) : null} />
+            <Anzeige label="Rebsorte" wert={f.rebsorte} />
+            <Anzeige label="Weinart" wert={f.weinart ? (WEINART_LABEL[f.weinart] ?? f.weinart) : null} />
+            <Anzeige label="Land" wert={landAnzeige(f.land_iso ?? 'AT')} />
+            <Anzeige label="Qualitätsbezeichnung" wert={qualitaetText(fAngabe)} />
+            <Anzeige label="Herkunft-Code (BKI)" wert={f.herkunft_code ? (HERKUNFT_LABEL[f.herkunft_code] ?? f.herkunft_code) : null} />
+            <Anzeige label="Anbaugebiet" wert={f.anbaugebiet} />
+            <Anzeige label="Subbezeichnung / Ried" wert={f.bezeichnung} />
           </div>
+          <p className="text-xs text-s112-muted">
+            Weinmerkmale stammen aus der Charge bzw. wurden bei der Anlage festgelegt und sind nicht mehr änderbar.
+          </p>
         </div>
 
         {/* ── Abfüllung ── */}
@@ -363,42 +263,11 @@ export default async function EditFuellungPage({
           <h2 className="font-semibold text-s112-text text-sm">Abfüllung</h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className={labelCls}>Abfülldatum *</label>
-              <input aria-label="Abfülldatum"
-                name="datum"
-                type="date"
-                defaultValue={f.datum ? f.datum.split('T')[0] : ''}
-                required
-                className={inputCls}
-              />
-            </div>
-            <div>
-              <p id="flaschengroesse-label" className={labelCls}>Flaschengröße{mengenGesperrt || literGesperrt ? '' : ' *'}</p>
-              {mengenGesperrt || literGesperrt ? (
-                <>
-                  <input type="hidden" name="flaschengroesse_ml" value={f.flaschengroesse_ml} />
-                  <div role="textbox" aria-readonly="true" aria-labelledby="flaschengroesse-label" className={`${inputCls} bg-s112-bg text-s112-text-1`}>
-                    {FLASCHENGROESSEN.find(fl => fl.value === Number(f.flaschengroesse_ml))?.label ?? `${f.flaschengroesse_ml} ml`}
-                  </div>
-                </>
-              ) : (
-                <select aria-labelledby="flaschengroesse-label" name="flaschengroesse_ml" defaultValue={f.flaschengroesse_ml} required className={inputCls}>
-                  {FLASCHENGROESSEN.map(fl => (
-                    <option key={fl.value} value={fl.value}>{fl.label}</option>
-                  ))}
-                </select>
-              )}
-            </div>
-            <div>
-              <label className={labelCls}>Anzahl abgefüllt (gesamt)</label>
-              <input aria-label="Anzahl abgefüllt (gesamt)" name="anzahl_flaschen" type="number" min={1} defaultValue={f.anzahl_flaschen} required
-                readOnly={anzahlGesperrt}
-                className={anzahlGesperrt ? `${inputCls} bg-s112-bg text-s112-text-1` : inputCls} />
-              {!anzahlGesperrt && (
-                <p className="text-xs text-s112-muted mt-1">Eine Korrektur ändert den Lagerbestand um dieselbe Differenz.</p>
-              )}
-            </div>
+            <Anzeige label="Abfülldatum" wert={abfuelldatum ? datumDe(abfuelldatum) : null} />
+            <Anzeige label="Los (Chargennummer)" wert={f.chargennummer} />
+            <Anzeige label="Flaschengröße" wert={groesseText} />
+            <Anzeige label="Anzahl abgefüllt (gesamt)" wert={fmtNum(Number(f.anzahl_flaschen) || 0, 0)} />
+            <Anzeige label="Tatsächlich gefüllt (Liter)" wert={f.menge_liter_gefuellt != null ? fmtNum(Number(f.menge_liter_gefuellt), 2) : null} />
             <div>
               <p className={labelCls}>Aktueller Lagerbestand</p>
               <div className={`${inputCls} bg-s112-bg text-s112-text-1 tabular-nums`}>{fmtNum(bestand, 0)} Flaschen</div>
@@ -406,25 +275,40 @@ export default async function EditFuellungPage({
                 Ändert sich durch Verkäufe und über <a href="#bestand" className="text-s112-blue-700 hover:underline">„Bestand korrigieren“</a> (unten).
               </p>
             </div>
-            <div>
-              <label className={labelCls}>Tatsächlich gefüllt (Liter)</label>
-              <input aria-label="Tatsächlich gefüllt (Liter)" name="menge_liter_gefuellt" type="number" step="0.01" defaultValue={f.menge_liter_gefuellt ?? ''}
-                readOnly={mengenGesperrt || literGesperrt}
-                className={mengenGesperrt || literGesperrt ? `${inputCls} bg-s112-bg text-s112-text-1` : inputCls} />
+
+            {/* Prüfnummer: einmal nachtragbar, nur aus dem DAC-Antrag der Charge (KAN-84) */}
+            <div className="sm:col-span-2">
+              {f.pruefnummer ? (
+                <Anzeige label="Prüfnummer" wert={f.pruefnummer} />
+              ) : pnAntraege.length > 0 ? (
+                <>
+                  <label className={labelCls}>Prüfnummer nachtragen</label>
+                  <select aria-label="Prüfnummer nachtragen" name="pn_antrag_id" defaultValue="" className={inputCls}>
+                    <option value="">– noch keine Prüfnummer –</option>
+                    {pnAntraege.map(a => <option key={a.id} value={a.id}>{a.text}</option>)}
+                  </select>
+                  <p className="text-xs text-s112-muted mt-1">
+                    Nur aus dem DAC-Antrag der Charge, wenn die Nummer für diese Abfüllung gilt – einmal eingetragen, ist sie nicht mehr änderbar.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Anzeige label="Prüfnummer" wert={null} />
+                  <p className="text-xs text-s112-muted mt-1">
+                    {f.weinausbau_id
+                      ? (pnHinweis ?? 'Kein DAC-Antrag der Charge mit einer für diese Abfüllung gültigen Prüfnummer – nachtragen ist möglich, sobald der Antrag genehmigt und die Nummer eingetragen ist.')
+                      : 'Ohne Kellerbuch-Charge lässt sich keine Prüfnummer nachtragen.'}
+                  </p>
+                </>
+              )}
             </div>
           </div>
 
-          {mengenGesperrt ? (
-            <p className="text-xs text-s112-text-1 bg-s112-bg border border-s112-border rounded-lg px-3 py-2">
-              Anzahl, Flaschengröße und Füllmenge sind gesperrt, weil es zu dieser Füllung bereits {folgebuchungenFuellungText(folge)} gibt.
-              Abweichungen im Flaschenbestand bitte über <a href="#bestand" className="text-s112-blue-700 hover:underline">„Bestand korrigieren“</a> buchen.
-            </p>
-          ) : literGesperrt ? (
-            <p className="text-xs text-s112-text-1 bg-s112-bg border border-s112-border rounded-lg px-3 py-2">
-              {anzahlGesperrt ? 'Anzahl, Flaschengröße und Füllmenge' : 'Flaschengröße und Füllmenge'} sind gesperrt, weil die Füllmenge bereits
-              von der Charge abgebucht wurde. Falsch erfasst? Füllung löschen (bucht die Liter zurück) und neu anlegen.
-            </p>
-          ) : null}
+          <p className="text-xs text-s112-text-1 bg-s112-bg border border-s112-border rounded-lg px-3 py-2">
+            Abfülldatum, Los und Mengen sind fest. Abweichungen im Flaschenbestand bitte über{' '}
+            <a href="#bestand" className="text-s112-blue-700 hover:underline">„Bestand korrigieren“</a> buchen; ist die Füllung
+            falsch erfasst, sie stornieren (bucht die Liter auf die Charge zurück – nur ohne Verkäufe und Bestandsbuchungen) und neu anlegen.
+          </p>
         </div>
 
         {/* ── Preise ── */}

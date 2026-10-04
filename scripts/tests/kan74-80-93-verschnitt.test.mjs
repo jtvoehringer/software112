@@ -75,9 +75,13 @@ describe('KAN-80: keine Aufwertung', () => {
     assert.match(teil, /from\('pressung_behaelter'\)/)
     assert.match(teil, /from\('zukauf_posten'\)/)
   })
-  test('Füllung (neu und bearbeiten) lehnt Aufwertungen über istAufwertungQualitaet ab', () => {
+  // KAN-84: nur noch beim Anlegen – „Füllung bearbeiten“ ändert die Qualität nicht mehr (updateFuellung lehnt jede
+  // abweichende Angabe ab, siehe kan84-fuellung-charge.test.mjs)
+  test('Füllung (neu) lehnt Aufwertungen über istAufwertungQualitaet ab; bearbeiten ändert die Qualität nicht', () => {
     const q = quelle('src/app/(dashboard)/weinhandel/actions.ts')
-    assert.equal((q.match(/istAufwertungQualitaet\(chargeQualitaet, qualitaetInput\)/g) ?? []).length, 2)
+    assert.equal((q.match(/istAufwertungQualitaet\(chargeQualitaet, qualitaetInput\)/g) ?? []).length, 1)
+    const upd = q.slice(q.indexOf('export async function updateFuellung'), q.indexOf('export async function bestandKorrigieren'))
+    assert.doesNotMatch(upd, /fuellungsQualitaetsSpalten|qualitaet:/)
   })
 })
 

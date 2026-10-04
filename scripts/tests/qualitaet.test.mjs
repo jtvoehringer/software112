@@ -498,7 +498,8 @@ describe('(4) Formulare und Server Actions verwenden die Liste ihrer Zieltabelle
     'src/app/(dashboard)/weinhandel/verkauf/neu/page.tsx':                     'lese',
     'src/lib/assistent/tools/ernte.ts':                                        'lese',
     'src/app/(dashboard)/weinhandel/fuellungen/neu/FuellungFormClient.tsx':    'fuellung',
-    'src/app/(dashboard)/weinhandel/fuellungen/[id]/edit/page.tsx':            'fuellung',
+    // KAN-84 (04.10.2026): „Füllung bearbeiten“ zeigt die Qualität nur noch an (keine Auswahl, kein Formularfeld) –
+    // deshalb nicht mehr in FORMULARE; updateFuellung lehnt eine geänderte Qualität ab (scripts/tests/kan84-fuellung-charge.test.mjs)
     'src/lib/assistent/tools/abfuellen.ts':                                    'fuellung',
     'src/components/kellerbuch/WeinausbauForm.tsx':                            'charge',
     'src/app/(dashboard)/kellerbuch/eroeffnungsbestand/[id]/edit/page.tsx':    'charge',
@@ -539,7 +540,8 @@ describe('(4) Formulare und Server Actions verwenden die Liste ihrer Zieltabelle
     ['src/app/(dashboard)/weinhandel/actions.ts', 'fuellungQualitaetAusFormular', "qualitaetFehler('fuellung'"],
     // KAN-42: createFuellung leitet an fuellungAnlegen weiter (auch Import „Eröffnungsbestand Flaschen“)
     ['src/app/(dashboard)/weinhandel/actions.ts', 'fuellungAnlegen', 'fuellungQualitaetAusFormular('],
-    ['src/app/(dashboard)/weinhandel/actions.ts', 'updateFuellung', 'fuellungQualitaetAusFormular('],
+    // KAN-84: updateFuellung schreibt keine Qualität mehr (nur Name, Preise, KN-Code, Notizen, aktiv, Prüfnummer-Nachtrag) –
+    // statt der Listenprüfung lehnt geaenderteFesteFelder jede abweichende Angabe ab (kan84-fuellung-charge.test.mjs)
     ['src/lib/assistent/tools/abfuellen.ts', 'fuehreAbfuellenAus', "qualitaetFehler('fuellung'", /\bcreateFuellung\s*\(/],
     // Trauben-Qualität (traubenverkauf, ohne CHECK)
     ['src/app/(dashboard)/erntemeldung/actions.ts', 'createTraubenverkauf', "qualitaetFehler('lese'"],

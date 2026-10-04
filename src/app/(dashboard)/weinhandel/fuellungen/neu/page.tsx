@@ -35,7 +35,7 @@ export default async function NeueFuellungPage({
   // oder inaktiven Anträge mehr (früher wählbar, samt ihrer Prüfnummer)
   const [{ data: chargenRaw }, { data: dacRaw }] = await Promise.all([
   tf((supabase.from('weinausbau') as any)
-    .select('id, name, jahrgang, rebsorte, menge_liter, status, qualitaetsstufe, zusatzbezeichnung, erzeugnis, herkunft_code')
+    .select('id, name, jahrgang, rebsorte, menge_liter, status, qualitaetsstufe, zusatzbezeichnung, erzeugnis, herkunft_code, weinart, land_iso')
     .eq('aktiv', true)
     .neq('status', 'abgeschlossen')
     .order('jahrgang', { ascending: false })),
@@ -57,7 +57,7 @@ export default async function NeueFuellungPage({
   // auch wenn Status 'abgeschlossen' ist (Füllung kann trotzdem angelegt werden)
   if (chargeId && !chargen.find((c: R) => c.id === chargeId)) {
     const { data: extraRaw } = await tf((supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, rebsorte, menge_liter, status, qualitaetsstufe, zusatzbezeichnung, erzeugnis, herkunft_code')
+      .select('id, name, jahrgang, rebsorte, menge_liter, status, qualitaetsstufe, zusatzbezeichnung, erzeugnis, herkunft_code, weinart, land_iso')
       .eq('id', chargeId))
       .single()
     if (extraRaw) chargen = [extraRaw as R, ...chargen]
@@ -80,8 +80,6 @@ export default async function NeueFuellungPage({
     if (hinweis) pnHinweise[id] = hinweis
   }
   const dacAntraege = alleAntraege.filter(d => waehlbar.has(d.id))
-  // Chargen mit (aktivem, nicht abgelehntem) Antrag: keine freie Prüfnummer-Eingabe
-  const chargenMitAntrag = [...new Set(alleAntraege.map(d => d.weinausbau_id).filter(Boolean) as string[])]
 
   return (
     <div className="max-w-2xl">
@@ -100,7 +98,6 @@ export default async function NeueFuellungPage({
       <FuellungFormClient
         chargen={chargen as any}
         dacAntraege={dacAntraege as any}
-        chargenMitAntrag={chargenMitAntrag}
         pnHinweise={pnHinweise}
         customWeinbaugebiete={customWeinbaugebiete}
         action={createFuellung}

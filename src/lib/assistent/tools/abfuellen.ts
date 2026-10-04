@@ -12,6 +12,9 @@
 // Qualitätsstufe und Herkunft-Code (BKI) gegenüber der Kellerbuch-Charge NUR
 // abgestuft, NIE aufgestuft werden dürfen (hart blockiert) – der Bot muss
 // diese Regel nicht selbst prüfen, sie greift automatisch.
+// KAN-84 (04.10.2026): Jahrgang, Rebsorte, Weinart und Land übernimmt createFuellung immer aus der
+// Charge – der Bot sendet sie nicht mehr; nennt der User abweichende Werte, meldet das Ergebnis, dass
+// sie ignoriert wurden (merkmale_hinweis). Die Prüfnummer kommt nur aus dem DAC-Antrag der Charge.
 import { createFuellung } from '@/app/(dashboard)/weinhandel/actions'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { FUELLUNG_QUALITAETEN, qualitaetFehler } from '@/lib/wein/qualitaet'
@@ -36,15 +39,16 @@ datum (pflicht, Abfülldatum YYYY-MM-DD), flaschengroesse_ml (pflicht, eine von
 
 qualitaet (optional – ohne Angabe wird die aktuelle Qualitätsstufe der Charge übernommen;
 NUR Abstufung möglich, eine Aufstufung wird vom Server hart blockiert), herkunft_code
-(optional, gleiche Regel: nur Abstufung), jahrgang/rebsorte/anbaugebiet/bezeichnung/
-pruefnummer/chargennummer (optional, chargennummer wird sonst automatisch vergeben;
-pruefnummer: hat die Charge einen DAC-Antrag, NUR die Nummer ihres genehmigten Antrags, die der
-User nennt – der Server verknüpft dann den Antrag, wenn die Nummer für den Bestand gilt, sonst
-kommt eine Fehlermeldung, die du wörtlich weitergibst; eine andere Nummer lehnt er ab. Einen
-offenen Antrag ohne Nummer verknüpft nur das Formular Weinhandel > Neue Füllung – soll die
-Füllung ihn tragen, auf das Formular verweisen statt ohne Nummer abzufüllen (die Bearbeitung
-kann Prüfnummer und Antrag später nicht mehr setzen). Eine freie Nummer, z. B. die des
-Lieferanten bei einem Zukauf, nur bei Chargen ohne DAC-Antrag),
+(optional, gleiche Regel: nur Abstufung), anbaugebiet/bezeichnung/pruefnummer/chargennummer
+(optional, chargennummer wird sonst automatisch vergeben; pruefnummer: NUR die Nummer des
+genehmigten DAC-Antrags der Charge, die der User nennt – der Server verknüpft dann den Antrag,
+wenn die Nummer für den Bestand gilt, sonst kommt eine Fehlermeldung, die du wörtlich
+weitergibst; jede andere Nummer lehnt er ab, auch die eines Lieferanten. Einen offenen Antrag
+ohne Nummer verknüpft nur das Formular Weinhandel > Neue Füllung – soll die Füllung ihn tragen,
+auf das Formular verweisen. Fehlt die Nummer beim Abfüllen, lässt sie sich später in der
+Füllungsbearbeitung einmal aus dem Antrag der Charge nachtragen),
+Jahrgang, Rebsorte, Weinart und Land übernimmt der Server IMMER aus der Charge – nicht danach
+fragen; nennt der User andere Werte, gib den "merkmale_hinweis" aus dem Ergebnis weiter,
 vk_preis_brutto/einstandspreis (optional, pro Flasche), notizen (optional), abschliessen
 (optional, boolean – Charge nach dieser Füllung explizit als abgeschlossen markieren, auch
 wenn noch Restwein übrig bleibt; wird ohnehin automatisch gesetzt, wenn kein/kaum Restwein
@@ -83,11 +87,11 @@ export const ABFUELLEN_TOOL = {
         description: 'Nur Abstufung gegenüber der Charge möglich (sonst wird die aktuelle Stufe übernommen)',
       },
       herkunft_code: { type: 'string', description: 'Nur Abstufung gegenüber der Charge möglich' },
-      jahrgang: { type: 'number' },
-      rebsorte: { type: 'string' },
+      jahrgang: { type: 'number', description: 'Wird IMMER aus der Charge übernommen – nur angeben, wenn der User einen Jahrgang nennt (eine Abweichung wird ignoriert und gemeldet)' },
+      rebsorte: { type: 'string', description: 'Wird IMMER aus der Charge übernommen – nur angeben, wenn der User eine Rebsorte nennt (eine Abweichung wird ignoriert und gemeldet)' },
       anbaugebiet: { type: 'string' },
       bezeichnung: { type: 'string', description: 'Subbezeichnung/Ried, z.B. "Ried Hohenberg · Reserve"' },
-      pruefnummer: { type: 'string', description: 'Charge mit DAC-Antrag: nur die Nummer ihres genehmigten Antrags (der Server prüft, ob sie für den Bestand gilt, und verknüpft den Antrag); Charge ohne DAC-Antrag: freie Nummer, z. B. des Lieferanten (KAN-72)' },
+      pruefnummer: { type: 'string', description: 'Nur die Nummer des genehmigten DAC-Antrags der Charge (der Server prüft, ob sie für den Bestand gilt, und verknüpft den Antrag); keine freie Nummer (KAN-72/KAN-84)' },
       chargennummer: { type: 'string', description: 'Leer lassen = wird automatisch vergeben' },
       vk_preis_brutto: { type: 'number', description: 'VK-Preis brutto pro Flasche' },
       einstandspreis: { type: 'number', description: 'Einstandspreis pro Flasche' },
@@ -155,8 +159,17 @@ export async function fuehreAbfuellenAus(
   if (chAngabe.erzeugnis) fd.set('erzeugnis', chAngabe.erzeugnis)
   if (input.herkunft_code) fd.set('herkunft_code', String(input.herkunft_code))
   else if (ch.herkunft_code) fd.set('herkunft_code', String(ch.herkunft_code))
-  fd.set('jahrgang', input.jahrgang != null ? String(input.jahrgang) : String(ch.jahrgang ?? ''))
-  fd.set('rebsorte', input.rebsorte ? String(input.rebsorte) : String(ch.rebsorte ?? ''))
+  // KAN-84: Jahrgang und Rebsorte nimmt der Server aus der Charge – abweichende Angaben des Users nur melden
+  const ignoriert: string[] = []
+  if (input.jahrgang != null && String(input.jahrgang).trim() !== '' && Number(input.jahrgang) !== Number(ch.jahrgang)) {
+    ignoriert.push(`Jahrgang ${ch.jahrgang ?? '–'} statt ${input.jahrgang}`)
+  }
+  if (input.rebsorte && String(input.rebsorte).trim() !== String(ch.rebsorte ?? '').trim()) {
+    ignoriert.push(`Rebsorte ${ch.rebsorte ?? '–'} statt „${String(input.rebsorte).trim()}“`)
+  }
+  const merkmaleHinweis = ignoriert.length > 0
+    ? `Jahrgang und Rebsorte kommen immer aus der Charge „${ch.name}“ – abweichende Angaben wurden ignoriert: ${ignoriert.join(', ')}.`
+    : null
   if (input.anbaugebiet) fd.set('anbaugebiet', String(input.anbaugebiet))
   if (input.bezeichnung) fd.set('bezeichnung', String(input.bezeichnung))
   if (input.pruefnummer) fd.set('pruefnummer', String(input.pruefnummer))
@@ -169,10 +182,11 @@ export async function fuehreAbfuellenAus(
   try {
     const result = await createFuellung(fd)
     // Teilerfolg (KAN-35): Füllung angelegt, Folgeschritt fehlgeschlagen – dem User zeigen
+    const merkmale = merkmaleHinweis ? { merkmale_hinweis: merkmaleHinweis } : {}
     if (result?.hinweis) {
-      return { erfolg: true, fuellung_id: result.id ?? null, nacharbeit_noetig: true, hinweis: result.hinweis }
+      return { erfolg: true, fuellung_id: result.id ?? null, nacharbeit_noetig: true, hinweis: result.hinweis, ...merkmale }
     }
-    return { erfolg: true, fuellung_id: (result as R | undefined)?.id ?? null }
+    return { erfolg: true, fuellung_id: (result as R | undefined)?.id ?? null, ...merkmale }
   } catch (err) {
     return { erfolg: false, fehler: (err as Error).message ?? String(err) }
   }

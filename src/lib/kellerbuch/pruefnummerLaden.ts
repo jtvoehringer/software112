@@ -7,7 +7,9 @@
 // mindestens einem Antrag – ohne Antrag gibt es nichts zu prüfen. pruefnummerFuerFuellung ist
 // die Prüfung der Server Action createFuellung (Prüfnummer nie ungeprüft aus dem Formular),
 // pruefnummerBeiChargenzuordnung und pruefnummerBeiDatumsaenderung die von updateFuellung
-// (Charge nachträglich zugeordnet bzw. Abfülldatum geändert); ladeUmzugsherkunft verfolgt eine
+// (Charge nachträglich zugeordnet bzw. Abfülldatum geändert – seit KAN-84 lehnt updateFuellung beides ab,
+// die Helfer bleiben für eine spätere Freigabe), pruefnummerNachtragen die Prüfung beim einmaligen
+// Nachtragen der Nummer aus dem Antrag der Charge (KAN-84); ladeUmzugsherkunft verfolgt eine
 // Charge ohne Antrag über Umzüge zur Antrags-Charge zurück.
 //
 // Isomorph ohne Server-Importe (Supabase-Client wird übergeben); Mandant: jede Abfrage auf
@@ -20,7 +22,7 @@ import { AktionsFehler } from '@/lib/fehler'
 import { alle } from '@/lib/supabase/alle'
 import {
   antragGenehmigt, chargeHatAntrag, freiePruefnummerPruefen, fuellungAntragPruefen, fuellungDatumText, fuellungDatumVerletzung,
-  pnDatumDe, pnNormiert, pruefnummerAusAntrag, pruefnummerGueltig, pnTag,
+  pnDatumDe, pnNormiert, pruefnummerAusAntrag, pruefnummerGueltig, pruefnummerNachtragPruefen, pnTag,
   pruefnummernSchaden, pruefnummernSchadenFrage, pruefnummernSchadenNotiz,
   type PnVorgang,
   type PnAbfuellung, type PnAntrag, type PnChargeDaten, type PnErgebnis, type PnUmzugAbgang, type PnUmzugsherkunft, type PnZugang,
@@ -478,13 +480,16 @@ async function freieNummerFehler(
  *     Chargen ohne DAC-Antrag (z. B. Zukauf mit Prüfnummer des Lieferanten) und Umzugs-Chargen
  *     (Nummer der Antrags-Charge, wenn sie beim Umzug galt) – nicht für Chargen mit Antrag und
  *     nie mit der Nummer eines anderen Antrags des Betriebs (freiePruefnummerPruefen).
+ *   * `nurAusAntrag` (KAN-84, createFuellung): eine Füllung aus einer Charge bekommt die Nummer NUR aus
+ *     einem Antrag dieser Charge – die freie Eingabe (Lieferanten-Nummer, Umzugs-Charge) entfällt dann;
+ *     sie bleibt nur für Füllungen ohne Charge (Eröffnungsbestand per Import).
  * `heute` nur für Tests (Tag des Bestands, Standard wienHeute()).
  */
 export async function pruefnummerFuerFuellung(
   supabase: any,
   tenantId: string,
   eingabe: { dacAntragId: string | null; pruefnummer: string | null },
-  p: { weinausbauId: string | null; chargeName: string | null; abfuelldatum: string; heute?: string },
+  p: { weinausbauId: string | null; chargeName: string | null; abfuelldatum: string; heute?: string; nurAusAntrag?: boolean },
 ): Promise<{ pruefnummer: string | null; dacAntragId: string | null }> {
   const dacAntragId = eingabe.dacAntragId?.trim() || null
   const freieNummer = eingabe.pruefnummer?.trim() || null
@@ -512,12 +517,40 @@ export async function pruefnummerFuerFuellung(
     if (!r.ok) throw new AktionsFehler(r.fehler)
     return { pruefnummer: r.pruefnummer, dacAntragId: passend.id }
   }
+  if (p.weinausbauId && p.nurAusAntrag) {
+    const name = p.chargeName ? ` „${p.chargeName}“` : ''
+    throw new AktionsFehler(`Die Prüfnummer ${freieNummer} gehört zu keinem genehmigten DAC-Antrag der Charge${name}. Die Prüfnummer einer Füllung kommt nur aus dem DAC-Antrag ihrer Charge – bitte den Antrag unter „DAC-Antrag / Prüfnummer“ wählen (ohne gültigen Antrag wird die Füllung ohne Prüfnummer angelegt; nachtragen lässt sie sich später in der Füllungsbearbeitung).`)
+  }
   const antraegeMitNummer = await mitFehlertext(() => ladeAntraegeMitNummer(supabase, tenantId))
   const fehlerText = await freieNummerFehler(supabase, tenantId, freieNummer, {
     weinausbauId: p.weinausbauId, chargeName: p.chargeName, charge, antraegeMitNummer, heute: p.heute,
   })
   if (fehlerText) throw new AktionsFehler(fehlerText)
   return { pruefnummer: freieNummer, dacAntragId: null }
+}
+
+/**
+ * KAN-84: Prüfnummer einer Füllung ohne Nummer EINMAL nachtragen (updateFuellung) – nur aus einem DAC-Antrag
+ * ihrer Charge, Regel siehe pruefnummerNachtragPruefen (Abfülldatum statt heutigem Bestand). Wirft
+ * AktionsFehler, sonst Nummer und Antrag für fuellungen.pruefnummer / dac_antrag_id.
+ */
+export async function pruefnummerNachtragen(
+  supabase: any,
+  tenantId: string,
+  fuellung: { weinausbauId: string | null; datum: string | null; dacAntragId: string | null },
+  antragId: string,
+  p: { heute?: string } = {},
+): Promise<{ pruefnummer: string; dacAntragId: string }> {
+  if (!UUID_RE.test(antragId)) throw new AktionsFehler('Der gewählte DAC-Antrag ist ungültig – bitte die Seite neu laden.')
+  if (!fuellung.weinausbauId) {
+    throw new AktionsFehler('Diese Füllung hat keine Kellerbuch-Charge – eine Prüfnummer lässt sich nur aus dem DAC-Antrag der Charge nachtragen.')
+  }
+  const datum = pnTag(fuellung.datum)
+  if (!datum) throw new AktionsFehler('Die Füllung hat kein gültiges Abfülldatum – die Prüfnummer kann nicht geprüft werden.')
+  const daten = await mitFehlertext(async () => (await ladePruefnummerDaten(supabase, tenantId, [fuellung.weinausbauId as string], { heute: p.heute })).get(fuellung.weinausbauId as string) ?? null)
+  const r = pruefnummerNachtragPruefen(daten, antragId, datum, fuellung.dacAntragId?.trim() || null)
+  if (!r.ok) throw new AktionsFehler(r.fehler)
+  return { pruefnummer: r.pruefnummer as string, dacAntragId: antragId }
 }
 
 /**
