@@ -295,6 +295,7 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
   )] as string[]
   const zielByBatch: Record<string, R> = {}
   if (batchIds.length > 0) {
+    // alle-ausnahme: Umzüge einer einzelnen Charge im Weinbuch, wenige
     const { data: zielRows } = await tf((supabase.from('keller_umzuege') as any)
       .select('umzug_batch_id, nach_behaelter:nach_behaelter_id(name)')
       // storno-sichtbar: nur der Name des Ziel-Gebindes (die Zeilen einer Buchung sind gemeinsam storniert)

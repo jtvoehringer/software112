@@ -764,6 +764,7 @@ export async function planeVerschneidungStorno(
   const schwundIds = [...new Set(((v.quellen ?? []) as R[]).map(q => q.schwund_umzug_id as string | null).filter((x): x is string => !!x))]
   const schwundZeilen: string[] = []
   if (schwundIds.length > 0) {
+    // alle-ausnahme: Schwundbuchungen eines einzelnen Verschnitts, wenige
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: sRows, error: sErr } = await (supabase.from('keller_umzuege') as any)
       .select('id, von_weinausbau_id, schwund_liter, brutto_liter, umzug_typ')

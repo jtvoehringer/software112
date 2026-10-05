@@ -81,7 +81,7 @@ function inAufrufe(text, spalte) {
           p.expression.expression.text === 'bloecke' && p.initializer.getText().endsWith(arg.text)) { ok = true; break }
         if ((ts.isArrowFunction(p) || ts.isFunctionExpression(p)) && p.parameters.length === 1 && ts.isIdentifier(arg) &&
           ts.isIdentifier(p.parameters[0].name) && p.parameters[0].name.text === arg.text && p.parent && ts.isCallExpression(p.parent) &&
-          ts.isIdentifier(p.parent.expression) && ['inBloecken', 'zaehleInBloecken'].includes(p.parent.expression.text)) { ok = true; break }
+          ts.isIdentifier(p.parent.expression) && /^(inBloecken|zaehleInBloecken|\w+InBloecken)$/.test(p.parent.expression.text)) { ok = true; break }
       }
       out.push({ zeile: sf.getLineAndCharacterOfPosition(n.getStart()).line + 1, ok, tabelle })
     }
@@ -106,6 +106,13 @@ const UMGESTELLT = [
   ['src/app/(dashboard)/weingarten/actions.ts', 'weingarten_id', 'Lösch-Sperre der Rieden scheiterte'],
   ['src/app/(dashboard)/weingarten/actions.ts', 'grundstueck_id', 'Lösch-Sperre der Grundstücke scheiterte'],
   ['src/app/api/export/bmd/route.ts', 'id', 'Markierung ab ≈ 350 Belegen scheiterte (Blöcke zu 500), Storno-Belegnummern fehlten'],
+  // Wächter IN_OHNE_BLOECKE (05.10.2026): Listen, die mit der Zeit unbegrenzt wachsen
+  ['src/app/(dashboard)/behandlungen/actions.ts', 'grundstueck_id', 'Maßnahme über alle Rieden: Abwählen hunderter Grundstücke scheiterte'],
+  ['src/app/(dashboard)/erntemeldung/actions.ts', 'pressung_id', 'Lesemengen-/Verpressungs-Prüfung bei vielen Pressungen eines Jahrgangs'],
+  ['src/app/(dashboard)/kellerbuch/behaelter/[id]/umzuege/page.tsx', 'umzug_batch_id', 'Umzüge eines Behälters über die Jahre'],
+  ['src/lib/behoerden/bewegungsbuch.ts', 'umzug_batch_id', 'Bewegungsbuch eines Gebindes über die Jahre'],
+  ['src/lib/behoerden/keller-auswertungen.ts', 'umzug_batch_id', 'Keller-Auswertung über einen langen Zeitraum'],
+  ['src/lib/wein/leseBilanz.ts', 'pressung_id', 'kg-Bilanz je Lese bei vielen Pressungen'],
 ]
 
 // ausser: Tabellen mit bewusst kurzer Liste (profiles = Benutzer des Betriebs)

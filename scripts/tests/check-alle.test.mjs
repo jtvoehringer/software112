@@ -64,7 +64,9 @@ test('Ausnahme mit Grund ≥ 15 Zeichen in der Zeile davor; zu kurz ist ein Fund
 test('ganzes Projekt ohne Fund, im prebuild, große Tabellen enthalten den Befund vom 05.10.2026', () => {
   const r = c.pruefeWurzel()
   assert.deepEqual(r.funde, [])
-  assert.ok(r.ausnahmen.length <= 3, `neue alle-ausnahme? ${JSON.stringify(r.ausnahmen)}`)
+  // Stand 05.10.2026: 1 Vollabfrage (Wetter) + 15 kleine .in()-Listen – jede neue Ausnahme bewusst hier nachziehen
+  assert.ok(r.ausnahmen.length <= 16, `neue alle-ausnahme? ${JSON.stringify(r.ausnahmen)}`)
+  for (const a of r.ausnahmen) assert.ok(a.grund.length >= c.MIN_GRUND, `${a.datei}:${a.zeile}`)
   const pkg = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8'))
   assert.match(pkg.scripts.prebuild, /check-alle\.js/)
   for (const t of ['kontakte', 'firmen', 'grundstuecke', 'behandlung_grundstuecke', 'verkaufsposten', 'ea_transaktionen'])
@@ -88,4 +90,39 @@ test('Fabrik ohne Parameter: gepaged, wenn jede Aufrufstelle über alle() läuft
   assert.deepEqual(regeln(fabrik + `await alle(tvAbfrage().order('id'))\nconst { data } = await tvAbfrage()`), [['VOLLABFRAGE', 'traubenverkauf']])
   // Fabrik ohne Aufruf ist ein Fund (nichts belegt die Begrenzung)
   assert.deepEqual(regeln(fabrik), [['VOLLABFRAGE', 'traubenverkauf']])
+})
+
+// ── Regel IN_OHNE_BLOECKE: .in()-Listen mit Werten aus großen Tabellen ──────────────────────────────────────────
+const LADEN = `const { data } = await alle(supabase.from('kontakte').select('id').eq('tenant_id', t).order('id'))\nconst ids = (data ?? []).map(k => k.id)\n`
+
+test('IN_OHNE_BLOECKE: Liste aus einer Abfrage auf großer Tabelle ohne Blöcke ist ein Fund', () => {
+  assert.deepEqual(regeln(LADEN + `await supabase.from('aktivitaeten').select('id').in('kontakt_id', ids)`), [['IN_OHNE_BLOECKE', 'kontakte']])
+  // auch über mehrere Zuweisungen und Promise.all-Destrukturierung
+  const pa = `const [{ data: a }, { data: f }] = await Promise.all([alle(supabase.from('rabattgruppen').select('id').order('id')), alle(supabase.from('firmen').select('id').eq('tenant_id', t).order('id'))])\nconst roh = (f ?? []) as R[]\nconst fIds = [...new Set(roh.map(x => x.id))]\n`
+  assert.deepEqual(regeln(pa + `await supabase.from('kontakte').select('id').in('firma_id', fIds)`), [['IN_OHNE_BLOECKE', 'firmen']])
+  // die Quelle aus der kleinen Tabelle (Index 0) ist kein Fund
+  assert.deepEqual(regeln(pa.replace('const roh = (f ?? [])', 'const roh = (a ?? [])') + `await supabase.from('kontakte').select('id').in('firma_id', fIds)`), [])
+  // auch update/delete stehen in der URL
+  assert.deepEqual(regeln(LADEN + `await supabase.from('kontakte').update({ aktiv: false }).in('id', ids)`), [['IN_OHNE_BLOECKE', 'kontakte']])
+})
+
+test('IN_OHNE_BLOECKE: inBloecken, Schleife über bloecke() und slice(i, i + ≤ 100) gelten als geblockt', () => {
+  assert.deepEqual(regeln(LADEN + `await inBloecken(ids, b => alle(supabase.from('aktivitaeten').select('id').in('kontakt_id', b).order('id')))`), [])
+  assert.deepEqual(regeln(LADEN + `for (const block of bloecke(ids)) await supabase.from('kontakte').delete().in('id', block)`), [])
+  assert.deepEqual(regeln(LADEN + `for (let i = 0; i < ids.length; i += 100) await supabase.from('kontakte').delete().in('id', ids.slice(i, i + 100))`), [])
+  // Blöcke zu 500 (≈ 18 KB URL) sind zu groß
+  assert.deepEqual(regeln(LADEN + `for (let i = 0; i < ids.length; i += 500) await supabase.from('kontakte').delete().in('id', ids.slice(i, i + 500))`), [['IN_OHNE_BLOECKE', 'kontakte']])
+})
+
+test('IN_OHNE_BLOECKE: kleine Quellen (limit ≤ 300, Einzelsatz), Parameter und kleine Tabellen sind keine Funde', () => {
+  assert.deepEqual(regeln(`const { data } = await supabase.from('kontakte').select('id').eq('tenant_id', t).order('nachname').limit(50)\nconst ids = (data ?? []).map(k => k.id)\nawait supabase.from('aktivitaeten').select('id').in('kontakt_id', ids)`), [])
+  assert.deepEqual(regeln(`async function g(ids: string[]) { await supabase.from('aktivitaeten').select('id').in('kontakt_id', ids) }`), [])
+  assert.deepEqual(regeln(`const { data } = await supabase.from('rabattgruppen').select('id').eq('tenant_id', t)\nconst ids = (data ?? []).map(k => k.id)\nawait supabase.from('kontakte').select('id').in('rabattgruppe_id', ids)`), [])
+})
+
+test('Ausnahme über einem eslint-disable-next-line (Kommentarblock bis 3 Zeilen) wird erkannt', () => {
+  const t = LADEN + `// alle-ausnahme: nur Benutzer des Betriebs, wenige\n// eslint-disable-next-line @typescript-eslint/no-explicit-any\nawait (supabase.from('profiles') as any).select('id').in('id', ids)`
+  const r = c.pruefeText(inFn(t), 'src/z.ts')
+  assert.equal(r.funde.length, 0)
+  assert.equal(r.ausnahmen.length, 1)
 })

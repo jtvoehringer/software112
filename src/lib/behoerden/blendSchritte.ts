@@ -198,12 +198,14 @@ export async function ladeBlendSchritte(
   const schwundIds = [...new Set((vs as VerschnittMenge[]).flatMap(v => (v.quellen ?? []).map(q => q.schwund_umzug_id))
     .filter((x): x is string => !!x && !umzuege.has(x)))]
   if (schwundIds.length > 0) {
+    // alle-ausnahme: Schwundbuchungen im Herkunftsgraph einer Charge, wenige
     for (const u of await liste((supabase.from('keller_umzuege') as any).select(UMZUG_MENGE_SELECT)
       .eq('tenant_id', tenantId).is('storniert_am', null)   // KAN-145
       .in('id', schwundIds).order('id'), 'Umzüge')) umzuege.set(u.id, u as UmzugMenge)
   }
   const batchIds = [...new Set(ein.filter(u => u.umzug_batch_id).map(u => u.umzug_batch_id as string))]
   if (batchIds.length > 0) {
+    // alle-ausnahme: Umzüge im Herkunftsgraph einer Charge, wenige
     const zeilen = await liste((supabase.from('keller_umzuege') as any).select(UMZUG_MENGE_SELECT)
       .eq('tenant_id', tenantId).is('storniert_am', null)   // KAN-145
       .in('umzug_batch_id', batchIds).order('id'), 'Umzüge')

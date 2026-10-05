@@ -62,7 +62,8 @@ test('Rückmeldung 30.09.2026: Rieden beim Bearbeiten änderbar, Snapshots bleib
   const upd = a.slice(a.indexOf('export async function updateBehandlung'), a.indexOf('export async function deleteBehandlung'))
   assert.match(upd, /if \(formData\.get\('ried_auswahl'\) === '1'\)/)
   assert.match(upd, /if \(snapshot\.has\(g\.id\)\) g\.flaeche_ha = snapshot\.get\(g\.id\)/)   // bisherige Fläche bleibt
-  assert.match(upd, /\.delete\(\)\.eq\('behandlung_id', id\)\.in\('grundstueck_id', weg\)/)
+  // abgewählte Grundstücke in Blöcken (05.10.2026, URL-Grenze ≈ 350 IDs)
+  assert.match(upd, /for \(const block of bloecke\(weg\)\)[\s\S]{0,200}\.delete\(\)\.eq\('behandlung_id', id\)\.in\('grundstueck_id', block\)/)
   assert.ok(upd.includes('.insert(dazu.map('), 'neue GST eingefügt')
   assert.ok(upd.indexOf('.in(\'grundstueck_id\', weg)') < upd.indexOf('await ggfKostenEintragAktualisieren'), 'Kosten nach der neuen Zuordnung')
 })

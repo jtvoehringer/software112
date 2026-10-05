@@ -424,6 +424,7 @@ export async function verkaufspostenStornieren(
   //    Rechnungsbezug bleiben. Schon stornierte (Verweis aus einer Position) bleiben unverändert.
   if (tvIds.length > 0) {
     const tvGrund = `Rechnung ${posten.rechnungsnummer ?? '(ohne Nummer)'} storniert: ${stornoGrund}`
+    // alle-ausnahme: Traubenverkäufe einer einzelnen Rechnung, wenige
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error: stornoErr } = await (supabase.from('traubenverkauf') as any)
       .update({ storniert_am: new Date().toISOString(), storno_grund: tvGrund })
@@ -432,6 +433,7 @@ export async function verkaufspostenStornieren(
       .is('storniert_am', null)
     if (stornoErr) probleme.push(dbFehlerText(stornoErr, 'Traubenverkauf (BKI) konnte nicht storniert werden'))
     else {
+      // alle-ausnahme: Traubenverkäufe einer einzelnen Rechnung, wenige
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { count: offen, error: offenErr } = await (supabase.from('traubenverkauf') as any)
         .select('id', { count: 'exact', head: true })

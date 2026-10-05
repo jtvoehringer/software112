@@ -1,7 +1,7 @@
 'use server'
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { alle } from '@/lib/supabase/alle'
+import { alle, bloecke } from '@/lib/supabase/alle'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
@@ -599,10 +599,11 @@ export async function updateBehandlung(id: string, formData: FormData) {
     const bisherIds = new Set(bisherBG.map(bg => String(bg.grundstueck_id)))
     const weg = [...bisherIds].filter(gid => !neueGst!.has(gid))
     const dazu = [...neueGst.values()].filter(g => !bisherIds.has(g.id))
-    if (weg.length > 0) {
+    // in Blöcken: eine Maßnahme über alle Rieden hat mehrere hundert Grundstücke (URL-Grenze ≈ 350 IDs)
+    for (const block of bloecke(weg)) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error: e } = await (supabase.from('behandlung_grundstuecke') as any)
-        .delete().eq('behandlung_id', id).in('grundstueck_id', weg)   // storno-ausnahme: Bearbeiten der Maßnahme – abgewählte Grundstücke (Vorgabe 30.09.2026: Bearbeiten ohne Dokumentation)
+        .delete().eq('behandlung_id', id).in('grundstueck_id', block)   // storno-ausnahme: Bearbeiten der Maßnahme – abgewählte Grundstücke (Vorgabe 30.09.2026: Bearbeiten ohne Dokumentation)
       if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (behandlung_grundstuecke): ${e.message}`)
     }
     if (dazu.length > 0) {

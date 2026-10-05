@@ -624,6 +624,7 @@ export async function ladeBehandlungen(supabase: any, tenantId: string, f: Behan
   const ids = [...new Set(data.map(b => textOderNull(b.durchgefuehrt_von)).filter((x): x is string => !!x))]
   const namen = new Map<string, string>()
   if (ids.length > 0) {
+    // alle-ausnahme: Benutzer des Betriebs (Anwender der Maßnahmen), wenige
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: prof, error: pErr } = await (supabase.from('profiles') as any)
       .select('id, full_name, display_name')

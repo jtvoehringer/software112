@@ -63,6 +63,7 @@ export default async function CRMUebersichtPage({ searchParams }: { searchParams
     // aktualisiert. Vorher wurde hier faelschlich display_name gelesen, wodurch der
     // Name im Kalender-Filter vom im Profil hinterlegten Namen abweichen konnte
     // (z.B. "Jörgen Vöhringer" statt des spaeter auf "Jörgen" geaenderten Namens).
+    // alle-ausnahme: Benutzer des Betriebs (Ersteller der Aktivitäten), wenige
     const { data: profilesRaw } = await (supabase.from('profiles') as any)
       .select('id, full_name, display_name')
       .in('id', uniqueUserIds)
