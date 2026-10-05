@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
@@ -38,7 +39,7 @@ export default async function NeuePage({
 
   const [{ data: raw }, { data: anRaw }, { data: offenRaw }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase.from('weinausbau') as any).select('id, name, jahrgang, rebsorte, menge_liter').eq('aktiv', true).eq('tenant_id', tenantId).order('name'),
+    alle((supabase.from('weinausbau') as any).select('id, name, jahrgang, rebsorte, menge_liter').eq('aktiv', true).eq('tenant_id', tenantId).order('name').order('id')),
     preCharge
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ? (supabase.from('weinanalysen') as any)

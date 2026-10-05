@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { ladeBehaelter } from '@/lib/keller/behaelter'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { redirect } from 'next/navigation'
@@ -96,9 +97,9 @@ export default async function UmzugEditPage({ params }: { params: Promise<{ id: 
   const [gebindeRows, { data: chargenRaw }] = await Promise.all([
     // Ziele: eigene + freigegebene Gebinde, fremd belegte ausgenommen (Migration 203)
     ladeBehaelter(supabase, tenantId, { alsZiel: true }),
-    tf((supabase.from('weinausbau') as any)
+    alle(tf((supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, menge_liter, behaelter_id, aktiv, behaelter:behaelter_id(name)')
-      .eq('aktiv', true).order('name')),
+      .eq('aktiv', true).order('name').order('id'))),
   ])
 
   const gebinde = gebindeRows.map(b => ({ id: b.id, name: b.anzeigeName, aktiv: b.aktiv, volumen_liter: b.volumen_liter })) as R[]

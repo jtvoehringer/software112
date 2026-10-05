@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
@@ -34,17 +35,17 @@ export default async function NeueFuellungPage({
   // Alle aktiven Weinausbau-Chargen + DAC-Anträge parallel laden. KAN-72: keine abgelehnten
   // oder inaktiven Anträge mehr (früher wählbar, samt ihrer Prüfnummer)
   const [{ data: chargenRaw }, { data: dacRaw }] = await Promise.all([
-  tf((supabase.from('weinausbau') as any)
+  alle(tf((supabase.from('weinausbau') as any)
     .select('id, name, jahrgang, rebsorte, menge_liter, status, qualitaetsstufe, zusatzbezeichnung, erzeugnis, herkunft_code')
     .eq('aktiv', true)
     .neq('status', 'abgeschlossen')
-    .order('jahrgang', { ascending: false })),
-  tf((supabase.from('dac_antrag') as any)
+    .order('jahrgang', { ascending: false }).order('id'))),
+  alle(tf((supabase.from('dac_antrag') as any)
     .select('id, bezeichnung, dac_region, jahrgang, rebsorte, pruefnummer, status, weinausbau_id')
     .eq('aktiv', true)
     .is('storniert_am', null)   // KAN-150 F2: stornierte Anträge nicht wählbar
     .neq('status', 'abgelehnt')
-    .order('jahrgang', { ascending: false })),
+    .order('jahrgang', { ascending: false }).order('id'))),
   ])
 
   const alleAntraege = (dacRaw ?? []) as R[]

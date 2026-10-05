@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { getCurrentUserRole, canWrite, canAdmin, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
@@ -64,15 +65,15 @@ export default async function ErntemeldungPage() {
     // Löschsperre: Pressungen und Traubenverkäufe je Jahrgang
     // storno-sichtbar: auch eine stornierte Pressung sperrt das Löschen des Jahrgangs (KAN-148)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase.from('pressungen') as any)
+    alle((supabase.from('pressungen') as any)
       .select('jahrgang_id')
-      .eq('tenant_id', tenantId),
+      .eq('tenant_id', tenantId).order('id')),
     // storno-sichtbar: Löschsperre – auch ein stornierter Traubenverkauf sperrt den Jahrgang (wie deleteJahrgang)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase.from('traubenverkauf') as any)
+    alle((supabase.from('traubenverkauf') as any)
       .select('jahrgang_id')
       .eq('tenant_id', tenantId)
-      .not('jahrgang_id', 'is', null),
+      .not('jahrgang_id', 'is', null).order('id')),
   ])
 
   const zaehleJe = (zeilen: AR[] | null | undefined) => {

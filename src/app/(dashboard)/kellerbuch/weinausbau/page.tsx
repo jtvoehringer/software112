@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { fmtLiter } from '@/lib/format'
 import type { Metadata } from 'next'
@@ -34,7 +35,8 @@ export default async function WeinausbauListePage() {
   // des Nutzers, nicht nur dem aktiv gewählten Betrieb – ohne diesen Filter könnten bei
   // Mehrfach-Mitgliedschaft Daten vom falschen Betrieb angezeigt werden.
   if (tenantId) query = query.eq('tenant_id', tenantId)
-  const { data: raw } = await query
+  // alle(): Chargen sammeln sich über die Jahrgänge – PostgREST kappt sonst still bei 1.000
+  const { data: raw } = await alle(query.order('id'))
 
   const chargen = (raw ?? []) as R[]
   const aktive  = chargen.filter((w: R) => w.status !== 'abgeschlossen' && !w.ist_eroeffnungsbestand)

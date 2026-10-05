@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { ohneStornierteVerschnitte } from '@/lib/kellerbuch/stornoFilter'
 import { ladeBehaelter } from '@/lib/keller/behaelter'
 import { fmtLiter, fmtNum } from '@/lib/format'
@@ -113,11 +114,11 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
       .eq('weinausbau_id', id)),
 
     // Alle anderen aktiven Chargen (für Verschneidungs- und Umziehen-Formular)
-    tf((supabase.from('weinausbau') as any)
+    alle(tf((supabase.from('weinausbau') as any)
       .select('id, name, menge_liter, qualitaetsstufe, zusatzbezeichnung, erzeugnis, herkunft_code, behaelter_id, rebsorte, weinart')
       .eq('aktiv', true)
       .neq('id', id)
-      .order('name')),
+      .order('name').order('id'))),
 
     // Verschneidungen: diese Charge als Ziel – KAN-77: mit Quell-Charge (Quellgebinde) und Qualität für das Badge
     tf((supabase.from('verschneidungen') as any)

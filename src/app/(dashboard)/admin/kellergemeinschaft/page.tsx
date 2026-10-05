@@ -3,6 +3,7 @@
 // Nur system_admin; Datenbasis sind die Mandanten mit aktiver Mitgliedschaft
 // des Admins (wie unter Administration > Mandanten).
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import { alle } from '@/lib/supabase/alle'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { istPlattformAdmin } from '@/lib/auth/plattformAdmin'
 import { redirect } from 'next/navigation'
@@ -46,7 +47,7 @@ export default async function KellergemeinschaftPage() {
     // tenant-isolation-ignore: mandantenübergreifende Verwaltungstabelle (system_admin)
     (admin.from('keller_freigaben') as any).select('id, eigentuemer_tenant_id, nutzer_tenant_id, aktiv, notizen, erstellt_am').in('eigentuemer_tenant_id', tenantIds).order('erstellt_am'),
     // tenant-isolation-ignore: Zähler je Eigentümer über die eigenen Mandanten des Admins
-    (admin.from('behaelter') as any).select('tenant_id, gemeinsam, aktiv').in('tenant_id', tenantIds).eq('aktiv', true),
+    alle((admin.from('behaelter') as any).select('tenant_id, gemeinsam, aktiv').in('tenant_id', tenantIds).eq('aktiv', true).order('id')),
   ])
   const nameMap = new Map<string, string>(((tenants ?? []) as R[]).map(t => [t.id, t.name]))
   const zaehler = new Map<string, { gesamt: number; frei: number }>()

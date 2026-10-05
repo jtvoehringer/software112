@@ -1,5 +1,6 @@
 // behoerdenmeldung: gebindeverzeichnis, aenderungsprotokoll
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { fmtLiter, fmtNum } from '@/lib/format'
 import { getCurrentUserRole, canWrite, canAdmin, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
@@ -67,11 +68,11 @@ export default async function GebindePage({
     // Betriebe bleiben unsichtbar.
     tenantId ? ladeGebindeverzeichnis(supabase, tenantId) : Promise.resolve({ eintraege: [], zeilen: [], warnungen: [] }),
     ladeKellergemeinschaft(supabase, tenantId),
-    tf((supabase.from('weinausbau') as any)
+    alle(tf((supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, kmw, oechsle, mostgewicht_einheit, menge_liter, qualitaetsstufe, zusatzbezeichnung, erzeugnis, behaelter_id, behaelter:behaelter_id(name), notizen, einstandspreis_pro_liter, referenz_altsystem, transaktions_nr, aktiv, created_at')
       .eq('ist_eroeffnungsbestand', true)
       .eq('aktiv', true)
-      .order('jahrgang', { ascending: false })),
+      .order('jahrgang', { ascending: false }).order('id'))),
     tf((supabase.from('keller_umzuege') as any)
       .select('id, datum, menge_liter, schwund_liter, brutto_liter, umzug_batch_id, zeilen_typ, umzug_typ, notizen, transaktions_nr, von_weinausbau:von_weinausbau_id(name, jahrgang), von_behaelter:von_behaelter_id(name), nach_behaelter:nach_behaelter_id(name), storniert_am, storno_grund, storniert_von_name')
       // storno-sichtbar: Liste zeigt stornierte Buchungen gekennzeichnet, ohne Aktionen (KAN-145 B2b)

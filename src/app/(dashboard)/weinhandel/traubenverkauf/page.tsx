@@ -105,7 +105,7 @@ export default async function TraubenverkaufPage() {
 
   // Zugekaufte Trauben (art='trauben') - stehen zusätzlich zur eigenen Ernte
   // als verkaufbare Menge zur Verfügung (siehe Migration 141).
-  const { data: zukaufRaw } = await (supabase.from('zukauf_posten') as any)
+  const { data: zukaufRaw } = await alle((supabase.from('zukauf_posten') as any)
     .select(`
       id, datum, menge, rebsorte, herkunft, kmw, oechsle, mostgewicht_einheit,
       lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname),
@@ -114,7 +114,7 @@ export default async function TraubenverkaufPage() {
     .eq('tenant_id', membership.tenantId)
     .eq('art', 'trauben')
     .eq('aktiv', true)
-    .order('datum', { ascending: false })
+    .order('datum', { ascending: false }).order('id'))
 
   const zukaufListe = (zukaufRaw ?? []) as R[]
   const zukaufIds = zukaufListe.map(z => z.id)

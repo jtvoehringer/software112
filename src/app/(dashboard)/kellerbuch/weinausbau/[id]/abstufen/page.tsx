@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
@@ -38,7 +39,7 @@ export default async function AbstufenPage({ params }: { params: Promise<{ id: s
       .eq('weinausbau_id', id).order('datum', { ascending: false })),
     // belegte Gebinde (aktive Chargen) – Teilmenge nur in ein leeres Gebinde
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    tf((supabase.from('weinausbau') as any).select('behaelter_id').eq('aktiv', true).is('storniert_am', null).not('behaelter_id', 'is', null)),
+    alle(tf((supabase.from('weinausbau') as any).select('behaelter_id').eq('aktiv', true).is('storniert_am', null).not('behaelter_id', 'is', null).order('id'))),
     ladeBehaelter(supabase, tenantId, { nurAktiv: true }),
   ])
   if (!waRaw) notFound()

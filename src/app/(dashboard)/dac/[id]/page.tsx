@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { getCurrentMembership, canWrite, canAdmin } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
@@ -31,7 +32,7 @@ export default async function DacEditPage({ params }: { params: Promise<{ id: st
     tf((supabase.from('dac_antrag') as any)
       .select('id, weinausbau_id, bezeichnung, dac_region, jahrgang, rebsorte, menge_liter, alkohol_prozent, status, pruefnummer, eingereicht_am, bescheid_am, notizen, aktiv, storniert_am, storniert_von_name, storno_grund, status_seit, antragsnummer, untersuchungsnummer, entzug_am, entzug_grund')
       .eq('id', id).limit(1)),
-    tf((supabase.from('weinausbau') as any).select('id, name, jahrgang, rebsorte, menge_liter').eq('aktiv', true).order('name')),
+    alle(tf((supabase.from('weinausbau') as any).select('id, name, jahrgang, rebsorte, menge_liter').eq('aktiv', true).order('name').order('id'))),
     // KAN-97: Verlauf der Statuswechsel
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tf((supabase.from('pruefnummer_ereignisse') as any)

@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { ladeBehaelter, type BehaelterZeile } from '@/lib/keller/behaelter'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { fmtLiter } from '@/lib/format'
@@ -48,9 +49,9 @@ export default async function KellerbuchPage() {
   ] = await Promise.all([
     // Eigene + freigegebene Gebinde (Kellergemeinschaft, Migration 203)
     ladeBehaelter(supabase, tenantId),
-    tf((supabase.from('weinausbau') as any)
+    alle(tf((supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, rebsorte, weinart, menge_liter, status, aktiv, behaelter_id, ist_eroeffnungsbestand')
-      .order('jahrgang', { ascending: false })),
+      .order('jahrgang', { ascending: false }).order('id'))),
     // Event-basierter Füllstand pro Behälter (identisch zur Bewegungen-Page)
     tf((supabase.from('v_behaelter_fuellstand') as any)
       .select('behaelter_id, liter_aktuell')),

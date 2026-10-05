@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { ladeBehaelter } from '@/lib/keller/behaelter'
 import { stornoAngaben } from '@/lib/kellerbuch/stornoFilter'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
@@ -32,13 +33,13 @@ export default async function UmziehenPage({ searchParams }: { searchParams: Pro
     { data: umzugRaw },
   ] = await Promise.all([
     // Aktive Chargen mit Behälter-Info (für Quellen-Auflösung)
-    tf((supabase.from('weinausbau') as any)
+    alle(tf((supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, rebsorte, weinart, menge_liter, qualitaetsstufe, status, behaelter_id, behaelter:behaelter_id(id, name, volumen_liter)')
       .eq('aktiv', true)
       .neq('status', 'abgeschlossen')
       .not('behaelter_id', 'is', null)
       .gt('menge_liter', 0)
-      .order('name')),
+      .order('name').order('id'))),
 
     // Alle aktiven Behälter als Ziele - eigene + freigegebene (Kellergemeinschaft),
     // ohne fremd belegte (Migration 203)

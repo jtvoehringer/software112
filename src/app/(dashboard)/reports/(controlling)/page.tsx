@@ -65,9 +65,9 @@ export default async function ReportsPage() {
       .select('id, datum, verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
       .eq('aktiv', true).eq('storniert', false)
       .gte('datum', von12).lte('datum', bis12).order('datum').order('id'))),
-    tf((supabase.from('fuellungen') as any)
+    alle(tf((supabase.from('fuellungen') as any)
       .select('id, name, jahrgang, rebsorte, flaschengroesse_ml, bestand_flaschen, vk_preis_brutto, einstandspreis, aktiv')
-      .eq('aktiv', true).order('bestand_flaschen', { ascending: false })),
+      .eq('aktiv', true).order('bestand_flaschen', { ascending: false }).order('id'))),
     alle(tf((supabase.from('pipeline_eintraege') as any)
       .select('id, stufe, kategorie, erledigt, kontakt:kontakte!kontakt_id(vorname, nachname, segment), firma:firmen(name, segment)')
       .order('erstellt_am', { ascending: false }).order('id'))),
@@ -80,12 +80,12 @@ export default async function ReportsPage() {
       .order('datum', { ascending: true }).order('id'))),   // alle(): Summe offener Posten über alle, nicht die ältesten 1.000
     // Bewusst NICHT auf aktiv=true eingeschränkt, damit auch historische
     // (inzwischen inaktive/ausverkaufte) Füllungen filterbar bleiben.
-    tf((supabase.from('fuellungen') as any).select('jahrgang, rebsorte, bezeichnung')),
+    alle(tf((supabase.from('fuellungen') as any).select('jahrgang, rebsorte, bezeichnung').order('id'))),
     tenantId ? (supabase as any).rpc('crm_filterwerte', { p_tenant_id: tenantId }) : Promise.resolve({ data: [] }),
     // Weinbuch-Sammlung: über ALLE Weinausbau-Chargen (aktiv + abgeschlossen),
     // da die Sammlung gerade für Prüfungen (BKI) auch historische Chargen
     // auffindbar machen soll.
-    tf((supabase.from('weinausbau') as any).select('jahrgang, rebsorte, name')),
+    alle(tf((supabase.from('weinausbau') as any).select('jahrgang, rebsorte, name').order('id'))),
   ])
 
   // ── Monats-Umsatz (12 Monate rückwärts) ─────────────────────────────────
