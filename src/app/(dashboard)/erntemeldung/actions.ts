@@ -1,6 +1,7 @@
 'use server'
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle, inBloecken } from '@/lib/supabase/alle'
 import { lesePflichtFehler, traubenzeilePflichtFehler, pressungZeilenFehler, LESE_FEST_MELDUNG } from '@/lib/wein/lesePflicht'
 import { revalidatePath } from 'next/cache'
 import { kmwZuQualitaet } from '@/lib/weinqualitaet'
@@ -460,9 +461,10 @@ async function leseVerbraucht(supabase: any, tenantId: string, jahrgangId: strin
   if (((tvRes.data ?? []) as AR[]).length > 0) return true
   const ids = ((pRes.data ?? []) as AR[]).map(p => p.id as string)
   if (ids.length === 0) return false
+  // inBloecken: Pressungen eines Jahrgangs (URL-Grenze ≈ 350 IDs); je Block höchstens ein Treffer
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await gstFilter((supabase.from('pressung_weingaerten') as any).select('id').in('pressung_id', ids)
-    .eq('weingarten_id', alt.weingarten_id).is('storniert_am', null)).limit(1)
+  const { data, error } = await inBloecken<AR>(ids, b => gstFilter((supabase.from('pressung_weingaerten') as any).select('id').in('pressung_id', b)
+    .eq('weingarten_id', alt.weingarten_id).is('storniert_am', null)).limit(1))
   if (error) throw new AktionsFehler(dbFehlerText(error, 'Verwendung der Lese konnte nicht geprüft werden'))
   return ((data ?? []) as AR[]).length > 0
 }
@@ -494,12 +496,15 @@ async function pruefeLesedatumNichtVerpresst(
   if (pErr) throw new AktionsFehler(dbFehlerText(pErr, 'Pressungen konnten nicht geprüft werden'))
   const pressungen = (pRows ?? []) as AR[]
   if (pressungen.length === 0) return
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let q = (supabase.from('pressung_weingaerten') as any)
-    .select('pressung_id, grundstueck_id').in('pressung_id', pressungen.map(p => p.id))
-    .eq('weingarten_id', alt.weingarten_id).eq('ernte_datum', altesDatum).is('storniert_am', null)
-  if (alt.grundstueck_id) q = q.or(`grundstueck_id.eq.${alt.grundstueck_id},grundstueck_id.is.null`)
-  const { data: pwRows, error: pwErr } = await q
+  // inBloecken: Pressungen eines Jahrgangs (URL-Grenze ≈ 350 IDs)
+  const { data: pwRows, error: pwErr } = await inBloecken<AR>(pressungen.map(p => p.id as string), b => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let q = (supabase.from('pressung_weingaerten') as any)
+      .select('pressung_id, grundstueck_id').in('pressung_id', b)
+      .eq('weingarten_id', alt.weingarten_id).eq('ernte_datum', altesDatum).is('storniert_am', null)
+    if (alt.grundstueck_id) q = q.or(`grundstueck_id.eq.${alt.grundstueck_id},grundstueck_id.is.null`)
+    return alle<AR>(q.order('id'))
+  })
   if (pwErr) throw new AktionsFehler(dbFehlerText(pwErr, 'Pressungen konnten nicht geprüft werden'))
   const treffer = ((pwRows ?? []) as AR[])[0]
   if (!treffer) return
@@ -544,8 +549,9 @@ async function pruefeLesemengeGedeckt(
   const pressIds = ((pressRes.data ?? []) as AR[]).map(p => p.id as string)
   let pwZeilen: AR[] = []
   if (pressIds.length > 0) {
-    const { data, error } = await (supabase.from('pressung_weingaerten') as any)
-      .select('grundstueck_id, trauben_kg').in('pressung_id', pressIds).eq('weingarten_id', alt.weingarten_id).is('storniert_am', null)
+    // inBloecken + alle(): Pressungen eines Jahrgangs, Summe der verpressten kg
+    const { data, error } = await inBloecken<AR>(pressIds, b => alle<AR>((supabase.from('pressung_weingaerten') as any)
+      .select('grundstueck_id, trauben_kg').in('pressung_id', b).eq('weingarten_id', alt.weingarten_id).is('storniert_am', null).order('id')))
     if (error) throw new AktionsFehler(dbFehlerText(error, 'Lesemenge konnte nicht geprüft werden (pressung_weingaerten)'))
     pwZeilen = (data ?? []) as AR[]
   }
@@ -1684,6 +1690,7 @@ export async function stornoPressung(id: string, jahrgangId: string, grund: stri
   const pbs = (pbRaw ?? []) as AR[]
 
   if (pbs.length > 0) {
+    // alle-ausnahme: Behälterzeilen einer einzelnen Pressung, wenige je Pressung
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { count: nVerkauf, error: vpErr } = await (supabase.from('verkauf_positionen') as any)
       .select('id', { count: 'exact', head: true })

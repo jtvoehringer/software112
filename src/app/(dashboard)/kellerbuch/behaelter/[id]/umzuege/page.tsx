@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle, inBloecken } from '@/lib/supabase/alle'
 import { ladeBehaelterEinzeln } from '@/lib/keller/behaelter'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { fmtLiter, fmtNum } from '@/lib/format'
@@ -55,10 +56,12 @@ export default async function BehaelterUmzuegePage({ params }: { params: Promise
   // dort nicht direkt referenziert ist – deshalb den kompletten Batch nachladen.
   const batchIds = [...new Set(initial.filter(r => r.umzug_batch_id).map(r => r.umzug_batch_id as string))]
   const { data: batchRowsRaw } = batchIds.length > 0
-    ? await tf((supabase.from('keller_umzuege') as any)
+    // inBloecken + alle(): alle Umzüge eines Behälters über die Jahre (URL-Grenze ≈ 350 IDs)
+    ? await inBloecken(batchIds, b => alle(tf((supabase.from('keller_umzuege') as any)
         .select(UMZUG_SELECT)
         .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
-        .in('umzug_batch_id', batchIds))
+        .in('umzug_batch_id', b)
+        .order('id'))))
     : { data: [] }
   const batchRows = (batchRowsRaw ?? []) as R[]
 

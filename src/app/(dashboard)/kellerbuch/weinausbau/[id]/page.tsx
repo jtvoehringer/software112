@@ -166,6 +166,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
   const quelleRecsByBatch: Record<string, R[]> = {}
 
   if (quelleAusBatchIds.length > 0) {
+    // alle-ausnahme: Umzüge einer einzelnen Charge, wenige
     const { data: zielRaw } = await tf((supabase.from('keller_umzuege') as any)
       // nach_weinausbau als Fallback wenn nach_behaelter_id NULL ist
       .select('umzug_batch_id, nach_behaelter:nach_behaelter_id(name), nach_weinausbau:nach_weinausbau_id(name), menge_liter')
@@ -178,6 +179,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
   }
 
   if (zielEinBatchIds.length > 0) {
+    // alle-ausnahme: Umzüge einer einzelnen Charge, wenige
     const { data: quelleRaw } = await tf((supabase.from('keller_umzuege') as any)
       // von_behaelter direkt (einstufig) als Fallback wenn doppelter Join fehlschlägt
       .select('umzug_batch_id, von_behaelter:von_behaelter_id(name), von_weinausbau:von_weinausbau_id(name, behaelter:behaelter_id(name)), brutto_liter')

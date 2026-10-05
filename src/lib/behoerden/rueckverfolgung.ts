@@ -460,6 +460,7 @@ export async function ladeChargeKette(
   const quelleBatchIds = [...new Set(umzuegeRaw.filter(u => u.zeilen_typ === 'quelle' && u.umzug_batch_id).map(u => u.umzug_batch_id as string))]
   const zielByBatch: Record<string, R> = {}
   if (quelleBatchIds.length > 0) {
+    // alle-ausnahme: Umzüge der Rückverfolgungskette einer Charge, wenige
     const zielRows = pruefen(await alle<R>((supabase.from('keller_umzuege') as any)
       .select('id, umzug_batch_id, nach_behaelter:nach_behaelter_id(name), nach_weinausbau:nach_weinausbau_id(name), menge_liter')
       .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht

@@ -23,7 +23,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Projektkonvention (supabase.from('…') as any), siehe CLAUDE.md */
 import { momentaufnahmeAnwenden } from '../stammdaten/momentaufnahme'
 import { runden, STELLEN, type CsvSpalte } from '@/lib/csv'
-import { alle } from '@/lib/supabase/alle'
+import { alle, inBloecken } from '@/lib/supabase/alle'
 import { istStorniert, stornoAngaben } from '@/lib/kellerbuch/stornoFilter'
 import { ladeBehaelterEinzeln, type BehaelterZeile } from '@/lib/keller/behaelter'
 import { fmtNum } from '@/lib/format'
@@ -105,6 +105,13 @@ function fehler(tabelle: string, e: { message?: string } | null): never {
 
 async function liste(query: any, tabelle: string): Promise<R[]> {
   const { data, error } = await alle<R>(query)
+  if (error) fehler(tabelle, error)
+  return data
+}
+
+/** wie liste(), aber für lange .in()-Listen in Blöcken (URL-Grenze ≈ 350 IDs) */
+async function listeInBloecken(werte: string[], abfrage: (block: string[]) => any, tabelle: string): Promise<R[]> {
+  const { data, error } = await inBloecken<R>(werte, b => alle<R>(abfrage(b)))
   if (error) fehler(tabelle, error)
   return data
 }
@@ -209,20 +216,20 @@ async function ladeRoh(supabase: any, tenantId: string, behaelterId: string): Pr
   const zielByBatch: Record<string, R[]> = {}
   const [quelleRows, zielRows] = await Promise.all([
     einZielBatchIds.length > 0
-      ? liste((supabase.from('keller_umzuege') as any)
+      ? listeInBloecken(einZielBatchIds, b => (supabase.from('keller_umzuege') as any)
           .select('id, umzug_batch_id, von_behaelter:von_behaelter_id(name), von_weinausbau:von_weinausbau_id(name, behaelter:behaelter_id(name))')
           // storno-sichtbar: nur Namen der Gegenseite (die Zeilen einer Buchung sind gemeinsam storniert)
           .eq('tenant_id', tenantId)
-          .in('umzug_batch_id', einZielBatchIds)
+          .in('umzug_batch_id', b)
           .eq('zeilen_typ', 'quelle')
           .order('id', { ascending: true }), 'keller_umzuege')
       : Promise.resolve([] as R[]),
     ausQuelleBatchIds.length > 0
-      ? liste((supabase.from('keller_umzuege') as any)
+      ? listeInBloecken(ausQuelleBatchIds, b => (supabase.from('keller_umzuege') as any)
           .select('id, umzug_batch_id, nach_behaelter:nach_behaelter_id(name), nach_weinausbau:nach_weinausbau_id(name), menge_liter')
           // storno-sichtbar: nur Namen der Gegenseite (die Zeilen einer Buchung sind gemeinsam storniert)
           .eq('tenant_id', tenantId)
-          .in('umzug_batch_id', ausQuelleBatchIds)
+          .in('umzug_batch_id', b)
           .eq('zeilen_typ', 'ziel')
           .order('id', { ascending: true }), 'keller_umzuege')
       : Promise.resolve([] as R[]),

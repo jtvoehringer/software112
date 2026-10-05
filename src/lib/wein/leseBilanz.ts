@@ -10,6 +10,9 @@
 // Ohne '@/'-Importe und ohne JSX, damit node:test sie prüfen kann; der Lader nimmt den Supabase-Client entgegen.
 
 /** Toleranz gegen Rundung (kg) – wie pruefeLesemengeGedeckt */
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung für node:test (wie lib/buchhaltung/bmd.ts)
+import { alle, inBloecken } from '../supabase/alle.ts'
+
 export const KG_TOLERANZ = 0.01
 
 export type Mengenzeile = { weingarten_id: string | null; grundstueck_id: string | null; kg: number }
@@ -153,9 +156,10 @@ export async function ladeLeseVerbrauch(supabase: Client, tenantId: string, jahr
   const pressIds = ((pr.data ?? []) as R[]).map(p => p.id as string)
   let pw: R[] = []
   if (pressIds.length > 0) {
+    // inBloecken + alle(): Pressungen eines Jahrgangs, Summe der verpressten kg (URL-Grenze ≈ 350 IDs)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabase.from('pressung_weingaerten') as any)
-      .select('pressung_id, weingarten_id, grundstueck_id, trauben_kg').in('pressung_id', pressIds).not('weingarten_id', 'is', null).is('storniert_am', null)
+    const { data, error } = await inBloecken<R>(pressIds, b => alle<R>((supabase.from('pressung_weingaerten') as any)
+      .select('pressung_id, weingarten_id, grundstueck_id, trauben_kg').in('pressung_id', b).not('weingarten_id', 'is', null).is('storniert_am', null).order('id')))
     if (error) throw new Error(`Lesemenge konnte nicht geprüft werden (pressung_weingaerten): ${error.message}`)
     pw = (data ?? []) as R[]
   }

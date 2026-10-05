@@ -284,6 +284,7 @@ export async function ladeBewegungsgraph(supabase: any, tenantId: string, startI
     }
     const direkt = fu.filter(f => !mitChargen.has(f.id))
     if (direkt.length > 0) {
+      // alle-ausnahme: Füllungen im Herkunftsgraph einer Charge, wenige
       const weitere = await liste((supabase.from('fuellung_chargen') as any)
         .select('fuellung_id').eq('tenant_id', tenantId).in('fuellung_id', direkt.map(f => f.id)).order('fuellung_id'), 'Füllungen')
       const hatZeilen = new Set(weitere.map(w => w.fuellung_id as string))

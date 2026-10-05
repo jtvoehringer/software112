@@ -11,7 +11,7 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Projektkonvention (supabase.from('…') as any), siehe CLAUDE.md */
 import { runden, STELLEN, type CsvSpalte } from '@/lib/csv'
-import { alle } from '@/lib/supabase/alle'
+import { alle, inBloecken } from '@/lib/supabase/alle'
 import { ladeBehaelter, type BehaelterZeile } from '@/lib/keller/behaelter'
 import { bkiRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
 import { ladeKellerBehandlungen, behandlungenJeTyp, type KellerBehandlungZeile } from './keller-behandlungen'
@@ -93,13 +93,14 @@ export async function ladeKellerUmzuege(
   const batchIds = [...new Set(data.filter(u => u.zeilen_typ === 'quelle' && u.umzug_batch_id).map(u => u.umzug_batch_id as string))]
   const zieleJeBatch = new Map<string, string[]>()
   if (batchIds.length > 0) {
-    const ziele = await alle<R>((supabase.from('keller_umzuege') as any)
+    // inBloecken: alle Umzüge des Zeitraums – die Batch-Liste wächst mit (URL-Grenze ≈ 350 IDs)
+    const ziele = await inBloecken<R>(batchIds, b => alle<R>((supabase.from('keller_umzuege') as any)
       .select('id, umzug_batch_id, nach_behaelter_id, nach_behaelter:nach_behaelter_id(name)')
       .is('storniert_am', null)   // KAN-145: stornierte Buchungen zählen nicht
       .eq('tenant_id', tenantId)
-      .in('umzug_batch_id', batchIds)
+      .in('umzug_batch_id', b)
       .eq('zeilen_typ', 'ziel')
-      .order('id'))
+      .order('id')))
     if (ziele.error) throw new Error(`Umzüge konnten nicht geladen werden: ${ziele.error.message}`)
     for (const zr of ziele.data) {
       const n = (zr.nach_behaelter_id ? gebindeName.get(zr.nach_behaelter_id) : null) ?? (zr.nach_behaelter as R | null)?.name ?? '?'

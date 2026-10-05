@@ -77,6 +77,7 @@ export default async function WeingartenEditPage({ params }: Props) {
   if (tenantIdFuerMassnahmen) {
     const [bgRes, nurWgRes] = await Promise.all([
       gstIds.length > 0
+        // alle-ausnahme: Grundstücke eines einzelnen Rieds, wenige
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ? alle<AR>((supabase.from('behandlung_grundstuecke') as any).select('behandlung_id, grundstueck_id').in('grundstueck_id', gstIds).order('behandlung_id'))
         : Promise.resolve({ data: [] as AR[], error: null }),

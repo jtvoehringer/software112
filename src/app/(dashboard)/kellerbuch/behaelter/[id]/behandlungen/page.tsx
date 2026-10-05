@@ -123,6 +123,7 @@ export default function KellerbehandlungenPage() {
     // KAN-206: Prüfnummer-Gültigkeit der behandelten Chargen – gesperrte Behandlungen nur noch in den Notizen änderbar
     const chargenIds = [...new Set(((behandlungenData ?? []) as R[]).map(b => b.weinausbau_id).filter(Boolean))]
     if (chargenIds.length > 0 && activeTenantId) {
+      // alle-ausnahme: Chargen mit Behandlungen in einem einzelnen Behälter, wenige
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase-Typen ohne Tabellenschema (Konvention)
       const { data: pn } = await (supabase.from('pruefnummer_chargen') as any)
         .select('weinausbau_id, gueltig_ab, gueltig_bis').eq('tenant_id', activeTenantId).in('weinausbau_id', chargenIds)

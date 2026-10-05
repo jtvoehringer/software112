@@ -23,6 +23,8 @@
  * Ausnahme je Stelle: „// alle-ausnahme: <Grund>“ in derselben Zeile wie das .from( oder allein in der Zeile davor,
  * Grund mind. 15 Zeichen (z. B. „höchstens 12 Monatszeilen je Jahr“).
  *
+ * Regel IN_OHNE_BLOECKE (seit 05.10.2026): .in()-Listen mit Werten aus großen Tabellen ohne Blöcke – siehe unten.
+ *
  * Aufruf: node scripts/check-alle.js [--liste]   (Exit 1 bei Funden; --liste zeigt alle Ausnahmen)
  * Für Tests: require('./check-alle.js') → { pruefeText, pruefeWurzel, abfragen, GROSSE_TABELLEN } ohne Seiteneffekte;
  * S112_GUARD_ROOT prüft ein anderes Projektverzeichnis.
@@ -76,8 +78,11 @@ function dateien(dir, out = []) {
 
 /** Ausnahme mit Grund in der Zeile oder allein in der Zeile davor; liefert Grund, '' (zu kurz) oder null */
 function ausnahmeGrund(zeilen, idx) {
-  const davor = idx > 0 && /^\s*\/\//.test(zeilen[idx - 1]) ? zeilen[idx - 1] : ''
-  for (const z of [zeilen[idx], davor]) {
+  // die Zeile selbst und der unmittelbar darüberstehende Kommentarblock (höchstens 3 Zeilen, z. B. über einem
+  // eslint-disable-next-line, das direkt über dem Code stehen muss)
+  const davor = []
+  for (let i = idx - 1; i >= 0 && i >= idx - 3 && /^\s*\/\//.test(zeilen[i]); i--) davor.push(zeilen[i])
+  for (const z of [zeilen[idx], ...davor]) {
     const m = AUSNAHME.exec(z || '')
     if (m) return m[1].trim().length >= MIN_GRUND ? m[1].trim() : ''
   }
@@ -245,9 +250,138 @@ function abfragen(text, datei = '') {
 }
 
 /** Prüft einen Dateitext; liefert { funde, ausnahmen } */
+// ── Regel IN_OHNE_BLOECKE (05.10.2026) ─────────────────────────────────────────────────────────────────────────────
+// .in('spalte', liste) steht in der URL – ab ≈ 350 UUIDs scheitert die Anfrage (gemessen gegen Staging), supabase-js
+// liefert nur einen Fehler, den viele Aufrufer verwerfen. Gemeldet wird gezielt: eine .in()-Liste, deren Werte (über
+// höchstens IN_TIEFE Zuweisungen in derselben Datei) aus einer Abfrage auf einer großen Tabelle stammen und die nicht
+// in Blöcken läuft (inBloecken/zaehleInBloecken-Rückruf, Schleife über bloecke(…), .slice(i, i + ≤ 100)).
+// Listen aus Auswahlen, Parametern oder Hilfsfunktionen bleiben unbehelligt (Heuristik, kein Datenflussbeweis).
+
+const IN_TIEFE = 6
+const BLOCK_FUNKTIONEN = new Set(['inBloecken', 'zaehleInBloecken'])
+
+/** Ist der Ausdruck `arg` eines .in(…) bereits geblockt? */
+function inGeblockt(arg) {
+  // x.slice(i, i + N) mit N ≤ 100
+  if (ts.isCallExpression(arg) && ts.isPropertyAccessExpression(arg.expression) && arg.expression.name.text === 'slice' &&
+    arg.arguments[1] && /\+\s*(\d+)\s*$/.test(arg.arguments[1].getText()) && Number(/(\d+)\s*$/.exec(arg.arguments[1].getText())[1]) <= 100) return true
+  if (!ts.isIdentifier(arg)) return false
+  for (let p = arg.parent; p; p = p.parent) {
+    // inBloecken(liste, b => … .in('x', b) …)
+    if ((ts.isArrowFunction(p) || ts.isFunctionExpression(p)) && p.parameters.some(pa => ts.isIdentifier(pa.name) && pa.name.text === arg.text) &&
+      p.parent && ts.isCallExpression(p.parent) && ts.isIdentifier(p.parent.expression) && (BLOCK_FUNKTIONEN.has(p.parent.expression.text) || /InBloecken$/.test(p.parent.expression.text))) return true
+    // for (const block of bloecke(…)) … .in('x', block)
+    if (ts.isForOfStatement(p) && ts.isCallExpression(p.expression) && ts.isIdentifier(p.expression.expression) &&
+      /^(bloecke|inBloecken)$/.test(p.expression.expression.text) && new RegExp(`\\b${arg.text}\\b`).test(p.initializer.getText())) return true
+  }
+  return false
+}
+
+/** Deklaration des Namens `name`, die vor `pos` steht und `pos` umschließt (nächste zuerst): liefert den Quell-Ausdruck */
+function quelleVon(sf, name, pos) {
+  let best = null
+  function besuche(n) {
+    if (n.getStart() > pos) return
+    if (ts.isVariableDeclaration(n) && n.initializer && n.getEnd() <= pos) {
+      const q = bindungsQuelle(n.name, n.initializer, name)
+      if (q && (!best || n.getStart() > best.start)) {
+        // nur Deklarationen, deren Gültigkeitsbereich pos umschließt
+        let block = n.parent
+        while (block && !ts.isBlock(block) && !ts.isSourceFile(block) && !ts.isFunctionLike(block)) block = block.parent
+        if (!block || (block.getStart() <= pos && block.getEnd() >= pos)) best = { start: n.getStart(), ausdruck: q }
+      }
+    }
+    ts.forEachChild(n, besuche)
+  }
+  besuche(sf)
+  return best?.ausdruck ?? null
+}
+
+/** Welcher Teil des Initialisierers liefert `name`? (const x = …, const { data: x } = …, const [{ data: a }, { data: b }] = await Promise.all([…])) */
+function bindungsQuelle(bindung, init, name) {
+  if (ts.isIdentifier(bindung)) return bindung.text === name ? init : null
+  if (ts.isObjectBindingPattern(bindung)) {
+    for (const el of bindung.elements) if (bindungsQuelle(el.name, init, name)) return init
+    return null
+  }
+  if (ts.isArrayBindingPattern(bindung)) {
+    let arr = init
+    while (arr && (ts.isAwaitExpression(arr) || ts.isParenthesizedExpression(arr) || ts.isAsExpression(arr))) arr = arr.expression
+    if (arr && ts.isCallExpression(arr) && /Promise\.all$/.test(arr.expression.getText()) && arr.arguments[0] && ts.isArrayLiteralExpression(arr.arguments[0])) {
+      const el = arr.arguments[0].elements
+      for (let i = 0; i < bindung.elements.length; i++) {
+        const b = bindung.elements[i]
+        if (ts.isBindingElement(b) && bindungsQuelle(b.name, el[i] ?? init, name)) return el[i] ?? init
+      }
+      return null
+    }
+    for (const b of bindung.elements) if (ts.isBindingElement(b) && bindungsQuelle(b.name, init, name)) return init
+  }
+  return null
+}
+
+/** Große Tabelle, aus der die Werte des Ausdrucks stammen (oder null) */
+function grosseQuelle(sf, ausdruck, tiefe = IN_TIEFE, gesehen = new Set()) {
+  if (!ausdruck || tiefe < 0) return null
+  const t = ausdruck.getText()
+  const m = [...t.matchAll(/\.from\(\s*['"`]([a-z_]+)['"`]\s*\)/g)].map(x => x[1]).find(x => GROSSE_TABELLEN.includes(x))
+  // Quelle mit .limit(n ≤ 300) bzw. Einzelsatz ist klein (z. B. Top-50-Kontakte im Controlling)
+  if (m) return /\.limit\(\s*([0-9]{1,3})\s*\)/.test(t) && Number(/\.limit\(\s*([0-9]{1,3})\s*\)/.exec(t)[1]) <= 300 || /\.(single|maybeSingle)\(\)/.test(t) ? null : m
+  // Bezeichner im Ausdruck (ohne Eigenschaftsnamen und Parameter von Pfeilfunktionen im Ausdruck)
+  const namen = new Set(), parameter = new Set()
+  const sammle = n => {
+    if ((ts.isArrowFunction(n) || ts.isFunctionExpression(n))) for (const p of n.parameters) if (ts.isIdentifier(p.name)) parameter.add(p.name.text)
+    if (ts.isIdentifier(n) && !(n.parent && ts.isPropertyAccessExpression(n.parent) && n.parent.name === n) &&
+      !(n.parent && ts.isPropertyAssignment(n.parent) && n.parent.name === n)) namen.add(n.text)
+    ts.forEachChild(n, sammle)
+  }
+  sammle(ausdruck)
+  for (const name of namen) {
+    if (parameter.has(name) || gesehen.has(name)) continue
+    gesehen.add(name)
+    const q = quelleVon(sf, name, ausdruck.getStart())
+    const r = q && grosseQuelle(sf, q, tiefe - 1, gesehen)
+    if (r) return r
+  }
+  return null
+}
+
+/** Alle .in()-Aufrufe mit Liste aus Code: { zeile, spalte, quelle (große Tabelle oder null), geblockt } */
+function inListen(text, datei = '') {
+  const sf = ts.createSourceFile(datei || 'x.tsx', text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+  const out = []
+  function besuche(n) {
+    if (ts.isCallExpression(n) && ts.isPropertyAccessExpression(n.expression) && n.expression.name.text === 'in' &&
+      n.arguments.length === 2 && ts.isStringLiteralLike(n.arguments[0]) && !ts.isArrayLiteralExpression(n.arguments[1]) &&
+      /\.from\(|\.select\(|\.eq\(|\.update\(|\.delete\(/.test(n.expression.expression.getText())) {
+      const arg = n.arguments[1]
+      const geblockt = inGeblockt(arg)
+      out.push({
+        zeile: sf.getLineAndCharacterOfPosition(n.getStart()).line + 1, spalte: n.arguments[0].text,
+        geblockt, quelle: geblockt ? null : grosseQuelle(sf, arg),
+      })
+    }
+    ts.forEachChild(n, besuche)
+  }
+  besuche(sf)
+  return out
+}
+
 function pruefeText(text, datei = '') {
   const zeilen = text.split(/\r?\n/)
   const funde = [], ausnahmen = []
+  for (const l of inListen(text, datei)) {
+    if (l.geblockt || !l.quelle) continue
+    const grund = ausnahmeGrund(zeilen, l.zeile - 1)
+    const regel = 'IN_OHNE_BLOECKE'
+    if (grund) { ausnahmen.push({ datei, zeile: l.zeile, tabelle: l.quelle, regel, grund }); continue }
+    funde.push({
+      datei, zeile: l.zeile, tabelle: l.quelle, regel,
+      text: grund === ''
+        ? `alle-ausnahme ohne ausreichenden Grund (mind. ${MIN_GRUND} Zeichen)`
+        : `.in('${l.spalte}', …) mit Werten aus '${l.quelle}' ohne Blöcke – ab ≈ 350 IDs scheitert die URL; inBloecken(liste, b => … .in('${l.spalte}', b) …) verwenden`,
+    })
+  }
   for (const q of abfragen(text, datei)) {
     let regel = null
     if (q.direktInAlle && !q.sortiert) regel = 'ALLE_OHNE_ORDER'
@@ -277,7 +411,7 @@ function pruefeWurzel(wurzel = WURZEL) {
   return { funde, ausnahmen }
 }
 
-module.exports = { pruefeText, pruefeWurzel, abfragen, GROSSE_TABELLEN, MIN_GRUND }
+module.exports = { pruefeText, pruefeWurzel, abfragen, inListen, GROSSE_TABELLEN, MIN_GRUND }
 
 if (require.main === module) {
   const { funde, ausnahmen } = pruefeWurzel()
@@ -286,12 +420,13 @@ if (require.main === module) {
     for (const a of ausnahmen) console.log(`  ${a.datei}:${a.zeile}  [${a.tabelle}, ${a.regel}]  ${a.grund}`)
   }
   if (funde.length === 0) {
-    console.log(`✓ alle()-Check: keine ungepagte Vollabfrage auf großen Tabellen (${ausnahmen.length} begründete Ausnahmen).`)
+    console.log(`✓ alle()-Check: keine ungepagte Vollabfrage und keine ungeblockte .in()-Liste aus großen Tabellen (${ausnahmen.length} begründete Ausnahmen).`)
   } else {
     console.error(`\n✗ alle()-Check: ${funde.length} Fund(e):\n`)
     for (const f of funde) console.error(`  ${f.datei}:${f.zeile}  [${f.tabelle}, ${f.regel}]  ${f.text}`)
-    console.error(`\nVollständig gebrauchte Mengen über alle() aus '@/lib/supabase/alle' holen (mit .order() auf eindeutiger Spalte).`)
-    console.error(`Bewusst begrenzt? Kommentar "// alle-ausnahme: <Grund>" (mind. ${MIN_GRUND} Zeichen) in oder über der .from(-Zeile.\n`)
+    console.error(`\nVollständig gebrauchte Mengen über alle() aus '@/lib/supabase/alle' holen (mit .order() auf eindeutiger Spalte),`)
+    console.error(`lange .in()-Listen über inBloecken()/bloecke() aus derselben Datei.`)
+    console.error(`Bewusst begrenzt? Kommentar "// alle-ausnahme: <Grund>" (mind. ${MIN_GRUND} Zeichen) in der Zeile oder im Kommentarblock darüber.\n`)
     process.exit(1)
   }
 }
