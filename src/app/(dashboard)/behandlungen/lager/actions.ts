@@ -9,6 +9,7 @@ import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { stornoGrundFehler } from '@/lib/storno/grund'
 import { dezimal } from '@/lib/format'
 import { MASSNAHMEN_ARTEN, MASSNAHMEN_ART_LABEL, istMassnahmenArt } from '@/lib/behandlungen/arten'
+import { eppoCodeFehler, eppoCodeNormal, registernummerFehler, registernummerNormal } from '@/lib/behandlungen/psmStamm'
 
 // Fehler der Datenbank (z.B. RLS) werden seit 20.9.2026 geworfen statt verschluckt -
 // vorher verschwanden abgelehnte Buchungen ohne Hinweis (PSM-Anfangsbestände Gebeshuber).
@@ -137,9 +138,18 @@ export async function upsertPSM(fd: FormData) {
 
   const existingId = fd.get('existing_id') as string | null
 
+  // KAN-86: Registernummer, EPPO-Code (Hauptschaderreger) und „bienengefährlich“ – von Hand gepflegt
+  const regFehler = registernummerFehler(fd.get('zulassungsnr'))
+  if (regFehler) throw new AktionsFehler(regFehler)
+  const eppoFehler = eppoCodeFehler(fd.get('eppo_code'))
+  if (eppoFehler) throw new AktionsFehler(eppoFehler)
+
   const payload = {
     tenant_id:          tenantId,
     name:               fd.get('name') as string,
+    zulassungsnr:       registernummerNormal(fd.get('zulassungsnr')),
+    eppo_code:          eppoCodeNormal(fd.get('eppo_code')),
+    bienengefaehrlich:  fd.get('bienengefaehrlich') === 'true',
     handelsname:        (fd.get('handelsname') as string) || null,
     wirkstoff:          (fd.get('wirkstoff') as string) || null,
     wirkstoffgehalt_pct: parseFloat(dezimal(fd.get('wirkstoffgehalt_pct') as string)) || null,

@@ -6,6 +6,7 @@ import { upsertPSM, deactivatePSM } from './actions'
 import type { PSMEintrag } from './page'
 import { fehlerText } from '@/lib/fehler'
 import { LagerJahrKopf, LagerJahrZellen, LagerJahrHinweis } from './LagerJahrSpalten'
+import { REGISTERNUMMER_FEHLT } from '@/lib/behandlungen/psmStamm'
 
 const KATEGORIE_OPTS = [
   { value: 'fungizid',         label: 'Fungizid' },
@@ -44,6 +45,8 @@ function PSMForm({ psm, onDone }: { psm?: PSMEintrag; onDone: () => void }) {
   // Fix: kontrollierte Checkbox + disabled am hidden-Zwilling direkt aus
   // demselben State ableiten, statt es nur reaktiv per onChange nachzuziehen.
   const [oekoZugelassen, setOekoZugelassen] = useState(psm?.oeko_zugelassen ?? false)
+  // KAN-86: dasselbe kontrollierte hidden+checkbox-Paar wie oben
+  const [bienengefaehrlich, setBienengefaehrlich] = useState(psm?.bienengefaehrlich ?? false)
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -134,6 +137,30 @@ function PSMForm({ psm, onDone }: { psm?: PSMEintrag; onDone: () => void }) {
           </label>
         </div>
 
+        {/* KAN-86: Pflichtangaben der Pflanzenschutz-Aufzeichnung – jeder Betrieb pflegt sie von Hand */}
+        <div>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Registernummer (Zulassungsnr.)</label>
+          <input aria-label="Registernummer (Zulassungsnr.)" name="zulassungsnr" defaultValue={psm?.zulassungsnr ?? ''}
+            placeholder="z.B. 3456-0 (PSM-Register)" maxLength={30}
+            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">EPPO-Code Hauptschaderreger</label>
+          <input aria-label="EPPO-Code Hauptschaderreger" name="eppo_code" defaultValue={psm?.eppo_code ?? ''}
+            placeholder="z.B. PLASVI (Peronospora), UNCINE (Oidium)" maxLength={6}
+            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+        </div>
+        <div className="col-span-2 flex items-center pb-1">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="hidden" name="bienengefaehrlich" value="false" disabled={bienengefaehrlich} />
+            <input type="checkbox" name="bienengefaehrlich" value="true"
+              checked={bienengefaehrlich}
+              onChange={e => setBienengefaehrlich(e.currentTarget.checked)}
+              className="accent-s112-teal w-4 h-4" />
+            <span className="text-sm text-s112-text-1">Bienengefährlich (laut Zulassung)</span>
+          </label>
+        </div>
+
         <div className="col-span-2">
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
           <input aria-label="Notizen" name="notizen" defaultValue={psm?.notizen ?? ''}
@@ -196,6 +223,7 @@ export default function PSMClient({
                 <th className="text-left text-xs text-s112-muted font-semibold py-2 pr-3">Name</th>
                 {/* KAN-173: Detailspalten je nach Breite ausblenden, damit die Lagerspalten ohne seitliches Scrollen passen */}
                 <th className="hidden lg:table-cell text-left text-xs text-s112-muted font-semibold py-2 pr-3">Kategorie</th>
+                <th className="hidden md:table-cell text-left text-xs text-s112-muted font-semibold py-2 pr-3">Reg.-Nr.</th>
                 <th className="hidden xl:table-cell text-left text-xs text-s112-muted font-semibold py-2 pr-3">Wirkstoff</th>
                 <th className="hidden md:table-cell text-right text-xs text-s112-muted font-semibold py-2 pr-3">Cu-%</th>
                 <th className="hidden xl:table-cell text-right text-xs text-s112-muted font-semibold py-2 pr-3">Max. kg/ha</th>
@@ -223,6 +251,14 @@ export default function PSMClient({
                           {KATEGORIE_OPTS.find(o => o.value === p.kategorie)?.label ?? p.kategorie}
                         </span>
                       ) : '–'}
+                    </td>
+                    {/* KAN-86: Registernummer ist Pflichtangabe der Aufzeichnung – fehlt sie, Hinweis statt Strich */}
+                    <td className="hidden md:table-cell py-2.5 pr-3 text-xs tabular-nums">
+                      {p.zulassungsnr
+                        ? <span className="text-s112-text-1">{p.zulassungsnr}</span>
+                        : <span className="text-s112-warn-fg font-medium" title={REGISTERNUMMER_FEHLT}>fehlt</span>}
+                      {p.eppo_code && <span className="ml-1 text-s112-muted">· {p.eppo_code}</span>}
+                      {p.bienengefaehrlich && <span className="ml-1 text-s112-warn-fg" title="Bienengefährlich">· B</span>}
                     </td>
                     <td className="hidden xl:table-cell py-2.5 pr-3 text-s112-muted text-xs">{p.wirkstoff ?? '–'}</td>
                     <td className="hidden md:table-cell py-2.5 pr-3 text-right tabular-nums text-xs">

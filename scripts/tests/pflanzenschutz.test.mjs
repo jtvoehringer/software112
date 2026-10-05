@@ -62,7 +62,7 @@ const WG2 = { id: 'wg-2', name: 'Steiner Hund Riesling', ried: null, flaeche_ha:
 const GST1 = { id: 'g-1', gst_nr: '123/1', katastralgemeinde: '04023', kg_bezeichnung: 'Stein', flaeche_ha: 1.2, weingarten: WG1 }
 const GST2 = { id: 'g-2', gst_nr: '=1+1', katastralgemeinde: '12127', kg_bezeichnung: 'Stein', flaeche_ha: 0.9, weingarten: WG2 }
 const CUPROZIN = { id: 'p-cu', name: 'Cuprozin', handelsname: 'Cuprozin progress', wirkstoff: 'Kupferhydroxid', wirkstoffgehalt_pct: 53.7, zulassungsnr: '3212-0', eppo_code: null, cu_gehalt_pct: 35, wartezeit_tage: 21, max_aufwand_kg_ha: 2, max_anwendungen: 6, oeko_zugelassen: true }
-const FOLPAN = { id: 'p-fo', name: 'Folpan 80 WDG', handelsname: null, wirkstoff: 'Folpet', wirkstoffgehalt_pct: 80, zulassungsnr: '2648-0', eppo_code: 'VITVI', cu_gehalt_pct: 0, wartezeit_tage: 35, max_aufwand_kg_ha: 1.5, max_anwendungen: 1, oeko_zugelassen: false }
+const FOLPAN = { id: 'p-fo', name: 'Folpan 80 WDG', handelsname: null, wirkstoff: 'Folpet', wirkstoffgehalt_pct: 80, zulassungsnr: '2648-0', eppo_code: 'PLASVI', bienengefaehrlich: false, cu_gehalt_pct: 0, wartezeit_tage: 35, max_aufwand_kg_ha: 1.5, max_anwendungen: 1, oeko_zugelassen: false }
 const BORDEAUX = { id: 'p-bo', name: 'Bordeaux Manica 20', handelsname: null, wirkstoff: 'Kupfersulfat', wirkstoffgehalt_pct: 20, zulassungsnr: '3410-0', eppo_code: null, cu_gehalt_pct: null, wartezeit_tage: 21, max_aufwand_kg_ha: null, max_anwendungen: null, oeko_zugelassen: true }
 
 function roh(teil) {
@@ -123,8 +123,8 @@ const wg = () => WEINGAERTEN_ROH.map(w => {
 const NAMEN = new Map([['u-1', 'Maria Muster']])
 
 // KAN-133: Funguran-Beispiel (Gebeshuber) – Spritzung auf 2 GST mit Σ 2 ha, Spritzbrühe 800 l
-const FUNGURAN = { id: 'p-fu', name: 'Funguran progress', handelsname: 'Funguran Progress', wirkstoff: 'Kupferhydroxid', wirkstoffgehalt_pct: 53.8, zulassungsnr: null, eppo_code: null, cu_gehalt_pct: 35, wartezeit_tage: 21, max_aufwand_kg_ha: 4, max_anwendungen: null, oeko_zugelassen: true }
-const TOPAS = { id: 'p-to', name: 'Topas', handelsname: null, wirkstoff: 'Penconazol', wirkstoffgehalt_pct: 10, zulassungsnr: null, eppo_code: null, cu_gehalt_pct: null, wartezeit_tage: 14, max_aufwand_kg_ha: null, max_anwendungen: null, oeko_zugelassen: false }
+const FUNGURAN = { id: 'p-fu', name: 'Funguran progress', handelsname: 'Funguran Progress', wirkstoff: 'Kupferhydroxid', wirkstoffgehalt_pct: 53.8, zulassungsnr: '2972-0', eppo_code: null, cu_gehalt_pct: 35, wartezeit_tage: 21, max_aufwand_kg_ha: 4, max_anwendungen: null, oeko_zugelassen: true }
+const TOPAS = { id: 'p-to', name: 'Topas', handelsname: null, wirkstoff: 'Penconazol', wirkstoffgehalt_pct: 10, zulassungsnr: '2223-0', eppo_code: null, cu_gehalt_pct: null, wartezeit_tage: 14, max_aufwand_kg_ha: null, max_anwendungen: null, oeko_zugelassen: false }
 const GST3 = { id: 'g-3', gst_nr: '124', katastralgemeinde: '04023', kg_bezeichnung: 'Stein', flaeche_ha: 0.8, weingarten: WG1 }
 /** zwei GST mit Σ 2 ha */
 const ZWEI_HA = [{ grundstueck_id: 'g-1', flaeche_ha: 1.2, grundstueck: GST1 }, { grundstueck_id: 'g-3', flaeche_ha: 0.8, grundstueck: GST3 }]
@@ -161,13 +161,13 @@ describe('psm-aufzeichnung', nurMitHooks, () => {
     const datei = csv.csvDatei(zeilen, psm.SPALTEN_PSM_AUFZEICHNUNG)
     assert.deepEqual(datei.warnungen, [])
     const [kopf, z1, z2, z3] = zeilenVon(datei.text)
-    assert.equal(kopf, 'Datum;Datum bis;Art;Ried;Lage;KG-Nr.;Katastralgemeinde;GST-Nr.;Fläche (ha);Kultur;EPPO-Code Kultur;Mittel;Zulassungsnr.;Wirkstoff;Schaderreger;BBCH;Aufwand;Aufwand-Einheit;Mittelmenge anteilig (GST);Mittelmenge Einheit;Mittelmenge Basis;Spritzbrühe anteilig (GST, l);Wasseraufwand (l/ha);Konzentration (%);Wartezeit (Tage);Frühester Lesetermin;Wartezeit eingehalten;Öko-zugelassen;Anwender;Witterung;Temperatur (°C);Wind;Notiz')
+    assert.equal(kopf, 'Datum;Datum bis;Art;Ried;Lage;KG-Nr.;Katastralgemeinde;GST-Nr.;Fläche (ha);Kultur;EPPO-Code Kultur;Mittel;Zulassungsnr.;Wirkstoff;Schaderreger;EPPO-Code Schaderreger;Bienengefährlich;BBCH;Aufwand;Aufwand-Einheit;Mittelmenge anteilig (GST);Mittelmenge Einheit;Mittelmenge Basis;Spritzbrühe anteilig (GST, l);Wasseraufwand (l/ha);Konzentration (%);Wartezeit (Tage);Frühester Lesetermin;Wartezeit eingehalten;Öko-zugelassen;Anwender;Witterung;Temperatur (°C);Wind;Notiz')
     // KAN-132: Spalte „Ried“ = Weingarten, „Lage“ darüber; Reihenfolge größere Fläche zuerst; Mittelmenge 1,5 kg/ha × 2,1 ha = 3,15 kg,
     // anteilig 3,15 × 1,2/2,1 = 1,8 kg; Spritzbrühe 1260 l anteilig 720 l – keine Maßnahmen-Gesamtwerte je Zeile
-    assert.equal(z1, '10.07.2026;;Spritzung;Pfaffenberg Riesling;Ried Pfaffenberg;04023;Stein;123/1;1,2000;Weinrebe;VITVI;Cuprozin progress;3212-0;Kupferhydroxid;Peronospora;75;1,500;kg/ha;1,800;kg;Aufwand × Fläche;720,000;600,0;0,25;21;31.07.2026;Ja;Ja;Maria Muster;bewölkt;28,0;mäßig;"Test; ""Zitat"" zweite Zeile"')
-    assert.equal(z2, "10.07.2026;;Spritzung;Steiner Hund Riesling;Ried Steiner Hund;12127;Stein;'=1+1;0,9000;Weinrebe;VITVI;Cuprozin progress;3212-0;Kupferhydroxid;Peronospora;75;1,500;kg/ha;1,350;kg;Aufwand × Fläche;540,000;600,0;0,25;21;31.07.2026;Ja;Ja;Maria Muster;bewölkt;28,0;mäßig;\"Test; \"\"Zitat\"\" zweite Zeile\"")
+    assert.equal(z1, '10.07.2026;;Spritzung;Pfaffenberg Riesling;Ried Pfaffenberg;04023;Stein;123/1;1,2000;Weinrebe;VITVI;Cuprozin progress;3212-0;Kupferhydroxid;Peronospora;;;75;1,500;kg/ha;1,800;kg;Aufwand × Fläche;720,000;600,0;0,25;21;31.07.2026;Ja;Ja;Maria Muster;bewölkt;28,0;mäßig;"Test; ""Zitat"" zweite Zeile"')
+    assert.equal(z2, "10.07.2026;;Spritzung;Steiner Hund Riesling;Ried Steiner Hund;12127;Stein;'=1+1;0,9000;Weinrebe;VITVI;Cuprozin progress;3212-0;Kupferhydroxid;Peronospora;;;75;1,500;kg/ha;1,350;kg;Aufwand × Fläche;540,000;600,0;0,25;21;31.07.2026;Ja;Ja;Maria Muster;bewölkt;28,0;mäßig;\"Test; \"\"Zitat\"\" zweite Zeile\"")
     // ohne GST: Weingarten-Zeile, Fläche = Weingartenfläche, ganze Menge (1 kg/ha × 1,2 ha), BBCH „05“ bleibt Code
-    assert.equal(z3, '14.06.2026;;Spritzung;Pfaffenberg Riesling;Ried Pfaffenberg;;;;1,2000;Weinrebe;VITVI;Folpan 80 WDG;2648-0;Folpet;;05;1,000;kg/ha;1,200;kg;Aufwand × Fläche;480,000;;;35;;;Nein;;;;;')
+    assert.equal(z3, '14.06.2026;;Spritzung;Pfaffenberg Riesling;Ried Pfaffenberg;;;;1,2000;Weinrebe;VITVI;Folpan 80 WDG;2648-0;Folpet;;PLASVI;Nein;05;1,000;kg/ha;1,200;kg;Aufwand × Fläche;480,000;;;35;;;Nein;;;;;')
   })
 
   test('Funguran 0,6 kg/ha auf 2 GST: Σ Mittelmenge anteilig 1,2 kg, Σ Spritzbrühe anteilig 800 l', () => {

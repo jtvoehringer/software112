@@ -142,7 +142,10 @@ export type PsmMittel = {
   zulassungsnr: string | null
   wirkstoff: string | null
   wirkstoffgehaltPct: number | null
+  /** KAN-86: EPPO-Code des Hauptschaderregers (z. B. PLASVI) – nicht der Kultur, die ist immer VITVI */
   eppoCode: string | null
+  /** KAN-86: bienengefährlich laut Zulassung */
+  bienengefaehrlich?: boolean | null
   cuGehaltPct: number | null
   wartezeitTage: number | null
   maxAufwandKgHa: number | null
@@ -282,6 +285,7 @@ export function normalisiereBehandlung(roh: R, anwenderNamen?: ReadonlyMap<strin
     wirkstoff: textOderNull(psmRoh.wirkstoff),
     wirkstoffgehaltPct: zahl(psmRoh.wirkstoffgehalt_pct),
     eppoCode: textOderNull(psmRoh.eppo_code),
+    bienengefaehrlich: bool(psmRoh.bienengefaehrlich),
     cuGehaltPct: zahl(psmRoh.cu_gehalt_pct),
     wartezeitTage: zahl(psmRoh.wartezeit_tage),
     maxAufwandKgHa: zahl(psmRoh.max_aufwand_kg_ha),
@@ -602,7 +606,7 @@ export async function ladeBehandlungen(supabase: any, tenantId: string, f: Behan
       wasseraufwand_l_ha, behandelte_flaeche_ha, bbch_stadium, schaderreger, witterung,
       temperatur_c, windstaerke, ernte_fruehesteins, wartezeit_eingehalten, notizen,
       weingarten:weingarten_id(id, name, ried, flaeche_ha, lage_id, lagen:lage_id(name)),
-      psm:psm_id(id, name, handelsname, wirkstoff, wirkstoffgehalt_pct, zulassungsnr, eppo_code, cu_gehalt_pct, wartezeit_tage, max_aufwand_kg_ha, max_anwendungen, oeko_zugelassen),
+      psm:psm_id(id, name, handelsname, wirkstoff, wirkstoffgehalt_pct, zulassungsnr, eppo_code, bienengefaehrlich, cu_gehalt_pct, wartezeit_tage, max_aufwand_kg_ha, max_anwendungen, oeko_zugelassen),
       duengemittel:duengemittel_id(id, name, handelsname, typ, einheit, naehrstoff_n_pct, naehrstoff_p_pct, oeko_zugelassen),
       behandlung_grundstuecke(grundstueck_id, flaeche_ha, grundstueck:grundstueck_id(id, gst_nr, katastralgemeinde, kg_bezeichnung, flaeche_ha, weingarten:weingarten_id(id, name, ried, flaeche_ha, lage_id, lagen:lage_id(name))))
     `)
@@ -739,6 +743,10 @@ export type PsmAufzeichnungZeile = {
   zulassungsnr: string | null
   wirkstoff: string | null
   schaderreger: string | null
+  /** KAN-86: EPPO-Code des Hauptschaderregers aus den Stammdaten des Mittels */
+  eppoSchaderreger: string | null
+  /** KAN-86: Mittel bienengefährlich (nur Pflanzenschutz) */
+  bienengefaehrlich: boolean | null
   bbch: string | null
   aufwand: number | null
   aufwandEinheit: string
@@ -779,6 +787,8 @@ export function psmAufzeichnungZeilen(behandlungen: readonly PsmBehandlung[], fi
   const ohneMittelmenge: string[] = []
   const altwerte: string[] = []
   const nichtVerteilt: string[] = []
+  // KAN-86: Registernummer ist Pflichtangabe (DVO (EU) 2023/564) – fehlt sie am Mittel, X-Warnung je Mittel
+  const ohneZulassung = new Set<string>()
   for (const b of behandlungen) {
     const v = verteileMassnahme(b)
     let orte: (GstAnteil | null)[] = v.anteile
@@ -793,6 +803,7 @@ export function psmAufzeichnungZeilen(behandlungen: readonly PsmBehandlung[], fi
     if (bruehenAltwert(b)) altwerte.push(behandlungKurz(b))
 
     const istPsm = b.psm !== null
+    if (istPsm && !b.psm?.zulassungsnr) ohneZulassung.add(b.psm?.name ?? '–')
     for (const g of orte) {
       zeilen.push({
         behandlungId: b.id,
@@ -806,11 +817,14 @@ export function psmAufzeichnungZeilen(behandlungen: readonly PsmBehandlung[], fi
         gstNr: g?.gstNr ?? null,
         flaecheHa: g?.flaecheHa ?? null,
         kultur: KULTUR_REBE,
-        eppoKultur: istPsm ? (b.psm?.eppoCode ?? EPPO_REBE) : null,
+        // KAN-86: Kultur ist immer die Weinrebe (VITVI) – der EPPO-Code am Mittel bezeichnet den Schaderreger
+        eppoKultur: EPPO_REBE,
         mittel: mittelName(b),
         zulassungsnr: b.psm?.zulassungsnr ?? null,
         wirkstoff: b.psm?.wirkstoff ?? null,
         schaderreger: b.schaderreger,
+        eppoSchaderreger: b.psm?.eppoCode ?? null,
+        bienengefaehrlich: istPsm ? (b.psm?.bienengefaehrlich ?? null) : null,
         bbch: b.bbch,
         aufwand: rund(b.aufwand, STELLEN_MENGE),
         // „kg (gesamt)“ bzw. „l (gesamt)“: Wert der Maßnahme, keine Menge je Grundstück (die steht in „Mittelmenge anteilig“)
@@ -843,6 +857,7 @@ export function psmAufzeichnungZeilen(behandlungen: readonly PsmBehandlung[], fi
   if (ohneMittelmenge.length > 0) warnungen.push(`${ohneMittelmenge.length} ${ohneMittelmenge.length === 1 ? 'Maßnahme' : 'Maßnahmen'} ohne berechenbare Mittelmenge – „Mittelmenge anteilig (GST)“ bleibt leer: ${liste(ohneMittelmenge)}`)
   if (altwerte.length > 0) warnungen.push(`${altwerte.length} ${altwerte.length === 1 ? 'Spritzung hat' : 'Spritzungen haben'} „Menge gesamt“ noch in kg bzw. g (früher als Mittelmenge erfasst) – zählt weder als Spritzbrühe noch als Mittelmenge; Spritzbrühe nur aus Wasseraufwand × Fläche, Mittelmenge aus dem Aufwand: ${liste(altwerte)}`)
   if (nichtVerteilt.length > 0) warnungen.push(`${nichtVerteilt.length} ${nichtVerteilt.length === 1 ? 'Maßnahme hat' : 'Maßnahmen haben'} Grundstücke ohne Fläche – dort kein Anteil an „Mittelmenge anteilig (GST)“ und „Spritzbrühe anteilig (GST, l)“ (ganz ohne Fläche gleichmäßig verteilt): ${liste(nichtVerteilt)}`)
+  if (ohneZulassung.size > 0) warnungen.push(`${ohneZulassung.size} ${ohneZulassung.size === 1 ? 'Mittel hat' : 'Mittel haben'} keine Registernummer (Zulassungsnr., Pflichtangabe nach DVO (EU) 2023/564) – bitte unter Pflanzenschutz › Lager › Stammdaten ergänzen: ${liste([...ohneZulassung].sort((a, c) => a.localeCompare(c, 'de')))}`)
   return { zeilen, warnungen }
 }
 
@@ -868,6 +883,9 @@ export const SPALTEN_PSM_AUFZEICHNUNG: CsvSpalte<PsmAufzeichnungZeile>[] = [
   { kopf: 'Zulassungsnr.', typ: 'code', wert: z => z.zulassungsnr },
   { kopf: 'Wirkstoff', typ: 'text', wert: z => z.wirkstoff },
   { kopf: 'Schaderreger', typ: 'text', wert: z => z.schaderreger },
+  // KAN-86: EPPO-Code des Hauptschaderregers (Stammdaten des Mittels) und Bienengefährlichkeit
+  { kopf: 'EPPO-Code Schaderreger', typ: 'code', wert: z => z.eppoSchaderreger },
+  { kopf: 'Bienengefährlich', typ: 'janein', wert: z => z.bienengefaehrlich },
   { kopf: 'BBCH', typ: 'code', wert: z => z.bbch },
   { kopf: 'Aufwand', typ: 'dezimal', stellen: STELLEN_MENGE, wert: z => z.aufwand },
   { kopf: 'Aufwand-Einheit', typ: 'text', wert: z => z.aufwandEinheit },
