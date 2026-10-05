@@ -668,7 +668,8 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, wgOptions, behOpt
                   )}
                 </div>
                 <div className="col-span-8">
-                  <MostgewichtEingabe name={`pw_${row.schluessel}_mostgewicht`} label="Mostgewicht" startwert={row.mgStart}
+                  {/* KAN-205: Mostgewicht je Traubenzeile Pflicht */}
+                  <MostgewichtEingabe name={`pw_${row.schluessel}_mostgewicht`} label="Mostgewicht" startwert={row.mgStart} required
                     onChange={(wert, info) => setWgRows(rs => rs.map((r, j) => j === i ? { ...r, mg: info.fehler ? r.mg : wert, mgFehler: info.fehler } : r))} />
                 </div>
               </div>

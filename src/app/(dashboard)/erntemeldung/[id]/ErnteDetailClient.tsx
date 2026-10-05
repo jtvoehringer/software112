@@ -390,7 +390,7 @@ function NeueParzellenForm({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Ernte-Datum</label>
-          <input aria-label="Ernte-Datum" name="ernte_datum" type="date" defaultValue={new Date().toISOString().split('T')[0]} className={inputCls} />
+          <input aria-label="Ernte-Datum" name="ernte_datum" type="date" required defaultValue={new Date().toISOString().split('T')[0]} className={inputCls} />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Lesemethode</label>
@@ -629,8 +629,9 @@ function ParzellForm({
           </div>
         )}
         <div>
-          <label className="block text-xs font-medium text-s112-text-2 mb-1">Ernte-Datum</label>
-          <input aria-label="Ernte-Datum" name="ernte_datum" type="date" defaultValue={parzelle?.ernte_datum ?? ''}
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Ernte-Datum *</label>
+          {/* KAN-205: Lesedatum, Menge und Mostgewicht Pflicht (auch bei Lesegut, das später verkauft wird) */}
+          <input aria-label="Ernte-Datum" name="ernte_datum" type="date" required defaultValue={parzelle?.ernte_datum ?? ''}
             className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-1.5 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         <div>
@@ -642,8 +643,8 @@ function ParzellForm({
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium text-s112-text-2 mb-1">Menge (kg)</label>
-          <input aria-label="Menge (kg)" name="menge_kg" type="text" inputMode="decimal"
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Menge (kg) *</label>
+          <input aria-label="Menge (kg)" name="menge_kg" type="text" inputMode="decimal" required
             defaultValue={parzelle?.menge_kg ?? ''}
             className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-1.5 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
         </div>
@@ -651,7 +652,7 @@ function ParzellForm({
             mostgewicht_wert/_einheit – kein leeres Feld „oechsle“ mehr, das °Oe beim Speichern löschte.
             „Lese bearbeiten“ behält die gewählte Stufe (Rechenregel 6), höchstens ein Prüfhinweis. */}
         <div className="sm:col-span-2">
-          <MostgewichtEingabe name="mostgewicht" startwert={mgStart}
+          <MostgewichtEingabe name="mostgewicht" startwert={mgStart} required
             onChange={wert => {
               setKmwEdit(wert ? wert.kmw : null)
               if (!parzelle) setQualitaetEdit(null)

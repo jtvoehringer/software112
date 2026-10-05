@@ -1,6 +1,7 @@
 'use server'
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { lesePflichtFehler, traubenzeilePflichtFehler, pressungZeilenFehler, LESE_FEST_MELDUNG } from '@/lib/wein/lesePflicht'
 import { revalidatePath } from 'next/cache'
 import { kmwZuQualitaet } from '@/lib/weinqualitaet'
 import { abstufungFehler, qualitaetFehler } from '@/lib/wein/qualitaet'
@@ -399,8 +400,22 @@ export async function upsertErnteParzelle(jahrgangId: string, formData: FormData
     const f = leseStufeFehler(qualitaetsstufe, leseObergrenze(lese?.art, kmw))
     if (f) throw new AktionsFehler(f.replace('aus dem Mostgewicht', 'aus dem Mostgewicht der Lese'))
   }
+  // KAN-205: Pflichtangaben – Ried/GST, Lesedatum, Menge und Mostgewicht (auch für später verkauftes Lesegut)
+  {
+    const kmwWirksam = mostgewicht.uebermittelt || !alt ? (mostgewicht.wert?.kmw ?? null) : zahlAus(alt.klosterneuburger)
+    const pflicht = lesePflichtFehler({ ort: !!weingartenId, datum: (payload.ernte_datum as string | null) ?? null, mengeKg, kmw: kmwWirksam })
+    if (pflicht) throw new AktionsFehler(pflicht)
+  }
   const existingId = existingIdFrueh
   if (existingId && alt) {
+    // KAN-205: verpresst bzw. verkauft – Ort, Qualität und Herkunft fest (dieselbe Bedingung wie der Trigger a_freeze)
+    if (await leseVerbraucht(supabase, tenantId, jahrgangId, alt)) {
+      if (!herkunftWahl) payload.herkunft_code = (alt.herkunft_code as string | null) ?? null   // Neuberechnung ist keine Änderung
+      const geaendert = weingartenId !== alt.weingarten_id || grundstueckId !== ((alt.grundstueck_id as string | null) ?? null)
+        || qualitaetsstufe !== ((alt.qualitaetsstufe as string | null) ?? null)
+        || (payload.herkunft_code ?? null) !== ((alt.herkunft_code as string | null) ?? null)
+      if (geaendert) throw new AktionsFehler(LESE_FEST_MELDUNG)
+    }
     // KAN-35: Lesemenge nicht unter das bereits Verpresste/Verkaufte senken bzw. verschieben
     await pruefeLesedatumNichtVerpresst(supabase, tenantId, jahrgangId, alt, (payload.ernte_datum as string | null) ?? null)
     await pruefeLesemengeGedeckt(supabase, tenantId, jahrgangId, alt,
@@ -426,6 +441,29 @@ export async function upsertErnteParzelle(jahrgangId: string, formData: FormData
 // je GST und je Ried: geerntet − verpresst − verkauft). Ein Eintrag darf nur
 // gelöscht, gemindert oder auf eine andere Ried/GST umgehängt werden, wenn das
 // bereits Verpresste und Verkaufte danach noch gedeckt ist – sonst Sperre.
+
+/** KAN-205: Ist der Lese-Eintrag verpresst oder als Trauben verkauft? Dieselbe Lese, dieselbe Ried, Grundstück gleich oder
+ *  auf einer Seite offen – wie die Bedingung des Triggers a_freeze auf ernte_parzellen (Migration kan205). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function leseVerbraucht(supabase: any, tenantId: string, jahrgangId: string, alt: AR): Promise<boolean> {
+  const gstFilter = (q: AR) => alt.grundstueck_id ? q.or(`grundstueck_id.eq.${alt.grundstueck_id},grundstueck_id.is.null`) : q
+  const [pRes, tvRes] = await Promise.all([
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from('pressungen') as any).select('id').eq('jahrgang_id', jahrgangId).eq('lese_id', alt.lese_id).eq('tenant_id', tenantId).is('storniert_am', null),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    gstFilter((supabase.from('traubenverkauf') as any).select('id').eq('jahrgang_id', jahrgangId).eq('lese_id', alt.lese_id)
+      .eq('weingarten_id', alt.weingarten_id).eq('tenant_id', tenantId).is('storniert_am', null)).limit(1),
+  ])
+  if (pRes.error || tvRes.error) throw new AktionsFehler(dbFehlerText(pRes.error ?? tvRes.error, 'Verwendung der Lese konnte nicht geprüft werden'))
+  if (((tvRes.data ?? []) as AR[]).length > 0) return true
+  const ids = ((pRes.data ?? []) as AR[]).map(p => p.id as string)
+  if (ids.length === 0) return false
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await gstFilter((supabase.from('pressung_weingaerten') as any).select('id').in('pressung_id', ids)
+    .eq('weingarten_id', alt.weingarten_id).is('storniert_am', null)).limit(1)
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Verwendung der Lese konnte nicht geprüft werden'))
+  return ((data ?? []) as AR[]).length > 0
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function ladeErnteParzelle(supabase: any, id: string, jahrgangId: string): Promise<AR> {
@@ -567,6 +605,7 @@ export async function createMultipleErnteParzellen(jahrgangId: string, formData:
   await ladeJahrgang(supabase, tenantId, jahrgangId)
 
   const ernteDatum  = (formData.get('ernte_datum') as string) || null
+  if (!ernteDatum) throw new AktionsFehler('Bitte das Lesedatum angeben.')   // KAN-205
   const lesemethode = (formData.get('lesemethode') as string) || null
   // KAN-128: gemeinsames Mostgewicht (gilt für jede Zeile ohne eigenes) aus Messwert und Einheit
   // der Eingabe, übergangsweise das alte Feld klosterneuburger als °KMW – beide Werte serverseitig
@@ -708,6 +747,13 @@ export async function createMultipleErnteParzellen(jahrgangId: string, formData:
     const perLesemethode = eintrag?.lesemethode || lesemethode
     const perNotizen = eintrag?.notizen || notizen
     const kg = mengen[i]
+    // KAN-205: je Zeile Menge > 0 und Mostgewicht (eigenes oder gemeinsames)
+    {
+      const gstNr = z.grundstueck_id ? gstStammdatenMap.get(z.grundstueck_id)?.gst_nr : null
+      const pflicht = lesePflichtFehler({ ort: true, datum: ernteDatum, mengeKg: kg, kmw: perMg?.kmw ?? null },
+        gstNr ? `GST ${gstNr}` : `„${wgMap.get(z.weingarten_id)?.name ?? 'Ried'}“`)
+      if (pflicht) throw new AktionsFehler(pflicht)
+    }
     const zeile: AR = {
       ...base,
       weingarten_id: z.weingarten_id, grundstueck_id: z.grundstueck_id,
@@ -1144,6 +1190,8 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
     if (!b.behaelter_id) throw new AktionsFehler(`Behälterzeile ${b.nr}: Bitte einen Behälter wählen.`)
     if (!(b.menge_liter != null && b.menge_liter > 0)) throw new AktionsFehler(`Behälterzeile ${b.nr}: Bitte die Mostmenge in Litern (größer als 0) angeben.`)
   }
+  // KAN-205: mindestens eine Trauben- und eine Behälterzeile
+  { const zf = pressungZeilenFehler(weingaerten.length, behaelter.length); if (zf) throw new AktionsFehler(zf) }
   if (hatDoppelte(weingaerten.map(w => w.id)) || hatDoppelte(behaelter.map(b => b.id))) {
     throw new AktionsFehler('Ungültige Formulardaten (doppelte Zeile) – bitte die Seite neu laden.')
   }
@@ -1156,7 +1204,7 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
   if (existingId) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: pAlt, error: pAltErr } = await (supabase.from('pressungen') as any)
-      .select('id, jahrgang_id, lese_id, datum, most_liter_gesamt').eq('id', existingId).eq('tenant_id', tenantId).is('storniert_am', null).maybeSingle()
+      .select('id, jahrgang_id, lese_id, datum, most_liter_gesamt, weinbezeichnung').eq('id', existingId).eq('tenant_id', tenantId).is('storniert_am', null).maybeSingle()
     if (pAltErr) throw new AktionsFehler(dbFehlerText(pAltErr, 'Pressung konnte nicht geladen werden'))
     if (!pAlt) throw new AktionsFehler('Pressung nicht gefunden oder storniert – bitte die Seite neu laden.')
     jahrgangId = (pAlt as AR).jahrgang_id as string
@@ -1243,6 +1291,12 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
     if (Object.keys(patch).length > 0) pwAendern.push({ id: w.id, patch })
   }
   const pwNeu = weingaerten.filter(w => !w.id)
+  // KAN-205: Rebsorte und Mostgewicht je neuer bzw. geänderter Traubenzeile (unveränderte Altzeilen blockieren nicht)
+  for (const w of weingaerten) {
+    if (w.id && !pwAendern.some(a => a.id === w.id)) continue
+    const f = traubenzeilePflichtFehler({ nr: w.nr, rebsorte: w.rebsorte, kmw: w.kmw })
+    if (f) throw new AktionsFehler(f)
+  }
 
   // Direktverkauf aus der Pressung (verkauf_positionen.pressung_behaelter_id, ON DELETE SET NULL):
   // solche Behälterzeilen weder in Menge/Behälter ändern noch entfernen
@@ -1346,6 +1400,23 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
         if (!pb.weinausbau_id) continue
         await sperreBeiFolgebuchungen(supabase, pb.weinausbau_id as string,
           `Das Ändern von ${was} der Pressung (Charge ${chargeBezeichnung(pb)})`, { hinweis: CHARGE_HINWEIS })
+      }
+    }
+  }
+
+  // ── KAN-205: Folgebuchung an einer Charge – Kopf und Traubenzeilen fest (wie der Trigger a_freeze) ─────────
+  let pressungFest = false
+  if (existingId && kopfAlt) {
+    for (const pb of pbAlt) {
+      if (pb.weinausbau_id && (await folgebuchungenDerCharge(supabase, pb.weinausbau_id as string)).length > 0) { pressungFest = true; break }
+    }
+    const traubenGeaendert = pwAendern.length > 0 || pwEntfernen.length > 0 || pwNeu.length > 0
+    const bezeichnungGeaendert = ((kopfAlt.weinbezeichnung as string | null) ?? null) !== weinbezeichnung
+    if (pressungFest && (traubenGeaendert || bezeichnungGeaendert)) {
+      for (const pb of pbAlt) {
+        if (!pb.weinausbau_id) continue
+        await sperreBeiFolgebuchungen(supabase, pb.weinausbau_id as string,
+          `Das Ändern der ${traubenGeaendert ? 'Traubenzeilen' : 'Weinbezeichnung'} der Pressung (Charge ${chargeBezeichnung(pb)})`, { hinweis: CHARGE_HINWEIS })
       }
     }
   }
@@ -1468,7 +1539,8 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
     // 3. Kopfdaten
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: pUpd, error: pUpdErr } = await (supabase.from('pressungen') as any)
-      .update({ datum, most_liter_gesamt: mostLiter, weinbezeichnung, kmw_grad: kmwGrad, notizen })
+      // KAN-205: Pressung mit Folgebuchung – nur die Notizen (der Trigger a_freeze ließe sonst nichts durch)
+      .update(pressungFest ? { notizen } : { datum, most_liter_gesamt: mostLiter, weinbezeichnung, kmw_grad: kmwGrad, notizen })
       .eq('id', pressId).eq('tenant_id', tenantId).select('id')
     if (pUpdErr) throw new AktionsFehler(dbFehlerText(pUpdErr, 'Speichern fehlgeschlagen (pressungen)'))
     if (!(pUpd as AR[] | null)?.length) throw new AktionsFehler('Die Pressung konnte nicht gespeichert werden – keine Berechtigung oder inzwischen gelöscht. Bitte die Seite neu laden.')
