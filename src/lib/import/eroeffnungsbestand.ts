@@ -15,6 +15,7 @@ import { csvText, csvDateiname, PROFIL_EXCEL_AT, type CsvSpalte, type CsvTyp } f
 import { zahlAus, fmtNum } from '@/lib/format'
 import { ZUSATZ_OPTS, ERZEUGNIS_OPTS, qualitaetAusText, qualitaetFehler, qualitaetsAngabeFehler } from '@/lib/wein/qualitaet'
 import { istAltwertQualitaet, normalisiereQualitaet, type QualitaetsAngabe, type Zusatz } from '@/lib/wein/qualitaetsrang'
+import { eroeffnungsbestandHinweis } from '@/lib/kellerbuch/chargeRegeln'
 import { KAT_ERZEUGNIS } from '@/lib/katalog/bki'
 import { normalisiereLand } from '@/lib/katalog/laender'
 import { HERKUNFT_KATALOG, herkunftKnotenTolerant } from '@/lib/herkunft'
@@ -51,8 +52,8 @@ export const TANK_FELDER: readonly FeldDef[] = [
   { key: 'jahrgang', kopf: 'Jahrgang', typ: 'ganzzahl', hinweis: 'Jahrgang (vierstellig), leer = ohne Jahrgang.', beispiel: 2026 },
   { key: 'liter', kopf: 'Menge (l)', pflicht: true, erkennen: ['Liter', 'Menge', 'Menge (Liter)', 'Menge (L)', 'Menge l'], typ: 'dezimal', stellen: 2,
     hinweis: 'Liter im Gebinde, größer als 0 und höchstens das Fassungsvermögen.', beispiel: 1500 },
-  { key: 'qualitaet', kopf: 'Qualitätsstufe', erkennen: ['Qualität', 'Qualitaetsstufe'], typ: 'text',
-    hinweis: 'Qualitätsstufe wie in der Auswahlliste, z. B. Landwein, Qualitätswein, Kabinett, Spätlese (leer = ohne).', beispiel: 'Qualitätswein' },
+  { key: 'qualitaet', kopf: 'Qualitätsstufe', pflicht: true, erkennen: ['Qualität', 'Qualitaetsstufe'], typ: 'text',
+    hinweis: 'Qualitätsstufe wie in der Auswahlliste, z. B. Wein, Landwein, Qualitätswein, Kabinett, Spätlese (Pflicht, KAN-204).', beispiel: 'Qualitätswein' },
   { key: 'zusatz', kopf: 'Zusatzbezeichnung', erkennen: ['Zusatz'], typ: 'text',
     hinweis: `Optional: ${ZUSATZ_OPTS.map(o => o.label).join(', ')} – nur auf Qualitätswein.`, beispiel: '' },
   { key: 'erzeugnis', kopf: 'Erzeugnis', typ: 'text', hinweis: 'Optional (leer = Wein), z. B. Sekt g.U., Perlwein.', beispiel: '' },
@@ -370,11 +371,17 @@ export function pruefeTankZeilen(
     rebsorteHinweis(rebsorte, hinweise)
     const jahrgang = jahrgangAus(w('jahrgang'), fehler)
     const angabe = qualitaetAusZeile(w('qualitaet'), w('zusatz'), w('erzeugnis'), 'charge', fehler)
-    if (!angabe.stufe && !w('qualitaet')) hinweise.push('Ohne Qualitätsstufe.')
+    // KAN-204: Qualitätsstufe Pflicht – auch beim Eröffnungsbestand
+    if (!angabe.stufe && !w('qualitaet')) fehler.push('Qualitätsstufe fehlt (Pflicht, z. B. Wein, Landwein, Qualitätswein).')
     const wa = weinartAus(w('weinart'))
     if (wa === 'unbekannt') fehler.push(`Weinart „${w('weinart')}“ unbekannt – weiß, rot oder rosé.`)
     const hk = herkunftAus(w('herkunft'))
     if (hk === 'unbekannt') fehler.push(`Herkunfts-Code „${w('herkunft')}“ unbekannt – bitte wie in der Auswahlliste, als Code oder BKI-Kürzel.`)
+    // KAN-204: Jahrgang, Rebsorte, Weinart, Herkunft dürfen fehlen (Mischbestand) – Hinweis auf die Notizen
+    {
+      const h = eroeffnungsbestandHinweis({ jahrgang, rebsorte, weinart: wa && wa !== 'unbekannt' ? String(wa) : null, herkunft: hk && hk !== 'unbekannt' ? String(hk) : null })
+      if (h) hinweise.push(h)
+    }
 
     let mostgewicht: TankEingabe['mostgewicht'] = null
     const mg = mostgewichtAusZellen(w('mostgewicht'), w('mostgewicht_einheit'))

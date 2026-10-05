@@ -528,7 +528,6 @@ describe('(4) Formulare und Server Actions verwenden die Liste ihrer Zieltabelle
     // weinausbau
     ['src/app/(dashboard)/erntemeldung/actions.ts', 'upsertPressung', "qualitaetFehler('charge'"],
     ['src/app/(dashboard)/kellerbuch/actions.ts', 'chargenQualitaetAusFormular', "qualitaetFehler('charge'"],
-    ['src/app/(dashboard)/kellerbuch/actions.ts', 'createWeinausbau', 'chargenQualitaetAusFormular('],
     ['src/app/(dashboard)/kellerbuch/actions.ts', 'updateWeinausbau', 'chargenQualitaetAusFormular('],
     ['src/app/(dashboard)/kellerbuch/gebinde-actions.ts', 'insertEroeffnungsbestand', "qualitaetFehler('charge'"],
     ['src/app/(dashboard)/kellerbuch/gebinde-actions.ts', 'eroeffnungsbestandSpeichern', "qualitaetFehler('charge'"],

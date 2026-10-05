@@ -10,6 +10,10 @@ import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum, dezimal } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
 import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
+import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
+import GesperrtHinweis from '@/components/GesperrtHinweis'
+import Link from '@/components/ui/Link'
+import { CHARGE_FREEZE_GRUND, chargePnSperreText, type ChargePnSperre } from '@/lib/kellerbuch/chargeRegeln'
 
 const REBSORTEN = [
   'Grüner Veltliner','Riesling','Welschriesling','Müller-Thurgau',
@@ -25,6 +29,8 @@ type WeinausbauRow = {
   /** KAN-186: Zusatzbezeichnung und Erzeugnis (Altwerte im Qualitätsfeld werden normalisiert) */
   zusatzbezeichnung?: string | null; erzeugnis?: string | null
   weinart?: string | null
+  /** KAN-204: Eröffnungsbestand – Jahrgang, Rebsorte, Weinart dürfen fehlen (Hinweis) */
+  ist_eroeffnungsbestand?: boolean | null
   notizen: string | null; aktiv: boolean; einstandspreis_pro_liter: number | null
   /** KAN-130 Etappe 3: gespeichertes Mostgewicht (Messwert und Einheit) */
   kmw?: number | string | null; oechsle?: number | string | null; mostgewicht_einheit?: string | null
@@ -51,9 +57,11 @@ interface Props {
   gebindeSperre?: string | null
   /** KAN-150 F1d: Folgebuchungen vorhanden → eine Änderung der Rieden braucht einen Grund (Text der Folgebuchungen) */
   herkunftGrundNoetig?: string | null
+  /** KAN-204: Prüfnummer der Charge – eingereicht: alle Merkmale gesperrt, gültig: Merkmale außer Qualität (Abstufen) */
+  pnSperre?: ChargePnSperre
 }
 
-export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, selectedWeingaertenIds = [], action, maxQualitaetsstufe, vonPressung = false, gebindeSperre = null, herkunftGrundNoetig = null }: Props) {
+export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, selectedWeingaertenIds = [], action, maxQualitaetsstufe, vonPressung = false, gebindeSperre = null, herkunftGrundNoetig = null, pnSperre = null }: Props) {
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -102,11 +110,25 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
   // KAN-186: Altwerte (reserve, sekt …) im Qualitätsfeld → Stufe + Zusatzbezeichnung/Erzeugnis
   const angabe = normalisiereQualitaet(weinausbau ?? null)
   const [stufe, setStufe] = useState<string>(angabe.stufe ?? maxQualitaetsstufe ?? '')
+  // KAN-204: Merkmale gesperrt (Pressung bzw. Prüfnummer); Qualität nur über „Abstufen“, sobald eine Stufe feststeht
+  const merkmaleGesperrt = vonPressung || !!pnSperre
+  const qualitaetFest = vonPressung || !!angabe.stufe || pnSperre === 'eingereicht'
+  const istEB = weinausbau?.ist_eroeffnungsbestand === true
+  const mitBestand = !!weinausbau && weinausbau.aktiv && Number(weinausbau.menge_liter ?? 0) > 0.01
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {error && <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-xl px-4 py-3 text-sm"><strong>Fehler:</strong> {error}</div>}
 
+      {pnSperre === 'eingereicht' && (
+        <GesperrtHinweis grund={CHARGE_FREEZE_GRUND} erlaubt={['Bezeichnung', 'Status', 'Gebinde (per Umzug)', 'Einstandspreis', 'Notizen']} />
+      )}
+      {pnSperre === 'gueltig' && (
+        <div role="status" className="bg-s112-blue-50 border border-s112-blue-100 text-s112-blue-700 rounded-xl px-4 py-2.5 text-xs flex items-start gap-1.5">
+          <Info size={14} strokeWidth={1.75} className="mt-0.5 shrink-0" />
+          <span>{chargePnSperreText('gueltig')}</span>
+        </div>
+      )}
       {vonPressung && (
         <div className="bg-s112-blue-50 border border-s112-blue-100 text-s112-blue-700 rounded-xl px-4 py-2.5 text-xs flex items-start gap-1.5">
           <Info size={14} strokeWidth={1.75} className="mt-0.5 shrink-0" />
@@ -122,28 +144,28 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
             <input aria-label="Bezeichnung" name="name" type="text" required defaultValue={weinausbau?.name ?? ''} className="form-input" placeholder="z.B. GV Kremser Schmidt 2025" />
           </div>
           <div>
-            <label className="form-label">Jahrgang</label>
-            {vonPressung ? (
+            <label className="form-label">Jahrgang{!istEB && !merkmaleGesperrt ? ' *' : ''}</label>
+            {merkmaleGesperrt ? (
               <>
                 <input type="hidden" name="jahrgang" value={weinausbau?.jahrgang ?? ''} />
                 <div className={rdOnly}>{weinausbau?.jahrgang ?? '–'}</div>
               </>
             ) : (
-              <input name="jahrgang" type="number" min="1900" max="2100" defaultValue={weinausbau?.jahrgang ?? new Date().getFullYear()} className="form-input" />
+              <input aria-label="Jahrgang" name="jahrgang" type="number" min="1900" max="2100" required={!istEB} defaultValue={weinausbau?.jahrgang ?? (istEB ? '' : new Date().getFullYear())} className="form-input" />
             )}
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="form-label">Rebsorte</label>
-            {vonPressung ? (
+            <label className="form-label">Rebsorte{!istEB && !merkmaleGesperrt ? ' *' : ''}</label>
+            {merkmaleGesperrt ? (
               <>
                 <input type="hidden" name="rebsorte" value={weinausbau?.rebsorte ?? ''} />
                 <div className={rdOnly}>{formatRebsorteMitKuerzel(weinausbau?.rebsorte)}</div>
               </>
             ) : (
               <>
-                <input name="rebsorte" type="text" list="rebsorten-kb" defaultValue={weinausbau?.rebsorte ?? ''} className="form-input" placeholder="Rebsorte" />
+                <input aria-label="Rebsorte" name="rebsorte" type="text" list="rebsorten-kb" required={!istEB} defaultValue={weinausbau?.rebsorte ?? ''} className="form-input" placeholder="Rebsorte" />
                 <datalist id="rebsorten-kb">{REBSORTEN.map(r => <option key={r} value={r} />)}</datalist>
               </>
             )}
@@ -164,8 +186,8 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
         {/* Qualitätsstufe */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="form-label">Qualitätsstufe</label>
-            {vonPressung ? (
+            <label className="form-label">Qualitätsstufe{qualitaetFest ? '' : ' *'}</label>
+            {qualitaetFest ? (
               <>
                 <input type="hidden" name="qualitaetsstufe" value={angabe.stufe ?? ''} />
                 <div className={rdOnly}>
@@ -173,7 +195,16 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
                     ? (QUALITAET_OPTS.find(o => o.value === angabe.stufe)?.label ?? angabe.stufe)
                     : '– noch nicht festgelegt –'}
                 </div>
-                <p className="text-xs text-s112-muted mt-1">Wird aus dem KMW-Wert der Pressung abgeleitet</p>
+                {/* KAN-204: Qualität, Zusatz und Erzeugnis nur über „Abstufen“ (datiert, mit Grund) */}
+                {!angabe.stufe ? (
+                  <p className="text-xs text-s112-muted mt-1">Wird aus dem KMW-Wert der Pressung abgeleitet</p>
+                ) : weinausbau && pnSperre !== 'eingereicht' ? (
+                  <p className="text-xs text-s112-muted mt-1">
+                    Ändern nur über <Link href={`/kellerbuch/weinausbau/${weinausbau.id}/abstufen`} className="text-s112-blue-700 hover:underline">„Abstufen“</Link> (mit Datum und Grund)
+                  </p>
+                ) : (
+                  <p className="text-xs text-s112-muted mt-1">Ändern nur über „Abstufen“ – nach dem Bescheid zum Prüfnummernantrag</p>
+                )}
               </>
             ) : (
               (() => {
@@ -187,7 +218,7 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
                 )
                 return (
                   <>
-                    <select name="qualitaetsstufe" value={stufe} onChange={e => setStufe(e.target.value)} className="form-input">
+                    <select id="charge-qualitaetsstufe" aria-label="Qualitätsstufe" name="qualitaetsstufe" required value={stufe} onChange={e => setStufe(e.target.value)} className="form-input">
                       <option value="">– noch nicht festgelegt –</option>
                       {erlaubteOptionen.map(o => (
                         <option key={o.value} value={o.value}>{o.label}</option>
@@ -219,18 +250,25 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
         {/* KAN-186: Zusatzbezeichnung (Reserve …) und Erzeugnis (Sekt g.U., Perlwein …) – auch nachträglich setzbar bzw.
             wechselbar (keine Aufwertung, Korrektur 02.10.2026) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <ZusatzErzeugnisFelder
-            zusatz={angabe.zusatz}
-            erzeugnis={angabe.erzeugnis}
-            stufe={vonPressung ? angabe.stufe : stufe}
-          />
+          {qualitaetFest ? (
+            <>
+              <input type="hidden" name="zusatzbezeichnung" value={angabe.zusatz ?? ''} />
+              <input type="hidden" name="erzeugnis" value={angabe.erzeugnis ?? ''} />
+            </>
+          ) : (
+            <ZusatzErzeugnisFelder
+              zusatz={angabe.zusatz}
+              erzeugnis={angabe.erzeugnis}
+              stufe={stufe}
+            />
+          )}
         </div>
 
         {/* Weinart */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="form-label">Weinart</label>
-            {vonPressung ? (
+            <label className="form-label">Weinart{!istEB && !merkmaleGesperrt ? ' *' : ''}</label>
+            {merkmaleGesperrt ? (
               <>
                 <input type="hidden" name="weinart" value={weinausbau?.weinart ?? 'unbekannt'} />
                 <div className={rdOnly}>
@@ -239,8 +277,11 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
                 <p className="text-xs text-s112-muted mt-1">Wird aus den Weingärten abgeleitet</p>
               </>
             ) : (
-              <select name="weinart" defaultValue={weinausbau?.weinart ?? 'unbekannt'} className="form-input">
-                {WEINART_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              <select aria-label="Weinart" name="weinart" required={!istEB} className="form-input"
+                defaultValue={!istEB && (weinausbau?.weinart ?? 'unbekannt') === 'unbekannt' ? '' : (weinausbau?.weinart ?? 'unbekannt')}>
+                {/* KAN-204: Weinart Pflicht – „Unbekannt“ nur beim Eröffnungsbestand */}
+                {!istEB && <option value="">– bitte wählen –</option>}
+                {WEINART_OPTS.filter(o => istEB || o.value !== 'unbekannt').map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             )}
           </div>
@@ -249,19 +290,28 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
               (Entscheidung 2: Korrektur an der Charge im Kellerbuch). Die Qualitätsstufe bleibt davon
               unberührt (Rechenregel 6). */}
           <div>
+            {pnSperre ? (
+              <>
+                <label className="form-label">Mostgewicht</label>
+                <div className={rdOnly}>
+                  <MostgewichtAnzeige wert={{ kmw: weinausbau?.kmw ?? null, oechsle: weinausbau?.oechsle ?? null, einheit: weinausbau?.mostgewicht_einheit ?? null }} />
+                </div>
+              </>
+            ) : (
             <MostgewichtEingabe
               key={weinausbau?.id ?? 'neu'}
               name="mostgewicht"
               label="Mostgewicht (optional)"
               startwert={weinausbau ? { kmw: weinausbau.kmw, oechsle: weinausbau.oechsle, einheit: weinausbau.mostgewicht_einheit } : null}
             />
+            )}
           </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="form-label">Rieden / Weingärten</label>
-            {vonPressung ? (
+            {merkmaleGesperrt ? (
               <>
                 {Array.from(selWg).map(id => (
                   <input key={id} type="hidden" name="weingarten_ids" value={id} />
@@ -328,7 +378,7 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
             )}
           </div>
           <div>
-            <label className="form-label">Behälter</label>
+            <label className="form-label">Behälter{mitBestand && !(vonPressung || gebindeSperre) ? ' *' : ''}</label>
             {vonPressung || gebindeSperre ? (
               <>
                 <input type="hidden" name="behaelter_id" value={weinausbau?.behaelter_id ?? ''} />
@@ -340,7 +390,7 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
                 )}
               </>
             ) : (
-              <select name="behaelter_id" defaultValue={weinausbau?.behaelter_id ?? ''} className="form-input">
+              <select aria-label="Behälter" name="behaelter_id" required={mitBestand} defaultValue={weinausbau?.behaelter_id ?? ''} className="form-input">
                 <option value="">– kein Behälter –</option>
                 {behaelter.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
               </select>

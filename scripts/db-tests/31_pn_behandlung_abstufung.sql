@@ -107,6 +107,9 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('ende_ereignisse', v_n, 2::bigint);
 
   -- ── 4. Abstufung: Ende; unveränderte Werte lösen nichts aus ───────────────────────────────────────────
+  -- KAN-204: die Anträge sind eingereicht – die Charge ist gesperrt; geändert wird hier über den Korrekturweg
+  -- (s112.freeze_frei wie s112_freeze_korrektur), geprüft wird die Reaktion der Prüfnummer
+  PERFORM set_config('s112.freeze_frei', 'weinausbau', true);
   UPDATE public.weinausbau SET qualitaetsstufe = 'qualitaetswein' WHERE id = v_wb;
   v_erg := v_erg || pg_temp.s112_erwarte('abstufung_gleich_bleibt', pg_temp.t31_zeile(v_d2, v_wb), 'offen');
   UPDATE public.weinausbau SET qualitaetsstufe = 'wein' WHERE id = v_wb;
@@ -115,6 +118,7 @@ BEGIN
     (SELECT pc.ende_vorgang FROM public.pruefnummer_chargen pc WHERE pc.dac_antrag_id = v_d2), 'weinausbau:' || v_wb);
   UPDATE public.weinausbau SET zusatzbezeichnung = 'reserve' WHERE id = v_wa;
   v_erg := v_erg || pg_temp.s112_erwarte('abstufung_zusatz', pg_temp.t31_zeile(v_d, v_wa), 'ende:abstufung');
+  PERFORM set_config('s112.freeze_frei', '', true);
 
   -- ── 4b. Einstufung ändern: gesperrt, sobald der Typ in einer Charge mit Prüfnummer verwendet wurde ─────
   v_erg := v_erg || pg_temp.s112_erwarte('einstufung_gesperrt',

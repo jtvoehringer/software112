@@ -16,6 +16,7 @@ import { Info } from 'lucide-react'
 import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
 import { eroeffnungsTag, stichtagText } from '@/lib/kellerbuch/eroeffnungsStichtag'
 import type { Metadata } from 'next'
+import { EB_NOTIZEN_HINWEIS } from '@/lib/kellerbuch/chargeRegeln'
 
 export const metadata: Metadata = { title: 'Eröffnungsbestand bearbeiten – software:112' }
 export const dynamic = 'force-dynamic'
@@ -164,8 +165,8 @@ export default async function EroeffnungsbestandEditPage({ params, searchParams 
           </div>
           <div>
             <label className={labelCls}>Qualitätsstufe</label>
-            <select aria-label="Qualitätsstufe" name="qualitaetsstufe" defaultValue={angabe.stufe ?? ''} className={inputCls}>
-              <option value="">– keine –</option>
+            <select aria-label="Qualitätsstufe" name="qualitaetsstufe" required defaultValue={angabe.stufe ?? ''} className={inputCls}>
+              <option value="">– bitte wählen –</option>
               {mitGespeichertemWert(QUALITAET_OPTS, angabe.stufe).map(q => (
                 <option key={q.value} value={q.value}>{q.label}</option>
               ))}
@@ -180,6 +181,8 @@ export default async function EroeffnungsbestandEditPage({ params, searchParams 
           <div className="sm:col-span-2">
             <label className={labelCls}>Notizen</label>
             <input aria-label="Notizen" name="notizen" defaultValue={eintrag.notizen ?? ''} className={inputCls} />
+                  {/* KAN-204: Mischbestand ohne Jahrgang/Rebsorte/Weinart/Herkunft – Angaben in den Notizen festhalten */}
+                  <p className="text-xs text-s112-muted mt-1">{EB_NOTIZEN_HINWEIS}</p>
           </div>
         </div>
         <div className="flex gap-3 pt-2">

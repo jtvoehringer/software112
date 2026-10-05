@@ -88,6 +88,9 @@ async function insertEroeffnungsbestand(
   const angabe = qualitaetsAngabeAusFormular(formData)
   const qualitaetUnzulaessig = qualitaetFehler('charge', angabe.stufe)
   if (qualitaetUnzulaessig) return qualitaetUnzulaessig
+  // KAN-204: Gebinde und Qualitätsstufe Pflicht; Jahrgang, Rebsorte, Weinart, Herkunft dürfen fehlen (Hinweis im Formular)
+  if (!(formData.get('behaelter_id') as string)) return 'Bitte das Gebinde angeben.'
+  if (!angabe.stufe) return 'Bitte die Qualitätsstufe angeben (z. B. Wein, Landwein, Qualitätswein).'
   const angabeUnzulaessig = qualitaetsAngabeFehler(angabe)
   if (angabeUnzulaessig) return angabeUnzulaessig
   // KAN-130 Etappe 3 (02.10.2026): Mostgewicht aus Messwert und Einheit (MostgewichtEingabe, °KMW oder °Oe;
@@ -186,6 +189,7 @@ async function eroeffnungsbestandSpeichern(id: string, formData: FormData): Prom
   const angabe = qualitaetsAngabeAusFormular(formData)
   const qualitaetUnzulaessig = qualitaetFehler('charge', angabe.stufe)
   if (qualitaetUnzulaessig) throw new AktionsFehler(qualitaetUnzulaessig)
+  if (!angabe.stufe) throw new AktionsFehler('Bitte die Qualitätsstufe angeben (z. B. Wein, Landwein, Qualitätswein).')   // KAN-204
   const angabeUnzulaessig = qualitaetsAngabeFehler(angabe)
   if (angabeUnzulaessig) throw new AktionsFehler(angabeUnzulaessig)
   // KAN-130 Etappe 3 (02.10.2026): Mostgewicht wie beim Anlegen – geschrieben nur, wenn das Formular es

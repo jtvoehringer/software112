@@ -119,7 +119,9 @@ describe('KAN-42 Tank-Zeilen', nurMitHooks, () => {
     assert.equal(b.zeilen[1].eingabe.angabe.stufe, 'beerenauslese')
     assert.equal(b.zeilen[1].eingabe.weinart, 'rose')
     assert.equal(b.zeilen[1].eingabe.mostgewicht, null)
-    assert.ok(b.zeilen[1].hinweise.length === 0)
+    // KAN-204: ohne Jahrgang und Rebsorte nur ein Hinweis auf die Notizen (Mischbestand), kein Fehler
+    assert.match(b.zeilen[1].hinweise.join(), /^Ohne Jahrgang, Rebsorte – .*Notizen/)
+    assert.equal(b.zeilen[1].hinweise.length, 1)
   })
 
   test('ungültige Zeilen werden mit Grund abgelehnt, die gültigen bleiben', async () => {
@@ -175,7 +177,8 @@ describe('KAN-42 Tank-Zeilen', nurMitHooks, () => {
   test('fehlende Pflichtspalte und Fassungsvermögen unbekannt; Zeilennummern mit Versatz', async () => {
     const m = await laden('lib/import/eroeffnungsbestand.ts')
     const b = m.pruefeTankZeilen(['Gebinde', 'Chargenname'], [{ Gebinde: 'T12', Chargenname: 'x' }], GEBINDE, { stichtag: STICHTAG })
-    assert.match(b.dateiFehler.join(), /Pflichtspalte fehlt: Menge \(l\)/)
+    // KAN-204: Qualitätsstufe ist Pflichtspalte
+    assert.match(b.dateiFehler.join(), /Pflichtspalten fehlt: Menge \(l\), Qualitätsstufe/)
     const v = m.pruefeTankZeilen(TANK_KOPF, [tz({ Gebinde: 'T17' })], GEBINDE, { stichtag: STICHTAG, zeilenOffset: 100 }).zeilen[0]
     assert.equal(v.zeile, 102)
     assert.deepEqual(v.fehler, [])

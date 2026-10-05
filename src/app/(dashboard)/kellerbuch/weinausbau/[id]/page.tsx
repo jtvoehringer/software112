@@ -17,6 +17,7 @@ import { bestandNachEreignis, sortenAnteile, zusammensetzung } from '@/lib/wein/
 import { PN_OFFENE_ANTRAGS_STATUS, pnStatusLabel } from '@/lib/dac/workflow'
 import { gebindeText, quellGebindeDesVerschnitts, quellGebindeSchluessel, verschnittQuelleText, type Quellgebinde } from '@/lib/kellerbuch/quellGebinde'
 import HerkunftJournalKarte from './HerkunftJournalKarte'
+import { chargePnSperre } from '@/lib/kellerbuch/chargeRegeln'
 import SchwundBuchenForm from './SchwundBuchenForm'
 import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
 import UmziehenWidget from '@/components/kellerbuch/UmziehenWidget'
@@ -503,6 +504,8 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
   const pnGueltigkeit = ((pncRaw ?? []) as R[]).filter(g => (g.antrag as R | null)?.pruefnummer && !(g.antrag as R | null)?.storniert_am)
   const pnGilt = pnGueltigkeit.find(g => !g.gueltig_bis && (g.antrag as R).status === 'genehmigt') ?? null
   const pnErloschen = pnGilt ? null : (pnGueltigkeit.find(g => g.gueltig_bis) ?? null)
+  // KAN-204: Sperrstufe für das Bearbeiten (dieselbe Regel wie updateWeinausbau und der Trigger a_freeze)
+  const pnSperre = chargePnSperre(pnAntraege as { status: string | null }[], (pncRaw ?? []) as { gueltig_bis: string | null }[])
   const pnZugeteilt = pnGilt
     ? { id: pnGilt.dac_antrag_id, pruefnummer: (pnGilt.antrag as R).pruefnummer, geerbt: !!pnGilt.quelle_vorgang }
     : null
@@ -798,6 +801,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
             vonPressung={vonPressung}
             gebindeSperre={gebindeSperre}
             herkunftGrundNoetig={herkunftGrundNoetig}
+            pnSperre={pnSperre}
             action={updateWeinausbau.bind(null, id)}
           />
         </section>

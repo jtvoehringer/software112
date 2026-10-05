@@ -25,6 +25,7 @@ import { wienHeute } from '@/lib/csv'
 import { pnWirkungAus, pnWirkungUnklarHinweis, type PnWirkung } from '@/lib/kellerbuch/pnWirkung'
 import { ABSTUFEN_GRUND_MIN, abstufenFehler, teilmengeFehler } from '@/lib/kellerbuch/abstufen'
 import { umziehen } from './umziehen/actions'
+import { chargePflichtFehler, chargePnSperre, chargePnSperreText, NUR_ABSTUFEN_MELDUNG } from '@/lib/kellerbuch/chargeRegeln'
 import { behandlungCharge, behandlungMengeFehler, behandlungPnGesperrt, neuerTypWirkungFehler, BEHANDLUNG_FELDNAMEN, type PnGueltigkeit } from '@/lib/kellerbuch/behandlungRegeln'
 import { freezeSperreAus, sperrMeldung } from '@/lib/freeze/sperre'
 
@@ -215,49 +216,8 @@ export async function deleteBehaelter(id: string): Promise<{ error?: string }> {
 }
 
 // WEINAUSBAU
-export async function createWeinausbau(formData: FormData) {
-  const supabase  = await createSupabaseServerClient()
-  const tenantId  = await getTenantId()
-  if (!tenantId) throw new AktionsFehler('Kein Betrieb gefunden')
-
-  // KAN-130 Etappe 3 (02.10.2026, Entscheidung 3): optionales Mostgewicht (Messwert und Einheit,
-  // serverseitig gerechnet; leer = beide Spalten NULL). Die Qualitätsstufe bleibt, wie gewählt.
-  const mostgewicht = mostgewichtAusFormular(formData, 'mostgewicht')
-  if (!mostgewicht.ok) throw new AktionsFehler(mostgewicht.fehler)
-
-  const wgIds = formData.getAll('weingarten_ids').map(v => v.toString()).filter(Boolean)
-  const payload: R = {
-    tenant_id:       tenantId,
-    name:            formData.get('name') as string,
-    jahrgang:        formData.get('jahrgang') ? Number(dezimal(formData.get('jahrgang'))) : null,
-    rebsorte:        (formData.get('rebsorte') as string) || null,
-    weingarten_id:   wgIds[0] ?? null,
-    behaelter_id:    (formData.get('behaelter_id') as string) || null,
-    menge_liter:          formData.get('menge_liter') ? Number(dezimal((formData.get('menge_liter') as string))) : null,
-    anfangsbestand_liter: formData.get('menge_liter') ? Number(dezimal((formData.get('menge_liter') as string))) : null,
-    ...qualitaetsSpalten(chargenQualitaetAusFormular(formData)),
-    ...mostgewichtSpalten(mostgewicht.wert, 'kmw'),
-    status:               (formData.get('status') as string) || 'ernte',
-    notizen:              (formData.get('notizen') as string) || null,
-    einstandspreis_pro_liter: formData.get('einstandspreis_pro_liter')
-      ? Number(dezimal((formData.get('einstandspreis_pro_liter') as string)))
-      : null,
-    aktiv:           true,
-  }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: newWA, error } = await (supabase.from('weinausbau') as any).insert(payload).select('id').single()
-  if (error) throw new AktionsFehler((error as R).message)
-  // Junction-Tabelle: Rieden/Weingärten verknüpfen
-  if (wgIds.length > 0 && (newWA as R)?.id) {
-    const waId = (newWA as R).id as string
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    { const { error: e } = await (supabase.from('weinausbau_weingaerten') as any).insert(
-      wgIds.map(wgId => ({ tenant_id: tenantId, weinausbau_id: waId, weingarten_id: wgId }))
-    )
-      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weinausbau_weingaerten): ${e.message}`) }
-  }
-  revalidatePath('/kellerbuch')
-}
+// Neue Chargen entstehen nur über Pressung, Verschnitt, Zukauf, Umzug bzw. als Eröffnungsbestand (KAN-204: das frühere
+// createWeinausbau ohne Aufrufer ist entfallen).
 
 // Charge bearbeiten (KAN-35, 24.09.2026)
 // * menge_liter wird hier NICHT mehr geschrieben – Bestandsänderungen nur als datierte
@@ -276,7 +236,7 @@ export async function updateWeinausbau(id: string, formData: FormData): Promise<
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: altRaw, error: altErr } = await (supabase.from('weinausbau') as any)
-    .select('id, name, behaelter_id, menge_liter, aktiv, status, qualitaetsstufe, zusatzbezeichnung, erzeugnis, jahrgang, rebsorte, weinart')
+    .select('id, name, behaelter_id, menge_liter, aktiv, status, qualitaetsstufe, zusatzbezeichnung, erzeugnis, jahrgang, rebsorte, weinart, kmw, ist_eroeffnungsbestand')
     .eq('id', id)
     .eq('tenant_id', tenantId)
     .maybeSingle()
@@ -284,6 +244,16 @@ export async function updateWeinausbau(id: string, formData: FormData): Promise<
   if (!altRaw) throw new AktionsFehler('Charge nicht gefunden')
   const alt = altRaw as R
   const bestand = parseFloat(alt.menge_liter) || 0
+
+  // KAN-204: Prüfnummer der Charge – eingereicht: alle Merkmale gesperrt (auch DB, a_freeze); gültig: Merkmale außer Qualität
+  const [{ data: antraegeRaw, error: antragErr }, { data: pnRaw, error: pnErr }] = await Promise.all([
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from('dac_antrag') as any).select('status, storniert_am').eq('weinausbau_id', id).eq('tenant_id', tenantId).is('storniert_am', null),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from('pruefnummer_chargen') as any).select('gueltig_bis').eq('weinausbau_id', id).eq('tenant_id', tenantId),
+  ])
+  if (antragErr || pnErr) throw new AktionsFehler(dbFehlerText(antragErr ?? pnErr, 'Prüfnummer der Charge konnte nicht geprüft werden'))
+  const pnSperre = chargePnSperre((antraegeRaw ?? []) as R[] as { status: string | null; storniert_am: string | null }[], (pnRaw ?? []) as R[] as { gueltig_bis: string | null }[])
 
   // KAN-130 Etappe 3 (02.10.2026): Mostgewicht nur schreiben, wenn das Formular es mitschickt – ein
   // Formular ohne Feld lässt das gespeicherte stehen; leer = beide Spalten NULL (Rechenregel 4). Die
@@ -301,7 +271,8 @@ export async function updateWeinausbau(id: string, formData: FormData): Promise<
     rebsorte:        (formData.get('rebsorte') as string) || null,
     weingarten_id:   wgIds[0] ?? null,
     ...qualitaetsSpalten(chargenQualitaetAusFormular(formData)),
-    weinart:              (formData.get('weinart') as string) || 'unbekannt',
+    // KAN-204: nur schreiben, wenn das Formular die Weinart mitschickt (sonst bleibt sie)
+    ...(formData.has('weinart') ? { weinart: (formData.get('weinart') as string) || 'unbekannt' } : {}),
     ...(mostgewicht.uebermittelt ? mostgewichtSpalten(mostgewicht.wert, 'kmw') : {}),
     status:               neuStatus,
     notizen:              (formData.get('notizen') as string) || null,
@@ -316,6 +287,8 @@ export async function updateWeinausbau(id: string, formData: FormData): Promise<
   // Zusatzbezeichnung (Qualitätswein → Reserve). Die bisherige Angabe wird normalisiert (Altwerte).
   const altQualitaet = normalisiereQualitaet(alt)
   const neuQualitaet = normalisiereQualitaet(payload)
+  // KAN-204: Qualität, Zusatz und Erzeugnis nur über „Abstufen“ (datiert, mit Grund) – erstmalige Angabe ausgenommen
+  if (altQualitaet.stufe && !gleicheQualitaet(altQualitaet, neuQualitaet)) throw new AktionsFehler(NUR_ABSTUFEN_MELDUNG)
   if (istAufwertungQualitaet(altQualitaet, neuQualitaet)) {
     throw new AktionsFehler(
       `Die Qualitätsstufe kann nicht von „${qualitaetText(altQualitaet)}“ auf „${qualitaetText(neuQualitaet)}“ angehoben werden – nur gleich bleiben oder abstufen ist zulässig. War die bisherige Stufe falsch erfasst, bitte die zugrunde liegende Buchung (Lese, Pressung, Zukauf) korrigieren.`,
@@ -387,6 +360,37 @@ export async function updateWeinausbau(id: string, formData: FormData): Promise<
         `An der Charge ${f.length === 1 && f[0].anzahl === 1 ? 'hängt' : 'hängen'} bereits ${folgebuchungenText(f)} – bitte einen Grund für die Änderung der Herkunft angeben (mindestens ${STORNO_GRUND_MIN} Zeichen).`,
       )
     }
+  }
+
+  // KAN-204: Merkmale unter Prüfnummer gesperrt (dieselbe Bedingung wie der Trigger a_freeze bzw. das Formular)
+  if (pnSperre) {
+    const geaendert: string[] = []
+    const gleich = (x: unknown, y: unknown) => String(x ?? '') === String(y ?? '')
+    if ('jahrgang' in payload && !gleich(payload.jahrgang, alt.jahrgang)) geaendert.push('Jahrgang')
+    if ('rebsorte' in payload && !gleich(payload.rebsorte, alt.rebsorte)) geaendert.push('Rebsorte')
+    if ('weinart' in payload && !gleich(payload.weinart ?? 'unbekannt', alt.weinart ?? 'unbekannt')) geaendert.push('Weinart')
+    if ('kmw' in payload && Math.abs((Number(payload.kmw) || 0) - (Number(alt.kmw) || 0)) > 0.005) geaendert.push('Mostgewicht')
+    if (herkunftGeaendert) geaendert.push('Rieden')
+    if (geaendert.length > 0) throw new AktionsFehler(`${chargePnSperreText(pnSperre)} (geändert: ${geaendert.join(', ')})`)
+    delete payload.jahrgang; delete payload.rebsorte; delete payload.weinart
+    delete payload.kmw; delete payload.oechsle; delete payload.mostgewicht_einheit
+  }
+
+  // KAN-204: Pflichtangaben – nur, was hier änderbar ist (Pressung/Zukauf/Prüfnummer: gesperrt, bleibt wie es ist)
+  {
+    const neuesGebinde = formData.has('behaelter_id') ? ((formData.get('behaelter_id') as string) || null) : ((alt.behaelter_id as string | null) ?? null)
+    const pflicht = chargePflichtFehler({
+      jahrgang: 'jahrgang' in payload ? (payload.jahrgang as number | null) : (alt.jahrgang as number | null),
+      rebsorte: 'rebsorte' in payload ? (payload.rebsorte as string | null) : (alt.rebsorte as string | null),
+      weinart: 'weinart' in payload ? (payload.weinart as string | null) : (alt.weinart as string | null),
+      qualitaetsstufe: neuQualitaet.stufe ?? altQualitaet.stufe ?? null,
+      behaelterId: neuesGebinde,
+      mitBestand: neuAktiv && bestand > 0.01,
+    }, {
+      eroeffnungsbestand: alt.ist_eroeffnungsbestand === true,
+      geprueft: { jahrgang: 'jahrgang' in payload, rebsorte: 'rebsorte' in payload, weinart: 'weinart' in payload },
+    })
+    if (pflicht) throw new AktionsFehler(pflicht)
   }
 
   // Gebindewechsel nur ohne Folgebuchungen
