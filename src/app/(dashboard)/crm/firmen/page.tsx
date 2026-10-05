@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle, inBloecken } from '@/lib/supabase/alle'
 import { filterAusParams, ladeFirmenSeite, ladeZaehler } from '@/lib/crm/liste'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
@@ -30,11 +31,13 @@ export default async function FirmenPage({ searchParams }: { searchParams: Promi
     ladeZaehler(supabase, tenantId, 'firma'),
   ])
   const ids = fRaw.map(f => f.id as string)
-  const { data: kRaw } = ids.length === 0 ? { data: [] } : await tf((supabase.from('kontakte') as any)
+  // inBloecken: bis zu 1.000 Firmen – 1.000 IDs in einer URL scheitern (ab ≈ 350), die Ansprechpersonen blieben leer.
+  // Eine Firma liegt immer ganz in einem Block, die Reihenfolge je Firma bleibt.
+  const { data: kRaw } = await inBloecken(ids, b => alle(tf((supabase.from('kontakte') as any)
     .select('id, vorname, nachname, segment, firma_id')
     .eq('aktiv', true)
-    .in('firma_id', ids)
-    .order('nachname'))
+    .in('firma_id', b)
+    .order('nachname').order('id'))))
 
   const firmen: FirmaRow[] = ((fRaw ?? []) as R[]).map(f => ({
     id: f.id, accountnummer: f.accountnummer ?? null, name: f.name, segment: f.segment,

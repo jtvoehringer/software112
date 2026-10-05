@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { alle } from '@/lib/supabase/alle'
+import { alle, inBloecken } from '@/lib/supabase/alle'
 import { filterAusParams, ladeKontakteSeite, ladeZaehler, zaehleQuellen, kontaktAusZeile } from '@/lib/crm/liste'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
@@ -48,15 +48,17 @@ export default async function KontaktePage({ searchParams }: { searchParams: Pro
   ])
   const quellenZaehler = zaehleQuellen((qRaw ?? []) as R[])
   const ids = kRaw.map(k => k.id as string)
-  const [{ data: aRaw }, { data: pRaw }] = ids.length === 0 ? [{ data: [] }, { data: [] }] : await Promise.all([
-    tf((supabase.from('aktivitaeten') as any)
+  // inBloecken: die Liste lädt bis zu 1.000 Kontakte – 1.000 IDs in einer URL scheitern (ab ≈ 350), die Aktivitäten
+  // blieben dann leer. Ein Kontakt liegt immer ganz in einem Block, die Reihenfolge je Kontakt bleibt.
+  const [{ data: aRaw }, { data: pRaw }] = await Promise.all([
+    inBloecken(ids, b => alle(tf((supabase.from('aktivitaeten') as any)
       .select('id, art, betreff, beschreibung, datum, erledigt, kontakt_id')
-      .in('kontakt_id', ids)
-      .order('datum', { ascending: false })),
-    tf((supabase.from('pipeline_eintraege') as any)
+      .in('kontakt_id', b)
+      .order('datum', { ascending: false }).order('id')))),
+    inBloecken(ids, b => alle(tf((supabase.from('pipeline_eintraege') as any)
       .select('id, stufe, titel, wert_euro, wahrscheinlichkeit, erwartetes_datum, kontakt_id')
-      .in('kontakt_id', ids)
-      .order('aktualisiert_am', { ascending: false })),
+      .in('kontakt_id', b)
+      .order('aktualisiert_am', { ascending: false }).order('id')))),
   ])
 
   const kontakte: KontaktRow[] = ((kRaw ?? []) as R[]).map(kontaktAusZeile)

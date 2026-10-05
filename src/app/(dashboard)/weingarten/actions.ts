@@ -1,6 +1,7 @@
 'use server'
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle, inBloecken, zaehleInBloecken } from '@/lib/supabase/alle'
 import { getCurrentMembership, canWrite, canAdmin } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
@@ -176,23 +177,24 @@ async function loeschSperre(supabase: any, tenantId: string, p: { weingartenIds?
   const wgIds = p.weingartenIds ?? []
   let gstIds = p.grundstueckIds ?? []
   if (wgIds.length > 0) {
+    // inBloecken/zaehleInBloecken: bei „alle markieren“ kommen schnell mehrere hundert Grundstücke zusammen (URL-Grenze ≈ 350 IDs)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabase.from('grundstuecke') as any).select('id').eq('tenant_id', tenantId).in('weingarten_id', wgIds)
+    const { data, error } = await inBloecken<AnyRecord>(wgIds, b => alle((supabase.from('grundstuecke') as any).select('id').eq('tenant_id', tenantId).in('weingarten_id', b).order('id')))
     if (error) throw new AktionsFehler((error as AnyRecord).message)
-    gstIds = [...gstIds, ...((data ?? []) as AnyRecord[]).map(g => String(g.id))]
+    gstIds = [...gstIds, ...data.map(g => String(g.id))]
   }
-  const zaehle = async (q: Promise<{ count: number | null; error: AnyRecord | null }>) => {
+  const zaehle = async (q: Promise<{ count: number; error: AnyRecord | null }>) => {
     const { count, error } = await q
     if (error) throw new AktionsFehler(String(error.message))
-    return count ?? 0
+    return count
   }
   const [massnahmenGst, massnahmenWg, kosten] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    gstIds.length > 0 ? zaehle((supabase.from('behandlung_grundstuecke') as any).select('behandlung_id', { count: 'exact', head: true }).in('grundstueck_id', gstIds)) : 0,
+    zaehle(zaehleInBloecken(gstIds, b => (supabase.from('behandlung_grundstuecke') as any).select('behandlung_id', { count: 'exact', head: true }).in('grundstueck_id', b))),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    wgIds.length > 0 ? zaehle((supabase.from('behandlungen') as any).select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).in('weingarten_id', wgIds)) : 0,
+    zaehle(zaehleInBloecken(wgIds, b => (supabase.from('behandlungen') as any).select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).in('weingarten_id', b))),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    wgIds.length > 0 ? zaehle((supabase.from('kosteneintrag_weingaerten') as any).select('id', { count: 'exact', head: true }).in('weingarten_id', wgIds)) : 0,
+    zaehle(zaehleInBloecken(wgIds, b => (supabase.from('kosteneintrag_weingaerten') as any).select('id', { count: 'exact', head: true }).in('weingarten_id', b))),
   ])
   const teile = [
     massnahmenGst + massnahmenWg > 0 ? `${massnahmenGst + massnahmenWg} Maßnahmen-${massnahmenGst + massnahmenWg === 1 ? 'Eintrag' : 'Einträge'}` : null,

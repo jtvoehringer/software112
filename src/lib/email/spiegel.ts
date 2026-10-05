@@ -15,6 +15,7 @@
 // nicht als Fehler (bewusste Auslassung); scheitert die Prüfung selbst, läuft nichts (fail-closed).
 
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import { inBloecken } from '@/lib/supabase/alle'
 import { getValidUserAccessToken, getMailboxBase } from '@/lib/m365/graph'
 import { ladeAbsenderIndex, findeAbsender, type AbsenderIndex } from '@/lib/crm/absender'
 import { ereignisMelden } from '@/lib/system/ereignis'
@@ -170,11 +171,10 @@ async function spiegleOrdner(
   // Vorhandene email_ids überspringen (Upsert mit ignoreDuplicates zählt nicht, was neu ist)
   if (zeilen.length) {
     const ids = zeilen.map(z => z.email_id)
-    const vorhanden = new Set<string>()
-    for (let i = 0; i < ids.length; i += 200) {
-      const { data: ex } = await (admin.from('aktivitaeten') as any).select('email_id').eq('tenant_id', tenantId).in('email_id', ids.slice(i, i + 200))
-      for (const e of (ex ?? []) as R[]) vorhanden.add(e.email_id)
-    }
+    // inBloecken (05.10.2026): Graph-IDs sind ~150 Zeichen lang – 200 davon (≈ 30 KB) sprengten die URL, der Fehler
+    // wurde verworfen und jede Mail galt als neu. Blöcke nach Zeichen begrenzt (IN_ZEICHEN).
+    const { data: ex } = await inBloecken<R>(ids, b => (admin.from('aktivitaeten') as any).select('email_id').eq('tenant_id', tenantId).in('email_id', b))
+    const vorhanden = new Set<string>(ex.map(e => e.email_id as string))
     const neu = zeilen.filter(z => !vorhanden.has(z.email_id))
     for (let i = 0; i < neu.length; i += 100) {
       const { error } = await (admin.from('aktivitaeten') as any).upsert(neu.slice(i, i + 100), { onConflict: 'tenant_id,email_id', ignoreDuplicates: true })

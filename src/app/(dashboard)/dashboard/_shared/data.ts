@@ -5,7 +5,7 @@
 // siehe Kommentar in lib/auth/roles.ts (Mehrfach-Mitgliedschaft).
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { alle } from '@/lib/supabase/alle'
+import { alle, inBloecken } from '@/lib/supabase/alle'
 import { wienJetzt, lokalerTag, tageSeit } from '@/lib/datum/wien'
 import { getCurrentMembership, type UserRole } from '@/lib/auth/roles'
 import type { Charge, Frist, FristStatus } from './types'
@@ -133,13 +133,11 @@ export async function ladeKeller(ctx: Ctx, messintervallTage: number = GAERUNG_M
   const ids = chargenBasis.map(c => c.id)
   const behaelterIds = Array.from(new Set(chargenBasis.map(c => c.behaelter_id).filter(Boolean)))
 
+  // inBloecken (05.10.2026): Gebeshuber hat 172 Behälter – ab ≈ 350 IDs scheitert die URL. Gebraucht wird nur der
+  // jeweils neueste Eintrag je Charge bzw. Behälter; alle Zeilen eines Schlüssels liegen im selben Block.
   const [{ data: analysenRaw }, { data: massnahmenRaw }] = await Promise.all([
-    ids.length
-      ? ctx.tf(ctx.q('weinanalysen').select('weinausbau_id, analyse_datum, alkohol_vol, restzucker_gl, freie_so2_mgl, gesamtsaeure_gl').in('weinausbau_id', ids).is('storniert_am', null).order('analyse_datum', { ascending: false }).limit(500))
-      : Promise.resolve({ data: [] }),
-    behaelterIds.length
-      ? ctx.tf(ctx.q('keller_behandlungen').select('behaelter_id, datum, typ_name_snapshot, menge, einheit').in('behaelter_id', behaelterIds).order('datum', { ascending: false }).limit(500))
-      : Promise.resolve({ data: [] }),
+    inBloecken(ids, b => ctx.tf(ctx.q('weinanalysen').select('weinausbau_id, analyse_datum, alkohol_vol, restzucker_gl, freie_so2_mgl, gesamtsaeure_gl').in('weinausbau_id', b).is('storniert_am', null).order('analyse_datum', { ascending: false }).limit(500))),
+    inBloecken(behaelterIds, b => ctx.tf(ctx.q('keller_behandlungen').select('behaelter_id, datum, typ_name_snapshot, menge, einheit').in('behaelter_id', b).order('datum', { ascending: false }).limit(500))),
   ])
   const letzteAnalyse = new Map<string, R>()
   for (const a of (analysenRaw ?? []) as R[]) if (!letzteAnalyse.has(a.weinausbau_id)) letzteAnalyse.set(a.weinausbau_id, a)

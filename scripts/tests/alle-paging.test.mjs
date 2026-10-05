@@ -101,7 +101,7 @@ for (const [datei, tabelle, verlust, { begrenztErlaubt = false } = {}] of UMGEST
       assert.ok(a.gepaged, `${datei}:${a.zeile} ${tabelle} ohne alle()`)
       assert.ok(a.sortiert, `${datei}:${a.zeile} ${tabelle} alle() ohne .order()`)
     }
-    assert.match(text, /import \{ alle \} from '@\/lib\/supabase\/alle'/)
+    assert.match(text, /import \{[^}]*\balle\b[^}]*\} from '@\/lib\/supabase\/alle'/)
   })
 }
 

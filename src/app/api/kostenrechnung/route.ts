@@ -1,6 +1,6 @@
 import { ladeBehaelter } from '@/lib/keller/behaelter'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { alle } from '@/lib/supabase/alle'
+import { alle, inBloecken } from '@/lib/supabase/alle'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { NextRequest, NextResponse } from 'next/server'
 import { ereignisMelden } from '@/lib/system/ereignis'
@@ -46,11 +46,12 @@ export async function GET(req: NextRequest) {
     const ids = (data ?? []).map((e: R) => e.id)
     let splits: R[] = []
     if (ids.length > 0) {
-      // alle(): 300 Einträge mit je mehreren Rieden können über 1.000 Aufteilungszeilen haben
-      const { data: sd } = await alle<R>((s.from('kosteneintrag_weingaerten') as any)
+      // alle(): 300 Einträge mit je mehreren Rieden können über 1.000 Aufteilungszeilen haben;
+      // inBloecken: 300 IDs liegen knapp unter der URL-Grenze (≈ 350 UUIDs)
+      const { data: sd } = await inBloecken<R>(ids, b => alle<R>((s.from('kosteneintrag_weingaerten') as any)
         .select('kosteneintrag_id, weingarten_id, anteil_pct, betrag_anteil, wg:weingarten_id(name)')
-        .in('kosteneintrag_id', ids)
-        .order('id'))
+        .in('kosteneintrag_id', b)
+        .order('id')))
       splits = sd ?? []
     }
     const eintraege = (data ?? []).map((e: R) => ({
@@ -85,8 +86,9 @@ export async function GET(req: NextRequest) {
     const ids = (ke ?? []).map((e: R) => e.id)
     let splits: R[] = []
     if (ids.length > 0) {
-      const { data: sd } = await alle<R>((s.from('kosteneintrag_weingaerten') as any)
-        .select('kosteneintrag_id, anteil_pct, betrag_anteil, wg:weingarten_id(name, lagen:lage_id(name))').in('kosteneintrag_id', ids).order('id'))
+      // inBloecken: alle Kosteneinträge des Jahres – ab ≈ 350 IDs scheiterte die URL
+      const { data: sd } = await inBloecken<R>(ids, b => alle<R>((s.from('kosteneintrag_weingaerten') as any)
+        .select('kosteneintrag_id, anteil_pct, betrag_anteil, wg:weingarten_id(name, lagen:lage_id(name))').in('kosteneintrag_id', b).order('id')))
       splits = sd ?? []
     }
     return NextResponse.json({ eintraege: ke ?? [], splits, jahr })

@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { alle } from '@/lib/supabase/alle'
+import { alle, inBloecken } from '@/lib/supabase/alle'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import OffenePostenClient from './OffenePostenClient'
@@ -44,11 +44,12 @@ export default async function OffenePostenPage() {
   const offeneIds = ((raw ?? []) as R[]).filter(p => !p.bezahlt).map(p => p.id as string)
   const bereitsBezahltMap = new Map<string, number>()
   if (offeneIds.length > 0) {
-    const { data: zahlungenRaw } = await alle(tf((supabase.from('zahlungen') as any)
+    // inBloecken: alle offenen Posten – ab ≈ 350 IDs scheiterte die URL und Teilzahlungen fehlten
+    const { data: zahlungenRaw } = await inBloecken(offeneIds, b => alle(tf((supabase.from('zahlungen') as any)
       .select('verkaufsposten_id, betrag')
-      .in('verkaufsposten_id', offeneIds)
+      .in('verkaufsposten_id', b)
       .is('storniert_am', null)   // KAN-149 D2b: stornierte Zahlungen zählen nicht
-      .order('id')))
+      .order('id'))))
     for (const z of (zahlungenRaw ?? []) as R[]) {
       const key = z.verkaufsposten_id as string
       bereitsBezahltMap.set(key, (bereitsBezahltMap.get(key) ?? 0) + Number(z.betrag ?? 0))

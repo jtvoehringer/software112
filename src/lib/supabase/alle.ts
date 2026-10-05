@@ -72,3 +72,69 @@ export async function alle<T = R>(query: any, schritt = SEITENGROESSE): Promise<
     von += PARALLEL * schritt
   }
 }
+
+// ── .in()-Listen in Blöcken (05.10.2026) ─────────────────────────────────────────────────────────────────────────
+// .in('spalte', liste) landet als Query-String in der URL. Gemessen gegen Staging: 300 UUIDs (≈ 11 KB URL) gehen,
+// 400 (≈ 15 KB) scheitern – supabase-js liefert dann nur einen Fehler, den viele Aufrufer verwerfen (z. B. leere
+// Aktivitäten in der Kontaktliste mit 1.000 Zeilen). Lange Listen deshalb in Blöcke teilen: höchstens IN_BLOCK
+// Werte und IN_ZEICHEN Zeichen je Block (Graph-Nachrichten-IDs sind ~150 Zeichen lang).
+
+export const IN_BLOCK = 100
+export const IN_ZEICHEN = 4000
+
+/** Teilt Werte (ohne Duplikate, ohne null/leer) in Blöcke mit höchstens `max` Werten und `zeichen` Zeichen. */
+export function bloecke<T>(werte: readonly (T | null | undefined)[], max = IN_BLOCK, zeichen = IN_ZEICHEN): T[][] {
+  const out: T[][] = []
+  let block: T[] = []
+  let laenge = 0
+  for (const w of new Set(werte)) {
+    if (w === null || w === undefined || w === '') continue
+    const l = String(w).length + 1
+    if (block.length > 0 && (block.length >= max || laenge + l > zeichen)) { out.push(block); block = []; laenge = 0 }
+    block.push(w as T)
+    laenge += l
+  }
+  if (block.length > 0) out.push(block)
+  return out
+}
+
+/**
+ * Führt eine Abfrage je Block aus und hängt die Ergebnisse aneinander – dasselbe { data, error } wie alle():
+ *     const { data } = await inBloecken(ids, b => alle(tf(q('aktivitaeten').select(…).in('kontakt_id', b).order('id'))))
+ * `abfrage` bekommt je Block die Werte und liefert ein awaitbares { data, error } (direkt oder über alle()).
+ * Die Reihenfolge gilt nur innerhalb eines Blocks – wer global sortiert braucht, sortiert danach selbst.
+ * Leere Liste: keine Anfrage, { data: [], error: null }. Der erste Fehler bricht ab (keine stille Teilmenge).
+ */
+export async function inBloecken<T = R, W = string>(
+  werte: readonly (W | null | undefined)[],
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  abfrage: (block: W[]) => PromiseLike<{ data: any; error: any }>,
+  max = IN_BLOCK,
+): Promise<{ data: T[]; error: R | null }> {
+  const out: T[] = []
+  const alleBloecke = bloecke(werte, max)
+  for (let i = 0; i < alleBloecke.length; i += PARALLEL) {
+    const ergebnisse = await Promise.all(alleBloecke.slice(i, i + PARALLEL).map(b => abfrage(b)))
+    for (const r of ergebnisse) {
+      if (r.error) return { data: out, error: r.error }
+      out.push(...((r.data ?? []) as T[]))
+    }
+  }
+  return { data: out, error: null }
+}
+
+/** Zählt (select mit { count: 'exact', head: true }) je Block und summiert. */
+export async function zaehleInBloecken<W = string>(
+  werte: readonly (W | null | undefined)[],
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  abfrage: (block: W[]) => PromiseLike<{ count: number | null; error: any }>,
+  max = IN_BLOCK,
+): Promise<{ count: number; error: R | null }> {
+  let summe = 0
+  for (const b of bloecke(werte, max)) {
+    const r = await abfrage(b)
+    if (r.error) return { count: summe, error: r.error }
+    summe += r.count ?? 0
+  }
+  return { count: summe, error: null }
+}
