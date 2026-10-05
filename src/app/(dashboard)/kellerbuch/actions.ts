@@ -25,6 +25,8 @@ import { wienHeute } from '@/lib/csv'
 import { pnWirkungAus, pnWirkungUnklarHinweis, type PnWirkung } from '@/lib/kellerbuch/pnWirkung'
 import { ABSTUFEN_GRUND_MIN, abstufenFehler, teilmengeFehler } from '@/lib/kellerbuch/abstufen'
 import { umziehen } from './umziehen/actions'
+import { behandlungCharge, behandlungMengeFehler, behandlungPnGesperrt, neuerTypWirkungFehler, BEHANDLUNG_FELDNAMEN, type PnGueltigkeit } from '@/lib/kellerbuch/behandlungRegeln'
+import { freezeSperreAus, sperrMeldung } from '@/lib/freeze/sperre'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -773,21 +775,34 @@ export async function speichereKellerbehandlung(formData: FormData): Promise<Kel
 
   const menge   = formData.get('menge') ? parseFloat(dezimal((formData.get('menge') as string))) : null
   const einheit = (formData.get('einheit') as string) || (typ.einheit_standard as string | null) || null
+  // KAN-206: Menge Pflicht, außer Einheit „-“
+  const mengeFehler = behandlungMengeFehler(menge, einheit)
+  if (mengeFehler) throw new AktionsFehler(mengeFehler)
+
+  // Aktive Chargen im Gebinde: Volumen-Vorschlag und Charge (KAN-206)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: chargenImBehaelter } = await (supabase.from('weinausbau') as any)
+    .select('id, menge_liter').eq('behaelter_id', behaelterId).eq('aktiv', true).eq('tenant_id', tenantId)
+  const chargenListe = (chargenImBehaelter ?? []) as R[]
 
   // Volumen Ist: beim Anlegen ohne Angabe der aktuelle Gesamtinhalt des Behälters (Summe aktiver Chargen)
   let volumenLiterIst = formData.get('volumen_liter_ist')
     ? parseFloat(dezimal((formData.get('volumen_liter_ist') as string)))
     : null
   if (volumenLiterIst == null && !id) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: chargenImBehaelter } = await (supabase.from('weinausbau') as any)
-      .select('menge_liter').eq('behaelter_id', behaelterId).eq('aktiv', true).eq('tenant_id', tenantId)
-    const summe = ((chargenImBehaelter ?? []) as R[]).reduce((s, w) => s + (parseFloat(w.menge_liter) || 0), 0)
+    const summe = chargenListe.reduce((s, w) => s + (parseFloat(w.menge_liter) || 0), 0)
     volumenLiterIst = summe > 0 ? summe : null
   }
 
-  let notizen        = (formData.get('notizen') as string) || null
-  const weinausbauId = (formData.get('weinausbau_id') as string) || null
+  let notizen = (formData.get('notizen') as string) || null
+  // KAN-206: Charge Pflicht, sobald Wein im Gebinde liegt – beim Anlegen die einzige Charge automatisch
+  const gewaehlt = (formData.get('weinausbau_id') as string) || null
+  let weinausbauId = gewaehlt
+  if (!id) {
+    const c = behandlungCharge(gewaehlt, chargenListe.map(w => String(w.id)))
+    if (c.fehler) throw new AktionsFehler(c.fehler)
+    weinausbauId = c.chargeId
+  }
 
   // KAN-100: Prüfnummer der Charge
   let hinweis: string | undefined
@@ -823,12 +838,40 @@ export async function speichereKellerbehandlung(formData: FormData): Promise<Kel
 
   let neueId: string
   if (id) {
+    // KAN-206: Behandlung einer Charge mit Prüfnummer – nach dem Speichern nur noch Notizen (dieselbe Bedingung wie a_freeze)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: alt } = await (supabase.from('keller_behandlungen') as any)
+      .select('id, datum, typ_id, menge, einheit, volumen_liter_ist, weinausbau_id, behaelter_id, storniert_am')
+      .eq('id', id).eq('tenant_id', tenantId).is('storniert_am', null).maybeSingle()
+    if (alt && (alt as R).weinausbau_id) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: pn } = await (supabase.from('pruefnummer_chargen') as any)
+        .select('weinausbau_id, gueltig_ab, gueltig_bis').eq('weinausbau_id', (alt as R).weinausbau_id).eq('tenant_id', tenantId)
+      if (behandlungPnGesperrt(alt as R as { weinausbau_id: string; datum: string }, (pn ?? []) as PnGueltigkeit[])) {
+        const a = alt as R
+        const gleich = (x: unknown, y: unknown) => (x == null ? null : String(x)) === (y == null ? null : String(y))
+        const zahlGleich = (x: unknown, y: unknown) => (x == null || y == null) ? x == y : Number(x) === Number(y)
+        const geaendert = !gleich(String(a.datum).slice(0, 10), payload.datum) || !gleich(a.typ_id, payload.typ_id)
+          || !zahlGleich(a.menge, payload.menge) || !gleich(a.einheit, payload.einheit)
+          || !zahlGleich(a.volumen_liter_ist, payload.volumen_liter_ist) || !gleich(a.weinausbau_id, payload.weinausbau_id)
+          || !gleich(a.behaelter_id, payload.behaelter_id)
+        if (geaendert) {
+          throw new AktionsFehler('Gesperrt: Die Charge hatte am Tag der Behandlung eine gültige Prüfnummer – änderbar sind nur noch die Notizen. '
+            + 'Berichtigung: Behandlung stornieren und neu erfassen; weitere Korrekturen nur durch die Betriebsleitung.')
+        }
+        // nur Notizen schreiben – der Trigger lässt sonst nichts durch
+        for (const k of Object.keys(payload)) if (k !== 'notizen') delete payload[k]
+      }
+    }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (supabase.from('keller_behandlungen') as any)
       .update({ ...payload, updated_at: new Date().toISOString() })
       .eq('id', id).eq('tenant_id', tenantId).is('storniert_am', null)
       .select('id')
-    if (error) throw new AktionsFehler(dbFehlerText(error, 'Speichern fehlgeschlagen'))
+    if (error) {
+      const sperre = freezeSperreAus(error)
+      throw new AktionsFehler(sperre ? sperrMeldung(sperre, sp => BEHANDLUNG_FELDNAMEN[sp] ?? sp) : dbFehlerText(error, 'Speichern fehlgeschlagen'))
+    }
     if (!data || (data as R[]).length === 0) throw new AktionsFehler('Speichern fehlgeschlagen: Behandlung nicht gefunden, storniert oder keine Berechtigung.')
     neueId = id
   } else {
@@ -862,6 +905,8 @@ export async function legeBehandlungstypAn(name: string, einheit: string | null,
   const tenantId = await kellerbuchSchreibrecht()
   const n = (name ?? '').trim()
   if (!n) throw new AktionsFehler('Bitte eine Typbezeichnung angeben.')
+  const wirkungFehler = neuerTypWirkungFehler(wirkung)   // KAN-206: neue Typen immer eingestuft
+  if (wirkungFehler) throw new AktionsFehler(wirkungFehler)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase.from('keller_behandlungstypen') as any)
     .insert({ tenant_id: tenantId, name: n, einheit_standard: einheit || null, pn_wirkung: pnWirkungAus(wirkung) })
