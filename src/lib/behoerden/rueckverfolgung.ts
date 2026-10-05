@@ -29,6 +29,7 @@ import { MASSNAHMEN_ART_LABEL } from '@/lib/behandlungen/arten'
 import { normalisiereBehandlung } from './psm'
 import { verteileMassnahme, type Verteilung } from '@/lib/wein/massnahmeAnteile'
 import { num, numOderNull, tag, text, type R } from './kellerbuch-hilfen'
+import { mostgewichtCsvSpalten } from './mostgewicht_export'
 import {
   kalendertag, ladebereich, leseFenster, leseWarnungen, ordneMassnahmenZu, ttmmjjjj,
   type ErnteEintrag, type ErnteErsatz, type FruehereLese, type LeseZeile, type MassnahmeOrt, type VerpressteTrauben, type Zeitfenster,
@@ -400,7 +401,7 @@ export async function ladeChargeKette(
 ): Promise<Kette> {
   const [waRes, prRes, anRes, umRes] = await Promise.all([
     (supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, rebsorte, status, qualitaetsstufe, zusatzbezeichnung, erzeugnis, behaelter_id, behaelter:behaelter_id(name, typ, volumen_liter)')
+      .select('id, name, jahrgang, rebsorte, status, qualitaetsstufe, zusatzbezeichnung, erzeugnis, kmw, oechsle, mostgewicht_einheit, behaelter_id, behaelter:behaelter_id(name, typ, volumen_liter)')
       .eq('tenant_id', tenantId)
       .eq('id', wId)
       .maybeSingle(),
@@ -413,7 +414,7 @@ export async function ladeChargeKette(
           id, datum, most_liter_gesamt, tenant_id, jahrgang_id, lese_id, storniert_am, jahrgang:jahrgang_id(jahrgang),
           lese:lesen!pressungen_lese_fkey(lfd_nr, art),
           pressung_weingaerten(
-            id, trauben_kg, rebsorte, ernte_datum, kmw, weingarten_id, grundstueck_id, storniert_am,
+            id, trauben_kg, rebsorte, ernte_datum, kmw, oechsle, mostgewicht_einheit, weingarten_id, grundstueck_id, storniert_am,
             weingarten:weingarten_id(id, name, flaeche_ha),
             grundstueck:grundstueck_id(gst_nr, katastralgemeinde)
           )
@@ -576,7 +577,10 @@ export type RueckverfolgungZeile = {
   rebsorteLese: string | null
   traubenKg: number | null
   lesedatum: string | null
+  /** KAN-131: Mostgewicht wie gespeichert (Lese; ohne Pressung die Charge) – die CSV rundet über mostgewichtCsvSpalten */
   kmw: number | null
+  oechsle: number | null
+  mostgewichtEinheit: string | null
   /** Zeitfenster der Maßnahmen dieser Lese ('JJJJ-MM-TT', inklusive) */
   fensterVon: string | null
   fensterBis: string | null
@@ -608,6 +612,7 @@ export function rueckverfolgungZeilen(ketten: readonly FuellungKette[]): Rueckve
     const leer = {
       charge: null, chargeJahrgang: null, anteilLiter: null, anteilPct: null, pressungDatum: null, pressungLiter: null,
       weingarten: null, katastralgemeinde: null, gstNr: null, rebsorteLese: null, traubenKg: null, lesedatum: null, kmw: null,
+      oechsle: null, mostgewichtEinheit: null,
       fensterVon: null, fensterBis: null, behandlungenAnzahl: null, behandlungen: null, behandlungenHinweis: null,
     }
     if (fk.chargen.length === 0) {
@@ -651,7 +656,7 @@ export function rueckverfolgungZeilen(ketten: readonly FuellungKette[]): Rueckve
             rebsorteLese: text(wg.rebsorte),
             traubenKg: kg === null ? null : runden(kg, STELLEN.kg),
             lesedatum: tag(wg.ernte_datum) || null,
-            kmw: numOderNull(wg.kmw) === null ? null : runden(num(wg.kmw), STELLEN.kmw),
+            kmw: numOderNull(wg.kmw), oechsle: numOderNull(wg.oechsle), mostgewichtEinheit: text(wg.mostgewicht_einheit),
             fensterVon: l?.fenster?.von ?? null,
             fensterBis: l?.fenster?.bis ?? null,
             behandlungenAnzahl: l ? l.massnahmen.length : null,
@@ -661,7 +666,9 @@ export function rueckverfolgungZeilen(ketten: readonly FuellungKette[]): Rueckve
         }
       }
       if (zeilen.length === vorher) {
-        zeilen.push({ ...basis, ...leer, ...chargeTeil, herkunft: 'ohne Pressung (Zukauf, Eröffnungsbestand oder Verschnitt – siehe Blend-Protokoll)' })
+        // KAN-131: ohne Pressung das Mostgewicht der Charge (Zukauf, Eröffnungsbestand bzw. aus Umzug/Verschnitt übernommen)
+        zeilen.push({ ...basis, ...leer, ...chargeTeil, herkunft: 'ohne Pressung (Zukauf, Eröffnungsbestand oder Verschnitt – siehe Blend-Protokoll)',
+          kmw: numOderNull(wa?.kmw), oechsle: numOderNull(wa?.oechsle), mostgewichtEinheit: text(wa?.mostgewicht_einheit) })
       }
     }
   }
@@ -726,7 +733,8 @@ export const SPALTEN_RUECKVERFOLGUNG: CsvSpalte<RueckverfolgungZeile>[] = [
   { kopf: 'Rebsorte (Lese)', typ: 'text', wert: z => z.rebsorteLese },
   { kopf: 'Trauben (kg)', typ: 'dezimal', stellen: STELLEN.kg, wert: z => z.traubenKg },
   { kopf: 'Lesedatum', typ: 'datum', wert: z => z.lesedatum },
-  { kopf: 'KMW (°)', typ: 'dezimal', stellen: STELLEN.kmw, wert: z => z.kmw },
+  // KAN-131: °KMW (abgerundet, 2 Stellen) vor °Oe, gemessene Einheit
+  ...mostgewichtCsvSpalten<RueckverfolgungZeile>(z => ({ kmw: z.kmw, oechsle: z.oechsle, einheit: z.mostgewichtEinheit }), 2),
   { kopf: 'Behandlungen ab', typ: 'datum', wert: z => z.fensterVon },
   // bewusst ohne „(Lese)“: fehlt das Lesedatum, endet das Fenster am Ersatzdatum (Hinweis-Spalte)
   { kopf: 'Behandlungen bis', typ: 'datum', wert: z => z.fensterBis },

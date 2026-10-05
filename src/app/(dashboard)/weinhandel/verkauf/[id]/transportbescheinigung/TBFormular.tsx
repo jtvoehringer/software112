@@ -6,7 +6,7 @@ import Link from '@/components/ui/Link'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { saveTB } from './actions'
 import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
-import { tbMostgewichtFelder, tbPositionMitMostgewicht, tbPositionMostgewicht } from '@/lib/behoerden/tbMostgewicht'
+import { tbAlkoholGehalt, tbKmwFormblatt, tbMostgewichtFelder, tbPositionMitMostgewicht, tbPositionMostgewicht } from '@/lib/behoerden/tbMostgewicht'
 import type { GespeichertesMostgewicht } from '@/lib/wein/mostgewichtFormular'
 import type { Mostgewicht } from '@/lib/wein/mostgewicht'
 // Nur Typen (werden beim Übersetzen entfernt) – Datenmodell samt Vorbelegung und CSV-Abflachung
@@ -46,7 +46,8 @@ export default function TBFormular({ verkaufspostenId, initial, csvHref }: Props
   // Altformulare: Mostgewicht aus „Alkohol % vol / °KMW“ in die Felder kmw/oechsle/mostgewicht_einheit
   const [daten, setDaten] = useState<TBDaten>(() => ({
     ...initial,
-    positionen: initial.positionen.map(p => ({ ...p, ...tbMostgewichtFelder(tbPositionMostgewicht(p)) })),
+    // KAN-131: ein Mostgewicht-Text im Alkoholfeld (Altformular) wandert in die eigene °KMW-Spalte
+    positionen: initial.positionen.map(p => ({ ...p, ...tbMostgewichtFelder(tbPositionMostgewicht(p)), alkohol_pct: tbAlkoholGehalt(p) })),
   }))
   // Stabile Schlüssel je Position (Löschen verschiebt sonst den Eingabezustand der Mostgewicht-Felder)
   const [zeilen, setZeilen] = useState<Zeile[]>(() => initial.positionen.map((p, i) => ({ key: i, start: startwertAus(p) })))
@@ -334,7 +335,8 @@ export default function TBFormular({ verkaufspostenId, initial, csvHref }: Props
                 <th className="border border-s112-line-str px-1 py-1 text-left font-semibold">Fremd-JG-<br/>anteil %</th>
                 <th className="border border-s112-line-str px-1 py-1 text-left font-semibold">Staatl.<br/>Prüfnummer</th>
                 <th className="border border-s112-line-str px-1 py-1 text-left font-semibold">Ange-<br/>reichert<br/>J/N</th>
-                <th className="border border-s112-line-str px-1 py-1 text-left font-semibold">Alkohol<br/>% vol / °KMW</th>
+                <th className="border border-s112-line-str px-1 py-1 text-left font-semibold">Vorh. Alkohol-<br/>gehalt % vol</th>
+                <th className="border border-s112-line-str px-1 py-1 text-left font-semibold">° KMW bei<br/>Trauben/Most</th>
                 <th className="border border-s112-line-str px-1 py-1 no-print"></th>
               </tr>
             </thead>
@@ -389,8 +391,10 @@ export default function TBFormular({ verkaufspostenId, initial, csvHref }: Props
                     </select>
                   </td>
                   <td className="border border-s112-line-str p-0.5">
-                    <input className={inputCls} value={pos.alkohol_pct} placeholder="% / °KMW" onChange={e => setPos(i, 'alkohol_pct', e.target.value)} />
+                    <input className={inputCls} aria-label={`Alkoholgehalt Position ${i + 1}`} value={pos.alkohol_pct} placeholder="% vol" onChange={e => setPos(i, 'alkohol_pct', e.target.value)} />
                   </td>
+                  {/* KAN-131: °KMW aus dem Mostgewicht unten, NN,N (1 Stelle abgerundet) – auf dem Formblatt nur °KMW */}
+                  <td className="border border-s112-line-str px-1 py-0.5 tabular-nums whitespace-nowrap">{tbKmwFormblatt(pos)}</td>
                   <td className="border border-s112-line-str p-0.5 no-print">
                     {daten.positionen.length > 1 && (
                       <button onClick={() => removePos(i)} title="Löschen" aria-label="Löschen" className="text-s112-err hover:text-s112-err-fg text-xs px-1">
@@ -400,11 +404,10 @@ export default function TBFormular({ verkaufspostenId, initial, csvHref }: Props
                   </td>
                 </tr>
                 {/* KAN-130 Etappe 3 (02.10.2026): Mostgewicht je Position in °KMW oder °Oe (bevorzugte
-                    Einheit des Betriebs zuerst) – gespeichert mit Messwert und Einheit; die Spalte
-                    „Alkohol % vol / °KMW“ zieht mit (°KMW auf 1 Stelle abgerundet), solange dort kein
-                    eigener Text steht. Nicht im Druck. */}
+                    Einheit des Betriebs zuerst) – gespeichert mit Messwert und Einheit; KAN-131: die Formblatt-Spalte
+                    „° KMW bei Trauben/Most“ zeigt es (°KMW auf 1 Stelle abgerundet). Nicht im Druck. */}
                 <tr className="border border-s112-line-str no-print">
-                  <td colSpan={12} className="px-1.5 py-1 bg-s112-bg/40">
+                  <td colSpan={13} className="px-1.5 py-1 bg-s112-bg/40">
                     <MostgewichtEingabe
                       name={`tb_mostgewicht_${zeile.key}`}
                       label={`Mostgewicht Position ${i + 1} (bei Most und Trauben)`}

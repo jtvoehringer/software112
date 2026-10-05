@@ -439,8 +439,9 @@ describe('weinbuch und weinbuch-sammlung', () => {
     return daten
   }
   // KAN-128 (Merge-Voraussetzung der Migration A): der Trigger schreibt in jede Lese mit °KMW das
-  // gerechnete °Oe – das Weinbuch darf es nicht roh („86.7 °Oe“) und nicht als Messwert zeigen
-  test('KAN-128: Mostgewicht der Lese – °KMW mit Komma, °Oe nur als Messwert, gerechnet nie ohne „≈“', async () => {
+  // gerechnete °Oe – das Weinbuch darf es nicht roh („86.7 °Oe“) und nicht als Messwert zeigen.
+  // KAN-131 (05.10.2026): beide Werte, °KMW zuerst, der umgerechnete Wert immer mit „≈“
+  test('KAN-128/131: Mostgewicht der Lese – beide Werte mit Komma, der umgerechnete nie ohne „≈“', async () => {
     const daten = kellerDaten()
     daten.weinausbau[0].behaelter = { name: 'Tank 1' }
     const lese = (ernte_datum, kmw, oechsle, mostgewicht_einheit) => ({
@@ -457,14 +458,14 @@ describe('weinbuch und weinbuch-sammlung', () => {
     const leseZeilen = w.tabelle.slice(1).filter(c => c[6] === 'Ernte / Lese')
     assert.deepEqual(leseZeilen.map(c => c[5]), ['16.09.2025', '17.09.2025', '18.09.2025', '19.09.2025'])
     const details = leseZeilen.map(c => c[8])
-    assert.equal(details[0], 'Ried: Ried Hochrain | GST 1234/5 | 1.200 kg | 17,6 °KMW')
-    assert.equal(details[1], 'Ried: Ried Hochrain | GST 1234/5 | 1.200 kg | 18,95 °KMW')
+    assert.equal(details[0], 'Ried: Ried Hochrain | GST 1234/5 | 1.200 kg | 17,6 °KMW · ≈ 86,7 °Oe')
+    assert.equal(details[1], 'Ried: Ried Hochrain | GST 1234/5 | 1.200 kg | 18,95 °KMW · ≈ 93,8 °Oe')
     assert.equal(details[2], 'Ried: Ried Hochrain | GST 1234/5 | 1.200 kg | ≈ 17,09 °KMW · 84,0 °Oe')
     assert.equal(details[3], 'Ried: Ried Hochrain | GST 1234/5 | 1.200 kg')
     for (const d of details) {
       assert.doesNotMatch(d, /\d\.\d+ °/, `Punkt statt Komma: ${d}`)
-      // gemessen in °KMW: kein °Oe; gemessen in °Oe: der gerechnete °KMW-Wert trägt „≈“
-      if (/°Oe/.test(d)) assert.match(d, /≈ \d+,\d+ °KMW · \d+,\d °Oe/, d)
+      // gemessen in °KMW: °Oe mit „≈“; gemessen in °Oe: der gerechnete °KMW-Wert trägt „≈“
+      if (/°Oe/.test(d)) assert.match(d, /(\d+,\d+ °KMW · ≈ \d+,\d °Oe|≈ \d+,\d+ °KMW · \d+,\d °Oe)/, d)
     }
     // Erntemeldungs-Einträge anderer Weingärten erscheinen nicht mehr
     daten.ernte_parzellen = [{ jahrgang_id: 'j2025', weingarten_id: 'w9', ernte_datum: '2025-09-01', menge_kg: '1', weingarten: { name: 'Fremde Ried' }, grundstueck: null }]
@@ -484,14 +485,13 @@ describe('weinbuch und weinbuch-sammlung', () => {
     const [a, b] = [lesen.find(c => c[8].includes('Hochrain'))[8], lesen.find(c => c[8].includes('Ried Au'))]
     assert.match(a, /\| ≈ 17,09 °KMW · 84,0 °Oe \|/)
     assert.equal(b[5], '20.09.2025')                                       // ohne Lesedatum: Datum der Pressung
-    assert.match(b[8], /\| 18,2 °KMW \|/)
+    assert.match(b[8], /\| 18,2 °KMW · ≈ 89,9 °Oe \|/)   // KAN-131: beide Werte
     assert.match(b[8], /Lesedatum nicht erfasst – Datum der Pressung/)
-    assert.doesNotMatch(b[8], /°Oe/)
   })
-  test('KAN-128: mostgewichtWeinbuchText()', () => {
+  test('KAN-128/131: mostgewichtWeinbuchText()', () => {
     const t = mgExport.mostgewichtWeinbuchText
-    assert.equal(t({ kmw: 17.4, oechsle: 85.7, einheit: 'kmw' }), '17,4 °KMW')
-    assert.equal(t({ kmw: '18.95', oechsle: null, einheit: null }), '18,95 °KMW')          // vor Migration A: nur °KMW
+    assert.equal(t({ kmw: 17.4, oechsle: 85.7, einheit: 'kmw' }), '17,4 °KMW · ≈ 85,7 °Oe')
+    assert.equal(t({ kmw: '18.95', oechsle: null, einheit: null }), '18,95 °KMW · ≈ 93,9 °Oe')   // vor Migration A: °Oe gerechnet
     assert.equal(t({ kmw: 17.09, oechsle: 84, einheit: 'oechsle' }), '≈ 17,09 °KMW · 84,0 °Oe')
     assert.equal(t({ kmw: null, oechsle: '83.5', einheit: null }), '≈ 17,0 °KMW · 83,5 °Oe')   // nur °Oe → gemessen in °Oe, Variante B (17,00)
     assert.equal(t({ kmw: null, oechsle: null, einheit: 'kmw' }), null)
@@ -540,17 +540,18 @@ describe('rueckverfolgung', () => {
 
   test('Füllung × Ursprung: Anteile, GST/KG als Code, Maßnahmen je Lese mit Zeitfenster', () => {
     const [kopf, ...z] = zellen(csv.csvText(rueck.rueckverfolgungZeilen(ketten), rueck.SPALTEN_RUECKVERFOLGUNG))
-    assert.equal(kopf.length, 27)
-    assert.deepEqual(kopf.slice(22), ['Behandlungen ab', 'Behandlungen bis', 'Behandlungen (Anzahl)', 'Behandlungen (Datum Mittel)', 'Hinweis Behandlungen'])
+    assert.equal(kopf.length, 29)   // KAN-131: °KMW, °Oe, gemessen in
+    assert.deepEqual(kopf.slice(21, 24), ['Mostgewicht (°KMW)', 'Mostgewicht (°Oe)', 'Mostgewicht gemessen in'])
+    assert.deepEqual(kopf.slice(24), ['Behandlungen ab', 'Behandlungen bis', 'Behandlungen (Anzahl)', 'Behandlungen (Datum Mittel)', 'Hinweis Behandlungen'])
     assert.equal(z.length, 4)
     const [a, b, c, d] = z
     assert.deepEqual(a.slice(0, 8), ['Cuvée Rot', 'L-26-02', '04023/26', '01.03.2026', '2024', 'Cuvée', '1000', '750'])
     assert.deepEqual(a.slice(8, 16), ['ZW 2024', '2024', '450,00', '60,0', 'Pressung', '30.09.2024', '700,00', 'Ried Hochrain'])
-    assert.deepEqual(a.slice(16, 22), ['04023', '1234/5', 'Zweigelt', '600', '29.09.2024', '19,25'])   // °KMW verlustfrei (2 Stellen)
+    assert.deepEqual(a.slice(16, 24), ['04023', '1234/5', 'Zweigelt', '600', '29.09.2024', '19,25', '95,5', '°KMW'])   // °KMW verlustfrei (2 Stellen), °Oe gerechnet
     // Fensterbeginn immer 01.01. des Jahrgangs (Spalte „Behandlungen ab“), kein Hinweis dazu
-    assert.deepEqual(a.slice(22), ['01.01.2024', '29.09.2024', '1', '12.09.2024 Cuprozin', ''])
+    assert.deepEqual(a.slice(24), ['01.01.2024', '29.09.2024', '1', '12.09.2024 Cuprozin', ''])
     assert.deepEqual([b[15], b[16], b[17]], ['Ried Au', '', ''])
-    assert.deepEqual(b.slice(22), ['01.01.2024', '30.09.2024', '2', '01.07.2024–03.07.2024 Laubarbeit (GST 7/1, 7/2) | 01.08.2024 Düngung (am Weingarten erfasst)',
+    assert.deepEqual(b.slice(24), ['01.01.2024', '30.09.2024', '2', '01.07.2024–03.07.2024 Laubarbeit (GST 7/1, 7/2) | 01.08.2024 Düngung (am Weingarten erfasst)',
       'Lese ohne Grundstück erfasst – Maßnahmen aller Grundstücke des Weingartens ab 01.01. des Jahrgangs aufgeführt.'])
     assert.deepEqual([c[8], c[11], c[12], c[13]], ['BF Zukauf', '40,0', 'ohne Pressung (Zukauf, Eröffnungsbestand oder Verschnitt – siehe Blend-Protokoll)', ''])
     assert.deepEqual([d[0], d[8], d[12]], ['Alt-Füllung', '', 'keine Kellerbuch-Charge verknüpft – Rückverfolgung nur bis zur Abfüllung'])
@@ -575,9 +576,10 @@ describe('blend-protokoll', () => {
   ]
   test('eine Zeile je Herkunftsanteil, Menge anteilig aus der Bezugsmenge', () => {
     const [k, a, b] = zellen(csv.csvText(blend.blendZeilen(kopf, komp), blend.SPALTEN_BLEND))
-    assert.equal(k.length, 18)
-    assert.deepEqual(a, ['Füllung', 'Cuvée Rot', 'N 77/26', 'L-26-02', 'Ried Hochrain · GST 1234/5', 'Pressung', 'Zweigelt', 'ZW', '2024', 'Ried Hochrain', '04023', '1234/5', '29.09.2024', '19,25', '', '66,7', '750,00', '500,25'])
-    assert.deepEqual([b[4], b[5], b[14], b[15], b[17]], ['Zukauf – +Weinhandel Huber', 'Zukauf', "'+Weinhandel Huber", '33,3', '249,75'])
+    assert.equal(k.length, 20)   // KAN-131: °KMW, °Oe, gemessen in
+    assert.deepEqual(k.slice(13, 16), ['Mostgewicht (°KMW)', 'Mostgewicht (°Oe)', 'Mostgewicht gemessen in'])
+    assert.deepEqual(a, ['Füllung', 'Cuvée Rot', 'N 77/26', 'L-26-02', 'Ried Hochrain · GST 1234/5', 'Pressung', 'Zweigelt', 'ZW', '2024', 'Ried Hochrain', '04023', '1234/5', '29.09.2024', '19,25', '95,5', '°KMW', '', '66,7', '750,00', '500,25'])
+    assert.deepEqual([b[4], b[5], b[16], b[17], b[19]], ['Zukauf – +Weinhandel Huber', 'Zukauf', "'+Weinhandel Huber", '33,3', '249,75'])
   })
   test('Parameter: genau eine Füllung oder Charge', async () => {
     assert.match((await ausfuehren('blend-protokoll', '', attrappe({}))).parameterFehler, /genau eine/)

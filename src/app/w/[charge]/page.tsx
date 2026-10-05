@@ -8,6 +8,9 @@ import { Sprout } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum } from '@/lib/format'
 import { qualitaetText } from '@/lib/weinqualitaet'
+import { format as formatMostgewicht } from '@/lib/wein/mostgewicht'
+import { mostgewichtAusGespeichert } from '@/lib/wein/mostgewichtFormular'
+import { ladeMostgewichtEinheit } from '@/lib/tenant/kopf'
 
 export const dynamic = 'force-dynamic'
 
@@ -48,7 +51,7 @@ export default async function WeinpassPage({ params }: { params: Promise<{ charg
     .select(`
       chargennummer, pruefnummer, name, jahrgang, rebsorte, qualitaet, zusatzbezeichnung, erzeugnis,
       anbaugebiet, bezeichnung, datum, flaschengroesse_ml, anzahl_flaschen,
-      weinausbau_id
+      weinausbau_id, tenant_id
     `)
     .eq('chargennummer', chargennummer)
     .single()
@@ -64,7 +67,7 @@ export default async function WeinpassPage({ params }: { params: Promise<{ charg
         pressung:pressung_id(
           datum, storniert_am,
           pressung_weingaerten(
-            trauben_kg, rebsorte, ernte_datum, kmw, storniert_am,
+            trauben_kg, rebsorte, ernte_datum, kmw, oechsle, mostgewicht_einheit, storniert_am,
             weingarten:weingarten_id(name, flaeche_ha)
           )
         )
@@ -75,6 +78,18 @@ export default async function WeinpassPage({ params }: { params: Promise<{ charg
     weingaerten = ((pbRaw ?? []) as R[])
       .flatMap((pb: R) => (pb.pressung?.pressung_weingaerten ?? []) as R[])
       .filter((wg: R) => wg.weingarten)
+  }
+
+  // KAN-131: Mostgewicht mit beiden Werten in der bevorzugten Einheit des Betriebs; ohne Pressung das der Charge
+  // (Zukauf, Eröffnungsbestand). Die Charge gehört zum selben Betrieb wie die Füllung.
+  const einheit = f.tenant_id ? await ladeMostgewichtEinheit(String(f.tenant_id)) : 'kmw'
+  const mgText = (z: R | null | undefined) => formatMostgewicht(mostgewichtAusGespeichert(z ? { kmw: z.kmw, oechsle: z.oechsle, einheit: z.mostgewicht_einheit } : null), einheit)
+  let chargeMostgewicht = ''
+  if (f.weinausbau_id && weingaerten.length === 0 && f.tenant_id) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- öffentliche Seite: Charge der Füllung, auf deren Betrieb eingeschränkt
+    const { data: waRaw } = await (supabase.from('weinausbau') as any)
+      .select('kmw, oechsle, mostgewicht_einheit').eq('id', f.weinausbau_id).eq('tenant_id', f.tenant_id).maybeSingle()
+    chargeMostgewicht = mgText(waRaw as R | null)
   }
 
   // Kurzbezeichnungen aus lib/weinqualitaet (alle Stufen der Füllung, KAN-73: auch „Wein“ und „Ausbruch“);
@@ -110,6 +125,12 @@ export default async function WeinpassPage({ params }: { params: Promise<{ charg
             <div className="flex justify-between text-sm">
               <span className="text-s112-text-2">Qualität</span>
               <span className="font-semibold text-s112-text">{qualitaetText(f)}</span>
+            </div>
+          )}
+          {chargeMostgewicht && (
+            <div className="flex justify-between text-sm">
+              <span className="text-s112-text-2">Mostgewicht</span>
+              <span className="font-semibold text-s112-text">{chargeMostgewicht}</span>
             </div>
           )}
           {f.datum && (
@@ -151,7 +172,7 @@ export default async function WeinpassPage({ params }: { params: Promise<{ charg
                 <div className="flex flex-wrap gap-x-3 text-xs text-s112-text-2">
                   {wg.trauben_kg && <span>{fmtNum(parseFloat(wg.trauben_kg))} kg</span>}
                   {wg.ernte_datum && <span>{new Date(wg.ernte_datum).toLocaleDateString('de-AT')}</span>}
-                  {wg.kmw && <span>{wg.kmw} °KMW</span>}
+                  {mgText(wg) && <span>{mgText(wg)}</span>}
                 </div>
               </div>
             ))}

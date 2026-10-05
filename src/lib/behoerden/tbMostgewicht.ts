@@ -8,8 +8,11 @@
 //   mostgewicht_einheit  gemessene Einheit 'kmw' | 'oechsle' (eigener Name – `einheit` ist schon die
 //                        Mengeneinheit l/kg der Position)
 // Gespeicherte Altformulare ohne diese Felder: °KMW (bzw. °Oe) aus dem Freitext `alkohol_pct`
-// („18,5 °KMW“). Die Formblatt-Spalte „Alkohol % vol / °KMW“ bleibt Text; Druck und CSV mit °Oe sind
-// Teil C (KAN-131).
+// („18,5 °KMW“).
+// KAN-131 (05.10.2026): Das Formblatt DS STDR 126 trennt „Vorhandener Alkoholgehalt (in %vol)“ und „° KMW bei
+// Trauben und Traubenmost“ – `alkohol_pct` trägt nur noch den Alkoholgehalt, °KMW kommt aus dem Mostgewicht
+// (tbKmwFormblatt, 1 Stelle abgerundet); ein Mostgewicht-Text im Alkoholfeld (Altformular) gilt nicht als Alkohol
+// (tbAlkoholGehalt). Die CSV hat dazu die drei Mostgewicht-Spalten.
 
 import { abrunden, KMW_STELLEN, OECHSLE_STELLEN, type Mostgewicht } from '../wein/mostgewicht'
 import { mostgewichtAusGespeichert } from '../wein/mostgewichtFormular'
@@ -35,8 +38,8 @@ export function tbMostgewichtFelder(m: Mostgewicht | null | undefined): Required
   }
 }
 
-/** Text für die Formblatt-Spalte „Alkohol % vol / °KMW“: °KMW auf 1 Stelle ABGERUNDET (KAN-128,
- *  Entscheidung 8 – nie über eine Stufenschwelle); ohne Mostgewicht leer */
+/** °KMW-Text wie bis KAN-131 im Alkoholfeld („18,9 °KMW“): °KMW auf 1 Stelle ABGERUNDET (KAN-128,
+ *  Entscheidung 8 – nie über eine Stufenschwelle); ohne Mostgewicht leer. Heute nur noch, um Altformulare zu erkennen. */
 export function tbAlkoholText(m: Mostgewicht | null | undefined): string {
   if (!m) return ''
   const t = formularZahl(abrunden(m.kmw, KMW_FORMBLATT_STELLEN), KMW_FORMBLATT_STELLEN)
@@ -75,13 +78,23 @@ export function tbPositionMostgewicht(p: Partial<TBPositionMitMostgewicht> | nul
 }
 
 /**
- * Neues Mostgewicht (Eingabe im Formular) in eine Position übernehmen. Die Formblatt-Spalte
- * `alkohol_pct` zieht nur mit, solange sie leer ist oder noch den Text des bisherigen Mostgewichts
- * trägt – ein von Hand eingetragener Alkoholgehalt („12,5 % vol“) bleibt stehen.
+ * Neues Mostgewicht (Eingabe im Formular) in eine Position übernehmen. KAN-131: Das Alkoholfeld trägt nur noch den
+ * Alkoholgehalt – ein Mostgewicht-Text darin (Altformular) wird geleert, ein eingetragener Alkoholgehalt bleibt.
  */
 export function tbPositionMitMostgewicht<P extends TBPositionMitMostgewicht>(p: P, m: Mostgewicht | null): P {
-  const bisher = tbAlkoholText(tbPositionMostgewicht(p))
-  const alkohol = feld(p.alkohol_pct)
-  const mitziehen = alkohol === '' || alkohol === bisher
-  return { ...p, ...tbMostgewichtFelder(m), ...(mitziehen ? { alkohol_pct: tbAlkoholText(m) } : {}) }
+  return { ...p, ...tbMostgewichtFelder(m), alkohol_pct: tbAlkoholGehalt(p) }
+}
+
+/** KAN-131: Alkoholgehalt einer Position für die Spalte „Vorhandener Alkoholgehalt (in %vol)“ – ein reiner
+ *  Mostgewicht-Text („18,5 °KMW“, „84 °Oe“, Altformular) zählt nicht als Alkohol */
+export function tbAlkoholGehalt(p: Partial<TBPositionMitMostgewicht> | null | undefined): string {
+  const t = feld(p?.alkohol_pct)
+  return /^\s*\d+(?:[.,]\d+)?\s*°?\s*(KMW|Oe|Öchsle|Oechsle)\s*$/i.test(t) ? '' : t
+}
+
+/** KAN-131: Wert für die Formblatt-Spalte „° KMW bei Trauben und Traubenmost“ – NN,N, auf 1 Stelle abgerundet
+ *  (KAN-128, Entscheidungen 7 und 8; auch aus °Oe gemessen umgerechnet); ohne Mostgewicht leer */
+export function tbKmwFormblatt(p: Partial<TBPositionMitMostgewicht> | null | undefined): string {
+  const m = tbPositionMostgewicht(p)
+  return m ? formularZahl(abrunden(m.kmw, KMW_FORMBLATT_STELLEN), KMW_FORMBLATT_STELLEN) : ''
 }

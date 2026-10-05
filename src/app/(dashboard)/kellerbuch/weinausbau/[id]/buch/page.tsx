@@ -11,6 +11,7 @@ import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { WeinbuchTimeline } from './WeinbuchTimeline'
 import PrintButton from './PrintButton'
+import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
 
 export const metadata: Metadata = { title: 'Weinbuch – software:112' }
 export const dynamic = 'force-dynamic'
@@ -52,6 +53,8 @@ export default async function WeinbuchPage({
             {wa.name}
             {wa.jahrgang ? ` · Jahrgang ${wa.jahrgang}` : ''}
             {wa.rebsorte ? ` · ${formatRebsorteMitKuerzel(wa.rebsorte)}` : ''}
+            {/* KAN-131: Mostgewicht der Charge im Kopf */}
+            {(wa.kmw != null || wa.oechsle != null) && <> · <MostgewichtAnzeige wert={{ kmw: wa.kmw, oechsle: wa.oechsle, einheit: wa.mostgewicht_einheit }} /></>}
           </p>
           <p className="text-xs text-s112-muted mt-0.5">
             Von der Rebe bis zur Flasche – vollständige Prozesshistorie dieser Charge

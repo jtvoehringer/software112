@@ -45,6 +45,7 @@ registerHooks({
 const csv = await import('../../src/lib/csv/index.ts')
 const hilfen = await import('../../src/lib/behoerden/verkehr-hilfen.ts')
 const tb = await import('../../src/lib/behoerden/transportbescheinigung.ts')
+const tbm = await import('../../src/lib/behoerden/tbMostgewicht.ts')   // KAN-131: °KMW-Spalte des Formblatts
 const pna = await import('../../src/lib/behoerden/pruefnummernantrag.ts')
 const dac = await import('../../src/lib/behoerden/dac.ts')
 const exp = await import('../../src/lib/behoerden/exportauftrag.ts')
@@ -195,7 +196,9 @@ describe('transportbescheinigung', () => {
     assert.equal(trauben.art, 'Rot')
     assert.equal(trauben.einheit, 'kg')
     assert.equal(trauben.jahrgang, '2026')
-    assert.equal(trauben.alkohol_pct, '18,5 °KMW')
+    // KAN-131: Alkoholfeld leer, °KMW in der eigenen Formblatt-Spalte
+    assert.equal(trauben.alkohol_pct, '')
+    assert.equal(tbm.tbKmwFormblatt(trauben), '18,5')
     assert.equal(f.anreicherung, undefined)
     assert.equal(tank.anreicherung, 'N')
     assert.equal(f.e_betriebsnummer, '7654321')
@@ -209,7 +212,9 @@ describe('transportbescheinigung', () => {
     const trauben = (kmw_grad) => ({ id: 'q', typ: 'trauben', menge: 100, traubenverkauf: { id: 't', datum: '2026-09-10', kmw_grad, grundstueck: { rebsorte: 'Zweigelt' } } })
     const posten = { ...POSTEN, positionen: [trauben(18.97), trauben(18.95), trauben(19), trauben(null)] }
     const pos = tb.tbVorbelegung(posten, CFG, { jeWeinausbau: {}, jeDacAntrag: {} }, '2026-09-24', []).positionen
-    assert.deepEqual(pos.map(p => p.alkohol_pct), ['18,9 °KMW', '18,9 °KMW', '19 °KMW', ''])   // Formblatt ohne Nachkomma-Null wie bisher
+    // KAN-131: Formblatt-Spalte „° KMW“ (NN,N, abgerundet, ohne Nachkomma-Null wie bisher), Alkoholfeld leer
+    assert.deepEqual(pos.map(p => tbm.tbKmwFormblatt(p)), ['18,9', '18,9', '19', ''])
+    assert.deepEqual(pos.map(p => p.alkohol_pct), ['', '', '', ''])
   })
 
   test('Farbe nur aus der amtlichen Kürzelliste; Traubensorte über Grundstück → Ried → Zukauf; kein Ersatzkürzel', () => {
@@ -253,7 +258,11 @@ describe('transportbescheinigung', () => {
     assert.equal(zelle(d.text, 3, 'Einheit'), 'kg')
     assert.equal(zelle(d.text, 1, 'Art (Rot/Weiß/Rosé)'), 'Rot')
     assert.equal(zelle(d.text, 1, 'Angereichert'), 'Nein')
-    assert.equal(zelle(d.text, 3, 'Alkohol (% vol) / KMW (°)'), '18,5 °KMW')
+    // KAN-131: Alkohol und Mostgewicht getrennt, °KMW auf 1 Stelle abgerundet vor °Oe, gemessene Einheit
+    assert.equal(zelle(d.text, 3, 'Alkohol (% vol)'), '')
+    assert.equal(zelle(d.text, 3, 'Mostgewicht (°KMW)'), '18,5')
+    assert.equal(zelle(d.text, 3, 'Mostgewicht (°Oe)'), '91,5')
+    assert.equal(zelle(d.text, 3, 'Mostgewicht gemessen in'), '°KMW')
     assert.equal(zelle(d.text, 1, 'Empfänger Betriebsnummer'), '7654321')
     assert.match(z[1], /"Heuriger Huber; Wien"/)                  // Trenner im Text → gequotet
     assert.deepEqual(d.warnungen, [])

@@ -88,7 +88,7 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
     // storno-sichtbar: Liste zeigt stornierte Pressungen gekennzeichnet (KAN-148 C1c); verfügbare kg ohne sie
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tf((supabase.from('pressungen') as any)
-      .select(`id, lese_id, datum, most_liter_gesamt, weinbezeichnung, notizen, kmw_grad, storniert_am, storno_grund, storniert_von_name,
+      .select(`id, lese_id, datum, most_liter_gesamt, weinbezeichnung, notizen, kmw_grad, oechsle, mostgewicht_einheit, storniert_am, storno_grund, storniert_von_name,
         weingaerten:pressung_weingaerten(id, weingarten_id, grundstueck_id, zukauf_posten_id, trauben_kg, rebsorte, notizen, ernte_datum, kmw, oechsle, mostgewicht_einheit, storniert_am, weingarten:weingarten_id(name)),
         behaelter:pressung_behaelter(id, behaelter_id, weinausbau_id, menge_liter, notizen, storniert_am, behaelter:behaelter_id(name), weinausbau:weinausbau_id(name, jahrgang, qualitaetsstufe))`)
       .eq('jahrgang_id', id).order('datum', { ascending: false })),
@@ -245,6 +245,7 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
     lese_id: p.lese_id ?? null,
     id: p.id, datum: p.datum, most_liter_gesamt: p.most_liter_gesamt ?? null,
     weinbezeichnung: p.weinbezeichnung ?? null, notizen: p.notizen ?? null, kmw_grad: p.kmw_grad ?? null,
+    oechsle: p.oechsle ?? null, mostgewicht_einheit: p.mostgewicht_einheit ?? null,   // KAN-131
     storno: p.storniert_am ? { am: p.storniert_am as string, von: (p.storniert_von_name as string | null) ?? null, grund: (p.storno_grund as string | null) ?? null } : null,
     weingaerten: ((p.weingaerten ?? []) as AR[]).filter(zeileZeigen(p)).map((w: AR): PressungWG => ({
       id: w.id, weingarten_id: w.weingarten_id,

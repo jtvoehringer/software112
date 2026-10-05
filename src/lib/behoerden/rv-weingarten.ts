@@ -33,6 +33,7 @@ import { alle } from '@/lib/supabase/alle'
 import { ladeHerkunftLesezeilen } from '@/lib/wein/blendKomposition'
 import { leseArtText, leseNummer } from '@/lib/wein/lesen'
 import { numOderNull, tag, text, type R } from './kellerbuch-hilfen'
+import { mostgewichtCsvSpalten } from './mostgewicht_export'
 import {
   BEHANDLUNG_ART_LABEL, ladeMassnahmenZuLesezeilen, massnahmeMittel,
   type LeseMassnahme, type LeseMassnahmen, type LesezeileEingabe,
@@ -71,7 +72,10 @@ export type RvLese = LeseMassnahmen & {
   /** Lesetag der Zeile (Pressungszeile bzw. Lieferdatum des Traubenverkaufs) */
   lesedatum: string | null
   kg: number | null
+  /** KAN-131: Mostgewicht wie gespeichert (CSV rundet über mostgewichtCsvSpalten) */
   kmw: number | null
+  oechsle: number | null
+  mostgewichtEinheit: string | null
   /** nur Traubenverkauf */
   abnehmer: string | null
   liefernummer: string | null
@@ -130,7 +134,7 @@ const PW_SELECT = `
 `
 
 const TV_SELECT = `
-  id, datum, menge_kg, kmw_grad, liefernummer, weingarten_id, grundstueck_id, jahrgang_id, lese_id,
+  id, datum, menge_kg, kmw_grad, oechsle, mostgewicht_einheit, liefernummer, weingarten_id, grundstueck_id, jahrgang_id, lese_id,
   weingarten:weingarten_id(id, name),
   grundstueck:grundstueck_id(gst_nr, katastralgemeinde, ama_feldnummer),
   jahrgang:jahrgang_id(jahrgang),
@@ -141,7 +145,7 @@ const TV_SELECT = `
 `
 
 const EP_SELECT = `
-  id, ernte_datum, menge_kg, klosterneuburger, weingarten_id, grundstueck_id, jahrgang_id, lese_id,
+  id, ernte_datum, menge_kg, klosterneuburger, oechsle, mostgewicht_einheit, weingarten_id, grundstueck_id, jahrgang_id, lese_id,
   weingarten:weingarten_id(id, name, rebsorte),
   grundstueck:grundstueck_id(gst_nr, katastralgemeinde, ama_feldnummer, rebsorte),
   jahrgang:weinjahrgaenge!ernte_parzellen_jahrgang_id_fkey!inner(jahrgang, tenant_id),
@@ -274,7 +278,7 @@ export async function ladeRvWeingarten(supabase: any, tenantId: string, e: RvEin
       quelle: 'pressung', jahrgang, leseText: leseText(jahrgang, p.lese as R | null),
       weingarten: text((z.weingarten as R | null)?.name), katastralgemeinde: text(g?.katastralgemeinde), gstNr: text(g?.gst_nr),
       feldstueck: text(g?.ama_feldnummer), rebsorte: text(z.rebsorte), lesedatum: tag(z.ernte_datum) || null,
-      kg: numOderNull(z.trauben_kg), kmw: numOderNull(z.kmw), abnehmer: null, liefernummer: null,
+      kg: numOderNull(z.trauben_kg), kmw: numOderNull(z.kmw), oechsle: numOderNull(z.oechsle), mostgewichtEinheit: text(z.mostgewicht_einheit), abnehmer: null, liefernummer: null,
       anteilPct: key && anteilJeKey.has(key) ? (anteilJeKey.get(key) as number) : null,
     })
   }
@@ -297,7 +301,7 @@ export async function ladeRvWeingarten(supabase: any, tenantId: string, e: RvEin
       quelle: 'traubenverkauf', jahrgang, leseText: leseText(jahrgang, t.lese as R | null),
       weingarten: text((t.weingarten as R | null)?.name), katastralgemeinde: text(g?.katastralgemeinde), gstNr: text(g?.gst_nr),
       feldstueck: text(g?.ama_feldnummer), rebsorte: null, lesedatum: datum,
-      kg: numOderNull(t.menge_kg), kmw: numOderNull(t.kmw_grad), abnehmer: abnehmer(t), liefernummer: text(t.liefernummer),
+      kg: numOderNull(t.menge_kg), kmw: numOderNull(t.kmw_grad), oechsle: numOderNull(t.oechsle), mostgewichtEinheit: text(t.mostgewicht_einheit), abnehmer: abnehmer(t), liefernummer: text(t.liefernummer),
       anteilPct: null,
     })
   }
@@ -335,7 +339,7 @@ export async function ladeRvWeingarten(supabase: any, tenantId: string, e: RvEin
       quelle: 'lese', jahrgang, leseText: leseText(jahrgang, p.lese as R | null),
       weingarten: text(w?.name), katastralgemeinde: text(g?.katastralgemeinde), gstNr: text(g?.gst_nr),
       feldstueck: text(g?.ama_feldnummer), rebsorte: text(g?.rebsorte) ?? text(w?.rebsorte), lesedatum: datum,
-      kg: numOderNull(p.menge_kg), kmw: numOderNull(p.klosterneuburger), abnehmer: null, liefernummer: null,
+      kg: numOderNull(p.menge_kg), kmw: numOderNull(p.klosterneuburger), oechsle: numOderNull(p.oechsle), mostgewichtEinheit: text(p.mostgewicht_einheit), abnehmer: null, liefernummer: null,
       anteilPct: null,
     })
   }
@@ -362,7 +366,10 @@ export type RvZeile = {
   rebsorte: string | null
   lesedatum: string | null
   kg: number | null
+  /** KAN-131: Mostgewicht wie gespeichert (CSV rundet über mostgewichtCsvSpalten) */
   kmw: number | null
+  oechsle: number | null
+  mostgewichtEinheit: string | null
   abnehmer: string | null
   liefernummer: string | null
   anteilPct: number | null
@@ -398,7 +405,7 @@ export function rvZeilen(lesen: readonly RvLese[]): RvZeile[] {
       quelle: QUELLE_TEXT[l.quelle],
       lese: l.leseText, jahrgang: l.jahrgang, weingarten: l.weingarten, katastralgemeinde: l.katastralgemeinde,
       gstNr: l.gstNr, feldstueck: l.feldstueck, rebsorte: l.rebsorte, lesedatum: l.lesedatum,
-      kg: l.kg === null ? null : runden(l.kg, STELLEN.kg), kmw: l.kmw === null ? null : runden(l.kmw, STELLEN.kmw),
+      kg: l.kg === null ? null : runden(l.kg, STELLEN.kg), kmw: l.kmw, oechsle: l.oechsle, mostgewichtEinheit: l.mostgewichtEinheit,
       abnehmer: l.abnehmer, liefernummer: l.liefernummer, anteilPct: l.anteilPct,
       fensterVon: l.fenster?.von ?? null, fensterBis: l.fenster?.bis ?? null,
       hinweis: l.hinweise.length > 0 ? l.hinweise.join(' ') : null,
@@ -443,7 +450,8 @@ export const SPALTEN_RV_WEINGARTEN: CsvSpalte<RvZeile>[] = [
   { kopf: 'Rebsorte', typ: 'text', wert: z => z.rebsorte },
   { kopf: 'Lesedatum', typ: 'datum', wert: z => z.lesedatum },
   { kopf: 'Trauben (kg)', typ: 'dezimal', stellen: STELLEN.kg, wert: z => z.kg },
-  { kopf: 'KMW (°)', typ: 'dezimal', stellen: STELLEN.kmw, wert: z => z.kmw },
+  // KAN-131: °KMW (abgerundet, 2 Stellen) vor °Oe, gemessene Einheit
+  ...mostgewichtCsvSpalten<RvZeile>(z => ({ kmw: z.kmw, oechsle: z.oechsle, einheit: z.mostgewichtEinheit }), 2),
   { kopf: 'Abnehmer', typ: 'text', wert: z => z.abnehmer },
   { kopf: 'Liefernummer', typ: 'code', wert: z => z.liefernummer },
   { kopf: 'Anteil an der Füllung (%)', typ: 'prozent', stellen: 1, wert: z => z.anteilPct },
