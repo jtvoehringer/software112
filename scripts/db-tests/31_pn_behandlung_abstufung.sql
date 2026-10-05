@@ -93,10 +93,14 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('veraenderung_datum',
     (SELECT pc.gueltig_bis = current_date - 8 FROM public.pruefnummer_chargen pc WHERE pc.dac_antrag_id = v_d), true);
   v_erg := v_erg || pg_temp.s112_erwarte('veraenderung_andere_charge', pg_temp.t31_zeile(v_d2, v_wb), 'offen');
+  -- KAN-206: die Behandlung ist gesperrt (Charge mit Prüfnummer) – Typ ändern nur als Korrektur (s112_freeze_korrektur
+  -- setzt s112.freeze_frei); geprüft wird hier die Reaktion der Prüfnummer auf die Änderung
+  PERFORM set_config('s112.freeze_frei', 'keller_behandlungen', true);
   UPDATE public.keller_behandlungen SET typ_id = v_t_pfl WHERE id = v_kb;
   v_erg := v_erg || pg_temp.s112_erwarte('aendern_auf_pflege_oeffnet', pg_temp.t31_zeile(v_d, v_wa), 'offen');
   UPDATE public.keller_behandlungen SET typ_id = v_t_ver WHERE id = v_kb;
   v_erg := v_erg || pg_temp.s112_erwarte('aendern_auf_veraenderung_beendet', pg_temp.t31_zeile(v_d, v_wa), 'ende:behandlung');
+  PERFORM set_config('s112.freeze_frei', '', true);
   UPDATE public.keller_behandlungen SET storniert_am = now(), storno_grund = 'S112TEST Storno-Grund' WHERE id = v_kb;
   v_erg := v_erg || pg_temp.s112_erwarte('storno_oeffnet', pg_temp.t31_zeile(v_d, v_wa), 'offen');
   SELECT count(*) INTO v_n FROM public.pruefnummer_ereignisse e WHERE e.dac_antrag_id = v_d AND e.ereignis = 'charge_ende';

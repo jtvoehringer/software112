@@ -8,6 +8,7 @@
 // Tool-Handler ruft ausschließlich diese neue Action auf, exakt nach
 // demselben Muster wie die übrigen Prozesse.
 import { createKellerbehandlung } from '@/app/(dashboard)/kellerbuch/actions'
+import { neuerTypWirkungFehler } from '@/lib/kellerbuch/behandlungRegeln'
 import { ladeBehaelterEinzeln } from '@/lib/keller/behaelter'
 import { getCurrentMembership } from '@/lib/auth/roles'
 
@@ -21,13 +22,15 @@ behaelter_id (pflicht, ID aus BEHÄLTER/GEBINDE im Stammdaten-Kontext), datum (p
 YYYY-MM-DD), sowie GENAU EINES von: typ_id (ID eines bereits bestehenden Behandlungstyps aus
 KELLERBEHANDLUNGS-TYPEN im Stammdaten-Kontext) ODER typ_name (Name eines NEUEN Behandlungstyps
 – wird automatisch angelegt, falls kein bestehender Typ mit diesem Namen passt; optional dazu
-typ_einheit, z.B. "kg"/"g"/"L"/"mL"/"mg"/"°C").
+typ_einheit, z.B. "kg"/"g"/"L"/"mL"/"mg"/"°C", und PFLICHT typ_wirkung: "pflege" (Schwefelung,
+Filtration, Schönung, Hefegabe …) oder "veraenderung" (Säuerung, Entsäuerung, Anreicherung, Süßung –
+Prüfnummer erlischt); im Zweifel beim User nachfragen).
 
-menge (optional, Menge des behandelten Mittels), einheit (optional – ohne Angabe wird die
-Standard-Einheit des Typs übernommen), volumen_liter_ist (optional – ohne Angabe wird
-automatisch der aktuelle Gesamtinhalt des Behälters verwendet), weinausbau_id (optional, ID
-einer konkreten Charge aus WEINAUSBAU-CHARGEN, falls die Behandlung einer bestimmten Charge
-zugeordnet werden soll), notizen (optional).
+menge (PFLICHT, Menge des behandelten Mittels – nur bei Einheit "-" ohne Menge), einheit (optional –
+ohne Angabe wird die Standard-Einheit des Typs übernommen), volumen_liter_ist (optional – ohne
+Angabe wird automatisch der aktuelle Gesamtinhalt des Behälters verwendet), weinausbau_id (ID der
+behandelten Charge aus WEINAUSBAU-CHARGEN – PFLICHT, wenn im Behälter mehrere Chargen liegen; bei
+genau einer Charge wird sie automatisch zugeordnet), notizen (optional).
 `.trim()
 
 export const KELLERBEHANDLUNG_TOOL = {
@@ -50,6 +53,7 @@ export const KELLERBEHANDLUNG_TOOL = {
       typ_id: { type: 'string', description: 'ID eines bestehenden Behandlungstyps aus dem Stammdaten-Kontext' },
       typ_name: { type: 'string', description: 'Name eines neuen Behandlungstyps, falls kein passender bestehender Typ existiert' },
       typ_einheit: { type: 'string', description: 'Standard-Einheit für einen neuen Behandlungstyp (nur zusammen mit typ_name)' },
+      typ_wirkung: { type: 'string', enum: ['pflege', 'veraenderung'], description: 'Pflicht bei einem neuen Behandlungstyp: pflegt (pflege) oder verändert (veraenderung) den Wein – wichtig für die Prüfnummer' },
       menge: { type: 'number' },
       einheit: { type: 'string', enum: ['kg', 'g', 'L', 'mL', 'mg', '°C', '-'] },
       volumen_liter_ist: { type: 'number' },
@@ -120,8 +124,11 @@ export async function fuehreKellerbehandlungErfassenAus(
     if ((bestehenderTyp as R | null)?.id) {
       typId = (bestehenderTyp as R).id
     } else {
+      // KAN-206: neue Typen nur eingestuft (Pflege/Veränderung)
+      const wirkungFehler = neuerTypWirkungFehler(input.typ_wirkung)
+      if (wirkungFehler) return { erfolg: false, hinweis: wirkungFehler + ' Beim User nachfragen und mit typ_wirkung erneut aufrufen.' }
       const { data: neuerTyp, error: typErr } = await (supabase.from('keller_behandlungstypen') as any)
-        .insert({ tenant_id: tenantId, name: typName, einheit_standard: input.typ_einheit ? String(input.typ_einheit) : null })
+        .insert({ tenant_id: tenantId, name: typName, einheit_standard: input.typ_einheit ? String(input.typ_einheit) : null, pn_wirkung: String(input.typ_wirkung) })
         .select('id').single()
       if (typErr) {
         return { erfolg: false, fehler: (typErr as R).message }

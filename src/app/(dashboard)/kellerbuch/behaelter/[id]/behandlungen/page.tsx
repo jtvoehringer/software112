@@ -14,6 +14,8 @@ import { PN_WIRKUNGEN, PN_WIRKUNG_TEXT, pnWirkungAus } from '@/lib/kellerbuch/pn
 import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { csvPfad } from '@/lib/behoerden/katalog'
 import DruckKnopf from '../../../_behoerden/DruckKnopf'
+import GesperrtHinweis from '@/components/GesperrtHinweis'
+import { behandlungPnGesperrt, BEHANDLUNG_FREEZE_GRUND, type PnGueltigkeit } from '@/lib/kellerbuch/behandlungRegeln'
 
 type R = Record<string, any>
 
@@ -65,8 +67,11 @@ export default function KellerbehandlungenPage() {
   const [showNeuerTyp, setShowNeuerTyp]   = useState(false)
   const [neuerTypName, setNeuerTypName]   = useState('')
   const [neuerTypEinheit, setNeuerTypEinheit] = useState('kg')
-  // KAN-100: Wirkung auf die Prüfnummer (neue Typen: bewusst wählen, Vorgabe „nicht eingestuft“)
-  const [neuerTypWirkung, setNeuerTypWirkung] = useState('unklar')
+  // KAN-100/KAN-206: Wirkung auf die Prüfnummer – neue Typen müssen eingestuft werden (Pflege/Veränderung)
+  const [neuerTypWirkung, setNeuerTypWirkung] = useState('')
+  // KAN-206: Gültigkeit der Prüfnummern der Chargen dieses Gebindes (Sperre wie Trigger a_freeze)
+  const [pnZeilen, setPnZeilen]           = useState<PnGueltigkeit[]>([])
+  const [formGesperrt, setFormGesperrt]   = useState(false)
   const [formHinweis, setFormHinweis]     = useState('')
   const [typSaving, setTypSaving]         = useState(false)
 
@@ -115,6 +120,16 @@ export default function KellerbehandlungenPage() {
     setChargenImBehaelter((bh_data ?? []) as R[])
     setTypen(typenData ?? [])
     setBehandlungen(behandlungenData ?? [])
+    // KAN-206: Prüfnummer-Gültigkeit der behandelten Chargen – gesperrte Behandlungen nur noch in den Notizen änderbar
+    const chargenIds = [...new Set(((behandlungenData ?? []) as R[]).map(b => b.weinausbau_id).filter(Boolean))]
+    if (chargenIds.length > 0 && activeTenantId) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase-Typen ohne Tabellenschema (Konvention)
+      const { data: pn } = await (supabase.from('pruefnummer_chargen') as any)
+        .select('weinausbau_id, gueltig_ab, gueltig_bis').eq('tenant_id', activeTenantId).in('weinausbau_id', chargenIds)
+      setPnZeilen((pn ?? []) as PnGueltigkeit[])
+    } else {
+      setPnZeilen([])
+    }
     setLoading(false)
   }
 
@@ -131,6 +146,7 @@ export default function KellerbehandlungenPage() {
     setFormError('')
     setShowNeuerTyp(false)
     setFormHinweis('')
+    setFormGesperrt(false)
     // Aktive Charge vorbelegen wenn genau eine im Behälter
     setFormWeinausbauId(chargenImBehaelter.length === 1 ? chargenImBehaelter[0].id : '')
     setFormWeinausbauName(null)
@@ -149,6 +165,7 @@ export default function KellerbehandlungenPage() {
     setFormWeinausbauName((b.weinausbau as R | null)?.name ?? null)
     setFormError('')
     setShowNeuerTyp(false)
+    setFormGesperrt(behandlungPnGesperrt(b as { weinausbau_id: string | null; datum: string | null; storniert_am: string | null }, pnZeilen))
     setShowForm(true)
   }
 
@@ -168,7 +185,7 @@ export default function KellerbehandlungenPage() {
       setFormEinheit(neu.einheit_standard ?? 'kg')
       setNeuerTypName('')
       setNeuerTypEinheit('kg')
-      setNeuerTypWirkung('unklar')
+      setNeuerTypWirkung('')
       setShowNeuerTyp(false)
     } catch (err) {
       setFormError(fehlerText(err, 'Behandlungstyp konnte nicht angelegt werden'))
@@ -314,7 +331,13 @@ export default function KellerbehandlungenPage() {
           <h2 className="font-semibold text-s112-text mb-4 text-sm">
             {editId ? 'Behandlung bearbeiten' : 'Neue Behandlung'}
           </h2>
+          {formGesperrt && (
+            <div className="mb-4">
+              <GesperrtHinweis grund={BEHANDLUNG_FREEZE_GRUND} erlaubt={['Notizen']} />
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="space-y-4">
+            <fieldset disabled={formGesperrt} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum *</label>
@@ -347,9 +370,10 @@ export default function KellerbehandlungenPage() {
                     </select>
                     <select aria-label="Wirkung auf die Prüfnummer" value={neuerTypWirkung} onChange={e => setNeuerTypWirkung(e.target.value)}
                       className="input basis-full sm:basis-auto py-2.5 sm:py-2 text-base sm:text-sm">
-                      {PN_WIRKUNGEN.map(w => <option key={w} value={w}>{PN_WIRKUNG_TEXT[w]}</option>)}
+                      <option value="">– Prüfnummer: bitte einstufen –</option>
+                      {PN_WIRKUNGEN.filter(w => w !== 'unklar').map(w => <option key={w} value={w}>{PN_WIRKUNG_TEXT[w]}</option>)}
                     </select>
-                    <button type="button" onClick={saveNeuerTyp} disabled={typSaving}
+                    <button type="button" onClick={saveNeuerTyp} disabled={typSaving || !neuerTypWirkung}
                       className="text-xs bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg disabled:opacity-50">
                       {typSaving ? '…' : 'Speichern'}
                     </button>
@@ -372,9 +396,9 @@ export default function KellerbehandlungenPage() {
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
               <div>
-                <label className="block text-xs font-medium text-s112-text-2 mb-1">Menge</label>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">Menge{formEinheit !== '-' ? ' *' : ''}</label>
                 <input aria-label="Menge" type="text" inputMode="decimal" value={formMenge} onChange={e => setFormMenge(e.target.value)}
-                  placeholder="0,00" className="input w-full py-2.5 sm:py-2 text-base sm:text-sm" />
+                  placeholder="0,00" required={formEinheit !== '-'} className="input w-full py-2.5 sm:py-2 text-base sm:text-sm" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Einheit</label>
@@ -397,10 +421,12 @@ export default function KellerbehandlungenPage() {
 
             {(chargenImBehaelter.length > 0 || (formWeinausbauId && formWeinausbauName)) && (
               <div>
-                <label className="block text-xs font-medium text-s112-text-2 mb-1">Kellerbuch-Charge</label>
+                <label className="block text-xs font-medium text-s112-text-2 mb-1">Kellerbuch-Charge{chargenImBehaelter.length > 0 && !editId ? ' *' : ''}</label>
                 <select aria-label="Kellerbuch-Charge" value={formWeinausbauId} onChange={e => setFormWeinausbauId(e.target.value)}
+                  required={chargenImBehaelter.length > 0 && !editId}
                   className="input w-full py-2.5 sm:py-2 text-base sm:text-sm">
-                  <option value="">– keine Zuordnung –</option>
+                  {/* KAN-206: Charge Pflicht, sobald Wein im Gebinde liegt – „keine Zuordnung“ nur für alte Behandlungen */}
+                  <option value="">{chargenImBehaelter.length > 0 && !editId ? '– bitte wählen –' : '– keine Zuordnung –'}</option>
                   {/* Bisher zugeordnete Charge, die nicht mehr aktiv im Behälter liegt – bleibt wählbar */}
                   {formWeinausbauId && !chargenImBehaelter.some((c: R) => c.id === formWeinausbauId) && (
                     <option value={formWeinausbauId}>{formWeinausbauName ?? 'bisherige Charge'} (nicht mehr im Behälter)</option>
@@ -412,6 +438,7 @@ export default function KellerbehandlungenPage() {
                 <p className="text-xs text-s112-muted mt-0.5">Für das Weinbuch (von der Rebe bis zur Flasche)</p>
               </div>
             )}
+            </fieldset>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
               <textarea aria-label="Notizen" value={formNotizen} onChange={e => setFormNotizen(e.target.value)}
