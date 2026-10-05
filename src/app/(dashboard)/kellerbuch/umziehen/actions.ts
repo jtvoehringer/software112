@@ -20,6 +20,7 @@ import { waehleZielCharge, merkmaleText, type Merkmal } from '@/lib/kellerbuch/u
 import { verschnitteVorbereiten, verschnitteAusfuehren, type VerschnittEingabe } from '@/lib/kellerbuch/verschnittBuchen'
 import { teileUmzugAuf } from '@/lib/kellerbuch/umzugAufteilung'
 import { mostgewichtNeu, mostgewichtZusammenfuehren, teilweiseVermerk, umzugMomentaufnahme, type Anteil } from '@/lib/kellerbuch/mostgewichtKette'
+import { bkiFarbe } from '@/lib/wein/bki_kuerzel'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -286,7 +287,7 @@ export async function umziehen(fd: FormData): Promise<{ verschnitte?: UmzugVersc
       const { data: rs } = await (supabase.from('rebsorten') as any).select('name_de, farbe').in('name_de', sorten)
       for (const r of (rs ?? []) as R[]) farbe.set(r.name_de, r.farbe)
     }
-    const artVon = (r: R): string => weinartBekannt(r.weinart) ? r.weinart : weinartAusFarbe(farbe.get(r.rebsorte))
+    const artVon = (r: R): string => weinartBekannt(r.weinart) ? r.weinart : weinartAusFarbe(farbe.get(r.rebsorte) ?? bkiFarbe(r.rebsorte) ?? undefined)
     const qs = (qRows ?? []) as R[]
     for (let i = 1; i < qs.length; i++) {
       if (weinartKonflikt(artVon(qs[0]), artVon(qs[i]))) weinartSperren.push({ behaelterId: null, chargeId: null, text: `Rot- und Weißwein dürfen laut Weingesetz nicht vermischt werden: „${qs[0].name}“ und „${qs[i].name}“ können nicht zusammengeführt werden.` })

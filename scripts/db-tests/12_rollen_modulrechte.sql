@@ -143,7 +143,9 @@ BEGIN
       v_z := pg_temp.s112_zeile(p_tab, NULL);
     END IF;
     RETURN v_z;
-  ELSIF p_tab IN ('rebsorten', 'release_notes') THEN
+  ELSIF p_tab = 'rebsorten' THEN   -- KAN-89: Testsorte nicht amtlich (kein Kürzel), nur weiß/rot
+    RETURN pg_temp.s112_zeile(p_tab, NULL, '{"kuerzel": null, "kuerzel_amtlich": false, "farbe": "weiss"}');
+  ELSIF p_tab = 'release_notes' THEN
     RETURN pg_temp.s112_zeile(p_tab, NULL);
   ELSIF p_tab IN ('kat_buchungsart', 'kat_erzeugnis', 'kat_farbe', 'kat_land', 'kat_qualitaetsstufe', 'katalog_mapping') THEN
     -- KAN-39: Kataloge per Migration befüllt (CHECKs auf die Codes) – vorhandene Zeile

@@ -871,6 +871,8 @@ BEGIN
     v_w := v_w || '{"menge_liter": 1}'::jsonb;
   ELSIF p_tab = 'betriebsmittel_lager_bewegungen' THEN   -- KAN-167
     v_w := v_w || '{"typ": "anfangsbestand"}'::jsonb;
+  ELSIF p_tab = 'rebsorten' THEN   -- KAN-89: Testsorte nicht amtlich (kein Kürzel), nur weiß/rot
+    v_w := v_w || '{"kuerzel": null, "kuerzel_amtlich": false, "farbe": "weiss"}'::jsonb;
   ELSIF p_tab = 'meldung_abgaben' THEN   -- KAN-37 B: Abgabe ohne AMA-Bezug (CHECKs auf Meldung, jsonb-Typen, Spalten)
     v_w := v_w || jsonb_build_object('meldung', 'bestandsmeldung', 'parameter', '{}'::jsonb, 'zeilen', '[]'::jsonb, 'warnungen', '[]'::jsonb,
       'spalten', '[{"kopf": "S112TEST", "typ": "text"}]'::jsonb, 'profil', 'EXCEL_AT', 'dateiname', 'S112TEST.csv', 'csv_text', 'S112TEST',

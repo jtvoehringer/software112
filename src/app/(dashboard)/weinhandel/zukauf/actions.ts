@@ -24,6 +24,7 @@ import type { Folgebuchung } from '@/lib/kellerbuch/folgebuchungen'
 import { ohneStornierteVerschnitte } from '@/lib/kellerbuch/stornoFilter'
 import { zukaufLieferantFehler, ZUKAUF_MERKMALE } from '@/lib/handel/partnerPflicht'
 import { ladePartner } from '@/lib/handel/partnerLaden'
+import { bkiFarbe } from '@/lib/wein/bki_kuerzel'
 import {
   folgebuchungenDerZielcharge, zielchargeText, zukaufVerweise, traubenGebundenText, loeschSperreText,
 } from './sperren'
@@ -279,7 +280,7 @@ async function pruefeWeinartImGebinde(supabase: any, f: ZukaufFormular, imGebind
     for (const r of (rs ?? []) as AR[]) farbe.set(r.name_de, r.farbe)
   }
   const artVon = (weinart: string | null | undefined, rebsorte: string | null | undefined): string =>
-    weinartBekannt(weinart) ? weinart : weinartAusFarbe(farbe.get(rebsorte ?? ''))
+    weinartBekannt(weinart) ? weinart : weinartAusFarbe(farbe.get(rebsorte ?? '') ?? bkiFarbe(rebsorte) ?? undefined)
   const zukaufArt = artVon(f.weinart, f.rebsorte)
   for (const c of imGebinde) {
     const art = artVon(c.weinart, c.rebsorte)

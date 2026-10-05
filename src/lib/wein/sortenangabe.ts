@@ -26,6 +26,22 @@ export function sortenverschnittBezeichnung(weinart: string | null | undefined):
   return 'Sortenverschnitt'
 }
 
+/**
+ * KAN-89: Rebsorte einer Pressung aus mehreren Sorten – nie mehr „Sortenverschnitt“ ohne Farbe. Bekannte Weinart der
+ * Grundstücke bzw. Rieden (weiss/rot/rose) → „Sortenverschnitt weiß/rot/Rosé“; sonst nach der Farbe der Sorten laut
+ * BKI-Kürzelliste (`farben`, z. B. aus bkiFarbe()): nur weiß → weiß, nur rot → rot, rot und weiß gemeinsam gepresst →
+ * „Sortenverschnitt gleichgepresst“ (SP). Ohne bekannte Farbe einer Sorte bleibt es „Sortenverschnitt“ – die Prüfseite
+ * „Rebsorten ohne Kürzel“ zeigt das an.
+ */
+export function pressungSortenverschnitt(weinart: string | null | undefined, farben: readonly ('weiss' | 'rot' | null)[]): string {
+  if (weinart === 'weiss' || weinart === 'rot' || weinart === 'rose') return sortenverschnittBezeichnung(weinart)
+  if (farben.length === 0 || farben.some(f => f === null)) return 'Sortenverschnitt'
+  const weiss = farben.includes('weiss')
+  const rot = farben.includes('rot')
+  if (weiss && rot) return 'Sortenverschnitt gleichgepresst'
+  return sortenverschnittBezeichnung(rot ? 'rot' : 'weiss')
+}
+
 /** true für alle Schreibweisen von „Sortenverschnitt …“ */
 export function istSortenverschnitt(rebsorte: string | null | undefined): boolean {
   return !!rebsorte && /^sortenverschnitt\b/i.test(rebsorte.trim())

@@ -18,6 +18,7 @@ function herkunftKurz(code: string): string {
 import HerkunftCodeSelect from '@/components/weinbaugebiete/HerkunftCodeSelect'
 import type { CustomWeinbaugebiet } from '../weinbaugebiete/actions'
 import { NUTZART_OPTIONS, NutzungBadge } from '@/lib/wein/grundstueckStatus'
+import RebsorteEingabe from '@/components/wein/RebsorteEingabe'
 import { fehlerText } from '@/lib/fehler'
 import { MASSNAHMEN_ART_LABEL } from '@/lib/behandlungen/arten'
 
@@ -302,7 +303,7 @@ function GSTForm({ weingartenId, gst, customWeinbaugebiete, onNeuesWeinbaugebiet
         {/* Rebsorte & Weinart */}
         <div>
           <label className={labelCls}>Rebsorte</label>
-          <input aria-label="Rebsorte" name="rebsorte" defaultValue={gst?.rebsorte ?? ''} placeholder="z.B. Grüner Veltliner" className={inputCls} />
+          <RebsorteEingabe defaultValue={gst?.rebsorte} className={inputCls} />
         </div>
         <div>
           <label className={labelCls}>Weinart</label>
