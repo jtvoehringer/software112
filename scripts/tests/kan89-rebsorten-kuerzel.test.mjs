@@ -120,4 +120,11 @@ describe('KAN-89 Prüfseite „Rebsorten ohne Kürzel“', nurMitHooks, () => {
     assert.match(a, /\.is\('storniert_am', null\)/)
     assert.match(quelle('src/lib/navigation/index.ts'), /href: '\/weingarten\/rebsorten', label: 'Rebsorten prüfen'/)
   })
+
+  test('Grundstück: Rebsorte mit Vorschlagsliste der BKI-Sorten und Anzeige des Kürzels', () => {
+    assert.match(quelle('src/app/(dashboard)/weingarten/GrundstueckePanel.tsx'), /<RebsorteEingabe defaultValue=\{gst\?\.rebsorte\}/)
+    const e = quelle('src/components/wein/RebsorteEingabe.tsx')
+    assert.match(e, /Object\.keys\(REBSORTE_KUERZEL\)/)
+    assert.match(e, /Amtliches Kürzel: \$\{kuerzel\}/)
+  })
 })
