@@ -952,7 +952,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('assistent_unterhaltungen',      'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}'),
     ('behaelter',                     'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   'SA,TA{kellerbuch}'),
     ('behandlung_grundstuecke',       'SA,TA,W*{rieden}',                       '-{rieden}',                              'SA,TA,W*{rieden}'),
-    ('behandlungen',                  'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       'SA,TA{rieden}'),
+    ('behandlungen',                  'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       '-{rieden}'),   -- KAN-88: stornieren statt löschen (endgültig nur über s112_storniert_loeschen)
     ('benachrichtigungen',            '-',                                      'L,SA,TA,W',                              'L,SA,TA,W'),
     ('bestandsprotokoll',             '-',                                      '-',                                      '-'),
     ('bestellung_positionen',         'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}'),
@@ -968,7 +968,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('dac_antrag',                    'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   '-{kellerbuch}'),   -- KAN-150 F2a (löschen nur über s112_storniert_loeschen)
     ('datenschutz_consents',          'SA,TA,W*{crm}',                          '-',                                      '-'),
     ('duengemittel',                  'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       'SA,TA{rieden}'),
-    ('duengemittel_lager_bewegungen', 'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}'),
+    ('duengemittel_lager_bewegungen', 'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       '-{rieden}'),   -- KAN-88
     ('ea_anlagen',                    'SA,TA,W*{ea}',                           'SA,TA,W*{ea}',                           'SA,TA,W*{ea}'),
     ('ea_belege',                     'SA,TA,W*{ea}',                           'SA,TA,W*{ea}',                           'SA,TA,W*{ea}'),
     ('ea_dauerauftraege',             'SA,TA,W*{ea}',                           'SA,TA,W*{ea}',                           'SA,TA,W*{ea}'),
@@ -1028,7 +1028,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('pressungen',                    'SA,TA,W*{kellerbuch|rieden}',            'SA,TA,W*{kellerbuch|rieden}',            '-{kellerbuch|rieden}'),   -- KAN-148 C1d
     ('profiles',                      'L,SA,TA,W',                              'L,SA,TA,W',                              '-'),
     ('pruefnummernantraege',          'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   '-{kellerbuch}'),   -- KAN-150 F2a (löschen nur über s112_storniert_loeschen)
-    ('psm_lager_bewegungen',          'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}'),
+    ('psm_lager_bewegungen',          'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       '-{rieden}'),   -- KAN-88
     ('rabattgruppen',                 'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}'),
     ('rebsorten',                     'PA',                                     'PA',                                     'PA'),
     ('release_notes',                 'PA',                                     'PA',                                     'PA'),
@@ -1120,12 +1120,12 @@ BEGIN
     -- KAN-150 F2a: + dac_antrag, weinanalysen, pruefnummernantraege, transportbescheinigungen, exportauftraege (storno) und
     --              exportauftrag_positionen, export_dokumente (kind)
     -- KAN-167: + betriebsmittel_lager_bewegungen (storno)
-    WHEN 'loeschsperre_tabellen' THEN ARRAY['betriebsmittel_lager_bewegungen', 'dac_antrag', 'ea_transaktionen', 'ernte_parzellen', 'export_dokumente', 'exportauftraege', 'exportauftrag_positionen', 'fuellung_chargen', 'fuellungen', 'keller_behandlungen', 'keller_umzuege', 'konto_umbuchungen', 'pressung_behaelter', 'pressung_weingaerten', 'pressungen', 'pruefnummernantraege', 'transportbescheinigungen', 'traubenverkauf', 'verkauf_positionen', 'verkaufsposten', 'verschneidung_quellen', 'verschneidungen', 'weinanalysen', 'weinausbau', 'weinausbau_weingaerten', 'zahlungen', 'zukauf_posten']
+    WHEN 'loeschsperre_tabellen' THEN ARRAY['behandlungen', 'betriebsmittel_lager_bewegungen', 'dac_antrag', 'duengemittel_lager_bewegungen', 'ea_transaktionen', 'ernte_parzellen', 'export_dokumente', 'exportauftraege', 'exportauftrag_positionen', 'fuellung_chargen', 'fuellungen', 'keller_behandlungen', 'keller_umzuege', 'konto_umbuchungen', 'pressung_behaelter', 'pressung_weingaerten', 'pressungen', 'pruefnummernantraege', 'psm_lager_bewegungen', 'transportbescheinigungen', 'traubenverkauf', 'verkauf_positionen', 'verkaufsposten', 'verschneidung_quellen', 'verschneidungen', 'weinanalysen', 'weinausbau', 'weinausbau_weingaerten', 'zahlungen', 'zukauf_posten']
     -- KAN-150 F1a: Stammdaten mit Löschsperre bei berichtsrelevantem Bezug (a_stammdaten_loeschsperre)
     WHEN 'stammdaten_loeschsperre' THEN ARRAY['betriebsmittel', 'duengemittel', 'ea_dauerauftraege', 'ea_kategorien', 'firmen', 'grundstuecke',   -- KAN-167: + betriebsmittel
       'keller_behandlungstypen', 'kontakte', 'pflanzenschutzmittel', 'weingarten']
     WHEN 'protokoll_tabellen' THEN ARRAY[
-      'ama_erntemeldungen', 'ama_meldepositionen', 'behandlungen', 'bestandsprotokoll', 'duengemittel_lager_bewegungen',
+      'ama_erntemeldungen', 'ama_meldepositionen', 'behandlung_grundstuecke', 'behandlungen', 'bestandsprotokoll', 'duengemittel_lager_bewegungen',   -- KAN-88: + behandlung_grundstuecke
       'ea_belege', 'ea_monatsabschluss', 'ea_transaktionen', 'ea_uva', 'ernte_parzellen', 'fuellung_bewegungen',
       'fuellung_chargen', 'fuellungen', 'keller_behandlungen', 'keller_umzuege', 'konto_umbuchungen', 'lesen',
       'pressung_behaelter', 'pressung_weingaerten', 'pressungen', 'psm_lager_bewegungen', 'traubenverkauf',
@@ -1240,7 +1240,6 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('rls_hilfe',     '-US', false, 's112_schreibgesperrte_tenants()'),
     ('mandant',       '-US', true , 's112_betriebsmittel_einkauf(p_tenant_id uuid, p_betriebsmittel_id uuid, p_datum date, p_menge numeric, p_einheit text, p_betrag_netto numeric, p_ust_satz numeric, p_lieferant_firma_id uuid, p_ea_kategorie_id uuid, p_notizen text)'),   -- KAN-167: Einkauf mit E/A-Ausgabe
     ('mandant',       '-US', true , 's112_betriebsmittel_stornieren(p_tenant_id uuid, p_id uuid, p_grund text, p_datum date)'),   -- KAN-167: Storno Lagerbuchung (Einkauf samt Ausgabe)
-    ('mandant',       '-US', true , 's112_buchung_loeschen(p_tenant_id uuid, p_tabelle text, p_id uuid, p_grund text)'),   -- KAN-166
     ('intern',        '--S', false, 's112_charge_folgebuchung(p_tenant_id uuid, p_charge_id uuid)'),   -- KAN-148 C1c-2 (Hilfsfunktion)
     ('mandant',       '-US', true , 's112_mostzeile_anlegen(p_tenant_id uuid, p_pressung_id uuid, p_behaelter_id uuid, p_menge_liter numeric, p_notizen text, p_charge jsonb)'),   -- KAN-148 C1c-2
     ('mandant',       '-US', true , 's112_pressung_anlegen(p_tenant_id uuid, p_kopf jsonb, p_trauben jsonb)'),   -- KAN-148 C1c-2

@@ -82,7 +82,7 @@ export default async function WeingartenEditPage({ params }: Props) {
         ? alle<AR>((supabase.from('behandlung_grundstuecke') as any).select('behandlung_id, grundstueck_id').in('grundstueck_id', gstIds).order('behandlung_id'))
         : Promise.resolve({ data: [] as AR[], error: null }),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      alle<AR>((supabase.from('behandlungen') as any).select('id').eq('tenant_id', tenantIdFuerMassnahmen).eq('weingarten_id', id).order('id')),
+      alle<AR>((supabase.from('behandlungen') as any).select('id').eq('tenant_id', tenantIdFuerMassnahmen).eq('weingarten_id', id).is('storniert_am', null).order('id')),
     ])
     const ids = [...new Set([...(bgRes.data ?? []).map(r => String(r.behandlung_id)), ...(nurWgRes.data ?? []).map(r => String(r.id))])]
     const [{ behandlungen }, kostenRes] = await Promise.all([

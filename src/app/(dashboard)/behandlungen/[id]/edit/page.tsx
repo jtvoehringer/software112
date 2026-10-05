@@ -41,6 +41,7 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
   }
 
   const [{ data: rawB }, { data: rawPsm }, { data: rawDuenger }, { data: rawKostenarten }, { data: rawKE }] = await Promise.all([
+    // storno-sichtbar: Einzelsatz – eine stornierte Maßnahme leitet die Seite zur Liste um (KAN-88)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('behandlungen') as any)
       .select(`
@@ -49,7 +50,7 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
         bbch_stadium, schaderreger, witterung, temperatur_c, notizen,
         bearbeitungstiefe_cm, bearbeitungsgeraet, schnittart, laubarbeit_art,
         einarbeitung, einarbeitung_zeitpunkt,
-        uhrzeit_von, uhrzeit_bis, durchgefuehrt_von, anwender_name, art_verwendung,
+        uhrzeit_von, uhrzeit_bis, durchgefuehrt_von, anwender_name, art_verwendung, storniert_am,
         weingarten:weingarten_id(name),
         psm:psm_id(wartezeit_tage),
         behandlung_grundstuecke(grundstueck_id, flaeche_ha, grundstueck:grundstueck_id(flaeche_ha, weingarten_id))
@@ -90,6 +91,8 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
   ])
 
   if (!rawB) notFound()
+  // KAN-88: stornierte Maßnahmen sind unveränderlich (DB: s112_storno_schutz) – zurück zur Liste
+  if ((rawB as AR).storniert_am) redirect('/behandlungen')
 
   const b = rawB as AR
   const behandlung: BehandlungEdit = {

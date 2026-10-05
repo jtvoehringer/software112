@@ -207,7 +207,7 @@ export async function ladeWeingarten(ctx: Ctx) {
     // KAN-150 F1: nur heute bewirtschaftete Grundstücke
     ctx.tf(ctx.q('grundstuecke').select('id, weingarten_id, flaeche_ha, ama_feldnummer').eq('aktiv', true)),
     // KAN-121 (01.10.2026): Ried auch über die Grundstücke der Maßnahme (App-Maßnahmen haben kein weingarten_id)
-    ctx.tf(ctx.q('behandlungen').select(`id, datum, ernte_fruehesteins, ${BEHANDLUNG_RIEDEN_SELECT}`).gte('datum', `${jahr}-01-01`).order('datum', { ascending: false }).limit(500)),
+    ctx.tf(ctx.q('behandlungen').select(`id, datum, ernte_fruehesteins, ${BEHANDLUNG_RIEDEN_SELECT}`).is('storniert_am', null).gte('datum', `${jahr}-01-01`).order('datum', { ascending: false }).limit(500)),
   ])
   const rieden = ((wRaw ?? []) as R[])
   const grundstuecke = ((gRaw ?? []) as R[])
@@ -297,7 +297,7 @@ export async function ladeFristen(ctx: Ctx, opts: { modulEa: boolean; uvaZeitrau
     opts.modulEa && !doppik ? ctx.tf(ctx.q('ea_uva').select('jahr, zeitraum, gesperrt, gesperrt_am')) : Promise.resolve({ data: [] }),
     ctx.tf(ctx.q('weinjahrgaenge').select('id, jahrgang, ama_gemeldet, ama_meldedatum, ama_erntemeldungen(status, eingereicht_am, version)').eq('jahrgang', jahr).limit(1)),
     ctx.tf(ctx.q('dac_antrag').select('id, bezeichnung, status, eingereicht_am').eq('aktiv', true).is('storniert_am', null).in('status', ['entwurf', 'eingereicht', 'in_pruefung']).order('created_at', { ascending: false }).limit(20)),
-    ctx.tf(ctx.q('behandlungen').select('id, ernte_fruehesteins').gte('ernte_fruehesteins', ctx.heuteStr).order('ernte_fruehesteins').limit(50)),
+    ctx.tf(ctx.q('behandlungen').select('id, ernte_fruehesteins').is('storniert_am', null).gte('ernte_fruehesteins', ctx.heuteStr).order('ernte_fruehesteins').limit(50)),
     // Doppik (Migration 197): noch nicht an BMD übergebene Belege der letzten 12 Monate
     doppik ? ctx.tf(ctx.q('verkaufsposten').select('datum').eq('aktiv', true).eq('storniert', false).is('bmd_export_id', null).gte('datum', seit).limit(1000)) : Promise.resolve({ data: [] }),
     doppik ? ctx.tf(ctx.q('ea_transaktionen').select('datum').eq('typ', 'ausgabe').is('bmd_export_id', null).gte('datum', seit).limit(1000)) : Promise.resolve({ data: [] }),
@@ -452,7 +452,7 @@ export async function ladeFristen(ctx: Ctx, opts: { modulEa: boolean; uvaZeitrau
   {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: psmRaw } = await alle<R>(ctx.tf(ctx.q('behandlungen') as any)
-      .select('id, datum, datum_bis, uhrzeit_bis, created_at').not('psm_id', 'is', null)
+      .select('id, datum, datum_bis, uhrzeit_bis, created_at').not('psm_id', 'is', null).is('storniert_am', null)
       .gte('datum', `${jahr}-01-01`).lte('datum', `${jahr}-12-31`).order('id'))
     fristen.push({ ...psmErfassungFrist((psmRaw ?? []) as unknown as PsmErfassungZeile[], opts.psmFristH, jahr), href: '/behandlungen', quelle: 'system' })
   }

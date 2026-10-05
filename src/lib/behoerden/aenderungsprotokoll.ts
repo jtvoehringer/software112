@@ -70,6 +70,12 @@ export const TABELLE_LABEL: Record<string, string> = {
   // KAN-97: Prüfnummernantrag (Statuswechsel mit Grund)
   dac_antrag: 'DAC-/Prüfnummernantrag',
   pruefnummernantraege: 'Prüfnummernantrag (Formular)',
+  // KAN-88: Pflanzenschutz- und Düngeaufzeichnung, Mittel-Lager
+  behandlungen: 'Maßnahme',
+  behandlung_grundstuecke: 'Maßnahme – Grundstück',
+  psm_lager_bewegungen: 'PSM-Lagerbuchung',
+  duengemittel_lager_bewegungen: 'Dünger-Lagerbuchung',
+  betriebsmittel_lager_bewegungen: 'Betriebsmittel-Lagerbuchung',
 }
 
 const AKTION_LABEL: Record<string, string> = { UPDATE: 'Änderung', DELETE: 'Löschung' }

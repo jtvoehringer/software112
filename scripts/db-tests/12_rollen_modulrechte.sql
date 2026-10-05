@@ -194,17 +194,17 @@ DECLARE
   c_leser_eigen constant text[] := ARRAY['benachrichtigungen:UPDATE', 'benachrichtigungen:DELETE', 'profiles:INSERT',
     'profiles:UPDATE', 'release_notes_gesehen:INSERT', 'release_notes_gesehen:UPDATE', 'release_notes_gesehen:DELETE',
     'user_email_connections:DELETE'];
-  c_kein_delete constant text[] := ARRAY['ama_meldepositionen', 'dac_antrag', 'ea_transaktionen', 'ernte_parzellen',
+  c_kein_delete constant text[] := ARRAY['ama_meldepositionen', 'behandlungen', 'dac_antrag', 'duengemittel_lager_bewegungen', 'ea_transaktionen', 'ernte_parzellen',
     'export_dokumente', 'exportauftraege', 'exportauftrag_positionen', 'fuellungen', 'konto_umbuchungen',
-    'pruefnummernantraege', 'sonstige_artikel', 'sumup_checkouts', 'transportbescheinigungen', 'verkauf_positionen',
+    'pruefnummernantraege', 'psm_lager_bewegungen', 'sonstige_artikel', 'sumup_checkouts', 'transportbescheinigungen', 'verkauf_positionen',
     'verkaufsposten', 'weinanalysen', 'weinausbau', 'weinbaugebiete_custom', 'zahlungen', 'zukauf_posten'];   -- fuellungen: KAN-145 B4, ernte_parzellen/weinausbau: KAN-148 C1d (nur über s112_storniert_loeschen);
                                                                -- Verkauf/E-A: KAN-149 D3 (nur stornieren, keine Lösch-RPC)
                                                                -- Anträge/Analysen/Export: KAN-150 F2a (nur über s112_storniert_loeschen)
   c_kein_update constant text[] := ARRAY['aktivitaet_dokumente', 'konto_umbuchungen', 'behandlung_grundstuecke',
     'buchhaltung_export_protokoll', 'pipeline_verlauf', 'assistent_aktionen', 'assistent_nachrichten'];
-  c_delete_nur_admin constant text[] := ARRAY['ama_erntemeldungen', 'behaelter', 'behandlungen',
+  c_delete_nur_admin constant text[] := ARRAY['ama_erntemeldungen', 'behaelter',
     'duengemittel', 'grundstuecke', 'kellerplaene', 'lagen', 'lesen', 'pflanzenschutzmittel', 'saetze_massnahmen',
-    'weingarten', 'weingarten_rebsorten', 'weinjahrgaenge'];   -- Verkauf/E-A seit KAN-149 D3, dac_antrag/weinanalysen seit KAN-150 F2a in c_kein_delete
+    'weingarten', 'weingarten_rebsorten', 'weinjahrgaenge'];   -- Verkauf/E-A seit KAN-149 D3, dac_antrag/weinanalysen seit KAN-150 F2a, Maßnahmen/Mittel-Lager seit KAN-88 in c_kein_delete
   c_nur_admin constant text[] := ARRAY['buchhaltung_kontenmapping', 'ea_monatsabschluss', 'konten', 'sumup_terminals',
     'zeiterfassung'];
   c_ohne_schreibrecht constant text[] := ARRAY['bestandsprotokoll', 'fuellung_bewegungen', 'ea_dauerauftrag_log',

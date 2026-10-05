@@ -333,6 +333,8 @@ async function grundstueckeDerAuswahl(supabase: any, tenantId: string, formData:
   return out
 }
 
+const STORNIERT_FEST = 'Die Maßnahme ist storniert und lässt sich nicht mehr ändern – bitte neu erfassen.'
+
 const OHNE_WI_GST = 'Die gewählten Rieden bzw. Grundstücke haben kein Grundstück mit Nutzart WI (Weingarten) – eine Maßnahme ohne Grundstück lässt sich nicht auswerten. Bitte eine Ried mit Weingarten-Grundstücken wählen oder die Nutzart der Grundstücke prüfen.'
 
 // KAN-167 (01.10.2026): Betriebsmittel (Weinbehandlungs- bzw. Produktionsmittel) bei Sonstiges und Laubarbeit – nur
@@ -604,14 +606,16 @@ export async function updateBehandlung(id: string, formData: FormData) {
 
   // Mengen prüfen und ergänzen (KAN-133) – Fläche = Σ der Grundstücke dieser Maßnahme. behandlung_grundstuecke hat
   // keine tenant_id, daher eingebettet über die Maßnahme des Betriebs.
+  // storno-sichtbar: Einzelsatz – eine stornierte Maßnahme lehnt die Prüfung darunter ab (KAN-88)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: bisher, error: bisherErr } = await (supabase.from('behandlungen') as any)
-    .select('id, betriebsmittel_id, behandlung_grundstuecke(grundstueck_id, flaeche_ha, grundstueck:grundstueck_id(flaeche_ha))')
+    .select('id, betriebsmittel_id, storniert_am, behandlung_grundstuecke(grundstueck_id, flaeche_ha, grundstueck:grundstueck_id(flaeche_ha))')
     .eq('id', id)
     .eq('tenant_id', tenantId)
     .maybeSingle()
   if (bisherErr) throw new AktionsFehler((bisherErr as AR).message)
   if (!bisher) throw new AktionsFehler('Maßnahme nicht gefunden – bitte die Seite neu laden.')
+  if ((bisher as AR).storniert_am) throw new AktionsFehler(STORNIERT_FEST)   // KAN-88 (DB: s112_storno_schutz)
   const bisherBG = (((bisher as AR).behandlung_grundstuecke ?? []) as AR[])
 
   // Rieden beim Bearbeiten änderbar (Rückmeldung 30.09.2026): mit „ried_auswahl“ ersetzt die Auswahl die
@@ -686,19 +690,43 @@ export async function updateBehandlung(id: string, formData: FormData) {
   return { hinweise: mengen.hinweise }
 }
 
-// Löschen mit Grund (KAN-166, 30.09.2026): auch Mitarbeiter mit Schreibmodul Rieden; die RPC prüft Rolle, Modul,
-// Betrieb und Abo, löscht genau die eine Maßnahme (FK-Kaskade: GST-Zuordnung) und schreibt den Grund ins
-// Änderungsprotokoll – kein stilles Nichts mehr, wenn nichts gelöscht wurde.
-export async function deleteBehandlung(id: string, grund: string) {
+// KAN-88 (05.10.2026): Maßnahmen werden storniert, nicht gelöscht (Pflanzenschutz- und Düngeaufzeichnung, 3 Jahre
+// Aufbewahrung). Zeitpunkt und Benutzer setzt die Datenbank (s112_storno_schutz), die Zeile bleibt gekennzeichnet stehen
+// und zählt in keinem Lager, keiner Bilanz und keiner Meldung; ihre Grundstücke sind danach fest. Ein automatisch
+// angelegter Kosteneintrag geht mit (nur mit Modul Controlling – ohne Modul sperrt die DB kosteneintraege).
+// Endgültig löschen nur stornierte Maßnahmen über s112_storniert_loeschen (Grund im Änderungsprotokoll).
+export async function stornoBehandlung(id: string, grund: string) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
   const f = stornoGrundFehler(grund)
-  if (f) throw new AktionsFehler(f.replace('den Storno', 'das Löschen'))
+  if (f) throw new AktionsFehler(f)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.rpc as any)('s112_buchung_loeschen', {
-    p_tenant_id: tenantId, p_tabelle: 'behandlungen', p_id: id, p_grund: grund.trim(),
-  })
-  if (error) throw new AktionsFehler(dbFehlerText(error, 'Löschen fehlgeschlagen'))
+  const { data, error } = await (supabase.from('behandlungen') as any)
+    .update({ storniert_am: new Date().toISOString(), storno_grund: grund.trim() })
+    .eq('id', id).eq('tenant_id', tenantId).is('storniert_am', null)
+    .select('id')
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Storno fehlgeschlagen'))
+  if (((data ?? []) as unknown[]).length !== 1) throw new AktionsFehler('Die Maßnahme wurde nicht gefunden oder ist schon storniert – bitte die Seite neu laden.')
+  if (await hatModul('modul_controlling')) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: e } = await (supabase.from('kosteneintraege') as any).delete().eq('behandlung_id', id).eq('tenant_id', tenantId)
+    if (e) throw new AktionsFehler(`Storniert, aber der Kosteneintrag der Maßnahme konnte nicht entfernt werden: ${dbFehlerText(e)}`)
+    revalidatePath('/controlling/kostenrechnung')
+  }
   revalidatePath('/behandlungen')
   revalidatePath('/behandlungen/berichte')
+  revalidatePath('/behandlungen/lager')
+}
+
+export async function loescheBehandlung(id: string, grund: string) {
+  const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
+  const f = stornoGrundFehler(grund)
+  if (f) throw new AktionsFehler(f.replace('den Storno', 'das endgültige Löschen'))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.rpc as any)('s112_storniert_loeschen', {
+    p_tenant_id: tenantId, p_tabelle: 'behandlungen', p_id: id, p_grund: grund.trim(),
+  })
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Endgültig löschen fehlgeschlagen'))
+  revalidatePath('/behandlungen')
 }

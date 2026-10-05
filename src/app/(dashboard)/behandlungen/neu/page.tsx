@@ -82,6 +82,7 @@ export default async function NeueBehandlungPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawBew } = await alle(tf((supabase.from('psm_lager_bewegungen') as any)
     .select('id, psm_id, datum, menge, einheit')
+    .is('storniert_am', null)   // KAN-88: stornierte Lagerbuchungen zählen nicht
     .order('datum', { ascending: false })
     .order('id')))
   const buchungenJePsm = new Map<string, LagerBuchung[]>()

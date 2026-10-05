@@ -81,7 +81,7 @@ DECLARE
   c_ta_liest   constant text[] := ARRAY['bestandsprotokoll', 'zeiterfassung'];
   c_min_ins    constant int := 75;
   c_min_upd    constant int := 70;
-  c_min_del    constant int := 43;   -- KAN-145 B4 / KAN-148 C1d: Löschsperre auf Kellerbuch, Lese, Pressung, Chargen; C2: bestätigte AMA-Meldung;
+  c_min_del    constant int := 41;   -- KAN-88: −2 (Maßnahmen und Mittel-Lager mit Löschsperre)   -- KAN-145 B4 / KAN-148 C1d: Löschsperre auf Kellerbuch, Lese, Pressung, Chargen; C2: bestätigte AMA-Meldung;
                                      -- 58: Musterhof-Daten auf Staging nach der Abnahme KAN-148 (Lese-Stornos, AMA eingereicht, 30.09.2026)
                                      -- 50: KAN-149 D3 – Löschsperre Verkauf/E-A (5 Tabellen), Monatsabschluss, gesperrte UVA,
                                      -- Konto mit Bewegungen (01.10.2026)

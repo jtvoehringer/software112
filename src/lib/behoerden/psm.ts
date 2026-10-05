@@ -634,6 +634,7 @@ export async function ladeBehandlungen(supabase: any, tenantId: string, f: Behan
       behandlung_grundstuecke(grundstueck_id, flaeche_ha, grundstueck:grundstueck_id(id, gst_nr, katastralgemeinde, kg_bezeichnung, flaeche_ha, ama_feldnummer, weingarten:weingarten_id(id, name, ried, flaeche_ha, lage_id, ama_feldnummer, lagen:lage_id(name))))
     `)
     .eq('tenant_id', tenantId)
+    .is('storniert_am', null)   // KAN-88: stornierte Maßnahmen zählen in keinem Bericht, keiner Bilanz, keinem Lager
   if (f.von) q = q.gte('datum', f.von)
   if (f.bis) q = q.lte('datum', f.bis)
   if (f.art) q = q.eq('art', f.art)

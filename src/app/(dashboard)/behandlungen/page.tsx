@@ -33,6 +33,10 @@ export type Behandlung = {
   ernte_fruehesteins: string | null
   notizen: string | null
   kosten_betrag: number | null
+  /** KAN-88: storniert (bleibt gekennzeichnet in der Liste) */
+  storniert_am: string | null
+  storniert_von_name: string | null
+  storno_grund: string | null
   /** KAN-87: „nacherfasst (+n h)“ über der Erfassungsfrist (nur Maßnahmen mit Pflanzenschutzmittel), sonst null */
   nacherfasst: string | null
   erfassung_ampel: ErfassungsAmpel | null
@@ -52,10 +56,11 @@ export default async function BehandlungenPage() {
   // Behandlungen + PSM; die Rieden kommen aus den Grundstücken der Maßnahme (eingebettet über die mandantengefilterte
   // Maßnahme – eine eigene Abfrage auf behandlung_grundstuecke war ungefiltert und bei vielen GST auf 1.000 Zeilen gekappt)
   const [{ data: rawB }, { data: rawKosten }, { data: rawEinst }] = await Promise.all([
+    // storno-sichtbar: die Liste zeigt stornierte Maßnahmen gekennzeichnet (Endgültig löschen), sie zählen nirgends (KAN-88)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tf((supabase.from('behandlungen') as any)
       .select(`
-        id, datum, datum_bis, uhrzeit_bis, created_at, psm_id, art, weingarten_id, aufwandmenge, aufwandmenge_einheit,
+        id, datum, datum_bis, uhrzeit_bis, created_at, psm_id, art, storniert_am, storniert_von_name, storno_grund, weingarten_id, aufwandmenge, aufwandmenge_einheit,
         bbch_stadium, witterung, ernte_fruehesteins, notizen,
         weingarten:weingarten_id ( name, ried ),
         psm:psm_id ( name, wartezeit_tage ),
@@ -98,7 +103,7 @@ export default async function BehandlungenPage() {
     const wgName = rieden.length > 0 ? rieden.join(', ') : null
     const wgRied = b.weingarten?.ried ?? erste?.ried ?? null
     const wgId   = b.weingarten_id ?? erste?.id ?? null
-    const verzug = b.psm_id ? erfassungsverzugH({ datum: b.datum, datumBis: b.datum_bis, uhrzeitBis: b.uhrzeit_bis }, b.created_at) : null
+    const verzug = b.psm_id && !b.storniert_am ? erfassungsverzugH({ datum: b.datum, datumBis: b.datum_bis, uhrzeitBis: b.uhrzeit_bis }, b.created_at) : null
 
     return {
       id:                   b.id,
@@ -118,6 +123,9 @@ export default async function BehandlungenPage() {
       ernte_fruehesteins:   b.ernte_fruehesteins,
       notizen:              b.notizen,
       kosten_betrag:        kostenByBeh.get(b.id) ?? null,
+      storniert_am:         b.storniert_am ?? null,
+      storniert_von_name:   b.storniert_von_name ?? null,
+      storno_grund:         b.storno_grund ?? null,
       nacherfasst:          nacherfasstText(verzug, psmFristH),
       erfassung_ampel:      verzug === null ? null : erfassungsAmpel(verzug, psmFristH),
     }

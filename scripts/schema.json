@@ -173,7 +173,11 @@
 "uhrzeit_bis",
 "anwender_name",
 "art_verwendung",
-"erfasst_von"
+"erfasst_von",
+"storniert_am",
+"storniert_von",
+"storniert_von_name",
+"storno_grund"
 ],
 "benachrichtigungen": [
 "id",
@@ -416,7 +420,11 @@
 "menge",
 "einheit",
 "notizen",
-"erstellt_am"
+"erstellt_am",
+"storniert_am",
+"storniert_von",
+"storniert_von_name",
+"storno_grund"
 ],
 "ea_anlagen": [
 "id",
@@ -1346,7 +1354,11 @@
 "menge",
 "einheit",
 "notizen",
-"erstellt_am"
+"erstellt_am",
+"storniert_am",
+"storniert_von",
+"storniert_von_name",
+"storno_grund"
 ],
 "rabattgruppen": [
 "id",

@@ -188,16 +188,17 @@ DECLARE
   c_protokoll_aendern constant text[] := ARRAY[
     'ama_erntemeldungen=ama_referenznr,bestaetigt_am,eingereicht_am,gesamtmenge_hl,gesamtmenge_kg,jahrgang_id,status,tenant_id,version',   -- KAN-148 C2
     'ama_meldepositionen=meldung_id,menge_hl,menge_kg',
-    'behandlungen=art,aufwandmenge,aufwandmenge_einheit,betriebsmittel_id,datum,datum_bis,duengemittel_id,ernte_fruehesteins,konzentration,menge_einheit,menge_gesamt,psm_id,tenant_id,wasseraufwand_l_ha,weingarten_id',   -- KAN-167: + betriebsmittel_id
+    'behandlung_grundstuecke=behandlung_id,flaeche_ha,grundstueck_id',   -- KAN-88
+    'behandlungen=anwender_name,art,art_verwendung,aufwandmenge,aufwandmenge_einheit,betriebsmittel_id,datum,datum_bis,duengemittel_id,durchgefuehrt_von,ernte_fruehesteins,konzentration,menge_einheit,menge_gesamt,psm_id,storniert_am,storno_grund,tenant_id,uhrzeit_bis,uhrzeit_von,wasseraufwand_l_ha,weingarten_id',   -- KAN-167: + betriebsmittel_id; KAN-88: + Storno, Uhrzeiten, Anwender, Art der Verwendung
     'ea_transaktionen=betrag_netto,datum,is_locked,kategorie_id,storniert_am,storno_grund,tenant_id,typ,ust_satz',   -- KAN-149 D2
     'ea_belege=dateiname,ea_transaktion_id,status,storage_pfad,tenant_id',   -- KAN-149 D3
     'ea_monatsabschluss=jahr,monat,tenant_id',   -- KAN-149 D3
     'ea_uva=gesperrt,gesperrt_am,jahr,tenant_id,ust_gesamt,vst_gesamt,zahllast,zeitraum',   -- KAN-149 D3
-    'duengemittel_lager_bewegungen=datum,duengemittel_id,einheit,menge,tenant_id,typ',
+    'duengemittel_lager_bewegungen=datum,duengemittel_id,einheit,menge,storniert_am,storno_grund,tenant_id,typ',   -- KAN-88: + Storno
     'ernte_parzellen=ernte_datum,grundstueck_id,jahrgang_id,klosterneuburger,lese_id,menge_hl,menge_kg,mostgewicht_einheit,oechsle,storniert_am,storno_grund,weingarten_id',
     'fuellung_chargen=anteil_liter,fuellung_id,tenant_id,weinausbau_id',
     'fuellungen=aktiv,anbaugebiet,anzahl_flaschen,bestand_flaschen,dac_antrag_id,datum,erzeugnis,flaschengroesse_ml,herkunft_code,jahrgang,land_iso,menge_liter_gefuellt,pruefnummer,qualitaet,rebsorte,storniert_am,storno_grund,tenant_id,weinart,weinausbau_id,zusatzbezeichnung',   -- KAN-150 F1a: + dac_antrag_id; KAN-186: + erzeugnis, land_iso, weinart, zusatzbezeichnung
-    'psm_lager_bewegungen=datum,einheit,menge,psm_id,tenant_id,typ',
+    'psm_lager_bewegungen=datum,einheit,menge,psm_id,storniert_am,storno_grund,tenant_id,typ',   -- KAN-88: + Storno
     'keller_behandlungen=behaelter_id,datum,einheit,menge,storniert_am,storno_grund,tenant_id,typ_id,volumen_liter_ist,weinausbau_id',
     'lesen=art,beginn,ende,jahrgang_id,lfd_nr,tenant_id',
     'keller_umzuege=brutto_liter,datum,menge_liter,nach_behaelter_id,nach_weinausbau_id,schwund_liter,storniert_am,storno_grund,tenant_id,umzug_batch_id,umzug_typ,von_behaelter_id,von_weinausbau_id,zeilen_typ',
@@ -625,7 +626,7 @@ BEGIN
      WHERE f.sd AND s.abo IS DISTINCT FROM (f.src ~ %L)
      ORDER BY 1$q$, c_re_abo));
   SELECT count(*) INTO v_n FROM pg_temp.s112_soll_rpc() s WHERE s.abo;
-  v_erg := v_erg || pg_temp.s112_erwarte('rpc_abo_anzahl', v_n, 40::bigint);   -- +1 KAN-82 (s112_charge_abstufen)   -- +1 KAN-101 (s112_fuellung_nachtragen)   -- +1 KAN-97 (s112_pruefnummernantrag_status_setzen)   -- +1 KAN-96 (s112_freeze_korrektur)   -- +1 KAN-193 (s112_zukauf_buchen)   -- +1 KAN-112 (s112_verschnitte_buchen)   -- +1 KAN-112 (s112_verschnitt_buchen)   -- +1 KAN-192 (kellerbuch_abschliessen)   -- +2 KAN-40 (journal_eroeffnen, journal_abgleichen)   -- +1 KAN-37 B (s112_ama_einreichen)   -- +2 KAN-167 (s112_betriebsmittel_einkauf, s112_betriebsmittel_stornieren)   -- +1 KAN-150 F1d   -- +1 KAN-150 F1c   -- +3 KAN-149 D2   -- +1 KAN-149 D1   -- +3 KAN-148 C2 (s112_ama_*)   -- +s112_storniert_loeschen (KAN-145), s112_buchung_loeschen (KAN-166), s112_pressung_stornieren (KAN-148)
+  v_erg := v_erg || pg_temp.s112_erwarte('rpc_abo_anzahl', v_n, 39::bigint);   -- −1 KAN-88 (s112_buchung_loeschen entfällt)   -- +1 KAN-82 (s112_charge_abstufen)   -- +1 KAN-101 (s112_fuellung_nachtragen)   -- +1 KAN-97 (s112_pruefnummernantrag_status_setzen)   -- +1 KAN-96 (s112_freeze_korrektur)   -- +1 KAN-193 (s112_zukauf_buchen)   -- +1 KAN-112 (s112_verschnitte_buchen)   -- +1 KAN-112 (s112_verschnitt_buchen)   -- +1 KAN-192 (kellerbuch_abschliessen)   -- +2 KAN-40 (journal_eroeffnen, journal_abgleichen)   -- +1 KAN-37 B (s112_ama_einreichen)   -- +2 KAN-167 (s112_betriebsmittel_einkauf, s112_betriebsmittel_stornieren)   -- +1 KAN-150 F1d   -- +1 KAN-150 F1c   -- +3 KAN-149 D2   -- +1 KAN-149 D1   -- +3 KAN-148 C2 (s112_ama_*)   -- +s112_storniert_loeschen (KAN-145), s112_buchung_loeschen (KAN-166), s112_pressung_stornieren (KAN-148)
   -- Unabhängig vom Handflag: schreibende SECURITY-DEFINER-RPC (p_tenant_id, EXECUTE für authenticated, Schreib-
   -- anweisung im Quelltext) ohne Abo-Prüfung → FEHLER, außer begründet in s112_soll_liste('abo_rpc_ausnahmen').
   v_erg := v_erg || pg_temp.t01_liste('rpc_schreibt_ohne_abo', format($q$
@@ -646,7 +647,7 @@ BEGIN
   -- Plausibilität der Heuristik: sie erkennt alle 12 RPCs mit Abo-Prüfung als schreibend
   SELECT count(*) INTO v_n FROM pg_temp.t01_funktionen() f JOIN pg_temp.s112_soll_rpc() s ON s.funktion = f.sig
    WHERE s.abo AND f.src ~* c_re_schreibt;
-  v_erg := v_erg || pg_temp.s112_erwarte('rpc_schreibt_heuristik_abo_rpcs', v_n, 36::bigint);   -- +1 KAN-82 (s112_charge_abstufen)   -- +1 KAN-101 (s112_fuellung_nachtragen)   -- +1 KAN-97 (s112_pruefnummernantrag_status_setzen)   -- +1 KAN-96 (s112_freeze_korrektur: UPDATE per EXECUTE format)   -- +1 KAN-193 (s112_zukauf_buchen: INSERT per EXECUTE format)   -- s112_verschnitte_buchen zählt nicht (schreibt nur über s112_verschnitt_buchen)   -- +1 KAN-112   -- +1 KAN-192 (kellerbuch_abschliessen)   -- +1 KAN-40 (journal_eroeffnen; journal_abgleichen schreibt über s112_journal_schreiben)   -- +1 KAN-37 B   -- +2 KAN-167 (s112_betriebsmittel_einkauf, s112_betriebsmittel_stornieren)   -- +1 KAN-150 F1d (s112_herkunft_setzen)   -- +2 KAN-149 D2 (s112_ea_stornieren schreibt über s112_ea_gegenbuchung)   -- +1 KAN-149 D1   -- +3 KAN-148 C2   -- +3 KAN-148 C1c-2
+  v_erg := v_erg || pg_temp.s112_erwarte('rpc_schreibt_heuristik_abo_rpcs', v_n, 35::bigint);   -- −1 KAN-88 (s112_buchung_loeschen entfällt)   -- +1 KAN-82 (s112_charge_abstufen)   -- +1 KAN-101 (s112_fuellung_nachtragen)   -- +1 KAN-97 (s112_pruefnummernantrag_status_setzen)   -- +1 KAN-96 (s112_freeze_korrektur: UPDATE per EXECUTE format)   -- +1 KAN-193 (s112_zukauf_buchen: INSERT per EXECUTE format)   -- s112_verschnitte_buchen zählt nicht (schreibt nur über s112_verschnitt_buchen)   -- +1 KAN-112   -- +1 KAN-192 (kellerbuch_abschliessen)   -- +1 KAN-40 (journal_eroeffnen; journal_abgleichen schreibt über s112_journal_schreiben)   -- +1 KAN-37 B   -- +2 KAN-167 (s112_betriebsmittel_einkauf, s112_betriebsmittel_stornieren)   -- +1 KAN-150 F1d (s112_herkunft_setzen)   -- +2 KAN-149 D2 (s112_ea_stornieren schreibt über s112_ea_gegenbuchung)   -- +1 KAN-149 D1   -- +3 KAN-148 C2   -- +3 KAN-148 C1c-2
   -- p_tenant_id ohne pruefe_tenant_zugriff: nur mit Einstufung mandant_eigen, session_user, intern oder rls_hilfe
   v_erg := v_erg || pg_temp.t01_liste('ptz_nicht_eingestuft', format($q$
     SELECT f.sig AS schluessel,
