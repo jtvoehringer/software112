@@ -73,7 +73,8 @@ function supabaseAttrappe({ bio = 'konventionell', oeko = true, cuGehaltPct = nu
     from(tabelle) {
       let op = 'select'
       const q = {
-        select: () => q, eq: () => q, in: () => q, or: () => q,
+        // order/range: Grundstücke der Auswahl lädt die Action seitenweise über alle() (05.10.2026)
+        select: () => q, eq: () => q, in: () => q, or: () => q, order: () => q, range: () => q,
         insert(p) { op = 'insert'; schreiben.push({ tabelle, op, p }); return q },
         update(p) { op = 'update'; schreiben.push({ tabelle, op, p }); return q },
         delete() { op = 'delete'; schreiben.push({ tabelle, op }); return q },

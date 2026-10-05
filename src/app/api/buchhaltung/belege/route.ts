@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
@@ -178,10 +179,12 @@ export async function POST(req: NextRequest) {
     // Tankrechnungen/Kassenbons ohne Geschäftspartner (lieferantName === null)
     // brauchen bewusst keine Firmenzuordnung (siehe Beleg-Buchen-Formular).
     if (erkannteDaten.typ === 'ausgabe' && lieferantName) {
-      const { data: lieferantenRaw } = await (supabase.from('firmen') as any)
+      // alle(): Abgleich über alle Lieferanten, nicht nur die ersten 1.000
+      const { data: lieferantenRaw } = await alle<R>((supabase.from('firmen') as any)
         .select('id, name')
         .eq('tenant_id', tenantId).eq('ist_lieferant', true)
-      const lieferanten = (lieferantenRaw ?? []) as R[]
+        .order('id'))
+      const lieferanten = lieferantenRaw
       const normalisiert = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ')
       const gesucht = normalisiert(lieferantName)
       const treffer = lieferanten.find(f => normalisiert(f.name) === gesucht)

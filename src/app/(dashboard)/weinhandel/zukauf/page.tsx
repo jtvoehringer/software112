@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import Link from '@/components/ui/Link'
 import { Pencil, AlertTriangle } from 'lucide-react'
@@ -70,8 +71,9 @@ export default async function ZukaufPage({
 
     if (istWeinproduzent) {
       const [{ data: rawGSTFl }, { data: rawTraubenZukauf }] = await Promise.all([
+        // alle(): Betriebsfläche über alle Grundstücke, nicht nur die ersten 1.000
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (supabase.from('grundstuecke') as any).select('flaeche_ha, aktiv, deaktiviert_am').eq('nutzart', 'WI').eq('tenant_id', membership.tenantId),
+        alle((supabase.from('grundstuecke') as any).select('flaeche_ha, aktiv, deaktiviert_am').eq('nutzart', 'WI').eq('tenant_id', membership.tenantId).order('id')),
         (supabase.from('zukauf_posten') as any)
           .select('menge')
           .eq('art', 'trauben')

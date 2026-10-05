@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { NextResponse } from 'next/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
@@ -64,13 +65,13 @@ export async function GET() {
         .select('id, jahrgang')
         .eq('tenant_id', tenantId)
         .order('jahrgang', { ascending: false }),
-      // Grundstücke für Traubenverkauf
+      // Grundstücke für Traubenverkauf – alle(): sonst fehlen ab dem 1.001. Grundstück Einträge in der Auswahl
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase.from('grundstuecke') as any)
+      alle((supabase.from('grundstuecke') as any)
         .select('id, gst_nr, weingarten_id, rebsorte')
         .eq('tenant_id', tenantId)
         .eq('aktiv', true)   // KAN-150 F1: nur bewirtschaftete Grundstücke zur Auswahl
-        .order('gst_nr'),
+        .order('gst_nr').order('id')),
       // Verfügbare kg: Lesemeldungen − Pressungen − bereits verkaufte Trauben
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       // tenant-isolation-ignore: ernte_parzellen ohne tenant_id, Filter über den Jahrgang

@@ -24,6 +24,7 @@ export async function ladeWetterAuswertung(
   const seit = new Date(heute.getTime() - BEHANDLUNG_RUECKBLICK_TAGE * 86400000).toISOString().slice(0, 10)
   const [{ data: wgRaw }, { data: bhRaw }] = await Promise.all([
     (client.from('weingarten') as any).select('id, name, ried, zentrum_lat, zentrum_lon').eq('tenant_id', tenantId).eq('aktiv', true).order('name'),
+    // alle-ausnahme: nur Spritzungen der letzten 45 Tage (BEHANDLUNG_RUECKBLICK_TAGE), weit unter 1.000
     (client.from('behandlungen') as any).select(`id, datum, art, ernte_fruehesteins, psm:pflanzenschutzmittel!psm_id(name, handelsname, wartezeit_tage), ${BEHANDLUNG_RIEDEN_SELECT}`)
       .eq('tenant_id', tenantId).eq('art', 'spritzung').gte('datum', seit).order('datum', { ascending: false }),
   ])

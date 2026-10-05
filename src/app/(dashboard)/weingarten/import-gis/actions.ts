@@ -7,6 +7,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
@@ -41,10 +42,12 @@ async function kontext() {
 const fsKey = (v: unknown) => { const n = parseInt(String(v ?? '').trim()); return Number.isFinite(n) ? n : null }
 
 async function ladeBestand(supabase: any, tenantId: string) { // eslint-disable-line @typescript-eslint/no-explicit-any
-  const [{ data: w }, { data: g }] = await Promise.all([
+  const [{ data: w }, { data: g, error: gFehler }] = await Promise.all([
     (supabase.from('weingarten') as any).select('id, name, ried, ama_feldnummer, aktiv, geo_quelle, zentrum_lat, geometrie').eq('tenant_id', tenantId).eq('aktiv', true),
-    (supabase.from('grundstuecke') as any).select('id, weingarten_id, gst_nr, ama_feldnummer').eq('tenant_id', tenantId),
+    // alle(): Abgleich über alle Grundstücke – sonst legte der Import vorhandene GST ab dem 1.001. doppelt an
+    alle<R>((supabase.from('grundstuecke') as any).select('id, weingarten_id, gst_nr, ama_feldnummer').eq('tenant_id', tenantId).order('id')),
   ])
+  if (gFehler) throw new AktionsFehler(`Grundstücke nicht ladbar: ${gFehler.message}`)
   const rieden = ((w ?? []) as R[])
   const riedByFs = new Map<number, R[]>()
   for (const r of rieden) { const k = fsKey(r.ama_feldnummer); if (k == null) continue; const a = riedByFs.get(k) ?? []; a.push(r); riedByFs.set(k, a) }

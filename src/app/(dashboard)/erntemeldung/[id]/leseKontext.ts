@@ -119,11 +119,12 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
       .select('id, lese_id, storniert_am, storno_grund, storniert_von_name, weingarten_id, grundstueck_id, zukauf_posten_id, kontakt_id, firma_id, datum, menge_kg, preis_per_kg, kmw_grad, oechsle, mostgewicht_einheit, qualitaetsstufe, gesundheit, herkunft_code, notizen, liefernummer, verkaufsposten_id, weingarten:weingarten_id(name), grundstueck:grundstueck_id(gst_nr), kontakt:kontakt_id(vorname, nachname), firma:firma_id(name), verkaufsposten:verkaufsposten_id(rechnungsnummer, storniert)')
       .eq('jahrgang_id', id).order('datum', { ascending: false })),
 
-    // Kontakte + Firmen für Abnehmer-Dropdown
+    // Kontakte + Firmen für Abnehmer-Dropdown – alle(): Gebeshuber hat über 8.000 Kontakte und 4.600 Firmen,
+    // ohne Paging fehlten Abnehmer ab dem 1.001. Namen in der Auswahl und in der Anzeige
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    tf((supabase.from('kontakte') as any).select('id, vorname, nachname, betrieb_nr').order('nachname')),
+    alle<AR>(tf((supabase.from('kontakte') as any).select('id, vorname, nachname, betrieb_nr').order('nachname').order('id'))),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    tf((supabase.from('firmen') as any).select('id, name, betrieb_nr').order('name')),
+    alle<AR>(tf((supabase.from('firmen') as any).select('id, name, betrieb_nr').order('name').order('id'))),
 
     // Betriebsname (Druckkopf) und Modul-Schalter (CSV-Knöpfe nach derselben Regel wie die CSV-Route)
     betriebUndModuleLaden(supabase, tenantId),

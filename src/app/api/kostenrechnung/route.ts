@@ -1,5 +1,6 @@
 import { ladeBehaelter } from '@/lib/keller/behaelter'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { NextRequest, NextResponse } from 'next/server'
 import { ereignisMelden } from '@/lib/system/ereignis'
@@ -45,9 +46,11 @@ export async function GET(req: NextRequest) {
     const ids = (data ?? []).map((e: R) => e.id)
     let splits: R[] = []
     if (ids.length > 0) {
-      const { data: sd } = await (s.from('kosteneintrag_weingaerten') as any)
+      // alle(): 300 Einträge mit je mehreren Rieden können über 1.000 Aufteilungszeilen haben
+      const { data: sd } = await alle<R>((s.from('kosteneintrag_weingaerten') as any)
         .select('kosteneintrag_id, weingarten_id, anteil_pct, betrag_anteil, wg:weingarten_id(name)')
         .in('kosteneintrag_id', ids)
+        .order('id'))
       splits = sd ?? []
     }
     const eintraege = (data ?? []).map((e: R) => ({
@@ -75,14 +78,15 @@ export async function GET(req: NextRequest) {
   }
   if (a === 'auswertung') {
     const jahr = req.nextUrl.searchParams.get('jahr') ?? new Date().getFullYear().toString()
-    const { data: ke } = await (s.from('kosteneintraege') as any)
+    // alle(): Jahresauswertung über alle Kosteneinträge, nicht nur die ersten 1.000
+    const { data: ke } = await alle<R>((s.from('kosteneintraege') as any)
       .select('id, betrag, periode, objekt_typ, kostenstelle:kostenstelle_id(name), kostenart:kostenart_id(name), wg:weingarten_id(name), behaelter:behaelter_id(name)')
-      .eq('tenant_id', t).gte('datum', `${jahr}-01-01`).lte('datum', `${jahr}-12-31`)
+      .eq('tenant_id', t).gte('datum', `${jahr}-01-01`).lte('datum', `${jahr}-12-31`).order('id'))
     const ids = (ke ?? []).map((e: R) => e.id)
     let splits: R[] = []
     if (ids.length > 0) {
-      const { data: sd } = await (s.from('kosteneintrag_weingaerten') as any)
-        .select('kosteneintrag_id, anteil_pct, betrag_anteil, wg:weingarten_id(name, lagen:lage_id(name))').in('kosteneintrag_id', ids)
+      const { data: sd } = await alle<R>((s.from('kosteneintrag_weingaerten') as any)
+        .select('kosteneintrag_id, anteil_pct, betrag_anteil, wg:weingarten_id(name, lagen:lage_id(name))').in('kosteneintrag_id', ids).order('id'))
       splits = sd ?? []
     }
     return NextResponse.json({ eintraege: ke ?? [], splits, jahr })

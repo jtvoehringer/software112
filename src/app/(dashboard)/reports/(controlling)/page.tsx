@@ -68,16 +68,16 @@ export default async function ReportsPage() {
     tf((supabase.from('fuellungen') as any)
       .select('id, name, jahrgang, rebsorte, flaschengroesse_ml, bestand_flaschen, vk_preis_brutto, einstandspreis, aktiv')
       .eq('aktiv', true).order('bestand_flaschen', { ascending: false })),
-    tf((supabase.from('pipeline_eintraege') as any)
+    alle(tf((supabase.from('pipeline_eintraege') as any)
       .select('id, stufe, kategorie, erledigt, kontakt:kontakte!kontakt_id(vorname, nachname, segment), firma:firmen(name, segment)')
-      .order('erstellt_am', { ascending: false })),
+      .order('erstellt_am', { ascending: false }).order('id'))),
     tf((supabase.from('kontakte') as any)
       .select('id, vorname, nachname, accountnummer, aktiv')
       .eq('aktiv', true).eq('is_lead', false).order('nachname').limit(50)),
-    tf((supabase.from('verkaufsposten') as any)
+    alle(tf((supabase.from('verkaufsposten') as any)
       .select('id, datum, rechnungsnummer, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen(name), verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
       .eq('aktiv', true).eq('bezahlt', false).eq('storniert', false)
-      .order('datum', { ascending: true })),
+      .order('datum', { ascending: true }).order('id'))),   // alle(): Summe offener Posten über alle, nicht die ältesten 1.000
     // Bewusst NICHT auf aktiv=true eingeschränkt, damit auch historische
     // (inzwischen inaktive/ausverkaufte) Füllungen filterbar bleiben.
     tf((supabase.from('fuellungen') as any).select('jahrgang, rebsorte, bezeichnung')),

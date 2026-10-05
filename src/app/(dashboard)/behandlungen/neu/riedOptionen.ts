@@ -6,6 +6,7 @@ import 'server-only'
 import type { WeingartenOption, GSTOption } from './page'
 import { gstAktivAm } from '@/lib/wein/grundstueckAktiv'
 import { wienHeute } from '@/lib/csv'
+import { alle } from '@/lib/supabase/alle'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -21,10 +22,14 @@ export async function ladeRiedOptionen(supabase: any, tenantId: string, stichtag
       .eq('aktiv', true)
       .order('name'),
     // Rückmeldung 24.8.2026: Nutzart WI ersetzt den Status als Quelle für die Spritzbarkeit
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase.from('grundstuecke') as any)
-      .select('id, weingarten_id, gst_nr, rebsorte, nutzart, flaeche_ha, aktiv, deaktiviert_am')
-      .eq('tenant_id', tenantId),
+    // alle(): sonst fehlen ab dem 1.001. Grundstück Rieden und GST in der Auswahl
+    alle<AR>(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase.from('grundstuecke') as any)
+        .select('id, weingarten_id, gst_nr, rebsorte, nutzart, flaeche_ha, aktiv, deaktiviert_am')
+        .eq('tenant_id', tenantId)
+        .order('id'),
+    ),
   ])
   const gstAktiv = ((rawG ?? []) as AR[]).filter(g => gstAktivAm(g, stichtag))
   const gstByWG = new Map<string, { nutzart: string | null; ha: number }[]>()

@@ -22,9 +22,9 @@ export default async function PipelinePage() {
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   const [{ data: pRaw }, { data: kRaw }, { data: fRaw }] = await Promise.all([
-    tf((supabase.from('pipeline_eintraege') as any)
+    alle(tf((supabase.from('pipeline_eintraege') as any)
       .select('id, stufe, titel, kategorie, wert_euro, wahrscheinlichkeit, erwartetes_datum, ganztags, uhrzeit_von, uhrzeit_bis, erledigt, erledigt_am, notizen, aktualisiert_am, kontakt_id, kontakte:kontakt_id(vorname,nachname), firma_id, firmen:firma_id(name)')
-      .order('aktualisiert_am', { ascending: false })),
+      .order('aktualisiert_am', { ascending: false }).order('id'))),
 
     alle(tf((supabase.from('kontakte') as any)
       .select('id, vorname, nachname')
