@@ -44,7 +44,7 @@ export type PsmUebermittlungZeile = {
   schlag: string | null
   erfasstAm: string | null
   erfasstVon: string | null
-  /** Volle Stunden zwischen Anwendungsende und Erfassung */
+  /** Volle Stunden zwischen Tagesende der Anwendung und Erfassung */
   verzugH: number | null
   nacherfasst: boolean | null
 }
@@ -63,7 +63,7 @@ export function psmUebermittlungZeilen(
     if (!b.anwender) ohneAnwender.push(behandlungKurz(b))
     if (!b.psm.zulassungsnr) ohneRegister.add(b.psm.name)
     const verzugH = b.erfasstAm
-      ? erfassungsverzugH({ datum: b.datum, datumBis: b.datumBis, uhrzeitBis: b.uhrzeitBis ?? null }, b.erfasstAm)
+      ? erfassungsverzugH({ datum: b.datum, datumBis: b.datumBis }, b.erfasstAm)
       : null
     const orte = verteileMassnahme(b).anteile
     for (const g of orte.length > 0 ? orte : [null]) {

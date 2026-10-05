@@ -14,14 +14,16 @@ export type MitgliedAuswahl = { id: string; name: string }
 const feld = 'w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
 
 export default function AnwendungFelder({
-  mitglieder, ichId, mitPsm, bienengefaehrlich, datum, datumBis, fristH, vorschau = true,
+  mitglieder, ichId, mitPsm, fristRelevant = mitPsm, bienengefaehrlich, datum, datumBis, fristH, vorschau = true,
   start = {},
 }: {
   mitglieder: MitgliedAuswahl[]
   /** angemeldeter Benutzer – Vorbelegung Anwender */
   ichId: string | null
-  /** Maßnahme mit Pflanzenschutzmittel: Art der Verwendung und Erfassungsfrist */
+  /** Maßnahme mit Pflanzenschutzmittel: Art der Verwendung */
   mitPsm: boolean
+  /** Erfassungsfrist gilt (Pflanzenschutz und Düngung): Hinweis „Nacherfassung“ */
+  fristRelevant?: boolean
   bienengefaehrlich: boolean
   datum: string
   datumBis: string
@@ -42,8 +44,8 @@ export default function AnwendungFelder({
     return () => { clearTimeout(erst); clearInterval(t) }
   }, [])
 
-  const hinweis = vorschau && mitPsm && datum && jetzt !== null
-    ? nacherfassungHinweis(erfassungsverzugH({ datum, datumBis: datumBis || null, uhrzeitBis: bis || null }, jetzt), fristH)
+  const hinweis = vorschau && fristRelevant && datum && jetzt !== null
+    ? nacherfassungHinweis(erfassungsverzugH({ datum, datumBis: datumBis || null }, jetzt), fristH)
     : null
   // ein früherer Anwender, der nicht mehr Mitglied ist, bleibt wählbar
   const optionen = start.durchgefuehrtVon && !mitglieder.some(m => m.id === start.durchgefuehrtVon)

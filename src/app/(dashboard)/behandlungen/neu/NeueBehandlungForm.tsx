@@ -359,6 +359,7 @@ export default function NeueBehandlungForm({
 
         {/* KAN-87: Uhrzeit, Anwender, Art der Verwendung, Hinweis Nacherfassung */}
         <AnwendungFelder mitglieder={mitglieder} ichId={ichId} mitPsm={felder.psm !== 'hidden' && !!selectedPsmId}
+          fristRelevant={(felder.psm !== 'hidden' && !!selectedPsmId) || art === 'duengung'}
           bienengefaehrlich={felder.psm !== 'hidden' && !!selectedPsm?.bienengefaehrlich}
           datum={datum} datumBis={datumBis} fristH={psmFristH} />
 

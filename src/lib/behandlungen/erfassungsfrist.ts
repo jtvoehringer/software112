@@ -1,11 +1,11 @@
-// ── Erfassungsfrist der Pflanzenschutz-Aufzeichnung (KAN-87, 05.10.2026) ─────────────────────────────────
+// ── Erfassungsfrist der Pflanzenschutz- und Düngeaufzeichnung (KAN-87, 05.10.2026) ──────────────────────
 //
 // DVO (EU) 2023/564: elektronische Aufzeichnung spätestens 30 Tage nach der Anwendung (ab 01.01.2027); der Betrieb
-// gibt sich eine engere Frist (Standard 24 h, tenant_einstellungen.psm_erfassungsfrist_h). Sie läuft ab dem Ende der
-// Anwendung in Wiener Zeit: letzter Tag (datum_bis, sonst datum) mit uhrzeit_bis, ohne Uhrzeit ab Tagesende (24:00).
+// gibt sich eine engere Frist (Standard 24 h, tenant_einstellungen.psm_erfassungsfrist_h). Entscheidung Jörgen
+// (05.10.2026): Sie läuft ab Tagesende des (letzten) Anwendungstags in Wiener Zeit (datum_bis, sonst datum, 24:00) –
+// die Enduhrzeit zählt nicht – und gilt für Maßnahmen mit Pflanzenschutzmittel UND für Düngungen.
 // Erfasst am = behandlungen.created_at (setzt die Datenbank, unveränderlich).
 // Ampel: grün bis zur Frist, gelb bis 72 h, rot darüber. Der Hinweis „Nacherfassung (+n h)“ blockiert nie.
-// Gilt für Maßnahmen mit Pflanzenschutzmittel (Spritzung, Sonstiges mit PSM) – Düngung nicht.
 // Ohne '@/'-Importe, damit node:test sie prüfen kann.
 
 export const PSM_FRIST_STANDARD_H = 24
@@ -66,17 +66,16 @@ function folgetag(datum: string): string {
 export type AnwendungsZeit = {
   datum: string
   datumBis?: string | null
-  uhrzeitBis?: string | null
 }
 
-/** Ende der Anwendung (ms): letzter Tag mit uhrzeit_bis, ohne Uhrzeit Tagesende (24:00 Wiener Zeit) */
+/** Beginn der Frist (ms): Tagesende des letzten Anwendungstags (24:00 Wiener Zeit) – die Uhrzeit zählt nicht */
 export function anwendungsEnde(a: AnwendungsZeit): number | null {
   const tag = (a.datumBis || a.datum || '').slice(0, 10)
   if (!tag) return null
-  return a.uhrzeitBis ? wienZeitpunkt(tag, a.uhrzeitBis) : wienZeitpunkt(folgetag(tag), '00:00')
+  return wienZeitpunkt(folgetag(tag), '00:00')
 }
 
-/** Volle Stunden zwischen Anwendungsende und Erfassung (≥ 0); null ohne Datum */
+/** Volle Stunden zwischen Tagesende der Anwendung und Erfassung (≥ 0); null ohne Datum */
 export function erfassungsverzugH(a: AnwendungsZeit, erfasstAm: Date | string | number): number | null {
   const ende = anwendungsEnde(a)
   const erfasst = typeof erfasstAm === 'number' ? erfasstAm : new Date(erfasstAm).getTime()
@@ -98,12 +97,12 @@ export function nacherfasstText(verzugH: number | null, fristH: number = PSM_FRI
 /** Hinweis beim Speichern (blockiert nicht) */
 export function nacherfassungHinweis(verzugH: number | null, fristH: number = PSM_FRIST_STANDARD_H): string | null {
   if (verzugH === null || verzugH <= fristH) return null
-  return `Nacherfassung (+${verzugH} h): Die Pflanzenschutz-Aufzeichnung liegt über der Erfassungsfrist von ${fristH} h ab Anwendungsende – gespeichert und als „nacherfasst“ markiert.`
+  return `Nacherfassung (+${verzugH} h): Die Aufzeichnung liegt über der Erfassungsfrist von ${fristH} h ab Ende des Anwendungstags – gespeichert und als „nacherfasst“ markiert.`
 }
 
-/** Frist gilt nur für Maßnahmen mit Pflanzenschutzmittel */
-export function fristRelevant(b: { psmId?: string | null; psm_id?: string | null }): boolean {
-  return !!(b.psmId ?? b.psm_id)
+/** Frist gilt für Maßnahmen mit Pflanzenschutzmittel und für Düngungen (Entscheidung 05.10.2026) */
+export function fristRelevant(b: { art?: string | null; psmId?: string | null; psm_id?: string | null }): boolean {
+  return !!(b.psmId ?? b.psm_id) || b.art === 'duengung'
 }
 
 /** Frist aus den Einstellungen (1–720 h), sonst Standard */
@@ -193,10 +192,10 @@ export function anwenderZuordnen(text: unknown, mitglieder: readonly { id: strin
 }
 
 // ── Fristen-Dashboard (KAN-87) ───────────────────────────────────────────────────────────────────────────
-export type PsmErfassungZeile = { datum: string; datum_bis?: string | null; uhrzeit_bis?: string | null; created_at: string }
+export type PsmErfassungZeile = { datum: string; datum_bis?: string | null; created_at: string }
 
 /**
- * Eintrag „PSM-Aufzeichnung (24 h)“: Ampel der Saison (schlechteste Erfassung: grün = alle in der Frist, gelb = bis
+ * Eintrag „Aufzeichnung Pflanzenschutz & Düngung (24 h)“: Ampel der Saison (schlechteste Erfassung: grün = alle in der Frist, gelb = bis
  * 72 h, rot = darüber) und Zahl der Nacherfassungen. Status wie die übrigen Fristen: laufend / faellig / ueberfaellig.
  */
 export function psmErfassungFrist(zeilen: readonly PsmErfassungZeile[], fristH: number = PSM_FRIST_STANDARD_H, jahr: number) {
@@ -204,7 +203,7 @@ export function psmErfassungFrist(zeilen: readonly PsmErfassungZeile[], fristH: 
   let max = 0
   let ampel: ErfassungsAmpel = 'gruen'
   for (const z of zeilen) {
-    const v = erfassungsverzugH({ datum: z.datum, datumBis: z.datum_bis ?? null, uhrzeitBis: z.uhrzeit_bis ?? null }, z.created_at)
+    const v = erfassungsverzugH({ datum: z.datum, datumBis: z.datum_bis ?? null }, z.created_at)
     if (v === null || v <= fristH) continue
     nach++
     max = Math.max(max, v)
@@ -214,9 +213,9 @@ export function psmErfassungFrist(zeilen: readonly PsmErfassungZeile[], fristH: 
   const status = ampel === 'rot' ? 'ueberfaellig' as const : ampel === 'gelb' ? 'faellig' as const : 'laufend' as const
   return {
     key: 'psm-erfassung',
-    bezeichnung: `PSM-Aufzeichnung (${fristH} h)`,
+    bezeichnung: `Aufzeichnung Pflanzenschutz & Düngung (${fristH} h)`,
     kategorie: 'weinrecht',
-    hinweis: `Pflanzenschutz innerhalb von ${fristH} h ab Anwendungsende erfassen (DVO (EU) 2023/564: elektronisch, spätestens 30 Tage) · Ampel ${ampel === 'gruen' ? 'grün' : ampel}`,
+    hinweis: `Pflanzenschutz und Düngung innerhalb von ${fristH} h ab Ende des Anwendungstags erfassen (DVO (EU) 2023/564: elektronisch, spätestens 30 Tage) · Ampel ${ampel === 'gruen' ? 'grün' : ampel}`,
     faelligAm: null as string | null,
     status,
     ampel,
