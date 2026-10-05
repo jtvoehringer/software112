@@ -192,6 +192,22 @@ function sortenSchluessel(s: string): string {
 }
 
 /**
+ * KAN-89 (Vorgabe BKI 05.10.2026: neben der Sorte auch das Sortenkürzel übermitteln): Kürzel zu einem Sortenfeld, auch
+ * mit mehreren Sorten („Grüner Veltliner, Riesling“ → „GV, RR“, Trenner , / ; + & „und“) und mit schon angehängtem
+ * Kürzel („Zierfandler (ZF)“). Nur wenn JEDE Sorte ein amtliches Kürzel hat, sonst null (kein halbes Kürzel in Meldungen).
+ */
+export function sortenKuerzel(sorten: string | null | undefined): string | null {
+  const t = (sorten ?? '').trim()
+  if (!t) return null
+  const direkt = bkiRebsorteKuerzel(t)
+  if (direkt) return direkt
+  const teile = t.split(/\s*(?:,|\/|;|\+|&|\bund\b)\s*/i).map(s => s.replace(/\s*\([A-Z]{2,3}\)\s*$/, '').trim()).filter(Boolean)
+  if (teile.length === 0) return null
+  const kz = teile.map(s => bkiRebsorteKuerzel(s))
+  return kz.every(Boolean) ? [...new Set(kz)].join(', ') : null
+}
+
+/**
  * KAN-89: amtliche Sortennamen für Auswahllisten (Prüfseite „Rebsorten ohne Kürzel“) – je Kürzel der erste Name aus
  * REBSORTE_KUERZEL, alphabetisch; die Sortenverschnitte (SW/SO/SR/SP) stehen am Ende.
  */

@@ -23,7 +23,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Projektkonvention (supabase.from('…') as any), siehe CLAUDE.md */
 import { runden, STELLEN, type CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
-import { bkiRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
+import { bkiRebsorteKuerzel, sortenKuerzel } from '@/lib/wein/bki_kuerzel'
 import { qualitaetAnzeigeOderNull } from '@/lib/wein/qualitaet'
 import { MASSNAHMEN_ART_LABEL } from '@/lib/behandlungen/arten'
 import { normalisiereBehandlung } from './psm'
@@ -720,6 +720,8 @@ export const SPALTEN_RUECKVERFOLGUNG: CsvSpalte<RueckverfolgungZeile>[] = [
   { kopf: 'Abfülldatum', typ: 'datum', wert: z => z.abfuelldatum },
   { kopf: 'Jahrgang', typ: 'ganzzahl', wert: z => z.jahrgang },
   { kopf: 'Sorte', typ: 'text', wert: z => z.sorte },
+  // KAN-89: Vorgabe BKI – neben der Sorte das Sortenkürzel
+  { kopf: 'BKI-Kürzel', typ: 'code', wert: z => sortenKuerzel(z.sorte) },
   { kopf: 'Flaschen (Stk)', typ: 'ganzzahl', wert: z => z.flaschen },
   { kopf: 'Flaschengröße (ml)', typ: 'ganzzahl', wert: z => z.flaschengroesseMl },
   { kopf: 'Kellerbuch-Charge', typ: 'text', wert: z => z.charge },
@@ -733,6 +735,7 @@ export const SPALTEN_RUECKVERFOLGUNG: CsvSpalte<RueckverfolgungZeile>[] = [
   { kopf: 'KG-Nr.', typ: 'code', wert: z => z.katastralgemeinde },
   { kopf: 'GST-Nr.', typ: 'code', wert: z => z.gstNr },
   { kopf: 'Rebsorte (Lese)', typ: 'text', wert: z => z.rebsorteLese },
+  { kopf: 'BKI-Kürzel (Lese)', typ: 'code', wert: z => sortenKuerzel(z.rebsorteLese) },
   { kopf: 'Trauben (kg)', typ: 'dezimal', stellen: STELLEN.kg, wert: z => z.traubenKg },
   { kopf: 'Lesedatum', typ: 'datum', wert: z => z.lesedatum },
   // KAN-131: °KMW (abgerundet, 2 Stellen) vor °Oe, gemessene Einheit

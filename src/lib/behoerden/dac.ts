@@ -12,6 +12,7 @@ import { STELLEN, runden, type CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
 import { feld, textOderNull, type R } from './verkehr-hilfen'
 import { PN_STATUS_LABEL, pnFormatHinweis } from '../dac/workflow'
+import { sortenKuerzel } from '@/lib/wein/bki_kuerzel'
 
 export const DAC_REGION_LABEL: Record<string, string> = {
   weinviertel: 'Weinviertel', kamptal: 'Kamptal', kremstal: 'Kremstal',
@@ -53,6 +54,8 @@ export const SPALTEN_DAC_ANTRAEGE: CsvSpalte<DacAntragZeile>[] = [
   { kopf: 'DAC-Region', typ: 'text', wert: z => z.dacRegionLabel },
   { kopf: 'Jahrgang', typ: 'ganzzahl', wert: z => z.jahrgang },
   { kopf: 'Rebsorte', typ: 'text', wert: z => z.rebsorte },
+  // KAN-89: Vorgabe BKI – neben der Sorte das Sortenkürzel
+  { kopf: 'BKI-Kürzel', typ: 'code', wert: z => sortenKuerzel(z.rebsorte) },
   { kopf: 'Menge (l)', typ: 'dezimal', stellen: STELLEN.liter, wert: z => z.mengeLiter },
   { kopf: 'Alkohol (% vol)', typ: 'prozent', stellen: STELLEN.prozent, wert: z => z.alkoholProzent },
   { kopf: 'Status', typ: 'text', wert: z => z.statusLabel },
