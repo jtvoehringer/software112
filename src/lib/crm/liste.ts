@@ -122,10 +122,26 @@ export function paramsAusFilter(f: Partial<ListenFilter>): string {
   return s ? `?${s}` : ''
 }
 
-/** ilike-Muster ohne Sonderzeichen-Überraschungen */
-function muster(q: string): string {
-  return `%${q.replace(/[%_\\]/g, ' ').trim()}%`
+/** Höchstens so viele Suchwörter werden ausgewertet */
+export const SUCHWOERTER_MAX = 5
+
+/**
+ * Suchtext → Wörter für die Listensuche (05.10.2026). Vorher wurde der ganze Text in jedem Feld einzeln gesucht –
+ * „Dörfler Franz“ fand den Kontakt nicht, weil kein Feld beide Wörter enthält. Zeichen, die im ilike-Muster bzw. in
+ * der PostgREST-or()-Syntax eine Bedeutung haben (% _ \ , ( ) " :), trennen wie Leerzeichen – ein Komma
+ * („Dörfler, Franz“) brach sonst die Abfrage.
+ */
+export function suchWoerter(q: string): string[] {
+  return q.split(/[\s%_\\,()":]+/).map(w => w.trim()).filter(Boolean).slice(0, SUCHWOERTER_MAX)
 }
+
+/** Ein or()-Filter je Wort: jedes Wort muss in mindestens einer der Spalten vorkommen (Wörter UND-verknüpft) */
+export function suchFilter(spalten: readonly string[], q: string): string[] {
+  return suchWoerter(q).map(w => spalten.map(s => `${s}.ilike.%${w}%`).join(','))
+}
+
+export const KONTAKT_SUCHSPALTEN = ['nachname', 'vorname', 'email', 'accountnummer', 'telefon', 'mobil', 'ort', 'position'] as const
+export const FIRMA_SUCHSPALTEN = ['name', 'email', 'accountnummer', 'telefon', 'ort', 'uid_nummer'] as const
 
 export type Zaehler = {
   gesamt: number
@@ -165,10 +181,7 @@ export async function ladeKontakteSeite(client: any, tenantId: string | null, f:
   if (f.buchstabe !== 'Alle') q = q.ilike(f.sort === 'vorname' ? 'vorname' : 'nachname', `${f.buchstabe}%`)
   if (f.lead === 'lead') q = q.eq('is_lead', true)
   if (f.lead === 'kunde') q = q.eq('is_lead', false)
-  if (f.q) {
-    const m = muster(f.q)
-    q = q.or(`nachname.ilike.${m},vorname.ilike.${m},email.ilike.${m},accountnummer.ilike.${m},telefon.ilike.${m},mobil.ilike.${m},ort.ilike.${m},position.ilike.${m}`)
-  }
+  for (const filter of suchFilter(KONTAKT_SUCHSPALTEN, f.q)) q = q.or(filter)
   q = f.sort === 'vorname' ? q.order('vorname', { nullsFirst: false }).order('nachname') : q.order('nachname').order('vorname', { nullsFirst: false })
   const { data, count, error } = await q.order('id').range(0, f.n - 1)
   if (error) throw new Error(error.message)
@@ -211,10 +224,7 @@ export async function ladeFirmenSeite(client: any, tenantId: string | null, f: L
   if (f.lead === 'kunde') q = q.eq('is_lead', false)
   if (f.kunde) q = q.eq('ist_kunde', true)
   if (f.lieferant) q = q.eq('ist_lieferant', true)
-  if (f.q) {
-    const m = muster(f.q)
-    q = q.or(`name.ilike.${m},email.ilike.${m},accountnummer.ilike.${m},telefon.ilike.${m},ort.ilike.${m},uid_nummer.ilike.${m}`)
-  }
+  for (const filter of suchFilter(FIRMA_SUCHSPALTEN, f.q)) q = q.or(filter)
   const { data, count, error } = await q.order('name').order('id').range(0, f.n - 1)
   if (error) throw new Error(error.message)
   return { rows: (data ?? []) as R[], gesamt: count ?? 0 }
