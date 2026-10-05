@@ -35,6 +35,8 @@ import { massnahmeMittel, massnahmeZeitraum } from '@/lib/behoerden/rueckverfolg
 import { ladeRvWeingarten, massnahmeWartezeit, type RvLese } from '@/lib/behoerden/rv-weingarten'
 import { ttmmjjjj } from '@/lib/behoerden/rueckverfolgungFenster'
 import { quellGebindeDesVerschnitts, quellGebindeSchluessel, verschnittQuelleText } from '@/lib/kellerbuch/quellGebinde'
+import { abstufungText } from '@/lib/kellerbuch/abstufen'
+import { normalisiereQualitaet } from '@/lib/wein/qualitaetsrang'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -50,6 +52,7 @@ export type EventTyp =
   | 'dac'
   | 'fuellung'
   | 'verschneidung'
+  | 'umstufung'   // KAN-82: Abstufung der Charge (charge_umstufungen)
 
 export interface TimelineEvent {
   datum: string        // ISO date string zum Sortieren
@@ -621,6 +624,29 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
         fc.anteil_liter
           ? `Anteil diese Charge: ${fmtNum(parseFloat(fc.anteil_liter))} L`
           : null,
+      ].filter(Boolean) as string[],
+    })
+  }
+
+  // KAN-82: Abstufungen der Charge – Datum, Menge, alt → neu, Grund und Benutzer
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: umstRaw, error: umstErr } = await tf((supabase.from('charge_umstufungen') as any)
+    .select('datum, menge_liter, alt_qualitaetsstufe, alt_zusatzbezeichnung, alt_erzeugnis, alt_herkunft_code, neu_qualitaetsstufe, neu_zusatzbezeichnung, neu_erzeugnis, neu_herkunft_code, grund, erstellt_von_name, quelle:quelle_weinausbau_id(name)')
+    .eq('weinausbau_id', id)
+    .order('datum', { ascending: true }))
+  if (umstErr) warnungen.push(`Abstufungen konnten nicht geladen werden: ${umstErr.message}`)
+  for (const u of (umstRaw ?? []) as R[]) {
+    const alt = { ...normalisiereQualitaet({ qualitaetsstufe: u.alt_qualitaetsstufe, zusatzbezeichnung: u.alt_zusatzbezeichnung, erzeugnis: u.alt_erzeugnis }), herkunft: u.alt_herkunft_code ?? null }
+    const neu = { ...normalisiereQualitaet({ qualitaetsstufe: u.neu_qualitaetsstufe, zusatzbezeichnung: u.neu_zusatzbezeichnung, erzeugnis: u.neu_erzeugnis }), herkunft: u.neu_herkunft_code ?? null }
+    events.push({
+      datum: u.datum,
+      typ: 'umstufung',
+      titel: `Abstufung: ${abstufungText(alt, neu)}`,
+      details: [
+        `${fmtNum(parseFloat(u.menge_liter ?? 0))} L`,
+        (u.quelle as R | null)?.name ? `Teilmenge aus „${(u.quelle as R).name}“` : null,
+        u.grund ? `Grund: ${u.grund}` : null,
+        u.erstellt_von_name ? `von ${u.erstellt_von_name}` : null,
       ].filter(Boolean) as string[],
     })
   }

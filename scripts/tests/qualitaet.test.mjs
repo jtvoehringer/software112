@@ -501,6 +501,7 @@ describe('(4) Formulare und Server Actions verwenden die Liste ihrer Zieltabelle
     'src/app/(dashboard)/weinhandel/fuellungen/[id]/edit/page.tsx':            'fuellung',
     'src/lib/assistent/tools/abfuellen.ts':                                    'fuellung',
     'src/components/kellerbuch/WeinausbauForm.tsx':                            'charge',
+    'src/app/(dashboard)/kellerbuch/weinausbau/[id]/abstufen/AbstufenForm.tsx': 'charge',   // KAN-82: Auswahl „Abstufen“ (weinausbau)
     'src/app/(dashboard)/kellerbuch/eroeffnungsbestand/[id]/edit/page.tsx':    'charge',
     'src/app/(dashboard)/kellerbuch/gebinde/page.tsx':                         'charge',
     'src/app/(dashboard)/admin/import/ImportClient.tsx':                       'charge',

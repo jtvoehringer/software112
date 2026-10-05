@@ -294,6 +294,26 @@
 "erstellt_am",
 "buchung_id"
 ],
+"charge_umstufungen": [
+"id",
+"tenant_id",
+"weinausbau_id",
+"quelle_weinausbau_id",
+"datum",
+"menge_liter",
+"alt_qualitaetsstufe",
+"alt_zusatzbezeichnung",
+"alt_erzeugnis",
+"alt_herkunft_code",
+"neu_qualitaetsstufe",
+"neu_zusatzbezeichnung",
+"neu_erzeugnis",
+"neu_herkunft_code",
+"grund",
+"erstellt_von",
+"erstellt_von_name",
+"erstellt_am"
+],
 "checklisten": [
 "id",
 "tenant_id",

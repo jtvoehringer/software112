@@ -961,6 +961,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('betriebsmittel_lager_bewegungen','SA,TA,W*{rieden}',                      'SA,TA,W*{rieden}',                       '-{rieden}'),   -- KAN-167 (Einkauf nur per RPC; löschen nur über s112_storniert_loeschen)
     ('buchhaltung_export_protokoll',  'SA,TA,W*{ea}',                           '-{ea}',                                  '-{ea}'),
     ('buchhaltung_kontenmapping',     'SA,TA{ea}',                              'SA,TA{ea}',                              'SA,TA{ea}'),
+    ('charge_umstufungen',            '-',                                      '-',                                      '-'),   -- KAN-82: nur per RPC s112_charge_abstufen
     ('checklisten',                   'SA,TA,W*{betrieb}',                      'SA,TA,W*{betrieb}',                      'SA,TA,W*{betrieb}'),
     ('checklisten_punkte',            'SA,TA,W*{betrieb}',                      'SA,TA,W*{betrieb}',                      'SA,TA,W*{betrieb}'),
     ('crm_dubletten_ignoriert',       'SA,TA,W*{crm}',                          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}'),
@@ -1188,6 +1189,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('trigger',       '--S', false, 's112_freeze()'),   -- KAN-96: generischer Freeze-Trigger
     ('trigger',       '--S', false, 's112_pn_workflow_schutz()'),
     ('trigger',       '--S', false, 's112_pn_chargen_pflegen()'),   -- KAN-99: Gültigkeit je Charge (Einreichen, Umzug, Zugang, Storno)   -- KAN-97: Status nur per RPC, Formular nur zum Entwurf
+    ('mandant',       '-US', true , 's112_charge_abstufen(p_tenant_id uuid, p_weinausbau_id uuid, p_datum date, p_neu jsonb, p_grund text, p_quelle_weinausbau_id uuid)'),   -- KAN-82: Charge abstufen (Datum, Grund, Protokoll)
     ('mandant',       '-US', true , 's112_fuellung_nachtragen(p_tenant_id uuid, p_fuellung_id uuid, p_weinausbau_id uuid, p_dac_antrag_id uuid)'),   -- KAN-101: Charge/DAC-Antrag/Prüfnummer einmal nachtragen
     ('mandant',       '-US', true , 's112_pruefnummernantrag_status_setzen(p_tenant_id uuid, p_antrag_id uuid, p_status text, p_datum date, p_pruefnummer text, p_grund text)'),   -- KAN-97: Statuswechsel
     ('mandant',       '-US', true , 's112_freeze_korrektur(p_tenant_id uuid, p_tabelle text, p_id uuid, p_werte jsonb, p_grund text)'),   -- KAN-96: Korrektur durch den Betriebsleiter   -- KAN-178: Fremdverweise je FK-Spalte

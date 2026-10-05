@@ -21,6 +21,7 @@ export const WEINBUCH_TYP_LABEL: Record<EventTyp, string> = {
   analyse:          'Analyse',
   dac:              'DAC / Prüfnummer',
   verschneidung:    'Verschneidung',
+  umstufung:        'Abstufung',
   schwund:          'Schwund',
   fuellung:         'Füllung',
 }

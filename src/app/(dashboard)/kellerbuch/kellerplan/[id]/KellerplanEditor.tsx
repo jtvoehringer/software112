@@ -2,7 +2,7 @@
 
 import { useState, useRef, useTransition, useCallback } from 'react'
 import Link from '@/components/ui/Link'
-import { ArrowLeftRight, FlaskConical, Wine } from 'lucide-react'
+import { ArrowDownWideNarrow, ArrowLeftRight, FlaskConical, Wine } from 'lucide-react'
 import { upsertKellerplanPosition, deleteKellerplanPosition } from '../actions'
 import { getRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum } from '@/lib/format'
@@ -529,7 +529,7 @@ export default function KellerplanEditor({
         )}
       </div>
 
-      {/* Gebinde-Dialog: Sprung zu Umziehen / Kellerbehandlungen / Abfüllen */}
+      {/* Gebinde-Dialog: Sprung zu Umziehen / Kellerbehandlungen / Abstufen / Abfüllen */}
       {dialogBehaelter && (
         <div className="no-print fixed inset-0 z-50 flex items-center justify-center bg-black/30"
           onClick={() => setDialogBehaelterId(null)}>
@@ -557,6 +557,16 @@ export default function KellerplanEditor({
               >
                 <FlaskConical className="w-4 h-4" /> Kellerbehandlungen
               </Link>
+              {/* KAN-82: Abstufen der Charge im Gebinde */}
+              {dialogWein && dialogWein.weinausbauId && (
+                <Link
+                  href={`/kellerbuch/weinausbau/${dialogWein.weinausbauId}/abstufen`}
+                  onClick={() => setDialogBehaelterId(null)}
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-s112-border hover:border-s112-teal/50 hover:bg-s112-bg/40 transition-colors text-sm font-medium text-s112-text-1"
+                >
+                  <ArrowDownWideNarrow className="w-4 h-4" /> Abstufen
+                </Link>
+              )}
               {dialogWein && dialogWein.weinausbauId ? (
                 <Link
                   href={`/weinhandel/fuellungen/neu?charge=${dialogWein.weinausbauId}`}
