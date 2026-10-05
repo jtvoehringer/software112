@@ -7,6 +7,7 @@ import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { escHtml as e, escHtmlMehrzeilig, sichererDateiname, DOKUMENT_CSP } from '@/lib/utils/html'
 import { druckCsp, druckleiste, DRUCKLEISTE_CSS } from '@/lib/utils/druckknopf'
 import { landAnzeige } from '@/lib/katalog/laender'   // KAN-187: ISO-Code → Ländername (Altdaten mit Namen unverändert)
+import { kontaktAnzeigename } from '@/lib/crm/titel'
 export const dynamic = 'force-dynamic'
 // KAN-141 (01.10.2026): Dokument-CSP plus genau ein per Hash freigegebenes Skript für den Drucken-Knopf
 const DRUCK_CSP = druckCsp(DOKUMENT_CSP)
@@ -65,7 +66,7 @@ export async function GET(
   const [{ data: auftrag }, { data: positionen }, { data: betriebData }] = await Promise.all([
     // storno-sichtbar: der Druck zeigt auch stornierte Aufträge, mit Vermerk (KAN-150 F2)
     (supabase.from('exportauftraege') as any)
-      .select('*, kontakte(vorname,nachname,email), firmen(name,email)')
+      .select('*, kontakte(titel,vorname,nachname,titel_nachgestellt,email), firmen(name,email)')
       .eq('id', auftragId).eq('tenant_id', tenantId).single(),
     (supabase.from('exportauftrag_positionen') as any)
       .select('*, fuellungen(bezeichnung,flaschengroesse_ml)').eq('exportauftrag_id', auftragId).order('sort_order'),
@@ -80,7 +81,7 @@ export async function GET(
   const pos = (positionen ?? []) as R[]
   const b   = (betriebData ?? {}) as R
   momentaufnahmeAnwenden(a, { kontakte: 'kontakt', firmen: 'firma' })   // KAN-150 F1c: Empfänger wie beim Anlegen des Auftrags
-  const importeur = a.firmen?.name ?? [a.kontakte?.vorname, a.kontakte?.nachname].filter(Boolean).join(' ') ?? '–'
+  const importeur = a.firmen?.name ?? (a.kontakte ? kontaktAnzeigename(a.kontakte) : '') ?? '–'
   const gesamtEUR = pos.reduce((s, p) => s + (parseFloat(p.menge)||0) * (parseFloat(p.preis_eur)||0), 0)
 
   // KAN-138: jede Interpolation aus DB-/Benutzerdaten läuft über e() (escHtml) bzw.

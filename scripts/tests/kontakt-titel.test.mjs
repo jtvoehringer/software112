@@ -49,3 +49,16 @@ describe('Kontakt-Titel Verdrahtung', () => {
     assert.match(quelle('src/app/(dashboard)/crm/kontakte/[id]/KontaktDetailClient.tsx'), /const name = kontaktAnzeigename\(kontakt\)/)
   })
 })
+
+describe('Kontakt-Titel in der Anschrift', () => {
+  test('Rechnung/Lieferschein, Rechnungs-E-Mail, Weinexport-Dokumente und Momentaufnahme führen den Titel', () => {
+    const r = quelle('src/app/(dashboard)/weinhandel/verkauf/[id]/page.tsx')
+    assert.match(r, /kontakt:kontakte!kontakt_id\(id, titel, vorname, nachname, titel_nachgestellt,/)
+    assert.match(r, /return kontaktAnzeigename\(p\.kontakt as R\)/)
+    assert.equal((r.match(/kontaktAnzeigename\(posten\.zh_kontakt as R\)/g) ?? []).length, 2)
+    const m = quelle('src/app/api/weinhandel/verkauf/[id]/send/route.ts')
+    assert.match(m, /if \(p\.kontakt\) return kontaktAnzeigename\(p\.kontakt\)/)
+    assert.match(m, /zHande: posten\.zh_kontakt \? kontaktAnzeigename\(posten\.zh_kontakt\) : null/)
+    assert.match(quelle('src/app/api/weinexport/[id]/dokument/[art]/route.ts'), /kontakte\(titel,vorname,nachname,titel_nachgestellt,email\)/)
+  })
+})
