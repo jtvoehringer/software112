@@ -13,6 +13,7 @@ import { SEGMENTE, AKTIVITAET_ARTEN, PIPELINE_STUFEN, DIAL_CODES, segmentLabel, 
 import type { KontaktRow } from '@/lib/crm/types'
 import { AlertTriangle, Trash2, Pencil } from 'lucide-react'
 import { fmtEur } from '@/lib/format'
+import { TITEL_OPTS, TITEL_NACHGESTELLT_MAX, kontaktAnzeigename } from '@/lib/crm/titel'
 
 type FirmaOption = { id: string; name: string; segment: string }
 type RabattgruppeOption = { id: string; name: string; rabatt_pct: number }
@@ -153,13 +154,29 @@ export function KontaktForm({
             </span>
           </label>
         </div>
-        <div>
-          <label className="block text-xs font-medium text-s112-text-2 mb-1">Vorname</label>
-          <input aria-label="Vorname" name="vorname" defaultValue={v('vorname')} className={inputCls()} />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-s112-text-2 mb-1">Nachname *</label>
-          <input aria-label="Nachname" name="nachname" defaultValue={v('nachname')} required className={inputCls()} />
+        {/* Hotfix 05.10.2026: Titel (Auswahl der in Österreich gängigen) | Vorname | Nachname | nachgestellter Titel (frei) */}
+        <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-[9rem_1fr_1fr_9rem] gap-3">
+          <div>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Titel</label>
+            <select aria-label="Titel" name="titel" defaultValue={v('titel')} className={inputCls()}>
+              <option value="">–</option>
+              {v('titel') && !(TITEL_OPTS as readonly string[]).includes(v('titel')) && <option value={v('titel')}>{v('titel')}</option>}
+              {TITEL_OPTS.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Vorname</label>
+            <input aria-label="Vorname" name="vorname" defaultValue={v('vorname')} className={inputCls()} />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Nachname *</label>
+            <input aria-label="Nachname" name="nachname" defaultValue={v('nachname')} required className={inputCls()} />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Nachgest. Titel</label>
+            <input aria-label="Nachgestellter Titel" name="titel_nachgestellt" defaultValue={v('titel_nachgestellt')}
+              maxLength={TITEL_NACHGESTELLT_MAX} placeholder="z. B. MSc, MBA" className={inputCls()} />
+          </div>
         </div>
         {/* Position | Segment | Firma in einer Zeile (02.10.2026) */}
         <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -465,8 +482,8 @@ function KontaktKarte({
   const [pending, startTransition] = useTransition()
 
   const name = sortBy === 'nachname'
-    ? [kontakt.nachname, kontakt.vorname].filter(Boolean).join(' ')
-    : [kontakt.vorname, kontakt.nachname].filter(Boolean).join(' ')
+    ? kontaktAnzeigename(kontakt, 'nachname')
+    : kontaktAnzeigename(kontakt, 'vorname')
 
   function handleDelete() {
     if (!confirm(`Kontakt "${name}" wirklich löschen?`)) return

@@ -17,6 +17,7 @@ import { nurGesendeteFelder } from '@/lib/crm/formFelder'   // Bearbeiten: nur g
 import { ladeMandantMitglieder } from '@/lib/aufgaben/mitglieder'
 import { benachrichtigeAktivitaet } from '@/lib/benachrichtigungen/server'
 import { ladeMailAusPostfach } from '@/lib/email/mailLaden'
+import { titelAusFormular, titelNachgestelltAusFormular } from '@/lib/crm/titel'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -139,6 +140,22 @@ function landPruefen(roh: unknown): string {
   return iso
 }
 
+/** Hotfix 05.10.2026: Titel (Auswahl) und nachgestellter Titel (frei) – nur, wenn das Formular sie mitschickt */
+function kontaktTitel(formData: FormData, bisher?: string | null): { titel?: string | null; titel_nachgestellt?: string | null } {
+  const erg: { titel?: string | null; titel_nachgestellt?: string | null } = {}
+  if (formData.has('titel')) {
+    const t = titelAusFormular(formData.get('titel'), bisher)
+    if (t.fehler) throw new AktionsFehler(t.fehler)
+    erg.titel = t.wert
+  }
+  if (formData.has('titel_nachgestellt')) {
+    const n = titelNachgestelltAusFormular(formData.get('titel_nachgestellt'))
+    if (n.fehler) throw new AktionsFehler(n.fehler)
+    erg.titel_nachgestellt = n.wert
+  }
+  return erg
+}
+
 function kontaktPositionQuelle(formData: FormData): { position: string | null; quelle: string | null } {
   return {
     position: optionalerText(formData, 'position', 'Position', POSITION_MAX),
@@ -154,6 +171,7 @@ export async function createKontakt(formData: FormData): Promise<{ error?: strin
     if (em.fehler) return { error: em.fehler }
     const payload: AR = {
       ...kontaktPositionQuelle(formData),
+      ...kontaktTitel(formData),
       tenant_id:   tenantId,
       vorname:     (formData.get('vorname') as string) || null,
       nachname:    formData.get('nachname') as string,
@@ -196,8 +214,11 @@ export async function updateKontakt(id: string, formData: FormData): Promise<{ e
     const tenantId = await getTenantId()
     const em = emailFelder(formData)
     if (em.fehler) return { error: em.fehler }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase-Typen ohne Tabellenschema (Konvention)
+    const { data: titelAlt } = await (supabase.from('kontakte') as any).select('titel').eq('id', id).eq('tenant_id', tenantId).maybeSingle()
     const payload: AR = nurGesendeteFelder(formData, {
       ...kontaktPositionQuelle(formData),
+      ...kontaktTitel(formData, (titelAlt as AR | null)?.titel ?? null),
       vorname:    (formData.get('vorname') as string) || null,
       nachname:   formData.get('nachname') as string,
       segment:    formData.get('segment') as string,

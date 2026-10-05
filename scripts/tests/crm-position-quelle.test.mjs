@@ -122,7 +122,7 @@ describe('Seiten, Formular und Actions', () => {
 
   test('Detailseite lädt und zeigt Position und Quelle, kein select(*) eingeführt', () => {
     assert.match(detailPage, /\.select\(`\$\{KONTAKT_SPALTEN\}/)
-    assert.match(liste.KONTAKT_SPALTEN, /zahlungsziel_tage, position, quelle$/)
+    assert.match(liste.KONTAKT_SPALTEN, /zahlungsziel_tage, position, quelle(, |$)/)   // danach Titel (Hotfix 05.10.2026)
     assert.match(detailPage, /quellen=\{quellen\}/)
     assert.match(detail, /kontakt\.position &&/)
     assert.match(detail, /kontakt\.quelle &&/)

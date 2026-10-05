@@ -21,6 +21,7 @@ import {
 import { fmtEur } from '@/lib/format'
 import { useDialog } from '@/components/ui/useDialog'
 import EmailHtmlAnzeige from '@/components/EmailHtmlAnzeige'
+import { kontaktAnzeigename } from '@/lib/crm/titel'
 
 // Aktivitäts-Art -> Lucide-Icon (Timeline-Avatar). Gleiches Vokabular wie
 // FirmaDetailClient.tsx / CRM-Kalender.
@@ -533,7 +534,7 @@ export default function KontaktDetailClient({
   }
   const [showPipelineForm, setShowPipelineForm] = useState(false)
 
-  const name = [kontakt.vorname, kontakt.nachname].filter(Boolean).join(' ')
+  const name = kontaktAnzeigename(kontakt)   // Hotfix 05.10.2026: mit Titeln
 
   return (
     <div className="space-y-6">

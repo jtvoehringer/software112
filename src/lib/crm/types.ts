@@ -192,6 +192,9 @@ export type KontaktRow = {
   accountnummer: string | null
   vorname: string | null
   nachname: string
+  /** Hotfix 05.10.2026: vorangestellter Titel (Auswahl) und nachgestellter Titel (frei) */
+  titel?: string | null
+  titel_nachgestellt?: string | null
   segment: Kundensegment
   firma_id: string | null
   firma_name?: string | null
