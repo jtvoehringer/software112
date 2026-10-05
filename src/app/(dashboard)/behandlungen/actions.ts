@@ -21,7 +21,7 @@ import { gstAktivAm } from '@/lib/wein/grundstueckAktiv'
 import { artMitBetriebsmittel, BM_AUFWAND_EINHEITEN } from '@/lib/behandlungen/betriebsmittel'
 import { ladeMandantMitglieder } from '@/lib/aufgaben/mitglieder'
 import {
-  anwenderAus, erfassungsverzugH, fristAus, istArtVerwendung, nacherfassungHinweis, uhrzeitAus, uhrzeitFehler,
+  anwenderAus, erfassungsverzugH, fristAus, fristRelevant, istArtVerwendung, nacherfassungHinweis, uhrzeitAus, uhrzeitFehler,
 } from '@/lib/behandlungen/erfassungsfrist'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -546,11 +546,12 @@ export async function createBehandlung(formData: FormData) {
   if (await hatModul('modul_controlling')) await ggfKostenEintragAnlegen(supabase, tenantId, formData, datum, haByWeingarten, behandlungId)
 
   revalidatePath('/behandlungen')
-  // KAN-87: Nacherfassung über der Frist – Hinweis, gespeichert wird trotzdem (Markierung in der Liste)
+  // KAN-87: Nacherfassung über der Frist (Pflanzenschutz und Düngung, ab Tagesende) – Hinweis, gespeichert wird
+  // trotzdem (Markierung in der Liste)
   const hinweise = [...mengen.hinweise]
-  if (psmId) {
+  if (fristRelevant({ art, psmId })) {
     const frist = await ladePsmFrist(supabase, tenantId)
-    const nach = nacherfassungHinweis(erfassungsverzugH({ datum, datumBis, uhrzeitBis: (anwendung.uhrzeit_bis as string | null) }, Date.now()), frist)
+    const nach = nacherfassungHinweis(erfassungsverzugH({ datum, datumBis }, Date.now()), frist)
     if (nach) hinweise.push(nach)
   }
   // hinweise: gespeichert, aber prüfenswert (z. B. Spritzbrühe ≠ Wasseraufwand × Fläche) – für Formular und Assistent
