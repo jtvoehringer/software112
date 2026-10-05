@@ -5,7 +5,7 @@ import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import { BarChart3 } from 'lucide-react'
 import BehandlungenClient from './BehandlungenClient'
-import { erfassungsAmpel, erfassungsverzugH, fristAus, nacherfasstText, type ErfassungsAmpel } from '@/lib/behandlungen/erfassungsfrist'
+import { erfassungsAmpel, erfassungsverzugH, fristAus, fristRelevant, nacherfasstText, type ErfassungsAmpel } from '@/lib/behandlungen/erfassungsfrist'
 
 export const metadata: Metadata = { title: 'Maßnahmen – software:112' }
 export const dynamic = 'force-dynamic'
@@ -33,7 +33,7 @@ export type Behandlung = {
   ernte_fruehesteins: string | null
   notizen: string | null
   kosten_betrag: number | null
-  /** KAN-87: „nacherfasst (+n h)“ über der Erfassungsfrist (nur Maßnahmen mit Pflanzenschutzmittel), sonst null */
+  /** KAN-87: „nacherfasst (+n h)“ über der Erfassungsfrist (Pflanzenschutz und Düngung), sonst null */
   nacherfasst: string | null
   erfassung_ampel: ErfassungsAmpel | null
 }
@@ -55,7 +55,7 @@ export default async function BehandlungenPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tf((supabase.from('behandlungen') as any)
       .select(`
-        id, datum, datum_bis, uhrzeit_bis, created_at, psm_id, art, weingarten_id, aufwandmenge, aufwandmenge_einheit,
+        id, datum, datum_bis, created_at, psm_id, art, weingarten_id, aufwandmenge, aufwandmenge_einheit,
         bbch_stadium, witterung, ernte_fruehesteins, notizen,
         weingarten:weingarten_id ( name, ried ),
         psm:psm_id ( name, wartezeit_tage ),
@@ -98,7 +98,7 @@ export default async function BehandlungenPage() {
     const wgName = rieden.length > 0 ? rieden.join(', ') : null
     const wgRied = b.weingarten?.ried ?? erste?.ried ?? null
     const wgId   = b.weingarten_id ?? erste?.id ?? null
-    const verzug = b.psm_id ? erfassungsverzugH({ datum: b.datum, datumBis: b.datum_bis, uhrzeitBis: b.uhrzeit_bis }, b.created_at) : null
+    const verzug = fristRelevant(b) ? erfassungsverzugH({ datum: b.datum, datumBis: b.datum_bis }, b.created_at) : null
 
     return {
       id:                   b.id,

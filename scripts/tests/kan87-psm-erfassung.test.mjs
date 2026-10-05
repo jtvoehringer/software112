@@ -1,5 +1,5 @@
 // KAN-87 (05.10.2026): Pflanzenschutz-Aufzeichnung – Anwender, Startuhrzeit, „erfasst am/von“, Erfassungsfrist
-// (Standard 24 h ab Anwendungsende, Wiener Zeit), Ampel und CSV „psm-uebermittlung“ (Golden-Test mit Musterhof-Daten).
+// (Standard 24 h ab Ende des Anwendungstags, Wiener Zeit; Pflanzenschutz und Düngung), Ampel und CSV „psm-uebermittlung“ (Golden-Test mit Musterhof-Daten).
 // DB-Test 39 (Trigger b_erfassung, CHECKs).
 //
 // Aufruf:  npm run -s test:csv  (Node ≥ 22.15 wegen module.registerHooks)
@@ -31,16 +31,25 @@ describe('KAN-87 Erfassungsfrist in Wiener Zeit', nurMitHooks, () => {
     assert.equal(ef.wienZeitpunkt('kein Datum'), null)
   })
 
-  test('Frist ab Anwendungsende: Enduhrzeit, sonst Tagesende; mehrtägig ab datum_bis', () => {
-    assert.equal(ef.anwendungsEnde({ datum: '2026-07-10', uhrzeitBis: '09:00' }), utc('2026-07-10T07:00:00Z'))
+  test('Frist ab Tagesende des Anwendungstags (Entscheidung 05.10.2026) – Enduhrzeit zählt nicht; mehrtägig ab datum_bis', () => {
+    assert.equal(ef.anwendungsEnde({ datum: '2026-07-10', uhrzeitBis: '09:00' }), utc('2026-07-10T22:00:00Z'))
     assert.equal(ef.anwendungsEnde({ datum: '2026-07-10' }), utc('2026-07-10T22:00:00Z'))
+    assert.equal(ef.anwendungsEnde({ datum: '2026-01-10' }), utc('2026-01-10T23:00:00Z'))   // Winterzeit
     assert.equal(ef.anwendungsEnde({ datum: '2026-07-10', datumBis: '2026-07-12' }), utc('2026-07-12T22:00:00Z'))
   })
 
+  test('Frist gilt für Pflanzenschutz und Düngung', () => {
+    assert.equal(ef.fristRelevant({ art: 'spritzung', psmId: 'p-1' }), true)
+    assert.equal(ef.fristRelevant({ art: 'sonstiges', psm_id: 'p-1' }), true)
+    assert.equal(ef.fristRelevant({ art: 'duengung', psmId: null }), true)
+    assert.equal(ef.fristRelevant({ art: 'laubarbeit', psmId: null }), false)
+    assert.equal(ef.fristRelevant({ art: 'sonstiges', psmId: null }), false)
+  })
+
   test('Verzug in vollen Stunden; Ampel grün bis Frist, gelb bis 72 h, rot darüber', () => {
-    const a = { datum: '2026-07-10', uhrzeitBis: '09:00' }
-    assert.equal(ef.erfassungsverzugH(a, '2026-07-10T06:00:00Z'), 0)   // vor dem Ende erfasst
-    assert.equal(ef.erfassungsverzugH(a, '2026-07-11T07:00:00Z'), 24)
+    const a = { datum: '2026-07-10' }
+    assert.equal(ef.erfassungsverzugH(a, '2026-07-10T06:00:00Z'), 0)   // am Anwendungstag erfasst
+    assert.equal(ef.erfassungsverzugH(a, '2026-07-11T22:00:00Z'), 24)
     assert.equal(ef.erfassungsAmpel(24), 'gruen')
     assert.equal(ef.erfassungsAmpel(25), 'gelb')
     assert.equal(ef.erfassungsAmpel(72), 'gelb')
@@ -97,13 +106,13 @@ describe('KAN-87 Erfassungsfrist in Wiener Zeit', nurMitHooks, () => {
 
   test('Fristen-Dashboard: Ampel der Saison und Zahl der Nacherfassungen', () => {
     const z = [
-      { datum: '2026-07-10', uhrzeit_bis: '09:00', created_at: '2026-07-10T18:00:00Z' },   // 9 h
+      { datum: '2026-07-10', created_at: '2026-07-10T18:00:00Z' },   // vor Tagesende: 0 h
       { datum: '2026-07-12', uhrzeit_bis: null, created_at: '2026-07-14T10:00:00Z' },       // ab 12.07. 24:00 Wien: 36 h → gelb
     ]
     const f = ef.psmErfassungFrist(z, 24, 2026)
     assert.equal(f.status, 'faellig')
     assert.equal(f.nacherfassungen, 1)
-    assert.equal(f.bezeichnung, 'PSM-Aufzeichnung (24 h)')
+    assert.equal(f.bezeichnung, 'Aufzeichnung Pflanzenschutz & Düngung (24 h)')
     assert.match(f.statusText, /1 Nacherfassung 2026 · max\. \+36 h/)
     assert.equal(ef.psmErfassungFrist([...z, { datum: '2026-07-01', created_at: '2026-07-20T10:00:00Z' }], 24, 2026).status, 'ueberfaellig')
     assert.equal(ef.psmErfassungFrist(z.slice(0, 1), 24, 2026).status, 'laufend')
