@@ -21,7 +21,7 @@ import SchwundBuchenForm from './SchwundBuchenForm'
 import UmziehenWidget from '@/components/kellerbuch/UmziehenWidget'
 import { umziehen } from '../../umziehen/actions'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
-import { Wine, ArrowLeftRight, GitMerge, BookOpen, Microscope, Award, TrendingDown } from 'lucide-react'
+import { Wine, ArrowLeftRight, GitMerge, BookOpen, Microscope, Award, TrendingDown, ArrowDownWideNarrow } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'Charge bearbeiten – software:112' }
 export const dynamic = 'force-dynamic'
@@ -616,6 +616,12 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
             <Link href={`/kellerbuch/weinausbau/${weinausbau.id}?form=verschneiden`}
               className="mt-1 inline-flex items-center gap-1 text-xs bg-s112-grey text-white px-3 py-1 rounded-lg hover:bg-opacity-90 transition-colors">
               <GitMerge size={13} strokeWidth={1.75} />Verschneiden
+            </Link>
+          )}
+          {writeOk && aktuell > 0.01 && (
+            <Link href={`/kellerbuch/weinausbau/${weinausbau.id}/abstufen`}
+              className="mt-1 inline-flex items-center gap-1 text-xs border border-s112-border text-s112-blue-700 px-3 py-1 rounded-lg hover:bg-s112-bg transition-colors">
+              <ArrowDownWideNarrow size={13} strokeWidth={1.75} />Abstufen
             </Link>
           )}
           <Link href={`/kellerbuch/weinausbau/${weinausbau.id}/buch`}

@@ -23,6 +23,8 @@ import { pruefePruefnummernSchaden } from '@/lib/kellerbuch/pruefnummerLaden'
 import { mitPnNotiz } from '@/lib/kellerbuch/pruefnummer'
 import { wienHeute } from '@/lib/csv'
 import { pnWirkungAus, pnWirkungUnklarHinweis, type PnWirkung } from '@/lib/kellerbuch/pnWirkung'
+import { ABSTUFEN_GRUND_MIN, abstufenFehler, teilmengeFehler } from '@/lib/kellerbuch/abstufen'
+import { umziehen } from './umziehen/actions'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -426,6 +428,95 @@ export async function updateWeinausbau(id: string, formData: FormData): Promise<
 
   revalidatePath('/kellerbuch')
   revalidatePath(`/kellerbuch/weinausbau/${id}`)
+}
+
+// CHARGE ABSTUFEN (KAN-82, 05.10.2026) – Qualität, Zusatzbezeichnung bzw. Herkunft nur niedriger, mit Datum und Pflichtgrund
+// über die RPC s112_charge_abstufen (Protokoll charge_umstufungen, Änderungsprotokoll mit Grund, Journal und Prüfnummer am
+// Datum der Abstufung). Ganze Charge: an Ort und Stelle, bei geltender Prüfnummer erst Rückfrage (KAN-100, `{ bestaetigung }`,
+// mit pn_bestaetigt=1 erneut senden). Teilmenge (Entscheidung Jörgen 05.10.2026): nur mit Umzug in ein leeres Gebinde – erst
+// der Umzug (wie Kellerbuch › Umziehen), dann wird die neue Charge dort abgestuft. Scheitert der zweite Schritt, ist der Wein
+// umgezogen, aber nicht abgestuft – die Meldung nennt die neue Charge, die Abstufung lässt sich dort wiederholen.
+export async function chargeAbstufen(formData: FormData): Promise<{ bestaetigung?: string; chargeId?: string }> {
+  const supabase = await createSupabaseServerClient()
+  const tenantId = await kellerbuchSchreibrecht()
+
+  const id = String(formData.get('weinausbau_id') ?? '')
+  const datum = String(formData.get('datum') ?? '').slice(0, 10) || wienHeute()
+  const grund = String(formData.get('grund') ?? '').trim()
+  if (grund.length < ABSTUFEN_GRUND_MIN) throw new AktionsFehler(`Bitte einen Grund für die Abstufung angeben (mindestens ${ABSTUFEN_GRUND_MIN} Zeichen).`)
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: chargeRaw, error: chargeErr } = await (supabase.from('weinausbau') as any)
+    .select('id, name, menge_liter, behaelter_id, qualitaetsstufe, zusatzbezeichnung, erzeugnis, herkunft_code, aktiv, storniert_am')
+    .eq('id', id).eq('tenant_id', tenantId).maybeSingle()
+  if (chargeErr) throw new AktionsFehler(dbFehlerText(chargeErr, 'Charge konnte nicht geladen werden'))
+  if (!chargeRaw) throw new AktionsFehler('Charge nicht gefunden')
+  const charge = chargeRaw as R
+  if (charge.storniert_am || charge.aktiv === false) throw new AktionsFehler('Die Charge ist storniert bzw. nicht mehr aktiv.')
+
+  const altQ = normalisiereQualitaet(charge)
+  const alt = { ...altQ, herkunft: (charge.herkunft_code as string | null) ?? null }
+  const feld = (name: string, bisher: string | null) => formData.has(name) ? (String(formData.get(name) ?? '').trim() || null) : bisher
+  const neu = {
+    stufe: feld('qualitaetsstufe', alt.stufe),
+    zusatz: feld('zusatzbezeichnung', alt.zusatz) as typeof alt.zusatz,
+    erzeugnis: alt.erzeugnis,
+    herkunft: feld('herkunft_code', alt.herkunft),
+  }
+  const fehler = abstufenFehler(alt, neu)
+  if (fehler) throw new AktionsFehler(fehler)
+  const p_neu = { ...qualitaetsSpalten(neu), herkunft_code: neu.herkunft }
+  const bestand = Number(charge.menge_liter) || 0
+
+  let zielId = id
+  let quelleId: string | null = null
+  if (formData.get('umfang') === 'teil') {
+    const menge = zahlAus(formData.get('menge'))
+    const mengeFehler = teilmengeFehler(menge, bestand)
+    if (mengeFehler) throw new AktionsFehler(mengeFehler)
+    const zielBehaelter = String(formData.get('ziel_behaelter_id') ?? '')
+    if (!zielBehaelter) throw new AktionsFehler('Bitte das leere Gebinde für die Teilmenge wählen.')
+    if (zielBehaelter === charge.behaelter_id) throw new AktionsFehler('Die Teilmenge muss in ein anderes, leeres Gebinde.')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { count, error: belegtErr } = await (supabase.from('weinausbau') as any)
+      .select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('behaelter_id', zielBehaelter).eq('aktiv', true).is('storniert_am', null)
+    if (belegtErr) throw new AktionsFehler(dbFehlerText(belegtErr, 'Gebinde konnte nicht geprüft werden'))
+    if ((count ?? 0) > 0) throw new AktionsFehler('Das gewählte Gebinde ist nicht leer – die Teilmenge braucht ein leeres Gebinde.')
+
+    const fd = new FormData()
+    fd.set('datum', datum)
+    fd.set('quellen_json', JSON.stringify([{ weinausbau_id: id, menge }]))
+    fd.set('ziele_json', JSON.stringify([{ behaelter_id: zielBehaelter, menge }]))
+    fd.set('notizen', `Teilmenge zur Abstufung: ${grund}`)
+    const r = await umziehen(fd)
+    if (r && 'bestaetigung' in r && r.bestaetigung) throw new AktionsFehler(r.bestaetigung)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: neuRaw, error: neuErr } = await (supabase.from('weinausbau') as any)
+      .select('id').eq('tenant_id', tenantId).eq('behaelter_id', zielBehaelter).eq('aktiv', true).is('storniert_am', null)
+      .order('created_at', { ascending: false }).limit(1)
+    if (neuErr || !(neuRaw as R[] | null)?.[0]) throw new AktionsFehler('Der Umzug ist gebucht, die neue Charge wurde aber nicht gefunden – bitte im Gebinde prüfen und dort abstufen.')
+    zielId = String((neuRaw as R[])[0].id)
+    quelleId = id
+  } else {
+    // ganze Charge: Prüfnummer erlischt für den Tankbestand (KAN-100) – vorher fragen, eingereicht = Ablehnung
+    const pn = await pruefePruefnummernSchaden(supabase, tenantId, 'abstufung', [{ chargeId: id, name: (charge.name as string | null) ?? null }], datum)
+    if (pn && formData.get('pn_bestaetigt') !== '1') return { bestaetigung: pn.frage }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any).rpc('s112_charge_abstufen', {
+    p_tenant_id: tenantId, p_weinausbau_id: zielId, p_datum: datum, p_neu, p_grund: grund, p_quelle_weinausbau_id: quelleId,
+  })
+  if (error) {
+    const text = dbFehlerText(error, 'Abstufen fehlgeschlagen')
+    throw new AktionsFehler(quelleId ? `Die Teilmenge ist umgezogen, die Abstufung der neuen Charge aber gescheitert: ${text} – bitte an der neuen Charge erneut abstufen.` : text)
+  }
+
+  revalidatePath('/kellerbuch')
+  revalidatePath(`/kellerbuch/weinausbau/${id}`)
+  revalidatePath(`/kellerbuch/weinausbau/${zielId}`)
+  revalidatePath(`/kellerbuch/weinausbau/${zielId}/buch`)
+  return { chargeId: zielId }
 }
 
 // ANALYSEN
