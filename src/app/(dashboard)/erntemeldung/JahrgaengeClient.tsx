@@ -8,6 +8,7 @@ import { fmtZahl, fmtProzent } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
 import { updateJahrgang, deleteJahrgang } from './actions'
 import { leseArtText, leseNummer, leseZeitraumText } from '@/lib/wein/lesen'
+import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
 
 const QUALITAET_LABEL: Record<string, string> = {
   sehr_gut: 'Sehr gut', gut: 'Gut',
@@ -203,9 +204,10 @@ function JahrgangKarte({ j, writeOk, adminOk }: { j: Jahrgang; writeOk: boolean;
             </div>
             <div>
               <p className="text-lg font-semibold text-s112-text tabular-nums">
-                {j.avg_kmw != null ? `${fmtZahl(j.avg_kmw, 1)} °KMW` : '–'}
+                {/* KAN-131: kg-gewichtet, °KMW auf 1 Stelle abgerundet, dazu °Oe */}
+                <MostgewichtAnzeige wert={j.avg_kmw != null ? { kmw: j.avg_kmw, oechsle: null, einheit: 'kmw' } : null} kmwStellen={1} />
               </p>
-              <p className="text-xs text-s112-muted">Ø KMW</p>
+              <p className="text-xs text-s112-muted">Ø Mostgewicht (kg-gewichtet)</p>
             </div>
             <div>
               <p className="text-lg font-semibold text-s112-text tabular-nums">{j.parzellen_count}</p>

@@ -4,6 +4,7 @@ import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import JahrgaengeClient from './JahrgaengeClient'
 import type { Lese } from '@/lib/wein/lesen'
+import { mischen, type MischTeil } from '@/lib/wein/mostgewicht'
 
 export const metadata: Metadata = { title: 'Lese – software:112' }
 
@@ -82,12 +83,13 @@ export default async function ErntemeldungPage() {
   const pressungenByJG = zaehleJe(rawPress as AR[] | null)
   const tvByJG = zaehleJe(rawTV as AR[] | null)
 
-  const parzellenByJG = new Map<string, { count: number; kg: number; kmwSum: number; kmwCount: number }>()
+  // KAN-131: Ø Mostgewicht kg-gewichtet wie die Erntemeldung (mischen(), Σ kg · °KMW / Σ kg) statt einfachem Mittel
+  const parzellenByJG = new Map<string, { count: number; kg: number; teile: MischTeil[] }>()
   for (const p of (rawP ?? []) as AR[]) {
-    const curr = parzellenByJG.get(p.jahrgang_id) ?? { count: 0, kg: 0, kmwSum: 0, kmwCount: 0 }
+    const curr = parzellenByJG.get(p.jahrgang_id) ?? { count: 0, kg: 0, teile: [] }
     curr.count++
     curr.kg += p.menge_kg ?? 0
-    if (p.klosterneuburger != null) { curr.kmwSum += p.klosterneuburger; curr.kmwCount++ }
+    if (p.klosterneuburger != null) curr.teile.push({ menge: Number(p.menge_kg), kmw: Number(p.klosterneuburger) })
     parzellenByJG.set(p.jahrgang_id, curr)
   }
 
@@ -112,7 +114,7 @@ export default async function ErntemeldungPage() {
     notizen:          j.notizen,
     parzellen_count:  parzellenByJG.get(j.id)?.count ?? 0,
     gesamtmenge_kg:   parzellenByJG.get(j.id)?.kg ?? 0,
-    avg_kmw:          (() => { const d = parzellenByJG.get(j.id); return d && d.kmwCount > 0 ? d.kmwSum / d.kmwCount : null })(),
+    avg_kmw:          (() => { const d = parzellenByJG.get(j.id); return d ? (mischen(d.teile)?.kmw ?? null) : null })(),
     ama_status:       amaByJG.get(j.id) ?? null,
     lesen:            ((j.lesen ?? []) as Lese[]).slice().sort((a, b) => a.lfd_nr - b.lfd_nr),
     loeschsperre:     (() => {

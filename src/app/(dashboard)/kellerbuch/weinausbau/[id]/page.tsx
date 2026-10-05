@@ -18,6 +18,7 @@ import { PN_OFFENE_ANTRAGS_STATUS, pnStatusLabel } from '@/lib/dac/workflow'
 import { gebindeText, quellGebindeDesVerschnitts, quellGebindeSchluessel, verschnittQuelleText, type Quellgebinde } from '@/lib/kellerbuch/quellGebinde'
 import HerkunftJournalKarte from './HerkunftJournalKarte'
 import SchwundBuchenForm from './SchwundBuchenForm'
+import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
 import UmziehenWidget from '@/components/kellerbuch/UmziehenWidget'
 import { umziehen } from '../../umziehen/actions'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
@@ -577,6 +578,10 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
             <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}>{st.label}</span>
             {weinausbau.jahrgang && <span className="text-xs text-s112-muted">Jahrgang {weinausbau.jahrgang}</span>}
             {weinausbau.behaelter && <span className="text-xs text-s112-muted">in {weinausbau.behaelter.name}</span>}
+            {/* KAN-131: Mostgewicht der Charge (Pressung, Zukauf, Eröffnungsbestand bzw. Umzug) */}
+            {(weinausbau.kmw != null || weinausbau.oechsle != null) && (
+              <span className="text-xs text-s112-muted">Mostgewicht <MostgewichtAnzeige wert={{ kmw: weinausbau.kmw, oechsle: weinausbau.oechsle, einheit: weinausbau.mostgewicht_einheit }} /></span>
+            )}
             {pnZugeteilt && (
               <Link href={`/dac/${pnZugeteilt.id}`} className="text-xs font-mono bg-s112-ok-bg text-s112-ok-fg px-2 py-0.5 rounded-full hover:underline"
                 title={pnZugeteilt.geerbt ? 'Per Umzug aus der Antrags-Charge übernommen' : undefined}>

@@ -1,4 +1,5 @@
 // behoerdenmeldung: rueckverfolgung-weingarten
+import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
@@ -188,7 +189,7 @@ export default async function RiedenRueckverfolgungPage({ searchParams }: { sear
           <div className="text-xs text-s112-text-2 flex flex-wrap gap-x-4 gap-y-0.5 tabular-nums">
             <span>Lese {l.lesedatum ? ttmmjjjj(l.lesedatum) : l.fenster?.bisAus === 'erntemeldung' ? `${ttmmjjjj(l.fenster.bis)} (laut Erntemeldung)` : '–'}</span>
             {l.kg !== null && <span>{fmtNum(l.kg)} kg</span>}
-            {l.kmw !== null && <span>{fmtNum(l.kmw)} °KMW</span>}
+            {(l.kmw !== null || l.oechsle !== null) && <MostgewichtAnzeige wert={{ kmw: l.kmw, oechsle: l.oechsle, einheit: l.mostgewichtEinheit }} />}
             {l.abnehmer && <span>Abnehmer: {l.abnehmer}</span>}
             {l.liefernummer && <span>Liefernummer: {l.liefernummer}</span>}
             {l.anteilPct !== null && <span>Anteil an der Füllung: {fmtNum(l.anteilPct)} %</span>}

@@ -107,6 +107,12 @@ const TABELLEN_KONTEXT = `
   werden NIE summiert. Kupfer bzw. N je ha einer Ried = Summe der Anteile / Summe der Fläche der Grundstücke mit
   nutzart = 'WI' dieser Ried (nicht weingarten.flaeche_ha).
 - ernte_parzellen: Lesedaten je Grundstück und Jahrgang (jahrgang_id → weinjahrgaenge.id), menge_kg, oechsle, klosterneuburger (°KMW).
+- MOSTGEWICHT (KAN-128/KAN-131): °KMW ist führend, °Oe (Öchsle) steht daneben, mostgewicht_einheit = gemessene Einheit
+  ('kmw' | 'oechsle'). Spalten: ernte_parzellen (klosterneuburger, oechsle), pressung_weingaerten (kmw, oechsle),
+  pressungen (kmw_grad, oechsle), weinausbau (kmw, oechsle), zukauf_posten (kmw, oechsle), traubenverkauf (kmw_grad,
+  oechsle) – je mit mostgewicht_einheit. Fragen nach Öchsle aus diesen oechsle-Spalten beantworten; fehlt °Oe, gilt
+  °Oe = °KMW × (4,54 + 0,022 × °KMW). Durchschnitte immer mengen-(kg-)gewichtet über °KMW bilden (SUM(menge × kmw) /
+  SUM(menge)), nie °Oe mitteln. ama_meldepositionen.oechsle ist leer und wird NICHT verwendet.
 - weinausbau: Kellerbuch-Chargen (der "Keller-Bestand"). DREI VERSCHIEDENE, oft unterschiedliche Textfelder –
   name = frei vergebener Produkt-/Chargenname (z.B. "Partywein Kängaru", oft eine Fantasiebezeichnung, KEINE
   verlässliche Sortenangabe); rebsorte = die tatsächliche Rebsorte ODER bei Verschnitten der Verschnitt-Typ

@@ -10,7 +10,8 @@
 //   • Hinweis (X-Warnung) nur für GEMESSENE Werte, deren exportierte Rundung eine andere Stufe
 //     ergibt als der gespeicherte °KMW – nach Entscheidung 8 eine reine Absicherung (z. B. Zeilen,
 //     deren °KMW und °Oe vor Migration A nicht zusammenpassen).
-// Texte statt Spalten (Weinbuch, Details einer Lese): mostgewichtWeinbuchText().
+// Texte statt Spalten (Weinbuch, Details einer Lese): mostgewichtWeinbuchText(); die drei Spalten einer Meldung:
+// mostgewichtCsvSpalten() (KAN-131).
 // Isomorph, ohne Server-/Next-Importe (scripts/tests/ernte.test.mjs lädt die Datei direkt).
 
 import {
@@ -20,6 +21,7 @@ import {
 import { mostgewichtAusGespeichert, type GespeichertesMostgewicht } from '@/lib/wein/mostgewichtFormular'
 import { kmwZuQualitaet } from '@/lib/weinqualitaet'
 import { qualitaetLabel } from '@/lib/wein/qualitaet'
+import { STELLEN, type CsvSpalte } from '@/lib/csv'
 
 export type MostgewichtExport = {
   /** °KMW, auf `kmwStellen` abgerundet */
@@ -68,14 +70,23 @@ export function gemessenInText(einheit: MostgewichtEinheit | null | undefined): 
   return einheit ? EINHEIT_ZEICHEN[einheit] : null
 }
 
-/** Mostgewicht als Text im Weinbuch (Details einer Lese; Druck und CSV „Details“) – Rechenregel 9:
- *  °KMW steht immer (gesetzlich führend, bis 2 Stellen wie gespeichert, Dezimalkomma), °Oe nur als
- *  Messwert. Gemessen in °KMW → „17,4 °KMW“: das gerechnete °Oe, das der Trigger seit Migration A
- *  in jede Zeile schreibt (nicht rechtsverbindlich), bleibt wie vor KAN-128 weg. Gemessen in °Oe →
- *  „≈ 17,09 °KMW · 84,0 °Oe“ (°KMW umgerechnet nach Variante B, mit „≈“). Ohne Mostgewicht null. */
+/** Mostgewicht als Text im Weinbuch (Details von Lese, Pressung und Charge; Druck und CSV „Details“).
+ *  KAN-131 (05.10.2026, ersetzt Rechenregel 9 von KAN-128): beide Werte, °KMW zuerst (gesetzlich führend,
+ *  bis 2 Stellen wie gespeichert), der umgerechnete Wert mit „≈“ – „17,4 °KMW · ≈ 85,7 °Oe“ (gemessen in
+ *  °KMW) bzw. „≈ 17,09 °KMW · 84,0 °Oe“ (gemessen in °Oe, Variante B). Ohne Mostgewicht null. */
 export function mostgewichtWeinbuchText(g: GespeichertesMostgewicht | null | undefined): string | null {
   const m = mostgewichtAusGespeichert(g)
   if (!m) return null
-  if (m.einheit === 'kmw') return `${formatKmw(m.kmw, KMW_STELLEN)} °KMW`
-  return formatMostgewicht(m, 'kmw')
+  return formatMostgewicht(m, 'kmw', { kmwStellen: KMW_STELLEN })
+}
+
+/** KAN-131: die drei Spalten „Mostgewicht (°KMW)“, „Mostgewicht (°Oe)“ und „Mostgewicht gemessen in“ einer Meldung –
+ *  °KMW vor °Oe, °KMW auf `kmwStellen` abgerundet, °Oe mit einer Stelle (KAN-128, Entscheidungen 8 und 9) */
+export function mostgewichtCsvSpalten<Z>(lies: (z: Z) => GespeichertesMostgewicht | null | undefined, kmwStellen: 1 | 2): CsvSpalte<Z>[] {
+  const mg = (z: Z) => mostgewichtFuerExport(lies(z), kmwStellen)
+  return [
+    { kopf: 'Mostgewicht (°KMW)', typ: 'dezimal', stellen: kmwStellen === 1 ? STELLEN.kmwBki : STELLEN.kmw, wert: z => mg(z).kmw },
+    { kopf: 'Mostgewicht (°Oe)', typ: 'dezimal', stellen: STELLEN.oechsle, wert: z => mg(z).oechsle },
+    { kopf: 'Mostgewicht gemessen in', typ: 'text', wert: z => gemessenInText(mg(z).einheit) },
+  ]
 }

@@ -29,6 +29,9 @@ export type HerkunftInfo = {
   katastralgemeinde: string | null
   ernte_datum: string | null
   kmw: number | null
+  /** KAN-131: °Oe und gemessene Einheit der Quelle (Lese, Zukauf, Eröffnungsbestand); gemischte Einträge: aus °KMW */
+  oechsle?: number | null
+  mostgewicht_einheit?: string | null
   /** Lieferant (nur Zukauf) */
   zukauf_von: string | null
 }
@@ -70,11 +73,23 @@ function summe(m: Mischung): number {
   return s
 }
 
+/** KAN-131: zwei °KMW nach Litern gemittelt (gleiche Herkunft, z. B. mehrere Lesetage desselben Grundstücks);
+ *  auf 2 Stellen abgerundet – ohne Wert zählt nur der andere */
+export function kmwGemittelt(l1: number, k1: number | null, l2: number, k2: number | null): number | null {
+  if (k1 === null) return k2
+  if (k2 === null || k1 === k2) return k1
+  return Math.floor(((l1 * k1 + l2 * k2) / (l1 + l2)) * 100 + 1e-9) / 100
+}
+
 function hinzu(ziel: Mischung, key: string, liter: number, info: HerkunftInfo) {
   if (liter <= EPS) return
   const e = ziel.get(key)
-  if (e) e.liter += liter
-  else ziel.set(key, { liter, info })
+  if (e) {
+    // KAN-131: verschiedene Mostgewichte derselben Herkunft nicht verwerfen (vorher galt der erste Eintrag)
+    const kmw = kmwGemittelt(e.liter, e.info.kmw, liter, info.kmw)
+    if (kmw !== e.info.kmw) e.info = { ...e.info, kmw, oechsle: null, mostgewicht_einheit: 'kmw' }
+    e.liter += liter
+  } else ziel.set(key, { liter, info })
 }
 
 /** Entnimmt `liter` anteilig; liefert die entnommene Mischung und wie viel fehlte */

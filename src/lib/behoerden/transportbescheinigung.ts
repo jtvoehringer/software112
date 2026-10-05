@@ -23,7 +23,8 @@ import { antragAusZeile, chargenDerAntraege, ladePruefnummerDaten, PN_ANTRAG_SEL
 import { rebsorteDerLieferung } from './traubenverkauf'
 import { mostgewichtAusGespeichert } from '@/lib/wein/mostgewichtFormular'
 import { qualitaetAnzeigeOderNull } from '@/lib/wein/qualitaet'
-import { tbAlkoholText, tbMostgewichtFelder } from './tbMostgewicht'
+import { tbAlkoholGehalt, tbMostgewichtFelder, tbPositionMostgewicht } from './tbMostgewicht'
+import { mostgewichtCsvSpalten } from './mostgewicht_export'
 import {
   UUID_RE, datumAusTeilen, feld, formularZahl, inBloecken, jaNeinFeld, strasseTeilen, textOderNull, zahlFeld, type R,
 } from './verkehr-hilfen'
@@ -43,7 +44,7 @@ export type TBWeinposition = {
   fremd_jg_pct: string
   pruefnummer: string
   anreicherung: string // J/N
-  alkohol_pct: string  // Freitext „% vol / °KMW“
+  alkohol_pct: string  // Alkoholgehalt (% vol); KAN-131: °KMW steht in eigener Spalte (aus kmw/oechsle)
   /** KAN-130 Etappe 3: Mostgewicht – beide Werte als Text mit Dezimalkomma und die gemessene Einheit
    *  ('kmw' | 'oechsle'; eigener Name, `einheit` ist die Mengeneinheit). Altformulare haben nur
    *  `kmw` (Trauben) bzw. nichts – gelesen über tbPositionMostgewicht() (lib/behoerden/tbMostgewicht.ts). */
@@ -154,6 +155,10 @@ export type TBZeile = {
   pruefnummer: string | null
   angereichert: boolean | null
   alkohol: string | null
+  /** KAN-131: Mostgewicht der Position wie erfasst (Messwert und Einheit) */
+  kmw: number | null
+  oechsle: number | null
+  mostgewichtEinheit: string | null
 }
 
 export const SPALTEN_TRANSPORTBESCHEINIGUNG: CsvSpalte<TBZeile>[] = [
@@ -200,7 +205,9 @@ export const SPALTEN_TRANSPORTBESCHEINIGUNG: CsvSpalte<TBZeile>[] = [
   { kopf: 'Fremdjahrgangsanteil (%)', typ: 'prozent', stellen: STELLEN.prozent, wert: z => z.fremdJgPct },
   { kopf: 'Staatliche Prüfnummer', typ: 'code', wert: z => z.pruefnummer },
   { kopf: 'Angereichert', typ: 'janein', wert: z => z.angereichert },
-  { kopf: 'Alkohol (% vol) / KMW (°)', typ: 'text', wert: z => z.alkohol },
+  // KAN-131: Alkohol und Mostgewicht getrennt (wie das Formblatt), °KMW auf 1 Stelle abgerundet vor °Oe
+  { kopf: 'Alkohol (% vol)', typ: 'text', wert: z => z.alkohol },
+  ...mostgewichtCsvSpalten<TBZeile>(z => ({ kmw: z.kmw, oechsle: z.oechsle, einheit: z.mostgewichtEinheit }), 1),
   // KAN-149 D1: stornierte Verkäufe stehen gekennzeichnet in der Zeitraumliste (neue Spalten am Ende)
   { kopf: 'Storniert am', typ: 'datum', wert: z => z.storniertAm },
   { kopf: 'Storno-Grund', typ: 'text', wert: z => z.stornoGrund },
@@ -291,7 +298,7 @@ export function tbVorbelegung(posten: R, cfg: R, pn: TBPruefnummern, heute: stri
         jahrgang:        wa?.jahrgang ? String(wa.jahrgang) : '',
         herkunft:        feld(cfg.betrieb_ort),
         pruefnummer:     e?.gueltig ? (e.pruefnummer ?? '') : '',
-        alkohol_pct:     tbAlkoholText(most),
+        alkohol_pct:     '',   // KAN-131: °KMW in eigener Spalte (Mostgewicht unten)
         ...tbMostgewichtFelder(most),
       }
     }
@@ -353,7 +360,7 @@ export function tbVorbelegung(posten: R, cfg: R, pn: TBPruefnummern, heute: stri
       qualitaetsstufe: feld(tv?.qualitaetsstufe),
       jahrgang:        lieferjahr,
       herkunft:        feld(tv?.herkunft_code) || feld(cfg.betrieb_ort),
-      alkohol_pct:     tbAlkoholText(most),
+      alkohol_pct:     '',   // KAN-131: °KMW in eigener Spalte (Mostgewicht unten)
       ...tbMostgewichtFelder(most),
     }
   })
@@ -483,7 +490,8 @@ export function tbZeilen(formular: R, meta: TBMeta, warnungen: string[], praefix
       fremdJgPct: fj === null ? null : runden(fj, STELLEN.prozent),
       pruefnummer: textOderNull(p.pruefnummer),
       angereichert: jaNeinFeld(p.anreicherung, w(`Position ${nr}: Angereichert`), lokal),
-      alkohol: textOderNull(p.alkohol_pct),
+      alkohol: textOderNull(tbAlkoholGehalt(p)),
+      ...(() => { const m = tbPositionMostgewicht(p); return { kmw: m?.kmw ?? null, oechsle: m?.oechsle ?? null, mostgewichtEinheit: m?.einheit ?? null } })(),
     })
   })
   if (leer > 0) lokal.push(w(`${leer} ${leer === 1 ? 'leere Weinposition' : 'leere Weinpositionen'} nicht ausgegeben`))

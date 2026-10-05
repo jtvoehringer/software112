@@ -1,5 +1,6 @@
 'use client'
 
+import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
 import { useState, useTransition } from 'react'
 import { Pencil, X, ChevronDown, Plus } from 'lucide-react'
 import { upsertPressung, stornoPressung, endgueltigLoeschenLese } from '../actions'
@@ -58,6 +59,8 @@ export type PressungBeh = {
 export type Pressung = {
   id: string; datum: string; most_liter_gesamt: number | null
   weinbezeichnung: string | null; notizen: string | null; kmw_grad: number | null
+  /** KAN-131: °Oe und gemessene Einheit der Pressung (Anzeige beider Werte) */
+  oechsle?: number | null; mostgewicht_einheit?: string | null
   weingaerten: PressungWG[]; behaelter: PressungBeh[]
   /** KAN-148 C1c: storniert – Vermerk statt Aktionen, zählt in keiner Summe */
   storno?: { am: string; von: string | null; grund: string | null } | null
@@ -499,10 +502,11 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, wgOptions, behOpt
             placeholder="z.B. 1.050" className={inp} />
         </div>
         <div className="col-span-2">
-          <label className="block text-xs font-medium text-s112-text-2 mb-1">KMW° & Qualitätsstufe</label>
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Mostgewicht & Qualitätsstufe</label>
           <div className="flex items-center gap-2">
             <div className="border border-s112-border rounded-lg px-2 py-1.5 text-sm bg-s112-bg text-s112-text-1 cursor-not-allowed whitespace-nowrap shrink-0">
-              {kmwGrad ? `${kmwGrad} °KMW` : <span className="text-s112-muted text-xs">– kein KMW</span>}
+              {/* KAN-131: beide Werte, bevorzugte Einheit zuerst (Ø der Traubenzeilen, kg-gewichtet in °KMW) */}
+              {kmwGrad ? <MostgewichtAnzeige wert={{ kmw: kmwNum, oechsle: null, einheit: 'kmw' }} /> : <span className="text-s112-muted text-xs">– kein Mostgewicht</span>}
               {kmwGrad && kmwTeilweise && (
                 <span className="ml-1 text-xs text-amber-700" title="Nicht jede Traubenzeile hat ein Mostgewicht – der Durchschnitt zählt nur die Zeilen mit Wert.">
                   (teilweise: {mittelZeilen.mitWert} von {mittelZeilen.gesamt} Zeilen)
@@ -961,7 +965,7 @@ export default function PressungSection({ jahrgangId, leseId, leseArt, pressunge
                         </>}
                         {p.kmw_grad != null && (
                           <span className="font-semibold text-s112-warn-fg bg-s112-warn-bg px-2 py-0.5 rounded-full">
-                            {p.kmw_grad.toString().replace('.', ',')} °KMW
+                            <MostgewichtAnzeige wert={{ kmw: p.kmw_grad, oechsle: p.oechsle ?? null, einheit: p.mostgewicht_einheit ?? null }} />
                             {' · '}{(() => {
                               // Stufe der Chargen (bei Abstufung niedriger als aus den °KMW)
                               const ausKmw = kmwZuQualitaet(p.kmw_grad)

@@ -30,6 +30,8 @@ export type AssistentKontext = {
   behandlungstypen: { id: string; name: string; einheit_standard: string | null }[]
   korrekturen: { id: string; begriff: string; interpretation: string; kategorie: string | null }[]
   ustSatzStandard: number
+  /** KAN-131: bevorzugte Mostgewicht-Einheit des Betriebs ('kmw' | 'oechsle') – Antworten in dieser Einheit */
+  mostgewichtEinheit: 'kmw' | 'oechsle'
 }
 
 /**
@@ -104,7 +106,7 @@ export async function ladeAssistentKontext(
       .eq('tenant_id', tenantId).eq('aktiv', true).neq('status', 'abgeschlossen').gt('menge_liter', 0)
       .order('jahrgang', { ascending: false }).limit(300),
     (supabase.from('tenant_einstellungen') as any)
-      .select('ust_satz_standard')
+      .select('ust_satz_standard, mostgewicht_einheit')
       .eq('tenant_id', tenantId).maybeSingle(),
     (supabase.from('weinjahrgaenge') as any)
       .select('id, jahrgang, lesen(lfd_nr, art, bezeichnung, beginn, ende)')
@@ -160,6 +162,7 @@ export async function ladeAssistentKontext(
       menge_liter: Number(w.menge_liter ?? 0),
     })),
     ustSatzStandard: Number((einstellungenRaw as R | null)?.ust_satz_standard) || 13,
+    mostgewichtEinheit: (einstellungenRaw as R | null)?.mostgewicht_einheit === 'oechsle' ? 'oechsle' : 'kmw',
     jahrgaenge: ((jahrgaengeRaw ?? []) as R[]).map(j => ({
       id: j.id, jahrgang: Number(j.jahrgang),
       lesen: ((j.lesen ?? []) as R[]).slice().sort((a, b) => a.lfd_nr - b.lfd_nr).map(l => {
@@ -226,6 +229,8 @@ WEINAUSBAU-CHARGEN / FASS-TANK-BESTAND (${k.weinausbau.length}, nur mit Menge > 
 ${k.weinausbau.map(w => zeile(w.id, w.name, [w.jahrgang, w.rebsorte ? formatRebsorteMitKuerzel(w.rebsorte) : null, `${w.menge_liter} L verfügbar`].filter(Boolean).join(', ') || null)).join('\n') || '(keine)'}
 
 STANDARD-UST-SATZ DES BETRIEBS: ${k.ustSatzStandard}%
+
+MOSTGEWICHT: bevorzugte Einheit des Betriebs ${k.mostgewichtEinheit === 'oechsle' ? '°Oe (Öchsle)' : '°KMW'} – Mostgewichte in dieser Einheit nennen und erfragen (Eingabe mit Einheit: mostgewicht_wert und mostgewicht_einheit).
 
 WEINJAHRGÄNGE (${k.jahrgaenge.length}, bereits angelegt):
 ${k.jahrgaenge.map(j => `- ${j.jahrgang}${j.lesen.length > 0 ? `: Lesen ${j.lesen.join(', ')}` : ''}`).join('\n') || '(keine)'}

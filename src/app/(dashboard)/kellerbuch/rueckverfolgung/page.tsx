@@ -1,4 +1,5 @@
 // behoerdenmeldung: rueckverfolgung
+import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
@@ -174,7 +175,7 @@ function ChargeKette({
                             {wg.trauben_kg && <span>{fmtNum(parseFloat(wg.trauben_kg))} kg</span>}
                             {wg.rebsorte && <span>{formatRebsorteMitKuerzel(wg.rebsorte)}</span>}
                             {wg.ernte_datum && <span>Lese: {new Date(wg.ernte_datum).toLocaleDateString('de-AT')}</span>}
-                            {wg.kmw && <span>{wg.kmw} °KMW</span>}
+                            {(wg.kmw != null || wg.oechsle != null) && <span><MostgewichtAnzeige wert={{ kmw: wg.kmw, oechsle: wg.oechsle, einheit: wg.mostgewicht_einheit }} /></span>}
                           </div>
                         </div>
                       )

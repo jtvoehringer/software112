@@ -7,6 +7,7 @@ import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { herkunftLabel, type BlendZeile } from '@/lib/behoerden/blend'
 import { schrittStelleText, type BlendSchritt, type SchrittStelle } from '@/lib/behoerden/blendSchritte'
 import type { KompositionUrsprung } from '@/lib/wein/blendKomposition'
+import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
 
 const TH = 'py-2 font-semibold text-s112-text-2 text-xs uppercase tracking-wide'
 
@@ -37,6 +38,7 @@ export function BlendHerkunftTabelle({ komposition, zeilen, bezugLiter }: {
           <th scope="col" className={TH}>Herkunft</th>
           <th scope="col" className={TH}>Rebsorte</th>
           <th scope="col" className={TH}>Jahrgang</th>
+          <th scope="col" className={TH}>Mostgewicht</th>
           <th scope="col" className={`${TH} text-right`}>Liter</th>
           <th scope="col" className={`${TH} text-right`}>Anteil</th>
         </tr>
@@ -47,6 +49,8 @@ export function BlendHerkunftTabelle({ komposition, zeilen, bezugLiter }: {
             <td className="py-2 text-s112-text">{herkunftLabel(u)}</td>
             <td className="py-2 text-s112-text-2">{formatRebsorteMitKuerzel(u.rebsorte)}</td>
             <td className="py-2 text-s112-text-2">{u.jahrgang ?? '–'}</td>
+            {/* KAN-131: Mostgewicht der Herkunft, beide Werte */}
+            <td className="py-2 text-s112-text-2 whitespace-nowrap"><MostgewichtAnzeige wert={{ kmw: u.kmw, oechsle: u.oechsle ?? null, einheit: u.mostgewicht_einheit ?? null }} /></td>
             <td className="py-2 text-s112-text-2 text-right tabular-nums whitespace-nowrap">
               {zeilen[i]?.mengeLiter != null ? `${fmtNum(zeilen[i].mengeLiter as number, 2)} L` : '–'}
             </td>
@@ -58,7 +62,7 @@ export function BlendHerkunftTabelle({ komposition, zeilen, bezugLiter }: {
       </tbody>
       <tfoot>
         <tr className="border-t border-s112-border">
-          <th scope="row" colSpan={3} className="pt-2 text-xs text-s112-text-2 font-semibold text-left">Summe</th>
+          <th scope="row" colSpan={4} className="pt-2 text-xs text-s112-text-2 font-semibold text-left">Summe</th>
           <td className="pt-2 text-xs text-s112-text-2 font-semibold text-right tabular-nums whitespace-nowrap">
             {bezugLiter != null ? `${fmtNum(Math.round(summeLiter * 100) / 100, 2)} L` : '–'}
           </td>

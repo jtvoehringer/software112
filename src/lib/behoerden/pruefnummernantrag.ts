@@ -18,6 +18,7 @@ import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { normalisiereQualitaet } from '@/lib/wein/qualitaetsrang'
 import { qualitaetText } from '@/lib/weinqualitaet'
 import { HERKUNFT_LABEL } from '@/lib/herkunft'
+import { formatKmw } from '@/lib/wein/mostgewicht'
 import { UUID_RE, datumAusEingabe, feld, strasseTeilen, textOderNull, zahlFeld, type R } from './verkehr-hilfen'
 import { FORMULAR_GESPEICHERT, FORMULAR_VORBELEGUNG } from './transportbescheinigung'
 
@@ -128,7 +129,9 @@ export function pnaVorbelegung(dac: R, cfg: R, charge?: R | null): PNADaten {
     farbe: farbeAusWeinart(charge?.weinart) ?? 'Weiß',
     jahrgangsverschnitt: false,
     jahrgang: dac.jahrgang ? String(dac.jahrgang) : '',
-    lesegradation: Number.isFinite(kmw) && kmw > 0 ? `${String(runden(kmw, 1)).replace('.', ',')} °KMW` : '',
+    // KAN-131 (Entscheidung 05.10.2026): °KMW der Charge als Information, wie gespeichert (bis 2 Stellen, abgerundet) –
+    // ersetzt die Mostwäger-Bestätigung nicht
+    lesegradation: Number.isFinite(kmw) && kmw > 0 ? `${formatKmw(kmw, 2)} °KMW` : '',
     angereichert: false,
     gesuesst: false,
     einreichmenge: Number.isFinite(menge) && menge !== 0 ? String(runden(menge, 0)) : '',

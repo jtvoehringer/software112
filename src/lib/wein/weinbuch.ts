@@ -72,6 +72,10 @@ export interface WeinbuchCharge {
   menge_liter: number
   behaelter_id: string | null
   behaelter_name: string | null
+  /** KAN-131: Mostgewicht der Charge (Kopf) */
+  kmw?: number | null
+  oechsle?: number | null
+  mostgewicht_einheit?: string | null
 }
 
 export interface Weinbuch {
@@ -113,7 +117,7 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
 
   // ── 1. Weinausbau-Charge laden ────────────────────────────────────────────
   const { data: waRaw, error: waErr } = await tf((supabase.from('weinausbau') as any)
-    .select('id, name, jahrgang, rebsorte, qualitaetsstufe, status, menge_liter, behaelter_id, ist_eroeffnungsbestand, behaelter:behaelter_id(name)')
+    .select('id, name, jahrgang, rebsorte, qualitaetsstufe, status, menge_liter, behaelter_id, ist_eroeffnungsbestand, kmw, oechsle, mostgewicht_einheit, behaelter:behaelter_id(name)')
     .eq('id', id))
     .maybeSingle()
 
@@ -129,6 +133,7 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
     menge_liter: waRow.menge_liter,
     behaelter_id: waRow.behaelter_id,
     behaelter_name: (waRow.behaelter as R | null)?.name ?? null,
+    kmw: waRow.kmw ?? null, oechsle: waRow.oechsle ?? null, mostgewicht_einheit: waRow.mostgewicht_einheit ?? null,
   }
 
   // ── 2. Alle Daten parallel laden ─────────────────────────────────────────
@@ -150,7 +155,7 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
       .select(`
         menge_liter, storniert_am, storno_grund, storniert_von_name,
         pressung:pressung_id!inner(
-          id, datum, most_liter_gesamt, weinbezeichnung, lese_id, tenant_id, storniert_am,
+          id, datum, most_liter_gesamt, weinbezeichnung, lese_id, tenant_id, storniert_am, kmw_grad, oechsle, mostgewicht_einheit,
           pressung_weingaerten(
             trauben_kg, rebsorte, ernte_datum, kmw, oechsle, mostgewicht_einheit, weingarten_id, storniert_am,
             weingarten:weingarten_id(id, name, flaeche_ha),
@@ -440,6 +445,8 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
         p.most_liter_gesamt && `${fmtNum(parseFloat(p.most_liter_gesamt))} L Most`,
         pb.menge_liter && `Anteil: ${fmtNum(parseFloat(pb.menge_liter))} L`,
         weingaertenText && `Weingärten: ${weingaertenText}`,
+        // KAN-131: Mostgewicht der Pressung, beide Werte
+        mostgewichtWeinbuchText({ kmw: p.kmw_grad, oechsle: p.oechsle, einheit: p.mostgewicht_einheit }),
       ].filter(Boolean) as string[],
     })
   }

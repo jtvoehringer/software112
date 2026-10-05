@@ -51,7 +51,8 @@ describe('KAN-98 Vorbelegung des Antragsformulars aus der Charge', () => {
   test('Farbe, Lesegradation, Qualität und Herkunft aus der Charge', () => {
     const f = pna.pnaVorbelegung({ jahrgang: 2025, rebsorte: 'Zweigelt', menge_liter: 1500, dac_region: 'sonstiges' }, CFG, CHARGE)
     assert.equal(f.farbe, 'Rot')
-    assert.equal(f.lesegradation, '19,5 °KMW')
+    // KAN-131: °KMW wie gespeichert (Information), nicht kaufmännisch über die Stelle gerundet (vorher „19,5“)
+    assert.equal(f.lesegradation, '19,46 °KMW')
     assert.equal(f.qualitaetsstufe, 'Qualitätswein')
     assert.notEqual(f.weinbaugebiet, 'sonstiges')
     assert.notEqual(f.weinbaugebiet, '')

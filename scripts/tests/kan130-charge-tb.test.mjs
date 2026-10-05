@@ -111,12 +111,14 @@ describe('Transportbescheinigung: Vorbelegung', () => {
     assert.equal(p.mostgewicht_einheit, 'oechsle')
     assert.equal(p.oechsle, '84')
     assert.equal(p.kmw, '17,09')
-    assert.equal(p.alkohol_pct, '17 °KMW')                          // Formblatt: °KMW auf 1 Stelle abgerundet
+    // KAN-131: Alkoholfeld leer, °KMW in eigener Formblatt-Spalte – auf 1 Stelle abgerundet
+    assert.equal(p.alkohol_pct, '')
+    assert.equal(tbm.tbKmwFormblatt(p), '17')
     assert.deepEqual(tbm.tbPositionMostgewicht(p), { kmw: 17.09, oechsle: 84, einheit: 'oechsle' })
   })
   test('Most-Charge in °KMW (Status Ernte) → °KMW als Messwert, °Oe dazu', () => {
     const [p] = tb.tbVorbelegung(posten(tank({ id: 'w', status: 'ernte', kmw: 18.97, oechsle: 94, mostgewicht_einheit: 'kmw' })), CFG, PN, '2026-10-02', []).positionen
-    assert.deepEqual([p.kmw, p.oechsle, p.mostgewicht_einheit, p.alkohol_pct], ['18,97', '94', 'kmw', '18,9 °KMW'])
+    assert.deepEqual([p.kmw, p.oechsle, p.mostgewicht_einheit, p.alkohol_pct, tbm.tbKmwFormblatt(p)], ['18,97', '94', 'kmw', '', '18,9'])
   })
   test('Wein (Status Ausbau) und Charge ohne Mostgewicht: nichts vorbelegt', () => {
     const [a, b] = tb.tbVorbelegung(posten(
@@ -127,7 +129,7 @@ describe('Transportbescheinigung: Vorbelegung', () => {
   })
   test('Trauben: Messwert und Einheit der Lieferung (bisher nur °KMW auf 1 Stelle)', () => {
     const [p] = tb.tbVorbelegung(posten({ id: 'q', typ: 'trauben', menge: 100, traubenverkauf: { id: 't', datum: '2026-09-10', kmw_grad: 18.97, oechsle: 94, mostgewicht_einheit: 'oechsle', grundstueck: { rebsorte: 'Zweigelt' } } }), CFG, PN, '2026-10-02', []).positionen
-    assert.deepEqual([p.kmw, p.oechsle, p.mostgewicht_einheit, p.alkohol_pct], ['18,97', '94', 'oechsle', '18,9 °KMW'])
+    assert.deepEqual([p.kmw, p.oechsle, p.mostgewicht_einheit, p.alkohol_pct, tbm.tbKmwFormblatt(p)], ['18,97', '94', 'oechsle', '', '18,9'])
   })
   test('Abfrage lädt Status und Mostgewicht der Charge sowie °Oe und Einheit der Lieferung', () => {
     const src = quelle('src/lib/behoerden/transportbescheinigung.ts')
@@ -162,15 +164,18 @@ describe('Transportbescheinigung: gespeicherte Formulare', () => {
 describe('Transportbescheinigung: Eingabe im Formular', () => {
   const m84 = { kmw: 17.09, oechsle: 84, einheit: 'oechsle' }
   const leer = { alkohol_pct: '', kmw: '', oechsle: '', mostgewicht_einheit: '' }
-  test('neues Mostgewicht: Messwert, Einheit und Formblatt-Text', () => {
-    assert.deepEqual(tbm.tbPositionMitMostgewicht(leer, m84), { alkohol_pct: '17 °KMW', kmw: '17,09', oechsle: '84', mostgewicht_einheit: 'oechsle' })
+  test('neues Mostgewicht: Messwert und Einheit, °KMW in der eigenen Formblatt-Spalte (KAN-131)', () => {
+    const p = tbm.tbPositionMitMostgewicht(leer, m84)
+    assert.deepEqual(p, { alkohol_pct: '', kmw: '17,09', oechsle: '84', mostgewicht_einheit: 'oechsle' })
+    assert.equal(tbm.tbKmwFormblatt(p), '17')
   })
-  test('ein eigener Text in „Alkohol % vol / °KMW“ bleibt stehen, der automatische zieht mit', () => {
+  test('ein eingetragener Alkoholgehalt bleibt stehen, ein Mostgewicht-Text im Alkoholfeld (Altformular) wird geleert', () => {
     assert.equal(tbm.tbPositionMitMostgewicht({ ...leer, alkohol_pct: '12,5 % vol' }, m84).alkohol_pct, '12,5 % vol')
-    const vorher = tbm.tbPositionMitMostgewicht(leer, { kmw: 18.5, oechsle: 91.5, einheit: 'kmw' })
-    assert.equal(tbm.tbPositionMitMostgewicht(vorher, m84).alkohol_pct, '17 °KMW')
-    // Altformular nur mit Text: zieht ebenfalls mit
-    assert.equal(tbm.tbPositionMitMostgewicht({ ...leer, alkohol_pct: '18,5 °KMW' }, m84).alkohol_pct, '17 °KMW')
+    assert.equal(tbm.tbPositionMitMostgewicht({ ...leer, alkohol_pct: '18,5 °KMW' }, m84).alkohol_pct, '')
+    assert.equal(tbm.tbAlkoholGehalt({ alkohol_pct: '84 °Oe' }), '')
+    assert.equal(tbm.tbAlkoholGehalt({ alkohol_pct: '12,5' }), '12,5')
+    // Altformular nur mit Text: °KMW kommt in die eigene Spalte
+    assert.equal(tbm.tbKmwFormblatt({ alkohol_pct: '18,5 °KMW' }), '18,5')
   })
   test('Löschen leert Messwert, Einheit und den automatischen Text', () => {
     const vorher = tbm.tbPositionMitMostgewicht(leer, m84)

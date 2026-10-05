@@ -56,6 +56,15 @@ function info(p: Partial<HerkunftInfo> & { typ: HerkunftInfo['typ'] }): Herkunft
   }
 }
 
+/** KAN-131: Mostgewicht einer Quelle (Charge, Traubenzeile, Zukauf) – Messwert und Einheit wie gespeichert */
+function mg(z: R): Pick<HerkunftInfo, 'kmw' | 'oechsle' | 'mostgewicht_einheit'> {
+  return {
+    kmw: z.kmw != null ? num(z.kmw) : null,
+    oechsle: z.oechsle != null ? num(z.oechsle) : null,
+    mostgewicht_einheit: (z.mostgewicht_einheit as string | null | undefined) ?? null,
+  }
+}
+
 function lieferant(z: R): string | null {
   momentaufnahmeAnwenden(z, ['lieferant_firma', 'lieferant_kontakt'])   // KAN-150 F1c: Lieferant wie beim Zukauf
   const f = (z.lieferant_firma as R | null)?.name ?? null
@@ -92,17 +101,17 @@ export async function ladeBewegungsgraph(supabase: any, tenantId: string, startI
     const ids = frontier
     const [wa, pb, zk, kuVon, kuNach, vsZiel, vsQuelle, fc, fu, vk] = await Promise.all([
       liste((supabase.from('weinausbau') as any)
-        .select('id, name, rebsorte, jahrgang, menge_liter, ist_eroeffnungsbestand, anfangsbestand_liter, storniert_am, created_at')
+        .select('id, name, rebsorte, jahrgang, menge_liter, ist_eroeffnungsbestand, anfangsbestand_liter, storniert_am, created_at, kmw, oechsle, mostgewicht_einheit')
         .eq('tenant_id', tenantId).in('id', ids).order('id'), 'Chargen'),
       // pressung_behaelter ohne tenant_id – Mandant über die Pressung
       liste((supabase.from('pressung_behaelter') as any)
         .select(`id, menge_liter, weinausbau_id,
           pressung:pressung_id(id, datum, erstellt_am, tenant_id, jahrgang_id, lese_id, storniert_am, jahrgang:jahrgang_id(jahrgang),
-            pressung_weingaerten(id, trauben_kg, rebsorte, ernte_datum, kmw, zukauf_posten_id, weingarten_id, grundstueck_id, storniert_am,
+            pressung_weingaerten(id, trauben_kg, rebsorte, ernte_datum, kmw, oechsle, mostgewicht_einheit, zukauf_posten_id, weingarten_id, grundstueck_id, storniert_am,
               weingarten:weingarten_id(id, name, lage:lage_id(amtliche_ried)), grundstueck:grundstueck_id(gst_nr, katastralgemeinde)))`)
         .in('weinausbau_id', ids).is('storniert_am', null).order('id'), 'Pressungen'),   // KAN-148 C1c: stornierte Pressungszeilen sind keine Herkunft
       liste((supabase.from('zukauf_posten') as any)
-        .select('id, datum, erstellt_am, menge, rebsorte, jahrgang, ziel_weinausbau_id, partner_daten, lieferant_firma:firmen!lieferant_firma_id(name), lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname)')
+        .select('id, datum, erstellt_am, menge, rebsorte, jahrgang, kmw, oechsle, mostgewicht_einheit, ziel_weinausbau_id, partner_daten, lieferant_firma:firmen!lieferant_firma_id(name), lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname)')
         .eq('tenant_id', tenantId).in('ziel_weinausbau_id', ids).eq('aktiv', true).in('art', ['wein', 'most']).order('id'), 'Zukäufe'),
       liste((supabase.from('keller_umzuege') as any)
         .select('id, datum, erstellt_am, menge_liter, brutto_liter, schwund_liter, umzug_typ, zeilen_typ, umzug_batch_id, von_weinausbau_id, nach_weinausbau_id')
@@ -139,7 +148,7 @@ export async function ladeBewegungsgraph(supabase: any, tenantId: string, startI
       if (l <= 0) continue
       ereignisse.set(`eb:${c.id}`, {
         art: 'zugang', id: `eb:${c.id}`, datum: '', erfasst: ts(c.created_at), charge: c.id,
-        herkunft: [{ key: `eb:${c.id}`, liter: l, info: info({ typ: 'eroeffnungsbestand', rebsorte: c.rebsorte ?? null, jahrgang: c.jahrgang ?? null }) }],
+        herkunft: [{ key: `eb:${c.id}`, liter: l, info: info({ typ: 'eroeffnungsbestand', rebsorte: c.rebsorte ?? null, jahrgang: c.jahrgang ?? null, ...mg(c) }) }],
       })
     }
 
@@ -166,7 +175,7 @@ export async function ladeBewegungsgraph(supabase: any, tenantId: string, startI
           }
           if (z.zukauf_posten_id) {
             return { key: `zukauf-trauben:${z.zukauf_posten_id}`, liter: liter * anteil,
-              info: info({ typ: 'zukauf', rebsorte: z.rebsorte ?? null, jahrgang: jg, ernte_datum: z.ernte_datum ?? null, zukauf_von: 'Trauben-Zukauf' }) }
+              info: info({ typ: 'zukauf', rebsorte: z.rebsorte ?? null, jahrgang: jg, ernte_datum: z.ernte_datum ?? null, zukauf_von: 'Trauben-Zukauf', ...mg(z) }) }
           }
           return {
             key: `pressung:${w?.name ?? '?'}:${g?.gst_nr ?? '?'}:${z.rebsorte ?? '?'}:${jg ?? '?'}`,
@@ -175,7 +184,7 @@ export async function ladeBewegungsgraph(supabase: any, tenantId: string, startI
               typ: 'pressung', rebsorte: z.rebsorte ?? null, jahrgang: jg, weingarten_name: w?.name ?? null,
               ried: ((w?.lage as R | null)?.amtliche_ried as string | null | undefined) ?? null,
               gst_nr: g?.gst_nr ?? null, katastralgemeinde: g?.katastralgemeinde ?? null,
-              ernte_datum: z.ernte_datum ?? null, kmw: z.kmw != null ? num(z.kmw) : null,
+              ernte_datum: z.ernte_datum ?? null, ...mg(z),
             }),
           }
         })
@@ -190,7 +199,7 @@ export async function ladeBewegungsgraph(supabase: any, tenantId: string, startI
       ereignisse.set(`zk:${z.id}`, {
         art: 'zugang', id: `zk:${z.id}`, datum: tagVon(z.datum), erfasst: ts(z.erstellt_am), charge: z.ziel_weinausbau_id,
         herkunft: [{ key: `zukauf:${von ?? '?'}:${z.rebsorte ?? '?'}:${z.jahrgang ?? '?'}`, liter: l,
-          info: info({ typ: 'zukauf', rebsorte: z.rebsorte ?? null, jahrgang: z.jahrgang ?? null, ernte_datum: z.datum ?? null, zukauf_von: von }) }],
+          info: info({ typ: 'zukauf', rebsorte: z.rebsorte ?? null, jahrgang: z.jahrgang ?? null, ernte_datum: z.datum ?? null, zukauf_von: von, ...mg(z) }) }],
       })
     }
 

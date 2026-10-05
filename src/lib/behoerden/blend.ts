@@ -28,6 +28,7 @@ import { verteileLiter } from '@/lib/wein/mischungsrechnung'
 import { ersatzPruefnummer, pruefnummerAusAntrag, pruefnummerGueltig, pruefnummerHinweis } from '@/lib/kellerbuch/pruefnummer'
 import { antragAusZeile, chargenDerAntraege, ladePruefnummerDaten, PN_ANTRAG_SELECT } from '@/lib/kellerbuch/pruefnummerLaden'
 import { num, numOderNull, tag, text, type R } from './kellerbuch-hilfen'
+import { mostgewichtCsvSpalten } from './mostgewicht_export'
 import { ladeBlendSchritte, type BlendSchritt } from './blendSchritte'
 
 export type BlendArt = 'fuellung' | 'charge'
@@ -80,7 +81,10 @@ export type BlendZeile = {
   katastralgemeinde: string | null
   gstNr: string | null
   lesedatum: string | null
+  /** KAN-131: Mostgewicht der Herkunft wie gespeichert (die CSV rundet über mostgewichtCsvSpalten) */
   kmw: number | null
+  oechsle: number | null
+  mostgewichtEinheit: string | null
   lieferant: string | null
   anteilPct: number
   bezugLiter: number | null
@@ -110,7 +114,9 @@ export function blendZeilen(kopf: BlendKopf, komposition: readonly (Omit<Komposi
       katastralgemeinde: text(u.katastralgemeinde),
       gstNr: text(u.gst_nr),
       lesedatum: tag(u.ernte_datum) || null,
-      kmw: u.kmw === null ? null : runden(u.kmw, STELLEN.kmw),
+      kmw: u.kmw ?? null,
+      oechsle: u.oechsle ?? null,
+      mostgewichtEinheit: u.mostgewicht_einheit ?? null,
       lieferant: text(u.zukauf_von),
       anteilPct,
       bezugLiter: kopf.bezugLiter,
@@ -246,7 +252,8 @@ export const SPALTEN_BLEND: CsvSpalte<BlendZeile>[] = [
   { kopf: 'KG-Nr.', typ: 'code', wert: z => z.katastralgemeinde },
   { kopf: 'GST-Nr.', typ: 'code', wert: z => z.gstNr },
   { kopf: 'Lesedatum', typ: 'datum', wert: z => z.lesedatum },
-  { kopf: 'KMW (°)', typ: 'dezimal', stellen: STELLEN.kmw, wert: z => z.kmw },
+  // KAN-131: °KMW (abgerundet, 2 Stellen) vor °Oe, gemessene Einheit
+  ...mostgewichtCsvSpalten<BlendZeile>(z => ({ kmw: z.kmw, oechsle: z.oechsle, einheit: z.mostgewichtEinheit }), 2),
   { kopf: 'Lieferant (Zukauf)', typ: 'text', wert: z => z.lieferant },
   { kopf: 'Anteil (%)', typ: 'prozent', stellen: 1, wert: z => z.anteilPct },
   { kopf: 'Bezugsmenge (l)', typ: 'dezimal', stellen: STELLEN.liter, wert: z => z.bezugLiter },
