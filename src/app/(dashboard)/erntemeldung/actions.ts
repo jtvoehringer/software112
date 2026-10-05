@@ -33,6 +33,8 @@ import { gstAktivAm } from '@/lib/wein/grundstueckAktiv'
 import { leseHerkunftFehler, leseHerkunftObergrenze, leseObergrenze, leseStufeFehler, leseStufeGedeckelt, pressungLeseGrenze, type LeseStufenEintrag } from '@/lib/wein/leseAbstufung'
 import { verkaufKundeFehler } from '@/lib/handel/partnerPflicht'
 import { ladePartner } from '@/lib/handel/partnerLaden'
+import { pressungSortenverschnitt } from '@/lib/wein/sortenangabe'
+import { bkiFarbe } from '@/lib/wein/bki_kuerzel'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -1075,14 +1077,16 @@ async function chargenVorgabenErmitteln(
     const wgRebsorten = wgArr.map((w: AR) => w.rebsorte).filter(Boolean) as string[]
     const allRebsorten = rebsortenAusForm.length > 0 ? rebsortenAusForm : wgRebsorten
     const uniqueRebsorten = [...new Set(allRebsorten)]
-    dominantRebsorte = uniqueRebsorten.length === 1 ? uniqueRebsorten[0] : uniqueRebsorten.length > 1 ? 'Sortenverschnitt' : null
     // Weinart: GST hat Vorrang vor Weingarten; eindeutig → übernehmen; gemischt → 'unbekannt'
     const weinartQuellen = gstArr.length > 0 ? gstArr : wgArr
     const uniqueWeinart = [...new Set(weinartQuellen.map((w: AR) => w.weinart).filter((a: string) => a && a !== 'unbekannt'))]
     if (uniqueWeinart.length === 1) weinart = uniqueWeinart[0] as string
+    // KAN-89: mehrere Sorten → Sortenverschnitt mit Farbe (Weinart, sonst Farbe der Sorten laut BKI-Liste)
+    dominantRebsorte = uniqueRebsorten.length === 1 ? uniqueRebsorten[0]
+      : uniqueRebsorten.length > 1 ? pressungSortenverschnitt(weinart, uniqueRebsorten.map(bkiFarbe)) : null
   } else if (rebsortenAusForm.length > 0) {
     const unique = [...new Set(rebsortenAusForm)]
-    dominantRebsorte = unique.length === 1 ? unique[0] : 'Sortenverschnitt'
+    dominantRebsorte = unique.length === 1 ? unique[0] : pressungSortenverschnitt(null, unique.map(bkiFarbe))
   }
   const name = kopf.weinbezeichnung
     ? kopf.weinbezeichnung

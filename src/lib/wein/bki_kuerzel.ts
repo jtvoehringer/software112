@@ -186,8 +186,21 @@ const WEISSE_KUERZEL = new Set([
   'BO', 'FU', 'GB', 'GL', 'BM', 'DR', 'DV', 'JU', 'SG', 'MC', 'GW', 'BN', 'CB', 'JO', 'OR', 'SI', 'SW',
 ])
 
+/** Vergleichsschlüssel: NFC, Leerzeichen, Groß-/Kleinschreibung; KAN-89: ß = ss („Weisser Riesling“ = „Weißer Riesling“) */
 function sortenSchluessel(s: string): string {
-  return s.normalize('NFC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('de')
+  return s.normalize('NFC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('de').replace(/ß/g, 'ss')
+}
+
+/**
+ * KAN-89: amtliche Sortennamen für Auswahllisten (Prüfseite „Rebsorten ohne Kürzel“) – je Kürzel der erste Name aus
+ * REBSORTE_KUERZEL, alphabetisch; die Sortenverschnitte (SW/SO/SR/SP) stehen am Ende.
+ */
+export function amtlicheSorten(): { name: string; kuerzel: string }[] {
+  const je = new Map<string, string>()
+  for (const [name, k] of Object.entries(REBSORTE_KUERZEL)) if (!je.has(k)) je.set(k, name)
+  const liste = [...je].map(([kuerzel, name]) => ({ name, kuerzel }))
+  const vs = (n: string) => /^Sortenverschnitt/.test(n) ? 1 : 0
+  return liste.sort((a, b) => vs(a.name) - vs(b.name) || a.name.localeCompare(b.name, 'de'))
 }
 
 let kuerzelNormalisiert: Map<string, string> | null = null

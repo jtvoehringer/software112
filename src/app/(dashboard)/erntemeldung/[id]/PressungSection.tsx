@@ -13,7 +13,8 @@ import { leseStufe } from '@/lib/wein/lesen'
 import { herkunftAnzeige, pressungObergrenze } from '@/lib/zukauf/ware'
 import { pressungLeseGrenze } from '@/lib/wein/leseAbstufung'
 import VerschneidungForm from '@/components/kellerbuch/VerschneidungForm'
-import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
+import { bkiFarbe, formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
+import { pressungSortenverschnitt } from '@/lib/wein/sortenangabe'
 import { fehlerText } from '@/lib/fehler'
 import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
 import { messwertText, mostgewichtAusGespeichert, type GespeichertesMostgewicht } from '@/lib/wein/mostgewichtFormular'
@@ -537,7 +538,8 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, wgOptions, behOpt
           {(() => {
             const rebsorten = wgRows.map(r => r.rebsorte).filter(Boolean)
             const unique = [...new Set(rebsorten)]
-            const autoRebsorte = unique.length === 1 ? unique[0] : unique.length > 1 ? 'Sortenverschnitt' : null
+            // KAN-89: wie die Server Action – Sortenverschnitt mit Farbe (hier nach der Farbe der Sorten)
+            const autoRebsorte = unique.length === 1 ? unique[0] : unique.length > 1 ? pressungSortenverschnitt(null, unique.map(r => bkiFarbe(r))) : null
             const preview = weinbezeichnung.trim() || autoRebsorte
               || `Pressung ${datum ? new Date(datum).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '…'}`
             return (

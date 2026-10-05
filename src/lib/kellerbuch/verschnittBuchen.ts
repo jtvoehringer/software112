@@ -41,6 +41,7 @@ import { mitPnNotiz } from '@/lib/kellerbuch/pruefnummer'
 import { verschnittGruppen } from '@/lib/kellerbuch/verschnittSorten'
 import { verschnittWerte, weinartAusQuellen, rotWeissMischung, herkunftQualitaetFrage, herkunftQualitaetVermerk, ROT_WEISS_FRAGE, type Abstufung } from '@/lib/kellerbuch/verschnittWerte'
 import type { GruppenMenge } from '@/lib/wein/sortenangabe'
+import { bkiFarbe } from '@/lib/wein/bki_kuerzel'
 
 type R = Record<string, any>
 
@@ -166,7 +167,7 @@ export async function verschnittVorbereiten(
     const { data: rs } = sorten.length ? await (supabase.from('rebsorten') as any).select('name_de, farbe').in('name_de', sorten) : { data: [] }
     for (const r of (rs ?? []) as R[]) farbe.set(r.name_de, r.farbe)
   }
-  const artVon = (r: R): string => (weinartBekannt(r.weinart) ? r.weinart : weinartAusFarbe(farbe.get(r.rebsorte)))
+  const artVon = (r: R): string => (weinartBekannt(r.weinart) ? r.weinart : weinartAusFarbe(farbe.get(r.rebsorte) ?? bkiFarbe(r.rebsorte) ?? undefined))
   // KAN-193: Rot und Weiß → Rückfrage, nach Bestätigung Abstufung auf Wein (aus Österreich) und Farbe nach der Mehrheit
   // der Liter (Ziel mit seinem Bestand, Quellen mit ihrer Menge) – früher eine harte Ablehnung
   const mischung = rotWeissMischung([

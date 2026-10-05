@@ -79,6 +79,8 @@ const NAV: NavGroup[] = [
     key: 'rieden', label: 'Rieden', icon: Grape,
     items: [
       { href: '/weingarten',         label: 'Rieden',         phase: 1, keywords: 'weingarten grundstücke flächen' },
+      // KAN-89: Rebsorten ohne amtliches BKI-Kürzel prüfen und gesammelt korrigieren
+      { href: '/weingarten/rebsorten', label: 'Rebsorten prüfen', child: true, keywords: 'rebsorte kürzel bki kürzelliste korrektur sortenverschnitt prüfen' },
       { href: '/behandlungen',       label: 'Maßnahmen',      phase: 1, keywords: 'pflanzenschutz spritzung behandlung' },
       // Pflichtmeldungen (Druck + CSV) – auch ohne Modul Controlling, siehe pflichtmeldungenSichtbar
       { href: '/reports/behandlungsprotokoll', label: 'Behandlungsprotokoll', child: true, pflichtmeldung: true, keywords: 'pflanzenschutz psm aufzeichnungen spritzprotokoll bio kontrolle behörde meldung druck csv' },
