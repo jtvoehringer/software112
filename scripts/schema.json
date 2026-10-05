@@ -1023,7 +1023,9 @@
 "debitor_nr",
 "email_weitere",
 "position",
-"quelle"
+"quelle",
+"titel",
+"titel_nachgestellt"
 ],
 "konten": [
 "id",
