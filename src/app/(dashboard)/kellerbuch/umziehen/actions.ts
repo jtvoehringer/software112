@@ -14,7 +14,7 @@ import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { fmtNum, zahlAus } from '@/lib/format'
 import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { weinartKonflikt, weinartKonfliktText, weinartAusFarbe, weinartBekannt } from '@/lib/keller/weinart'
-import { ladeUmzugZeilen, planeUmzugStorno, umzugSperrMeldung, nurNotizenAenderbar } from '@/lib/kellerbuch/storno'
+import { ladeUmzugZeilen } from '@/lib/kellerbuch/storno'
 import { pruefePruefnummernSchaden } from '@/lib/kellerbuch/pruefnummerLaden'
 import { waehleZielCharge, merkmaleText, type Merkmal } from '@/lib/kellerbuch/umzugZiel'
 import { verschnitteVorbereiten, verschnitteAusfuehren, type VerschnittEingabe } from '@/lib/kellerbuch/verschnittBuchen'
@@ -226,7 +226,9 @@ export async function umziehen(fd: FormData): Promise<{ verschnitte?: UmzugVersc
 
   const { quellen, ziele } = leseZeilen(fd)
   const notizen   = (fd.get('notizen')   as string) || null
-  const datum     = (fd.get('datum')     as string) || new Date().toISOString().split('T')[0]
+  // KAN-207: Datum Pflicht – kein stilles „heute“
+  const datum     = ((fd.get('datum') as string | null) ?? '').trim()
+  if (!datum) throw new AktionsFehler('Bitte das Datum des Umzugs angeben.')
   // Nur Umzug oder Filtration – 'schwund' ist den Schwundbuchungen (schwund_buchen) vorbehalten
   const umzugTyp  = fd.get('umzug_typ') === 'filtration' ? 'filtration' : 'normal'
 
@@ -595,11 +597,10 @@ export async function deleteUmzug(id: string, grund: string) {
   return _deleteUmzug(id, grund)
 }
 
-// ── Umzug Datum/Notizen aktualisieren ────────────────────────────────────────
-// KAN-35: Notizen sind immer änderbar (nur diese Zeile). Ein neues Datum gilt für die ganze
-// Buchung (alle Quell- und Zielzeilen – vorher nur für die angeklickte Zeile, Abgang und
-// Zugang fielen dann auf verschiedene Tage) und nur unter denselben Bedingungen wie ein
-// Storno: Ziel-Charge seither nicht weiterbewegt, keine Schwundbuchung, neues Zeilenformat.
+// ── Umzug: Notizen aktualisieren ─────────────────────────────────────────────
+// KAN-35: Notizen sind immer änderbar (nur diese Zeile). KAN-207 (05.10.2026, Matrix KAN-85): ein gespeicherter Umzug
+// ist sofort fest – das Datum ändert sich nicht mehr direkt (auch der DB-Trigger a_freeze lehnt es ab); Korrektur über
+// „Bearbeiten“ (Storno und neue Buchung) bzw. „Stornieren“ und Neuerfassung.
 export async function updateUmzug(umzugId: string, datum: string, notizen: string | null) {
   const supabase = await createSupabaseServerClient()
   const membership = await getCurrentMembership()
@@ -615,17 +616,7 @@ export async function updateUmzug(umzugId: string, datum: string, notizen: strin
 
   const neuesDatum = (datum ?? '').trim()
   if (neuesDatum && neuesDatum !== zeile.datum) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(neuesDatum)) throw new AktionsFehler('Bitte ein gültiges Datum angeben.')
-    const plan = await planeUmzugStorno(supabase, tenantId, zeilen)
-    if (nurNotizenAenderbar(plan)) throw new AktionsFehler(umzugSperrMeldung(plan, 'datum'))
-    const ids = zeilen.map(z => z.id as string)
-    const { data, error: e } = await (supabase.from('keller_umzuege') as any)
-      .update({ datum: neuesDatum })
-      .in('id', ids)
-      .eq('tenant_id', tenantId)
-      .select('id')
-    if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (keller_umzuege): ${dbFehlerText(e)}`)
-    if (((data ?? []) as R[]).length !== ids.length) throw new AktionsFehler('Das Datum konnte nicht für alle Zeilen des Umzugs geändert werden (keine Berechtigung?).')
+    throw new AktionsFehler('Das Datum eines gespeicherten Umzugs lässt sich nicht mehr ändern. Korrektur: Umzug stornieren und mit dem richtigen Datum neu buchen.')
   }
 
   { const { error: e } = await (supabase.from('keller_umzuege') as any)

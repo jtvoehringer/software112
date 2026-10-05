@@ -117,6 +117,8 @@ BEGIN
   PERFORM pg_temp.s112_als_postgres();
   SELECT u.id INTO v_neu FROM public.keller_umzuege u WHERE u.tenant_id = v_b AND u.datum = v_bis + 1 AND u.von_weinausbau_id = v_c1;
   PERFORM pg_temp.s112_als(v_bw);
+  -- KAN-207: gebuchte Umzüge sind fest (a_freeze) – hier wird die Periodensperre geprüft, deshalb über den Korrekturweg
+  PERFORM set_config('s112.freeze_frei', 'keller_umzuege', true);
   v_erg := v_erg || pg_temp.s112_erwarte('offen_aendern',
     pg_temp.s112_fehlertext(format('UPDATE public.keller_umzuege SET menge_liter = 6 WHERE id = %L', v_neu)), 'ok');
   v_erg := v_erg || pg_temp.s112_erwarte('gesperrt_umdatieren',
@@ -125,6 +127,7 @@ BEGIN
     split_part(pg_temp.s112_fehlertext(format('UPDATE public.keller_umzuege SET menge_liter = 11 WHERE id = %L', v_alt)), ':', 1), '42501');
   v_erg := v_erg || pg_temp.s112_erwarte('gesperrt_unveraendert',
     pg_temp.s112_fehlertext(format('UPDATE public.keller_umzuege SET menge_liter = menge_liter WHERE id = %L', v_alt)), 'ok');
+  PERFORM set_config('s112.freeze_frei', '', true);
   v_erg := v_erg || pg_temp.s112_erwarte('gesperrt_storno',
     pg_temp.s112_fehlertext(format('UPDATE public.keller_umzuege SET storniert_am = now(), storno_grund = %L WHERE id = %L', 'S112TEST Storno im Abschluss', v_alt)), 'ok');
   PERFORM pg_temp.s112_als_postgres();
