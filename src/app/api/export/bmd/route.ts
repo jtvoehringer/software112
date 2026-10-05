@@ -3,7 +3,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { hatModul } from '@/lib/auth/modul'
-import { alle } from '@/lib/supabase/alle'
+import { alle, bloecke, inBloecken } from '@/lib/supabase/alle'
 import { ereignisMelden } from '@/lib/system/ereignis'
 import {
   mappingAufloesen, steuerfall, erloesSchluessel, steuercodeFuer,
@@ -132,6 +132,8 @@ export async function GET(req: NextRequest) {
       // (RLS lässt UPDATE nur bei NOT is_locked zu) - die BMD-Markierung
       // muss trotzdem gesetzt werden, sie ändert den Beleg inhaltlich nicht.
       const admin = createSupabaseAdminClient()
+      // bloecke() aus lib/supabase/alle (05.10.2026): vorher 500 IDs je Block (≈ 18 KB URL, Grenze ≈ 350 UUIDs) –
+      // ab ≈ 350 Belegen scheiterte die Markierung, „nur neue“ hätte sie beim nächsten Export erneut geliefert
       for (const block of bloecke(belegIds.verkaufsposten)) {
         { const { error: e } = await admin.from('verkaufsposten').update({ bmd_export_id: protId }).eq('tenant_id', tenantId).in('id', block)
           if (e) void ereignisMelden({ art: 'db', quelle: 'bmd/verkaufsposten', meldung: e.message }) }
@@ -153,11 +155,7 @@ export async function GET(req: NextRequest) {
   return antwort
 }
 
-function bloecke<T>(arr: T[], groesse = 500): T[][] {
-  const out: T[][] = []
-  for (let i = 0; i < arr.length; i += groesse) out.push(arr.slice(i, i + groesse))
-  return out
-}
+
 
 // ── Personenkonten-Vergabe ──────────────────────────────────────────────────
 class Personenkonten {
@@ -311,7 +309,8 @@ async function belegnrMitStorno(supabase: any, tenantId: string, zeilen: R[]): P
   const ids = [...new Set(zeilen.map(t => t.storno_von_id).filter(Boolean))] as string[]
   const original = new Map<string, R>()
   if (ids.length) {
-    const { data } = await alle<R>(supabase.from('ea_transaktionen').select('id, bank_ref').eq('tenant_id', tenantId).in('id', ids).order('id'))
+    // inBloecken: viele Stornos in einem Exportzeitraum sprengten sonst die URL (≈ 350 IDs)
+    const { data } = await inBloecken<R>(ids, b => alle<R>(supabase.from('ea_transaktionen').select('id, bank_ref').eq('tenant_id', tenantId).in('id', b).order('id')))
     for (const o of data) original.set(o.id, o)
   }
   return t => {

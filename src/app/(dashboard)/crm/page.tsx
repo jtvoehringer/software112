@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { inBloecken } from '@/lib/supabase/alle'
 import CRMUebersichtClient from './CRMUebersichtClient'
 import type { KalenderEintrag } from './CRMUebersichtClient'
 import { AKTIVITAET_ARTEN } from '@/lib/crm/types'
@@ -42,17 +43,12 @@ export default async function CRMUebersichtPage({ searchParams }: { searchParams
   // Dialog suchen jetzt serverseitig über /api/crm/suche).
   const kontaktIds = [...new Set(aktivRaw.map((a: AR) => a.kontakt_id).filter(Boolean))] as string[]
   const firmaIds   = [...new Set(aktivRaw.map((a: AR) => a.firma_id).filter(Boolean))] as string[]
-  const inBloecken = async (tabelle: string, spalten: string, ids: string[]) => {
-    const out: AR[] = []
-    for (let i = 0; i < ids.length; i += 300) {
-      const { data } = await tf((supabase.from(tabelle) as any).select(spalten).in('id', ids.slice(i, i + 300)))
-      out.push(...((data ?? []) as AR[]))
-    }
-    return out
-  }
+  // Blöcke zu 100 IDs (inBloecken, 05.10.2026) – vorher 300, knapp unter der gemessenen URL-Grenze (≈ 350 UUIDs)
+  const namenLaden = async (tabelle: string, spalten: string, ids: string[]) =>
+    (await inBloecken<AR>(ids, b => tf((supabase.from(tabelle) as any).select(spalten).in('id', b)))).data
   const [kontakteRaw, firmenRaw] = await Promise.all([
-    inBloecken('kontakte', 'id, vorname, nachname', kontaktIds),
-    inBloecken('firmen', 'id, name', firmaIds),
+    namenLaden('kontakte', 'id, vorname, nachname', kontaktIds),
+    namenLaden('firmen', 'id, name', firmaIds),
   ])
 
   // User-Profile für Klarname in Filter-Chips

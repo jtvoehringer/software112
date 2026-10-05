@@ -1,6 +1,6 @@
 // behoerdenmeldung: bki-traubenverkauf
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { alle } from '@/lib/supabase/alle'
+import { alle, inBloecken } from '@/lib/supabase/alle'
 import { getCurrentUserRole, getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
@@ -134,10 +134,12 @@ export default async function TraubenverkaufPage() {
   // alle Jahrgänge - dieses Modul ist nicht jahrgangsgebunden).
   const pressedKgByZukauf: Record<string, number> = {}
   if (zukaufIds.length > 0) {
-    const { data: pressedRaw } = await (supabase.from('pressung_weingaerten') as any)
+    // inBloecken: Trauben-Zukäufe aller Jahre (URL-Grenze ≈ 350 IDs), sonst stimmten die verfügbaren kg nicht
+    const { data: pressedRaw } = await inBloecken(zukaufIds, b => alle((supabase.from('pressung_weingaerten') as any)
       .select('zukauf_posten_id, trauben_kg')
-      .in('zukauf_posten_id', zukaufIds)
+      .in('zukauf_posten_id', b)
       .is('storniert_am', null)
+      .order('id')))
     for (const p of (pressedRaw ?? []) as R[]) {
       pressedKgByZukauf[p.zukauf_posten_id] = (pressedKgByZukauf[p.zukauf_posten_id] ?? 0) + (parseFloat(p.trauben_kg) || 0)
     }

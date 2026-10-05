@@ -1,5 +1,6 @@
 import { qualitaetAnzeige } from '@/lib/wein/qualitaet'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle, inBloecken } from '@/lib/supabase/alle'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
@@ -97,15 +98,19 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
   const loeschSperre = new Map<string, string>()
   if (writeOk && fuellungen.length > 0) {
     const ids = fuellungen.map(f => f.id as string)
+    // inBloecken + alle(): Füllungen sammeln sich über die Jahre (URL-Grenze ≈ 350 IDs), Verkaufspositionen je Füllung
+    // gehen schnell über 1.000 – sonst fehlte die Sperre bei manchen Füllungen
     const [{ data: vkRaw }, { data: bwRaw }] = await Promise.all([
-      tf((supabase.from('verkauf_positionen') as any)
+      inBloecken(ids, b => alle(tf((supabase.from('verkauf_positionen') as any)
         .select('fuellung_id, verkaufsposten!inner(storniert)')
-        .in('fuellung_id', ids)
+        .in('fuellung_id', b)
         .eq('typ', 'flasche')
-        .eq('verkaufsposten.storniert', false)),
-      tf((supabase.from('fuellung_bewegungen') as any)
+        .eq('verkaufsposten.storniert', false)
+        .order('id')))),
+      inBloecken(ids, b => alle(tf((supabase.from('fuellung_bewegungen') as any)
         .select('fuellung_id')
-        .in('fuellung_id', ids)),
+        .in('fuellung_id', b)
+        .order('id')))),
     ])
     for (const v of (vkRaw ?? []) as R[]) loeschSperre.set(v.fuellung_id, 'Nicht löschbar: Zu dieser Füllung gibt es bereits Verkäufe – sie bleibt als Historie erhalten.')
     for (const b of (bwRaw ?? []) as R[]) {
