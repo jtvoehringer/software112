@@ -17,7 +17,7 @@
 import { momentaufnahmeAnwenden } from '../stammdaten/momentaufnahme'
 import { STELLEN, runden, wienHeute, type CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
-import { bkiFarbe, formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
+import { bkiFarbe, formatRebsorteMitKuerzel, sortenKuerzel } from '@/lib/wein/bki_kuerzel'
 import { bestandVorVerkauf, ersatzPruefnummer, pnDatumDe, pnTag, pruefnummerGueltig, pruefnummerHinweis, type PnAntrag, type PnChargeDaten } from '@/lib/kellerbuch/pruefnummer'
 import { antragAusZeile, chargenDerAntraege, ladePruefnummerDaten, PN_ANTRAG_SELECT } from '@/lib/kellerbuch/pruefnummerLaden'
 import { rebsorteDerLieferung } from './traubenverkauf'
@@ -198,6 +198,8 @@ export const SPALTEN_TRANSPORTBESCHEINIGUNG: CsvSpalte<TBZeile>[] = [
   { kopf: 'Einheit', typ: 'code', wert: z => z.einheit },
   { kopf: 'Art (Rot/Weiß/Rosé)', typ: 'text', wert: z => z.art },
   { kopf: 'Traubensorte(n)', typ: 'text', wert: z => z.traubensorte },
+  // KAN-89: Vorgabe BKI – neben der Sorte das Sortenkürzel
+  { kopf: 'BKI-Kürzel', typ: 'code', wert: z => sortenKuerzel(z.traubensorte) },
   { kopf: 'Qualitätsstufe', typ: 'text', wert: z => z.qualitaetsstufe },
   { kopf: 'Jahrgang', typ: 'code', wert: z => z.jahrgang },
   { kopf: 'Herkunft', typ: 'text', wert: z => z.herkunft },

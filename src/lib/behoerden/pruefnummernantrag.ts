@@ -14,7 +14,7 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Supabase-Abfragen nach Projektkonvention mit „as any“ (CLAUDE.md) */
 import { STELLEN, runden, type CsvSpalte } from '@/lib/csv'
-import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
+import { formatRebsorteMitKuerzel, sortenKuerzel } from '@/lib/wein/bki_kuerzel'
 import { normalisiereQualitaet } from '@/lib/wein/qualitaetsrang'
 import { qualitaetText } from '@/lib/weinqualitaet'
 import { HERKUNFT_LABEL } from '@/lib/herkunft'
@@ -248,6 +248,8 @@ export const SPALTEN_PRUEFNUMMERNANTRAG: CsvSpalte<PNAZeile>[] = [
   { kopf: 'Abgefüllt', typ: 'text', wert: z => z.abgefuellt },
   { kopf: 'Teilmenge mit vorhandenen Prüfnummern (l)', typ: 'dezimal', stellen: STELLEN.liter, wert: z => z.teilmengePnL },
   { kopf: 'Bezeichnung Rebsorte(n)', typ: 'text', wert: z => z.bezRebsorte },
+  // KAN-89: Vorgabe BKI – neben der Sorte das Sortenkürzel
+  { kopf: 'BKI-Kürzel', typ: 'code', wert: z => sortenKuerzel(z.bezRebsorte) },
   { kopf: 'Qualitätsstufe', typ: 'text', wert: z => z.qualitaetsstufe },
   { kopf: 'Weinbaugebiet', typ: 'text', wert: z => z.weinbaugebiet },
   { kopf: 'Bezeichnung Jahrgang', typ: 'code', wert: z => z.bezJahrgang },

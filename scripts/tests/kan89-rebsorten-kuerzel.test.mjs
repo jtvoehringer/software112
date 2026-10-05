@@ -56,6 +56,22 @@ describe('KAN-89 Schreibweisen und Sortenverschnitt', nurMitHooks, () => {
     assert.equal(bki.bkiRebsorteKuerzel('Grauer Burgunder'), 'GR')
   })
 
+  test('sortenKuerzel: Vorgabe BKI – Kürzel auch zu Feldern mit mehreren Sorten, nur wenn alle bekannt', () => {
+    assert.equal(bki.sortenKuerzel('Zweigelt'), 'ZW')
+    assert.equal(bki.sortenKuerzel('Grüner Veltliner, Riesling'), 'GV, RR')
+    assert.equal(bki.sortenKuerzel('Sauvignon Blanc / Muskateller'), 'SB, MU')
+    assert.equal(bki.sortenKuerzel('Zierfandler (ZF) und Rotgipfler (RG)'), 'ZF, RG')
+    assert.equal(bki.sortenKuerzel('Zweigelt, Phantasiesorte'), null)
+    assert.equal(bki.sortenKuerzel('Cuvée'), null)
+    assert.equal(bki.sortenKuerzel(null), null)
+  })
+
+  test('Behördenmeldungen mit Sortenfeld haben die Spalte BKI-Kürzel (Vorgabe BKI 05.10.2026)', () => {
+    for (const rel of ['dac.ts', 'pruefnummernantrag.ts', 'transportbescheinigung.ts', 'rueckverfolgung.ts', 'rv-weingarten.ts']) {
+      assert.match(quelle(`src/lib/behoerden/${rel}`), /kopf: 'BKI-Kürzel[^']*', typ: 'code', wert: \w+ => sortenKuerzel\(/, rel)
+    }
+  })
+
   test('Sortenverschnitte mit Farbe haben ein Kürzel, ohne Farbe nicht', () => {
     assert.equal(bki.bkiRebsorteKuerzel('Sortenverschnitt weiß'), 'SW')
     assert.equal(bki.bkiRebsorteKuerzel('Sortenverschnitt rot'), 'SO')

@@ -32,6 +32,7 @@ import { runden, STELLEN, type CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
 import { ladeHerkunftLesezeilen } from '@/lib/wein/blendKomposition'
 import { leseArtText, leseNummer } from '@/lib/wein/lesen'
+import { sortenKuerzel } from '@/lib/wein/bki_kuerzel'
 import { numOderNull, tag, text, type R } from './kellerbuch-hilfen'
 import { mostgewichtCsvSpalten } from './mostgewicht_export'
 import {
@@ -448,6 +449,8 @@ export const SPALTEN_RV_WEINGARTEN: CsvSpalte<RvZeile>[] = [
   { kopf: 'GST-Nr.', typ: 'code', wert: z => z.gstNr },
   { kopf: 'Feldstück (AMA)', typ: 'code', wert: z => z.feldstueck },
   { kopf: 'Rebsorte', typ: 'text', wert: z => z.rebsorte },
+  // KAN-89: Vorgabe BKI – neben der Sorte das Sortenkürzel
+  { kopf: 'BKI-Kürzel', typ: 'code', wert: z => sortenKuerzel(z.rebsorte) },
   { kopf: 'Lesedatum', typ: 'datum', wert: z => z.lesedatum },
   { kopf: 'Trauben (kg)', typ: 'dezimal', stellen: STELLEN.kg, wert: z => z.kg },
   // KAN-131: °KMW (abgerundet, 2 Stellen) vor °Oe, gemessene Einheit

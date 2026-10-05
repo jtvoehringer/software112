@@ -449,9 +449,9 @@ describe('dac-antraege', () => {
     assert.equal(zeilen.length, 2)
     assert.deepEqual(warnungen, [])   // KAN-98: N 1/24 entspricht dem Format
     const d = csvDatei(zeilen, dac.SPALTEN_DAC_ANTRAEGE)
-    assert.equal(zeilenVon(d.text)[0], 'Bezeichnung;DAC-Region;Jahrgang;Rebsorte;Menge (l);Alkohol (% vol);Status;Status seit;Eingereicht am;Staatliche Prüfnummer;Bescheid am;Aktiv;Storniert am;Storno-Grund')   // KAN-150 F2: Storno-Spalten; KAN-98: Status seit
-    assert.equal(zeilenVon(d.text)[1], 'ZW Reserve;Carnuntum;2024;Zweigelt;1500,01;13,50;Zugeteilt;15.04.2025 10:00;01.03.2025;N 1/24;15.04.2025;Ja;;')   // KAN-97: genehmigt = „Zugeteilt“
-    assert.equal(zeilenVon(d.text)[2], 'Entwurf;unbekannt_neu;;;;;Entwurf;;;;;Nein;;')
+    assert.equal(zeilenVon(d.text)[0], 'Bezeichnung;DAC-Region;Jahrgang;Rebsorte;BKI-Kürzel;Menge (l);Alkohol (% vol);Status;Status seit;Eingereicht am;Staatliche Prüfnummer;Bescheid am;Aktiv;Storniert am;Storno-Grund')   // KAN-150 F2: Storno-Spalten; KAN-98: Status seit
+    assert.equal(zeilenVon(d.text)[1], 'ZW Reserve;Carnuntum;2024;Zweigelt;ZW;1500,01;13,50;Zugeteilt;15.04.2025 10:00;01.03.2025;N 1/24;15.04.2025;Ja;;')   // KAN-97: genehmigt = „Zugeteilt“
+    assert.equal(zeilenVon(d.text)[2], 'Entwurf;unbekannt_neu;;;;;;Entwurf;;;;;Nein;;')
   })
   test('KAN-98: Prüfnummer in ungewöhnlichem Format als Warnung', async () => {
     const sb = fakeSupabase({ dac_antrag: [
