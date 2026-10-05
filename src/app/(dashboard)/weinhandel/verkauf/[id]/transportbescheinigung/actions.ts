@@ -7,6 +7,8 @@ import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { stornoGrundFehler } from '@/lib/storno/grund'
+import { alle } from '@/lib/supabase/alle'
+import { naechsteTbNummer, tbNummerVergeben, tbPflichtFehler } from '@/lib/behoerden/tbPflicht'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -30,12 +32,16 @@ export async function saveTB(verkaufspostenId: string, daten: R): Promise<{ id: 
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: existing, error: exErr } = await (supabase.from('transportbescheinigungen') as any)
-    .select('id')
+    .select('id, status')
     .eq('tenant_id', tenantId)
     .eq('verkaufsposten_id', verkaufspostenId)
     .is('storniert_am', null)
     .maybeSingle()
   if (exErr) throw new AktionsFehler(dbFehlerText(exErr, 'Transportbescheinigung konnte nicht geladen werden'))
+  // KAN-209: ausgestellt = fest (auch DB-Trigger a_freeze) – Korrektur über Storno und neue Bescheinigung
+  if (existing?.status === 'ausgestellt') {
+    throw new AktionsFehler('Die Transportbescheinigung ist bereits ausgestellt und kann nicht mehr geändert werden. Korrektur: stornieren und eine neue ausstellen.')
+  }
 
   if (existing?.id) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -83,4 +89,41 @@ export async function loescheTB(verkaufspostenId: string, id: string, grund: str
   })
   if (error) throw new AktionsFehler(dbFehlerText(error, 'Endgültig löschen fehlgeschlagen'))
   revalidatePath(`/weinhandel/verkauf/${verkaufspostenId}/transportbescheinigung`)
+}
+
+// KAN-209 (05.10.2026): Ausstellen – Pflichtangaben prüfen, ohne Eingabe die nächste laufende Nummer des Jahres vergeben,
+// gespeicherte Fassung mit Status „ausgestellt“ (Zeitpunkt und Benutzer setzt der Trigger); danach fest.
+export async function tbAusstellen(verkaufspostenId: string, daten: R): Promise<{ id: string; laufendeNr: string }> {
+  const supabase = await createSupabaseServerClient()
+  const tenantId = await tbSchreibrecht()
+  const jahr = String(daten?.jahr ?? '').trim()
+  const nummerEingabe = String(daten?.laufende_nr ?? '').trim()
+  const fehlt = tbPflichtFehler(daten, { nummerWirdVergeben: !nummerEingabe })
+  if (fehlt.length > 0) throw new AktionsFehler(`Zum Ausstellen fehlen noch: ${fehlt.join('; ')}.`)
+
+  // Laufende Nummern des Jahres (ausgestellt, nicht storniert, andere Verkäufe)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase-Typen ohne Tabellenschema (Konvention)
+  const { data: vorhandene, error: vErr } = await alle<R>((supabase.from('transportbescheinigungen') as any)
+    .select('id, verkaufsposten_id, formular_daten')
+    .eq('tenant_id', tenantId).eq('status', 'ausgestellt').is('storniert_am', null).order('id'))
+  if (vErr) throw new AktionsFehler(dbFehlerText(vErr, 'Laufende Nummern konnten nicht geprüft werden'))
+  const imJahr = ((vorhandene ?? []) as R[])
+    .filter(t => t.verkaufsposten_id !== verkaufspostenId && String((t.formular_daten as R | null)?.jahr ?? '').trim() === jahr)
+    .map(t => String((t.formular_daten as R | null)?.laufende_nr ?? ''))
+  const laufendeNr = nummerEingabe || naechsteTbNummer(imJahr)
+  if (nummerEingabe && tbNummerVergeben(nummerEingabe, imJahr)) {
+    throw new AktionsFehler(`Die laufende Nummer ${nummerEingabe}/${jahr} ist bereits vergeben – bitte eine andere eintragen oder das Feld leer lassen (dann wird die nächste vergeben).`)
+  }
+  const formular = { ...daten, laufende_nr: laufendeNr }
+
+  const { id } = await saveTB(verkaufspostenId, formular)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.from('transportbescheinigungen') as any)
+    .update({ status: 'ausgestellt', aktualisiert_am: new Date().toISOString() })
+    .eq('id', id).eq('tenant_id', tenantId).eq('status', 'entwurf').is('storniert_am', null)
+    .select('id')
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Ausstellen fehlgeschlagen'))
+  if (!data || (data as R[]).length === 0) throw new AktionsFehler('Die Transportbescheinigung wurde inzwischen geändert oder ausgestellt – bitte die Seite neu laden.')
+  revalidatePath(`/weinhandel/verkauf/${verkaufspostenId}/transportbescheinigung`)
+  return { id, laufendeNr }
 }

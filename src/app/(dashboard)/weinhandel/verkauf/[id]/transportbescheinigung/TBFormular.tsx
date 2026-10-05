@@ -4,7 +4,11 @@ import { Fragment, useState, useCallback, useTransition } from 'react'
 import { Trash2 } from 'lucide-react'
 import Link from '@/components/ui/Link'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
-import { saveTB } from './actions'
+import { saveTB, tbAusstellen } from './actions'
+import { useRouter } from 'next/navigation'
+import GesperrtHinweis from '@/components/GesperrtHinweis'
+import { fehlerText } from '@/lib/fehler'
+import { TB_FREEZE_GRUND } from '@/lib/behoerden/tbPflicht'
 import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
 import { tbAlkoholGehalt, tbKmwFormblatt, tbMostgewichtFelder, tbPositionMitMostgewicht, tbPositionMostgewicht } from '@/lib/behoerden/tbMostgewicht'
 import type { GespeichertesMostgewicht } from '@/lib/wein/mostgewichtFormular'
@@ -18,6 +22,10 @@ interface Props {
   initial: TBDaten
   /** CSV derselben (gespeicherten) Transportbescheinigung: csvPfad('transportbescheinigung', …) */
   csvHref: string
+  /** KAN-209: ausgestellt = fest (nur Storno); Zeitpunkt (ISO) und Name */
+  ausgestellt?: boolean
+  ausgestelltAm?: string | null
+  ausgestelltVon?: string | null
 }
 
 const inputCls = 'border border-s112-line-str px-1.5 py-0.5 text-xs w-full focus:outline-none focus:border-s112-teal print:border-s112-line-str bg-white'
@@ -42,7 +50,9 @@ function startwertAus(p: WeinPosition): GespeichertesMostgewicht | null {
 
 type Zeile = { key: number; start: GespeichertesMostgewicht | null }
 
-export default function TBFormular({ verkaufspostenId, initial, csvHref }: Props) {
+export default function TBFormular({ verkaufspostenId, initial, csvHref, ausgestellt = false, ausgestelltAm = null, ausgestelltVon = null }: Props) {
+  const router = useRouter()
+  const [fehler, setFehler] = useState<string | null>(null)
   // Altformulare: Mostgewicht aus „Alkohol % vol / °KMW“ in die Felder kmw/oechsle/mostgewicht_einheit
   const [daten, setDaten] = useState<TBDaten>(() => ({
     ...initial,
@@ -116,18 +126,39 @@ export default function TBFormular({ verkaufspostenId, initial, csvHref }: Props
 
   function handleSave() {
     if (mgFehlerText) return
+    setFehler(null)
     startTransition(async () => {
-      await saveTB(verkaufspostenId, daten)
-      setGespeichert(true)
-      setGeaendert(false)
+      try {
+        await saveTB(verkaufspostenId, daten)
+        setGespeichert(true)
+        setGeaendert(false)
+      } catch (e) { setFehler(fehlerText(e, 'Speichern fehlgeschlagen')) }
     })
   }
+
+  // KAN-209: Ausstellen – Pflichtangaben prüfen, laufende Nummer vergeben, danach fest
+  function handleAusstellen() {
+    if (mgFehlerText) return
+    if (!window.confirm('Transportbescheinigung jetzt ausstellen? Danach ist sie nicht mehr änderbar – Korrektur nur über Storno und eine neue Bescheinigung.')) return
+    setFehler(null)
+    startTransition(async () => {
+      try {
+        await tbAusstellen(verkaufspostenId, daten)
+        setGeaendert(false)
+        router.refresh()
+      } catch (e) { setFehler(fehlerText(e, 'Ausstellen fehlgeschlagen')) }
+    })
+  }
+  const ausgestelltText = ausgestelltAm
+    ? new Date(ausgestelltAm).toLocaleString('de-AT', { timeZone: 'Europe/Vienna', dateStyle: 'medium', timeStyle: 'short' })
+    : null
 
   return (
     <div className="space-y-6">
       {/* Toolbar */}
       <div className="flex items-start justify-between gap-4 no-print">
         <div className="flex flex-wrap items-start gap-2">
+          {!ausgestellt && (<>
           <button
             onClick={handleSave}
             disabled={pending || !!mgFehlerText}
@@ -136,6 +167,14 @@ export default function TBFormular({ verkaufspostenId, initial, csvHref }: Props
           >
             {pending ? 'Speichern…' : 'Speichern'}
           </button>
+          <button
+            onClick={handleAusstellen}
+            disabled={pending || !!mgFehlerText}
+            className="border border-s112-teal text-s112-blue-700 px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-s112-bg disabled:opacity-50"
+          >
+            Ausstellen
+          </button>
+          </>)}
           {gespeichert && <span className="text-xs text-s112-ok-fg self-center">Gespeichert</span>}
           <button
             onClick={() => window.print()}
@@ -151,22 +190,35 @@ export default function TBFormular({ verkaufspostenId, initial, csvHref }: Props
           )}
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">
+          {!ausgestellt && (
           <button onClick={addPos} className="text-xs text-s112-blue-700 hover:underline no-print">
             + Weinposition hinzufügen
           </button>
+          )}
           <Link href="/weinhandel/transportbescheinigungen" className="text-xs text-s112-blue-700 hover:underline">
             Alle Transportbescheinigungen eines Zeitraums
           </Link>
         </div>
       </div>
 
+      {fehler && <div role="alert" className="no-print rounded-lg border border-s112-err/30 bg-s112-err-bg px-4 py-2.5 text-sm text-s112-err-fg">{fehler}</div>}
+      {ausgestellt && (
+        <div className="no-print">
+          <GesperrtHinweis grund={TB_FREEZE_GRUND} seit={ausgestelltText} erlaubt={[]} />
+          {ausgestelltVon && <p className="text-xs text-s112-muted mt-1">Ausgestellt von {ausgestelltVon}.</p>}
+        </div>
+      )}
+
       {/* ── Offizielles Formular ── */}
+      <fieldset disabled={ausgestellt} className="contents">
       <div className="bg-white border border-s112-line-str p-6 space-y-4 font-sans text-xs" id="tb-formular">
 
         {/* Titel */}
         <div className="text-center border-b border-s112-text pb-2 mb-4">
           <h1 className="text-base font-semibold tracking-wide">Transportbescheinigung gemäß Weingesetz</h1>
           <p className="text-[10px] text-s112-text-2 mt-0.5">Nicht stempeln! Nicht heften!</p>
+          {/* KAN-209: Entwurf sichtbar kennzeichnen – auch im Druck */}
+          {!ausgestellt && <p className="mt-1 text-sm font-bold tracking-widest text-s112-err-fg">ENTWURF – noch nicht ausgestellt</p>}
         </div>
 
         {/* Laufende Nr + Datum + Kennzeichen */}
@@ -440,6 +492,7 @@ export default function TBFormular({ verkaufspostenId, initial, csvHref }: Props
           Für den Empfänger zuständiger Bundeskellereiinspektor
         </p>
       </div>
+      </fieldset>
 
       {/* Print CSS */}
       <style>{`

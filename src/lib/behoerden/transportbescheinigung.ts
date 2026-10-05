@@ -583,6 +583,10 @@ export type TBErgebnis = {
   gespeichertAm: string | null
   /** KAN-150 F2: id der gespeicherten (nicht stornierten) Bescheinigung – für Stornieren */
   gespeichertId: string | null
+  /** KAN-209: Entwurf bzw. ausgestellt (fest) samt Zeitpunkt und Name */
+  status: 'entwurf' | 'ausgestellt'
+  ausgestelltAm: string | null
+  ausgestelltVon: string | null
   zeilen: TBZeile[]
   warnungen: string[]
   /** Hinweise zur nicht gespeicherten Vorbelegung (Farbe, Flaschengröße, Prüfnummer) – für die Druckseite */
@@ -605,7 +609,7 @@ export async function ladeTransportbescheinigung(supabase: Client, tenantId: str
       .maybeSingle(),
     betriebLaden(supabase, tenantId),
     (supabase.from('transportbescheinigungen') as any)
-      .select('id, formular_daten, erstellt_am, aktualisiert_am')
+      .select('id, formular_daten, erstellt_am, aktualisiert_am, status, ausgestellt_am, ausgestellt_von_name')
       .eq('verkaufsposten_id', p.id)
       .eq('tenant_id', tenantId)
       .is('storniert_am', null)   // KAN-150 F2: eine stornierte Bescheinigung gilt nicht mehr – danach wieder die Vorbelegung
@@ -649,6 +653,9 @@ export async function ladeTransportbescheinigung(supabase: Client, tenantId: str
     gespeichert: !!gespeicherteDaten,
     gespeichertAm,
     gespeichertId: tb?.id ? String(tb.id) : null,
+    status: tb?.status === 'ausgestellt' ? 'ausgestellt' : 'entwurf',
+    ausgestelltAm: (tb?.ausgestellt_am as string | null) ?? null,
+    ausgestelltVon: (tb?.ausgestellt_von_name as string | null) ?? null,
     zeilen,
     warnungen,
     vorbelegungHinweise,

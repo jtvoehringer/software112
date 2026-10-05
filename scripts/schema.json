@@ -1641,7 +1641,11 @@
 "storniert_am",
 "storniert_von",
 "storniert_von_name",
-"storno_grund"
+"storno_grund",
+"status",
+"ausgestellt_am",
+"ausgestellt_von",
+"ausgestellt_von_name"
 ],
 "traubenverkauf": [
 "id",

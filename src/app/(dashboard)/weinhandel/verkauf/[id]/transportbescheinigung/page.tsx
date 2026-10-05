@@ -61,10 +61,13 @@ export default async function TransportbescheinigungPage({ params }: { params: P
 
       {/* key: nach einem Storno neu aufbauen (Vorbelegung statt der stornierten Fassung) */}
       <TBFormular
-        key={tb.gespeichertId ?? 'vorbelegung'}
+        key={`${tb.gespeichertId ?? 'vorbelegung'}-${tb.status}`}
         verkaufspostenId={id}
         initial={tb.formular}
         csvHref={csvPfad('transportbescheinigung', { id, beleg: posten.rechnungsnummer })}
+        ausgestellt={tb.status === 'ausgestellt'}
+        ausgestelltAm={tb.ausgestelltAm}
+        ausgestelltVon={tb.ausgestelltVon}
       />
 
       {schreiben && tb.gespeichertId && (
