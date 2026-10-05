@@ -297,6 +297,7 @@ export async function ladeMassnahmenZuLesezeilen(
         behandlung_grundstuecke(grundstueck_id, flaeche_ha, grundstueck:grundstueck_id(id, gst_nr, katastralgemeinde, flaeche_ha))
       `)
       .eq('tenant_id', tenantId)
+      .is('storniert_am', null)   // KAN-88: stornierte Maßnahmen zählen nicht
     if (bereich.bis) q = q.lte('datum', bereich.bis)
     if (bereich.von) q = q.or(`datum.gte.${bereich.von},datum_bis.gte.${bereich.von}`)
     massnahmen = pruefen(await alle<R>(q.order('datum').order('id')), 'Maßnahmen').map(b => {

@@ -1,8 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Pencil } from 'lucide-react'
-import { upsertLagerBewegung, deleteLagerBewegung } from './actions'
+import { upsertLagerBewegung, stornoLagerBewegung, loescheLagerBewegung } from './actions'
 import StornoButton from '@/components/StornoButton'
 import { VerbrauchTr, zeilenChronologisch } from './Verbrauchszeilen'
 import type { PSMLager, PSMOption } from './page'
@@ -168,7 +167,6 @@ function PsmKarte({
   psm: PSMLager; allePsm: PSMOption[]; writeOk: boolean; adminOk: boolean
 }) {
   const [showForm, setShowForm] = useState(false)
-  const [editBew, setEditBew] = useState<(PSMLager['bewegungen'][0] & { psm_id: string }) | null>(null)
   const [pending] = useTransition()
 
   // Alle Mengen in der Lager-Einheit; Verbrauch = Σ Mittelmenge der Spritzungen (lib/behandlungen/lagerVerbrauch.ts)
@@ -221,14 +219,13 @@ function PsmKarte({
       <LagerHinweise hinweise={hinweise} writeOk={writeOk} />
 
       {/* Buchungsformular */}
-      {(showForm || editBew) && (
+      {showForm && (
         <div className="mb-4">
           <BuchungsForm
             allePsm={allePsm}
             defaultPsmId={psm.psm_id}
             defaultEinheit={einheit}
-            edit={editBew ?? undefined}
-            onDone={() => { setShowForm(false); setEditBew(null) }}
+            onDone={() => setShowForm(false)}
           />
         </div>
       )}
@@ -251,30 +248,35 @@ function PsmKarte({
               {zeilenChronologisch(psm.bewegungen, posten).map(z => z.verbrauch ? (
                 <VerbrauchTr key={`v-${z.verbrauch.behandlungId}`} v={z.verbrauch} einheit={einheit} mitAktionen={writeOk || adminOk} />
               ) : ((b: (typeof psm.bewegungen)[number]) => (
-                <tr key={b.id} className="group border-b border-s112-border/40 last:border-0 hover:bg-s112-bg/30">
+                <tr key={b.id} className={`group border-b border-s112-border/40 last:border-0 ${b.storniert_am ? 'opacity-70' : 'hover:bg-s112-bg/30'}`}>
                   <td className="px-3 py-2 tabular-nums text-s112-muted">{fmtDate(b.datum)}</td>
                   <td className="px-3 py-2">
                     <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${TYP_COLOR[b.typ] ?? ''}`}>
                       {TYP_LABEL[b.typ] ?? b.typ}
                     </span>
                   </td>
-                  <td className={`px-3 py-2 text-right tabular-nums font-medium ${b.menge < 0 ? 'text-s112-err-fg' : 'text-s112-ok-fg'}`}>
+                  <td className={`px-3 py-2 text-right tabular-nums font-medium ${b.storniert_am ? 'line-through text-s112-muted' : b.menge < 0 ? 'text-s112-err-fg' : 'text-s112-ok-fg'}`}>
                     {fmtMenge(b.menge, b.einheit)}
                   </td>
-                  <td className="px-3 py-2 text-xs text-s112-muted">{b.notizen ?? '–'}</td>
+                  <td className="px-3 py-2 text-xs text-s112-muted">
+                    {b.notizen ?? '–'}
+                    {/* KAN-88: stornierte Buchung bleibt gekennzeichnet stehen, zählt nicht zum Bestand */}
+                    {b.storniert_am && (
+                      <p className="text-[11px] text-s112-warn-fg">storniert am {new Date(b.storniert_am).toLocaleDateString('de-AT')}{b.storniert_von_name ? ` von ${b.storniert_von_name}` : ''}{b.storno_grund ? ` – ${b.storno_grund}` : ''}</p>
+                    )}
+                  </td>
                   {(writeOk || adminOk) && (
                     <td className="px-3 py-2 text-right sticky right-0 bg-white">
                       <div className="flex items-center justify-end gap-2">
-                        {writeOk && (
-                          <button onClick={() => setEditBew({ ...b, psm_id: psm.psm_id })}
-                            title="Bearbeiten" aria-label="Bearbeiten"
-                            className="text-s112-blue-700 hover:text-s112-blue-700/70"><Pencil className="w-4 h-4" /></button>
-                        )}
-                        {writeOk && (
-                          // KAN-166: auch Mitarbeiter, Löschen mit Grund (Änderungsprotokoll)
-                          <StornoButton modus="loeschen" action={grund => deleteLagerBewegung(b.id, grund)}
-                            hinweis="Die Lagerbewegung wird gelöscht; Grund und Benutzer stehen im Änderungsprotokoll." />
-                        )}
+                        {writeOk && (b.storniert_am ? (
+                          // KAN-88: endgültig löschen nur stornierte Buchungen (Grund im Änderungsprotokoll)
+                          <StornoButton modus="loeschen" label="Endgültig löschen" action={grund => loescheLagerBewegung(b.id, grund)}
+                            hinweis="Nur bei Fehlbuchungen: Die stornierte Buchung wird endgültig entfernt – Grund und Benutzer stehen im Änderungsprotokoll." />
+                        ) : (
+                          // KAN-88: stornieren statt löschen – auch Mitarbeiter mit Schreibrecht Rieden
+                          <StornoButton action={grund => stornoLagerBewegung(b.id, grund)}
+                            hinweis="Die Buchung bleibt als storniert stehen und zählt nicht mehr zum Bestand. Korrektur: neu buchen bzw. Inventurkorrektur." />
+                        ))}
                       </div>
                     </td>
                   )}
@@ -286,7 +288,7 @@ function PsmKarte({
       )}
 
       {/* + Buchung Button */}
-      {writeOk && !showForm && !editBew && (
+      {writeOk && !showForm && (
         <button onClick={() => setShowForm(true)}
           className="text-xs bg-s112-teal/10 hover:bg-s112-teal/20 text-s112-blue-700 font-medium px-3 py-1.5 rounded-lg transition-colors">
           Buchung erfassen

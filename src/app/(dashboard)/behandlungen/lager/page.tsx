@@ -38,6 +38,10 @@ export type PSMLager = {
     menge: number
     einheit: string | null
     notizen: string | null
+    /** KAN-88: stornierte Buchung (steht gekennzeichnet in der Liste, zählt nicht zum Bestand) */
+    storniert_am?: string | null
+    storniert_von_name?: string | null
+    storno_grund?: string | null
   }[]
   /** Zugänge, Abgänge, Verbrauch aus Spritzungen und Sonstiges (KAN-154) und Bestand in der Lager-Einheit (KAN-133) */
   konto: LagerKonto
@@ -59,6 +63,10 @@ export type DuengerLager = {
     menge: number
     einheit: string | null
     notizen: string | null
+    /** KAN-88: stornierte Buchung (steht gekennzeichnet in der Liste, zählt nicht zum Bestand) */
+    storniert_am?: string | null
+    storniert_von_name?: string | null
+    storno_grund?: string | null
   }[]
   /** Zugänge, Abgänge, Verbrauch aus Düngungen und Bestand in der Lager-Einheit (KAN-133) */
   konto: LagerKonto
@@ -190,7 +198,8 @@ export default async function LagerPage({
   // alle(): Lagerbestand = Summe ALLER Bewegungen – PostgREST kappt sonst still bei 1.000 (gilt für alle drei Lager)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawBew } = await alle<AR>(tf((supabase.from('psm_lager_bewegungen') as any)
-    .select('id, psm_id, datum, typ, menge, einheit, notizen')
+    // storno-sichtbar: stornierte Buchungen stehen gekennzeichnet in der Liste, zählen aber nicht zum Bestand (KAN-88)
+    .select('id, psm_id, datum, typ, menge, einheit, notizen, storniert_am, storniert_von_name, storno_grund')
     .order('datum', { ascending: false }).order('id')))
 
   // Verbrauch aus Maßnahmen (KAN-133): Mittelmenge je Maßnahme (mittelmenge()) – PSM nur aus
@@ -238,6 +247,7 @@ export default async function LagerPage({
     arr.push({
       id: b.id, datum: b.datum, typ: b.typ,
       menge: b.menge, einheit: b.einheit, notizen: b.notizen,
+      storniert_am: b.storniert_am ?? null, storniert_von_name: b.storniert_von_name ?? null, storno_grund: b.storno_grund ?? null,
     })
     bewegungenByPsm.set(b.psm_id, arr)
   }
@@ -252,7 +262,7 @@ export default async function LagerPage({
 
   // Lagerkonto je PSM (mit Jahressicht, KAN-173); null ohne Buchung und Verbrauch
   const psmKonto = (id: string): LagerKonto | null => bewegungenByPsm.has(id) || verbrauchByPsm.has(id)
-    ? lagerKonto(bewegungenByPsm.get(id) ?? [], verbrauchByPsm.get(id) ?? [], undefined, jahr, startJahr)
+    ? lagerKonto((bewegungenByPsm.get(id) ?? []).filter(b => !b.storniert_am), verbrauchByPsm.get(id) ?? [], undefined, jahr, startJahr)
     : null
 
   const aktivePsm = psms
@@ -270,7 +280,8 @@ export default async function LagerPage({
   // ── Düngemittel-Lagerbewegungen (Migration 142, analog PSM oben) ────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawDuengerBew } = await alle<AR>(tf((supabase.from('duengemittel_lager_bewegungen') as any)
-    .select('id, duengemittel_id, datum, typ, menge, einheit, notizen')
+    // storno-sichtbar: stornierte Buchungen stehen gekennzeichnet in der Liste, zählen aber nicht zum Bestand (KAN-88)
+    .select('id, duengemittel_id, datum, typ, menge, einheit, notizen, storniert_am, storniert_von_name, storno_grund')
     .order('datum', { ascending: false }).order('id')))
 
   // Verbrauch aus Düngungen: Düngermenge, sonst Aufwand × Fläche (mittelmenge(), siehe oben)
@@ -282,6 +293,7 @@ export default async function LagerPage({
     arr.push({
       id: b.id, datum: b.datum, typ: b.typ,
       menge: b.menge, einheit: b.einheit, notizen: b.notizen,
+      storniert_am: b.storniert_am ?? null, storniert_von_name: b.storniert_von_name ?? null, storno_grund: b.storno_grund ?? null,
     })
     bewegungenByDuenger.set(b.duengemittel_id, arr)
   }
@@ -294,7 +306,7 @@ export default async function LagerPage({
 
   // Lagerkonto je Düngemittel (mit Jahressicht, KAN-173); Lager-Einheit ohne Buchungen: Einheit des Düngemittels
   const duengerKonto = (d: AR): LagerKonto | null => bewegungenByDuenger.has(d.id) || verbrauchByDuenger.has(d.id)
-    ? lagerKonto(bewegungenByDuenger.get(d.id) ?? [], verbrauchByDuenger.get(d.id) ?? [], d.einheit ?? null, jahr, startJahr)
+    ? lagerKonto((bewegungenByDuenger.get(d.id) ?? []).filter(b => !b.storniert_am), verbrauchByDuenger.get(d.id) ?? [], d.einheit ?? null, jahr, startJahr)
     : null
 
   // Nur Düngemittel mit Bewegungen ODER Verbrauch anzeigen (analog PSM)
@@ -330,6 +342,7 @@ export default async function LagerPage({
     ? await alle<AR>(tf((supabase.from('behandlungen') as any)   // eslint-disable-line @typescript-eslint/no-explicit-any
         .select('id, datum, art, aufwandmenge, aufwandmenge_einheit, betriebsmittel_id, weingarten_id, weingarten:weingarten_id(id, name, ried), behandlung_grundstuecke(flaeche_ha, grundstueck:grundstueck_id(flaeche_ha, weingarten_id, weingarten:weingarten_id(id, name, ried)))')
         .not('betriebsmittel_id', 'is', null)
+        .is('storniert_am', null)   // KAN-88: stornierte Maßnahmen verbrauchen nichts
         .order('id')))   // alle(): Verbrauch über alle Jahre, nicht nur die ersten 1.000 Maßnahmen
     : { data: [] }
   const bmVerbrauch = new Map<string, BmVerbrauchPosten[]>()

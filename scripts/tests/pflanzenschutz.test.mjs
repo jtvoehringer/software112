@@ -589,6 +589,7 @@ class Abfrage {
   gte(k, v) { this.filter.push(['gte', k, v]); return this }
   lte(k, v) { this.filter.push(['lte', k, v]); return this }
   in(k, v) { this.filter.push(['in', k, v]); return this }
+  is(k, v) { this.filter.push(['is', k, v]); return this }
   range(von, bis) {
     this.protokoll.push({ tabelle: this.tabelle, filter: this.filter })
     let zeilen = this.daten[this.tabelle] ?? []
@@ -598,6 +599,7 @@ class Abfrage {
       if (op === 'gte') zeilen = zeilen.filter(z => z[k] >= v)
       if (op === 'lte') zeilen = zeilen.filter(z => z[k] <= v)
       if (op === 'in') zeilen = zeilen.filter(z => v.includes(z[k]))
+      if (op === 'is') zeilen = zeilen.filter(z => (z[k] ?? null) === v)
     }
     return Promise.resolve({ data: zeilen.slice(von, bis + 1), error: null })
   }
@@ -649,12 +651,17 @@ describe('register/pflanzenschutz', nurMitHooks, () => {
     assert.equal(auf.zeilen.length, 3)
     assert.equal(auf.zeilen[0].anwender, 'Maria Muster')
     const beh = sb.protokoll.find(x => x.tabelle === 'behandlungen')
-    assert.deepEqual(beh.filter, [['eq', 'tenant_id', 't-1'], ['gte', 'datum', '2026-01-01'], ['lte', 'datum', '2026-12-31'], ['eq', 'art', 'spritzung']])
+    // KAN-88: stornierte Maßnahmen zählen in keinem Bericht
+    assert.deepEqual(beh.filter, [['eq', 'tenant_id', 't-1'], ['is', 'storniert_am', null], ['gte', 'datum', '2026-01-01'], ['lte', 'datum', '2026-12-31'], ['eq', 'art', 'spritzung']])
+    const mitStorno = { ...DATEN, behandlungen: [...DATEN.behandlungen, { ...A, id: 'b-storno', storniert_am: '2026-07-11T08:00:00Z' }] }
+    const aufS = await M()['psm-aufzeichnung'].laden(ctx(supabaseErsatz(mitStorno)), { jahr: 2026, art: 'spritzung', ried: null })
+    assert.equal(aufS.zeilen.length, 3)
+    assert.ok(!aufS.zeilen.some(z => z.behandlungId === 'b-storno'))
 
     const sb2 = supabaseErsatz(DATEN)
     const cuB = await M()['cu-bilanz'].laden(ctx(sb2), { jahr: 2026 })
     assert.equal(cuB.zeilen.length, 2)
-    assert.deepEqual(sb2.protokoll.find(x => x.tabelle === 'behandlungen').filter.slice(0, 3), [['eq', 'tenant_id', 't-1'], ['gte', 'datum', '2020-01-01'], ['lte', 'datum', '2026-12-31']])
+    assert.deepEqual(sb2.protokoll.find(x => x.tabelle === 'behandlungen').filter.slice(0, 4), [['eq', 'tenant_id', 't-1'], ['is', 'storniert_am', null], ['gte', 'datum', '2020-01-01'], ['lte', 'datum', '2026-12-31']])
     assert.ok(sb2.protokoll.filter(x => x.tabelle === 'weingarten').every(x => x.filter.some(([op, k, v]) => op === 'eq' && k === 'tenant_id' && v === 't-1')))
     const cuE = await M()['cu-bilanz-behandlungen'].laden(ctx(supabaseErsatz(DATEN)), { jahr: 2026 })
     assert.equal(cuE.zeilen.length, 1)

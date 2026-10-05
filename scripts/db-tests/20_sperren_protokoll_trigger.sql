@@ -842,7 +842,9 @@ BEGIN
       v_erg := v_erg || pg_temp.s112_erwarte('protokoll_kind_tenant:' || r.tab,
         v_n || '|' || coalesce((SELECT string_agg(coalesce(b.tenant_id::text, 'NULL') || '/' || b.aktion, ',')
                                   FROM public.bestandsprotokoll b
-                                 WHERE b.tabelle = r.tab AND b.datensatz_id = (v_z ->> 'id')::uuid), '(keine Zeile)'),
+                                 WHERE b.tabelle = r.tab
+                                   -- KAN-88: behandlung_grundstuecke hat keine id-Spalte – Zeile über den Inhalt
+                                   AND CASE WHEN v_z ? 'id' THEN b.datensatz_id = (v_z ->> 'id')::uuid ELSE b.alt @> v_z END), '(keine Zeile)'),
         '1|' || v_b::text || '/DELETE');
       v_arr := v_arr || r.tab;
     EXCEPTION WHEN OTHERS THEN

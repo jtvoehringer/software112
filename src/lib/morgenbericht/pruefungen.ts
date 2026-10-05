@@ -41,7 +41,7 @@ export async function pruefeBetrieb(ctx: Ctx, einst: Einstellungen, paket: { ist
     // tenant-isolation-ignore: tenants hat keine tenant_id-Spalte, Filter über die eigene id
     ctx.q('tenants').select('stripe_status, stripe_trial_ends_at, stripe_plan').eq('id', ctx.tenantId).maybeSingle(),
     // KAN-121 (01.10.2026): Ried auch über die Grundstücke der Maßnahme (App-Maßnahmen haben kein weingarten_id)
-    ctx.tf(ctx.q('behandlungen').select(`id, datum, ernte_fruehesteins, ${BEHANDLUNG_RIEDEN_SELECT}`).gte('ernte_fruehesteins', new Date(heute.getTime() - 60 * 86400000).toISOString().slice(0, 10)).limit(500)),
+    ctx.tf(ctx.q('behandlungen').select(`id, datum, ernte_fruehesteins, ${BEHANDLUNG_RIEDEN_SELECT}`).is('storniert_am', null).gte('ernte_fruehesteins', new Date(heute.getTime() - 60 * 86400000).toISOString().slice(0, 10)).limit(500)),
     ctx.tf(ctx.q('pressungen').select('id, datum, weinbezeichnung').gte('datum', `${heute.getFullYear()}-01-01`).limit(500)),
   ])
 

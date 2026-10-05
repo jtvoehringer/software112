@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import Link from '@/components/ui/Link'
 import { Pencil } from 'lucide-react'
-import { deleteBehandlung } from './actions'
+import { loescheBehandlung, stornoBehandlung } from './actions'
 import StornoButton from '@/components/StornoButton'
 import type { Behandlung } from './page'
 import { fmtNum } from '@/lib/format'
@@ -154,10 +154,10 @@ export default function BehandlungenClient({
               </thead>
               <tbody>
                 {gruppe.map(b => (
-                  <tr key={b.id} className="border-b border-s112-border/40 last:border-0 hover:bg-s112-bg/30 transition-colors">
+                  <tr key={b.id} className={`border-b border-s112-border/40 last:border-0 transition-colors ${b.storniert_am ? 'opacity-70' : 'hover:bg-s112-bg/30'}`}>
                     {/* Maßnahme hervorgehoben: Mittel (bzw. Art) fett, Art als Kennzeichen */}
                     <td className="px-4 py-2.5 align-top">
-                      <div className="font-semibold text-s112-text">{b.psm_name ?? ART_LABEL[b.art] ?? b.art}</div>
+                      <div className={`font-semibold text-s112-text ${b.storniert_am ? 'line-through' : ''}`}>{b.psm_name ?? ART_LABEL[b.art] ?? b.art}</div>
                       <span className="inline-block mt-0.5 text-[11px] text-s112-text-2 bg-[#F2F3F5] px-2 py-0.5 rounded-full">
                         {ART_LABEL[b.art] ?? b.art}
                       </span>
@@ -167,6 +167,10 @@ export default function BehandlungenClient({
                           title="Erfasst nach Ablauf der Erfassungsfrist ab Ende des Anwendungstags">
                           {b.nacherfasst}
                         </span>
+                      )}
+                      {/* KAN-88: stornierte Maßnahme bleibt gekennzeichnet stehen, zählt in keinem Lager und keiner Meldung */}
+                      {b.storniert_am && (
+                        <p className="text-[11px] text-s112-warn-fg mt-0.5">storniert am {new Date(b.storniert_am).toLocaleDateString('de-AT')}{b.storniert_von_name ? ` von ${b.storniert_von_name}` : ''}{b.storno_grund ? ` – ${b.storno_grund}` : ''}</p>
                       )}
                     </td>
                     <td className="px-3 py-2.5 text-s112-muted">
@@ -192,15 +196,24 @@ export default function BehandlungenClient({
                     {schreibOk && (
                       <td className="px-3 py-2.5 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <Link
-                            href={`/behandlungen/${b.id}/edit`}
-                            title="Bearbeiten" aria-label="Bearbeiten"
-                            className="text-s112-blue-700 hover:text-s112-blue-700/70"
-                          >
-                            <Pencil size={16} />
-                          </Link>
-                          <StornoButton modus="loeschen" action={grund => deleteBehandlung(b.id, grund)}
-                            hinweis="Die Maßnahme wird samt Grundstücks-Zuordnung gelöscht; Grund und Benutzer stehen im Änderungsprotokoll." />
+                          {b.storniert_am ? (
+                            // KAN-88: endgültig löschen nur stornierte Maßnahmen (Grund im Änderungsprotokoll)
+                            <StornoButton modus="loeschen" label="Endgültig löschen" action={grund => loescheBehandlung(b.id, grund)}
+                              hinweis="Nur bei Fehlerfassungen: Die stornierte Maßnahme wird samt Grundstücks-Zuordnung endgültig entfernt – Grund und Benutzer stehen im Änderungsprotokoll." />
+                          ) : (
+                            <>
+                              <Link
+                                href={`/behandlungen/${b.id}/edit`}
+                                title="Bearbeiten" aria-label="Bearbeiten"
+                                className="text-s112-blue-700 hover:text-s112-blue-700/70"
+                              >
+                                <Pencil size={16} />
+                              </Link>
+                              {/* KAN-88: stornieren statt löschen – auch Mitarbeiter mit Schreibrecht Rieden */}
+                              <StornoButton action={grund => stornoBehandlung(b.id, grund)}
+                                hinweis="Die Maßnahme bleibt als storniert stehen und zählt nicht mehr zu Lager, Bilanzen und Meldungen; ein automatischer Kosteneintrag wird entfernt." />
+                            </>
+                          )}
                         </div>
                       </td>
                     )}

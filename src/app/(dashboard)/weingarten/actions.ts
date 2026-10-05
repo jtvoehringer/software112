@@ -191,6 +191,7 @@ async function loeschSperre(supabase: any, tenantId: string, p: { weingartenIds?
   const [massnahmenGst, massnahmenWg, kosten] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     zaehle(zaehleInBloecken(gstIds, b => (supabase.from('behandlung_grundstuecke') as any).select('behandlung_id', { count: 'exact', head: true }).in('grundstueck_id', b))),
+    // storno-sichtbar: Bezugsprüfung – auch stornierte Maßnahmen verweisen auf die Ried (KAN-88)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     zaehle(zaehleInBloecken(wgIds, b => (supabase.from('behandlungen') as any).select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).in('weingarten_id', b))),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

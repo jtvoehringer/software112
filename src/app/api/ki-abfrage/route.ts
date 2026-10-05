@@ -153,6 +153,8 @@ const TABELLEN_KONTEXT = `
   Zeilen stimmen (Original + Gegenbuchung = 0); beim Zählen von Buchungen Gegenbuchungen (storno_von_id IS NOT NULL) auslassen.
 - zahlungen: eingegangene Zahlungen (z.B. via SumUp), meist mit Bezug zu verkaufsposten. Stornierte Zahlungen
   (storniert_am IS NOT NULL) zählen nicht – immer „storniert_am IS NULL“ filtern.
+- behandlungen (Maßnahmen: Spritzungen, Düngungen …), psm_lager_bewegungen, duengemittel_lager_bewegungen: stornierte
+  Zeilen (storniert_am IS NOT NULL, seit KAN-88) zählen nicht – immer „storniert_am IS NULL“ filtern.
 `.trim()
 
 let schemaCache: { text: string; stamp: number } | null = null

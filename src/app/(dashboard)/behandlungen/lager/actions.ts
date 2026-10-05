@@ -49,36 +49,56 @@ export async function upsertLagerBewegung(fd: FormData) {
     notizen:   (fd.get('notizen') as string) || null,
   }
 
-  if (existingId) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase.from('psm_lager_bewegungen') as any)
-      .update(payload).eq('id', existingId).eq('tenant_id', tenantId)
-    if (error) throw new AktionsFehler(`Speichern fehlgeschlagen: ${error.message}`)
-  } else {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase.from('psm_lager_bewegungen') as any).insert(payload)
-    if (error) throw new AktionsFehler(`Speichern fehlgeschlagen: ${error.message}`)
-  }
+  // KAN-88: eine gespeicherte Lagerbuchung ist fest (DB-Trigger a_freeze) – Korrektur per Storno bzw. Inventurkorrektur
+  if (existingId) throw new AktionsFehler(LAGER_FEST)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.from('psm_lager_bewegungen') as any).insert(payload)
+  if (error) throw new AktionsFehler(`Speichern fehlgeschlagen: ${error.message}`)
 
   revalidatePath('/behandlungen/lager')
 }
 
-// Lagerbewegung löschen mit Grund (KAN-166): über die RPC – Rolle, Modul Rieden, Betrieb, Abo; Grund im Protokoll
-async function lagerLoeschen(tabelle: 'psm_lager_bewegungen' | 'duengemittel_lager_bewegungen', id: string, grund: string) {
+const LAGER_FEST = 'Eine gespeicherte Lagerbuchung lässt sich nicht mehr ändern – bitte stornieren und neu buchen bzw. eine Inventurkorrektur erfassen.'
+
+type LagerTabelle = 'psm_lager_bewegungen' | 'duengemittel_lager_bewegungen'
+
+// KAN-88 (05.10.2026): Lagerbuchungen werden storniert, nicht gelöscht (Zeitpunkt und Benutzer setzt die Datenbank,
+// s112_storno_schutz; stornierte zählen nicht zum Bestand). Endgültig löschen nur stornierte über s112_storniert_loeschen
+// (Rolle, Modul Rieden, Betrieb, Abo; Grund im Änderungsprotokoll) – vorher KAN-166 Löschen mit Grund.
+async function lagerStornieren(tabelle: LagerTabelle, id: string, grund: string) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
   const f = stornoGrundFehler(grund)
-  if (f) throw new AktionsFehler(f.replace('den Storno', 'das Löschen'))
+  if (f) throw new AktionsFehler(f)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.rpc as any)('s112_buchung_loeschen', {
-    p_tenant_id: tenantId, p_tabelle: tabelle, p_id: id, p_grund: grund.trim(),
-  })
-  if (error) throw new AktionsFehler(dbFehlerText(error, 'Löschen fehlgeschlagen'))
+  const { data, error } = await (supabase.from(tabelle) as any)
+    .update({ storniert_am: new Date().toISOString(), storno_grund: grund.trim() })
+    .eq('id', id).eq('tenant_id', tenantId).is('storniert_am', null)
+    .select('id')
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Storno fehlgeschlagen'))
+  if (((data ?? []) as unknown[]).length !== 1) throw new AktionsFehler('Die Buchung wurde nicht gefunden oder ist schon storniert – bitte die Seite neu laden.')
   revalidatePath('/behandlungen/lager')
 }
 
-export async function deleteLagerBewegung(id: string, grund: string) {
-  await lagerLoeschen('psm_lager_bewegungen', id, grund)
+async function lagerEndgueltigLoeschen(tabelle: LagerTabelle, id: string, grund: string) {
+  const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
+  const f = stornoGrundFehler(grund)
+  if (f) throw new AktionsFehler(f.replace('den Storno', 'das endgültige Löschen'))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.rpc as any)('s112_storniert_loeschen', {
+    p_tenant_id: tenantId, p_tabelle: tabelle, p_id: id, p_grund: grund.trim(),
+  })
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Endgültig löschen fehlgeschlagen'))
+  revalidatePath('/behandlungen/lager')
+}
+
+export async function stornoLagerBewegung(id: string, grund: string) {
+  await lagerStornieren('psm_lager_bewegungen', id, grund)
+}
+
+export async function loescheLagerBewegung(id: string, grund: string) {
+  await lagerEndgueltigLoeschen('psm_lager_bewegungen', id, grund)
 }
 
 // ── Düngemittel-Lagerbewegungen (Migration 142, analog PSM-Lager oben) ────────
@@ -107,22 +127,21 @@ export async function upsertDuengerBewegung(fd: FormData) {
     notizen:         (fd.get('notizen') as string) || null,
   }
 
-  if (existingId) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase.from('duengemittel_lager_bewegungen') as any)
-      .update(payload).eq('id', existingId).eq('tenant_id', tenantId)
-    if (error) throw new AktionsFehler(`Speichern fehlgeschlagen: ${error.message}`)
-  } else {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase.from('duengemittel_lager_bewegungen') as any).insert(payload)
-    if (error) throw new AktionsFehler(`Speichern fehlgeschlagen: ${error.message}`)
-  }
+  // KAN-88: eine gespeicherte Lagerbuchung ist fest (DB-Trigger a_freeze) – Korrektur per Storno bzw. Inventurkorrektur
+  if (existingId) throw new AktionsFehler(LAGER_FEST)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.from('duengemittel_lager_bewegungen') as any).insert(payload)
+  if (error) throw new AktionsFehler(`Speichern fehlgeschlagen: ${error.message}`)
 
   revalidatePath('/behandlungen/lager')
 }
 
-export async function deleteDuengerBewegung(id: string, grund: string) {
-  await lagerLoeschen('duengemittel_lager_bewegungen', id, grund)
+export async function stornoDuengerBewegung(id: string, grund: string) {
+  await lagerStornieren('duengemittel_lager_bewegungen', id, grund)
+}
+
+export async function loescheDuengerBewegung(id: string, grund: string) {
+  await lagerEndgueltigLoeschen('duengemittel_lager_bewegungen', id, grund)
 }
 
 // ── PSM-Stammdaten (vormals /pflanzenschutz, jetzt Teil der Betriebsmittel-Lagerverwaltung) ────────
