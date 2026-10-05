@@ -11,6 +11,7 @@ import StornoKnopf from './StornoKnopf'
 import RechnungVersandPanel from './RechnungVersandPanel'
 import { Mail, Phone, Info, CreditCard, FileText } from 'lucide-react'
 import { fmtEur, fmtNum } from '@/lib/format'
+import { kontaktAnzeigename } from '@/lib/crm/titel'
 
 export const dynamic = 'force-dynamic'
 
@@ -67,9 +68,9 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
         id, datum, rechnungsnummer, notizen, erstellt_am, storniert, storniert_am, storniert_von_name, storno_grund,
         bezahlt, bezahlt_am, skonto_pct, skonto_tage, skonto_aktiv,
         rechnung_versendet_am, rechnung_versendet_an, partner_daten,
-        kontakt:kontakte!kontakt_id(id, vorname, nachname, email, telefon, strasse, plz, ort, zahlungsziel_tage),
+        kontakt:kontakte!kontakt_id(id, titel, vorname, nachname, titel_nachgestellt, email, telefon, strasse, plz, ort, zahlungsziel_tage),
         firma:firmen(id, name, email, telefon, strasse, plz, ort, zahlungsziel_tage),
-        zh_kontakt:kontakte!zh_kontakt_id(vorname, nachname),
+        zh_kontakt:kontakte!zh_kontakt_id(titel, vorname, nachname, titel_nachgestellt),
         positionen:verkauf_positionen(
           id, typ, name, menge, einheit, preis_brutto, rabatt_pct, sonderrabatt_pct, ust_satz,
           fuellung:fuellungen(id, name, jahrgang, flaschengroesse_ml),
@@ -115,8 +116,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
 
   function kundenName(p: R): string {
     if (p.kontakt) {
-      const k = p.kontakt as R
-      return [k.vorname, k.nachname].filter(Boolean).join(' ')
+      return kontaktAnzeigename(p.kontakt as R)   // Hotfix 05.10.2026: mit Titeln in der Anschrift
     }
     if (p.firma) return (p.firma as R).name
     return '–'
@@ -333,7 +333,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
             <div className="mb-8 p-4 border border-s112-line rounded inline-block min-w-[220px]">
               <p className="font-semibold text-base">{kundenName(posten)}</p>
               {posten.zh_kontakt && (
-                <p className="text-s112-text-1">z.H. {[(posten.zh_kontakt as R).vorname, (posten.zh_kontakt as R).nachname].filter(Boolean).join(' ')}</p>
+                <p className="text-s112-text-1">z.H. {kontaktAnzeigename(posten.zh_kontakt as R)}</p>
               )}
               {info.strasse && <p className="text-s112-text-2">{info.strasse}</p>}
               {info.plzOrt  && <p className="text-s112-text-2">{info.plzOrt}</p>}
@@ -365,7 +365,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
           <div className="mb-8">
             <p className="font-semibold">{kundenName(posten)}</p>
             {posten.zh_kontakt && (
-              <p className="text-sm text-s112-text-1">z.H. {[(posten.zh_kontakt as R).vorname, (posten.zh_kontakt as R).nachname].filter(Boolean).join(' ')}</p>
+              <p className="text-sm text-s112-text-1">z.H. {kontaktAnzeigename(posten.zh_kontakt as R)}</p>
             )}
             {info.strasse && <p className="text-sm">{info.strasse}</p>}
             {info.plzOrt  && <p className="text-sm">{info.plzOrt}</p>}

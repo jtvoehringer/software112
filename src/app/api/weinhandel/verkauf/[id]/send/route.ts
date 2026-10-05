@@ -19,6 +19,7 @@ import { renderVerkaufRechnungPdf } from '@/lib/pdf/verkaufRechnungPdf'
 import { ereignisMelden } from '@/lib/system/ereignis'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
+import { kontaktAnzeigename } from '@/lib/crm/titel'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -57,9 +58,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       .select(`
         id, datum, rechnungsnummer, storniert, skonto_pct, skonto_tage, skonto_aktiv,
         kontakt_id, firma_id, partner_daten,
-        kontakt:kontakte!kontakt_id(vorname, nachname, email, strasse, plz, ort, zahlungsziel_tage),
+        kontakt:kontakte!kontakt_id(titel, vorname, nachname, titel_nachgestellt, email, strasse, plz, ort, zahlungsziel_tage),
         firma:firmen(name, email, strasse, plz, ort, zahlungsziel_tage),
-        zh_kontakt:kontakte!zh_kontakt_id(vorname, nachname),
+        zh_kontakt:kontakte!zh_kontakt_id(titel, vorname, nachname, titel_nachgestellt),
         positionen:verkauf_positionen(
           typ, name, menge, einheit, preis_brutto, rabatt_pct, sonderrabatt_pct, ust_satz,
           fuellung:fuellungen(jahrgang, flaschengroesse_ml)
@@ -81,7 +82,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const einst = (einstRaw ?? {}) as R
 
   function kundenName(p: R): string {
-    if (p.kontakt) return [p.kontakt.vorname, p.kontakt.nachname].filter(Boolean).join(' ')
+    if (p.kontakt) return kontaktAnzeigename(p.kontakt)   // Hotfix 05.10.2026: mit Titeln
     if (p.firma) return p.firma.name as string
     return 'Kunde'
   }
@@ -173,7 +174,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       },
       kunde: {
         name: kundenName(posten),
-        zHande: posten.zh_kontakt ? [posten.zh_kontakt.vorname, posten.zh_kontakt.nachname].filter(Boolean).join(' ') : null,
+        zHande: posten.zh_kontakt ? kontaktAnzeigename(posten.zh_kontakt) : null,
         strasse: kundeInfo?.strasse ?? null,
         plzOrt: kundeInfo ? [kundeInfo.plz, kundeInfo.ort].filter(Boolean).join(' ') || null : null,
       },
