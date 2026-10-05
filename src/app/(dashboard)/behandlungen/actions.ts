@@ -1,6 +1,7 @@
 'use server'
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
@@ -310,11 +311,12 @@ async function grundstueckeDerAuswahl(supabase: any, tenantId: string, formData:
   const laden = async (spalte: 'weingarten_id' | 'id', ids: string[]) => {
     if (ids.length === 0) return
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabase.from('grundstuecke') as any)
+    const { data, error } = await alle<AR>((supabase.from('grundstuecke') as any)
       .select('id, weingarten_id, flaeche_ha, aktiv, deaktiviert_am')
       .in(spalte, ids)
       .eq('nutzart', 'WI')
       .eq('tenant_id', tenantId)
+      .order('id'))
     if (error) throw new AktionsFehler((error as AR).message)
     const tag = String(formData.get('datum') ?? '').slice(0, 10)
     for (const g of ((data ?? []) as AR[])) {

@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
@@ -61,9 +62,10 @@ export default async function BehandlungenPage() {
 
     // Kosten je Maßnahme (Punkt 7, Migration 139)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    tf((supabase.from('kosteneintraege') as any)
+    alle(tf((supabase.from('kosteneintraege') as any)
       .select('behandlung_id, betrag')
-      .not('behandlung_id', 'is', null)),
+      .not('behandlung_id', 'is', null)
+      .order('id'))),   // alle(): Summe je Maßnahme sonst ab dem 1.001. Kosteneintrag zu niedrig
   ])
 
   const kostenByBeh = new Map<string, number>()

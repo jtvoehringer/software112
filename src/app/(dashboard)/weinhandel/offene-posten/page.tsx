@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import OffenePostenClient from './OffenePostenClient'
@@ -27,7 +28,8 @@ export default async function OffenePostenPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
-  const { data: raw } = await tf((supabase.from('verkaufsposten') as any)
+  // alle(): sonst fehlen ab dem 1.001. Verkauf offene Posten in Liste und Summe
+  const { data: raw } = await alle(tf((supabase.from('verkaufsposten') as any)
     .select(`
       id, datum, rechnungsnummer, storniert, bezahlt, bezahlt_am, erstellt_am,
       kontakt:kontakte!kontakt_id(id, vorname, nachname),
@@ -36,15 +38,17 @@ export default async function OffenePostenPage() {
     `)
     .eq('storniert', false)
     .eq('aktiv',     true)
-    .order('datum', { ascending: false }))
+    .order('datum', { ascending: false })
+    .order('id')))
 
   const offeneIds = ((raw ?? []) as R[]).filter(p => !p.bezahlt).map(p => p.id as string)
   const bereitsBezahltMap = new Map<string, number>()
   if (offeneIds.length > 0) {
-    const { data: zahlungenRaw } = await tf((supabase.from('zahlungen') as any)
+    const { data: zahlungenRaw } = await alle(tf((supabase.from('zahlungen') as any)
       .select('verkaufsposten_id, betrag')
       .in('verkaufsposten_id', offeneIds)
-      .is('storniert_am', null))   // KAN-149 D2b: stornierte Zahlungen zählen nicht
+      .is('storniert_am', null)   // KAN-149 D2b: stornierte Zahlungen zählen nicht
+      .order('id')))
     for (const z of (zahlungenRaw ?? []) as R[]) {
       const key = z.verkaufsposten_id as string
       bereitsBezahltMap.set(key, (bereitsBezahltMap.get(key) ?? 0) + Number(z.betrag ?? 0))

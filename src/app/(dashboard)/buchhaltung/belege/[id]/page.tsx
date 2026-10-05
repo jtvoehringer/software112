@@ -1,6 +1,7 @@
 import { redirect, notFound } from 'next/navigation'
 import Link from '@/components/ui/Link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { verwerfeBeleg } from '../../actions'
 import BelegBuchenForm from './BelegBuchenForm'
@@ -49,11 +50,12 @@ export default async function BelegBuchenPage({ params }: { params: Promise<{ id
     // Für die Lieferanten-Zuordnung (Migration 167): alle Firmen des
     // Mandanten - lieferanten (ist_lieferant) für die Auswahl/Anzeige,
     // allFirmen zusätzlich für die Dublettenprüfung in FirmaForm bei
-    // Neuanlage aus diesem Formular heraus.
-    (supabase.from('firmen') as any)
+    // Neuanlage aus diesem Formular heraus. alle(): Gebeshuber hat über
+    // 4.600 Firmen – ohne Paging fehlten Lieferanten ab dem 1.001. Namen.
+    alle((supabase.from('firmen') as any)
       .select('id, accountnummer, name, segment, strasse, plz, ort, land, telefon, telefon_vorwahl, email, website, uid_nummer, betrieb_nr, kreditlimit, zahlungsziel_tage, skonto_pct, skonto_tage, waehrung, notizen, aktiv, is_lead, sonderrabatt_pct, rabattgruppe_id, ist_kunde, ist_lieferant, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct)')
       .eq('tenant_id', tenantId).eq('aktiv', true)
-      .order('name'),
+      .order('name').order('id')),
   ])
 
   // Rabattgruppen (non-fatal, wie in crm/firmen/page.tsx – Tabelle existiert

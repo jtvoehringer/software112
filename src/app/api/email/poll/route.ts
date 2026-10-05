@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { ImapFlow } from 'imapflow'
@@ -41,9 +42,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, info: 'IMAP nicht konfiguriert – übersprungen' })
 
     // Kontakte + Firmen E-Mail-Adressen laden
+    // alle(): Gebeshuber hat über 8.000 Kontakte und 4.600 Firmen – ohne Paging wurden
+    // E-Mails von Adressen ab dem 1.001. Datensatz keinem Kontakt bzw. keiner Firma zugeordnet
     const [{ data: kontakteRaw }, { data: firmenRaw }] = await Promise.all([
-      (supabase.from('kontakte') as any).select('id, email').eq('tenant_id', tenantId).eq('aktiv', true).not('email', 'is', null),
-      (supabase.from('firmen') as any).select('id, email').eq('tenant_id', tenantId).eq('aktiv', true).not('email', 'is', null),
+      alle<R>((supabase.from('kontakte') as any).select('id, email').eq('tenant_id', tenantId).eq('aktiv', true).not('email', 'is', null).order('id')),
+      alle<R>((supabase.from('firmen') as any).select('id, email').eq('tenant_id', tenantId).eq('aktiv', true).not('email', 'is', null).order('id')),
     ])
     const emailMap: Record<string, { kontakt_id?: string; firma_id?: string }> = {}
     ;(kontakteRaw ?? []).forEach((k: R) => { if (k.email) emailMap[k.email.toLowerCase()] = { kontakt_id: k.id } })

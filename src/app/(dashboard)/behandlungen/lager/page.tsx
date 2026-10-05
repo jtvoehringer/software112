@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { getCurrentUserRole, canWrite, canAdmin, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
@@ -186,10 +187,11 @@ export default async function LagerPage({
   }))
 
   // Lagerbewegungen
+  // alle(): Lagerbestand = Summe ALLER Bewegungen – PostgREST kappt sonst still bei 1.000 (gilt für alle drei Lager)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawBew } = await tf((supabase.from('psm_lager_bewegungen') as any)
+  const { data: rawBew } = await alle<AR>(tf((supabase.from('psm_lager_bewegungen') as any)
     .select('id, psm_id, datum, typ, menge, einheit, notizen')
-    .order('datum', { ascending: false }))
+    .order('datum', { ascending: false }).order('id')))
 
   // Verbrauch aus Maßnahmen (KAN-133): Mittelmenge je Maßnahme (mittelmenge()) – PSM nur aus
   // Spritzungen und Sonstiges (KAN-154; Aufwand × Fläche; „Menge gesamt“ ist bei Spritzungen die
@@ -267,9 +269,9 @@ export default async function LagerPage({
 
   // ── Düngemittel-Lagerbewegungen (Migration 142, analog PSM oben) ────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawDuengerBew } = await tf((supabase.from('duengemittel_lager_bewegungen') as any)
+  const { data: rawDuengerBew } = await alle<AR>(tf((supabase.from('duengemittel_lager_bewegungen') as any)
     .select('id, duengemittel_id, datum, typ, menge, einheit, notizen')
-    .order('datum', { ascending: false }))
+    .order('datum', { ascending: false }).order('id')))
 
   // Verbrauch aus Düngungen: Düngermenge, sonst Aufwand × Fläche (mittelmenge(), siehe oben)
   const verbrauchByDuenger = verbrauchJeMittel(duengungen, 'duenger')
@@ -319,15 +321,16 @@ export default async function LagerPage({
     .order('name'))
   const bmAlle = ((rawBm ?? []) as AR[])
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawBmBew } = await tf((supabase.from('betriebsmittel_lager_bewegungen') as any)
+  const { data: rawBmBew } = await alle<AR>(tf((supabase.from('betriebsmittel_lager_bewegungen') as any)
     // storno-sichtbar: stornierte Buchungen stehen gekennzeichnet in der Liste, zählen aber nicht zum Bestand
     .select('id, betriebsmittel_id, datum, typ, menge, einheit, betrag_netto, ust_satz, notizen, storniert_am, storniert_von_name, storno_grund, lieferant:firmen!lieferant_firma_id(name)')
-    .order('datum', { ascending: true }))
+    .order('datum', { ascending: true }).order('id')))
   // Verbrauch aus Maßnahmen (Sonstiges, Laubarbeit) mit Betriebsmittel – Aufwand × behandelte Fläche bzw. gesamt
   const { data: rawBmVerbrauch } = brauchtBm
-    ? await tf((supabase.from('behandlungen') as any)   // eslint-disable-line @typescript-eslint/no-explicit-any
+    ? await alle<AR>(tf((supabase.from('behandlungen') as any)   // eslint-disable-line @typescript-eslint/no-explicit-any
         .select('id, datum, art, aufwandmenge, aufwandmenge_einheit, betriebsmittel_id, weingarten_id, weingarten:weingarten_id(id, name, ried), behandlung_grundstuecke(flaeche_ha, grundstueck:grundstueck_id(flaeche_ha, weingarten_id, weingarten:weingarten_id(id, name, ried)))')
-        .not('betriebsmittel_id', 'is', null))
+        .not('betriebsmittel_id', 'is', null)
+        .order('id')))   // alle(): Verbrauch über alle Jahre, nicht nur die ersten 1.000 Maßnahmen
     : { data: [] }
   const bmVerbrauch = new Map<string, BmVerbrauchPosten[]>()
   for (const b of ((rawBmVerbrauch ?? []) as AR[])) {

@@ -1,6 +1,7 @@
 // behoerdenmeldung: rueckverfolgung-weingarten
 import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
@@ -63,7 +64,8 @@ export default async function RiedenRueckverfolgungPage({ searchParams }: { sear
   const [jgRes, gstRes] = tenantId
     ? await Promise.all([
         (supabase.from('weinjahrgaenge') as R).select('jahrgang').eq('tenant_id', tenantId).order('jahrgang', { ascending: false }),
-        (supabase.from('grundstuecke') as R).select('id, gst_nr, katastralgemeinde, weingarten_id, weingarten:weingarten_id(name)').eq('tenant_id', tenantId).order('gst_nr'),
+        // alle(): sonst fehlen ab dem 1.001. Grundstück Einträge in der Auswahl
+        alle<R>((supabase.from('grundstuecke') as R).select('id, gst_nr, katastralgemeinde, weingarten_id, weingarten:weingarten_id(name)').eq('tenant_id', tenantId).order('gst_nr').order('id')),
       ])
     : [{ data: [] }, { data: [] }]
   const jahrgaenge = [...new Set(((jgRes.data ?? []) as R[]).map(j => Number(j.jahrgang)))]

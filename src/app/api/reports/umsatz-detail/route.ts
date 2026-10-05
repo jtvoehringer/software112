@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { NextRequest, NextResponse } from 'next/server'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
@@ -16,13 +17,15 @@ export async function GET(req: NextRequest) {
 
   const supabase = await createSupabaseServerClient()
 
+  // alle(): Detailliste und Summe über alle Verkäufe des Zeitraums, nicht nur die ersten 1.000
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase.from('verkaufsposten') as any)
+  const { data, error } = await alle((supabase.from('verkaufsposten') as any)
     .select('id, datum, rechnungsnummer, storniert, bezahlt, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen(name), verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
     .eq('tenant_id', tenantId)
     .eq('aktiv', true).eq('storniert', false)
     .gte('datum', von).lte('datum', bis)
     .order('datum', { ascending: false })
+    .order('id'))
 
   if (error) return NextResponse.json({ fehler: error.message }, { status: 500 })
 

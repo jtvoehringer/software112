@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { NextRequest, NextResponse } from 'next/server'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
@@ -42,11 +43,13 @@ async function ladeMonat(supabase: any, ziel: MonatsZiel, tenantId: string): Pro
   const von = new Date(ziel.jahr, ziel.monatIdx, 1).toISOString().split('T')[0]
   const bis = new Date(ziel.jahr, ziel.monatIdx + 1, 0).toISOString().split('T')[0]
 
-  const { data } = await (supabase.from('verkaufsposten') as any)
+  // alle(): Monatsumsatz über alle Verkäufe, nicht nur die ersten 1.000
+  const { data } = await alle<R>((supabase.from('verkaufsposten') as any)
     .select('id, verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
     .eq('tenant_id', tenantId)
     .eq('aktiv', true).eq('storniert', false)
     .gte('datum', von).lte('datum', bis)
+    .order('id'))
 
   const posten = (data ?? []) as R[]
   const summe = posten.reduce((s: number, p: R) =>

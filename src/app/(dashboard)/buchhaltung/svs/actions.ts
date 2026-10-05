@@ -1,6 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentMembership, canWrite, canAdmin, isSystemAdmin } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
@@ -61,9 +62,11 @@ export async function importiereEinheitswerte(text: string, bescheidDatum?: stri
   const iEw = idx(['einheitswert', 'ew']), iDatum = idx(['bescheid', 'datum']), iZur = idx(['zurechnung', 'pacht'])
   if (iGst < 0 || iEw < 0) return { ok: false, fehler: 'Spalten „GST“ und „Einheitswert“ nicht gefunden – bitte Kopfzeile prüfen.' }
 
-  const { data: gstRaw } = await (supabase.from('grundstuecke') as any)
-    .select('id, gst_nr, katastralgemeinde, kg_bezeichnung').eq('tenant_id', tenantId)
-  const gst = (gstRaw ?? []) as R[]
+  // alle(): Abgleich über alle Grundstücke – sonst gälten GST ab dem 1.001. als „nicht gefunden“
+  const { data: gstRaw, error: gstFehler } = await alle<R>((supabase.from('grundstuecke') as any)
+    .select('id, gst_nr, katastralgemeinde, kg_bezeichnung').eq('tenant_id', tenantId).order('id'))
+  if (gstFehler) return { ok: false, fehler: `Grundstücke nicht ladbar: ${gstFehler.message}` }
+  const gst = gstRaw
   const norm = (s: unknown) => String(s ?? '').trim().toLowerCase().replace(/\s+/g, '').replace(/^0+(?=\d)/, '')
   const parseBetrag = (s: string) => { const t = dezimal(s.replace(/[€\s.]/g, '')); const n = parseFloat(t); return Number.isNaN(n) ? null : n }
   const zurMap: Record<string, Zurechnung> = { eigen: 'eigen', eigentum: 'eigen', voll: 'eigen', pacht: 'pacht_fremd', pacht_fremd: 'pacht_fremd', fremd: 'pacht_fremd', angehoerige: 'pacht_angehoerige', angehörige: 'pacht_angehoerige', pacht_angehoerige: 'pacht_angehoerige', verpachtet: 'verpachtet', keine: 'keine' }

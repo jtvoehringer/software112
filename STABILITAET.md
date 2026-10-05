@@ -10,7 +10,7 @@ Regeln für jede Änderung stehen in der `CLAUDE.md`, Abschnitt „Stabilität (
 | Build | `next build` auf Vercel, inkl. prebuild-Wächter und vollständiger Typprüfung | 🟢 |
 | Typprüfung | `npm run typecheck` (`tsc --noEmit` über das ganze Programm): 0 Fehler | 🟢 |
 | Unit-Tests | 976 Tests in 185 Suiten (32 Testdateien, `node:test`), alle grün, ca. 12 s | 🟢 |
-| Projekt-Wächter | 8 Wächter (Mandantentrennung, 2FA, Seitenbetrieb, Schreibsperre, Schema, Barrierefreiheit, Behörden-CSV, Replica): 0 Funde | 🟢 |
+| Projekt-Wächter | 10 Wächter (Mandantentrennung, 2FA, Seitenbetrieb, Schreibsperre, Schema, Barrierefreiheit, Behörden-CSV, Replica, Storno, seit 05.10.2026 `check-alle` gegen still bei 1.000 Zeilen gekappte Vollabfragen): 0 Funde | 🟢 |
 | CI | Job „check“ = `npm run verify` (inkl. Lint) bei jedem PR und Push; `main` per Ruleset geschützt (Merge nur mit grünem „check“) | 🟢 |
 | Abhängigkeiten | `npm audit`: 0 Schwachstellen (CI-Job „abhaengigkeiten“, ab Stufe hoch blockierend) | 🟢 |
 | Coverage | gemessen, aber nur 98 von 604 `src`-Dateien werden von Tests geladen; kein Gate | 🟡 |
