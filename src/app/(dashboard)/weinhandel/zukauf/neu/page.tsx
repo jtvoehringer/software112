@@ -266,7 +266,7 @@ export default function ZukaufNeuPage() {
           <h2 className="font-semibold text-s112-text-1 text-sm uppercase tracking-wide">Versender</h2>
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
-              <label className={labelCls}>Lieferant</label>
+              <label className={labelCls}>Lieferant *</label>
               <PartnerSuche
                 art="lieferant"
                 value={lieferantKontakt ? `kontakt:${lieferantKontakt}` : lieferantFirma ? `firma:${lieferantFirma}` : ''}

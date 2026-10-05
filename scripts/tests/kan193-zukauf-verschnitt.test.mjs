@@ -42,6 +42,9 @@ const charge = (id, behaelter_id, teil) => ({
   notizen: null, weingarten_id: null, land_iso: 'AT', storniert_am: null, ...teil,
 })
 const gebinde = id => ({ id, tenant_id: T, name: `Tank ${id.slice(-3)}`, aktiv: true, fremd: false, fremd_liter: 0, volumen_liter: 10000 })
+// KAN-208: Lieferant mit Betriebsnummer ist beim Zukauf Pflicht
+const LF = '00000000-0000-4000-8000-00000000f208'
+const LIEFERANT = { id: LF, tenant_id: T, name: 'Weinhandel Muster', betrieb_nr: '1234567' }
 const tabellen = (extra = []) => ({
   weinausbau: [
     charge(RR, G1, { name: 'Riesling Kamptal' }),
@@ -50,6 +53,7 @@ const tabellen = (extra = []) => ({
   ],
   keller_umzuege: [], rebsorten: [], verschneidungen: [], verschneidung_quellen: [], zukauf_posten: [], pressung_behaelter: [],
   fuellung_chargen: [], verkauf_positionen: [], dac_antrag: [], fuellungen: [], weinbaugebiete_custom: [],
+  firmen: [LIEFERANT], kontakte: [],
 })
 
 /** Einbettungen wie PostgREST: verschneidung_quellen.verschneidung und verschneidungen.quellen (live, für den Storno) */
@@ -83,7 +87,7 @@ function db(t, { module = ['kellerbuch', 'warenwirtschaft'], eingriff = (name, a
   return d
 }
 
-const WARE = { jahrgang: '2025', qualitaetsstufe: 'qualitaetswein', herkunft: 'wlnoe', alkohol_pct: '12' }
+const WARE = { jahrgang: '2025', qualitaetsstufe: 'qualitaetswein', herkunft: 'wlnoe', alkohol_pct: '12', lieferant_firma_id: LF }
 function zukaufFd(teil = {}) {
   const fd = new FormData()
   for (const [k, v] of Object.entries({ datum: '2026-10-03', art: 'wein', menge: '200', einheit: 'L', rebsorte: 'Grüner Veltliner', weinart: 'weiss', ...WARE, ...teil })) {
