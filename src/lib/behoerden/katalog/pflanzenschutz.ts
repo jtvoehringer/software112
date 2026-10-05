@@ -24,6 +24,17 @@ export const KATALOG_PFLANZENSCHUTZ = katalogGruppe('pflanzenschutz', {
     rechtsgrundlage: 'Art. 67 VO (EG) 1107/2009, DVO (EU) 2023/564; Pflanzenschutzmittelgesetz 2011',
     beschreibung: 'Eine Zeile je Maßnahme und Grundstück: Datum, Ried, KG, GST-Nr., Fläche, Kultur, Mittel, Zulassungsnr., Wirkstoff, Schaderreger, BBCH, Aufwand, Mittelmenge und Spritzbrühe anteilig nach Fläche, Wasser, Wartezeit, Anwender, Witterung.',
   },
+  // KAN-87: maschinenlesbar für die künftige digitale Übermittlung (KAN-120 verwendet sie weiter)
+  'psm-uebermittlung': {
+    titel: 'Pflanzenschutz – Aufzeichnung zur Übermittlung (maschinenlesbar)',
+    behoerde: 'Landes-Pflanzenschutzbehörde / AMA (DVO (EU) 2023/564)',
+    zugriff: 'betriebsleitung',
+    druckPfad: '/reports/behandlungsprotokoll',
+    standardParameter: laufendesJahr,
+    pflicht: true,
+    rechtsgrundlage: 'Art. 67 VO (EG) 1107/2009, DVO (EU) 2023/564 (elektronisch ab 01.01.2027, DVO (EU) 2025/2203)',
+    beschreibung: 'Je Anwendung eines Pflanzenschutzmittels und Grundstück: Datensatz-ID, Betriebsnummer, Anwender, Datum, Start-/Endzeit, Art der Verwendung, Kultur (EPPO), BBCH, Mittel, Registernummer, Aufwand, Fläche, KG, GST, AMA-Feldstück/-Schlag, erfasst am/von, Verzug und Nacherfassung.',
+  },
   'psm-mittelverbrauch': {
     titel: 'Pflanzenschutz – Mittelverbrauch und Grenzwerte',
     behoerde: 'Landwirtschaftskammer / Bio-Kontrollstelle',

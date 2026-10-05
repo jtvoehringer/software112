@@ -168,7 +168,12 @@
 "einarbeitung",
 "einarbeitung_zeitpunkt",
 "reinkupfer_kg_ha",
-"betriebsmittel_id"
+"betriebsmittel_id",
+"uhrzeit_von",
+"uhrzeit_bis",
+"anwender_name",
+"art_verwendung",
+"erfasst_von"
 ],
 "benachrichtigungen": [
 "id",
@@ -1593,7 +1598,8 @@
 "journal_ab",
 "weinausbau_prefix",
 "weinausbau_stellen",
-"weinausbau_zaehler"
+"weinausbau_zaehler",
+"psm_erfassungsfrist_h"
 ],
 "tenant_memberships": [
 "id",

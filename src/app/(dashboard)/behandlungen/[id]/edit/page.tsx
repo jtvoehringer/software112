@@ -5,6 +5,7 @@ import { notFound, redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import BehandlungEditForm from './BehandlungEditForm'
+import { anwendungKontext } from '@/lib/behandlungen/anwendungKontext'
 import type { BmMassnahmeOption } from '../../neu/BetriebsmittelFeld'
 import { ladeRiedOptionen } from '../../neu/riedOptionen'
 import type { BehandlungEdit, PSMOption, DuengemittelOption, BestehenderKostenEintrag } from './BehandlungEditForm'
@@ -48,6 +49,7 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
         bbch_stadium, schaderreger, witterung, temperatur_c, notizen,
         bearbeitungstiefe_cm, bearbeitungsgeraet, schnittart, laubarbeit_art,
         einarbeitung, einarbeitung_zeitpunkt,
+        uhrzeit_von, uhrzeit_bis, durchgefuehrt_von, anwender_name, art_verwendung,
         weingarten:weingarten_id(name),
         psm:psm_id(wartezeit_tage),
         behandlung_grundstuecke(grundstueck_id, flaeche_ha, grundstueck:grundstueck_id(flaeche_ha, weingarten_id))
@@ -58,7 +60,7 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('pflanzenschutzmittel') as any)
-      .select('id, name, handelsname, oeko_zugelassen, cu_gehalt_pct, wirkstoff, wirkstoffgehalt_pct, wartezeit_tage')
+      .select('id, name, handelsname, oeko_zugelassen, cu_gehalt_pct, wirkstoff, wirkstoffgehalt_pct, wartezeit_tage, bienengefaehrlich')
       .eq('aktiv', true)
       .or(`tenant_id.eq.${tenantId},tenant_id.is.null`)
       .order('name'),
@@ -117,6 +119,11 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
     einarbeitung_zeitpunkt: b.einarbeitung_zeitpunkt ?? null,
     wartezeit_tage:       b.psm?.wartezeit_tage ?? null,
     weingarten_name:      b.weingarten?.name ?? null,
+    uhrzeit_von:          b.uhrzeit_von ?? null,
+    uhrzeit_bis:          b.uhrzeit_bis ?? null,
+    durchgefuehrt_von:    b.durchgefuehrt_von ?? null,
+    anwender_name:        b.anwender_name ?? null,
+    art_verwendung:       b.art_verwendung ?? null,
   }
 
   // Behandelte Fläche = Σ Grundstücke der Maßnahme (ha, je GST und gesamt 4 Stellen) – dieselbe Funktion,
@@ -147,6 +154,7 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
     wirkstoff:       p.wirkstoff ?? null,
     wirkstoffgehalt_pct: p.wirkstoffgehalt_pct ?? null,
     wartezeit_tage:  p.wartezeit_tage ?? null,
+    bienengefaehrlich: p.bienengefaehrlich ?? null,
   }))
 
   const duengemittel: DuengemittelOption[] = ((rawDuenger ?? []) as AR[]).map(d => ({
@@ -196,6 +204,7 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
         kostenarten={kostenarten} bestehenderKostenEintrag={bestehenderKostenEintrag}
         flaecheHa={flaecheHa} betriebsmittel={betriebsmittel} kostenModul={await hatModul('modul_controlling')}
         weingaerten={weingaerten} gstByWeingarten={gstByWeingarten} startWGs={startWGs} startGSTs={startGSTs}
+        {...await anwendungKontext(supabase, tenantId)}
       />
     </div>
   )

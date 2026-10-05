@@ -15,6 +15,7 @@ import { ladeMandantMitglieder } from '@/lib/aufgaben/mitglieder'
 import { neuesteAmaVersion } from '@/lib/behoerden/amaMeldung'
 import { BEHANDLUNG_RIEDEN_SELECT, riedText } from '@/lib/behandlungen/rieden'
 import { qualitaetAnzeigeOderNull } from '@/lib/wein/qualitaet'
+import { fristAus, psmErfassungFrist, PSM_FRIST_STANDARD_H, type PsmErfassungZeile } from '@/lib/behandlungen/erfassungsfrist'
 
 const fmtEurKurz = (n: number) => `€ ${n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 export { STATUS_LABEL } from './types'
@@ -286,7 +287,7 @@ function periodeGrenzen(jahr: number, zeitraum: string): [string, string] {
   return [toDateStr(new Date(jahr, m - 1, 1)), toDateStr(new Date(jahr, m, 0))]
 }
 
-export async function ladeFristen(ctx: Ctx, opts: { modulEa: boolean; uvaZeitraum: 'monatlich' | 'quartalsweise'; vorwarnungTage?: number; betriebsbeginn?: string | null; doppik?: boolean }) {
+export async function ladeFristen(ctx: Ctx, opts: { modulEa: boolean; uvaZeitraum: 'monatlich' | 'quartalsweise'; vorwarnungTage?: number; betriebsbeginn?: string | null; doppik?: boolean; psmFristH?: number }) {
   const jahr = ctx.heute.getFullYear()
   const vt = opts.vorwarnungTage ?? FAELLIG_TAGE
   const doppik = !!opts.modulEa && !!opts.doppik
@@ -447,6 +448,15 @@ export async function ladeFristen(ctx: Ctx, opts: { modulEa: boolean; uvaZeitrau
     })
   }
 
+  // KAN-87: Erfassungsfrist der Pflanzenschutz-Aufzeichnung – Ampel der Saison und Zahl der Nacherfassungen
+  {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: psmRaw } = await alle<R>(ctx.tf(ctx.q('behandlungen') as any)
+      .select('id, datum, datum_bis, uhrzeit_bis, created_at').not('psm_id', 'is', null)
+      .gte('datum', `${jahr}-01-01`).lte('datum', `${jahr}-12-31`).order('id'))
+    fristen.push({ ...psmErfassungFrist((psmRaw ?? []) as unknown as PsmErfassungZeile[], opts.psmFristH, jahr), href: '/behandlungen', quelle: 'system' })
+  }
+
   const rang: Record<FristStatus, number> = { ueberfaellig: 0, faellig: 1, offen: 2, laufend: 3, erledigt: 4 }
   fristen.sort((a, b) => rang[a.status] - rang[b.status] || (a.faelligAm ?? '9999').localeCompare(b.faelligAm ?? '9999'))
   return fristen
@@ -510,9 +520,9 @@ export async function ladeAufgabenTermine(ctx: Ctx, tage = 30, limit = 60): Prom
 // ── Tenant-Einstellungen, die die Sichten brauchen ───────────────────────────
 
 export async function ladeEinstellungen(ctx: Ctx) {
-  if (!ctx.tenantId) return { modulEa: false, doppik: false, uvaZeitraum: 'quartalsweise' as const, bawbKennung: false, assistentAktiv: false, m365Aktiv: false, messintervallTage: GAERUNG_MESSINTERVALL_TAGE, vorwarnungTage: FAELLIG_TAGE, betriebsbeginn: null as string | null, morgenberichtAktiv: false, wetterAktiv: false, wetterAbwaschMm: 25, wetterIntervallTage: 14, modulWeingarten: false }
+  if (!ctx.tenantId) return { modulEa: false, doppik: false, uvaZeitraum: 'quartalsweise' as const, bawbKennung: false, assistentAktiv: false, m365Aktiv: false, messintervallTage: GAERUNG_MESSINTERVALL_TAGE, vorwarnungTage: FAELLIG_TAGE, betriebsbeginn: null as string | null, morgenberichtAktiv: false, wetterAktiv: false, wetterAbwaschMm: 25, wetterIntervallTage: 14, modulWeingarten: false, psmFristH: PSM_FRIST_STANDARD_H }
   const { data } = await ctx.q('tenant_einstellungen')
-    .select('modul_ea, buchhaltungsart, ea_uva_zeitraum, bawb_kennung, assistent_aktiv, m365_modul_aktiv, gaerung_messintervall_tage, fristen_vorwarnung_tage, ea_betriebsbeginn, morgenbericht_aktiv, wetter_aktiv, wetter_abwasch_mm, wetter_intervall_tage, modul_weingarten')
+    .select('modul_ea, buchhaltungsart, ea_uva_zeitraum, bawb_kennung, assistent_aktiv, m365_modul_aktiv, gaerung_messintervall_tage, fristen_vorwarnung_tage, ea_betriebsbeginn, morgenbericht_aktiv, wetter_aktiv, wetter_abwasch_mm, wetter_intervall_tage, modul_weingarten, psm_erfassungsfrist_h')
     .eq('tenant_id', ctx.tenantId).maybeSingle()
   const d = (data ?? {}) as R
   return {
@@ -534,5 +544,7 @@ export async function ladeEinstellungen(ctx: Ctx) {
     wetterAbwaschMm: Number(d.wetter_abwasch_mm) > 0 ? Number(d.wetter_abwasch_mm) : 25,
     wetterIntervallTage: Number(d.wetter_intervall_tage) > 0 ? Number(d.wetter_intervall_tage) : 14,
     modulWeingarten: d.modul_weingarten !== false,
+    // KAN-87: Erfassungsfrist Pflanzenschutz (h)
+    psmFristH: fristAus(d.psm_erfassungsfrist_h),
   }
 }

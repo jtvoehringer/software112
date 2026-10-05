@@ -1,4 +1,4 @@
-// behoerdenmeldung: psm-aufzeichnung
+// behoerdenmeldung: psm-aufzeichnung, psm-uebermittlung
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
@@ -100,6 +100,9 @@ export default async function BehandlungsprotokollPage({ searchParams }: { searc
           </form>
           <PrintButton />
           <CsvExportKnopf href={csvPfad('psm-aufzeichnung', { jahr: aktJahr, art })} />
+          {/* KAN-87: maschinenlesbare Aufzeichnung (DVO (EU) 2023/564), nur Pflanzenschutzmittel */}
+          <CsvExportKnopf href={csvPfad('psm-uebermittlung', { jahr: aktJahr })} label="CSV Übermittlung"
+            hinweis="Pflanzenschutz-Aufzeichnung maschinenlesbar (DVO (EU) 2023/564): je Anwendung und Grundstück, mit Anwender, Startzeit, erfasst am/von und Verzug" />
         </div>
       </div>
 

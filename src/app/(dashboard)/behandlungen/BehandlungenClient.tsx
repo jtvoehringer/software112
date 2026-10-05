@@ -161,6 +161,13 @@ export default function BehandlungenClient({
                       <span className="inline-block mt-0.5 text-[11px] text-s112-text-2 bg-[#F2F3F5] px-2 py-0.5 rounded-full">
                         {ART_LABEL[b.art] ?? b.art}
                       </span>
+                      {/* KAN-87: Pflanzenschutz-Aufzeichnung über der Erfassungsfrist */}
+                      {b.nacherfasst && (
+                        <span className={`inline-block mt-0.5 ml-1 text-[11px] px-2 py-0.5 rounded-full ${b.erfassung_ampel === 'rot' ? 'bg-s112-err-bg text-s112-err-fg' : 'bg-s112-warn-bg text-s112-warn-fg'}`}
+                          title="Erfasst nach Ablauf der Erfassungsfrist ab Anwendungsende">
+                          {b.nacherfasst}
+                        </span>
+                      )}
                     </td>
                     <td className="px-3 py-2.5 text-s112-muted">
                       {b.aufwandmenge != null ? (

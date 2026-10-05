@@ -22,7 +22,7 @@ export default async function FristenSichtPage() {
   const ctx = await getCtx()
   const einst = await ladeEinstellungen(ctx)
   const [fristen, behoerden] = await Promise.all([
-    ladeFristen(ctx, { modulEa: einst.modulEa, uvaZeitraum: einst.uvaZeitraum, vorwarnungTage: einst.vorwarnungTage, betriebsbeginn: einst.betriebsbeginn, doppik: einst.doppik }),
+    ladeFristen(ctx, { modulEa: einst.modulEa, uvaZeitraum: einst.uvaZeitraum, vorwarnungTage: einst.vorwarnungTage, betriebsbeginn: einst.betriebsbeginn, doppik: einst.doppik, psmFristH: einst.psmFristH }),
     behoerdenUebersicht(),
   ])
   // behoerden = null: Übersicht nicht ladbar (protokolliert) – die Fristen bleiben sichtbar

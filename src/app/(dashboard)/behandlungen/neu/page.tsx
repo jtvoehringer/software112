@@ -8,6 +8,7 @@ import type { Metadata } from 'next'
 import { ladeRiedOptionen } from './riedOptionen'
 import type { BmMassnahmeOption } from './BetriebsmittelFeld'
 import NeueBehandlungForm from './NeueBehandlungForm'
+import { anwendungKontext } from '@/lib/behandlungen/anwendungKontext'
 
 export const metadata: Metadata = { title: 'Neue Maßnahme – software:112' }
 
@@ -21,6 +22,8 @@ export type PSM = {
   /** Ersatz für den Cu-Gehalt bei Kupfer-Wirkstoffen (wie die Kupfer-Bilanz) */
   wirkstoff: string | null; wirkstoffgehalt_pct: number | null
   preis_pro_einheit: number | null
+  /** KAN-87: bienengefährlich laut Zulassung – Startuhrzeit Pflicht */
+  bienengefaehrlich?: boolean | null
   /** Einheit, in der der Preis gilt: kg bzw. l, die Grundeinheit des Lagers (preisEinheit); null = keine Lagerbuchung */
   einheit: string | null
 }
@@ -68,7 +71,7 @@ export default async function NeueBehandlungPage() {
   // PSM laden (global + eigene) — inkl. cu_gehalt_pct (bzw. Kupfer-Wirkstoff) + preis_pro_einheit
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawPSM } = await tf((supabase.from('pflanzenschutzmittel') as any)
-    .select('id, name, handelsname, kategorie, wartezeit_tage, oeko_zugelassen, cu_gehalt_pct, wirkstoff, wirkstoffgehalt_pct, preis_pro_einheit')
+    .select('id, name, handelsname, kategorie, wartezeit_tage, oeko_zugelassen, cu_gehalt_pct, wirkstoff, wirkstoffgehalt_pct, preis_pro_einheit, bienengefaehrlich')
     .eq('aktiv', true)
     .order('name'))
 
@@ -101,6 +104,7 @@ export default async function NeueBehandlungPage() {
     wirkstoff:      p.wirkstoff ?? null,
     wirkstoffgehalt_pct: p.wirkstoffgehalt_pct ?? null,
     preis_pro_einheit: p.preis_pro_einheit ?? null,
+    bienengefaehrlich: p.bienengefaehrlich ?? null,
     einheit:        psmEinheit.get(p.id) ?? null,
   }))
 
@@ -175,6 +179,7 @@ export default async function NeueBehandlungPage() {
         saetzeMassnahmen={saetzeMassnahmen}
         betriebsmittel={betriebsmittel}
         kostenModul={await hatModul('modul_controlling')}
+        {...await anwendungKontext(supabase, tenantId)}
       />
     </div>
   )
