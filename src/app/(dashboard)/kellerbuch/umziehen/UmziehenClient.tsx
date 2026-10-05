@@ -408,7 +408,7 @@ function UmzugZeile({ u, writeOk }: { u: UmzugRow; writeOk: boolean }) {
   // Ziel-Charge nicht weiterbewegt wurde – der Server meldet sonst den Grund.
   const istSchwund = u.umzug_typ === 'schwund'
   const [editing, setEditing]       = useState(false)
-  const [datum, setDatum]           = useState(u.datum)
+  const datum = u.datum
   const [notizen, setNotizen]       = useState(u.notizen ?? '')
   const [pending, startTransition]  = useTransition()
   const [error, setError]           = useState<string | null>(null)
@@ -431,13 +431,8 @@ function UmzugZeile({ u, writeOk }: { u: UmzugRow; writeOk: boolean }) {
     return (
       <tr className="bg-s112-blue-50/50 border-b border-s112-border">
         <td className="px-3 py-2">
-          {istSchwund ? (
-            <span className="text-xs text-s112-muted tabular-nums">{new Date(u.datum).toLocaleDateString('de-AT')}</span>
-          ) : (
-            <input type="date" value={datum} onChange={e => setDatum(e.target.value)}
-              title="Ein neues Datum gilt für den ganzen Umzug (Quell- und Zielzeilen)"
-              className="border border-s112-border rounded px-2 py-1 text-base sm:text-xs w-32" />
-          )}
+          {/* KAN-207: das Datum ist nach dem Speichern fest – Korrektur über Stornieren und Neubuchen */}
+          <span className="text-xs text-s112-muted tabular-nums" title="Datum fest – Korrektur über Stornieren und neu buchen">{new Date(u.datum).toLocaleDateString('de-AT')}</span>
         </td>
         <td className="px-3 py-2 text-xs text-s112-text-2">{u.von_name}</td>
         <td className="px-3 py-2 text-xs text-s112-text-2">{u.nach_name}</td>
