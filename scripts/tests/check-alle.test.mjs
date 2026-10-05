@@ -70,3 +70,22 @@ test('ganzes Projekt ohne Fund, im prebuild, große Tabellen enthalten den Befun
   for (const t of ['kontakte', 'firmen', 'grundstuecke', 'behandlung_grundstuecke', 'verkaufsposten', 'ea_transaktionen'])
     assert.ok(c.GROSSE_TABELLEN.includes(t), t)
 })
+
+test('Kellertabellen (05.10.2026) sind große Tabellen, lesen bewusst nicht', () => {
+  for (const t of ['weinausbau', 'behaelter', 'fuellungen', 'fuellung_chargen', 'zukauf_posten', 'traubenverkauf',
+    'keller_umzuege', 'keller_behandlungen', 'weinanalysen', 'verschneidungen', 'pressungen', 'pressung_weingaerten',
+    'ernte_parzellen', 'dac_antrag'])
+    assert.ok(c.GROSSE_TABELLEN.includes(t), t)
+  assert.ok(!c.GROSSE_TABELLEN.includes('lesen'))
+  assert.deepEqual(regeln(`await tf((supabase.from('weinausbau') as any).select('id').eq('aktiv', true).order('name'))`),
+    [['VOLLABFRAGE', 'weinausbau']])
+})
+
+test('Fabrik ohne Parameter: gepaged, wenn jede Aufrufstelle über alle() läuft', () => {
+  const fabrik = `const tvAbfrage = () => (supabase.from('traubenverkauf') as any).select('id').eq('tenant_id', t)\n`
+  assert.deepEqual(regeln(fabrik + `const a = await alle(tvAbfrage().eq('lese_id', l).order('id'))\nlet q = tvAbfrage()\nq = q.eq('x', 1)\nawait alle(q.order('id'))`), [])
+  // eine ungepagte Aufrufstelle reicht für einen Fund
+  assert.deepEqual(regeln(fabrik + `await alle(tvAbfrage().order('id'))\nconst { data } = await tvAbfrage()`), [['VOLLABFRAGE', 'traubenverkauf']])
+  // Fabrik ohne Aufruf ist ein Fund (nichts belegt die Begrenzung)
+  assert.deepEqual(regeln(fabrik), [['VOLLABFRAGE', 'traubenverkauf']])
+})

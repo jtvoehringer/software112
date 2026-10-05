@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
@@ -59,9 +60,9 @@ export default async function EditFuellungPage({
 
   const [{ data: raw }, { data: waRaw }] = await Promise.all([
     tf((supabase.from('fuellungen') as any).select('*').eq('id', id)).single(),
-    tf((supabase.from('weinausbau') as any)
+    alle(tf((supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, status')
-      .order('jahrgang', { ascending: false })),
+      .order('jahrgang', { ascending: false }).order('id'))),
   ])
 
   if (!raw) redirect('/weinhandel')

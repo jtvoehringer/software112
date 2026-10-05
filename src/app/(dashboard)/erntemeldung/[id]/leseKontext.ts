@@ -95,8 +95,8 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
     ladeBehaelter(supabase, tenantId, { alsZiel: true }),
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    tf((supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, behaelter_id, rebsorte, menge_liter, qualitaetsstufe, herkunft_code').eq('aktiv', true).neq('status', 'abgeschlossen').order('name')),
+    alle(tf((supabase.from('weinausbau') as any)
+      .select('id, name, jahrgang, behaelter_id, rebsorte, menge_liter, qualitaetsstufe, herkunft_code').eq('aktiv', true).neq('status', 'abgeschlossen').order('name').order('id'))),
 
     // Weingartenfläche (GST, Nutzart WI) – auch Bezugsfläche des Hektarhöchstertrags; alle() statt 1.000er-Deckel
     alle<AR>(
@@ -159,7 +159,7 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
   // Zugekaufte Trauben dieses Jahrgangs (art='trauben') - stehen als zusätzliche
   // Quelle für Pressungs-Vorschlag und Traubenverkauf zur Verfügung.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawZukaufTrauben } = await tf((supabase.from('zukauf_posten') as any)
+  const { data: rawZukaufTrauben } = await alle(tf((supabase.from('zukauf_posten') as any)
     .select(`
       id, datum, menge, rebsorte, herkunft, qualitaetsstufe, kmw, oechsle, mostgewicht_einheit,
       lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname),
@@ -168,7 +168,7 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
     .eq('art', 'trauben')
     .eq('aktiv', true)
     .eq('jahrgang', (jg as AR).jahrgang)
-    .order('datum', { ascending: false }))
+    .order('datum', { ascending: false }).order('id')))
 
   // Anzeige wie bisher: neueste Lese zuerst (Postgres-DESC: ohne Datum ganz oben); bei mehreren Lesen je Lese
   // gruppiert (höchste Nummer oben). Die Tabelle und der Druck zeigen immer den ganzen Jahrgang (Ticket Soll 4),

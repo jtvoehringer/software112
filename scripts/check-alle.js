@@ -44,6 +44,12 @@ const GROSSE_TABELLEN = [
   'kosteneintraege', 'kosteneintrag_weingaerten',
   'psm_lager_bewegungen', 'duengemittel_lager_bewegungen', 'betriebsmittel_lager_bewegungen',
   'kellerbuch_buchungen', 'bestandsprotokoll', 'benachrichtigungen', 'system_ereignisse', 'assistent_nachrichten',
+  // Keller und Lese (05.10.2026): wachsen mit jedem Jahrgang – Chargen, Füllungen, Zukäufe, Pressungen, Anträge …
+  // (lesen bewusst nicht: wenige je Jahrgang)
+  'weinausbau', 'weinausbau_weingaerten', 'behaelter', 'fuellungen', 'fuellung_chargen', 'fuellung_bewegungen',
+  'zukauf_posten', 'traubenverkauf', 'keller_umzuege', 'keller_behandlungen', 'weinanalysen', 'verschneidungen',
+  'verschneidung_quellen', 'pressungen', 'pressung_behaelter', 'pressung_weingaerten', 'ernte_parzellen',
+  'dac_antrag', 'pruefnummer_chargen',
 ]
 
 const IGNORE_DIRS = new Set(['node_modules', '.next', '.git', '_to_delete'])
@@ -135,9 +141,37 @@ function klettere(start) {
     }
     if (ts.isVariableDeclaration(p) && p.initializer === cur && ts.isIdentifier(p.name)) variable = p.name.text
     else if (ts.isBinaryExpression(p) && p.right === cur && p.operatorToken.kind === ts.SyntaxKind.EqualsToken && ts.isIdentifier(p.left)) variable = p.left.text
+    // Fabrik `const q = () => supabase.from(…)…` – geprüft werden die Aufrufstellen q()
+    else if (ts.isArrowFunction(p) && p.body === cur && p.parameters.length === 0 && p.parent &&
+      ts.isVariableDeclaration(p.parent) && ts.isIdentifier(p.parent.name)) aufruf = { fabrik: p.parent.name.text }
     break
   }
   return { operation, begrenzt, eingeschraenkt, inAlle, sortiert, variable, aufruf }
+}
+
+/** Fabrik ohne Parameter: jede Aufrufstelle name() muss gepaged, begrenzt oder eingeschränkt sein (mindestens eine) */
+function fabrikBegrenzt(sf, name) {
+  let anzahl = 0, alleOk = true
+  function besuche(n) {
+    if (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === name && n.arguments.length === 0) {
+      anzahl++
+      const r = klettere(n)
+      const ok = r.begrenzt || r.eingeschraenkt || r.inAlle ||
+        !!(r.aufruf?.name && hilfsfunktionMitAlle(sf, r.aufruf.name, r.aufruf.index)) ||
+        !!(r.variable && variableBegrenzt(sf, r.variable))
+      if (!ok) alleOk = false
+    }
+    ts.forEachChild(n, besuche)
+  }
+  besuche(sf)
+  return anzahl > 0 && alleOk
+}
+
+/** Abfrage endet in einem Aufruf (Hilfsfunktion mit alle()) bzw. ist der Rumpf einer Fabrik */
+function aufrufBegrenzt(sf, aufruf) {
+  if (!aufruf) return false
+  if (aufruf.fabrik) return fabrikBegrenzt(sf, aufruf.fabrik)
+  return hilfsfunktionMitAlle(sf, aufruf.name, aufruf.index)
 }
 
 /** Gibt die Funktion `name` (Deklaration oder const-Pfeilfunktion derselben Datei) ihren Parameter `index` an alle()? */
@@ -175,7 +209,7 @@ function variableBegrenzt(sf, variable, besucht = new Set()) {
       !(ts.isPropertyAccessExpression(n.parent) && n.parent.name === n)) {
       const r = klettere(n)
       if (r.begrenzt || r.eingeschraenkt || r.inAlle) ok = true
-      else if (r.aufruf && hilfsfunktionMitAlle(sf, r.aufruf.name, r.aufruf.index)) ok = true
+      else if (aufrufBegrenzt(sf, r.aufruf)) ok = true
       else if (r.variable && r.variable !== variable && variableBegrenzt(sf, r.variable, besucht)) ok = true
     }
     ts.forEachChild(n, besuche)
@@ -196,7 +230,7 @@ function abfragen(text, datei = '') {
       node.arguments.length > 0 && ts.isStringLiteralLike(node.arguments[0]) && GROSSE_TABELLEN.includes(node.arguments[0].text)) {
       const a = klettere(node)
       if (a.operation === 'select') {
-        const gepaged = a.inAlle || !!(a.aufruf && hilfsfunktionMitAlle(sf, a.aufruf.name, a.aufruf.index)) ||
+        const gepaged = a.inAlle || aufrufBegrenzt(sf, a.aufruf) ||
           !!(a.variable && variableBegrenzt(sf, a.variable))
         out.push({
           tabelle: node.arguments[0].text, zeile: sf.getLineAndCharacterOfPosition(node.getStart()).line + 1,

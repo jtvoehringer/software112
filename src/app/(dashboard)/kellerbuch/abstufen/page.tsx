@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
@@ -23,10 +24,10 @@ export default async function AbstufenAuswahlPage() {
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await tf((supabase.from('weinausbau') as any)
+  const { data } = await alle(tf((supabase.from('weinausbau') as any)
     .select('id, name, jahrgang, menge_liter, qualitaetsstufe, zusatzbezeichnung, erzeugnis, herkunft_code, behaelter:behaelter_id(name)')
     .eq('aktiv', true).is('storniert_am', null).gt('menge_liter', 0.01)
-    .order('name'))
+    .order('name').order('id')))
   const chargen = (data ?? []) as R[]
 
   return (

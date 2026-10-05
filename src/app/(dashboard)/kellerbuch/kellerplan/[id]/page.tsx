@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { ladeBehaelter } from '@/lib/keller/behaelter'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { notFound } from 'next/navigation'
@@ -66,11 +67,11 @@ export default async function KellerplanEditorPage({ params }: { params: Promise
 
     // Aktuelle Weinchargen je Behälter (für Beschriftung + Füllstand auf dem Plan
     // + Sprung zu "Abfüllen" im Gebinde-Dialog)
-    tf((supabase.from('weinausbau') as any)
+    alle(tf((supabase.from('weinausbau') as any)
       .select('id, behaelter_id, name, jahrgang, rebsorte, menge_liter')
       .not('behaelter_id', 'is', null)
       .not('status', 'eq', 'abgeschlossen')
-      .eq('aktiv', true)),
+      .eq('aktiv', true).order('id'))),
   ])
 
   if (!planRaw) notFound()

@@ -1,6 +1,7 @@
 'use server'
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { revalidatePath } from 'next/cache'
 import { qualitaetText } from '@/lib/weinqualitaet'
 import {
@@ -832,12 +833,12 @@ function importDaten(d: ImportZeilen): ImportZeilen {
 async function pruefeFlaschenImport(supabase: any, tenantId: string, stichtag: string, d: ImportZeilen): Promise<DateiBefund<FlaschenEingabe>> {
   const befund = pruefeFlaschenZeilen(d.kopf, d.zeilen, { zeilenOffset: d.zeilenOffset })
   // schon importiert? (gleicher Wein, Jahrgang und Flaschengröße als Eröffnungsbestand zum selben Stichtag)
-  const { data: vorhanden, error: vErr } = await supabase.from('fuellungen')
+  const { data: vorhanden, error: vErr } = await alle(supabase.from('fuellungen')
     .select('name, jahrgang, flaschengroesse_ml')
     .eq('tenant_id', tenantId)
     .eq('import_quelle', IMPORT_QUELLE_EROEFFNUNG)
     .eq('datum', stichtag)
-    .eq('aktiv', true)
+    .eq('aktiv', true).order('id'))
   if (vErr) throw new AktionsFehler(dbFehlerText(vErr, 'Vorhandene Eröffnungsbestände konnten nicht geladen werden'))
   const schluessel = (name: unknown, jahrgang: unknown, ml: unknown) => `${String(name ?? '').trim().toLocaleLowerCase('de')}|${jahrgang ?? ''}|${ml ?? ''}`
   const schonDa = new Set(((vorhanden ?? []) as AR[]).map(f => schluessel(f.name, f.jahrgang, f.flaschengroesse_ml)))

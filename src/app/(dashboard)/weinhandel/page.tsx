@@ -50,16 +50,16 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
     { data: direktTankRaw },
     { data: tvRaw },
   ] = await Promise.all([
-    tf((supabase.from('fuellungen') as any)
+    alle(tf((supabase.from('fuellungen') as any)
       .select('id, name, jahrgang, rebsorte, qualitaet, zusatzbezeichnung, erzeugnis, anbaugebiet, bezeichnung, datum, flaschengroesse_ml, anzahl_flaschen, bestand_flaschen, vk_preis_brutto, einstandspreis, aktiv')
       .eq('aktiv', true)
-      .order('datum', { ascending: false })),
-    tf((supabase.from('weinausbau') as any)
+      .order('datum', { ascending: false }).order('id'))),
+    alle(tf((supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, rebsorte, menge_liter, status, behaelter_id, einstandspreis_pro_liter, behaelter:behaelter_id(name)')
       .eq('aktiv', true)
       .in('status', ['ausbau', 'abfuellung'])
-      .order('jahrgang', { ascending: false })),
-    tf((supabase.from('zukauf_posten') as any)
+      .order('jahrgang', { ascending: false }).order('id'))),
+    alle(tf((supabase.from('zukauf_posten') as any)
       .select('id, art, datum, menge, einheit, rebsorte, jahrgang, notizen, preis_gesamt, lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname), lieferant_firma:firmen!lieferant_firma_id(name)')
       .eq('aktiv', true)
       .gt('menge', 0)
@@ -68,7 +68,7 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
       // zukauf_posten.menge ist die Beleg-/Zugangsmenge und wird nie verändert (KAN-35) –
       // hier stehen nur Zukäufe, die noch keinem Gebinde zugeordnet sind.
       .is('ziel_weinausbau_id', null)
-      .order('datum', { ascending: false })),
+      .order('datum', { ascending: false }).order('id'))),
     // Direktbefüllungen aus der Pressung ohne Kellerbuch-Charge (nur Hinweis, nicht verkaufbar).
     // pressung_behaelter hat keine tenant_id – Mandantenfilter über die Pressung (!inner).
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

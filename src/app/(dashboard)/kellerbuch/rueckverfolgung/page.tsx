@@ -1,5 +1,6 @@
 // behoerdenmeldung: rueckverfolgung
 import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
+import { alle } from '@/lib/supabase/alle'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
@@ -316,10 +317,10 @@ export default async function RueckverfolgungPage({
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   // ── Autocomplete-Vorschläge ──────────────────────────────────────────────
-  const { data: autocompleteRaw } = await tf((supabase.from('fuellungen') as any)
+  const { data: autocompleteRaw } = await alle(tf((supabase.from('fuellungen') as any)
     .select('chargennummer, pruefnummer, name')
     .eq('aktiv', true)
-    .order('name', { ascending: true }))
+    .order('name', { ascending: true }).order('id')))
   const autocompleteOptions: string[] = []
   for (const row of ((autocompleteRaw ?? []) as R[])) {
     if (row.chargennummer) autocompleteOptions.push(row.chargennummer)
@@ -331,8 +332,8 @@ export default async function RueckverfolgungPage({
   // Statt zwingend eine exakte Chargen-/Prüfnummer zu kennen, kann hier über
   // Filter eine Liste passender Füllungen durchsucht werden. Ein Klick auf
   // einen Treffer öffnet wie gehabt die volle Rückverfolgungskette (fuellung_id).
-  const { data: filterOptionenRaw } = await tf((supabase.from('fuellungen') as any)
-    .select('jahrgang, rebsorte, bezeichnung'))
+  const { data: filterOptionenRaw } = await alle(tf((supabase.from('fuellungen') as any)
+    .select('jahrgang, rebsorte, bezeichnung').order('id')))
   const filterOptionenRows = (filterOptionenRaw ?? []) as R[]
   const jahrgangOptionen = Array.from(
     new Set(filterOptionenRows.map(f => f.jahrgang).filter((j): j is number => j != null))

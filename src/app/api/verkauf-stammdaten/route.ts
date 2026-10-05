@@ -35,18 +35,18 @@ export async function GET() {
       { data: lesenRaw },
     ] = await Promise.all([
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase.from('fuellungen') as any)
+      alle((supabase.from('fuellungen') as any)
         .select('id, name, jahrgang, rebsorte, flaschengroesse_ml, bestand_flaschen, vk_preis_brutto')
-        .eq('tenant_id', tenantId).eq('aktiv', true).gt('bestand_flaschen', 0).order('name'),
+        .eq('tenant_id', tenantId).eq('aktiv', true).gt('bestand_flaschen', 0).order('name').order('id')),
       // Offener Wein (Tank) wird seit KAN-35 (24.09.2026) NUR aus Kellerbuch-Chargen
       // verkauft. Zukäufe ohne Gebinde und Pressungs-Direktbefüllungen werden hier
       // nicht mehr angeboten: ein Verkauf über sie setzte die Beleg- bzw. Zugangsmenge
       // (zukauf_posten.menge, pressung_behaelter.menge_liter) herab. Zukäufe erst über
       // „Zukauf bearbeiten“ einem Gebinde zuordnen – dann erscheint die Charge hier.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase.from('weinausbau') as any)
+      alle((supabase.from('weinausbau') as any)
         .select('id, name, menge_liter')
-        .eq('tenant_id', tenantId).eq('aktiv', true).neq('status', 'abgeschlossen').gt('menge_liter', 0).order('name'),
+        .eq('tenant_id', tenantId).eq('aktiv', true).neq('status', 'abgeschlossen').gt('menge_liter', 0).order('name').order('id')),
       // Kontakte/Firmen werden seit 17.9.2026 nicht mehr mitgeliefert - die
       // Kundenauswahl sucht serverseitig über /api/crm/suche (PartnerSuche).
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -87,10 +87,10 @@ export async function GET() {
         .eq('pressung.tenant_id', tenantId)
         .is('storniert_am', null),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase.from('traubenverkauf') as any)
+      alle((supabase.from('traubenverkauf') as any)
         .select('weingarten_id, grundstueck_id, menge_kg, lese_id')
         .eq('tenant_id', tenantId)
-        .is('storniert_am', null),
+        .is('storniert_am', null).order('id')),
       // KAN-129: Lesen des Betriebs (Auswahl je Trauben-Position)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('lesen') as any)

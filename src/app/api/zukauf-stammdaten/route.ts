@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { ladeBehaelter } from '@/lib/keller/behaelter'
 import { NextResponse } from 'next/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
@@ -19,11 +20,11 @@ export async function GET() {
     const [behaelterRows, { data: weinausbau }, { data: laender }] = await Promise.all([
       // eigene + freigegebene Gebinde, fremd belegte ausgenommen (Kellergemeinschaft, Migration 203)
       ladeBehaelter(supabase, tenantId, { alsZiel: true }),
-      (supabase.from('weinausbau') as any)
+      alle((supabase.from('weinausbau') as any)
         .select('id, name, menge_liter, behaelter_id, rebsorte')
         .eq('tenant_id', tenantId)
         .eq('aktiv', true)
-        .order('name'),
+        .order('name').order('id')),
       // KAN-186: Ursprungsland des Zukaufs (land_iso) – globaler Katalog ohne tenant_id (ISO-Länder)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('kat_land') as any).select('iso2, name_de, eu').order('name_de'),

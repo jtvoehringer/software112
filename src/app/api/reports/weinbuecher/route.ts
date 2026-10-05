@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { NextRequest, NextResponse } from 'next/server'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
@@ -36,7 +37,8 @@ export async function GET(req: NextRequest) {
     if (sorte)       query = query.eq('rebsorte', sorte)
     if (bezeichnung) query = query.eq('name', bezeichnung)
 
-    const { data, error } = await query
+    // alle(): Weinbuch-Sammlung über alle Jahrgänge – PostgREST kappt sonst still bei 1.000 Chargen
+    const { data, error } = await alle<R>(query.order('id'))
     if (error) return NextResponse.json({ fehler: error.message }, { status: 500 })
 
     const chargen = ((data ?? []) as R[]).map(w => ({
