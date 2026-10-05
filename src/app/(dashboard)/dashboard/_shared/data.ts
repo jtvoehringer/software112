@@ -450,9 +450,9 @@ export async function ladeFristen(ctx: Ctx, opts: { modulEa: boolean; uvaZeitrau
 
   // KAN-87: Erfassungsfrist der Pflanzenschutz- und Düngeaufzeichnung – Ampel der Saison und Zahl der Nacherfassungen
   {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: psmRaw } = await alle<R>(ctx.tf(ctx.q('behandlungen') as any)
-      .select('id, datum, datum_bis, created_at').or('psm_id.not.is.null,art.eq.duengung').is('storniert_am', null)
+    // Betriebsfilter (tf) erst nach dem select – vorher hat der Abfrage-Builder kein .eq (Hotfix 05.10.2026)
+    const { data: psmRaw } = await alle<R>(ctx.tf(ctx.q('behandlungen')
+      .select('id, datum, datum_bis, created_at').or('psm_id.not.is.null,art.eq.duengung').is('storniert_am', null))
       .gte('datum', `${jahr}-01-01`).lte('datum', `${jahr}-12-31`).order('id'))
     fristen.push({ ...psmErfassungFrist((psmRaw ?? []) as unknown as PsmErfassungZeile[], opts.psmFristH, jahr), href: '/behandlungen', quelle: 'system' })
   }
