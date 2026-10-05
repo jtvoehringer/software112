@@ -61,6 +61,8 @@ export async function saveBrandingOwn(formData: FormData) {
       // Dashboard-Regeln (Migration 179) – Grenzen wie der CHECK in der DB
       gaerung_messintervall_tage: Math.min(60,  Math.max(1, num('gaerung_messintervall_tage') ?? 3)),
       fristen_vorwarnung_tage:    Math.min(365, Math.max(1, num('fristen_vorwarnung_tage')    ?? 30)),
+      // KAN-87: Erfassungsfrist Pflanzenschutz (h) – Grenzen wie der CHECK in der DB
+      psm_erfassungsfrist_h:      Math.min(720, Math.max(1, num('psm_erfassungsfrist_h')      ?? 24)),
       // Morgenbericht & Wetter (Migration 201)
       morgenbericht_aktiv:        formData.get('morgenbericht_aktiv') === 'on',
       wetter_aktiv:               formData.get('wetter_aktiv') === 'on',

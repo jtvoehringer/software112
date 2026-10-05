@@ -34,6 +34,7 @@ import type { LadeErgebnis } from './typen'
 // KAN-132: zentrale Anteilsfunktion (Zyklus psm ↔ massnahmeAnteile ist unkritisch: nur Funktionen, keine Werte beim Laden)
 import { verteileMassnahme, WARNUNG_GLEICH, type GstAnteil, type WiGst } from '@/lib/wein/massnahmeAnteile'
 import { gstAktiv, gstImJahr } from '@/lib/wein/grundstueckAktiv'
+import { anwenderText, ART_VERWENDUNG_LABEL, istArtVerwendung } from '@/lib/behandlungen/erfassungsfrist'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -133,6 +134,9 @@ export type PsmGrundstueck = {
   /** Ried (lagen.name, sonst weingarten.ried) */
   ried: string | null
   lageId: string | null
+  /** KAN-87: AMA-Feldstücknummer (weingarten.ama_feldnummer) und AMA-Schlagnummer des GST (grundstuecke.ama_feldnummer) */
+  amaFeldstueck?: string | null
+  amaSchlag?: string | null
 }
 
 export type PsmMittel = {
@@ -189,7 +193,14 @@ export type PsmBehandlung = {
   fruehesterLesetermin: string | null
   wartezeitEingehalten: boolean | null
   anwenderId: string | null
+  /** Mitglied (Name aus profiles) bzw. Fremdanwender (anwender_name) */
   anwender: string | null
+  /** KAN-87: Start-/Enduhrzeit (HH:MM, Wiener Zeit), Art der Verwendung (Text), erfasst am (ISO) / von (Name) */
+  uhrzeitVon?: string | null
+  uhrzeitBis?: string | null
+  artVerwendung?: string | null
+  erfasstAm?: string | null
+  erfasstVon?: string | null
   notiz: string | null
   /** Grundstücke der Maßnahme; ohne Zuordnung höchstens ein Eintrag je Weingarten (grundstueckId null) */
   grundstuecke: PsmGrundstueck[]
@@ -253,6 +264,8 @@ export function normalisiereBehandlung(roh: R, anwenderNamen?: ReadonlyMap<strin
       weingarten: textOderNull(wg?.name),
       ried: riedAus(wg),
       lageId: textOderNull(wg?.lage_id),
+      amaFeldstueck: textOderNull(wg?.ama_feldnummer),
+      amaSchlag: textOderNull(g?.ama_feldnummer),
     })
   }
   grundstuecke.sort((a, b) =>
@@ -275,6 +288,8 @@ export function normalisiereBehandlung(roh: R, anwenderNamen?: ReadonlyMap<strin
       weingarten: textOderNull(wgDirekt.name),
       ried: riedAus(wgDirekt),
       lageId: textOderNull(wgDirekt.lage_id),
+      amaFeldstueck: textOderNull(wgDirekt.ama_feldnummer),
+      amaSchlag: null,
     })
   }
 
@@ -304,6 +319,8 @@ export function normalisiereBehandlung(roh: R, anwenderNamen?: ReadonlyMap<strin
   } : null
 
   const anwenderId = textOderNull(roh.durchgefuehrt_von)
+  const erfasstVonId = textOderNull(roh.erfasst_von)
+  const artVerwendung = textOderNull(roh.art_verwendung)
   return {
     id: String(roh.id),
     datum,
@@ -326,7 +343,12 @@ export function normalisiereBehandlung(roh: R, anwenderNamen?: ReadonlyMap<strin
     fruehesterLesetermin: textOderNull(roh.ernte_fruehesteins)?.slice(0, 10) ?? null,
     wartezeitEingehalten: bool(roh.wartezeit_eingehalten),
     anwenderId,
-    anwender: anwenderId ? (anwenderNamen?.get(anwenderId) ?? null) : null,
+    anwender: anwenderText(anwenderId, textOderNull(roh.anwender_name), anwenderNamen),
+    uhrzeitVon: textOderNull(roh.uhrzeit_von)?.slice(0, 5) ?? null,
+    uhrzeitBis: textOderNull(roh.uhrzeit_bis)?.slice(0, 5) ?? null,
+    artVerwendung: artVerwendung ? (istArtVerwendung(artVerwendung) ? ART_VERWENDUNG_LABEL[artVerwendung] : artVerwendung) : null,
+    erfasstAm: textOderNull(roh.created_at),
+    erfasstVon: erfasstVonId ? (anwenderNamen?.get(erfasstVonId) ?? null) : null,
     notiz: textOderNull(roh.notizen),
     grundstuecke,
     flaecheHa,
@@ -605,10 +627,11 @@ export async function ladeBehandlungen(supabase: any, tenantId: string, f: Behan
       aufwandmenge, aufwandmenge_einheit, menge_gesamt, menge_einheit, konzentration,
       wasseraufwand_l_ha, behandelte_flaeche_ha, bbch_stadium, schaderreger, witterung,
       temperatur_c, windstaerke, ernte_fruehesteins, wartezeit_eingehalten, notizen,
-      weingarten:weingarten_id(id, name, ried, flaeche_ha, lage_id, lagen:lage_id(name)),
+      uhrzeit_von, uhrzeit_bis, art_verwendung, anwender_name, erfasst_von, created_at,
+      weingarten:weingarten_id(id, name, ried, flaeche_ha, lage_id, ama_feldnummer, lagen:lage_id(name)),
       psm:psm_id(id, name, handelsname, wirkstoff, wirkstoffgehalt_pct, zulassungsnr, eppo_code, bienengefaehrlich, cu_gehalt_pct, wartezeit_tage, max_aufwand_kg_ha, max_anwendungen, oeko_zugelassen),
       duengemittel:duengemittel_id(id, name, handelsname, typ, einheit, naehrstoff_n_pct, naehrstoff_p_pct, oeko_zugelassen),
-      behandlung_grundstuecke(grundstueck_id, flaeche_ha, grundstueck:grundstueck_id(id, gst_nr, katastralgemeinde, kg_bezeichnung, flaeche_ha, weingarten:weingarten_id(id, name, ried, flaeche_ha, lage_id, lagen:lage_id(name))))
+      behandlung_grundstuecke(grundstueck_id, flaeche_ha, grundstueck:grundstueck_id(id, gst_nr, katastralgemeinde, kg_bezeichnung, flaeche_ha, ama_feldnummer, weingarten:weingarten_id(id, name, ried, flaeche_ha, lage_id, ama_feldnummer, lagen:lage_id(name))))
     `)
     .eq('tenant_id', tenantId)
   if (f.von) q = q.gte('datum', f.von)
@@ -619,9 +642,9 @@ export async function ladeBehandlungen(supabase: any, tenantId: string, f: Behan
   const { data, error } = await alle<R>(q.order('datum').order('id'))
   if (error) throw new Error(`Maßnahmen konnten nicht geladen werden: ${error.message}`)
 
-  // Anwender (durchgefuehrt_von → auth.users): Namen aus profiles, nur wenn überhaupt gesetzt
+  // Anwender und erfassender Benutzer (→ auth.users): Namen aus profiles, nur wenn überhaupt gesetzt
   const warnungen: string[] = []
-  const ids = [...new Set(data.map(b => textOderNull(b.durchgefuehrt_von)).filter((x): x is string => !!x))]
+  const ids = [...new Set(data.flatMap(b => [textOderNull(b.durchgefuehrt_von), textOderNull(b.erfasst_von)]).filter((x): x is string => !!x))]
   const namen = new Map<string, string>()
   if (ids.length > 0) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -769,6 +792,14 @@ export type PsmAufzeichnungZeile = {
   temperaturC: number | null
   wind: string | null
   notiz: string | null
+  /** KAN-87 */
+  uhrzeitVon: string | null
+  uhrzeitBis: string | null
+  artVerwendung: string | null
+  amaFeldstueck: string | null
+  amaSchlag: string | null
+  erfasstAm: string | null
+  erfasstVon: string | null
 }
 
 export type PsmAufzeichnungFilter = { ried?: string | null }
@@ -844,6 +875,12 @@ export function psmAufzeichnungZeilen(behandlungen: readonly PsmBehandlung[], fi
         temperaturC: rund(b.temperaturC, 1),
         wind: windText(b.wind),
         notiz: b.notiz,
+        uhrzeitVon: b.uhrzeitVon ?? null,
+        uhrzeitBis: b.uhrzeitBis ?? null,
+        artVerwendung: istPsm ? (b.artVerwendung ?? null) : null,
+        ...amaNummern(b, g?.grundstueckId ?? null, g?.weingartenId ?? null),
+        erfasstAm: b.erfasstAm ?? null,
+        erfasstVon: b.erfasstVon ?? null,
       })
     }
     // KAN-132 Regel 2: GST ohne Fläche bekommen keinen Anteil; ganz ohne Fläche gleichmäßig verteilt
@@ -859,6 +896,13 @@ export function psmAufzeichnungZeilen(behandlungen: readonly PsmBehandlung[], fi
   if (nichtVerteilt.length > 0) warnungen.push(`${nichtVerteilt.length} ${nichtVerteilt.length === 1 ? 'Maßnahme hat' : 'Maßnahmen haben'} Grundstücke ohne Fläche – dort kein Anteil an „Mittelmenge anteilig (GST)“ und „Spritzbrühe anteilig (GST, l)“ (ganz ohne Fläche gleichmäßig verteilt): ${liste(nichtVerteilt)}`)
   if (ohneZulassung.size > 0) warnungen.push(`${ohneZulassung.size} ${ohneZulassung.size === 1 ? 'Mittel hat' : 'Mittel haben'} keine Registernummer (Zulassungsnr., Pflichtangabe nach DVO (EU) 2023/564) – bitte unter Pflanzenschutz › Lager › Stammdaten ergänzen: ${liste([...ohneZulassung].sort((a, c) => a.localeCompare(c, 'de')))}`)
   return { zeilen, warnungen }
+}
+
+/** KAN-87: AMA-Feldstück/-Schlag zum Ort einer Zeile (GST bzw. Weingarten ohne GST) */
+export function amaNummern(b: PsmBehandlung, grundstueckId: string | null, weingartenId: string | null): { amaFeldstueck: string | null; amaSchlag: string | null } {
+  const g = (grundstueckId ? b.grundstuecke.find(x => x.grundstueckId === grundstueckId) : null)
+    ?? b.grundstuecke.find(x => x.grundstueckId === null && x.weingartenId === weingartenId) ?? null
+  return { amaFeldstueck: g?.amaFeldstueck ?? null, amaSchlag: g?.amaSchlag ?? null }
 }
 
 /** Höchstens fünf Einträge nennen */
@@ -904,6 +948,15 @@ export const SPALTEN_PSM_AUFZEICHNUNG: CsvSpalte<PsmAufzeichnungZeile>[] = [
   { kopf: 'Temperatur (°C)', typ: 'dezimal', stellen: 1, wert: z => z.temperaturC },
   { kopf: 'Wind', typ: 'text', wert: z => z.wind },
   { kopf: 'Notiz', typ: 'text', wert: z => z.notiz },
+  // KAN-87: Startzeit, Art der Verwendung, Feldstück/Schlag, erfasst am/von, Datensatz-ID (wie psm-uebermittlung)
+  { kopf: 'Startzeit', typ: 'text', wert: z => z.uhrzeitVon },
+  { kopf: 'Endzeit', typ: 'text', wert: z => z.uhrzeitBis },
+  { kopf: 'Art der Verwendung', typ: 'text', wert: z => z.artVerwendung },
+  { kopf: 'AMA-Feldstück', typ: 'code', wert: z => z.amaFeldstueck },
+  { kopf: 'AMA-Schlag', typ: 'code', wert: z => z.amaSchlag },
+  { kopf: 'Erfasst am', typ: 'zeitpunkt', wert: z => z.erfasstAm },
+  { kopf: 'Erfasst von', typ: 'text', wert: z => z.erfasstVon },
+  { kopf: 'Datensatz-ID', typ: 'code', wert: z => z.behandlungId },
 ]
 
 export type PsmAufzeichnungParameter = { jahr: number | null; art: string | null; ried: string | null }

@@ -25,6 +25,10 @@
 //
 // KAN-155 (28.09.2026): BBCH-Stadium und Schaderreger bei der Spritzung optional; bei kg_ha/l_ha ergibt sich der
 // Wasseraufwand ohne Spritzbrühe und Wasseraufwand aus Aufwand und Konzentration (Aufwand ÷ Konzentration × 100).
+//
+// KAN-87 (05.10.2026): Anwender (Mitglied über den Namen, sonst Fremdanwender; ohne Angabe der angemeldete Benutzer),
+// Start-/Enduhrzeit (Pflicht bei bienengefährlichen Mitteln – prüft createBehandlung) und Art der Verwendung; den
+// Hinweis „Nacherfassung (+n h)“ liefert createBehandlung in hinweise.
 import { createBehandlung } from '@/app/(dashboard)/behandlungen/actions'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { dezimal } from '@/lib/format'
@@ -33,6 +37,8 @@ import {
   LAUBARBEIT_OPTIONEN, MASSNAHMEN_ARTEN, MASSNAHMEN_ART_LABEL, istMassnahmenArt, laubarbeitArtFehlt, laubarbeitArtFuer,
 } from '@/lib/behandlungen/arten'
 import { EINARBEITUNG_GESENDET } from '@/app/(dashboard)/behandlungen/neu/feldMatrix'
+import { ART_VERWENDUNG, anwenderZuordnen } from '@/lib/behandlungen/erfassungsfrist'
+import { ladeMandantMitglieder } from '@/lib/aufgaben/mitglieder'
 
 /** „Spritzung, Düngung, …, Laubschneiden oder Sonstiges“ – für die Tool-Beschreibung (die Rückfrage bei
  *  unbekannter Art nennt bewusst die Codes, die das Tool erwartet: MASSNAHMEN_ARTEN) */
@@ -88,6 +94,14 @@ MENGEN – GANZ WICHTIG:
   Spritzbrühe (z.B. 800 l bzw. 400 l/ha) getrennt nennen – die Spritzbrühe nie als Mittelmenge.
 - Liefert das Tool "hinweise" zurück (z.B. Spritzbrühe weicht von l/ha × Fläche ab), teile sie dem
   User in der Antwort mit.
+
+PFLANZENSCHUTZ-AUFZEICHNUNG (KAN-87, bei Maßnahmen mit psm_id):
+- uhrzeit_von (Startuhrzeit, HH:MM) ist Pflicht bei bienengefährlichen Mitteln (im Stammdaten-Kontext markiert),
+  sonst optional; uhrzeit_bis (Ende) optional – ab dem Ende läuft die Erfassungsfrist (Standard 24 h).
+- anwender: wer gespritzt hat – ohne Angabe der angemeldete Benutzer; ein Mitglied über seinen Namen, sonst
+  (Lohnunternehmer, Nachbar) der Name als Fremdanwender.
+- art_verwendung: Standard freiland, sonst nur, wenn der User es erwähnt.
+- Meldet das Tool in "hinweise" eine Nacherfassung (+n h), dem User mitteilen (gespeichert ist trotzdem).
 
 Immer benötigt (unabhängig von der Art): datum, mindestens ein Grundstück oder eine
 ganze Ried/Weingarten (weingarten_ids bzw. grundstueck_ids – IMMER die exakte ID aus
@@ -167,6 +181,10 @@ export const MASSNAHME_TOOL = {
       einarbeitung: { type: 'boolean', description: 'Nur bei Düngung: wurde eingearbeitet' },
       einarbeitung_zeitpunkt: { type: 'string', description: 'YYYY-MM-DD, nur falls einarbeitung=true' },
       notizen: { type: 'string' },
+      uhrzeit_von: { type: 'string', description: 'Startuhrzeit der Anwendung, HH:MM (Wiener Zeit) – Pflicht bei bienengefährlichen Mitteln' },
+      uhrzeit_bis: { type: 'string', description: 'Optional: Ende der Anwendung, HH:MM (am Tag datum_bis bzw. datum)' },
+      anwender: { type: 'string', description: 'Optional: Name des Anwenders – Mitglied des Betriebs oder Fremdanwender; ohne Angabe der angemeldete Benutzer' },
+      art_verwendung: { type: 'string', enum: [...ART_VERWENDUNG], description: 'Nur mit psm_id: Art der Verwendung, Standard freiland' },
     },
     required: ['bestaetigt_vom_user', 'art', 'datum'],
   },
@@ -295,6 +313,16 @@ export async function fuehreMassnahmeDokumentierenAus(
   if (input.einarbeitung) fd.set('einarbeitung', 'on')
   if (input.einarbeitung_zeitpunkt) fd.set('einarbeitung_zeitpunkt', String(input.einarbeitung_zeitpunkt))
   if (input.notizen) fd.set('notizen', String(input.notizen))
+  // KAN-87: Uhrzeit, Art der Verwendung, Anwender
+  if (input.uhrzeit_von) fd.set('uhrzeit_von', String(input.uhrzeit_von))
+  if (input.uhrzeit_bis) fd.set('uhrzeit_bis', String(input.uhrzeit_bis))
+  if (input.art_verwendung) fd.set('art_verwendung', String(input.art_verwendung))
+  if (input.anwender) {
+    const membership = await getCurrentMembership()
+    const a = anwenderZuordnen(input.anwender, membership ? await ladeMandantMitglieder(membership.tenantId) : [])
+    fd.set('anwender', a.anwender)
+    if (a.anwenderName) fd.set('anwender_name', a.anwenderName)
+  }
 
   try {
     const result = await createBehandlung(fd)

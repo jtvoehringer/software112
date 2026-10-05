@@ -5,6 +5,7 @@ import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import { BarChart3 } from 'lucide-react'
 import BehandlungenClient from './BehandlungenClient'
+import { erfassungsAmpel, erfassungsverzugH, fristAus, nacherfasstText, type ErfassungsAmpel } from '@/lib/behandlungen/erfassungsfrist'
 
 export const metadata: Metadata = { title: 'Maßnahmen – software:112' }
 export const dynamic = 'force-dynamic'
@@ -32,6 +33,9 @@ export type Behandlung = {
   ernte_fruehesteins: string | null
   notizen: string | null
   kosten_betrag: number | null
+  /** KAN-87: „nacherfasst (+n h)“ über der Erfassungsfrist (nur Maßnahmen mit Pflanzenschutzmittel), sonst null */
+  nacherfasst: string | null
+  erfassung_ampel: ErfassungsAmpel | null
 }
 
 export default async function BehandlungenPage() {
@@ -47,11 +51,11 @@ export default async function BehandlungenPage() {
 
   // Behandlungen + PSM; die Rieden kommen aus den Grundstücken der Maßnahme (eingebettet über die mandantengefilterte
   // Maßnahme – eine eigene Abfrage auf behandlung_grundstuecke war ungefiltert und bei vielen GST auf 1.000 Zeilen gekappt)
-  const [{ data: rawB }, { data: rawKosten }] = await Promise.all([
+  const [{ data: rawB }, { data: rawKosten }, { data: rawEinst }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tf((supabase.from('behandlungen') as any)
       .select(`
-        id, datum, art, weingarten_id, aufwandmenge, aufwandmenge_einheit,
+        id, datum, datum_bis, uhrzeit_bis, created_at, psm_id, art, weingarten_id, aufwandmenge, aufwandmenge_einheit,
         bbch_stadium, witterung, ernte_fruehesteins, notizen,
         weingarten:weingarten_id ( name, ried ),
         psm:psm_id ( name, wartezeit_tage ),
@@ -66,7 +70,11 @@ export default async function BehandlungenPage() {
       .select('behandlung_id, betrag')
       .not('behandlung_id', 'is', null)
       .order('id'))),   // alle(): Summe je Maßnahme sonst ab dem 1.001. Kosteneintrag zu niedrig
+    // KAN-87: Erfassungsfrist des Betriebs
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    tf((supabase.from('tenant_einstellungen') as any).select('psm_erfassungsfrist_h')).maybeSingle(),
   ])
+  const psmFristH = fristAus((rawEinst as AR | null)?.psm_erfassungsfrist_h)
 
   const kostenByBeh = new Map<string, number>()
   for (const k of ((rawKosten ?? []) as AR[])) {
@@ -90,6 +98,7 @@ export default async function BehandlungenPage() {
     const wgName = rieden.length > 0 ? rieden.join(', ') : null
     const wgRied = b.weingarten?.ried ?? erste?.ried ?? null
     const wgId   = b.weingarten_id ?? erste?.id ?? null
+    const verzug = b.psm_id ? erfassungsverzugH({ datum: b.datum, datumBis: b.datum_bis, uhrzeitBis: b.uhrzeit_bis }, b.created_at) : null
 
     return {
       id:                   b.id,
@@ -109,6 +118,8 @@ export default async function BehandlungenPage() {
       ernte_fruehesteins:   b.ernte_fruehesteins,
       notizen:              b.notizen,
       kosten_betrag:        kostenByBeh.get(b.id) ?? null,
+      nacherfasst:          nacherfasstText(verzug, psmFristH),
+      erfassung_ampel:      verzug === null ? null : erfassungsAmpel(verzug, psmFristH),
     }
   })
 

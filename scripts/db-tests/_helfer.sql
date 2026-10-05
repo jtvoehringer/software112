@@ -1188,6 +1188,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('trigger',       '--S', false, 's112_fremdverweis_pruefen()'),
     ('trigger',       '--S', false, 's112_freeze()'),   -- KAN-96: generischer Freeze-Trigger
     ('trigger',       '--S', false, 's112_tb_stempel()'),   -- KAN-209: Zeitpunkt/Benutzer beim Ausstellen der Transportbescheinigung
+    ('trigger',       '--S', false, 's112_behandlung_erfassung()'),   -- KAN-87: erfasst am/von stempeln, Anwender = Mitglied
     ('trigger',       '--S', false, 's112_pn_workflow_schutz()'),
     ('trigger',       '--S', false, 's112_pn_chargen_pflegen()'),   -- KAN-99: Gültigkeit je Charge (Einreichen, Umzug, Zugang, Storno)   -- KAN-97: Status nur per RPC, Formular nur zum Entwurf
     ('mandant',       '-US', true , 's112_charge_abstufen(p_tenant_id uuid, p_weinausbau_id uuid, p_datum date, p_neu jsonb, p_grund text, p_quelle_weinausbau_id uuid)'),   -- KAN-82: Charge abstufen (Datum, Grund, Protokoll)

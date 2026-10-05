@@ -276,6 +276,12 @@ function BrandingTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
               defaultValue={daten.fristen_vorwarnung_tage} className={inputCls()} style={{ maxWidth: '180px' }} />
             <p className="text-xs text-s112-muted mt-1">So viele Tage vor dem Termin springt eine Frist von „offen“ auf „fällig“ (Ampel, Glocke, Offene Aufgaben).</p>
           </div>
+          <div>
+            <label className="block text-xs font-medium text-s112-text-2 mb-1">Erfassungsfrist Pflanzenschutz (Stunden)</label>
+            <input aria-label="Erfassungsfrist Pflanzenschutz (Stunden)" name="psm_erfassungsfrist_h" type="number" min="1" max="720" required
+              defaultValue={daten.psm_erfassungsfrist_h} className={inputCls()} style={{ maxWidth: '180px' }} />
+            <p className="text-xs text-s112-muted mt-1">Ab Anwendungsende; später erfasste Pflanzenschutz-Maßnahmen gelten als „nacherfasst“ (Ampel bis 72 h gelb, darüber rot).</p>
+          </div>
         </div>
       </div>
 

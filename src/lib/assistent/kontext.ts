@@ -16,7 +16,7 @@ type R = Record<string, any>
 export type AssistentKontext = {
   weingaerten: { id: string; name: string; ried: string | null; rebsorte: string | null }[]
   grundstuecke: { id: string; gst_nr: string; katastralgemeinde: string | null; rebsorte: string | null; weingarten_id: string | null }[]
-  psm: { id: string; name: string; kategorie: string | null; oeko_zugelassen: boolean }[]
+  psm: { id: string; name: string; kategorie: string | null; oeko_zugelassen: boolean; bienengefaehrlich?: boolean }[]
   /** einheit 'kg' | 'l' – eine Düngermenge in Litern nur bei Düngemitteln in l (KAN-133) */
   duengemittel: { id: string; name: string; typ: string | null; oeko_zugelassen: boolean; einheit: string | null }[]
   kontakte: { id: string; name: string; ort: string | null }[]
@@ -70,7 +70,7 @@ export async function ladeAssistentKontext(
       .eq('tenant_id', tenantId).eq('nutzart', 'WI').eq('aktiv', true)   // KAN-150 F1: nur bewirtschaftete
       .order('gst_nr').limit(500),
     (supabase.from('pflanzenschutzmittel') as any)
-      .select('id, name, kategorie, oeko_zugelassen')
+      .select('id, name, kategorie, oeko_zugelassen, bienengefaehrlich')
       .or(`tenant_id.eq.${tenantId},tenant_id.is.null`).eq('aktiv', true)
       .order('name').limit(300),
     (supabase.from('duengemittel') as any)
@@ -138,7 +138,7 @@ export async function ladeAssistentKontext(
       rebsorte: g.rebsorte ?? null, weingarten_id: g.weingarten_id ?? null,
     })),
     psm: ((psmRaw ?? []) as R[]).map(p => ({
-      id: p.id, name: p.name, kategorie: p.kategorie ?? null, oeko_zugelassen: !!p.oeko_zugelassen,
+      id: p.id, name: p.name, kategorie: p.kategorie ?? null, oeko_zugelassen: !!p.oeko_zugelassen, bienengefaehrlich: p.bienengefaehrlich === true,
     })),
     duengemittel: ((duengemittelRaw ?? []) as R[]).map(d => ({
       id: d.id, name: d.name, typ: d.typ ?? null, oeko_zugelassen: !!d.oeko_zugelassen, einheit: d.einheit ?? null,
@@ -208,7 +208,7 @@ GRUNDSTÜCKE (${k.grundstuecke.length}):
 ${k.grundstuecke.map(g => zeile(g.id, g.gst_nr, [g.katastralgemeinde, g.rebsorte ? formatRebsorteMitKuerzel(g.rebsorte) : null].filter(Boolean).join(', ') || null)).join('\n') || '(keine)'}
 
 PFLANZENSCHUTZMITTEL (${k.psm.length}):
-${k.psm.map(p => zeile(p.id, p.name, [p.kategorie, p.oeko_zugelassen ? 'bio-zugelassen' : null].filter(Boolean).join(', ') || null)).join('\n') || '(keine)'}
+${k.psm.map(p => zeile(p.id, p.name, [p.kategorie, p.oeko_zugelassen ? 'bio-zugelassen' : null, p.bienengefaehrlich ? 'bienengefährlich – Startuhrzeit Pflicht' : null].filter(Boolean).join(', ') || null)).join('\n') || '(keine)'}
 
 DÜNGEMITTEL (${k.duengemittel.length}):
 ${k.duengemittel.map(d => zeile(d.id, d.name, [d.typ, d.einheit === 'l' ? 'in Litern' : null, d.oeko_zugelassen ? 'bio-zugelassen' : null].filter(Boolean).join(', ') || null)).join('\n') || '(keine)'}

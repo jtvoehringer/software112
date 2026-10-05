@@ -161,13 +161,13 @@ describe('psm-aufzeichnung', nurMitHooks, () => {
     const datei = csv.csvDatei(zeilen, psm.SPALTEN_PSM_AUFZEICHNUNG)
     assert.deepEqual(datei.warnungen, [])
     const [kopf, z1, z2, z3] = zeilenVon(datei.text)
-    assert.equal(kopf, 'Datum;Datum bis;Art;Ried;Lage;KG-Nr.;Katastralgemeinde;GST-Nr.;Fläche (ha);Kultur;EPPO-Code Kultur;Mittel;Zulassungsnr.;Wirkstoff;Schaderreger;EPPO-Code Schaderreger;Bienengefährlich;BBCH;Aufwand;Aufwand-Einheit;Mittelmenge anteilig (GST);Mittelmenge Einheit;Mittelmenge Basis;Spritzbrühe anteilig (GST, l);Wasseraufwand (l/ha);Konzentration (%);Wartezeit (Tage);Frühester Lesetermin;Wartezeit eingehalten;Öko-zugelassen;Anwender;Witterung;Temperatur (°C);Wind;Notiz')
+    assert.equal(kopf, 'Datum;Datum bis;Art;Ried;Lage;KG-Nr.;Katastralgemeinde;GST-Nr.;Fläche (ha);Kultur;EPPO-Code Kultur;Mittel;Zulassungsnr.;Wirkstoff;Schaderreger;EPPO-Code Schaderreger;Bienengefährlich;BBCH;Aufwand;Aufwand-Einheit;Mittelmenge anteilig (GST);Mittelmenge Einheit;Mittelmenge Basis;Spritzbrühe anteilig (GST, l);Wasseraufwand (l/ha);Konzentration (%);Wartezeit (Tage);Frühester Lesetermin;Wartezeit eingehalten;Öko-zugelassen;Anwender;Witterung;Temperatur (°C);Wind;Notiz;Startzeit;Endzeit;Art der Verwendung;AMA-Feldstück;AMA-Schlag;Erfasst am;Erfasst von;Datensatz-ID')
     // KAN-132: Spalte „Ried“ = Weingarten, „Lage“ darüber; Reihenfolge größere Fläche zuerst; Mittelmenge 1,5 kg/ha × 2,1 ha = 3,15 kg,
     // anteilig 3,15 × 1,2/2,1 = 1,8 kg; Spritzbrühe 1260 l anteilig 720 l – keine Maßnahmen-Gesamtwerte je Zeile
-    assert.equal(z1, '10.07.2026;;Spritzung;Pfaffenberg Riesling;Ried Pfaffenberg;04023;Stein;123/1;1,2000;Weinrebe;VITVI;Cuprozin progress;3212-0;Kupferhydroxid;Peronospora;;;75;1,500;kg/ha;1,800;kg;Aufwand × Fläche;720,000;600,0;0,25;21;31.07.2026;Ja;Ja;Maria Muster;bewölkt;28,0;mäßig;"Test; ""Zitat"" zweite Zeile"')
-    assert.equal(z2, "10.07.2026;;Spritzung;Steiner Hund Riesling;Ried Steiner Hund;12127;Stein;'=1+1;0,9000;Weinrebe;VITVI;Cuprozin progress;3212-0;Kupferhydroxid;Peronospora;;;75;1,500;kg/ha;1,350;kg;Aufwand × Fläche;540,000;600,0;0,25;21;31.07.2026;Ja;Ja;Maria Muster;bewölkt;28,0;mäßig;\"Test; \"\"Zitat\"\" zweite Zeile\"")
+    assert.equal(z1, '10.07.2026;;Spritzung;Pfaffenberg Riesling;Ried Pfaffenberg;04023;Stein;123/1;1,2000;Weinrebe;VITVI;Cuprozin progress;3212-0;Kupferhydroxid;Peronospora;;;75;1,500;kg/ha;1,800;kg;Aufwand × Fläche;720,000;600,0;0,25;21;31.07.2026;Ja;Ja;Maria Muster;bewölkt;28,0;mäßig;"Test; ""Zitat"" zweite Zeile";;;;;;;;b-a')
+    assert.equal(z2, "10.07.2026;;Spritzung;Steiner Hund Riesling;Ried Steiner Hund;12127;Stein;'=1+1;0,9000;Weinrebe;VITVI;Cuprozin progress;3212-0;Kupferhydroxid;Peronospora;;;75;1,500;kg/ha;1,350;kg;Aufwand × Fläche;540,000;600,0;0,25;21;31.07.2026;Ja;Ja;Maria Muster;bewölkt;28,0;mäßig;\"Test; \"\"Zitat\"\" zweite Zeile\";;;;;;;;b-a")
     // ohne GST: Weingarten-Zeile, Fläche = Weingartenfläche, ganze Menge (1 kg/ha × 1,2 ha), BBCH „05“ bleibt Code
-    assert.equal(z3, '14.06.2026;;Spritzung;Pfaffenberg Riesling;Ried Pfaffenberg;;;;1,2000;Weinrebe;VITVI;Folpan 80 WDG;2648-0;Folpet;;PLASVI;Nein;05;1,000;kg/ha;1,200;kg;Aufwand × Fläche;480,000;;;35;;;Nein;;;;;')
+    assert.equal(z3, '14.06.2026;;Spritzung;Pfaffenberg Riesling;Ried Pfaffenberg;;;;1,2000;Weinrebe;VITVI;Folpan 80 WDG;2648-0;Folpet;;PLASVI;Nein;05;1,000;kg/ha;1,200;kg;Aufwand × Fläche;480,000;;;35;;;Nein;;;;;;;;;;;;;b-e')
   })
 
   test('Funguran 0,6 kg/ha auf 2 GST: Σ Mittelmenge anteilig 1,2 kg, Σ Spritzbrühe anteilig 800 l', () => {

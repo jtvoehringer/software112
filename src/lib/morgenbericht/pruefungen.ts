@@ -27,7 +27,7 @@ export async function pruefeBetrieb(ctx: Ctx, einst: Einstellungen, paket: { ist
   const seit365 = new Date(heute.getTime() - 365 * 86400000).toISOString().slice(0, 10)
 
   const [fristen, keller, { data: offeneVp }, { data: ohneKat }, { count: belegeErkannt }, { data: txJahr }, { data: fuellNeg }, { data: chargenNeg }, { data: dublettenRaw }, { data: tenant }, { data: wartefristen }, { data: pressungen }] = await Promise.all([
-    ladeFristen(ctx, { modulEa: einst.modulEa, uvaZeitraum: einst.uvaZeitraum, vorwarnungTage: einst.vorwarnungTage, betriebsbeginn: einst.betriebsbeginn, doppik: einst.doppik }),
+    ladeFristen(ctx, { modulEa: einst.modulEa, uvaZeitraum: einst.uvaZeitraum, vorwarnungTage: einst.vorwarnungTage, betriebsbeginn: einst.betriebsbeginn, doppik: einst.doppik, psmFristH: einst.psmFristH }),
     ladeKeller(ctx, einst.messintervallTage),
     ctx.tf(ctx.q('verkaufsposten').select('id, rechnungsnummer, datum, verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
       .eq('aktiv', true).eq('storniert', false).eq('bezahlt', false).lt('datum', new Date(heute.getTime() - ZAHLUNGSZIEL_TAGE * 86400000).toISOString().slice(0, 10)).limit(500)),

@@ -27,6 +27,8 @@ import {
 import { ART_OPTIONS } from './artOptionen'
 import MengenZusammenfassung from './MengenZusammenfassung'
 import RiedAuswahlListe from './RiedAuswahlListe'
+import AnwendungFelder, { type MitgliedAuswahl } from './AnwendungFelder'
+import { PSM_FRIST_STANDARD_H, wienHeute } from '@/lib/behandlungen/erfassungsfrist'
 
 // Welche Felder je Maßnahmenart sichtbar/pflicht sind, steht in FELD_MATRIX (feldMatrix.ts), die
 // Mengenfelder in MENGEN_SICHT (mengenFelder.ts, über mengenSicht: Aufwand bei Sonstiges nur mit Mittel) –
@@ -59,6 +61,7 @@ const BIO_WARNUNG = new Set(['kip', 'nachhaltig'])
 
 export default function NeueBehandlungForm({
   psm, duengemittel, weingaerten, gstByWeingarten, bioStatus, kostenarten, saetzeMassnahmen, betriebsmittel = [], kostenModul = true,
+  mitglieder = [], ichId = null, psmFristH = PSM_FRIST_STANDARD_H,
 }: {
   psm: PSM[]; duengemittel: DuengemittelOption[]
   /** KAN-167: Weinbehandlungs- und Produktionsmittel (aktiv) für Sonstiges und Laubarbeit */
@@ -68,6 +71,10 @@ export default function NeueBehandlungForm({
   kostenarten: KostenartOption[]; saetzeMassnahmen: SatzOption[]
   /** KAN-195: Kostenrechnung nur mit Paket-Modul Controlling */
   kostenModul?: boolean
+  /** KAN-87: Anwender-Auswahl, angemeldeter Benutzer, Erfassungsfrist (h) */
+  mitglieder?: MitgliedAuswahl[]
+  ichId?: string | null
+  psmFristH?: number
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -89,6 +96,9 @@ export default function NeueBehandlungForm({
   const psmRef = useRef<HTMLSelectElement>(null)
   const duengemittelRef = useRef<HTMLSelectElement>(null)
   const [art, setArt] = useState<Art>('spritzung')
+  // KAN-87: Datum in Wiener Zeit vorbelegt (toISOString wäre UTC – zwischen 0 und 2 Uhr der Vortag)
+  const [datum, setDatum] = useState(() => wienHeute())
+  const [datumBis, setDatumBis] = useState('')
   // Spritzung: Spritzbrühe gesamt (l) – nie die Mittelmenge; Düngung: Düngermenge (KAN-133)
   const [mengeGesamt, setMengeGesamt] = useState<string>('')
   // Hinweis, wenn ein anderes Düngemittel die Einheit der eingegebenen Düngermenge wechselt (kg ↔ l)
@@ -336,15 +346,21 @@ export default function NeueBehandlungForm({
               Datum von <span className="text-s112-err">*</span>
             </label>
             <input aria-label="Datum von" name="datum" type="date" required
-              defaultValue={new Date().toISOString().split('T')[0]}
+              value={datum} onChange={e => setDatum(e.target.value)}
               className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
           </div>
           <div>
             <label className="block text-sm font-medium text-s112-text-1 mb-1">Datum bis</label>
             <input aria-label="Datum bis" name="datum_bis" type="date"
+              value={datumBis} onChange={e => setDatumBis(e.target.value)}
               className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
           </div>
         </div>
+
+        {/* KAN-87: Uhrzeit, Anwender, Art der Verwendung, Hinweis Nacherfassung */}
+        <AnwendungFelder mitglieder={mitglieder} ichId={ichId} mitPsm={felder.psm !== 'hidden' && !!selectedPsmId}
+          bienengefaehrlich={felder.psm !== 'hidden' && !!selectedPsm?.bienengefaehrlich}
+          datum={datum} datumBis={datumBis} fristH={psmFristH} />
 
         {/* PSM */}
         {felder.psm !== 'hidden' && (

@@ -1,5 +1,8 @@
 'use client'
 
+import AnwendungFelder, { type MitgliedAuswahl } from '../../neu/AnwendungFelder'
+import { PSM_FRIST_STANDARD_H } from '@/lib/behandlungen/erfassungsfrist'
+
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateBehandlung } from '../../actions'
@@ -67,6 +70,12 @@ export type BehandlungEdit = {
   einarbeitung_zeitpunkt: string | null
   wartezeit_tage: number | null
   weingarten_name: string | null
+  /** KAN-87 */
+  uhrzeit_von?: string | null
+  uhrzeit_bis?: string | null
+  durchgefuehrt_von?: string | null
+  anwender_name?: string | null
+  art_verwendung?: string | null
 }
 
 export type PSMOption = {
@@ -79,6 +88,8 @@ export type PSMOption = {
   wirkstoff: string | null
   wirkstoffgehalt_pct: number | null
   wartezeit_tage: number | null
+  /** KAN-87: Startuhrzeit Pflicht */
+  bienengefaehrlich?: boolean | null
 }
 
 export type DuengemittelOption = {
@@ -105,7 +116,12 @@ const labelCls = 'block text-sm font-medium text-s112-text-1 mb-1'
 export default function BehandlungEditForm({
   behandlung, psm, duengemittel, bioStatus, kostenarten, bestehenderKostenEintrag, flaecheHa,
   weingaerten, gstByWeingarten, startWGs, startGSTs, betriebsmittel = [], kostenModul = true,
+  mitglieder = [], ichId = null, psmFristH = PSM_FRIST_STANDARD_H,
 }: {
+  /** KAN-87: Anwender-Auswahl, angemeldeter Benutzer, Erfassungsfrist (h) */
+  mitglieder?: MitgliedAuswahl[]
+  ichId?: string | null
+  psmFristH?: number
   /** KAN-167: Betriebsmittel (aktiv bzw. das gespeicherte) */
   betriebsmittel?: BmMassnahmeOption[]
   behandlung: BehandlungEdit
@@ -154,6 +170,8 @@ export default function BehandlungEditForm({
   const modus = felderBeimBearbeiten(art, startArt)
   const schaderreger = schaderregerFeld(art)
   const [selectedPsmId, setSelectedPsmId] = useState(behandlung.psm_id ?? '')
+  const [datum, setDatum] = useState(behandlung.datum)
+  const [datumBis, setDatumBis] = useState(behandlung.datum_bis ?? '')
   const [selectedDuengemittelId, setSelectedDuengemittelId] = useState(behandlung.duengemittel_id ?? '')
   // KAN-167: Betriebsmittel samt Aufwand (gespeichert in aufwandmenge/aufwandmenge_einheit)
   const bmStart = {
@@ -421,13 +439,20 @@ export default function BehandlungEditForm({
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className={labelCls}>Datum von <span className="text-s112-err">*</span></label>
-            <input aria-label="Datum von" name="datum" type="date" required defaultValue={behandlung.datum} className={inputCls} />
+            <input aria-label="Datum von" name="datum" type="date" required value={datum} onChange={e => setDatum(e.target.value)} className={inputCls} />
           </div>
           <div>
             <label className={labelCls}>Datum bis</label>
-            <input aria-label="Datum bis" name="datum_bis" type="date" defaultValue={behandlung.datum_bis ?? ''} className={inputCls} />
+            <input aria-label="Datum bis" name="datum_bis" type="date" value={datumBis} onChange={e => setDatumBis(e.target.value)} className={inputCls} />
           </div>
         </div>
+
+        {/* KAN-87: Uhrzeit, Anwender, Art der Verwendung – erfasst am/von bleibt unverändert */}
+        <AnwendungFelder mitglieder={mitglieder} ichId={ichId} mitPsm={artMitPsm(art) && !!selectedPsmId}
+          bienengefaehrlich={artMitPsm(art) && !!psm.find(p => p.id === selectedPsmId)?.bienengefaehrlich}
+          datum={datum} datumBis={datumBis} fristH={psmFristH} vorschau={false}
+          start={{ uhrzeitVon: behandlung.uhrzeit_von, uhrzeitBis: behandlung.uhrzeit_bis, durchgefuehrtVon: behandlung.durchgefuehrt_von,
+            anwenderName: behandlung.anwender_name, artVerwendung: behandlung.art_verwendung }} />
 
         {/* PSM laut Feld-Matrix wie beim Anlegen: Pflicht bei Spritzung, optional bei Sonstiges (KAN-154) */}
         {artMitPsm(art) && (

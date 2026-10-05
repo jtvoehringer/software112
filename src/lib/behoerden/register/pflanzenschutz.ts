@@ -5,6 +5,7 @@ import {
   ART_LABEL, artAus, jahrAus, ladePsmAufzeichnung, ladePsmMittelverbrauch, riedFilterAus,
   SPALTEN_PSM_AUFZEICHNUNG, SPALTEN_PSM_MITTELVERBRAUCH, type PsmAufzeichnungParameter,
 } from '../psm'
+import { ladePsmUebermittlung, SPALTEN_PSM_UEBERMITTLUNG } from '../psm_uebermittlung'
 import { ladeCuBilanz, SPALTEN_CU_BEHANDLUNGEN, SPALTEN_CU_BILANZ, type CuBilanzParameter } from '../cu'
 import { ladeNaehrstoffbilanz, SPALTEN_NAEHRSTOFFBILANZ, SPALTEN_NAEHRSTOFFBILANZ_RIED } from '../naehrstoff'
 import { MeldungsFehler } from '../typen'
@@ -41,6 +42,13 @@ export const MELDUNGEN_PFLANZENSCHUTZ = {
     laden: (ctx, p) => ladePsmAufzeichnung(ctx.supabase, ctx.tenantId, p),
     spalten: SPALTEN_PSM_AUFZEICHNUNG,
     dateiteile: (p, betrieb) => ['Pflanzenschutz-Aufzeichnung', betrieb.betriebsnummer, jahrTeil(p.jahr), p.art ? ART_LABEL[p.art] : null],
+  }),
+
+  'psm-uebermittlung': definiereMeldung(KATALOG_PFLANZENSCHUTZ['psm-uebermittlung'], {
+    parameter: jahrParameter,
+    laden: (ctx, p) => ladePsmUebermittlung(ctx.supabase, ctx.tenantId, ctx.betrieb.betriebsnummer, p),
+    spalten: SPALTEN_PSM_UEBERMITTLUNG,
+    dateiteile: (p, betrieb) => ['PSM-Übermittlung', betrieb.betriebsnummer, jahrTeil(p.jahr)],
   }),
 
   'psm-mittelverbrauch': definiereMeldung(KATALOG_PFLANZENSCHUTZ['psm-mittelverbrauch'], {

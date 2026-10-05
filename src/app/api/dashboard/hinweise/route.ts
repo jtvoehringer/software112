@@ -25,7 +25,7 @@ export async function GET() {
 
   const einst = await ladeEinstellungen(ctx)
   const [fristen, keller, bericht, benachr] = await Promise.all([
-    ladeFristen(ctx, { modulEa: einst.modulEa, uvaZeitraum: einst.uvaZeitraum, vorwarnungTage: einst.vorwarnungTage, betriebsbeginn: einst.betriebsbeginn, doppik: einst.doppik }),
+    ladeFristen(ctx, { modulEa: einst.modulEa, uvaZeitraum: einst.uvaZeitraum, vorwarnungTage: einst.vorwarnungTage, betriebsbeginn: einst.betriebsbeginn, doppik: einst.doppik, psmFristH: einst.psmFristH }),
     ladeKeller(ctx, einst.messintervallTage),
     ladeMorgenbericht(ctx.supabase, ctx.tenantId),
     ctx.userId

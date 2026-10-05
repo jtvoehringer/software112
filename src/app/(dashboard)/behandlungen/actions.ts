@@ -19,6 +19,10 @@ import { einarbeitungAus } from './neu/feldMatrix'
 import { kostenAufteilung } from '@/lib/wein/massnahmeAnteile'
 import { gstAktivAm } from '@/lib/wein/grundstueckAktiv'
 import { artMitBetriebsmittel, BM_AUFWAND_EINHEITEN } from '@/lib/behandlungen/betriebsmittel'
+import { ladeMandantMitglieder } from '@/lib/aufgaben/mitglieder'
+import {
+  anwenderAus, erfassungsverzugH, fristAus, istArtVerwendung, nacherfassungHinweis, uhrzeitAus, uhrzeitFehler,
+} from '@/lib/behandlungen/erfassungsfrist'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -363,6 +367,54 @@ function betriebsmittelSpalten(bm: BmAuswahl): Record<string, unknown> {
   return bm.id ? { betriebsmittel_id: bm.id, aufwandmenge: bm.aufwand, aufwandmenge_einheit: bm.einheit } : { betriebsmittel_id: null }
 }
 
+// ── Anwendung: Uhrzeit, Anwender, Art der Verwendung (KAN-87) ────────────────────────────────────────────
+// Dieselbe Prüfung für Formular, Bearbeiten und Assistent: Startuhrzeit Pflicht bei bienengefährlichen Mitteln, Ende
+// nicht vor dem Beginn; Anwender = angemeldeter Benutzer, ein Mitglied oder ein Fremdanwender (Name). Art der
+// Verwendung nur mit Pflanzenschutzmittel (Standard Freiland). Beim Bearbeiten ohne Feld „anwender“ bleibt der Anwender.
+async function anwendungSpalten(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any, tenantId: string, formData: FormData, psmId: string | null, datum: string, datumBis: string | null,
+  neu: boolean,
+): Promise<Record<string, unknown>> {
+  const uhrzeitVon = uhrzeitAus(formData.get('uhrzeit_von'))
+  const uhrzeitBis = uhrzeitAus(formData.get('uhrzeit_bis'))
+  if (uhrzeitVon === undefined || uhrzeitBis === undefined) throw new AktionsFehler('Bitte die Uhrzeit als HH:MM angeben.')
+  let bienengefaehrlich = false
+  if (psmId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase.from('pflanzenschutzmittel') as any)
+      .select('bienengefaehrlich').eq('id', psmId).or(`tenant_id.eq.${tenantId},tenant_id.is.null`).maybeSingle()
+    if (error) throw new AktionsFehler(dbFehlerText(error))
+    bienengefaehrlich = (data as AR | null)?.bienengefaehrlich === true
+  }
+  const fehler = uhrzeitFehler({ datum, datumBis, uhrzeitVon, uhrzeitBis, bienengefaehrlich })
+  if (fehler) throw new AktionsFehler(fehler)
+  const roh = (formData.get('art_verwendung') as string | null) || null
+  if (roh && !istArtVerwendung(roh)) throw new AktionsFehler(`Unbekannte Art der Verwendung „${roh}“.`)
+  const spalten: Record<string, unknown> = {
+    uhrzeit_von: uhrzeitVon, uhrzeit_bis: uhrzeitBis,
+    art_verwendung: psmId ? (roh ?? 'freiland') : null,
+  }
+  if (neu || formData.has('anwender')) {
+    const { data: { user } } = await supabase.auth.getUser()
+    const mitglieder = (await ladeMandantMitglieder(tenantId)).map(m => m.id)
+    const a = anwenderAus(formData.get('anwender'), formData.get('anwender_name'), user?.id ?? null, mitglieder)
+    if ('fehler' in a) throw new AktionsFehler(a.fehler)
+    spalten.durchgefuehrt_von = a.durchgefuehrtVon
+    spalten.anwender_name = a.anwenderName
+  }
+  return spalten
+}
+
+/** Erfassungsfrist des Betriebs (Stunden, Standard 24) */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function ladePsmFrist(supabase: any, tenantId: string): Promise<number> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data } = await (supabase.from('tenant_einstellungen') as any)
+    .select('psm_erfassungsfrist_h').eq('tenant_id', tenantId).maybeSingle()
+  return fristAus((data as AR | null)?.psm_erfassungsfrist_h)
+}
+
 export async function createBehandlung(formData: FormData) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
@@ -434,8 +486,9 @@ export async function createBehandlung(formData: FormData) {
   })
   if (!mengen.ok) throw new AktionsFehler(mengen.fehler)
   const bm = await betriebsmittelAus(supabase, tenantId, art, formData, psmId)   // KAN-167
+  const anwendung = await anwendungSpalten(supabase, tenantId, formData, psmId, datum, datumBis, true)   // KAN-87
 
-  // 3. Behandlung anlegen – Aufwand, Spritzbrühe/Düngermenge, Wasseraufwand und Reinkupfer aus der Prüfung
+  // 3. Behandlung anlegen – erfasst am/von setzt die Datenbank (Trigger b_erfassung) – Aufwand, Spritzbrühe/Düngermenge, Wasseraufwand und Reinkupfer aus der Prüfung
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: beh, error: behErr } = await (supabase.from('behandlungen') as any)
     .insert({
@@ -447,6 +500,7 @@ export async function createBehandlung(formData: FormData) {
       datum_bis:            datumBis,
       ...mengen.werte,
       ...betriebsmittelSpalten(bm),
+      ...anwendung,
       konzentration,
       bbch_stadium:         bbch,
       schaderreger,
@@ -490,8 +544,15 @@ export async function createBehandlung(formData: FormData) {
   if (await hatModul('modul_controlling')) await ggfKostenEintragAnlegen(supabase, tenantId, formData, datum, haByWeingarten, behandlungId)
 
   revalidatePath('/behandlungen')
+  // KAN-87: Nacherfassung über der Frist – Hinweis, gespeichert wird trotzdem (Markierung in der Liste)
+  const hinweise = [...mengen.hinweise]
+  if (psmId) {
+    const frist = await ladePsmFrist(supabase, tenantId)
+    const nach = nacherfassungHinweis(erfassungsverzugH({ datum, datumBis, uhrzeitBis: (anwendung.uhrzeit_bis as string | null) }, Date.now()), frist)
+    if (nach) hinweise.push(nach)
+  }
   // hinweise: gespeichert, aber prüfenswert (z. B. Spritzbrühe ≠ Wasseraufwand × Fläche) – für Formular und Assistent
-  return { id: behandlungId, hinweise: mengen.hinweise }
+  return { id: behandlungId, hinweise }
 }
 
 export async function updateBehandlung(id: string, formData: FormData) {
@@ -577,6 +638,7 @@ export async function updateBehandlung(id: string, formData: FormData) {
   })
   if (!mengen.ok) throw new AktionsFehler(mengen.fehler)
   const bm = await betriebsmittelAus(supabase, tenantId, art, formData, psmId, (bisher as AR).betriebsmittel_id ?? null)   // KAN-167
+  const anwendung = await anwendungSpalten(supabase, tenantId, formData, psmId, datum, datumBis, false)   // KAN-87 (erfasst am/von bleibt)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('behandlungen') as any)
@@ -584,6 +646,7 @@ export async function updateBehandlung(id: string, formData: FormData) {
       art, psm_id: psmId, duengemittel_id: duengemittelId, datum, datum_bis: datumBis,
       ...mengen.werte,
       ...betriebsmittelSpalten(bm),
+      ...anwendung,
       konzentration,
       bbch_stadium: bbch, schaderreger, witterung, temperatur_c: temperatur,
       ernte_fruehesteins: ernteFruehesteins, notizen,
