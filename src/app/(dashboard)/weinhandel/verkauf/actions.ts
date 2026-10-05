@@ -14,6 +14,8 @@ import { traubenverkaufLese } from '@/lib/wein/leseBilanz'
 import { qualitaetFehler } from '@/lib/wein/qualitaet'
 import { mostgewichtAusWert, mostgewichtSpalten } from '@/lib/wein/mostgewichtFormular'
 import type { Mostgewicht } from '@/lib/wein/mostgewicht'
+import { verkaufKundeFehler, flaschePruefnummerFehler } from '@/lib/handel/partnerPflicht'
+import { ladePartner } from '@/lib/handel/partnerLaden'
 import {
   bestandBuchenAllesOderNichts,
   bestandsBuchungenZuruecknehmen,
@@ -193,10 +195,16 @@ async function pruefePositionen(
   if (stueckJeFuellung.size > 0) {
     const ids = [...stueckJeFuellung.keys()]
     const { data, error } = await (supabase.from('fuellungen') as any)
-      .select('id, name, bestand_flaschen')
+      .select('id, name, bestand_flaschen, qualitaet, zusatzbezeichnung, erzeugnis, pruefnummer, dac:dac_antrag_id(status)')
       .in('id', ids)
       .eq('tenant_id', tenantId)
     if (error) throw new AktionsFehler(dbFehlerText(error, 'Flaschenbestand konnte nicht geprüft werden'))
+    // KAN-208: ab Qualitätswein nur mit zugeteilter Prüfnummer (Entscheidung Jörgen 05.10.2026: ablehnen)
+    for (const f of (data ?? []) as AR[]) {
+      const pn = flaschePruefnummerFehler({ name: f.name ?? null, qualitaet: f.qualitaet ?? null, zusatzbezeichnung: f.zusatzbezeichnung ?? null,
+        erzeugnis: f.erzeugnis ?? null, pruefnummer: f.pruefnummer ?? null, antragStatus: (f.dac as AR | null)?.status ?? null })
+      if (pn) throw new AktionsFehler(pn)
+    }
     const fuellungen = new Map(((data ?? []) as AR[]).map(f => [f.id as string, f]))
     for (const [id, bedarf] of stueckJeFuellung) {
       const f = fuellungen.get(id)
@@ -254,7 +262,9 @@ export async function createVerkauf(formData: FormData) {
   const tenantId = membership.tenantId
 
   // Kopfdaten
-  const datum               = (formData.get('datum') as string) || new Date().toISOString().split('T')[0]
+  // KAN-208: Datum Pflicht – kein stilles „heute“
+  const datum               = ((formData.get('datum') as string | null) ?? '').trim()
+  if (!datum) throw new AktionsFehler('Bitte das Verkaufsdatum angeben.')
   const rechnungsnummerInput = ((formData.get('rechnungsnummer') as string | null) ?? '').trim()
   const kontaktId      = (formData.get('kontakt_id') as string) || null
   const firmaId        = (formData.get('firma_id') as string) || null
@@ -275,6 +285,14 @@ export async function createVerkauf(formData: FormData) {
 
   if (!Array.isArray(positionen) || positionen.length === 0) {
     throw new AktionsFehler('Mindestens eine Position erforderlich')
+  }
+
+  // KAN-208: Tank- und Traubenverkauf nur mit Kunde samt Betriebsnummer (Empfänger der Transportbescheinigung)
+  {
+    const typen = positionen.map(p => String(p?.typ ?? ''))
+    const partner = typen.some(t => t === 'tank' || t === 'trauben') ? await ladePartner(supabase, tenantId, kontaktId, firmaId) : null
+    const f = partner ? verkaufKundeFehler({ typen, kunde: partner.vorhanden, betriebNr: partner.betriebNr, kundeName: partner.name }) : null
+    if (f) throw new AktionsFehler(f)
   }
 
   // ── Prüfung VOR dem ersten Schreibzugriff (auch vor der Rechnungsnummer –

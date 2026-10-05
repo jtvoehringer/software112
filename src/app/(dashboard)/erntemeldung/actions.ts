@@ -30,6 +30,8 @@ import { eisweinHinweis, istLeseArt, jahrgangAusEingabe, leseLoeschsperre, leseS
 import { ladeLesenDesJahrgangs, leseDeckungFehler, leseFuerDatum, traubenverkaufLese } from '@/lib/wein/leseBilanz'
 import { gstAktivAm } from '@/lib/wein/grundstueckAktiv'
 import { leseHerkunftFehler, leseHerkunftObergrenze, leseObergrenze, leseStufeFehler, leseStufeGedeckelt, pressungLeseGrenze, type LeseStufenEintrag } from '@/lib/wein/leseAbstufung'
+import { verkaufKundeFehler } from '@/lib/handel/partnerPflicht'
+import { ladePartner } from '@/lib/handel/partnerLaden'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -1819,6 +1821,12 @@ export async function createTraubenverkauf(fd: FormData) {
   const preisPerKg   = fd.get('preis_per_kg') ? parseFloat(dezimal((fd.get('preis_per_kg') as string))) : null
   const kontaktId    = (fd.get('kontakt_id') as string) || null
   const firmaId      = (fd.get('firma_id') as string) || null
+  // KAN-208: Abnehmer samt Betriebsnummer Pflicht (Empfänger der Transportbescheinigung)
+  {
+    const partner = await ladePartner(supabase, tenantId, kontaktId, firmaId)
+    const f = verkaufKundeFehler({ typen: ['trauben'], kunde: partner.vorhanden, betriebNr: partner.betriebNr, kundeName: partner.name })
+    if (f) throw new AktionsFehler(f)
+  }
   const datum        = fd.get('datum') as string
 
   // KAN-129: Jahrgang des Betriebs (N5), Lese und kg-Bilanz je Lese – vor Liefernummer und Schreiben

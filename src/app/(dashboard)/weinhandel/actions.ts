@@ -26,6 +26,7 @@ import { merkmaleAusCharge } from '@/lib/wein/fuellungMerkmale'
 import { wienHeute } from '@/lib/csv'
 import { eroeffnungsStichtagFehler, IMPORT_QUELLE_EROEFFNUNG } from '@/lib/kellerbuch/eroeffnungsStichtag'
 import { eroeffnungsVermerk, flaschenFormularWerte, pruefeFlaschenZeilen, type DateiBefund, type FlaschenEingabe } from '@/lib/import/eroeffnungsbestand'
+import { fuellungNameFehler } from '@/lib/handel/partnerPflicht'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -160,6 +161,8 @@ async function fuellungAnlegen(formData: FormData, eroeffnung: FlaschenEroeffnun
   const membership = await getMembership()
   const tenantId   = membership.tenantId
   pruefeFuellungsRecht(membership)
+  // KAN-208: Produktname Pflicht (vor jedem Schreibzugriff)
+  { const nf = fuellungNameFehler(formData.get('name')); if (nf) throw new AktionsFehler(nf) }
 
   const weinausbauId    = (formData.get('weinausbau_id') as string) || null
   if (eroeffnung && weinausbauId) throw new AktionsFehler('Ein Flaschen-Eröffnungsbestand hat keine Kellerbuch-Charge.')
@@ -289,7 +292,7 @@ async function fuellungAnlegen(formData: FormData, eroeffnung: FlaschenEroeffnun
   const payload: AR = {
     tenant_id:            tenantId,
     weinausbau_id:        weinausbauId,
-    name:                 formData.get('name') as string,
+    name:                 String(formData.get('name')).trim(),
     jahrgang,             // KAN-84: aus der Charge
     rebsorte,
     ...fuellungsQualitaetsSpalten(qualitaetInput),   // KAN-73/KAN-186: geprüft (fuellungQualitaetAusFormular)
@@ -386,6 +389,8 @@ export async function updateFuellung(id: string, formData: FormData): Promise<vo
   const membership = await getMembership()
   const tenantId   = membership.tenantId
   pruefeFuellungsRecht(membership)
+  // KAN-208: Produktname Pflicht
+  { const nf = fuellungNameFehler(formData.get('name')); if (nf) throw new AktionsFehler(nf) }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: altRaw, error: altErr } = await (supabase.from('fuellungen') as any)

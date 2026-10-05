@@ -22,6 +22,8 @@ import { verschnittVorbereiten } from '@/lib/kellerbuch/verschnittBuchen'
 import { planeVerschneidungStorno, storniereVerschneidung } from '@/lib/kellerbuch/storno'
 import type { Folgebuchung } from '@/lib/kellerbuch/folgebuchungen'
 import { ohneStornierteVerschnitte } from '@/lib/kellerbuch/stornoFilter'
+import { zukaufLieferantFehler, ZUKAUF_MERKMALE } from '@/lib/handel/partnerPflicht'
+import { ladePartner } from '@/lib/handel/partnerLaden'
 import {
   folgebuchungenDerZielcharge, zielchargeText, zukaufVerweise, traubenGebundenText, loeschSperreText,
 } from './sperren'
@@ -258,6 +260,10 @@ async function pruefeWare(supabase: any, tenantId: string, f: ZukaufFormular): P
     alkohol:         f.alkohol,
   }, ((eigene ?? []) as AR[]).map(e => String(e.name ?? '')))
   if (fehler) throw new AktionsFehler(fehler)
+  // KAN-208: Lieferant Pflicht – bei Wein, Most und Trauben aus Österreich mit Betriebsnummer
+  const partner = await ladePartner(supabase, tenantId, f.lieferantKontaktId, f.lieferantFirmaId)
+  const lf = zukaufLieferantFehler({ art: f.art, lieferant: partner.vorhanden, betriebNr: partner.betriebNr, landIso: f.landIso, lieferantName: partner.name })
+  if (lf) throw new AktionsFehler(lf)
 }
 
 /** KAN-193: Rot-/Weißwein-Sperre vor dem Buchen – der Zukauf darf mit keiner Charge im Gebinde unverträglich sein
@@ -450,7 +456,7 @@ export async function updateZukauf(id: string, formData: FormData) {
   await pruefeWare(supabase, tenantId, f)
 
   const { data: alt, error: altErr } = await (supabase.from('zukauf_posten') as any)
-    .select('ziel_weinausbau_id, menge, einheit, art, kmw, oechsle, mostgewicht_einheit')
+    .select('ziel_weinausbau_id, menge, einheit, art, kmw, oechsle, mostgewicht_einheit, datum, weinart, rebsorte, jahrgang, qualitaetsstufe, zusatzbezeichnung, erzeugnis, herkunft, land_iso, alkohol_pct, anreicherung')
     .eq('id', id)
     .eq('tenant_id', tenantId)
     .eq('aktiv', true)
@@ -488,6 +494,8 @@ export async function updateZukauf(id: string, formData: FormData) {
   let zielWeinausbauId: string | null = altWeinausbauId
   // Rückbau der Chargen-Änderung, falls danach das Speichern des Zukaufs scheitert
   let rueckbau: (() => Promise<void>) | null = null
+  // KAN-208: nach einer Folgebuchung an der Zielcharge sind die Merkmale des Belegs fest (wie der Trigger a_freeze)
+  let merkmaleFest = false
 
   if (altWeinausbauId) {
     const chargeId = altWeinausbauId
@@ -537,6 +545,25 @@ export async function updateZukauf(id: string, formData: FormData) {
       if (einheitGeaendert) {
         throw sperre(`Ändern der Einheit ist nicht möglich: ${text}. Die Belegmenge bleibt als Zugang der Charge erhalten.`)
       }
+      // KAN-208: Merkmale (Datum, Weinart, Sorte, Jahrgang, Qualität, Herkunft, Land, Mostgewicht, Alkohol, Anreicherung) fest
+      const q = zukaufQualitaetsSpalten(f) as AR
+      const gleich = (x: unknown, y: unknown) => String(x ?? '') === String(y ?? '')
+      const zahl = (x: unknown, y: unknown) => (x == null || y == null) ? (x == null) === (y == null) : Math.abs(Number(x) - Number(y)) < 0.005
+      const geaendert: string[] = []
+      if (!gleich(String(a.datum ?? '').slice(0, 10), f.datum)) geaendert.push('Datum')
+      if (!gleich(a.weinart ?? 'unbekannt', f.weinart ?? 'unbekannt')) geaendert.push('Weinart')
+      if (!gleich(a.rebsorte, f.rebsorte)) geaendert.push('Rebsorte')
+      if (!gleich(a.jahrgang, f.jahrgang)) geaendert.push('Jahrgang')
+      if (!gleich(a.qualitaetsstufe, q.qualitaetsstufe) || !gleich(a.zusatzbezeichnung, q.zusatzbezeichnung) || !gleich(a.erzeugnis, q.erzeugnis)) geaendert.push('Qualität')
+      if (!gleich(a.herkunft, f.herkunft)) geaendert.push('Herkunft')
+      if (!gleich(a.land_iso ?? 'AT', f.landIso ?? 'AT')) geaendert.push('Land')
+      if (f.mostgewichtUebermittelt && !zahl(a.kmw, f.mostgewicht?.kmw ?? null)) geaendert.push('Mostgewicht')
+      if (!zahl(a.alkohol_pct, f.alkohol)) geaendert.push('Alkohol')
+      if (!!a.anreicherung !== !!f.anreicherung) geaendert.push('Anreicherung')
+      if (geaendert.length > 0) {
+        throw sperre(`Ändern von ${geaendert.join(', ')} ist nicht möglich: ${text}. Die Merkmale des Zukaufs gehören zum Zugang der Charge – Korrekturen über „Stornieren“ und eine neue Buchung bzw. durch die Betriebsleitung.`)
+      }
+      merkmaleFest = true
       // nur der Beleg wird gespeichert (unten) – die Charge bleibt unverändert
     } else if (istWeinMost && c.aktiv === false) {
       // Charge nicht mehr aktiv, aber ohne Folgebuchungen (z. B. vor KAN-35 im Chargenformular
@@ -596,7 +623,7 @@ export async function updateZukauf(id: string, formData: FormData) {
   }
 
   try {
-    const { data: upd, error } = await (supabase.from('zukauf_posten') as any).update({
+    const zukaufPatch: AR = {
       datum:                    f.datum,
       lieferung_uhrzeit:        f.lieferungUhrzeit,
       art:                      f.art,
@@ -622,7 +649,10 @@ export async function updateZukauf(id: string, formData: FormData) {
       einstandspreis_pro_liter: f.einstandspreisLiter ?? null,
       notizen:                  f.notizen,
       ziel_weinausbau_id:       zielWeinausbauId,
-    }).eq('id', id).eq('tenant_id', tenantId).select('id')
+    }
+    // KAN-208: feste Merkmale nicht schreiben (der Trigger a_freeze lässt sie nicht durch; geprüft ist oben)
+    if (merkmaleFest) for (const k of ZUKAUF_MERKMALE) delete zukaufPatch[k]
+    const { data: upd, error } = await (supabase.from('zukauf_posten') as any).update(zukaufPatch).eq('id', id).eq('tenant_id', tenantId).select('id')
     if (error) throw new AktionsFehler(dbFehlerText(error, 'Speichern fehlgeschlagen (zukauf_posten)'))
     if (!(upd as AR[] | null)?.length) throw new AktionsFehler('Der Zukauf konnte nicht gespeichert werden – Berechtigung prüfen.')
   } catch (e) {

@@ -129,6 +129,9 @@ const charge = (id, behaelter_id, teil) => ({
 })
 const gebinde = id => ({ id, tenant_id: T, name: `Tank ${id.slice(-3)}`, aktiv: true, fremd: false, fremd_liter: 0, volumen_liter: 10000 })
 
+// KAN-208: Lieferant mit Betriebsnummer ist beim Zukauf Pflicht
+const LF = '00000000-0000-4000-8000-00000000f208'
+const LIEFERANT = { id: LF, tenant_id: T, name: 'Weinhandel Muster', betrieb_nr: '1234567' }
 function tabellen({ antragStatus = null } = {}) {
   const t = {
     weinausbau: [
@@ -138,6 +141,7 @@ function tabellen({ antragStatus = null } = {}) {
     ],
     keller_umzuege: [], rebsorten: [], verschneidungen: [], verschneidung_quellen: [], zukauf_posten: [],
     pressung_behaelter: [], fuellung_chargen: [], verkauf_positionen: [], dac_antrag: [], fuellungen: [],
+    firmen: [LIEFERANT], kontakte: [],
   }
   if (antragStatus) {
     t.dac_antrag.push({
@@ -291,7 +295,7 @@ describe('umziehen() – Prüfnummer (KAN-83)', nurMitHooks, () => {
 // ── 4. Verschnitt und Zukauf ─────────────────────────────────────────────────
 
 // KAN-80 Nachtrag (02.10.2026): Pflichtfelder im Bereich Ware (Landwein – keine Prüfnummer nötig)
-const WARE = { jahrgang: '2025', qualitaetsstufe: 'landwein', herkunft: 'weinland', alkohol_pct: '12' }
+const WARE = { jahrgang: '2025', qualitaetsstufe: 'landwein', herkunft: 'weinland', alkohol_pct: '12', lieferant_firma_id: LF }
 describe('createVerschneidung() / createZukauf() – Prüfnummer (KAN-83)', nurMitHooks, () => {
   const verschnittFd = extra => {
     const fd = new FormData()
