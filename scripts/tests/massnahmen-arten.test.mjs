@@ -1110,7 +1110,7 @@ describe('KAN-154: Feld-Matrix – Pflanzenschutzmittel bei Sonstiges, Bearbeitu
     const gst = { grundstueck_id: 'g-1', flaeche_ha: 2, grundstueck: { id: 'g-1', gst_nr: '12/1', katastralgemeinde: '04023', kg_bezeichnung: 'Stein', flaeche_ha: 2, weingarten: null } }
     const b = (teil) => psm.normalisiereBehandlung({
       id: 'b-so', datum: '2026-05-02', datum_bis: null, art: 'sonstiges', weingarten: null, duengemittel: null,
-      psm: { id: 'p-iso', name: 'Isonet LE' }, psm_id: 'p-iso', behandlung_grundstuecke: [gst], ...teil,
+      psm: { id: 'p-iso', name: 'Isonet LE', zulassungsnr: '3020-0' }, psm_id: 'p-iso', behandlung_grundstuecke: [gst], ...teil,
     })
     const mit = b({ aufwandmenge: 0.25, aufwandmenge_einheit: 'kg_ha' })
     assert.deepEqual([psm.mittelmenge(mit).menge, psm.mittelmenge(mit).einheit], [0.5, 'kg'])

@@ -72,6 +72,8 @@ export type PSMEintrag = {
   max_aufwand_kg_ha: number | null; max_anwendungen: number | null
   wartezeit_tage: number | null; oeko_zugelassen: boolean
   notizen: string | null
+  /** KAN-86: Registernummer (Zulassungsnr.), EPPO-Code des Hauptschaderregers, bienengefährlich */
+  zulassungsnr: string | null; eppo_code: string | null; bienengefaehrlich: boolean
   /** KAN-173: Lagerbewegung im laufenden Geschäftsjahr */
   lager?: StammLager | null
 }
@@ -121,7 +123,7 @@ export default async function LagerPage({
   // Vollständige PSM-Stammdaten (für den Stammdaten-Tab)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawPSMStamm } = await tf((supabase.from('pflanzenschutzmittel') as any)
-    .select('id, name, handelsname, kategorie, wirkstoff, wirkstoffgehalt_pct, cu_gehalt_pct, max_aufwand_kg_ha, max_anwendungen, wartezeit_tage, oeko_zugelassen, notizen')
+    .select('id, name, handelsname, kategorie, wirkstoff, wirkstoffgehalt_pct, cu_gehalt_pct, max_aufwand_kg_ha, max_anwendungen, wartezeit_tage, oeko_zugelassen, zulassungsnr, eppo_code, bienengefaehrlich, notizen')
     .eq('aktiv', true)
     .order('name'))
 
@@ -138,6 +140,9 @@ export default async function LagerPage({
     wartezeit_tage:      p.wartezeit_tage ?? null,
     oeko_zugelassen:     p.oeko_zugelassen ?? false,
     notizen:             p.notizen ?? null,
+    zulassungsnr:        p.zulassungsnr ?? null,
+    eppo_code:           p.eppo_code ?? null,
+    bienengefaehrlich:   p.bienengefaehrlich ?? false,
   }))
 
   // Düngemittel-Stammdaten (für den Düngemittel-Tab)
