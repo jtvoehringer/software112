@@ -36,7 +36,9 @@ wird er automatisch mit angelegt), ernte_datum (pflicht, YYYY-MM-DD),
 lese_nr (Nummer der Lese im Jahrgang, z. B. 2 für „2026/2 Eiswein“ – siehe WEINJAHRGÄNGE im Kontext; Pflicht,
 sobald der Jahrgang mehrere Lesen hat und das Datum nicht in genau eine fällt. Eine neue Lese legt der Bot nicht
 an – der User legt sie unter „Lese › Neue Lese“ an),
-lesemethode (optional: handlese/maschinenlese/selektionslese), gemeinsames Mostgewicht (optional)
+lesemethode (optional: handlese/maschinenlese/selektionslese), gemeinsames Mostgewicht (PFLICHT, außer jedes
+Grundstück hat ein eigenes – ohne Mostgewicht wird nichts gespeichert, auch nicht bei Lesegut, das später als
+Trauben verkauft wird; fehlt es, beim User nachfragen)
 ENTWEDER klosterneuburger (in °KMW, höchstens 2 Nachkommastellen, 0–60) ODER oechsle (in °Oe,
 höchstens 1 Nachkommastelle, 0–350) – genau in der Einheit, die der User nennt, nie selbst
 umrechnen und nie beide angeben; gespeichert wird der Messwert mit seiner Einheit, der andere Wert
@@ -51,15 +53,15 @@ Großes Gewächs, Sekt, Perlwein, Sonstiges, Strohwein und Ausbruch gibt es bei 
 notizen (optional).
 
 Mindestens EINE der beiden folgenden Positions-Arten ist erforderlich (auch kombiniert möglich):
-- "rieden": Array von weingarten_ids (ganze Rieden aus dem Stammdaten-Kontext) + optional EINE
-  gemeinsame menge_kg_gesamt für alle hier gelisteten Rieden zusammen (wird automatisch
+- "rieden": Array von weingarten_ids (ganze Rieden aus dem Stammdaten-Kontext) + EINE
+  gemeinsame menge_kg_gesamt (PFLICHT, größer als 0) für alle hier gelisteten Rieden zusammen (wird automatisch
   proportional nach Grundstücksfläche aufgeteilt – für Rieden mit unterschiedlichen,
   einzeln bekannten Erntemengen lieber getrennte Tool-Aufrufe machen oder stattdessen
   "grundstuecke" mit Einzelwerten verwenden).
 - "grundstuecke": Array einzelner Positionen {grundstueck_id (pflicht, ID aus dem
   Stammdaten-Kontext), menge_kg (pflicht – die tatsächlich gewogene Menge dieses
-  Grundstücks), Mostgewicht (optional, ENTWEDER kmw in °KMW ODER oechsle in °Oe – überschreibt
-  das gemeinsame Mostgewicht für dieses Grundstück), notizen (optional, überschreibt die
+  Grundstücks), Mostgewicht (ENTWEDER kmw in °KMW ODER oechsle in °Oe – überschreibt das
+  gemeinsame Mostgewicht für dieses Grundstück; Pflicht, wenn es kein gemeinsames gibt), notizen (optional, überschreibt die
   gemeinsamen notizen für dieses Grundstück)}.
 `.trim()
 
