@@ -100,19 +100,8 @@ export default async function TraubenverkaufPage() {
   const { module } = await betriebUndModuleLaden(supabase, membership.tenantId)
   const bkiErlaubt = zugriffsFehler(KATALOG_ERNTE['bki-traubenverkauf'], membership, module) === null
 
-  // Kontakte + Firmen für Abnehmer-Dropdown
-  const { data: kontakteRaw } = await alle((supabase.from('kontakte') as any)
-    .select('id, vorname, nachname, betrieb_nr')
-    .eq('tenant_id', membership.tenantId)
-    .order('nachname').order('id'))
-
-  const { data: firmenRaw } = await alle((supabase.from('firmen') as any)
-    .select('id, name, betrieb_nr')
-    .eq('tenant_id', membership.tenantId)
-    .order('name').order('id'))
-
-  const kontakte = (kontakteRaw ?? []) as R[]
-  const firmen   = (firmenRaw   ?? []) as R[]
+  // Käufer wählt das Formular seit 05.10.2026 per Suche (PartnerSuche, /api/crm/suche) – vorher lud die Seite alle
+  // Kontakte und Firmen (Gebeshuber: 8.290 + 4.652) als Auswahlliste
 
   // Zugekaufte Trauben (art='trauben') - stehen zusätzlich zur eigenen Ernte
   // als verkaufbare Menge zur Verfügung (siehe Migration 141).
@@ -187,8 +176,6 @@ export default async function TraubenverkaufPage() {
         lesen={lesen}
         verpresst={verpresst}
         zukaufOptions={zukaufOptions}
-        kontakte={kontakte}
-        firmen={firmen}
         writeOk={writeOk}
         bkiErlaubt={bkiErlaubt}
       />

@@ -4,6 +4,7 @@ import React, { useState, useTransition } from 'react'
 import { Pencil } from 'lucide-react'
 import { upsertTraubenverkauf, stornoTraubenverkauf, endgueltigLoeschenTraubenverkauf } from './actions'
 import StornoButton from '@/components/StornoButton'
+import PartnerSuche from '@/components/crm/PartnerSuche'
 import StornierteUmschalter from '@/components/StornierteUmschalter'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum } from '@/lib/format'
@@ -30,8 +31,6 @@ interface Props {
   /** KAN-129: verpresste kg je Lese und Ort (eigene Ernte) */
   verpresst: { lese_id: string | null; weingarten_id: string; grundstueck_id: string | null; kg: number }[]
   zukaufOptions: R[]  // zugekaufte Trauben (zukauf_posten, art='trauben') mit verfuegbar_kg
-  kontakte:     R[]
-  firmen:       R[]
   writeOk:      boolean
   /** BKI-Datenblatt (Pflichtmeldung) – gleiche Regel wie die CSV-Route */
   bkiErlaubt:   boolean
@@ -55,7 +54,7 @@ function fmt(n: number | null | undefined, digits = 2) {
   return fmtNum(n, digits)
 }
 
-export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnteOptions, lesen, verpresst, zukaufOptions, kontakte, firmen, writeOk, bkiErlaubt }: Props) {
+export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnteOptions, lesen, verpresst, zukaufOptions, writeOk, bkiErlaubt }: Props) {
   const [showForm, setShowForm]      = useState(false)
   const [editRow, setEditRow]        = useState<R | null>(null)
   const [error, setError]            = useState<string | null>(null)
@@ -91,6 +90,9 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnte
   const [qualitaet, setQualitaet]   = useState('')
   const [herkunft, setHerkunft]     = useState('')
   const [kaeuferTyp, setKaeuferTyp] = useState<'firma' | 'kontakt'>('firma')
+  // Käufer per Suche (05.10.2026) statt Auswahlliste aller Kontakte/Firmen
+  const [firmaId, setFirmaId]       = useState('')
+  const [kontaktId, setKontaktId]   = useState('')
   // Jahrgang des BKI-Datenblatts ('' = alle Jahrgänge)
   const [bkiJahrgang, setBkiJahrgang] = useState('')
 
@@ -171,6 +173,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnte
     const l = lesenMitErnte[0]
     setLeseId(l?.id ?? ''); setJahrgangId(l?.jahrgang_id ?? ''); setJahrgangNr(l?.jahrgang ?? null)
     setMgStart(null); setQualitaet(''); setHerkunft(''); setKaeuferTyp('firma')
+    setFirmaId(''); setKontaktId('')
     setError(null); setShowForm(true)
   }
 
@@ -187,6 +190,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnte
     setMgStart(mostgewichtVon(v.kmw_grad, v.oechsle, v.mostgewicht_einheit))
     setQualitaet(v.qualitaetsstufe ?? ''); setHerkunft(v.herkunft_code ?? '')
     setKaeuferTyp(v.firma_id ? 'firma' : 'kontakt')
+    setFirmaId(v.firma_id ?? ''); setKontaktId(v.kontakt_id ?? '')
     setError(null); setShowForm(true)
   }
 
@@ -216,8 +220,8 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnte
       fd.set('zukauf_posten_id', '')
       fd.set('lese_id', leseId)
     }
-    if (kaeuferTyp === 'kontakt') fd.set('firma_id', '')
-    else fd.set('kontakt_id', '')
+    fd.set('firma_id', kaeuferTyp === 'firma' ? firmaId : '')
+    fd.set('kontakt_id', kaeuferTyp === 'kontakt' ? kontaktId : '')
     startTransition(async () => {
       try {
         await upsertTraubenverkauf(fd)
@@ -506,24 +510,11 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnte
                   Privatperson
                 </button>
               </div>
+              {/* Suche statt Auswahlliste (05.10.2026): Gebeshuber hat 8.290 Kontakte und 4.652 Firmen */}
               {kaeuferTyp === 'firma' ? (
-                <select name="firma_id" defaultValue={editRow?.firma_id ?? ''} className={inp}>
-                  <option value="">– Firma wählen –</option>
-                  {firmen.map(f => (
-                    <option key={f.id} value={f.id}>
-                      {f.name}{f.betrieb_nr ? ' (Betr.Nr. ' + f.betrieb_nr + ')' : ''}
-                    </option>
-                  ))}
-                </select>
+                <PartnerSuche art="firma" value={firmaId} onChange={id => setFirmaId(id)} placeholder="Firma suchen (Name, Ort, Kundennr.) …" />
               ) : (
-                <select name="kontakt_id" defaultValue={editRow?.kontakt_id ?? ''} className={inp}>
-                  <option value="">– Kontakt wählen –</option>
-                  {kontakte.map(k => (
-                    <option key={k.id} value={k.id}>
-                      {k.vorname} {k.nachname}{k.betrieb_nr ? ' (Betr.Nr. ' + k.betrieb_nr + ')' : ''}
-                    </option>
-                  ))}
-                </select>
+                <PartnerSuche art="kontakt" value={kontaktId} onChange={id => setKontaktId(id)} placeholder="Person suchen (Name, Ort, Kundennr.) …" />
               )}
             </div>
 

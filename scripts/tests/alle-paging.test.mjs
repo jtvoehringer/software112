@@ -63,8 +63,7 @@ test('alle() gibt einen Fehler eines Folgeblocks weiter statt still eine Teilmen
 const UMGESTELLT = [
   ['src/app/api/email/poll/route.ts', 'kontakte', 'E-Mails von Adressen ab dem 1.001. Kontakt keinem Kontakt zugeordnet'],
   ['src/app/api/email/poll/route.ts', 'firmen', 'E-Mails ab der 1.001. Firma keiner Firma zugeordnet'],
-  ['src/app/(dashboard)/erntemeldung/[id]/leseKontext.ts', 'kontakte', 'Abnehmer fehlten in der Traubenverkauf-Auswahl'],
-  ['src/app/(dashboard)/erntemeldung/[id]/leseKontext.ts', 'firmen', 'Abnehmer fehlten in der Traubenverkauf-Auswahl'],
+  // leseKontext.ts (Abnehmer-Auswahl): lädt seit 05.10.2026 keine Kontakte/Firmen mehr – Suche, siehe abnehmer-suche.test.mjs
   ['src/app/(dashboard)/buchhaltung/belege/[id]/page.tsx', 'firmen', 'Lieferanten fehlten in Auswahl und Dublettenprüfung'],
   ['src/app/api/buchhaltung/belege/route.ts', 'firmen', 'Lieferanten-Vorschlag fand Firmen ab der 1.001. nicht'],
   ['src/app/(dashboard)/behandlungen/neu/riedOptionen.ts', 'grundstuecke', 'Rieden/GST fehlten im Maßnahmen-Formular'],
