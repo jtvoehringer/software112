@@ -25,6 +25,7 @@ import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
 import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
 import { wienHeute } from '@/lib/csv'
 import { eroeffnungsTag, standardEroeffnungsStichtag, stichtagText } from '@/lib/kellerbuch/eroeffnungsStichtag'
+import { EB_NOTIZEN_HINWEIS } from '@/lib/kellerbuch/chargeRegeln'
 
 export const metadata: Metadata = { title: 'Gebinde – software:112' }
 export const dynamic = 'force-dynamic'
@@ -404,9 +405,9 @@ export default async function GebindePage({
                   <input aria-label="Weinbezeichnung" name="name" required placeholder="z.B. Grüner Veltliner Ried Hohenberg" className={inputCls} />
                 </div>
                 <div>
-                  <label className={labelCls}>Gebinde</label>
-                  <select aria-label="Gebinde" name="behaelter_id" className={inputCls}>
-                    <option value="">– kein –</option>
+                  <label className={labelCls}>Gebinde *</label>
+                  <select aria-label="Gebinde" name="behaelter_id" required className={inputCls}>
+                    <option value="">– bitte wählen –</option>
                     {gebinde.filter(g => g.aktiv && !g.gesperrt).map(g => (
                       <option key={g.id} value={g.id}>{g.anzeigeName}</option>
                     ))}
@@ -432,9 +433,9 @@ export default async function GebindePage({
                     placeholder="z.B. 1,50" className={inputCls} />
                 </div>
                 <div>
-                  <label className={labelCls}>Qualitätsstufe</label>
-                  <select aria-label="Qualitätsstufe" name="qualitaetsstufe" className={inputCls}>
-                    <option value="">– keine –</option>
+                  <label className={labelCls}>Qualitätsstufe *</label>
+                  <select aria-label="Qualitätsstufe" name="qualitaetsstufe" required className={inputCls}>
+                    <option value="">– bitte wählen –</option>
                     {QUALITAETEN.map(q => (
                       <option key={q.value} value={q.value}>{q.label}</option>
                     ))}
@@ -449,6 +450,8 @@ export default async function GebindePage({
                 <div className="sm:col-span-2">
                   <label className={labelCls}>Notizen</label>
                   <input aria-label="Notizen" name="notizen" placeholder="z.B. Herkunft Altsystem …" className={inputCls} />
+                  {/* KAN-204: Mischbestand ohne Jahrgang/Rebsorte/Weinart/Herkunft – Angaben in den Notizen festhalten */}
+                  <p className="text-xs text-s112-muted mt-1">{EB_NOTIZEN_HINWEIS}</p>
                 </div>
                 <div className="sm:col-span-2">
                   <button type="submit" className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">

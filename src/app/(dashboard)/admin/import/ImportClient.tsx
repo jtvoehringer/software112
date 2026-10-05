@@ -13,6 +13,7 @@ import { parseCsv } from '@/lib/import/csvLesen'
 import { wienHeute } from '@/lib/csv'
 import { standardEroeffnungsStichtag } from '@/lib/kellerbuch/eroeffnungsStichtag'
 import EroeffnungImport from './EroeffnungImport'
+import { EB_NOTIZEN_HINWEIS } from '@/lib/kellerbuch/chargeRegeln'
 
 // KAN-42: eroeffnung_tank/eroeffnung_flaschen = Eröffnungsbestand zum Stichtag (eigene Oberfläche, EroeffnungImport.tsx)
 type ImportTyp = 'kontakte' | 'firmen' | 'fuellungen' | 'rieden_details' | 'grundstuecke' | 'gebinde' | 'eroeffnung_tank' | 'eroeffnung_flaschen'
@@ -363,7 +364,7 @@ export default function ImportClient({
               </div>
               <div>
                 <label className={ebLabelCls}>Gebinde</label>
-                <select aria-label="Gebinde" name="behaelter_id" className={ebInputCls}>
+                <select aria-label="Gebinde" name="behaelter_id" required className={ebInputCls}>
                   <option value="">– kein –</option>
                   {gebinde.map((g: R) => (
                     <option key={g.id} value={g.id}>{g.name}</option>
@@ -392,8 +393,8 @@ export default function ImportClient({
               </div>
               <div>
                 <label className={ebLabelCls}>Qualitätsstufe</label>
-                <select aria-label="Qualitätsstufe" name="qualitaetsstufe" className={ebInputCls}>
-                  <option value="">– keine –</option>
+                <select aria-label="Qualitätsstufe" name="qualitaetsstufe" required className={ebInputCls}>
+                  <option value="">– bitte wählen –</option>
                   {QUALITAETEN.map(q => (
                     <option key={q.value} value={q.value}>{q.label}</option>
                   ))}
@@ -408,6 +409,8 @@ export default function ImportClient({
               <div className="sm:col-span-2">
                 <label className={ebLabelCls}>Notizen</label>
                 <input aria-label="Notizen" name="notizen" placeholder="z.B. Herkunft Altsystem …" className={ebInputCls} />
+                  {/* KAN-204: Mischbestand ohne Jahrgang/Rebsorte/Weinart/Herkunft – Angaben in den Notizen festhalten */}
+                  <p className="text-xs text-s112-muted mt-1">{EB_NOTIZEN_HINWEIS}</p>
               </div>
               <div className="sm:col-span-2">
                 <button type="submit" className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">

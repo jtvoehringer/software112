@@ -81,11 +81,10 @@ describe('Manuelle Charge: optionales Mostgewicht', () => {
   })
 
   const actions = quelle('src/app/(dashboard)/kellerbuch/actions.ts')
-  test('createWeinausbau schreibt Messwert und Einheit', () => {
-    const r = rumpf(actions, 'createWeinausbau')
-    assert.match(r, /mostgewichtAusFormular\(formData, 'mostgewicht'\)/)
-    assert.match(r, /if \(!mostgewicht\.ok\) throw new AktionsFehler\(mostgewicht\.fehler\)/)
-    assert.match(r, /\.\.\.mostgewichtSpalten\(mostgewicht\.wert, 'kmw'\)/)
+  // KAN-204: createWeinausbau (ohne Aufrufer) ist entfallen – Chargen entstehen über Pressung, Verschnitt, Zukauf,
+  // Umzug bzw. als Eröffnungsbestand (insertEroeffnungsbestand)
+  test('createWeinausbau entfallen', () => {
+    assert.doesNotMatch(actions, /export async function createWeinausbau/)
   })
   test('updateWeinausbau schreibt nur bei uebermittelt; Qualitätsstufe nur aus dem Formular (DAC bleibt DAC)', () => {
     const r = rumpf(actions, 'updateWeinausbau')
