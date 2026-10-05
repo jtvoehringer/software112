@@ -938,9 +938,10 @@ export default function PressungSection({ jahrgangId, leseId, leseArt, pressunge
                     onDone={() => setEditId(null)} />
                 ) : (
                   <div className={`group border border-s112-border rounded-xl p-3 ${p.storno ? 'text-s112-muted opacity-70' : ''}`}>
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <div>
-                        <div className="flex items-center gap-2">
+                    {/* Kopfzeile bricht um, statt bei langer Qualität („abgestuft von …“) über den rechten Rand zu laufen */}
+                    <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1 mb-2">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className="font-medium text-s112-text text-sm">{fmtDate(p.datum)}</span>
                           {p.weinbezeichnung && (
                             <span className="bg-s112-teal/10 text-s112-blue-700 text-xs font-semibold px-2 py-0.5 rounded-full">
@@ -955,7 +956,7 @@ export default function PressungSection({ jahrgangId, leseId, leseArt, pressunge
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-3 text-xs shrink-0">
+                      <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-xs min-w-0 ml-auto">
                         <span className="text-s112-text-2">{fmt(pKg)} kg</span>
                         {p.most_liter_gesamt && <>
                           <span className="text-s112-tertiary">→</span>
@@ -975,7 +976,7 @@ export default function PressungSection({ jahrgangId, leseId, leseArt, pressunge
                             })()}
                           </span>
                         )}
-                        <span className="flex items-center gap-2">
+                        <span className="flex items-center gap-2 shrink-0">
                           {writeOk && !p.storno && <button onClick={() => setEditId(p.id)} title="Bearbeiten" aria-label="Bearbeiten" className="text-s112-blue-700 hover:text-s112-blue-700/70"><Pencil size={14} /></button>}
                           {/* KAN-148 C1c: stornieren statt löschen – wer Pressungen bearbeiten darf (KAN-166) */}
                           {writeOk && !p.storno && (
