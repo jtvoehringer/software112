@@ -10,7 +10,7 @@ import { notFound } from 'next/navigation'
 import type { Pressung, PressungWG, PressungBeh, WGOption, BehOption, WAOption, ZukaufTraubenOpt, LeseParzelle } from './PressungSection'
 import type { LeseEintrag } from '@/lib/wein/pressungLesedatum'
 import { gstImJahr } from '@/lib/wein/grundstueckAktiv'
-import type { Traubenverkauf, TVWGOption, TVKontaktOption, TVFirmaOption, TVQuelleOption } from './TraubenverkaufSection'
+import type { Traubenverkauf, TVWGOption, TVQuelleOption } from './TraubenverkaufSection'
 import type { AMAMeldung, AMAVersion, ErnteParzelle, GSTOpt, WeingartenOpt } from './page'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { aggregiereJeRebsorte, berechneHektarhoechstertrag, ladeLesedaten, ohneStornierteLese, parzelleFuerMeldung, stichtagHinweis, teileNachStichtag, weinbauflaecheHa, type HektarhoechstertragStatus, type LeseZeile } from '@/lib/behoerden/erntemeldung'
@@ -62,8 +62,6 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
     { data: rawGST },
     { data: rawGstAlle },
     { data: rawTV },
-    { data: rawTVKontakte },
-    { data: rawTVFirmen },
     { betrieb, module },
     { data: rawLesen },
   ] = await Promise.all([
@@ -119,12 +117,8 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
       .select('id, lese_id, storniert_am, storno_grund, storniert_von_name, weingarten_id, grundstueck_id, zukauf_posten_id, kontakt_id, firma_id, datum, menge_kg, preis_per_kg, kmw_grad, oechsle, mostgewicht_einheit, qualitaetsstufe, gesundheit, herkunft_code, notizen, liefernummer, verkaufsposten_id, weingarten:weingarten_id(name), grundstueck:grundstueck_id(gst_nr), kontakt:kontakt_id(vorname, nachname), firma:firma_id(name), verkaufsposten:verkaufsposten_id(rechnungsnummer, storniert)')
       .eq('jahrgang_id', id).order('datum', { ascending: false })),
 
-    // Kontakte + Firmen für Abnehmer-Dropdown – alle(): Gebeshuber hat über 8.000 Kontakte und 4.600 Firmen,
-    // ohne Paging fehlten Abnehmer ab dem 1.001. Namen in der Auswahl und in der Anzeige
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    alle<AR>(tf((supabase.from('kontakte') as any).select('id, vorname, nachname, betrieb_nr').order('nachname').order('id'))),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    alle<AR>(tf((supabase.from('firmen') as any).select('id, name, betrieb_nr').order('name').order('id'))),
+    // Kontakte + Firmen für den Abnehmer lädt das Formular seit 05.10.2026 per Suche (PartnerSuche, /api/crm/suche) –
+    // vorher alle 8.290 Kontakte und 4.652 Firmen (Gebeshuber) als Auswahlliste bei jedem Aufruf der Jahrgangsseite
 
     // Betriebsname (Druckkopf) und Modul-Schalter (CSV-Knöpfe nach derselben Regel wie die CSV-Route)
     betriebUndModuleLaden(supabase, tenantId),
@@ -461,13 +455,6 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
       }),
   ]
 
-  const tvKontaktOptions: TVKontaktOption[] = ((rawTVKontakte ?? []) as AR[]).map((k: AR) => ({
-    id: k.id, name: `${k.vorname ?? ''} ${k.nachname ?? ''}`.trim(), betrieb_nr: k.betrieb_nr ?? null,
-  }))
-  const tvFirmaOptions: TVFirmaOption[] = ((rawTVFirmen ?? []) as AR[]).map((f: AR) => ({
-    id: f.id, name: f.name, betrieb_nr: f.betrieb_nr ?? null,
-  }))
-
   // Lese-Orte für das Pressungs-Formular: eine Zeile je (Ried, Grundstück). Ein GST kann mehrere Lese-Einträge haben
   // (z. B. Kabinett + Spätlese) – dann der Eintrag, dessen Menge der verfügbaren Restmenge am nächsten liegt.
   const bestByKey = new Map<string, ErnteParzelle>()
@@ -500,7 +487,7 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
     alleParzellen, parzellen, nachStichtag, weingaerten, gstByWeingarten, amaMeldung, hektarhoechstertrag,
     pressungen, wgOptions, behOptions, waOptions, verfuegbareKg, verfuegbareKgByGST, zukaufTrauben, behaelterMitCharge,
     leseParzellen, leseEintraege,
-    verkauefe, tvQuelleOptions, tvKontaktOptions, tvFirmaOptions,
+    verkauefe, tvQuelleOptions,
   }
 }
 

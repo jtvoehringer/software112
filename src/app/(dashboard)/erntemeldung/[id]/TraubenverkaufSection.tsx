@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { Pencil } from 'lucide-react'
 import { createTraubenverkauf, updateTraubenverkauf, stornoTraubenverkauf, endgueltigLoeschenLese } from '../actions'
 import StornoButton from '@/components/StornoButton'
+import PartnerSuche from '@/components/crm/PartnerSuche'
 import StornierteUmschalter from '@/components/StornierteUmschalter'
 import type { ZukaufTraubenOpt } from './PressungSection'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
@@ -54,8 +55,6 @@ export type Traubenverkauf = {
   storno?: { am: string; von: string | null; grund: string | null } | null
 }
 export type TVWGOption = { id: string; name: string; herkunft_code: string | null }
-export type TVKontaktOption = { id: string; name: string; betrieb_nr: string | null }
-export type TVFirmaOption  = { id: string; name: string; betrieb_nr: string | null }
 // Quelle "eigene Ernte" – pro GST (falls die Lese GST-genau erfasst wurde) oder
 // pro Weingarten (Fallback, wenn für diesen Weingarten gar keine GST-Zuordnung
 // existiert). compositeId kodiert, welcher Fall vorliegt: "gst:<id>" / "wg:<id>".
@@ -83,15 +82,13 @@ const fmtDate = (d: string) =>
 
 // ── Formular ──────────────────────────────────────────────────────────────────
 
-function TVForm({ jahrgangId, leseId, tv, quelleOptions, zukaufOptions, kontaktOptions, firmaOptions, onDone }: {
+function TVForm({ jahrgangId, leseId, tv, quelleOptions, zukaufOptions, onDone }: {
   jahrgangId: string
   /** KAN-129: gewählte Lese (Reiter) – ein neuer Verkauf aus eigener Ernte landet in ihr */
   leseId: string | null
   tv?: Traubenverkauf
   quelleOptions: TVQuelleOption[]
   zukaufOptions: ZukaufTraubenOpt[]
-  kontaktOptions: TVKontaktOption[]
-  firmaOptions: TVFirmaOption[]
   onDone: () => void
 }) {
   // Quelle: eigene Ernte (Ried/GST) oder zugekaufte Trauben (siehe Migration 141)
@@ -344,20 +341,11 @@ function TVForm({ jahrgangId, leseId, tv, quelleOptions, zukaufOptions, kontaktO
             Privatperson
           </button>
         </div>
+        {/* Suche statt Auswahlliste (05.10.2026): Gebeshuber hat 8.290 Kontakte und 4.652 Firmen */}
         {buyerType === 'firma' ? (
-          <select value={firmaId} onChange={e => setFirma(e.target.value)} className={inp}>
-            <option value="">– Firma wählen –</option>
-            {firmaOptions.map(f => (
-              <option key={f.id} value={f.id}>{f.name}{f.betrieb_nr ? ` (Betr.Nr. ${f.betrieb_nr})` : ''}</option>
-            ))}
-          </select>
+          <PartnerSuche art="firma" value={firmaId} onChange={id => setFirma(id)} placeholder="Firma suchen (Name, Ort, Kundennr.) …" />
         ) : (
-          <select value={kontaktId} onChange={e => setKontakt(e.target.value)} className={inp}>
-            <option value="">– Kontakt wählen –</option>
-            {kontaktOptions.map(k => (
-              <option key={k.id} value={k.id}>{k.name}{k.betrieb_nr ? ` (Betr.Nr. ${k.betrieb_nr})` : ''}</option>
-            ))}
-          </select>
+          <PartnerSuche art="kontakt" value={kontaktId} onChange={id => setKontakt(id)} placeholder="Person suchen (Name, Ort, Kundennr.) …" />
         )}
       </div>
 
@@ -397,7 +385,7 @@ function TVForm({ jahrgangId, leseId, tv, quelleOptions, zukaufOptions, kontaktO
 // ── Hauptexport ───────────────────────────────────────────────────────────────
 
 export default function TraubenverkaufSection({
-  jahrgangId, leseId, jahrgang, bkiErlaubt, verkauefe, quelleOptions, zukaufOptions, kontaktOptions, firmaOptions, writeOk,
+  jahrgangId, leseId, jahrgang, bkiErlaubt, verkauefe, quelleOptions, zukaufOptions, writeOk,
 }: {
   jahrgangId: string
   /** KAN-129: gewählte Lese (Reiter der Jahrgangsseite) */
@@ -409,8 +397,6 @@ export default function TraubenverkaufSection({
   verkauefe: Traubenverkauf[]
   quelleOptions: TVQuelleOption[]
   zukaufOptions: ZukaufTraubenOpt[]
-  kontaktOptions: TVKontaktOption[]
-  firmaOptions: TVFirmaOption[]
   writeOk: boolean; adminOk: boolean
 }) {
   const [showForm, setShowForm] = useState(false)
@@ -484,7 +470,6 @@ export default function TraubenverkaufSection({
 
       {showForm && !editId && (
         <TVForm jahrgangId={jahrgangId} leseId={leseId} quelleOptions={quelleOptions} zukaufOptions={zukaufOptions}
-          kontaktOptions={kontaktOptions} firmaOptions={firmaOptions}
           onDone={() => setShowForm(false)} />
       )}
 
@@ -499,7 +484,6 @@ export default function TraubenverkaufSection({
             <div key={v.id}>
               {editId === v.id ? (
                 <TVForm tv={v} jahrgangId={jahrgangId} leseId={leseId} quelleOptions={quelleOptions} zukaufOptions={zukaufOptions}
-                  kontaktOptions={kontaktOptions} firmaOptions={firmaOptions}
                   onDone={() => setEditId(null)} />
               ) : (
                 <div className={`group border border-s112-border rounded-xl p-3 ${v.storno ? 'text-s112-muted opacity-70' : ''}`}>

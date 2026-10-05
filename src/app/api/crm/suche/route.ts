@@ -3,6 +3,7 @@ import { getCurrentMembership } from '@/lib/auth/roles'
 import { NextRequest, NextResponse } from 'next/server'
 import type { PartnerTreffer } from '@/components/crm/PartnerSuche'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { suchWoerter } from '@/lib/crm/liste'
 
 // Serverseitige Namenssuche für Auswahlfelder (17.9.2026):
 //   /api/crm/suche?art=kontakt|firma|kunde|lieferant&q=<text>
@@ -39,14 +40,17 @@ function konditionen(typ: 'kontakt' | 'firma', r: R) {
   }
 }
 
-const K_SPALTEN = 'id, vorname, nachname, ort, accountnummer, firma_id, sonderrabatt_pct, skonto_pct, skonto_tage, rabattgruppe:rabattgruppe_id(rabatt_pct)'
-const F_SPALTEN = 'id, name, ort, accountnummer, ist_kunde, ist_lieferant, sonderrabatt_pct, skonto_pct, skonto_tage, rabattgruppe:rabattgruppe_id(rabatt_pct)'
+const K_SPALTEN = 'id, vorname, nachname, ort, accountnummer, betrieb_nr, firma_id, sonderrabatt_pct, skonto_pct, skonto_tage, rabattgruppe:rabattgruppe_id(rabatt_pct)'
+const F_SPALTEN = 'id, name, ort, accountnummer, betrieb_nr, ist_kunde, ist_lieferant, sonderrabatt_pct, skonto_pct, skonto_tage, rabattgruppe:rabattgruppe_id(rabatt_pct)'
+
+// Betriebsnummer (BKI-Empfänger beim Traubenverkauf) – stand bis 05.10.2026 in der Auswahlliste der Abnehmer
+const betrNr = (r: R) => (r.betrieb_nr ? `Betr.Nr. ${r.betrieb_nr}` : null)
 
 function kontaktTreffer(k: R, praefix = ''): SucheTreffer {
   return {
     id: praefix + k.id,
     label: [k.vorname, k.nachname].filter(Boolean).join(' '),
-    sub: [praefix ? 'Person' : null, k.accountnummer, k.ort].filter(Boolean).join(' · ') || undefined,
+    sub: [praefix ? 'Person' : null, k.accountnummer, k.ort, betrNr(k)].filter(Boolean).join(' · ') || undefined,
     daten: konditionen('kontakt', k),
   }
 }
@@ -54,7 +58,7 @@ function firmaTreffer(f: R, praefix = ''): SucheTreffer {
   return {
     id: praefix + f.id,
     label: f.name,
-    sub: [praefix ? 'Firma' : null, f.accountnummer, f.ort].filter(Boolean).join(' · ') || undefined,
+    sub: [praefix ? 'Firma' : null, f.accountnummer, f.ort, betrNr(f)].filter(Boolean).join(' · ') || undefined,
     daten: konditionen('firma', f),
   }
 }
@@ -106,25 +110,27 @@ export async function GET(req: NextRequest) {
   }
 
   const kontakteAbfrage = (ids: string[], nurFirma: string | null) => {
-    let query = (supabase.from('kontakte') as any).select(K_SPALTEN).eq('tenant_id', tenantId).eq('aktiv', true)
-    if (ids.length) query = query.in('id', ids)
+    let query = (supabase.from('kontakte') as any).select(K_SPALTEN).eq('tenant_id', tenantId)
+    if (ids.length) query = query.in('id', ids)   // Vorbelegung: auch inaktive (gespeicherter Partner zeigt sonst nur „…“)
     else {
+      query = query.eq('aktiv', true)
       if (nurFirma) query = query.eq('firma_id', nurFirma)
       // Mehrere Wörter: jedes Wort muss in Vor-/Nachname/Ort/Accountnummer/E-Mail vorkommen
-      for (const w of q.split(/\s+/).filter(Boolean).slice(0, 4)) {
+      for (const w of suchWoerter(q)) {
         query = query.or(`nachname.ilike.%${w}%,vorname.ilike.%${w}%,accountnummer.ilike.%${w}%,ort.ilike.%${w}%,email.ilike.%${w}%`)
       }
     }
     return query.order('nachname').order('vorname').limit(30)
   }
   const firmenAbfrage = (ids: string[], rolle: 'kunde' | 'lieferant' | null) => {
-    let query = (supabase.from('firmen') as any).select(F_SPALTEN).eq('tenant_id', tenantId).eq('aktiv', true)
-    if (ids.length) query = query.in('id', ids)
+    let query = (supabase.from('firmen') as any).select(F_SPALTEN).eq('tenant_id', tenantId)
+    if (ids.length) query = query.in('id', ids)   // Vorbelegung: auch inaktive, siehe kontakteAbfrage
     else {
+      query = query.eq('aktiv', true)
       // ist_kunde: Altdaten vor Migration 167 können null sein → zählt als Kunde
       if (rolle === 'kunde') query = query.or('ist_kunde.is.null,ist_kunde.eq.true')
       if (rolle === 'lieferant') query = query.eq('ist_lieferant', true)
-      if (q) query = query.or(`name.ilike.%${q}%,accountnummer.ilike.%${q}%,ort.ilike.%${q}%`)
+      for (const w of suchWoerter(q)) query = query.or(`name.ilike.%${w}%,accountnummer.ilike.%${w}%,ort.ilike.%${w}%`)
     }
     return query.order('name').limit(30)
   }
