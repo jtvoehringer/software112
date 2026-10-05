@@ -10,6 +10,7 @@ import { POSITION_MAX, QUELLE_MAX, bereinigterText } from '@/lib/crm/liste'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
+import { alle } from '@/lib/supabase/alle'
 export const dynamic = 'force-dynamic'
 // Große Importe (Dynamics-Leads 3.9.2026: 4.200 Firmen / 7.900 Kontakte) kommen
 // vom Client in Blöcken (siehe ImportClient.tsx, IMPORT_BLOCKGROESSE) - ein
@@ -222,17 +223,18 @@ export async function POST(req: NextRequest) {
     const kundenEmailSet = new Set<string>()
     if (leadImport && (typ === 'kontakte' || typ === 'firmen')) {
       if (typ === 'kontakte') {
-        const { data: bestehende } = await (supabase.from('kontakte') as any)
-          .select('vorname, nachname, email')
-          .eq('tenant_id', tenantId).eq('aktiv', true).eq('is_lead', false)
+        // alle(): seitenweise – sonst nur die ersten 1.000 Zeilen (Fix 05.10.2026, siehe findFirmaId)
+        const { data: bestehende } = await alle((supabase.from('kontakte') as any)
+          .select('id, vorname, nachname, email')
+          .eq('tenant_id', tenantId).eq('aktiv', true).eq('is_lead', false).order('id'))
         for (const k of (bestehende ?? []) as R[]) {
           kundenNameSet.add(normName([k.vorname, k.nachname].filter(Boolean).join(' ')))
           if (k.email) kundenEmailSet.add(normName(k.email))
         }
       } else {
-        const { data: bestehende } = await (supabase.from('firmen') as any)
-          .select('name, email')
-          .eq('tenant_id', tenantId).eq('aktiv', true).eq('is_lead', false)
+        const { data: bestehende } = await alle((supabase.from('firmen') as any)
+          .select('id, name, email')
+          .eq('tenant_id', tenantId).eq('aktiv', true).eq('is_lead', false).order('id'))
         for (const f of (bestehende ?? []) as R[]) {
           kundenNameSet.add(normName(f.name))
           if (f.email) kundenEmailSet.add(normName(f.email))
@@ -251,11 +253,15 @@ export async function POST(req: NextRequest) {
     // Mandanten einmal laden statt pro Zeile abzufragen; Schlüssel = Name
     // normalisiert (trim, lowercase, Mehrfach-Leerzeichen).
     let firmenIndex: Map<string, string> | null = null
+    // Fix 05.10.2026: ALLE Firmen seitenweise (alle()) – vorher lieferte die Abfrage nur die ersten 1.000 Zeilen, beim
+    // Dynamics-Import Gebeshuber (4.652 Firmen) blieben so 4.164 Kontakte ohne Firma („nicht zugeordnet“). Ein Fehler beim
+    // Laden bricht den Import ab, statt still nichts zuzuordnen.
     async function findFirmaId(name: string): Promise<string | null> {
       if (!firmenIndex) {
         firmenIndex = new Map()
-        const { data } = await (supabase.from('firmen') as any)
-          .select('id, name').eq('tenant_id', tenantId)
+        const { data, error } = await alle((supabase.from('firmen') as any)
+          .select('id, name').eq('tenant_id', tenantId).order('id'))
+        if (error) throw new Error(`Firmen für die Zuordnung konnten nicht geladen werden: ${error.message}`)
         for (const f of (data ?? []) as R[]) {
           const key = normName(f.name)
           if (key && !firmenIndex.has(key)) firmenIndex.set(key, f.id as string)
