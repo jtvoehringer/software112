@@ -52,6 +52,7 @@ const GROSSE_TABELLEN = [
   'zukauf_posten', 'traubenverkauf', 'keller_umzuege', 'keller_behandlungen', 'weinanalysen', 'verschneidungen',
   'verschneidung_quellen', 'pressungen', 'pressung_behaelter', 'pressung_weingaerten', 'ernte_parzellen',
   'dac_antrag', 'pruefnummer_chargen', 'elabels',   // KAN-216: je Füllung
+  'keller_verarbeitungen',   // KAN-41 Paket 3a
 ]
 
 const IGNORE_DIRS = new Set(['node_modules', '.next', '.git', '_to_delete'])

@@ -171,7 +171,7 @@ export async function spaetereMengenbewegungen(
   const ohneZeilen = new Set(ohne.umzugZeilenIds ?? [])
   const id = weinausbauId
 
-  const [umz, vQuellen, vZiel, fChargen, fDirekt, tank, zukauf] = await Promise.all([
+  const [umz, vQuellen, vZiel, fChargen, fDirekt, tank, zukauf, verarb] = await Promise.all([
     (supabase.from('keller_umzuege') as any)
       .select('id, umzug_batch_id, umzug_typ, erstellt_am')
       .or(`von_weinausbau_id.eq.${id},nach_weinausbau_id.eq.${id}`)
@@ -206,6 +206,12 @@ export async function spaetereMengenbewegungen(
       .eq('ziel_weinausbau_id', id)
       .eq('aktiv', true)
       .eq('tenant_id', tenantId),
+    // KAN-41 Paket 3a: Verarbeitung (AB_VERAR) mindert die Charge
+    (supabase.from('keller_verarbeitungen') as R)
+      .select('id, erstellt_am')
+      .eq('weinausbau_id', id)
+      .eq('tenant_id', tenantId)
+      .is('storniert_am', null),
   ])
 
   const umzugKeys = new Set<string>()
@@ -238,6 +244,7 @@ export async function spaetereMengenbewegungen(
   }
 
   const zukaufAnzahl = zeilen('zukauf_posten', zukauf).filter(z => spaeter(z.erstellt_am)).length
+  const verarbeitungAnzahl = zeilen('keller_verarbeitungen', verarb).filter(v => spaeter(v.erstellt_am)).length
 
   const werte: [FolgebuchungArt, number][] = [
     ['umzug', umzugKeys.size],
@@ -247,6 +254,7 @@ export async function spaetereMengenbewegungen(
     ['fuellung', fuellungIds.size],
     ['tankverkauf', tankIds.size],
     ['zukauf_ziel', zukaufAnzahl],
+    ['verarbeitung', verarbeitungAnzahl],
   ]
   return werte.filter(([, n]) => n > 0).map(([art, anzahl]) => ({ art, anzahl }))
 }

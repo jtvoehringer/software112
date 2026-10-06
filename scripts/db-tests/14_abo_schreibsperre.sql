@@ -90,7 +90,7 @@ DECLARE
   -- Schreibende SECURITY-DEFINER-RPCs mit s112_pruefe_abo_schreibsperre (Soll-Liste; s112_zukauf_buchen seit KAN-193; s112_verschnitt_buchen/s112_verschnitte_buchen seit KAN-112; s112_betriebsmittel_einkauf/_stornieren seit KAN-167; s112_herkunft_setzen seit KAN-150 F1d; s112_kontakt_historie_zu_firma seit KAN-150 F1c; s112_fuellung_verkauf_buchen seit KAN-149 D1; s112_ea_/zahlung_/umbuchung_stornieren seit D2; s112_storniert_loeschen seit KAN-145 (s112_buchung_loeschen von KAN-166 entfällt seit KAN-88), s112_pressung_stornieren/_zeilen_stornieren, s112_mostzeile_anlegen, s112_pressung_anlegen seit KAN-148, s112_ama_* seit KAN-148 C2, s112_ama_einreichen seit KAN-37 B, journal_eroeffnen/journal_abgleichen seit KAN-40, s112_pruefnummernantrag_status_setzen seit KAN-97, s112_fuellung_nachtragen seit KAN-101, s112_charge_abstufen seit KAN-82).
   c_abo_rpcs  constant text[] := ARRAY['fuellung_bestand_buchen', 'get_next_accountnummer', 'get_next_chargennummer',
                                        'get_next_liefernummer', 'get_next_personenkonto', 'get_next_rechnungsnummer',   -- KAN-21: rechnungsnummer nur noch Service-Role (Prüfung bleibt)
-                                       'get_next_transaktionsnr', 'journal_abgleichen', 'journal_eroeffnen', 'kellerbuch_abschliessen', 'kontakte_zusammenfuehren', 's112_ama_einreichen', 's112_ama_korrektur_anlegen', 's112_ama_meldung_speichern', 's112_ama_status_setzen', 's112_betriebsmittel_einkauf', 's112_betriebsmittel_stornieren', 's112_charge_abstufen', 's112_charge_status_setzen', 's112_ea_stornieren', 's112_freeze_korrektur', 's112_fuellung_nachtragen', 's112_fuellung_verkauf_buchen', 's112_herkunft_setzen', 's112_kontakt_historie_zu_firma', 's112_mostzeile_anlegen', 's112_pressung_anlegen', 's112_pressung_stornieren', 's112_pressung_zeilen_stornieren', 's112_pruefnummernantrag_status_setzen', 's112_storniert_loeschen', 's112_umbuchung_stornieren', 's112_verschnitt_buchen', 's112_verschnitte_buchen', 's112_zahlung_stornieren', 's112_zukauf_buchen', 'schwund_buchen',
+                                       'get_next_transaktionsnr', 'journal_abgleichen', 'journal_eroeffnen', 'kellerbuch_abschliessen', 'kontakte_zusammenfuehren', 's112_ama_einreichen', 's112_ama_korrektur_anlegen', 's112_ama_meldung_speichern', 's112_ama_status_setzen', 's112_betriebsmittel_einkauf', 's112_betriebsmittel_stornieren', 's112_charge_abstufen', 's112_charge_status_setzen', 's112_ea_stornieren', 's112_freeze_korrektur', 's112_fuellung_nachtragen', 's112_fuellung_verkauf_buchen', 's112_herkunft_setzen', 's112_kontakt_historie_zu_firma', 's112_mostzeile_anlegen', 's112_pressung_anlegen', 's112_pressung_stornieren', 's112_pressung_zeilen_stornieren', 's112_pruefnummernantrag_status_setzen', 's112_storniert_loeschen', 's112_umbuchung_stornieren', 's112_verarbeitung_buchen', 's112_verarbeitung_stornieren', 's112_verschnitt_buchen', 's112_verschnitte_buchen', 's112_zahlung_stornieren', 's112_zukauf_buchen', 'schwund_buchen',
                                        'setze_kontobewegung_abgeglichen', 'sperre_ea_monat', 'sperre_ea_uva'];
   -- Tabellen, deren Policies auth.uid() gegen eine Eigentümerspalte prüfen (wie t12_pro_persona in Datei 12)
   c_eigentuemer constant text[] := ARRAY['assistent_unterhaltungen', 'assistent_aktionen', 'assistent_nachrichten',
@@ -142,6 +142,7 @@ DECLARE
   v_frz       uuid;   -- KAN-96: Zeile der Freeze-Testtabelle
   v_dac       uuid;   -- KAN-97: Prüfnummernantrag im Entwurf
   v_kb        uuid;
+  v_kv        uuid;   -- KAN-41 Paket 3a: Verarbeitung in B
   v_pr        uuid;
   v_pr_jg     uuid;
   v_ama_jg    uuid;   -- KAN-148 C2: Jahrgang mit eingereichter Meldung (Korrektur)
@@ -235,6 +236,8 @@ BEGIN
   v_dac := (pg_temp.s112_beispiel('dac_antrag', v_b, v_bw) ->> 'id')::uuid;   -- KAN-97
   v_kb := (pg_temp.s112_beispiel('keller_behandlungen', v_b, v_bw,
     '{"storniert_am": "2026-09-30T10:00:00Z", "storno_grund": "S112TEST storniert"}') ->> 'id')::uuid;   -- KAN-145
+  v_kv := (pg_temp.s112_beispiel('keller_verarbeitungen', v_b, NULL, jsonb_build_object('weinausbau_id', v_wa, 'datum', current_date,
+    'menge_liter', 1, 'zweck', 'essig', 'storniert_am', NULL)) ->> 'id')::uuid;   -- KAN-41 Paket 3a
   v_pl := (pg_temp.s112_beispiel('psm_lager_bewegungen', v_b, v_bw) ->> 'id')::uuid;   -- KAN-166
   v_fz_b := (pg_temp.s112_beispiel('fuellungen', v_b, v_bw) ->> 'id')::uuid;   -- KAN-149 D1
   v_ea_b := (pg_temp.s112_beispiel('ea_transaktionen', v_b, v_bw, jsonb_build_object('datum', current_date)) ->> 'id')::uuid;   -- KAN-149 D2
@@ -504,6 +507,8 @@ BEGIN
     'setze_kontobewegung_abgeglichen', format('SELECT public.setze_kontobewegung_abgeglichen(%L, %L, %L, true)', v_b, 'ea_transaktion', v_eatx),
     's112_fuellung_nachtragen', format('SELECT public.s112_fuellung_nachtragen(%L, %L, %L, NULL)', v_b, v_fz_b, v_wa),   -- KAN-101 (Charge nachtragen)
     's112_charge_status_setzen', format('SELECT public.s112_charge_status_setzen(%L, %L, %L, current_date)', v_b, v_wa, 'abfuellung'),   -- KAN-41
+    's112_verarbeitung_buchen', format('SELECT public.s112_verarbeitung_buchen(%L, %L, current_date, 1, %L, NULL)', v_b, v_wa, 'essig'),   -- KAN-41 Paket 3a
+    's112_verarbeitung_stornieren', format('SELECT public.s112_verarbeitung_stornieren(%L, %L, %L)', v_b, v_kv, 'S112TEST Storno Verarbeitung'),   -- KAN-41 Paket 3a
     's112_charge_abstufen', format('SELECT public.s112_charge_abstufen(%L, %L, current_date, %L::jsonb, %L)', v_b, v_wa, '{"qualitaetsstufe": "wein"}', 'S112TEST Abstufung Grund'),   -- KAN-82
     's112_pruefnummernantrag_status_setzen', format('SELECT public.s112_pruefnummernantrag_status_setzen(%L, %L, %L, current_date, NULL, NULL)', v_b, v_dac, 'eingereicht'),   -- KAN-97
     's112_freeze_korrektur', format('SELECT public.s112_freeze_korrektur(%L, %L, %L, %L::jsonb, %L)', v_b, 's112test_freeze', v_frz, '{"betrag": 2}', 'S112TEST Korrektur'),
