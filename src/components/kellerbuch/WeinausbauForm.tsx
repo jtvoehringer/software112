@@ -10,6 +10,8 @@ import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum, dezimal } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
 import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
+import { istMostStatus, statusWechselBuchungsrelevant } from '@/lib/kellerbuch/chargeStatus'
+import { wienHeute } from '@/lib/csv'
 import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
 import GesperrtHinweis from '@/components/GesperrtHinweis'
 import Link from '@/components/ui/Link'
@@ -67,6 +69,7 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
   const [saving, setSaving] = useState(false)
   const [selWg, setSelWg] = useState<Set<string>>(new Set(selectedWeingaertenIds))
   const [wgOpen, setWgOpen] = useState(false)
+  const [status, setStatus] = useState<string>(weinausbau?.status ?? 'ernte')
   const herkunftGeaendert = selWg.size !== selectedWeingaertenIds.length || selectedWeingaertenIds.some(x => !selWg.has(x))
 
   function toggleWg(id: string) {
@@ -237,13 +240,24 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
           </div>
           <div>
             <label className="form-label">Status</label>
-            <select aria-label="Status" name="status" defaultValue={weinausbau?.status ?? 'ernte'} className="form-input">
+            <select aria-label="Status" name="status" value={status} onChange={e => setStatus(e.target.value)} className="form-input">
               <option value="ernte">Ernte</option>
               <option value="gaerung">Gärung</option>
               <option value="ausbau">Ausbau</option>
               <option value="abfuellung">Abfüllung</option>
               <option value="abgeschlossen">Abgeschlossen</option>
             </select>
+            {/* KAN-41: Wechsel Most ↔ Wein wird im Kellerbuch-Journal (Bestandsmeldung) zu diesem Tag gebucht */}
+            {weinausbau && statusWechselBuchungsrelevant(weinausbau.status, status) && (
+              <div className="mt-2">
+                <label htmlFor="status_datum" className="form-label">
+                  {istMostStatus(status) ? 'Wieder Most/Sturm seit' : 'Wein seit (Datum des Statuswechsels)'}
+                </label>
+                <input id="status_datum" type="date" name="status_datum" defaultValue={wienHeute()}
+                  max={wienHeute()} className="form-input" />
+                <p className="text-xs text-s112-muted mt-1">Wird in der Bestandsmeldung als Umstufung Most → Wein zu diesem Tag gebucht.</p>
+              </div>
+            )}
           </div>
         </div>
 

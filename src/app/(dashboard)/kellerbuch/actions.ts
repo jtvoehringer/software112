@@ -28,6 +28,7 @@ import { umziehen } from './umziehen/actions'
 import { chargePflichtFehler, chargePnSperre, chargePnSperreText, NUR_ABSTUFEN_MELDUNG } from '@/lib/kellerbuch/chargeRegeln'
 import { behandlungCharge, behandlungMengeFehler, behandlungPnGesperrt, neuerTypWirkungFehler, BEHANDLUNG_FELDNAMEN, type PnGueltigkeit } from '@/lib/kellerbuch/behandlungRegeln'
 import { freezeSperreAus, sperrMeldung } from '@/lib/freeze/sperre'
+import { statusDatumFehler, statusWechselBuchungsrelevant } from '@/lib/kellerbuch/chargeStatus'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -413,6 +414,20 @@ export async function updateWeinausbau(id: string, formData: FormData): Promise<
       })
       payload.behaelter_id = neuesGebinde
     }
+  }
+
+  // KAN-41: Wechsel Most ↔ Wein datiert über die RPC (Journal-Umstufungspaar an diesem Tag); andere Statuswechsel
+  // bleiben eine einfache Änderung ohne Buchung
+  if (statusWechselBuchungsrelevant(alt.status as string | null, neuStatus)) {
+    const statusDatum = ((formData.get('status_datum') as string | null) ?? '').trim()
+    const datumFehler = statusDatumFehler(statusDatum, wienHeute())
+    if (datumFehler) throw new AktionsFehler(datumFehler)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: stErr } = await (supabase as any).rpc('s112_charge_status_setzen', {
+      p_tenant_id: tenantId, p_weinausbau_id: id, p_status: neuStatus, p_datum: statusDatum || wienHeute(),
+    })
+    if (stErr) throw new AktionsFehler(dbFehlerText(stErr, 'Statuswechsel konnte nicht gebucht werden'))
+    delete payload.status
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

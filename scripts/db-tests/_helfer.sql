@@ -1211,6 +1211,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('trigger',       '--S', false, 's112_behandlung_erfassung()'),   -- KAN-87: erfasst am/von stempeln, Anwender = Mitglied
     ('trigger',       '--S', false, 's112_pn_workflow_schutz()'),
     ('trigger',       '--S', false, 's112_pn_chargen_pflegen()'),   -- KAN-99: Gültigkeit je Charge (Einreichen, Umzug, Zugang, Storno)   -- KAN-97: Status nur per RPC, Formular nur zum Entwurf
+    ('mandant',       '-US', true , 's112_charge_status_setzen(p_tenant_id uuid, p_weinausbau_id uuid, p_status text, p_datum date)'),   -- KAN-41: datierter Statuswechsel Most ↔ Wein
     ('mandant',       '-US', true , 's112_charge_abstufen(p_tenant_id uuid, p_weinausbau_id uuid, p_datum date, p_neu jsonb, p_grund text, p_quelle_weinausbau_id uuid)'),   -- KAN-82: Charge abstufen (Datum, Grund, Protokoll)
     ('mandant',       '-US', true , 's112_fuellung_nachtragen(p_tenant_id uuid, p_fuellung_id uuid, p_weinausbau_id uuid, p_dac_antrag_id uuid)'),   -- KAN-101: Charge/DAC-Antrag/Prüfnummer einmal nachtragen
     ('mandant',       '-US', true , 's112_pruefnummernantrag_status_setzen(p_tenant_id uuid, p_antrag_id uuid, p_status text, p_datum date, p_pruefnummer text, p_grund text)'),   -- KAN-97: Statuswechsel
