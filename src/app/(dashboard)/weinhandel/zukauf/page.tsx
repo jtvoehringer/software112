@@ -9,6 +9,8 @@ import StopPropagation from '@/components/ui/StopPropagation'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtEur, fmtNum } from '@/lib/format'
 import { gstImJahr } from '@/lib/wein/grundstueckAktiv'
+import { listeTrifft, tbsText } from '@/lib/handel/tbsNummer'
+import ListenSuche from '@/components/ui/ListenSuche'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,7 +32,7 @@ const TRAUBENZUKAUFSGRENZE_KG_HA = 1500
 export default async function ZukaufPage({
   searchParams,
 }: {
-  searchParams: { zjahr?: string }
+  searchParams: { zjahr?: string; q?: string }
 }) {
   const supabase = await createSupabaseServerClient()
   const role     = await getCurrentUserRole()
@@ -39,12 +41,13 @@ export default async function ZukaufPage({
 
   const sp    = await searchParams
   const zjahr = parseInt(sp.zjahr ?? '') || new Date().getFullYear()
+  const q     = (sp.q ?? '').trim()
   const tenantId = membership?.tenantId ?? null
 
   const { data } = await alle((supabase.from('zukauf_posten') as any)
     .select(`
       id, datum, art, menge, einheit, preis_gesamt, rebsorte, jahrgang, notizen,
-      eingangsrechnungsnummer,
+      eingangsrechnungsnummer, tbs_nummer_lieferant, tbs_jahr_lieferant,
       lieferant_kontakt:kontakte!lieferant_kontakt_id(id, vorname, nachname),
       lieferant_firma:firmen!lieferant_firma_id(id, name),
       ziel_weinausbau:weinausbau!ziel_weinausbau_id(id, name, behaelter:behaelter!behaelter_id(id, name))
@@ -53,7 +56,14 @@ export default async function ZukaufPage({
     .eq('tenant_id', tenantId ?? '')
     .order('datum', { ascending: false }).order('id'))
 
-  const posten = (data ?? []) as R[]
+  const allePosten = (data ?? []) as R[]
+  // KAN-90: Suche nach TBS-Nr. des Lieferanten (genau bzw. Nr./Jahr), Belegnr., Lieferant, Rebsorte
+  const posten = q
+    ? allePosten.filter(p => listeTrifft(q, { nummer: p.tbs_nummer_lieferant, jahr: p.tbs_jahr_lieferant }, [
+        p.eingangsrechnungsnummer, p.rebsorte, p.lieferant_firma?.name,
+        [p.lieferant_kontakt?.vorname, p.lieferant_kontakt?.nachname].filter(Boolean).join(' '),
+      ]))
+    : allePosten
 
   // ── Traubenzukaufsgrenze (nur Weinproduzenten) ───────────────────────────
   // "Weinproduzent" wird – wie an anderer Stelle im Admin-Bereich (Standard-
@@ -139,7 +149,14 @@ export default async function ZukaufPage({
         </div>
       )}
 
-      {posten.length === 0 ? (
+      {allePosten.length > 0 && (
+        <ListenSuche q={q} pfad="/weinhandel/zukauf" behalten={{ zjahr: sp.zjahr }}
+          platzhalter="TBS-Nr. (z. B. 1234/2026), Belegnr., Lieferant, Rebsorte…" />
+      )}
+
+      {q && posten.length === 0 ? (
+        <div className="card p-10 text-center text-s112-muted text-sm">Kein Zukauf passt zu „{q}“.</div>
+      ) : posten.length === 0 ? (
         <div className="card p-10 text-center text-s112-muted text-sm">
           <p className="font-medium">Noch keine Zukäufe erfasst</p>
           <p className="mt-1">Erfasse zugekauften Wein, Trauben oder Traubenmost.</p>
@@ -156,7 +173,7 @@ export default async function ZukaufPage({
             <thead>
               <tr className="border-b border-s112-border bg-s112-bg text-left">
                 <th className="px-4 py-3 text-xs font-semibold text-s112-text-2">Datum</th>
-                <th className="px-4 py-3 text-xs font-semibold text-s112-text-2">Belegnr.</th>
+                <th className="px-4 py-3 text-xs font-semibold text-s112-text-2">Belegnr. / TBS-Nr.</th>
                 <th className="px-4 py-3 text-xs font-semibold text-s112-text-2">Art</th>
                 <th className="px-4 py-3 text-xs font-semibold text-s112-text-2">Lieferant</th>
                 <th className="px-4 py-3 text-xs font-semibold text-s112-text-2">Rebsorte / Jg.</th>
@@ -180,6 +197,9 @@ export default async function ZukaufPage({
                     </td>
                     <td className="px-4 py-3">
                       <span className="font-mono text-xs text-s112-text-1">{p.eingangsrechnungsnummer || <span className="text-s112-muted">–</span>}</span>
+                      {tbsText(p.tbs_nummer_lieferant, p.tbs_jahr_lieferant) && (
+                        <div className="font-mono text-xs text-s112-muted mt-0.5">TBS {tbsText(p.tbs_nummer_lieferant, p.tbs_jahr_lieferant)}</div>
+                      )}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">{ART_LABEL[p.art] ?? p.art}</td>
                     <td className="px-4 py-3 text-s112-text-1">{lieferant}</td>

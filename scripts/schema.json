@@ -1664,7 +1664,9 @@
 "status",
 "ausgestellt_am",
 "ausgestellt_von",
-"ausgestellt_von_name"
+"ausgestellt_von_name",
+"tbs_nummer",
+"tbs_jahr"
 ],
 "traubenverkauf": [
 "id",
@@ -2034,6 +2036,8 @@
 "partner_daten",
 "erzeugnis",
 "zusatzbezeichnung",
-"land_iso"
+"land_iso",
+"tbs_nummer_lieferant",
+"tbs_jahr_lieferant"
 ]
 }

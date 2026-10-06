@@ -12,6 +12,7 @@ import RechnungVersandPanel from './RechnungVersandPanel'
 import { Mail, Phone, Info, CreditCard, FileText } from 'lucide-react'
 import { fmtEur, fmtNum } from '@/lib/format'
 import { kontaktAnzeigename } from '@/lib/crm/titel'
+import { tbsText } from '@/lib/handel/tbsNummer'
 
 export const dynamic = 'force-dynamic'
 
@@ -62,7 +63,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId ?? null
 
-  const [{ data: postenRaw }, settings, { data: zahlungenRaw }, { count: traubenverkaufAnzahl }] = await Promise.all([
+  const [{ data: postenRaw }, settings, { data: zahlungenRaw }, { count: traubenverkaufAnzahl }, { data: tbRaw }] = await Promise.all([
     (supabase.from('verkaufsposten') as any)
       .select(`
         id, datum, rechnungsnummer, notizen, erstellt_am, storniert, storniert_am, storniert_von_name, storno_grund,
@@ -93,7 +94,16 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
       .eq('verkaufsposten_id', id)
       .eq('tenant_id', tenantId ?? '')
       .is('storniert_am', null),
+    // KAN-90: TBS-Nr. der gültigen Transportbescheinigung (Anzeige am Knopf)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from('transportbescheinigungen') as any)
+      .select('tbs_nummer, tbs_jahr, status')
+      .eq('verkaufsposten_id', id)
+      .eq('tenant_id', tenantId ?? '')
+      .is('storniert_am', null)
+      .maybeSingle(),
   ])
+  const tbsNr = tbsText((tbRaw as R | null)?.tbs_nummer, (tbRaw as R | null)?.tbs_jahr)
 
   if (!postenRaw) notFound()
 
@@ -245,7 +255,8 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
               className="inline-flex items-center gap-1.5 text-xs font-medium text-s112-warn-fg bg-s112-warn-bg hover:bg-s112-warn/25 px-2.5 py-1.5 rounded-lg transition-colors"
               title="Transportbescheinigung gemäß Weingesetz"
             >
-              <FileText size={14} /> Transportschein
+              <FileText size={14} /> Transportschein{tbsNr ? ` ${tbsNr}` : ''}
+              {tbRaw && (tbRaw as R).status !== 'ausgestellt' && <span className="font-normal opacity-75">(Entwurf)</span>}
             </Link>
           )}
           <PrintButton />

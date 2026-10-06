@@ -42,6 +42,8 @@ interface InitialValues {
   // Transportschein-Felder
   lieferung_uhrzeit:        string
   transport_zugmaschine:    string
+  tbs_nummer_lieferant:     string
+  tbs_jahr_lieferant:       string
   transport_anhaenger1:     string
   transport_anhaenger2:     string
   /** KAN-80 Nachtrag: Startwert des Herkunfts-Codes (herkunftVorbelegung – Altwert nur, wenn eindeutig) */
@@ -128,6 +130,8 @@ export default function ZukaufEditForm({
   const [alkohol,             setAlkohol]           = useState(initial.alkohol_pct)
   const [pruefnummer,         setPruefnummer]       = useState(initial.staatliche_pruefnummer)
   const [zugmaschine,         setZugmaschine]       = useState(initial.transport_zugmaschine)
+  const [tbsNummer,           setTbsNummer]         = useState(initial.tbs_nummer_lieferant)
+  const [tbsJahr,             setTbsJahr]           = useState(initial.tbs_jahr_lieferant)
   const [anhaenger1,          setAnhaenger1]        = useState(initial.transport_anhaenger1)
   const [anhaenger2,          setAnhaenger2]        = useState(initial.transport_anhaenger2)
   const [menge,               setMenge]             = useState(initial.menge)
@@ -209,6 +213,8 @@ export default function ZukaufEditForm({
     fd.set('lieferant_firma_id',       initial.lieferant_firma_id)
     fd.set('eingangsrechnungsnummer',  eingangsrechnungsnummer)
     fd.set('transport_zugmaschine',    zugmaschine)
+    fd.set('tbs_nummer_lieferant',     tbsNummer)
+    fd.set('tbs_jahr_lieferant',       tbsNummer.trim() ? tbsJahr : '')
     fd.set('transport_anhaenger1',     anhaenger1)
     fd.set('transport_anhaenger2',     anhaenger2)
     fd.set('weinart',                  weinart)
@@ -331,6 +337,19 @@ export default function ZukaufEditForm({
               <label className={labelCls}>2. Anhänger</label>
               <input aria-label="2. Anhänger" type="text" value={anhaenger2} onChange={e => setAnhaenger2(e.target.value)}
                 placeholder="Kennzeichen" className={inputCls + ' w-full'} />
+            </div>
+          </div>
+          {/* KAN-90: Transportschein-Nr. des Lieferanten – erscheint in Liste, Suche und im Weinbuch der Ziel-Charge */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="col-span-2">
+              <label className={labelCls}>Transportschein-Nr. (TBS) des Lieferanten</label>
+              <input aria-label="Transportschein-Nr. des Lieferanten" type="text" value={tbsNummer} onChange={e => setTbsNummer(e.target.value)}
+                maxLength={30} placeholder="laufende Nummer lt. Transportbescheinigung" className={inputCls + ' w-full'} />
+            </div>
+            <div>
+              <label className={labelCls}>Jahr</label>
+              <input aria-label="Jahr der Transportschein-Nr." type="text" inputMode="numeric" value={tbsJahr} onChange={e => setTbsJahr(e.target.value)}
+                maxLength={4} placeholder="JJJJ" className={inputCls + ' w-full'} />
             </div>
           </div>
         </div>

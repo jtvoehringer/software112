@@ -5,6 +5,9 @@ import Link from '@/components/ui/Link'
 import ClickableTableRow from '@/components/ui/ClickableTableRow'
 import StopPropagation from '@/components/ui/StopPropagation'
 import { fmtEur } from '@/lib/format'
+import { inBloecken } from '@/lib/supabase/alle'
+import { tbsSuche, tbsText } from '@/lib/handel/tbsNummer'
+import ListenSuche from '@/components/ui/ListenSuche'
 
 export const metadata: Metadata = { title: 'Verkauf – software:112' }
 export const dynamic = 'force-dynamic'
@@ -12,12 +15,25 @@ export const dynamic = 'force-dynamic'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
-export default async function VerkaufPage() {
+export default async function VerkaufPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const supabase = await createSupabaseServerClient()
   const role     = await getCurrentUserRole()
   const writeOk  = canWrite(role, 'warenwirtschaft')
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId ?? null
+  // KAN-90: Suche nach TBS-Nr. (genau, „1234“ bzw. „1234/2026“) oder Teil der Beleg-/Transaktionsnummer
+  const q = ((await searchParams).q ?? '').trim()
+  const qSicher = q.replace(/[^\p{L}\p{N}/\- ]/gu, '').slice(0, 40)
+  const tbsQ = tbsSuche(q)
+  let tbsTreffer: string[] = []
+  if (q && tbsQ && tenantId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let tq = (supabase.from('transportbescheinigungen') as any)
+      .select('verkaufsposten_id').eq('tenant_id', tenantId).is('storniert_am', null).ilike('tbs_nummer', tbsQ.nummer)
+    if (tbsQ.jahr !== null) tq = tq.eq('tbs_jahr', tbsQ.jahr)
+    const { data: tr } = await tq.limit(100)   // alle-ausnahme: Treffer einer Nummernsuche, je Jahr eindeutig
+    tbsTreffer = ((tr ?? []) as R[]).map(t => String(t.verkaufsposten_id)).filter(id => /^[0-9a-f-]{36}$/.test(id))
+  }
 
   // Verkaufsposten mit Positionen + Kundendaten
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -32,11 +48,25 @@ export default async function VerkaufPage() {
       `)
       .eq('aktiv', true)
   )
+    .or(q ? [`rechnungsnummer.ilike.*${qSicher}*`, `transaktions_nr.ilike.*${qSicher}*`, ...(tbsTreffer.length ? [`id.in.(${tbsTreffer.join(',')})`] : [])].join(',') : 'id.not.is.null')
     .order('datum', { ascending: false })
     .order('erstellt_am', { ascending: false })
     .limit(100)
 
   const posten = (postenRaw ?? []) as R[]
+
+  // KAN-90: TBS-Nr. der (nicht stornierten) Transportbescheinigung je Verkauf
+  const tbsJePosten = new Map<string, string>()
+  if (tenantId && posten.length > 0) {
+    const { data: tbs } = await inBloecken<R>(posten.map(p => String(p.id)), b =>
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase.from('transportbescheinigungen') as any)
+        .select('verkaufsposten_id, tbs_nummer, tbs_jahr').eq('tenant_id', tenantId).is('storniert_am', null).in('verkaufsposten_id', b))
+    for (const t of tbs) {
+      const txt = tbsText(t.tbs_nummer, t.tbs_jahr)
+      if (txt) tbsJePosten.set(String(t.verkaufsposten_id), txt)
+    }
+  }
 
   // Umsatz-KPIs
   const heute   = new Date()
@@ -106,8 +136,12 @@ export default async function VerkaufPage() {
         </div>
       </div>
 
+      <ListenSuche q={q} pfad="/weinhandel/verkauf" platzhalter="TBS-Nr. (z. B. 12/2026), Beleg- oder Transaktionsnummer…" />
+
       {/* Tabelle */}
-      {posten.length === 0 ? (
+      {q && posten.length === 0 ? (
+        <div className="card text-center py-12 text-sm text-s112-muted">Kein Verkauf passt zu „{q}“.</div>
+      ) : posten.length === 0 ? (
         <div className="card text-center py-12">
           <p className="text-sm text-s112-muted">Noch keine Verkäufe erfasst.</p>
           {writeOk && (
@@ -122,7 +156,7 @@ export default async function VerkaufPage() {
             <thead>
               <tr className="bg-s112-bg border-b border-s112-border">
                 <th className="text-left px-4 py-3 font-semibold text-s112-text-1">Datum</th>
-                <th className="text-left px-4 py-3 font-semibold text-s112-text-1">Belegnr.</th>
+                <th className="text-left px-4 py-3 font-semibold text-s112-text-1">Belegnr. / TBS-Nr.</th>
                 <th className="text-left px-4 py-3 font-semibold text-s112-text-1">Kunde</th>
                 <th className="text-left px-4 py-3 font-semibold text-s112-text-1">Status</th>
                 <th className="text-left px-4 py-3 font-semibold text-s112-text-1">Positionen</th>
@@ -143,6 +177,7 @@ export default async function VerkaufPage() {
                     <td className="px-4 py-3">
                       <div className="font-mono text-xs text-s112-text-1">{p.rechnungsnummer ?? <span className="text-s112-muted">–</span>}</div>
                       {p.transaktions_nr && <div className="font-mono text-xs text-s112-muted mt-0.5">{p.transaktions_nr}</div>}
+                      {tbsJePosten.has(String(p.id)) && <div className="font-mono text-xs text-s112-muted mt-0.5">TBS {tbsJePosten.get(String(p.id))}</div>}
                     </td>
                     <td className="px-4 py-3 font-medium text-s112-text">{kundenName(p)}</td>
                     <td className="px-4 py-3">
