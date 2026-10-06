@@ -134,7 +134,7 @@ describe('Verdrahtung', () => {
     assert.match(quelle('src/app/(dashboard)/weinhandel/fuellungen/[id]/edit/page.tsx'), /\/weinhandel\/fuellungen\/\$\{id\}\/elabel/)
   })
   test('Migration: freigegeben gesperrt, Kennung unveränderlich, Katalog nur Plattform-Admins', () => {
-    const m = quelle('supabase/entwurf/kan216_elabel_daten.sql')
+    const m = quelle('supabase/migrations/20261006121923_kan216_elabel_daten.sql')
     assert.match(m, /CREATE TRIGGER a_freeze BEFORE UPDATE OR DELETE ON public\.elabels/)
     assert.match(m, /Die Kennung eines E-Labels ist unveränderlich/)
     assert.match(m, /CREATE POLICY elabel_zutaten_pa ON public\.elabel_zutaten FOR ALL TO authenticated\s+USING \(EXISTS \(SELECT 1 FROM public\.plattform_admins/)
