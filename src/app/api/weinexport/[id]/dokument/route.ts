@@ -4,6 +4,7 @@ import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
+import { modulKonflikt } from '@/lib/auth/modul'
 export const dynamic = 'force-dynamic'
 
 // Erlaubte Werte laut Schema (Migration 043) – alles andere wird mit 400 abgelehnt
@@ -21,6 +22,8 @@ function istDatum(v: unknown): v is string {
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const zweiFaktor = await pruefeZweiFaktor()
   if (zweiFaktor) return zweiFaktor
+  const ohneModul = await modulKonflikt('modul_export')   // KAN-6: Paket-Modul auch in der Route
+  if (ohneModul) return ohneModul
   const { id } = await params
   const supabase = await createSupabaseServerClient()
   const membership = await getCurrentMembership()
@@ -57,6 +60,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const zweiFaktor = await pruefeZweiFaktor()
   if (zweiFaktor) return zweiFaktor
+  const ohneModul = await modulKonflikt('modul_export')   // KAN-6: Paket-Modul auch in der Route
+  if (ohneModul) return ohneModul
   const { id: auftragId } = await params
   const supabase = await createSupabaseServerClient()
   const membership = await getCurrentMembership()

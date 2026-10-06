@@ -7,6 +7,7 @@ import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
 import { normalisiereLand } from '@/lib/katalog/laender'
+import { modulKonflikt } from '@/lib/auth/modul'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -15,6 +16,8 @@ const STANDARD_DOKUMENTE = ['v1v2','eur1','lieferschein','rechnung']
 export async function POST(req: NextRequest) {
   const zweiFaktor = await pruefeZweiFaktor()
   if (zweiFaktor) return zweiFaktor
+  const ohneModul = await modulKonflikt('modul_export')   // KAN-6: Paket-Modul auch in der Route
+  if (ohneModul) return ohneModul
   try {
     const body = await req.json()
     const supabase = await createSupabaseServerClient()

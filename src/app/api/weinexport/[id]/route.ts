@@ -4,6 +4,7 @@ import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
+import { modulKonflikt } from '@/lib/auth/modul'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -32,6 +33,8 @@ function optionalerText(wert: unknown): string | null | undefined {
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const zweiFaktor = await pruefeZweiFaktor()
   if (zweiFaktor) return zweiFaktor
+  const ohneModul = await modulKonflikt('modul_export')   // KAN-6: Paket-Modul auch in der Route
+  if (ohneModul) return ohneModul
   const { id } = await params
   const supabase = await createSupabaseServerClient()
   // tenant_id + Rolle IMMER aus aktivem Tenant (Cookie) – niemals aus dem Request-Body

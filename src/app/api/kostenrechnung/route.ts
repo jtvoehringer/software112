@@ -8,6 +8,7 @@ import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
 import { kostenAufteilung } from '@/lib/wein/massnahmeAnteile'
+import { modulKonflikt } from '@/lib/auth/modul'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -33,6 +34,8 @@ async function saveWgSplit(s: any, eintragsId: string, wgSplit: R[], betrag: num
 export async function GET(req: NextRequest) {
   const zweiFaktor = await pruefeZweiFaktor()
   if (zweiFaktor) return zweiFaktor
+  const ohneModul = await modulKonflikt('modul_controlling')   // KAN-6: Paket-Modul auch in der Route
+  if (ohneModul) return ohneModul
   const s = await createSupabaseServerClient()
   const t = await getTId()
   if (!t) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
@@ -99,6 +102,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const zweiFaktor = await pruefeZweiFaktor()
   if (zweiFaktor) return zweiFaktor
+  const ohneModul = await modulKonflikt('modul_controlling')   // KAN-6: Paket-Modul auch in der Route
+  if (ohneModul) return ohneModul
   const s = await createSupabaseServerClient()
   const t = await getTId()
   if (!t) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })

@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { normalisiereLand } from '@/lib/katalog/laender'
+import { modulKonflikt } from '@/lib/auth/modul'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -27,6 +28,8 @@ export async function GET(
 ) {
   const zweiFaktor = await pruefeZweiFaktor()
   if (zweiFaktor) return zweiFaktor
+  const ohneModul = await modulKonflikt('modul_export')   // KAN-6: Paket-Modul auch in der Route
+  if (ohneModul) return ohneModul
   const { id } = await params
   const supabase = await createSupabaseServerClient()
   const admin    = createSupabaseAdminClient()

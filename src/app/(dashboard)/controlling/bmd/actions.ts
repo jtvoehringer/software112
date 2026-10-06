@@ -5,6 +5,7 @@ import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
 import { seitenBetriebFehler } from '@/lib/auth/seitenBetrieb'
 import { schreibSperreFehler } from '@/lib/auth/sperren'
 import { MAPPING_FELDER } from '@/lib/buchhaltung/bmd'
+import { hatModul, modulAusMeldung } from '@/lib/auth/modul'
 
 // Konten-Mapping speichern (Migration 196): es werden nur Abweichungen von der
 // Vorbelegung abgelegt - ein Wert, der der Vorbelegung entspricht oder leer
@@ -16,6 +17,7 @@ export async function speichereKontenmapping(werte: Record<string, string>): Pro
   if (betriebGewechselt) return { ok: false, fehler: betriebGewechselt }
   const aboGesperrt = await schreibSperreFehler(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
   if (aboGesperrt) return { ok: false, fehler: aboGesperrt }
+  if (!(await hatModul('modul_ea'))) return { ok: false, fehler: modulAusMeldung('modul_ea') }   // KAN-6: BMD-Übergabe gehört zur E&A
   if (!canAdmin(membership.role)) return { ok: false, fehler: 'Nur Mandanten-Administratoren dürfen das Konten-Mapping ändern.' }
   const supabase = await createSupabaseServerClient()
   const tenantId = membership.tenantId
@@ -54,6 +56,7 @@ export async function setzeKontenmappingZurueck(): Promise<{ ok: boolean; fehler
   if (betriebGewechselt) return { ok: false, fehler: betriebGewechselt }
   const aboGesperrt = await schreibSperreFehler(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
   if (aboGesperrt) return { ok: false, fehler: aboGesperrt }
+  if (!(await hatModul('modul_ea'))) return { ok: false, fehler: modulAusMeldung('modul_ea') }   // KAN-6: BMD-Übergabe gehört zur E&A
   if (!canAdmin(membership.role)) return { ok: false, fehler: 'Nur Mandanten-Administratoren dürfen das Konten-Mapping ändern.' }
   const supabase = await createSupabaseServerClient()
   const { error } = await (supabase.from('buchhaltung_kontenmapping') as any).delete().eq('tenant_id', membership.tenantId)
