@@ -1,5 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { aktiveSubdomain } from '@/lib/tenant/subdomainServer'
+import { subdomainUrl } from '@/lib/tenant/subdomain'
 import { getCurrentUserRole, getCurrentMembership, roleLabel, canWrite, canSeeAuswertungen, isSandboxAdminUnlock } from '@/lib/auth/roles'
 import { aboStandErmitteln, SANDBOX_TENANT_ID } from '@/lib/abo/regeln'
 import AppShell from '@/components/layout/AppShell'
@@ -65,6 +67,8 @@ export default async function DashboardLayout({
 
   const role       = await getCurrentUserRole()
   const membership = await getCurrentMembership()
+  // KAN-31: Subdomain eines Betriebs ohne eigene Mitgliedschaft → Betriebswahl auf der Hauptdomain
+  if (!membership && await aktiveSubdomain()) redirect(subdomainUrl(null, '/betrieb-waehlen') ?? '/betrieb-waehlen')
 
   // Zwei-Faktor-Pflicht für Super-Admin und Betriebs-Manager (Sicherheits-Welle 2, S3)
   const mfa = await ladeMfaStand(supabase, role)

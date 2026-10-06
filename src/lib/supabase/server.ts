@@ -1,6 +1,7 @@
 import { cache } from 'react'
 import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
+import { authCookieOptionen } from '@/lib/tenant/subdomain'
 import type { Database } from '@/lib/types/database.types'
 
 /**
@@ -14,11 +15,15 @@ import type { Database } from '@/lib/types/database.types'
  */
 export const createSupabaseServerClient = cache(async function createSupabaseServerClient() {
   const cookieStore = await cookies()
+  // KAN-31: unter der Subdomain-Basis gemeinsames Anmelde-Cookie für alle Betriebs-Subdomains (sonst Standard)
+  const kopf = await headers()
+  const cookieOptions = authCookieOptionen(kopf.get('x-forwarded-host') ?? kopf.get('host'))
 
   const client = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      ...(cookieOptions ? { cookieOptions } : {}),
       cookies: {
         getAll() {
           return cookieStore.getAll()

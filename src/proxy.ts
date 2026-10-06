@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { hatBestaetigtenFaktor } from '@/lib/auth/mfa'
+import { authCookieOptionen } from '@/lib/tenant/subdomain'
 
 // Routen die OHNE Login zugänglich sind
 // Öffentlich ohne Anmeldung. /signup und /newsletter fehlten bis 23.9.2026 – Registrierung und
@@ -12,11 +13,14 @@ const PUBLIC_ROUTES = ['/.well-known/', '/barrierefreiheit', '/signup', '/newsle
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
+  // KAN-31: gemeinsames Anmelde-Cookie für Basis und Betriebs-Subdomains (nur mit NEXT_PUBLIC_S112_SUBDOMAIN_BASIS)
+  const cookieOptions = authCookieOptionen(request.headers.get('x-forwarded-host') ?? request.headers.get('host'))
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      ...(cookieOptions ? { cookieOptions } : {}),
       cookies: {
         getAll() {
           return request.cookies.getAll()

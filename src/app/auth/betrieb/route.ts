@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { setActiveTenantCookie } from '@/lib/auth/activeTenant'
 import { sichererWeiterPfad } from '@/lib/tenant/waechter'
+import { subdomainZiel } from '@/lib/tenant/subdomainServer'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -36,6 +37,9 @@ export async function GET(request: Request) {
   if (!(data as R | null)?.tenant_id) return NextResponse.redirect(`${origin}/betrieb-waehlen`)
 
   await setActiveTenantCookie(tenantId)
+  // KAN-31: mit Betriebs-Subdomain dorthin (weiter bleibt ein geprüfter relativer Pfad), sonst wie bisher
+  const subZiel = await subdomainZiel(supabase, tenantId, weiter)
+  if (subZiel) return NextResponse.redirect(subZiel)
   const ziel = new URL(weiter, origin)
   return NextResponse.redirect(ziel.origin === origin ? ziel : new URL('/dashboard', origin))
 }

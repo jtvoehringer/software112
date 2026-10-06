@@ -25,6 +25,8 @@ export type TenantDetail = {
   max_benutzer:             number | null
   stripe_current_period_end: string | null
   bio_status:               string
+  /** KAN-31: Betriebs-Subdomain (null = keine; undefined = Spalte noch nicht vorhanden) */
+  subdomain?:               string | null
 }
 /** KAN-215: Abrechnungsverbund des Betriebs (Reiter Stripe) */
 export type VerbundInfo = {
@@ -188,6 +190,8 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
   }
 
   const t = tenantRaw as R
+  // KAN-31: getrennt und fehlertolerant (vor der Migration gibt es die Spalte nicht – die Seite bleibt benutzbar)
+  const { data: subRaw, error: subFehler } = await (admin.from('tenants') as R).select('subdomain').eq('id', id).maybeSingle()
   const s = settingsRaw as R | null
 
   // KAN-215: Abrechnungsverbund
@@ -215,6 +219,7 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
     max_benutzer:              t.max_benutzer              ?? null,
     stripe_current_period_end: t.stripe_current_period_end ?? null,
     bio_status:                t.bio_status                ?? 'konventionell',
+    subdomain:                 subFehler ? undefined : ((subRaw as R | null)?.subdomain ?? null),
   }
 
   const settings: TenantSettings = {
