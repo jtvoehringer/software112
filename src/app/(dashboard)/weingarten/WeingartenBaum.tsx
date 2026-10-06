@@ -526,7 +526,7 @@ export default function WeingartenBaum({
               sticky relativ zum scrollenden <main> aus AppShell.tsx,
               deshalb genügt top-0 ohne zusätzlichen Offset (die äußere
               Kopfleiste mit Suche/Glocke liegt außerhalb des Scroll-Containers). */}
-          <tr className="sticky top-0 z-10 bg-s112-bg border-b-2 border-s112-border shadow-sm">
+          <tr className="sticky top-0 z-10 bg-s112-bg border-b-2 border-s112-border shadow-xs">
             <th
               className="text-left px-4 py-3 font-semibold text-s112-text-1 rounded-tl-2xl cursor-pointer select-none hover:text-s112-blue-700"
               onClick={() => setSortBy('ried')}

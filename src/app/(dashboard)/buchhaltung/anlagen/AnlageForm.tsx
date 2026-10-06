@@ -126,7 +126,7 @@ export default function AnlageForm({ initial, buchungen = [], darfSchreiben }: {
     })
   }
 
-  const inp = 'w-full border border-s112-line-str rounded-lg px-3 py-2 text-sm bg-white text-s112-text focus:outline-none focus:ring-2 focus:ring-s112-teal focus:border-transparent disabled:bg-s112-bg'
+  const inp = 'w-full border border-s112-line-str rounded-lg px-3 py-2 text-sm bg-white text-s112-text focus:outline-hidden focus:ring-2 focus:ring-s112-teal focus:border-transparent disabled:bg-s112-bg'
   const lbl = 'block text-xs font-medium text-s112-text-1 mb-1'
   const karte = 'bg-white border border-s112-line rounded-xl p-5 space-y-4'
   const ro = !darfSchreiben

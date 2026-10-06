@@ -342,7 +342,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
               </div>
             </div>
             {/* Empfänger */}
-            <div className="mb-8 p-4 border border-s112-line rounded inline-block min-w-[220px]">
+            <div className="mb-8 p-4 border border-s112-line rounded-sm inline-block min-w-[220px]">
               <p className="font-semibold text-base">{kundenName(posten)}</p>
               {posten.zh_kontakt && (
                 <p className="text-s112-text-1">z.H. {kontaktAnzeigename(posten.zh_kontakt as R)}</p>
@@ -504,7 +504,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
       {isRechnung && (
         <div className="print-only mt-8 pt-6 border-t border-s112-line text-sm space-y-3">
           {skontoAktiv && skontoDatum && (
-            <div className="bg-s112-warn-bg border border-s112-warn/30 rounded px-3 py-2">
+            <div className="bg-s112-warn-bg border border-s112-warn/30 rounded-sm px-3 py-2">
               <p className="font-semibold text-s112-warn-fg flex items-center gap-1.5">
                 <Info size={14} /> {posten.skonto_pct}% Skonto bei Zahlung bis {skontoDatum.toLocaleDateString('de-AT')}
               </p>
@@ -614,7 +614,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
           {/* Skonto-Hinweis */}
           {posten.skonto_aktiv && (posten.skonto_pct ?? 0) > 0 && !vollBezahlt && (
             <div className="text-xs text-s112-warn-fg bg-s112-warn-bg border border-s112-warn/30 rounded-lg px-3 py-2 flex items-start gap-1.5">
-              <Info size={13} className="mt-0.5 flex-shrink-0" />
+              <Info size={13} className="mt-0.5 shrink-0" />
               <span>Skonto {posten.skonto_pct}% bei Zahlung bis{' '}
               {new Date(new Date(posten.datum).setDate(
                 new Date(posten.datum).getDate() + (posten.skonto_tage ?? 0)
@@ -653,7 +653,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
                 </div>
               </div>
               <div className="flex justify-end">
-                <button type="submit" className="flex-1 sm:flex-none bg-s112-teal text-s112-yellow px-4 py-3 sm:py-1.5 rounded-lg text-base sm:text-sm font-semibold hover:bg-opacity-90 transition-colors">
+                <button type="submit" className="flex-1 sm:flex-none bg-s112-teal text-s112-yellow px-4 py-3 sm:py-1.5 rounded-lg text-base sm:text-sm font-semibold hover:bg-s112-teal/90 transition-colors">
                   Zahlung buchen
                 </button>
               </div>

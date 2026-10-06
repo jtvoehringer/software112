@@ -269,7 +269,7 @@ export default function KellerbehandlungenPage() {
           <FlaskConical size={20} strokeWidth={1.75} className="text-s112-blue-700" />Kellerbehandlungen – {behaelter.name}
         </h1>
         <button onClick={openNeu}
-          className="text-xs bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg hover:bg-opacity-90 font-medium print:hidden">
+          className="text-xs bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg hover:bg-s112-teal/90 font-medium print:hidden">
           + Neue Behandlung
         </button>
       </div>
@@ -455,7 +455,7 @@ export default function KellerbehandlungenPage() {
                 Abbrechen
               </button>
               <button type="submit" disabled={isPending}
-                className="flex-1 sm:flex-none text-base sm:text-xs bg-s112-teal text-s112-yellow px-4 py-3 sm:py-1.5 rounded-lg hover:bg-opacity-90 disabled:opacity-50">
+                className="flex-1 sm:flex-none text-base sm:text-xs bg-s112-teal text-s112-yellow px-4 py-3 sm:py-1.5 rounded-lg hover:bg-s112-teal/90 disabled:opacity-50">
                 {isPending ? 'Speichern…' : (editId ? 'Aktualisieren' : 'Speichern')}
               </button>
             </div>

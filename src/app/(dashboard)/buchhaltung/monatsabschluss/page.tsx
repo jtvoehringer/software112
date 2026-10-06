@@ -80,7 +80,7 @@ export default async function MonatsabschlussPage({
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Jahr</label>
           <select aria-label="Jahr" name="jahr" defaultValue={String(jahr)}
-            className="border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none">
+            className="border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden">
             {jahre.map(j => <option key={j} value={j}>{j}</option>)}
           </select>
         </div>
@@ -113,7 +113,7 @@ export default async function MonatsabschlussPage({
                   message={`${name} ${jahr} abschließen? Alle Buchungen dieses Monats werden gesperrt und können nicht mehr bearbeitet, gelöscht oder durch neue Buchungen mit diesem Datum ergänzt werden. Das ist nicht rückgängig zu machen.`}
                   label="Monat abschließen"
                   title="Monat abschließen"
-                  className="text-xs bg-s112-teal text-s112-yellow px-2.5 py-1 rounded-full font-medium hover:bg-opacity-90"
+                  className="text-xs bg-s112-teal text-s112-yellow px-2.5 py-1 rounded-full font-medium hover:bg-s112-teal/90"
                 />
               ) : (
                 <span className="text-xs bg-s112-warn-bg text-s112-warn-fg px-2 py-0.5 rounded-full">Offen</span>

@@ -154,7 +154,7 @@ export default function VisitkartenScannerPage() {
           <h2 className="font-semibold text-s112-text">Visitenkarte fotografieren</h2>
           <p className="text-sm text-s112-muted">KI liest die Karte aus und legt den Kontakt als Lead an.</p>
           <button onClick={kameraStarten}
-            className="bg-s112-teal text-s112-yellow px-6 py-3 rounded-xl font-semibold hover:bg-opacity-90 w-full">
+            className="bg-s112-teal text-s112-yellow px-6 py-3 rounded-xl font-semibold hover:bg-s112-teal/90 w-full">
             Kamera öffnen
           </button>
           <label className="block">
@@ -180,7 +180,7 @@ export default function VisitkartenScannerPage() {
           )}
           <button onClick={fotografieren} disabled={!videoReady}
             className={`w-full py-4 rounded-xl font-semibold text-lg transition-opacity inline-flex items-center justify-center gap-2
-              ${videoReady ? 'bg-s112-teal text-s112-yellow hover:bg-opacity-90' : 'bg-s112-line text-s112-tertiary cursor-not-allowed'}`}>
+              ${videoReady ? 'bg-s112-teal text-s112-yellow hover:bg-s112-teal/90' : 'bg-s112-line text-s112-tertiary cursor-not-allowed'}`}>
             <Camera className="w-5 h-5" /> Fotografieren
           </button>
         </div>
@@ -208,7 +208,7 @@ export default function VisitkartenScannerPage() {
           </div>
           <div className="flex gap-3">
             <button onClick={speichern}
-              className="flex-1 bg-s112-teal text-s112-yellow py-3 rounded-xl font-semibold hover:bg-opacity-90">
+              className="flex-1 bg-s112-teal text-s112-yellow py-3 rounded-xl font-semibold hover:bg-s112-teal/90">
               Als Lead speichern
             </button>
             <button onClick={() => { setFoto(null); setKontakt(null); setPhase('start') }}

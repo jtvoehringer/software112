@@ -78,7 +78,7 @@ export default async function RiedenRueckverfolgungPage({ searchParams }: { sear
     gst: einstieg.gst, weingarten: einstieg.weingarten, jahrgang: einstieg.jahrgang,
   }
   const lesen = ergebnis?.lesen ?? []
-  const inputCls = 'w-full border border-s112-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+  const inputCls = 'w-full border border-s112-border rounded-xl px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40'
   const labelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
 
   return (

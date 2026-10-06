@@ -53,7 +53,7 @@ function KundenSuche({ items = [], art, value, onChange, placeholder }: {
         <div className="flex items-center gap-1 border border-s112-border rounded-lg px-2 py-1.5 bg-s112-bg">
           <span className="text-sm flex-1 truncate">{selected.label}</span>
           <button type="button" aria-label="Auswahl leeren" onClick={() => { onChange(''); setQuery('') }}
-            className="text-s112-tertiary hover:text-s112-text-2 flex-shrink-0 leading-none"><X size={13} /></button>
+            className="text-s112-tertiary hover:text-s112-text-2 shrink-0 leading-none"><X size={13} /></button>
         </div>
       ) : (
         <>
@@ -61,7 +61,7 @@ function KundenSuche({ items = [], art, value, onChange, placeholder }: {
             onChange={e => { setQuery(e.target.value); setOpen(true) }}
             onFocus={() => setOpen(true)}
             placeholder={placeholder ?? 'Suchen…'}
-            className="border border-s112-border rounded-lg px-2 py-1.5 text-sm focus:outline-none w-full" />
+            className="border border-s112-border rounded-lg px-2 py-1.5 text-sm focus:outline-hidden w-full" />
           {open && treffer.length > 0 && (
             <ul className="absolute z-50 mt-1 w-full bg-white border border-s112-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
               {treffer.map(i => (
@@ -632,7 +632,7 @@ function ZeitachseView({
     })
   }
 
-  const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+  const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40'
 
   return (
     <>
@@ -657,7 +657,7 @@ function ZeitachseView({
     <div className="border border-s112-border rounded-xl overflow-hidden">
 
       {/* ── Sticky header: day names + Ganztags-Zeile ── */}
-      <div className="sticky top-0 z-20 bg-white shadow-sm">
+      <div className="sticky top-0 z-20 bg-white shadow-xs">
         <div className="grid border-b border-s112-border" style={{ gridTemplateColumns: '52px repeat(7, 1fr)' }}>
           <div className="bg-s112-bg border-r border-s112-border" />
           {days.map((d, i) => {
@@ -719,9 +719,9 @@ function ZeitachseView({
                       borderRadius:    br,
                     }}
                   >
-                    {startsEarly && <span className="mr-0.5 opacity-70 flex-shrink-0">◀</span>}
+                    {startsEarly && <span className="mr-0.5 opacity-70 shrink-0">◀</span>}
                     <span className="truncate">{e.titel ?? (isUrlaub ? 'Urlaub' : 'Abwesenheit')}</span>
-                    {endsLate && <span className="ml-0.5 opacity-70 flex-shrink-0">▶</span>}
+                    {endsLate && <span className="ml-0.5 opacity-70 shrink-0">▶</span>}
                   </div>
                 )
               })}
@@ -878,7 +878,7 @@ function ZeitachseView({
                     <div className="absolute left-0 right-0 z-20 pointer-events-none"
                       style={{ top: `${nowTop}px` }}>
                       <div className="relative border-t-2 border-s112-err">
-                        <div className="absolute -left-1.5 -top-[5px] w-3 h-3 rounded-full bg-s112-err" />
+                        <div className="absolute -left-1.5 top-[-5px] w-3 h-3 rounded-full bg-s112-err" />
                       </div>
                     </div>
                   )}
@@ -953,7 +953,7 @@ function ZeitachseView({
                         ? 'bg-s112-ok-bg border-s112-ok/30 text-s112-ok-fg'
                         : 'border-s112-border text-s112-text-2 hover:border-s112-ok/50 hover:text-s112-ok-fg'
                     }`}>
-                    <span className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 ${
+                    <span className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 ${
                       viewAkt.erledigt ? 'bg-s112-ok border-s112-ok text-white' : 'border-s112-line-str'
                     }`}>
                       {viewAkt.erledigt && <Check size={11} strokeWidth={3} />}
@@ -965,13 +965,13 @@ function ZeitachseView({
               <div className="flex flex-wrap gap-2">
                 {viewAkt.typ === 'aktivitaet' && (
                   <button onClick={() => setEditAktMode(true)}
-                    className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 inline-flex items-center gap-1.5">
+                    className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90 inline-flex items-center gap-1.5">
                     <Pencil size={14} />Bearbeiten
                   </button>
                 )}
                 {viewAkt.typ === 'pipeline' && (
                   <button onClick={() => setEditPipeMode(true)}
-                    className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 inline-flex items-center gap-1.5">
+                    className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90 inline-flex items-center gap-1.5">
                     <Pencil size={14} />Bearbeiten
                   </button>
                 )}
@@ -1075,7 +1075,7 @@ function ZeitachseView({
                 {saveErr && <p className="text-xs text-s112-err-fg">{saveErr}</p>}
                 <div className="flex gap-2 pt-1">
                   <button type="submit" disabled={pending}
-                    className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
+                    className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-s112-teal/90 disabled:opacity-40">
                     {pending ? 'Speichern…' : 'Speichern'}
                   </button>
                   <button type="button" onClick={() => setEditAktMode(false)}
@@ -1126,7 +1126,7 @@ function ZeitachseView({
                         const bis = form.querySelector<HTMLInputElement>('[name=uhrzeit_bis]')!
                         von.disabled = e.target.checked; bis.disabled = e.target.checked
                         if (e.target.checked) { von.value = ''; bis.value = '' }
-                      }} className="rounded" />
+                      }} className="rounded-sm" />
                     Ganztags
                   </label>
                   <input name="uhrzeit_von" type="time" step="1800"
@@ -1142,7 +1142,7 @@ function ZeitachseView({
                 {saveErr && <p className="text-xs text-s112-err-fg">{saveErr}</p>}
                 <div className="flex gap-2 pt-1">
                   <button type="submit" disabled={pending}
-                    className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
+                    className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-s112-teal/90 disabled:opacity-40">
                     {pending ? 'Speichern…' : 'Speichern'}
                   </button>
                   <button type="button" onClick={() => setEditPipeMode(false)}
@@ -1186,10 +1186,10 @@ function ZeitachseView({
                   <label className="block text-xs font-medium text-s112-text-2 mb-1">Zeit</label>
                   <div className="flex items-center gap-1">
                     <input type="time" name="uhrzeit_von" step="1800" defaultValue={newAkt.von}
-                      className="border border-s112-border rounded-lg px-2 py-1.5 text-sm focus:outline-none w-full" />
-                    <span className="text-xs text-s112-tertiary flex-shrink-0">–</span>
+                      className="border border-s112-border rounded-lg px-2 py-1.5 text-sm focus:outline-hidden w-full" />
+                    <span className="text-xs text-s112-tertiary shrink-0">–</span>
                     <input type="time" name="uhrzeit_bis" step="1800" defaultValue={newAkt.bis}
-                      className="border border-s112-border rounded-lg px-2 py-1.5 text-sm focus:outline-none w-full" />
+                      className="border border-s112-border rounded-lg px-2 py-1.5 text-sm focus:outline-hidden w-full" />
                   </div>
                 </div>
               )}
@@ -1262,7 +1262,7 @@ function ZeitachseView({
 
             <div className="flex gap-2 pt-1">
               <button type="submit" disabled={pending}
-                className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+                className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-40">
                 {pending ? 'Speichern…' : 'Speichern'}
               </button>
               <button type="button" onClick={() => { setNewAkt(null); setNewAktKontaktId(''); setNewAktFirmaId('') }}
@@ -1623,7 +1623,7 @@ export default function CRMUebersichtClient({ eintraege, heute, userProfiles = {
           { farbe: 'bg-s112-blue-50 border-s112-blue-100',                  label: 'Outlook'    },
         ].map(({ farbe, label }) => (
           <div key={label} className="flex items-center gap-1">
-            <div className={`w-3 h-3 rounded border ${farbe}`} />
+            <div className={`w-3 h-3 rounded-sm border ${farbe}`} />
             <span className="text-[11px] text-s112-text-2">{label}</span>
           </div>
         ))}

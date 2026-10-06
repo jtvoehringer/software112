@@ -127,8 +127,8 @@ export default async function KellerbuchPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-s112-text text-sm">{b.name}</span>
-                    {b.fremd && <span title={`Gebinde von ${b.eigentuemer_name}`} className="text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded bg-s112-blue-50 text-s112-blue-700">{b.eigentuemer_name}</span>}
-                    {b.gesperrt && <span title="Ein anderer Betrieb hat Wein in diesem Gebinde – kein Ziel für Umzüge" className="text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded bg-s112-warn-bg text-s112-warn-fg">belegt · {b.fremd_betrieb} · {fmtLiter(b.fremd_liter)}</span>}
+                    {b.fremd && <span title={`Gebinde von ${b.eigentuemer_name}`} className="text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded-sm bg-s112-blue-50 text-s112-blue-700">{b.eigentuemer_name}</span>}
+                    {b.gesperrt && <span title="Ein anderer Betrieb hat Wein in diesem Gebinde – kein Ziel für Umzüge" className="text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded-sm bg-s112-warn-bg text-s112-warn-fg">belegt · {b.fremd_betrieb} · {fmtLiter(b.fremd_liter)}</span>}
                     {b.standort && <span className="text-xs text-s112-muted">{b.standort}</span>}
                     {kapazitaet && (
                       <span className="text-xs text-s112-muted">
@@ -216,7 +216,7 @@ export default async function KellerbuchPage() {
                             {w.rebsorte && <span className="text-xs text-s112-muted ml-1">· {formatRebsorteMitKuerzel(w.rebsorte)}</span>}
                             {istEB && <span className="text-xs text-s112-muted ml-1 italic">(Eröffnungsbestand)</span>}
                             {(w.weinart && w.weinart !== 'unbekannt') && (
-                              <span className={`inline-block ml-2 px-1.5 py-0.5 rounded text-[11px] font-medium ${wa.color}`}>{wa.label}</span>
+                              <span className={`inline-block ml-2 px-1.5 py-0.5 rounded-sm text-[11px] font-medium ${wa.color}`}>{wa.label}</span>
                             )}
                           </td>
                           <td className="px-4 py-2.5 text-s112-muted text-xs">{w.jahrgang ?? '–'}</td>
@@ -257,17 +257,17 @@ export default async function KellerbuchPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4 mb-8">
-        <Link href="/kellerbuch/gebinde" className="card text-center p-4 hover:shadow-sm hover:border-s112-teal/30 transition-all cursor-pointer">
+        <Link href="/kellerbuch/gebinde" className="card text-center p-4 hover:shadow-xs hover:border-s112-teal/30 transition-all cursor-pointer">
           <p className="text-xl sm:text-3xl font-semibold text-s112-blue-700">{behaelter.filter(b => b.aktiv).length}</p>
           <p className="text-xs text-s112-muted mt-1">Aktive Behälter</p>
           <p className="text-[11px] text-s112-blue-700/60 mt-1">→ Gebinde verwalten</p>
         </Link>
-        <Link href="/kellerbuch/weinausbau" className="card text-center p-4 hover:shadow-sm hover:border-s112-teal/30 transition-all cursor-pointer">
+        <Link href="/kellerbuch/weinausbau" className="card text-center p-4 hover:shadow-xs hover:border-s112-teal/30 transition-all cursor-pointer">
           <p className="text-xl sm:text-3xl font-semibold text-s112-blue-700">{aktiveChargen.length}</p>
           <p className="text-xs text-s112-muted mt-1">Laufende Chargen</p>
           <p className="text-[11px] text-s112-blue-700/60 mt-1">→ Weinausbau</p>
         </Link>
-        <Link href="/kellerbuch/rueckverfolgung" className="card text-center p-4 hover:shadow-sm hover:border-s112-teal/30 transition-all cursor-pointer">
+        <Link href="/kellerbuch/rueckverfolgung" className="card text-center p-4 hover:shadow-xs hover:border-s112-teal/30 transition-all cursor-pointer">
           <p className="text-xl sm:text-3xl font-semibold text-s112-blue-700">{fmtLiter(gesamtLiter)}</p>
           <p className="text-xs text-s112-muted mt-1">Liter in Ausbau</p>
           <p className="text-[11px] text-s112-blue-700/60 mt-1">→ Rückverfolgung</p>
@@ -294,10 +294,10 @@ export default async function KellerbuchPage() {
                     {g.leer.map(b => (
                       <div key={b.id} className="flex items-center gap-3 px-3 py-1.5 text-sm">
                         <span className="font-medium text-s112-text w-24 shrink-0">{b.name}</span>
-                        {b.fremd && <span title={`Gebinde von ${b.eigentuemer_name}`} className="text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded bg-s112-blue-50 text-s112-blue-700">{b.eigentuemer_name}</span>}
+                        {b.fremd && <span title={`Gebinde von ${b.eigentuemer_name}`} className="text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded-sm bg-s112-blue-50 text-s112-blue-700">{b.eigentuemer_name}</span>}
                         <span className="text-xs text-s112-text-2 capitalize">{b.typ ?? '–'}</span>
                         <span className="text-xs text-s112-text-2 font-mono tabular-nums">{b.volumen_liter ? fmtLiter(b.volumen_liter) : '–'}</span>
-                        {b.stapler && <span className="text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded bg-s112-bg text-s112-text-2 border border-s112-line">Stapler</span>}
+                        {b.stapler && <span className="text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded-sm bg-s112-bg text-s112-text-2 border border-s112-line">Stapler</span>}
                         <span className="ml-auto flex items-center gap-3 shrink-0">
                           <Link href={`/kellerbuch/behaelter/${b.id}/bewegungen`} className="text-xs text-s112-blue-700 hover:underline whitespace-nowrap">Bewegungen →</Link>
                           {writeOk && !b.fremd && <Link href={`/kellerbuch/behaelter/${b.id}`} title="Bearbeiten" aria-label="Bearbeiten" className="text-s112-muted hover:text-s112-blue-700"><Pencil className="w-3.5 h-3.5" /></Link>}

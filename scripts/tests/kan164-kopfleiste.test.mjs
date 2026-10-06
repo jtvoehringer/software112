@@ -98,6 +98,7 @@ describe('Verdrahtung', () => {
       }
     }
     assert.deepEqual(treffer, [])
-    assert.match(quelle('src/app/globals.css'), /\.btn-primary \{\s*@apply bg-s112-teal text-s112-yellow /)
+    // KAN-213: Tailwind 4 – Komponentenklassen als @utility, optional mit Kommentar vor dem @apply
+    assert.match(quelle('src/app/globals.css'), /@utility btn-primary \{\s*(?:\/\*[^*]*\*\/\s*)?@apply bg-s112-teal text-s112-yellow /)
   })
 })

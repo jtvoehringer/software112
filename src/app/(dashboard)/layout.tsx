@@ -36,7 +36,7 @@ export type TenantBranding = {
   buchhaltungsart: 'ea' | 'doppik'
 }
 
-// Entspricht exakt den CSS-Fallback-Werten in globals.css/tailwind.config.ts
+// Entspricht exakt den CSS-Fallback-Werten in globals.css (@theme, seit KAN-213 Tailwind 4)
 // (--s112-teal / --s112-yellow) — das ist die getestete, gut aufeinander
 // abgestimmte Standard-Farbkombination des Designs (Stand 2026-08, vom
 // hohenstein-Logo abgeleitet, siehe project_design_relaunch.md).
@@ -163,7 +163,7 @@ export default async function DashboardLayout({
         }
       `}</style>
       {/* Sprunglink für Tastatur und Vorleseprogramme (Barrierefreiheit B7) */}
-      <a href="#inhalt" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:bg-white focus:text-s112-blue-700 focus:px-4 focus:py-2 focus:rounded-lg focus:shadow-lg focus:font-semibold">Zum Inhalt springen</a>
+      <a href="#inhalt" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-100 focus:bg-white focus:text-s112-blue-700 focus:px-4 focus:py-2 focus:rounded-lg focus:shadow-lg focus:font-semibold">Zum Inhalt springen</a>
       <ReleaseNotesModal />
       <SessionTimeout timeoutMinuten={(branding as any).session_timeout} />
       <AutoRefresh />

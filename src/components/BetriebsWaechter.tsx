@@ -278,10 +278,10 @@ export default function BetriebsWaechter({ tenantId, name, mandant, schreibgespe
   }
 
   return createPortal(
-    <div ref={overlayRef} className="fixed inset-0 z-[1000] overflow-y-auto bg-black/50">
+    <div ref={overlayRef} className="fixed inset-0 z-1000 overflow-y-auto bg-black/50">
       <div className="min-h-full flex items-center justify-center p-4">
         <div {...dialog} role="alertdialog" aria-labelledby="betriebswaechter-titel" aria-describedby="betriebswaechter-text betriebswaechter-verlust"
-          className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md space-y-4 focus:outline-none">
+          className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md space-y-4 focus:outline-hidden">
           <div className="flex items-center gap-3">
             <span className="w-10 h-10 rounded-full bg-s112-warn-bg text-s112-warn-fg flex items-center justify-center shrink-0" aria-hidden="true">
               <ArrowLeftRight size={20} strokeWidth={1.75} />
@@ -296,7 +296,7 @@ export default function BetriebsWaechter({ tenantId, name, mandant, schreibgespe
           </p>
           <div className="flex flex-col sm:flex-row gap-2">
             <button type="button" onClick={neuLaden} disabled={wechselt}
-              className="flex-1 bg-s112-teal text-s112-yellow py-2.5 px-4 rounded-xl font-semibold hover:bg-opacity-90 text-sm disabled:opacity-60">
+              className="flex-1 bg-s112-teal text-s112-yellow py-2.5 px-4 rounded-xl font-semibold hover:bg-s112-teal/90 text-sm disabled:opacity-60">
               Neu laden
             </button>
             <button type="button" onClick={zurueck} disabled={wechselt}

@@ -104,8 +104,8 @@ export default function AssistantPanel() {
         open ? 'xl:flex' : 'xl:hidden',
       ].join(' ')}>
         {/* Kopf */}
-        <div className="flex items-center gap-2.5 px-[18px] py-[15px] border-b border-s112-line flex-shrink-0">
-          <span className="w-7 h-7 rounded-lg bg-s112-blue-50 flex items-center justify-center flex-shrink-0">
+        <div className="flex items-center gap-2.5 px-[18px] py-[15px] border-b border-s112-line shrink-0">
+          <span className="w-7 h-7 rounded-lg bg-s112-blue-50 flex items-center justify-center shrink-0">
             <Sparkles size={16} strokeWidth={1.75} className="text-s112-blue-700" />
           </span>
           <div className="min-w-0 flex-1">
@@ -115,7 +115,7 @@ export default function AssistantPanel() {
           <button
             onClick={() => setOpen(false)}
             title="Einklappen"
-            className="flex-shrink-0 p-1 rounded-lg text-s112-text-2 hover:bg-s112-bg hover:text-s112-blue-700 transition-colors"
+            className="shrink-0 p-1 rounded-lg text-s112-text-2 hover:bg-s112-bg hover:text-s112-blue-700 transition-colors"
           >
             <PanelRightClose size={16} strokeWidth={1.5} />
           </button>
@@ -127,8 +127,8 @@ export default function AssistantPanel() {
             <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div className={
                 m.role === 'user'
-                  ? 'max-w-[84%] px-[13px] py-[10px] text-[13px] leading-[1.5] whitespace-pre-wrap bg-s112-teal text-s112-yellow rounded-[12px_12px_4px_12px]'
-                  : 'max-w-[90%] px-[13px] py-[10px] text-[13px] leading-[1.5] whitespace-pre-wrap bg-[#F2F3F5] text-s112-text rounded-[12px_12px_12px_4px]'
+                  ? 'max-w-[84%] px-[13px] py-[10px] text-[13px] leading-normal whitespace-pre-wrap bg-s112-teal text-s112-yellow rounded-[12px_12px_4px_12px]'
+                  : 'max-w-[90%] px-[13px] py-[10px] text-[13px] leading-normal whitespace-pre-wrap bg-[#F2F3F5] text-s112-text rounded-[12px_12px_12px_4px]'
               }>
                 {m.text}
                 {m.actions && m.actions.length > 0 && (
@@ -157,14 +157,14 @@ export default function AssistantPanel() {
         </div>
 
         {/* Fuß: Vorschlags-Chips + Eingabezeile */}
-        <div className="border-t border-s112-line px-4 pt-3 pb-4 flex-shrink-0">
+        <div className="border-t border-s112-line px-4 pt-3 pb-4 shrink-0">
           <div className="flex flex-wrap gap-1.5 mb-3">
             {CHIPS.map(chip => (
               <button
                 key={chip}
                 onClick={() => send(chip)}
                 disabled={thinking}
-                className="px-[11px] py-[6px] rounded-full bg-s112-bg border border-s112-line text-s112-text-1 text-[11.5px] hover:border-s112-blue-300 hover:text-s112-blue-700 hover:bg-[#F7F8FA] transition-colors disabled:opacity-50"
+                className="px-[11px] py-[6px] rounded-full bg-s112-bg border border-s112-line text-s112-text-1 text-[11.5px] hover:border-s112-blue-300 hover:text-s112-blue-700 hover:bg-s112-bg transition-colors disabled:opacity-50"
               >
                 {chip}
               </button>
@@ -177,13 +177,13 @@ export default function AssistantPanel() {
               onKeyDown={e => { if (e.key === 'Enter') send(draft) }}
               placeholder="Frage zu Betriebsdaten…"
               disabled={thinking}
-              className="flex-1 outline-none text-[13px] bg-transparent placeholder:text-s112-tertiary disabled:opacity-50"
+              className="flex-1 outline-hidden text-[13px] bg-transparent placeholder:text-s112-tertiary disabled:opacity-50"
             />
             <button
               onClick={() => send(draft)}
               disabled={thinking || !draft.trim()}
               title="Senden"
-              className="flex-shrink-0 w-7 h-7 rounded-[7px] bg-s112-teal text-s112-yellow flex items-center justify-center hover:opacity-90 transition-opacity disabled:opacity-40"
+              className="shrink-0 w-7 h-7 rounded-[7px] bg-s112-teal text-s112-yellow flex items-center justify-center hover:opacity-90 transition-opacity disabled:opacity-40"
             >
               <ArrowUp size={14} strokeWidth={2} />
             </button>

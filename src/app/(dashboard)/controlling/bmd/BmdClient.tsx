@@ -159,12 +159,12 @@ function UebergabeTab({ offeneRechnungen, offeneAusgaben, darfUebergeben, nurLes
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Belegdatum von</label>
               <input aria-label="Belegdatum von" type="date" value={von} onChange={e => setVon(e.target.value)}
-                className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none" />
+                className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden" />
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">bis</label>
               <input aria-label="bis" type="date" value={bis} onChange={e => setBis(e.target.value)}
-                className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none" />
+                className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden" />
             </div>
           </div>
         )}
@@ -194,7 +194,7 @@ function UebergabeTab({ offeneRechnungen, offeneAusgaben, darfUebergeben, nurLes
 
         {meldung && (
           <p className={`text-sm inline-flex items-start gap-1.5 ${meldung.typ === 'ok' ? 'text-s112-ok-fg' : meldung.typ === 'info' ? 'text-s112-text-2' : 'text-s112-err-fg'}`}>
-            {meldung.typ === 'ok' ? <CheckCircle2 size={15} className="mt-0.5 flex-shrink-0" /> : <AlertTriangle size={15} className="mt-0.5 flex-shrink-0" />}
+            {meldung.typ === 'ok' ? <CheckCircle2 size={15} className="mt-0.5 shrink-0" /> : <AlertTriangle size={15} className="mt-0.5 shrink-0" />}
             {meldung.text}
           </p>
         )}
@@ -214,7 +214,7 @@ function UebergabeTab({ offeneRechnungen, offeneAusgaben, darfUebergeben, nurLes
           <li>Stornierte Rechnungen werden nicht übergeben.</li>
         </ul>
         <p className="text-s112-warn-fg font-medium mt-2 inline-flex items-start gap-1.5">
-          <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
+          <AlertTriangle size={14} className="mt-0.5 shrink-0" />
           Konten und Steuercodes sind eine Vorbelegung nach dem Österreichischen Einheitskontenrahmen - bitte vor der ersten Übergabe mit dem Steuerberater abstimmen (Reiter „Konten-Mapping“).
         </p>
       </div>
@@ -256,7 +256,7 @@ function MappingTab({ overrides, kategorien, darfAendern }: { overrides: Record<
     <div className="space-y-4">
       <div className="bg-white border border-s112-line rounded-xl p-[18px] text-xs text-s112-muted space-y-1">
         <p className="text-s112-warn-fg font-medium inline-flex items-start gap-1.5">
-          <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
+          <AlertTriangle size={14} className="mt-0.5 shrink-0" />
           Vorbelegung nach dem Österreichischen Einheitskontenrahmen und den BMD-Standard-Steuercodes. Die Kanzlei des Mandanten kann abweichende Konten und Steuercodes führen - bitte vor der ersten Übergabe vom Steuerberater prüfen lassen.
         </p>
         <p>Es werden nur Abweichungen von der Vorbelegung gespeichert ({abweichungen} {abweichungen === 1 ? 'Abweichung' : 'Abweichungen'}). Abweichende Werte sind hervorgehoben.</p>
@@ -265,7 +265,7 @@ function MappingTab({ overrides, kategorien, darfAendern }: { overrides: Record<
 
       {MAPPING_GRUPPEN.map(g => (
         <div key={g.key} className="bg-white border border-s112-line rounded-xl overflow-hidden">
-          <div className="px-5 py-3 border-b border-s112-border bg-[#F7F8FA]">
+          <div className="px-5 py-3 border-b border-s112-border bg-s112-bg">
             <p className="font-display text-sm font-semibold text-s112-text">{g.label}</p>
           </div>
           <table className="w-full text-sm">
@@ -283,7 +283,7 @@ function MappingTab({ overrides, kategorien, darfAendern }: { overrides: Record<
                       <input value={wert} disabled={!darfAendern}
                         onChange={e => setWerte(w => ({ ...w, [f.schluessel]: e.target.value }))}
                         placeholder={f.standard || '(leer)'}
-                        className={`w-full border rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-none disabled:bg-s112-bg ${
+                        className={`w-full border rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-hidden disabled:bg-s112-bg ${
                           weicht ? 'border-s112-teal bg-s112-teal/5' : 'border-s112-border'}`} />
                     </td>
                     <td className="px-3 py-2.5 w-28 text-[11px] text-s112-muted align-top whitespace-nowrap">
@@ -312,7 +312,7 @@ function MappingTab({ overrides, kategorien, darfAendern }: { overrides: Record<
       )}
 
       <div className="bg-white border border-s112-line rounded-xl overflow-hidden">
-        <div className="px-5 py-3 border-b border-s112-border bg-[#F7F8FA] flex items-center justify-between">
+        <div className="px-5 py-3 border-b border-s112-border bg-s112-bg flex items-center justify-between">
           <p className="font-display text-sm font-semibold text-s112-text">Aufwands- und Ertragskonten der E&amp;A-Kategorien</p>
           <Link href="/buchhaltung/kategorien" className="text-xs text-s112-blue-700 hover:underline">Kategorien verwalten →</Link>
         </div>
@@ -353,7 +353,7 @@ function ProtokollTab({ protokoll }: { protokoll: R[] }) {
   return (
     <div className="bg-white border border-s112-line rounded-xl overflow-hidden">
       <table className="w-full text-sm">
-        <thead className="bg-[#F7F8FA] text-xs text-s112-text-2">
+        <thead className="bg-s112-bg text-xs text-s112-text-2">
           <tr>
             <th className="text-left px-4 py-2 font-medium">Übergeben am</th>
             <th className="text-left px-4 py-2 font-medium">Art</th>

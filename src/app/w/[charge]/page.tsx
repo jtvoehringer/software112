@@ -96,7 +96,7 @@ export default async function WeinpassPage({ params }: { params: Promise<{ charg
   // KAN-186: samt Zusatzbezeichnung und Erzeugnis („Qualitätswein Reserve“, „Sekt g.U. (Qualitätswein)“)
 
   return (
-    <div className="min-h-screen bg-[#F7F8FA] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-s112-bg flex items-center justify-center p-4">
       <div className="w-full max-w-sm bg-white rounded-xl shadow-xl overflow-hidden">
 
         {/* Header */}
@@ -149,12 +149,12 @@ export default async function WeinpassPage({ params }: { params: Promise<{ charg
           {/* Chargennummer */}
           <div className="mt-3 pt-3 border-t border-s112-line flex justify-between text-sm">
             <span className="text-s112-text-2">Chargennummer</span>
-            <span className="font-mono text-xs bg-[#F2F3F5] px-2 py-0.5 rounded text-s112-text-1">{f.chargennummer}</span>
+            <span className="font-mono text-xs bg-[#F2F3F5] px-2 py-0.5 rounded-sm text-s112-text-1">{f.chargennummer}</span>
           </div>
           {f.pruefnummer && (
             <div className="flex justify-between text-sm">
               <span className="text-s112-text-2">Prüfnummer</span>
-              <span className="font-mono text-xs bg-[#F2F3F5] px-2 py-0.5 rounded text-s112-text-1">{f.pruefnummer}</span>
+              <span className="font-mono text-xs bg-[#F2F3F5] px-2 py-0.5 rounded-sm text-s112-text-1">{f.pruefnummer}</span>
             </div>
           )}
         </div>
@@ -164,7 +164,7 @@ export default async function WeinpassPage({ params }: { params: Promise<{ charg
           <div className="px-6 pb-5 space-y-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-s112-tertiary">Herkunft</p>
             {weingaerten.map((wg: R, i: number) => (
-              <div key={i} className="bg-[#F7F8FA] rounded-xl p-3 space-y-1">
+              <div key={i} className="bg-s112-bg rounded-xl p-3 space-y-1">
                 <p className="text-sm font-semibold text-[#4F86D6] flex items-center gap-1">
                   <Sprout className="w-3.5 h-3.5" aria-hidden="true" />
                   {(wg.weingarten as R).name}

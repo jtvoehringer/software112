@@ -216,7 +216,7 @@ export default function HandbuchPage() {
       </div>
 
       <div className="flex gap-6">
-        <div className="w-52 flex-shrink-0">
+        <div className="w-52 shrink-0">
           <nav className="space-y-1">
             {KAPITEL.map(k => (
               <button key={k.id} onClick={() => setAktiv(k.id)}

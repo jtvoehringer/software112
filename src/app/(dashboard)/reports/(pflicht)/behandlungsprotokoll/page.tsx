@@ -85,12 +85,12 @@ export default async function BehandlungsprotokollPage({ searchParams }: { searc
           <form method="GET" action="/reports/behandlungsprotokoll" className="flex gap-2">
             <select name="jahr" aria-label="Saison"
               defaultValue={aktJahr}
-              className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none">
+              className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden">
               {jahre.map(j => <option key={j} value={j}>{j}</option>)}
             </select>
             <select name="art" aria-label="Maßnahmenart"
               defaultValue={art ?? ''}
-              className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none">
+              className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden">
               <option value="">Alle Maßnahmen</option>
               {Object.entries(ART_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
             </select>

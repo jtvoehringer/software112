@@ -41,7 +41,7 @@ export default function BehoerdenUebersicht({ gruppen }: { gruppen: UebersichtGr
                 <p className="text-[13px] font-medium text-s112-text leading-snug">
                   {e.titel}
                   {e.pflicht && (
-                    <span className="ml-1.5 align-middle inline-flex font-mono text-[10.5px] font-semibold tracking-[.03em] uppercase rounded px-1.5 py-px bg-s112-blue-50 text-s112-blue-700">
+                    <span className="ml-1.5 align-middle inline-flex font-mono text-[10.5px] font-semibold tracking-[.03em] uppercase rounded-sm px-1.5 py-px bg-s112-blue-50 text-s112-blue-700">
                       Pflicht
                     </span>
                   )}

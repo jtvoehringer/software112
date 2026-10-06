@@ -94,7 +94,7 @@ function ZweiFaktor() {
         <label htmlFor="mfa-code" className="block text-sm font-medium text-s112-text-1 mb-1">6-stelliger Code aus der App</label>
         <input id="mfa-code" inputMode="numeric" autoComplete="one-time-code" autoFocus maxLength={7}
           value={code} onChange={e => setCode(e.target.value)} placeholder="123 456"
-          className="w-full border border-s112-line-str rounded-lg px-3 py-2 text-lg tracking-widest font-mono focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+          className="w-full border border-s112-line-str rounded-lg px-3 py-2 text-lg tracking-widest font-mono focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
       </div>
       <button type="submit" disabled={laeuft || code.replace(/\s/g, '').length !== 6}
         className="w-full bg-s112-teal text-s112-yellow py-2 rounded-lg text-sm font-semibold disabled:opacity-40">

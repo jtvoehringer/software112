@@ -89,7 +89,7 @@ export default async function ExportPage() {
                   <p className="text-xs text-s112-muted">{exp.anzahl} {exp.einheit}</p>
                 </div>
               </div>
-              <span className="text-xs bg-s112-bg border border-s112-border px-2 py-0.5 rounded font-mono text-s112-text-2">{exp.format}</span>
+              <span className="text-xs bg-s112-bg border border-s112-border px-2 py-0.5 rounded-sm font-mono text-s112-text-2">{exp.format}</span>
             </div>
             <p className="text-xs text-s112-text-2 leading-relaxed">{exp.beschreibung}</p>
             <CsvExportKnopf href={exp.href} label="Herunterladen" ariaLabel={`${exp.title} als CSV herunterladen`} className="mt-auto" />

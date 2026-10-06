@@ -460,14 +460,14 @@ export default function ReportsClient({
       {/* Weitere Auswertungen */}
       <div className="grid grid-cols-2 gap-4 print:hidden">
         <a href="/reports/keller"
-          className="card p-5 hover:border-s112-teal hover:shadow-sm transition-all group flex flex-col gap-2">
+          className="card p-5 hover:border-s112-teal hover:shadow-xs transition-all group flex flex-col gap-2">
           <BarChart3 className="w-8 h-8 text-s112-blue-700" strokeWidth={1.75} />
           <p className="font-semibold text-s112-text group-hover:text-s112-blue-700">Keller-Auswertungen</p>
           <p className="text-xs text-s112-text-2 leading-relaxed">Behälter-Auslastung, Chargen, Kellerbehandlungen, Umzüge & Filtrationen</p>
           <p className="text-xs text-s112-blue-700 font-medium mt-auto">Öffnen →</p>
         </a>
         <a href="/auswertungen/kostenrechnung"
-          className="card p-5 hover:border-s112-teal hover:shadow-sm transition-all group flex flex-col gap-2">
+          className="card p-5 hover:border-s112-teal hover:shadow-xs transition-all group flex flex-col gap-2">
           <Calculator className="w-8 h-8 text-s112-blue-700" strokeWidth={1.75} />
           <p className="font-semibold text-s112-text group-hover:text-s112-blue-700">Kosten-Auswertung</p>
           <p className="text-xs text-s112-text-2 leading-relaxed">Kostenstellen, Kostenarten, Buchungsübersicht</p>
@@ -615,7 +615,7 @@ export default function ReportsClient({
                         onClick={() => toggleUmsatzDrill(m.monat, m.von, m.bis)}
                         className="w-full flex items-center gap-3 hover:bg-s112-bg/50 rounded-lg px-1 py-0.5 transition-colors group"
                       >
-                        <span className="text-xs text-s112-muted w-12 flex-shrink-0 text-right tabular-nums">{m.monat}</span>
+                        <span className="text-xs text-s112-muted w-12 shrink-0 text-right tabular-nums">{m.monat}</span>
                         <div className="flex-1 bg-s112-bg rounded-full h-5 overflow-hidden">
                           <div className="h-full rounded-full transition-all"
                             style={{ width: `${Math.max(2, (m.umsatz / maxUmsatz) * 100)}%`, backgroundColor: 'var(--s112-yellow)' }} />
@@ -948,12 +948,12 @@ export default function ReportsClient({
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Region / Ort</label>
                 <input aria-label="Region / Ort" value={bOrt} onChange={e => setBOrt(e.target.value)} placeholder="z.B. Salzburg, Wien…"
-                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Segment</label>
                 <select aria-label="Segment" value={bSegment} onChange={e => setBSegment(e.target.value)}
-                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
                   <option value="">Alle Segmente</option>
                   {SEGMENTE.map(s => (
                     <option key={s.value} value={s.value}>{s.label}</option>
@@ -1012,7 +1012,7 @@ export default function ReportsClient({
                               {k.strasse && `${k.strasse} · `}{k.telefon ?? k.mobil ?? k.email ?? '–'}
                             </p>
                           </div>
-                          <div className="text-right flex-shrink-0 ml-4">
+                          <div className="text-right shrink-0 ml-4">
                             <p className="text-[10px] text-s112-muted uppercase tracking-wide mb-0.5">Letzter Kontakt</p>
                             {k.tage_seit_kontakt !== null ? (
                               <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${k.tage_seit_kontakt > 180 ? 'bg-s112-err-bg text-s112-err-fg' : k.tage_seit_kontakt > 90 ? 'bg-s112-warn-bg text-s112-warn-fg' : 'bg-s112-ok-bg text-s112-ok-fg'}`}>
@@ -1053,7 +1053,7 @@ export default function ReportsClient({
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Jahrgang</label>
                 <select aria-label="Jahrgang" value={vsJahrgang} onChange={e => setVsJahrgang(e.target.value)}
-                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
                   <option value="">Alle</option>
                   {vsJahrgaenge.map(j => <option key={j} value={j}>{j}</option>)}
                 </select>
@@ -1061,7 +1061,7 @@ export default function ReportsClient({
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Sorte</label>
                 <select aria-label="Sorte" value={vsSorte} onChange={e => setVsSorte(e.target.value)}
-                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
                   <option value="">Alle</option>
                   {vsSorten.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
@@ -1069,7 +1069,7 @@ export default function ReportsClient({
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Bezeichnung</label>
                 <select aria-label="Bezeichnung" value={vsBezeichnung} onChange={e => setVsBezeichnung(e.target.value)}
-                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
                   <option value="">Alle</option>
                   {vsBezeichnungen.map(b => <option key={b} value={b}>{b}</option>)}
                 </select>
@@ -1082,17 +1082,17 @@ export default function ReportsClient({
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">PLZ von</label>
                 <input aria-label="PLZ von" value={vsPlzVon} onChange={e => setVsPlzVon(e.target.value)} placeholder="z.B. 1000"
-                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">PLZ bis</label>
                 <input aria-label="PLZ bis" value={vsPlzBis} onChange={e => setVsPlzBis(e.target.value)} placeholder="z.B. 3500"
-                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Ort</label>
                 <select aria-label="Ort" value={vsOrt} onChange={e => setVsOrt(e.target.value)}
-                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
                   <option value="">Alle</option>
                   {vsOrte.map(o => <option key={o} value={o}>{o}</option>)}
                 </select>
@@ -1100,7 +1100,7 @@ export default function ReportsClient({
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Land</label>
                 <select aria-label="Land" value={vsLand} onChange={e => setVsLand(e.target.value)}
-                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
                   <option value="">Alle</option>
                   {vsLaender.map(l => <option key={l} value={l}>{l}</option>)}
                 </select>
@@ -1189,7 +1189,7 @@ export default function ReportsClient({
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Jahrgang</label>
                 <select aria-label="Jahrgang" value={wbJahrgang} onChange={e => setWbJahrgang(e.target.value)}
-                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
                   <option value="">Alle</option>
                   {wbJahrgaenge.map(j => <option key={j} value={j}>{j}</option>)}
                 </select>
@@ -1197,7 +1197,7 @@ export default function ReportsClient({
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Sorte</label>
                 <select aria-label="Sorte" value={wbSorte} onChange={e => setWbSorte(e.target.value)}
-                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
                   <option value="">Alle</option>
                   {wbSorten.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
@@ -1205,7 +1205,7 @@ export default function ReportsClient({
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Bezeichnung</label>
                 <select aria-label="Bezeichnung" value={wbBezeichnung} onChange={e => setWbBezeichnung(e.target.value)}
-                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
                   <option value="">Alle</option>
                   {wbBezeichnungen.map(b => <option key={b} value={b}>{b}</option>)}
                 </select>

@@ -42,7 +42,7 @@ const AKT_ICON: Record<string, typeof Phone> = {
 }
 
 function inputCls() {
-  return 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+  return 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40'
 }
 
 // ── Aktivitäts-Formular ───────────────────────────────────────────────────────
@@ -73,16 +73,16 @@ function AktivitaetForm({ firmaId, onDone }: { firmaId: string; onDone: () => vo
       <div className="flex items-center gap-3 flex-wrap">
         <label className="flex items-center gap-1.5 text-xs text-s112-text-2 cursor-pointer select-none shrink-0">
           <input type="checkbox" checked={ganztags} onChange={e => setGanztags(e.target.checked)}
-            className="rounded" />
+            className="rounded-sm" />
           Ganztags
         </label>
         <div className="flex items-center gap-2">
           <span className="text-xs text-s112-tertiary">Von</span>
           <input name="uhrzeit_von" type="time" step="1800" disabled={ganztags}
-            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-s112-bg' : ''}`} />
+            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-s112-bg' : ''}`} />
           <span className="text-xs text-s112-tertiary">–</span>
           <input name="uhrzeit_bis" type="time" step="1800" disabled={ganztags}
-            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-s112-bg' : ''}`} />
+            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-s112-bg' : ''}`} />
         </div>
       </div>
 
@@ -128,16 +128,16 @@ function PipelineForm({ firmaId, onDone }: { firmaId: string; onDone: () => void
       </div>
       <div className="flex items-center gap-3 flex-wrap">
         <label className="flex items-center gap-1.5 text-xs text-s112-text-2 cursor-pointer select-none shrink-0">
-          <input type="checkbox" checked={ganztags} onChange={e => setGanztags(e.target.checked)} className="rounded" />
+          <input type="checkbox" checked={ganztags} onChange={e => setGanztags(e.target.checked)} className="rounded-sm" />
           Ganztags
         </label>
         <div className="flex items-center gap-2">
           <span className="text-xs text-s112-tertiary">Von</span>
           <input name="uhrzeit_von" type="time" step="1800" disabled={ganztags}
-            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-s112-bg' : ''}`} />
+            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-s112-bg' : ''}`} />
           <span className="text-xs text-s112-tertiary">–</span>
           <input name="uhrzeit_bis" type="time" step="1800" disabled={ganztags}
-            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-s112-bg' : ''}`} />
+            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-s112-bg' : ''}`} />
         </div>
       </div>
       <div className="flex gap-2">
@@ -190,7 +190,7 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
     const isStorniert = a.betreff?.includes('STORNIERT')
     return (
       <div className="card p-4 flex gap-3">
-        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-s112-bg flex items-center justify-center text-s112-blue-700">
+        <div className="shrink-0 w-8 h-8 rounded-full bg-s112-bg flex items-center justify-center text-s112-blue-700">
           <Receipt size={16} />
         </div>
         <div className="flex-1 min-w-0">
@@ -249,26 +249,26 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
                 type="checkbox"
                 checked={ganztags}
                 onChange={e => setGanztags(e.target.checked)}
-                className="rounded"
+                className="rounded-sm"
               />
               <input type="hidden" name="ganztags" value={String(ganztags)} />
               Ganztags
             </label>
             {!ganztags && (
               <div className="flex items-center gap-1.5">
-                <input type="time" name="uhrzeit_von" step="1800" defaultValue={a.uhrzeit_von ?? ''} className="border border-s112-border rounded px-2 py-1 text-xs focus:outline-none" />
+                <input type="time" name="uhrzeit_von" step="1800" defaultValue={a.uhrzeit_von ?? ''} className="border border-s112-border rounded-sm px-2 py-1 text-xs focus:outline-hidden" />
                 <span className="text-s112-tertiary">–</span>
-                <input type="time" name="uhrzeit_bis" step="1800" defaultValue={a.uhrzeit_bis ?? ''} className="border border-s112-border rounded px-2 py-1 text-xs focus:outline-none" />
+                <input type="time" name="uhrzeit_bis" step="1800" defaultValue={a.uhrzeit_bis ?? ''} className="border border-s112-border rounded-sm px-2 py-1 text-xs focus:outline-hidden" />
               </div>
             )}
             <label className="flex items-center gap-1.5 cursor-pointer">
-              <input type="checkbox" name="erledigt" value="true" defaultChecked={a.erledigt ?? false} className="rounded" />
+              <input type="checkbox" name="erledigt" value="true" defaultChecked={a.erledigt ?? false} className="rounded-sm" />
               Erledigt
             </label>
           </div>
           <div className="flex gap-2 pt-1">
             <button type="submit" disabled={pending}
-              className="bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-opacity-90 disabled:opacity-40">
+              className="bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-s112-teal/90 disabled:opacity-40">
               {pending ? 'Speichern…' : 'Speichern'}
             </button>
             <button type="button" onClick={() => setEditMode(false)}
@@ -291,7 +291,7 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
       {writeOk && (
         <button type="button" onClick={handleErledigt} disabled={pending}
           title={a.erledigt ? 'Als offen markieren' : 'Als erledigt markieren'}
-          className={`mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors disabled:opacity-50 ${
+          className={`mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors disabled:opacity-50 ${
             a.erledigt ? 'bg-s112-ok border-s112-ok text-white' : 'bg-white border-s112-line-str hover:border-s112-ok/50 text-transparent'
           }`}>
           <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -299,7 +299,7 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
           </svg>
         </button>
       )}
-      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-s112-bg flex items-center justify-center text-s112-text-2">
+      <div className="shrink-0 w-8 h-8 rounded-full bg-s112-bg flex items-center justify-center text-s112-text-2">
         <ArtIcon size={16} strokeWidth={1.75} />
       </div>
       <div className="flex-1 min-w-0">
@@ -313,7 +313,7 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
             </span>
           )}
           <span className="text-xs text-s112-muted">{artDef?.label ?? a.art}</span>
-          {a.ist_privat && <span className="text-xs bg-[#F2F3F5] text-s112-text-2 px-1.5 py-0.5 rounded">Privat</span>}
+          {a.ist_privat && <span className="text-xs bg-[#F2F3F5] text-s112-text-2 px-1.5 py-0.5 rounded-sm">Privat</span>}
         </div>
         {a.art === 'email' ? (
           <button type="button" onClick={() => setEmailOpen(v => !v)}
@@ -351,7 +351,7 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
           <div className="mt-2 space-y-2">
             <textarea value={replyText} onChange={e => setReplyText(e.target.value)} rows={3}
               placeholder={`Antwort an ${firmaEmail ?? '...'}`}
-              className="w-full border border-s112-border rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-s112-teal/40 resize-none" />
+              className="w-full border border-s112-border rounded-lg px-3 py-2 text-xs focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 resize-none" />
             <div className="flex gap-2">
               <button type="button" disabled={replySending || !replyText.trim()} onClick={async () => {
                 if (!firmaEmail || !replyText.trim()) return
@@ -361,7 +361,7 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
                   body: JSON.stringify({ an: firmaEmail, betreff: `Re: ${a.betreff ?? ''}`, text: replyText, firma_id: firmaId ?? null }),
                 })
                 setReplySending(false); setReplyOpen(false); setReplyText('')
-              }} className="text-xs bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg hover:bg-opacity-90 disabled:opacity-40">
+              }} className="text-xs bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg hover:bg-s112-teal/90 disabled:opacity-40">
                 {replySending ? 'Senden…' : 'Senden'}
               </button>
               <button type="button" onClick={() => setReplyOpen(false)}
@@ -372,7 +372,7 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
           </div>
         )}
       </div>
-      <div className="flex flex-col gap-1 flex-shrink-0">
+      <div className="flex flex-col gap-1 shrink-0">
         {a.art === 'email' && firmaEmail && !replyOpen && (
           <button type="button" onClick={() => setReplyOpen(true)} title="Antworten"
             className="text-xs text-s112-blue-700 border border-s112-teal/30 px-2 py-1 rounded-lg hover:bg-s112-teal/5">
@@ -512,7 +512,7 @@ export default function FirmaDetailClient({
       ) : (
       <div className="card p-5">
         <div className="flex items-start gap-4">
-          <div className="w-12 h-12 rounded-lg bg-s112-teal/10 flex items-center justify-center text-s112-blue-700 font-semibold text-lg flex-shrink-0">
+          <div className="w-12 h-12 rounded-lg bg-s112-teal/10 flex items-center justify-center text-s112-blue-700 font-semibold text-lg shrink-0">
             {firma.name[0].toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
@@ -588,7 +588,7 @@ export default function FirmaDetailClient({
             )}
           </div>
           {writeOk && (
-            <div className="flex gap-2 flex-shrink-0 self-start">
+            <div className="flex gap-2 shrink-0 self-start">
               <button
                 onClick={() => setEditing(true)}
                 title="Bearbeiten" aria-label="Bearbeiten"
@@ -648,7 +648,7 @@ export default function FirmaDetailClient({
             const kName = [k.vorname, k.nachname].filter(Boolean).join(' ')
             return (
               <div key={k.id} className="card p-4 flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-s112-teal/10 flex items-center justify-center text-s112-blue-700 font-semibold text-sm flex-shrink-0">
+                <div className="w-8 h-8 rounded-full bg-s112-teal/10 flex items-center justify-center text-s112-blue-700 font-semibold text-sm shrink-0">
                   {(k.vorname?.[0] ?? k.nachname[0]).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -723,7 +723,7 @@ export default function FirmaDetailClient({
                         <button type="button"
                           onClick={() => setExpandedThreads(prev => { const s=new Set(prev); expanded?s.delete(cid):s.add(cid); return s })}
                           className="w-full flex items-center gap-3 px-4 py-2.5 bg-s112-blue-50 hover:bg-s112-blue-100 transition-colors text-left">
-                          <Mail size={16} className="text-s112-blue-700 flex-shrink-0" />
+                          <Mail size={16} className="text-s112-blue-700 shrink-0" />
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-s112-text truncate">{latest.betreff}</p>
                             <p className="text-xs text-s112-muted">{msgs.length} E-Mails · {new Date(latest.datum).toLocaleDateString('de-AT')} · {expanded ? 'einklappen ▴' : 'ausklappen ▾'}</p>
@@ -783,7 +783,7 @@ export default function FirmaDetailClient({
                       </span>
                       <span className="text-sm font-medium text-s112-text">{p.titel}</span>
                       </div>
-                      <Link href="/crm/pipeline" className="text-xs text-s112-blue-700 hover:underline flex-shrink-0">→ Pipeline</Link>
+                      <Link href="/crm/pipeline" className="text-xs text-s112-blue-700 hover:underline shrink-0">→ Pipeline</Link>
                     </div>
                     <div className="flex gap-4 text-xs text-s112-muted flex-wrap">
                       {p.wert_euro != null && (
@@ -876,12 +876,12 @@ export default function FirmaDetailClient({
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Betreff *</label>
                 <input aria-label="Betreff" value={emailBetreff} onChange={e => setEmailBetreff(e.target.value)} required autoFocus
-                  className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+                  className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Nachricht</label>
                 <textarea aria-label="Nachricht" value={emailText} onChange={e => setEmailText(e.target.value)} rows={5}
-                  className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 resize-none" />
+                  className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 resize-none" />
               </div>
               {emailResult && (
                 <p className={`text-xs font-medium inline-flex items-center gap-1 ${emailResult === 'E-Mail gesendet' ? 'text-s112-ok-fg' : 'text-s112-err-fg'}`}>
@@ -891,7 +891,7 @@ export default function FirmaDetailClient({
               )}
               <div className="flex gap-2 pt-1">
                 <button type="submit" disabled={emailSending}
-                  className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+                  className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-40">
                   {emailSending ? 'Senden…' : 'Senden'}
                 </button>
                 <button type="button" onClick={() => setShowEmailModal(false)}
@@ -927,9 +927,9 @@ export default function FirmaDetailClient({
               }} className="flex gap-2">
                 <input value={notizText} onChange={e => setNotizText(e.target.value)}
                   placeholder="Neue Notiz…" required
-                  className="flex-1 border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+                  className="flex-1 border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
                 <button type="submit" disabled={notizLaden}
-                  className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+                  className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-40">
                   + Notiz
                 </button>
               </form>
@@ -938,7 +938,7 @@ export default function FirmaDetailClient({
               {[...aktivitaeten.filter(a => a.art === 'notiz')].sort((a,b) => Number(a.erledigt) - Number(b.erledigt)).map(n => (
                 <div key={n.id} className={`card p-4 flex gap-3 ${n.erledigt ? 'opacity-60' : ''}`}>
                   <button type="button" onClick={() => toggleAktivitaetErledigt(n.id, !n.erledigt)}
-                    className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${n.erledigt ? 'bg-s112-ok border-s112-ok text-white' : 'border-s112-line-str hover:border-s112-ok/50'}`}>
+                    className={`mt-0.5 w-5 h-5 rounded-sm border-2 flex items-center justify-center shrink-0 ${n.erledigt ? 'bg-s112-ok border-s112-ok text-white' : 'border-s112-line-str hover:border-s112-ok/50'}`}>
                     {n.erledigt && <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
                   </button>
                   <div className="flex-1">

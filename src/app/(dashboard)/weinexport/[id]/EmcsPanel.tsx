@@ -16,10 +16,10 @@ export default function EmcsPanel({ auftragId, initialArc, initialStatus }: Prop
         <label className="block text-xs text-s112-muted">ARC-Nummer</label>
         <input aria-label="ARC-Nummer" value={arc} onChange={e => setArc(e.target.value)}
           placeholder="AT123456789012345"
-          className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none" />
+          className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden" />
         <label className="block text-xs text-s112-muted mt-1">Status</label>
         <select aria-label="Status" value={status} onChange={e => setStatus(e.target.value)}
-          className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none">
+          className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden">
           <option value="">nicht eingereicht</option>
           <option value="draft">Entwurf</option>
           <option value="submitted">Eingereicht</option>
@@ -37,7 +37,7 @@ export default function EmcsPanel({ auftragId, initialArc, initialStatus }: Prop
             if (!res.ok) setFehler((await res.json().catch(() => null))?.fehler ?? `Fehler (Status ${res.status})`)
             setSaving(false)
           }}
-          className="w-full text-xs bg-s112-teal text-s112-yellow py-1.5 rounded-lg hover:bg-opacity-90 disabled:opacity-40">
+          className="w-full text-xs bg-s112-teal text-s112-yellow py-1.5 rounded-lg hover:bg-s112-teal/90 disabled:opacity-40">
           {saving ? 'Speichern...' : 'EMCS speichern'}
         </button>
         {fehler && <p role="alert" className="text-xs text-s112-err">{fehler}</p>}

@@ -34,7 +34,7 @@ export default function JahrgaengeClient({
         <p className="text-s112-muted text-sm mt-1 mb-6">Erste Lese anlegen (der Jahrgang entsteht dabei) und Lesedaten erfassen</p>
         {writeOk && (
           <Link href="/erntemeldung/neu"
-            className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
+            className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors">
             Neue Lese
           </Link>
         )}
@@ -91,7 +91,7 @@ function JahrgangKarte({ j, writeOk, adminOk }: { j: Jahrgang; writeOk: boolean;
   }
 
   return (
-    <div className={`card hover:shadow-sm transition-shadow ${pending ? 'opacity-50 pointer-events-none' : ''}`}>
+    <div className={`card hover:shadow-xs transition-shadow ${pending ? 'opacity-50 pointer-events-none' : ''}`}>
       {fehler && (
         <div role="alert" className="mb-3 flex items-start gap-2 text-xs text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2">
           <span className="flex-1">{fehler}</span>
@@ -106,7 +106,7 @@ function JahrgangKarte({ j, writeOk, adminOk }: { j: Jahrgang; writeOk: boolean;
             <div className="col-span-2">
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Qualität</label>
               <select aria-label="Qualität" name="qualitaet_gesamt" defaultValue={j.qualitaet_gesamt ?? ''}
-                className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
                 <option value="">– keine Bewertung –</option>
                 {Object.entries(QUALITAET_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
@@ -114,12 +114,12 @@ function JahrgangKarte({ j, writeOk, adminOk }: { j: Jahrgang; writeOk: boolean;
             <div className="col-span-2">
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
               <input aria-label="Notizen" name="notizen" defaultValue={j.notizen ?? ''}
-                className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+                className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
             </div>
           </div>
           <div className="flex gap-2 pt-1">
             <button type="submit" disabled={pending}
-              className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-50">
+              className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-50">
               Speichern
             </button>
             <button type="button" onClick={() => setEditing(false)}
@@ -167,7 +167,7 @@ function JahrgangKarte({ j, writeOk, adminOk }: { j: Jahrgang; writeOk: boolean;
                 <span className="text-xs px-2 py-1 rounded-full bg-[#F2F3F5] text-s112-text-2">Abgeschlossen</span>
               )}
               <Link href={`/erntemeldung/${j.id}`}
-                className="bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-opacity-90 transition-colors">
+                className="bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-s112-teal/90 transition-colors">
                 Öffnen
               </Link>
               {writeOk && (

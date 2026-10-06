@@ -45,7 +45,7 @@ export default async function BelegePage() {
 
     return (
       <div className="flex items-center gap-4 px-4 py-3 border-b border-s112-border/50 hover:bg-s112-bg/50">
-        <div className="flex-shrink-0 text-s112-muted">
+        <div className="shrink-0 text-s112-muted">
           {istBild ? <ImageIcon className="w-5 h-5" /> : <FileText className="w-5 h-5" />}
         </div>
         <div className="flex-1 min-w-0">
@@ -62,7 +62,7 @@ export default async function BelegePage() {
             </p>
           )}
         </div>
-        <div className="text-right flex-shrink-0">
+        <div className="text-right shrink-0">
           {e.betrag_brutto != null && (
             <p className={`font-mono font-semibold ${e.typ === 'einnahme' ? 'text-s112-ok-fg' : 'text-s112-err'}`}>
               € {fmt(e.betrag_brutto)}
@@ -72,13 +72,13 @@ export default async function BelegePage() {
             <p className="text-xs text-s112-warn-fg">Erkennung: {e.konfidenz}</p>
           )}
         </div>
-        <div className="flex items-center gap-3 flex-shrink-0">
+        <div className="flex items-center gap-3 shrink-0">
           {b.status === 'verbucht' ? (
             <span className="text-xs font-medium bg-s112-ok-bg text-s112-ok-fg px-2.5 py-1 rounded-full">Verbucht</span>
           ) : (
             <Link
               href={`/buchhaltung/belege/${b.id}`}
-              className="bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-opacity-90"
+              className="bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-s112-teal/90"
             >
               Buchen
             </Link>
@@ -116,7 +116,7 @@ export default async function BelegePage() {
       </div>
 
       <div className="flex items-start gap-2.5 bg-s112-blue-50 border border-s112-blue-100 rounded-xl p-4 mb-6">
-        <Info className="w-4 h-4 text-s112-blue-700 mt-0.5 flex-shrink-0" />
+        <Info className="w-4 h-4 text-s112-blue-700 mt-0.5 shrink-0" />
         <div className="text-xs text-s112-blue-700">
           <p className="font-semibold mb-1">Wie es funktioniert</p>
           <p className="text-s112-blue-700">

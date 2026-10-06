@@ -55,7 +55,7 @@ function heuteIso(): string {
 }
 
 const knopfNeben = 'text-sm bg-s112-bg border border-s112-border hover:border-s112-teal text-s112-text-1 hover:text-s112-blue-700 px-4 py-2 rounded-lg transition-colors'
-const knopfHaupt = 'bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50 transition-colors'
+const knopfHaupt = 'bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 disabled:opacity-50 transition-colors'
 
 export default function AmaMeldungKarte({ jahrgangId, jahrgang, amaMeldung, stichtagHinweis, anzahlParzellen, csvErlaubt }: {
   jahrgangId: string; jahrgang: number | string

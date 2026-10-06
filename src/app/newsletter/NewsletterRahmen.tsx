@@ -10,7 +10,7 @@ export default function NewsletterRahmen({ betrieb, untertitel, children }: {
 }) {
   const name = betrieb?.name ?? 'Newsletter'
   return (
-    <main id="inhalt" className="min-h-screen bg-gradient-to-b from-s112-bg to-white flex items-center justify-center p-6">
+    <main id="inhalt" className="min-h-screen bg-linear-to-b from-s112-bg to-white flex items-center justify-center p-6">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="mb-3 flex justify-center">
@@ -23,7 +23,7 @@ export default function NewsletterRahmen({ betrieb, untertitel, children }: {
           {untertitel && <p className="text-s112-muted text-sm mt-1">{untertitel}</p>}
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-s112-border p-8">
+        <div className="bg-white rounded-xl shadow-xs border border-s112-border p-8">
           {children}
         </div>
 

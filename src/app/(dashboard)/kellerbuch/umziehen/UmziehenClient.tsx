@@ -60,7 +60,7 @@ function QuelleZeile({
             onChange(e.target.value, charge ? String(charge.menge_liter) : '')
           }}
           required
-          className="border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 flex-1 basis-full sm:basis-0 sm:min-w-[220px]"
+          className="border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 flex-1 basis-full sm:basis-0 sm:min-w-[220px]"
         >
           <option value="">– Behälter · Charge wählen –</option>
           {quellen.map(q => (
@@ -79,7 +79,7 @@ function QuelleZeile({
           max={selected?.menge_liter ?? undefined}
           placeholder="Liter"
           required
-          className={`border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 w-28 tabular-nums ${ueberzogen ? 'border-s112-err/50 focus:ring-s112-err/30' : 'border-s112-border focus:ring-s112-teal/40'}`}
+          className={`border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-hidden focus:ring-2 w-28 tabular-nums ${ueberzogen ? 'border-s112-err/50 focus:ring-s112-err/30' : 'border-s112-border focus:ring-s112-teal/40'}`}
         />
         <span className="text-xs text-s112-muted w-8">L</span>
         {selected && !ueberzogen && (
@@ -132,7 +132,7 @@ function ZielZeile({
         value={value}
         onChange={e => onChange(e.target.value, menge)}
         required
-        className="border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 flex-1 basis-full sm:basis-0 sm:min-w-[200px]"
+        className="border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 flex-1 basis-full sm:basis-0 sm:min-w-[200px]"
       >
         <option value="">– Behälter wählen –</option>
         {behaelter.map(b => {
@@ -158,7 +158,7 @@ function ZielZeile({
         step="0.001"
         placeholder="Liter"
         required
-        className="border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 w-28 tabular-nums"
+        className="border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 w-28 tabular-nums"
       />
       <span className="text-xs text-s112-muted w-8">L</span>
       <button aria-label="Zeile entfernen" type="button" onClick={onRemove} className="text-xs text-s112-err hover:text-s112-err-fg p-2 sm:py-0 sm:px-1"><X size={13} /></button>
@@ -298,7 +298,7 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum *</label>
           <input aria-label="Datum" type="date" value={datum} onChange={e => setDatum(e.target.value)} required
-            className="border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 w-full" />
+            className="border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 w-full" />
         </div>
       </div>
 
@@ -363,7 +363,7 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
       <div>
         <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
         <input aria-label="Notizen" type="text" value={notizen} onChange={e => setNotizen(e.target.value)}
-          className="border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 w-full"
+          className="border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 w-full"
           placeholder="Optional" />
       </div>
 
@@ -391,7 +391,7 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
           </div>
         ) : (
           <button type="submit" disabled={pending}
-            className="bg-s112-teal text-s112-yellow px-5 py-3 sm:py-2 rounded-xl text-base sm:text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40 w-full">
+            className="bg-s112-teal text-s112-yellow px-5 py-3 sm:py-2 rounded-xl text-base sm:text-sm font-semibold hover:bg-s112-teal/90 disabled:opacity-40 w-full">
             {pending ? 'Wird verarbeitet…' : `Umziehen (${fmt(totalVon)} → ${fmt(totalNach)}${schwund > 0 ? `, ${fmt(schwund)} Schwund` : ''})`}
           </button>
         )}
@@ -440,12 +440,12 @@ function UmzugZeile({ u, writeOk }: { u: UmzugRow; writeOk: boolean }) {
         <td className="px-3 py-2">
           <input type="text" value={notizen} onChange={e => setNotizen(e.target.value)}
             placeholder="Notizen…"
-            className="border border-s112-border rounded px-2 py-1 text-base sm:text-xs w-full min-w-[120px]" />
-          {error && <p role="alert" className="text-xs text-s112-err-fg mt-0.5 whitespace-normal break-words">{error}</p>}
+            className="border border-s112-border rounded-sm px-2 py-1 text-base sm:text-xs w-full min-w-[120px]" />
+          {error && <p role="alert" className="text-xs text-s112-err-fg mt-0.5 whitespace-normal wrap-break-word">{error}</p>}
         </td>
         <td className="px-3 py-2 text-right whitespace-nowrap">
           <button onClick={handleSave} disabled={pending}
-            className="text-xs bg-s112-teal text-s112-yellow px-2 py-1 rounded hover:bg-opacity-90 disabled:opacity-40 mr-1">
+            className="text-xs bg-s112-teal text-s112-yellow px-2 py-1 rounded-sm hover:bg-s112-teal/90 disabled:opacity-40 mr-1">
             {pending ? '…' : 'Speichern'}
           </button>
           <button onClick={() => setEditing(false)}
@@ -499,7 +499,7 @@ function UmzugZeile({ u, writeOk }: { u: UmzugRow; writeOk: boolean }) {
               hinweis={istSchwund ? 'Die Menge wird auf die Charge zurückgebucht; die Schwundbuchung bleibt als storniert stehen – nur wenn sie den Bestand gemindert hat und an der Charge seither nichts gebucht wurde.' : 'Die Bestände werden zurückgebucht; der Umzug bleibt als storniert im Bewegungsbuch – nur solange die Ziel-Charge seither nicht weiterbewegt wurde.'} />
           </span>
           {error && (
-            <p role="alert" className="text-xs text-s112-err-fg mt-0.5 ml-auto w-[260px] max-w-[70vw] text-left whitespace-normal break-words">{error}</p>
+            <p role="alert" className="text-xs text-s112-err-fg mt-0.5 ml-auto w-[260px] max-w-[70vw] text-left whitespace-normal wrap-break-word">{error}</p>
           )}
         </td>
       )}
@@ -534,7 +534,7 @@ export default function UmziehenClient({
         </div>
         {writeOk && (
           <button onClick={() => setShowForm(o => !o)}
-            className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
+            className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90">
             {showForm ? 'Abbrechen' : '+ Neuer Umzug'}
           </button>
         )}

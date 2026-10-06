@@ -70,18 +70,18 @@ function PSMForm({ psm, onDone }: { psm?: PSMEintrag; onDone: () => void }) {
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Name *</label>
           <input aria-label="Name" name="name" required defaultValue={psm?.name ?? ''}
             placeholder="z.B. Cuprozin progress"
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Handelsname</label>
           <input aria-label="Handelsname" name="handelsname" defaultValue={psm?.handelsname ?? ''}
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         </div>
 
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Kategorie</label>
           <select aria-label="Kategorie" name="kategorie" defaultValue={psm?.kategorie ?? ''}
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
             <option value="">– keine –</option>
             {KATEGORIE_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
@@ -90,41 +90,41 @@ function PSMForm({ psm, onDone }: { psm?: PSMEintrag; onDone: () => void }) {
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Wirkstoff</label>
           <input aria-label="Wirkstoff" name="wirkstoff" defaultValue={psm?.wirkstoff ?? ''}
             placeholder="z.B. Kupferhydroxid"
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         </div>
 
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Wirkstoffgehalt (%)</label>
           <input aria-label="Wirkstoffgehalt (%)" name="wirkstoffgehalt_pct" type="number" step="0.01" min="0" max="100"
             defaultValue={psm?.wirkstoffgehalt_pct ?? ''}
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Cu-Gehalt (%)</label>
           <input aria-label="Cu-Gehalt (%)" name="cu_gehalt_pct" type="number" step="0.01" min="0" max="100"
             defaultValue={psm?.cu_gehalt_pct ?? ''}
             placeholder="nur bei Kupfermitteln"
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         </div>
 
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Max. Aufwand (kg/ha)</label>
           <input aria-label="Max. Aufwand (kg/ha)" name="max_aufwand_kg_ha" type="number" step="0.001" min="0"
             defaultValue={psm?.max_aufwand_kg_ha ?? ''}
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Max. Anwendungen</label>
           <input aria-label="Max. Anwendungen" name="max_anwendungen" type="number" min="0"
             defaultValue={psm?.max_anwendungen ?? ''}
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         </div>
 
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Wartezeit (Tage)</label>
           <input aria-label="Wartezeit (Tage)" name="wartezeit_tage" type="number" min="0"
             defaultValue={psm?.wartezeit_tage ?? ''}
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         <div className="flex items-end pb-1.5">
           <label className="flex items-center gap-2 cursor-pointer">
@@ -142,13 +142,13 @@ function PSMForm({ psm, onDone }: { psm?: PSMEintrag; onDone: () => void }) {
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Registernummer (Zulassungsnr.)</label>
           <input aria-label="Registernummer (Zulassungsnr.)" name="zulassungsnr" defaultValue={psm?.zulassungsnr ?? ''}
             placeholder="z.B. 3456-0 (PSM-Register)" maxLength={30}
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">EPPO-Code Hauptschaderreger</label>
           <input aria-label="EPPO-Code Hauptschaderreger" name="eppo_code" defaultValue={psm?.eppo_code ?? ''}
             placeholder="z.B. PLASVI (Peronospora), UNCINE (Oidium)" maxLength={6}
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm uppercase focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         <div className="col-span-2 flex items-center pb-1">
           <label className="flex items-center gap-2 cursor-pointer">
@@ -164,13 +164,13 @@ function PSMForm({ psm, onDone }: { psm?: PSMEintrag; onDone: () => void }) {
         <div className="col-span-2">
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
           <input aria-label="Notizen" name="notizen" defaultValue={psm?.notizen ?? ''}
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         </div>
       </div>
 
       <div className="flex gap-2 pt-1">
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-50">
+          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-50">
           {pending ? 'Speichert…' : 'Speichern'}
         </button>
         <button type="button" onClick={onDone}
@@ -208,7 +208,7 @@ export default function PSMClient({
       {!showForm && writeOk && (
         <div className="mb-6">
           <button onClick={() => setShowForm(true)}
-            className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
+            className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors">
             Neues Mittel anlegen
           </button>
         </div>

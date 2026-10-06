@@ -84,12 +84,12 @@ export default async function BuchhaltungNeuPage() {
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum *</label>
             <input aria-label="Datum" type="date" name="datum" required
               defaultValue={new Date().toISOString().split('T')[0]}
-              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
           </div>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">USt-Satz *</label>
             <select aria-label="USt-Satz" name="ust_satz" defaultValue={ustStandard}
-              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
               {UST_SAETZE.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
             </select>
           </div>
@@ -98,14 +98,14 @@ export default async function BuchhaltungNeuPage() {
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Bezeichnung *</label>
           <input aria-label="Bezeichnung" name="beschreibung" required placeholder="z.B. Weinverkauf Mayer, Rechnung Nr. 2026-042"
-            className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         </div>
 
         {/* Betrag */}
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Betrag Netto (€) *</label>
           <input aria-label="Betrag Netto (€)" type="number" name="betrag_netto" step="0.01" min="0" required placeholder="0.00"
-            className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
           <p className="text-xs text-s112-muted mt-1">USt wird automatisch aufgeschlagen. Bruttobetrag erscheint nach dem Speichern.</p>
         </div>
 
@@ -113,7 +113,7 @@ export default async function BuchhaltungNeuPage() {
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Kategorie</label>
           <select aria-label="Kategorie" name="kategorie_id"
-            className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+            className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
             <option value="">– keine –</option>
             <optgroup label="Einnahmen">
               {einnahmeKat.map((k: R) => <option key={k.id} value={k.id}>{k.name}{Number(k.abzugsfaehig_pct) < 100 ? ` — nur ${k.abzugsfaehig_pct}% abzugsfähig` : ''}</option>)}
@@ -130,7 +130,7 @@ export default async function BuchhaltungNeuPage() {
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Konto</label>
             <select aria-label="Konto" name="konto_id" defaultValue=""
-              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
               <option value="">– keines –</option>
               {(konten as R[]).map(k => <option key={k.id} value={k.id}>{k.name}</option>)}
             </select>
@@ -142,12 +142,12 @@ export default async function BuchhaltungNeuPage() {
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen / Belegnummer</label>
           <textarea aria-label="Notizen / Belegnummer" name="notizen" rows={2} placeholder="z.B. Rechnung 2026-042 liegt in Ablage"
-            className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 resize-none" />
+            className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 resize-none" />
         </div>
 
         <div className="flex gap-3 pt-2">
           <button type="submit"
-            className="bg-s112-teal text-s112-yellow px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-opacity-90">
+            className="bg-s112-teal text-s112-yellow px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-s112-teal/90">
             Buchung speichern
           </button>
           <Link href="/buchhaltung"

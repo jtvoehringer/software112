@@ -45,7 +45,7 @@ export default async function UmzugEditPage({ params }: { params: Promise<{ id: 
   // Schwundbuchung nie – nur die Notizen (falsch erfasst: stornieren und neu erfassen).
   const plan = await planeUmzugStorno(supabase, tenantId, zeilen)
 
-  const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+  const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40'
   const labelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
 
   const kopf = (
@@ -80,7 +80,7 @@ export default async function UmzugEditPage({ params }: { params: Promise<{ id: 
             <input id="umzug-notizen" name="notizen" defaultValue={eingabe.notizen} className={inputCls} />
           </div>
           <button type="submit"
-            className="bg-s112-teal text-s112-yellow px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
+            className="bg-s112-teal text-s112-yellow px-6 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors">
             Notizen speichern
           </button>
         </AktionsFormular>

@@ -28,7 +28,7 @@ interface Props {
   ausgestelltVon?: string | null
 }
 
-const inputCls = 'border border-s112-line-str px-1.5 py-0.5 text-xs w-full focus:outline-none focus:border-s112-teal print:border-s112-line-str bg-white'
+const inputCls = 'border border-s112-line-str px-1.5 py-0.5 text-xs w-full focus:outline-hidden focus:border-s112-teal print:border-s112-line-str bg-white'
 const labelCls = 'text-[10px] text-s112-text-2 leading-tight block mb-0.5'
 
 function FeldGruppe({ label, children, className = '' }: { label: string; children: React.ReactNode; className?: string }) {
@@ -163,7 +163,7 @@ export default function TBFormular({ verkaufspostenId, initial, csvHref, ausgest
             onClick={handleSave}
             disabled={pending || !!mgFehlerText}
             title={mgFehlerText ? `Mostgewicht prüfen: ${mgFehlerText}` : undefined}
-            className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50"
+            className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-s112-teal/90 disabled:opacity-50"
           >
             {pending ? 'Speichern…' : 'Speichern'}
           </button>
@@ -401,7 +401,7 @@ export default function TBFormular({ verkaufspostenId, initial, csvHref, ausgest
                   <td className="border border-s112-line-str p-0.5">
                     <div className="flex gap-0.5">
                       <input className={inputCls} aria-label={`Menge Position ${i + 1}`} value={pos.menge_liter} onChange={e => setPos(i, 'menge_liter', e.target.value)} />
-                      <select className={`${inputCls} !w-auto`} aria-label={`Einheit Position ${i + 1}`} value={pos.einheit ?? ''} onChange={e => setPos(i, 'einheit', e.target.value)}>
+                      <select className={`${inputCls} w-auto!`} aria-label={`Einheit Position ${i + 1}`} value={pos.einheit ?? ''} onChange={e => setPos(i, 'einheit', e.target.value)}>
                         <option value="">–</option>
                         <option value="l">l</option>
                         <option value="kg">kg</option>

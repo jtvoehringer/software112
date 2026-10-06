@@ -75,7 +75,7 @@ export default function RechnungVersandPanel({
           {error && <p className="text-s112-err-fg text-sm bg-s112-err-bg px-3 py-2 rounded-lg">{error}</p>}
           <div className="flex gap-2">
             <button onClick={handleSend} disabled={sending}
-              className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-50">
+              className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-sm font-semibold hover:bg-s112-teal/90 transition-colors disabled:opacity-50">
               {sending ? 'Wird gesendet…' : 'Senden'}
             </button>
             <button onClick={() => { setOpen(false); setError('') }}

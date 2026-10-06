@@ -90,19 +90,19 @@ export default function ReleaseNotesAdminClient({ readOnly = false }: { readOnly
             <div className="grid grid-cols-2 gap-3">
               <div><label className="block text-xs font-medium text-s112-text-2 mb-1">Version</label>
                 <input aria-label="Version" value={version} onChange={e=>setVersion(e.target.value)} placeholder="2.2.0" required
-                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none" /></div>
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden" /></div>
               <div><label className="block text-xs font-medium text-s112-text-2 mb-1">Titel</label>
                 <input aria-label="Titel" value={titel} onChange={e=>setTitel(e.target.value)} placeholder="Juni Update 2026" required
-                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none" /></div>
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden" /></div>
             </div>
             <div><label className="block text-xs font-medium text-s112-text-2 mb-1">Neue Funktionen (eine pro Zeile)</label>
               <textarea aria-label="Neue Funktionen (eine pro Zeile)" value={features} onChange={e=>setFeatures(e.target.value)} rows={4} placeholder="Visitkarten-Scanner&#10;Profilsystem&#10;Release Notes"
-                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none resize-none" /></div>
+                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden resize-none" /></div>
             <div><label className="block text-xs font-medium text-s112-text-2 mb-1">Verbesserungen (eine pro Zeile)</label>
               <textarea aria-label="Verbesserungen (eine pro Zeile)" value={fixes} onChange={e=>setFixes(e.target.value)} rows={3} placeholder="E-Mail-Löschen funktioniert jetzt zuverlässig"
-                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none resize-none" /></div>
+                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden resize-none" /></div>
             <div className="flex items-center gap-3">
-              <button type="submit" disabled={saving} className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
+              <button type="submit" disabled={saving} className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 disabled:opacity-40">
                 {saving ? 'Speichern…' : 'Veröffentlichen'}</button>
               {erfolg && <p className="text-sm text-s112-ok-fg">Veröffentlicht</p>}
             </div>

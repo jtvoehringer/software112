@@ -20,7 +20,7 @@ import { ladeCustomWeinbaugebiete, type CustomWeinbaugebiet } from '@/app/(dashb
 interface Behaelter { id: string; name: string; typ: string; volumen_liter: number | null }
 
 
-const inputCls = 'border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 bg-white'
+const inputCls = 'border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 bg-white'
 const labelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
 
 const DEFAULT_EINHEIT: Record<string, string> = {
@@ -624,7 +624,7 @@ export default function ZukaufNeuPage() {
             Abbrechen
           </Link>
           <button type="submit" disabled={isPending || !!verschnitt}
-            className="bg-s112-teal text-s112-yellow px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-50">
+            className="bg-s112-teal text-s112-yellow px-6 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors disabled:opacity-50">
             {isPending ? 'Speichern…' : 'Zukauf speichern'}
           </button>
         </div>

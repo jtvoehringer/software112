@@ -119,7 +119,7 @@ export default function DacStatusKarte({ status, pruefnummer, ereignisse, schrei
           )}
           <div className="flex gap-2">
             <button type="button" onClick={bestaetigen} disabled={pending}
-              className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50">
+              className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-s112-teal/90 disabled:opacity-50">
               {pending ? 'Wird gespeichert …' : 'Status setzen'}
             </button>
             <button type="button" onClick={() => setZiel(null)} className="text-sm text-s112-muted hover:text-s112-text-1">Abbrechen</button>

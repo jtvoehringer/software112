@@ -129,7 +129,7 @@ export default async function UebersichtPage() {
         const d = f.ytd.ergebnisVj === 0 ? null : (f.ytd.ergebnis - f.ytd.ergebnisVj) / Math.abs(f.ytd.ergebnisVj) * 100
         const offenUebergabe = f.uebergabe ? f.uebergabe.rechnungenOffen + f.uebergabe.belegeOffen : 0
         return (
-          <Link href="/buchhaltung/uebersicht" className="block bg-white border border-s112-line rounded-xl px-[18px] py-3.5 hover:border-s112-teal hover:shadow-sm transition-all">
+          <Link href="/buchhaltung/uebersicht" className="block bg-white border border-s112-line rounded-xl px-[18px] py-3.5 hover:border-s112-teal hover:shadow-xs transition-all">
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <div className="flex items-center gap-2">
                 <TrendingUp size={16} strokeWidth={1.75} className="text-s112-blue-700" />
@@ -163,7 +163,7 @@ export default async function UebersichtPage() {
             <table className="w-full">
               <tbody>
                 {schritte.slice(0, 8).map(s => (
-                  <tr key={s.key} className="border-b border-s112-line last:border-0 hover:bg-[#F7F8FA]">
+                  <tr key={s.key} className="border-b border-s112-line last:border-0 hover:bg-s112-bg">
                     <td className="py-2.5 pr-2">
                       <Link href={s.href} className="block">
                         <span className="block text-[13.5px] font-semibold text-s112-text">{s.titel}</span>
@@ -206,7 +206,7 @@ export default async function UebersichtPage() {
             { href: '/behandlungen/neu',           icon: FlaskConical, label: 'Maßnahme erfassen' },
           ].map(item => (
             <Link key={item.href} href={item.href}
-              className="bg-white border border-s112-line rounded-xl p-4 flex items-center gap-3 hover:border-s112-teal hover:shadow-sm transition-all">
+              className="bg-white border border-s112-line rounded-xl p-4 flex items-center gap-3 hover:border-s112-teal hover:shadow-xs transition-all">
               <item.icon size={20} strokeWidth={1.75} className="text-s112-blue-700" />
               <span className="text-sm font-medium text-s112-text">{item.label}</span>
             </Link>
@@ -236,7 +236,7 @@ function AufgabenSpalte({ titel, hinweis, eintraege, heute, leer, meine = false 
         <table className="w-full">
           <tbody>
             {eintraege.slice(0, 6).map(a => (
-              <tr key={a.id} className="border-b border-s112-line last:border-0 hover:bg-[#F7F8FA]">
+              <tr key={a.id} className="border-b border-s112-line last:border-0 hover:bg-s112-bg">
                 <td className="py-2 pr-2 min-w-0">
                   <Link href={`/crm?aktivitaet=${a.id}`} className="block min-w-0">
                     <span className="block text-[13px] font-semibold text-s112-text truncate">{a.betreff}</span>

@@ -144,7 +144,7 @@ export default function DublettenClient({ gruppen: gruppenProp, writeOk }: { gru
         <div className="relative">
           <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-s112-muted" />
           <input value={suche} onChange={e => setSuche(e.target.value)} placeholder="Name, E-Mail, AN-Nr., Ort …"
-            className="border border-s112-border rounded-lg pl-8 pr-3 py-1.5 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="border border-s112-border rounded-lg pl-8 pr-3 py-1.5 text-sm w-64 focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         {writeOk && unwahrscheinliche.length > 0 && (
           <button type="button" onClick={alleUnwahrscheinlichenIgnorieren} disabled={bulkPending}
@@ -258,7 +258,7 @@ function Gruppe({ gruppe: g, writeOk, onFertig }: { gruppe: DublettenGruppe; wri
                   )}
                   {writeOk && (
                     <td className="px-3 py-2">
-                      <input type="checkbox" checked={weg.has(k.id) && !istBehalten} disabled={istBehalten} onChange={() => toggleWeg(k.id)} className="rounded cursor-pointer disabled:opacity-30" title="In den behaltenen Kontakt überführen" />
+                      <input type="checkbox" checked={weg.has(k.id) && !istBehalten} disabled={istBehalten} onChange={() => toggleWeg(k.id)} className="rounded-sm cursor-pointer disabled:opacity-30" title="In den behaltenen Kontakt überführen" />
                     </td>
                   )}
                   <td className="px-3 py-2 whitespace-nowrap">

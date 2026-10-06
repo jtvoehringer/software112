@@ -7,7 +7,7 @@ import { MODULE, MODUL_VORLAGEN, type Modul } from '@/lib/auth/module'
 import { Users, Info } from 'lucide-react'
 
 function inputCls() {
-  return 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+  return 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40'
 }
 
 // Benutzerkonzept (Beschluss Mgmt-Team 19.9.2026, Migration 218): drei vergebbare
@@ -59,7 +59,7 @@ function ModulMatrix({ module, onChange, disabled }: { module: Modul[]; onChange
       <div className="grid sm:grid-cols-2 gap-x-4 gap-y-1.5">
         {MODULE.map(m => (
           <label key={m.key} className={`flex items-start gap-2 text-sm cursor-pointer ${disabled ? 'opacity-60' : ''}`} title={m.hinweis}>
-            <input type="checkbox" checked={module.includes(m.key)} onChange={() => toggle(m.key)} disabled={disabled} className="mt-0.5 rounded" />
+            <input type="checkbox" checked={module.includes(m.key)} onChange={() => toggle(m.key)} disabled={disabled} className="mt-0.5 rounded-sm" />
             <span>
               <span className="font-medium text-s112-text">{m.label}</span>
               {m.key === 'ea' && <span className="ml-1.5 text-[11px] text-s112-warn-fg font-medium">Finanzdaten</span>}
@@ -220,7 +220,7 @@ export default function BenutzerClient({ members, limit }: Props) {
                         <select
                           value={selectedRole}
                           onChange={e => setSelectedRole(e.target.value)}
-                          className="border border-s112-border rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-s112-teal"
+                          className="border border-s112-border rounded-lg px-2 py-1 text-xs focus:outline-hidden focus:ring-2 focus:ring-s112-teal"
                           disabled={isPending}
                         >
                           {ROLLEN.map(r => (
@@ -242,7 +242,7 @@ export default function BenutzerClient({ members, limit }: Props) {
                           m.schreibmodule.length === 0
                             ? <span className="text-[11px] text-s112-warn-fg">keine Module – nur lesen</span>
                             : (MODULE.filter(x => m.schreibmodule.includes(x.key)).map(x => (
-                                <span key={x.key} className="inline-block px-1.5 py-0.5 rounded text-[11px] bg-white border border-s112-border text-s112-text-1" title={x.hinweis}>{MODUL_KURZ[x.key]}</span>
+                                <span key={x.key} className="inline-block px-1.5 py-0.5 rounded-sm text-[11px] bg-white border border-s112-border text-s112-text-1" title={x.hinweis}>{MODUL_KURZ[x.key]}</span>
                               )))
                         )}
                       </div>
@@ -330,7 +330,7 @@ export default function BenutzerClient({ members, limit }: Props) {
         <button onClick={() => setShowInvite(true)}
           disabled={!!limit && !limit.erlaubt}
           title={limit && !limit.erlaubt ? 'Benutzerlimit des Pakets erreicht' : undefined}
-          className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40 disabled:cursor-not-allowed">
+          className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 disabled:opacity-40 disabled:cursor-not-allowed">
           <span>＋</span> Benutzer hinzufügen
         </button>
       ) : (
@@ -368,7 +368,7 @@ export default function BenutzerClient({ members, limit }: Props) {
           )}
           <div className="flex gap-2">
             <button type="submit" disabled={isPending}
-              className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+              className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-40">
               {isPending ? 'Wird eingeladen…' : 'Einladen'}
             </button>
             <button type="button" onClick={() => { setShowInvite(false); setInviteName(''); setInviteEmail('') }}

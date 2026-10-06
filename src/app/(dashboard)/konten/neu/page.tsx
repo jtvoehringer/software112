@@ -42,13 +42,13 @@ export default async function KontoNeuPage() {
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Bezeichnung *</label>
           <input aria-label="Bezeichnung" name="name" required placeholder="z.B. Raiffeisen Girokonto"
-            className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         </div>
 
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Typ</label>
           <select aria-label="Typ" name="typ" defaultValue="giro"
-            className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+            className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
             {TYPEN.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>
         </div>
@@ -56,7 +56,7 @@ export default async function KontoNeuPage() {
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">IBAN</label>
           <input aria-label="IBAN" name="iban" placeholder="Optional"
-            className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         </div>
 
         <div className="grid grid-cols-2 gap-4">
@@ -64,19 +64,19 @@ export default async function KontoNeuPage() {
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Eröffnungsdatum *</label>
             <input aria-label="Eröffnungsdatum" type="date" name="eroeffnungsdatum" required
               defaultValue={new Date().toISOString().slice(0, 10)}
-              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
             <p className="text-xs text-s112-muted mt-1">Datum des letzten Kontoauszugs, ab dem hier weitergeführt wird.</p>
           </div>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Eröffnungssaldo (€) *</label>
             <input aria-label="Eröffnungssaldo (€)" type="number" name="eroeffnungssaldo" step="0.01" required defaultValue="0.00"
-              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
           </div>
         </div>
 
         <div className="flex gap-3 pt-2">
           <button type="submit"
-            className="bg-s112-teal text-s112-yellow px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-opacity-90">
+            className="bg-s112-teal text-s112-yellow px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-s112-teal/90">
             Konto anlegen
           </button>
           <Link href="/konten"

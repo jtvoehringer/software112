@@ -21,7 +21,7 @@ interface Props {
   gesperrt?: { grund: string; seit: string | null } | null
 }
 
-const inputCls = 'border border-s112-line-str px-1.5 py-0.5 text-xs w-full focus:outline-none focus:border-s112-teal bg-white'
+const inputCls = 'border border-s112-line-str px-1.5 py-0.5 text-xs w-full focus:outline-hidden focus:border-s112-teal bg-white'
 const labelCls = 'text-[10px] text-s112-text-2 leading-tight block mb-0.5'
 
 function Feld({ label, children, className = '' }: { label: string; children: React.ReactNode; className?: string }) {
@@ -91,7 +91,7 @@ export default function PNAFormular({ dacAntragId, initial, csvHref, gesperrt = 
       <div className="flex flex-wrap items-start gap-3 no-print">
         {!gesperrt && (
           <button onClick={handleSave} disabled={pending}
-            className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50">
+            className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-s112-teal/90 disabled:opacity-50">
             {pending ? 'Speichern…' : 'Speichern'}
           </button>
         )}
@@ -307,7 +307,7 @@ export default function PNAFormular({ dacAntragId, initial, csvHref, gesperrt = 
           </div>
           <label className="flex items-start gap-2 text-[10px] cursor-pointer mt-2">
             <input type="checkbox" checked={d.naechste_qualitaet} onChange={e => set('naechste_qualitaet', e.target.checked)}
-              className="w-3 h-3 mt-0.5 accent-s112-teal flex-shrink-0" />
+              className="w-3 h-3 mt-0.5 accent-s112-teal shrink-0" />
             <span>Bei Nichterreichen der beantragten Qualitätsstufe ändere ich meinen Antrag auf die nächstmögliche niedrigere Qualitätsstufe.</span>
           </label>
         </div>

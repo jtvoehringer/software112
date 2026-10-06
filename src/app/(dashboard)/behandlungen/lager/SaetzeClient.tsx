@@ -51,7 +51,7 @@ function SatzForm({ satz, onDone }: { satz?: SatzEintrag; onDone: () => void }) 
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Art *</label>
           <select aria-label="Art" name="art" required defaultValue={satz?.art ?? ''}
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
             <option value="">– Auswählen –</option>
             {ART_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
@@ -60,7 +60,7 @@ function SatzForm({ satz, onDone }: { satz?: SatzEintrag; onDone: () => void }) 
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Bezeichnung *</label>
           <input aria-label="Bezeichnung" name="bezeichnung" required defaultValue={satz?.bezeichnung ?? ''}
             placeholder="z.B. Laubschneiden Seiten und Gipfel, Rebschnitt Guyot"
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         </div>
 
         <div>
@@ -68,25 +68,25 @@ function SatzForm({ satz, onDone }: { satz?: SatzEintrag; onDone: () => void }) 
           <input aria-label="Satz pro ha (€)" name="satz_pro_ha" type="number" step="0.01" min="0" required
             defaultValue={satz?.satz_pro_ha ?? ''}
             placeholder="z.B. 350"
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Gültig ab</label>
           <input aria-label="Gültig ab" name="gueltig_ab" type="date" defaultValue={satz?.gueltig_ab ?? new Date().toISOString().split('T')[0]}
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         </div>
 
         <div className="col-span-2">
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
           <input aria-label="Notizen" name="notizen" defaultValue={satz?.notizen ?? ''}
             placeholder="z.B. Quelle: LK Niederösterreich, IDB 2026"
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         </div>
       </div>
 
       <div className="flex gap-2 pt-1">
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-50">
+          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-50">
           {pending ? 'Speichert…' : 'Speichern'}
         </button>
         <button type="button" onClick={onDone}
@@ -128,7 +128,7 @@ export default function SaetzeClient({
       {!showForm && writeOk && (
         <div className="mb-6">
           <button onClick={() => setShowForm(true)}
-            className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
+            className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors">
             Neuen Satz anlegen
           </button>
         </div>

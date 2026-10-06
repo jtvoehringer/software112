@@ -35,7 +35,7 @@ function MultiSelect({ items, selected, onToggle, splitModus, setSplitModus, ant
           <div className="flex gap-1">
             {(['gleich','prozent'] as const).map(m => (
               <button key={m} type="button" onClick={() => setSplitModus(m)}
-                className={`text-xs px-2 py-1 rounded ${splitModus===m ? 'bg-s112-teal text-s112-yellow' : 'border border-s112-border text-s112-text-2'}`}>
+                className={`text-xs px-2 py-1 rounded-sm ${splitModus===m ? 'bg-s112-teal text-s112-yellow' : 'border border-s112-border text-s112-text-2'}`}>
                 {m === 'gleich' ? 'Gleichmäßig' : 'Gewichtet %'}
               </button>
             ))}
@@ -58,9 +58,9 @@ function MultiSelect({ items, selected, onToggle, splitModus, setSplitModus, ant
                 <input type="number" min="0" max="100" step="0.1" value={anteile[w.id] ?? ''}
                   onChange={e => { e.stopPropagation(); setAnteile({ ...anteile, [w.id]: parseFloat(e.target.value)||0 }) }}
                   onClick={e => e.stopPropagation()}
-                  className="w-14 border border-s112-border rounded px-1.5 py-0.5 text-xs text-right focus:outline-none" placeholder="%" />
+                  className="w-14 border border-s112-border rounded-sm px-1.5 py-0.5 text-xs text-right focus:outline-hidden" placeholder="%" />
               )}
-              {checked && betrag > 0 && <span className="text-xs text-s112-blue-700 font-medium flex-shrink-0">{eur(anteilEur)}</span>}
+              {checked && betrag > 0 && <span className="text-xs text-s112-blue-700 font-medium shrink-0">{eur(anteilEur)}</span>}
             </div>
           )
         })}
@@ -99,7 +99,7 @@ function StammdatenTab({ items, onSave, onDelete, fields }: {
     <div className="bg-white rounded-xl border border-s112-border p-5">
       <div className="flex justify-between items-center mb-4">
         <p className="text-sm text-s112-muted">{items.length} Einträge</p>
-        <button onClick={startNeu} className="text-xs bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg hover:bg-opacity-90">+ Neu</button>
+        <button onClick={startNeu} className="text-xs bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg hover:bg-s112-teal/90">+ Neu</button>
       </div>
       {(neu || editId) && (
         <div className="border border-s112-teal/30 rounded-xl p-4 mb-4 space-y-3 bg-s112-teal/5">
@@ -108,18 +108,18 @@ function StammdatenTab({ items, onSave, onDelete, fields }: {
               <label className="block text-xs font-medium text-s112-text-2 mb-1">{f.label}</label>
               {f.options ? (
                 <select value={form[f.key]??''} onChange={e => setForm({...form,[f.key]:e.target.value})}
-                  className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none">
+                  className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden">
                   <option value="">– wählen –</option>
                   {f.options.map(o => <option key={o} value={o}>{o}</option>)}
                 </select>
               ) : (
                 <input value={form[f.key]??''} onChange={e => setForm({...form,[f.key]:e.target.value})}
-                  className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none" />
+                  className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden" />
               )}
             </div>
           ))}
           <div className="flex gap-2">
-            <button onClick={save} className="text-xs bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg hover:bg-opacity-90">Speichern</button>
+            <button onClick={save} className="text-xs bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg hover:bg-s112-teal/90">Speichern</button>
             <button onClick={() => { setEditId(null); setNeu(false) }} className="text-xs border border-s112-border px-4 py-1.5 rounded-lg hover:bg-s112-bg">Abbrechen</button>
           </div>
         </div>
@@ -128,7 +128,7 @@ function StammdatenTab({ items, onSave, onDelete, fields }: {
         {items.map(item => (
           <div key={item.id} className="flex items-center gap-3 py-2.5">
             {item.kuerzel && <span className="font-mono text-xs text-s112-muted w-12">{item.kuerzel}</span>}
-            {item.kategorie && <span className="text-xs bg-s112-bg px-2 py-0.5 rounded text-s112-muted">{item.kategorie}</span>}
+            {item.kategorie && <span className="text-xs bg-s112-bg px-2 py-0.5 rounded-sm text-s112-muted">{item.kategorie}</span>}
             <span className="text-sm flex-1">{item.name}</span>
             <button aria-label="Bearbeiten" onClick={() => startEdit(item)} className="text-xs text-s112-muted hover:text-s112-blue-700"><Pencil size={13} /></button>
             <button onClick={() => { if(confirm(`"${item.name}" deaktivieren?`)) onDelete(item.id ?? '') }} className="text-xs text-s112-muted hover:text-s112-err"><Trash2 size={13} /></button>
@@ -275,17 +275,17 @@ export default function KostenrechnungPage() {
         </div>
         <form onSubmit={buchen} className="grid grid-cols-2 gap-3">
           <div><label className="block text-xs font-medium text-s112-text-2 mb-1">Datum</label>
-            <input aria-label="Datum" type="date" value={datum} onChange={e=>setDatum(e.target.value)} required className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" /></div>
+            <input aria-label="Datum" type="date" value={datum} onChange={e=>setDatum(e.target.value)} required className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" /></div>
           <div><label className="block text-xs font-medium text-s112-text-2 mb-1">Betrag (€)</label>
-            <input aria-label="Betrag (€)" type="number" step="0.01" value={betrag} onChange={e=>setBetrag(e.target.value)} required placeholder="0,00" className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" /></div>
+            <input aria-label="Betrag (€)" type="number" step="0.01" value={betrag} onChange={e=>setBetrag(e.target.value)} required placeholder="0,00" className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" /></div>
           <div><label className="block text-xs font-medium text-s112-text-2 mb-1">Kostenstelle</label>
-            <select aria-label="Kostenstelle" value={ksId} onChange={e=>setKsId(e.target.value)} className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+            <select aria-label="Kostenstelle" value={ksId} onChange={e=>setKsId(e.target.value)} className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
               <option value="">– Kostenstelle –</option>{ks.map(k=><option key={k.id} value={k.id}>{k.name}</option>)}</select></div>
           <div><label className="block text-xs font-medium text-s112-text-2 mb-1">Kostenart</label>
-            <select aria-label="Kostenart" value={kaId} onChange={e=>setKaId(e.target.value)} className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+            <select aria-label="Kostenart" value={kaId} onChange={e=>setKaId(e.target.value)} className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
               <option value="">– Kostenart –</option>{ka.map(k=><option key={k.id} value={k.id}>{k.name}</option>)}</select></div>
           <div><label className="block text-xs font-medium text-s112-text-2 mb-1">Zuordnung</label>
-            <select aria-label="Zuordnung" value={objektTyp} onChange={e=>{setObjektTyp(e.target.value);setSelWgs([]);setSelBhs([])}} className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+            <select aria-label="Zuordnung" value={objektTyp} onChange={e=>{setObjektTyp(e.target.value);setSelWgs([]);setSelBhs([])}} className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
               <option value="">– keine –</option><option value="weingarten">Ried</option><option value="keller">Keller / Behälter</option></select></div>
           <div />
           {objektTyp === 'weingarten' && (
@@ -299,9 +299,9 @@ export default function KostenrechnungPage() {
               betrag={parseFloat(betrag)||0} label="Behälter auswählen" />
           )}
           <div className="col-span-2"><label className="block text-xs font-medium text-s112-text-2 mb-1">Beschreibung</label>
-            <input aria-label="Beschreibung" value={beschreibung} onChange={e=>setBeschreibung(e.target.value)} placeholder="z.B. Traktor-Service, Spritzarbeit…" className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" /></div>
+            <input aria-label="Beschreibung" value={beschreibung} onChange={e=>setBeschreibung(e.target.value)} placeholder="z.B. Traktor-Service, Spritzarbeit…" className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" /></div>
           <div className="col-span-2 flex items-center gap-3">
-            <button type="submit" disabled={saving} className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
+            <button type="submit" disabled={saving} className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 disabled:opacity-40">
               {saving ? 'Speichern…' : editId ? 'Aktualisieren' : 'Buchen'}</button>
             {fehler && <p className="text-sm text-s112-err-fg">{fehler}</p>}
             {erfolg && <p className="text-sm text-s112-ok-fg inline-flex items-center gap-1"><Check size={13} />Gespeichert</p>}

@@ -45,7 +45,7 @@ export default function ChargenKanban({ chargen, assistentAktiv }: { chargen: Ch
           const items = chargen.filter(c => c.status === p.status)
           return (
             <div key={p.status} className="bg-[#F2F3F5] rounded-[10px] p-2.5 min-h-[120px]">
-              <h3 className="flex items-center justify-between font-mono text-[11px] font-semibold uppercase tracking-[.05em] text-s112-text-2 px-1.5 pt-0.5 pb-2">
+              <h3 className="flex items-center justify-between font-mono text-[11px] font-semibold uppercase tracking-wider text-s112-text-2 px-1.5 pt-0.5 pb-2">
                 {p.label}<span className="text-s112-tertiary">{items.length}</span>
               </h3>
               {items.length === 0 && <p className="px-1.5 pb-1 text-[11.5px] text-s112-tertiary">keine Charge</p>}
@@ -65,7 +65,7 @@ export default function ChargenKanban({ chargen, assistentAktiv }: { chargen: Ch
       </div>
 
       {aktiv && (
-        <div className="fixed inset-0 z-[90] bg-[rgba(10,26,42,.5)] px-4 py-[4vh] overflow-y-auto" onMouseDown={e => { if (e.target === e.currentTarget) setAktiv(null) }}>
+        <div className="fixed inset-0 z-90 bg-[rgba(10,26,42,.5)] px-4 py-[4vh] overflow-y-auto" onMouseDown={e => { if (e.target === e.currentTarget) setAktiv(null) }}>
           <div {...dlgCharge} className="max-w-[720px] mx-auto bg-white rounded-xl border border-s112-line p-6 relative">
             <button type="button" onClick={() => setAktiv(null)} aria-label="Schließen"
               className="absolute top-3.5 right-3.5 w-8 h-8 rounded-md bg-[#F2F3F5] text-s112-text-2 hover:bg-s112-line flex items-center justify-center">
@@ -108,8 +108,8 @@ export default function ChargenKanban({ chargen, assistentAktiv }: { chargen: Ch
             </div>
 
             {/* bot:112 */}
-            <div className="mt-4 rounded-[10px] border border-s112-blue-100 bg-gradient-to-br from-[#EEF4FD] to-[#EEF4FD] p-4">
-              <h3 className="flex items-center gap-2 font-mono text-[12px] font-semibold uppercase tracking-[.05em] text-s112-blue-700">
+            <div className="mt-4 rounded-[10px] border border-s112-blue-100 bg-linear-to-br from-[#EEF4FD] to-[#EEF4FD] p-4">
+              <h3 className="flex items-center gap-2 font-mono text-[12px] font-semibold uppercase tracking-wider text-s112-blue-700">
                 <Sparkles size={15} strokeWidth={1.75} className="text-s112-blue-700" /> bot:112 – KI-Unterstützung
               </h3>
               {assistentAktiv ? (

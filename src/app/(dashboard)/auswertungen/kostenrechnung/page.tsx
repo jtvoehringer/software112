@@ -87,7 +87,7 @@ export default function KostenAuswertungPage() {
         </div>
         <div className="flex items-center gap-3">
           <select value={jahr} onChange={e => { setJahr(e.target.value); laden(e.target.value) }}
-            className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none">
+            className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden">
             {[2026,2025,2024,2023].map(y => <option key={y}>{y}</option>)}
           </select>
           <button onClick={() => exportCSV(jahr, daten, splits)}
@@ -132,7 +132,7 @@ export default function KostenAuswertungPage() {
             {sumBy(daten, kFn, vFn).map(([n, s]) => (
               <div key={n} className="flex justify-between text-sm mb-2">
                 <span className="text-s112-text-2 truncate mr-2">{n}</span>
-                <span className="font-medium tabular-nums flex-shrink-0">{eur(s)}</span>
+                <span className="font-medium tabular-nums shrink-0">{eur(s)}</span>
               </div>
             ))}
             {daten.length === 0 && <p className="text-xs text-s112-muted">Keine Daten</p>}
@@ -152,7 +152,7 @@ export default function KostenAuswertungPage() {
             return Object.entries(m).sort((a,b)=>b[1]-a[1]).map(([n,s]) => (
               <div key={n} className="flex justify-between text-sm mb-2">
                 <span className="text-s112-text-2 truncate mr-2">{n}</span>
-                <span className="font-medium tabular-nums flex-shrink-0">{eur(s)}</span>
+                <span className="font-medium tabular-nums shrink-0">{eur(s)}</span>
               </div>
             ))
           })()}
@@ -172,8 +172,8 @@ export default function KostenAuswertungPage() {
             const pct = Math.round((sum/max)*100)
             return (
               <div key={m} className="flex flex-col items-center gap-1">
-                <div className="w-full bg-s112-bg rounded h-24 flex items-end">
-                  <div className="w-full bg-s112-teal rounded transition-all" style={{height:`${pct}%`}} title={eur(sum)} />
+                <div className="w-full bg-s112-bg rounded-sm h-24 flex items-end">
+                  <div className="w-full bg-s112-teal rounded-sm transition-all" style={{height:`${pct}%`}} title={eur(sum)} />
                 </div>
                 <span className="text-[11px] text-s112-muted">{monate[i]}</span>
                 {sum > 0 && <span className="text-[11px] font-medium text-s112-text-1">{sum >= 1000 ? `${(sum/1000).toFixed(1)}k` : Math.round(sum)}</span>}

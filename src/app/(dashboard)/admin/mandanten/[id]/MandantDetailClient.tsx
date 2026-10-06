@@ -68,15 +68,15 @@ const BIO_STATUS_OPTS = [
 ]
 
 function inputCls() {
-  return 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+  return 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40'
 }
 
 function Toggle({ on, onToggle, label }: { on: boolean; onToggle: () => void; label: string }) {
   return (
     <label className="flex items-center gap-3 cursor-pointer">
       <button type="button" role="switch" aria-checked={on} onClick={onToggle}
-        className={`w-9 h-5 rounded-full transition-colors flex-shrink-0 ${on ? 'bg-s112-teal' : 'bg-s112-line-str'}`}>
-        <span className={`block w-4 h-4 bg-white rounded-full shadow mt-0.5 transition-transform ${on ? 'translate-x-4' : 'translate-x-0.5'}`} />
+        className={`w-9 h-5 rounded-full transition-colors shrink-0 ${on ? 'bg-s112-teal' : 'bg-s112-line-str'}`}>
+        <span className={`block w-4 h-4 bg-white rounded-full shadow-sm mt-0.5 transition-transform ${on ? 'translate-x-4' : 'translate-x-0.5'}`} />
       </button>
       <span className="text-sm text-s112-text-1">{label}</span>
     </label>
@@ -168,7 +168,7 @@ function BrandingTab({ tenant, settings }: { tenant: TenantDetail; settings: Ten
           placeholder="/logos/mein-logo.png oder https://..." className={inputCls() + ' mt-2'} />
         <p className="text-xs text-s112-muted mt-1">
           Wird beim Hochladen automatisch befüllt. Alternativ kann hier auch direkt eine
-          öffentliche URL oder ein Pfad im <code className="bg-[#F2F3F5] px-1 rounded">/public</code>-Ordner eingetragen werden.
+          öffentliche URL oder ein Pfad im <code className="bg-[#F2F3F5] px-1 rounded-sm">/public</code>-Ordner eingetragen werden.
         </p>
         {logoUrl && (
           <div className="mt-2 p-3 bg-s112-bg border border-s112-border rounded-lg inline-block">
@@ -183,18 +183,18 @@ function BrandingTab({ tenant, settings }: { tenant: TenantDetail; settings: Ten
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Primärfarbe</label>
           <div className="flex gap-2 items-center">
             <input type="color" value={primary} onChange={e => setPrimary(e.target.value)}
-              className="w-8 h-8 rounded border border-s112-border cursor-pointer p-0.5 flex-shrink-0" />
+              className="w-8 h-8 rounded-sm border border-s112-border cursor-pointer p-0.5 shrink-0" />
             <input name="primary_color" value={primary} onChange={e => setPrimary(e.target.value)}
-              className="flex-1 border border-s112-border rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+              className="flex-1 border border-s112-border rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
           </div>
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Sekundärfarbe</label>
           <div className="flex gap-2 items-center">
             <input type="color" value={secondary} onChange={e => setSecondary(e.target.value)}
-              className="w-8 h-8 rounded border border-s112-border cursor-pointer p-0.5 flex-shrink-0" />
+              className="w-8 h-8 rounded-sm border border-s112-border cursor-pointer p-0.5 shrink-0" />
             <input name="secondary_color" value={secondary} onChange={e => setSecondary(e.target.value)}
-              className="flex-1 border border-s112-border rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+              className="flex-1 border border-s112-border rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
           </div>
         </div>
       </div>
@@ -224,7 +224,7 @@ function BrandingTab({ tenant, settings }: { tenant: TenantDetail; settings: Ten
 
       <div className="flex items-center gap-3">
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-40">
           {pending ? 'Speichern…' : 'Speichern'}
         </button>
         {saved && <span className="text-xs text-s112-blue-700 font-medium">Gespeichert</span>}
@@ -331,7 +331,7 @@ function BenutzerTab({ tenant, members: initialMembers }: { tenant: TenantDetail
                     <div className="flex items-center gap-2">
                       <input value={editName} onChange={e => setEditName(e.target.value)}
                         required disabled={pending} autoFocus
-                        className="border border-s112-border rounded-lg px-2 py-1 text-xs w-36 focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+                        className="border border-s112-border rounded-lg px-2 py-1 text-xs w-36 focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
                       <button onClick={() => handleNameUpdate(m)} disabled={pending || !editName.trim()}
                         className="text-xs text-s112-blue-700 hover:underline font-semibold disabled:opacity-50">Speichern</button>
                       <button onClick={() => setEditingNameId(null)}
@@ -357,7 +357,7 @@ function BenutzerTab({ tenant, members: initialMembers }: { tenant: TenantDetail
                 <td className="px-4 py-3">
                   {editingId === m.id ? (
                     <select value={editRole} onChange={e => setEditRole(e.target.value)}
-                      className="border border-s112-border rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
+                      className="border border-s112-border rounded-lg px-2 py-1 text-xs focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40"
                       disabled={pending}>
                       {ROLLEN.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                     </select>
@@ -401,7 +401,7 @@ function BenutzerTab({ tenant, members: initialMembers }: { tenant: TenantDetail
 
       {!showInvite ? (
         <button onClick={() => setShowInvite(true)}
-          className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
+          className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90">
           + Benutzer einladen
         </button>
       ) : (
@@ -432,7 +432,7 @@ function BenutzerTab({ tenant, members: initialMembers }: { tenant: TenantDetail
           </div>
           <div className="flex gap-2">
             <button type="submit" disabled={pending}
-              className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+              className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-40">
               {pending ? 'Einladen…' : 'Einladen'}
             </button>
             <button type="button" onClick={() => { setShowInvite(false); setInviteEmail(''); setInviteName('') }}
@@ -538,7 +538,7 @@ function BrevoTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
               <label className="block text-xs font-medium text-s112-text-2 mb-1">{f.label}</label>
               <input name={f.name} defaultValue={f.val ?? ''}
                 placeholder="z.B. 3" type="number" min="1"
-                className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+                className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
             </div>
           ))}
         </div>
@@ -573,7 +573,7 @@ function BrevoTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
       {fehler && <p role="alert" className="text-sm text-s112-err-fg">{fehler}</p>}
       <div className="flex items-center gap-3">
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-40">
           {pending ? 'Speichern…' : 'Speichern'}
         </button>
         {saved && <span role="status" className="text-xs text-s112-blue-700 font-medium">Gespeichert</span>}
@@ -743,7 +743,7 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
           </div>
           <div className="flex items-center gap-3 pt-1">
             <button onClick={handleSave} disabled={pending || !geaendert}
-              className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+              className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-40">
               {pending ? 'Speichern…' : 'Speichern'}
             </button>
             {saved && <span className="text-xs text-s112-blue-700 font-medium">Gespeichert</span>}
@@ -870,12 +870,12 @@ function BetriebTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
         <p className="text-xs font-semibold text-s112-text-1 uppercase tracking-wide mb-3">Rechnungs-Fußtext</p>
         <textarea name="rechnung_fusstext" defaultValue={settings.rechnung_fusstext ?? ''}
           rows={3} placeholder="z.B. Gemäß § 6 Abs. 1 Z 8 UStG befreit von der Umsatzsteuer."
-          className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 resize-none" />
+          className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 resize-none" />
       </div>
 
       <div className="flex items-center gap-3">
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-40">
           {pending ? 'Speichern…' : 'Speichern'}
         </button>
         {saved && <span className="text-xs text-s112-blue-700 font-medium">Gespeichert</span>}
@@ -940,7 +940,7 @@ function KellerwirtschaftAbschnitt({ tenant, settings }: { tenant: TenantDetail;
 
       <div className="flex items-center gap-3">
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-40">
           {pending ? 'Speichern…' : 'Einheit speichern'}
         </button>
         {saved && <span className="text-xs text-s112-blue-700 font-medium">Gespeichert</span>}
@@ -1007,8 +1007,8 @@ function M365Tab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
           <p className="text-xs break-all">{m365Error}</p>
           {(m365Error.includes('AADSTS500113') || m365Error.includes('AADSTS50011')) && (
             <p className="text-xs">→ In Azure fehlt eine Umleitungs-URI. Unter „Authentifizierung" → „+ Plattform hinzufügen" → Web beide URIs eintragen:{' '}
-              <code className="bg-white px-1 rounded">https://software112.icp-consultants.at/api/auth/m365/callback</code> und{' '}
-              <code className="bg-white px-1 rounded">https://software112.icp-consultants.at/api/auth/m365/user/callback</code>.</p>
+              <code className="bg-white px-1 rounded-sm">https://software112.icp-consultants.at/api/auth/m365/callback</code> und{' '}
+              <code className="bg-white px-1 rounded-sm">https://software112.icp-consultants.at/api/auth/m365/user/callback</code>.</p>
           )}
           {(m365Error.includes('AADSTS7000215') || m365Error.includes('invalid_client')) && (
             <p className="text-xs">→ Der geheime Clientschlüssel ist falsch oder abgelaufen. Bitte in Azure unter „Zertifikate &amp; Geheimnisse" ein neues Secret anlegen, den „Wert" (nicht die Geheime Text-ID) kopieren und hier neu eintragen.</p>
@@ -1022,8 +1022,8 @@ function M365Tab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
       {/* Status */}
       <div className={`flex items-center gap-3 p-4 rounded-xl border ${isConnected && tokenOk ? 'border-s112-ok/30 bg-s112-ok-bg' : 'border-s112-warn/30 bg-s112-warn-bg'}`}>
         {isConnected && tokenOk
-          ? <CheckCircle2 className="w-6 h-6 text-s112-ok-fg flex-shrink-0" />
-          : <AlertTriangle className="w-6 h-6 text-s112-warn-fg flex-shrink-0" />}
+          ? <CheckCircle2 className="w-6 h-6 text-s112-ok-fg shrink-0" />
+          : <AlertTriangle className="w-6 h-6 text-s112-warn-fg shrink-0" />}
         <div>
           <p className="text-sm font-semibold">{isConnected ? `Verbunden als ${settings.m365_user_email}` : 'Noch nicht verbunden'}</p>
           {isConnected && tokenExpired && (
@@ -1048,8 +1048,8 @@ function M365Tab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
             <li>portal.azure.com → App-Registrierungen → Neue Registrierung</li>
             <li>Authentifizierung → Plattform hinzufügen → Web – dort BEIDE Umleitungs-URIs eintragen (eine für diese Mandanten-Verbindung, eine für die persönliche Mailbox-Verbindung jedes einzelnen Users unter „Nachrichten"):
               <div className="mt-1 space-y-0.5">
-                <code className="block bg-white px-1 rounded">https://software112.icp-consultants.at/api/auth/m365/callback</code>
-                <code className="block bg-white px-1 rounded">https://software112.icp-consultants.at/api/auth/m365/user/callback</code>
+                <code className="block bg-white px-1 rounded-sm">https://software112.icp-consultants.at/api/auth/m365/callback</code>
+                <code className="block bg-white px-1 rounded-sm">https://software112.icp-consultants.at/api/auth/m365/user/callback</code>
               </div>
             </li>
             <li>Zertifikate & Geheimnisse → Neuer geheimer Clientschlüssel</li>
@@ -1082,7 +1082,7 @@ function M365Tab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
 
         <div className="flex items-center gap-3">
           <button type="submit" disabled={pending}
-            className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+            className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-40">
             {pending ? 'Speichern…' : 'Speichern'}
           </button>
           {saved && <span className="text-xs text-s112-blue-700 font-medium">Gespeichert</span>}
@@ -1150,7 +1150,7 @@ function EmailTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
         <label className="flex items-center gap-2.5 cursor-pointer select-none">
           <button type="button" role="switch" aria-checked={aktiv} aria-label="Aktiv" onClick={() => setAktiv(v => !v)}
             className={`w-10 h-5 rounded-full transition-colors flex items-center px-0.5 ${aktiv ? 'bg-s112-teal' : 'bg-s112-line-str'}`}>
-            <span className={`block w-4 h-4 rounded-full bg-white shadow transition-transform ${aktiv ? 'translate-x-5' : 'translate-x-0'}`} />
+            <span className={`block w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${aktiv ? 'translate-x-5' : 'translate-x-0'}`} />
           </button>
         </label>
         <span className={`text-sm font-semibold ${aktiv ? 'text-s112-blue-700' : 'text-s112-text-2'}`}>
@@ -1214,7 +1214,7 @@ function EmailTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
 
         <div className="flex items-center gap-3">
           <button type="submit" disabled={pending}
-            className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+            className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-40">
             {pending ? 'Speichern…' : 'Speichern'}
           </button>
           {saved && <span className="text-xs text-s112-blue-700 font-medium">Gespeichert</span>}
@@ -1413,7 +1413,7 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
 
         <div className="flex items-center gap-3">
           <button type="submit" disabled={pending}
-            className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+            className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-40">
             {pending ? 'Speichern…' : 'Speichern'}
           </button>
           {saved && <span className="text-xs text-s112-blue-700 font-medium">Gespeichert</span>}
@@ -1435,7 +1435,7 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
             value={resetVal}
             onChange={e => setResetVal(e.target.value)}
             min={1}
-            className="w-28 border border-s112-border rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
+            className="w-28 border border-s112-border rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40"
           />
           <button
             type="button"
@@ -1468,7 +1468,7 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
             value={kResetVal}
             onChange={e => setKResetVal(e.target.value)}
             min={1}
-            className="w-28 border border-s112-border rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
+            className="w-28 border border-s112-border rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40"
           />
           <button
             type="button"
@@ -1494,8 +1494,8 @@ function CheckItem({ ok, label, hint, info }: { ok: boolean; label: string; hint
   return (
     <div className={`flex gap-3 p-3 rounded-xl border ${ok ? 'border-s112-ok/30 bg-s112-ok-bg' : 'border-s112-warn/30 bg-s112-warn-bg'}`}>
       {ok
-        ? <CheckCircle2 className="w-5 h-5 text-s112-ok-fg flex-shrink-0 mt-0.5" />
-        : <AlertTriangle className="w-5 h-5 text-s112-warn-fg flex-shrink-0 mt-0.5" />}
+        ? <CheckCircle2 className="w-5 h-5 text-s112-ok-fg shrink-0 mt-0.5" />
+        : <AlertTriangle className="w-5 h-5 text-s112-warn-fg shrink-0 mt-0.5" />}
       <div>
         <p className={`text-sm font-medium ${ok ? 'text-s112-ok-fg' : 'text-s112-warn-fg'}`}>{label}</p>
         {!ok && hint && <p className="text-xs text-s112-warn-fg mt-0.5">{hint}</p>}
@@ -1526,7 +1526,7 @@ function ChecklisteTab({ tenant, settings, members }: {
     <div className="space-y-4 max-w-lg">
       {allOk && (
         <div className="p-4 bg-s112-ok-bg border border-s112-ok/30 rounded-xl text-sm text-s112-ok-fg font-medium flex items-center gap-2">
-          <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+          <CheckCircle2 className="w-5 h-5 shrink-0" />
           Dieser Mandant ist vollständig konfiguriert und einsatzbereit!
         </div>
       )}
@@ -1570,10 +1570,10 @@ function ChecklisteTab({ tenant, settings, members }: {
         <p>2. Supabase sendet automatisch eine Einladungs-E-Mail mit Link zum Passwort setzen.</p>
         <p>3. Nach Passwort-Setzen kann sich der Benutzer unter <a href="https://software112.icp-consultants.at/login" target="_blank" rel="noreferrer" className="underline">software112.icp-consultants.at/login</a> anmelden.</p>
         <p className="font-semibold mt-2">Stripe Webhook (einmalig global, nicht pro Mandant)</p>
-        <p>Endpoint in Stripe Dashboard registrieren: <code className="bg-white/60 px-1 rounded font-mono">https://software112.icp-consultants.at/api/stripe/webhook</code></p>
-        <p>Events: <code className="bg-white/60 px-1 rounded font-mono">customer.subscription.*</code>, <code className="bg-white/60 px-1 rounded font-mono">invoice.payment_succeeded</code>, <code className="bg-white/60 px-1 rounded font-mono">invoice.payment_failed</code></p>
+        <p>Endpoint in Stripe Dashboard registrieren: <code className="bg-white/60 px-1 rounded-sm font-mono">https://software112.icp-consultants.at/api/stripe/webhook</code></p>
+        <p>Events: <code className="bg-white/60 px-1 rounded-sm font-mono">customer.subscription.*</code>, <code className="bg-white/60 px-1 rounded-sm font-mono">invoice.payment_succeeded</code>, <code className="bg-white/60 px-1 rounded-sm font-mono">invoice.payment_failed</code></p>
         <p className="font-semibold mt-2">Tenant-ID (für technische Konfiguration)</p>
-        <code className="bg-white/60 px-2 py-0.5 rounded font-mono">{tenant.id}</code>
+        <code className="bg-white/60 px-2 py-0.5 rounded-sm font-mono">{tenant.id}</code>
       </div>
     </div>
   )
@@ -1595,7 +1595,7 @@ function BawbTab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
   const [errMsg,   setErrMsg]   = useState<string | null>(null)
   const [, startTransition] = useTransition()
 
-  const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+  const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40'
 
   function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -1626,7 +1626,7 @@ function BawbTab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
             href={BAWB_URL}
             target="_blank"
             rel="noreferrer"
-            className="shrink-0 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors whitespace-nowrap"
+            className="shrink-0 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors whitespace-nowrap"
           >
             bawb.at öffnen
           </a>
@@ -1683,7 +1683,7 @@ function BawbTab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
 
         <div className="flex items-center gap-3">
           <button type="submit" disabled={status === 'saving'}
-            className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-50 transition-colors">
+            className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-50 transition-colors">
             {status === 'saving' ? 'Speichert…' : 'Zugangsdaten speichern'}
           </button>
           {status === 'ok' && <span className="text-xs text-s112-ok-fg font-medium">Gespeichert</span>}
@@ -1751,19 +1751,19 @@ function SumUpTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
           <label className="block text-xs font-medium text-s112-text-2 mb-1">SumUp API Key</label>
           <input aria-label="SumUp API Key" type="password" autoComplete="off" value={apiKey} onChange={e => setApiKey(e.target.value)}
             placeholder={(settings as any).sumup_api_key ? 'hinterlegt (verschlüsselt) – zum Ändern neu eingeben' : 'sup_sk_…'}
-            className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm font-mono focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
           <p className="text-xs text-s112-muted mt-1">Persönlicher Access-Token aus dem SumUp-Dashboard → API Keys</p>
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Merchant Code</label>
           <input aria-label="Merchant Code" value={merchantCode} onChange={e => setMerchantCode(e.target.value)}
             placeholder="M…"
-            className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm font-mono focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
           <p className="text-xs text-s112-muted mt-1">Zu finden unter SumUp-Profil → Unternehmensinformationen</p>
         </div>
         {msg && <p className={`text-sm ${msgIsError ? 'text-s112-err-fg' : 'text-s112-ok-fg'}`}>{msg}</p>}
         <button type="submit" disabled={saving}
-          className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
+          className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 disabled:opacity-40">
           {saving ? 'Speichern…' : 'Speichern'}
         </button>
       </form>
@@ -1871,7 +1871,7 @@ function StripeTab({ tenant, verbund }: { tenant: TenantDetail; verbund: Verbund
             />
             <button
               type="button" onClick={handleCreateCustomer} disabled={pending}
-              className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50 whitespace-nowrap">
+              className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-sm font-semibold hover:bg-s112-teal/90 disabled:opacity-50 whitespace-nowrap">
               {pending ? 'Erstelle…' : '+ Customer anlegen'}
             </button>
           </div>
@@ -1901,7 +1901,7 @@ function StripeTab({ tenant, verbund }: { tenant: TenantDetail; verbund: Verbund
           <h2 className="text-sm font-semibold text-s112-muted uppercase tracking-wider">Abo verwalten</h2>
           <div className="flex gap-2 flex-wrap">
             <button type="button" onClick={handlePortal} disabled={pending}
-              className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50">
+              className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-sm font-semibold hover:bg-s112-teal/90 disabled:opacity-50">
               {pending ? 'Lade…' : 'software:112 Kundenportal'}
             </button>
             <button type="button" onClick={handleCancel} disabled={pending}
@@ -1966,7 +1966,7 @@ export default function MandantDetailClient({ tenant, settings, members, verbund
           {editName ? (
             <form onSubmit={handleRename} className="flex items-center gap-2 mt-1">
               <input value={name} onChange={e => setName(e.target.value)}
-                className="text-2xl font-semibold text-s112-text border-b-2 border-s112-teal outline-none bg-transparent"
+                className="text-2xl font-semibold text-s112-text border-b-2 border-s112-teal outline-hidden bg-transparent"
                 autoFocus />
               <button type="submit" disabled={pending}
                 className="text-xs bg-s112-teal text-s112-yellow px-2.5 py-1 rounded-lg disabled:opacity-40">OK</button>

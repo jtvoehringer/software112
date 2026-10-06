@@ -141,7 +141,7 @@ export default async function SystemberichtPage({ searchParams }: { searchParams
                     <td className="px-3 py-2 text-s112-muted">{ART_LABEL[g.art] ?? g.art}</td>
                     <td className="px-3 py-2">
                       <div className="font-mono text-xs text-s112-muted break-all">{g.quelle}</div>
-                      <div className="break-words">{g.meldung}</div>
+                      <div className="wrap-break-word">{g.meldung}</div>
                     </td>
                     <td className="px-3 py-2 text-s112-muted">{[...g.tenants].map(t => tenantName.get(t) ?? '?').join(', ') || '–'}</td>
                     <td className="px-3 py-2 text-s112-muted whitespace-nowrap">{fmtZeit(g.zuletzt)}</td>
@@ -179,10 +179,10 @@ export default async function SystemberichtPage({ searchParams }: { searchParams
               <details key={z.id} className="px-3 py-2 text-sm">
                 <summary className="cursor-pointer flex gap-3 items-baseline flex-wrap">
                   <span className="text-s112-muted whitespace-nowrap">{fmtZeit(z.erstellt_am)}</span>
-                  <span className="text-xs px-1.5 py-0.5 rounded bg-s112-bg text-s112-muted">{ART_LABEL[z.art] ?? z.art}</span>
+                  <span className="text-xs px-1.5 py-0.5 rounded-sm bg-s112-bg text-s112-muted">{ART_LABEL[z.art] ?? z.art}</span>
                   <span className="font-mono text-xs text-s112-muted break-all">{z.quelle}</span>
                   {z.tenant_id && <span className="text-xs text-s112-muted">{tenantName.get(z.tenant_id) ?? '?'}</span>}
-                  <span className="basis-full break-words">{z.meldung}</span>
+                  <span className="basis-full wrap-break-word">{z.meldung}</span>
                 </summary>
                 {z.details && <pre className="mt-2 text-xs bg-s112-bg rounded-lg p-3 overflow-auto max-h-80 whitespace-pre-wrap">{JSON.stringify(z.details, null, 2)}</pre>}
               </details>

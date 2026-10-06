@@ -78,7 +78,7 @@ function BuchungsForm({
         <div className="col-span-2">
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Mittel *</label>
           <select aria-label="Mittel" name="duengemittel_id" required defaultValue={edit?.duengemittel_id ?? defaultDuengerId ?? ''}
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
             <option value="">– Auswählen –</option>
             {alleDuenger.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
@@ -88,7 +88,7 @@ function BuchungsForm({
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Typ *</label>
           <select aria-label="Typ" name="typ" required value={typ} onChange={e => setTyp(e.target.value)}
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
             <option value="anfangsbestand">Anfangsbestand</option>
             <option value="einkauf">Einkauf / Zugang</option>
             <option value="korrektur">Inventurkorrektur</option>
@@ -100,7 +100,7 @@ function BuchungsForm({
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum *</label>
           <input aria-label="Datum" name="datum" type="date" required
             value={datum} onChange={e => setDatum(e.target.value)}
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         </div>
 
         <AnfangsbestandHinweis typ={typ} datum={datum} />
@@ -127,14 +127,14 @@ function BuchungsForm({
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Menge *</label>
           <input aria-label="Menge" name="menge" type="number" step="0.001" min="0" required
             defaultValue={edit ? Math.abs(edit.menge) : ''}
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         </div>
 
         {/* Einheit */}
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Einheit</label>
           <select aria-label="Einheit" name="einheit" defaultValue={edit?.einheit ?? defaultEinheit ?? 'kg'}
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
             <option value="kg">kg</option>
             <option value="l">l</option>
             <option value="g">g</option>
@@ -147,13 +147,13 @@ function BuchungsForm({
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
           <input aria-label="Notizen" name="notizen" defaultValue={edit?.notizen ?? ''}
             placeholder="z.B. Lieferant, Rechnung, Grund der Korrektur…"
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         </div>
       </div>
 
       <div className="flex gap-2 pt-1">
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-50">
+          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-50">
           {pending ? 'Speichert…' : 'Speichern'}
         </button>
         <button type="button" onClick={onDone}
@@ -320,7 +320,7 @@ export default function DuengerLagerClient({
         ) : (
           writeOk && (
             <button onClick={() => setShowNeuForm(true)}
-              className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
+              className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors">
               Neues Mittel anlegen
             </button>
           )
