@@ -1233,7 +1233,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('mandant',       '-US', true , 'get_next_chargennummer(p_tenant_id uuid)'),
     ('mandant',       '-US', true , 'get_next_liefernummer(p_tenant_id uuid)'),
     ('mandant',       '-US', true , 'get_next_personenkonto(p_tenant_id uuid, p_art text, p_basis integer)'),
-    ('intern',        '--S', false, 'get_next_rechnungsnummer(p_tenant_id uuid)'),   -- KAN-21: nur Service-Role, Vergabe per Trigger a_rechnungsnummer
+    ('intern',        '--S', true , 'get_next_rechnungsnummer(p_tenant_id uuid)'),   -- KAN-21: nur Service-Role, Vergabe per Trigger a_rechnungsnummer
     ('intern',        '--S', false, 's112_rechnungsnummer_ziehen(p_tenant_id uuid)'),   -- KAN-21: Zähler ohne Zugriffsprüfung (Trigger)
     ('trigger',       '--S', false, 's112_rechnungsnummer_vergeben()'),   -- KAN-21: Rechnungsnummer im Insert, unveränderlich per API
     ('mandant',       '-US', true , 'get_next_transaktionsnr(p_tenant_id uuid, p_typ text)'),
