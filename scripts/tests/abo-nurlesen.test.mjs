@@ -754,3 +754,24 @@ describe('Guard check-schreibsperre.js', () => {
     assert.equal(begruendet.code, 0, begruendet.text)
   })
 })
+
+// KAN-8 (06.10.2026): Upgrade nur gegen bezahlte Rechnung
+describe('KAN-8 Paketwechsel: Upgrade sofort abrechnen, nur nach Zahlung freischalten', () => {
+  test('Upgrade: always_invoice + pending_if_incomplete; Downgrade und gleiches Paket: Gutschrift wie bisher', () => {
+    const up = { proration_behavior: 'always_invoice', payment_behavior: 'pending_if_incomplete' }
+    const runter = { proration_behavior: 'create_prorations' }
+    assert.deepEqual(r.paketwechselParameter('basis', 'standard'), up)
+    assert.deepEqual(r.paketwechselParameter('standard', 'premium'), up)
+    assert.deepEqual(r.paketwechselParameter(null, 'basis'), up)
+    assert.deepEqual(r.paketwechselParameter('premium', 'standard'), runter)
+    assert.deepEqual(r.paketwechselParameter('standard', 'standard'), runter)
+  })
+  test('Selbstservice-Wechsel: Parameter aus paketwechselParameter, metadata nie im Upgrade-Aufruf, pending_update schaltet nichts frei', () => {
+    const s = readFileSync(new URL('../../src/app/abo/actions.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
+    const aufruf = s.slice(s.indexOf('const aktualisiert = await stripe.subscriptions.update'), s.indexOf('aboStatus = aktualisiert.status'))
+    assert.match(aufruf, /\.\.\.paketwechselParameter\(altesPaket, paket\)/)
+    assert.doesNotMatch(aufruf, /metadata|create_prorations/)
+    assert.match(s, /zahlungAusstehend = !!aktualisiert\.pending_update/)
+    assert.match(s, /if \(zahlungAusstehend \|\| !entscheidung\.moduleAnwenden\) \{/)
+  })
+})
