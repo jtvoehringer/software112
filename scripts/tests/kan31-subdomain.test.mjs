@@ -86,3 +86,23 @@ describe('Verdrahtung', () => {
     assert.match(a.slice(i, i + 300), /istPlattformAdmin\(\)/)
   })
 })
+
+describe('Hauptdomain-Betrieb bleibt beim Wechsel auf eine Subdomain (Vorschlag Jörgen: Gebeshuber Hauptdomain, Spaetrot Subdomain)', () => {
+  test('Betriebswahl und /auth/betrieb setzen das Cookie nur ohne Subdomain-Ziel oder beim Weg zurück zur Hauptdomain', () => {
+    const w = quelle('src/app/(auth)/betrieb-waehlen/actions.ts')
+    assert.match(w, /if \(!ziel \|\| ziel\.cookie\) await setActiveTenantCookie\(tenantId\)/)
+    assert.ok(w.indexOf('subdomainZiel(') < w.indexOf('setActiveTenantCookie(tenantId)'), 'Ziel vor dem Cookie bestimmen')
+    const r = quelle('src/app/auth/betrieb/route.ts')
+    assert.match(r, /if \(!subZiel \|\| subZiel\.cookie\) await setActiveTenantCookie\(tenantId\)/)
+  })
+  test('subdomainZiel: Subdomain-Betrieb ohne Cookie, Weg zur Hauptdomain mit Cookie', () => {
+    const s = quelle('src/lib/tenant/subdomainServer.ts')
+    assert.match(s, /return \{ url: subUrl, cookie: false \}/)
+    assert.match(s, /return haupt \? \{ url: haupt, cookie: true \} : null/)
+  })
+  test('Betriebs-Cookie im Subdomain-Betrieb für die ganze Basis (eigener Name), sonst wie bisher', () => {
+    const a = quelle('src/lib/auth/activeTenant.ts')
+    assert.match(a, /const COOKIE = 's112_active_tenant'/)
+    assert.match(a, /if \(hostUnterBasis\(.*\)\) return \{ name: COOKIE_SUBDOMAIN, domain: subdomainBasis\(\) \}/)
+  })
+})

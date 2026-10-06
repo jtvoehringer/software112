@@ -16,12 +16,14 @@ export async function aktiveSubdomain(): Promise<string | null> {
 /**
  * KAN-31: Ziel nach einem Betriebswechsel – die Subdomain des Betriebs, wenn die Funktion an ist, die Anfrage unter
  * der Basis läuft und der Betrieb eine Subdomain hat; sonst null (bisheriges Verhalten: relativer Pfad, Cookie).
+ * cookie: ob das Betriebs-Cookie (Hauptdomain) gesetzt werden soll – NICHT bei einem Betrieb mit Subdomain, sonst
+ * zeigte ein Tab der Hauptdomain (z. B. Gebeshuber) nach dem Neuladen den Subdomain-Betrieb (Spaetrot).
  * Fehler beim Lesen (z. B. Spalte noch nicht da) → null.
  */
 export async function subdomainZiel(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any, tenantId: string, pfad: string,
-): Promise<string | null> {
+): Promise<{ url: string; cookie: boolean } | null> {
   if (!subdomainBasis()) return null
   try {
     const kopf = await headers()
@@ -29,10 +31,12 @@ export async function subdomainZiel(
     if (!hostUnterBasis(host)) return null
     const { data, error } = await supabase.from('tenants').select('subdomain').eq('id', tenantId).maybeSingle()
     const sub = error ? null : ((data as { subdomain?: string | null } | null)?.subdomain ?? null)
-    if (sub) return subdomainUrl(sub, pfad)
+    const subUrl = sub ? subdomainUrl(sub, pfad) : null
+    if (subUrl) return { url: subUrl, cookie: false }
     // Betrieb ohne Subdomain, aus einem Subdomain-Tab gewählt → Hauptdomain (dort gilt das Cookie), sonst bliebe der
     // Tab über den Host im bisherigen Betrieb
-    return subdomainAusHost(host) ? subdomainUrl(null, pfad) : null
+    const haupt = subdomainAusHost(host) ? subdomainUrl(null, pfad) : null
+    return haupt ? { url: haupt, cookie: true } : null
   } catch {
     return null
   }
