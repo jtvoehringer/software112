@@ -27,7 +27,7 @@ const STATUS_VERKAUF: Record<string, { label: string; color: string }> = {
   abfuellung:{ label: 'Abfüllung', color: 'bg-[#F2F3F5] text-s112-text-1' },
 }
 
-const ART_LABEL: Record<string, string> = { wein: 'Wein', trauben: 'Trauben', most: 'Most' }
+const ART_LABEL: Record<string, string> = { wein: 'Wein', trauben: 'Trauben', most: 'Most', maische: 'Maische' }
 
 export default async function WeinhandelPage({ searchParams }: { searchParams: Promise<{ ausverkauft?: string }> }) {
   const sp = await searchParams
@@ -451,7 +451,10 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
                       <td className="px-4 py-3 text-right">
                         {/* KAN-35: kein Verkauf direkt aus dem Zukauf – Wein/Most erst einem Gebinde
                             zuordnen (legt die Kellerbuch-Charge an), Trauben laufen über den Traubenverkauf */}
-                        {writeOk && (z.art === 'trauben' ? (
+                        {/* KAN-41: Maische wird nur gepresst (Erntemeldung › Pressung), nicht verkauft */}
+                        {writeOk && (z.art === 'maische' ? (
+                          <Link href="/erntemeldung" className="text-xs text-s112-blue-700 hover:underline font-medium whitespace-nowrap">Pressung →</Link>
+                        ) : z.art === 'trauben' ? (
                           <Link href="/weinhandel/traubenverkauf" className="text-xs text-s112-blue-700 hover:underline font-medium whitespace-nowrap">Traubenverkauf →</Link>
                         ) : (
                           <Link href={`/weinhandel/zukauf/${z.id}/edit`} className="text-xs text-s112-blue-700 hover:underline font-medium whitespace-nowrap">Gebinde zuordnen →</Link>

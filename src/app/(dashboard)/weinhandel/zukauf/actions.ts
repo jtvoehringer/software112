@@ -15,7 +15,7 @@ import { pruefePruefnummernSchaden } from '@/lib/kellerbuch/pruefnummerLaden'
 import { mitPnNotiz } from '@/lib/kellerbuch/pruefnummer'
 import { mostgewichtAusFormular, mostgewichtAusGespeichert, mostgewichtSpalten } from '@/lib/wein/mostgewichtFormular'
 import type { Mostgewicht } from '@/lib/wein/mostgewicht'
-import { zukaufWareFehler } from '@/lib/zukauf/ware'
+import { istTraubenArt, zukaufWareFehler } from '@/lib/zukauf/ware'
 import { weinartKonflikt, weinartBekannt, weinartAusFarbe, WEINART_LABEL } from '@/lib/keller/weinart'
 import { waehleZielCharge, merkmaleText } from '@/lib/kellerbuch/umzugZiel'
 import { verschnittVorbereiten } from '@/lib/kellerbuch/verschnittBuchen'
@@ -164,10 +164,10 @@ function parseZukaufFormData(formData: FormData) {
   const angabe = qualitaetsAngabeAusFormular(formData)
   const qualitaetsstufe = angabe.stufe
   const qualitaetUnzulaessig = qualitaetFehler('charge', qualitaetsstufe)
-  if (qualitaetUnzulaessig && art !== 'trauben') throw new AktionsFehler(qualitaetUnzulaessig)
+  if (qualitaetUnzulaessig && !istTraubenArt(art)) throw new AktionsFehler(qualitaetUnzulaessig)
   const traubenQualitaetUnzulaessig = qualitaetFehler('lese', qualitaetsstufe)
-  if (traubenQualitaetUnzulaessig && art === 'trauben') throw new AktionsFehler(traubenQualitaetUnzulaessig)
-  const qualitaet: QualitaetsAngabe = art === 'trauben' ? { stufe: qualitaetsstufe, zusatz: null, erzeugnis: null } : angabe
+  if (traubenQualitaetUnzulaessig && istTraubenArt(art)) throw new AktionsFehler(traubenQualitaetUnzulaessig)
+  const qualitaet: QualitaetsAngabe = istTraubenArt(art) ? { stufe: qualitaetsstufe, zusatz: null, erzeugnis: null } : angabe
   const angabeUnzulaessig = qualitaetsAngabeFehler(qualitaet)
   if (angabeUnzulaessig) throw new AktionsFehler(angabeUnzulaessig)
   // KAN-186: Ursprungsland (kat_land, Standard Österreich) – der Fremdschlüssel prüft, ob es das Land gibt

@@ -45,6 +45,9 @@ describe('KAN-208 Regeln', nurMitHooks, () => {
     assert.equal(r.zukaufLieferantFehler({ art: 'wein', lieferant: true, betriebNr: null, landIso: 'IT' }), null)
     assert.equal(r.zukaufLieferantFehler({ art: 'flasche', lieferant: true, betriebNr: null, landIso: 'AT' }), null)
     assert.equal(r.zukaufLieferantFehler({ art: 'most', lieferant: true, betriebNr: '7654321', landIso: 'AT' }), null)
+    // KAN-41: Maische wie Trauben
+    assert.match(r.zukaufLieferantFehler({ art: 'maische', lieferant: true, betriebNr: ' ', landIso: 'AT', lieferantName: 'Hof Z' }), /„Hof Z“ braucht eine Betriebsnummer \(Wein, Most, Trauben und Maische aus Österreich\)/)
+    assert.equal(r.zukaufLieferantFehler({ art: 'maische', lieferant: true, betriebNr: '1234567', landIso: 'AT' }), null)
   })
   test('Füllung: Produktname nicht leer', () => {
     assert.match(r.fuellungNameFehler('  '), /Produktnamen/)

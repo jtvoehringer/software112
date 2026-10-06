@@ -158,14 +158,15 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
 
   // Zugekaufte Trauben dieses Jahrgangs (art='trauben') - stehen als zusätzliche
   // Quelle für Pressungs-Vorschlag und Traubenverkauf zur Verfügung.
+  // KAN-41: auch zugekaufte Maische (art='maische') – nur Quelle der Pressung, nicht des Traubenverkaufs.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rawZukaufTrauben } = await alle(tf((supabase.from('zukauf_posten') as any)
     .select(`
-      id, datum, menge, rebsorte, herkunft, qualitaetsstufe, kmw, oechsle, mostgewicht_einheit,
+      id, art, datum, menge, rebsorte, herkunft, qualitaetsstufe, kmw, oechsle, mostgewicht_einheit,
       lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname),
       lieferant_firma:firmen!lieferant_firma_id(name)
     `)
-    .eq('art', 'trauben')
+    .in('art', ['trauben', 'maische'])
     .eq('aktiv', true)
     .eq('jahrgang', (jg as AR).jahrgang)
     .order('datum', { ascending: false }).order('id')))
@@ -327,6 +328,7 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
       : (z.lieferant_firma?.name ?? '–')
     return {
       id: z.id,
+      art: z.art === 'maische' ? 'maische' : 'trauben',
       datum: z.datum,
       lieferant,
       rebsorte: z.rebsorte ?? null,

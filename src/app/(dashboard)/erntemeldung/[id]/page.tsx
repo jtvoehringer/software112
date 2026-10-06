@@ -124,7 +124,7 @@ export default async function ErnteDetailPage({ params, searchParams }: Props) {
         erfassenOffen={erfassen === '1'}
       />
 
-      {(tvQuelleOptions.length > 0 || verkauefe.length > 0 || zukaufTrauben.length > 0) && (
+      {(tvQuelleOptions.length > 0 || verkauefe.length > 0 || zukaufTrauben.some(z => z.art !== 'maische')) && (
         <div className="mt-6">
           <TraubenverkaufSection
             jahrgangId={id}
@@ -133,7 +133,7 @@ export default async function ErnteDetailPage({ params, searchParams }: Props) {
             bkiErlaubt={bkiErlaubt}
             verkauefe={verkauefe}
             quelleOptions={tvQuelleOptions}
-            zukaufOptions={zukaufTrauben}
+            zukaufOptions={zukaufTrauben.filter(z => z.art !== 'maische')}   // KAN-41: Maische wird nicht weiterverkauft
             writeOk={writeOk}
             adminOk={adminOk}
           />

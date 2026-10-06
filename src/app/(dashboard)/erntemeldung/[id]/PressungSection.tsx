@@ -38,6 +38,8 @@ export type PressungWG = {
 // abzüglich bereits verpresster/verkaufter Anteile dieses Zukaufs).
 export type ZukaufTraubenOpt = {
   id: string; datum: string; lieferant: string
+  /** KAN-41: zugekaufte Trauben oder Maische (beides Quelle der Pressung; Traubenverkauf nur Trauben) */
+  art?: 'trauben' | 'maische'
   rebsorte: string | null; herkunft: string | null
   /** KAN-80 Nachtrag: Qualitätsstufe des Zukaufs (Trauben: Stufen der Lese) – begrenzt die Stufe der Pressung */
   qualitaetsstufe?: string | null
@@ -286,7 +288,7 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, wgOptions, behOpt
     zukauf_posten_id: z.id,
     datum: z.datum,
     mg: mgAusTag({ kmw: z.kmw_grad, oechsle: z.oechsle ?? null, einheit: z.mostgewicht_einheit ?? null }),
-    label: `Zukauf${z.lieferant ? ' · ' + z.lieferant : ''}${z.herkunft ? ' (' + herkunftAnzeige(z.herkunft) + ')' : ''}`,
+    label: `${z.art === 'maische' ? 'Zukauf Maische' : 'Zukauf'}${z.lieferant ? ' · ' + z.lieferant : ''}${z.herkunft ? ' (' + herkunftAnzeige(z.herkunft) + ')' : ''}`,
     rebsorte: z.rebsorte ?? '',
     verfuegbar_kg: z.verfuegbar_kg,
   }))
