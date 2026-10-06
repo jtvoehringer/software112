@@ -79,8 +79,8 @@ export default async function SystemAdminPage() {
       </div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-s112-text">Super-Admin</h1>
-          <p className="text-sm text-s112-muted mt-0.5">Globale Administratoren dieser Instanz</p>
+          <h1 className="text-2xl font-semibold text-s112-text">Plattform-Admins</h1>
+          <p className="text-sm text-s112-muted mt-0.5">Super-Admins in allen Betrieben – je Betrieb eine Zeile</p>
         </div>
         <span className="text-sm text-s112-muted">{admins.length} Admin{admins.length !== 1 ? 's' : ''}</span>
       </div>
