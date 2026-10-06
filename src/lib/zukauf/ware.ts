@@ -1,6 +1,6 @@
 // Ware eines Zukaufs (KAN-80 Nachtrag, Entscheidungen Jörgen 02.10.2026)
 //
-// „Wein | Traubenmost | Trauben wird mit Qualitätsstufe und Herkunfts-Code (BKI) zugekauft. Im Bereich Ware
+// „Wein | Traubenmost | Trauben (seit KAN-41 auch Maische) wird mit Qualitätsstufe und Herkunfts-Code (BKI) zugekauft. Im Bereich Ware
 // sind alle Felder Mussfelder. Herkunft wird Herkunfts-Code (BKI) wie bei den Ried-GST; daraus gelten die
 // gleichen Regeln wie für Weinabstufungen.“ Dazu entschieden:
 //  (a) Staatliche Prüfnummer: beim Zukauf NIE Pflicht, bei keiner Stufe und auch nicht bei Sekt/Perlwein (Entscheidung
@@ -15,7 +15,19 @@
 import { HERKUNFT_LABEL, herkunftKnoten, herkunftKnotenTolerant } from '@/lib/herkunft'
 import { niedrigsteQualitaet, qualitaetsRang } from '@/lib/wein/qualitaetsrang'
 
-export type ZukaufArt = 'wein' | 'most' | 'trauben'
+export type ZukaufArt = 'wein' | 'most' | 'trauben' | 'maische'
+
+/** Bezeichnung der Zukauf-Art (Listen, Weinbuch) */
+export const ZUKAUF_ART_LABEL: Record<ZukaufArt, string> = { wein: 'Wein', most: 'Traubenmost', trauben: 'Trauben', maische: 'Maische' }
+
+/**
+ * KAN-41 Paket 2a (06.10.2026): Trauben und Maische – ohne Zielcharge, Quelle einer Pressung (Journal ZK_TRAUB bzw.
+ * ZK_MAISC), Qualitätsstufen der Lese, Mostgewicht Pflicht, zählen zur Zukaufsgrenze. Maische wird nur gepresst, nicht
+ * weiterverkauft (Entscheidungen Jörgen 06.10.2026).
+ */
+export function istTraubenArt(art: string | null | undefined): boolean {
+  return art === 'trauben' || art === 'maische'
+}
 
 /** Wählbare Weinarten im Bereich Ware – „unbekannt“ (Altbestand) ist keine Angabe mehr */
 export const ZUKAUF_WEINARTEN = ['weiss', 'rot', 'rose'] as const
@@ -77,7 +89,7 @@ export type ZukaufWare = {
 export function zukaufWareFehler(w: ZukaufWare, eigeneWeinbaugebiete: readonly string[]): string | null {
   const fehlt: string[] = []
   const weinMost = w.art === 'wein' || w.art === 'most'
-  const mitMost = w.art === 'trauben' || w.art === 'most'
+  const mitMost = istTraubenArt(w.art) || w.art === 'most'
   if (!w.weinart || !(ZUKAUF_WEINARTEN as readonly string[]).includes(w.weinart)) fehlt.push('Weinart (Weißwein, Rotwein oder Rosé)')
   if (!w.rebsorte?.trim()) fehlt.push('Rebsorte(n)')
   if (w.jahrgang == null || !Number.isInteger(w.jahrgang)) fehlt.push('Jahrgang')
@@ -87,7 +99,7 @@ export function zukaufWareFehler(w: ZukaufWare, eigeneWeinbaugebiete: readonly s
   if (w.art === 'wein' && !(w.alkohol != null && w.alkohol > 0)) fehlt.push('Alkoholgehalt')
   // Prüfnummer beim Zukauf optional (Entscheidung Jörgen 02.10.2026, ersetzt KAN-80 Regel a „Pflicht ab Qualitätswein“)
   if (fehlt.length > 0) return `Bitte im Bereich Ware ausfüllen: ${fehlt.join(', ')}.`
-  if (!weinMost && !mitMost) return 'Unbekannte Art – bitte Wein, Traubenmost oder Trauben wählen.'
+  if (!weinMost && !mitMost) return 'Unbekannte Art – bitte Wein, Traubenmost, Trauben oder Maische wählen.'
   if (w.jahrgang! < 1900 || w.jahrgang! > 2100) return 'Der Jahrgang muss zwischen 1900 und 2100 liegen.'
   return herkunftCodeFehler(w.herkunft, eigeneWeinbaugebiete)
 }

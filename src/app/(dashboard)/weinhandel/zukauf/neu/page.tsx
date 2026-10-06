@@ -3,6 +3,7 @@
 import { useState, useTransition, useEffect } from 'react'
 import Link from '@/components/ui/Link'
 import { createZukauf } from '../actions'
+import { istTraubenArt } from '@/lib/zukauf/ware'
 import { LESE_QUALITAETEN, QUALITAET_OPTS } from '@/lib/wein/qualitaet'
 import { AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { verschnittHinweis } from '@/lib/kellerbuch/verschnittHinweis'
@@ -24,13 +25,13 @@ const inputCls = 'border border-s112-border rounded-lg px-3 py-2 text-sm focus:o
 const labelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
 
 const DEFAULT_EINHEIT: Record<string, string> = {
-  wein: 'L', trauben: 'kg', most: 'L',
+  wein: 'L', trauben: 'kg', most: 'L', maische: 'kg',
 }
 
 // Qualitätsstufe eines Wein-/Most-Zukaufs: geht in die Zielcharge (weinausbau) – deshalb die
 // zentrale Chargen-Liste QUALITAET_OPTS (KAN-73; vorher eine eigene Teilliste ohne „Wein“).
 // KAN-80 Nachtrag (02.10.2026): auch Trauben haben eine Stufe – dort die Liste der Lese (LESE_QUALITAETEN).
-const qualitaetsListe = (art: string) => art === 'trauben' ? LESE_QUALITAETEN : QUALITAET_OPTS
+const qualitaetsListe = (art: string) => istTraubenArt(art) ? LESE_QUALITAETEN : QUALITAET_OPTS
 
 // KAN-80 Nachtrag: Herkunfts-Code (BKI) wie am GST – alle Weinbaugebiete Österreichs, nach Region gruppiert
 const HERKUNFT_OPTIONS = herkunftOptionen()
@@ -50,7 +51,7 @@ export default function ZukaufNeuPage() {
   // ── Grunddaten ────────────────────────────────────────────────────────────
   const [datum,           setDatum]           = useState(new Date().toISOString().split('T')[0])
   const [uhrzeit,         setUhrzeit]         = useState('')
-  const [art,             setArt]             = useState<'wein' | 'trauben' | 'most'>('wein')
+  const [art,             setArt]             = useState<'wein' | 'trauben' | 'most' | 'maische'>('wein')
 
   // ── Lieferant / Versender ─────────────────────────────────────────────────
   const [lieferantKontakt, setLieferantKontakt] = useState('')
@@ -99,12 +100,12 @@ export default function ZukaufNeuPage() {
     : []
   const hatRebsortenmixZukauf = andereChargenImZiel.length > 0
 
-  function handleArtChange(a: 'wein' | 'trauben' | 'most') {
+  function handleArtChange(a: 'wein' | 'trauben' | 'most' | 'maische') {
     setArt(a)
     // Stufe aus der anderen Liste (Charge ↔ Lese) nicht still mitnehmen
     if (qualitaet && !qualitaetsListe(a).some(q => q.value === qualitaet)) setQualitaet('')
     setEinheit(DEFAULT_EINHEIT[a] ?? 'kg')
-    if (a === 'trauben') setZielBehaelter('')
+    if (istTraubenArt(a)) setZielBehaelter('')
   }
 
   useEffect(() => {
@@ -195,10 +196,11 @@ export default function ZukaufNeuPage() {
     })
   }
 
-  const ART_OPTIONS: { value: 'wein' | 'most' | 'trauben'; label: string }[] = [
+  const ART_OPTIONS: { value: 'wein' | 'most' | 'trauben' | 'maische'; label: string }[] = [
     { value: 'wein',    label: 'Wein' },
     { value: 'most',    label: 'Traubenmost' },
     { value: 'trauben', label: 'Trauben' },
+    { value: 'maische', label: 'Maische' },   // KAN-41: wird bei der Pressung als Zukauf Maische gebucht
   ]
 
   return (
@@ -381,9 +383,9 @@ export default function ZukaufNeuPage() {
                 min="1900" max="2100" placeholder="z.B. 2024"
                 required
                 className={inputCls + ' w-full'} />
-              {art === 'trauben' && (
+              {istTraubenArt(art) && (
                 <p className="text-xs text-s112-muted mt-1">
-                  Wichtig für Pressungs-Vorschlag &amp; Traubenverkauf – ohne Jahrgang wird der Zukauf dort nicht angezeigt.
+                  Wichtig für Pressungs-Vorschlag{art === 'trauben' ? ' & Traubenverkauf' : ''} – ohne Jahrgang wird der Zukauf dort nicht angezeigt.
                 </p>
               )}
             </div>
@@ -407,7 +409,7 @@ export default function ZukaufNeuPage() {
             </div>
 
             {/* KAN-186: Zusatzbezeichnung (Reserve …) und Erzeugnis (Sekt g.U., Perlwein …) – nicht bei Trauben */}
-            {art !== 'trauben' && (
+            {!istTraubenArt(art) && (
               <ZusatzErzeugnisFelder key={art} stufe={qualitaet} feldKlasse={inputCls + ' w-full'} labelKlasse={labelCls} />
             )}
 
@@ -432,7 +434,7 @@ export default function ZukaufNeuPage() {
 
             {/* Mostgewicht in °KMW oder °Oe – bei Trauben und Traubenmost (KAN-130 Etappe 3);
                 bevorzugte Einheit des Betriebs zuerst */}
-            {(art === 'trauben' || art === 'most') && (
+            {(istTraubenArt(art) || art === 'most') && (
               <div className="col-span-2">
                 <MostgewichtEingabe name="mostgewicht" required />
               </div>
@@ -460,7 +462,7 @@ export default function ZukaufNeuPage() {
           </div>
 
           {/* Anreicherung – bei Trauben und Most */}
-          {(art === 'trauben' || art === 'most') && (
+          {(istTraubenArt(art) || art === 'most') && (
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={anreicherung} onChange={e => setAnreicherung(e.target.checked)}
                 className="accent-s112-teal w-4 h-4" />

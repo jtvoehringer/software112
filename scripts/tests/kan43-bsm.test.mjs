@@ -400,6 +400,38 @@ describe('KAN-43 BSM: Nachtrag 02.10.2026', nurMitHooks, () => {
     assert.equal(zelle(d2.summen, 'DIFFERENZ').summeLiter, 0)
   })
 
+  test('1b. KAN-41: Pressung mit zugekaufter Maische → Anteil auf ZK_MAISC, Beleg nur Info in kg', async () => {
+    const { ladeBsm, bsmJournal, BSM_ZUORDNUNG } = await laden('lib/behoerden/bsm.ts')
+    assert.ok(BSM_ZUORDNUNG.some(z => z.code === 'ZK_MAISC'))
+    const t = tabellen()
+    t.zukauf_posten = [...t.zukauf_posten, { id: 'zm', tenant_id: T, datum: '2025-09-16', art: 'maische', einheit: 'kg', menge: 300, ziel_weinausbau_id: null, aktiv: true, rebsorte: 'Grüner Veltliner', jahrgang: 2025, weinart: 'weiss', qualitaetsstufe: 'qualitaetswein', land_iso: 'AT' }]
+    // Pressung p1 (1000 l): 1200 kg eigene + 500 kg Trauben z1 + 300 kg Maische zm → 40 % Zukauf = 400 l, davon 3/8 Maische
+    t.pressung_weingaerten = [pw('pw1', 'p1', '2025-09-20', 1200), pw('pw2', 'p1', '2025-09-20', 500, 'z1'), pw('pw3', 'p1', '2025-09-20', 300, 'zm')]
+    const d = await ladeBsm(datenbank(t, { rpc: RPC }), T, WJ, { heute: HEUTE })
+    assert.deepEqual(d.buchungen.filter(b => b.datum <= '2025-09-20').map(b => [b.datum, b.code, b.liter, b.kg]), [
+      ['2025-09-15', 'ZK_TRAUB', 0, 2000],
+      ['2025-09-16', 'ZK_MAISC', 0, 300],      // Beleg Maische: nur Info in kg
+      ['2025-09-20', 'ERNTE', 600, null],
+      ['2025-09-20', 'ZK_TRAUB', 250, null],
+      ['2025-09-20', 'ZK_MAISC', 150, null],
+    ])
+    assert.match(d.buchungen[1].vorgang, /^Zukauf Maische Grüner Veltliner 2025$/)
+    assert.match(d.buchungen[2].hinweis, /zugekauften Trauben und Maische: 800 von 2\.000 kg/)
+    assert.deepEqual([d.traubenKg, d.traubenLiter, d.maischeKg, d.maischeLiter], [2000, 250, 300, 150])
+    const S = d.summen
+    assert.equal(zelle(S, 'ZK_MAISC').werte.qualitaetswein, 150)
+    assert.match(zelle(S, 'ZK_MAISC').bezeichnung, /Most aus der Pressung in l \(Beleg 300 kg, nur nachrichtlich\)/)
+    assert.deepEqual(zelle(S, 'ENDE').werte, zelle(S, 'STICHTAG').werte)
+    assert.equal(zelle(S, 'DIFFERENZ').summeLiter, 0)
+    assert.ok(d.warnungen.some(w => /Zukauf Maische: gezählt ist der Most .* mit 150,00 l; die Belege im Zeitraum \(300 kg\)/.test(w)), d.warnungen.join('\n'))
+    assert.equal(bsmJournal(d, ['ZK_MAISC']).length, 2)
+    // nur Maische in der Pressung → alles ZK_MAISC
+    t.pressung_weingaerten = [pw('pw3', 'p1', '2025-09-20', 300, 'zm')]
+    const d2 = await ladeBsm(datenbank(t, { rpc: RPC }), T, WJ, { heute: HEUTE })
+    assert.deepEqual(d2.buchungen.filter(b => b.datum === '2025-09-20').map(b => [b.code, b.liter]), [['ZK_MAISC', 1000]])
+    assert.equal(zelle(d2.summen, 'DIFFERENZ').summeLiter, 0)
+  })
+
   test('4. Most/Sturm: eigene Gruppe, Übergang Most → Wein als neutrale Umstufung (keine Abwertung)', async () => {
     const { ladeBsm, bsmJournal, bsmParameter, BSM_SPALTEN, buchungsartLabel } = await laden('lib/behoerden/bsm.ts')
     assert.deepEqual(BSM_SPALTEN.map(s => s.key).slice(0, 2), ['most_sturm', 'wein'])

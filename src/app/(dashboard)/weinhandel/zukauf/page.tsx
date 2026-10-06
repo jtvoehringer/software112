@@ -21,6 +21,7 @@ const ART_LABEL: Record<string, string> = {
   wein:    'Wein',
   trauben: 'Trauben',
   most:    'Most',
+  maische: 'Maische',   // KAN-41
 }
 
 // Traubenzukauf für Weinproduzenten (nicht für Weinhändler, die i.d.R. gar
@@ -86,7 +87,7 @@ export default async function ZukaufPage({
         alle((supabase.from('grundstuecke') as any).select('flaeche_ha, aktiv, deaktiviert_am').eq('nutzart', 'WI').eq('tenant_id', membership.tenantId).order('id')),
         alle((supabase.from('zukauf_posten') as any)
           .select('menge')
-          .eq('art', 'trauben')
+          .in('art', ['trauben', 'maische'])   // KAN-41: Maische zählt zur Zukaufsgrenze (Entscheidung Jörgen 06.10.2026)
           .eq('aktiv', true)
           .eq('tenant_id', membership.tenantId)
           .gte('datum', `${zjahr}-01-01`)

@@ -14,7 +14,7 @@ import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
 import type { GespeichertesMostgewicht } from '@/lib/wein/mostgewichtFormular'
 import HerkunftCodeSelect from '@/components/weinbaugebiete/HerkunftCodeSelect'
 import { herkunftOptionen } from '@/lib/herkunft'
-import { herkunftAnzeige } from '@/lib/zukauf/ware'
+import { herkunftAnzeige, istTraubenArt } from '@/lib/zukauf/ware'
 import type { CustomWeinbaugebiet } from '@/app/(dashboard)/weinbaugebiete/actions'
 
 interface Behaelter { id: string; name: string; typ: string; volumen_liter: number | null }
@@ -68,15 +68,16 @@ const labelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
 // Qualitätsstufe eines Wein-/Most-Zukaufs: zentrale Chargen-Liste QUALITAET_OPTS wie beim
 // Anlegen (KAN-73); ein gespeicherter Wert außerhalb der Liste bleibt sichtbar.
 // KAN-80 Nachtrag (02.10.2026): auch Trauben haben eine Stufe – dort die Liste der Lese (LESE_QUALITAETEN).
-const qualitaetsListe = (art: string) => art === 'trauben' ? LESE_QUALITAETEN : QUALITAET_OPTS
+const qualitaetsListe = (art: string) => istTraubenArt(art) ? LESE_QUALITAETEN : QUALITAET_OPTS
 
 // KAN-80 Nachtrag: Herkunfts-Code (BKI) wie am GST – alle Weinbaugebiete Österreichs, nach Region gruppiert
 const HERKUNFT_OPTIONS = herkunftOptionen()
 
-const ART_OPTIONS: { value: 'wein' | 'most' | 'trauben'; label: string }[] = [
+const ART_OPTIONS: { value: 'wein' | 'most' | 'trauben' | 'maische'; label: string }[] = [
   { value: 'wein',    label: 'Wein' },
   { value: 'most',    label: 'Traubenmost' },
   { value: 'trauben', label: 'Trauben' },
+  { value: 'maische', label: 'Maische' },   // KAN-41
 ]
 
 export default function ZukaufEditForm({
@@ -117,7 +118,7 @@ export default function ZukaufEditForm({
   const [eingangsrechnungsnummer, setEingangsrechnungsnummer] = useState(initial.eingangsrechnungsnummer)
   const [datum,               setDatum]             = useState(initial.datum)
   const [uhrzeit,             setUhrzeit]           = useState(initial.lieferung_uhrzeit)
-  const [art,                 setArt]               = useState<'wein' | 'trauben' | 'most'>(initial.art as any)
+  const [art,                 setArt]               = useState<'wein' | 'trauben' | 'most' | 'maische'>(initial.art as any)
   // KAN-80 Nachtrag: Weinart Pflicht – ein gespeichertes „unbekannt“ muss neu gewählt werden
   const [weinart,             setWeinart]           = useState<'weiss' | 'rot' | 'rose' | ''>(['weiss', 'rot', 'rose'].includes(initial.weinart) ? initial.weinart as 'weiss' | 'rot' | 'rose' : '')
   const [rebsorte,            setRebsorte]          = useState(initial.rebsorte)
@@ -155,10 +156,10 @@ export default function ZukaufEditForm({
   //  - Folgebuchungen an der Charge: Menge, Einheit und Gebinde fix, Art bleibt Wein/Most
   //  - Trauben bereits verpresst/verkauft: Art fix, Menge nicht unter die gebundene Menge
   const mengeGesperrt = hatBewegungen
-  const traubenArtGesperrt = initial.art === 'trauben' && traubenGebunden.kg > 0
-  function artGesperrt(value: 'wein' | 'most' | 'trauben'): boolean {
-    if (hatBewegungen && value === 'trauben') return true
-    if (traubenArtGesperrt && value !== 'trauben') return true
+  const traubenArtGesperrt = istTraubenArt(initial.art) && traubenGebunden.kg > 0
+  function artGesperrt(value: 'wein' | 'most' | 'trauben' | 'maische'): boolean {
+    if (hatBewegungen && istTraubenArt(value)) return true
+    if (traubenArtGesperrt && value !== initial.art) return true
     return false
   }
 
@@ -201,7 +202,7 @@ export default function ZukaufEditForm({
     // KAN-80 Nachtrag: die Herkunftsauswahl hat nur ein verstecktes Feld – Pflicht hier prüfen (Server prüft ebenso)
     if (!herkunft) { setError('Bitte den Herkunfts-Code (BKI) wählen.'); return }
     const neueMenge = parseFloat(menge)
-    if (art === 'trauben' && traubenGebunden.kg > 0 && neueMenge < alteZukaufMenge && neueMenge < traubenGebunden.kg - 0.0005) {
+    if (istTraubenArt(art) && traubenGebunden.kg > 0 && neueMenge < alteZukaufMenge && neueMenge < traubenGebunden.kg - 0.0005) {
       setError(`Die Menge kann nicht unter die bereits gebundene Menge gesenkt werden: Aus diesem Zukauf sind bereits ${traubenGebunden.text}, zusammen ${fmtNum(traubenGebunden.kg)} kg.`)
       return
     }
@@ -382,7 +383,7 @@ export default function ZukaufEditForm({
                 min="1900" max="2100" placeholder="z.B. 2024"
                 required
                 className={inputCls + ' w-full'} />
-              {art === 'trauben' && (
+              {istTraubenArt(art) && (
                 <p className="text-xs text-s112-muted mt-1">
                   Wichtig für Pressungs-Vorschlag &amp; Traubenverkauf – ohne Jahrgang wird der Zukauf dort nicht angezeigt.
                 </p>
@@ -405,7 +406,7 @@ export default function ZukaufEditForm({
               <LandSelect laender={laender} value={landIso} onChange={setLandIso} className={inputCls + ' w-full'} />
             </div>
             {/* KAN-186: Zusatzbezeichnung (Reserve …) und Erzeugnis (Sekt g.U., Perlwein …) – nicht bei Trauben */}
-            {art !== 'trauben' && (
+            {!istTraubenArt(art) && (
               <ZusatzErzeugnisFelder key={art}
                 zusatz={art === initial.art ? initial.zusatzbezeichnung || null : null}
                 erzeugnis={art === initial.art ? initial.erzeugnis || null : null}
@@ -428,7 +429,7 @@ export default function ZukaufEditForm({
               )}
             </div>
             {/* Mostgewicht in °KMW oder °Oe (KAN-130 Etappe 3) – gespeicherter Messwert samt Einheit */}
-            {(art === 'trauben' || art === 'most') && (
+            {(istTraubenArt(art) || art === 'most') && (
               <div className="col-span-2">
                 <MostgewichtEingabe name="mostgewicht" startwert={initial.mostgewicht} required />
               </div>
@@ -448,7 +449,7 @@ export default function ZukaufEditForm({
               </div>
             )}
           </div>
-          {(art === 'trauben' || art === 'most') && (
+          {(istTraubenArt(art) || art === 'most') && (
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={anreicherung} onChange={e => setAnreicherung(e.target.checked)}
                 className="accent-s112-teal w-4 h-4" />
@@ -472,7 +473,7 @@ export default function ZukaufEditForm({
               </span>
             </p>
           )}
-          {art === 'trauben' && traubenGebunden.kg > 0 && (
+          {istTraubenArt(art) && traubenGebunden.kg > 0 && (
             <p className="flex items-start gap-1.5 text-xs bg-s112-bg border border-s112-border rounded-lg px-3 py-2 text-s112-text-1">
               <AlertTriangle size={14} className="mt-0.5 shrink-0" />
               <span>

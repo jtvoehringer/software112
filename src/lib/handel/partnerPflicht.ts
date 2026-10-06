@@ -47,9 +47,9 @@ export function flaschePruefnummerFehler(f: {
 /** Zukauf: Lieferant Pflicht, bei Wein/Most/Trauben aus Österreich mit Betriebsnummer; null = in Ordnung */
 export function zukaufLieferantFehler(z: { art: string; lieferant: boolean; betriebNr: string | null | undefined; landIso: string | null | undefined; lieferantName?: string | null }): string | null {
   if (!z.lieferant) return 'Bitte den Lieferanten angeben (Kontakt oder Firma).'
-  const ware = z.art === 'wein' || z.art === 'most' || z.art === 'trauben'
+  const ware = z.art === 'wein' || z.art === 'most' || z.art === 'trauben' || z.art === 'maische'   // KAN-41: auch Maische
   if (ware && (z.landIso ?? 'AT') === 'AT' && !(z.betriebNr ?? '').trim()) {
-    return `Der Lieferant${z.lieferantName ? ` „${z.lieferantName}“` : ''} braucht eine Betriebsnummer (Wein, Most und Trauben aus Österreich) – bitte im CRM ergänzen.`
+    return `Der Lieferant${z.lieferantName ? ` „${z.lieferantName}“` : ''} braucht eine Betriebsnummer (Wein, Most, Trauben und Maische aus Österreich) – bitte im CRM ergänzen.`
   }
   return null
 }

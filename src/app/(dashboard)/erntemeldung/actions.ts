@@ -7,7 +7,7 @@ import { revalidatePath } from 'next/cache'
 import { kmwZuQualitaet } from '@/lib/weinqualitaet'
 import { abstufungFehler, qualitaetFehler } from '@/lib/wein/qualitaet'
 import { findePassendeHerkunftsstufe, HERKUNFT_LABEL, minHerkunft } from '@/lib/herkunft'
-import { pressungObergrenze } from '@/lib/zukauf/ware'
+import { istTraubenArt, pressungObergrenze } from '@/lib/zukauf/ware'
 import { createVerkaufspostenFuerTrauben, ermittleQuellenName, upsertTraubenverkauf } from '@/app/(dashboard)/weinhandel/traubenverkauf/actions'
 import { traubenverkaufStornieren } from '@/lib/verkauf/traubenverkaufStorno'
 import { GRUND_BEARBEITET, stornoGrundFehler } from '@/lib/storno/grund'
@@ -1247,8 +1247,11 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
   if (zukaufIds.length > 0) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: zkRows, error: zkErr } = await (supabase.from('zukauf_posten') as any)
-      .select('id, datum, qualitaetsstufe, herkunft').in('id', zukaufIds).eq('tenant_id', tenantId)
-    if (zkErr) throw new AktionsFehler(dbFehlerText(zkErr, 'Trauben-Zukauf konnte nicht geladen werden'))
+      .select('id, art, datum, qualitaetsstufe, herkunft').in('id', zukaufIds).eq('tenant_id', tenantId)   // alle-ausnahme: Zukäufe einer einzelnen Pressung
+    if (zkErr) throw new AktionsFehler(dbFehlerText(zkErr, 'Trauben- bzw. Maische-Zukauf konnte nicht geladen werden'))
+    // KAN-41: verpresst werden nur zugekaufte Trauben oder Maische (Wein und Most gehen direkt in eine Charge)
+    const nichtPressbar = ((zkRows ?? []) as AR[]).find(z => !istTraubenArt(z.art as string | null))
+    if (nichtPressbar) throw new AktionsFehler('Verpresst werden können nur zugekaufte Trauben oder Maische – Wein und Most gehen beim Zukauf direkt in ein Gebinde.')
     const zkDatum = new Map(((zkRows ?? []) as AR[]).map(z => [z.id as string, (z.datum as string | null) ?? null]))
     // KAN-80 Nachtrag (02.10.2026): Stufe und Herkunft der Zukäufe – Obergrenze der Abstufung und Vorgaben der neuen Charge
     for (const z of (zkRows ?? []) as AR[]) {
@@ -1256,7 +1259,7 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
     }
     for (const w of weingaerten) {
       if (!w.zukauf_posten_id) continue
-      if (!zkDatum.has(w.zukauf_posten_id)) throw new AktionsFehler(`Traubenzeile ${w.nr}: Der Trauben-Zukauf wurde nicht gefunden – bitte die Seite neu laden.`)
+      if (!zkDatum.has(w.zukauf_posten_id)) throw new AktionsFehler(`Traubenzeile ${w.nr}: Der Trauben- bzw. Maische-Zukauf wurde nicht gefunden – bitte die Seite neu laden.`)
       w.ernte_datum = zkDatum.get(w.zukauf_posten_id) ?? null
     }
   }

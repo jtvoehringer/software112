@@ -154,10 +154,10 @@ describe('Server Actions (Quelltext)', () => {
       assert.ok(pruefung > 0 && pruefung < schreiben, start)
     }
   })
-  test('Qualitätsstufe: Wein/Most gegen die Chargen-Liste, Trauben gegen die Liste der Lese', () => {
+  test('Qualitätsstufe: Wein/Most gegen die Chargen-Liste, Trauben und Maische (KAN-41) gegen die Liste der Lese', () => {
     const fn = rumpf('function parseZukaufFormData', 'type ZukaufFormular')
-    assert.match(fn, /if \(qualitaetUnzulaessig && art !== 'trauben'\) throw/)
-    assert.match(fn, /if \(traubenQualitaetUnzulaessig && art === 'trauben'\) throw/)
+    assert.match(fn, /if \(qualitaetUnzulaessig && !istTraubenArt\(art\)\) throw/)
+    assert.match(fn, /if \(traubenQualitaetUnzulaessig && istTraubenArt\(art\)\) throw/)
   })
 })
 
@@ -165,7 +165,7 @@ describe('Pressung (Quelltext)', () => {
   const E = quelle('src/app/(dashboard)/erntemeldung/actions.ts')
   const P = quelle('src/app/(dashboard)/erntemeldung/[id]/PressungSection.tsx')
   test('Zukauf-Trauben: Stufe und Herkunft werden geladen', () => {
-    assert.match(E, /\.select\('id, datum, qualitaetsstufe, herkunft'\)\.in\('id', zukaufIds\)/)
+    assert.match(E, /\.select\('id, art, datum, qualitaetsstufe, herkunft'\)\.in\('id', zukaufIds\)/)   // KAN-41: mit Art (Trauben/Maische)
   })
   test('Abstufungsprüfung nutzt die Obergrenze samt Zukauf-Stufen', () => {
     // KAN-81: die Obergrenze steht in pressungGrenze (KMW bzw. Eiswein-Lese, Lese-Stufen, Zukauf-Stufen)
@@ -209,7 +209,8 @@ describe('Formulare (Quelltext)', () => {
       for (const label of ['Weinart \\*', 'Rebsorte\\(n\\) \\*', 'Jahrgang \\*', 'Qualitätsstufe \\*', 'Alkoholgehalt \\(%vol\\) \\*']) assert.match(f, new RegExp(label))
       assert.doesNotMatch(f, /aria-label="Staatl\. Prüfnummer"[^>]*required/)
       assert.doesNotMatch(f, /'unbekannt','Unbekannt'/)
-      assert.match(f, /const qualitaetsListe = \(art: string\) => art === 'trauben' \? LESE_QUALITAETEN : QUALITAET_OPTS/)
+      assert.match(f, /const qualitaetsListe = \(art: string\) => istTraubenArt\(art\) \? LESE_QUALITAETEN : QUALITAET_OPTS/)
+      assert.match(f, /\{ value: 'maische', label: 'Maische' \}/)
     }
   })
 })
