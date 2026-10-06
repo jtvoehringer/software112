@@ -62,6 +62,7 @@ DECLARE
   v_wheres text[] := '{}';
   v_upds  text[] := '{}';
   v_i     int;
+  v_arr   text[];
   v_tab   text;
   v_zeile jsonb;
   v_where text;
@@ -159,12 +160,27 @@ BEGIN
       v_where := pg_temp.s112_pk_where(r.tabelle, v_zeile);
       v_tabs := v_tabs || r.tabelle;
       v_zeilen := v_zeilen || v_zeile;
+      -- Spätere Beispielzeilen dürfen sich nicht an die Probezeile hängen: ea_dauerauftrag_log (im Musterhof leer,
+      -- also neu angelegt) wählte den Dauerauftrag per ORDER BY id – bei zufälliger UUID der Ersatzzeile in etwa
+      -- jedem fünften Lauf diese, dann Löschsperre T und kontrolle_ta_delete_mindestens rot (06.10.2026)
+      IF v_zeile ? 'id' THEN
+        PERFORM pg_temp.s112_keine_eltern(ARRAY[v_zeile ->> 'id']);
+      END IF;
       v_wheres := v_wheres || v_where;
       v_upds := v_upds || coalesce(r.upd_spalte, '');
     EXCEPTION WHEN OTHERS THEN
       v_erg := v_erg || pg_temp.s112_fehler('beispiel_' || r.tabelle, SQLSTATE || ' ' || SQLERRM);
     END;
   END LOOP;
+  -- Nach dem Aufbau hat keine Stammdaten-Probezeile einen Bezug bekommen (sonst prüft die Löschprobe die Sperre)
+  v_arr := '{}';
+  FOR v_i IN 1 .. coalesce(array_length(v_tabs, 1), 0) LOOP
+    IF v_tabs[v_i] = ANY (pg_temp.s112_soll_liste('stammdaten_loeschsperre'))
+       AND public.s112_stammdaten_bezuege_intern(v_tabs[v_i], (v_zeilen[v_i] ->> 'id')::uuid) <> '{}'::jsonb THEN
+      v_arr := v_arr || v_tabs[v_i];
+    END IF;
+  END LOOP;
+  v_erg := v_erg || pg_temp.s112_erwarte('proben_ohne_bezug_stammdaten', v_arr, '{}'::text[]);
   v_erg := v_erg || pg_temp.s112_erwarte('mandantentabellen_abgedeckt', coalesce(array_length(v_tabs, 1), 0) >= 95, true);
   v_erg := v_erg || pg_temp.s112_erwarte('gut_kindtabellen_abgedeckt',
     ARRAY['ama_meldepositionen', 'behandlung_grundstuecke', 'ernte_parzellen', 'weingarten_rebsorten'] <@ v_tabs, true);

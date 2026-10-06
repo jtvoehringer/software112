@@ -652,8 +652,9 @@ END $f$;
 -- Zeilen, die s112_zeile/s112_beispiel NICHT als vorhandene Elternzeile wählen dürfen (Ids als Text, transaktionslokal
 -- in s112test.keine_eltern). Für Probezeilen, deren Lösch-Ergebnis geprüft wird: die Wahl „vorhandene Zeile“ läuft
 -- über ORDER BY id, bei zufälligen UUIDs also mal auf die Probezeile, mal nicht – hängt sich eine später angelegte
--- Zeile an sie, greift eine Löschsperre (T statt k1, Datei 14 kippte so zwischen grün und rot). Nur im Hauptblock
--- aufrufen, nicht in einem Unterblock mit EXCEPTION (dessen Rollback setzt die Einstellung zurück).
+-- Zeile an sie, greift eine Löschsperre (T statt k1, Dateien 13 und 14 kippten so zwischen grün und rot). Scheitert
+-- ein Unterblock mit EXCEPTION nach dem Aufruf, setzt sein Rollback die Einstellung zurück – also erst aufrufen,
+-- wenn die Zeile sicher bleibt.
 CREATE FUNCTION pg_temp.s112_keine_eltern_liste() RETURNS text[] LANGUAGE sql STABLE AS $f$
   SELECT string_to_array(coalesce(current_setting('s112test.keine_eltern', true), ''), ',')
 $f$;
