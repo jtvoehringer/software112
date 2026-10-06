@@ -11,7 +11,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
 import { getStripe, TRIAL_TAGE } from '@/lib/stripe/client'
-import { istPaketKey, paketPriceId, paketAusPlan, PAKETE, type PaketKey } from '@/lib/pakete'
+import { istPaketKey, paketFromPriceId, paketPriceId, paketAusPlan, PAKETE, type PaketKey } from '@/lib/pakete'
 import { wendePaketAn } from '@/lib/pakete-server'
 import { revalidatePath } from 'next/cache'
 import { tenantKopfInvalidieren } from '@/lib/tenant/kopf'
@@ -19,6 +19,7 @@ import { stripeKundennummerSync } from '@/lib/stripe/kundennummer'
 import { AktionsFehler } from '@/lib/fehler'
 import { paketEntscheidung, testphaseTage } from '@/lib/abo/regeln'
 import { schreibSperreFehler } from '@/lib/auth/sperren'
+import { aboPositionAus, paketPosition, paketwechselVerbundFehler } from '@/lib/abo/verbund'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -33,10 +34,15 @@ export async function createOwnStripePortalSession() {
 
   const supabase = await createSupabaseServerClient()
   const { data: tenantRow } = await (supabase.from('tenants') as any)
-    .select('stripe_customer_id')
+    .select('stripe_customer_id, abrechnung_ueber')
     .eq('id', membership.tenantId)
     .maybeSingle()
 
+  // KAN-215: Nebenmandanten teilen sich den Stripe-Kunden des Hauptmandanten – dessen Zahlungsdaten und Rechnungen
+  // verwaltet nur der Hauptmandant
+  if ((tenantRow as R | null)?.abrechnung_ueber) {
+    return { error: 'Ihr Betrieb wird über einen anderen Betrieb abgerechnet (Abrechnungsverbund) – Zahlungsdaten und Rechnungen verwaltet der Hauptmandant.' }
+  }
   const customerId = (tenantRow as R | null)?.stripe_customer_id as string | null | undefined
   if (!customerId) {
     return { error: 'Für Ihren Betrieb ist noch kein Zahlungskonto hinterlegt. Bitte kontaktieren Sie uns, damit wir Ihr Abo einrichten.' }
@@ -78,12 +84,13 @@ export async function starteZahlungAction(paketWunsch?: string, buchhaltungsart?
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   const { data: tenantRow } = await (supabase.from('tenants') as R)
-    .select('name, stripe_customer_id, stripe_subscription_id')
+    .select('name, stripe_customer_id, stripe_subscription_id, stripe_status, abrechnung_ueber')
     .eq('id', membership.tenantId)
     .maybeSingle()
 
   const t = tenantRow as R | null
   if (!t) return { error: 'Betrieb nicht gefunden.' }
+  if (t.abrechnung_ueber) return { error: 'Ihr Betrieb wird über einen anderen Betrieb abgerechnet (Abrechnungsverbund).' }
   if (t.stripe_subscription_id) {
     return { error: 'Für Ihren Betrieb existiert bereits ein Abo – bitte „Zahlungsdaten verwalten" verwenden.' }
   }
@@ -127,7 +134,10 @@ export async function starteZahlungAction(paketWunsch?: string, buchhaltungsart?
   try {
     // Testphase nur für Kunden ohne bisheriges Abo (auch gekündigte/abgelaufene zählen)
     const bisherige = await getStripe().subscriptions.list({ customer: customerId, status: 'all', limit: 1 })
-    const trialTage = testphaseTage({ bisherigeAbos: bisherige.data.length, tage: TRIAL_TAGE })
+    // KAN-215: auch ein gekündigter bzw. aus einem Verbund ausgetretener Betrieb (eigener neuer Stripe-Kunde) bekommt
+    // keine neue Testphase – Testphase gibt es nur einmal
+    const gekuendigt = ['cancelled', 'canceled'].includes(String(t.stripe_status ?? ''))
+    const trialTage = testphaseTage({ bisherigeAbos: bisherige.data.length + (gekuendigt ? 1 : 0), tage: TRIAL_TAGE })
     const session = await getStripe().checkout.sessions.create({
       customer:    customerId,
       mode:        'subscription',
@@ -172,10 +182,15 @@ export async function wechslePaketAction(paketWunsch: string, buchhaltungsart?: 
 
   const admin = createSupabaseAdminClient()
   const { data: tenantRow } = await (admin.from('tenants') as R)
-    .select('stripe_subscription_id, stripe_plan')
+    .select('stripe_subscription_id, stripe_plan, abrechnung_ueber')
     .eq('id', membership.tenantId)
     .maybeSingle()
   const t = tenantRow as R | null
+  // KAN-215: Nebenmandanten wechseln nicht selbst, Hauptmandanten mit Verbund nur innerhalb Premium
+  if (t?.abrechnung_ueber) return { error: 'Ihr Betrieb wird über einen anderen Betrieb abgerechnet (Abrechnungsverbund) – das Paket ist dort festgelegt.' }
+  { const { count } = await (admin.from('tenants') as R).select('id', { count: 'exact', head: true }).eq('abrechnung_ueber', membership.tenantId)
+    const vf = paketwechselVerbundFehler(paket, count ?? 0)
+    if (vf) return { error: vf } }
   if (!t?.stripe_subscription_id) {
     return { error: 'Für Ihren Betrieb existiert noch kein Abo – bitte zuerst „Zahlungsdaten hinterlegen" verwenden.' }
   }
@@ -191,7 +206,9 @@ export async function wechslePaketAction(paketWunsch: string, buchhaltungsart?: 
   try {
     const stripe = getStripe()
     const sub = await stripe.subscriptions.retrieve(t.stripe_subscription_id)
-    const item = sub.items.data[0]
+    // KAN-215: Paket-Position statt der ersten (Zusatzmandanten-Positionen bleiben unverändert)
+    const pos = paketPosition(sub.items.data.map(i => aboPositionAus(i as unknown as R)), paketFromPriceId)
+    const item = pos ? sub.items.data.find(i => i.id === pos.id) : sub.items.data[0]
     if (!item) return { error: 'Abo ohne Position – bitte kontaktieren Sie uns.' }
     const aktualisiert = await stripe.subscriptions.update(sub.id, {
       items: [{ id: item.id, price: priceId }],

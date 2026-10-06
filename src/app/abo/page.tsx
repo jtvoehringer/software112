@@ -34,7 +34,7 @@ export default async function AboPage() {
   if (!membership) redirect('/betrieb-waehlen')
 
   const { data: tenantRow } = await (supabase.from('tenants') as any)
-    .select('name, kundennummer, stripe_status, stripe_plan, stripe_customer_id, stripe_subscription_id, stripe_trial_ends_at')
+    .select('name, kundennummer, stripe_status, stripe_plan, stripe_customer_id, stripe_subscription_id, stripe_trial_ends_at, abrechnung_ueber')
     .eq('id', membership.tenantId)
     .maybeSingle()
 
@@ -69,8 +69,43 @@ export default async function AboPage() {
     .select('modul_ea, buchhaltungsart').eq('tenant_id', membership.tenantId).maybeSingle()
   const einst = einstRow as R | null
 
+  // KAN-215: Abrechnungsverbund – Nebenmandant (abgerechnet über …) bzw. Hauptmandant mit Nebenmandanten
+  const adminClient = createSupabaseAdminClient()
+  const [{ data: hauptRow }, { data: nebenRows }] = await Promise.all([
+    t?.abrechnung_ueber ? (adminClient.from('tenants') as R).select('name').eq('id', t.abrechnung_ueber).maybeSingle() : Promise.resolve({ data: null }),
+    (adminClient.from('tenants') as R).select('name').eq('abrechnung_ueber', membership.tenantId).order('name'),
+  ])
+  const hauptName = (hauptRow as R | null)?.name as string | undefined
+  const nebenNamen = ((nebenRows ?? []) as R[]).map(n => n.name as string)
+
+  if (t?.abrechnung_ueber) {
+    return (
+      <>
+        <BetriebsPruefMelder />
+        <div className="max-w-xl mx-auto p-6 space-y-3">
+          <h1 className="text-2xl font-semibold text-s112-text">Abo</h1>
+          <div className="card p-5 space-y-2 text-sm">
+            <p>
+              Ihr Betrieb wird über <strong>{hauptName ?? 'den Hauptmandanten'}</strong> abgerechnet (Abrechnungsverbund,
+              Paket Premium{statusMeta ? `, ${statusMeta.label}` : ''}).
+            </p>
+            <p className="text-s112-text-2">Rechnung, Zahlungsdaten und Kündigung verwaltet der Hauptmandant. Für ein eigenes Abo wenden Sie sich bitte an uns.</p>
+          </div>
+        </div>
+      </>
+    )
+  }
+
   return (
     <>
+      {nebenNamen.length > 0 && (
+        <div className="max-w-3xl mx-auto px-6 pt-6">
+          <div className="card p-4 text-sm">
+            Abrechnungsverbund: Ihr Abo enthält zusätzlich {nebenNamen.join(', ')} als Zusatzmandant{nebenNamen.length > 1 ? 'en' : ''}.
+            Ein Paketwechsel unter Premium ist nur ohne Verbund möglich.
+          </div>
+        </div>
+      )}
       {/* KAN-30: Seite außerhalb des Arbeitsbereichs (kein Wächter) – die anderen Tabs sollen
           den aktiven Betrieb prüfen. Seit KAN-5 leitet das Layout nur noch bei nie abgeschlossener
           Zahlung hierher um; der Melder bleibt für Aufrufe per Link bzw. aus Stripe zurück

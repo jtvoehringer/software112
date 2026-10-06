@@ -26,6 +26,17 @@ export type TenantDetail = {
   stripe_current_period_end: string | null
   bio_status:               string
 }
+/** KAN-215: Abrechnungsverbund des Betriebs (Reiter Stripe) */
+export type VerbundInfo = {
+  /** als Nebenmandant: Hauptmandant und vereinbarter Preis */
+  hauptId: string | null
+  hauptName: string | null
+  preisCent: number | null
+  /** als Hauptmandant: die Nebenmandanten */
+  neben: { id: string; name: string; preisCent: number | null }[]
+  /** mögliche Hauptmandanten (Premium mit Stripe-Abo, selbst kein Nebenmandant) */
+  kandidaten: { id: string; name: string }[]
+}
 export type TenantSettings = {
   anzeigename:      string | null
   logo_url:         string | null
@@ -149,7 +160,7 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
     { data: { users } },
   ] = await Promise.all([
     (admin.from('tenants') as any)
-      .select('id, name, slug, plan, created_at, kundennummer, stripe_customer_id, stripe_subscription_id, stripe_status, stripe_plan, stripe_current_period_end, max_benutzer, bio_status').eq('id', id).single(),
+      .select('id, name, slug, plan, created_at, kundennummer, stripe_customer_id, stripe_subscription_id, stripe_status, stripe_plan, stripe_current_period_end, max_benutzer, bio_status, abrechnung_ueber, zusatz_preis_cent').eq('id', id).single(),
     (admin.from('tenant_einstellungen') as any)
       .select('*').eq('tenant_id', id).maybeSingle(),
     (admin.from('tenant_memberships') as any)
@@ -178,6 +189,21 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
 
   const t = tenantRaw as R
   const s = settingsRaw as R | null
+
+  // KAN-215: Abrechnungsverbund
+  const [{ data: hauptRaw }, { data: nebenRaw }, { data: kandRaw }] = await Promise.all([
+    t.abrechnung_ueber ? (admin.from('tenants') as R).select('id, name').eq('id', t.abrechnung_ueber).maybeSingle() : Promise.resolve({ data: null }),
+    (admin.from('tenants') as R).select('id, name, zusatz_preis_cent').eq('abrechnung_ueber', id).order('name'),
+    (admin.from('tenants') as R).select('id, name').eq('stripe_plan', 'premium').not('stripe_subscription_id', 'is', null)
+      .is('abrechnung_ueber', null).neq('id', id).order('name').limit(200),   // alle-ausnahme: Auswahl möglicher Hauptmandanten, wenige Premium-Betriebe
+  ])
+  const verbund: VerbundInfo = {
+    hauptId: (t.abrechnung_ueber as string | null) ?? null,
+    hauptName: ((hauptRaw as R | null)?.name as string | undefined) ?? null,
+    preisCent: (t.zusatz_preis_cent as number | null) ?? null,
+    neben: ((nebenRaw ?? []) as R[]).map(n => ({ id: n.id as string, name: n.name as string, preisCent: (n.zusatz_preis_cent as number | null) ?? null })),
+    kandidaten: ((kandRaw ?? []) as R[]).map(k => ({ id: k.id as string, name: k.name as string })),
+  }
 
   const tenant: TenantDetail = {
     id: t.id, name: t.name, slug: t.slug, plan: t.plan, created_at: t.created_at,
@@ -277,6 +303,6 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
   }))
 
   return (
-    <MandantDetailClient tenant={tenant} settings={settings} members={members} />
+    <MandantDetailClient tenant={tenant} settings={settings} members={members} verbund={verbund} />
   )
 }

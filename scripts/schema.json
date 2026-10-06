@@ -1648,7 +1648,9 @@
 "bio_status",
 "stripe_trial_ends_at",
 "max_benutzer",
-"kundennummer"
+"kundennummer",
+"abrechnung_ueber",
+"zusatz_preis_cent"
 ],
 "transaktionszaehler": [
 "id",

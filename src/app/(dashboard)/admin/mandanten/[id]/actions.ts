@@ -8,11 +8,11 @@ import { encryptPass } from '@/lib/email/crypto'
 import { geheimSpeichern, geheimFeld } from '@/lib/email/geheimnis'
 import { isSandboxAdminUnlock } from '@/lib/auth/roles'
 import { istPlattformAdmin } from '@/lib/auth/plattformAdmin'
-import { SANDBOX_TENANT_ID } from '@/lib/abo/regeln'
+import { SANDBOX_TENANT_ID, paketEntscheidung } from '@/lib/abo/regeln'
 import { revalidatePath } from 'next/cache'
 import { getStripe } from '@/lib/stripe/client'
 import { pruefeBenutzerlimit, benutzerlimitFehler, wendePaketAn, ladePaket } from '@/lib/pakete-server'
-import { istPaketKey, paketPriceId, PAKETE } from '@/lib/pakete'
+import { istPaketKey, paketAusPlan, paketPriceId, PAKETE } from '@/lib/pakete'
 import { tenantKopfInvalidieren } from '@/lib/tenant/kopf'
 import { stripeKundennummerSync } from '@/lib/stripe/kundennummer'
 import { AktionsFehler } from '@/lib/fehler'
@@ -20,6 +20,8 @@ import { dezimal } from '@/lib/format'
 import { weinbauBetriebsnummerPruefen } from '@/lib/betrieb/betriebsnummer'
 import { mitgliedEinladen, EINLADUNG_REDIRECT } from '@/lib/auth/einladung'
 import { istMostgewichtEinheit } from '@/lib/wein/mostgewicht'
+import { austrittsWerte, beitrittFehler, beitrittsWerte, preisCentAusEingabe, type Nebenmandant, type VerbundBetrieb } from '@/lib/abo/verbund'
+import { verbundStripeAbgleichen } from '@/lib/abo/verbundStripe'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -604,9 +606,12 @@ export async function createStripeCustomer(tenantId: string, tenantName: string,
 // tenants – sonst ließen sich Portal, Kündigung und Checkout mit fremden cus_…/sub_… aufrufen.
 async function ladeStripeIds(tenantId: string): Promise<{ customerId: string | null; subscriptionId: string | null }> {
   const { data, error } = await (createSupabaseAdminClient().from('tenants') as any)
-    .select('stripe_customer_id, stripe_subscription_id').eq('id', tenantId).maybeSingle()
+    .select('stripe_customer_id, stripe_subscription_id, abrechnung_ueber').eq('id', tenantId).maybeSingle()
   if (error) throw new AktionsFehler(`Laden fehlgeschlagen (tenants): ${(error as R).message}`)
   if (!data) throw new AktionsFehler('Betrieb nicht gefunden.')
+  // KAN-215: ein Nebenmandant teilt Stripe-Kunde und -Abo des Hauptmandanten – Checkout, Portal und Kündigung hier
+  // würden das Abo des Hauptmandanten treffen
+  if ((data as R).abrechnung_ueber) throw new AktionsFehler('Dieser Betrieb wird über einen Hauptmandanten abgerechnet (Abrechnungsverbund) – das Abo beim Hauptmandanten verwalten bzw. zuerst austreten.')
   return { customerId: (data as R).stripe_customer_id ?? null, subscriptionId: (data as R).stripe_subscription_id ?? null }
 }
 
@@ -720,4 +725,72 @@ export async function wendePaketVorgabenAn(tenantId: string, paketWunsch?: strin
   tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
   return { success: true, paket }
+}
+
+// ── KAN-215: Abrechnungsverbund (Nebenmandant über einen Hauptmandanten abrechnen) ──────────────────────────────────
+// Stripe zuerst (Zusatzmandanten-Positionen im Abo des Hauptmandanten), danach die Datenbank. Der Nebenmandant übernimmt
+// Stripe-Kunde und -Abo des Hauptmandanten; Status, Paket und Testphase hält ab dann der Webhook gleich. Austritt →
+// Nur-Lesen, bis ein eigenes Abo abgeschlossen ist (Entscheidung Jörgen, KAN-215).
+
+const VERBUND_SPALTEN = 'id, name, abrechnung_ueber, zusatz_preis_cent, stripe_customer_id, stripe_subscription_id, stripe_status, stripe_plan, stripe_current_period_end, stripe_trial_ends_at'
+
+async function ladeVerbundNeben(admin: R, hauptId: string): Promise<Nebenmandant[]> {
+  const { data, error } = await (admin.from('tenants') as R)
+    .select('id, name, zusatz_preis_cent').eq('abrechnung_ueber', hauptId).order('name')
+  if (error) throw new AktionsFehler(`Verbund konnte nicht geladen werden: ${(error as R).message}`)
+  return ((data ?? []) as R[]).map(t => ({ tenantId: t.id as string, name: t.name as string, preisCent: (t.zusatz_preis_cent as number | null) ?? null }))
+}
+
+export async function verbundBeitreten(tenantId: string, hauptId: string, preisEingabe: string): Promise<{ error?: string }> {
+  await assertSystemAdmin(tenantId, { sandboxFreigabe: false })
+  const preis = preisCentAusEingabe(preisEingabe)
+  if (preis.fehler) return { error: preis.fehler }
+  const admin = createSupabaseAdminClient()
+  const [{ data: n }, { data: h }, { count }] = await Promise.all([
+    (admin.from('tenants') as R).select(VERBUND_SPALTEN).eq('id', tenantId).maybeSingle(),
+    (admin.from('tenants') as R).select(VERBUND_SPALTEN).eq('id', hauptId).maybeSingle(),
+    (admin.from('tenants') as R).select('id', { count: 'exact', head: true }).eq('abrechnung_ueber', tenantId),
+  ])
+  if (!n || !h) return { error: 'Betrieb nicht gefunden.' }
+  const fehler = beitrittFehler(n as VerbundBetrieb, h as VerbundBetrieb, (count ?? 0) > 0)
+  if (fehler) return { error: fehler }
+
+  const neben = (await ladeVerbundNeben(admin, hauptId)).filter(x => x.tenantId !== tenantId)
+  neben.push({ tenantId, name: (n as R).name as string, preisCent: preis.cent })
+  const sf = await verbundStripeAbgleichen(getStripe(), (h as R).stripe_subscription_id as string, neben)
+  if (sf) return { error: sf }
+
+  const { error } = await (admin.from('tenants') as R).update(beitrittsWerte(h as R, preis.cent)).eq('id', tenantId)
+  if (error) return { error: `Stripe ist angepasst, der Betrieb aber nicht gespeichert: ${(error as R).message} – bitte erneut speichern.` }
+  // Premium-Module sofort, wenn das Abo bezahlt bzw. in der Testphase ist (sonst übernimmt der Webhook)
+  const e = paketEntscheidung({ ereignis: 'aktualisiert', status: (h as R).stripe_status as string | null, neuesPaket: 'premium', bisherigesPaket: paketAusPlan((n as R).stripe_plan) })
+  if (e.moduleAnwenden) {
+    const f = await wendePaketAn(admin, tenantId, 'premium')
+    if (f) return { error: f }
+  }
+  tenantKopfInvalidieren(tenantId)
+  revalidatePath(`/admin/mandanten/${tenantId}`)
+  revalidatePath(`/admin/mandanten/${hauptId}`)
+  return {}
+}
+
+export async function verbundVerlassen(tenantId: string): Promise<{ error?: string }> {
+  await assertSystemAdmin(tenantId, { sandboxFreigabe: false })
+  const admin = createSupabaseAdminClient()
+  const { data: n } = await (admin.from('tenants') as R).select(VERBUND_SPALTEN).eq('id', tenantId).maybeSingle()
+  const hauptId = (n as R | null)?.abrechnung_ueber as string | null
+  if (!n || !hauptId) return { error: 'Dieser Betrieb ist in keinem Abrechnungsverbund.' }
+  const { data: h } = await (admin.from('tenants') as R).select(VERBUND_SPALTEN).eq('id', hauptId).maybeSingle()
+  const aboId = (h as R | null)?.stripe_subscription_id as string | null
+  if (aboId) {
+    const neben = (await ladeVerbundNeben(admin, hauptId)).filter(x => x.tenantId !== tenantId)
+    const sf = await verbundStripeAbgleichen(getStripe(), aboId, neben)
+    if (sf) return { error: sf }
+  }
+  const { error } = await (admin.from('tenants') as R).update(austrittsWerte()).eq('id', tenantId)
+  if (error) return { error: `Stripe ist angepasst, der Betrieb aber nicht gespeichert: ${(error as R).message} – bitte erneut versuchen.` }
+  tenantKopfInvalidieren(tenantId)
+  revalidatePath(`/admin/mandanten/${tenantId}`)
+  revalidatePath(`/admin/mandanten/${hauptId}`)
+  return {}
 }

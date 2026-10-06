@@ -6,6 +6,7 @@ import { wendePaketAn } from '@/lib/pakete-server'
 import Stripe from 'stripe'
 import { tenantKopfInvalidieren } from '@/lib/tenant/kopf'
 import { aboEreignisAbgleichen, type AbgleichDeps, type StripeAbo } from '@/lib/abo/stripeAbgleich'
+import { aboPositionAus, paketPosition } from '@/lib/abo/verbund'
 
 // Vercel streamt den Body — wir brauchen ihn als Buffer für die Signatur-Prüfung
 export const runtime = 'nodejs'
@@ -44,7 +45,11 @@ function planFromPrice(priceId: string | null | undefined): PaketKey | null {
 
 function aboAus(sub: Stripe.Subscription): StripeAbo {
   const s = sub as unknown as R
-  const item = s.items?.data?.[0] as R | undefined
+  // KAN-215: im Abrechnungsverbund hat das Abo zusätzlich Zusatzmandanten-Positionen – das Paket kommt aus der
+  // Paket-Position, nicht aus der ersten
+  const roh = (s.items?.data ?? []) as R[]
+  const pos = paketPosition(roh.map(aboPositionAus), paketFromPriceId)
+  const item = (pos ? roh.find(i => i.id === pos.id) : roh[0]) as R | undefined
   return {
     id: sub.id,
     status: sub.status ?? null,

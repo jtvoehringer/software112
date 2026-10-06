@@ -32,7 +32,8 @@ import { PAKETE, PAKET_REIHENFOLGE, paketAusPlan, paketPriceId, preisText, type 
 import { BETRIEBSNUMMER_MUSTER, BETRIEBSNUMMER_ZWECK, weinbauBetriebsnummerFehlt } from '@/lib/betrieb/betriebsnummer'
 import { fehlerText } from '@/lib/fehler'
 import { STRIPE_STATUS_META, STRIPE_PLAN_LABELS } from '@/lib/stripe/client'
-import type { TenantDetail, TenantSettings, TenantMember } from './page'
+import type { TenantDetail, TenantSettings, TenantMember, VerbundInfo } from './page'
+import VerbundKarte from './VerbundKarte'
 import { bundeslandAusKundennummer } from '@/lib/tenant/kundennummer'
 import KontrastHinweis from '@/components/ui/KontrastHinweis'
 import { EINHEIT_ZEICHEN, type MostgewichtEinheit } from '@/lib/wein/mostgewicht'
@@ -1775,7 +1776,7 @@ function SumUpTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
 
 // ── Tab: Stripe Abrechnung ────────────────────────────────────────────────────
 
-function StripeTab({ tenant }: { tenant: TenantDetail }) {
+function StripeTab({ tenant, verbund }: { tenant: TenantDetail; verbund: VerbundInfo }) {
   const router   = useRouter()
   const [pending, startTransition] = useTransition()
   const [error,  setError]   = useState<string | null>(null)
@@ -1855,8 +1856,11 @@ function StripeTab({ tenant }: { tenant: TenantDetail }) {
         )}
       </div>
 
+      {/* KAN-215: Abrechnungsverbund */}
+      <VerbundKarte tenantId={tenant.id} tenantName={tenant.name} verbund={verbund} hatEigenesAbo={!!tenant.stripe_subscription_id && !verbund.hauptId} />
+
       {/* Customer anlegen */}
-      {!tenant.stripe_customer_id && (
+      {!tenant.stripe_customer_id && !verbund.hauptId && (
         <div className="card p-4 space-y-3">
           <h2 className="text-sm font-semibold text-s112-muted uppercase tracking-wider">Stripe Customer anlegen</h2>
           <div className="flex gap-2">
@@ -1875,7 +1879,7 @@ function StripeTab({ tenant }: { tenant: TenantDetail }) {
       )}
 
       {/* Abo abschließen */}
-      {tenant.stripe_customer_id && !tenant.stripe_subscription_id && (
+      {tenant.stripe_customer_id && !tenant.stripe_subscription_id && !verbund.hauptId && (
         <div className="card p-4 space-y-3">
           <h2 className="text-sm font-semibold text-s112-muted uppercase tracking-wider">Abonnement abschließen</h2>
           <div className="grid grid-cols-2 gap-2">
@@ -1892,7 +1896,7 @@ function StripeTab({ tenant }: { tenant: TenantDetail }) {
       )}
 
       {/* Abo verwalten / kündigen */}
-      {tenant.stripe_subscription_id && (
+      {tenant.stripe_subscription_id && !verbund.hauptId && (
         <div className="card p-4 space-y-3">
           <h2 className="text-sm font-semibold text-s112-muted uppercase tracking-wider">Abo verwalten</h2>
           <div className="flex gap-2 flex-wrap">
@@ -1913,10 +1917,11 @@ function StripeTab({ tenant }: { tenant: TenantDetail }) {
 
 type Tab = 'branding' | 'benutzer' | 'brevo' | 'module' | 'betrieb' | 'verkauf' | 'email' | 'm365' | 'bawb' | 'sumup' | 'stripe' | 'checkliste'
 
-export default function MandantDetailClient({ tenant, settings, members }: {
+export default function MandantDetailClient({ tenant, settings, members, verbund }: {
   tenant:   TenantDetail
   settings: TenantSettings
   members:  TenantMember[]
+  verbund:  VerbundInfo
 }) {
   const [tab, setTab]           = useState<Tab>('branding')
   const [editName, setEditName] = useState(false)
@@ -2039,7 +2044,7 @@ export default function MandantDetailClient({ tenant, settings, members }: {
       )}
       {tab === 'bawb'       && <BawbTab       tenant={tenant} settings={settings} />}
       {tab === 'sumup'      && <SumUpTab      tenant={tenant} settings={settings} />}
-      {tab === 'stripe'     && <StripeTab     tenant={tenant} />}
+      {tab === 'stripe'     && <StripeTab     tenant={tenant} verbund={verbund} />}
       {tab === 'checkliste' && <ChecklisteTab tenant={tenant} settings={settings} members={members} />}
     </div>
   )
