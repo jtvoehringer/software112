@@ -183,7 +183,7 @@ export type KalenderEintrag = {
   id: string
   datum: string          // YYYY-MM-DD
   titel: string
-  typ: 'aktivitaet' | 'pipeline' | 'outlook'
+  typ: 'aktivitaet' | 'pipeline' | 'outlook' | 'privat'   // privat: KAN-17, fremder privater Termin – nur Zeitblock
   art?: string
   artIcon?: string
   ganztags?: boolean
@@ -250,6 +250,7 @@ const ART_FARBEN: Record<string, string> = {
 function chipFarbe(e: KalenderEintrag): string {
   if (e.erledigt) return 'bg-s112-bg text-s112-tertiary border-s112-line opacity-60'
   if (e.ueberfaellig) return 'bg-s112-err text-white border-s112-err'
+  if (e.typ === 'privat') return 'bg-[#F2F3F5] text-s112-text-2 border-s112-line italic'
   if (e.typ === 'outlook') return 'bg-s112-blue-50 text-s112-blue-700 border-s112-blue-100'
   if (e.typ === 'pipeline') return 'bg-[#F2F3F5] text-s112-text-1 border-s112-line-str'
   return ART_FARBEN[e.art ?? ''] ?? 'bg-s112-bg text-s112-text-2 border-s112-line'
@@ -272,7 +273,7 @@ function EintragChip({ e, compact = false, onViewAkt }: { e: KalenderEintrag; co
   const zeitLabel = von ? (bis ? `${von}–${bis}` : von) : null
 
   return (
-    <div role="button" tabIndex={0} onClick={() => onViewAkt?.(e)} onKeyDown={ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); onViewAkt?.(e) } }} title={`${e.titel}${e.kontaktName ? ` – ${e.kontaktName}` : ''}${e.firmaName ? ` (${e.firmaName})` : ''}`} className="cursor-pointer">
+    <div role="button" tabIndex={0} onClick={() => onViewAkt?.(e)} onKeyDown={ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); onViewAkt?.(e) } }} title={`${e.titel}${e.kontaktName ? ` – ${e.kontaktName}` : ''}${e.firmaName ? ` (${e.firmaName})` : ''}`} className={e.typ === 'privat' ? 'cursor-default' : 'cursor-pointer'}>
       <div
         className={`border rounded truncate leading-snug transition-opacity hover:opacity-75
           ${compact ? 'text-[10px] px-1 py-px' : 'text-xs px-2 py-1'}
@@ -400,6 +401,8 @@ function ZeitachseView({
 
   // Aktivität-Detail anzeigen
   const [viewAkt,    setViewAkt]    = useState<KalenderEintrag | null>(null)
+  // KAN-17: fremde private Termine sind nur ein Zeitblock – kein Detail-Dialog
+  const zeigeEintrag = (e: KalenderEintrag) => { if (e.typ !== 'privat') setViewAkt(e) }
   useEffect(() => {
     if (!oeffneId) return
     const e = eintraege.find(x => x.id === `a_${oeffneId}`)
@@ -707,7 +710,7 @@ function ZeitachseView({
                 const br = startsEarly && endsLate ? '0' : startsEarly ? '0 4px 4px 0' : endsLate ? '4px 0 0 4px' : '4px'
                 return (
                   <div key={e.id}
-                    onClick={() => setViewAkt(e)}
+                    onClick={() => zeigeEintrag(e)}
                     title={`${isUrlaub ? 'Urlaub' : 'Abwesenheit'}${e.titel ? `: ${e.titel}` : ''}`}
                     className="absolute flex items-center gap-1 px-2 overflow-hidden cursor-pointer hover:opacity-80 z-20 text-white text-[10px] font-semibold select-none"
                     style={{
@@ -760,7 +763,7 @@ function ZeitachseView({
                       onDragEnd={() => { setDragInfo(null); setDropTarget(null) }}
                       className={isAkt ? `cursor-grab active:cursor-grabbing ${dragInfo?.id === aktId ? 'opacity-40' : ''}` : ''}
                     >
-                      <EintragChip e={e} compact onViewAkt={setViewAkt} />
+                      <EintragChip e={e} compact onViewAkt={zeigeEintrag} />
                     </div>
                   )
                 })}
@@ -847,7 +850,7 @@ function ZeitachseView({
                           setDragInfo({ id: aktId, duration: dur })
                         } : undefined}
                         onDragEnd={() => { setDragInfo(null); setDropTarget(null) }}
-                        onClick={ev => { if (!dragInfo) { ev.stopPropagation(); setViewAkt(e) } }}
+                        onClick={ev => { if (!dragInfo) { ev.stopPropagation(); zeigeEintrag(e) } }}
                         className={`absolute overflow-hidden rounded border transition-opacity
                           ${farbe}
                           ${isAkt ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}

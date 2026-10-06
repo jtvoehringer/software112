@@ -33,7 +33,14 @@ export default async function CRMUebersichtPage({ searchParams }: { searchParams
     .order('datum', { ascending: true })
     .limit(5000))
 
-  // "Nur für mich sichtbar"-Termine anderer Nutzer serverseitig herausfiltern
+  // "Nur für mich sichtbar"-Termine anderer Nutzer serverseitig herausfiltern (seit KAN-17 sperrt das auch die
+  // Datenbank, Policy akt_privat) – sie erscheinen nur als Zeitblock „Privat“ (s112_privat_bloecke, unten)
+  type PrivatBlock = { id: string; datum: string; bis_datum: string | null; ganztags: boolean | null; uhrzeit_von: string | null; uhrzeit_bis: string | null; erledigt: boolean | null; erstellt_von: string | null }
+  const { data: blRaw } = tenantId
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ? await (supabase.rpc as any)('s112_privat_bloecke', { p_tenant_id: tenantId })
+    : { data: [] }
+  const privatBloecke = (blRaw ?? []) as PrivatBlock[]
   const aktivRaw = ((aktivRawAll ?? []) as AR[]).filter(
     (a: AR) => !a.ist_privat || a.erstellt_von === currentUserId
   )
@@ -125,6 +132,22 @@ export default async function CRMUebersichtPage({ searchParams }: { searchParams
       }
     }),
 
+    // KAN-17: private Termine anderer Mitglieder nur als Block „Privat“ (Zeit, Ersteller) – ohne Inhalt, nicht anklickbar
+    ...privatBloecke.filter(b => !b.erledigt).map((b): KalenderEintrag => ({
+      id: `p_${b.id}`,
+      datum: b.datum,
+      titel: 'Privat',   // Name des Erstellers unten, sobald die Mitglieder geladen sind
+      typ: 'privat',
+      ganztags: b.ganztags ?? true,
+      uhrzeit_von: b.uhrzeit_von,
+      uhrzeit_bis: b.uhrzeit_bis,
+      bis_datum: b.bis_datum,
+      erledigt: false,
+      ueberfaellig: false,
+      href: '',
+      ist_privat: true,
+      erstellt_von: b.erstellt_von,
+    })),
   ].sort((a, b) => a.datum.localeCompare(b.datum))
 
   // Mitglieder des Betriebs für die Verantwortlich-Auswahl (Aufgabenzuordnung, 22.9.2026)
@@ -134,6 +157,7 @@ export default async function CRMUebersichtPage({ searchParams }: { searchParams
     tenantId && currentUserId ? ladeOutlookStatus(tenantId, currentUserId) : Promise.resolve(null),
   ])
   mitglieder.forEach(m => { if (!userProfiles[m.id]) userProfiles[m.id] = m.name })
+  for (const e of eintraege) if (e.typ === 'privat' && e.erstellt_von && userProfiles[e.erstellt_von]) e.titel = `Privat · ${userProfiles[e.erstellt_von]}`
 
   return <CRMUebersichtClient eintraege={eintraege} heute={heute} userProfiles={userProfiles}
     mitglieder={mitglieder.map(m => ({ id: m.id, name: m.name }))} userId={currentUserId} oeffneId={oeffneId ?? null} outlook={outlook} />
