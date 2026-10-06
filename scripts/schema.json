@@ -352,6 +352,15 @@
 "erstellt_von",
 "erstellt_am"
 ],
+"crm_freigaben": [
+"id",
+"eigentuemer_tenant_id",
+"nutzer_tenant_id",
+"aktiv",
+"notizen",
+"erstellt_von",
+"erstellt_am"
+],
 "dac_antrag": [
 "id",
 "tenant_id",
