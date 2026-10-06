@@ -149,6 +149,7 @@ $test$;
 | `s112_aufbau(mit_c=false)` | Standard-Personas → jsonb (siehe unten) |
 | `s112_klasse(tab)` / `s112_mandantentabellen()` | T (tenant_id) / K (Kind über FK) / G (global); Eltern-FK, No-op-UPDATE-Spalte, PK |
 | `s112_zeile(tab, tenant, werte)` | generische Beispielzeile (Pflichtspalten, FKs im selben Betrieb, CHECK-Literale) |
+| `s112_keine_eltern(ids)` / `s112_keine_eltern_liste()` | Zeilen, die `s112_zeile`/`s112_beispiel` nicht als vorhandene Elternzeile wählen (Probezeilen, deren Löschen geprüft wird – sonst hängt sich je nach zufälliger UUID eine später angelegte Zeile an sie und eine Löschsperre greift; Datei 14 kippte so). Nur im Hauptblock aufrufen |
 | `s112_beispiel(tab, tenant, persona, werte)` | vollständige Beispielzeile für Positivkontrollen (Eigentümerspalten = Persona, AMA-Entwurf, Mehrspalten-CHECKs) – deckt alle 98 Nicht-G-Tabellen in B ab |
 | `s112_klon_sql(tab, zeile, änderungen)` / `s112_klon(…)` | Kopie einfügen (für `s112_versuch` bzw. als postgres) |
 | `s112_pk_where(tab, zeile)` | typisierte PK-Bedingung (`%I = %L::<typ>`) |

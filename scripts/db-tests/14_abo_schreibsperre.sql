@@ -99,7 +99,7 @@ DECLARE
   -- del ohne die Tabellen mit Löschsperre: KAN-145 B4 71 → 65 bzw. 47 → 42, KAN-148 C1d → 59 bzw. 38 (30.09.2026),
   -- KAN-149 D3 → 53 (b_ta: Löschsperre Verkauf/E-A auf 5 Tabellen, Monatsabschluss unveränderlich), KAN-150 F1a → 52
   -- (Stammdaten-Löschsperre: eine Beispielzeile mit Bezug lässt sich nicht durch eine bezugsfreie ersetzen)
-  c_min_b_ta  constant int[] := ARRAY[93, 81, 76, 43];   -- del −2 KAN-88 (Maßnahmen, Mittel-Lager mit Löschsperre)   -- del −6 KAN-150 F2a (Anträge/Analysen/Export mit Löschsperre)   -- del −1 KAN-150 F1d (weinausbau_weingaerten mit Löschsperre)
+  c_min_b_ta  constant int[] := ARRAY[93, 81, 76, 44];   -- del +1 06.10.2026 (Probezeilen ohne Bezug aus den RPC-Daten, s112_keine_eltern: pflanzenschutzmittel und weinjahrgaenge stabil k1)   -- del −2 KAN-88 (Maßnahmen, Mittel-Lager mit Löschsperre)   -- del −6 KAN-150 F2a (Anträge/Analysen/Export mit Löschsperre)   -- del −1 KAN-150 F1d (weinausbau_weingaerten mit Löschsperre)
   c_min_b_w   constant int[] := ARRAY[91, 77, 71, 30];   -- del −2 KAN-88 (Maßnahmen, Mittel-Lager mit Löschsperre)   -- del −5 KAN-150 F2a (Anträge/Analysen/Export mit Löschsperre)   -- del −1 KAN-150 F1d (weinausbau_weingaerten mit Löschsperre)
   -- md5 der Sandbox-ID (SANDBOX_TENANT_ID in src/lib/abo/regeln.ts) – die ID selbst darf hier nicht stehen.
   c_sandbox_md5 constant text := 'c925cef2213a9938ec2714439901a74e';
@@ -205,6 +205,10 @@ BEGIN
     v_zeile := pg_temp.s112_beispiel(r.tab, v_b, v_bw);
     v_zeilen := v_zeilen || jsonb_build_object(r.tab, (v_zeilen -> r.tab) || jsonb_build_object('z', v_zeile, 'w', pg_temp.s112_pk_where(r.tab, v_zeile)));
   END LOOP;
+  -- Die RPC-Daten unten dürfen sich nicht an die Probezeilen hängen: s112_zeile wählte vorhandene Elternzeilen per
+  -- ORDER BY id, also je nach zufälliger UUID mal die Probezeile (psm_lager_bewegungen → pflanzenschutzmittel,
+  -- pressungen → weinjahrgaenge) – dann griff die Löschsperre (T statt k1) und abdeckung_b_ta_del kippte (06.10.2026).
+  PERFORM pg_temp.s112_keine_eltern(ARRAY(SELECT e.value #>> '{z,id}' FROM jsonb_each(v_zeilen) e WHERE e.value #>> '{z,id}' IS NOT NULL));
   -- Jede Beispielzeile existiert (als postgres belegt) – sonst wäre „0 Zeilen“ unten wertlos
   v_n2 := 0;
   FOR r IN SELECT e.key AS tab, e.value ->> 'w' AS w FROM jsonb_each(v_zeilen) e LOOP
@@ -259,6 +263,14 @@ BEGIN
   INSERT INTO storage.objects (bucket_id, name, owner) VALUES
     ('ea-belege', v_b::text || '/s112test/beleg-b.pdf', v_bta),
     ('dokumente', v_b::text || '/s112test/dok-b.pdf', v_bta);
+  -- Nach dem ganzen Aufbau hat keine Probezeile einer Tabelle mit Bezugs-Löschsperre einen Bezug bekommen
+  -- (Stammdaten: s112_stammdaten_bezuege_intern; Jahrgang: a_jahrgang_loeschsperre über die RPC-Pressung)
+  SELECT coalesce(array_agg(e.key ORDER BY e.key), '{}') INTO v_arr FROM jsonb_each(v_zeilen) e
+   WHERE e.key = ANY (pg_temp.s112_soll_liste('stammdaten_loeschsperre'))
+     AND public.s112_stammdaten_bezuege_intern(e.key, (e.value #>> '{z,id}')::uuid) <> '{}'::jsonb;
+  v_erg := v_erg || pg_temp.s112_erwarte('proben_ohne_bezug_stammdaten', v_arr, '{}'::text[]);
+  v_erg := v_erg || pg_temp.s112_erwarte('proben_ohne_bezug_jahrgang',
+    (SELECT p.jahrgang_id FROM public.pressungen p WHERE p.id = v_pr) IS DISTINCT FROM (v_zeilen #>> '{weinjahrgaenge,z,id}')::uuid, true);
 
   -- ── Mutationen (nur im Mutationsmodus; nach dem Aufbau, vor den Prüfungen) ──────────────────────────
   PERFORM pg_temp.s112_mutiere('katalog_del_fehlt', $m$DROP POLICY abo_schreibsperre_del ON public.kontakte$m$);
