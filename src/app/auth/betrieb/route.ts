@@ -36,10 +36,11 @@ export async function GET(request: Request) {
     .limit(1).maybeSingle()
   if (!(data as R | null)?.tenant_id) return NextResponse.redirect(`${origin}/betrieb-waehlen`)
 
-  await setActiveTenantCookie(tenantId)
-  // KAN-31: mit Betriebs-Subdomain dorthin (weiter bleibt ein geprüfter relativer Pfad), sonst wie bisher
+  // KAN-31: mit Betriebs-Subdomain dorthin (weiter bleibt ein geprüfter relativer Pfad) – dann bleibt das Cookie der
+  // Hauptdomain, wie es ist; sonst wie bisher
   const subZiel = await subdomainZiel(supabase, tenantId, weiter)
-  if (subZiel) return NextResponse.redirect(subZiel)
+  if (!subZiel || subZiel.cookie) await setActiveTenantCookie(tenantId)
+  if (subZiel) return NextResponse.redirect(subZiel.url)
   const ziel = new URL(weiter, origin)
   return NextResponse.redirect(ziel.origin === origin ? ziel : new URL('/dashboard', origin))
 }

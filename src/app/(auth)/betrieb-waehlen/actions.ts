@@ -22,7 +22,8 @@ export async function selectBetriebAction(formData: FormData) {
 
   if (!(data as R | null)?.tenant_id) return // Kein Zugriff
 
-  await setActiveTenantCookie(tenantId)
-  // KAN-31: mit Betriebs-Subdomain dorthin (eigener Tab je Betrieb), sonst wie bisher
-  redirect((await subdomainZiel(supabase, tenantId, '/dashboard')) ?? '/dashboard')
+  // KAN-31: mit Betriebs-Subdomain dorthin (eigener Tab je Betrieb) – dann bleibt das Cookie der Hauptdomain, wie es ist
+  const ziel = await subdomainZiel(supabase, tenantId, '/dashboard')
+  if (!ziel || ziel.cookie) await setActiveTenantCookie(tenantId)
+  redirect(ziel?.url ?? '/dashboard')
 }
