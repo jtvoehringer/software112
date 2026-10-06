@@ -83,6 +83,7 @@ describe('KAN-99 Lader', () => {
   })
   test('Blend-Protokoll und TBS kennen die weitergegebenen Chargen', () => {
     assert.match(quelle('src/lib/behoerden/blend.ts'), /antrag\.weitereChargen = \(await chargenDerAntraege\(/)
-    assert.match(quelle('src/lib/behoerden/transportbescheinigung.ts'), /pn\.jeDacAntrag\[id\]\.weitereChargen = chargen/)
+    // KAN-90: die TBS hat keine Flaschenpositionen mehr (keine DAC-Anträge von Füllungen)
+    assert.doesNotMatch(quelle('src/lib/behoerden/transportbescheinigung.ts'), /jeDacAntrag/)
   })
 })

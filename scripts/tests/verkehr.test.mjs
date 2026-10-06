@@ -181,18 +181,14 @@ describe('verkehr-hilfen', () => {
 // ── Transportbescheinigung ───────────────────────────────────────────────────
 
 describe('transportbescheinigung', () => {
-  test('Vorbelegung: Farbe aus Weinart/Rebsorte, Prüfnummer der Füllung, Trauben in kg mit KMW', () => {
+  test('Vorbelegung: Farbe aus Weinart/Rebsorte, Trauben in kg mit KMW; keine Flaschen (KAN-90)', () => {
     const hinweise = []
-    const DAC_F1 = { id: 'dac-f1', weinausbauId: null, status: 'genehmigt', aktiv: true, pruefnummer: 'N 5678/25', mengeLiter: null, eingereichtAm: null, bescheidAm: null, angelegtAm: null }
-    const f = tb.tbVorbelegung(POSTEN, CFG, { jeWeinausbau: { [WA1]: PN_WA1 }, jeDacAntrag: { 'dac-f1': DAC_F1 } }, '2026-09-24', hinweise)
-    assert.equal(f.positionen.length, 3)                          // „sonstiges“ braucht keine TB
-    const [tank, flasche, trauben] = f.positionen
+    const f = tb.tbVorbelegung(POSTEN, CFG, { jeWeinausbau: { [WA1]: PN_WA1 } }, '2026-09-24', hinweise)
+    assert.equal(f.positionen.length, 2)                          // „sonstiges“ und (KAN-90) Flaschenwein brauchen keine TB
+    const [tank, trauben] = f.positionen
     assert.equal(tank.art, 'Rot')                                 // bisher fix „Weiß“
     assert.equal(tank.menge_liter, '1500,5')
     assert.equal(tank.pruefnummer, 'N 1234/25')
-    assert.equal(flasche.art, 'Weiß')
-    assert.equal(flasche.menge_liter, '2,63')                     // 7 × 0,375 l
-    assert.equal(flasche.pruefnummer, 'N 5678/25')                // bisher leer
     assert.equal(trauben.art, 'Rot')
     assert.equal(trauben.einheit, 'kg')
     assert.equal(trauben.jahrgang, '2026')
@@ -206,7 +202,7 @@ describe('transportbescheinigung', () => {
     assert.equal(f.v_hausnr, '12')
     assert.deepEqual([f.datum_tag, f.datum_monat, f.datum_jahr], ['24', '09', '2026'])
     // KAN-90 (R16): Herkunft als amtliches Kürzel aus Charge, Füllung bzw. Traubenlieferung (GST „wlnoe“ → WLNO), nie der Betriebsort
-    assert.deepEqual([tank.herkunft, flasche.herkunft, trauben.herkunft], ['WLWV', 'WLWV', 'WLNO'])
+    assert.deepEqual([tank.herkunft, trauben.herkunft], ['WLWV', 'WLNO'])
     assert.ok(f.positionen.every(p => p.herkunft !== CFG.betrieb_ort))
     assert.deepEqual(hinweise, [])
   })
@@ -248,28 +244,27 @@ describe('transportbescheinigung', () => {
 
   test('CSV: eine Zeile je Weinposition, Kopf in jeder Zeile, Formularstand gekennzeichnet', () => {
     const w = []
-    const f = tb.tbVorbelegung(POSTEN, CFG, { jeWeinausbau: {}, jeDacAntrag: {} }, '2026-09-24', w)
+    const f = tb.tbVorbelegung(POSTEN, CFG, { jeWeinausbau: {} }, '2026-09-24', w)
     const zeilen = tb.tbZeilen(f, { verkaufspostenId: POSTEN_ID, rechnungsnummer: 'RE-2026-0042', verkaufsdatum: '2026-09-10', gespeichert: false, gespeichertAm: null, einheitStandard: null }, w)
     const d = csvDatei(zeilen, tb.SPALTEN_TRANSPORTBESCHEINIGUNG, PROFIL_EXCEL_AT)
     assert.ok(d.text.startsWith(BOM))
     assert.ok(d.text.endsWith('\r\n'))
-    assert.equal(d.zeilen, 3)
+    assert.equal(d.zeilen, 2)                                     // Tank und Trauben (KAN-90: keine Flaschen)
     const z = zeilenVon(d.text)
-    assert.equal(z.length, 5)                                     // Kopf + 3 + leeres Ende
+    assert.equal(z.length, 4)                                     // Kopf + 2 + leeres Ende
     assert.equal(z[0].split(';').length, tb.SPALTEN_TRANSPORTBESCHEINIGUNG.length)
     assert.equal(zelle(d.text, 1, 'Formularstand'), 'nicht gespeicherte Vorbelegung')
     assert.equal(zelle(d.text, 1, 'Datum der Lieferung'), '24.09.2026')
     assert.equal(zelle(d.text, 1, 'Verkaufsdatum'), '10.09.2026')
     assert.equal(zelle(d.text, 1, 'Menge (Liter/kg)'), '1500,50')
-    assert.equal(zelle(d.text, 2, 'Menge (Liter/kg)'), '2,63')
-    assert.equal(zelle(d.text, 3, 'Einheit'), 'kg')
+    assert.equal(zelle(d.text, 2, 'Einheit'), 'kg')
     assert.equal(zelle(d.text, 1, 'Art (Rot/Weiß/Rosé)'), 'Rot')
     assert.equal(zelle(d.text, 1, 'Angereichert'), 'Nein')
     // KAN-131: Alkohol und Mostgewicht getrennt, °KMW auf 1 Stelle abgerundet vor °Oe, gemessene Einheit
-    assert.equal(zelle(d.text, 3, 'Alkohol (% vol)'), '')
-    assert.equal(zelle(d.text, 3, 'Mostgewicht (°KMW)'), '18,5')
-    assert.equal(zelle(d.text, 3, 'Mostgewicht (°Oe)'), '91,5')
-    assert.equal(zelle(d.text, 3, 'Mostgewicht gemessen in'), '°KMW')
+    assert.equal(zelle(d.text, 2, 'Alkohol (% vol)'), '')
+    assert.equal(zelle(d.text, 2, 'Mostgewicht (°KMW)'), '18,5')
+    assert.equal(zelle(d.text, 2, 'Mostgewicht (°Oe)'), '91,5')
+    assert.equal(zelle(d.text, 2, 'Mostgewicht gemessen in'), '°KMW')
     assert.equal(zelle(d.text, 1, 'Empfänger Betriebsnummer'), '7654321')
     assert.match(z[1], /"Heuriger Huber; Wien"/)                  // Trenner im Text → gequotet
     assert.deepEqual(d.warnungen, [])
@@ -325,9 +320,8 @@ describe('transportbescheinigung', () => {
     assert.ok(r)
     assert.equal(r.gespeichert, false)
     assert.equal(r.formular.v_name, 'Weingut Muster')
-    assert.equal(r.zeilen.length, 3)
+    assert.equal(r.zeilen.length, 2)                              // KAN-90: ohne Flaschenposition
     assert.equal(r.zeilen[0].pruefnummer, 'N 1234/25')
-    assert.equal(r.zeilen[1].pruefnummer, 'N 5678/25')
     assert.match(r.warnungen[0], /nicht gespeicherte Vorbelegung/)
     mandantGefiltert(sb, ['verkaufsposten', 'tenant_einstellungen', 'transportbescheinigungen', 'dac_antrag', 'weinausbau', 'verschneidungen', 'zukauf_posten', 'keller_umzuege', 'fuellungen', 'fuellung_chargen'])
     assert.ok(sb.abfragen.some(x => x.tabelle === 'verschneidungen'))   // KAN-72: Zugänge der Charge geprüft
@@ -360,7 +354,7 @@ describe('transportbescheinigung', () => {
     })
     const r = await tb.ladeTransportbescheinigungen(sb, T, { von: '2026-09-01', bis: '2026-09-30' })
     assert.equal(new Set(r.zeilen.map(z => z.verkaufspostenId)).size, 2)
-    assert.equal(r.zeilen.length, 6)
+    assert.equal(r.zeilen.length, 4)                              // je Verkauf Tank und Trauben (KAN-90: keine Flaschen)
     assert.match(r.warnungen[0], /2 von 2 Transportbescheinigungen sind nicht gespeichert.*RE-2026-0042, RE-2026-0043/)
     assert.ok(r.warnungen.some(x => /1 stornierter Verkaufsposten ist enthalten und gekennzeichnet/.test(x)))
     // stornierte Zeilen: Storniert am (Wiener Tag) und Grund als letzte Spalten; nicht stornierte leer

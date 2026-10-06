@@ -13,6 +13,7 @@ import { Mail, Phone, Info, CreditCard, FileText } from 'lucide-react'
 import { fmtEur, fmtNum } from '@/lib/format'
 import { kontaktAnzeigename } from '@/lib/crm/titel'
 import { tbsText } from '@/lib/handel/tbsNummer'
+import { TB_POSITIONSTYPEN } from '@/lib/behoerden/transportbescheinigung'
 
 export const dynamic = 'force-dynamic'
 
@@ -112,9 +113,9 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
   const positionen = (posten.positionen ?? []) as R[]
   const hasTank   = positionen.some((p: R) => p.typ === 'tank')
   const tankPos   = positionen.filter((p: R) => p.typ === 'tank')
-  // Most-, Wein- und Traubenverkauf benötigen alle eine Transportbescheinigung
-  // gem. Weingesetz - nicht nur der Tankverkauf.
-  const brauchtTransportschein = positionen.some((p: R) => ['tank', 'flasche', 'trauben'].includes(p.typ))
+  // Most-/Wein- (lose) und Traubenverkauf benötigen eine Transportbescheinigung gem. Weingesetz;
+  // Flaschenwein nicht (KAN-90, Entscheidung 06.10.2026 – TB_POSITIONSTYPEN)
+  const brauchtTransportschein = positionen.some((p: R) => (TB_POSITIONSTYPEN as readonly string[]).includes(p.typ))
 
   const gesamt = positionen.reduce((s: number, p: R) => {
     if (p.preis_brutto == null) return s
