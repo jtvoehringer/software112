@@ -23,7 +23,7 @@
 --      DELETE → k0; Positivkontrolle mit stripe_status NULL (UPDATE/INSERT/DELETE k1, wo die Rolle darf).
 --   4. tenants (bio_status) und die Ausnahmen: system_admin in B, Test-Plattform-Admin, Musterhof, Sandbox.
 --   5. Die 14 schreibenden RPCs mit s112_pruefe_abo_schreibsperre → 42501 / HINT abo_gesperrt; lesende RPCs nicht;
---      increment_ki_tokens (Ausnahme abo_rpc_ausnahmen, schreibt nur den KI-Tokenzähler) mit Ist-Stand „ok“.
+--      KI-Zähler (check_und_increment_ki_abfrage, increment_ki_tokens) seit KAN-22 nur Service-Role → Benutzer 42501.
 --   6. Storage (ea-belege, dokumente): Hochladen → R, Lesen bleibt, Löschen → k0.
 --
 -- Die Sandbox-ID ist eine Produktions-Betriebs-ID und steht deshalb NICHT in dieser Datei: der Test liest sie
@@ -677,17 +677,17 @@ BEGIN
   END LOOP;
   PERFORM pg_temp.s112_als_postgres();
   -- KAN-21: get_next_rechnungsnummer ist für Benutzer nicht mehr ausführbar (nur Service-Role, Datei 47: rpc_gesperrt)
-  FOREACH v_txt IN ARRAY array_remove(c_abo_rpcs, 'get_next_rechnungsnummer') || ARRAY['check_und_increment_ki_abfrage'] LOOP
+  FOREACH v_txt IN ARRAY array_remove(c_abo_rpcs, 'get_next_rechnungsnummer') LOOP
     v_erg := v_erg || pg_temp.s112_erwarte('rpc_gesperrt_' || v_txt, v_rpc_gesp ->> v_txt, '42501/abo_gesperrt');
     -- Kontrolle mit freiem Abo: Zugriff geht durch (kein 42501), keine Abo-Meldung
     v_erg := v_erg || pg_temp.s112_erwarte('rpc_frei_' || v_txt, v_rpc_frei ->> v_txt, 'ok');
   END LOOP;
-  -- increment_ki_tokens: schreibt tenant_einstellungen (KI-Tokenzähler) OHNE Abo-Prüfung – bewusste Ausnahme in
-  -- s112_soll_liste('abo_rpc_ausnahmen'): zählt nur die Tokens einer über check_und_increment_ki_abfrage schon
-  -- freigegebenen Abfrage nach. Ist-Stand im gesperrten Betrieb festgehalten; sperrt die Funktion später selbst,
-  -- wird das hier rot – dann Soll auf '42501/abo_gesperrt' setzen und die Ausnahme in _helfer.sql streichen.
-  v_erg := v_erg || pg_temp.s112_erwarte('rpc_frei_increment_ki_tokens', v_rpc_frei ->> 'increment_ki_tokens', 'ok');
-  v_erg := v_erg || pg_temp.s112_erwarte('rpc_gesperrt_increment_ki_tokens', v_rpc_gesp ->> 'increment_ki_tokens', 'ok');
+  -- KAN-22: die KI-Zähler sind für Benutzer nicht mehr ausführbar (auch mit freiem Abo) – nur /api/ki-abfrage und der
+  -- Morgenbericht rufen sie per Service-Role nach ihren eigenen Prüfungen auf
+  FOREACH v_txt IN ARRAY ARRAY['check_und_increment_ki_abfrage', 'increment_ki_tokens'] LOOP
+    v_erg := v_erg || pg_temp.s112_erwarte('rpc_benutzer_frei_' || v_txt, v_rpc_frei ->> v_txt, '42501');
+    v_erg := v_erg || pg_temp.s112_erwarte('rpc_benutzer_gesperrt_' || v_txt, v_rpc_gesp ->> v_txt, '42501');
+  END LOOP;
   FOREACH v_txt IN ARRAY ARRAY['berechne_ea_uva', 'pruefe_ea_zeitraum_offen'] LOOP
     v_erg := v_erg || pg_temp.s112_erwarte('rpc_lesend_gesperrt_' || v_txt, v_rpc_gesp ->> ('lesend:' || v_txt), 'ok');
     v_erg := v_erg || pg_temp.s112_erwarte('rpc_lesend_frei_' || v_txt, v_rpc_frei ->> ('lesend:' || v_txt), 'ok');
