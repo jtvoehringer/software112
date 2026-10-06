@@ -15,7 +15,7 @@ import { fmtNum } from '@/lib/format'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { csvPfad } from '@/lib/behoerden/katalog'
 import {
-  BEHANDLUNG_ART_LABEL, flaschenzukaufText, ladeFuellungKette, ladeRueckverfolgungTreffer, massnahmeMittel, massnahmeZeitraum,
+  BEHANDLUNG_ART_LABEL, flaschenzukaufText, ladeFuellungKette, pnWeitergabeText, pruefnummerTank, type Kette, ladeRueckverfolgungTreffer, massnahmeMittel, massnahmeZeitraum,
   type LeseMassnahmen,
 } from '@/lib/behoerden/rueckverfolgung'
 import { fensterBeginnText, ttmmjjjj } from '@/lib/behoerden/rueckverfolgungFenster'
@@ -68,6 +68,8 @@ function ChargeKette({
   anteilLiter,
   chargeNr,
   total,
+  pn,
+  abfuelldatum,
 }: {
   weinausbau: R | null
   pressungen: R[]
@@ -77,6 +79,9 @@ function ChargeKette({
   anteilLiter?: number | null
   chargeNr: number
   total: number
+  /** KAN-201: Prüfnummer je Charge und Weitergaben per Umzug */
+  pn: Pick<Kette, 'pnVerlauf' | 'pnWeitergaben'>
+  abfuelldatum: string | null
 }) {
   if (!weinausbau) return null
   const showNr = total > 1
@@ -91,6 +96,8 @@ function ChargeKette({
         <InfoRow label="Qualität" value={weinausbau.qualitaetsstufe ? qualitaetAnzeige(weinausbau) : null} />
         <InfoRow label="Status" value={weinausbau.status} />
         <InfoRow label="Behälter" value={(weinausbau.behaelter as R | null)?.name} />
+        {/* KAN-201: Prüfnummer der Charge am Abfülltag (eigene bzw. per Umzug übernommen, sonst erloschen) */}
+        <InfoRow label="Prüfnummer (Tank)" value={pruefnummerTank(pn, abfuelldatum)} />
         {anteilLiter != null && (
           <InfoRow label="Anteil dieser Charge"
             value={`${fmtNum(anteilLiter, { min: 2 })} L`} />
@@ -119,6 +126,9 @@ function ChargeKette({
                   {u.menge_liter ? `${fmtNum(parseFloat(u.menge_liter))} L` : ''}
                   {u.schwund_liter ? ` (Schwund: ${u.schwund_liter} L)` : ''}
                 </span>
+                {pnWeitergabeText(pn, u.datum) && (
+                  <span className="text-xs bg-s112-blue-50 text-s112-blue-700 px-2 py-0.5 rounded-full">{pnWeitergabeText(pn, u.datum)}</span>
+                )}
               </div>
             ))}
           </div>
@@ -495,6 +505,8 @@ export default async function RueckverfolgungPage({
                 anteilLiter={chargeEntries.length > 1 ? entry.anteilLiter : undefined}
                 chargeNr={idx + 1}
                 total={chargeEntries.length}
+                pn={entry.kette}
+                abfuelldatum={fuellung.datum ? String(fuellung.datum).slice(0, 10) : null}
               />
             ))
           ) : (
