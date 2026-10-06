@@ -55,7 +55,7 @@ describe('Cookie und Ziel-URLs', () => {
     assert.match(s.subdomainFehler('Gebes_huber'), /Kleinbuchstaben/)
   })
   test('reservierte Namen = CHECK der Migration', () => {
-    const m = quelle('supabase/entwurf/kan31_tenants_subdomain.sql')
+    const m = quelle('supabase/migrations/20261006132251_kan31_tenants_subdomain.sql')
     const liste = m.match(/NOT IN \(([^)]*)\)/)[1].split(',').map(x => x.trim().replace(/'/g, ''))
     assert.deepEqual([...liste].sort(), [...s.RESERVIERTE_SUBDOMAINS].sort())
   })
