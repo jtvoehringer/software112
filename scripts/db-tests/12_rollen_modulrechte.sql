@@ -151,7 +151,7 @@ BEGIN
     -- KAN-39: Kataloge per Migration befüllt (CHECKs auf die Codes) – vorhandene Zeile
     EXECUTE format('SELECT to_jsonb(x.*) FROM public.%I x LIMIT 1', p_tab) INTO v_z;
     RETURN v_z;
-  ELSIF p_tab = 'keller_freigaben' THEN
+  ELSIF p_tab IN ('keller_freigaben', 'crm_freigaben') THEN
     RETURN pg_temp.s112_zeile(p_tab, NULL, jsonb_build_object('eigentuemer_tenant_id', p_m, 'nutzer_tenant_id', p_b));
   ELSIF p_tab = 'module_flags' THEN
     -- alle zehn erlaubten Module sind im Musterhof schon belegt (UNIQUE tenant_id, module): vorhandene Zeile

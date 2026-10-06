@@ -1008,6 +1008,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('keller_behandlungen',           'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   '-{kellerbuch}'),   -- KAN-145 B4
     ('keller_behandlungstypen',       'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}'),
     ('keller_freigaben',              '-',                                      '-',                                      '-'),
+    ('crm_freigaben',                 '-',                                      '-',                                      '-'),   -- KAN-212: nur Plattform-Admin per Service-Role
     ('keller_umzuege',                'SA,TA,W*{kellerbuch|warenwirtschaft}',   'SA,TA,W*{kellerbuch|warenwirtschaft}',   '-{kellerbuch|warenwirtschaft}'),   -- KAN-145 B4
     ('kellerbuch_buchungen',          '-',                                      '-',                                      '-'),   -- KAN-40: Bewegungsjournal, nur per Trigger/RPC, unveränderlich
     ('kellerbuch_abschluesse',        '-',                                      '-',                                      '-'),   -- KAN-192: Periodensperre, nur per RPC, unwiderruflich
@@ -1129,7 +1130,7 @@ BEGIN
       'profiles.profiles: insert own', 'profiles.profiles: update own',
       'rebsorten.rebsorten: everyone can read', 'release_notes_gesehen.rng_own', 'svs_parameter.svsp_select']
     WHEN 'g_tabellen' THEN ARRAY[
-      'keller_freigaben', 'plattform_admins', 'profiles', 'rebsorten', 'release_notes', 'release_notes_gesehen',
+      'crm_freigaben', 'keller_freigaben', 'plattform_admins', 'profiles', 'rebsorten', 'release_notes', 'release_notes_gesehen',
       'svs_parameter', 'tenants',
       'kat_buchungsart', 'kat_erzeugnis', 'kat_farbe', 'kat_land', 'kat_qualitaetsstufe', 'katalog_mapping']   -- KAN-39
     -- KAN-145 B4: Tabellen mit Löschsperre (a_loeschsperre) = "scharf" in scripts/storno-tabellen.json (Test check-storno)
@@ -1156,7 +1157,7 @@ BEGIN
       -- KAN-167: Betriebsmittel (Stammdaten: Löschen/TRUNCATE, aktiv; Lagerbuchungen: Ändern, Storno, Löschen, TRUNCATE)
       'betriebsmittel', 'betriebsmittel_lager_bewegungen']
     WHEN 'abo_ausnahmen' THEN ARRAY[
-      'benachrichtigungen', 'keller_freigaben', 'plattform_admins', 'profiles', 'rebsorten', 'release_notes',
+      'benachrichtigungen', 'crm_freigaben', 'keller_freigaben', 'plattform_admins', 'profiles', 'rebsorten', 'release_notes',
       'release_notes_gesehen', 'svs_parameter', 'system_ereignisse', 'tenant_memberships', 'user_email_connections',
       'kat_buchungsart', 'kat_erzeugnis', 'kat_farbe', 'kat_land', 'kat_qualitaetsstufe', 'katalog_mapping']   -- KAN-39: globale Kataloge
     WHEN 'abo_status_gesperrt' THEN ARRAY['unpaid', 'canceled', 'cancelled', 'incomplete', 'incomplete_expired', 'paused']
@@ -1239,6 +1240,8 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('intern',        '--S', false, 'kundennummer_vergeben(p_tenant_id uuid, p_kreis integer)'),
     ('session_user',  '-US', false, 'lade_behaelter(p_tenant_id uuid)'),
     ('session_user',  '-US', false, 'lade_kellergemeinschaft(p_tenant_id uuid)'),
+    ('session_user',  '-US', false, 'lade_crmgemeinschaft(p_tenant_id uuid)'),   -- KAN-212: Partner der CRM-Gemeinschaft
+    ('intern',        '--S', false, 's112_momentaufnahme_fremd(p_teil jsonb, p_tabelle text, p_id uuid, p_tenant uuid)'),   -- KAN-212: Nummern fremder Betriebe nicht auf den Beleg
     ('trigger',       '--S', false, 'lese_zuordnen()'),
     ('trigger',       '--S', false, 'lesen_vor_loeschen()'),
     ('trigger',       '--S', false, 'lesen_vor_schreiben()'),
@@ -1254,6 +1257,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('mandant_eigen', '-US', false, 's112_mandant_mitglieder(p_tenant_id uuid)'),
     ('intern',        '--S', false, 's112_mandant_mitglieder_mit_email(p_tenant_id uuid)'),
     ('rls_hilfe',     '-US', false, 's112_meine_tenants()'),
+    ('rls_hilfe',     '-US', false, 's112_crm_partner_tenants()'),   -- KAN-212: Eigentümer der CRM-Gemeinschaft
     ('rls_hilfe',     '-US', false, 's112_schreibgesperrte_tenants()'),
     ('mandant',       '-US', true , 's112_betriebsmittel_einkauf(p_tenant_id uuid, p_betriebsmittel_id uuid, p_datum date, p_menge numeric, p_einheit text, p_betrag_netto numeric, p_ust_satz numeric, p_lieferant_firma_id uuid, p_ea_kategorie_id uuid, p_notizen text)'),   -- KAN-167: Einkauf mit E/A-Ausgabe
     ('mandant',       '-US', true , 's112_betriebsmittel_stornieren(p_tenant_id uuid, p_id uuid, p_grund text, p_datum date)'),   -- KAN-167: Storno Lagerbuchung (Einkauf samt Ausgabe)

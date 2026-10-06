@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import type { PartnerTreffer } from '@/components/crm/PartnerSuche'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { suchWoerter } from '@/lib/crm/liste'
+import { fremderBetrieb, ladeCrmGemeinschaft, sichtbareBetriebe, type CrmGemeinschaft } from '@/lib/crm/gemeinschaft'
 
 // Serverseitige Namenssuche für Auswahlfelder (17.9.2026):
 //   /api/crm/suche?art=kontakt|firma|kunde|lieferant&q=<text>
@@ -19,6 +20,8 @@ import { suchWoerter } from '@/lib/crm/liste'
 // Verkaufskonditionen (Rabattgruppe, Sonderrabatt, Skonto, firma_id), damit das
 // Verkaufsformular nach der Auswahl nichts nachladen muss. Ersetzt das Laden
 // aller Kontakte/Firmen (Gebeshuber: 8.300 + 4.600) in den Browser.
+// KAN-212: Kontakte/Firmen eines Betriebs der CRM-Gemeinschaft kommen mit (Hinweis „aus <Betrieb>“), ohne
+// Konditionen des Eigentümers (Rabattgruppe, Sonderrabatt, Skonto werden im eigenen Beleg nicht vorbelegt).
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -29,7 +32,8 @@ function ilikeSicher(q: string) {
   return q.replace(/[%_,()]/g, ' ').trim()
 }
 
-function konditionen(typ: 'kontakt' | 'firma', r: R) {
+function konditionen(typ: 'kontakt' | 'firma', r: R, fremd: boolean) {
+  if (fremd) return { typ, firma_id: (r.firma_id as string | null) ?? null, rabatt_pct: null, sonderrabatt_pct: 0, skonto_pct: 0, skonto_tage: 10 }
   return {
     typ,
     firma_id:         (r.firma_id as string | null) ?? null,
@@ -40,26 +44,30 @@ function konditionen(typ: 'kontakt' | 'firma', r: R) {
   }
 }
 
-const K_SPALTEN = 'id, vorname, nachname, ort, accountnummer, betrieb_nr, firma_id, sonderrabatt_pct, skonto_pct, skonto_tage, rabattgruppe:rabattgruppe_id(rabatt_pct)'
-const F_SPALTEN = 'id, name, ort, accountnummer, betrieb_nr, ist_kunde, ist_lieferant, sonderrabatt_pct, skonto_pct, skonto_tage, rabattgruppe:rabattgruppe_id(rabatt_pct)'
+const K_SPALTEN = 'id, tenant_id, vorname, nachname, ort, accountnummer, betrieb_nr, firma_id, sonderrabatt_pct, skonto_pct, skonto_tage, rabattgruppe:rabattgruppe_id(rabatt_pct)'
+const F_SPALTEN = 'id, tenant_id, name, ort, accountnummer, betrieb_nr, ist_kunde, ist_lieferant, sonderrabatt_pct, skonto_pct, skonto_tage, rabattgruppe:rabattgruppe_id(rabatt_pct)'
 
 // Betriebsnummer (BKI-Empfänger beim Traubenverkauf) – stand bis 05.10.2026 in der Auswahlliste der Abnehmer
 const betrNr = (r: R) => (r.betrieb_nr ? `Betr.Nr. ${r.betrieb_nr}` : null)
 
-function kontaktTreffer(k: R, praefix = ''): SucheTreffer {
+type Herkunft = { tenantId: string; g: CrmGemeinschaft }
+
+function kontaktTreffer(k: R, h: Herkunft, praefix = ''): SucheTreffer {
+  const aus = fremderBetrieb(k.tenant_id, h.tenantId, h.g)
   return {
     id: praefix + k.id,
     label: [k.vorname, k.nachname].filter(Boolean).join(' '),
-    sub: [praefix ? 'Person' : null, k.accountnummer, k.ort, betrNr(k)].filter(Boolean).join(' · ') || undefined,
-    daten: konditionen('kontakt', k),
+    sub: [praefix ? 'Person' : null, aus ? `aus ${aus}` : null, k.accountnummer, k.ort, betrNr(k)].filter(Boolean).join(' · ') || undefined,
+    daten: konditionen('kontakt', k, !!aus),
   }
 }
-function firmaTreffer(f: R, praefix = ''): SucheTreffer {
+function firmaTreffer(f: R, h: Herkunft, praefix = ''): SucheTreffer {
+  const aus = fremderBetrieb(f.tenant_id, h.tenantId, h.g)
   return {
     id: praefix + f.id,
     label: f.name,
-    sub: [praefix ? 'Firma' : null, f.accountnummer, f.ort, betrNr(f)].filter(Boolean).join(' · ') || undefined,
-    daten: konditionen('firma', f),
+    sub: [praefix ? 'Firma' : null, aus ? `aus ${aus}` : null, f.accountnummer, f.ort, betrNr(f)].filter(Boolean).join(' · ') || undefined,
+    daten: konditionen('firma', f, !!aus),
   }
 }
 
@@ -109,8 +117,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ treffer: out.slice(0, 15) })
   }
 
+  const g = await ladeCrmGemeinschaft(supabase, tenantId)
+  const h: Herkunft = { tenantId, g }
+  const betriebe = sichtbareBetriebe(tenantId, g)
   const kontakteAbfrage = (ids: string[], nurFirma: string | null) => {
-    let query = (supabase.from('kontakte') as any).select(K_SPALTEN).eq('tenant_id', tenantId)
+    // tenant-isolation-ignore: KAN-212 CRM-Gemeinschaft – eigener Betrieb und freigebende Partner (RLS kontakte_crm_partner)
+    let query = (supabase.from('kontakte') as any).select(K_SPALTEN).in('tenant_id', betriebe) // eslint-disable-line @typescript-eslint/no-explicit-any
     if (ids.length) query = query.in('id', ids)   // Vorbelegung: auch inaktive (gespeicherter Partner zeigt sonst nur „…“)
     else {
       query = query.eq('aktiv', true)
@@ -123,7 +135,8 @@ export async function GET(req: NextRequest) {
     return query.order('nachname').order('vorname').limit(30)
   }
   const firmenAbfrage = (ids: string[], rolle: 'kunde' | 'lieferant' | null) => {
-    let query = (supabase.from('firmen') as any).select(F_SPALTEN).eq('tenant_id', tenantId)
+    // tenant-isolation-ignore: KAN-212 CRM-Gemeinschaft – eigener Betrieb und freigebende Partner (RLS firmen_crm_partner)
+    let query = (supabase.from('firmen') as any).select(F_SPALTEN).in('tenant_id', betriebe) // eslint-disable-line @typescript-eslint/no-explicit-any
     if (ids.length) query = query.in('id', ids)   // Vorbelegung: auch inaktive, siehe kontakteAbfrage
     else {
       query = query.eq('aktiv', true)
@@ -137,7 +150,7 @@ export async function GET(req: NextRequest) {
 
   if (art === 'firma') {
     const { data } = await firmenAbfrage(idsRoh, null)
-    return NextResponse.json({ treffer: ((data ?? []) as R[]).map(f => firmaTreffer(f)) })
+    return NextResponse.json({ treffer: ((data ?? []) as R[]).map(f => firmaTreffer(f, h)) })
   }
 
   if (art === 'kontakt') {
@@ -148,7 +161,7 @@ export async function GET(req: NextRequest) {
       const r = await kontakteAbfrage([], null)
       data = r.data; alle = true
     }
-    return NextResponse.json({ treffer: ((data ?? []) as R[]).map(k => kontaktTreffer(k)), alle })
+    return NextResponse.json({ treffer: ((data ?? []) as R[]).map(k => kontaktTreffer(k, h)), alle })
   }
 
   // kunde / lieferant: beide Tabellen, IDs mit Präfix
@@ -160,8 +173,8 @@ export async function GET(req: NextRequest) {
     nurIds && !fIds.length ? Promise.resolve({ data: [] }) : firmenAbfrage(fIds, art),
   ])
   const treffer: SucheTreffer[] = [
-    ...((kRaw ?? []) as R[]).map(k => kontaktTreffer(k, 'kontakt:')),
-    ...((fRaw ?? []) as R[]).map(f => firmaTreffer(f, 'firma:')),
+    ...((kRaw ?? []) as R[]).map(k => kontaktTreffer(k, h, 'kontakt:')),
+    ...((fRaw ?? []) as R[]).map(f => firmaTreffer(f, h, 'firma:')),
   ]
   // Gemischt alphabetisch, damit „Huber“ (Person) und „Huber GmbH“ nebeneinander stehen
   treffer.sort((a, b) => a.label.localeCompare(b.label, 'de'))

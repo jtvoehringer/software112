@@ -136,8 +136,8 @@ BEGIN
                      jsonb_build_object('version', 's112test', 'titel', 'S112TEST Zwei-Faktor', 'aktiv', true)) ->> 'id')::uuid;
         END IF;
         v_z := pg_temp.s112_zeile('release_notes_gesehen', NULL, jsonb_build_object('user_id', v_bta, 'release_note_id', v_rn));
-      ELSIF r.tabelle = 'keller_freigaben' THEN
-        v_z := pg_temp.s112_zeile('keller_freigaben', NULL,
+      ELSIF r.tabelle IN ('keller_freigaben', 'crm_freigaben') THEN
+        v_z := pg_temp.s112_zeile(r.tabelle, NULL,
                  jsonb_build_object('eigentuemer_tenant_id', v_a ->> 'm', 'nutzer_tenant_id', v_b, 'aktiv', true));
       ELSIF r.tabelle = 'plattform_admins' THEN
         SELECT to_jsonb(x.*) INTO v_z FROM public.plattform_admins x WHERE x.user_id = v_pa;

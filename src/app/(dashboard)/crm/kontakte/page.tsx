@@ -3,6 +3,7 @@ import { alle, inBloecken } from '@/lib/supabase/alle'
 import { filterAusParams, ladeKontakteSeite, ladeZaehler, zaehleQuellen, kontaktAusZeile } from '@/lib/crm/liste'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
+import { ladeCrmGemeinschaft } from '@/lib/crm/gemeinschaft'
 import Link from '@/components/ui/Link'
 import KontakteClient from './KontakteClient'
 import type { KontaktRow } from '@/lib/crm/types'
@@ -22,6 +23,7 @@ export default async function KontaktePage({ searchParams }: { searchParams: Pro
   const writeOk = canWrite(role, 'crm')
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId ?? null
+  const gemeinschaft = await ladeCrmGemeinschaft(supabase, tenantId)   // KAN-212
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
@@ -116,6 +118,12 @@ export default async function KontaktePage({ searchParams }: { searchParams: Pro
         <div>
           <h1 className="text-2xl font-semibold text-s112-text">Kontakte</h1>
           <p className="text-sm text-s112-muted mt-0.5">Kunden, Ansprechpartner & Interessenten</p>
+          {/* KAN-212: Kontakte/Firmen eines Partners der CRM-Gemeinschaft (nur lesen) */}
+          {gemeinschaft.alsNutzer.length > 0 && (
+            <Link href="/crm/gemeinsam?art=kontakte" className="text-xs text-s112-blue-700 hover:underline">
+              Gemeinsames CRM: auch Kontakte aus {gemeinschaft.alsNutzer.map(p => p.name).join(', ')} →
+            </Link>
+          )}
         </div>
         <span className="text-sm text-s112-muted">{zaehler.gesamt} Kontakte</span>
       </div>

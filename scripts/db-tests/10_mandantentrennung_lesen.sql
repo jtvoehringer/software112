@@ -515,6 +515,9 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('keller_vorher_keine_freigabe', v_n, 0::bigint);
   INSERT INTO public.keller_freigaben (eigentuemer_tenant_id, nutzer_tenant_id, aktiv, notizen)
   VALUES (v_m, v_b, true, 'S112TEST Freigabe') RETURNING id INTO v_kf;
+  -- KAN-212: inaktive CRM-Freigabe (nur damit die Tabelle für die anon-Prüfung eine Zeile hat; wirkt nicht – DB-Test 43)
+  INSERT INTO public.crm_freigaben (eigentuemer_tenant_id, nutzer_tenant_id, aktiv, notizen)
+  VALUES (v_m, v_b, false, 'S112TEST inaktiv');
   FOREACH v_tab IN ARRAY ARRAY['weinausbau', 'keller_behandlungen', 'weinanalysen'] LOOP
     EXECUTE format('SELECT count(*) FROM public.%I WHERE tenant_id = %L::uuid', v_tab, v_m) INTO v_n;
     v_erg := v_erg || pg_temp.s112_erwarte('keller_m_daten_vorhanden:' || v_tab, v_n > 0, true);
