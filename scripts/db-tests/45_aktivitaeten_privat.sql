@@ -6,11 +6,11 @@
 -- @mutation anhang_policy_weg: keine Policy akt_dok_privat | rot: anhang_verborgen
 -- @mutation bloecke_mit_eigenen: s112_privat_bloecke liefert auch eigene private Termine | rot: bloecke_ohne_eigene
 --
--- software:112 – SQL-Testsuite gegen Staging, Datei 44 (Stand 06.10.2026, KAN-17). Alles zurückgerollt.
+-- software:112 – SQL-Testsuite gegen Staging, Datei 45 (Stand 06.10.2026, KAN-17). Alles zurückgerollt.
 
 DO $test$
 DECLARE
-  c_datei constant text := '44_aktivitaeten_privat';
+  c_datei constant text := '45_aktivitaeten_privat';
   v_t0    timestamptz;
   v_erg   text[] := '{}';
   v_a     jsonb;

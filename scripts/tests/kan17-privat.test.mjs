@@ -1,4 +1,4 @@
-// KAN-17 (06.10.2026): Private Aktivitäten – nur der Ersteller sieht sie (DB-Policy akt_privat, DB-Test 44); andere
+// KAN-17 (06.10.2026): Private Aktivitäten – nur der Ersteller sieht sie (DB-Policy akt_privat, DB-Test 45); andere
 // Mitglieder sehen im Kalender nur den Zeitblock „Privat“ (RPC s112_privat_bloecke), ohne Inhalt und nicht anklickbar.
 //
 // Aufruf:  npm run -s test:csv
