@@ -1,6 +1,6 @@
 // Katalog der Behördenmeldungen – Gruppe „Kellerbuch“ (Bewegungsbuch, Kellerbehandlungen,
 // Gebindeverzeichnis, Weinbuch, Weinbuch-Sammlung, Rückverfolgung, Blend-Protokoll,
-// Keller-Auswertungen, Änderungsprotokoll).
+// BKI-Lagerstand und -Lagerbewegungen, Keller-Auswertungen, Änderungsprotokoll).
 // Isomorph (auch in Client-Komponenten nutzbar). Je Eintrag: Schlüssel = id (URL /meldungen/<id>/csv).
 // Zu jedem Eintrag gehört genau ein Eintrag in register/kellerbuch.ts (erzwingt der Typ MeldungenZu).
 //
@@ -88,6 +88,24 @@ export const KATALOG_KELLERBUCH = katalogGruppe('kellerbuch', {
     druckPfad: '/kellerbuch/fuellung/[id]/blend-protokoll',
     rechtsgrundlage: KELLERBUCH_RECHT,
     beschreibung: 'Herkunftsanteile einer Füllung bzw. Charge (auch /kellerbuch/weinausbau/[id]/blend-protokoll).',
+  },
+  // KAN-44 Teil 1: die beiden Blätter der BKI-Schnittstelle aus dem Bewegungsjournal (kellerbuch_buchungen)
+  'bki-lagerstand': {
+    titel: 'Lagerstand zum Datum (BKI-Schnittstelle)',
+    behoerde: 'BKI (Weindatenbank)',
+    zugriff: 'mitglied',
+    druckPfad: '/kellerbuch/lagerstand',
+    rechtsgrundlage: KELLERBUCH_RECHT,
+    beschreibung: 'Bestand je Charge (offen) und Füllung (Flasche, etikettiert/unetikettiert) zum Stichtag aus dem Bewegungsjournal, mit Erzeugnis, Farbe, Sorte, Stufe, Herkunft und Prüfnummer.',
+  },
+  'bki-lagerbewegungen': {
+    titel: 'Lagerbewegungen (BKI-Schnittstelle)',
+    behoerde: 'BKI (Weindatenbank)',
+    zugriff: 'mitglied',
+    druckPfad: '/kellerbuch/lagerbewegungen',
+    standardParameter: abJahresbeginn,
+    rechtsgrundlage: KELLERBUCH_RECHT,
+    beschreibung: 'Jede Buchung des Bewegungsjournals im Zeitraum mit Anfangs- und Buchungsmenge, Buchungsart (BSM) sowie Käufer bzw. Verkäufer.',
   },
   'keller-auswertungen': {
     titel: 'Keller-Auswertungen: Umzüge, Filtrationen und Schwund',

@@ -110,6 +110,8 @@ const NAV: NavGroup[] = [
       { href: '/kellerbuch/rueckverfolgung', label: 'Rückverfolgung', phase: 1, keywords: 'herkunft charge grundstück' },
       // KAN-40 E1: Bewegungsjournal (nur lesen) mit Journal-Konsistenz
       { href: '/kellerbuch/journal',         label: 'Bewegungsjournal', phase: 1, keywords: 'journal buchungen beleg konsistenz bestand storno umstufung korrektur' },
+      // KAN-44 Teil 1: BKI-Blätter Lagerstand zum Datum und Lagerbewegungen (Reiter auf der Seite)
+      { href: '/kellerbuch/lagerstand',      label: 'Lagerstand (BKI)', phase: 1, keywords: 'lagerstand stichtag lagerbewegungen bki schnittstelle weindatenbank bestand flaschen etikettiert csv' },
       { href: '/reports/weinbuecher-sammlung', label: 'Weinbuch-Sammlung', pflichtmeldung: true, keywords: 'weinbuch kellerbuch aufzeichnungen bki prüfung behörde meldung druck pdf csv' },
       // KAN-43 Etappe 2: BSM nach Buchungsarten je Weinwirtschaftsjahr (Kontrolljournal auf derselben Seite)
       { href: '/reports/bestandsmeldung-bsm', label: 'Bestandsmeldung (BSM)', pflichtmeldung: true, keywords: 'bsm weinbestandsmeldung bestand buchungsarten weinwirtschaftsjahr abwertung zugang abgang kontrolljournal weindatenbank behörde meldung druck csv' },

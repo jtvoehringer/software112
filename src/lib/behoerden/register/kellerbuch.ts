@@ -10,6 +10,7 @@ import { ladeRueckverfolgung, SPALTEN_RUECKVERFOLGUNG } from '../rueckverfolgung
 import { ladeBlendProtokoll, SPALTEN_BLEND, type BlendArt } from '../blend'
 import { ladeKellerUmzuege, SPALTEN_KELLER_UMZUEGE } from '../keller-auswertungen'
 import { ladeAenderungsprotokoll, SPALTEN_AENDERUNGSPROTOKOLL } from '../aenderungsprotokoll'
+import { ladeLagerbewegungen, ladeLagerstand, lagerstandStichtag, SPALTEN_LAGERBEWEGUNGEN, SPALTEN_LAGERSTAND } from '../lagerstand'
 
 // Register der Behördenmeldungen – Gruppe „Kellerbuch“ (24.09.2026).
 // Je Katalog-Eintrag aus katalog/kellerbuch.ts genau ein Eintrag mit CSV (laden + spalten).
@@ -176,6 +177,26 @@ export const MELDUNGEN_KELLERBUCH = {
     spalten: SPALTEN_BLEND,
     dateiteile: (p, betrieb) => ['Blend-Protokoll', betrieb.betriebsnummer, p.anzeige.name, (p as { stichtag?: string | null }).stichtag ?? null],
     bki: p => ({ bericht: ['Blend-Protokoll', p.anzeige.name, p.stichtag ? `Stand-${p.stichtag.replace(/-/g, '')}` : null] }),
+  }),
+
+  // KAN-44 Teil 1: BKI-Schnittstelle aus dem Bewegungsjournal
+  'bki-lagerstand': definiereMeldung(KATALOG_KELLERBUCH['bki-lagerstand'], {
+    parameter: sp => lagerstandStichtag(sp),
+    laden: async (ctx, p) => {
+      const l = await ladeLagerstand(ctx.supabase, ctx.tenantId, p)
+      return { zeilen: l.zeilen, warnungen: l.warnungen }
+    },
+    spalten: SPALTEN_LAGERSTAND,
+    dateiteile: (p, betrieb) => ['Lagerstand', betrieb.betriebsnummer, p.stichtag.replace(/-/g, '')],
+    bki: p => ({ bericht: ['Lagerstand', `Stand-${p.stichtag.replace(/-/g, '')}`] }),
+  }),
+
+  'bki-lagerbewegungen': definiereMeldung(KATALOG_KELLERBUCH['bki-lagerbewegungen'], {
+    parameter: sp => zeitraumAus(sp),
+    laden: (ctx, p) => ladeLagerbewegungen(ctx.supabase, ctx.tenantId, p),
+    spalten: SPALTEN_LAGERBEWEGUNGEN,
+    dateiteile: (p, betrieb) => ['Lagerbewegungen', betrieb.betriebsnummer, zeitraumTeil(p)],
+    bki: p => ({ bericht: 'Lagerbewegungen', von: p.von, bis: p.bis }),
   }),
 
   'keller-auswertungen': definiereMeldung(KATALOG_KELLERBUCH['keller-auswertungen'], {
