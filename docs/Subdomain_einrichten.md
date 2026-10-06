@@ -33,7 +33,21 @@ Je Subdomain ein CNAME auf Vercel. Das geht ohne Umzug der Nameserver:
 spaetrot.software112     CNAME   cname.vercel-dns.com.
 ```
 
-Optional `musterhof.software112` und `sandbox.software112` ebenso. Ein Wildcard-Eintrag (`*.software112`) ginge bei Vercel nur mit Vercel-Nameservern (NS-Delegation der Zone `software112.icp-consultants.at`). Einzelne CNAMEs sind für die wenigen Betriebe einfacher.
+Optional `musterhof.software112` und `sandbox.software112` ebenso.
+
+**Wildcard statt einzelner Subdomains (getestet 06.10.2026):**
+
+- **Die Unterzone geht nicht.** Vercel nimmt `software112.icp-consultants.at` nicht als eigene DNS-Zone an („invalid domain name“, nur ganze Domains). **Keine NS-Delegation von `software112` bei world4you eintragen**, sie würde die App lahmlegen.
+- **Die Wildcard ist angelegt, aber ohne Zertifikat.** `*.software112.icp-consultants.at` steht im Projekt. Ein Zertifikat gäbe es erst, wenn die ganze Domain `icp-consultants.at` (mit Website und E-Mail von IC&P) auf Vercel-Nameservern liefe.
+- **Grenze der einzelnen Subdomains:** Jede braucht ein eigenes Zertifikat. Let's Encrypt erlaubt rund 50 neue je Woche für `icp-consultants.at`, neue Betriebe also gestaffelt einrichten (höchstens rund 40 je Woche).
+
+**Entscheidung Jörgen (06.10.2026):**
+
+- **Bis nach der Zahel-Präsentation:** einzelne Subdomains wie oben.
+- **Danach:** eine eigene Produkt-Domain (z. B. `software112.at`) vollständig über Vercel-DNS.
+  - Nameserver auf `ns1/ns2.vercel-dns.com`, dazu die Wildcard `*.software112.at`.
+  - Basis in software:112 umstellen, alte Adressen dauerhaft weiterleiten.
+  - Danach je Betrieb nur noch das Feld in der Mandantenverwaltung.
 
 ## 3. Vercel (Projekt software112)
 
