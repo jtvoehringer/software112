@@ -83,7 +83,7 @@ export async function GET(req: NextRequest) {
       kategorie:  'fuellung',
       titel:      f.name ?? f.chargennummer,
       untertitel: [f.jahrgang, f.rebsorte, f.chargennummer].filter(Boolean).join(' · '),
-      href:       `/weinhandel/fuellungen/${f.id}`,
+      href:       `/weinhandel/fuellungen/${f.id}/edit`,   // es gibt keine Detailseite, nur Bearbeiten
     })
   })
 

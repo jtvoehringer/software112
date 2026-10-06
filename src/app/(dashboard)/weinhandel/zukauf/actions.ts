@@ -486,7 +486,7 @@ export async function createZukauf(formData: FormData): Promise<{ bestaetigung?:
   revalidatePath('/kellerbuch')
   // KAN-41 Paket 2b: nach dem Flaschenzukauf direkt zum neuen Weinlager-Artikel
   const fuellungId = ((ergebnis ?? {}) as AR).fuellung_id as string | undefined
-  if (flaschen && fuellungId) redirect(`/weinhandel/fuellungen/${fuellungId}`)
+  if (flaschen && fuellungId) redirect(`/weinhandel/fuellungen/${fuellungId}/edit`)
 
   if (verschnitt) {
     const vs = (((ergebnis ?? {}) as AR).verschnitt ?? {}) as AR

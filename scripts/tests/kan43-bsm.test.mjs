@@ -489,6 +489,24 @@ describe('KAN-43 BSM: Nachtrag 02.10.2026', nurMitHooks, () => {
     assert.equal(zelle(d.summen, 'DIFFERENZ').summeLiter, 0)
   })
 
+  test('1f. KAN-41 Paket 3c: Traubenverkauf nur nachrichtlich in kg (TRAUBVK), ohne Liter und ohne stornierte', async () => {
+    const { ladeBsm, BSM_ZUORDNUNG } = await laden('lib/behoerden/bsm.ts')
+    assert.ok(BSM_ZUORDNUNG.some(z => z.code === 'TRAUBVK (Info)'))
+    const t = tabellen()
+    t.traubenverkauf = [
+      { id: 'tv1', tenant_id: T, datum: '2025-09-25', menge_kg: 1500, qualitaetsstufe: 'qualitaetswein', liefernummer: 'L-1', storniert_am: null,
+        weingarten: { rebsorte: 'Grüner Veltliner' }, jahrgang: { jahrgang: 2025 }, firma: { name: 'Weingut Nachbar' }, verkaufsposten: null },
+      { id: 'tv2', tenant_id: T, datum: '2025-09-26', menge_kg: 999, qualitaetsstufe: 'qualitaetswein', storniert_am: '2025-09-27T08:00:00Z',
+        weingarten: { rebsorte: 'Grüner Veltliner' }, jahrgang: { jahrgang: 2025 } },
+      { id: 'tv9', tenant_id: FREMD, datum: '2025-09-25', menge_kg: 500, qualitaetsstufe: 'qualitaetswein', storniert_am: null },
+    ]
+    const d = await ladeBsm(datenbank(t, { rpc: RPC }), T, WJ, { heute: HEUTE })
+    const tv = d.buchungen.filter(b => b.code === 'TRAUBVK')
+    assert.deepEqual(tv.map(b => [b.datum, b.liter, b.kg, b.gegenstelle, b.beleg]), [['2025-09-25', 0, 1500, 'Weingut Nachbar', 'L-1']])
+    assert.ok(d.warnungen.some(w => /Traubenverkauf im Zeitraum: 1\.500 kg – nur nachrichtlich/.test(w)), d.warnungen.join('\n'))
+    assert.equal(zelle(d.summen, 'DIFFERENZ').summeLiter, 0)
+  })
+
   test('4. Most/Sturm: eigene Gruppe, Übergang Most → Wein als neutrale Umstufung (keine Abwertung)', async () => {
     const { ladeBsm, bsmJournal, bsmParameter, BSM_SPALTEN, buchungsartLabel } = await laden('lib/behoerden/bsm.ts')
     assert.deepEqual(BSM_SPALTEN.map(s => s.key).slice(0, 2), ['most_sturm', 'wein'])

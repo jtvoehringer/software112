@@ -68,7 +68,7 @@ describe('Verdrahtung', () => {
     const rpc = fn.indexOf("'s112_zukauf_buchen'")
     assert.ok(pruefung > 0 && pruefung < rpc, 'Prüfung vor dem Buchen')
     assert.match(fn, /p_fuellung: flaschen\n\s+\? \{ name: f\.fuellungName, flaschengroesse_ml: f\.flaschengroesseMl, vk_preis_brutto: f\.vkPreisBrutto, mwst_pct: f\.mwstPct \}\n\s+: null,/)
-    assert.match(fn, /if \(flaschen && fuellungId\) redirect\(`\/weinhandel\/fuellungen\/\$\{fuellungId\}`\)/)
+    assert.match(fn, /if \(flaschen && fuellungId\) redirect\(`\/weinhandel\/fuellungen\/\$\{fuellungId\}\/edit`\)/)   // es gibt keine Detailseite
     assert.match(A, /einheit: {13}istFlaschenArt\(art\) \? 'Stk' :/)
   })
   test('updateZukauf: Art, Anzahl und Merkmale eines Flaschenzukaufs fest, nur Beleg/Preis/Notizen speichern', () => {
@@ -110,5 +110,25 @@ describe('Verdrahtung', () => {
     assert.match(m, /HINT = 'flaschenzukauf_ueber_zukauf'/)
     // derselbe Hinweistext wie die BSM-Rekonstruktion (HANDELSWARE_HINWEIS), sonst warnte die BSM aus dem Journal
     assert.match(quelle('src/lib/behoerden/bsm.ts'), /export const HANDELSWARE_HINWEIS = 'Flaschenzukauf \(Handelsware\)'/)
+  })
+})
+
+// Regression (06.10.2026): Links auf /weinhandel/fuellungen/<id> ohne Unterseite führten ins Leere – es gibt nur
+// /edit und /elabel (bzw. /neu). Weiterleitung nach dem Flaschenzukauf, Zukauf-Hinweis und globale Suche waren betroffen.
+describe('Füllungs-Links', () => {
+  test('kein Link auf die nicht vorhandene Detailseite /weinhandel/fuellungen/<id>', async () => {
+    const { readdirSync: rd, statSync } = await import('node:fs')
+    const { join } = await import('node:path')
+    const wurzel = new URL('../../src', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')
+    const dateien = []
+    const lauf = (d) => { for (const n of rd(d)) { const p = join(d, n); if (statSync(p).isDirectory()) lauf(p); else if (/\.(ts|tsx)$/.test(n)) dateien.push(p) } }
+    lauf(decodeURIComponent(wurzel))
+    const funde = []
+    for (const p of dateien) {
+      const s = readFileSync(p, 'utf8')
+      for (const m of s.matchAll(/\/weinhandel\/fuellungen\/\$\{[^}]+\}(?!\/(edit|elabel))/g)) funde.push(`${p}: ${m[0]}`)
+    }
+    assert.deepEqual(funde, [])
+    assert.ok(statSync(new URL('../../src/app/(dashboard)/weinhandel/fuellungen/[id]/edit/page.tsx', import.meta.url)).isFile())
   })
 })

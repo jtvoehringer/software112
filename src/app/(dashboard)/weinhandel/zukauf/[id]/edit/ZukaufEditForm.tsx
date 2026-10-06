@@ -274,7 +274,7 @@ export default function ZukaufEditForm({
         <div role="note" className="bg-s112-bg border border-s112-border rounded-xl px-5 py-3 text-sm space-y-1">
           <p className="font-medium text-s112-text-1">
             Flaschenzukauf – Weinlager-Artikel{' '}
-            <Link href={`/weinhandel/fuellungen/${flaschenArtikel.id}`} className="underline">„{flaschenArtikel.name}“</Link>
+            <Link href={`/weinhandel/fuellungen/${flaschenArtikel.id}/edit`} className="underline">„{flaschenArtikel.name}“</Link>
             {' '}(Bestand {fmtNum(flaschenArtikel.bestand)} Fl.)
           </p>
           <p className="text-xs text-s112-muted">
