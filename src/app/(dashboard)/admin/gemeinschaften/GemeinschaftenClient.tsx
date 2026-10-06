@@ -6,7 +6,7 @@ import type { FreigabeRow } from './page'
 import { createFreigabe, setFreigabeAktiv, deleteFreigabe, type GemeinschaftArt } from './actions'
 
 type Tenant = { id: string; name: string }
-const inputCls = 'w-full border border-s112-line-str rounded-lg px-3 py-2 text-sm text-s112-text focus:outline-none focus:ring-2 focus:ring-s112-teal focus:border-transparent bg-white'
+const inputCls = 'w-full border border-s112-line-str rounded-lg px-3 py-2 text-sm text-s112-text focus:outline-hidden focus:ring-2 focus:ring-s112-teal focus:border-transparent bg-white'
 const labelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
 
 // KAN-212: eine Oberfläche für Keller- und CRM-Gemeinschaft (Texte je Art)
@@ -66,7 +66,7 @@ export default function GemeinschaftenClient({ art, rows, tenants }: { art: Geme
         </div>
         {fehler && <p className="text-xs text-s112-err-fg">{fehler}</p>}
         <div className="flex items-center gap-3">
-          <button type="submit" disabled={pending || !eigentuemer || !nutzer} className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
+          <button type="submit" disabled={pending || !eigentuemer || !nutzer} className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-sm font-semibold hover:bg-s112-teal/90 disabled:opacity-40">
             {pending ? 'Speichern…' : 'Freigabe anlegen'}
           </button>
           <span className="text-[11px] text-s112-tertiary">{t.hinweis}</span>
@@ -94,7 +94,7 @@ export default function GemeinschaftenClient({ art, rows, tenants }: { art: Geme
                 <td className="px-4 py-2.5 text-s112-text-2 text-xs">{r.notizen ?? '–'}</td>
                 <td className="px-4 py-2.5">
                   <button onClick={() => startTransition(async () => { const x = await setFreigabeAktiv(art, r.id, !r.aktiv); if (x.error) setFehler(x.error); router.refresh() })}
-                    className={`text-[10.5px] font-mono uppercase tracking-[.04em] px-1.5 py-0.5 rounded ${r.aktiv ? 'bg-s112-ok-bg text-s112-ok-fg' : 'bg-s112-bg text-s112-text-2 border border-s112-line'}`}
+                    className={`text-[10.5px] font-mono uppercase tracking-[.04em] px-1.5 py-0.5 rounded-sm ${r.aktiv ? 'bg-s112-ok-bg text-s112-ok-fg' : 'bg-s112-bg text-s112-text-2 border border-s112-line'}`}
                     title={r.aktiv ? 'Klick: Freigabe pausieren' : 'Klick: Freigabe aktivieren'}>
                     {r.aktiv ? 'aktiv' : 'pausiert'}
                   </button>

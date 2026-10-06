@@ -44,7 +44,7 @@ export default async function WeinbuecherSammlungPage({
   const weinbuecher = sammlung.weinbuecher
 
   const filterAktiv = !!(filter.jahrgang || filter.sorte || filter.bezeichnung)
-  const auswahl = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+  const auswahl = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40'
 
   return (
     <div className="max-w-3xl mx-auto space-y-8 p-6 print:p-0">
@@ -99,7 +99,7 @@ export default async function WeinbuecherSammlungPage({
             </select>
           </div>
           <div className="sm:col-span-3 flex items-center gap-3">
-            <button type="submit" className="text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold bg-s112-teal hover:bg-opacity-90">
+            <button type="submit" className="text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold bg-s112-teal hover:bg-s112-teal/90">
               Auswahl anzeigen
             </button>
             {filterAktiv && (

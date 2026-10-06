@@ -80,7 +80,7 @@ export default async function WeingartenSichtPage() {
                 <thead><tr><Th>Ried</Th><Th>Rebsorte(n)</Th><Th right>Fläche</Th><Th right>GST</Th><Th>AMA-FS</Th><Th>Codes</Th><Th>Lage</Th></tr></thead>
                 <tbody>
                   {wg.rieden.slice(0, 12).map(r => (
-                    <tr key={r.id} className="hover:bg-[#F7F8FA]">
+                    <tr key={r.id} className="hover:bg-s112-bg">
                       <Td><Link href={`/weingarten/${r.id}`} className="font-semibold text-s112-text hover:text-s112-blue-700">{r.name}</Link>{r.ried && r.ried !== r.name && <span className="block text-[11.5px] text-s112-tertiary">{r.ried}</span>}</Td>
                       <Td>{r.rebsorte ?? '–'}</Td>
                       <Td right mono>{fmtNum(r.flaeche_ha, 2)} ha</Td>

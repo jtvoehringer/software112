@@ -55,7 +55,7 @@ export default function NeueLeseForm({ vorschlag, vorhandene = [] }: {
         <input id="lese-jahrgang" name="jahrgang" type="number" required min="1900" max="2100"
           value={jahr} onChange={e => setJahr(e.target.value)}
           aria-describedby={HINWEIS_ID}
-          className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+          className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         {/* Live-Region bleibt stehen, damit Vorleseprogramme den Hinweis beim Tippen ansagen */}
         <div id={HINWEIS_ID} role="status" aria-live="polite">
           {jahrZahl != null && (
@@ -73,7 +73,7 @@ export default function NeueLeseForm({ vorschlag, vorhandene = [] }: {
       <LeseFelder jahrgang={jahrZahl} />
       <div className="flex gap-3 pt-2">
         <button type="submit" disabled={pending || jahrZahl == null}
-          className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-40">
+          className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors disabled:opacity-40">
           {pending ? 'Anlegen…' : 'Lese anlegen'}
         </button>
         <a href="/erntemeldung" className="px-5 py-2 rounded-xl text-sm font-medium text-s112-text-2 hover:text-s112-text">

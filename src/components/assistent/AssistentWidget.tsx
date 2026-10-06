@@ -123,7 +123,7 @@ export default function AssistentWidget() {
       {offen && (
         <div className="mb-3 w-[360px] max-w-[92vw] h-[480px] max-h-[75vh] bg-white rounded-xl shadow-xl border border-s112-border flex flex-col overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 bg-s112-teal text-s112-yellow flex-shrink-0">
+          <div className="flex items-center justify-between px-4 py-3 bg-s112-teal text-s112-yellow shrink-0">
             <div className="flex items-center gap-2">
               <BotIcon size={18} />
               <span className="font-semibold text-sm">bot:112</span>
@@ -194,14 +194,14 @@ export default function AssistentWidget() {
           </div>
 
           {/* Eingabe */}
-          <form onSubmit={senden} className="flex items-center gap-2 p-2.5 border-t border-s112-border flex-shrink-0 bg-white">
+          <form onSubmit={senden} className="flex items-center gap-2 p-2.5 border-t border-s112-border shrink-0 bg-white">
             <input
               ref={inputRef}
               value={sprache.hoert ? sprache.zwischenstand : eingabe}
               onChange={e => setEingabe(e.target.value)}
               readOnly={sprache.hoert}
               placeholder={sprache.hoert ? 'Ich höre zu…' : 'Nachricht…'}
-              className={`flex-1 min-w-0 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${
+              className={`flex-1 min-w-0 border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 ${
                 sprache.hoert ? 'border-s112-err/30 bg-s112-err-bg/40 italic text-s112-text-2' : 'border-s112-border'
               }`}
             />
@@ -213,7 +213,7 @@ export default function AssistentWidget() {
                 aria-pressed={sprache.hoert}
                 aria-label={sprache.hoert ? 'Aufnahme beenden' : 'Sprechen'}
                 title={sprache.hoert ? 'Aufnahme beenden' : 'Sprechen statt tippen'}
-                className={`p-2 rounded-lg flex-shrink-0 transition-colors disabled:opacity-40 ${
+                className={`p-2 rounded-lg shrink-0 transition-colors disabled:opacity-40 ${
                   sprache.hoert
                     ? 'bg-s112-err text-white animate-pulse'
                     : 'border border-s112-border text-s112-text-2 hover:border-s112-teal hover:text-s112-blue-700'
@@ -226,7 +226,7 @@ export default function AssistentWidget() {
               type="submit"
               disabled={laden || !eingabe.trim()}
               aria-label="Senden"
-              className="bg-s112-teal text-s112-yellow p-2 rounded-lg hover:bg-opacity-90 disabled:opacity-40 flex-shrink-0"
+              className="bg-s112-teal text-s112-yellow p-2 rounded-lg hover:bg-s112-teal/90 disabled:opacity-40 shrink-0"
             >
               <Send size={16} />
             </button>
@@ -238,7 +238,7 @@ export default function AssistentWidget() {
       <button
         onClick={() => setOffen(v => !v)}
         aria-label={offen ? 'Assistent schließen' : 'Assistent öffnen'}
-        className="w-14 h-14 rounded-full bg-s112-teal text-s112-yellow shadow-lg flex items-center justify-center hover:bg-opacity-90 transition-colors ml-auto"
+        className="w-14 h-14 rounded-full bg-s112-teal text-s112-yellow shadow-lg flex items-center justify-center hover:bg-s112-teal/90 transition-colors ml-auto"
       >
         {offen ? <X size={22} /> : <BotIcon size={22} />}
       </button>

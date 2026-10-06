@@ -11,7 +11,7 @@ import {
 
 export type BmMassnahmeOption = { id: string; name: string; gruppe: BetriebsmittelGruppe; einheit: string; preis_pro_einheit: number | null }
 
-const feld = 'w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+const feld = 'w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40'
 
 /** Standard-Aufwandseinheit zur Einheit des Mittels (je ha) */
 export function bmStandardAufwand(einheit: string | undefined): string {

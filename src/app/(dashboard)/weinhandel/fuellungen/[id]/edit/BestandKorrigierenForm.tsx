@@ -41,7 +41,7 @@ export default function BestandKorrigierenForm({
   const neu = delta === null ? null : bestand + delta
   const buchbar = delta !== null && delta !== 0 && neu !== null && neu >= 0 && !(art === 'inventur' && (zahl as number) < 0)
 
-  const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+  const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40'
   const labelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -145,7 +145,7 @@ export default function BestandKorrigierenForm({
       <button
         type="submit"
         disabled={pending || !buchbar}
-        className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-50"
+        className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors disabled:opacity-50"
       >
         {pending ? 'Wird gebucht …' : 'Bestand buchen'}
       </button>

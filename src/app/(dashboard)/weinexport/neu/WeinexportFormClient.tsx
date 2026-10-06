@@ -99,13 +99,13 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
           </div>
           {empfaengerTyp === 'firma' ? (
             <select value={firmaId} onChange={e => setFirmaId(e.target.value)}
-              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
               <option value="">– Firma wählen –</option>
               {firmen.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
             </select>
           ) : (
             <select value={kontaktId} onChange={e => setKontaktId(e.target.value)}
-              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
               <option value="">– Kontakt wählen –</option>
               {kontakte.map(k => <option key={k.id} value={k.id}>{k.vorname} {k.nachname}</option>)}
             </select>
@@ -114,12 +114,12 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">EORI-Nummer Importeur</label>
               <input aria-label="EORI-Nummer Importeur" value={eori} onChange={e => setEori(e.target.value)} placeholder="z.B. AT1234567890"
-                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Versicherungswert (EUR)</label>
               <input aria-label="Versicherungswert (EUR)" type="number" value={versicherung} onChange={e => setVersicherung(e.target.value)} placeholder="0.00"
-                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
             </div>
           </div>
         </div>
@@ -131,31 +131,31 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Auftragsdatum</label>
               <input aria-label="Auftragsdatum" type="date" value={datum} onChange={e => setDatum(e.target.value)} required
-                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Lieferdatum (geplant)</label>
               <input aria-label="Lieferdatum (geplant)" type="date" value={lieferdatum} onChange={e => setLieferdatum(e.target.value)}
-                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Incoterms</label>
               <select aria-label="Incoterms" value={incoterms} onChange={e => setIncoterms(e.target.value)}
-                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
                 {INCOTERMS.map(t => <option key={t}>{t}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Transportart</label>
               <select aria-label="Transportart" value={transportArt} onChange={e => setTransportArt(e.target.value)}
-                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
                 {TRANSPORT.map(t => <option key={t}>{t}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Destination Land *</label>
               <select aria-label="Destination Land" value={destLand} onChange={e => setDestLand(e.target.value)} required
-                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
                 <option value="">– Land wählen –</option>
                 <LandOptionen aktuell={destLand} />
               </select>
@@ -163,7 +163,7 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Destination Stadt</label>
               <input aria-label="Destination Stadt" value={destStadt} onChange={e => setDestStadt(e.target.value)} placeholder="z.B. München"
-                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
             </div>
           </div>
         </div>
@@ -190,28 +190,28 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
                     updatePos(i, 'beschreibung', [f.name, f.bezeichnung].filter(Boolean).join(' – '))
                     if (f.zolltarifnummer) updatePos(i, 'taric_code', f.zolltarifnummer.replace(/\s/g, '').replace(/^(\d{4})(\d+)$/, '$1.$2'))
                   }
-                }} className="w-full border border-s112-border rounded px-2 py-1.5 text-xs focus:outline-none">
+                }} className="w-full border border-s112-border rounded-sm px-2 py-1.5 text-xs focus:outline-hidden">
                   <option value="">– Füllung –</option>
                   {fuellungen.map(f => <option key={f.id} value={f.id}>{f.name}{f.bezeichnung ? ' – ' + f.bezeichnung : ''}{f.jahrgang ? ' ' + f.jahrgang : ''} ({f.bestand_flaschen} Fl.)</option>)}
                 </select>
               </div>
               <div className="col-span-3">
                 <input value={pos.beschreibung} onChange={e => updatePos(i, 'beschreibung', e.target.value)}
-                  placeholder="Bezeichnung" className="w-full border border-s112-border rounded px-2 py-1.5 text-xs focus:outline-none" />
+                  placeholder="Bezeichnung" className="w-full border border-s112-border rounded-sm px-2 py-1.5 text-xs focus:outline-hidden" />
               </div>
               <div className="col-span-1">
                 <input type="number" value={pos.menge} onChange={e => updatePos(i, 'menge', e.target.value)}
-                  placeholder="Menge" className="w-full border border-s112-border rounded px-2 py-1.5 text-xs focus:outline-none" />
+                  placeholder="Menge" className="w-full border border-s112-border rounded-sm px-2 py-1.5 text-xs focus:outline-hidden" />
               </div>
               <div className="col-span-1">
                 <select value={pos.einheit} onChange={e => updatePos(i, 'einheit', e.target.value)}
-                  className="w-full border border-s112-border rounded px-2 py-1.5 text-xs focus:outline-none">
+                  className="w-full border border-s112-border rounded-sm px-2 py-1.5 text-xs focus:outline-hidden">
                   <option>Fl</option><option>Kiste</option><option>HL</option>
                 </select>
               </div>
               <div className="col-span-2">
                 <input type="number" step="0.01" value={pos.preis_eur} onChange={e => updatePos(i, 'preis_eur', e.target.value)}
-                  placeholder="€/Einheit" className="w-full border border-s112-border rounded px-2 py-1.5 text-xs focus:outline-none" />
+                  placeholder="€/Einheit" className="w-full border border-s112-border rounded-sm px-2 py-1.5 text-xs focus:outline-hidden" />
               </div>
               <div className="col-span-1 flex justify-center pt-1">
                 <button aria-label="Entfernen" type="button" onClick={() => removePos(i)} className="text-s112-err hover:text-s112-err-fg text-xs">
@@ -231,13 +231,13 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
         <div className="bg-white rounded-xl border border-s112-border p-6">
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen / Besonderheiten</label>
           <textarea aria-label="Notizen / Besonderheiten" value={notizen} onChange={e => setNotizen(e.target.value)} rows={3}
-            className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 resize-none" />
+            className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 resize-none" />
         </div>
 
         {fehler && <p className="text-s112-err-fg text-sm">{fehler}</p>}
         <div className="flex gap-3">
           <button type="submit" disabled={saving}
-            className="bg-s112-teal text-s112-yellow px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
+            className="bg-s112-teal text-s112-yellow px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 disabled:opacity-40">
             {saving ? 'Speichern…' : 'Exportauftrag anlegen'}
           </button>
           <Link href="/weinexport" className="px-6 py-2.5 rounded-xl text-sm border border-s112-border text-s112-text-2 hover:bg-s112-bg">

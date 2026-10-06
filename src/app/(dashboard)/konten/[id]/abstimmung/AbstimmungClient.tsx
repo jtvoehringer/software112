@@ -50,7 +50,7 @@ function BewegungsZeile({ b, kontoId, writeOk }: { b: Bewegung; kontoId: string;
           checked={b.abgeglichen}
           disabled={!writeOk || pending || !!b.gegenzeile}
           onChange={() => startTransition(() => { setzeAbgeglichen(kontoId, b.quelle, b.id, !b.abgeglichen) })}
-          className="rounded accent-s112-teal cursor-pointer disabled:cursor-not-allowed"
+          className="rounded-sm accent-s112-teal cursor-pointer disabled:cursor-not-allowed"
           title="Gegen Kontoauszug abgeglichen"
         />
       </td>
@@ -122,7 +122,7 @@ export default function AbstimmungClient({
 
       {anzahlVorEroeffnung > 0 && (
         <div className="flex items-start gap-2 bg-s112-warn-bg border border-s112-warn/30 rounded-xl px-4 py-3 text-sm text-s112-warn-fg">
-          <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
           <span>
             {anzahlVorEroeffnung} {anzahlVorEroeffnung === 1 ? 'Bewegung liegt' : 'Bewegungen liegen'} am oder vor dem
             Eröffnungsdatum ({new Date(konto.eroeffnungsdatum).toLocaleDateString('de-AT')}) und {anzahlVorEroeffnung === 1 ? 'steckt' : 'stecken'} bereits
@@ -188,7 +188,7 @@ export default function AbstimmungClient({
                   className="px-4 py-1.5 rounded-lg text-sm font-medium text-s112-text-2 hover:bg-s112-bg transition-colors">
                   Abbrechen
                 </button>
-                <button type="submit" className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 transition-colors">
+                <button type="submit" className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-s112-teal/90 transition-colors">
                   Umbuchung buchen
                 </button>
               </div>

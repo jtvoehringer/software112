@@ -51,7 +51,7 @@ export default async function KategorienPage() {
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Typ *</label>
             <select aria-label="Typ" name="typ" required
-              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none">
+              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden">
               <option value="einnahme">Einnahme</option>
               <option value="ausgabe">Ausgabe</option>
               <option value="beides">Beides</option>
@@ -60,17 +60,17 @@ export default async function KategorienPage() {
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Name *</label>
             <input aria-label="Name" name="name" required placeholder="z.B. Hofverkauf"
-              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none" />
+              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden" />
           </div>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Konto-Nr. (EKR)</label>
             <input aria-label="Konto-Nr. (EKR)" name="konto_nr" type="number" placeholder="z.B. 4000"
-              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none" />
+              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden" />
           </div>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">USt-Satz</label>
             <select aria-label="USt-Satz" name="ust_satz_std" defaultValue="20"
-              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none">
+              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden">
               <option value="0">0%</option>
               <option value="10">10%</option>
               <option value="13">13%</option>
@@ -80,12 +80,12 @@ export default async function KategorienPage() {
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Abzugsfähig %</label>
             <input aria-label="Abzugsfähig %" name="abzugsfaehig_pct" type="number" min="0" max="100" step="1" defaultValue={100}
-              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none" />
+              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden" />
             <p className="text-[11px] text-s112-tertiary mt-0.5">z.B. 50 bei Bewirtung/Repräsentation (§ 20 EStG)</p>
           </div>
           <div className="col-span-5 flex justify-end">
             <button type="submit"
-              className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
+              className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90">
               Speichern
             </button>
           </div>

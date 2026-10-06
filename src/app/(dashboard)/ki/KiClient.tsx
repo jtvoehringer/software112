@@ -151,11 +151,11 @@ export default function KiClient({ aktiv, paket, verbraucht }: Props) {
             value={frage}
             onChange={e => setFrage(e.target.value)}
             placeholder="z.B. Welche Gastronomie-Kunden haben wir in der Steiermark?"
-            className="flex-1 border border-s112-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 bg-white"
+            className="flex-1 border border-s112-border rounded-xl px-4 py-3 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 bg-white"
             disabled={laden}
           />
           <button type="submit" disabled={laden || !frage.trim()}
-            className="bg-s112-teal text-s112-yellow px-6 py-3 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40 flex items-center gap-2">
+            className="bg-s112-teal text-s112-yellow px-6 py-3 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 disabled:opacity-40 flex items-center gap-2">
             {laden ? (
               <>Analysiere…</>
             ) : (
@@ -194,7 +194,7 @@ export default function KiClient({ aktiv, paket, verbraucht }: Props) {
           {/* Zusammenfassung */}
           <div className="bg-s112-teal/5 border border-s112-teal/20 rounded-xl p-4">
             <div className="flex items-start gap-3">
-              <Bot className="w-5 h-5 text-s112-blue-700 flex-shrink-0" />
+              <Bot className="w-5 h-5 text-s112-blue-700 shrink-0" />
               <div>
                 <p className="text-sm font-medium text-s112-text">{ergebnis.zusammenfassung}</p>
                 {ergebnis.empfehlung && (

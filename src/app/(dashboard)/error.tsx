@@ -60,7 +60,7 @@ export default function DashboardFehler({ error, reset }: { error: Error & { dig
   return (
     <div className="max-w-xl mx-auto mt-16 bg-white border border-s112-border rounded-xl p-6">
       <h1 className="text-lg font-semibold text-s112-text mb-2">Da ist etwas schiefgelaufen</h1>
-      <p className="text-sm text-s112-text-1 mb-4 break-words">{text}</p>
+      <p className="text-sm text-s112-text-1 mb-4 wrap-break-word">{text}</p>
       <p className="text-xs text-s112-muted mb-5">
         Der Fehler wurde automatisch protokolliert{error.digest ? ` (Kennung ${error.digest.slice(0, 12)})` : ''}. Wenn er wiederholt auftritt, bitte mit Uhrzeit und Seite melden.
       </p>

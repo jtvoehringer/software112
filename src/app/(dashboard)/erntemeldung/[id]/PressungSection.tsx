@@ -425,7 +425,7 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, wgOptions, behOpt
     })
   }
 
-  const inp = "w-full border border-s112-border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
+  const inp = "w-full border border-s112-border rounded-lg px-2 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40"
 
   // ── Nach dem Speichern: Verschneidungs-Prompt ─────────────────────────────
   if (verschneidung) {
@@ -471,7 +471,7 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, wgOptions, behOpt
           <button
             type="button"
             onClick={() => setVerschneidungOpen(true)}
-            className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90"
+            className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90"
           >
             Jetzt verschneiden
           </button>
@@ -761,7 +761,7 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, wgOptions, behOpt
 
                       {/* Bestehende Chargen */}
                       {existing.length > 0 && (
-                        <div className={`rounded px-2 py-1.5 border ${isFarbmix ? 'bg-s112-err-bg border-s112-err/30' : isMix ? 'bg-s112-warn-bg border-s112-warn/30' : 'bg-white border-s112-border'}`}>
+                        <div className={`rounded-sm px-2 py-1.5 border ${isFarbmix ? 'bg-s112-err-bg border-s112-err/30' : isMix ? 'bg-s112-warn-bg border-s112-warn/30' : 'bg-white border-s112-border'}`}>
                           <p className={`font-medium mb-1 ${isFarbmix ? 'text-s112-err-fg' : isMix ? 'text-s112-warn-fg' : 'text-s112-text-2'}`}>
                             {isFarbmix ? 'Rotwein/Weißwein-Mischung nicht erlaubt!' : isMix ? 'Rebsortenverschnitt' : 'Enthält bereits'}
                           </p>
@@ -812,7 +812,7 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, wgOptions, behOpt
 
       <div className="flex gap-2 pt-1">
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-50">
+          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-50">
           {pending ? 'Speichert…' : 'Speichern'}
         </button>
         <button type="button" onClick={onDone} className="px-4 py-1.5 text-sm text-s112-text-2 hover:text-s112-text">
@@ -878,7 +878,7 @@ export default function PressungSection({ jahrgangId, leseId, leseArt, pressunge
           {writeOk && !showForm && (
             gesamtVerfuegbarKg > 0
               ? <button onClick={() => { setShowForm(true); setEditId(null); setCollapsed(false) }}
-                  className="inline-flex items-center gap-1.5 bg-s112-teal text-s112-yellow font-semibold px-3 py-1.5 rounded-lg text-xs hover:bg-opacity-90 transition-colors shadow-sm">
+                  className="inline-flex items-center gap-1.5 bg-s112-teal text-s112-yellow font-semibold px-3 py-1.5 rounded-lg text-xs hover:bg-s112-teal/90 transition-colors shadow-xs">
                   <Plus size={14} strokeWidth={2.5} /> Pressung erfassen
                 </button>
               : <span className="text-xs text-s112-warn-fg font-medium bg-s112-warn-bg px-3 py-1.5 rounded-lg">

@@ -75,7 +75,7 @@ export default function VerbundKarte({ tenantId, tenantName, verbund, hatEigenes
           {verbund.kandidaten.length === 0 && <p className="text-xs text-s112-muted">Kein Betrieb mit Premium-Abo vorhanden.</p>}
           <button type="button" disabled={pending || !haupt}
             onClick={() => ausfuehren(() => verbundBeitreten(tenantId, haupt, preis))}
-            className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50">
+            className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-sm font-semibold hover:bg-s112-teal/90 disabled:opacity-50">
             {pending ? 'Wird verbunden…' : 'Über Hauptmandanten abrechnen'}
           </button>
         </div>

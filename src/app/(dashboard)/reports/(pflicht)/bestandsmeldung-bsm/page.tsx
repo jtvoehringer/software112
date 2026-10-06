@@ -82,12 +82,12 @@ export default async function BsmPage({ searchParams }: { searchParams: Promise<
             <label className="flex items-center gap-1 text-xs text-s112-text-2">
               von
               <input type="date" name="von" aria-label="Beginn des Meldezeitraums" defaultValue={p.von} max={heute}
-                className="border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none" />
+                className="border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-hidden" />
             </label>
             <label className="flex items-center gap-1 text-xs text-s112-text-2 ml-1">
               bis
               <input type="date" name="bis" aria-label="Ende des Meldezeitraums" defaultValue={p.bis} max={heute}
-                className="border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none" />
+                className="border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-hidden" />
             </label>
             {p.arten.length > 0 && <input type="hidden" name="art" value={p.arten.join(',')} />}
             <button type="submit" aria-label="Meldezeitraum anzeigen" className="border border-s112-border rounded-lg px-3 py-1.5 text-sm hover:bg-s112-bg">↻</button>
@@ -220,7 +220,7 @@ export default async function BsmPage({ searchParams }: { searchParams: Promise<
               <input type="hidden" name="von" value={p.von} />
               <input type="hidden" name="bis" value={p.bis} />
               <select name="art" aria-label="Buchungsart filtern" defaultValue={p.arten.join(',')}
-                className="border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none">
+                className="border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-hidden">
                 <option value="">alle Buchungsarten</option>
                 <option value={ABWERTUNG}>nur Abwertung (ZU_ABW, AB_ABW)</option>
                 {ARTEN.map(b => <option key={b.code} value={b.code}>{b.code} – {b.bezeichnung}</option>)}

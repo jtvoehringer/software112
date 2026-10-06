@@ -112,7 +112,7 @@ export default function RiedKarte({
   return (
     <div className="relative">
       <div ref={ref} style={{ height }} className={`w-full rounded-xl overflow-hidden border border-s112-line z-0 ${editable ? 'cursor-crosshair' : ''}`} />
-      {editable && <p className="absolute left-2 bottom-2 z-[400] bg-white/90 rounded px-2 py-0.5 text-[11px] text-s112-text-2">Auf die Karte klicken setzt den Pin</p>}
+      {editable && <p className="absolute left-2 bottom-2 z-400 bg-white/90 rounded-sm px-2 py-0.5 text-[11px] text-s112-text-2">Auf die Karte klicken setzt den Pin</p>}
     </div>
   )
 }

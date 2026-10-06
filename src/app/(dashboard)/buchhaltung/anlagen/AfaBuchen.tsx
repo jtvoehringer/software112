@@ -151,11 +151,11 @@ ${ersetzt === 1 ? 'Die abweichende AfA-Buchung wird' : `${ersetzt} abweichende A
               <label htmlFor="afa-rueck-grund" className="text-[12px] font-medium text-s112-text-1">Grund des Stornos <span className="text-s112-err">*</span></label>
               <textarea id="afa-rueck-grund" value={grund} onChange={ev => setGrund(ev.target.value)} rows={2} autoFocus minLength={STORNO_GRUND_MIN}
                 placeholder="z. B. Nutzungsdauer falsch erfasst"
-                className="w-full border border-s112-border rounded px-2 py-1 text-[12.5px] bg-white focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+                className="w-full border border-s112-border rounded-sm px-2 py-1 text-[12.5px] bg-white focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
               <div className="flex justify-end gap-2">
                 <button type="button" onClick={() => { setRueckOffen(false); setFehler(null) }} disabled={pending} className="text-[12.5px] text-s112-text-2 hover:text-s112-text-1 px-1">Abbrechen</button>
                 <button type="button" onClick={zuruecknehmen} disabled={pending}
-                  className="text-[12.5px] bg-s112-err text-white px-3 py-1 rounded font-medium disabled:opacity-50">{pending ? '…' : 'Stornieren'}</button>
+                  className="text-[12.5px] bg-s112-err text-white px-3 py-1 rounded-sm font-medium disabled:opacity-50">{pending ? '…' : 'Stornieren'}</button>
               </div>
             </div>
           )}

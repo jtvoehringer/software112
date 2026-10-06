@@ -110,7 +110,7 @@ export default async function ZukaufPage({
         <h1 className="text-xl font-semibold text-s112-text">Zukäufe</h1>
         {writeOk && (
           <Link href="/weinhandel/zukauf/neu"
-            className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
+            className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors">
             + Neuer Zukauf
           </Link>
         )}
@@ -124,7 +124,7 @@ export default async function ZukaufPage({
         }`}>
           <div className="flex items-center justify-between flex-wrap gap-2">
             <span className="inline-flex items-start gap-1.5">
-              {traubenzukaufsgrenze.ueberschritten && <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />}
+              {traubenzukaufsgrenze.ueberschritten && <AlertTriangle size={14} className="mt-0.5 shrink-0" />}
               <span>
                 Traubenzukauf {traubenzukaufsgrenze.jahr}: <strong>{fmtNum(traubenzukaufsgrenze.summeKg)} kg</strong>
                 {' '}von max. <strong>{fmtNum(traubenzukaufsgrenze.maxKg, { max: 0 })} kg</strong>
@@ -136,8 +136,8 @@ export default async function ZukaufPage({
                 <span className="font-semibold">Überschreitung: {fmtNum(traubenzukaufsgrenze.ueberschreitungKg)} kg</span>
               )}
               <div className="flex items-center gap-1 text-xs">
-                <Link href={`/weinhandel/zukauf?zjahr=${traubenzukaufsgrenze.jahr - 1}`} className="px-1.5 py-0.5 rounded hover:bg-black/5">← {traubenzukaufsgrenze.jahr - 1}</Link>
-                <Link href={`/weinhandel/zukauf?zjahr=${traubenzukaufsgrenze.jahr + 1}`} className="px-1.5 py-0.5 rounded hover:bg-black/5">{traubenzukaufsgrenze.jahr + 1} →</Link>
+                <Link href={`/weinhandel/zukauf?zjahr=${traubenzukaufsgrenze.jahr - 1}`} className="px-1.5 py-0.5 rounded-sm hover:bg-black/5">← {traubenzukaufsgrenze.jahr - 1}</Link>
+                <Link href={`/weinhandel/zukauf?zjahr=${traubenzukaufsgrenze.jahr + 1}`} className="px-1.5 py-0.5 rounded-sm hover:bg-black/5">{traubenzukaufsgrenze.jahr + 1} →</Link>
               </div>
             </div>
           </div>

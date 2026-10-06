@@ -78,7 +78,7 @@ export default async function CuBilanzPage({ searchParams }: { searchParams: Pro
           <form method="GET" action="/reports/cu-bilanz" className="flex gap-2">
             <select name="jahr" aria-label="Jahr"
               defaultValue={aktJahr}
-              className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none">
+              className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden">
               {jahre.map(j => <option key={j} value={j}>{j}</option>)}
             </select>
             <button type="submit" aria-label="Anzeigen" title="Anzeigen" className="border border-s112-border rounded-lg px-3 py-1.5 text-sm hover:bg-s112-bg">

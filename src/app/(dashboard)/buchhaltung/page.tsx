@@ -82,7 +82,7 @@ export default async function BuchhaltungPage({
           <p className="text-sm text-s112-muted">Einnahmen-Ausgaben-Rechner · § 4 Abs. 3 EStG</p>
         </div>
         <Link href="/buchhaltung/neu"
-          className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
+          className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90">
           + Buchung
         </Link>
       </div>
@@ -118,14 +118,14 @@ export default async function BuchhaltungPage({
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Jahr</label>
           <select aria-label="Jahr" name="jahr" defaultValue={String(jahr)}
-            className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none">
+            className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden">
             {jahre.map(j => <option key={j} value={j}>{j}</option>)}
           </select>
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Typ</label>
           <select aria-label="Typ" name="typ" defaultValue={typFilter}
-            className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none">
+            className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden">
             <option value="">Alle</option>
             <option value="einnahme">Einnahmen</option>
             <option value="ausgabe">Ausgaben</option>
@@ -134,7 +134,7 @@ export default async function BuchhaltungPage({
         <div className="flex-1">
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Suche</label>
           <input aria-label="Suche" name="q" defaultValue={q} placeholder="Bezeichnung…"
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none" />
+            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden" />
         </div>
         <button type="submit"
           className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm">Filtern</button>
@@ -186,7 +186,7 @@ export default async function BuchhaltungPage({
               </tr>
             )}
             {buchungen.map(b => (
-              <tr key={b.id} className={`border-b border-s112-border/50 hover:[&>td]:bg-s112-bg/50 ${b.stornoStatus === 'storniert' ? 'text-s112-muted' : ''}`}>
+              <tr key={b.id} className={`border-b border-s112-border/50 [&>td]:hover:bg-s112-bg/50 ${b.stornoStatus === 'storniert' ? 'text-s112-muted' : ''}`}>
                 <td className="px-4 py-3 text-s112-text-2 whitespace-nowrap">
                   {datumText(b.datum)}
                 </td>

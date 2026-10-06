@@ -54,18 +54,18 @@ function DuengemittelForm({ duengemittel, onDone }: { duengemittel?: Duengemitte
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Name *</label>
           <input aria-label="Name" name="name" required defaultValue={duengemittel?.name ?? ''}
             placeholder="z.B. Hornspäne"
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Handelsname</label>
           <input aria-label="Handelsname" name="handelsname" defaultValue={duengemittel?.handelsname ?? ''}
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         </div>
 
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Typ</label>
           <select aria-label="Typ" name="typ" defaultValue={duengemittel?.typ ?? ''}
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
             <option value="">– keiner –</option>
             {TYP_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
@@ -74,27 +74,27 @@ function DuengemittelForm({ duengemittel, onDone }: { duengemittel?: Duengemitte
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Wartezeit (Tage)</label>
           <input aria-label="Wartezeit (Tage)" name="wartezeit_tage" type="number" min="0"
             defaultValue={duengemittel?.wartezeit_tage ?? ''}
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         </div>
 
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">N-Gehalt (%)</label>
           <input aria-label="N-Gehalt (%)" name="naehrstoff_n_pct" type="number" step="0.01" min="0" max="100"
             defaultValue={duengemittel?.naehrstoff_n_pct ?? ''}
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">P-Gehalt (%)</label>
           <input aria-label="P-Gehalt (%)" name="naehrstoff_p_pct" type="number" step="0.01" min="0" max="100"
             defaultValue={duengemittel?.naehrstoff_p_pct ?? ''}
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         </div>
 
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">K-Gehalt (%)</label>
           <input aria-label="K-Gehalt (%)" name="naehrstoff_k_pct" type="number" step="0.01" min="0" max="100"
             defaultValue={duengemittel?.naehrstoff_k_pct ?? ''}
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div>
@@ -102,12 +102,12 @@ function DuengemittelForm({ duengemittel, onDone }: { duengemittel?: Duengemitte
             <input aria-label="Preis/Einheit (€)" name="preis_pro_einheit" type="number" step="0.0001" min="0"
               defaultValue={duengemittel?.preis_pro_einheit ?? ''}
               placeholder="jährlich prüfen"
-              className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+              className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
           </div>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Einheit</label>
             <select aria-label="Einheit" name="einheit" defaultValue={duengemittel?.einheit ?? 'kg'}
-              className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+              className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
               {EINHEIT_OPTS.map(e => <option key={e} value={e}>{e}</option>)}
             </select>
           </div>
@@ -137,13 +137,13 @@ function DuengemittelForm({ duengemittel, onDone }: { duengemittel?: Duengemitte
         <div className="col-span-2">
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
           <input aria-label="Notizen" name="notizen" defaultValue={duengemittel?.notizen ?? ''}
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         </div>
       </div>
 
       <div className="flex gap-2 pt-1">
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-50">
+          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-50">
           {pending ? 'Speichert…' : 'Speichern'}
         </button>
         <button type="button" onClick={onDone}
@@ -181,7 +181,7 @@ export default function DuengemittelClient({
       {!showForm && writeOk && (
         <div className="mb-6">
           <button onClick={() => setShowForm(true)}
-            className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
+            className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors">
             Neues Düngemittel anlegen
           </button>
         </div>

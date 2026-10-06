@@ -82,7 +82,7 @@ export default function LeseReiter({ jahrgangId, jahrgang, lesen, aktiv, writeOk
           <LeseFelder jahrgang={jahrgang} lese={aktiv} />
           <div className="flex gap-2 pt-1">
             <button type="submit" disabled={pending}
-              className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-50">
+              className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-50">
               Speichern
             </button>
             <button type="button" onClick={() => setBearbeiten(false)}

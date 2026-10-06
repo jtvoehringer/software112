@@ -89,13 +89,13 @@ export default function BelegBuchenForm({
     <div className="bg-white rounded-xl border border-s112-border p-6 space-y-5">
       {status === 'fehler' && (
         <div className="flex items-start gap-2 bg-s112-warn-bg text-s112-warn-fg text-sm px-3 py-2.5 rounded-lg">
-          <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
           <span>Automatische Erkennung fehlgeschlagen{fehlerDetails ? ` (${fehlerDetails})` : ''} – bitte alle Felder manuell ausfüllen.</span>
         </div>
       )}
       {e.hinweis && (
         <div className="flex items-start gap-2 bg-s112-warn-bg text-s112-warn-fg text-sm px-3 py-2.5 rounded-lg">
-          <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
           <span>{e.hinweis}</span>
         </div>
       )}
@@ -109,7 +109,7 @@ export default function BelegBuchenForm({
       {/* ── Lieferanten-Zuordnung ─────────────────────────────────────────── */}
       {gefundeneFirma ? (
         <div className="flex items-center gap-2 bg-s112-teal/5 border border-s112-teal/30 rounded-xl px-3 py-2.5 text-sm">
-          <Building2 className="w-4 h-4 text-s112-blue-700 flex-shrink-0" />
+          <Building2 className="w-4 h-4 text-s112-blue-700 shrink-0" />
           <span className="flex-1">
             Lieferant: <span className="font-medium text-s112-text">{gefundeneFirma.name}</span>
             {vorschlagId === firmaId && <span className="text-xs text-s112-muted"> (automatisch erkannt)</span>}
@@ -145,7 +145,7 @@ export default function BelegBuchenForm({
           </div>
           <input type="text" value={sucheQuery} onChange={ev => setSucheQuery(ev.target.value)}
             placeholder="Name eingeben…" autoFocus
-            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
           <div className="max-h-40 overflow-y-auto space-y-0.5">
             {sucheTreffer.map(f => (
               <button key={f.id} type="button"
@@ -200,12 +200,12 @@ export default function BelegBuchenForm({
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum *</label>
             <input aria-label="Datum" type="date" name="datum" required
               defaultValue={e.datum ?? new Date().toISOString().split('T')[0]}
-              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
           </div>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">USt-Satz *</label>
             <select aria-label="USt-Satz" name="ust_satz" defaultValue={e.ust_satz ?? ustStandard}
-              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
               {UST_SAETZE.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
             </select>
           </div>
@@ -215,14 +215,14 @@ export default function BelegBuchenForm({
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Bezeichnung *</label>
           <input aria-label="Bezeichnung" name="beschreibung" required defaultValue={e.beschreibung ?? ''}
             placeholder="z.B. Diesel Tankstelle Müller"
-            className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         </div>
 
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Betrag Netto (€) *</label>
           <input aria-label="Betrag Netto (€)" type="number" name="betrag_netto" step="0.01" min="0" required
             defaultValue={e.betrag_netto ?? ''} placeholder="0.00"
-            className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
           {e.betrag_brutto != null && (
             <p className="text-xs text-s112-muted mt-1">
               Erkannter Bruttobetrag auf dem Beleg: € {fmtNum(Number(e.betrag_brutto), { min: 2 })}
@@ -233,7 +233,7 @@ export default function BelegBuchenForm({
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Kategorie</label>
           <select aria-label="Kategorie" name="kategorie_id" value={kategorieId} onChange={ev => setKategorieId(ev.target.value)}
-            className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+            className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
             <option value="">– keine –</option>
             <optgroup label="Einnahmen">
               {einnahmeKat.map(k => <option key={k.id} value={k.id}>{k.name}{k.abzugsfaehigPct < 100 ? ` — nur ${k.abzugsfaehigPct}% abzugsfähig` : ''}</option>)}
@@ -253,7 +253,7 @@ export default function BelegBuchenForm({
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Konto</label>
             <select aria-label="Konto" name="konto_id" defaultValue=""
-              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
               <option value="">– keines –</option>
               {konten.map(k => <option key={k.id} value={k.id}>{k.name}</option>)}
             </select>
@@ -264,12 +264,12 @@ export default function BelegBuchenForm({
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
           <textarea aria-label="Notizen" name="notizen" rows={2} defaultValue={`Beleg: ${dateiname}`}
-            className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 resize-none" />
+            className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 resize-none" />
         </div>
 
         <div className="flex gap-3 pt-2">
           <button type="submit" disabled={pending}
-            className="bg-s112-teal text-s112-yellow px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
+            className="bg-s112-teal text-s112-yellow px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 disabled:opacity-40">
             {pending ? 'Wird gebucht…' : 'Buchung anlegen'}
           </button>
           <Link href="/buchhaltung/belege"

@@ -44,7 +44,7 @@ export function WeinbuchTimeline({ events, zeigeLegende = true }: { events: Time
               const style = EVENT_STYLE[ev.typ]
               return (
                 <div key={i} className="relative flex gap-4">
-                  <div className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${style.dot} shadow-sm`}>
+                  <div className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${style.dot} shadow-xs`}>
                     <style.icon size={18} strokeWidth={1.75} className="text-white" />
                   </div>
                   <div className={`flex-1 rounded-xl border p-4 ${style.card}`}>
@@ -74,7 +74,7 @@ export function WeinbuchTimeline({ events, zeigeLegende = true }: { events: Time
             })}
 
             <div className="relative flex gap-4 items-center">
-              <div className="relative z-10 w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-s112-line text-s112-tertiary text-lg shadow-sm">
+              <div className="relative z-10 w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-s112-line text-s112-tertiary text-lg shadow-xs">
                 ∎
               </div>
               <p className="text-xs text-s112-muted">Ende der Aufzeichnung</p>

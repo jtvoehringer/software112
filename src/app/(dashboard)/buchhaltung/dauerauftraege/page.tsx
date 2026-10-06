@@ -81,7 +81,7 @@ export default async function DauerauftraegePage() {
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Typ *</label>
               <select aria-label="Typ" name="typ" required
-                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none">
+                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden">
                 <option value="einnahme">Einnahme</option>
                 <option value="ausgabe">Ausgabe</option>
               </select>
@@ -89,7 +89,7 @@ export default async function DauerauftraegePage() {
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Intervall *</label>
               <select aria-label="Intervall" name="intervall" required
-                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none">
+                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden">
                 {INTERVALLE.map(i => <option key={i.value} value={i.value}>{i.label}</option>)}
               </select>
             </div>
@@ -97,18 +97,18 @@ export default async function DauerauftraegePage() {
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Bezeichnung *</label>
             <input aria-label="Bezeichnung" name="beschreibung" required placeholder="z.B. Miete Lagerhalle"
-              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none" />
+              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden" />
           </div>
           <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Betrag Netto (€) *</label>
               <input aria-label="Betrag Netto (€)" type="number" name="betrag_netto" step="0.01" min="0.01" required
-                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none" />
+                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden" />
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">USt-Satz</label>
               <select aria-label="USt-Satz" name="ust_satz" defaultValue="20"
-                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none">
+                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden">
                 <option value="0">0%</option><option value="10">10%</option>
                 <option value="13">13%</option><option value="20">20%</option>
               </select>
@@ -116,7 +116,7 @@ export default async function DauerauftraegePage() {
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Tag im Monat</label>
               <input aria-label="Tag im Monat" type="number" name="tag_im_monat" min="1" max="28" defaultValue="1"
-                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none" />
+                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -124,12 +124,12 @@ export default async function DauerauftraegePage() {
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Nächste Fälligkeit *</label>
               <input aria-label="Nächste Fälligkeit" type="date" name="naechste_faelligkeit" required
                 defaultValue={new Date().toISOString().split('T')[0]}
-                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none" />
+                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden" />
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Kategorie</label>
               <select aria-label="Kategorie" name="kategorie_id"
-                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none">
+                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden">
                 <option value="">– keine –</option>
                 {(kategorien as R[])?.map((k: R) => (
                   <option key={k.id} value={k.id}>{k.name}</option>
@@ -141,7 +141,7 @@ export default async function DauerauftraegePage() {
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Konto</label>
               <select aria-label="Konto" name="konto_id" defaultValue=""
-                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none">
+                className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden">
                 <option value="">– keines –</option>
                 {(konten as R[]).map(k => <option key={k.id} value={k.id}>{k.name}</option>)}
               </select>
@@ -149,7 +149,7 @@ export default async function DauerauftraegePage() {
             </div>
           )}
           <button type="submit"
-            className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
+            className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90">
             Dauerauftrag anlegen
           </button>
         </form>

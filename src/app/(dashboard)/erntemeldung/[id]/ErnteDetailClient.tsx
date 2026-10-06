@@ -103,8 +103,8 @@ function NotizZelle({ text }: { text: string | null }) {
       aria-expanded={klickbar ? offen : undefined}
       onClick={klickbar ? umschalten : undefined}
       onKeyDown={klickbar ? e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); umschalten() } } : undefined}
-      className={`block min-w-[7rem] max-w-[10rem] sm:max-w-[14rem] ${klickbar ? 'cursor-pointer hover:text-s112-text focus-visible:text-s112-text' : ''}`}>
-      <span ref={setEl} className={`whitespace-pre-line [overflow-wrap:anywhere] ${offen ? 'line-clamp-none' : 'line-clamp-2'} print:line-clamp-none`}>
+      className={`block min-w-28 max-w-40 sm:max-w-56 ${klickbar ? 'cursor-pointer hover:text-s112-text focus-visible:text-s112-text' : ''}`}>
+      <span ref={setEl} className={`whitespace-pre-line wrap-anywhere ${offen ? 'line-clamp-none' : 'line-clamp-2'} print:line-clamp-none`}>
         {text}
       </span>
     </span>
@@ -253,8 +253,8 @@ function NeueParzellenForm({
   }
 
   // KAN-181: am Handy 16 px Schrift (sonst zoomt iOS beim Antippen hinein) und höhere Felder; ab sm wie bisher
-  const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-1.5 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
-  const zeileCls = 'w-full border border-s112-border rounded px-2 py-2 sm:py-1 text-base sm:text-xs focus:outline-none focus:ring-1 focus:ring-s112-teal/40 bg-white'
+  const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-1.5 text-base sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40'
+  const zeileCls = 'w-full border border-s112-border rounded-sm px-2 py-2 sm:py-1 text-base sm:text-xs focus:outline-hidden focus:ring-1 focus:ring-s112-teal/40 bg-white'
   const sichtbareGruppen = gruppen
     .map(g => ({ ...g, weingaerten: g.weingaerten.filter(w => sucheErg.weingaerten.has(w.id)) }))
     .filter(g => g.weingaerten.length > 0)
@@ -522,7 +522,7 @@ function NeueParzellenForm({
       {/* KAN-181: am Handy bleibt die Leiste beim Scrollen unten sichtbar, Knöpfe in voller Höhe */}
       <div className="flex gap-2 pt-1 max-sm:sticky max-sm:bottom-0 max-sm:-mx-4 max-sm:-mb-4 max-sm:px-4 max-sm:py-3 max-sm:bg-s112-bg max-sm:border-t max-sm:border-s112-border">
         <button type="submit" disabled={pending || ziele.length === 0}
-          className="flex-1 sm:flex-none bg-s112-teal text-s112-yellow px-4 py-3 sm:py-1.5 rounded-lg text-base sm:text-sm font-medium hover:bg-opacity-90 disabled:opacity-50 transition-colors">
+          className="flex-1 sm:flex-none bg-s112-teal text-s112-yellow px-4 py-3 sm:py-1.5 rounded-lg text-base sm:text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-50 transition-colors">
           {pending ? 'Speichert…' : `${ziele.length > 0 ? `${ziele.length} × ` : ''}Speichern`}
         </button>
         <button type="button" onClick={onDone}
@@ -598,7 +598,7 @@ function ParzellForm({
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Weingarten <span className="text-s112-err">*</span></label>
           <select aria-label="Weingarten" name="weingarten_id" required value={selWgId}
             onChange={e => { setSelWgId(e.target.value); setSelGstId('') }}
-            className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-1.5 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+            className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-1.5 text-base sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
             <option value="">– Auswählen –</option>
             {lagen.map(g => istEinzelRied(g) ? (
               <option key={g.weingaerten[0].id} value={g.weingaerten[0].id}>
@@ -618,7 +618,7 @@ function ParzellForm({
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Grundstück (GST)</label>
             <input type="hidden" name="grundstueck_id" value={selGstId} />
             <select value={selGstId} onChange={e => setSelGstId(e.target.value)}
-              className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-1.5 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+              className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-1.5 text-base sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
               <option value="">– kein GST –</option>
               {verfuegbareGSTs.map(g => (
                 <option key={g.id} value={g.id}>
@@ -632,12 +632,12 @@ function ParzellForm({
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Ernte-Datum *</label>
           {/* KAN-205: Lesedatum, Menge und Mostgewicht Pflicht (auch bei Lesegut, das später verkauft wird) */}
           <input aria-label="Ernte-Datum" name="ernte_datum" type="date" required defaultValue={parzelle?.ernte_datum ?? ''}
-            className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-1.5 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-1.5 text-base sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Lesemethode</label>
           <select aria-label="Lesemethode" name="lesemethode" defaultValue={parzelle?.lesemethode ?? ''}
-            className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-1.5 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+            className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-1.5 text-base sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
             <option value="">–</option>
             {LESEMETHODE_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
@@ -646,7 +646,7 @@ function ParzellForm({
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Menge (kg) *</label>
           <input aria-label="Menge (kg)" name="menge_kg" type="text" inputMode="decimal" required
             defaultValue={parzelle?.menge_kg ?? ''}
-            className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-1.5 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-1.5 text-base sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         {/* Mostgewicht in °KMW oder °Oe (KAN-128): Messwert + Einheit als versteckte Felder
             mostgewicht_wert/_einheit – kein leeres Feld „oechsle“ mehr, das °Oe beim Speichern löschte.
@@ -662,7 +662,7 @@ function ParzellForm({
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Qualitätsstufe</label>
           <select aria-label="Qualitätsstufe" name="qualitaetsstufe" value={effectiveQualitaetEdit}
             onChange={e => setQualitaetEdit(e.target.value)}
-            className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-1.5 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+            className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-1.5 text-base sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
             {mitGespeichertemWert(leseStufenOptionen(derivedQualitaetEdit), parzelle?.qualitaetsstufe).map(o => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
@@ -686,7 +686,7 @@ function ParzellForm({
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Herkunft</label>
             <select aria-label="Herkunft" name="herkunft_code" value={herkunftWert} onChange={e => setHerkunftEdit(e.target.value)}
-              className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-1.5 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+              className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-1.5 text-base sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
               <option value="">{herkunftOpts[0]?.label ?? '–'} (vom Grundstück)</option>
               {herkunftOpts.slice(1).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
@@ -698,13 +698,13 @@ function ParzellForm({
         <div className="sm:col-span-2">
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Notizen</label>
           <input aria-label="Notizen" name="notizen" defaultValue={parzelle?.notizen ?? ''}
-            className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-1.5 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-1.5 text-base sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         </div>
       </div>
       {error && <p role="alert" className="text-xs text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2">{error}</p>}
       <div className="flex gap-2 pt-1">
         <button type="submit" disabled={pending}
-          className="flex-1 sm:flex-none bg-s112-teal text-s112-yellow px-4 py-3 sm:py-1.5 rounded-lg text-base sm:text-sm font-medium hover:bg-opacity-90 disabled:opacity-50 transition-colors">
+          className="flex-1 sm:flex-none bg-s112-teal text-s112-yellow px-4 py-3 sm:py-1.5 rounded-lg text-base sm:text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-50 transition-colors">
           {pending ? 'Speichert…' : 'Speichern'}
         </button>
         <button type="button" onClick={onDone}
@@ -749,7 +749,7 @@ function LesedatenKarten({ zeilen, mehrereLesen, gesamtKg, writeOk, editId, setE
               <MostgewichtAnzeige wert={{ kmw: p.klosterneuburger, oechsle: p.oechsle, einheit: p.mostgewicht_einheit }} />
               <span className="text-s112-muted">{qualitaetLabel(p.qualitaetsstufe)}</span>
             </div>
-            {p.notizen && <p className="mt-1 text-xs text-s112-text-2 break-words">{p.notizen}</p>}
+            {p.notizen && <p className="mt-1 text-xs text-s112-text-2 wrap-break-word">{p.notizen}</p>}
             {p.storno && (
               <p className="mt-1 text-[11px] text-s112-warn-fg">
                 storniert am {new Date(p.storno.am).toLocaleDateString('de-AT')}{p.storno.von ? ` von ${p.storno.von}` : ''}{p.storno.grund ? ` – ${p.storno.grund}` : ''}
@@ -869,7 +869,7 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
             {writeOk && !showForm && (
               <button onClick={() => { setShowForm(true); setEditId(null) }}
                 data-print="hide"
-                className="inline-flex items-center gap-1.5 bg-s112-teal text-s112-yellow font-semibold px-4 py-2.5 sm:px-3 sm:py-1.5 rounded-lg text-sm sm:text-xs hover:bg-opacity-90 transition-colors shadow-sm">
+                className="inline-flex items-center gap-1.5 bg-s112-teal text-s112-yellow font-semibold px-4 py-2.5 sm:px-3 sm:py-1.5 rounded-lg text-sm sm:text-xs hover:bg-s112-teal/90 transition-colors shadow-xs">
                 <Plus size={14} strokeWidth={2.5} /> Ernte
               </button>
             )}
@@ -1015,7 +1015,7 @@ export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel
         }`} data-print="hide">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <span className="inline-flex items-start gap-1.5">
-              {hektarhoechstertrag.ueberschritten && <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />}
+              {hektarhoechstertrag.ueberschritten && <AlertTriangle size={14} className="mt-0.5 shrink-0" />}
               <span>Lese betriebsweit (§ 23 WeinG): <strong>{fmtNum(hektarhoechstertrag.gesamtKg)} kg</strong>
               {' '}von max. <strong>{fmtNum(hektarhoechstertrag.maxKg)} kg</strong>
               {' '}(10.000 kg/ha × {fmtHa(hektarhoechstertrag.gesamtFlaecheHaBetrieb)} Gesamtfläche lt. AMA)

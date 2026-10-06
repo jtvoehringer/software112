@@ -43,7 +43,7 @@ export default function LoeschenButton({ action, bestaetigung = 'Eintrag wirklic
         {pending ? '…' : storno ? <Undo2 className="w-4 h-4" /> : <Trash2 className="w-4 h-4" />}
       </button>
       {error && (
-        <span role="alert" className="block text-[11px] leading-snug text-s112-err-fg w-[240px] max-w-[70vw] text-left whitespace-normal break-words">
+        <span role="alert" className="block text-[11px] leading-snug text-s112-err-fg w-[240px] max-w-[70vw] text-left whitespace-normal wrap-break-word">
           {error}
         </span>
       )}

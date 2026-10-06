@@ -15,17 +15,17 @@ export default function SeitenSkeleton({ variante = 'tabelle', zeilen = 8, kennz
         <div className="w-80 space-y-2">
           {[...Array(zeilen)].map((_, i) => (
             <div key={i} className="border border-s112-border rounded-xl p-3 space-y-1.5">
-              <div className="h-3 w-32 bg-s112-line rounded" />
-              <div className="h-3 w-56 bg-[#F2F3F5] rounded" />
-              <div className="h-3 w-40 bg-[#F2F3F5] rounded" />
+              <div className="h-3 w-32 bg-s112-line rounded-sm" />
+              <div className="h-3 w-56 bg-[#F2F3F5] rounded-sm" />
+              <div className="h-3 w-40 bg-[#F2F3F5] rounded-sm" />
             </div>
           ))}
         </div>
         <div className="flex-1 card p-6 space-y-3">
-          <div className="h-6 w-2/3 bg-s112-line rounded" />
-          <div className="h-3 w-1/2 bg-[#F2F3F5] rounded" />
+          <div className="h-6 w-2/3 bg-s112-line rounded-sm" />
+          <div className="h-3 w-1/2 bg-[#F2F3F5] rounded-sm" />
           <div className="h-px bg-s112-border my-2" />
-          {[...Array(6)].map((_, i) => <div key={i} className="h-3 bg-[#F2F3F5] rounded" style={{ width: `${90 - i * 9}%` }} />)}
+          {[...Array(6)].map((_, i) => <div key={i} className="h-3 bg-[#F2F3F5] rounded-sm" style={{ width: `${90 - i * 9}%` }} />)}
         </div>
       </div>
     )
@@ -35,7 +35,7 @@ export default function SeitenSkeleton({ variante = 'tabelle', zeilen = 8, kennz
       <div className="flex items-center justify-between">
         <div className="space-y-1.5">
           <div className="h-8 w-44 bg-s112-line rounded-lg" />
-          <div className="h-3 w-64 bg-[#F2F3F5] rounded" />
+          <div className="h-3 w-64 bg-[#F2F3F5] rounded-sm" />
         </div>
         <div className="h-9 w-32 bg-s112-line rounded-lg" />
       </div>
@@ -43,19 +43,19 @@ export default function SeitenSkeleton({ variante = 'tabelle', zeilen = 8, kennz
         <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${kennzahlen}, minmax(0, 1fr))` }}>
           {[...Array(kennzahlen)].map((_, i) => (
             <div key={i} className="card p-4 space-y-1.5">
-              <div className="h-3 w-20 bg-[#F2F3F5] rounded" />
-              <div className="h-7 w-24 bg-s112-line rounded" />
+              <div className="h-3 w-20 bg-[#F2F3F5] rounded-sm" />
+              <div className="h-7 w-24 bg-s112-line rounded-sm" />
             </div>
           ))}
         </div>
       )}
       <div className="card overflow-hidden">
         <div className="flex gap-4 px-4 py-3 border-b border-s112-border">
-          {[...Array(5)].map((_, i) => <div key={i} className="h-3 flex-1 bg-s112-line rounded" />)}
+          {[...Array(5)].map((_, i) => <div key={i} className="h-3 flex-1 bg-s112-line rounded-sm" />)}
         </div>
         {[...Array(zeilen)].map((_, i) => (
           <div key={i} className="flex gap-4 px-4 py-3 border-b border-s112-border/50 last:border-0">
-            {[...Array(5)].map((_, j) => <div key={j} className="h-4 flex-1 bg-[#F2F3F5] rounded" />)}
+            {[...Array(5)].map((_, j) => <div key={j} className="h-4 flex-1 bg-[#F2F3F5] rounded-sm" />)}
           </div>
         ))}
       </div>

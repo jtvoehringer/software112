@@ -348,7 +348,7 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
                       <span className="text-s112-muted text-xs">{wgOpen ? '▲' : '▼'}</span>
                     </button>
                     {wgOpen && (
-                      <div className="border border-s112-border border-t-0 rounded-b-xl divide-y divide-s112-border/40 max-h-48 overflow-y-auto shadow-sm">
+                      <div className="border border-s112-border border-t-0 rounded-b-xl divide-y divide-s112-border/40 max-h-48 overflow-y-auto shadow-xs">
                         {weingaerten.map(w => (
                           <label key={w.id} className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-s112-bg/60 transition-colors">
                             <input
@@ -431,7 +431,7 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
       )}
 
       <div className="flex items-center gap-3">
-        <button type="submit" disabled={saving} className="bg-s112-teal text-s112-yellow px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-50">
+        <button type="submit" disabled={saving} className="bg-s112-teal text-s112-yellow px-6 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors disabled:opacity-50">
           {saving ? 'Wird gespeichert …' : 'Speichern'}
         </button>
         <button type="button" onClick={() => router.push('/kellerbuch')} className="text-sm text-s112-muted hover:text-s112-text-1 transition-colors">Abbrechen</button>

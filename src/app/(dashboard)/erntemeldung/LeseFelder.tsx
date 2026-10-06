@@ -2,7 +2,7 @@
 
 import { LESE_ARTEN, LESE_ART_LABEL, LESE_ZEITRAUM_FOLGEJAHR_BIS, type Lese } from '@/lib/wein/lesen'
 
-const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40'
 
 /**
  * KAN-129: Felder einer Lese (Art, Bezeichnung, Beginn, Ende, Notizen) – „Neue Lese“ und „Lese bearbeiten“.

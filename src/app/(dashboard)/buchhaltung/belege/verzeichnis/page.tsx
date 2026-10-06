@@ -77,7 +77,7 @@ export default async function BelegverzeichnisPage({ searchParams }: { searchPar
       <form method="GET" className="bg-white rounded-xl border border-s112-border p-4 flex gap-3 items-end flex-wrap" data-print="hide">
         <div>
           <label htmlFor="bv-jahr" className="block text-xs font-medium text-s112-text-2 mb-1">Jahr</label>
-          <select id="bv-jahr" name="jahr" defaultValue={String(jahr)} className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none">
+          <select id="bv-jahr" name="jahr" defaultValue={String(jahr)} className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden">
             {(jahre.includes(jahr) ? jahre : [jahr, ...jahre]).map(j => <option key={j} value={j}>{j}</option>)}
           </select>
         </div>

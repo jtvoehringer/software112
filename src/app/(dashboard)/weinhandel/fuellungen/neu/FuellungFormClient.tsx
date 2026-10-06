@@ -157,7 +157,7 @@ export default function FuellungFormClient({
   const ueberabfuellung = schwund !== null && schwund < -0.005
   const schwundWarning = schwund !== null && (ueberabfuellung || schwund > verfuegbar * 0.2)
 
-  const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+  const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40'
   const labelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
 
   function handleChargeChange(id: string) {
@@ -344,7 +344,7 @@ export default function FuellungFormClient({
                   ))}
                 </select>
                 {selectedDacId && dacAntraege.find(d => d.id === selectedDacId)?.status !== 'genehmigt' && (
-                  <p className="text-xs text-s112-warn-fg bg-s112-warn-bg border border-s112-warn/30 rounded px-2 py-1 inline-flex items-center gap-1">
+                  <p className="text-xs text-s112-warn-fg bg-s112-warn-bg border border-s112-warn/30 rounded-sm px-2 py-1 inline-flex items-center gap-1">
                     <AlertTriangle size={12} strokeWidth={2} />Prüfnummer noch nicht zugeteilt – Abfüllung möglich, aber Prüfnummer fehlt.
                   </p>
                 )}
@@ -364,7 +364,7 @@ export default function FuellungFormClient({
               </p>
             )}
             {pnHinweis && (
-              <p className="text-xs text-s112-warn-fg bg-s112-warn-bg border border-s112-warn/30 rounded px-2 py-1 mt-2 flex items-start gap-1">
+              <p className="text-xs text-s112-warn-fg bg-s112-warn-bg border border-s112-warn/30 rounded-sm px-2 py-1 mt-2 flex items-start gap-1">
                 <AlertTriangle size={12} strokeWidth={2} className="mt-0.5 shrink-0" /><span>{pnHinweis}</span>
               </p>
             )}
@@ -582,7 +582,7 @@ export default function FuellungFormClient({
         <button
           type="submit"
           disabled={isPending || ueberabfuellung}
-          className="bg-s112-teal text-s112-yellow px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-50">
+          className="bg-s112-teal text-s112-yellow px-6 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors disabled:opacity-50">
           {isPending ? 'Wird angelegt …' : 'Füllung anlegen'}
         </button>
         <Link href="/weinhandel" className="px-6 py-2 rounded-xl text-sm font-medium text-s112-text-2 hover:text-s112-text transition-colors">

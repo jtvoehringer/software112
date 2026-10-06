@@ -179,7 +179,7 @@ export default function LagenClient({
         <p className="text-s112-text-1 font-medium">Noch keine Lagen angelegt</p>
         <p className="text-s112-muted text-sm mt-1 mb-6">Legen Sie Ihre erste Ried an</p>
         {writeOk && (
-          <Link href="/lagen/neu" className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
+          <Link href="/lagen/neu" className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors">
             Erste Lage
           </Link>
         )}
@@ -207,7 +207,7 @@ export default function LagenClient({
           </p>
           <div className="flex flex-wrap gap-1">
             {unzugeordnet.map(w => (
-              <span key={w.id} className="text-xs bg-white border border-s112-warn/30 text-s112-warn-fg px-2 py-0.5 rounded">
+              <span key={w.id} className="text-xs bg-white border border-s112-warn/30 text-s112-warn-fg px-2 py-0.5 rounded-sm">
                 {w.name}
               </span>
             ))}

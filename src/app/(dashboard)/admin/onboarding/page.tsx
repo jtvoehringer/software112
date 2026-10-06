@@ -143,7 +143,7 @@ export default function OnboardingPage() {
           <div>
             <input value={mandant} onChange={e => setMandant(e.target.value)}
               placeholder="Mandanten-Name (optional)"
-              className="border border-s112-border rounded-lg px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 w-60" />
+              className="border border-s112-border rounded-lg px-3 py-1 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 w-60" />
           </div>
           <span className={`text-lg font-semibold ${pct === 100 ? 'text-s112-ok-fg' : 'text-s112-blue-700'}`}>{pct}%</span>
         </div>
@@ -167,7 +167,7 @@ export default function OnboardingPage() {
                 <div key={s.id}
                   className={`card p-4 flex gap-3 ${done ? 'opacity-60' : ''}`}>
                   <button type="button" onClick={() => toggle(s.id)}
-                    className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors
+                    className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors
                       ${done ? 'bg-s112-ok border-s112-ok text-white' : 'bg-white border-s112-line-str hover:border-s112-ok/50'}`}>
                     {done && <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
@@ -176,7 +176,7 @@ export default function OnboardingPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <p className={`text-sm font-medium ${done ? 'line-through text-s112-tertiary' : 'text-s112-text'}`}>{s.titel}</p>
-                      {!s.pflicht && <span className="text-xs bg-[#F2F3F5] text-s112-text-2 px-1.5 py-0.5 rounded">optional</span>}
+                      {!s.pflicht && <span className="text-xs bg-[#F2F3F5] text-s112-text-2 px-1.5 py-0.5 rounded-sm">optional</span>}
                     </div>
                     <p className="text-xs text-s112-text-2 leading-relaxed">{s.beschreibung}</p>
                     {s.link && !done && (

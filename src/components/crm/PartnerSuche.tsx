@@ -18,7 +18,7 @@ export type PartnerTreffer = {
   daten?: { typ: 'kontakt' | 'firma'; firma_id: string | null; rabatt_pct: number | null; sonderrabatt_pct: number; skonto_pct: number; skonto_tage: number }
 }
 
-const inputCls = 'border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 bg-white'
+const inputCls = 'border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 bg-white'
 
 export default function PartnerSuche({ art, firmaId, value, onChange, placeholder, disabled }: {
   art: 'kunde' | 'lieferant' | 'kontakt' | 'firma'
@@ -79,7 +79,7 @@ export default function PartnerSuche({ art, firmaId, value, onChange, placeholde
         {selected?.sub && <span className="text-xs text-s112-muted truncate">{selected.sub}</span>}
         {!disabled && (
           <button type="button" onClick={() => { onChange('', null); setGewaehlt(null); setQuery('') }}
-            className="text-s112-muted hover:text-s112-err ml-1 flex-shrink-0 text-base leading-none">×</button>
+            className="text-s112-muted hover:text-s112-err ml-1 shrink-0 text-base leading-none">×</button>
         )}
       </div>
     )
@@ -108,7 +108,7 @@ export default function PartnerSuche({ art, firmaId, value, onChange, placeholde
               onMouseDown={() => { setGewaehlt(item); onChange(item.id, item); setQuery(''); setOpen(false) }}
               className="w-full text-left px-3 py-2 text-sm hover:bg-s112-teal/10 flex items-center justify-between gap-2">
               <span className="font-medium text-s112-text truncate">{item.label}</span>
-              {item.sub && <span className="text-xs text-s112-muted flex-shrink-0">{item.sub}</span>}
+              {item.sub && <span className="text-xs text-s112-muted shrink-0">{item.sub}</span>}
             </button>
           ))}
           {treffer.length >= 30 && (

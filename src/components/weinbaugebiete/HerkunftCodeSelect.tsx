@@ -118,7 +118,7 @@ export default function HerkunftCodeSelect({
             type="button"
             onClick={speichern}
             disabled={speichert || !neuName.trim()}
-            className="shrink-0 px-3 py-2 rounded-lg text-xs font-semibold bg-s112-teal text-s112-yellow hover:bg-opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="shrink-0 px-3 py-2 rounded-lg text-xs font-semibold bg-s112-teal text-s112-yellow hover:bg-s112-teal/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             {speichert ? '…' : 'Speichern'}
           </button>

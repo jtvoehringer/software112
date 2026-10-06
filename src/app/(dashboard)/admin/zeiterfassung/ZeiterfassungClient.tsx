@@ -37,7 +37,7 @@ function fmtDate(d: string) {
   return new Date(d + 'T12:00:00').toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
-const inputCls = 'border border-s112-border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-s112-teal w-full'
+const inputCls = 'border border-s112-border rounded-lg px-2 py-1.5 text-sm focus:outline-hidden focus:ring-1 focus:ring-s112-teal w-full'
 
 // ── Formular ──────────────────────────────────────────────────────────────────
 
@@ -126,7 +126,7 @@ function ZeitForm({
 
       <div className="flex gap-2 pt-1">
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
+          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-s112-teal/90 disabled:opacity-40">
           {pending ? 'Speichern…' : 'Speichern'}
         </button>
         <button type="button" onClick={onCancel}
@@ -197,7 +197,7 @@ export default function ZeiterfassungClient({ eintraege }: { eintraege: Zeiteint
           <p className="text-sm text-s112-muted mt-0.5">software:112 · IC&P Consultants</p>
         </div>
         <button onClick={() => setShowNew(true)}
-          className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-sm font-semibold hover:bg-opacity-90">
+          className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-sm font-semibold hover:bg-s112-teal/90">
           + Neuer Eintrag
         </button>
       </div>
@@ -211,7 +211,7 @@ export default function ZeiterfassungClient({ eintraege }: { eintraege: Zeiteint
           { label: 'Tokens (In/Out)',  value: `${fmtNum(totals.tokensIn)} / ${fmtNum(totals.tokensOut)}` },
           { label: 'Claude Lizenzkosten', value: fmtEuro(totals.lizenzkosten) },
         ].map(({ label, value }) => (
-          <div key={label} className="bg-white border border-s112-border rounded-xl p-3 shadow-sm">
+          <div key={label} className="bg-white border border-s112-border rounded-xl p-3 shadow-xs">
             <p className="text-xs text-s112-muted">{label}</p>
             <p className="text-lg font-semibold text-s112-text mt-0.5">{value}</p>
           </div>
@@ -233,7 +233,7 @@ export default function ZeiterfassungClient({ eintraege }: { eintraege: Zeiteint
       </div>
 
       {/* ── Tabelle ── */}
-      <div className="bg-white border border-s112-border rounded-xl shadow-sm overflow-hidden">
+      <div className="bg-white border border-s112-border rounded-xl shadow-xs overflow-hidden">
         <div className="overflow-x-auto overflow-y-auto max-h-[65vh]">
           <table className="w-full text-sm">
             <thead className="sticky top-0 z-10">
@@ -269,7 +269,7 @@ export default function ZeiterfassungClient({ eintraege }: { eintraege: Zeiteint
                       {fmtDate(e.datum)}
                     </td>
                     <td className="px-4 py-2.5">
-                      <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${phase.bg} ${phase.text}`}>
+                      <span className={`inline-block px-2 py-0.5 rounded-sm text-xs font-medium ${phase.bg} ${phase.text}`}>
                         Ph.{e.phase}
                       </span>
                     </td>
@@ -300,11 +300,11 @@ export default function ZeiterfassungClient({ eintraege }: { eintraege: Zeiteint
                     <td className="px-4 py-2.5 whitespace-nowrap">
                       <div className="flex items-center gap-1 justify-end">
                         <button onClick={() => setEditEntry(e)}
-                          className="text-s112-muted hover:text-s112-blue-700 p-1 rounded transition-colors" title="Bearbeiten">
+                          className="text-s112-muted hover:text-s112-blue-700 p-1 rounded-sm transition-colors" title="Bearbeiten">
                           <Pencil className="w-4 h-4" />
                         </button>
                         <button onClick={() => setDeleteId(e.id)}
-                          className="text-s112-muted hover:text-s112-err p-1 rounded transition-colors" title="Löschen">
+                          className="text-s112-muted hover:text-s112-err p-1 rounded-sm transition-colors" title="Löschen">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>

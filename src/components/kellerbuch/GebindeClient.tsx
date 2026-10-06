@@ -80,9 +80,9 @@ export default function GebindeClient({ gebinde, action, inputCls, labelCls, par
                 <input aria-label="Notizen" name="notizen" defaultValue={gebinde.notizen ?? ''} className={inputCls} />
               </div>
               <div className="flex flex-wrap gap-4 text-sm text-s112-text">
-                <label className="inline-flex items-center gap-2 cursor-pointer"><input type="checkbox" name="stapler" value="true" defaultChecked={!!gebinde.stapler} className="accent-[var(--s112-teal)]" /> mit Stapler versetzbar</label>
+                <label className="inline-flex items-center gap-2 cursor-pointer"><input type="checkbox" name="stapler" value="true" defaultChecked={!!gebinde.stapler} className="accent-(--s112-teal)" /> mit Stapler versetzbar</label>
                 {partner && (
-                  <label className="inline-flex items-center gap-2 cursor-pointer"><input type="hidden" name="gemeinsam_sichtbar" value="1" /><input type="checkbox" name="gemeinsam" value="true" defaultChecked={gebinde.gemeinsam !== false} className="accent-[var(--s112-teal)]" /> für Partnerbetriebe freigegeben ({partner})</label>
+                  <label className="inline-flex items-center gap-2 cursor-pointer"><input type="hidden" name="gemeinsam_sichtbar" value="1" /><input type="checkbox" name="gemeinsam" value="true" defaultChecked={gebinde.gemeinsam !== false} className="accent-(--s112-teal)" /> für Partnerbetriebe freigegeben ({partner})</label>
                 )}
               </div>
               <div>
@@ -94,7 +94,7 @@ export default function GebindeClient({ gebinde, action, inputCls, labelCls, par
               </div>
               <div className="flex gap-3 pt-2">
                 <button type="submit"
-                  className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
+                  className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90">
                   Speichern
                 </button>
                 <button type="button" onClick={() => setOpen(false)}

@@ -610,22 +610,22 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
           <p className="text-2xl font-semibold text-s112-blue-700 tabular-nums">{fmtLiter(aktuell)}</p>
           <p className="text-xs text-s112-muted mt-0.5">verfügbarer Bestand</p>
           {/* KAN-181: am Handy als umbrechende Knopfzeile; ab sm wie bisher (Block, mt der Knöpfe gilt) */}
-          <div className="flex flex-wrap gap-2 mt-2 sm:block sm:mt-0 max-sm:[&>*]:mt-0">
+          <div className="flex flex-wrap gap-2 mt-2 sm:block sm:mt-0 max-sm:*:mt-0">
           {writeOk && aktuell > 0.01 && (
             <Link href={`/weinhandel/fuellungen/neu?charge=${weinausbau.id}`}
-              className="mt-2 inline-flex items-center gap-1 text-xs bg-s112-teal text-s112-yellow px-3 py-1 rounded-lg hover:bg-opacity-90 transition-colors">
+              className="mt-2 inline-flex items-center gap-1 text-xs bg-s112-teal text-s112-yellow px-3 py-1 rounded-lg hover:bg-s112-teal/90 transition-colors">
               <Wine size={13} strokeWidth={1.75} />Abfüllen
             </Link>
           )}
           {writeOk && aktuell > 0.01 && (
             <Link href={`/kellerbuch/weinausbau/${weinausbau.id}?form=umziehen`}
-              className="mt-1 inline-flex items-center gap-1 text-xs bg-s112-teal text-s112-yellow px-3 py-1 rounded-lg hover:bg-opacity-90 transition-colors">
+              className="mt-1 inline-flex items-center gap-1 text-xs bg-s112-teal text-s112-yellow px-3 py-1 rounded-lg hover:bg-s112-teal/90 transition-colors">
               <ArrowLeftRight size={13} strokeWidth={1.75} />Umziehen
             </Link>
           )}
           {writeOk && (
             <Link href={`/kellerbuch/weinausbau/${weinausbau.id}?form=verschneiden`}
-              className="mt-1 inline-flex items-center gap-1 text-xs bg-s112-grey text-white px-3 py-1 rounded-lg hover:bg-opacity-90 transition-colors">
+              className="mt-1 inline-flex items-center gap-1 text-xs bg-s112-grey text-white px-3 py-1 rounded-lg hover:bg-s112-grey/90 transition-colors">
               <GitMerge size={13} strokeWidth={1.75} />Verschneiden
             </Link>
           )}

@@ -39,7 +39,7 @@ export const HINWEISE_EVENT = 's112:hinweise'
 
 /** Fokusrahmen auf der blauen Fläche: nur die Farbe, Breite und Abstand kommen
  *  aus globals.css (dort mit !important, daher auch hier !important) */
-const FOKUS_HELL = 'focus-visible:!outline-s112-kopf-text'
+const FOKUS_HELL = 'focus-visible:outline-s112-kopf-text!'
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean)
@@ -155,7 +155,7 @@ export default function Topbar({
           {branding.logo_url && (
             // Logo-Kachel voll weiß: Mandantenlogos sind für hellen Grund gemacht
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={branding.logo_url} alt={branding.anzeigename} className="hidden sm:block h-7 w-auto max-w-[140px] object-contain bg-white rounded px-1 py-0.5 shrink-0" />
+            <img src={branding.logo_url} alt={branding.anzeigename} className="hidden sm:block h-7 w-auto max-w-[140px] object-contain bg-white rounded-sm px-1 py-0.5 shrink-0" />
           )}
           {/* Label und Name auf einer Grundlinie (Mono-Schrift sitzt sonst optisch zu hoch) */}
           <div className="min-w-0 flex items-baseline gap-2.5 leading-none">
@@ -174,7 +174,7 @@ export default function Topbar({
           >
             <Search size={15} strokeWidth={1.75} />
             <span className="hidden lg:inline">Suchen oder Befehl …</span>
-            <kbd className="hidden md:inline font-mono text-[10.5px] text-s112-kopf-text/85 border border-s112-kopf-text/40 rounded-sm px-1.5 py-px">Strg K</kbd>
+            <kbd className="hidden md:inline font-mono text-[10.5px] text-s112-kopf-text/85 border border-s112-kopf-text/40 rounded-xs px-1.5 py-px">Strg K</kbd>
           </button>
 
           {/* Benachrichtigungen: Fristenzähler */}

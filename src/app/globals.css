@@ -1,25 +1,150 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
 
+@theme {
+  --color-s112-teal: var(--s112-teal, #4677be);
+  --color-s112-yellow: var(--s112-yellow, #ffffff);
+  --color-s112-kopf: rgb(var(--s112-kopf, 47 99 172));
+  --color-s112-kopf-text: rgb(var(--s112-kopf-text, 255 255 255));
+  --color-s112-navy: #0e3c62;
+  --color-s112-green: #98c780;
+  --color-s112-blue: #98c6dd;
+  --color-s112-blue-50: #eef4fd;
+  --color-s112-blue-100: #dce8fa;
+  --color-s112-blue-300: #77a6e7;
+  --color-s112-blue-700: #2f63ac;
+  --color-s112-bg: #f7f8fa;
+  --color-s112-surface: #ffffff;
+  --color-s112-line: #edeef1;
+  --color-s112-line-str: #d6d8dd;
+  --color-s112-grey: #99999d;
+  --color-s112-muted: #6e717a;
+  --color-s112-text-1: #5a5d66;
+  --color-s112-text-2: #6e717a;
+  --color-s112-text: #22252b;
+  --color-s112-tertiary: #707277;
+  --color-s112-border: #edeef1;
+  --color-s112-ok: #327f63;
+  --color-s112-ok-bg: #eaf5f0;
+  --color-s112-ok-fg: #2c6b55;
+  --color-s112-warn: #b48835;
+  --color-s112-warn-bg: #fbf3e3;
+  --color-s112-warn-fg: #8a6415;
+  --color-s112-err: #bc5049;
+  --color-s112-err-bg: #fbeeed;
+  --color-s112-err-fg: #8e3a34;
+
+  --font-sans: var(--font-plex-sans), system-ui, sans-serif;
+  --font-display: var(--font-poppins), system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+}
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}
+
+/* Weitere v3-Vorgaben (KAN-213): Platzhalter grau statt Textfarbe, Zeiger-Cursor auf Schaltflächen */
+@layer base {
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--color-gray-400);
+  }
+
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+@utility btn-primary {
+  /* Primär-Button */
+  @apply bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg font-medium
+           hover:opacity-90 disabled:opacity-50 transition-opacity
+           focus:outline-hidden focus:ring-2 focus:ring-s112-teal focus:ring-offset-2;
+}
+
+@utility btn-secondary {
+  /* Sekundär-Button */
+  @apply bg-white text-s112-blue-700 border border-s112-line-str px-4 py-2 rounded-lg font-medium
+           hover:bg-s112-bg disabled:opacity-50 transition-colors
+           focus:outline-hidden focus:ring-2 focus:ring-s112-teal focus:ring-offset-2;
+}
+
+@utility card {
+  /* Card */
+  @apply bg-white rounded-xl border border-s112-line shadow-xs p-6;
+}
+
+@utility input {
+  /* Input */
+  @apply w-full px-3 py-2 border border-s112-line-str rounded-lg text-sm bg-white text-s112-text
+           focus:outline-hidden focus:ring-2 focus:ring-s112-teal focus:border-transparent
+           placeholder:text-s112-tertiary;
+}
+
+@utility form-input {
+  /* Form Input */
+  @apply w-full px-3 py-2 border border-s112-line-str rounded-lg text-sm bg-white text-s112-text
+           focus:outline-hidden focus:ring-2 focus:ring-s112-teal focus:border-transparent
+           placeholder:text-s112-tertiary transition-colors;
+}
+
+@utility form-label {
+  /* Form Label */
+  @apply block text-sm font-medium text-s112-text-1 mb-1;
+}
+
+@utility nav-item {
+  /* Sidebar Nav Item */
+  @apply flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium
+           text-s112-text-1 hover:bg-s112-bg hover:text-s112-blue-700 transition-colors;
+
+  &.active {
+    @apply bg-s112-blue-50 text-s112-blue-700;
+  }
+}
+
+@utility active {
+  &.nav-item {
+    @apply bg-s112-blue-50 text-s112-blue-700;
+  }
+}
+
+/* Marken-Tokens bewusst außerhalb jeder Ebene (KAN-213): Mandantenfarben überschreiben sie per style-Attribut */
 :root {
   /* software:112 Brand Tokens — Design-System 2026-08 (siehe project_design_relaunch.md) */
-  --s112-teal:   #4677BE; /* Aktion, per Tenant überschreibbar (primary_color); AA-konforme Variante von #4F86D6 */
-  --s112-navy:   #22252B; /* Alt-Token, jetzt Anthrazit (CD: kein Navy) */
-  --s112-green:  #3E9B79; /* Alt-Token → Signal OK */
-  --s112-blue:   #77A6E7; /* Alt-Token → Markenblau */
-  --s112-yellow: #FFFFFF; /* Text auf Aktion-Fläche, per Tenant überschreibbar (secondary_color) */
-  --s112-kopf:      47 99 172;    /* Kopfleiste (RGB-Kanäle), CD-Blau #2F63AC; per Tenant aus primary_color (KAN-164) */
-  --s112-kopf-text: 255 255 255;  /* Schrift auf der Kopfleiste; per Tenant aus secondary_color (KAN-164) */
-  --s112-bg:     #F7F8FA;
-  --s112-muted:  #6E717A;
-  --s112-border: #EDEEF1;
+  --s112-teal: #4677be; /* Aktion, per Tenant überschreibbar (primary_color); AA-konforme Variante von #4F86D6 */
+  --s112-navy: #22252b; /* Alt-Token, jetzt Anthrazit (CD: kein Navy) */
+  --s112-green: #3e9b79; /* Alt-Token → Signal OK */
+  --s112-blue: #77a6e7; /* Alt-Token → Markenblau */
+  --s112-yellow: #ffffff; /* Text auf Aktion-Fläche, per Tenant überschreibbar (secondary_color) */
+  --s112-kopf: 47 99 172; /* Kopfleiste (RGB-Kanäle), CD-Blau #2F63AC; per Tenant aus primary_color (KAN-164) */
+  --s112-kopf-text: 255 255 255; /* Schrift auf der Kopfleiste; per Tenant aus secondary_color (KAN-164) */
+  --s112-bg: #f7f8fa;
+  --s112-muted: #6e717a;
+  --s112-border: #edeef1;
 
   /* Schrift-Familien: selbst gehostet über @fontsource (siehe layout.tsx) statt
-     next/font/google, damit der Vercel-Build nicht mehr von einem Live-Fetch
-     zu fonts.gstatic.com abhängt (Ursache für die wiederholt fehlgeschlagenen
-     Deploys am 14.8.2026). */
-  --font-poppins:   'Poppins';
+   next/font/google, damit der Vercel-Build nicht mehr von einem Live-Fetch
+   zu fonts.gstatic.com abhängt (Ursache für die wiederholt fehlgeschlagenen
+   Deploys am 14.8.2026). */
+  --font-poppins: 'Poppins';
   --font-plex-sans: 'IBM Plex Sans';
   --font-plex-mono: 'IBM Plex Mono';
 }
@@ -36,56 +161,6 @@
     font-family: var(--font-poppins), system-ui, sans-serif;
     font-weight: 600;
     color: #22252B;
-  }
-}
-
-@layer components {
-  /* Primär-Button */
-  .btn-primary {
-    @apply bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg font-medium
-           hover:opacity-90 disabled:opacity-50 transition-opacity
-           focus:outline-none focus:ring-2 focus:ring-s112-teal focus:ring-offset-2;
-  }
-
-  /* Sekundär-Button */
-  .btn-secondary {
-    @apply bg-white text-s112-blue-700 border border-s112-line-str px-4 py-2 rounded-lg font-medium
-           hover:bg-s112-bg disabled:opacity-50 transition-colors
-           focus:outline-none focus:ring-2 focus:ring-s112-teal focus:ring-offset-2;
-  }
-
-  /* Card */
-  .card {
-    @apply bg-white rounded-xl border border-s112-line shadow-sm p-6;
-  }
-
-  /* Input */
-  .input {
-    @apply w-full px-3 py-2 border border-s112-line-str rounded-lg text-sm bg-white text-s112-text
-           focus:outline-none focus:ring-2 focus:ring-s112-teal focus:border-transparent
-           placeholder:text-s112-tertiary;
-  }
-
-  /* Form Input */
-  .form-input {
-    @apply w-full px-3 py-2 border border-s112-line-str rounded-lg text-sm bg-white text-s112-text
-           focus:outline-none focus:ring-2 focus:ring-s112-teal focus:border-transparent
-           placeholder:text-s112-tertiary transition-colors;
-  }
-
-  /* Form Label */
-  .form-label {
-    @apply block text-sm font-medium text-s112-text-1 mb-1;
-  }
-
-  /* Sidebar Nav Item */
-  .nav-item {
-    @apply flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium
-           text-s112-text-1 hover:bg-s112-bg hover:text-s112-blue-700 transition-colors;
-  }
-
-  .nav-item.active {
-    @apply bg-s112-blue-50 text-s112-blue-700;
   }
 }
 

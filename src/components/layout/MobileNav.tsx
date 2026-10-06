@@ -41,9 +41,9 @@ export default function MobileNav({ groups }: { groups: NavGroup[] }) {
   if (!offen) return null
   return (
     <div className="md:hidden">
-      <div className="fixed inset-0 z-[60] bg-black/40" onClick={() => setOffen(false)} aria-hidden="true" />
+      <div className="fixed inset-0 z-60 bg-black/40" onClick={() => setOffen(false)} aria-hidden="true" />
       <nav aria-label="Hauptnavigation (mobil)"
-        className="fixed inset-y-0 left-0 z-[61] w-[85vw] max-w-[320px] bg-white shadow-xl flex flex-col">
+        className="fixed inset-y-0 left-0 z-61 w-[85vw] max-w-[320px] bg-white shadow-xl flex flex-col">
         <div className="h-14 shrink-0 flex items-center justify-between px-4 border-b border-s112-line">
           <span className="font-display text-[18px] font-light tracking-[.04em] text-s112-text">software<b className="font-semibold">:</b>112</span>
           <button type="button" onClick={() => setOffen(false)} aria-label="Menü schließen"

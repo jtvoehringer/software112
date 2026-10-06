@@ -89,17 +89,17 @@ export default async function KassabuchPage({ searchParams }: { searchParams: Pr
           <form method="GET" className="bg-white rounded-xl border border-s112-border p-4 flex gap-3 items-end flex-wrap" data-print="hide">
             <div>
               <label htmlFor="kb-konto" className="block text-xs font-medium text-s112-text-2 mb-1">Kassa</label>
-              <select id="kb-konto" name="konto" defaultValue={konto?.id} className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none">
+              <select id="kb-konto" name="konto" defaultValue={konto?.id} className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden">
                 {konten.map(k => <option key={k.id} value={k.id}>{k.name}{k.aktiv ? '' : ' (inaktiv)'}</option>)}
               </select>
             </div>
             <div>
               <label htmlFor="kb-von" className="block text-xs font-medium text-s112-text-2 mb-1">Von</label>
-              <input id="kb-von" type="date" name="von" defaultValue={von} className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none" />
+              <input id="kb-von" type="date" name="von" defaultValue={von} className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden" />
             </div>
             <div>
               <label htmlFor="kb-bis" className="block text-xs font-medium text-s112-text-2 mb-1">Bis</label>
-              <input id="kb-bis" type="date" name="bis" defaultValue={bis} className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none" />
+              <input id="kb-bis" type="date" name="bis" defaultValue={bis} className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden" />
             </div>
             <button type="submit" className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm">Anzeigen</button>
           </form>
