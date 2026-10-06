@@ -676,7 +676,8 @@ BEGIN
     v_rpc_gesp := v_rpc_gesp || jsonb_build_object(r.name, pg_temp.t14_rpc(r.sql));
   END LOOP;
   PERFORM pg_temp.s112_als_postgres();
-  FOREACH v_txt IN ARRAY c_abo_rpcs || ARRAY['check_und_increment_ki_abfrage'] LOOP
+  -- KAN-21: get_next_rechnungsnummer ist für Benutzer nicht mehr ausführbar (nur Service-Role, Datei 47: rpc_gesperrt)
+  FOREACH v_txt IN ARRAY array_remove(c_abo_rpcs, 'get_next_rechnungsnummer') || ARRAY['check_und_increment_ki_abfrage'] LOOP
     v_erg := v_erg || pg_temp.s112_erwarte('rpc_gesperrt_' || v_txt, v_rpc_gesp ->> v_txt, '42501/abo_gesperrt');
     -- Kontrolle mit freiem Abo: Zugriff geht durch (kein 42501), keine Abo-Meldung
     v_erg := v_erg || pg_temp.s112_erwarte('rpc_frei_' || v_txt, v_rpc_frei ->> v_txt, 'ok');
