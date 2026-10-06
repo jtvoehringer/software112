@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { getCurrentMembership, canSeeAuswertungen } from '@/lib/auth/roles'
@@ -282,7 +283,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ fehler: 'ANTHROPIC_API_KEY nicht gesetzt – bitte in Vercel Environment Variables eintragen.' }, { status: 500 })
     }
 
-    const { data: limitCheck, error: limitFehler } = await (supabase.rpc as any)('check_und_increment_ki_abfrage', {
+    // KAN-22: KI-Zähler nur noch per Service-Role (kein EXECUTE für Benutzer) – erst nach den Prüfungen oben
+    // (Mitgliedschaft, Nur-Lesen-Modus, Auswertungsrecht); die Abo-Sperre prüft die Funktion auch im Service-Kontext
+    const kiZaehler = createSupabaseAdminClient()
+    const { data: limitCheck, error: limitFehler } = await (kiZaehler.rpc as any)('check_und_increment_ki_abfrage', {
       p_tenant_id: tenantId,
     })
     // KAN-5: Fehler NICHT überspringen (fail-closed) – sonst liefe die Anthropic-Abfrage ungezählt
@@ -368,7 +372,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    await (supabase.rpc as any)('increment_ki_tokens', {
+    await (kiZaehler.rpc as any)('increment_ki_tokens', {
       p_tenant_id:     tenantId,
       p_input_tokens:  inputTokens,
       p_output_tokens: outputTokens,

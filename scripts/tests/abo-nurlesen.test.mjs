@@ -603,7 +603,7 @@ describe('Abgleich: Ausnahmen des Servers sind im Browser frei', () => {
 
   test('KI-RPC: Fehler werden ausgewertet (fail-closed), nicht verworfen', () => {
     const ki = readFileSync(path.join(ROOT, 'src', 'app', 'api', 'ki-abfrage', 'route.ts'), 'utf8')
-    assert.match(ki, /error: limitFehler \} = await \(supabase\.rpc as any\)\('check_und_increment_ki_abfrage'/)
+    assert.match(ki, /error: limitFehler \} = await \(kiZaehler\.rpc as any\)\('check_und_increment_ki_abfrage'/)   // KAN-22: Admin-Client
     assert.match(ki, /hint === 'abo_gesperrt'/)
     const mb = readFileSync(path.join(ROOT, 'src', 'lib', 'morgenbericht', 'ki.ts'), 'utf8')
     assert.match(mb, /error: limitFehler \} = await \(client\.rpc as any\)\('check_und_increment_ki_abfrage'/)

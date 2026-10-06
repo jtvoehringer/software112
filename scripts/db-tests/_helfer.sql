@@ -1115,12 +1115,8 @@ $f$;
 --   schreibmodule          die sechs Schreibmodule (Default für winzer mit schreibmodule NULL)
 --   abo_rpc_ausnahmen      SECURITY-DEFINER-Funktionen mit p_tenant_id, EXECUTE für authenticated und Schreibanweisung
 --                          im Quelltext, die BEWUSST nicht s112_pruefe_abo_schreibsperre aufrufen (01: rpc_schreibt_ohne_abo).
---                          Nur mit Begründung aufnehmen:
---                            check_und_increment_ki_abfrage – prüft die Sperre selbst über s112_abo_gesperrt (eigene
---                              KI-Meldung); dynamisch belegt in 14 (rpc_gesperrt_check_und_increment_ki_abfrage).
---                            increment_ki_tokens – zählt nur die Tokens einer schon über check_und_increment_ki_abfrage
---                              freigegebenen KI-Abfrage nach (Verbrauchszähler, keine Fachdaten); Ist-Stand im gesperrten
---                              Betrieb in 14 festgehalten (rpc_gesperrt_increment_ki_tokens).
+--                          Nur mit Begründung aufnehmen. Seit KAN-22 leer: check_und_increment_ki_abfrage und
+--                          increment_ki_tokens sind nur noch für die Service-Role ausführbar (14: rpc_benutzer_*).
 --   ptz_ausnahmen          INVOKER-Funktionen mit p_tenant_id und EXECUTE für authenticated/anon/PUBLIC OHNE
 --                          pruefe_tenant_zugriff (01: ptz_invoker). Derzeit keine; nur mit Begründung aufnehmen.
 CREATE FUNCTION pg_temp.s112_soll_liste(p_art text) RETURNS text[] LANGUAGE plpgsql IMMUTABLE AS $f$
@@ -1182,9 +1178,7 @@ BEGIN
     WHEN 'truncate_authenticated' THEN '{}'::text[]   -- seit KAN-159 (29.09.2026) kein TRUNCATE mehr
     WHEN 'truncate_anon' THEN pg_temp.s112_soll_liste('truncate_authenticated')
     WHEN 'schreibmodule' THEN ARRAY['rieden', 'kellerbuch', 'warenwirtschaft', 'crm', 'ea', 'auswertungen']
-    WHEN 'abo_rpc_ausnahmen' THEN ARRAY[
-      'check_und_increment_ki_abfrage(p_tenant_id uuid)',
-      'increment_ki_tokens(p_tenant_id uuid, p_input_tokens integer, p_output_tokens integer)']
+    WHEN 'abo_rpc_ausnahmen' THEN '{}'::text[]   -- KAN-22: KI-Zähler nur Service-Role
     WHEN 'ptz_ausnahmen' THEN '{}'::text[]
     ELSE NULL
   END;
@@ -1221,7 +1215,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('mandant',       '-US', true , 's112_fuellung_nachtragen(p_tenant_id uuid, p_fuellung_id uuid, p_weinausbau_id uuid, p_dac_antrag_id uuid)'),   -- KAN-101: Charge/DAC-Antrag/Prüfnummer einmal nachtragen
     ('mandant',       '-US', true , 's112_pruefnummernantrag_status_setzen(p_tenant_id uuid, p_antrag_id uuid, p_status text, p_datum date, p_pruefnummer text, p_grund text)'),   -- KAN-97: Statuswechsel
     ('mandant',       '-US', true , 's112_freeze_korrektur(p_tenant_id uuid, p_tabelle text, p_id uuid, p_werte jsonb, p_grund text)'),   -- KAN-96: Korrektur durch den Betriebsleiter   -- KAN-178: Fremdverweise je FK-Spalte
-    ('mandant',       '-US', false, 'check_und_increment_ki_abfrage(p_tenant_id uuid)'),
+    ('intern',        '--S', false, 'check_und_increment_ki_abfrage(p_tenant_id uuid)'),   -- KAN-22: nur Service-Role (Route per Admin-Client)
     ('trigger',       '--S', false, 'create_profile_on_signup()'),
     ('session_user',  '-US', false, 'crm_dubletten(p_tenant_id uuid)'),
     ('session_user',  '-US', false, 'crm_filterwerte(p_tenant_id uuid)'),
@@ -1243,7 +1237,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('rls_hilfe',     '-US', false, 'get_user_role_in_tenant(p_tenant_id uuid)'),
     ('rls_hilfe',     '-US', false, 'get_user_tenant_ids()'),
     ('trigger',       '--S', false, 'handle_new_user()'),
-    ('mandant',       '-US', false, 'increment_ki_tokens(p_tenant_id uuid, p_input_tokens integer, p_output_tokens integer)'),
+    ('intern',        '--S', false, 'increment_ki_tokens(p_tenant_id uuid, p_input_tokens integer, p_output_tokens integer)'),   -- KAN-22: nur Service-Role
     ('mandant',       '-U-', false, 'ki_readonly_query(p_sql text, p_tenant_id uuid)'),
     ('session_user',  '-US', true , 'kontakte_zusammenfuehren(p_tenant_id uuid, p_behalten uuid, p_weg uuid[])'),
     ('trigger',       '--S', false, 'kundennummer_trg()'),
