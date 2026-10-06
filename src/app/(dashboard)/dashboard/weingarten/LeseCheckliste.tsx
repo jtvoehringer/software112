@@ -44,8 +44,8 @@ export default function LeseCheckliste({ listeId, jahr, punkte, darfSchreiben }:
         <span className="text-s112-text-2">Fortschritt</span>
         <span className="font-mono text-s112-ok-fg">{done} / {punkte.length} erledigt</span>
       </div>
-      <div className="h-2 rounded bg-s112-line overflow-hidden mb-2">
-        <div className="h-full rounded bg-s112-ok transition-[width] duration-300" style={{ width: `${pct}%` }} />
+      <div className="h-2 rounded-sm bg-s112-line overflow-hidden mb-2">
+        <div className="h-full rounded-sm bg-s112-ok transition-[width] duration-300" style={{ width: `${pct}%` }} />
       </div>
       <ul>
         {punkte.map(p => (

@@ -143,7 +143,7 @@ export default function EroeffnungImport({ art, herkunft }: { art: EroeffnungsAr
           <label htmlFor={`eb-stichtag-${art}`} className="block text-xs font-medium text-s112-text-2 mb-1">Stichtag *</label>
           <input id={`eb-stichtag-${art}`} type="date" value={stichtag} required
             onChange={e => { setStichtag(e.target.value); zuruecksetzen() }}
-            className="border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         </div>
         <CsvExportKnopf label="CSV-Vorlage" ariaLabel={`CSV-Vorlage ${t.titel}`} erzeugen={() => vorlageCsv(art)} />
       </div>
@@ -154,7 +154,7 @@ export default function EroeffnungImport({ art, herkunft }: { art: EroeffnungsAr
         <div className="flex flex-wrap items-center gap-4">
           <input ref={fileRef} type="file" accept=".csv,.txt" onChange={dateiWaehlen} className="hidden" aria-label="CSV-Datei" />
           <button type="button" onClick={() => fileRef.current?.click()}
-            className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-medium hover:bg-opacity-90">
+            className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-medium hover:bg-s112-teal/90">
             CSV-Datei öffnen
           </button>
           {datei && (
@@ -220,7 +220,7 @@ export default function EroeffnungImport({ art, herkunft }: { art: EroeffnungsAr
                 </table>
               </div>
               <button type="button" onClick={importieren} disabled={laeuft !== null || gueltig === 0}
-                className="bg-s112-teal text-s112-yellow px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
+                className="bg-s112-teal text-s112-yellow px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 disabled:opacity-40">
                 {laeuft === 'importieren' ? (fortschritt ?? 'Importiere…') : `${gueltig} gültige ${gueltig === 1 ? 'Zeile' : 'Zeilen'} importieren`}
               </button>
             </>

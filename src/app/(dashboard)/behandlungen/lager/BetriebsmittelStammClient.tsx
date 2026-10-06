@@ -18,7 +18,7 @@ export type BmStamm = {
   lager?: StammLager | null
 }
 
-const feld = 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+const feld = 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40'
 const lbl = 'block text-xs font-medium text-s112-text-2 mb-1'
 
 function Formular({ gruppe, edit, kategorien, onDone }: { gruppe: BetriebsmittelGruppe; edit?: BmStamm; kategorien: { id: string; name: string }[]; onDone: () => void }) {
@@ -68,7 +68,7 @@ function Formular({ gruppe, edit, kategorien, onDone }: { gruppe: Betriebsmittel
         </div>
       </div>
       <div className="flex gap-2 pt-1">
-        <button type="submit" disabled={pending} className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-50">
+        <button type="submit" disabled={pending} className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-50">
           {pending ? 'Speichert…' : 'Speichern'}
         </button>
         <button type="button" onClick={onDone} className="px-4 py-1.5 rounded-lg text-sm font-medium text-s112-text-2 hover:text-s112-text">Abbrechen</button>
@@ -101,7 +101,7 @@ export default function BetriebsmittelStammClient({ gruppe, mittel, jahr, katego
     <div className={pending ? 'opacity-60 pointer-events-none' : ''}>
       <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
         {writeOk && !neu ? (
-          <button onClick={() => setNeu(true)} className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
+          <button onClick={() => setNeu(true)} className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90">
             Neu anlegen
           </button>
         ) : <span />}

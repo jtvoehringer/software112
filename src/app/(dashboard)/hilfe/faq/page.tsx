@@ -187,7 +187,7 @@ export default function FAQPage() {
       <div className="flex flex-wrap gap-3">
         <input value={suche} onChange={e => setSuche(e.target.value)}
           placeholder="Fragen durchsuchen…"
-          className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 w-56" />
+          className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 w-56" />
         <div className="flex gap-1 flex-wrap">
           {['Alle', ...KATEGORIEN].map(k => (
             <button key={k} onClick={() => setKategorie(k)}
@@ -205,12 +205,12 @@ export default function FAQPage() {
             <button onClick={() => setOffen(offen === i ? null : i)}
               className="w-full flex items-center justify-between px-5 py-3.5 text-left hover:bg-s112-bg/50 transition-colors">
               <div className="flex items-center gap-3">
-                <span className="text-xs bg-s112-bg border border-s112-border px-2 py-0.5 rounded text-s112-text-2 flex-shrink-0">
+                <span className="text-xs bg-s112-bg border border-s112-border px-2 py-0.5 rounded-sm text-s112-text-2 shrink-0">
                   {f.kategorie}
                 </span>
                 <span className="text-sm font-medium text-s112-text">{f.frage}</span>
               </div>
-              <span className={`text-s112-muted flex-shrink-0 ml-3 transition-transform ${offen === i ? 'rotate-180' : ''}`}>▾</span>
+              <span className={`text-s112-muted shrink-0 ml-3 transition-transform ${offen === i ? 'rotate-180' : ''}`}>▾</span>
             </button>
             {offen === i && (
               <div className="px-5 pb-4 pt-1 text-sm text-s112-text-2 leading-relaxed border-t border-s112-border/40 whitespace-pre-line">

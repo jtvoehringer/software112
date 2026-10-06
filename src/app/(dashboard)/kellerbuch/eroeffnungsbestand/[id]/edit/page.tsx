@@ -81,7 +81,7 @@ export default async function EroeffnungsbestandEditPage({ params, searchParams 
   // Das aktuell zugeordnete Gebinde bleibt wählbar, auch wenn es inzwischen gesperrt wäre
   const gebinde = gebindeRows.map(b => ({ id: b.id, name: b.anzeigeName })) as R[]
   const rdOnly = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm bg-s112-bg text-s112-text-2 cursor-not-allowed'
-  const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+  const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40'
   const labelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
 
   return (
@@ -187,7 +187,7 @@ export default async function EroeffnungsbestandEditPage({ params, searchParams 
         </div>
         <div className="flex gap-3 pt-2">
           <button type="submit"
-            className="bg-s112-teal text-s112-yellow px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
+            className="bg-s112-teal text-s112-yellow px-6 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors">
             Speichern
           </button>
           <Link href="/kellerbuch/gebinde?tab=eroeffnungsbestand"

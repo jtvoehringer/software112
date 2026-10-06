@@ -129,8 +129,8 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
           <div className="sm:col-span-2">
             <label className="flex items-center gap-2.5 cursor-pointer select-none">
               <button type="button" role="switch" aria-checked={isDac} onClick={() => setIsDac(v => !v)} disabled={gesperrt('dac_region')}
-                className={`w-9 h-5 rounded-full transition-colors flex-shrink-0 ${isDac ? 'bg-s112-teal' : 'bg-s112-line-str'}`}>
-                <span className={`block w-4 h-4 bg-white rounded-full shadow mt-0.5 transition-transform ${isDac ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                className={`w-9 h-5 rounded-full transition-colors shrink-0 ${isDac ? 'bg-s112-teal' : 'bg-s112-line-str'}`}>
+                <span className={`block w-4 h-4 bg-white rounded-full shadow-sm mt-0.5 transition-transform ${isDac ? 'translate-x-4' : 'translate-x-0.5'}`} />
               </button>
               <span className="text-sm font-medium text-s112-text-1">DAC-Antrag (mit Lagenbezeichnung)</span>
             </label>
@@ -185,7 +185,7 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
                 <button
                   type="button"
                   onClick={() => setAlkohol(String(latestAnalyse.alkohol_vol).replace('.', ','))}
-                  className="flex-shrink-0 text-xs bg-s112-blue-50 text-s112-blue-700 border border-s112-blue-100 px-2 py-1.5 rounded-lg hover:bg-s112-blue-100 transition-colors whitespace-nowrap"
+                  className="shrink-0 text-xs bg-s112-blue-50 text-s112-blue-700 border border-s112-blue-100 px-2 py-1.5 rounded-lg hover:bg-s112-blue-100 transition-colors whitespace-nowrap"
                   title="Wert aus letzter Analyse übernehmen"
                 >
                   {String(latestAnalyse.alkohol_vol).replace('.', ',')} %
@@ -204,7 +204,7 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
             href="https://services2.lfrz.at/at.lfrz.wein/frame.html"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 bg-s112-teal text-s112-yellow text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-opacity-90 transition-colors"
+            className="inline-flex items-center gap-1.5 bg-s112-teal text-s112-yellow text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-s112-teal/90 transition-colors"
           >
             bawb.at öffnen
           </a>
@@ -292,7 +292,7 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
       )}
 
       <div className="flex items-center gap-3">
-           <button type="submit" disabled={saving} className="bg-s112-teal text-s112-yellow px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-50">
+           <button type="submit" disabled={saving} className="bg-s112-teal text-s112-yellow px-6 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors disabled:opacity-50">
           {saving ? 'Wird gespeichert …' : 'Speichern'}
         </button>
         <button type="button" onClick={() => router.push('/dac')} className="text-sm text-s112-muted hover:text-s112-text-1 transition-colors">Abbrechen</button>

@@ -34,7 +34,7 @@ const TYP_COLOR: Record<string, string> = {
   einkauf:        'bg-s112-ok-bg text-s112-ok-fg border-s112-ok/30',
   korrektur:      'bg-s112-warn-bg text-s112-warn-fg border-s112-warn/30',
 }
-const feld = 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+const feld = 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40'
 const lbl = 'block text-xs font-medium text-s112-text-2 mb-1'
 
 function fmtDate(d: string) { const [y, m, dd] = d.split('-'); return `${dd}.${m}.${y}` }
@@ -160,7 +160,7 @@ function BuchungsForm({ ctx, mittelId, edit, onDone }: { ctx: Ctx; mittelId?: st
       </div>
       {ctx.einkaufSperre && !edit && <p className="text-xs text-s112-muted">Einkauf nicht möglich: {ctx.einkaufSperre}</p>}
       <div className="flex gap-2 pt-1">
-        <button type="submit" disabled={pending} className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-50">
+        <button type="submit" disabled={pending} className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-50">
           {pending ? 'Speichert…' : einkauf ? 'Einkauf buchen' : 'Speichern'}
         </button>
         <button type="button" onClick={onDone} className="px-4 py-1.5 rounded-lg text-sm font-medium text-s112-text-2 hover:text-s112-text">Abbrechen</button>
@@ -273,7 +273,7 @@ export default function BetriebsmittelLagerClient({ gruppe, karten, ctx, writeOk
       {writeOk && ctx.alle.length > 0 && (
         <div className="mb-4">
           {neu ? <BuchungsForm ctx={ctx} onDone={() => setNeu(false)} /> : (
-            <button onClick={() => setNeu(true)} className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
+            <button onClick={() => setNeu(true)} className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors">
               Buchung erfassen
             </button>
           )}

@@ -124,7 +124,7 @@ const TYP_LABEL: Record<ImportTyp, string> = {
 
 const ist_eroeffnung = (t: ImportTyp): t is 'eroeffnung_tank' | 'eroeffnung_flaschen' => t === 'eroeffnung_tank' || t === 'eroeffnung_flaschen'
 
-const ebInputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+const ebInputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40'
 const ebLabelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
 
 // CSV lesen: parseCsv aus lib/import/csvLesen.ts (seit KAN-42 gemeinsam mit dem Eröffnungsbestand-Import)
@@ -281,7 +281,7 @@ export default function ImportClient({
           onChange={e => setHerkunft(e.target.value)}
           maxLength={120}
           placeholder={HERKUNFT_DEFAULT}
-          className="flex-1 min-w-[16rem] border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal"
+          className="flex-1 min-w-[16rem] border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal"
         />
         <span className="text-xs text-s112-muted basis-full">
           Wird an jedem importierten Datensatz hinterlegt (im Notizen-Feld vorangestellt und als Import-Kennzeichen gespeichert),
@@ -413,7 +413,7 @@ export default function ImportClient({
                   <p className="text-xs text-s112-muted mt-1">{EB_NOTIZEN_HINWEIS}</p>
               </div>
               <div className="sm:col-span-2">
-                <button type="submit" className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
+                <button type="submit" className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors">
                   Anfangsbestand speichern
                 </button>
               </div>
@@ -433,7 +433,7 @@ export default function ImportClient({
         <div className="flex items-center gap-4">
           <input ref={fileRef} type="file" accept=".csv,.txt" onChange={handleFile} className="hidden" />
           <button onClick={() => fileRef.current?.click()}
-            className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-medium hover:bg-opacity-90">
+            className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-medium hover:bg-s112-teal/90">
             CSV-Datei öffnen
           </button>
           {parsed && (
@@ -447,7 +447,7 @@ export default function ImportClient({
         {parsed && parsed.rows.length > 0 && (
           <div className="mt-4 overflow-x-auto">
             <p className="text-xs text-s112-muted mb-2">Erste 3 Zeilen:</p>
-            <table className="text-xs border border-s112-border rounded">
+            <table className="text-xs border border-s112-border rounded-sm">
               <thead className="bg-s112-bg">
                 <tr>{parsed.headers.map(h => <th key={h} className="px-2 py-1 text-left border-r border-s112-border">{h}</th>)}</tr>
               </thead>
@@ -472,18 +472,18 @@ export default function ImportClient({
           <div className="grid grid-cols-2 gap-3">
             {felder.map(f => (
               <div key={f.key} className="flex items-center gap-3">
-                <label className="text-sm text-s112-text-1 w-48 flex-shrink-0 inline-flex items-center gap-1 min-w-0">
+                <label className="text-sm text-s112-text-1 w-48 shrink-0 inline-flex items-center gap-1 min-w-0">
                   <span className="truncate" title={f.label}>{f.label}</span>
                   {f.pflicht && <span className="text-s112-err">*</span>}
                   {f.hinweis && (
                     <span title={f.hinweis} aria-label={f.hinweis}
-                      className="inline-flex items-center justify-center w-4 h-4 rounded-full border border-s112-border text-[11px] text-s112-muted cursor-help flex-shrink-0">
+                      className="inline-flex items-center justify-center w-4 h-4 rounded-full border border-s112-border text-[11px] text-s112-muted cursor-help shrink-0">
                       i
                     </span>
                   )}
                 </label>
                 <select value={mapping[f.key] ?? ''} onChange={e => setMapping(m => ({ ...m, [f.key]: e.target.value }))}
-                  className="flex-1 border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                  className="flex-1 border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
                   <option value="">– nicht importieren –</option>
                   {parsed.headers.map(h => <option key={h} value={h}>{h}</option>)}
                 </select>
@@ -501,7 +501,7 @@ export default function ImportClient({
             <p className="text-sm text-s112-warn-fg mb-3">Bitte alle Pflichtfelder (*) zuordnen</p>
           )}
           <button onClick={startImport} disabled={importing || !pflichtMapped}
-            className="bg-s112-teal text-s112-yellow px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
+            className="bg-s112-teal text-s112-yellow px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 disabled:opacity-40">
             {importing
               ? (fortschritt ? `Importiere… ${fortschritt.erledigt} / ${fortschritt.gesamt}` : 'Importiere…')
               : `${parsed.rows.length} Zeilen importieren`}

@@ -106,7 +106,7 @@ const BEWIRTSCHAFTUNG_LABEL: Record<string, string> = {
   demeter:       'Biodynamisch',
 }
 
-const inputCls = "w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
+const inputCls = "w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40"
 const labelCls = "block text-xs font-medium text-s112-text-2 mb-1"
 
 // ── Maßnahmen-Verlauf für ein einzelnes GST (Punkt 10) ────────────────────────
@@ -452,7 +452,7 @@ function GSTForm({ weingartenId, gst, customWeinbaugebiete, onNeuesWeinbaugebiet
 
       <div className="flex gap-2 pt-1">
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-50 transition-colors">
+          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-50 transition-colors">
           {pending ? 'Speichert…' : 'Speichern'}
         </button>
         <button type="button" onClick={onDone}

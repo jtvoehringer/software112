@@ -17,7 +17,7 @@ export default function TabNav({ groups }: { groups: NavGroup[] }) {
   return (
     <nav className="bg-s112-surface border-b border-s112-line shrink-0 z-30" aria-label="Hauptnavigation">
       {/* Zeile 1: Bereiche */}
-      <div className="max-w-[1280px] 2xl:max-w-[1600px] mx-auto px-2 lg:px-3 hidden md:flex gap-0.5 overflow-x-auto [scrollbar-width:none]">
+      <div className="max-w-[1280px] 2xl:max-w-[1600px] mx-auto px-2 lg:px-3 hidden md:flex gap-0.5 overflow-x-auto scrollbar-none">
         {groups.map(g => {
           const active = g.key === aktiv?.key
           return (
@@ -25,7 +25,7 @@ export default function TabNav({ groups }: { groups: NavGroup[] }) {
               key={g.key}
               href={g.items[0].href}
               aria-current={active ? 'true' : undefined}
-              className={`inline-flex items-center gap-1.5 px-3.5 pt-[13px] pb-[10px] text-[14.5px] whitespace-nowrap border-b-[3px] transition-colors duration-[120ms] ${
+              className={`inline-flex items-center gap-1.5 px-3.5 pt-[13px] pb-[10px] text-[14.5px] whitespace-nowrap border-b-[3px] transition-colors duration-120 ${
                 active
                   ? 'text-s112-text font-semibold border-s112-teal'
                   : 'text-s112-text-1 font-medium border-transparent hover:text-s112-text'
@@ -41,7 +41,7 @@ export default function TabNav({ groups }: { groups: NavGroup[] }) {
       {/* Zeile 2: Seiten des aktiven Bereichs */}
       {aktiv && (
         <div className="md:border-t border-s112-line bg-s112-bg/70">
-          <div className="max-w-[1280px] 2xl:max-w-[1600px] mx-auto px-3 lg:px-4 py-1.5 flex gap-1 overflow-x-auto [scrollbar-width:none]">
+          <div className="max-w-[1280px] 2xl:max-w-[1600px] mx-auto px-3 lg:px-4 py-1.5 flex gap-1 overflow-x-auto scrollbar-none">
             {aktiv.items.map(item => {
               const active = isActivePath(item.href, pathname)
                 // Bei mehreren passenden Items (z.B. /kellerbuch vs. /kellerbuch/kellerplan)
@@ -60,7 +60,7 @@ export default function TabNav({ groups }: { groups: NavGroup[] }) {
                   key={item.href}
                   href={item.href}
                   aria-current={active ? 'page' : undefined}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-2 md:py-[5px] rounded-md text-[13px] whitespace-nowrap transition-colors duration-[120ms] ${item.child ? 'ml-[-2px] text-[12.5px]' : ''} ${
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-2 md:py-[5px] rounded-md text-[13px] whitespace-nowrap transition-colors duration-120 ${item.child ? 'ml-[-2px] text-[12.5px]' : ''} ${
                     active
                       ? 'bg-s112-blue-50 text-s112-blue-700 font-semibold'
                       : 'text-s112-text-1 hover:bg-s112-line/60 hover:text-s112-text'

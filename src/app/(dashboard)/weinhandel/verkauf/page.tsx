@@ -111,7 +111,7 @@ export default async function VerkaufPage({ searchParams }: { searchParams: Prom
         {writeOk && (
           <Link
             href="/weinhandel/verkauf/neu"
-            className="bg-s112-teal text-s112-yellow px-4 py-2.5 sm:py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors"
+            className="bg-s112-teal text-s112-yellow px-4 py-2.5 sm:py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors"
           >
             + Neuer Verkauf
           </Link>
@@ -190,7 +190,7 @@ export default async function VerkaufPage({ searchParams }: { searchParams: Prom
                     </td>
                     <td className="px-4 py-3 text-s112-muted text-xs">
                       {posCount} Position{posCount !== 1 ? 'en' : ''}
-                      {hasTank && <span className="ml-2 bg-s112-blue-100 text-s112-blue-700 px-1.5 py-0.5 rounded text-xs">Tank</span>}
+                      {hasTank && <span className="ml-2 bg-s112-blue-100 text-s112-blue-700 px-1.5 py-0.5 rounded-sm text-xs">Tank</span>}
                     </td>
                     <td className="px-4 py-3 text-right font-semibold text-s112-blue-700 tabular-nums">
                       {summe > 0

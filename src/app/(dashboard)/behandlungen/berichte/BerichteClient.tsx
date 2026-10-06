@@ -483,7 +483,7 @@ export default function BerichteClient({ behandlungen, weingaerten, betriebName,
                 aria-label="Ried"
                 value={ried}
                 onChange={e => setRied(e.target.value)}
-                className="border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
+                className="border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40"
               >
                 <option value="all">Alle Rieden</option>
                 {rieden.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
@@ -492,7 +492,7 @@ export default function BerichteClient({ behandlungen, weingaerten, betriebName,
                 aria-label="Maßnahmenart"
                 value={art}
                 onChange={e => setArt(e.target.value)}
-                className="border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
+                className="border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40"
               >
                 <option value="all">Alle Arten</option>
                 {Object.entries(ART_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
@@ -505,7 +505,7 @@ export default function BerichteClient({ behandlungen, weingaerten, betriebName,
                 aria-label="Jahr"
                 value={jahr}
                 onChange={e => setJahr(e.target.value)}
-                className="border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
+                className="border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40"
               >
                 <option value="all">Alle Jahre</option>
                 {jahre.map(y => <option key={y} value={y}>{y}</option>)}

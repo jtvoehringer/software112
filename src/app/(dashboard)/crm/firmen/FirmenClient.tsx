@@ -16,7 +16,7 @@ import { AlertTriangle, Pencil, Trash2 } from 'lucide-react'
 type KontaktKurz = { id: string; vorname: string | null; nachname: string; segment: string }
 
 function inputCls() {
-  return 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+  return 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40'
 }
 
 const WAEHRUNGEN = ['EUR', 'USD', 'GBP', 'CHF', 'HUF', 'CZK']
@@ -160,7 +160,7 @@ export function FirmaForm({
             <input type="hidden" name="is_lead" value={String(isLead)} />
             <button type="button" role="switch" aria-checked={!isLead} aria-label="Kunde (aus) oder Lead" onClick={() => setIsLead(v => !v)}
               className={`w-10 h-5 rounded-full transition-colors flex items-center px-0.5 ${isLead ? 'bg-s112-grey' : 'bg-s112-teal'}`}>
-              <span className={`block w-4 h-4 rounded-full bg-white shadow transition-transform ${isLead ? 'translate-x-0' : 'translate-x-5'}`} />
+              <span className={`block w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${isLead ? 'translate-x-0' : 'translate-x-5'}`} />
             </button>
             <span className={`text-sm font-semibold min-w-[48px] ${isLead ? 'text-s112-warn-fg' : 'text-s112-blue-700'}`}>
               {isLead ? 'Lead' : 'Aktiv'}
@@ -219,7 +219,7 @@ export function FirmaForm({
                 const d = DIAL_CODES.find(x => x.code === e.target.value)
                 if (d) setLandVal(d.iso)
               }}
-              className="border border-s112-border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 w-24 flex-shrink-0"
+              className="border border-s112-border rounded-lg px-2 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 w-24 shrink-0"
             >
               {DIAL_CODES.map(d => (
                 <option key={d.code} value={d.code}>{d.flag} {d.code}</option>
@@ -234,7 +234,7 @@ export function FirmaForm({
             <select
               name="mobil_vorwahl"
               defaultValue={initial?.mobil_vorwahl ?? '+43'}
-              className="border border-s112-border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 w-24 flex-shrink-0"
+              className="border border-s112-border rounded-lg px-2 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 w-24 shrink-0"
             >
               {DIAL_CODES.map(d => (
                 <option key={d.code} value={d.code}>{d.flag} {d.code}</option>
@@ -325,7 +325,7 @@ export function FirmaForm({
 
       <div className="flex gap-2">
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-40">
           {pending ? 'Wird gespeichert…' : (initial ? 'Speichern' : 'Anlegen')}
         </button>
         <button type="button" onClick={onDone}
@@ -362,7 +362,7 @@ function FirmaKarte({
   return (
     <div className={`card p-4 ${firma.aktiv === false ? 'opacity-60' : ''}`}>
       <div className="flex items-start gap-3">
-        <div className="w-9 h-9 rounded-lg bg-s112-teal/10 flex items-center justify-center text-s112-blue-700 font-semibold text-sm flex-shrink-0">
+        <div className="w-9 h-9 rounded-lg bg-s112-teal/10 flex items-center justify-center text-s112-blue-700 font-semibold text-sm shrink-0">
           {firma.name[0].toUpperCase()}
         </div>
         <div className="flex-1 min-w-0">
@@ -412,15 +412,15 @@ function FirmaKarte({
           {firma.notizen && <p className="mt-1 text-xs text-s112-text-2 italic">{firma.notizen}</p>}
         </div>
         {writeOk && (
-          <div className="flex gap-1 flex-shrink-0">
+          <div className="flex gap-1 shrink-0">
             <button onClick={() => setEditing(true)}
               title="Bearbeiten" aria-label="Bearbeiten"
-              className="text-s112-muted hover:text-s112-blue-700 px-2 py-1 rounded transition-colors">
+              className="text-s112-muted hover:text-s112-blue-700 px-2 py-1 rounded-sm transition-colors">
               <Pencil className="w-4 h-4" />
             </button>
             <button onClick={handleDelete} disabled={pending}
               title="Löschen" aria-label="Löschen"
-              className="text-s112-muted hover:text-s112-err px-2 py-1 rounded transition-colors">
+              className="text-s112-muted hover:text-s112-err px-2 py-1 rounded-sm transition-colors">
               <Trash2 className="w-4 h-4" />
             </button>
           </div>
@@ -492,7 +492,7 @@ export default function FirmenClient({
       <div className="flex flex-wrap gap-0.5">
         {BUCHSTABEN.map(b => (
           <button key={b} onClick={() => setzeFilter({ buchstabe: b })}
-            className={`min-w-[1.75rem] px-1 py-0.5 text-xs font-medium rounded transition-colors
+            className={`min-w-7 px-1 py-0.5 text-xs font-medium rounded transition-colors
               ${buchstabe === b
                 ? 'bg-s112-teal text-s112-yellow'
                 : 'bg-s112-bg text-s112-text-2 hover:bg-s112-teal/10 hover:text-s112-blue-700'}`}>
@@ -503,7 +503,7 @@ export default function FirmenClient({
 
               <input type="search" placeholder="Name, Accountnummer, E-Mail, Ort…"
           ref={sucheFeld.ref} value={sucheFeld.suche} onChange={sucheFeld.onChange} onKeyDown={sucheFeld.onKeyDown} autoComplete="off"
-          className="border border-s112-border rounded-lg px-3 py-1.5 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+          className="border border-s112-border rounded-lg px-3 py-1.5 text-sm w-64 focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         <div className="flex gap-1">
           <button onClick={() => setzeFilter({ segment: 'alle' })}
             className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${segment === 'alle' ? 'bg-s112-teal text-s112-yellow' : 'bg-s112-bg text-s112-text-2 hover:text-s112-text'}`}>
@@ -551,7 +551,7 @@ export default function FirmenClient({
           )}
           {writeOk && !showForm && (
             <button onClick={() => setShowForm(true)}
-              className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
+              className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90">
               Neue Firma
             </button>
           )}

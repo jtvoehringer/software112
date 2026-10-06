@@ -48,7 +48,7 @@ export default function FuellungEditFormular({
         <button
           type="submit"
           disabled={pending}
-          className="bg-s112-teal text-s112-yellow px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-60">
+          className="bg-s112-teal text-s112-yellow px-6 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors disabled:opacity-60">
           {pending ? 'Wird gespeichert …' : 'Änderungen speichern'}
         </button>
         <Link href="/weinhandel" className="px-6 py-2 rounded-xl text-sm font-medium text-s112-text-2 hover:text-s112-text transition-colors">

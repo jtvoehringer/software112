@@ -7,7 +7,7 @@ import { createRabattgruppe, updateRabattgruppe, deleteRabattgruppe } from './ac
 import type { Rabattgruppe } from './page'
 
 function inputCls() {
-  return 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+  return 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40'
 }
 
 function RabattForm({
@@ -53,7 +53,7 @@ function RabattForm({
       </div>
       <div className="flex gap-2">
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-40">
           {pending ? 'Speichern…' : (initial ? 'Speichern' : 'Anlegen')}
         </button>
         <button type="button" onClick={onDone}
@@ -94,7 +94,7 @@ export default function RabattgruppenClient({
         </div>
         {writeOk && !showForm && !editing && (
           <button onClick={() => setShowForm(true)}
-            className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
+            className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90">
             Neue Gruppe
           </button>
         )}
@@ -126,15 +126,15 @@ export default function RabattgruppenClient({
                 )}
               </div>
               {writeOk && (
-                <div className="flex gap-1 flex-shrink-0">
+                <div className="flex gap-1 shrink-0">
                   <button onClick={() => setEditing(g)}
                     title="Bearbeiten" aria-label="Bearbeiten"
-                    className="text-s112-muted hover:text-s112-blue-700 px-2 py-1 rounded transition-colors">
+                    className="text-s112-muted hover:text-s112-blue-700 px-2 py-1 rounded-sm transition-colors">
                     <Pencil className="w-4 h-4" />
                   </button>
                   <button onClick={() => handleDelete(g.id, g.name)} disabled={pending}
                     title="Löschen" aria-label="Löschen"
-                    className="text-s112-muted hover:text-s112-err px-2 py-1 rounded transition-colors">
+                    className="text-s112-muted hover:text-s112-err px-2 py-1 rounded-sm transition-colors">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>

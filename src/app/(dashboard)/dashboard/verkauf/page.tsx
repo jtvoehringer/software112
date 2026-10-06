@@ -252,7 +252,7 @@ export default async function DashboardPage() {
           Grid entsprechend auf lg:grid-cols-3 angepasst. */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3.5">
         {/* Offene Rechnungen */}
-        <Link href="/weinhandel/offene-posten" className="bg-white border border-s112-line rounded-xl p-4 flex flex-col gap-2 hover:shadow-sm transition-shadow">
+        <Link href="/weinhandel/offene-posten" className="bg-white border border-s112-line rounded-xl p-4 flex flex-col gap-2 hover:shadow-xs transition-shadow">
           <div className="flex items-center gap-1.5">
             <ReceiptText size={18} strokeWidth={1.5} className="text-s112-tertiary" />
             <p className="text-[11.5px] font-semibold text-s112-text-2">Offene Rechnungen</p>
@@ -268,7 +268,7 @@ export default async function DashboardPage() {
         </Link>
 
         {/* Aufträge diese Woche */}
-        <Link href="/weinhandel/verkauf" className="bg-white border border-s112-line rounded-xl p-4 flex flex-col gap-2 hover:shadow-sm transition-shadow">
+        <Link href="/weinhandel/verkauf" className="bg-white border border-s112-line rounded-xl p-4 flex flex-col gap-2 hover:shadow-xs transition-shadow">
           <div className="flex items-center gap-1.5">
             <Package size={18} strokeWidth={1.5} className="text-s112-tertiary" />
             <p className="text-[11.5px] font-semibold text-s112-text-2">Aufträge diese Woche</p>
@@ -344,7 +344,7 @@ export default async function DashboardPage() {
             <p className="text-sm text-s112-text-2 px-[18px] pb-5">Keine überfälligen Rechnungen.</p>
           ) : (
             <div>
-              <div className="grid grid-cols-[1.6fr_.9fr_.9fr] sm:grid-cols-[1.6fr_1fr_.9fr_.9fr_40px] px-[18px] py-[11px] bg-[#F7F8FA] border-b border-s112-line text-[11px] font-semibold uppercase tracking-[.08em] text-s112-tertiary">
+              <div className="grid grid-cols-[1.6fr_.9fr_.9fr] sm:grid-cols-[1.6fr_1fr_.9fr_.9fr_40px] px-[18px] py-[11px] bg-s112-bg border-b border-s112-line text-[11px] font-semibold uppercase tracking-[.08em] text-s112-tertiary">
                 <span>Kunde</span>
                 <span className="max-sm:hidden">Beleg-Nr.</span>
                 <span>Überfällig</span>
@@ -354,7 +354,7 @@ export default async function DashboardPage() {
               {belege.map(v => (
                 <Link key={v.id} href={`/weinhandel/verkauf/${v.id}`}
                   className="contents">
-                  <div className="col-span-5 grid grid-cols-[1.6fr_.9fr_.9fr] sm:grid-cols-[1.6fr_1fr_.9fr_.9fr_40px] items-center px-[18px] py-[13px] border-t border-[#F2F3F5] text-[13px] hover:bg-[#F7F8FA] transition-colors">
+                  <div className="col-span-5 grid grid-cols-[1.6fr_.9fr_.9fr] sm:grid-cols-[1.6fr_1fr_.9fr_.9fr_40px] items-center px-[18px] py-[13px] border-t border-[#F2F3F5] text-[13px] hover:bg-s112-bg transition-colors">
                     <span className="text-s112-text truncate">{v.kunde}</span>
                     <span className="max-sm:hidden font-mono text-s112-text-2">{v.rechnungsnummer ?? '–'}</span>
                     <span>
@@ -397,7 +397,7 @@ export default async function DashboardPage() {
                       <p className="text-xs font-medium text-s112-text truncate">{a.betreff}</p>
                       {who && <p className="text-[11px] text-s112-muted truncate">{who}</p>}
                     </div>
-                    <span className="text-[11px] text-s112-muted flex-shrink-0">{new Date(a.datum).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit' })}</span>
+                    <span className="text-[11px] text-s112-muted shrink-0">{new Date(a.datum).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit' })}</span>
                   </div>
                 )
               })}
@@ -463,7 +463,7 @@ export default async function DashboardPage() {
             { href: '/weinhandel/offene-posten',   icon: Wallet,         label: 'Offene Posten'    },
           ].map(item => (
             <Link key={item.href} href={item.href}
-              className="card p-4 flex items-center gap-3 hover:border-s112-teal hover:shadow-sm transition-all">
+              className="card p-4 flex items-center gap-3 hover:border-s112-teal hover:shadow-xs transition-all">
               <item.icon size={20} strokeWidth={1.75} className="text-s112-blue-700" />
               <span className="text-sm font-medium text-s112-text-1">{item.label}</span>
             </Link>

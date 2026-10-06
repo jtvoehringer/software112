@@ -14,7 +14,7 @@ type KontaktOption = { id: string; name: string }
 type FirmaOption   = { id: string; name: string }
 
 function inputCls() {
-  return 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+  return 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40'
 }
 
 function stufeFarbe(stufe: string) {
@@ -112,18 +112,18 @@ function PipelineForm({
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Uhrzeit</label>
           <div className="flex items-center gap-3 flex-wrap">
             <label className="flex items-center gap-1.5 text-xs text-s112-text-2 cursor-pointer select-none shrink-0">
-              <input type="checkbox" checked={ganztags} onChange={e => setGanztags(e.target.checked)} className="rounded" />
+              <input type="checkbox" checked={ganztags} onChange={e => setGanztags(e.target.checked)} className="rounded-sm" />
               Ganztags
             </label>
             <div className="flex items-center gap-2">
               <span className="text-xs text-s112-tertiary">Von</span>
               <input name="uhrzeit_von" type="time" step="1800" disabled={ganztags}
                 defaultValue={v('uhrzeit_von').slice(0,5)}
-                className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-s112-bg' : ''}`} />
+                className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-s112-bg' : ''}`} />
               <span className="text-xs text-s112-tertiary">–</span>
               <input name="uhrzeit_bis" type="time" step="1800" disabled={ganztags}
                 defaultValue={v('uhrzeit_bis').slice(0,5)}
-                className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-s112-bg' : ''}`} />
+                className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-s112-bg' : ''}`} />
             </div>
           </div>
         </div>
@@ -137,7 +137,7 @@ function PipelineForm({
 
       <div className="flex gap-2">
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-40">
           {pending ? 'Wird gespeichert…' : (initial ? 'Speichern' : 'Anlegen')}
         </button>
         <button type="button" onClick={onDone}
@@ -192,7 +192,7 @@ function EintragZeile({
           onClick={() => handleErledigt(!eintrag.erledigt)}
           disabled={pending}
           title={eintrag.erledigt ? 'Als offen markieren' : 'Als erledigt markieren'}
-          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors disabled:opacity-50 ${
+          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors disabled:opacity-50 ${
             eintrag.erledigt
               ? 'bg-s112-ok border-s112-ok text-white'
               : 'bg-white border-s112-line-str hover:border-s112-ok/50 text-transparent'
@@ -239,7 +239,7 @@ function EintragZeile({
           value={eintrag.stufe}
           onChange={e => handleStufe(e.target.value)}
           disabled={pending}
-          className="text-xs border border-s112-border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-s112-teal/40 disabled:opacity-50"
+          className="text-xs border border-s112-border rounded-lg px-2 py-1 focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 disabled:opacity-50"
         >
           {PIPELINE_STUFEN.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
         </select>
@@ -249,12 +249,12 @@ function EintragZeile({
         <div className="flex gap-1">
           <button onClick={() => setEditing(true)}
             title="Bearbeiten" aria-label="Bearbeiten"
-            className="text-s112-muted hover:text-s112-blue-700 px-2 py-1 rounded">
+            className="text-s112-muted hover:text-s112-blue-700 px-2 py-1 rounded-sm">
             <Pencil className="w-4 h-4" />
           </button>
           <button onClick={handleDelete} disabled={pending}
             title="Löschen" aria-label="Löschen"
-            className="text-s112-muted hover:text-s112-err px-2 py-1 rounded">
+            className="text-s112-muted hover:text-s112-err px-2 py-1 rounded-sm">
             <Trash2 className="w-4 h-4" />
           </button>
         </div>
@@ -389,7 +389,7 @@ export default function PipelineClient({
               <select
                 value={filterKategorie}
                 onChange={e => setFilterKategorie(e.target.value)}
-                className="text-xs border border-s112-border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                className="text-xs border border-s112-border rounded-lg px-2 py-1 focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
                 <option value="alle">Alle</option>
                 {vorhandeneKategorien.map(k => (
                   <option key={k.value} value={k.value}>{k.label}</option>
@@ -442,7 +442,7 @@ export default function PipelineClient({
         </div>
         {writeOk && !showForm && (
           <button onClick={() => setShowForm(true)}
-            className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 whitespace-nowrap">
+            className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 whitespace-nowrap">
             <span>＋</span> Neue Chance
           </button>
         )}

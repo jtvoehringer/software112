@@ -279,7 +279,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnte
   const sichtbare = stornierteZeigen ? verkaufe : verkaufe.filter(v => !v.storniert_am)
   const sumKg  = verkaufe.filter(v => !v.storniert_am).reduce((s, v) => s + Number(v.menge_kg ?? 0), 0)
   const sumEur = verkaufe.filter(v => !v.storniert_am).reduce((s, v) => v.preis_per_kg != null ? s + Number(v.menge_kg) * Number(v.preis_per_kg) : s, 0)
-  const inp = 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 bg-white'
+  const inp = 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 bg-white'
   const btnToggle = (active: boolean) => `px-3 py-1 text-xs rounded-lg font-medium transition-colors ${active ? 'bg-s112-teal text-s112-yellow' : 'bg-s112-bg border border-s112-border text-s112-text-2 hover:border-s112-teal'}`
 
   return (
@@ -314,7 +314,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnte
             </div>
           )}
           {writeOk && !showForm && (
-            <button onClick={openNew} className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-opacity-90 transition-colors">
+            <button onClick={openNew} className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-s112-teal/90 transition-colors">
               + Traubenverkauf
             </button>
           )}
@@ -325,7 +325,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnte
       {error && !showForm && (
         <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-lg px-3 py-2 text-sm flex items-start justify-between gap-3">
           <span>{error}</span>
-          <button type="button" onClick={() => setError(null)} className="text-xs underline flex-shrink-0">Schließen</button>
+          <button type="button" onClick={() => setError(null)} className="text-xs underline shrink-0">Schließen</button>
         </div>
       )}
 
@@ -526,7 +526,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnte
 
             <div className="flex gap-2 pt-1">
               <button type="submit" disabled={isPending || (quelle === 'ernte' ? !wgId : !zukaufId)}
-                className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-50 transition-colors">
+                className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-50 transition-colors">
                 {isPending ? 'Speichert…' : 'Speichern'}
               </button>
               <button type="button" onClick={() => { setShowForm(false); setEditRow(null); setError(null) }}
@@ -574,7 +574,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnte
                         <span className="font-medium text-s112-text text-sm">{fmtDate(v.datum)}</span>
                         <span className="text-sm text-s112-text-1">{'·'} {quelleLabel}</span>
                         {gst && (
-                          <span className="text-xs font-mono text-s112-muted bg-s112-bg px-1.5 py-0.5 rounded">
+                          <span className="text-xs font-mono text-s112-muted bg-s112-bg px-1.5 py-0.5 rounded-sm">
                             GST {gst.gst_nr}
                           </span>
                         )}

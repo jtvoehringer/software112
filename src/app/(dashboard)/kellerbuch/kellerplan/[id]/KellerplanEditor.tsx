@@ -487,7 +487,7 @@ export default function KellerplanEditor({
 
         {/* ── Sidebar: nicht platzierte Behälter ────────────────────────────── */}
         {writeOk && (
-          <div className="no-print w-44 flex-shrink-0">
+          <div className="no-print w-44 shrink-0">
             <p className="text-xs font-semibold text-s112-text-2 uppercase tracking-wide mb-2">
               Nicht platziert
             </p>
@@ -502,7 +502,7 @@ export default function KellerplanEditor({
                       key={b.id}
                       draggable
                       onDragStart={e => handleSidebarDragStart(e, b.id)}
-                      className="flex items-center gap-2 px-2 py-1.5 border-2 rounded-full text-xs font-medium text-s112-text-1 cursor-grab hover:shadow-sm active:opacity-70 transition-shadow"
+                      className="flex items-center gap-2 px-2 py-1.5 border-2 rounded-full text-xs font-medium text-s112-text-1 cursor-grab hover:shadow-xs active:opacity-70 transition-shadow"
                       style={{ backgroundColor: typ.bg, borderColor: typ.border }}
                       title="In den Plan ziehen"
                     >

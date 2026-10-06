@@ -144,12 +144,12 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Link href="/weinhandel" className="card text-center p-4 hover:shadow-sm hover:border-s112-teal/30 transition-all cursor-pointer">
+        <Link href="/weinhandel" className="card text-center p-4 hover:shadow-xs hover:border-s112-teal/30 transition-all cursor-pointer">
           <p className="text-2xl sm:text-3xl font-semibold text-s112-blue-700">{fmtNum(gesamtFlaschen)}</p>
           <p className="text-xs text-s112-muted mt-1">Flaschen auf Lager</p>
           <p className="text-[11px] text-s112-blue-700/60 mt-1">→ Warenlager</p>
         </Link>
-        <Link href="/weinhandel/verkauf" className="card text-center p-4 hover:shadow-sm hover:border-s112-teal/30 transition-all cursor-pointer">
+        <Link href="/weinhandel/verkauf" className="card text-center p-4 hover:shadow-xs hover:border-s112-teal/30 transition-all cursor-pointer">
           <p className="text-2xl sm:text-3xl font-semibold text-s112-blue-700">
             {gesamtWertGesamt > 0
               ? fmtEur(gesamtWertGesamt)
@@ -158,7 +158,7 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
           <p className="text-xs text-s112-muted mt-1">Lagerwert gesamt (Einstandspreis)</p>
           <p className="text-[11px] text-s112-blue-700/60 mt-1">→ Verkauf</p>
         </Link>
-        <Link href="/weinhandel" className="card text-center p-4 hover:shadow-sm hover:border-s112-teal/30 transition-all cursor-pointer">
+        <Link href="/weinhandel" className="card text-center p-4 hover:shadow-xs hover:border-s112-teal/30 transition-all cursor-pointer">
           <p className="text-2xl sm:text-3xl font-semibold text-s112-blue-700">
             {gesamtLiterTank > 0 ? `${fmtNum(gesamtLiterTank)} L` : '–'}
           </p>
@@ -480,7 +480,7 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
           </Link>
         </div>
         <div className="card p-5 flex items-center gap-4">
-          <Grape size={30} className="text-s112-blue-700 flex-shrink-0" />
+          <Grape size={30} className="text-s112-blue-700 shrink-0" />
           <div className="flex-1">
             <p className="text-sm text-s112-text-1 font-medium">Traubenverkäufe laufen über das Standard-Verkaufsformular</p>
             <p className="text-xs text-s112-muted mt-0.5">
@@ -489,7 +489,7 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
           </div>
           {writeOk && (
             <Link href="/weinhandel/verkauf/neu"
-              className="text-sm bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl font-medium hover:bg-opacity-90 transition-colors whitespace-nowrap flex-shrink-0">
+              className="text-sm bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl font-medium hover:bg-s112-teal/90 transition-colors whitespace-nowrap shrink-0">
               ＋ Verkauf anlegen
             </Link>
           )}

@@ -55,12 +55,12 @@ export default function PruefnummerNachtragen({ antraege, verknuepftId, nachtrag
           </select>
         </div>
         <button type="button" onClick={los} disabled={pending || !wahl || (!!verknuepftId && !zugeteilt)}
-          className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50">
+          className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-sm font-semibold hover:bg-s112-teal/90 disabled:opacity-50">
           {pending ? 'Wird eingetragen …' : zugeteilt ? 'Prüfnummer übernehmen' : 'Antrag verknüpfen'}
         </button>
       </div>
       {gewaehlt && !zugeteilt && (
-        <p className="text-xs text-s112-warn-fg bg-s112-warn-bg border border-s112-warn/30 rounded px-2 py-1 inline-flex items-center gap-1">
+        <p className="text-xs text-s112-warn-fg bg-s112-warn-bg border border-s112-warn/30 rounded-sm px-2 py-1 inline-flex items-center gap-1">
           <AlertTriangle size={12} strokeWidth={2} />
           {verknuepftId
             ? 'Der Antrag ist noch nicht zugeteilt – die Prüfnummer lässt sich nach dem Bescheid übernehmen.'

@@ -40,17 +40,17 @@ export default async function EditLagePage({ params }: Props) {
               Name <span className="text-s112-err">*</span>
             </label>
             <input aria-label="Name" name="name" required defaultValue={lage.name}
-              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
           </div>
           <div>
             <label className="block text-sm font-medium text-s112-text-1 mb-1">Gemeinde</label>
             <input aria-label="Gemeinde" name="gemeinde" defaultValue={lage.gemeinde ?? ''}
-              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
           </div>
           <div>
             <label className="block text-sm font-medium text-s112-text-1 mb-1">Amtliche Ried</label>
             <input aria-label="Amtliche Ried" name="amtliche_ried" defaultValue={lage.amtliche_ried ?? ''}
-              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
             {/* KAN-110: Grundlage der 85-%-Regel beim Verschnitt (§ 21 WeinG) */}
             <p className="text-xs text-s112-muted mt-1">
               Riedbezeichnung laut Riedenverzeichnis (§ 21 WeinG) – Grundlage der Riedangabe beim Verschnitt (mindestens 85 % aus derselben Ried).
@@ -64,11 +64,11 @@ export default async function EditLagePage({ params }: Props) {
           <div>
             <label className="block text-sm font-medium text-s112-text-1 mb-1">Notizen</label>
             <textarea aria-label="Notizen" name="notizen" rows={3} defaultValue={lage.notizen ?? ''}
-              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+              className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
           </div>
           <div className="flex gap-3 pt-2">
             <button type="submit"
-              className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
+              className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors">
               Speichern
             </button>
             <a href="/lagen" className="px-5 py-2 rounded-xl text-sm font-medium text-s112-text-2 hover:text-s112-text">

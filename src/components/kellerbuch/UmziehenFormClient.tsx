@@ -245,7 +245,7 @@ export default function UmziehenFormClient({
       {/* KAN-181: am Handy bleibt die Leiste beim Scrollen unten sichtbar (Formular steht in einer .card mit p-6) */}
       <div className="max-sm:sticky max-sm:bottom-0 max-sm:-mx-6 max-sm:-mb-6 max-sm:px-6 max-sm:py-3 max-sm:bg-s112-bg max-sm:border-t max-sm:border-s112-line max-sm:z-10">
         <button type="submit" disabled={!canSubmit || pending}
-          className="w-full sm:w-auto bg-s112-teal text-s112-yellow px-5 py-3 sm:py-2 rounded-xl text-base sm:text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+          className="w-full sm:w-auto bg-s112-teal text-s112-yellow px-5 py-3 sm:py-2 rounded-xl text-base sm:text-sm font-semibold hover:bg-s112-teal/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
           {pending ? 'Wird gespeichert …' : (submitLabel ?? 'Umzug buchen')}
         </button>
       </div>

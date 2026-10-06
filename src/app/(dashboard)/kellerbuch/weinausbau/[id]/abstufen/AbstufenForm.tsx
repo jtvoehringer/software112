@@ -32,7 +32,7 @@ export default function AbstufenForm({ chargeId, bestand, heute, alt, zusaetze, 
 
   const neu: ChargeMerkmale = { stufe: stufe || null, zusatz: (zusatz || null) as ChargeMerkmale['zusatz'], erzeugnis: alt.erzeugnis, herkunft: herkunft || null }
   const pruefung = abstufenFehler(alt, neu)
-  const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-1.5 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+  const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-1.5 text-base sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40'
 
   function absenden(e: React.FormEvent) {
     e.preventDefault()
@@ -145,7 +145,7 @@ export default function AbstufenForm({ chargeId, bestand, heute, alt, zusaetze, 
 
       <div className="flex gap-2">
         <button type="submit" disabled={pending || !!pruefung}
-          className="flex-1 sm:flex-none bg-s112-teal text-s112-yellow px-4 py-3 sm:py-1.5 rounded-lg text-base sm:text-sm font-medium hover:bg-opacity-90 disabled:opacity-50">
+          className="flex-1 sm:flex-none bg-s112-teal text-s112-yellow px-4 py-3 sm:py-1.5 rounded-lg text-base sm:text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-50">
           {pending ? 'Speichert…' : 'Abstufen'}
         </button>
         <button type="button" onClick={() => router.back()} className="px-4 py-3 sm:py-1.5 text-base sm:text-sm text-s112-text-2 hover:text-s112-text">Abbrechen</button>

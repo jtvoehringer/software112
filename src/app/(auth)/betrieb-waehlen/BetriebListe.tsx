@@ -59,7 +59,7 @@ export default function BetriebListe({ betriebe }: { betriebe: BetriebEintrag[] 
             type="text" autoFocus value={suche} onChange={e => setSuche(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && (zuletztListe[0] ?? rest[0])) { e.preventDefault(); ersteForm.current?.requestSubmit() } }}
             placeholder={`${betriebe.length} Betriebe durchsuchen …`}
-            className="w-full border border-s112-border rounded-xl pl-9 pr-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
+            className="w-full border border-s112-border rounded-xl pl-9 pr-3 py-2.5 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40"
           />
         </div>
       )}

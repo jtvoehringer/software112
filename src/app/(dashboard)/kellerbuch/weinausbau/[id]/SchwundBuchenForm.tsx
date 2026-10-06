@@ -55,7 +55,7 @@ export default function SchwundBuchenForm({ bestandLiter, action }: Props) {
     })
   }
 
-  const inputCls = 'border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 bg-white'
+  const inputCls = 'border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 bg-white'
 
   return (
     <details className="card p-5">

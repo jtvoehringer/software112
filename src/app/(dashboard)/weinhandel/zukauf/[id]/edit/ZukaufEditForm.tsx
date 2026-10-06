@@ -62,7 +62,7 @@ interface InitialValues {
   staatliche_pruefnummer:   string
 }
 
-const inputCls = 'border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 bg-white'
+const inputCls = 'border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 bg-white'
 const labelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
 
 // Qualitätsstufe eines Wein-/Most-Zukaufs: zentrale Chargen-Liste QUALITAET_OPTS wie beim
@@ -462,7 +462,7 @@ export default function ZukaufEditForm({
           <h2 className="font-semibold text-s112-text-1 text-sm uppercase tracking-wide">Menge & Preis</h2>
           {mengeGesperrt && (
             <p className="flex items-start gap-1.5 text-xs bg-s112-bg border border-s112-border rounded-lg px-3 py-2 text-s112-text-1">
-              <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
+              <AlertTriangle size={14} className="mt-0.5 shrink-0" />
               <span>
                 Menge, Einheit und Gebinde sind gesperrt: {sperrHinweis ?? 'An der Charge hängen bereits Folgebuchungen'}.
                 Die Belegmenge bleibt als Zugang der Charge erhalten – eine Mindermenge bitte in der Charge über „Schwund buchen“,
@@ -474,7 +474,7 @@ export default function ZukaufEditForm({
           )}
           {art === 'trauben' && traubenGebunden.kg > 0 && (
             <p className="flex items-start gap-1.5 text-xs bg-s112-bg border border-s112-border rounded-lg px-3 py-2 text-s112-text-1">
-              <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
+              <AlertTriangle size={14} className="mt-0.5 shrink-0" />
               <span>
                 Aus diesem Zukauf sind bereits {traubenGebunden.text} – die Menge kann nicht unter {fmtNum(traubenGebunden.kg)} kg
                 gesenkt und die Art nicht mehr geändert werden.
@@ -649,7 +649,7 @@ export default function ZukaufEditForm({
             Abbrechen
           </Link>
           <button type="submit" disabled={isPending}
-            className="bg-s112-teal text-s112-yellow px-6 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-50">
+            className="bg-s112-teal text-s112-yellow px-6 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors disabled:opacity-50">
             {isPending ? 'Speichern…' : 'Änderungen speichern'}
           </button>
         </div>

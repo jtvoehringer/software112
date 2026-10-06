@@ -92,7 +92,7 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
           <form method="GET" action="/reports/ama" className="flex items-center gap-1 flex-wrap">
             <select name="jahrgang" aria-label="Jahrgang"
               defaultValue={aktJahrgang?.jahrgang ?? ''}
-              className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none">
+              className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden">
               {jahrgaenge.map(j => <option key={j.id} value={j.jahrgang}>{j.jahrgang}</option>)}
             </select>
             {/* KAN-43: Stichtag der Weinbestandsmeldung (Ende des Tages), höchstens heute */}
@@ -100,7 +100,7 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
               Bestand am
               <input type="date" name="stichtag" aria-label="Stichtag der Weinbestandsmeldung"
                 defaultValue={stichtag} max={heuteIso}
-                className="border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none" />
+                className="border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-hidden" />
             </label>
             <button type="submit" aria-label="Jahrgang und Stichtag anzeigen" className="border border-s112-border rounded-lg px-3 py-1.5 text-sm hover:bg-s112-bg">
               ↻

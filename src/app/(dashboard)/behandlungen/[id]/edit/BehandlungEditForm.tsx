@@ -110,7 +110,7 @@ export type BestehenderKostenEintrag = {
 }
 
 // KAN-181: am Handy 16 px (kein iOS-Zoom) und höhere Felder
-const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40'
 const labelCls = 'block text-sm font-medium text-s112-text-1 mb-1'
 
 export default function BehandlungEditForm({
@@ -520,14 +520,14 @@ export default function BehandlungEditForm({
         {bioSperre && (
           <div key={bioSprung} id="bio-sperre-grund" role="alert"
             className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-xl px-4 py-3 text-sm flex items-start gap-2">
-            <Ban size={16} className="mt-0.5 flex-shrink-0" aria-hidden="true" />
+            <Ban size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
             <span>Das gewählte Mittel ist nicht öko-zugelassen – passt nicht zum Bio-Status des Betriebs
             ({bioStatus === 'bio_eu' ? 'Bio-EU' : 'Biodynamisch'}). Speichern ist so nicht möglich, bitte ein zugelassenes Mittel wählen.</span>
           </div>
         )}
         {bioWarnung && (
           <div className="bg-s112-warn-bg border border-s112-warn/30 text-s112-warn-fg rounded-xl px-4 py-3 text-sm flex items-start gap-2">
-            <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" />
+            <AlertTriangle size={16} className="mt-0.5 shrink-0" />
             <span>Das gewählte Mittel ist nicht öko-zugelassen – bitte prüfen, ob das beabsichtigt ist.</span>
           </div>
         )}
@@ -535,7 +535,7 @@ export default function BehandlungEditForm({
         {/* Altwert: gespeicherte „Menge gesamt“ passt nicht zur Einheit des Felds (Spritzung in kg/g) */}
         {altwertSichtbar && (altwertOffen ? (
           <div className="bg-s112-warn-bg border border-s112-warn/30 text-s112-warn-fg rounded-xl px-4 py-3 text-sm flex items-start gap-2">
-            <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" />
+            <AlertTriangle size={16} className="mt-0.5 shrink-0" />
             <div className="space-y-1.5">
               {art === 'spritzung' ? (
                 <p>
@@ -575,7 +575,7 @@ export default function BehandlungEditForm({
               className={inputCls} />
             {einheitHinweis && (
               <p className="text-xs text-s112-warn-fg mt-1 flex items-start gap-1">
-                <AlertTriangle size={12} className="mt-0.5 flex-shrink-0" />{einheitHinweis}
+                <AlertTriangle size={12} className="mt-0.5 shrink-0" />{einheitHinweis}
               </p>
             )}
           </div>
@@ -904,7 +904,7 @@ export default function BehandlungEditForm({
       <div className="flex gap-3 max-sm:sticky max-sm:bottom-0 max-sm:-mx-4 max-sm:px-4 max-sm:py-3 max-sm:bg-s112-bg max-sm:border-t max-sm:border-s112-line max-sm:z-10">
         {/* nur beim Speichern gesperrt – eine Bio-Sperre zeigt der Klick am Mittel (KAN-154 wie KAN-153) */}
         <button type="submit" disabled={pending}
-          className="flex-1 sm:flex-none bg-s112-teal text-s112-yellow px-6 py-3 sm:py-2.5 rounded-xl text-base sm:text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50 transition-colors">
+          className="flex-1 sm:flex-none bg-s112-teal text-s112-yellow px-6 py-3 sm:py-2.5 rounded-xl text-base sm:text-sm font-semibold hover:bg-s112-teal/90 disabled:opacity-50 transition-colors">
           {pending ? 'Speichert…' : 'Änderungen speichern'}
         </button>
         <a href="/behandlungen" className="px-5 py-2.5 rounded-xl text-sm font-medium text-s112-text-2 hover:text-s112-text">

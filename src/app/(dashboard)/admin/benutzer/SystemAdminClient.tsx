@@ -75,7 +75,7 @@ export default function SystemAdminClient({ admins, canInvite = true }: { admins
 
       {canInvite && (!showInvite ? (
         <button onClick={() => setShowInvite(true)}
-          className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
+          className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90">
           <span>＋</span> Super-Admin einladen
         </button>
       ) : (
@@ -86,12 +86,12 @@ export default function SystemAdminClient({ admins, canInvite = true }: { admins
             <label className="block text-xs font-medium text-s112-text-2 mb-1">E-Mail-Adresse *</label>
             <input aria-label="E-Mail-Adresse" type="email" value={email} onChange={e => setEmail(e.target.value)}
               required placeholder="admin@example.com"
-              className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
+              className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40"
               autoFocus />
           </div>
           <div className="flex gap-2">
             <button type="submit" disabled={pending}
-              className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+              className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-40">
               {pending ? 'Wird eingeladen…' : 'Einladen'}
             </button>
             <button type="button" onClick={() => { setShowInvite(false); setEmail('') }}

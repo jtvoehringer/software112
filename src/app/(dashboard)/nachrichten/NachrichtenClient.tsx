@@ -404,7 +404,7 @@ export default function NachrichtenClient() {
           <div className="flex gap-2">
             <input value={monitoredEmail} onChange={e => setMonitoredEmail(e.target.value)}
               placeholder="office@weingut.at"
-              className="flex-1 border border-s112-border rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+              className="flex-1 border border-s112-border rounded-lg px-3 py-1.5 text-xs focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
             <button onClick={async () => {
               setMonitoredSaving(true)
               await fetch('/api/nachrichten/monitored', {
@@ -432,10 +432,10 @@ export default function NachrichtenClient() {
       className="flex h-[calc(100vh-190px)] min-h-[420px] gap-0 border border-s112-border rounded-xl overflow-hidden">
 
       {/* ── Ordner-Sidebar ── */}
-      <div className="w-44 flex-shrink-0 bg-s112-bg border-r border-s112-border flex flex-col">
+      <div className="w-44 shrink-0 bg-s112-bg border-r border-s112-border flex flex-col">
         <div className="p-3">
           <button onClick={() => { setAntwortAuf(null); setCc(''); setAn(''); setBetreff(''); setText(''); setCompose(true) }}
-            className="w-full bg-s112-teal text-s112-yellow px-3 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 flex items-center justify-center gap-2">
+            className="w-full bg-s112-teal text-s112-yellow px-3 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 flex items-center justify-center gap-2">
             Verfassen
           </button>
         </div>
@@ -463,7 +463,7 @@ export default function NachrichtenClient() {
               style={{ paddingLeft: `${12 + (f.depth ?? 0) * 14}px` }} title={f.name}
               className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors
                 ${folderId === f.id ? 'bg-s112-teal/10 text-s112-blue-700 font-medium' : 'text-s112-text-2 hover:bg-white'}`}>
-              <span className="flex-shrink-0">{f.name === 'Inbox' || f.name === 'Posteingang' ? <Inbox className="w-3.5 h-3.5" /> : f.name === 'Sent Items' || f.name === 'Gesendete Elemente' ? <Send className="w-3.5 h-3.5" /> : f.name === 'Deleted Items' || f.name === 'Gelöschte Elemente' ? <Trash2 className="w-3.5 h-3.5" /> : f.name === 'Drafts' || f.name === 'Entwürfe' ? <FileText className="w-3.5 h-3.5" /> : <Folder className="w-3.5 h-3.5" />}</span>
+              <span className="shrink-0">{f.name === 'Inbox' || f.name === 'Posteingang' ? <Inbox className="w-3.5 h-3.5" /> : f.name === 'Sent Items' || f.name === 'Gesendete Elemente' ? <Send className="w-3.5 h-3.5" /> : f.name === 'Deleted Items' || f.name === 'Gelöschte Elemente' ? <Trash2 className="w-3.5 h-3.5" /> : f.name === 'Drafts' || f.name === 'Entwürfe' ? <FileText className="w-3.5 h-3.5" /> : <Folder className="w-3.5 h-3.5" />}</span>
               <span className="flex-1 text-left truncate text-xs">{f.name}</span>
               {f.unread > 0 && <span className="text-xs bg-s112-teal text-s112-yellow px-1.5 py-0.5 rounded-full">{f.unread}</span>}
             </button>
@@ -495,7 +495,7 @@ export default function NachrichtenClient() {
                 <button onClick={async () => {
                   await fetch('/api/nachrichten/disconnect', { method: 'POST' })
                   window.location.reload()
-                }} className="w-full text-[11px] border border-s112-err/30 text-s112-err px-2 py-1 rounded hover:bg-s112-err-bg">
+                }} className="w-full text-[11px] border border-s112-err/30 text-s112-err px-2 py-1 rounded-sm hover:bg-s112-err-bg">
                   Trennen &amp; neu verbinden
                 </button>
               </div>
@@ -506,7 +506,7 @@ export default function NachrichtenClient() {
                 {/* Antwort: { postfaecher, nachrichten, angelegt, fehler: string[] } - fehler ist
                     ein Array (auch leer), ein String nur bei 401/500 */}
                 <button disabled={spiegelLaeuft} onClick={() => spiegeln(false)}
-                  className="w-full text-[11px] border border-s112-border text-s112-text-2 px-2 py-1 rounded hover:bg-s112-bg disabled:opacity-50">
+                  className="w-full text-[11px] border border-s112-border text-s112-text-2 px-2 py-1 rounded-sm hover:bg-s112-bg disabled:opacity-50">
                   {spiegelLaeuft ? 'Läuft …' : 'Jetzt spiegeln'}
                 </button>
                 <button disabled={spiegelLaeuft} onClick={() => spiegeln(true)} title="Stand zurücksetzen und die letzten 90 Tage komplett neu prüfen - z.B. nachdem eine geteilte Mailbox erst nachträglich lesbar wurde"
@@ -519,7 +519,7 @@ export default function NachrichtenClient() {
               <div className="space-y-1">
                 <input value={monitoredEmail} onChange={e => setMonitoredEmail(e.target.value)}
                   placeholder="office@weingut.at"
-                  className="w-full border border-s112-border rounded px-2 py-1 text-[11px] focus:outline-none" />
+                  className="w-full border border-s112-border rounded-sm px-2 py-1 text-[11px] focus:outline-hidden" />
                 <button onClick={async () => {
                   setMonitoredSaving(true)
                   await fetch('/api/nachrichten/monitored', {
@@ -529,7 +529,7 @@ export default function NachrichtenClient() {
                   setMonitoredSaving(false); setShowSettings(false)
                   window.location.reload()
                 }} disabled={monitoredSaving}
-                  className="w-full text-[11px] bg-s112-teal text-s112-yellow px-2 py-1 rounded hover:bg-opacity-90 disabled:opacity-40">
+                  className="w-full text-[11px] bg-s112-teal text-s112-yellow px-2 py-1 rounded-sm hover:bg-s112-teal/90 disabled:opacity-40">
                   {monitoredSaving ? '…' : monitoredEmail ? 'Speichern' : 'Eigene Mailbox'}
                 </button>
               </div>
@@ -539,7 +539,7 @@ export default function NachrichtenClient() {
       </div>
 
       {/* ── Nachrichten-Liste ── */}
-      <div className="w-72 flex-shrink-0 border-r border-s112-border flex flex-col bg-white">
+      <div className="w-72 shrink-0 border-r border-s112-border flex flex-col bg-white">
         <div className="px-4 py-3 border-b border-s112-border">
           <p className="text-sm font-semibold text-s112-text">
             {folderId
@@ -559,16 +559,16 @@ export default function NachrichtenClient() {
               {/* Papierkorb bei Hover: löschen und zur nächsten Nachricht springen */}
               <button type="button" onClick={e => { e.stopPropagation(); void loescheNachricht(msg.id) }}
                 title="In Gelöschte Elemente verschieben"
-                className="absolute right-2 bottom-2 hidden group-hover:inline-flex items-center justify-center w-6 h-6 rounded-md bg-white border border-s112-border text-s112-muted hover:text-s112-err hover:border-s112-err/40 shadow-sm">
+                className="absolute right-2 bottom-2 hidden group-hover:inline-flex items-center justify-center w-6 h-6 rounded-md bg-white border border-s112-border text-s112-muted hover:text-s112-err hover:border-s112-err/40 shadow-xs">
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
               <div className="flex items-start justify-between gap-2 mb-1">
                 <p className={`text-xs truncate ${!msg.gelesen ? 'font-semibold text-s112-text' : 'font-medium text-s112-text-1'}`}>
                   {folder === 'sent' ? msg.an : (msg.vonName || msg.von)}
-                  {folder !== 'sent' && msg.absender === 'unbekannt' && <span title="Absender nicht im CRM – Lead anlegen?" className="ml-1.5 align-middle inline-block text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded bg-s112-warn-bg text-s112-warn-fg">neu</span>}
-                  {folder !== 'sent' && msg.absender === 'lead' && <span title="Lead im CRM" className="ml-1.5 align-middle inline-block text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded bg-s112-blue-50 text-s112-blue-700">lead</span>}
+                  {folder !== 'sent' && msg.absender === 'unbekannt' && <span title="Absender nicht im CRM – Lead anlegen?" className="ml-1.5 align-middle inline-block text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded-sm bg-s112-warn-bg text-s112-warn-fg">neu</span>}
+                  {folder !== 'sent' && msg.absender === 'lead' && <span title="Lead im CRM" className="ml-1.5 align-middle inline-block text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded-sm bg-s112-blue-50 text-s112-blue-700">lead</span>}
                 </p>
-                <p className="text-[11px] text-s112-muted flex-shrink-0">{fmtDate(msg.datum)}</p>
+                <p className="text-[11px] text-s112-muted shrink-0">{fmtDate(msg.datum)}</p>
               </div>
               <p className={`text-xs truncate ${!msg.gelesen ? 'font-semibold text-s112-text' : 'text-s112-text-1'}`}>{msg.betreff}</p>
               {msg.vorschau && <p className="text-[11px] text-s112-muted truncate mt-0.5 group-hover:pr-7">{msg.vorschau}</p>}
@@ -605,7 +605,7 @@ export default function NachrichtenClient() {
             <p className="text-xs text-s112-muted">Betreff: Fwd: {selected.betreff}</p>
             <input value={forwardAn} onChange={e => setForwardAn(e.target.value)}
               placeholder="An: empfaenger@example.com"
-              className="border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-s112-teal" />
+              className="border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:border-s112-teal" />
             <button onClick={async () => {
               if (!forwardAn) return
               setSending(true)
@@ -619,7 +619,7 @@ export default function NachrichtenClient() {
               if (!r.ok) { setFehler('Weiterleiten fehlgeschlagen: ' + (d.fehler ?? r.status)); return }
               setForwardMode(false)
             }} disabled={sending || !forwardAn}
-              className="text-sm bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg hover:bg-opacity-90 disabled:opacity-40">
+              className="text-sm bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg hover:bg-s112-teal/90 disabled:opacity-40">
               {sending ? 'Senden…' : 'Weiterleiten'}
             </button>
           </div>
@@ -653,7 +653,7 @@ export default function NachrichtenClient() {
                         const info = { typ: t.typ, id: t.id, name: t.name, accountnummer: t.accountnummer, istLead: t.istLead, ueber: 'email' as const }
                         setSelected(prev => prev ? { ...prev, leadVorschlag: false, namensTreffer: [], kontaktInfo: info } : prev)
                         setMessages(prev => prev.map(m => m.von.toLowerCase() === selected.von.toLowerCase() ? { ...m, absender: t.istLead ? 'lead' : t.typ } : m))
-                      }} className="text-xs bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg font-semibold hover:bg-opacity-90 disabled:opacity-50"
+                      }} className="text-xs bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg font-semibold hover:bg-s112-teal/90 disabled:opacity-50"
                         title={t.email ? `bisher: ${t.email}` : 'bisher ohne E-Mail-Adresse'}>
                         Ja, zu {t.name}{t.accountnummer ? ` (${t.accountnummer})` : ''}{t.typ === 'firma' ? ' · Firma' : ''} hinzufügen
                       </button>
@@ -666,8 +666,8 @@ export default function NachrichtenClient() {
               {selected.leadVorschlag && !selected.kontaktInfo && !(selected.namensTreffer?.length) && !leadSpaeter.has(selected.von.toLowerCase()) && (
                 <div className="mt-3 rounded-lg border border-s112-teal/40 bg-s112-blue-50 px-3.5 py-2.5 flex flex-wrap items-center gap-2">
                   <UserPlus className="w-4 h-4 text-s112-teal shrink-0" />
-                  <span className="text-xs text-s112-text flex-1 min-w-[12rem]"><b>{selected.vonName || selected.von}</b> ist weder Kunde noch Lead. Soll ein Lead angelegt werden?</span>
-                  <button onClick={() => setLeadDialog(true)} className="text-xs bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg font-semibold hover:bg-opacity-90">Ja, Lead anlegen</button>
+                  <span className="text-xs text-s112-text flex-1 min-w-48"><b>{selected.vonName || selected.von}</b> ist weder Kunde noch Lead. Soll ein Lead angelegt werden?</span>
+                  <button onClick={() => setLeadDialog(true)} className="text-xs bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg font-semibold hover:bg-s112-teal/90">Ja, Lead anlegen</button>
                   <button onClick={() => setLeadSpaeter(prev => new Set(prev).add(selected.von.toLowerCase()))} className="text-xs border border-s112-line-str text-s112-text-2 px-3 py-1.5 rounded-lg hover:bg-white">Jetzt nicht</button>
                   <button disabled={leadIgnoriere} onClick={async () => {
                     setLeadIgnoriere(true)
@@ -685,14 +685,14 @@ export default function NachrichtenClient() {
                       title={selected.kontaktInfo.ueber === 'domain' ? 'Über die Firmendomain zugeordnet' : undefined}
                       className="text-xs text-s112-blue-700 border border-s112-border px-3 py-1.5 rounded-lg hover:bg-s112-bg inline-flex items-center gap-1.5">
                       {selected.kontaktInfo.name}
-                      {selected.kontaktInfo.istLead && <span className="text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded bg-s112-blue-50 text-s112-blue-700">Lead</span>}
+                      {selected.kontaktInfo.istLead && <span className="text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded-sm bg-s112-blue-50 text-s112-blue-700">Lead</span>}
                     </Link>
                   )}
                   {selected.leadVorschlag && !selected.kontaktInfo && leadSpaeter.has(selected.von.toLowerCase()) && (
                     <button onClick={() => setLeadDialog(true)} className="text-xs border border-s112-border text-s112-text-2 px-3 py-1.5 rounded-lg hover:bg-s112-bg inline-flex items-center gap-1"><UserPlus className="w-3.5 h-3.5" /> Lead anlegen</button>
                   )}
                   <button onClick={() => antworten(selected, 'reply')}
-                    className="text-xs bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg hover:bg-opacity-90">
+                    className="text-xs bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg hover:bg-s112-teal/90">
                     Antworten
                   </button>
                   <button onClick={() => antworten(selected, 'replyAll')} title="Antwort an Absender und alle weiteren Empfänger (An + CC)"
@@ -711,7 +711,7 @@ export default function NachrichtenClient() {
                   ) : (
                     <span className="flex items-center gap-1">
                       <select value={moveTarget} onChange={e => setMoveTarget(e.target.value)}
-                        className="text-xs border border-s112-border rounded-lg px-2 py-1.5 focus:outline-none max-w-[9rem]">
+                        className="text-xs border border-s112-border rounded-lg px-2 py-1.5 focus:outline-hidden max-w-36">
                         <option value="">Zielordner…</option>
                         {folders.filter(f => f.id !== folderId).map(f => (
                           <option key={f.id} value={f.id}>{f.name}</option>
@@ -737,11 +737,11 @@ export default function NachrichtenClient() {
                         setSelected(null)
                         ladeFolders(activeMailbox)  // Ordner-Zähler aktualisieren
                       }} disabled={moving || !moveTarget}
-                        className="text-xs bg-s112-teal text-s112-yellow px-2 py-1 rounded hover:bg-opacity-90 disabled:opacity-40">
+                        className="text-xs bg-s112-teal text-s112-yellow px-2 py-1 rounded-sm hover:bg-s112-teal/90 disabled:opacity-40">
                         {moving ? '…' : 'OK'}
                       </button>
                       <button onClick={() => setMoveMode(false)}
-                        className="text-xs border border-s112-line-str text-s112-text-2 px-2 py-1 rounded hover:bg-s112-bg">Abbrechen</button>
+                        className="text-xs border border-s112-line-str text-s112-text-2 px-2 py-1 rounded-sm hover:bg-s112-bg">Abbrechen</button>
                     </span>
                   )}
                   {!deleteConfirm ? (
@@ -752,9 +752,9 @@ export default function NachrichtenClient() {
                   ) : (
                     <span className="flex items-center gap-1">
                       <span className="text-xs text-s112-err">Löschen?</span>
-                      <button onClick={() => loescheNachricht(selected.id)} className="text-xs bg-s112-err text-white px-2 py-1 rounded hover:bg-s112-err-fg">Ja</button>
+                      <button onClick={() => loescheNachricht(selected.id)} className="text-xs bg-s112-err text-white px-2 py-1 rounded-sm hover:bg-s112-err-fg">Ja</button>
                       <button onClick={() => setDeleteConfirm(false)}
-                        className="text-xs border border-s112-line-str text-s112-text-2 px-2 py-1 rounded hover:bg-s112-bg">Nein</button>
+                        className="text-xs border border-s112-line-str text-s112-text-2 px-2 py-1 rounded-sm hover:bg-s112-bg">Nein</button>
                     </span>
                   )}
                 </div>
@@ -778,7 +778,7 @@ export default function NachrichtenClient() {
                         {tm.vorschau && <p className="text-[11px] text-s112-muted mt-1 line-clamp-2">{tm.vorschau}</p>}
                         <div className="flex gap-2 mt-2">
                           <button onClick={e => { e.stopPropagation(); antworten(tm, 'reply') }}
-                            className="text-[11px] text-s112-blue-700 border border-s112-teal/30 px-2 py-0.5 rounded hover:bg-s112-teal/5">
+                            className="text-[11px] text-s112-blue-700 border border-s112-teal/30 px-2 py-0.5 rounded-sm hover:bg-s112-teal/5">
                             Antworten
                           </button>
                         </div>
@@ -847,23 +847,23 @@ export default function NachrichtenClient() {
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">An * <span className="font-normal text-s112-muted">(mehrere mit Komma trennen)</span></label>
                 <EmailEingabe value={an} onChange={setAn} required
                   placeholder="Name oder Adresse tippen – Vorschläge aus dem CRM"
-                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">CC <span className="font-normal text-s112-muted">(optional, mehrere mit Komma trennen)</span></label>
                 <EmailEingabe value={cc} onChange={setCc}
                   placeholder="kopie@email.at"
-                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Betreff *</label>
                 <input aria-label="Betreff" value={betreff} onChange={e => setBetreff(e.target.value)} required
-                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+                  className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
               </div>
               <div className="flex-1 min-h-0 flex flex-col">
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Nachricht</label>
                 <textarea aria-label="Nachricht" value={text} onChange={e => setText(e.target.value)} rows={4} autoFocus={!!antwortAuf}
-                  className="flex-1 min-h-[120px] border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 resize-none" />
+                  className="flex-1 min-h-[120px] border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 resize-none" />
               </div>
               {antwortAuf && (
                 <div className="rounded-lg border border-s112-line bg-s112-bg px-3 py-2">
@@ -874,7 +874,7 @@ export default function NachrichtenClient() {
               {sendResult && <p className={`text-sm font-medium ${sendResult.startsWith('Fehler') ? 'text-s112-err-fg' : 'text-s112-ok-fg'}`}>{sendResult}</p>}
               <div className="flex gap-2 shrink-0 pt-1">
                 <button type="submit" disabled={sending}
-                  className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 disabled:opacity-40">
+                  className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 disabled:opacity-40">
                   {sending ? 'Senden…' : 'Senden'}
                 </button>
                 <button type="button" onClick={() => { setCompose(false); setAntwortAuf(null); setCc('') }}

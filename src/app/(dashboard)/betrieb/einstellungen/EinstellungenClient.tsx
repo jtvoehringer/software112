@@ -24,7 +24,7 @@ const BIO_STATUS_OPTS = [
 const BAWB_URL = 'https://services2.lfrz.at/at.lfrz.wein/frame.html'
 
 function inputCls() {
-  return 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+  return 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40'
 }
 
 type Tab = 'branding' | 'benutzer' | 'betrieb' | 'keller' | 'bawb' | 'abo'
@@ -131,7 +131,7 @@ function AboTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
             Buchhaltung: <span className="font-medium">{daten.buchhaltungsart === 'doppik' ? 'doppelte Buchhaltung beim Steuerberater (BMD-Übergabe)' : 'E&A-Rechnung in software:112'}</span>
           </p>
         )}
-        <Link href="/abo" className="inline-block bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-sm font-medium hover:bg-opacity-90">
+        <Link href="/abo" className="inline-block bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-sm font-medium hover:bg-s112-teal/90">
           Abo &amp; Paket verwalten →
         </Link>
         <p className="text-[11.5px] text-s112-muted">
@@ -232,18 +232,18 @@ function BrandingTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Primärfarbe</label>
           <div className="flex gap-2 items-center">
             <input type="color" value={primary} onChange={e => setPrimary(e.target.value)}
-              className="w-8 h-8 rounded border border-s112-border cursor-pointer p-0.5 flex-shrink-0" />
+              className="w-8 h-8 rounded-sm border border-s112-border cursor-pointer p-0.5 shrink-0" />
             <input name="primary_color" value={primary} onChange={e => setPrimary(e.target.value)}
-              className="flex-1 border border-s112-border rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+              className="flex-1 border border-s112-border rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
           </div>
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Sekundärfarbe</label>
           <div className="flex gap-2 items-center">
             <input type="color" value={secondary} onChange={e => setSecondary(e.target.value)}
-              className="w-8 h-8 rounded border border-s112-border cursor-pointer p-0.5 flex-shrink-0" />
+              className="w-8 h-8 rounded-sm border border-s112-border cursor-pointer p-0.5 shrink-0" />
             <input name="secondary_color" value={secondary} onChange={e => setSecondary(e.target.value)}
-              className="flex-1 border border-s112-border rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+              className="flex-1 border border-s112-border rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
           </div>
         </div>
       </div>
@@ -312,7 +312,7 @@ function BrandingTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
 
       <div className="flex items-center gap-3">
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-40">
           {pending ? 'Speichern…' : 'Speichern'}
         </button>
         {saved && <span className="text-xs text-s112-blue-700 font-medium">Gespeichert</span>}
@@ -435,12 +435,12 @@ function BetriebTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
         <p className="text-xs font-semibold text-s112-text-1 uppercase tracking-wide mb-3">Rechnungs-Fußtext</p>
         <textarea name="rechnung_fusstext" defaultValue={daten.rechnung_fusstext ?? ''}
           rows={3} placeholder="z.B. Gemäß § 6 Abs. 1 Z 8 UStG befreit von der Umsatzsteuer."
-          className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 resize-none" />
+          className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 resize-none" />
       </div>
 
       <div className="flex items-center gap-3">
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-40">
           {pending ? 'Speichern…' : 'Speichern'}
         </button>
         {saved && <span className="text-xs text-s112-blue-700 font-medium">Gespeichert</span>}
@@ -500,7 +500,7 @@ function KellerwirtschaftTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
 
       <div className="flex items-center gap-3">
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-40">
           {pending ? 'Speichern…' : 'Speichern'}
         </button>
         {saved && <span className="text-xs text-s112-blue-700 font-medium">Gespeichert</span>}
@@ -524,7 +524,7 @@ function BawbTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
   const [errMsg, setErrMsg]     = useState<string | null>(null)
   const [, startTransition]     = useTransition()
 
-  const cls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+  const cls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40'
 
   function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -553,7 +553,7 @@ function BawbTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
             href={BAWB_URL}
             target="_blank"
             rel="noreferrer"
-            className="shrink-0 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors whitespace-nowrap"
+            className="shrink-0 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors whitespace-nowrap"
           >
             bawb.at öffnen
           </a>
@@ -609,7 +609,7 @@ function BawbTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
 
         <div className="flex items-center gap-3">
           <button type="submit" disabled={status === 'saving'}
-            className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+            className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-40">
             {status === 'saving' ? 'Speichern…' : 'Speichern'}
           </button>
           {status === 'ok' && <span className="text-xs text-s112-blue-700 font-medium">Gespeichert</span>}

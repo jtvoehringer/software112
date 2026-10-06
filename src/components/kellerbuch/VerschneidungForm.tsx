@@ -193,7 +193,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
     })
   }
 
-  const inputCls = 'border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+  const inputCls = 'border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40'
 
   // Qualitäts-/Herkunft-Abstufung nach erfolgreichem Speichern
   if (qualitaetAbgestufInfo || herkunftAbgestufInfo || sortenHinweise.length > 0) {

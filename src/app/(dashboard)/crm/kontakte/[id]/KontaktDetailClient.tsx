@@ -41,7 +41,7 @@ const AKT_ICON: Record<string, typeof Phone> = {
 }
 
 function inputCls() {
-  return 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+  return 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40'
 }
 
 function AktivitaetForm({ kontaktId, onDone }: { kontaktId: string; onDone: () => void }) {
@@ -67,16 +67,16 @@ function AktivitaetForm({ kontaktId, onDone }: { kontaktId: string; onDone: () =
       </div>
       <div className="flex items-center gap-3 flex-wrap">
         <label className="flex items-center gap-1.5 text-xs text-s112-text-2 cursor-pointer select-none shrink-0">
-          <input type="checkbox" checked={ganztags} onChange={e => setGanztags(e.target.checked)} className="rounded" />
+          <input type="checkbox" checked={ganztags} onChange={e => setGanztags(e.target.checked)} className="rounded-sm" />
           Ganztags
         </label>
         <div className="flex items-center gap-2">
           <span className="text-xs text-s112-tertiary">Von</span>
           <input name="uhrzeit_von" type="time" step="1800" disabled={ganztags}
-            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-s112-bg' : ''}`} />
+            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-s112-bg' : ''}`} />
           <span className="text-xs text-s112-tertiary">-</span>
           <input name="uhrzeit_bis" type="time" step="1800" disabled={ganztags}
-            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-s112-bg' : ''}`} />
+            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-s112-bg' : ''}`} />
         </div>
       </div>
       <input name="betreff" placeholder="Betreff *" required className={inputCls()} />
@@ -119,16 +119,16 @@ function PipelineForm({ kontaktId, onDone }: { kontaktId: string; onDone: () => 
       </div>
       <div className="flex items-center gap-3 flex-wrap">
         <label className="flex items-center gap-1.5 text-xs text-s112-text-2 cursor-pointer select-none shrink-0">
-          <input type="checkbox" checked={ganztags} onChange={e => setGanztags(e.target.checked)} className="rounded" />
+          <input type="checkbox" checked={ganztags} onChange={e => setGanztags(e.target.checked)} className="rounded-sm" />
           Ganztags
         </label>
         <div className="flex items-center gap-2">
           <span className="text-xs text-s112-tertiary">Von</span>
           <input name="uhrzeit_von" type="time" step="1800" disabled={ganztags}
-            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-s112-bg' : ''}`} />
+            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-s112-bg' : ''}`} />
           <span className="text-xs text-s112-tertiary">–</span>
           <input name="uhrzeit_bis" type="time" step="1800" disabled={ganztags}
-            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-s112-bg' : ''}`} />
+            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-s112-bg' : ''}`} />
         </div>
       </div>
       <div className="flex gap-2">
@@ -179,7 +179,7 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
     const isStorniert = a.betreff?.includes('STORNIERT')
     return (
       <div className="card p-4 flex gap-3">
-        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-s112-bg flex items-center justify-center text-s112-blue-700">
+        <div className="shrink-0 w-8 h-8 rounded-full bg-s112-bg flex items-center justify-center text-s112-blue-700">
           <Receipt size={16} />
         </div>
         <div className="flex-1 min-w-0">
@@ -238,26 +238,26 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
                 type="checkbox"
                 checked={ganztags}
                 onChange={e => setGanztags(e.target.checked)}
-                className="rounded"
+                className="rounded-sm"
               />
               <input type="hidden" name="ganztags" value={String(ganztags)} />
               Ganztags
             </label>
             {!ganztags && (
               <div className="flex items-center gap-1.5">
-                <input type="time" name="uhrzeit_von" step="1800" defaultValue={a.uhrzeit_von ?? ''} className="border border-s112-border rounded px-2 py-1 text-xs focus:outline-none" />
+                <input type="time" name="uhrzeit_von" step="1800" defaultValue={a.uhrzeit_von ?? ''} className="border border-s112-border rounded-sm px-2 py-1 text-xs focus:outline-hidden" />
                 <span className="text-s112-tertiary">–</span>
-                <input type="time" name="uhrzeit_bis" step="1800" defaultValue={a.uhrzeit_bis ?? ''} className="border border-s112-border rounded px-2 py-1 text-xs focus:outline-none" />
+                <input type="time" name="uhrzeit_bis" step="1800" defaultValue={a.uhrzeit_bis ?? ''} className="border border-s112-border rounded-sm px-2 py-1 text-xs focus:outline-hidden" />
               </div>
             )}
             <label className="flex items-center gap-1.5 cursor-pointer">
-              <input type="checkbox" name="erledigt" value="true" defaultChecked={a.erledigt ?? false} className="rounded" />
+              <input type="checkbox" name="erledigt" value="true" defaultChecked={a.erledigt ?? false} className="rounded-sm" />
               Erledigt
             </label>
           </div>
           <div className="flex gap-2 pt-1">
             <button type="submit" disabled={pending}
-              className="bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-opacity-90 disabled:opacity-40">
+              className="bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-s112-teal/90 disabled:opacity-40">
               {pending ? 'Speichern…' : 'Speichern'}
             </button>
             <button type="button" onClick={() => setEditMode(false)}
@@ -280,7 +280,7 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
       {writeOk && (
         <button type="button" onClick={handleErledigt} disabled={pending}
           title={a.erledigt ? 'Als offen markieren' : 'Als erledigt markieren'}
-          className={`mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors disabled:opacity-50 ${
+          className={`mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors disabled:opacity-50 ${
             a.erledigt ? 'bg-s112-ok border-s112-ok text-white' : 'bg-white border-s112-line-str hover:border-s112-ok/50 text-transparent'
           }`}>
           <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -288,7 +288,7 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
           </svg>
         </button>
       )}
-      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-s112-bg flex items-center justify-center text-s112-text-2">
+      <div className="shrink-0 w-8 h-8 rounded-full bg-s112-bg flex items-center justify-center text-s112-text-2">
         <ArtIcon size={16} strokeWidth={1.75} />
       </div>
       <div className="flex-1 min-w-0">
@@ -302,7 +302,7 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
             </span>
           )}
           <span className="text-xs text-s112-muted">{artDef?.label ?? a.art}</span>
-          {a.ist_privat && <span className="text-xs bg-[#F2F3F5] text-s112-text-2 px-1.5 py-0.5 rounded">Privat</span>}
+          {a.ist_privat && <span className="text-xs bg-[#F2F3F5] text-s112-text-2 px-1.5 py-0.5 rounded-sm">Privat</span>}
         </div>
         {a.art === 'email' ? (
           <button type="button" onClick={() => setEmailOpen(v => !v)}
@@ -341,7 +341,7 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
           <div className="mt-2 space-y-2">
             <textarea value={replyText} onChange={e => setReplyText(e.target.value)} rows={3}
               placeholder={`Antwort an ${kontaktEmail ?? '...'}`}
-              className="w-full border border-s112-border rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-s112-teal/40 resize-none" />
+              className="w-full border border-s112-border rounded-lg px-3 py-2 text-xs focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 resize-none" />
             <div className="flex gap-2">
               <button type="button" disabled={replySending || !replyText.trim()} onClick={async () => {
                 if (!kontaktEmail || !replyText.trim()) return
@@ -351,7 +351,7 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
                   body: JSON.stringify({ an: kontaktEmail, betreff: `Re: ${a.betreff ?? ''}`, text: replyText, kontakt_id: kontaktId ?? null }),
                 })
                 setReplySending(false); setReplyOpen(false); setReplyText('')
-              }} className="text-xs bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg hover:bg-opacity-90 disabled:opacity-40">
+              }} className="text-xs bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg hover:bg-s112-teal/90 disabled:opacity-40">
                 {replySending ? 'Senden…' : 'Senden'}
               </button>
               <button type="button" onClick={() => setReplyOpen(false)}
@@ -362,7 +362,7 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
           </div>
         )}
       </div>
-      <div className="flex flex-col gap-1 flex-shrink-0">
+      <div className="flex flex-col gap-1 shrink-0">
         {a.art === 'email' && kontaktEmail && !replyOpen && (
           <button type="button" onClick={() => setReplyOpen(true)} title="Antworten"
             className="text-xs text-s112-blue-700 border border-s112-teal/30 px-2 py-1 rounded-lg hover:bg-s112-teal/5">
@@ -554,7 +554,7 @@ export default function KontaktDetailClient({
         />
       ) : (
         <div className="flex items-start gap-4">
-          <div className="flex flex-col items-center justify-center bg-s112-bg border border-s112-border rounded-xl px-3 py-2 flex-shrink-0 min-w-[72px]">
+          <div className="flex flex-col items-center justify-center bg-s112-bg border border-s112-border rounded-xl px-3 py-2 shrink-0 min-w-[72px]">
             <span className="text-[11px] text-s112-muted font-medium uppercase tracking-wide">Kd.-Nr.</span>
             <span className="text-sm font-semibold text-s112-blue-700 tabular-nums">{kontakt.accountnummer ?? '–'}</span>
           </div>
@@ -581,7 +581,7 @@ export default function KontaktDetailClient({
             </div>
           </div>
           {writeOk && (
-            <div className="flex gap-2 flex-shrink-0">
+            <div className="flex gap-2 shrink-0">
               <button
                 onClick={() => setEditing(true)}
                 title="Bearbeiten" aria-label="Bearbeiten"
@@ -678,8 +678,8 @@ export default function KontaktDetailClient({
                               })}
                               className={`w-full flex items-center gap-3 px-4 py-2.5 transition-colors text-left ${item.erledigt ? 'bg-s112-ok-bg hover:bg-s112-ok/25' : 'bg-s112-blue-50 hover:bg-s112-blue-100'}`}>
                               {item.erledigt
-                                ? <CheckCircle2 size={16} className="text-s112-ok-fg flex-shrink-0" />
-                                : <Mail size={16} className="text-s112-blue-700 flex-shrink-0" />}
+                                ? <CheckCircle2 size={16} className="text-s112-ok-fg shrink-0" />
+                                : <Mail size={16} className="text-s112-blue-700 shrink-0" />}
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium text-s112-text truncate">{latest.betreff}</p>
                                 <p className="text-xs text-s112-muted">{msgs.length} E-Mail{msgs.length !== 1 ? 's' : ''} · {new Date(latest.datum).toLocaleDateString('de-AT')} · {expanded ? 'einklappen ▴' : 'ausklappen ▾'}</p>
@@ -714,7 +714,7 @@ export default function KontaktDetailClient({
                 <a href={`mailto:${kontakt.email}`} className="text-s112-blue-700 hover:underline">{kontakt.email}</a>
                 {writeOk && (
                   <button onClick={() => setShowEmailModal(true)}
-                    className="ml-auto text-xs border border-s112-border px-2 py-0.5 rounded-lg text-s112-text-2 hover:bg-s112-bg flex-shrink-0">
+                    className="ml-auto text-xs border border-s112-border px-2 py-0.5 rounded-lg text-s112-text-2 hover:bg-s112-bg shrink-0">
                     Senden
                   </button>
                 )}
@@ -765,13 +765,13 @@ export default function KontaktDetailClient({
             )}
             {kontakt.position && (
               <div className="flex items-baseline gap-2 text-sm">
-                <span className="text-xs text-s112-muted w-16 flex-shrink-0">Position</span>
+                <span className="text-xs text-s112-muted w-16 shrink-0">Position</span>
                 <span className="text-s112-text-1">{kontakt.position}</span>
               </div>
             )}
             {kontakt.quelle && (
               <div className="flex items-baseline gap-2 text-sm">
-                <span className="text-xs text-s112-muted w-16 flex-shrink-0">Quelle</span>
+                <span className="text-xs text-s112-muted w-16 shrink-0">Quelle</span>
                 <Link href={`/crm/kontakte?quelle=${encodeURIComponent(kontakt.quelle)}`} className="text-s112-text-1 hover:text-s112-blue-700 hover:underline" title="Alle Kontakte mit dieser Quelle">{kontakt.quelle}</Link>
               </div>
             )}
@@ -798,9 +798,9 @@ export default function KontaktDetailClient({
               }} className="flex gap-2">
                 <input value={notizText} onChange={e => setNotizText(e.target.value)}
                   placeholder="Neue Notiz…" required
-                  className="flex-1 border border-s112-border rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+                  className="flex-1 border border-s112-border rounded-lg px-3 py-1.5 text-xs focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
                 <button type="submit" disabled={notizLaden}
-                  className="bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-opacity-90 disabled:opacity-40">
+                  className="bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-s112-teal/90 disabled:opacity-40">
                   +
                 </button>
               </form>
@@ -810,13 +810,13 @@ export default function KontaktDetailClient({
               {[...aktivitaeten.filter(a => a.art === 'notiz')].sort((a,b) => Number(a.erledigt) - Number(b.erledigt)).map(n => (
                 <div key={n.id} className={`flex items-start gap-2 py-1.5 border-b border-s112-border/30 last:border-0 ${n.erledigt ? 'opacity-50' : ''}`}>
                   <button type="button" onClick={() => toggleAktivitaetErledigt(n.id, !n.erledigt)}
-                    className={`mt-0.5 w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center ${n.erledigt ? 'bg-s112-ok border-s112-ok' : 'border-s112-line-str'}`}>
+                    className={`mt-0.5 w-4 h-4 rounded-sm border shrink-0 flex items-center justify-center ${n.erledigt ? 'bg-s112-ok border-s112-ok' : 'border-s112-line-str'}`}>
                     {n.erledigt && <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
                   </button>
                   {notizEditId === n.id ? (
                     <div className="flex-1 flex gap-1 items-center">
                       <input value={notizEditText} onChange={e => setNotizEditText(e.target.value)}
-                        className="flex-1 border border-s112-border rounded px-2 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-s112-teal/40" />
+                        className="flex-1 border border-s112-border rounded-sm px-2 py-0.5 text-xs focus:outline-hidden focus:ring-1 focus:ring-s112-teal/40" />
                       <button type="button" aria-label="Notiz speichern" onClick={async () => {
                         const fd = new FormData(); fd.set('betreff', notizEditText)
                         await updateAktivitaet(n.id, fd); setNotizEditId(null)
@@ -830,7 +830,7 @@ export default function KontaktDetailClient({
                         <p className="text-[11px] text-s112-muted">{new Date(n.datum).toLocaleDateString('de-AT')}</p>
                       </div>
                       <button type="button" aria-label="Notiz bearbeiten" onClick={() => { setNotizEditId(n.id); setNotizEditText(n.betreff ?? '') }}
-                        className="text-s112-tertiary hover:text-s112-blue-700 flex-shrink-0 mt-0.5"><Pencil size={11} /></button>
+                        className="text-s112-tertiary hover:text-s112-blue-700 shrink-0 mt-0.5"><Pencil size={11} /></button>
                     </div>
                   )}
                 </div>
@@ -873,7 +873,7 @@ export default function KontaktDetailClient({
                             <span className="text-xs px-1.5 py-0.5 rounded-full bg-s112-ok-bg text-s112-ok-fg font-medium">Erledigt</span>
                           )}
                         </div>
-                        <Link href="/crm/pipeline" className="text-xs text-s112-blue-700 hover:underline flex-shrink-0">→ Pipeline</Link>
+                        <Link href="/crm/pipeline" className="text-xs text-s112-blue-700 hover:underline shrink-0">→ Pipeline</Link>
                       </div>
                       <p className="text-sm font-medium text-s112-text">{p.titel}</p>
                       <div className="flex gap-3 text-xs text-s112-muted">
@@ -907,7 +907,7 @@ export default function KontaktDetailClient({
                               </span>
                             )}
                           </div>
-                          <div className="flex items-center gap-2 ml-2 flex-shrink-0">
+                          <div className="flex items-center gap-2 ml-2 shrink-0">
                             {v.storniert && <span className="px-1.5 py-0.5 rounded-full bg-s112-err-bg text-s112-err-fg font-medium">Storniert</span>}
                             {v.bezahlt  && <span className="px-1.5 py-0.5 rounded-full bg-s112-ok-bg text-s112-ok-fg font-medium">Bezahlt</span>}
                             {!v.storniert && !v.bezahlt && <span className="px-1.5 py-0.5 rounded-full bg-s112-warn-bg text-s112-warn-fg font-medium">Offen</span>}
@@ -939,12 +939,12 @@ export default function KontaktDetailClient({
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Betreff *</label>
                 <input aria-label="Betreff" value={emailBetreff} onChange={e => setEmailBetreff(e.target.value)} required autoFocus
-                  className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+                  className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Nachricht</label>
                 <textarea aria-label="Nachricht" value={emailText} onChange={e => setEmailText(e.target.value)} rows={5}
-                  className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 resize-none" />
+                  className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 resize-none" />
               </div>
               {emailResult && (
                 <p className={`text-xs font-medium inline-flex items-center gap-1 ${emailResult === 'E-Mail gesendet' ? 'text-s112-ok-fg' : 'text-s112-err-fg'}`}>
@@ -954,7 +954,7 @@ export default function KontaktDetailClient({
               )}
               <div className="flex gap-2 pt-1">
                 <button type="submit" disabled={emailSending}
-                  className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+                  className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-40">
                   {emailSending ? 'Senden…' : 'Senden'}
                 </button>
                 <button type="button" onClick={() => setShowEmailModal(false)}
@@ -985,12 +985,12 @@ export default function KontaktDetailClient({
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Firmenname *</label>
                 <input aria-label="Firmenname" value={umwName} onChange={e => setUmwName(e.target.value)} required autoFocus
                   placeholder="z. B. Gasthaus Musterwirt"
-                  className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+                  className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Segment</label>
                 <select aria-label="Segment" value={umwSegment} onChange={e => setUmwSegment(e.target.value)}
-                  className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40">
+                  className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
                   {SEGMENTE.map(sg => <option key={sg.value} value={sg.value}>{sg.label}</option>)}
                 </select>
               </div>
@@ -999,7 +999,7 @@ export default function KontaktDetailClient({
               )}
               <div className="flex gap-2 pt-1">
                 <button type="submit" disabled={umwPending || !umwName.trim()}
-                  className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+                  className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-40">
                   {umwPending ? 'Wird umgewandelt…' : 'Firma anlegen'}
                 </button>
                 <button type="button" onClick={() => setShowUmwandeln(false)} disabled={umwPending}

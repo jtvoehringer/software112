@@ -55,7 +55,7 @@ export default async function BehaelterBewegungsPage({
 
   const kapazitaet = bh.volumen_liter ? bh.volumen_liter : null
   const auslastung = kapazitaet && kapazitaet > 0 ? Math.min(100, (aktuell / kapazitaet) * 100) : null
-  const inputCls = 'border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 bg-white'
+  const inputCls = 'border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 bg-white'
   const mitZeitraum = !!(von || bis)
   const endSaldo = bewegungenMitSaldo.length > 0 ? bewegungenMitSaldo[bewegungenMitSaldo.length - 1].saldo : 0
 
@@ -135,7 +135,7 @@ export default async function BehaelterBewegungsPage({
           <div className="flex flex-wrap gap-2">
             {aktiveChargen.map((c: R) => (
               <Link key={c.id} href={`/kellerbuch/weinausbau/${c.id}`}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-s112-border bg-white hover:border-s112-teal hover:shadow-sm transition-all text-sm">
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-s112-border bg-white hover:border-s112-teal hover:shadow-xs transition-all text-sm">
                 <span className="font-medium text-s112-text">{c.name}</span>
                 {c.jahrgang && <span className="text-xs text-s112-muted">{c.jahrgang}</span>}
                 <span className="text-xs font-semibold text-s112-blue-700 tabular-nums">

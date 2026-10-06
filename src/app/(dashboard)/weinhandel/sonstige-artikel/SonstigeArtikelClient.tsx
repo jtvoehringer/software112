@@ -16,7 +16,7 @@ interface Artikel {
   erstellt_am: string
 }
 
-const inputCls = 'border border-s112-border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 bg-white'
+const inputCls = 'border border-s112-border rounded-lg px-2 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 bg-white'
 
 function ArtikelRow({ artikel, onRefresh }: { artikel: Artikel; onRefresh: () => void }) {
   const [editing, setEditing]       = useState(false)
@@ -88,11 +88,11 @@ function ArtikelRow({ artikel, onRefresh }: { artikel: Artikel; onRefresh: () =>
         <td className="px-3 py-2 text-right">
           <div className="flex gap-2 justify-end">
             <button onClick={() => setEditing(false)}
-              className="text-xs text-s112-muted hover:text-s112-text-2 px-2 py-1 rounded">
+              className="text-xs text-s112-muted hover:text-s112-text-2 px-2 py-1 rounded-sm">
               Abbrechen
             </button>
             <button onClick={handleSave} disabled={isPending}
-              className="text-xs bg-s112-teal text-s112-yellow px-3 py-1 rounded-lg hover:bg-opacity-90 disabled:opacity-50">
+              className="text-xs bg-s112-teal text-s112-yellow px-3 py-1 rounded-lg hover:bg-s112-teal/90 disabled:opacity-50">
               {isPending ? '…' : 'Speichern'}
             </button>
           </div>
@@ -117,17 +117,17 @@ function ArtikelRow({ artikel, onRefresh }: { artikel: Artikel; onRefresh: () =>
         <div className="flex gap-1 justify-end items-center">
           <button onClick={() => setEditing(true)}
             title="Bearbeiten"
-            className="text-xs text-s112-muted hover:text-s112-blue-700 px-2 py-1 rounded hover:bg-s112-teal/10">
+            className="text-xs text-s112-muted hover:text-s112-blue-700 px-2 py-1 rounded-sm hover:bg-s112-teal/10">
             <Pencil className="w-3.5 h-3.5" />
           </button>
           <button onClick={handleToggle} disabled={isPending}
             title={artikel.aktiv ? 'Deaktivieren' : 'Aktivieren'}
-            className="text-xs text-s112-muted hover:text-s112-text-2 px-2 py-1 rounded hover:bg-[#F2F3F5]">
+            className="text-xs text-s112-muted hover:text-s112-text-2 px-2 py-1 rounded-sm hover:bg-[#F2F3F5]">
             {artikel.aktiv ? 'Deaktivieren' : 'Aktivieren'}
           </button>
           <button onClick={handleDelete} disabled={isPending}
             title="Löschen"
-            className="text-xs text-s112-err hover:text-s112-err-fg px-2 py-1 rounded hover:bg-s112-err-bg">
+            className="text-xs text-s112-err hover:text-s112-err-fg px-2 py-1 rounded-sm hover:bg-s112-err-bg">
             <Trash2 className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -188,7 +188,7 @@ function NeuerArtikelRow({ onRefresh, onCancel }: { onRefresh: () => void; onCan
       <td className="px-3 py-2 text-right">
         <div className="flex gap-2 justify-end">
           <button onClick={onCancel}
-            className="text-xs text-s112-muted hover:text-s112-text-2 px-2 py-1 rounded">
+            className="text-xs text-s112-muted hover:text-s112-text-2 px-2 py-1 rounded-sm">
             Abbrechen
           </button>
           <button onClick={handleSave} disabled={isPending}
@@ -217,7 +217,7 @@ export default function SonstigeArtikelClient({ initialArtikel }: { initialArtik
         <button
           onClick={() => setShowNeu(true)}
           disabled={showNeu}
-          className="text-sm bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl font-semibold hover:bg-opacity-90 disabled:opacity-40 transition-colors"
+          className="text-sm bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl font-semibold hover:bg-s112-teal/90 disabled:opacity-40 transition-colors"
         >
           + Neues Produkt
         </button>

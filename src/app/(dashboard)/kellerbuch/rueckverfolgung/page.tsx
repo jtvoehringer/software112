@@ -399,7 +399,7 @@ export default async function RueckverfolgungPage({
     : []
 
   const filterAktiv = !!(jahrgang || sorte || bezeichnung)
-  const inputCls = 'w-full border border-s112-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+  const inputCls = 'w-full border border-s112-border rounded-xl px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40'
   const labelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
 
   return (
@@ -542,7 +542,7 @@ export default async function RueckverfolgungPage({
           </div>
           <div className="sm:col-span-3 flex items-center gap-3">
             <button type="submit"
-              className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
+              className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors">
               Filtern
             </button>
             {filterAktiv && (
@@ -627,7 +627,7 @@ export default async function RueckverfolgungPage({
           defaultValue={q ?? fuellung?.chargennummer ?? ''}
           list="rueckverfolgung-vorschlaege"
           placeholder="Chargennummer z.B. CH-2025-001 oder Prüfnummer"
-          className="flex-1 border border-s112-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
+          className="flex-1 border border-s112-border rounded-xl px-4 py-2.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40"
           autoFocus
         />
         <datalist id="rueckverfolgung-vorschlaege">
@@ -636,7 +636,7 @@ export default async function RueckverfolgungPage({
           ))}
         </datalist>
         <button type="submit"
-          className="bg-s112-teal text-s112-yellow px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-opacity-90">
+          className="bg-s112-teal text-s112-yellow px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-s112-teal/90">
           Suchen
         </button>
       </form>

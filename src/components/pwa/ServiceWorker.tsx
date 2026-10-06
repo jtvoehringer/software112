@@ -44,7 +44,7 @@ export default function ServiceWorker() {
 
   if (!wartend) return null
   return (
-    <div role="status" className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 rounded-xl bg-s112-text text-white shadow-lg px-4 py-3 text-sm">
+    <div role="status" className="fixed bottom-4 left-1/2 -translate-x-1/2 z-100 flex items-center gap-3 rounded-xl bg-s112-text text-white shadow-lg px-4 py-3 text-sm">
       <span>Neue Version von software:112 verfügbar.</span>
       <button type="button"
         onClick={() => { neuLaden.current = true; wartend.postMessage({ typ: 'skip-waiting' }) }}

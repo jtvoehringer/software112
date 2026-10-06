@@ -27,7 +27,7 @@ export default function MengenZusammenfassung({ art, pruefung, ha }: { art: stri
       )}
       {(pruefung.ok ? pruefung.hinweise : [pruefung.fehler]).map(h => (
         <p key={h} className="text-s112-warn-fg flex items-start gap-1">
-          <AlertTriangle size={12} className="mt-0.5 flex-shrink-0" />{h}
+          <AlertTriangle size={12} className="mt-0.5 shrink-0" />{h}
         </p>
       ))}
     </div>

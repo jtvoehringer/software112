@@ -101,7 +101,7 @@ function BeitraegeTab({ v, p, jahr, opt, setOpt, einkuenfteVorjahr, einkuenfte, 
   return (
     <div className="space-y-4">
       {ew.ohneWert > 0 && (
-        <p className="text-sm text-s112-warn-fg inline-flex items-start gap-1.5"><AlertTriangle size={15} className="mt-0.5 flex-shrink-0" />
+        <p className="text-sm text-s112-warn-fg inline-flex items-start gap-1.5"><AlertTriangle size={15} className="mt-0.5 shrink-0" />
           {ew.ohneWert} {ew.ohneWert === 1 ? 'Grundstück hat' : 'Grundstücke haben'} noch keinen Einheitswert – die Beitragsgrundlage ist deshalb unvollständig. <button onClick={onZuEinheitswerten} className="underline">Einheitswerte erfassen</button>
         </p>
       )}
@@ -137,7 +137,7 @@ function BeitraegeTab({ v, p, jahr, opt, setOpt, einkuenfteVorjahr, einkuenfte, 
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Einkünfte aus Land- und Forstwirtschaft lt. Einkommensteuerbescheid {einkuenfteVorjahr.jahr} (Jahr)</label>
             <input value={manuell} onChange={e => setManuell(e.target.value)} disabled={!darfOption}
               placeholder={einkuenfteVorjahr.buchungen && !doppik ? `Vorschlag aus E&A ${einkuenfteVorjahr.jahr}: ${eur(einkuenfteVorjahr.betrag, 0)}` : 'z. B. 28.500'}
-              className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-none disabled:bg-s112-bg" />
+              className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-hidden disabled:bg-s112-bg" />
             <p className="text-[11px] text-s112-muted mt-1">
               {doppik ? 'Bei Doppik beim Steuerberater bitte den Wert aus dem Einkommensteuerbescheid eintragen.' : `Leer = Ergebnis der E&A-Rechnung ${einkuenfteVorjahr.jahr} als Näherung. Der Bescheidwert weicht meist ab (Pauschalierung, Abschreibungen).`}
             </p>
@@ -160,7 +160,7 @@ function BeitraegeTab({ v, p, jahr, opt, setOpt, einkuenfteVorjahr, einkuenfte, 
 
       {v.option && (
         <div className={`bg-white border border-s112-line rounded-xl p-[18px] flex items-start gap-3 ${guenstiger === 'option' ? 'bg-s112-ok-bg' : 'bg-s112-bg'}`}>
-          <CheckCircle2 size={20} className="text-s112-blue-700 mt-0.5 flex-shrink-0" />
+          <CheckCircle2 size={20} className="text-s112-blue-700 mt-0.5 shrink-0" />
           <div className="text-sm">
             <p className="font-semibold text-s112-text">
               {Math.abs(v.ersparnisOptionJahr!) < 1
@@ -197,7 +197,7 @@ function BeitraegeTab({ v, p, jahr, opt, setOpt, einkuenfteVorjahr, einkuenfte, 
             {meldung && <span className={`text-sm ${meldung.ok ? 'text-s112-ok-fg' : 'text-s112-err-fg'}`}>{meldung.text}</span>}
           </div>
         ) : <p className="text-xs text-s112-muted">Die Wahl trifft der Betriebs-Manager.</p>}
-        <p className="text-xs text-s112-warn-fg inline-flex items-start gap-1.5"><AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
+        <p className="text-xs text-s112-warn-fg inline-flex items-start gap-1.5"><AlertTriangle size={14} className="mt-0.5 shrink-0" />
           Orientierungsrechnung mit den SVS-Sätzen {p.jahr}{p.hinweis ? ` – ${p.hinweis}` : ''}. Verbindlich ist der Beitragsbescheid der SVS; Entscheidung zur Option bitte mit SVS oder Steuerberater abstimmen.
         </p>
       </div>
@@ -255,7 +255,7 @@ function EinheitswerteTab({ gst, setGst, darfSchreiben, csvHref }: { gst: Gst[];
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <input value={filter} onChange={e => setFilter(e.target.value)} placeholder="Filter: KG, GST-Nr., Ried" className="border border-s112-border rounded-lg px-3 py-1.5 text-sm w-64 focus:outline-none" />
+        <input value={filter} onChange={e => setFilter(e.target.value)} placeholder="Filter: KG, GST-Nr., Ried" className="border border-s112-border rounded-lg px-3 py-1.5 text-sm w-64 focus:outline-hidden" />
         <div className="flex items-center gap-3 text-sm flex-wrap">
           <span className="text-s112-muted">{gst.length} Grundstücke · Summe Einheitswert {eur(summe, 0)}</span>
           <CsvExportKnopf href={csvHref} label={dirty.size > 0 ? 'CSV (gespeicherter Stand)' : 'CSV exportieren'} />
@@ -265,7 +265,7 @@ function EinheitswerteTab({ gst, setGst, darfSchreiben, csvHref }: { gst: Gst[];
       </div>
       <div className="bg-white border border-s112-line rounded-xl overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="bg-[#F7F8FA] text-xs text-s112-text-2">
+          <thead className="bg-s112-bg text-xs text-s112-text-2">
             <tr>
               <th className="text-left px-3 py-2 font-medium">KG</th>
               <th className="text-left px-3 py-2 font-medium">GST-Nr.</th>
@@ -294,11 +294,11 @@ function EinheitswerteTab({ gst, setGst, darfSchreiben, csvHref }: { gst: Gst[];
                 <td className="px-3 py-1.5 text-right">
                   <input type="number" step="0.01" min="0" value={g.einheitswert ?? ''} disabled={!darfSchreiben}
                     onChange={e => aendere(g.id, { einheitswert: e.target.value === '' ? null : parseFloat(e.target.value) })}
-                    className="w-28 border border-s112-border rounded-lg px-2 py-1 text-sm font-mono text-right focus:outline-none disabled:bg-s112-bg" />
+                    className="w-28 border border-s112-border rounded-lg px-2 py-1 text-sm font-mono text-right focus:outline-hidden disabled:bg-s112-bg" />
                 </td>
                 <td className="px-3 py-1.5">
                   <input type="date" value={g.einheitswert_bescheid ?? ''} disabled={!darfSchreiben} onChange={e => aendere(g.id, { einheitswert_bescheid: e.target.value || null })}
-                    className="border border-s112-border rounded-lg px-2 py-1 text-xs focus:outline-none disabled:bg-s112-bg" />
+                    className="border border-s112-border rounded-lg px-2 py-1 text-xs focus:outline-hidden disabled:bg-s112-bg" />
                   {g.einheitswert_quelle === 'import' && <span className="ml-1 text-[11px] text-s112-muted">Import</span>}
                 </td>
               </tr>
@@ -347,7 +347,7 @@ function ImportTab({ darfSchreiben }: { darfSchreiben: boolean }) {
           <label className="text-xs text-s112-text-2">Bescheid-Datum (wenn nicht in der Datei) <input type="date" value={datum} onChange={e => setDatum(e.target.value)} className="ml-1 border border-s112-border rounded-lg px-2 py-1 text-xs" /></label>
         </div>
         <textarea value={text} onChange={e => setText(e.target.value)} rows={8} disabled={!darfSchreiben} placeholder="… oder Inhalt hier einfügen"
-          className="w-full border border-s112-border rounded-lg px-3 py-2 text-xs font-mono focus:outline-none disabled:bg-s112-bg" />
+          className="w-full border border-s112-border rounded-lg px-3 py-2 text-xs font-mono focus:outline-hidden disabled:bg-s112-bg" />
         <div className="flex items-center gap-3">
           <button onClick={los} disabled={pending || !text.trim() || !darfSchreiben} className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-[13px] font-semibold hover:opacity-90 disabled:opacity-40">{pending ? 'Importiert…' : 'Einheitswerte importieren'}</button>
           {ergebnis && <span className={`text-sm ${ergebnis.ok ? 'text-s112-ok-fg' : 'text-s112-err-fg'}`}>{ergebnis.text}</span>}
@@ -382,7 +382,7 @@ function ParameterTab({ parameter, jahr }: { parameter: SvsParameter[]; jahr: nu
   const feld = (k: keyof typeof form, label: string) => (
     <div>
       <label className="block text-xs font-medium text-s112-text-2 mb-1">{label}</label>
-      <input value={form[k]} onChange={e => setForm({ ...form, [k]: e.target.value })} className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-none" />
+      <input value={form[k]} onChange={e => setForm({ ...form, [k]: e.target.value })} className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-hidden" />
     </div>
   )
   return (
@@ -395,11 +395,11 @@ function ParameterTab({ parameter, jahr }: { parameter: SvsParameter[]; jahr: nu
       </div>
       <div>
         <label className="block text-xs font-medium text-s112-text-2 mb-1">Staffel Versicherungswert (JSON: bis = obere Einheitswertgrenze, prozent = Einkommensfaktor; letzte Stufe bis null)</label>
-        <textarea aria-label="Staffel Versicherungswert (JSON: bis = obere Einheitswertgrenze, prozent = Einkommensfaktor; letzte Stufe bis null)" value={form.staffel} onChange={e => setForm({ ...form, staffel: e.target.value })} rows={4} className="w-full border border-s112-border rounded-lg px-3 py-2 text-xs font-mono focus:outline-none" />
+        <textarea aria-label="Staffel Versicherungswert (JSON: bis = obere Einheitswertgrenze, prozent = Einkommensfaktor; letzte Stufe bis null)" value={form.staffel} onChange={e => setForm({ ...form, staffel: e.target.value })} rows={4} className="w-full border border-s112-border rounded-lg px-3 py-2 text-xs font-mono focus:outline-hidden" />
       </div>
       <div>
         <label className="block text-xs font-medium text-s112-text-2 mb-1">Hinweis (Quelle)</label>
-        <input aria-label="Hinweis (Quelle)" value={form.hinweis} onChange={e => setForm({ ...form, hinweis: e.target.value })} className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none" />
+        <input aria-label="Hinweis (Quelle)" value={form.hinweis} onChange={e => setForm({ ...form, hinweis: e.target.value })} className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden" />
       </div>
       <div className="flex items-center gap-3">
         <button onClick={speichern} disabled={pending} className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-[13px] font-semibold hover:opacity-90 disabled:opacity-40">{pending ? 'Speichert…' : 'Parameter speichern'}</button>

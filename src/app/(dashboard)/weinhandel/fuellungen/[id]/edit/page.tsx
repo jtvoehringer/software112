@@ -149,7 +149,7 @@ export default async function EditFuellungPage({
     .filter(a => !f.dac_antrag_id || a.id === f.dac_antrag_id)
   const gespeichertAm = f.erstellt_am ? new Date(f.erstellt_am).toLocaleDateString('de-AT') : null
 
-  const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+  const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40'
   const labelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
 
   // Bind updateFuellung with id
@@ -589,7 +589,7 @@ export default async function EditFuellungPage({
                         <td className="py-2 pr-3 text-right tabular-nums whitespace-nowrap">
                           {b.bestand_vorher != null ? fmtNum(Number(b.bestand_vorher), 0) : '–'} → {b.bestand_nachher != null ? fmtNum(Number(b.bestand_nachher), 0) : '–'}
                         </td>
-                        <td className="py-2 text-s112-text-1 break-words">{b.grund ?? '–'}</td>
+                        <td className="py-2 text-s112-text-1 wrap-break-word">{b.grund ?? '–'}</td>
                       </tr>
                     )
                   })}

@@ -13,7 +13,7 @@ const SEGMENTE = [
 ]
 
 function inputCls(error?: boolean) {
-  return `w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 transition-colors ${
+  return `w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 transition-colors ${
     error ? 'border-s112-err/50 bg-s112-err-bg' : 'border-s112-border'
   }`
 }
@@ -57,7 +57,7 @@ export default function NewsletterForm({ kurzname, farbe, betriebName, datenschu
     <form onSubmit={handleSubmit} className="space-y-4">
       <input type="hidden" name="kurzname" value={kurzname} />
       {/* Falle für Bots (23.9.2026): für Menschen unsichtbar, nicht per Tab erreichbar */}
-      <div aria-hidden="true" className="absolute -left-[9999px] w-px h-px overflow-hidden">
+      <div aria-hidden="true" className="absolute left-[-9999px] w-px h-px overflow-hidden">
         <input type="text" name="webseite" tabIndex={-1} autoComplete="off" defaultValue="" />
       </div>
       <div className="grid grid-cols-2 gap-3">
@@ -97,7 +97,7 @@ export default function NewsletterForm({ kurzname, farbe, betriebName, datenschu
       {/* Datenschutz-Checkbox */}
       <label className="flex items-start gap-2.5 cursor-pointer">
         <input type="checkbox" checked={datenschutz} onChange={e => setDatenschutz(e.target.checked)}
-          className="accent-s112-teal w-4 h-4 mt-0.5 flex-shrink-0" />
+          className="accent-s112-teal w-4 h-4 mt-0.5 shrink-0" />
         <span className="text-xs text-s112-text-2">
           Ich stimme zu, dass {betriebName} meine Daten zur Zusendung des Newsletters verarbeitet.
           Die Einwilligung kann ich jederzeit widerrufen.

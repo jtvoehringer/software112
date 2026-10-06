@@ -70,7 +70,7 @@ export default function StornoButton({ action, hinweis, label, modus = 'storno',
       <span className="inline-flex flex-col items-end gap-0.5 align-top">
         {knopf}
         {fehler && (
-          <span role="alert" className="block text-[11px] leading-snug text-s112-err-fg w-[240px] max-w-[70vw] text-left whitespace-normal break-words">{fehler}</span>
+          <span role="alert" className="block text-[11px] leading-snug text-s112-err-fg w-[240px] max-w-[70vw] text-left whitespace-normal wrap-break-word">{fehler}</span>
         )}
       </span>
     )
@@ -87,12 +87,12 @@ export default function StornoButton({ action, hinweis, label, modus = 'storno',
       <textarea id={id} value={grund} onChange={e => setGrund(e.target.value)} rows={2} autoFocus
         minLength={STORNO_GRUND_MIN} aria-invalid={!!fehler || undefined} aria-describedby={fehler ? `${id}-f` : undefined}
         placeholder="z. B. Menge falsch erfasst, doppelt gebucht"
-        className="w-full border border-s112-border rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+        className="w-full border border-s112-border rounded-sm px-2 py-1 text-xs focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
       {datumFeld && (
         <label className="text-[11px] font-medium text-s112-text-1">
           {datumFeld.label}
           <input type="date" value={datum} onChange={e => setDatum(e.target.value)}
-            className="mt-0.5 block w-full border border-s112-border rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-s112-teal/40" />
+            className="mt-0.5 block w-full border border-s112-border rounded-sm px-2 py-1 text-xs focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
           {datumFeld.hilfe && <span className="block font-normal text-s112-muted">{datumFeld.hilfe}</span>}
         </label>
       )}
@@ -101,7 +101,7 @@ export default function StornoButton({ action, hinweis, label, modus = 'storno',
         <button type="button" onClick={() => { setOffen(false); setFehler(null) }} disabled={pending}
           className="text-xs text-s112-text-2 hover:text-s112-text-1 px-1">Abbrechen</button>
         <button type="button" onClick={absenden} disabled={pending}
-          className="text-xs bg-s112-err text-white px-2 py-0.5 rounded font-medium disabled:opacity-50">
+          className="text-xs bg-s112-err text-white px-2 py-0.5 rounded-sm font-medium disabled:opacity-50">
           {pending ? '…' : text}
         </button>
       </span>

@@ -29,7 +29,7 @@ type PipelineRow = {
 // ── Hilfsfunktionen ───────────────────────────────────────────────────────────
 
 function inputCls() {
-  return 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+  return 'w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40'
 }
 
 // ── Formular ──────────────────────────────────────────────────────────────────
@@ -147,7 +147,7 @@ export function KontaktForm({
             <input type="hidden" name="is_lead" value={String(isLead)} />
             <button type="button" role="switch" aria-checked={!isLead} aria-label="Kunde (aus) oder Lead" onClick={() => setIsLead(v => !v)}
               className={`w-10 h-5 rounded-full transition-colors flex items-center px-0.5 ${isLead ? 'bg-s112-grey' : 'bg-s112-teal'}`}>
-              <span className={`block w-4 h-4 rounded-full bg-white shadow transition-transform ${isLead ? 'translate-x-0' : 'translate-x-5'}`} />
+              <span className={`block w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${isLead ? 'translate-x-0' : 'translate-x-5'}`} />
             </button>
             <span className={`text-sm font-semibold min-w-[48px] ${isLead ? 'text-s112-warn-fg' : 'text-s112-blue-700'}`}>
               {isLead ? 'Lead' : 'Aktiv'}
@@ -221,7 +221,7 @@ export function KontaktForm({
                 const d = DIAL_CODES.find(x => x.code === e.target.value)
                 if (d) setLandVal(d.iso)
               }}
-              className="border border-s112-border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 w-24 flex-shrink-0"
+              className="border border-s112-border rounded-lg px-2 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 w-24 shrink-0"
             >
               {DIAL_CODES.map(d => (
                 <option key={d.code} value={d.code}>{d.flag} {d.code}</option>
@@ -240,7 +240,7 @@ export function KontaktForm({
                 const d = DIAL_CODES.find(x => x.code === e.target.value)
                 if (d) setLandVal(d.iso)
               }}
-              className="border border-s112-border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 w-24 flex-shrink-0"
+              className="border border-s112-border rounded-lg px-2 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 w-24 shrink-0"
             >
               {DIAL_CODES.map(d => (
                 <option key={d.code} value={d.code}>{d.flag} {d.code}</option>
@@ -254,7 +254,7 @@ export function KontaktForm({
           <input aria-label="Straße" name="strasse" defaultValue={v('strasse')} className={inputCls()} />
         </div>
         <div className="flex gap-2">
-          <div className="w-28 flex-shrink-0">
+          <div className="w-28 shrink-0">
             <label className="block text-xs font-medium text-s112-text-2 mb-1">PLZ</label>
             <input aria-label="PLZ" name="plz" defaultValue={v('plz')} className={inputCls()} />
           </div>
@@ -346,7 +346,7 @@ export function KontaktForm({
 
       <div className="flex gap-2">
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-40">
           {pending ? 'Wird gespeichert…' : (initial ? 'Speichern' : 'Anlegen')}
         </button>
         <button type="button" onClick={onDone}
@@ -383,16 +383,16 @@ function AktivitaetForm({ kontaktId, onDone }: { kontaktId: string; onDone: () =
       </div>
       <div className="flex items-center gap-3 flex-wrap">
         <label className="flex items-center gap-1.5 text-xs text-s112-text-2 cursor-pointer select-none shrink-0">
-          <input type="checkbox" checked={ganztags} onChange={e => setGanztags(e.target.checked)} className="rounded" />
+          <input type="checkbox" checked={ganztags} onChange={e => setGanztags(e.target.checked)} className="rounded-sm" />
           Ganztags
         </label>
         <div className="flex items-center gap-2">
           <span className="text-xs text-s112-tertiary">Von</span>
           <input name="uhrzeit_von" type="time" step="1800" disabled={ganztags}
-            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-s112-bg' : ''}`} />
+            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-s112-bg' : ''}`} />
           <span className="text-xs text-s112-tertiary">–</span>
           <input name="uhrzeit_bis" type="time" step="1800" disabled={ganztags}
-            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-s112-bg' : ''}`} />
+            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-s112-bg' : ''}`} />
         </div>
       </div>
       <input name="betreff" placeholder="Betreff" required className={inputCls()} />
@@ -437,16 +437,16 @@ function PipelineForm({ kontaktId, onDone }: { kontaktId: string; onDone: () => 
       </div>
       <div className="flex items-center gap-3 flex-wrap">
         <label className="flex items-center gap-1.5 text-xs text-s112-text-2 cursor-pointer select-none shrink-0">
-          <input type="checkbox" checked={ganztags} onChange={e => setGanztags(e.target.checked)} className="rounded" />
+          <input type="checkbox" checked={ganztags} onChange={e => setGanztags(e.target.checked)} className="rounded-sm" />
           Ganztags
         </label>
         <div className="flex items-center gap-2">
           <span className="text-xs text-s112-tertiary">Von</span>
           <input name="uhrzeit_von" type="time" step="1800" disabled={ganztags}
-            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-s112-bg' : ''}`} />
+            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-s112-bg' : ''}`} />
           <span className="text-xs text-s112-tertiary">–</span>
           <input name="uhrzeit_bis" type="time" step="1800" disabled={ganztags}
-            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-s112-bg' : ''}`} />
+            className={`border border-s112-border rounded-lg px-2 py-1 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 ${ganztags ? 'opacity-30 cursor-not-allowed bg-s112-bg' : ''}`} />
         </div>
       </div>
       <div className="flex gap-2">
@@ -502,7 +502,7 @@ function KontaktKarte({
           <div className="flex items-center gap-2 flex-wrap">
             {kontakt.aktiv === false && <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-[#F2F3F5] text-s112-text-2" title="Deaktiviert – bleibt auf bestehenden Belegen, erscheint nicht in Auswahllisten">inaktiv</span>}
             {kontakt.accountnummer && (
-              <span className="text-xs font-semibold text-s112-blue-700 font-mono bg-s112-teal/10 px-2 py-0.5 rounded">{kontakt.accountnummer}</span>
+              <span className="text-xs font-semibold text-s112-blue-700 font-mono bg-s112-teal/10 px-2 py-0.5 rounded-sm">{kontakt.accountnummer}</span>
             )}
             <Link href={`/crm/kontakte/${kontakt.id}`}
               className="font-semibold text-s112-text text-sm hover:text-s112-blue-700 hover:underline">
@@ -555,15 +555,15 @@ function KontaktKarte({
           )}
         </div>
         {writeOk && (
-          <div className="flex gap-1 flex-shrink-0">
+          <div className="flex gap-1 shrink-0">
             <button onClick={() => setEditing(true)}
               title="Bearbeiten" aria-label="Bearbeiten"
-              className="text-s112-muted hover:text-s112-blue-700 px-2 py-1 rounded transition-colors">
+              className="text-s112-muted hover:text-s112-blue-700 px-2 py-1 rounded-sm transition-colors">
               <Pencil size={14} />
             </button>
             <button onClick={handleDelete} disabled={pending}
               title="Löschen" aria-label="Löschen"
-              className="text-s112-muted hover:text-s112-err px-2 py-1 rounded transition-colors">
+              className="text-s112-muted hover:text-s112-err px-2 py-1 rounded-sm transition-colors">
               <Trash2 size={14} />
             </button>
           </div>
@@ -584,7 +584,7 @@ function KontaktKarte({
             ) : aktivitaeten.map(a => {
               return (
                 <div key={a.id} className="flex gap-2 text-xs py-1 border-b border-s112-border/40 last:border-0">
-                  <span className="text-s112-muted w-20 flex-shrink-0 tabular-nums">
+                  <span className="text-s112-muted w-20 shrink-0 tabular-nums">
                     {new Date(a.datum).toLocaleDateString('de-AT')}
                   </span>
                   <span className="font-medium text-s112-text-1">{a.betreff}</span>
@@ -632,7 +632,7 @@ function KontaktKarte({
               const stufeDef = PIPELINE_STUFEN.find(s => s.value === p.stufe)
               return (
                 <div key={p.id} className="flex gap-2 text-xs py-1 border-b border-s112-border/40 last:border-0">
-                  <span className={`px-1.5 py-0.5 rounded-full font-medium text-[11px] flex-shrink-0 self-start mt-0.5 ${stufeDef?.farbe ?? 'bg-[#F2F3F5] text-s112-text-1'}`}>
+                  <span className={`px-1.5 py-0.5 rounded-full font-medium text-[11px] shrink-0 self-start mt-0.5 ${stufeDef?.farbe ?? 'bg-[#F2F3F5] text-s112-text-1'}`}>
                     {stufeDef?.label ?? p.stufe}
                   </span>
                   <div className="flex-1 min-w-0">
@@ -721,7 +721,7 @@ export default function KontakteClient({
       <div className="flex flex-wrap gap-0.5">
         {BUCHSTABEN.map(b => (
           <button key={b} onClick={() => setzeFilter({ buchstabe: b })}
-            className={`min-w-[1.75rem] px-1 py-0.5 text-xs font-medium rounded transition-colors
+            className={`min-w-7 px-1 py-0.5 text-xs font-medium rounded transition-colors
               ${buchstabe === b
                 ? 'bg-s112-teal text-s112-yellow'
                 : 'bg-s112-bg text-s112-text-2 hover:bg-s112-teal/10 hover:text-s112-blue-700'}`}>
@@ -735,7 +735,7 @@ export default function KontakteClient({
         <input
           type="search" placeholder="Name, Accountnummer, E-Mail, Telefon…"
           ref={sucheFeld.ref} value={sucheFeld.suche} onChange={sucheFeld.onChange} onKeyDown={sucheFeld.onKeyDown} autoComplete="off"
-          className="border border-s112-border rounded-lg px-3 py-1.5 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
+          className="border border-s112-border rounded-lg px-3 py-1.5 text-sm w-64 focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40"
         />
         <div className="flex gap-1">
           <button onClick={() => setzeFilter({ segment: 'alle' })}
@@ -790,7 +790,7 @@ export default function KontakteClient({
           )}
           {writeOk && !showForm && (
             <button onClick={() => setShowForm(true)}
-              className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
+              className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90">
               + Neuer Kontakt
             </button>
           )}

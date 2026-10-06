@@ -64,7 +64,7 @@ function InviteContent() {
       {!isValid && !error && <p className="text-sm text-s112-err-fg">Ungültiger Einladungslink.</p>}
       {isValid && (
         <button onClick={annehmen} disabled={loading}
-          className="w-full bg-s112-teal text-s112-yellow px-6 py-3 rounded-xl font-semibold hover:bg-opacity-90 disabled:opacity-40">
+          className="w-full bg-s112-teal text-s112-yellow px-6 py-3 rounded-xl font-semibold hover:bg-s112-teal/90 disabled:opacity-40">
           {loading ? 'Wird verarbeitet…' : 'Konto aktivieren & Passwort festlegen'}
         </button>
       )}

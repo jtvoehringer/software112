@@ -148,7 +148,7 @@ export default async function ErntemeldungPage() {
         </div>
         {writeOk && (
           <Link href="/erntemeldung/neu"
-            className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
+            className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors">
             <span>＋</span> Neue Lese
           </Link>
         )}

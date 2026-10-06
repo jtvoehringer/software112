@@ -17,7 +17,7 @@ export default function ZeitraumFormular({
   versteckt?: Record<string, string>
   className?: string
 }) {
-  const feld = 'border border-s112-border rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+  const feld = 'border border-s112-border rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40'
   return (
     <form method="get" className={`flex flex-wrap items-end gap-2 print:hidden ${className}`}>
       {Object.entries(versteckt).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}

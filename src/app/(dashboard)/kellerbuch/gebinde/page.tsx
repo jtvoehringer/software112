@@ -169,7 +169,7 @@ export default async function GebindePage({
     }
   }
 
-  const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40'
+  const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40'
   const labelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
 
   const TABS = [
@@ -249,13 +249,13 @@ export default async function GebindePage({
                   <input aria-label="Notizen" name="notizen" placeholder="z.B. geliehen, Besonderheiten" className={inputCls} />
                 </div>
                 <div className="sm:col-span-2 flex flex-wrap gap-5 text-sm text-s112-text">
-                  <label className="inline-flex items-center gap-2 cursor-pointer"><input type="checkbox" name="stapler" value="true" className="accent-[var(--s112-teal)]" /> mit Stapler versetzbar</label>
+                  <label className="inline-flex items-center gap-2 cursor-pointer"><input type="checkbox" name="stapler" value="true" className="accent-(--s112-teal)" /> mit Stapler versetzbar</label>
                   {istEigentuemer && (
-                    <label className="inline-flex items-center gap-2 cursor-pointer"><input type="hidden" name="gemeinsam_sichtbar" value="1" /><input type="checkbox" name="gemeinsam" value="true" defaultChecked className="accent-[var(--s112-teal)]" /> für Partnerbetriebe freigegeben ({gemeinschaft.alsEigentuemer.map(p => p.name).join(', ')})</label>
+                    <label className="inline-flex items-center gap-2 cursor-pointer"><input type="hidden" name="gemeinsam_sichtbar" value="1" /><input type="checkbox" name="gemeinsam" value="true" defaultChecked className="accent-(--s112-teal)" /> für Partnerbetriebe freigegeben ({gemeinschaft.alsEigentuemer.map(p => p.name).join(', ')})</label>
                   )}
                 </div>
                 <div className="sm:col-span-2 flex gap-3">
-                  <button type="submit" className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
+                  <button type="submit" className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors">
                     Gebinde anlegen
                   </button>
                 </div>
@@ -306,9 +306,9 @@ export default async function GebindePage({
                     <tr key={g.id} className={`border-b border-s112-border/30 last:border-0 ${i % 2 === 1 ? 'bg-s112-bg/30' : ''} ${!g.aktiv ? 'opacity-40' : ''}`}>
                       <td className="px-4 py-2.5 font-medium text-s112-text">
                         {g.name}
-                        {g.fremd && <span title={`Gebinde von ${g.eigentuemer_name}`} className="ml-1.5 align-middle inline-block text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded bg-s112-blue-50 text-s112-blue-700">{g.eigentuemer_name}</span>}
-                        {!g.fremd && istEigentuemer && !g.gemeinsam && <span title="Nicht für Partnerbetriebe freigegeben" className="ml-1.5 align-middle inline-block text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded bg-s112-bg text-s112-text-2 border border-s112-line">nur eigen</span>}
-                        {g.stapler && <span title="mit Stapler versetzbar" className="ml-1.5 align-middle inline-block text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded bg-s112-bg text-s112-text-2 border border-s112-line">Stapler</span>}
+                        {g.fremd && <span title={`Gebinde von ${g.eigentuemer_name}`} className="ml-1.5 align-middle inline-block text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded-sm bg-s112-blue-50 text-s112-blue-700">{g.eigentuemer_name}</span>}
+                        {!g.fremd && istEigentuemer && !g.gemeinsam && <span title="Nicht für Partnerbetriebe freigegeben" className="ml-1.5 align-middle inline-block text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded-sm bg-s112-bg text-s112-text-2 border border-s112-line">nur eigen</span>}
+                        {g.stapler && <span title="mit Stapler versetzbar" className="ml-1.5 align-middle inline-block text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded-sm bg-s112-bg text-s112-text-2 border border-s112-line">Stapler</span>}
                       </td>
                       <td className="px-4 py-2.5 text-s112-text-2 capitalize">{g.typ ?? '–'}</td>
                       <td className="px-4 py-2.5 text-right tabular-nums text-s112-text-2">
@@ -455,7 +455,7 @@ export default async function GebindePage({
                   <p className="text-xs text-s112-muted mt-1">{EB_NOTIZEN_HINWEIS}</p>
                 </div>
                 <div className="sm:col-span-2">
-                  <button type="submit" className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90 transition-colors">
+                  <button type="submit" className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors">
                     Eröffnungsbestand speichern
                   </button>
                 </div>

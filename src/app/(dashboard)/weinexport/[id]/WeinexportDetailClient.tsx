@@ -83,7 +83,7 @@ export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dok
         </div>
         <div className="flex items-center gap-3">
           <select value={status} onChange={e => updateStatus(e.target.value)} disabled={saving || !!auftrag.storniert_am}
-            className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none">
+            className="border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden">
             {Object.entries(STATUS_LABEL).map(([v,l]) => <option key={v} value={v}>{l}</option>)}
           </select>
           <span className={`text-xs px-2 py-1 rounded-full font-medium ${STATUS_COLOR[status]}`}>
@@ -182,7 +182,7 @@ export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dok
                     </p>
                     <select value={dok.status}
                       onChange={e => updateDokStatus(dok.id, e.target.value)}
-                      className="mt-1 w-full border border-s112-border rounded px-1.5 py-1 text-[11px] focus:outline-none">
+                      className="mt-1 w-full border border-s112-border rounded-sm px-1.5 py-1 text-[11px] focus:outline-hidden">
                       {Object.entries(DOK_STATUS_LABEL).map(([v,l]) => <option key={v} value={v}>{l}</option>)}
                     </select>
                   </div>
@@ -192,7 +192,7 @@ export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dok
                     <a href={`/api/weinexport/${auftrag.id}/dokument/${dok.dokument_art}`}
                       target="_blank" rel="noopener noreferrer"
                       title="Druckansicht öffnen (im Browser drucken oder als PDF speichern)"
-                      className="mt-5 text-[11px] text-s112-blue-700 border border-s112-teal/30 px-2 py-1 rounded hover:bg-s112-teal/5 flex-shrink-0">
+                      className="mt-5 text-[11px] text-s112-blue-700 border border-s112-teal/30 px-2 py-1 rounded-sm hover:bg-s112-teal/5 shrink-0">
                       Drucken
                     </a>
                   )}
@@ -204,7 +204,7 @@ export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dok
             <div className="mt-4 pt-4 border-t border-s112-border">
               <p className="text-[11px] text-s112-muted mb-2">Weiteres Dokument</p>
               <div className="flex gap-1">
-                <select id="add-dok-select" className="flex-1 border border-s112-border rounded px-1.5 py-1 text-[11px] focus:outline-none">
+                <select id="add-dok-select" className="flex-1 border border-s112-border rounded-sm px-1.5 py-1 text-[11px] focus:outline-hidden">
                   {Object.entries(DOK_LABEL)
                     .filter(([v]) => !dokumente.some(d => d.dokument_art === v))
                     .map(([v,l]) => <option key={v} value={v}>{l}</option>)}
@@ -221,7 +221,7 @@ export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dok
                   const d = await r.json().catch(() => null)
                   if (r.ok && d?.id) setDokumente(prev => [...prev, { id: d.id, dokument_art: sel, status: 'ausstehend' }])
                   else setDokFehler(d?.fehler ?? `Fehler (Status ${r.status})`)
-                }} className="text-[11px] bg-s112-teal text-s112-yellow px-2 py-1 rounded hover:bg-opacity-90">+</button>
+                }} className="text-[11px] bg-s112-teal text-s112-yellow px-2 py-1 rounded-sm hover:bg-s112-teal/90">+</button>
               </div>
             </div>
             {dokFehler && <p role="alert" className="mt-2 text-xs text-s112-err">{dokFehler}</p>}

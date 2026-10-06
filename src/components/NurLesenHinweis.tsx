@@ -47,7 +47,7 @@ export default function NurLesenHinweis() {
         <div
           role="region" aria-labelledby="nur-lesen-titel"
           onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); schliessen() } }}
-          className="fixed z-[900] bottom-4 right-4 left-4 sm:left-auto sm:max-w-sm bg-white border border-s112-err/30 rounded-xl shadow-2xl p-4 flex gap-3 print:hidden">
+          className="fixed z-900 bottom-4 right-4 left-4 sm:left-auto sm:max-w-sm bg-white border border-s112-err/30 rounded-xl shadow-2xl p-4 flex gap-3 print:hidden">
           <span className="w-9 h-9 rounded-full bg-s112-err-bg text-s112-err-fg flex items-center justify-center shrink-0" aria-hidden="true">
             <Lock size={18} strokeWidth={1.75} />
           </span>

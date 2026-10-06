@@ -24,7 +24,7 @@ export default function BetriebCard({
       type="submit"
       disabled={pending}
       style={accentColor ? { borderLeftColor: accentColor, borderLeftWidth: 4 } : undefined}
-      className="w-full text-left bg-white border border-s112-border rounded-xl px-5 py-4 hover:border-s112-teal hover:shadow-sm transition-all group disabled:opacity-60 disabled:cursor-wait"
+      className="w-full text-left bg-white border border-s112-border rounded-xl px-5 py-4 hover:border-s112-teal hover:shadow-xs transition-all group disabled:opacity-60 disabled:cursor-wait"
     >
       <div className="flex items-center justify-between">
         <div>

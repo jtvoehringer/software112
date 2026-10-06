@@ -118,7 +118,7 @@ const FLASCHEN_LABEL: Record<number, string> = {
   1000: '1,0 L', 1500: '1,5 L', 3000: '3,0 L', 6000: '6,0 L',
 }
 
-const inputCls = 'border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40 bg-white'
+const inputCls = 'border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 bg-white'
 const labelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
 
 // ── Kunden-Suche: serverseitig über components/crm/PartnerSuche (17.9.2026) ──
@@ -175,7 +175,7 @@ function SonstigesKombo({ artikel, name, onNameChange, onArtikelSelect, onSpeich
               onMouseDown={() => { onArtikelSelect(a); setOpen(false) }}
               className="w-full text-left px-3 py-2 text-sm hover:bg-s112-teal/10 flex items-center justify-between gap-2">
               <span className="font-medium text-s112-text truncate">{a.name}</span>
-              <span className="text-xs text-s112-muted flex-shrink-0">
+              <span className="text-xs text-s112-muted shrink-0">
                 {a.einheit}{a.default_preis != null ? ` · € ${fmtNum(Number(a.default_preis), 2)}` : ''}
               </span>
             </button>
@@ -516,7 +516,7 @@ export default function NeuerVerkaufPage() {
               <label className="flex items-center gap-2 cursor-pointer select-none">
                 <input type="checkbox" checked={skontoAktiv}
                   onChange={e => setSkontoAktiv(e.target.checked)}
-                  className="rounded accent-s112-teal" />
+                  className="rounded-sm accent-s112-teal" />
                 <span className="text-sm font-medium text-s112-text-1">Skonto gewähren</span>
               </label>
               {skontoAktiv && (
@@ -839,7 +839,7 @@ export default function NeuerVerkaufPage() {
                   <label className="flex items-center gap-1.5 text-xs cursor-pointer select-none max-sm:py-1.5">
                     <input type="checkbox" checked={pos.rabatt_aktiv}
                       onChange={e => updatePos(idx, { rabatt_aktiv: e.target.checked })}
-                      className="rounded accent-s112-teal" />
+                      className="rounded-sm accent-s112-teal" />
                     <span className={pos.rabatt_aktiv ? 'text-s112-ok-fg font-medium' : 'text-s112-tertiary line-through'}>
                       {pos.rabatt_pct}% Kundenrabatt
                     </span>
@@ -848,7 +848,7 @@ export default function NeuerVerkaufPage() {
                 <label className="flex items-center gap-1.5 text-xs text-s112-text-2 cursor-pointer select-none max-sm:py-1.5">
                   <input type="checkbox" checked={pos.sonderrabatt_aktiv}
                     onChange={e => updatePos(idx, { sonderrabatt_aktiv: e.target.checked })}
-                    className="rounded accent-s112-teal" />
+                    className="rounded-sm accent-s112-teal" />
                   Sonderrabatt
                 </label>
                 {pos.sonderrabatt_aktiv && (
@@ -856,7 +856,7 @@ export default function NeuerVerkaufPage() {
                     <input type="number" inputMode="decimal" value={pos.sonderrabatt}
                       onChange={e => updatePos(idx, { sonderrabatt: e.target.value })}
                         min="0" max="100" step="0.1" placeholder="0"
-                      className="w-20 border border-s112-border rounded px-2 py-2 sm:py-1 text-base sm:text-xsfocus:outline-none focus:ring-1 focus:ring-s112-teal/40" />
+                      className="w-20 border border-s112-border rounded-sm px-2 py-2 sm:py-1 text-base sm:text-xsfocus:outline-none focus:ring-1 focus:ring-s112-teal/40" />
                     <span className="text-xs text-s112-text-2">%</span>
                   </div>
                 )}
@@ -865,7 +865,7 @@ export default function NeuerVerkaufPage() {
                   <span>USt:</span>
                   <select value={pos.ust_satz}
                     onChange={e => updatePos(idx, { ust_satz: e.target.value })}
-                    className="border border-s112-border rounded px-1.5 py-2 sm:py-0.5 text-base sm:text-xsfocus:outline-none focus:ring-1 focus:ring-s112-teal/40">
+                    className="border border-s112-border rounded-sm px-1.5 py-2 sm:py-0.5 text-base sm:text-xsfocus:outline-none focus:ring-1 focus:ring-s112-teal/40">
                     <option value="0">0 %</option>
                     <option value="10">10 %</option>
                     <option value="13">13 %</option>
@@ -908,7 +908,7 @@ export default function NeuerVerkaufPage() {
             Abbrechen
           </Link>
           <button type="submit" disabled={isPending}
-            className="flex-1 sm:flex-none bg-s112-teal text-s112-yellow px-6 py-3 sm:py-2 rounded-xl text-base sm:text-sm font-semibold hover:bg-opacity-90 transition-colors disabled:opacity-50">
+            className="flex-1 sm:flex-none bg-s112-teal text-s112-yellow px-6 py-3 sm:py-2 rounded-xl text-base sm:text-sm font-semibold hover:bg-s112-teal/90 transition-colors disabled:opacity-50">
             {isPending ? 'Speichern…' : 'Verkauf anlegen'}
           </button>
         </div>

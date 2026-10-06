@@ -27,12 +27,12 @@ function NeuMandantForm({ onDone }: { onDone: () => void }) {
       <div>
         <label className="block text-xs font-medium text-s112-text-2 mb-1">Name des Betriebs *</label>
         <input aria-label="Name des Betriebs" name="name" required placeholder="z.B. Weingut Mustermann"
-          className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-s112-teal/40"
+          className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40"
           autoFocus />
       </div>
       <div className="flex gap-2">
         <button type="submit" disabled={pending}
-          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-opacity-90 disabled:opacity-40">
+          className="bg-s112-teal text-s112-yellow px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-40">
           {pending ? 'Wird angelegt…' : 'Anlegen'}
         </button>
         <button type="button" onClick={onDone}
@@ -61,7 +61,7 @@ export default function MandantenClient({ mandanten, canCreate = true }: { manda
           bei dem sie automatisch als system_admin eingetragen würde. */}
       {canCreate && !showForm && (
         <button onClick={() => setShowForm(true)}
-          className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
+          className="inline-flex items-center gap-2 bg-s112-teal text-s112-yellow px-4 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90">
           <span>＋</span> Neuer Mandant
         </button>
       )}
@@ -98,9 +98,9 @@ export default function MandantenClient({ mandanten, canCreate = true }: { manda
                 </td>
                 <td className="px-4 py-3 text-center">
                   <div className="flex items-center justify-center gap-1.5">
-                    <div className="w-4 h-4 rounded-full border border-s112-line flex-shrink-0"
+                    <div className="w-4 h-4 rounded-full border border-s112-line shrink-0"
                       style={{ background: m.primary_color }} title={m.primary_color} />
-                    <div className="w-4 h-4 rounded-full border border-s112-line flex-shrink-0"
+                    <div className="w-4 h-4 rounded-full border border-s112-line shrink-0"
                       style={{ background: m.secondary_color }} title={m.secondary_color} />
                   </div>
                 </td>

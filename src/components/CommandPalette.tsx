@@ -218,7 +218,7 @@ export default function CommandPalette({
 
   return (
     <div
-      className="fixed inset-0 z-[100] bg-[rgba(10,26,42,.5)] px-4 pt-[10vh] pb-8 overflow-y-auto"
+      className="fixed inset-0 z-100 bg-[rgba(10,26,42,.5)] px-4 pt-[10vh] pb-8 overflow-y-auto"
       onMouseDown={e => { if (e.target === e.currentTarget) setOffen(false) }}
     >
       <div
@@ -235,7 +235,7 @@ export default function CommandPalette({
             onChange={e => { setQ(e.target.value); setAuswahl(0) }}
             placeholder="Seite, Aktion, Kontakt, Rechnung, Charge oder Ried …"
             aria-label="Suchen oder Befehl eingeben"
-            className="flex-1 min-w-0 bg-transparent text-[15px] text-s112-text placeholder:text-s112-tertiary focus:outline-none"
+            className="flex-1 min-w-0 bg-transparent text-[15px] text-s112-text placeholder:text-s112-tertiary focus:outline-hidden"
             autoComplete="off"
             spellCheck={false}
           />
@@ -244,7 +244,7 @@ export default function CommandPalette({
             type="button"
             onClick={() => setOffen(false)}
             aria-label="Schließen"
-            className="font-mono text-[10.5px] text-s112-tertiary border border-s112-line-str rounded-sm px-1.5 py-0.5 hover:bg-s112-bg hover:text-s112-text transition-colors"
+            className="font-mono text-[10.5px] text-s112-tertiary border border-s112-line-str rounded-xs px-1.5 py-0.5 hover:bg-s112-bg hover:text-s112-text transition-colors"
           >
             ESC
           </button>

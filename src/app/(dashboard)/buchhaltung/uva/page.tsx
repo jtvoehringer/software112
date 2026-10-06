@@ -134,7 +134,7 @@ export default async function UvaPage({
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Geschäftsjahr</label>
           <select aria-label="Geschäftsjahr" name="jahr" defaultValue={String(jahr)}
-            className="border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none">
+            className="border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden">
             {jahre.map(j => <option key={j} value={j}>{j}</option>)}
           </select>
         </div>
@@ -151,12 +151,12 @@ export default async function UvaPage({
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Zeitraum *</label>
                 <select aria-label="Zeitraum" name="zeitraum" required
-                  className="border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-none">
+                  className="border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden">
                   {zeitraeume.map(z => <option key={z} value={z}>{zeitraumLabel(z)}</option>)}
                 </select>
               </div>
               <button type="submit"
-                className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-opacity-90">
+                className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90">
                 Berechnen & Speichern
               </button>
             </form>
@@ -229,7 +229,7 @@ function UvaKarte({ uva, jahr, doppik, adminOk, fehlendeMonate, uebermitteln }: 
                       message={`Diese UVA-Meldung (${uva.label}) als übermittelt markieren? Dies ist nicht rückgängig zu machen und sperrt alle Buchungen dieses Zeitraums gegen weitere Änderungen.`}
                       label="Als übermittelt markieren"
                       title="Als übermittelt markieren"
-                      className="text-xs bg-s112-teal text-s112-yellow px-2.5 py-1 rounded-full font-medium hover:bg-opacity-90"
+                      className="text-xs bg-s112-teal text-s112-yellow px-2.5 py-1 rounded-full font-medium hover:bg-s112-teal/90"
                     />
                   </span>
                 )

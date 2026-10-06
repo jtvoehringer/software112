@@ -59,7 +59,7 @@ export default function SmokeTestClient() {
                   <td className="px-3 py-1.5">{z.schritt}</td>
                   <td className="px-3 py-1.5">{z.erwartet ? 'erlaubt' : 'verboten'}</td>
                   <td className={`px-3 py-1.5 font-medium ${z.ok ? 'text-s112-text' : 'text-s112-err-fg'}`}>{z.tatsaechlich ? 'erlaubt' : 'verboten'}</td>
-                  <td className="px-3 py-1.5 text-xs text-s112-muted break-words">{z.meldung}</td>
+                  <td className="px-3 py-1.5 text-xs text-s112-muted wrap-break-word">{z.meldung}</td>
                 </tr>
               )))}
             </tbody>

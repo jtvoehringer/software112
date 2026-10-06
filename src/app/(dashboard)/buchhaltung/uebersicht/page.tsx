@@ -218,7 +218,7 @@ function KategorieKarte({ titel, zeilen, warn }: { titel: string; zeilen: { name
                 <tr key={z.name}>
                   <Td>
                     <span className={`block ${z.name === OHNE_KATEGORIE ? 'italic text-s112-text-2' : ''}`}>{z.name}</span>
-                    <div className="mt-1 h-[6px] rounded bg-s112-line overflow-hidden"><div className={`h-full ${warn ? 'bg-s112-grey' : 'bg-s112-blue-700'}`} style={{ width: `${Math.max(2, z.betrag / max * 100)}%` }} /></div>
+                    <div className="mt-1 h-[6px] rounded-sm bg-s112-line overflow-hidden"><div className={`h-full ${warn ? 'bg-s112-grey' : 'bg-s112-blue-700'}`} style={{ width: `${Math.max(2, z.betrag / max * 100)}%` }} /></div>
                   </Td>
                   <Td right mono>{fmtEur(z.betrag, 2)}</Td>
                   <Td right mono className="text-s112-text-2">{fmtEur(z.vj, 2)}</Td>

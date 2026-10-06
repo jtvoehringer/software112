@@ -57,7 +57,7 @@ export default async function NeuerungenPage() {
                   <ul className="space-y-1.5">
                     {n.features.map((f: string, k: number) => (
                       <li key={k} className="flex items-start gap-2 text-sm text-s112-text-1">
-                        <span className="text-s112-blue-700 mt-0.5 flex-shrink-0">›</span><span>{f}</span>
+                        <span className="text-s112-blue-700 mt-0.5 shrink-0">›</span><span>{f}</span>
                       </li>
                     ))}
                   </ul>
@@ -72,7 +72,7 @@ export default async function NeuerungenPage() {
                   <ul className="space-y-1.5">
                     {n.fixes.map((f: string, k: number) => (
                       <li key={k} className="flex items-start gap-2 text-sm text-s112-text-1">
-                        <span className="text-s112-blue-700 mt-0.5 flex-shrink-0">›</span><span>{f}</span>
+                        <span className="text-s112-blue-700 mt-0.5 shrink-0">›</span><span>{f}</span>
                       </li>
                     ))}
                   </ul>
