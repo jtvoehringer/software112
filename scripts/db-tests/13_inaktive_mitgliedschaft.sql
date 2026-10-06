@@ -5,7 +5,7 @@
 -- @ziel: NULL-Falle B5, deaktivierter Betrieb B16) seit KAN-159 Teil 2 hart geprüft (get_behandlungen_fuer_grundstuecke seit KAN-127 entfernt).
 -- @mutation gesperrte_tenants_leer: s112_gesperrte_tenants() liefert nichts mehr – alle mitgliedschaft_aktiv-Policies wirkungslos | rot: select_inaktiv_.*|tenant_memberships_eigene_inaktiv_unsichtbar
 -- @mutation meine_tenants_ohne_aktiv: s112_meine_tenants() filtert nicht mehr auf aktiv (Storage, RPC-Hilfe) | rot: storage_.*|rpc_meine_tenants_ohne_m
--- @mutation pruefe_zugriff_ohne_aktiv: pruefe_tenant_zugriff() prüft aktiv nicht mehr | rot: rpc_pruefe_tenant_zugriff_.*|rpc_get_next_rechnungsnummer_inaktiv
+-- @mutation pruefe_zugriff_ohne_aktiv: pruefe_tenant_zugriff() prüft aktiv nicht mehr | rot: rpc_pruefe_tenant_zugriff_.*|rpc_get_next_liefernummer_inaktiv
 -- @mutation keller_freigabe_ohne_aktiv: keller_freigaben_select über get_user_tenant_ids() (SECURITY DEFINER, filtert aktiv nicht) | rot: keller_inaktiv_.*
 -- @mutation keller_behaelter_ohne_aktiv: behaelter_select – Kellergemeinschaft über get_user_tenant_ids() und behaelter_nutzbar() statt der tenant_memberships-Unterabfrage | rot: keller_inaktiv_.*
 --
@@ -22,7 +22,7 @@
 --      behandlung_grundstuecke, ernte_parzellen, weingarten_rebsorten (Eltern-RLS greift: harte Prüfung).
 --      m_ta_inak: INSERT-Klon → R/G/T, UPDATE/DELETE → k0 (G = kein Recht, ebenfalls sicher).
 --   3. tenant_memberships: eigene inaktive Zeile unsichtbar; tenants: Betriebszeile unsichtbar (B4, seit KAN-159 Teil 2).
---   4. RPCs: pruefe_tenant_zugriff, get_next_rechnungsnummer → 42501; get_user_role_in_tenant → NULL;
+--   4. RPCs: pruefe_tenant_zugriff, get_next_liefernummer → 42501 (KAN-21: Rechnungsnummer nur noch per Trigger); get_user_role_in_tenant → NULL;
 --      s112_meine_tenants ohne M; s112_darf_schreiben = false; s112_mandant_mitglieder → 0 Zeilen;
 --      get_behandlungen_fuer_grundstuecke ist entfernt (KAN-127, 30.09.2026 – vorher Ratsche B4).
 --   5. NULL-Falle (mix): globale Zeilen (tenant_id NULL) in ea_kategorien, duengemittel, pflanzenschutzmittel,
@@ -265,8 +265,8 @@ BEGIN
   -- 4. RPCs als m_inak
   v_erg := v_erg || pg_temp.s112_erwarte('rpc_pruefe_tenant_zugriff_inaktiv',
     pg_temp.s112_versuch(format('SELECT public.pruefe_tenant_zugriff(%L::uuid, NULL::text[])', c_m)), 'T');
-  v_erg := v_erg || pg_temp.s112_erwarte('rpc_get_next_rechnungsnummer_inaktiv',
-    pg_temp.s112_versuch(format('SELECT public.get_next_rechnungsnummer(%L::uuid)', c_m)), 'T');
+  v_erg := v_erg || pg_temp.s112_erwarte('rpc_get_next_liefernummer_inaktiv',
+    pg_temp.s112_versuch(format('SELECT public.get_next_liefernummer(%L::uuid)', c_m)), 'T');
   v_erg := v_erg || pg_temp.s112_erwarte('rpc_get_user_role_in_tenant_inaktiv', public.get_user_role_in_tenant(c_m), NULL::text);
   SELECT c_m IN (SELECT public.s112_meine_tenants()) INTO v_bool;
   v_erg := v_erg || pg_temp.s112_erwarte('rpc_meine_tenants_ohne_m', v_bool, false);
@@ -415,8 +415,8 @@ BEGIN
     pg_temp.s112_zaehle(format('SELECT count(*) FROM public.tenants WHERE id = %L', c_m)), '1');
   v_erg := v_erg || pg_temp.s112_erwarte('kontrolle_pruefe_tenant_zugriff',
     pg_temp.s112_versuch(format('SELECT public.pruefe_tenant_zugriff(%L::uuid, NULL::text[])', c_m)), 'k1');
-  v_erg := v_erg || pg_temp.s112_erwarte('kontrolle_get_next_rechnungsnummer',
-    pg_temp.s112_versuch(format('SELECT public.get_next_rechnungsnummer(%L::uuid)', c_m)), 'k1');
+  v_erg := v_erg || pg_temp.s112_erwarte('kontrolle_get_next_liefernummer',
+    pg_temp.s112_versuch(format('SELECT public.get_next_liefernummer(%L::uuid)', c_m)), 'k1');
   v_erg := v_erg || pg_temp.s112_erwarte('kontrolle_get_user_role_in_tenant', public.get_user_role_in_tenant(c_m), 'winzer');
   SELECT c_m IN (SELECT public.s112_meine_tenants()) INTO v_bool;
   v_erg := v_erg || pg_temp.s112_erwarte('kontrolle_meine_tenants_mit_m', v_bool, true);

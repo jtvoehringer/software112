@@ -235,7 +235,6 @@ export default function NeuerVerkaufPage() {
 
   // Formular-State
   const [datum,           setDatum]           = useState(new Date().toISOString().split('T')[0])
-  const [rechnungsnummer, setRechnungsnummer] = useState('')
   const [kontaktId,       setKontaktId]       = useState('')
   const [firmaId,         setFirmaId]         = useState('')
   const [zhKontaktId,     setZhKontaktId]     = useState('')
@@ -393,7 +392,6 @@ export default function NeuerVerkaufPage() {
 
     const formData = new FormData()
     formData.set('datum',            datum)
-    formData.set('rechnungsnummer',  rechnungsnummer)
     formData.set('kontakt_id',       kontaktId)
     formData.set('firma_id',         firmaId)
     formData.set('zh_kontakt_id',    zhKontaktId)
@@ -446,7 +444,7 @@ export default function NeuerVerkaufPage() {
               <input aria-label="Rechnungsnummer" type="text" value="" readOnly disabled
                 placeholder="Wird automatisch vergeben"
                 className={inputCls + ' w-full bg-s112-bg text-s112-muted cursor-not-allowed'} />
-              <p className="text-xs text-s112-muted mt-1">Automatisch generiert beim Speichern</p>
+              <p className="text-xs text-s112-muted mt-1">Vergibt das System beim Speichern (lückenloser Nummernkreis)</p>
             </div>
             <div className="sm:col-span-2">
               <label className={labelCls}>Kunde *</label>

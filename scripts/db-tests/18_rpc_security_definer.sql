@@ -6,7 +6,7 @@
 -- @ziel: nach der REVOKE-Regel (B10, B11 seit KAN-159 Teil 2 hart).
 -- @mutation pruefe_offen: pruefe_tenant_zugriff prüft nichts mehr | rot: fremd_.*|rolle_.*
 -- @mutation eigen_offen: get_user_role_in_tenant ohne auth.uid()-Bezug | rot: fremd_get_user_role_in_tenant
--- @mutation anon_grant: anon bekommt EXECUTE auf get_next_rechnungsnummer | rot: anon_.*
+-- @mutation anon_grant: anon bekommt EXECUTE auf get_next_liefernummer | rot: anon_.*
 -- @mutation intern_grant: authenticated bekommt EXECUTE auf kundennummer_vergeben | rot: intern_.*
 -- @mutation rpc_neu: neue SECURITY-DEFINER-Funktion mit p_tenant_id ohne Einstufung | rot: rpc_ohne_einstufung.*|anon_.*
 -- @mutation abo_weg: s112_pruefe_abo_schreibsperre prüft nichts mehr | rot: abo_.*
@@ -269,7 +269,7 @@ BEGIN
     $m$CREATE OR REPLACE FUNCTION public.get_user_role_in_tenant(p_tenant_id uuid)
        RETURNS text LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public'
        AS $x$ SELECT role FROM tenant_memberships WHERE tenant_id = p_tenant_id AND aktiv LIMIT 1 $x$$m$);
-  PERFORM pg_temp.s112_mutiere('anon_grant', $m$GRANT EXECUTE ON FUNCTION public.get_next_rechnungsnummer(uuid) TO anon$m$);
+  PERFORM pg_temp.s112_mutiere('anon_grant', $m$GRANT EXECUTE ON FUNCTION public.get_next_liefernummer(uuid) TO anon$m$);
   PERFORM pg_temp.s112_mutiere('intern_grant', $m$GRANT EXECUTE ON FUNCTION public.kundennummer_vergeben(uuid, integer) TO authenticated$m$);
   PERFORM pg_temp.s112_mutiere('rpc_neu',
     $m$CREATE FUNCTION public.s112test_rpc(p_tenant_id uuid) RETURNS integer LANGUAGE sql SECURITY DEFINER
@@ -331,7 +331,7 @@ BEGIN
   SELECT count(*) INTO v_n FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace AND n.nspname = 'public'
    WHERE p.prosecdef AND 'p_tenant_id' = ANY (p.proargnames) AND p.prosrc ~ 'pruefe_tenant_zugriff\s*\(';
   v_erg := v_erg || pg_temp.s112_erwarte('rpc_mit_pruefe_tenant_zugriff', v_n, 49);   -- +1 KAN-17 (s112_privat_bloecke)   -- −1 KAN-88 (s112_buchung_loeschen entfällt)   -- +1 KAN-82 (s112_charge_abstufen)   -- +1 KAN-101 (s112_fuellung_nachtragen)   -- +1 KAN-97 (s112_pruefnummernantrag_status_setzen)   -- +1 KAN-96 (s112_freeze_korrektur)   -- +1 KAN-193 (s112_zukauf_buchen)   -- +1 KAN-112 (s112_verschnitte_buchen)   -- +1 KAN-112 (s112_verschnitt_buchen)   -- +1 KAN-192 (kellerbuch_abschliessen)   -- +3 KAN-40 (journal_eroeffnen, journal_abgleichen, journal_konsistenz)   -- +1 KAN-37 B (s112_ama_einreichen)   -- +2 KAN-167 (s112_betriebsmittel_einkauf, _stornieren)   -- +1 KAN-151 G1 (s112_mandant_loeschen)   -- +1 KAN-150 F1d (s112_herkunft_setzen)   -- +1 KAN-150 F1c (s112_kontakt_historie_zu_firma)   -- +1 KAN-150 F1a (s112_stammdaten_bezuege)   -- +3 KAN-149 D2   -- +1 KAN-149 D1   -- +3 KAN-148 C2 (s112_ama_*)   -- +3 KAN-148 C1c-2   -- +s112_pressung_stornieren (KAN-148 C1c)   -- +s112_schwund_minderung (KAN-145 B4)   -- +s112_storniert_loeschen (KAN-145), s112_buchung_loeschen (KAN-166)
-  v_erg := v_erg || pg_temp.s112_erwarte('pruefe_liste_dynamisch', coalesce(array_length(v_namen, 1), 0), 47);   -- +1 KAN-17   -- −1 KAN-88 (s112_buchung_loeschen entfällt)   -- +1 KAN-82   -- +1 KAN-101   -- +1 KAN-97   -- +1 KAN-96   -- +1 KAN-193 (s112_zukauf_buchen)   -- +1 KAN-112 (s112_verschnitte_buchen)   -- +1 KAN-112   -- +1 KAN-192   -- +3 KAN-40   -- +1 KAN-37 B   -- +2 KAN-167   -- +1 KAN-150 F1d   -- +1 KAN-150 F1c   -- +1 KAN-150 F1a   -- +3 KAN-149 D2   -- +1 KAN-149 D1   -- +3 KAN-148 C2
+  v_erg := v_erg || pg_temp.s112_erwarte('pruefe_liste_dynamisch', coalesce(array_length(v_namen, 1), 0), 46);   -- −1 KAN-21   -- +1 KAN-17   -- −1 KAN-88 (s112_buchung_loeschen entfällt)   -- +1 KAN-82   -- +1 KAN-101   -- +1 KAN-97   -- +1 KAN-96   -- +1 KAN-193 (s112_zukauf_buchen)   -- +1 KAN-112 (s112_verschnitte_buchen)   -- +1 KAN-112   -- +1 KAN-192   -- +3 KAN-40   -- +1 KAN-37 B   -- +2 KAN-167   -- +1 KAN-150 F1d   -- +1 KAN-150 F1c   -- +1 KAN-150 F1a   -- +3 KAN-149 D2   -- +1 KAN-149 D1   -- +3 KAN-148 C2
   -- Soll-Einträge mit p_tenant_id, die es nicht (mehr) gibt
   SELECT string_agg(s.funktion, ', ') INTO v_txt FROM pg_temp.s112_soll_rpc() s
    WHERE s.funktion LIKE '%p_tenant_id %'
@@ -383,11 +383,11 @@ BEGIN
   PERFORM pg_temp.s112_als_postgres();
   SELECT count(*) INTO v_n FROM unnest(v_namen) x
    WHERE x IN ('sperre_ea_monat', 'sperre_ea_uva', 'fuellung_bestand_buchen', 'schwund_buchen', 'setze_kontobewegung_abgeglichen') OR x LIKE 'get\_next\_%';
-  v_erg := v_erg || pg_temp.s112_erwarte('rollenlisten_abgedeckt', v_n, 11);
+  v_erg := v_erg || pg_temp.s112_erwarte('rollenlisten_abgedeckt', v_n, 10);   -- −1 KAN-21 (get_next_rechnungsnummer intern)
 
   -- ── 3b. Abo-Schreibsperre der schreibenden RPCs (in B; der Musterhof ist fest ausgenommen) ─────────────
   PERFORM pg_temp.s112_als(v_bta);
-  v_r := pg_temp.t18_ruf(format('SELECT public.get_next_rechnungsnummer(%L)', v_b));
+  v_r := pg_temp.t18_ruf(format('SELECT public.get_next_liefernummer(%L)', v_b));
   v_erg := v_erg || pg_temp.s112_erwarte('abo_kontrolle_b_offen', pg_temp.t18_kurz(v_r), 'ok');
   PERFORM pg_temp.s112_als_postgres();
   UPDATE public.tenants SET stripe_status = 'canceled' WHERE id = v_b;
@@ -401,7 +401,7 @@ BEGIN
   END LOOP;
   PERFORM pg_temp.s112_als_postgres();
   UPDATE public.tenants SET stripe_status = NULL WHERE id = v_b;
-  v_erg := v_erg || pg_temp.s112_erwarte('abo_rpcs_geprueft', v_n, 38);   -- −1 KAN-88 (s112_buchung_loeschen entfällt)   -- +1 KAN-82   -- +1 KAN-101   -- +1 KAN-97   -- +1 KAN-96   -- +1 KAN-193 (s112_zukauf_buchen)   -- +1 KAN-112 (s112_verschnitte_buchen)   -- +1 KAN-112   -- +1 KAN-192   -- +2 KAN-40   -- +1 KAN-37 B   -- +2 KAN-167   -- +1 KAN-150 F1d   -- +1 KAN-150 F1c   -- +3 KAN-149 D2   -- +1 KAN-149 D1   -- +3 KAN-148 C2   -- +3 KAN-148 C1c-2   -- +s112_pressung_stornieren (KAN-148)
+  v_erg := v_erg || pg_temp.s112_erwarte('abo_rpcs_geprueft', v_n, 37);   -- −1 KAN-21   -- −1 KAN-88 (s112_buchung_loeschen entfällt)   -- +1 KAN-82   -- +1 KAN-101   -- +1 KAN-97   -- +1 KAN-96   -- +1 KAN-193 (s112_zukauf_buchen)   -- +1 KAN-112 (s112_verschnitte_buchen)   -- +1 KAN-112   -- +1 KAN-192   -- +2 KAN-40   -- +1 KAN-37 B   -- +2 KAN-167   -- +1 KAN-150 F1d   -- +1 KAN-150 F1c   -- +3 KAN-149 D2   -- +1 KAN-149 D1   -- +3 KAN-148 C2   -- +3 KAN-148 C1c-2   -- +s112_pressung_stornieren (KAN-148)
 
   -- ── 4. 'eigen': eigene Mitgliedsprüfung (ohne pruefe_tenant_zugriff) ──────────────────────────────────
   SELECT count(*) INTO v_n FROM public.tenant_memberships WHERE tenant_id = v_m AND aktiv;
@@ -803,8 +803,8 @@ BEGIN
    WHERE p.prosecdef AND has_function_privilege('anon', p.oid, 'EXECUTE');
   v_erg := v_erg || pg_temp.s112_erwarte('anon_secdef_execute', coalesce(v_txt, ''), '');
   PERFORM pg_temp.s112_als(NULL, 'anon');
-  v_erg := v_erg || pg_temp.s112_erwarte('anon_aufruf_get_next_rechnungsnummer',
-    pg_temp.t18_kurz(pg_temp.t18_ruf(format('SELECT public.get_next_rechnungsnummer(%L)', v_m))), 'recht_fehlt');
+  v_erg := v_erg || pg_temp.s112_erwarte('anon_aufruf_get_next_liefernummer',
+    pg_temp.t18_kurz(pg_temp.t18_ruf(format('SELECT public.get_next_liefernummer(%L)', v_m))), 'recht_fehlt');
   PERFORM pg_temp.s112_als_postgres();
   -- anon/PUBLIC ausführbar: nur Soll (s112_pre_request); B10 seit KAN-159 Teil 2 hart
   SELECT string_agg(x.sig, ', ' ORDER BY x.sig) FILTER (WHERE NOT x.sig = ANY (pg_temp.s112_soll_liste('anon_execute_erlaubt'))),
@@ -858,10 +858,10 @@ BEGIN
    WHERE s.abo AND p.prosrc ~ 'winzer|m\.aktiv' AND p.prosrc !~ 's112_darf_schreiben|s112_pruefe_schreibmodul';
   v_erg := v_erg || pg_temp.s112_erwarte('modul_rpc_ohne_pruefung', coalesce(v_txt, ''), '');
 
-  -- (a) Winzer nur mit crm erhält keine Rechnungsnummer (Modul warenwirtschaft fehlt)
+  -- (a) Winzer nur mit crm erhält keine Liefernummer (Module rieden/kellerbuch/warenwirtschaft fehlen; KAN-21)
   PERFORM pg_temp.s112_als(v_mwc);
-  v_r := pg_temp.t18_ruf(format('SELECT public.get_next_rechnungsnummer(%L)', v_m));
-  v_erg := v_erg || pg_temp.s112_erwarte('modul_get_next_rechnungsnummer_winzer_crm', split_part(v_r, '|', 1), '42501');
+  v_r := pg_temp.t18_ruf(format('SELECT public.get_next_liefernummer(%L)', v_m));
+  v_erg := v_erg || pg_temp.s112_erwarte('modul_get_next_liefernummer_winzer_crm', split_part(v_r, '|', 1), '42501');
   PERFORM pg_temp.s112_als_postgres();
 
   -- (b) Winzer nur mit crm setzt „abgeglichen“ nicht (Modul ea fehlt); gesperrte Buchung als Beispiel,

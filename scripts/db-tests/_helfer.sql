@@ -923,6 +923,10 @@ BEGIN
   IF v_oid IS NULL THEN
     RAISE EXCEPTION 's112_klon_sql: Tabelle public.% gibt es nicht', p_tab;
   END IF;
+  -- KAN-21: die Rechnungsnummer vergibt der Trigger a_rechnungsnummer – eine Kopie übernimmt sie nicht (API lehnt ab)
+  IF p_tab = 'verkaufsposten' AND NOT v_aend ? 'rechnungsnummer' THEN
+    v_aend := v_aend || '{"rechnungsnummer": null}'::jsonb;
+  END IF;
   SELECT string_agg(quote_ident(a.attname), ', ' ORDER BY a.attnum) INTO v_cols
     FROM pg_attribute a
    WHERE a.attrelid = v_oid AND a.attnum > 0 AND NOT a.attisdropped AND a.attgenerated = '' AND a.attidentity <> 'a'
@@ -1229,7 +1233,9 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('mandant',       '-US', true , 'get_next_chargennummer(p_tenant_id uuid)'),
     ('mandant',       '-US', true , 'get_next_liefernummer(p_tenant_id uuid)'),
     ('mandant',       '-US', true , 'get_next_personenkonto(p_tenant_id uuid, p_art text, p_basis integer)'),
-    ('mandant',       '-US', true , 'get_next_rechnungsnummer(p_tenant_id uuid)'),
+    ('intern',        '--S', false, 'get_next_rechnungsnummer(p_tenant_id uuid)'),   -- KAN-21: nur Service-Role, Vergabe per Trigger a_rechnungsnummer
+    ('intern',        '--S', false, 's112_rechnungsnummer_ziehen(p_tenant_id uuid)'),   -- KAN-21: Zähler ohne Zugriffsprüfung (Trigger)
+    ('trigger',       '--S', false, 's112_rechnungsnummer_vergeben()'),   -- KAN-21: Rechnungsnummer im Insert, unveränderlich per API
     ('mandant',       '-US', true , 'get_next_transaktionsnr(p_tenant_id uuid, p_typ text)'),
     ('rls_hilfe',     '-US', false, 'get_user_role_in_tenant(p_tenant_id uuid)'),
     ('rls_hilfe',     '-US', false, 'get_user_tenant_ids()'),
