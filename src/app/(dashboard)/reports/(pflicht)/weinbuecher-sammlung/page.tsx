@@ -127,6 +127,7 @@ export default async function WeinbuecherSammlungPage({
                 {' · '}{WEINBUCH_STATUS_LABEL[wb.wa.status] ?? wb.wa.status}
                 {' · '}{fmtNum(Number(wb.wa.menge_liter ?? 0))} L
                 {wb.wa.behaelter_name ? ` · ${wb.wa.behaelter_name}` : ''}
+                {wb.wa.pruefnummer ? ` · Prüfnummer ${wb.wa.pruefnummer}` : ''}
               </p>
             </div>
             {/* KAN-127: Hinweise der Charge auch im Ausdruck */}

@@ -38,6 +38,7 @@ import { quellGebindeDesVerschnitts, quellGebindeSchluessel, verschnittQuelleTex
 import { abstufungText } from '@/lib/kellerbuch/abstufen'
 import { normalisiereQualitaet } from '@/lib/wein/qualitaetsrang'
 import { zukaufTbsVermerk } from '@/lib/handel/tbsNummer'
+import { ladePnVerlauf, pnStandAm, pnStandText, pnVerlaufEreignisse } from '@/lib/kellerbuch/pruefnummerVerlauf'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -77,6 +78,8 @@ export interface WeinbuchCharge {
   kmw?: number | null
   oechsle?: number | null
   mostgewicht_einheit?: string | null
+  /** KAN-200: aktuell gültige Prüfnummer der Charge (auch per Umzug übernommen) bzw. „… erloschen am …“ */
+  pruefnummer?: string | null
 }
 
 export interface Weinbuch {
@@ -658,6 +661,17 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
         u.erstellt_von_name ? `von ${u.erstellt_von_name}` : null,
       ].filter(Boolean) as string[],
     })
+  }
+
+  // KAN-200: Prüfnummer je Charge (pruefnummer_chargen) – Übernahme per Umzug und Ende für den Tankbestand
+  if (tenantId) {
+    try {
+      const verlauf = (await ladePnVerlauf(supabase, tenantId, [id])).get(id) ?? []
+      wa.pruefnummer = pnStandText(pnStandAm(verlauf))
+      for (const e of pnVerlaufEreignisse(verlauf)) events.push({ ...e, typ: 'dac' })
+    } catch (e) {
+      warnungen.push(e instanceof Error ? e.message : 'Prüfnummer je Charge konnte nicht geladen werden.')
+    }
   }
 
   // KAN-145 B2b: stornierte Buchungen kennzeichnen und je einen Storno-Eintrag am Storno-Tag ergänzen

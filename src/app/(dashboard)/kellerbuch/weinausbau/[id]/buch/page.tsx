@@ -56,6 +56,8 @@ export default async function WeinbuchPage({
             {/* KAN-131: Mostgewicht der Charge im Kopf */}
             {(wa.kmw != null || wa.oechsle != null) && <> · <MostgewichtAnzeige wert={{ kmw: wa.kmw, oechsle: wa.oechsle, einheit: wa.mostgewicht_einheit }} /></>}
           </p>
+          {/* KAN-200: aktuell gültige Prüfnummer (auch per Umzug übernommen) bzw. „für den Tankbestand erloschen“ */}
+          {wa.pruefnummer && <p className="text-sm text-s112-text-2 mt-0.5">Prüfnummer: {wa.pruefnummer}</p>}
           <p className="text-xs text-s112-muted mt-0.5">
             Von der Rebe bis zur Flasche – vollständige Prozesshistorie dieser Charge
           </p>

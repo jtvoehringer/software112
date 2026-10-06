@@ -404,9 +404,9 @@ describe('weinbuch und weinbuch-sammlung', () => {
     }
     const text = csv.csvText(weinbuch.weinbuchZeilen(wb), weinbuch.SPALTEN_WEINBUCH)
     const [kopf, a, b] = zellen(text)
-    assert.deepEqual(kopf, ['Charge', 'Jahrgang', 'Rebsorte', 'BKI-Kürzel', 'Gebinde (aktuell)', 'Datum', 'Art', 'Ereignis', 'Details', 'Status'])
-    assert.deepEqual(a, ['GV 2025', '2025', 'Grüner Veltliner', 'GV', 'Tank 1', '20.09.2025', 'Pressung', 'Pressung', '1.000 L Most | Weingärten: Ried Hochrain', ''])
-    assert.deepEqual(b.slice(5), ['01.03.2026', 'DAC / Prüfnummer', 'DAC-Antrag', 'Prüfnummer: N 1234/26', 'Genehmigt'])
+    assert.deepEqual(kopf, ['Charge', 'Jahrgang', 'Rebsorte', 'BKI-Kürzel', 'Gebinde (aktuell)', 'Datum', 'Art', 'Ereignis', 'Details', 'Status', 'Prüfnummer der Charge (aktuell)'])   // KAN-200: Spalte am Ende
+    assert.deepEqual(a, ['GV 2025', '2025', 'Grüner Veltliner', 'GV', 'Tank 1', '20.09.2025', 'Pressung', 'Pressung', '1.000 L Most | Weingärten: Ried Hochrain', '', ''])
+    assert.deepEqual(b.slice(5), ['01.03.2026', 'DAC / Prüfnummer', 'DAC-Antrag', 'Prüfnummer: N 1234/26', 'Genehmigt', ''])
   })
   test('unbekannte Charge → 404; Sammlung mit Filter und Dateiname', async () => {
     const daten = kellerDaten()
@@ -540,19 +540,19 @@ describe('rueckverfolgung', () => {
 
   test('Füllung × Ursprung: Anteile, GST/KG als Code, Maßnahmen je Lese mit Zeitfenster', () => {
     const [kopf, ...z] = zellen(csv.csvText(rueck.rueckverfolgungZeilen(ketten), rueck.SPALTEN_RUECKVERFOLGUNG))
-    assert.equal(kopf.length, 31)   // KAN-131: °KMW, °Oe, gemessen in; KAN-89: BKI-Kürzel (Füllung, Lese)
+    assert.equal(kopf.length, 32)   // KAN-131: °KMW, °Oe, gemessen in; KAN-89: BKI-Kürzel (Füllung, Lese); KAN-201: Prüfnummer (Tank) am Ende
     assert.deepEqual(kopf.slice(23, 26), ['Mostgewicht (°KMW)', 'Mostgewicht (°Oe)', 'Mostgewicht gemessen in'])
-    assert.deepEqual(kopf.slice(26), ['Behandlungen ab', 'Behandlungen bis', 'Behandlungen (Anzahl)', 'Behandlungen (Datum Mittel)', 'Hinweis Behandlungen'])
+    assert.deepEqual(kopf.slice(26), ['Behandlungen ab', 'Behandlungen bis', 'Behandlungen (Anzahl)', 'Behandlungen (Datum Mittel)', 'Hinweis Behandlungen', 'Prüfnummer (Tank)'])
     assert.equal(z.length, 4)
     const [a, b, c, d] = z
     assert.deepEqual(a.slice(0, 9), ['Cuvée Rot', 'L-26-02', '04023/26', '01.03.2026', '2024', 'Cuvée', '', '1000', '750'])   // KAN-89: „Cuvée“ ohne amtliches Kürzel
     assert.deepEqual(a.slice(9, 17), ['ZW 2024', '2024', '450,00', '60,0', 'Pressung', '30.09.2024', '700,00', 'Ried Hochrain'])
     assert.deepEqual(a.slice(17, 26), ['04023', '1234/5', 'Zweigelt', 'ZW', '600', '29.09.2024', '19,25', '95,5', '°KMW'])   // °KMW verlustfrei (2 Stellen), °Oe gerechnet
     // Fensterbeginn immer 01.01. des Jahrgangs (Spalte „Behandlungen ab“), kein Hinweis dazu
-    assert.deepEqual(a.slice(26), ['01.01.2024', '29.09.2024', '1', '12.09.2024 Cuprozin', ''])
+    assert.deepEqual(a.slice(26), ['01.01.2024', '29.09.2024', '1', '12.09.2024 Cuprozin', '', ''])
     assert.deepEqual([b[16], b[17], b[18]], ['Ried Au', '', ''])
     assert.deepEqual(b.slice(26), ['01.01.2024', '30.09.2024', '2', '01.07.2024–03.07.2024 Laubarbeit (GST 7/1, 7/2) | 01.08.2024 Düngung (am Weingarten erfasst)',
-      'Lese ohne Grundstück erfasst – Maßnahmen aller Grundstücke des Weingartens ab 01.01. des Jahrgangs aufgeführt.'])
+      'Lese ohne Grundstück erfasst – Maßnahmen aller Grundstücke des Weingartens ab 01.01. des Jahrgangs aufgeführt.', ''])
     assert.deepEqual([c[9], c[12], c[13], c[14]], ['BF Zukauf', '40,0', 'ohne Pressung (Zukauf, Eröffnungsbestand oder Verschnitt – siehe Blend-Protokoll)', ''])
     assert.deepEqual([d[0], d[9], d[13]], ['Alt-Füllung', '', 'keine Kellerbuch-Charge verknüpft – Rückverfolgung nur bis zur Abfüllung'])
   })

@@ -36,6 +36,8 @@ export type WeinbuchZeile = {
   rebsorte: string | null
   kuerzel: string | null
   gebinde: string | null
+  /** KAN-200: aktuell gültige Prüfnummer der Charge (Kopf) */
+  pruefnummer: string | null
   /** 'JJJJ-MM-TT' bzw. Zeitpunkt (DAC-Anträge) – die CSV rechnet Zeitpunkte in Wiener Zeit um */
   datum: string
   art: string
@@ -52,6 +54,7 @@ export function weinbuchZeilen(wb: Weinbuch): WeinbuchZeile[] {
     rebsorte: text(wb.wa.rebsorte),
     kuerzel: bkiRebsorteKuerzel(text(wb.wa.rebsorte)),
     gebinde: text(wb.wa.behaelter_name),
+    pruefnummer: text(wb.wa.pruefnummer),
     datum: e.datum,
     art: WEINBUCH_TYP_LABEL[e.typ] ?? e.typ,
     titel: e.titel,
@@ -71,6 +74,8 @@ export const SPALTEN_WEINBUCH: CsvSpalte<WeinbuchZeile>[] = [
   { kopf: 'Ereignis', typ: 'text', wert: z => z.titel },
   { kopf: 'Details', typ: 'text', wert: z => z.details },
   { kopf: 'Status', typ: 'text', wert: z => z.status },
+  // KAN-200: aktuell gültige Prüfnummer der Charge (auch übernommen) – am Ende, damit die bisherigen Spalten bleiben
+  { kopf: 'Prüfnummer der Charge (aktuell)', typ: 'text', wert: z => z.pruefnummer },
 ]
 
 /** Hinweise eines Weinbuchs: aus buildWeinbuch() plus Rebsorte ohne amtliches Kürzel (KAN-36) */

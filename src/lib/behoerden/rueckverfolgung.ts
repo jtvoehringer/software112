@@ -31,6 +31,7 @@ import { verteileMassnahme, type Verteilung } from '@/lib/wein/massnahmeAnteile'
 import { num, numOderNull, tag, text, type R } from './kellerbuch-hilfen'
 import { datumAT } from './ernte_hilfen'
 import { mostgewichtCsvSpalten } from './mostgewicht_export'
+import { ladePnVerlauf, pnStandAm, pnStandText, type PnVerlauf } from '@/lib/kellerbuch/pruefnummerVerlauf'
 import {
   kalendertag, ladebereich, leseFenster, leseWarnungen, ordneMassnahmenZu, ttmmjjjj,
   type ErnteEintrag, type ErnteErsatz, type FruehereLese, type LeseZeile, type MassnahmeOrt, type VerpressteTrauben, type Zeitfenster,
@@ -68,8 +69,15 @@ export type LeseMassnahmen = {
   hinweise: string[]
 }
 
+/** KAN-201: Umzug, der eine Prüfnummer an eine neue Charge weitergegeben hat */
+export type PnWeitergabe = { datum: string; pruefnummer: string; zielCharge: string | null }
+
 export type Kette = {
   weinausbau: R | null
+  /** KAN-201: Prüfnummer je Charge (pruefnummer_chargen) – eigene und per Umzug übernommene, mit Ende */
+  pnVerlauf?: PnVerlauf[]
+  /** KAN-201: Weitergaben dieser Charge per Umzug an neue Chargen */
+  pnWeitergaben?: PnWeitergabe[]
   pressungen: R[]
   /** je Lesezeile der Pressungen die Maßnahmen im Zeitfenster bis zur Lese (KAN-75) */
   lesen: LeseMassnahmen[]
@@ -401,7 +409,7 @@ export async function ladeChargeKette(
   tenantId: string,
   opts: { details?: boolean } = {},
 ): Promise<Kette> {
-  const [waRes, prRes, anRes, umRes] = await Promise.all([
+  const [waRes, prRes, anRes, umRes, pnVerlauf, wgRes] = await Promise.all([
     (supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, rebsorte, status, qualitaetsstufe, zusatzbezeichnung, erzeugnis, kmw, oechsle, mostgewicht_einheit, behaelter_id, behaelter:behaelter_id(name, typ, volumen_liter)')
       .eq('tenant_id', tenantId)
@@ -448,12 +456,24 @@ export async function ladeChargeKette(
           .order('datum', { ascending: true })
           .order('id'))
       : Promise.resolve({ data: [] as R[], error: null }),
+    // KAN-201: Prüfnummer je Charge und Weitergaben per Umzug
+    ladePnVerlauf(supabase, tenantId, [wId]).then(m => m.get(wId) ?? []),
+    // alle-ausnahme: Weitergaben einer einzelnen Charge per Umzug, wenige Zeilen
+    alle<R>((supabase.from('pruefnummer_chargen') as any)
+      .select('id, gueltig_ab, antrag:dac_antrag_id(pruefnummer, storniert_am), ziel:weinausbau_id(name)')
+      .eq('tenant_id', tenantId)
+      .eq('quelle_weinausbau_id', wId)
+      .order('gueltig_ab')
+      .order('id')),
   ])
 
   const weinausbau = pruefen(waRes as { data: R | null; error: { message?: string } | null }, 'Charge')
   const pressungen = pruefen(prRes, 'Pressungen').filter(pb => (pb.pressung as R | null)?.tenant_id === tenantId)
   const analysen = pruefen(anRes, 'Analysen')
   const umzuegeRaw = pruefen(umRes, 'Umzüge')
+  const pnWeitergaben: PnWeitergabe[] = pruefen(wgRes, 'Prüfnummer-Weitergaben')
+    .filter(w => (w.antrag as R | null)?.pruefnummer && !(w.antrag as R | null)?.storniert_am)
+    .map(w => ({ datum: tag(w.gueltig_ab), pruefnummer: String((w.antrag as R).pruefnummer), zielCharge: text((w.ziel as R | null)?.name) }))
 
   // Maßnahmen im Weingarten je Lese – nur das gelesene GST, nur bis zum Lesedatum (KAN-75)
   const lesen = await ladeLeseMassnahmen(supabase, tenantId, pressungen)
@@ -477,7 +497,19 @@ export async function ladeChargeKette(
     return z ? { ...u, nach_behaelter: z.nach_behaelter ?? z.nach_weinausbau ?? null, menge_liter: u.brutto_liter ?? u.menge_liter } : u
   })
 
-  return { weinausbau, pressungen, lesen, analysen, umzuege }
+  return { weinausbau, pressungen, lesen, analysen, umzuege, pnVerlauf, pnWeitergaben }
+}
+
+/** KAN-201: Prüfnummer der Charge für den Tankbestand am Tag der Abfüllung (eigene bzw. übernommene, sonst erloschen) */
+export function pruefnummerTank(k: Pick<Kette, 'pnVerlauf'>, datum: string | null): string | null {
+  return pnStandText(pnStandAm(k.pnVerlauf ?? [], datum))
+}
+
+/** KAN-201: Weitergaben eines Umzugs (gleicher Tag) als Text – „Prüfnummer N 1/26 weitergegeben an „GV neu““ */
+export function pnWeitergabeText(k: Pick<Kette, 'pnWeitergaben'>, datum: string | null): string | null {
+  const d = tag(datum)
+  const w = (k.pnWeitergaben ?? []).filter(x => x.datum === d)
+  return w.length === 0 ? null : w.map(x => `Prüfnummer ${x.pruefnummer} weitergegeben${x.zielCharge ? ` an „${x.zielCharge}“` : ''}`).join(', ')
 }
 
 export type ChargeEintrag = { weinausbauId: string; anteilLiter: number | null; kette: Kette }
@@ -606,6 +638,8 @@ export type RueckverfolgungZeile = {
   rebsorteLese: string | null
   traubenKg: number | null
   lesedatum: string | null
+  /** KAN-201: Prüfnummer der Charge für den Tankbestand am Abfülltag (übernommen bzw. erloschen) */
+  pruefnummerTank: string | null
   /** KAN-131: Mostgewicht wie gespeichert (Lese; ohne Pressung die Charge) – die CSV rundet über mostgewichtCsvSpalten */
   kmw: number | null
   oechsle: number | null
@@ -639,7 +673,7 @@ export function rueckverfolgungZeilen(ketten: readonly FuellungKette[]): Rueckve
       flaschengroesseMl: numOderNull(f.flaschengroesse_ml),
     }
     const leer = {
-      charge: null, chargeJahrgang: null, anteilLiter: null, anteilPct: null, pressungDatum: null, pressungLiter: null,
+      charge: null, chargeJahrgang: null, anteilLiter: null, anteilPct: null, pruefnummerTank: null, pressungDatum: null, pressungLiter: null,
       weingarten: null, katastralgemeinde: null, gstNr: null, rebsorteLese: null, traubenKg: null, lesedatum: null, kmw: null,
       oechsle: null, mostgewichtEinheit: null,
       fensterVon: null, fensterBis: null, behandlungenAnzahl: null, behandlungen: null, behandlungenHinweis: null,
@@ -658,6 +692,7 @@ export function rueckverfolgungZeilen(ketten: readonly FuellungKette[]): Rueckve
         chargeJahrgang: typeof wa?.jahrgang === 'number' ? wa.jahrgang : null,
         anteilLiter: c.anteilLiter === null ? null : runden(c.anteilLiter, STELLEN.liter),
         anteilPct,
+        pruefnummerTank: pruefnummerTank(c.kette, basis.abfuelldatum),
       }
       const vorher = zeilen.length
       const leseJeId = new Map(c.kette.lesen.map(l => [l.leseId, l]))
@@ -773,6 +808,8 @@ export const SPALTEN_RUECKVERFOLGUNG: CsvSpalte<RueckverfolgungZeile>[] = [
   { kopf: 'Behandlungen (Anzahl)', typ: 'ganzzahl', wert: z => z.behandlungenAnzahl },
   { kopf: 'Behandlungen (Datum Mittel)', typ: 'text', wert: z => z.behandlungen },
   { kopf: 'Hinweis Behandlungen', typ: 'text', wert: z => z.behandlungenHinweis },
+  // KAN-201: Prüfnummer der Charge am Abfülltag (eigene oder per Umzug übernommen, sonst „erloschen am …“) – am Ende
+  { kopf: 'Prüfnummer (Tank)', typ: 'text', wert: z => z.pruefnummerTank },
 ]
 
 // ── Trefferliste (Listen-CSV im Browser) ──────────────────────────────────────

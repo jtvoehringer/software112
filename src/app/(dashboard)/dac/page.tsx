@@ -1,6 +1,8 @@
 // behoerdenmeldung: dac-antraege
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
+import { getCurrentUserRole, canWrite, canAdmin, getCurrentMembership } from '@/lib/auth/roles'
+import { wienHeute } from '@/lib/csv'
+import { ladeAltantragPruefung, type AltantragBefund } from '@/lib/dac/altantraege'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import { Pencil } from 'lucide-react'
@@ -40,6 +42,14 @@ export default async function DacPage() {
   const genehmigt   = gueltig.filter(a => a.status === 'genehmigt').length
   const offen       = gueltig.filter(a => ['eingereicht','in_pruefung'].includes(a.status ?? '')).length
   const entwuerfe   = gueltig.filter(a => a.status === 'entwurf').length
+  // KAN-197: Prüfbericht der Altanträge (vor dem Workflow, ohne Ereignis) – nur für die Betriebsleitung
+  let altantraege: AltantragBefund[] = []
+  let altFehler: string | null = null
+  if (tenantId && role && canAdmin(role)) {
+    try { altantraege = await ladeAltantragPruefung(supabase, tenantId, wienHeute()) }
+    catch (e) { altFehler = e instanceof Error ? e.message : 'Prüfbericht konnte nicht erstellt werden.' }
+  }
+  const altMitBefund = altantraege.filter(a => a.befunde.length > 0)
 
   return (
     <div>
@@ -75,6 +85,30 @@ export default async function DacPage() {
         </div>
       </div>
 
+      {(altantraege.length > 0 || altFehler) && (
+        <section className="card p-4 mb-6 space-y-2 print:hidden">
+          <h2 className="text-sm font-semibold text-s112-text">Prüfbericht Altanträge (vor dem Antrags-Workflow)</h2>
+          {altFehler ? <p className="text-sm text-s112-err-fg">{altFehler}</p> : (
+            <>
+              <p className="text-xs text-s112-muted">
+                {altantraege.length} {altantraege.length === 1 ? 'Antrag' : 'Anträge'} ohne Verlauf geprüft – {altantraege.length - altMitBefund.length} unauffällig,
+                {' '}{altMitBefund.length} mit Befund. Es ändert sich nichts automatisch: Korrektur über den Statuswechsel bzw. „Mit Grund korrigieren“ am Antrag.
+              </p>
+              <ul className="space-y-1.5">
+                {altantraege.map(a => (
+                  <li key={a.id} className="text-sm">
+                    <Link href={`/dac/${a.id}`} className="font-medium text-s112-blue-700 hover:underline">{a.bezeichnung}</Link>
+                    <span className="text-xs text-s112-muted"> · {a.status}{a.pruefnummer ? ` · ${a.pruefnummer}` : ''}</span>
+                    {a.befunde.length === 0
+                      ? <span className="text-xs text-s112-ok-fg"> · unauffällig</span>
+                      : <ul className="list-disc pl-5 text-xs text-s112-warn-fg">{a.befunde.map((b, i) => <li key={i}>{b}</li>)}</ul>}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </section>
+      )}
       {antraege.length > 0 ? (
         <div className="card p-0 overflow-hidden">
           <table className="w-full text-sm">
