@@ -24,7 +24,7 @@ import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
 import UmziehenWidget from '@/components/kellerbuch/UmziehenWidget'
 import { umziehen } from '../../umziehen/actions'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
-import { Wine, ArrowLeftRight, GitMerge, BookOpen, Microscope, Award, TrendingDown, ArrowDownWideNarrow } from 'lucide-react'
+import { Wine, ArrowLeftRight, GitMerge, BookOpen, Microscope, Award, TrendingDown, ArrowDownWideNarrow, Factory } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'Charge bearbeiten – software:112' }
 export const dynamic = 'force-dynamic'
@@ -633,6 +633,13 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
             <Link href={`/kellerbuch/weinausbau/${weinausbau.id}/abstufen`}
               className="mt-1 inline-flex items-center gap-1 text-xs border border-s112-border text-s112-blue-700 px-3 py-1 rounded-lg hover:bg-s112-bg transition-colors">
               <ArrowDownWideNarrow size={13} strokeWidth={1.75} />Abstufen
+            </Link>
+          )}
+          {/* KAN-41 Paket 3a: Abgang durch Verarbeitung (Traubensaft, Essig, Brennerei …) */}
+          {writeOk && aktuell > 0.01 && (
+            <Link href={`/kellerbuch/weinausbau/${weinausbau.id}/verarbeiten`}
+              className="mt-1 inline-flex items-center gap-1 text-xs border border-s112-border text-s112-blue-700 px-3 py-1 rounded-lg hover:bg-s112-bg transition-colors">
+              <Factory size={13} strokeWidth={1.75} />Verarbeiten
             </Link>
           )}
           <Link href={`/kellerbuch/weinausbau/${weinausbau.id}/buch`}

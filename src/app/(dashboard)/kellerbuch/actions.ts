@@ -26,9 +26,10 @@ import { pnWirkungAus, pnWirkungUnklarHinweis, type PnWirkung } from '@/lib/kell
 import { ABSTUFEN_GRUND_MIN, abstufenFehler, teilmengeFehler } from '@/lib/kellerbuch/abstufen'
 import { umziehen } from './umziehen/actions'
 import { chargePflichtFehler, chargePnSperre, chargePnSperreText, NUR_ABSTUFEN_MELDUNG } from '@/lib/kellerbuch/chargeRegeln'
-import { behandlungCharge, behandlungMengeFehler, behandlungPnGesperrt, neuerTypWirkungFehler, BEHANDLUNG_FELDNAMEN, type PnGueltigkeit } from '@/lib/kellerbuch/behandlungRegeln'
+import { behandlungCharge, behandlungMengeFehler, behandlungPnGesperrt, behandlungZugangFehler, neuerTypWirkungFehler, BEHANDLUNG_FELDNAMEN, type PnGueltigkeit } from '@/lib/kellerbuch/behandlungRegeln'
 import { freezeSperreAus, sperrMeldung } from '@/lib/freeze/sperre'
 import { statusDatumFehler, statusWechselBuchungsrelevant } from '@/lib/kellerbuch/chargeStatus'
+import { verarbeitungFehler } from '@/lib/kellerbuch/verarbeitung'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -451,6 +452,51 @@ export async function updateWeinausbau(id: string, formData: FormData): Promise<
   revalidatePath(`/kellerbuch/weinausbau/${id}`)
 }
 
+// VERARBEITUNG (KAN-41 Paket 3a, 06.10.2026) – Abgang einer Menge aus der Charge durch Verarbeitung (BSM AB_VERAR) über
+// die RPC s112_verarbeitung_buchen (Datum, Menge, Zweck; ganze Menge schließt die Charge ab). Dieselbe Prüfung im Formular
+// (verarbeitungFehler); Storno mit Pflichtgrund über s112_verarbeitung_stornieren (Gegenbuchung am Storno-Tag).
+export async function verarbeitungBuchen(formData: FormData): Promise<void> {
+  const supabase = await createSupabaseServerClient()
+  const tenantId = await kellerbuchSchreibrecht()
+  const id = String(formData.get('weinausbau_id') ?? '')
+  const datum = String(formData.get('datum') ?? '').slice(0, 10) || wienHeute()
+  const zweck = String(formData.get('zweck') ?? '')
+  const menge = zahlAus(formData.get('menge'))
+  const notizen = String(formData.get('notizen') ?? '').trim() || null
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: chargeRaw, error: chargeErr } = await (supabase.from('weinausbau') as any)
+    .select('id, menge_liter, aktiv, storniert_am').eq('id', id).eq('tenant_id', tenantId).maybeSingle()
+  if (chargeErr) throw new AktionsFehler(dbFehlerText(chargeErr, 'Charge konnte nicht geladen werden'))
+  if (!chargeRaw) throw new AktionsFehler('Charge nicht gefunden')
+  const charge = chargeRaw as R
+  if (charge.storniert_am || charge.aktiv === false) throw new AktionsFehler('Die Charge ist storniert bzw. nicht mehr aktiv.')
+  const fehler = verarbeitungFehler({ zweck, menge, bestand: Number(charge.menge_liter) || 0, datum, heute: wienHeute() })
+  if (fehler) throw new AktionsFehler(fehler)
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any).rpc('s112_verarbeitung_buchen', {
+    p_tenant_id: tenantId, p_weinausbau_id: id, p_datum: datum, p_menge: menge, p_zweck: zweck, p_notizen: notizen,
+  })
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Verarbeitung konnte nicht gebucht werden'))
+  revalidatePath('/kellerbuch')
+  revalidatePath(`/kellerbuch/weinausbau/${id}`)
+}
+
+export async function verarbeitungStornieren(verarbeitungId: string, chargeId: string, grund: string): Promise<void> {
+  const supabase = await createSupabaseServerClient()
+  const tenantId = await kellerbuchSchreibrecht()
+  const grundFehler = stornoGrundFehler(grund)
+  if (grundFehler) throw new AktionsFehler(grundFehler)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any).rpc('s112_verarbeitung_stornieren', {
+    p_tenant_id: tenantId, p_id: verarbeitungId, p_grund: grund.trim(),
+  })
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Verarbeitung konnte nicht storniert werden'))
+  revalidatePath('/kellerbuch')
+  revalidatePath(`/kellerbuch/weinausbau/${chargeId}`)
+}
+
 // CHARGE ABSTUFEN (KAN-82, 05.10.2026) – Qualität, Zusatzbezeichnung bzw. Herkunft nur niedriger, mit Datum und Pflichtgrund
 // über die RPC s112_charge_abstufen (Protokoll charge_umstufungen, Änderungsprotokoll mit Grund, Journal und Prüfnummer am
 // Datum der Abstufung). Ganze Charge: an Ort und Stelle, bei geltender Prüfnummer erst Rückfrage (KAN-100, `{ bestaetigung }`,
@@ -823,6 +869,12 @@ export async function speichereKellerbehandlung(formData: FormData): Promise<Kel
     weinausbauId = c.chargeId
   }
 
+  // KAN-41 Paket 3b: Volumenzugang (ZU_BEH) – erhöht den Bestand der Charge (Trigger z_zugang_bestand)
+  const zugangText = String(formData.get('zugang_liter') ?? '').trim()
+  const zugangLiter = zugangText ? zahlAus(zugangText) : null
+  const zugangFehler = behandlungZugangFehler(zugangText && zugangLiter == null ? NaN : zugangLiter, weinausbauId)
+  if (zugangFehler) throw new AktionsFehler(zugangFehler)
+
   // KAN-100: Prüfnummer der Charge
   let hinweis: string | undefined
   if (weinausbauId) {
@@ -851,6 +903,8 @@ export async function speichereKellerbehandlung(formData: FormData): Promise<Kel
     menge,
     einheit,
     volumen_liter_ist:  volumenLiterIst,
+    // KAN-41 Paket 3b: nur, wenn das Formular das Feld schickt (Prozess-Assistent u. a. lassen einen Zugang unverändert)
+    ...(formData.has('zugang_liter') ? { zugang_liter: zugangLiter } : {}),
     notizen,
     weinausbau_id:      weinausbauId,
   }
@@ -860,7 +914,7 @@ export async function speichereKellerbehandlung(formData: FormData): Promise<Kel
     // KAN-206: Behandlung einer Charge mit Prüfnummer – nach dem Speichern nur noch Notizen (dieselbe Bedingung wie a_freeze)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: alt } = await (supabase.from('keller_behandlungen') as any)
-      .select('id, datum, typ_id, menge, einheit, volumen_liter_ist, weinausbau_id, behaelter_id, storniert_am')
+      .select('id, datum, typ_id, menge, einheit, volumen_liter_ist, zugang_liter, weinausbau_id, behaelter_id, storniert_am')
       .eq('id', id).eq('tenant_id', tenantId).is('storniert_am', null).maybeSingle()
     if (alt && (alt as R).weinausbau_id) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -872,7 +926,8 @@ export async function speichereKellerbehandlung(formData: FormData): Promise<Kel
         const zahlGleich = (x: unknown, y: unknown) => (x == null || y == null) ? x == y : Number(x) === Number(y)
         const geaendert = !gleich(String(a.datum).slice(0, 10), payload.datum) || !gleich(a.typ_id, payload.typ_id)
           || !zahlGleich(a.menge, payload.menge) || !gleich(a.einheit, payload.einheit)
-          || !zahlGleich(a.volumen_liter_ist, payload.volumen_liter_ist) || !gleich(a.weinausbau_id, payload.weinausbau_id)
+          || !zahlGleich(a.volumen_liter_ist, payload.volumen_liter_ist) || !zahlGleich(a.zugang_liter, payload.zugang_liter)
+          || !gleich(a.weinausbau_id, payload.weinausbau_id)
           || !gleich(a.behaelter_id, payload.behaelter_id)
         if (geaendert) {
           throw new AktionsFehler('Gesperrt: Die Charge hatte am Tag der Behandlung eine gültige Prüfnummer – änderbar sind nur noch die Notizen. '

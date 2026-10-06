@@ -308,6 +308,8 @@ export const BSM_ZUORDNUNG: readonly { vorgang: string; code: string; hinweis?: 
   { vorgang: 'Most/Sturm wird Wein (Umzug, Filtration, Füllung, Verschnitt in eine Wein-Charge)', code: UMSTUFUNG_MOST, hinweis: 'neutraler Spaltenwechsel ohne Abwertung (Saldo 0)' },
   { vorgang: 'Schwundbuchung, Schwund bei Umzug/Filtration, Füllverlust, Bruch, Eigenverbrauch, Inventur-Mindermenge', code: 'SCHWUND' },
   { vorgang: 'Flaschen „Anfangsbestand (Altbestand, ±)“ mit negativer Menge', code: 'SCHWUND', hinweis: 'Abgang (Altbestand-Korrektur), keine Eröffnung' },
+  { vorgang: 'Verarbeitung (Traubensaft, Essig, Brennerei, Sonstiges)', code: 'AB_VERAR', hinweis: 'Abgang aus der Charge über „Verarbeiten“ (KAN-41)' },
+  { vorgang: 'Kellerbehandlung mit Volumenzugang (Süßreserve, RTK …)', code: 'ZU_BEH', hinweis: 'Zugang an der Charge über „Volumenzugang“ der Behandlung (KAN-41)' },
   { vorgang: 'Umzug, Filtration', code: 'UMZUG / FILTRAT', hinweis: 'neutral' },
   { vorgang: 'Füllung (offen → Flasche)', code: 'FUELLUNG', hinweis: 'neutral: Abgang offen = Zugang Flasche' },
   { vorgang: 'Eröffnungsbestand (Tank, Flaschen) mit Stichtag im Zeitraum', code: 'EROEFF', hinweis: 'im Anfangsbestand' },
@@ -324,6 +326,8 @@ export function buchungsartBewegung(art: Bewegung['art'], k: { zukaufArt?: strin
     case 'zukauf': return k.zukaufArt === 'most' ? 'ZK_MOST' : 'ZK_FASS'
     case 'verkauf': return k.kundeAusland ? 'VK_FA_AU' : 'VK_FA_AT'
     case 'schwund': return 'SCHWUND'
+    case 'verarbeitung': return 'AB_VERAR'   // KAN-41 Paket 3a
+    case 'behandlung': return 'ZU_BEH'   // KAN-41 Paket 3b: nur Behandlungen mit Volumenzugang haben eine Menge
     case 'verschneidung_aus': return 'VS_AB'
     case 'verschneidung_ein': return 'VS_ZU'
     case 'umzug_ein': case 'umzug_aus': return 'UMZUG'

@@ -43,7 +43,7 @@ describe('KAN-43 BSM: Zuordnung', nurMitHooks, () => {
     assert.equal(buchungsartBewegung('filtration_ein'), 'FILTRAT')
     assert.equal(buchungsartBewegung('abfuellung'), 'FUELLUNG')
     assert.equal(buchungsartBewegung('anfangsbestand'), 'EROEFF')
-    assert.equal(buchungsartBewegung('behandlung'), null)
+    assert.equal(buchungsartBewegung('behandlung'), 'ZU_BEH')   // KAN-41 Paket 3b: nur Behandlungen mit Volumenzugang haben eine Menge (Menge 0 wird übersprungen)
   })
 
   test('Flaschenbuchung → Buchungsart', async () => {
@@ -450,6 +450,43 @@ describe('KAN-43 BSM: Nachtrag 02.10.2026', nurMitHooks, () => {
     const d2 = await ladeBsm(datenbank(t, { rpc: RPC }), T, WJ, { heute: HEUTE })
     assert.match(d2.buchungen.find(b => b.code === 'ZK_FLA').hinweis, /als Flaschenzukauf gezählt, prüfen/)
     assert.ok(d2.warnungen.some(w => /1 Flaschenzugang ohne Charge .* bitte prüfen/.test(w)), d2.warnungen.join('\n'))
+  })
+
+  test('1d. KAN-41 Paket 3a: Verarbeitung → AB_VERAR (Abgang), stornierte Verarbeitung mit Gegenbuchung', async () => {
+    const { ladeBsm, BSM_ZUORDNUNG } = await laden('lib/behoerden/bsm.ts')
+    assert.ok(BSM_ZUORDNUNG.some(z => z.code === 'AB_VERAR'))
+    const t = tabellen()
+    // 60 l GV zu Traubensaft am 01.04.2026 → heute 386 l; dazu eine am 02.04. gebuchte und am 03.04. stornierte Verarbeitung
+    t.weinausbau = t.weinausbau.map(w => w.id === 'w1' ? { ...w, menge_liter: 386 } : w)
+    t.keller_verarbeitungen = [
+      { id: 'kv1', tenant_id: T, weinausbau_id: 'w1', datum: '2026-04-01', menge_liter: 60, zweck: 'traubensaft', notizen: null, storniert_am: null },
+      { id: 'kv2', tenant_id: T, weinausbau_id: 'w1', datum: '2026-04-02', menge_liter: 10, zweck: 'essig', notizen: null, storniert_am: '2026-04-03T08:00:00Z', storno_grund: 'S112TEST falsch' },
+      { id: 'kv9', tenant_id: FREMD, weinausbau_id: 'w9', datum: '2026-04-01', menge_liter: 5, zweck: 'essig', notizen: null, storniert_am: null },
+    ]
+    const d = await ladeBsm(datenbank(t, { rpc: RPC }), T, WJ, { heute: HEUTE })
+    const v = d.buchungen.filter(b => b.code === 'AB_VERAR')
+    assert.deepEqual(v.map(b => [b.datum, b.liter]), [['2026-04-01', -60], ['2026-04-02', -10], ['2026-04-03', 10]])
+    assert.match(v[0].vorgang, /Verarbeitung zu Traubensaft/)
+    assert.equal(zelle(d.summen, 'AB_VERAR').summeLiter, 60)   // Abgänge stehen in der Summentabelle positiv
+    assert.deepEqual(zelle(d.summen, 'ENDE').werte, zelle(d.summen, 'STICHTAG').werte)
+    assert.equal(zelle(d.summen, 'DIFFERENZ').summeLiter, 0)
+  })
+
+  test('1e. KAN-41 Paket 3b: Behandlung mit Volumenzugang → ZU_BEH, ohne Zugang keine Buchung', async () => {
+    const { ladeBsm, BSM_ZUORDNUNG } = await laden('lib/behoerden/bsm.ts')
+    assert.ok(BSM_ZUORDNUNG.some(z => z.code === 'ZU_BEH'))
+    const t = tabellen()
+    // Süßreserve 20 l am 05.04.2026 → heute 466 l (die Ladefunktion holt nur Behandlungen mit Zugang)
+    t.weinausbau = t.weinausbau.map(w => w.id === 'w1' ? { ...w, menge_liter: 466 } : w)
+    t.keller_behandlungen = [
+      { id: 'kb1', tenant_id: T, weinausbau_id: 'w1', datum: '2026-04-05', menge: 20, einheit: 'l', typ_name_snapshot: 'Süßreserve', zugang_liter: 20, storniert_am: null },
+      { id: 'kb9', tenant_id: FREMD, weinausbau_id: 'w9', datum: '2026-04-05', menge: 5, einheit: 'l', typ_name_snapshot: 'Süßreserve', zugang_liter: 5, storniert_am: null },
+    ]
+    const d = await ladeBsm(datenbank(t, { rpc: RPC }), T, WJ, { heute: HEUTE })
+    assert.deepEqual(d.buchungen.filter(b => b.code === 'ZU_BEH').map(b => [b.datum, b.liter]), [['2026-04-05', 20]])
+    assert.equal(zelle(d.summen, 'ZU_BEH').summeLiter, 20)
+    assert.deepEqual(zelle(d.summen, 'ENDE').werte, zelle(d.summen, 'STICHTAG').werte)
+    assert.equal(zelle(d.summen, 'DIFFERENZ').summeLiter, 0)
   })
 
   test('4. Most/Sturm: eigene Gruppe, Übergang Most → Wein als neutrale Umstufung (keine Abwertung)', async () => {

@@ -1017,6 +1017,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('keller_freigaben',              '-',                                      '-',                                      '-'),
     ('crm_freigaben',                 '-',                                      '-',                                      '-'),   -- KAN-212: nur Plattform-Admin per Service-Role
     ('keller_umzuege',                'SA,TA,W*{kellerbuch|warenwirtschaft}',   'SA,TA,W*{kellerbuch|warenwirtschaft}',   '-{kellerbuch|warenwirtschaft}'),   -- KAN-145 B4
+    ('keller_verarbeitungen',         '-',                                      '-',                                      '-'),   -- KAN-41 Paket 3a: nur per RPC s112_verarbeitung_buchen/_stornieren
     ('kellerbuch_buchungen',          '-',                                      '-',                                      '-'),   -- KAN-40: Bewegungsjournal, nur per Trigger/RPC, unveränderlich
     ('kellerbuch_abschluesse',        '-',                                      '-',                                      '-'),   -- KAN-192: Periodensperre, nur per RPC, unwiderruflich
     ('kellerplaene',                  'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   'SA,TA{kellerbuch}'),
@@ -1141,7 +1142,7 @@ BEGIN
     -- KAN-150 F2a: + dac_antrag, weinanalysen, pruefnummernantraege, transportbescheinigungen, exportauftraege (storno) und
     --              exportauftrag_positionen, export_dokumente (kind)
     -- KAN-167: + betriebsmittel_lager_bewegungen (storno)
-    WHEN 'loeschsperre_tabellen' THEN ARRAY['behandlungen', 'betriebsmittel_lager_bewegungen', 'dac_antrag', 'duengemittel_lager_bewegungen', 'ea_transaktionen', 'ernte_parzellen', 'export_dokumente', 'exportauftraege', 'exportauftrag_positionen', 'fuellung_chargen', 'fuellungen', 'keller_behandlungen', 'keller_umzuege', 'konto_umbuchungen', 'pressung_behaelter', 'pressung_weingaerten', 'pressungen', 'pruefnummernantraege', 'psm_lager_bewegungen', 'transportbescheinigungen', 'traubenverkauf', 'verkauf_positionen', 'verkaufsposten', 'verschneidung_quellen', 'verschneidungen', 'weinanalysen', 'weinausbau', 'weinausbau_weingaerten', 'zahlungen', 'zukauf_posten']
+    WHEN 'loeschsperre_tabellen' THEN ARRAY['behandlungen', 'betriebsmittel_lager_bewegungen', 'dac_antrag', 'duengemittel_lager_bewegungen', 'ea_transaktionen', 'ernte_parzellen', 'export_dokumente', 'exportauftraege', 'exportauftrag_positionen', 'fuellung_chargen', 'fuellungen', 'keller_behandlungen', 'keller_umzuege', 'keller_verarbeitungen', 'konto_umbuchungen', 'pressung_behaelter', 'pressung_weingaerten', 'pressungen', 'pruefnummernantraege', 'psm_lager_bewegungen', 'transportbescheinigungen', 'traubenverkauf', 'verkauf_positionen', 'verkaufsposten', 'verschneidung_quellen', 'verschneidungen', 'weinanalysen', 'weinausbau', 'weinausbau_weingaerten', 'zahlungen', 'zukauf_posten']
     -- KAN-150 F1a: Stammdaten mit Löschsperre bei berichtsrelevantem Bezug (a_stammdaten_loeschsperre)
     WHEN 'stammdaten_loeschsperre' THEN ARRAY['betriebsmittel', 'duengemittel', 'ea_dauerauftraege', 'ea_kategorien', 'firmen', 'grundstuecke',   -- KAN-167: + betriebsmittel
       'keller_behandlungstypen', 'kontakte', 'pflanzenschutzmittel', 'weingarten']
@@ -1213,6 +1214,8 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('trigger',       '--S', false, 's112_pn_chargen_pflegen()'),   -- KAN-99: Gültigkeit je Charge (Einreichen, Umzug, Zugang, Storno)   -- KAN-97: Status nur per RPC, Formular nur zum Entwurf
     ('mandant',       '-US', true , 's112_charge_status_setzen(p_tenant_id uuid, p_weinausbau_id uuid, p_status text, p_datum date)'),   -- KAN-41: datierter Statuswechsel Most ↔ Wein
     ('mandant',       '-US', true , 's112_charge_abstufen(p_tenant_id uuid, p_weinausbau_id uuid, p_datum date, p_neu jsonb, p_grund text, p_quelle_weinausbau_id uuid)'),   -- KAN-82: Charge abstufen (Datum, Grund, Protokoll)
+    ('mandant',       '-US', true , 's112_verarbeitung_buchen(p_tenant_id uuid, p_weinausbau_id uuid, p_datum date, p_menge numeric, p_zweck text, p_notizen text)'),   -- KAN-41 Paket 3a: Verarbeitung (AB_VERAR)
+    ('mandant',       '-US', true , 's112_verarbeitung_stornieren(p_tenant_id uuid, p_id uuid, p_grund text)'),   -- KAN-41 Paket 3a: Storno der Verarbeitung
     ('mandant',       '-US', true , 's112_fuellung_nachtragen(p_tenant_id uuid, p_fuellung_id uuid, p_weinausbau_id uuid, p_dac_antrag_id uuid)'),   -- KAN-101: Charge/DAC-Antrag/Prüfnummer einmal nachtragen
     ('mandant',       '-US', true , 's112_pruefnummernantrag_status_setzen(p_tenant_id uuid, p_antrag_id uuid, p_status text, p_datum date, p_pruefnummer text, p_grund text)'),   -- KAN-97: Statuswechsel
     ('mandant',       '-US', true , 's112_freeze_korrektur(p_tenant_id uuid, p_tabelle text, p_id uuid, p_werte jsonb, p_grund text)'),   -- KAN-96: Korrektur durch den Betriebsleiter   -- KAN-178: Fremdverweise je FK-Spalte
@@ -1282,6 +1285,9 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('trigger',       '--S', false, 's112_journal_schutz()'),                  -- KAN-40: Bewegungsjournal unveränderlich
     ('trigger',       '--S', false, 's112_journal_trg_charge()'),              -- KAN-40: Eröffnungsbestand Tank, Umstufung
     ('trigger',       '--S', false, 's112_journal_trg_flaschenbuchung()'),     -- KAN-40: fuellung_bewegungen
+    ('trigger',       '--S', false, 's112_journal_trg_verarbeitung()'),        -- KAN-41 Paket 3a: AB_VERAR
+    ('trigger',       '--S', false, 's112_journal_trg_behandlung()'),          -- KAN-41 Paket 3b: ZU_BEH
+    ('trigger',       '--S', false, 's112_behandlung_zugang_bestand()'),       -- KAN-41 Paket 3b: Bestand der Charge
     ('trigger',       '--S', false, 's112_journal_trg_fuellung()'),            -- KAN-40: Füllung, Flaschen-Eröffnung/-Zukauf, Umstufung
     ('trigger',       '--S', false, 's112_flaschenzukauf_storno()'),          -- KAN-41 Paket 2b: Zukauf-Storno storniert den Weinlager-Artikel mit (nur ohne Bewegung)
     ('trigger',       '--S', false, 's112_journal_trg_pressung()'),            -- KAN-40: Pressungskopf (Datum, Storno)

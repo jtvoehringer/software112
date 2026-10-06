@@ -18,7 +18,7 @@ export const BEHANDLUNG_FREEZE_ERLAUBT = ['notizen', 'updated_at', 'storniert_am
 /** Anzeigenamen der Spalten für Meldungen */
 export const BEHANDLUNG_FELDNAMEN: Record<string, string> = {
   notizen: 'Notizen', datum: 'Datum', typ_id: 'Behandlungstyp', typ_name_snapshot: 'Behandlungstyp', menge: 'Menge',
-  einheit: 'Einheit', volumen_liter_ist: 'Volumen Ist', weinausbau_id: 'Charge', behaelter_id: 'Gebinde',
+  einheit: 'Einheit', volumen_liter_ist: 'Volumen Ist', zugang_liter: 'Volumenzugang', weinausbau_id: 'Charge', behaelter_id: 'Gebinde',
   updated_at: 'Änderungszeit', storniert_am: 'Storno', storniert_von: 'Storno', storniert_von_name: 'Storno', storno_grund: 'Storno',
 }
 
@@ -49,6 +49,17 @@ export function behandlungMengeFehler(menge: number | null, einheit: string | nu
   if (einheit === '-') return null
   if (menge == null || !Number.isFinite(menge)) return 'Bitte die Menge angeben (bei Behandlungen ohne Mengenangabe die Einheit „-“ wählen).'
   if (menge < 0) return 'Die Menge darf nicht negativ sein.'
+  return null
+}
+
+/**
+ * Volumenzugang durch die Behandlung (KAN-41 Paket 3b, BSM ZU_BEH) – optional; wenn angegeben, größer als 0 und nur mit
+ * Charge (der Zugang erhöht ihren Bestand, CHECK keller_behandlungen_zugang_chk). null = in Ordnung.
+ */
+export function behandlungZugangFehler(zugang: number | null, weinausbauId: string | null): string | null {
+  if (zugang == null) return null
+  if (!Number.isFinite(zugang) || zugang <= 0) return 'Der Volumenzugang muss größer als 0 L sein (oder leer bleiben).'
+  if (!weinausbauId) return 'Ein Volumenzugang braucht die Charge, deren Bestand er erhöht.'
   return null
 }
 

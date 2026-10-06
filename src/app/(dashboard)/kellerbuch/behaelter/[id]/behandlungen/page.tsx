@@ -54,6 +54,7 @@ export default function KellerbehandlungenPage() {
   const [formMenge, setFormMenge]         = useState('')
   const [formEinheit, setFormEinheit]     = useState('kg')
   const [formVolumen, setFormVolumen]     = useState('')
+  const [formZugang, setFormZugang]       = useState('')   // KAN-41 Paket 3b: Volumenzugang (L)
   const [formNotizen, setFormNotizen]     = useState('')
   const [formWeinausbauId, setFormWeinausbauId] = useState<string>('')
   // Name der beim Bearbeiten verknüpften Charge, falls sie nicht (mehr) aktiv im Behälter liegt
@@ -92,7 +93,7 @@ export default function KellerbehandlungenPage() {
     let weinausbauQuery = (supabase.from('weinausbau') as any).select('id, name, menge_liter, aktiv').eq('behaelter_id', behaelterId).eq('aktiv', true)
     // weinausbau_id mitladen: ohne sie setzte „Bearbeiten“ die Chargen-Zuordnung auf NULL (KAN-35)
     let behandlungenQuery = (supabase.from('keller_behandlungen') as any)
-      .select('id, datum, typ_id, typ_name_snapshot, menge, einheit, volumen_liter_ist, notizen, weinausbau_id, typ:typ_id(name), weinausbau:weinausbau_id(name), storniert_am, storno_grund, storniert_von_name')
+      .select('id, datum, typ_id, typ_name_snapshot, menge, einheit, volumen_liter_ist, zugang_liter, notizen, weinausbau_id, typ:typ_id(name), weinausbau:weinausbau_id(name), storniert_am, storno_grund, storniert_von_name')
       // storno-sichtbar: Liste zeigt stornierte Behandlungen gekennzeichnet, ohne Aktionen (KAN-145 B3)
       .eq('behaelter_id', behaelterId)
       .order('datum', { ascending: false })
@@ -143,6 +144,7 @@ export default function KellerbehandlungenPage() {
     setFormMenge('')
     setFormEinheit(typen[0]?.einheit_standard ?? 'kg')
     setFormVolumen(aktuellerInhalt > 0 ? aktuellerInhalt.toString() : '')
+    setFormZugang('')
     setFormNotizen('')
     setFormError('')
     setShowNeuerTyp(false)
@@ -161,6 +163,7 @@ export default function KellerbehandlungenPage() {
     setFormMenge(b.menge != null ? String(b.menge) : '')
     setFormEinheit(b.einheit ?? 'kg')
     setFormVolumen(b.volumen_liter_ist != null ? String(b.volumen_liter_ist) : '')
+    setFormZugang(b.zugang_liter != null ? String(b.zugang_liter).replace('.', ',') : '')
     setFormNotizen(b.notizen ?? '')
     setFormWeinausbauId(b.weinausbau_id ?? '')
     setFormWeinausbauName((b.weinausbau as R | null)?.name ?? null)
@@ -219,6 +222,7 @@ export default function KellerbehandlungenPage() {
     if (formMenge) fd.set('menge', formMenge)
     if (formEinheit) fd.set('einheit', formEinheit)
     if (formVolumen) fd.set('volumen_liter_ist', formVolumen)
+    fd.set('zugang_liter', formZugang)   // KAN-41 Paket 3b: leer = kein Volumenzugang
     if (formNotizen) fd.set('notizen', formNotizen)
     if (formWeinausbauId) fd.set('weinausbau_id', formWeinausbauId)
 
@@ -418,6 +422,13 @@ export default function KellerbehandlungenPage() {
                   placeholder={aktuellerInhalt > 0 ? fmtNum(aktuellerInhalt) : '0'}
                   className="input w-full py-2.5 sm:py-2 text-base sm:text-sm" />
               </div>
+              {/* KAN-41 Paket 3b: Volumenzugang durch die Behandlung (BSM „Zugang durch Behandlung“) */}
+              <div className="col-span-2 sm:col-span-1">
+                <label htmlFor="behandlung-zugang" className="block text-xs font-medium text-s112-text-2 mb-1">Volumenzugang (L)</label>
+                <input id="behandlung-zugang" type="text" inputMode="decimal" value={formZugang} onChange={e => setFormZugang(e.target.value)}
+                  placeholder="leer = keiner" className="input w-full py-2.5 sm:py-2 text-base sm:text-sm" />
+                <p className="text-[11px] text-s112-muted mt-0.5">z. B. Süßreserve, RTK – erhöht den Bestand der Charge</p>
+              </div>
             </div>
 
             {(chargenImBehaelter.length > 0 || (formWeinausbauId && formWeinausbauName)) && (
@@ -503,6 +514,7 @@ export default function KellerbehandlungenPage() {
                     <td className="px-4 py-2.5">
                       <p className="font-medium text-s112-text">{typName}</p>
                       {(b.weinausbau as R | null)?.name && <p className="text-xs text-s112-text-2">Charge: {(b.weinausbau as R).name}</p>}
+                      {b.zugang_liter != null && <p className="text-xs text-s112-ok-fg">Volumenzugang: +{fmtNum(parseFloat(b.zugang_liter))} L</p>}
                       {b.notizen && <p className="text-xs text-s112-muted">{b.notizen}</p>}
                       {b.storniert_am && (
                         <p className="text-[11px] text-s112-warn-fg">
