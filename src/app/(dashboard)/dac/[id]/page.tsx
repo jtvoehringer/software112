@@ -9,6 +9,8 @@ import DacForm from '@/components/dac/DacForm'
 import { updateDacAntrag, stornoDacAntrag, loescheDacAntrag, setzeDacStatus, kopiereDacAntragAlsEntwurf } from '../actions'
 import DacStatusKarte, { type PnEreignis } from '@/components/dac/DacStatusKarte'
 import StornoKarte from '@/components/StornoKarte'
+import FreezeKorrektur from '@/components/FreezeKorrektur'
+import { KORREKTUR_FELDER } from '@/lib/freeze/korrektur'
 
 export const metadata: Metadata = { title: 'Prüfnummern-Antrag bearbeiten – software:112' }
 export const dynamic = 'force-dynamic'
@@ -58,6 +60,8 @@ export default async function DacEditPage({ params }: { params: Promise<{ id: st
   const weinausbau = (waRaw ?? []) as NameRow[]
   const ereignisse = (evRaw ?? []) as PnEreignis[]
   const schreiben = !!membership && canWrite(membership, 'kellerbuch')
+  // KAN-196: gesperrter Antrag (ab Eingereicht) – Korrektur mit Grund nur für die Betriebsleitung
+  const korrektur = !!membership && canAdmin(membership.role) && !dac.storniert_am && dac.status !== 'entwurf'
 
   return (
     <div className="max-w-2xl">
@@ -95,7 +99,13 @@ export default async function DacEditPage({ params }: { params: Promise<{ id: st
         <DacStatusKarte status={dac.status} pruefnummer={dac.pruefnummer} ereignisse={ereignisse} schreiben={schreiben}
           storniert={!!dac.storniert_am} setzen={setzeDacStatus.bind(null, id)} kopieren={kopiereDacAntragAlsEntwurf.bind(null, id)} />
       </div>
-      {!dac.storniert_am && <DacForm dac={dac} weinausbau={weinausbau} analysen={analysen} action={updateDacAntrag.bind(null, id)} />}
+      {!dac.storniert_am && <DacForm dac={dac} weinausbau={weinausbau} analysen={analysen} action={updateDacAntrag.bind(null, id)} betriebsleitung={korrektur} />}
+      {korrektur && (
+        <div className="mt-4">
+          <FreezeKorrektur tabelle="dac_antrag" id={id} felder={KORREKTUR_FELDER.dac_antrag} werte={dac}
+            hinweis="Nur für die Betriebsleitung – z. B. versehentlich eingereicht, Tippfehler in Prüfnummer oder Datum. Status bewusst an der Übergangsmatrix vorbei; Entzug weiter über den Statuswechsel. Alt/Neu, Benutzer und Grund stehen im Änderungsprotokoll." />
+        </div>
+      )}
       {membership && schreiben && (
         <div className="mt-6">
           <StornoKarte was="der Antrag" stand={dac}

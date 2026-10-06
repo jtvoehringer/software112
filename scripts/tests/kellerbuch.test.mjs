@@ -552,7 +552,7 @@ describe('rueckverfolgung', () => {
     assert.deepEqual(a.slice(26), ['01.01.2024', '29.09.2024', '1', '12.09.2024 Cuprozin', '', ''])
     assert.deepEqual([b[16], b[17], b[18]], ['Ried Au', '', ''])
     assert.deepEqual(b.slice(26), ['01.01.2024', '30.09.2024', '2', '01.07.2024–03.07.2024 Laubarbeit (GST 7/1, 7/2) | 01.08.2024 Düngung (am Weingarten erfasst)',
-      'Lese ohne Grundstück erfasst – Maßnahmen aller Grundstücke des Weingartens ab 01.01. des Jahrgangs aufgeführt.'])
+      'Lese ohne Grundstück erfasst – Maßnahmen aller Grundstücke des Weingartens ab 01.01. des Jahrgangs aufgeführt.', ''])
     assert.deepEqual([c[9], c[12], c[13], c[14]], ['BF Zukauf', '40,0', 'ohne Pressung (Zukauf, Eröffnungsbestand oder Verschnitt – siehe Blend-Protokoll)', ''])
     assert.deepEqual([d[0], d[9], d[13]], ['Alt-Füllung', '', 'keine Kellerbuch-Charge verknüpft – Rückverfolgung nur bis zur Abfüllung'])
   })

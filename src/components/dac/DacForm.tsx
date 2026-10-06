@@ -52,11 +52,13 @@ interface Props {
   /** KAN-98: Vorbelegung eines neuen Antrags aus der Charge (Sorten absteigend mit Anteil, Menge, Bezeichnung) */
   vorbelegung?: { bezeichnung?: string | null; rebsorte?: string | null; menge_liter?: number | null } | null
   action: (formData: FormData) => Promise<void>
+  /** KAN-196: Benutzer ist Betriebsleitung – der Sperrhinweis verweist auf „Mit Grund korrigieren“ */
+  betriebsleitung?: boolean
 }
 
 const datumDe = (d: string | null | undefined) => (d ? new Date(d).toLocaleDateString('de-AT') : null)
 
-export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, action, vorbelegung = null }: Props) {
+export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, action, vorbelegung = null, betriebsleitung = false }: Props) {
   // KAN-97: Felder, die der Status noch zulässt (wie die Freeze-Trigger der Datenbank); neuer Antrag = Entwurf
   const aenderbar = pnAenderbareFelder(dac?.status ?? 'entwurf')
   const gesperrt = (f: PnFormularFeld) => !aenderbar.includes(f)
@@ -114,7 +116,7 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
     <form onSubmit={handleSubmit} className="space-y-6">
       {sperre && (
         <GesperrtHinweis grund={sperre.grund} seit={datumDe(sperre.seit)}
-          erlaubt={aenderbar.map(f => PN_FELD_LABEL[f] ?? f)} />
+          erlaubt={aenderbar.map(f => PN_FELD_LABEL[f] ?? f)} betriebsleitung={betriebsleitung} />
       )}
       {error && <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg rounded-xl px-4 py-3 text-sm"><strong>Fehler:</strong> {error}</div>}
 
