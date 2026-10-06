@@ -18,8 +18,8 @@ import { momentaufnahmeAnwenden } from '../stammdaten/momentaufnahme'
 import { STELLEN, runden, wienHeute, type CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
 import { bkiFarbe, formatRebsorteMitKuerzel, herkunftPruefen, sortenKuerzel } from '@/lib/wein/bki_kuerzel'
-import { bestandVorVerkauf, ersatzPruefnummer, pnDatumDe, pnTag, pruefnummerGueltig, pruefnummerHinweis, type PnAntrag, type PnChargeDaten } from '@/lib/kellerbuch/pruefnummer'
-import { antragAusZeile, chargenDerAntraege, ladePruefnummerDaten, PN_ANTRAG_SELECT } from '@/lib/kellerbuch/pruefnummerLaden'
+import { bestandVorVerkauf, pnDatumDe, pnTag, pruefnummerGueltig, pruefnummerHinweis, type PnChargeDaten } from '@/lib/kellerbuch/pruefnummer'
+import { ladePruefnummerDaten } from '@/lib/kellerbuch/pruefnummerLaden'
 import { herkunftDerLieferung, rebsorteDerLieferung } from './traubenverkauf'
 import { mostgewichtAusGespeichert } from '@/lib/wein/mostgewichtFormular'
 import { qualitaetAnzeigeOderNull } from '@/lib/wein/qualitaet'
@@ -94,8 +94,9 @@ export const TB_LEERE_POSITION: TBWeinposition = {
   pruefnummer: '', anreicherung: 'N', alkohol_pct: '', kmw: '', oechsle: '', mostgewicht_einheit: '',
 }
 
-/** Positionstypen im Verkauf, die eine Transportbescheinigung brauchen (Most/Wein lose, Flaschenwein, Trauben) */
-export const TB_POSITIONSTYPEN = ['tank', 'flasche', 'trauben'] as const
+/** Positionstypen im Verkauf, die eine Transportbescheinigung brauchen: Most/Wein lose und Trauben. KAN-90 (Entscheidung
+ *  Jörgen 06.10.2026): keine TBS für Flaschenwein (Gebinde ≤ 60 l) – Flaschenpositionen stehen nicht auf dem Formular. */
+export const TB_POSITIONSTYPEN = ['tank', 'trauben'] as const
 
 /** KAN-130 Etappe 3: Chargen-Status, in denen eine Tankposition noch Most ist (Mostgewicht vorbelegen) */
 export const TB_MOST_STATUS: readonly string[] = ['ernte', 'gaerung']
@@ -263,10 +264,8 @@ function herkunftTrauben(nr: number, tv: R | null, hinweise: string[]): string {
 }
 
 export type TBPruefnummern = {
-  /** Prüfnummern-Daten je Charge – Tankposition: pruefnummerGueltig am Verkaufsdatum; Charge einer Füllung: Zugänge für ersatzPruefnummer */
+  /** Prüfnummern-Daten je Charge – Tankposition: pruefnummerGueltig am Verkaufsdatum */
   jeWeinausbau: Record<string, PnChargeDaten>
-  /** DAC-Antrag je id (fuellungen.dac_antrag_id) – Nummer über ersatzPruefnummer (genehmigt, aktiv, Charge der Füllung, Abfülldatum gegen den Beginn) */
-  jeDacAntrag: Record<string, PnAntrag>
 }
 
 /** Endung der Prüfnummern-Hinweise der Vorbelegung (die Zeitraumliste übernimmt nur diese) */
@@ -279,12 +278,9 @@ export const TB_PN_NICHT_VORBELEGT = 'Prüfnummer nicht vorbelegt.'
  * Prüfnummer (KAN-72): Tankposition nur mit einer am Verkaufsdatum gültigen Nummer der Charge
  * (pruefnummerGueltig – dieselbe Regel wie Blend-Protokoll und Füllungsvorschlag; bisher der
  * älteste Antrag mit Nummer ohne Status-/Datumsprüfung; Mengenregel mit dem Bestand vor dem
- * Verkauf, bestandVorVerkauf), sonst leer mit Hinweis. Flaschen-
- * position: Nummer der Füllung, ersatzweise die ihres genehmigten, aktiven DAC-Antrags derselben
- * Charge, wenn zwischen Abfüllung und Beginn des Antrags nichts zugebucht wurde (ersatzPruefnummer
- * – etwa nach einer Verknüpfung mit einem noch nicht eingereichten Entwurf). Für den Transport
- * an einem Tag gibt es die Nummer erst ab dem Bescheid (bescheidBisStichtag) – ein Verkauf
- * zwischen Einreichung und Bescheid bleibt leer (Hinweis).
+ * Verkauf, bestandVorVerkauf), sonst leer mit Hinweis. Für den Transport an einem Tag gibt es die
+ * Nummer erst ab dem Bescheid (bescheidBisStichtag) – ein Verkauf zwischen Einreichung und Bescheid
+ * bleibt leer (Hinweis). Flaschenpositionen brauchen keine TBS (KAN-90, TB_POSITIONSTYPEN).
  */
 export function tbVorbelegung(posten: R, cfg: R, pn: TBPruefnummern, heute: string, hinweise: string[]): TBDaten {
   const [jahr, monat, tag] = heute.split('-')
@@ -329,43 +325,6 @@ export function tbVorbelegung(posten: R, cfg: R, pn: TBPruefnummern, heute: stri
         pruefnummer:     e?.gueltig ? (e.pruefnummer ?? '') : '',
         alkohol_pct:     '',   // KAN-131: °KMW in eigener Spalte (Mostgewicht unten)
         ...tbMostgewichtFelder(most),
-      }
-    }
-    if (p.typ === 'flasche') {
-      const f = (p.fuellung ?? null) as R | null
-      const art = farbe(null, f?.rebsorte)
-      if (!art) hinweise.push(farbHinweis(nr, f?.rebsorte))
-      // Verkauft werden Flaschen (Stück) – das Formular verlangt Liter: über die Flaschengröße umrechnen
-      const ml = Number(f?.flaschengroesse_ml)
-      const stueck = p.menge === null || p.menge === undefined || p.menge === '' ? NaN : Number(p.menge)
-      const hatGroesse = Number.isFinite(ml) && ml > 0
-      if (!hatGroesse) hinweise.push(`Position ${nr}: Flaschengröße unbekannt – Menge ist die Flaschenanzahl, nicht Liter`)
-      let pruef = feld(f?.pruefnummer)
-      const antrag = !pruef && f?.dac_antrag_id ? pn.jeDacAntrag[f.dac_antrag_id] : undefined
-      if (antrag) {
-        const chargeId = f?.weinausbau_id ? String(f.weinausbau_id) : null
-        const e = ersatzPruefnummer(antrag, { datum: pnTag(f?.datum), chargeId }, (chargeId ? pn.jeWeinausbau[chargeId]?.zugaenge : null) ?? [])
-        const ersatz = e.pruefnummer
-        const bescheid = pnTag(antrag.bescheidAm)
-        if (e.hinweis) {
-          hinweise.push(`Position ${nr}: ${e.hinweis} ${TB_PN_NICHT_VORBELEGT}`)
-        } else if (ersatz && bescheid !== null && bescheid > verkaufstag) {
-          const h = pruefnummerHinweis({ gueltig: false, pruefnummer: ersatz, antragId: antrag.id, grund: 'vor_bescheid', ereignisDatum: bescheid, menge: null, mengeGeprueft: false }, `den Verkauf am ${pnDatumDe(verkaufstag)}`)
-          hinweise.push(`Position ${nr}: ${h} ${TB_PN_NICHT_VORBELEGT}`)
-        } else if (ersatz) {
-          pruef = ersatz
-        }
-      }
-      return {
-        ...TB_LEERE_POSITION,
-        menge_liter:     hatGroesse && Number.isFinite(stueck) ? formularZahl((stueck * ml) / 1000, STELLEN.liter) : formularZahl(Number.isFinite(stueck) ? stueck : null, STELLEN.liter),
-        einheit:         hatGroesse ? 'l' : '',
-        art:             art ?? 'Weiß',
-        traubensorte:    f?.rebsorte ? formatRebsorteMitKuerzel(f.rebsorte) : '',
-        qualitaetsstufe: f ? qualitaetAnzeigeOderNull(f) ?? '' : '',   // KAN-186: Stufe + Zusatzbezeichnung/Erzeugnis
-        jahrgang:        f?.jahrgang ? String(f.jahrgang) : '',
-        herkunft:        herkunftPosition(nr, [['Füllung', f?.herkunft_code], ['Anbaugebiet der Füllung', f?.anbaugebiet]], hinweise),
-        pruefnummer:     pruef,
       }
     }
     // Traubenverkauf: Menge in kg, Jahrgang = Jahr der Lieferung, KMW in die Spalte „Alkohol % vol / °KMW“
@@ -567,39 +526,15 @@ async function betriebLaden(supabase: Client, tenantId: string): Promise<R> {
 }
 
 /**
- * Prüfnummern zu Chargen (Tank) und DAC-Anträgen (Füllungen) der Verkaufsposten. Tank: die
- * Daten für pruefnummerGueltig (lib/kellerbuch/pruefnummerLaden.ts), ausgewertet in
- * tbVorbelegung am Verkaufsdatum. Füllung: die Anträge und die Daten ihrer Charge (Zugänge für
- * ersatzPruefnummer); die Nummer wählt tbVorbelegung (genehmigt, aktiv, Charge der Füllung,
- * Abfülldatum gegen den Beginn, Bescheid bis zum Verkaufsdatum).
+ * Prüfnummern zu Chargen der Tankpositionen: die Daten für pruefnummerGueltig
+ * (lib/kellerbuch/pruefnummerLaden.ts), ausgewertet in tbVorbelegung am Verkaufsdatum.
  */
 async function pruefnummernLaden(supabase: Client, tenantId: string, posten: R[]): Promise<TBPruefnummern> {
-  const pos = posten.flatMap(p => (p.positionen ?? []) as R[])
-  const ersatzPos = pos.filter(p => p.typ === 'flasche' && p.fuellung?.dac_antrag_id && !feld(p.fuellung?.pruefnummer))
-  const waIds = [...new Set([
-    ...pos.filter(p => p.typ === 'tank' && p.weinausbau?.id).map(p => String(p.weinausbau.id)),
-    ...ersatzPos.filter(p => p.fuellung?.weinausbau_id).map(p => String(p.fuellung.weinausbau_id)),
-  ])]
-  const dacIds = [...new Set(ersatzPos.map(p => String(p.fuellung.dac_antrag_id)))]
-  const pn: TBPruefnummern = { jeWeinausbau: {}, jeDacAntrag: {} }
+  const waIds = [...new Set(posten.flatMap(p => (p.positionen ?? []) as R[])
+    .filter(p => p.typ === 'tank' && p.weinausbau?.id).map(p => String(p.weinausbau.id)))]
+  const pn: TBPruefnummern = { jeWeinausbau: {} }
   if (waIds.length > 0) {
     for (const [id, daten] of await ladePruefnummerDaten(supabase, tenantId, waIds)) pn.jeWeinausbau[id] = daten
-  }
-  for (const block of inBloecken(dacIds)) {
-    // storno-sichtbar: antragAusZeile führt stornierte DAC-Anträge als inaktiv (keine gültige Prüfnummer, KAN-150 F2)
-    const { data, error } = await alle<R>((supabase.from('dac_antrag') as any)
-      .select(PN_ANTRAG_SELECT)
-      .eq('tenant_id', tenantId)
-      .in('id', block)
-      .order('id'))
-    if (error) throw new Error(`Laden fehlgeschlagen (dac_antrag): ${error.message}`)
-    for (const d of data) pn.jeDacAntrag[d.id] = antragAusZeile(d)
-  }
-  // KAN-99: per Umzug weitergegebene Chargen – Füllungen daraus tragen die Nummer des Antrags
-  if (dacIds.length > 0) {
-    for (const [id, chargen] of await chargenDerAntraege(supabase, tenantId, dacIds)) {
-      if (pn.jeDacAntrag[id]) pn.jeDacAntrag[id].weitereChargen = chargen
-    }
   }
   return pn
 }
@@ -693,7 +628,7 @@ export async function ladeTransportbescheinigung(supabase: Client, tenantId: str
 
 /**
  * Zeitraumliste: alle aktiven Verkaufsposten mit Verkaufsdatum von–bis, die eine
- * Transportbescheinigung brauchen (Tank-, Flaschen- oder Traubenposition) oder eine
+ * Transportbescheinigung brauchen (Tank- oder Traubenposition, KAN-90: keine Flaschen) oder eine
  * gespeicherte haben. Stornierte Verkäufe stehen gekennzeichnet darin (KAN-149 D1, Hinweis). Gleiche Spalten wie die
  * einzelne Transportbescheinigung – für die Druckseite /weinhandel/transportbescheinigungen und die CSV.
  * nurGespeichert: nur tatsächlich gespeicherte Transportbescheinigungen (ohne Vorbelegungen).
@@ -740,7 +675,7 @@ export async function ladeTransportbescheinigungen(supabase: Client, tenantId: s
     return true
   })
   const ohneFormular = kandidaten.filter(v => !hatFormular(v))
-  const pn = ohneFormular.length > 0 ? await pruefnummernLaden(supabase, tenantId, ohneFormular) : { jeWeinausbau: {}, jeDacAntrag: {} }
+  const pn = ohneFormular.length > 0 ? await pruefnummernLaden(supabase, tenantId, ohneFormular) : { jeWeinausbau: {} }
   const heute = wienHeute()
 
   const zeilen: TBZeile[] = []

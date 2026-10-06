@@ -746,37 +746,14 @@ describe('Transportbescheinigung: Tankverkauf aus der Charge', () => {
     // Verkauf in der Vergangenheit: Mengenregel wie bisher nicht geprüft, nichts zurückgerechnet
     assert.equal(pn.bestandVorVerkauf(pnMit([{ datum: '2026-09-20', liter: 700 }]).jeWeinausbau[CH], '2026-09-20').bestandLiter, 0)
   })
-  test('Flaschenposition ohne eigene Nummer: Antrag nur derselben Charge und erst ab dem Bescheid', () => {
-    const antrag = laden.antragAusZeile(dbMusterhof().dac_antrag[0])
-    const flasche = (datum, fuellung) => ({
-      ...posten(datum),
-      positionen: [{ id: 'p2', typ: 'flasche', name: 'Riesling', menge: 12, fuellung: { id: FUELLUNG_ID, rebsorte: 'Riesling', flaschengroesse_ml: 750, pruefnummer: null, dac_antrag_id: ANTRAG_ID, weinausbau_id: CH, herkunft_code: 'kamptal_gebietswein', ...fuellung } }],
-    })
-    const pnF = { jeWeinausbau: {}, jeDacAntrag: { [ANTRAG_ID]: antrag } }
-    let h = []
-    assert.equal(tb.tbVorbelegung(flasche('2026-07-01'), CFG, pnF, '2026-09-25', h).positionen[0].pruefnummer, 'N 10716/26')
-    assert.deepEqual(h, [])
-    h = []
-    assert.equal(tb.tbVorbelegung(flasche('2026-06-01'), CFG, pnF, '2026-09-25', h).positionen[0].pruefnummer, '')
-    assert.match(h[0], /^Position 1: Prüfnummer N 10716\/26 gilt nicht für den Verkauf am 01\.06\.2026: Sie wurde erst mit dem Bescheid vom 08\.06\.2026 erteilt\. Prüfnummer nicht vorbelegt\.$/)
-    h = []
-    assert.equal(tb.tbVorbelegung(flasche('2026-07-01', { weinausbau_id: CH_B }), CFG, pnF, '2026-09-25', h).positionen[0].pruefnummer, '')
-    assert.match(h[0], /DAC-Antrag der Füllung gehört zu einer anderen Charge/)
-    // Abfüllung vor der Einreichung (z. B. mit einem Entwurf verknüpft), Verschnitt dazwischen
-    const mitVerschnitt = { ...pnF, jeWeinausbau: { [CH]: musterhof({ zugaenge: [PRESSUNG, { art: 'verschnitt', datum: '2026-05-15' }] }) } }
-    h = []
-    assert.equal(tb.tbVorbelegung(flasche('2026-07-01', { datum: '2026-05-10' }), CFG, mitVerschnitt, '2026-09-25', h).positionen[0].pruefnummer, '')
-    assert.deepEqual(h, ['Position 1: Prüfnummer N 10716/26 des DAC-Antrags gilt nicht für diese Füllung: Die Abfüllung am 10.05.2026 liegt vor der Einreichung des DAC-Antrags „Riesling Ried Pfaffenberg 2025“ am 20.05.2026; dazwischen: Verschnitt am 15.05.2026 (§ 25 Abs. 6 WeinG). Flaschen und Probe enthalten damit verschiedenen Wein. Prüfnummer nicht vorbelegt.'])
-    h = []
-    assert.equal(tb.tbVorbelegung(flasche('2026-07-01', { datum: '2026-05-10' }), CFG, { ...pnF, jeWeinausbau: { [CH]: musterhof() } }, '2026-09-25', h).positionen[0].pruefnummer, 'N 10716/26')
-  })
-  test('Ladefunktion: Flaschenposition – Zugänge der Charge der Füllung werden geladen', async () => {
+  test('KAN-90: Flaschenposition kommt nicht auf die TBS (keine TBS für Flaschenwein, Entscheidung 06.10.2026)', () => {
     const fl = { id: '44444444-4444-4444-8444-444444444445', tenant_id: T, aktiv: true, rechnungsnummer: 'RE-2026-0101', datum: '2026-09-26', storniert: false, kontakt: null, firma: { name: 'Weinhandel Huber' },
       positionen: [{ id: 'p3', typ: 'flasche', name: 'Riesling', menge: 12, fuellung: { id: FUELLUNG_ID, rebsorte: 'Riesling', flaschengroesse_ml: 750, datum: '2026-09-26', pruefnummer: null, dac_antrag_id: ANTRAG_ID, weinausbau_id: CH } }] }
-    const db = { ...dbMusterhof(), verkaufsposten: [fl], tenant_einstellungen: [CFG], transportbescheinigungen: [] }
-    const r = await tb.ladeTransportbescheinigung(attrappe(db), T, { id: fl.id })
-    assert.equal(r.formular.positionen[0].pruefnummer, '')
-    assert.ok(r.vorbelegungHinweise.some(w => /liegt nach der Einreichung .*Verschnitt am 25\.09\.2026/.test(w)), r.vorbelegungHinweise.join(' | '))
+    const h = []
+    const f = tb.tbVorbelegung(fl, CFG, { jeWeinausbau: {} }, '2026-09-26', h)
+    assert.deepEqual(f.positionen, [tb.TB_LEERE_POSITION])   // nur die leere Formularzeile
+    assert.deepEqual(h, [])
+    assert.deepEqual([...tb.TB_POSITIONSTYPEN], ['tank', 'trauben'])
   })
   test('Zeitraumliste: Prüfnummern-Hinweis je Beleg in den Warnungen', async () => {
     const db = { ...dbMusterhof(), verkaufsposten: [{ ...posten('2026-09-25'), aktiv: true }], tenant_einstellungen: [CFG], transportbescheinigungen: [] }
@@ -1035,9 +1012,9 @@ describe('Verdrahtung (Quelltext)', () => {
     assert.doesNotMatch(s, /pn\.jeWeinausbau\[d\.weinausbau_id\] = /)
     // Zeitraumliste verwirft die Hinweise der Vorbelegung nicht mehr
     assert.doesNotMatch(s, /tbVorbelegung\(v, cfg, pn, heute, \[\]\)/)
-    assert.match(s, /fuellung:fuellungen\([^)]*datum, pruefnummer, dac_antrag_id, weinausbau_id\)/)
-    // Ersatznummer der Flaschenposition und des Blend-Protokolls der Füllung über denselben Helfer
-    assert.match(s, /ersatzPruefnummer\(antrag, \{ datum: pnTag\(f\?\.datum\), chargeId \}/)
+    // KAN-90: keine Flaschenposition auf der TBS – keine Ersatznummer aus dem DAC-Antrag der Füllung mehr
+    assert.doesNotMatch(s, /ersatzPruefnummer|jeDacAntrag/)
+    // Ersatznummer im Blend-Protokoll der Füllung über den Helfer
     assert.match(quelle('src/lib/behoerden/blend.ts'), /ersatzPruefnummer\(antrag, \{ datum: tag\(f\.datum\) \|\| null, chargeId \}, zugaenge\)/)
   })
   test('updateFuellung: Charge eines anderen Betriebs (unbekannte ID) wird abgelehnt, nie gespeichert', () => {
