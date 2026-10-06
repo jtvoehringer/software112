@@ -2,15 +2,14 @@ import 'server-only'
 
 // ── Newsletter je Betrieb (23.9.2026, Migration 227) ──────────────────────────
 // Öffentliche Anmeldung unter /newsletter/<kurzname>. Jeder Betrieb nutzt sein eigenes
-// Brevo-Konto (Administration › Mandant › Brevo). Übergang: der bisher fest verdrahtete
-// Betrieb (NEWSLETTER_TENANT_ID) darf ohne eigenen Key das Brevo-Konto aus der Umgebung
-// verwenden, bis sein Key hinterlegt ist.
+// Brevo-Konto (Administration › Mandant › Brevo). KAN-27 (06.10.2026): der Übergang über das
+// Brevo-Konto aus der Umgebung (NEWSLETTER_TENANT_ID, BREVO_LIST_*) ist entfernt – das Konto in
+// der Umgebung gehört IC&P und ist nur für System-Mails da.
 import { createHmac, timingSafeEqual } from 'crypto'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { geheimLesen } from '@/lib/email/geheimnis'
 import { unterschluessel } from '@/lib/email/crypto'
 import { barrierefreieAktionsfarbe } from '@/lib/farbe'
-import { getListId } from '@/lib/brevo/listen'
 import type { BrevoZugang } from '@/lib/brevo/api'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -44,21 +43,18 @@ async function ausZeile(e: R): Promise<NewsletterBetrieb> {
   const admin = createSupabaseAdminClient()
   const { data: t } = await (admin.from('tenants') as any).select('name').eq('id', e.tenant_id).maybeSingle()
   const name = (e.anzeigename as string | null) || ((t as R | null)?.name as string | undefined) || 'Newsletter'
-  const legacy = !!process.env.NEWSLETTER_TENANT_ID && e.tenant_id === process.env.NEWSLETTER_TENANT_ID
 
   let zugang: BrevoZugang | null = null
   let key: string | null = null
   try { key = geheimLesen(e.brevo_api_key) } catch { key = null }
   if (key && e.brevo_sender_mail) {
     zugang = { apiKey: key, senderMail: e.brevo_sender_mail, senderName: e.brevo_sender_name || name }
-  } else if (legacy && process.env.BREVO_API_KEY && process.env.BREVO_SENDER_EMAIL) {
-    zugang = { apiKey: process.env.BREVO_API_KEY, senderMail: process.env.BREVO_SENDER_EMAIL, senderName: e.brevo_sender_name || name }
   }
 
   const listen = {} as Record<Segment, number | null>
   for (const s of SEGMENTE) {
     const v = e[LISTEN_SPALTE[s]] as number | null
-    listen[s] = v ?? (legacy && !key ? (getListId(s) || null) : null)
+    listen[s] = v ?? null
   }
 
   return {

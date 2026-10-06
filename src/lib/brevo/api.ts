@@ -3,7 +3,8 @@
 
 const BREVO_BASE = 'https://api.brevo.com/v3'
 
-/** Brevo-Zugang eines Betriebs (Newsletter je Betrieb, 23.9.2026). Ohne Angabe: Systemkonto aus der Umgebung. */
+/** Brevo-Zugang eines Betriebs (Newsletter je Betrieb, 23.9.2026). Ohne Angabe: Systemkonto aus der Umgebung
+ *  (IC&P, nur System-Mails von software:112 – KAN-27, 06.10.2026). */
 export type BrevoZugang = { apiKey: string; senderMail: string; senderName: string }
 
 function headers(zugang?: BrevoZugang) {
@@ -18,6 +19,14 @@ function headers(zugang?: BrevoZugang) {
 
 // ── Transaktions-E-Mail senden ────────────────────────────────────────────────
 
+/** Absender der System-Mails (Vercel BREVO_SENDER_EMAIL, IC&P) – kein Rückfall auf die Adresse eines Betriebs (KAN-27) */
+function systemAbsender(): string {
+  const mail = process.env.BREVO_SENDER_EMAIL?.trim()
+  if (!mail) throw new Error('BREVO_SENDER_EMAIL nicht konfiguriert')
+  return mail
+}
+
+
 export async function sendEmail({
   to, subject, htmlContent, textContent, senderName, zugang,
 }: {
@@ -25,7 +34,7 @@ export async function sendEmail({
   subject: string
   htmlContent: string
   textContent?: string
-  /** Absendername; Standard: Weingut Gebeshuber (Newsletter). System-Mails: 'software:112' */
+  /** Absendername; Standard: der Name aus dem Zugang bzw. „software:112“ (System-Mails) */
   senderName?: string
   zugang?: BrevoZugang
 }) {
@@ -35,7 +44,7 @@ export async function sendEmail({
     body: JSON.stringify({
       sender:      zugang
         ? { name: senderName ?? zugang.senderName, email: zugang.senderMail }
-        : { name: senderName ?? 'Weingut Gebeshuber', email: process.env.BREVO_SENDER_EMAIL ?? 'noreply@weingut-gebeshuber.at' },
+        : { name: senderName ?? 'software:112', email: systemAbsender() },
       to:          [to],
       subject,
       htmlContent,
