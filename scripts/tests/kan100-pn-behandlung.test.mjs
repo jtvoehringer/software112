@@ -125,6 +125,6 @@ describe('KAN-100 Verdrahtung', () => {
     const l = quelle('src/lib/kellerbuch/pruefnummerLaden.ts')
     assert.match(l, /\.eq\('typ\.pn_wirkung', 'veraenderung'\)/)
     assert.match(l, /zugang\(k\.weinausbau_id, \{ art: 'behandlung'/)
-    assert.match(l, /const ENDE_VORGANG: readonly PnZugangArt\[\] = \['verschnitt', 'zukauf', 'pressung', 'zugang', 'behandlung', 'abstufung'\]/)
+    assert.match(l, /const ENDE_VORGANG: readonly PnZugangArt\[\] = \['verschnitt', 'zukauf', 'pressung', 'zugang', 'behandlung', 'abstufung', 'korrektur'\]/)   // KAN-53: + korrektur
   })
 })

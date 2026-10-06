@@ -22,6 +22,7 @@ import { mostgewichtAusFormular, mostgewichtSpalten } from '@/lib/wein/mostgewic
 import { mostgewichtNeu, mostgewichtZusammenfuehren, teilweiseVermerk, umzugMomentaufnahme, type Anteil } from '@/lib/kellerbuch/mostgewichtKette'
 import { wienHeute } from '@/lib/csv'
 import { waehleZielCharge } from '@/lib/kellerbuch/umzugZiel'
+import { pruefePruefnummernSchaden } from '@/lib/kellerbuch/pruefnummerLaden'
 import { herkunftKnoten } from '@/lib/herkunft'
 import { eroeffnungsStichtagFehler, eroeffnungsZeitpunkt, standardEroeffnungsStichtag } from '@/lib/kellerbuch/eroeffnungsStichtag'
 import { ladeGebindeStand } from '@/lib/kellerbuch/eroeffnungsGebinde'
@@ -467,7 +468,7 @@ async function pruefeUmzug(
   tenantId: string,
   e: UmzugNeu,
   verfuegbarNach?: Map<string, number>,
-): Promise<{ quellCharge: Map<string, R>; bedarf: Map<string, number> }> {
+): Promise<{ quellCharge: Map<string, R>; bedarf: Map<string, number>; pnFragen: string[]; pnNotizJeCharge: Map<string, string> }> {
   // Ziele (Kellergemeinschaft, Migration 203): eigenes oder freigegebenes, aktives Gebinde,
   // nicht durch einen anderen Betrieb belegt. Der DB-Trigger fängt das ebenfalls ab - aber
   // erst beim Ziel-Insert, wenn die Quellen schon reduziert wären.
@@ -498,12 +499,27 @@ async function pruefeUmzug(
   // KAN-112: Ein Umzug in ein Gebinde mit abweichendem Wein (Rebsorte, Jahrgang, Herkunft, Qualität) bzw. aus Quellen
   // mit verschiedenen Merkmalen ist ein Verschnitt – beim Bearbeiten (Storno + Neubuchung) nicht still eine zweite
   // Charge ins Gebinde legen, sondern ablehnen. Chargen, die der Storno der bisherigen Buchung leert, zählen nicht.
+  // KAN-183: Zusammenführung in eine bestehende Charge – Prüfnummern-Rückfrage wie umziehen() (KAN-83/KAN-94);
+  // bei eingereichtem Antrag lehnt pruefePruefnummernSchaden hart ab
+  const zielMenge = new Map<string, { name: string | null; liter: number }>()
   for (const z of e.ziele) {
     const tank = await zielChargenImGebinde(supabase, tenantId, z.behaelter_id, bedarf)
-    const { istVerschnitt } = waehleZielCharge(tank.filter(c => (verfuegbarNach?.get(c.id) ?? 1) > 0.01), [...quellCharge.values()])
+    const { istVerschnitt, vorhanden } = waehleZielCharge(tank.filter(c => (verfuegbarNach?.get(c.id) ?? 1) > 0.01), [...quellCharge.values()])
     if (istVerschnitt) throw new AktionsFehler(UMZUG_WAERE_VERSCHNITT)
+    if (vorhanden) {
+      const bisher = zielMenge.get(vorhanden.id)
+      zielMenge.set(vorhanden.id, { name: vorhanden.name ?? null, liter: (bisher?.liter ?? 0) + z.menge_netto })
+    }
   }
-  return { quellCharge, bedarf }
+  const pnFragen: string[] = []
+  const pnNotizJeCharge = new Map<string, string>()
+  for (const [chargeId, { name, liter }] of zielMenge) {
+    const pn = await pruefePruefnummernSchaden(supabase, tenantId, 'umzug', [{ chargeId, name, zugangLiter: liter }], e.datum)
+    if (!pn) continue
+    pnFragen.push(pn.frage)
+    pnNotizJeCharge.set(chargeId, pn.notiz)
+  }
+  return { quellCharge, bedarf, pnFragen, pnNotizJeCharge }
 }
 
 const UMZUG_WAERE_VERSCHNITT = 'Dieser Umzug wäre ein Verschnitt – bitte stornieren und über ‚Umziehen‘ neu buchen.'
@@ -539,7 +555,7 @@ async function umzugAnlegen(
   supabase: any,
   tenantId: string,
   e: UmzugNeu,
-  opts: { umzugTyp?: string | null } = {},
+  opts: { umzugTyp?: string | null; pnNotizJeCharge?: Map<string, string> } = {},
 ): Promise<void> {
   // Alle Prüfungen vor der ersten Buchung
   const { quellCharge, bedarf } = await pruefeUmzug(supabase, tenantId, e)
@@ -555,11 +571,14 @@ async function umzugAnlegen(
   for (const [id, menge] of bedarf) {
     const wa = quellCharge.get(id)!
     const rest = rund2(num(wa.menge_liter) - menge)
-    const { error: e1 } = await (supabase.from('weinausbau') as any)
+    const { data: d1, error: e1 } = await (supabase.from('weinausbau') as any)
       .update(rest <= 0.01 ? { menge_liter: 0, aktiv: false, status: 'abgeschlossen' } : { menge_liter: rest })
       .eq('id', id)
       .eq('tenant_id', tenantId)
+      .select('id')
     if (e1) throw new AktionsFehler(dbFehlerText(e1, 'Speichern fehlgeschlagen (weinausbau)'))
+    // KAN-183: ohne Treffer keine Umzugszeile (sonst Bewegung ohne Bestandsänderung)
+    if (((d1 ?? []) as R[]).length !== 1) throw new AktionsFehler(`Charge „${wa.name}“ konnte nicht geändert werden – bitte die Seite neu laden. Es wurde nichts gebucht.`)
   }
 
   // --- Quelle-Records anlegen ---
@@ -605,11 +624,17 @@ async function umzugAnlegen(
       const mg = mostgewichtZusammenfuehren(existing, altMenge, umzugAnteile(e, quellCharge, z.menge_netto))
       mostgewichtSnapshot = umzugMomentaufnahme(mg)
       if (mg.werte) zielNotiz = teilweiseVermerk(mg)
-      { const { error: e2 } = await (supabase.from('weinausbau') as any)
+      { const { data: d2, error: e2 } = await (supabase.from('weinausbau') as any)
         .update({ menge_liter: rund2(altMenge + z.menge_netto), ...(mg.werte ?? {}) })
         .eq('id', existing.id)
         .eq('tenant_id', tenantId)
-        if (e2) throw new AktionsFehler(dbFehlerText(e2, 'Speichern fehlgeschlagen (weinausbau)')) }
+        .select('id')
+        if (e2) throw new AktionsFehler(dbFehlerText(e2, 'Speichern fehlgeschlagen (weinausbau)'))
+        // KAN-183: Ziel-Charge nicht geändert → keine Zielzeile
+        if (((d2 ?? []) as R[]).length !== 1) throw new AktionsFehler(`Ziel-Charge „${existing.name ?? ''}“ konnte nicht geändert werden – bitte den Umzug prüfen und neu erfassen.`) }
+      // KAN-183: Vermerk „Prüfnummer gilt nicht mehr“ (bestätigte Rückfrage) an der Zielzeile
+      const pnNotiz = opts.pnNotizJeCharge?.get(existing.id)
+      if (pnNotiz) zielNotiz = [zielNotiz, pnNotiz].filter(Boolean).join(' · ')
       nachWeinausbauId = existing.id
     } else {
       const mg = mostgewichtNeu(umzugAnteile(e, quellCharge, z.menge_netto))
@@ -669,7 +694,8 @@ function revalidiereUmzug(plan?: UmzugStornoPlan) {
 // Storno + Neubuchung und sind nur unter denselben Bedingungen wie das Stornieren erlaubt
 // (lib/kellerbuch/storno.ts). Die neue Buchung wird VOR dem Storno vollständig geprüft –
 // vorher konnte ein Fehler beim Neuanlegen den Umzug ersatzlos vernichten.
-export async function updateUmzugBatch(firstRecordId: string, formData: FormData) {
+// KAN-183: bestaetigung = Rückfrage „Prüfnummer gilt nicht mehr“ – nichts gebucht; mit pn_bestaetigt=1 erneut senden
+export async function updateUmzugBatch(firstRecordId: string, formData: FormData): Promise<{ bestaetigung?: string } | void> {
   const supabase = await createSupabaseServerClient()
   const tenantId = await kellerbuchSchreibrecht()
 
@@ -694,13 +720,14 @@ export async function updateUmzugBatch(firstRecordId: string, formData: FormData
 
   const neu = leseUmzugEingabe(formData)
   // Neue Buchung gegen den Bestand NACH dem Storno prüfen, bevor irgendetwas gebucht wird
-  await pruefeUmzug(supabase, tenantId, neu, new Map(plan.aenderungen.map(a => [a.id, a.neu])))
+  const { pnFragen, pnNotizJeCharge } = await pruefeUmzug(supabase, tenantId, neu, new Map(plan.aenderungen.map(a => [a.id, a.neu])))
+  if (pnFragen.length > 0 && formData.get('pn_bestaetigt') !== '1') return { bestaetigung: pnFragen.join('\n') }
 
   // Bearbeiten braucht keinen eigenen Grund (Vorgabe 30.09.2026) – der Storno der alten Buchung trägt einen festen
   await storniereUmzug(supabase, tenantId, plan, GRUND_BEARBEITET)
   const umzugTyp = (zeilen.find(z => z.umzug_typ && z.umzug_typ !== 'normal')?.umzug_typ as string | undefined) ?? null
   try {
-    await umzugAnlegen(supabase, tenantId, neu, { umzugTyp })
+    await umzugAnlegen(supabase, tenantId, neu, { umzugTyp, pnNotizJeCharge })
   } catch (e) {
     revalidiereUmzug(plan)
     throw new AktionsFehler(`Der bisherige Umzug wurde storniert, der geänderte konnte aber nicht gebucht werden: ${fehlerText(e)} Bitte den Umzug neu erfassen.`)

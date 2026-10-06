@@ -53,6 +53,7 @@ const GROSSE_TABELLEN = [
   'verschneidung_quellen', 'pressungen', 'pressung_behaelter', 'pressung_weingaerten', 'ernte_parzellen',
   'dac_antrag', 'pruefnummer_chargen', 'elabels',   // KAN-216: je Füllung
   'keller_verarbeitungen',   // KAN-41 Paket 3a
+  'keller_zugangskorrekturen',   // KAN-53
   'fuellung_etikettierungen',   // KAN-41 Paket 3d
 ]
 

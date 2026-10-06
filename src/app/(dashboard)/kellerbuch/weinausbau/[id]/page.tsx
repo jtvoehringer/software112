@@ -3,7 +3,7 @@ import { alle } from '@/lib/supabase/alle'
 import { ohneStornierteVerschnitte } from '@/lib/kellerbuch/stornoFilter'
 import { ladeBehaelter } from '@/lib/keller/behaelter'
 import { fmtLiter, fmtNum } from '@/lib/format'
-import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
+import { getCurrentUserRole, canWrite, canAdmin, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import { notFound } from 'next/navigation'
@@ -24,7 +24,7 @@ import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
 import UmziehenWidget from '@/components/kellerbuch/UmziehenWidget'
 import { umziehen } from '../../umziehen/actions'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
-import { Wine, ArrowLeftRight, GitMerge, BookOpen, Microscope, Award, TrendingDown, ArrowDownWideNarrow, Factory } from 'lucide-react'
+import { Wine, ArrowLeftRight, GitMerge, BookOpen, Microscope, Award, TrendingDown, ArrowDownWideNarrow, Factory, PlusCircle } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'Charge bearbeiten – software:112' }
 export const dynamic = 'force-dynamic'
@@ -550,8 +550,8 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
             Laut Bewegungsbuch wurde mehr aus dieser Charge entnommen, als je vorhanden war
             (berechneter Saldo: {fmtLiter(berechneterSaldoRoh)}, gebuchter Bestand: {fmtLiter(aktuell)}).
             Der Saldo wird unten bei 0 L gekappt angezeigt – bitte die Bewegungen (insbesondere
-            Tank-Verkäufe und Zugänge) prüfen. Fehlt ein Zugang, bitte den Support kontaktieren
-            (Charge, Menge und Grund angeben). Bitte hier KEINEN Schwund buchen – das mindert Bestand
+            Tank-Verkäufe und Zugänge) prüfen. Fehlt ein Zugang, bucht ihn die Betriebsleitung über
+            „Zugang korrigieren“ (Menge, Datum und Grund). Bitte hier KEINEN Schwund buchen – das mindert Bestand
             und Saldo gleichermaßen und behebt die Abweichung nicht.
           </p>
         </div>
@@ -564,7 +564,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
             Gebuchter Bestand der Charge: {fmtLiter(aktuell)} · Saldo laut Bewegungsbuch: {fmtLiter(berechneterSaldoRoh)}.{' '}
             {bewegungsbuchHoeher
               ? 'Laut Bewegungsbuch ist mehr vorhanden als gebucht – fehlt z. B. eine Schwundbuchung, kann sie im Bewegungsbuch des Gebindes nachgebucht werden (die Nachbuchung ändert den gebuchten Bestand nicht).'
-              : 'Laut Bewegungsbuch ist weniger vorhanden als gebucht – vermutlich fehlt im Bewegungsbuch ein Zugang (z. B. aus der Zeit vor den datierten Buchungen). Bitte die Bewegungen prüfen und ggf. den Support kontaktieren (Charge, Menge und Grund angeben). Bitte hier KEINEN Schwund buchen – das mindert Bestand und Saldo gleichermaßen und behebt die Abweichung nicht.'}
+              : 'Laut Bewegungsbuch ist weniger vorhanden als gebucht – vermutlich fehlt im Bewegungsbuch ein Zugang (z. B. aus der Zeit vor den datierten Buchungen). Bitte die Bewegungen prüfen; ein fehlender Zugang wird über „Zugang korrigieren“ gebucht (Betriebsleitung, mit Grund). Bitte hier KEINEN Schwund buchen – das mindert Bestand und Saldo gleichermaßen und behebt die Abweichung nicht.'}
             {' '}Der Bestand wird nicht mehr automatisch angeglichen.
           </p>
           {bewegungsbuchHoeher && writeOk && weinausbau.behaelter_id && (
@@ -640,6 +640,13 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
             <Link href={`/kellerbuch/weinausbau/${weinausbau.id}/verarbeiten`}
               className="mt-1 inline-flex items-center gap-1 text-xs border border-s112-border text-s112-blue-700 px-3 py-1 rounded-lg hover:bg-s112-bg transition-colors">
               <Factory size={13} strokeWidth={1.75} />Verarbeiten
+            </Link>
+          )}
+          {/* KAN-53: Zugangskorrektur (Mehrmenge, Inventur-Plus) – nur Betriebsleitung */}
+          {writeOk && role && canAdmin(role) && (
+            <Link href={`/kellerbuch/weinausbau/${weinausbau.id}/zugang`}
+              className="mt-1 inline-flex items-center gap-1 text-xs border border-s112-border text-s112-blue-700 px-3 py-1 rounded-lg hover:bg-s112-bg transition-colors">
+              <PlusCircle size={13} strokeWidth={1.75} />Zugang korrigieren
             </Link>
           )}
           <Link href={`/kellerbuch/weinausbau/${weinausbau.id}/buch`}
