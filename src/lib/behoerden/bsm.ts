@@ -299,7 +299,8 @@ export const BSM_ZUORDNUNG: readonly { vorgang: string; code: string; hinweis?: 
   { vorgang: 'Zukauf Maische (Beleg)', code: 'ZK_MAISC (Info)', hinweis: 'nur in kg, nicht in der Literrechnung; tatsächliche Menge nach Pressung' },
   { vorgang: 'Zukauf Wein in eine Charge', code: 'ZK_FASS' },
   { vorgang: 'Zukauf Most', code: 'ZK_MOST' },
-  { vorgang: 'Füllung ohne Charge (nicht Eröffnungsbestand)', code: 'ZK_FLA', hinweis: 'als Flaschenzukauf gezählt – prüfen' },
+  { vorgang: 'Zukauf Flaschen (Handelsware, Weinlager-Artikel aus einem Flaschenzukauf)', code: 'ZK_FLA', hinweis: 'Liter = Anzahl × Flaschengröße (KAN-41)' },
+  { vorgang: 'Füllung ohne Charge (weder Zukauf noch Eröffnungsbestand)', code: 'ZK_FLA', hinweis: 'als Flaschenzukauf gezählt – prüfen' },
   { vorgang: 'Tankverkauf mit Lieferort in Österreich / im Ausland', code: 'VK_FA_AT / VK_FA_AU', hinweis: 'Lieferland des Verkaufs → Bestimmungsland des Exportauftrags (gleicher Kunde, gleicher Tag) → Land des Kunden (Warnung)' },
   { vorgang: 'Flaschenverkauf (Stück × Flaschengröße) mit Lieferort in Österreich / im Ausland', code: 'VK_FL_AT / VK_FL_AU', hinweis: 'Lieferort wie beim Tankverkauf' },
   { vorgang: 'Verschnitt: Quell-Charge / Ziel-Charge', code: 'VS_AB / VS_ZU' },
@@ -331,6 +332,9 @@ export function buchungsartBewegung(art: Bewegung['art'], k: { zukaufArt?: strin
     default: return null
   }
 }
+
+/** Hinweis an ZK_FLA-Zeilen echter Flaschenzukäufe (Journal: s112_journal_zeilen_fuellung, KAN-41 Paket 2b) – ohne Prüfwarnung */
+export const HANDELSWARE_HINWEIS = 'Flaschenzukauf (Handelsware)'
 
 /** Buchungsart einer Flaschenbuchung (FlaschenBuchung.art, Stück mit Vorzeichen) */
 export function buchungsartFlasche(art: string, menge: number, k: { kundeAusland?: boolean; mitCharge?: boolean; eroeffnung?: boolean } = {}): string {
@@ -896,7 +900,7 @@ export function berechneBsm(g: BestandsGrundlage, zusatz: BsmZusatz, z: BsmZeitr
         gegenstelle: istVerkauf ? [kunde_, landText(k)].filter(Boolean).join(' · ') || null : null,
         beleg: istVerkauf ? textOderNull(vp?.rechnungsnummer) : textOderNull(f.pruefnummer) ?? textOderNull(f.chargennummer),
         storno: fb.art === 'verkauf_storno' || fb.art === 'verkauf_alt_storno' || fb.art === 'storno_fuellung' ? 'Gegenbuchung (Storno)' : null,
-        hinweis: `${fmtNum(Math.abs(fb.menge), 0)} Fl. à ${p.ml} ml${p.mlErfasst ? '' : ' (angenommen)'}${code === 'ZK_FLA' ? ' · Füllung ohne Charge – als Flaschenzukauf gezählt, prüfen' : ''}${altbestandAb ? ' · Altbestand-Korrektur (−): Abgang, als Eigenverbrauch/Schwund gezählt' : ''}`,
+        hinweis: `${fmtNum(Math.abs(fb.menge), 0)} Fl. à ${p.ml} ml${p.mlErfasst ? '' : ' (angenommen)'}${code === 'ZK_FLA' ? (f.zukauf_posten_id ? ` · ${HANDELSWARE_HINWEIS}` : ' · Füllung ohne Charge – als Flaschenzukauf gezählt, prüfen') : ''}${altbestandAb ? ' · Altbestand-Korrektur (−): Abgang, als Eigenverbrauch/Schwund gezählt' : ''}`,
       }
       if (code === 'FUELLUNG') {
         const key = `${f.id}|${fb.art === 'storno_fuellung' ? 'S' : 'B'}`
@@ -1370,7 +1374,8 @@ function bsmAbschliessen(e: BsmAbschluss): BsmDaten {
   if (neutralOffen.length > 0) warnungen.push(`Umbuchungen (Umzug, Filtration, Füllung) gleichen sich in ${anzahl(neutralOffen.length, 'Spalte', 'Spalten')} nicht aus (z. B. Storno über die Zeitraumgrenze, Farb- oder Herkunftswechsel): ${neutralOffen.map(([k, v]) => `${zellText(k)} ${fmtL(v)}`).join('; ')}.`)
   const invPlus = summeCode('INV_PLUS')
   if (invPlus >= NULL_UNTER) warnungen.push(`Inventur-Mehrmengen bzw. Korrekturen (+) von ${fmtL(invPlus)} haben keine BSM-Buchungsart – im Kontrolljournal (Filter INV_PLUS) prüfen.`)
-  const zkFla = buchungen.filter(r => r.code === 'ZK_FLA').length
+  // KAN-41 Paket 2b: echte Flaschenzukäufe (Handelsware) ohne Prüfwarnung
+  const zkFla = buchungen.filter(r => r.code === 'ZK_FLA' && !(r.hinweis ?? '').includes(HANDELSWARE_HINWEIS)).length
   if (zkFla > 0) warnungen.push(`${anzahl(zkFla, 'Flaschenzugang', 'Flaschenzugänge')} ohne Charge (weder Abfüllung aus dem Keller noch Eröffnungsbestand) als „Zukauf Flaschen“ gezählt – bitte prüfen.`)
   if (traubenKg > 0 || Math.abs(traubenLiter) >= NULL_UNTER) warnungen.push(`Zukauf Trauben: gezählt ist der Most aus Pressungen zugekaufter Trauben (anteilig nach Trauben-kg) mit ${fmtL(traubenLiter)}${traubenKg > 0 ? `; die Belege im Zeitraum (${fmtNum(traubenKg, 0)} kg, Vorschlag ≈ ${fmtL(l2(traubenKg * TRAUBEN_LITER_JE_KG_VORSCHLAG))} bei ${fmtNum(TRAUBEN_LITER_JE_KG_VORSCHLAG, 1)} l/kg) stehen nur nachrichtlich im Kontrolljournal` : ''}.`)
   if (maischeKg > 0 || Math.abs(maischeLiter) >= NULL_UNTER) warnungen.push(`Zukauf Maische: gezählt ist der Most aus Pressungen zugekaufter Maische (anteilig nach kg) mit ${fmtL(maischeLiter)}${maischeKg > 0 ? `; die Belege im Zeitraum (${fmtNum(maischeKg, 0)} kg) stehen nur nachrichtlich im Kontrolljournal` : ''}.`)

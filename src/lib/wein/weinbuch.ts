@@ -90,7 +90,7 @@ export interface Weinbuch {
 
 export const HINWEIS_EROEFFNUNGSBESTAND = 'Eröffnungsbestand – Ried-Maßnahmen vor der Übernahme nicht in software:112 erfasst.'
 
-const ZUKAUF_ART: Record<string, string> = { wein: 'Wein', most: 'Most', trauben: 'Trauben', maische: 'Maische' }
+const ZUKAUF_ART: Record<string, string> = { wein: 'Wein', most: 'Most', trauben: 'Trauben', maische: 'Maische', flaschen: 'Flaschen' }
 
 /** Hinweis zu einem Zukauf: Ried-Maßnahmen liegen beim Lieferbetrieb (KAN-127), mit der TBS-Nr. des Lieferanten (KAN-90) */
 export function zukaufHinweis(z: R, ueberCharge: string | null): string {

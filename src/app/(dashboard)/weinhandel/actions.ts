@@ -648,7 +648,7 @@ export async function deactivateFuellung(id: string, grund: string): Promise<voi
   if (grundFehler) throw new AktionsFehler(grundFehler)
 
   const { data: fRaw, error: fErr } = await (supabase.from('fuellungen') as any)
-    .select('name, aktiv, datum, erstellt_am, bestand_flaschen, weinausbau_id, menge_liter_gefuellt')
+    .select('name, aktiv, datum, erstellt_am, bestand_flaschen, weinausbau_id, menge_liter_gefuellt, zukauf_posten_id')
     .eq('id', id)
     .eq('tenant_id', tenantId)
     .maybeSingle()
@@ -659,6 +659,11 @@ export async function deactivateFuellung(id: string, grund: string): Promise<voi
     // schon entfernt (z. B. Doppelklick) – nichts doppelt zurückbuchen
     revalidatePath('/weinhandel')
     return
+  }
+
+  // KAN-41 Paket 2b: Handelsware aus einem Flaschenzukauf nur über den Zukauf stornieren (Trigger a_flaschenzukauf_schutz)
+  if (f.zukauf_posten_id) {
+    throw new AktionsFehler(`„${f.name}“ stammt aus einem Flaschenzukauf – bitte den Zukauf stornieren (Weinhandel › Zukauf); der Weinlager-Artikel wird dabei mitstorniert.`)
   }
 
   // KAN-35: Sperre bei Folgebuchungen – Verkäufe/Bestandsbuchungen bleiben sonst ohne Füllung

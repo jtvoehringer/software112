@@ -1283,6 +1283,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('trigger',       '--S', false, 's112_journal_trg_charge()'),              -- KAN-40: Eröffnungsbestand Tank, Umstufung
     ('trigger',       '--S', false, 's112_journal_trg_flaschenbuchung()'),     -- KAN-40: fuellung_bewegungen
     ('trigger',       '--S', false, 's112_journal_trg_fuellung()'),            -- KAN-40: Füllung, Flaschen-Eröffnung/-Zukauf, Umstufung
+    ('trigger',       '--S', false, 's112_flaschenzukauf_storno()'),          -- KAN-41 Paket 2b: Zukauf-Storno storniert den Weinlager-Artikel mit (nur ohne Bewegung)
     ('trigger',       '--S', false, 's112_journal_trg_pressung()'),            -- KAN-40: Pressungskopf (Datum, Storno)
     ('trigger',       '--S', false, 's112_journal_trg_pressung_behaelter()'),  -- KAN-40: ERNTE/ZK_TRAUB
     ('trigger',       '--S', false, 's112_journal_trg_umzug()'),               -- KAN-40: Umzug, Filtration, Schwund
@@ -1301,7 +1302,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('trigger',       '--S', false, 's112_kellerbuch_periodensperre()'),      -- KAN-192: Bewegungen im abgeschlossenen Zeitraum   -- KAN-40 E2: Rückbefüllung nur Musterhof/Sandbox (nur Service-Role)
     ('mandant',       '-US', true , 's112_verschnitt_buchen(p_tenant_id uuid, p_kopf jsonb, p_quellen jsonb)'),   -- KAN-112: Verschnitt atomar (auch Umzug in Gebinde mit anderem Wein)
     ('mandant',       '-US', true , 's112_verschnitte_buchen(p_tenant_id uuid, p_buchungen jsonb)'),   -- KAN-112: mehrere Verschnitte eines Umzugs atomar
-    ('mandant',       '-US', true , 's112_zukauf_buchen(p_tenant_id uuid, p_zukauf jsonb, p_charge jsonb, p_verschnitt jsonb)'),   -- KAN-193: Zukauf samt Charge, ggf. sofort als Verschnitt
+    ('mandant',       '-US', true , 's112_zukauf_buchen(p_tenant_id uuid, p_zukauf jsonb, p_charge jsonb, p_verschnitt jsonb, p_fuellung jsonb)'),   -- KAN-193: Zukauf samt Charge, ggf. sofort als Verschnitt   -- KAN-41 Paket 2b: p_fuellung (Flaschenzukauf → Weinlager-Artikel)
     ('trigger',       '--S', false, 's112_verschnitt_verweise_pruefen()'),    -- KAN-112: Gebinde/Schwundbuchung am Verschnitt nur aus dem eigenen Betrieb
     ('mandant',       '-US', false, 'journal_konsistenz(p_tenant_id uuid)'),   -- KAN-40 (lesend, jedes Mitglied)
     ('trigger',       '--S', false, 's112_ama_rahmen()'),                      -- KAN-37 C: Stichtag/Abgabefrist aus dem Jahrgang

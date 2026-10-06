@@ -60,6 +60,13 @@ export default async function ZukaufEditPage({ params }: { params: Promise<{ id:
     ladeCustomWeinbaugebiete(),   // KAN-80 Nachtrag: eigene Weinbaugebiete wie am GST
   ])
   const hatBewegungen = folge.length > 0
+  // KAN-41 Paket 2b: Weinlager-Artikel des Flaschenzukaufs (je Zukauf höchstens einer)
+  let flaschenArtikel: { id: string; name: string; bestand: number } | null = null
+  if (z.art === 'flaschen') {
+    const { data: fl } = await (supabase.from('fuellungen') as R)
+      .select('id, name, bestand_flaschen').eq('tenant_id', tenantId).eq('zukauf_posten_id', z.id).maybeSingle()
+    if (fl) flaschenArtikel = { id: String((fl as R).id), name: String((fl as R).name ?? ''), bestand: Number((fl as R).bestand_flaschen) || 0 }
+  }
 
   return (
     <ZukaufEditForm
@@ -107,6 +114,7 @@ export default async function ZukaufEditPage({ params }: { params: Promise<{ id:
       }}
       eigeneAktuelleMenge={Number((z.ziel_weinausbau as R | null)?.menge_liter ?? 0) || 0}
       customWeinbaugebiete={customWeinbaugebiete}
+      flaschenArtikel={flaschenArtikel}
       lieferantName={
         z.lieferant_kontakt
           ? [z.lieferant_kontakt.vorname, z.lieferant_kontakt.nachname].filter(Boolean).join(' ')

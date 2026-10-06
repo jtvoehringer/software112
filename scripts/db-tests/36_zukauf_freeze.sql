@@ -52,7 +52,7 @@ BEGIN
   PERFORM pg_temp.s112_als(v_bw);
   v_txt := pg_temp.s112_fehlertext(format(c_upd, format('rebsorte = %L', 'S112TEST Zweigelt'), v_z));
   v_erg := v_erg || pg_temp.s112_erwarte('gesperrt_sorte',
-    v_txt LIKE '42501: Gesperrt: Folgebuchung an der Charge des Zukaufs am % (nicht: rebsorte).%HINT: freeze', true);
+    v_txt LIKE '42501: Gesperrt: Folgebuchung an der Charge bzw. Weinlager-Artikel des Zukaufs am % (nicht: rebsorte).%HINT: freeze', true);
   v_erg := v_erg || pg_temp.s112_erwarte('gesperrt_menge',
     pg_temp.s112_versuch(format(c_upd, 'menge = 400', v_z)), 'T');
   v_erg := v_erg || pg_temp.s112_erwarte('gesperrt_jahrgang',

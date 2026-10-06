@@ -804,7 +804,8 @@
 "weinart",
 "erzeugnis",
 "zusatzbezeichnung",
-"land_iso"
+"land_iso",
+"zukauf_posten_id"
 ],
 "grundstuecke": [
 "id",

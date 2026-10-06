@@ -29,6 +29,7 @@ import { MASSNAHMEN_ART_LABEL } from '@/lib/behandlungen/arten'
 import { normalisiereBehandlung } from './psm'
 import { verteileMassnahme, type Verteilung } from '@/lib/wein/massnahmeAnteile'
 import { num, numOderNull, tag, text, type R } from './kellerbuch-hilfen'
+import { datumAT } from './ernte_hilfen'
 import { mostgewichtCsvSpalten } from './mostgewicht_export'
 import {
   kalendertag, ladebereich, leseFenster, leseWarnungen, ordneMassnahmenZu, ttmmjjjj,
@@ -483,8 +484,16 @@ export type ChargeEintrag = { weinausbauId: string; anteilLiter: number | null; 
 export type FuellungKette = {
   fuellung: R
   chargen: ChargeEintrag[]
-  /** Wie die Chargen gefunden wurden */
-  zuordnung: 'fuellung_chargen' | 'direkt' | 'automatisch' | 'keine'
+  /** Wie die Chargen gefunden wurden; 'zukauf' = Handelsware aus einem Flaschenzukauf (KAN-41 Paket 2b, keine Charge) */
+  zuordnung: 'fuellung_chargen' | 'direkt' | 'automatisch' | 'zukauf' | 'keine'
+  /** nur bei zuordnung 'zukauf': Lieferant, Lieferdatum und Beleg des Flaschenzukaufs */
+  zukauf?: { lieferant: string | null; datum: string | null; beleg: string | null }
+}
+
+/** KAN-41 Paket 2b: Text zur Herkunft zugekaufter Flaschen (Seite und CSV) */
+export function flaschenzukaufText(z: FuellungKette['zukauf']): string {
+  const teile = [z?.lieferant ? `von ${z.lieferant}` : null, z?.datum ? `am ${datumAT(z.datum)}` : null, z?.beleg ? `Beleg ${z.beleg}` : null].filter(Boolean)
+  return `Flaschenzukauf (Handelsware)${teile.length ? ` ${teile.join(', ')}` : ''} – Rückverfolgung über den Lieferanten`
 }
 
 /** Kette einer Füllung (Chargen-Kaskade wie bisher auf der Seite). cache teilt Chargen über mehrere Füllungen. */
@@ -502,12 +511,30 @@ export async function ladeFuellungKette(
 
   let ids: { id: string; anteil: number | null }[]
   let zuordnung: FuellungKette['zuordnung']
+  let zukauf: FuellungKette['zukauf']
   if (junction.length > 0) {
     ids = junction.filter(r => r.weinausbau_id).map(r => ({ id: r.weinausbau_id as string, anteil: numOderNull(r.anteil_liter) }))
     zuordnung = 'fuellung_chargen'
   } else if (fuellung.weinausbau_id) {
     ids = [{ id: fuellung.weinausbau_id, anteil: null }]
     zuordnung = 'direkt'
+  } else if (fuellung.zukauf_posten_id) {
+    // KAN-41 Paket 2b: zugekaufte Flaschen nie einer eigenen Charge zuordnen – Herkunft ist der Lieferant
+    const { data: z, error } = await (supabase.from('zukauf_posten') as any)
+      .select('datum, eingangsrechnungsnummer, lieferant_firma:firmen!lieferant_firma_id(name), lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname)')
+      .eq('tenant_id', tenantId)
+      .eq('id', fuellung.zukauf_posten_id)
+      .maybeSingle()
+    if (error) throw new Error(`Rückverfolgung: Flaschenzukauf konnte nicht geladen werden (${error.message})`)
+    const zr = (z ?? null) as R | null
+    const kontakt = zr?.lieferant_kontakt as R | null
+    zukauf = {
+      lieferant: text((zr?.lieferant_firma as R | null)?.name) ?? text([kontakt?.vorname, kontakt?.nachname].filter(Boolean).join(' ')),
+      datum: tag(zr?.datum) || null,
+      beleg: text(zr?.eingangsrechnungsnummer),
+    }
+    ids = []
+    zuordnung = 'zukauf'
   } else {
     // Auto-Match: Rebsorte + Jahrgang – nur wenn eindeutig (genau 1 Treffer)
     const { data: auto, error } = await (supabase.from('weinausbau') as any)
@@ -528,12 +555,12 @@ export async function ladeFuellungKette(
     if (!k) { k = ladeChargeKette(supabase, id, tenantId, { details: opts.details }); cache.set(id, k) }
     return { weinausbauId: id, anteilLiter: anteil, kette: await k }
   }))
-  return { fuellung, chargen, zuordnung }
+  return zuordnung === 'zukauf' ? { fuellung, chargen, zuordnung, zukauf } : { fuellung, chargen, zuordnung }
 }
 
 export type RueckverfolgungFilter = { jahrgang: number | null; sorte: string | null; bezeichnung: string | null }
 
-const TREFFER_SELECT = 'id, name, bezeichnung, jahrgang, rebsorte, qualitaet, zusatzbezeichnung, erzeugnis, chargennummer, pruefnummer, bestand_flaschen, flaschengroesse_ml, anzahl_flaschen, menge_liter_gefuellt, datum, weinausbau_id, aktiv'
+const TREFFER_SELECT = 'id, name, bezeichnung, jahrgang, rebsorte, qualitaet, zusatzbezeichnung, erzeugnis, chargennummer, pruefnummer, bestand_flaschen, flaschengroesse_ml, anzahl_flaschen, menge_liter_gefuellt, datum, weinausbau_id, zukauf_posten_id, aktiv'
 
 /** Trefferliste: alle Füllungen des Betriebs nach Jahrgang/Sorte/Bezeichnung (neueste Jahrgänge zuerst) */
 export async function ladeRueckverfolgungTreffer(supabase: any, tenantId: string, f: RueckverfolgungFilter): Promise<R[]> {
@@ -592,7 +619,7 @@ export type RueckverfolgungZeile = {
 }
 
 const ZUORDNUNG_TEXT: Record<FuellungKette['zuordnung'], string> = {
-  fuellung_chargen: '', direkt: ' (direkt verknüpft)', automatisch: ' (automatisch über Rebsorte und Jahrgang)', keine: '',
+  fuellung_chargen: '', direkt: ' (direkt verknüpft)', automatisch: ' (automatisch über Rebsorte und Jahrgang)', zukauf: '', keine: '',
 }
 
 /** Füllung × Ursprung – eine Zeile je Charge × Pressung × Weingarten/GST (reine Umformung, testbar) */
@@ -618,7 +645,7 @@ export function rueckverfolgungZeilen(ketten: readonly FuellungKette[]): Rueckve
       fensterVon: null, fensterBis: null, behandlungenAnzahl: null, behandlungen: null, behandlungenHinweis: null,
     }
     if (fk.chargen.length === 0) {
-      zeilen.push({ ...basis, ...leer, herkunft: 'keine Kellerbuch-Charge verknüpft – Rückverfolgung nur bis zur Abfüllung' })
+      zeilen.push({ ...basis, ...leer, herkunft: fk.zuordnung === 'zukauf' ? flaschenzukaufText(fk.zukauf) : 'keine Kellerbuch-Charge verknüpft – Rückverfolgung nur bis zur Abfüllung' })
       continue
     }
     const summeAnteil = fk.chargen.every(c => c.anteilLiter !== null) ? fk.chargen.reduce((s, c) => s + (c.anteilLiter ?? 0), 0) : null

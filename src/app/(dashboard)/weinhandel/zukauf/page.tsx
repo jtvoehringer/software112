@@ -22,6 +22,7 @@ const ART_LABEL: Record<string, string> = {
   trauben: 'Trauben',
   most:    'Most',
   maische: 'Maische',   // KAN-41
+  flaschen: 'Flaschen (Handelsware)',   // KAN-41 Paket 2b
 }
 
 // Traubenzukauf für Weinproduzenten (nicht für Weinhändler, die i.d.R. gar

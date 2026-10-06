@@ -32,7 +32,7 @@ describe('Regeln', () => {
   test('Ware: Maische wie Trauben – Mostgewicht Pflicht, kein Alkohol nötig', () => {
     assert.equal(w.zukaufWareFehler(MAISCHE, []), null)
     assert.match(w.zukaufWareFehler({ ...MAISCHE, mostgewicht: false }, []), /Mostgewicht/)
-    assert.match(w.zukaufWareFehler({ ...MAISCHE, art: 'saft' }, []), /Wein, Traubenmost, Trauben oder Maische wählen/)
+    assert.match(w.zukaufWareFehler({ ...MAISCHE, art: 'saft' }, []), /Wein, Traubenmost, Trauben, Maische oder Flaschen wählen/)
   })
 })
 

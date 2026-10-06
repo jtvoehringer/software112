@@ -14,11 +14,12 @@
 
 import { HERKUNFT_LABEL, herkunftKnoten, herkunftKnotenTolerant } from '@/lib/herkunft'
 import { niedrigsteQualitaet, qualitaetsRang } from '@/lib/wein/qualitaetsrang'
+import { fuellungBrauchtPruefnummer } from '@/lib/handel/partnerPflicht'
 
-export type ZukaufArt = 'wein' | 'most' | 'trauben' | 'maische'
+export type ZukaufArt = 'wein' | 'most' | 'trauben' | 'maische' | 'flaschen'
 
 /** Bezeichnung der Zukauf-Art (Listen, Weinbuch) */
-export const ZUKAUF_ART_LABEL: Record<ZukaufArt, string> = { wein: 'Wein', most: 'Traubenmost', trauben: 'Trauben', maische: 'Maische' }
+export const ZUKAUF_ART_LABEL: Record<ZukaufArt, string> = { wein: 'Wein', most: 'Traubenmost', trauben: 'Trauben', maische: 'Maische', flaschen: 'Flaschen (Handelsware)' }
 
 /**
  * KAN-41 Paket 2a (06.10.2026): Trauben und Maische – ohne Zielcharge, Quelle einer Pressung (Journal ZK_TRAUB bzw.
@@ -27,6 +28,47 @@ export const ZUKAUF_ART_LABEL: Record<ZukaufArt, string> = { wein: 'Wein', most:
  */
 export function istTraubenArt(art: string | null | undefined): boolean {
   return art === 'trauben' || art === 'maische'
+}
+
+/**
+ * KAN-41 Paket 2b (06.10.2026): zugekaufte Flaschen (Handelsware) – keine Charge, sondern ein eigener Weinlager-Artikel
+ * (Füllung mit zukauf_posten_id), Journal ZK_FLA; Ware wie bei Wein (Alkohol Pflicht, kein Mostgewicht).
+ */
+export function istFlaschenArt(art: string | null | undefined): boolean {
+  return art === 'flaschen'
+}
+
+/** Zulässige Flaschengrößen (CHECK fuellungen_flaschengroesse_ml_check) */
+export const FLASCHEN_GROESSEN_ML = [187, 375, 500, 750, 1000, 1500, 3000, 6000] as const
+
+export type FlaschenZukauf = {
+  name: string | null
+  flaschengroesseMl: number | null
+  menge: number
+  einheit: string | null
+  qualitaetsstufe: string | null
+  zusatzbezeichnung?: string | null
+  erzeugnis?: string | null
+  pruefnummer: string | null
+}
+
+/**
+ * Pflichtprüfung des Weinlager-Artikels eines Flaschenzukaufs (KAN-41 Paket 2b): Produktname, Flaschengröße, ganze
+ * Stückzahl; Prüfnummer des Erzeugers ab Qualitätswein, mit Zusatzbezeichnung oder als Sekt (Entscheidung E2 Jörgen
+ * 06.10.2026 – dieselbe Regel wie der Flaschenverkauf, fuellungBrauchtPruefnummer). null = in Ordnung.
+ */
+export function flaschenZukaufFehler(z: FlaschenZukauf): string | null {
+  if (!z.name?.trim()) return 'Bitte den Produktnamen für das Weinlager angeben.'
+  if (z.flaschengroesseMl == null || !(FLASCHEN_GROESSEN_ML as readonly number[]).includes(z.flaschengroesseMl)) {
+    return 'Bitte die Flaschengröße aus der Liste wählen.'
+  }
+  if (!(z.menge > 0) || !Number.isInteger(z.menge)) return 'Bitte die Anzahl Flaschen als ganze Zahl über 0 angeben.'
+  if ((z.einheit ?? 'Stk') !== 'Stk') return 'Zugekaufte Flaschen werden in Stück (Stk) erfasst.'
+  const erzeugnis = z.erzeugnis === 'SEKTGU' ? 'sekt' : z.erzeugnis
+  if (fuellungBrauchtPruefnummer({ qualitaet: z.qualitaetsstufe, zusatzbezeichnung: z.zusatzbezeichnung, erzeugnis }) && !z.pruefnummer?.trim()) {
+    return 'Für zugekaufte Flaschen ab Qualitätswein (bzw. mit Zusatzbezeichnung oder als Sekt) bitte die staatliche Prüfnummer des Erzeugers angeben.'
+  }
+  return null
 }
 
 /** Wählbare Weinarten im Bereich Ware – „unbekannt“ (Altbestand) ist keine Angabe mehr */
@@ -88,7 +130,7 @@ export type ZukaufWare = {
  */
 export function zukaufWareFehler(w: ZukaufWare, eigeneWeinbaugebiete: readonly string[]): string | null {
   const fehlt: string[] = []
-  const weinMost = w.art === 'wein' || w.art === 'most'
+  const weinMost = w.art === 'wein' || w.art === 'most' || istFlaschenArt(w.art)
   const mitMost = istTraubenArt(w.art) || w.art === 'most'
   if (!w.weinart || !(ZUKAUF_WEINARTEN as readonly string[]).includes(w.weinart)) fehlt.push('Weinart (Weißwein, Rotwein oder Rosé)')
   if (!w.rebsorte?.trim()) fehlt.push('Rebsorte(n)')
@@ -96,10 +138,10 @@ export function zukaufWareFehler(w: ZukaufWare, eigeneWeinbaugebiete: readonly s
   if (!w.qualitaetsstufe) fehlt.push('Qualitätsstufe')
   if (!w.herkunft?.trim()) fehlt.push('Herkunfts-Code (BKI)')
   if (mitMost && !w.mostgewicht) fehlt.push('Mostgewicht')
-  if (w.art === 'wein' && !(w.alkohol != null && w.alkohol > 0)) fehlt.push('Alkoholgehalt')
+  if ((w.art === 'wein' || istFlaschenArt(w.art)) && !(w.alkohol != null && w.alkohol > 0)) fehlt.push('Alkoholgehalt')
   // Prüfnummer beim Zukauf optional (Entscheidung Jörgen 02.10.2026, ersetzt KAN-80 Regel a „Pflicht ab Qualitätswein“)
   if (fehlt.length > 0) return `Bitte im Bereich Ware ausfüllen: ${fehlt.join(', ')}.`
-  if (!weinMost && !mitMost) return 'Unbekannte Art – bitte Wein, Traubenmost, Trauben oder Maische wählen.'
+  if (!weinMost && !mitMost) return 'Unbekannte Art – bitte Wein, Traubenmost, Trauben, Maische oder Flaschen wählen.'
   if (w.jahrgang! < 1900 || w.jahrgang! > 2100) return 'Der Jahrgang muss zwischen 1900 und 2100 liegen.'
   return herkunftCodeFehler(w.herkunft, eigeneWeinbaugebiete)
 }

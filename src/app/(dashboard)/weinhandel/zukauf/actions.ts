@@ -15,7 +15,7 @@ import { pruefePruefnummernSchaden } from '@/lib/kellerbuch/pruefnummerLaden'
 import { mitPnNotiz } from '@/lib/kellerbuch/pruefnummer'
 import { mostgewichtAusFormular, mostgewichtAusGespeichert, mostgewichtSpalten } from '@/lib/wein/mostgewichtFormular'
 import type { Mostgewicht } from '@/lib/wein/mostgewicht'
-import { istTraubenArt, zukaufWareFehler } from '@/lib/zukauf/ware'
+import { istTraubenArt, zukaufWareFehler, istFlaschenArt, flaschenZukaufFehler } from '@/lib/zukauf/ware'
 import { weinartKonflikt, weinartBekannt, weinartAusFarbe, WEINART_LABEL } from '@/lib/keller/weinart'
 import { waehleZielCharge, merkmaleText } from '@/lib/kellerbuch/umzugZiel'
 import { verschnittVorbereiten } from '@/lib/kellerbuch/verschnittBuchen'
@@ -210,15 +210,40 @@ function parseZukaufFormData(formData: FormData) {
     alkohol:             parseFloat(dezimal(formData.get('alkohol_pct')    as string)) || null,
     pruefnummer:         (formData.get('staatliche_pruefnummer')   as string)?.trim() || null,
     menge:               parseFloat(dezimal(formData.get('menge')          as string)) || 0,
-    einheit:             (formData.get('einheit')                  as string) || 'kg',
+    // KAN-41 Paket 2b: Flaschen immer in Stück
+    einheit:             istFlaschenArt(art) ? 'Stk' : ((formData.get('einheit') as string) || 'kg'),
     preisGesamt:         parseFloat(dezimal(formData.get('preis_gesamt')   as string)) || null,
     einstandspreisLiter: parseFloat(dezimal(formData.get('einstandspreis_pro_liter') as string)) || null,
     notizen:             (formData.get('notizen')                  as string)?.trim() || null,
     zielBehaelterId:     (formData.get('ziel_behaelter_id')        as string) || null,
+    // KAN-41 Paket 2b: Weinlager-Artikel eines Flaschenzukaufs (nur beim Anlegen)
+    fuellungName:        (formData.get('fuellung_name')            as string)?.trim() || null,
+    flaschengroesseMl:   parseInt(String(formData.get('flaschengroesse_ml') ?? '')) || null,
+    vkPreisBrutto:       parseFloat(dezimal(formData.get('vk_preis_brutto') as string)) || null,
+    mwstPct:             parseFloat(dezimal(formData.get('mwst_pct') as string)) || null,
   }
 }
 
 type ZukaufFormular = ReturnType<typeof parseZukaufFormData>
+
+/** KAN-208: geänderte Merkmale des Belegs gegenüber dem gespeicherten Stand (dieselben Felder wie der Trigger a_freeze) */
+function geaenderteMerkmale(a: AR, f: ZukaufFormular): string[] {
+  const q = zukaufQualitaetsSpalten(f) as AR
+  const gleich = (x: unknown, y: unknown) => String(x ?? '') === String(y ?? '')
+  const zahl = (x: unknown, y: unknown) => (x == null || y == null) ? (x == null) === (y == null) : Math.abs(Number(x) - Number(y)) < 0.005
+  const geaendert: string[] = []
+  if (!gleich(String(a.datum ?? '').slice(0, 10), f.datum)) geaendert.push('Datum')
+  if (!gleich(a.weinart ?? 'unbekannt', f.weinart ?? 'unbekannt')) geaendert.push('Weinart')
+  if (!gleich(a.rebsorte, f.rebsorte)) geaendert.push('Rebsorte')
+  if (!gleich(a.jahrgang, f.jahrgang)) geaendert.push('Jahrgang')
+  if (!gleich(a.qualitaetsstufe, q.qualitaetsstufe) || !gleich(a.zusatzbezeichnung, q.zusatzbezeichnung) || !gleich(a.erzeugnis, q.erzeugnis)) geaendert.push('Qualität')
+  if (!gleich(a.herkunft, f.herkunft)) geaendert.push('Herkunft')
+  if (!gleich(a.land_iso ?? 'AT', f.landIso ?? 'AT')) geaendert.push('Land')
+  if (f.mostgewichtUebermittelt && !zahl(a.kmw, f.mostgewicht?.kmw ?? null)) geaendert.push('Mostgewicht')
+  if (!zahl(a.alkohol_pct, f.alkohol)) geaendert.push('Alkohol')
+  if (!!a.anreicherung !== !!f.anreicherung) geaendert.push('Anreicherung')
+  return geaendert
+}
 
 /** KAN-186: Qualitätsspalten des Belegs (zukauf_posten) – nie ein Altwert; Traubenmost ohne gewähltes Erzeugnis = MOST */
 function zukaufQualitaetsSpalten(f: ZukaufFormular): AR {
@@ -336,6 +361,17 @@ export async function createZukauf(formData: FormData): Promise<{ bestaetigung?:
 
   if (f.menge <= 0) throw new AktionsFehler('Menge muss größer als 0 sein')
   await pruefeWare(supabase, tenantId, f)
+  // KAN-41 Paket 2b: Flaschenzukauf → eigener Weinlager-Artikel (Füllung ohne Charge), angelegt von der RPC
+  const flaschen = istFlaschenArt(f.art)
+  if (flaschen) {
+    const q = zukaufQualitaetsSpalten(f) as AR
+    const ff = flaschenZukaufFehler({
+      name: f.fuellungName, flaschengroesseMl: f.flaschengroesseMl, menge: f.menge, einheit: f.einheit,
+      qualitaetsstufe: q.qualitaetsstufe ?? null, zusatzbezeichnung: q.zusatzbezeichnung ?? null, erzeugnis: q.erzeugnis ?? null,
+      pruefnummer: f.pruefnummer,
+    })
+    if (ff) throw new AktionsFehler(ff)
+  }
 
   const mitCharge = (f.art === 'wein' || f.art === 'most') && !!f.zielBehaelterId
   let imGebinde: AR[] = []
@@ -435,6 +471,9 @@ export async function createZukauf(formData: FormData): Promise<{ bestaetigung?:
     },
     p_charge: charge,
     p_verschnitt: verschnitt?.kopf ?? null,
+    p_fuellung: flaschen
+      ? { name: f.fuellungName, flaschengroesse_ml: f.flaschengroesseMl, vk_preis_brutto: f.vkPreisBrutto, mwst_pct: f.mwstPct }
+      : null,
   })
   if (error) {
     // 40001: Bestand der Ziel-Charge seit der Berechnung geändert – Meldung der RPC („bitte erneut buchen“) unverändert
@@ -445,6 +484,9 @@ export async function createZukauf(formData: FormData): Promise<{ bestaetigung?:
   revalidatePath('/weinhandel/zukauf')
   revalidatePath('/weinhandel')
   revalidatePath('/kellerbuch')
+  // KAN-41 Paket 2b: nach dem Flaschenzukauf direkt zum neuen Weinlager-Artikel
+  const fuellungId = ((ergebnis ?? {}) as AR).fuellung_id as string | undefined
+  if (flaschen && fuellungId) redirect(`/weinhandel/fuellungen/${fuellungId}`)
 
   if (verschnitt) {
     const vs = (((ergebnis ?? {}) as AR).verschnitt ?? {}) as AR
@@ -483,6 +525,22 @@ export async function updateZukauf(id: string, formData: FormData) {
   const artGeaendert     = f.art !== a.art
   const istWeinMost      = f.art === 'wein' || f.art === 'most'
 
+  // KAN-41 Paket 2b: Flaschenzukauf – Art, Anzahl und Merkmale sind ab dem Speichern fest (wie der Weinlager-Artikel,
+  // Trigger a_freeze); Korrektur: Zukauf stornieren (solange nichts verkauft ist) und neu erfassen
+  let merkmaleFest = false
+  if (istFlaschenArt(a.art) || istFlaschenArt(f.art)) {
+    if (artGeaendert) {
+      throw new AktionsFehler(istFlaschenArt(a.art)
+        ? 'Die Art eines Flaschenzukaufs lässt sich nicht ändern – bitte den Zukauf stornieren und neu erfassen.'
+        : 'Zugekaufte Flaschen bitte als neuen Zukauf erfassen – die Art eines bestehenden Zukaufs lässt sich nicht auf Flaschen ändern.')
+    }
+    const geaendert = [...(mengeGeaendert ? ['Anzahl'] : []), ...(einheitGeaendert ? ['Einheit'] : []), ...geaenderteMerkmale(a, f)]
+    if (geaendert.length > 0) {
+      throw new AktionsFehler(`Ändern von ${geaendert.join(', ')} ist nicht möglich: Der Flaschenzukauf ist bereits als Weinlager-Artikel gebucht. Korrektur: Zukauf stornieren (solange nichts verkauft ist) und neu erfassen – Beleg, Lieferant, Preis und Notizen bleiben änderbar.`)
+    }
+    merkmaleFest = true
+  }
+
   // ── Trauben: Belegmenge nicht unter die verpressten/verkauften kg, Art nicht mehr wechseln ──
   // zukauf_posten.menge gilt dabei – wie in Erntemeldung und Traubenverkauf – als kg.
   if (mengeGeaendert || artGeaendert) {
@@ -502,7 +560,6 @@ export async function updateZukauf(id: string, formData: FormData) {
   // Rückbau der Chargen-Änderung, falls danach das Speichern des Zukaufs scheitert
   let rueckbau: (() => Promise<void>) | null = null
   // KAN-208: nach einer Folgebuchung an der Zielcharge sind die Merkmale des Belegs fest (wie der Trigger a_freeze)
-  let merkmaleFest = false
 
   if (altWeinausbauId) {
     const chargeId = altWeinausbauId
@@ -553,20 +610,7 @@ export async function updateZukauf(id: string, formData: FormData) {
         throw sperre(`Ändern der Einheit ist nicht möglich: ${text}. Die Belegmenge bleibt als Zugang der Charge erhalten.`)
       }
       // KAN-208: Merkmale (Datum, Weinart, Sorte, Jahrgang, Qualität, Herkunft, Land, Mostgewicht, Alkohol, Anreicherung) fest
-      const q = zukaufQualitaetsSpalten(f) as AR
-      const gleich = (x: unknown, y: unknown) => String(x ?? '') === String(y ?? '')
-      const zahl = (x: unknown, y: unknown) => (x == null || y == null) ? (x == null) === (y == null) : Math.abs(Number(x) - Number(y)) < 0.005
-      const geaendert: string[] = []
-      if (!gleich(String(a.datum ?? '').slice(0, 10), f.datum)) geaendert.push('Datum')
-      if (!gleich(a.weinart ?? 'unbekannt', f.weinart ?? 'unbekannt')) geaendert.push('Weinart')
-      if (!gleich(a.rebsorte, f.rebsorte)) geaendert.push('Rebsorte')
-      if (!gleich(a.jahrgang, f.jahrgang)) geaendert.push('Jahrgang')
-      if (!gleich(a.qualitaetsstufe, q.qualitaetsstufe) || !gleich(a.zusatzbezeichnung, q.zusatzbezeichnung) || !gleich(a.erzeugnis, q.erzeugnis)) geaendert.push('Qualität')
-      if (!gleich(a.herkunft, f.herkunft)) geaendert.push('Herkunft')
-      if (!gleich(a.land_iso ?? 'AT', f.landIso ?? 'AT')) geaendert.push('Land')
-      if (f.mostgewichtUebermittelt && !zahl(a.kmw, f.mostgewicht?.kmw ?? null)) geaendert.push('Mostgewicht')
-      if (!zahl(a.alkohol_pct, f.alkohol)) geaendert.push('Alkohol')
-      if (!!a.anreicherung !== !!f.anreicherung) geaendert.push('Anreicherung')
+      const geaendert = geaenderteMerkmale(a, f)
       if (geaendert.length > 0) {
         throw sperre(`Ändern von ${geaendert.join(', ')} ist nicht möglich: ${text}. Die Merkmale des Zukaufs gehören zum Zugang der Charge – Korrekturen über „Stornieren“ und eine neue Buchung bzw. durch die Betriebsleitung.`)
       }
