@@ -1241,7 +1241,8 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('intern',        '--S', false, 'kundennummer_vergeben(p_tenant_id uuid, p_kreis integer)'),
     ('session_user',  '-US', false, 'lade_behaelter(p_tenant_id uuid)'),
     ('session_user',  '-US', false, 'lade_kellergemeinschaft(p_tenant_id uuid)'),
-    ('session_user',  '-US', false, 'lade_crmgemeinschaft(p_tenant_id uuid)'),   -- KAN-212: Partner der CRM-Gemeinschaft
+    ('session_user',  '-US', false, 'lade_crmgemeinschaft(p_tenant_id uuid)'),
+    ('mandant',       '-US', false, 's112_privat_bloecke(p_tenant_id uuid)'),   -- KAN-17: Zeitblöcke fremder privater Termine   -- KAN-212: Partner der CRM-Gemeinschaft
     ('intern',        '--S', false, 's112_momentaufnahme_fremd(p_teil jsonb, p_tabelle text, p_id uuid, p_tenant uuid)'),   -- KAN-212: Nummern fremder Betriebe nicht auf den Beleg
     ('trigger',       '--S', false, 'lese_zuordnen()'),
     ('trigger',       '--S', false, 'lesen_vor_loeschen()'),
