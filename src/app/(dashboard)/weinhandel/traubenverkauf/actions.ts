@@ -69,18 +69,13 @@ export async function createVerkaufspostenFuerTrauben(
     preisPerKg: number | null
   }
 ): Promise<string> {
-  // Rechnungsnummer auto-generieren
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rnData } = await (supabase.rpc as any)('get_next_rechnungsnummer', { p_tenant_id: tenantId })
-  const rechnungsnummer = (rnData as string | null) ?? null
-
+  // KAN-21: Rechnungsnummer vergibt die Datenbank beim Insert (Trigger a_rechnungsnummer, lückenlos)
   const postenId = randomUUID()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error: postenErr } = await (supabase.from('verkaufsposten') as any).insert({
     id:              postenId,
     tenant_id:       tenantId,
     datum:           opts.datum,
-    rechnungsnummer,
     kontakt_id:      opts.kontaktId,
     firma_id:        opts.firmaId,
     notizen:         `Traubenverkauf – ${opts.weingartenName}`,

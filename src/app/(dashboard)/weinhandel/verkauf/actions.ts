@@ -59,19 +59,6 @@ function eaErgebnisPruefen(ea: { ok: boolean; error?: string }, vorgang: keyof t
   }
 }
 
-// Atomisch: Rechnungsnummer generieren (Zähler +1 in einer DB-Transaktion)
-async function generateRechnungsnummer(tenantId: string): Promise<string | null> {
-  const supabase = await createSupabaseServerClient()
-  const { data, error } = await (supabase.rpc as any)('get_next_rechnungsnummer', {
-    p_tenant_id: tenantId,
-  })
-  if (error) {
-    console.error('generateRechnungsnummer:', error.message)
-    return null
-  }
-  return data as string | null
-}
-
 // Positions-Typ aus der Form
 const POSITIONS_TYPEN = ['flasche', 'tank', 'sonstiges', 'trauben'] as const
 interface PositionInput {
@@ -265,7 +252,6 @@ export async function createVerkauf(formData: FormData) {
   // KAN-208: Datum Pflicht – kein stilles „heute“
   const datum               = ((formData.get('datum') as string | null) ?? '').trim()
   if (!datum) throw new AktionsFehler('Bitte das Verkaufsdatum angeben.')
-  const rechnungsnummerInput = ((formData.get('rechnungsnummer') as string | null) ?? '').trim()
   const kontaktId      = (formData.get('kontakt_id') as string) || null
   const firmaId        = (formData.get('firma_id') as string) || null
   const zhKontaktId    = (formData.get('zh_kontakt_id') as string) || null
@@ -313,8 +299,9 @@ export async function createVerkauf(formData: FormData) {
     throw new AktionsFehler(`Der Verkauf wurde nicht gespeichert: ${fehlerText(e).replace(/[.\s]+$/, '')}.`)
   }
 
-  // Wenn keine Nummer eingetragen → automatisch generieren
-  const rechnungsnummer = rechnungsnummerInput || await generateRechnungsnummer(tenantId)
+  // KAN-21: Die Rechnungsnummer vergibt die Datenbank beim Insert (Trigger a_rechnungsnummer, lückenlos) – sie steht erst
+  // nach dem Anlegen des Belegs fest
+  let rechnungsnummer: string | null = null
 
   /** Abbuchung zurücknehmen und mit Hinweis werfen (Beleg konnte nicht angelegt werden) */
   const abbruch = async (meldung: string, postenStornieren: string | null): Promise<never> => {
@@ -338,11 +325,10 @@ export async function createVerkauf(formData: FormData) {
   const { data: txnVk } = await (supabase.rpc as any)('get_next_transaktionsnr', { p_tenant_id: tenantId, p_typ: 'verkauf' })
 
   // 2. Verkaufsposten anlegen (UUID oben vergeben)
-  const { error: postenErr } = await (supabase.from('verkaufsposten') as any).insert({
+  const { data: postenNeu, error: postenErr } = await (supabase.from('verkaufsposten') as any).insert({
     id:              postenId,
     tenant_id:       tenantId,
     datum,
-    rechnungsnummer,
     transaktions_nr: txnVk ?? null,
     kontakt_id:      kontaktId  || null,
     firma_id:        firmaId    || null,
@@ -351,9 +337,10 @@ export async function createVerkauf(formData: FormData) {
     skonto_pct:      skontoAktiv ? skontoPct : 0,
     skonto_tage:     skontoAktiv ? skontoTage : 0,
     skonto_aktiv:    skontoAktiv,
-  })
+  }).select('rechnungsnummer').single()
 
   if (postenErr) await abbruch(dbFehlerText(postenErr, 'Speichern fehlgeschlagen (verkaufsposten)'), null)
+  rechnungsnummer = ((postenNeu as AR | null)?.rechnungsnummer as string | null | undefined) ?? null
 
   // 3. Positionen anlegen (bei Trauben: vorher BKI-Record anlegen)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

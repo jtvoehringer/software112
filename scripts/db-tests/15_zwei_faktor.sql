@@ -9,7 +9,7 @@
 -- @ziel: Jede Tabelle wird auch ISOLIERT geprüft (nur ihre eigene zwei_faktor_aal wirkt), damit die Policy auf
 -- @ziel: tenant_memberships eine aufgeweichte Policy anderswo nicht verdeckt.
 -- @ziel: aal2 und Benutzer ohne (bestätigten) Faktor sind nicht betroffen; die 2FA-Pflicht bleibt App-Sache.
--- @mutation aal_ok_immer_wahr: s112_aal_ok() liefert immer true (Notfall-Schalter) | rot: lesen_aal1_.*|aal_ok_.*|pre_request_aal1_mit_faktor|pruefe_tenant_zugriff_aal1|rechnungsnummer_aal1|storage_.*_aal1
+-- @mutation aal_ok_immer_wahr: s112_aal_ok() liefert immer true (Notfall-Schalter) | rot: lesen_aal1_.*|aal_ok_.*|pre_request_aal1_mit_faktor|pruefe_tenant_zugriff_aal1|liefernummer_aal1|storage_.*_aal1
 -- @mutation aal_ok_immer_falsch: s112_aal_ok() liefert immer false (Vakuitätsschutz: aal2 sähe nichts mehr) | rot: lesen_aal2_.*|positiv_.*|aal_ok_aal2|aal_ok_ohne_faktor|aal_ok_unverifiziert|.*_aal2
 -- @mutation aal_ok_invoker: s112_aal_ok() als SECURITY INVOKER (liest auth.mfa_factors mit Benutzerrechten) | rot: aal_ok_security_definer
 -- @mutation kontakte_ohne_policy: RESTRICTIVE-Policy zwei_faktor_aal auf kontakte entfernt | rot: lesen_aal1_isoliert_kontakte|insert_aal1_kontakte|update_aal1_kontakte|delete_aal1_kontakte|zwei_faktor_policy_fehlt
@@ -20,7 +20,7 @@
 -- @mutation aal_ok_ohne_status: s112_aal_ok() zählt auch unbestätigte Faktoren | rot: aal_ok_unverifiziert|unverifiziert_.*
 -- @mutation aal_ok_gross_klein: s112_aal_ok() vergleicht die Stufe ohne Groß-/Kleinschreibung | rot: aal_ok_grossbuchstaben
 -- @mutation aal_ok_fehlender_claim: fehlt 'aal' im JWT, gilt aal2 | rot: aal_ok_ohne_aal_claim|ohne_aal_claim_.*
--- @mutation pruefe_ohne_stufe: pruefe_tenant_zugriff prüft die Zwei-Faktor-Stufe nicht mehr | rot: pruefe_tenant_zugriff_aal1|rechnungsnummer_aal1
+-- @mutation pruefe_ohne_stufe: pruefe_tenant_zugriff prüft die Zwei-Faktor-Stufe nicht mehr | rot: pruefe_tenant_zugriff_aal1|liefernummer_aal1
 -- @mutation aal_ok_fuer_anon: anon darf s112_aal_ok() ausführen | rot: execute_anon_s112_aal_ok.*
 --
 -- Prüfungen (Persona b_ta = tenant_admin in Betrieb B mit bestätigtem TOTP-Faktor):
@@ -39,7 +39,7 @@
 --   4. s112_aal_ok(): aal1 → false, aal2 → true, Claim ohne 'aal' → false, 'AAL2' → false,
 --      unbestätigter Faktor → true, Winzer ohne Faktor → true (und sieht seine Daten).
 --   5. RPC: pruefe_tenant_zugriff(B) bei aal1 → 42501 „Zwei-Faktor-Anmeldung erforderlich“, bei aal2 ok;
---      get_next_rechnungsnummer(B) bei aal1 → 42501, bei aal2 Nummer.
+--      get_next_liefernummer(B) bei aal1 (KAN-21) → 42501, bei aal2 Nummer.
 --   6. Pre-Request: aal1 mit Faktor → PT401 mit HINT; aal2, anon, ohne Faktor → ok; an authenticator gesetzt.
 --   7. s112_aal_ok: SECURITY DEFINER mit search_path; EXECUTE nur authenticated (anon → 42501),
 --      s112_pre_request für anon und authenticated.
@@ -372,14 +372,14 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('pruefe_tenant_zugriff_aal1',
     pg_temp.s112_fehlertext(format('SELECT public.pruefe_tenant_zugriff(%L, ARRAY[''system_admin'',''tenant_admin'',''winzer''])', v_b)),
     '42501: Zwei-Faktor-Anmeldung erforderlich');
-  v_erg := v_erg || pg_temp.s112_erwarte('rechnungsnummer_aal1',
-    pg_temp.s112_fehlertext(format('SELECT public.get_next_rechnungsnummer(%L)', v_b)),
+  v_erg := v_erg || pg_temp.s112_erwarte('liefernummer_aal1',
+    pg_temp.s112_fehlertext(format('SELECT public.get_next_liefernummer(%L)', v_b)),
     '42501: Zwei-Faktor-Anmeldung erforderlich');
   PERFORM pg_temp.s112_als(v_bta, 'authenticated', 'aal2');
   v_erg := v_erg || pg_temp.s112_erwarte('pruefe_tenant_zugriff_aal2',
     pg_temp.s112_fehlertext(format('SELECT public.pruefe_tenant_zugriff(%L, ARRAY[''system_admin'',''tenant_admin'',''winzer''])', v_b)), 'ok');
-  v_erg := v_erg || pg_temp.s112_erwarte('rechnungsnummer_aal2',
-    pg_temp.s112_versuch(format('SELECT public.get_next_rechnungsnummer(%L)', v_b)), 'k1');
+  v_erg := v_erg || pg_temp.s112_erwarte('liefernummer_aal2',
+    pg_temp.s112_versuch(format('SELECT public.get_next_liefernummer(%L)', v_b)), 'k1');
   PERFORM pg_temp.s112_als(v_bw);
   v_erg := v_erg || pg_temp.s112_erwarte('pruefe_tenant_zugriff_ohne_faktor',
     pg_temp.s112_fehlertext(format('SELECT public.pruefe_tenant_zugriff(%L, ARRAY[''system_admin'',''tenant_admin'',''winzer''])', v_b)), 'ok');

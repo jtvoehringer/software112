@@ -18,8 +18,8 @@
 -- @mutation modul_oder_true: modul_insert auf kontakte mit s112_darf_schreiben(tenant_id, 'crm') OR true | rot: modul:kontakte\.INSERT|modul_form:kontakte\.modul_insert
 -- @mutation sa_alibi: system_admin-Policy auf rebsorten mit Alibi „m.tenant_id IS NOT NULL“ ohne Zeilenbezug | rot: sa_ohne_zeilenbezug:.*
 -- @mutation aal_neutralisiert: pruefe_tenant_zugriff mit „IF false AND NOT s112_aal_ok()“ | rot: ptz_prueft_aal
--- @mutation ptz_kommentiert: get_next_rechnungsnummer – Aufruf von pruefe_tenant_zugriff auskommentiert | rot: ptz_fehlt:.*
--- @mutation abo_kommentiert: get_next_rechnungsnummer – Aufruf von s112_pruefe_abo_schreibsperre auskommentiert | rot: rpc_abo:.*
+-- @mutation ptz_kommentiert: get_next_liefernummer – Aufruf von pruefe_tenant_zugriff auskommentiert | rot: ptz_fehlt:.*
+-- @mutation abo_kommentiert: get_next_liefernummer – Aufruf von s112_pruefe_abo_schreibsperre auskommentiert | rot: rpc_abo:.*
 -- @mutation trigger_update_of: z_protokoll_aendern auf weinausbau nur noch AFTER UPDATE OF status (Argument status) | rot: protokoll_trigger_form:.*
 -- @mutation trigger_when: z_protokoll_loeschen auf weinausbau mit WHEN (false) | rot: protokoll_trigger_form:.*
 -- @mutation rpc_schreibt_ohne_abo: neue schreibende SECURITY-DEFINER-RPC mit p_tenant_id ohne s112_pruefe_abo_schreibsperre (Einstufung abo=false wäre grün) | rot: rpc_schreibt_ohne_abo:.*
@@ -286,10 +286,10 @@ BEGIN
     $m$SELECT pg_temp.t01_ersetze('public.pruefe_tenant_zugriff(uuid,text[])',
          'IF NOT public\.s112_aal_ok\(\) THEN', 'IF false AND NOT public.s112_aal_ok() THEN')$m$);
   PERFORM pg_temp.s112_mutiere('ptz_kommentiert',
-    $m$SELECT pg_temp.t01_ersetze('public.get_next_rechnungsnummer(uuid)',
+    $m$SELECT pg_temp.t01_ersetze('public.get_next_liefernummer(uuid)',
          'PERFORM\s+public\.pruefe_tenant_zugriff\([^;]*\);', '-- PERFORM public.pruefe_tenant_zugriff(p_tenant_id, …) entfernt')$m$);
   PERFORM pg_temp.s112_mutiere('abo_kommentiert',
-    $m$SELECT pg_temp.t01_ersetze('public.get_next_rechnungsnummer(uuid)',
+    $m$SELECT pg_temp.t01_ersetze('public.get_next_liefernummer(uuid)',
          'PERFORM\s+public\.s112_pruefe_abo_schreibsperre\([^;]*\);', '-- PERFORM public.s112_pruefe_abo_schreibsperre(p_tenant_id);')$m$);
   PERFORM pg_temp.s112_mutiere('trigger_update_of',
     $m$DROP TRIGGER z_protokoll_aendern ON public.weinausbau;
@@ -647,7 +647,7 @@ BEGIN
   -- Plausibilität der Heuristik: sie erkennt alle 12 RPCs mit Abo-Prüfung als schreibend
   SELECT count(*) INTO v_n FROM pg_temp.t01_funktionen() f JOIN pg_temp.s112_soll_rpc() s ON s.funktion = f.sig
    WHERE s.abo AND f.src ~* c_re_schreibt;
-  v_erg := v_erg || pg_temp.s112_erwarte('rpc_schreibt_heuristik_abo_rpcs', v_n, 35::bigint);   -- −1 KAN-88 (s112_buchung_loeschen entfällt)   -- +1 KAN-82 (s112_charge_abstufen)   -- +1 KAN-101 (s112_fuellung_nachtragen)   -- +1 KAN-97 (s112_pruefnummernantrag_status_setzen)   -- +1 KAN-96 (s112_freeze_korrektur: UPDATE per EXECUTE format)   -- +1 KAN-193 (s112_zukauf_buchen: INSERT per EXECUTE format)   -- s112_verschnitte_buchen zählt nicht (schreibt nur über s112_verschnitt_buchen)   -- +1 KAN-112   -- +1 KAN-192 (kellerbuch_abschliessen)   -- +1 KAN-40 (journal_eroeffnen; journal_abgleichen schreibt über s112_journal_schreiben)   -- +1 KAN-37 B   -- +2 KAN-167 (s112_betriebsmittel_einkauf, s112_betriebsmittel_stornieren)   -- +1 KAN-150 F1d (s112_herkunft_setzen)   -- +2 KAN-149 D2 (s112_ea_stornieren schreibt über s112_ea_gegenbuchung)   -- +1 KAN-149 D1   -- +3 KAN-148 C2   -- +3 KAN-148 C1c-2
+  v_erg := v_erg || pg_temp.s112_erwarte('rpc_schreibt_heuristik_abo_rpcs', v_n, 34::bigint);   -- −1 KAN-21 (get_next_rechnungsnummer nur Service-Role)   -- −1 KAN-88 (s112_buchung_loeschen entfällt)   -- +1 KAN-82 (s112_charge_abstufen)   -- +1 KAN-101 (s112_fuellung_nachtragen)   -- +1 KAN-97 (s112_pruefnummernantrag_status_setzen)   -- +1 KAN-96 (s112_freeze_korrektur: UPDATE per EXECUTE format)   -- +1 KAN-193 (s112_zukauf_buchen: INSERT per EXECUTE format)   -- s112_verschnitte_buchen zählt nicht (schreibt nur über s112_verschnitt_buchen)   -- +1 KAN-112   -- +1 KAN-192 (kellerbuch_abschliessen)   -- +1 KAN-40 (journal_eroeffnen; journal_abgleichen schreibt über s112_journal_schreiben)   -- +1 KAN-37 B   -- +2 KAN-167 (s112_betriebsmittel_einkauf, s112_betriebsmittel_stornieren)   -- +1 KAN-150 F1d (s112_herkunft_setzen)   -- +2 KAN-149 D2 (s112_ea_stornieren schreibt über s112_ea_gegenbuchung)   -- +1 KAN-149 D1   -- +3 KAN-148 C2   -- +3 KAN-148 C1c-2
   -- p_tenant_id ohne pruefe_tenant_zugriff: nur mit Einstufung mandant_eigen, session_user, intern oder rls_hilfe
   v_erg := v_erg || pg_temp.t01_liste('ptz_nicht_eingestuft', format($q$
     SELECT f.sig AS schluessel,

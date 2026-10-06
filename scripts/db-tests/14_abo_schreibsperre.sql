@@ -89,7 +89,7 @@ DECLARE
   c_gesperrt  constant text[] := ARRAY['unpaid', 'canceled', 'cancelled', 'incomplete', 'incomplete_expired', 'paused'];
   -- Schreibende SECURITY-DEFINER-RPCs mit s112_pruefe_abo_schreibsperre (Soll-Liste; s112_zukauf_buchen seit KAN-193; s112_verschnitt_buchen/s112_verschnitte_buchen seit KAN-112; s112_betriebsmittel_einkauf/_stornieren seit KAN-167; s112_herkunft_setzen seit KAN-150 F1d; s112_kontakt_historie_zu_firma seit KAN-150 F1c; s112_fuellung_verkauf_buchen seit KAN-149 D1; s112_ea_/zahlung_/umbuchung_stornieren seit D2; s112_storniert_loeschen seit KAN-145 (s112_buchung_loeschen von KAN-166 entfällt seit KAN-88), s112_pressung_stornieren/_zeilen_stornieren, s112_mostzeile_anlegen, s112_pressung_anlegen seit KAN-148, s112_ama_* seit KAN-148 C2, s112_ama_einreichen seit KAN-37 B, journal_eroeffnen/journal_abgleichen seit KAN-40, s112_pruefnummernantrag_status_setzen seit KAN-97, s112_fuellung_nachtragen seit KAN-101, s112_charge_abstufen seit KAN-82).
   c_abo_rpcs  constant text[] := ARRAY['fuellung_bestand_buchen', 'get_next_accountnummer', 'get_next_chargennummer',
-                                       'get_next_liefernummer', 'get_next_personenkonto', 'get_next_rechnungsnummer',
+                                       'get_next_liefernummer', 'get_next_personenkonto', 'get_next_rechnungsnummer',   -- KAN-21: rechnungsnummer nur noch Service-Role (Prüfung bleibt)
                                        'get_next_transaktionsnr', 'journal_abgleichen', 'journal_eroeffnen', 'kellerbuch_abschliessen', 'kontakte_zusammenfuehren', 's112_ama_einreichen', 's112_ama_korrektur_anlegen', 's112_ama_meldung_speichern', 's112_ama_status_setzen', 's112_betriebsmittel_einkauf', 's112_betriebsmittel_stornieren', 's112_charge_abstufen', 's112_ea_stornieren', 's112_freeze_korrektur', 's112_fuellung_nachtragen', 's112_fuellung_verkauf_buchen', 's112_herkunft_setzen', 's112_kontakt_historie_zu_firma', 's112_mostzeile_anlegen', 's112_pressung_anlegen', 's112_pressung_stornieren', 's112_pressung_zeilen_stornieren', 's112_pruefnummernantrag_status_setzen', 's112_storniert_loeschen', 's112_umbuchung_stornieren', 's112_verschnitt_buchen', 's112_verschnitte_buchen', 's112_zahlung_stornieren', 's112_zukauf_buchen', 'schwund_buchen',
                                        'setze_kontobewegung_abgeglichen', 'sperre_ea_monat', 'sperre_ea_uva'];
   -- Tabellen, deren Policies auth.uid() gegen eine Eigentümerspalte prüfen (wie t12_pro_persona in Datei 12)
@@ -467,7 +467,6 @@ BEGIN
     'get_next_chargennummer', format('SELECT public.get_next_chargennummer(%L)', v_b),
     'get_next_liefernummer', format('SELECT public.get_next_liefernummer(%L)', v_b),
     'get_next_personenkonto', format('SELECT public.get_next_personenkonto(%L, %L, 10000)', v_b, 'debitor'),
-    'get_next_rechnungsnummer', format('SELECT public.get_next_rechnungsnummer(%L)', v_b),
     'get_next_transaktionsnr', format('SELECT public.get_next_transaktionsnr(%L, %L)', v_b, 'umzug'),
     's112_kontakt_historie_zu_firma', format('SELECT public.s112_kontakt_historie_zu_firma(%L, %L, %L)', v_b, v_k1, v_fi_b),   -- KAN-150 F1c
     's112_herkunft_setzen', format('SELECT public.s112_herkunft_setzen(%L, %L, ARRAY[%L]::uuid[], %L)', v_b, v_wa, v_wg_b, 'S112TEST Herkunft geändert'),   -- KAN-150 F1d
@@ -677,7 +676,8 @@ BEGIN
     v_rpc_gesp := v_rpc_gesp || jsonb_build_object(r.name, pg_temp.t14_rpc(r.sql));
   END LOOP;
   PERFORM pg_temp.s112_als_postgres();
-  FOREACH v_txt IN ARRAY c_abo_rpcs || ARRAY['check_und_increment_ki_abfrage'] LOOP
+  -- KAN-21: get_next_rechnungsnummer ist für Benutzer nicht mehr ausführbar (nur Service-Role, Datei 47: rpc_gesperrt)
+  FOREACH v_txt IN ARRAY array_remove(c_abo_rpcs, 'get_next_rechnungsnummer') || ARRAY['check_und_increment_ki_abfrage'] LOOP
     v_erg := v_erg || pg_temp.s112_erwarte('rpc_gesperrt_' || v_txt, v_rpc_gesp ->> v_txt, '42501/abo_gesperrt');
     -- Kontrolle mit freiem Abo: Zugriff geht durch (kein 42501), keine Abo-Meldung
     v_erg := v_erg || pg_temp.s112_erwarte('rpc_frei_' || v_txt, v_rpc_frei ->> v_txt, 'ok');
