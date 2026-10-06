@@ -649,10 +649,24 @@ BEGIN
   RETURN v;
 END $f$;
 
+-- Zeilen, die s112_zeile/s112_beispiel NICHT als vorhandene Elternzeile wählen dürfen (Ids als Text, transaktionslokal
+-- in s112test.keine_eltern). Für Probezeilen, deren Lösch-Ergebnis geprüft wird: die Wahl „vorhandene Zeile“ läuft
+-- über ORDER BY id, bei zufälligen UUIDs also mal auf die Probezeile, mal nicht – hängt sich eine später angelegte
+-- Zeile an sie, greift eine Löschsperre (T statt k1, Datei 14 kippte so zwischen grün und rot). Nur im Hauptblock
+-- aufrufen, nicht in einem Unterblock mit EXCEPTION (dessen Rollback setzt die Einstellung zurück).
+CREATE FUNCTION pg_temp.s112_keine_eltern_liste() RETURNS text[] LANGUAGE sql STABLE AS $f$
+  SELECT string_to_array(coalesce(current_setting('s112test.keine_eltern', true), ''), ',')
+$f$;
+
+CREATE FUNCTION pg_temp.s112_keine_eltern(p_ids text[]) RETURNS void LANGUAGE sql AS $f$
+  SELECT set_config('s112test.keine_eltern',
+    array_to_string(pg_temp.s112_keine_eltern_liste() || coalesce(p_ids, '{}'), ','), true);
+$f$;
+
 -- Generische Beispielzeile (als postgres, INSERT … RETURNING → jsonb). p_werte setzt/überschreibt Spalten
 -- (Werte als Text, typisiert gecastet; Arrays als '{a,b}'). Fehlende Pflichtspalten (NOT NULL ohne Default):
 --   * FK auf auth.users → ein Mitglied des Betriebs, auf tenants → p_tenant,
---   * FK auf T-Tabelle → vorhandene Zeile DESSELBEN Betriebs, sonst rekursiv neu (Tiefe ≤ 3),
+--   * FK auf T-Tabelle → vorhandene Zeile DESSELBEN Betriebs (außer s112_keine_eltern_liste()), sonst rekursiv neu (Tiefe ≤ 3),
 --   * FK auf K-Tabelle → rekursiv neu (hängt so am selben Betrieb), auf G-Tabelle → irgendeine Zeile,
 --   * sonst ein Literal aus einem CHECK der Spalte, der erste Enum-Wert oder ein Typ-Standardwert
 --     (Text 'S112TEST <tabelle> <zufall>', Zahl 1, Datum heute, false, '{}' …).
@@ -737,7 +751,8 @@ BEGIN
         v_id := p_tenant::text;
       ELSIF v_klasse = 'T' THEN
         IF NOT p_neue_eltern THEN
-          EXECUTE format('SELECT %I::text FROM public.%I WHERE tenant_id = %L ORDER BY 1 LIMIT 1', v_fk.refcol, v_fk.reftab, p_tenant)
+          EXECUTE format('SELECT %I::text FROM public.%I WHERE tenant_id = %L AND %I::text <> ALL (pg_temp.s112_keine_eltern_liste()) ORDER BY 1 LIMIT 1',
+                         v_fk.refcol, v_fk.reftab, p_tenant, v_fk.refcol)
             INTO v_id;
         END IF;
         IF v_id IS NULL THEN
@@ -848,17 +863,17 @@ BEGIN
     -- KAN-37 C: eingereicht_von ist keine Eigentümerspalte – setzt nur das Einreichen
     v_w := v_w || '{"status": "entwurf", "eingereicht_von": null}'::jsonb;
   ELSIF p_tab = 'konto_umbuchungen' THEN
-    SELECT k.id::text INTO v_a FROM public.konten k WHERE k.tenant_id = p_tenant ORDER BY k.id LIMIT 1;
+    SELECT k.id::text INTO v_a FROM public.konten k WHERE k.tenant_id = p_tenant AND k.id::text <> ALL (pg_temp.s112_keine_eltern_liste()) ORDER BY k.id LIMIT 1;
     IF v_a IS NULL THEN
       v_a := pg_temp.s112_zeile('konten', p_tenant) ->> 'id';
     END IF;
-    SELECT k.id::text INTO v_b FROM public.konten k WHERE k.tenant_id = p_tenant AND k.id::text <> v_a ORDER BY k.id LIMIT 1;
+    SELECT k.id::text INTO v_b FROM public.konten k WHERE k.tenant_id = p_tenant AND k.id::text <> v_a AND k.id::text <> ALL (pg_temp.s112_keine_eltern_liste()) ORDER BY k.id LIMIT 1;
     IF v_b IS NULL THEN
       v_b := pg_temp.s112_zeile('konten', p_tenant) ->> 'id';
     END IF;
     v_w := v_w || jsonb_build_object('von_konto_id', v_a, 'nach_konto_id', v_b, 'betrag', 1);
   ELSIF p_tab IN ('traubenverkauf', 'pressung_weingaerten') THEN
-    SELECT w.id::text INTO v_a FROM public.weingarten w WHERE w.tenant_id = p_tenant ORDER BY w.id LIMIT 1;
+    SELECT w.id::text INTO v_a FROM public.weingarten w WHERE w.tenant_id = p_tenant AND w.id::text <> ALL (pg_temp.s112_keine_eltern_liste()) ORDER BY w.id LIMIT 1;
     IF v_a IS NULL THEN
       v_a := pg_temp.s112_zeile('weingarten', p_tenant) ->> 'id';
     END IF;
