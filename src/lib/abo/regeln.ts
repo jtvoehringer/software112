@@ -187,6 +187,21 @@ export function istUpgrade(bisher: PaketKey | null, neu: PaketKey | null): boole
 }
 
 /**
+ * KAN-8 (06.10.2026): Stripe-Parameter für den Selbstservice-Paketwechsel auf /abo.
+ *  - Upgrade: Differenz sofort in Rechnung stellen (always_invoice) und den Wechsel nur übernehmen, wenn diese Rechnung
+ *    bezahlt ist (pending_if_incomplete) – sonst bleibt das Abo beim alten Preis (pending_update), die App schaltet nichts
+ *    frei; nach späterer Zahlung stellt Stripe um und der Webhook übernimmt das Paket.
+ *  - Downgrade bzw. gleiches Paket: Gutschrift auf der nächsten Rechnung (create_prorations), wie bisher.
+ * Achtung Stripe: Bei pending_if_incomplete sind nur Positionen/Proration erlaubt (keine metadata im selben Aufruf).
+ */
+export function paketwechselParameter(bisher: PaketKey | null, neu: PaketKey | null):
+  { proration_behavior: 'always_invoice'; payment_behavior: 'pending_if_incomplete' } | { proration_behavior: 'create_prorations' } {
+  return istUpgrade(bisher, neu)
+    ? { proration_behavior: 'always_invoice', payment_behavior: 'pending_if_incomplete' }
+    : { proration_behavior: 'create_prorations' }
+}
+
+/**
  * Darf ein Stripe-Ereignis (Webhook customer.subscription.*) bzw. der Selbstservice-Wechsel auf
  * /abo das Paket des Betriebs umstellen?
  *

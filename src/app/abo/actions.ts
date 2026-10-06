@@ -17,7 +17,7 @@ import { revalidatePath } from 'next/cache'
 import { tenantKopfInvalidieren } from '@/lib/tenant/kopf'
 import { stripeKundennummerSync } from '@/lib/stripe/kundennummer'
 import { AktionsFehler } from '@/lib/fehler'
-import { paketEntscheidung, testphaseTage } from '@/lib/abo/regeln'
+import { paketEntscheidung, paketwechselParameter, testphaseTage } from '@/lib/abo/regeln'
 import { schreibSperreFehler } from '@/lib/auth/sperren'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -188,17 +188,23 @@ export async function wechslePaketAction(paketWunsch: string, buchhaltungsart?: 
   }
 
   let aboStatus: string | null = null
+  let zahlungAusstehend = false
   try {
     const stripe = getStripe()
     const sub = await stripe.subscriptions.retrieve(t.stripe_subscription_id)
     const item = sub.items.data[0]
     if (!item) return { error: 'Abo ohne Position – bitte kontaktieren Sie uns.' }
+    if (sub.metadata?.tenant_id !== membership.tenantId) {
+      // metadata nicht im Upgrade-Aufruf (pending_if_incomplete erlaubt sie nicht) – vorab eigens setzen
+      await stripe.subscriptions.update(sub.id, { metadata: { ...(sub.metadata ?? {}), tenant_id: membership.tenantId } })
+    }
+    // KAN-8: Upgrade sofort abrechnen und nur bei bezahlter Rechnung umstellen, Downgrade wie bisher
     const aktualisiert = await stripe.subscriptions.update(sub.id, {
       items: [{ id: item.id, price: priceId }],
-      proration_behavior: 'create_prorations',
-      metadata: { ...(sub.metadata ?? {}), tenant_id: membership.tenantId },
+      ...paketwechselParameter(altesPaket, paket),
     })
     aboStatus = aktualisiert.status ?? null
+    zahlungAusstehend = !!aktualisiert.pending_update
   } catch (err) {
     return { error: `Stripe-Fehler: ${(err as Error).message}` }
   }
@@ -211,7 +217,8 @@ export async function wechslePaketAction(paketWunsch: string, buchhaltungsart?: 
   // KAN-5: Paket nur sofort freischalten, wenn das Abo bezahlt bzw. in der Testphase ist –
   // sonst übernimmt der Webhook den Wechsel, sobald Stripe die Zahlung bestätigt
   const entscheidung = paketEntscheidung({ ereignis: 'aktualisiert', status: aboStatus, neuesPaket: paket, bisherigesPaket: altesPaket })
-  if (!entscheidung.moduleAnwenden) {
+  // KAN-8: Rechnung des Upgrades (noch) nicht bezahlt – Stripe hat den Wechsel zurückgestellt (pending_update)
+  if (zahlungAusstehend || !entscheidung.moduleAnwenden) {
     // Die Buchhaltungsart ist oben schon gespeichert – Menü und Seiten sofort nachziehen
     revalidatePath('/abo')
     revalidatePath('/', 'layout')
@@ -219,7 +226,9 @@ export async function wechslePaketAction(paketWunsch: string, buchhaltungsart?: 
     return {
       ok: true, paket,
       hinweisArt: 'warnung' as const,
-      hinweis: `Der Wechsel auf ${PAKETE[paket].label} ist bei Stripe beauftragt. Freigeschaltet wird das Paket, sobald die Zahlung bestätigt ist – bitte die Zahlungsdaten unter „Zahlungsdaten verwalten“ prüfen.`,
+      hinweis: zahlungAusstehend
+        ? `Die Rechnung über den Differenzbetrag für ${PAKETE[paket].label} ist noch nicht bezahlt – bis dahin bleibt das bisherige Paket aktiv. Bitte die Zahlungsdaten unter „Zahlungsdaten verwalten“ prüfen; Stripe hält den Wechsel etwa 23 Stunden offen, danach bitte erneut wechseln.`
+        : `Der Wechsel auf ${PAKETE[paket].label} ist bei Stripe beauftragt. Freigeschaltet wird das Paket, sobald die Zahlung bestätigt ist – bitte die Zahlungsdaten unter „Zahlungsdaten verwalten“ prüfen.`,
     }
   }
 
