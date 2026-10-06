@@ -8,6 +8,7 @@ import { getCurrentUserRole } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
 import { AktionsFehler } from '@/lib/fehler'
 import { kontoFuerEinladung, sendeZuordnungsMail } from '@/lib/auth/einladung'
+import { plattformAdminMitgliedschaften, type Mitgliedschaft } from '@/lib/auth/plattformAdminMitglied'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -27,17 +28,20 @@ async function assertPlattformAdmin(): Promise<string> {
   return user.id
 }
 
+// KAN-18 (06.10.2026, Entscheidung Jörgen: „Ja“): „Super-Admin einladen“ = Plattform-Admin. Die Person kommt in
+// plattform_admins und wird in ALLEN bestehenden Betrieben system_admin (neue Betriebe: Trigger tenants_plattform_admins).
+// system_admin zählt nicht ins Benutzerlimit (pruefeBenutzerlimit).
 export async function inviteSystemAdmin(email: string) {
   const eigeneId = await assertPlattformAdmin()
   const admin = createSupabaseAdminClient()
 
-  // System-Admin Membership auf Haupt-Tenant (fa22dc07) anlegen
-  // Alle bestehenden Tenants holen und ersten nehmen
-  const { data: tenants } = await (admin.from('tenants') as any)
-    .select('id, name').order('created_at').limit(1)
-
-  const tenantId = (tenants as R[])?.[0]?.id
-  if (!tenantId) return { error: 'Kein Tenant gefunden' }
+  // Alle Betriebe (Plattform: wenige Dutzend), der älteste ist der Haupt-Mandant für die Benachrichtigung
+  const { data: tenants, error: tenantsError } = await (admin.from('tenants') as any)
+    .select('id, name').order('created_at').order('id')
+    .limit(1000)   // alle-ausnahme: Betriebe der Plattform (wenige), nicht mandantenbezogen
+  if (tenantsError) throw new AktionsFehler(`Laden fehlgeschlagen (tenants): ${tenantsError.message}`)
+  const tenantIds = ((tenants ?? []) as R[]).map(t => String(t.id))
+  if (tenantIds.length === 0) return { error: 'Kein Tenant gefunden' }
 
   // KAN-139: neues Konto per Einladung; ein bestehendes nur mit bestätigter Adresse
   // (sonst würde ein vorab mit fremder Adresse angelegtes Konto Super-Admin)
@@ -53,19 +57,21 @@ export async function inviteSystemAdmin(email: string) {
     .upsert({ user_id: userId, hinweis: 'Super-Admin (eingeladen über /admin/benutzer)' }, { onConflict: 'user_id', ignoreDuplicates: true })
     if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (plattform_admins): ${e.message}`) }
 
-  // Prüfen ob Membership schon existiert
-  const { data: existing } = await (admin.from('tenant_memberships') as any)
-    .select('id').eq('user_id', userId).eq('tenant_id', tenantId).maybeSingle()
-
-  if (existing) {
-    // Rolle auf system_admin hochstufen
-    { const { error: e } = await (admin.from('tenant_memberships') as any)
-      .update({ role: 'system_admin' })
-      .eq('user_id', userId).eq('tenant_id', tenantId)
-      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (tenant_memberships): ${e.message}`) }
-  } else {
+  // KAN-18: in jedem Betrieb system_admin – fehlende Mitgliedschaften anlegen, vorhandene hochstufen
+  const { data: vorhanden, error: vorhandenError } = await (admin.from('tenant_memberships') as any)
+    .select('id, tenant_id, role').eq('user_id', userId)
+    .limit(1000)   // alle-ausnahme: Mitgliedschaften einer einzelnen Person
+  if (vorhandenError) throw new AktionsFehler(`Laden fehlgeschlagen (tenant_memberships): ${vorhandenError.message}`)
+  const { neu, hochstufen } = plattformAdminMitgliedschaften(tenantIds, (vorhanden ?? []) as Mitgliedschaft[])
+  if (hochstufen.length > 0) {
+    const { error: e } = await (admin.from('tenant_memberships') as any)
+      .update({ role: 'system_admin' }).eq('user_id', userId)
+      .in('id', hochstufen)   // alle-ausnahme: Mitgliedschaften einer einzelnen Person
+    if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (tenant_memberships): ${e.message}`)
+  }
+  if (neu.length > 0) {
     const { error: memberError } = await (admin.from('tenant_memberships') as any)
-      .insert({ tenant_id: tenantId, user_id: userId, role: 'system_admin' })
+      .insert(neu.map(tenantId => ({ tenant_id: tenantId, user_id: userId, role: 'system_admin' })))
     if (memberError) return { error: (memberError as R).message }
   }
 
@@ -78,14 +84,14 @@ export async function inviteSystemAdmin(email: string) {
     email: konto.bestehendesKonto?.email ?? email.trim().toLowerCase(),
     name: (konto.bestehendesKonto?.user_metadata?.display_name as string | undefined) ?? null,
     betriebName: ((tenants as R[])[0]?.name as string | undefined) ?? 'software:112',
-    rolle: 'Super-Admin',
+    rolle: 'Plattform-Admin (Super-Admin, in allen Betrieben)',
     eingeladenVon: ((eigenesProfil as R | null)?.full_name as string | undefined) ?? null,
   })
   return {
     success: true,
     hinweis: versandt
-      ? 'Bestehendes Konto ist jetzt Super-Admin – die Person wurde per E-Mail informiert.'
-      : 'Bestehendes Konto ist jetzt Super-Admin. Bitte die Person selbst informieren (E-Mail-Versand ist nicht eingerichtet).',
+      ? 'Bestehendes Konto ist jetzt Plattform-Admin (Super-Admin in allen Betrieben) – die Person wurde per E-Mail informiert.'
+      : 'Bestehendes Konto ist jetzt Plattform-Admin (Super-Admin in allen Betrieben). Bitte die Person selbst informieren (E-Mail-Versand ist nicht eingerichtet).',
   }
 }
 
