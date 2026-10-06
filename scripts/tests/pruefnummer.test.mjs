@@ -708,7 +708,7 @@ describe('Transportbescheinigung: Tankverkauf aus der Charge', () => {
   const posten = datum => ({
     id: '44444444-4444-4444-8444-444444444444', tenant_id: T, aktiv: true, rechnungsnummer: 'RE-2026-0100', datum, storniert: false,
     kontakt: null, firma: { name: 'Weinhandel Huber' },
-    positionen: [{ id: 'p1', typ: 'tank', name: 'Riesling Tank', menge: 200, einheit: 'l', weinausbau: { id: CH, name: 'Riesling Ried Pfaffenberg', jahrgang: 2025, qualitaetsstufe: 'qualitaetswein', rebsorte: 'Riesling', weinart: 'weiss' } }],
+    positionen: [{ id: 'p1', typ: 'tank', name: 'Riesling Tank', menge: 200, einheit: 'l', weinausbau: { id: CH, name: 'Riesling Ried Pfaffenberg', jahrgang: 2025, qualitaetsstufe: 'qualitaetswein', rebsorte: 'Riesling', weinart: 'weiss', herkunft_code: 'kamptal_gebietswein' } }],
   })
   const PN = { jeWeinausbau: { [CH]: musterhof() }, jeDacAntrag: {} }
 
@@ -750,7 +750,7 @@ describe('Transportbescheinigung: Tankverkauf aus der Charge', () => {
     const antrag = laden.antragAusZeile(dbMusterhof().dac_antrag[0])
     const flasche = (datum, fuellung) => ({
       ...posten(datum),
-      positionen: [{ id: 'p2', typ: 'flasche', name: 'Riesling', menge: 12, fuellung: { id: FUELLUNG_ID, rebsorte: 'Riesling', flaschengroesse_ml: 750, pruefnummer: null, dac_antrag_id: ANTRAG_ID, weinausbau_id: CH, ...fuellung } }],
+      positionen: [{ id: 'p2', typ: 'flasche', name: 'Riesling', menge: 12, fuellung: { id: FUELLUNG_ID, rebsorte: 'Riesling', flaschengroesse_ml: 750, pruefnummer: null, dac_antrag_id: ANTRAG_ID, weinausbau_id: CH, herkunft_code: 'kamptal_gebietswein', ...fuellung } }],
     })
     const pnF = { jeWeinausbau: {}, jeDacAntrag: { [ANTRAG_ID]: antrag } }
     let h = []

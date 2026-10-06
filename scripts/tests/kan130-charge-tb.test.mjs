@@ -132,7 +132,7 @@ describe('Transportbescheinigung: Vorbelegung', () => {
   })
   test('Abfrage lädt Status und Mostgewicht der Charge sowie °Oe und Einheit der Lieferung', () => {
     const src = quelle('src/lib/behoerden/transportbescheinigung.ts')
-    assert.match(src, /weinausbau:weinausbau\([^)]*status, kmw, oechsle, mostgewicht_einheit\)/)
+    assert.match(src, /weinausbau:weinausbau\([^)]*status, kmw, oechsle, mostgewicht_einheit[^)]*\)/)
     assert.match(src, /traubenverkauf:traubenverkauf\([^)]*kmw_grad, oechsle, mostgewicht_einheit/)
   })
 })

@@ -37,6 +37,7 @@ import { ttmmjjjj } from '@/lib/behoerden/rueckverfolgungFenster'
 import { quellGebindeDesVerschnitts, quellGebindeSchluessel, verschnittQuelleText } from '@/lib/kellerbuch/quellGebinde'
 import { abstufungText } from '@/lib/kellerbuch/abstufen'
 import { normalisiereQualitaet } from '@/lib/wein/qualitaetsrang'
+import { zukaufTbsVermerk } from '@/lib/handel/tbsNummer'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -91,7 +92,7 @@ export const HINWEIS_EROEFFNUNGSBESTAND = 'Eröffnungsbestand – Ried-Maßnahme
 
 const ZUKAUF_ART: Record<string, string> = { wein: 'Wein', most: 'Most', trauben: 'Trauben' }
 
-/** Hinweis zu einem Zukauf: Ried-Maßnahmen liegen beim Lieferbetrieb (KAN-127; Transportschein-Nr. kommt mit KAN-90) */
+/** Hinweis zu einem Zukauf: Ried-Maßnahmen liegen beim Lieferbetrieb (KAN-127), mit der TBS-Nr. des Lieferanten (KAN-90) */
 export function zukaufHinweis(z: R, ueberCharge: string | null): string {
   momentaufnahmeAnwenden(z, ['lieferant_firma', 'lieferant_kontakt'])   // KAN-150 F1c: Lieferant wie beim Zukauf
   const firma = z.lieferant_firma as R | null
@@ -101,7 +102,7 @@ export function zukaufHinweis(z: R, ueberCharge: string | null): string {
   const menge = z.menge != null ? `${fmtNum(parseFloat(z.menge))} ${z.einheit ?? ''}`.trim() : null
   const was = [ZUKAUF_ART[z.art] ?? text(z.art) ?? 'Zukauf', text(z.rebsorte), z.jahrgang ? String(z.jahrgang) : null].filter(Boolean).join(' ')
   return `Zukauf ${was}${z.datum ? ` vom ${ttmmjjjj(tag(z.datum))}` : ''}${menge ? ` (${menge})` : ''}${ueberCharge ? ` über Charge „${ueberCharge}“` : ''}: `
-    + `Die Ried-Maßnahmen liegen beim Lieferbetrieb ${name}${bnr ? ` (Betriebsnr. ${bnr})` : ' (Betriebsnummer nicht erfasst)'}; Transportschein-Nr. nicht erfasst.`
+    + `Die Ried-Maßnahmen liegen beim Lieferbetrieb ${name}${bnr ? ` (Betriebsnr. ${bnr})` : ' (Betriebsnummer nicht erfasst)'}; ${zukaufTbsVermerk(z.tbs_nummer_lieferant, z.tbs_jahr_lieferant)}.`
 }
 
 /** Vermerk an Kellerbehandlungen ohne Charge, die keiner Charge eindeutig zuzuordnen sind */
@@ -325,7 +326,7 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
   // Hinweise: Zukauf (beim Lieferbetrieb), Eröffnungsbestand, Charge ohne Lese
   const trauben = [...new Set(rvLesen.map(l => text(l.lese.zukauf_posten_id)).filter((x): x is string => !!x))]
   if (tenantId) {
-    const zkSelect = 'id, datum, art, menge, einheit, rebsorte, jahrgang, ziel_weinausbau_id, partner_daten, lieferant_firma:firmen!lieferant_firma_id(name, betrieb_nr), lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname, betrieb_nr)'
+    const zkSelect = 'id, datum, art, menge, einheit, rebsorte, jahrgang, ziel_weinausbau_id, partner_daten, tbs_nummer_lieferant, tbs_jahr_lieferant, lieferant_firma:firmen!lieferant_firma_id(name, betrieb_nr), lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname, betrieb_nr)'
     const [zkZiel, zkTrauben] = await Promise.all([
       (supabase.from('zukauf_posten') as any).select(zkSelect).eq('tenant_id', tenantId).eq('aktiv', true)
         .in('ziel_weinausbau_id', [...herkunft.keys()]).order('datum'),

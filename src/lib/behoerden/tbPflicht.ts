@@ -8,6 +8,7 @@
 // Isomorph (node:test lädt die Datei über die Hooks).
 
 import { zahlAus } from '@/lib/format'
+import { herkunftPruefen } from '@/lib/wein/bki_kuerzel'
 
 export const TB_FREEZE_GRUND = 'Transportbescheinigung ausgestellt'
 
@@ -55,6 +56,8 @@ export function tbPflichtFehler(d: TBKopf, opt: { nummerWirdVergeben?: boolean }
     if (leer(p.qualitaetsstufe)) fehlt.push('Qualität')
     if (leer(p.jahrgang)) fehlt.push('Jahrgang')
     if (leer(p.herkunft)) fehlt.push('Herkunft')
+    // KAN-90 (R16): nur amtliche BKI-Herkunftskürzel (z. B. WLNO, NOE), kein Betriebsort oder interner Code
+    else if (!herkunftPruefen(p.herkunft).kuerzel) fehlt.push(`Herkunft als amtliches Kürzel (statt „${String(p.herkunft).trim()}“)`)
     if (leer(p.alkohol_pct) && leer(p.kmw) && leer(p.oechsle)) fehlt.push('Alkohol bzw. Mostgewicht')
     if (fehlt.length > 0) f.push(`Position ${i + 1}: ${fehlt.join(', ')}`)
   })
