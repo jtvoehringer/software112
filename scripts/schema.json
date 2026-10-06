@@ -570,6 +570,45 @@
 "notizen",
 "erstellt_am"
 ],
+"elabel_zutaten": [
+"id",
+"kategorie",
+"name_de",
+"name_en",
+"e_nummer",
+"allergen",
+"sortierung",
+"aktiv",
+"erstellt_am"
+],
+"elabels": [
+"id",
+"tenant_id",
+"fuellung_id",
+"code",
+"status",
+"zutaten_ids",
+"analyse_id",
+"alkohol_vol",
+"restzucker_gl",
+"gesamtsaeure_gl",
+"glycerin_gl",
+"energie_kj",
+"energie_kcal",
+"fett_g",
+"fett_gesaettigt_g",
+"kohlenhydrate_g",
+"zucker_g",
+"eiweiss_g",
+"salz_g",
+"manuell",
+"manuell_grund",
+"freigegeben_am",
+"freigegeben_von",
+"freigegeben_von_name",
+"erstellt_am",
+"aktualisiert_am"
+],
 "email_lead_ignoriert": [
 "tenant_id",
 "email",
@@ -871,7 +910,8 @@
 "einheit_standard",
 "sort_order",
 "created_at",
-"pn_wirkung"
+"pn_wirkung",
+"elabel_zutat_id"
 ],
 "keller_freigaben": [
 "id",

@@ -51,7 +51,7 @@ const GROSSE_TABELLEN = [
   'weinausbau', 'weinausbau_weingaerten', 'behaelter', 'fuellungen', 'fuellung_chargen', 'fuellung_bewegungen',
   'zukauf_posten', 'traubenverkauf', 'keller_umzuege', 'keller_behandlungen', 'weinanalysen', 'verschneidungen',
   'verschneidung_quellen', 'pressungen', 'pressung_behaelter', 'pressung_weingaerten', 'ernte_parzellen',
-  'dac_antrag', 'pruefnummer_chargen',
+  'dac_antrag', 'pruefnummer_chargen', 'elabels',   // KAN-216: je Füllung
 ]
 
 const IGNORE_DIRS = new Set(['node_modules', '.next', '.git', '_to_delete'])
