@@ -14,7 +14,7 @@ import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
 import type { GespeichertesMostgewicht } from '@/lib/wein/mostgewichtFormular'
 import HerkunftCodeSelect from '@/components/weinbaugebiete/HerkunftCodeSelect'
 import { herkunftOptionen } from '@/lib/herkunft'
-import { herkunftAnzeige, istTraubenArt } from '@/lib/zukauf/ware'
+import { herkunftAnzeige, istFlaschenArt, istTraubenArt } from '@/lib/zukauf/ware'
 import type { CustomWeinbaugebiet } from '@/app/(dashboard)/weinbaugebiete/actions'
 
 interface Behaelter { id: string; name: string; typ: string; volumen_liter: number | null }
@@ -73,11 +73,12 @@ const qualitaetsListe = (art: string) => istTraubenArt(art) ? LESE_QUALITAETEN :
 // KAN-80 Nachtrag: Herkunfts-Code (BKI) wie am GST – alle Weinbaugebiete Österreichs, nach Region gruppiert
 const HERKUNFT_OPTIONS = herkunftOptionen()
 
-const ART_OPTIONS: { value: 'wein' | 'most' | 'trauben' | 'maische'; label: string }[] = [
+const ART_OPTIONS: { value: 'wein' | 'most' | 'trauben' | 'maische' | 'flaschen'; label: string }[] = [
   { value: 'wein',    label: 'Wein' },
   { value: 'most',    label: 'Traubenmost' },
   { value: 'trauben', label: 'Trauben' },
   { value: 'maische', label: 'Maische' },   // KAN-41
+  { value: 'flaschen', label: 'Flaschen (Handelsware)' },   // KAN-41 Paket 2b
 ]
 
 export default function ZukaufEditForm({
@@ -89,6 +90,7 @@ export default function ZukaufEditForm({
   eigeneAktuelleMenge,
   lieferantName,
   customWeinbaugebiete,
+  flaschenArtikel = null,
 }: {
   id: string
   initial: InitialValues
@@ -109,6 +111,8 @@ export default function ZukaufEditForm({
   lieferantName: string
   // Eigene Weinbaugebiete des Betriebs (ladeCustomWeinbaugebiete, wie am GST)
   customWeinbaugebiete: CustomWeinbaugebiet[]
+  // KAN-41 Paket 2b: Weinlager-Artikel eines Flaschenzukaufs (null bei anderen Arten)
+  flaschenArtikel?: { id: string; name: string; bestand: number } | null
 }) {
   const [isPending, startTransition] = useTransition()
   const [error, setError]            = useState<string | null>(null)
@@ -118,7 +122,7 @@ export default function ZukaufEditForm({
   const [eingangsrechnungsnummer, setEingangsrechnungsnummer] = useState(initial.eingangsrechnungsnummer)
   const [datum,               setDatum]             = useState(initial.datum)
   const [uhrzeit,             setUhrzeit]           = useState(initial.lieferung_uhrzeit)
-  const [art,                 setArt]               = useState<'wein' | 'trauben' | 'most' | 'maische'>(initial.art as any)
+  const [art,                 setArt]               = useState<'wein' | 'trauben' | 'most' | 'maische' | 'flaschen'>(initial.art as 'wein' | 'trauben' | 'most' | 'maische' | 'flaschen')
   // KAN-80 Nachtrag: Weinart Pflicht – ein gespeichertes „unbekannt“ muss neu gewählt werden
   const [weinart,             setWeinart]           = useState<'weiss' | 'rot' | 'rose' | ''>(['weiss', 'rot', 'rose'].includes(initial.weinart) ? initial.weinart as 'weiss' | 'rot' | 'rose' : '')
   const [rebsorte,            setRebsorte]          = useState(initial.rebsorte)
@@ -155,10 +159,13 @@ export default function ZukaufEditForm({
   // KAN-35: Sperren (serverseitig in updateZukauf ebenso geprüft)
   //  - Folgebuchungen an der Charge: Menge, Einheit und Gebinde fix, Art bleibt Wein/Most
   //  - Trauben bereits verpresst/verkauft: Art fix, Menge nicht unter die gebundene Menge
-  const mengeGesperrt = hatBewegungen
+  // KAN-41 Paket 2b: beim Flaschenzukauf sind Anzahl und Einheit ab dem Speichern fest (Weinlager-Artikel)
+  const mengeGesperrt = hatBewegungen || istFlaschenArt(initial.art)
   const traubenArtGesperrt = istTraubenArt(initial.art) && traubenGebunden.kg > 0
-  function artGesperrt(value: 'wein' | 'most' | 'trauben' | 'maische'): boolean {
+  function artGesperrt(value: 'wein' | 'most' | 'trauben' | 'maische' | 'flaschen'): boolean {
     if (hatBewegungen && istTraubenArt(value)) return true
+    // KAN-41 Paket 2b: von bzw. zu Flaschen nie wechseln (Weinlager-Artikel) – stornieren und neu erfassen
+    if (istFlaschenArt(initial.art) !== istFlaschenArt(value)) return true
     if (traubenArtGesperrt && value !== initial.art) return true
     return false
   }
@@ -262,6 +269,20 @@ export default function ZukaufEditForm({
           Transportbescheinigung gem. Weingesetz
         </span>
       </div>
+
+      {flaschenArtikel && (
+        <div role="note" className="bg-s112-bg border border-s112-border rounded-xl px-5 py-3 text-sm space-y-1">
+          <p className="font-medium text-s112-text-1">
+            Flaschenzukauf – Weinlager-Artikel{' '}
+            <Link href={`/weinhandel/fuellungen/${flaschenArtikel.id}`} className="underline">„{flaschenArtikel.name}“</Link>
+            {' '}(Bestand {fmtNum(flaschenArtikel.bestand)} Fl.)
+          </p>
+          <p className="text-xs text-s112-muted">
+            Art, Anzahl und Merkmale sind fest. Änderbar bleiben Beleg, Transport, Preis, Prüfnummer und Notizen – Tippfehler:
+            Zukauf stornieren (solange nichts verkauft ist) und neu erfassen.
+          </p>
+        </div>
+      )}
 
       {lieferantName && (
         <p className="text-sm text-s112-muted">
@@ -434,16 +455,16 @@ export default function ZukaufEditForm({
                 <MostgewichtEingabe name="mostgewicht" startwert={initial.mostgewicht} required />
               </div>
             )}
-            {art === 'wein' && (
+            {(art === 'wein' || istFlaschenArt(art)) && (
               <div>
                 <label className={labelCls}>Alkoholgehalt (%vol) *</label>
                 <input aria-label="Alkoholgehalt (%vol)" type="number" value={alkohol} onChange={e => setAlkohol(e.target.value)}
                   step="0.1" min="0.1" max="25" placeholder="z.B. 12.5" required className={inputCls + ' w-full'} />
               </div>
             )}
-            {art === 'wein' && (
+            {(art === 'wein' || istFlaschenArt(art)) && (
               <div>
-                <label className={labelCls}>Staatl. Prüfnummer (optional)</label>
+                <label className={labelCls}>{istFlaschenArt(art) ? 'Staatl. Prüfnummer des Erzeugers' : 'Staatl. Prüfnummer (optional)'}</label>
                 <input aria-label="Staatl. Prüfnummer" type="text" value={pruefnummer} onChange={e => setPruefnummer(e.target.value)}
                   placeholder="z.B. 1234/26" className={inputCls + ' w-full'} />
               </div>

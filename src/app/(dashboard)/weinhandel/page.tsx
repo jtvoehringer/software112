@@ -27,7 +27,7 @@ const STATUS_VERKAUF: Record<string, { label: string; color: string }> = {
   abfuellung:{ label: 'Abfüllung', color: 'bg-[#F2F3F5] text-s112-text-1' },
 }
 
-const ART_LABEL: Record<string, string> = { wein: 'Wein', trauben: 'Trauben', most: 'Most', maische: 'Maische' }
+const ART_LABEL: Record<string, string> = { wein: 'Wein', trauben: 'Trauben', most: 'Most', maische: 'Maische', flaschen: 'Flaschen' }
 
 export default async function WeinhandelPage({ searchParams }: { searchParams: Promise<{ ausverkauft?: string }> }) {
   const sp = await searchParams
@@ -51,7 +51,7 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
     { data: tvRaw },
   ] = await Promise.all([
     alle(tf((supabase.from('fuellungen') as any)
-      .select('id, name, jahrgang, rebsorte, qualitaet, zusatzbezeichnung, erzeugnis, anbaugebiet, bezeichnung, datum, flaschengroesse_ml, anzahl_flaschen, bestand_flaschen, vk_preis_brutto, einstandspreis, aktiv')
+      .select('id, name, jahrgang, rebsorte, qualitaet, zusatzbezeichnung, erzeugnis, anbaugebiet, bezeichnung, datum, flaschengroesse_ml, anzahl_flaschen, bestand_flaschen, vk_preis_brutto, einstandspreis, aktiv, zukauf_posten_id')
       .eq('aktiv', true)
       .order('datum', { ascending: false }).order('id'))),
     alle(tf((supabase.from('weinausbau') as any)
@@ -68,6 +68,8 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
       // zukauf_posten.menge ist die Beleg-/Zugangsmenge und wird nie verändert (KAN-35) –
       // hier stehen nur Zukäufe, die noch keinem Gebinde zugeordnet sind.
       .is('ziel_weinausbau_id', null)
+      // KAN-41 Paket 2b: zugekaufte Flaschen stehen als Weinlager-Artikel oben, nicht hier
+      .neq('art', 'flaschen')
       .order('datum', { ascending: false }).order('id'))),
     // Direktbefüllungen aus der Pressung ohne Kellerbuch-Charge (nur Hinweis, nicht verkaufbar).
     // pressung_behaelter hat keine tenant_id – Mandantenfilter über die Pressung (!inner).
@@ -96,6 +98,10 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
 
   // Löschen nur ohne Verkäufe/Bestandsbuchungen (deactivateFuellung prüft dasselbe) – Knopf vorab sperren
   const loeschSperre = new Map<string, string>()
+  // KAN-41 Paket 2b: Handelsware aus einem Flaschenzukauf storniert man über den Zukauf (Trigger a_flaschenzukauf_schutz)
+  for (const f of (fuellungenRaw ?? []) as R[]) {
+    if (f.zukauf_posten_id) loeschSperre.set(f.id, 'Handelsware aus einem Flaschenzukauf – bitte den Zukauf stornieren (Weinhandel › Zukauf).')
+  }
   if (writeOk && fuellungen.length > 0) {
     const ids = fuellungen.map(f => f.id as string)
     // inBloecken + alle(): Füllungen sammeln sich über die Jahre (URL-Grenze ≈ 350 IDs), Verkaufspositionen je Füllung
@@ -232,6 +238,10 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
                           {f.name}{f.bezeichnung ? ` – ${f.bezeichnung}` : ''}
                           <Search size={12} />
                         </Link>
+                        {f.zukauf_posten_id && (
+                          <span className="ml-2 text-[10px] uppercase tracking-wide bg-s112-bg border border-s112-border text-s112-muted rounded-full px-2 py-0.5"
+                            title="Zugekaufte Flaschen (KAN-41) – im Kellerbuch als Zukauf Flaschen gebucht">Handelsware</span>
+                        )}
                         <div className="text-xs text-s112-muted mt-0.5 flex gap-2">
                           {f.jahrgang    && <span>{f.jahrgang}</span>}
                           {f.rebsorte    && <span>{formatRebsorteMitKuerzel(f.rebsorte)}</span>}

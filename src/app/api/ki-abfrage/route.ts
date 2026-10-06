@@ -144,7 +144,7 @@ const TABELLEN_KONTEXT = `
   Flasche, z.B. 750 – NICHT einfach menge summieren und als Liter ausgeben, das ergibt eine falsche Zahl,
   da 11 verkaufte Flaschen à 0,75L z.B. 8,25L sind, nicht 11L). Bei typ='tank' ist menge bereits in Liter
   (Direktverkauf aus einer Weinausbau-Charge, einheit='L').
-- zukauf_posten: zugekaufte Trauben/Maische/Most/Wein von Lieferanten (art = trauben|maische|most|wein; Trauben und Maische in kg, werden gepresst). traubenverkauf: verkaufte (nicht zugekaufte) Trauben.
+- zukauf_posten: zugekaufte Trauben/Maische/Most/Wein/Flaschen von Lieferanten (art = trauben|maische|most|wein|flaschen; Trauben und Maische in kg, werden gepresst; Flaschen in Stk, eigener Weinlager-Artikel = fuellungen.zukauf_posten_id). traubenverkauf: verkaufte (nicht zugekaufte) Trauben.
 - kosteneintraege ↔ kostenstellen/kostenarten, kosteneintrag_weingaerten/kosteneintrag_behaelter: Kostenrechnung, Kosten auf Rieden (weingarten)/Behälter aufgeteilt.
   KOSTEN JE RIED (KAN-132): nur aus kosteneintrag_weingaerten.betrag_anteil. Einträge OHNE Aufteilung (keine Zeile in
   kosteneintrag_weingaerten) gesondert als „ohne Aufteilung“ ausweisen – NIE den vollen kosteneintraege.betrag

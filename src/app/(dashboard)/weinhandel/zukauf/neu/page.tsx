@@ -3,7 +3,7 @@
 import { useState, useTransition, useEffect } from 'react'
 import Link from '@/components/ui/Link'
 import { createZukauf } from '../actions'
-import { istTraubenArt } from '@/lib/zukauf/ware'
+import { FLASCHEN_GROESSEN_ML, istFlaschenArt, istTraubenArt } from '@/lib/zukauf/ware'
 import { LESE_QUALITAETEN, QUALITAET_OPTS } from '@/lib/wein/qualitaet'
 import { AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { verschnittHinweis } from '@/lib/kellerbuch/verschnittHinweis'
@@ -25,7 +25,7 @@ const inputCls = 'border border-s112-border rounded-lg px-3 py-2 text-sm focus:o
 const labelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
 
 const DEFAULT_EINHEIT: Record<string, string> = {
-  wein: 'L', trauben: 'kg', most: 'L', maische: 'kg',
+  wein: 'L', trauben: 'kg', most: 'L', maische: 'kg', flaschen: 'Stk',
 }
 
 // Qualitätsstufe eines Wein-/Most-Zukaufs: geht in die Zielcharge (weinausbau) – deshalb die
@@ -51,7 +51,7 @@ export default function ZukaufNeuPage() {
   // ── Grunddaten ────────────────────────────────────────────────────────────
   const [datum,           setDatum]           = useState(new Date().toISOString().split('T')[0])
   const [uhrzeit,         setUhrzeit]         = useState('')
-  const [art,             setArt]             = useState<'wein' | 'trauben' | 'most' | 'maische'>('wein')
+  const [art,             setArt]             = useState<'wein' | 'trauben' | 'most' | 'maische' | 'flaschen'>('wein')
 
   // ── Lieferant / Versender ─────────────────────────────────────────────────
   const [lieferantKontakt, setLieferantKontakt] = useState('')
@@ -91,6 +91,12 @@ export default function ZukaufNeuPage() {
   // ── Gebinde ───────────────────────────────────────────────────────────────
   const [zielBehaelter, setZielBehaelter] = useState('')
 
+  // ── Weinlager-Artikel (KAN-41 Paket 2b: nur bei zugekauften Flaschen) ─────
+  const [fuellungName,     setFuellungName]     = useState('')
+  const [flaschengroesse,  setFlaschengroesse]  = useState('750')
+  const [vkPreis,          setVkPreis]          = useState('')
+  const [mwst,             setMwst]             = useState('')
+
   // ── Notizen ───────────────────────────────────────────────────────────────
   const [notizen, setNotizen] = useState('')
 
@@ -100,12 +106,12 @@ export default function ZukaufNeuPage() {
     : []
   const hatRebsortenmixZukauf = andereChargenImZiel.length > 0
 
-  function handleArtChange(a: 'wein' | 'trauben' | 'most' | 'maische') {
+  function handleArtChange(a: 'wein' | 'trauben' | 'most' | 'maische' | 'flaschen') {
     setArt(a)
     // Stufe aus der anderen Liste (Charge ↔ Lese) nicht still mitnehmen
     if (qualitaet && !qualitaetsListe(a).some(q => q.value === qualitaet)) setQualitaet('')
     setEinheit(DEFAULT_EINHEIT[a] ?? 'kg')
-    if (istTraubenArt(a)) setZielBehaelter('')
+    if (istTraubenArt(a) || istFlaschenArt(a)) setZielBehaelter('')
   }
 
   useEffect(() => {
@@ -139,6 +145,7 @@ export default function ZukaufNeuPage() {
     if (!menge || parseFloat(menge) <= 0) { setError('Menge muss größer als 0 sein.'); return }
     // KAN-80 Nachtrag: die Herkunftsauswahl hat nur ein verstecktes Feld – Pflicht hier prüfen (Server prüft ebenso)
     if (!herkunft) { setError('Bitte den Herkunfts-Code (BKI) wählen.'); return }
+    if (istFlaschenArt(art) && !fuellungName.trim()) { setError('Bitte den Produktnamen für das Weinlager angeben.'); return }
     const fd = new FormData()
     fd.set('datum',                   datum)
     fd.set('lieferung_uhrzeit',       uhrzeit)
@@ -175,6 +182,12 @@ export default function ZukaufNeuPage() {
     fd.set('einstandspreis_pro_liter', einstandspreisLiter)
     fd.set('ziel_behaelter_id',       zielBehaelter)
     fd.set('notizen',                 notizen)
+    if (istFlaschenArt(art)) {
+      fd.set('fuellung_name',         fuellungName)
+      fd.set('flaschengroesse_ml',    flaschengroesse)
+      fd.set('vk_preis_brutto',       vkPreis)
+      fd.set('mwst_pct',              mwst)
+    }
     startTransition(async () => {
       try {
         let result = await createZukauf(fd)
@@ -196,11 +209,12 @@ export default function ZukaufNeuPage() {
     })
   }
 
-  const ART_OPTIONS: { value: 'wein' | 'most' | 'trauben' | 'maische'; label: string }[] = [
+  const ART_OPTIONS: { value: 'wein' | 'most' | 'trauben' | 'maische' | 'flaschen'; label: string }[] = [
     { value: 'wein',    label: 'Wein' },
     { value: 'most',    label: 'Traubenmost' },
     { value: 'trauben', label: 'Trauben' },
     { value: 'maische', label: 'Maische' },   // KAN-41: wird bei der Pressung als Zukauf Maische gebucht
+    { value: 'flaschen', label: 'Flaschen (Handelsware)' },   // KAN-41 Paket 2b: eigener Weinlager-Artikel, Journal ZK_FLA
   ]
 
   return (
@@ -440,8 +454,8 @@ export default function ZukaufNeuPage() {
               </div>
             )}
 
-            {/* Alkohol – bei Wein */}
-            {art === 'wein' && (
+            {/* Alkohol – bei Wein und zugekauften Flaschen */}
+            {(art === 'wein' || istFlaschenArt(art)) && (
               <div>
                 <label className={labelCls}>Alkoholgehalt (%vol) *</label>
                 <input aria-label="Alkoholgehalt (%vol)" type="number" value={alkohol} onChange={e => setAlkohol(e.target.value)}
@@ -450,10 +464,11 @@ export default function ZukaufNeuPage() {
               </div>
             )}
 
-            {/* Staatl. Prüfnummer – bei Wein, optional (Entscheidung Jörgen 02.10.2026, ersetzt KAN-80 Regel a) */}
-            {art === 'wein' && (
+            {/* Staatl. Prüfnummer – bei Wein optional (Entscheidung Jörgen 02.10.2026, ersetzt KAN-80 Regel a); bei
+                zugekauften Flaschen die Nummer des Erzeugers, ab Qualitätswein Pflicht (KAN-41 Paket 2b, E2) */}
+            {(art === 'wein' || istFlaschenArt(art)) && (
               <div>
-                <label className={labelCls}>Staatl. Prüfnummer (optional)</label>
+                <label className={labelCls}>{istFlaschenArt(art) ? 'Staatl. Prüfnummer des Erzeugers (ab Qualitätswein Pflicht)' : 'Staatl. Prüfnummer (optional)'}</label>
                 <input aria-label="Staatl. Prüfnummer" type="text" value={pruefnummer} onChange={e => setPruefnummer(e.target.value)}
                   placeholder="z.B. 1234/26"
                   className={inputCls + ' w-full'} />
@@ -476,15 +491,15 @@ export default function ZukaufNeuPage() {
           <h2 className="font-semibold text-s112-text-1 text-sm uppercase tracking-wide">Menge & Preis</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div>
-              <label className={labelCls}>Menge *</label>
+              <label className={labelCls}>{istFlaschenArt(art) ? 'Anzahl Flaschen *' : 'Menge *'}</label>
               <input aria-label="Menge" type="number" value={menge} onChange={e => setMenge(e.target.value)}
-                required min="0.001" step="0.001" placeholder="0"
+                required min={istFlaschenArt(art) ? '1' : '0.001'} step={istFlaschenArt(art) ? '1' : '0.001'} placeholder="0"
                 className={inputCls + ' w-full'} />
             </div>
             <div>
               <label className={labelCls}>Einheit</label>
               <select aria-label="Einheit" value={einheit} onChange={e => setEinheit(e.target.value)}
-                className={inputCls + ' w-full'}>
+                disabled={istFlaschenArt(art)} className={inputCls + ' w-full'}>
                 <option value="kg">kg</option>
                 <option value="L">L</option>
                 <option value="t">t</option>
@@ -526,6 +541,44 @@ export default function ZukaufNeuPage() {
             )}
           </div>
         </div>
+
+        {/* ── 5b. Weinlager-Artikel (nur zugekaufte Flaschen, KAN-41 Paket 2b) ── */}
+        {istFlaschenArt(art) && (
+          <div className="card p-5 space-y-3">
+            <h2 className="font-semibold text-s112-text-1 text-sm uppercase tracking-wide">Ins Weinlager</h2>
+            <p className="text-xs text-s112-muted">
+              Die Flaschen werden als eigener Weinlager-Artikel (Handelsware) angelegt – Merkmale, Anzahl, Prüfnummer und
+              Einstandspreis je Flasche (Gesamtpreis ÷ Anzahl) kommen aus diesem Zukauf. Im Kellerbuch als Zukauf Flaschen (ZK_FLA) gebucht.
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="col-span-2">
+                <label className={labelCls}>Produktname *</label>
+                <input aria-label="Produktname" type="text" value={fuellungName} onChange={e => setFuellungName(e.target.value)}
+                  required placeholder="z.B. Grüner Veltliner Kamptal DAC (Weingut X)"
+                  className={inputCls + ' w-full'} />
+              </div>
+              <div>
+                <label className={labelCls}>Flaschengröße *</label>
+                <select aria-label="Flaschengröße" value={flaschengroesse} onChange={e => setFlaschengroesse(e.target.value)}
+                  className={inputCls + ' w-full'}>
+                  {FLASCHEN_GROESSEN_ML.map(ml => <option key={ml} value={String(ml)}>{fmtNum(ml / 1000, { min: 3, max: 3 })} l</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>VK-Preis brutto (€)</label>
+                <input aria-label="VK-Preis brutto (€)" type="number" value={vkPreis} onChange={e => setVkPreis(e.target.value)}
+                  step="0.01" min="0" placeholder="0.00"
+                  className={inputCls + ' w-full'} />
+              </div>
+              <div>
+                <label className={labelCls}>MwSt. (%)</label>
+                <input aria-label="MwSt. (%)" type="number" value={mwst} onChange={e => setMwst(e.target.value)}
+                  step="1" min="0" max="30" placeholder="Standard"
+                  className={inputCls + ' w-full'} />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── 6. Gebinde (nur Wein / Most) ──────────────────────────────── */}
         {(art === 'wein' || art === 'most') && (

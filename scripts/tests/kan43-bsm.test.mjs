@@ -432,6 +432,26 @@ describe('KAN-43 BSM: Nachtrag 02.10.2026', nurMitHooks, () => {
     assert.equal(zelle(d2.summen, 'DIFFERENZ').summeLiter, 0)
   })
 
+  test('1c. KAN-41 Paket 2b: Flaschenzukauf (Handelsware) → ZK_FLA ohne Prüfwarnung; Füllung ohne Charge und Zukauf warnt weiter', async () => {
+    const { ladeBsm, BSM_ZUORDNUNG, HANDELSWARE_HINWEIS } = await laden('lib/behoerden/bsm.ts')
+    assert.ok(BSM_ZUORDNUNG.some(z => z.code === 'ZK_FLA' && /Handelsware/.test(z.vorgang)))
+    const handel = { id: 'fz', tenant_id: T, datum: '2026-04-01', name: 'Handel GV', jahrgang: 2025, rebsorte: 'Grüner Veltliner', qualitaet: 'qualitaetswein', land_iso: 'AT', weinart: 'weiss', aktiv: true, bestand_flaschen: 120, anzahl_flaschen: 120, menge_liter_gefuellt: null, flaschengroesse_ml: 750, weinausbau_id: null, zukauf_posten_id: 'zf', storniert_am: null }
+    const t = tabellen()
+    t.fuellungen = [...t.fuellungen, handel]
+    const d = await ladeBsm(datenbank(t, { rpc: RPC }), T, WJ, { heute: HEUTE })
+    const zk = d.buchungen.filter(b => b.code === 'ZK_FLA')
+    assert.deepEqual(zk.map(b => [b.datum, b.liter, b.fuellung]), [['2026-04-01', 90, 'Handel GV']])
+    assert.ok(zk[0].hinweis.includes(HANDELSWARE_HINWEIS), zk[0].hinweis)
+    assert.ok(!d.warnungen.some(w => /als „Zukauf Flaschen“ gezählt – bitte prüfen/.test(w)), d.warnungen.join('\n'))
+    assert.deepEqual(zelle(d.summen, 'ENDE').werte, zelle(d.summen, 'STICHTAG').werte)
+    assert.equal(zelle(d.summen, 'DIFFERENZ').summeLiter, 0)
+    // Altfall (E5): Füllung ohne Charge und ohne Zukauf bleibt Rückfall ZK_FLA mit Prüfwarnung
+    t.fuellungen = [...t.fuellungen.filter(f => f.id !== 'fz'), { ...handel, id: 'fa', name: 'Ohne Bezug', zukauf_posten_id: null }]
+    const d2 = await ladeBsm(datenbank(t, { rpc: RPC }), T, WJ, { heute: HEUTE })
+    assert.match(d2.buchungen.find(b => b.code === 'ZK_FLA').hinweis, /als Flaschenzukauf gezählt, prüfen/)
+    assert.ok(d2.warnungen.some(w => /1 Flaschenzugang ohne Charge .* bitte prüfen/.test(w)), d2.warnungen.join('\n'))
+  })
+
   test('4. Most/Sturm: eigene Gruppe, Übergang Most → Wein als neutrale Umstufung (keine Abwertung)', async () => {
     const { ladeBsm, bsmJournal, bsmParameter, BSM_SPALTEN, buchungsartLabel } = await laden('lib/behoerden/bsm.ts')
     assert.deepEqual(BSM_SPALTEN.map(s => s.key).slice(0, 2), ['most_sturm', 'wein'])

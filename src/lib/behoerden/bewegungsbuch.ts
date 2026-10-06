@@ -434,6 +434,24 @@ function bewegungenAus(roh: Roh): Bewegung[] {
       })
       continue
     }
+    if (!f.weinausbau_id && f.zukauf_posten_id) {
+      // KAN-41 Paket 2b: Flaschenzukauf (Handelsware) – Zugang ins Flaschenlager, kein Abgang aus einem Tank
+      bewegungen.push({
+        datum: tag(f.datum),
+        art: 'zukauf',
+        beschreibung: `Zukauf Flaschen (Handelsware): ${f.name}${f.pruefnummer ? ` · Prüfnr. ${f.pruefnummer}` : ''}`,
+        menge: 0,
+        extra: num(f.anzahl_flaschen) > 0 ? `${fmtNum(Math.trunc(num(f.anzahl_flaschen)))} Fl. à ${Math.trunc(num(f.flaschengroesse_ml))} ml` : undefined,
+        fuellung_id: f.id,
+        chargeId: null,
+        charge: null,
+        gegenstelle: 'Flaschenzukauf',
+        beleg: text(f.pruefnummer) ?? text(f.chargennummer),
+        quelleId: f.id,
+        ...stornoFeld(f),
+      })
+      continue
+    }
     bewegungen.push({
       datum: tag(f.datum),
       art: 'abfuellung',
@@ -672,7 +690,7 @@ export async function ladeBewegungenBetrieb(supabase: any, tenantId: string): Pr
       .eq('pressung.tenant_id', tenantId)
       .order('id', { ascending: true }), 'pressung_behaelter'),
     liste((supabase.from('fuellungen') as any)
-      .select('id, datum, erstellt_am, name, jahrgang, rebsorte, qualitaet, zusatzbezeichnung, erzeugnis, land_iso, aktiv, bestand_flaschen, anzahl_flaschen, menge_liter_gefuellt, flaschengroesse_ml, pruefnummer, chargennummer, weinausbau_id, storniert_am, storno_grund, storniert_von_name, import_quelle, weinart, weinausbau:weinausbau_id(weinart)')
+      .select('id, datum, erstellt_am, name, jahrgang, rebsorte, qualitaet, zusatzbezeichnung, erzeugnis, land_iso, aktiv, bestand_flaschen, anzahl_flaschen, menge_liter_gefuellt, flaschengroesse_ml, pruefnummer, chargennummer, weinausbau_id, storniert_am, storno_grund, storniert_von_name, import_quelle, weinart, zukauf_posten_id, weinausbau:weinausbau_id(weinart)')
       // storno-sichtbar: stornierte Füllung als Buchung + Gegenbuchung (KAN-145 B3), Flaschenbestand zum Stichtag
       .eq('tenant_id', tenantId)
       .order('name', { ascending: true })

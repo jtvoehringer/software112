@@ -15,7 +15,7 @@ import { fmtNum } from '@/lib/format'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { csvPfad } from '@/lib/behoerden/katalog'
 import {
-  BEHANDLUNG_ART_LABEL, ladeFuellungKette, ladeRueckverfolgungTreffer, massnahmeMittel, massnahmeZeitraum,
+  BEHANDLUNG_ART_LABEL, flaschenzukaufText, ladeFuellungKette, ladeRueckverfolgungTreffer, massnahmeMittel, massnahmeZeitraum,
   type LeseMassnahmen,
 } from '@/lib/behoerden/rueckverfolgung'
 import { fensterBeginnText, ttmmjjjj } from '@/lib/behoerden/rueckverfolgungFenster'
@@ -388,9 +388,8 @@ export default async function RueckverfolgungPage({
   // ── Kettendaten laden (unterstützt Verschnitte via fuellung_chargen) ──────
   // Dieselbe Ladefunktion wie die CSV „rueckverfolgung“ (lib/behoerden/rueckverfolgung.ts):
   // Junction → weinausbau_id → eindeutiger Treffer über Rebsorte + Jahrgang
-  const chargeEntries = fuellung && tenantId
-    ? (await ladeFuellungKette(supabase, tenantId, fuellung, { details: true })).chargen
-    : []
+  const fuellungKette = fuellung && tenantId ? await ladeFuellungKette(supabase, tenantId, fuellung, { details: true }) : null
+  const chargeEntries = fuellungKette?.chargen ?? []
 
   // ── Blend-Protokoll: vollständige Herkunfts-Zusammensetzung (rekursiv über alle
   // Verschneidungs-Generationen) ────────────────────────────────────────────────
@@ -500,7 +499,9 @@ export default async function RueckverfolgungPage({
             ))
           ) : (
             <div className="bg-s112-bg border border-s112-border rounded-xl p-4 text-sm text-s112-muted">
-              Diese Füllung hat keine verknüpfte Kellerbuch-Charge – Rückverfolgung nur bis zur Abfüllung möglich.
+              {fuellungKette?.zuordnung === 'zukauf'
+                ? flaschenzukaufText(fuellungKette.zukauf)
+                : 'Diese Füllung hat keine verknüpfte Kellerbuch-Charge – Rückverfolgung nur bis zur Abfüllung möglich.'}
             </div>
           )}
 

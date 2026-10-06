@@ -375,7 +375,7 @@ describe('KAN-42 Verdrahtung (Quelltext)', () => {
     assert.match(B, /datum: eroeffnungsTag\(eroeffnungsCharge\.created_at\) \?\? tag\(new Date\(\)\),/)
     assert.doesNotMatch(B, /datum: `\$\{jahr\}-01-01`/)
     assert.match(B, /if \(istFlaschenEroeffnung\(f\)\) \{[\s\S]{0,200}art: 'anfangsbestand',[\s\S]{0,200}menge: 0,/)
-    assert.match(B, /storniert_von_name, import_quelle, weinart, weinausbau:weinausbau_id\(weinart\)'\)/)
+    assert.match(B, /storniert_von_name, import_quelle, weinart, zukauf_posten_id, weinausbau:weinausbau_id\(weinart\)'\)/)   // KAN-41 Paket 2b: mit zukauf_posten_id
   })
 
   test('Oberfläche: Stichtag in beiden Einzelformularen, neue Import-Typen, Vorlage über CsvExportKnopf', () => {
