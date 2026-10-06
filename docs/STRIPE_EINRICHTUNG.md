@@ -52,6 +52,14 @@ Nach dem Speichern im Produkt unter „Preise" die **Preis-ID** (`price_…`) ko
 - Dieselbe Einstellung für fehlgeschlagene Zahlungen nach der Testphase prüfen
   („Testphase endet ohne Zahlungsmethode“: kündigen bzw. pausieren – beide sperren).
 
+### 2a. Zusatzmandant für Abrechnungsverbünde (KAN-215)
+- Produkt **„software:112 Zusatzmandant“** anlegen, Standardpreis z. B. 99,00 EUR monatlich (Betrag mit Hohenstein
+  abstimmen). Preis-ID → Vercel `STRIPE_PRICE_ZUSATZMANDANT`, Produkt-ID (`prod_…`) → `STRIPE_PRODUCT_ZUSATZMANDANT`
+  (für vereinbarte Preise je Nebenmandant legt die App Positionen mit eigenem Betrag an diesem Produkt an).
+- Ablauf: Hauptmandant schließt Premium ab; Plattform-Admin ordnet unter Administration › Mandanten › Nebenmandant ›
+  Stripe „Über Hauptmandanten abrechnen“ zu (Rechnungsempfänger = Hauptmandant). Austritt setzt den Nebenmandanten auf
+  Nur-Lesen, bis er ein eigenes Abo abschließt (ohne neue Testphase).
+
 ### 4. Vercel – Project → Settings → Environment Variables
 - Die drei `NEXT_PUBLIC_STRIPE_PRICE_*` aus Schritt 2 anlegen.
 - `STRIPE_SECRET_KEY` und `STRIPE_WEBHOOK_SECRET` prüfen/ergänzen.
