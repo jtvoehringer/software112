@@ -9,16 +9,18 @@ import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { stornoGrundFehler } from '@/lib/storno/grund'
 import { dezimal } from '@/lib/format'
 import { abgleichVerkaufsEinnahmen } from '@/lib/ea/verkaufEinnahmen'
+import { pruefeModul } from '@/lib/auth/modul'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
-async function getCtx() {
+async function getCtx(mitModul = true) {
   const supabase   = await createSupabaseServerClient()
   const membership = await getCurrentMembership()
   if (!membership?.tenantId) throw new AktionsFehler('Kein Mandant')
   await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
   await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
+  if (mitModul) await pruefeModul('modul_ea')   // KAN-6: Paket-Modul E&A (nicht nur die Seite)
   return { supabase, tenantId: membership.tenantId, membership }
 }
 
@@ -238,7 +240,7 @@ export async function berechneUndSpeichereUva(jahr: number, zeitraum: string) {
 export async function syncEaEinnahmeFuerVerkauf(
   verkaufspostenId: string
 ): Promise<{ ok: boolean; error?: string; skipped?: boolean }> {
-  const { supabase, tenantId, membership } = await getCtx()
+  const { supabase, tenantId, membership } = await getCtx(false)   // KAN-6: läuft aus dem Verkauf – ohne E&A-Modul übersprungen (unten)
   // Zahlungen und Verkäufe erfassen Warenwirtschaft, die E&A ihre Einnahmen – Leser nie
   if (!canWrite(membership, 'warenwirtschaft') && !canWrite(membership, 'ea')) {
     return { ok: false, error: 'Keine Berechtigung, die E&A-Einnahme dieses Verkaufs zu aktualisieren.' }

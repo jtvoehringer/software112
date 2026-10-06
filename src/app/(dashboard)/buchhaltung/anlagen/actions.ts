@@ -7,6 +7,7 @@ import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import type { AfaMethode } from '@/lib/ea/anlagen'
 import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { stornoGrundFehler } from '@/lib/storno/grund'
+import { pruefeModul } from '@/lib/auth/modul'
 
 // ── Anlagenverzeichnis: Server-Aktionen (Migration 200) ──────────────────────
 // Schreiben dürfen Betriebsleiter und Winzer (RLS ea_anlagen_write). Die
@@ -42,6 +43,7 @@ async function ctx() {
   await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb? (AfA → E&A-Journal)
   await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
   if (!canWrite(membership.role, 'ea')) throw new AktionsFehler('Keine Berechtigung')
+  await pruefeModul('modul_ea')   // KAN-6: Anlagenverzeichnis gehört zur E&A
   const supabase = await createSupabaseServerClient()
   return { supabase, tenantId: membership.tenantId, role: membership.role }
 }

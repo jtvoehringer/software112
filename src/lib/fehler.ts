@@ -197,6 +197,10 @@ export function uebersetzeDbMeldung(text: string): string {
   return text
 }
 
+/** KAN-6/KAN-195: Paket-Modul aus (RPC s112_pruefe_paketmodul, HINT 'paketmodul_aus') */
+export const PAKETMODUL_AUS_MELDUNG =
+  'Dieses Modul ist im Paket des Betriebs nicht enthalten – Daten bleiben lesbar, Änderungen sind erst nach einem Paketwechsel (Abo) möglich.'
+
 /** KAN-129: Trigger a_lese_zuordnen (23502, HINT 'lese_waehlen') – Jahrgang mit mehreren Lesen, keine Lese angegeben */
 export const LESE_WAEHLEN_MELDUNG =
   'Der Jahrgang hat mehrere Lesen und das Datum passt zu keiner – bitte oben auf der Jahrgangsseite die Lese (Reiter) wählen und erneut speichern.'
@@ -224,6 +228,7 @@ export function dbFehlerText(error: unknown, kontext?: string): string {
     return message || mitKontext('Die Eingabe verletzt eine Prüfregel der Datenbank.')
   }
   if (code === '23502' && (error as { hint?: unknown }).hint === 'lese_waehlen') return LESE_WAEHLEN_MELDUNG
+  if (code === '42501' && (error as { hint?: unknown }).hint === 'paketmodul_aus') return PAKETMODUL_AUS_MELDUNG
   if (code === '23503') {
     const m = FK_RE.exec(message)
     if (m) return fremdschluesselText(m[1], m[3], m[2], m[4])

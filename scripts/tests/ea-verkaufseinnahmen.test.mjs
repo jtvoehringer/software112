@@ -31,6 +31,8 @@ const DOPPEL = {
   'next/cache': modul('export const revalidatePath = (...a) => { globalThis.__revalidiert.push(a[0]) }'),
   '@/lib/auth/seitenBetrieb': modul('export const pruefeSeitenBetrieb = async () => {}'),
   '@/lib/auth/sperren': modul('export const pruefeSchreibzugriff = async () => {}'),
+  // KAN-6: Paket-Modul – ohne Eintrag in globalThis.__modulAus freigeschaltet
+  '@/lib/auth/modul': modul("export const pruefeModul = async f => { if ((globalThis.__modulAus ?? []).includes(f)) throw new Error('Modul aus: ' + f) }"),
   '@/lib/auth/roles': modul(`
     const rolleVon = r => (r && typeof r === 'object') ? r.role : r
     export const getCurrentMembership = async () => globalThis.__membership
@@ -354,6 +356,17 @@ describe('AfA buchen und zurücknehmen – Storno statt Löschen', nurMitHooks, 
     assert.equal(r.ok, false)
     assert.match(r.fehler, /UVA übermittelt \(1 bereits gegengebucht\)$/)
     assert.ok(!arten(db).includes('insert'))
+  })
+
+  test('KAN-6: ohne Paket-Modul E&A keine AfA-Buchung, kein Datenbankzugriff', async () => {
+    alsRolle('winzer')
+    neueDb([])
+    globalThis.__modulAus = ['modul_ea']
+    try {
+      await assert.rejects(afa.bucheAfa(2026, zeilenFuer([null])), /Modul aus: modul_ea/)
+      assert.deepEqual(db.aufrufe, [])
+      assert.deepEqual(rpcs, [])
+    } finally { globalThis.__modulAus = [] }
   })
 
   test('Rücknahme ohne ausreichenden Grund: Abbruch ohne Datenbankzugriff', async () => {

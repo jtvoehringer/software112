@@ -8,6 +8,7 @@ import { escHtml as e, escHtmlMehrzeilig, sichererDateiname, DOKUMENT_CSP } from
 import { druckCsp, druckleiste, DRUCKLEISTE_CSS } from '@/lib/utils/druckknopf'
 import { landAnzeige } from '@/lib/katalog/laender'   // KAN-187: ISO-Code → Ländername (Altdaten mit Namen unverändert)
 import { kontaktAnzeigename } from '@/lib/crm/titel'
+import { modulKonflikt } from '@/lib/auth/modul'
 export const dynamic = 'force-dynamic'
 // KAN-141 (01.10.2026): Dokument-CSP plus genau ein per Hash freigegebenes Skript für den Drucken-Knopf
 const DRUCK_CSP = druckCsp(DOKUMENT_CSP)
@@ -55,6 +56,8 @@ export async function GET(
 ) {
   const zweiFaktor = await pruefeZweiFaktor()
   if (zweiFaktor) return zweiFaktor
+  const ohneModul = await modulKonflikt('modul_export')   // KAN-6: Paket-Modul auch in der Route
+  if (ohneModul) return ohneModul
   const { id: auftragId, art } = await params
   const supabase = await createSupabaseServerClient()
   const admin    = createSupabaseAdminClient()

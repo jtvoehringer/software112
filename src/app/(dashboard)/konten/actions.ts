@@ -7,6 +7,7 @@ import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { stornoGrundFehler } from '@/lib/storno/grund'
 import { dezimal } from '@/lib/format'
+import { pruefeModul } from '@/lib/auth/modul'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -17,6 +18,7 @@ async function getCtx() {
   if (!membership?.tenantId) throw new AktionsFehler('Kein Mandant')
   await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
   await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
+  await pruefeModul('modul_ea')   // KAN-6: Konten und Umbuchungen gehören zur E&A
   return { supabase, tenantId: membership.tenantId, role: membership.role }
 }
 

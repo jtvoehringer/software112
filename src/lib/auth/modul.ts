@@ -1,4 +1,6 @@
 import { redirect } from 'next/navigation'
+import { NextResponse } from 'next/server'
+import { AktionsFehler } from '@/lib/fehler'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canSeeAuswertungen, type Membership } from '@/lib/auth/roles'
 import { istPflichtmeldungsRolle } from '@/lib/auth/pflichtmeldung'
@@ -17,6 +19,28 @@ export async function hatModul(flag: ModulFlag): Promise<boolean> {
   const { data } = await (supabase.from('tenant_einstellungen') as any)
     .select(flag).eq('tenant_id', membership.tenantId).maybeSingle()
   return !!(data as Record<string, unknown> | null)?.[flag]
+}
+
+// KAN-6 (06.10.2026): Server-Actions und API-Routen der Paket-Module prüfen das Modul selbst – nicht nur die Seite.
+// Die Datenbank sperrt das Schreiben zusätzlich (KAN-195, RESTRICTIVE-Policies paketmodul_*); hier gibt es eine
+// verständliche Meldung, und Funktionen ohne Tabellenschreibzugriff (Export-Dokumente, EMCS, Auswertungen) sind
+// ebenfalls gesperrt.
+export const MODUL_LABEL: Record<ModulFlag, string> = {
+  modul_ea: 'E&A-Rechnung', modul_sumup: 'SumUp-Kartenzahlung', modul_export: 'Exportaufträge', modul_controlling: 'Controlling',
+}
+
+export function modulAusMeldung(flag: ModulFlag): string {
+  return `Das Modul „${MODUL_LABEL[flag]}“ ist im Paket dieses Betriebs nicht enthalten – bitte unter „Abo“ das passende Paket wählen.`
+}
+
+/** Server-Actions: AktionsFehler, wenn das Modul für den aktiven Betrieb nicht freigeschaltet ist */
+export async function pruefeModul(flag: ModulFlag): Promise<void> {
+  if (!(await hatModul(flag))) throw new AktionsFehler(modulAusMeldung(flag))
+}
+
+/** API-Routen: 403 { fehler } ohne Freischaltung, sonst null */
+export async function modulKonflikt(flag: ModulFlag): Promise<NextResponse | null> {
+  return (await hatModul(flag)) ? null : NextResponse.json({ fehler: modulAusMeldung(flag) }, { status: 403 })
 }
 
 // In Server-Layouts/-Pages: leitet auf /dashboard um, wenn das Modul für den

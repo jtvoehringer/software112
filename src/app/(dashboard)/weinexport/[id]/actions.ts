@@ -11,6 +11,7 @@ import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { stornoGrundFehler } from '@/lib/storno/grund'
+import { pruefeModul } from '@/lib/auth/modul'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -21,6 +22,7 @@ async function exportSchreibrecht(): Promise<string> {
   await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30
   await pruefeSchreibzugriff(membership)   // KAN-5
   if (!canWrite(membership, 'warenwirtschaft')) throw new AktionsFehler('Keine Schreibberechtigung für die Warenwirtschaft in diesem Betrieb.')
+  await pruefeModul('modul_export')   // KAN-6: Paket-Modul Exportaufträge
   return membership.tenantId
 }
 
