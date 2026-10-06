@@ -297,6 +297,7 @@ export const BSM_ZUORDNUNG: readonly { vorgang: string; code: string; hinweis?: 
   { vorgang: 'Zukauf Trauben (Beleg)', code: 'ZK_TRAUB (Info)', hinweis: `nur in kg, nicht in der Literrechnung (sonst doppelt); Vorschlag ${fmtNum(TRAUBEN_LITER_JE_KG_VORSCHLAG, 1)} l/kg, tatsächliche Menge nach Pressung` },
   { vorgang: 'Pressung zugekaufter Maische', code: 'ZK_MAISC', hinweis: 'wie Trauben: in Liter = tatsächlich gepresster Most, anteilig nach kg (KAN-41)' },
   { vorgang: 'Zukauf Maische (Beleg)', code: 'ZK_MAISC (Info)', hinweis: 'nur in kg, nicht in der Literrechnung; tatsächliche Menge nach Pressung' },
+  { vorgang: 'Traubenverkauf (Beleg)', code: 'TRAUBVK (Info)', hinweis: 'nur in kg, kein Weinbestand – nachrichtlich im Kontrolljournal (KAN-41)' },
   { vorgang: 'Zukauf Wein in eine Charge', code: 'ZK_FASS' },
   { vorgang: 'Zukauf Most', code: 'ZK_MOST' },
   { vorgang: 'Zukauf Flaschen (Handelsware, Weinlager-Artikel aus einem Flaschenzukauf)', code: 'ZK_FLA', hinweis: 'Liter = Anzahl × Flaschengröße (KAN-41)' },
@@ -441,6 +442,8 @@ export type BsmZusatz = {
   verkaufsposten: Map<string, R>
   /** zukauf_posten art 'trauben' bzw. 'maische' (aktiv, KAN-41) */
   traubenZukauf: R[]
+  /** KAN-41 Paket 3c: traubenverkauf (nicht storniert) – Info-Zeilen TRAUBVK in kg */
+  traubenverkauf?: R[]
   /** pressung_weingaerten (Trauben-kg je Pressung, zukauf_posten_id bei zugekauften Trauben/Maische), mit pressung(id, datum) und zukauf(art) */
   pressungWeingaerten?: R[]
   /** exportauftraege (nicht storniert) – Bestimmungsland als Lieferort */
@@ -478,6 +481,19 @@ function ladeTraubenZukauf(supabase: Client, tenantId: string) {
   )
 }
 
+/** KAN-41 Paket 3c: Traubenverkäufe (nicht storniert) – Info-Zeilen in kg */
+function ladeTraubenverkauf(supabase: Client, tenantId: string) {
+  return alle<R>(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from('traubenverkauf') as any)
+      .select('id, datum, menge_kg, qualitaetsstufe, liefernummer, partner_daten, weingarten:weingarten_id(rebsorte), grundstueck:grundstueck_id(rebsorte), zukauf:zukauf_posten_id(rebsorte, weinart), jahrgang:jahrgang_id(jahrgang), kontakt:kontakt_id(vorname, nachname), firma:firma_id(name), verkaufsposten:verkaufsposten_id(storniert)')
+      .eq('tenant_id', tenantId)
+      .is('storniert_am', null)
+      .order('datum')
+      .order('id'),
+  )
+}
+
 /** pressung_weingaerten (Trauben-kg je Pressung, zukauf_posten_id) mit der Pressung */
 function ladePressungWeingaerten(supabase: Client, tenantId: string) {
   // tenant-isolation-ignore: pressung_weingaerten ohne tenant_id, Filter über die Pressung (!inner)
@@ -507,7 +523,7 @@ const JOURNAL_SPALTEN_BSM = 'id, beleg_nr, pos, datum, buchungsart_code, bestand
 
 /** BSM aus dem Bewegungsjournal (KAN-40 E2): Journalzeilen bis „bis“, Traubenbelege (kg) und heutige Abweichungen */
 async function ladeBsmAusJournal(supabase: Client, tenantId: string, z: BsmZeitraum, heute: string, journalAb: string): Promise<BsmDaten> {
-  const [jRes, tzRes, pwRes, kRes] = await Promise.all([
+  const [jRes, tzRes, pwRes, kRes, tvRes] = await Promise.all([
     alle<R>(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('kellerbuch_buchungen') as any)
@@ -521,13 +537,15 @@ async function ladeBsmAusJournal(supabase: Client, tenantId: string, z: BsmZeitr
     ladePressungWeingaerten(supabase, tenantId),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.rpc as any)('journal_konsistenz', { p_tenant_id: tenantId }),
+    ladeTraubenverkauf(supabase, tenantId),
   ])
+  if (tvRes.error) throw new Error(`Laden fehlgeschlagen (traubenverkauf): ${tvRes.error.message}`)
   if (jRes.error) throw new Error(`Laden fehlgeschlagen (kellerbuch_buchungen): ${jRes.error.message}`)
   if (tzRes.error) throw new Error(`Laden fehlgeschlagen (zukauf_posten): ${tzRes.error.message}`)
   if (pwRes.error) throw new Error(`Laden fehlgeschlagen (pressung_weingaerten): ${pwRes.error.message}`)
   const abweichungen = kRes?.error ? null : ((kRes?.data ?? []) as unknown[]).length
   return berechneBsmAusJournal(jRes.data, {
-    verkaufsposten: new Map(), traubenZukauf: tzRes.data, pressungWeingaerten: pwRes.data,
+    verkaufsposten: new Map(), traubenZukauf: tzRes.data, pressungWeingaerten: pwRes.data, traubenverkauf: tvRes.data,
   }, z, heute, { journalAb, abweichungen })
 }
 
@@ -548,7 +566,7 @@ export async function ladeBsm(supabase: Client, tenantId: string, z: BsmZeitraum
     const r = await ladeVerkaufsposten(true)
     return fehlendeSpalte(r.error, VP_LIEFERLAND) ? { ...(await ladeVerkaufsposten(false)), lieferlandErfasst: false } : { ...r, lieferlandErfasst: true }
   }
-  const [g, vpRes, tzRes, pwRes, exRes] = await Promise.all([
+  const [g, vpRes, tzRes, pwRes, exRes, tvRes] = await Promise.all([
     ladeBestandsGrundlage(supabase, tenantId),
     verkaufspostenMitLieferland(),
     ladeTraubenZukauf(supabase, tenantId),
@@ -561,7 +579,9 @@ export async function ladeBsm(supabase: Client, tenantId: string, z: BsmZeitraum
         .is('storniert_am', null)
         .order('id'),
     ),
+    ladeTraubenverkauf(supabase, tenantId),
   ])
+  if (tvRes.error) throw new Error(`Laden fehlgeschlagen (traubenverkauf): ${tvRes.error.message}`)
   if (vpRes.error) throw new Error(`Laden fehlgeschlagen (verkaufsposten): ${vpRes.error.message}`)
   if (tzRes.error) throw new Error(`Laden fehlgeschlagen (zukauf_posten): ${tzRes.error.message}`)
   if (pwRes.error) throw new Error(`Laden fehlgeschlagen (pressung_weingaerten): ${pwRes.error.message}`)
@@ -569,7 +589,7 @@ export async function ladeBsm(supabase: Client, tenantId: string, z: BsmZeitraum
   const verkaufsposten = new Map<string, R>()
   for (const vp of vpRes.data) verkaufsposten.set(vp.id, momentaufnahmeAnwenden(vp, ['kontakt', 'firma']))
   return berechneBsm(g, {
-    verkaufsposten, traubenZukauf: tzRes.data, pressungWeingaerten: pwRes.data, exportauftraege: exRes.data,
+    verkaufsposten, traubenZukauf: tzRes.data, pressungWeingaerten: pwRes.data, exportauftraege: exRes.data, traubenverkauf: tvRes.data,
     lieferlandErfasst: vpRes.lieferlandErfasst,
   }, z, heute)
 }
@@ -1222,6 +1242,26 @@ function traubenInfo(zusatz: BsmZusatz, z: BsmZeitraum, zelle: (m: Merkmale, geb
       ].filter(Boolean).join(' · '),
     })
   }
+  // KAN-41 Paket 3c: Traubenverkauf – nur nachrichtlich in kg (kein Weinbestand, TRAUBVK ist keine BSM-Buchungsart)
+  for (const t of zusatz.traubenverkauf ?? []) {
+    const d = tag(t.datum)
+    if (!d || d < z.von || d > z.bis || (t.verkaufsposten as R | null)?.storniert) continue
+    const kg = zahlOderNull(t.menge_kg) ?? 0
+    if (kg <= 0) continue
+    const rebsorte = textOderNull((t.grundstueck as R | null)?.rebsorte) ?? textOderNull((t.weingarten as R | null)?.rebsorte) ?? textOderNull((t.zukauf as R | null)?.rebsorte)
+    const jahrgang = zahlOderNull((t.jahrgang as R | null)?.jahrgang)
+    const name = `Traubenverkauf ${[rebsorte, jahrgang].filter(Boolean).join(' ')}`.trim()
+    const zl = zelle({ angabe: normalisiereQualitaet(t), weinart: textOderNull((t.zukauf as R | null)?.weinart), rebsorte, jahrgang, land: 'AT' }, 'offen', name)
+    if (!zl) continue
+    const p = momentaufnahmeAnwenden({ ...t }, ['kontakt', 'firma'])
+    zeilen.push({
+      ...zl, datum: d, code: 'TRAUBVK', liter: 0, kg,
+      vorgang: name, charge: null, fuellung: null,
+      gegenstelle: textOderNull((p.firma as R | null)?.name) ?? textOderNull([(p.kontakt as R | null)?.vorname, (p.kontakt as R | null)?.nachname].filter(Boolean).join(' ')),
+      beleg: textOderNull(t.liefernummer), storno: null,
+      hinweis: 'Info: Traubenverkauf in kg – kein Weinbestand, nicht in der Literrechnung',
+    })
+  }
   return { zeilen, traubenKg, maischeKg, nichtGepresst }
 }
 
@@ -1383,6 +1423,8 @@ function bsmAbschliessen(e: BsmAbschluss): BsmDaten {
   if (zkFla > 0) warnungen.push(`${anzahl(zkFla, 'Flaschenzugang', 'Flaschenzugänge')} ohne Charge (weder Abfüllung aus dem Keller noch Eröffnungsbestand) als „Zukauf Flaschen“ gezählt – bitte prüfen.`)
   if (traubenKg > 0 || Math.abs(traubenLiter) >= NULL_UNTER) warnungen.push(`Zukauf Trauben: gezählt ist der Most aus Pressungen zugekaufter Trauben (anteilig nach Trauben-kg) mit ${fmtL(traubenLiter)}${traubenKg > 0 ? `; die Belege im Zeitraum (${fmtNum(traubenKg, 0)} kg, Vorschlag ≈ ${fmtL(l2(traubenKg * TRAUBEN_LITER_JE_KG_VORSCHLAG))} bei ${fmtNum(TRAUBEN_LITER_JE_KG_VORSCHLAG, 1)} l/kg) stehen nur nachrichtlich im Kontrolljournal` : ''}.`)
   if (maischeKg > 0 || Math.abs(maischeLiter) >= NULL_UNTER) warnungen.push(`Zukauf Maische: gezählt ist der Most aus Pressungen zugekaufter Maische (anteilig nach kg) mit ${fmtL(maischeLiter)}${maischeKg > 0 ? `; die Belege im Zeitraum (${fmtNum(maischeKg, 0)} kg) stehen nur nachrichtlich im Kontrolljournal` : ''}.`)
+  const traubenverkaufKg = buchungen.filter(r => r.code === 'TRAUBVK').reduce((s, r) => s + (r.kg ?? 0), 0)
+  if (traubenverkaufKg > 0) warnungen.push(`Traubenverkauf im Zeitraum: ${fmtNum(traubenverkaufKg, 0)} kg – nur nachrichtlich im Kontrolljournal (TRAUBVK), kein Weinbestand.`)
   if (nichtGepresst.length > 0) warnungen.push(`${anzahl(nichtGepresst.length, 'Traubenzukauf ist', 'Traubenzukäufe sind')} bis ${datumAT(z.bis)} nicht (vollständig) gepresst – nur Hinweis, kein Bestand: ${auszug(nichtGepresst)}.`)
   const umstufung = summeCode(UMSTUFUNG_MOST)
   if (Math.abs(umstufung) >= NULL_UNTER) warnungen.push(`Umstufung Most/Sturm → Wein ergibt keinen Saldo 0 (${fmtL(umstufung)}) – Kontrolljournal (Filter ${UMSTUFUNG_MOST}) prüfen.`)

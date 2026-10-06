@@ -418,6 +418,17 @@ export default function FuellungFormClient({
               className={inputCls}
             />
           </div>
+          {/* KAN-41 Paket 3d: unetikettiert abgefüllt (Lagerware) – erst nach „Etikettieren“ verkaufbar */}
+          <div>
+            <label htmlFor="fuellung-unetikettiert" className={labelCls}>davon unetikettiert</label>
+            <input id="fuellung-unetikettiert"
+              name="anzahl_unetikettiert"
+              type="number"
+              min={0}
+              placeholder="0 = alle etikettiert"
+              className={inputCls}
+            />
+          </div>
 
           {/* Berechnete Liter – read-only Anzeige + hidden input */}
           <div>

@@ -759,6 +759,21 @@
 "erstellt_am",
 "verkaufsposten_id"
 ],
+"fuellung_etikettierungen": [
+"id",
+"tenant_id",
+"fuellung_id",
+"datum",
+"menge_stk",
+"notizen",
+"erstellt_von",
+"erstellt_von_name",
+"erstellt_am",
+"storniert_am",
+"storniert_von",
+"storniert_von_name",
+"storno_grund"
+],
 "fuellung_chargen": [
 "id",
 "tenant_id",
@@ -805,7 +820,9 @@
 "erzeugnis",
 "zusatzbezeichnung",
 "land_iso",
-"zukauf_posten_id"
+"zukauf_posten_id",
+"anzahl_unetikettiert",
+"bestand_unetikettiert"
 ],
 "grundstuecke": [
 "id",

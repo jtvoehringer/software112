@@ -22,6 +22,7 @@ import { bewegungsartLabel } from '../../bewegungsarten'
 import FuellungEditFormular from './FuellungEditFormular'
 import SchwundAusbuchenKnopf from './SchwundAusbuchenKnopf'
 import BestandKorrigierenForm from './BestandKorrigierenForm'
+import EtikettierenForm, { EtikettierungStorno } from './EtikettierenForm'
 
 export const metadata: Metadata = { title: 'Füllung bearbeiten – software:112' }
 export const dynamic = 'force-dynamic'
@@ -123,6 +124,21 @@ export default async function EditFuellungPage({
   const anzahlGesperrt = mengenGesperrt || (literGesperrt && f.menge_liter_gefuellt == null)
   const heute = heuteOrtsdatum()
   const abfuelldatum = f.datum ? String(f.datum).slice(0, 10) : null
+
+  // KAN-41 Paket 3d: Etikettierung (nur bei unetikettiert abgefüllten Flaschen)
+  const anzahlUnetikettiert = Number(f.anzahl_unetikettiert) || 0
+  const bestandUnetikettiert = Number(f.bestand_unetikettiert) || 0
+  let etikettierungen: R[] = []
+  if (anzahlUnetikettiert > 0) {
+    // storno-sichtbar: stornierte Etikettierungen bleiben mit Kennzeichen in der Liste
+    const { data: etRaw, error: etErr } = await tf((supabase.from('fuellung_etikettierungen') as R)
+      .select('id, datum, menge_stk, notizen, erstellt_von_name, storniert_am, storno_grund')
+      .eq('fuellung_id', id)
+      .order('datum', { ascending: false })
+      .order('id'))
+    if (etErr) throw new Error(`Etikettierungen konnten nicht geladen werden: ${(etErr as R).message}`)
+    etikettierungen = (etRaw ?? []) as R[]
+  }
   const fuellmenge = f.menge_liter_gefuellt != null
     ? Number(f.menge_liter_gefuellt) || 0
     : ((Number(f.anzahl_flaschen) || 0) * (Number(f.flaschengroesse_ml) || 750)) / 1000
@@ -536,6 +552,46 @@ export default async function EditFuellungPage({
             nachtragen={pruefnummerNachtragen.bind(null, id)} />
         )}
       </section>
+
+      {/* ── KAN-41 Paket 3d: Etikettierung (unetikettiert abgefüllte Flaschen) ── */}
+      {anzahlUnetikettiert > 0 && (
+        <section id="etikettierung" className="card p-5 space-y-4 mt-6 scroll-mt-24">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="font-semibold text-s112-text text-sm">Etikettierung</h2>
+            <p className="text-sm text-s112-text">
+              ohne Etikett <strong className="tabular-nums">{fmtNum(bestandUnetikettiert, 0)}</strong> von {fmtNum(anzahlUnetikettiert, 0)} unetikettiert abgefüllten Flaschen
+            </p>
+          </div>
+          <p className="text-xs text-s112-muted">Unetikettierte Flaschen sind nicht verkaufbar – erst nach dem Etikettieren. Verkaufbar (etikettiert): {fmtNum(Math.max(0, bestand - bestandUnetikettiert), 0)} Flaschen.</p>
+          {bestandUnetikettiert > 0 && !f.storniert_am && (
+            <EtikettierenForm fuellungId={id} bestandUnetikettiert={bestandUnetikettiert} heute={heute} abfuelldatum={abfuelldatum} />
+          )}
+          {etikettierungen.length > 0 && (
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-left text-s112-text-2 border-b border-s112-border">
+                  <th className="py-2 pr-3 font-medium">Datum</th>
+                  <th className="py-2 pr-3 font-medium text-right">Flaschen</th>
+                  <th className="py-2 pr-3 font-medium">Notiz</th>
+                  <th className="py-2 pr-3 font-medium">von</th>
+                  <th className="py-2" />
+                </tr>
+              </thead>
+              <tbody>
+                {etikettierungen.map(e => (
+                  <tr key={e.id} className={`border-b border-s112-border last:border-0 ${e.storniert_am ? 'text-s112-muted line-through' : ''}`}>
+                    <td className="py-2 pr-3 whitespace-nowrap tabular-nums">{datumDe(String(e.datum ?? ''))}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums">{fmtNum(Number(e.menge_stk) || 0, 0)}</td>
+                    <td className="py-2 pr-3">{e.storniert_am ? `Storniert: ${e.storno_grund ?? ''}` : (e.notizen ?? '')}</td>
+                    <td className="py-2 pr-3 whitespace-nowrap">{e.erstellt_von_name ?? '–'}</td>
+                    <td className="py-2 text-right">{!e.storniert_am && <EtikettierungStorno id={e.id} fuellungId={id} />}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </section>
+      )}
 
       {/* ── Flaschenbestand (KAN-35): eigenes Formular AUSSERHALB des Bearbeiten-Formulars ── */}
       <section id="bestand" className="card p-5 space-y-4 mt-6 scroll-mt-24">

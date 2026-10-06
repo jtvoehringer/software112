@@ -28,6 +28,7 @@ import { wienHeute } from '@/lib/csv'
 import { eroeffnungsStichtagFehler, IMPORT_QUELLE_EROEFFNUNG } from '@/lib/kellerbuch/eroeffnungsStichtag'
 import { eroeffnungsVermerk, flaschenFormularWerte, pruefeFlaschenZeilen, type DateiBefund, type FlaschenEingabe } from '@/lib/import/eroeffnungsbestand'
 import { fuellungNameFehler } from '@/lib/handel/partnerPflicht'
+import { etikettierenFehler, unetikettiertFehler } from '@/lib/handel/etikettierung'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -173,6 +174,9 @@ async function fuellungAnlegen(formData: FormData, eroeffnung: FlaschenEroeffnun
     throw new AktionsFehler('Bitte die Kellerbuch-Charge wählen – eine Füllung aus eigener Produktion braucht immer eine Charge. Flaschen ohne Charge (Eröffnungsbestand) bitte über den Import „Eröffnungsbestand Flaschen“ erfassen.')
   }
   const anzahl          = parseInt(dezimal(formData.get('anzahl_flaschen') as string))
+  // KAN-41 Paket 3d: unetikettiert abgefüllte Flaschen (leer = alle etikettiert)
+  const unetikettiertText = String(formData.get('anzahl_unetikettiert') ?? '').trim()
+  const unetikettiert = unetikettiertText ? Number(dezimal(unetikettiertText)) : null
   const flGroesseML     = parseInt(dezimal(formData.get('flaschengroesse_ml') as string)) || 750
   const mengeFormular   = parseFloat(dezimal(formData.get('menge_liter_gefuellt') as string)) || null
   // Falls kein Literfeld ausgefüllt: aus Flaschenzahl berechnen. Auf 2 Stellen gerundet wie
@@ -185,6 +189,8 @@ async function fuellungAnlegen(formData: FormData, eroeffnung: FlaschenEroeffnun
     throw new AktionsFehler('Bitte die Anzahl der gefüllten Flaschen angeben (ganze Zahl größer als 0).')
   }
   if (!(mengeGefuellt > 0)) throw new AktionsFehler('Die abgefüllte Menge muss größer als 0 L sein.')
+  const unetikettiertFehlerText = unetikettiertFehler(unetikettiert == null || Number.isNaN(unetikettiert) ? (unetikettiertText ? Number.NaN : null) : unetikettiert, anzahl)
+  if (unetikettiertFehlerText) throw new AktionsFehler(unetikettiertFehlerText)
   if (!DATUM_RE.test(datum)) throw new AktionsFehler('Bitte ein gültiges Abfülldatum angeben.')
 
   const qualitaetInput     = fuellungQualitaetAusFormular(formData)
@@ -304,6 +310,8 @@ async function fuellungAnlegen(formData: FormData, eroeffnung: FlaschenEroeffnun
     flaschengroesse_ml:   flGroesseML,
     anzahl_flaschen:      anzahl,
     bestand_flaschen:     anzahl,
+    // KAN-41 Paket 3d: davon unetikettiert abgefüllt (bestand_unetikettiert setzt der Trigger a_etikett_bestand)
+    anzahl_unetikettiert: unetikettiert ?? 0,
     menge_liter_gefuellt: mengeGefuellt,
     pruefnummer,          // KAN-72: aus dem geprüften Antrag bzw. geprüfte freie Eingabe
     dac_antrag_id:        dacAntragId,
@@ -504,6 +512,50 @@ export async function pruefnummerNachtragen(fuellungId: string, dacAntragId: str
 }
 
 // Flaschenbestand korrigieren (KAN-35): datierte Bestandsbuchung statt Überschreiben
+
+// ETIKETTIEREN (KAN-41 Paket 3d, 06.10.2026) – unetikettierte Flaschen etikettieren bzw. die Etikettierung stornieren
+export async function fuellungEtikettieren(fuellungId: string, formData: FormData): Promise<void> {
+  const supabase   = await createSupabaseServerClient()
+  const membership = await getMembership()
+  const tenantId   = membership.tenantId
+  pruefeFuellungsRecht(membership)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: fRaw, error: fErr } = await (supabase.from('fuellungen') as any)
+    .select('id, datum, bestand_unetikettiert, storniert_am').eq('id', fuellungId).eq('tenant_id', tenantId).maybeSingle()
+  if (fErr) throw new AktionsFehler(dbFehlerText(fErr, 'Füllung konnte nicht geladen werden'))
+  if (!fRaw) throw new AktionsFehler('Füllung nicht gefunden.')
+  const f = fRaw as AR
+  if (f.storniert_am) throw new AktionsFehler('Die Füllung ist storniert.')
+  const menge = Number(dezimal(String(formData.get('menge_stk') ?? '')))
+  const datum = String(formData.get('datum') ?? '').slice(0, 10) || wienHeute()
+  const fehler = etikettierenFehler({ menge: Number.isFinite(menge) ? menge : null, bestandUnetikettiert: Number(f.bestand_unetikettiert) || 0,
+    datum, heute: wienHeute(), abfuelldatum: f.datum ? String(f.datum).slice(0, 10) : null })
+  if (fehler) throw new AktionsFehler(fehler)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any).rpc('s112_fuellung_etikettieren', {
+    p_tenant_id: tenantId, p_fuellung_id: fuellungId, p_datum: datum, p_menge_stk: menge,
+    p_notizen: String(formData.get('notizen') ?? '').trim() || null,
+  })
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Etikettierung konnte nicht gebucht werden'))
+  revalidatePath(`/weinhandel/fuellungen/${fuellungId}/edit`)
+  revalidatePath('/weinhandel')
+}
+
+export async function etikettierungStornieren(etikettierungId: string, fuellungId: string, grund: string): Promise<void> {
+  const supabase   = await createSupabaseServerClient()
+  const membership = await getMembership()
+  const tenantId   = membership.tenantId
+  pruefeFuellungsRecht(membership)
+  const grundFehler = stornoGrundFehler(grund)
+  if (grundFehler) throw new AktionsFehler(grundFehler)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any).rpc('s112_etikettierung_stornieren', {
+    p_tenant_id: tenantId, p_id: etikettierungId, p_grund: grund.trim(),
+  })
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Etikettierung konnte nicht storniert werden'))
+  revalidatePath(`/weinhandel/fuellungen/${fuellungId}/edit`)
+  revalidatePath('/weinhandel')
+}
 
 export async function bestandKorrigieren(fuellungId: string, formData: FormData): Promise<{ bestand: number }> {
   const supabase   = await createSupabaseServerClient()

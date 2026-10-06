@@ -51,7 +51,7 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
     { data: tvRaw },
   ] = await Promise.all([
     alle(tf((supabase.from('fuellungen') as any)
-      .select('id, name, jahrgang, rebsorte, qualitaet, zusatzbezeichnung, erzeugnis, anbaugebiet, bezeichnung, datum, flaschengroesse_ml, anzahl_flaschen, bestand_flaschen, vk_preis_brutto, einstandspreis, aktiv, zukauf_posten_id')
+      .select('id, name, jahrgang, rebsorte, qualitaet, zusatzbezeichnung, erzeugnis, anbaugebiet, bezeichnung, datum, flaschengroesse_ml, anzahl_flaschen, bestand_flaschen, vk_preis_brutto, einstandspreis, aktiv, zukauf_posten_id, bestand_unetikettiert')
       .eq('aktiv', true)
       .order('datum', { ascending: false }).order('id'))),
     alle(tf((supabase.from('weinausbau') as any)
@@ -241,6 +241,10 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
                         {f.zukauf_posten_id && (
                           <span className="ml-2 text-[10px] uppercase tracking-wide bg-s112-bg border border-s112-border text-s112-muted rounded-full px-2 py-0.5"
                             title="Zugekaufte Flaschen (KAN-41) – im Kellerbuch als Zukauf Flaschen gebucht">Handelsware</span>
+                        )}
+                        {Number(f.bestand_unetikettiert) > 0 && (
+                          <span className="ml-2 text-[10px] uppercase tracking-wide bg-s112-warn-bg border border-s112-warn/30 text-s112-warn-fg rounded-full px-2 py-0.5"
+                            title="Unetikettiert abgefüllt (KAN-41) – erst nach dem Etikettieren verkaufbar">{fmtNum(Number(f.bestand_unetikettiert), 0)} ohne Etikett</span>
                         )}
                         <div className="text-xs text-s112-muted mt-0.5 flex gap-2">
                           {f.jahrgang    && <span>{f.jahrgang}</span>}
