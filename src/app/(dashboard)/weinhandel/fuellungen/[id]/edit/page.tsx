@@ -206,6 +206,18 @@ export default async function EditFuellungPage({
       <h1 className="text-2xl font-semibold text-s112-text mb-1">Füllung bearbeiten</h1>
       <p className="text-sm text-s112-muted mb-6">{f.name}</p>
 
+      {/* ── KAN-216: E-Label (Zutaten, Nährwerte) ── */}
+      {!f.storniert_am && (
+        <Link href={`/weinhandel/fuellungen/${id}/elabel`}
+          className="card p-4 mb-2 flex items-center justify-between gap-3 hover:bg-s112-bg/50 transition-colors">
+          <span>
+            <span className="block font-semibold text-s112-text text-sm">E-Label</span>
+            <span className="block text-xs text-s112-muted">Zutatenliste, Nährwerte je 100 ml und Etikettangaben (EU-Weinkennzeichnung)</span>
+          </span>
+          <span className="text-xs text-s112-blue-700">Öffnen →</span>
+        </Link>
+      )}
+
       {/* ── Weinpass / QR-Code ── */}
       {f.chargennummer && (
         <div className="card p-5 flex gap-5 items-start mb-2">

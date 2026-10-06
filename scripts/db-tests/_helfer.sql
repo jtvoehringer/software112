@@ -995,6 +995,8 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('ea_monatsabschluss',            'SA,TA{ea}',                              '-{ea}',                                  '-{ea}'),   -- KAN-149 D3: Abschluss unveränderlich
     ('ea_transaktionen',              'SA,TA,W*{ea}',                           'SA,TA,W*{ea}',                           '-{ea}'),   -- KAN-149 D3
     ('ea_uva',                        'SA,TA,W*{ea}',                           'SA,TA,W*{ea}',                           'SA,TA,W*{ea}'),
+    ('elabel_zutaten',                'PA',                                     'PA',                                     'PA'),   -- KAN-216: globaler E-Label-Katalog
+    ('elabels',                       'SA,TA,W*{kellerbuch|warenwirtschaft}',   'SA,TA,W*{kellerbuch|warenwirtschaft}',   'SA,TA,W*{kellerbuch|warenwirtschaft}'),   -- KAN-216 (freigegeben gesperrt: a_freeze)
     ('email_lead_ignoriert',          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}'),
     ('ernte_parzellen',               'SA,TA,W*{rieden|kellerbuch}',            'SA,TA,W*{rieden|kellerbuch}',            '-{rieden|kellerbuch}'),   -- KAN-148 C1d
     ('export_dokumente',              'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              '-{warenwirtschaft}'),   -- KAN-150 F2a (löschen nur über s112_storniert_loeschen)
@@ -1131,7 +1133,7 @@ BEGIN
       'profiles.profiles: insert own', 'profiles.profiles: update own',
       'rebsorten.rebsorten: everyone can read', 'release_notes_gesehen.rng_own', 'svs_parameter.svsp_select']
     WHEN 'g_tabellen' THEN ARRAY[
-      'crm_freigaben', 'keller_freigaben', 'plattform_admins', 'profiles', 'rebsorten', 'release_notes', 'release_notes_gesehen',
+      'crm_freigaben', 'elabel_zutaten', 'keller_freigaben', 'plattform_admins', 'profiles', 'rebsorten', 'release_notes', 'release_notes_gesehen',
       'svs_parameter', 'tenants',
       'kat_buchungsart', 'kat_erzeugnis', 'kat_farbe', 'kat_land', 'kat_qualitaetsstufe', 'katalog_mapping']   -- KAN-39
     -- KAN-145 B4: Tabellen mit Löschsperre (a_loeschsperre) = "scharf" in scripts/storno-tabellen.json (Test check-storno)
@@ -1158,7 +1160,7 @@ BEGIN
       -- KAN-167: Betriebsmittel (Stammdaten: Löschen/TRUNCATE, aktiv; Lagerbuchungen: Ändern, Storno, Löschen, TRUNCATE)
       'betriebsmittel', 'betriebsmittel_lager_bewegungen']
     WHEN 'abo_ausnahmen' THEN ARRAY[
-      'benachrichtigungen', 'crm_freigaben', 'keller_freigaben', 'plattform_admins', 'profiles', 'rebsorten', 'release_notes',
+      'benachrichtigungen', 'crm_freigaben', 'elabel_zutaten', 'keller_freigaben', 'plattform_admins', 'profiles', 'rebsorten', 'release_notes',
       'release_notes_gesehen', 'svs_parameter', 'system_ereignisse', 'tenant_memberships', 'user_email_connections',
       'kat_buchungsart', 'kat_erzeugnis', 'kat_farbe', 'kat_land', 'kat_qualitaetsstufe', 'katalog_mapping']   -- KAN-39: globale Kataloge
     WHEN 'abo_status_gesperrt' THEN ARRAY['unpaid', 'canceled', 'cancelled', 'incomplete', 'incomplete_expired', 'paused']
@@ -1205,7 +1207,8 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('intern',        '--S', false, 's112_mandant_loeschen(p_tenant_id uuid, p_bestaetigung text)'),   -- KAN-151 G1: Mandanten-Löschung (nur Service-Role)
     ('trigger',       '--S', false, 'bestandsprotokoll_schreiben()'),
     ('trigger',       '--S', false, 's112_fremdverweis_pruefen()'),
-    ('trigger',       '--S', false, 's112_freeze()'),   -- KAN-96: generischer Freeze-Trigger
+    ('trigger',       '--S', false, 's112_freeze()'),
+    ('trigger',       '--S', false, 's112_elabel_pruefen()'),   -- KAN-216: Zutatenliste aus dem Katalog, Kennung unveränderlich, Freigabe stempeln   -- KAN-96: generischer Freeze-Trigger
     ('trigger',       '--S', false, 's112_tb_stempel()'),   -- KAN-209: Zeitpunkt/Benutzer beim Ausstellen der Transportbescheinigung
     ('trigger',       '--S', false, 's112_behandlung_erfassung()'),   -- KAN-87: erfasst am/von stempeln, Anwender = Mitglied
     ('trigger',       '--S', false, 's112_pn_workflow_schutz()'),
