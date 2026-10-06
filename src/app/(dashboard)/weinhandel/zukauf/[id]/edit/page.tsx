@@ -23,7 +23,7 @@ export default async function ZukaufEditPage({ params }: { params: Promise<{ id:
     .select(`
       id, datum, art, menge, einheit, preis_gesamt, einstandspreis_pro_liter,
       rebsorte, jahrgang, notizen, weinart, eingangsrechnungsnummer,
-      lieferung_uhrzeit, transport_zugmaschine, transport_anhaenger1, transport_anhaenger2,
+      lieferung_uhrzeit, transport_zugmaschine, transport_anhaenger1, transport_anhaenger2, tbs_nummer_lieferant, tbs_jahr_lieferant,
       herkunft, anreicherung, kmw, oechsle, mostgewicht_einheit, alkohol_pct, qualitaetsstufe, zusatzbezeichnung, erzeugnis, land_iso, staatliche_pruefnummer,
       lieferant_kontakt_id, lieferant_firma_id, ziel_weinausbau_id,
       lieferant_kontakt:kontakte!lieferant_kontakt_id(id, vorname, nachname),
@@ -82,6 +82,8 @@ export default async function ZukaufEditPage({ params }: { params: Promise<{ id:
         notizen:                  z.notizen ?? '',
         lieferung_uhrzeit:        z.lieferung_uhrzeit ?? '',
         transport_zugmaschine:    z.transport_zugmaschine ?? '',
+        tbs_nummer_lieferant:     z.tbs_nummer_lieferant ?? '',
+        tbs_jahr_lieferant:       z.tbs_jahr_lieferant != null ? String(z.tbs_jahr_lieferant) : '',
         transport_anhaenger1:     z.transport_anhaenger1 ?? '',
         transport_anhaenger2:     z.transport_anhaenger2 ?? '',
         // KAN-80 Nachtrag (02.10.2026): Code bzw. eigenes Gebiet unverändert, Freitext-Altwert nur, wenn eindeutig

@@ -134,9 +134,9 @@ const POSTEN = {
   kontakt: null,
   firma: { name: 'Heuriger Huber; Wien', telefon: '01 234', strasse: 'Hauptstraße 5a', plz: '1190', ort: 'Wien', betrieb_nr: '7654321' },
   positionen: [
-    { id: 'p1', typ: 'tank', name: 'ZW Tank', menge: 1500.5, einheit: 'l', weinausbau: { id: WA1, name: 'ZW 2025', jahrgang: 2025, qualitaetsstufe: 'Qualitätswein', rebsorte: 'Zweigelt', weinart: 'rot' } },
+    { id: 'p1', typ: 'tank', name: 'ZW Tank', menge: 1500.5, einheit: 'l', weinausbau: { id: WA1, name: 'ZW 2025', jahrgang: 2025, qualitaetsstufe: 'Qualitätswein', rebsorte: 'Zweigelt', weinart: 'rot', herkunft_code: 'weinviertel_dac' } },
     { id: 'p2', typ: 'flasche', name: 'GV Klassik', menge: 7, einheit: 'Stk', fuellung: { id: 'f1', name: 'GV', jahrgang: 2025, qualitaet: 'Qualitätswein', rebsorte: 'Grüner Veltliner', anbaugebiet: 'Weinviertel', flaschengroesse_ml: 375, pruefnummer: null, dac_antrag_id: 'dac-f1' } },
-    { id: 'p3', typ: 'trauben', name: 'Trauben', menge: 1200, einheit: 'kg', traubenverkauf: { id: 't1', datum: '2026-09-10', kmw_grad: 18.5, qualitaetsstufe: 'Qualitätswein', herkunft_code: 'WV', grundstueck: { rebsorte: 'Blaufränkisch' } } },
+    { id: 'p3', typ: 'trauben', name: 'Trauben', menge: 1200, einheit: 'kg', traubenverkauf: { id: 't1', datum: '2026-09-10', kmw_grad: 18.5, qualitaetsstufe: 'Qualitätswein', herkunft_code: null, grundstueck: { rebsorte: 'Blaufränkisch', trauben_herkunft_code: 'wlnoe' } } },
     { id: 'p4', typ: 'sonstiges', name: 'Karton', menge: 1 },
   ],
 }
@@ -205,6 +205,9 @@ describe('transportbescheinigung', () => {
     assert.equal(f.v_strasse, 'Kellergasse')
     assert.equal(f.v_hausnr, '12')
     assert.deepEqual([f.datum_tag, f.datum_monat, f.datum_jahr], ['24', '09', '2026'])
+    // KAN-90 (R16): Herkunft als amtliches Kürzel aus Charge, Füllung bzw. Traubenlieferung (GST „wlnoe“ → WLNO), nie der Betriebsort
+    assert.deepEqual([tank.herkunft, flasche.herkunft, trauben.herkunft], ['WLWV', 'WLWV', 'WLNO'])
+    assert.ok(f.positionen.every(p => p.herkunft !== CFG.betrieb_ort))
     assert.deepEqual(hinweise, [])
   })
 
@@ -234,6 +237,10 @@ describe('transportbescheinigung', () => {
     assert.deepEqual([rm.art, rm.traubensorte], ['Weiß', 'Rosenmuskateller (RM)'])
     assert.deepEqual([zw.art, zw.traubensorte], ['Rot', 'Zweigelt (ZW)'])           // früher leer und „Weiß“
     assert.deepEqual([uh.art, uh.traubensorte], ['Weiß', 'Uhudler'])                // früher „Uhudler (UHUD)“
+    // KAN-90: ohne Herkunft an Lieferung, Grundstück, Ried bzw. Zukauf je Position ein Herkunfts-Hinweis (kein Betriebsort)
+    assert.deepEqual([rm.herkunft, zw.herkunft, uh.herkunft], ['', '', ''])
+    assert.equal(hinweise.filter(h => /Herkunft/.test(h)).length, 3)
+    hinweise.splice(0, hinweise.length, ...hinweise.filter(h => !/Herkunft/.test(h)))
     assert.equal(hinweise.length, 2)
     assert.match(hinweise[0], /^Position 1: Farbe .* nicht bestimmbar \(Rebsorte „Rosenmuskateller“ hat laut BKI-Kürzelliste keine eindeutige Farbe\) – „Weiß“ vorbelegt, bitte prüfen$/)
     assert.match(hinweise[1], /^Position 3: .*„Uhudler“/)

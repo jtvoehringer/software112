@@ -25,6 +25,7 @@ import { ohneStornierteVerschnitte } from '@/lib/kellerbuch/stornoFilter'
 import { zukaufLieferantFehler, ZUKAUF_MERKMALE } from '@/lib/handel/partnerPflicht'
 import { ladePartner } from '@/lib/handel/partnerLaden'
 import { bkiFarbe } from '@/lib/wein/bki_kuerzel'
+import { tbsLieferantFehler, tbsLieferantSpalten } from '@/lib/handel/tbsNummer'
 import {
   folgebuchungenDerZielcharge, zielchargeText, zukaufVerweise, traubenGebundenText, loeschSperreText,
 } from './sperren'
@@ -177,6 +178,9 @@ function parseZukaufFormData(formData: FormData) {
   // uebermittelt = false (Feld nicht im Formular, z. B. Art Wein): gespeicherte Werte bleiben.
   const mg = mostgewichtAusFormular(formData, 'mostgewicht', { altesFeld: 'kmw' })
   if (!mg.ok) throw new AktionsFehler(mg.fehler)
+  // KAN-90: Transportschein-Nr. des Lieferanten (Nummer und Jahr)
+  const tbsFehler = tbsLieferantFehler(formData.get('tbs_nummer_lieferant'), formData.get('tbs_jahr_lieferant'))
+  if (tbsFehler) throw new AktionsFehler(tbsFehler)
   return {
     datum,
     lieferungUhrzeit:    (formData.get('lieferung_uhrzeit')        as string)?.trim() || null,
@@ -187,6 +191,7 @@ function parseZukaufFormData(formData: FormData) {
     // bewusst unangetastet (Lieferant-Zuordnung ist nach dem Anlegen nicht mehr änderbar).
     zhKontaktId:         (formData.get('zh_kontakt_id')            as string) || null,
     eingangsrechnungsnummer: (formData.get('eingangsrechnungsnummer') as string)?.trim() || null,
+    tbs: tbsLieferantSpalten(formData.get('tbs_nummer_lieferant'), formData.get('tbs_jahr_lieferant')),
     zugmaschine:         (formData.get('transport_zugmaschine')    as string)?.trim() || null,
     anhaenger1:          (formData.get('transport_anhaenger1')     as string)?.trim() || null,
     anhaenger2:          (formData.get('transport_anhaenger2')     as string)?.trim() || null,
@@ -408,6 +413,7 @@ export async function createZukauf(formData: FormData): Promise<{ bestaetigung?:
       lieferant_firma_id:       f.lieferantFirmaId   || null,
       zh_kontakt_id:            f.lieferantFirmaId ? (f.zhKontaktId || null) : null,
       eingangsrechnungsnummer: f.eingangsrechnungsnummer,
+      ...f.tbs,
       transport_zugmaschine:    f.zugmaschine,
       transport_anhaenger1:     f.anhaenger1,
       transport_anhaenger2:     f.anhaenger2,
@@ -631,6 +637,7 @@ export async function updateZukauf(id: string, formData: FormData) {
       lieferant_kontakt_id:     f.lieferantKontaktId || null,
       lieferant_firma_id:       f.lieferantFirmaId   || null,
       eingangsrechnungsnummer: f.eingangsrechnungsnummer,
+      ...f.tbs,
       transport_zugmaschine:    f.zugmaschine,
       transport_anhaenger1:     f.anhaenger1,
       transport_anhaenger2:     f.anhaenger2,

@@ -9,6 +9,13 @@ import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { stornoGrundFehler } from '@/lib/storno/grund'
 import { alle } from '@/lib/supabase/alle'
 import { naechsteTbNummer, tbNummerVergeben, tbPflichtFehler } from '@/lib/behoerden/tbPflicht'
+import { tbsDuplikatText } from '@/lib/handel/tbsNummer'
+
+/** KAN-90: Duplikat der TBS-Nr. im selben Jahr (UNIQUE transportbescheinigungen_tbs_nummer_uq) verständlich melden */
+function speicherFehler(e: R, daten: R): AktionsFehler {
+  if (e?.code === '23505' && String(e?.message ?? '').includes('tbs_nummer')) return new AktionsFehler(tbsDuplikatText(daten?.laufende_nr, daten?.jahr))
+  return new AktionsFehler(dbFehlerText(e, 'Speichern fehlgeschlagen (transportbescheinigungen)'))
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -49,7 +56,7 @@ export async function saveTB(verkaufspostenId: string, daten: R): Promise<{ id: 
       .update({ formular_daten: daten, aktualisiert_am: new Date().toISOString() })
       .eq('id', existing.id)
       .eq('tenant_id', tenantId)
-    if (e) throw new AktionsFehler(dbFehlerText(e, 'Speichern fehlgeschlagen (transportbescheinigungen)'))
+    if (e) throw speicherFehler(e, daten)
     revalidatePath(`/weinhandel/verkauf/${verkaufspostenId}/transportbescheinigung`)
     return { id: existing.id }
   }
@@ -58,7 +65,7 @@ export async function saveTB(verkaufspostenId: string, daten: R): Promise<{ id: 
   const { data: neu, error } = await (supabase.from('transportbescheinigungen') as any)
     .insert({ tenant_id: tenantId, verkaufsposten_id: verkaufspostenId, formular_daten: daten })
     .select('id').single()
-  if (error) throw new AktionsFehler(dbFehlerText(error, 'Speichern fehlgeschlagen (transportbescheinigungen)'))
+  if (error) throw speicherFehler(error, daten)
   revalidatePath(`/weinhandel/verkauf/${verkaufspostenId}/transportbescheinigung`)
   return { id: (neu as R).id }
 }
@@ -101,15 +108,16 @@ export async function tbAusstellen(verkaufspostenId: string, daten: R): Promise<
   const fehlt = tbPflichtFehler(daten, { nummerWirdVergeben: !nummerEingabe })
   if (fehlt.length > 0) throw new AktionsFehler(`Zum Ausstellen fehlen noch: ${fehlt.join('; ')}.`)
 
-  // Laufende Nummern des Jahres (ausgestellt, nicht storniert, andere Verkäufe)
+  // Laufende Nummern des Jahres (nicht storniert, andere Verkäufe – KAN-90: auch Entwürfe mit Nummer, die DB lehnt
+  // ein Duplikat ab; Spalten tbs_nummer/tbs_jahr leitet der Trigger aus dem Formular ab)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase-Typen ohne Tabellenschema (Konvention)
   const { data: vorhandene, error: vErr } = await alle<R>((supabase.from('transportbescheinigungen') as any)
-    .select('id, verkaufsposten_id, formular_daten')
-    .eq('tenant_id', tenantId).eq('status', 'ausgestellt').is('storniert_am', null).order('id'))
+    .select('id, verkaufsposten_id, tbs_nummer')
+    .eq('tenant_id', tenantId).eq('tbs_jahr', Number(jahr)).not('tbs_nummer', 'is', null).is('storniert_am', null).order('id'))
   if (vErr) throw new AktionsFehler(dbFehlerText(vErr, 'Laufende Nummern konnten nicht geprüft werden'))
   const imJahr = ((vorhandene ?? []) as R[])
-    .filter(t => t.verkaufsposten_id !== verkaufspostenId && String((t.formular_daten as R | null)?.jahr ?? '').trim() === jahr)
-    .map(t => String((t.formular_daten as R | null)?.laufende_nr ?? ''))
+    .filter(t => t.verkaufsposten_id !== verkaufspostenId)
+    .map(t => String(t.tbs_nummer ?? ''))
   const laufendeNr = nummerEingabe || naechsteTbNummer(imJahr)
   if (nummerEingabe && tbNummerVergeben(nummerEingabe, imJahr)) {
     throw new AktionsFehler(`Die laufende Nummer ${nummerEingabe}/${jahr} ist bereits vergeben – bitte eine andere eintragen oder das Feld leer lassen (dann wird die nächste vergeben).`)

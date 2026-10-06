@@ -88,7 +88,7 @@ export function verschnitteRpc(t, { p_tenant_id, p_buchungen }) {
 
 // ── KAN-193: s112_zukauf_buchen ────────────────────────────────────────────────────────────────────────────────────
 const ZUKAUF = ['datum', 'lieferung_uhrzeit', 'art', 'lieferant_kontakt_id', 'lieferant_firma_id', 'zh_kontakt_id',
-  'eingangsrechnungsnummer', 'transport_zugmaschine', 'transport_anhaenger1', 'transport_anhaenger2', 'weinart', 'rebsorte',
+  'eingangsrechnungsnummer', 'tbs_nummer_lieferant', 'tbs_jahr_lieferant', 'transport_zugmaschine', 'transport_anhaenger1', 'transport_anhaenger2', 'weinart', 'rebsorte',
   'qualitaetsstufe', 'zusatzbezeichnung', 'erzeugnis', 'land_iso', 'jahrgang', 'herkunft', 'anreicherung', 'kmw', 'oechsle',
   'mostgewicht_einheit', 'alkohol_pct', 'staatliche_pruefnummer', 'menge', 'einheit', 'preis_gesamt', 'einstandspreis_pro_liter', 'notizen']
 const ZK_CHARGE = ['name', 'rebsorte', 'behaelter_id', 'jahrgang', 'menge_liter', 'einstandspreis_pro_liter', 'weinart',

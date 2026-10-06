@@ -17,10 +17,10 @@
 import { momentaufnahmeAnwenden } from '../stammdaten/momentaufnahme'
 import { STELLEN, runden, wienHeute, type CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
-import { bkiFarbe, formatRebsorteMitKuerzel, sortenKuerzel } from '@/lib/wein/bki_kuerzel'
+import { bkiFarbe, formatRebsorteMitKuerzel, herkunftPruefen, sortenKuerzel } from '@/lib/wein/bki_kuerzel'
 import { bestandVorVerkauf, ersatzPruefnummer, pnDatumDe, pnTag, pruefnummerGueltig, pruefnummerHinweis, type PnAntrag, type PnChargeDaten } from '@/lib/kellerbuch/pruefnummer'
 import { antragAusZeile, chargenDerAntraege, ladePruefnummerDaten, PN_ANTRAG_SELECT } from '@/lib/kellerbuch/pruefnummerLaden'
-import { rebsorteDerLieferung } from './traubenverkauf'
+import { herkunftDerLieferung, rebsorteDerLieferung } from './traubenverkauf'
 import { mostgewichtAusGespeichert } from '@/lib/wein/mostgewichtFormular'
 import { qualitaetAnzeigeOderNull } from '@/lib/wein/qualitaet'
 import { tbAlkoholGehalt, tbMostgewichtFelder, tbPositionMostgewicht } from './tbMostgewicht'
@@ -235,6 +235,33 @@ function farbHinweis(nr: number, rebsorte: unknown): string {
   return `Position ${nr}: Farbe (Rot/Weiß/Rosé) nicht bestimmbar${grund} – „Weiß“ vorbelegt, bitte prüfen`
 }
 
+/**
+ * KAN-90 (R16): Herkunft einer Position als amtliches BKI-Kürzel (herkunftPruefen) – es zählt die erste Quelle mit
+ * einem Wert; ist sie nicht abbildbar oder fehlt jede, bleibt das Feld leer mit Hinweis. Nie der Betriebsort (vorher
+ * Ersatzwert) – die Herkunft ist Pflicht beim Ausstellen (tbPflichtFehler) und muss dann bewusst eingetragen werden.
+ */
+function herkunftPosition(nr: number, quellen: [string, unknown][], hinweise: string[]): string {
+  const erste = quellen.find(([, w]) => feld(w) !== '')
+  if (!erste) {
+    hinweise.push(`Position ${nr}: Herkunft nicht erfasst (${quellen.map(([q]) => q).join(', ')}) – bitte das amtliche Kürzel eintragen`)
+    return ''
+  }
+  const p = herkunftPruefen(feld(erste[1]), erste[0])
+  if (!p.kuerzel) hinweise.push(`Position ${nr}: ${p.grund} – Feld leer gelassen, bitte das amtliche Kürzel eintragen`)
+  return p.kuerzel
+}
+
+/** Traubenposition: Herkunft wie im BKI-Datenblatt (herkunftDerLieferung: Lieferung → Grundstück → Ried → Zukauf) */
+function herkunftTrauben(nr: number, tv: R | null, hinweise: string[]): string {
+  if (!tv) {
+    hinweise.push(`Position ${nr}: Herkunft nicht erfasst (keine Traubenlieferung verknüpft) – bitte das amtliche Kürzel eintragen`)
+    return ''
+  }
+  const h = herkunftDerLieferung(tv)
+  if (h.hinweis) hinweise.push(`Position ${nr}: ${h.hinweis}`)
+  return h.kuerzel ?? ''
+}
+
 export type TBPruefnummern = {
   /** Prüfnummern-Daten je Charge – Tankposition: pruefnummerGueltig am Verkaufsdatum; Charge einer Füllung: Zugänge für ersatzPruefnummer */
   jeWeinausbau: Record<string, PnChargeDaten>
@@ -298,7 +325,7 @@ export function tbVorbelegung(posten: R, cfg: R, pn: TBPruefnummern, heute: stri
         traubensorte:    wa?.rebsorte ? formatRebsorteMitKuerzel(wa.rebsorte) : '',
         qualitaetsstufe: wa ? qualitaetAnzeigeOderNull(wa) ?? '' : '',   // KAN-186: Stufe + Zusatzbezeichnung/Erzeugnis
         jahrgang:        wa?.jahrgang ? String(wa.jahrgang) : '',
-        herkunft:        feld(cfg.betrieb_ort),
+        herkunft:        herkunftPosition(nr, [['Charge', wa?.herkunft_code]], hinweise),
         pruefnummer:     e?.gueltig ? (e.pruefnummer ?? '') : '',
         alkohol_pct:     '',   // KAN-131: °KMW in eigener Spalte (Mostgewicht unten)
         ...tbMostgewichtFelder(most),
@@ -337,7 +364,7 @@ export function tbVorbelegung(posten: R, cfg: R, pn: TBPruefnummern, heute: stri
         traubensorte:    f?.rebsorte ? formatRebsorteMitKuerzel(f.rebsorte) : '',
         qualitaetsstufe: f ? qualitaetAnzeigeOderNull(f) ?? '' : '',   // KAN-186: Stufe + Zusatzbezeichnung/Erzeugnis
         jahrgang:        f?.jahrgang ? String(f.jahrgang) : '',
-        herkunft:        feld(f?.anbaugebiet) || feld(cfg.betrieb_ort),
+        herkunft:        herkunftPosition(nr, [['Füllung', f?.herkunft_code], ['Anbaugebiet der Füllung', f?.anbaugebiet]], hinweise),
         pruefnummer:     pruef,
       }
     }
@@ -361,7 +388,7 @@ export function tbVorbelegung(posten: R, cfg: R, pn: TBPruefnummern, heute: stri
       traubensorte:    rebsorte ? formatRebsorteMitKuerzel(rebsorte) : '',
       qualitaetsstufe: feld(tv?.qualitaetsstufe),
       jahrgang:        lieferjahr,
-      herkunft:        feld(tv?.herkunft_code) || feld(cfg.betrieb_ort),
+      herkunft:        herkunftTrauben(nr, tv, hinweise),
       alkohol_pct:     '',   // KAN-131: °KMW in eigener Spalte (Mostgewicht unten)
       ...tbMostgewichtFelder(most),
     }
@@ -519,9 +546,9 @@ const POSTEN_SELECT = `
   firma:firmen(name, telefon, strasse, plz, ort, betrieb_nr),
   positionen:verkauf_positionen(
     id, typ, name, menge, einheit,
-    weinausbau:weinausbau(id, name, jahrgang, qualitaetsstufe, zusatzbezeichnung, erzeugnis, rebsorte, weinart, status, kmw, oechsle, mostgewicht_einheit),
-    fuellung:fuellungen(id, name, jahrgang, qualitaet, zusatzbezeichnung, erzeugnis, rebsorte, anbaugebiet, flaschengroesse_ml, datum, pruefnummer, dac_antrag_id, weinausbau_id),
-    traubenverkauf:traubenverkauf(id, storniert_am, datum, kmw_grad, oechsle, mostgewicht_einheit, qualitaetsstufe, herkunft_code, grundstueck:grundstueck_id(rebsorte), weingarten:weingarten_id(rebsorte), zukauf:zukauf_posten_id(rebsorte))
+    weinausbau:weinausbau(id, name, jahrgang, qualitaetsstufe, zusatzbezeichnung, erzeugnis, rebsorte, weinart, status, kmw, oechsle, mostgewicht_einheit, herkunft_code),
+    fuellung:fuellungen(id, name, jahrgang, qualitaet, zusatzbezeichnung, erzeugnis, rebsorte, anbaugebiet, herkunft_code, flaschengroesse_ml, datum, pruefnummer, dac_antrag_id, weinausbau_id),
+    traubenverkauf:traubenverkauf(id, storniert_am, datum, kmw_grad, oechsle, mostgewicht_einheit, qualitaetsstufe, herkunft_code, grundstueck:grundstueck_id(rebsorte, trauben_herkunft_code), weingarten:weingarten_id(rebsorte, trauben_herkunft_code, grundstuecke(trauben_herkunft_code)), zukauf:zukauf_posten_id(rebsorte, herkunft))
   )
 `
 

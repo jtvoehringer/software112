@@ -60,6 +60,8 @@ export default function ZukaufNeuPage() {
 
   // ── Transportmittel ───────────────────────────────────────────────────────
   const [zugmaschine,  setZugmaschine]  = useState('')
+  const [tbsNummer,    setTbsNummer]    = useState('')
+  const [tbsJahr,      setTbsJahr]      = useState(String(new Date().getFullYear()))
   const [anhaenger1,   setAnhaenger1]   = useState('')
   const [anhaenger2,   setAnhaenger2]   = useState('')
 
@@ -145,6 +147,8 @@ export default function ZukaufNeuPage() {
     fd.set('zh_kontakt_id',           lieferantZh)
     fd.set('eingangsrechnungsnummer', eingangsrechnungsnummer)
     fd.set('transport_zugmaschine',   zugmaschine)
+    fd.set('tbs_nummer_lieferant',    tbsNummer)
+    fd.set('tbs_jahr_lieferant',      tbsNummer.trim() ? tbsJahr : '')
     fd.set('transport_anhaenger1',    anhaenger1)
     fd.set('transport_anhaenger2',    anhaenger2)
     fd.set('weinart',                 weinart)
@@ -328,6 +332,19 @@ export default function ZukaufNeuPage() {
               <input aria-label="2. Anhänger" type="text" value={anhaenger2} onChange={e => setAnhaenger2(e.target.value)}
                 placeholder="Kennzeichen"
                 className={inputCls + ' w-full'} />
+            </div>
+          </div>
+          {/* KAN-90: Transportschein-Nr. des Lieferanten – erscheint in Liste, Suche und im Weinbuch der Ziel-Charge */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="col-span-2">
+              <label className={labelCls}>Transportschein-Nr. (TBS) des Lieferanten</label>
+              <input aria-label="Transportschein-Nr. des Lieferanten" type="text" value={tbsNummer} onChange={e => setTbsNummer(e.target.value)}
+                maxLength={30} placeholder="laufende Nummer lt. Transportbescheinigung" className={inputCls + ' w-full'} />
+            </div>
+            <div>
+              <label className={labelCls}>Jahr</label>
+              <input aria-label="Jahr der Transportschein-Nr." type="text" inputMode="numeric" value={tbsJahr} onChange={e => setTbsJahr(e.target.value)}
+                maxLength={4} placeholder="JJJJ" className={inputCls + ' w-full'} />
             </div>
           </div>
         </div>
