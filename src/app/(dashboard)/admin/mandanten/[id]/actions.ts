@@ -8,6 +8,7 @@ import { encryptPass } from '@/lib/email/crypto'
 import { geheimSpeichern, geheimFeld } from '@/lib/email/geheimnis'
 import { isSandboxAdminUnlock } from '@/lib/auth/roles'
 import { istPlattformAdmin } from '@/lib/auth/plattformAdmin'
+import { subdomainFehler } from '@/lib/tenant/subdomain'
 import { SANDBOX_TENANT_ID, paketEntscheidung } from '@/lib/abo/regeln'
 import { revalidatePath } from 'next/cache'
 import { getStripe } from '@/lib/stripe/client'
@@ -522,6 +523,23 @@ export async function renameTenantAdmin(tenantId: string, name: string) {
   tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
   revalidatePath('/admin/mandanten')
+}
+
+
+// ── KAN-31: Betriebs-Subdomain (nur Plattform-Admins, Spalte durch a_schutz_plattformfelder geschützt) ────────
+
+export async function setTenantSubdomain(tenantId: string, wert: string) {
+  if (!(await istPlattformAdmin())) throw new AktionsFehler('Nur Plattform-Admins dürfen die Subdomain eines Betriebs festlegen.')
+  const sub = (wert ?? '').trim().toLowerCase()
+  const fehler = sub ? subdomainFehler(sub) : null
+  if (fehler) throw new AktionsFehler(fehler)
+  const admin = createSupabaseAdminClient()
+  const { error } = await (admin.from('tenants') as R)
+    .update({ subdomain: sub || null }).eq('id', tenantId)
+  if (error) {
+    throw new AktionsFehler((error as R).code === '23505' ? `Die Subdomain „${sub}“ hat bereits ein anderer Betrieb.` : (error as R).message)
+  }
+  revalidatePath(`/admin/mandanten/${tenantId}`)
 }
 
 

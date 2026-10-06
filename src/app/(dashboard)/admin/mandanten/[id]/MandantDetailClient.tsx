@@ -13,6 +13,7 @@ import {
   updateMemberNameAdmin,
   removeMemberAdmin,
   renameTenantAdmin,
+  setTenantSubdomain,
   saveVerkaufEinstellungen,
   saveEmailEinstellungen,
   saveM365Einstellungen,
@@ -37,6 +38,7 @@ import VerbundKarte from './VerbundKarte'
 import { bundeslandAusKundennummer } from '@/lib/tenant/kundennummer'
 import KontrastHinweis from '@/components/ui/KontrastHinweis'
 import { EINHEIT_ZEICHEN, type MostgewichtEinheit } from '@/lib/wein/mostgewicht'
+import SubdomainFeld from './SubdomainFeld'
 
 // ── Hilfsfunktionen ───────────────────────────────────────────────────────────
 
@@ -2031,6 +2033,7 @@ export default function MandantDetailClient({ tenant, settings, members, verbund
       {tab === 'module'     && <ModuleTab     tenant={tenant} settings={settings} />}
       {tab === 'betrieb'    && (
         <>
+          <SubdomainFeld tenantId={tenant.id} subdomain={tenant.subdomain} speichern={setTenantSubdomain} />
           <BetriebTab tenant={tenant} settings={settings} />
           <KellerwirtschaftAbschnitt tenant={tenant} settings={settings} />
         </>

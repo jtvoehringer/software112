@@ -2,6 +2,7 @@ import { cache } from 'react'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getActiveTenantCookie } from '@/lib/auth/activeTenant'
 import { hatBestaetigtenFaktor } from '@/lib/auth/mfa'
+import { aktiveSubdomain } from '@/lib/tenant/subdomainServer'
 
 export type UserRole = 'system_admin' | 'tenant_admin' | 'winzer' | 'leser' | null
 
@@ -60,6 +61,22 @@ export const getCurrentMembership = cache(async function getCurrentMembership():
   if (hatBestaetigtenFaktor(user)) {
     const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
     if (aal?.currentLevel !== 'aal2') return null
+  }
+
+  // KAN-31: Auf einer Betriebs-Subdomain gilt NUR dieser Betrieb (Host jeder Anfrage, auch Server Actions und /api) –
+  // geprüft gegen die eigenen aktiven Mitgliedschaften. Kein Rückfall auf Cookie oder ersten Betrieb: sonst schriebe
+  // ein Tab gebeshuber.… still in einen anderen Betrieb. Ohne Mitgliedschaft → null (Layout leitet zur Betriebswahl).
+  const sub = await aktiveSubdomain()
+  if (sub) {
+    // tenant-isolation-ignore: Auflösung des Betriebs aus der Subdomain – eigene Mitgliedschaft (user_id), tenants!inner
+    const { data } = await (supabase.from('tenant_memberships') as R)
+      .select('tenant_id, role, schreibmodule, tenants!inner(subdomain)')
+      .eq('user_id', user.id)
+      .eq('aktiv', true)
+      .eq('tenants.subdomain', sub)
+      .limit(1)
+      .maybeSingle()
+    return data ? membershipAus(data as R) : null
   }
 
   if (activeTenantId) {

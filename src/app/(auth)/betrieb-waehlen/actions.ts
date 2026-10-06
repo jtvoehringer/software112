@@ -4,6 +4,7 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { setActiveTenantCookie } from '@/lib/auth/activeTenant'
+import { subdomainZiel } from '@/lib/tenant/subdomainServer'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -22,5 +23,6 @@ export async function selectBetriebAction(formData: FormData) {
   if (!(data as R | null)?.tenant_id) return // Kein Zugriff
 
   await setActiveTenantCookie(tenantId)
-  redirect('/dashboard')
+  // KAN-31: mit Betriebs-Subdomain dorthin (eigener Tab je Betrieb), sonst wie bisher
+  redirect((await subdomainZiel(supabase, tenantId, '/dashboard')) ?? '/dashboard')
 }

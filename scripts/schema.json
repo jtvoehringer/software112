@@ -1690,7 +1690,8 @@
 "max_benutzer",
 "kundennummer",
 "abrechnung_ueber",
-"zusatz_preis_cent"
+"zusatz_preis_cent",
+"subdomain"
 ],
 "transaktionszaehler": [
 "id",
