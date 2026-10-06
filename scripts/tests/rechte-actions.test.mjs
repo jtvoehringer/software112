@@ -18,10 +18,10 @@ describe('Mandantenverwaltung nur für Plattform-Admins', () => {
     assert.doesNotMatch(q, /getCurrentUserRole\(\)/)
     assert.doesNotMatch(q, /\.eq\('name', 'Sandbox'\)/)
     assert.match(q, /tenantId === SANDBOX_TENANT_ID/)
-    for (const f of ['src/app/(dashboard)/admin/mandanten/actions.ts', 'src/app/(dashboard)/admin/kellergemeinschaft/actions.ts']) {
+    for (const f of ['src/app/(dashboard)/admin/mandanten/actions.ts', 'src/app/(dashboard)/admin/gemeinschaften/actions.ts']) {
       assert.match(quelle(f), /await pruefePlattformAdmin\(\)/, f)
     }
-    for (const f of ['src/app/(dashboard)/admin/mandanten/[id]/page.tsx', 'src/app/(dashboard)/admin/mandanten/page.tsx', 'src/app/(dashboard)/admin/kellergemeinschaft/page.tsx']) {
+    for (const f of ['src/app/(dashboard)/admin/mandanten/[id]/page.tsx', 'src/app/(dashboard)/admin/mandanten/page.tsx', 'src/app/(dashboard)/admin/gemeinschaften/page.tsx']) {
       const p = quelle(f)
       assert.match(p, /istPlattformAdmin\(\)/, f)
       assert.doesNotMatch(p, /role !== 'system_admin'/, f)

@@ -794,7 +794,7 @@ BEGIN
       v_erg := v_erg || pg_temp.s112_erwarte('statisch_abo_' || r.name, r.prosrc ~ 's112_pruefe_abo_schreibsperre\s*\(', true);
     END IF;
   END LOOP;
-  v_erg := v_erg || pg_temp.s112_erwarte('statisch_session_user_anzahl', v_n, 6);
+  v_erg := v_erg || pg_temp.s112_erwarte('statisch_session_user_anzahl', v_n, 7);   -- KAN-212: + lade_crmgemeinschaft
 
   -- ── 6. EXECUTE-Rechte ────────────────────────────────────────────────────────────────────────────────────
   -- anon: keine SECURITY-DEFINER-Funktion (hart)
