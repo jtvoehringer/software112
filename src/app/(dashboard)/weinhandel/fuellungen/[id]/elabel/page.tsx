@@ -4,7 +4,10 @@ import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import { Tag } from 'lucide-react'
-import type { KatalogEintrag } from '@/lib/elabel/katalog'
+import { ALLERGEN_LABEL, allergeneDerListe, type KatalogEintrag } from '@/lib/elabel/katalog'
+import { etikettEnergie } from '@/lib/elabel/naehrwerte'
+import { elabelUrl } from '@/lib/elabel/oeffentlich'
+import { appBasisUrl, qrPngDataUrl, qrSvg } from '@/lib/qr'
 import ElabelFormular, { type AnalyseWahl, type TypZuordnung, type ElabelStand } from './ElabelFormular'
 import { speichereElabel, elabelFreigeben, setzeBehandlungstypZutat } from './actions'
 
@@ -94,6 +97,11 @@ export default async function ElabelPage({ params }: { params: Promise<{ id: str
     freigegebenAm: elabel.freigegeben_am ?? null, freigegebenVonName: elabel.freigegeben_von_name ?? null,
   } : null
 
+  // KAN-217: öffentlicher Link und QR-Code (lokal erzeugt, kein Fremddienst) – erst nach der Freigabe
+  const oeffentlich = stand?.status === 'freigegeben' ? elabelUrl(stand.code, appBasisUrl()) : null
+  const qr = oeffentlich ? { svg: await qrSvg(oeffentlich), png: await qrPngDataUrl(oeffentlich, 1200) } : null
+  const allergene = stand ? allergeneDerListe(stand.zutatenIds, katalog) : []
+
   return (
     <div className="max-w-3xl space-y-6">
       <div>
@@ -119,6 +127,33 @@ export default async function ElabelPage({ params }: { params: Promise<{ id: str
         freigeben={elabelFreigeben.bind(null, id)}
         zuordnen={setzeBehandlungstypZutat.bind(null, id)}
       />
+
+      {/* ── KAN-217: öffentliche Seite, QR-Code und Druckhinweis fürs Etikett ── */}
+      {oeffentlich && qr && (
+        <section id="qr" className="card p-5 space-y-4">
+          <h2 className="font-semibold text-s112-text text-sm">QR-Code und Etikett</h2>
+          <div className="flex flex-col sm:flex-row gap-5 items-start">
+            {/* SVG aus dem eigenen QR-Generator (lib/qr) – keine Benutzereingabe im Markup */}
+            <div className="w-40 h-40 shrink-0 bg-white p-1 border border-s112-line rounded-lg [&_svg]:w-full [&_svg]:h-full"
+              role="img" aria-label="QR-Code zum E-Label" dangerouslySetInnerHTML={{ __html: qr.svg }} />
+            <div className="space-y-2 text-sm min-w-0">
+              <p>Öffentliche Seite (ohne Anmeldung, DE/EN): <a href={oeffentlich} target="_blank" rel="noopener" className="text-s112-blue-700 hover:underline break-all">{oeffentlich}</a></p>
+              <div className="flex flex-wrap gap-2">
+                <a href={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(qr.svg)}`} download={`elabel-${stand?.code}.svg`}
+                  className="text-xs px-3 py-1.5 rounded-lg border border-s112-border hover:bg-s112-bg">QR als SVG (Druck)</a>
+                <a href={qr.png} download={`elabel-${stand?.code}.png`}
+                  className="text-xs px-3 py-1.5 rounded-lg border border-s112-border hover:bg-s112-bg">QR als PNG (1200 px)</a>
+              </div>
+              <div className="rounded-lg bg-s112-bg px-3 py-2 text-xs text-s112-text-2 space-y-0.5">
+                <p className="font-medium text-s112-text">Pflichtangaben auf dem physischen Etikett</p>
+                <p>Brennwert: <strong>{etikettEnergie(stand?.werte?.energieKcal ?? null) ?? '–'}</strong> (je 100 ml)</p>
+                {allergene.length > 0 && <p>Allergene: <strong>Enthält {allergene.map(a => ALLERGEN_LABEL[a].de).join(', ')}</strong></p>}
+                <p>Neben dem QR-Code: „Zutaten und Nährwerte“ bzw. ein „i“-Symbol – der Code führt zur öffentlichen Seite.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
     </div>
   )
 }

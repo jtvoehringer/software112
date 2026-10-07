@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { hatBestaetigtenFaktor } from '@/lib/auth/mfa'
 import { authCookieOptionen } from '@/lib/tenant/subdomain'
+import { elabelRewritePfad } from '@/lib/elabel/oeffentlich'
 
 // Routen die OHNE Login zugänglich sind
 // Öffentlich ohne Anmeldung. /signup und /newsletter fehlten bis 23.9.2026 – Registrierung und
@@ -9,9 +10,19 @@ import { authCookieOptionen } from '@/lib/tenant/subdomain'
 // Die früheren /api/…-Einträge (u. a. '/api/export/') sind entfernt (KAN-54): Der Matcher
 // unten schließt /api ohnehin aus – API-Routen prüfen Anmeldung und Zwei-Faktor-Stufe
 // selbst (pruefeZweiFaktor, src/lib/api/zweiFaktor.ts).
-const PUBLIC_ROUTES = ['/.well-known/', '/barrierefreiheit', '/signup', '/newsletter', '/login', '/register', '/auth/callback', '/auth/invite', '/auth/update-password']
+// KAN-217 (07.10.2026): '/w/' (Weinpass – war nie öffentlich, der QR-Code auf der Flasche leitete auf den Login um) und
+// '/e/' (E-Label) sind öffentliche Seiten für Konsumenten; sie lesen nur Freigegebenes per Service-Role.
+const PUBLIC_ROUTES = ['/.well-known/', '/barrierefreiheit', '/signup', '/newsletter', '/login', '/register', '/auth/callback', '/auth/invite', '/auth/update-password', '/w/', '/e/']
 
 export async function proxy(request: NextRequest) {
+  // KAN-217: Anfragen an die E-Label-Domain (NEXT_PUBLIC_ELABEL_HOST) zeigen die öffentliche Seite /e/<code> – ohne Anmeldung
+  const elabelPfad = elabelRewritePfad(request.headers.get('x-forwarded-host') ?? request.headers.get('host'), request.nextUrl.pathname)
+  if (elabelPfad) {
+    const url = request.nextUrl.clone()
+    url.pathname = elabelPfad
+    return NextResponse.rewrite(url)
+  }
+
   let supabaseResponse = NextResponse.next({ request })
   // KAN-31: gemeinsames Anmelde-Cookie für Basis und Betriebs-Subdomains (nur mit NEXT_PUBLIC_S112_SUBDOMAIN_BASIS)
   const cookieOptions = authCookieOptionen(request.headers.get('x-forwarded-host') ?? request.headers.get('host'))
@@ -57,7 +68,8 @@ export async function proxy(request: NextRequest) {
   // Netzwerkaufruf); ob ein Faktor eingerichtet ist, kommt aus dem von getUser() geprüften
   // User – nicht aus aal.nextLevel, das die unsignierte Faktorenliste im Cookie liest
   // (KAN-54, siehe lib/auth/mfa.ts). API-Routen: pruefeZweiFaktor(), Matcher schließt /api aus.
-  if (user && pathname !== '/zwei-faktor' && !pathname.startsWith('/auth/') && !pathname.startsWith('/.well-known/') && pathname !== '/login') {
+  if (user && pathname !== '/zwei-faktor' && !pathname.startsWith('/auth/') && !pathname.startsWith('/.well-known/') && pathname !== '/login'
+      && !pathname.startsWith('/w/') && !pathname.startsWith('/e/')) {   // KAN-217: öffentliche Seiten auch ohne zweiten Faktor
     const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
     if (hatBestaetigtenFaktor(user) && aal?.currentLevel !== 'aal2') {
       const url = request.nextUrl.clone()
