@@ -328,6 +328,7 @@ export function buchungsartBewegung(art: Bewegung['art'], k: { zukaufArt?: strin
     case 'verkauf': return k.kundeAusland ? 'VK_FA_AU' : 'VK_FA_AT'
     case 'schwund': return 'SCHWUND'
     case 'verarbeitung': return 'AB_VERAR'   // KAN-41 Paket 3a
+    case 'zugangskorrektur': return 'INV_PLUS'   // KAN-53: keine BSM-Buchungsart – Warnung wie im Journal
     case 'behandlung': return 'ZU_BEH'   // KAN-41 Paket 3b: nur Behandlungen mit Volumenzugang haben eine Menge
     case 'verschneidung_aus': return 'VS_AB'
     case 'verschneidung_ein': return 'VS_ZU'

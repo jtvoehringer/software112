@@ -36,6 +36,7 @@ export const PN_ENDE_LABEL: Record<string, string> = {
   pressung: 'Pressung in die Charge',
   behandlung: 'Kellerbehandlung, die den Wein verändert',
   abstufung: 'Abstufung bzw. geänderte Bezeichnung',
+  korrektur: 'Zugangskorrektur (Mehrmenge, Inventur-Plus)',   // KAN-53
   abgelehnt: 'Antrag abgelehnt',
   zurueckgezogen: 'Antrag zurückgezogen',
   erloschen: 'Prüfnummer erloschen',
@@ -44,7 +45,7 @@ export const PN_ENDE_LABEL: Record<string, string> = {
   storno: 'Antrag storniert',
 }
 
-const FLASCHEN_BEHALTEN = new Set(['verschnitt', 'zugang', 'zukauf', 'pressung', 'behandlung', 'abstufung', 'erloschen', 'aufgebraucht'])
+const FLASCHEN_BEHALTEN = new Set(['verschnitt', 'zugang', 'zukauf', 'pressung', 'behandlung', 'abstufung', 'korrektur', 'erloschen', 'aufgebraucht'])
 const tag = (v: unknown): string | null => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v) ? v.slice(0, 10) : null)
 const datumDe = (d: string) => d.split('-').reverse().join('.')
 

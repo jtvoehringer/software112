@@ -14,7 +14,8 @@ interface Ziel   { behaelter_id: string; menge_netto: number }
 interface Props {
   gebinde: R[]
   chargen: R[]  // alle aktiven Chargen mit behaelter:behaelter_id(name) gejoint
-  action: (fd: FormData) => Promise<void>
+  /** KAN-183: { bestaetigung } = Prüfnummern-Rückfrage, nach OK mit pn_bestaetigt=1 erneut senden */
+  action: (fd: FormData) => Promise<{ bestaetigung?: string } | void>
   inputCls: string
   labelCls: string
   defaultQuellen?: Quelle[]
@@ -74,7 +75,12 @@ export default function UmziehenFormClient({
     const fd = new FormData(e.currentTarget)
     startTransition(async () => {
       try {
-        await action(fd)   // leitet bei Erfolg selbst weiter
+        const r = await action(fd)   // leitet bei Erfolg selbst weiter
+        if (r?.bestaetigung) {
+          if (!window.confirm(r.bestaetigung)) return
+          fd.set('pn_bestaetigt', '1')
+          await action(fd)
+        }
       } catch (err) {
         setFehler(fehlerText(err, 'Speichern fehlgeschlagen'))
       }

@@ -76,7 +76,7 @@ export type PnAntrag = {
   familie?: { bestandLiter: number; abfuellungen: PnAbfuellung[] } | null
 }
 
-export type PnZugangArt = 'verschnitt' | 'zugang' | 'zukauf' | 'pressung' | 'behandlung' | 'abstufung'
+export type PnZugangArt = 'verschnitt' | 'zugang' | 'zukauf' | 'pressung' | 'behandlung' | 'abstufung' | 'korrektur'
 
 /** Buchung mit der Charge als ZIEL: Verschnitt (verschneidungen), Zugang per Umzug aus einer
  *  anderen Charge (keller_umzuege), Zukauf (zukauf_posten), Pressung (pressung_behaelter);
@@ -236,7 +236,7 @@ function neuesteZuerst(a: PnAntrag, b: PnAntrag): number {
   return a.id < b.id ? 1 : a.id > b.id ? -1 : 0
 }
 
-const ART_REIHENFOLGE: Record<PnZugangArt, number> = { verschnitt: 0, zukauf: 1, pressung: 2, zugang: 3, behandlung: 4, abstufung: 5 }
+const ART_REIHENFOLGE: Record<PnZugangArt, number> = { verschnitt: 0, zukauf: 1, pressung: 2, zugang: 3, behandlung: 4, abstufung: 5, korrektur: 6 }
 
 /** Zugänge mit von < Datum ≤ bis (von = null: ohne Untergrenze), früheste zuerst */
 function zugaengeZwischen(zugaenge: readonly PnZugang[], von: string | null, bis: string): PnZugang[] {
@@ -383,6 +383,7 @@ const ZUGANG_TEXT: Record<PnZugangArt, string> = {
   zugang: 'Zugang per Umzug',
   behandlung: 'Kellerbehandlung, die den Wein verändert,',
   abstufung: 'Abstufung bzw. geänderte Bezeichnung der Charge',
+  korrektur: 'Zugangskorrektur (Mehrmenge, Inventur-Plus)',   // KAN-53
 }
 
 /** Buchung mit der Charge als Ziel für Hinweise: „Verschnitt am 25.09.2026 (§ 25 Abs. 6 WeinG)“ */
@@ -686,10 +687,10 @@ export function freiePruefnummerPruefen(
 // „Veränderung“ (pn_wirkung) und vor einer Abstufung bzw. geänderten Bezeichnung der Charge; das Ende der
 // Gültigkeit schreibt die Datenbank in derselben Transaktion (Trigger s112_pn_chargen_pflegen).
 
-export type PnVorgang = 'verschnitt' | 'umzug' | 'zukauf' | 'behandlung' | 'abstufung'
+export type PnVorgang = 'verschnitt' | 'umzug' | 'zukauf' | 'behandlung' | 'abstufung' | 'korrektur'
 
 const VORGANG_ZUGANG: Record<PnVorgang, PnZugangArt> = {
-  verschnitt: 'verschnitt', umzug: 'zugang', zukauf: 'zukauf', behandlung: 'behandlung', abstufung: 'abstufung',
+  verschnitt: 'verschnitt', umzug: 'zugang', zukauf: 'zukauf', behandlung: 'behandlung', abstufung: 'abstufung', korrektur: 'korrektur',
 }
 const VORGANG_SATZ: Record<PnVorgang, string> = {
   verschnitt: 'Ein Verschnitt',
@@ -697,6 +698,7 @@ const VORGANG_SATZ: Record<PnVorgang, string> = {
   zukauf: 'Ein Zukauf in dieses Gebinde',
   behandlung: 'Eine Kellerbehandlung, die den Wein verändert,',
   abstufung: 'Eine Abstufung bzw. andere Bezeichnung der Charge',
+  korrektur: 'Eine Zugangskorrektur (Mehrmenge, Inventur-Plus)',   // KAN-53, Kommentar Jörgen 25.09.2026 (R3 BKI)
 }
 const OFFEN_EINGEREICHT: Record<string, string> = { eingereicht: 'eingereicht', in_pruefung: 'in Prüfung' }
 

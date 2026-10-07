@@ -994,6 +994,22 @@
 "storniert_von_name",
 "storno_grund"
 ],
+"keller_zugangskorrekturen": [
+"id",
+"tenant_id",
+"weinausbau_id",
+"datum",
+"menge_liter",
+"art",
+"grund",
+"erstellt_von",
+"erstellt_von_name",
+"erstellt_am",
+"storniert_am",
+"storniert_von",
+"storniert_von_name",
+"storno_grund"
+],
 "kellerbuch_abschluesse": [
 "id",
 "tenant_id",

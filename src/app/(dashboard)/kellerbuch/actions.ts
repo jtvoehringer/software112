@@ -8,7 +8,7 @@ import {
   type QualitaetsAngabe,
 } from '@/lib/wein/qualitaetsrang'
 import { qualitaetFehler, qualitaetsAngabeAusFormular, qualitaetsAngabeFehler } from '@/lib/wein/qualitaet'
-import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
+import { getCurrentMembership, canWrite, canAdmin } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
@@ -30,6 +30,7 @@ import { behandlungCharge, behandlungMengeFehler, behandlungPnGesperrt, behandlu
 import { freezeSperreAus, sperrMeldung } from '@/lib/freeze/sperre'
 import { statusDatumFehler, statusWechselBuchungsrelevant } from '@/lib/kellerbuch/chargeStatus'
 import { verarbeitungFehler } from '@/lib/kellerbuch/verarbeitung'
+import { zugangskorrekturFehler } from '@/lib/kellerbuch/zugangskorrektur'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -493,6 +494,62 @@ export async function verarbeitungStornieren(verarbeitungId: string, chargeId: s
     p_tenant_id: tenantId, p_id: verarbeitungId, p_grund: grund.trim(),
   })
   if (error) throw new AktionsFehler(dbFehlerText(error, 'Verarbeitung konnte nicht storniert werden'))
+  revalidatePath('/kellerbuch')
+  revalidatePath(`/kellerbuch/weinausbau/${chargeId}`)
+}
+
+// ZUGANGSKORREKTUR (KAN-53, 07.10.2026) – Mehrmenge, Inventur-Plus als datierte Buchung (Journal INV_PLUS), nur
+// Betriebsleitung (Vorgabe Ticket; die RPC prüft die Rolle erneut). Prüfnummernschädlich (Kommentar Jörgen 25.09.2026):
+// bei geltender Nummer erst Rückfrage (`{ bestaetigung }`, mit pn_bestaetigt=1 erneut senden), bei eingereichtem Antrag
+// Ablehnung (pruefePruefnummernSchaden); der Vermerk landet im Grund.
+async function zugangskorrekturRecht(): Promise<string> {
+  const tenantId = await kellerbuchSchreibrecht()
+  const membership = await getCurrentMembership()
+  if (!membership || !canAdmin(membership.role)) throw new AktionsFehler('Zugangskorrekturen bucht nur die Betriebsleitung.')
+  return tenantId
+}
+
+export async function zugangskorrekturBuchen(formData: FormData): Promise<{ bestaetigung?: string } | void> {
+  const supabase = await createSupabaseServerClient()
+  const tenantId = await zugangskorrekturRecht()
+  const id = String(formData.get('weinausbau_id') ?? '')
+  const datum = String(formData.get('datum') ?? '').slice(0, 10) || wienHeute()
+  const art = String(formData.get('art') ?? '')
+  const menge = zahlAus(formData.get('menge'))
+  const grund = String(formData.get('grund') ?? '').trim()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: chargeRaw, error: chargeErr } = await (supabase.from('weinausbau') as any)
+    .select('id, name, aktiv, storniert_am').eq('id', id).eq('tenant_id', tenantId).maybeSingle()
+  if (chargeErr) throw new AktionsFehler(dbFehlerText(chargeErr, 'Charge konnte nicht geladen werden'))
+  if (!chargeRaw) throw new AktionsFehler('Charge nicht gefunden')
+  const charge = chargeRaw as R
+  if (charge.storniert_am || charge.aktiv === false) throw new AktionsFehler('Die Charge ist storniert bzw. nicht mehr aktiv.')
+  const fehler = zugangskorrekturFehler({ art, menge, grund, datum, heute: wienHeute() })
+  if (fehler) throw new AktionsFehler(fehler)
+
+  const pn = await pruefePruefnummernSchaden(supabase, tenantId, 'korrektur', [{ chargeId: id, name: charge.name ?? null, zugangLiter: menge }], datum)
+  if (pn && formData.get('pn_bestaetigt') !== '1') return { bestaetigung: pn.frage }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any).rpc('s112_zugangskorrektur_buchen', {
+    p_tenant_id: tenantId, p_weinausbau_id: id, p_datum: datum, p_menge: menge, p_art: art, p_grund: mitPnNotiz(grund, pn?.notiz ?? null),
+  })
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Zugangskorrektur konnte nicht gebucht werden'))
+  revalidatePath('/kellerbuch')
+  revalidatePath(`/kellerbuch/weinausbau/${id}`)
+}
+
+export async function zugangskorrekturStornieren(korrekturId: string, chargeId: string, grund: string): Promise<void> {
+  const supabase = await createSupabaseServerClient()
+  const tenantId = await zugangskorrekturRecht()
+  const grundFehler = stornoGrundFehler(grund)
+  if (grundFehler) throw new AktionsFehler(grundFehler)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any).rpc('s112_zugangskorrektur_stornieren', {
+    p_tenant_id: tenantId, p_id: korrekturId, p_grund: grund.trim(),
+  })
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Zugangskorrektur konnte nicht storniert werden'))
   revalidatePath('/kellerbuch')
   revalidatePath(`/kellerbuch/weinausbau/${chargeId}`)
 }
