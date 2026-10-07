@@ -7,6 +7,7 @@ import { ladeKellerBehandlungen, SPALTEN_KELLER_BEHANDLUNGEN } from '../keller-b
 import { ladeGebindeverzeichnis, SPALTEN_GEBINDEVERZEICHNIS } from '../gebindeverzeichnis'
 import { ladeWeinbuch, ladeWeinbuchSammlung, SPALTEN_WEINBUCH } from '../weinbuch'
 import { ladeRueckverfolgung, SPALTEN_RUECKVERFOLGUNG } from '../rueckverfolgung'
+import { ladeRueckruf, SPALTEN_RUECKRUF, type RueckrufStart } from '../rueckruf'
 import { ladeBlendProtokoll, SPALTEN_BLEND, type BlendArt } from '../blend'
 import { ladeKellerUmzuege, SPALTEN_KELLER_UMZUEGE } from '../keller-auswertungen'
 import { ladeAenderungsprotokoll, SPALTEN_AENDERUNGSPROTOKOLL } from '../aenderungsprotokoll'
@@ -150,6 +151,29 @@ export const MELDUNGEN_KELLERBUCH = {
       ? ['Rückverfolgung', betrieb.betriebsnummer, p.anzeige.name]
       : ['Rückverfolgung', betrieb.betriebsnummer, p.jahrgang, p.sorte, p.bezeichnung],
     bki: p => ({ bericht: p.fuellungId ? ['Rückverfolgung', p.anzeige.name] : ['Rückverfolgung', p.jahrgang, p.sorte, p.bezeichnung] }),
+  }),
+
+  // KAN-109: genau ein Startpunkt (fuellung | charge | pressung) – wie die Seite /kellerbuch/rueckverfolgung/vorwaerts
+  'rueckverfolgung-vorwaerts': definiereMeldung(KATALOG_KELLERBUCH['rueckverfolgung-vorwaerts'], {
+    parameter: sp => {
+      const fuellung = uuidOptional(sp, 'fuellung', 'Füllung')
+      if (istParameterFehler(fuellung)) return fuellung
+      const charge = uuidOptional(sp, 'charge', 'Charge')
+      if (istParameterFehler(charge)) return charge
+      const pressung = uuidOptional(sp, 'pressung', 'Pressung')
+      if (istParameterFehler(pressung)) return pressung
+      if ((fuellung ? 1 : 0) + (charge ? 1 : 0) + (pressung ? 1 : 0) !== 1) return parameterFehler('Bitte genau einen Startpunkt angeben: Füllung (fuellung), Charge (charge) oder Pressung (pressung).')
+      const start: RueckrufStart = fuellung ? { art: 'fuellung', id: fuellung } : charge ? { art: 'charge', id: charge } : { art: 'pressung', id: pressung as string }
+      return { start, anzeige: anzeige() } as { start: RueckrufStart } & Anzeige
+    },
+    laden: async (ctx, p) => {
+      const r = await ladeRueckruf(ctx.supabase, ctx.tenantId, p.start)
+      if (!r) throw new MeldungsFehler(404, 'Startpunkt nicht gefunden.')
+      p.anzeige.name = r.start.name
+      return { zeilen: r.zeilen, warnungen: r.warnungen }
+    },
+    spalten: SPALTEN_RUECKRUF,
+    dateiteile: (p, betrieb) => ['Rückruf-Liste', betrieb.betriebsnummer, p.anzeige.name],
   }),
 
   'blend-protokoll': definiereMeldung(KATALOG_KELLERBUCH['blend-protokoll'], {

@@ -427,6 +427,7 @@ export default async function RueckverfolgungPage({
         <p className="text-sm text-s112-muted mt-1">
           Nach Jahrgang, Sorte oder Bezeichnung filtern, oder direkt Chargennummer/Prüfnummer eingeben → vollständige Kette von der Flasche zum Weingarten.
           Maßnahmen und Wartezeiten je Lese-Grundstück: <Link href="/weingarten/rueckverfolgung" className="underline">Rückverfolgung Weingarten</Link>.
+          {/* KAN-109 */} Vorwärts bis zu den Abnehmern: <Link href="/kellerbuch/rueckverfolgung/vorwaerts" className="underline font-medium">Rückruf-Liste</Link>.
         </p>
       </div>
 

@@ -244,6 +244,11 @@ export default async function EditFuellungPage({
         </Link>
       )}
 
+      {/* KAN-109: Rückruf-Liste dieses Loses (Abnehmer vorwärts) */}
+      <Link href={`/kellerbuch/rueckverfolgung/vorwaerts?fuellung=${id}`} className="inline-block text-sm text-s112-blue-700 hover:underline font-medium mb-4">
+        Rückruf-Liste dieses Loses (Abnehmer) →
+      </Link>
+
       {/* ── Weinpass / QR-Code (KAN-92: /w/<weinpass_code>; KAN-122: QR lokal erzeugt, kein externer Dienst) ── */}
       {weinpass && (
         <div className="card p-5 flex gap-5 items-start mb-2">
