@@ -16,7 +16,7 @@ import { pruefePruefnummernSchaden } from '@/lib/kellerbuch/pruefnummerLaden'
 import { mitPnNotiz } from '@/lib/kellerbuch/pruefnummer'
 import { mostgewichtAusFormular, mostgewichtAusGespeichert, mostgewichtSpalten } from '@/lib/wein/mostgewichtFormular'
 import type { Mostgewicht } from '@/lib/wein/mostgewicht'
-import { istTraubenArt, zukaufWareFehler, istFlaschenArt, flaschenZukaufFehler } from '@/lib/zukauf/ware'
+import { istTraubenArt, zukaufWareFehler, istFlaschenArt, flaschenZukaufFehler, flaschenPruefnummerFehler } from '@/lib/zukauf/ware'
 import { weinartKonflikt, weinartBekannt, weinartAusFarbe, WEINART_LABEL } from '@/lib/keller/weinart'
 import { waehleZielCharge, merkmaleText } from '@/lib/kellerbuch/umzugZiel'
 import { verschnittVorbereiten } from '@/lib/kellerbuch/verschnittBuchen'
@@ -539,6 +539,9 @@ export async function updateZukauf(id: string, formData: FormData) {
       throw new AktionsFehler(`Ändern von ${geaendert.join(', ')} ist nicht möglich: Der Flaschenzukauf ist bereits als Weinlager-Artikel gebucht. Korrektur: Zukauf stornieren (solange nichts verkauft ist) und neu erfassen – Beleg, Lieferant, Preis und Notizen bleiben änderbar.`)
     }
     merkmaleFest = true
+    // KAN-225: Prüfnummer bleibt änderbar, darf ab Qualitätswein aber nicht leer werden (Merkmale wie gespeichert)
+    const pnFehler = flaschenPruefnummerFehler({ qualitaetsstufe: a.qualitaetsstufe ?? null, zusatzbezeichnung: a.zusatzbezeichnung ?? null, erzeugnis: a.erzeugnis ?? null }, f.pruefnummer)
+    if (pnFehler) throw new AktionsFehler(pnFehler)
   }
 
   // ── Trauben: Belegmenge nicht unter die verpressten/verkauften kg, Art nicht mehr wechseln ──

@@ -7,7 +7,8 @@ import { zurueckZiel } from '@/lib/navigation/zurueckBrowser'
 import { AbbrechenKnopf } from '@/components/navigation/Abbrechen'
 import Link from '@/components/ui/Link'
 import { createZukauf } from '../actions'
-import { FLASCHEN_GROESSEN_ML, istFlaschenArt, istTraubenArt } from '@/lib/zukauf/ware'
+import { FLASCHEN_GROESSEN_ML, flaschenPruefnummerPflicht, istFlaschenArt, istTraubenArt } from '@/lib/zukauf/ware'
+import { pruefnummerLabel } from '@/lib/zukauf/pruefnummerLabel'
 import { LESE_QUALITAETEN, QUALITAET_OPTS } from '@/lib/wein/qualitaet'
 import { AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { verschnittHinweis } from '@/lib/kellerbuch/verschnittHinweis'
@@ -495,9 +496,10 @@ export default function ZukaufNeuPage() {
                 zugekauften Flaschen die Nummer des Erzeugers, ab Qualitätswein Pflicht (KAN-41 Paket 2b, E2) */}
             {(art === 'wein' || istFlaschenArt(art)) && (
               <div>
-                <label className={labelCls}>{istFlaschenArt(art) ? 'Staatl. Prüfnummer des Erzeugers (ab Qualitätswein Pflicht)' : 'Staatl. Prüfnummer (optional)'}</label>
+                {/* KAN-225: Pflicht ab Qualitätswein (DAC, Reserve, Sekt g.U. prüft die Server Action mit), Wein/Landwein ohne */}
+                <label className={labelCls}>{pruefnummerLabel(art, qualitaet)}</label>
                 <input aria-label="Staatl. Prüfnummer" type="text" value={pruefnummer} onChange={e => setPruefnummer(e.target.value)}
-                  placeholder="z.B. 1234/26"
+                  placeholder="z.B. 1234/26" required={istFlaschenArt(art) && flaschenPruefnummerPflicht({ qualitaetsstufe: qualitaet || null })}
                   className={inputCls + ' w-full'} />
               </div>
             )}
