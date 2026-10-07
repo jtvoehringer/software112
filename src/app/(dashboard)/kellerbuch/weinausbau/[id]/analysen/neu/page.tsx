@@ -6,6 +6,7 @@ import Link from '@/components/ui/Link'
 import { createAnalyse } from '@/app/(dashboard)/kellerbuch/actions'
 import { fehlerText } from '@/lib/fehler'
 import { dezimal } from '@/lib/format'
+import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -50,7 +51,8 @@ export default function AnalyseNeuPage({ params }: Props) {
     // Dezimalkomma normalisieren
     const fd = new FormData()
     raw.forEach((value, key) => {
-      fd.append(key, typeof value === 'string' ? dezimal(value) : value)
+      // KAN-203: das Mostgewicht prüft und rechnet die Server Action selbst (mostgewichtAusFormular) – unverändert senden
+      fd.append(key, typeof value === 'string' && !key.startsWith('mostgewicht_') ? dezimal(value) : value)
     })
     fd.append('weinausbau_id', weinausbauId)
 
@@ -130,6 +132,8 @@ export default function AnalyseNeuPage({ params }: Props) {
         <div className="card space-y-4">
           <h2 className="text-sm font-semibold text-s112-muted uppercase tracking-wider">Chemische Parameter</h2>
           <p className="text-xs text-s112-muted">Dezimaltrenner: Komma oder Punkt (z.B. 12,5 oder 12.5)</p>
+          {/* KAN-203: Mostgewicht im Gärverlauf (optional) – Messwert in °KMW oder °Oe, die andere Einheit wird umgerechnet */}
+          <MostgewichtEingabe name="mostgewicht" label="Mostgewicht (Gärverlauf)" />
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             <DecimalInput name="alkohol_vol"        label="Alkohol"         unit="% vol"  placeholder="z.B. 12,5" />
             <DecimalInput name="restzucker_gl"      label="Restzucker"      unit="g/l"    placeholder="z.B. 3,2" />

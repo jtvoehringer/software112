@@ -6,7 +6,7 @@
 export const LESE_VORLAGE: { text: string; zustaendig: string; hinweis: string }[] = [
   { text: 'Lesetermine mit Erntehelfern abstimmen',                 zustaendig: 'Betrieb',    hinweis: 'Anfang Sept.' },
   { text: 'Wartefristen Pflanzenschutz je Ried prüfen',             zustaendig: 'Weingarten', hinweis: 'vor Lese' },
-  { text: 'Reife-Messungen je Ried (KMW-Verlauf)',                  zustaendig: 'Weingarten', hinweis: 'wöchentlich' },
+  { text: 'Reife-Messungen je Ried erfassen (°KMW oder °Oe)',       zustaendig: 'Weingarten', hinweis: 'wöchentlich' },
   { text: 'Presse warten, Dichtungen und Schläuche prüfen',         zustaendig: 'Keller',     hinweis: 'vor Lese' },
   { text: 'Gebinde reinigen (Tanks, Bottiche, Fässer)',             zustaendig: 'Keller',     hinweis: 'vor Lese' },
   { text: 'Waage kalibrieren und Übernahmescheine vorbereiten',     zustaendig: 'Betrieb',    hinweis: 'vor Lese' },

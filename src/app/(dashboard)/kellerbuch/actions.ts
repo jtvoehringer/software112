@@ -699,6 +699,10 @@ export async function createAnalyse(formData: FormData) {
     bewertung:            (formData.get('bewertung') as string) || null,
     notizen:              (formData.get('notizen') as string) || null,
   }
+  // KAN-203: Mostgewicht im Gärverlauf (optional) – Messwert und Einheit, beide Werte serverseitig gerechnet
+  const mg = mostgewichtAusFormular(formData, 'mostgewicht')
+  if (!mg.ok) throw new AktionsFehler(mg.fehler)
+  if (mg.uebermittelt) Object.assign(payload, mostgewichtSpalten(mg.wert, 'kmw'))
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('weinanalysen') as any).insert(payload)

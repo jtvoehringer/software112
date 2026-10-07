@@ -137,7 +137,7 @@ export async function ladeKeller(ctx: Ctx, messintervallTage: number = GAERUNG_M
   // inBloecken (05.10.2026): Gebeshuber hat 172 Behälter – ab ≈ 350 IDs scheitert die URL. Gebraucht wird nur der
   // jeweils neueste Eintrag je Charge bzw. Behälter; alle Zeilen eines Schlüssels liegen im selben Block.
   const [{ data: analysenRaw }, { data: massnahmenRaw }] = await Promise.all([
-    inBloecken(ids, b => ctx.tf(ctx.q('weinanalysen').select('weinausbau_id, analyse_datum, alkohol_vol, restzucker_gl, freie_so2_mgl, gesamtsaeure_gl').in('weinausbau_id', b).is('storniert_am', null).order('analyse_datum', { ascending: false }).limit(500))),
+    inBloecken(ids, b => ctx.tf(ctx.q('weinanalysen').select('weinausbau_id, analyse_datum, alkohol_vol, restzucker_gl, freie_so2_mgl, gesamtsaeure_gl, kmw, oechsle, mostgewicht_einheit').in('weinausbau_id', b).is('storniert_am', null).order('analyse_datum', { ascending: false }).limit(500))),
     inBloecken(behaelterIds, b => ctx.tf(ctx.q('keller_behandlungen').select('behaelter_id, datum, typ_name_snapshot, menge, einheit').in('behaelter_id', b).order('datum', { ascending: false }).limit(500))),
   ])
   const letzteAnalyse = new Map<string, R>()
@@ -155,7 +155,7 @@ export async function ladeKeller(ctx: Ctx, messintervallTage: number = GAERUNG_M
       status: c.status, menge_liter: Number(c.menge_liter) || 0,
       behaelter: c.behaelter_id ? (behaelterMap.get(c.behaelter_id)?.name ?? null) : null, behaelter_id: c.behaelter_id ?? null,
       qualitaetsstufe: qualitaetAnzeigeOderNull(c), notizen: c.notizen ?? null,   // KAN-186: Anzeige samt Zusatz/Erzeugnis
-      letzteAnalyse: a ? { datum: a.analyse_datum, alkohol_vol: a.alkohol_vol, restzucker_gl: a.restzucker_gl, freie_so2_mgl: a.freie_so2_mgl, gesamtsaeure_gl: a.gesamtsaeure_gl } : null,
+      letzteAnalyse: a ? { datum: a.analyse_datum, alkohol_vol: a.alkohol_vol, restzucker_gl: a.restzucker_gl, freie_so2_mgl: a.freie_so2_mgl, gesamtsaeure_gl: a.gesamtsaeure_gl, kmw: a.kmw ?? null, oechsle: a.oechsle ?? null, mostgewicht_einheit: a.mostgewicht_einheit ?? null } : null,
       letzteMassnahme: m ? { datum: m.datum, typ: m.typ_name_snapshot ?? null, menge: m.menge, einheit: m.einheit } : null,
       messungFaellig: c.status === 'gaerung' && (tage === null || tage >= messintervallTage),
       tageSeitMessung: tage,
