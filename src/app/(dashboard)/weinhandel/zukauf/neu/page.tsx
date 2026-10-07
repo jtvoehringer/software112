@@ -1,6 +1,9 @@
 'use client'
 
-import { useState, useTransition, useEffect } from 'react'
+import { useState, useTransition, useEffect, useRef } from 'react'
+import { zukaufLieferantFehler } from '@/lib/handel/partnerPflicht'
+import { zurueckZiel } from '@/lib/navigation/zurueckBrowser'
+import { AbbrechenKnopf } from '@/components/navigation/Abbrechen'
 import Link from '@/components/ui/Link'
 import { createZukauf } from '../actions'
 import { FLASCHEN_GROESSEN_ML, istFlaschenArt, istTraubenArt } from '@/lib/zukauf/ware'
@@ -57,6 +60,8 @@ export default function ZukaufNeuPage() {
   const [lieferantKontakt, setLieferantKontakt] = useState('')
   const [lieferantFirma,   setLieferantFirma]   = useState('')
   const [lieferantZh,      setLieferantZh]      = useState('')
+  // Rückmeldung Jörgen 07.10.2026: Betriebsnummer schon bei der Auswahl prüfen (undefined = noch nicht bekannt)
+  const [lieferantInfo, setLieferantInfo] = useState<{ name: string; betriebNr: string | null; href: string } | null>(null)
   const [eingangsrechnungsnummer, setEingangsrechnungsnummer] = useState('')
 
   // ── Transportmittel ───────────────────────────────────────────────────────
@@ -139,12 +144,21 @@ export default function ZukaufNeuPage() {
     if (einheit === 'L' && preisProEinheit) setEinstandspreisLiter(preisProEinheit)
   }, [preisProEinheit, einheit])
 
+  // Rückmeldung Jörgen 07.10.2026: dieselbe Regel wie der Server (zukaufLieferantFehler), sofort bei der Auswahl
+  const lieferantHinweis = lieferantInfo
+    ? zukaufLieferantFehler({ art, lieferant: true, betriebNr: lieferantInfo.betriebNr, landIso, lieferantName: lieferantInfo.name })
+    : null
+  const fehlerRef = useRef<HTMLDivElement>(null)
+  // Fehler beim Speichern stehen oben – sichtbar machen, auch wenn man unten am Knopf ist
+  useEffect(() => { if (error) fehlerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }) }, [error])
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
     if (!menge || parseFloat(menge) <= 0) { setError('Menge muss größer als 0 sein.'); return }
     // KAN-80 Nachtrag: die Herkunftsauswahl hat nur ein verstecktes Feld – Pflicht hier prüfen (Server prüft ebenso)
     if (!herkunft) { setError('Bitte den Herkunfts-Code (BKI) wählen.'); return }
+    if (lieferantHinweis) { setError(lieferantHinweis); return }
     if (istFlaschenArt(art) && !fuellungName.trim()) { setError('Bitte den Produktnamen für das Weinlager angeben.'); return }
     const fd = new FormData()
     fd.set('datum',                   datum)
@@ -182,6 +196,7 @@ export default function ZukaufNeuPage() {
     fd.set('einstandspreis_pro_liter', einstandspreisLiter)
     fd.set('ziel_behaelter_id',       zielBehaelter)
     fd.set('notizen',                 notizen)
+    fd.set('zurueck',                 zurueckZiel('/weinhandel/zukauf'))   // KAN-224: nach dem Speichern zurück zur Übersicht bzw. woher man kam
     if (istFlaschenArt(art)) {
       fd.set('fuellung_name',         fuellungName)
       fd.set('flaschengroesse_ml',    flaschengroesse)
@@ -233,7 +248,7 @@ export default function ZukaufNeuPage() {
       </div>
 
       {error && (
-        <div className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg px-4 py-3 rounded-lg text-sm">{error}</div>
+        <div ref={fehlerRef} role="alert" className="bg-s112-err-bg border border-s112-err/30 text-s112-err-fg px-4 py-3 rounded-lg text-sm">{error}</div>
       )}
 
       {verschnitt && (
@@ -290,19 +305,30 @@ export default function ZukaufNeuPage() {
               <PartnerSuche
                 art="lieferant"
                 value={lieferantKontakt ? `kontakt:${lieferantKontakt}` : lieferantFirma ? `firma:${lieferantFirma}` : ''}
-                onChange={val => {
+                onChange={(val, treffer) => {
                   setLieferantZh('')
-                  if (!val) { setLieferantKontakt(''); setLieferantFirma(''); return }
+                  if (!val) { setLieferantKontakt(''); setLieferantFirma(''); setLieferantInfo(null); return }
                   const trennerIdx = val.indexOf(':')
                   const typ = val.slice(0, trennerIdx)
                   const id  = val.slice(trennerIdx + 1)
                   if (typ === 'kontakt') { setLieferantKontakt(id); setLieferantFirma('') }
                   else                   { setLieferantFirma(id);   setLieferantKontakt('') }
+                  setLieferantInfo(treffer ? {
+                    name: treffer.label, betriebNr: treffer.daten?.betrieb_nr ?? null,
+                    href: typ === 'kontakt' ? `/crm/kontakte/${id}` : `/crm/firmen/${id}`,
+                  } : null)
                 }}
                 placeholder="Name oder Firma suchen…"
                 disabled={loading}
               />
               <p className="text-xs text-s112-muted mt-1">Bei Firmen kann zusätzlich ein Ansprechpartner (z.H.) angegeben werden.</p>
+              {lieferantHinweis && lieferantInfo && (
+                <p role="alert" className="mt-2 text-sm bg-s112-warn-bg border border-s112-warn/30 text-s112-warn-fg rounded-lg px-3 py-2">
+                  {lieferantHinweis}{' '}
+                  <Link href={lieferantInfo.href} target="_blank" className="underline font-medium">Im CRM öffnen ↗</Link>
+                  <span className="block text-xs mt-0.5">Nach dem Ergänzen den Lieferanten hier über „Ändern“ neu wählen.</span>
+                </p>
+              )}
             </div>
             {lieferantFirma && (
               <div className="col-span-2">
@@ -673,11 +699,9 @@ export default function ZukaufNeuPage() {
         </div>
 
         {/* ── Submit ────────────────────────────────────────────────────── */}
+        {error && <p role="status" className="text-sm text-s112-err-fg text-right">{error}</p>}
         <div className="flex justify-end gap-3">
-          <Link href="/weinhandel/zukauf"
-            className="text-sm text-s112-muted hover:text-s112-text-1 px-4 py-2">
-            Abbrechen
-          </Link>
+          <AbbrechenKnopf standard="/weinhandel/zukauf" className="text-sm text-s112-muted hover:text-s112-text-1 px-4 py-2" />
           <button type="submit" disabled={isPending || !!verschnitt}
             className="bg-s112-teal text-s112-yellow px-6 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors disabled:opacity-50">
             {isPending ? 'Speichern…' : 'Zukauf speichern'}

@@ -1,3 +1,5 @@
+import { zielNachAbschluss } from '@/lib/navigation/zurueck'
+import { AbbrechenKnopf, ZurueckFeld } from '@/components/navigation/Abbrechen'
 import { redirect } from 'next/navigation'
 import Link from '@/components/ui/Link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
@@ -44,7 +46,7 @@ export default async function BuchhaltungNeuPage() {
   async function handleSubmit(formData: FormData) {
     'use server'
     const result = await createEaTransaktion(formData)
-    if (!result?.error) redirect('/buchhaltung')
+    if (!result?.error) redirect(zielNachAbschluss(formData.get('zurueck'), '/buchhaltung', 'gespeichert'))   // KAN-224
   }
 
   const einnahmeKat = (kategorien as R[])?.filter(k => k.typ === 'einnahme' || k.typ === 'beides') ?? []
@@ -62,6 +64,7 @@ export default async function BuchhaltungNeuPage() {
       </div>
 
       <form action={handleSubmit} className="bg-white rounded-xl border border-s112-border p-6 space-y-5">
+        <ZurueckFeld standard="/buchhaltung" />
         {/* Typ */}
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-2">Typ *</label>
@@ -150,10 +153,8 @@ export default async function BuchhaltungNeuPage() {
             className="bg-s112-teal text-s112-yellow px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-s112-teal/90">
             Buchung speichern
           </button>
-          <Link href="/buchhaltung"
-            className="px-6 py-2.5 rounded-xl text-sm border border-s112-border text-s112-text-2 hover:bg-s112-bg">
-            Abbrechen
-          </Link>
+          <AbbrechenKnopf standard="/buchhaltung"
+            className="px-6 py-2.5 rounded-xl text-sm border border-s112-border text-s112-text-2 hover:bg-s112-bg" />
         </div>
       </form>
     </div>

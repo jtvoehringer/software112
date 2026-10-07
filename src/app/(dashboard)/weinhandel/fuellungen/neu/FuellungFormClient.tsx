@@ -1,8 +1,9 @@
 'use client'
 
+import { zielNachVorgang } from '@/lib/navigation/zurueckBrowser'
+import { AbbrechenKnopf } from '@/components/navigation/Abbrechen'
 import { useState, useMemo, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from '@/components/ui/Link'
 import { KN_CODES } from '@/lib/wein/zolltarif'
 import { HERKUNFT_ORDER, HERKUNFT_LABEL, herkunftOptionen, zulaessigeHerkuenfte } from '@/lib/herkunft'
 import { qualitaetText } from '@/lib/weinqualitaet'
@@ -201,7 +202,7 @@ export default function FuellungFormClient({
           router.push(`/weinhandel/fuellungen/${r.id}/edit`)
           return
         }
-        router.push('/weinhandel')
+        router.push(zielNachVorgang('/weinhandel', 'abfuellung'))   // KAN-224: zurück, woher man kam
       } catch (err) {
         setError(fehlerText(err, 'Fehler beim Speichern'))
       }
@@ -603,9 +604,7 @@ export default function FuellungFormClient({
           className="bg-s112-teal text-s112-yellow px-6 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors disabled:opacity-50">
           {isPending ? 'Wird angelegt …' : 'Füllung anlegen'}
         </button>
-        <Link href="/weinhandel" className="px-6 py-2 rounded-xl text-sm font-medium text-s112-text-2 hover:text-s112-text transition-colors">
-          Abbrechen
-        </Link>
+        <AbbrechenKnopf standard="/weinhandel" className="px-6 py-2 rounded-xl text-sm font-medium text-s112-text-2 hover:text-s112-text transition-colors" />
       </div>
     </form>
   )

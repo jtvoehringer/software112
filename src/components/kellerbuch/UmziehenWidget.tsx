@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { zielNachVorgang } from '@/lib/navigation/zurueckBrowser'
 import { AlertTriangle } from 'lucide-react'
 import { weinartKonflikt, WEINART_LABEL } from '@/lib/keller/weinart'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
@@ -98,7 +99,7 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
 
   function handleClose() {
     setOpen(false)
-    router.push(`/kellerbuch/weinausbau/${chargeId}`)
+    router.push(`/kellerbuch/weinausbau/${chargeId}`)   // Abbrechen: Formular zu, auf der Charge bleiben
   }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -134,8 +135,10 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
         } else {
           // Bleibt auf derselben Charge - ein bloßer Push auf dieselbe URL lädt in Next.js
           // keine frischen Serverdaten nach, hier ist das explizite refresh() nötig.
+          // KAN-224 (Rückmeldung Jörgen 07.10.2026): nach dem Buchen dorthin zurück, woher man zur Charge kam – mit
+          // Bestätigung; ohne bekannte Herkunft bleibt es bei der Charge (Bestätigung im Formular)
           setErfolg(gebucht)
-          router.push(`/kellerbuch/weinausbau/${chargeId}`)
+          router.push(zielNachVorgang(`/kellerbuch/weinausbau/${chargeId}`, 'umzug'))
           router.refresh()
         }
       } catch (err) {

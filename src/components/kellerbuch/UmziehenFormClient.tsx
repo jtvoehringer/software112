@@ -1,5 +1,6 @@
 'use client'
 
+import { ZurueckFeld } from '@/components/navigation/Abbrechen'
 import { useState, useTransition } from 'react'
 import { X, AlertTriangle } from 'lucide-react'
 import { fmtNum } from '@/lib/format'
@@ -93,6 +94,7 @@ export default function UmziehenFormClient({
 
   return (
     <form onSubmit={absenden} className="mt-4 space-y-6">
+      <ZurueckFeld standard="/kellerbuch/gebinde?tab=umziehen" />{/* KAN-224: Bearbeiten führt dorthin zurück, woher man kam */}
       <input type="hidden" name="quellen_json" value={JSON.stringify(quellen)} />
       <input type="hidden" name="ziele_json"   value={JSON.stringify(ziele)} />
 

@@ -1,8 +1,9 @@
 'use client'
 
+import { zielNachVorgang } from '@/lib/navigation/zurueckBrowser'
+import { AbbrechenKnopf } from '@/components/navigation/Abbrechen'
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from '@/components/ui/Link'
 import { fehlerText } from '@/lib/fehler'
 
 // Hauptformular „Füllung bearbeiten“ (KAN-35, 24.09.2026): Sperr- und Prüfmeldungen
@@ -27,7 +28,7 @@ export default function FuellungEditFormular({
     startTransition(async () => {
       try {
         await action(fd)
-        router.push('/weinhandel')
+        router.push(zielNachVorgang('/weinhandel', 'gespeichert'))   // KAN-224: zurück, woher man kam
       } catch (err) {
         setFehler(fehlerText(err, 'Speichern fehlgeschlagen'))
       }
@@ -51,9 +52,7 @@ export default function FuellungEditFormular({
           className="bg-s112-teal text-s112-yellow px-6 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors disabled:opacity-60">
           {pending ? 'Wird gespeichert …' : 'Änderungen speichern'}
         </button>
-        <Link href="/weinhandel" className="px-6 py-2 rounded-xl text-sm font-medium text-s112-text-2 hover:text-s112-text transition-colors">
-          Abbrechen
-        </Link>
+        <AbbrechenKnopf standard="/weinhandel" className="px-6 py-2 rounded-xl text-sm font-medium text-s112-text-2 hover:text-s112-text transition-colors" />
       </div>
     </form>
   )

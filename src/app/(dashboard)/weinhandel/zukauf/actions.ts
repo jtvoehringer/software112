@@ -6,6 +6,7 @@ import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { zielNachAbschluss } from '@/lib/navigation/zurueck'
 import { AktionsFehler, dbFehlerText, fehlerText } from '@/lib/fehler'
 import { stornoGrundFehler } from '@/lib/storno/grund'
 import { dezimal, fmtNum } from '@/lib/format'
@@ -484,16 +485,15 @@ export async function createZukauf(formData: FormData): Promise<{ bestaetigung?:
   revalidatePath('/weinhandel/zukauf')
   revalidatePath('/weinhandel')
   revalidatePath('/kellerbuch')
-  // KAN-41 Paket 2b: nach dem Flaschenzukauf direkt zum neuen Weinlager-Artikel
-  const fuellungId = ((ergebnis ?? {}) as AR).fuellung_id as string | undefined
-  if (flaschen && fuellungId) redirect(`/weinhandel/fuellungen/${fuellungId}/edit`)
+  // Rückmeldung Jörgen 07.10.2026: auch nach dem Flaschenzukauf zurück zur Zukaufsübersicht (nicht mehr zur Füllung)
 
   if (verschnitt) {
     const vs = (((ergebnis ?? {}) as AR).verschnitt ?? {}) as AR
     if (verschnitt.hinweis.zielChargeId) revalidatePath(`/kellerbuch/weinausbau/${verschnitt.hinweis.zielChargeId}`)
     return { verschnitt: { ...verschnitt.hinweis, verschneidungId: (vs.verschneidung_id as string | undefined) ?? null } }
   }
-  redirect('/weinhandel/zukauf')
+  // KAN-224: zurück, woher man kam (Standard Zukaufsübersicht), mit Bestätigung
+  redirect(zielNachAbschluss(formData.get('zurueck'), '/weinhandel/zukauf', 'zukauf'))
 }
 
 export async function updateZukauf(id: string, formData: FormData) {
@@ -714,7 +714,8 @@ export async function updateZukauf(id: string, formData: FormData) {
   revalidatePath('/weinhandel/zukauf')
   revalidatePath('/weinhandel')
   revalidatePath('/kellerbuch')
-  redirect('/weinhandel/zukauf')
+  // KAN-224: zurück, woher man kam (Standard Zukaufsübersicht), mit Bestätigung
+  redirect(zielNachAbschluss(formData.get('zurueck'), '/weinhandel/zukauf', 'gespeichert'))
 }
 
 /** KAN-193: Verschnitt, mit dem dieser Zukauf beim Buchen in die Charge im Gebinde verschnitten wurde – nur, wenn er die

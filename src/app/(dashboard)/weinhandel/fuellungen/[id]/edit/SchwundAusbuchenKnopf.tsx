@@ -1,5 +1,6 @@
 'use client'
 
+import { zielNachVorgang } from '@/lib/navigation/zurueckBrowser'
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { schwundAusbuchen } from '../../../actions'
@@ -40,7 +41,7 @@ export default function SchwundAusbuchenKnopf({
     startTransition(async () => {
       try {
         await schwundAusbuchen(fuellungId)
-        router.push('/weinhandel')
+        router.push(zielNachVorgang('/weinhandel', 'schwund'))   // KAN-224
       } catch (err) {
         setFehler(fehlerText(err, 'Schwund konnte nicht gebucht werden'))
       }

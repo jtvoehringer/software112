@@ -61,14 +61,16 @@ describe('Regeln', () => {
 
 describe('Verdrahtung', () => {
   const A = quelle('src/app/(dashboard)/weinhandel/zukauf/actions.ts')
-  test('createZukauf: Prüfung vor der RPC, Weinlager-Artikel als p_fuellung, danach zur neuen Füllung', () => {
+  test('createZukauf: Prüfung vor der RPC, Weinlager-Artikel als p_fuellung, danach zur Zukaufsübersicht', () => {
     const start = A.indexOf('export async function createZukauf')
     const fn = A.slice(start, A.indexOf('export async function updateZukauf'))
     const pruefung = fn.indexOf('flaschenZukaufFehler({')
     const rpc = fn.indexOf("'s112_zukauf_buchen'")
     assert.ok(pruefung > 0 && pruefung < rpc, 'Prüfung vor dem Buchen')
     assert.match(fn, /p_fuellung: flaschen\n\s+\? \{ name: f\.fuellungName, flaschengroesse_ml: f\.flaschengroesseMl, vk_preis_brutto: f\.vkPreisBrutto, mwst_pct: f\.mwstPct \}\n\s+: null,/)
-    assert.match(fn, /if \(flaschen && fuellungId\) redirect\(`\/weinhandel\/fuellungen\/\$\{fuellungId\}\/edit`\)/)   // es gibt keine Detailseite
+    // Rückmeldung Jörgen 07.10.2026 (KAN-224): auch der Flaschenzukauf führt zurück zur Zukaufsübersicht, nicht mehr in die Füllung
+    assert.doesNotMatch(fn, /redirect\(`\/weinhandel\/fuellungen\//)
+    assert.match(fn, /redirect\(zielNachAbschluss\(formData\.get\('zurueck'\), '\/weinhandel\/zukauf', 'zukauf'\)\)/)
     assert.match(A, /einheit: {13}istFlaschenArt\(art\) \? 'Stk' :/)
   })
   test('updateZukauf: Art, Anzahl und Merkmale eines Flaschenzukaufs fest, nur Beleg/Preis/Notizen speichern', () => {

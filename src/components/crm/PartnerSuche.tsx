@@ -15,7 +15,7 @@ import { useEffect, useRef, useState } from 'react'
 
 export type PartnerTreffer = {
   id: string; label: string; sub?: string
-  daten?: { typ: 'kontakt' | 'firma'; firma_id: string | null; rabatt_pct: number | null; sonderrabatt_pct: number; skonto_pct: number; skonto_tage: number }
+  daten?: { typ: 'kontakt' | 'firma'; firma_id: string | null; rabatt_pct: number | null; sonderrabatt_pct: number; skonto_pct: number; skonto_tage: number; betrieb_nr?: string | null }
 }
 
 const inputCls = 'border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 bg-white'
@@ -72,14 +72,20 @@ export default function PartnerSuche({ art, firmaId, value, onChange, placeholde
       .catch(() => {})
   }, [art, value, selected])
 
+  // Rückmeldung Jörgen 07.10.2026 („Lieferantenänderung nicht möglich – eingefroren“): die Auswahl ist sichtbar änderbar –
+  // Klick auf den Namen oder „Ändern“ öffnet wieder die Suche
+  const aendern = () => { onChange('', null); setGewaehlt(null); setQuery(''); setOpen(true) }
   if (value) {
     return (
       <div className="flex items-center gap-2 border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 bg-white text-base sm:text-sm">
-        <span className="flex-1 truncate font-medium text-s112-text">{selected?.label ?? '…'}</span>
-        {selected?.sub && <span className="text-xs text-s112-muted truncate">{selected.sub}</span>}
+        <button type="button" onClick={aendern} disabled={disabled} title="Andere Auswahl"
+          className="flex-1 min-w-0 flex items-center gap-2 text-left disabled:cursor-default">
+          <span className="truncate font-medium text-s112-text">{selected?.label ?? '…'}</span>
+          {selected?.sub && <span className="text-xs text-s112-muted truncate">{selected.sub}</span>}
+        </button>
         {!disabled && (
-          <button type="button" onClick={() => { onChange('', null); setGewaehlt(null); setQuery('') }}
-            className="text-s112-muted hover:text-s112-err ml-1 shrink-0 text-base leading-none">×</button>
+          <button type="button" onClick={aendern}
+            className="text-xs text-s112-blue-700 hover:underline shrink-0">Ändern</button>
         )}
       </div>
     )

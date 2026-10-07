@@ -1,3 +1,4 @@
+import { AbbrechenKnopf, ZurueckFeld } from '@/components/navigation/Abbrechen'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { alle } from '@/lib/supabase/alle'
 import { ladeBehaelter } from '@/lib/keller/behaelter'
@@ -72,6 +73,7 @@ export default async function UmzugEditPage({ params }: { params: Promise<{ id: 
         {/* Nur Notizen: Quellen, Ziele und Datum gehen unverändert mit, updateUmzugBatch erkennt
             daran, dass sich höchstens die Notizen ändern */}
         <AktionsFormular action={updateUmzugBatch.bind(null, eingabe.ersteId)} className="card p-6 space-y-4">
+          <ZurueckFeld standard="/kellerbuch/gebinde?tab=umziehen" />
           <input type="hidden" name="quellen_json" value={JSON.stringify(eingabe.quellen)} />
           <input type="hidden" name="ziele_json" value={JSON.stringify(eingabe.ziele)} />
           <input type="hidden" name="datum" value={eingabe.datum} />
@@ -85,10 +87,8 @@ export default async function UmzugEditPage({ params }: { params: Promise<{ id: 
           </button>
         </AktionsFormular>
 
-        <Link href="/kellerbuch/gebinde?tab=umziehen"
-          className="inline-block text-sm text-s112-text-2 hover:text-s112-text-1 transition-colors">
-          ← Abbrechen
-        </Link>
+        <AbbrechenKnopf standard="/kellerbuch/gebinde?tab=umziehen"
+          className="inline-block text-sm text-s112-text-2 hover:text-s112-text-1 transition-colors">← Abbrechen</AbbrechenKnopf>
       </div>
     )
   }
@@ -132,10 +132,8 @@ export default async function UmzugEditPage({ params }: { params: Promise<{ id: 
         />
       </div>
 
-      <Link href="/kellerbuch/gebinde?tab=umziehen"
-        className="inline-block text-sm text-s112-text-2 hover:text-s112-text-1 transition-colors">
-        ← Abbrechen
-      </Link>
+      <AbbrechenKnopf standard="/kellerbuch/gebinde?tab=umziehen"
+        className="inline-block text-sm text-s112-text-2 hover:text-s112-text-1 transition-colors">← Abbrechen</AbbrechenKnopf>
     </div>
   )
 }

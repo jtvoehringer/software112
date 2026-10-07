@@ -2,9 +2,10 @@
 // Anlage erfassen / bearbeiten (Migration 200). Zeigt beim Tippen den
 // AfA-Plan, damit man sieht, was die Eingaben bedeuten.
 
+import { zielNachVorgang } from '@/lib/navigation/zurueckBrowser'
+import { AbbrechenKnopf } from '@/components/navigation/Abbrechen'
 import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from '@/components/ui/Link'
 import { afaPlan, type AfaMethode, type Anlage } from '@/lib/ea/anlagen'
 import { fmtEur, fmtNum, dezimal } from '@/lib/format'
 import { Th, Td, Note } from '@/app/(dashboard)/dashboard/_shared/ui'
@@ -111,7 +112,7 @@ export default function AnlageForm({ initial, buchungen = [], darfSchreiben }: {
         transaktion_id: form.transaktion_id || null, notizen: form.notizen || null,
       })
       if (!r.ok) { setFehler(r.fehler); return }
-      router.push('/buchhaltung/anlagen')
+      router.push(zielNachVorgang('/buchhaltung/anlagen', 'gespeichert'))   // KAN-224: zurück, woher man kam
       router.refresh()
     })
   }
@@ -233,7 +234,7 @@ export default function AnlageForm({ initial, buchungen = [], darfSchreiben }: {
         {fehler && <p className="text-s112-err-fg text-sm bg-s112-err-bg border border-s112-err/30 px-3 py-2 rounded-lg">{fehler}</p>}
 
         <div className="flex flex-wrap gap-3">
-          <Link href="/buchhaltung/anlagen" className="px-4 py-2 rounded-lg text-[13px] font-medium text-s112-text-1 border border-s112-line-str bg-white hover:bg-s112-bg">Abbrechen</Link>
+          <AbbrechenKnopf standard="/buchhaltung/anlagen" className="px-4 py-2 rounded-lg text-[13px] font-medium text-s112-text-1 border border-s112-line-str bg-white hover:bg-s112-bg" />
           {darfSchreiben && (
             <button type="submit" disabled={pending} className="bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg text-[13px] font-semibold hover:opacity-90 disabled:opacity-40">
               {pending ? 'Speichern …' : form.id ? 'Änderungen speichern' : 'Anlage anlegen'}

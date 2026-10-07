@@ -1,3 +1,5 @@
+import { zielNachAbschluss } from '@/lib/navigation/zurueck'
+import { AbbrechenKnopf, ZurueckFeld } from '@/components/navigation/Abbrechen'
 import { redirect } from 'next/navigation'
 import Link from '@/components/ui/Link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
@@ -26,7 +28,7 @@ export default async function KontoNeuPage() {
   async function handleSubmit(formData: FormData) {
     'use server'
     const result = await createKonto(formData)
-    if (!result?.error) redirect('/konten')
+    if (!result?.error) redirect(zielNachAbschluss(formData.get('zurueck'), '/konten', 'angelegt'))   // KAN-224
   }
 
   return (
@@ -39,6 +41,7 @@ export default async function KontoNeuPage() {
       <h1 className="text-2xl font-semibold text-s112-text mb-6">Neues Konto</h1>
 
       <form action={handleSubmit} className="bg-white rounded-xl border border-s112-border p-6 space-y-5">
+        <ZurueckFeld standard="/konten" />
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Bezeichnung *</label>
           <input aria-label="Bezeichnung" name="name" required placeholder="z.B. Raiffeisen Girokonto"
@@ -79,10 +82,8 @@ export default async function KontoNeuPage() {
             className="bg-s112-teal text-s112-yellow px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-s112-teal/90">
             Konto anlegen
           </button>
-          <Link href="/konten"
-            className="px-6 py-2.5 rounded-xl text-sm border border-s112-border text-s112-text-2 hover:bg-s112-bg">
-            Abbrechen
-          </Link>
+          <AbbrechenKnopf standard="/konten"
+            className="px-6 py-2.5 rounded-xl text-sm border border-s112-border text-s112-text-2 hover:bg-s112-bg" />
         </div>
       </form>
     </div>

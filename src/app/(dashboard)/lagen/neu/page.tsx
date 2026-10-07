@@ -1,3 +1,5 @@
+import { zielNachAbschluss } from '@/lib/navigation/zurueck'
+import { AbbrechenKnopf, ZurueckFeld } from '@/components/navigation/Abbrechen'
 import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
 import { redirect } from 'next/navigation'
 import { createLage } from '../actions'
@@ -12,7 +14,7 @@ export default async function NeueLagePage() {
   async function handleSubmit(formData: FormData) {
     'use server'
     await createLage(formData)
-    redirect('/lagen')
+    redirect(zielNachAbschluss(formData.get('zurueck'), '/lagen', 'angelegt'))   // KAN-224
   }
 
   return (
@@ -23,6 +25,7 @@ export default async function NeueLagePage() {
       </div>
       <div className="card">
         <form action={handleSubmit} className="space-y-4">
+        <ZurueckFeld standard="/lagen" />
           <div>
             <label className="block text-sm font-medium text-s112-text-1 mb-1">
               Name <span className="text-s112-err">*</span>
@@ -59,9 +62,8 @@ export default async function NeueLagePage() {
               className="bg-s112-teal text-s112-yellow px-5 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors">
               Speichern
             </button>
-            <a href="/lagen" className="px-5 py-2 rounded-xl text-sm font-medium text-s112-text-2 hover:text-s112-text">
-              Abbrechen
-            </a>
+            <AbbrechenKnopf standard="/lagen"
+            className="px-5 py-2 rounded-xl text-sm font-medium text-s112-text-2 hover:text-s112-text" />
           </div>
         </form>
       </div>

@@ -1,5 +1,6 @@
 'use client'
 
+import { zielNachVorgang, zurueckZiel } from '@/lib/navigation/zurueckBrowser'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { fehlerText } from '@/lib/fehler'
@@ -38,7 +39,7 @@ export default function WeingartenForm({ weingarten, action, readOnly = false }:
     const fd = new FormData(e.currentTarget)
     try {
       await action(fd)
-      router.push('/weingarten')
+      router.push(zielNachVorgang('/weingarten', 'gespeichert'))   // KAN-224: zurück, woher man kam
       router.refresh()
     } catch (err) {
       setError(fehlerText(err, 'Unbekannter Fehler'))
@@ -154,7 +155,7 @@ export default function WeingartenForm({ weingarten, action, readOnly = false }:
         )}
         <button
           type="button"
-          onClick={() => router.push('/weingarten')}
+          onClick={() => router.push(zurueckZiel('/weingarten'))}
           className="text-sm text-s112-muted hover:text-s112-text-1 transition-colors"
         >
           {readOnly ? 'Zurück' : 'Abbrechen'}
