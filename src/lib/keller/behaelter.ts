@@ -34,6 +34,8 @@ export type BehaelterZeile = {
   gesperrt: boolean
   /** „a1“ bzw. „a1 · Weingut X“ bei fremden Gebinden */
   anzeigeName: string
+  /** KAN-174 F: Hinweis Lohnproduktion („LP + …“), nur Anzeige */
+  lp_pickerl: string | null
 }
 
 const num = (v: unknown) => v === null || v === undefined ? 0 : Number(v) || 0
@@ -50,6 +52,7 @@ export function zuBehaelterZeile(r: R): BehaelterZeile {
     eigen_liter: num(r.eigen_liter), fremd_liter: fremdLiter, fremd_betrieb: r.fremd_betrieb ?? null,
     gesperrt: fremdLiter > 0,
     anzeigeName: fremd ? `${r.name} · ${r.eigentuemer_name ?? 'Partnerbetrieb'}` : r.name,
+    lp_pickerl: r.lp_pickerl ?? null,
   }
 }
 

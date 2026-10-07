@@ -149,7 +149,7 @@ export const SORTEN_TRENNER = ' – '
 
 const gewicht = (a: SortenAnteil) => (a.liter != null && a.liter > 0 ? a.liter : a.anteil_pct > 0 ? a.anteil_pct : 0)
 const istUnbekannt = (w: string) => w.trim() === '' || w === 'unbekannt'
-const fmtPct = (x: number) => `${(Math.round(x * 10) / 10).toLocaleString('de-AT', { maximumFractionDigits: 1 })} %`
+const fmtPct = (x: number) => `${(Math.round(x * 10) / 10).toLocaleString('de-DE', { maximumFractionDigits: 1 })} %`
 
 function aufbereitet(anteile: readonly SortenAnteil[]) {
   const mit = anteile.filter(a => gewicht(a) > 0)

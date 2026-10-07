@@ -1,5 +1,6 @@
 'use client'
 
+import { gebindeOption } from '@/lib/keller/gebindeAnzeige'
 import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
 import { useState, useTransition } from 'react'
 import { Pencil, X, ChevronDown, Plus } from 'lucide-react'
@@ -711,17 +712,13 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, wgOptions, behOpt
                   required={i === 0} className={inp}>
                   <option value="">– Behälter –</option>
                   {behOptions.map(b => {
-                    const vol = b.volumen_liter ?? null
+                    // KAN-174 C: „Name · Inhalt – Charge | frei“ statt Kapazität
                     const existing = behaelterMitCharge?.[b.id] ?? []
                     const inhalt = existing.reduce((s, c) => s + (parseFloat(String(c.menge_liter ?? 0)) || 0), 0)
-                    const frei = vol != null ? vol - inhalt : null
-                    const kapSuffix = vol != null
-                      ? ` · ${fmtNum(vol)} L · frei: ${fmtNum(frei!, { max: 0 })} L`
-                      : ''
-                    const inhaltSuffix = existing.length > 0
-                      ? ` [${existing.map(c => c.rebsorte ? `${c.name} (${formatRebsorteMitKuerzel(c.rebsorte)})` : c.name).join(', ')}]`
-                      : ' [leer]'
-                    return <option key={b.id} value={b.id}>{b.name}{kapSuffix}{inhaltSuffix}</option>
+                    return <option key={b.id} value={b.id}>{gebindeOption({
+                      name: b.name, inhaltLiter: inhalt, volumenLiter: b.volumen_liter ?? null,
+                      chargen: existing.map(c => c.rebsorte ? `${c.name} (${formatRebsorteMitKuerzel(c.rebsorte)})` : c.name),
+                    })}</option>
                   })}
                 </select>
                 {row.behaelter_id && (() => {

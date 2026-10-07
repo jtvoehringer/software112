@@ -1,5 +1,6 @@
 'use client'
 
+import { gebindeOption } from '@/lib/keller/gebindeAnzeige'
 import { useState, useTransition, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { zielNachVorgang } from '@/lib/navigation/zurueckBrowser'
@@ -238,16 +239,11 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
             <select aria-label="Ziel-Gebinde" value={zielId} onChange={e => setZielId(e.target.value)} className="form-input py-2.5 sm:py-2 text-base sm:text-sm">
               <option value="">– Gebinde wählen –</option>
               {gebinde.map(g => {
-                const inh = inhalt[g.id] ?? 0
-                const f   = frei(g)
-                const kap = g.volumen_liter
-                const fmt = (n: number) => fmtNum(n, { max: 0 })
-                const wein = weinByGebinde[g.id]?.join(', ')
-                const info = kap != null
-                  ? ` · ${fmt(kap)} L Kap · ${fmt(inh)} L Inh · ${fmt(f ?? 0)} L frei${wein ? ` · ${wein}` : ''}`
-                  : inh > 0 ? ` · ${fmt(inh)} L Inh${wein ? ` · ${wein}` : ''}` : ''
+                // KAN-174 C: „Name · Inhalt – Charge | frei“ statt Kapazität
                 return (
-                  <option key={g.id} value={g.id}>{g.name}{info}</option>
+                  <option key={g.id} value={g.id}>
+                    {gebindeOption({ name: g.name, inhaltLiter: inhalt[g.id] ?? 0, chargen: weinByGebinde[g.id] ?? [], volumenLiter: g.volumen_liter })}
+                  </option>
                 )
               })}
             </select>

@@ -6,7 +6,7 @@ import { lesePflichtFehler, traubenzeilePflichtFehler, pressungZeilenFehler, LES
 import { revalidatePath } from 'next/cache'
 import { kmwZuQualitaet } from '@/lib/weinqualitaet'
 import { abstufungFehler, qualitaetFehler } from '@/lib/wein/qualitaet'
-import { findePassendeHerkunftsstufe, HERKUNFT_LABEL, minHerkunft } from '@/lib/herkunft'
+import { findePassendeHerkunftsstufe, herkunftFuerSortenverschnitt, HERKUNFT_LABEL, minHerkunft } from '@/lib/herkunft'
 import { istTraubenArt, pressungObergrenze } from '@/lib/zukauf/ware'
 import { createVerkaufspostenFuerTrauben, ermittleQuellenName, upsertTraubenverkauf } from '@/app/(dashboard)/weinhandel/traubenverkauf/actions'
 import { traubenverkaufStornieren } from '@/lib/verkauf/traubenverkaufStorno'
@@ -1084,9 +1084,12 @@ async function chargenVorgabenErmitteln(
     // KAN-89: mehrere Sorten → Sortenverschnitt mit Farbe (Weinart, sonst Farbe der Sorten laut BKI-Liste)
     dominantRebsorte = uniqueRebsorten.length === 1 ? uniqueRebsorten[0]
       : uniqueRebsorten.length > 1 ? pressungSortenverschnitt(weinart, uniqueRebsorten.map(bkiFarbe)) : null
+    // KAN-175: Sortenverschnitt in der Pressung – Herkunft auf die erste Stufe ohne Sortenspiegel (WLTH → WLNÖ)
+    if (uniqueRebsorten.length > 1) herkunft = herkunftFuerSortenverschnitt(herkunft).code
   } else if (rebsortenAusForm.length > 0) {
     const unique = [...new Set(rebsortenAusForm)]
     dominantRebsorte = unique.length === 1 ? unique[0] : pressungSortenverschnitt(null, unique.map(bkiFarbe))
+    if (unique.length > 1) herkunft = herkunftFuerSortenverschnitt(herkunft).code   // KAN-175
   }
   const name = kopf.weinbezeichnung
     ? kopf.weinbezeichnung

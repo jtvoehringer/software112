@@ -12,6 +12,7 @@ import { getCurrentMembership, canWrite, canAdmin } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
+import { pickerlFehler, schwundGrundFehler } from '@/lib/keller/gebindeAnzeige'
 import { dezimal, zahlAus, fmtNum } from '@/lib/format'
 import { gebindeFehlerText } from '@/lib/keller/behaelter'
 import { sperreBeiFolgebuchungen, folgebuchungenDerCharge, folgebuchungenText } from '@/lib/kellerbuch/folgebuchungen'
@@ -71,6 +72,25 @@ function chargenQualitaetAusFormular(formData: FormData): QualitaetsAngabe {
   return angabe
 }
 
+/** KAN-174 F: LP-Pickerl aus dem Formular (Feld lp_pickerl; leer = entfernen) – nur wenn das Feld mitkommt */
+function pickerlAusFormular(formData: FormData): R {
+  if (!formData.has('lp_pickerl')) return {}
+  const t = ((formData.get('lp_pickerl') as string | null) ?? '').trim()
+  const f = pickerlFehler(t)
+  if (f) throw new AktionsFehler(f)
+  return { lp_pickerl: t || null }
+}
+
+/** KAN-174 F: LP-Pickerl mit einem Klick entfernen (Kellerbuch-Übersicht) */
+export async function pickerlEntfernen(behaelterId: string) {
+  const supabase = await createSupabaseServerClient()
+  const tenantId = await kellerbuchSchreibrecht()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.from('behaelter') as any).update({ lp_pickerl: null }).eq('id', behaelterId).eq('tenant_id', tenantId)
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Pickerl konnte nicht entfernt werden'))
+  revalidatePath('/kellerbuch')
+}
+
 // BEHAELTER
 export async function createBehaelter(formData: FormData) {
   const supabase  = await createSupabaseServerClient()
@@ -84,6 +104,7 @@ export async function createBehaelter(formData: FormData) {
     volumen_liter: formData.get('volumen_liter') ? Number(dezimal((formData.get('volumen_liter') as string))) : null,
     standort:      (formData.get('standort') as string) || null,
     notizen:       (formData.get('notizen') as string)?.trim() || null,
+    ...pickerlAusFormular(formData),   // KAN-174 F
     stapler:       formData.get('stapler') === 'true',
     // Kellergemeinschaft (Migration 203): Checkbox nur im Formular, wenn Partner bestehen -
     // fehlt sie, bleibt der Default (freigegeben), sonst der gesetzte Wert.
@@ -163,6 +184,7 @@ export async function updateBehaelter(id: string, formData: FormData) {
     volumen_liter: formData.get('volumen_liter') ? Number(dezimal((formData.get('volumen_liter') as string))) : null,
     standort:      (formData.get('standort') as string) || null,
     notizen:       (formData.get('notizen') as string)?.trim() || null,
+    ...pickerlAusFormular(formData),   // KAN-174 F
     stapler:       formData.get('stapler') === 'true',
     ...(formData.has('gemeinsam_sichtbar') ? { gemeinsam: formData.get('gemeinsam') === 'true' } : {}),
     aktiv:         formData.get('aktiv') === 'true',
@@ -811,6 +833,8 @@ export async function schwundBuchen(weinausbauId: string, formData: FormData) {
   const notiz = ((formData.get('notiz') as string) || '').trim() || null
   if (liter == null || liter < 0.01) throw new AktionsFehler('Bitte eine Schwundmenge von mindestens 0,01 L angeben.')
   if (!datum) throw new AktionsFehler('Bitte ein Datum für den Schwund angeben.')
+  const gf = schwundGrundFehler(notiz)   // KAN-174 D: Begründung Pflicht
+  if (gf) throw new AktionsFehler(gf)
 
   // Mit dem Benutzer-Client und Parameternamen – sonst fehlt der Benutzer im Protokoll
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

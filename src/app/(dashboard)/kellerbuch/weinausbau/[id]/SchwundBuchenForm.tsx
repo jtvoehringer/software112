@@ -5,6 +5,7 @@
 // schwund_buchen). Einziger Korrekturweg nach unten, seit die Menge im Formular
 // „Charge bearbeiten“ nicht mehr änderbar ist.
 
+import { schwundGrundFehler } from '@/lib/keller/gebindeAnzeige'
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Droplet } from 'lucide-react'
@@ -36,6 +37,8 @@ export default function SchwundBuchenForm({ bestandLiter, action }: Props) {
     setFehler(null)
     setOk(null)
     if (liter == null || liter < 0.01) { setFehler('Bitte eine Schwundmenge von mindestens 0,01 L angeben.'); return }
+    const gf = schwundGrundFehler(notiz)   // KAN-174 D: Begründung Pflicht
+    if (gf) { setFehler(gf); return }
     if (zuViel) { setFehler(`Die Schwundmenge übersteigt den Bestand der Charge (${fmtLiter(bestandLiter)}).`); return }
     if (schliesstAb && !window.confirm('Nach diesem Schwund ist die Charge leer und wird abgeschlossen. Fortfahren?')) return
     const fd = new FormData()
@@ -79,9 +82,9 @@ export default function SchwundBuchenForm({ bestandLiter, action }: Props) {
           <input aria-label="Datum" type="date" value={datum} onChange={e => setDatum(e.target.value)} required className={`w-full sm:w-auto ${inputCls}`} />
         </div>
         <div className="col-span-2 sm:flex-1 sm:min-w-[180px]">
-          <label className="block text-xs font-medium text-s112-text-2 mb-1">Notiz</label>
-          <input aria-label="Notiz" type="text" value={notiz} onChange={e => setNotiz(e.target.value)}
-            placeholder="z.B. Verdunstung Barrique" className={`w-full ${inputCls}`} />
+          <label className="block text-xs font-medium text-s112-text-2 mb-1">Begründung *</label>
+          <input aria-label="Begründung" type="text" value={notiz} onChange={e => setNotiz(e.target.value)} required minLength={3}
+            placeholder="z.B. ausgelaufen, Verdunstung Barrique" className={`w-full ${inputCls}`} />
         </div>
         <button type="submit" disabled={pending}
           className="col-span-2 sm:col-span-1 w-full sm:w-auto bg-s112-warn-fg text-white px-4 py-3 sm:py-2 rounded-lg text-base sm:text-sm font-semibold hover:opacity-90 disabled:opacity-50">

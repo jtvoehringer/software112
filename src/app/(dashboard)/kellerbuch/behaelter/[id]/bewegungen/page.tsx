@@ -102,7 +102,7 @@ export default async function BehaelterBewegungsPage({
         <div className="flex gap-2 print:hidden">
           {writeOk && (
             <>
-              <Link href="/kellerbuch/umziehen"
+              <Link href={`/kellerbuch/umziehen?neu=1&von=${id}`}   /* KAN-174 B: Quelle vorbelegt */
                 className="text-xs border border-s112-teal text-s112-blue-700 px-3 py-1.5 rounded-lg hover:bg-s112-teal/5 font-medium">
                 Umziehen
               </Link>
