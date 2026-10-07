@@ -64,3 +64,28 @@ export const TEXTE: Record<Sprache, Record<string, string>> = {
 export function zahlText(wert: number, stellen: number, sprache: Sprache): string {
   return wert.toLocaleString(sprache === 'de' ? 'de-DE' : 'en-GB', { minimumFractionDigits: stellen, maximumFractionDigits: stellen })
 }
+
+/**
+ * KAN-219: Umleitung eines gedruckten QR-Codes folgen – vom Start-E-Label über umleitung_auf bis zum letzten
+ * freigegebenen Ziel (höchstens `max` Schritte, Schleifen werden abgebrochen). Ein nicht (mehr) freigegebenes oder
+ * fehlendes Ziel beendet die Kette beim letzten gültigen E-Label.
+ */
+export async function folgeUmleitung<T extends { id: string; umleitung_auf: string | null }>(
+  start: T, ladeFreigegeben: (id: string) => Promise<T | null>, max = 5,
+): Promise<T> {
+  let aktuell = start
+  const gesehen = new Set([start.id])
+  for (let i = 0; i < max && aktuell.umleitung_auf; i++) {
+    if (gesehen.has(aktuell.umleitung_auf)) break
+    const ziel = await ladeFreigegeben(aktuell.umleitung_auf)
+    if (!ziel) break
+    gesehen.add(ziel.id)
+    aktuell = ziel
+  }
+  return aktuell
+}
+
+/** KAN-219: Grund der Umleitung – Pflicht, mindestens 10 Zeichen (wie die RPC); null = in Ordnung */
+export function umleitungGrundFehler(grund: string): string | null {
+  return grund.trim().length < 10 ? 'Bitte einen Grund für die Umleitung angeben (mindestens 10 Zeichen).' : null
+}

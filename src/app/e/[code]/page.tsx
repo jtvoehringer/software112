@@ -7,7 +7,7 @@ import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import { ALLERGEN_LABEL, KATEGORIE_LABEL, zutatenGruppen, type KatalogEintrag } from '@/lib/elabel/katalog'
 import { geringfuegigeMengen } from '@/lib/elabel/naehrwerte'
-import { TEXTE, elabelSprache, istElabelCode, zahlText, type Sprache } from '@/lib/elabel/oeffentlich'
+import { TEXTE, elabelSprache, folgeUmleitung, istElabelCode, zahlText, type Sprache } from '@/lib/elabel/oeffentlich'
 import { qualitaetAnzeigeOderNull } from '@/lib/wein/qualitaet'
 
 export const dynamic = 'force-dynamic'
@@ -22,11 +22,18 @@ async function ladeElabel(code: string): Promise<{ e: R; f: R | null; betrieb: s
   // Öffentliche, unangemeldete Seite → Service-Role; der Code ist global eindeutig (UNIQUE), gelesen wird nur ein
   // freigegebenes E-Label und die Anzeige-Felder seiner Füllung.
   const supabase = createSupabaseAdminClient()
+  const SPALTEN = 'id, umleitung_auf, tenant_id, fuellung_id, zutaten_ids, alkohol_vol, energie_kj, energie_kcal, fett_g, fett_gesaettigt_g, kohlenhydrate_g, zucker_g, eiweiss_g, salz_g'
   // tenant-isolation-ignore: oeffentliche, unangemeldete Seite ohne aktiven Mandanten – Code global eindeutig (UNIQUE)
-  const { data: e } = await (supabase.from('elabels') as R)
-    .select('tenant_id, fuellung_id, zutaten_ids, alkohol_vol, energie_kj, energie_kcal, fett_g, fett_gesaettigt_g, kohlenhydrate_g, zucker_g, eiweiss_g, salz_g')
-    .eq('code', code).eq('status', 'freigegeben').maybeSingle()
-  if (!e) return null
+  const { data: start } = await (supabase.from('elabels') as R)
+    .select(SPALTEN).eq('code', code).eq('status', 'freigegeben').maybeSingle()
+  if (!start) return null
+  // KAN-219: umgeleiteter QR-Code (z. B. Nachfolgefüllung) – Ziel im selben Betrieb, freigegeben, höchstens 5 Schritte
+  const e = await folgeUmleitung(start as R & { id: string; umleitung_auf: string | null }, async zielId => {
+    // tenant-isolation-ignore: Ziel der Umleitung – nur im Betrieb des gedruckten E-Labels und freigegeben
+    const { data } = await (supabase.from('elabels') as R)
+      .select(SPALTEN).eq('id', zielId).eq('tenant_id', (start as R).tenant_id).eq('status', 'freigegeben').maybeSingle()
+    return (data ?? null) as (R & { id: string; umleitung_auf: string | null }) | null
+  })
   const [{ data: f }, { data: t }, { data: k }] = await Promise.all([
     // tenant-isolation-ignore: Füllung des freigegebenen E-Labels (tenant_id aus dem E-Label)
     (supabase.from('fuellungen') as R).select('name, jahrgang, rebsorte, qualitaet, zusatzbezeichnung, erzeugnis, sekt_stufe, flaschengroesse_ml')

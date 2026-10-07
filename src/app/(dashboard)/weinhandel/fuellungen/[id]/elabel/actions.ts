@@ -12,6 +12,7 @@ import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { freezeSperreAus, sperrMeldung } from '@/lib/freeze/sperre'
 import { elabelZeile, freigabeFehler, type ElabelEingabe, type ElabelZeile } from '@/lib/elabel/eingabe'
+import { umleitungGrundFehler } from '@/lib/elabel/oeffentlich'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -102,5 +103,27 @@ export async function setzeBehandlungstypZutat(fuellungId: string, typId: string
     .update({ elabel_zutat_id: zutatId }).eq('id', typId).eq('tenant_id', m.tenantId).select('id')
   if (error) throw new AktionsFehler(dbFehlerText(error, 'Zuordnung konnte nicht gespeichert werden'))
   if (!data || (data as R[]).length === 0) throw new AktionsFehler('Behandlungstyp nicht gefunden oder keine Berechtigung.')
+  revalidatePath(`/weinhandel/fuellungen/${fuellungId}/elabel`)
+}
+
+/**
+ * KAN-219: QR-Code eines freigegebenen E-Labels auf ein anderes freigegebenes E-Label des Betriebs umleiten (z. B. die
+ * Nachfolgefüllung); zielId null hebt die Umleitung auf. Regeln und Protokoll in der RPC s112_elabel_umleiten.
+ */
+export async function elabelUmleiten(fuellungId: string, zielId: string | null, grund: string): Promise<void> {
+  const m = await kontext()
+  if (!UUID_RE.test(fuellungId) || (zielId !== null && !UUID_RE.test(zielId))) throw new AktionsFehler('Ungültige Auswahl.')
+  const gf = umleitungGrundFehler(grund ?? '')
+  if (gf) throw new AktionsFehler(gf)
+  const supabase = await createSupabaseServerClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: e } = await (supabase.from('elabels') as any)
+    .select('id').eq('fuellung_id', fuellungId).eq('tenant_id', m.tenantId).maybeSingle()
+  if (!e) throw new AktionsFehler('E-Label nicht gefunden.')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.rpc as any)('s112_elabel_umleiten', {
+    p_tenant_id: m.tenantId, p_elabel_id: (e as R).id, p_ziel_id: zielId, p_grund: grund.trim(),
+  })
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Umleitung konnte nicht gespeichert werden'))
   revalidatePath(`/weinhandel/fuellungen/${fuellungId}/elabel`)
 }

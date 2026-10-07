@@ -7,9 +7,10 @@ import { Tag } from 'lucide-react'
 import { ALLERGEN_LABEL, allergeneDerListe, type KatalogEintrag } from '@/lib/elabel/katalog'
 import { etikettEnergie } from '@/lib/elabel/naehrwerte'
 import { elabelUrl } from '@/lib/elabel/oeffentlich'
+import ElabelUmleitung, { type UmleitungProtokoll, type UmleitungZiel } from './ElabelUmleitung'
 import { appBasisUrl, qrPngDataUrl, qrSvg } from '@/lib/qr'
 import ElabelFormular, { type AnalyseWahl, type TypZuordnung, type ElabelStand } from './ElabelFormular'
-import { speichereElabel, elabelFreigeben, setzeBehandlungstypZutat } from './actions'
+import { speichereElabel, elabelFreigeben, setzeBehandlungstypZutat, elabelUmleiten } from './actions'
 
 export const metadata: Metadata = { title: 'E-Label – software:112' }
 export const dynamic = 'force-dynamic'
@@ -102,6 +103,33 @@ export default async function ElabelPage({ params }: { params: Promise<{ id: str
   const qr = oeffentlich ? { svg: await qrSvg(oeffentlich), png: await qrPngDataUrl(oeffentlich, 1200) } : null
   const allergene = stand ? allergeneDerListe(stand.zutatenIds, katalog) : []
 
+  // KAN-219: Umleitung des gedruckten QR-Codes – Ziele (andere freigegebene E-Labels des Betriebs) und Protokoll
+  let ziele: UmleitungZiel[] = []
+  let protokoll: UmleitungProtokoll[] = []
+  if (elabel && stand?.status === 'freigegeben') {
+    const [zRes, pRes] = await Promise.all([
+      // alle-ausnahme: Auswahlliste der freigegebenen E-Labels eines Betriebs, höchstens 500
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase.from('elabels') as any)
+        .select('id, code, fuellung:fuellung_id(name, jahrgang, flaschengroesse_ml, chargennummer)')
+        .eq('tenant_id', tenantId).eq('status', 'freigegeben').neq('id', elabel.id).order('erstellt_am', { ascending: false }).order('id').limit(500),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase.from('elabel_umleitungen') as any)
+        .select('id, geaendert_am, von_elabel_id, nach_elabel_id, grund, geaendert_von_name')
+        .eq('tenant_id', tenantId).eq('elabel_id', elabel.id).order('geaendert_am', { ascending: false }).order('id').limit(20),
+    ])
+    ziele = ((zRes.data ?? []) as R[]).map(z => ({
+      id: String(z.id),
+      label: [z.fuellung?.name ?? 'Füllung', z.fuellung?.jahrgang, z.fuellung?.flaschengroesse_ml ? `${(Number(z.fuellung.flaschengroesse_ml) / 1000).toLocaleString('de-DE')} l` : null,
+        z.fuellung?.chargennummer].filter(Boolean).join(' · '),
+    }))
+    const label = (x: string | null) => (x ? (ziele.find(z => z.id === x)?.label ?? 'anderes E-Label') : null)
+    protokoll = ((pRes.data ?? []) as R[]).map(p => ({
+      id: String(p.id), am: String(p.geaendert_am), von: label(p.von_elabel_id), nach: label(p.nach_elabel_id),
+      grund: String(p.grund ?? ''), wer: p.geaendert_von_name ?? null,
+    }))
+  }
+
   return (
     <div className="max-w-3xl space-y-6">
       <div>
@@ -153,6 +181,12 @@ export default async function ElabelPage({ params }: { params: Promise<{ id: str
             </div>
           </div>
         </section>
+      )}
+
+      {/* ── KAN-219: Umleitung des QR-Codes (gedruckte Etiketten) ── */}
+      {elabel && stand?.status === 'freigegeben' && (
+        <ElabelUmleitung ziele={ziele} aktuell={(elabel.umleitung_auf as string | null) ?? null} protokoll={protokoll}
+          schreiben={schreiben && !f.storniert_am} umleiten={elabelUmleiten.bind(null, id)} />
       )}
     </div>
   )
