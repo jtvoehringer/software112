@@ -78,7 +78,8 @@ describe('KAN-206 Datenbank und App gleich', () => {
   })
   test('Formular: Sperrhinweis, gesperrte Felder, Pflichtkennzeichen; Assistent mit Einstufung', () => {
     const p = quelle('src/app/(dashboard)/kellerbuch/behaelter/[id]/behandlungen/page.tsx')
-    assert.match(p, /<GesperrtHinweis grund=\{BEHANDLUNG_FREEZE_GRUND\} erlaubt=\{\['Notizen'\]\} \/>/)
+    // KAN-222: mit Korrektur durch die Betriebsleitung
+    assert.match(p, /<GesperrtHinweis grund=\{BEHANDLUNG_FREEZE_GRUND\} erlaubt=\{\['Notizen'\]\} betriebsleitung=\{betriebsleitung\} \/>/)
     assert.match(p, /<fieldset disabled=\{formGesperrt\}/)
     assert.match(p, /required=\{formEinheit !== '-'\}/)
     assert.match(p, /PN_WIRKUNGEN\.filter\(w => w !== 'unklar'\)/)

@@ -33,7 +33,7 @@ describe('KAN-196: Korrektur trotz Sperre', nurMitHooks, () => {
     assert.match(k.korrekturAenderungen('dac_antrag', alt, { eingereicht_am: '2026-10-07' }, HEUTE).fehler, /Zukunft/)
     assert.match(k.korrekturAenderungen('dac_antrag', alt, { status: 'fertig' }, HEUTE).fehler, /ungültiger Wert/)
     assert.match(k.korrekturAenderungen('dac_antrag', alt, { bezeichnung: ' ' }, HEUTE).fehler, /darf nicht leer/)
-    assert.match(k.korrekturAenderungen('fuellungen', {}, { name: 'x' }, HEUTE).fehler, /keine Korrektur/)
+    assert.match(k.korrekturAenderungen('kontakte', {}, { name: 'x' }, HEUTE).fehler, /keine Korrektur/)   // KAN-222: fuellungen ist jetzt korrigierbar
     assert.equal(k.korrekturGrundFehler('zu kurz'), 'Bitte einen Grund für die Korrektur angeben (mindestens 10 Zeichen).')
     assert.equal(k.korrekturGrundFehler('versehentlich eingereicht'), null)
   })

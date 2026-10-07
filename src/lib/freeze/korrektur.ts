@@ -34,11 +34,54 @@ export const KORREKTUR_FELDER: Readonly<Record<string, readonly KorrekturFeld[]>
     { spalte: 'menge_liter', label: 'Menge (l)', typ: 'zahl' },
     { spalte: 'alkohol_prozent', label: 'Alkohol (% vol)', typ: 'zahl' },
   ],
+  // KAN-222 (Entscheidung 06.10.2026): weitere gesperrte Tabellen. Felder, die Bestand oder Folgebuchungen verfälschen
+  // würden, bleiben außen vor – dafür Storno und Neuanlage bzw. der fachliche Vorgang (Abstufen, Umziehen …). Das Journal
+  // (y_journal) und die Prüfnummer je Charge (z_pn_chargen) ziehen eine Korrektur über ihre Update-Trigger nach; die
+  // Periodensperre des Kellerbuchs gilt weiter.
+  // Füllung (KAN-101): Anzahl und Flaschengröße nicht (Bestand der Charge) – Storno + Neuanlage
+  fuellungen: [
+    { spalte: 'datum', label: 'Abfülldatum', typ: 'datum', pflicht: true },
+    { spalte: 'chargennummer', label: 'Los-/Chargennummer', typ: 'text' },
+    { spalte: 'jahrgang', label: 'Jahrgang', typ: 'zahl' },
+    { spalte: 'rebsorte', label: 'Rebsorte', typ: 'text' },
+  ],
+  // Kellerbehandlung unter einer Prüfnummer (KAN-206): Typ nicht (Wirkung auf die Prüfnummer), Zugang nicht (Bestand)
+  keller_behandlungen: [
+    { spalte: 'datum', label: 'Datum', typ: 'datum', pflicht: true },
+    { spalte: 'menge', label: 'Menge', typ: 'zahl' },
+    { spalte: 'einheit', label: 'Einheit', typ: 'text' },
+  ],
+  // Charge bei eingereichtem Prüfnummernantrag (KAN-204): Qualität, Zusatz, Herkunft nur über „Abstufen“ (KAN-82),
+  // Aufwertungssperre gilt weiter
+  weinausbau: [
+    { spalte: 'jahrgang', label: 'Jahrgang', typ: 'zahl' },
+    { spalte: 'rebsorte', label: 'Rebsorte', typ: 'text' },
+    { spalte: 'weinart', label: 'Weinart', typ: 'auswahl', optionen: [
+      { wert: 'weiss', label: 'Weißwein' }, { wert: 'rot', label: 'Rotwein' }, { wert: 'rose', label: 'Rosé' }, { wert: 'unbekannt', label: 'unbekannt' },
+    ] },
+  ],
+  // Maßnahme nach der Lese der Ried (KAN-169): Ried, Mittel und Grundstücke nicht (Struktur der Aufzeichnung)
+  behandlungen: [
+    { spalte: 'datum', label: 'Datum', typ: 'datum', pflicht: true },
+    { spalte: 'datum_bis', label: 'Datum bis', typ: 'datum' },
+    { spalte: 'aufwandmenge', label: 'Aufwandmenge', typ: 'zahl' },
+    { spalte: 'menge_gesamt', label: 'Menge gesamt', typ: 'zahl' },
+    { spalte: 'wasseraufwand_l_ha', label: 'Wasseraufwand (l/ha)', typ: 'zahl' },
+    { spalte: 'behandelte_flaeche_ha', label: 'Behandelte Fläche (ha)', typ: 'zahl' },
+    { spalte: 'bbch_stadium', label: 'BBCH-Stadium', typ: 'text' },
+    { spalte: 'schaderreger', label: 'Schaderreger', typ: 'text' },
+    { spalte: 'temperatur_c', label: 'Temperatur (°C)', typ: 'zahl' },
+    { spalte: 'anwender_name', label: 'Anwender', typ: 'text' },
+  ],
 }
 
 /** Seiten, die nach einer Korrektur neu geladen werden ('[id]' = Datensatz) */
 export const KORREKTUR_PFADE: Readonly<Record<string, readonly string[]>> = {
   dac_antrag: ['/dac', '/dac/[id]'],
+  fuellungen: ['/weinhandel', '/weinhandel/fuellungen/[id]/edit'],
+  keller_behandlungen: ['/kellerbuch'],
+  weinausbau: ['/kellerbuch', '/kellerbuch/weinausbau/[id]'],
+  behandlungen: ['/behandlungen', '/behandlungen/[id]/edit'],
 }
 
 export function korrekturGrundFehler(grund: string | null | undefined): string | null {

@@ -24,6 +24,8 @@ import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
 import UmziehenWidget from '@/components/kellerbuch/UmziehenWidget'
 import { umziehen } from '../../umziehen/actions'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
+import FreezeKorrektur from '@/components/FreezeKorrektur'
+import { KORREKTUR_FELDER } from '@/lib/freeze/korrektur'
 import { Wine, ArrowLeftRight, GitMerge, BookOpen, Microscope, Award, TrendingDown, ArrowDownWideNarrow, Factory, PlusCircle } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'Charge bearbeiten – software:112' }
@@ -825,6 +827,13 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
             pnSperre={pnSperre}
             action={updateWeinausbau.bind(null, id)}
           />
+          {/* KAN-222: bei eingereichtem Antrag gesperrte Merkmale mit Grund korrigieren – nur Betriebsleitung */}
+          {pnSperre === 'eingereicht' && role && canAdmin(role) && (
+            <div className="mt-4">
+              <FreezeKorrektur tabelle="weinausbau" id={id} felder={KORREKTUR_FELDER.weinausbau} werte={weinausbau as Record<string, unknown>}
+                hinweis="Nur für die Betriebsleitung – z. B. Tippfehler in Jahrgang oder Rebsorte. Qualität, Zusatz und Herkunft nur über „Abstufen“. Alt/Neu, Benutzer und Grund stehen im Änderungsprotokoll." />
+            </div>
+          )}
         </details>
       )}
     </div>

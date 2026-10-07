@@ -15,6 +15,9 @@ import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { csvPfad } from '@/lib/behoerden/katalog'
 import DruckKnopf from '../../../_behoerden/DruckKnopf'
 import GesperrtHinweis from '@/components/GesperrtHinweis'
+import FreezeKorrektur from '@/components/FreezeKorrektur'
+import { KORREKTUR_FELDER } from '@/lib/freeze/korrektur'
+import { korrekturErlaubt } from '../../../../freeze-korrektur-actions'
 import { behandlungPnGesperrt, BEHANDLUNG_FREEZE_GRUND, type PnGueltigkeit } from '@/lib/kellerbuch/behandlungRegeln'
 
 type R = Record<string, any>
@@ -73,6 +76,9 @@ export default function KellerbehandlungenPage() {
   // KAN-206: Gültigkeit der Prüfnummern der Chargen dieses Gebindes (Sperre wie Trigger a_freeze)
   const [pnZeilen, setPnZeilen]           = useState<PnGueltigkeit[]>([])
   const [formGesperrt, setFormGesperrt]   = useState(false)
+  // KAN-222: Betriebsleitung darf gesperrte Behandlungen mit Grund korrigieren
+  const [betriebsleitung, setBetriebsleitung] = useState(false)
+  useEffect(() => { korrekturErlaubt().then(setBetriebsleitung).catch(() => setBetriebsleitung(false)) }, [])
   const [formHinweis, setFormHinweis]     = useState('')
   const [typSaving, setTypSaving]         = useState(false)
 
@@ -337,8 +343,15 @@ export default function KellerbehandlungenPage() {
             {editId ? 'Behandlung bearbeiten' : 'Neue Behandlung'}
           </h2>
           {formGesperrt && (
-            <div className="mb-4">
-              <GesperrtHinweis grund={BEHANDLUNG_FREEZE_GRUND} erlaubt={['Notizen']} />
+            <div className="mb-4 space-y-3">
+              <GesperrtHinweis grund={BEHANDLUNG_FREEZE_GRUND} erlaubt={['Notizen']} betriebsleitung={betriebsleitung} />
+              {betriebsleitung && editId && (() => {
+                const zeile = behandlungen.find(x => x.id === editId)
+                return zeile ? (
+                  <FreezeKorrektur tabelle="keller_behandlungen" id={editId} felder={KORREKTUR_FELDER.keller_behandlungen} werte={zeile}
+                    hinweis="Nur für die Betriebsleitung – z. B. Tippfehler in Datum oder Menge. Behandlungstyp falsch: stornieren und neu erfassen. Alt/Neu, Benutzer und Grund stehen im Änderungsprotokoll." />
+                ) : null
+              })()}
             </div>
           )}
           <form onSubmit={handleSubmit} className="space-y-4">

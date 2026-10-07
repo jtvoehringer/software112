@@ -1,5 +1,9 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
+import { getCurrentUserRole, canWrite, canAdmin, getCurrentMembership } from '@/lib/auth/roles'
+import { ladeErnteSperren, MASSNAHME_ERNTE_GRUND } from '@/lib/behandlungen/ernteSperre'
+import GesperrtHinweis from '@/components/GesperrtHinweis'
+import FreezeKorrektur from '@/components/FreezeKorrektur'
+import { KORREKTUR_FELDER } from '@/lib/freeze/korrektur'
 import { hatModul } from '@/lib/auth/modul'
 import { notFound, redirect } from 'next/navigation'
 import type { Metadata } from 'next'
@@ -51,6 +55,7 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
         bearbeitungstiefe_cm, bearbeitungsgeraet, schnittart, laubarbeit_art,
         einarbeitung, einarbeitung_zeitpunkt,
         uhrzeit_von, uhrzeit_bis, durchgefuehrt_von, anwender_name, art_verwendung, storniert_am,
+        weingarten_id, menge_gesamt, behandelte_flaeche_ha,
         weingarten:weingarten_id(name),
         psm:psm_id(wartezeit_tage),
         behandlung_grundstuecke(grundstueck_id, flaeche_ha, grundstueck:grundstueck_id(flaeche_ha, weingarten_id))
@@ -190,6 +195,30 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
   const bestehenderKostenEintrag: BestehenderKostenEintrag | null = ke
     ? { kostenart_id: ke.kostenart_id ?? null, betrag: ke.betrag, beschreibung: ke.beschreibung ?? null }
     : null
+
+  // KAN-169: Ried nach der Maßnahme gelesen → gesperrt (Trigger a_freeze_ernte); Korrektur nur durch die Betriebsleitung
+  const b0 = rawB as AR
+  const ernteRieden = [...new Set([...(b0.weingarten_id ? [b0.weingarten_id as string] : []),
+    ...((b0.behandlung_grundstuecke ?? []) as AR[]).map(bg => bg.grundstueck?.weingarten_id as string | undefined).filter((x): x is string => !!x)])]
+  const ernteGesperrt = (await ladeErnteSperren(supabase, tenantId, [{ id, datum: b0.datum, rieden: ernteRieden }])).get(id) ?? null
+  if (ernteGesperrt) {
+    const betriebsleitung = canAdmin(membership.role)
+    return (
+      <div className="max-w-2xl space-y-4">
+        <div className="flex items-center gap-2 text-sm text-s112-muted">
+          <Link href="/behandlungen" className="hover:text-s112-blue-700 transition-colors">Maßnahmen</Link>
+          <span>/</span>
+          <span className="text-s112-text-1 font-medium">Gesperrt</span>
+        </div>
+        <h1 className="text-2xl font-semibold text-s112-text">Maßnahme vom {new Date(b0.datum).toLocaleDateString('de-AT')}</h1>
+        <GesperrtHinweis grund={MASSNAHME_ERNTE_GRUND} seit={new Date(ernteGesperrt).toLocaleDateString('de-AT')} betriebsleitung={betriebsleitung} />
+        {betriebsleitung && (
+          <FreezeKorrektur tabelle="behandlungen" id={id} felder={KORREKTUR_FELDER.behandlungen} werte={b0}
+            hinweis="Nur für die Betriebsleitung – z. B. Tippfehler in Datum oder Aufwandmenge. Ried, Mittel und Grundstücke bleiben (Storno der Lese gibt die Maßnahme frei). Alt/Neu, Benutzer und Grund stehen im Änderungsprotokoll." />
+        )}
+      </div>
+    )
+  }
 
   return (
     <div>

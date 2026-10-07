@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import Link from '@/components/ui/Link'
-import { Pencil } from 'lucide-react'
+import { Lock, Pencil } from 'lucide-react'
 import { loescheBehandlung, stornoBehandlung } from './actions'
 import StornoButton from '@/components/StornoButton'
 import type { Behandlung } from './page'
@@ -196,7 +196,15 @@ export default function BehandlungenClient({
                     {schreibOk && (
                       <td className="px-3 py-2.5 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          {b.storniert_am ? (
+                          {b.ernte_gesperrt ? (
+                            // KAN-169: Ried nach der Maßnahme gelesen – Bearbeiten/Stornieren gesperrt, Korrektur durch die Betriebsleitung
+                            <Link href={`/behandlungen/${b.id}/edit`}
+                              title={`Gesperrt: Ried nach der Maßnahme geerntet (Lese am ${new Date(b.ernte_gesperrt).toLocaleDateString('de-AT')}) – Korrektur nur durch die Betriebsleitung`}
+                              aria-label="Gesperrt – Details"
+                              className="text-s112-muted hover:text-s112-text-1">
+                              <Lock size={16} />
+                            </Link>
+                          ) : b.storniert_am ? (
                             // KAN-88: endgültig löschen nur stornierte Maßnahmen (Grund im Änderungsprotokoll)
                             <StornoButton modus="loeschen" label="Endgültig löschen" action={grund => loescheBehandlung(b.id, grund)}
                               hinweis="Nur bei Fehlerfassungen: Die stornierte Maßnahme wird samt Grundstücks-Zuordnung endgültig entfernt – Grund und Benutzer stehen im Änderungsprotokoll." />

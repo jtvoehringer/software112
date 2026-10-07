@@ -2,8 +2,8 @@
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
-import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
-import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
+import { pruefeSeitenBetrieb, seitenBetriebFehler } from '@/lib/auth/seitenBetrieb'
+import { pruefeSchreibzugriff, schreibSperreFehler } from '@/lib/auth/sperren'
 import { revalidatePath } from 'next/cache'
 import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { wienHeute } from '@/lib/csv'
@@ -48,4 +48,15 @@ export async function freezeKorrigieren(tabelle: string, id: string, eingabe: Re
   })
   if (kErr) throw new AktionsFehler(dbFehlerText(kErr, 'Korrektur fehlgeschlagen'))
   for (const p of KORREKTUR_PFADE[tabelle] ?? []) revalidatePath(p.replace('[id]', id))
+}
+
+/** KAN-222: Darf der Benutzer „Mit Grund korrigieren“ sehen? Für Client-Seiten ohne Rolle (Kellerbehandlungen) – nur
+ *  lesend; der Knopf bleibt ohnehin durch freezeKorrigieren und die RPC geschützt. */
+export async function korrekturErlaubt(): Promise<boolean> {
+  const membership = await getCurrentMembership()
+  if (!membership) return false
+  if (await seitenBetriebFehler(membership.tenantId)) return false   // KAN-30: veralteter Tab
+  const gesperrt = await schreibSperreFehler(membership)   // KAN-5: Nur-Lesen-Modus – keine Korrektur anbieten
+  if (gesperrt) return false
+  return canAdmin(membership.role)
 }

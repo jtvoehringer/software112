@@ -1223,6 +1223,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('intern',        '--S', false, 'behaelter_nutzbar(p_behaelter_id uuid, p_tenant_id uuid)'),
     ('mandant',       '-US', false, 'berechne_ea_uva(p_tenant_id uuid, p_jahr smallint, p_zeitraum text)'),
     ('intern',        '--S', false, 'bestandsprotokoll_mandant_loeschen(p_tenant_id uuid)'),
+    ('intern',        '--S', false, 's112_massnahme_geerntet(p_behandlung_id uuid, p_weingarten_id uuid, p_datum date)'),   -- KAN-169: Bedingung des Freeze-Triggers a_freeze_ernte (Maßnahme vor der Lese der Ried)
     ('intern',        '--S', false, 's112_mandant_loeschen(p_tenant_id uuid, p_bestaetigung text)'),   -- KAN-151 G1: Mandanten-Löschung (nur Service-Role)
     ('trigger',       '--S', false, 'bestandsprotokoll_schreiben()'),
     ('trigger',       '--S', false, 's112_fremdverweis_pruefen()'),
