@@ -13,6 +13,7 @@ import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { pickerlFehler, schwundGrundFehler } from '@/lib/keller/gebindeAnzeige'
+import { istStoffkontoTyp } from '@/lib/kellerbuch/stoffkonto'
 import { dezimal, zahlAus, fmtNum } from '@/lib/format'
 import { gebindeFehlerText } from '@/lib/keller/behaelter'
 import { sperreBeiFolgebuchungen, folgebuchungenDerCharge, folgebuchungenText } from '@/lib/kellerbuch/folgebuchungen'
@@ -980,6 +981,27 @@ export async function speichereKellerbehandlung(formData: FormData): Promise<Kel
     }
   }
 
+  // KAN-107: Stoffkonto – Verwendung eines Stoffs (nur beim Anlegen); bei Zuckerung, RTK, Säuerung, Entsäuerung Pflicht,
+  // sobald der Betrieb Stoffe angelegt hat. Geprüft VOR dem Anlegen der Behandlung.
+  let stoff: { id: string; name: string; einheit: string; menge: number } | null = null
+  if (!id) {
+    const stoffId = ((formData.get('kellermittel_id') as string | null) ?? '').trim()
+    if (stoffId) {
+      const m = zahlAus(formData.get('kellermittel_menge'))
+      if (m === null || !(m > 0)) throw new AktionsFehler('Bitte die verwendete Menge des Stoffs angeben.')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: km } = await (supabase.from('kellermittel') as any)
+        .select('id, name, einheit').eq('id', stoffId).eq('tenant_id', tenantId).eq('aktiv', true).maybeSingle()
+      if (!km) throw new AktionsFehler('Stoff nicht gefunden oder nicht aktiv.')
+      stoff = { id: String((km as R).id), name: String((km as R).name), einheit: String((km as R).einheit), menge: m }
+    } else if (istStoffkontoTyp(typ.name as string)) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { count } = await (supabase.from('kellermittel') as any)
+        .select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('aktiv', true)
+      if ((count ?? 0) > 0) throw new AktionsFehler(`Bei „${typ.name}“ bitte den verwendeten Stoff aus dem Stoffkonto (Besondere Konten) wählen.`)
+    }
+  }
+
   const payload: R = {
     behaelter_id:       behaelterId,
     datum,
@@ -1039,6 +1061,16 @@ export async function speichereKellerbehandlung(formData: FormData): Promise<Kel
       .insert({ ...payload, tenant_id: tenantId }).select('id').single()
     if (error) throw new AktionsFehler(dbFehlerText(error, 'Speichern fehlgeschlagen'))
     neueId = (data as R).id as string
+    if (stoff) {
+      // KAN-107: Verwendung im Stoffkonto (append-only, Menge negativ)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error: kErr } = await (supabase.from('kellermittel_buchungen') as any).insert({
+        tenant_id: tenantId, kellermittel_id: stoff.id, datum, art: 'verwendung', menge: -Math.round(stoff.menge * 1000) / 1000,
+        keller_behandlung_id: neueId, weinausbau_id: weinausbauId, behaelter_id: behaelterId, zweck: typ.name as string,
+      })
+      if (kErr) throw new AktionsFehler(`Die Behandlung ist gespeichert, aber die Verwendung von „${stoff.name}“ konnte nicht ins Stoffkonto gebucht werden: ${dbFehlerText(kErr)} – bitte unter Besondere Konten nachbuchen.`)
+      revalidatePath('/kellerbuch/besondere-konten')
+    }
   }
 
   revalidatePath(`/kellerbuch/behaelter/${behaelterId}/behandlungen`)
@@ -1151,6 +1183,22 @@ export async function deleteKellerbehandlung(id: string, grund: string): Promise
   if (error) throw new AktionsFehler(dbFehlerText(error, 'Stornieren fehlgeschlagen (keller_behandlungen)'))
   const zeile = ((data ?? []) as R[])[0]
   if (!zeile) throw new AktionsFehler('Kellerbehandlung nicht gefunden, bereits storniert oder keine Berechtigung.')
+
+  // KAN-107: Verwendung im Stoffkonto per Gegenbuchung aufheben (append-only; je Buchung nur einmal)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: kb, error: kbErr } = await (supabase.from('kellermittel_buchungen') as any)
+    .select('id, kellermittel_id, menge, weinausbau_id, behaelter_id').eq('tenant_id', tenantId).eq('keller_behandlung_id', id).eq('art', 'verwendung')
+  if (kbErr) throw new AktionsFehler(dbFehlerText(kbErr, 'Storniert, aber das Stoffkonto konnte nicht geladen werden'))
+  for (const b of (kb ?? []) as R[]) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: sErr } = await (supabase.from('kellermittel_buchungen') as any).insert({
+      tenant_id: tenantId, kellermittel_id: b.kellermittel_id, datum: wienHeute(), art: 'storno', menge: -Number(b.menge),
+      storno_von_id: b.id, keller_behandlung_id: id, weinausbau_id: b.weinausbau_id, behaelter_id: b.behaelter_id,
+      notizen: `Storno der Kellerbehandlung: ${grund.trim()}`,
+    })
+    if (sErr && (sErr as R).code !== '23505') throw new AktionsFehler(`Storniert, aber die Gegenbuchung im Stoffkonto fehlt: ${dbFehlerText(sErr)}`)
+  }
+  if ((kb ?? []).length) revalidatePath('/kellerbuch/besondere-konten')
 
   revalidatePath(`/kellerbuch/behaelter/${zeile.behaelter_id}/behandlungen`)
   revalidatePath(`/kellerbuch/behaelter/${zeile.behaelter_id}/bewegungen`)

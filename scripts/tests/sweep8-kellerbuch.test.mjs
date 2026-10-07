@@ -81,6 +81,11 @@ describe('KAN-174: Verdrahtung', () => {
     assert.doesNotMatch(p, /WEINART_BADGE/)
     assert.match(p, /<PickerlEntfernen behaelterId=\{b\.id\}/)
   })
+  test('E (Abnahme 07.10.2026): Gebindename breit genug, voller Name als Tooltip – belegt und leer', () => {
+    const p = quelle(`${D}/kellerbuch/page.tsx`)
+    assert.equal(p.match(/<span title=\{b\.name\} className="font-(semibold|medium) text-s112-text w-32 sm:w-56 shrink-0 truncate">\{b\.name\}<\/span>/g)?.length, 2)
+    assert.doesNotMatch(p, /w-24 shrink-0[^"]*">\{b\.name\}/)
+  })
   test('B: „Umziehen“ vom Gebinde mit von=<Behälter>, Quelle vorbelegt', () => {
     assert.match(quelle(`${D}/kellerbuch/behaelter/[id]/umzuege/page.tsx`), /\/kellerbuch\/umziehen\?neu=1&von=\$\{id\}/)
     assert.match(quelle(`${D}/kellerbuch/behaelter/[id]/bewegungen/page.tsx`), /\/kellerbuch\/umziehen\?neu=1&von=\$\{id\}/)

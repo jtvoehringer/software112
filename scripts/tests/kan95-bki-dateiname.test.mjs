@@ -95,7 +95,7 @@ describe('KAN-95 Auswahl der BKI-Berichte', () => {
     }
     const liste = Object.keys(M).filter(id => M[id].bki).sort()
     assert.deepEqual(liste, [
-      'aenderungsprotokoll', 'bestandsmeldung', 'bewegungsbuch', 'bki-lagerbewegungen', 'bki-lagerstand', 'bki-traubenverkauf',   // KAN-44: Lagerstand/Lagerbewegungen
+      'aenderungsprotokoll', 'besondere-konten', 'bestandsmeldung', 'bewegungsbuch', 'bki-lagerbewegungen', 'bki-lagerstand', 'bki-traubenverkauf',   // KAN-44: Lagerstand/Lagerbewegungen; KAN-107: besondere Konten
       'blend-protokoll', 'bsm', 'bsm-kontrolljournal', 'erntemeldung',
       'gebindeverzeichnis', 'keller-auswertungen', 'keller-behandlungen', 'keller-behandlungen-alle', 'lesedaten',
       'rueckverfolgung', 'rueckverfolgung-weingarten', 'transportbescheinigung', 'transportbescheinigungen', 'weinbuch', 'weinbuch-sammlung',

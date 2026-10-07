@@ -1036,6 +1036,8 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('crm_freigaben',                 '-',                                      '-',                                      '-'),   -- KAN-212: nur Plattform-Admin per Service-Role
     ('keller_umzuege',                'SA,TA,W*{kellerbuch|warenwirtschaft}',   'SA,TA,W*{kellerbuch|warenwirtschaft}',   '-{kellerbuch|warenwirtschaft}'),   -- KAN-145 B4
     ('fuellung_etikettierungen',      '-',                                      '-',                                      '-'),   -- KAN-41 Paket 3d: nur per RPC s112_fuellung_etikettieren/s112_etikettierung_stornieren
+    ('kellermittel',                  'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}'),   -- KAN-107: Stoffe des Stoffkontos
+    ('kellermittel_buchungen',        'SA,TA,W*{kellerbuch}',                   '-',                                      '-'),   -- KAN-107: append-only
     ('keller_zugangskorrekturen',     '-',                                      '-',                                      '-'),   -- KAN-53: nur per RPC s112_zugangskorrektur_buchen/_stornieren
     ('keller_verarbeitungen',         '-',                                      '-',                                      '-'),   -- KAN-41 Paket 3a: nur per RPC s112_verarbeitung_buchen/_stornieren
     ('kellerbuch_buchungen',          '-',                                      '-',                                      '-'),   -- KAN-40: Bewegungsjournal, nur per Trigger/RPC, unveränderlich
@@ -1229,7 +1231,8 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('trigger',       '--S', false, 's112_fremdverweis_pruefen()'),
     ('trigger',       '--S', false, 's112_freeze()'),
     ('trigger',       '--S', false, 's112_elabel_pruefen()'),   -- KAN-216: Zutatenliste aus dem Katalog, Kennung unveränderlich, Freigabe stempeln   -- KAN-96: generischer Freeze-Trigger
-    ('trigger',       '--S', false, 's112_tb_stempel()'),   -- KAN-209: Zeitpunkt/Benutzer beim Ausstellen der Transportbescheinigung
+    ('trigger',       '--S', false, 's112_tb_stempel()'),
+    ('trigger',       '--S', false, 's112_kellermittel_buchung_stempel()'),   -- KAN-107: Benutzer der Stoffkonto-Buchung   -- KAN-209: Zeitpunkt/Benutzer beim Ausstellen der Transportbescheinigung
     ('trigger',       '--S', false, 's112_behandlung_erfassung()'),   -- KAN-87: erfasst am/von stempeln, Anwender = Mitglied
     ('trigger',       '--S', false, 's112_pn_workflow_schutz()'),
     ('trigger',       '--S', false, 's112_pn_chargen_pflegen()'),   -- KAN-99: Gültigkeit je Charge (Einreichen, Umzug, Zugang, Storno)   -- KAN-97: Status nur per RPC, Formular nur zum Entwurf

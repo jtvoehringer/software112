@@ -996,6 +996,36 @@
 "storniert_von_name",
 "storno_grund"
 ],
+"kellermittel": [
+"id",
+"tenant_id",
+"name",
+"einheit",
+"aktiv",
+"notizen",
+"created_at",
+"updated_at"
+],
+"kellermittel_buchungen": [
+"id",
+"tenant_id",
+"kellermittel_id",
+"datum",
+"art",
+"menge",
+"lieferant",
+"beleg",
+"los",
+"keller_behandlung_id",
+"weinausbau_id",
+"behaelter_id",
+"zweck",
+"storno_von_id",
+"notizen",
+"erstellt_von",
+"erstellt_von_name",
+"erstellt_am"
+],
 "keller_zugangskorrekturen": [
 "id",
 "tenant_id",
