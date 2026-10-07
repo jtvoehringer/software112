@@ -8,6 +8,8 @@ import { getRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
 import { useDialog } from '@/components/ui/useDialog'
+import KellerplanBuchen from './KellerplanBuchen'
+import { bewerteZiel, gebindeUnterZeiger, ZIEL_FARBE, type PlanCharge, type PlanGebinde, type ZielBewertung } from '@/lib/keller/kellerplanZiehen'
 
 // ── Typen ─────────────────────────────────────────────────────────────────────
 
@@ -82,6 +84,9 @@ export default function KellerplanEditor({
   weinMap,
   fillMap,
   writeOk,
+  nurLesen = false,
+  chargen = {},
+  gebindeInfo = {},
 }: {
   plan: Plan
   initialPositions: Record<string, PosData>
@@ -89,6 +94,11 @@ export default function KellerplanEditor({
   weinMap: Record<string, WeinInfo>
   fillMap: Record<string, number>
   writeOk: boolean
+  /** KAN-106: Nur-Lesen-Modus (Abo) – Hinweis, kein Ziehen */
+  nurLesen?: boolean
+  /** KAN-114: eigene Chargen je Gebinde (größte zuerst) */
+  chargen?: Record<string, PlanCharge[]>
+  gebindeInfo?: Record<string, { gesperrt: boolean; fremd_betrieb: string | null }>
 }) {
   const canvasRef    = useRef<HTMLDivElement>(null)
   const dragStateRef = useRef<{
@@ -102,8 +112,27 @@ export default function KellerplanEditor({
   const [saving,    setSaving]    = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [dialogBehaelterId, setDialogBehaelterId] = useState<string | null>(null)
+  // KAN-114: „Kellerarbeit“ (Tank auf Tank = Umzug/Verschnitt) bzw. „Plan bearbeiten“ (Position, Größe, Platzieren)
+  const [modus, setModus] = useState<'arbeit' | 'plan'>('arbeit')
+  const planModus = writeOk && modus === 'plan'
+  const ziehRef = useRef<{ id: string; startX: number; startY: number } | null>(null)
+  const [zieh, setZieh] = useState<{ quelleId: string; x: number; y: number; zielId: string | null } | null>(null)
+  const [buchen, setBuchen] = useState<{ quelleId: string; zielId: string } | null>(null)
+  const [gebucht, setGebucht] = useState<string[] | null>(null)
+  const [zielWahl, setZielWahl] = useState('')
 
   const behaelterMap = Object.fromEntries(behaelter.map(b => [b.id, b]))
+
+  // ── KAN-114: Gebinde und Bewertung eines Ziels ─────────────────────────────
+  const planGebinde = (id: string): PlanGebinde => ({
+    id, name: behaelterMap[id]?.name ?? 'Gebinde', volumen_liter: behaelterMap[id]?.volumen_liter ?? null,
+    gesperrt: gebindeInfo[id]?.gesperrt ?? false, fremd_betrieb: gebindeInfo[id]?.fremd_betrieb ?? null, fuellung: fillMap[id] ?? 0,
+  })
+  const bewertung = (quelleId: string, zielId: string): ZielBewertung => {
+    const q = chargen[quelleId]?.[0] ?? null
+    return bewerteZiel({ quelle: q, quellGebinde: planGebinde(quelleId), ziel: planGebinde(zielId), zielChargen: chargen[zielId] ?? [], menge: q?.menge_liter ?? 0 })
+  }
+  const ziehbar = (id: string) => writeOk && (chargen[id]?.length ?? 0) > 0 && !(gebindeInfo[id]?.gesperrt ?? false)
   const placedIds    = new Set(Object.keys(positions))
   const unplaced     = behaelter.filter(b => !placedIds.has(b.id))
 
@@ -172,6 +201,14 @@ export default function KellerplanEditor({
       setDialogBehaelterId(id)
       return
     }
+    if (!planModus) {
+      // KAN-114 Kellerarbeit: Tank mit eigenem Wein ziehen; ohne Wein öffnet ein Klick den Gebinde-Dialog
+      if (!ziehbar(id)) { setDialogBehaelterId(id); return }
+      e.preventDefault()
+      canvasRef.current.setPointerCapture(e.pointerId)
+      ziehRef.current = { id, startX: e.clientX, startY: e.clientY }
+      return
+    }
     e.preventDefault()
     canvasRef.current.setPointerCapture(e.pointerId)
     dragStateRef.current = {
@@ -183,6 +220,18 @@ export default function KellerplanEditor({
   }
 
   function handleCanvasPointerMove(e: React.PointerEvent) {
+    const zr = ziehRef.current
+    if (zr && canvasRef.current) {
+      const rect = canvasRef.current.getBoundingClientRect()
+      const px = e.clientX - rect.left
+      const py = e.clientY - rect.top
+      const kreise = Object.entries(positions).map(([id, p]) => ({
+        id, cx: (p.pos_x_pct + p.breite_pct / 2) / 100 * rect.width,
+        cy: (p.pos_y_pct + circleHeight(p.breite_pct) / 2) / 100 * rect.height, r: p.breite_pct / 2 / 100 * rect.width,
+      }))
+      setZieh({ quelleId: zr.id, x: px / rect.width * 100, y: py / rect.height * 100, zielId: gebindeUnterZeiger({ x: px, y: py }, kreise, zr.id) })
+      return
+    }
     const ds = dragStateRef.current
     if (!ds || !canvasRef.current) return
     const rect = canvasRef.current.getBoundingClientRect()
@@ -204,6 +253,23 @@ export default function KellerplanEditor({
   }
 
   function handleCanvasPointerUp(e: React.PointerEvent) {
+    const zr = ziehRef.current
+    if (zr) {
+      canvasRef.current?.releasePointerCapture(e.pointerId)
+      ziehRef.current = null
+      const rect = canvasRef.current?.getBoundingClientRect()
+      const dx = rect ? Math.abs(((e.clientX - zr.startX) / rect.width) * 100) : 0
+      const dy = rect ? Math.abs(((e.clientY - zr.startY) / rect.height) * 100) : 0
+      const zielId = zieh?.zielId ?? null
+      setZieh(null)
+      if (dx < CLICK_THRESHOLD_PCT && dy < CLICK_THRESHOLD_PCT) { setDialogBehaelterId(zr.id); return }
+      if (!zielId) return   // freie Fläche: abbrechen
+      const b = bewertung(zr.id, zielId)
+      if (b.art === 'gesperrt') { setSaveError(b.text); return }
+      setSaveError(null)
+      setBuchen({ quelleId: zr.id, zielId })
+      return
+    }
     const ds = dragStateRef.current
     if (!ds) return
     canvasRef.current?.releasePointerCapture(e.pointerId)
@@ -287,6 +353,35 @@ export default function KellerplanEditor({
         <p className="no-print text-xs text-s112-err mb-1">{saveError}</p>
       )}
 
+      {/* KAN-106: Nur-Lesen-Modus – kein Ziehen */}
+      {nurLesen && (
+        <p role="status" className="no-print text-xs bg-s112-warn-bg border border-s112-warn/30 text-s112-warn-fg rounded-lg px-3 py-2 mb-2">
+          Nur-Lesen-Modus: Tanks lassen sich nicht verschieben oder umziehen. Ein Klick öffnet die Gebinde-Aktionen.
+        </p>
+      )}
+      {/* KAN-114: Umschalter Kellerarbeit / Plan bearbeiten (Entscheidung Jörgen 06.10.2026) */}
+      {writeOk && (
+        <div className="no-print flex flex-wrap items-center gap-2 mb-2" role="group" aria-label="Modus">
+          {([['arbeit', 'Kellerarbeit'], ['plan', 'Plan bearbeiten']] as const).map(([m, label]) => (
+            <button key={m} type="button" onClick={() => { setModus(m); setZieh(null); setSaveError(null) }} aria-pressed={modus === m}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium border ${modus === m ? 'bg-s112-teal text-s112-yellow border-s112-teal' : 'border-s112-border text-s112-text-2 hover:text-s112-text'}`}>
+              {label}
+            </button>
+          ))}
+          <span className="text-xs text-s112-muted">
+            {modus === 'arbeit'
+              ? 'Tank auf Tank ziehen: leer = Umzug, gleicher Wein = Zusammenführen, anderer Wein = Verschnitt (grün/blau, rot = nicht möglich).'
+              : 'Tanks verschieben, Größe ändern, Behälter aus der Liste platzieren.'}
+          </span>
+        </div>
+      )}
+      {gebucht && (
+        <div role="status" className="no-print flex items-start gap-2 text-sm bg-s112-ok-bg border border-s112-ok/30 text-s112-ok-fg rounded-lg px-3 py-2 mb-2">
+          <div className="flex-1">{gebucht.map(z => <p key={z}>{z}</p>)}</div>
+          <button type="button" onClick={() => setGebucht(null)} aria-label="Hinweis schließen" className="hover:opacity-70">×</button>
+        </div>
+      )}
+
       <div className="flex gap-6 items-start">
 
         {/* ── Canvas ─────────────────────────────────────────────────────────── */}
@@ -298,11 +393,11 @@ export default function KellerplanEditor({
             className="kellerplan-canvas relative w-full border-2 border-s112-grey bg-white select-none"
             style={{
               paddingBottom: `${A4_PERCENT}%`,
-              cursor: writeOk ? 'crosshair' : 'default',
+              cursor: planModus ? 'crosshair' : 'default',
               ...gridBgStyle,
             }}
-            onDragOver={writeOk ? handleCanvasDragOver : undefined}
-            onDrop={writeOk ? handleCanvasDrop : undefined}
+            onDragOver={planModus ? handleCanvasDragOver : undefined}
+            onDrop={planModus ? handleCanvasDrop : undefined}
             onPointerMove={handleCanvasPointerMove}
             onPointerUp={handleCanvasPointerUp}
           >
@@ -326,10 +421,17 @@ export default function KellerplanEditor({
                 ? Math.round(fillPct * 100)
                 : null
 
+              // KAN-114: Hervorhebung des Ziels beim Ziehen (grün Umzug/Zusammenführen, blau Verschnitt, rot gesperrt)
+              const zielBew = zieh && zieh.zielId === behaelterId ? bewertung(zieh.quelleId, behaelterId) : null
+              const istQuelle = zieh?.quelleId === behaelterId
               return (
                 <div
                   key={behaelterId}
-                  className="absolute overflow-hidden flex flex-col items-center justify-center group"
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`${b.name}${wein ? ` – ${wein.name}` : ' – leer'}: Gebinde-Aktionen`}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDialogBehaelterId(behaelterId) } }}
+                  className="absolute overflow-hidden flex flex-col items-center justify-center group focus:outline-hidden focus-visible:ring-4 focus-visible:ring-s112-teal/50"
                   style={{
                     left:            `${pos.pos_x_pct}%`,
                     top:             `${pos.pos_y_pct}%`,
@@ -337,12 +439,14 @@ export default function KellerplanEditor({
                     height:          `${hPct}%`,
                     borderRadius:    '50%',
                     backgroundColor: typ.bg,
-                    border:          `2px solid ${fillColor ?? typ.border}`,
-                    cursor:          writeOk ? 'grab' : 'pointer',
+                    border:          `2px solid ${zielBew ? ZIEL_FARBE[zielBew.art] : fillColor ?? typ.border}`,
+                    boxShadow:       zielBew ? `0 0 0 4px ${ZIEL_FARBE[zielBew.art]}` : undefined,
+                    opacity:         istQuelle ? 0.55 : 1,
+                    cursor:          planModus || ziehbar(behaelterId) ? 'grab' : 'pointer',
                     touchAction:     'none',
                   }}
                   onPointerDown={e => handleBlockPointerDown(e, behaelterId)}
-                  title="Klicken für Umziehen / Kellerbehandlungen / Abfüllen"
+                  title={zielBew ? zielBew.text : planModus ? 'Ziehen zum Verschieben, Klick für Gebinde-Aktionen' : ziehbar(behaelterId) ? 'Auf einen anderen Tank ziehen: Umzug bzw. Verschnitt – Klick für Gebinde-Aktionen' : 'Klicken für Gebinde-Aktionen'}
                 >
                   {/* ── Füllstand-Fläche (bottom-anchored, durch overflow:hidden zum Kreis geschnitten) */}
                   {fillColor && (
@@ -363,7 +467,7 @@ export default function KellerplanEditor({
                   )}
 
                   {/* Entfernen-Button */}
-                  {writeOk && (
+                  {planModus && (
                     <button
                       className="no-print absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-s112-grey hover:bg-s112-err text-white text-[10px] flex items-center justify-center z-20 leading-none opacity-0 group-hover:opacity-100 transition-opacity"
                       onClick={e => { e.stopPropagation(); handleRemove(behaelterId) }}
@@ -375,7 +479,7 @@ export default function KellerplanEditor({
                   )}
 
                   {/* Resize-Buttons − / + */}
-                  {writeOk && (
+                  {planModus && (
                     <>
                       <button
                         className="no-print absolute bottom-1 left-1 w-4 h-4 rounded-full bg-s112-line hover:bg-s112-teal hover:text-s112-yellow text-s112-text-2 text-[11px] flex items-center justify-center z-20 leading-none opacity-0 group-hover:opacity-100 transition-opacity font-semibold"
@@ -433,8 +537,16 @@ export default function KellerplanEditor({
               )
             })}
 
+            {/* KAN-114: gezogener Wein folgt dem Zeiger */}
+            {zieh && (
+              <div className="absolute pointer-events-none z-30 -translate-x-1/2 -translate-y-1/2 rounded-full bg-s112-teal text-s112-yellow text-[11px] font-semibold px-2 py-1 shadow-md whitespace-nowrap"
+                style={{ left: `${zieh.x}%`, top: `${zieh.y}%` }}>
+                {chargen[zieh.quelleId]?.[0]?.name ?? 'Wein'}{zieh.zielId ? ` → ${behaelterMap[zieh.zielId]?.name ?? ''}` : ''}
+              </div>
+            )}
+
             {/* Leer-Hinweis */}
-            {Object.keys(positions).length === 0 && writeOk && (
+            {Object.keys(positions).length === 0 && planModus && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <p className="text-sm text-s112-tertiary text-center px-8">
                   Behälter aus der Liste rechts in den Grundriss ziehen
@@ -481,12 +593,12 @@ export default function KellerplanEditor({
 
           <p className="no-print text-xs text-s112-muted mt-1">
             Gitternetz = 1 m · Raum: {plan.breite_m} × {plan.laenge_m} m ·
-            Klick: Gebinde-Aktionen · Hover: −/+ Größe anpassen · × Entfernen
+            Klick oder Enter: Gebinde-Aktionen{planModus ? ' · Hover: −/+ Größe anpassen · × Entfernen' : ''}
           </p>
         </div>
 
         {/* ── Sidebar: nicht platzierte Behälter ────────────────────────────── */}
-        {writeOk && (
+        {planModus && (
           <div className="no-print w-44 shrink-0">
             <p className="text-xs font-semibold text-s112-text-2 uppercase tracking-wide mb-2">
               Nicht platziert
@@ -529,6 +641,16 @@ export default function KellerplanEditor({
         )}
       </div>
 
+      {/* KAN-114: Umzug bzw. Verschnitt buchen (vorbelegt, erst mit „Buchen“) */}
+      {buchen && (
+        <KellerplanBuchen
+          quellGebinde={planGebinde(buchen.quelleId)} ziel={planGebinde(buchen.zielId)}
+          quellChargen={chargen[buchen.quelleId] ?? []} zielChargen={chargen[buchen.zielId] ?? []}
+          onClose={() => setBuchen(null)}
+          onGebucht={zeilen => { setBuchen(null); setGebucht(zeilen) }}
+        />
+      )}
+
       {/* Gebinde-Dialog: Sprung zu Umziehen / Kellerbehandlungen / Abstufen / Abfüllen */}
       {dialogBehaelter && (
         <div className="no-print fixed inset-0 z-50 flex items-center justify-center bg-black/30"
@@ -542,6 +664,27 @@ export default function KellerplanEditor({
                 : 'Kein Wein im Behälter'}
             </p>
 
+            {/* KAN-114/KAN-106: ohne Ziehen – Ziel wählen, dann derselbe Buchungsdialog */}
+            {ziehbar(dialogBehaelter.id) && (
+              <div className="mb-3 space-y-1.5">
+                <label htmlFor="kp-ziel" className="block text-xs font-medium text-s112-text-2">Umziehen bzw. verschneiden nach …</label>
+                <div className="flex gap-2">
+                  <select id="kp-ziel" value={zielWahl} onChange={e => setZielWahl(e.target.value)}
+                    className="flex-1 min-w-0 border border-s112-border rounded-lg px-2 py-2 text-sm bg-white">
+                    <option value="">Ziel-Gebinde wählen</option>
+                    {behaelter.filter(z => z.id !== dialogBehaelter.id).map(z => {
+                      const bw = bewertung(dialogBehaelter.id, z.id)
+                      return <option key={z.id} value={z.id} disabled={bw.art === 'gesperrt'}>
+                        {z.name} – {bw.art === 'umzug' ? 'leer' : bw.art === 'zusammenfuehren' ? 'zusammenführen' : bw.art === 'verschnitt' ? 'Verschnitt' : 'nicht möglich'}
+                      </option>
+                    })}
+                  </select>
+                  <button type="button" disabled={!zielWahl}
+                    onClick={() => { setBuchen({ quelleId: dialogBehaelter.id, zielId: zielWahl }); setZielWahl(''); setDialogBehaelterId(null) }}
+                    className="px-3 py-2 rounded-lg text-sm font-semibold bg-s112-teal text-s112-yellow disabled:opacity-40">Weiter</button>
+                </div>
+              </div>
+            )}
             <div className="space-y-2">
               <Link
                 href={`/kellerbuch/behaelter/${dialogBehaelter.id}/umzuege`}
