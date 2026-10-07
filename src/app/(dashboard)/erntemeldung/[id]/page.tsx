@@ -86,9 +86,13 @@ export default async function ErnteDetailPage({ params, searchParams }: Props) {
 
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-semibold text-s112-blue-700 tabular-nums">{(jg as AR).jahrgang}</h1>
-        {(jg as AR).abgeschlossen && (
-          <span className="text-xs bg-[#F2F3F5] text-s112-text-2 px-2 py-1 rounded-full">Abgeschlossen</span>
-        )}
+        <div className="flex items-center gap-3">
+          {/* KAN-147: betriebliche Lese-Auswertung (Ertrag, Mostgewicht, Fortschritt, Vorjahre) */}
+          <Link href={`/erntemeldung/${id}/auswertung`} className="text-sm text-s112-blue-700 hover:underline font-medium">Auswertung</Link>
+          {(jg as AR).abgeschlossen && (
+            <span className="text-xs bg-[#F2F3F5] text-s112-text-2 px-2 py-1 rounded-full">Abgeschlossen</span>
+          )}
+        </div>
       </div>
 
       {aktiveLeseMitSperre && (
