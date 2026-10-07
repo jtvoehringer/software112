@@ -8,7 +8,7 @@ import { createDacAntrag } from '../actions'
 import { ladeZusammensetzungCharge } from '@/lib/wein/blendKomposition'
 import { sortenAnteile } from '@/lib/wein/mischungsrechnung'
 import { PN_OFFENE_ANTRAGS_STATUS, pnStatusLabel } from '@/lib/dac/workflow'
-import { fmtNum } from '@/lib/format'
+import { sortenAnteilText } from '@/lib/wein/sortenangabe'
 
 export const metadata: Metadata = { title: 'Neuer Prüfnummern-Antrag – software:112' }
 export const dynamic = 'force-dynamic'
@@ -18,12 +18,13 @@ type R = Record<string, any>
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-/** KAN-98: Sorten der Charge absteigend mit Anteil („Grüner Veltliner 80 %, Riesling 20 %“); eine Sorte ohne Anteil */
-function sortenText(anteile: { wert: string; anteil_pct: number }[]): string | null {
+/** KAN-98/KAN-113: Sorten der Charge absteigend mit Anteil („Grüner Veltliner 80 % · Riesling 20 %“, wie Blend-Protokoll
+ *  und Charge); eine Sorte ohne Anteil */
+function sortenText(anteile: { wert: string; liter: number; anteil_pct: number }[]): string | null {
   const bekannt = anteile.filter(a => a.wert !== 'unbekannt')
   if (bekannt.length === 0) return null
-  if (bekannt.length === 1) return bekannt[0].wert
-  return bekannt.map(a => `${a.wert} ${fmtNum(a.anteil_pct, 0)} %`).join(', ')
+  if (bekannt.length === 1 && bekannt.length === anteile.length) return bekannt[0].wert
+  return sortenAnteilText(anteile)
 }
 
 export default async function NeuePage({

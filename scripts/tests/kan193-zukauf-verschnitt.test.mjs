@@ -151,8 +151,9 @@ describe('KAN-193 verschnittWerte mit rotWeiss', nurMitHooks, () => {
     assert.equal(w.kopf.neue_ziel_charge.herkunft_code, 'wein')
   })
   test('Hinweis nennt Zukauf und Rot/Weiß', () => {
-    const z = hw.verschnittHinweis({ zielName: 'Riesling', unterschiede: ['Rebsorte'], qualitaetAbgestuft: null, herkunftAbgestuft: null, rotWeiss: true }, 'Zukauf')
-    assert.deepEqual(z, ['Zukauf als Verschnitt in „Riesling“ gebucht (abweichend: Rebsorte).', 'Abstufung auf Wein (aus Österreich) – Verschnitt Rot/Weiß.'])
+    // KAN-170: die Abstufungszeile nur bei tatsächlicher Abstufung (hier Qualität)
+    const z = hw.verschnittHinweis({ zielName: 'Riesling', unterschiede: ['Rebsorte'], qualitaetAbgestuft: { von: 'Qualitätswein', nach: 'Wein' }, herkunftAbgestuft: null, rotWeiss: true }, 'Zukauf')
+    assert.deepEqual(z, ['Zukauf als Verschnitt in „Riesling“ gebucht (abweichend: Rebsorte).', 'Abstufung auf Wein (aus Österreich) – Verschnitt Rot/Weiß.', 'Abstufung Qualität von Qualitätswein auf Wein.'])
   })
 })
 
@@ -352,6 +353,31 @@ describe('KAN-193 umziehen(): Rot in Weiß', nurMitHooks, () => {
   test('nur pn_bestaetigt (alte Clients) reicht nicht: Rückfrage bleibt, nichts gebucht', async () => {
     const t = tabellen()
     db(t)
+    const r = await um.umziehen(fd({ pn_bestaetigt: '1' }))
+    assert.equal(r.bestaetigung, vw.ROT_WEISS_FRAGE)
+    assert.equal(t.verschneidungen.length, 0)
+  })
+  // KAN-170: alle Beteiligten schon „Wein (ohne Herkunft)“ – keine Abstufung, also keine Rückfrage, nur Vermerk
+  test('KAN-170: alle schon Wein (ohne Herkunft) → ohne Rückfrage gebucht, Vermerk ohne Abstufung', async () => {
+    const t = tabellen()
+    const d = db(t)
+    for (const c of t.weinausbau) Object.assign(c, { qualitaetsstufe: 'wein', zusatzbezeichnung: null, erzeugnis: null, herkunft_code: 'wein' })
+    const r = await um.umziehen(fd({ pn_bestaetigt: '1' }))
+    assert.equal(r?.bestaetigung, undefined)
+    assert.equal(r.verschnitte[0].rotWeiss, true)
+    assert.equal(r.verschnitte[0].qualitaetAbgestuft, null)
+    assert.equal(r.verschnitte[0].herkunftAbgestuft, null)
+    const [aufruf] = rpcAufrufe(d, 's112_verschnitt_buchen')
+    assert.equal(aufruf.p_kopf.ziel.qualitaetsstufe, 'wein')
+    assert.ok(aufruf.p_kopf.notizen.includes(vw.ROT_WEISS_OHNE_ABSTUFUNG))
+    assert.doesNotMatch(aufruf.p_kopf.notizen, /Abstufung auf Wein/)
+    assert.deepEqual(hw.verschnittHinweis({ zielName: 'X', qualitaetAbgestuft: null, herkunftAbgestuft: null, rotWeiss: true }).slice(1),
+      ['Verschnitt Rot/Weiß – bereits Wein (ohne Herkunft), keine Abstufung.'])
+  })
+  test('KAN-170: nur eine Seite über „Wein“ → Rückfrage bleibt', async () => {
+    const t = tabellen()
+    db(t)
+    for (const c of t.weinausbau.filter(c => c.id === ZW)) Object.assign(c, { qualitaetsstufe: 'wein', herkunft_code: 'wein' })
     const r = await um.umziehen(fd({ pn_bestaetigt: '1' }))
     assert.equal(r.bestaetigung, vw.ROT_WEISS_FRAGE)
     assert.equal(t.verschneidungen.length, 0)

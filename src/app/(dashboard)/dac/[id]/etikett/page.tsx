@@ -6,6 +6,9 @@ import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import PrintButton from './PrintButton'
+import { ladeZusammensetzungCharge } from '@/lib/wein/blendKomposition'
+import { sortenAnteile } from '@/lib/wein/mischungsrechnung'
+import { sortenAngabeVorschlag, weinartAusSortenverschnitt, type SortenVorschlag } from '@/lib/wein/sortenangabe'
 
 export const metadata: Metadata = { title: 'Weinetikett – software:112' }
 export const dynamic = 'force-dynamic'
@@ -40,7 +43,7 @@ export default async function EtikettPage({ params }: { params: Promise<{ id: st
 
   const [{ data: rows }, { data: settingsRaw }] = await Promise.all([
     tf((supabase.from('dac_antrag') as any)
-      .select('id, bezeichnung, dac_region, jahrgang, rebsorte, menge_liter, alkohol_prozent, status, pruefnummer, bescheid_am')
+      .select('id, bezeichnung, dac_region, jahrgang, rebsorte, menge_liter, alkohol_prozent, status, pruefnummer, bescheid_am, weinausbau_id')
       .eq('id', id)
       .is('storniert_am', null)   // KAN-150 F2: kein Etikett mit der Nummer eines stornierten Antrags
       .limit(1)),
@@ -55,6 +58,17 @@ export default async function EtikettPage({ params }: { params: Promise<{ id: st
   const s = (settingsRaw as R | null) ?? {}
 
   const regionLabel = DAC_REGION_LABEL[dac.dac_region] ?? dac.dac_region
+
+  // KAN-113: Sortenangabe aus der Zusammensetzung der Charge – mehrere Sorten absteigend nach Menge, eine Sorte ab 85 %
+  let sorten: SortenVorschlag | null = null
+  if (tenantId && dac.weinausbau_id) {
+    try {
+      const anteile = sortenAnteile((await ladeZusammensetzungCharge(supabase, tenantId, dac.weinausbau_id)).anteile)
+      if (anteile.filter(a => a.wert !== 'unbekannt').length > 1) sorten = sortenAngabeVorschlag(anteile, weinartAusSortenverschnitt(dac.rebsorte))
+    } catch {
+      sorten = null   // Komfort – ohne Zusammensetzung bleibt die Rebsorte des Antrags
+    }
+  }
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -130,7 +144,7 @@ export default async function EtikettPage({ params }: { params: Promise<{ id: st
         {/* Pflichtangaben Grid */}
         <div className="grid grid-cols-2 gap-x-8 gap-y-3">
           {[
-            ['Rebsorte', dac.rebsorte ? formatRebsorteMitKuerzel(dac.rebsorte) : '–'],
+            ['Rebsorte', sorten?.vorschlag ?? (dac.rebsorte ? formatRebsorteMitKuerzel(dac.rebsorte) : '–')],
             ['Qualitätsstufe', 'DAC – Qualitätswein bestimmter Herkunft'],
             ['Alkohol', dac.alkohol_prozent ? `${String(dac.alkohol_prozent).replace('.', ',')} % vol.` : '–'],
             ['Füllmenge', fmtMenge(dac.menge_liter)],
@@ -143,6 +157,14 @@ export default async function EtikettPage({ params }: { params: Promise<{ id: st
             </div>
           ))}
         </div>
+
+        {/* KAN-113: Grundlage der Sortenangabe (nur am Bildschirm) */}
+        {sorten?.text && (
+          <p className="text-xs text-s112-text-2 print:hidden">
+            Sortenangabe laut Zusammensetzung (absteigend, gleiche Schriftgröße): {sorten.text}
+            {sorten.alternativen.length > 0 && <> – auch zulässig: {sorten.alternativen.join(', ')}</>}
+          </p>
+        )}
 
         {/* Fußzeile */}
         <div className="border-t border-s112-border pt-4 flex items-end justify-between">

@@ -297,7 +297,7 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
                 <AlertTriangle size={14} strokeWidth={2} className="mt-0.5 shrink-0" />
                 <span>
                   <span className="font-semibold">Rot- und Weißwein werden verschnitten – Abstufung auf Wein (aus Österreich):</span>{' '}
-                  „{chargeName}“ ({WEINART_LABEL[quelleWeinart ?? 'unbekannt']}) in dieses Gebinde – dort liegt „{weinartKonfliktCharge.name}“ ({WEINART_LABEL[weinartKonfliktCharge.weinart ?? 'unbekannt']}). Beim Speichern folgt eine Rückfrage.
+                  „{chargeName}“ ({WEINART_LABEL[quelleWeinart ?? 'unbekannt']}) in dieses Gebinde – dort liegt „{weinartKonfliktCharge.name}“ ({WEINART_LABEL[weinartKonfliktCharge.weinart ?? 'unbekannt']}). Sind alle schon „Wein (ohne Herkunft)“, wird nicht abgestuft (KAN-170); sonst folgt beim Speichern eine Rückfrage.
                 </span>
               </div>
             )}

@@ -8,6 +8,8 @@ import { herkunftLabel, type BlendZeile } from '@/lib/behoerden/blend'
 import { schrittStelleText, type BlendSchritt, type SchrittStelle } from '@/lib/behoerden/blendSchritte'
 import type { KompositionUrsprung } from '@/lib/wein/blendKomposition'
 import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
+import { sortenAnteile } from '@/lib/wein/mischungsrechnung'
+import { sortenAngabeVorschlag } from '@/lib/wein/sortenangabe'
 
 const TH = 'py-2 font-semibold text-s112-text-2 text-xs uppercase tracking-wide'
 
@@ -27,6 +29,43 @@ export function BlendHinweise({ warnungen }: { warnungen: readonly string[] }) {
 }
 
 /** Herkunftsanteile mit enthaltenen Litern – `zeilen` stammen aus blendZeilen() (gleiche Reihenfolge) */
+/** KAN-113: Rebsorten absteigend nach Menge (Liter, Anteil) und Vorschlag der Sortenangabe für Füllung und Etikett */
+export function BlendSortenAbsteigend({ komposition, weinart }: { komposition: readonly KompositionUrsprung[]; weinart: string | null }) {
+  const sorten = sortenAnteile(komposition)
+  if (sorten.length < 2) return null
+  const v = sortenAngabeVorschlag(sorten, weinart)
+  return (
+    <div className="space-y-2">
+      <h3 className="text-sm font-semibold text-s112-text">Rebsorten (absteigend)</h3>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-left text-xs text-s112-text-2 border-b border-s112-border">
+            <th className="py-1.5 font-medium">Rebsorte</th>
+            <th className="py-1.5 font-medium text-right">Liter</th>
+            <th className="py-1.5 font-medium text-right">Anteil</th>
+          </tr>
+        </thead>
+        <tbody>
+          {sorten.map(s => (
+            <tr key={s.wert} className="border-b border-s112-border/60">
+              <td className="py-1.5">{s.wert === 'unbekannt' ? 'ohne Rebsorte' : formatRebsorteMitKuerzel(s.wert)}</td>
+              <td className="py-1.5 text-right tabular-nums">{fmtNum(s.liter)} L</td>
+              <td className="py-1.5 text-right tabular-nums">{fmtNum(s.anteil_pct)} %</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {v.vorschlag && (
+        <p className="text-xs text-s112-text-2">
+          Sortenangabe (Vorschlag für Füllung und Etikett): <strong className="text-s112-text">{v.vorschlag}</strong>
+          {v.alternativen.length > 0 && <> – auch zulässig: {v.alternativen.join(', ')}</>}
+          {v.hinweis && <span className="block mt-0.5">{v.hinweis}</span>}
+        </p>
+      )}
+    </div>
+  )
+}
+
 export function BlendHerkunftTabelle({ komposition, zeilen, bezugLiter }: {
   komposition: readonly KompositionUrsprung[]; zeilen: readonly BlendZeile[]; bezugLiter: number | null
 }) {

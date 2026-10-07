@@ -53,6 +53,9 @@ export type VerschnittWerteEingabe = {
 export const ROT_WEISS_FRAGE = 'Rot- und Weißwein werden verschnitten – das Ergebnis wird auf ‚Wein (aus Österreich)‘ abgestuft. Fortfahren?'
 /** KAN-193: Vermerk in den Notizen des Verschnitts und Zeile im Hinweis */
 export const ROT_WEISS_VERMERK = 'Abstufung auf Wein (aus Österreich) – Verschnitt Rot/Weiß'
+/** KAN-170 (Ticket 01.10.2026): alle Beteiligten schon „Wein (ohne Herkunft)“ – Verschnitt Rot/Weiß ohne Abstufung und
+ *  ohne Rückfrage, nur dieser Vermerk */
+export const ROT_WEISS_OHNE_ABSTUFUNG = 'Verschnitt Rot/Weiß – bereits Wein (ohne Herkunft), keine Abstufung'
 /** KAN-193: Stufe „Wein“ (QUALITAET_OPTS) und Herkunfts-Code „Wein aus Österreich“ (breiteste Stufe im Herkunftsbaum) */
 export const ROT_WEISS_STUFE = 'wein'
 export const ROT_WEISS_HERKUNFT = 'wein'
@@ -112,6 +115,8 @@ export type VerschnittWerte = {
   sortenHinweise: string[]
   /** KAN-193: auf Wein (aus Österreich) abgestuft (Rot/Weiß) */
   rotWeiss: boolean
+  /** KAN-170: Rot/Weiß mit tatsächlicher Abstufung (Qualität oder Herkunft) – nur dann fragt der Service nach */
+  rotWeissAbstufung: boolean
   /** KAN-111: Qualitätsstufe wegen der Herkunft herabgesetzt (Rückfrage im Service) */
   herkunftQualitaet: HerkunftQualitaet | null
   /** KAN-110/111: Hinweise der Herkunftsregel (85 %, nicht prüfbar, Ried im Chargennamen) */
@@ -194,7 +199,9 @@ export function verschnittWerte(e: VerschnittWerteEingabe): VerschnittWerte {
 
   // Vermerke in die Notizen des Verschnitts – vor dem Buchen, damit es EIN Aufruf bleibt
   const texte: string[] = []
-  if (rotWeiss) texte.push(ROT_WEISS_VERMERK)
+  // KAN-170: Rot/Weiß ohne Abstufung (alle schon „Wein (ohne Herkunft)“) – eigener Vermerk, keine Rückfrage
+  const rotWeissAbstufung = rotWeiss && !!(qualitaetAbgestuft || herkunftAbgestuft)
+  if (rotWeiss) texte.push(rotWeissAbstufung ? ROT_WEISS_VERMERK : ROT_WEISS_OHNE_ABSTUFUNG)
   if (qualitaetAbgestuft) texte.push(`Abstufung Qualität von ${qualitaetAbgestuft.von} auf ${qualitaetAbgestuft.nach}`)
   if (herkunftAbgestuft) {
     texte.push(`Abstufung Herkunft-Code (BKI) von ${HERKUNFT_LABEL[herkunftAbgestuft.von] ?? herkunftAbgestuft.von} auf ${HERKUNFT_LABEL[herkunftAbgestuft.nach] ?? herkunftAbgestuft.nach}`)
@@ -247,5 +254,5 @@ export function verschnittWerte(e: VerschnittWerteEingabe): VerschnittWerte {
     menge_erwartet: num(q.charge.menge_liter),
   }))
 
-  return { kopf, quellen, qualitaetAbgestuft, herkunftAbgestuft, sortenHinweise: angabe.hinweise, rotWeiss, herkunftQualitaet, herkunftHinweise }
+  return { kopf, quellen, qualitaetAbgestuft, herkunftAbgestuft, sortenHinweise: angabe.hinweise, rotWeiss, rotWeissAbstufung, herkunftQualitaet, herkunftHinweise }
 }

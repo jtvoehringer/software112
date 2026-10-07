@@ -42,6 +42,17 @@ export function pressungSortenverschnitt(weinart: string | null | undefined, far
   return sortenverschnittBezeichnung(rot ? 'rot' : 'weiss')
 }
 
+/** KAN-113: Weinart aus „Sortenverschnitt weiß/rot/Rosé“ (für die Farbe des Vorschlags), sonst null */
+export function weinartAusSortenverschnitt(rebsorte: string | null | undefined): 'weiss' | 'rot' | 'rose' | null {
+  if (!istSortenverschnitt(rebsorte)) return null
+  const t = (rebsorte ?? '').toLocaleLowerCase('de')
+  // ohne \b am Ende: ß und é zählen in JS-Regex nicht als Wortzeichen
+  if (/\bros[ée]/.test(t)) return 'rose'
+  if (/\brot\b/.test(t)) return 'rot'
+  if (/\bwei(ß|ss)/.test(t)) return 'weiss'
+  return null
+}
+
 /** true für alle Schreibweisen von „Sortenverschnitt …“ */
 export function istSortenverschnitt(rebsorte: string | null | undefined): boolean {
   return !!rebsorte && /^sortenverschnitt\b/i.test(rebsorte.trim())
@@ -119,4 +130,120 @@ export function addiereGruppen(...listen: readonly (readonly GruppenMenge[])[]):
   const m = new Map<string, number>()
   for (const l of listen) for (const g of l) m.set(g.wert, (m.get(g.wert) ?? 0) + g.liter)
   return [...m.entries()].map(([wert, liter]) => ({ wert, liter }))
+}
+
+// ── Sortenangabe auf Füllung und Etikett (KAN-113, 07.10.2026) ──────────────────────────────────────────────
+// Art. 50 Del. VO (EU) 2019/33 (Wortlaut in AP0/KAN-38 zu bestätigen): Bei mehreren Sorten müssen die genannten Sorten
+// 100 % ergeben, absteigend nach Menge und in gleicher Schriftgröße; eine Sorte allein erst ab 85 % (SCHWELLE, dieselbe
+// Regel wie sortenBezeichnung). Grundlage sind die Anteile aus dem Rechenkern (sortenAnteile, KAN-76) – hier entsteht
+// keine eigene Mischungsrechnung. Entscheidung Jörgen 06.10.2026: „Cuvée“ und „Gemischter Satz“ als Bezeichnung ohne
+// Sorte mit anbieten. Rechnung und Lieferschein bleiben unverändert.
+
+/** Anteil einer Sorte – `liter` (falls bekannt) gewichtet, sonst `anteil_pct` */
+export interface SortenAnteil { wert: string; liter?: number | null; anteil_pct: number }
+
+export const CUVEE = 'Cuvée'
+export const GEMISCHTER_SATZ = 'Gemischter Satz'
+/** Trennzeichen der Aufzählung auf Füllung und Etikett („Zweigelt – Blaufränkisch – St. Laurent“) */
+export const SORTEN_TRENNER = ' – '
+
+const gewicht = (a: SortenAnteil) => (a.liter != null && a.liter > 0 ? a.liter : a.anteil_pct > 0 ? a.anteil_pct : 0)
+const istUnbekannt = (w: string) => w.trim() === '' || w === 'unbekannt'
+const fmtPct = (x: number) => `${(Math.round(x * 10) / 10).toLocaleString('de-AT', { maximumFractionDigits: 1 })} %`
+
+function aufbereitet(anteile: readonly SortenAnteil[]) {
+  const mit = anteile.filter(a => gewicht(a) > 0)
+  const summe = mit.reduce((s, a) => s + gewicht(a), 0)
+  const sorten = mit.filter(a => !istUnbekannt(a.wert) && !istSortenverschnitt(a.wert))
+    .map(a => ({ wert: a.wert.trim(), gewicht: gewicht(a), anteil: summe > 0 ? gewicht(a) / summe : 0 }))
+    .sort((x, y) => (y.gewicht - x.gewicht) || x.wert.localeCompare(y.wert, 'de'))
+  const ohneSorte = summe > 0 ? mit.filter(a => istUnbekannt(a.wert) || istSortenverschnitt(a.wert)).reduce((s, a) => s + gewicht(a), 0) / summe : 0
+  return { sorten, ohneSorte }
+}
+
+/** „Zweigelt 60 % · Blaufränkisch 30 % · St. Laurent 10 %“ – absteigend; Anteile ohne Rebsorte als „ohne Rebsorte“ am Ende */
+export function sortenAnteilText(anteile: readonly SortenAnteil[]): string | null {
+  const { sorten, ohneSorte } = aufbereitet(anteile)
+  if (sorten.length === 0) return null
+  const teile = sorten.map(s => `${s.wert} ${fmtPct(s.anteil * 100)}`)
+  if (ohneSorte > 0.0005) teile.push(`ohne Rebsorte ${fmtPct(ohneSorte * 100)}`)
+  return teile.join(' · ')
+}
+
+export interface SortenVorschlag {
+  /** Vorschlag für das Feld Rebsorte (Füllung) bzw. die Sortenangabe am Etikett; null ohne bekannte Sorte */
+  vorschlag: string | null
+  /** weitere zulässige Angaben (Aufzählung, Sortenverschnitt, Cuvée, Gemischter Satz) */
+  alternativen: string[]
+  /** Anteile als Text (sortenAnteilText) */
+  text: string | null
+  /** Hinweis, warum keine Aufzählung möglich ist */
+  hinweis: string | null
+}
+
+/**
+ * Vorschlag der Sortenangabe: eine Sorte ab 85 % allein, sonst alle Sorten absteigend („Zweigelt – Blaufränkisch –
+ * St. Laurent“); mit Anteilen ohne Rebsorte nur „Sortenverschnitt <Farbe>“ (eine Aufzählung ergäbe keine 100 %).
+ */
+export function sortenAngabeVorschlag(anteile: readonly SortenAnteil[], weinart: string | null | undefined): SortenVorschlag {
+  const { sorten, ohneSorte } = aufbereitet(anteile)
+  const text = sortenAnteilText(anteile)
+  if (sorten.length === 0) return { vorschlag: null, alternativen: [], text, hinweis: null }
+  const aufzaehlung = ohneSorte > 0.0005 ? null : sorten.map(s => s.wert).join(SORTEN_TRENNER)
+  const einzel = sorten[0].anteil >= SCHWELLE - 1e-9 ? sorten[0].wert : null
+  const generisch = [sortenverschnittBezeichnung(weinart), CUVEE, GEMISCHTER_SATZ]
+  const vorschlag = einzel ?? aufzaehlung ?? generisch[0]
+  const alternativen = [...new Set([...(sorten.length > 1 && aufzaehlung ? [aufzaehlung] : []), ...generisch])].filter(a => a !== vorschlag)
+  const hinweis = !einzel && !aufzaehlung
+    ? `Ein Teil des Weins (${fmtPct(ohneSorte * 100)}) hat keine bekannte Rebsorte – eine Aufzählung der Sorten ergäbe keine 100 %.`
+    : null
+  return { vorschlag, alternativen, text, hinweis }
+}
+
+const norm = (s: string) => s.toLocaleLowerCase('de').replace(/\s+/g, ' ').trim()
+
+/** Bezeichnung ohne Sortenaufzählung (Sortenverschnitt, Cuvée, Gemischter Satz) – keine Prüfung der Sorten */
+export function istSortenfreieAngabe(angabe: string | null | undefined): boolean {
+  const t = (angabe ?? '').trim()
+  return istSortenverschnitt(t) || /^cuv[ée]e\b/i.test(t) || /^gemischter satz\b/i.test(t)
+}
+
+/**
+ * Prüfung einer Sortenangabe gegen die Zusammensetzung – Warnungen (keine Sperre): genannte Sorte nicht im Wein, eine
+ * Sorte allein unter 85 %, bei mehreren Sorten fehlende Sorten (keine 100 %) und falsche Reihenfolge. Leer bzw.
+ * Sortenverschnitt/Cuvée/Gemischter Satz: keine Warnung.
+ */
+export function sortenAngabePruefen(angabe: string | null | undefined, anteile: readonly SortenAnteil[]): string[] {
+  const t = (angabe ?? '').trim()
+  if (!t || istSortenfreieAngabe(t)) return []
+  const { sorten, ohneSorte } = aufbereitet(anteile)
+  if (sorten.length === 0) return []
+  const teile = [...new Set(t.split(/\s+[–-]\s+|\s*[,·/&]\s*|\s+und\s+/i).map(x => x.trim()).filter(Boolean).map(norm))]
+  const warnungen: string[] = []
+  const genannt: typeof sorten = []
+  for (const teil of teile) {
+    const s = sorten.find(x => norm(x.wert) === teil)
+    if (s) genannt.push(s)
+    else warnungen.push(`„${t.split(/\s+[–-]\s+|\s*[,·/&]\s*|\s+und\s+/i).map(x => x.trim()).find(x => norm(x) === teil) ?? teil}“ ist laut Zusammensetzung nicht im Wein.`)
+  }
+  const reihenfolge = sorten.map(s => s.wert).join(SORTEN_TRENNER)
+  if (genannt.length === 1 && teile.length === 1) {
+    const s = genannt[0]
+    if (s.anteil < SCHWELLE - 1e-9) {
+      warnungen.push(`„${s.wert}“ allein erst ab 85 % – hier ${fmtPct(s.anteil * 100)}. Alle Sorten absteigend angeben (${reihenfolge}) oder eine Bezeichnung ohne Sorte wählen.`)
+    }
+  } else if (genannt.length > 1) {
+    const fehlend = sorten.filter(s => !genannt.includes(s))
+    if (fehlend.length > 0) {
+      warnungen.push(`Bei mehreren Sorten alle angeben (100 %) – es fehlt: ${fehlend.map(s => `${s.wert} (${fmtPct(s.anteil * 100)})`).join(', ')}.`)
+    }
+    if (ohneSorte > 0.0005) warnungen.push(`${fmtPct(ohneSorte * 100)} des Weins haben keine bekannte Rebsorte – die genannten Sorten ergeben keine 100 %.`)
+    for (let i = 1; i < genannt.length; i++) {
+      if (genannt[i].gewicht > genannt[i - 1].gewicht + 1e-9) {
+        warnungen.push(`Reihenfolge absteigend nach Menge: ${genannt.slice().sort((x, y) => y.gewicht - x.gewicht).map(s => s.wert).join(SORTEN_TRENNER)}.`)
+        break
+      }
+    }
+  }
+  return warnungen
 }
