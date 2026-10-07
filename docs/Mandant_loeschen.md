@@ -41,6 +41,15 @@ Ein Betrieb wird ausschließlich über die Datenbankfunktion `public.s112_mandan
    select public.bestandsprotokoll_mandant_loeschen('<tenant-uuid>');
    ```
 
+**E-Labels (KAN-219, Entscheidung Jörgen 07.10.2026):** `s112_mandant_loeschen` kopiert vor dem Löschen alle freigegebenen
+E-Labels (Inhalt des Umleitungsziels, dazu Name des Betriebs) nach `s112_archiv.elabel_archiv`. Gedruckte QR-Codes zeigen
+damit noch **5 Jahre** ab der Löschung die Zutaten und Nährwerte (`/e/<code>` liest über `s112_elabel_archiv_lesen`). Die
+Regel gehört in die AGB. Vorzeitig entfernen nur auf ausdrücklichen Wunsch, per SQL-Editor:
+
+```sql
+delete from s112_archiv.elabel_archiv where quelle_tenant = '<tenant-uuid>';
+```
+
 ## Offene Altlast (Stand 01.10.2026)
 
 - `mandant-logos/c3d357c5…/`: verwaistes Logo eines bereits gelöschten Betriebs (Prüfabfrage aus Schritt 6 liefert 1 Zeile) – über das Supabase-Dashboard löschen.
