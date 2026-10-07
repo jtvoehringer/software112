@@ -198,7 +198,12 @@ export default async function ZukaufPage({
                       {new Date(p.datum).toLocaleDateString('de-AT')}
                     </td>
                     <td className="px-4 py-3">
-                      <span className="font-mono text-xs text-s112-text-1">{p.eingangsrechnungsnummer || <span className="text-s112-muted">–</span>}</span>
+                      {/* Sweep Namenslinks: Rechnungsnummer als echter Link (Tastatur), Zeile bleibt klickbar */}
+                      <StopPropagation className="font-mono text-xs">
+                        <Link href={`/weinhandel/zukauf/${p.id}/edit`} className="font-medium text-s112-blue-700 hover:underline">
+                          {p.eingangsrechnungsnummer || 'ohne Rechnungsnr.'}
+                        </Link>
+                      </StopPropagation>
                       {tbsText(p.tbs_nummer_lieferant, p.tbs_jahr_lieferant) && (
                         <div className="font-mono text-xs text-s112-muted mt-0.5">TBS {tbsText(p.tbs_nummer_lieferant, p.tbs_jahr_lieferant)}</div>
                       )}

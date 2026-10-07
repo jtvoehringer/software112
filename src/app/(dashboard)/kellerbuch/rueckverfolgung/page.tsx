@@ -604,25 +604,22 @@ export default async function RueckverfolgungPage({
                   <th className="text-left px-3 py-2 text-xs font-semibold text-s112-text-2">Sorte</th>
                   <th className="text-left px-3 py-2 text-xs font-semibold text-s112-text-2">Chargennr.</th>
                   <th className="text-right px-3 py-2 text-xs font-semibold text-s112-text-2">Bestand</th>
-                  <th className="px-3 py-2 print:hidden" />
                 </tr>
               </thead>
               <tbody>
                 {trefferliste.map((f: R, i: number) => (
                   <tr key={f.id} className={`border-b border-s112-border/30 last:border-0 ${i % 2 === 1 ? 'bg-s112-bg/30' : ''} ${!f.aktiv ? 'opacity-50' : ''}`}>
-                    <td className="px-3 py-2 font-medium text-s112-text">{f.name}</td>
+                    <td className="px-3 py-2 font-medium text-s112-text">
+                      <Link href={`/kellerbuch/rueckverfolgung?fuellung_id=${f.id}`} className="font-medium text-s112-blue-700 hover:underline print:text-s112-text">
+                        {f.name || 'Füllung ohne Namen'}
+                      </Link>
+                    </td>
                     <td className="px-3 py-2 text-s112-text-2">{f.bezeichnung ?? '–'}</td>
                     <td className="px-3 py-2 text-right tabular-nums text-s112-text-2">{f.jahrgang ?? '–'}</td>
                     <td className="px-3 py-2 text-s112-text-2">{formatRebsorteMitKuerzel(f.rebsorte)}</td>
                     <td className="px-3 py-2 text-s112-text-2 text-xs font-mono">{f.chargennummer ?? '–'}</td>
                     <td className="px-3 py-2 text-right tabular-nums text-s112-blue-700 font-medium">
                       {fmtNum((parseInt(f.bestand_flaschen) || 0))} Fl.
-                    </td>
-                    <td className="px-3 py-2 text-right print:hidden">
-                      <Link href={`/kellerbuch/rueckverfolgung?fuellung_id=${f.id}`}
-                        className="text-xs text-s112-blue-700 border border-s112-teal/30 rounded-full px-2.5 py-1 hover:bg-s112-teal hover:text-s112-yellow transition-colors whitespace-nowrap">
-                        Details →
-                      </Link>
                     </td>
                   </tr>
                 ))}

@@ -161,7 +161,6 @@ export default async function VerkaufPage({ searchParams }: { searchParams: Prom
                 <th className="text-left px-4 py-3 font-semibold text-s112-text-1">Status</th>
                 <th className="text-left px-4 py-3 font-semibold text-s112-text-1">Positionen</th>
                 <th className="text-right px-4 py-3 font-semibold text-s112-text-1">Summe</th>
-                <th className="px-4 py-3" />
               </tr>
             </thead>
             <tbody>
@@ -175,7 +174,11 @@ export default async function VerkaufPage({ searchParams }: { searchParams: Prom
                       {new Date(p.datum).toLocaleDateString('de-AT')}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="font-mono text-xs text-s112-text-1">{p.rechnungsnummer ?? <span className="text-s112-muted">–</span>}</div>
+                      <StopPropagation className="font-mono text-xs">
+                        <Link href={`/weinhandel/verkauf/${p.id}`} className="font-medium text-s112-blue-700 hover:underline">
+                          {p.rechnungsnummer ?? 'ohne Belegnr.'}
+                        </Link>
+                      </StopPropagation>
                       {p.transaktions_nr && <div className="font-mono text-xs text-s112-muted mt-0.5">{p.transaktions_nr}</div>}
                       {tbsJePosten.has(String(p.id)) && <div className="font-mono text-xs text-s112-muted mt-0.5">TBS {tbsJePosten.get(String(p.id))}</div>}
                     </td>
@@ -196,16 +199,6 @@ export default async function VerkaufPage({ searchParams }: { searchParams: Prom
                       {summe > 0
                         ? fmtEur(summe)
                         : <span className="text-s112-muted font-normal">–</span>}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <StopPropagation>
-                        <Link
-                          href={`/weinhandel/verkauf/${p.id}`}
-                          className="text-xs text-s112-blue-700 hover:underline"
-                        >
-                          Details →
-                        </Link>
-                      </StopPropagation>
                     </td>
                   </ClickableTableRow>
                 )
