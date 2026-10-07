@@ -64,11 +64,26 @@ export function flaschenZukaufFehler(z: FlaschenZukauf): string | null {
   }
   if (!(z.menge > 0) || !Number.isInteger(z.menge)) return 'Bitte die Anzahl Flaschen als ganze Zahl über 0 angeben.'
   if ((z.einheit ?? 'Stk') !== 'Stk') return 'Zugekaufte Flaschen werden in Stück (Stk) erfasst.'
-  const erzeugnis = z.erzeugnis === 'SEKTGU' ? 'sekt' : z.erzeugnis
-  if (fuellungBrauchtPruefnummer({ qualitaet: z.qualitaetsstufe, zusatzbezeichnung: z.zusatzbezeichnung, erzeugnis }) && !z.pruefnummer?.trim()) {
-    return 'Für zugekaufte Flaschen ab Qualitätswein (bzw. mit Zusatzbezeichnung oder als Sekt) bitte die staatliche Prüfnummer des Erzeugers angeben.'
-  }
-  return null
+  return flaschenPruefnummerFehler(z, z.pruefnummer)
+}
+
+/**
+ * KAN-225 (07.10.2026, Vorgabe Jörgen zu KAN-41/KAN-199): Braucht zugekaufte Flaschenware eine staatliche Prüfnummer?
+ * Ja ab Qualitätswein (Kabinett, Prädikatsweine …), mit Zusatzbezeichnung (DAC, Reserve …) oder als Sekt g.U.; nein
+ * darunter – Wein und Landwein haben keine Prüfnummer. Dieselbe Regel wie beim Flaschenverkauf (fuellungBrauchtPruefnummer).
+ */
+export function flaschenPruefnummerPflicht(q: { qualitaetsstufe: string | null; zusatzbezeichnung?: string | null; erzeugnis?: string | null }): boolean {
+  const erzeugnis = q.erzeugnis === 'SEKTGU' ? 'sekt' : q.erzeugnis
+  return fuellungBrauchtPruefnummer({ qualitaet: q.qualitaetsstufe, zusatzbezeichnung: q.zusatzbezeichnung, erzeugnis })
+}
+
+/** KAN-225: Prüfnummer fehlt, obwohl Pflicht – für Neuanlage und Bearbeiten eines Flaschenzukaufs; null = in Ordnung */
+export function flaschenPruefnummerFehler(
+  q: { qualitaetsstufe: string | null; zusatzbezeichnung?: string | null; erzeugnis?: string | null },
+  pruefnummer: string | null | undefined,
+): string | null {
+  if (!flaschenPruefnummerPflicht(q) || pruefnummer?.trim()) return null
+  return 'Für zugekaufte Flaschen ab Qualitätswein (bzw. mit Zusatzbezeichnung oder als Sekt g.U.) bitte die staatliche Prüfnummer des Erzeugers angeben – Wein und Landwein brauchen keine.'
 }
 
 /** Wählbare Weinarten im Bereich Ware – „unbekannt“ (Altbestand) ist keine Angabe mehr */

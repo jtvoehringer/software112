@@ -17,7 +17,8 @@ import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
 import type { GespeichertesMostgewicht } from '@/lib/wein/mostgewichtFormular'
 import HerkunftCodeSelect from '@/components/weinbaugebiete/HerkunftCodeSelect'
 import { herkunftOptionen } from '@/lib/herkunft'
-import { herkunftAnzeige, istFlaschenArt, istTraubenArt } from '@/lib/zukauf/ware'
+import { flaschenPruefnummerPflicht, herkunftAnzeige, istFlaschenArt, istTraubenArt } from '@/lib/zukauf/ware'
+import { pruefnummerLabel } from '@/lib/zukauf/pruefnummerLabel'
 import type { CustomWeinbaugebiet } from '@/app/(dashboard)/weinbaugebiete/actions'
 
 interface Behaelter { id: string; name: string; typ: string; volumen_liter: number | null }
@@ -468,9 +469,11 @@ export default function ZukaufEditForm({
             )}
             {(art === 'wein' || istFlaschenArt(art)) && (
               <div>
-                <label className={labelCls}>{istFlaschenArt(art) ? 'Staatl. Prüfnummer des Erzeugers' : 'Staatl. Prüfnummer (optional)'}</label>
+                {/* KAN-225: wie die Neuanlage – Pflicht ab Qualitätswein, auch mit DAC/Reserve/Sekt g.U. (gespeicherte Merkmale) */}
+                <label className={labelCls}>{pruefnummerLabel(art, qualitaet, { zusatz: initial.zusatzbezeichnung, erzeugnis: initial.erzeugnis })}</label>
                 <input aria-label="Staatl. Prüfnummer" type="text" value={pruefnummer} onChange={e => setPruefnummer(e.target.value)}
-                  placeholder="z.B. 1234/26" className={inputCls + ' w-full'} />
+                  placeholder="z.B. 1234/26" className={inputCls + ' w-full'}
+                  required={istFlaschenArt(art) && flaschenPruefnummerPflicht({ qualitaetsstufe: qualitaet || null, zusatzbezeichnung: initial.zusatzbezeichnung || null, erzeugnis: initial.erzeugnis || null })} />
               </div>
             )}
           </div>
