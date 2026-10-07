@@ -10,7 +10,7 @@
 DO $test$
 DECLARE
   c_datei constant text := '56_losnummer_weinpass';
-  c_fue   constant text := 'INSERT INTO public.fuellungen (tenant_id, name, datum, anzahl_flaschen, bestand_flaschen, flaschengroesse_ml, chargennummer, import_quelle) VALUES (%L, %L, current_date, 6, 6, 750, %L, %L)';
+  c_fue   constant text := 'INSERT INTO public.fuellungen (tenant_id, name, datum, anzahl_flaschen, bestand_flaschen, flaschengroesse_ml, chargennummer, import_quelle) VALUES (%L, %L, pg_temp.s112_heute(), 6, 6, 750, %L, %L)';
   v_t0    timestamptz;
   v_erg   text[] := '{}';
   v_a     jsonb;
