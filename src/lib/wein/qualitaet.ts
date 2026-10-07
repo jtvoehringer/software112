@@ -23,6 +23,8 @@
 
 // @ts-expect-error TS5097 – Pfad mit .ts-Endung für node:test (wie lib/buchhaltung/bmd.ts)
 import { niedrigsteQualitaet, normalisiereQualitaet, qualitaetsRang, istZusatz, istAltwertQualitaet, GRUNDSTUFE_ZUSATZ, type QualitaetsAngabe, type QualitaetsZeile, type Zusatz } from './qualitaetsrang.ts'
+// @ts-expect-error TS5097 – siehe oben (KAN-190)
+import { sektStufeLabel } from './sekt.ts'
 // @ts-expect-error TS5097 – siehe oben
 import { KAT_ERZEUGNIS } from '../katalog/bki.ts'
 
@@ -211,20 +213,23 @@ export function zusatzLabel(code: string | null | undefined): string | null {
  * Anzeige einer Qualitätsangabe für Listen und Berichte (lange Labels): „Qualitätswein Reserve“,
  * „Sekt g.U. (Qualitätswein)“, „Kabinett“. Nimmt eine Zeile (Altwerte werden normalisiert) oder eine Angabe.
  */
-export function qualitaetAnzeige(q: QualitaetsZeile | QualitaetsAngabe | null | undefined): string {
+export function qualitaetAnzeige(q: QualitaetsZeile | QualitaetsAngabe | null | undefined, sektStufe?: string | null): string {
   if (!q) return '–'
+  // KAN-190: Sekt g.U. mit Stufe → „Sekt Austria Reserve (Qualitätswein)“
+  const sekt = sektStufeLabel(sektStufe !== undefined ? sektStufe : (q as QualitaetsZeile).sekt_stufe ?? null)
   const a: QualitaetsAngabe = 'stufe' in q ? q as QualitaetsAngabe : normalisiereQualitaet(q as QualitaetsZeile)
   const basis = a.stufe ? (QUALITAET_OPTS.find(o => o.value === a.stufe)?.label ?? a.stufe) : ''
   const mitZusatz = [basis, zusatzLabel(a.zusatz)].filter(Boolean).join(' ')
   const e = a.erzeugnis && !ERZEUGNIS_AUS_STUFE.includes(a.erzeugnis) ? erzeugnisLabel(a.erzeugnis) : null
-  if (e) return mitZusatz ? `${e} (${mitZusatz})` : e
+  const eMitStufe = e && a.erzeugnis === 'SEKTGU' && sekt ? sekt : e
+  if (eMitStufe) return mitZusatz ? `${eMitStufe} (${mitZusatz})` : eMitStufe
   return mitZusatz || '–'
 }
 
 /** Wie qualitaetAnzeige, aber null statt „–“, wenn die Zeile keine Stufe hat (Berichte, CSV) */
 export function qualitaetAnzeigeOderNull(q: QualitaetsZeile | null | undefined): string | null {
   const a = normalisiereQualitaet(q)
-  return a.stufe ? qualitaetAnzeige(a) : null
+  return a.stufe ? qualitaetAnzeige(a, q?.sekt_stufe ?? null) : null
 }
 
 /** Angabe aus einem Formular: Stufe (Feld `feld`), zusatzbezeichnung, erzeugnis – Altwerte normalisiert */

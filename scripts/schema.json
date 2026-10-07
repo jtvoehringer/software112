@@ -824,7 +824,12 @@
 "zukauf_posten_id",
 "anzahl_unetikettiert",
 "bestand_unetikettiert",
-"weinpass_code"
+"weinpass_code",
+"tirage_datum",
+"gaermethode",
+"sekt_stufe",
+"degorgiert_am",
+"sekt_lagenrein"
 ],
 "grundstuecke": [
 "id",

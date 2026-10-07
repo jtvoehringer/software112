@@ -22,10 +22,12 @@ export interface ZusatzErzeugnisFelderProps {
   /** CSS-Klassen der Auswahlfelder (Standard form-input) */
   feldKlasse?: string
   labelKlasse?: string
+  /** KAN-190: Rückmeldung der gewählten Erzeugnis-Auswahl (z. B. Tirage-Felder nur bei Sekt g.U.) */
+  onErzeugnis?: (erzeugnis: string) => void
 }
 
 export default function ZusatzErzeugnisFelder({
-  zusatz = null, erzeugnis = null, stufe, nurAnzeige = false, feldKlasse = 'form-input', labelKlasse = 'form-label',
+  zusatz = null, erzeugnis = null, stufe, nurAnzeige = false, feldKlasse = 'form-input', labelKlasse = 'form-label', onErzeugnis,
 }: ZusatzErzeugnisFelderProps) {
   const [z, setZ] = useState<string>(zusatz ?? '')
   const [e, setE] = useState<string>(erzeugnis ?? '')
@@ -72,7 +74,7 @@ export default function ZusatzErzeugnisFelder({
       <div>
         <label className={labelKlasse} htmlFor="erzeugnis">Erzeugnis</label>
         <select id="erzeugnis" name="erzeugnis" aria-label="Erzeugnis" className={feldKlasse}
-          value={e} onChange={ev => setE(ev.target.value)}>
+          value={e} onChange={ev => { setE(ev.target.value); onErzeugnis?.(ev.target.value) }}>
           <option value="">Wein</option>
           {erzeugnisOptionen.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>

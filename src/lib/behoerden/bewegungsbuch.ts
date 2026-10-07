@@ -753,7 +753,7 @@ export async function ladeBewegungenBetrieb(supabase: any, tenantId: string): Pr
       .eq('pressung.tenant_id', tenantId)
       .order('id', { ascending: true }), 'pressung_behaelter'),
     liste((supabase.from('fuellungen') as any)
-      .select('id, datum, erstellt_am, name, jahrgang, rebsorte, qualitaet, zusatzbezeichnung, erzeugnis, land_iso, aktiv, bestand_flaschen, anzahl_flaschen, menge_liter_gefuellt, flaschengroesse_ml, pruefnummer, chargennummer, weinausbau_id, storniert_am, storno_grund, storniert_von_name, import_quelle, weinart, zukauf_posten_id, weinausbau:weinausbau_id(weinart)')
+      .select('id, datum, erstellt_am, name, jahrgang, rebsorte, qualitaet, zusatzbezeichnung, erzeugnis, sekt_stufe, land_iso, aktiv, bestand_flaschen, anzahl_flaschen, menge_liter_gefuellt, flaschengroesse_ml, pruefnummer, chargennummer, weinausbau_id, storniert_am, storno_grund, storniert_von_name, import_quelle, weinart, zukauf_posten_id, weinausbau:weinausbau_id(weinart)')
       // storno-sichtbar: stornierte Füllung als Buchung + Gegenbuchung (KAN-145 B3), Flaschenbestand zum Stichtag
       .eq('tenant_id', tenantId)
       .order('name', { ascending: true })

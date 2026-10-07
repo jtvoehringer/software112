@@ -25,6 +25,8 @@ import { ersatzPruefnummer, fuellungDatumText, fuellungDatumVerletzung, pnTag, p
 import { freezeSperreAus, sperrMeldung } from '@/lib/freeze/sperre'
 import { merkmaleAusCharge } from '@/lib/wein/fuellungMerkmale'
 import { wienHeute } from '@/lib/csv'
+import { istLagenrein, istSektStufe, sektStufeFehler, tirageAusFormular, type SektStufe } from '@/lib/wein/sekt'
+import { resolveBlendKompositionFuellung } from '@/lib/wein/blendKomposition'
 import { eroeffnungsStichtagFehler, IMPORT_QUELLE_EROEFFNUNG } from '@/lib/kellerbuch/eroeffnungsStichtag'
 import { eroeffnungsVermerk, flaschenFormularWerte, pruefeFlaschenZeilen, type DateiBefund, type FlaschenEingabe } from '@/lib/import/eroeffnungsbestand'
 import { fuellungNameFehler } from '@/lib/handel/partnerPflicht'
@@ -195,6 +197,9 @@ async function fuellungAnlegen(formData: FormData, eroeffnung: FlaschenEroeffnun
   if (!DATUM_RE.test(datum)) throw new AktionsFehler('Bitte ein gültiges Abfülldatum angeben.')
 
   const qualitaetInput     = fuellungQualitaetAusFormular(formData)
+  // KAN-190: Sekt g.U. – Tirage (Beginn der Zweitgärung) und Gärmethode, vor jedem Schreibzugriff geprüft
+  const tirage = tirageAusFormular(formData.get('gaermethode'), formData.get('tirage_datum'), qualitaetInput.erzeugnis ?? null, datum, wienHeute())
+  if ('fehler' in tirage) throw new AktionsFehler(tirage.fehler)
   const herkunftCodeInput  = (formData.get('herkunft_code') as string) || null
   let notizenZusatz = ''
   let charge: AR | null = null
@@ -315,6 +320,7 @@ async function fuellungAnlegen(formData: FormData, eroeffnung: FlaschenEroeffnun
     jahrgang,             // KAN-84: aus der Charge
     rebsorte,
     ...fuellungsQualitaetsSpalten(qualitaetInput),   // KAN-73/KAN-186: geprüft (fuellungQualitaetAusFormular)
+    ...tirage.spalten,   // KAN-190: Tirage und Gärmethode (nur Sekt g.U.)
     herkunft_code:        herkunftCodeInput,
     anbaugebiet:          (formData.get('anbaugebiet') as string) || null,
     bezeichnung:          (formData.get('bezeichnung') as string) || null,
@@ -963,4 +969,43 @@ export async function importiereEroeffnungFlaschen(
     }
   }
   return ergebnis
+}
+
+// SEKT-STUFE (KAN-190, 07.10.2026) – Sekt Austria / Reserve / Große Reserve vergeben bzw. degorgieren. Hefelagerung ab der
+// Tirage, Flaschengärung, Lagenreinheit (aus der Zusammensetzung der Füllung: 100 % eine Ried), nur Abstufen – dieselben
+// Regeln prüft die RPC s112_sekt_stufe_setzen (schreibt die gesperrten Spalten über s112.freeze_frei).
+export async function sektStufeSetzen(fuellungId: string, formData: FormData): Promise<void> {
+  const supabase   = await createSupabaseServerClient()
+  const membership = await getMembership()
+  const tenantId   = membership.tenantId
+  pruefeFuellungsRecht(membership)
+  const { data: fRaw, error: fErr } = await (supabase.from('fuellungen') as unknown as AR)
+    .select('id, erzeugnis, tirage_datum, gaermethode, sekt_stufe, degorgiert_am, storniert_am').eq('id', fuellungId).eq('tenant_id', tenantId).maybeSingle()
+  if (fErr) throw new AktionsFehler(dbFehlerText(fErr, 'Füllung konnte nicht geladen werden'))
+  if (!fRaw) throw new AktionsFehler('Füllung nicht gefunden.')
+  const f = fRaw as AR
+  if (f.storniert_am) throw new AktionsFehler('Die Füllung ist storniert.')
+  if (f.erzeugnis !== 'SEKTGU' || !f.tirage_datum) throw new AktionsFehler('Sekt-Stufen gibt es nur für Sekt g.U. mit erfasster Tirage.')
+  const stufeRoh = String(formData.get('sekt_stufe') ?? '').trim()
+  if (stufeRoh && !istSektStufe(stufeRoh)) throw new AktionsFehler('Unbekannte Sekt-Stufe.')
+  const stufe = stufeRoh ? (stufeRoh as SektStufe) : null
+  const degorgiert = String(formData.get('degorgiert_am') ?? '').slice(0, 10) || null
+  if (!stufe && !degorgiert) throw new AktionsFehler('Bitte eine Sekt-Stufe wählen oder das Datum des Degorgierens angeben.')
+  // Große Reserve: lagenrein aus der Zusammensetzung (Herkunft je Ried bis in die Lese)
+  let lagenrein = false
+  if ((stufe ?? f.sekt_stufe) === 'grosse_reserve') {
+    const anteile = await resolveBlendKompositionFuellung(supabase, fuellungId, tenantId)
+    lagenrein = istLagenrein(anteile.map(a => ({ ried: a.ried ?? null, liter: a.liter })))
+  }
+  const fehler = sektStufeFehler({
+    stufe, alt: istSektStufe(f.sekt_stufe) ? f.sekt_stufe : null, tirage: String(f.tirage_datum).slice(0, 10), gaermethode: f.gaermethode ?? null,
+    stichtag: degorgiert ?? (f.degorgiert_am ? String(f.degorgiert_am).slice(0, 10) : wienHeute()), lagenrein,
+  })
+  if (fehler) throw new AktionsFehler(fehler)
+  const { error } = await (supabase.rpc as unknown as (fn: string, args: AR) => Promise<{ error: AR | null }>)('s112_sekt_stufe_setzen', {
+    p_tenant_id: tenantId, p_fuellung_id: fuellungId, p_stufe: stufe, p_degorgiert_am: degorgiert, p_lagenrein: lagenrein,
+  })
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Sekt-Stufe konnte nicht gespeichert werden'))
+  revalidatePath(`/weinhandel/fuellungen/${fuellungId}/edit`)
+  revalidatePath('/weinhandel')
 }

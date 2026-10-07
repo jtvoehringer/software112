@@ -27,6 +27,8 @@ import FuellungEditFormular from './FuellungEditFormular'
 import SchwundAusbuchenKnopf from './SchwundAusbuchenKnopf'
 import BestandKorrigierenForm from './BestandKorrigierenForm'
 import EtikettierenForm, { EtikettierungStorno } from './EtikettierenForm'
+import SektStufeForm from './SektStufeForm'
+import { istSektStufe } from '@/lib/wein/sekt'
 
 export const metadata: Metadata = { title: 'Füllung bearbeiten – software:112' }
 export const dynamic = 'force-dynamic'
@@ -571,6 +573,16 @@ export default async function EditFuellungPage({
             nachtragen={pruefnummerNachtragen.bind(null, id)} />
         )}
       </section>
+
+      {/* ── KAN-190: Sekt g.U. – Hefelagerung, Sekt-Stufe, Degorgieren ── */}
+      {f.erzeugnis === 'SEKTGU' && f.tirage_datum && (
+        <section id="sekt" className="card p-5 space-y-4 mt-6 scroll-mt-24">
+          <h2 className="font-semibold text-s112-text text-sm">Sekt: Hefelagerung und Stufe</h2>
+          <SektStufeForm fuellungId={id} tirage={String(f.tirage_datum).slice(0, 10)} gaermethode={f.gaermethode ?? null}
+            stufe={istSektStufe(f.sekt_stufe) ? f.sekt_stufe : null} degorgiertAm={f.degorgiert_am ? String(f.degorgiert_am).slice(0, 10) : null}
+            heute={heute} writeOk={!f.storniert_am} />
+        </section>
+      )}
 
       {/* ── KAN-41 Paket 3d: Etikettierung (unetikettiert abgefüllte Flaschen) ── */}
       {anzahlUnetikettiert > 0 && (

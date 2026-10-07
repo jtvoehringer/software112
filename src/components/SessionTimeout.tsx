@@ -12,46 +12,35 @@ export default function SessionTimeout({ timeoutMinuten }: Props) {
   const [warnung, setWarnung] = useState(false)
   const timerRef  = useRef<NodeJS.Timeout | null>(null)
   const warnRef   = useRef<NodeJS.Timeout | null>(null)
-  // Bugfix 07.10.2026: Solange die Warnung offen ist, zählt Maus/Tastatur nicht als Aktivität – sonst schloss schon das
-  // mousedown des Klicks auf „Abmelden“ den Dialog (reset), und der Klick erreichte den Knopf nie. Nur „Aktiv bleiben“
-  // (bzw. Escape) setzt den Timer dann zurück.
-  const warnungRef = useRef(false)
   const WARN_BEFORE = 2 * 60 * 1000 // 2 Min Vorwarnung
 
   const abmelden = useCallback(async () => {
     const s = createSupabaseBrowserClient()
     await s.auth.signOut()
     router.push('/login?grund=timeout')
-    router.refresh()
   }, [router])
 
   const reset = useCallback(() => {
     if (!timeoutMinuten) return
-    warnungRef.current = false
     setWarnung(false)
     if (timerRef.current)  clearTimeout(timerRef.current)
     if (warnRef.current)   clearTimeout(warnRef.current)
     const ms = timeoutMinuten * 60 * 1000
-    warnRef.current  = setTimeout(() => { warnungRef.current = true; setWarnung(true) }, ms - WARN_BEFORE)
+    warnRef.current  = setTimeout(() => setWarnung(true), ms - WARN_BEFORE)
     timerRef.current = setTimeout(abmelden, ms)
   }, [timeoutMinuten, abmelden])
-
-  /** Aktivität im Fenster: nur ohne offene Warnung den Timer zurücksetzen */
-  const aktivitaet = useCallback(() => {
-    if (!warnungRef.current) reset()
-  }, [reset])
 
   useEffect(() => {
     if (!timeoutMinuten) return
     const events = ['mousedown','keydown','touchstart','scroll']
-    events.forEach(e => window.addEventListener(e, aktivitaet, { passive: true }))
+    events.forEach(e => window.addEventListener(e, reset, { passive: true }))
     reset()
     return () => {
-      events.forEach(e => window.removeEventListener(e, aktivitaet))
+      events.forEach(e => window.removeEventListener(e, reset))
       if (timerRef.current) clearTimeout(timerRef.current)
       if (warnRef.current)  clearTimeout(warnRef.current)
     }
-  }, [reset, aktivitaet, timeoutMinuten])
+  }, [reset, timeoutMinuten])
 
   const dialog = useDialog(!!timeoutMinuten && warnung, reset, 'Sitzung läuft ab')
   if (!timeoutMinuten || !warnung) return null

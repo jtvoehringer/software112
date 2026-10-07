@@ -9,6 +9,7 @@ import { HERKUNFT_ORDER, HERKUNFT_LABEL, herkunftOptionen, zulaessigeHerkuenfte 
 import { qualitaetText } from '@/lib/weinqualitaet'
 import { istAufwertung, normalisiereQualitaet } from '@/lib/wein/qualitaetsrang'
 import ZusatzErzeugnisFelder from '@/components/wein/ZusatzErzeugnisFelder'
+import SektTirageFelder from '@/components/wein/SektTirageFelder'
 import { FUELLUNG_QUALITAETEN } from '@/lib/wein/qualitaet'
 import { AlertTriangle, CheckCircle2, Droplet } from 'lucide-react'
 import HerkunftCodeSelect from '@/components/weinbaugebiete/HerkunftCodeSelect'
@@ -140,6 +141,9 @@ export default function FuellungFormClient({
   // stehen alle Stufen zur Auswahl (kein Bezugswert zum Einschränken vorhanden).
   // KAN-186: Angabe der Charge samt Zusatzbezeichnung/Erzeugnis (Altwerte normalisiert)
   const chargeAngabe = useMemo(() => (selectedCharge ? normalisiereQualitaet({ ...selectedCharge }) : null), [selectedCharge])
+  // KAN-190: Erzeugnis-Auswahl (vorbelegt aus der Charge) – Tirage-Felder nur bei Sekt g.U.
+  const [erzeugnisWahl, setErzeugnisWahl] = useState<{ charge: string; wert: string } | null>(null)
+  const erzeugnisVal = erzeugnisWahl && erzeugnisWahl.charge === (selectedChargeId || '') ? erzeugnisWahl.wert : (chargeAngabe?.erzeugnis ?? '')
   const qualitaetOptions = useMemo(() => {
     const aktuell = chargeAngabe?.stufe ?? null
     if (!aktuell) return QUALITAETEN
@@ -328,7 +332,9 @@ export default function FuellungFormClient({
           {/* KAN-186: Zusatzbezeichnung und Erzeugnis – aus der Charge vorbelegt, frei wählbar (keine Aufwertung) */}
           <ZusatzErzeugnisFelder key={selectedChargeId || 'ohne-charge'}
             zusatz={chargeAngabe?.zusatz ?? null} erzeugnis={chargeAngabe?.erzeugnis ?? null} stufe={qualitaetVal}
-            feldKlasse={inputCls} labelKlasse={labelCls} />
+            feldKlasse={inputCls} labelKlasse={labelCls} onErzeugnis={w => setErzeugnisWahl({ charge: selectedChargeId || '', wert: w })} />
+          {/* KAN-190: Sekt g.U. – Zweitgärung im Betrieb: Gärmethode und Tirage (Stichtag der Hefelagerung) */}
+          {erzeugnisVal === 'SEKTGU' && <SektTirageFelder feldKlasse={inputCls} labelKlasse={labelCls} />}
           <div>
             <label className={labelCls}>Herkunft-Code (BKI)</label>
             <HerkunftCodeSelect
