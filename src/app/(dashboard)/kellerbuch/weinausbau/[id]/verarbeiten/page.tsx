@@ -6,7 +6,7 @@ import { notFound } from 'next/navigation'
 import { wienHeute } from '@/lib/csv'
 import { fmtNum } from '@/lib/format'
 import { VERARBEITUNG_ZWECK_LABEL, istVerarbeitungZweck } from '@/lib/kellerbuch/verarbeitung'
-import VerarbeitenForm from './VerarbeitenForm'
+import VerarbeitenForm, { type ZielProdukt } from './VerarbeitenForm'
 import VerarbeitungStorno from './VerarbeitungStorno'
 
 export const metadata: Metadata = { title: 'Charge verarbeiten – software:112' }
@@ -26,7 +26,7 @@ export default async function VerarbeitenPage({ params }: { params: Promise<{ id
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
-  const [{ data: waRaw }, { data: vRaw }] = await Promise.all([
+  const [{ data: waRaw }, { data: vRaw }, { data: prRaw }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tf((supabase.from('weinausbau') as any)
       .select('id, name, menge_liter, aktiv, storniert_am').eq('id', id).maybeSingle()),
@@ -35,6 +35,11 @@ export default async function VerarbeitenPage({ params }: { params: Promise<{ id
     tf((supabase.from('keller_verarbeitungen') as any)
       .select('id, datum, menge_liter, zweck, notizen, erstellt_von_name, storniert_am, storno_grund')
       .eq('weinausbau_id', id).order('datum', { ascending: false }).order('id')),
+    // KAN-115: aktive Sonstige Produkte mit Lagerstand als Ziel (Stammdaten des Betriebs, wenige)
+    // alle-ausnahme: Stammdaten-Auswahl der aktiven Produkte mit Lagerstand, wenige je Betrieb
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    tf((supabase.from('sonstige_artikel') as any)
+      .select('id, name, einheit, art, liter_je_stk').eq('aktiv', true).eq('bestand_fuehren', true).order('name')),
   ])
   if (!waRaw) notFound()
   const wa = waRaw as R
@@ -55,10 +60,12 @@ export default async function VerarbeitenPage({ params }: { params: Promise<{ id
       <p className="text-sm text-s112-muted">
         Eine Menge verlässt den Weinbestand, weil sie zu Traubensaft, Essig, in der Brennerei oder sonst weiterverarbeitet wird.
         In der Bestandsmeldung als „Abgang durch Verarbeitung“ gebucht. Verarbeiten Sie die ganze Menge, wird die Charge abgeschlossen.
+        Traubensaft, Essig und Destillat können Sie gleich als Lagerzugang eines Sonstigen Produkts buchen (außerhalb von Weinbuch und
+        Bestandsmeldung; Produkt unter Weinhandel › Sonstiges-Produkte mit „Lagerstand führen“).
       </p>
 
       {moeglich ? (
-        <VerarbeitenForm chargeId={wa.id} bestand={bestand} heute={wienHeute()} />
+        <VerarbeitenForm chargeId={wa.id} bestand={bestand} heute={wienHeute()} produkte={(prRaw ?? []) as ZielProdukt[]} />
       ) : (
         <p className="text-sm text-s112-muted">
           {writeOk ? 'Die Charge ist storniert, nicht mehr aktiv oder leer – nichts zu verarbeiten.' : 'Keine Schreibberechtigung für das Kellerbuch.'}

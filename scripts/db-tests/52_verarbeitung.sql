@@ -59,7 +59,7 @@ BEGIN
 
   -- ── Mutationen ────────────────────────────────────────────────────────────────────────────────────────
   PERFORM pg_temp.s112_mutiere('ohne_bestandspruefung',
-    $m$SELECT pg_temp.t52_ersetze('public.s112_verarbeitung_buchen(uuid, uuid, date, numeric, text, text)'::regprocedure,
+    $m$SELECT pg_temp.t52_ersetze('public.s112_verarbeitung_buchen(uuid, uuid, date, numeric, text, text, uuid, numeric)'::regprocedure,
       $r$IF v_menge > coalesce\(v_w\.menge_liter, 0\) \+ 0\.005 THEN$r$, $r$IF false THEN$r$)$m$);
   PERFORM pg_temp.s112_mutiere('journal_leer',
     $m$SELECT pg_temp.t52_ersetze('public.s112_journal_zeilen_verarbeitung(jsonb)'::regprocedure,

@@ -1548,7 +1548,10 @@
 "einheit",
 "default_preis",
 "aktiv",
-"erstellt_am"
+"erstellt_am",
+"art",
+"bestand_fuehren",
+"liter_je_stk"
 ],
 "stripe_zahlungen_log": [
 "id",
@@ -1882,7 +1885,8 @@
 "sonderrabatt_pct",
 "zukauf_id",
 "pressung_behaelter_id",
-"traubenverkauf_id"
+"traubenverkauf_id",
+"sonstige_artikel_id"
 ],
 "verkaufsposten": [
 "id",
@@ -2191,5 +2195,21 @@
 "notizen",
 "created_at",
 "updated_at"
+],
+"sonstige_artikel_bewegungen": [
+"id",
+"tenant_id",
+"artikel_id",
+"datum",
+"art",
+"menge",
+"keller_verarbeitung_id",
+"verkauf_position_id",
+"verkaufsposten_id",
+"storno_von_id",
+"notizen",
+"erstellt_von",
+"erstellt_von_name",
+"erstellt_am"
 ]
 }

@@ -56,6 +56,7 @@ const GROSSE_TABELLEN = [
   'keller_zugangskorrekturen',   // KAN-53
   'kellermittel_buchungen',      // KAN-107: Stoffkonto
   'reifemessungen',              // KAN-203: Reife-Messungen je Ried
+  'sonstige_artikel_bewegungen', // KAN-115: Lager Sonstiger Produkte
   'fuellung_etikettierungen',   // KAN-41 Paket 3d
 ]
 
