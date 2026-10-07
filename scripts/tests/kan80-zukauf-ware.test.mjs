@@ -63,10 +63,14 @@ describe('Staatliche Prüfnummer beim Zukauf: nie Pflicht', () => {
     }
     assert.equal(w.zukaufWareFehler({ ...TRAUBEN, art: 'most', qualitaetsstufe: 'kabinett' }, []), null)
   })
-  test('Formulare: Feld optional, ohne Pflichtkennzeichen', () => {
+  test('Formulare: Feld optional, ohne Pflichtkennzeichen', async () => {
+    // KAN-225: die Beschriftung kommt aus pruefnummerLabel() – bei Fasswein für jede Stufe „(optional)“
+    const { pruefnummerLabel } = await import('../../src/lib/zukauf/pruefnummerLabel.ts')
+    for (const s of ['wein', 'landwein', 'qualitaetswein', 'dac', 'sekt', '']) assert.equal(pruefnummerLabel('wein', s), 'Staatl. Prüfnummer (optional)', s)
     for (const p of ['src/app/(dashboard)/weinhandel/zukauf/neu/page.tsx', 'src/app/(dashboard)/weinhandel/zukauf/[id]/edit/ZukaufEditForm.tsx']) {
       const f = quelle(p)
-      assert.match(f, /Staatl\. Prüfnummer \(optional\)/, p)
+      assert.match(f, /\{pruefnummerLabel\(art, qualitaet/, p)
+      assert.match(f, /required=\{istFlaschenArt\(art\) && /, p)   // Pflichtfeld nur bei Flaschenware
       assert.doesNotMatch(f, /pruefnummerPflicht/, p)
     }
     assert.doesNotMatch(quelle('src/app/(dashboard)/weinhandel/zukauf/actions.ts'), /pruefnummer:\s+f\.pruefnummer,\n\s+\}, \(\(eigene/)
