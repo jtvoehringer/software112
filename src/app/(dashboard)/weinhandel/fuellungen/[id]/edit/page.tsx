@@ -2,7 +2,9 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { qrSvg, qrPngDataUrl, appBasisUrl } from '@/lib/qr'
 import { weinpassPfad } from '@/lib/handel/losnummer'
 import { alle } from '@/lib/supabase/alle'
-import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
+import { getCurrentUserRole, canWrite, canAdmin, getCurrentMembership } from '@/lib/auth/roles'
+import FreezeKorrektur from '@/components/FreezeKorrektur'
+import { KORREKTUR_FELDER } from '@/lib/freeze/korrektur'
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
@@ -540,6 +542,14 @@ export default async function EditFuellungPage({
 
         {/* Aktionen (Speichern/Abbrechen) und Fehlermeldung rendert FuellungEditFormular */}
       </FuellungEditFormular>
+
+      {/* KAN-222: gesperrte Felder mit Grund korrigieren – nur Betriebsleitung, nicht bei stornierten Füllungen */}
+      {membership && canAdmin(membership.role) && !f.storniert_am && (
+        <div className="mt-4">
+          <FreezeKorrektur tabelle="fuellungen" id={id} felder={KORREKTUR_FELDER.fuellungen} werte={f}
+            hinweis="Nur für die Betriebsleitung – z. B. Tippfehler in Abfülldatum, Los-Nummer, Jahrgang oder Rebsorte. Anzahl oder Flaschengröße falsch: Füllung stornieren und neu anlegen. Alt/Neu, Benutzer und Grund stehen im Änderungsprotokoll." />
+        </div>
+      )}
 
       {/* ── KAN-101: Prüfnummer (einmal nachtragbar, aus dem DAC-Antrag der Charge) ── */}
       <section className="card p-5 space-y-3 mt-6">

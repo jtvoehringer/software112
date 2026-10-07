@@ -9,6 +9,8 @@ import { hatModul } from '@/lib/auth/modul'
 import { revalidatePath } from 'next/cache'
 import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { stornoGrundFehler } from '@/lib/storno/grund'
+import { freezeSperreAus, sperrMeldung } from '@/lib/freeze/sperre'
+
 import { dezimal, zahlAus } from '@/lib/format'
 import { pruefeMassnahmeMengen, summeFlaecheHa, type MassnahmeMengenEingabe } from '@/lib/behandlungen/massnahmeMengen'
 import {
@@ -23,6 +25,12 @@ import { ladeMandantMitglieder } from '@/lib/aufgaben/mitglieder'
 import {
   anwenderAus, erfassungsverzugH, fristAus, fristRelevant, istArtVerwendung, nacherfassungHinweis, uhrzeitAus, uhrzeitFehler,
 } from '@/lib/behandlungen/erfassungsfrist'
+
+/** KAN-169: Sperre nach der Lese der Ried (Trigger a_freeze_ernte) als verständliche Meldung, sonst der DB-Fehlertext */
+function massnahmeFehler(error: unknown, kontext: string): string {
+  const sp = freezeSperreAus(error)
+  return sp ? sperrMeldung(sp) : dbFehlerText(error, kontext)
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -661,7 +669,7 @@ export async function updateBehandlung(id: string, formData: FormData) {
     })
     .eq('id', id)
     .eq('tenant_id', tenantId)
-  if (error) throw new AktionsFehler((error as AR).message)
+  if (error) throw new AktionsFehler(massnahmeFehler(error, 'Speichern fehlgeschlagen'))
 
   if (neueGst) {
     const bisherIds = new Set(bisherBG.map(bg => String(bg.grundstueck_id)))
@@ -706,7 +714,7 @@ export async function stornoBehandlung(id: string, grund: string) {
     .update({ storniert_am: new Date().toISOString(), storno_grund: grund.trim() })
     .eq('id', id).eq('tenant_id', tenantId).is('storniert_am', null)
     .select('id')
-  if (error) throw new AktionsFehler(dbFehlerText(error, 'Storno fehlgeschlagen'))
+  if (error) throw new AktionsFehler(massnahmeFehler(error, 'Storno fehlgeschlagen'))
   if (((data ?? []) as unknown[]).length !== 1) throw new AktionsFehler('Die Maßnahme wurde nicht gefunden oder ist schon storniert – bitte die Seite neu laden.')
   if (await hatModul('modul_controlling')) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

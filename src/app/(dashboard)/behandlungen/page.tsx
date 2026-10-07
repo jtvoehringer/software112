@@ -5,6 +5,7 @@ import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import { BarChart3 } from 'lucide-react'
 import BehandlungenClient from './BehandlungenClient'
+import { ladeErnteSperren } from '@/lib/behandlungen/ernteSperre'
 import { erfassungsAmpel, erfassungsverzugH, fristAus, fristRelevant, nacherfasstText, type ErfassungsAmpel } from '@/lib/behandlungen/erfassungsfrist'
 
 export const metadata: Metadata = { title: 'Maßnahmen – software:112' }
@@ -40,6 +41,8 @@ export type Behandlung = {
   /** KAN-87: „nacherfasst (+n h)“ über der Erfassungsfrist (Pflanzenschutz und Düngung), sonst null */
   nacherfasst: string | null
   erfassung_ampel: ErfassungsAmpel | null
+  /** KAN-169: Datum der Lese, die die Maßnahme sperrt (Ried nach der Maßnahme gelesen), sonst null */
+  ernte_gesperrt: string | null
 }
 
 export default async function BehandlungenPage() {
@@ -90,7 +93,7 @@ export default async function BehandlungenPage() {
   const KOLLATOR = new Intl.Collator('de', { numeric: true, sensitivity: 'base' })
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const behandlungen: Behandlung[] = ((rawB ?? []) as any[]).map((b: any) => {
+  const behandlungenRoh = ((rawB ?? []) as any[]).map((b: any) => {
     // Rieden aus den Grundstücken der Maßnahme (alphabetisch), sonst die Ried aus weingarten_id
     const bgs = (b.behandlung_grundstuecke ?? []) as AR[]
     const wgs = new Map<string, AR>()
@@ -128,8 +131,15 @@ export default async function BehandlungenPage() {
       storno_grund:         b.storno_grund ?? null,
       nacherfasst:          nacherfasstText(verzug, psmFristH),
       erfassung_ampel:      verzug === null ? null : erfassungsAmpel(verzug, psmFristH),
+      ernte_gesperrt:       null,
+      riedIds:              [...new Set([...(b.weingarten_id ? [b.weingarten_id as string] : []), ...wgs.keys()])],
     }
   })
+  // KAN-169: Maßnahmen, deren Ried nach dem Maßnahmendatum gelesen wurde – dieselbe Regel wie der Trigger a_freeze_ernte
+  const ernteSperren = tenantId
+    ? await ladeErnteSperren(supabase, tenantId, behandlungenRoh.filter(b => !b.storniert_am).map(b => ({ id: b.id, datum: b.datum, rieden: b.riedIds })))
+    : new Map<string, string>()
+  const behandlungen: Behandlung[] = behandlungenRoh.map(({ riedIds: _r, ...b }) => ({ ...b, ernte_gesperrt: ernteSperren.get(b.id) ?? null }))
 
   // Stats
   const heute = new Date().toISOString().split('T')[0]
