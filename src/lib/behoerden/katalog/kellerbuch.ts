@@ -81,6 +81,15 @@ export const KATALOG_KELLERBUCH = katalogGruppe('kellerbuch', {
     rechtsgrundlage: 'Art. 18 VO (EG) 178/2002 (Rückverfolgbarkeit) – zu prüfen',
     beschreibung: 'Eine Zeile je Füllung × Ursprung: Charge, Anteil, Pressung, Weingarten/Ried, GST-Nr., Behandlungen des Grundstücks bis zur Lese.',
   },
+  // KAN-109: Rückruf-Liste vorwärts (Los/Charge/Pressung → Abnehmer); sehen dürfen alle Mitglieder (Entscheidung 06.10.2026)
+  'rueckverfolgung-vorwaerts': {
+    titel: 'Rückverfolgung vorwärts – Rückruf-Liste',
+    behoerde: 'Lebensmittelaufsicht (Rückruf)',
+    zugriff: 'mitglied',
+    druckPfad: '/kellerbuch/rueckverfolgung/vorwaerts',
+    rechtsgrundlage: 'Art. 18 VO (EG) 178/2002 (Rückverfolgbarkeit, Abnehmer je Stufe) – zu prüfen',
+    beschreibung: 'Von einem Los, einer Charge oder einer Pressung über Umzüge und Verschnitte bis zu den Abnehmern: Verkäufe, Tankverkäufe, Export; Endverbraucher summiert; Abgleich je Füllung.',
+  },
   'blend-protokoll': {
     titel: 'Blend-Protokoll',
     behoerde: 'BKI (Nachweis der Sorten- und Jahrgangsanteile)',
