@@ -8,6 +8,7 @@
 // öffnet die bestehende Firmen-Anlage (FirmaForm) inline, "Nein" bucht ohne
 // Lieferanten weiter (z.B. Tankrechnungen/Kassenbons brauchen keinen).
 
+import { zielNachVorgang } from '@/lib/navigation/zurueckBrowser'
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from '@/components/ui/Link'
@@ -81,7 +82,7 @@ export default function BelegBuchenForm({
     startTransition(async () => {
       const result = await verbucheBeleg(belegId, fd)
       if (result?.error) { setSubmitError(result.error); return }
-      router.push('/buchhaltung/belege')
+      router.push(zielNachVorgang('/buchhaltung/belege', 'gespeichert'))   // KAN-224
     })
   }
 

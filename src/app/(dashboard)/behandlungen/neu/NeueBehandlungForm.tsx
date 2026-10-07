@@ -1,5 +1,7 @@
 'use client'
 
+import { zielNachVorgang } from '@/lib/navigation/zurueckBrowser'
+import { AbbrechenKnopf } from '@/components/navigation/Abbrechen'
 import BetriebsmittelFeld, { bmVerbrauchFormular, type BmMassnahmeOption } from './BetriebsmittelFeld'
 import { artMitBetriebsmittel } from '@/lib/behandlungen/betriebsmittel'
 import { Fragment, useEffect, useRef, useState, useTransition } from 'react'
@@ -307,7 +309,7 @@ export default function NeueBehandlungForm({
     startTransition(async () => {
       try {
         await createBehandlung(fd)
-        router.push('/behandlungen')
+        router.push(zielNachVorgang('/behandlungen', 'angelegt'))   // KAN-224: zurück, woher man kam
         router.refresh()
       } catch (err) {
         setError(fehlerText(err))
@@ -887,9 +889,7 @@ export default function NeueBehandlungForm({
           className="flex-1 sm:flex-none bg-s112-teal text-s112-yellow px-6 py-3 sm:py-2.5 rounded-xl text-base sm:text-sm font-semibold hover:bg-s112-teal/90 disabled:opacity-50 transition-colors">
           {erfassenKnopfText(pending, totalSelCount)}
         </button>
-        <a href="/behandlungen" className="px-5 py-2.5 rounded-xl text-sm font-medium text-s112-text-2 hover:text-s112-text">
-          Abbrechen
-        </a>
+        <AbbrechenKnopf standard="/behandlungen" className="px-5 py-2.5 rounded-xl text-sm font-medium text-s112-text-2 hover:text-s112-text" />
       </div>
     </form>
   )

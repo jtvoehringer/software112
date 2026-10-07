@@ -3,6 +3,8 @@
 import { useState, useTransition, useEffect } from 'react'
 import Link from '@/components/ui/Link'
 import { updateZukauf } from '../../actions'
+import { zurueckZiel } from '@/lib/navigation/zurueckBrowser'
+import { AbbrechenKnopf } from '@/components/navigation/Abbrechen'
 import { LESE_QUALITAETEN, QUALITAET_OPTS, mitGespeichertemWert } from '@/lib/wein/qualitaet'
 import ZusatzErzeugnisFelder from '@/components/wein/ZusatzErzeugnisFelder'
 import LandSelect, { type Land } from '@/components/wein/LandSelect'
@@ -248,6 +250,7 @@ export default function ZukaufEditForm({
     fd.set('einstandspreis_pro_liter', einstandspreisLiter)
     fd.set('ziel_behaelter_id',        zielBehaelter)
     fd.set('notizen',                  notizen)
+    fd.set('zurueck',                  zurueckZiel('/weinhandel/zukauf'))   // KAN-224: nach dem Speichern zurück, woher man kam
 
     startTransition(async () => {
       try { await updateZukauf(id, fd) }
@@ -666,10 +669,7 @@ export default function ZukaufEditForm({
 
         {/* ── Submit ────────────────────────────────────────────────────── */}
         <div className="flex justify-end gap-3">
-          <Link href="/weinhandel/zukauf"
-            className="text-sm text-s112-muted hover:text-s112-text-1 px-4 py-2">
-            Abbrechen
-          </Link>
+          <AbbrechenKnopf standard="/weinhandel/zukauf" className="text-sm text-s112-muted hover:text-s112-text-1 px-4 py-2" />
           <button type="submit" disabled={isPending}
             className="bg-s112-teal text-s112-yellow px-6 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors disabled:opacity-50">
             {isPending ? 'Speichern…' : 'Änderungen speichern'}

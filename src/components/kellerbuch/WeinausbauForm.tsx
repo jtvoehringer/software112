@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { zielNachVorgang, zurueckZiel } from '@/lib/navigation/zurueckBrowser'
 import { Info, AlertTriangle } from 'lucide-react'
 import { QUALITAET_OPTS, mitGespeichertemWert } from '@/lib/wein/qualitaet'
 import { normalisiereQualitaet } from '@/lib/wein/qualitaetsrang'
@@ -101,7 +102,7 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
         normalized.set('pn_bestaetigt', '1')
         await action(normalized)
       }
-      router.push('/kellerbuch')
+      router.push(zielNachVorgang('/kellerbuch', 'gespeichert'))   // KAN-224: zurück, woher man kam
       router.refresh()
     } catch (err) {
       setError(fehlerText(err, 'Fehler beim Speichern'))
@@ -448,7 +449,7 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
         <button type="submit" disabled={saving} className="bg-s112-teal text-s112-yellow px-6 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors disabled:opacity-50">
           {saving ? 'Wird gespeichert …' : 'Speichern'}
         </button>
-        <button type="button" onClick={() => router.push('/kellerbuch')} className="text-sm text-s112-muted hover:text-s112-text-1 transition-colors">Abbrechen</button>
+        <button type="button" onClick={() => router.push(zurueckZiel('/kellerbuch'))} className="text-sm text-s112-muted hover:text-s112-text-1 transition-colors">Abbrechen</button>
       </div>
     </form>
   )

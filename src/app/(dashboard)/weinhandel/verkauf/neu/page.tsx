@@ -1,5 +1,7 @@
 'use client'
 
+import { zielNachVorgang } from '@/lib/navigation/zurueckBrowser'
+import { AbbrechenKnopf } from '@/components/navigation/Abbrechen'
 import { useState, useTransition, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from '@/components/ui/Link'
@@ -404,7 +406,7 @@ export default function NeuerVerkaufPage() {
     startTransition(async () => {
       try {
         await createVerkauf(formData)
-        router.push('/weinhandel/verkauf')
+        router.push(zielNachVorgang('/weinhandel/verkauf', 'verkauf'))   // KAN-224: zurück, woher man kam
         router.refresh()
       } catch (err) {
         setError(fehlerText(err, 'Fehler beim Speichern'))
@@ -902,9 +904,7 @@ export default function NeuerVerkaufPage() {
         <div className="flex justify-end gap-3 pb-8 max-sm:sticky max-sm:bottom-0 max-sm:-mx-4 max-sm:px-4 max-sm:py-3 max-sm:pb-3 max-sm:bg-s112-bg max-sm:border-t max-sm:border-s112-line max-sm:z-10">
           {/* Gesamtsumme nur am Handy in der Leiste (KAN-181) */}
           <span className="sm:hidden mr-auto self-center font-semibold tabular-nums">{fmtEur(gesamt)}</span>
-          <Link href="/weinhandel/verkauf" className="text-sm text-s112-muted hover:text-s112-text-1 px-4 py-3 sm:py-2">
-            Abbrechen
-          </Link>
+          <AbbrechenKnopf standard="/weinhandel/verkauf" className="text-sm text-s112-muted hover:text-s112-text-1 px-4 py-3 sm:py-2" />
           <button type="submit" disabled={isPending}
             className="flex-1 sm:flex-none bg-s112-teal text-s112-yellow px-6 py-3 sm:py-2 rounded-xl text-base sm:text-sm font-semibold hover:bg-s112-teal/90 transition-colors disabled:opacity-50">
             {isPending ? 'Speichern…' : 'Verkauf anlegen'}

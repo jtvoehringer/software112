@@ -33,9 +33,12 @@ function ilikeSicher(q: string) {
 }
 
 function konditionen(typ: 'kontakt' | 'firma', r: R, fremd: boolean) {
-  if (fremd) return { typ, firma_id: (r.firma_id as string | null) ?? null, rabatt_pct: null, sonderrabatt_pct: 0, skonto_pct: 0, skonto_tage: 10 }
+  // Rückmeldung Jörgen 07.10.2026: Betriebsnummer mitliefern – der Zukauf prüft sie schon bei der Auswahl des Lieferanten
+  const betrieb_nr = (r.betrieb_nr as string | null) ?? null
+  if (fremd) return { typ, firma_id: (r.firma_id as string | null) ?? null, rabatt_pct: null, sonderrabatt_pct: 0, skonto_pct: 0, skonto_tage: 10, betrieb_nr }
   return {
     typ,
+    betrieb_nr,
     firma_id:         (r.firma_id as string | null) ?? null,
     rabatt_pct:       (r.rabattgruppe as R | null)?.rabatt_pct != null ? Number((r.rabattgruppe as R).rabatt_pct) : null,
     sonderrabatt_pct: parseFloat(r.sonderrabatt_pct) || 0,

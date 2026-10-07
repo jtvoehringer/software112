@@ -1,3 +1,4 @@
+import { AbbrechenKnopf, ZurueckFeld } from '@/components/navigation/Abbrechen'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { ladeBehaelter } from '@/lib/keller/behaelter'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
@@ -116,6 +117,7 @@ export default async function EroeffnungsbestandEditPage({ params, searchParams 
       )}
 
       <form action={updateEroeffnungsbestand.bind(null, id)} className="card p-6 space-y-4">
+        <ZurueckFeld standard="/kellerbuch/gebinde?tab=eroeffnungsbestand" />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="sm:col-span-2">
             <label className={labelCls}>Weinbezeichnung *</label>
@@ -190,10 +192,8 @@ export default async function EroeffnungsbestandEditPage({ params, searchParams 
             className="bg-s112-teal text-s112-yellow px-6 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors">
             Speichern
           </button>
-          <Link href="/kellerbuch/gebinde?tab=eroeffnungsbestand"
-            className="px-6 py-2 rounded-xl text-sm text-s112-text-2 hover:text-s112-text transition-colors">
-            Abbrechen
-          </Link>
+          <AbbrechenKnopf standard="/kellerbuch/gebinde?tab=eroeffnungsbestand"
+            className="px-6 py-2 rounded-xl text-sm text-s112-text-2 hover:text-s112-text transition-colors" />
         </div>
       </form>
     </div>

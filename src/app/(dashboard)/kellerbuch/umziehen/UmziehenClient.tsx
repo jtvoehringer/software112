@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { zielNachVorgang } from '@/lib/navigation/zurueckBrowser'
 import Link from '@/components/ui/Link'
 import { umziehen, deleteUmzug, updateUmzug } from './actions'
 import { endgueltigLoeschen } from '../actions'
@@ -261,7 +262,8 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
           return
         }
         setSuccess(true)
-        setTimeout(() => router.push('/kellerbuch'), 1200)
+        // KAN-224: zurück, woher man kam (Standard Kellerbuch), mit Bestätigung
+        router.push(zielNachVorgang('/kellerbuch', 'umzug'))
       } catch (err) {
         setError(fehlerText(err, 'Fehler'))
       }

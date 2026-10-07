@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { zielNachVorgang, zurueckZiel } from '@/lib/navigation/zurueckBrowser'
 import { chargeAbstufen } from '../../../actions'
 import { fehlerText } from '@/lib/fehler'
 import { fmtNum, zahlAus } from '@/lib/format'
@@ -61,7 +62,8 @@ export default function AbstufenForm({ chargeId, bestand, heute, alt, zusaetze, 
           fd.set('pn_bestaetigt', '1')
           r = await chargeAbstufen(fd)
         }
-        router.push(`/kellerbuch/weinausbau/${r.chargeId ?? chargeId}`)
+        // KAN-224: zurück, woher man kam (Standard: die Charge), mit Bestätigung
+        router.push(zielNachVorgang(`/kellerbuch/weinausbau/${r.chargeId ?? chargeId}`, 'abstufung'))
         router.refresh()
       } catch (err) {
         setFehler(fehlerText(err, 'Abstufen fehlgeschlagen'))
@@ -148,7 +150,7 @@ export default function AbstufenForm({ chargeId, bestand, heute, alt, zusaetze, 
           className="flex-1 sm:flex-none bg-s112-teal text-s112-yellow px-4 py-3 sm:py-1.5 rounded-lg text-base sm:text-sm font-medium hover:bg-s112-teal/90 disabled:opacity-50">
           {pending ? 'Speichert…' : 'Abstufen'}
         </button>
-        <button type="button" onClick={() => router.back()} className="px-4 py-3 sm:py-1.5 text-base sm:text-sm text-s112-text-2 hover:text-s112-text">Abbrechen</button>
+        <button type="button" onClick={() => router.push(zurueckZiel(`/kellerbuch/weinausbau/${chargeId}`))} className="px-4 py-3 sm:py-1.5 text-base sm:text-sm text-s112-text-2 hover:text-s112-text">Abbrechen</button>
       </div>
     </form>
   )

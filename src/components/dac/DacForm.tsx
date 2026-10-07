@@ -1,5 +1,6 @@
 'use client'
 
+import { zielNachVorgang, zurueckZiel } from '@/lib/navigation/zurueckBrowser'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { fehlerText } from '@/lib/fehler'
@@ -104,7 +105,7 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
     })
     try {
       await action(normalized)
-      router.push('/dac')
+      router.push(zielNachVorgang('/dac', 'gespeichert'))   // KAN-224: zurück, woher man kam
       router.refresh()
     } catch (err) {
       setError(fehlerText(err, 'Fehler beim Speichern'))
@@ -297,7 +298,7 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
            <button type="submit" disabled={saving} className="bg-s112-teal text-s112-yellow px-6 py-2 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 transition-colors disabled:opacity-50">
           {saving ? 'Wird gespeichert …' : 'Speichern'}
         </button>
-        <button type="button" onClick={() => router.push('/dac')} className="text-sm text-s112-muted hover:text-s112-text-1 transition-colors">Abbrechen</button>
+        <button type="button" onClick={() => router.push(zurueckZiel('/dac'))} className="text-sm text-s112-muted hover:text-s112-text-1 transition-colors">Abbrechen</button>
       </div>
     </form>
   )

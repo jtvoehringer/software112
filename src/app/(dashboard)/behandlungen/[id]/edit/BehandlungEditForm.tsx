@@ -1,5 +1,7 @@
 'use client'
 
+import { zielNachVorgang } from '@/lib/navigation/zurueckBrowser'
+import { AbbrechenKnopf } from '@/components/navigation/Abbrechen'
 import AnwendungFelder, { type MitgliedAuswahl } from '../../neu/AnwendungFelder'
 import { PSM_FRIST_STANDARD_H } from '@/lib/behandlungen/erfassungsfrist'
 
@@ -365,7 +367,7 @@ export default function BehandlungEditForm({
     startTransition(async () => {
       try {
         await updateWithId(fd)
-        router.push('/behandlungen')
+        router.push(zielNachVorgang('/behandlungen', 'gespeichert'))   // KAN-224: zurück, woher man kam
         router.refresh()
       } catch (err) {
         setError(fehlerText(err))
@@ -907,9 +909,7 @@ export default function BehandlungEditForm({
           className="flex-1 sm:flex-none bg-s112-teal text-s112-yellow px-6 py-3 sm:py-2.5 rounded-xl text-base sm:text-sm font-semibold hover:bg-s112-teal/90 disabled:opacity-50 transition-colors">
           {pending ? 'Speichert…' : 'Änderungen speichern'}
         </button>
-        <a href="/behandlungen" className="px-5 py-2.5 rounded-xl text-sm font-medium text-s112-text-2 hover:text-s112-text">
-          Abbrechen
-        </a>
+        <AbbrechenKnopf standard="/behandlungen" className="px-5 py-2.5 rounded-xl text-sm font-medium text-s112-text-2 hover:text-s112-text" />
       </div>
     </form>
   )

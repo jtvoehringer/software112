@@ -1,5 +1,6 @@
 'use server'
 
+import { zielNachAbschluss } from '@/lib/navigation/zurueck'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { ladeBehaelter, gebindeFehlerText } from '@/lib/keller/behaelter'
 import { revalidatePath } from 'next/cache'
@@ -272,7 +273,7 @@ export async function updateEroeffnungsbestand(id: string, formData: FormData) {
     redirect(`/kellerbuch/eroeffnungsbestand/${id}/edit?err=${encodeURIComponent(fehler)}`)
   }
   revalidatePath('/kellerbuch/gebinde')
-  redirect('/kellerbuch/gebinde?tab=eroeffnungsbestand')
+  redirect(zielNachAbschluss(formData.get('zurueck'), '/kellerbuch/gebinde?tab=eroeffnungsbestand', 'gespeichert'))   // KAN-224
 }
 
 // Eröffnungsbestand stornieren (KAN-35; KAN-145 B3, 30.09.2026): nur ohne Folgebuchungen. Die Charge bleibt als
@@ -712,7 +713,7 @@ export async function updateUmzugBatch(firstRecordId: string, formData: FormData
       .eq('tenant_id', tenantId)
     if (error) throw new AktionsFehler(dbFehlerText(error, 'Speichern fehlgeschlagen (keller_umzuege)'))
     revalidiereUmzug()
-    redirect('/kellerbuch/gebinde?tab=umziehen')
+    redirect(zielNachAbschluss(formData.get('zurueck'), '/kellerbuch/gebinde?tab=umziehen', 'gespeichert'))   // KAN-224
   }
 
   const plan = await planeUmzugStorno(supabase, tenantId, zeilen)
@@ -733,7 +734,7 @@ export async function updateUmzugBatch(firstRecordId: string, formData: FormData
     throw new AktionsFehler(`Der bisherige Umzug wurde storniert, der geänderte konnte aber nicht gebucht werden: ${fehlerText(e)} Bitte den Umzug neu erfassen.`)
   }
   revalidiereUmzug(plan)
-  redirect('/kellerbuch/gebinde?tab=umziehen')
+  redirect(zielNachAbschluss(formData.get('zurueck'), '/kellerbuch/gebinde?tab=umziehen', 'umzug'))   // KAN-224
 }
 
 // Umzug stornieren (KAN-35, 24.09.2026): nur, solange die Ziel-Charge seit der Buchung nicht

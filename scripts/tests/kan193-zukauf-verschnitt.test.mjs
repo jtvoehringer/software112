@@ -213,11 +213,11 @@ describe('KAN-193 createZukauf()', nurMitHooks, () => {
     // kein direkter Schreibzugriff mehr (alles in der RPC)
     assert.equal(d.aufrufe.some(a => a.art === 'insert' || a.art === 'update'), false)
   })
-  test('gleiche Merkmale: wie bisher eigene Zukauf-Charge im Gebinde, Weiterleitung zur Liste', async () => {
+  test('gleiche Merkmale: wie bisher eigene Zukauf-Charge im Gebinde, Weiterleitung zur Liste mit Bestätigung (KAN-224)', async () => {
     const t = tabellen()
     const d = db(t)
     const e = await fehlerVon(zk.createZukauf(zukaufFd({ ziel_behaelter_id: G1, rebsorte: 'Riesling' })))
-    assert.equal(e.ziel, '/weinhandel/zukauf')
+    assert.equal(e.ziel, '/weinhandel/zukauf?erledigt=zukauf')
     const [aufruf] = rpcAufrufe(d, 's112_zukauf_buchen')
     assert.equal(aufruf.p_verschnitt, null)
     assert.equal(t.weinausbau.filter(c => c.behaelter_id === G1 && c.aktiv).length, 2)

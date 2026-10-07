@@ -9,13 +9,14 @@
 // Kopfzeile, die Dachmarke hohenstein steht im Fußbereich – ergänzt um
 // "powered by ICP Solutions" (Auftragnehmer).
 
-import { useMemo } from 'react'
+import { Suspense, useMemo } from 'react'
 import Image from 'next/image'
 import Topbar from './Topbar'
 import TabNav from './TabNav'
 import MobileNav from './MobileNav'
 import AssistantPanel from './AssistantPanel'
 import CommandPalette from '@/components/CommandPalette'
+import ZurueckLeiste from './ZurueckLeiste'
 import { MostgewichtEinheitProvider } from '@/components/wein/MostgewichtEinheit'
 import { buildNav } from '@/lib/navigation'
 import type { UserRole } from '@/lib/auth/roles'
@@ -58,6 +59,9 @@ export default function AppShell({
     auswertungenSichtbar,
   }), [role, branding.modul_ea, branding.modul_sumup, branding.modul_export, branding.modul_controlling, branding.buchhaltungsart, isSandbox, sandboxAdminUnlock, auswertungenSichtbar])
 
+  // KAN-224: Hauptpunkte der Navigation – dort kein „Zurück“
+  const navHrefs = useMemo(() => groups.flatMap(g => g.items.map(i => i.href)), [groups])
+
   const buildSha = process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA
 
   return (
@@ -74,6 +78,8 @@ export default function AppShell({
             links und rechts ein Drittel leer. Kopfzeile und Navigation ziehen mit. */}
         <main id="inhalt" tabIndex={-1} className="flex-1 min-w-0 overflow-y-auto focus:outline-hidden">
           <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8 2xl:py-5">
+            {/* KAN-224: „Zurück“ auf Unterseiten und Bestätigung nach dem Abschluss (useSearchParams braucht Suspense) */}
+            <Suspense fallback={null}><ZurueckLeiste navHrefs={navHrefs} /></Suspense>
             {/* Bevorzugte Mostgewicht-Einheit für Formulare und Listen der Seiten (KAN-128) */}
             <MostgewichtEinheitProvider einheit={mostgewichtEinheit}>{children}</MostgewichtEinheitProvider>
           </div>
