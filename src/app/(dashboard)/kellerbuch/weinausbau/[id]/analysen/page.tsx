@@ -6,6 +6,7 @@ import { notFound } from 'next/navigation'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { ZAHL_LOCALE } from '@/lib/format'
 import AnalyseStorno from './AnalyseStorno'
+import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
 
 export const metadata: Metadata = { title: 'Laboranalysen – software:112' }
 export const dynamic = 'force-dynamic'
@@ -35,6 +36,9 @@ type Analyse = {
   flüchtige_saeure_gl: number | null
   freie_so2_mgl: number | null
   gesamt_so2_mgl: number | null
+  kmw: number | null
+  oechsle: number | null
+  mostgewicht_einheit: string | null
   bewertung: string | null
   notizen: string | null
   storniert_am: string | null
@@ -60,7 +64,7 @@ export default async function AnalysenPage({ params }: { params: Promise<{ id: s
       .eq('id', id).maybeSingle()),
     // storno-sichtbar: die Liste zeigt stornierte Analysen gekennzeichnet (KAN-150 F2)
     tf((supabase.from('weinanalysen') as any)
-      .select('id, analyse_datum, labor, probe_nr, alkohol_vol, restzucker_gl, gesamtsaeure_gl, ph_wert, flüchtige_saeure_gl, freie_so2_mgl, gesamt_so2_mgl, bewertung, notizen, storniert_am, storniert_von_name, storno_grund')
+      .select('id, analyse_datum, labor, probe_nr, alkohol_vol, restzucker_gl, gesamtsaeure_gl, ph_wert, flüchtige_saeure_gl, freie_so2_mgl, gesamt_so2_mgl, kmw, oechsle, mostgewicht_einheit, bewertung, notizen, storniert_am, storniert_von_name, storno_grund')
       .eq('weinausbau_id', id)
       .order('analyse_datum', { ascending: false })),
   ])
@@ -145,6 +149,13 @@ export default async function AnalysenPage({ params }: { params: Promise<{ id: s
 
               {/* Parameter-Tabelle */}
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-2 text-sm">
+                {/* KAN-203: Mostgewicht im Gärverlauf – beide Werte, bevorzugte Einheit zuerst */}
+                {(a.kmw != null || a.oechsle != null) && (
+                  <div>
+                    <span className="text-s112-muted text-xs">Mostgewicht</span>
+                    <p className="font-medium tabular-nums"><MostgewichtAnzeige wert={{ kmw: a.kmw, oechsle: a.oechsle, einheit: a.mostgewicht_einheit }} /></p>
+                  </div>
+                )}
                 {a.alkohol_vol != null && (
                   <div>
                     <span className="text-s112-muted text-xs">Alkohol</span>

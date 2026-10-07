@@ -13,6 +13,9 @@ import { ladeCustomWeinbaugebiete } from '../../weinbaugebiete/actions'
 import { alle } from '@/lib/supabase/alle'
 import { ladeBehandlungen, type PsmBehandlung } from '@/lib/behoerden/psm'
 import { verteileMassnahme, type WiGst } from '@/lib/wein/massnahmeAnteile'
+import ReifeMessungen from './ReifeMessungen'
+import type { ReifeMessung } from '@/lib/wein/reifemessung'
+import { wienHeute } from '@/lib/csv'
 
 export const metadata: Metadata = { title: 'Ried bearbeiten – software:112' }
 
@@ -129,6 +132,14 @@ export default async function WeingartenEditPage({ params }: Props) {
     massnahmenByGst[key].sort((a, b) => b.datum.localeCompare(a.datum))
   }
 
+  // KAN-203: Reife-Messungen dieser Ried (Verlauf, neueste zuerst in der Komponente)
+  const reifeRes = membership
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ? await alle<ReifeMessung>((supabase.from('reifemessungen') as any)
+        .select('id, datum, kmw, oechsle, mostgewicht_einheit, gesamtsaeure_gl, ph_wert, notizen, created_at')
+        .eq('tenant_id', membership.tenantId).eq('weingarten_id', id).order('datum').order('id'))
+    : { data: [] as ReifeMessung[], error: null }
+
   const action = updateWeingarten.bind(null, id)
 
   return (
@@ -176,6 +187,11 @@ export default async function WeingartenEditPage({ params }: Props) {
       </div>
 
       </div>{/* end max-w-2xl */}
+
+      {/* KAN-203: Reife-Messungen (Mostgewicht-Verlauf je Ried) */}
+      {reifeRes.error
+        ? <p role="alert" className="card mt-6 text-sm text-s112-err-fg">Reife-Messungen konnten nicht geladen werden: {reifeRes.error.message}</p>
+        : <ReifeMessungen weingartenId={id} messungen={reifeRes.data ?? []} writeOk={writeOk} heute={wienHeute()} />}
 
       {/* Lage & Koordinaten – Riedenebene (Stufe 1, Migration 181) */}
       <div className="mt-6">

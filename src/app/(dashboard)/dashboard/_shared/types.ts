@@ -10,7 +10,7 @@ export type Charge = {
   status: string; menge_liter: number; behaelter: string | null; behaelter_id: string | null
   /** Anzeigetext der Qualität samt Zusatzbezeichnung/Erzeugnis (KAN-186), null = keine Stufe */
   qualitaetsstufe: string | null; notizen: string | null
-  letzteAnalyse: { datum: string; alkohol_vol: number | null; restzucker_gl: number | null; freie_so2_mgl: number | null; gesamtsaeure_gl: number | null } | null
+  letzteAnalyse: { datum: string; alkohol_vol: number | null; restzucker_gl: number | null; freie_so2_mgl: number | null; gesamtsaeure_gl: number | null; kmw?: number | null; oechsle?: number | null; mostgewicht_einheit?: string | null } | null
   letzteMassnahme: { datum: string; typ: string | null; menge: number | null; einheit: string | null } | null
   messungFaellig: boolean
   tageSeitMessung: number | null

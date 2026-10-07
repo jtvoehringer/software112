@@ -12,6 +12,7 @@ import { X, Sparkles } from 'lucide-react'
 import { Badge, fmtNum, fmtDate } from '../_shared/ui'
 import { STATUS_LABEL, type Charge } from '../_shared/types'
 import { useDialog } from '@/components/ui/useDialog'
+import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
 
 export const ASSISTENT_EVENT = 's112:assistent'
 
@@ -90,6 +91,11 @@ export default function ChargenKanban({ chargen, assistentAktiv }: { chargen: Ch
                   {' / '}
                   {aktiv.letzteAnalyse?.restzucker_gl != null ? `${fmtNum(Number(aktiv.letzteAnalyse.restzucker_gl), 1)} g/l` : '–'}
                 </span>
+              </Kv>
+              {/* KAN-203: Mostgewicht im Gärverlauf – bevorzugte Einheit zuerst */}
+              <Kv k="Mostgewicht">
+                <MostgewichtAnzeige className="font-mono text-[12.5px]"
+                  wert={aktiv.letzteAnalyse ? { kmw: aktiv.letzteAnalyse.kmw, oechsle: aktiv.letzteAnalyse.oechsle, einheit: aktiv.letzteAnalyse.mostgewicht_einheit } : null} />
               </Kv>
               <Kv k="Freie SO₂ / Säure">
                 <span className="font-mono text-[12.5px]">

@@ -10,6 +10,9 @@ import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { ladeBezuege, istBezugsSperre } from '@/lib/stammdaten/bezuege'
 import { bezuegeSumme, bezugsMeldung, hatBezug } from '@/lib/stammdaten/bezugText'
 import { dezimal } from '@/lib/format'
+import { mostgewichtAusFormular, mostgewichtSpalten } from '@/lib/wein/mostgewichtFormular'
+import { reifeFelderFehler, reifeZahl } from '@/lib/wein/reifemessung'
+import { wienHeute } from '@/lib/csv'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyRecord = Record<string, any>
@@ -514,5 +517,53 @@ export async function loescheRiedGeo(weingartenId: string): Promise<{ error?: st
     return {}
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Unbekannter Fehler beim Löschen der Koordinaten' }
+  }
+}
+
+// ── KAN-203: Reife-Messungen je Ried ────────────────────────────────────────
+// Mostgewicht über MostgewichtEingabe (Messwert + Einheit, serverseitig gerechnet), dazu Säure, pH, Notiz.
+// Nicht berichtsrelevant – Ändern und Löschen mit Schreibrecht Rieden.
+export async function reifemessungSpeichern(weingartenId: string, formData: FormData): Promise<{ error?: string }> {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const { tenantId } = await requireWrite()
+    const id = ((formData.get('id') as string | null) ?? '').trim() || null
+    const mg = mostgewichtAusFormular(formData, 'mostgewicht')
+    if (!mg.ok) return { error: mg.fehler }
+    if (!mg.wert) return { error: 'Bitte das Mostgewicht der Reife-Messung angeben.' }
+    const felder = {
+      datum: ((formData.get('datum') as string | null) ?? '').trim(),
+      gesamtsaeure_gl: reifeZahl(formData.get('gesamtsaeure_gl')),
+      ph_wert: reifeZahl(formData.get('ph_wert')),
+    }
+    if (Number.isNaN(felder.gesamtsaeure_gl) || Number.isNaN(felder.ph_wert)) return { error: 'Gesamtsäure und pH bitte als Zahl eingeben (z. B. 6,8).' }
+    const fehler = reifeFelderFehler(felder, wienHeute())
+    if (fehler) return { error: fehler }
+    const zeile: AnyRecord = {
+      ...felder,
+      ...mostgewichtSpalten(mg.wert, 'kmw'),
+      notizen: ((formData.get('notizen') as string | null) ?? '').trim() || null,
+    }
+    const { error } = id
+      ? await (supabase.from('reifemessungen') as unknown as AnyRecord).update(zeile).eq('id', id).eq('tenant_id', tenantId).eq('weingarten_id', weingartenId)
+      : await (supabase.from('reifemessungen') as unknown as AnyRecord).insert({ ...zeile, tenant_id: tenantId, weingarten_id: weingartenId })
+    if (error) return { error: dbFehlerText(error, 'Speichern fehlgeschlagen') }
+    revalidatePath(`/weingarten/${weingartenId}`)
+    return {}
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Unbekannter Fehler beim Speichern der Reife-Messung' }
+  }
+}
+
+export async function reifemessungLoeschen(weingartenId: string, id: string): Promise<{ error?: string }> {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const { tenantId } = await requireWrite()
+    const { error } = await (supabase.from('reifemessungen') as unknown as AnyRecord).delete().eq('id', id).eq('tenant_id', tenantId).eq('weingarten_id', weingartenId)
+    if (error) return { error: dbFehlerText(error, 'Löschen fehlgeschlagen') }
+    revalidatePath(`/weingarten/${weingartenId}`)
+    return {}
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Unbekannter Fehler beim Löschen der Reife-Messung' }
   }
 }
