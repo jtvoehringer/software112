@@ -10,6 +10,7 @@
 
 DO $test$
 DECLARE
+  v_heute date := (now() AT TIME ZONE 'Europe/Vienna')::date;   -- wie die RPCs (Wiener Zeit, nicht UTC)
   c_datei constant text := '35_lese_pressung_freeze';
   v_t0    timestamptz;
   v_erg   text[] := '{}';
@@ -36,7 +37,7 @@ BEGIN
   v_bw := (v_a ->> 'b_w')::uuid;
   v_p := pg_temp.s112_beispiel('pressungen', v_b, v_bw);
   v_pw := pg_temp.s112_beispiel('pressung_weingaerten', v_b, NULL, jsonb_build_object('pressung_id', v_p ->> 'id', 'trauben_kg', 100,
-            'rebsorte', 'S112TEST Veltliner', 'ernte_datum', current_date - 3, 'kmw', 18));
+            'rebsorte', 'S112TEST Veltliner', 'ernte_datum', v_heute - 3, 'kmw', 18));
   v_wa := (pg_temp.s112_beispiel('weinausbau', v_b, NULL, '{"menge_liter": "70", "qualitaetsstufe": "qualitaetswein"}') ->> 'id')::uuid;
   v_wa2 := (pg_temp.s112_beispiel('weinausbau', v_b, NULL, '{"menge_liter": "10"}') ->> 'id')::uuid;
   v_beh := (pg_temp.s112_beispiel('behaelter', v_b) ->> 'id')::uuid;
@@ -44,11 +45,11 @@ BEGIN
   VALUES ((v_p ->> 'id')::uuid, v_beh, v_wa, 70);
   -- verpresste Lese (gleiche Lese und Ried wie die Traubenzeile) und eine nicht verpresste (andere Ried)
   INSERT INTO public.ernte_parzellen (jahrgang_id, lese_id, weingarten_id, ernte_datum, menge_kg, klosterneuburger, qualitaetsstufe)
-  VALUES ((v_p ->> 'jahrgang_id')::uuid, (v_p ->> 'lese_id')::uuid, (v_pw ->> 'weingarten_id')::uuid, current_date - 3, 120, 18, 'qualitaetswein')
+  VALUES ((v_p ->> 'jahrgang_id')::uuid, (v_p ->> 'lese_id')::uuid, (v_pw ->> 'weingarten_id')::uuid, v_heute - 3, 120, 18, 'qualitaetswein')
   RETURNING id INTO v_ep;
   v_wg2 := (pg_temp.s112_zeile('weingarten', v_b) ->> 'id')::uuid;
   INSERT INTO public.ernte_parzellen (jahrgang_id, lese_id, weingarten_id, ernte_datum, menge_kg, klosterneuburger, qualitaetsstufe)
-  VALUES ((v_p ->> 'jahrgang_id')::uuid, (v_p ->> 'lese_id')::uuid, v_wg2, current_date - 3, 80, 17, 'qualitaetswein')
+  VALUES ((v_p ->> 'jahrgang_id')::uuid, (v_p ->> 'lese_id')::uuid, v_wg2, v_heute - 3, 80, 17, 'qualitaetswein')
   RETURNING id INTO v_ep2;
 
   -- ── Mutationen ────────────────────────────────────────────────────────────────────────────────────────
@@ -81,7 +82,7 @@ BEGIN
 
   -- ── 4. Folgebuchung an der Charge: Kopf und Traubenzeilen fest ───────────────────────────────────────
   PERFORM pg_temp.s112_als_postgres();
-  v_kb := (pg_temp.s112_beispiel('keller_behandlungen', v_b, NULL, jsonb_build_object('weinausbau_id', v_wa, 'datum', current_date - 1)) ->> 'id')::uuid;
+  v_kb := (pg_temp.s112_beispiel('keller_behandlungen', v_b, NULL, jsonb_build_object('weinausbau_id', v_wa, 'datum', v_heute - 1)) ->> 'id')::uuid;
   v_erg := v_erg || pg_temp.s112_erwarte('funktion_mit_folgebuchung',
     public.s112_charge_hat_folgebuchung(v_wa)::text || '/' || public.s112_charge_hat_folgebuchung(v_wa2)::text, 'true/false');
   PERFORM pg_temp.s112_als(v_bw);

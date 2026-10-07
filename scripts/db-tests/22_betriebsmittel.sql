@@ -52,7 +52,7 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('aufbau_kategorie_vorhanden', v_kat IS NOT NULL, true);
   v_erg := v_erg || pg_temp.s112_erwarte('aufbau_b_ea_aktiv',
     (SELECT te.modul_ea AND te.buchhaltungsart = 'ea' FROM public.tenant_einstellungen te WHERE te.tenant_id = v_b), true);
-  v_ein := format('SELECT public.s112_betriebsmittel_einkauf(%L, %L, current_date, 5, %L, 12.5, 20, %L, %L, %L)',
+  v_ein := format('SELECT public.s112_betriebsmittel_einkauf(%L, %L, pg_temp.s112_heute(), 5, %L, 12.5, 20, %L, %L, %L)',
                   v_b, v_bm, 'stk', v_fi, v_kat, 'S112TEST Einkauf');
 
   -- ── Mutationen (nur im Mutationsmodus; nach dem Aufbau, vor den Prüfungen) ──────────────────────────
@@ -98,16 +98,16 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('einkauf_positivkontrolle', pg_temp.s112_versuch(v_ein), 'k1');
   -- Eingaben: Menge 0 und unbekannte Einheit → 22023
   v_erg := v_erg || pg_temp.s112_erwarte('einkauf_menge_null',
-    pg_temp.s112_versuch(format('SELECT public.s112_betriebsmittel_einkauf(%L, %L, current_date, 0, %L, 1, 20, NULL, %L, NULL)', v_b, v_bm, 'stk', v_kat)), 'E22023');
+    pg_temp.s112_versuch(format('SELECT public.s112_betriebsmittel_einkauf(%L, %L, pg_temp.s112_heute(), 0, %L, 1, 20, NULL, %L, NULL)', v_b, v_bm, 'stk', v_kat)), 'E22023');
   v_erg := v_erg || pg_temp.s112_erwarte('einkauf_einheit_unbekannt',
-    pg_temp.s112_versuch(format('SELECT public.s112_betriebsmittel_einkauf(%L, %L, current_date, 1, %L, 1, 20, NULL, %L, NULL)', v_b, v_bm, 'fass', v_kat)), 'E22023');
+    pg_temp.s112_versuch(format('SELECT public.s112_betriebsmittel_einkauf(%L, %L, pg_temp.s112_heute(), 1, %L, 1, 20, NULL, %L, NULL)', v_b, v_bm, 'fass', v_kat)), 'E22023');
 
   -- ── 3. Direkt per Tabelle (als winzer): Einkauf anlegen R, Anfangsbestand k1, Einkauf ändern/löschen k0 ─
   v_erg := v_erg || pg_temp.s112_erwarte('direkt_einkauf_insert',
-    pg_temp.s112_versuch(format('INSERT INTO public.betriebsmittel_lager_bewegungen (tenant_id, betriebsmittel_id, datum, typ, menge, einheit, betrag_netto, ust_satz) VALUES (%L, %L, current_date, %L, 1, %L, 1, 20)',
+    pg_temp.s112_versuch(format('INSERT INTO public.betriebsmittel_lager_bewegungen (tenant_id, betriebsmittel_id, datum, typ, menge, einheit, betrag_netto, ust_satz) VALUES (%L, %L, pg_temp.s112_heute(), %L, 1, %L, 1, 20)',
       v_b, v_bm, 'einkauf', 'stk')), 'R');
   v_erg := v_erg || pg_temp.s112_erwarte('direkt_anfangsbestand_insert',
-    pg_temp.s112_versuch(format('INSERT INTO public.betriebsmittel_lager_bewegungen (tenant_id, betriebsmittel_id, datum, typ, menge, einheit) VALUES (%L, %L, current_date, %L, 1, %L)',
+    pg_temp.s112_versuch(format('INSERT INTO public.betriebsmittel_lager_bewegungen (tenant_id, betriebsmittel_id, datum, typ, menge, einheit) VALUES (%L, %L, pg_temp.s112_heute(), %L, 1, %L)',
       v_b, v_bm, 'anfangsbestand', 'stk')), 'k1');
   v_erg := v_erg || pg_temp.s112_erwarte('direkt_einkauf_update',
     pg_temp.s112_versuch(format('UPDATE public.betriebsmittel_lager_bewegungen SET notizen = %L WHERE id = %L', 'S112TEST geändert', v_id)), 'k0');

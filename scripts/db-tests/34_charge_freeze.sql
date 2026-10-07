@@ -10,6 +10,7 @@
 
 DO $test$
 DECLARE
+  v_heute date := (now() AT TIME ZONE 'Europe/Vienna')::date;   -- wie die RPCs (Wiener Zeit, nicht UTC)
   c_datei constant text := '34_charge_freeze';
   c_rpc   constant text := 'SELECT public.s112_pruefnummernantrag_status_setzen(%L::uuid, %L::uuid, %L, %L::date, %L, %L)';
   c_upd   constant text := 'UPDATE public.weinausbau SET %s WHERE id = %L';
@@ -48,7 +49,7 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('frei_entwurf',
     pg_temp.s112_versuch(format(c_upd, 'jahrgang = 2024', v_wa)), 'k1');
   v_erg := v_erg || pg_temp.s112_erwarte('einreichen',
-    pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d, 'eingereicht', current_date - 2, NULL, NULL)), 'ok');
+    pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d, 'eingereicht', v_heute - 2, NULL, NULL)), 'ok');
 
   -- ── 2. Eingereicht: Merkmale gesperrt, Betrieb läuft weiter ──────────────────────────────────────────
   v_txt := pg_temp.s112_fehlertext(format(c_upd, 'jahrgang = 2023', v_wa));
@@ -75,7 +76,7 @@ BEGIN
 
   -- ── 4. Nach dem Bescheid: DB-Sperre endet ─────────────────────────────────────────────────────────────
   v_erg := v_erg || pg_temp.s112_erwarte('zuteilen',
-    pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d, 'genehmigt', current_date - 1, 'N 34/26', NULL)), 'ok');
+    pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d, 'genehmigt', v_heute - 1, 'N 34/26', NULL)), 'ok');
   PERFORM pg_temp.s112_als(v_bw);
   v_erg := v_erg || pg_temp.s112_erwarte('frei_nach_bescheid',
     pg_temp.s112_versuch(format(c_upd, format('notizen = %L, weinart = %L', 'S112TEST nach Bescheid', 'weiss'), v_wa)), 'k1');

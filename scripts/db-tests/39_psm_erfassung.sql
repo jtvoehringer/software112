@@ -39,7 +39,7 @@ BEGIN
   -- ── 1. Anlegen: rückdatiertes created_at und fremdes erfasst_von werden überschrieben ──────────────────
   v_txt := pg_temp.s112_fehlertext(format(
     $s$INSERT INTO public.behandlungen (id, tenant_id, art, datum, uhrzeit_von, uhrzeit_bis, art_verwendung, durchgefuehrt_von, created_at, erfasst_von, notizen)
-       VALUES (%L, %L, 'spritzung', current_date - 3, '06:30', '09:00', 'freiland', %L, now() - interval '5 days', %L, 'S112TEST')$s$,
+       VALUES (%L, %L, 'spritzung', pg_temp.s112_heute() - 3, '06:30', '09:00', 'freiland', %L, now() - interval '5 days', %L, 'S112TEST')$s$,
     v_id, v_b, v_bta, v_bta));
   v_erg := v_erg || pg_temp.s112_erwarte('anlegen', v_txt, 'ok');
   PERFORM pg_temp.s112_als_postgres();

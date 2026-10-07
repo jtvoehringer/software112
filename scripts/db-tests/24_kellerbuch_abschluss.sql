@@ -11,6 +11,7 @@
 
 DO $test$
 DECLARE
+  v_heute date := (now() AT TIME ZONE 'Europe/Vienna')::date;   -- wie die RPCs (Wiener Zeit, nicht UTC)
   c_datei constant text := '24_kellerbuch_abschluss';
   v_t0    timestamptz;
   v_erg   text[] := '{}';
@@ -45,7 +46,7 @@ BEGIN
   v_c2 := (pg_temp.s112_beispiel('weinausbau', v_b, v_bw, jsonb_build_object('name', 'S112TEST Charge 2', 'menge_liter', 100,
     'aktiv', true, 'status', 'ausbau', 'qualitaetsstufe', 'qualitaetswein', 'behaelter_id', NULL, 'storniert_am', NULL,
     'ist_eroeffnungsbestand', false, 'chargennummer', NULL)) ->> 'id')::uuid;
-  v_bis := current_date - 30;
+  v_bis := v_heute - 30;
 
   -- ── Mutationen ────────────────────────────────────────────────────────────────────────────────────────
   PERFORM pg_temp.s112_mutiere('sperre_aus',
@@ -88,7 +89,7 @@ BEGIN
     split_part(pg_temp.s112_fehlertext(format('SELECT public.kellerbuch_abschliessen(%L, %L)', v_b, v_bis)), ':', 1), '42501');
   PERFORM pg_temp.s112_als(v_bta);
   v_erg := v_erg || pg_temp.s112_erwarte('abschluss_heute',
-    split_part(pg_temp.s112_fehlertext(format('SELECT public.kellerbuch_abschliessen(%L, current_date)', v_b)), ':', 1), '22023');
+    split_part(pg_temp.s112_fehlertext(format('SELECT public.kellerbuch_abschliessen(%L, pg_temp.s112_heute())', v_b)), ':', 1), '22023');
   v_erg := v_erg || pg_temp.s112_erwarte('abschluss_direkt',
     pg_temp.s112_versuch(format('INSERT INTO public.kellerbuch_abschluesse (tenant_id, abgeschlossen_bis) VALUES (%L, %L)', v_b, v_bis)) IN ('R', 'T'), true);
   v_erg := v_erg || pg_temp.s112_erwarte('abschluss_ta',

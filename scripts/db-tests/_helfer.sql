@@ -8,7 +8,7 @@
 -- gerade aktiven Rolle).
 --
 -- Inhalt
---   1. Wächter            s112_nur_staging()
+--   1. Wächter, Datum     s112_heute(), s112_zeitzone(), s112_nur_staging()
 --   2. Rollen             s112_als(uid, rolle, aal), s112_als_postgres()
 --   3. Versuche           s112_fehlercode, s112_versuch, s112_zaehle, s112_fehlertext, s112_policy
 --   4. Ergebnisse         s112_name, s112_text, s112_erwarte, s112_ok, s112_fehler, s112_bekannt,
@@ -31,7 +31,22 @@
 -- Die Produktions-IDs stehen ausschließlich im Wächter (Abschnitt 1); run.mjs liest sie von dort.
 
 
--- ═══ 1. Wächter ═══════════════════════════════════════════════════════════════════════════════════════
+-- ═══ 1. Wächter, Datum ════════════════════════════════════════════════════════════════════════════════
+
+-- „Heute“ wie in den RPCs: Wiener Datum, nie current_date (Sitzungs-Zeitzone UTC – zwischen 00:00 und 01:00
+-- bzw. 02:00 Wiener Zeit einen Tag zurück). Im DO-Block: v_heute date := (now() AT TIME ZONE 'Europe/Vienna')::date
+-- im DECLARE; in SQL-Texten (EXECUTE/format) und pg_temp-Hilfsfunktionen pg_temp.s112_heute(). run.mjs lehnt
+-- current_date in Testdateien ab.
+CREATE FUNCTION pg_temp.s112_heute() RETURNS date LANGUAGE sql STABLE AS $f$
+  SELECT (now() AT TIME ZONE 'Europe/Vienna')::date
+$f$;
+
+-- Zeitzonen-Schalter (--zeitzone <IANA-Name>): run.mjs ersetzt diese Funktion – der Wächter setzt dann die
+-- Sitzungs-Zeitzone transaktionslokal. Mit z. B. Etc/GMT+12 liegt current_date fast den ganzen Tag vor dem
+-- Wiener Datum: so prüft die Suite jederzeit, was sonst nur nach Mitternacht (Wien) auffällt.
+CREATE FUNCTION pg_temp.s112_zeitzone() RETURNS text LANGUAGE sql AS $f$
+  SELECT NULL::text
+$f$;
 
 -- Erste Anweisung jedes DO-Blocks. Bricht mit 'S112GUARD|…' ab (run.mjs: Exit 4), wenn die Verbindung
 -- nicht die Staging-Datenbank ist. Vier unabhängige Merkmale:
@@ -61,6 +76,9 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM auth.users u JOIN public.plattform_admins p ON p.user_id = u.id
                   WHERE u.email = 'admin@software112.test') THEN
     RAISE EXCEPTION 'S112GUARD|Staging-Testkonto admin@software112.test fehlt als Plattform-Admin – Abbruch' USING ERRCODE = 'P0001';
+  END IF;
+  IF pg_temp.s112_zeitzone() IS NOT NULL THEN
+    PERFORM set_config('TimeZone', pg_temp.s112_zeitzone(), true);
   END IF;
 END $f$;
 
@@ -789,7 +807,7 @@ BEGIN
         WHEN r.typcategory = 'A' THEN '''{}'''
         WHEN r.typcategory = 'S' THEN quote_literal(left('S112TEST ' || p_tab || ' ' || left(gen_random_uuid()::text, 8), coalesce(v_len, 200)))
         WHEN r.typcategory = 'N' THEN '1'
-        WHEN r.typ = 'date' THEN 'current_date'
+        WHEN r.typ = 'date' THEN 'pg_temp.s112_heute()'
         WHEN r.typ LIKE 'timestamp%' THEN 'now()'
         WHEN r.typ LIKE 'time%' THEN 'current_time'
         WHEN r.typ = 'boolean' THEN 'false'
@@ -892,10 +910,10 @@ BEGIN
   ELSIF p_tab = 'meldung_abgaben' THEN   -- KAN-37 B: Abgabe ohne AMA-Bezug (CHECKs auf Meldung, jsonb-Typen, Spalten)
     v_w := v_w || jsonb_build_object('meldung', 'bestandsmeldung', 'parameter', '{}'::jsonb, 'zeilen', '[]'::jsonb, 'warnungen', '[]'::jsonb,
       'spalten', '[{"kopf": "S112TEST", "typ": "text"}]'::jsonb, 'profil', 'EXCEL_AT', 'dateiname', 'S112TEST.csv', 'csv_text', 'S112TEST',
-      'eingereicht_am', current_date);
+      'eingereicht_am', pg_temp.s112_heute());
   ELSIF p_tab = 'kellerbuch_buchungen' THEN   -- KAN-40: CHECK bestand/Bezug, eindeutige Belegnummer je Betrieb
     v_w := v_w || jsonb_build_object('bestand', 'offen', 'weinausbau_id', gen_random_uuid(), 'fuellung_id', NULL, 'menge_stk', 0,
-      'buchungsart_code', 'INV_PLUS', 'quelle_tabelle', 's112test', 'storno_von_id', NULL, 'pos', 1, 'datum', current_date,
+      'buchungsart_code', 'INV_PLUS', 'quelle_tabelle', 's112test', 'storno_von_id', NULL, 'pos', 1, 'datum', pg_temp.s112_heute(),
       'beleg_nr', 1 + coalesce((SELECT max(k.beleg_nr) FROM public.kellerbuch_buchungen k WHERE k.tenant_id = p_tenant), 0)
                     + (random() * 100000)::integer);
   ELSIF p_tab = 'kellerbuch_abschluesse' THEN   -- KAN-192: eindeutiges Datum je Betrieb, weit vor jeder Bewegung

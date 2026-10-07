@@ -25,6 +25,7 @@ END $f$;
 
 DO $test$
 DECLARE
+  v_heute date := (now() AT TIME ZONE 'Europe/Vienna')::date;   -- wie die RPCs (Wiener Zeit, nicht UTC)
   c_datei  constant text := '28_pn_workflow';
   c_rpc    constant text := 'SELECT public.s112_pruefnummernantrag_status_setzen(%L::uuid, %L::uuid, %L, %L::date, %L, %L)';
   c_ins    constant text := 'INSERT INTO public.dac_antrag (tenant_id, bezeichnung, dac_region, status) VALUES (%L, %L, %L, %L)';
@@ -84,7 +85,7 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('status_direkt',
     pg_temp.s112_versuch(format('UPDATE public.dac_antrag SET status = %L WHERE id = %L', 'genehmigt', v_d)), 'T');
   v_erg := v_erg || pg_temp.s112_erwarte('eingereicht_am_direkt',
-    pg_temp.s112_versuch(format('UPDATE public.dac_antrag SET eingereicht_am = current_date WHERE id = %L', v_d)), 'T');
+    pg_temp.s112_versuch(format('UPDATE public.dac_antrag SET eingereicht_am = pg_temp.s112_heute() WHERE id = %L', v_d)), 'T');
   v_erg := v_erg || pg_temp.s112_erwarte('entwurf_frei',
     pg_temp.s112_versuch(format('UPDATE public.dac_antrag SET menge_liter = 500, bezeichnung = %L WHERE id = %L', 'S112TEST GV', v_d)), 'k1');
   -- Antragsformular: einmal je Antrag
@@ -95,13 +96,13 @@ BEGIN
 
   -- ── 3. Übergänge ──────────────────────────────────────────────────────────────────────────────────────
   v_erg := v_erg || pg_temp.s112_erwarte('uebergang_entwurf_zugeteilt',
-    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d, 'genehmigt', current_date, 'N 1/26', NULL)), ':', 1), '23514');
+    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d, 'genehmigt', v_heute, 'N 1/26', NULL)), ':', 1), '23514');
   v_erg := v_erg || pg_temp.s112_erwarte('uebergang_unbekannt',
-    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d, 'freigegeben', current_date, NULL, NULL)), ':', 1), '22023');
+    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d, 'freigegeben', v_heute, NULL, NULL)), ':', 1), '22023');
   v_erg := v_erg || pg_temp.s112_erwarte('datum_zukunft',
-    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d, 'eingereicht', current_date + 1, NULL, NULL)), ':', 1), '22023');
+    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d, 'eingereicht', v_heute + 1, NULL, NULL)), ':', 1), '22023');
   v_erg := v_erg || pg_temp.s112_erwarte('einreichen',
-    pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d, 'eingereicht', current_date - 5, NULL, 'Probe gezogen')), 'ok');
+    pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d, 'eingereicht', v_heute - 5, NULL, 'Probe gezogen')), 'ok');
 
   -- ── 4. Eingereicht: Freeze ────────────────────────────────────────────────────────────────────────────
   v_txt := pg_temp.s112_fehlertext(format('UPDATE public.dac_antrag SET menge_liter = 600 WHERE id = %L', v_d));
@@ -120,13 +121,13 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('pna_neu_nach_einreichen',
     pg_temp.s112_versuch(format('INSERT INTO public.pruefnummernantraege (tenant_id, dac_antrag_id, formular_daten) VALUES (%L, %L, %L)', v_b, v_d, '{}')), 'T');
   v_erg := v_erg || pg_temp.s112_erwarte('uebergang_zugeteilt_ohne_nummer',
-    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d, 'genehmigt', current_date, NULL, NULL)), ':', 1), '23514');
+    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d, 'genehmigt', v_heute, NULL, NULL)), ':', 1), '23514');
   v_erg := v_erg || pg_temp.s112_erwarte('eingereicht_pn_aenderbar',
     pg_temp.s112_fehlertext(format('UPDATE public.dac_antrag SET pruefnummer = %L WHERE id = %L', 'N 4711/26', v_d)), 'ok');
   v_erg := v_erg || pg_temp.s112_erwarte('datum_vor_einreichung',
-    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d, 'genehmigt', current_date - 6, NULL, NULL)), ':', 1), '22023');
+    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d, 'genehmigt', v_heute - 6, NULL, NULL)), ':', 1), '22023');
   v_erg := v_erg || pg_temp.s112_erwarte('zuteilen',
-    pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d, 'genehmigt', current_date - 1, NULL, 'Bescheid BAWB')), 'ok');
+    pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d, 'genehmigt', v_heute - 1, NULL, 'Bescheid BAWB')), 'ok');
 
   -- ── 5. Zugeteilt und Endstatus ────────────────────────────────────────────────────────────────────────
   v_erg := v_erg || pg_temp.s112_erwarte('zugeteilt_pn_gesperrt',
@@ -134,13 +135,13 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('zugeteilt_notizen',
     pg_temp.s112_versuch(format('UPDATE public.dac_antrag SET notizen = %L WHERE id = %L', 'S112TEST 2', v_d)), 'k1');
   v_erg := v_erg || pg_temp.s112_erwarte('uebergang_zugeteilt_abgelehnt',
-    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d, 'abgelehnt', current_date, NULL, NULL)), ':', 1), '23514');
+    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d, 'abgelehnt', v_heute, NULL, NULL)), ':', 1), '23514');
   v_erg := v_erg || pg_temp.s112_erwarte('entzug_ohne_grund',
-    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d, 'entzogen', current_date, NULL, 'kurz')), ':', 1), '23514');
+    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d, 'entzogen', v_heute, NULL, 'kurz')), ':', 1), '23514');
   v_erg := v_erg || pg_temp.s112_erwarte('entziehen',
-    pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d, 'entzogen', current_date, NULL, 'Bescheid über Entzug BAWB')), 'ok');
+    pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d, 'entzogen', v_heute, NULL, 'Bescheid über Entzug BAWB')), 'ok');
   v_erg := v_erg || pg_temp.s112_erwarte('uebergang_ende_zurueck',
-    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d, 'genehmigt', current_date, NULL, NULL)), ':', 1), '23514');
+    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d, 'genehmigt', v_heute, NULL, NULL)), ':', 1), '23514');
   v_erg := v_erg || pg_temp.s112_erwarte('ende_notizen',
     pg_temp.s112_versuch(format('UPDATE public.dac_antrag SET notizen = %L WHERE id = %L', 'S112TEST 3', v_d)), 'T');
   v_erg := v_erg || pg_temp.s112_erwarte('ende_aktiv',
@@ -154,7 +155,7 @@ BEGIN
    WHERE e.dac_antrag_id = v_d AND e.tenant_id = v_b AND e.benutzer_id = v_bw;
   v_erg := v_erg || pg_temp.s112_erwarte('ereignisse', v_n, 3::bigint);
   v_erg := v_erg || pg_temp.s112_erwarte('ereignis_zuteilung',
-    (SELECT e.status_alt || '>' || e.status_neu || '|' || e.pruefnummer || '|' || e.grund || '|' || (e.datum = current_date - 1)
+    (SELECT e.status_alt || '>' || e.status_neu || '|' || e.pruefnummer || '|' || e.grund || '|' || (e.datum = v_heute - 1)
        FROM public.pruefnummer_ereignisse e WHERE e.dac_antrag_id = v_d AND e.status_neu = 'genehmigt' ORDER BY e.erstellt_am DESC LIMIT 1),
     'eingereicht>genehmigt|N 4711/26|Bescheid BAWB|true');
   SELECT count(*) INTO v_n FROM public.bestandsprotokoll p
@@ -164,30 +165,30 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('snapshot_charge',
     (SELECT (d.charge_snapshot -> 'charge' ->> 'id')::uuid FROM public.dac_antrag d WHERE d.id = v_d), v_wa);
   v_erg := v_erg || pg_temp.s112_erwarte('entzug_spalten',
-    (SELECT d.entzug_am = current_date AND d.entzug_grund = 'Bescheid über Entzug BAWB' FROM public.dac_antrag d WHERE d.id = v_d), true);
+    (SELECT d.entzug_am = v_heute AND d.entzug_grund = 'Bescheid über Entzug BAWB' FROM public.dac_antrag d WHERE d.id = v_d), true);
   v_erg := v_erg || pg_temp.s112_erwarte('kennzeichen_leer',
     coalesce(current_setting('s112.freeze_frei', true), '') || coalesce(current_setting('s112.aenderung_grund', true), ''), '');
 
   -- ── 7. Zugriff ────────────────────────────────────────────────────────────────────────────────────────
   PERFORM pg_temp.s112_als(v_bcrm);
   v_erg := v_erg || pg_temp.s112_erwarte('ohne_kellerbuch',
-    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d2, 'eingereicht', current_date, NULL, NULL)), ':', 1), '42501');
+    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d2, 'eingereicht', v_heute, NULL, NULL)), ':', 1), '42501');
   PERFORM pg_temp.s112_als(v_bl);
   v_erg := v_erg || pg_temp.s112_erwarte('leser',
-    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d2, 'eingereicht', current_date, NULL, NULL)), ':', 1), '42501');
+    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d2, 'eingereicht', v_heute, NULL, NULL)), ':', 1), '42501');
   PERFORM pg_temp.s112_als(v_bw);
   v_erg := v_erg || pg_temp.s112_erwarte('fremder_betrieb',
-    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_m, v_dm, 'eingereicht', current_date, NULL, NULL)), ':', 1), '42501');
+    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_m, v_dm, 'eingereicht', v_heute, NULL, NULL)), ':', 1), '42501');
   v_erg := v_erg || pg_temp.s112_erwarte('idor_fremder_antrag',
-    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_dm, 'eingereicht', current_date, NULL, NULL)), ':', 1), 'P0002');
+    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_dm, 'eingereicht', v_heute, NULL, NULL)), ':', 1), 'P0002');
   v_erg := v_erg || pg_temp.s112_erwarte('ereignis_direkt',
-    pg_temp.s112_versuch(format('INSERT INTO public.pruefnummer_ereignisse (tenant_id, dac_antrag_id, ereignis, datum) VALUES (%L, %L, %L, current_date)', v_b, v_d2, 'status')), 'R');
+    pg_temp.s112_versuch(format('INSERT INTO public.pruefnummer_ereignisse (tenant_id, dac_antrag_id, ereignis, datum) VALUES (%L, %L, %L, pg_temp.s112_heute())', v_b, v_d2, 'status')), 'R');
   v_erg := v_erg || pg_temp.s112_erwarte('ereignisse_lesen_eigene',
     pg_temp.s112_versuch(format('SELECT 1 FROM public.pruefnummer_ereignisse WHERE dac_antrag_id = %L', v_d)), 'k3');
 
   -- ── 8. Wartung: eingereichten Antrag löschen nur mit Kennzeichen des Betriebs ──────────────────────────
   v_erg := v_erg || pg_temp.s112_erwarte('einreichen_2',
-    pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d2, 'eingereicht', current_date, NULL, NULL)), 'ok');
+    pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d2, 'eingereicht', v_heute, NULL, NULL)), 'ok');
   PERFORM pg_temp.s112_als_postgres();
   v_erg := v_erg || pg_temp.s112_erwarte('wartung_ohne_kennzeichen',
     pg_temp.s112_versuch(format('DELETE FROM public.dac_antrag WHERE id = %L', v_d2)), 'T');

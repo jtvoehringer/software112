@@ -61,7 +61,7 @@ BEGIN
   PERFORM pg_temp.s112_als(v_bw);
   v_erg := v_erg || pg_temp.s112_erwarte('ohne_freigabe_getrennt',
     pg_temp.s112_zaehle(format('SELECT count(*) FROM public.kontakte WHERE id = %L::uuid', v_k)), '0');
-  v_txt := pg_temp.s112_fehlertext(format('INSERT INTO public.verkaufsposten (tenant_id, datum, kontakt_id) VALUES (%L, current_date, %L)', v_b, v_k));
+  v_txt := pg_temp.s112_fehlertext(format('INSERT INTO public.verkaufsposten (tenant_id, datum, kontakt_id) VALUES (%L, pg_temp.s112_heute(), %L)', v_b, v_k));
   v_erg := v_erg || pg_temp.s112_erwarte('ohne_freigabe_kein_beleg', left(v_txt, 5), '42501');
   v_erg := v_erg || pg_temp.s112_erwarte('freigabe_nicht_per_api',
     left(pg_temp.s112_fehlertext(format('INSERT INTO public.crm_freigaben (eigentuemer_tenant_id, nutzer_tenant_id) VALUES (%L, %L)', v_m, v_b)), 5), '42501');
@@ -86,7 +86,7 @@ BEGIN
     left(pg_temp.s112_fehlertext(format('INSERT INTO public.aktivitaeten (tenant_id, art, betreff, kontakt_id) VALUES (%L, %L, %L, %L)', v_m, 'notiz', 'S112TEST', v_k)), 5), '42501');
   v_erg := v_erg || pg_temp.s112_erwarte('partner_aktivitaet_nicht_am_fremden_kontakt',
     left(pg_temp.s112_fehlertext(format('INSERT INTO public.aktivitaeten (tenant_id, art, betreff, kontakt_id) VALUES (%L, %L, %L, %L)', v_b, 'notiz', 'S112TEST', v_k)), 5), '42501');
-  v_txt := pg_temp.s112_fehlertext(format('INSERT INTO public.verkaufsposten (tenant_id, datum, kontakt_id) VALUES (%L, current_date, %L)', v_b, v_k));
+  v_txt := pg_temp.s112_fehlertext(format('INSERT INTO public.verkaufsposten (tenant_id, datum, kontakt_id) VALUES (%L, pg_temp.s112_heute(), %L)', v_b, v_k));
   v_erg := v_erg || pg_temp.s112_erwarte('beleg_mit_partner_kontakt', v_txt, 'ok');
   v_erg := v_erg || pg_temp.s112_erwarte('rpc_lade_crmgemeinschaft',
     (SELECT string_agg(rolle || ':' || (partner_tenant_id = v_m)::text, ',') FROM public.lade_crmgemeinschaft(v_b)), 'nutzer:true');
@@ -110,7 +110,7 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('inaktiv_getrennt',
     pg_temp.s112_zaehle(format('SELECT count(*) FROM public.kontakte WHERE id = %L::uuid', v_k)), '0');
   v_erg := v_erg || pg_temp.s112_erwarte('inaktiv_kein_beleg',
-    left(pg_temp.s112_fehlertext(format('INSERT INTO public.verkaufsposten (tenant_id, datum, kontakt_id) VALUES (%L, current_date, %L)', v_b, v_k)), 5), '42501');
+    left(pg_temp.s112_fehlertext(format('INSERT INTO public.verkaufsposten (tenant_id, datum, kontakt_id) VALUES (%L, pg_temp.s112_heute(), %L)', v_b, v_k)), 5), '42501');
   PERFORM pg_temp.s112_als_postgres();
 
   PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 18);

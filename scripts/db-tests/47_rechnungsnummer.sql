@@ -10,6 +10,7 @@
 
 DO $test$
 DECLARE
+  v_heute date := (now() AT TIME ZONE 'Europe/Vienna')::date;   -- wie die RPCs (Wiener Zeit, nicht UTC)
   c_datei constant text := '47_rechnungsnummer';
   v_t0    timestamptz;
   v_erg   text[] := '{}';
@@ -38,13 +39,13 @@ BEGIN
 
   -- ── 1. Vergabe im Insert durch den Mitarbeiter ────────────────────────────────────────────────────────
   PERFORM pg_temp.s112_als(v_mw);
-  INSERT INTO public.verkaufsposten (tenant_id, datum, notizen) VALUES (v_m, current_date, 'S112TEST KAN-21 a')
+  INSERT INTO public.verkaufsposten (tenant_id, datum, notizen) VALUES (v_m, v_heute, 'S112TEST KAN-21 a')
     RETURNING id, rechnungsnummer INTO v_id1, v_nr1;
-  INSERT INTO public.verkaufsposten (tenant_id, datum, notizen) VALUES (v_m, current_date, 'S112TEST KAN-21 b')
+  INSERT INTO public.verkaufsposten (tenant_id, datum, notizen) VALUES (v_m, v_heute, 'S112TEST KAN-21 b')
     RETURNING rechnungsnummer INTO v_nr2;
   v_erg := v_erg || pg_temp.s112_erwarte('vergabe_im_insert', v_nr1 IS NOT NULL AND v_nr2 IS NOT NULL AND v_nr1 <> v_nr2, true);
   v_erg := v_erg || pg_temp.s112_erwarte('api_nummer_abgelehnt',
-    pg_temp.s112_versuch(format('INSERT INTO public.verkaufsposten (tenant_id, datum, rechnungsnummer) VALUES (%L, current_date, %L)', v_m, 'S112TEST-1')), 'T');
+    pg_temp.s112_versuch(format('INSERT INTO public.verkaufsposten (tenant_id, datum, rechnungsnummer) VALUES (%L, pg_temp.s112_heute(), %L)', v_m, 'S112TEST-1')), 'T');
   v_erg := v_erg || pg_temp.s112_erwarte('api_aendern_abgelehnt',
     pg_temp.s112_versuch(format('UPDATE public.verkaufsposten SET rechnungsnummer = %L WHERE id = %L', 'S112TEST-2', v_id1)), 'T');
   v_erg := v_erg || pg_temp.s112_erwarte('api_andere_felder_ok',
@@ -61,9 +62,9 @@ BEGIN
 
   -- ── 2. Wartung (postgres/Service-Role): eigene Nummer erlaubt, doppelte nicht ───────────────────────────
   v_erg := v_erg || pg_temp.s112_erwarte('wartung_eigene_nummer',
-    pg_temp.s112_versuch(format('INSERT INTO public.verkaufsposten (tenant_id, datum, rechnungsnummer) VALUES (%L, current_date, %L)', v_m, 'S112TEST-WARTUNG')), 'k1');
+    pg_temp.s112_versuch(format('INSERT INTO public.verkaufsposten (tenant_id, datum, rechnungsnummer) VALUES (%L, pg_temp.s112_heute(), %L)', v_m, 'S112TEST-WARTUNG')), 'k1');
   v_erg := v_erg || pg_temp.s112_erwarte('doppelt_abgelehnt',
-    pg_temp.s112_versuch(format('INSERT INTO public.verkaufsposten (tenant_id, datum, rechnungsnummer) VALUES (%L, current_date, %L)', v_m, v_nr1)), 'E23505');
+    pg_temp.s112_versuch(format('INSERT INTO public.verkaufsposten (tenant_id, datum, rechnungsnummer) VALUES (%L, pg_temp.s112_heute(), %L)', v_m, v_nr1)), 'E23505');
 
   PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 9);
 END $test$;

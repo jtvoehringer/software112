@@ -11,6 +11,7 @@
 
 DO $test$
 DECLARE
+  v_heute date := (now() AT TIME ZONE 'Europe/Vienna')::date;   -- wie die RPCs (Wiener Zeit, nicht UTC)
   c_datei constant text := '42_tbs_nummer';
   v_t0    timestamptz;
   v_erg   text[] := '{}';
@@ -83,7 +84,7 @@ BEGIN
     left(pg_temp.s112_fehlertext(format('UPDATE public.zukauf_posten SET tbs_jahr_lieferant = 1999 WHERE id = %L', v_zk)), 5), '23514');
   v_erg := v_erg || pg_temp.s112_erwarte('zukauf_nummer_geprueft',
     left(pg_temp.s112_fehlertext(format('UPDATE public.zukauf_posten SET tbs_nummer_lieferant = %L WHERE id = %L', '  ', v_zk)), 5), '23514');
-  v_rpc := public.s112_zukauf_buchen(v_b, jsonb_build_object('datum', current_date, 'art', 'trauben', 'menge', 100, 'einheit', 'kg',
+  v_rpc := public.s112_zukauf_buchen(v_b, jsonb_build_object('datum', v_heute, 'art', 'trauben', 'menge', 100, 'einheit', 'kg',
     'tbs_nummer_lieferant', '55', 'tbs_jahr_lieferant', 2026));
   PERFORM pg_temp.s112_als_postgres();
   v_erg := v_erg || pg_temp.s112_erwarte('rpc_nimmt_tbs',
