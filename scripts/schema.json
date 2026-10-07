@@ -1975,7 +1975,10 @@
 "storniert_am",
 "storniert_von",
 "storniert_von_name",
-"storno_grund"
+"storno_grund",
+"kmw",
+"oechsle",
+"mostgewicht_einheit"
 ],
 "weinausbau": [
 "id",
@@ -2174,5 +2177,19 @@
 "land_iso",
 "tbs_nummer_lieferant",
 "tbs_jahr_lieferant"
+],
+"reifemessungen": [
+"id",
+"tenant_id",
+"weingarten_id",
+"datum",
+"kmw",
+"oechsle",
+"mostgewicht_einheit",
+"gesamtsaeure_gl",
+"ph_wert",
+"notizen",
+"created_at",
+"updated_at"
 ]
 }

@@ -842,6 +842,7 @@ END $f$;
 --   * meldung_abgaben: Abgabe einer Bestandsmeldung ohne AMA-Bezug (KAN-37 B),
 --   * kellerbuch_buchungen: Korrekturzeile INV_PLUS einer erfundenen Charge mit freier Belegnummer (KAN-40),
 --   * kellerbuch_abschluesse: Abschluss weit in der Vergangenheit mit freiem Datum (KAN-192),
+--   * reifemessungen: kmw 17 (eine Reife-Messung braucht ein Mostgewicht; KAN-203),
 --   * tenant_einstellungen: die vorhandene Zeile des Betriebs (je Betrieb genau eine),
 --   * tenant_memberships: neuer Test-Benutzer als leser (user_id aus p_werte, sonst neu; nie p_persona).
 -- p_werte überschreibt alles. Bei einem Schlüsselkonflikt ein zweiter Versuch mit neuen Elternzeilen
@@ -891,6 +892,8 @@ BEGIN
       v_b := pg_temp.s112_zeile('konten', p_tenant) ->> 'id';
     END IF;
     v_w := v_w || jsonb_build_object('von_konto_id', v_a, 'nach_konto_id', v_b, 'betrag', 1);
+  ELSIF p_tab = 'reifemessungen' THEN
+    v_w := v_w || '{"kmw": 17}'::jsonb;   -- KAN-203: CHECK reifemessungen_mostgewicht_pflicht
   ELSIF p_tab IN ('traubenverkauf', 'pressung_weingaerten') THEN
     SELECT w.id::text INTO v_a FROM public.weingarten w WHERE w.tenant_id = p_tenant AND w.id::text <> ALL (pg_temp.s112_keine_eltern_liste()) ORDER BY w.id LIMIT 1;
     IF v_a IS NULL THEN
@@ -1074,6 +1077,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('pressung_behaelter',            'SA,TA,W*{kellerbuch|rieden}',            'SA,TA,W*{kellerbuch|rieden}',            '-{kellerbuch|rieden}'),   -- KAN-148 C1d
     ('pressung_weingaerten',          'SA,TA,W*{kellerbuch|rieden}',            'SA,TA,W*{kellerbuch|rieden}',            '-{kellerbuch|rieden}'),   -- KAN-148 C1d
     ('pressungen',                    'SA,TA,W*{kellerbuch|rieden}',            'SA,TA,W*{kellerbuch|rieden}',            '-{kellerbuch|rieden}'),   -- KAN-148 C1d
+    ('reifemessungen',                'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}'),   -- KAN-203: Reife-Messungen je Ried
     ('profiles',                      'L,SA,TA,W',                              'L,SA,TA,W',                              '-'),
     ('pruefnummernantraege',          'SA,TA,W*{kellerbuch}',                   'SA,TA,W*{kellerbuch}',                   '-{kellerbuch}'),   -- KAN-150 F2a (löschen nur über s112_storniert_loeschen)
     ('psm_lager_bewegungen',          'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       '-{rieden}'),   -- KAN-88

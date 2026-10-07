@@ -1,9 +1,11 @@
 // Reife-Messungen je Ried – KAN-203 (07.10.2026)
 //
-// Isomorph und ohne '@/'-Importe (node:test: scripts/tests/kan203-reife-gaer.test.mjs). Das Mostgewicht kommt wie
+// Isomorph und ohne '@/'-Importe, nur ../format (node:test: scripts/tests/kan203-reife-gaer.test.mjs). Das Mostgewicht kommt wie
 // überall über MostgewichtEingabe (Messwert + Einheit, beide Werte serverseitig gerechnet, KAN-128); hier nur die
 // übrigen Felder und der Verlauf. Zuwachs und Verlauf rechnen ausschließlich in °KMW (Rechenregel: nie °Oe mitteln
 // oder vergleichen, die Stufe kommt nur aus °KMW).
+
+import { zahlAus } from '../format'
 
 export interface ReifeFelder {
   datum: string
@@ -11,11 +13,10 @@ export interface ReifeFelder {
   ph_wert: number | null
 }
 
-/** Zahl aus einer Formulareingabe („6,8“, „6.8“, leer = null); NaN = ungültig */
+/** Zahl aus einer Formulareingabe („6,8“, „6.8“, leer = null) über zahlAus(); NaN = ungültig (nicht leer, keine Zahl) */
 export function reifeZahl(roh: unknown): number | null {
-  const t = (roh == null ? '' : String(roh)).trim().replace(',', '.')
-  if (t === '') return null
-  return /^\d+(\.\d+)?$/.test(t) ? Number(t) : NaN
+  if ((roh == null ? '' : String(roh)).trim() === '') return null
+  return zahlAus(roh) ?? NaN
 }
 
 /** Prüft Datum (Pflicht, nicht in der Zukunft), Gesamtsäure 0–50 g/l und pH 0–14. Gibt den ersten Fehler zurück. */
