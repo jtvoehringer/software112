@@ -6,7 +6,7 @@
 -- @ziel: über s112_storniert_loeschen. Maßnahme mit PSM UND Betriebsmittel → CHECK (E23514); Betriebsmittel mit Bezug
 -- @ziel: lässt sich nicht löschen (T), ohne Bezug schon.
 -- @mutation einkauf_insert_offen: PERMISSIVE-Policy WITH CHECK (true) für INSERT auf betriebsmittel_lager_bewegungen | rot: direkt_einkauf_insert
--- @mutation ohne_ea_pruefung: s112_betriebsmittel_einkauf prüft modul_ea/buchhaltungsart nicht mehr | rot: ohne_ea_.*
+-- @mutation ohne_ea_pruefung: s112_betriebsmittel_einkauf prüft modul_ea nicht mehr (Paketmodul und eigene Prüfung) | rot: ohne_ea_.*
 --
 -- software:112 – SQL-Testsuite gegen Staging, Datei 22 (Stand 01.10.2026, KAN-167).
 -- Personas aus s112_aufbau (Betrieb B mit b_w, b_ta, b_l) und ein Winzer nur mit Modul rieden – alles zurückgerollt.
@@ -59,8 +59,8 @@ BEGIN
   PERFORM pg_temp.s112_mutiere('einkauf_insert_offen',
     $m$CREATE POLICY s112test_einkauf_offen ON public.betriebsmittel_lager_bewegungen AS PERMISSIVE FOR INSERT TO authenticated WITH CHECK (true)$m$);
   PERFORM pg_temp.s112_mutiere('ohne_ea_pruefung',
-    replace(pg_get_functiondef('public.s112_betriebsmittel_einkauf(uuid, uuid, date, numeric, text, numeric, numeric, uuid, uuid, text)'::regprocedure),
-      $r$AND te.modul_ea AND te.buchhaltungsart = 'ea'$r$, 'OR true'));
+    replace(replace(pg_get_functiondef('public.s112_betriebsmittel_einkauf(uuid, uuid, date, numeric, text, numeric, numeric, uuid, uuid, text)'::regprocedure),
+      $r$PERFORM public.s112_pruefe_paketmodul(p_tenant_id, 'modul_ea');$r$, ''), $r$AND te.modul_ea)$r$, 'OR true)'));   -- KAN-223: nur noch modul_ea
 
   -- ── 1. Einkauf als winzer: Ausgabe und Lagerbuchung ───────────────────────────────────────────────────
   PERFORM pg_temp.s112_als(v_bw);
@@ -85,7 +85,8 @@ BEGIN
   PERFORM pg_temp.s112_als_postgres();
   UPDATE public.tenant_einstellungen SET modul_ea = true, buchhaltungsart = 'doppik' WHERE tenant_id = v_b;
   PERFORM pg_temp.s112_als(v_bw);
-  v_erg := v_erg || pg_temp.s112_erwarte('ohne_ea_doppik_einkauf', pg_temp.s112_versuch(v_ein), 'T');
+  -- KAN-223 (Entscheidung Jörgen 07.10.2026): auch Doppik-Betriebe buchen den Einkauf mit E/A-Ausgabe
+  v_erg := v_erg || pg_temp.s112_erwarte('doppik_einkauf_erlaubt', pg_temp.s112_versuch(v_ein), 'k1');
   PERFORM pg_temp.s112_als_postgres();
   UPDATE public.tenant_einstellungen SET buchhaltungsart = 'ea' WHERE tenant_id = v_b;
   PERFORM pg_temp.s112_als(v_bwr);

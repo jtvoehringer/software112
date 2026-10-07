@@ -1,7 +1,8 @@
 // Mostgewicht entlang der Kellerkette – Umzug, Zusammenführung und Verschnitt (KAN-130 Etappe 2, 02.10.2026)
 //
 // Entscheidungen Jörgen 01.10.2026 (KAN-130, offene Frage 1): Mischwert = mengengewichteter Mittelwert in °KMW
-// (Liter über die Dichte in kg, mischen() aus lib/wein/mostgewicht), auf 2 Stellen abgerundet, °Oe daraus; fehlt
+// (litergewichtet – Entscheidung 07.10.2026 statt über die Dichte; mischen() aus lib/wein/mostgewicht), auf 2 Stellen
+// abgerundet, °Oe daraus; fehlt
 // einem Anteil das Mostgewicht, zählen nur die Anteile mit Wert und das Ergebnis heißt „teilweise“.
 //
 // Momentaufnahme für Storno und „Umzug ändern“: keller_umzuege.kmw/oechsle/mostgewicht_einheit_vorher/_nachher

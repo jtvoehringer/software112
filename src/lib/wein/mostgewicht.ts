@@ -187,17 +187,18 @@ export function mindestOechsle(kmw: number, stellen: 0 | 1 = 1): number {
 // ── Mittelwerte ─────────────────────────────────────────────────────────────
 
 export interface MischTeil {
-  /** Menge in kg (Standard) oder Liter (mengeneinheit 'l') */
+  /** Menge in kg (Standard) oder Liter (mengeneinheit 'l') – beides direkt als Gewicht */
   menge: number | null | undefined
   /** °KMW des Teils (die führende Spalte, nie aus °Oe zurückgerechnet) */
   kmw: number | null | undefined
 }
 
 /**
- * Massegewichtetes Mostgewicht mehrerer Teile (Rechenregel 7): °KMW sind Masseprozent Zucker,
- * also Σ(Masse · °KMW) / Σ Masse – nie °Oe mitteln (je 50 % 14 und 22 °KMW = 18,00 °KMW =
- * 88,8 °Oe; das °Oe-Mittel wäre 89,2). Liter werden über die Dichte ρ ≈ 1 + °Oe/1000 in kg
- * umgerechnet. Ergebnis auf 2 Stellen abgerundet, °Oe daraus, Einheit 'kmw'.
+ * Mengengewichtetes Mostgewicht mehrerer Teile (Rechenregel 7), immer in °KMW gemittelt – nie °Oe mitteln
+ * (je 50 % 14 und 22 °KMW = 18,00 °KMW = 88,8 °Oe; das °Oe-Mittel wäre 89,2). Gewicht: kg (Lese, Pressung,
+ * Erntemeldung – nur Trauben-kg) bzw. Liter (mengeneinheit 'l', Kellerkette: Umzug, Verschnitt, Zusammenführen –
+ * Entscheidung Jörgen 07.10.2026, KAN-130: nach Litern, je 500 L 14/22 °KMW = 18,00 statt 18,07 über die Dichte).
+ * Ergebnis auf 2 Stellen abgerundet, °Oe daraus, Einheit 'kmw'.
  * Teile ohne gültige Menge > 0 oder ohne °KMW zählen nicht (wie heute im Pressungs-Ø);
  * ohne zählenden Teil → null. Fehlende Quellen (KAN-130, Jörgen 01.10.2026): nur die Teile mit Wert zählen,
  * das Ergebnis gilt dann als „teilweise“ – siehe mischenMitAnteil().
@@ -210,9 +211,9 @@ export function mischen(teile: readonly MischTeil[], mengeneinheit: 'kg' | 'l' =
     const { menge, kmw } = t
     if (typeof menge !== 'number' || !Number.isFinite(menge) || menge <= 0) continue
     if (typeof kmw !== 'number' || !Number.isFinite(kmw) || kmw < 0) continue
-    const kg = mengeneinheit === 'l' ? menge * (1 + oechsleAusKmw(kmw) / 1000) : menge
-    masse += kg
-    zucker += kg * kmw
+    // KAN-130 (07.10.2026): Liter direkt als Gewicht, keine Umrechnung über die Dichte
+    masse += menge
+    zucker += menge * kmw
   }
   if (!(masse > 0)) return null
   const h = Math.round(abrunden(zucker / masse, KMW_STELLEN) * 100)

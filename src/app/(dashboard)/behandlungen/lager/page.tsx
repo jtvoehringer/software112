@@ -382,11 +382,12 @@ export default async function LagerPage({
   const { data: rawLief } = await tf((supabase.from('firmen') as any)
     .select('id, name').eq('ist_lieferant', true).eq('aktiv', true).order('name').limit(500))
   const lieferanten = ((rawLief ?? []) as AR[]).map(l => ({ id: l.id as string, name: l.name as string }))
-  // Einkauf (mit Pflicht-E/A-Ausgabe) nur mit E&A-Rechnung (Buchhaltungsart E/A) und Schreibrecht E&A
+  // Einkauf (mit Pflicht-E/A-Ausgabe) nur mit Modul E&A bzw. Belege und Schreibrecht E&A – KAN-223 (Entscheidung 07.10.2026):
+  // auch Doppik-Betriebe (Belege & BMD-Übergabe), dieselbe Regel wie s112_betriebsmittel_einkauf
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: einst } = await tf((supabase.from('tenant_einstellungen') as any).select('modul_ea, buchhaltungsart')).maybeSingle()
-  const einkaufSperre = !(einst as AR | null)?.modul_ea || (einst as AR | null)?.buchhaltungsart !== 'ea'
-    ? 'die E&A-Rechnung ist für diesen Betrieb nicht aktiv – bitte Anfangsbestand bzw. Inventurkorrektur verwenden.'
+  const einkaufSperre = !(einst as AR | null)?.modul_ea
+    ? 'das Modul E&A bzw. Belege ist für diesen Betrieb nicht aktiv – bitte Anfangsbestand bzw. Inventurkorrektur verwenden.'
     : !(membership && canWrite(membership, 'ea'))
     ? 'dir fehlt das Schreibrecht für die E&A-Rechnung.'
     : null
