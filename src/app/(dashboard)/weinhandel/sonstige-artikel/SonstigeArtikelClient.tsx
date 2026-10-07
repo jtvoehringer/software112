@@ -6,6 +6,9 @@ import { upsertSonstigesArtikel, toggleAktivSonstigesArtikel, deleteSonstigesArt
 import { useRouter } from 'next/navigation'
 import { fmtEur } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
+import Link from '@/components/ui/Link'
+import { ZAHL_LOCALE } from '@/lib/format'
+import { PRODUKT_ART_LABEL, istProduktArt } from '@/lib/warenwirtschaft/sonstigeProdukte'
 
 interface Artikel {
   id: string
@@ -14,11 +17,13 @@ interface Artikel {
   default_preis: number | null
   aktiv: boolean
   erstellt_am: string
+  art?: string | null
+  bestand_fuehren?: boolean
 }
 
 const inputCls = 'border border-s112-border rounded-lg px-2 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 bg-white'
 
-function ArtikelRow({ artikel, onRefresh }: { artikel: Artikel; onRefresh: () => void }) {
+function ArtikelRow({ artikel, onRefresh, lager }: { artikel: Artikel; onRefresh: () => void; lager: number | null }) {
   const [editing, setEditing]       = useState(false)
   const [name, setName]             = useState(artikel.name)
   const [einheit, setEinheit]       = useState(artikel.einheit)
@@ -85,6 +90,7 @@ function ArtikelRow({ artikel, onRefresh }: { artikel: Artikel; onRefresh: () =>
             step="0.01" min="0" placeholder="–"
             className={inputCls + ' w-24 text-right'} />
         </td>
+        <td className="px-3 py-2" />
         <td className="px-3 py-2 text-right">
           <div className="flex gap-2 justify-end">
             <button onClick={() => setEditing(false)}
@@ -104,13 +110,20 @@ function ArtikelRow({ artikel, onRefresh }: { artikel: Artikel; onRefresh: () =>
   return (
     <tr className={!artikel.aktiv ? 'opacity-40' : 'hover:bg-s112-bg/50 transition-colors'}>
       <td className="px-3 py-2.5 text-sm text-s112-text font-medium">
-        {artikel.name}
+        {/* KAN-115: Detailseite mit Art, Lagerstand führen und Lagerkonto */}
+        <Link href={`/weinhandel/sonstige-artikel/${artikel.id}`} className="hover:text-s112-blue-700 hover:underline">{artikel.name}</Link>
+        {istProduktArt(artikel.art) && <span className="ml-2 text-[10.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded-sm bg-s112-bg text-s112-text-2 border border-s112-line">{PRODUKT_ART_LABEL[artikel.art]}</span>}
         {error && <p className="text-xs text-s112-err mt-1 font-normal">{error}</p>}
       </td>
       <td className="px-3 py-2.5 text-sm text-s112-muted">{artikel.einheit}</td>
       <td className="px-3 py-2.5 text-sm text-right tabular-nums text-s112-text-1">
         {artikel.default_preis != null
           ? fmtEur(Number(artikel.default_preis))
+          : <span className="text-s112-muted">–</span>}
+      </td>
+      <td className="px-3 py-2.5 text-sm text-right tabular-nums">
+        {artikel.bestand_fuehren
+          ? <span className={(lager ?? 0) < 0 ? 'text-s112-err-fg font-semibold' : ''}>{(lager ?? 0).toLocaleString(ZAHL_LOCALE, { maximumFractionDigits: 3 })} {artikel.einheit}</span>
           : <span className="text-s112-muted">–</span>}
       </td>
       <td className="px-3 py-2.5 text-right">
@@ -185,6 +198,7 @@ function NeuerArtikelRow({ onRefresh, onCancel }: { onRefresh: () => void; onCan
           step="0.01" min="0" placeholder="–"
           className={inputCls + ' w-24 text-right'} />
       </td>
+      <td className="px-3 py-2" />
       <td className="px-3 py-2 text-right">
         <div className="flex gap-2 justify-end">
           <button onClick={onCancel}
@@ -201,7 +215,7 @@ function NeuerArtikelRow({ onRefresh, onCancel }: { onRefresh: () => void; onCan
   )
 }
 
-export default function SonstigeArtikelClient({ initialArtikel }: { initialArtikel: Artikel[] }) {
+export default function SonstigeArtikelClient({ initialArtikel, lager = {} }: { initialArtikel: Artikel[]; lager?: Record<string, number> }) {
   const router = useRouter()
   const [showNeu, setShowNeu] = useState(false)
 
@@ -236,6 +250,7 @@ export default function SonstigeArtikelClient({ initialArtikel }: { initialArtik
                 <th className="px-3 py-2.5 text-xs font-semibold text-s112-text-2">Name</th>
                 <th className="px-3 py-2.5 text-xs font-semibold text-s112-text-2">Einheit</th>
                 <th className="px-3 py-2.5 text-xs font-semibold text-s112-text-2 text-right">Standardpreis</th>
+                <th className="px-3 py-2.5 text-xs font-semibold text-s112-text-2 text-right">Lagerstand</th>
                 <th className="px-3 py-2.5 w-24"></th>
               </tr>
             </thead>
@@ -247,7 +262,7 @@ export default function SonstigeArtikelClient({ initialArtikel }: { initialArtik
                 />
               )}
               {sorted.map(a => (
-                <ArtikelRow key={a.id} artikel={a} onRefresh={refresh} />
+                <ArtikelRow key={a.id} artikel={a} onRefresh={refresh} lager={lager[a.id] ?? null} />
               ))}
             </tbody>
           </table>

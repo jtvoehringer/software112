@@ -10,6 +10,8 @@ import { syncEaEinnahmeFuerVerkauf } from '@/app/(dashboard)/buchhaltung/actions
 import { fmtEur, fmtNum, dezimal } from '@/lib/format'
 import { AktionsFehler, dbFehlerText, fehlerText, LESE_WAEHLEN_MELDUNG } from '@/lib/fehler'
 import { stornoGrundFehler } from '@/lib/storno/grund'
+import { alle } from '@/lib/supabase/alle'
+import { sonstigeLagerFehler } from '@/lib/warenwirtschaft/sonstigeProdukte'
 import { traubenverkaufLese } from '@/lib/wein/leseBilanz'
 import { qualitaetFehler } from '@/lib/wein/qualitaet'
 import { mostgewichtAusWert, mostgewichtSpalten } from '@/lib/wein/mostgewichtFormular'
@@ -90,6 +92,8 @@ interface PositionInput {
   trauben_qualitaetsstufe?: string | null
   trauben_herkunft_code?:   string | null
   trauben_gesundheit?:      'G' | 'K'
+  /** KAN-115: Sonstiges Produkt der Position (nur Typ sonstiges) */
+  sonstige_artikel_id?:     string | null
 }
 
 const NUR_CHARGE_HINWEIS =
@@ -104,6 +108,37 @@ const NUR_CHARGE_HINWEIS =
 // Menge > 0, Tank nur aus Charge, Verfügbarkeit je Charge bzw. Füllung – über ALLE
 // Positionen summiert (zwei Positionen derselben Charge zählen zusammen). Die Abbuchung
 // selbst kappt nicht mehr; die DB-CHECKs sind das Sicherheitsnetz.
+
+/**
+ * KAN-115: Positionen „Sonstiges“ mit Produkt prüfen – das Produkt gehört dem Betrieb; führt es Lagerstand, muss die
+ * Menge > 0 sein und (über alle Positionen summiert) auf Lager liegen. Ergebnis: ob mindestens ein Produkt mit Lagerstand
+ * dabei ist (dann bucht createVerkauf über s112_artikel_verkauf_buchen ab).
+ */
+async function pruefeSonstigeProdukte(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  tenantId: string,
+  positionen: PositionInput[],
+): Promise<boolean> {
+  const ids = [...new Set(positionen.filter(p => p?.typ === 'sonstiges' && p.sonstige_artikel_id).map(p => String(p.sonstige_artikel_id)))]
+  if (ids.length === 0) return false
+  // alle-ausnahme: Produkte eines einzelnen Verkaufs, wenige
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: art, error } = await (supabase.from('sonstige_artikel') as any)
+    .select('id, name, einheit, bestand_fuehren').eq('tenant_id', tenantId).in('id', ids)
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Sonstige Produkte konnten nicht geladen werden'))
+  const jeId = new Map(((art ?? []) as AR[]).map(a => [String(a.id), a]))
+  const mitLager = ids.filter(id => jeId.get(id)?.bestand_fuehren)
+  for (const id of ids) if (!jeId.has(id)) throw new AktionsFehler('Ein gewähltes Sonstiges Produkt gibt es nicht (mehr) – bitte neu auswählen.')
+  if (mitLager.length === 0) return false
+  // alle-ausnahme: Bewegungen der Produkte eines einzelnen Verkaufs (Summe je Produkt)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: bew, error: bErr } = await alle<AR>((supabase.from('sonstige_artikel_bewegungen') as any)
+    .select('artikel_id, menge').eq('tenant_id', tenantId).in('artikel_id', mitLager).order('id'))
+  if (bErr) throw new AktionsFehler(dbFehlerText(bErr, 'Lagerstand der Sonstigen Produkte konnte nicht geladen werden'))
+  const fehler = sonstigeLagerFehler(positionen, ((art ?? []) as AR[]).map(a => ({ id: String(a.id), name: String(a.name), einheit: String(a.einheit), bestand_fuehren: !!a.bestand_fuehren })), (bew ?? []) as { artikel_id: string; menge: number | string }[])
+  if (fehler) throw new AktionsFehler(fehler)
+  return true
+}
 
 async function pruefePositionen(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
@@ -284,6 +319,8 @@ export async function createVerkauf(formData: FormData) {
   // ── Prüfung VOR dem ersten Schreibzugriff (auch vor der Rechnungsnummer –
   //    eine Ablehnung hinterlässt so keine Lücke im Nummernkreis)
   const { literJeCharge, stueckJeFuellung, mostgewichtJePosition, leseJePosition } = await pruefePositionen(supabase, membership, positionen, datum)
+  // KAN-115: Sonstige Produkte – eigener Betrieb, mit Lagerstand genug auf Lager (Vorprüfung; die RPC prüft unter Sperre erneut)
+  const mitLager = await pruefeSonstigeProdukte(supabase, tenantId, positionen)
 
   // Beleg-ID vorab: die Flaschenzeilen (fuellung_bewegungen, KAN-149 D1) verweisen auf den Verkauf, der erst nach der
   // Abbuchung angelegt wird (keine Lücke im Nummernkreis bei einer Ablehnung, KAN-35)
@@ -389,6 +426,7 @@ export async function createVerkauf(formData: FormData) {
       fuellung_id:           p.typ === 'flasche' ? (p.fuellung_id   || null) : null,
       weinausbau_id:         p.typ === 'tank'    ? (p.weinausbau_id || null) : null,
       traubenverkauf_id:     traubenverkaufId,
+      sonstige_artikel_id:   p.typ === 'sonstiges' ? (p.sonstige_artikel_id || null) : null,
       name:                  p.name,
       menge:                 p.menge,
       einheit:               p.einheit || 'Stk',
@@ -403,6 +441,13 @@ export async function createVerkauf(formData: FormData) {
   const { error: posErr } = await (supabase.from('verkauf_positionen') as any).insert(posInserts)
   // Insert mehrerer Zeilen ist eine Anweisung: entweder alle Positionen oder keine
   if (posErr) await abbruch(dbFehlerText(posErr, 'Speichern fehlgeschlagen (verkauf_positionen)'), postenId)
+
+  // KAN-115: Sonstige Produkte mit Lagerstand abbuchen – alles oder nichts; scheitert es, wird der Beleg storniert
+  if (mitLager) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: lagerErr } = await (supabase.rpc as any)('s112_artikel_verkauf_buchen', { p_tenant_id: tenantId, p_verkaufsposten_id: postenId })
+    if (lagerErr) await abbruch(dbFehlerText(lagerErr, 'Lagerstand der Sonstigen Produkte konnte nicht gebucht werden'), postenId)
+  }
 
   // Ab hier ist der Verkauf vollständig gebucht – Folgeschritte (CRM, Lead-Status) dürfen
   // nicht mehr als Fehler zurückkommen, sonst speichert ein erneutes Absenden doppelt.

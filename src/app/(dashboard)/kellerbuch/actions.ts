@@ -487,6 +487,10 @@ export async function verarbeitungBuchen(formData: FormData): Promise<void> {
   const zweck = String(formData.get('zweck') ?? '')
   const menge = zahlAus(formData.get('menge'))
   const notizen = String(formData.get('notizen') ?? '').trim() || null
+  // KAN-115: optional Zugang beim Sonstigen Produkt (Traubensaft, Essig, Destillat) – Menge in seiner Einheit
+  const artikelId = String(formData.get('artikel_id') ?? '').trim() || null
+  const stueck = artikelId ? zahlAus(formData.get('stueck')) : null
+  if (artikelId && (stueck == null || !(stueck > 0))) throw new AktionsFehler('Bitte die erzeugte Menge des Produkts angeben (größer als 0).')
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: chargeRaw, error: chargeErr } = await (supabase.from('weinausbau') as any)
@@ -501,8 +505,10 @@ export async function verarbeitungBuchen(formData: FormData): Promise<void> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase as any).rpc('s112_verarbeitung_buchen', {
     p_tenant_id: tenantId, p_weinausbau_id: id, p_datum: datum, p_menge: menge, p_zweck: zweck, p_notizen: notizen,
+    ...(artikelId ? { p_artikel_id: artikelId, p_stueck: stueck } : {}),
   })
   if (error) throw new AktionsFehler(dbFehlerText(error, 'Verarbeitung konnte nicht gebucht werden'))
+  if (artikelId) revalidatePath(`/weinhandel/sonstige-artikel/${artikelId}`)
   revalidatePath('/kellerbuch')
   revalidatePath(`/kellerbuch/weinausbau/${id}`)
 }

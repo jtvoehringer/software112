@@ -345,7 +345,7 @@ export async function verkaufspostenStornieren(
   // Positionen und Traubenverkäufe VOR dem ersten Schreibzugriff lesen:
   // ein Lesefehler bricht so ab, bevor irgendetwas geändert ist.
   const { data: posRaw, error: posErr } = await (supabase.from('verkauf_positionen') as any)
-    .select('name, typ, fuellung_id, weinausbau_id, menge, traubenverkauf_id')
+    .select('name, typ, fuellung_id, weinausbau_id, menge, traubenverkauf_id, sonstige_artikel_id')
     .eq('verkaufsposten_id', postenId)
     .eq('tenant_id', tenantId)
   if (posErr) throw new AktionsFehler(dbFehlerText(posErr, 'Positionen des Verkaufs konnten nicht geladen werden'))
@@ -419,6 +419,15 @@ export async function verkaufspostenStornieren(
   }
 
   const probleme: string[] = []
+
+  // 2b. KAN-115: Verkäufe Sonstiger Produkte mit Lagerstand gegenbuchen (je Buchung einmal) – nur bei Positionen mit Produkt
+  if (positionen.some(p => p.typ === 'sonstiges' && p.sonstige_artikel_id)) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: lagerErr } = await (supabase.rpc as any)('s112_artikel_verkauf_stornieren', {
+      p_tenant_id: tenantId, p_verkaufsposten_id: postenId, p_grund: stornoGrund,
+    })
+    if (lagerErr) probleme.push(dbFehlerText(lagerErr, 'Lagerstand der Sonstigen Produkte konnte nicht zurückgebucht werden'))
+  }
 
   // 3. Traubenverkauf-Datensätze stornieren (KAN-148) → verfügbare kg werden wieder frei; Zeile, Liefernummer und
   //    Rechnungsbezug bleiben. Schon stornierte (Verweis aus einer Position) bleiben unverändert.

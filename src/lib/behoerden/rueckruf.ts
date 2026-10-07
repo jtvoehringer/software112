@@ -6,6 +6,8 @@
 // abgefüllt = verkauft + exportiert + Bestand (+ sonstige Abgänge = Rest), sonst Differenz.
 // Entscheidung Jörgen 06.10.2026 (DSGVO): die Rückruf-Liste mit Kundendaten sehen alle Mitglieder des Betriebs.
 // Seite /kellerbuch/rueckverfolgung/vorwaerts und CSV „rueckverfolgung-vorwaerts“ nutzen dieselbe Ladefunktion.
+// KAN-115: Verarbeitungen der Chargen (Traubensaft, Essig, Destillat) erscheinen als Zeile „Verarbeitung“; ist dabei ein
+// Sonstiges Produkt mit Lagerstand entstanden, folgen dessen Verkäufe ab dem Tag der Verarbeitung (das Produkt hat kein Los).
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Projektkonvention (supabase.from('…') as any), siehe CLAUDE.md */
 import { alle, inBloecken } from '@/lib/supabase/alle'
@@ -50,7 +52,7 @@ export type RueckrufZeile = {
   /** Los (Chargennummer) bzw. Charge beim Tankverkauf */
   los: string | null
   produkt: string
-  art: 'Verkauf' | 'Tankverkauf' | 'Export' | 'Endverbraucher (summiert)'
+  art: 'Verkauf' | 'Tankverkauf' | 'Export' | 'Endverbraucher (summiert)' | 'Verarbeitung' | 'Verkauf Produkt'
   datum: string | null
   beleg: string | null
   abnehmer: string
@@ -58,6 +60,52 @@ export type RueckrufZeile = {
   betriebNr: string | null
   menge: number
   einheit: string
+}
+
+/** KAN-115: Verarbeitung einer Charge, optional mit erzeugtem Sonstigem Produkt */
+export type ProduktVerarbeitung = {
+  id: string; weinausbauId: string; datum: string; liter: number; zweck: string
+  artikel: { id: string; name: string; einheit: string; menge: number } | null
+}
+/** KAN-115: Verkauf eines Sonstigen Produkts (Position mit sonstige_artikel_id) */
+export type ProduktVerkauf = { artikelId: string; menge: number; einheit: string | null; posten: R }
+
+const ZWECK_TEXT: Record<string, string> = { traubensaft: 'Traubensaft', essig: 'Essig', brennerei: 'Brennerei / Destillation', sonstiges: 'Sonstiges' }
+
+/**
+ * KAN-115: Zeilen für Verarbeitungen und – je erzeugtem Produkt – dessen Verkäufe ab dem frühesten Verarbeitungstag
+ * (Produkte führen kein Los; Endverbraucher je Produkt summiert). Reine Funktion (Test kan115-traubensaft).
+ */
+export function produktZeilen(verarbeitungen: ProduktVerarbeitung[], chargenMap: Map<string, R>, verkaeufe: ProduktVerkauf[]): RueckrufZeile[] {
+  const zeilen: RueckrufZeile[] = []
+  const ab = new Map<string, { datum: string; name: string; einheit: string }>()
+  for (const v of verarbeitungen) {
+    const c = chargenMap.get(v.weinausbauId)
+    zeilen.push({
+      los: c?.chargennummer ?? null,
+      produkt: v.artikel ? `${v.artikel.name} (aus ${c?.name ?? 'Charge'})` : `${ZWECK_TEXT[v.zweck] ?? v.zweck} (aus ${c?.name ?? 'Charge'})`,
+      art: 'Verarbeitung', datum: v.datum, beleg: null, abnehmer: 'Eigener Betrieb', adresse: null, betriebNr: null,
+      menge: v.artikel ? v.artikel.menge : v.liter, einheit: v.artikel ? v.artikel.einheit : 'L',
+    })
+    if (v.artikel) {
+      const alt = ab.get(v.artikel.id)
+      if (!alt || v.datum < alt.datum) ab.set(v.artikel.id, { datum: v.datum, name: v.artikel.name, einheit: v.artikel.einheit })
+    }
+  }
+  const endverbraucher = new Map<string, number>()
+  for (const k of verkaeufe) {
+    const a = ab.get(k.artikelId)
+    const datum = k.posten?.datum ? String(k.posten.datum) : null
+    if (!a || !datum || datum < a.datum) continue
+    const abn = abnehmerAus(k.posten)
+    if (!abn) { endverbraucher.set(k.artikelId, (endverbraucher.get(k.artikelId) ?? 0) + k.menge); continue }
+    zeilen.push({ los: null, produkt: a.name, art: 'Verkauf Produkt', datum, beleg: k.posten?.rechnungsnummer ?? null, abnehmer: abn.name, adresse: abn.adresse, betriebNr: abn.betriebNr, menge: k.menge, einheit: k.einheit ?? a.einheit })
+  }
+  for (const [id, menge] of endverbraucher) {
+    const a = ab.get(id)!
+    zeilen.push({ los: null, produkt: a.name, art: 'Endverbraucher (summiert)', datum: null, beleg: null, abnehmer: 'Endverbraucher', adresse: null, betriebNr: null, menge, einheit: a.einheit })
+  }
+  return zeilen
 }
 
 export type Abgleich = {
@@ -250,6 +298,33 @@ export async function ladeRueckruf(supabase: any, tenantId: string, start: Rueck
   }))
   const exporte: Export[] = ex.data.map(x => ({ fuellungId: String(x.fullung_id), menge: Number(x.menge) || 0, einheit: x.einheit ?? null, auftrag: x.auftrag }))
   const { zeilen, abgleich } = rueckrufZeilen(fl.data, chargenMap, verkaeufe, exporte)
+
+  // KAN-115: Verarbeitungen der Chargen (nicht storniert) und daraus entstandene Sonstige Produkte samt deren Verkäufen
+  const kv = await inBloecken<R>(chargenIds, b => alle(q(supabase, 'keller_verarbeitungen').select('id, weinausbau_id, datum, menge_liter, zweck')
+    .eq('tenant_id', tenantId).is('storniert_am', null).in('weinausbau_id', b).order('id')))
+  if (kv.error) throw fehler('Verarbeitungen', kv.error)
+  const zu = await inBloecken<R>(kv.data.map(v => String(v.id)), b => alle(q(supabase, 'sonstige_artikel_bewegungen')
+    .select('id, keller_verarbeitung_id, art, menge, storno_von_id, artikel:artikel_id(id, name, einheit)')
+    .eq('tenant_id', tenantId).in('keller_verarbeitung_id', b).order('id')))
+  if (zu.error) throw fehler('Lagerzugänge der Verarbeitungen', zu.error)
+  const storniert = new Set(zu.data.map(z => z.storno_von_id).filter(Boolean).map(String))
+  const zugangJeVerarbeitung = new Map(zu.data.filter(z => z.art === 'verarbeitung' && !storniert.has(String(z.id))).map(z => [String(z.keller_verarbeitung_id), z]))
+  const verarbeitungen: ProduktVerarbeitung[] = kv.data.map(v => {
+    const z = zugangJeVerarbeitung.get(String(v.id))
+    return {
+      id: String(v.id), weinausbauId: String(v.weinausbau_id), datum: String(v.datum), liter: Number(v.menge_liter) || 0, zweck: String(v.zweck),
+      artikel: z?.artikel ? { id: String(z.artikel.id), name: String(z.artikel.name), einheit: String(z.artikel.einheit), menge: Number(z.menge) || 0 } : null,
+    }
+  })
+  const artikelIds = [...new Set(verarbeitungen.map(v => v.artikel?.id).filter(Boolean) as string[])]
+  const vpA = await inBloecken<R>(artikelIds, b => alle(q(supabase, 'verkauf_positionen')
+    .select(`id, sonstige_artikel_id, menge, einheit, ${POSTEN}`)
+    .eq('tenant_id', tenantId).eq('verkaufsposten.storniert', false).in('sonstige_artikel_id', b).order('id')))
+  if (vpA.error) throw fehler('Verkäufe der Sonstigen Produkte', vpA.error)
+  momentaufnahmenAnwenden(vpA.data.map(v => v.verkaufsposten), ['kontakt', 'firma'])
+  zeilen.push(...produktZeilen(verarbeitungen, chargenMap,
+    vpA.data.map(v => ({ artikelId: String(v.sonstige_artikel_id), menge: Number(v.menge) || 0, einheit: v.einheit ?? null, posten: v.verkaufsposten }))))
+  if (artikelIds.length) warnungen.push('Sonstige Produkte (Traubensaft, Essig, Destillat …) führen kein Los: gezeigt sind alle Verkäufe des Produkts ab dem Tag der Verarbeitung.')
   for (const a of abgleich) {
     if (Math.abs(a.differenz) > 0.001) {
       warnungen.push(`${a.produkt}${a.los ? ` (Los ${a.los})` : ''}: abgefüllt ${a.abgefuellt}, verkauft ${a.verkauft}, exportiert ${a.exportiert}, Bestand ${a.bestand} – Differenz ${a.differenz} (sonstige Abgänge oder fehlende Buchungen prüfen).`)

@@ -113,6 +113,8 @@ interface Position {
   trauben_qualitaetsstufe: string
   trauben_herkunft_code:   string
   trauben_gesundheit:      'G' | 'K'
+  /** KAN-115: gewähltes Sonstiges Produkt (mit Lagerstand mindert der Verkauf den Bestand) */
+  sonstige_artikel_id?:    string
 }
 
 const FLASCHEN_LABEL: Record<number, string> = {
@@ -373,6 +375,7 @@ export default function NeuerVerkaufPage() {
       trauben_qualitaetsstufe: p.trauben_qualitaetsstufe || null,
       trauben_herkunft_code:   p.trauben_herkunft_code   || null,
       trauben_gesundheit:      p.trauben_gesundheit       || 'G',
+      sonstige_artikel_id:     p.typ === 'sonstiges' ? (p.sonstige_artikel_id || null) : null,
     }))
 
     if (!kontaktId && !firmaId) {
@@ -756,8 +759,9 @@ export default function NeuerVerkaufPage() {
                     <SonstigesKombo
                       artikel={sonstigeArtikel}
                       name={pos.name}
-                      onNameChange={text => updatePos(idx, { name: text })}
+                      onNameChange={text => updatePos(idx, { name: text, sonstige_artikel_id: '' })}
                       onArtikelSelect={a => updatePos(idx, {
+                        sonstige_artikel_id: a.id,
                         name: a.name,
                         einheit: a.einheit,
                         preis_brutto: a.default_preis != null ? String(a.default_preis) : '',

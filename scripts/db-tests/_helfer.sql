@@ -843,6 +843,7 @@ END $f$;
 --   * kellerbuch_buchungen: Korrekturzeile INV_PLUS einer erfundenen Charge mit freier Belegnummer (KAN-40),
 --   * kellerbuch_abschluesse: Abschluss weit in der Vergangenheit mit freiem Datum (KAN-192),
 --   * reifemessungen: kmw 17 (eine Reife-Messung braucht ein Mostgewicht; KAN-203),
+--   * sonstige_artikel_bewegungen: Zugang über 1 (Vorzeichen-CHECK; KAN-115),
 --   * tenant_einstellungen: die vorhandene Zeile des Betriebs (je Betrieb genau eine),
 --   * tenant_memberships: neuer Test-Benutzer als leser (user_id aus p_werte, sonst neu; nie p_persona).
 -- p_werte überschreibt alles. Bei einem Schlüsselkonflikt ein zweiter Versuch mit neuen Elternzeilen
@@ -892,6 +893,8 @@ BEGIN
       v_b := pg_temp.s112_zeile('konten', p_tenant) ->> 'id';
     END IF;
     v_w := v_w || jsonb_build_object('von_konto_id', v_a, 'nach_konto_id', v_b, 'betrag', 1);
+  ELSIF p_tab = 'sonstige_artikel_bewegungen' THEN
+    v_w := v_w || '{"art": "zugang", "menge": 1}'::jsonb;   -- KAN-115: CHECK Vorzeichen/Bezug
   ELSIF p_tab = 'reifemessungen' THEN
     v_w := v_w || '{"kmw": 17}'::jsonb;   -- KAN-203: CHECK reifemessungen_mostgewicht_pflicht
   ELSIF p_tab IN ('traubenverkauf', 'pressung_weingaerten') THEN
@@ -1087,6 +1090,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('release_notes_gesehen',         'L,SA,TA,W',                              'L,SA,TA,W',                              'L,SA,TA,W'),
     ('saetze_massnahmen',             'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       'SA,TA{rieden}'),
     ('sonstige_artikel',              'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              '-{warenwirtschaft}'),
+    ('sonstige_artikel_bewegungen',   '-',                                      '-',                                      '-'),   -- KAN-115: nur per RPC (s112_artikel_*, s112_verarbeitung_*)
     ('stripe_zahlungen_log',          '-',                                      '-',                                      '-'),
     ('sumup_checkouts',               'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              '-{warenwirtschaft}'),
     ('sumup_terminals',               'SA,TA',                                  'SA,TA',                                  'SA,TA'),
@@ -1246,7 +1250,11 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('mandant',       '-US', true , 's112_etikettierung_stornieren(p_tenant_id uuid, p_id uuid, p_grund text)'),   -- KAN-41 Paket 3d: Storno der Etikettierung
     ('mandant',       '-US', true , 's112_zugangskorrektur_buchen(p_tenant_id uuid, p_weinausbau_id uuid, p_datum date, p_menge numeric, p_art text, p_grund text)'),   -- KAN-53: Zugangskorrektur
     ('mandant',       '-US', true , 's112_zugangskorrektur_stornieren(p_tenant_id uuid, p_id uuid, p_grund text)'),   -- KAN-53: Storno der Zugangskorrektur
-    ('mandant',       '-US', true , 's112_verarbeitung_buchen(p_tenant_id uuid, p_weinausbau_id uuid, p_datum date, p_menge numeric, p_zweck text, p_notizen text)'),   -- KAN-41 Paket 3a: Verarbeitung (AB_VERAR)
+    ('mandant',       '-US', true , 's112_verarbeitung_buchen(p_tenant_id uuid, p_weinausbau_id uuid, p_datum date, p_menge numeric, p_zweck text, p_notizen text, p_artikel_id uuid, p_stueck numeric)'),   -- KAN-41 Paket 3a: Verarbeitung (AB_VERAR); KAN-115: + Zugang beim Sonstigen Produkt
+    ('mandant',       '-US', true , 's112_artikel_buchen(p_tenant_id uuid, p_artikel_id uuid, p_datum date, p_art text, p_menge numeric, p_notizen text)'),   -- KAN-115: Anfangsbestand/Zugang/Inventur Sonstiger Produkte
+    ('mandant',       '-US', true , 's112_artikel_bewegung_stornieren(p_tenant_id uuid, p_id uuid, p_grund text)'),   -- KAN-115: Storno einer Lagerbuchung
+    ('mandant',       '-US', true , 's112_artikel_verkauf_buchen(p_tenant_id uuid, p_verkaufsposten_id uuid)'),   -- KAN-115: Verkauf mindert den Lagerstand
+    ('mandant',       '-US', true , 's112_artikel_verkauf_stornieren(p_tenant_id uuid, p_verkaufsposten_id uuid, p_grund text)'),   -- KAN-115: Storno des Verkaufs bucht zurück
     ('mandant',       '-US', true , 's112_verarbeitung_stornieren(p_tenant_id uuid, p_id uuid, p_grund text)'),   -- KAN-41 Paket 3a: Storno der Verarbeitung
     ('mandant',       '-US', true , 's112_fuellung_nachtragen(p_tenant_id uuid, p_fuellung_id uuid, p_weinausbau_id uuid, p_dac_antrag_id uuid)'),   -- KAN-101: Charge/DAC-Antrag/Prüfnummer einmal nachtragen
     ('mandant',       '-US', true , 's112_pruefnummernantrag_status_setzen(p_tenant_id uuid, p_antrag_id uuid, p_status text, p_datum date, p_pruefnummer text, p_grund text)'),   -- KAN-97: Statuswechsel
