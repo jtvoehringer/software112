@@ -1,7 +1,7 @@
 // behoerdenmeldung: keller-behandlungen
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import Link from '@/components/ui/Link'
 import { useParams } from 'next/navigation'
@@ -154,6 +154,15 @@ export default function KellerbehandlungenPage() {
   }
 
   useEffect(() => { loadData() }, [behaelterId])
+
+  // KAN-117: aus der Schnellerfassung (?neu=1) gleich das Formular „Neue Behandlung“ öffnen – einmal, nach dem Laden
+  const neuGeoeffnet = useRef(false)
+  useEffect(() => {
+    if (loading || neuGeoeffnet.current) return
+    neuGeoeffnet.current = true
+    if (new URLSearchParams(window.location.search).get('neu') === '1') openNeu()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- openNeu liest den geladenen Stand, einmalig nach dem Laden
+  }, [loading])
 
   function openNeu() {
     setEditId(null)

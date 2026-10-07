@@ -33,6 +33,7 @@ import { freezeSperreAus, sperrMeldung } from '@/lib/freeze/sperre'
 import { statusDatumFehler, statusWechselBuchungsrelevant } from '@/lib/kellerbuch/chargeStatus'
 import { verarbeitungFehler } from '@/lib/kellerbuch/verarbeitung'
 import { zugangskorrekturFehler } from '@/lib/kellerbuch/zugangskorrektur'
+import { NOTIZ_TYP, notizFehler } from '@/lib/keller/schnellerfassung'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -1110,6 +1111,41 @@ export async function legeBehandlungstypAn(name: string, einheit: string | null,
     .select('id, name, einheit_standard, pn_wirkung').single()
   if (error) throw new AktionsFehler(dbFehlerText(error, 'Behandlungstyp konnte nicht angelegt werden'))
   return data as { id: string; name: string; einheit_standard: string | null; pn_wirkung: PnWirkung }
+}
+
+/**
+ * KAN-117: Notiz am Gebinde aus der Schnellerfassung (QR-Code) – eine Kellerbehandlung vom Typ „Notiz“ (Einheit „-“,
+ * ohne Wirkung auf die Prüfnummer; der Typ entsteht beim ersten Mal). Läuft über speichereKellerbehandlung, damit
+ * Charge, Prüfnummer und Protokoll denselben Regeln folgen; erscheint in Behandlungsliste und Bewegungsbuch.
+ */
+export async function kellerNotizErfassen(formData: FormData): Promise<KellerbehandlungErgebnis> {
+  const supabase = await createSupabaseServerClient()
+  const tenantId = await kellerbuchSchreibrecht()
+  const fehler = notizFehler(String(formData.get('notiz') ?? ''))
+  if (fehler) throw new AktionsFehler(fehler)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: vorhanden } = await (supabase.from('keller_behandlungstypen') as any)
+    .select('id').eq('tenant_id', tenantId).ilike('name', NOTIZ_TYP).order('id').limit(1).maybeSingle()
+  let typId = (vorhanden as R | null)?.id as string | undefined
+  if (!typId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: neu, error } = await (supabase.from('keller_behandlungstypen') as any)
+      .insert({ tenant_id: tenantId, name: NOTIZ_TYP, einheit_standard: '-', pn_wirkung: 'pflege' })
+      .select('id').single()
+    if (error) throw new AktionsFehler(dbFehlerText(error, 'Der Typ „Notiz“ konnte nicht angelegt werden'))
+    typId = String((neu as R).id)
+  }
+  const fd = new FormData()
+  fd.set('behaelter_id', String(formData.get('behaelter_id') ?? ''))
+  fd.set('datum', String(formData.get('datum') || wienHeute()))
+  fd.set('typ_id', typId)
+  fd.set('einheit', '-')
+  fd.set('notizen', String(formData.get('notiz')).trim())
+  const charge = String(formData.get('weinausbau_id') ?? '')
+  if (charge) fd.set('weinausbau_id', charge)
+  const erg = await speichereKellerbehandlung(fd)
+  revalidatePath(`/kellerbuch/behaelter/${fd.get('behaelter_id')}`)
+  return erg
 }
 
 /** Einstufung eines Typs ändern – die Datenbank sperrt das, sobald der Typ in einer Charge mit Prüfnummer verwendet wurde */
