@@ -6,6 +6,8 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import KellerplanEditor from './KellerplanEditor'
+import { schreibSperre } from '@/lib/auth/sperren'
+import type { PlanCharge } from '@/lib/keller/kellerplanZiehen'
 import PrintButton from './PrintButton'
 
 export const dynamic = 'force-dynamic'
@@ -30,8 +32,10 @@ export default async function KellerplanEditorPage({ params }: { params: Promise
   const { id } = await params
   const supabase = await createSupabaseServerClient()
   const role     = await getCurrentUserRole()
-  const writeOk  = canWrite(role, 'kellerbuch')
   const membership = await getCurrentMembership()
+  // KAN-106: im Nur-Lesen-Modus (Abo, KAN-5) kein Ziehen und kein Buchen – nur der Gebinde-Dialog
+  const nurLesen = canWrite(role, 'kellerbuch') && !!(await schreibSperre(membership))
+  const writeOk  = canWrite(role, 'kellerbuch') && !nurLesen
   const tenantId    = membership?.tenantId ?? null
   // Explizite Tenant-Filterung zusätzlich zu RLS: RLS erlaubt Zeilen aus JEDER Mitgliedschaft
   // des Nutzers, nicht nur dem aktiv gewählten Betrieb – ohne diesen Filter könnten bei
@@ -68,7 +72,7 @@ export default async function KellerplanEditorPage({ params }: { params: Promise
     // Aktuelle Weinchargen je Behälter (für Beschriftung + Füllstand auf dem Plan
     // + Sprung zu "Abfüllen" im Gebinde-Dialog)
     alle(tf((supabase.from('weinausbau') as any)
-      .select('id, behaelter_id, name, jahrgang, rebsorte, menge_liter')
+      .select('id, behaelter_id, name, jahrgang, rebsorte, menge_liter, weinart, qualitaetsstufe, zusatzbezeichnung, erzeugnis, herkunft_code')
       .not('behaelter_id', 'is', null)
       .not('status', 'eq', 'abgeschlossen')
       .eq('aktiv', true).order('id'))),
@@ -102,6 +106,21 @@ export default async function KellerplanEditorPage({ params }: { params: Promise
       weinMap[w.behaelter_id] = { weinausbauId: w.id, name: w.name, jahrgang: w.jahrgang ?? null, rebsorte: w.rebsorte ?? null }
     }
   }
+
+  // KAN-114: alle eigenen Chargen je Gebinde (größte zuerst) mit Merkmalen – Quelle und Ziel beim Ziehen
+  const chargen: Record<string, PlanCharge[]> = {}
+  for (const w of (weinRaw ?? []) as R[]) {
+    const menge = parseFloat(w.menge_liter) || 0
+    if (!w.behaelter_id || menge <= 0.005) continue
+    ;(chargen[w.behaelter_id] ??= []).push({
+      id: w.id, name: w.name, menge_liter: menge, jahrgang: w.jahrgang ?? null, rebsorte: w.rebsorte ?? null, weinart: w.weinart ?? null,
+      qualitaetsstufe: w.qualitaetsstufe ?? null, zusatzbezeichnung: w.zusatzbezeichnung ?? null, erzeugnis: w.erzeugnis ?? null,
+      herkunft_code: w.herkunft_code ?? null,
+    })
+  }
+  for (const l of Object.values(chargen)) l.sort((a, b) => b.menge_liter - a.menge_liter)
+  const gebindeInfo: Record<string, { gesperrt: boolean; fremd_betrieb: string | null }> = {}
+  for (const b of behaelterRows) gebindeInfo[b.id] = { gesperrt: !!b.gesperrt, fremd_betrieb: b.fremd_betrieb ?? null }
 
   // Positionen als Map für den Editor
   const posMap: Record<string, { pos_x_pct: number; pos_y_pct: number; breite_pct: number; hoehe_pct: number }> = {}
@@ -146,6 +165,9 @@ export default async function KellerplanEditorPage({ params }: { params: Promise
         weinMap={weinMap}
         fillMap={fillMap}
         writeOk={writeOk}
+        nurLesen={nurLesen}
+        chargen={chargen}
+        gebindeInfo={gebindeInfo}
       />
 
       {/* Print-Datum */}
