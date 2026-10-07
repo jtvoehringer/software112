@@ -132,7 +132,10 @@ function JahrgangKarte({ j, writeOk, adminOk }: { j: Jahrgang; writeOk: boolean;
         <>
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
-              <div className="text-4xl font-semibold text-s112-blue-700 tabular-nums">{j.jahrgang}</div>
+              <Link href={`/erntemeldung/${j.id}`} aria-label={`Jahrgang ${j.jahrgang}`}
+                className="text-4xl font-semibold text-s112-blue-700 tabular-nums hover:underline">
+                {j.jahrgang}
+              </Link>
               <div>
                 {j.qualitaet_gesamt && (
                   <p className="text-sm font-medium text-s112-text-1">{QUALITAET_LABEL[j.qualitaet_gesamt]}</p>
@@ -166,10 +169,6 @@ function JahrgangKarte({ j, writeOk, adminOk }: { j: Jahrgang; writeOk: boolean;
               {j.abgeschlossen && (
                 <span className="text-xs px-2 py-1 rounded-full bg-[#F2F3F5] text-s112-text-2">Abgeschlossen</span>
               )}
-              <Link href={`/erntemeldung/${j.id}`}
-                className="bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-s112-teal/90 transition-colors">
-                Öffnen
-              </Link>
               {writeOk && (
                 <button onClick={() => setEditing(true)}
                   title="Bearbeiten" aria-label="Bearbeiten"
