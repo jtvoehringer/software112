@@ -10,6 +10,7 @@
 
 DO $test$
 DECLARE
+  v_heute date := (now() AT TIME ZONE 'Europe/Vienna')::date;   -- wie die RPCs (Wiener Zeit, nicht UTC)
   c_datei constant text := '33_kellerbehandlung_sperre';
   c_rpc   constant text := 'SELECT public.s112_pruefnummernantrag_status_setzen(%L::uuid, %L::uuid, %L, %L::date, %L, %L)';
   c_upd   constant text := 'UPDATE public.keller_behandlungen SET %s WHERE id = %L';
@@ -49,12 +50,12 @@ BEGIN
   -- Antrag eingereicht vor 20 Tagen → Prüfnummer der Charge v_wa gilt ab dann
   PERFORM pg_temp.s112_als(v_bw);
   v_erg := v_erg || pg_temp.s112_erwarte('einreichen',
-    pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d, 'eingereicht', current_date - 20, NULL, NULL)), 'ok');
+    pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d, 'eingereicht', v_heute - 20, NULL, NULL)), 'ok');
   PERFORM pg_temp.s112_als_postgres();
-  v_k1 := (pg_temp.s112_beispiel('keller_behandlungen', v_b, NULL, jsonb_build_object('weinausbau_id', v_wa, 'typ_id', v_typ, 'datum', current_date - 5, 'menge', 10)) ->> 'id')::uuid;
-  v_k2 := (pg_temp.s112_beispiel('keller_behandlungen', v_b, NULL, jsonb_build_object('weinausbau_id', v_wb, 'typ_id', v_typ, 'datum', current_date - 5, 'menge', 10)) ->> 'id')::uuid;
-  v_k3 := (pg_temp.s112_beispiel('keller_behandlungen', v_b, NULL, jsonb_build_object('weinausbau_id', v_wa, 'typ_id', v_typ, 'datum', current_date - 30, 'menge', 10)) ->> 'id')::uuid;
-  v_k4 := (pg_temp.s112_beispiel('keller_behandlungen', v_b, NULL, jsonb_build_object('weinausbau_id', v_wa, 'typ_id', v_typ, 'datum', current_date - 1, 'menge', 10)) ->> 'id')::uuid;
+  v_k1 := (pg_temp.s112_beispiel('keller_behandlungen', v_b, NULL, jsonb_build_object('weinausbau_id', v_wa, 'typ_id', v_typ, 'datum', v_heute - 5, 'menge', 10)) ->> 'id')::uuid;
+  v_k2 := (pg_temp.s112_beispiel('keller_behandlungen', v_b, NULL, jsonb_build_object('weinausbau_id', v_wb, 'typ_id', v_typ, 'datum', v_heute - 5, 'menge', 10)) ->> 'id')::uuid;
+  v_k3 := (pg_temp.s112_beispiel('keller_behandlungen', v_b, NULL, jsonb_build_object('weinausbau_id', v_wa, 'typ_id', v_typ, 'datum', v_heute - 30, 'menge', 10)) ->> 'id')::uuid;
+  v_k4 := (pg_temp.s112_beispiel('keller_behandlungen', v_b, NULL, jsonb_build_object('weinausbau_id', v_wa, 'typ_id', v_typ, 'datum', v_heute - 1, 'menge', 10)) ->> 'id')::uuid;
 
   -- ── 1. Sperre bei Charge mit Prüfnummer ───────────────────────────────────────────────────────────────
   PERFORM pg_temp.s112_als(v_bw);
@@ -89,16 +90,16 @@ BEGIN
   -- ── 3. Kellerbuch-Periodensperre ──────────────────────────────────────────────────────────────────────
   PERFORM pg_temp.s112_als(v_bta);
   v_erg := v_erg || pg_temp.s112_erwarte('abschliessen',
-    pg_temp.s112_fehlertext(format('SELECT public.kellerbuch_abschliessen(%L, current_date - 3)', v_b)), 'ok');
+    pg_temp.s112_fehlertext(format('SELECT public.kellerbuch_abschliessen(%L, pg_temp.s112_heute() - 3)', v_b)), 'ok');
   PERFORM pg_temp.s112_als(v_bw);
   v_erg := v_erg || pg_temp.s112_erwarte('periode_anlegen',
     pg_temp.s112_versuch(format('INSERT INTO public.keller_behandlungen (tenant_id, behaelter_id, typ_id, typ_name_snapshot, datum, menge, einheit, weinausbau_id) '
-      || 'SELECT tenant_id, behaelter_id, typ_id, typ_name_snapshot, current_date - 4, 1, einheit, weinausbau_id FROM public.keller_behandlungen WHERE id = %L', v_k2)), 'T');
+      || 'SELECT tenant_id, behaelter_id, typ_id, typ_name_snapshot, pg_temp.s112_heute() - 4, 1, einheit, weinausbau_id FROM public.keller_behandlungen WHERE id = %L', v_k2)), 'T');
   v_erg := v_erg || pg_temp.s112_erwarte('periode_aendern',
     pg_temp.s112_versuch(format(c_upd, 'menge = 13', v_k2)), 'T');
   v_erg := v_erg || pg_temp.s112_erwarte('nach_abschluss_anlegen',
     pg_temp.s112_versuch(format('INSERT INTO public.keller_behandlungen (tenant_id, behaelter_id, typ_id, typ_name_snapshot, datum, menge, einheit, weinausbau_id) '
-      || 'SELECT tenant_id, behaelter_id, typ_id, typ_name_snapshot, current_date, 1, einheit, weinausbau_id FROM public.keller_behandlungen WHERE id = %L', v_k2)), 'k1');
+      || 'SELECT tenant_id, behaelter_id, typ_id, typ_name_snapshot, pg_temp.s112_heute(), 1, einheit, weinausbau_id FROM public.keller_behandlungen WHERE id = %L', v_k2)), 'k1');
 
   PERFORM pg_temp.s112_als_postgres();
   v_erg := v_erg || pg_temp.s112_erwarte('kennzeichen_leer', coalesce(current_setting('s112.freeze_frei', true), ''), '');

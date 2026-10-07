@@ -12,6 +12,7 @@
 
 DO $test$
 DECLARE
+  v_heute date := (now() AT TIME ZONE 'Europe/Vienna')::date;   -- wie die RPCs (Wiener Zeit, nicht UTC)
   c_datei constant text := '26_zukauf_verschnitt';
   c_m     constant uuid := '33333333-3333-4333-8333-333333333333';
   v_t0    timestamptz;
@@ -53,7 +54,7 @@ BEGIN
   v_kb := (pg_temp.s112_beispiel('kontakte', v_b, v_bw) ->> 'id')::uuid;
 
   -- Zukauf Grüner Veltliner 200 L in v_g1 (dort Riesling 1000 L) → sofort Verschnitt in v_z
-  v_zk := jsonb_build_object('datum', current_date, 'art', 'wein', 'lieferant_kontakt_id', v_kb, 'weinart', 'weiss',
+  v_zk := jsonb_build_object('datum', v_heute, 'art', 'wein', 'lieferant_kontakt_id', v_kb, 'weinart', 'weiss',
     'rebsorte', 'Grüner Veltliner', 'jahrgang', 2025, 'qualitaetsstufe', 'qualitaetswein', 'menge', 200, 'einheit', 'L',
     'notizen', 'S112TEST Zukauf');
   v_ch := jsonb_build_object('name', 'Grüner Veltliner', 'rebsorte', 'Grüner Veltliner', 'behaelter_id', v_g1, 'jahrgang', 2025,
@@ -81,7 +82,7 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('eine_aktive_charge',
     pg_temp.s112_zaehle(format('SELECT count(*) FROM public.weinausbau WHERE tenant_id = %L AND behaelter_id = %L AND aktiv AND status <> %L', v_b, v_g1, 'abgeschlossen')), '1');
   v_erg := v_erg || pg_temp.s112_erwarte('verschnitt_quelle_zukauf',
-    pg_temp.s112_zaehle(format('SELECT count(*) FROM public.verschneidungen v JOIN public.verschneidung_quellen q ON q.verschneidung_id = v.id JOIN public.zukauf_posten z ON z.ziel_weinausbau_id = q.quell_weinausbau_id WHERE v.tenant_id = %L AND v.ziel_weinausbau_id = %L AND q.menge_liter = 200 AND v.datum = current_date AND z.notizen = %L', v_b, v_z, 'S112TEST Zukauf')), '1');
+    pg_temp.s112_zaehle(format('SELECT count(*) FROM public.verschneidungen v JOIN public.verschneidung_quellen q ON q.verschneidung_id = v.id JOIN public.zukauf_posten z ON z.ziel_weinausbau_id = q.quell_weinausbau_id WHERE v.tenant_id = %L AND v.ziel_weinausbau_id = %L AND q.menge_liter = 200 AND v.datum = pg_temp.s112_heute() AND z.notizen = %L', v_b, v_z, 'S112TEST Zukauf')), '1');
 
   -- ── 2. Ohne Verschnitt (leeres Gebinde) und Trauben ohne Charge ───────────────────────────────────────
   PERFORM pg_temp.s112_als(v_bw);
@@ -90,7 +91,7 @@ BEGIN
       v_zk || jsonb_build_object('notizen', 'S112TEST Zukauf 2'), v_ch || jsonb_build_object('behaelter_id', v_g2))), 'ok');
   v_erg := v_erg || pg_temp.s112_erwarte('zukauf_trauben',
     pg_temp.s112_fehlertext(format('SELECT public.s112_zukauf_buchen(%L, %L::jsonb)', v_b,
-      jsonb_build_object('datum', current_date, 'art', 'trauben', 'menge', 500, 'einheit', 'kg', 'notizen', 'S112TEST Trauben'))), 'ok');
+      jsonb_build_object('datum', v_heute, 'art', 'trauben', 'menge', 500, 'einheit', 'kg', 'notizen', 'S112TEST Trauben'))), 'ok');
   PERFORM pg_temp.s112_als_postgres();
   v_erg := v_erg || pg_temp.s112_erwarte('ohne_verschnitt_charge_aktiv',
     pg_temp.s112_zaehle(format('SELECT count(*) FROM public.weinausbau w JOIN public.zukauf_posten z ON z.ziel_weinausbau_id = w.id WHERE z.tenant_id = %L AND z.notizen = %L AND w.menge_liter = 200 AND w.aktiv AND w.behaelter_id = %L', v_b, 'S112TEST Zukauf 2', v_g2)), '1');
@@ -101,13 +102,13 @@ BEGIN
   PERFORM pg_temp.s112_als(v_bw);
   v_erg := v_erg || pg_temp.s112_erwarte('lieferant_fremd',
     split_part(pg_temp.s112_fehlertext(format('SELECT public.s112_zukauf_buchen(%L, %L::jsonb)', v_b,
-      jsonb_build_object('datum', current_date, 'art', 'trauben', 'menge', 1, 'einheit', 'kg', 'lieferant_kontakt_id', v_km))), ':', 1), '42501');
+      jsonb_build_object('datum', v_heute, 'art', 'trauben', 'menge', 1, 'einheit', 'kg', 'lieferant_kontakt_id', v_km))), ':', 1), '42501');
   v_erg := v_erg || pg_temp.s112_erwarte('charge_fremdgebinde',
     split_part(pg_temp.s112_fehlertext(format('SELECT public.s112_zukauf_buchen(%L, %L::jsonb, %L::jsonb)', v_b,
       v_zk || jsonb_build_object('notizen', 'S112TEST fremd'), v_ch || jsonb_build_object('behaelter_id', v_gm))), ':', 1), '42501');
   v_erg := v_erg || pg_temp.s112_erwarte('feld_zukauf_verboten',
     split_part(pg_temp.s112_fehlertext(format('SELECT public.s112_zukauf_buchen(%L, %L::jsonb)', v_b,
-      jsonb_build_object('datum', current_date, 'art', 'trauben', 'menge', 1, 'einheit', 'kg', 'tenant_id', c_m))), ':', 1), '22023');
+      jsonb_build_object('datum', v_heute, 'art', 'trauben', 'menge', 1, 'einheit', 'kg', 'tenant_id', c_m))), ':', 1), '22023');
   v_erg := v_erg || pg_temp.s112_erwarte('feld_charge_verboten',
     split_part(pg_temp.s112_fehlertext(format('SELECT public.s112_zukauf_buchen(%L, %L::jsonb, %L::jsonb)', v_b,
       v_zk, v_ch || jsonb_build_object('aktiv', false))), ':', 1), '22023');
@@ -131,15 +132,15 @@ BEGIN
   PERFORM pg_temp.s112_als(v_bl);
   v_erg := v_erg || pg_temp.s112_erwarte('buchen_leser',
     split_part(pg_temp.s112_fehlertext(format('SELECT public.s112_zukauf_buchen(%L, %L::jsonb)', v_b,
-      jsonb_build_object('datum', current_date, 'art', 'trauben', 'menge', 1, 'einheit', 'kg'))), ':', 1), '42501');
+      jsonb_build_object('datum', v_heute, 'art', 'trauben', 'menge', 1, 'einheit', 'kg'))), ':', 1), '42501');
   PERFORM pg_temp.s112_als(v_mta);
   v_erg := v_erg || pg_temp.s112_erwarte('buchen_fremd',
     split_part(pg_temp.s112_fehlertext(format('SELECT public.s112_zukauf_buchen(%L, %L::jsonb)', v_b,
-      jsonb_build_object('datum', current_date, 'art', 'trauben', 'menge', 1, 'einheit', 'kg'))), ':', 1), '42501');
+      jsonb_build_object('datum', v_heute, 'art', 'trauben', 'menge', 1, 'einheit', 'kg'))), ':', 1), '42501');
   PERFORM pg_temp.s112_als(v_bk);
   v_erg := v_erg || pg_temp.s112_erwarte('ohne_warenwirtschaft',
     split_part(pg_temp.s112_fehlertext(format('SELECT public.s112_zukauf_buchen(%L, %L::jsonb)', v_b,
-      jsonb_build_object('datum', current_date, 'art', 'trauben', 'menge', 1, 'einheit', 'kg'))), ':', 1), '42501');
+      jsonb_build_object('datum', v_heute, 'art', 'trauben', 'menge', 1, 'einheit', 'kg'))), ':', 1), '42501');
   PERFORM pg_temp.s112_als_postgres();
 
   PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 21);

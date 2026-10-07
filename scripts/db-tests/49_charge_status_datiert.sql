@@ -22,6 +22,7 @@ END $f$;
 
 DO $test$
 DECLARE
+  v_heute date := (now() AT TIME ZONE 'Europe/Vienna')::date;   -- wie die RPCs (Wiener Zeit, nicht UTC)
   c_datei constant text := '49_charge_status_datiert';
   c_rpc   constant text := 'SELECT public.s112_charge_status_setzen(%L::uuid, %L::uuid, %L, %L::date)';
   v_t0    timestamptz;
@@ -43,11 +44,11 @@ BEGIN
   v_m := (v_a ->> 'm')::uuid;
   v_bw := (v_a ->> 'b_w')::uuid;
   v_bl := (v_a ->> 'b_l')::uuid;
-  UPDATE public.tenant_einstellungen SET journal_ab = current_date - 30 WHERE tenant_id = v_b;
+  UPDATE public.tenant_einstellungen SET journal_ab = v_heute - 30 WHERE tenant_id = v_b;
   v_wa := (pg_temp.s112_beispiel('weinausbau', v_b, NULL, '{"menge_liter": "500", "status": "gaerung", "qualitaetsstufe": "qualitaetswein"}') ->> 'id')::uuid;
   v_wm := (pg_temp.s112_beispiel('weinausbau', v_m, NULL, '{"menge_liter": "100", "status": "gaerung"}') ->> 'id')::uuid;
   PERFORM pg_temp.s112_beispiel('kellerbuch_buchungen', v_b, NULL, jsonb_build_object('weinausbau_id', v_wa, 'menge_liter', 500,
-    'datum', current_date - 5, 'charge_status', 'gaerung', 'qualitaetsstufe', 'qualitaetswein'));
+    'datum', v_heute - 5, 'charge_status', 'gaerung', 'qualitaetsstufe', 'qualitaetswein'));
 
   -- ── Mutationen ────────────────────────────────────────────────────────────────────────────────────────
   PERFORM pg_temp.s112_mutiere('datum_ignoriert',
@@ -60,31 +61,31 @@ BEGIN
   -- ── 1. Ablehnungen ────────────────────────────────────────────────────────────────────────────────────
   PERFORM pg_temp.s112_als(v_bw);
   v_erg := v_erg || pg_temp.s112_erwarte('datum_zukunft',
-    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_wa, 'ausbau', current_date + 1)), ':', 1), '22023');
+    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_wa, 'ausbau', v_heute + 1)), ':', 1), '22023');
   v_erg := v_erg || pg_temp.s112_erwarte('vor_letzter_bewegung',
-    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_wa, 'ausbau', current_date - 10)), ':', 1), '22023');
+    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_wa, 'ausbau', v_heute - 10)), ':', 1), '22023');
   v_erg := v_erg || pg_temp.s112_erwarte('unbekannter_status',
-    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_wa, 'fertig', current_date)), ':', 1), '22023');
+    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_wa, 'fertig', v_heute)), ':', 1), '22023');
   v_erg := v_erg || pg_temp.s112_erwarte('idor_fremde_charge',
-    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_wm, 'ausbau', current_date)), ':', 1), 'P0002');
+    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_wm, 'ausbau', v_heute)), ':', 1), 'P0002');
   v_erg := v_erg || pg_temp.s112_erwarte('fremder_betrieb',
-    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_m, v_wm, 'ausbau', current_date)), ':', 1), '42501');
+    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_m, v_wm, 'ausbau', v_heute)), ':', 1), '42501');
   PERFORM pg_temp.s112_als(v_bl);
   v_erg := v_erg || pg_temp.s112_erwarte('leser_nicht',
-    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_wa, 'ausbau', current_date)), ':', 1), '42501');
+    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_wa, 'ausbau', v_heute)), ':', 1), '42501');
   PERFORM pg_temp.s112_als_postgres();
-  INSERT INTO public.kellerbuch_abschluesse (tenant_id, abgeschlossen_bis, bemerkung) VALUES (v_b, current_date - 4, 'S112TEST');
+  INSERT INTO public.kellerbuch_abschluesse (tenant_id, abgeschlossen_bis, bemerkung) VALUES (v_b, v_heute - 4, 'S112TEST');
   PERFORM pg_temp.s112_als(v_bw);
   v_erg := v_erg || pg_temp.s112_erwarte('abschluss_gesperrt',
-    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_wa, 'ausbau', current_date - 4)), ':', 1), '42501');
+    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_wa, 'ausbau', v_heute - 4)), ':', 1), '42501');
 
   -- ── 2. Wechsel Gärung → Ausbau vor 3 Tagen ────────────────────────────────────────────────────────────
-  EXECUTE format(c_rpc, v_b, v_wa, 'ausbau', current_date - 3);
+  EXECUTE format(c_rpc, v_b, v_wa, 'ausbau', v_heute - 3);
   PERFORM pg_temp.s112_als_postgres();
   v_erg := v_erg || pg_temp.s112_erwarte('status_gesetzt',
     (SELECT status FROM public.weinausbau WHERE id = v_wa), 'ausbau');
   v_erg := v_erg || pg_temp.s112_erwarte('paar_am_datum',
-    (SELECT string_agg(k.buchungsart_code || '@' || (current_date - k.datum)::text, ',' ORDER BY k.buchungsart_code)
+    (SELECT string_agg(k.buchungsart_code || '@' || (v_heute - k.datum)::text, ',' ORDER BY k.buchungsart_code)
        FROM public.kellerbuch_buchungen k WHERE k.weinausbau_id = v_wa AND k.buchungsart_code IN ('AB_ABW', 'ZU_ABW')),
     'AB_ABW@3,ZU_ABW@3');
 

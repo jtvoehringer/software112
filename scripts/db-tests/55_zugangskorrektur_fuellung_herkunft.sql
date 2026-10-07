@@ -29,7 +29,7 @@ DO $test$
 DECLARE
   c_datei constant text := '55_zugangskorrektur_fuellung_herkunft';
   c_rpc   constant text := 'SELECT public.s112_zugangskorrektur_buchen(%L::uuid, %L::uuid, %L::date, %s, %L, %L)';
-  c_fue   constant text := 'INSERT INTO public.fuellungen (tenant_id, name, datum, anzahl_flaschen, bestand_flaschen, flaschengroesse_ml, weinausbau_id, import_quelle) VALUES (%L, %L, current_date, 10, 10, 750, %L, %L)';
+  c_fue   constant text := 'INSERT INTO public.fuellungen (tenant_id, name, datum, anzahl_flaschen, bestand_flaschen, flaschengroesse_ml, weinausbau_id, import_quelle) VALUES (%L, %L, pg_temp.s112_heute(), 10, 10, 750, %L, %L)';
   v_t0    timestamptz;
   v_heute date := (now() AT TIME ZONE 'Europe/Vienna')::date;   -- wie die RPC (Wiener Zeit, nicht UTC)
   v_erg   text[] := '{}';
@@ -97,7 +97,7 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('fremde_charge',
     split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_wm, v_heute - 3, 20, 'inventur', 'S112TEST Inventur-Plus')), ':', 1), 'P0002');
   v_erg := v_erg || pg_temp.s112_erwarte('direkt_per_api',
-    split_part(pg_temp.s112_fehlertext(format('INSERT INTO public.keller_zugangskorrekturen (tenant_id, weinausbau_id, datum, menge_liter, art, grund) VALUES (%L, %L, current_date, 1, %L, %L)',
+    split_part(pg_temp.s112_fehlertext(format('INSERT INTO public.keller_zugangskorrekturen (tenant_id, weinausbau_id, datum, menge_liter, art, grund) VALUES (%L, %L, pg_temp.s112_heute(), 1, %L, %L)',
       v_b, v_wa, 'inventur', 'S112TEST direkt per API')), ':', 1), '42501');
 
   -- ── 2. 20 L Inventur-Plus vor 3 Tagen ─────────────────────────────────────────────────────────────────

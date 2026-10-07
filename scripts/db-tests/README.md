@@ -20,7 +20,13 @@ npm run test:db -- --ausfuehrlich            # auch die Namen der OK-Prüfungen
 npm run test:db -- --streng                  # BEKANNT zählt als Fehler (z. B. Sicherheitsreview)
 npm run test:db -- --liste                   # Dateien, Ziele, Mutationen, statische Prüfung – ohne DB
 npm run test:db -- --json lauf.json          # maschinenlesbare Zusammenfassung (nie einchecken)
+npm run test:db -- --zeitzone Etc/GMT+12     # Sitzungs-Zeitzone im Test: current_date ≠ Wiener Datum erzwingen
 ```
+
+`--zeitzone` simuliert jederzeit, was sonst nur zwischen 00:00 und 01:00/02:00 Wiener Zeit auffällt (UTC-Tag der
+Sitzung ≠ Wiener Tag der RPCs): vormittags (Wien) `Etc/GMT+12` (Sitzung am Vortag), nachmittags `Etc/GMT-14`
+(Sitzung am Folgetag). Der Wächter setzt die Zone transaktionslokal; nach Änderungen an Datumsprüfungen in RPCs
+die Suite einmal so laufen lassen. Datei 56 verschiebt die Zone für ihre Prüfungen selbst.
 
 Voraussetzung: angemeldete Supabase-CLI (`npx supabase login` bzw. `SUPABASE_ACCESS_TOKEN`). Die CLI kommt
 aus dem npx-Cache und ist nicht fixiert (Stand 2.118.0); der Runner protokolliert die Version und liest die
@@ -87,6 +93,10 @@ Senden und bricht sonst ab:
   `s112_ende` im Handler, liefe es ohne Fehler nie, und der Block endete ohne `RAISE` = festgeschrieben.
 - `DECLARE` nur mit Konstanten, `gen_random_uuid()`, `clock_timestamp()` u. Ä. – alles andere liefe **vor** dem
   Wächter (Aufbau also nach `BEGIN`: `v_a := pg_temp.s112_aufbau();`).
+- **„Heute“ ist das Wiener Datum** wie in den RPCs: `v_heute date := (now() AT TIME ZONE 'Europe/Vienna')::date;`
+  im `DECLARE`, Rechnungen mit `v_heute ± n`; in SQL-Texten (`format`/`EXECUTE`) und eigenen `pg_temp`-Funktionen
+  `pg_temp.s112_heute()`. `current_date` lehnt der Runner ab (auch in Strings, nicht in Kommentaren): mit der
+  Sitzungs-Zeitzone UTC liegt es zwischen 00:00 und 01:00/02:00 Wiener Zeit einen Tag zurück (Befund 07.10.2026).
 - Verboten (auch in `EXECUTE`-Strings): `COMMIT`, `ROLLBACK`, `SAVEPOINT`, `BEGIN;`, `START/PREPARE TRANSACTION`,
   `END WORK`, `ABORT`, `ALTER SYSTEM/DATABASE/ROLE`, `COMMENT ON DATABASE`, `CREATE EXTENSION`, `dblink`,
   `pg_terminate_backend`, `COPY … PROGRAM`, Ändern/Löschen von `pg_temp`-Funktionen; im Block kein `RETURN` und
@@ -252,6 +262,8 @@ Staging-Tabellen und laufen deshalb nur auf Anforderung.
 - **Neue Stammdatentabelle mit Löschsperre** (`a_stammdaten_loeschsperre`, KAN-150 F1a) → `s112_soll_liste('stammdaten_loeschsperre')`
   (Katalog in 20; 13 und 14 ersetzen Beispielzeilen mit Bezug durch frische Zeilen ohne Bezug).
 - **Neues Geheimnis** → `s112_soll_liste('geheimnis_spalten')` (01, 16).
+- **Neue Funktion oder Spalten-Default mit „heute“** → `(now() AT TIME ZONE 'Europe/Vienna')::date`, nie `current_date`
+  oder `<timestamptz>::date` (56 meldet jede Funktion in `public` außer `demo_*`/`s112_smoke_test` und jeden Default).
 - **Lücke behoben** → `s112_luecke` in eine harte Prüfung umwandeln bzw. Baseline in `s112_soll_liste` senken.
 - **Nach jeder Migration mit RLS-, Trigger- oder RPC-Änderung**: zuerst auf Staging einspielen, dann
   `npm run test:db`, erst danach Produktion.

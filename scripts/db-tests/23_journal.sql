@@ -71,7 +71,7 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('aus_umzug_winzer',
     pg_temp.s112_fehlertext(format('UPDATE public.weinausbau SET menge_liter = menge_liter - 10 WHERE id = %L', v_c1)), 'ok');
   v_erg := v_erg || pg_temp.s112_erwarte('aus_umzug_zeile',
-    pg_temp.s112_fehlertext(format('INSERT INTO public.keller_umzuege (tenant_id, datum, von_weinausbau_id, nach_weinausbau_id, menge_liter, schwund_liter, umzug_typ, zeilen_typ, verschnitt) VALUES (%L, current_date, %L, %L, 10, 0, %L, %L, false)',
+    pg_temp.s112_fehlertext(format('INSERT INTO public.keller_umzuege (tenant_id, datum, von_weinausbau_id, nach_weinausbau_id, menge_liter, schwund_liter, umzug_typ, zeilen_typ, verschnitt) VALUES (%L, pg_temp.s112_heute(), %L, %L, 10, 0, %L, %L, false)',
       v_b, v_c1, v_c2, 'normal', 'transfer')), 'ok');
   v_erg := v_erg || pg_temp.s112_erwarte('aus_umzug_ziel',
     pg_temp.s112_fehlertext(format('UPDATE public.weinausbau SET menge_liter = menge_liter + 10 WHERE id = %L', v_c2)), 'ok');
@@ -81,17 +81,17 @@ BEGIN
 
   -- ── 2. Eröffnen: Rollen, einmalig, EROEFF des Ist-Bestands ────────────────────────────────────────────
   PERFORM pg_temp.s112_als(v_bl);
-  v_erg := v_erg || pg_temp.s112_erwarte('eroeffnen_leser', pg_temp.s112_versuch(format('SELECT public.journal_eroeffnen(%L, current_date)', v_b)), 'T');
+  v_erg := v_erg || pg_temp.s112_erwarte('eroeffnen_leser', pg_temp.s112_versuch(format('SELECT public.journal_eroeffnen(%L, pg_temp.s112_heute())', v_b)), 'T');
   PERFORM pg_temp.s112_als(v_bw);
-  v_erg := v_erg || pg_temp.s112_erwarte('eroeffnen_winzer', pg_temp.s112_versuch(format('SELECT public.journal_eroeffnen(%L, current_date)', v_b)), 'T');
+  v_erg := v_erg || pg_temp.s112_erwarte('eroeffnen_winzer', pg_temp.s112_versuch(format('SELECT public.journal_eroeffnen(%L, pg_temp.s112_heute())', v_b)), 'T');
   PERFORM pg_temp.s112_als(v_mta);
-  v_erg := v_erg || pg_temp.s112_erwarte('eroeffnen_fremd', pg_temp.s112_versuch(format('SELECT public.journal_eroeffnen(%L, current_date)', v_b)), 'T');
+  v_erg := v_erg || pg_temp.s112_erwarte('eroeffnen_fremd', pg_temp.s112_versuch(format('SELECT public.journal_eroeffnen(%L, pg_temp.s112_heute())', v_b)), 'T');
   PERFORM pg_temp.s112_als(v_bta);
   v_erg := v_erg || pg_temp.s112_erwarte('eroeffnen_zukunft',
-    pg_temp.s112_versuch(format('SELECT public.journal_eroeffnen(%L, current_date + 400)', v_b)), 'E22023');
+    pg_temp.s112_versuch(format('SELECT public.journal_eroeffnen(%L, pg_temp.s112_heute() + 400)', v_b)), 'E22023');
   v_erg := v_erg || pg_temp.s112_erwarte('eroeffnen_ta',
-    pg_temp.s112_fehlertext(format('SELECT public.journal_eroeffnen(%L, current_date)', v_b)), 'ok');
-  v_erg := v_erg || pg_temp.s112_erwarte('eroeffnen_zweimal', pg_temp.s112_versuch(format('SELECT public.journal_eroeffnen(%L, current_date)', v_b)), 'E55000');
+    pg_temp.s112_fehlertext(format('SELECT public.journal_eroeffnen(%L, pg_temp.s112_heute())', v_b)), 'ok');
+  v_erg := v_erg || pg_temp.s112_erwarte('eroeffnen_zweimal', pg_temp.s112_versuch(format('SELECT public.journal_eroeffnen(%L, pg_temp.s112_heute())', v_b)), 'E55000');
   PERFORM pg_temp.s112_als_postgres();
   v_erg := v_erg || pg_temp.s112_erwarte('eroeffnen_zeilen',
     (SELECT string_agg(format('%s/%s/%s/%s', k.buchungsart_code, k.menge_liter, k.rekonstruiert::text, k.beleg_nr), ',' ORDER BY k.menge_liter)
@@ -105,7 +105,7 @@ BEGIN
   PERFORM pg_temp.s112_als(v_bw);
   PERFORM pg_temp.s112_fehlertext(format('UPDATE public.weinausbau SET menge_liter = menge_liter - 52 WHERE id = %L', v_c1));
   v_erg := v_erg || pg_temp.s112_erwarte('umzug_zeile_winzer',
-    pg_temp.s112_fehlertext(format('INSERT INTO public.keller_umzuege (id, tenant_id, datum, von_weinausbau_id, nach_weinausbau_id, menge_liter, brutto_liter, schwund_liter, umzug_typ, zeilen_typ, verschnitt) VALUES (%L, %L, current_date, %L, %L, 50, 52, 2, %L, %L, false)',
+    pg_temp.s112_fehlertext(format('INSERT INTO public.keller_umzuege (id, tenant_id, datum, von_weinausbau_id, nach_weinausbau_id, menge_liter, brutto_liter, schwund_liter, umzug_typ, zeilen_typ, verschnitt) VALUES (%L, %L, pg_temp.s112_heute(), %L, %L, 50, 52, 2, %L, %L, false)',
       v_u, v_b, v_c1, v_c2, 'normal', 'transfer')), 'ok');
   PERFORM pg_temp.s112_fehlertext(format('UPDATE public.weinausbau SET menge_liter = menge_liter + 50 WHERE id = %L', v_c2));
   PERFORM pg_temp.s112_als_postgres();
@@ -186,7 +186,7 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('lesen_fremd', pg_temp.s112_zaehle(format('SELECT count(*) FROM public.kellerbuch_buchungen WHERE id = %L', v_j)), '0');
   v_erg := v_erg || pg_temp.s112_erwarte('konsistenz_fremd', pg_temp.s112_versuch(format('SELECT count(*) FROM public.journal_konsistenz(%L)', v_b)), 'T');
   PERFORM pg_temp.s112_als(v_bta);
-  v_r := pg_temp.s112_versuch(format('INSERT INTO public.kellerbuch_buchungen (tenant_id, beleg_nr, pos, datum, buchungsart_code, bestand, weinausbau_id, menge_liter, quelle_tabelle) VALUES (%L, 9999, 1, current_date, %L, %L, %L, 1, %L)',
+  v_r := pg_temp.s112_versuch(format('INSERT INTO public.kellerbuch_buchungen (tenant_id, beleg_nr, pos, datum, buchungsart_code, bestand, weinausbau_id, menge_liter, quelle_tabelle) VALUES (%L, 9999, 1, pg_temp.s112_heute(), %L, %L, %L, 1, %L)',
     v_b, 'INV_PLUS', 'offen', v_c1, 's112test'));
   v_erg := v_erg || pg_temp.s112_erwarte('direkt_insert_ta', v_r IN ('R', 'T'), true);
   v_erg := v_erg || pg_temp.s112_erwarte('direkt_update_ta',

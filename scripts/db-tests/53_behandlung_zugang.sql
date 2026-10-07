@@ -21,6 +21,7 @@ END $f$;
 
 DO $test$
 DECLARE
+  v_heute date := (now() AT TIME ZONE 'Europe/Vienna')::date;   -- wie die RPCs (Wiener Zeit, nicht UTC)
   c_datei constant text := '53_behandlung_zugang';
   v_t0    timestamptz;
   v_erg   text[] := '{}';
@@ -38,7 +39,7 @@ BEGIN
   v_a := pg_temp.s112_aufbau();
   v_b := (v_a ->> 'b')::uuid;
   v_bw := (v_a ->> 'b_w')::uuid;
-  UPDATE public.tenant_einstellungen SET journal_ab = current_date - 30 WHERE tenant_id = v_b;
+  UPDATE public.tenant_einstellungen SET journal_ab = v_heute - 30 WHERE tenant_id = v_b;
   v_wa := (pg_temp.s112_beispiel('weinausbau', v_b, NULL, '{"menge_liter": "500", "status": "ausbau", "aktiv": true, "storniert_am": null}') ->> 'id')::uuid;
 
   -- ── Mutationen ────────────────────────────────────────────────────────────────────────────────────────
@@ -58,12 +59,12 @@ BEGIN
       jsonb_build_object('zugang_liter', 0, 'weinausbau_id', v_wa, 'storniert_am', NULL))), ':', 1), '23514');
 
   -- ── 2. Süßreserve 30 L vor 2 Tagen ────────────────────────────────────────────────────────────────────
-  v_kb := (pg_temp.s112_beispiel('keller_behandlungen', v_b, v_bw, jsonb_build_object('weinausbau_id', v_wa, 'datum', current_date - 2,
+  v_kb := (pg_temp.s112_beispiel('keller_behandlungen', v_b, v_bw, jsonb_build_object('weinausbau_id', v_wa, 'datum', v_heute - 2,
     'zugang_liter', 30, 'storniert_am', NULL)) ->> 'id')::uuid;
   v_erg := v_erg || pg_temp.s112_erwarte('bestand_zugang',
     (SELECT w.menge_liter::numeric(10, 0)::text FROM public.weinausbau w WHERE w.id = v_wa), '530');
   v_erg := v_erg || pg_temp.s112_erwarte('journal_zu_beh',
-    (SELECT string_agg(k.buchungsart_code || '=' || k.menge_liter::numeric(10, 0)::text || '@' || (current_date - k.datum)::text, ',')
+    (SELECT string_agg(k.buchungsart_code || '=' || k.menge_liter::numeric(10, 0)::text || '@' || (v_heute - k.datum)::text, ',')
        FROM public.kellerbuch_buchungen k WHERE k.quelle_tabelle = 'keller_behandlungen' AND k.quelle_id = v_kb),
     'ZU_BEH=30@2');
 
@@ -82,7 +83,7 @@ BEGIN
     (SELECT sum(k.menge_liter)::numeric(10, 0)::text FROM public.kellerbuch_buchungen k WHERE k.quelle_tabelle = 'keller_behandlungen' AND k.quelle_id = v_kb), '0');
 
   -- ── 5. Rücknahme ohne Bestand abgelehnt ───────────────────────────────────────────────────────────────
-  v_kb2 := (pg_temp.s112_beispiel('keller_behandlungen', v_b, v_bw, jsonb_build_object('weinausbau_id', v_wa, 'datum', current_date - 1,
+  v_kb2 := (pg_temp.s112_beispiel('keller_behandlungen', v_b, v_bw, jsonb_build_object('weinausbau_id', v_wa, 'datum', v_heute - 1,
     'zugang_liter', 20, 'storniert_am', NULL)) ->> 'id')::uuid;
   UPDATE public.weinausbau SET menge_liter = 10 WHERE id = v_wa;   -- inzwischen weitgehend abgegangen
   v_erg := v_erg || pg_temp.s112_erwarte('ruecknahme_ohne_bestand',

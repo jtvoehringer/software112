@@ -24,10 +24,11 @@ END $f$;
 
 DO $test$
 DECLARE
+  v_heute date := (now() AT TIME ZONE 'Europe/Vienna')::date;   -- wie die RPCs (Wiener Zeit, nicht UTC)
   c_datei constant text := '54_aufwertung_etikettierung';
   c_upd   constant text := 'UPDATE public.weinausbau SET qualitaetsstufe = %L WHERE id = %L';
-  c_etk   constant text := 'SELECT public.s112_fuellung_etikettieren(%L::uuid, %L::uuid, current_date, %s, NULL)';
-  c_bruch constant text := 'SELECT public.fuellung_bestand_buchen(%L::uuid, %L::uuid, %L, current_date, %s, NULL, %L)';
+  c_etk   constant text := 'SELECT public.s112_fuellung_etikettieren(%L::uuid, %L::uuid, pg_temp.s112_heute(), %s, NULL)';
+  c_bruch constant text := 'SELECT public.fuellung_bestand_buchen(%L::uuid, %L::uuid, %L, pg_temp.s112_heute(), %s, NULL, %L)';
   v_t0    timestamptz;
   v_erg   text[] := '{}';
   v_a     jsonb;
@@ -54,9 +55,9 @@ BEGIN
   v_bl := (v_a ->> 'b_l')::uuid;
   v_wa := (pg_temp.s112_beispiel('weinausbau', v_b, NULL, '{"menge_liter": "500", "status": "ausbau", "aktiv": true, "storniert_am": null, "qualitaetsstufe": "landwein"}') ->> 'id')::uuid;
   v_fe := (pg_temp.s112_beispiel('fuellungen', v_b, v_bw, jsonb_build_object('anzahl_flaschen', 10, 'bestand_flaschen', 10,
-    'anzahl_unetikettiert', 6, 'datum', current_date - 1, 'storniert_am', NULL)) ->> 'id')::uuid;
+    'anzahl_unetikettiert', 6, 'datum', v_heute - 1, 'storniert_am', NULL)) ->> 'id')::uuid;
   v_fm := (pg_temp.s112_beispiel('fuellungen', v_m, NULL, '{"anzahl_flaschen": 10, "bestand_flaschen": 10, "anzahl_unetikettiert": 5, "storniert_am": null}') ->> 'id')::uuid;
-  v_etm := (pg_temp.s112_beispiel('fuellung_etikettierungen', v_m, NULL, jsonb_build_object('fuellung_id', v_fm, 'datum', current_date,
+  v_etm := (pg_temp.s112_beispiel('fuellung_etikettierungen', v_m, NULL, jsonb_build_object('fuellung_id', v_fm, 'datum', v_heute,
     'menge_stk', 1, 'storniert_am', NULL)) ->> 'id')::uuid;
 
   -- ── Mutationen ────────────────────────────────────────────────────────────────────────────────────────

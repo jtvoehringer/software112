@@ -28,6 +28,7 @@ $f$;
 
 DO $test$
 DECLARE
+  v_heute date := (now() AT TIME ZONE 'Europe/Vienna')::date;   -- wie die RPCs (Wiener Zeit, nicht UTC)
   c_datei constant text := '31_pn_behandlung_abstufung';
   c_rpc   constant text := 'SELECT public.s112_pruefnummernantrag_status_setzen(%L::uuid, %L::uuid, %L, %L::date, %L, %L)';
   v_t0    timestamptz;
@@ -74,24 +75,24 @@ BEGIN
 
   PERFORM pg_temp.s112_als(v_bw);
   v_erg := v_erg || pg_temp.s112_erwarte('einreichen',
-    pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d, 'eingereicht', current_date - 20, NULL, NULL)), 'ok');
+    pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d, 'eingereicht', v_heute - 20, NULL, NULL)), 'ok');
   v_erg := v_erg || pg_temp.s112_erwarte('einreichen_2',
-    pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d2, 'eingereicht', current_date - 20, NULL, NULL)), 'ok');
+    pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d2, 'eingereicht', v_heute - 20, NULL, NULL)), 'ok');
   -- Mitarbeiter mit Kellerbuch darf einen Typ einstufen
   v_erg := v_erg || pg_temp.s112_erwarte('einstufen_api',
     pg_temp.s112_versuch(format('UPDATE public.keller_behandlungstypen SET pn_wirkung = %L WHERE id = %L', 'unklar', v_t_neu)), 'k1');
   PERFORM pg_temp.s112_als_postgres();
 
   -- ── 2. Pflege und nicht eingestuft: Gültigkeit bleibt ─────────────────────────────────────────────────
-  PERFORM pg_temp.s112_beispiel('keller_behandlungen', v_b, NULL, jsonb_build_object('weinausbau_id', v_wa, 'typ_id', v_t_pfl, 'datum', current_date - 10));
-  PERFORM pg_temp.s112_beispiel('keller_behandlungen', v_b, NULL, jsonb_build_object('weinausbau_id', v_wa, 'typ_id', v_t_neu, 'datum', current_date - 9));
+  PERFORM pg_temp.s112_beispiel('keller_behandlungen', v_b, NULL, jsonb_build_object('weinausbau_id', v_wa, 'typ_id', v_t_pfl, 'datum', v_heute - 10));
+  PERFORM pg_temp.s112_beispiel('keller_behandlungen', v_b, NULL, jsonb_build_object('weinausbau_id', v_wa, 'typ_id', v_t_neu, 'datum', v_heute - 9));
   v_erg := v_erg || pg_temp.s112_erwarte('pflege_bleibt', pg_temp.t31_zeile(v_d, v_wa), 'offen');
 
   -- ── 3. Veränderung: Ende mit Datum; Ändern auf Pflege nimmt es zurück, zurück auf Veränderung beendet erneut ─
-  v_kb := (pg_temp.s112_beispiel('keller_behandlungen', v_b, NULL, jsonb_build_object('weinausbau_id', v_wa, 'typ_id', v_t_ver, 'datum', current_date - 8)) ->> 'id')::uuid;
+  v_kb := (pg_temp.s112_beispiel('keller_behandlungen', v_b, NULL, jsonb_build_object('weinausbau_id', v_wa, 'typ_id', v_t_ver, 'datum', v_heute - 8)) ->> 'id')::uuid;
   v_erg := v_erg || pg_temp.s112_erwarte('veraenderung_ende', pg_temp.t31_zeile(v_d, v_wa), 'ende:behandlung');
   v_erg := v_erg || pg_temp.s112_erwarte('veraenderung_datum',
-    (SELECT pc.gueltig_bis = current_date - 8 FROM public.pruefnummer_chargen pc WHERE pc.dac_antrag_id = v_d), true);
+    (SELECT pc.gueltig_bis = v_heute - 8 FROM public.pruefnummer_chargen pc WHERE pc.dac_antrag_id = v_d), true);
   v_erg := v_erg || pg_temp.s112_erwarte('veraenderung_andere_charge', pg_temp.t31_zeile(v_d2, v_wb), 'offen');
   -- KAN-206: die Behandlung ist gesperrt (Charge mit Prüfnummer) – Typ ändern nur als Korrektur (s112_freeze_korrektur
   -- setzt s112.freeze_frei); geprüft wird hier die Reaktion der Prüfnummer auf die Änderung
@@ -129,9 +130,9 @@ BEGIN
 
   -- ── 5. Nachträglich angelegter Antrag: vorhandene Veränderung nach dem Beginn beendet sofort ──────────
   v_wb := (pg_temp.s112_beispiel('weinausbau', v_b, NULL, '{"menge_liter": "300"}') ->> 'id')::uuid;
-  PERFORM pg_temp.s112_beispiel('keller_behandlungen', v_b, NULL, jsonb_build_object('weinausbau_id', v_wb, 'typ_id', v_t_ver, 'datum', current_date - 1));
+  PERFORM pg_temp.s112_beispiel('keller_behandlungen', v_b, NULL, jsonb_build_object('weinausbau_id', v_wb, 'typ_id', v_t_ver, 'datum', v_heute - 1));
   v_d2 := (pg_temp.s112_beispiel('dac_antrag', v_b, NULL, jsonb_build_object('weinausbau_id', v_wb, 'status', 'genehmigt',
-    'eingereicht_am', current_date - 30, 'bescheid_am', current_date - 20, 'pruefnummer', 'N 2/26')) ->> 'id')::uuid;
+    'eingereicht_am', v_heute - 30, 'bescheid_am', v_heute - 20, 'pruefnummer', 'N 2/26')) ->> 'id')::uuid;
   v_erg := v_erg || pg_temp.s112_erwarte('nachtrag_behandlung_ende', pg_temp.t31_zeile(v_d2, v_wb), 'ende:behandlung');
 
   PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 20);

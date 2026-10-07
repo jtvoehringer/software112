@@ -10,6 +10,7 @@
 
 DO $test$
 DECLARE
+  v_heute date := (now() AT TIME ZONE 'Europe/Vienna')::date;   -- wie die RPCs (Wiener Zeit, nicht UTC)
   c_datei constant text := '45_aktivitaeten_privat';
   v_t0    timestamptz;
   v_erg   text[] := '{}';
@@ -36,9 +37,9 @@ BEGIN
   v_bw := (v_a ->> 'b_w')::uuid;
   v_k := (pg_temp.s112_beispiel('kontakte', v_m) ->> 'id')::uuid;
   v_priv := (pg_temp.s112_beispiel('aktivitaeten', v_m, NULL, jsonb_build_object('kontakt_id', v_k, 'ist_privat', true, 'erstellt_von', v_mw,
-             'art', 'besprechung', 'betreff', 'S112TEST Arzttermin', 'datum', current_date, 'ganztags', false, 'uhrzeit_von', '10:00', 'uhrzeit_bis', '11:00')) ->> 'id')::uuid;
+             'art', 'besprechung', 'betreff', 'S112TEST Arzttermin', 'datum', v_heute, 'ganztags', false, 'uhrzeit_von', '10:00', 'uhrzeit_bis', '11:00')) ->> 'id')::uuid;
   v_offen := (pg_temp.s112_beispiel('aktivitaeten', v_m, NULL, jsonb_build_object('kontakt_id', v_k, 'ist_privat', false, 'erstellt_von', v_mw,
-             'art', 'besuch', 'betreff', 'S112TEST Kundentermin', 'datum', current_date)) ->> 'id')::uuid;
+             'art', 'besuch', 'betreff', 'S112TEST Kundentermin', 'datum', v_heute)) ->> 'id')::uuid;
   v_dok := (pg_temp.s112_beispiel('aktivitaet_dokumente', v_m, NULL, jsonb_build_object('aktivitaet_id', v_priv)) ->> 'id')::uuid;
   INSERT INTO public.crm_freigaben (eigentuemer_tenant_id, nutzer_tenant_id, notizen) VALUES (v_m, v_b, 'S112TEST privat');
 

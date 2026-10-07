@@ -83,6 +83,7 @@ END $f$;
 
 DO $test$
 DECLARE
+  v_heute date := (now() AT TIME ZONE 'Europe/Vienna')::date;   -- wie die RPCs (Wiener Zeit, nicht UTC)
   c_datei     constant text := '14_abo_schreibsperre';
   c_m         constant uuid := '33333333-3333-4333-8333-333333333333';
   -- Muss mit ABO_GESPERRTE_STATUS in src/lib/abo/regeln.ts (und s112_abo_gesperrt) übereinstimmen.
@@ -239,19 +240,19 @@ BEGIN
   v_dac := (pg_temp.s112_beispiel('dac_antrag', v_b, v_bw) ->> 'id')::uuid;   -- KAN-97
   v_kb := (pg_temp.s112_beispiel('keller_behandlungen', v_b, v_bw,
     '{"storniert_am": "2026-09-30T10:00:00Z", "storno_grund": "S112TEST storniert"}') ->> 'id')::uuid;   -- KAN-145
-  v_kv := (pg_temp.s112_beispiel('keller_verarbeitungen', v_b, NULL, jsonb_build_object('weinausbau_id', v_wa, 'datum', current_date,
+  v_kv := (pg_temp.s112_beispiel('keller_verarbeitungen', v_b, NULL, jsonb_build_object('weinausbau_id', v_wa, 'datum', v_heute,
     'menge_liter', 1, 'zweck', 'essig', 'storniert_am', NULL)) ->> 'id')::uuid;   -- KAN-41 Paket 3a
-  v_zk := (pg_temp.s112_beispiel('keller_zugangskorrekturen', v_b, NULL, jsonb_build_object('weinausbau_id', v_wa, 'datum', current_date,
+  v_zk := (pg_temp.s112_beispiel('keller_zugangskorrekturen', v_b, NULL, jsonb_build_object('weinausbau_id', v_wa, 'datum', v_heute,
     'menge_liter', 1, 'art', 'inventur', 'grund', 'S112TEST Inventur-Plus', 'storniert_am', NULL)) ->> 'id')::uuid;   -- KAN-53
   v_fe := (pg_temp.s112_beispiel('fuellungen', v_b, v_bw, '{"anzahl_flaschen": 10, "bestand_flaschen": 10, "anzahl_unetikettiert": 5, "storniert_am": null}') ->> 'id')::uuid;   -- KAN-41 Paket 3d
-  v_et := (pg_temp.s112_beispiel('fuellung_etikettierungen', v_b, NULL, jsonb_build_object('fuellung_id', v_fe, 'datum', current_date,
+  v_et := (pg_temp.s112_beispiel('fuellung_etikettierungen', v_b, NULL, jsonb_build_object('fuellung_id', v_fe, 'datum', v_heute,
     'menge_stk', 1, 'storniert_am', NULL)) ->> 'id')::uuid;
   PERFORM set_config('s112.freeze_frei', 'fuellungen', true);
   UPDATE public.fuellungen SET bestand_unetikettiert = 4 WHERE id = v_fe;   -- die eine etikettierte Flasche
   PERFORM set_config('s112.freeze_frei', '', true);
   v_pl := (pg_temp.s112_beispiel('psm_lager_bewegungen', v_b, v_bw) ->> 'id')::uuid;   -- KAN-166
   v_fz_b := (pg_temp.s112_beispiel('fuellungen', v_b, v_bw) ->> 'id')::uuid;   -- KAN-149 D1
-  v_ea_b := (pg_temp.s112_beispiel('ea_transaktionen', v_b, v_bw, jsonb_build_object('datum', current_date)) ->> 'id')::uuid;   -- KAN-149 D2
+  v_ea_b := (pg_temp.s112_beispiel('ea_transaktionen', v_b, v_bw, jsonb_build_object('datum', v_heute)) ->> 'id')::uuid;   -- KAN-149 D2
   v_za_b := (pg_temp.s112_beispiel('zahlungen', v_b, v_bw) ->> 'id')::uuid;
   v_ub_b := (pg_temp.s112_beispiel('konto_umbuchungen', v_b, v_bw) ->> 'id')::uuid;
   v_pr := (pg_temp.s112_beispiel('pressungen', v_b, v_bw) ->> 'id')::uuid;   -- KAN-148 C1c
@@ -476,7 +477,7 @@ BEGIN
   PERFORM pg_temp.s112_als(v_bta);
   -- RPCs mit freiem Abo (Wirkung sofort zurückgerollt)
   v_rpc := jsonb_build_object(
-    'fuellung_bestand_buchen', format('SELECT public.fuellung_bestand_buchen(%L, %L, %L, current_date, 1, NULL, %L)', v_b, v_fuellung, 'korrektur', 'S112TEST'),
+    'fuellung_bestand_buchen', format('SELECT public.fuellung_bestand_buchen(%L, %L, %L, pg_temp.s112_heute(), 1, NULL, %L)', v_b, v_fuellung, 'korrektur', 'S112TEST'),
     'get_next_accountnummer', format('SELECT public.get_next_accountnummer(%L)', v_b),
     'get_next_chargennummer', format('SELECT public.get_next_chargennummer(%L)', v_b),
     'get_next_liefernummer', format('SELECT public.get_next_liefernummer(%L)', v_b),
@@ -485,28 +486,28 @@ BEGIN
     's112_kontakt_historie_zu_firma', format('SELECT public.s112_kontakt_historie_zu_firma(%L, %L, %L)', v_b, v_k1, v_fi_b),   -- KAN-150 F1c
     's112_herkunft_setzen', format('SELECT public.s112_herkunft_setzen(%L, %L, ARRAY[%L]::uuid[], %L)', v_b, v_wa, v_wg_b, 'S112TEST Herkunft geändert'),   -- KAN-150 F1d
     'kontakte_zusammenfuehren', format('SELECT public.kontakte_zusammenfuehren(%L, %L, ARRAY[%L]::uuid[])', v_b, v_k1, v_k2),
-    'journal_eroeffnen', format('SELECT public.journal_eroeffnen(%L, current_date)', v_b),   -- KAN-40
-    'kellerbuch_abschliessen', format('SELECT public.kellerbuch_abschliessen(%L, current_date - 1)', v_b),   -- KAN-192
+    'journal_eroeffnen', format('SELECT public.journal_eroeffnen(%L, pg_temp.s112_heute())', v_b),   -- KAN-40
+    'kellerbuch_abschliessen', format('SELECT public.kellerbuch_abschliessen(%L, pg_temp.s112_heute() - 1)', v_b),   -- KAN-192
     's112_verschnitt_buchen', format('SELECT public.s112_verschnitt_buchen(%L, %L::jsonb, %L::jsonb)', v_b,
-      jsonb_build_object('datum', current_date, 'neue_ziel_charge', jsonb_build_object('name', 'S112TEST Verschnitt', 'behaelter_id', v_beh_b)),
+      jsonb_build_object('datum', v_heute, 'neue_ziel_charge', jsonb_build_object('name', 'S112TEST Verschnitt', 'behaelter_id', v_beh_b)),
       jsonb_build_array(jsonb_build_object('weinausbau_id', v_wa, 'menge_liter', 1))),   -- KAN-112: 1 L in eine neue Charge im B-Gebinde
     's112_verschnitte_buchen', format('SELECT public.s112_verschnitte_buchen(%L, %L::jsonb)', v_b, jsonb_build_array(jsonb_build_object(
-      'kopf', jsonb_build_object('datum', current_date, 'neue_ziel_charge', jsonb_build_object('name', 'S112TEST Verschnitt 2', 'behaelter_id', v_beh_b)),
+      'kopf', jsonb_build_object('datum', v_heute, 'neue_ziel_charge', jsonb_build_object('name', 'S112TEST Verschnitt 2', 'behaelter_id', v_beh_b)),
       'quellen', jsonb_build_array(jsonb_build_object('weinausbau_id', v_wa, 'menge_liter', 1))))),   -- KAN-112: dasselbe als Sammelaufruf (v_wa hat 100 L)
     's112_zukauf_buchen', format('SELECT public.s112_zukauf_buchen(%L, %L::jsonb)', v_b,
-      jsonb_build_object('datum', current_date, 'art', 'trauben', 'menge', 1, 'einheit', 'kg')),   -- KAN-193: Trauben-Zukauf ohne Charge
+      jsonb_build_object('datum', v_heute, 'art', 'trauben', 'menge', 1, 'einheit', 'kg')),   -- KAN-193: Trauben-Zukauf ohne Charge
     'journal_abgleichen', format('SELECT public.journal_abgleichen(%L, interval %L)', v_b, '0'),   -- KAN-40
-    's112_betriebsmittel_einkauf', format('SELECT public.s112_betriebsmittel_einkauf(%L, %L, current_date, 2, %L, 10, 20, NULL, %L, NULL)', v_b, v_bm_b, 'stk', v_eakat),   -- KAN-167
+    's112_betriebsmittel_einkauf', format('SELECT public.s112_betriebsmittel_einkauf(%L, %L, pg_temp.s112_heute(), 2, %L, 10, 20, NULL, %L, NULL)', v_b, v_bm_b, 'stk', v_eakat),   -- KAN-167
     's112_betriebsmittel_stornieren', format('SELECT public.s112_betriebsmittel_stornieren(%L, %L, %L)', v_b, v_bml_b, 'S112TEST Storno Lagerbuchung'),   -- KAN-167
     's112_ea_stornieren', format('SELECT public.s112_ea_stornieren(%L, %L, %L)', v_b, v_ea_b, 'S112TEST Storno E/A'),
     's112_zahlung_stornieren', format('SELECT public.s112_zahlung_stornieren(%L, %L, %L)', v_b, v_za_b, 'S112TEST Storno Zahlung'),
     's112_umbuchung_stornieren', format('SELECT public.s112_umbuchung_stornieren(%L, %L, %L)', v_b, v_ub_b, 'S112TEST Storno Umbuchung'),
-    's112_fuellung_verkauf_buchen', format('SELECT public.s112_fuellung_verkauf_buchen(%L, %L, gen_random_uuid(), 1, current_date, %L)', v_b, v_fz_b, 'S112TEST Rückbuchung'),
+    's112_fuellung_verkauf_buchen', format('SELECT public.s112_fuellung_verkauf_buchen(%L, %L, gen_random_uuid(), 1, pg_temp.s112_heute(), %L)', v_b, v_fz_b, 'S112TEST Rückbuchung'),
     's112_ama_korrektur_anlegen', format('SELECT public.s112_ama_korrektur_anlegen(%L, %L)', v_b, v_ama_ein),
     's112_ama_meldung_speichern', format('SELECT public.s112_ama_meldung_speichern(%L, %L, %L::jsonb, %L::jsonb)', v_b, v_ama_jg2, '{}', '[]'),
     -- KAN-37 B: „eingereicht“ nur über s112_ama_einreichen; status_setzen hier mit der AMA-Rückmeldung
-    's112_ama_status_setzen', format('SELECT public.s112_ama_status_setzen(%L, %L, %L, current_date, NULL)', v_b, v_ama_ein, 'bestaetigt'),
-    's112_ama_einreichen', format('SELECT public.s112_ama_einreichen(%L, %L, current_date, NULL, %L::jsonb)', v_b, v_ama_ber,
+    's112_ama_status_setzen', format('SELECT public.s112_ama_status_setzen(%L, %L, %L, pg_temp.s112_heute(), NULL)', v_b, v_ama_ein, 'bestaetigt'),
+    's112_ama_einreichen', format('SELECT public.s112_ama_einreichen(%L, %L, pg_temp.s112_heute(), NULL, %L::jsonb)', v_b, v_ama_ber,
       jsonb_build_object('meldung', 'erntemeldung', 'parameter', jsonb_build_object('jahrgang', (SELECT j.jahrgang FROM public.weinjahrgaenge j WHERE j.id = v_ama_jg2)),
         'zeilen', '[]'::jsonb, 'spalten', '[{"kopf": "S112TEST", "typ": "text"}]'::jsonb, 'profil', 'EXCEL_AT', 'dateiname', 'S112TEST.csv', 'csv', 'S112TEST')),
     's112_pressung_stornieren', format('SELECT public.s112_pressung_stornieren(%L, %L, %L)', v_b, v_pr, 'S112TEST Pressung storniert'),
@@ -514,25 +515,25 @@ BEGIN
     's112_mostzeile_anlegen', format('SELECT public.s112_mostzeile_anlegen(%L, %L, %L, 1, NULL, %L::jsonb)', v_b, v_pr, v_beh_b, '{"name": "S112TEST"}'),
     's112_pressung_anlegen', format('SELECT public.s112_pressung_anlegen(%L, %L::jsonb, %L::jsonb)', v_b, jsonb_build_object('jahrgang_id', v_pr_jg, 'datum', '2026-09-20'), '[]'),
     's112_storniert_loeschen', format('SELECT public.s112_storniert_loeschen(%L, %L, %L, %L)', v_b, 'keller_behandlungen', v_kb, 'S112TEST endgültig löschen'),
-    'schwund_buchen', format('SELECT public.schwund_buchen(%L, %L, 1, current_date, %L, false, true)', v_b, v_wa, 'S112TEST'),
+    'schwund_buchen', format('SELECT public.schwund_buchen(%L, %L, 1, pg_temp.s112_heute(), %L, false, true)', v_b, v_wa, 'S112TEST'),
     'setze_kontobewegung_abgeglichen', format('SELECT public.setze_kontobewegung_abgeglichen(%L, %L, %L, true)', v_b, 'ea_transaktion', v_eatx),
     's112_fuellung_nachtragen', format('SELECT public.s112_fuellung_nachtragen(%L, %L, %L, NULL)', v_b, v_fz_b, v_wa),   -- KAN-101 (Charge nachtragen)
-    's112_charge_status_setzen', format('SELECT public.s112_charge_status_setzen(%L, %L, %L, current_date)', v_b, v_wa, 'abfuellung'),   -- KAN-41
-    's112_fuellung_etikettieren', format('SELECT public.s112_fuellung_etikettieren(%L, %L, current_date, 1, NULL)', v_b, v_fe),   -- KAN-41 Paket 3d
+    's112_charge_status_setzen', format('SELECT public.s112_charge_status_setzen(%L, %L, %L, pg_temp.s112_heute())', v_b, v_wa, 'abfuellung'),   -- KAN-41
+    's112_fuellung_etikettieren', format('SELECT public.s112_fuellung_etikettieren(%L, %L, pg_temp.s112_heute(), 1, NULL)', v_b, v_fe),   -- KAN-41 Paket 3d
     's112_etikettierung_stornieren', format('SELECT public.s112_etikettierung_stornieren(%L, %L, %L)', v_b, v_et, 'S112TEST Storno Etikett'),   -- KAN-41 Paket 3d
-    's112_zugangskorrektur_buchen', format('SELECT public.s112_zugangskorrektur_buchen(%L, %L, current_date, 1, %L, %L)', v_b, v_wa, 'inventur', 'S112TEST Inventur-Plus'),   -- KAN-53
+    's112_zugangskorrektur_buchen', format('SELECT public.s112_zugangskorrektur_buchen(%L, %L, pg_temp.s112_heute(), 1, %L, %L)', v_b, v_wa, 'inventur', 'S112TEST Inventur-Plus'),   -- KAN-53
     's112_zugangskorrektur_stornieren', format('SELECT public.s112_zugangskorrektur_stornieren(%L, %L, %L)', v_b, v_zk, 'S112TEST Storno Korrektur'),   -- KAN-53
-    's112_verarbeitung_buchen', format('SELECT public.s112_verarbeitung_buchen(%L, %L, current_date, 1, %L, NULL)', v_b, v_wa, 'essig'),   -- KAN-41 Paket 3a
+    's112_verarbeitung_buchen', format('SELECT public.s112_verarbeitung_buchen(%L, %L, pg_temp.s112_heute(), 1, %L, NULL)', v_b, v_wa, 'essig'),   -- KAN-41 Paket 3a
     's112_verarbeitung_stornieren', format('SELECT public.s112_verarbeitung_stornieren(%L, %L, %L)', v_b, v_kv, 'S112TEST Storno Verarbeitung'),   -- KAN-41 Paket 3a
-    's112_charge_abstufen', format('SELECT public.s112_charge_abstufen(%L, %L, current_date, %L::jsonb, %L)', v_b, v_wa, '{"qualitaetsstufe": "wein"}', 'S112TEST Abstufung Grund'),   -- KAN-82
-    's112_pruefnummernantrag_status_setzen', format('SELECT public.s112_pruefnummernantrag_status_setzen(%L, %L, %L, current_date, NULL, NULL)', v_b, v_dac, 'eingereicht'),   -- KAN-97
+    's112_charge_abstufen', format('SELECT public.s112_charge_abstufen(%L, %L, pg_temp.s112_heute(), %L::jsonb, %L)', v_b, v_wa, '{"qualitaetsstufe": "wein"}', 'S112TEST Abstufung Grund'),   -- KAN-82
+    's112_pruefnummernantrag_status_setzen', format('SELECT public.s112_pruefnummernantrag_status_setzen(%L, %L, %L, pg_temp.s112_heute(), NULL, NULL)', v_b, v_dac, 'eingereicht'),   -- KAN-97
     's112_freeze_korrektur', format('SELECT public.s112_freeze_korrektur(%L, %L, %L, %L::jsonb, %L)', v_b, 's112test_freeze', v_frz, '{"betrag": 2}', 'S112TEST Korrektur'),
     'sperre_ea_monat', format('SELECT public.sperre_ea_monat(%L, 2020::smallint, 2::smallint)', v_b),
     'sperre_ea_uva', format('SELECT public.sperre_ea_uva(%L, 2020::smallint, %L)', v_b, '01'),
     'check_und_increment_ki_abfrage', format('SELECT public.check_und_increment_ki_abfrage(%L)', v_b),
     'increment_ki_tokens', format('SELECT public.increment_ki_tokens(%L, 1, 1)', v_b),
     'lesend:berechne_ea_uva', format('SELECT * FROM public.berechne_ea_uva(%L, 2020::smallint, %L)', v_b, 'Q1'),
-    'lesend:pruefe_ea_zeitraum_offen', format('SELECT * FROM public.pruefe_ea_zeitraum_offen(%L, current_date)', v_b));
+    'lesend:pruefe_ea_zeitraum_offen', format('SELECT * FROM public.pruefe_ea_zeitraum_offen(%L, pg_temp.s112_heute())', v_b));
   PERFORM pg_temp.s112_als(v_bta);
   FOR r IN SELECT e.key AS name, e.value #>> '{}' AS sql FROM jsonb_each(v_rpc) e ORDER BY e.key LOOP
     v_rpc_frei := v_rpc_frei || jsonb_build_object(r.name, pg_temp.t14_rpc(r.sql));

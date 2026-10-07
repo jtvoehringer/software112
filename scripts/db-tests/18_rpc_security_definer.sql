@@ -68,7 +68,7 @@ CREATE FUNCTION pg_temp.t18_aufruf(p_fn oid, p_tenant uuid) RETURNS text LANGUAG
         WHEN a.typ = 'integer'::regtype THEN '1::integer'
         WHEN a.typ = 'bigint'::regtype THEN '1::bigint'
         WHEN a.typ = 'numeric'::regtype THEN '0::numeric'
-        WHEN a.typ = 'date'::regtype THEN 'current_date'
+        WHEN a.typ = 'date'::regtype THEN 'pg_temp.s112_heute()'
         WHEN a.typ = 'boolean'::regtype THEN 'false'
         ELSE format('NULL::%s', format_type(a.typ, NULL))
       END, ', ' ORDER BY a.nr) FILTER (WHERE a.typ IS NOT NULL), ''))
@@ -162,6 +162,7 @@ $f$;
 
 DO $test$
 DECLARE
+  v_heute date := (now() AT TIME ZONE 'Europe/Vienna')::date;   -- wie die RPCs (Wiener Zeit, nicht UTC)
   c_datei constant text := '18_rpc_security_definer';
   v_t0    timestamptz := clock_timestamp();
   v_erg   text[] := '{}';
@@ -473,7 +474,7 @@ BEGIN
 
   -- fuellung_bestand_buchen: Korrektur +1 Flasche (Bestand/Bewegungen)
   FOREACH v_txt IN ARRAY ARRAY['m', 'b'] LOOP
-    v_sql := format('SELECT public.fuellung_bestand_buchen(%L, %L, %L, current_date, 1, NULL, %L)',
+    v_sql := format('SELECT public.fuellung_bestand_buchen(%L, %L, %L, pg_temp.s112_heute(), 1, NULL, %L)',
       v_b, CASE v_txt WHEN 'm' THEN v_f_m ELSE v_f_b END, 'korrektur', 'S112TEST');
     v_pruef := format('SELECT f.bestand_flaschen || %L || (SELECT count(*) FROM public.fuellung_bewegungen x WHERE x.fuellung_id = f.id) FROM public.fuellungen f WHERE f.id = %L',
       '/', CASE v_txt WHEN 'm' THEN v_f_m ELSE v_f_b END);
@@ -488,7 +489,7 @@ BEGIN
 
   -- schwund_buchen: 1 L Schwund (Menge/Bewegungsbuch)
   FOREACH v_txt IN ARRAY ARRAY['m', 'b'] LOOP
-    v_sql := format('SELECT public.schwund_buchen(%L, %L, 1, current_date, %L, false, true)',
+    v_sql := format('SELECT public.schwund_buchen(%L, %L, 1, pg_temp.s112_heute(), %L, false, true)',
       v_b, CASE v_txt WHEN 'm' THEN v_w_m ELSE v_w_b END, 'S112TEST');
     v_pruef := format('SELECT w.menge_liter::numeric(10,2) || %L || (SELECT count(*) FROM public.keller_umzuege k WHERE k.von_weinausbau_id = w.id) FROM public.weinausbau w WHERE w.id = %L',
       '/', CASE v_txt WHEN 'm' THEN v_w_m ELSE v_w_b END);
@@ -582,7 +583,7 @@ BEGIN
   v_am_b := (pg_temp.s112_beispiel('ama_erntemeldungen', v_b, (v_a ->> 'b_w')::uuid, jsonb_build_object('jahrgang_id', v_ajg_b, 'status', 'bereit')) ->> 'id')::uuid;
   FOREACH v_txt IN ARRAY ARRAY['m', 'b'] LOOP
     -- KAN-37 B: „eingereicht“ nur noch über s112_ama_einreichen (mit Snapshot der CSV)
-    v_sql := format('SELECT public.s112_ama_einreichen(%L, %L, current_date, NULL, %L::jsonb)', v_b, CASE v_txt WHEN 'm' THEN v_am_m ELSE v_am_b END,
+    v_sql := format('SELECT public.s112_ama_einreichen(%L, %L, pg_temp.s112_heute(), NULL, %L::jsonb)', v_b, CASE v_txt WHEN 'm' THEN v_am_m ELSE v_am_b END,
       jsonb_build_object('meldung', 'erntemeldung', 'parameter', jsonb_build_object('jahrgang',
         (SELECT j.jahrgang FROM public.weinjahrgaenge j WHERE j.id = CASE v_txt WHEN 'm' THEN v_ajg_m ELSE v_ajg_b END)),
         'zeilen', '[]'::jsonb, 'spalten', '[{"kopf": "S112TEST", "typ": "text"}]'::jsonb, 'profil', 'EXCEL_AT',
@@ -595,7 +596,7 @@ BEGIN
       v_erg := v_erg || pg_temp.s112_erwarte('idor_positiv_s112_ama_einreichen', v_r, 'ok|eingereicht');
     END IF;
   END LOOP;
-  UPDATE public.ama_erntemeldungen SET status = 'eingereicht', eingereicht_am = current_date WHERE id IN (v_am_m, v_am_b);
+  UPDATE public.ama_erntemeldungen SET status = 'eingereicht', eingereicht_am = v_heute WHERE id IN (v_am_m, v_am_b);
   FOREACH v_txt IN ARRAY ARRAY['m', 'b'] LOOP
     v_sql := format('SELECT public.s112_ama_korrektur_anlegen(%L, %L)', v_b, CASE v_txt WHEN 'm' THEN v_am_m ELSE v_am_b END);
     v_pruef := format('SELECT count(*)::text FROM public.ama_erntemeldungen WHERE jahrgang_id = %L', CASE v_txt WHEN 'm' THEN v_ajg_m ELSE v_ajg_b END);
@@ -608,7 +609,7 @@ BEGIN
   END LOOP;
   -- s112_ama_status_setzen: AMA-Rückmeldung (eingereicht → bestätigt); „eingereicht“ selbst nur über s112_ama_einreichen
   FOREACH v_txt IN ARRAY ARRAY['m', 'b'] LOOP
-    v_sql := format('SELECT public.s112_ama_status_setzen(%L, %L, %L, current_date, NULL)', v_b, CASE v_txt WHEN 'm' THEN v_am_m ELSE v_am_b END, 'bestaetigt');
+    v_sql := format('SELECT public.s112_ama_status_setzen(%L, %L, %L, pg_temp.s112_heute(), NULL)', v_b, CASE v_txt WHEN 'm' THEN v_am_m ELSE v_am_b END, 'bestaetigt');
     v_pruef := format('SELECT status FROM public.ama_erntemeldungen WHERE id = %L', CASE v_txt WHEN 'm' THEN v_am_m ELSE v_am_b END);
     v_r := pg_temp.t18_idor(v_bta, v_sql, v_pruef);
     IF v_txt = 'm' THEN
@@ -618,7 +619,7 @@ BEGIN
     END IF;
   END LOOP;
   v_erg := v_erg || pg_temp.s112_erwarte('kan37b_eingereicht_nur_mit_abgabe',
-    pg_temp.t18_idor(v_bta, format('SELECT public.s112_ama_status_setzen(%L, %L, %L, current_date, NULL)', v_b,
+    pg_temp.t18_idor(v_bta, format('SELECT public.s112_ama_status_setzen(%L, %L, %L, pg_temp.s112_heute(), NULL)', v_b,
       (pg_temp.s112_beispiel('ama_erntemeldungen', v_b, (v_a ->> 'b_w')::uuid, jsonb_build_object('jahrgang_id',
         (pg_temp.s112_beispiel('weinjahrgaenge', v_b, (v_a ->> 'b_w')::uuid, jsonb_build_object('jahrgang', 1901)) ->> 'id')::uuid, 'status', 'bereit')) ->> 'id'),
       'eingereicht'), 'SELECT 1'), '42501|1');
@@ -627,7 +628,7 @@ BEGIN
   v_fz_m := (pg_temp.s112_beispiel('fuellungen', v_m, v_mw, '{"bestand_flaschen": 10}'::jsonb) ->> 'id')::uuid;
   v_fz_b := (pg_temp.s112_beispiel('fuellungen', v_b, (v_a ->> 'b_w')::uuid, '{"bestand_flaschen": 10}'::jsonb) ->> 'id')::uuid;
   FOREACH v_txt IN ARRAY ARRAY['m', 'b'] LOOP
-    v_sql := format('SELECT public.s112_fuellung_verkauf_buchen(%L, %L, gen_random_uuid(), 1, current_date, %L)',
+    v_sql := format('SELECT public.s112_fuellung_verkauf_buchen(%L, %L, gen_random_uuid(), 1, pg_temp.s112_heute(), %L)',
       v_b, CASE v_txt WHEN 'm' THEN v_fz_m ELSE v_fz_b END, 'S112TEST Rückbuchung');
     v_pruef := format('SELECT bestand_flaschen::text FROM public.fuellungen WHERE id = %L', CASE v_txt WHEN 'm' THEN v_fz_m ELSE v_fz_b END);
     v_r := pg_temp.t18_idor(v_bta, v_sql, v_pruef);
@@ -640,8 +641,8 @@ BEGIN
 
   -- s112_ea_/zahlung_/umbuchung_stornieren (KAN-149 D2): fremdes Objekt (M) bleibt unstorniert, eigenes (B) storniert
   FOREACH v_txt IN ARRAY ARRAY['ea_transaktionen', 'zahlungen', 'konto_umbuchungen'] LOOP
-    v_x_m := (pg_temp.s112_beispiel(v_txt, v_m, v_mw, CASE WHEN v_txt = 'ea_transaktionen' THEN jsonb_build_object('datum', current_date) ELSE '{}'::jsonb END) ->> 'id')::uuid;
-    v_x_b := (pg_temp.s112_beispiel(v_txt, v_b, (v_a ->> 'b_w')::uuid, CASE WHEN v_txt = 'ea_transaktionen' THEN jsonb_build_object('datum', current_date) ELSE '{}'::jsonb END) ->> 'id')::uuid;
+    v_x_m := (pg_temp.s112_beispiel(v_txt, v_m, v_mw, CASE WHEN v_txt = 'ea_transaktionen' THEN jsonb_build_object('datum', v_heute) ELSE '{}'::jsonb END) ->> 'id')::uuid;
+    v_x_b := (pg_temp.s112_beispiel(v_txt, v_b, (v_a ->> 'b_w')::uuid, CASE WHEN v_txt = 'ea_transaktionen' THEN jsonb_build_object('datum', v_heute) ELSE '{}'::jsonb END) ->> 'id')::uuid;
     FOREACH v_r IN ARRAY ARRAY['m', 'b'] LOOP
       v_sql := format('SELECT public.%s(%L, %L, %L)',
         CASE v_txt WHEN 'ea_transaktionen' THEN 's112_ea_stornieren' WHEN 'zahlungen' THEN 's112_zahlung_stornieren' ELSE 's112_umbuchung_stornieren' END,
@@ -687,7 +688,7 @@ BEGIN
   v_bm_m := (pg_temp.s112_beispiel('betriebsmittel', v_m, v_mw) ->> 'id')::uuid;
   v_bm_b := (pg_temp.s112_beispiel('betriebsmittel', v_b, (v_a ->> 'b_w')::uuid) ->> 'id')::uuid;
   FOREACH v_txt IN ARRAY ARRAY['m', 'b'] LOOP
-    v_sql := format('SELECT public.s112_betriebsmittel_einkauf(%L, %L, current_date, 2, %L, 10, 20, NULL, %L, NULL)',
+    v_sql := format('SELECT public.s112_betriebsmittel_einkauf(%L, %L, pg_temp.s112_heute(), 2, %L, 10, 20, NULL, %L, NULL)',
       v_b, CASE v_txt WHEN 'm' THEN v_bm_m ELSE v_bm_b END, 'stk', v_eakat);
     v_pruef := format('SELECT count(*)::text FROM public.betriebsmittel_lager_bewegungen l JOIN public.ea_transaktionen e ON e.id = l.ea_transaktion_id WHERE l.betriebsmittel_id = %L AND l.typ = %L',
       CASE v_txt WHEN 'm' THEN v_bm_m ELSE v_bm_b END, 'einkauf');
@@ -745,7 +746,7 @@ BEGIN
        OR (m.user_id = v_bw AND m.schreibmodule @> ARRAY['kellerbuch', 'warenwirtschaft', 'rieden', 'crm']));
   v_erg := v_erg || pg_temp.s112_erwarte('modul_aufbau_winzer_b', v_n, 5::bigint);
   -- fuellung_bestand_buchen: Korrektur +1 Flasche an der B-Füllung (Bestand vorher 10, keine Bewegung)
-  v_sql := format('SELECT public.fuellung_bestand_buchen(%L, %L, %L, current_date, 1, NULL, %L)', v_b, v_f_b, 'korrektur', 'S112TEST');
+  v_sql := format('SELECT public.fuellung_bestand_buchen(%L, %L, %L, pg_temp.s112_heute(), 1, NULL, %L)', v_b, v_f_b, 'korrektur', 'S112TEST');
   v_pruef := format('SELECT f.bestand_flaschen || %L || (SELECT count(*) FROM public.fuellung_bewegungen x WHERE x.fuellung_id = f.id) FROM public.fuellungen f WHERE f.id = %L',
     '/', v_f_b);
   FOR r IN SELECT * FROM (VALUES ('b_w', v_bw, 'ok|11/1'), ('b_w_warenwirtschaft', v_bww, 'ok|11/1'),
@@ -755,7 +756,7 @@ BEGIN
       pg_temp.t18_modul(pg_temp.t18_idor(r.u, v_sql, v_pruef, true)), r.soll);
   END LOOP;
   -- schwund_buchen mit Bestandminderung: 1 L an der B-Charge (vorher 100 L, keine Umzüge)
-  v_sql := format('SELECT public.schwund_buchen(%L, %L, 1, current_date, %L, false, true)', v_b, v_w_b, 'S112TEST');
+  v_sql := format('SELECT public.schwund_buchen(%L, %L, 1, pg_temp.s112_heute(), %L, false, true)', v_b, v_w_b, 'S112TEST');
   v_pruef := format('SELECT w.menge_liter::numeric(10,2) || %L || (SELECT count(*) FROM public.keller_umzuege k WHERE k.von_weinausbau_id = w.id) FROM public.weinausbau w WHERE w.id = %L',
     '/', v_w_b);
   FOR r IN SELECT * FROM (VALUES ('b_w', v_bw, 'ok|99.00/1'), ('b_w_kellerbuch', v_bwk, 'ok|99.00/1'),

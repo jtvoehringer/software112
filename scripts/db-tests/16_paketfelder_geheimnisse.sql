@@ -64,7 +64,7 @@ CREATE FUNCTION pg_temp.t16_anders(p_spalte text, p_typ text) RETURNS text LANGU
     WHEN p_typ = 'boolean' THEN format('NOT coalesce(%I, false)', p_spalte)
     WHEN p_typ IN ('integer', 'bigint', 'smallint') OR p_typ LIKE 'numeric%' THEN format('coalesce(%I, 0) + 1', p_spalte)
     WHEN p_typ = 'timestamp with time zone' THEN format('coalesce(%I, now()) - interval ''1 day''', p_spalte)
-    WHEN p_typ = 'date' THEN format('coalesce(%I, current_date) - 1', p_spalte)
+    WHEN p_typ = 'date' THEN format('coalesce(%I, pg_temp.s112_heute()) - 1', p_spalte)
     WHEN p_typ = 'text' OR p_typ LIKE 'character varying%' THEN
       format('CASE WHEN %I IS NOT DISTINCT FROM ''s112x'' THEN ''s112y'' ELSE ''s112x'' END', p_spalte)
     ELSE NULL
@@ -657,7 +657,7 @@ END $fn$$m$);
   v_erg := v_erg || pg_temp.s112_erwarte('einst_meldung_trigger',
     v_txt LIKE '42501: Keine Berechtigung, diese Felder in tenant_einstellungen zu ändern: rechnung_zaehler%', true);
   v_erg := v_erg || pg_temp.s112_erwarte('einst_svs_zusammen_b_ta',
-    pg_temp.s112_versuch(format('UPDATE public.tenant_einstellungen SET svs_option = %L, svs_option_seit = current_date, svs_einkuenfte_manuell = 1234.5, svs_kv_angehoerige = true WHERE tenant_id = %L', 'option', v_b)), 'k1');
+    pg_temp.s112_versuch(format('UPDATE public.tenant_einstellungen SET svs_option = %L, svs_option_seit = pg_temp.s112_heute(), svs_einkuenfte_manuell = 1234.5, svs_kv_angehoerige = true WHERE tenant_id = %L', 'option', v_b)), 'k1');
   v_erg := v_erg || pg_temp.s112_erwarte('einst_gemischt_b_ta',
     pg_temp.s112_versuch(format('UPDATE public.tenant_einstellungen SET svs_option = %L, ki_abfragen_paket = %L WHERE tenant_id = %L', 'option', 'unlimited', v_b)), 'T');
   -- INSERT, Upsert, DELETE: authenticated hat weder INSERT- noch DELETE-Recht (42501)

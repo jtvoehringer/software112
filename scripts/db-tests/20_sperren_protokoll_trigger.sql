@@ -137,6 +137,7 @@ END $f$;
 
 DO $test$
 DECLARE
+  v_heute date := (now() AT TIME ZONE 'Europe/Vienna')::date;   -- wie die RPCs (Wiener Zeit, nicht UTC)
   c_datei      constant text := '20_sperren_protokoll_trigger';
   v_m          uuid;
   v_t0         timestamptz := clock_timestamp();
@@ -1019,15 +1020,15 @@ BEGIN
     (pg_temp.s112_beispiel('weinjahrgaenge', v_b, v_bta, '{"jahrgang": 1902}'::jsonb) ->> 'id')::uuid)) ->> 'id')::uuid;
   PERFORM pg_temp.s112_als(v_bta);
   v_erg := v_erg || pg_temp.s112_erwarte('kan37b_direkt_eingereicht',
-    pg_temp.t20_muster(pg_temp.s112_fehlertext(format('SELECT public.s112_ama_status_setzen(%L, %L, %L, current_date, NULL)', v_b, v_ama_b2, 'eingereicht')),
+    pg_temp.t20_muster(pg_temp.s112_fehlertext(format('SELECT public.s112_ama_status_setzen(%L, %L, %L, pg_temp.s112_heute(), NULL)', v_b, v_ama_b2, 'eingereicht')),
       '42501:%Einreichen%', 'gesperrt'), 'gesperrt');
   v_erg := v_erg || pg_temp.s112_erwarte('kan37b_falscher_jahrgang',
-    pg_temp.t20_muster(pg_temp.s112_fehlertext(format('SELECT public.s112_ama_einreichen(%L, %L, current_date, NULL, %L::jsonb)', v_b, v_ama_b2,
+    pg_temp.t20_muster(pg_temp.s112_fehlertext(format('SELECT public.s112_ama_einreichen(%L, %L, pg_temp.s112_heute(), NULL, %L::jsonb)', v_b, v_ama_b2,
       jsonb_build_object('meldung', 'erntemeldung', 'parameter', '{"jahrgang": 1903}'::jsonb, 'zeilen', '[]'::jsonb,
         'spalten', '[{"kopf": "Rebsorte", "typ": "text"}]'::jsonb, 'profil', 'EXCEL_AT', 'dateiname', 'S112TEST.csv', 'csv', 'x'))),
       '22023:%gehört nicht zu dieser Meldung%', 'abgelehnt'), 'abgelehnt');
   v_erg := v_erg || pg_temp.s112_erwarte('kan37b_einreichen',
-    pg_temp.s112_fehlertext(format('SELECT public.s112_ama_einreichen(%L, %L, current_date, %L, %L::jsonb)', v_b, v_ama_b2, 'S112TEST-REF',
+    pg_temp.s112_fehlertext(format('SELECT public.s112_ama_einreichen(%L, %L, pg_temp.s112_heute(), %L, %L::jsonb)', v_b, v_ama_b2, 'S112TEST-REF',
       jsonb_build_object('meldung', 'erntemeldung', 'parameter', '{"jahrgang": 1902}'::jsonb, 'zeilen', '[{"rebsorte": "S112TEST"}]'::jsonb,
         'spalten', '[{"kopf": "Rebsorte", "typ": "text"}]'::jsonb, 'profil', 'EXCEL_AT', 'dateiname', 'S112TEST.csv',
         'csv', E'﻿Rebsorte
@@ -1036,7 +1037,7 @@ S112TEST
   v_erg := v_erg || pg_temp.s112_erwarte('kan37b_lesen_als_ta',
     pg_temp.s112_zaehle(format('SELECT count(*) FROM public.meldung_abgaben WHERE ama_meldung_id = %L', v_ama_b2)), '1');
   v_erg := v_erg || pg_temp.s112_erwarte('kan37b_kein_insert_als_ta',
-    pg_temp.s112_versuch(format('INSERT INTO public.meldung_abgaben (tenant_id, meldung, eingereicht_am, parameter, zeilen, zeilen_anzahl, spalten, spalten_sha256, profil, dateiname, csv_text, csv_sha256, csv_bytes) VALUES (%L, %L, current_date, %L, %L, 0, %L, %L, %L, %L, %L, %L, 0)',
+    pg_temp.s112_versuch(format('INSERT INTO public.meldung_abgaben (tenant_id, meldung, eingereicht_am, parameter, zeilen, zeilen_anzahl, spalten, spalten_sha256, profil, dateiname, csv_text, csv_sha256, csv_bytes) VALUES (%L, %L, pg_temp.s112_heute(), %L, %L, 0, %L, %L, %L, %L, %L, %L, 0)',
       v_b, 'bestandsmeldung', '{}', '[]', '[{}]', '', 'p', 'd', 'x', '')) IN ('R', 'T'), true);   -- Trigger (vor RLS) bzw. RLS
   PERFORM pg_temp.s112_als_postgres();
   SELECT a.id INTO v_abg FROM public.meldung_abgaben a WHERE a.ama_meldung_id = v_ama_b2;
@@ -1056,7 +1057,7 @@ S112TEST
     pg_temp.t20_muster(pg_temp.s112_fehlertext('TRUNCATE public.meldung_abgaben'), '42501:%nie gelöscht%', 'gesperrt'), 'gesperrt');
   PERFORM pg_temp.s112_als(v_bta);
   v_erg := v_erg || pg_temp.s112_erwarte('kan37b_zweimal',
-    pg_temp.t20_muster(pg_temp.s112_fehlertext(format('SELECT public.s112_ama_einreichen(%L, %L, current_date, NULL, %L::jsonb)', v_b, v_ama_b2,
+    pg_temp.t20_muster(pg_temp.s112_fehlertext(format('SELECT public.s112_ama_einreichen(%L, %L, pg_temp.s112_heute(), NULL, %L::jsonb)', v_b, v_ama_b2,
       jsonb_build_object('meldung', 'erntemeldung', 'parameter', '{"jahrgang": 1902}'::jsonb, 'zeilen', '[]'::jsonb,
         'spalten', '[{"kopf": "Rebsorte", "typ": "text"}]'::jsonb, 'profil', 'EXCEL_AT', 'dateiname', 'S112TEST.csv', 'csv', 'x'))),
       '42501:%nur vorwärts%', 'abgelehnt'), 'abgelehnt');
@@ -1071,7 +1072,7 @@ S112TEST
   PERFORM pg_temp.s112_als(v_bta);
   v_erg := v_erg || pg_temp.s112_erwarte('kan37c_offen_frei',
     pg_temp.s112_versuch(format('UPDATE public.ernte_parzellen SET menge_kg = 110 WHERE id = %L', v_ep_c)), 'k1');
-  PERFORM public.s112_ama_einreichen(v_b, v_ama_c, current_date, NULL, jsonb_build_object('meldung', 'erntemeldung',
+  PERFORM public.s112_ama_einreichen(v_b, v_ama_c, v_heute, NULL, jsonb_build_object('meldung', 'erntemeldung',
     'parameter', '{"jahrgang": 1904}'::jsonb, 'zeilen', '[]'::jsonb, 'spalten', '[{"kopf": "S112TEST", "typ": "text"}]'::jsonb,
     'profil', 'EXCEL_AT', 'dateiname', 'S112TEST.csv', 'csv', 'S112TEST'));
   v_erg := v_erg || pg_temp.s112_erwarte('kan37c_benutzer_gesperrt',
