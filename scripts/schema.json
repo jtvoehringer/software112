@@ -608,7 +608,8 @@
 "freigegeben_von",
 "freigegeben_von_name",
 "erstellt_am",
-"aktualisiert_am"
+"aktualisiert_am",
+"umleitung_auf"
 ],
 "email_lead_ignoriert": [
 "tenant_id",
@@ -2234,5 +2235,16 @@
 "aktiv",
 "erstellt_am",
 "aktualisiert_am"
+],
+"elabel_umleitungen": [
+"id",
+"tenant_id",
+"elabel_id",
+"von_elabel_id",
+"nach_elabel_id",
+"grund",
+"geaendert_am",
+"geaendert_von",
+"geaendert_von_name"
 ]
 }

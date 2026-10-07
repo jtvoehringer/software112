@@ -1029,6 +1029,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('ea_uva',                        'SA,TA,W*{ea}',                           'SA,TA,W*{ea}',                           'SA,TA,W*{ea}'),
     ('elabel_zutaten',                'PA',                                     'PA',                                     'PA'),   -- KAN-216: globaler E-Label-Katalog
     ('elabels',                       'SA,TA,W*{kellerbuch|warenwirtschaft}',   'SA,TA,W*{kellerbuch|warenwirtschaft}',   'SA,TA,W*{kellerbuch|warenwirtschaft}'),   -- KAN-216 (freigegeben gesperrt: a_freeze)
+    ('elabel_umleitungen',            '-',                                      '-',                                      '-'),   -- KAN-219: Protokoll, nur s112_elabel_umleiten schreibt
     ('email_lead_ignoriert',          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}'),
     ('ernte_parzellen',               'SA,TA,W*{rieden|kellerbuch}',            'SA,TA,W*{rieden|kellerbuch}',            '-{rieden|kellerbuch}'),   -- KAN-148 C1d
     ('export_dokumente',              'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              '-{warenwirtschaft}'),   -- KAN-150 F2a (löschen nur über s112_storniert_loeschen)
@@ -1243,6 +1244,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('trigger',       '--S', false, 'bestandsprotokoll_schreiben()'),
     ('trigger',       '--S', false, 's112_fremdverweis_pruefen()'),
     ('trigger',       '--S', false, 's112_freeze()'),
+    ('trigger',       '--S', false, 's112_elabel_umleitung_schutz()'),   -- KAN-219: Umleitung nur über s112_elabel_umleiten
     ('trigger',       '--S', false, 's112_elabel_pruefen()'),   -- KAN-216: Zutatenliste aus dem Katalog, Kennung unveränderlich, Freigabe stempeln   -- KAN-96: generischer Freeze-Trigger
     ('trigger',       '--S', false, 's112_tb_stempel()'),
     ('trigger',       '--S', false, 's112_kellermittel_buchung_stempel()'),   -- KAN-107: Benutzer der Stoffkonto-Buchung   -- KAN-209: Zeitpunkt/Benutzer beim Ausstellen der Transportbescheinigung
@@ -1256,6 +1258,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('mandant',       '-US', true , 's112_zugangskorrektur_buchen(p_tenant_id uuid, p_weinausbau_id uuid, p_datum date, p_menge numeric, p_art text, p_grund text)'),   -- KAN-53: Zugangskorrektur
     ('mandant',       '-US', true , 's112_zugangskorrektur_stornieren(p_tenant_id uuid, p_id uuid, p_grund text)'),   -- KAN-53: Storno der Zugangskorrektur
     ('mandant',       '-US', true , 's112_verarbeitung_buchen(p_tenant_id uuid, p_weinausbau_id uuid, p_datum date, p_menge numeric, p_zweck text, p_notizen text, p_artikel_id uuid, p_stueck numeric)'),   -- KAN-41 Paket 3a: Verarbeitung (AB_VERAR); KAN-115: + Zugang beim Sonstigen Produkt
+    ('mandant',       '-US', true , 's112_elabel_umleiten(p_tenant_id uuid, p_elabel_id uuid, p_ziel_id uuid, p_grund text)'),   -- KAN-219: QR-Code eines E-Labels umleiten (Protokoll)
     ('mandant',       '-US', true , 's112_sekt_stufe_setzen(p_tenant_id uuid, p_fuellung_id uuid, p_stufe text, p_degorgiert_am date, p_lagenrein boolean)'),   -- KAN-190: Sekt-Stufe / Degorgieren
     ('mandant',       '-US', true , 's112_artikel_buchen(p_tenant_id uuid, p_artikel_id uuid, p_datum date, p_art text, p_menge numeric, p_notizen text)'),   -- KAN-115: Anfangsbestand/Zugang/Inventur Sonstiger Produkte
     ('mandant',       '-US', true , 's112_artikel_bewegung_stornieren(p_tenant_id uuid, p_id uuid, p_grund text)'),   -- KAN-115: Storno einer Lagerbuchung
