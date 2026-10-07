@@ -92,7 +92,7 @@ export async function setzeDacStatus(id: string, eingabe: { status: string; datu
     if (!d) throw new AktionsFehler('Antrag nicht gefunden oder storniert – bitte die Seite neu laden.')
     const pna = await ladePruefnummernantrag(supabase, tenantId, { id })
     const fehlend = pnPflichtFehlend(d as R, (pna?.formular ?? null) as R | null, !!pna?.gespeichert)
-    if (fehlend.length > 0) throw new AktionsFehler(`Einreichen nicht möglich – es fehlen: ${fehlend.join(', ')}.`)
+    if (fehlend.length > 0) throw new AktionsFehler(`Einreichen nicht möglich – es fehlen: ${fehlend.join(', ')}.${fehlend.some(f => f.startsWith('Antragsformular')) ? ' Das Antragsformular öffnest du oben über „Prüfnummernantrag“.' : ''}`)
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.rpc as any)('s112_pruefnummernantrag_status_setzen', {

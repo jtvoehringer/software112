@@ -69,6 +69,7 @@ export default function FuellungFormClient({
   customWeinbaugebiete,
   action,
   defaultChargeId,
+  losVorschau = null,
 }: {
   chargen: Charge[]
   /** KAN-72: nur die für die Abfüllung wählbaren Anträge (gültige Prüfnummer bzw. offen) */
@@ -78,6 +79,8 @@ export default function FuellungFormClient({
   /** Charge → warum ihre frühere Prüfnummer nicht (mehr) gilt */
   pnHinweise?: Record<string, string>
   customWeinbaugebiete: CustomWeinbaugebiet[]
+  /** KAN-92: nächste automatisch vergebene Los-/Chargennummer (Vorschau, vergeben wird beim Speichern) */
+  losVorschau?: string | null
   action: (fd: FormData) => Promise<{ id: string; hinweis?: string }>
   defaultChargeId?: string
 }) {
@@ -373,13 +376,17 @@ export default function FuellungFormClient({
             {freieEingabe && <input type="hidden" name="pruefnummer" value={pruefnummerVal} />}
           </div>
           <div>
-            <label className={labelCls}>Chargennummer</label>
-            <input aria-label="Chargennummer"
+            <label className={labelCls}>Los-/Chargennummer</label>
+            <input aria-label="Los-/Chargennummer"
               name="chargennummer"
-              placeholder="Leer lassen = wird automatisch vergeben"
+              maxLength={40}
+              placeholder={losVorschau ? `automatisch: ${losVorschau}` : 'Leer lassen = wird automatisch vergeben'}
               className={inputCls}
             />
-            <p className="text-xs text-s112-muted mt-1">Leer lassen → automatisch z.B. CH-2025-001</p>
+            <p className="text-xs text-s112-muted mt-1">
+              {losVorschau ? <>Leer lassen → nächste Nummer <span className="font-mono">{losVorschau}</span></> : 'Leer lassen → automatisch z. B. CH-2026-001'}
+              {' '}· eigene Nummer möglich, je Betrieb eindeutig; nach dem Speichern nicht mehr änderbar (Loskennzeichnung)
+            </p>
           </div>
           <div>
             <label className={labelCls}>Abfülldatum *</label>

@@ -29,6 +29,7 @@ import { eroeffnungsStichtagFehler, IMPORT_QUELLE_EROEFFNUNG } from '@/lib/kelle
 import { eroeffnungsVermerk, flaschenFormularWerte, pruefeFlaschenZeilen, type DateiBefund, type FlaschenEingabe } from '@/lib/import/eroeffnungsbestand'
 import { fuellungNameFehler } from '@/lib/handel/partnerPflicht'
 import { etikettierenFehler, unetikettiertFehler } from '@/lib/handel/etikettierung'
+import { losnummerFehler } from '@/lib/handel/losnummer'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -262,7 +263,18 @@ async function fuellungAnlegen(formData: FormData, eroeffnung: FlaschenEroeffnun
   const notizenInput = (formData.get('notizen') as string) || null
   const notizen = notizenZusatz ? [notizenInput, notizenZusatz.trim()].filter(Boolean).join('\n') : notizenInput
 
-  let chargennummer = (formData.get('chargennummer') as string) || null
+  // KAN-92: eigene Los-/Chargennummer nur mit gültigem Format und je Betrieb eindeutig (die DB sichert per UNIQUE ab)
+  let chargennummer = String(formData.get('chargennummer') ?? '').trim() || null
+  const losFehler = losnummerFehler(chargennummer)
+  if (losFehler) throw new AktionsFehler(losFehler)
+  if (chargennummer) {
+    const { count, error: dupErr } = await (supabase.from('fuellungen') as AR)
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId)
+      .eq('chargennummer', chargennummer)
+    if (dupErr) throw new AktionsFehler(dbFehlerText(dupErr, 'Los-/Chargennummer konnte nicht geprüft werden'))
+    if ((count ?? 0) > 0) throw new AktionsFehler(`Die Los-/Chargennummer „${chargennummer}“ gibt es in diesem Betrieb schon – bitte eine andere wählen oder leer lassen.`)
+  }
   if (!chargennummer) {
     const { data: nr, error: nrErr } = await (supabase.rpc as any)('get_next_chargennummer', { p_tenant_id: tenantId })
     if (nrErr) throw new AktionsFehler(dbFehlerText(nrErr, 'Chargennummer konnte nicht vergeben werden'))

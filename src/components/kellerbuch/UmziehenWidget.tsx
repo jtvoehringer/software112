@@ -28,6 +28,9 @@ interface Props {
 export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, gebinde, alleChargen, action, initialOpen = false, quelleRebsorte = null, quelleWeinart = null }: Props) {
   const router  = useRouter()
   const [open,  setOpen]  = useState(initialOpen)
+  // Rückmeldung Jörgen 07.10.2026: nach dem Buchen klar bestätigen, dass der Umzug abgeschlossen ist – das Formular
+  // „Charge bearbeiten“ darunter ist kein weiterer Schritt
+  const [erfolg, setErfolg] = useState<{ liter: number; gebindeId: string; gebindeName: string } | null>(null)
   useEffect(() => { setOpen(initialOpen) }, [initialOpen])
   // KAN-181: über ?form=umziehen geöffnet steht das Formular weit unten – einmalig hinscrollen
   const sectionRef = useRef<HTMLElement>(null)
@@ -117,6 +120,7 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
           fd.set('rotweiss_bestaetigt', '1')   // KAN-193: Rückfrage Rot/Weiß steht in derselben Bestätigung
           result = await action(fd)
         }
+        const gebucht = { liter: nettoVal, gebindeId: zielId, gebindeName: gebinde.find(g => g.id === zielId)?.name ?? 'Ziel-Gebinde' }
         setBrutto(''); setNetto(''); setZielId(''); setNotizen('')
         if (result?.verschnitte?.length) {
           // KAN-112: abweichender Wein im Ziel-Gebinde – sofort als Verschnitt gebucht; Hinweis zeigen und Daten neu laden
@@ -130,6 +134,7 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
         } else {
           // Bleibt auf derselben Charge - ein bloßer Push auf dieselbe URL lädt in Next.js
           // keine frischen Serverdaten nach, hier ist das explizite refresh() nötig.
+          setErfolg(gebucht)
           router.push(`/kellerbuch/weinausbau/${chargeId}`)
           router.refresh()
         }
@@ -139,6 +144,16 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
     })
   }
 
+  if (!open && erfolg) {
+    return (
+      <div role="status" className="bg-s112-ok-bg border border-s112-ok/30 text-s112-ok-fg rounded-lg px-4 py-3 text-sm flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="font-semibold">Umzug gebucht: {fmtNum(erfolg.liter, { max: 2 })} L nach {erfolg.gebindeName}.</span>
+        <span>Der Vorgang ist abgeschlossen – es ist nichts weiter zu speichern.</span>
+        <Link href={`/kellerbuch/behaelter/${erfolg.gebindeId}/bewegungen`} className="underline">Ziel-Gebinde ansehen</Link>
+        <button type="button" onClick={() => setErfolg(null)} className="ml-auto text-xs underline">Schließen</button>
+      </div>
+    )
+  }
   if (!open) return null
 
   return (

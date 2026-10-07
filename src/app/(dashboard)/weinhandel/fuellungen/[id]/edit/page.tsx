@@ -1,4 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { qrSvg, qrPngDataUrl, appBasisUrl } from '@/lib/qr'
+import { weinpassPfad } from '@/lib/handel/losnummer'
 import { alle } from '@/lib/supabase/alle'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { redirect } from 'next/navigation'
@@ -210,6 +212,12 @@ export default async function EditFuellungPage({
     return erlaubt
   })()
 
+  // KAN-92/KAN-122: Weinpass-QR lokal erzeugt (SVG zur Anzeige, PNG zum Laden) – kodiert /w/<weinpass_code>
+  const weinpassPfadF = weinpassPfad(f as { weinpass_code?: string | null; chargennummer?: string | null })
+  const weinpass = weinpassPfadF
+    ? { pfad: weinpassPfadF, svg: await qrSvg(`${appBasisUrl()}${weinpassPfadF}`), png: await qrPngDataUrl(`${appBasisUrl()}${weinpassPfadF}`) }
+    : null
+
   return (
     <div className="max-w-2xl">
       {/* Breadcrumb */}
@@ -234,39 +242,35 @@ export default async function EditFuellungPage({
         </Link>
       )}
 
-      {/* ── Weinpass / QR-Code ── */}
-      {f.chargennummer && (
+      {/* ── Weinpass / QR-Code (KAN-92: /w/<weinpass_code>; KAN-122: QR lokal erzeugt, kein externer Dienst) ── */}
+      {weinpass && (
         <div className="card p-5 flex gap-5 items-start mb-2">
-          {/* QR-Code via qrserver.com */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(`https://software112.icp-consultants.at/w/${encodeURIComponent(f.chargennummer)}`)}`}
-            alt="QR-Code Weinpass"
-            width={120} height={120}
-            className="rounded-xl border border-s112-border shrink-0"
-          />
+          <div aria-label="QR-Code Weinpass" role="img"
+            className="w-[120px] h-[120px] shrink-0 rounded-xl border border-s112-border p-1 [&>svg]:w-full [&>svg]:h-full"
+            dangerouslySetInnerHTML={{ __html: weinpass.svg }} />
           <div className="space-y-2 min-w-0">
             <p className="text-sm font-semibold text-s112-text flex items-center gap-1.5"><Wine className="w-4 h-4 text-s112-blue-700" /> Weinpass</p>
-            <p className="text-xs text-s112-muted">Chargennummer: <span className="font-mono text-s112-text-1">{f.chargennummer}</span></p>
+            <p className="text-xs text-s112-muted">Los-/Chargennummer: <span className="font-mono text-s112-text-1">{f.chargennummer ?? '–'}</span></p>
             <a
-              href={`/w/${encodeURIComponent(f.chargennummer)}`}
+              href={weinpass.pfad}
               target="_blank" rel="noopener noreferrer"
               className="text-xs text-s112-blue-700 hover:underline break-all">
-              /w/{f.chargennummer} ↗
+              {weinpass.pfad} ↗
             </a>
             <div className="flex gap-2 pt-1">
               <a
-                href={`https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(`https://software112.icp-consultants.at/w/${encodeURIComponent(f.chargennummer)}`)}`}
-                download={`weinpass-${f.chargennummer}.png`}
-                target="_blank" rel="noopener noreferrer"
+                href={weinpass.png}
+                download={`weinpass-${f.chargennummer ?? f.weinpass_code ?? id}.png`}
                 className="text-xs border border-s112-border px-3 py-1 rounded-lg text-s112-text-2 hover:bg-s112-bg">
                 QR laden
               </a>
-              <a
-                href={`/kellerbuch/rueckverfolgung?q=${encodeURIComponent(f.chargennummer)}`}
-                className="text-xs border border-s112-border px-3 py-1 rounded-lg text-s112-text-2 hover:bg-s112-bg">
-                Rückverfolgung
-              </a>
+              {f.chargennummer && (
+                <a
+                  href={`/kellerbuch/rueckverfolgung?q=${encodeURIComponent(f.chargennummer)}`}
+                  className="text-xs border border-s112-border px-3 py-1 rounded-lg text-s112-text-2 hover:bg-s112-bg">
+                  Rückverfolgung
+                </a>
+              )}
             </div>
           </div>
         </div>

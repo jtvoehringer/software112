@@ -3,6 +3,7 @@ import { momentaufnahmeAnwenden } from '@/lib/stammdaten/momentaufnahme'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
+import { losText } from '@/lib/handel/losnummer'
 import Link from '@/components/ui/Link'
 import { stornoVerkauf, createZahlung, stornoZahlung } from '../actions'
 import StornoButton from '@/components/StornoButton'
@@ -75,7 +76,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
         zh_kontakt:kontakte!zh_kontakt_id(titel, vorname, nachname, titel_nachgestellt),
         positionen:verkauf_positionen(
           id, typ, name, menge, einheit, preis_brutto, rabatt_pct, sonderrabatt_pct, ust_satz,
-          fuellung:fuellungen(id, name, jahrgang, flaschengroesse_ml),
+          fuellung:fuellungen(id, name, jahrgang, flaschengroesse_ml, pruefnummer, chargennummer, datum),
           weinausbau:weinausbau(id, name)
         )
       `)
@@ -445,6 +446,9 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
                 sub.push(FLASCHEN_LABEL[pos.fuellung.flaschengroesse_ml] ?? `${pos.fuellung.flaschengroesse_ml} ml`)
               }
               if (pos.typ === 'tank') sub.push('Tankverkauf')
+              // KAN-92: Prüfnummer, Los und Abfülldatum je Flaschenposition (Lieferschein und Rechnung)
+              const los = losText(pos.fuellung)
+              if (los) sub.push(los)
               return (
                 <tr key={pos.id} className={`border-b border-s112-border last:border-0 ${i % 2 === 1 ? 'bg-s112-bg/30' : ''}`}>
                   <td className="px-4 py-3">

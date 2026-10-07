@@ -1,4 +1,4 @@
-// Öffentliche Weinpass-Seite: /w/[chargennummer]
+// Öffentliche Weinpass-Seite: /w/[weinpass_code] (KAN-92), alte Etiketten /w/[chargennummer]
 // Keine Authentifizierung erforderlich – nur öffentlich freigegebene Daten
 
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
@@ -11,6 +11,7 @@ import { qualitaetText } from '@/lib/weinqualitaet'
 import { format as formatMostgewicht } from '@/lib/wein/mostgewicht'
 import { mostgewichtAusGespeichert } from '@/lib/wein/mostgewichtFormular'
 import { ladeMostgewichtEinheit } from '@/lib/tenant/kopf'
+import { istWeinpassCode } from '@/lib/handel/losnummer'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,42 +20,45 @@ type R = Record<string, any>
 
 export async function generateMetadata({ params }: { params: Promise<{ charge: string }> }): Promise<Metadata> {
   const { charge } = await params
-  return { title: `Weinpass ${decodeURIComponent(charge)} – software:112` }
+  return { title: istWeinpassCode(decodeURIComponent(charge)) ? 'Weinpass – software:112' : `Weinpass ${decodeURIComponent(charge)} – software:112` }
 }
 
 export default async function WeinpassPage({ params }: { params: Promise<{ charge: string }> }) {
   const { charge } = await params
-  const chargennummer = decodeURIComponent(charge)
-  // Öffentliche Seite ohne Login (QR-Code auf der Flasche) -> Service-Role-Client nötig,
-  // da die einzige RLS-SELECT-Policy auf fuellungen eine eingeloggte Tenant-Mitgliedschaft
-  // verlangt und für anonyme Besucher sonst immer 0 Zeilen liefert. Es gibt hier bewusst
-  // KEINE tenant_id-Filterung (kein aktiver Mandant auf einer öffentlichen, unangemeldeten
-  // Seite) - siehe check-tenant-isolation.js TENANT_FILTER_MISSING für diese Zeile.
+  const schluessel = decodeURIComponent(charge)
+  // Öffentliche Seite ohne Login (QR-Code auf der Flasche) -> Service-Role-Client nötig, da die einzige
+  // RLS-SELECT-Policy auf fuellungen eine eingeloggte Tenant-Mitgliedschaft verlangt. Es gibt hier bewusst KEINE
+  // tenant_id-Filterung (kein aktiver Mandant auf einer öffentlichen, unangemeldeten Seite) – siehe
+  // check-tenant-isolation.js TENANT_FILTER_MISSING für diese Zeilen.
   //
-  // WICHTIG: chargennummer ist NUR pro Mandant eindeutig (auto-vergeben über
-  // get_next_chargennummer(), Muster z.B. "CH-2025-001" mit pro Mandant konfigurierbarem,
-  // aber standardmäßig identischem Prefix "CH") - KEINE globale Eindeutigkeit über alle
-  // Mandanten hinweg garantiert. Zwei Mandanten mit Standardeinstellungen können also exakt
-  // dieselbe Chargennummer vergeben. .limit(1) VOR .single() würde eine solche Kollision
-  // still verdecken und irgendeine der mehreren passenden Zeilen (ggf. eines FREMDEN
-  // Mandanten) anzeigen. Deshalb bewusst OHNE .limit(1): .single() liefert dann bei mehr
-  // als einer Trefferzeile einen Fehler statt einer beliebigen Zeile, und die Seite zeigt
-  // "nicht gefunden" statt (möglicherweise) fremder Daten. Löst NICHT das zugrunde liegende
-  // Produktproblem (chargennummer sollte langfristig global eindeutig sein, z.B. über eine
-  // UUID-basierte oder mandanten-präfigierte Weinpass-URL) - das braucht eine bewusste
-  // Entscheidung, siehe Rückmeldung an den Nutzer.
+  // KAN-92 (07.10.2026): Neue QR-Codes führen auf /w/<weinpass_code> – zufällig und global eindeutig. Alte Etiketten
+  // mit /w/<chargennummer> gehen weiter, aber die Chargennummer ist nur je Betrieb eindeutig: bei mehr als einem Treffer
+  // (Nummer in mehreren Betrieben) zeigt die Seite einen Hinweis statt (möglicherweise) fremder Daten.
   const supabase = createSupabaseAdminClient()
-
-  // Füllung laden (öffentliche Felder)
-  // tenant-isolation-ignore: oeffentliche, unangemeldete Seite ohne aktiven Mandanten - siehe Kommentar oben
-  const { data: fuellungRaw } = await (supabase.from('fuellungen') as any)
-    .select(`
+  const SPALTEN = `
       chargennummer, pruefnummer, name, jahrgang, rebsorte, qualitaet, zusatzbezeichnung, erzeugnis,
       anbaugebiet, bezeichnung, datum, flaschengroesse_ml, anzahl_flaschen,
       weinausbau_id, tenant_id
-    `)
-    .eq('chargennummer', chargennummer)
-    .single()
+    `
+  let fuellungRaw: R | null = null
+  if (istWeinpassCode(schluessel)) {
+    // tenant-isolation-ignore: oeffentliche, unangemeldete Seite ohne aktiven Mandanten – Code global eindeutig (UNIQUE)
+    const { data } = await (supabase.from('fuellungen') as R)
+      .select(SPALTEN)
+      .eq('weinpass_code', schluessel)
+      .maybeSingle()
+    fuellungRaw = (data ?? null) as R | null
+  }
+  if (!fuellungRaw) {
+    // tenant-isolation-ignore: oeffentliche, unangemeldete Seite ohne aktiven Mandanten – alte URL, nur bei eindeutigem Treffer
+    const { data } = await (supabase.from('fuellungen') as R)
+      .select(SPALTEN)
+      .eq('chargennummer', schluessel)
+      .limit(2)
+    const treffer = (data ?? []) as R[]
+    if (treffer.length > 1) return <WeinpassMehrdeutig nummer={schluessel} />
+    fuellungRaw = treffer[0] ?? null
+  }
 
   if (!fuellungRaw) notFound()
   const f = fuellungRaw as R
@@ -182,6 +186,22 @@ export default async function WeinpassPage({ params }: { params: Promise<{ charg
         <div className="px-6 pb-6 text-center">
           <p className="text-[11px] text-s112-tertiary">Powered by software:112</p>
         </div>
+      </div>
+    </div>
+  )
+}
+
+/** KAN-92: alte Weinpass-URL mit einer Chargennummer, die es in mehreren Betrieben gibt – keine fremden Daten zeigen */
+function WeinpassMehrdeutig({ nummer }: { nummer: string }) {
+  return (
+    <div className="min-h-screen bg-s112-bg flex items-center justify-center p-4">
+      <div className="w-full max-w-sm bg-white rounded-xl shadow-xl p-6 text-center space-y-2">
+        <p className="text-[11px] uppercase tracking-widest text-s112-muted font-semibold">Weinpass</p>
+        <h1 className="text-lg font-semibold text-s112-text">Charge {nummer} nicht eindeutig</h1>
+        <p className="text-sm text-s112-text-2">
+          Diese Chargennummer gibt es bei mehreren Weingütern. Bitte den QR-Code eines neueren Etiketts verwenden oder
+          beim Weingut nachfragen.
+        </p>
       </div>
     </div>
   )

@@ -822,7 +822,8 @@
 "land_iso",
 "zukauf_posten_id",
 "anzahl_unetikettiert",
-"bestand_unetikettiert"
+"bestand_unetikettiert",
+"weinpass_code"
 ],
 "grundstuecke": [
 "id",

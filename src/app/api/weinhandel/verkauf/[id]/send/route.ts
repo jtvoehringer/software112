@@ -20,6 +20,7 @@ import { ereignisMelden } from '@/lib/system/ereignis'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { kontaktAnzeigename } from '@/lib/crm/titel'
+import { losText } from '@/lib/handel/losnummer'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -63,7 +64,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         zh_kontakt:kontakte!zh_kontakt_id(titel, vorname, nachname, titel_nachgestellt),
         positionen:verkauf_positionen(
           typ, name, menge, einheit, preis_brutto, rabatt_pct, sonderrabatt_pct, ust_satz,
-          fuellung:fuellungen(jahrgang, flaschengroesse_ml)
+          fuellung:fuellungen(jahrgang, flaschengroesse_ml, pruefnummer, chargennummer, datum)
         )
       `)
       .eq('id', id).eq('tenant_id', tenantId).eq('aktiv', true).maybeSingle(),
@@ -141,6 +142,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (pos.fuellung?.jahrgang) sub.push(String(pos.fuellung.jahrgang))
     if (pos.fuellung?.flaschengroesse_ml) sub.push(FLASCHEN_LABEL[pos.fuellung.flaschengroesse_ml] ?? `${pos.fuellung.flaschengroesse_ml} ml`)
     if (pos.typ === 'tank') sub.push('Tankverkauf')
+    // KAN-92: Prüfnummer, Los und Abfülldatum je Flaschenposition (wie Lieferschein und Rechnung)
+    const los = losText(pos.fuellung)
+    if (los) sub.push(los)
     return {
       name: pos.name as string,
       sub: sub.length > 0 ? sub.join(' · ') : null,

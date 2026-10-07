@@ -7,6 +7,7 @@ import Link from '@/components/ui/Link'
 import { createFuellung } from '../../actions'
 import { ladeCustomWeinbaugebiete } from '../../../weinbaugebiete/actions'
 import FuellungFormClient from './FuellungFormClient'
+import { losnummerVorschau } from '@/lib/handel/losnummer'
 import { wienHeute } from '@/lib/csv'
 import { pruefnummerGueltig, pruefnummerHinweis, waehlbareAntraege, type PnChargeDaten } from '@/lib/kellerbuch/pruefnummer'
 import { ladePruefnummerDaten } from '@/lib/kellerbuch/pruefnummerLaden'
@@ -50,6 +51,12 @@ export default async function NeueFuellungPage({
 
   const alleAntraege = (dacRaw ?? []) as R[]
   let chargen = (chargenRaw ?? []) as R[]
+
+  // KAN-92: Vorschau der nächsten Los-/Chargennummer (dieselbe Bildung wie get_next_chargennummer)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: nkRaw } = tenantId ? await (supabase.from('tenant_einstellungen') as any)
+    .select('charge_prefix, charge_stellen, charge_zaehler').eq('tenant_id', tenantId).maybeSingle() : { data: null }
+  const losVorschau = nkRaw ? losnummerVorschau({ prefix: nkRaw.charge_prefix, stellen: nkRaw.charge_stellen, zaehler: nkRaw.charge_zaehler }, Number(wienHeute().slice(0, 4))) : null
 
   // Eigene, vom Mandanten selbst angelegte Weinbaugebiete (Herkunft-Code-Selbstverwaltung)
   const customWeinbaugebiete = await ladeCustomWeinbaugebiete()
@@ -106,6 +113,7 @@ export default async function NeueFuellungPage({
         customWeinbaugebiete={customWeinbaugebiete}
         action={createFuellung}
         defaultChargeId={chargeId}
+        losVorschau={losVorschau}
       />
     </div>
   )

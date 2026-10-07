@@ -10,6 +10,8 @@ import { updateDacAntrag, stornoDacAntrag, loescheDacAntrag, setzeDacStatus, kop
 import DacStatusKarte, { type PnEreignis } from '@/components/dac/DacStatusKarte'
 import StornoKarte from '@/components/StornoKarte'
 import FreezeKorrektur from '@/components/FreezeKorrektur'
+import { pnPflichtFehlend } from '@/lib/dac/workflow'
+import { ladePruefnummernantrag } from '@/lib/behoerden/pruefnummernantrag'
 import { KORREKTUR_FELDER } from '@/lib/freeze/korrektur'
 
 export const metadata: Metadata = { title: 'Prüfnummern-Antrag bearbeiten – software:112' }
@@ -60,6 +62,10 @@ export default async function DacEditPage({ params }: { params: Promise<{ id: st
   const weinausbau = (waRaw ?? []) as NameRow[]
   const ereignisse = (evRaw ?? []) as PnEreignis[]
   const schreiben = !!membership && canWrite(membership, 'kellerbuch')
+  // Rückmeldung Jörgen 07.10.2026: im Entwurf vorab zeigen, was zum Einreichen fehlt (dieselbe Prüfung wie setzeDacStatus)
+  const imEntwurf = schreiben && !!tenantId && dac.status === 'entwurf' && !dac.storniert_am
+  const pna = imEntwurf && tenantId ? await ladePruefnummernantrag(supabase, tenantId, { id }) : null
+  const einreichFehlend = imEntwurf ? pnPflichtFehlend(dac as unknown as R, (pna?.formular ?? null) as R | null, !!pna?.gespeichert) : []
   // KAN-196: gesperrter Antrag (ab Eingereicht) – Korrektur mit Grund nur für die Betriebsleitung
   const korrektur = !!membership && canAdmin(membership.role) && !dac.storniert_am && dac.status !== 'entwurf'
 
@@ -97,7 +103,8 @@ export default async function DacEditPage({ params }: { params: Promise<{ id: st
       {/* KAN-150 F2: stornierter Antrag ist unveränderlich – nur der Vermerk, kein Formular */}
       <div className="mb-6">
         <DacStatusKarte status={dac.status} pruefnummer={dac.pruefnummer} ereignisse={ereignisse} schreiben={schreiben}
-          storniert={!!dac.storniert_am} setzen={setzeDacStatus.bind(null, id)} kopieren={kopiereDacAntragAlsEntwurf.bind(null, id)} />
+          storniert={!!dac.storniert_am} setzen={setzeDacStatus.bind(null, id)} kopieren={kopiereDacAntragAlsEntwurf.bind(null, id)}
+          einreichFehlend={einreichFehlend} antragHref={`/dac/${id}/antrag`} />
       </div>
       {!dac.storniert_am && <DacForm dac={dac} weinausbau={weinausbau} analysen={analysen} action={updateDacAntrag.bind(null, id)} betriebsleitung={korrektur} />}
       {korrektur && (

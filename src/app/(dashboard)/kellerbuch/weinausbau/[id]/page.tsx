@@ -805,10 +805,14 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
         />
       )}
 
-      {/* Edit-Formular */}
+      {/* Edit-Formular – Rückmeldung Jörgen 07.10.2026: eingeklappt, damit „Speichern“ nach einer Buchung (Umziehen,
+          Abfüllen …) nicht wie ein offener nächster Schritt wirkt; über ?form=bearbeiten geöffnet */}
       {writeOk && (
-        <section>
-          <h2 className="font-semibold text-s112-text mb-3">Charge bearbeiten</h2>
+        <details id="bearbeiten" open={openForm === 'bearbeiten'} className="group">
+          <summary className="cursor-pointer list-none font-semibold text-s112-text mb-3 flex items-center gap-2">
+            <span className="text-s112-muted group-open:rotate-90 transition-transform">▸</span>
+            Charge bearbeiten <span className="text-xs font-normal text-s112-muted">(Stammdaten – Buchungen laufen über die Knöpfe oben)</span>
+          </summary>
           <WeinausbauForm
             weinausbau={weinausbau}
             weingaerten={weingaerten}
@@ -821,7 +825,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
             pnSperre={pnSperre}
             action={updateWeinausbau.bind(null, id)}
           />
-        </section>
+        </details>
       )}
     </div>
   )
