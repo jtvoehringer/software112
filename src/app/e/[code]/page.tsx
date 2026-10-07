@@ -26,7 +26,7 @@ async function ladeElabel(code: string): Promise<{ e: R; f: R | null; betrieb: s
   // tenant-isolation-ignore: oeffentliche, unangemeldete Seite ohne aktiven Mandanten – Code global eindeutig (UNIQUE)
   const { data: start } = await (supabase.from('elabels') as R)
     .select(SPALTEN).eq('code', code).eq('status', 'freigegeben').maybeSingle()
-  if (!start) return null
+  if (!start) return ladeArchiv(supabase, code)
   // KAN-219: umgeleiteter QR-Code (z. B. Nachfolgefüllung) – Ziel im selben Betrieb, freigegeben, höchstens 5 Schritte
   const e = await folgeUmleitung(start as R & { id: string; umleitung_auf: string | null }, async zielId => {
     // tenant-isolation-ignore: Ziel der Umleitung – nur im Betrieb des gedruckten E-Labels und freigegeben
@@ -43,6 +43,19 @@ async function ladeElabel(code: string): Promise<{ e: R; f: R | null; betrieb: s
     (supabase.from('elabel_zutaten') as R).select('id, kategorie, name_de, name_en, e_nummer, allergen, sortierung').order('sortierung').limit(500),
   ])
   return { e: e as R, f: (f ?? null) as R | null, betrieb: (t as R | null)?.name ?? null, katalog: (k ?? []) as KatalogEintrag[] }
+}
+
+/**
+ * KAN-219: E-Label eines gelöschten Betriebs – schreibgeschützte Kopie (Inhalt des Umleitungsziels) bis gueltig_bis.
+ * Entscheidung Jörgen 07.10.2026: 5 Jahre ab der Löschung (Regel in den AGB).
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function ladeArchiv(supabase: any, code: string): Promise<{ e: R; f: R | null; betrieb: string | null; katalog: KatalogEintrag[] } | null> {
+  // Archiv außerhalb der Data-API (Schema s112_archiv) – nur über die Service-Role-Funktion, die gueltig_bis prüft
+  const { data } = await supabase.rpc('s112_elabel_archiv_lesen', { p_code: code })
+  if (!data) return null
+  const inhalt = data as R
+  return { e: (inhalt.e ?? {}) as R, f: (inhalt.f ?? null) as R | null, betrieb: inhalt.betrieb ?? null, katalog: (inhalt.katalog ?? []) as KatalogEintrag[] }
 }
 
 export default async function ElabelSeite({ params, searchParams }: {

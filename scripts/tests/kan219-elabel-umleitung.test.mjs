@@ -16,6 +16,11 @@ const migration = () => {
   return quelle(f ? `supabase/migrations/${f}` : 'supabase/entwurf/kan219_elabel_umleitung.sql')
 }
 
+const archivMigration = () => {
+  const f = readdirSync(new URL('../../supabase/migrations', import.meta.url)).find(n => n.endsWith('_kan219b_elabel_archiv.sql'))
+  return quelle(f ? `supabase/migrations/${f}` : 'supabase/entwurf/kan219b_elabel_archiv.sql')
+}
+
 describe('KAN-219: Umleitung folgen', () => {
   const karte = {
     a: { id: 'a', umleitung_auf: 'b' }, b: { id: 'b', umleitung_auf: 'c' }, c: { id: 'c', umleitung_auf: null },
@@ -65,6 +70,20 @@ describe('KAN-219: Datenbank und Verdrahtung', () => {
     assert.match(a, /rpc as any\)\('s112_elabel_umleiten'/)
     assert.doesNotMatch(a, /update\(\{\s*umleitung_auf/)
     assert.match(quelle('src/app/(dashboard)/weinhandel/fuellungen/[id]/elabel/page.tsx'), /stand\?\.status === 'freigegeben' && \(\s*<ElabelUmleitung/)
+  })
+  test('Archiv: Mandanten-Löschung archiviert vorher (5 Jahre), Tabelle nur für die Service-Role, Seite liest bis gueltig_bis', () => {
+    const m = archivMigration()
+    assert.match(m, /REVOKE ALL ON SCHEMA s112_archiv FROM PUBLIC, anon, authenticated/)
+    assert.match(m, /REVOKE ALL ON s112_archiv\.elabel_archiv FROM PUBLIC, anon, authenticated/)
+    assert.match(m, /REVOKE EXECUTE ON FUNCTION public\.s112_elabel_archivieren\(uuid, integer\) FROM PUBLIC, anon, authenticated/)
+    assert.match(m, /REVOKE EXECUTE ON FUNCTION public\.s112_elabel_archiv_lesen\(text\) FROM PUBLIC, anon, authenticated;\nGRANT EXECUTE ON FUNCTION public\.s112_elabel_archiv_lesen\(text\) TO service_role/)
+    assert.match(m, /a\.gueltig_bis >= \(now\(\) AT TIME ZONE 'Europe\/Vienna'\)::date/)
+    const loeschen = m.slice(m.indexOf('CREATE OR REPLACE FUNCTION public.s112_mandant_loeschen'))
+    assert.ok(loeschen.indexOf('PERFORM public.s112_elabel_archivieren(p_tenant_id, 5)') > 0)
+    assert.ok(loeschen.indexOf('PERFORM public.s112_elabel_archivieren(p_tenant_id, 5)') < loeschen.indexOf('DELETE FROM public.tenants'))
+    const s = quelle('src/app/e/[code]/page.tsx')
+    assert.match(s, /if \(!start\) return ladeArchiv\(supabase, code\)/)
+    assert.match(s, /\('s112_elabel_archiv_lesen', \{ p_code: code \}\)/)
   })
   test('Bestand: Weinpass über weinpass_code, QR-Codes ohne Fremddienst', () => {
     assert.match(quelle('src/app/w/[charge]/page.tsx'), /\.eq\('weinpass_code', schluessel\)/)
