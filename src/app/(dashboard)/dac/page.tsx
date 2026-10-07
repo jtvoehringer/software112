@@ -129,7 +129,8 @@ export default async function DacPage() {
                 return (
                   <tr key={a.id} className={`border-b border-s112-border last:border-0 ${a.storniertAm ? 'opacity-70' : !a.aktiv ? 'opacity-40' : ''} ${i%2===1 ? 'bg-s112-bg/50' : ''}`}>
                     <td className="px-4 py-3 font-medium">
-                      {a.bezeichnung}
+                      {/* Rückmeldung Jörgen 07.10.2026: direkt auf die Bezeichnung klicken */}
+                      <Link href={`/dac/${a.id}`} className="hover:text-s112-blue-700 hover:underline">{a.bezeichnung}</Link>
                       {a.storniertAm && (
                         <p className="text-[11px] font-normal text-s112-warn-fg">
                           storniert am {new Date(a.storniertAm).toLocaleDateString('de-AT')}{a.storniertVon ? ` von ${a.storniertVon}` : ''}{a.stornoGrund ? ` – ${a.stornoGrund}` : ''}

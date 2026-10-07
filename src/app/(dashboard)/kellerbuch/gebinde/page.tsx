@@ -278,6 +278,8 @@ export default async function GebindePage({
             <h2 className="font-semibold text-s112-text text-sm">Gebindeverzeichnis</h2>
             <div className="flex items-start gap-2 print:hidden">
               <DruckKnopf />
+              {/* KAN-116: QR-Etiketten je Gebinde */}
+              <Link href="/kellerbuch/gebinde/qr-etiketten" className="text-xs bg-[#F2F3F5] hover:bg-s112-line text-s112-text-2 font-medium px-3 py-1.5 rounded-lg transition-colors">QR-Etiketten</Link>
               <CsvExportKnopf href={csvPfad('gebindeverzeichnis')} />
             </div>
           </div>

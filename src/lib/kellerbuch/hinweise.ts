@@ -1,12 +1,12 @@
 // ── Einheitliche Hinweistexte zu Bestandskorrekturen (KAN-35, 24.09.2026) ───────
 // Client-sicher (keine Server-Importe): genutzt von Server Actions, lib/kellerbuch/storno.ts
 // und Formularen. Übergangsregel bis zum Journal (AP3): Bestände werden nur über datierte
-// Buchungen korrigiert – nach unten mit „Schwund buchen“, nach oben gibt es (noch) keinen
-// Buchungsweg. Solche Fälle laufen über den Support, damit jede Mehrmenge begründet ist.
+// Buchungen korrigiert – nach unten mit „Schwund buchen“, nach oben seit KAN-53 (07.10.2026) mit
+// „Zugang korrigieren“ (Betriebsleitung, mit Grund – damit jede Mehrmenge begründet ist).
 
-/** Kein Buchungsweg nach oben – immer dieser Text statt „Inventur“/„richtigstellen“ */
+/** Korrektur nach oben – immer dieser Text statt „Inventur“/„richtigstellen“ (KAN-53: Zugangskorrektur) */
 export const KORREKTUR_NACH_OBEN_HINWEIS =
-  'Eine Korrektur nach oben (Mehrmenge) ist im Kellerbuch derzeit nicht möglich – bitte den Support kontaktieren und dabei Charge, Menge und Grund angeben.'
+  'Eine Korrektur nach oben (Mehrmenge, Inventur-Plus) bucht die Betriebsleitung auf der Chargen-Seite über „Zugang korrigieren“ – mit Datum, Menge und Grund.'
 
 /** Korrektur nach unten */
 export const KORREKTUR_NACH_UNTEN_HINWEIS =

@@ -6,6 +6,7 @@
 // Im Endstatus: „Als neuen Entwurf kopieren“.
 
 import { useState, useTransition } from 'react'
+import Link from '@/components/ui/Link'
 import { useRouter } from 'next/navigation'
 import { fehlerText } from '@/lib/fehler'
 import { PN_UEBERGAENGE, PN_UEBERGANG_KNOPF, istPnStatus, pnEndstatus, pnFormatHinweis, pnStatusLabel, pnUebergangAngaben, type PnStatus } from '@/lib/dac/workflow'
@@ -24,7 +25,27 @@ export type PnEreignis = {
 const heute = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Vienna' })
 const datumDe = (d: string) => new Date(d).toLocaleDateString('de-AT')
 
-export default function DacStatusKarte({ status, pruefnummer, ereignisse, schreiben, storniert, setzen, kopieren }: {
+/** Pflichtangaben, die vor dem Einreichen fehlen – Antragsformular mit Link, die übrigen stehen unten im Formular */
+export function EinreichCheckliste({ fehlend, antragHref }: { fehlend: string[]; antragHref?: string }) {
+  const formular = fehlend.filter(f => f.startsWith('Antragsformular') || f.startsWith('Antragsteller') || ['Farbe', 'Mostgewicht (Lesegradation)', 'Einreichmenge', 'Qualitätsstufe', 'Weinbaugebiet (Herkunft)'].includes(f))
+  const antrag = fehlend.filter(f => !formular.includes(f))
+  return (
+    <div role="status" className="rounded-lg border border-s112-warn/30 bg-s112-warn-bg px-3 py-2 text-sm text-s112-warn-fg space-y-1.5">
+      <p className="font-semibold">Vor dem Einreichen fehlt noch:</p>
+      {antrag.length > 0 && (
+        <p>Im Antrag unten: {antrag.join(', ')} – eintragen und „Speichern“.</p>
+      )}
+      {formular.length > 0 && (
+        <p>
+          Im Antragsformular: {formular.map(f => f.replace(' (Prüfnummernantrag) speichern', ' noch nicht gespeichert')).join(', ')}
+          {antragHref && <>{' – '}<Link href={antragHref} className="font-semibold underline">Antragsformular öffnen</Link>, ausfüllen und speichern.</>}
+        </p>
+      )}
+    </div>
+  )
+}
+
+export default function DacStatusKarte({ status, pruefnummer, ereignisse, schreiben, storniert, setzen, kopieren, einreichFehlend = [], antragHref }: {
   status: string
   pruefnummer: string | null
   ereignisse: PnEreignis[]
@@ -32,6 +53,10 @@ export default function DacStatusKarte({ status, pruefnummer, ereignisse, schrei
   storniert: boolean
   setzen: (eingabe: { status: string; datum: string | null; pruefnummer?: string | null; grund?: string | null }) => Promise<void>
   kopieren: () => Promise<{ id: string }>
+  /** Rückmeldung Jörgen 07.10.2026: was vor dem Einreichen noch fehlt (pnPflichtFehlend) – nur im Entwurf */
+  einreichFehlend?: string[]
+  /** Link zum Antragsformular (Prüfnummernantrag) */
+  antragHref?: string
 }) {
   const router = useRouter()
   const [ziel, setZiel] = useState<PnStatus | null>(null)
@@ -60,6 +85,7 @@ export default function DacStatusKarte({ status, pruefnummer, ereignisse, schrei
         router.refresh()
       } catch (e) {
         setFehler(fehlerText(e, 'Statuswechsel fehlgeschlagen'))
+        router.refresh()   // Checkliste mit dem aktuellen Stand
       }
     })
   }
@@ -82,6 +108,11 @@ export default function DacStatusKarte({ status, pruefnummer, ereignisse, schrei
         <h2 className="text-sm font-semibold text-s112-muted uppercase tracking-wider">Ablauf</h2>
         <span className="text-sm font-medium">{storniert ? 'Storniert' : pnStatusLabel(status)}</span>
       </div>
+
+      {/* Rückmeldung Jörgen 07.10.2026: vor dem Einreichen zeigen, was fehlt und wo man es nachträgt */}
+      {schreiben && !storniert && status === 'entwurf' && einreichFehlend.length > 0 && (
+        <EinreichCheckliste fehlend={einreichFehlend} antragHref={antragHref} />
+      )}
 
       {schreiben && moeglich.length > 0 && (
         <div className="flex flex-wrap gap-2">
@@ -114,6 +145,7 @@ export default function DacStatusKarte({ status, pruefnummer, ereignisse, schrei
             <label className="form-label" htmlFor="pn-grund">Grund / Anmerkung{angaben.grundPflicht ? ' *' : ''}</label>
             <input id="pn-grund" type="text" value={grund} onChange={e => setGrund(e.target.value)} className="form-input" />
           </div>
+          {ziel === 'eingereicht' && einreichFehlend.length > 0 && <EinreichCheckliste fehlend={einreichFehlend} antragHref={antragHref} />}
           {ziel === 'eingereicht' && (
             <p className="text-xs text-s112-muted">Einreichen geht nur mit vollständigen Pflichtangaben und gespeichertem Antragsformular – fehlt etwas, erscheint die Liste. Ab der Einreichung sind Antrags- und Weinangaben, Menge und Charge gesperrt (§ 25 Abs. 6 WeinG); Prüf-, Antrags- und Untersuchungsnummer bleiben bis zur Zuteilung änderbar.</p>
           )}
