@@ -818,7 +818,6 @@ export default function FirmaDetailClient({
                     <th className="text-left px-4 py-2.5 font-semibold text-s112-text-1">Belegnr.</th>
                     <th className="text-right px-4 py-2.5 font-semibold text-s112-text-1">Betrag</th>
                     <th className="text-center px-4 py-2.5 font-semibold text-s112-text-1">Status</th>
-                    <th className="px-4 py-2.5" />
                   </tr>
                 </thead>
                 <tbody>
@@ -830,7 +829,9 @@ export default function FirmaDetailClient({
                           {new Date(v.datum).toLocaleDateString('de-AT')}
                         </td>
                         <td className="px-4 py-2.5 text-xs font-medium text-s112-text">
-                          <div className="font-mono">{v.rechnungsnummer ?? '–'}</div>
+                          <Link href={`/weinhandel/verkauf/${v.id}`} className="font-mono text-s112-blue-700 hover:underline">
+                            {v.rechnungsnummer ?? 'ohne Belegnr.'}
+                          </Link>
                           {v.transaktions_nr && <div className="font-mono text-s112-muted mt-0.5">{v.transaktions_nr}</div>}
                         </td>
                         <td className="px-4 py-2.5 text-right font-semibold text-s112-blue-700 tabular-nums">
@@ -846,10 +847,6 @@ export default function FirmaDetailClient({
                           ) : (
                             <span className="text-xs px-2 py-0.5 rounded-full bg-s112-warn-bg text-s112-warn-fg font-medium">Offen</span>
                           )}
-                        </td>
-                        <td className="px-4 py-2.5 text-right">
-                          <a href={`/weinhandel/verkauf/${v.id}`}
-                            className="text-xs text-s112-blue-700 hover:underline">Beleg →</a>
                         </td>
                       </tr>
                     )

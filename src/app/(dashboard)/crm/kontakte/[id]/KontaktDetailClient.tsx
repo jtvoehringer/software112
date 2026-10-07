@@ -900,7 +900,9 @@ export default function KontaktDetailClient({
                         <div key={v.id} className="flex items-center justify-between text-xs py-1.5 border-b border-s112-border/40 last:border-0">
                           <div className="flex-1 min-w-0">
                             <span className="tabular-nums text-s112-muted mr-2">{new Date(v.datum).toLocaleDateString('de-AT')}</span>
-                            <span className="font-mono text-s112-text">{v.rechnungsnummer ?? '–'}</span>
+                            <Link href={`/weinhandel/verkauf/${v.id}`} className="font-mono font-medium text-s112-blue-700 hover:underline">
+                              {v.rechnungsnummer ?? 'ohne Belegnr.'}
+                            </Link>
                             {summe > 0 && (
                               <span className="ml-2 font-semibold text-s112-blue-700 tabular-nums">
                                 {fmtEur(summe)}
@@ -910,10 +912,7 @@ export default function KontaktDetailClient({
                           <div className="flex items-center gap-2 ml-2 shrink-0">
                             {v.storniert && <span className="px-1.5 py-0.5 rounded-full bg-s112-err-bg text-s112-err-fg font-medium">Storniert</span>}
                             {v.bezahlt  && <span className="px-1.5 py-0.5 rounded-full bg-s112-ok-bg text-s112-ok-fg font-medium">Bezahlt</span>}
-                            {!v.storniert && !v.bezahlt && <span className="px-1.5 py-0.5 rounded-full bg-s112-warn-bg text-s112-warn-fg font-medium">Offen</span>}
-                            <a href={`/weinhandel/verkauf/${v.id}`}
-                              className="text-s112-blue-700 hover:underline">→</a>
-                          </div>
+                            {!v.storniert && !v.bezahlt && <span className="px-1.5 py-0.5 rounded-full bg-s112-warn-bg text-s112-warn-fg font-medium">Offen</span>}                          </div>
                         </div>
                       )
                     })}

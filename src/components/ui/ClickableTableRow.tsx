@@ -3,8 +3,10 @@
 import { useRouter } from 'next/navigation'
 import type { ReactNode } from 'react'
 
-// Macht eine ganze <tr> per Klick navigierbar (nicht nur einen einzelnen Link/
-// "Details →"-Text darin). Interaktive Elemente innerhalb der Zeile (Bearbeiten-
+// Macht eine ganze <tr> per Klick navigierbar. Für Tastatur und Screenreader
+// bleibt der Name/die Nummer des Objekts in der Zeile ein echter Link (seit dem
+// Sweep „Name statt Details-Knopf“ gibt es keinen eigenen Details-Knopf mehr,
+// siehe scripts/tests/sweep-namenslinks.test.mjs). Interaktive Elemente innerhalb der Zeile (Bearbeiten-
 // /Löschen-Icons etc.) sollten ihren Klick-Handler mit stopPropagation() versehen
 // bzw. in einen Wrapper mit onClick={e => e.stopPropagation()} gelegt werden,
 // damit sie nicht zusätzlich die Zeilen-Navigation auslösen.
