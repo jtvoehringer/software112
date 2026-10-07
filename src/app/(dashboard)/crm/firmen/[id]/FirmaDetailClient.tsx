@@ -203,13 +203,12 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
               <span className="text-xs px-1.5 py-0.5 rounded-full bg-s112-err-bg text-s112-err-fg font-medium">Storniert</span>
             )}
           </div>
-          <p className="text-sm font-medium text-s112-text mt-0.5">{a.betreff}</p>
-          {postenId && postenId !== a.beschreibung && (
-            <a href={`/weinhandel/verkauf/${postenId}`}
-              className="text-xs text-s112-blue-700 hover:underline mt-0.5 inline-block">
-              → Beleg ansehen
-            </a>
-          )}
+          {/* Sweep Namenslinks: der Betreff selbst führt zum verknüpften Verkauf */}
+          <p className="text-sm font-medium text-s112-text mt-0.5">
+            {postenId && postenId !== a.beschreibung
+              ? <Link href={`/weinhandel/verkauf/${postenId}`} className="font-medium text-s112-blue-700 hover:underline">{a.betreff || 'Verkauf'}</Link>
+              : a.betreff}
+          </p>
         </div>
       </div>
     )

@@ -1246,23 +1246,21 @@ export default function ReportsClient({
                       <th className="text-left px-3 py-2 font-semibold">Behälter</th>
                       <th className="text-left px-3 py-2 font-semibold">Status</th>
                       <th className="text-right px-3 py-2 font-semibold">Bestand</th>
-                      <th className="px-3 py-2" />
                     </tr></thead>
                     <tbody>
                       {wbResult.chargen.map((c, i) => (
                         <tr key={c.id} className={`border-b border-s112-border/40 ${i % 2 === 1 ? 'bg-s112-bg/30' : ''}`}>
-                          <td className="px-3 py-2 font-medium text-s112-text">{c.name}</td>
+                          <td className="px-3 py-2 font-medium text-s112-text">
+                            <Link href={`/kellerbuch/weinausbau/${c.id}/buch`} title="Weinbuch der Charge öffnen"
+                              className="font-medium text-s112-blue-700 hover:underline">
+                              {c.name || 'Charge ohne Namen'}
+                            </Link>
+                          </td>
                           <td className="px-3 py-2 text-right tabular-nums text-s112-text-2">{c.jahrgang ?? '–'}</td>
                           <td className="px-3 py-2 text-s112-text-2">{formatRebsorteMitKuerzel(c.rebsorte)}</td>
                           <td className="px-3 py-2 text-s112-text-2">{c.behaelter ?? '–'}</td>
                           <td className="px-3 py-2 text-s112-text-2">{c.status}</td>
                           <td className="px-3 py-2 text-right tabular-nums">{fmtNum(Number(c.menge_liter ?? 0))} L</td>
-                          <td className="px-3 py-2 text-right">
-                            <Link href={`/kellerbuch/weinausbau/${c.id}/buch`}
-                              className="text-xs text-s112-blue-700 hover:underline whitespace-nowrap">
-                              Weinbuch →
-                            </Link>
-                          </td>
                         </tr>
                       ))}
                     </tbody>

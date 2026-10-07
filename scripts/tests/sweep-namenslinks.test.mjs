@@ -28,7 +28,7 @@ function tsxDateien(dir) {
 
 // <Link …>Details →</Link>, <a …>Öffnen</a>, <Link …>→</Link> usw. – der ganze sichtbare Text
 // ist ein generisches Navigationswort ohne Namen des Objekts.
-const GENERISCHER_LINK = /<(Link|a)\b[^>]*>\s*(?:(?:Details|Detail|Öffnen|Ansehen|Anzeigen|Beleg)\s*(?:→)?|→)\s*<\/\1>/g
+const GENERISCHER_LINK = /<(Link|a)\b[^>]*>\s*(?:(?:Details|Detail|Öffnen|Ansehen|Anzeigen|Beleg)\s*(?:→)?|→\s*(?:Beleg\s+)?(?:ansehen|öffnen|anzeigen)|→)\s*<\/\1>/g
 
 // Bewusste Ausnahmen: 'pfad/relativ/zu/(dashboard)' → Begründung (≥ 15 Zeichen). Derzeit keine.
 const AUSNAHMEN = {}
@@ -76,6 +76,26 @@ describe('Sweep Namenslinks: weitere Listen', () => {
   })
 })
 
+describe('Sweep Namenslinks: Nachtrag (Rückmeldung Jörgen 07.10.2026)', () => {
+  test('Bericht Weinbücher: Chargenname ist Link aufs Weinbuch, kein „Weinbuch →“', () => {
+    const src = lies('src/app/(dashboard)/reports/ReportsClient.tsx')
+    assert.match(src, /<Link href=\{`\/kellerbuch\/weinausbau\/\$\{c\.id\}\/buch`\}[^>]*>\s*\{c\.name \|\| 'Charge ohne Namen'\}/)
+    assert.doesNotMatch(src, />\s*Weinbuch →\s*<\/Link>/)
+  })
+  test('Aktivitäten-Zeitleiste (Firma/Kontakt): Betreff ist Link zum Verkauf, kein „→ Beleg ansehen“', () => {
+    for (const datei of ['crm/firmen/[id]/FirmaDetailClient.tsx', 'crm/kontakte/[id]/KontaktDetailClient.tsx']) {
+      const src = lies(`src/app/(dashboard)/${datei}`)
+      assert.match(src, /<Link href=\{`\/weinhandel\/verkauf\/\$\{postenId\}`\}[^>]*>\{a\.betreff \|\| 'Verkauf'\}<\/Link>/, datei)
+      assert.doesNotMatch(src, /Beleg ansehen/, datei)
+    }
+  })
+  test('Zukauf: Rechnungsnummer ist echter Link in der klickbaren Zeile', () => {
+    const src = lies('src/app/(dashboard)/weinhandel/zukauf/page.tsx')
+    assert.match(src, /<Link href=\{`\/weinhandel\/zukauf\/\$\{p\.id\}\/edit`\}[^>]*>\s*\{p\.eingangsrechnungsnummer \|\| 'ohne Rechnungsnr\.'\}/)
+    assert.match(src, /<ClickableTableRow key=\{p\.id\} href=\{`\/weinhandel\/zukauf\/\$\{p\.id\}\/edit`\}/)
+  })
+})
+
 describe('Sweep Namenslinks: Regel für die ganze App', () => {
   test('kein reiner Navigations-Link „Details →“/„Öffnen“/„→“ in src/app/(dashboard)', () => {
     const funde = []
@@ -101,6 +121,7 @@ describe('Sweep Namenslinks: Regel für die ganze App', () => {
       '<a href="/x" className="a">→</a>',
       '<Link href="/x">Öffnen</Link>',
       '<a href="/x" className="a">Beleg →</a>',
+      '<a href="/x" className="a">\n  → Beleg ansehen\n</a>',
     ]
     for (const p of proben) assert.equal([...p.matchAll(GENERISCHER_LINK)].length, 1, p)
     const erlaubt = [
