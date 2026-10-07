@@ -46,6 +46,10 @@ DECLARE
   v_lkm   uuid;
   v_lkb   uuid;
   v_t     text;
+  v_m     uuid;
+  v_ma    uuid;
+  v_mb    uuid;
+  v_mp    uuid;
 BEGIN
   PERFORM pg_temp.s112_nur_staging();
   v_t0 := clock_timestamp();
@@ -127,6 +131,25 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('produkt_nicht_loeschbar',
     split_part(pg_temp.s112_fehlertext(format('DELETE FROM public.sonstige_artikel WHERE id = %L', v_art)), ':', 1), '23503');
 
+  -- ── 5b. IDOR: Produkt, Buchung und Verkauf eines fremden Betriebs (M) über die eigene tenant_id (B) ───────
+  v_m := (v_a ->> 'm')::uuid;
+  INSERT INTO public.sonstige_artikel (tenant_id, name, einheit, bestand_fuehren) VALUES (v_m, 'S112TEST Fremdsaft', 'Stk', true) RETURNING id INTO v_ma;
+  INSERT INTO public.sonstige_artikel_bewegungen (tenant_id, artikel_id, datum, art, menge) VALUES (v_m, v_ma, v_heute, 'zugang', 9) RETURNING id INTO v_mb;
+  v_mp := (pg_temp.s112_beispiel('verkaufsposten', v_m, NULL, jsonb_build_object('datum', v_heute, 'storniert', false)) ->> 'id')::uuid;
+  INSERT INTO public.sonstige_artikel_bewegungen (tenant_id, artikel_id, datum, art, menge, verkauf_position_id, verkaufsposten_id)
+  SELECT v_m, v_ma, v_heute, 'verkauf', -1, (pg_temp.s112_beispiel('verkauf_positionen', v_m, NULL, jsonb_build_object('verkaufsposten_id', v_mp, 'typ', 'sonstiges',
+    'sonstige_artikel_id', v_ma, 'menge', 1, 'fuellung_id', NULL, 'weinausbau_id', NULL, 'traubenverkauf_id', NULL)) ->> 'id')::uuid, v_mp;
+  PERFORM pg_temp.s112_als(v_bw);
+  v_erg := v_erg || pg_temp.s112_erwarte('idor_artikel_buchen',
+    split_part(pg_temp.s112_fehlertext(format('SELECT public.s112_artikel_buchen(%L::uuid, %L::uuid, %L::date, %L, 5, NULL)', v_b, v_ma, v_heute, 'zugang')), ':', 1), 'P0002');
+  v_erg := v_erg || pg_temp.s112_erwarte('idor_bewegung_stornieren',
+    split_part(pg_temp.s112_fehlertext(format('SELECT public.s112_artikel_bewegung_stornieren(%L::uuid, %L::uuid, %L)', v_b, v_mb, 'S112TEST fremde Buchung')), ':', 1), 'P0002');
+  v_erg := v_erg || pg_temp.s112_erwarte('idor_verkauf_buchen',
+    split_part(pg_temp.s112_fehlertext(format('SELECT public.s112_artikel_verkauf_buchen(%L::uuid, %L::uuid)', v_b, v_mp)), ':', 1), 'P0002');
+  PERFORM pg_temp.s112_fehlertext(format('SELECT public.s112_artikel_verkauf_stornieren(%L::uuid, %L::uuid, %L)', v_b, v_mp, 'S112TEST fremder Verkauf'));
+  PERFORM pg_temp.s112_als_postgres();
+  v_erg := v_erg || pg_temp.s112_erwarte('idor_verkauf_stornieren_wirkungslos', public.s112_artikel_bestand(v_ma), 8::numeric);
+
   -- ── 6. Mandanten-Löschung mit Lagerbewegungen, Verkauf und Stoffkonto (KAN-107) ──────────────────────
   v_l := pg_temp.s112_betrieb('Löschtest Lager');
   INSERT INTO public.sonstige_artikel (tenant_id, name, einheit, bestand_fuehren) VALUES (v_l, 'S112TEST Essig', 'Stk', true) RETURNING id INTO v_la;
@@ -146,5 +169,5 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('mandant_ohne_reste',
     (SELECT count(*) FROM public.sonstige_artikel_bewegungen WHERE tenant_id = v_l) + (SELECT count(*) FROM public.kellermittel_buchungen WHERE tenant_id = v_l), 0::bigint);
 
-  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 21);
+  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 25);
 END $test$;
