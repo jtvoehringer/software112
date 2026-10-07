@@ -15,6 +15,7 @@ import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { csvPfad } from '@/lib/behoerden/katalog'
 import DruckKnopf from '../../../_behoerden/DruckKnopf'
 import GesperrtHinweis from '@/components/GesperrtHinweis'
+import { istStoffkontoTyp } from '@/lib/kellerbuch/stoffkonto'
 import FreezeKorrektur from '@/components/FreezeKorrektur'
 import { KORREKTUR_FELDER } from '@/lib/freeze/korrektur'
 import { korrekturErlaubt } from '../../../../freeze-korrektur-actions'
@@ -59,6 +60,10 @@ export default function KellerbehandlungenPage() {
   const [formVolumen, setFormVolumen]     = useState('')
   const [formZugang, setFormZugang]       = useState('')   // KAN-41 Paket 3b: Volumenzugang (L)
   const [formNotizen, setFormNotizen]     = useState('')
+  // KAN-107: Stoffkonto – verwendeter Stoff und Menge (nur beim Anlegen)
+  const [stoffe, setStoffe]               = useState<R[]>([])
+  const [formStoffId, setFormStoffId]     = useState('')
+  const [formStoffMenge, setFormStoffMenge] = useState('')
   const [formWeinausbauId, setFormWeinausbauId] = useState<string>('')
   // Name der beim Bearbeiten verknüpften Charge, falls sie nicht (mehr) aktiv im Behälter liegt
   const [formWeinausbauName, setFormWeinausbauName] = useState<string | null>(null)
@@ -104,10 +109,14 @@ export default function KellerbehandlungenPage() {
       .eq('behaelter_id', behaelterId)
       .order('datum', { ascending: false })
     let typenQuery = (supabase.from('keller_behandlungstypen') as any).select('id, name, einheit_standard, pn_wirkung').order('sort_order').order('name')
+    // KAN-107: aktive Stoffe des Stoffkontos (wenige Stammdaten je Betrieb)
+    // alle-ausnahme: Stammdaten-Auswahl der aktiven Stoffe des Betriebs, wenige
+    let stoffeQuery = (supabase.from('kellermittel') as R).select('id, name, einheit').eq('aktiv', true).order('name').order('id')
     if (activeTenantId) {
       weinausbauQuery   = weinausbauQuery.eq('tenant_id', activeTenantId)
       behandlungenQuery = behandlungenQuery.eq('tenant_id', activeTenantId)
       typenQuery        = typenQuery.eq('tenant_id', activeTenantId)
+      stoffeQuery       = stoffeQuery.eq('tenant_id', activeTenantId)
     }
 
     const [
@@ -115,12 +124,15 @@ export default function KellerbehandlungenPage() {
       { data: bh_data },
       { data: typenData },
       { data: behandlungenData },
+      { data: stoffeData },
     ] = await Promise.all([
       behaelterQuery,
       weinausbauQuery,
       typenQuery,
       behandlungenQuery,
+      stoffeQuery,
     ])
+    setStoffe((stoffeData ?? []) as R[])
     setBehaelter(bh)
     const inhalt = ((bh_data ?? []) as R[]).reduce((s: number, w: R) => s + (parseFloat(w.menge_liter) || 0), 0)
     setAktuellerInhalt(inhalt)
@@ -152,6 +164,8 @@ export default function KellerbehandlungenPage() {
     setFormVolumen(aktuellerInhalt > 0 ? aktuellerInhalt.toString() : '')
     setFormZugang('')
     setFormNotizen('')
+    setFormStoffId('')
+    setFormStoffMenge('')
     setFormError('')
     setShowNeuerTyp(false)
     setFormHinweis('')
@@ -231,6 +245,8 @@ export default function KellerbehandlungenPage() {
     fd.set('zugang_liter', formZugang)   // KAN-41 Paket 3b: leer = kein Volumenzugang
     if (formNotizen) fd.set('notizen', formNotizen)
     if (formWeinausbauId) fd.set('weinausbau_id', formWeinausbauId)
+    // KAN-107: Verwendung im Stoffkonto (nur beim Anlegen)
+    if (!editId && formStoffId) { fd.set('kellermittel_id', formStoffId); fd.set('kellermittel_menge', formStoffMenge) }
 
     startTransition(async () => {
       // KAN-100: ein Weg für Anlegen und Bearbeiten (Server Action) – Rückfrage, wenn die Prüfnummer der Charge erlischt
@@ -412,6 +428,29 @@ export default function KellerbehandlungenPage() {
               </div>
             </div>
 
+            {/* KAN-107: Stoffkonto – bei Zuckerung, RTK, Säuerung, Entsäuerung Pflicht, sobald Stoffe angelegt sind */}
+            {!editId && stoffe.length > 0 && (() => {
+              const pflicht = istStoffkontoTyp(typen.find(t => t.id === formTypId)?.name)
+              return (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  <div className="col-span-2">
+                    <label className="block text-xs font-medium text-s112-text-2 mb-1">Stoff aus dem Stoffkonto{pflicht ? ' *' : ''}</label>
+                    <select aria-label="Stoff aus dem Stoffkonto" value={formStoffId} onChange={e => setFormStoffId(e.target.value)} required={pflicht}
+                      className="input w-full py-2.5 sm:py-2 text-base sm:text-sm">
+                      <option value="">{pflicht ? '– Stoff wählen –' : '– kein Stoff –'}</option>
+                      {stoffe.map(st => <option key={st.id} value={st.id}>{st.name} ({st.einheit})</option>)}
+                    </select>
+                  </div>
+                  {formStoffId && (
+                    <div>
+                      <label className="block text-xs font-medium text-s112-text-2 mb-1">Verwendet ({stoffe.find(st => st.id === formStoffId)?.einheit}) *</label>
+                      <input aria-label="Verwendete Menge des Stoffs" type="text" inputMode="decimal" required value={formStoffMenge}
+                        onChange={e => setFormStoffMenge(e.target.value)} className="input w-full py-2.5 sm:py-2 text-base sm:text-sm" />
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Menge{formEinheit !== '-' ? ' *' : ''}</label>

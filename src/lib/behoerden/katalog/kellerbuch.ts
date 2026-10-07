@@ -90,6 +90,16 @@ export const KATALOG_KELLERBUCH = katalogGruppe('kellerbuch', {
     beschreibung: 'Herkunftsanteile einer Füllung bzw. Charge (auch /kellerbuch/weinausbau/[id]/blend-protokoll).',
   },
   // KAN-44 Teil 1: die beiden Blätter der BKI-Schnittstelle aus dem Bewegungsjournal (kellerbuch_buchungen)
+  // KAN-107: Stoffkonto (besondere Konten) je Weinwirtschaftsjahr
+  'besondere-konten': {
+    titel: 'Besondere Konten – Stoffkonto',
+    behoerde: 'BKI (Kellerbuch, besondere Konten)',
+    zugriff: 'betriebsleitung',
+    druckPfad: '/kellerbuch/besondere-konten',
+    pflicht: true,
+    rechtsgrundlage: 'Del. VO (EU) 2018/273, § 31 WeinG (besondere Konten) – zu prüfen',
+    beschreibung: 'Kontoauszug je Stoff (Zucker, RTK, Säuerungs- und Entsäuerungsmittel …) im Weinwirtschaftsjahr 01.08.–31.07.: Übertrag, Zugänge, Verwendungen mit Charge und Behälter, Inventur, Saldo.',
+  },
   'bki-lagerstand': {
     titel: 'Lagerstand zum Datum (BKI-Schnittstelle)',
     behoerde: 'BKI (Weindatenbank)',
