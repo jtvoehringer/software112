@@ -28,6 +28,7 @@ $f$;
 
 DO $test$
 DECLARE
+  v_heute date := (now() AT TIME ZONE 'Europe/Vienna')::date;   -- wie die RPCs (Wiener Zeit, nicht UTC)
   c_datei constant text := '30_pn_chargen';
   c_rpc   constant text := 'SELECT public.s112_pruefnummernantrag_status_setzen(%L::uuid, %L::uuid, %L, %L::date, %L, %L)';
   v_t0    timestamptz;
@@ -67,21 +68,21 @@ BEGIN
   -- ── 1. Einreichen → Gültigkeit für die Charge ─────────────────────────────────────────────────────────
   PERFORM pg_temp.s112_als(v_bw);
   v_erg := v_erg || pg_temp.s112_erwarte('einreichen',
-    pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d, 'eingereicht', current_date - 20, NULL, NULL)), 'ok');
+    pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d, 'eingereicht', v_heute - 20, NULL, NULL)), 'ok');
   v_erg := v_erg || pg_temp.s112_erwarte('zeile_nach_einreichen', pg_temp.t30_zeile(v_d, v_wa), 'offen');
   v_erg := v_erg || pg_temp.s112_erwarte('api_lesen',
     pg_temp.s112_versuch(format('SELECT 1 FROM public.pruefnummer_chargen WHERE dac_antrag_id = %L', v_d)), 'k1');
   v_erg := v_erg || pg_temp.s112_erwarte('api_schreiben',
-    pg_temp.s112_versuch(format('INSERT INTO public.pruefnummer_chargen (tenant_id, dac_antrag_id, weinausbau_id, gueltig_ab) VALUES (%L, %L, %L, current_date)', v_b, v_d, v_wc)), 'R');
+    pg_temp.s112_versuch(format('INSERT INTO public.pruefnummer_chargen (tenant_id, dac_antrag_id, weinausbau_id, gueltig_ab) VALUES (%L, %L, %L, pg_temp.s112_heute())', v_b, v_d, v_wc)), 'R');
   v_erg := v_erg || pg_temp.s112_erwarte('api_aendern',
-    pg_temp.s112_versuch(format('UPDATE public.pruefnummer_chargen SET gueltig_bis = current_date, ende_grund = %L WHERE dac_antrag_id = %L', 'zugang', v_d)), 'k0');
+    pg_temp.s112_versuch(format('UPDATE public.pruefnummer_chargen SET gueltig_bis = pg_temp.s112_heute(), ende_grund = %L WHERE dac_antrag_id = %L', 'zugang', v_d)), 'k0');
 
   -- ── 2. Teilumzug A → neue Charge B: beide gelten ──────────────────────────────────────────────────────
   PERFORM pg_temp.s112_als_postgres();
   v_batch := gen_random_uuid();
-  PERFORM pg_temp.s112_beispiel('keller_umzuege', v_b, NULL, jsonb_build_object('datum', current_date - 10, 'zeilen_typ', 'quelle',
+  PERFORM pg_temp.s112_beispiel('keller_umzuege', v_b, NULL, jsonb_build_object('datum', v_heute - 10, 'zeilen_typ', 'quelle',
     'umzug_batch_id', v_batch, 'von_weinausbau_id', v_wa, 'nach_weinausbau_id', NULL, 'menge_liter', 400, 'brutto_liter', 400));
-  PERFORM pg_temp.s112_beispiel('keller_umzuege', v_b, NULL, jsonb_build_object('datum', current_date - 10, 'zeilen_typ', 'ziel',
+  PERFORM pg_temp.s112_beispiel('keller_umzuege', v_b, NULL, jsonb_build_object('datum', v_heute - 10, 'zeilen_typ', 'ziel',
     'umzug_batch_id', v_batch, 'von_weinausbau_id', NULL, 'nach_weinausbau_id', v_wb, 'menge_liter', 400));
   v_erg := v_erg || pg_temp.s112_erwarte('weitergabe_neue_charge', pg_temp.t30_zeile(v_d, v_wb), 'offen:geerbt');
   v_erg := v_erg || pg_temp.s112_erwarte('weitergabe_quelle_bleibt', pg_temp.t30_zeile(v_d, v_wa), 'offen');
@@ -89,7 +90,7 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('weitergabe_ereignis', v_n, 1::bigint);
 
   -- ── 3. Verschnitt in B: Ende nur für B; Storno öffnet wieder ──────────────────────────────────────────
-  v_vs := (pg_temp.s112_beispiel('verschneidungen', v_b, NULL, jsonb_build_object('datum', current_date - 5, 'ziel_weinausbau_id', v_wb)) ->> 'id')::uuid;
+  v_vs := (pg_temp.s112_beispiel('verschneidungen', v_b, NULL, jsonb_build_object('datum', v_heute - 5, 'ziel_weinausbau_id', v_wb)) ->> 'id')::uuid;
   v_erg := v_erg || pg_temp.s112_erwarte('verschnitt_ende', pg_temp.t30_zeile(v_d, v_wb), 'ende:verschnitt:geerbt');
   v_erg := v_erg || pg_temp.s112_erwarte('verschnitt_andere_charge', pg_temp.t30_zeile(v_d, v_wa), 'offen');
   UPDATE public.verschneidungen SET storniert_am = now(), storno_grund = 'S112TEST Storno-Grund' WHERE id = v_vs;
@@ -97,9 +98,9 @@ BEGIN
 
   -- ── 4. Zusammenführung von fremdem Wein in A: Ende ────────────────────────────────────────────────────
   v_batch := gen_random_uuid();
-  PERFORM pg_temp.s112_beispiel('keller_umzuege', v_b, NULL, jsonb_build_object('datum', current_date - 3, 'zeilen_typ', 'quelle',
+  PERFORM pg_temp.s112_beispiel('keller_umzuege', v_b, NULL, jsonb_build_object('datum', v_heute - 3, 'zeilen_typ', 'quelle',
     'umzug_batch_id', v_batch, 'von_weinausbau_id', v_wc, 'nach_weinausbau_id', NULL, 'menge_liter', 50, 'brutto_liter', 50));
-  PERFORM pg_temp.s112_beispiel('keller_umzuege', v_b, NULL, jsonb_build_object('datum', current_date - 3, 'zeilen_typ', 'ziel',
+  PERFORM pg_temp.s112_beispiel('keller_umzuege', v_b, NULL, jsonb_build_object('datum', v_heute - 3, 'zeilen_typ', 'ziel',
     'umzug_batch_id', v_batch, 'von_weinausbau_id', NULL, 'nach_weinausbau_id', v_wa, 'menge_liter', 50));
   v_erg := v_erg || pg_temp.s112_erwarte('zusammenfuehrung_ende', pg_temp.t30_zeile(v_d, v_wa), 'ende:zugang');
   v_erg := v_erg || pg_temp.s112_erwarte('zusammenfuehrung_teil_bleibt', pg_temp.t30_zeile(v_d, v_wb), 'offen:geerbt');
@@ -107,20 +108,20 @@ BEGIN
   -- ── 5. Zuteilen, dann Entzug: alle offenen Zeilen enden ───────────────────────────────────────────────
   PERFORM pg_temp.s112_als(v_bw);
   v_erg := v_erg || pg_temp.s112_erwarte('zuteilen',
-    pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d, 'genehmigt', current_date - 2, 'N 4711/26', NULL)), 'ok');
+    pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d, 'genehmigt', v_heute - 2, 'N 4711/26', NULL)), 'ok');
   v_erg := v_erg || pg_temp.s112_erwarte('entziehen',
-    pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d, 'entzogen', current_date, NULL, 'Bescheid über Entzug BAWB')), 'ok');
+    pg_temp.s112_fehlertext(format(c_rpc, v_b, v_d, 'entzogen', v_heute, NULL, 'Bescheid über Entzug BAWB')), 'ok');
   PERFORM pg_temp.s112_als_postgres();
   v_erg := v_erg || pg_temp.s112_erwarte('entzug_beendet_teil', pg_temp.t30_zeile(v_d, v_wb), 'ende:entzogen:geerbt');
   v_erg := v_erg || pg_temp.s112_erwarte('entzug_laesst_fruehere_ende', pg_temp.t30_zeile(v_d, v_wa), 'ende:zugang');
 
   -- ── 6. Nachträglich angelegter Antrag: vorhandener Zugang nach dem Beginn beendet sofort ──────────────
-  PERFORM pg_temp.s112_beispiel('zukauf_posten', v_b, NULL, jsonb_build_object('datum', current_date - 1, 'ziel_weinausbau_id', v_wd));
+  PERFORM pg_temp.s112_beispiel('zukauf_posten', v_b, NULL, jsonb_build_object('datum', v_heute - 1, 'ziel_weinausbau_id', v_wd));
   v_d2 := (pg_temp.s112_beispiel('dac_antrag', v_b, NULL, jsonb_build_object('weinausbau_id', v_wd, 'status', 'genehmigt',
-    'eingereicht_am', current_date - 30, 'bescheid_am', current_date - 20, 'pruefnummer', 'N 1/26')) ->> 'id')::uuid;
+    'eingereicht_am', v_heute - 30, 'bescheid_am', v_heute - 20, 'pruefnummer', 'N 1/26')) ->> 'id')::uuid;
   v_erg := v_erg || pg_temp.s112_erwarte('nachtrag_sofort_ende', pg_temp.t30_zeile(v_d2, v_wd), 'ende:zukauf');
   v_erg := v_erg || pg_temp.s112_erwarte('nachtrag_ende_datum',
-    (SELECT pc.gueltig_bis = current_date - 1 FROM public.pruefnummer_chargen pc WHERE pc.dac_antrag_id = v_d2), true);
+    (SELECT pc.gueltig_bis = v_heute - 1 FROM public.pruefnummer_chargen pc WHERE pc.dac_antrag_id = v_d2), true);
 
   PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 19);
 END $test$;

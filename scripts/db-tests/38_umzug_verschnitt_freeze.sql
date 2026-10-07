@@ -9,6 +9,7 @@
 
 DO $test$
 DECLARE
+  v_heute date := (now() AT TIME ZONE 'Europe/Vienna')::date;   -- wie die RPCs (Wiener Zeit, nicht UTC)
   c_datei constant text := '38_umzug_verschnitt_freeze';
   v_t0    timestamptz;
   v_erg   text[] := '{}';
@@ -31,8 +32,8 @@ BEGIN
   v_bw := (v_a ->> 'b_w')::uuid;
   v_wa := (pg_temp.s112_beispiel('weinausbau', v_b, NULL, '{"menge_liter": "800"}') ->> 'id')::uuid;
   v_wb := (pg_temp.s112_beispiel('weinausbau', v_b, NULL, '{"menge_liter": "200"}') ->> 'id')::uuid;
-  v_u := (pg_temp.s112_beispiel('keller_umzuege', v_b, NULL, jsonb_build_object('von_weinausbau_id', v_wa, 'menge_liter', 100, 'datum', current_date - 2)) ->> 'id')::uuid;
-  v_v := (pg_temp.s112_beispiel('verschneidungen', v_b, NULL, jsonb_build_object('ziel_weinausbau_id', v_wa, 'datum', current_date - 2)) ->> 'id')::uuid;
+  v_u := (pg_temp.s112_beispiel('keller_umzuege', v_b, NULL, jsonb_build_object('von_weinausbau_id', v_wa, 'menge_liter', 100, 'datum', v_heute - 2)) ->> 'id')::uuid;
+  v_v := (pg_temp.s112_beispiel('verschneidungen', v_b, NULL, jsonb_build_object('ziel_weinausbau_id', v_wa, 'datum', v_heute - 2)) ->> 'id')::uuid;
   v_q := (pg_temp.s112_beispiel('verschneidung_quellen', v_b, NULL, jsonb_build_object('verschneidung_id', v_v, 'quell_weinausbau_id', v_wb, 'menge_liter', 50)) ->> 'id')::uuid;
 
   -- ── Mutationen ────────────────────────────────────────────────────────────────────────────────────────

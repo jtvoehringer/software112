@@ -164,10 +164,14 @@ describe('Produktionsschutz', () => {
     assert.throws(() => parseOptionen(['--nur', PROD_REF]), /Produktions-Ref/)
     assert.throws(() => parseOptionen(['--json', `x-${PROD_REF}.json`]), /Produktions-Ref/)
     assert.deepEqual(parseOptionen(['--nur', '10,11', '--streng', '--ausfuehrlich', '--json', 'x.json']),
-      { nur: ['10', '11'], mutationen: false, mutationDatei: null, ausfuehrlich: true, streng: true, liste: false, json: 'x.json', hilfe: false })
+      { nur: ['10', '11'], mutationen: false, mutationDatei: null, ausfuehrlich: true, streng: true, liste: false, json: 'x.json', zeitzone: null, hilfe: false })
     assert.deepEqual(parseOptionen(['--mutationen', '10']).mutationDatei, '10')
     assert.deepEqual(parseOptionen(['--mutationen', '--liste']).mutationDatei, null)
     assert.throws(() => parseOptionen(['--json']), /braucht einen Wert/)
+    assert.equal(parseOptionen(['--zeitzone', 'Etc/GMT+12']).zeitzone, 'Etc/GMT+12')
+    assert.equal(parseOptionen(['--zeitzone', 'America/Argentina/Buenos_Aires']).zeitzone, 'America/Argentina/Buenos_Aires')
+    assert.throws(() => parseOptionen(['--zeitzone', "UTC'; SELECT 1; --"]), /kein Zeitzonenname/)
+    assert.throws(() => parseOptionen(['--zeitzone']), /braucht einen Wert/)
   })
 
   test('CLI-Umgebung ohne SUPABASE_*-Variablen außer dem Zugangstoken', () => {
@@ -347,10 +351,27 @@ describe('statische Prüfung', () => {
     einFehler(testDatei('1_x'), /Dateiname/, '1_x.sql')
   })
 
+  test('current_date ist verboten (Sitzungs-Zeitzone UTC ≠ Wiener Datum der RPCs) – Code und SQL-Texte, nicht Kommentare', () => {
+    einFehler(testDatei('10_beispiel', { rumpf: '\n  v_n := current_date - make_date(2026, 1, 1);' }), /current_date in Zeile .*v_heute/)
+    einFehler(testDatei('10_beispiel', { rumpf: "\n  EXECUTE format('SELECT public.f(%L, CURRENT_DATE)', v_id);" }), /current_date in Zeile/)
+    einFehler(testDatei('10_beispiel', { rumpf: '\n  EXECUTE $s$SELECT current_date$s$;' }), /current_date in Zeile/)
+    assert.deepEqual(pruefeTestdatei('10_beispiel.sql', testDatei('10_beispiel', { rumpf: '\n  -- nicht current_date, sondern v_heute' }), PROD_IDS), [])
+    assert.deepEqual(pruefeTestdatei('10_beispiel.sql', testDatei('10_beispiel', {
+      declare: "\n  v_heute date := (now() AT TIME ZONE 'Europe/Vienna')::date;",
+      rumpf: "\n  EXECUTE format('SELECT %L::date + 1, pg_temp.s112_heute()', v_heute);",
+    }), PROD_IDS), [])
+    assert.ok(pruefeHelfer(HELFER + '\nCREATE FUNCTION pg_temp.t_x() RETURNS date LANGUAGE sql AS $f$ SELECT current_date $f$;\n').some(f => /current_date/.test(f)))
+  })
+
   test('_helfer.sql: nur Funktionen, keine DO-Blöcke, Pflichtfunktionen vorhanden', () => {
     assert.ok(pruefeHelfer(HELFER + '\nDO $x$ BEGIN NULL; END $x$;\n').some(f => /nur CREATE FUNCTION pg_temp/.test(f)))
     assert.ok(pruefeHelfer(HELFER.replace('CREATE FUNCTION pg_temp.s112_ende(', 'CREATE FUNCTION pg_temp.s112_ende_x(')).some(f => /s112_ende fehlt/.test(f)))
     assert.ok(pruefeHelfer(HELFER.replaceAll(STAGING_SYSID, '1')).some(f => /STAGING_SYSID/.test(f)))
+    assert.ok(pruefeHelfer(HELFER.replace('CREATE FUNCTION pg_temp.s112_heute(', 'CREATE FUNCTION pg_temp.s112_heute_x(')).some(f => /s112_heute fehlt/.test(f)))
+    assert.ok(pruefeHelfer(HELFER.replace('CREATE FUNCTION pg_temp.s112_zeitzone(', 'CREATE FUNCTION pg_temp.s112_zeitzone_x(')).some(f => /s112_zeitzone fehlt/.test(f)))
+    // „heute“ = Wiener Datum; der Wächter übernimmt die Zeitzone des Schalters (--zeitzone)
+    assert.match(HELFER, /pg_temp\.s112_heute\(\) RETURNS date LANGUAGE sql STABLE AS \$f\$\s+SELECT \(now\(\) AT TIME ZONE 'Europe\/Vienna'\)::date/)
+    assert.match(HELFER, /IF pg_temp\.s112_zeitzone\(\) IS NOT NULL THEN\s+PERFORM set_config\('TimeZone', pg_temp\.s112_zeitzone\(\), true\);/)
   })
 
   test('zusammensetzen: Helfer + Schalter + Test, Mutationsname geprüft', () => {
@@ -364,6 +385,11 @@ describe('statische Prüfung', () => {
     assert.ok(m.indexOf('s112_mutation() RETURNS text LANGUAGE sql AS $m$') < m.indexOf('DO $test$'))
     assert.throws(() => zusammensetzen(HELFER, t, { mutation: "x'; DROP" }), /unzulässig/)
     assert.throws(() => zusammensetzen(HELFER, t + '\nSELECT 1;\n'), /zusammengesetzt/)
+    assert.ok(!normal.includes('CREATE OR REPLACE FUNCTION pg_temp.s112_zeitzone()'))
+    const z = zusammensetzen(HELFER, t, { zeitzone: 'Etc/GMT+12' })
+    assert.match(z, /CREATE OR REPLACE FUNCTION pg_temp\.s112_zeitzone\(\) RETURNS text LANGUAGE sql AS \$m\$ SELECT 'Etc\/GMT\+12'::text \$m\$;/)
+    assert.ok(z.indexOf('s112_zeitzone() RETURNS text LANGUAGE sql AS $m$') < z.indexOf('DO $test$'))
+    assert.throws(() => zusammensetzen(HELFER, t, { zeitzone: "x'; DROP" }), /unzulässig/)
   })
 })
 

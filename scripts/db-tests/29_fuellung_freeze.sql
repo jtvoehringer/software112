@@ -106,9 +106,9 @@ BEGIN
 
   -- ── 4. Bestandsbuchungen und Verkauf laufen weiter ────────────────────────────────────────────────────
   v_erg := v_erg || pg_temp.s112_erwarte('bestand_buchen',
-    pg_temp.s112_versuch(format('SELECT public.fuellung_bestand_buchen(%L, %L, %L, current_date, -2, NULL, %L)', v_b, v_f, 'bruch', 'S112TEST Bruch')), 'k1');
+    pg_temp.s112_versuch(format('SELECT public.fuellung_bestand_buchen(%L, %L, %L, pg_temp.s112_heute(), -2, NULL, %L)', v_b, v_f, 'bruch', 'S112TEST Bruch')), 'k1');
   v_erg := v_erg || pg_temp.s112_erwarte('verkauf_buchen',
-    pg_temp.s112_versuch(format('SELECT public.s112_fuellung_verkauf_buchen(%L, %L, gen_random_uuid(), -3, current_date, NULL)', v_b, v_f)), 'k1');
+    pg_temp.s112_versuch(format('SELECT public.s112_fuellung_verkauf_buchen(%L, %L, gen_random_uuid(), -3, pg_temp.s112_heute(), NULL)', v_b, v_f)), 'k1');
 
   -- ── 5. Nachtrag: Charge einmal, DAC-Antrag nur derselben Charge, Prüfnummer nur zugeteilt ─────────────
   v_erg := v_erg || pg_temp.s112_erwarte('nachtrag_fremde_charge',
@@ -129,13 +129,13 @@ BEGIN
     split_part(pg_temp.s112_fehlertext(format(c_nach, v_b, v_f, NULL, v_d)), ':', 1), '42501');
   -- Antrag einreichen: Verknüpfung ohne Nummer; danach zuteilen: Nummer einmal nachtragen
   v_erg := v_erg || pg_temp.s112_erwarte('antrag_einreichen',
-    pg_temp.s112_fehlertext(format('SELECT public.s112_pruefnummernantrag_status_setzen(%L, %L, %L, current_date, NULL, NULL)', v_b, v_d, 'eingereicht')), 'ok');
+    pg_temp.s112_fehlertext(format('SELECT public.s112_pruefnummernantrag_status_setzen(%L, %L, %L, pg_temp.s112_heute(), NULL, NULL)', v_b, v_d, 'eingereicht')), 'ok');
   v_erg := v_erg || pg_temp.s112_erwarte('nachtrag_antrag_eingereicht',
     pg_temp.s112_fehlertext(format(c_nach, v_b, v_f, NULL, v_d)), 'ok');
   v_erg := v_erg || pg_temp.s112_erwarte('nachtrag_pn_vor_bescheid',
     split_part(pg_temp.s112_fehlertext(format(c_nach, v_b, v_f, NULL, v_d)), ':', 1), '42501');
   v_erg := v_erg || pg_temp.s112_erwarte('antrag_zuteilen',
-    pg_temp.s112_fehlertext(format('SELECT public.s112_pruefnummernantrag_status_setzen(%L, %L, %L, current_date, %L, NULL)', v_b, v_d, 'genehmigt', 'N 4711/26')), 'ok');
+    pg_temp.s112_fehlertext(format('SELECT public.s112_pruefnummernantrag_status_setzen(%L, %L, %L, pg_temp.s112_heute(), %L, NULL)', v_b, v_d, 'genehmigt', 'N 4711/26')), 'ok');
   v_erg := v_erg || pg_temp.s112_erwarte('nachtrag_pruefnummer',
     pg_temp.s112_fehlertext(format(c_nach, v_b, v_f, NULL, v_d)), 'ok');
   v_erg := v_erg || pg_temp.s112_erwarte('nachtrag_zweimal',

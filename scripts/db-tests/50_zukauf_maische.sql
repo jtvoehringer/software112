@@ -32,6 +32,7 @@ END $f$;
 
 DO $test$
 DECLARE
+  v_heute date := (now() AT TIME ZONE 'Europe/Vienna')::date;   -- wie die RPCs (Wiener Zeit, nicht UTC)
   c_datei constant text := '50_zukauf_maische';
   v_t0    timestamptz;
   v_erg   text[] := '{}';
@@ -54,17 +55,17 @@ BEGIN
   -- ── 0. Aufbau (als postgres): Journal ab vor 30 Tagen, Most-Charge, je ein Zukauf Trauben und Maische ──────
   v_a := pg_temp.s112_aufbau();
   v_b := (v_a ->> 'b')::uuid;
-  UPDATE public.tenant_einstellungen SET journal_ab = current_date - 30 WHERE tenant_id = v_b;
+  UPDATE public.tenant_einstellungen SET journal_ab = v_heute - 30 WHERE tenant_id = v_b;
   v_wa := (pg_temp.s112_beispiel('weinausbau', v_b, NULL, '{"menge_liter": "0", "status": "ernte", "qualitaetsstufe": "qualitaetswein"}') ->> 'id')::uuid;
   v_zt := (pg_temp.s112_beispiel('zukauf_posten', v_b, NULL, jsonb_build_object('art', 'trauben', 'einheit', 'kg', 'menge', 300,
-    'datum', current_date - 3, 'ziel_weinausbau_id', NULL)) ->> 'id')::uuid;
+    'datum', v_heute - 3, 'ziel_weinausbau_id', NULL)) ->> 'id')::uuid;
   v_zm := (pg_temp.s112_beispiel('zukauf_posten', v_b, NULL, jsonb_build_object('art', 'maische', 'einheit', 'kg', 'menge', 300,
-    'datum', current_date - 3, 'ziel_weinausbau_id', NULL)) ->> 'id')::uuid;
+    'datum', v_heute - 3, 'ziel_weinausbau_id', NULL)) ->> 'id')::uuid;
   v_erg := v_erg || pg_temp.s112_erwarte('art_check',
     split_part(pg_temp.s112_fehlertext(format('UPDATE public.zukauf_posten SET art = %L WHERE id = %L', 'saft', v_zm)), ':', 1), '23514');
 
   -- ── 1. Pressung 1.200 l aus 600 kg eigenen Trauben, 300 kg Trauben- und 300 kg Maische-Zukauf ─────────────
-  v_p := (pg_temp.s112_beispiel('pressungen', v_b, NULL, jsonb_build_object('datum', current_date - 2, 'storniert_am', NULL)) ->> 'id')::uuid;
+  v_p := (pg_temp.s112_beispiel('pressungen', v_b, NULL, jsonb_build_object('datum', v_heute - 2, 'storniert_am', NULL)) ->> 'id')::uuid;
   PERFORM pg_temp.s112_beispiel('pressung_weingaerten', v_b, NULL, jsonb_build_object('pressung_id', v_p, 'trauben_kg', 600, 'storniert_am', NULL));
   PERFORM pg_temp.s112_beispiel('pressung_weingaerten', v_b, NULL, jsonb_build_object('pressung_id', v_p, 'trauben_kg', 300, 'storniert_am', NULL,
     'weingarten_id', NULL, 'zukauf_posten_id', v_zt));

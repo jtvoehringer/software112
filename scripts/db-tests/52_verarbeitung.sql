@@ -24,6 +24,7 @@ END $f$;
 
 DO $test$
 DECLARE
+  v_heute date := (now() AT TIME ZONE 'Europe/Vienna')::date;   -- wie die RPCs (Wiener Zeit, nicht UTC)
   c_datei constant text := '52_verarbeitung';
   c_rpc   constant text := 'SELECT public.s112_verarbeitung_buchen(%L::uuid, %L::uuid, %L::date, %s, %L, %L)';
   v_t0    timestamptz;
@@ -47,13 +48,13 @@ BEGIN
   v_m := (v_a ->> 'm')::uuid;
   v_bw := (v_a ->> 'b_w')::uuid;
   v_bl := (v_a ->> 'b_l')::uuid;
-  UPDATE public.tenant_einstellungen SET journal_ab = current_date - 30 WHERE tenant_id = v_b;
+  UPDATE public.tenant_einstellungen SET journal_ab = v_heute - 30 WHERE tenant_id = v_b;
   v_wa := (pg_temp.s112_beispiel('weinausbau', v_b, NULL, '{"menge_liter": "500", "status": "ausbau", "aktiv": true, "storniert_am": null}') ->> 'id')::uuid;
   v_wm := (pg_temp.s112_beispiel('weinausbau', v_m, NULL, '{"menge_liter": "100", "status": "ausbau"}') ->> 'id')::uuid;
   PERFORM pg_temp.s112_beispiel('kellerbuch_buchungen', v_b, NULL, jsonb_build_object('weinausbau_id', v_wa, 'menge_liter', 500,
-    'datum', current_date - 5, 'charge_status', 'ausbau'));
+    'datum', v_heute - 5, 'charge_status', 'ausbau'));
   -- Verarbeitung im fremden Betrieb (IDOR-Prüfung des Stornos)
-  v_vm := (pg_temp.s112_beispiel('keller_verarbeitungen', v_m, NULL, jsonb_build_object('weinausbau_id', v_wm, 'datum', current_date - 1,
+  v_vm := (pg_temp.s112_beispiel('keller_verarbeitungen', v_m, NULL, jsonb_build_object('weinausbau_id', v_wm, 'datum', v_heute - 1,
     'menge_liter', 5, 'zweck', 'essig', 'storniert_am', NULL)) ->> 'id')::uuid;
 
   -- ── Mutationen ────────────────────────────────────────────────────────────────────────────────────────
@@ -70,34 +71,34 @@ BEGIN
   -- ── 1. Ablehnungen ────────────────────────────────────────────────────────────────────────────────────
   PERFORM pg_temp.s112_als(v_bw);
   v_erg := v_erg || pg_temp.s112_erwarte('datum_zukunft',
-    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_wa, current_date + 1, 100, 'traubensaft', NULL)), ':', 1), '22023');
+    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_wa, v_heute + 1, 100, 'traubensaft', NULL)), ':', 1), '22023');
   v_erg := v_erg || pg_temp.s112_erwarte('vor_letzter_bewegung',
-    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_wa, current_date - 10, 100, 'traubensaft', NULL)), ':', 1), '22023');
+    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_wa, v_heute - 10, 100, 'traubensaft', NULL)), ':', 1), '22023');
   v_erg := v_erg || pg_temp.s112_erwarte('mehr_als_bestand',
-    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_wa, current_date - 3, 600, 'essig', NULL)), ':', 1), '22023');
+    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_wa, v_heute - 3, 600, 'essig', NULL)), ':', 1), '22023');
   v_erg := v_erg || pg_temp.s112_erwarte('zweck_unbekannt',
-    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_wa, current_date - 3, 100, 'saft', NULL)), ':', 1), '22023');
+    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_wa, v_heute - 3, 100, 'saft', NULL)), ':', 1), '22023');
   v_erg := v_erg || pg_temp.s112_erwarte('fremde_charge',
-    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_wm, current_date - 3, 10, 'essig', NULL)), ':', 1), 'P0002');
+    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_wm, v_heute - 3, 10, 'essig', NULL)), ':', 1), 'P0002');
   v_erg := v_erg || pg_temp.s112_erwarte('fremder_betrieb',
-    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_m, v_wm, current_date - 3, 10, 'essig', NULL)), ':', 1), '42501');
+    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_m, v_wm, v_heute - 3, 10, 'essig', NULL)), ':', 1), '42501');
   v_erg := v_erg || pg_temp.s112_erwarte('direkt_per_api',
-    split_part(pg_temp.s112_fehlertext(format('INSERT INTO public.keller_verarbeitungen (tenant_id, weinausbau_id, datum, menge_liter, zweck) VALUES (%L, %L, current_date, 1, %L)',
+    split_part(pg_temp.s112_fehlertext(format('INSERT INTO public.keller_verarbeitungen (tenant_id, weinausbau_id, datum, menge_liter, zweck) VALUES (%L, %L, pg_temp.s112_heute(), 1, %L)',
       v_b, v_wa, 'essig')), ':', 1), '42501');
   PERFORM pg_temp.s112_als(v_bl);
   v_erg := v_erg || pg_temp.s112_erwarte('leser_nicht',
-    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_wa, current_date - 3, 100, 'traubensaft', NULL)), ':', 1), '42501');
+    split_part(pg_temp.s112_fehlertext(format(c_rpc, v_b, v_wa, v_heute - 3, 100, 'traubensaft', NULL)), ':', 1), '42501');
 
   -- ── 2. 200 L zu Traubensaft vor 3 Tagen ──────────────────────────────────────────────────────────────
   PERFORM pg_temp.s112_als(v_bw);
   v_erg := v_erg || pg_temp.s112_erwarte('buchung_ok',
-    pg_temp.s112_fehlertext(format(c_rpc, v_b, v_wa, current_date - 3, 200, 'traubensaft', 'S112TEST Saft')), 'ok');
+    pg_temp.s112_fehlertext(format(c_rpc, v_b, v_wa, v_heute - 3, 200, 'traubensaft', 'S112TEST Saft')), 'ok');
   PERFORM pg_temp.s112_als_postgres();
   SELECT v.id INTO v_v FROM public.keller_verarbeitungen v WHERE v.weinausbau_id = v_wa AND v.notizen = 'S112TEST Saft';
   v_erg := v_erg || pg_temp.s112_erwarte('charge_gemindert',
     (SELECT concat_ws('|', w.menge_liter::numeric(10, 0), w.aktiv) FROM public.weinausbau w WHERE w.id = v_wa), '300|t');
   v_erg := v_erg || pg_temp.s112_erwarte('journal_ab_verar',
-    (SELECT string_agg(k.buchungsart_code || '=' || k.menge_liter::numeric(10, 0)::text || '@' || (current_date - k.datum)::text, ',')
+    (SELECT string_agg(k.buchungsart_code || '=' || k.menge_liter::numeric(10, 0)::text || '@' || (v_heute - k.datum)::text, ',')
        FROM public.kellerbuch_buchungen k WHERE k.quelle_tabelle = 'keller_verarbeitungen' AND k.quelle_id = v_v),
     'AB_VERAR=-200@3');
   v_erg := v_erg || pg_temp.s112_erwarte('folgebuchung', public.s112_charge_hat_folgebuchung(v_wa)::text, 'true');
@@ -119,7 +120,7 @@ BEGIN
   -- ── 4. Ganze Menge schließt die Charge ab ─────────────────────────────────────────────────────────────
   PERFORM pg_temp.s112_als(v_bw);
   v_erg := v_erg || pg_temp.s112_erwarte('ganze_menge_ok',
-    pg_temp.s112_fehlertext(format(c_rpc, v_b, v_wa, current_date, 500, 'brennerei', NULL)), 'ok');
+    pg_temp.s112_fehlertext(format(c_rpc, v_b, v_wa, v_heute, 500, 'brennerei', NULL)), 'ok');
   PERFORM pg_temp.s112_als_postgres();
   v_erg := v_erg || pg_temp.s112_erwarte('ganze_menge_abgeschlossen',
     (SELECT concat_ws('|', w.menge_liter::numeric(10, 0), w.aktiv, w.status) FROM public.weinausbau w WHERE w.id = v_wa), '0|f|abgeschlossen');

@@ -24,6 +24,7 @@ END $f$;
 
 DO $test$
 DECLARE
+  v_heute date := (now() AT TIME ZONE 'Europe/Vienna')::date;   -- wie die RPCs (Wiener Zeit, nicht UTC)
   c_datei constant text := '51_zukauf_flaschen';
   c_rpc   constant text := 'SELECT public.s112_zukauf_buchen(%L::uuid, %L::jsonb, NULL, NULL, %L::jsonb)';
   v_t0    timestamptz;
@@ -46,8 +47,8 @@ BEGIN
   v_a := pg_temp.s112_aufbau();
   v_b := (v_a ->> 'b')::uuid;
   v_bw := (v_a ->> 'b_w')::uuid;
-  UPDATE public.tenant_einstellungen SET journal_ab = current_date - 30 WHERE tenant_id = v_b;
-  v_zk := jsonb_build_object('datum', current_date - 2, 'art', 'flaschen', 'weinart', 'weiss', 'rebsorte', 'Grüner Veltliner',
+  UPDATE public.tenant_einstellungen SET journal_ab = v_heute - 30 WHERE tenant_id = v_b;
+  v_zk := jsonb_build_object('datum', v_heute - 2, 'art', 'flaschen', 'weinart', 'weiss', 'rebsorte', 'Grüner Veltliner',
     'jahrgang', 2025, 'qualitaetsstufe', 'qualitaetswein', 'land_iso', 'AT', 'herkunft', 'kamptal_gebietswein', 'alkohol_pct', 12.5,
     'staatliche_pruefnummer', 'N 4711/26', 'menge', 120, 'einheit', 'Stk', 'preis_gesamt', 1200, 'notizen', 'S112TEST Flaschenzukauf');
 
@@ -80,7 +81,7 @@ BEGIN
   PERFORM pg_temp.s112_als_postgres();
   v_erg := v_erg || pg_temp.s112_erwarte('artikel_angelegt',
     (SELECT concat_ws('|', f.zukauf_posten_id = v_z, f.weinausbau_id IS NULL, f.anzahl_flaschen, f.bestand_flaschen, f.einstandspreis,
-                      f.qualitaet, f.rebsorte, f.jahrgang, f.pruefnummer, f.flaschengroesse_ml, f.datum = current_date - 2)
+                      f.qualitaet, f.rebsorte, f.jahrgang, f.pruefnummer, f.flaschengroesse_ml, f.datum = v_heute - 2)
        FROM public.fuellungen f WHERE f.id = v_f),
     't|t|120|120|10.00|qualitaetswein|Grüner Veltliner|2025|N 4711/26|750|t');
   v_erg := v_erg || pg_temp.s112_erwarte('journal_zk_fla',
@@ -115,7 +116,7 @@ BEGIN
   v_z2 := (v_r ->> 'zukauf_id')::uuid;
   v_f2 := (v_r ->> 'fuellung_id')::uuid;
   PERFORM pg_temp.s112_als_postgres();
-  PERFORM pg_temp.s112_beispiel('fuellung_bewegungen', v_b, NULL, jsonb_build_object('fuellung_id', v_f2, 'datum', current_date - 1,
+  PERFORM pg_temp.s112_beispiel('fuellung_bewegungen', v_b, NULL, jsonb_build_object('fuellung_id', v_f2, 'datum', v_heute - 1,
     'art', 'bruch', 'menge_stk', -1, 'verkaufsposten_id', NULL));
   PERFORM pg_temp.s112_als(v_bw);
   v_erg := v_erg || pg_temp.s112_erwarte('storno_mit_bewegung',

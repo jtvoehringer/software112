@@ -13,6 +13,7 @@
 
 DO $test$
 DECLARE
+  v_heute date := (now() AT TIME ZONE 'Europe/Vienna')::date;   -- wie die RPCs (Wiener Zeit, nicht UTC)
   c_datei constant text := '25_verschnitt';
   c_m     constant uuid := '33333333-3333-4333-8333-333333333333';
   v_t0    timestamptz;
@@ -66,7 +67,7 @@ BEGIN
        RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $x$ SELECT true $x$$m$);
 
   -- ── 1. Verschnitt mit Schwund als winzer ──────────────────────────────────────────────────────────────
-  v_kopf := jsonb_build_object('datum', current_date, 'ziel_weinausbau_id', v_z, 'ziel_menge_erwartet', 1000,
+  v_kopf := jsonb_build_object('datum', v_heute, 'ziel_weinausbau_id', v_z, 'ziel_menge_erwartet', 1000,
     'notizen', 'S112TEST Verschnitt', 'ziel', jsonb_build_object('rebsorte', 'Riesling', 'jahrgang', 2025));
   PERFORM pg_temp.s112_als(v_bw);
   v_erg := v_erg || pg_temp.s112_erwarte('buchen_winzer',
@@ -89,33 +90,33 @@ BEGIN
   PERFORM pg_temp.s112_als(v_bl);
   v_erg := v_erg || pg_temp.s112_erwarte('buchen_leser',
     split_part(pg_temp.s112_fehlertext(format('SELECT public.s112_verschnitt_buchen(%L, %L::jsonb, %L::jsonb)', v_b,
-      jsonb_build_object('datum', current_date, 'ziel_weinausbau_id', v_z),
+      jsonb_build_object('datum', v_heute, 'ziel_weinausbau_id', v_z),
       jsonb_build_array(jsonb_build_object('weinausbau_id', v_q, 'menge_liter', 1)))), ':', 1), '42501');
   PERFORM pg_temp.s112_als(v_mta);
   v_erg := v_erg || pg_temp.s112_erwarte('buchen_fremd',
     split_part(pg_temp.s112_fehlertext(format('SELECT public.s112_verschnitt_buchen(%L, %L::jsonb, %L::jsonb)', v_b,
-      jsonb_build_object('datum', current_date, 'ziel_weinausbau_id', v_z),
+      jsonb_build_object('datum', v_heute, 'ziel_weinausbau_id', v_z),
       jsonb_build_array(jsonb_build_object('weinausbau_id', v_q, 'menge_liter', 1)))), ':', 1), '42501');
 
   -- ── 3. Bestandsprüfungen ──────────────────────────────────────────────────────────────────────────────
   PERFORM pg_temp.s112_als(v_bw);
   v_erg := v_erg || pg_temp.s112_erwarte('menge_zu_hoch',
     split_part(pg_temp.s112_fehlertext(format('SELECT public.s112_verschnitt_buchen(%L, %L::jsonb, %L::jsonb)', v_b,
-      jsonb_build_object('datum', current_date, 'ziel_weinausbau_id', v_z),
+      jsonb_build_object('datum', v_heute, 'ziel_weinausbau_id', v_z),
       jsonb_build_array(jsonb_build_object('weinausbau_id', v_q, 'menge_liter', 500)))), ':', 1), '22023');
   v_erg := v_erg || pg_temp.s112_erwarte('bestand_geaendert',
     split_part(pg_temp.s112_fehlertext(format('SELECT public.s112_verschnitt_buchen(%L, %L::jsonb, %L::jsonb)', v_b,
-      jsonb_build_object('datum', current_date, 'ziel_weinausbau_id', v_z),
+      jsonb_build_object('datum', v_heute, 'ziel_weinausbau_id', v_z),
       jsonb_build_array(jsonb_build_object('weinausbau_id', v_q, 'menge_liter', 10, 'menge_erwartet', 300)))), ':', 1), '40001');
   v_erg := v_erg || pg_temp.s112_erwarte('feld_unbekannt',
     split_part(pg_temp.s112_fehlertext(format('SELECT public.s112_verschnitt_buchen(%L, %L::jsonb, %L::jsonb)', v_b,
-      jsonb_build_object('datum', current_date, 'ziel_weinausbau_id', v_z, 'ziel', jsonb_build_object('menge_liter', 99999)),
+      jsonb_build_object('datum', v_heute, 'ziel_weinausbau_id', v_z, 'ziel', jsonb_build_object('menge_liter', 99999)),
       jsonb_build_array(jsonb_build_object('weinausbau_id', v_q, 'menge_liter', 1)))), ':', 1), '22023');
 
   -- ── 4. Neue Ziel-Charge im leeren Gebinde ─────────────────────────────────────────────────────────────
   v_erg := v_erg || pg_temp.s112_erwarte('neue_ziel_charge',
     pg_temp.s112_fehlertext(format('SELECT public.s112_verschnitt_buchen(%L, %L::jsonb, %L::jsonb)', v_b,
-      jsonb_build_object('datum', current_date, 'neue_ziel_charge', jsonb_build_object('name', 'S112TEST Verschnitt neu', 'behaelter_id', v_g4,
+      jsonb_build_object('datum', v_heute, 'neue_ziel_charge', jsonb_build_object('name', 'S112TEST Verschnitt neu', 'behaelter_id', v_g4,
         'weinart', 'weiss', 'rebsorte', 'Sortenverschnitt weiß', 'qualitaetsstufe', 'landwein')),
       jsonb_build_array(jsonb_build_object('weinausbau_id', v_q, 'menge_liter', 50, 'menge_erwartet', 198),
                         jsonb_build_object('weinausbau_id', v_q2, 'menge_liter', 50, 'menge_erwartet', 200)))), 'ok');
@@ -126,7 +127,7 @@ BEGIN
     pg_temp.s112_zaehle(format('SELECT count(*) FROM public.verschneidung_quellen q JOIN public.verschneidungen v ON v.id = q.verschneidung_id WHERE v.tenant_id = %L AND v.ziel_behaelter_id = %L AND q.anteil_pct = 50', v_b, v_g4)), '2');
   v_erg := v_erg || pg_temp.s112_erwarte('neue_ziel_charge_fremdgebinde',
     split_part(pg_temp.s112_fehlertext(format('SELECT public.s112_verschnitt_buchen(%L, %L::jsonb, %L::jsonb)', v_b,
-      jsonb_build_object('datum', current_date, 'neue_ziel_charge', jsonb_build_object('name', 'S112TEST fremd', 'behaelter_id', v_gm)),
+      jsonb_build_object('datum', v_heute, 'neue_ziel_charge', jsonb_build_object('name', 'S112TEST fremd', 'behaelter_id', v_gm)),
       jsonb_build_array(jsonb_build_object('weinausbau_id', v_q2, 'menge_liter', 1)))), ':', 1), '42501');
 
   -- ── 5. Verweise am Verschnitt nur aus dem eigenen Betrieb ─────────────────────────────────────────────
@@ -143,9 +144,9 @@ BEGIN
   PERFORM pg_temp.s112_als(v_bw);
   v_erg := v_erg || pg_temp.s112_erwarte('verschnitte_zwei_ziele',
     pg_temp.s112_zaehle(format('SELECT jsonb_array_length(public.s112_verschnitte_buchen(%L, %L::jsonb))', v_b, jsonb_build_array(
-      jsonb_build_object('kopf', jsonb_build_object('datum', current_date, 'ziel_weinausbau_id', v_z, 'ziel_menge_erwartet', 1100),
+      jsonb_build_object('kopf', jsonb_build_object('datum', v_heute, 'ziel_weinausbau_id', v_z, 'ziel_menge_erwartet', 1100),
         'quellen', jsonb_build_array(jsonb_build_object('weinausbau_id', v_q, 'menge_liter', 40, 'schwund_liter', 1, 'menge_erwartet', 148))),
-      jsonb_build_object('kopf', jsonb_build_object('datum', current_date, 'neue_ziel_charge', jsonb_build_object('name', 'S112TEST Verschnitt 3', 'behaelter_id', v_g5, 'weinart', 'weiss')),
+      jsonb_build_object('kopf', jsonb_build_object('datum', v_heute, 'neue_ziel_charge', jsonb_build_object('name', 'S112TEST Verschnitt 3', 'behaelter_id', v_g5, 'weinart', 'weiss')),
         'quellen', jsonb_build_array(jsonb_build_object('weinausbau_id', v_q, 'menge_liter', 40, 'schwund_liter', 1, 'menge_erwartet', 107)))))), '2');
   PERFORM pg_temp.s112_als_postgres();
   v_erg := v_erg || pg_temp.s112_erwarte('verschnitte_bestand_quelle',
@@ -161,16 +162,16 @@ BEGIN
   PERFORM pg_temp.s112_als(v_bw);
   v_erg := v_erg || pg_temp.s112_erwarte('verschnitte_alles_oder_nichts',
     split_part(pg_temp.s112_fehlertext(format('SELECT public.s112_verschnitte_buchen(%L, %L::jsonb)', v_b, jsonb_build_array(
-      jsonb_build_object('kopf', jsonb_build_object('datum', current_date, 'ziel_weinausbau_id', v_z, 'ziel_menge_erwartet', 1140),
+      jsonb_build_object('kopf', jsonb_build_object('datum', v_heute, 'ziel_weinausbau_id', v_z, 'ziel_menge_erwartet', 1140),
         'quellen', jsonb_build_array(jsonb_build_object('weinausbau_id', v_q, 'menge_liter', 10, 'menge_erwartet', 66))),
-      jsonb_build_object('kopf', jsonb_build_object('datum', current_date, 'neue_ziel_charge', jsonb_build_object('name', 'S112TEST Verschnitt 4', 'behaelter_id', v_g5)),
+      jsonb_build_object('kopf', jsonb_build_object('datum', v_heute, 'neue_ziel_charge', jsonb_build_object('name', 'S112TEST Verschnitt 4', 'behaelter_id', v_g5)),
         'quellen', jsonb_build_array(jsonb_build_object('weinausbau_id', v_q, 'menge_liter', 10, 'menge_erwartet', 66)))))), ':', 1), '40001');
   v_erg := v_erg || pg_temp.s112_erwarte('verschnitte_leer',
     split_part(pg_temp.s112_fehlertext(format('SELECT public.s112_verschnitte_buchen(%L, %L::jsonb)', v_b, '[]')), ':', 1), '22023');
   PERFORM pg_temp.s112_als(v_bl);
   v_erg := v_erg || pg_temp.s112_erwarte('verschnitte_leser',
     split_part(pg_temp.s112_fehlertext(format('SELECT public.s112_verschnitte_buchen(%L, %L::jsonb)', v_b, jsonb_build_array(
-      jsonb_build_object('kopf', jsonb_build_object('datum', current_date, 'ziel_weinausbau_id', v_z),
+      jsonb_build_object('kopf', jsonb_build_object('datum', v_heute, 'ziel_weinausbau_id', v_z),
         'quellen', jsonb_build_array(jsonb_build_object('weinausbau_id', v_q, 'menge_liter', 1)))))), ':', 1), '42501');
   PERFORM pg_temp.s112_als_postgres();
   v_erg := v_erg || pg_temp.s112_erwarte('verschnitte_nichts_gebucht_quelle',

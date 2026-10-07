@@ -8,6 +8,7 @@
 
 DO $test$
 DECLARE
+  v_heute date := (now() AT TIME ZONE 'Europe/Vienna')::date;   -- wie die RPCs (Wiener Zeit, nicht UTC)
   c_datei constant text := '36_zukauf_freeze';
   c_upd   constant text := 'UPDATE public.zukauf_posten SET %s WHERE id = %L';
   v_t0    timestamptz;
@@ -28,7 +29,7 @@ BEGIN
   v_bw := (v_a ->> 'b_w')::uuid;
   v_wa := (pg_temp.s112_beispiel('weinausbau', v_b, NULL, '{"menge_liter": "500", "qualitaetsstufe": "qualitaetswein"}') ->> 'id')::uuid;
   v_z := (pg_temp.s112_beispiel('zukauf_posten', v_b, NULL, jsonb_build_object('ziel_weinausbau_id', v_wa, 'art', 'wein', 'menge', 500,
-           'einheit', 'l', 'rebsorte', 'S112TEST Veltliner', 'datum', current_date - 5, 'aktiv', true)) ->> 'id')::uuid;
+           'einheit', 'l', 'rebsorte', 'S112TEST Veltliner', 'datum', v_heute - 5, 'aktiv', true)) ->> 'id')::uuid;
 
   -- ── Mutationen ────────────────────────────────────────────────────────────────────────────────────────
   PERFORM pg_temp.s112_mutiere('freeze_aus', $m$DROP TRIGGER a_freeze ON public.zukauf_posten$m$);
@@ -47,7 +48,7 @@ BEGIN
 
   -- ── 3. Folgebuchung an der Zielcharge: Merkmale fest ─────────────────────────────────────────────────
   PERFORM pg_temp.s112_als_postgres();
-  PERFORM pg_temp.s112_beispiel('keller_behandlungen', v_b, NULL, jsonb_build_object('weinausbau_id', v_wa, 'datum', current_date - 1));
+  PERFORM pg_temp.s112_beispiel('keller_behandlungen', v_b, NULL, jsonb_build_object('weinausbau_id', v_wa, 'datum', v_heute - 1));
   v_erg := v_erg || pg_temp.s112_erwarte('funktion_mit_folgebuchung', public.s112_zukauf_hat_folgebuchung(v_wa, v_z), true);
   PERFORM pg_temp.s112_als(v_bw);
   v_txt := pg_temp.s112_fehlertext(format(c_upd, format('rebsorte = %L', 'S112TEST Zweigelt'), v_z));

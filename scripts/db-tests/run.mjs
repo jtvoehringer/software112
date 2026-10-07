@@ -9,6 +9,7 @@
  *   --streng             BEKANNT zählt als Fehler (z. B. für ein Sicherheitsreview)
  *   --liste              Dateien, Ziele und Mutationen samt statischer Prüfung zeigen – ohne Datenbank
  *   --json <pfad>        maschinenlesbare Zusammenfassung schreiben (nie einchecken)
+ *   --zeitzone <IANA>    Sitzungs-Zeitzone im Test (z. B. Etc/GMT+12): current_date ≠ Wiener Datum erzwingen
  *
  * Exit-Codes: 0 grün (BEKANNT erlaubt) · 1 Testfehler/überlebte Mutation · 2 echter SQL- oder
  * Infrastrukturfehler · 3 kein Rollback (Datei endete ohne RAISE oder Reste gefunden) · 4 nicht Staging.
@@ -242,6 +243,20 @@ export function pruefeVerboten(text, { testdatei = false } = {}) {
   return fehler
 }
 
+/**
+ * „Heute“ nur als Wiener Datum: current_date (Sitzungs-Zeitzone UTC) liegt zwischen 00:00 und 01:00 bzw. 02:00
+ * Wiener Zeit einen Tag hinter den RPCs (now() AT TIME ZONE 'Europe/Vienna'). Kommentare zählen nicht, Strings
+ * (EXECUTE/format) schon.
+ */
+export function pruefeHeute(text) {
+  const ohne = ohneKommentare(segmente(text))
+  const fehler = []
+  for (const m of ohne.matchAll(/\bcurrent_date\b/gi)) {
+    fehler.push(`current_date in Zeile ${ohne.slice(0, m.index).split('\n').length} – Wiener Datum verwenden: v_heute (DECLARE v_heute date := (now() AT TIME ZONE 'Europe/Vienna')::date) bzw. pg_temp.s112_heute() in SQL-Texten`)
+  }
+  return fehler
+}
+
 /** _helfer.sql: oben nur CREATE [OR REPLACE] FUNCTION pg_temp.*, keine verbotenen Muster, Wächter vorhanden. */
 export function pruefeHelfer(text) {
   const fehler = []
@@ -251,7 +266,8 @@ export function pruefeHelfer(text) {
     }
   }
   fehler.push(...pruefeVerboten(text).map(f => `_helfer.sql: ${f}`))
-  for (const fn of ['s112_nur_staging', 's112_ende', 's112_mutation', 's112_ausfuehrlich', 's112_mutiere']) {
+  fehler.push(...pruefeHeute(text).map(f => `_helfer.sql: ${f}`))
+  for (const fn of ['s112_nur_staging', 's112_ende', 's112_mutation', 's112_ausfuehrlich', 's112_mutiere', 's112_heute', 's112_zeitzone']) {
     if (!new RegExp(`CREATE\\s+FUNCTION\\s+pg_temp\\.${fn}\\s*\\(`, 'i').test(text)) fehler.push(`_helfer.sql: pg_temp.${fn} fehlt`)
   }
   if (!text.includes(`'${STAGING_SYSID}'`)) fehler.push('_helfer.sql: Wächter prüft nicht STAGING_SYSID aus run.mjs')
@@ -289,6 +305,7 @@ export function pruefeTestdatei(name, text, prodIds = []) {
   for (const id of prodIds) if (text.toLowerCase().includes(id)) f(`enthält die Produktions-Betriebs-ID ${id} – nur der Wächter in _helfer.sql darf sie nennen`)
 
   fehler.push(...pruefeVerboten(text, { testdatei: true }).map(x => `${name}: ${x}`))
+  fehler.push(...pruefeHeute(text).map(x => `${name}: ${x}`))
 
   // Oberste Ebene: CREATE FUNCTION pg_temp.* (nicht s112_*) und genau ein DO $test$ als letzte Anweisung
   const anw = anweisungen(text)
@@ -366,13 +383,17 @@ export function pruefeBlocktiefe(bodyCode) {
 }
 
 /** Gesendete Datei: _helfer.sql + Schalter + Testdatei. Danach nochmals Struktur und Verbote prüfen. */
-export function zusammensetzen(helfer, test, { mutation = null, ausfuehrlich = false } = {}) {
+export function zusammensetzen(helfer, test, { mutation = null, ausfuehrlich = false, zeitzone = null } = {}) {
   const teile = [helfer.trimEnd(), '']
   if (mutation !== null) {
     if (!NAME_RE.test(mutation)) throw new Error(`Mutationsname „${mutation}“ unzulässig`)
     teile.push(`CREATE OR REPLACE FUNCTION pg_temp.s112_mutation() RETURNS text LANGUAGE sql AS $m$ SELECT '${mutation}'::text $m$;`)
   }
   if (ausfuehrlich) teile.push('CREATE OR REPLACE FUNCTION pg_temp.s112_ausfuehrlich() RETURNS boolean LANGUAGE sql AS $m$ SELECT true $m$;')
+  if (zeitzone !== null) {
+    if (!ZEITZONE_RE.test(zeitzone)) throw new Error(`Zeitzone „${zeitzone}“ unzulässig`)
+    teile.push(`CREATE OR REPLACE FUNCTION pg_temp.s112_zeitzone() RETURNS text LANGUAGE sql AS $m$ SELECT '${zeitzone}'::text $m$;`)
+  }
   teile.push('', test.trimEnd(), '')
   const sql = teile.join('\n')
   const fehler = []
@@ -616,8 +637,11 @@ export function bekannteLuecken(ergebnisse) {
 
 // ── Optionen ───────────────────────────────────────────────────────────────────────────────────────────
 
+/** IANA-Zeitzonenname (Europe/Vienna, Etc/GMT+12, UTC) – landet in einem SQL-String, daher eng. */
+export const ZEITZONE_RE = /^[A-Za-z][A-Za-z0-9_]*(\/[A-Za-z0-9_+-]+){0,2}$/
+
 export function parseOptionen(argv) {
-  const opt = { nur: null, mutationen: false, mutationDatei: null, ausfuehrlich: false, streng: false, liste: false, json: null, hilfe: false }
+  const opt = { nur: null, mutationen: false, mutationDatei: null, ausfuehrlich: false, streng: false, liste: false, json: null, zeitzone: null, hilfe: false }
   for (const a of argv) if (String(a).includes(PROD_REF)) throw new Error('ABBRUCH: Argument enthält die Produktions-Ref')
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
@@ -628,8 +652,9 @@ export function parseOptionen(argv) {
     else if (a === '--streng') opt.streng = true
     else if (a === '--liste') opt.liste = true
     else if (a === '--json') opt.json = wert()
+    else if (a === '--zeitzone') { opt.zeitzone = wert(); if (!ZEITZONE_RE.test(opt.zeitzone)) throw new Error(`--zeitzone: „${opt.zeitzone}“ ist kein Zeitzonenname (z. B. Etc/GMT+12)`) }
     else if (a === '--hilfe' || a === '-h' || a === '--help') opt.hilfe = true
-    else throw new Error(`unbekannte Option: ${a} (--nur, --mutationen [datei], --ausfuehrlich, --streng, --liste, --json <pfad>)`)
+    else throw new Error(`unbekannte Option: ${a} (--nur, --mutationen [datei], --ausfuehrlich, --streng, --liste, --json <pfad>, --zeitzone <IANA>)`)
   }
   return opt
 }
@@ -695,7 +720,7 @@ export function lauf(opt, umgebung) {
 
   // CLI-Version, Vorprüfung (Identität + Reste)
   bericht.cliVersion = umgebung.version()
-  log(`Supabase CLI ${bericht.cliVersion ?? '(Version unbekannt)'} · Ziel Staging ${STAGING_REF} · ${dateien.length} Datei(en)${opt.mutationen ? ' mit Mutationen' : ''}`)
+  log(`Supabase CLI ${bericht.cliVersion ?? '(Version unbekannt)'} · Ziel Staging ${STAGING_REF} · ${dateien.length} Datei(en)${opt.mutationen ? ' mit Mutationen' : ''}${opt.zeitzone ? ` · Sitzungs-Zeitzone ${opt.zeitzone}` : ''}`)
   const vor = pruefe(umgebung, prodIds, 'vorpruefung')
   if (vor.exit !== null) return ende(vor.exit, vor.meldung)
   log('✓ Vorprüfung: Staging bestätigt (system_identifier, keine Produktions-Betriebe, Staging-Admin), keine Reste')
@@ -785,7 +810,7 @@ function einzellauf(umgebung, helfer, n, text, mutation, opt) {
   const kennung = mutation ? `${basis} ⟂ ${mutation.name}` : basis
   let sql
   try {
-    sql = zusammensetzen(helfer, text, { mutation: mutation?.name ?? null, ausfuehrlich: opt.ausfuehrlich })
+    sql = zusammensetzen(helfer, text, { mutation: mutation?.name ?? null, ausfuehrlich: opt.ausfuehrlich, zeitzone: opt.zeitzone ?? null })
   } catch (e) {
     umgebung.log(`✗ ${kennung}: ${e.message}`)
     return { exit: EXIT.ECHTER_FEHLER, eintrag: { datei: n, mutation: mutation?.name, status: 'statisch', meldung: e.message } }
