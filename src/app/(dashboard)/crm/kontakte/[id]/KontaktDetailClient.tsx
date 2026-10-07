@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import LieferadressenKarte, { type LieferadresseZeile } from '@/components/crm/LieferadressenKarte'
 import { landAnzeige } from '@/lib/katalog/laender'
 import { useRouter } from 'next/navigation'
 import Link from '@/components/ui/Link'
@@ -387,9 +388,11 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
 }
 
 export default function KontaktDetailClient({
-  kontakt, quellen = [], firmen = [], rabattgruppen = [], firmaSegment, aktivitaeten, pipeline, verkaeufe = [], writeOk,
+  kontakt, quellen = [], firmen = [], rabattgruppen = [], firmaSegment, aktivitaeten, pipeline, verkaeufe = [], writeOk, lieferadressen = [],
 }: {
   kontakt: KontaktRow
+  /** KAN-176: weitere Lieferadressen */
+  lieferadressen?: LieferadresseZeile[]
   /** im Betrieb verwendete Quellen (Auswahl im Bearbeiten-Formular) */
   quellen?: string[]
   /** Auswahllisten im Bearbeiten-Formular – fehlen sie, gingen Firma und Rabattgruppe beim Speichern verloren */
@@ -777,6 +780,10 @@ export default function KontaktDetailClient({
             {kontakt.notizen && (
               <p className="text-xs text-s112-text-2 italic pt-1 border-t border-s112-border/60">{kontakt.notizen}</p>
             )}
+          </div>
+          {/* ── KAN-176: Lieferadressen ── */}
+          <div className="card p-4">
+            <LieferadressenKarte adressen={lieferadressen} kontaktId={kontakt.id} writeOk={writeOk} />
           </div>
           {/* ── Notizen ── */}
           <div className="card p-4 space-y-3">

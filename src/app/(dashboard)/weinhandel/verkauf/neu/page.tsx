@@ -5,7 +5,9 @@ import { AbbrechenKnopf } from '@/components/navigation/Abbrechen'
 import { useState, useTransition, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from '@/components/ui/Link'
-import { createVerkauf, createSonstigesArtikel, SonstigesArtikelData } from '../actions'
+import { createVerkauf, createSonstigesArtikel, SonstigesArtikelData, lieferadressenDesKunden } from '../actions'
+import LieferadresseWahl, { LIEFER_LEER, lieferFormFelder, type LieferWahl } from './LieferadresseWahl'
+import type { Lieferadresse } from '@/lib/crm/lieferadressen'
 import { Check } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { LESE_QUALITAETEN, mitGespeichertemWert } from '@/lib/wein/qualitaet'
@@ -241,6 +243,9 @@ export default function NeuerVerkaufPage() {
   const [datum,           setDatum]           = useState(new Date().toISOString().split('T')[0])
   const [kontaktId,       setKontaktId]       = useState('')
   const [firmaId,         setFirmaId]         = useState('')
+  // KAN-176: abweichende Lieferadresse (Auswahl aus den Adressen des Kunden oder neu)
+  const [liefer, setLiefer] = useState<LieferWahl>(LIEFER_LEER)
+  const [lieferAdressen, setLieferAdressen] = useState<(Lieferadresse & { id: string })[]>([])
   const [zhKontaktId,     setZhKontaktId]     = useState('')
   const [notizen,         setNotizen]         = useState('')
   // Konditionen des gewählten Kunden – auch für später hinzugefügte Positionen (KAN-156)
@@ -405,6 +410,7 @@ export default function NeuerVerkaufPage() {
     formData.set('skonto_tage',      String(skontoAktiv ? skontoTage : 0))
     formData.set('skonto_aktiv',     skontoAktiv ? 'true' : 'false')
     formData.set('positionen_json',  JSON.stringify(posForServer))
+    for (const [k, v] of Object.entries(lieferFormFelder(liefer, lieferAdressen))) formData.set(k, v)   // KAN-176
 
     startTransition(async () => {
       try {
@@ -460,6 +466,8 @@ export default function NeuerVerkaufPage() {
                 value={kontaktId ? `kontakt:${kontaktId}` : firmaId ? `firma:${firmaId}` : ''}
                 onChange={(val, treffer) => {
                   setZhKontaktId('')
+                  setLiefer(LIEFER_LEER)
+                  setLieferAdressen([])
                   if (!val) {
                     setKontaktId('')
                     setFirmaId('')
@@ -474,6 +482,9 @@ export default function NeuerVerkaufPage() {
                   const id  = val.slice(trennerIdx + 1)
                   if (typ === 'kontakt') { setKontaktId(id); setFirmaId('') }
                   else                   { setFirmaId(id);   setKontaktId('') }
+                  // KAN-176: gespeicherte Lieferadressen des Kunden laden
+                  lieferadressenDesKunden(typ === 'kontakt' ? id : null, typ === 'firma' ? id : null)
+                    .then(l => setLieferAdressen(l)).catch(() => setLieferAdressen([]))
                   const d = treffer?.daten
                   const konditionen: KundenKonditionen = {
                     rabatt_pct:       d?.rabatt_pct ?? 0,
@@ -505,6 +516,11 @@ export default function NeuerVerkaufPage() {
                   disabled={loading}
                 />
                 <p className="text-xs text-s112-muted mt-1">Erscheint auf Rechnung/Lieferschein als „z.H. Vorname Nachname"</p>
+              </div>
+            )}
+            {(kontaktId || firmaId) && (
+              <div className="sm:col-span-2">
+                <LieferadresseWahl adressen={lieferAdressen} wert={liefer} onChange={setLiefer} disabled={loading} />
               </div>
             )}
             <div className="sm:col-span-2">

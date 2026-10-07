@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import type { LieferadresseZeile } from '@/components/crm/LieferadressenKarte'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { notFound } from 'next/navigation'
 import { alle } from '@/lib/supabase/alle'
@@ -141,8 +142,17 @@ export default async function KontaktDetailPage({ params }: { params: Promise<{ 
     : { data: [] as R[] }
   const quellen = zaehleQuellen((qRaw ?? []) as R[]).quellen.map(q => q.quelle)
 
+
+  // KAN-176: Lieferadressen (wenige je Kontakt bzw. Firma)
+  // alle-ausnahme: Lieferadressen eines einzelnen Kontakts bzw. einer Firma, wenige
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: laRaw } = tenantId ? await (supabase.from('lieferadressen') as any)
+    .select('id, bezeichnung, empfaenger, strasse, plz, ort, land, notizen, aktiv').eq('kontakt_id', id).eq('tenant_id', tenantId)
+    .order('erstellt_am').limit(200) : { data: [] }
+
   return <KontaktDetailClient
     kontakt={kontakt}
+    lieferadressen={(laRaw ?? []) as LieferadresseZeile[]}
     quellen={quellen}
     firmen={((fRaw ?? []) as R[]).map(f => ({ id: f.id as string, name: f.name as string, segment: f.segment as string }))}
     rabattgruppen={((rgRaw ?? []) as R[]).map(r => ({ id: r.id as string, name: r.name as string, rabatt_pct: Number(r.rabatt_pct) }))}

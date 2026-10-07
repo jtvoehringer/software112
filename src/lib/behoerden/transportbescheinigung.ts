@@ -287,6 +287,7 @@ export function tbVorbelegung(posten: R, cfg: R, pn: TBPruefnummern, heute: stri
   const verkaufstag = pnTag(posten.datum) ?? heute
   momentaufnahmeAnwenden(posten, ['kontakt', 'firma'])   // KAN-150 F1c: Empfänger wie auf der Rechnung
   const kunde = (posten.kontakt ?? posten.firma ?? {}) as R
+  const liefer = (posten.lieferadresse && typeof posten.lieferadresse === 'object' && posten.lieferadresse.ort ? posten.lieferadresse : null) as R | null
   const eName = posten.kontakt
     ? [kunde.vorname, kunde.nachname].map(feld).filter(Boolean).join(' ')
     : feld(kunde.name)
@@ -381,8 +382,9 @@ export function tbVorbelegung(posten: R, cfg: R, pn: TBPruefnummern, heute: stri
     e_hausnr:          empf.hausnr,
     e_plz:             feld(kunde.plz),
     e_ort:             feld(kunde.ort),
-    e_ort_einlagerung: feld(kunde.ort),
-    e_plz_einlagerung: feld(kunde.plz),
+    // KAN-176: mit abweichender Lieferadresse wird dort eingelagert
+    e_ort_einlagerung: feld(liefer?.ort ?? kunde.ort),
+    e_plz_einlagerung: feld(liefer?.plz ?? kunde.plz),
     positionen: positionen.length > 0 ? positionen : [{ ...TB_LEERE_POSITION }],
   }
 }
@@ -500,7 +502,7 @@ function einheitStandard(posten: R): string | null {
 // ── Laden ────────────────────────────────────────────────────────────────────
 
 const POSTEN_SELECT = `
-  id, rechnungsnummer, datum, storniert, storniert_am, storno_grund, partner_daten,
+  id, rechnungsnummer, datum, storniert, storniert_am, storno_grund, partner_daten, lieferadresse,
   kontakt:kontakte!verkaufsposten_kontakt_id_fkey(vorname, nachname, telefon, strasse, plz, ort, betrieb_nr),
   firma:firmen(name, telefon, strasse, plz, ort, betrieb_nr),
   positionen:verkauf_positionen(

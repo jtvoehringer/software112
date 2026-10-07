@@ -844,6 +844,7 @@ END $f$;
 --   * kellerbuch_abschluesse: Abschluss weit in der Vergangenheit mit freiem Datum (KAN-192),
 --   * reifemessungen: kmw 17 (eine Reife-Messung braucht ein Mostgewicht; KAN-203),
 --   * sonstige_artikel_bewegungen: Zugang über 1 (Vorzeichen-CHECK; KAN-115),
+--   * lieferadressen: genau ein Partner – ein neuer Kontakt, keine Firma (CHECK lieferadressen_ein_partner; KAN-176),
 --   * tenant_einstellungen: die vorhandene Zeile des Betriebs (je Betrieb genau eine),
 --   * tenant_memberships: neuer Test-Benutzer als leser (user_id aus p_werte, sonst neu; nie p_persona).
 -- p_werte überschreibt alles. Bei einem Schlüsselkonflikt ein zweiter Versuch mit neuen Elternzeilen
@@ -895,6 +896,9 @@ BEGIN
     v_w := v_w || jsonb_build_object('von_konto_id', v_a, 'nach_konto_id', v_b, 'betrag', 1);
   ELSIF p_tab = 'sonstige_artikel_bewegungen' THEN
     v_w := v_w || '{"art": "zugang", "menge": 1}'::jsonb;   -- KAN-115: CHECK Vorzeichen/Bezug
+  ELSIF p_tab = 'lieferadressen' THEN   -- KAN-176: CHECK lieferadressen_ein_partner
+    v_w := v_w || jsonb_build_object('kontakt_id', pg_temp.s112_zeile('kontakte', p_tenant) ->> 'id', 'firma_id', NULL,
+      'strasse', 'S112TEST-Gasse 1', 'plz', '1010', 'ort', 'Wien', 'land', 'AT');
   ELSIF p_tab = 'reifemessungen' THEN
     v_w := v_w || '{"kmw": 17}'::jsonb;   -- KAN-203: CHECK reifemessungen_mostgewicht_pflicht
   ELSIF p_tab IN ('traubenverkauf', 'pressung_weingaerten') THEN
@@ -1053,6 +1057,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('kontakt_firmen',                'SA,TA,W*{crm}',                          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}'),
     ('kontakt_praeferenzen',          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}'),
     ('kontakte',                      'SA,TA,W*{crm}',                          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}'),
+    ('lieferadressen',                'SA,TA,W*{crm|warenwirtschaft}',          'SA,TA,W*{crm|warenwirtschaft}',          '-'),   -- KAN-176: nur deaktivieren
     ('konten',                        'SA,TA{ea}',                              'SA,TA{ea}',                              'SA,TA{ea}'),
     ('konto_umbuchungen',             'SA,TA,W*{ea}',                           '-{ea}',                                  '-{ea}'),   -- KAN-149 D3
     ('kostenarten',                   'SA,TA,W*{auswertungen|rieden|kellerbuch}','SA,TA,W*{auswertungen|rieden|kellerbuch}','SA,TA,W*{auswertungen|rieden|kellerbuch}'),

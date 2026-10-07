@@ -1920,7 +1920,9 @@
 "storniert_von",
 "storniert_von_name",
 "storno_grund",
-"partner_daten"
+"partner_daten",
+"lieferadresse",
+"lieferadresse_id"
 ],
 "verschneidung_quellen": [
 "id",
@@ -2216,5 +2218,21 @@
 "erstellt_von",
 "erstellt_von_name",
 "erstellt_am"
+],
+"lieferadressen": [
+"id",
+"tenant_id",
+"kontakt_id",
+"firma_id",
+"bezeichnung",
+"empfaenger",
+"strasse",
+"plz",
+"ort",
+"land",
+"notizen",
+"aktiv",
+"erstellt_am",
+"aktualisiert_am"
 ]
 }

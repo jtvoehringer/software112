@@ -12,6 +12,8 @@ import { AktionsFehler, dbFehlerText, fehlerText, LESE_WAEHLEN_MELDUNG } from '@
 import { stornoGrundFehler } from '@/lib/storno/grund'
 import { alle } from '@/lib/supabase/alle'
 import { sonstigeLagerFehler } from '@/lib/warenwirtschaft/sonstigeProdukte'
+import { lieferadresseAus, lieferadresseFehler, lieferadresseMoment, type Lieferadresse, type LieferadresseMoment } from '@/lib/crm/lieferadressen'
+import { normalisiereLand } from '@/lib/katalog/laender'
 import { traubenverkaufLese } from '@/lib/wein/leseBilanz'
 import { qualitaetFehler } from '@/lib/wein/qualitaet'
 import { mostgewichtAusWert, mostgewichtSpalten } from '@/lib/wein/mostgewichtFormular'
@@ -114,6 +116,65 @@ const NUR_CHARGE_HINWEIS =
  * Menge > 0 sein und (über alle Positionen summiert) auf Lager liegen. Ergebnis: ob mindestens ein Produkt mit Lagerstand
  * dabei ist (dann bucht createVerkauf über s112_artikel_verkauf_buchen ab).
  */
+/**
+ * KAN-176: Lieferadresse aus dem Formular (`lieferadresse_id` bzw. `lieferadresse_json` + `lieferadresse_speichern`).
+ * Eine gespeicherte Adresse muss dem gewählten Kunden gehören und aktiv sein; eine neue wird geprüft und – auf Wunsch –
+ * beim Kunden gespeichert. Ergebnis: Momentaufnahme für den Verkauf (null = Rechnungsadresse).
+ */
+async function lieferadresseVorbereiten(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  tenantId: string, formData: FormData, kontaktId: string | null, firmaId: string | null,
+): Promise<{ moment: LieferadresseMoment; id: string | null } | null> {
+  const lid = String(formData.get('lieferadresse_id') ?? '').trim()
+  const roh = String(formData.get('lieferadresse_json') ?? '').trim()
+  if (!lid && !roh) return null
+  if (!kontaktId && !firmaId) throw new AktionsFehler('Eine abweichende Lieferadresse gibt es nur mit einem Kunden.')
+  if (lid) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase.from('lieferadressen') as any)
+      .select('id, kontakt_id, firma_id, bezeichnung, empfaenger, strasse, plz, ort, land, aktiv').eq('id', lid).eq('tenant_id', tenantId).maybeSingle()
+    if (error) throw new AktionsFehler(dbFehlerText(error, 'Lieferadresse konnte nicht geladen werden'))
+    const a = data as AR | null
+    if (!a || !a.aktiv || (firmaId ? a.firma_id !== firmaId : a.kontakt_id !== kontaktId)) {
+      throw new AktionsFehler('Die gewählte Lieferadresse gehört nicht zu diesem Kunden oder ist deaktiviert – bitte neu wählen.')
+    }
+    return { moment: lieferadresseMoment(a as Lieferadresse), id: String(a.id) }
+  }
+  let obj: Record<string, unknown>
+  try { obj = JSON.parse(roh) } catch { throw new AktionsFehler('Ungültige Lieferadresse.') }
+  const landRoh = typeof obj.land === 'string' ? obj.land.trim() : ''
+  const land = landRoh ? normalisiereLand(landRoh) : 'AT'
+  if (!land) throw new AktionsFehler(`Unbekanntes Land „${landRoh}“ in der Lieferadresse – bitte ein Land aus der Liste wählen.`)
+  const a = lieferadresseAus(obj, land)
+  const fehler = lieferadresseFehler(a)
+  if (fehler) throw new AktionsFehler(fehler)
+  let id: string | null = null
+  if (formData.get('lieferadresse_speichern') === '1') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase.from('lieferadressen') as any)
+      .insert({ tenant_id: tenantId, kontakt_id: firmaId ? null : kontaktId, firma_id: firmaId, ...lieferadresseMoment(a) })
+      .select('id').single()
+    if (error) throw new AktionsFehler(dbFehlerText(error, 'Die Lieferadresse konnte nicht beim Kunden gespeichert werden'))
+    id = String((data as AR).id)
+  }
+  return { moment: lieferadresseMoment(a), id }
+}
+
+/** KAN-176: aktive Lieferadressen eines Kunden (Kontakt oder Firma) für die Auswahl im Verkaufsformular */
+// schreibsperre-ausnahme: liest nur die Lieferadressen eines Kunden, schreibt nichts
+export async function lieferadressenDesKunden(kontaktId: string | null, firmaId: string | null): Promise<(Lieferadresse & { id: string })[]> {
+  const supabase = await createSupabaseServerClient()
+  const membership = await getCurrentMembership()
+  if (!membership || (!kontaktId && !firmaId)) return []
+  // alle-ausnahme: Lieferadressen eines einzelnen Kunden, wenige
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let q = (supabase.from('lieferadressen') as any).select('id, bezeichnung, empfaenger, strasse, plz, ort, land')
+    .eq('tenant_id', membership.tenantId).eq('aktiv', true)
+  q = firmaId ? q.eq('firma_id', firmaId) : q.eq('kontakt_id', kontaktId)
+  const { data } = await q.order('erstellt_am').limit(200)
+  return (data ?? []) as (Lieferadresse & { id: string })[]
+}
+
 async function pruefeSonstigeProdukte(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
   tenantId: string,
@@ -321,6 +382,8 @@ export async function createVerkauf(formData: FormData) {
   const { literJeCharge, stueckJeFuellung, mostgewichtJePosition, leseJePosition } = await pruefePositionen(supabase, membership, positionen, datum)
   // KAN-115: Sonstige Produkte – eigener Betrieb, mit Lagerstand genug auf Lager (Vorprüfung; die RPC prüft unter Sperre erneut)
   const mitLager = await pruefeSonstigeProdukte(supabase, tenantId, positionen)
+  // KAN-176: abweichende Lieferadresse – gespeicherte des Kunden oder neu (optional beim Kunden speichern)
+  const liefer = await lieferadresseVorbereiten(supabase, tenantId, formData, kontaktId, firmaId)
 
   // Beleg-ID vorab: die Flaschenzeilen (fuellung_bewegungen, KAN-149 D1) verweisen auf den Verkauf, der erst nach der
   // Abbuchung angelegt wird (keine Lücke im Nummernkreis bei einer Ablehnung, KAN-35)
@@ -374,6 +437,8 @@ export async function createVerkauf(formData: FormData) {
     skonto_pct:      skontoAktiv ? skontoPct : 0,
     skonto_tage:     skontoAktiv ? skontoTage : 0,
     skonto_aktiv:    skontoAktiv,
+    lieferadresse:    liefer?.moment ?? null,
+    lieferadresse_id: liefer?.id ?? null,
   }).select('rechnungsnummer').single()
 
   if (postenErr) await abbruch(dbFehlerText(postenErr, 'Speichern fehlgeschlagen (verkaufsposten)'), null)
