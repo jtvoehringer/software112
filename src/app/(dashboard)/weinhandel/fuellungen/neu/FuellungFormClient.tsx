@@ -17,12 +17,15 @@ import { fmtNum } from '@/lib/format'
 import { pnStatusLabel } from '@/lib/dac/workflow'
 import { fehlerText } from '@/lib/fehler'
 import { KORREKTUR_NACH_OBEN_HINWEIS } from '@/lib/kellerbuch/hinweise'
+import { istSortenverschnitt, sortenAngabePruefen, sortenAngabeVorschlag, weinartAusSortenverschnitt, type SortenAnteil } from '@/lib/wein/sortenangabe'
 
 type Charge = {
   id: string
   name: string
   jahrgang: number | null
   rebsorte: string | null
+  /** KAN-113: Weinart (Farbe des Sortenverschnitt-Vorschlags) */
+  weinart?: string | null
   menge_liter: number | null
   status: string
   qualitaetsstufe?: string | null
@@ -70,6 +73,7 @@ export default function FuellungFormClient({
   customWeinbaugebiete,
   action,
   defaultChargeId,
+  sortenJeCharge = {},
   losVorschau = null,
 }: {
   chargen: Charge[]
@@ -84,6 +88,8 @@ export default function FuellungFormClient({
   losVorschau?: string | null
   action: (fd: FormData) => Promise<{ id: string; hinweis?: string }>
   defaultChargeId?: string
+  /** KAN-113: Sorten je Sortenverschnitt-Charge (absteigend) – Vorschlag und Prüfung der Sortenangabe */
+  sortenJeCharge?: Record<string, SortenAnteil[]>
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -97,7 +103,14 @@ export default function FuellungFormClient({
   const [jahrgangVal, setJahrgangVal] = useState(
     String(defaultCharge?.jahrgang ?? new Date().getFullYear())
   )
-  const [rebsorteVal, setRebsorteVal] = useState(defaultCharge?.rebsorte ?? '')
+  // KAN-113: Sortenverschnitt-Charge mit bekannter Zusammensetzung → Sortenangabe vorschlagen und frei wählbar
+  const sortenVorschlagFuer = (c: Charge | null) => {
+    const anteile = c ? sortenJeCharge[c.id] : undefined
+    if (!c || !anteile || !istSortenverschnitt(c.rebsorte)) return null
+    const v = sortenAngabeVorschlag(anteile, c.weinart ?? weinartAusSortenverschnitt(c.rebsorte))
+    return v.vorschlag ? { ...v, anteile } : null
+  }
+  const [rebsorteVal, setRebsorteVal] = useState(sortenVorschlagFuer(defaultCharge)?.vorschlag ?? defaultCharge?.rebsorte ?? '')
   const [qualitaetVal, setQualitaetVal] = useState(normalisiereQualitaet(defaultCharge ?? null).stufe ?? 'qualitaetswein')
   const [herkunftCodeVal, setHerkunftCodeVal] = useState(defaultCharge?.herkunft_code ?? '')
   // Bewusst NICHT vorbelegt (false) - ein versehentlich stehen gelassenes Häkchen hat
@@ -144,6 +157,10 @@ export default function FuellungFormClient({
     [zulaessig, customWeinbaugebiete],
   )
 
+  // KAN-113: Sortenangabe der Sortenverschnitt-Charge (nach den useMemo-Blöcken, React Compiler) – Vorschlag, Alternativen, Warnungen (Reihenfolge, 85 %, 100 %)
+  const sortenWahl = sortenVorschlagFuer(selectedCharge)
+  const sortenWarnungen = sortenWahl ? sortenAngabePruefen(rebsorteVal, sortenWahl.anteile) : []
+
   // Auto-Berechnung: Flaschen × Flaschengröße
   const berechneteLiter = useMemo(() => {
     const n = parseInt(anzahl)
@@ -170,7 +187,7 @@ export default function FuellungFormClient({
     if (c) {
       setNameVal(c.name)
       setJahrgangVal(String(c.jahrgang ?? new Date().getFullYear()))
-      setRebsorteVal(c.rebsorte ?? '')
+      setRebsorteVal(sortenVorschlagFuer(c)?.vorschlag ?? c.rebsorte ?? '')
       setQualitaetVal(normalisiereQualitaet(c).stufe ?? 'qualitaetswein')
       setHerkunftCodeVal(c.herkunft_code ?? '')
     }
@@ -268,15 +285,32 @@ export default function FuellungFormClient({
             />
           </div>
           <div>
-            <label className={labelCls}>Rebsorte</label>
+            <label className={labelCls}>{sortenWahl ? 'Rebsorte (Sortenangabe)' : 'Rebsorte'}</label>
             <input aria-label="Rebsorte"
               name="rebsorte"
               value={rebsorteVal}
               onChange={e => setRebsorteVal(e.target.value)}
-              readOnly={!!selectedCharge?.rebsorte}
+              readOnly={!!selectedCharge?.rebsorte && !sortenWahl}
               placeholder="z.B. Grüner Veltliner"
-              className={selectedCharge?.rebsorte ? `${inputCls} bg-s112-bg text-s112-text-1` : inputCls}
+              className={selectedCharge?.rebsorte && !sortenWahl ? `${inputCls} bg-s112-bg text-s112-text-1` : inputCls}
             />
+            {/* KAN-113: Sorten absteigend, zulässige Angaben, Warnungen (keine Sperre) */}
+            {sortenWahl && (
+              <div className="mt-1 space-y-1 text-xs">
+                {sortenWahl.text && <p className="text-s112-text-2">Zusammensetzung: {sortenWahl.text}</p>}
+                <div className="flex flex-wrap gap-1">
+                  {[sortenWahl.vorschlag, ...sortenWahl.alternativen].filter((x): x is string => !!x).map(a => (
+                    <button key={a} type="button" onClick={() => setRebsorteVal(a)}
+                      className={`px-2 py-0.5 rounded-full border ${a === rebsorteVal ? 'border-s112-teal bg-s112-teal/10 text-s112-text' : 'border-s112-line-str text-s112-text-2 hover:text-s112-text'}`}>
+                      {a}
+                    </button>
+                  ))}
+                </div>
+                {sortenWarnungen.map(w => (
+                  <p key={w} role="alert" className="flex items-start gap-1 text-s112-warn-fg"><AlertTriangle size={12} className="mt-0.5 shrink-0" />{w}</p>
+                ))}
+              </div>
+            )}
           </div>
           <div>
             <label className={labelCls}>Qualitätsbezeichnung *</label>

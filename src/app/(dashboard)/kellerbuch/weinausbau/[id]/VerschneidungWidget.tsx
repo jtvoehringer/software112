@@ -9,6 +9,7 @@ import { qualitaetText } from '@/lib/weinqualitaet'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { GitMerge } from 'lucide-react'
 import { fmtNum } from '@/lib/format'
+import { sortenAngabeVorschlag } from '@/lib/wein/sortenangabe'
 
 type ChargeOpt = { id: string; name: string; menge_liter: number | null; qualitaetsstufe?: string | null; zusatzbezeichnung?: string | null; erzeugnis?: string | null; herkunft_code?: string | null; rebsorte?: string | null; weinart?: string | null; behaelter_id?: string | null; behaelter_volumen_liter?: number | null }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -102,6 +103,16 @@ export default function VerschneidungWidget({ bestehtAus = null, zielCharge, all
               <span className="text-s112-text-1 font-normal">{fmtNum(q.anteil_pct)} %</span>
             </span>
           ))}
+          {/* KAN-113: Vorschlag der Sortenangabe (Füllung, Etikett) – Sorten absteigend bzw. eine Sorte ab 85 % */}
+          {(() => {
+            const v = bestehtAus.filter(q => q.wert !== 'unbekannt').length > 1 ? sortenAngabeVorschlag(bestehtAus, zielCharge.weinart ?? null) : null
+            return v?.vorschlag ? (
+              <span className="basis-full text-xs text-s112-text-2">
+                Sortenangabe (Vorschlag): <strong className="text-s112-text-1">{v.vorschlag}</strong>
+                {v.alternativen.length > 0 && <> – auch zulässig: {v.alternativen.join(', ')}</>}
+              </span>
+            ) : null
+          })()}
         </div>
       )}
 

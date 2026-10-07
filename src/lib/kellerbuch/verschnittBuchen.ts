@@ -180,7 +180,6 @@ export async function verschnittVorbereiten(
     : ziel ? artVon(ziel) : weinartAusQuellen([...quellRows, ...(virtuelleRow ? [virtuelleRow] : [])].map(artVon))
   // Rückfragen (Rot/Weiß, Prüfnummer) gesammelt in EINER bestaetigung – nichts gebucht
   const fragen: string[] = []
-  if (mischung.rotWeiss && !e.rotWeissBestaetigt) fragen.push(ROT_WEISS_FRAGE)
 
   // KAN-83: Prüfnummer der Ziel-Charge – eingereichter Antrag: Ablehnung; geltende Nummer: erst nachfragen
   // (KAN-193: bei der virtuellen Quelle fragt der Zukauf selbst – Art 'zukauf' –, samt Vermerk in den Notizen)
@@ -221,6 +220,9 @@ export async function verschnittVorbereiten(
     return weg > 0 ? { ...q, charge: { ...q.charge, menge_liter: rund2(num(q.charge.menge_liter) - weg) } } : q
   })
   const w = verschnittWerte({ datum: e.datum, ziel, neueCharge, weinart, quellen: mitBestandDanach, gruppen, notizen, rotWeiss: mischung.rotWeiss })
+  // KAN-193/KAN-170: Rot/Weiß – Rückfrage nur, wenn tatsächlich abgestuft wird (alle schon „Wein (ohne Herkunft)“:
+  // ohne Rückfrage, nur Vermerk); als erste Frage wie bisher
+  if (w.rotWeissAbstufung && !e.rotWeissBestaetigt) fragen.unshift(ROT_WEISS_FRAGE)
   // KAN-111: Qualitätsabstufung wegen der Herkunft – Rückfrage zusammen mit Rot/Weiß und Prüfnummer
   if (w.herkunftQualitaet && !e.rotWeissBestaetigt) fragen.push(herkunftQualitaetFrage(w.herkunftQualitaet))
   if (fragen.length > 0) return { bestaetigung: fragen.join('\n') }

@@ -474,7 +474,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
           <div>
             <p className="font-semibold text-s112-warn-fg">Rot- und Weißwein – Abstufung auf Wein (aus Österreich)</p>
             <p className="text-xs text-s112-warn-fg mt-0.5">
-              Das Ergebnis wird auf „Wein (aus Österreich)“ abgestuft (Farbe nach der Mehrheit der Liter); beim Speichern folgt eine Rückfrage.
+              Das Ergebnis wird auf „Wein (aus Österreich)“ abgestuft (Farbe nach der Mehrheit der Liter); beim Speichern folgt eine Rückfrage. Sind alle Beteiligten schon „Wein (ohne Herkunft)“, wird ohne Rückfrage und ohne Abstufung verschnitten (KAN-170).
               Betroffene Chargen: <strong>{weinartKonflikte.map(c => c.name).join(', ')}</strong>
             </p>
           </div>

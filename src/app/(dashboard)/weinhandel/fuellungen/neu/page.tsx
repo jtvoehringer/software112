@@ -11,6 +11,9 @@ import { losnummerVorschau } from '@/lib/handel/losnummer'
 import { wienHeute } from '@/lib/csv'
 import { pruefnummerGueltig, pruefnummerHinweis, waehlbareAntraege, type PnChargeDaten } from '@/lib/kellerbuch/pruefnummer'
 import { ladePruefnummerDaten } from '@/lib/kellerbuch/pruefnummerLaden'
+import { ladeZusammensetzungCharge } from '@/lib/wein/blendKomposition'
+import { sortenAnteile, type GruppenAnteil } from '@/lib/wein/mischungsrechnung'
+import { istSortenverschnitt } from '@/lib/wein/sortenangabe'
 
 export const metadata: Metadata = { title: 'Neue Füllung – software:112' }
 export const dynamic = 'force-dynamic'
@@ -37,7 +40,7 @@ export default async function NeueFuellungPage({
   // oder inaktiven Anträge mehr (früher wählbar, samt ihrer Prüfnummer)
   const [{ data: chargenRaw }, { data: dacRaw }] = await Promise.all([
   alle(tf((supabase.from('weinausbau') as any)
-    .select('id, name, jahrgang, rebsorte, menge_liter, status, qualitaetsstufe, zusatzbezeichnung, erzeugnis, herkunft_code')
+    .select('id, name, jahrgang, rebsorte, weinart, menge_liter, status, qualitaetsstufe, zusatzbezeichnung, erzeugnis, herkunft_code')
     .eq('aktiv', true)
     .neq('status', 'abgeschlossen')
     .order('jahrgang', { ascending: false }).order('id'))),
@@ -65,7 +68,7 @@ export default async function NeueFuellungPage({
   // auch wenn Status 'abgeschlossen' ist (Füllung kann trotzdem angelegt werden)
   if (chargeId && !chargen.find((c: R) => c.id === chargeId)) {
     const { data: extraRaw } = await tf((supabase.from('weinausbau') as any)
-      .select('id, name, jahrgang, rebsorte, menge_liter, status, qualitaetsstufe, zusatzbezeichnung, erzeugnis, herkunft_code')
+      .select('id, name, jahrgang, rebsorte, weinart, menge_liter, status, qualitaetsstufe, zusatzbezeichnung, erzeugnis, herkunft_code')
       .eq('id', chargeId))
       .single()
     if (extraRaw) chargen = [extraRaw as R, ...chargen]
@@ -91,6 +94,21 @@ export default async function NeueFuellungPage({
   // Chargen mit (aktivem, nicht abgelehntem) Antrag: keine freie Prüfnummer-Eingabe
   const chargenMitAntrag = [...new Set(alleAntraege.map(d => d.weinausbau_id).filter(Boolean) as string[])]
 
+  // KAN-113: Sorten (absteigend, Rechenkern KAN-76) der Sortenverschnitt-Chargen – Vorschlag und Prüfung der Sortenangabe
+  // im Formular. Begrenzt: die vorgewählte Charge zuerst, dann höchstens 40 (Zusammensetzung je Charge über den Graphen)
+  const sortenJeCharge: Record<string, GruppenAnteil[]> = {}
+  if (tenantId) {
+    const svIds = chargen.filter(c => istSortenverschnitt(c.rebsorte)).map(c => c.id as string)
+      .sort((a, b) => (a === chargeId ? -1 : b === chargeId ? 1 : 0)).slice(0, 40)
+    await Promise.all(svIds.map(async id => {
+      try {
+        sortenJeCharge[id] = sortenAnteile((await ladeZusammensetzungCharge(supabase, tenantId, id)).anteile)
+      } catch {
+        // Komfort – ohne Zusammensetzung bleibt die Rebsorte der Charge
+      }
+    }))
+  }
+
   return (
     <div className="max-w-2xl">
       <nav className="flex items-center gap-2 text-sm text-s112-muted mb-6">
@@ -114,6 +132,7 @@ export default async function NeueFuellungPage({
         action={createFuellung}
         defaultChargeId={chargeId}
         losVorschau={losVorschau}
+        sortenJeCharge={sortenJeCharge}
       />
     </div>
   )

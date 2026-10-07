@@ -12,7 +12,8 @@ import { fmtNum } from '@/lib/format'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { csvPfad } from '@/lib/behoerden/katalog'
 import { ladeBlendProtokoll } from '@/lib/behoerden/blend'
-import { BlendHerkunftTabelle, BlendHinweise, BlendSchritteTabelle } from '@/components/kellerbuch/BlendProtokollTeile'
+import { BlendHerkunftTabelle, BlendHinweise, BlendSchritteTabelle, BlendSortenAbsteigend } from '@/components/kellerbuch/BlendProtokollTeile'
+import { weinartAusSortenverschnitt } from '@/lib/wein/sortenangabe'
 
 export const metadata: Metadata = { title: 'Blend-Protokoll – software:112' }
 export const dynamic = 'force-dynamic'
@@ -142,6 +143,9 @@ export default async function BlendProtokollPage({ params, searchParams }: {
             </p>
           )}
         </div>
+
+        {/* KAN-113: Rebsorten absteigend nach Menge, Vorschlag der Sortenangabe */}
+        <BlendSortenAbsteigend komposition={komposition} weinart={weinartAusSortenverschnitt(kopf.rebsorte)} />
 
         {/* Herkunfts-Tabelle */}
         {komposition.length === 0 ? (

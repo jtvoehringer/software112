@@ -341,7 +341,7 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
         {weinartSperre && (
           <div className="bg-s112-warn-bg border border-s112-warn/30 rounded-lg px-3 py-2 text-xs text-s112-warn-fg flex items-start gap-1.5">
             <AlertTriangle size={14} strokeWidth={2} className="mt-0.5 shrink-0" />
-            <span><span className="font-semibold">Rot- und Weißwein werden verschnitten – Abstufung auf Wein (aus Österreich):</span> {weinartSperre} Beim Speichern folgt eine Rückfrage.</span>
+            <span><span className="font-semibold">Rot- und Weißwein werden verschnitten – Abstufung auf Wein (aus Österreich):</span> {weinartSperre} Sind alle schon „Wein (ohne Herkunft)“, wird nicht abgestuft (KAN-170); sonst folgt beim Speichern eine Rückfrage.</span>
           </div>
         )}
         {hatRebsortenmix && !weinartSperre && (

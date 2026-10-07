@@ -55,7 +55,8 @@ describe('KAN-84 Verdrahtung', () => {
     assert.doesNotMatch(f, /– keine Verknüpfung –/)
     assert.match(f, /name="weinausbau_id"[\s\S]{0,200}required/)
     assert.match(f, /readOnly=\{!!selectedCharge\?\.jahrgang\}/)
-    assert.match(f, /readOnly=\{!!selectedCharge\?\.rebsorte\}/)
+    // KAN-113: bei einer Sortenverschnitt-Charge ist die Sortenangabe wählbar (Vorschlag aus der Zusammensetzung)
+    assert.match(f, /readOnly=\{!!selectedCharge\?\.rebsorte && !sortenWahl\}/)
   })
   test('Assistent übernimmt Jahrgang und Rebsorte aus der Charge', () => {
     const t = quelle('src/lib/assistent/tools/abfuellen.ts')
