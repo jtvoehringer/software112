@@ -60,7 +60,7 @@
 --   8. Pre-Request an authenticator, s112_pre_request für anon und authenticated ausführbar.
 --   9. Geheimnis-Spalten (KAN-135): kein Spaltenrecht für anon/authenticated, kein Tabellenrecht SELECT/INSERT/
 --      UPDATE, jede andere Spalte beider Tabellen für authenticated lesbar; Namens-Heuristik über alle Spalten.
---  10. Views mit security_invoker, keine lesbaren materialisierten Sichten; genau 6 Buckets, nur mandant-logos
+--  10. Views mit security_invoker, keine lesbaren materialisierten Sichten; genau 7 Buckets, nur mandant-logos
 --      öffentlich.
 --  11. Protokoll-Trigger (20/19/17 Tabellen, bestandsprotokoll_schreiben SECURITY DEFINER) samt Form: ohne WHEN,
 --      truncate/loeschen ohne Spaltenliste und Argumente, aendern mit UPDATE OF = Argumentspalten und genau den
@@ -180,7 +180,7 @@ DECLARE
   c_ohne_ma constant text[] := ARRAY['system_ereignisse'];
   -- Namens-Heuristik für Geheimnisse: bewusst lesbare Spalten (BK4 seit KAN-159: newsletter_token_hash, nur Hash)
   c_heuristik_bekannt constant text[] := '{}'::text[];
-  c_buckets constant text := 'aktivitaet-dokumente:false,analysen:false,dokumente:false,ea-belege:false,etiketten:false,mandant-logos:true';
+  c_buckets constant text := 'aktivitaet-dokumente:false,analysen:false,dokumente:false,ea-belege:false,etiketten:false,fuellung-bilder:false,mandant-logos:true';   -- +fuellung-bilder KAN-220
   c_schutz constant text := 'tenant_einstellungen={svs_option,svs_option_seit,svs_einkuenfte_manuell,svs_kv_angehoerige}/23/schutz_plattformfelder/O;'
                             'tenants={bio_status,updated_at}/23/schutz_plattformfelder/O';
   -- z_protokoll_aendern: überwachte Spalten je Tabelle (Trigger-Argumente = UPDATE OF …, alphabetisch, Stand
