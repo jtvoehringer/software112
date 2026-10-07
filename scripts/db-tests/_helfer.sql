@@ -1251,6 +1251,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('mandant',       '-US', true , 's112_zugangskorrektur_buchen(p_tenant_id uuid, p_weinausbau_id uuid, p_datum date, p_menge numeric, p_art text, p_grund text)'),   -- KAN-53: Zugangskorrektur
     ('mandant',       '-US', true , 's112_zugangskorrektur_stornieren(p_tenant_id uuid, p_id uuid, p_grund text)'),   -- KAN-53: Storno der Zugangskorrektur
     ('mandant',       '-US', true , 's112_verarbeitung_buchen(p_tenant_id uuid, p_weinausbau_id uuid, p_datum date, p_menge numeric, p_zweck text, p_notizen text, p_artikel_id uuid, p_stueck numeric)'),   -- KAN-41 Paket 3a: Verarbeitung (AB_VERAR); KAN-115: + Zugang beim Sonstigen Produkt
+    ('mandant',       '-US', true , 's112_sekt_stufe_setzen(p_tenant_id uuid, p_fuellung_id uuid, p_stufe text, p_degorgiert_am date, p_lagenrein boolean)'),   -- KAN-190: Sekt-Stufe / Degorgieren
     ('mandant',       '-US', true , 's112_artikel_buchen(p_tenant_id uuid, p_artikel_id uuid, p_datum date, p_art text, p_menge numeric, p_notizen text)'),   -- KAN-115: Anfangsbestand/Zugang/Inventur Sonstiger Produkte
     ('mandant',       '-US', true , 's112_artikel_bewegung_stornieren(p_tenant_id uuid, p_id uuid, p_grund text)'),   -- KAN-115: Storno einer Lagerbuchung
     ('mandant',       '-US', true , 's112_artikel_verkauf_buchen(p_tenant_id uuid, p_verkaufsposten_id uuid)'),   -- KAN-115: Verkauf mindert den Lagerstand

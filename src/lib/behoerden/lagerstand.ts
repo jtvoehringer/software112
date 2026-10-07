@@ -15,6 +15,7 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Projektkonvention (supabase.from('…') as any), siehe CLAUDE.md */
 import { runden, STELLEN, wienHeute, type CsvSpalte } from '@/lib/csv'
+import { sektStufeLabel } from '@/lib/wein/sekt'
 import { alle } from '@/lib/supabase/alle'
 import { ladeBehaelter } from '@/lib/keller/behaelter'
 import { herkunftKnoten } from '@/lib/herkunft'
@@ -108,7 +109,7 @@ export function erzeugnisCode(r: R): string | null {
 }
 
 /** Merkmalsspalten aus einer Journalzeile */
-export function lagerMerkmale(r: R, pruefnummer: string | null): LagerMerkmale {
+export function lagerMerkmale(r: R, pruefnummer: string | null, sektStufe: string | null = null): LagerMerkmale {
   const h = herkunftKnoten(text(r.herkunft_code))
   const rebsorte = text(r.rebsorte)
   const kuerzel = bkiRebsorteKuerzel(rebsorte)
@@ -121,7 +122,7 @@ export function lagerMerkmale(r: R, pruefnummer: string | null): LagerMerkmale {
     sorteName: kuerzel ? null : rebsorte,
     qualitaet: katalogQualitaet(text(r.qualitaetsstufe))?.code ?? null,
     jahrgang: numOderNull(r.jahrgang),
-    zusatz: text(r.zusatzbezeichnung),
+    zusatz: text(r.zusatzbezeichnung) ?? sektStufeLabel(sektStufe),   // KAN-190: Sekt-Stufe als zusätzliche Bezeichnung
     herkunft: h?.bki ?? null,
     herkunftGga: h && h.ebene === 'landwein' ? h.gebiet : null,
     herkunftGu: h && (h.ebene === 'qualitaetswein' || h.ebene.startsWith('dac_')) ? h.gebiet : null,
@@ -182,7 +183,7 @@ export function berechneLagerstand(journal: readonly R[], s: LagerStamm, stichta
   const negativ: string[] = []
   for (const { letzte: r, liter, stk } of je.values()) {
     const flasche = r.bestand === 'flasche'
-    const m = lagerMerkmale(r, flasche ? text(s.fuellungen.get(r.fuellung_id)?.pruefnummer) : null)
+    const m = lagerMerkmale(r, flasche ? text(s.fuellungen.get(r.fuellung_id)?.pruefnummer) : null, flasche ? text(s.fuellungen.get(r.fuellung_id)?.sekt_stufe) : null)
     if (flasche ? stk < 0 : l2(liter) < 0) { negativ.push(m.produkt ?? 'ohne Bezeichnung'); continue }
     if (flasche ? stk === 0 : Math.abs(l2(liter)) < 0.005) continue
     const basis = { ...m, datum: stichtag, ...gebindeVon(r, s), kmw: kmwVon(r, s), anmerkung: null }
@@ -233,7 +234,7 @@ export function berechneLagerbewegungen(journal: readonly R[], s: LagerStamm, z:
     const f = flasche ? s.fuellungen.get(r.fuellung_id) : undefined
     const c = !flasche && r.weinausbau_id ? s.chargen.get(r.weinausbau_id) : undefined
     zeilen.push({
-      ...lagerMerkmale(r, flasche ? text(f?.pruefnummer) : null),
+      ...lagerMerkmale(r, flasche ? text(f?.pruefnummer) : null, flasche ? text(f?.sekt_stufe) : null),
       datum: d,
       beleg: `${r.beleg_nr}/${r.pos}`,
       chargenNr: text(flasche ? f?.chargennummer : c?.chargennummer),
@@ -279,7 +280,7 @@ async function ladeStamm(supabase: any, tenantId: string): Promise<LagerStamm> {
   const [cRes, fRes, eRes, gebinde] = await Promise.all([
     alle<R>((supabase.from('weinausbau') as any).select('id, kmw, chargennummer').eq('tenant_id', tenantId).order('id')),
     alle<R>((supabase.from('fuellungen') as any)
-      .select('id, weinausbau_id, pruefnummer, chargennummer, flaschengroesse_ml, anzahl_unetikettiert')
+      .select('id, weinausbau_id, pruefnummer, chargennummer, flaschengroesse_ml, anzahl_unetikettiert, sekt_stufe')
       .eq('tenant_id', tenantId).order('id')),
     alle<R>((supabase.from('fuellung_etikettierungen') as any)
       .select('id, fuellung_id, datum, menge_stk, storniert_am')

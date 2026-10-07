@@ -160,6 +160,8 @@ export type QualitaetsZeile = {
   qualitaet?: string | null
   zusatzbezeichnung?: string | null
   erzeugnis?: string | null
+  /** KAN-190: Sekt-Stufe der Füllung (klassik | reserve | grosse_reserve) – nur Anzeige, keine Rangfolge */
+  sekt_stufe?: string | null
 }
 
 export function istZusatz(wert: unknown): wert is Zusatz {
