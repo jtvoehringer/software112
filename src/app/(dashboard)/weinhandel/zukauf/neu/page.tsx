@@ -1,5 +1,6 @@
 'use client'
 
+import { gebindeOption } from '@/lib/keller/gebindeAnzeige'
 import { useState, useTransition, useEffect, useRef } from 'react'
 import { zukaufLieferantFehler } from '@/lib/handel/partnerPflicht'
 import { zurueckZiel } from '@/lib/navigation/zurueckBrowser'
@@ -616,17 +617,12 @@ export default function ZukaufNeuPage() {
                 className={inputCls + ' w-full'} disabled={loading}>
                 <option value="">– keines –</option>
                 {behaelter.map(b => {
-                  const vol = b.volumen_liter
+                  // KAN-174 C: „Name · Inhalt – Charge | frei“ statt Kapazität
                   const chargen = weinausbauListe.filter(w => w.behaelter_id === b.id)
                   const inhalt = chargen.reduce((s, w) => s + (w.menge_liter ?? 0), 0)
-                  const rest = vol != null ? vol - inhalt : null
-                  const rebsorten = [...new Set(chargen.map(w => w.rebsorte).filter(Boolean))].map(r => formatRebsorteMitKuerzel(r)).join(', ')
-                  const kapSuffix = vol != null ? ` · ${fmtNum(vol)} L` : ''
-                  const inhaltSuffix = inhalt > 0 ? ` · Inhalt: ${fmtNum(inhalt)} L${rebsorten ? ` (${rebsorten})` : ''}` : ' · leer'
-                  const restSuffix = rest != null ? ` · Rest: ${fmtNum(rest)} L` : ''
                   return (
                     <option key={b.id} value={b.id}>
-                      {b.name}{kapSuffix}{inhaltSuffix}{restSuffix}
+                      {gebindeOption({ name: b.name, inhaltLiter: inhalt, volumenLiter: b.volumen_liter, chargen: chargen.map(w => w.rebsorte ? `${w.name} (${formatRebsorteMitKuerzel(w.rebsorte)})` : w.name) })}
                     </option>
                   )
                 })}

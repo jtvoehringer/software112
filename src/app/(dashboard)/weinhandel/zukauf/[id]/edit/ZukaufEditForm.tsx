@@ -1,5 +1,6 @@
 'use client'
 
+import { gebindeOption } from '@/lib/keller/gebindeAnzeige'
 import { useState, useTransition, useEffect } from 'react'
 import Link from '@/components/ui/Link'
 import { updateZukauf } from '../../actions'
@@ -583,16 +584,12 @@ export default function ZukaufEditForm({
                     ? eigeneSimulierteMenge(parseFloat(menge) || 0)
                     : 0
                   const inhalt = fremdInhalt + eigeneHier
-                  const rest = vol != null ? vol - inhalt : null
-                  const rebsortenListe = chargen.map(w => w.rebsorte)
-                  if (eigeneHier > 0 && rebsorte) rebsortenListe.push(rebsorte)
-                  const rebsorten = [...new Set(rebsortenListe.filter(Boolean))].map(r => formatRebsorteMitKuerzel(r)).join(', ')
-                  const kapSuffix = vol != null ? ` · ${fmtNum(vol)} L` : ''
-                  const inhaltSuffix = inhalt > 0 ? ` · Inhalt: ${fmtNum(inhalt)} L${rebsorten ? ` (${rebsorten})` : ''}` : ' · leer'
-                  const restSuffix = rest != null ? ` · Rest: ${fmtNum(rest)} L` : ''
+                  // KAN-174 C: „Name · Inhalt – Charge | frei“ statt Kapazität
+                  const namen = chargen.map(w => w.rebsorte ? `${w.name} (${formatRebsorteMitKuerzel(w.rebsorte)})` : w.name)
+                  if (eigeneHier > 0) namen.push('dieser Zukauf')
                   return (
                     <option key={b.id} value={b.id}>
-                      {b.name}{kapSuffix}{inhaltSuffix}{restSuffix}
+                      {gebindeOption({ name: b.name, inhaltLiter: inhalt, volumenLiter: vol, chargen: namen })}
                     </option>
                   )
                 })}

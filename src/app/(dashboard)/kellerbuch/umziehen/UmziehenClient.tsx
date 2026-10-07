@@ -1,5 +1,6 @@
 'use client'
 
+import { gebindeOption } from '@/lib/keller/gebindeAnzeige'
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { zielNachVorgang } from '@/lib/navigation/zurueckBrowser'
@@ -137,15 +138,10 @@ function ZielZeile({
       >
         <option value="">– Behälter wählen –</option>
         {behaelter.map(b => {
-          const inh  = inhalt[b.id] ?? 0
-          const frei = b.kapazitaet_liter != null ? Math.max(0, b.kapazitaet_liter - inh) : null
-          const wein = weinByGebinde[b.id]?.join(', ')
-          const info = b.kapazitaet_liter != null
-            ? ` · ${fmt(b.kapazitaet_liter)} Kap · ${fmt(inh)} Inh · ${fmt(frei ?? 0)} frei${wein ? ` · ${wein}` : ''}`
-            : inh > 0 ? ` · ${fmt(inh)} Inh${wein ? ` · ${wein}` : ''}` : ''
+          // KAN-174 C: „Name · Inhalt – Charge | frei“ statt Kapazität
           return (
             <option key={b.id} value={b.id}>
-              {b.name}{info}
+              {gebindeOption({ name: b.name, inhaltLiter: inhalt[b.id] ?? 0, chargen: weinByGebinde[b.id] ?? [], volumenLiter: b.kapazitaet_liter })}
             </option>
           )
         })}
@@ -169,7 +165,7 @@ function ZielZeile({
 
 // ── Umzug-Formular ────────────────────────────────────────────────────────────
 
-function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; behaelter: Behaelter[] }) {
+function UmziehenForm({ quellen, behaelter, vonBehaelter = null }: { quellen: BehaelterMitCharge[]; behaelter: Behaelter[]; vonBehaelter?: string | null }) {
   const [pending, startTransition] = useTransition()
   const [error, setError]         = useState<string | null>(null)
   const [success, setSuccess]     = useState(false)
@@ -183,7 +179,12 @@ function UmziehenForm({ quellen, behaelter }: { quellen: BehaelterMitCharge[]; b
   type QEntry = { id: string; chargeId: string; menge: string }
   type ZEntry = { id: string; behId: string; menge: string }
 
-  const [quellenState, setQuellen] = useState<QEntry[]>([{ id: crypto.randomUUID(), chargeId: '', menge: '' }])
+  // KAN-174 B: vom Gebinde aus – erste Charge dieses Gebindes als Quelle vorbelegt
+  const [quellenState, setQuellen] = useState<QEntry[]>(() => [{
+    id: crypto.randomUUID(),
+    chargeId: (vonBehaelter ? quellen.find(q => q.behaelter_id === vonBehaelter)?.charge_id : undefined) ?? '',
+    menge: '',
+  }])
   const [ziele, setZiele]         = useState<ZEntry[]>([{ id: crypto.randomUUID(), behId: '', menge: '' }])
 
   const totalVon  = quellenState.reduce((s, q) => s + (parseFloat(q.menge) || 0), 0)
@@ -512,13 +513,15 @@ function UmzugZeile({ u, writeOk }: { u: UmzugRow; writeOk: boolean }) {
 // ── Hauptkomponente ───────────────────────────────────────────────────────────
 
 export default function UmziehenClient({
-  behaelterMitChargen, behaelter, umzuege, writeOk, initialShowForm = false,
+  behaelterMitChargen, behaelter, umzuege, writeOk, initialShowForm = false, vonBehaelter = null,
 }: {
   behaelterMitChargen: BehaelterMitCharge[]
   behaelter:           Behaelter[]
   umzuege:             UmzugRow[]
   writeOk:             boolean
   initialShowForm?:    boolean
+  /** KAN-174 B: Quell-Gebinde vorbelegen */
+  vonBehaelter?:       string | null
 }) {
   const [showForm, setShowForm] = useState(initialShowForm)
 
@@ -543,7 +546,7 @@ export default function UmziehenClient({
       </div>
 
       {showForm && writeOk && (
-        <UmziehenForm quellen={behaelterMitChargen} behaelter={behaelter} />
+        <UmziehenForm quellen={behaelterMitChargen} behaelter={behaelter} vonBehaelter={vonBehaelter} />
       )}
 
       {/* Protokoll */}

@@ -7,6 +7,8 @@ import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import { Pencil, Boxes, ChevronRight } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
+import { gebindePasst, pickerlText, vorherrschendeWeinart, WEINART_FARBE } from '@/lib/keller/gebindeAnzeige'
+import PickerlEntfernen from './PickerlEntfernen'
 
 export const metadata: Metadata = { title: 'Kellerbuch – software:112' }
 export const dynamic = 'force-dynamic'
@@ -22,14 +24,22 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   abgeschlossen:{ label: 'Abgeschlossen',color: 'bg-s112-ok-bg text-s112-ok-fg' },
 }
 
-const WEINART_BADGE: Record<string, { label: string; color: string }> = {
-  weiss:    { label: 'Weiß',    color: 'bg-s112-warn-bg text-s112-warn-fg' },
-  rot:      { label: 'Rot',     color: 'bg-s112-err-bg text-s112-err-fg' },
-  rose:     { label: 'Rosé',    color: 'bg-[#F2F3F5] text-s112-text-1' },
-  unbekannt:{ label: '?',       color: 'bg-[#F2F3F5] text-s112-text-2' },
+// KAN-174 E: Füllstand als Kreis in der Farbe des Inhalts (weiß/rot/rosé) statt Balken und Weinart-Knöpfen
+function FuellKreis({ pct, farbe, negativ }: { pct: number | null; farbe: string; negativ: boolean }) {
+  const r = 9, u = 2 * Math.PI * r
+  const anteil = pct === null ? 1 : Math.max(0, Math.min(1, pct / 100))
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" className="shrink-0">
+      <circle cx="12" cy="12" r={r} fill="none" stroke="#E4E6EA" strokeWidth="4" />
+      <circle cx="12" cy="12" r={r} fill="none" stroke={negativ ? '#C9564E' : farbe} strokeWidth="4"
+        strokeDasharray={`${anteil * u} ${u}`} transform="rotate(-90 12 12)" opacity={pct === null ? 0.5 : 1} />
+    </svg>
+  )
 }
 
-export default async function KellerbuchPage() {
+export default async function KellerbuchPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+  // KAN-174 A: Suche nach Gebinde (Name, Standort, Charge, Rebsorte, Pickerl)
+  const suche = ((await searchParams).q ?? '').trim()
   const supabase = await createSupabaseServerClient()
   const role     = await getCurrentUserRole()
   const writeOk  = canWrite(role, 'kellerbuch')
@@ -96,7 +106,11 @@ export default async function KellerbuchPage() {
   const istBelegt = (b: BehaelterZeile) => literVon(b) > 0.01 || (chargenByBehaelter.get(b.id)?.length ?? 0) > 0
   const cmpName = (x: BehaelterZeile, y: BehaelterZeile) => x.name.localeCompare(y.name, 'de', { numeric: true, sensitivity: 'base' })
   const gruppenMap = new Map<string, BehaelterZeile[]>()
-  for (const b of behaelter.filter(b => b.aktiv)) {
+  const trifft = (b: BehaelterZeile) => gebindePasst(suche, [
+    b.name, b.standort, b.lp_pickerl, b.fremd_betrieb,
+    ...(chargenByBehaelter.get(b.id) ?? []).flatMap((w: R) => [w.name, w.rebsorte, w.jahrgang != null ? String(w.jahrgang) : null]),
+  ])
+  for (const b of behaelter.filter(b => b.aktiv && trifft(b))) {
     const key = b.standort?.trim() || 'Ohne Standort'
     if (!gruppenMap.has(key)) gruppenMap.set(key, [])
     gruppenMap.get(key)!.push(b)
@@ -111,138 +125,53 @@ export default async function KellerbuchPage() {
       kapazitaet: liste.reduce((sum, b) => sum + (b.volumen_liter ?? 0), 0),
     }))
 
-  // Karte eines belegten Gebindes (eigene Chargen + ggf. fremde Belegung)
-  const karte = (b: BehaelterZeile) => {
-          const chargen        = chargenByBehaelter.get(b.id) ?? []
-          // Event-basierter Füllstand aus View (je Betrieb, Migration 204) +
-          // fremd belegte Liter eines Partnerbetriebs (ohne dessen Chargen)
-          const literImBehaelter = literVon(b)
-          const kapazitaet     = b.volumen_liter
-          const auslastung     = kapazitaet && kapazitaet > 0 ? Math.min(100, (literImBehaelter / kapazitaet) * 100) : null
-
-          return (
-            <div key={b.id} className="card p-0 overflow-hidden">
-              {/* Behälter-Header */}
-              <div className="flex items-center gap-3 px-4 py-3 bg-s112-bg border-b border-s112-border">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-s112-text text-sm">{b.name}</span>
-                    {b.fremd && <span title={`Gebinde von ${b.eigentuemer_name}`} className="text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded-sm bg-s112-blue-50 text-s112-blue-700">{b.eigentuemer_name}</span>}
-                    {b.gesperrt && <span title="Ein anderer Betrieb hat Wein in diesem Gebinde – kein Ziel für Umzüge" className="text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded-sm bg-s112-warn-bg text-s112-warn-fg">belegt · {b.fremd_betrieb} · {fmtLiter(b.fremd_liter)}</span>}
-                    {b.standort && <span className="text-xs text-s112-muted">{b.standort}</span>}
-                    {kapazitaet && (
-                      <span className="text-xs text-s112-muted">
-                        {fmtLiter(kapazitaet)} Kapazität
-                      </span>
-                    )}
-                  </div>
-                  {auslastung !== null && (
-                    <div className="mt-1.5 flex items-center gap-2">
-                      <div className="flex-1 bg-s112-line rounded-full h-1.5 max-w-40">
-                        <div
-                          className={`h-1.5 rounded-full ${literImBehaelter < 0 ? 'bg-s112-err' : auslastung > 90 ? 'bg-s112-warn' : 'bg-s112-teal'}`}
-                          style={{ width: `${Math.max(0, Math.min(100, auslastung))}%` }}
-                        />
-                      </div>
-                      <span className={`text-xs tabular-nums ${literImBehaelter < 0 ? 'text-s112-err-fg font-semibold' : 'text-s112-text-2'}`}>
-                        {fmtLiter(literImBehaelter)} / {fmtLiter(kapazitaet)}
-                      </span>
-                    </div>
-                  )}
-                  {!kapazitaet && literImBehaelter !== 0 && (
-                    <p className={`text-xs mt-0.5 ${literImBehaelter < 0 ? 'text-s112-err-fg font-semibold' : 'text-s112-text-2'}`}>
-                      {fmtLiter(literImBehaelter)} belegt
-                    </p>
-                  )}
-                </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  <Link href={`/kellerbuch/behaelter/${b.id}/bewegungen`}
-                    className="text-xs text-s112-blue-700 hover:underline whitespace-nowrap font-medium">
-                    Bewegungen →
-                  </Link>
-                  {writeOk && !b.fremd && (
-                    <Link href={`/kellerbuch/behaelter/${b.id}`}
-                      title="Bearbeiten" aria-label="Bearbeiten"
-                      className="text-s112-muted hover:text-s112-blue-700">
-                      <Pencil className="w-4 h-4" />
-                    </Link>
-                  )}
-                </div>
-              </div>
-
-              {/* Negativer Bestand – Warnung */}
-              {literImBehaelter < 0 && (
-                <div className="flex items-center gap-2 px-4 py-2 bg-s112-err-bg border-b border-s112-err/30 text-s112-err-fg text-xs font-medium">
-                  Negativer Bestand: {fmtLiter(literImBehaelter)} — Buchungsfehler prüfen
-                </div>
-              )}
-
-              {/* Chargen im Behälter */}
-              {chargen.length > 0 ? (
-                <table className="w-full text-sm table-fixed">
-                  <colgroup>
-                    <col className="w-[46%]" />
-                    <col className="w-[10%]" />
-                    <col className="w-[19%]" />
-                    <col className="w-[19%]" />
-                    <col className="w-[6%]" />
-                  </colgroup>
-                  <thead>
-                    <tr className="border-b border-s112-border/50">
-                      <th className="text-left px-4 py-2 text-xs font-medium text-s112-text-2">Charge</th>
-                      <th className="text-left px-4 py-2 text-xs font-medium text-s112-text-2">Jg.</th>
-                      <th className="text-left px-4 py-2 text-xs font-medium text-s112-text-2">Status</th>
-                      <th className="text-right px-4 py-2 text-xs font-medium text-s112-text-2">Liter</th>
-                      <th className="px-4 py-2" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {chargen.map((w: R) => {
-                      const st = STATUS_LABELS[w.status] ?? { label: w.status, color: 'bg-[#F2F3F5] text-s112-text-2' }
-                      // Bei einer einzigen Charge im Behälter: View-Wert (event-basiert) verwenden,
-                      // da weinausbau.menge_liter durch direkte Bearbeitung veralten kann
-                      const menge = chargen.length === 1
-                        ? literImBehaelter
-                        : parseFloat(w.menge_liter) || 0
-                      const istEB = w.ist_eroeffnungsbestand === true
-                      const wa = WEINART_BADGE[w.weinart ?? 'unbekannt'] ?? WEINART_BADGE.unbekannt
-                      return (
-                        <tr key={w.id} className={`relative border-b border-s112-border/30 last:border-0 hover:bg-s112-bg/40 cursor-pointer ${istEB ? 'opacity-75' : ''}`}>
-                          <td className="px-4 py-2.5 font-medium text-s112-text">
-                            <Link href={`/kellerbuch/weinausbau/${w.id}`}
-                              className="after:absolute after:inset-0">
-                              {w.name}
-                            </Link>
-                            {w.rebsorte && <span className="text-xs text-s112-muted ml-1">· {formatRebsorteMitKuerzel(w.rebsorte)}</span>}
-                            {istEB && <span className="text-xs text-s112-muted ml-1 italic">(Eröffnungsbestand)</span>}
-                            {(w.weinart && w.weinart !== 'unbekannt') && (
-                              <span className={`inline-block ml-2 px-1.5 py-0.5 rounded-sm text-[11px] font-medium ${wa.color}`}>{wa.label}</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-2.5 text-s112-muted text-xs">{w.jahrgang ?? '–'}</td>
-                          <td className="px-4 py-2.5">
-                            <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}>{st.label}</span>
-                          </td>
-                          <td className="px-4 py-2.5 text-right tabular-nums font-medium text-s112-text">
-                            {menge > 0
-                              ? fmtLiter(menge)
-                              : menge < 0
-                                ? <span className="text-s112-err-fg font-semibold">{fmtLiter(menge)}</span>
-                                : <span className="text-s112-err">0,00 L</span>}
-                          </td>
-                          {/* Abfüllen-Aktion bewusst entfernt (5.8.2026) - erfolgt jetzt nur
-                              noch auf der Chargen-Detailseite, nicht mehr aus der Übersicht. */}
-                          <td className="relative z-10 px-4 py-2.5 text-right" />
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              ) : (
-                <p className="px-4 py-3 text-xs text-s112-muted italic">Kein Wein in diesem Behälter</p>
-              )}
-            </div>
-          )
+  // KAN-174 E: ein belegtes Gebinde je Zeile – Kreis (Füllstand, Farbe des Inhalts), Name, Chargen, Liter, Aktionen
+  const zeile = (b: BehaelterZeile) => {
+    const chargen = chargenByBehaelter.get(b.id) ?? []
+    // Event-basierter Füllstand aus View (je Betrieb, Migration 204) + fremd belegte Liter eines Partnerbetriebs
+    const literImBehaelter = literVon(b)
+    const kapazitaet = b.volumen_liter
+    const auslastung = kapazitaet && kapazitaet > 0 ? (literImBehaelter / kapazitaet) * 100 : null
+    const farbe = WEINART_FARBE[vorherrschendeWeinart(chargen.map((w: R) => ({ weinart: w.weinart, liter: parseFloat(w.menge_liter) || 0 })))]
+    const lp = pickerlText(b.lp_pickerl)
+    return (
+      <div key={b.id} className={`flex items-center gap-3 px-3 py-2 text-sm ${literImBehaelter < 0 ? 'bg-s112-err-bg' : ''}`}>
+        <span title={auslastung === null ? 'ohne Kapazität' : `${Math.round(auslastung)} % gefüllt`}>
+          <FuellKreis pct={auslastung} farbe={farbe} negativ={literImBehaelter < 0} />
+        </span>
+        <span className="font-semibold text-s112-text w-24 shrink-0 truncate">{b.name}</span>
+        <span className="flex-1 min-w-0 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+          {b.fremd && <span title={`Gebinde von ${b.eigentuemer_name}`} className="text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded-sm bg-s112-blue-50 text-s112-blue-700">{b.eigentuemer_name}</span>}
+          {b.gesperrt && <span title="Ein anderer Betrieb hat Wein in diesem Gebinde – kein Ziel für Umzüge" className="text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded-sm bg-s112-warn-bg text-s112-warn-fg">belegt · {b.fremd_betrieb} · {fmtLiter(b.fremd_liter)}</span>}
+          {lp && (writeOk && !b.fremd ? <PickerlEntfernen behaelterId={b.id} text={lp} /> : <span className="text-[10.5px] font-semibold px-1.5 py-px rounded-sm bg-s112-warn-bg text-s112-warn-fg">{lp}</span>)}
+          {chargen.map((w: R) => {
+            const st = STATUS_LABELS[w.status] ?? { label: w.status, color: '' }
+            // Bei einer einzigen Charge im Behälter: View-Wert (event-basiert), da menge_liter veralten kann
+            const menge = chargen.length === 1 ? literImBehaelter : parseFloat(w.menge_liter) || 0
+            return (
+              <span key={w.id} className={`inline-flex items-baseline gap-1 ${w.ist_eroeffnungsbestand ? 'opacity-75' : ''}`}>
+                <Link href={`/kellerbuch/weinausbau/${w.id}`} className="font-medium text-s112-blue-700 hover:underline">{w.name}</Link>
+                <span className="text-xs text-s112-muted">
+                  {[w.jahrgang, w.rebsorte ? formatRebsorteMitKuerzel(w.rebsorte) : null, st.label, w.ist_eroeffnungsbestand ? 'Eröffnungsbestand' : null].filter(Boolean).join(' · ')}
+                  {chargen.length > 1 && <> · <span className="tabular-nums">{fmtLiter(menge)}</span></>}
+                </span>
+              </span>
+            )
+          })}
+          {chargen.length === 0 && !b.gesperrt && <span className="text-xs text-s112-muted italic">Kein eigener Wein</span>}
+        </span>
+        <span className={`text-xs tabular-nums whitespace-nowrap ${literImBehaelter < 0 ? 'text-s112-err-fg font-semibold' : 'text-s112-text-2'}`}
+          title={literImBehaelter < 0 ? 'Negativer Bestand – Buchungsfehler prüfen' : undefined}>
+          {fmtLiter(literImBehaelter)}{kapazitaet ? <span className="text-s112-tertiary"> / {fmtLiter(kapazitaet)}</span> : null}
+        </span>
+        <Link href={`/kellerbuch/behaelter/${b.id}/bewegungen`} className="text-xs text-s112-blue-700 hover:underline whitespace-nowrap font-medium">Bewegungen →</Link>
+        {writeOk && !b.fremd && (
+          <Link href={`/kellerbuch/behaelter/${b.id}`} title="Bearbeiten" aria-label="Bearbeiten" className="text-s112-muted hover:text-s112-blue-700">
+            <Pencil className="w-4 h-4" />
+          </Link>
+        )}
+      </div>
+    )
   }
 
   return (
@@ -274,6 +203,16 @@ export default async function KellerbuchPage() {
         </Link>
       </div>
 
+      {/* KAN-174 A: Gebinde suchen */}
+      <form method="get" className="mb-4 flex items-center gap-2 print:hidden" role="search">
+        <input type="search" name="q" defaultValue={suche} aria-label="Gebinde suchen"
+          placeholder="Gebinde suchen – Name, Keller, Charge, Rebsorte …"
+          className="form-input flex-1 max-w-md" />
+        <button type="submit" className="px-3 py-2 rounded-lg text-sm font-medium border border-s112-border text-s112-text-2 hover:text-s112-text">Suchen</button>
+        {suche && <Link href="/kellerbuch" className="text-xs text-s112-blue-700 hover:underline">Suche löschen</Link>}
+      </form>
+      {suche && gruppen.length === 0 && <p className="mb-4 text-sm text-s112-muted">Kein Gebinde passt zu „{suche}“.</p>}
+
       {/* Behälter je Keller (Standort), aufklappbar; belegte zuerst, dann leere - jeweils alphanumerisch (Rückmeldung 16.9.2026) */}
       <div className="space-y-4">
         {gruppen.map(g => (
@@ -285,7 +224,7 @@ export default async function KellerbuchPage() {
               <span className="ml-auto text-xs font-mono tabular-nums text-s112-text">{fmtLiter(g.liter)}{g.kapazitaet > 0 ? <span className="text-s112-tertiary"> / {fmtLiter(g.kapazitaet)}</span> : null}</span>
             </summary>
             <div className="p-3 space-y-3">
-              {g.belegt.map(b => karte(b))}
+              {g.belegt.length > 0 && <div className="rounded-lg border border-s112-line divide-y divide-s112-line">{g.belegt.map(b => zeile(b))}</div>}
               {g.belegt.length === 0 && <p className="px-1 text-xs text-s112-muted italic">Kein Gebinde in diesem Keller belegt</p>}
               {g.leer.length > 0 && (
                 <>
@@ -298,6 +237,9 @@ export default async function KellerbuchPage() {
                         <span className="text-xs text-s112-text-2 capitalize">{b.typ ?? '–'}</span>
                         <span className="text-xs text-s112-text-2 font-mono tabular-nums">{b.volumen_liter ? fmtLiter(b.volumen_liter) : '–'}</span>
                         {b.stapler && <span className="text-[9.5px] font-mono uppercase tracking-[.04em] px-1 py-px rounded-sm bg-s112-bg text-s112-text-2 border border-s112-line">Stapler</span>}
+                        {pickerlText(b.lp_pickerl) && (writeOk && !b.fremd
+                          ? <PickerlEntfernen behaelterId={b.id} text={pickerlText(b.lp_pickerl) as string} />
+                          : <span className="text-[10.5px] font-semibold px-1.5 py-px rounded-sm bg-s112-warn-bg text-s112-warn-fg">{pickerlText(b.lp_pickerl)}</span>)}
                         <span className="ml-auto flex items-center gap-3 shrink-0">
                           <Link href={`/kellerbuch/behaelter/${b.id}/bewegungen`} className="text-xs text-s112-blue-700 hover:underline whitespace-nowrap">Bewegungen →</Link>
                           {writeOk && !b.fremd && <Link href={`/kellerbuch/behaelter/${b.id}`} title="Bearbeiten" aria-label="Bearbeiten" className="text-s112-muted hover:text-s112-blue-700"><Pencil className="w-3.5 h-3.5" /></Link>}

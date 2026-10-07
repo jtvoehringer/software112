@@ -9,6 +9,8 @@ type BehaelterRow = {
   id: string; name: string; typ: string | null
   volumen_liter: number | null; standort: string | null; aktiv: boolean
   notizen?: string | null; stapler?: boolean; gemeinsam?: boolean
+  /** KAN-174 F: Hinweis Lohnproduktion */
+  lp_pickerl?: string | null
 }
 
 interface Props {
@@ -84,6 +86,15 @@ export default function BehaelterForm({ behaelter, action, partner = null }: Pro
           <div className="sm:col-span-2">
             <label className="form-label">Notizen</label>
             <input aria-label="Notizen" name="notizen" type="text" defaultValue={behaelter?.notizen ?? ''} className="form-input" placeholder="z.B. geliehen, Besonderheiten" />
+          </div>
+          {/* KAN-174 F: LP-Pickerl – nur Hinweis für die Sachbearbeiter, in keiner Aufzeichnung; leeren = entfernen */}
+          <div className="sm:col-span-2">
+            <label className="form-label">LP-Pickerl (Lohnproduktion)</label>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-s112-text-2 shrink-0">LP +</span>
+              <input aria-label="LP-Pickerl" name="lp_pickerl" type="text" maxLength={60} defaultValue={behaelter?.lp_pickerl ?? ''} className="form-input" placeholder="z.B. Huber – leer lassen, wenn frei" />
+            </div>
+            <p className="text-xs text-s112-muted mt-1">Nur ein Hinweis (z. B. reserviert für Lohnproduktion) – zählt in keinem Bestand und keiner Meldung.</p>
           </div>
           <div className="sm:col-span-2 flex flex-wrap gap-5">
             <label className="flex items-center gap-2 cursor-pointer">

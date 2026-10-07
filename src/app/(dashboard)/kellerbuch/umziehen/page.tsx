@@ -12,9 +12,11 @@ export const dynamic = 'force-dynamic'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
-export default async function UmziehenPage({ searchParams }: { searchParams: Promise<{ neu?: string }> }) {
+export default async function UmziehenPage({ searchParams }: { searchParams: Promise<{ neu?: string; von?: string }> }) {
   const sp = await searchParams
-  const initialShowForm = sp?.neu === '1'
+  // KAN-174 B: vom Gebinde aus (?von=<Behälter>) – Formular offen, Quelle mit diesem Gebinde vorbelegt
+  const vonBehaelter = typeof sp?.von === 'string' && /^[0-9a-f-]{36}$/i.test(sp.von) ? sp.von : null
+  const initialShowForm = sp?.neu === '1' || !!vonBehaelter
   const supabase = await createSupabaseServerClient()
   const role     = await getCurrentUserRole()
   const writeOk  = canWrite(role, 'kellerbuch')
@@ -108,6 +110,7 @@ export default async function UmziehenPage({ searchParams }: { searchParams: Pro
         behaelter={behaelter}
         umzuege={umzuege}
         writeOk={writeOk}
+        vonBehaelter={vonBehaelter}
         initialShowForm={initialShowForm}
       />
     </div>

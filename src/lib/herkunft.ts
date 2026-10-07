@@ -261,6 +261,20 @@ export function minHerkunft(codes: (string | null | undefined)[]): string | null
   return gemeinsam?.[0] ?? null
 }
 
+/**
+ * KAN-175 (07.10.2026): Herkunft einer Pressung mit mehreren Rebsorten (Sortenverschnitt). Von `code` aufwärts die erste
+ * Stufe ohne Sortenspiegel (sorten = null) – ein Gebiet mit Sortenspiegel (z. B. Thermenregion DAC, WLTH) trägt keinen
+ * Sortenverschnitt, die Herkunft geht auf das Bundesland (Niederösterreich, WLNÖ); dort bleibt sie (Sortenverschnitt
+ * zulässig, Bezeichnung „Sortenverschnitt …“ bzw. „Cuvée“). Gilt so für alle Gebiete mit Sortenspiegel im Katalog.
+ */
+export function herkunftFuerSortenverschnitt(code: string | null | undefined): { code: string | null; abgestuft: boolean } {
+  if (!code || !herkunftKnoten(code)) return { code: code ?? null, abgestuft: false }
+  for (const kandidat of herkunftKette(code)) {
+    if (herkunftKnoten(kandidat)?.sorten === null) return { code: kandidat, abgestuft: kandidat !== code }
+  }
+  return { code: 'wein', abgestuft: code !== 'wein' }
+}
+
 /** Engste der übergebenen Herkünfte (für „abgestuft von X auf Y“-Meldungen): größte Tiefe im Baum. */
 export function maxHerkunft(codes: (string | null | undefined)[]): string | null {
   let best: string | null = null

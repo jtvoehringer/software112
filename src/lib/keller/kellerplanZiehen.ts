@@ -55,7 +55,7 @@ export const ZIEL_FARBE: Readonly<Record<ZielArt, string>> = {
   gesperrt: '#C9564E',         // rot
 }
 
-const l = (n: number) => `${(Math.round(n * 100) / 100).toLocaleString('de-AT', { maximumFractionDigits: 2 })} L`
+const l = (n: number) => `${(Math.round(n * 100) / 100).toLocaleString('de-DE', { maximumFractionDigits: 2 })} L`
 
 /**
  * Bewertung eines Ziel-Gebindes für `menge` Liter der Charge `quelle` aus `quellGebinde`. `zielChargen` = eigene aktive

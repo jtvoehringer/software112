@@ -22,7 +22,7 @@ export default async function BehaelterEditPage({ params }: { params: Promise<{ 
   // des Nutzers, nicht nur dem aktiv gewählten Betrieb.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let rowsQuery = (supabase.from('behaelter') as any)
-    .select('id, name, typ, volumen_liter, standort, aktiv, notizen, stapler, gemeinsam').eq('id', id).limit(1)
+    .select('id, name, typ, volumen_liter, standort, aktiv, notizen, stapler, gemeinsam, lp_pickerl').eq('id', id).limit(1)
   if (tenantId) rowsQuery = rowsQuery.eq('tenant_id', tenantId)
   const { data: rows } = await rowsQuery
   type BehaelterRow = { id: string; name: string; typ: string | null; volumen_liter: number | null; standort: string | null; aktiv: boolean; notizen: string | null; stapler: boolean; gemeinsam: boolean }
