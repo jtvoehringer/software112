@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import LieferadressenKarte, { type LieferadresseZeile } from '@/components/crm/LieferadressenKarte'
 import { landAnzeige } from '@/lib/katalog/laender'
 import { useRouter } from 'next/navigation'
 import Link from '@/components/ui/Link'
@@ -401,9 +402,11 @@ function AktivitaetKarte({ a, writeOk, firmaEmail, firmaId }: { a: AktivitaetRow
 type Tab = 'kontakte' | 'aktivitaeten' | 'pipeline' | 'verkauefe' | 'notizen'
 
 export default function FirmaDetailClient({
-  firma, kontakte, aktivitaeten, pipeline, rabattgruppen = [], verkaeufe = [], writeOk,
+  firma, kontakte, aktivitaeten, pipeline, rabattgruppen = [], verkaeufe = [], writeOk, lieferadressen = [],
 }: {
   firma: FirmaRow
+  /** KAN-176: weitere Lieferadressen */
+  lieferadressen?: LieferadresseZeile[]
   kontakte: KontaktRow[]
   aktivitaeten: AktivitaetRow[]
   pipeline: PipelineEintragRow[]
@@ -613,6 +616,11 @@ export default function FirmaDetailClient({
         </div>
       </div>
       )}
+
+      {/* KAN-176: Lieferadressen */}
+      <div className="card p-4">
+        <LieferadressenKarte adressen={lieferadressen} firmaId={firma.id} writeOk={writeOk} />
+      </div>
 
       {/* Tabs */}
       <div className="border-b border-s112-border">

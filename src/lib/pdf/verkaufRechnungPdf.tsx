@@ -88,6 +88,8 @@ export type VerkaufRechnungPdfProps = {
     strasse: string | null
     plzOrt: string | null
   }
+  /** KAN-176: abweichende Lieferadresse (Zeilen), leer = Rechnungsadresse */
+  lieferadresse?: string[]
   positionen: VerkaufRechnungPosition[]
   gesamt: number
   gesamtNetto: number
@@ -98,7 +100,7 @@ export type VerkaufRechnungPdfProps = {
 }
 
 export function VerkaufRechnungDocument(props: VerkaufRechnungPdfProps) {
-  const { betrieb, rechnung, kunde, positionen, gesamt, gesamtNetto, ustGruppen, skonto, bank, fusstext } = props
+  const { betrieb, rechnung, kunde, lieferadresse, positionen, gesamt, gesamtNetto, ustGruppen, skonto, bank, fusstext } = props
   const color = '#2F63AC'
   // react-pdf's <Image> unterstützt zuverlässig nur Raster-Formate (PNG/JPG).
   // SVG-Logos (z. B. das App-Platzhalter-Logo mit eingebettetem <text>) lassen
@@ -142,6 +144,12 @@ export function VerkaufRechnungDocument(props: VerkaufRechnungPdfProps) {
           {kunde.zHande && <Text style={styles.rdetail}>z.H. {kunde.zHande}</Text>}
           {kunde.strasse && <Text style={styles.rdetail}>{kunde.strasse}</Text>}
           {kunde.plzOrt && <Text style={styles.rdetail}>{kunde.plzOrt}</Text>}
+          {lieferadresse && lieferadresse.length > 0 && (
+            <>
+              <Text style={[styles.rdetail, { marginTop: 6 }]}>Lieferadresse:</Text>
+              {lieferadresse.map((z, i) => <Text key={i} style={styles.rdetail}>{z}</Text>)}
+            </>
+          )}
         </View>
 
         <View style={styles.tableHead}>

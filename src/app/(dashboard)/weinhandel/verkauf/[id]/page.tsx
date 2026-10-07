@@ -13,6 +13,8 @@ import RechnungVersandPanel from './RechnungVersandPanel'
 import { Mail, Phone, Info, CreditCard, FileText } from 'lucide-react'
 import { fmtEur, fmtNum } from '@/lib/format'
 import { kontaktAnzeigename } from '@/lib/crm/titel'
+import { lieferadresseKurz, lieferadresseZeilen, type LieferadresseMoment } from '@/lib/crm/lieferadressen'
+import { landAnzeige } from '@/lib/katalog/laender'
 import { tbsText } from '@/lib/handel/tbsNummer'
 import { TB_POSITIONSTYPEN } from '@/lib/behoerden/transportbescheinigung'
 
@@ -70,7 +72,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
       .select(`
         id, datum, rechnungsnummer, notizen, erstellt_am, storniert, storniert_am, storniert_von_name, storno_grund,
         bezahlt, bezahlt_am, skonto_pct, skonto_tage, skonto_aktiv,
-        rechnung_versendet_am, rechnung_versendet_an, partner_daten,
+        rechnung_versendet_am, rechnung_versendet_an, partner_daten, lieferadresse,
         kontakt:kontakte!kontakt_id(id, titel, vorname, nachname, titel_nachgestellt, email, telefon, strasse, plz, ort, zahlungsziel_tage),
         firma:firmen(id, name, email, telefon, strasse, plz, ort, zahlungsziel_tage),
         zh_kontakt:kontakte!zh_kontakt_id(titel, vorname, nachname, titel_nachgestellt),
@@ -156,6 +158,9 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
       ? ' Bezahlte Beträge bleiben als Einnahme stehen – mit „Erstattet am“ werden die Zahlungen an diesem Tag storniert und in der E&A gegengebucht.'
       : '')
   const info = kundenInfo(posten)
+  // KAN-176: abweichende Lieferadresse (Momentaufnahme am Verkauf)
+  const liefer = (posten.lieferadresse ?? null) as LieferadresseMoment | null
+  const lieferZeilen = lieferadresseZeilen(liefer, iso => landAnzeige(iso))
 
   const FLASCHEN_LABEL: Record<number, string> = {
     187: '0,187 L', 375: '0,375 L', 500: '0,500 L', 750: '0,75 L',
@@ -351,6 +356,13 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
               {info.strasse && <p className="text-s112-text-2">{info.strasse}</p>}
               {info.plzOrt  && <p className="text-s112-text-2">{info.plzOrt}</p>}
             </div>
+            {/* KAN-176: abweichende Lieferadresse */}
+            {lieferZeilen.length > 0 && (
+              <div className="mb-8 ml-4 p-4 border border-s112-line rounded-sm inline-block min-w-[220px] align-top">
+                <p className="text-xs uppercase tracking-wide text-s112-muted mb-1">Lieferadresse</p>
+                {lieferZeilen.map((z, i) => <p key={i} className="text-s112-text-2">{z}</p>)}
+              </div>
+            )}
           </div>
         ) : (
           /* ── LIEFERSCHEIN ─────────────────────────────────────────────────── */
@@ -373,15 +385,24 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
             </div>
           </div>
         )}
-        {/* Empfänger (Lieferschein-Modus) */}
+        {/* Empfänger (Lieferschein-Modus) – KAN-176: mit abweichender Lieferadresse geht die Ware dorthin */}
         {!isRechnung && (
           <div className="mb-8">
             <p className="font-semibold">{kundenName(posten)}</p>
-            {posten.zh_kontakt && (
-              <p className="text-sm text-s112-text-1">z.H. {kontaktAnzeigename(posten.zh_kontakt as R)}</p>
+            {lieferZeilen.length > 0 ? (
+              <>
+                {lieferZeilen.map((z, i) => <p key={i} className="text-sm">{z}</p>)}
+                <p className="text-xs text-s112-muted mt-2">Rechnungsadresse: {[info.strasse, info.plzOrt].filter(Boolean).join(', ')}</p>
+              </>
+            ) : (
+              <>
+                {posten.zh_kontakt && (
+                  <p className="text-sm text-s112-text-1">z.H. {kontaktAnzeigename(posten.zh_kontakt as R)}</p>
+                )}
+                {info.strasse && <p className="text-sm">{info.strasse}</p>}
+                {info.plzOrt  && <p className="text-sm">{info.plzOrt}</p>}
+              </>
             )}
-            {info.strasse && <p className="text-sm">{info.strasse}</p>}
-            {info.plzOrt  && <p className="text-sm">{info.plzOrt}</p>}
           </div>
         )}
       </div>
@@ -411,6 +432,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
             <span className="font-medium text-s112-text">{kundenName(posten)}</span>
             {info.email   && <span className="text-s112-muted ml-3 inline-flex items-center gap-1"><Mail size={13} /> {info.email}</span>}
             {info.telefon && <span className="text-s112-muted ml-3 inline-flex items-center gap-1"><Phone size={13} /> {info.telefon}</span>}
+            {liefer?.strasse && <div className="mt-1"><span className="text-s112-muted">Lieferadresse:</span> {lieferadresseKurz(liefer)}{liefer.empfaenger ? ` (z. H. ${liefer.empfaenger})` : ''}</div>}
           </div>
         )}
         {posten.notizen && (

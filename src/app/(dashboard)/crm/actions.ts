@@ -18,6 +18,7 @@ import { ladeMandantMitglieder } from '@/lib/aufgaben/mitglieder'
 import { benachrichtigeAktivitaet } from '@/lib/benachrichtigungen/server'
 import { ladeMailAusPostfach } from '@/lib/email/mailLaden'
 import { titelAusFormular, titelNachgestelltAusFormular } from '@/lib/crm/titel'
+import { lieferadresseAus, lieferadresseFehler } from '@/lib/crm/lieferadressen'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -1008,5 +1009,46 @@ export async function dublettenIgnorierenViele(schluessel: string[]): Promise<{ 
     return { anzahl: liste.length }
   } catch (e) {
     return { error: e instanceof Error ? e.message : String(e) }
+  }
+}
+
+// ── KAN-176: Lieferadressen je Kontakt bzw. Firma ───────────────────────────────────────────────────────────────
+// Anlegen und Ändern mit Schreibrecht CRM; kein Löschen (Verkäufe verweisen darauf) – nur deaktivieren.
+export async function lieferadresseSpeichern(formData: FormData): Promise<{ error?: string }> {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const tenantId = await crmSchreibTenant()
+    const id = String(formData.get('id') ?? '').trim() || null
+    const kontaktId = String(formData.get('kontakt_id') ?? '').trim() || null
+    const firmaId = String(formData.get('firma_id') ?? '').trim() || null
+    if (!id && (kontaktId ? 1 : 0) + (firmaId ? 1 : 0) !== 1) return { error: 'Lieferadresse gehört zu genau einem Kontakt oder einer Firma.' }
+    const a = lieferadresseAus(Object.fromEntries(formData.entries()), landPruefen(formData.get('land')))
+    const fehler = lieferadresseFehler(a)
+    if (fehler) return { error: fehler }
+    const werte = { bezeichnung: a.bezeichnung, empfaenger: a.empfaenger, strasse: a.strasse, plz: a.plz, ort: a.ort, land: a.land,
+      notizen: String(formData.get('notizen') ?? '').trim() || null }
+    const tab = supabase.from('lieferadressen') as unknown as AR
+    const { error } = id
+      ? await tab.update(werte).eq('id', id).eq('tenant_id', tenantId)
+      : await tab.insert({ ...werte, tenant_id: tenantId, kontakt_id: kontaktId, firma_id: firmaId })
+    if (error) return { error: dbFehlerText(error, 'Lieferadresse konnte nicht gespeichert werden') }
+    revalidatePath(kontaktId ? `/crm/kontakte/${kontaktId}` : firmaId ? `/crm/firmen/${firmaId}` : '/crm')
+    if (id) { revalidatePath('/crm/kontakte'); revalidatePath('/crm/firmen') }
+    return {}
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Unbekannter Fehler beim Speichern der Lieferadresse' }
+  }
+}
+
+export async function lieferadresseAktivSetzen(id: string, aktiv: boolean, pfad: string): Promise<{ error?: string }> {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const tenantId = await crmSchreibTenant()
+    const { error } = await (supabase.from('lieferadressen') as unknown as AR).update({ aktiv }).eq('id', id).eq('tenant_id', tenantId)
+    if (error) return { error: dbFehlerText(error, 'Lieferadresse konnte nicht geändert werden') }
+    if (pfad.startsWith('/crm/')) revalidatePath(pfad)
+    return {}
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Unbekannter Fehler' }
   }
 }

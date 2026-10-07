@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import type { LieferadresseZeile } from '@/components/crm/LieferadressenKarte'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
@@ -151,8 +152,17 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
     })),
   }))
 
+
+  // KAN-176: Lieferadressen (wenige je Kontakt bzw. Firma)
+  // alle-ausnahme: Lieferadressen eines einzelnen Kontakts bzw. einer Firma, wenige
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: laRaw } = tenantId ? await (supabase.from('lieferadressen') as any)
+    .select('id, bezeichnung, empfaenger, strasse, plz, ort, land, notizen, aktiv').eq('firma_id', id).eq('tenant_id', tenantId)
+    .order('erstellt_am').limit(200) : { data: [] }
+
   return <FirmaDetailClient
     firma={firma}
+    lieferadressen={(laRaw ?? []) as LieferadresseZeile[]}
     kontakte={kontakte}
     aktivitaeten={aktivitaeten}
     pipeline={pipeline}
