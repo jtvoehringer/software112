@@ -112,7 +112,7 @@ const TABELLEN_KONTEXT = `
   ('kmw' | 'oechsle'). Spalten: ernte_parzellen (klosterneuburger, oechsle), pressung_weingaerten (kmw, oechsle),
   pressungen (kmw_grad, oechsle), weinausbau (kmw, oechsle), zukauf_posten (kmw, oechsle), traubenverkauf (kmw_grad,
   oechsle) – je mit mostgewicht_einheit. Fragen nach Öchsle aus diesen oechsle-Spalten beantworten; fehlt °Oe, gilt
-  °Oe = °KMW × (4,54 + 0,022 × °KMW). Durchschnitte immer mengen-(kg-)gewichtet über °KMW bilden (SUM(menge × kmw) /
+  °Oe = °KMW × (4,54 + 0,022 × °KMW). Durchschnitte immer mengengewichtet über °KMW bilden – Lese/Pressung nach kg, Keller nach Litern (SUM(menge × kmw) /
   SUM(menge)), nie °Oe mitteln. ama_meldepositionen.oechsle ist leer und wird NICHT verwendet.
 - weinausbau: Kellerbuch-Chargen (der "Keller-Bestand"). DREI VERSCHIEDENE, oft unterschiedliche Textfelder –
   name = frei vergebener Produkt-/Chargenname (z.B. "Partywein Kängaru", oft eine Fantasiebezeichnung, KEINE

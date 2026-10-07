@@ -28,9 +28,11 @@ describe('Neue Charge (Umzug in ein leeres Gebinde)', () => {
     assert.deepEqual(mostgewichtNeu([{ liter: 1, charge: { kmw: '18.40', oechsle: '91.0', mostgewicht_einheit: 'kmw' } }]).spalten,
       { kmw: 18.4, oechsle: 91, mostgewicht_einheit: 'kmw' })
   })
-  test('zwei Quellen mit verschiedenem Wert: Mittel in °KMW (Liter über die Dichte), Einheit kmw', () => {
+  test('zwei Quellen mit verschiedenem Wert: Mittel in °KMW litergewichtet (KAN-130, 07.10.2026), Einheit kmw', () => {
     const m = mostgewichtNeu([{ liter: 500, charge: charge(14) }, { liter: 500, charge: charge(22) }])
-    assert.deepEqual(m.spalten, { kmw: 18.07, oechsle: 89.2, mostgewicht_einheit: 'kmw' })
+    assert.deepEqual(m.spalten, { kmw: 18, oechsle: 88.8, mostgewicht_einheit: 'kmw' })
+    // ungleiche Liter: 300 L 18,4 + 100 L 20,0 → 18,80 (Liter direkt, nicht über die Dichte)
+    assert.equal(mostgewichtNeu([{ liter: 300, charge: charge(18.4) }, { liter: 100, charge: charge(20) }]).spalten.kmw, 18.8)
     // je 50 % nach MASSE ergibt 18,00 °KMW / 88,8 °Oe (Akzeptanzkriterium, Rechenkern)
     assert.deepEqual(mischen([{ menge: 50, kmw: 14 }, { menge: 50, kmw: 22 }]), { kmw: 18, oechsle: 88.8, einheit: 'kmw' })
   })

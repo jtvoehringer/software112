@@ -307,9 +307,10 @@ describe('(4) mischen, imGrenzbereich, format', () => {
     assert.deepEqual(mischen([{ menge: 0.3, kmw: 17.4 }, { menge: 0.7, kmw: 17.4 }]), kmw(17.4))
   })
 
-  test('Liter über die Dichte in kg: gleiche Volumina gewichten den süßeren Most stärker', () => {
+  test('KAN-130 (07.10.2026): Liter direkt gewichtet – gleiche Volumina ergeben das einfache Mittel', () => {
     const l = mischen([{ menge: 50, kmw: 14 }, { menge: 50, kmw: 22 }], 'l')
-    assert.equal(l.kmw, 18.07)
+    assert.equal(l.kmw, 18)
+    assert.equal(l.oechsle, 88.8)
     assert.equal(l.einheit, 'kmw')
   })
 
