@@ -22,6 +22,7 @@ import 'server-only'
 //   dac                dac_antrag.weinausbau_id (auch inaktive Anträge)
 //   zukauf_ziel        zukauf_posten.ziel_weinausbau_id, nur aktive Zukäufe
 //   verarbeitung       keller_verarbeitungen.weinausbau_id, nicht storniert (KAN-41 Paket 3a, AB_VERAR)
+//   zugangskorrektur   keller_zugangskorrekturen.weinausbau_id, nicht storniert (KAN-53, INV_PLUS)
 //
 // Mandant: wird aus der Charge selbst gelesen; alle Zählabfragen filtern darauf
 // (RLS allein reicht nicht, siehe scripts/check-tenant-isolation.js). Mit dem
@@ -53,12 +54,13 @@ export type FolgebuchungArt =
   | 'zukauf_ziel'
   | 'schwund'
   | 'verarbeitung'
+  | 'zugangskorrektur'
 
 export type Folgebuchung = { art: FolgebuchungArt; anzahl: number }
 
 // Reihenfolge der Ausgabe (mengenwirksame Buchungen zuerst)
 const REIHENFOLGE: FolgebuchungArt[] = [
-  'umzug', 'schwund', 'verarbeitung', 'verschnitt_quelle', 'verschnitt_ziel', 'fuellung',
+  'umzug', 'schwund', 'verarbeitung', 'zugangskorrektur', 'verschnitt_quelle', 'verschnitt_ziel', 'fuellung',
   'tankverkauf', 'zukauf_ziel', 'behandlung', 'analyse', 'dac',
 ]
 
@@ -66,6 +68,7 @@ const BEZEICHNUNG: Record<FolgebuchungArt, [einzahl: string, mehrzahl: string]> 
   umzug:             ['Umzug', 'Umzüge'],
   schwund:           ['Schwundbuchung', 'Schwundbuchungen'],
   verarbeitung:      ['Verarbeitung', 'Verarbeitungen'],
+  zugangskorrektur:  ['Zugangskorrektur', 'Zugangskorrekturen'],
   verschnitt_quelle: ['Verschnitt (als Quelle)', 'Verschnitte (als Quelle)'],
   verschnitt_ziel:   ['Verschnitt (als Ziel)', 'Verschnitte (als Ziel)'],
   fuellung:          ['Füllung', 'Füllungen'],
@@ -125,7 +128,7 @@ export async function folgebuchungenDerCharge(
   const tenantId: string = (chargeRes.data as R).tenant_id
   const id = weinausbauId
 
-  const [umzuege, vQuellen, vZiel, fChargen, fDirekt, tank, behandlungen, analysen, dac, zukauf, verarbeitungen] = await Promise.all([
+  const [umzuege, vQuellen, vZiel, fChargen, fDirekt, tank, behandlungen, analysen, dac, zukauf, verarbeitungen, korrekturen] = await Promise.all([
     mit('umzug') || mit('schwund')
       ? (supabase.from('keller_umzuege') as any)
           .select('id, umzug_batch_id, umzug_typ')
@@ -202,6 +205,13 @@ export async function folgebuchungenDerCharge(
           .eq('weinausbau_id', id)
           .eq('tenant_id', tenantId)
       : leer,
+    mit('zugangskorrektur')
+      ? (supabase.from('keller_zugangskorrekturen') as R)
+          .select('id', { count: 'exact', head: true })
+          .is('storniert_am', null)   // stornierte Korrekturen zählen nicht
+          .eq('weinausbau_id', id)
+          .eq('tenant_id', tenantId)
+      : leer,
   ])
 
   const umzugZeilen = zeilen('keller_umzuege', umzuege)
@@ -229,6 +239,7 @@ export async function folgebuchungenDerCharge(
     analyse:           anzahl('weinanalysen', analysen),
     dac:               anzahl('dac_antrag', dac),
     verarbeitung:      anzahl('keller_verarbeitungen', verarbeitungen),
+    zugangskorrektur:  anzahl('keller_zugangskorrekturen', korrekturen),
   }
 
   return REIHENFOLGE

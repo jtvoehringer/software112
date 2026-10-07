@@ -162,7 +162,7 @@ export async function ladePruefnummerDaten(
   const zugang = (id: unknown, z: PnZugang) => { daten.get(String(id))?.zugaenge.push(z) }
 
   for (const block of bloecke(mitAntrag)) {
-    const [waRes, vRes, zkRes, umRes, pbRes, fRes, fcRes, tvRes, kbRes] = await Promise.all([
+    const [waRes, vRes, zkRes, umRes, pbRes, fRes, fcRes, tvRes, kbRes, korrRes] = await Promise.all([
       alle<R>((supabase.from('weinausbau') as any)
         .select('id, menge_liter')
         .eq('tenant_id', tenantId)
@@ -217,6 +217,13 @@ export async function ladePruefnummerDaten(
         .eq('typ.pn_wirkung', 'veraenderung')
         .in('weinausbau_id', block)
         .order('id')),
+      // KAN-53: Zugangskorrekturen (Mehrmenge, Inventur-Plus) – prüfnummernschädlich
+      alle<R>((supabase.from('keller_zugangskorrekturen') as any)
+        .select('id, datum, weinausbau_id')
+        .is('storniert_am', null)
+        .eq('tenant_id', tenantId)
+        .in('weinausbau_id', block)
+        .order('id')),
     ])
     if (waRes.error) fehler('Chargen', waRes.error)
     if (vRes.error) fehler('Verschnitte', vRes.error)
@@ -227,6 +234,7 @@ export async function ladePruefnummerDaten(
     if (fcRes.error) fehler('Füllungs-Chargen', fcRes.error)
     if (tvRes.error) fehler('Tankverkäufe', tvRes.error)
     if (kbRes.error) fehler('Kellerbehandlungen', kbRes.error)
+    if (korrRes.error) fehler('Zugangskorrekturen', korrRes.error)
 
     for (const w of waRes.data) {
       const d = daten.get(String(w.id))
@@ -239,6 +247,7 @@ export async function ladePruefnummerDaten(
       if (pr && pr.tenant_id === tenantId) zugang(p.weinausbau_id, { art: 'pressung', datum: pnTag(pr.datum), id: String(p.id) })
     }
     for (const k of kbRes.data) zugang(k.weinausbau_id, { art: 'behandlung', datum: pnTag(k.datum), id: String(k.id) })
+    for (const k of korrRes.data) zugang(k.weinausbau_id, { art: 'korrektur', datum: pnTag(k.datum), id: String(k.id) })
 
     // Umzug: Zugang, wenn Wein aus einer ANDEREN Charge in die Charge kommt. Zielzeilen tragen
     // nach_weinausbau_id, die Quellen stehen in den quelle-Zeilen desselben Batches; ältere
@@ -304,7 +313,7 @@ export async function chargenDerAntraege(supabase: any, tenantId: string, antrag
   return out
 }
 
-const ENDE_VORGANG: readonly PnZugangArt[] = ['verschnitt', 'zukauf', 'pressung', 'zugang', 'behandlung', 'abstufung']
+const ENDE_VORGANG: readonly PnZugangArt[] = ['verschnitt', 'zukauf', 'pressung', 'zugang', 'behandlung', 'abstufung', 'korrektur']
 
 /** KAN-99: Felder der Gültigkeit je Charge aus einer pruefnummer_chargen-Zeile (KAN-100: auch Behandlung, Abstufung) */
 function gueltigkeit(row: R): Pick<PnAntrag, 'gueltigBis' | 'endeArt'> {
