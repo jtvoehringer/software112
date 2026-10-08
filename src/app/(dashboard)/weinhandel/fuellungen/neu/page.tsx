@@ -24,15 +24,28 @@ type R = Record<string, any>
 export default async function NeueFuellungPage({
   searchParams,
 }: {
-  searchParams: Promise<{ charge?: string }>
+  searchParams: Promise<{ charge?: string; lohnversektung?: string }>
 }) {
   const role = await getCurrentUserRole()
   if (!canWrite(role, 'warenwirtschaft')) redirect('/weinhandel')
 
-  const { charge: chargeId } = await searchParams
+  const { charge: chargeParam, lohnversektung: lvParam } = await searchParams
+  let chargeId = chargeParam
   const supabase = await createSupabaseServerClient()
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId ?? null
+  // KAN-232: Rückkehr aus der Lohnversektung – Charge = versandter Grundwein, nur bei offenem Versand
+  let lohnversektung: { id: string; firma: string | null; datum: string; literVersandt: number } | null = null
+  if (lvParam && tenantId) {
+    const { data: lv } = await (supabase.from('lohnversektungen') as R)
+      .select('id, weinausbau_id, datum, liter_versandt, storniert_am, abgeschlossen_am, firma:firmen!firma_id(name)')
+      .eq('id', lvParam).eq('tenant_id', tenantId).maybeSingle()
+    const l = lv as R | null
+    if (l && !l.storniert_am && !l.abgeschlossen_am) {
+      lohnversektung = { id: l.id, firma: l.firma?.name ?? null, datum: String(l.datum), literVersandt: Number(l.liter_versandt) }
+    }
+    if (l) chargeId = l.weinausbau_id as string
+  }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
@@ -117,9 +130,11 @@ export default async function NeueFuellungPage({
         <span className="text-s112-text font-medium">Neue Füllung</span>
       </nav>
 
-      <h1 className="text-2xl font-semibold text-s112-text mb-1">Neue Füllung anlegen</h1>
+      <h1 className="text-2xl font-semibold text-s112-text mb-1">{lohnversektung ? 'Rückkehr aus der Lohnversektung' : 'Neue Füllung anlegen'}</h1>
       <p className="text-sm text-s112-muted mb-6">
-        Der Wein verlässt den Keller und wird als verkaufsfertiger Artikel im Weinhandel angelegt.
+        {lohnversektung
+          ? 'Der versektete Wein kommt in Flaschen zurück und wird als Artikel im Weinhandel angelegt (Journal LNSKT/LNSKT_ZU).'
+          : 'Der Wein verlässt den Keller und wird als verkaufsfertiger Artikel im Weinhandel angelegt.'}
       </p>
 
       {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
@@ -131,6 +146,7 @@ export default async function NeueFuellungPage({
         customWeinbaugebiete={customWeinbaugebiete}
         action={createFuellung}
         defaultChargeId={chargeId}
+        lohnversektung={lohnversektung}
         losVorschau={losVorschau}
         sortenJeCharge={sortenJeCharge}
       />

@@ -311,6 +311,7 @@ export const BSM_ZUORDNUNG: readonly { vorgang: string; code: string; hinweis?: 
   { vorgang: 'Flaschen „Anfangsbestand (Altbestand, ±)“ mit negativer Menge', code: 'SCHWUND', hinweis: 'Abgang (Altbestand-Korrektur), keine Eröffnung' },
   { vorgang: 'Verarbeitung (Traubensaft, Essig, Brennerei, Sonstiges)', code: 'AB_VERAR', hinweis: 'Abgang aus der Charge über „Verarbeiten“ (KAN-41)' },
   { vorgang: 'Produktion: Quell-Charge / neue Charge (Spritzer, Weinmischgetränk, Perlwein, Schaumwein, PetNat)', code: 'AB_VERAR / ZU_PROD', hinweis: 'Zugang = Wein der Quellen plus Wasser, Saft, Aroma; Erzeugnis der neuen Charge (KAN-118)' },
+  { vorgang: 'Lohnversektung: Grundwein-Charge / Sekt in Flaschen (Rückkehr)', code: 'LNSKT / LNSKT_ZU', hinweis: 'Versand bucht nichts (bleibt eigener Bestand bei Dritten); bei der Rückkehr Abgang Grundwein, Zugang Sekt – Differenz = Dosage/Verluste (KAN-232)' },
   { vorgang: 'Kellerbehandlung mit Volumenzugang (Süßreserve, RTK …)', code: 'ZU_BEH', hinweis: 'Zugang an der Charge über „Volumenzugang“ der Behandlung (KAN-41)' },
   { vorgang: 'Umzug, Filtration', code: 'UMZUG / FILTRAT', hinweis: 'neutral' },
   { vorgang: 'Füllung (offen → Flasche)', code: 'FUELLUNG', hinweis: 'neutral: Abgang offen = Zugang Flasche' },
@@ -331,6 +332,7 @@ export function buchungsartBewegung(art: Bewegung['art'], k: { zukaufArt?: strin
     case 'verarbeitung': return 'AB_VERAR'   // KAN-41 Paket 3a
     case 'produktion_aus': return 'AB_VERAR'   // KAN-118: Quelle einer Produktion
     case 'produktion_ein': return 'ZU_PROD'   // KAN-118: neue Charge (Spritzer, Perlwein, Schaumwein, PetNat)
+    case 'lohnversektung': return 'LNSKT'   // KAN-232: Grundwein kommt als Sekt zurück (Abgang aus der Charge)
     case 'zugangskorrektur': return 'INV_PLUS'   // KAN-53: keine BSM-Buchungsart – Warnung wie im Journal
     case 'behandlung': return 'ZU_BEH'   // KAN-41 Paket 3b: nur Behandlungen mit Volumenzugang haben eine Menge
     case 'verschneidung_aus': return 'VS_AB'
@@ -346,10 +348,11 @@ export function buchungsartBewegung(art: Bewegung['art'], k: { zukaufArt?: strin
 export const HANDELSWARE_HINWEIS = 'Flaschenzukauf (Handelsware)'
 
 /** Buchungsart einer Flaschenbuchung (FlaschenBuchung.art, Stück mit Vorzeichen) */
-export function buchungsartFlasche(art: string, menge: number, k: { kundeAusland?: boolean; mitCharge?: boolean; eroeffnung?: boolean } = {}): string {
+export function buchungsartFlasche(art: string, menge: number, k: { kundeAusland?: boolean; mitCharge?: boolean; eroeffnung?: boolean; lohnversektung?: boolean } = {}): string {
   switch (art) {
     case 'abfuellung': case 'storno_fuellung':
-      return k.eroeffnung ? 'EROEFF' : k.mitCharge ? 'FUELLUNG' : 'ZK_FLA'
+      // KAN-232: Sekt aus der Lohnversektung (Zugang im Flaschenbestand)
+      return k.eroeffnung ? 'EROEFF' : k.lohnversektung && k.mitCharge ? 'LNSKT_ZU' : k.mitCharge ? 'FUELLUNG' : 'ZK_FLA'
     case 'verkauf': case 'verkauf_storno': case 'verkauf_alt': case 'verkauf_alt_storno':
       return k.kundeAusland ? 'VK_FL_AU' : 'VK_FL_AT'
     case 'bruch': case 'eigenverbrauch': case 'schwund':
@@ -915,7 +918,7 @@ export function berechneBsm(g: BestandsGrundlage, zusatz: BsmZusatz, z: BsmZeitr
       const liter = l2((fb.menge * p.ml) / 1000)
       const istVerkauf = fb.art.startsWith('verkauf')
       const k = istVerkauf ? kunde(fb.verkaufspostenId) : { ausland: false, land: null, quelle: null }
-      const code = buchungsartFlasche(fb.art, fb.menge, { kundeAusland: k.ausland, mitCharge: !!f.weinausbau_id, eroeffnung })
+      const code = buchungsartFlasche(fb.art, fb.menge, { kundeAusland: k.ausland, mitCharge: !!f.weinausbau_id, eroeffnung, lohnversektung: !!f.lohnversektung_id })
       const altbestandAb = fb.art === 'anfangsbestand' && fb.menge < 0
       if (altbestandAb) altbestandMinus.push({ name, liter })
       const vp = fb.verkaufspostenId ? zusatz.verkaufsposten.get(fb.verkaufspostenId) : undefined

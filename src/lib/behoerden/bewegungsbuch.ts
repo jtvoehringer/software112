@@ -41,7 +41,7 @@ import { GEBINDE_REKONSTRUIERT, quellGebindeAusDaten, quellGebindeDesVerschnitts
 export type BewegungsArt =
   | 'uebertrag' | 'anfangsbestand' | 'zukauf' | 'pressung' | 'umzug_ein' | 'umzug_aus' | 'filtration_ein'
   | 'filtration_aus' | 'abfuellung' | 'verkauf' | 'behandlung' | 'verschneidung_ein' | 'verschneidung_aus' | 'schwund'
-  | 'verarbeitung' | 'zugangskorrektur' | 'produktion_aus' | 'produktion_ein'
+  | 'verarbeitung' | 'zugangskorrektur' | 'produktion_aus' | 'produktion_ein' | 'lohnversektung'
 
 export const BEWEGUNGSART_LABEL: Record<BewegungsArt, string> = {
   uebertrag:         'Übertrag',
@@ -62,6 +62,7 @@ export const BEWEGUNGSART_LABEL: Record<BewegungsArt, string> = {
   zugangskorrektur:  'Zugangskorrektur',   // KAN-53
   produktion_aus:    'Produktion (Abgang)',   // KAN-118
   produktion_ein:    'Produktion (Zugang)',   // KAN-118
+  lohnversektung:    'Lohnversektung (Rückkehr als Sekt)',   // KAN-232
 }
 
 export type Bewegung = {
@@ -192,7 +193,7 @@ async function ladeRoh(supabase: any, tenantId: string, behaelterId: string): Pr
         .order('datum', { ascending: true })
         .order('id', { ascending: true }), 'keller_umzuege'),
       liste((supabase.from('fuellungen') as any)
-        .select('id, datum, name, anzahl_flaschen, menge_liter_gefuellt, flaschengroesse_ml, pruefnummer, chargennummer, weinausbau_id, storniert_am, storno_grund, storniert_von_name')
+        .select('id, datum, name, anzahl_flaschen, menge_liter_gefuellt, flaschengroesse_ml, pruefnummer, chargennummer, weinausbau_id, storniert_am, storno_grund, storniert_von_name, lohnversektung_id')
         .eq('tenant_id', tenantId)
         .in('weinausbau_id', ids)
         .or('aktiv.eq.true,storniert_am.not.is.null')   // KAN-145 B3: stornierte Füllung als Buchung + Gegenbuchung
@@ -514,8 +515,9 @@ function bewegungenAus(roh: Roh): Bewegung[] {
     }
     bewegungen.push({
       datum: tag(f.datum),
-      art: 'abfuellung',
-      beschreibung: `Abfüllung: ${f.name}${f.pruefnummer ? ` · Prüfnr. ${f.pruefnummer}` : ''}`,
+      // KAN-232: Rückkehr aus der Lohnversektung – Grundwein ab (LNSKT), Sekt in Flaschen zu (LNSKT_ZU)
+      art: f.lohnversektung_id ? 'lohnversektung' : 'abfuellung',
+      beschreibung: `${f.lohnversektung_id ? 'Rückkehr aus Lohnversektung (Sekt)' : 'Abfüllung'}: ${f.name}${f.pruefnummer ? ` · Prüfnr. ${f.pruefnummer}` : ''}`,
       menge: -liter(l),
       extra: num(f.anzahl_flaschen) > 0 ? `${fmtNum(Math.trunc(num(f.anzahl_flaschen)))} Fl. à ${Math.trunc(num(f.flaschengroesse_ml))} ml` : undefined,
       fuellung_id: f.id,
@@ -824,7 +826,7 @@ export async function ladeBewegungenBetrieb(supabase: any, tenantId: string): Pr
       .eq('pressung.tenant_id', tenantId)
       .order('id', { ascending: true }), 'pressung_behaelter'),
     liste((supabase.from('fuellungen') as any)
-      .select('id, datum, erstellt_am, name, jahrgang, rebsorte, qualitaet, zusatzbezeichnung, erzeugnis, sekt_stufe, land_iso, aktiv, bestand_flaschen, anzahl_flaschen, menge_liter_gefuellt, flaschengroesse_ml, pruefnummer, chargennummer, weinausbau_id, storniert_am, storno_grund, storniert_von_name, import_quelle, weinart, zukauf_posten_id, weinausbau:weinausbau_id(weinart)')
+      .select('id, datum, erstellt_am, name, jahrgang, rebsorte, qualitaet, zusatzbezeichnung, erzeugnis, sekt_stufe, land_iso, aktiv, bestand_flaschen, anzahl_flaschen, menge_liter_gefuellt, flaschengroesse_ml, pruefnummer, chargennummer, weinausbau_id, storniert_am, storno_grund, storniert_von_name, import_quelle, weinart, zukauf_posten_id, lohnversektung_id, weinausbau:weinausbau_id(weinart)')
       // storno-sichtbar: stornierte Füllung als Buchung + Gegenbuchung (KAN-145 B3), Flaschenbestand zum Stichtag
       .eq('tenant_id', tenantId)
       .order('name', { ascending: true })
