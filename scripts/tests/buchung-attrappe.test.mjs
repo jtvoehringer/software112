@@ -33,6 +33,15 @@ describe('Supabase-Attrappe (buchung-attrappe.mjs)', () => {
     assert.deepEqual((await db.from('t').insert({ id: 3, nr: 'A' }).select('nr').single()).data, { nr: 'A' })
   })
 
+  test('ilike: ohne Groß-/Kleinschreibung, % und _ als Platzhalter, Sonderzeichen wörtlich, NULL passt nie', async () => {
+    const db = datenbank({ t: [{ id: 1, n: 'Wagram-Ost' }, { id: 2, n: 'wagram.ost' }, { id: 3, n: null }, { id: 4, n: 'Wagram (alt)' }] })
+    const ids = async m => (await db.from('t').select('id').ilike('n', m)).data.map(r => r.id)
+    assert.deepEqual(await ids('WAGRAM-OST'), [1])
+    assert.deepEqual(await ids('wagram_ost'), [1, 2])
+    assert.deepEqual(await ids('wagram%'), [1, 2, 4])
+    assert.deepEqual(await ids('Wagram (alt)'), [4])
+  })
+
   test('update/delete/insert mit .select(…): Rückgabe auf die Liste beschränkt, ohne .select() keine', async () => {
     const db = datenbank({ t: [{ id: 1, a: 'x', b: 2 }, { id: 2, a: 'y', b: 3 }] })
     assert.deepEqual((await db.from('t').update({ a: 'z' }).eq('id', 1).select('id')).data, [{ id: 1 }])

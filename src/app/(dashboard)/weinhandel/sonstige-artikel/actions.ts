@@ -2,7 +2,7 @@
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { getCurrentMembership } from '@/lib/auth/roles'
+import { canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
@@ -20,6 +20,8 @@ async function getTenantId(): Promise<string> {
   if (!membership) throw new AktionsFehler('Kein aktiver Mandant gefunden')
   await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
   await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
+  // KAN-242: wie RLS (modul_* auf sonstige_artikel) und die RPCs s112_artikel_buchen/_bewegung_stornieren = Warenwirtschaft
+  if (!canWrite(membership, 'warenwirtschaft')) throw new AktionsFehler('Keine Berechtigung für Produkte – dafür ist die Freigabe Warenwirtschaft nötig.')
   return membership.tenantId
 }
 
@@ -64,13 +66,16 @@ export async function deleteSonstigesArtikel(id: string): Promise<{ error?: stri
     const tenantId = await getTenantId()
     // KAN-115: Produkte mit Lagerbewegungen oder Verkaufspositionen (sonstige_artikel_id) lassen sich nicht löschen –
     // die Datenbank lehnt ab (FK), dann deaktivieren statt löschen.
-    const { error } = await (supabase.from('sonstige_artikel') as any)
+    const { data, error } = await (supabase.from('sonstige_artikel') as any)
       .delete()
       .eq('id', id).eq('tenant_id', tenantId)
+      .select('id')
     if (error) {
       if ((error as AR).code === '23503') return { error: 'Das Produkt hat Lagerbewegungen oder Verkäufe und kann nicht gelöscht werden – bitte deaktivieren.' }
       return { error: (error as AR).message }
     }
+    // KAN-242: RLS filtert still (0 Zeilen) – vorher meldete die Seite „gelöscht“, das Produkt blieb aber stehen
+    if (((data ?? []) as unknown[]).length !== 1) return { error: 'Das Produkt wurde nicht gelöscht (nicht gefunden oder keine Berechtigung) – bitte deaktivieren.' }
     revalidatePath('/weinhandel/sonstige-artikel')
     return {}
   } catch (e) {

@@ -24,7 +24,7 @@
 //      !inner nur die Einbettung selbst (1:1 → null, 1:n → gefilterte Liste) – wie PostgREST
 //    - order: Zahlen numerisch (auch numeric als Text), sonst Textvergleich nach Codepunkten (keine
 //      Kollation der Datenbank); NULL wie in Postgres aufsteigend zuletzt, absteigend zuerst
-//      (nullsFirst übersteuert); limit/range, count/head, maybeSingle
+//      (nullsFirst übersteuert); limit/range, count/head, maybeSingle, ilike (% und _)
 //    - update/delete/insert ändern die Tabellen im Speicher
 //    Nicht nachgebildet: Schema (unbekannte Spaltennamen und Spaltentypen fallen nicht auf),
 //    Constraints, Trigger, Kaskaden, echte RLS (nur über den Eingriff rls), Casts und
@@ -325,6 +325,12 @@ export function datenbank(tabellen, { vorher = () => null, rls = () => true, rpc
       eq(k, v) { eintrag.filter.push(['eq', k, v]); bedingungen.push({ k, pruefe: w => gleich(w, v) }); return q },
       neq(k, v) { eintrag.filter.push(['neq', k, v]); bedingungen.push({ k, pruefe: w => !gleich(w, v) }); return q },
       in(k, v) { eintrag.filter.push(['in', k, v]); bedingungen.push({ k, pruefe: w => v.some(x => gleich(w, x)) }); return q },
+      // ilike wie Postgres: % = beliebig viele, _ = genau ein Zeichen, ohne Groß-/Kleinschreibung
+      ilike(k, muster) {
+        eintrag.filter.push(['ilike', k, muster])
+        const re = new RegExp('^' + [...String(muster)].map(c => c === '%' ? '.*' : c === '_' ? '.' : c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('') + '$', 'is')
+        bedingungen.push({ k, pruefe: w => w != null && re.test(String(w)) }); return q
+      },
       is(k, v) { eintrag.filter.push(['is', k, v]); bedingungen.push({ k, pruefe: w => (w ?? null) === v }); return q },
       not(k, op, v) {
         eintrag.filter.push(['not', k, op, v])

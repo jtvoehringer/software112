@@ -1,7 +1,7 @@
 'use server'
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentMembership } from '@/lib/auth/roles'
+import { canAdmin, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb, seitenBetriebFehler } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff, schreibSperreFehler } from '@/lib/auth/sperren'
 import { revalidatePath } from 'next/cache'
@@ -18,8 +18,11 @@ async function getTenantId(): Promise<string> {
   if (!membership) throw new AktionsFehler('Kein aktiver Mandant gefunden')
   await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
   await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
+  if (!canWrite(membership, 'rieden')) throw new AktionsFehler(LAGEN_RECHTE_MELDUNG)   // KAN-242: wie RLS (modul_*)
   return membership.tenantId
 }
+
+const LAGEN_RECHTE_MELDUNG = 'Keine Berechtigung für Rieden – dafür ist die Freigabe Rieden nötig.'
 
 export async function createLage(formData: FormData) {
   const supabase = await createSupabaseServerClient()
@@ -80,13 +83,19 @@ export async function deleteLage(id: string): Promise<{ error?: string }> {
     if (betriebGewechselt) return { error: betriebGewechselt }
     const aboGesperrt = await schreibSperreFehler(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
     if (aboGesperrt) return { error: aboGesperrt }
+    // KAN-242: Löschen erlaubt die Datenbank nur der Betriebsleitung (Policy „lagen: admin can delete“) und mit Freigabe
+    // Rieden. Vorher meldete ein Mitarbeiter-Konto „gelöscht“, die Ried blieb aber stehen (RLS filtert still: 0 Zeilen).
+    if (!canWrite(membership, 'rieden')) return { error: LAGEN_RECHTE_MELDUNG }
+    if (!canAdmin(membership.role)) return { error: 'Eine Ried löschen darf nur die Betriebsleitung.' }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase.from('lagen') as any)
+    const { data, error } = await (supabase.from('lagen') as any)
       .delete()
       .eq('id', id)
       .eq('tenant_id', membership.tenantId)
+      .select('id')
     if (error) return { error: (error as AR).message }
+    if (((data ?? []) as unknown[]).length !== 1) return { error: 'Die Ried wurde nicht gelöscht (nicht gefunden oder keine Berechtigung) – bitte die Seite neu laden.' }
 
     revalidatePath('/lagen')
     revalidatePath('/weingarten')

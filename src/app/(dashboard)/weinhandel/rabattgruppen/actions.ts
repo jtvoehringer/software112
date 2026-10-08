@@ -1,7 +1,7 @@
 'use server'
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentMembership } from '@/lib/auth/roles'
+import { canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { revalidatePath } from 'next/cache'
@@ -19,6 +19,8 @@ async function getTenantId(): Promise<string> {
   if (!id) throw new AktionsFehler('Kein Betrieb gefunden')
   await pruefeSeitenBetrieb(id)   // KAN-30: Seite aus einem anderen Betrieb?
   await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
+  // KAN-242: wie RLS (modul_insert/_update/_delete = Warenwirtschaft)
+  if (!membership || !canWrite(membership, 'warenwirtschaft')) throw new AktionsFehler('Keine Berechtigung für Rabattgruppen – dafür ist die Freigabe Warenwirtschaft nötig.')
   return id
 }
 
@@ -53,10 +55,13 @@ export async function updateRabattgruppe(id: string, formData: FormData) {
 export async function deleteRabattgruppe(id: string) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
-  const { error } = await (supabase.from('rabattgruppen') as any)
+  const { data, error } = await (supabase.from('rabattgruppen') as any)
     .delete()
     .eq('id', id)
     .eq('tenant_id', tenantId)
+    .select('id')
   if (error) throw new AktionsFehler((error as AR).message)
+  // KAN-242: RLS filtert still (0 Zeilen) – nicht als gelöscht melden
+  if (((data ?? []) as unknown[]).length !== 1) throw new AktionsFehler('Die Rabattgruppe wurde nicht gelöscht (nicht gefunden oder keine Berechtigung) – bitte die Seite neu laden.')
   revalidatePath('/weinhandel/rabattgruppen')
 }

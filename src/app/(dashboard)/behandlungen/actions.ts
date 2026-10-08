@@ -2,7 +2,7 @@
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { alle, bloecke } from '@/lib/supabase/alle'
-import { getCurrentMembership } from '@/lib/auth/roles'
+import { canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { hatModul } from '@/lib/auth/modul'
@@ -41,6 +41,8 @@ async function getTenantId(): Promise<string> {
   if (!membership) throw new AktionsFehler('Kein aktiver Mandant gefunden')
   await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb? (PSM-Abgang, Transaktionsnummer)
   await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
+  // KAN-242: wie RLS (modul_* auf behandlungen/behandlung_grundstuecke = Rieden) – vorab, damit nichts halb geschrieben wird
+  if (!canWrite(membership, 'rieden')) throw new AktionsFehler('Keine Berechtigung für Maßnahmen – dafür ist die Freigabe Rieden nötig.')
   return membership.tenantId
 }
 
