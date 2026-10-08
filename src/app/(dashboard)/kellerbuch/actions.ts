@@ -8,7 +8,7 @@ import {
   type QualitaetsAngabe,
 } from '@/lib/wein/qualitaetsrang'
 import { qualitaetFehler, qualitaetsAngabeAusFormular, qualitaetsAngabeFehler } from '@/lib/wein/qualitaet'
-import { getCurrentMembership, canWrite, canAdmin } from '@/lib/auth/roles'
+import { getCurrentMembership, canWrite, canAdmin, type Modul } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
@@ -39,24 +39,17 @@ import { heuteWien } from '@/lib/datum/wien'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
-// Aktiv gewählten Betrieb respektieren (Cookie-basiert) statt einer beliebigen/ersten
-// tenant_memberships-Zeile – sonst können bei Mehrfach-Mitgliedschaft Daten des falschen
-// Betriebs gelesen/verändert werden.
-async function getTenantId(): Promise<string | null> {
-  const membership = await getCurrentMembership()
-  await pruefeSeitenBetrieb(membership?.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
-  await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
-  return membership?.tenantId ?? null
-}
-
-// Für Aktionen, die mehrere Tabellen zurückbuchen bzw. löschen (Storno, Kellerbehandlung
-// löschen): Schreibrecht im Kellerbuch vorab prüfen, statt halb an RLS zu scheitern.
-async function kellerbuchSchreibrecht(): Promise<string> {
+// Kontext jeder schreibenden Kellerbuch-Action: aktiver Betrieb (Cookie, nicht irgendeine Mitgliedschaft), Betrieb der
+// Seite (KAN-30), Nur-Lesen-Modus (KAN-5) und das Schreibrecht vorab – statt halb an RLS zu scheitern.
+// module: wie die RLS der jeweiligen Tabelle (modul_insert/_update) – Gebinde und Analysen Kellerbuch, Chargen Kellerbuch
+// oder Rieden, Schwund (keller_umzuege, RPC schwund_buchen) Kellerbuch oder Warenwirtschaft. Seit KAN-241 in ALLEN
+// schreibenden Actions dieser Datei (vorher prüften Gebinde, Charge bearbeiten, Analyse und Schwund nur per RLS).
+async function kellerbuchSchreibrecht(module: Modul[] = ['kellerbuch']): Promise<string> {
   const membership = await getCurrentMembership()
   if (!membership) throw new AktionsFehler('Kein Betrieb gefunden')
   await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: vor den Rechten – sonst meldet ein veralteter Tab die Rechte des neuen Betriebs
   await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
-  if (!canWrite(membership, 'kellerbuch')) throw new AktionsFehler('Keine Schreibberechtigung für das Kellerbuch in diesem Betrieb.')
+  if (!module.some(m => canWrite(membership, m))) throw new AktionsFehler('Keine Schreibberechtigung für das Kellerbuch in diesem Betrieb.')
   return membership.tenantId
 }
 
@@ -97,8 +90,7 @@ export async function pickerlEntfernen(behaelterId: string) {
 // BEHAELTER
 export async function createBehaelter(formData: FormData) {
   const supabase  = await createSupabaseServerClient()
-  const tenantId  = await getTenantId()
-  if (!tenantId) throw new AktionsFehler('Kein Betrieb gefunden')
+  const tenantId  = await kellerbuchSchreibrecht()   // KAN-241
 
   const payload: R = {
     tenant_id:     tenantId,
@@ -172,8 +164,7 @@ async function protokolliereGebindeUmbenennung(
 
 export async function updateBehaelter(id: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
-  const tenantId  = await getTenantId()
-  if (!tenantId) throw new AktionsFehler('Kein Betrieb gefunden')
+  const tenantId  = await kellerbuchSchreibrecht()   // KAN-241
 
   const neuerName = formData.get('name') as string
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -205,8 +196,7 @@ export async function updateBehaelter(id: string, formData: FormData) {
 
 export async function deleteBehaelter(id: string): Promise<{ error?: string }> {
   const supabase = await createSupabaseServerClient()
-  const tenantId  = await getTenantId()
-  if (!tenantId) return { error: 'Kein Betrieb gefunden' }
+  const tenantId  = await kellerbuchSchreibrecht()   // KAN-241
 
   // KAN-35: Vorprüfung auf ALLE Chargen des Gebindes (auch inaktive/abgeschlossene – bisher
   // nur aktive, die übrigen wurden per FK still abgekoppelt) und auf Kellerbehandlungen
@@ -259,8 +249,7 @@ export async function deleteBehaelter(id: string): Promise<{ error?: string }> {
 // KAN-100: bestaetigung = Rückfrage „Prüfnummer erlischt“ (Abstufung) – nichts gespeichert; mit pn_bestaetigt=1 erneut senden
 export async function updateWeinausbau(id: string, formData: FormData): Promise<{ bestaetigung?: string } | void> {
   const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId()
-  if (!tenantId) throw new AktionsFehler('Kein Betrieb gefunden')
+  const tenantId = await kellerbuchSchreibrecht(['kellerbuch', 'rieden'])   // KAN-241
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: altRaw, error: altErr } = await (supabase.from('weinausbau') as any)
@@ -677,8 +666,7 @@ export async function chargeAbstufen(formData: FormData): Promise<{ bestaetigung
 // ANALYSEN
 export async function createAnalyse(formData: FormData) {
   const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId()
-  if (!tenantId) throw new AktionsFehler('Kein Betrieb gefunden')
+  const tenantId = await kellerbuchSchreibrecht()   // KAN-241
 
   const weinausbauId = formData.get('weinausbau_id') as string
   if (!weinausbauId) throw new AktionsFehler('Keine Charge angegeben')
@@ -838,8 +826,7 @@ export async function deleteVerschneidung(verschneidungId: string, grund: string
 // Das ist der Korrekturweg nach unten, seit menge_liter im Formular nicht mehr änderbar ist.
 export async function schwundBuchen(weinausbauId: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId()
-  if (!tenantId) throw new AktionsFehler('Kein Betrieb gefunden')
+  const tenantId = await kellerbuchSchreibrecht(['kellerbuch', 'warenwirtschaft'])   // KAN-241
 
   const liter = zahlAus(formData.get('menge'))
   const datum = ((formData.get('datum') as string) || '').trim()
@@ -876,8 +863,7 @@ export async function schwundBuchen(weinausbauId: string, formData: FormData) {
 
 export async function manuellSchwundBuchen(formData: FormData) {
   const supabase     = await createSupabaseServerClient()
-  const tenantId     = await getTenantId()
-  if (!tenantId) throw new AktionsFehler('Kein Betrieb gefunden')
+  const tenantId     = await kellerbuchSchreibrecht(['kellerbuch', 'warenwirtschaft'])   // KAN-241
 
   const behaelterId  = formData.get('behaelter_id')  as string
   const weinausbauId = formData.get('weinausbau_id') as string
