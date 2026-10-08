@@ -229,6 +229,12 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
 
   const anfangsbestand    = parseFloat(String(weinausbau.anfangsbestand_liter ?? 0)) || 0
   const aktuell           = parseFloat(String(weinausbau.menge_liter ?? 0)) || 0
+  // KAN-232: Charge beim Versekter (offene Lohnversektung) – Hinweis und Rückkehr
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: lvRaw } = await (supabase.from('lohnversektungen') as any)
+    .select('id, datum, firma:firmen!firma_id(name)').eq('tenant_id', tenantId).eq('weinausbau_id', weinausbau.id)
+    .is('storniert_am', null).is('abgeschlossen_am', null).maybeSingle()
+  const lvOffen = lvRaw as R | null
   // Nur bei echten Eröffnungsbestand-Chargen (ist_eroeffnungsbestand=true) als eigene
   // "Anfangsbestand"-Zeile zeigen. Chargen, die per Umzug/Zukauf neu entstanden sind, können
   // ebenfalls einen (historisch teils fälschlich gesetzten) anfangsbestand_liter-Wert tragen -
@@ -586,6 +592,12 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
             <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}>{st.label}</span>
             {weinausbau.jahrgang && <span className="text-xs text-s112-muted">Jahrgang {weinausbau.jahrgang}</span>}
             {weinausbau.behaelter && <span className="text-xs text-s112-muted">in {weinausbau.behaelter.name}</span>}
+            {/* KAN-232: außer Haus beim Versekter */}
+            {lvOffen && (
+              <Link href="/kellerbuch/lohnversektung" className="text-xs px-2 py-0.5 rounded-full bg-s112-warn-bg text-s112-warn-fg hover:underline">
+                in Lohnversektung{lvOffen.firma?.name ? ` bei ${lvOffen.firma.name}` : ''} seit {new Date(`${lvOffen.datum}T00:00:00`).toLocaleDateString('de-AT')}
+              </Link>
+            )}
             {/* KAN-131: Mostgewicht der Charge (Pressung, Zukauf, Eröffnungsbestand bzw. Umzug) */}
             {(weinausbau.kmw != null || weinausbau.oechsle != null) && (
               <span className="text-xs text-s112-muted">Mostgewicht <MostgewichtAnzeige wert={{ kmw: weinausbau.kmw, oechsle: weinausbau.oechsle, einheit: weinausbau.mostgewicht_einheit }} /></span>
@@ -649,6 +661,13 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
             <Link href={`/kellerbuch/produktion/neu?quelle=${weinausbau.id}`}
               className="mt-1 inline-flex items-center gap-1 text-xs border border-s112-border text-s112-blue-700 px-3 py-1 rounded-lg hover:bg-s112-bg transition-colors">
               <Sparkles size={13} strokeWidth={1.75} />Produktion
+            </Link>
+          )}
+          {/* KAN-232: Lohnversektung – ganze Charge zum Versekter (nur mit Gebinde, d. h. nicht schon außer Haus) */}
+          {writeOk && aktuell > 0.01 && weinausbau.behaelter_id && (
+            <Link href={`/kellerbuch/lohnversektung/neu?charge=${weinausbau.id}`}
+              className="mt-1 inline-flex items-center gap-1 text-xs border border-s112-border text-s112-blue-700 px-3 py-1 rounded-lg hover:bg-s112-bg transition-colors">
+              <Sparkles size={13} strokeWidth={1.75} />Lohnversektung
             </Link>
           )}
           {/* KAN-53: Zugangskorrektur (Mehrmenge, Inventur-Plus) – nur Betriebsleitung */}

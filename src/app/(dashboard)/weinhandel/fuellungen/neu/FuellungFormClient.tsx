@@ -76,6 +76,7 @@ export default function FuellungFormClient({
   defaultChargeId,
   sortenJeCharge = {},
   losVorschau = null,
+  lohnversektung = null,
 }: {
   chargen: Charge[]
   /** KAN-72: nur die für die Abfüllung wählbaren Anträge (gültige Prüfnummer bzw. offen) */
@@ -91,6 +92,8 @@ export default function FuellungFormClient({
   defaultChargeId?: string
   /** KAN-113: Sorten je Sortenverschnitt-Charge (absteigend) – Vorschlag und Prüfung der Sortenangabe */
   sortenJeCharge?: Record<string, SortenAnteil[]>
+  /** KAN-232: Rückkehr aus der Lohnversektung (Charge fest, Grundwein-Anteil statt berechneter Menge, Erzeugnis Sekt) */
+  lohnversektung?: { id: string; firma: string | null; datum: string; literVersandt: number } | null
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -142,7 +145,11 @@ export default function FuellungFormClient({
   // KAN-186: Angabe der Charge samt Zusatzbezeichnung/Erzeugnis (Altwerte normalisiert)
   const chargeAngabe = useMemo(() => (selectedCharge ? normalisiereQualitaet({ ...selectedCharge }) : null), [selectedCharge])
   // KAN-190: Erzeugnis-Auswahl (vorbelegt aus der Charge) – Tirage-Felder nur bei Sekt g.U.
-  const [erzeugnisWahl, setErzeugnisWahl] = useState<{ charge: string; wert: string } | null>(null)
+  const [erzeugnisWahl, setErzeugnisWahl] = useState<{ charge: string; wert: string } | null>(
+    lohnversektung && defaultChargeId ? { charge: defaultChargeId, wert: 'SEKTGU' } : null)   // KAN-232: Sekt g.U. vorbelegt
+  // KAN-232: Grundwein-Anteil der Rückkehr (L) bzw. letzte Lieferung (ganzer Rest)
+  const [grundwein, setGrundwein] = useState('')
+  const [letzteLieferung, setLetzteLieferung] = useState(false)
   const erzeugnisVal = erzeugnisWahl && erzeugnisWahl.charge === (selectedChargeId || '') ? erzeugnisWahl.wert : (chargeAngabe?.erzeugnis ?? '')
   const qualitaetOptions = useMemo(() => {
     const aktuell = chargeAngabe?.stufe ?? null
@@ -179,7 +186,8 @@ export default function FuellungFormClient({
 
   // KAN-35: keine Toleranz mehr (bisher eine Flaschengröße, danach wurde die Charge still
   // auf 0 gekappt) – der Server lehnt jede Überabfüllung über die Rundung hinaus ab.
-  const ueberabfuellung = schwund !== null && schwund < -0.005
+  // KAN-232: bei der Rückkehr aus der Lohnversektung darf der Flascheninhalt den Grundwein übersteigen (Dosage)
+  const ueberabfuellung = !lohnversektung && schwund !== null && schwund < -0.005
   const schwundWarning = schwund !== null && (ueberabfuellung || schwund > verfuegbar * 0.2)
 
   const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40'
@@ -478,7 +486,23 @@ export default function FuellungFormClient({
             />
           </div>
 
-          {/* Berechnete Liter – read-only Anzeige + hidden input */}
+          {/* KAN-232: Rückkehr aus der Lohnversektung – Grundwein-Anteil statt berechneter Menge */}
+          {lohnversektung ? (
+          <div>
+            <input type="hidden" name="lohnversektung_id" value={lohnversektung.id} />
+            <label htmlFor="fuellung-grundwein" className={labelCls}>Grundwein-Anteil (L) *</label>
+            <input id="fuellung-grundwein" name="menge_liter_gefuellt" type="number" min={0.01} step={0.01} inputMode="decimal"
+              value={letzteLieferung ? String(verfuegbar) : grundwein} onChange={e => setGrundwein(e.target.value)}
+              disabled={letzteLieferung} required={!letzteLieferung} className={inputCls} />
+            <label className="flex items-start gap-2 mt-2 text-sm text-s112-text-1">
+              <input type="checkbox" name="letzte_lieferung" value="true" checked={letzteLieferung} onChange={e => setLetzteLieferung(e.target.checked)} className="mt-1" />
+              <span>Letzte Lieferung – restlichen Grundwein ({fmtL(verfuegbar)}) abbuchen und die Lohnversektung abschließen</span>
+            </label>
+            <p className="text-xs text-s112-muted mt-1">
+              Wie viel versandter Grundwein in diese Flaschen ging. Die Differenz zum Flascheninhalt{berechneteLiter !== null ? ` (${fmtL(berechneteLiter)})` : ''} ist Dosage bzw. Verlust.
+            </p>
+          </div>
+          ) : (
           <div>
             <label className={labelCls}>Abgefüllte Menge (berechnet)</label>
             <div className={`${inputCls} bg-s112-bg text-s112-text-1 font-medium`}>
@@ -493,10 +517,11 @@ export default function FuellungFormClient({
                 : 'Wird aus Flaschen × Größe berechnet'}
             </p>
           </div>
+          )}
         </div>
 
-        {/* Schwund-Box */}
-        {schwund !== null && berechneteLiter !== null && (
+        {/* Schwund-Box (nicht bei der Rückkehr aus der Lohnversektung – dort zählt der Grundwein-Anteil) */}
+        {!lohnversektung && schwund !== null && berechneteLiter !== null && (
           <div className={`rounded-lg px-4 py-3 text-sm ${
             ueberabfuellung
               ? 'bg-s112-err-bg border border-s112-err/30 text-s112-err-fg'
@@ -518,7 +543,7 @@ export default function FuellungFormClient({
             vorbelegten Häkchens, damit nicht versehentlich hohe Restmengen als Schwund
             ausgebucht werden. Das Häkchen bleibt zusätzlich als schnelle Vorauswahl für
             geübtere User erhalten - beide Bedienelemente steuern denselben Zustand. */}
-        {schwund !== null && schwund >= 0.01 && (
+        {!lohnversektung && schwund !== null && schwund >= 0.01 && (
           <div className="rounded-lg border border-s112-warn/30 bg-s112-warn-bg px-4 py-3 space-y-3">
             <p className="text-sm text-s112-warn-fg inline-flex items-start gap-1.5">
               <AlertTriangle size={15} strokeWidth={1.75} className="mt-0.5 shrink-0" />

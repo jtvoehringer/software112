@@ -831,7 +831,8 @@
 "gaermethode",
 "sekt_stufe",
 "degorgiert_am",
-"sekt_lagenrein"
+"sekt_lagenrein",
+"lohnversektung_id"
 ],
 "grundstuecke": [
 "id",
@@ -1282,6 +1283,24 @@
 "notizen",
 "created_at",
 "updated_at"
+],
+"lohnversektungen": [
+"id",
+"tenant_id",
+"weinausbau_id",
+"firma_id",
+"datum",
+"liter_versandt",
+"behaelter_id_vorher",
+"abgeschlossen_am",
+"notizen",
+"erstellt_von",
+"erstellt_von_name",
+"erstellt_am",
+"storniert_am",
+"storniert_von",
+"storniert_von_name",
+"storno_grund"
 ],
 "meldung_abgaben": [
 "id",

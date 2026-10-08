@@ -1070,6 +1070,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('kontakt_firmen',                'SA,TA,W*{crm}',                          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}'),
     ('kontakt_praeferenzen',          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}'),
     ('produktionen',                  '-',                                      '-',                                      '-'),   -- KAN-118: nur über s112_produktion_buchen/_stornieren
+    ('lohnversektungen',              '-',                                      '-',                                      '-'),   -- KAN-232: nur über s112_lohnversektung_versenden/_stornieren
     ('rechnungen',                    '-',                                      '-',                                      '-'),   -- KAN-102: nur Trigger/RPC bzw. Service-Role
     ('produktion_eingaenge',          '-',                                      '-',                                      '-'),   -- KAN-118
     ('kontakte',                      'SA,TA,W*{crm}',                          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}'),
@@ -1193,7 +1194,7 @@ BEGIN
     -- KAN-150 F2a: + dac_antrag, weinanalysen, pruefnummernantraege, transportbescheinigungen, exportauftraege (storno) und
     --              exportauftrag_positionen, export_dokumente (kind)
     -- KAN-167: + betriebsmittel_lager_bewegungen (storno)
-    WHEN 'loeschsperre_tabellen' THEN ARRAY['behandlungen', 'betriebsmittel_lager_bewegungen', 'dac_antrag', 'duengemittel_lager_bewegungen', 'ea_transaktionen', 'ernte_parzellen', 'export_dokumente', 'exportauftraege', 'exportauftrag_positionen', 'fuellung_chargen', 'fuellungen', 'keller_behandlungen', 'keller_umzuege', 'keller_verarbeitungen', 'keller_zugangskorrekturen', 'konto_umbuchungen', 'pressung_behaelter', 'pressung_weingaerten', 'pressungen', 'produktion_eingaenge', 'produktionen', 'pruefnummernantraege', 'psm_lager_bewegungen', 'rechnungen', 'transportbescheinigungen', 'traubenverkauf', 'verkauf_positionen', 'verkaufsposten', 'verschneidung_quellen', 'verschneidungen', 'weinanalysen', 'weinausbau', 'weinausbau_weingaerten', 'zahlungen', 'zukauf_posten']
+    WHEN 'loeschsperre_tabellen' THEN ARRAY['behandlungen', 'betriebsmittel_lager_bewegungen', 'dac_antrag', 'duengemittel_lager_bewegungen', 'ea_transaktionen', 'ernte_parzellen', 'export_dokumente', 'exportauftraege', 'exportauftrag_positionen', 'fuellung_chargen', 'fuellungen', 'keller_behandlungen', 'keller_umzuege', 'keller_verarbeitungen', 'keller_zugangskorrekturen', 'konto_umbuchungen', 'lohnversektungen', 'pressung_behaelter', 'pressung_weingaerten', 'pressungen', 'produktion_eingaenge', 'produktionen', 'pruefnummernantraege', 'psm_lager_bewegungen', 'rechnungen', 'transportbescheinigungen', 'traubenverkauf', 'verkauf_positionen', 'verkaufsposten', 'verschneidung_quellen', 'verschneidungen', 'weinanalysen', 'weinausbau', 'weinausbau_weingaerten', 'zahlungen', 'zukauf_posten']
     -- KAN-150 F1a: Stammdaten mit Löschsperre bei berichtsrelevantem Bezug (a_stammdaten_loeschsperre)
     WHEN 'stammdaten_loeschsperre' THEN ARRAY['betriebsmittel', 'duengemittel', 'ea_dauerauftraege', 'ea_kategorien', 'firmen', 'grundstuecke',   -- KAN-167: + betriebsmittel
       'keller_behandlungstypen', 'kontakte', 'pflanzenschutzmittel', 'weingarten']
@@ -1279,6 +1280,10 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('mandant',       '-US', true , 's112_verarbeitung_buchen(p_tenant_id uuid, p_weinausbau_id uuid, p_datum date, p_menge numeric, p_zweck text, p_notizen text, p_artikel_id uuid, p_stueck numeric)'),   -- KAN-41 Paket 3a: Verarbeitung (AB_VERAR); KAN-115: + Zugang beim Sonstigen Produkt
     ('mandant',       '-US', true , 's112_produktion_buchen(p_tenant_id uuid, p_kopf jsonb, p_eingaenge jsonb)'),   -- KAN-118: Produktion (Spritzer, Perlwein, Schaumwein, PetNat)
     ('mandant',       '-US', true , 's112_produktion_stornieren(p_tenant_id uuid, p_id uuid, p_grund text)'),   -- KAN-118: Storno der Produktion
+    ('mandant',       '-US', true , 's112_lohnversektung_versenden(p_tenant_id uuid, p_weinausbau_id uuid, p_datum date, p_firma_id uuid, p_notizen text)'),   -- KAN-232: Versand zur Lohnversektung
+    ('mandant',       '-US', true , 's112_lohnversektung_stornieren(p_tenant_id uuid, p_id uuid, p_grund text)'),   -- KAN-232: Storno des Versands
+    ('trigger',       '--S', false, 's112_lohnversektung_rueckkehr_pruefen()'),   -- KAN-232: Rückkehr nur aus der versandten Charge
+    ('trigger',       '--S', false, 's112_lohnversektung_stand()'),   -- KAN-232: abgeschlossen, sobald der Grundwein zurück ist
     ('mandant',       '-US', true , 's112_elabel_umleiten(p_tenant_id uuid, p_elabel_id uuid, p_ziel_id uuid, p_grund text)'),   -- KAN-219: QR-Code eines E-Labels umleiten (Protokoll)
     ('mandant',       '-US', true , 's112_sekt_stufe_setzen(p_tenant_id uuid, p_fuellung_id uuid, p_stufe text, p_degorgiert_am date, p_lagenrein boolean)'),   -- KAN-190: Sekt-Stufe / Degorgieren
     ('mandant',       '-US', true , 's112_artikel_buchen(p_tenant_id uuid, p_artikel_id uuid, p_datum date, p_art text, p_menge numeric, p_notizen text)'),   -- KAN-115: Anfangsbestand/Zugang/Inventur Sonstiger Produkte

@@ -185,7 +185,12 @@ async function fuellungAnlegen(formData: FormData, eroeffnung: FlaschenEroeffnun
   // Falls kein Literfeld ausgefüllt: aus Flaschenzahl berechnen. Auf 2 Stellen gerundet wie
   // fuellungen.menge_liter_gefuellt (numeric(10,2)) – Abbuchung von der Charge, gespeicherte
   // Füllmenge und fuellung_chargen.anteil_liter sind so identisch.
-  const mengeGefuellt   = r2(mengeFormular ?? (anzahl * flGroesseML / 1000))
+  let mengeGefuellt     = r2(mengeFormular ?? (anzahl * flGroesseML / 1000))
+  // KAN-232: Rückkehr aus der Lohnversektung – menge_liter_gefuellt = Grundwein-Anteil (nicht der Flascheninhalt);
+  // letzte Lieferung = der ganze Rest der Charge (unten, nach dem Laden der Charge)
+  const lohnversektungId = (formData.get('lohnversektung_id') as string | null)?.trim() || null
+  const letzteLieferung = formData.get('letzte_lieferung') === 'true'
+  if (lohnversektungId && eroeffnung) throw new AktionsFehler('Ein Flaschen-Eröffnungsbestand kann keine Rückkehr aus der Lohnversektung sein.')
   const datum           = ((formData.get('datum') as string) || '').slice(0, 10)
 
   if (!Number.isInteger(anzahl) || anzahl <= 0) {
@@ -208,6 +213,17 @@ async function fuellungAnlegen(formData: FormData, eroeffnung: FlaschenEroeffnun
   let rebsorte: string | null = ((formData.get('rebsorte') as string | null) ?? '').trim() || null
   const vorabHinweise: string[] = []
 
+  // KAN-232: Lohnversektung prüfen (offen, eigener Betrieb, dieselbe Charge) – die DB prüft dasselbe im Trigger
+  if (lohnversektungId) {
+    const { data: lv, error: lvErr } = await (supabase.from('lohnversektungen') as AR)
+      .select('id, weinausbau_id, storniert_am, abgeschlossen_am').eq('id', lohnversektungId).eq('tenant_id', tenantId).maybeSingle()
+    if (lvErr) throw new AktionsFehler(dbFehlerText(lvErr, 'Lohnversektung konnte nicht geladen werden'))
+    const l = lv as AR | null
+    if (!l) throw new AktionsFehler('Die Lohnversektung wurde nicht gefunden.')
+    if (l.storniert_am || l.abgeschlossen_am) throw new AktionsFehler('Diese Lohnversektung ist storniert bzw. abgeschlossen – keine weitere Rückkehr möglich.')
+    if (l.weinausbau_id !== weinausbauId) throw new AktionsFehler('Die Rückkehr muss aus der versandten Grundwein-Charge gebucht werden.')
+  }
+
   // Bestandsprüfung VOR jedem Schreibzugriff: nicht mehr füllen als die Charge hat
   // + Downgrade-only-Prüfung: 'Qualitätswein' und 'Herkunft-Code (BKI)' dürfen beim Füllen nur
   // abgestuft, NIEMALS aufgestuft werden gegenüber der verknüpften Kellerbuch-Charge (hart blockiert).
@@ -229,6 +245,9 @@ async function fuellungAnlegen(formData: FormData, eroeffnung: FlaschenEroeffnun
     // KAN-35: keine Toleranz mehr – bisher wurde bis zu einer Flasche mehr angenommen und die
     // Charge danach still auf 0 gekappt (die Füllung trug dann mehr Liter, als abgebucht wurden).
     const verfuegbar = Number(charge.menge_liter ?? 0) || 0
+    // KAN-232: letzte Lieferung aus der Lohnversektung bucht den ganzen Rest des Grundweins ab
+    if (lohnversektungId && letzteLieferung) mengeGefuellt = r2(verfuegbar)
+    if (!(mengeGefuellt > 0)) throw new AktionsFehler('Der Grundwein-Anteil muss größer als 0 L sein.')
     if (mengeGefuellt > verfuegbar + RUNDUNG) {
       throw new AktionsFehler(
         `Abfüllmenge (${fmtNum(mengeGefuellt, 2)} L) übersteigt den Bestand der Charge „${charge.name}“ (${fmtNum(verfuegbar, 2)} L). ` +
@@ -297,7 +316,8 @@ async function fuellungAnlegen(formData: FormData, eroeffnung: FlaschenEroeffnun
     const verfuegbar   = Number(charge.menge_liter ?? 0) || 0
     const differenz    = r2(verfuegbar - mengeGefuellt)   // ≥ −0,005 L laut Prüfung oben
     const rest         = differenz > 0 ? differenz : 0
-    const abschliessen = formData.get('abschliessen') === 'true'
+    // KAN-232: bei der Rückkehr aus der Lohnversektung nie Rest als Schwund ausbuchen (Differenz = Dosage/Verluste im Journal)
+    const abschliessen = !lohnversektungId && formData.get('abschliessen') === 'true'
     const wirdAbgeschlossen = rest <= 0.01 || abschliessen
     schwundLiter = wirdAbgeschlossen && rest >= 0.01 ? rest : 0
 
@@ -333,6 +353,7 @@ async function fuellungAnlegen(formData: FormData, eroeffnung: FlaschenEroeffnun
     menge_liter_gefuellt: mengeGefuellt,
     pruefnummer,          // KAN-72: aus dem geprüften Antrag bzw. geprüfte freie Eingabe
     dac_antrag_id:        dacAntragId,
+    lohnversektung_id:    lohnversektungId,   // KAN-232: Journal LNSKT/LNSKT_ZU statt FUELLUNG
     chargennummer,
     vk_preis_brutto:      parseFloat(dezimal(formData.get('vk_preis_brutto') as string)) || null,
     einstandspreis:       parseFloat(dezimal(formData.get('einstandspreis') as string)) || null,
