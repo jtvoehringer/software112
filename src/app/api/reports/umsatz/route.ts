@@ -3,6 +3,8 @@ import { alle } from '@/lib/supabase/alle'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { NextRequest, NextResponse } from 'next/server'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { alsBeleg, lieferscheineSelect } from '@/lib/verkauf/rechnungen'
+import { umsatzBasis, type UmsatzBasis } from '@/lib/verkauf/umsatzBasis'
 
 export const dynamic = 'force-dynamic'
 
@@ -39,19 +41,27 @@ function monatsBereich(von: MonatsZiel, bis: MonatsZiel): MonatsZiel[] {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function ladeMonat(supabase: any, ziel: MonatsZiel, tenantId: string): Promise<UmsatzMonat> {
+async function ladeMonat(supabase: any, ziel: MonatsZiel, tenantId: string, basis: UmsatzBasis): Promise<UmsatzMonat> {
   const von = new Date(ziel.jahr, ziel.monatIdx, 1).toISOString().split('T')[0]
   const bis = new Date(ziel.jahr, ziel.monatIdx + 1, 0).toISOString().split('T')[0]
 
-  // alle(): Monatsumsatz über alle Verkäufe, nicht nur die ersten 1.000
-  const { data } = await alle<R>((supabase.from('verkaufsposten') as any)
-    .select('id, verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
-    .eq('tenant_id', tenantId)
-    .eq('aktiv', true).eq('storniert', false)
-    .gte('datum', von).lte('datum', bis)
-    .order('id'))
+  // alle(): Monatsumsatz über alle Verkäufe, nicht nur die ersten 1.000.
+  // KAN-105: basis 'rechnung' = Rechnungen nach Rechnungsdatum (Positionen aller Lieferscheine), sonst Lieferscheine nach Lieferdatum
+  const { data } = basis === 'rechnung'
+    ? await alle<R>(supabase.from('rechnungen')
+      .select(`id, ${lieferscheineSelect('preis_brutto, menge, rabatt_pct, sonderrabatt_pct')}`)
+      .eq('tenant_id', tenantId)
+      .eq('aktiv', true).eq('storniert', false)
+      .gte('datum', von).lte('datum', bis)
+      .order('id'))
+    : await alle<R>(supabase.from('verkaufsposten')
+      .select('id, verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
+      .eq('tenant_id', tenantId)
+      .eq('aktiv', true).eq('storniert', false)
+      .gte('datum', von).lte('datum', bis)
+      .order('id'))
 
-  const posten = (data ?? []) as R[]
+  const posten = basis === 'rechnung' ? ((data ?? []) as R[]).map(alsBeleg) : (data ?? []) as R[]
   const summe = posten.reduce((s: number, p: R) =>
     s + ((p.verkauf_positionen ?? []) as R[]).reduce((ps: number, pos: R) => {
       const b = (Number(pos.preis_brutto) || 0) * (Number(pos.menge) || 0)
@@ -79,6 +89,7 @@ export async function GET(req: NextRequest) {
   const tenantId = membership?.tenantId
   if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
 
+  const basis       = umsatzBasis(req.nextUrl.searchParams.get('basis'))
   const monateParam = req.nextUrl.searchParams.get('monate')
   const vonParam    = req.nextUrl.searchParams.get('von')
   const bisParam    = req.nextUrl.searchParams.get('bis')
@@ -109,7 +120,7 @@ export async function GET(req: NextRequest) {
   }
 
   const supabase = await createSupabaseServerClient()
-  const monate = await Promise.all(ziele.map(z => ladeMonat(supabase, z, tenantId)))
+  const monate = await Promise.all(ziele.map(z => ladeMonat(supabase, z, tenantId, basis)))
 
   return NextResponse.json({ monate })
 }
