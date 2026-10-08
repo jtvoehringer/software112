@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
+import { getCurrentUserRole, canWrite, canAdmin, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import { createKellerplan, updateKellerplan, deleteKellerplan } from './actions'
@@ -19,6 +19,7 @@ export default async function KellerplanListPage() {
   const supabase   = await createSupabaseServerClient()
   const role       = await getCurrentUserRole()
   const writeOk    = canWrite(role, 'kellerbuch')
+  const adminOk    = canAdmin(role)   // KAN-243: Kellerplan löschen nur Betriebsleitung (Policy kellerplaene_delete)
   const membership = await getCurrentMembership()
   const tenantId   = membership?.tenantId ?? null
 
@@ -80,9 +81,11 @@ export default async function KellerplanListPage() {
               {writeOk && (
                 <div className="flex items-center gap-3 border-t border-s112-border/40 pt-2">
                   <KellerplanEditModal plan={p} action={updateKellerplan.bind(null, p.id)} inputCls={iCls} labelCls={lCls} />
-                  <LoeschenButton
-                    action={deleteKellerplan.bind(null, p.id)}
-                    bestaetigung={`Kellerplan "${p.name}" wirklich löschen? Alle Positionen werden entfernt.`} />
+                  {adminOk && (
+                    <LoeschenButton
+                      action={deleteKellerplan.bind(null, p.id)}
+                      bestaetigung={`Kellerplan "${p.name}" wirklich löschen? Alle Positionen werden entfernt.`} />
+                  )}
                 </div>
               )}
             </div>

@@ -111,6 +111,7 @@ export async function removeSystemAdmin(membershipId: string) {
   if (countError || count === null) throw new AktionsFehler(`Prüfung fehlgeschlagen (tenant_memberships): ${countError?.message ?? 'keine Anzahl'}`)
   if (userId === eigeneId && count <= 1) return { error: 'Die eigene letzte Super-Admin-Rolle kann nicht entfernt werden.' }
 
+  // loeschen-ohne-pruefung: Service-Role (keine RLS), die Zeile ist oben gerade gelesen worden
   const { error } = await (admin.from('tenant_memberships') as any)
     .delete().eq('id', membershipId).eq('role', 'system_admin')
 
@@ -118,6 +119,7 @@ export async function removeSystemAdmin(membershipId: string) {
 
   // Letzte system_admin-Mitgliedschaft entfernt → auch aus plattform_admins austragen
   if (count <= 1) {
+    // loeschen-ohne-pruefung: Service-Role; fehlt der Eintrag schon, ist das Ziel ebenso erreicht
     const { error: e } = await (admin.from('plattform_admins') as any).delete().eq('user_id', userId)
     if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (plattform_admins): ${e.message}`)
   }

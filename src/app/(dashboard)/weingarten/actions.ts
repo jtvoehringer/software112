@@ -236,13 +236,14 @@ export async function deleteWeingarten(id: string): Promise<LoeschErgebnis> {
     const sperre = await loeschSperre(supabase, tenantId, { weingartenIds: [id] })
     if (sperre) return { error: sperre, deaktivierbar: true }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase.from('weingarten') as any).delete().eq('id', id).eq('tenant_id', tenantId)
+    const { data: weg, error } = await (supabase.from('weingarten') as any).delete().eq('id', id).eq('tenant_id', tenantId).select('id')
     if (error) {
       if (istBezugsSperre(error)) return { error: (error as AnyRecord).message, deaktivierbar: true }
       const friendly = friendlyFkError(error as AnyRecord)
       if (friendly) return { error: friendly }
       return { error: (error as AnyRecord).message }
     }
+    if (((weg ?? []) as unknown[]).length === 0) return { error: 'Die Ried wurde nicht gelöscht (nicht gefunden oder keine Berechtigung) – bitte die Seite neu laden.' }   // KAN-243
     revalidatePath('/weingarten')
     return {}
   } catch (e) {
@@ -269,16 +270,19 @@ export async function deleteRied(weingartenIds: string[]): Promise<LoeschErgebni
     const sperre = await loeschSperre(supabase, tenantId, { weingartenIds })
     if (sperre) return { error: sperre, deaktivierbar: true }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase.from('weingarten') as any)
+    const { data: weg, error } = await (supabase.from('weingarten') as any)
       .delete()
       .in('id', weingartenIds)
       .eq('tenant_id', tenantId)
+      .select('id')
     if (error) {
       if (istBezugsSperre(error)) return { error: (error as AnyRecord).message, deaktivierbar: true }
       const friendly = friendlyFkError(error as AnyRecord)
       if (friendly) return { error: friendly }
       return { error: (error as AnyRecord).message }
     }
+    // KAN-243: alle oder keine – weniger gelöschte Zeilen heißt nicht gefunden bzw. RLS (still)
+    if (((weg ?? []) as unknown[]).length !== new Set(weingartenIds).size) return { error: 'Die Ried wurde nicht (vollständig) gelöscht (nicht gefunden oder keine Berechtigung) – bitte die Seite neu laden.' }
     revalidatePath('/weingarten')
     return {}
   } catch (e) {
@@ -382,11 +386,12 @@ export async function deleteGrundstueck(id: string, weingartenId: string): Promi
     const sperre = await loeschSperre(supabase, tenantId, { grundstueckIds: [id] })
     if (sperre) return { error: sperre, deaktivierbar: true }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase.from('grundstuecke') as any).delete().eq('id', id).eq('tenant_id', tenantId)
+    const { data: weg, error } = await (supabase.from('grundstuecke') as any).delete().eq('id', id).eq('tenant_id', tenantId).select('id')
     if (error) {
       if (istBezugsSperre(error)) return { error: (error as AnyRecord).message, deaktivierbar: true }
       return { error: dbFehlerText(error, 'Grundstück konnte nicht gelöscht werden') }
     }
+    if (((weg ?? []) as unknown[]).length === 0) return { error: 'Das Grundstück wurde nicht gelöscht (nicht gefunden oder keine Berechtigung) – bitte die Seite neu laden.' }   // KAN-243
     revalidatePath('/weingarten')
     revalidatePath(`/weingarten/${weingartenId}`)
     return {}
@@ -559,8 +564,9 @@ export async function reifemessungLoeschen(weingartenId: string, id: string): Pr
   try {
     const supabase = await createSupabaseServerClient()
     const { tenantId } = await requireWrite()
-    const { error } = await (supabase.from('reifemessungen') as unknown as AnyRecord).delete().eq('id', id).eq('tenant_id', tenantId).eq('weingarten_id', weingartenId)
+    const { data: weg, error } = await (supabase.from('reifemessungen') as unknown as AnyRecord).delete().eq('id', id).eq('tenant_id', tenantId).eq('weingarten_id', weingartenId).select('id')
     if (error) return { error: dbFehlerText(error, 'Löschen fehlgeschlagen') }
+    if (((weg ?? []) as unknown[]).length === 0) return { error: 'Die Reife-Messung wurde nicht gelöscht (nicht gefunden oder keine Berechtigung) – bitte die Seite neu laden.' }   // KAN-243
     revalidatePath(`/weingarten/${weingartenId}`)
     return {}
   } catch (e) {

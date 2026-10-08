@@ -17,10 +17,13 @@ export async function POST() {
     const tenantId = membership?.tenantId
     if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
 
-    await (supabase.from('user_email_connections') as any)
+    // KAN-243: Fehler auswerten (vorher ignoriert); 0 Zeilen = kein Postfach verbunden, das Ziel ist erreicht
+    const { error } = await (supabase.from('user_email_connections') as any)
       .delete()
       .eq('tenant_id', tenantId)
       .eq('user_id', user.id)
+      .select('id')
+    if (error) return NextResponse.json({ fehler: error.message }, { status: 500 })
 
     return NextResponse.json({ ok: true })
   } catch (err) {

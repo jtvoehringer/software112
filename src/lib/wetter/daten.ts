@@ -90,6 +90,7 @@ export async function aktualisiereWetter(tenantId: string, punkte: WetterPunkt[]
       if (opts.erzwingen || progAlterMin >= 180) {
         const { stunden } = await holePrognose(p.lat, p.lon, signal)
         if (stunden.length > 0) {
+          // loeschen-ohne-pruefung: Service-Role, Wetter-Zwischenspeicher wird gleich neu befüllt
           { const { error: e } = await (admin.from('wetter_stunden') as any).delete().eq('tenant_id', tenantId).eq('lat', p.lat).eq('lon', p.lon).eq('quelle', 'nwp')
             if (e) void ereignisMelden({ art: 'db', quelle: 'wetter/wetter_stunden', meldung: e.message }) }
           const zeilen = stunden.map(w => ({
@@ -109,6 +110,7 @@ export async function aktualisiereWetter(tenantId: string, punkte: WetterPunkt[]
   })
   const fehler = fehlerJePunkt.filter((f): f is string => f !== null)
   // Alte Rückblick-Zeilen ausdünnen (älter als 35 Tage)
+  // loeschen-ohne-pruefung: Service-Role, Ausdünnen alter Wetterdaten – 0 Zeilen sind in Ordnung
   { const { error: e } = await (admin.from('wetter_stunden') as any).delete().eq('tenant_id', tenantId).eq('quelle', 'inca').lt('zeit', new Date(jetzt.getTime() - (RUECKBLICK_TAGE + 2) * 86400000).toISOString())
     if (e) void ereignisMelden({ art: 'db', quelle: 'wetter/wetter_stunden', meldung: e.message }) }
   return { aktualisiert, fehler, zeitAusgelassen, abrufFehler }

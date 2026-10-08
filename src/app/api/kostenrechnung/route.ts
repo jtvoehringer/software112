@@ -19,6 +19,7 @@ async function getTId(): Promise<string | null> {
 
 async function saveWgSplit(s: any, eintragsId: string, wgSplit: R[], betrag: number) { // eslint-disable-line @typescript-eslint/no-explicit-any
   // Alte Splits löschen
+  // loeschen-ohne-pruefung: Aufteilung wird gleich neu geschrieben, 0 alte Zeilen sind in Ordnung
   { const { error: e } = await (s.from('kosteneintrag_weingaerten') as any).delete().eq('kosteneintrag_id', eintragsId)
     if (e) void ereignisMelden({ art: 'db', quelle: 'kostenrechnung/kosteneintrag_weingaerten', meldung: e.message }) }
   if (!wgSplit || wgSplit.length === 0) return
@@ -135,8 +136,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true })
   }
   if (b.action === 'loeschen') {
-    { const { error: e } = await (s.from('kosteneintraege') as any).delete().eq('id', b.id).eq('tenant_id', t)
-      if (e) void ereignisMelden({ art: 'db', quelle: 'kostenrechnung/kosteneintraege', meldung: e.message }) }
+    // KAN-243: vorher meldete die Route auch bei Datenbankfehler bzw. still abgelehntem Löschen (RLS, 0 Zeilen) „ok“
+    const { data: weg, error: e } = await (s.from('kosteneintraege') as any).delete().eq('id', b.id).eq('tenant_id', t).select('id')
+    if (e) return NextResponse.json({ fehler: e.message }, { status: 500 })
+    if (((weg ?? []) as unknown[]).length === 0) return NextResponse.json({ fehler: 'Der Kosteneintrag wurde nicht gelöscht (nicht gefunden oder keine Berechtigung) – bitte die Seite neu laden.' }, { status: 404 })
     return NextResponse.json({ ok: true })
   }
   // Kostenstelle anlegen/bearbeiten/löschen

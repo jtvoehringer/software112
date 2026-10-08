@@ -225,6 +225,7 @@ async function ggfKostenEintragAktualisieren(
 
   if (!kostenAktiv) {
     if (bestehendId) {
+      // loeschen-ohne-pruefung: abhängiger Kosteneintrag – fehlt er, ist das Ziel (kein Eintrag) erreicht
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       { const { error: e } = await (supabase.from('kosteneintraege') as any).delete().eq('id', bestehendId).eq('tenant_id', tenantId)
         if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (kosteneintraege): ${e.message}`) }
@@ -267,6 +268,7 @@ async function ggfKostenEintragAktualisieren(
         .eq('tenant_id', tenantId)
       if (updErr) throw updErr
       // Weingarten-Splits neu berechnen (bestehende ersetzen)
+      // loeschen-ohne-pruefung: Aufteilung wird gleich neu geschrieben, 0 alte Zeilen sind in Ordnung
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       { const { error: e } = await (supabase.from('kosteneintrag_weingaerten') as any).delete().eq('kosteneintrag_id', eintragId)
         if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (kosteneintrag_weingaerten): ${e.message}`) }
@@ -684,6 +686,7 @@ export async function updateBehandlung(id: string, formData: FormData) {
     const weg = [...bisherIds].filter(gid => !neueGst!.has(gid))
     const dazu = [...neueGst.values()].filter(g => !bisherIds.has(g.id))
     // in Blöcken: eine Maßnahme über alle Rieden hat mehrere hundert Grundstücke (URL-Grenze ≈ 350 IDs)
+    // loeschen-ohne-pruefung: abgewählte Grundstücke (Recht Rieden vorab geprüft, KAN-242); fehlende sind in Ordnung
     for (const block of bloecke(weg)) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error: e } = await (supabase.from('behandlung_grundstuecke') as any)
@@ -725,6 +728,7 @@ export async function stornoBehandlung(id: string, grund: string) {
   if (error) throw new AktionsFehler(massnahmeFehler(error, 'Storno fehlgeschlagen'))
   if (((data ?? []) as unknown[]).length !== 1) throw new AktionsFehler('Die Maßnahme wurde nicht gefunden oder ist schon storniert – bitte die Seite neu laden.')
   if (await hatModul('modul_controlling')) {
+    // loeschen-ohne-pruefung: nicht jede Maßnahme hat einen Kosteneintrag – 0 Zeilen sind in Ordnung
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error: e } = await (supabase.from('kosteneintraege') as any).delete().eq('behandlung_id', id).eq('tenant_id', tenantId)
     if (e) throw new AktionsFehler(`Storniert, aber der Kosteneintrag der Maßnahme konnte nicht entfernt werden: ${dbFehlerText(e)}`)

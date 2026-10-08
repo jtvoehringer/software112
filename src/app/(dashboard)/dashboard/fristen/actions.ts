@@ -91,7 +91,8 @@ export async function fristWiedereroeffnen(id: string) {
 
 export async function fristLoeschen(id: string) {
   const { supabase, tenantId } = await kontext()
-  const { error } = await (supabase.from('fristen') as any).delete().eq('id', id).eq('tenant_id', tenantId)
+  const { data: weg, error } = await (supabase.from('fristen') as any).delete().eq('id', id).eq('tenant_id', tenantId).select('id')
   if (error) throw new AktionsFehler(error.message)
+  if (((weg ?? []) as unknown[]).length === 0) throw new AktionsFehler('Die Frist wurde nicht gelöscht (nicht gefunden oder keine Berechtigung) – bitte die Seite neu laden.')   // KAN-243
   revalidate()
 }

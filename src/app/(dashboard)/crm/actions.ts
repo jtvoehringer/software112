@@ -566,8 +566,9 @@ function zuweisung(formData: FormData): { verantwortlich_id: string | null; fuer
 export async function deleteAktivitaet(id: string) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
-  const { error } = await (supabase.from('aktivitaeten') as any).delete().eq('id', id).eq('tenant_id', tenantId)
+  const { data: weg, error } = await (supabase.from('aktivitaeten') as any).delete().eq('id', id).eq('tenant_id', tenantId).select('id')
   if (error) throw new AktionsFehler((error as AR).message)
+  if (((weg ?? []) as unknown[]).length === 0) throw new AktionsFehler('Die Aktivität wurde nicht gelöscht (nicht gefunden oder keine Berechtigung) – bitte die Seite neu laden.')   // KAN-243
   revalidatePath('/crm')
   revalidatePath('/crm/kontakte/[id]', 'page')
   revalidatePath('/crm/firmen/[id]', 'page')
@@ -661,8 +662,9 @@ export async function togglePipelineErledigt(id: string, erledigt: boolean) {
 export async function deletePipelineEintrag(id: string) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
-  const { error } = await (supabase.from('pipeline_eintraege') as any).delete().eq('id', id).eq('tenant_id', tenantId)
+  const { data: weg, error } = await (supabase.from('pipeline_eintraege') as any).delete().eq('id', id).eq('tenant_id', tenantId).select('id')
   if (error) throw new AktionsFehler((error as AR).message)
+  if (((weg ?? []) as unknown[]).length === 0) throw new AktionsFehler('Der Eintrag wurde nicht gelöscht (nicht gefunden oder keine Berechtigung) – bitte die Seite neu laden.')   // KAN-243
   revalidatePath('/crm/pipeline')
 }
 
