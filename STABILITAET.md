@@ -127,7 +127,7 @@ Abgeschaltet sind nur `@typescript-eslint/no-require-imports` für die CommonJS-
    - `src/lib/api/zweiFaktor.ts`
 
    Die Wächter prüfen nur, *dass* diese Funktionen aufgerufen werden, nicht, *ob sie richtig entscheiden*. Kleine, gut testbare Einheiten.
-4. **Server Actions:** 40 der 43 `'use server'`-Dateien sind ungetestet. Getestet sind Maßnahmen, Lager und AfA. Einzelne Actions sind nach Risiko nachzuziehen, zuerst Verkauf, Zahlungen, E&A und Kellerbuch.
+4. **Server Actions:** Seit 08.10.2026 (KAN-239) getestet: Verkauf (`scripts/tests/verkauf-actions.test.mjs` – Kontext vor jedem Zugriff, Ablehnungen von createVerkauf ohne Schreibzugriff, Erfolg mit Reihenfolge Bestand → Beleg, Rücknahme bei Fehlschlag, Storno, Zahlung, Zahlungsstorno; Befund: createZahlung und markiereAlsBezahlt prüfen keine Rechte in der App, nur RLS). Rest ursprünglich: 40 der 43 `'use server'`-Dateien sind ungetestet. Getestet sind Maßnahmen, Lager und AfA. Einzelne Actions sind nach Risiko nachzuziehen, zuerst Verkauf, Zahlungen, E&A und Kellerbuch.
 5. **Getestete Dateien mit Branch-Coverage unter 70 %:**
    - `lib/fehler.ts` (33 %), `supabase/alle.ts` (43 %), `wein/blendKomposition.ts` (49 %), `wein/weinbuch.ts` (53 %), `pakete.ts` (56 %)
    - `assistent/tools/massnahme.ts` (61 %), `behandlungen/lager/actions.ts` (63 %), `buchhaltung/anlagen/actions.ts` (65 %)
