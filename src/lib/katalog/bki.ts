@@ -64,7 +64,7 @@ export type KatBuchungsart = {
   bsmCode: string | null
 }
 
-/** 17 BSM-Buchungsarten + interne, BSM-neutrale Vorgänge; Kürzel vorläufig */
+/** 18 BSM-Buchungsarten (17 + ZU_PROD, KAN-118) + interne, BSM-neutrale Vorgänge; Kürzel vorläufig */
 export const KAT_BUCHUNGSART: readonly KatBuchungsart[] = [
   { code: 'ERNTE', bezeichnung: 'eigene Ernte', richtung: 'zu', einheit: 'l', bsm: true, bsmCode: null },
   { code: 'ZK_FASS', bezeichnung: 'Zukauf Fasswein ≥ 60 l', richtung: 'zu', einheit: 'l', bsm: true, bsmCode: null },
@@ -91,6 +91,8 @@ export const KAT_BUCHUNGSART: readonly KatBuchungsart[] = [
   { code: 'INV_PLUS', bezeichnung: 'Inventurdifferenz Mehrmenge', richtung: 'zu', einheit: 'l', bsm: false, bsmCode: null },
   { code: 'INV_MIN', bezeichnung: 'Inventurdifferenz Mindermenge', richtung: 'ab', einheit: 'l', bsm: false, bsmCode: 'SCHWUND' },
   { code: 'TRAUBVK', bezeichnung: 'Traubenverkauf', richtung: 'ab', einheit: 'kg', bsm: false, bsmCode: null },
+  // KAN-118 (08.10.2026, Entscheidung Jörgen): Zugang der neuen Charge einer Produktion
+  { code: 'ZU_PROD', bezeichnung: 'Zugang durch Produktion', richtung: 'zu', einheit: 'l', bsm: true, bsmCode: null },
 ]
 
 /** Meldefarbe (kat_farbe): W = weiß, R = rot */

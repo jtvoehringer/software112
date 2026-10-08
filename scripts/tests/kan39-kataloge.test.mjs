@@ -17,6 +17,9 @@ const rang = await import('../../src/lib/wein/qualitaetsrang.ts')
 const migDir = new URL('../../supabase/migrations/', import.meta.url)
 const migName = readdirSync(migDir).find(f => /_kan39a_kataloge\.sql$/.test(f))
 const sql = migName ? readFileSync(new URL(migName, migDir), 'utf8').replace(/\r\n/g, '\n') : ''
+// KAN-118 (08.10.2026): ZU_PROD kommt mit der Produktion dazu (eigene Migration bzw. Entwurf)
+const mig118 = readdirSync(migDir).find(f => /_kan118_produktion\.sql$/.test(f))
+const sql118 = readFileSync(mig118 ? new URL(mig118, migDir) : new URL('../entwurf/kan118_produktion.sql', migDir), 'utf8').replace(/\r\n/g, '\n')
 
 /** Zeilen eines INSERT … VALUES-Blocks als Arrays (Text in '…', NULL, true/false, Zahlen) */
 function werte(tabelle) {
@@ -37,10 +40,13 @@ describe('KAN-39: Kataloge lib ↔ Migration', () => {
   test('Erzeugnisse', () => {
     assert.deepEqual(werte('kat_erzeugnis').map(r => r.slice(0, 3)), kat.KAT_ERZEUGNIS.map(k => [k.code, k.bezeichnung, k.bsmRelevant]))
   })
-  test('Buchungsarten: 17 BSM-Werte, interne mit Zuordnung', () => {
-    assert.deepEqual(werte('kat_buchungsart').map(r => r.slice(0, 6)),
+  test('Buchungsarten: 18 BSM-Werte (17 + ZU_PROD, KAN-118), interne mit Zuordnung', () => {
+    const zuProd = [...sql118.matchAll(/INSERT INTO public\.kat_buchungsart \([^)]*\)\s*VALUES \('([A-Z_]+)', '([^']+)', '(\w+)', '(\w+)', (true|false), NULL/g)]
+      .map(m => [m[1], m[2], m[3], m[4], m[5] === 'true', null])
+    assert.equal(zuProd.length, 1)
+    assert.deepEqual([...werte('kat_buchungsart').map(r => r.slice(0, 6)), ...zuProd],
       kat.KAT_BUCHUNGSART.map(k => [k.code, k.bezeichnung, k.richtung, k.einheit, k.bsm, k.bsmCode]))
-    assert.equal(kat.KAT_BUCHUNGSART.filter(k => k.bsm).length, 17)
+    assert.equal(kat.KAT_BUCHUNGSART.filter(k => k.bsm).length, 18)
   })
   test('Farbe und Zuordnungen', () => {
     assert.deepEqual(Object.fromEntries(werte('kat_farbe')), kat.KAT_FARBE)
