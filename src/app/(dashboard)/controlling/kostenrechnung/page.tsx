@@ -150,6 +150,9 @@ export default function KostenrechnungPage() {
   const [bhs, setBhs] = useState<BH[]>([])
   const [saving, setSaving] = useState(false)
   const [fehler, setFehler] = useState<string|null>(null)
+  // KAN-245: Fehler beim Löschen und bei Kostenstellen/-arten anzeigen (vorher ignoriert, die Route meldete zudem immer ok)
+  const [listenFehler, setListenFehler] = useState<string|null>(null)
+  const listenAktion = async (body: object) => { const res = await api(body); setListenFehler(res?.fehler ?? null); await ladeDaten() }
   const [erfolg, setErfolg] = useState(false)
 
   const [editId, setEditId] = useState<string|null>(null)
@@ -317,6 +320,7 @@ export default function KostenrechnungPage() {
             className={`px-4 py-2 rounded-xl text-sm font-medium ${tab===id?'bg-s112-teal text-s112-yellow':'bg-s112-bg text-s112-text-2 hover:bg-s112-teal/10'}`}>{label}</button>
         ))}
       </div>
+      {listenFehler && <p role="alert" className="text-sm text-s112-err-fg">{listenFehler}</p>}
 
       {tab === 'buchungen' && (
         <div className="bg-white rounded-xl border border-s112-border overflow-x-auto">
@@ -339,7 +343,7 @@ export default function KostenrechnungPage() {
                   <td className="px-4 py-2.5 text-right font-medium tabular-nums">{eur(e.betrag)}</td>
                   <td className="px-4 py-2.5"><div className="flex gap-2">
                     <button aria-label="Bearbeiten" onClick={()=>startEdit(e)} className="text-s112-muted hover:text-s112-blue-700 text-xs"><Pencil size={13} /></button>
-                    <button onClick={()=>{if(confirm('Löschen?'))api({action:'loeschen',id:e.id}).then(ladeDaten)}} className="text-s112-muted hover:text-s112-err text-xs"><Trash2 size={13} /></button>
+                    <button onClick={()=>{if(confirm('Löschen?'))void listenAktion({action:'loeschen',id:e.id})}} className="text-s112-muted hover:text-s112-err text-xs"><Trash2 size={13} /></button>
                   </div></td>
                 </tr>
               ))}
@@ -350,13 +354,13 @@ export default function KostenrechnungPage() {
       )}
 
       {tab === 'kostenstellen' && (
-        <StammdatenTab items={ks as Record<string,string|undefined>[]} onDelete={async id=>{await api({action:'ks_delete',id});ladeDaten()}}
-          onSave={async item=>{await api({action:'ks_save',...item});ladeDaten()}}
+        <StammdatenTab items={ks as Record<string,string|undefined>[]} onDelete={id=>listenAktion({action:'ks_delete',id})}
+          onSave={item=>listenAktion({action:'ks_save',...item})}
           fields={[{key:'name',label:'Name *'},{key:'kuerzel',label:'Kürzel'},{key:'beschreibung',label:'Beschreibung'}]} />
       )}
       {tab === 'kostenarten' && (
-        <StammdatenTab items={ka as Record<string,string|undefined>[]} onDelete={async id=>{await api({action:'ka_delete',id});ladeDaten()}}
-          onSave={async item=>{await api({action:'ka_save',...item});ladeDaten()}}
+        <StammdatenTab items={ka as Record<string,string|undefined>[]} onDelete={id=>listenAktion({action:'ka_delete',id})}
+          onSave={item=>listenAktion({action:'ka_save',...item})}
           fields={[{key:'name',label:'Name *'},{key:'kuerzel',label:'Kürzel'},{key:'kategorie',label:'Kategorie',options:KAT}]} />
       )}
     </div>
