@@ -1111,7 +1111,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('release_notes',                 'PA',                                     'PA',                                     'PA'),
     ('release_notes_gesehen',         'L,SA,TA,W',                              'L,SA,TA,W',                              'L,SA,TA,W'),
     ('saetze_massnahmen',             'SA,TA,W*{rieden}',                       'SA,TA,W*{rieden}',                       'SA,TA{rieden}'),
-    ('sonstige_artikel',              'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              '-{warenwirtschaft}'),
+    ('sonstige_artikel',              'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}'),   -- KAN-242: DELETE-Policy (unbenutzte Produkte)
     ('sonstige_artikel_bewegungen',   '-',                                      '-',                                      '-'),   -- KAN-115: nur per RPC (s112_artikel_*, s112_verarbeitung_*)
     ('stripe_zahlungen_log',          '-',                                      '-',                                      '-'),
     ('sumup_checkouts',               'SA,TA,W*{warenwirtschaft}',              'SA,TA,W*{warenwirtschaft}',              '-{warenwirtschaft}'),
