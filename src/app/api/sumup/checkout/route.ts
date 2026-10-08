@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { geheimLesen } from '@/lib/email/geheimnis'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
-import { getCurrentMembership } from '@/lib/auth/roles'
+import { canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { ereignisMelden } from '@/lib/system/ereignis'
 import { sumupWebhookUrl } from '@/lib/sumup/webhook'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
@@ -26,6 +26,10 @@ export async function POST(req: NextRequest) {
   const tenantId = membership.tenantId
   const gesperrt = await schreibSperreKonflikt(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
   if (gesperrt) return gesperrt
+  // KAN-245: wie RLS (modul_insert auf sumup_checkouts = Warenwirtschaft) – vor dem API-Schlüssel und vor SumUp
+  if (!canWrite(membership, 'warenwirtschaft')) {
+    return NextResponse.json({ error: 'Keine Berechtigung für Kartenzahlungen – dafür ist die Freigabe Warenwirtschaft nötig.' }, { status: 403 })
+  }
 
   // SumUp-Konfiguration laden – KAN-135: API-Key nur per Service-Role (Benutzer haben
   // keinen SELECT darauf); Mitgliedschaft ist geprüft, Zeile über tenant_id eingeschränkt

@@ -1,6 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
-import { getCurrentMembership } from '@/lib/auth/roles'
+import { canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 
@@ -22,6 +22,10 @@ export async function POST(
   if (!tenantId) return NextResponse.json({ error: 'Kein Betrieb' }, { status: 403 })
   const gesperrt = await schreibSperreKonflikt(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
   if (gesperrt) return gesperrt
+  // KAN-245: wie RLS (modul_* auf aktivitaet_dokumente = CRM oder Warenwirtschaft) – vor Upload bzw. Löschen der Datei
+  if (!membership || !(canWrite(membership, 'crm') || canWrite(membership, 'warenwirtschaft'))) {
+    return NextResponse.json({ error: 'Keine Berechtigung für Dokumente – dafür ist die Freigabe CRM oder Warenwirtschaft nötig.' }, { status: 403 })
+  }
 
   // Prüfen ob Aktivität zu diesem Tenant gehört
   const { data: akt } = await (supabase.from('aktivitaeten') as any)
