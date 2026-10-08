@@ -12,11 +12,14 @@
 // Berechnung wie die Rechnung (weinhandel/verkauf/[id]): Positionsbrutto × (1 − Rabatt) ×
 // (1 − Sonderrabatt), Netto je Satz = Σ Brutto / (1 + Satz), USt = Netto × Satz;
 // Positionen ohne Preis zählen nicht, fehlender Satz = 13 %.
+// KAN-105 (08.10.2026): Quelle ist die Rechnung (Tabelle rechnungen, KAN-102) mit den Positionen aller ihrer Lieferscheine –
+// nicht berechnete Lieferscheine stehen nicht im Journal, Sammelrechnungen als eine Zeile.
 
 import { momentaufnahmenAnwenden } from '../stammdaten/momentaufnahme'
 import { rundeText, runden, type CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
 import { text, zahl } from './buchhaltung-gemeinsam'
+import { alsBeleg, lieferscheineSelect } from '@/lib/verkauf/rechnungen'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -185,16 +188,17 @@ function nummernVergleich(a: string | null, b: string | null): number {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function ladeRechnungsjournal(supabase: any, tenantId: string, p: RechnungsjournalParameter): Promise<{ zeilen: RechnungsjournalZeile[]; warnungen: string[] }> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await alle<R>((supabase.from('verkaufsposten') as any)
+  const { data: roh, error } = await alle<R>((supabase.from('rechnungen') as any)
     .select(`id, datum, rechnungsnummer, aktiv, storniert, storniert_am, storniert_von_name, storno_grund, bezahlt, bezahlt_am, partner_daten,
       kontakt:kontakte!kontakt_id(vorname, nachname, accountnummer, debitor_nr, land),
       firma:firmen!firma_id(name, uid_nummer, accountnummer, debitor_nr, land),
-      verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct, ust_satz)`)
+      ${lieferscheineSelect('preis_brutto, menge, rabatt_pct, sonderrabatt_pct, ust_satz')}`)
     .eq('tenant_id', tenantId)
     .gte('datum', p.von)
     .lte('datum', p.bis)
     .order('datum').order('id'))
-  if (error) throw new Error(`Laden fehlgeschlagen (verkaufsposten): ${error.message}`)
+  if (error) throw new Error(`Laden fehlgeschlagen (rechnungen): ${error.message}`)
+  const data = roh.map(alsBeleg)
   momentaufnahmenAnwenden(data, ['kontakt', 'firma'])   // KAN-150 F1c: Käufer wie auf der Rechnung
 
   const warnungen: string[] = []

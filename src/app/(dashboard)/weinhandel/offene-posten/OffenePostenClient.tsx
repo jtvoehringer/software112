@@ -7,6 +7,8 @@ import { fmtEur, fmtNum } from '@/lib/format'
 
 type Posten = {
   id: string
+  /** KAN-105: Rechnung des Postens (id = erster Lieferschein, für Link und Zahlung) */
+  rechnungId?: string
   datum: string
   rechnungsnummer: string | null
   bezahlt: boolean

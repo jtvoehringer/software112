@@ -14,6 +14,7 @@ import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperre } from '@/lib/auth/sperren'
 import { wienHeute } from '@/lib/csv'
 import { csvAntwort, fehlerAntwort } from '@/lib/csv/antwort'
+import { alsBeleg, lieferscheineSelect } from '@/lib/verkauf/rechnungen'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -91,7 +92,7 @@ export async function GET(req: NextRequest) {
   let anzahl = 0
   let csvZeilen = 0
   let summe = 0
-  let belegIds: { verkaufsposten: string[]; ea: string[] } = { verkaufsposten: [], ea: [] }
+  let belegIds: { verkaufsposten: string[]; ea: string[]; rechnungen?: string[] } = { verkaufsposten: [], ea: [] }
 
   if (art === 'ausgangsrechnungen') {
     const r = await ausgangsrechnungen(supabase, tenantId, mapping, konten, von, bis, nurNeue)
@@ -134,6 +135,11 @@ export async function GET(req: NextRequest) {
       const admin = createSupabaseAdminClient()
       // bloecke() aus lib/supabase/alle (05.10.2026): vorher 500 IDs je Block (≈ 18 KB URL, Grenze ≈ 350 UUIDs) –
       // ab ≈ 350 Belegen scheiterte die Markierung, „nur neue“ hätte sie beim nächsten Export erneut geliefert
+      // KAN-105: die Rechnung trägt die Markierung; ihre Lieferscheine zusätzlich (Zähler „noch nicht übergeben“ lesen dort)
+      for (const block of bloecke(belegIds.rechnungen ?? [])) {
+        { const { error: e } = await admin.from('rechnungen').update({ bmd_export_id: protId }).eq('tenant_id', tenantId).in('id', block)
+          if (e) void ereignisMelden({ art: 'db', quelle: 'bmd/rechnungen', meldung: e.message }) }
+      }
       for (const block of bloecke(belegIds.verkaufsposten)) {
         { const { error: e } = await admin.from('verkaufsposten').update({ bmd_export_id: protId }).eq('tenant_id', tenantId).in('id', block)
           if (e) void ereignisMelden({ art: 'db', quelle: 'bmd/verkaufsposten', meldung: e.message }) }
@@ -206,18 +212,20 @@ class Personenkonten {
 // ── Ausgangsrechnungen (Verkauf + manuelle Einnahmen) ───────────────────────
 async function ausgangsrechnungen(supabase: any, tenantId: string, m: Mapping, konten: Personenkonten, von: string, bis: string, nurNeue: boolean) { // eslint-disable-line @typescript-eslint/no-explicit-any
   const zeilen: BmdZeile[] = []
-  const ids = { verkaufsposten: [] as string[], ea: [] as string[] }
+  const ids = { verkaufsposten: [] as string[], ea: [] as string[], rechnungen: [] as string[] }
   let anzahl = 0, summe = 0
 
-  let q = (supabase.from('verkaufsposten') as any)
+  // KAN-105: Beleg = Rechnung (rechnungen) mit den Positionen aller ihrer Lieferscheine; Belegdatum = Rechnungsdatum
+  let q = (supabase.from('rechnungen') as any)
     .select(`id, datum, rechnungsnummer, skonto_pct, skonto_tage, skonto_aktiv, bmd_export_id,
       kontakt:kontakte!kontakt_id(id, vorname, nachname, land, zahlungsziel_tage, debitor_nr),
       firma:firmen!firma_id(id, name, land, zahlungsziel_tage, debitor_nr),
-      verkauf_positionen(typ, name, preis_brutto, menge, rabatt_pct, sonderrabatt_pct, ust_satz, traubenverkauf_id)`)
+      ${lieferscheineSelect('typ, name, preis_brutto, menge, rabatt_pct, sonderrabatt_pct, ust_satz, traubenverkauf_id')}`)
     .eq('tenant_id', tenantId).eq('aktiv', true).eq('storniert', false)
     .gte('datum', von).lte('datum', bis)
   if (nurNeue) q = q.is('bmd_export_id', null)
-  const { data: posten } = await alle<R>(q.order('datum').order('id'))
+  const { data: roh } = await alle<R>(q.order('datum').order('id'))
+  const posten = roh.map(alsBeleg)
 
   for (const p of posten) {
     const firma = p.firma ?? null, kontakt = p.kontakt ?? null
@@ -260,7 +268,8 @@ async function ausgangsrechnungen(supabase: any, tenantId: string, m: Mapping, k
       summe += brutto
     }
     anzahl++
-    ids.verkaufsposten.push(p.id)
+    ids.rechnungen.push(p.id)
+    ids.verkaufsposten.push(...p.verkaufsposten_ids)
   }
 
   // Manuelle Einnahmen aus der E&A-Rechnung (ohne Verkaufsbeleg dahinter)

@@ -3,6 +3,7 @@ import { alle, inBloecken } from '@/lib/supabase/alle'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import OffenePostenClient from './OffenePostenClient'
+import { alsBeleg, lieferscheineSelect } from '@/lib/verkauf/rechnungen'
 
 export const metadata: Metadata = { title: 'Offene Posten – software:112' }
 export const dynamic = 'force-dynamic'
@@ -28,37 +29,40 @@ export default async function OffenePostenPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
-  // alle(): sonst fehlen ab dem 1.001. Verkauf offene Posten in Liste und Summe
-  const { data: raw } = await alle(tf((supabase.from('verkaufsposten') as any)
+  // KAN-105: offene Posten sind Rechnungen (rechnungen) mit den Positionen aller ihrer Lieferscheine; nicht berechnete
+  // Lieferscheine sind keine offenen Posten. Zahlungen zählen je Rechnung (zahlungen.rechnung_id).
+  // alle(): sonst fehlen ab der 1.001. Rechnung offene Posten in Liste und Summe
+  const { data: rohRechnungen } = await alle(tf((supabase.from('rechnungen') as any)
     .select(`
       id, datum, rechnungsnummer, storniert, bezahlt, bezahlt_am, erstellt_am,
       kontakt:kontakte!kontakt_id(id, vorname, nachname),
-      firma:firmen(id, name),
-      positionen:verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)
+      firma:firmen!firma_id(id, name),
+      ${lieferscheineSelect('preis_brutto, menge, rabatt_pct, sonderrabatt_pct')}
     `)
     .eq('storniert', false)
     .eq('aktiv',     true)
     .order('datum', { ascending: false })
     .order('id')))
+  const raw = ((rohRechnungen ?? []) as R[]).map(alsBeleg).filter(r => r.verkaufsposten_ids.length > 0)
 
-  const offeneIds = ((raw ?? []) as R[]).filter(p => !p.bezahlt).map(p => p.id as string)
+  const offeneIds = raw.filter(p => !p.bezahlt).map(p => p.id as string)
   const bereitsBezahltMap = new Map<string, number>()
   if (offeneIds.length > 0) {
     // inBloecken: alle offenen Posten – ab ≈ 350 IDs scheiterte die URL und Teilzahlungen fehlten
     const { data: zahlungenRaw } = await inBloecken(offeneIds, b => alle(tf((supabase.from('zahlungen') as any)
-      .select('verkaufsposten_id, betrag')
-      .in('verkaufsposten_id', b)
+      .select('rechnung_id, betrag')
+      .in('rechnung_id', b)
       .is('storniert_am', null)   // KAN-149 D2b: stornierte Zahlungen zählen nicht
       .order('id'))))
     for (const z of (zahlungenRaw ?? []) as R[]) {
-      const key = z.verkaufsposten_id as string
+      const key = z.rechnung_id as string
       bereitsBezahltMap.set(key, (bereitsBezahltMap.get(key) ?? 0) + Number(z.betrag ?? 0))
     }
   }
 
   const heuteMs = Date.now()
-  const posten = ((raw ?? []) as R[]).map((p: R) => {
-    const gesamt = ((p.positionen ?? []) as R[]).reduce((s: number, pos: R) => {
+  const posten = raw.map((p: R) => {
+    const gesamt = ((p.verkauf_positionen ?? []) as R[]).reduce((s: number, pos: R) => {
       if (pos.preis_brutto == null) return s
       const brutto = Number(pos.preis_brutto) * Number(pos.menge)
       const rabatt = Number(pos.rabatt_pct ?? 0) / 100
@@ -76,13 +80,15 @@ export default async function OffenePostenPage() {
     const tage = Math.floor((heuteMs - new Date(p.datum).getTime()) / 86400000)
     const ueberfaellig = !bezahlt && Number.isFinite(tage) && tage > ZAHLUNGSZIEL_TAGE
     return {
-      id:              p.id as string,
+      // Link und Zahlung über den (ersten) Lieferschein – die Zahlung hängt der Trigger an dessen Rechnung (KAN-105)
+      id:              p.verkaufsposten_ids[0] as string,
+      rechnungId:      p.id as string,
       datum:           p.datum as string,
       rechnungsnummer: (p.rechnungsnummer ?? null) as string | null,
       bezahlt,
       bezahlt_am:      (p.bezahlt_am ?? null) as string | null,
       gesamt,
-      bereitsBezahlt:  bereitsBezahltMap.get(p.id as string) ?? 0,
+      bereitsBezahlt:  bereitsBezahltMap.get(p.id as string) ?? 0,   // je Rechnung
       kundenName,
       kontaktId:       (p.kontakt as R | null)?.id ?? null,
       firmaId:         (p.firma   as R | null)?.id ?? null,

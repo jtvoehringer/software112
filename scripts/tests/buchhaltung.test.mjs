@@ -341,21 +341,37 @@ describe('rechnungsausgangsjournal – Netto/USt je Satz, Storno, Lücken', () =
     assert.deepEqual(rj.rechnungsnummernPruefen(['2026-0099', '2026-0100', '2026-0101']), [])
   })
 
+  // KAN-105: Quelle ist die Rechnung (rechnungen) mit den Positionen ihrer Lieferscheine
+  const alsRechnung = (b, lieferscheine = [{ id: `ls-${b.id}`, datum: b.datum, lieferscheinnummer: `LS-${b.id}`, verkauf_positionen: b.verkauf_positionen }]) => {
+    const { verkauf_positionen: _p, ...kopf } = b
+    return { ...kopf, lieferscheine }
+  }
+
   test('ladeRechnungsjournal: Zeitraum, Mandant, Stornos und Hinweise', async () => {
     const eins = { ...posten, id: 'vp0', rechnungsnummer: 'RE-2026-0001', storniert: false, storniert_am: null, datum: '2026-03-01', verkauf_positionen: [{ preis_brutto: 11.3, menge: 1, ust_satz: 13 }] }
     const vier = { ...eins, id: 'vp4', rechnungsnummer: 'RE-2026-0004', datum: '2026-03-02', aktiv: false }
-    const ohne = { ...eins, id: 'vp5', rechnungsnummer: null, datum: '2026-03-03' }
-    const db = doppel({ verkaufsposten: [vier, posten, eins, ohne, { ...eins, id: 'f', tenant_id: FREMD }, { ...eins, id: 'apr', datum: '2026-04-01' }] })
+    const db = doppel({ rechnungen: [vier, posten, eins, { ...eins, id: 'f', tenant_id: FREMD }, { ...eins, id: 'apr', datum: '2026-04-01' }].map(b => alsRechnung(b)) })
     const r = await rj.ladeRechnungsjournal(db, T, { von: '2026-03-01', bis: '2026-03-31' })
     mandantGefiltert(db)
-    assert.deepEqual(r.zeilen.map(z => z.rechnungsnummer), ['RE-2026-0001', 'RE-2026-0002', 'RE-2026-0004', null])
+    assert.deepEqual(r.zeilen.map(z => z.rechnungsnummer), ['RE-2026-0001', 'RE-2026-0002', 'RE-2026-0004'])
     assert.deepEqual(r.warnungen, [
       'Lücke in den Rechnungsnummern: RE-2026-0003 fehlt im Zeitraum.',
-      '1 Verkaufsbeleg hat keine Rechnungsnummer.',
       'Steuersätze ohne eigene Spalte (5 %) – nur in „Netto gesamt“ und „USt gesamt“ enthalten.',
       '1 deaktivierte Verkaufsbeleg ist der Vollständigkeit halber enthalten.',
       '1 Rechnung ist storniert und mit ihren ursprünglichen Beträgen aufgeführt (Spalte „Storniert“) – für Summen herausfiltern.',
     ])
+  })
+
+  test('KAN-105: Rechnung über zwei Lieferscheine = eine Zeile mit den Positionen beider', async () => {
+    const sammel = alsRechnung({ ...posten, id: 're9', rechnungsnummer: 'RE-2026-0009', storniert: false, storniert_am: null, datum: '2026-03-10' }, [
+      { id: 'ls2', datum: '2026-03-05', lieferscheinnummer: 'LS-2026-0002', verkauf_positionen: [{ preis_brutto: 12, menge: 10, ust_satz: 20 }] },
+      { id: 'ls1', datum: '2026-03-01', lieferscheinnummer: 'LS-2026-0001', verkauf_positionen: [{ preis_brutto: 11.3, menge: 2, ust_satz: 13 }] },
+    ])
+    const r = await rj.ladeRechnungsjournal(doppel({ rechnungen: [sammel] }), T, { von: '2026-03-01', bis: '2026-03-31' })
+    assert.equal(r.zeilen.length, 1)
+    assert.equal(r.zeilen[0].brutto, 142.6)     // 120 + 22,60
+    assert.equal(r.zeilen[0].netto20, 100)
+    assert.equal(r.zeilen[0].netto13, 20)
   })
 })
 
