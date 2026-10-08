@@ -76,7 +76,7 @@ export default function SvsClient({ grundstuecke, parameter, jahr, option, einku
 }
 
 // ── Beiträge & Vergleich ────────────────────────────────────────────────────
-function BeitraegeTab({ v, p, jahr, opt, setOpt, einkuenfteVorjahr, einkuenfte, darfOption, doppik, onZuEinheitswerten }: {
+function BeitraegeTab({ v, p, opt, setOpt, einkuenfteVorjahr, einkuenfte, darfOption, doppik, onZuEinheitswerten }: {
   v: NonNullable<ReturnType<typeof vergleiche>>; p: SvsParameter; jahr: number; opt: Option; setOpt: (o: Option) => void
   einkuenfteVorjahr: { jahr: number; betrag: number; buchungen: boolean }; einkuenfte: number | null; darfOption: boolean; doppik: boolean; onZuEinheitswerten: () => void
 }) {

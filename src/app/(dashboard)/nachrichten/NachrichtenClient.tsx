@@ -163,7 +163,6 @@ export default function NachrichtenClient() {
   const [forwardAn, setForwardAn]               = useState('')
   const [forwardMode, setForwardMode]           = useState(false)
   const [sendVon, setSendVon]                   = useState<'own'|'shared'>('own')
-  const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set())
   const [threadMsgs, setThreadMsgs]             = useState<Msg[]>([])
   const [threadLaden, setThreadLaden]           = useState(false)
   const loadGenRef = useRef(0)

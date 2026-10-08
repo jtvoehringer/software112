@@ -1009,15 +1009,15 @@ function M365Tab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
           <p className="font-semibold">Verbindung fehlgeschlagen</p>
           <p className="text-xs break-all">{m365Error}</p>
           {(m365Error.includes('AADSTS500113') || m365Error.includes('AADSTS50011')) && (
-            <p className="text-xs">→ In Azure fehlt eine Umleitungs-URI. Unter „Authentifizierung" → „+ Plattform hinzufügen" → Web beide URIs eintragen:{' '}
+            <p className="text-xs">→ In Azure fehlt eine Umleitungs-URI. Unter „Authentifizierung“ → „+ Plattform hinzufügen“ → Web beide URIs eintragen:{' '}
               <code className="bg-white px-1 rounded-sm">https://software112.icp-consultants.at/api/auth/m365/callback</code> und{' '}
               <code className="bg-white px-1 rounded-sm">https://software112.icp-consultants.at/api/auth/m365/user/callback</code>.</p>
           )}
           {(m365Error.includes('AADSTS7000215') || m365Error.includes('invalid_client')) && (
-            <p className="text-xs">→ Der geheime Clientschlüssel ist falsch oder abgelaufen. Bitte in Azure unter „Zertifikate &amp; Geheimnisse" ein neues Secret anlegen, den „Wert" (nicht die Geheime Text-ID) kopieren und hier neu eintragen.</p>
+            <p className="text-xs">→ Der geheime Clientschlüssel ist falsch oder abgelaufen. Bitte in Azure unter „Zertifikate &amp; Geheimnisse“ ein neues Secret anlegen, den „Wert“ (nicht die Geheime Text-ID) kopieren und hier neu eintragen.</p>
           )}
           {m365Error.includes('AADSTS65001') && (
-            <p className="text-xs">→ Der Administrator hat die API-Berechtigungen noch nicht bestätigt. Unter „API-Berechtigungen" auf „Administratorzustimmung erteilen" klicken.</p>
+            <p className="text-xs">→ Der Administrator hat die API-Berechtigungen noch nicht bestätigt. Unter „API-Berechtigungen“ auf „Administratorzustimmung erteilen“ klicken.</p>
           )}
         </div>
       )}
@@ -1049,15 +1049,15 @@ function M365Tab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
           <p className="font-semibold text-s112-blue-700">Azure AD App-Registrierung (einmalig):</p>
           <ol className="list-decimal ml-4 space-y-1 text-s112-blue-700">
             <li>portal.azure.com → App-Registrierungen → Neue Registrierung</li>
-            <li>Authentifizierung → Plattform hinzufügen → Web – dort BEIDE Umleitungs-URIs eintragen (eine für diese Mandanten-Verbindung, eine für die persönliche Mailbox-Verbindung jedes einzelnen Users unter „Nachrichten"):
+            <li>Authentifizierung → Plattform hinzufügen → Web – dort BEIDE Umleitungs-URIs eintragen (eine für diese Mandanten-Verbindung, eine für die persönliche Mailbox-Verbindung jedes einzelnen Users unter „Nachrichten“):
               <div className="mt-1 space-y-0.5">
                 <code className="block bg-white px-1 rounded-sm">https://software112.icp-consultants.at/api/auth/m365/callback</code>
                 <code className="block bg-white px-1 rounded-sm">https://software112.icp-consultants.at/api/auth/m365/user/callback</code>
               </div>
             </li>
             <li>Zertifikate & Geheimnisse → Neuer geheimer Clientschlüssel</li>
-            <li>API-Berechtigungen → Microsoft Graph → delegiert: Mail.ReadWrite, Mail.ReadWrite.Shared, Mail.Send, Mail.Send.Shared, Calendars.Read, offline_access – danach „Administratorzustimmung erteilen". Die .Shared-Berechtigungen braucht Graph für geteilte Mailboxen (sonst 403 trotz Vollzugriff); nach dem Ergänzen müssen sich die Benutzer unter Nachrichten › Einstellungen einmal „Trennen &amp; neu verbinden".</li>
-            <li>Optional für „Termine in Outlook anlegen" (Einladung an Kollegen aus dem CRM-Kalender): zusätzlich <b>Calendars.ReadWrite</b> delegiert + Administratorzustimmung, dann unten den Schalter setzen. Erst danach fordert die Verbindung das Schreibrecht an – vorher würde die Anmeldung aller Benutzer scheitern. Frei/Belegt der Kollegen funktioniert schon mit Calendars.Read.</li>
+            <li>API-Berechtigungen → Microsoft Graph → delegiert: Mail.ReadWrite, Mail.ReadWrite.Shared, Mail.Send, Mail.Send.Shared, Calendars.Read, offline_access – danach „Administratorzustimmung erteilen“. Die .Shared-Berechtigungen braucht Graph für geteilte Mailboxen (sonst 403 trotz Vollzugriff); nach dem Ergänzen müssen sich die Benutzer unter Nachrichten › Einstellungen einmal „Trennen &amp; neu verbinden“.</li>
+            <li>Optional für „Termine in Outlook anlegen“ (Einladung an Kollegen aus dem CRM-Kalender): zusätzlich <b>Calendars.ReadWrite</b> delegiert + Administratorzustimmung, dann unten den Schalter setzen. Erst danach fordert die Verbindung das Schreibrecht an – vorher würde die Anmeldung aller Benutzer scheitern. Frei/Belegt der Kollegen funktioniert schon mit Calendars.Read.</li>
           </ol>
         </div>
 
@@ -1727,7 +1727,7 @@ function SumUpTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
   if (!(settings as any).modul_sumup) {
     return (
       <div className="text-sm text-s112-muted py-8 text-center">
-        SumUp-Modul ist deaktiviert. Aktiviere es zuerst im Tab „Module".
+        SumUp-Modul ist deaktiviert. Aktiviere es zuerst im Tab „Module“.
       </div>
     )
   }

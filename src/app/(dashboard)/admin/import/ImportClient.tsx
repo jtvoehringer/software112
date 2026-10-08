@@ -155,7 +155,7 @@ export default function ImportClient({
 }) {
   const startTyp = (ALLE_TYPEN as string[]).includes(initialTyp ?? '') ? (initialTyp as ImportTyp) : 'kontakte'
   const [typ, setTyp]               = useState<ImportTyp>(startTyp)
-  const [csvText, setCsvText]       = useState('')
+  const [, setCsvText]              = useState('')
   const [parsed, setParsed]         = useState<{ headers: string[]; rows: Record<string, string>[] } | null>(null)
   const [mapping, setMapping]       = useState<Record<string, string>>({})
   // Nur relevant für Kontakte/Firmen (Rückmeldung 1.9.2026: Kunden und Leads

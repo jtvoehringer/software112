@@ -51,7 +51,6 @@ export default function PNAFormular({ dacAntragId, initial, csvHref, gesperrt = 
   const [pending, startTransition] = useTransition()
   const [fehler, setFehler] = useState<string | null>(null)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function set<K extends keyof PNADaten>(key: K, value: PNADaten[K]) {
     setD(prev => ({ ...prev, [key]: value }))
     setGespeichert(false)

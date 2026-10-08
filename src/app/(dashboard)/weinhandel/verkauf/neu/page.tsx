@@ -519,7 +519,7 @@ export default function NeuerVerkaufPage() {
                   placeholder="Ansprechpartner suchen…"
                   disabled={loading}
                 />
-                <p className="text-xs text-s112-muted mt-1">Erscheint auf Rechnung/Lieferschein als „z.H. Vorname Nachname"</p>
+                <p className="text-xs text-s112-muted mt-1">Erscheint auf Rechnung/Lieferschein als „z.H. Vorname Nachname“</p>
               </div>
             )}
             {(kontaktId || firmaId) && (

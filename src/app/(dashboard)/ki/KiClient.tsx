@@ -107,7 +107,7 @@ export default function KiClient({ aktiv, paket, verbraucht }: Props) {
     <div className="p-8 max-w-2xl mx-auto text-center py-20">
       <Bot className="w-12 h-12 text-s112-muted mx-auto mb-4" />
       <h1 className="text-2xl font-semibold text-s112-text mb-2">KI-Modul nicht aktiv</h1>
-      <p className="text-s112-muted mb-4">Das Modul „Frag dein Weingut" ist für diesen Betrieb noch nicht freigeschaltet.</p>
+      <p className="text-s112-muted mb-4">Das Modul „Frag dein Weingut“ ist für diesen Betrieb noch nicht freigeschaltet.</p>
       <Link href="/admin/mandanten" className="text-s112-blue-700 hover:underline text-sm">Zum Admin-Bereich</Link>
     </div>
   )

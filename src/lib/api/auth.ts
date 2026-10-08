@@ -20,7 +20,7 @@ export const USER_EMAIL_CONN_SELECT =
  * "irgendeine Mitgliedschaft"-Fallback-Logik. NIEMALS aus Request-Body lesen.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function getTenantId(supabase: any): Promise<string | null> {
+export async function getTenantId(_supabase: any): Promise<string | null> {
   const membership = await getCurrentMembership()
   return membership?.tenantId ?? null
 }

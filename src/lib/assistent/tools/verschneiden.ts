@@ -88,7 +88,6 @@ export const VERSCHNEIDEN_TOOL = {
 }
 
 export async function fuehreVerschneidenAus(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   input: R,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any

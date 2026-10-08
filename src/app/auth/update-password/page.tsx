@@ -8,8 +8,6 @@ export default function UpdatePasswordPage() {
   const router = useRouter()
   const supabase = createSupabaseBrowserClient()
   const [password, setPassword] = useState('')
-  // Einladung oder Passwort-Reset?
-  const isInvite = typeof window !== 'undefined' && window.location.href.includes('invite')
   const [confirm, setConfirm]   = useState('')
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState<string | null>(null)

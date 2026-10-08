@@ -100,7 +100,6 @@ export const ABFUELLEN_TOOL = {
 }
 
 export async function fuehreAbfuellenAus(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   input: R,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any

@@ -48,10 +48,6 @@ export default async function DashboardPage() {
   }
 
   const heute = wienJetzt()   // KAN-158: Monatswechsel nach Wiener Uhr
-  const monatVon  = toDateStr(new Date(heute.getFullYear(), heute.getMonth(), 1))
-  const monatBis  = toDateStr(new Date(heute.getFullYear(), heute.getMonth() + 1, 0))
-  const vorMonVon = toDateStr(new Date(heute.getFullYear(), heute.getMonth() - 1, 1))
-  const vorMonBis = toDateStr(new Date(heute.getFullYear(), heute.getMonth(), 0))
   const heuteStr  = toDateStr(heute)
 
   const wochenStart      = startOfWeek(heute)
@@ -72,8 +68,6 @@ export default async function DashboardPage() {
 
   const [
     { data: offenePostenRaw },
-    { data: monatsVerkaufRaw },
-    { data: vormonatsVerkaufRaw },
     { data: letzteVerkaeufRaw },
     { count: leadCount },
     { count: firmaLeadCount },
@@ -85,16 +79,6 @@ export default async function DashboardPage() {
     tf(q('verkaufsposten')
       .select('id, datum, verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
       .eq('aktiv', true).eq('bezahlt', false).eq('storniert', false)),
-
-    // Verkäufe aktueller Monat
-    tf(q('verkaufsposten')
-      .select('id, verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
-      .eq('aktiv', true).gte('datum', monatVon).lte('datum', monatBis)),
-
-    // Verkäufe Vormonat
-    tf(q('verkaufsposten')
-      .select('id, verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
-      .eq('aktiv', true).gte('datum', vorMonVon).lte('datum', vorMonBis)),
 
     // Überfällige Rechnungen (bis 5.8.2026: letzte 5 Belege unabhängig vom Status - auf
     // Wunsch auf ausschließlich überfällige umgestellt). Weiter gefasste Vorab-Filterung
@@ -139,8 +123,6 @@ export default async function DashboardPage() {
     }, 0)
   }
 
-  const monatUmsatz   = posSum((monatsVerkaufRaw    ?? []) as R[])
-  const vormonUmsatz  = posSum((vormonatsVerkaufRaw ?? []) as R[])
   const offenePostenListe = (offenePostenRaw ?? []) as R[]
   const offenePosten  = posSum(offenePostenListe)
 

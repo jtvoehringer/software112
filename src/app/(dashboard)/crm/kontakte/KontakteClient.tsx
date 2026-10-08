@@ -38,7 +38,7 @@ function inputCls() {
 const QUELLE_NEU = '__neu__'
 
 export function KontaktForm({
-  initial, firmen = [], rabattgruppen = [], quellen = [], defaultSegment, existingKontakte, onDone,
+  initial, firmen = [], rabattgruppen = [], quellen = [], defaultSegment, onDone,
 }: {
   initial?: KontaktRow | null
   firmen?: FirmaOption[]
@@ -320,7 +320,7 @@ export function KontaktForm({
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Zahlungsziel (Tage) *</label>
           <input aria-label="Zahlungsziel (Tage)" name="zahlungsziel_tage" type="number" min="0" max="365" step="1" required
             defaultValue={initial?.zahlungsziel_tage ?? 14} placeholder="14" className={inputCls()} />
-          <p className="text-[11px] text-s112-tertiary mt-0.5">0 = Rechnung wird mit "bei Erhalt" statt Fälligkeitsdatum gedruckt</p>
+          <p className="text-[11px] text-s112-tertiary mt-0.5">0 = Rechnung wird mit „bei Erhalt“ statt Fälligkeitsdatum gedruckt</p>
         </div>
         {/* Quelle (02.10.2026): Auswahl aus den im Betrieb verwendeten Quellen oder neu anlegen */}
         <div>

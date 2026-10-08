@@ -39,7 +39,6 @@ export default async function WillkommenPage() {
 
   return (
     <div className="min-h-screen bg-s112-bg flex items-center justify-center p-4">
-      {/* eslint-disable-next-line @next/next/no-head-element */}
       <meta httpEquiv="refresh" content="2" />
       <div className="w-full max-w-md text-center">
         <div className="card space-y-3">

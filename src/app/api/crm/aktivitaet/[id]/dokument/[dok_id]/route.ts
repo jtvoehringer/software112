@@ -50,8 +50,6 @@ export async function DELETE(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Nicht angemeldet' }, { status: 401 })
 
-  const { data: { session } } = await supabase.auth.getSession()
-
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId
   if (!tenantId) return NextResponse.json({ error: 'Kein Betrieb' }, { status: 403 })

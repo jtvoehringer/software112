@@ -15,7 +15,6 @@ export default async function ExportPage() {
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   // Zähler für Info
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [{ count: kontakteCount }, { count: firmenCount }, { count: fuellungenCount }, { count: verkaufCount }] = await Promise.all([
     tf((supabase.from('kontakte') as any).select('*', { count: 'exact', head: true }).eq('aktiv', true)),
     tf((supabase.from('firmen') as any).select('*', { count: 'exact', head: true }).eq('aktiv', true)),

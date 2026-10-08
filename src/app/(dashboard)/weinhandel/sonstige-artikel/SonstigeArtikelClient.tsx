@@ -241,7 +241,7 @@ export default function SonstigeArtikelClient({ initialArtikel, lager = {} }: { 
         {sorted.length === 0 && !showNeu ? (
           <div className="px-6 py-10 text-center text-sm text-s112-muted">
             <p className="font-medium">Noch keine Sonstiges-Produkte angelegt</p>
-            <p className="mt-1">Klicke auf „+ Neues Produkt" um zu starten.</p>
+            <p className="mt-1">Klicke auf „+ Neues Produkt“ um zu starten.</p>
           </div>
         ) : (
           <table className="w-full text-sm">

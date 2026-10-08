@@ -77,7 +77,7 @@ function MultiSelect({ items, selected, onToggle, splitModus, setSplitModus, ant
 }
 
 function StammdatenTab({ items, onSave, onDelete, fields }: {
-  items: Record<string, string|undefined>[]  // eslint-disable-line @typescript-eslint/no-explicit-any
+  items: Record<string, string|undefined>[]
   onSave: (item: Record<string, string|undefined>) => Promise<void>
   onDelete: (id: string) => Promise<void>
   fields: { key: string; label: string; type?: string; options?: string[] }[]
