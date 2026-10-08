@@ -7,7 +7,7 @@ import { getCurrentMembership, canWrite, canAdmin, isSystemAdmin } from '@/lib/a
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import type { Zurechnung } from '@/lib/svs/berechnung'
-import { AktionsFehler } from '@/lib/fehler'
+import { AktionsFehler, NICHT_GESPEICHERT } from '@/lib/fehler'
 import { dezimal } from '@/lib/format'
 import { heuteWien } from '@/lib/datum/wien'
 
@@ -32,7 +32,7 @@ export async function speichereEinheitswerte(zeilen: { id: string; einheitswert:
   let fehler: string | null = null
   for (const z of zeilen) {
     if (!ZURECHNUNGEN.includes(z.svs_zurechnung as Zurechnung)) return { ok: false, fehler: `Ungültige Zurechnung: ${z.svs_zurechnung}` }
-    const { error } = await (supabase.from('grundstuecke') as any)
+    const { data: geaendert, error } = await (supabase.from('grundstuecke') as any)
       .update({
         einheitswert: z.einheitswert === null || Number.isNaN(z.einheitswert) ? null : Math.round(z.einheitswert * 100) / 100,
         svs_zurechnung: z.svs_zurechnung,
@@ -40,7 +40,9 @@ export async function speichereEinheitswerte(zeilen: { id: string; einheitswert:
         einheitswert_quelle: 'manuell',
       })
       .eq('id', z.id).eq('tenant_id', tenantId)
+      .select('id')
     if (error) { fehler = (error as R).message; break }
+    if (!(geaendert as unknown[] | null)?.length) { fehler = NICHT_GESPEICHERT; break }   // KAN-248
   }
   revalidatePath('/buchhaltung/svs')
   return fehler ? { ok: false, fehler } : { ok: true }
@@ -85,7 +87,7 @@ export async function importiereEinheitswerte(text: string, bescheidDatum?: stri
     if (treffer.length === 0) { nichtGefunden.push(`${kg ? kg + ' ' : ''}${gstNr}`); continue }
     if (treffer.length > 1) { mehrdeutig.push(`${gstNr} (${treffer.length}×)`); continue }
     const update: R = { einheitswert: Math.round(ew * 100) / 100, einheitswert_quelle: 'import', einheitswert_bescheid: (iDatum >= 0 && felder[iDatum]) ? isoDatum(felder[iDatum]) : (bescheidDatum || null) }
-    if (iZur >= 0 && felder[iZur]) { const z = zurMap[felder[iZur].toLowerCase().trim()]; if (z) update.svs_zurechnung = z }
+    if (iZur >= 0 && felder[iZur]) { const z = zurMap[felder[iZur].toLowerCase().trim()]; if (z) update.svs_zurechnung = z }   // aenderung-ohne-pruefung: Grundstück eben gefunden (treffer) – der Import zählt die übernommenen
     const { error } = await (supabase.from('grundstuecke') as any).update(update).eq('id', treffer[0].id).eq('tenant_id', tenantId)
     if (error) return { ok: false, fehler: (error as R).message }
     uebernommen++

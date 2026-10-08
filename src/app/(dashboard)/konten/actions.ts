@@ -4,7 +4,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canAdmin, canWrite } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
-import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
+import { AktionsFehler, dbFehlerText, NICHT_GESPEICHERT } from '@/lib/fehler'
 import { stornoGrundFehler } from '@/lib/storno/grund'
 import { dezimal } from '@/lib/format'
 import { pruefeModul } from '@/lib/auth/modul'
@@ -53,11 +53,12 @@ export async function deaktiviereKonto(id: string) {
   const { supabase, tenantId, role } = await getCtx()
   if (!canAdmin(role)) return { error: 'Keine Berechtigung.' }
 
-  const { error } = await (supabase.from('konten') as any)
+  const { data: geaendert, error } = await (supabase.from('konten') as any)
     .update({ aktiv: false })
-    .eq('id', id).eq('tenant_id', tenantId)
+    .eq('id', id).eq('tenant_id', tenantId).select('id')
 
   if (error) return { error: (error as R).message }
+  if (!(geaendert as unknown[] | null)?.length) return { error: NICHT_GESPEICHERT }   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
   revalidatePath('/konten')
   return { ok: true }
 }

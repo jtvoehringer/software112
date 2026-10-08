@@ -202,6 +202,9 @@ export const PAKETMODUL_AUS_MELDUNG =
   'Dieses Modul ist im Paket des Betriebs nicht enthalten – Daten bleiben lesbar, Änderungen sind erst nach einem Paketwechsel (Abo) möglich.'
 
 /** KAN-129: Trigger a_lese_zuordnen (23502, HINT 'lese_waehlen') – Jahrgang mit mehreren Lesen, keine Lese angegeben */
+/** KAN-248: Ein UPDATE, das die RLS nicht zulässt oder dessen Zeile fehlt, ändert still 0 Zeilen – statt „gespeichert“ */
+export const NICHT_GESPEICHERT = 'Nicht gespeichert – der Datensatz wurde nicht gefunden oder die Berechtigung fehlt. Bitte die Seite neu laden.'
+
 export const LESE_WAEHLEN_MELDUNG =
   'Der Jahrgang hat mehrere Lesen und das Datum passt zu keiner – bitte oben auf der Jahrgangsseite die Lese (Reiter) wählen und erneut speichern.'
 

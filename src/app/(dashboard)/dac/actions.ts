@@ -5,7 +5,7 @@ import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { revalidatePath } from 'next/cache'
-import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
+import { AktionsFehler, dbFehlerText, NICHT_GESPEICHERT } from '@/lib/fehler'
 import { stornoGrundFehler } from '@/lib/storno/grund'
 import { dezimal } from '@/lib/format'
 import { freezeSperreAus, sperrMeldung } from '@/lib/freeze/sperre'
@@ -71,8 +71,9 @@ export async function updateDacAntrag(id: string, formData: FormData) {
   for (const k of pnAenderbareFelder((alt as R).status)) payload[k] = w[k]
   if (payload.weinausbau_id) await keinOffenerAntrag(supabase, tenantId, String(payload.weinausbau_id), id)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('dac_antrag') as any).update(payload).eq('id', id).eq('tenant_id', tenantId)
+  const { data: geaendert, error } = await (supabase.from('dac_antrag') as any).update(payload).eq('id', id).eq('tenant_id', tenantId).select('id')
   if (error) throw speicherFehler(error, 'Speichern fehlgeschlagen')
+  if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
   revalidatePath('/dac')
   revalidatePath(`/dac/${id}`)
 }

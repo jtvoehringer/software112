@@ -4,7 +4,7 @@ import { getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { revalidatePath } from 'next/cache'
-import { AktionsFehler } from '@/lib/fehler'
+import { AktionsFehler, NICHT_GESPEICHERT } from '@/lib/fehler'
 import { dezimal } from '@/lib/format'
 
 type AR = Record<string, any>
@@ -53,11 +53,12 @@ export async function createZeiteintrag(formData: FormData) {
 
 export async function updateZeiteintrag(id: string, formData: FormData) {
   const { supabase, tenantId } = await getTenantAdmin()
-  const { error } = await (supabase.from('zeiterfassung') as any)
+  const { data: geaendert, error } = await (supabase.from('zeiterfassung') as any)
     .update({ ...parseForm(formData), aktualisiert_am: new Date().toISOString() })
     .eq('id', id)
-    .eq('tenant_id', tenantId)
+    .eq('tenant_id', tenantId).select('id')
   if (error) throw new AktionsFehler((error as AR).message)
+  if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
   revalidatePath('/admin/zeiterfassung')
 }
 

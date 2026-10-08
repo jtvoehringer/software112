@@ -16,6 +16,7 @@
 // UI/Formular-Schreiblogik, die wiederverwendet werden könnte).
 
 import { getCurrentMembership } from '@/lib/auth/roles'
+import { NICHT_GESPEICHERT } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -95,10 +96,11 @@ export async function fuehreKorrekturMerkenAus(
     .select('id').eq('tenant_id', tenantId).ilike('begriff', begriff).maybeSingle()
 
   if ((bestehend as R | null)?.id) {
-    const { error: updateErr } = await (supabase.from('assistent_korrekturen') as any)
+    const { data: geaendert, error: updateErr } = await (supabase.from('assistent_korrekturen') as any)
       .update({ interpretation, kategorie, erstellt_von: userId })
-      .eq('id', (bestehend as R).id).eq('tenant_id', tenantId)
+      .eq('id', (bestehend as R).id).eq('tenant_id', tenantId).select('id')
     if (updateErr) return { erfolg: false, fehler: (updateErr as R).message }
+    if (!(geaendert as unknown[] | null)?.length) return { erfolg: false, fehler: NICHT_GESPEICHERT }   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
     return { erfolg: true, korrektur_id: (bestehend as R).id, aktualisiert: true }
   }
 

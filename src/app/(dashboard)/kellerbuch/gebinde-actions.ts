@@ -9,7 +9,7 @@ import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { fmtNum, dezimal, zahlAus } from '@/lib/format'
-import { AktionsFehler, dbFehlerText, fehlerText } from '@/lib/fehler'
+import { AktionsFehler, dbFehlerText, fehlerText, NICHT_GESPEICHERT } from '@/lib/fehler'
 import { qualitaetFehler, qualitaetsAngabeAusFormular, qualitaetsAngabeFehler } from '@/lib/wein/qualitaet'
 import { normalisiereQualitaet, qualitaetsSpalten } from '@/lib/wein/qualitaetsrang'
 import { sperreBeiFolgebuchungen } from '@/lib/kellerbuch/folgebuchungen'
@@ -709,11 +709,12 @@ export async function updateUmzugBatch(firstRecordId: string, formData: FormData
   const roh = leseUmzugRoh(formData)
   if (gleicheBuchung(alt, roh)) {
     // Nur Notizen (stehen an der ersten Quell-Zeile)
-    const { error } = await (supabase.from('keller_umzuege') as any)
+    const { data: geaendert, error } = await (supabase.from('keller_umzuege') as any)
       .update({ notizen: roh.notizen })
       .eq('id', alt.ersteId)
-      .eq('tenant_id', tenantId)
+      .eq('tenant_id', tenantId).select('id')
     if (error) throw new AktionsFehler(dbFehlerText(error, 'Speichern fehlgeschlagen (keller_umzuege)'))
+    if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
     revalidiereUmzug()
     redirect(zielNachAbschluss(formData.get('zurueck'), '/kellerbuch/gebinde?tab=umziehen', 'gespeichert'))   // KAN-224
   }

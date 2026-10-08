@@ -14,7 +14,7 @@ import { GRUND_BEARBEITET, stornoGrundFehler } from '@/lib/storno/grund'
 import { getCurrentMembership, canAdmin, canWrite, type Membership, type Modul } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
-import { AktionsFehler, dbFehlerText, LESE_WAEHLEN_MELDUNG } from '@/lib/fehler'
+import { AktionsFehler, dbFehlerText, LESE_WAEHLEN_MELDUNG, NICHT_GESPEICHERT } from '@/lib/fehler'
 import { dezimal, fmtNum, zahlAus } from '@/lib/format'
 import { folgebuchungenDerCharge, folgebuchungenText, sperreBeiFolgebuchungen } from '@/lib/kellerbuch/folgebuchungen'
 import { GEBINDEWECHSEL_OHNE } from '@/lib/kellerbuch/storno'
@@ -150,8 +150,9 @@ export async function updateJahrgang(id: string, formData: FormData) {
   }
   if (Object.keys(patch).length === 0) return
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('weinjahrgaenge') as any).update(patch).eq('id', id).eq('tenant_id', tenantId)
+  const { data: geaendert, error } = await (supabase.from('weinjahrgaenge') as any).update(patch).eq('id', id).eq('tenant_id', tenantId).select('id')
   if (error) throw new AktionsFehler(dbFehlerText(error, 'Speichern fehlgeschlagen (weinjahrgaenge)'))
+  if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
   revalidatePath('/erntemeldung')
   revalidatePath(`/erntemeldung/${id}`)
 }
@@ -1634,7 +1635,7 @@ export async function upsertPressung(fd: FormData): Promise<{ neu: NeueCharge[];
     if (!w.trauben_kg || !w.weingarten_id) continue
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let q = (supabase.from('ernte_parzellen') as any)
-      .update({ menge_kg: w.trauben_kg, menge_hl: w.trauben_kg / 130 })
+      .update({ menge_kg: w.trauben_kg, menge_hl: w.trauben_kg / 130 })   // aenderung-ohne-pruefung: nur offene Lese-Zeilen ohne Menge – 0 Zeilen sind in Ordnung
       .eq('jahrgang_id', jahrgangId)
       .eq('weingarten_id', w.weingarten_id)
       .is('menge_kg', null)
@@ -1901,8 +1902,9 @@ export async function createTraubenverkauf(fd: FormData) {
     datum, kontaktId, firmaId, weingartenName, mengeKg, preisPerKg,
   })
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  { const { error: e } = await (supabase.from('traubenverkauf') as any).update({ verkaufsposten_id: postenId }).eq('id', (inserted as AR).id).eq('tenant_id', tenantId)
-    if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (traubenverkauf): ${e.message}`) }
+  { const { data: geaendert, error: e } = await (supabase.from('traubenverkauf') as any).update({ verkaufsposten_id: postenId }).eq('id', (inserted as AR).id).eq('tenant_id', tenantId).select('id')
+    if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (traubenverkauf): ${e.message}`)
+    if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT) }   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
 
   if (jahrgangId) revalidatePath(`/erntemeldung/${jahrgangId}`)
   revalidatePath('/erntemeldung')

@@ -60,6 +60,8 @@ const ATTRAPPEN = {
 function supabaseAttrappe({ bio = 'konventionell', oeko = true, cuGehaltPct = null } = {}) {
   const schreiben = []
   const antwort = (tabelle, op) => {
+    // KAN-248: update(…).select('id') liefert wie PostgREST die geänderte Zeile (0 Zeilen hieße: RLS bzw. nicht gefunden)
+    if (op === 'update') return { data: [{ id: 'aktualisiert' }], error: null }
     if (tabelle === 'grundstuecke') return { data: [{ id: 'g-1', weingarten_id: 'w-1', flaeche_ha: 2 }], error: null }
     if (tabelle === 'tenants') return { data: { bio_status: bio }, error: null }
     if (tabelle === 'pflanzenschutzmittel') {

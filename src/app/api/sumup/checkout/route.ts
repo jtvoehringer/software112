@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
 
       // SumUp Checkout-ID in lokaler DB speichern
       { const { error: e } = await (supabase.from('sumup_checkouts') as any)
-        .update({ sumup_checkout_id: checkoutRef })
+        .update({ sumup_checkout_id: checkoutRef })   // aenderung-ohne-pruefung: Zeile eben angelegt, Fehler wird protokolliert (Checkout läuft schon)
         .eq('id', (localCheckout as R).id)
         .eq('tenant_id', tenantId)
         if (e) void ereignisMelden({ art: 'db', quelle: 'checkout/sumup_checkouts', meldung: e.message }) }

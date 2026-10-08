@@ -571,7 +571,7 @@ export async function createVerkauf(formData: FormData) {
   // ist gespeichert; ohne CRM-Freigabe filtert RLS das Update ohnehin still)
   if (kontaktId) {
     { const { error: e } = await (supabase.from('kontakte') as any)
-      .update({ is_lead: false })
+      .update({ is_lead: false })   // aenderung-ohne-pruefung: Lead-Status nur, solange noch Lead (is_lead = true) – sonst 0 Zeilen
       .eq('id', kontaktId)
       .eq('tenant_id', tenantId)
       .eq('is_lead', true)  // nur wenn noch Lead
@@ -579,7 +579,7 @@ export async function createVerkauf(formData: FormData) {
   }
   if (firmaId) {
     { const { error: e } = await (supabase.from('firmen') as any)
-      .update({ is_lead: false })
+      .update({ is_lead: false })   // aenderung-ohne-pruefung: Lead-Status nur, solange noch Lead (is_lead = true) – sonst 0 Zeilen
       .eq('id', firmaId)
       .eq('tenant_id', tenantId)
       .eq('is_lead', true)
@@ -686,7 +686,7 @@ export async function markiereAlsBezahlt(id: string) {
   try {
     const re = posten?.rechnungsnummer
     { const { error: e } = await (supabase.from('aktivitaeten') as any)
-      .update({ betreff: `Verkauf ${re ?? ''} · Bezahlt` })
+      .update({ betreff: `Verkauf ${re ?? ''} · Bezahlt` })   // aenderung-ohne-pruefung: CRM-Betreff nachziehen, nicht kritisch – ohne Aktivität nichts zu tun
       .eq('beschreibung', `Verkaufsposten: ${id}`)
       .eq('tenant_id', tenantId)
       if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (aktivitaeten): ${e.message}`) }

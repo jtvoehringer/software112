@@ -5,7 +5,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
-import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
+import { AktionsFehler, dbFehlerText, NICHT_GESPEICHERT } from '@/lib/fehler'
 import { stornoGrundFehler } from '@/lib/storno/grund'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -41,11 +41,12 @@ export async function savePNA(dacAntragId: string, daten: R, zweiterVersuch = fa
 
   if (existing?.id) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: e } = await (supabase.from('pruefnummernantraege') as any)
+    const { data: geaendert, error: e } = await (supabase.from('pruefnummernantraege') as any)
       .update({ formular_daten: daten, aktualisiert_am: new Date().toISOString() })
       .eq('id', existing.id)
-      .eq('tenant_id', tenantId)
+      .eq('tenant_id', tenantId).select('id')
     if (e) throw new AktionsFehler(dbFehlerText(e, 'Speichern fehlgeschlagen (pruefnummernantraege)'))
+    if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
     revalidatePath(`/dac/${dacAntragId}/antrag`)
     return { id: existing.id }
   }

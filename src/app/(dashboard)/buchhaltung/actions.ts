@@ -5,7 +5,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canAdmin, canWrite } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
-import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
+import { AktionsFehler, dbFehlerText, NICHT_GESPEICHERT } from '@/lib/fehler'
 import { stornoGrundFehler } from '@/lib/storno/grund'
 import { dezimal } from '@/lib/format'
 import { abgleichVerkaufsEinnahmen } from '@/lib/ea/verkaufEinnahmen'
@@ -185,11 +185,12 @@ export async function deaktiviereEaDauerauftrag(id: string) {
     return { error: 'Keine Berechtigung – nur Admins dürfen Daueraufträge deaktivieren.' }
   }
 
-  const { error } = await (supabase.from('ea_dauerauftraege') as any)
+  const { data: geaendert, error } = await (supabase.from('ea_dauerauftraege') as any)
     .update({ aktiv: false })
-    .eq('id', id).eq('tenant_id', tenantId)
+    .eq('id', id).eq('tenant_id', tenantId).select('id')
 
   if (error) return { error: (error as R).message }
+  if (!(geaendert as unknown[] | null)?.length) return { error: NICHT_GESPEICHERT }   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
   revalidatePath('/buchhaltung/dauerauftraege')
   return { ok: true }
 }
@@ -410,16 +411,18 @@ export async function verbucheBeleg(belegId: string, formData: FormData) {
 
   // KAN-240: scheitert das Markieren, darf der Beleg nicht still „erkannt“ bleiben – sonst ließe er sich ein zweites
   // Mal verbuchen (doppelte Ausgabe). Die Buchung steht; Meldung wie beim Zahlungseingang (KAN-149): nicht erneut buchen.
-  { const { error: markErr } = await (supabase.from('ea_belege') as any)
+  { const { data: markiert, error: markErr } = await (supabase.from('ea_belege') as any)
     .update({
       ea_transaktion_id: (neu as R).id,
       status:             'verbucht',
       verbucht_am:         new Date().toISOString(),
     })
     .eq('id', belegId).eq('tenant_id', tenantId)
-    if (markErr) {
+    .select('id')
+    // KAN-248: auch still abgelehntes Markieren (0 Zeilen) – der Beleg bliebe sonst „erkannt“ und doppelt verbuchbar
+    if (markErr || !(markiert as unknown[] | null)?.length) {
       revalidatePath('/buchhaltung')
-      return { error: `Die Buchung ist angelegt (bitte nicht erneut verbuchen), der Beleg konnte aber nicht als verbucht markiert werden: ${dbFehlerText(markErr)}. Bitte die Belege prüfen (lassen).` }
+      return { error: `Die Buchung ist angelegt (bitte nicht erneut verbuchen), der Beleg konnte aber nicht als verbucht markiert werden: ${markErr ? dbFehlerText(markErr) : 'Beleg nicht gefunden oder keine Berechtigung'}. Bitte die Belege prüfen (lassen).` }
     } }
 
   revalidatePath('/buchhaltung')

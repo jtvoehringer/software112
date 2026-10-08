@@ -82,7 +82,7 @@ export async function newsletterAnmelden(formData: FormData): Promise<AnmeldeRes
 
   if (existing) {
     kontaktId = (existing as AR).id
-    const { error } = await (supabase.from('kontakte') as any)
+    const { error } = await (supabase.from('kontakte') as any)   // aenderung-ohne-pruefung: Service-Role (öffentliche Newsletter-Seite), Kontakt eben gelesen
       .update({ newsletter: true, newsletter_token_hash: tokenHash, newsletter_opt_in_am: now, aktualisiert_am: now })
       .eq('id', kontaktId)
       .eq('tenant_id', tenantId)
@@ -182,7 +182,7 @@ export async function newsletterBestaetigen(token: string): Promise<Bestaetigung
   }
 
   const now = new Date().toISOString()
-  const { error: updErr } = await (supabase.from('kontakte') as any)
+  const { error: updErr } = await (supabase.from('kontakte') as any)   // aenderung-ohne-pruefung: Service-Role (öffentliche Newsletter-Seite), Kontakt eben gelesen
     .update({ newsletter_bestaetigt: true, newsletter_token_hash: null, aktualisiert_am: now })
     .eq('id', kontakt.id)
     .eq('tenant_id', tenantId)
@@ -225,7 +225,7 @@ export async function newsletterAbmelden(kontaktId: string, token: string): Prom
   const betrieb  = await ladeNewsletterBetriebNachId(tenantId)
   const now = new Date().toISOString()
 
-  const { error } = await (supabase.from('kontakte') as any)
+  const { error } = await (supabase.from('kontakte') as any)   // aenderung-ohne-pruefung: Service-Role (öffentliche Newsletter-Seite), Kontakt eben gelesen
     .update({ newsletter: false, newsletter_bestaetigt: false, newsletter_token_hash: null, aktualisiert_am: now })
     .eq('id', kontakt.id)
     .eq('tenant_id', tenantId)

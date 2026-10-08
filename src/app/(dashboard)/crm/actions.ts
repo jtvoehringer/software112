@@ -6,7 +6,7 @@ import { getCurrentMembership, canWrite, type Modul } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { absenderIndexVerwerfen } from '@/lib/crm/absender'
-import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
+import { AktionsFehler, dbFehlerText, NICHT_GESPEICHERT } from '@/lib/fehler'
 import { ladeBezuege, istBezugsSperre } from '@/lib/stammdaten/bezuege'
 import { bezugsMeldung, hatBezug } from '@/lib/stammdaten/bezugText'
 import { pruefeEmailFelder, einzelneEmail } from '@/lib/crm/email'
@@ -253,8 +253,9 @@ export async function updateKontakt(id: string, formData: FormData): Promise<{ e
       is_lead: formData.get('is_lead') === 'true',
     })
     payload.aktualisiert_am = new Date().toISOString()
-    const { error } = await (supabase.from('kontakte') as any).update(payload).eq('id', id).eq('tenant_id', tenantId)
+    const { data: geaendert, error } = await (supabase.from('kontakte') as any).update(payload).eq('id', id).eq('tenant_id', tenantId).select('id')
     if (error) return { error: (error as AR).message }
+    if (!(geaendert as unknown[] | null)?.length) return { error: NICHT_GESPEICHERT }   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
     absenderIndexVerwerfen(tenantId)
     revalidatePath('/crm/kontakte')
     revalidatePath('/crm/kontakte/[id]', 'page')
@@ -344,10 +345,11 @@ export async function kontaktZuFirmaUmwandeln(
     const firmaId = (fRaw as AR).id as string
 
     // Kontakt als Ansprechperson an die neue Firma hängen
-    const { error: linkErr } = await (supabase.from('kontakte') as any)
+    const { data: geaendert, error: linkErr } = await (supabase.from('kontakte') as any)
       .update({ firma_id: firmaId, aktualisiert_am: new Date().toISOString() })
-      .eq('id', kontaktId).eq('tenant_id', tenantId)
+      .eq('id', kontaktId).eq('tenant_id', tenantId).select('id')
     if (linkErr) return { error: `Firma angelegt, Kontakt konnte aber nicht zugeordnet werden: ${(linkErr as AR).message}` }
+    if (!(geaendert as unknown[] | null)?.length) return { error: NICHT_GESPEICHERT }   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
 
     // Historie umhängen: firma_id setzen, kontakt_id bleibt (Person an der Firma) – KAN-150 F1c per RPC
     const { data: umRaw, error: umErr } = await (supabase.rpc as any)('s112_kontakt_historie_zu_firma', {
@@ -454,8 +456,9 @@ export async function updateFirma(id: string, formData: FormData): Promise<{ err
       ist_lieferant: formData.get('ist_lieferant') === 'true',
     })
     payload.aktualisiert_am = new Date().toISOString()
-    const { error } = await (supabase.from('firmen') as any).update(payload).eq('id', id).eq('tenant_id', tenantId)
+    const { data: geaendert, error } = await (supabase.from('firmen') as any).update(payload).eq('id', id).eq('tenant_id', tenantId).select('id')
     if (error) return { error: (error as AR).message }
+    if (!(geaendert as unknown[] | null)?.length) return { error: NICHT_GESPEICHERT }   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
     absenderIndexVerwerfen(tenantId)
     revalidatePath('/crm/firmen')
     revalidatePath('/crm/firmen/[id]', 'page')
@@ -474,10 +477,11 @@ export async function deleteFirma(id: string): Promise<LoeschErgebnis> {
 export async function moveAktivitaet(id: string, datum: string, uhrzeit_von: string, uhrzeit_bis: string) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId(AKTIVITAET_MODULE)
-  const { error } = await (supabase.from('aktivitaeten') as any)
+  const { data: geaendert, error } = await (supabase.from('aktivitaeten') as any)
     .update({ datum, ganztags: !uhrzeit_von && !uhrzeit_bis, uhrzeit_von: uhrzeit_von || null, uhrzeit_bis: uhrzeit_bis || null })
-    .eq('id', id).eq('tenant_id', tenantId)
+    .eq('id', id).eq('tenant_id', tenantId).select('id')
   if (error) throw new AktionsFehler((error as AR).message)
+  if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
   revalidatePath('/crm')
   revalidatePath('/crm/kontakte/[id]', 'page')
   revalidatePath('/crm/firmen/[id]', 'page')
@@ -546,8 +550,9 @@ export async function updateAktivitaet(id: string, formData: FormData) {
   if (formData.has('verantwortlich')) Object.assign(payload, zuweisung(formData))
   const { data: vorher } = await (supabase.from('aktivitaeten') as any)
     .select('verantwortlich_id, fuer_alle, beschreibung').eq('id', id).eq('tenant_id', tenantId).maybeSingle()
-  const { error } = await (supabase.from('aktivitaeten') as any).update(payload).eq('id', id).eq('tenant_id', tenantId)
+  const { data: geaendert, error } = await (supabase.from('aktivitaeten') as any).update(payload).eq('id', id).eq('tenant_id', tenantId).select('id')
   if (error) throw new AktionsFehler((error as AR).message)
+  if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
   const { data: { user } } = await supabase.auth.getUser()
   if (user && vorher) {
     await benachrichtigeAktivitaet({
@@ -585,10 +590,11 @@ export async function deleteAktivitaet(id: string) {
 export async function toggleAktivitaetErledigt(id: string, erledigt: boolean) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId(AKTIVITAET_MODULE)
-  const { error } = await (supabase.from('aktivitaeten') as any)
+  const { data: geaendert, error } = await (supabase.from('aktivitaeten') as any)
     .update({ erledigt })
-    .eq('id', id).eq('tenant_id', tenantId)
+    .eq('id', id).eq('tenant_id', tenantId).select('id')
   if (error) throw new AktionsFehler((error as AR).message)
+  if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
   revalidatePath('/crm')
   revalidatePath('/crm/kontakte/[id]', 'page')
   revalidatePath('/crm/firmen/[id]', 'page')
@@ -637,8 +643,9 @@ export async function updatePipelineEintrag(id: string, formData: FormData) {
     uhrzeit_bis:         ganztags ? null : ((formData.get('uhrzeit_bis') as string) || null),
     aktualisiert_am:     new Date().toISOString(),
   }
-  const { error } = await (supabase.from('pipeline_eintraege') as any).update(payload).eq('id', id).eq('tenant_id', tenantId)
+  const { data: geaendert, error } = await (supabase.from('pipeline_eintraege') as any).update(payload).eq('id', id).eq('tenant_id', tenantId).select('id')
   if (error) throw new AktionsFehler((error as AR).message)
+  if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
   revalidatePath('/crm/pipeline')
 }
 
@@ -646,24 +653,26 @@ export async function updatePipelineEintrag(id: string, formData: FormData) {
 export async function updatePipelineStufe(id: string, stufe: string) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
-  const { error } = await (supabase.from('pipeline_eintraege') as any)
+  const { data: geaendert, error } = await (supabase.from('pipeline_eintraege') as any)
     .update({ stufe, aktualisiert_am: new Date().toISOString() })
-    .eq('id', id).eq('tenant_id', tenantId)
+    .eq('id', id).eq('tenant_id', tenantId).select('id')
   if (error) throw new AktionsFehler((error as AR).message)
+  if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
   revalidatePath('/crm/pipeline')
 }
 
 export async function togglePipelineErledigt(id: string, erledigt: boolean) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
-  const { error } = await (supabase.from('pipeline_eintraege') as any)
+  const { data: geaendert, error } = await (supabase.from('pipeline_eintraege') as any)
     .update({
       erledigt,
       erledigt_am:     erledigt ? new Date().toISOString() : null,
       aktualisiert_am: new Date().toISOString(),
     })
-    .eq('id', id).eq('tenant_id', tenantId)
+    .eq('id', id).eq('tenant_id', tenantId).select('id')
   if (error) throw new AktionsFehler((error as AR).message)
+  if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
   revalidatePath('/crm/pipeline')
 }
 
@@ -955,8 +964,9 @@ export async function emailHinzufuegen(typ: 'kontakt' | 'firma', id: string, ema
     const weitere: string[] = ((row as AR).email_weitere ?? []) as string[]
     if (std === e || weitere.includes(e)) return {}
     const patch: AR = std ? { email_weitere: [...weitere, e] } : { email: e }
-    const { error } = await (supabase.from(tabelle) as any).update(patch).eq('tenant_id', tenantId).eq('id', id)
+    const { data: geaendert, error } = await (supabase.from(tabelle) as any).update(patch).eq('tenant_id', tenantId).eq('id', id).select('id')
     if (error) return { error: (error as AR).message }
+    if (!(geaendert as unknown[] | null)?.length) return { error: NICHT_GESPEICHERT }   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
     absenderIndexVerwerfen(tenantId)
     revalidatePath(typ === 'firma' ? `/crm/firmen/${id}` : `/crm/kontakte/${id}`)
     return { alsStandard: !std }
@@ -1054,8 +1064,9 @@ export async function lieferadresseAktivSetzen(id: string, aktiv: boolean, pfad:
   try {
     const supabase = await createSupabaseServerClient()
     const tenantId = await crmSchreibTenant()
-    const { error } = await (supabase.from('lieferadressen') as unknown as AR).update({ aktiv }).eq('id', id).eq('tenant_id', tenantId)
+    const { data: geaendert, error } = await (supabase.from('lieferadressen') as unknown as AR).update({ aktiv }).eq('id', id).eq('tenant_id', tenantId).select('id')
     if (error) return { error: dbFehlerText(error, 'Lieferadresse konnte nicht geändert werden') }
+    if (!(geaendert as unknown[] | null)?.length) return { error: NICHT_GESPEICHERT }   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
     if (pfad.startsWith('/crm/')) revalidatePath(pfad)
     return {}
   } catch (e) {

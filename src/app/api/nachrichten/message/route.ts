@@ -121,7 +121,7 @@ export async function GET(req: NextRequest) {
               // Bestehenden Eintrag (email_id=null) aktualisieren
               // .eq(spalte, null) schickt "eq.null" und scheitert an der uuid-Spalte – null braucht .is()
               let upd = (supabase.from('aktivitaeten') as any)
-                .update(emailData)
+                .update(emailData)   // aenderung-ohne-pruefung: optionaler Alt-Eintrag ohne email_id – Anzahl über count danach
                 .eq('tenant_id', tenantId)
               upd = kontaktInfo.typ === 'kontakt' ? upd.eq('kontakt_id', kontaktInfo.id) : upd.is('kontakt_id', null)
               upd = kontaktInfo.typ === 'firma'   ? upd.eq('firma_id', kontaktInfo.id)   : upd.is('firma_id', null)

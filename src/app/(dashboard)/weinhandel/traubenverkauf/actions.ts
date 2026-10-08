@@ -6,7 +6,7 @@ import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
-import { AktionsFehler, dbFehlerText, LESE_WAEHLEN_MELDUNG } from '@/lib/fehler'
+import { AktionsFehler, dbFehlerText, LESE_WAEHLEN_MELDUNG, NICHT_GESPEICHERT } from '@/lib/fehler'
 import { traubenverkaufLese } from '@/lib/wein/leseBilanz'
 import { dezimal } from '@/lib/format'
 import { traubenverkaufStornieren } from '@/lib/verkauf/traubenverkaufStorno'
@@ -298,22 +298,24 @@ export async function upsertTraubenverkauf(formData: FormData) {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase.from('traubenverkauf') as any)
+    const { data: geaendert, error } = await (supabase.from('traubenverkauf') as any)
       .update(payload)
       .eq('id', existing_id)
-      .eq('tenant_id', tenantId)
+      .eq('tenant_id', tenantId).select('id')
     if (error) throw new AktionsFehler(dbFehlerText(error, 'Speichern fehlgeschlagen (traubenverkauf)'))
+    if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
 
     if (altPostenId) {
       await updateVerkaufspostenFuerTrauben(supabase, altPostenId, tenantId, altPosId, verkaufsOpts)
     } else {
       const postenId = await createVerkaufspostenFuerTrauben(supabase, tenantId, verkaufsOpts)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      { const { error: e } = await (supabase.from('traubenverkauf') as any)
+      { const { data: geaendert, error: e } = await (supabase.from('traubenverkauf') as any)
         .update({ verkaufsposten_id: postenId })
         .eq('id', existing_id)
-        .eq('tenant_id', tenantId)
-        if (e) throw new AktionsFehler(dbFehlerText(e, 'Speichern fehlgeschlagen (traubenverkauf)')) }
+        .eq('tenant_id', tenantId).select('id')
+        if (e) throw new AktionsFehler(dbFehlerText(e, 'Speichern fehlgeschlagen (traubenverkauf)'))
+        if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT) }   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
     }
   } else {
     if (qualitaetUnzulaessig) throw new AktionsFehler(qualitaetUnzulaessig)
@@ -332,11 +334,12 @@ export async function upsertTraubenverkauf(formData: FormData) {
     const newId    = (inserted as AR).id as string
     const postenId = await createVerkaufspostenFuerTrauben(supabase, tenantId, verkaufsOpts)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    { const { error: e } = await (supabase.from('traubenverkauf') as any)
+    { const { data: geaendert, error: e } = await (supabase.from('traubenverkauf') as any)
       .update({ verkaufsposten_id: postenId })
       .eq('id', newId)
-      .eq('tenant_id', tenantId)
-      if (e) throw new AktionsFehler(dbFehlerText(e, 'Speichern fehlgeschlagen (traubenverkauf)')) }
+      .eq('tenant_id', tenantId).select('id')
+      if (e) throw new AktionsFehler(dbFehlerText(e, 'Speichern fehlgeschlagen (traubenverkauf)'))
+      if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT) }   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
   }
 
   revalidatePath('/weinhandel/traubenverkauf')
