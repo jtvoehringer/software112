@@ -9,6 +9,8 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { pruefeBenutzerlimit } from '@/lib/pakete-server'
 import AboClient from './AboClient'
 import { BetriebsPruefMelder } from '@/components/BetriebsWaechter'
+import Link from '@/components/ui/Link'
+import { PREMIUM_SUPPORT, premiumSupportStand, premiumSupportText } from '@/lib/abo/premiumSupport'
 
 // Rückmeldung 31.8.2026 ("die Plattform soll sich selber abrechnen können,
 // damit wir zu unserem Geld kommen"): Selbstverwaltung von Abo und Zahlung.
@@ -76,6 +78,27 @@ export default async function AboPage() {
     (adminClient.from('tenants') as R).select('name').eq('abrechnung_ueber', membership.tenantId).order('name'),
   ])
   const hauptName = (hauptRow as R | null)?.name as string | undefined
+
+  // KAN-226: Premium-Support – getrennt und fehlertolerant (vor der Migration gibt es die Spalten nicht)
+  const { data: psRow } = await (supabase.from('tenants') as R)
+    .select('premium_support_seit, premium_support_bis').eq('id', membership.tenantId).maybeSingle()
+  const psStand = premiumSupportStand({ seit: (psRow as R | null)?.premium_support_seit ?? null, bis: (psRow as R | null)?.premium_support_bis ?? null })
+  const premiumKarte = (
+    <div className="max-w-3xl mx-auto px-6 pb-6">
+      <div className="card p-4 text-sm space-y-1">
+        <h2 className="font-semibold text-s112-text">Premium-Support</h2>
+        <p className="text-s112-text-2">
+          {psStand.status === 'ohne' || psStand.status === 'beendet'
+            ? <>Zu jedem Paket dazubuchbar: {PREMIUM_SUPPORT.preisMonatNetto} € netto pro Monat, monatlich kündbar – Reaktion
+                innerhalb von {PREMIUM_SUPPORT.reaktionszeit} ({PREMIUM_SUPPORT.servicezeiten}). Zum Buchen oder Kündigen
+                wenden Sie sich bitte an uns.</>
+            : <>{premiumSupportText(psStand)} · {PREMIUM_SUPPORT.preisMonatNetto} € netto pro Monat. Kündigung zum Monatsende –
+                wenden Sie sich bitte an uns.</>}
+          {' '}<Link href="/hilfe/support" className="text-s112-blue-700 hover:underline">Mehr zum Support</Link>
+        </p>
+      </div>
+    </div>
+  )
   const nebenNamen = ((nebenRows ?? []) as R[]).map(n => n.name as string)
 
   if (t?.abrechnung_ueber) {
@@ -92,6 +115,7 @@ export default async function AboPage() {
             <p className="text-s112-text-2">Rechnung, Zahlungsdaten und Kündigung verwaltet der Hauptmandant. Für ein eigenes Abo wenden Sie sich bitte an uns.</p>
           </div>
         </div>
+        {premiumKarte}
       </>
     )
   }
@@ -128,6 +152,7 @@ export default async function AboPage() {
         betriebName={(t?.name as string | null) ?? null}
         buchhaltungsart={einst?.buchhaltungsart === 'doppik' ? 'doppik' : 'ea'}
       />
+      {premiumKarte}
     </>
   )
 }

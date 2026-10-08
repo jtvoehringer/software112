@@ -27,6 +27,8 @@ export type TenantDetail = {
   bio_status:               string
   /** KAN-31: Betriebs-Subdomain (null = keine; undefined = Spalte noch nicht vorhanden) */
   subdomain?:               string | null
+  /** KAN-226: Premium-Support (undefined = Spalten noch nicht vorhanden) */
+  premiumSupport?:          { seit: string | null; bis: string | null }
 }
 /** KAN-215: Abrechnungsverbund des Betriebs (Reiter Stripe) */
 export type VerbundInfo = {
@@ -192,6 +194,9 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
   const t = tenantRaw as R
   // KAN-31: getrennt und fehlertolerant (vor der Migration gibt es die Spalte nicht – die Seite bleibt benutzbar)
   const { data: subRaw, error: subFehler } = await (admin.from('tenants') as R).select('subdomain').eq('id', id).maybeSingle()
+  // KAN-226: ebenso getrennt und fehlertolerant
+  const { data: psRaw, error: psFehler } = await (admin.from('tenants') as R)
+    .select('premium_support_seit, premium_support_bis').eq('id', id).maybeSingle()
   const s = settingsRaw as R | null
 
   // KAN-215: Abrechnungsverbund
@@ -220,6 +225,10 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
     stripe_current_period_end: t.stripe_current_period_end ?? null,
     bio_status:                t.bio_status                ?? 'konventionell',
     subdomain:                 subFehler ? undefined : ((subRaw as R | null)?.subdomain ?? null),
+    premiumSupport:            psFehler ? undefined : {
+      seit: ((psRaw as R | null)?.premium_support_seit as string | null) ?? null,
+      bis:  ((psRaw as R | null)?.premium_support_bis as string | null) ?? null,
+    },
   }
 
   const settings: TenantSettings = {

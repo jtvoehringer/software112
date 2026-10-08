@@ -1784,7 +1784,9 @@
 "kundennummer",
 "abrechnung_ueber",
 "zusatz_preis_cent",
-"subdomain"
+"subdomain",
+"premium_support_seit",
+"premium_support_bis"
 ],
 "transaktionszaehler": [
 "id",

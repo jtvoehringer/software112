@@ -6,6 +6,7 @@ import { SANDBOX_TENANT_ID } from '@/lib/abo/regeln'
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import MandantenClient from './MandantenClient'
+import { premiumSupportStand, premiumSupportText } from '@/lib/abo/premiumSupport'
 
 export const metadata: Metadata = { title: 'Mandanten – software:112' }
 export const dynamic = 'force-dynamic'
@@ -25,6 +26,9 @@ export type MandantRow = {
   primary_color:    string
   secondary_color:  string
   modul_newsletter: boolean
+  /** KAN-226: Stand als Text (null = Spalten fehlen noch) und ob heute aktiv */
+  premium_support:       string | null
+  premium_support_aktiv: boolean
 }
 
 export default async function MandantenPage() {
@@ -102,6 +106,12 @@ export default async function MandantenPage() {
     // Tabelle noch nicht migriert – Branding-Felder bleiben leer
   }
 
+  // KAN-226: Premium-Support getrennt und fehlertolerant (vor der Migration gibt es die Spalten nicht)
+  const { data: psRows, error: psFehler } = await (supabase.from('tenants') as R)
+    .select('id, premium_support_seit, premium_support_bis').in('id', eigeneTenantIds)
+  const psMap: Record<string, R> = {}
+  for (const p of (psRows ?? []) as R[]) psMap[p.id] = p
+
   // Benutzeranzahl je Mandant zählen
   const countMap: Record<string, number> = {}
   for (const m of (memberships ?? []) as R[]) {
@@ -116,7 +126,10 @@ export default async function MandantenPage() {
 
   const mandanten: MandantRow[] = ((tenants ?? []) as R[]).map(t => {
     const b = brandingMap[t.id]
+    const ps = psFehler ? null : premiumSupportStand({ seit: psMap[t.id]?.premium_support_seit ?? null, bis: psMap[t.id]?.premium_support_bis ?? null })
     return {
+      premium_support:       ps ? premiumSupportText(ps) : null,
+      premium_support_aktiv: ps?.status === 'aktiv',
       id:              t.id,
       name:            t.name,
       kundennummer:    (t.kundennummer as string | null) ?? null,
