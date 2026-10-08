@@ -1548,7 +1548,8 @@
 "bmd_export_id",
 "erstellt_am",
 "aktualisiert_am",
-"spiegel"
+"spiegel",
+"storno_positionen"
 ],
 "release_notes": [
 "id",

@@ -31,6 +31,11 @@ export function positionenDerRechnung(r: R): R[] {
  */
 export function alsBeleg<T extends R>(r: T): T & { verkauf_positionen: R[]; lieferscheine: R[]; verkaufsposten_ids: string[] } {
   const lieferscheine = lieferscheineDerRechnung(r)
+  // KAN-103: Eine stornierte Rechnung hat keine Lieferscheine mehr (die sind wieder „nicht berechnet“) – ihre Beträge
+  // stehen in der Momentaufnahme storno_positionen (Rechnungsjournal: stornierte Rechnungen mit ihren Beträgen)
+  if (lieferscheine.length === 0 && Array.isArray(r.storno_positionen)) {
+    return { ...r, lieferscheine: [], verkauf_positionen: r.storno_positionen as R[], verkaufsposten_ids: [] }
+  }
   return { ...r, lieferscheine, verkauf_positionen: lieferscheine.flatMap(l => (l.verkauf_positionen ?? []) as R[]), verkaufsposten_ids: lieferscheine.map(l => String(l.id)) }
 }
 

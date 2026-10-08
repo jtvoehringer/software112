@@ -373,6 +373,16 @@ describe('rechnungsausgangsjournal – Netto/USt je Satz, Storno, Lücken', () =
     assert.equal(r.zeilen[0].netto20, 100)
     assert.equal(r.zeilen[0].netto13, 20)
   })
+
+  test('KAN-103: stornierte Rechnung ohne Lieferscheine behält ihre Beträge (Momentaufnahme storno_positionen)', async () => {
+    const storno = { ...posten, id: 're10', rechnungsnummer: 'RE-2026-0010', storniert: true, datum: '2026-03-12', lieferscheine: [],
+      storno_positionen: [{ preis_brutto: 12, menge: 10, ust_satz: 20, lieferscheinnummer: 'LS-2026-0003' }] }
+    delete storno.verkauf_positionen
+    const r = await rj.ladeRechnungsjournal(doppel({ rechnungen: [storno] }), T, { von: '2026-03-01', bis: '2026-03-31' })
+    assert.equal(r.zeilen.length, 1)
+    assert.equal(r.zeilen[0].storniert, true)
+    assert.equal(r.zeilen[0].brutto, 120)       // ohne Momentaufnahme stünde hier 0
+  })
 })
 
 // ── Belegverzeichnis ───────────────────────────────────────────────────────────
