@@ -205,8 +205,8 @@ async function ladeRoh(supabase: any, tenantId: string, behaelterId: string): Pr
         .in('weinausbau_id', ids)
         .eq('typ', 'tank')
         .order('id', { ascending: true }), 'verkauf_positionen'),
-      // Zukauf-Eingang (Wein/Most direkt in eine Charge dieses Gebindes) – rechnet
-      // v_behaelter_fuellstand (Migration 127) ebenfalls mit
+      // Zukauf-Eingang (Wein/Most direkt in eine Charge dieses Gebindes) – steckt auch im Bestand
+      // der Charge und damit in v_behaelter_fuellstand (seit KAN-44 Teil 2 = Bestand der Chargen)
       liste((supabase.from('zukauf_posten') as any)
         .select('id, datum, menge, ziel_weinausbau_id, rebsorte, jahrgang, eingangsrechnungsnummer, staatliche_pruefnummer, partner_daten, lieferant_firma:firmen!lieferant_firma_id(name), lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname)')
         .eq('tenant_id', tenantId)

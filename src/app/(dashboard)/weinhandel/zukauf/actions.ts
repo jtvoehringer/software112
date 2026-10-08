@@ -36,8 +36,8 @@ type AR = Record<string, any>
 
 // ── KAN-35 (24.09.2026): Zukauf = Beleg und Zugang ─────────────────────────────
 // zukauf_posten.menge ist die Belegmenge (Transportbescheinigung/Eingangsrechnung) und
-// – bei Wein/Most mit Gebinde – der Zugang der Zielcharge (View v_behaelter_fuellstand,
-// Bewegungsbuch der Charge). Deshalb:
+// – bei Wein/Most mit Gebinde – der Zugang der Zielcharge (Bestand der Charge und damit
+// v_behaelter_fuellstand seit KAN-44 Teil 2, Bewegungsbuch der Charge). Deshalb:
 //  - Menge, Einheit, Gebinde und Art nur ändern, solange an der Zielcharge keine
 //    Folgebuchungen hängen (lib/kellerbuch/folgebuchungen.ts, siehe sperren.ts);
 //  - Trauben: Menge nie unter die bereits verpressten bzw. verkauften kg, Art nicht mehr wechseln;
