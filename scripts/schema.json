@@ -1547,7 +1547,8 @@
 "rechnung_versendet_an",
 "bmd_export_id",
 "erstellt_am",
-"aktualisiert_am"
+"aktualisiert_am",
+"spiegel"
 ],
 "release_notes": [
 "id",
@@ -1960,7 +1961,8 @@
 "lieferadresse",
 "lieferadresse_id",
 "lieferscheinnummer",
-"rechnung_id"
+"rechnung_id",
+"rechnung_spaeter"
 ],
 "verschneidung_quellen": [
 "id",

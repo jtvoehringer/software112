@@ -251,6 +251,8 @@ export default function NeuerVerkaufPage() {
   // Konditionen des gewählten Kunden – auch für später hinzugefügte Positionen (KAN-156)
   const [kundenRabatt,    setKundenRabatt]    = useState<KundenKonditionen>(OHNE_KUNDENRABATT)
   const [skontoAktiv,     setSkontoAktiv]     = useState(false)
+  // KAN-103: Standard „sofort“ (Ab-Hof-Verkauf in einem Schritt); aus = nur Lieferschein, Rechnung später (auch als Sammelrechnung)
+  const [rechnungSofort,  setRechnungSofort]  = useState(true)
   const [skontoPct,       setSkontoPct]       = useState(0)
   const [skontoTage,      setSkontoTage]      = useState(10)
 
@@ -409,6 +411,7 @@ export default function NeuerVerkaufPage() {
     formData.set('skonto_pct',       String(skontoAktiv ? skontoPct : 0))
     formData.set('skonto_tage',      String(skontoAktiv ? skontoTage : 0))
     formData.set('skonto_aktiv',     skontoAktiv ? 'true' : 'false')
+    formData.set('rechnung_sofort',  rechnungSofort ? 'true' : 'false')   // KAN-103
     formData.set('positionen_json',  JSON.stringify(posForServer))
     for (const [k, v] of Object.entries(lieferFormFelder(liefer, lieferAdressen))) formData.set(k, v)   // KAN-176
 
@@ -920,6 +923,21 @@ export default function NeuerVerkaufPage() {
             className={inputCls + ' w-full resize-none'} />
         </div>
 
+        {/* ── KAN-103: Rechnung sofort oder später ── */}
+        <div className="card p-5">
+          <label className="flex items-start gap-2 text-sm text-s112-text">
+            <input type="checkbox" checked={rechnungSofort} onChange={e => setRechnungSofort(e.target.checked)} className="mt-0.5" />
+            <span>
+              <span className="font-medium">Rechnung sofort erstellen</span>
+              <span className="block text-xs text-s112-muted">
+                {rechnungSofort
+                  ? 'Lieferschein und Rechnung in einem Schritt (Ab-Hof-Verkauf, Kartenzahlung).'
+                  : 'Nur Lieferschein – die Rechnung erstellst du später auf dem Lieferschein (Preise sind dann noch änderbar).'}
+              </span>
+            </span>
+          </label>
+        </div>
+
         {/* ── Submit ── */}
         <div className="flex justify-end gap-3 pb-8 max-sm:sticky max-sm:bottom-0 max-sm:-mx-4 max-sm:px-4 max-sm:py-3 max-sm:pb-3 max-sm:bg-s112-bg max-sm:border-t max-sm:border-s112-line max-sm:z-10">
           {/* Gesamtsumme nur am Handy in der Leiste (KAN-181) */}
@@ -927,7 +945,7 @@ export default function NeuerVerkaufPage() {
           <AbbrechenKnopf standard="/weinhandel/verkauf" className="text-sm text-s112-muted hover:text-s112-text-1 px-4 py-3 sm:py-2" />
           <button type="submit" disabled={isPending}
             className="flex-1 sm:flex-none bg-s112-teal text-s112-yellow px-6 py-3 sm:py-2 rounded-xl text-base sm:text-sm font-semibold hover:bg-s112-teal/90 transition-colors disabled:opacity-50">
-            {isPending ? 'Speichern…' : 'Verkauf anlegen'}
+            {isPending ? 'Speichern…' : rechnungSofort ? 'Verkauf anlegen' : 'Lieferschein anlegen'}
           </button>
         </div>
 

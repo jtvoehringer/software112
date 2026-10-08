@@ -176,10 +176,11 @@ export default async function VerkaufPage({ searchParams }: { searchParams: Prom
                     <td className="px-4 py-3">
                       <StopPropagation className="font-mono text-xs">
                         <Link href={`/weinhandel/verkauf/${p.id}`} className="font-medium text-s112-blue-700 hover:underline">
-                          {p.rechnungsnummer ?? 'ohne Belegnr.'}
+                          {p.rechnungsnummer ?? p.lieferscheinnummer ?? 'ohne Belegnr.'}
                         </Link>
                       </StopPropagation>
-                      {p.lieferscheinnummer && <div className="font-mono text-xs text-s112-muted mt-0.5">{p.lieferscheinnummer}</div>}
+                      {p.lieferscheinnummer && p.rechnungsnummer && <div className="font-mono text-xs text-s112-muted mt-0.5">{p.lieferscheinnummer}</div>}
+                      {!p.rechnungsnummer && !p.storniert && <div className="text-xs font-medium text-s112-warn-fg mt-0.5">nicht berechnet</div>}
                       {p.transaktions_nr && <div className="font-mono text-xs text-s112-muted mt-0.5">{p.transaktions_nr}</div>}
                       {tbsJePosten.has(String(p.id)) && <div className="font-mono text-xs text-s112-muted mt-0.5">TBS {tbsJePosten.get(String(p.id))}</div>}
                     </td>

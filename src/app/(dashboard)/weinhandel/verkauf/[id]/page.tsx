@@ -5,11 +5,14 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { losText } from '@/lib/handel/losnummer'
 import Link from '@/components/ui/Link'
-import { stornoVerkauf, createZahlung, stornoZahlung } from '../actions'
+import { stornoVerkauf, createZahlung, stornoZahlung, rechnungErstellen, rechnungStornieren } from '../actions'
 import StornoButton from '@/components/StornoButton'
 import PrintButton from '@/app/(dashboard)/kellerbuch/kellerplan/[id]/PrintButton'
 import StornoKnopf from './StornoKnopf'
 import RechnungVersandPanel from './RechnungVersandPanel'
+import RechnungErstellenPanel from './RechnungErstellenPanel'
+import RechnungStornoKnopf from './RechnungStornoKnopf'
+import { wienHeute } from '@/lib/csv'
 import { Mail, Phone, Info, CreditCard, FileText } from 'lucide-react'
 import { fmtEur, fmtNum } from '@/lib/format'
 import { kontaktAnzeigename } from '@/lib/crm/titel'
@@ -60,7 +63,7 @@ async function getTenantSettings(supabase: Awaited<ReturnType<typeof createSupab
 export default async function VerkaufDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ mode?: string }> }) {
   const { id }   = await params
   const { mode } = await searchParams
-  const isRechnung = mode !== 'lieferschein'
+  const modusRechnung = mode !== 'lieferschein'
   const supabase = await createSupabaseServerClient()
   const role     = await getCurrentUserRole()
   const writeOk  = canWrite(role, 'warenwirtschaft')
@@ -73,6 +76,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
         id, datum, rechnungsnummer, lieferscheinnummer, notizen, erstellt_am, storniert, storniert_am, storniert_von_name, storno_grund,
         bezahlt, bezahlt_am, skonto_pct, skonto_tage, skonto_aktiv,
         rechnung_versendet_am, rechnung_versendet_an, partner_daten, lieferadresse,
+        rechnung:rechnungen!rechnung_id(id, rechnungsnummer, datum, spiegel, storniert, bmd_export_id),
         kontakt:kontakte!kontakt_id(id, titel, vorname, nachname, titel_nachgestellt, email, telefon, strasse, plz, ort, zahlungsziel_tage),
         firma:firmen(id, name, email, telefon, strasse, plz, ort, zahlungsziel_tage),
         zh_kontakt:kontakte!zh_kontakt_id(titel, vorname, nachname, titel_nachgestellt),
@@ -149,6 +153,14 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
 
   // Verkäufe werden nur storniert, nie gelöscht/deaktiviert (KAN-35)
   const stornoWithId     = stornoVerkauf.bind(null, id)
+  // KAN-103: Rechnung des Lieferscheins (fehlt = „nicht berechnet“); eigene Rechnung (nicht 1:1-Spiegel) storniert man getrennt
+  const rechnung         = (posten.rechnung ?? null) as R | null
+  const berechnet        = !!rechnung && !rechnung.storniert
+  const eigeneRechnung   = berechnet && !rechnung?.spiegel
+  const isRechnung       = modusRechnung && berechnet
+  const rechnungsDatum   = String(rechnung?.datum ?? posten.datum)
+  const rechnungErstellenAction = rechnungErstellen.bind(null, [id])
+  const rechnungStornoAction    = rechnung ? rechnungStornieren.bind(null, String(rechnung.id), id) : null
   const hatTraubenverkauf = (traubenverkaufAnzahl ?? 0) > 0 || positionen.some((p: R) => p.typ === 'trauben')
   const stornoMeldung =
     'Der Lagerbestand wird zurückgebucht, der Beleg bleibt mit Datum, Benutzer und Grund als storniert erhalten.' +
@@ -203,13 +215,13 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
   const gesamtNetto = Object.values(ustGruppen).reduce((s: number, n) => s + (n as number), 0)
   const gesamtUst   = gesamt - gesamtNetto
 
-  const faelligkeitsDatum = new Date(posten.datum)
+  const faelligkeitsDatum = new Date(rechnungsDatum)
   faelligkeitsDatum.setDate(faelligkeitsDatum.getDate() + zahlZiel)
 
   // Skonto (Frühzahler-Rabatt) — für Anzeige auf der Rechnung
   const skontoAktiv  = !!posten.skonto_aktiv && (posten.skonto_pct ?? 0) > 0
   const skontoDatum  = skontoAktiv
-    ? new Date(new Date(posten.datum).setDate(new Date(posten.datum).getDate() + (posten.skonto_tage ?? 0)))
+    ? new Date(new Date(rechnungsDatum).setDate(new Date(rechnungsDatum).getDate() + (posten.skonto_tage ?? 0)))
     : null
   const skontoBetrag = skontoAktiv ? (gesamt * (posten.skonto_pct ?? 0)) / 100 : 0
 
@@ -267,18 +279,21 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
             </Link>
           )}
           <PrintButton />
-          {writeOk && !posten.storniert && (
+          {writeOk && !posten.storniert && !eigeneRechnung && (
             <StornoKnopf action={stornoWithId} meldung={stornoMeldung} erstattung={gueltigeZahlungen.length > 0} />
           )}
+          {writeOk && eigeneRechnung && rechnungStornoAction && <RechnungStornoKnopf action={rechnungStornoAction} />}
           <div className="flex items-center border border-s112-border rounded-lg overflow-hidden text-xs">
             <a href={`/weinhandel/verkauf/${id}?mode=lieferschein`}
               className={`px-2.5 py-1.5 font-medium transition-colors ${!isRechnung ? 'bg-s112-teal text-s112-yellow' : 'bg-white text-s112-text-2 hover:bg-s112-bg'}`}>
               Lieferschein
             </a>
-            <a href={`/weinhandel/verkauf/${id}`}
-              className={`px-2.5 py-1.5 font-medium transition-colors ${isRechnung ? 'bg-s112-teal text-s112-yellow' : 'bg-white text-s112-text-2 hover:bg-s112-bg'}`}>
-              Rechnung
-            </a>
+            {berechnet && (
+              <a href={`/weinhandel/verkauf/${id}`}
+                className={`px-2.5 py-1.5 font-medium transition-colors ${isRechnung ? 'bg-s112-teal text-s112-yellow' : 'bg-white text-s112-text-2 hover:bg-s112-bg'}`}>
+                Rechnung
+              </a>
+            )}
           </div>
         </div>
       </div>
@@ -292,8 +307,21 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
         </p>
       )}
 
+      {/* KAN-103: Lieferschein ohne Rechnung – Rechnung erstellen */}
+      {writeOk && !posten.storniert && !berechnet && (
+        <RechnungErstellenPanel heute={wienHeute()} lieferdatum={String(posten.datum)} action={rechnungErstellenAction}
+          positionen={((posten.positionen ?? []) as R[]).map(p => ({ id: String(p.id), name: String(p.name ?? ''), menge: Number(p.menge) || 0,
+            einheit: p.einheit ?? null, preis_brutto: p.preis_brutto == null ? null : Number(p.preis_brutto), rabatt_pct: p.rabatt_pct == null ? null : Number(p.rabatt_pct) }))} />
+      )}
+      {eigeneRechnung && (
+        <p className="text-sm text-s112-text-2 no-print">
+          Berechnet mit Rechnung <span className="font-mono">{rechnung?.rechnungsnummer}</span> vom {new Date(rechnungsDatum).toLocaleDateString('de-AT')}
+          {' '}– zum Stornieren des Lieferscheins zuerst die Rechnung stornieren.
+        </p>
+      )}
+
       {/* Rechnungsversand per E-Mail */}
-      {!posten.storniert && (
+      {!posten.storniert && berechnet && (
         <div className="flex flex-col items-start gap-3 no-print">
           {writeOk ? (
             <RechnungVersandPanel
@@ -340,7 +368,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
                   <p className="text-base font-semibold mt-1">Nr. {posten.rechnungsnummer}</p>
                 )}
                 <p className="text-s112-text-2 mt-0.5">
-                  Datum: {new Date(posten.datum).toLocaleDateString('de-AT')}
+                  Datum: {new Date(rechnungsDatum).toLocaleDateString('de-AT')}
                 </p>
                 <p className="text-s112-text-2">
                   {zahlZiel === 0 ? 'Zahlbar bei Erhalt' : `Zahlbar bis: ${faelligkeitsDatum.toLocaleDateString('de-AT')}`}
@@ -645,8 +673,8 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
             <div className="text-xs text-s112-warn-fg bg-s112-warn-bg border border-s112-warn/30 rounded-lg px-3 py-2 flex items-start gap-1.5">
               <Info size={13} className="mt-0.5 shrink-0" />
               <span>Skonto {posten.skonto_pct}% bei Zahlung bis{' '}
-              {new Date(new Date(posten.datum).setDate(
-                new Date(posten.datum).getDate() + (posten.skonto_tage ?? 0)
+              {new Date(new Date(rechnungsDatum).setDate(
+                new Date(rechnungsDatum).getDate() + (posten.skonto_tage ?? 0)
               )).toLocaleDateString('de-AT')}
               {' '}(−{fmtEur(((gesamt * (posten.skonto_pct ?? 0)) / 100))})
               </span>
