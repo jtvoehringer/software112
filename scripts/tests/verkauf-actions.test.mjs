@@ -200,11 +200,22 @@ describe('Storno und Zahlungen', nurMitHooks, () => {
     await assert.rejects(v.createZahlung(P1, formular({ betrag: '5' })), /Die Zahlung ist gespeichert \(bitte nicht erneut erfassen\), die Einnahme in der E&A-Rechnung wurde aber nicht aktualisiert: Periode gesperrt\./)
   })
 
-  test('Befund: createZahlung prüft keine Rechte in der App – ein Leser erreicht das Insert (die Datenbank lehnt per RLS ab)', async () => {
-    globalThis.__membership = { tenantId: T, role: 'leser', schreibmodule: [] }
-    const d = db(); globalThis.__serverFake = d
-    await v.createZahlung(P1, formular({ betrag: '5' }))
-    assert.equal(d.tabellen.zahlungen.length, 2)   // Attrappe ohne RLS: Insert erreicht
+  // KAN-239 (vorher Befund: keine Rechteprüfung in der App – ein Leser erreichte das Insert, die DB lehnte technisch ab)
+  test('Zahlungen nur mit Freigabe Warenwirtschaft oder E&A (wie RLS) – erfassen, als bezahlt markieren, stornieren', async () => {
+    for (const m of [{ role: 'leser', schreibmodule: [] }, { role: 'winzer', schreibmodule: ['kellerbuch', 'crm'] }]) {
+      globalThis.__membership = { tenantId: T, ...m }
+      const d = db(); globalThis.__serverFake = d
+      await assert.rejects(v.createZahlung(P1, formular({ betrag: '5' })), /Keine Berechtigung für Zahlungen – dafür ist die Freigabe Warenwirtschaft oder E&A nötig/)
+      await assert.rejects(v.markiereAlsBezahlt(P1), /Keine Berechtigung für Zahlungen/)
+      await assert.rejects(v.stornoZahlung(Z1, P1, 'Doppelt erfasst bei Kassa'), /Keine Berechtigung für Zahlungen/)
+      assert.deepEqual(d.aufrufe, [], `${m.role}: kein Datenbankzugriff`)
+    }
+    for (const mods of [['warenwirtschaft'], ['ea']]) {
+      globalThis.__membership = { tenantId: T, role: 'winzer', schreibmodule: mods }
+      const d = db(); globalThis.__serverFake = d
+      await v.createZahlung(P1, formular({ betrag: '5' }))
+      assert.equal(d.tabellen.zahlungen.length, 2, mods[0])
+    }
   })
 
   test('Zahlung stornieren: Grund, Datum und Zugehörigkeit zum Verkauf vor der RPC', async () => {
