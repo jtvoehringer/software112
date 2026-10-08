@@ -40,7 +40,7 @@ describe('KAN-232: Lohnversektung', () => {
     const bb = quelle('src/lib/behoerden/bewegungsbuch.ts')
     assert.match(bb, /art: f\.lohnversektung_id \? 'lohnversektung' : 'abfuellung'/)
     assert.equal((bb.match(/lohnversektung_id/g) ?? []).length >= 4, true)
-    assert.match(quelle('supabase/entwurf/kan232_lohnversektung.sql'), /VALUES \('LNSKT', 'Abgang zur Lohnversektung', 'ab', 'l', true, NULL, 27\),\n\s+\('LNSKT_ZU', 'Zugang aus Lohnversektung', 'zu', 'l', true, NULL, 28\);/)
+    assert.match(quelle('supabase/migrations/20261008185022_kan232_lohnversektung.sql'), /VALUES \('LNSKT', 'Abgang zur Lohnversektung', 'ab', 'l', true, NULL, 27\),\n\s+\('LNSKT_ZU', 'Zugang aus Lohnversektung', 'zu', 'l', true, NULL, 28\);/)
   })
 
   test('Füllung: Lohnversektung prüfen, letzte Lieferung = Rest, kein Schwund, Kennzeichen', () => {
