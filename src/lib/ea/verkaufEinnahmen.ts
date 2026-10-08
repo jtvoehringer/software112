@@ -34,14 +34,19 @@ export async function abgleichVerkaufsEinnahmen(
   tenantId: string,
   verkaufspostenId: string,
   daten: { positionen: PlanPosition[]; zahlungen: (PlanZahlung & { storniertAm?: string | null })[]; beleg: string },
+  /** KAN-105 Teil B: bestehende Einnahmen über alle Lieferscheine der Rechnung erkennen (Standard: nur dieser) */
+  lieferscheinIds: readonly string[] = [verkaufspostenId],
 ): Promise<EinnahmenErgebnis> {
   const admin = createSupabaseAdminClient()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: bestehendeRaw, error: leseErr } = await (admin.from('ea_transaktionen') as any)
+  const basis = (admin.from('ea_transaktionen') as any)
     .select('id, zahlung_id, betrag_netto, ust_satz, is_locked, import_quelle, storniert_am, storno_von_id')
     .eq('tenant_id', tenantId)
-    .eq('verkaufsposten_id', verkaufspostenId)
+  // ein Lieferschein wie bisher; Rechnung über mehrere Lieferscheine: Einnahmen aller ihrer Lieferscheine (KAN-105 Teil B)
+  const { data: bestehendeRaw, error: leseErr } = await (lieferscheinIds.length > 1
+    ? basis.in('verkaufsposten_id', [...lieferscheinIds])   // alle-ausnahme: Lieferscheine einer Rechnung, fachlich wenige
+    : basis.eq('verkaufsposten_id', verkaufspostenId))
   if (leseErr) return { ok: false, fehler: `E&A-Einnahmen des Verkaufs konnten nicht geladen werden: ${(leseErr as R).message}` }
   const bestehende = ((bestehendeRaw ?? []) as R[]).map((e): PlanEinnahme => ({
     id: e.id, zahlung_id: e.zahlung_id ?? null, betrag_netto: Number(e.betrag_netto), ust_satz: Number(e.ust_satz),

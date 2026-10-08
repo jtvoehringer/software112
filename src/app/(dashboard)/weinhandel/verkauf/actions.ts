@@ -11,6 +11,7 @@ import { fmtEur, fmtNum, dezimal } from '@/lib/format'
 import { AktionsFehler, dbFehlerText, fehlerText, LESE_WAEHLEN_MELDUNG } from '@/lib/fehler'
 import { stornoGrundFehler } from '@/lib/storno/grund'
 import { rechnungPreiseAusFormular } from '@/lib/verkauf/rechnungen'
+import { ladeRechnungsKontext } from '@/lib/verkauf/rechnungsKontext'
 import { alle } from '@/lib/supabase/alle'
 import { sonstigeLagerFehler } from '@/lib/warenwirtschaft/sonstigeProdukte'
 import { lieferadresseAus, lieferadresseFehler, lieferadresseMoment, type Lieferadresse, type LieferadresseMoment } from '@/lib/crm/lieferadressen'
@@ -640,13 +641,10 @@ export async function markiereAlsBezahlt(id: string) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
 
-  const { data: postenRaw } = await (supabase.from('verkaufsposten') as any)
-    .select('rechnungsnummer, positionen:verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
-    .eq('id', id)
-    .eq('tenant_id', tenantId)
-    .single()
-  const posten = postenRaw as AR | null
-  const positionen = (posten?.positionen ?? []) as AR[]
+  // KAN-105 Teil B: Restbetrag der ganzen Rechnung (Sammelrechnung: alle Lieferscheine, alle Zahlungen der Rechnung)
+  const kontext = await ladeRechnungsKontext(supabase, tenantId, id, 'preis_brutto, menge, rabatt_pct, sonderrabatt_pct')
+  const posten = kontext ? { rechnungsnummer: kontext.rechnungsnummer } : null
+  const positionen = (kontext?.positionen ?? []) as AR[]
   const gesamt = positionen.reduce((s: number, p: AR) => {
     if (p.preis_brutto == null) return s
     const brutto = Number(p.preis_brutto) * Number(p.menge)
@@ -656,11 +654,8 @@ export async function markiereAlsBezahlt(id: string) {
   }, 0)
 
   // KAN-149 D2b: stornierte Zahlungen zählen nicht
-  const { data: zahlungenRaw } = await (supabase.from('zahlungen') as any)
-    .select('betrag')
-    .eq('verkaufsposten_id', id)
-    .eq('tenant_id', tenantId)
-    .is('storniert_am', null)
+  const zq = (supabase.from('zahlungen') as any).select('betrag').eq('tenant_id', tenantId).is('storniert_am', null)
+  const { data: zahlungenRaw } = await (kontext?.rechnungId ? zq.eq('rechnung_id', kontext.rechnungId) : zq.eq('verkaufsposten_id', id))
   const bereitsBezahlt = ((zahlungenRaw ?? []) as AR[]).reduce((s, z) => s + Number(z.betrag ?? 0), 0)
   const offen = gesamt - bereitsBezahlt
 

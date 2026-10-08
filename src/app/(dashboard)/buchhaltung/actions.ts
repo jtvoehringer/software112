@@ -9,6 +9,7 @@ import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { stornoGrundFehler } from '@/lib/storno/grund'
 import { dezimal } from '@/lib/format'
 import { abgleichVerkaufsEinnahmen } from '@/lib/ea/verkaufEinnahmen'
+import { ladeRechnungsKontext } from '@/lib/verkauf/rechnungsKontext'
 import { pruefeModul } from '@/lib/auth/modul'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -251,37 +252,30 @@ export async function syncEaEinnahmeFuerVerkauf(
     .select('modul_ea').eq('tenant_id', tenantId).maybeSingle()
   if (!(einst as R | null)?.modul_ea) return { ok: true, skipped: true }
 
-  const { data: postenRaw } = await (supabase.from('verkaufsposten') as any)
-    .select(`
-      id, datum, rechnungsnummer, storniert,
-      positionen:verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct, ust_satz)
-    `)
-    .eq('id', verkaufspostenId)
-    .eq('tenant_id', tenantId)
-    .maybeSingle()
-
-  if (!postenRaw) return { ok: false, error: 'Verkaufsposten nicht gefunden' }
-  const posten = postenRaw as R
-  const positionen = (posten.positionen ?? []) as R[]
+  // KAN-105 Teil B: bei einer Rechnung über mehrere Lieferscheine alle Lieferscheine und alle Zahlungen der Rechnung;
+  // Einnahmen am Anker-Lieferschein, bestehende über alle Lieferscheine der Rechnung erkannt (keine Doppelbuchung)
+  const kontext = await ladeRechnungsKontext(supabase, tenantId, verkaufspostenId, 'preis_brutto, menge, rabatt_pct, sonderrabatt_pct, ust_satz')
+  if (!kontext) return { ok: false, error: 'Verkaufsposten nicht gefunden' }
+  const positionen = kontext.positionen
 
   // KAN-149 D2b: Einnahmen je Zahlung (am Zahlungstag, je USt-Satz anteilig), Abweichungen per Gegenbuchung – kein
   // Löschen und Neuaufbau mehr. Ein stornierter Verkauf behält seine Einnahmen, solange die Zahlung nicht storniert
   // (erstattet) ist: Das Geld ist eingegangen. Plan: lib/ea/verkaufEinnahmenPlan.ts
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: zahlungenRaw, error: zahlErr } = await (supabase.from('zahlungen') as any)
-    .select('id, betrag, datum, erstellt_am, storniert_am')
-    .eq('verkaufsposten_id', verkaufspostenId)
-    .eq('tenant_id', tenantId)
+  const zq = (supabase.from('zahlungen') as any).select('id, betrag, datum, erstellt_am, storniert_am').eq('tenant_id', tenantId)
+  const { data: zahlungenRaw, error: zahlErr } = await (kontext.rechnungId
+    ? zq.eq('rechnung_id', kontext.rechnungId)
+    : zq.eq('verkaufsposten_id', verkaufspostenId))
   if (zahlErr) return { ok: false, error: `Zahlungen konnten nicht geladen werden: ${(zahlErr as R).message}` }
   const zahlungen = ((zahlungenRaw ?? []) as R[]).map(z => ({
     id: z.id as string, betrag: Number(z.betrag ?? 0), datum: z.datum as string, erstelltAm: z.erstellt_am ?? null, storniertAm: z.storniert_am ?? null,
   }))
-  const beleg = posten.rechnungsnummer ? `RE ${posten.rechnungsnummer}` : `Beleg ${verkaufspostenId.slice(0, 8)}`
+  const beleg = kontext.rechnungsnummer ? `RE ${kontext.rechnungsnummer}` : `Beleg ${verkaufspostenId.slice(0, 8)}`
   const plan = positionen.map(p => ({
     preis_brutto: p.preis_brutto == null ? null : Number(p.preis_brutto), menge: Number(p.menge ?? 0),
     rabatt_pct: p.rabatt_pct ?? null, sonderrabatt_pct: p.sonderrabatt_pct ?? null, ust_satz: p.ust_satz ?? null,
   }))
-  const r = await abgleichVerkaufsEinnahmen(tenantId, verkaufspostenId, { positionen: plan, zahlungen, beleg })
+  const r = await abgleichVerkaufsEinnahmen(tenantId, kontext.anker, { positionen: plan, zahlungen, beleg }, kontext.lieferscheinIds)
   if (!r.ok) return { ok: false, error: r.fehler }
 
   revalidatePath('/buchhaltung')
