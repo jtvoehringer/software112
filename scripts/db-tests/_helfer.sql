@@ -959,6 +959,13 @@ BEGIN
   IF p_tab = 'verkaufsposten' AND NOT v_aend ? 'rechnungsnummer' THEN
     v_aend := v_aend || '{"rechnungsnummer": null}'::jsonb;
   END IF;
+  -- KAN-102: ebenso Lieferscheinnummer und Rechnung (Trigger a_lieferscheinnummer bzw. b_rechnung_anlegen)
+  IF p_tab = 'verkaufsposten' AND NOT v_aend ? 'lieferscheinnummer' THEN
+    v_aend := v_aend || '{"lieferscheinnummer": null}'::jsonb;
+  END IF;
+  IF p_tab = 'verkaufsposten' AND NOT v_aend ? 'rechnung_id' THEN
+    v_aend := v_aend || '{"rechnung_id": null}'::jsonb;
+  END IF;
   SELECT string_agg(quote_ident(a.attname), ', ' ORDER BY a.attnum) INTO v_cols
     FROM pg_attribute a
    WHERE a.attrelid = v_oid AND a.attnum > 0 AND NOT a.attisdropped AND a.attgenerated = '' AND a.attidentity <> 'a'

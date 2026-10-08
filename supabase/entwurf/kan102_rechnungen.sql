@@ -13,7 +13,7 @@
 --     (sonst stieße der nächste Demo-Reset auf die bestehenden RE-Nummern).
 --  6. Altbelege: je Lieferschein genau eine Rechnung (gleiche Nummer, gleiches Datum) und eine Lieferscheinnummer in der
 --     Reihenfolge Datum, Anlage.
--- Staging zuerst (sjpeghrlhsowmquacjhb), DB-Test 67, dann Produktion.
+-- Staging zuerst (sjpeghrlhsowmquacjhb), DB-Test 68, dann Produktion.
 
 -- 1. Lieferschein-Nummernkreis ─────────────────────────────────────────────────────────────────────────────────
 ALTER TABLE public.tenant_einstellungen

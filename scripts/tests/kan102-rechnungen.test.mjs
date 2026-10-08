@@ -2,7 +2,7 @@
 // Übergang 1:1 (Rechnung im Insert, Spiegel, Wartung), Altbelege, Demo-Musterhof. Lieferscheinnummer auf Detail, Druck, Liste.
 //
 // Aufruf:  npm run -s test:csv   (alle scripts/tests/*.test.mjs)
-// DB-Seite: DB-Test 67 (Vergabe, Spiegel, Rechte, Mandantentrennung, Wartung).
+// DB-Seite: DB-Test 68 (Vergabe, Spiegel, Rechte, Mandantentrennung, Wartung).
 
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'

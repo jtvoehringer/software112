@@ -7,12 +7,12 @@
 -- @mutation aufraeumen_aus: Rechnung bleibt beim Löschen des Lieferscheins | rot: wartung_mitgeloescht
 -- @mutation direkt_schreibbar: INSERT auf rechnungen für authenticated | rot: direkt_insert
 --
--- software:112 – SQL-Testsuite gegen Staging, Datei 67 (Stand 08.10.2026, KAN-102). Alles zurückgerollt.
+-- software:112 – SQL-Testsuite gegen Staging, Datei 68 (Stand 08.10.2026, KAN-102). Alles zurückgerollt.
 
 DO $test$
 DECLARE
   v_heute date := (now() AT TIME ZONE 'Europe/Vienna')::date;
-  c_datei constant text := '67_rechnungen';
+  c_datei constant text := '68_rechnungen';
   v_t0    timestamptz;
   v_erg   text[] := '{}';
   v_a     jsonb;
