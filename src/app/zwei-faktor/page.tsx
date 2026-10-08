@@ -11,6 +11,7 @@ import { Suspense, useCallback, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { BetriebsPruefMelder } from '@/components/BetriebsWaechter'
+import { mitWeiter } from '@/lib/tenant/waechter'
 
 type Modus = 'laden' | 'code' | 'einrichten' | 'aktiv'
 type Faktor = { id: string; status: string; friendly_name?: string | null; created_at?: string }
@@ -48,7 +49,8 @@ function ZweiFaktor() {
 
   useEffect(() => { void laden() }, [laden])
 
-  const weiter = () => { router.push('/betrieb-waehlen'); router.refresh() }
+  // KAN-78: Ziel aus dem Link (weiter) an die Betriebswahl weiterreichen
+  const weiter = () => { router.push(mitWeiter('/betrieb-waehlen', params.get('weiter'))); router.refresh() }
 
   // Einrichtung starten: offene (unbestätigte) Versuche aufräumen, neuen Faktor anlegen
   const einrichtungStarten = async () => {

@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { setActiveTenantCookie } from '@/lib/auth/activeTenant'
 import { subdomainZiel } from '@/lib/tenant/subdomainServer'
+import { sichererWeiterPfad } from '@/lib/tenant/waechter'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -23,7 +24,9 @@ export async function selectBetriebAction(formData: FormData) {
   if (!(data as R | null)?.tenant_id) return // Kein Zugriff
 
   // KAN-31: mit Betriebs-Subdomain dorthin (eigener Tab je Betrieb) – dann bleibt das Cookie der Hauptdomain, wie es ist
-  const ziel = await subdomainZiel(supabase, tenantId, '/dashboard')
+  // KAN-78: Ziel aus dem Link (weiter), nur sichere relative Pfade – sonst wie bisher das Dashboard
+  const weiter = sichererWeiterPfad(formData.get('weiter') as string | null) ?? '/dashboard'
+  const ziel = await subdomainZiel(supabase, tenantId, weiter)
   if (!ziel || ziel.cookie) await setActiveTenantCookie(tenantId)
-  redirect(ziel?.url ?? '/dashboard')
+  redirect(ziel?.url ?? weiter)
 }

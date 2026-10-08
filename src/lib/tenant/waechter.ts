@@ -238,6 +238,26 @@ export function sichererWeiterPfad(roh: string | null | undefined): string | nul
   return ziel
 }
 
+/** Stationen der Anmeldung – kein eigenes Ziel, sie reichen ihr eigenes `weiter` durch (KAN-78) */
+const ANMELDE_STATIONEN = ['/', '/login', '/zwei-faktor', '/betrieb-waehlen', '/dashboard']
+
+/**
+ * KAN-78: Rücksprungziel, wenn der Proxy eine Anfrage auf /login bzw. /zwei-faktor umleitet – Pfad und Query der
+ * angefragten Seite (z. B. ein gescannter QR-Code auf /kellerbuch/behaelter/<id>). Für die Stationen der Anmeldung
+ * selbst deren eigenes `weiter` (Kette Login → Zwei-Faktor → Betriebswahl), sonst keins. Nur sichere relative Pfade.
+ */
+export function weiterFuerUmleitung(pathname: string, search: string): string | null {
+  if (ANMELDE_STATIONEN.includes(pathname)) return sichererWeiterPfad(new URLSearchParams(search).get('weiter'))
+  return sichererWeiterPfad(pathname + search)
+}
+
+/** KAN-78: Pfad mit `weiter`-Parameter – nur, wenn das Ziel ein sicherer relativer Pfad ist */
+export function mitWeiter(pfad: string, weiter: string | null | undefined): string {
+  const ziel = sichererWeiterPfad(weiter)
+  if (!ziel) return pfad
+  return `${pfad}${pfad.includes('?') ? '&' : '?'}weiter=${encodeURIComponent(ziel)}`
+}
+
 /** Link auf den regulären Wechselweg (Route Handler /auth/betrieb) */
 export function wechselUrl(tenantId: string, weiter?: string | null): string {
   const p = new URLSearchParams({ tenant_id: tenantId })

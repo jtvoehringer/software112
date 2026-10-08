@@ -25,7 +25,7 @@ function zuletztMerken(id: string) {
 
 const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
 
-export default function BetriebListe({ betriebe }: { betriebe: BetriebEintrag[] }) {
+export default function BetriebListe({ betriebe, weiter }: { betriebe: BetriebEintrag[]; weiter?: string | null }) {
   const [suche, setSuche] = useState('')
   const [zuletzt, setZuletzt] = useState<string[]>([])
   const ersteForm = useRef<HTMLFormElement>(null)
@@ -46,6 +46,7 @@ export default function BetriebListe({ betriebe }: { betriebe: BetriebEintrag[] 
   const karte = (b: BetriebEintrag, erste: boolean) => (
     <form key={b.tenantId} ref={erste ? ersteForm : undefined} action={selectBetriebAction} onSubmit={() => zuletztMerken(b.tenantId)}>
       <input type="hidden" name="tenant_id" value={b.tenantId} />
+      {weiter && <input type="hidden" name="weiter" value={weiter} />}
       <BetriebCard displayName={b.displayName} roleLabel={b.roleLabel} accentColor={b.accentColor} />
     </form>
   )
