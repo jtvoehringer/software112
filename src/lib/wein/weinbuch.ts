@@ -18,6 +18,10 @@
 //   - Ende: Ist die Charge leer, endet das Weinbuch mit der letzten Füllung – spätere Einträge (Analysen,
 //     Prüfnummern, Kellerarbeiten) gehören nicht mehr dazu.
 //
+// Mengenbewegungen (KAN-44 Teil 3, 08.10.2026): Zukauf, Fassverkauf, Eröffnungsbestand, Bestandskorrekturen,
+// Verarbeitung, Produktion und Lohnversektung kommen ab dem Journalbeginn aus dem Bewegungsjournal (mit „Bestand danach“),
+// davor bzw. ohne Journal aus den Bewegungstabellen – Regeln in lib/wein/weinbuchBestand.ts.
+//
 // Storno (KAN-145 B2b, 30.09.2026): Stornierte Umzüge, Schwundbuchungen und Verschnitte bleiben am Buchungstag
 // stehen (Kennzeichen „storniert“) und bekommen am Storno-Tag einen eigenen Eintrag „Storno: …“ mit Grund und
 // Benutzer.
@@ -39,6 +43,12 @@ import { abstufungText } from '@/lib/kellerbuch/abstufen'
 import { normalisiereQualitaet } from '@/lib/wein/qualitaetsrang'
 import { zukaufTbsVermerk } from '@/lib/handel/tbsNummer'
 import { ladePnVerlauf, pnStandAm, pnStandText, pnVerlaufEreignisse } from '@/lib/kellerbuch/pruefnummerVerlauf'
+import { ladeJournalBeginn } from '@/lib/kellerbuch/journal'
+import { alle } from '@/lib/supabase/alle'
+import {
+  WB_JOURNAL_SPALTEN, eroeffnungEreignis, fassverkaufEreignis, journalAbweichungHinweis, journalEreignisse, journalSaldo,
+  vorJournal, zukaufEreignis, type WbJournalZeile,
+} from '@/lib/wein/weinbuchBestand'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -55,6 +65,10 @@ export type EventTyp =
   | 'fuellung'
   | 'verschneidung'
   | 'umstufung'   // KAN-82: Abstufung der Charge (charge_umstufungen)
+  | 'eroeffnung'  // KAN-44: Eröffnungsbestand bzw. Übertrag bei Eröffnung des Journals
+  | 'zukauf'      // KAN-44: Zukauf in die Charge
+  | 'verkauf'     // KAN-44: Fassverkauf aus der Charge
+  | 'bestand'     // KAN-44: weitere Mengenbewegungen (Korrektur, Verarbeitung, Produktion, Lohnversektung …)
 
 export interface TimelineEvent {
   datum: string        // ISO date string zum Sortieren
@@ -111,8 +125,12 @@ export function zukaufHinweis(z: R, ueberCharge: string | null): string {
 /** Vermerk an Kellerbehandlungen ohne Charge, die keiner Charge eindeutig zuzuordnen sind */
 export const VERMERK_NICHT_EINDEUTIG = 'Zuordnung zur Charge nicht eindeutig (Behandlung ohne Charge erfasst)'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function buildWeinbuch(supabase: any, id: string, tenantId: string | null): Promise<Weinbuch | null> {
+export async function buildWeinbuch(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any, id: string, tenantId: string | null,
+  /** journalBeginn: vorab geladen (Sammlung, einmal je Betrieb); undefined = hier laden */
+  opts: { journalBeginn?: string | null } = {},
+): Promise<Weinbuch | null> {
   // Explizite Tenant-Filterung zusätzlich zu RLS: RLS erlaubt Zeilen aus JEDER Mitgliedschaft
   // des Nutzers, nicht nur dem aktiv gewählten Betrieb – ohne diesen Filter könnten bei
   // Mehrfach-Mitgliedschaft Daten vom falschen Betrieb angezeigt werden.
@@ -121,7 +139,7 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
 
   // ── 1. Weinausbau-Charge laden ────────────────────────────────────────────
   const { data: waRaw, error: waErr } = await tf((supabase.from('weinausbau') as any)
-    .select('id, name, jahrgang, rebsorte, qualitaetsstufe, status, menge_liter, behaelter_id, ist_eroeffnungsbestand, kmw, oechsle, mostgewicht_einheit, behaelter:behaelter_id(name)')
+    .select('id, name, jahrgang, rebsorte, qualitaetsstufe, status, menge_liter, behaelter_id, ist_eroeffnungsbestand, anfangsbestand_liter, created_at, kmw, oechsle, mostgewicht_einheit, behaelter:behaelter_id(name)')
     .eq('id', id))
     .maybeSingle()
 
@@ -663,6 +681,64 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
     })
   }
 
+  // KAN-44 Teil 3: Mengenbewegungen – ab dem Journalbeginn aus dem Journal, davor aus Zukauf, Fassverkauf, Eröffnung
+  if (tenantId) {
+    let journalBeginn: string | null = null
+    try {
+      journalBeginn = opts.journalBeginn !== undefined ? opts.journalBeginn : await ladeJournalBeginn(supabase, tenantId)
+    } catch (e) {
+      warnungen.push(e instanceof Error ? e.message : 'Journalbeginn konnte nicht geladen werden.')
+    }
+    if (journalBeginn) {
+      const { data: jz, error: jErr } = await alle<WbJournalZeile>(supabase.from('kellerbuch_buchungen')
+        .select(WB_JOURNAL_SPALTEN)
+        .eq('tenant_id', tenantId)
+        .eq('weinausbau_id', id)
+        .eq('bestand', 'offen')
+        .order('datum').order('beleg_nr').order('pos').order('id'))
+      if (jErr) {
+        warnungen.push(`Bewegungsjournal der Charge konnte nicht geladen werden (${jErr.message}) – Zukauf, Verkauf und Korrekturen fehlen.`)
+      } else {
+        const abstufungTage = new Set(((umstRaw ?? []) as R[]).map(u => tag(u.datum)).filter(Boolean))
+        const zeilen = jz.map(z => ({ ...z, menge_liter: Number(z.menge_liter) || 0 }))
+        events.push(...journalEreignisse(zeilen, { abstufungTage, journalBeginn }))
+        if (zeilen.length > 0) {
+          const h = journalAbweichungHinweis(journalSaldo(zeilen), parseFloat(String(wa.menge_liter ?? 0)) || 0)
+          if (h) warnungen.push(h)
+        }
+      }
+    }
+    // Vor dem Journalbeginn bzw. ohne Journal: aus den Bewegungstabellen
+    const [zkEigen, fvEigen] = await Promise.all([
+      // storno-sichtbar: das Weinbuch zeigt stornierte Zukäufe gekennzeichnet (KAN-44)
+      supabase.from('zukauf_posten')
+        .select('id, datum, art, menge, einheit, rebsorte, jahrgang, aktiv, storniert_am, storno_grund, storniert_von_name, partner_daten, lieferant_firma:firmen!lieferant_firma_id(name), lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname)')
+        .eq('tenant_id', tenantId).eq('ziel_weinausbau_id', id).order('datum').order('id'),
+      // storno-sichtbar: das Weinbuch zeigt stornierte Fassverkäufe gekennzeichnet (KAN-44)
+      supabase.from('verkauf_positionen')
+        .select('id, menge, verkaufsposten:verkaufsposten_id(datum, rechnungsnummer, aktiv, storniert, storniert_am, storno_grund, storniert_von_name, partner_daten, firma:firma_id(name), kontakt:kontakt_id(vorname, nachname))')
+        .eq('tenant_id', tenantId).eq('weinausbau_id', id).eq('typ', 'tank').order('id'),
+    ])
+    if (zkEigen.error || fvEigen.error) warnungen.push('Zukäufe bzw. Fassverkäufe der Charge konnten nicht geladen werden.')
+    for (const z of (zkEigen.data ?? []) as R[]) {
+      momentaufnahmeAnwenden(z, ['lieferant_firma', 'lieferant_kontakt'])
+      const ev = vorJournal(z.datum, journalBeginn) ? zukaufEreignis(z) : null
+      if (!ev) continue
+      merkeStorno(z)
+      events.push(ev)
+    }
+    for (const p of (fvEigen.data ?? []) as R[]) {
+      const vp = p.verkaufsposten as R | null
+      momentaufnahmeAnwenden(vp, ['firma', 'kontakt'])
+      const ev = vorJournal(vp?.datum, journalBeginn) ? fassverkaufEreignis(p) : null
+      if (!ev) continue
+      merkeStorno(vp ?? {})
+      events.push(ev)
+    }
+    const er = vorJournal(waRow.created_at, journalBeginn) ? eroeffnungEreignis(waRow) : null
+    if (er) events.push(er)
+  }
+
   // KAN-200: Prüfnummer je Charge (pruefnummer_chargen) – Übernahme per Umzug und Ende für den Tankbestand
   if (tenantId) {
     try {
@@ -694,9 +770,12 @@ export async function buildWeinbuch(supabase: any, id: string, tenantId: string 
 
   events.sort((a, b) => a.datum.localeCompare(b.datum))
 
-  // Ende (KAN-127): leere Charge mit Füllungen → nach der letzten Füllung keine Einträge mehr
-  const fuellTage = alleFuellungen.filter(fc => !istStorniert(fc.fuellung as R | null)).map(fc => tag((fc.fuellung as R | null)?.datum)).filter(Boolean).sort()
-  const abgeschlossenAm = parseFloat(String(wa.menge_liter ?? 0)) <= 0.5 && fuellTage.length > 0 ? fuellTage[fuellTage.length - 1] : null
+  // Ende (KAN-127): leere Charge mit Füllungen → nach der letzten Füllung keine Einträge mehr; seit KAN-44 zählt auch
+  // ein Fassverkauf (die Charge kann verkauft statt gefüllt worden sein)
+  const fuellTage = alleFuellungen.filter(fc => !istStorniert(fc.fuellung as R | null)).map(fc => tag((fc.fuellung as R | null)?.datum)).filter(Boolean)
+  const verkaufTage = events.filter(ev => ev.typ === 'verkauf' && !ev.badge).map(ev => tag(ev.datum)).filter(Boolean)
+  const endTage = [...fuellTage, ...verkaufTage].sort()
+  const abgeschlossenAm = parseFloat(String(wa.menge_liter ?? 0)) <= 0.5 && endTage.length > 0 ? endTage[endTage.length - 1] : null
   const imWeinbuch = abgeschlossenAm ? events.filter(ev => !tag(ev.datum) || tag(ev.datum) <= abgeschlossenAm) : events
 
   return { wa, events: imWeinbuch, warnungen, abgeschlossenAm }

@@ -9,6 +9,7 @@
 import type { CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
 import { buildWeinbuch, type EventTyp, type Weinbuch } from '@/lib/wein/weinbuch'
+import { ladeJournalBeginn } from '@/lib/kellerbuch/journal'
 import { bkiRebsorteKuerzel, fehlendeKuerzelHinweise } from '@/lib/wein/bki_kuerzel'
 import { text, type R } from './kellerbuch-hilfen'
 
@@ -24,6 +25,10 @@ export const WEINBUCH_TYP_LABEL: Record<EventTyp, string> = {
   umstufung:        'Abstufung',
   schwund:          'Schwund',
   fuellung:         'Füllung',
+  eroeffnung:       'Eröffnungsbestand',   // KAN-44: Mengenbewegungen aus dem Journal
+  zukauf:           'Zukauf',
+  verkauf:          'Fassverkauf',
+  bestand:          'Mengenbewegung',
 }
 
 export const WEINBUCH_STATUS_LABEL: Record<string, string> = {
@@ -115,11 +120,12 @@ export async function ladeWeinbuchSammlung(
   const { data, error } = await alle<R>(q.order('jahrgang', { ascending: false }).order('name').order('id'))
   if (error) throw new Error(`Chargen konnten nicht geladen werden: ${error.message}`)
 
-  // Nacheinander (nicht parallel) – jedes Weinbuch stößt selbst ~10 parallele Abfragen an
+  // Nacheinander (nicht parallel) – jedes Weinbuch stößt selbst ~10 parallele Abfragen an; Journalbeginn einmal (KAN-44)
+  const journalBeginn = await ladeJournalBeginn(supabase, tenantId)
   const weinbuecher: Weinbuch[] = []
   let fehlend = 0
   for (const c of data) {
-    const wb = await buildWeinbuch(supabase, c.id, tenantId)
+    const wb = await buildWeinbuch(supabase, c.id, tenantId, { journalBeginn })
     if (wb) weinbuecher.push(wb)
     else fehlend++
   }

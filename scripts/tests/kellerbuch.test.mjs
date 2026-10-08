@@ -414,11 +414,11 @@ describe('weinbuch und weinbuch-sammlung', () => {
     const sb = attrappe(daten, gebindeRpc(gebindeKeller))
     await assert.rejects(ausfuehren('weinbuch', `charge=${G2}`, sb), e => e instanceof typen.MeldungsFehler && e.status === 404)
     const w = await ausfuehren('weinbuch', `charge=${C1}`, sb)
-    assert.deepEqual(w.tabelle.slice(1).map(c => c[6]), ['Pressung', 'Kellerbehandlung', 'Füllung'])   // k1 an der Charge; k2/k3 nicht, weil erfasste vorhanden
+    assert.deepEqual(w.tabelle.slice(1).map(c => c[6]), ['Pressung', 'Kellerbehandlung', 'Füllung', 'Fassverkauf', 'Fassverkauf'])   // k1 an der Charge; k2/k3 nicht, weil erfasste vorhanden; KAN-44: Fassverkäufe
     assert.equal(w.dateiname.utf8, 'Weinbuch_1234567_GV-2025_2026-09-24.csv')
     assert.match((await ausfuehren('weinbuch-sammlung', 'jahrgang=abc', sb)).parameterFehler, /Jahrgang/)
     const s = await ausfuehren('weinbuch-sammlung', 'jahrgang=2025&sorte=Grüner Veltliner', sb)
-    assert.equal(s.zeilen, 3)   // ein Weinbuch (GV 2025) mit drei Ereignissen
+    assert.equal(s.zeilen, 5)   // ein Weinbuch (GV 2025) mit fünf Ereignissen (seit KAN-44 mit den zwei Fassverkäufen)
     assert.equal(s.dateiname.utf8, 'Weinbuch-Sammlung_1234567_2025_Grüner-Veltliner_2026-09-24.csv')
     assert.equal(s.dateiname.ascii, 'Weinbuch-Sammlung_1234567_2025_Gruener-Veltliner_2026-09-24.csv')
   })
@@ -504,7 +504,9 @@ describe('weinbuch und weinbuch-sammlung', () => {
     const w = await ausfuehren('weinbuch', `charge=${C1}`, attrappe(daten, gebindeRpc(gebindeKeller)))
     // k2 in der Belegung von GV 2025; k3 (vor der Befüllung, keine Belegung) nicht still weglassen,
     // sondern mit Vermerk und Hinweis (Druck darf gegenüber früher nichts verlieren)
-    assert.deepEqual(w.tabelle.slice(1).map(c => [c[5], c[7]]), [['01.08.2025', 'Reinigung'], ['20.09.2025', 'Pressung'], ['05.11.2025', 'Bentonit'], ['01.03.2026', 'GV Klassik']])
+    assert.deepEqual(w.tabelle.slice(1).map(c => [c[5], c[7]]), [['01.08.2025', 'Reinigung'], ['20.09.2025', 'Pressung'], ['05.11.2025', 'Bentonit'], ['01.03.2026', 'GV Klassik'], ['01.04.2026', 'Fassverkauf'], ['02.04.2026', 'Fassverkauf']])
+    // KAN-44 Teil 3: Fassverkäufe stehen im Weinbuch, der vor KAN-145 stornierte gekennzeichnet
+    assert.deepEqual(w.tabelle.slice(5).map(c => c.at(-2)), ['', 'storniert'])
     assert.match(w.tabelle[1][8], /Zuordnung zur Charge nicht eindeutig/)
     assert.doesNotMatch(w.tabelle[3][8], /nicht eindeutig/)
     assert.ok(w.warnungen.some(x => /^1 Kellerbehandlung ohne Charge ist keiner Charge eindeutig zuzuordnen/.test(x)))
