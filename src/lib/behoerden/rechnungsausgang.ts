@@ -14,6 +14,9 @@
 // Positionen ohne Preis zählen nicht, fehlender Satz = 13 %.
 // KAN-105 (08.10.2026): Quelle ist die Rechnung (Tabelle rechnungen, KAN-102) mit den Positionen aller ihrer Lieferscheine –
 // nicht berechnete Lieferscheine stehen nicht im Journal, Sammelrechnungen als eine Zeile.
+// KAN-105 Teil B (08.10.2026, Entscheidung Jörgen): Export-Rechnungen (Exportauftrag mit ausgestellter Exportrechnung)
+// stehen mit ihrer Exportnummer als eigener Nummernkreis im Journal – steuerfreie Ausfuhr (0 %), Rechnungsdatum =
+// Datum des Auftrags (wie auf der Exportrechnung), Lückenprüfung je Kreis. Einen Zahlungsstatus führt der Export nicht.
 
 import { momentaufnahmenAnwenden } from '../stammdaten/momentaufnahme'
 import { rundeText, runden, type CsvSpalte } from '@/lib/csv'
@@ -58,6 +61,10 @@ export type RechnungsjournalZeile = {
   bezahlt: boolean
   /** verkaufsposten.bezahlt_am (timestamptz) */
   bezahltAm: string | null
+  /** KAN-105: Herkunft – Rechnung (Weinhandel) oder Export-Rechnung (Exportauftrag, eigener Nummernkreis) */
+  quelle: 'rechnung' | 'export'
+  /** Link zum Beleg in der App (Druckseite; nicht in der CSV) */
+  href: string | null
 }
 
 export const SPALTEN_RECHNUNGSJOURNAL: CsvSpalte<RechnungsjournalZeile>[] = [
@@ -132,8 +139,27 @@ export function rechnungsjournalZeile(p: R): { zeile: RechnungsjournalZeile; son
       stornoGrund: p.storniert ? text(p.storno_grund) : null,
       bezahlt: !!p.bezahlt,
       bezahltAm: p.bezahlt ? text(p.bezahlt_am) : null,
+      quelle: p.quelle === 'export' ? 'export' : 'rechnung',
+      href: text(p.href),
     },
     sonstigeSaetze,
+  }
+}
+
+/**
+ * KAN-105: Exportauftrag mit ausgestellter Exportrechnung → Beleg wie eine Rechnung (für rechnungsjournalZeile):
+ * Exportnummer als Rechnungsnummer, Positionen zu 0 % (steuerfreie Ausfuhr, Preis je Einheit netto = brutto).
+ */
+export function exportAlsBeleg(a: R): R {
+  return {
+    ...a,
+    rechnungsnummer: a.referenz ?? null,
+    storniert: !!a.storniert_am,
+    bezahlt: false,
+    bezahlt_am: null,
+    verkauf_positionen: ((a.exportauftrag_positionen ?? []) as R[]).map(p => ({ preis_brutto: p.preis_eur ?? null, menge: p.menge, ust_satz: 0 })),
+    quelle: 'export',
+    href: `/weinexport/${a.id}`,
   }
 }
 
@@ -198,7 +224,28 @@ export async function ladeRechnungsjournal(supabase: any, tenantId: string, p: R
     .lte('datum', p.bis)
     .order('datum').order('id'))
   if (error) throw new Error(`Laden fehlgeschlagen (rechnungen): ${error.message}`)
-  const data = roh.map(alsBeleg)
+
+  // KAN-105: Export-Rechnungen – Exportaufträge des Zeitraums mit ausgestellter Exportrechnung
+  // storno-sichtbar: stornierte Export-Rechnungen bleiben gekennzeichnet im Journal (Lückenlosigkeit der Nummern)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: exRoh, error: exErr } = await alle<R>((supabase.from('exportauftraege') as any)
+    .select(`id, datum, referenz, aktiv, storniert_am, storniert_von_name, storno_grund, partner_daten,
+      kontakt:kontakte!kontakt_id(vorname, nachname, accountnummer, debitor_nr, land),
+      firma:firmen!firma_id(name, uid_nummer, accountnummer, debitor_nr, land),
+      exportauftrag_positionen(preis_eur, menge),
+      export_dokumente!inner(dokument_art, status)`)
+    .eq('tenant_id', tenantId)
+    .eq('export_dokumente.dokument_art', 'rechnung')
+    .eq('export_dokumente.status', 'ausgestellt')
+    .gte('datum', p.von)
+    .lte('datum', p.bis)
+    .order('datum').order('id'))
+  if (exErr) throw new Error(`Laden fehlgeschlagen (exportauftraege): ${exErr.message}`)
+
+  const data: R[] = [
+    ...roh.map(r => ({ ...alsBeleg(r), quelle: 'rechnung', href: `/weinhandel/rechnungen/${r.id}` })),
+    ...exRoh.map(exportAlsBeleg),
+  ]
   momentaufnahmenAnwenden(data, ['kontakt', 'firma'])   // KAN-150 F1c: Käufer wie auf der Rechnung
 
   const warnungen: string[] = []
@@ -213,7 +260,13 @@ export async function ladeRechnungsjournal(supabase: any, tenantId: string, p: R
   }
   zeilen.sort((a, b) => a.datum.localeCompare(b.datum) || nummernVergleich(a.rechnungsnummer, b.rechnungsnummer) || a.id.localeCompare(b.id))
 
-  warnungen.push(...rechnungsnummernPruefen(zeilen.map(z => z.rechnungsnummer)))
+  // Lückenprüfung je Nummernkreis: Rechnungen und Export-Rechnungen getrennt
+  warnungen.push(...rechnungsnummernPruefen(zeilen.filter(z => z.quelle === 'rechnung').map(z => z.rechnungsnummer)))
+  const exporte = zeilen.filter(z => z.quelle === 'export')
+  warnungen.push(...rechnungsnummernPruefen(exporte.map(z => z.rechnungsnummer)).map(h => `Export-Rechnungen: ${h}`))
+  if (exporte.length > 0) {
+    warnungen.push(`${exporte.length} ${exporte.length === 1 ? 'Export-Rechnung ist' : 'Export-Rechnungen sind'} mit der Exportnummer (eigener Nummernkreis, steuerfreie Ausfuhr) enthalten – ohne Zahlungsstatus.`)
+  }
   const ohneNummer = zeilen.filter(z => !z.rechnungsnummer).length
   if (ohneNummer > 0) warnungen.push(`${ohneNummer} ${ohneNummer === 1 ? 'Verkaufsbeleg hat' : 'Verkaufsbelege haben'} keine Rechnungsnummer.`)
   if (sonstige.size > 0) {

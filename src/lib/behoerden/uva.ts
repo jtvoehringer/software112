@@ -144,7 +144,8 @@ export async function ladeUva(supabase: any, tenantId: string, p: UvaParameter, 
   }))
 
   const warnungen: string[] = []
-  if (doppik) warnungen.push('Doppelte Buchhaltung beim Steuerberater: Die Zahlen sind eine Kontroll-Vorschau aus den erfassten Belegen – die UVA meldet die Kanzlei aus BMD.')
+  // KAN-105: Doppik-Vorschau rechnet die Umsätze nach Rechnungsdatum (berechne_ea_uva), E&A nach Zahlung
+  if (doppik) warnungen.push('Doppelte Buchhaltung beim Steuerberater: Die Zahlen sind eine Kontroll-Vorschau – Umsätze aus den Rechnungen nach Rechnungsdatum, Vorsteuer aus den erfassten Belegen; die UVA meldet die Kanzlei aus BMD.')
   if (meldungen.length === 0) {
     warnungen.push(`Für ${p.zeitraum ? uvaZeitraumLabel(p.zeitraum, p.jahr) : p.jahr} ist noch keine UVA berechnet – bitte zuerst auf der UVA-Seite „Berechnen & Speichern“.`)
   }

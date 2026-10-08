@@ -137,7 +137,8 @@ function JournalZeile({ z, td, tdNum, eur }: { z: RechnungsjournalZeile; td: str
   return (
     <tr className={z.storniert ? 'text-s112-tertiary' : ''}>
       <td className={td + ' font-mono whitespace-nowrap'}>
-        {z.rechnungsnummer ? <Link href={`/weinhandel/verkauf/${z.id}`} className="hover:text-s112-blue-700 print:no-underline">{z.rechnungsnummer}</Link> : <span className="text-s112-warn-fg">ohne Nr.</span>}
+        {z.rechnungsnummer && z.href ? <Link href={z.href} className="hover:text-s112-blue-700 print:no-underline">{z.rechnungsnummer}</Link> : z.rechnungsnummer ?? <span className="text-s112-warn-fg">ohne Nr.</span>}
+        {z.quelle === 'export' && <span className="ml-1 text-[10px] text-s112-tertiary font-sans">Export</span>}
       </td>
       <td className={td + ' font-mono whitespace-nowrap'}>{datumText(z.datum)}</td>
       <td className={td}>{z.kunde ?? 'Barverkauf'}{z.land && z.land !== 'AT' ? <span className="text-s112-tertiary"> · {z.land}</span> : null}</td>
