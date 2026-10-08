@@ -88,21 +88,42 @@ export async function GET(req: NextRequest) {
   })
 
   // ── Verkaufsposten ───────────────────────────────────────────────────────
+  // KAN-105: auch über die Lieferscheinnummer; nicht berechnete Lieferscheine mit ihrer LS-Nummer
   const { data: verkauf } = await (supabase.from('verkaufsposten') as any)
-    .select('id, rechnungsnummer, datum, bezahlt, storniert')
-    .ilike('rechnungsnummer', `%${q}%`)
+    .select('id, rechnungsnummer, lieferscheinnummer, datum, bezahlt, storniert')
+    .or(`rechnungsnummer.ilike.%${q}%,lieferscheinnummer.ilike.%${q}%`)
     .eq('tenant_id', tenantId)
     .eq('aktiv', true)
     .limit(5)
 
+  const gefundeneNummern = new Set<string>()
   ;(verkauf as R[] ?? []).forEach((v: R) => {
-    const status = v.storniert ? 'storniert' : v.bezahlt ? 'bezahlt' : 'offen'
+    const status = v.storniert ? 'storniert' : !v.rechnungsnummer ? 'nicht berechnet' : v.bezahlt ? 'bezahlt' : 'offen'
+    if (v.rechnungsnummer) gefundeneNummern.add(String(v.rechnungsnummer))
     results.push({
       id:         v.id,
       kategorie:  'verkauf',
-      titel:      v.rechnungsnummer ?? `Beleg ${v.id.slice(0, 8)}`,
-      untertitel: [v.datum ? new Date(v.datum).toLocaleDateString('de-AT') : null, status].filter(Boolean).join(' · '),
+      titel:      v.rechnungsnummer ?? v.lieferscheinnummer ?? `Beleg ${v.id.slice(0, 8)}`,
+      untertitel: [v.rechnungsnummer && v.lieferscheinnummer ? v.lieferscheinnummer : null,
+        v.datum ? new Date(v.datum).toLocaleDateString('de-AT') : null, status].filter(Boolean).join(' · '),
       href:       `/weinhandel/verkauf/${v.id}`,
+    })
+  })
+
+  // KAN-105: Rechnungen (Sammelrechnungen, stornierte Rechnungen – deren Lieferscheine tragen die Nummer nicht mehr)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: rechnungen } = await (supabase.from('rechnungen') as any)
+    .select('id, rechnungsnummer, datum, bezahlt, storniert')
+    .ilike('rechnungsnummer', `%${q}%`)
+    .eq('tenant_id', tenantId)
+    .limit(5)
+  ;(rechnungen as R[] ?? []).filter((r: R) => !gefundeneNummern.has(String(r.rechnungsnummer))).forEach((r: R) => {
+    results.push({
+      id:         r.id,
+      kategorie:  'verkauf',
+      titel:      `Rechnung ${r.rechnungsnummer}`,
+      untertitel: [r.datum ? new Date(r.datum).toLocaleDateString('de-AT') : null, r.storniert ? 'storniert' : r.bezahlt ? 'bezahlt' : 'offen'].filter(Boolean).join(' · '),
+      href:       `/weinhandel/rechnungen/${r.id}`,
     })
   })
 
