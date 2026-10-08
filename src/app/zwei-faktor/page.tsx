@@ -29,6 +29,8 @@ function ZweiFaktor() {
   const [code, setCode] = useState('')
   const [fehler, setFehler] = useState<string | null>(null)
   const [laeuft, setLaeuft] = useState(false)
+  // KAN-233: Code angenommen – bis die nächste Seite da ist, Rückmeldung statt erneut leerem Eingabefeld
+  const [bestaetigt, setBestaetigt] = useState(false)
 
   const laden = useCallback(async () => {
     setFehler(null)
@@ -37,9 +39,9 @@ function ZweiFaktor() {
       supabase.auth.mfa.listFactors(),
     ])
     if (error) { setFehler(error.message); return }
-    const bestaetigt = (fl?.totp ?? []).find(f => f.status === 'verified') as Faktor | undefined
-    if (bestaetigt) {
-      setFaktor(bestaetigt)
+    const verifiziert = (fl?.totp ?? []).find(f => f.status === 'verified') as Faktor | undefined
+    if (verifiziert) {
+      setFaktor(verifiziert)
       setModus(aal?.currentLevel === 'aal2' ? 'aktiv' : 'code')
     } else {
       setFaktor(null)
@@ -72,8 +74,13 @@ function ZweiFaktor() {
     if (!faktor) return
     setLaeuft(true); setFehler(null)
     const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: faktor.id, code: code.replace(/\s/g, '') })
-    setLaeuft(false)
-    if (error) { setFehler(error.message.includes('Invalid') ? 'Der Code stimmt nicht – bitte den aktuellen Code aus der App eingeben.' : error.message); return }
+    if (error) {
+      setLaeuft(false)
+      setFehler(error.message.includes('Invalid') ? 'Der Code stimmt nicht – bitte den aktuellen Code aus der App eingeben.' : error.message)
+      return
+    }
+    // KAN-233: Formular bleibt nicht leer stehen – Bestätigung anzeigen, bis die Weiterleitung greift
+    setBestaetigt(true)
     setCode(''); setQr(null); setGeheimnis(null)
     weiter()
   }
@@ -90,7 +97,15 @@ function ZweiFaktor() {
 
   const abmelden = async () => { await supabase.auth.signOut(); router.push('/login') }
 
-  const codeFeld = (
+  const codeFeld = bestaetigt ? (
+    <div role="status" aria-live="polite" className="flex items-center gap-3 bg-s112-ok-bg text-s112-ok-fg rounded-lg px-3 py-3 text-sm">
+      <svg className="w-4 h-4 animate-spin shrink-0" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+      </svg>
+      <span><strong>Code bestätigt.</strong> Du wirst angemeldet und weitergeleitet …</span>
+    </div>
+  ) : (
     <form onSubmit={bestaetigen} className="space-y-3">
       <div>
         <label htmlFor="mfa-code" className="block text-sm font-medium text-s112-text-1 mb-1">6-stelliger Code aus der App</label>
@@ -115,16 +130,19 @@ function ZweiFaktor() {
         <div className="card space-y-4">
           <h1 className="text-lg font-semibold text-s112-text">Zwei-Faktor-Anmeldung</h1>
 
-          {modus === 'laden' && <p className="text-sm text-s112-muted">Wird geladen …</p>}
+          {/* KAN-233: nach dem Code nur noch die Bestätigung (auch beim Einrichten, dort ist der QR-Code dann weg) */}
+          {bestaetigt && codeFeld}
 
-          {modus === 'code' && (
+          {!bestaetigt && modus === 'laden' && <p className="text-sm text-s112-muted">Wird geladen …</p>}
+
+          {!bestaetigt && modus === 'code' && (
             <>
               <p className="text-sm text-s112-text-1">Öffne deine Authenticator-App (z. B. Microsoft oder Google Authenticator) und gib den aktuellen Code für software:112 ein.</p>
               {codeFeld}
             </>
           )}
 
-          {modus === 'einrichten' && (
+          {!bestaetigt && modus === 'einrichten' && (
             <>
               {pflicht && (
                 <p className="text-sm bg-s112-warn-bg text-s112-warn-fg border border-s112-warn/30 rounded-lg px-3 py-2">
