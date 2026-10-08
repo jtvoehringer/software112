@@ -121,7 +121,8 @@ Abgeschaltet sind nur `@typescript-eslint/no-require-imports` für die CommonJS-
    - Verkaufsstorno: CRM-Betreff ohne Rechnungsnummer mit doppeltem Leerzeichen
    - Verkauf: Zugang unter 0,005 L auf eine leere Charge wird als 0 L gespeichert
 
-3. **Zugriffsschutz in der App:**
+3. ~~**Zugriffsschutz in der App:**~~ Abgedeckt seit 08.10.2026 (KAN-238): `scripts/tests/zugriffsschutz.test.mjs` prüft die echten Module mit ersetzten Abhängigkeiten (Supabase, Cookie, Subdomain, Header, Abo-Kopf) – Rechte nach Rolle und Modul, aktive Mitgliedschaft (Sitzung, aal2, Cookie, Rückfall, Subdomain), Zwei-Faktor-Pflicht und API-Prüfung, Schreib- und Sitzungssperre, Betrieb der Seite. Offen: `einladung.ts` (Konto anlegen/zuordnen, Supabase-Admin-API).
+   Ursprüngliche Lücke:
    - `src/lib/auth/roles.ts`, `sperren.ts`, `seitenBetrieb.ts`, `mfa.ts`, `einladung.ts`
    - `src/lib/api/zweiFaktor.ts`
 
