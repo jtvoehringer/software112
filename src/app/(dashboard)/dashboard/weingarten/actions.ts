@@ -9,7 +9,7 @@ import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { LESE_VORLAGE } from './vorlage'
-import { AktionsFehler } from '@/lib/fehler'
+import { AktionsFehler, NICHT_GESPEICHERT } from '@/lib/fehler'
 
 const PFAD = '/dashboard/weingarten'
 
@@ -40,10 +40,11 @@ export async function checklisteAnlegen(jahr: number) {
 
 export async function punktUmschalten(id: string, erledigt: boolean) {
   const { supabase, tenantId, userId } = await kontext()
-  const { error } = await (supabase.from('checklisten_punkte') as any)
+  const { data: geaendert, error } = await (supabase.from('checklisten_punkte') as any)
     .update({ erledigt, erledigt_am: erledigt ? new Date().toISOString() : null, erledigt_von: erledigt ? userId : null })
-    .eq('id', id).eq('tenant_id', tenantId)
+    .eq('id', id).eq('tenant_id', tenantId).select('id')
   if (error) throw new AktionsFehler(error.message)
+  if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
   revalidatePath(PFAD); revalidatePath('/dashboard')
 }
 

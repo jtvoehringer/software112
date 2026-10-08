@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => ({}))) as { ids?: string[]; alle?: boolean }
   const jetzt = new Date().toISOString()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let q = (supabase.from('benachrichtigungen') as any).update({ gelesen_am: jetzt })
+  let q = (supabase.from('benachrichtigungen') as any).update({ gelesen_am: jetzt })   // aenderung-ohne-pruefung: nur ungelesene als gelesen markieren – gelesene ergeben 0 Zeilen
     .eq('tenant_id', membership.tenantId).eq('empfaenger_id', user.id).is('gelesen_am', null)
   if (body.alle) { /* alle ungelesenen */ }
   else if (Array.isArray(body.ids) && body.ids.length > 0) q = q.in('id', body.ids.slice(0, 100))

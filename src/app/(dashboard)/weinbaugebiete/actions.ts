@@ -4,7 +4,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
-import { AktionsFehler } from '@/lib/fehler'
+import { AktionsFehler, NICHT_GESPEICHERT } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -67,8 +67,9 @@ export async function createCustomWeinbaugebiet(name: string): Promise<CustomWei
   if (bestehend) {
     const b = bestehend as AR
     if (!b.aktiv) {
-      { const { error: e } = await (supabase.from('weinbaugebiete_custom') as any).update({ aktiv: true }).eq('id', b.id).eq('tenant_id', tenantId)
-        if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weinbaugebiete_custom): ${e.message}`) }
+      { const { data: geaendert, error: e } = await (supabase.from('weinbaugebiete_custom') as any).update({ aktiv: true }).eq('id', b.id).eq('tenant_id', tenantId).select('id')
+        if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weinbaugebiete_custom): ${e.message}`)
+        if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT) }   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
     }
     return { id: b.id, name: b.name }
   }
@@ -88,8 +89,9 @@ export async function createCustomWeinbaugebiet(name: string): Promise<CustomWei
 export async function deaktiviereCustomWeinbaugebiet(id: string): Promise<void> {
   const supabase = await createSupabaseServerClient()
   const tenantId = await schreibTenantId()
-  const { error } = await (supabase.from('weinbaugebiete_custom') as any)
+  const { data: geaendert, error } = await (supabase.from('weinbaugebiete_custom') as any)
     .update({ aktiv: false })
-    .eq('id', id).eq('tenant_id', tenantId)
+    .eq('id', id).eq('tenant_id', tenantId).select('id')
   if (error) throw new AktionsFehler((error as AR).message)
+  if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
 }

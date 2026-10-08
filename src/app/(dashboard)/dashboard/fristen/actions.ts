@@ -9,7 +9,7 @@ import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { FRISTEN_VORLAGE } from './vorlage'
-import { AktionsFehler } from '@/lib/fehler'
+import { AktionsFehler, NICHT_GESPEICHERT } from '@/lib/fehler'
 
 const PFAD = '/dashboard/fristen'
 const revalidate = () => { revalidatePath(PFAD); revalidatePath('/dashboard') }
@@ -65,10 +65,11 @@ export async function fristErledigen(id: string) {
   const { supabase, tenantId, userId } = await kontext()
   const { data: f } = await (supabase.from('fristen') as any).select('*').eq('id', id).eq('tenant_id', tenantId).maybeSingle()
   if (!f) throw new AktionsFehler('Frist nicht gefunden')
-  const { error } = await (supabase.from('fristen') as any)
+  const { data: geaendert, error } = await (supabase.from('fristen') as any)
     .update({ status: 'erledigt', erledigt_am: new Date().toISOString(), erledigt_von: userId, aktualisiert_am: new Date().toISOString() })
-    .eq('id', id).eq('tenant_id', tenantId)
+    .eq('id', id).eq('tenant_id', tenantId).select('id')
   if (error) throw new AktionsFehler(error.message)
+  if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
   if (f.wiederholung === 'jaehrlich') {
     const d = new Date(f.faellig_am); d.setFullYear(d.getFullYear() + 1)
     { const { error: e } = await (supabase.from('fristen') as any).insert({
@@ -82,10 +83,11 @@ export async function fristErledigen(id: string) {
 
 export async function fristWiedereroeffnen(id: string) {
   const { supabase, tenantId } = await kontext()
-  const { error } = await (supabase.from('fristen') as any)
+  const { data: geaendert, error } = await (supabase.from('fristen') as any)
     .update({ status: 'offen', erledigt_am: null, erledigt_von: null, aktualisiert_am: new Date().toISOString() })
-    .eq('id', id).eq('tenant_id', tenantId)
+    .eq('id', id).eq('tenant_id', tenantId).select('id')
   if (error) throw new AktionsFehler(error.message)
+  if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
   revalidate()
 }
 

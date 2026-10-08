@@ -77,7 +77,7 @@ export async function createMandant(formData: FormData): Promise<{ tenantId: str
 export async function renameMandant(id: string, name: string) {
   await assertSystemAdmin()
   const supabase = createSupabaseAdminClient()
-  const { error } = await (supabase.from('tenants') as any).update({ name }).eq('id', id)
+  const { error } = await (supabase.from('tenants') as any).update({ name }).eq('id', id)   // aenderung-ohne-pruefung: Service-Role (createSupabaseAdminClient), nur Plattform-Admins
   if (error) throw new AktionsFehler((error as AR).message)
   revalidatePath('/admin/mandanten')
 }

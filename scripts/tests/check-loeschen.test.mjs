@@ -46,6 +46,44 @@ describe('check-loeschen: Erkennung', () => {
   })
 })
 
+describe('check-loeschen: Zeilen bleiben erhalten', () => {
+  test('nicht geschlossenes Anführungszeichen (Apostroph in einer Regex) verschluckt keinen Zeilenumbruch', async () => {
+    const { ohneKommentare } = require(SKRIPT)
+    const text = `const re = /[^']/g\nconst x = 1\n// Kommentar\nconst y = "a'b"\n`
+    const aus = ohneKommentare(text)
+    assert.equal(aus.split('\n').length, text.split('\n').length)
+    assert.equal(aus.length, text.length)
+    assert.equal(aus.split('\n')[1], 'const x = 1')
+  })
+})
+
+describe('check-loeschen: .update() (KAN-248)', () => {
+  const U = '.update' + '('
+  const MU = 'aenderung-ohne-' + 'pruefung'
+  test('ohne .select → Fund; .select nach mehrzeiligem Objekt, count: exact und let q … q.select → geprüft', () => {
+    assert.deepEqual(zeilen(`const { error } = await (s.from('t') as any)${U}{ a: 1 }).eq('id', id)\n`), [1])
+    const mehrzeilig = `const { data, error } = await (s.from('t') as any)\n  ${U}{\n    a: 1,\n    b: 2,\n  })\n  .eq('id', id)\n  .select('id')\n`
+    assert.deepEqual(pruefeText(mehrzeilig), { funde: [], ausnahmen: 0, geprueft: 1 })
+    assert.deepEqual(zeilen(`const { count } = await (s.from('t') as any)${U}{ a: 1 }, { count: 'exact' }).eq('id', id)\n`), [])
+    const variable = `let q = (s.from('t') as any)\n  ${U}w).eq('id', id)\nq = q.is('menge', null)\nconst { data } = await q.select('id')\n`
+    assert.deepEqual(zeilen(variable), [])
+  })
+  test('keine Supabase-Kette: crypto/Stripe .update(…) ohne .from( davor, Buffer.from in derselben Zeile', () => {
+    assert.deepEqual(zeilen(`const h = createHmac('sha256', k)${U}daten).digest()\n`), [])
+    assert.deepEqual(zeilen(`await stripe.customers${U}id, { metadata })\n`), [])
+    assert.deepEqual(zeilen(`return Buffer.concat([d${U}Buffer.from(x, 'hex')), d.final()])\n`), [])
+  })
+  test('Service-Role ist ausgenommen (keine RLS)', () => {
+    assert.deepEqual(zeilen(`await (admin.from('t') as any)${U}{ a: 1 }).eq('id', id)\n`), [])
+    assert.deepEqual(zeilen(`await (supabaseAdmin.from('t') as any)${U}{ a: 1 }).eq('id', id)\n`), [])
+    assert.deepEqual(zeilen(`await (createSupabaseAdminClient().from('t') as any)${U}{ a: 1 }).eq('id', id)\n`), [])
+  })
+  test('Ausnahme mit Begründung in der .update(-Zeile bzw. davor; zu kurz → Fund', () => {
+    assert.deepEqual(pruefeText(`await (s.from('t') as any)${U}{ a: 1 }).eq('k', v)   // ${MU}: nur offene, 0 Zeilen in Ordnung\n`).funde, [])
+    assert.deepEqual(zeilen(`// ${MU}: kurz\nawait (s.from('t') as any)${U}{ a: 1 }).eq('k', v)\n`), [2])
+  })
+})
+
 describe('check-loeschen: Projekt', () => {
   test('das Projekt ist sauber (jede Löschung geprüft oder begründet)', () => {
     const e = pruefeWurzel(ROOT)

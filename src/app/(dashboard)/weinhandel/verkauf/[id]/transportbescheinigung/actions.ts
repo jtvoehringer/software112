@@ -5,7 +5,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
-import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
+import { AktionsFehler, dbFehlerText, NICHT_GESPEICHERT } from '@/lib/fehler'
 import { stornoGrundFehler } from '@/lib/storno/grund'
 import { alle } from '@/lib/supabase/alle'
 import { naechsteTbNummer, tbNummerVergeben, tbPflichtFehler } from '@/lib/behoerden/tbPflicht'
@@ -52,11 +52,12 @@ export async function saveTB(verkaufspostenId: string, daten: R): Promise<{ id: 
 
   if (existing?.id) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: e } = await (supabase.from('transportbescheinigungen') as any)
+    const { data: geaendert, error: e } = await (supabase.from('transportbescheinigungen') as any)
       .update({ formular_daten: daten, aktualisiert_am: new Date().toISOString() })
       .eq('id', existing.id)
-      .eq('tenant_id', tenantId)
+      .eq('tenant_id', tenantId).select('id')
     if (e) throw speicherFehler(e, daten)
+    if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
     revalidatePath(`/weinhandel/verkauf/${verkaufspostenId}/transportbescheinigung`)
     return { id: existing.id }
   }

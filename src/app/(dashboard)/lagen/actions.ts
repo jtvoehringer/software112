@@ -5,7 +5,7 @@ import { canAdmin, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb, seitenBetriebFehler } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff, schreibSperreFehler } from '@/lib/auth/sperren'
 import { revalidatePath } from 'next/cache'
-import { AktionsFehler } from '@/lib/fehler'
+import { AktionsFehler, NICHT_GESPEICHERT } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -56,8 +56,9 @@ export async function updateLage(id: string, formData: FormData) {
     notizen:      (formData.get('notizen') as string) || null,
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('lagen') as any).update(payload).eq('id', id).eq('tenant_id', tenantId)
+  const { data: geaendert, error } = await (supabase.from('lagen') as any).update(payload).eq('id', id).eq('tenant_id', tenantId).select('id')
   if (error) throw new AktionsFehler((error as AR).message)
+  if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
 
   // Rückmeldung 24.8.2026: das denormalisierte Textfeld weingarten.ried (nach
   // dem die Rieden-Übersicht gruppiert, siehe WeingartenBaum.tsx) muss beim
@@ -66,7 +67,7 @@ export async function updateLage(id: string, formData: FormData) {
   // (analog zum selben Fix in weingarten/actions.ts::updateWeingarten).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   { const { error: e } = await (supabase.from('weingarten') as any)
-    .update({ ried: name })
+    .update({ ried: name })   // aenderung-ohne-pruefung: Ried-Namen aller Weingärten der Lage nachziehen – ohne zugeordnete Weingärten 0 Zeilen
     .eq('lage_id', id).eq('tenant_id', tenantId)
     if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weingarten): ${e.message}`) }
 
@@ -119,11 +120,12 @@ export async function assignWeingartenToLage(weingartenId: string, lageId: strin
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('weingarten') as any)
+  const { data: geaendert, error } = await (supabase.from('weingarten') as any)
     .update({ lage_id: lageId, ried: riedName })
     .eq('id', weingartenId)
-    .eq('tenant_id', tenantId)
+    .eq('tenant_id', tenantId).select('id')
   if (error) throw new AktionsFehler((error as AR).message)
+  if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
   revalidatePath('/lagen')
   revalidatePath('/weingarten')
 }

@@ -436,7 +436,7 @@ export async function verkaufspostenStornieren(
     // alle-ausnahme: Traubenverkäufe einer einzelnen Rechnung, wenige
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error: stornoErr } = await (supabase.from('traubenverkauf') as any)
-      .update({ storniert_am: new Date().toISOString(), storno_grund: tvGrund })
+      .update({ storniert_am: new Date().toISOString(), storno_grund: tvGrund })   // aenderung-ohne-pruefung: nur noch nicht stornierte – schon stornierte ergeben 0 Zeilen
       .in('id', tvIds)
       .eq('tenant_id', tenantId)
       .is('storniert_am', null)
@@ -480,7 +480,7 @@ export async function verkaufspostenStornieren(
   // 4b. CRM-Aktivität auf STORNIERT setzen (nicht kritisch)
   {
     const { error: crmErr } = await (supabase.from('aktivitaeten') as any)
-      .update({ betreff: `Verkauf ${posten.rechnungsnummer ?? ''} · STORNIERT` })
+      .update({ betreff: `Verkauf ${posten.rechnungsnummer ?? ''} · STORNIERT` })   // aenderung-ohne-pruefung: CRM-Betreff, nicht kritisch – ohne Aktivität nichts zu tun
       .eq('beschreibung', `Verkaufsposten: ${postenId}`)
       .eq('tenant_id', tenantId)
     if (crmErr) console.error('verkaufspostenStornieren – CRM-Aktivität:', crmErr.message)

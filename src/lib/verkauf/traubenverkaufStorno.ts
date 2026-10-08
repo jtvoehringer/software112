@@ -73,7 +73,7 @@ export async function traubenverkaufStornieren(
 
   // Traubenverkauf stornieren, falls der Rechnungsstorno es nicht schon getan hat
   const { error: stornoErr } = await supabase.from('traubenverkauf')
-    .update({ storniert_am: new Date().toISOString(), storno_grund: text })
+    .update({ storniert_am: new Date().toISOString(), storno_grund: text })   // aenderung-ohne-pruefung: Erfolgsprüfung direkt danach (die Zeile muss jetzt storniert sein)
     .eq('id', id)
     .eq('tenant_id', tenantId)
     .is('storniert_am', null)

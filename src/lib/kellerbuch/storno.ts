@@ -369,7 +369,7 @@ export async function rueckbuchungZuruecknehmen(
     const zurueck: R = {}
     for (const k of Object.keys(a.payload)) zurueck[k] = a.zeile[k] ?? null
     const { data, error } = await mitMengenPruefung(
-      (supabase.from('weinausbau') as any).update(zurueck).eq('id', a.id).eq('tenant_id', tenantId),
+      (supabase.from('weinausbau') as any).update(zurueck).eq('id', a.id).eq('tenant_id', tenantId),   // aenderung-ohne-pruefung: Zeilenprüfung über mitMengenPruefung(…).select direkt danach
       a.payload.menge_liter ?? a.zeile.menge_liter,
     ).select('id')
     if (error) fehler.push(`„${a.name}“: ${dbFehlerText(error).replace(/[.\s]+$/, '')}`)
@@ -400,7 +400,7 @@ export async function fuehreRueckbuchungAus(
   const angewandt: ChargenRueckbuchung[] = []
   for (const a of aenderungen) {
     const { data, error } = await mitMengenPruefung(
-      (supabase.from('weinausbau') as any).update(a.payload).eq('id', a.id).eq('tenant_id', tenantId),
+      (supabase.from('weinausbau') as any).update(a.payload).eq('id', a.id).eq('tenant_id', tenantId),   // aenderung-ohne-pruefung: Zeilenprüfung über mitMengenPruefung(…).select direkt danach
       a.zeile.menge_liter,
     ).select('id')
     let meldung: string | null = null

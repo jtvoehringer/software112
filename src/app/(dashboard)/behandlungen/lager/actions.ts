@@ -5,7 +5,7 @@ import { canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { revalidatePath } from 'next/cache'
-import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
+import { AktionsFehler, dbFehlerText, NICHT_GESPEICHERT } from '@/lib/fehler'
 import { stornoGrundFehler } from '@/lib/storno/grund'
 import { dezimal } from '@/lib/format'
 import { MASSNAHMEN_ARTEN, MASSNAHMEN_ART_LABEL, istMassnahmenArt } from '@/lib/behandlungen/arten'
@@ -189,9 +189,10 @@ export async function upsertPSM(fd: FormData) {
 
   if (existingId) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase.from('pflanzenschutzmittel') as any)
-      .update(payload).eq('id', existingId).eq('tenant_id', tenantId)
+    const { data: geaendert, error } = await (supabase.from('pflanzenschutzmittel') as any)
+      .update(payload).eq('id', existingId).eq('tenant_id', tenantId).select('id')
     if (error) throw new AktionsFehler(`Speichern fehlgeschlagen: ${error.message}`)
+    if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
   } else {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase.from('pflanzenschutzmittel') as any).insert(payload)
@@ -207,9 +208,10 @@ export async function deactivatePSM(id: string) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('pflanzenschutzmittel') as any)
-    .update({ aktiv: false }).eq('id', id).eq('tenant_id', tenantId)
+  const { data: geaendert, error } = await (supabase.from('pflanzenschutzmittel') as any)
+    .update({ aktiv: false }).eq('id', id).eq('tenant_id', tenantId).select('id')
   if (error) throw new AktionsFehler(`Deaktivieren fehlgeschlagen: ${error.message}`)
+  if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
   revalidatePath('/behandlungen/lager')
 }
 
@@ -245,9 +247,10 @@ export async function upsertDuengemittel(fd: FormData) {
 
   if (existingId) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase.from('duengemittel') as any)
-      .update(payload).eq('id', existingId).eq('tenant_id', tenantId)
+    const { data: geaendert, error } = await (supabase.from('duengemittel') as any)
+      .update(payload).eq('id', existingId).eq('tenant_id', tenantId).select('id')
     if (error) throw new AktionsFehler(`Speichern fehlgeschlagen: ${error.message}`)
+    if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
   } else {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase.from('duengemittel') as any).insert(payload)
@@ -262,9 +265,10 @@ export async function deactivateDuengemittel(id: string) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('duengemittel') as any)
-    .update({ aktiv: false }).eq('id', id).eq('tenant_id', tenantId)
+  const { data: geaendert, error } = await (supabase.from('duengemittel') as any)
+    .update({ aktiv: false }).eq('id', id).eq('tenant_id', tenantId).select('id')
   if (error) throw new AktionsFehler(`Deaktivieren fehlgeschlagen: ${error.message}`)
+  if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
   revalidatePath('/behandlungen/lager')
 }
 
@@ -299,9 +303,10 @@ export async function upsertSatzMassnahme(fd: FormData) {
 
   if (existingId) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase.from('saetze_massnahmen') as any)
-      .update(payload).eq('id', existingId).eq('tenant_id', tenantId)
+    const { data: geaendert, error } = await (supabase.from('saetze_massnahmen') as any)
+      .update(payload).eq('id', existingId).eq('tenant_id', tenantId).select('id')
     if (error) throw new AktionsFehler(`Speichern fehlgeschlagen: ${error.message}`)
+    if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
   } else {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase.from('saetze_massnahmen') as any).insert(payload)
@@ -316,8 +321,9 @@ export async function deactivateSatzMassnahme(id: string) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('saetze_massnahmen') as any)
-    .update({ aktiv: false }).eq('id', id).eq('tenant_id', tenantId)
+  const { data: geaendert, error } = await (supabase.from('saetze_massnahmen') as any)
+    .update({ aktiv: false }).eq('id', id).eq('tenant_id', tenantId).select('id')
   if (error) throw new AktionsFehler(`Deaktivieren fehlgeschlagen: ${error.message}`)
+  if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
   revalidatePath('/behandlungen/lager')
 }

@@ -5,7 +5,7 @@ import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import type { AfaMethode } from '@/lib/ea/anlagen'
-import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
+import { AktionsFehler, dbFehlerText, NICHT_GESPEICHERT } from '@/lib/fehler'
 import { stornoGrundFehler } from '@/lib/storno/grund'
 import { pruefeModul } from '@/lib/auth/modul'
 
@@ -105,8 +105,9 @@ export async function speichereAnlage(a: AnlageEingabe): Promise<{ ok: true; id:
     notizen: a.notizen?.trim() || null,
   }
   if (a.id) {
-    const { error } = await (supabase.from('ea_anlagen') as any).update(payload).eq('id', a.id).eq('tenant_id', tenantId)
+    const { data: geaendert, error } = await (supabase.from('ea_anlagen') as any).update(payload).eq('id', a.id).eq('tenant_id', tenantId).select('id')
     if (error) return { ok: false, fehler: (error as R).message }
+    if (!(geaendert as unknown[] | null)?.length) return { ok: false, fehler: NICHT_GESPEICHERT }   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
     pfade()
     return { ok: true, id: a.id }
   }

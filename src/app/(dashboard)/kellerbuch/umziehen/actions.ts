@@ -12,7 +12,7 @@ import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { fmtNum, zahlAus } from '@/lib/format'
-import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
+import { AktionsFehler, dbFehlerText, NICHT_GESPEICHERT } from '@/lib/fehler'
 import { weinartKonflikt, weinartKonfliktText, weinartAusFarbe, weinartBekannt } from '@/lib/keller/weinart'
 import { ladeUmzugZeilen } from '@/lib/kellerbuch/storno'
 import { pruefePruefnummernSchaden } from '@/lib/kellerbuch/pruefnummerLaden'
@@ -621,11 +621,12 @@ export async function updateUmzug(umzugId: string, datum: string, notizen: strin
     throw new AktionsFehler('Das Datum eines gespeicherten Umzugs lässt sich nicht mehr ändern. Korrektur: Umzug stornieren und mit dem richtigen Datum neu buchen.')
   }
 
-  { const { error: e } = await (supabase.from('keller_umzuege') as any)
+  { const { data: geaendert, error: e } = await (supabase.from('keller_umzuege') as any)
     .update({ notizen: notizen || null })
     .eq('id', umzugId)
-    .eq('tenant_id', tenantId)
-    if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (keller_umzuege): ${dbFehlerText(e)}`) }
+    .eq('tenant_id', tenantId).select('id')
+    if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (keller_umzuege): ${dbFehlerText(e)}`)
+    if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT) }   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
   revalidatePath('/kellerbuch')
   revalidatePath('/kellerbuch/umziehen')
   revalidatePath('/kellerbuch/gebinde')

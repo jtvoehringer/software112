@@ -315,7 +315,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const sentAt = new Date().toISOString()
   { const { error: e } = await (supabase.from('verkaufsposten') as any)
-    .update({ rechnung_versendet_am: sentAt, rechnung_versendet_an: recipient })
+    .update({ rechnung_versendet_am: sentAt, rechnung_versendet_an: recipient })   // aenderung-ohne-pruefung: E-Mail ist schon versendet – Versandvermerk, Fehler wird protokolliert
     .eq('id', id).eq('tenant_id', tenantId)
     if (e) void ereignisMelden({ art: 'db', quelle: 'send/verkaufsposten', meldung: e.message }) }
   // KAN-103: Versandvermerk an der Rechnung (Benutzer schreiben rechnungen nicht direkt – Admin-Client nach der Prüfung oben)

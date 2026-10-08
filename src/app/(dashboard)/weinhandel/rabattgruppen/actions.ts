@@ -5,7 +5,7 @@ import { canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { revalidatePath } from 'next/cache'
-import { AktionsFehler } from '@/lib/fehler'
+import { AktionsFehler, NICHT_GESPEICHERT } from '@/lib/fehler'
 import { dezimal } from '@/lib/format'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -40,15 +40,16 @@ export async function createRabattgruppe(formData: FormData) {
 export async function updateRabattgruppe(id: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
-  const { error } = await (supabase.from('rabattgruppen') as any)
+  const { data: geaendert, error } = await (supabase.from('rabattgruppen') as any)
     .update({
       name:       formData.get('name') as string,
       rabatt_pct: parseFloat(dezimal(formData.get('rabatt_pct') as string)) || 0,
       notizen:    (formData.get('notizen') as string) || null,
     })
     .eq('id', id)
-    .eq('tenant_id', tenantId)
+    .eq('tenant_id', tenantId).select('id')
   if (error) throw new AktionsFehler((error as AR).message)
+  if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
   revalidatePath('/weinhandel/rabattgruppen')
 }
 

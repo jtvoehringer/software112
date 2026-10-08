@@ -6,7 +6,7 @@ import { getCurrentMembership, canWrite, canAdmin } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { revalidatePath } from 'next/cache'
-import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
+import { AktionsFehler, dbFehlerText, NICHT_GESPEICHERT } from '@/lib/fehler'
 import { ladeBezuege, istBezugsSperre } from '@/lib/stammdaten/bezuege'
 import { bezuegeSumme, bezugsMeldung, hatBezug } from '@/lib/stammdaten/bezugText'
 import { dezimal } from '@/lib/format'
@@ -112,13 +112,14 @@ export async function updateWeingarten(id: string, formData: FormData) {
 
   if (existing?.lage_id) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    { const { error: e } = await (supabase.from('lagen') as any)
+    { const { data: geaendert, error: e } = await (supabase.from('lagen') as any)
       .update({ name })
-      .eq('id', existing.lage_id).eq('tenant_id', tenantId)
-      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (lagen): ${e.message}`) }
+      .eq('id', existing.lage_id).eq('tenant_id', tenantId).select('id')
+      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (lagen): ${e.message}`)
+      if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT) }   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     { const { error: e } = await (supabase.from('weingarten') as any)
-      .update({ ried: name })
+      .update({ ried: name })   // aenderung-ohne-pruefung: Ried-Namen aller Weingärten der Lage nachziehen – ohne zugeordnete Weingärten 0 Zeilen
       .eq('lage_id', existing.lage_id).eq('tenant_id', tenantId)
       if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (weingarten): ${e.message}`) }
   } else {
@@ -126,8 +127,9 @@ export async function updateWeingarten(id: string, formData: FormData) {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('weingarten') as any).update(payload).eq('id', id).eq('tenant_id', tenantId)
+  const { data: geaendert, error } = await (supabase.from('weingarten') as any).update(payload).eq('id', id).eq('tenant_id', tenantId).select('id')
   if (error) throw new AktionsFehler((error as AnyRecord).message)
+  if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
   revalidatePath('/weingarten')
   revalidatePath('/lagen')
 }
@@ -366,8 +368,9 @@ export async function updateGrundstueck(id: string, weingartenId: string, formDa
     notizen:               (formData.get('notizen') as string) || null,
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('grundstuecke') as any).update(payload).eq('id', id).eq('tenant_id', tenantId)
+  const { data: geaendert, error } = await (supabase.from('grundstuecke') as any).update(payload).eq('id', id).eq('tenant_id', tenantId).select('id')
   if (error) throw new AktionsFehler((error as AnyRecord).message)
+  if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
   revalidatePath('/weingarten')
   revalidatePath(`/weingarten/${weingartenId}`)
 }
@@ -498,10 +501,11 @@ export async function speichereRiedGeo(weingartenId: string, lat: number, lon: n
 
     const ids = await riedGeschwister(supabase, tenantId, weingartenId)
     if (!ids.length) return { error: 'Ried nicht gefunden' }
-    const { error } = await (supabase.from('weingarten') as any)
+    const { data: geaendert, error } = await (supabase.from('weingarten') as any)
       .update({ zentrum_lat: Number(lat.toFixed(6)), zentrum_lon: Number(lon.toFixed(6)), geo_quelle: 'manuell', geo_stand: new Date().toISOString() })
-      .in('id', ids).eq('tenant_id', tenantId)
+      .in('id', ids).eq('tenant_id', tenantId).select('id')
     if (error) return { error: error.message }
+    if (!(geaendert as unknown[] | null)?.length) return { error: NICHT_GESPEICHERT }   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
     revalidatePath(`/weingarten/${weingartenId}`); revalidatePath('/weingarten'); revalidatePath('/dashboard/weingarten')
     return { anzahl: ids.length }
   } catch (e) {
@@ -515,7 +519,7 @@ export async function loescheRiedGeo(weingartenId: string): Promise<{ error?: st
     const { tenantId } = await requireWrite()
     const ids = await riedGeschwister(supabase, tenantId, weingartenId)
     const { error } = await (supabase.from('weingarten') as any)
-      .update({ zentrum_lat: null, zentrum_lon: null, geometrie: null, geo_quelle: null, geo_stand: null })
+      .update({ zentrum_lat: null, zentrum_lon: null, geometrie: null, geo_quelle: null, geo_stand: null })   // aenderung-ohne-pruefung: Koordinaten aller Datensätze der Ried entfernen – ohne Datensätze ist nichts zu tun
       .in('id', ids).eq('tenant_id', tenantId)
     if (error) return { error: error.message }
     revalidatePath(`/weingarten/${weingartenId}`); revalidatePath('/weingarten'); revalidatePath('/dashboard/weingarten')
@@ -549,10 +553,11 @@ export async function reifemessungSpeichern(weingartenId: string, formData: Form
       ...mostgewichtSpalten(mg.wert, 'kmw'),
       notizen: ((formData.get('notizen') as string | null) ?? '').trim() || null,
     }
-    const { error } = id
-      ? await (supabase.from('reifemessungen') as unknown as AnyRecord).update(zeile).eq('id', id).eq('tenant_id', tenantId).eq('weingarten_id', weingartenId)
-      : await (supabase.from('reifemessungen') as unknown as AnyRecord).insert({ ...zeile, tenant_id: tenantId, weingarten_id: weingartenId })
+    const { data: gespeichert, error } = id
+      ? await (supabase.from('reifemessungen') as unknown as AnyRecord).update(zeile).eq('id', id).eq('tenant_id', tenantId).eq('weingarten_id', weingartenId).select('id')
+      : await (supabase.from('reifemessungen') as unknown as AnyRecord).insert({ ...zeile, tenant_id: tenantId, weingarten_id: weingartenId }).select('id')
     if (error) return { error: dbFehlerText(error, 'Speichern fehlgeschlagen') }
+    if (!(gespeichert as unknown[] | null)?.length) return { error: NICHT_GESPEICHERT }   // KAN-248
     revalidatePath(`/weingarten/${weingartenId}`)
     return {}
   } catch (e) {

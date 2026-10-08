@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
-import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
+import { AktionsFehler, dbFehlerText, NICHT_GESPEICHERT } from '@/lib/fehler'
 import { dezimal, zahlAus } from '@/lib/format'
 import { alle } from '@/lib/supabase/alle'
 import { wienHeute } from '@/lib/csv'
@@ -37,10 +37,11 @@ export async function upsertSonstigesArtikel(formData: FormData) {
   if (!name) throw new AktionsFehler('Name darf nicht leer sein')
 
   if (id) {
-    const { error } = await (supabase.from('sonstige_artikel') as any)
+    const { data: geaendert, error } = await (supabase.from('sonstige_artikel') as any)
       .update({ name, einheit, default_preis: defaultPreis })
-      .eq('id', id).eq('tenant_id', tenantId)
+      .eq('id', id).eq('tenant_id', tenantId).select('id')
     if (error) throw new AktionsFehler((error as AR).message)
+    if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
   } else {
     const { error } = await (supabase.from('sonstige_artikel') as any)
       .insert({ tenant_id: tenantId, name, einheit, default_preis: defaultPreis })
@@ -53,10 +54,11 @@ export async function upsertSonstigesArtikel(formData: FormData) {
 export async function toggleAktivSonstigesArtikel(id: string, aktiv: boolean) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
-  const { error } = await (supabase.from('sonstige_artikel') as any)
+  const { data: geaendert, error } = await (supabase.from('sonstige_artikel') as any)
     .update({ aktiv })
-    .eq('id', id).eq('tenant_id', tenantId)
+    .eq('id', id).eq('tenant_id', tenantId).select('id')
   if (error) throw new AktionsFehler((error as AR).message)
+  if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
   revalidatePath('/weinhandel/sonstige-artikel')
 }
 
@@ -96,10 +98,11 @@ export async function produktEinstellungenSpeichern(formData: FormData): Promise
     const literRoh = String(formData.get('liter_je_stk') ?? '').trim()
     const liter = literRoh ? zahlAus(literRoh) : null
     if (literRoh && !(liter !== null && liter > 0)) return { error: 'Liter je Stück bitte als Zahl größer als 0 angeben (z. B. 1 oder 0,75).' }
-    const { error } = await (supabase.from('sonstige_artikel') as unknown as AR)
+    const { data: geaendert, error } = await (supabase.from('sonstige_artikel') as unknown as AR)
       .update({ art: artRoh || null, bestand_fuehren: formData.get('bestand_fuehren') === 'on' || formData.get('bestand_fuehren') === 'true', liter_je_stk: liter })
-      .eq('id', id).eq('tenant_id', tenantId)
+      .eq('id', id).eq('tenant_id', tenantId).select('id')
     if (error) return { error: dbFehlerText(error, 'Speichern fehlgeschlagen') }
+    if (!(geaendert as unknown[] | null)?.length) return { error: NICHT_GESPEICHERT }   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
     revalidatePath('/weinhandel/sonstige-artikel')
     revalidatePath(`/weinhandel/sonstige-artikel/${id}`)
     return {}

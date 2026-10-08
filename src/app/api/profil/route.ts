@@ -40,7 +40,10 @@ export async function POST(req: NextRequest) {
 
   let error: any
   if (existing) {
-    ;({ error } = await (s.from('profiles') as any).update(werte).eq('id', user.id))
+    // KAN-248: eigenes Profil – 0 Zeilen hieße, die Zeile ist zwischen Lesen und Speichern verschwunden
+    let geaendert: unknown[] | null = null
+    ;({ data: geaendert, error } = await (s.from('profiles') as any).update(werte).eq('id', user.id).select('id'))
+    if (!error && !geaendert?.length) return NextResponse.json({ fehler: 'Profil nicht gespeichert – bitte die Seite neu laden.' }, { status: 404 })
   } else {
     ;({ error } = await (s.from('profiles') as any).insert({ id: user.id, ...werte }))
   }

@@ -7,7 +7,7 @@ import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { hatModul } from '@/lib/auth/modul'
 import { revalidatePath } from 'next/cache'
-import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
+import { AktionsFehler, dbFehlerText, NICHT_GESPEICHERT } from '@/lib/fehler'
 import { stornoGrundFehler } from '@/lib/storno/grund'
 import { freezeSperreAus, sperrMeldung } from '@/lib/freeze/sperre'
 
@@ -257,7 +257,7 @@ async function ggfKostenEintragAktualisieren(
     if (eintragId) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error: updErr } = await (supabase.from('kosteneintraege') as any)
-        .update({
+        .update({   // aenderung-ohne-pruefung: automatischer Kosteneintrag der Maßnahme, eben gelesen – Fehler wird geworfen
           kostenart_id: kostenartId,
           datum,
           betrag,
@@ -664,7 +664,7 @@ export async function updateBehandlung(id: string, formData: FormData) {
   const anwendung = await anwendungSpalten(supabase, tenantId, formData, psmId, datum, datumBis, false)   // KAN-87 (erfasst am/von bleibt)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('behandlungen') as any)
+  const { data: geaendert, error } = await (supabase.from('behandlungen') as any)
     .update({
       art, psm_id: psmId, duengemittel_id: duengemittelId, datum, datum_bis: datumBis,
       ...mengen.werte,
@@ -678,8 +678,9 @@ export async function updateBehandlung(id: string, formData: FormData) {
       einarbeitung, einarbeitung_zeitpunkt: einarbeitungZeitpunkt,
     })
     .eq('id', id)
-    .eq('tenant_id', tenantId)
+    .eq('tenant_id', tenantId).select('id')
   if (error) throw new AktionsFehler(massnahmeFehler(error, 'Speichern fehlgeschlagen'))
+  if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
 
   if (neueGst) {
     const bisherIds = new Set(bisherBG.map(bg => String(bg.grundstueck_id)))

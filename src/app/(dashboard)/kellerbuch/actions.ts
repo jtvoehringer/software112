@@ -11,7 +11,7 @@ import { qualitaetFehler, qualitaetsAngabeAusFormular, qualitaetsAngabeFehler } 
 import { getCurrentMembership, canWrite, canAdmin, type Modul } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
-import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
+import { AktionsFehler, dbFehlerText, NICHT_GESPEICHERT } from '@/lib/fehler'
 import { pickerlFehler, schwundGrundFehler } from '@/lib/keller/gebindeAnzeige'
 import { istStoffkontoTyp } from '@/lib/kellerbuch/stoffkonto'
 import { dezimal, zahlAus, fmtNum } from '@/lib/format'
@@ -82,8 +82,9 @@ export async function pickerlEntfernen(behaelterId: string) {
   const supabase = await createSupabaseServerClient()
   const tenantId = await kellerbuchSchreibrecht()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('behaelter') as any).update({ lp_pickerl: null }).eq('id', behaelterId).eq('tenant_id', tenantId)
+  const { data: geaendert, error } = await (supabase.from('behaelter') as any).update({ lp_pickerl: null }).eq('id', behaelterId).eq('tenant_id', tenantId).select('id')
   if (error) throw new AktionsFehler(dbFehlerText(error, 'Pickerl konnte nicht entfernt werden'))
+  if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
   revalidatePath('/kellerbuch')
 }
 
@@ -184,8 +185,9 @@ export async function updateBehaelter(id: string, formData: FormData) {
     aktiv:         formData.get('aktiv') === 'true',
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('behaelter') as any).update(payload).eq('id', id).eq('tenant_id', tenantId)
+  const { data: geaendert, error } = await (supabase.from('behaelter') as any).update(payload).eq('id', id).eq('tenant_id', tenantId).select('id')
   if (error) throw new AktionsFehler((error as R).message)
+  if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
 
   if (alterName && neuerName && alterName.trim() !== neuerName.trim()) {
     await protokolliereGebindeUmbenennung(supabase, tenantId, id, alterName, neuerName)
@@ -450,8 +452,9 @@ export async function updateWeinausbau(id: string, formData: FormData): Promise<
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from('weinausbau') as any).update(payload).eq('id', id).eq('tenant_id', tenantId)
+  const { data: geaendert, error } = await (supabase.from('weinausbau') as any).update(payload).eq('id', id).eq('tenant_id', tenantId).select('id')
   if (error) throw new AktionsFehler(gebindeFehlerText(dbFehlerText(error, 'Speichern fehlgeschlagen (weinausbau)')))
+  if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
 
   // KAN-150 F1d: Herkunft (Rieden) nur als Differenz ändern – die RPC protokolliert alte und neue Rieden samt Grund.
   // Ab der ersten Folgebuchung ist der Grund Pflicht (dann steht die Charge schon in Weinbuch bzw. Meldungen).
