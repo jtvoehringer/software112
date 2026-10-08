@@ -60,8 +60,19 @@ Nach dem Speichern im Produkt unter „Preise" die **Preis-ID** (`price_…`) ko
   Stripe „Über Hauptmandanten abrechnen“ zu (Rechnungsempfänger = Hauptmandant). Austritt setzt den Nebenmandanten auf
   Nur-Lesen, bis er ein eigenes Abo abschließt (ohne neue Testphase).
 
+### 2b. Premium-Support als Zusatzposition (KAN-226)
+- Produkt **„software:112 Premium-Support“** anlegen, Preis **79,00 EUR netto monatlich** (wiederkehrend, Steuer wie
+  die Pakete). Preis-ID → Vercel `STRIPE_PRICE_PREMIUM_SUPPORT` (serverseitig, kein `NEXT_PUBLIC_`).
+- Ablauf: Die Betriebsleitung bucht auf `/abo` → „Premium-Support buchen“ – eine zusätzliche Position im bestehenden
+  Abo (anteilig ab heute, metadata `s112_art=premium_support`, `s112_tenant_id`). „Zum Monatsende kündigen“ entfernt die
+  Position ohne Gutschrift; das Kennzeichen am Betrieb läuft bis Monatsende. Der Webhook gleicht nach (auch bei
+  Änderungen im Stripe-Dashboard: Position hinzufügen/entfernen).
+- Ohne `STRIPE_PRICE_PREMIUM_SUPPORT` ist der Knopf ausgeblendet; der Plattform-Admin bucht dann wie bisher unter
+  Administration › Mandanten › Stripe (z. B. kostenlos für Pilot- oder Demobetriebe – der Webhook beendet nur, was
+  über Stripe gebucht war).
+
 ### 4. Vercel – Project → Settings → Environment Variables
-- Die drei `NEXT_PUBLIC_STRIPE_PRICE_*` aus Schritt 2 anlegen.
+- Die drei `NEXT_PUBLIC_STRIPE_PRICE_*` aus Schritt 2 anlegen, dazu `STRIPE_PRICE_PREMIUM_SUPPORT` (Schritt 2b).
 - `STRIPE_SECRET_KEY` und `STRIPE_WEBHOOK_SECRET` prüfen/ergänzen.
 - Alte Variablen `NEXT_PUBLIC_STRIPE_PRICE_PROFESSIONAL`, `…_PROFESSIONAL_PLUS`,
   `…_ENTERPRISE` **vorerst stehen lassen** (Abbildung alter Abos auf das neue Modell).

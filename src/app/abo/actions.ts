@@ -20,6 +20,8 @@ import { AktionsFehler } from '@/lib/fehler'
 import { paketEntscheidung, paketwechselParameter, testphaseTage } from '@/lib/abo/regeln'
 import { schreibSperreFehler } from '@/lib/auth/sperren'
 import { aboPositionAus, paketPosition, paketwechselVerbundFehler } from '@/lib/abo/verbund'
+import { buchenFehler, premiumPositionFuer, PREMIUM_ART } from '@/lib/abo/premiumStripe'
+import { heuteWien, kuendigungZumMonatsende, premiumSupportStand } from '@/lib/abo/premiumSupport'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -289,5 +291,86 @@ export async function setzeBuchhaltungsartAction(art: string) {
   revalidatePath('/abo')
   revalidatePath('/', 'layout')
   tenantKopfInvalidieren(membership.tenantId)
+  return { ok: true }
+}
+
+// ── Premium-Support buchen und kündigen (KAN-226 Teil 2, 08.10.2026) ─────────────────────────────────────
+// Zusätzliche Position im bestehenden Stripe-Abo (STRIPE_PRICE_PREMIUM_SUPPORT, 79 € netto/Monat, anteilig ab heute);
+// Kündigen entfernt die Position ohne Gutschrift, Premium-Support bleibt bis zum Monatsende. Das Kennzeichen am Betrieb
+// wird sofort gesetzt (Service-Role, Paketfelder-Schutz) – der Webhook bestätigt denselben Stand (lib/abo/premiumStripe).
+// Nur die Betriebsleitung; im Nur-Lesen-Modus gesperrt (fachliche Buchung, kein Weg aus der Sperre).
+
+function premiumSupportPreisId(): string | null {
+  return (process.env.STRIPE_PRICE_PREMIUM_SUPPORT ?? '').trim() || null
+}
+
+async function premiumKontext() {
+  const membership = await getCurrentMembership()
+  if (!membership) return { error: 'Kein Betrieb gefunden' } as const
+  const gesperrt = await schreibSperreFehler(membership)
+  if (gesperrt) return { error: gesperrt } as const
+  const admin = createSupabaseAdminClient()
+  const { data } = await (admin.from('tenants') as R)
+    .select('stripe_subscription_id, abrechnung_ueber, premium_support_seit, premium_support_bis').eq('id', membership.tenantId).maybeSingle()
+  const t = (data ?? {}) as R
+  const stand = premiumSupportStand({ seit: t.premium_support_seit ?? null, bis: t.premium_support_bis ?? null })
+  return { membership, admin, t, stand } as const
+}
+
+export async function premiumSupportBuchenAction() {
+  const k = await premiumKontext()
+  if ('error' in k) return { error: k.error }
+  const preisId = premiumSupportPreisId()
+  const fehler = buchenFehler({
+    darfVerwalten: canAdmin(k.membership.role), preisId, hatAbo: !!k.t.stripe_subscription_id, abrechnungUeber: !!k.t.abrechnung_ueber,
+    aktivUnbefristet: k.stand.status === 'aktiv' && !k.stand.bis,
+  })
+  if (fehler) return { error: fehler }
+  try {
+    const stripe = getStripe()
+    const sub = await stripe.subscriptions.retrieve(k.t.stripe_subscription_id)
+    const vorhanden = premiumPositionFuer(sub.items.data.map(i => aboPositionAus(i as unknown as R)), k.membership.tenantId, preisId)
+    if (!vorhanden) {
+      await stripe.subscriptions.update(sub.id, {
+        items: [{ price: preisId as string, quantity: 1, metadata: { s112_art: PREMIUM_ART, s112_tenant_id: k.membership.tenantId } }],
+        proration_behavior: 'create_prorations',
+      })
+    }
+  } catch (err) {
+    return { error: `Stripe-Fehler: ${(err as Error).message}` }
+  }
+  const heute = heuteWien()
+  const seit = k.stand.status === 'aktiv' ? (k.stand as { seit: string }).seit : heute
+  const { error } = await (k.admin.from('tenants') as R).update({ premium_support_seit: seit, premium_support_bis: null }).eq('id', k.membership.tenantId)
+  if (error) return { error: `Premium-Support ist bei Stripe gebucht, das Kennzeichen konnte nicht gesetzt werden: ${(error as R).message}` }
+  revalidatePath('/abo')
+  revalidatePath('/hilfe/support')
+  tenantKopfInvalidieren(k.membership.tenantId)
+  return { ok: true }
+}
+
+export async function premiumSupportKuendigenAction() {
+  const k = await premiumKontext()
+  if ('error' in k) return { error: k.error }
+  if (!canAdmin(k.membership.role)) return { error: 'Nur die Betriebsleitung kann Premium-Support buchen oder kündigen.' }
+  if (k.stand.status !== 'aktiv' || k.stand.bis) return { error: 'Premium-Support ist nicht (mehr) gebucht.' }
+  const preisId = premiumSupportPreisId()
+  if (k.t.stripe_subscription_id) {
+    try {
+      const stripe = getStripe()
+      const sub = await stripe.subscriptions.retrieve(k.t.stripe_subscription_id)
+      const pos = premiumPositionFuer(sub.items.data.map(i => aboPositionAus(i as unknown as R)), k.membership.tenantId, preisId)
+      // ohne Gutschrift: der laufende Monat ist bezahlt, Premium-Support bleibt bis zum Monatsende
+      if (pos) await stripe.subscriptionItems.del(pos.id, { proration_behavior: 'none' })
+    } catch (err) {
+      return { error: `Stripe-Fehler: ${(err as Error).message}` }
+    }
+  }
+  const { error } = await (k.admin.from('tenants') as R)
+    .update({ premium_support_bis: kuendigungZumMonatsende(heuteWien()) }).eq('id', k.membership.tenantId)
+  if (error) return { error: `Kündigung bei Stripe erfasst, das Kennzeichen konnte nicht gesetzt werden: ${(error as R).message}` }
+  revalidatePath('/abo')
+  revalidatePath('/hilfe/support')
+  tenantKopfInvalidieren(k.membership.tenantId)
   return { ok: true }
 }
