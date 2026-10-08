@@ -5,6 +5,8 @@
 -- @mutation ohne_schutz: Trigger b_elabel_umleitung entfernt | rot: kein_direktes_update
 -- @mutation ohne_schleifenpruefung: Schleifenprüfung in s112_elabel_umleiten ausgeschaltet | rot: keine_schleife
 -- @mutation ohne_grund: Grundprüfung in s112_elabel_umleiten ausgeschaltet | rot: grund_pflicht
+-- @mutation archiv_ohne_umleitung: Archiv nimmt den Inhalt des eigenen statt des Ziel-E-Labels | rot: archiv_inhalt_ziel
+-- @ziel: Archiv: s112_elabel_archivieren kopiert freigegebene E-Labels (Inhalt des Umleitungsziels, 5 Jahre), nur Service-Role.
 --
 -- software:112 – SQL-Testsuite gegen Staging, Datei 65 (Stand 07.10.2026, KAN-219). Alles zurückgerollt.
 
@@ -66,6 +68,9 @@ BEGIN
   PERFORM pg_temp.s112_mutiere('ohne_grund', $m$SELECT pg_temp.t65_ersetze('public.s112_elabel_umleiten(uuid, uuid, uuid, text)'::regprocedure,
     $r$IF length\(btrim\(coalesce\(p_grund, ''\)\)\) < 10 THEN$r$, $r$IF false THEN$r$)$m$);
 
+  PERFORM pg_temp.s112_mutiere('archiv_ohne_umleitung', $m$SELECT pg_temp.t65_ersetze('public.s112_elabel_archivieren(uuid, integer)'::regprocedure,
+    $r$v_ziel := v_id;$r$, $r$v_ziel := r.id;$r$)$m$);
+
   -- ── 1. Direktes Setzen gesperrt (freigegeben und Entwurf) ──────────────────────────────────────────────────
   PERFORM pg_temp.s112_als(v_bw);
   v_erg := v_erg || pg_temp.s112_erwarte('kein_direktes_update',
@@ -109,5 +114,26 @@ BEGIN
     (SELECT coalesce(a.umleitung_auf::text, '-') || '|' || coalesce(n.umleitung_auf::text, '-')
        FROM public.elabels a, public.elabels n WHERE a.id = v_alt AND n.id = v_neu), '-|' || v_dritt::text);
 
-  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 15);
+  -- ── 4. Archiv (gelöschter Betrieb): Inhalt des Umleitungsziels, 5 Jahre, für Benutzer nicht lesbar ─────────
+  v_erg := v_erg || pg_temp.s112_erwarte('archiv_anzahl', public.s112_elabel_archivieren(v_b, 5) >= 3, true);
+  v_erg := v_erg || pg_temp.s112_erwarte('archiv_inhalt_ziel',
+    (SELECT a.inhalt -> 'f' ->> 'name' FROM s112_archiv.elabel_archiv a JOIN public.elabels e ON e.code = a.code WHERE e.id = v_neu),
+    (SELECT f.name FROM public.elabels e JOIN public.fuellungen f ON f.id = e.fuellung_id WHERE e.id = v_dritt));
+  v_erg := v_erg || pg_temp.s112_erwarte('archiv_frist',
+    (SELECT a.gueltig_bis FROM s112_archiv.elabel_archiv a JOIN public.elabels e ON e.code = a.code WHERE e.id = v_alt)
+      = ((now() AT TIME ZONE 'Europe/Vienna')::date + interval '5 years')::date, true);
+  v_erg := v_erg || pg_temp.s112_erwarte('kein_archiv_entwurf',
+    (SELECT count(*) FROM s112_archiv.elabel_archiv a JOIN public.elabels e ON e.code = a.code WHERE e.id = v_entw), 0::bigint);
+  PERFORM pg_temp.s112_als(v_bw);
+  v_erg := v_erg || pg_temp.s112_erwarte('archiv_nicht_lesbar',
+    split_part(pg_temp.s112_fehlertext('SELECT count(*) FROM s112_archiv.elabel_archiv'), ':', 1), '42501');
+  v_erg := v_erg || pg_temp.s112_erwarte('archivieren_nicht_aufrufbar',
+    split_part(pg_temp.s112_fehlertext(format('SELECT public.s112_elabel_archivieren(%L, 5)', v_b)), ':', 1), '42501');
+  v_erg := v_erg || pg_temp.s112_erwarte('archiv_lesen_nicht_aufrufbar',
+    split_part(pg_temp.s112_fehlertext(format('SELECT public.s112_elabel_archiv_lesen(%L)', (SELECT e.code FROM public.elabels e WHERE e.id = v_alt))), ':', 1), '42501');
+  PERFORM pg_temp.s112_als_postgres();
+  v_erg := v_erg || pg_temp.s112_erwarte('archiv_lesen',
+    public.s112_elabel_archiv_lesen((SELECT e.code FROM public.elabels e WHERE e.id = v_alt)) ? 'katalog', true);
+
+  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 23);
 END $test$;
