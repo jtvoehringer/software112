@@ -1,7 +1,7 @@
 'use server'
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentMembership } from '@/lib/auth/roles'
+import { canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { revalidatePath } from 'next/cache'
@@ -22,8 +22,13 @@ async function getTenantId(): Promise<string> {
   if (!membership) throw new AktionsFehler('Kein aktiver Mandant gefunden')
   await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb? (Lagerbewegungen)
   await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
+  // KAN-242: Freigabe Rieden wie RLS (modul_insert/_update/_delete auf Lagerbuchungen, PSM, Düngemittel, Sätzen) – vorab
+  // statt technischer RLS-Meldung.
+  if (!canWrite(membership, 'rieden')) throw new AktionsFehler(RIEDEN_RECHTE_MELDUNG)
   return membership.tenantId
 }
+
+const RIEDEN_RECHTE_MELDUNG = 'Keine Berechtigung für Betriebsmittel – dafür ist die Freigabe Rieden nötig.'
 
 export async function upsertLagerBewegung(fd: FormData) {
   const supabase = await createSupabaseServerClient()

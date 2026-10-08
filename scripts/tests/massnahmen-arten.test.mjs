@@ -41,7 +41,9 @@ const ATTRAPPEN = {
   '@/app/(dashboard)/behandlungen/actions':
     'export async function createBehandlung(fd) { globalThis.__kan143Aufrufe.push(fd); return { id: "b-neu", hinweise: [] } }',
   '@/lib/auth/roles':
-    'export async function getCurrentMembership() { return { tenantId: "t-1", role: "winzer" } }',
+    'export async function getCurrentMembership() { return { tenantId: "t-1", role: "winzer" } }\n' +
+    // KAN-242: Lager-Actions prüfen die Freigabe Rieden – Mitarbeiter ohne Einschränkung (schreibmodule fehlt) darf alles
+    'export function canWrite() { return true }',
   '@/lib/supabase/server':
     'export async function createSupabaseServerClient() { return globalThis.__kan143Supabase }',
   '@/lib/auth/seitenBetrieb': 'export async function pruefeSeitenBetrieb() {}',

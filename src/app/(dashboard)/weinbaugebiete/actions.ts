@@ -1,7 +1,7 @@
 'use server'
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentMembership } from '@/lib/auth/roles'
+import { canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { AktionsFehler } from '@/lib/fehler'
@@ -28,6 +28,8 @@ async function schreibTenantId(): Promise<string> {
   if (!membership) throw new AktionsFehler('Kein aktiver Mandant gefunden')
   await pruefeSeitenBetrieb(membership.tenantId)
   await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
+  // KAN-242: wie RLS (modul_insert/_update auf weinbaugebiete_custom = Rieden) – auch aus dem Füllungsformular
+  if (!canWrite(membership, 'rieden')) throw new AktionsFehler('Keine Berechtigung, eigene Weinbaugebiete anzulegen – dafür ist die Freigabe Rieden nötig.')
   return membership.tenantId
 }
 
