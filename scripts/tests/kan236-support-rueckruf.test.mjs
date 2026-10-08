@@ -37,7 +37,7 @@ describe('KAN-236: Rückruf anfordern', () => {
     assert.match(r, /anfragetypId: await anfragetypId\(RUECKRUF_ANFRAGETYP\)/)
     assert.match(r, /prioritaet: RUECKRUF_PRIORITAET/)
     assert.match(r, /const limit = rateLimitFehler\(await anfragenImFenster\(accountId\)\)/)
-    assert.match(r, /const organisationId = await organisationZuordnen\(k\.betriebName, accountId\)/)
+    assert.match(r, /const organisationId = await organisationZuordnen\(k\.organisationName, accountId\)/)   // KAN-214: Submandant → Organisation des Hauptmandanten
   })
   test('Support-Seite zeigt die Karte nur mit Anbindung', () => {
     assert.match(quelle('src/app/(dashboard)/hilfe/support/page.tsx'), /\{jsmKonfiguriert\(\) && <RueckrufAnfordern \/>\}/)

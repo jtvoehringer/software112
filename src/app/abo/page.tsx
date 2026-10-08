@@ -72,7 +72,7 @@ export default async function AboPage() {
     .select('modul_ea, buchhaltungsart').eq('tenant_id', membership.tenantId).maybeSingle()
   const einst = einstRow as R | null
 
-  // KAN-215: Abrechnungsverbund – Nebenmandant (abgerechnet über …) bzw. Hauptmandant mit Nebenmandanten
+  // KAN-215/KAN-214: Submandant (über den Hauptmandanten) bzw. Hauptmandant mit Submandanten
   const adminClient = createSupabaseAdminClient()
   const [{ data: hauptRow }, { data: nebenRows }] = await Promise.all([
     t?.abrechnung_ueber ? (adminClient.from('tenants') as R).select('name').eq('id', t.abrechnung_ueber).maybeSingle() : Promise.resolve({ data: null }),
@@ -113,7 +113,7 @@ export default async function AboPage() {
           <h1 className="text-2xl font-semibold text-s112-text">Abo</h1>
           <div className="card p-5 space-y-2 text-sm">
             <p>
-              Ihr Betrieb wird über <strong>{hauptName ?? 'den Hauptmandanten'}</strong> abgerechnet (Abrechnungsverbund,
+              Ihr Betrieb ist Submandant von <strong>{hauptName ?? 'den Hauptmandanten'}</strong> (ohne Aufpreis,
               Paket Premium{statusMeta ? `, ${statusMeta.label}` : ''}).
             </p>
             <p className="text-s112-text-2">Rechnung, Zahlungsdaten und Kündigung verwaltet der Hauptmandant. Für ein eigenes Abo wenden Sie sich bitte an uns.</p>
@@ -129,7 +129,7 @@ export default async function AboPage() {
       {nebenNamen.length > 0 && (
         <div className="max-w-3xl mx-auto px-6 pt-6">
           <div className="card p-4 text-sm">
-            Abrechnungsverbund: Ihr Abo enthält zusätzlich {nebenNamen.join(', ')} als Zusatzmandant{nebenNamen.length > 1 ? 'en' : ''}.
+            Submandant{nebenNamen.length > 1 ? 'en' : ''} Ihres Betriebs (ohne Aufpreis): {nebenNamen.join(', ')}.
             Ein Paketwechsel unter Premium ist nur ohne Verbund möglich.
           </div>
         </div>
