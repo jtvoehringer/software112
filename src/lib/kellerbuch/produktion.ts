@@ -54,17 +54,26 @@ export function zielMenge(wein: readonly WeinEingang[], zutaten: readonly ZutatE
   return { wein: w, zusatz: z, ziel: Math.round((w + z) * 100) / 100 }
 }
 
-/** Prüfung wie die RPC (Meldungen auf Deutsch); [] = in Ordnung */
+/** Schritte des Assistenten (KAN-119): 1 = Art, Erzeugnis, Datum · 2 = Eingänge · 3 = neue Charge und Gebinde */
+export type ProduktionSchritt = 1 | 2 | 3
+export const PRODUKTION_SCHRITTE: Record<ProduktionSchritt, string> = { 1: 'Art', 2: 'Eingänge', 3: 'Neue Charge' }
+
+/** Prüfung wie die RPC (Meldungen auf Deutsch); [] = in Ordnung. Mit `schritt` nur die Prüfungen dieses Assistenten-Schritts. */
 export function produktionFehler(p: {
   art: ProduktionArt; erzeugnis?: string | null; name: string; behaelterId: string; datum: string; heute: string
   wein: readonly WeinEingang[]; zutaten: readonly ZutatEingang[]
-}): string[] {
+}, schritt?: ProduktionSchritt): string[] {
   const f: string[] = []
-  if (!PRODUKTION_ARTEN.includes(p.art)) f.push('Bitte die Art der Produktion wählen.')
-  if (p.erzeugnis && !(ERZEUGNIS_JE_ART[p.art] ?? []).includes(p.erzeugnis)) f.push('Das Erzeugnis passt nicht zur Art der Produktion.')
-  if (!p.name.trim() || !p.behaelterId) f.push('Bitte Name und Gebinde der neuen Charge angeben.')
-  if (!p.datum) f.push('Bitte ein Datum angeben.')
-  else if (p.datum > p.heute) f.push('Das Datum der Produktion liegt in der Zukunft.')
+  if (!schritt || schritt === 1) {
+    if (!PRODUKTION_ARTEN.includes(p.art)) f.push('Bitte die Art der Produktion wählen.')
+    if (p.erzeugnis && !(ERZEUGNIS_JE_ART[p.art] ?? []).includes(p.erzeugnis)) f.push('Das Erzeugnis passt nicht zur Art der Produktion.')
+    if (!p.datum) f.push('Bitte ein Datum angeben.')
+    else if (p.datum > p.heute) f.push('Das Datum der Produktion liegt in der Zukunft.')
+  }
+  if (!schritt || schritt === 3) {
+    if (!p.name.trim() || !p.behaelterId) f.push('Bitte Name und Gebinde der neuen Charge angeben.')
+  }
+  if (schritt && schritt !== 2) return [...new Set(f)]
   if (p.wein.length === 0) f.push('Bitte mindestens eine Quell-Charge angeben.')
   const ids = new Set<string>()
   for (const w of p.wein) {

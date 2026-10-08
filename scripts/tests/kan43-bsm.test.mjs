@@ -507,6 +507,45 @@ describe('KAN-43 BSM: Nachtrag 02.10.2026', nurMitHooks, () => {
     assert.equal(zelle(d.summen, 'DIFFERENZ').summeLiter, 0)
   })
 
+  test('1g. KAN-118/119: Produktion → Abgang AB_VERAR in der Weinspalte, Zugang ZU_PROD in „Perlwein und Schaumwein“ bzw. „Sonstige“', async () => {
+    const { ladeBsm, bsmJournal } = await laden('lib/behoerden/bsm.ts')
+    const t = tabellen()
+    // Spritzer: 200 l GV (Qualitätswein) + 100 l Wasser → 300 l weinhaltiges Getränk (05.04.2026), GV heute 246 l
+    // Perlwein: 100 l ZW Kabinett → 100 l Perlwein (06.04.2026), ZW Kabinett heute 100 l
+    t.weinausbau = [
+      ...t.weinausbau.map(w => w.id === 'w1' ? { ...w, menge_liter: 246 } : w.id === 'w2' ? { ...w, menge_liter: 100 } : w),
+      { id: 'w4', tenant_id: T, name: 'Spritzer 26', jahrgang: 2025, rebsorte: 'Grüner Veltliner', qualitaetsstufe: null, erzeugnis: 'WEINHALT', weinart: 'weiss', land_iso: 'AT', menge_liter: 300, status: 'ausbau', aktiv: true, created_at: '2026-04-05T08:00:00Z', behaelter_id: 'b4', behaelter: { name: 'T4' } },
+      { id: 'w5', tenant_id: T, name: 'ZW Perlwein', jahrgang: 2024, rebsorte: 'Zweigelt', qualitaetsstufe: 'kabinett', erzeugnis: 'PERLWEIN', weinart: 'rot', land_iso: 'AT', menge_liter: 100, status: 'ausbau', aktiv: true, created_at: '2026-04-06T08:00:00Z', behaelter_id: 'b5', behaelter: { name: 'T5' } },
+    ]
+    const prod = (id, datum, art, erzeugnis, ziel, zielName, wein, ziel_menge, eingaenge) => ({
+      id, tenant_id: T, datum, art, erzeugnis, ziel_menge, wein_liter: wein, notizen: null, ziel_weinausbau_id: ziel, storniert_am: null, eingaenge,
+      _ziel: { name: zielName },
+    })
+    const p1 = prod('pr1', '2026-04-05', 'spritzer', 'WEINHALT', 'w4', 'Spritzer 26', 200, 300, [
+      { art: 'wein', menge: 200, einheit: 'l', bezeichnung: null, weinausbau_id: 'w1', quelle: { name: 'GV 25' } },
+      { art: 'wasser', menge: 100, einheit: 'l', bezeichnung: null, weinausbau_id: null, quelle: null },
+    ])
+    const p2 = prod('pr2', '2026-04-06', 'perlwein', 'PERLWEIN', 'w5', 'ZW Perlwein', 100, 100, [
+      { art: 'wein', menge: 100, einheit: 'l', bezeichnung: null, weinausbau_id: 'w2', quelle: { name: 'ZW Kabinett' } },
+    ])
+    const kopf = p => ({ id: p.id, datum: p.datum, art: p.art, erzeugnis: p.erzeugnis, notizen: null, storniert_am: null, ziel: p._ziel })
+    t.produktionen = [p1, p2].map(({ _ziel, ...p }) => p)
+    t.produktion_eingaenge = [
+      { id: 'pe1', tenant_id: T, art: 'wein', menge: 200, weinausbau_id: 'w1', produktion: kopf(p1) },
+      { id: 'pe2', tenant_id: T, art: 'wein', menge: 100, weinausbau_id: 'w2', produktion: kopf(p2) },
+    ]
+    const d = await ladeBsm(datenbank(t, { rpc: RPC }), T, WJ, { heute: HEUTE })
+    const S = d.summen
+    // Abgang in der Spalte der Quelle (Wein), Zugang in der Spalte des neuen Erzeugnisses
+    assert.equal(zelle(S, 'AB_VERAR').werte.qualitaetswein, 300)   // 200 l GV + 100 l ZW Kabinett (Kabinett = Qualitätswein)
+    assert.equal(zelle(S, 'ZU_PROD').werte.sonstige, 300)          // Spritzer = weinhaltiges Getränk inkl. 100 l Wasser
+    assert.equal(zelle(S, 'ZU_PROD').werte.perl_schaumwein, 100)
+    assert.equal(zelle(S, 'ZU_PROD').werte.qualitaetswein ?? 0, 0)
+    assert.deepEqual(zelle(S, 'ENDE').werte, zelle(S, 'STICHTAG').werte)
+    assert.equal(zelle(S, 'DIFFERENZ').summeLiter, 0)
+    assert.equal(bsmJournal(d, ['ZU_PROD']).length, 2)
+  })
+
   test('4. Most/Sturm: eigene Gruppe, Übergang Most → Wein als neutrale Umstufung (keine Abwertung)', async () => {
     const { ladeBsm, bsmJournal, bsmParameter, BSM_SPALTEN, buchungsartLabel } = await laden('lib/behoerden/bsm.ts')
     assert.deepEqual(BSM_SPALTEN.map(s => s.key).slice(0, 2), ['most_sturm', 'wein'])
