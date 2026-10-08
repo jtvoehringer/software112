@@ -436,18 +436,6 @@ export default function FirmaDetailClient({
     })
   }
 
-  function sortAktivitaeten(akts: AktivitaetRow[]) {
-    const offen    = akts.filter(a => !a.erledigt).sort((a, b) => {
-      const dCmp = new Date(b.datum).getTime() - new Date(a.datum).getTime()
-      return dCmp !== 0 ? dCmp : (a.betreff ?? '').localeCompare(b.betreff ?? '', 'de')
-    })
-    const erledigt = akts.filter(a =>  a.erledigt).sort((a, b) => {
-      const dCmp = new Date(b.datum).getTime() - new Date(a.datum).getTime()
-      return dCmp !== 0 ? dCmp : (a.betreff ?? '').localeCompare(b.betreff ?? '', 'de')
-    })
-    return [...offen, ...erledigt]
-  }
-
   const verkaeufeSorted = [...verkaeufe].sort((a, b) => {
     const dateDiff = new Date(b.datum).getTime() - new Date(a.datum).getTime()
     if (dateDiff !== 0) return dateDiff
@@ -729,7 +717,7 @@ export default function FirmaDetailClient({
                     return (
                       <div key={cid} className="border border-s112-border rounded-xl overflow-hidden">
                         <button type="button"
-                          onClick={() => setExpandedThreads(prev => { const s=new Set(prev); expanded?s.delete(cid):s.add(cid); return s })}
+                          onClick={() => setExpandedThreads(prev => { const s=new Set(prev); if (expanded) s.delete(cid); else s.add(cid); return s })}
                           className="w-full flex items-center gap-3 px-4 py-2.5 bg-s112-blue-50 hover:bg-s112-blue-100 transition-colors text-left">
                           <Mail size={16} className="text-s112-blue-700 shrink-0" />
                           <div className="flex-1 min-w-0">

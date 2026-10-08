@@ -73,14 +73,12 @@ export async function GET() {
         .eq('aktiv', true)   // KAN-150 F1: nur bewirtschaftete Grundstücke zur Auswahl
         .order('gst_nr').order('id')),
       // Verfügbare kg: Lesemeldungen − Pressungen − bereits verkaufte Trauben
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       // tenant-isolation-ignore: ernte_parzellen ohne tenant_id, Filter über den Jahrgang
       (supabase.from('ernte_parzellen') as any)
         .select('weingarten_id, grundstueck_id, menge_kg, klosterneuburger, oechsle, mostgewicht_einheit, qualitaetsstufe, ernte_datum, jahrgang_id, lese_id, jahrgang:jahrgang_id!inner(tenant_id)')
         .eq('jahrgang.tenant_id', tenantId)
         .is('storniert_am', null)
         .order('ernte_datum', { ascending: false }),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       // tenant-isolation-ignore: pressung_weingaerten ohne tenant_id, Filter über die Pressung
       (supabase.from('pressung_weingaerten') as any)
         .select('weingarten_id, grundstueck_id, trauben_kg, pressung:pressung_id!inner(tenant_id, lese_id, storniert_am)')

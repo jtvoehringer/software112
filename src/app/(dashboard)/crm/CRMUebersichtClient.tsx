@@ -298,59 +298,6 @@ function EintragChip({ e, compact = false, onViewAkt }: { e: KalenderEintrag; co
 
 // ── Wochen-Ansicht ────────────────────────────────────────────────────────────
 
-function WochenView({ eintraege, current, heute }: { eintraege: KalenderEintrag[]; current: Date; heute: string }) {
-  const monday = useMemo(() => startOfWeek(current), [current.toDateString()])
-  const days   = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(monday, i)), [monday.getTime()])
-
-  const byDay = useMemo(() => {
-    const map: Record<string, KalenderEintrag[]> = {}
-    days.forEach(d => { map[toDateStr(d)] = [] })
-    eintraege.forEach(e => { if (map[e.datum]) map[e.datum].push(e) })
-    return map
-  }, [eintraege, monday.getTime()])
-
-  return (
-    <div className="border border-s112-border rounded-xl overflow-hidden">
-      <div className="grid grid-cols-7 border-b border-s112-border">
-        {days.map((d, i) => {
-          const isToday = toDateStr(d) === heute
-          return (
-            <div key={i} className={`px-2 py-3 text-center border-r last:border-r-0 border-s112-border
-              ${isToday ? 'bg-s112-teal text-s112-yellow' : 'bg-s112-bg'}`}>
-              <div className={`text-xs font-medium ${isToday ? 'text-white/80' : 'text-s112-text-2'}`}>
-                {WOCHENTAGE[i]}
-              </div>
-              <div className={`text-xl font-semibold leading-tight ${isToday ? 'text-white' : 'text-s112-text'}`}>
-                {d.getDate()}
-              </div>
-              <div className={`text-[11px] ${isToday ? 'text-white/70' : 'text-s112-tertiary'}`}>
-                {MONATE_KURZ[d.getMonth()]}
-              </div>
-            </div>
-          )
-        })}
-      </div>
-
-      <div className="grid grid-cols-7 divide-x divide-s112-border bg-white">
-        {days.map((d, i) => {
-          const dateStr = toDateStr(d)
-          const items = byDay[dateStr] ?? []
-          const isToday = dateStr === heute
-          return (
-            <div key={i} className={`min-h-[140px] p-2 space-y-1 ${isToday ? 'ring-1 ring-inset ring-s112-teal/40' : ''}`}>
-              {items.length === 0 ? (
-                <div className="text-[11px] text-s112-tertiary text-center pt-8 select-none">–</div>
-              ) : (
-                items.map(e => <EintragChip key={e.id} e={e} />)
-              )}
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
 // ── Zeitachsen-Ansicht (Outlook-Style) ────────────────────────────────────────
 
 const HOUR_H = 64  // px per hour
@@ -1279,13 +1226,6 @@ function ZeitachseView({
     )}
     </>
   )
-}
-
-// ── Hilfsfunktion: Privat-Check ──────────────────────────────────────────────
-// Private Einträge ohne Ersteller (Ersteller gelöscht, ON DELETE SET NULL) gelten
-// für alle als fremd (24.9.2026)
-function isPrivatFremder(e: KalenderEintrag, userId?: string) {
-  return !!e.ist_privat && e.erstellt_von !== userId
 }
 
 // ── Monats-Ansicht ────────────────────────────────────────────────────────────

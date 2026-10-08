@@ -641,7 +641,6 @@ export default function ZukaufNeuPage() {
               const mengeNum = parseFloat(menge) || 0
               const restNach = vol != null ? vol - inhalt - mengeNum : null
               const ueber = restNach != null && restNach < -0.01
-              const isMix = rebsorte && chargen.some(c => c.rebsorte && c.rebsorte !== rebsorte)
               return (
                 <div className="bg-s112-bg border border-s112-border rounded-xl px-4 py-3 space-y-2 text-xs">
                   <div className="grid grid-cols-3 gap-3">

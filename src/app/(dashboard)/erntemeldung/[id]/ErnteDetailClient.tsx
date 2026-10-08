@@ -204,7 +204,7 @@ function NeueParzellenForm({
     umschalten(alleTreffer)
   }
   function toggleExpand(wgId: string) {
-    setExpandedWGs(prev => { const n = new Set(prev); n.has(wgId) ? n.delete(wgId) : n.add(wgId); return n })
+    setExpandedWGs(prev => { const n = new Set(prev); if (n.has(wgId)) n.delete(wgId); else n.add(wgId); return n })
   }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -793,7 +793,7 @@ function LesedatenKarten({ zeilen, mehrereLesen, gesamtKg, writeOk, editId, setE
 }
 
 // ── Hauptkomponente ─────────────────────────────────────────────────────────────
-export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel, mehrereLesen, tabellenParzellen, stichtagHinweis, parzellen, weingaerten, gstByWeingarten, amaMeldung, hektarhoechstertrag, pressungenAnzahl, pressungenHref, writeOk, adminOk, betriebName, csvErlaubt, erfassenOffen }: {
+export default function ErnteDetailClient({ jahrgang, leseId, leseArt, leseTitel, mehrereLesen, tabellenParzellen, stichtagHinweis, weingaerten, gstByWeingarten, amaMeldung, hektarhoechstertrag, pressungenAnzahl, pressungenHref, writeOk, adminOk, betriebName, csvErlaubt, erfassenOffen }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   jahrgang: Record<string, any>; parzellen: ErnteParzelle[]
   /** KAN-129: gewählte Lese (Reiter der Seite) – neue Einträge und Pressungen landen in ihr */

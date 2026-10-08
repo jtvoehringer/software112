@@ -124,7 +124,7 @@ export default function BelegBuchenForm({
       ) : frageOffen ? (
         <div className="bg-s112-warn-bg border border-s112-warn/30 rounded-xl px-4 py-3 text-sm space-y-2">
           <p className="text-s112-warn-fg">
-            Konnte keinen bestehenden Lieferanten für „{lieferantName}" finden. Soll ein neuer Lieferant erstellt werden?
+            Konnte keinen bestehenden Lieferanten für „{lieferantName}“ finden. Soll ein neuer Lieferant erstellt werden?
           </p>
           <div className="flex gap-2">
             <button type="button" onClick={() => { setZeigeFirmaDialog(true); setFrageOffen(false) }}

@@ -88,7 +88,6 @@ export const UMZIEHEN_TOOL = {
 }
 
 export async function fuehreUmziehenAus(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   input: R,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any

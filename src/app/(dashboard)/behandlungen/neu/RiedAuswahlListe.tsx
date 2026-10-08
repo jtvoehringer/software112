@@ -31,7 +31,7 @@ export default function RiedAuswahlListe({
   const lagen = riedGruppen(weingaerten)
 
   function toggleExpand(wgId: string) {
-    setExpandedWGs(prev => { const n = new Set(prev); n.has(wgId) ? n.delete(wgId) : n.add(wgId); return n })
+    setExpandedWGs(prev => { const n = new Set(prev); if (n.has(wgId)) n.delete(wgId); else n.add(wgId); return n })
   }
 
   function toggleWG(id: string, spritzbar: boolean) {
@@ -44,7 +44,7 @@ export default function RiedAuswahlListe({
     })
     setSelectedWGs(prev => {
       const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
+      if (next.has(id)) next.delete(id); else next.add(id)
       return next
     })
   }
@@ -59,7 +59,7 @@ export default function RiedAuswahlListe({
     setSelectedGSTs(prev => {
       const n = new Map(prev)
       if (riedGewaehlt) for (const g of gstByWeingarten[wgId] ?? []) n.set(g.id, wgId)
-      wasSelected ? n.delete(gstId) : n.set(gstId, wgId)
+      if (wasSelected) n.delete(gstId); else n.set(gstId, wgId)
       return n
     })
   }

@@ -47,7 +47,7 @@ export default function ProfilPage() {
         setTimeout(() => setErfolg(false), 3000)
         router.refresh()
       }
-    } catch (err) {
+    } catch {
       setFehler('Netzwerkfehler')
     }
     setSaving(false)

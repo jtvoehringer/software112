@@ -283,7 +283,6 @@ export async function removeMember(membershipId: string) {
   }
 
   const supabase = await createSupabaseServerClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   // count prüfen: RLS löscht fremde/gesperrte Zeilen (eigene, system_admin) still
   // nicht - ohne Prüfung meldete die Aktion trotzdem Erfolg (24.9.2026)
   const { error, count } = await (supabase.from('tenant_memberships') as any)

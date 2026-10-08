@@ -129,7 +129,6 @@ async function pruefeBioSperre(
   duengemittelId: string | null,
 ) {
   if (!psmId && !duengemittelId) return
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [{ data: tenantRow }, { data: mittelRow }] = await Promise.all([
     (supabase.from('tenants') as any).select('bio_status').eq('id', tenantId).maybeSingle(),
     psmId

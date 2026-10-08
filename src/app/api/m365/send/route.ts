@@ -1,4 +1,3 @@
-import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { graphPost, getValidAccessToken } from '@/lib/m365/graph'
@@ -16,7 +15,6 @@ export async function POST(req: NextRequest) {
   if (zweiFaktor) return zweiFaktor
   try {
     const { an, betreff, text, kontakt_id, firma_id } = await req.json()
-    const supabase = await createSupabaseServerClient()
     const admin    = createSupabaseAdminClient()
 
     const membership = await getCurrentMembership()

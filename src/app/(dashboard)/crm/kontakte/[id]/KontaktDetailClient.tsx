@@ -493,18 +493,6 @@ export default function KontaktDetailClient({
 
   // E-Mail-Aktivitäten nach conversation_id ODER normalisiertem Betreff gruppieren
 
-  function sortAktivitaeten(akts: AktivitaetRow[]) {
-    const offen    = akts.filter(a => !a.erledigt).sort((a, b) => {
-      const dCmp = new Date(b.datum).getTime() - new Date(a.datum).getTime()
-      return dCmp !== 0 ? dCmp : (a.betreff ?? '').localeCompare(b.betreff ?? '', 'de')
-    })
-    const erledigt = akts.filter(a =>  a.erledigt).sort((a, b) => {
-      const dCmp = new Date(b.datum).getTime() - new Date(a.datum).getTime()
-      return dCmp !== 0 ? dCmp : (a.betreff ?? '').localeCompare(b.betreff ?? '', 'de')
-    })
-    return [...offen, ...erledigt]
-  }
-
   function groupEmailsByThread(akts: AktivitaetRow[]) {
     const threads: Record<string, AktivitaetRow[]> = {}
     const singles: AktivitaetRow[] = []
@@ -676,7 +664,7 @@ export default function KontaktDetailClient({
                             <button type="button"
                               onClick={() => setExpandedThreads(prev => {
                                 const next = new Set(prev)
-                                expanded ? next.delete(threadId) : next.add(threadId)
+                                if (expanded) next.delete(threadId); else next.add(threadId)
                                 return next
                               })}
                               className={`w-full flex items-center gap-3 px-4 py-2.5 transition-colors text-left ${item.erledigt ? 'bg-s112-ok-bg hover:bg-s112-ok/25' : 'bg-s112-blue-50 hover:bg-s112-blue-100'}`}>

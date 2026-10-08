@@ -354,7 +354,7 @@ export default function AboClient({
               </div>
               {hatAbo && (
                 <p className="text-[11.5px] text-s112-muted mt-2">
-                  Ein Wechsel wird sofort wirksam und anteilig abgerechnet. Kündigung und Rechnungen finden Sie unter „Zahlungsdaten verwalten".
+                  Ein Wechsel wird sofort wirksam und anteilig abgerechnet. Kündigung und Rechnungen finden Sie unter „Zahlungsdaten verwalten“.
                 </p>
               )}
             </div>

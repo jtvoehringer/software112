@@ -30,7 +30,6 @@ export default async function DacEditPage({ params }: { params: Promise<{ id: st
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [{ data: rows }, { data: waRaw }, { data: evRaw }] = await Promise.all([
     // storno-sichtbar: die Detailseite zeigt den stornierten Antrag mit Vermerk (KAN-150 F2)
     tf((supabase.from('dac_antrag') as any)

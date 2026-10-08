@@ -146,7 +146,7 @@ export default async function ZukaufPage({
           <p className="text-xs mt-1 opacity-75">
             Traubenzukauf für Weinproduzenten gesetzlich auf durchschnittlich 1.500 kg je Hektar bewirtschafteter
             Rebfläche pro Betrieb und Kalenderjahr begrenzt (Eigenbau-Grenze). Hinweis, keine rechtliche Prüfung –
-            berücksichtigt nur als „Trauben" erfasste Zukäufe des gewählten Kalenderjahres.
+            berücksichtigt nur als „Trauben“ erfasste Zukäufe des gewählten Kalenderjahres.
           </p>
         </div>
       )}

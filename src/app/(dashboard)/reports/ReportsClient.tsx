@@ -585,7 +585,7 @@ export default function ReportsClient({
             {umsatzModus === 'vergleich' ? (
               /* ── Monatsvergleich ── */
               vergleichData.length < 2 ? (
-                <p className="text-sm text-s112-muted italic py-4">Bitte Monat A und Monat B auswählen und auf „Vergleichen" klicken.</p>
+                <p className="text-sm text-s112-muted italic py-4">Bitte Monat A und Monat B auswählen und auf „Vergleichen“ klicken.</p>
               ) : (
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
@@ -1199,7 +1199,7 @@ export default function ReportsClient({
             )}
 
             {!vsResult && !vsFehler && (
-              <p className="text-center text-s112-muted py-8">Filter wählen und auf „Auswerten" klicken.</p>
+              <p className="text-center text-s112-muted py-8">Filter wählen und auf „Auswerten“ klicken.</p>
             )}
           </div>
         )}
@@ -1296,7 +1296,7 @@ export default function ReportsClient({
             )}
 
             {!wbResult && !wbFehler && (
-              <p className="text-center text-s112-muted py-8">Filter wählen und auf „Auswerten" klicken.</p>
+              <p className="text-center text-s112-muted py-8">Filter wählen und auf „Auswerten“ klicken.</p>
             )}
           </div>
         )}

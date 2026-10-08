@@ -172,7 +172,7 @@ export default async function BlendProtokollPage({ params, searchParams }: {
       <p className="text-xs text-s112-muted text-center print:hidden">
         Rückverfolgbarkeitsnachweis Flasche → Weingarten. Bei Chargen ohne vollständig gepflegte
         Pressungs-/Verschneidungsdaten kann die Zusammensetzung unvollständig oder als „Herkunft
-        unbekannt" ausgewiesen sein.
+        unbekannt“ ausgewiesen sein.
       </p>
 
     </div>

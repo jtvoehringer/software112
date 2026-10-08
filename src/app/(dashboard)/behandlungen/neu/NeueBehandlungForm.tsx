@@ -150,7 +150,6 @@ export default function NeueBehandlungForm({
     // sichtbare Felder ändern (Feld-Matrix)
     setMengeQuelle(null)
     setFolge([])
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [art])
 
   // Gewähltes PSM / Düngemittel
@@ -270,7 +269,6 @@ export default function NeueBehandlungForm({
     if (!kostenAktiv) return
     if (betragManuellGeaendert.current) return
     setKostenBetrag(kostenVorschlag > 0 ? kostenVorschlag.toFixed(2) : '')
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kostenAktiv, kostenVorschlag])
 
   // Beschreibung automatisch vorschlagen, solange leer/unverändert

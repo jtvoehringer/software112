@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import Link from '@/components/ui/Link'
 import { Pencil, Trash2 } from 'lucide-react'
-import { deactivateWeingarten, deleteWeingarten } from './actions'
+import { deleteWeingarten } from './actions'
 import { fmtHa } from '@/lib/format'
 
 const BEWIRTSCHAFTUNG_LABELS: Record<string, string> = {
@@ -80,10 +80,6 @@ export default function WeingartenTable({
       const result = await deleteWeingarten(id)
       if (result?.error) alert(`Fehler beim Löschen: ${result.error}`)
     })
-  }
-
-  function handleDeactivate(id: string) {
-    startTransition(async () => { await deactivateWeingarten(id) })
   }
 
   return (

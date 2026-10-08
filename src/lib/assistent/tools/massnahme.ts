@@ -196,7 +196,6 @@ export const MASSNAHME_TOOL = {
 }
 
 export async function fuehreMassnahmeDokumentierenAus(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   input: R,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any

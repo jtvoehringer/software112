@@ -1,6 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { alle } from '@/lib/supabase/alle'
-import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
+import { getCurrentMembership } from '@/lib/auth/roles'
 import { fmtLiter } from '@/lib/format'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
@@ -22,8 +22,6 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 
 export default async function WeinausbauListePage() {
   const supabase   = await createSupabaseServerClient()
-  const role       = await getCurrentUserRole()
-  const writeOk    = canWrite(role, 'kellerbuch')
   const membership = await getCurrentMembership()
   const tenantId   = membership?.tenantId ?? null
 
@@ -42,7 +40,7 @@ export default async function WeinausbauListePage() {
   const aktive  = chargen.filter((w: R) => w.status !== 'abgeschlossen' && !w.ist_eroeffnungsbestand)
   const abgesch = chargen.filter((w: R) => w.status === 'abgeschlossen' && !w.ist_eroeffnungsbestand)
 
-  function ChargenTabelle({ liste, showNew }: { liste: R[], showNew?: boolean }) {
+  function ChargenTabelle({ liste }: { liste: R[] }) {
     if (liste.length === 0) {
       return <p className="text-sm text-s112-muted italic px-4 py-3">Keine Einträge</p>
     }
@@ -112,7 +110,7 @@ export default async function WeinausbauListePage() {
           <h2 className="font-semibold text-s112-text text-sm">Laufende Chargen</h2>
           <span className="text-xs text-s112-muted">{aktive.length} Einträge</span>
         </div>
-        <ChargenTabelle liste={aktive} showNew />
+        <ChargenTabelle liste={aktive} />
       </div>
 
       {/* Abgeschlossene Chargen – standardmäßig eingeklappt (Rückverfolgung/Prüfungen

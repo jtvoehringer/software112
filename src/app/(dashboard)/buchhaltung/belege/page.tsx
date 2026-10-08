@@ -123,7 +123,7 @@ export default async function BelegePage() {
             Foto oder Scan hochladen (JPG, PNG, PDF) → KI erkennt automatisch Datum, Betrag, USt-Satz,
             Kategorie und – bei Eingangsrechnungen – den Lieferanten (wird mit einer bestehenden Firma
             im CRM verknüpft, oder Sie legen sie direkt neu an) → Daten prüfen und ggf. korrigieren →
-            „Buchung anlegen" erstellt die Buchung und verknüpft den Beleg. Belege werden verschlüsselt
+            „Buchung anlegen“ erstellt die Buchung und verknüpft den Beleg. Belege werden verschlüsselt
             und mandantengetrennt in der Cloud gespeichert.
           </p>
         </div>

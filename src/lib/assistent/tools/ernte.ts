@@ -149,7 +149,6 @@ function mostgewichtParameter(
 }
 
 export async function fuehreErnteErfassenAus(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   input: R,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any

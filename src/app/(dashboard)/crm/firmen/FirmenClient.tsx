@@ -24,7 +24,7 @@ const WAEHRUNGEN = ['EUR', 'USD', 'GBP', 'CHF', 'HUF', 'CZK']
 // ── Formular ──────────────────────────────────────────────────────────────────
 
 export function FirmaForm({
-  initial, rabattgruppen = [], defaultSegment, existingFirmen, onDone, onCreated,
+  initial, rabattgruppen = [], defaultSegment, onDone, onCreated,
   prefillName, defaultIstKunde, defaultIstLieferant,
 }: {
   initial?: FirmaRow | null
@@ -262,7 +262,7 @@ export function FirmaForm({
               0 ist hier aber ein gueltiger, bewusster Wert ("bei Erhalt"). */}
           <input aria-label="Zahlungsziel (Tage)" name="zahlungsziel_tage" type="number" required defaultValue={initial?.zahlungsziel_tage ?? 30}
             min="0" max="365" className={inputCls()} />
-          <p className="text-[11px] text-s112-tertiary mt-0.5">0 = Rechnung wird mit "bei Erhalt" statt Fälligkeitsdatum gedruckt</p>
+          <p className="text-[11px] text-s112-tertiary mt-0.5">0 = Rechnung wird mit „bei Erhalt“ statt Fälligkeitsdatum gedruckt</p>
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Währung</label>

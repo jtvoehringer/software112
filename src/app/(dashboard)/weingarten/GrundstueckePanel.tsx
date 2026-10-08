@@ -407,7 +407,7 @@ function GSTForm({ weingartenId, gst, customWeinbaugebiete, onNeuesWeinbaugebiet
             emptyLabel="– bitte wählen –"
             className={inputCls}
           />
-          <p className="text-xs text-s112-muted mt-1">Herkunftsstufe gem. Weingesetz/DAC-Verordnung – wird an Lese, Kellerbuch und Füllung weitergegeben (nur Abstufungen möglich). Fehlt ein Gebiet, kann es direkt im Dropdown über „+ Neues Weinbaugebiet hinzufügen…" ergänzt werden.</p>
+          <p className="text-xs text-s112-muted mt-1">Herkunftsstufe gem. Weingesetz/DAC-Verordnung – wird an Lese, Kellerbuch und Füllung weitergegeben (nur Abstufungen möglich). Fehlt ein Gebiet, kann es direkt im Dropdown über „+ Neues Weinbaugebiet hinzufügen…“ ergänzt werden.</p>
         </div>
 
         {/* AMA-Schlagnummer (pro Grundstück - NICHT zu verwechseln mit der

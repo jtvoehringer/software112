@@ -120,7 +120,6 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
   const posten    = momentaufnahmeAnwenden(postenRaw as R, ['kontakt', 'firma', 'zh_kontakt'])
   const positionen = (posten.positionen ?? []) as R[]
   const hasTank   = positionen.some((p: R) => p.typ === 'tank')
-  const tankPos   = positionen.filter((p: R) => p.typ === 'tank')
   // Most-/Wein- (lose) und Traubenverkauf benötigen eine Transportbescheinigung gem. Weingesetz;
   // Flaschenwein nicht (KAN-90, Entscheidung 06.10.2026 – TB_POSITIONSTYPEN)
   const brauchtTransportschein = positionen.some((p: R) => (TB_POSITIONSTYPEN as readonly string[]).includes(p.typ))
@@ -216,7 +215,6 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
     return acc
   }, {})
   const gesamtNetto = Object.values(ustGruppen).reduce((s: number, n) => s + (n as number), 0)
-  const gesamtUst   = gesamt - gesamtNetto
 
   const faelligkeitsDatum = new Date(rechnungsDatum)
   faelligkeitsDatum.setDate(faelligkeitsDatum.getDate() + zahlZiel)

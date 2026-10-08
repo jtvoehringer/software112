@@ -15,10 +15,6 @@ const STATUS_COLOR: Record<string,string> = {
   entwurf:'bg-[#F2F3F5] text-s112-text-2', bestaetigt:'bg-s112-blue-100 text-s112-blue-700',
   versendet:'bg-s112-warn-bg text-s112-warn-fg', abgeschlossen:'bg-s112-ok-bg text-s112-ok-fg'
 }
-const DOK_STATUS_COLOR: Record<string,string> = {
-  ausstehend:'bg-[#F2F3F5] text-s112-text-2', beantragt:'bg-s112-warn-bg text-s112-warn-fg',
-  ausgestellt:'bg-s112-ok-bg text-s112-ok-fg', nicht_erforderlich:'bg-s112-bg text-s112-tertiary',
-}
 
 interface Props {
   auftrag: R
@@ -166,7 +162,7 @@ export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dok
               <h2 className="font-semibold text-s112-text">Dokumente</h2>
               <span className="text-xs text-s112-muted">{ausgestellt}/{gesamt}</span>
             </div>
-            <p className="text-[11px] text-s112-muted mt-1">Nur 'Ausgestellt' zählt zum Fortschritt</p>
+            <p className="text-[11px] text-s112-muted mt-1">Nur „Ausgestellt“ zählt zum Fortschritt</p>
             {/* Progress Bar */}
             <div className="w-full bg-[#F2F3F5] rounded-full h-1.5 mb-4">
               <div className="bg-s112-teal h-1.5 rounded-full transition-all"
