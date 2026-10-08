@@ -29,6 +29,9 @@ import BestandKorrigierenForm from './BestandKorrigierenForm'
 import EtikettierenForm, { EtikettierungStorno } from './EtikettierenForm'
 import SektStufeForm from './SektStufeForm'
 import { istSektStufe } from '@/lib/wein/sekt'
+import DatenblattKarte from '@/components/handel/DatenblattKarte'
+import { ladeBilder } from '@/lib/handel/datenblattLaden'
+import { schreibSperre } from '@/lib/auth/sperren'
 
 export const metadata: Metadata = { title: 'Füllung bearbeiten – software:112' }
 export const dynamic = 'force-dynamic'
@@ -244,6 +247,14 @@ export default async function EditFuellungPage({
           </span>
           <span className="text-xs text-s112-blue-700">Öffnen →</span>
         </Link>
+      )}
+
+      {/* ── KAN-220: Produktdatenblatt (PDF) und Bilder ── */}
+      {!f.storniert_am && tenantId && (
+        <div className="mb-2">
+          <DatenblattKarte fuellungId={id} bilder={Object.fromEntries(Object.entries(await ladeBilder(supabase, tenantId, id, 3600)).map(([k, v]) => [k, v?.url ?? '']))}
+            schreiben={!!membership && (canWrite(membership, 'kellerbuch') || canWrite(membership, 'warenwirtschaft')) && !(await schreibSperre(membership))} />
+        </div>
       )}
 
       {/* KAN-109: Rückruf-Liste dieses Loses (Abnehmer vorwärts) */}

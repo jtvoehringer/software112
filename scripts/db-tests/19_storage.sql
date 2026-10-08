@@ -1,7 +1,8 @@
--- @bereich: Storage – Ordner-Policies der 6 Buckets (storage.objects)
+-- @bereich: Storage – Ordner-Policies der 7 Buckets (storage.objects)
 -- @ziel: Objekte liegen je Betrieb im Ordner <tenant_id>/…; niemand liest, legt an, verschiebt oder löscht im
 -- @ziel: Ordner eines fremden Betriebs. Schreibrechte je Bucket folgen Rolle und Schreibmodul (aktivitaet-dokumente
--- @ziel: crm|warenwirtschaft, analysen kellerbuch (Löschen niemand, KAN-150 F2a), dokumente jeder Winzer, ea-belege ea, etiketten
+-- @ziel: crm|warenwirtschaft, analysen kellerbuch (Löschen niemand, KAN-150 F2a), dokumente jeder Winzer, ea-belege ea,
+-- @ziel: fuellung-bilder kellerbuch|warenwirtschaft (KAN-220), etiketten
 -- @ziel: SA/TA); kein Bucket hat eine UPDATE-Policy außer mandant-logos (nur Plattform-Admin). mandant-logos ist
 -- @ziel: öffentlich lesbar (auch anon, auch fremde Logos), schreiben darf dort nur der Plattform-Admin. Objekte ohne
 -- @ziel: Mandantenordner sieht niemand (NULL-sicher, ohne Fehler); Stichproben zu Abo-Sperre, inaktiver
@@ -30,6 +31,7 @@
 --   dokumente              Mitglieder     jeder Winzer ('betrieb')  niemand                  niemand
 --   ea-belege              Mitglieder     ea                        ea                       niemand
 --   etiketten              Mitglieder     SA/TA                     niemand                  niemand
+--   fuellung-bilder        Mitglieder     kellerbuch | warenwirtschaft  kellerbuch | warenwirtschaft  niemand   (KAN-220)
 --   mandant-logos          alle, auch anon Plattform-Admin          Plattform-Admin          Plattform-Admin
 -- SA/TA dürfen über s112_darf_schreiben jedes Modul; der Leser nirgends. Mitglied = s112_meine_tenants (nur aktiv).
 -- Löschen braucht zusätzlich den Schalter storage.allow_delete_query (sonst 42501 aus storage.protect_delete);
@@ -43,6 +45,7 @@ CREATE FUNCTION pg_temp.t19_kurz(p_bucket text) RETURNS text LANGUAGE sql IMMUTA
     WHEN 'dokumente' THEN 'dok'
     WHEN 'ea-belege' THEN 'ea'
     WHEN 'etiketten' THEN 'eti'
+    WHEN 'fuellung-bilder' THEN 'fb'
     WHEN 'mandant-logos' THEN 'logo'
   END
 $f$;
@@ -86,6 +89,7 @@ CREATE FUNCTION pg_temp.t19_soll(p_aktion text, p_kurz text, p_persona text) RET
       WHEN p_persona IN ('b_ta', 'pa') THEN 'k1'
       WHEN p_persona = 'b_l' THEN 'R'
       WHEN p_kurz = 'akt' THEN CASE WHEN p_persona IN ('b_w', 'b_w_crm', 'b_w_ww') THEN 'k1' ELSE 'R' END
+      WHEN p_kurz = 'fb' THEN CASE WHEN p_persona IN ('b_w', 'b_w_ww') THEN 'k1' ELSE 'R' END   -- KAN-220: kellerbuch | warenwirtschaft
       WHEN p_kurz IN ('ana', 'ea') THEN CASE WHEN p_persona = 'b_w' THEN 'k1' ELSE 'R' END
       WHEN p_kurz = 'dok' THEN 'k1'          -- Modul 'betrieb': jeder Winzer, auch ohne Schreibmodul
       WHEN p_kurz = 'eti' THEN 'R'           -- nur SA/TA
@@ -96,6 +100,7 @@ CREATE FUNCTION pg_temp.t19_soll(p_aktion text, p_kurz text, p_persona text) RET
       WHEN p_persona IN ('b_ta', 'pa') THEN 'k1'
       WHEN p_persona = 'b_l' THEN 'k0'
       WHEN p_kurz = 'akt' THEN CASE WHEN p_persona IN ('b_w', 'b_w_crm', 'b_w_ww') THEN 'k1' ELSE 'k0' END
+      WHEN p_kurz = 'fb' THEN CASE WHEN p_persona IN ('b_w', 'b_w_ww') THEN 'k1' ELSE 'k0' END   -- KAN-220
       WHEN p_kurz = 'ea' THEN CASE WHEN p_persona = 'b_w' THEN 'k1' ELSE 'k0' END
     END
     WHEN 'upd' THEN CASE WHEN p_kurz = 'logo' AND p_persona = 'pa' THEN 'k1' ELSE 'k0' END
@@ -105,7 +110,7 @@ $f$;
 DO $test$
 DECLARE
   c_datei   constant text := '19_storage';
-  c_buckets constant text[] := ARRAY['aktivitaet-dokumente', 'analysen', 'dokumente', 'ea-belege', 'etiketten', 'mandant-logos'];
+  c_buckets constant text[] := ARRAY['aktivitaet-dokumente', 'analysen', 'dokumente', 'ea-belege', 'etiketten', 'fuellung-bilder', 'mandant-logos'];
   c_schreiber constant text[] := ARRAY['b_ta', 'b_w', 'b_w_crm', 'b_w_ww', 'b_w_leer', 'b_l', 'pa'];
   v_t0      timestamptz := clock_timestamp();
   v_erg     text[] := '{}';
@@ -149,7 +154,7 @@ BEGIN
   v_erg := v_erg || pg_temp.s112_erwarte('x_personas_zwei_rollen_je_betrieb', v_n, 4);
 
   SELECT count(*) INTO v_n FROM storage.buckets WHERE id = ANY (c_buckets) AND public = (id = 'mandant-logos');
-  v_erg := v_erg || pg_temp.s112_erwarte('buckets_vorhanden_nur_logos_oeffentlich', v_n, 6);
+  v_erg := v_erg || pg_temp.s112_erwarte('buckets_vorhanden_nur_logos_oeffentlich', v_n, 7);   -- +1 KAN-220 (fuellung-bilder)
 
   FOREACH v_bucket IN ARRAY c_buckets LOOP
     v_k := pg_temp.t19_kurz(v_bucket);

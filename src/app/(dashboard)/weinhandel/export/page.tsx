@@ -2,7 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
-import { Users, Building2, Wine, ShoppingCart, type LucideIcon } from 'lucide-react'
+import { Users, Building2, Wine, ShoppingCart, type LucideIcon, FileText } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'Datenexport – software:112' }
 export const dynamic = 'force-dynamic'
@@ -57,6 +57,15 @@ export default async function ExportPage() {
       einheit: 'Artikel',
       href: '/api/export/lager',
       icon: Wine,
+      format: 'CSV',
+    },
+    {
+      title: 'Produktdatenblätter (Händler)',
+      beschreibung: 'Aktive Füllungen mit Sorte, Herkunft, Qualität, Alkohol, Restzucker, Säure, Flaschengröße, Prüfnummer und E-Label-Link',
+      anzahl: fuellungenCount ?? 0,
+      einheit: 'Artikel',
+      href: '/api/export/datenblaetter',
+      icon: FileText,
       format: 'CSV',
     },
     {
