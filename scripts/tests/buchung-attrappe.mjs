@@ -62,6 +62,12 @@ export const DOPPEL = {
       if (m === 'betrieb') return true
       return m ? mods.includes(m) : mods.length > 0
     }
+    export const canSeeAuswertungen = r => {
+      const rolle = rolleVon(r)
+      if (['system_admin', 'tenant_admin', 'leser'].includes(rolle)) return true
+      const mods = (r && typeof r === 'object') ? r.schreibmodule : (globalThis.__membership?.schreibmodule ?? [])
+      return rolle === 'winzer' && (mods ?? []).includes('auswertungen')
+    }
   `),
 }
 

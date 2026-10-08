@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
   if (konflikt) return konflikt
   const gesperrt = await schreibSperreKonflikt(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
   if (gesperrt) return gesperrt
-  if (!canWrite(membership.role, 'ea')) return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 })
+  if (!canWrite(membership, 'ea')) return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 })
 
   const { data: einst } = await (supabase.from('tenant_einstellungen') as any)
     .select('modul_ea').eq('tenant_id', tenantId).maybeSingle()

@@ -204,7 +204,7 @@ export async function POST(req: NextRequest) {
     // Rollenliste (die frühere Liste ['tenant_admin','winzer'] vergaß system_admin, was
     // z.B. beim Ersteller eines neuen Mandanten - immer system_admin - zu einem
     // faelschlichen 403 fuehrte).
-    if (!canWrite(activeMembership.role))
+    if (!canWrite(activeMembership))
       return NextResponse.json({ fehler: 'Keine Berechtigung' }, { status: 403 })
 
     let ok = 0

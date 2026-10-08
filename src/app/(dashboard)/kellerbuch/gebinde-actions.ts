@@ -40,6 +40,8 @@ async function getTenantId(): Promise<string> {
   if (!membership) throw new AktionsFehler('Kein aktiver Mandant gefunden')
   await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
   await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
+  // KAN-244: wie RLS (weinausbau: Kellerbuch oder Rieden) – Eröffnungsbestand anlegen prüfte vorher nur die Datenbank
+  if (!canWrite(membership, 'kellerbuch') && !canWrite(membership, 'rieden')) throw new AktionsFehler('Keine Schreibberechtigung für das Kellerbuch in diesem Betrieb.')
   return membership.tenantId
 }
 

@@ -20,7 +20,7 @@ async function getCtx() {
   await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
   await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
   await pruefeModul('modul_ea')   // KAN-6: Konten und Umbuchungen gehören zur E&A
-  return { supabase, tenantId: membership.tenantId, role: membership.role }
+  return { supabase, tenantId: membership.tenantId, role: membership.role, membership }
 }
 
 // ── Konto anlegen (nur Admin – Kontenstruktur ist administrativ) ─────────────
@@ -65,8 +65,8 @@ export async function deaktiviereKonto(id: string) {
 // ── Umbuchung zwischen zwei Konten erfassen ──────────────────────────────────
 
 export async function createUmbuchung(formData: FormData) {
-  const { supabase, tenantId, role } = await getCtx()
-  if (!canWrite(role, 'ea')) return { error: 'Keine Berechtigung.' }
+  const { supabase, tenantId, membership } = await getCtx()
+  if (!canWrite(membership, 'ea')) return { error: 'Keine Berechtigung.' }
 
   const vonKontoId  = formData.get('von_konto_id') as string
   const nachKontoId = formData.get('nach_konto_id') as string
@@ -118,8 +118,8 @@ export async function setzeAbgeglichen(
   id: string,
   abgeglichen: boolean
 ) {
-  const { supabase, tenantId, role } = await getCtx()
-  if (!canWrite(role, 'ea')) return { error: 'Keine Berechtigung.' }
+  const { supabase, tenantId, membership } = await getCtx()
+  if (!canWrite(membership, 'ea')) return { error: 'Keine Berechtigung.' }
 
   const { error } = await (supabase.rpc as any)('setze_kontobewegung_abgeglichen', {
     p_tenant_id: tenantId, p_quelle: quelle, p_id: id, p_abgeglichen: abgeglichen,

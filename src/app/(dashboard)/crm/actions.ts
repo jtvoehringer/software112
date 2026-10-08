@@ -2,7 +2,7 @@
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
+import { getCurrentMembership, canWrite, type Modul } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { absenderIndexVerwerfen } from '@/lib/crm/absender'
@@ -23,11 +23,19 @@ import { lieferadresseAus, lieferadresseFehler } from '@/lib/crm/lieferadressen'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
 
-async function getTenantId(): Promise<string> {
+// KAN-244: Schreibrecht vorab wie die RLS (modul_insert/_update/_delete) – Kontakte, Firmen, Pipeline, Dubletten und
+// ignorierte Absender: CRM; Aktivitäten: CRM oder Warenwirtschaft (Verkaufsnotizen). Vorher prüfte nur die RLS.
+const AKTIVITAET_MODULE: Modul[] = ['crm', 'warenwirtschaft']
+async function getTenantId(module: Modul[] = ['crm']): Promise<string> {
   const membership = await getCurrentMembership()
   if (!membership) throw new AktionsFehler('Kein aktiver Mandant gefunden')
   await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb? (Kundennummernkreis)
   await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
+  if (!module.some(m => canWrite(membership, m))) {
+    throw new AktionsFehler(module.length > 1
+      ? 'Keine Berechtigung für Aktivitäten – dafür ist die Freigabe CRM oder Warenwirtschaft nötig.'
+      : 'Keine Berechtigung für das CRM – dafür ist die Freigabe CRM nötig.')
+  }
   return membership.tenantId
 }
 
@@ -37,7 +45,7 @@ async function crmSchreibTenant(): Promise<string> {
   if (!membership) throw new AktionsFehler('Kein aktiver Mandant gefunden')
   await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30
   await pruefeSchreibzugriff(membership)   // KAN-5
-  if (!canWrite(membership.role, 'crm')) throw new AktionsFehler('Keine Berechtigung: Kontakte und Firmen bearbeiten Betriebs-Manager und Mitarbeiter mit Modulrecht CRM.')
+  if (!canWrite(membership, 'crm')) throw new AktionsFehler('Keine Berechtigung: Kontakte und Firmen bearbeiten Betriebs-Manager und Mitarbeiter mit Modulrecht CRM.')
   return membership.tenantId
 }
 
@@ -465,7 +473,7 @@ export async function deleteFirma(id: string): Promise<LoeschErgebnis> {
 
 export async function moveAktivitaet(id: string, datum: string, uhrzeit_von: string, uhrzeit_bis: string) {
   const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId()
+  const tenantId = await getTenantId(AKTIVITAET_MODULE)
   const { error } = await (supabase.from('aktivitaeten') as any)
     .update({ datum, ganztags: !uhrzeit_von && !uhrzeit_bis, uhrzeit_von: uhrzeit_von || null, uhrzeit_bis: uhrzeit_bis || null })
     .eq('id', id).eq('tenant_id', tenantId)
@@ -478,7 +486,7 @@ export async function moveAktivitaet(id: string, datum: string, uhrzeit_von: str
 
 export async function createAktivitaet(formData: FormData) {
   const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId()
+  const tenantId = await getTenantId(AKTIVITAET_MODULE)
   const { data: { user } } = await supabase.auth.getUser()
   const ganztags = formData.get('ganztags') !== 'false'
   const payload: AR = {
@@ -520,7 +528,7 @@ export async function createAktivitaet(formData: FormData) {
 
 export async function updateAktivitaet(id: string, formData: FormData) {
   const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId()
+  const tenantId = await getTenantId(AKTIVITAET_MODULE)
   const ganztags = formData.get('ganztags') !== 'false'
   const payload: AR = {
     art:          formData.get('art') as string,
@@ -565,7 +573,7 @@ function zuweisung(formData: FormData): { verantwortlich_id: string | null; fuer
 
 export async function deleteAktivitaet(id: string) {
   const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId()
+  const tenantId = await getTenantId(AKTIVITAET_MODULE)
   const { data: weg, error } = await (supabase.from('aktivitaeten') as any).delete().eq('id', id).eq('tenant_id', tenantId).select('id')
   if (error) throw new AktionsFehler((error as AR).message)
   if (((weg ?? []) as unknown[]).length === 0) throw new AktionsFehler('Die Aktivität wurde nicht gelöscht (nicht gefunden oder keine Berechtigung) – bitte die Seite neu laden.')   // KAN-243
@@ -576,7 +584,7 @@ export async function deleteAktivitaet(id: string) {
 
 export async function toggleAktivitaetErledigt(id: string, erledigt: boolean) {
   const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId()
+  const tenantId = await getTenantId(AKTIVITAET_MODULE)
   const { error } = await (supabase.from('aktivitaeten') as any)
     .update({ erledigt })
     .eq('id', id).eq('tenant_id', tenantId)

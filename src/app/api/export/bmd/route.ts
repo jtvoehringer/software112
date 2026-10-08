@@ -72,7 +72,7 @@ export async function GET(req: NextRequest) {
   // KAN-5: Der Export selbst bleibt im Nur-Lesen-Modus erlaubt (Übergabe an den Steuerberater,
   // Aufbewahrungspflicht) – Protokoll und „übergeben“-Markierung werden dann nicht geschrieben.
   const nurLesen = (await schreibSperre(membership)) !== null
-  const protokollieren = sp.get('protokollieren') === '1' && canWrite(membership.role, 'ea') && !nurLesen
+  const protokollieren = sp.get('protokollieren') === '1' && canWrite(membership, 'ea') && !nurLesen
 
   if (!['ausgangsrechnungen', 'eingangsbelege', 'stammdaten'].includes(art)) {
     return fehlerAntwort(400, 'Unbekannte Übergabeart')

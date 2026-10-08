@@ -17,7 +17,7 @@ export async function aktualisiereMorgenbericht(): Promise<{ ok: boolean; fehler
   if (betriebGewechselt) return { ok: false, fehler: betriebGewechselt }
   const aboGesperrt = await schreibSperreFehler(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
   if (aboGesperrt) return { ok: false, fehler: aboGesperrt }
-  if (!canWrite(membership.role, 'betrieb')) return { ok: false, fehler: 'Nur Betriebs-Manager und Mitarbeiter können den Bericht neu erstellen.' }
+  if (!canWrite(membership, 'betrieb')) return { ok: false, fehler: 'Nur Betriebs-Manager und Mitarbeiter können den Bericht neu erstellen.' }
   const admin = createSupabaseAdminClient()
   // tenant-isolation-ignore: tenants hat keine tenant_id-Spalte, Filter über die eigene id
   const { data: t } = await (admin.from('tenants') as any).select('id, name, stripe_plan').eq('id', membership.tenantId).maybeSingle()
