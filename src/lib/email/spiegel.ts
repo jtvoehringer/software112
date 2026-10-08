@@ -13,19 +13,24 @@
 // Aufrufer: Cron (/api/cron/taeglich), manuell (/api/email/spiegel, /api/nachrichten/spiegeln)
 // und „nebenbei“ beim Öffnen der Nachrichten (spiegleNebenbei). Übersprungene Postfächer zählen
 // nicht als Fehler (bewusste Auslassung); scheitert die Prüfung selbst, läuft nichts (fail-closed).
+//
+// KAN-125 (08.10.2026): Verbindungen mit „Neu verbinden nötig“ (Zustimmung fehlt, Refresh-Token abgelaufen – siehe
+// lib/m365/tokenFehler.ts) fragen Microsoft nicht mehr und zählen als neuVerbinden statt täglich als Fehler; der
+// Übergang wird einmal als Ereignis gemeldet (graph.ts). Meldungen nennen das Postfach nie leer (verbindungName).
 
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { inBloecken } from '@/lib/supabase/alle'
 import { getValidUserAccessToken, getMailboxBase } from '@/lib/m365/graph'
 import { ladeAbsenderIndex, findeAbsender, type AbsenderIndex } from '@/lib/crm/absender'
 import { ereignisMelden } from '@/lib/system/ereignis'
+import { M365TokenFehler, istNeuVerbinden, verbindungName } from '@/lib/m365/tokenFehler'
 import { spiegelFreigabe, SPIEGEL_SPERR_TEXT, type SpiegelBetrieb, type SpiegelMitgliedschaft } from '@/lib/email/spiegelFreigabe'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
 /** uebersprungen (KAN-69): Postfächer ohne aktive Mitgliedschaft oder mit gesperrtem Abo, je mit Grund */
-export type SpiegelErgebnis = { postfaecher: number; nachrichten: number; angelegt: number; fehler: string[]; uebersprungen: string[]; dauerMs: number }
+export type SpiegelErgebnis = { postfaecher: number; nachrichten: number; angelegt: number; fehler: string[]; uebersprungen: string[]; dauerMs: number; /** KAN-125: Verbindungen, die neu verbunden werden müssen */ neuVerbinden: string[] }
 
 const ERSTER_LAUF_TAGE = 90
 const MAX_JE_ORDNER = 300
@@ -34,19 +39,22 @@ export async function spiegleMailboxen(zeitbudgetMs = 40000, nurTenantId?: strin
   const start = Date.now()
   const deadline = start + zeitbudgetMs
   const admin = createSupabaseAdminClient()
-  const erg: SpiegelErgebnis = { postfaecher: 0, nachrichten: 0, angelegt: 0, fehler: [], uebersprungen: [], dauerMs: 0 }
+  const erg: SpiegelErgebnis = { postfaecher: 0, nachrichten: 0, angelegt: 0, fehler: [], uebersprungen: [], dauerMs: 0, neuVerbinden: [] }
 
   // tenant-isolation-ignore: Cron über alle verbundenen Postfächer (Service-Role), je Zeile nach tenant_id verarbeitet
   let q = (admin.from('user_email_connections') as any)
-    .select('tenant_id, user_id, email_address, monitored_email, m365_aktiv, m365_access_token_enc, m365_refresh_token_enc, m365_token_expires_at, email_spiegel_stand')
-    .eq('m365_aktiv', true).not('m365_access_token_enc', 'is', null)
+    .select('tenant_id, user_id, email_address, anzeigename, monitored_email, m365_aktiv, m365_access_token_enc, m365_refresh_token_enc, m365_token_expires_at, email_spiegel_stand, email_spiegel_info')
+    .eq('m365_aktiv', true)
   if (nurTenantId) q = q.eq('tenant_id', nurTenantId)
   if (nurUserId) q = q.eq('user_id', nurUserId)
   const { data: verbindungen, error } = await q
   if (error) { erg.fehler.push(error.message); erg.dauerMs = Date.now() - start; return erg }
 
+  // KAN-125: ohne Token – markiert („neu verbinden“) zählen, sonst wie bisher still auslassen
+  const geladen = (verbindungen ?? []) as (R & { tenant_id: string; user_id: string })[]
+  for (const v of geladen) if (!v.m365_access_token_enc && istNeuVerbinden(v.email_spiegel_info)) erg.neuVerbinden.push(verbindungName(v))
   // KAN-69: nur Verbindungen mit aktiver Mitgliedschaft in einem Betrieb ohne Abo-Sperre
-  const alle = (verbindungen ?? []) as (R & { tenant_id: string; user_id: string })[]
+  const alle = geladen.filter(v => !!v.m365_access_token_enc)
   let freigegeben: R[] = []
   if (alle.length) {
     const tenantIds = [...new Set(alle.map(v => v.tenant_id))]
@@ -65,7 +73,7 @@ export async function spiegleMailboxen(zeitbudgetMs = 40000, nurTenantId?: strin
     }
     const f = spiegelFreigabe(alle, (mitglieder ?? []) as SpiegelMitgliedschaft[], (betriebe ?? []) as SpiegelBetrieb[])
     freigegeben = f.freigegeben
-    for (const u of f.uebersprungen) erg.uebersprungen.push(`${u.verbindung.email_address ?? u.verbindung.user_id}: ${SPIEGEL_SPERR_TEXT[u.grund]}`)
+    for (const u of f.uebersprungen) erg.uebersprungen.push(`${verbindungName(u.verbindung)}: ${SPIEGEL_SPERR_TEXT[u.grund]}`)
   }
 
   const indexCache = new Map<string, AbsenderIndex>()
@@ -80,7 +88,7 @@ export async function spiegleMailboxen(zeitbudgetMs = 40000, nurTenantId?: strin
         tenantCfgCache.set(tenantId, (tc as R | null) ?? null)
       }
       const tc = tenantCfgCache.get(tenantId)
-      if (!tc) { erg.fehler.push(`${uc.email_address ?? uc.user_id}: keine M365-App-Einstellungen`); continue }
+      if (!tc) { erg.fehler.push(`${verbindungName(uc)}: keine M365-App-Einstellungen`); continue }
       if (!indexCache.has(tenantId)) indexCache.set(tenantId, await ladeAbsenderIndex(admin, tenantId, [uc.email_address, uc.monitored_email]))
       const idx = indexCache.get(tenantId)!
       const token = await getValidUserAccessToken(uc, tc, admin, tenantId, uc.user_id)
@@ -98,7 +106,7 @@ export async function spiegleMailboxen(zeitbudgetMs = 40000, nurTenantId?: strin
         for (const ordner of ['inbox', 'sentItems'] as const) {
           const r = await spiegleOrdner(admin, token, base, ordner, seit, tenantId, idx, uc.user_id, deadline)
           anzahl += r.anzahl; angelegt += r.angelegt
-          if (r.fehler) erg.fehler.push(`${uc.email_address ?? uc.user_id} (${mb}/${ordner}): ${r.fehler}`)
+          if (r.fehler) erg.fehler.push(`${verbindungName(uc)} (${mb}/${ordner}): ${r.fehler}`)
           if (r.abgebrochen) {
             abgebrochen = true
             const aelteste = r.aeltesteVerarbeitet ? new Date(r.aeltesteVerarbeitet) : seit
@@ -107,13 +115,15 @@ export async function spiegleMailboxen(zeitbudgetMs = 40000, nurTenantId?: strin
         }
       }
       erg.postfaecher++; erg.nachrichten += anzahl; erg.angelegt += angelegt
-      if (abgebrochen) erg.fehler.push(`${uc.email_address ?? uc.monitored_email ?? uc.user_id}: Zeitbudget erschöpft, Rest beim nächsten Lauf`)
+      if (abgebrochen) erg.fehler.push(`${verbindungName(uc)}: Zeitbudget erschöpft, Rest beim nächsten Lauf`)
       { const { error: e } = await (admin.from('user_email_connections') as any)
         .update({ email_spiegel_stand: neuerStand.toISOString(), email_spiegel_info: `${laufStart.toISOString().slice(0, 16)} · ${anzahl} geprüft · ${angelegt} neu${abgebrochen ? ' · unvollständig' : ''}` })
         .eq('tenant_id', tenantId).eq('user_id', uc.user_id)
         if (e) void ereignisMelden({ art: 'db', quelle: 'email/user_email_connections', meldung: e.message }) }
     } catch (e) {
-      erg.fehler.push(`${uc.email_address ?? uc.user_id}: ${(e as Error).message}`)
+      // KAN-125: Übergang zu „neu verbinden“ ist kein Fehler des Laufs (Ereignis meldet graph.ts einmal)
+      if (e instanceof M365TokenFehler && e.art === 'neu_verbinden') erg.neuVerbinden.push(verbindungName(uc))
+      else erg.fehler.push(`${verbindungName(uc)}: ${(e as Error).message}`)
     }
   }
   erg.dauerMs = Date.now() - start

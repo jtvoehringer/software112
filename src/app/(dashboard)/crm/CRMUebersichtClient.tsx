@@ -1476,6 +1476,8 @@ export default function CRMUebersichtClient({ eintraege, heute, userProfiles = {
   // einen großzügigen Zeitraum um die aktuell angezeigte Periode und mischt
   // sie (mit eigener Farbe/Kennzeichnung, siehe chipFarbe) unter die CRM-Termine.
   const [outlookEintraege, setOutlookEintraege] = useState<KalenderEintrag[]>([])
+  // KAN-125: Outlook-Verbindung muss neu hergestellt werden (Hinweis statt stiller Leere)
+  const [outlookNeuVerbinden, setOutlookNeuVerbinden] = useState<string | null>(null)
   useEffect(() => {
     const von = new Date(current.getFullYear(), current.getMonth() - 2, 1)
     const bis = new Date(current.getFullYear(), current.getMonth() + 3, 0)
@@ -1490,6 +1492,7 @@ export default function CRMUebersichtClient({ eintraege, heute, userProfiles = {
         // bei Microsoft) bewusst trotzdem HTTP 200 mit leerer Liste (damit das CRM nie
         // blockiert), setzt dabei aber ein "fehler"-Feld. In dem Fall NICHT die zuletzt
         // erfolgreich geladenen Termine mit der leeren Liste überschreiben.
+        setOutlookNeuVerbinden(json.neuVerbinden ? String(json.fehler ?? '') : null)
         if (json.fehler) return
         setOutlookEintraege((json.eintraege ?? []) as KalenderEintrag[])
       })
@@ -1539,6 +1542,12 @@ export default function CRMUebersichtClient({ eintraege, heute, userProfiles = {
 
   return (
     <div className="space-y-4">
+      {outlookNeuVerbinden && (
+        <div className="rounded-lg border border-s112-warn/30 bg-s112-warn-bg/40 px-3 py-2 text-sm text-s112-text-1" role="status">
+          Outlook-Termine fehlen: {outlookNeuVerbinden}{' '}
+          <a href="/nachrichten" className="font-medium text-s112-teal underline">Unter Nachrichten neu verbinden</a>
+        </div>
+      )}
       {/* ── Seitentitel ── */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>

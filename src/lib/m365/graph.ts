@@ -1,5 +1,6 @@
 import { decryptPass, encryptPass } from '@/lib/email/crypto'
 import { ereignisMelden } from '@/lib/system/ereignis'
+import { M365TokenFehler, neuVerbindenVermerk, refreshScope, tokenFehler, istNeuVerbinden, NEU_VERBINDEN_TEXT } from './tokenFehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -58,7 +59,7 @@ export async function exchangeCodeForTokens(
 
 export async function refreshAccessToken(
   tenantId: string, clientId: string, clientSecret: string, refreshToken: string, scope: string = M365_SCOPE
-): Promise<{ access_token: string; refresh_token?: string; expires_in: number }> {
+): Promise<{ access_token: string; refresh_token?: string; expires_in: number; scope?: string }> {
   const res = await fetch(`https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -68,7 +69,8 @@ export async function refreshAccessToken(
       scope,
     }),
   })
-  if (!res.ok) throw new Error(`Token-Refresh fehlgeschlagen: ${await res.text()}`)
+  // KAN-125: eingestufter Fehler (neu verbinden / App / vorübergehend) statt rohem JSON
+  if (!res.ok) throw tokenFehler(res.status, await res.text())
   return res.json()
 }
 
@@ -103,7 +105,16 @@ export async function getValidAccessToken(cfg: R, admin: R): Promise<string> {
   // Token erneuern
   const clientSecret = decryptPass(cfg.m365_client_secret_enc)
   const refreshToken = decryptPass(cfg.m365_refresh_token_enc)
-  const tokens = await refreshAccessToken(cfg.m365_tenant_id, cfg.m365_client_id, clientSecret, refreshToken)
+  let tokens: Awaited<ReturnType<typeof refreshAccessToken>>
+  try {
+    tokens = await refreshAccessToken(cfg.m365_tenant_id, cfg.m365_client_id, clientSecret, refreshToken)
+  } catch (e) {
+    // KAN-125: Fehler der Betriebs-Verbindung (Webhook, Versand) sichtbar machen statt still zu scheitern
+    if (e instanceof M365TokenFehler && e.art !== 'voruebergehend') {
+      void ereignisMelden({ art: 'server', quelle: 'm365/betrieb', meldung: `Betriebs-Verbindung: ${e.message}`, tenantId: cfg.tenant_id ?? null })
+    }
+    throw e
+  }
 
   // In DB speichern
   { const { error: e } = await (admin.from('tenant_einstellungen') as any).update({
@@ -135,7 +146,11 @@ export async function getValidAccessToken(cfg: R, admin: R): Promise<string> {
 export async function getValidUserAccessToken(
   userCfg: R, tenantCfg: R, admin: R, tenantId: string, userId: string
 ): Promise<string> {
-  if (!userCfg.m365_access_token_enc) throw new Error('Mailbox nicht verbunden')
+  if (!userCfg.m365_access_token_enc) {
+    // KAN-125: markierte Verbindung – nicht bei Microsoft nachfragen
+    if (istNeuVerbinden(userCfg.email_spiegel_info)) throw new M365TokenFehler('neu_verbinden', null, NEU_VERBINDEN_TEXT)
+    throw new Error('Mailbox nicht verbunden')
+  }
 
   const expiresAt = userCfg.m365_token_expires_at ? new Date(userCfg.m365_token_expires_at) : new Date(0)
   const needsRefresh = expiresAt.getTime() - Date.now() < 5 * 60 * 1000
@@ -148,10 +163,35 @@ export async function getValidUserAccessToken(
   // 'common' für multi-tenant: funktioniert für alle Microsoft-Tenants
   // Refresh mit genau dem Scope, den die Verbindung erhalten hat (Altverbindungen: Basis-Scope) –
   // ein größerer Scope als konsentiert würde den Refresh und damit das ganze Postfach blockieren.
-  const tokens = await refreshAccessToken(
-    'common', tenantCfg.m365_client_id, clientSecret, refreshToken,
-    (userCfg.m365_scope as string | null) || M365_SCOPE
-  )
+  // KAN-125: den gespeicherten Scope hier selbst laden (die meisten Aufrufer selektieren ihn nicht) und immer
+  // mit offline_access anfordern (sonst kein neuer Refresh-Token).
+  let gespeichert: unknown = userCfg.m365_scope
+  if (gespeichert === undefined) {
+    const { data: sc } = await admin.from('user_email_connections')
+      .select('m365_scope').eq('tenant_id', tenantId).eq('user_id', userId).maybeSingle()
+    gespeichert = (sc as R | null)?.m365_scope ?? null
+  }
+  let tokens: Awaited<ReturnType<typeof refreshAccessToken>>
+  try {
+    tokens = await refreshAccessToken('common', tenantCfg.m365_client_id, clientSecret, refreshToken, refreshScope(gespeichert, M365_SCOPE))
+  } catch (e) {
+    if (e instanceof M365TokenFehler && e.art === 'neu_verbinden') {
+      // Tokens sind wertlos: entfernen und vermerken – Spiegelung und Seiten fragen Microsoft nicht mehr (KAN-125)
+      const { error: me } = await admin.from('user_email_connections').update({
+        m365_access_token_enc: null, m365_refresh_token_enc: null, m365_token_expires_at: null,
+        email_spiegel_info: neuVerbindenVermerk(e.code, new Date()),
+        aktualisiert_am: new Date().toISOString(),
+      }).eq('tenant_id', tenantId).eq('user_id', userId)
+      void ereignisMelden({
+        art: 'server', quelle: 'm365/benutzer',
+        meldung: me ? `Neu verbinden nötig, Markierung gescheitert: ${me.message}` : `Postfach-Verbindung muss neu hergestellt werden${e.code ? ` (${e.code})` : ''}`,
+        tenantId, userId,
+      })
+    } else if (e instanceof M365TokenFehler && e.art === 'app') {
+      void ereignisMelden({ art: 'server', quelle: 'm365/benutzer', meldung: e.message, tenantId, userId })
+    }
+    throw e
+  }
 
   // Neuen Token in user_email_connections speichern - eindeutig über (tenant_id, user_id)
   // identifiziert (der Primärschlüssel 'id' steht hier wie erläutert nicht zur Verfügung).
@@ -159,6 +199,8 @@ export async function getValidUserAccessToken(
     m365_access_token_enc:  encryptPass(tokens.access_token),
     ...(tokens.refresh_token ? { m365_refresh_token_enc: encryptPass(tokens.refresh_token) } : {}),
     m365_token_expires_at:  new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
+    // KAN-125: tatsächlich erteilter Scope – künftige Refreshes fordern genau diesen an
+    ...(tokens.scope ? { m365_scope: tokens.scope } : {}),
     aktualisiert_am:        new Date().toISOString(),
   }).eq('tenant_id', tenantId).eq('user_id', userId)
     if (e) void ereignisMelden({ art: 'db', quelle: 'm365/user_email_connections', meldung: e.message }) }

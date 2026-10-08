@@ -53,7 +53,8 @@ export async function GET(req: NextRequest) {
     const meRes = await fetch('https://graph.microsoft.com/v1.0/me?$select=mail,userPrincipalName,displayName', {
       headers: { Authorization: `Bearer ${tokens.access_token}` },
     })
-    const me = await meRes.json() as R
+    // KAN-125: gescheiterter /me-Aufruf (fehlende Zustimmung für User.Read) – keine Fehlerantwort als Adresse lesen
+    const me = (meRes.ok ? await meRes.json() : {}) as R
     const emailAddress = me.mail ?? me.userPrincipalName ?? ''
     const anzeigename  = me.displayName ?? emailAddress
 
@@ -71,6 +72,11 @@ export async function GET(req: NextRequest) {
       m365_scope:             (tokens.scope as string | undefined) || scope,
       aktualisiert_am:        new Date().toISOString(),
     }, { onConflict: 'tenant_id,user_id' })
+      if (e) void ereignisMelden({ art: 'db', quelle: 'callback/user_email_connections', meldung: e.message }) }
+    // KAN-125: Vermerk „Neu verbinden nötig“ zurücksetzen (der Upsert schreibt nur die übergebenen Spalten)
+    { const { error: e } = await (admin.from('user_email_connections') as unknown as R)
+      .update({ email_spiegel_info: null })
+      .eq('tenant_id', tenantId).eq('user_id', userId).like('email_spiegel_info', 'Neu verbinden nötig%')
       if (e) void ereignisMelden({ art: 'db', quelle: 'callback/user_email_connections', meldung: e.message }) }
 
     return loescheNonceCookie(NextResponse.redirect(new URL('/nachrichten?verbunden=1', req.url)))

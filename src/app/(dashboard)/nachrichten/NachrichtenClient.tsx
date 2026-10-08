@@ -90,6 +90,8 @@ export default function NachrichtenClient() {
   const [sendResult, setSendResult] = useState<string | null>(null)
   const [sending, setSending]     = useState(false)
   const [verbunden, setVerbunden]       = useState<boolean | null>(null)
+  // KAN-125: Verbindung muss neu hergestellt werden (Zustimmung fehlt oder abgelaufen)
+  const [neuVerbinden, setNeuVerbinden] = useState(false)
   const [verbEmail, setVerbEmail]         = useState('')
   const [monitoredEmail, setMonitoredEmail] = useState('')
   const [monitoredSaving, setMonitoredSaving] = useState(false)
@@ -223,8 +225,9 @@ export default function NachrichtenClient() {
     fetch('/api/nachrichten/list?folder=inbox').then(async r => {
       const data = await r.json()
       if (!r.ok || data.fehler) {
-        setFehler(data.fehler
-          ? 'Verbindungsfehler: ' + data.fehler
+        setNeuVerbinden(!!data.neuVerbinden)
+        setFehler(data.neuVerbinden ? String(data.fehler)
+          : data.fehler ? 'Verbindungsfehler: ' + data.fehler
           : 'Mailbox nicht erreichbar – bitte neu verbinden.')
         setVerbunden(false)
       } else {
@@ -388,16 +391,27 @@ export default function NachrichtenClient() {
     return (
       <div className="flex flex-col items-center justify-center h-96 gap-5">
         <Mail className="w-10 h-10 text-s112-muted" />
-        <h2 className="text-xl font-semibold text-s112-text">Deine Mailbox verbinden</h2>
+        <h2 className="text-xl font-semibold text-s112-text">{neuVerbinden ? 'Mailbox neu verbinden' : 'Deine Mailbox verbinden'}</h2>
         <p className="text-sm text-s112-muted text-center max-w-md">
-          Verbinde dein persönliches E-Mail-Konto um Nachrichten direkt in software:112 zu lesen und zu schreiben.
-          Jeder User verbindet seine eigene Mailbox.
+          {neuVerbinden
+            ? 'Microsoft hat die gespeicherte Anmeldung nicht mehr angenommen. Melde dich einmal neu an und stimme zu – danach läuft das Postfach und die CRM-Spiegelung wieder. Brauchst du das Postfach nicht mehr, trenne die Verbindung.'
+            : 'Verbinde dein persönliches E-Mail-Konto um Nachrichten direkt in software:112 zu lesen und zu schreiben. Jeder User verbindet seine eigene Mailbox.'}
         </p>
-        {fehler && <p className="text-sm text-s112-err-fg">{fehler}</p>}
-        <a href="/api/auth/m365/user"
-          className="flex items-center gap-2 bg-s112-teal text-s112-yellow px-6 py-3 rounded-xl text-sm font-semibold hover:opacity-90">
-          Mit Microsoft 365 verbinden
-        </a>
+        {fehler && <p className="text-sm text-s112-err-fg" role="alert">{fehler}</p>}
+        <div className="flex items-center gap-3">
+          <a href="/api/auth/m365/user"
+            className="flex items-center gap-2 bg-s112-teal text-s112-yellow px-6 py-3 rounded-xl text-sm font-semibold hover:opacity-90">
+            {neuVerbinden ? 'Neu verbinden' : 'Mit Microsoft 365 verbinden'}
+          </a>
+          {neuVerbinden && (
+            <button type="button" onClick={async () => {
+              await fetch('/api/nachrichten/disconnect', { method: 'POST' })
+              window.location.reload()
+            }} className="text-sm border border-s112-err/30 text-s112-err px-4 py-3 rounded-xl hover:bg-s112-err-bg">
+              Trennen
+            </button>
+          )}
+        </div>
         <div className="mt-4 pt-4 border-t border-s112-border space-y-2">
           <p className="text-xs font-medium text-s112-text-1">Optional: Funktionale Mailbox überwachen</p>
           <p className="text-xs text-s112-muted">z.B. office@weingut.at, info@weingut.at – du brauchst Vollzugriff auf diese Mailbox in Exchange.</p>
