@@ -6,6 +6,7 @@ import { Headset, Mail, Phone, ShieldCheck } from 'lucide-react'
 import { PREMIUM_SUPPORT, premiumSupportStand, supportKontakt, tagText } from '@/lib/abo/premiumSupport'
 import { jsmKonfiguriert } from '@/lib/support/jsm'
 import SupportAnfrage from './SupportAnfrage'
+import RueckrufAnfordern from './RueckrufAnfordern'
 
 export const metadata: Metadata = { title: 'Support – software:112' }
 export const dynamic = 'force-dynamic'
@@ -42,6 +43,8 @@ export default async function SupportPage() {
 
       <div className="space-y-4 max-w-3xl">
         {jsmKonfiguriert() && <SupportAnfrage emailFallback={kontakt.email} />}
+        {/* KAN-236: Rückruf anfordern (Anfragetyp „Rückruf“, höchste Priorität) */}
+        {jsmKonfiguriert() && <RueckrufAnfordern />}
         {premium ? (
           <section className="card p-5 space-y-3 border-s112-ok">
             <div className="flex items-center gap-2">

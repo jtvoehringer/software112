@@ -181,3 +181,40 @@ export function beschreibungOhneKontext(text: string): string {
   const i = t.lastIndexOf('\n----\nGemeldet aus software:112')
   return (i >= 0 ? t.slice(0, i) : t).trim()
 }
+
+// ── KAN-236: Rückruf anfordern ──────────────────────────────────────────────────────────────────────────────
+// Eigener Anfragetyp in SUP (Name exakt „Rückruf“, legt Jörgen in JSM an), Priorität immer Highest.
+
+export const RUECKRUF_ANFRAGETYP = 'Rückruf'
+export const RUECKRUF_PRIORITAET = 'Highest'
+export const MAX_RUECKRUF_TEXT = 500
+
+/** Telefonnummer bereinigen: Ziffern, führendes +, Leerzeichen und / - ( ); 6–20 Ziffern – sonst null */
+export function telefonNormalisieren(roh: unknown): string | null {
+  if (typeof roh !== 'string') return null
+  const t = roh.trim().replace(/\s+/g, ' ')
+  if (!/^\+?[\d\s/()-]+$/.test(t)) return null
+  const ziffern = t.replace(/\D/g, '').length
+  return ziffern >= 6 && ziffern <= 20 ? t : null
+}
+
+export type RueckrufEingabe = { telefon: unknown; anliegen?: unknown; zeitfenster?: unknown }
+
+export function rueckrufFehler(e: RueckrufEingabe): string | null {
+  if (!telefonNormalisieren(e.telefon)) return 'Bitte eine gültige Telefonnummer angeben (z. B. +43 664 1234567).'
+  for (const [wert, name] of [[e.anliegen, 'Anliegen'], [e.zeitfenster, 'Erreichbarkeit']] as const) {
+    if (wert != null && typeof wert !== 'string') return `${name}: ungültige Eingabe.`
+    if (typeof wert === 'string' && wert.trim().length > MAX_RUECKRUF_TEXT) return `${name}: höchstens ${MAX_RUECKRUF_TEXT} Zeichen.`
+  }
+  return null
+}
+
+/** Betreff und Text der Rückruf-Anfrage (Kontextblock hängt beschreibungMitKontext an) */
+export function rueckrufText(e: { telefon: string; anliegen?: string | null; zeitfenster?: string | null }): { betreff: string; text: string } {
+  const zeilen = [
+    `Bitte um Rückruf unter ${e.telefon}.`,
+    e.zeitfenster?.trim() ? `Am besten erreichbar: ${e.zeitfenster.trim()}` : null,
+    e.anliegen?.trim() ? `Anliegen: ${e.anliegen.trim()}` : null,
+  ].filter((z): z is string => !!z)
+  return { betreff: `Rückruf erbeten: ${e.telefon}`, text: zeilen.join('\n') }
+}
