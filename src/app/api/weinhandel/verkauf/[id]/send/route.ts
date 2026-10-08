@@ -60,6 +60,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     (supabase.from('verkaufsposten') as any)
       .select(`
         id, datum, rechnungsnummer, storniert, skonto_pct, skonto_tage, skonto_aktiv,
+        rechnung:rechnungen!rechnung_id(id, datum, storniert),
         kontakt_id, firma_id, partner_daten, lieferadresse,
         kontakt:kontakte!kontakt_id(titel, vorname, nachname, titel_nachgestellt, email, strasse, plz, ort, zahlungsziel_tage),
         firma:firmen(name, email, strasse, plz, ort, zahlungsziel_tage),
@@ -80,6 +81,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!postenRaw) return NextResponse.json({ error: 'Verkauf nicht gefunden' }, { status: 404 })
   const posten = momentaufnahmeAnwenden(postenRaw as R, ['kontakt', 'firma', 'zh_kontakt'])   // KAN-150 F1c
   if (posten.storniert) return NextResponse.json({ error: 'Stornierte Verkäufe können nicht versendet werden' }, { status: 400 })
+  // KAN-103: Lieferschein ohne (gültige) Rechnung – nichts zu versenden; Rechnungsdatum aus der Rechnung
+  const rechnung = (posten.rechnung ?? null) as { id: string; datum: string; storniert: boolean } | null
+  if (!rechnung || rechnung.storniert || !posten.rechnungsnummer) {
+    return NextResponse.json({ error: 'Für diesen Lieferschein gibt es noch keine Rechnung – bitte zuerst die Rechnung erstellen.' }, { status: 400 })
+  }
+  const rechnungsDatum = String(rechnung.datum ?? posten.datum)
 
   const positionen = (posten.positionen ?? []) as R[]
   const einst = (einstRaw ?? {}) as R
@@ -124,13 +131,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // Altdaten). 0 ist ein gültiger, bewusster Wert ("bei Erhalt") - deshalb hier
   // bewusst `??` statt `||`, damit eine hinterlegte 0 nicht überschrieben wird.
   const zahlZiel = posten.kontakt?.zahlungsziel_tage ?? posten.firma?.zahlungsziel_tage ?? 14
-  const faelligkeitsDatum = new Date(posten.datum)
+  const faelligkeitsDatum = new Date(rechnungsDatum)
   faelligkeitsDatum.setDate(faelligkeitsDatum.getDate() + zahlZiel)
 
   const skontoAktiv = !!posten.skonto_aktiv && (posten.skonto_pct ?? 0) > 0
   const skonto = skontoAktiv ? {
     pct: posten.skonto_pct,
-    datumIso: new Date(new Date(posten.datum).setDate(new Date(posten.datum).getDate() + (posten.skonto_tage ?? 0))).toISOString(),
+    datumIso: new Date(new Date(rechnungsDatum).setDate(new Date(rechnungsDatum).getDate() + (posten.skonto_tage ?? 0))).toISOString(),
     betrag: (gesamt * (posten.skonto_pct ?? 0)) / 100,
   } : null
 
@@ -175,7 +182,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       },
       rechnung: {
         nummer: posten.rechnungsnummer ?? null,
-        datumIso: posten.datum,
+        datumIso: rechnungsDatum,
         faelligkeitIso: faelligkeitsDatum.toISOString(),
       },
       kunde: {
@@ -291,6 +298,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .update({ rechnung_versendet_am: sentAt, rechnung_versendet_an: recipient })
     .eq('id', id).eq('tenant_id', tenantId)
     if (e) void ereignisMelden({ art: 'db', quelle: 'send/verkaufsposten', meldung: e.message }) }
+  // KAN-103: Versandvermerk an der Rechnung (Benutzer schreiben rechnungen nicht direkt – Admin-Client nach der Prüfung oben)
+  { type Aktualisieren = { update(v: Record<string, unknown>): { eq(k: string, v: string): { eq(k: string, v: string): PromiseLike<{ error: { message: string } | null }> } } }
+    const { error: e } = await (admin.from('rechnungen' as never) as unknown as Aktualisieren)
+    .update({ rechnung_versendet_am: sentAt, rechnung_versendet_an: recipient })
+    .eq('id', rechnung.id).eq('tenant_id', tenantId)
+    if (e) void ereignisMelden({ art: 'db', quelle: 'send/rechnungen', meldung: e.message }) }
 
   await (admin.from('aktivitaeten') as any).insert({
     tenant_id: tenantId,

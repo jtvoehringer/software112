@@ -4,7 +4,7 @@
 -- @ziel: per RPC nicht mehr erreichbar. Wartung/Import (Service-Role) darf Nummern setzen, aber keine doppelten.
 -- @mutation trigger_weg: kein Trigger a_rechnungsnummer | rot: vergabe_im_insert|api_nummer_abgelehnt|api_aendern_abgelehnt
 -- @mutation rpc_wieder_frei: authenticated darf get_next_rechnungsnummer wieder ausführen | rot: rpc_gesperrt
--- @mutation index_weg: kein eindeutiger Index je Betrieb | rot: doppelt_abgelehnt
+-- @mutation index_weg: kein eindeutiger Index je Betrieb (seit KAN-103 auf rechnungen) | rot: doppelt_abgelehnt
 --
 -- software:112 – SQL-Testsuite gegen Staging, Datei 47 (Stand 06.10.2026, KAN-21). Alles zurückgerollt.
 
@@ -35,7 +35,7 @@ BEGIN
   -- ── Mutationen ────────────────────────────────────────────────────────────────────────────────────────
   PERFORM pg_temp.s112_mutiere('trigger_weg', $m$DROP TRIGGER a_rechnungsnummer ON public.verkaufsposten$m$);
   PERFORM pg_temp.s112_mutiere('rpc_wieder_frei', $m$GRANT EXECUTE ON FUNCTION public.get_next_rechnungsnummer(uuid) TO authenticated$m$);
-  PERFORM pg_temp.s112_mutiere('index_weg', $m$DROP INDEX public.verkaufsposten_rechnungsnummer_eindeutig$m$);
+  PERFORM pg_temp.s112_mutiere('index_weg', $m$DROP INDEX public.rechnungen_nummer_eindeutig$m$);
 
   -- ── 1. Vergabe im Insert durch den Mitarbeiter ────────────────────────────────────────────────────────
   PERFORM pg_temp.s112_als(v_mw);

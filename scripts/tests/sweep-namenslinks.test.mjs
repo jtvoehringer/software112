@@ -60,7 +60,8 @@ describe('Sweep Namenslinks: weitere Listen', () => {
   })
   test('Verkäufe: Rechnungsnummer ist Link, kein Details-Knopf', () => {
     const src = lies('src/app/(dashboard)/weinhandel/verkauf/page.tsx')
-    assert.match(src, /<Link href=\{`\/weinhandel\/verkauf\/\$\{p\.id\}`\}[^>]*>\s*\{p\.rechnungsnummer \?\? 'ohne Belegnr\.'\}/)
+    // KAN-103: nicht berechnete Lieferscheine zeigen ihre Lieferscheinnummer als Link
+    assert.match(src, /<Link href=\{`\/weinhandel\/verkauf\/\$\{p\.id\}`\}[^>]*>\s*\{p\.rechnungsnummer \?\? p\.lieferscheinnummer \?\? 'ohne Belegnr\.'\}/)
     assert.doesNotMatch(src, /Details →/)
   })
   test('Jahrgänge (Lese): Jahreszahl ist Link, kein „Öffnen“-Knopf', () => {

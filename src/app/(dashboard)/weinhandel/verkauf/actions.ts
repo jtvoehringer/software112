@@ -10,6 +10,7 @@ import { syncEaEinnahmeFuerVerkauf } from '@/app/(dashboard)/buchhaltung/actions
 import { fmtEur, fmtNum, dezimal } from '@/lib/format'
 import { AktionsFehler, dbFehlerText, fehlerText, LESE_WAEHLEN_MELDUNG } from '@/lib/fehler'
 import { stornoGrundFehler } from '@/lib/storno/grund'
+import { rechnungPreiseAusFormular } from '@/lib/verkauf/rechnungen'
 import { alle } from '@/lib/supabase/alle'
 import { sonstigeLagerFehler } from '@/lib/warenwirtschaft/sonstigeProdukte'
 import { lieferadresseAus, lieferadresseFehler, lieferadresseMoment, type Lieferadresse, type LieferadresseMoment } from '@/lib/crm/lieferadressen'
@@ -355,6 +356,8 @@ export async function createVerkauf(formData: FormData) {
   const skontoPct      = parseFloat(dezimal(formData.get('skonto_pct') as string)) || 0
   const skontoTage     = parseInt(dezimal(formData.get('skonto_tage') as string)) || 0
   const skontoAktiv    = formData.get('skonto_aktiv') === 'true'
+  // KAN-103: „Rechnung später“ – nur Lieferschein, keine Rechnungsnummer (fehlt das Feld: sofort, wie bisher)
+  const rechnungSpaeter = formData.get('rechnung_sofort') === 'false'
 
   // Positionen als JSON aus hidden input
   const posJson = formData.get('positionen_json') as string
@@ -439,6 +442,7 @@ export async function createVerkauf(formData: FormData) {
     skonto_aktiv:    skontoAktiv,
     lieferadresse:    liefer?.moment ?? null,
     lieferadresse_id: liefer?.id ?? null,
+    rechnung_spaeter: rechnungSpaeter,
   }).select('rechnungsnummer').single()
 
   if (postenErr) await abbruch(dbFehlerText(postenErr, 'Speichern fehlgeschlagen (verkaufsposten)'), null)
@@ -786,4 +790,46 @@ export async function stornoZahlung(
   revalidatePath('/buchhaltung')
   revalidatePath('/konten')
   eaErgebnisPruefen(ea, 'storniert')
+}
+
+/** RPC-Aufruf ohne generierte Typen (KAN-103: Rechnungs-RPCs) */
+type RechnungsRpc = (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: unknown }>
+
+// ── KAN-103: Rechnung zu einem Lieferschein erstellen bzw. stornieren ─────────────────────────────────────
+// Nummer, Datum und Leistungszeitraum vergibt die RPC s112_rechnung_erstellen (Nummernkreis, Preise je Position – Entscheidung:
+// Preise erst bei der Rechnung); bereits erfasste Zahlungen wandern mit. Storno: s112_rechnung_stornieren (Nummer bleibt,
+// Lieferschein wieder offen, Bestand bleibt; nur ohne gültige Zahlung und vor der BMD-Übergabe).
+
+export async function rechnungErstellen(lieferscheinIds: string[], formData: FormData) {
+  const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
+  if (!lieferscheinIds.length) throw new AktionsFehler('Bitte mindestens einen Lieferschein wählen.')
+  const datum = String(formData.get('rechnungsdatum') ?? '').trim()
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(datum)) throw new AktionsFehler('Bitte ein gültiges Rechnungsdatum angeben.')
+  let preise: ReturnType<typeof rechnungPreiseAusFormular>
+  try { preise = rechnungPreiseAusFormular(formData) } catch (e) { throw new AktionsFehler(fehlerText(e)) }
+  const rpc = supabase.rpc.bind(supabase) as unknown as RechnungsRpc
+  const { data, error } = await rpc('s112_rechnung_erstellen', {
+    p_tenant_id: tenantId, p_lieferscheine: lieferscheinIds, p_datum: datum, p_preise: preise,
+    p_notizen: String(formData.get('rechnung_notizen') ?? '').trim() || null,
+  })
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Rechnung konnte nicht erstellt werden'))
+  for (const id of lieferscheinIds) revalidatePath(`/weinhandel/verkauf/${id}`)
+  revalidatePath('/weinhandel/verkauf')
+  revalidatePath('/weinhandel/offene-posten')
+  return { rechnungId: String(data) }
+}
+
+export async function rechnungStornieren(rechnungId: string, lieferscheinId: string, grund: string) {
+  const supabase = await createSupabaseServerClient()
+  const tenantId = await getTenantId()
+  const f = stornoGrundFehler(grund)
+  if (f) throw new AktionsFehler(f)
+  const rpc = supabase.rpc.bind(supabase) as unknown as RechnungsRpc
+  const { error } = await rpc('s112_rechnung_stornieren', { p_tenant_id: tenantId, p_rechnung_id: rechnungId, p_grund: grund })
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Rechnung konnte nicht storniert werden'))
+  revalidatePath(`/weinhandel/verkauf/${lieferscheinId}`)
+  revalidatePath('/weinhandel/verkauf')
+  revalidatePath('/weinhandel/offene-posten')
+  revalidatePath('/buchhaltung')
 }
