@@ -76,7 +76,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
         id, datum, rechnungsnummer, lieferscheinnummer, notizen, erstellt_am, storniert, storniert_am, storniert_von_name, storno_grund,
         bezahlt, bezahlt_am, skonto_pct, skonto_tage, skonto_aktiv,
         rechnung_versendet_am, rechnung_versendet_an, partner_daten, lieferadresse,
-        rechnung:rechnungen!rechnung_id(id, rechnungsnummer, datum, spiegel, storniert, bmd_export_id),
+        rechnung:rechnungen!rechnung_id(id, rechnungsnummer, datum, spiegel, storniert, bmd_export_id, lieferscheine:verkaufsposten!rechnung_id(id)),
         kontakt:kontakte!kontakt_id(id, titel, vorname, nachname, titel_nachgestellt, email, telefon, strasse, plz, ort, zahlungsziel_tage),
         firma:firmen(id, name, email, telefon, strasse, plz, ort, zahlungsziel_tage),
         zh_kontakt:kontakte!zh_kontakt_id(titel, vorname, nachname, titel_nachgestellt),
@@ -157,7 +157,9 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
   const rechnung         = (posten.rechnung ?? null) as R | null
   const berechnet        = !!rechnung && !rechnung.storniert
   const eigeneRechnung   = berechnet && !rechnung?.spiegel
-  const isRechnung       = modusRechnung && berechnet
+  // KAN-104: Sammelrechnung (mehrere Lieferscheine) – Druck und Versand auf der Rechnungsseite, nicht je Lieferschein
+  const sammelrechnung   = berechnet && ((rechnung?.lieferscheine ?? []) as R[]).length > 1
+  const isRechnung       = modusRechnung && berechnet && !sammelrechnung
   const rechnungsDatum   = String(rechnung?.datum ?? posten.datum)
   const rechnungErstellenAction = rechnungErstellen.bind(null, [id])
   const rechnungStornoAction    = rechnung ? rechnungStornieren.bind(null, String(rechnung.id), id) : null
@@ -288,7 +290,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
               className={`px-2.5 py-1.5 font-medium transition-colors ${!isRechnung ? 'bg-s112-teal text-s112-yellow' : 'bg-white text-s112-text-2 hover:bg-s112-bg'}`}>
               Lieferschein
             </a>
-            {berechnet && (
+            {berechnet && !sammelrechnung && (
               <a href={`/weinhandel/verkauf/${id}`}
                 className={`px-2.5 py-1.5 font-medium transition-colors ${isRechnung ? 'bg-s112-teal text-s112-yellow' : 'bg-white text-s112-text-2 hover:bg-s112-bg'}`}>
                 Rechnung
@@ -315,13 +317,14 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
       )}
       {eigeneRechnung && (
         <p className="text-sm text-s112-text-2 no-print">
-          Berechnet mit Rechnung <span className="font-mono">{rechnung?.rechnungsnummer}</span> vom {new Date(rechnungsDatum).toLocaleDateString('de-AT')}
+          {sammelrechnung ? 'Teil der Sammelrechnung ' : 'Berechnet mit Rechnung '}
+          <Link href={`/weinhandel/rechnungen/${rechnung?.id}`} className="font-mono text-s112-blue-700 hover:underline">{rechnung?.rechnungsnummer}</Link> vom {new Date(rechnungsDatum).toLocaleDateString('de-AT')}
           {' '}– zum Stornieren des Lieferscheins zuerst die Rechnung stornieren.
         </p>
       )}
 
       {/* Rechnungsversand per E-Mail */}
-      {!posten.storniert && berechnet && (
+      {!posten.storniert && berechnet && !sammelrechnung && (
         <div className="flex flex-col items-start gap-3 no-print">
           {writeOk ? (
             <RechnungVersandPanel

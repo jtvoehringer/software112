@@ -9,6 +9,8 @@ type Posten = {
   id: string
   /** KAN-105: Rechnung des Postens (id = erster Lieferschein, für Link und Zahlung) */
   rechnungId?: string
+  /** KAN-104: Link der Zeile (Sammelrechnung → Rechnungsseite), sonst der Lieferschein */
+  href?: string
   datum: string
   rechnungsnummer: string | null
   bezahlt: boolean
@@ -47,7 +49,7 @@ function PostenZeile({ p, writeOk, konten }: { p: Posten; writeOk: boolean; kont
           {new Date(p.datum).toLocaleDateString('de-AT')}
         </td>
         <td className="px-4 py-3">
-          <Link href={`/weinhandel/verkauf/${p.id}`}
+          <Link href={p.href ?? `/weinhandel/verkauf/${p.id}`}
             className="text-sm font-mono font-semibold text-s112-blue-700 hover:underline">
             {p.rechnungsnummer ?? '–'}
           </Link>

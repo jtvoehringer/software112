@@ -83,6 +83,8 @@ export default async function OffenePostenPage() {
       // Link und Zahlung über den (ersten) Lieferschein – die Zahlung hängt der Trigger an dessen Rechnung (KAN-105)
       id:              p.verkaufsposten_ids[0] as string,
       rechnungId:      p.id as string,
+      // KAN-104: Sammelrechnung (mehrere Lieferscheine) → Rechnungsseite statt Lieferschein
+      href:            p.verkaufsposten_ids.length > 1 ? `/weinhandel/rechnungen/${p.id}` : undefined,
       datum:           p.datum as string,
       rechnungsnummer: (p.rechnungsnummer ?? null) as string | null,
       bezahlt,
