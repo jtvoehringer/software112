@@ -63,7 +63,8 @@ export async function punktHinzufuegen(checklisteId: string, text: string, zusta
 
 export async function punktLoeschen(id: string) {
   const { supabase, tenantId } = await kontext()
-  const { error } = await (supabase.from('checklisten_punkte') as any).delete().eq('id', id).eq('tenant_id', tenantId)
+  const { data: weg, error } = await (supabase.from('checklisten_punkte') as any).delete().eq('id', id).eq('tenant_id', tenantId).select('id')
   if (error) throw new AktionsFehler(error.message)
+  if (((weg ?? []) as unknown[]).length === 0) throw new AktionsFehler('Der Punkt wurde nicht gelöscht (nicht gefunden oder keine Berechtigung) – bitte die Seite neu laden.')   // KAN-243
   revalidatePath(PFAD); revalidatePath('/dashboard')
 }

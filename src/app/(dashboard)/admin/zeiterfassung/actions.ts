@@ -63,9 +63,11 @@ export async function updateZeiteintrag(id: string, formData: FormData) {
 
 export async function deleteZeiteintrag(id: string) {
   const { supabase, tenantId } = await getTenantAdmin()
-  const { error } = await (supabase.from('zeiterfassung') as any)
+  const { data, error } = await (supabase.from('zeiterfassung') as any)
     .delete().eq('id', id)
     .eq('tenant_id', tenantId)
+    .select('id')
   if (error) throw new AktionsFehler((error as AR).message)
+  if (((data ?? []) as unknown[]).length === 0) throw new AktionsFehler('Der Zeiteintrag wurde nicht gelöscht (nicht gefunden oder keine Berechtigung) – bitte die Seite neu laden.')   // KAN-243
   revalidatePath('/admin/zeiterfassung')
 }

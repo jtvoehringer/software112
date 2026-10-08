@@ -443,9 +443,11 @@ export async function verwerfeBeleg(belegId: string): Promise<void> {
   const beleg = belegRaw as R | null
 
   if (beleg && beleg.status !== 'verbucht') {
-    { const { error: e } = await (supabase.from('ea_belege') as any)
-      .delete().eq('id', belegId).eq('tenant_id', tenantId)
-      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (ea_belege): ${e.message}`) }
+    // KAN-243: Datei erst entfernen, wenn die Zeile wirklich weg ist – sonst bliebe ein Beleg ohne Datei zurück
+    { const { data: weg, error: e } = await (supabase.from('ea_belege') as any)
+      .delete().eq('id', belegId).eq('tenant_id', tenantId).select('id')
+      if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (ea_belege): ${e.message}`)
+      if (((weg ?? []) as unknown[]).length === 0) throw new AktionsFehler('Der Beleg wurde nicht gelöscht (nicht gefunden oder keine Berechtigung) – bitte die Seite neu laden.') }
     await supabase.storage.from('ea-belege').remove([beleg.storage_pfad])
   }
 

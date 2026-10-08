@@ -124,6 +124,7 @@ export async function registrierenAction(formData: FormData): Promise<Ergebnis> 
   const tenantId = (tenant as R).id as string
 
   const betriebLoeschen = async () => {
+    // loeschen-ohne-pruefung: Service-Role, Rückbau des eben angelegten Betriebs bei fehlgeschlagener Registrierung
     const { error: e } = await (admin.from('tenants') as R).delete().eq('id', tenantId)
     if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (tenants): ${e.message}`)
   }

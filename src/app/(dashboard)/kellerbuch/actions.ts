@@ -197,6 +197,9 @@ export async function updateBehaelter(id: string, formData: FormData) {
 export async function deleteBehaelter(id: string): Promise<{ error?: string }> {
   const supabase = await createSupabaseServerClient()
   const tenantId  = await kellerbuchSchreibrecht()   // KAN-241
+  // KAN-243: Löschen erlaubt die Datenbank nur der Betriebsleitung (Policy behaelter_delete) – vorab mit klarer Meldung
+  const membership = await getCurrentMembership()
+  if (!membership || !canAdmin(membership.role)) return { error: 'Ein Gebinde löschen darf nur die Betriebsleitung – sonst bitte über „Bearbeiten“ inaktiv setzen.' }
 
   // KAN-35: Vorprüfung auf ALLE Chargen des Gebindes (auch inaktive/abgeschlossene – bisher
   // nur aktive, die übrigen wurden per FK still abgekoppelt) und auf Kellerbehandlungen

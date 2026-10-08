@@ -129,8 +129,9 @@ export async function loescheAnlage(id: string): Promise<{ ok: boolean; fehler?:
   if ((afa ?? []).length > 0) {
     return { ok: false, fehler: 'Für diese Anlage gibt es stornierte AfA-Buchungen – sie bleibt deshalb zur Nachvollziehbarkeit im Verzeichnis. Ist sie nicht mehr im Betrieb, bitte den Abgang eintragen.' }
   }
-  const { error } = await (supabase.from('ea_anlagen') as any).delete().eq('id', id).eq('tenant_id', tenantId)
+  const { data: weg, error } = await (supabase.from('ea_anlagen') as any).delete().eq('id', id).eq('tenant_id', tenantId).select('id')
   if (error) return { ok: false, fehler: (error as R).message }
+  if (((weg ?? []) as unknown[]).length === 0) return { ok: false, fehler: 'Die Anlage wurde nicht gelöscht (nicht gefunden oder keine Berechtigung) – bitte die Seite neu laden.' }   // KAN-243
   pfade()
   return { ok: true }
 }

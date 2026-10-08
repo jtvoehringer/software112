@@ -68,6 +68,7 @@ export async function deleteFreigabe(art: GemeinschaftArt, id: string): Promise<
   try {
     await assertSystemAdmin()
     const admin = createSupabaseAdminClient()
+    // loeschen-ohne-pruefung: Service-Role (keine RLS), nur Plattform-Admins
     // storno-ausnahme: Freigabe-Verwaltung (keller_freigaben/crm_freigaben), keine berichtsrelevante Buchung
     const { error } = await (admin.from(tabelle(art)) as any).delete().eq('id', id)   // tenant-isolation-ignore: mandantenübergreifende Verwaltungstabelle (system_admin, Service-Role)
     if (error) return { error: (error as AR).message }

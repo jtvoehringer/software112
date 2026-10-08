@@ -1,7 +1,7 @@
 'use server'
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { canWrite, getCurrentMembership } from '@/lib/auth/roles'
+import { canAdmin, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { revalidatePath } from 'next/cache'
@@ -100,12 +100,14 @@ export async function upsertKellerplanPosition(
 export async function deleteKellerplanPosition(kellerplanId: string, behaelterId: string) {
   const supabase = await createSupabaseServerClient()
   const tenantId  = await getTenantId()
-  const { error } = await (supabase.from('kellerplan_positionen') as any)
+  const { data: weg, error } = await (supabase.from('kellerplan_positionen') as any)
     .delete()
     .eq('kellerplan_id', kellerplanId)
     .eq('behaelter_id', behaelterId)
     .eq('tenant_id', tenantId)
+    .select('id')
   if (error) throw new AktionsFehler((error as AR).message)
+  if (((weg ?? []) as unknown[]).length === 0) throw new AktionsFehler('Das Gebinde wurde nicht vom Plan entfernt (nicht gefunden oder keine Berechtigung) – bitte die Seite neu laden.')   // KAN-243
   revalidatePath(`/kellerbuch/kellerplan/${kellerplanId}`)
 }
 
@@ -114,8 +116,13 @@ export async function deleteKellerplanPosition(kellerplanId: string, behaelterId
 export async function deleteKellerplan(id: string) {
   const supabase = await createSupabaseServerClient()
   const tenantId  = await getTenantId()
-  const { error } = await (supabase.from('kellerplaene') as any).delete().eq('id', id).eq('tenant_id', tenantId)
+  // KAN-243: Löschen erlaubt die Datenbank nur der Betriebsleitung (Policy kellerplaene_delete). Vorher sah ein Mitarbeiter
+  // den Knopf, die RLS löschte still nichts und die Seite leitete weiter, als wäre der Plan weg.
+  const membership = await getCurrentMembership()
+  if (!membership || !canAdmin(membership.role)) throw new AktionsFehler('Einen Kellerplan löschen darf nur die Betriebsleitung.')
+  const { data: weg, error } = await (supabase.from('kellerplaene') as any).delete().eq('id', id).eq('tenant_id', tenantId).select('id')
   if (error) throw new AktionsFehler((error as AR).message)
+  if (((weg ?? []) as unknown[]).length === 0) throw new AktionsFehler('Der Kellerplan wurde nicht gelöscht (nicht gefunden oder keine Berechtigung) – bitte die Seite neu laden.')
   revalidatePath('/kellerbuch/kellerplan')
   redirect('/kellerbuch/kellerplan')
 }

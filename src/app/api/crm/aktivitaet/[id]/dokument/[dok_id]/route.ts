@@ -62,18 +62,20 @@ export async function DELETE(
     .select('id, storage_pfad, tenant_id').eq('id', dok_id).eq('tenant_id', tenantId).single()
   if (!dok) return NextResponse.json({ error: 'Dokument nicht gefunden' }, { status: 404 })
 
-  // Storage löschen
-  await supabase.storage.from('aktivitaet-dokumente').remove([(dok as R).storage_pfad])
-
   // DB-Eintrag löschen - explizit zusätzlich auf tenant_id gefiltert (die vorausgehende
   // Ownership-Prüfung oben stellt zwar sicher, dass das Dokument zum aktiven Mandanten
   // gehört, aber ohne .eq('tenant_id', ...) HIER würde ein Race zwischen Prüfung und
   // DELETE - so unwahrscheinlich er ist - theoretisch die Mandantengrenze umgehen können;
   // zudem macht das den DELETE-Aufruf für sich genommen konsistent mit allen anderen
   // mandantenbezogenen Schreibzugriffen in dieser App (siehe check-tenant-isolation.js).
-  const { error } = await (supabase.from('aktivitaet_dokumente') as any)
-    .delete().eq('id', dok_id).eq('tenant_id', tenantId)
+  const { data: weg, error } = await (supabase.from('aktivitaet_dokumente') as any)
+    .delete().eq('id', dok_id).eq('tenant_id', tenantId).select('id')
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (((weg ?? []) as unknown[]).length === 0) return NextResponse.json({ error: 'Das Dokument wurde nicht gelöscht (nicht gefunden oder keine Berechtigung) – bitte die Seite neu laden.' }, { status: 403 })
+
+  // KAN-243: Datei erst nach der Zeile entfernen – vorher war die Datei weg, auch wenn die RLS das Löschen der Zeile
+  // still ablehnte (Dokument ohne Datei)
+  await supabase.storage.from('aktivitaet-dokumente').remove([(dok as R).storage_pfad])
 
   return NextResponse.json({ ok: true })
 }

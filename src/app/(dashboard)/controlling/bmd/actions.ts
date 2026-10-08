@@ -35,6 +35,7 @@ export async function speichereKontenmapping(werte: Record<string, string>): Pro
   }
 
   if (loeschen.length) {
+    // loeschen-ohne-pruefung: Abweichungen auf die Vorbelegung zurücksetzen – nicht vorhandene sind schon zurückgesetzt
     const { error } = await (supabase.from('buchhaltung_kontenmapping') as any)
       .delete().eq('tenant_id', tenantId).in('schluessel', loeschen)
     if (error) return { ok: false, fehler: error.message }
@@ -59,6 +60,7 @@ export async function setzeKontenmappingZurueck(): Promise<{ ok: boolean; fehler
   if (!(await hatModul('modul_ea'))) return { ok: false, fehler: modulAusMeldung('modul_ea') }   // KAN-6: BMD-Übergabe gehört zur E&A
   if (!canAdmin(membership.role)) return { ok: false, fehler: 'Nur Mandanten-Administratoren dürfen das Konten-Mapping ändern.' }
   const supabase = await createSupabaseServerClient()
+  // loeschen-ohne-pruefung: alle Abweichungen entfernen – ohne Abweichung sind 0 Zeilen richtig (nur Admins, vorab geprüft)
   const { error } = await (supabase.from('buchhaltung_kontenmapping') as any).delete().eq('tenant_id', membership.tenantId)
   if (error) return { ok: false, fehler: error.message }
   revalidatePath('/controlling/bmd')
