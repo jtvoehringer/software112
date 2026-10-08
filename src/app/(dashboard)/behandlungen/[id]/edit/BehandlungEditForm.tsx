@@ -31,6 +31,7 @@ import { ART_OPTIONS } from '../../neu/artOptionen'
 import MengenZusammenfassung from '../../neu/MengenZusammenfassung'
 import BetriebsmittelFeld, { bmStandardAufwand, type BmMassnahmeOption } from '../../neu/BetriebsmittelFeld'
 import { artMitBetriebsmittel } from '@/lib/behandlungen/betriebsmittel'
+import BienenschutzHinweis from '@/components/behandlungen/BienenschutzHinweis'
 
 // Welche Mengen-Felder pro Art sichtbar/pflicht sind, kommt aus MENGEN_SICHT (neu/mengenFelder.ts) -
 // identisch zum Anlegen-Formular, damit Anlegen und Bearbeiten konsistent sind (siehe "Analyse
@@ -738,6 +739,9 @@ export default function BehandlungEditForm({
             noch korrigierbar –, damit Speichern ihn nicht leert; nach einem Wechsel auf eine Art ohne das Feld wird
             nichts gesendet (Speichern setzt null wie beim Anlegen) */}
         {modus.bbch === 'behalten' && <input type="hidden" name="bbch_stadium" value={behandlung.bbch_stadium ?? ''} />}
+        {/* KAN-171: Bienenschutz – derselbe BBCH-Wert, den das Speichern sendet */}
+        <BienenschutzHinweis bienengefaehrlich={artMitPsm(art) && !!psm.find(p => p.id === selectedPsmId)?.bienengefaehrlich}
+          bbch={modus.bbch === 'sichtbar' ? bbch : modus.bbch === 'behalten' ? behandlung.bbch_stadium : null} />
         {modus.schaderreger === 'behalten' && <input type="hidden" name="schaderreger" value={behandlung.schaderreger ?? ''} />}
 
         {/* Düngung: Einarbeitung wie beim Anlegen nur bei organischem Dünger (KAN-154). einarbeitung_gesendet

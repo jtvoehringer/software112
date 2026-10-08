@@ -25,6 +25,7 @@ import { ladeMandantMitglieder } from '@/lib/aufgaben/mitglieder'
 import {
   anwenderAus, erfassungsverzugH, fristAus, fristRelevant, istArtVerwendung, nacherfassungHinweis, uhrzeitAus, uhrzeitFehler,
 } from '@/lib/behandlungen/erfassungsfrist'
+import { BIENENSCHUTZ_FELD, bienenschutzFehler } from '@/lib/behandlungen/bienenschutz'
 
 /** KAN-169: Sperre nach der Lese der Ried (Trigger a_freeze_ernte) als verständliche Meldung, sonst der DB-Fehlertext */
 function massnahmeFehler(error: unknown, kontext: string): string {
@@ -399,6 +400,11 @@ async function anwendungSpalten(
   }
   const fehler = uhrzeitFehler({ datum, datumBis, uhrzeitVon, uhrzeitBis, bienengefaehrlich })
   if (fehler) throw new AktionsFehler(fehler)
+  // KAN-171: bienengefährliches Mittel in der Blüte (BBCH 60–69) nur mit bestätigten Bienenschutz-Auflagen
+  const bienen = bienenschutzFehler({
+    bienengefaehrlich, bbch: (formData.get('bbch_stadium') as string | null) || null, bestaetigt: formData.get(BIENENSCHUTZ_FELD) === '1',
+  })
+  if (bienen) throw new AktionsFehler(bienen)
   const roh = (formData.get('art_verwendung') as string | null) || null
   if (roh && !istArtVerwendung(roh)) throw new AktionsFehler(`Unbekannte Art der Verwendung „${roh}“.`)
   const spalten: Record<string, unknown> = {

@@ -30,6 +30,7 @@
 // Start-/Enduhrzeit (Pflicht bei bienengefährlichen Mitteln – prüft createBehandlung) und Art der Verwendung; den
 // Hinweis „Nacherfassung (+n h)“ liefert createBehandlung in hinweise.
 import { createBehandlung } from '@/app/(dashboard)/behandlungen/actions'
+import { BIENENSCHUTZ_FELD } from '@/lib/behandlungen/bienenschutz'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { dezimal } from '@/lib/format'
 import { AUFWAND_EINHEITEN, pruefeMassnahmeMengen } from '@/lib/behandlungen/massnahmeMengen'
@@ -98,6 +99,9 @@ MENGEN – GANZ WICHTIG:
 PFLANZENSCHUTZ-AUFZEICHNUNG (KAN-87, bei Maßnahmen mit psm_id):
 - uhrzeit_von (Startuhrzeit, HH:MM) ist Pflicht bei bienengefährlichen Mitteln (im Stammdaten-Kontext markiert),
   sonst optional; uhrzeit_bis (Ende) optional – ab dem Ende läuft die Erfassungsfrist (Standard 24 h).
+- Bienenschutz (KAN-171): bienengefährliches Mittel mit BBCH 60–69 (Blüte) – den User ausdrücklich fragen, ob die
+  Bienenschutz-Auflagen eingehalten wurden (keine blühenden Pflanzen bzw. blühender Unterwuchs, außerhalb des
+  Bienenflugs); nur bei klarem Ja bienenschutz_bestaetigt: true, sonst nicht anlegen.
 - anwender: wer gespritzt hat – ohne Angabe der angemeldete Benutzer; ein Mitglied über seinen Namen, sonst
   (Lohnunternehmer, Nachbar) der Name als Fremdanwender.
 - art_verwendung: Standard freiland, sonst nur, wenn der User es erwähnt.
@@ -183,6 +187,7 @@ export const MASSNAHME_TOOL = {
       notizen: { type: 'string' },
       uhrzeit_von: { type: 'string', description: 'Startuhrzeit der Anwendung, HH:MM (Wiener Zeit) – Pflicht bei bienengefährlichen Mitteln' },
       uhrzeit_bis: { type: 'string', description: 'Optional: Ende der Anwendung, HH:MM (am Tag datum_bis bzw. datum)' },
+      bienenschutz_bestaetigt: { type: 'boolean', description: 'KAN-171: nur bei bienengefährlichem Mittel in der Blüte (BBCH 60–69) und nur nach ausdrücklichem Ja des Users, dass die Bienenschutz-Auflagen eingehalten wurden' },
       anwender: { type: 'string', description: 'Optional: Name des Anwenders – Mitglied des Betriebs oder Fremdanwender; ohne Angabe der angemeldete Benutzer' },
       art_verwendung: { type: 'string', enum: [...ART_VERWENDUNG], description: 'Nur mit psm_id: Art der Verwendung, Standard freiland' },
     },
@@ -299,6 +304,7 @@ export async function fuehreMassnahmeDokumentierenAus(
   if (input.konzentration != null) fd.set('konzentration', formZahl(input.konzentration))
   if (input.wasseraufwand_l_ha != null) fd.set('wasseraufwand_l_ha', formZahl(input.wasseraufwand_l_ha))
   if (input.bbch_stadium) fd.set('bbch_stadium', String(input.bbch_stadium))
+  if (input.bienenschutz_bestaetigt === true) fd.set(BIENENSCHUTZ_FELD, '1')   // KAN-171
   if (input.schaderreger) fd.set('schaderreger', String(input.schaderreger))
   if (input.witterung) fd.set('witterung', String(input.witterung))
   if (input.temperatur_c != null) fd.set('temperatur_c', String(input.temperatur_c))
