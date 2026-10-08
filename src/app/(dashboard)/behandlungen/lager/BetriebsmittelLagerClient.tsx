@@ -18,6 +18,7 @@ import type { LagerKonto } from '@/lib/behandlungen/lagerVerbrauch'
 import {
   speichereBetriebsmittelBuchung, bucheBetriebsmittelEinkauf, stornoBetriebsmittelBuchung, loescheBetriebsmittelBuchung,
 } from './betriebsmittelActions'
+import { heuteWien } from '@/lib/datum/wien'
 
 export type BmBewegung = {
   id: string; datum: string; typ: 'anfangsbestand' | 'einkauf' | 'korrektur'; menge: number; einheit: string
@@ -54,7 +55,7 @@ function BuchungsForm({ ctx, mittelId, edit, onDone }: { ctx: Ctx; mittelId?: st
   const [mittel, setMittel] = useState<string>(edit?.betriebsmittel_id ?? mittelId ?? '')
   const [richtung, setRichtung] = useState<'eingang' | 'ausgang'>(edit && edit.menge < 0 ? 'ausgang' : 'eingang')
   const [netto, setNetto] = useState('')
-  const [datum, setDatum] = useState<string>(edit?.datum ?? new Date().toISOString().split('T')[0])
+  const [datum, setDatum] = useState<string>(edit?.datum ?? heuteWien())
   const [ust, setUst] = useState('20')
   const stamm = ctx.alle.find(m => m.id === mittel)
   const einkauf = typ === 'einkauf'

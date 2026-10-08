@@ -26,6 +26,7 @@ import {
   alleKnopfText, bezugsflaeche, leseSuche, leseTreffer, leseZiele, trefferAusgewaehlt, trefferEntfernen, trefferHinzufuegen,
   trefferTeilweise, verteileKg, verteilungsHinweis, type LeseAuswahl, type LeseTreffer, type LeseZiel,
 } from '@/lib/wein/leseErfassung'
+import { heuteWien } from '@/lib/datum/wien'
 
 // Qualitätsstufen der Lese: LESE_QUALITAETEN aus lib/wein/qualitaet (KAN-73) – genau die
 // Stufen, die ernte_parzellen speichern kann (DAC, Reserve & Co. erst an der Charge/Füllung)
@@ -390,7 +391,7 @@ function NeueParzellenForm({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Ernte-Datum</label>
-          <input aria-label="Ernte-Datum" name="ernte_datum" type="date" required defaultValue={new Date().toISOString().split('T')[0]} className={inputCls} />
+          <input aria-label="Ernte-Datum" name="ernte_datum" type="date" required defaultValue={heuteWien()} className={inputCls} />
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Lesemethode</label>

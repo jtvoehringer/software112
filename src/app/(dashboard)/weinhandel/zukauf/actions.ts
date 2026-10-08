@@ -30,6 +30,7 @@ import { tbsLieferantFehler, tbsLieferantSpalten } from '@/lib/handel/tbsNummer'
 import {
   folgebuchungenDerZielcharge, zielchargeText, zukaufVerweise, traubenGebundenText, loeschSperreText,
 } from './sperren'
+import { heuteWien } from '@/lib/datum/wien'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -147,7 +148,7 @@ async function mitRueckbau(fehler: unknown, rueckbau: (() => Promise<void>) | nu
 }
 
 function parseZukaufFormData(formData: FormData) {
-  const datum = (formData.get('datum') as string) || new Date().toISOString().split('T')[0]
+  const datum = (formData.get('datum') as string) || heuteWien()
   // Jahrgang ist optional im Formular, wird aber u.a. für den Pressungs-Vorschlag
   // und den Traubenverkauf-Dropdown bei Trauben-Zukäufen benötigt (exakter Match
   // gegen weinjahrgaenge.jahrgang) – bleibt das Feld leer, auf das Kalenderjahr

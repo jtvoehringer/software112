@@ -4,6 +4,7 @@ import { getCurrentMembership } from '@/lib/auth/roles'
 import { alle } from '@/lib/supabase/alle'
 import { buildGpx, buildKml, buildGeoJson, type RiedPunkt } from '@/lib/geo/rieden'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { heuteWien } from '@/lib/datum/wien'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -53,7 +54,7 @@ export async function GET(req: NextRequest) {
     }
   })
 
-  const datum = new Date().toISOString().split('T')[0]
+  const datum = heuteWien()
   const name = `rieden_${datum}`
   if (format === 'kml') {
     return new NextResponse(buildKml(punkte, betrieb), { headers: { 'Content-Type': 'application/vnd.google-earth.kml+xml; charset=utf-8', 'Content-Disposition': `attachment; filename="${name}.kml"`, 'Cache-Control': 'no-store' } })

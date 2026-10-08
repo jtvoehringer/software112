@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { graphGet, getValidAccessToken } from '@/lib/m365/graph'
 import { alle } from '@/lib/supabase/alle'
 import { pruefeClientState } from '@/lib/m365/clientState'
+import { heuteWien, wienTag } from '@/lib/datum/wien'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -60,7 +61,7 @@ export async function POST(req: NextRequest) {
         tenant_id: tenantId, kontakt_id: match.kontakt_id ?? null, firma_id: match.firma_id ?? null,
         art: 'email', betreff: msg.subject ?? '(kein Betreff)',
         beschreibung: [msg.bodyPreview ? msg.bodyPreview.slice(0, 250) : `Eingehende E-Mail von ${from}`, msg.conversationId ? `[thread:${msg.conversationId.slice(-8)}]` : null].filter(Boolean).join(' '),
-        datum: msg.receivedDateTime?.split('T')[0] ?? new Date().toISOString().split('T')[0],
+        datum: msg.receivedDateTime ? wienTag(msg.receivedDateTime) : heuteWien(),   // KAN-237: Wiener Kalendertag
         erledigt: false, ganztags: true,
       })
     }

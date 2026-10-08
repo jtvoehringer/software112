@@ -20,6 +20,7 @@ import FreezeKorrektur from '@/components/FreezeKorrektur'
 import { KORREKTUR_FELDER } from '@/lib/freeze/korrektur'
 import { korrekturErlaubt } from '../../../../freeze-korrektur-actions'
 import { behandlungPnGesperrt, BEHANDLUNG_FREEZE_GRUND, type PnGueltigkeit } from '@/lib/kellerbuch/behandlungRegeln'
+import { heuteWien } from '@/lib/datum/wien'
 
 type R = Record<string, any>
 
@@ -53,7 +54,7 @@ export default function KellerbehandlungenPage() {
   const [chargenImBehaelter, setChargenImBehaelter] = useState<R[]>([])
   const [showForm, setShowForm]           = useState(false)
   const [editId, setEditId]               = useState<string | null>(null)
-  const [formDatum, setFormDatum]         = useState(new Date().toISOString().slice(0, 10))
+  const [formDatum, setFormDatum]         = useState(heuteWien())
   const [formTypId, setFormTypId]         = useState('')
   const [formMenge, setFormMenge]         = useState('')
   const [formEinheit, setFormEinheit]     = useState('kg')
@@ -166,7 +167,7 @@ export default function KellerbehandlungenPage() {
 
   function openNeu() {
     setEditId(null)
-    setFormDatum(new Date().toISOString().slice(0, 10))
+    setFormDatum(heuteWien())
     setFormTypId(typen[0]?.id ?? '')
     setFormMenge('')
     setFormEinheit(typen[0]?.einheit_standard ?? 'kg')

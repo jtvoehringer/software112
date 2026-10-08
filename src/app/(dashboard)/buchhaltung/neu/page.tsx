@@ -5,6 +5,7 @@ import Link from '@/components/ui/Link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { createEaTransaktion } from '../actions'
+import { heuteWien } from '@/lib/datum/wien'
 
 export const dynamic = 'force-dynamic'
 
@@ -86,7 +87,7 @@ export default async function BuchhaltungNeuPage() {
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Datum *</label>
             <input aria-label="Datum" type="date" name="datum" required
-              defaultValue={new Date().toISOString().split('T')[0]}
+              defaultValue={heuteWien()}
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
           </div>
           <div>

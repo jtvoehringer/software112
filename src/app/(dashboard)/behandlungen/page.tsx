@@ -10,6 +10,7 @@ import { ladePsmUebermittlungsStand } from '@/lib/uebermittlung/psm/laden'
 import { STATUS_TEXT, type UebermittlungsStatus } from '@/lib/uebermittlung/psm/stand'
 import UebermittlungPanel, { type UebermittlungUebersicht } from './UebermittlungPanel'
 import { erfassungsAmpel, erfassungsverzugH, fristAus, fristRelevant, nacherfasstText, type ErfassungsAmpel } from '@/lib/behandlungen/erfassungsfrist'
+import { heuteWien } from '@/lib/datum/wien'
 
 export const metadata: Metadata = { title: 'Maßnahmen – software:112' }
 export const dynamic = 'force-dynamic'
@@ -163,7 +164,7 @@ export default async function BehandlungenPage() {
   })
 
   // Stats
-  const heute = new Date().toISOString().split('T')[0]
+  const heute = heuteWien()
   const letzten30 = behandlungen.filter(b => b.datum >= new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]).length
   const offeneWartezeiten = behandlungen.filter(b => b.ernte_fruehesteins && b.ernte_fruehesteins > heute).length
 

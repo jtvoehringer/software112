@@ -12,6 +12,7 @@ import { Droplet } from 'lucide-react'
 import { fehlerText } from '@/lib/fehler'
 import { fmtLiter, zahlAus } from '@/lib/format'
 import { SCHWUND_STORNO_HINWEIS } from '@/lib/kellerbuch/hinweise'
+import { heuteWien } from '@/lib/datum/wien'
 
 interface Props {
   bestandLiter: number
@@ -24,7 +25,7 @@ export default function SchwundBuchenForm({ bestandLiter, action }: Props) {
   const [fehler, setFehler] = useState<string | null>(null)
   const [ok, setOk] = useState<string | null>(null)
   const [menge, setMenge] = useState('')
-  const [datum, setDatum] = useState(new Date().toISOString().slice(0, 10))
+  const [datum, setDatum] = useState(heuteWien())
   const [notiz, setNotiz] = useState('')
 
   const liter = zahlAus(menge)

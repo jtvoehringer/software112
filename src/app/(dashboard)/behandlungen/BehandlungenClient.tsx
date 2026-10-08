@@ -8,6 +8,7 @@ import StornoButton from '@/components/StornoButton'
 import type { Behandlung } from './page'
 import { fmtNum } from '@/lib/format'
 import { MASSNAHMEN_ART_LABEL, artFilterOptionen, filterMassnahmen } from '@/lib/behandlungen/arten'
+import { heuteWien } from '@/lib/datum/wien'
 
 const WITTERUNG_LABEL: Record<string, string> = {
   sonnig: 'Sonnig', bewoelkt: 'Bewölkt',
@@ -30,7 +31,7 @@ function formatEuro(betrag: number) {
 
 function WartezeitBadge({ datum }: { datum: string | null }) {
   if (!datum) return null
-  const heute = new Date().toISOString().split('T')[0]
+  const heute = heuteWien()
   const ok = datum <= heute
   return (
     <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${ok ? 'bg-s112-ok-bg text-s112-ok-fg' : 'bg-s112-warn-bg text-s112-warn-fg'}`}>

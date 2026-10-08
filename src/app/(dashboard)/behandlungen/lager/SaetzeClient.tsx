@@ -7,6 +7,7 @@ import type { SatzEintrag } from './page'
 import { fmtNum } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
 import { MASSNAHMEN_ARTEN, MASSNAHMEN_ART_LABEL, type MassnahmenArt } from '@/lib/behandlungen/arten'
+import { heuteWien } from '@/lib/datum/wien'
 
 // Arten wie saetze_massnahmen_art_check (ohne Lese) – aus lib/behandlungen/arten.ts
 const ART_OPTS = MASSNAHMEN_ARTEN.map(value => ({ value, label: MASSNAHMEN_ART_LABEL[value] }))
@@ -72,7 +73,7 @@ function SatzForm({ satz, onDone }: { satz?: SatzEintrag; onDone: () => void }) 
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Gültig ab</label>
-          <input aria-label="Gültig ab" name="gueltig_ab" type="date" defaultValue={satz?.gueltig_ab ?? new Date().toISOString().split('T')[0]}
+          <input aria-label="Gültig ab" name="gueltig_ab" type="date" defaultValue={satz?.gueltig_ab ?? heuteWien()}
             className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         </div>
 

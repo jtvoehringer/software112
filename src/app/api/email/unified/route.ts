@@ -7,6 +7,7 @@ import { getCurrentMembership } from '@/lib/auth/roles'
 import { ereignisMelden } from '@/lib/system/ereignis'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
+import { heuteWien } from '@/lib/datum/wien'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -120,7 +121,7 @@ export async function POST(req: NextRequest) {
         tenant_id: tenantId, kontakt_id: kId, firma_id: fId,
         art: 'email', betreff,
         beschreibung: (text ?? '').slice(0, 500) || null,
-        datum: new Date().toISOString().split('T')[0], erledigt: false, ganztags: true,
+        datum: heuteWien(), erledigt: false, ganztags: true,
         email_id: draftId ?? null, email_conversation_id: convId ?? null,
         email_von: sharedMailbox ?? null,  // wird beim Reply-To bekannt
         email_an: anStr,
@@ -147,7 +148,7 @@ export async function POST(req: NextRequest) {
       { const { error: e } = await (admin.from('aktivitaeten') as any).insert({
         tenant_id: tenantId, kontakt_id: kontakt_id ?? null, firma_id: firma_id ?? null,
         art: 'email', betreff, beschreibung: text?.slice(0, 200) ?? null,
-        datum: new Date().toISOString().split('T')[0], erledigt: false, ganztags: true,
+        datum: heuteWien(), erledigt: false, ganztags: true,
       })
         if (e) void ereignisMelden({ art: 'db', quelle: 'unified/aktivitaeten', meldung: e.message }) }
       return NextResponse.json({ ok: true, via: 'smtp' })

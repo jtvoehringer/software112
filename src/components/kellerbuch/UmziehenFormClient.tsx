@@ -5,6 +5,7 @@ import { useState, useTransition } from 'react'
 import { X, AlertTriangle } from 'lucide-react'
 import { fmtNum } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
+import { heuteWien } from '@/lib/datum/wien'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -102,7 +103,7 @@ export default function UmziehenFormClient({
         <div>
           <label className={labelCls}>Datum *</label>
           <input aria-label="Datum" name="datum" type="date" required
-            defaultValue={defaultDatum ?? new Date().toISOString().split('T')[0]}
+            defaultValue={defaultDatum ?? heuteWien()}
             className={inputCls} />
         </div>
         <div>

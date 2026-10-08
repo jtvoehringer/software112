@@ -14,6 +14,7 @@ import type { KontaktRow } from '@/lib/crm/types'
 import { AlertTriangle, Trash2, Pencil } from 'lucide-react'
 import { fmtEur } from '@/lib/format'
 import { TITEL_OPTS, TITEL_NACHGESTELLT_MAX, kontaktAnzeigename } from '@/lib/crm/titel'
+import { heuteWien } from '@/lib/datum/wien'
 
 type FirmaOption = { id: string; name: string; segment: string }
 type RabattgruppeOption = { id: string; name: string; rabatt_pct: number }
@@ -378,7 +379,7 @@ function AktivitaetForm({ kontaktId, onDone }: { kontaktId: string; onDone: () =
         <select name="art" defaultValue="notiz" required className={inputCls()}>
           {AKTIVITAET_ARTEN.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
         </select>
-        <input name="datum" type="date" defaultValue={new Date().toISOString().split('T')[0]}
+        <input name="datum" type="date" defaultValue={heuteWien()}
           required className={inputCls()} />
       </div>
       <div className="flex items-center gap-3 flex-wrap">

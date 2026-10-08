@@ -6,6 +6,7 @@ import { aboStandAktuell } from '@/lib/auth/sperren'
 import { createEaDauerauftrag, deaktiviereEaDauerauftrag } from '../actions'
 import ConfirmDeleteForm from '@/components/ui/ConfirmDeleteForm'
 import { fmtNum } from '@/lib/format'
+import { heuteWien } from '@/lib/datum/wien'
 
 export const dynamic = 'force-dynamic'
 
@@ -123,7 +124,7 @@ export default async function DauerauftraegePage() {
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Nächste Fälligkeit *</label>
               <input aria-label="Nächste Fälligkeit" type="date" name="naechste_faelligkeit" required
-                defaultValue={new Date().toISOString().split('T')[0]}
+                defaultValue={heuteWien()}
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden" />
             </div>
             <div>

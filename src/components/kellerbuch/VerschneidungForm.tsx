@@ -10,6 +10,7 @@ import { GitMerge, AlertTriangle, CheckCircle2, Info, X } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum, dezimal } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
+import { heuteWien } from '@/lib/datum/wien'
 
 type ChargeOpt = { id: string; name: string; menge_liter: number | null; qualitaetsstufe?: string | null; zusatzbezeichnung?: string | null; erzeugnis?: string | null; herkunft_code?: string | null; rebsorte?: string | null; weinart?: string | null; behaelter_id?: string | null; behaelter_volumen_liter?: number | null }
 
@@ -42,7 +43,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
   )
 
   const verfuegbar = alleChargen.filter(c => c.id !== zielCharge.id)
-  const [datum, setDatum] = useState(() => new Date().toISOString().split('T')[0])
+  const [datum, setDatum] = useState(() => heuteWien())
 
   // KAN-111: Vorschau vom Server – dieselbe Rechnung wie beim Buchen (Herkunft nach § 21 WeinG aus den tatsächlichen
   // Anteilen, Qualität samt Deckel aus der Herkunft); ohne Vorschau bleibt die einfache Rechnung im Browser

@@ -22,6 +22,7 @@ import { herkunftOptionen } from '@/lib/herkunft'
 import ZusatzErzeugnisFelder from '@/components/wein/ZusatzErzeugnisFelder'
 import LandSelect, { type Land } from '@/components/wein/LandSelect'
 import { ladeCustomWeinbaugebiete, type CustomWeinbaugebiet } from '@/app/(dashboard)/weinbaugebiete/actions'
+import { heuteWien } from '@/lib/datum/wien'
 
 interface Behaelter { id: string; name: string; typ: string; volumen_liter: number | null }
 
@@ -54,7 +55,7 @@ export default function ZukaufNeuPage() {
   const [loading,         setLoading]         = useState(true)
 
   // ── Grunddaten ────────────────────────────────────────────────────────────
-  const [datum,           setDatum]           = useState(new Date().toISOString().split('T')[0])
+  const [datum,           setDatum]           = useState(heuteWien())
   const [uhrzeit,         setUhrzeit]         = useState('')
   const [art,             setArt]             = useState<'wein' | 'trauben' | 'most' | 'maische' | 'flaschen'>('wein')
 

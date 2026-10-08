@@ -5,6 +5,7 @@ import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
 import { modulKonflikt } from '@/lib/auth/modul'
+import { heuteWien } from '@/lib/datum/wien'
 export const dynamic = 'force-dynamic'
 
 // Erlaubte Werte laut Schema (Migration 043) – alles andere wird mit 400 abgelehnt
@@ -92,7 +93,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const update: Record<string, unknown> = { status }
   if (ausgestellt_am) update.ausgestellt_am = ausgestellt_am
-  if (status === 'ausgestellt' && !ausgestellt_am) update.ausgestellt_am = new Date().toISOString().split('T')[0]
+  if (status === 'ausgestellt' && !ausgestellt_am) update.ausgestellt_am = heuteWien()
 
   // … und das Update selbst auf genau diesen Auftrag einschränken – ein Dokument eines
   // anderen Auftrags trifft dann keine Zeile.
