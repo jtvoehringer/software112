@@ -959,6 +959,13 @@ BEGIN
   IF p_tab = 'verkaufsposten' AND NOT v_aend ? 'rechnungsnummer' THEN
     v_aend := v_aend || '{"rechnungsnummer": null}'::jsonb;
   END IF;
+  -- KAN-102: ebenso Lieferscheinnummer und Rechnung (Trigger a_lieferscheinnummer bzw. b_rechnung_anlegen)
+  IF p_tab = 'verkaufsposten' AND NOT v_aend ? 'lieferscheinnummer' THEN
+    v_aend := v_aend || '{"lieferscheinnummer": null}'::jsonb;
+  END IF;
+  IF p_tab = 'verkaufsposten' AND NOT v_aend ? 'rechnung_id' THEN
+    v_aend := v_aend || '{"rechnung_id": null}'::jsonb;
+  END IF;
   SELECT string_agg(quote_ident(a.attname), ', ' ORDER BY a.attnum) INTO v_cols
     FROM pg_attribute a
    WHERE a.attrelid = v_oid AND a.attnum > 0 AND NOT a.attisdropped AND a.attgenerated = '' AND a.attidentity <> 'a'
@@ -1062,6 +1069,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('kontakt_firmen',                'SA,TA,W*{crm}',                          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}'),
     ('kontakt_praeferenzen',          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}'),
     ('produktionen',                  '-',                                      '-',                                      '-'),   -- KAN-118: nur über s112_produktion_buchen/_stornieren
+    ('rechnungen',                    '-',                                      '-',                                      '-'),   -- KAN-102: nur Trigger/RPC bzw. Service-Role
     ('produktion_eingaenge',          '-',                                      '-',                                      '-'),   -- KAN-118
     ('kontakte',                      'SA,TA,W*{crm}',                          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}'),
     ('lieferadressen',                'SA,TA,W*{crm|warenwirtschaft}',          'SA,TA,W*{crm|warenwirtschaft}',          '-'),   -- KAN-176: nur deaktivieren
@@ -1184,7 +1192,7 @@ BEGIN
     -- KAN-150 F2a: + dac_antrag, weinanalysen, pruefnummernantraege, transportbescheinigungen, exportauftraege (storno) und
     --              exportauftrag_positionen, export_dokumente (kind)
     -- KAN-167: + betriebsmittel_lager_bewegungen (storno)
-    WHEN 'loeschsperre_tabellen' THEN ARRAY['behandlungen', 'betriebsmittel_lager_bewegungen', 'dac_antrag', 'duengemittel_lager_bewegungen', 'ea_transaktionen', 'ernte_parzellen', 'export_dokumente', 'exportauftraege', 'exportauftrag_positionen', 'fuellung_chargen', 'fuellungen', 'keller_behandlungen', 'keller_umzuege', 'keller_verarbeitungen', 'keller_zugangskorrekturen', 'konto_umbuchungen', 'pressung_behaelter', 'pressung_weingaerten', 'pressungen', 'produktion_eingaenge', 'produktionen', 'pruefnummernantraege', 'psm_lager_bewegungen', 'transportbescheinigungen', 'traubenverkauf', 'verkauf_positionen', 'verkaufsposten', 'verschneidung_quellen', 'verschneidungen', 'weinanalysen', 'weinausbau', 'weinausbau_weingaerten', 'zahlungen', 'zukauf_posten']
+    WHEN 'loeschsperre_tabellen' THEN ARRAY['behandlungen', 'betriebsmittel_lager_bewegungen', 'dac_antrag', 'duengemittel_lager_bewegungen', 'ea_transaktionen', 'ernte_parzellen', 'export_dokumente', 'exportauftraege', 'exportauftrag_positionen', 'fuellung_chargen', 'fuellungen', 'keller_behandlungen', 'keller_umzuege', 'keller_verarbeitungen', 'keller_zugangskorrekturen', 'konto_umbuchungen', 'pressung_behaelter', 'pressung_weingaerten', 'pressungen', 'produktion_eingaenge', 'produktionen', 'pruefnummernantraege', 'psm_lager_bewegungen', 'rechnungen', 'transportbescheinigungen', 'traubenverkauf', 'verkauf_positionen', 'verkaufsposten', 'verschneidung_quellen', 'verschneidungen', 'weinanalysen', 'weinausbau', 'weinausbau_weingaerten', 'zahlungen', 'zukauf_posten']
     -- KAN-150 F1a: Stammdaten mit Löschsperre bei berichtsrelevantem Bezug (a_stammdaten_loeschsperre)
     WHEN 'stammdaten_loeschsperre' THEN ARRAY['betriebsmittel', 'duengemittel', 'ea_dauerauftraege', 'ea_kategorien', 'firmen', 'grundstuecke',   -- KAN-167: + betriebsmittel
       'keller_behandlungstypen', 'kontakte', 'pflanzenschutzmittel', 'weingarten']
@@ -1192,7 +1200,7 @@ BEGIN
       'ama_erntemeldungen', 'ama_meldepositionen', 'behandlung_grundstuecke', 'behandlungen', 'bestandsprotokoll', 'duengemittel_lager_bewegungen',   -- KAN-88: + behandlung_grundstuecke
       'ea_belege', 'ea_monatsabschluss', 'ea_transaktionen', 'ea_uva', 'ernte_parzellen', 'fuellung_bewegungen',
       'fuellung_chargen', 'fuellungen', 'keller_behandlungen', 'keller_umzuege', 'konto_umbuchungen', 'lesen',
-      'pressung_behaelter', 'pressung_weingaerten', 'pressungen', 'psm_lager_bewegungen', 'traubenverkauf',
+      'pressung_behaelter', 'pressung_weingaerten', 'pressungen', 'psm_lager_bewegungen', 'rechnungen', 'traubenverkauf',   -- KAN-102: + rechnungen
       'verkauf_positionen', 'verkaufsposten', 'verschneidung_quellen', 'verschneidungen', 'weinausbau', 'weinjahrgaenge',
       'zahlungen', 'zukauf_posten',   -- KAN-166: behandlungen und die beiden Lagertabellen; KAN-149 D2: ea_transaktionen, zahlungen, konto_umbuchungen; KAN-149 D3: ea_belege, ea_monatsabschluss, ea_uva
       -- KAN-150 F1a: Stammdaten (Löschen/TRUNCATE; Ändern von aktiv außer keller_behandlungstypen; kontakte/firmen bewusst nicht)
@@ -1298,6 +1306,12 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('intern',        '--S', true , 'get_next_rechnungsnummer(p_tenant_id uuid)'),   -- KAN-21: nur Service-Role, Vergabe per Trigger a_rechnungsnummer
     ('intern',        '--S', false, 's112_rechnungsnummer_ziehen(p_tenant_id uuid)'),   -- KAN-21: Zähler ohne Zugriffsprüfung (Trigger)
     ('trigger',       '--S', false, 's112_rechnungsnummer_vergeben()'),   -- KAN-21: Rechnungsnummer im Insert, unveränderlich per API
+    ('intern',        '--S', false, 's112_lieferscheinnummer_ziehen(p_tenant_id uuid)'),   -- KAN-102: Lieferschein-Zähler (Trigger)
+    ('trigger',       '--S', false, 's112_lieferscheinnummer_vergeben()'),   -- KAN-102: Lieferscheinnummer im Insert
+    ('trigger',       '--S', false, 's112_rechnung_aus_lieferschein()'),   -- KAN-102: Rechnung im Insert (Übergang 1:1)
+    ('trigger',       '--S', false, 's112_rechnung_id_schutz()'),   -- KAN-102: rechnung_id nicht per API
+    ('trigger',       '--S', false, 's112_rechnung_spiegeln()'),   -- KAN-102: Spiegel Lieferschein → Rechnung
+    ('trigger',       '--S', false, 's112_rechnung_aufraeumen()'),   -- KAN-102: Rechnung ohne Lieferschein (Wartung)
     ('mandant',       '-US', true , 'get_next_transaktionsnr(p_tenant_id uuid, p_typ text)'),
     ('rls_hilfe',     '-US', false, 'get_user_role_in_tenant(p_tenant_id uuid)'),
     ('rls_hilfe',     '-US', false, 'get_user_tenant_ids()'),

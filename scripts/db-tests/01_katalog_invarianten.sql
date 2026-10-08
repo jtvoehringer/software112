@@ -210,6 +210,7 @@ DECLARE
     'verkaufsposten=aktiv,datum,firma_id,kontakt_id,storniert,storniert_am,storniert_von,storno_grund,tenant_id,zh_kontakt_id',   -- KAN-149 D1; KAN-150 F1a: + kontakt_id, firma_id, zh_kontakt_id
     'konto_umbuchungen=betrag,datum,nach_konto_id,storniert_am,storno_grund,tenant_id,von_konto_id',   -- KAN-149 D2
     'zahlungen=betrag,datum,konto_id,storniert_am,storno_grund,tenant_id,verkaufsposten_id',   -- KAN-149 D2
+    'rechnungen=aktiv,datum,firma_id,kontakt_id,rechnungsnummer,storniert,storniert_am,storniert_von,storno_grund,tenant_id,zh_kontakt_id',   -- KAN-102
     'verschneidung_quellen=menge_liter,quell_weinausbau_id,verschneidung_id',
     'verschneidungen=datum,storniert_am,storno_grund,tenant_id,ziel_weinausbau_id',
     'weinausbau=aktiv,anfangsbestand_liter,behaelter_id,erzeugnis,herkunft_code,ist_eroeffnungsbestand,jahrgang,kmw,land_iso,menge_liter,mostgewicht_einheit,oechsle,qualitaetsstufe,rebsorte,status,storniert_am,storno_grund,tenant_id,weinart,weingarten_id,zusatzbezeichnung',   -- KAN-150 F1a: + weingarten_id; KAN-186: + erzeugnis, land_iso, zusatzbezeichnung
