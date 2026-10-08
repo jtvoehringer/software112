@@ -70,7 +70,7 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
     // Echte Verkaufsdaten (statt des fehleranfälligen aktivitaeten-Spiegels, siehe unten)
     tf((supabase.from('verkaufsposten') as any)
       .select(`
-        id, datum, rechnungsnummer, transaktions_nr, storniert, bezahlt,
+        id, datum, rechnungsnummer, lieferscheinnummer, transaktions_nr, storniert, bezahlt,
         positionen:verkauf_positionen(menge, einheit, preis_brutto, rabatt_pct, sonderrabatt_pct)
       `)
       .eq('firma_id', id)
@@ -140,7 +140,8 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
 
   const verkaeufe: VerkaufRow[] = ((vRaw ?? []) as R[]).map(v => ({
     id: v.id, datum: v.datum,
-    rechnungsnummer: v.rechnungsnummer ?? null,
+    // KAN-105: nicht berechneter Lieferschein mit seiner LS-Nummer statt „ohne Belegnr.“
+    rechnungsnummer: v.rechnungsnummer ?? (v.lieferscheinnummer ? `${v.lieferscheinnummer} (nicht berechnet)` : null),
     transaktions_nr: v.transaktions_nr ?? null,
     storniert: v.storniert ?? false,
     bezahlt: v.bezahlt ?? false,
