@@ -31,6 +31,7 @@ import MengenZusammenfassung from './MengenZusammenfassung'
 import RiedAuswahlListe from './RiedAuswahlListe'
 import AnwendungFelder, { type MitgliedAuswahl } from './AnwendungFelder'
 import { PSM_FRIST_STANDARD_H, wienHeute } from '@/lib/behandlungen/erfassungsfrist'
+import BienenschutzHinweis from '@/components/behandlungen/BienenschutzHinweis'
 
 // Welche Felder je Maßnahmenart sichtbar/pflicht sind, steht in FELD_MATRIX (feldMatrix.ts), die
 // Mengenfelder in MENGEN_SICHT (mengenFelder.ts, über mengenSicht: Aufwand bei Sonstiges nur mit Mittel) –
@@ -81,6 +82,8 @@ export default function NeueBehandlungForm({
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [selectedPsmId, setSelectedPsmId] = useState('')
+  // KAN-171: BBCH-Stadium für den Bienenschutz-Hinweis (bienengefährliches Mittel in der Blüte)
+  const [bbch, setBbch] = useState('')
   const [selectedDuengemittelId, setSelectedDuengemittelId] = useState('')
   // KAN-167: Betriebsmittel bei Sonstiges/Laubarbeit (statt eines PSM)
   const [selectedBmId, setSelectedBmId] = useState('')
@@ -605,7 +608,7 @@ export default function NeueBehandlungForm({
                   BBCH-Stadium
                   {felder.bbch === 'pflicht' && <span className="text-s112-err"> *</span>}
                 </label>
-                <select name="bbch_stadium" required={felder.bbch === 'pflicht'}
+                <select name="bbch_stadium" required={felder.bbch === 'pflicht'} value={bbch} onChange={e => setBbch(e.target.value)}
                   className="w-full border border-s112-border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40">
                   <option value="">– Auswählen –</option>
                   {BBCH_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -631,6 +634,10 @@ export default function NeueBehandlungForm({
             )}
           </div>
         )}
+
+        {/* KAN-171: Bienenschutz – bienengefährliches Mittel in der Blüte nur mit Bestätigung */}
+        <BienenschutzHinweis bienengefaehrlich={felder.psm !== 'hidden' && !!selectedPsm?.bienengefaehrlich}
+          bbch={felder.bbch !== 'hidden' ? bbch : null} />
 
         {/* Düngung: Einarbeitung (nur bei organischem Dünger relevant) – einarbeitung_gesendet: nicht angehakt = „nein“
             (false), nicht „keine Angabe“ (KAN-154, einarbeitungAus) */}
