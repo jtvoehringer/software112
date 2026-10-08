@@ -26,7 +26,7 @@ import { umziehen } from '../../umziehen/actions'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import FreezeKorrektur from '@/components/FreezeKorrektur'
 import { KORREKTUR_FELDER } from '@/lib/freeze/korrektur'
-import { Wine, ArrowLeftRight, GitMerge, BookOpen, Microscope, Award, TrendingDown, ArrowDownWideNarrow, Factory, PlusCircle } from 'lucide-react'
+import { Wine, ArrowLeftRight, GitMerge, BookOpen, Microscope, Award, TrendingDown, ArrowDownWideNarrow, Factory, PlusCircle, Sparkles } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'Charge bearbeiten – software:112' }
 export const dynamic = 'force-dynamic'
@@ -642,6 +642,13 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
             <Link href={`/kellerbuch/weinausbau/${weinausbau.id}/verarbeiten`}
               className="mt-1 inline-flex items-center gap-1 text-xs border border-s112-border text-s112-blue-700 px-3 py-1 rounded-lg hover:bg-s112-bg transition-colors">
               <Factory size={13} strokeWidth={1.75} />Verarbeiten
+            </Link>
+          )}
+          {/* KAN-118: Produktion (Spritzer, Perlwein, Schaumwein, PetNat) mit dieser Charge als Quelle */}
+          {writeOk && aktuell > 0.01 && (
+            <Link href={`/kellerbuch/produktion?quelle=${weinausbau.id}`}
+              className="mt-1 inline-flex items-center gap-1 text-xs border border-s112-border text-s112-blue-700 px-3 py-1 rounded-lg hover:bg-s112-bg transition-colors">
+              <Sparkles size={13} strokeWidth={1.75} />Produktion
             </Link>
           )}
           {/* KAN-53: Zugangskorrektur (Mehrmenge, Inventur-Plus) – nur Betriebsleitung */}

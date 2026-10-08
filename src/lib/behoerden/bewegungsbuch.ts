@@ -32,6 +32,8 @@ import { imZeitraum, num, tag, text, type R, type Zeitraum } from './kellerbuch-
 import { eroeffnungsTag, istFlaschenEroeffnung } from '@/lib/kellerbuch/eroeffnungsStichtag'
 import { VERARBEITUNG_ZWECK_LABEL, type VerarbeitungZweck } from '@/lib/kellerbuch/verarbeitung'
 import { ZUGANGSKORREKTUR_ART_LABEL, type ZugangskorrekturArt } from '@/lib/kellerbuch/zugangskorrektur'
+import { PRODUKTION_ZUTAT_LABEL } from '@/lib/kellerbuch/produktion'
+import { KAT_ERZEUGNIS } from '@/lib/katalog/bki'
 
 const ZUGANGSKORREKTUR_SPALTEN = 'id, datum, erstellt_am, menge_liter, art, grund, weinausbau_id, storniert_am, storno_grund, storniert_von_name'
 import { GEBINDE_REKONSTRUIERT, quellGebindeAusDaten, quellGebindeDesVerschnitts, quellGebindeSchluessel, type Quellgebinde, type UmzugGebinde, type VerschnittGebinde } from '@/lib/kellerbuch/quellGebinde'
@@ -39,7 +41,7 @@ import { GEBINDE_REKONSTRUIERT, quellGebindeAusDaten, quellGebindeDesVerschnitts
 export type BewegungsArt =
   | 'uebertrag' | 'anfangsbestand' | 'zukauf' | 'pressung' | 'umzug_ein' | 'umzug_aus' | 'filtration_ein'
   | 'filtration_aus' | 'abfuellung' | 'verkauf' | 'behandlung' | 'verschneidung_ein' | 'verschneidung_aus' | 'schwund'
-  | 'verarbeitung' | 'zugangskorrektur'
+  | 'verarbeitung' | 'zugangskorrektur' | 'produktion_aus' | 'produktion_ein'
 
 export const BEWEGUNGSART_LABEL: Record<BewegungsArt, string> = {
   uebertrag:         'Übertrag',
@@ -58,6 +60,8 @@ export const BEWEGUNGSART_LABEL: Record<BewegungsArt, string> = {
   schwund:           'Schwund',
   verarbeitung:      'Verarbeitung',
   zugangskorrektur:  'Zugangskorrektur',   // KAN-53
+  produktion_aus:    'Produktion (Abgang)',   // KAN-118
+  produktion_ein:    'Produktion (Zugang)',   // KAN-118
 }
 
 export type Bewegung = {
@@ -101,6 +105,10 @@ type Roh = {
   verarbeitungen: R[]
   /** KAN-53: keller_zugangskorrekturen (Mehrmenge, Inventur-Plus – INV_PLUS) */
   zugangskorrekturen: R[]
+  /** KAN-118: Wein-Eingänge einer Produktion aus Chargen (AB_VERAR) samt Kopf */
+  produktionAus: R[]
+  /** KAN-118: Produktionen in eine Zielcharge (ZU_PROD) samt Eingängen */
+  produktionEin: R[]
   verschnAus: R[]
   verschnEin: R[]
   quelleByBatch: Record<string, R[]>
@@ -173,9 +181,9 @@ async function ladeRoh(supabase: any, tenantId: string, behaelterId: string): Pr
   const ids = Array.from(chargeIds)
 
   let umzuegeAus: R[] = [], fuellungen: R[] = [], verkauf: R[] = [], zukauf: R[] = [], verschnAus: R[] = [], verschnEin: R[] = []
-  let verarbeitungen: R[] = [], zugangskorrekturen: R[] = []
+  let verarbeitungen: R[] = [], zugangskorrekturen: R[] = [], produktionAus: R[] = [], produktionEin: R[] = []
   if (ids.length > 0) {
-    ;[umzuegeAus, fuellungen, verkauf, zukauf, verschnAus, verschnEin, verarbeitungen, zugangskorrekturen] = await Promise.all([
+    ;[umzuegeAus, fuellungen, verkauf, zukauf, verschnAus, verschnEin, verarbeitungen, zugangskorrekturen, produktionAus, produktionEin] = await Promise.all([
       liste((supabase.from('keller_umzuege') as any)
         .select('id, datum, menge_liter, brutto_liter, schwund_liter, zeilen_typ, umzug_typ, transaktions_nr, nach_behaelter:nach_behaelter_id(name), von_weinausbau_id, von_weinausbau:von_weinausbau_id(name), notizen, umzug_batch_id, storniert_am, storno_grund, storniert_von_name')
         // storno-sichtbar: das Bewegungsbuch zeigt Buchung und Gegenbuchung (KAN-145 B2b)
@@ -232,6 +240,20 @@ async function ladeRoh(supabase: any, tenantId: string, behaelterId: string): Pr
         .in('weinausbau_id', ids)
         .order('datum', { ascending: true })
         .order('id', { ascending: true }), 'keller_zugangskorrekturen'),
+      // KAN-118: Produktion – Wein-Eingänge aus Chargen dieses Gebindes; storno-sichtbar: Buchung und Gegenbuchung
+      liste((supabase.from('produktion_eingaenge') as any)
+        .select('id, menge, weinausbau_id, produktion:produktion_id(id, datum, art, erzeugnis, notizen, storniert_am, storno_grund, storniert_von_name, ziel:ziel_weinausbau_id(name))')
+        .eq('tenant_id', tenantId)
+        .eq('art', 'wein')
+        .in('weinausbau_id', ids)
+        .order('id', { ascending: true }), 'produktion_eingaenge'),
+      // KAN-118: Produktionen in eine Charge dieses Gebindes; storno-sichtbar: Buchung und Gegenbuchung
+      liste((supabase.from('produktionen') as any)
+        .select('id, datum, art, erzeugnis, ziel_menge, wein_liter, notizen, ziel_weinausbau_id, storniert_am, storno_grund, storniert_von_name, eingaenge:produktion_eingaenge(art, menge, einheit, bezeichnung, weinausbau_id, quelle:weinausbau_id(name))')
+        .eq('tenant_id', tenantId)
+        .in('ziel_weinausbau_id', ids)
+        .order('datum', { ascending: true })
+        .order('id', { ascending: true }), 'produktionen'),
     ])
     verschnAus = verschnAus.filter(v => (v.verschneidung as R | null)?.tenant_id === tenantId)
   }
@@ -282,7 +304,7 @@ async function ladeRoh(supabase: any, tenantId: string, behaelterId: string): Pr
     ? await quellGebindeDesVerschnitts(supabase, tenantId, verschnEin.map(verschnittGebinde))
     : new Map<string, Quellgebinde>()
 
-  return { pressungen, umzuegeEin, chargen, umzuegeAus, fuellungen, verkauf, zukauf, behandlungen, verarbeitungen, zugangskorrekturen, verschnAus, verschnEin, quelleByBatch, zielByBatch, chargeNamen, quellGebinde }
+  return { pressungen, umzuegeEin, chargen, umzuegeAus, fuellungen, verkauf, zukauf, behandlungen, verarbeitungen, zugangskorrekturen, produktionAus, produktionEin, verschnAus, verschnEin, quelleByBatch, zielByBatch, chargeNamen, quellGebinde }
 }
 
 /** Verschnitt-Zeile → Eingabe für das Quellgebinde (KAN-77) */
@@ -299,6 +321,18 @@ const liter = (n: number) => runden(n, STELLEN.liter)
 function personName(k: R | null | undefined): string | null {
   if (!k) return null
   return text([k.vorname, k.nachname].filter(Boolean).join(' '))
+}
+
+/** KAN-118: Erzeugnis-Bezeichnung (Katalog) für Produktionszeilen */
+function erzeugnisText(code: unknown): string {
+  const c = typeof code === 'string' ? code : ''
+  return KAT_ERZEUGNIS.find(k => k.code === c)?.bezeichnung ?? (c || 'Produktion')
+}
+/** KAN-118: Eingänge einer Produktion als Text („Charge A 600 L, Wasser 400 L, Kohlensäure 2 kg“) */
+function eingaengeText(ein: readonly R[]): string {
+  return ein.map(e => e.art === 'wein'
+    ? `${text((e.quelle as R | null)?.name) ?? 'Charge'} ${fmtNum(num(e.menge), { max: 2 })} L`
+    : `${text(e.bezeichnung) ?? PRODUKTION_ZUTAT_LABEL[e.art as string] ?? e.art} ${fmtNum(num(e.menge), { max: 3 })} ${e.einheit}`).join(', ')
 }
 
 /** Bewegungen aus den Rohdaten – dieselbe Logik wie bisher auf der Bewegungsbuch-Seite */
@@ -552,6 +586,43 @@ function bewegungenAus(roh: Roh): Bewegung[] {
     })
   }
 
+  // KAN-118: Produktion – Abgang des Weins aus der Quell-Charge (AB_VERAR) …
+  for (const pe of roh.produktionAus) {
+    const p = (pe.produktion ?? {}) as R
+    if (!p.datum) continue
+    bewegungen.push({
+      datum: tag(p.datum),
+      art: 'produktion_aus',
+      beschreibung: `Produktion: ${erzeugnisText(p.erzeugnis)}`,
+      menge: -liter(num(pe.menge)),
+      extra: text(p.notizen) ?? undefined,
+      chargeId: pe.weinausbau_id ?? null,
+      charge: name(pe.weinausbau_id),
+      gegenstelle: text((p.ziel as R | null)?.name),
+      beleg: null,
+      quelleId: p.id,
+      ...stornoFeld(p),
+    })
+  }
+  // … und Zugang der neuen Charge (ZU_PROD): Wein der Quellen plus Wasser, Saft, Aroma
+  for (const p of roh.produktionEin) {
+    if (!p.datum) continue
+    const ein = (p.eingaenge ?? []) as R[]
+    bewegungen.push({
+      datum: tag(p.datum),
+      art: 'produktion_ein',
+      beschreibung: `Produktion: ${erzeugnisText(p.erzeugnis)}`,
+      menge: liter(num(p.ziel_menge)),
+      extra: [eingaengeText(ein), text(p.notizen)].filter(Boolean).join(' · ') || undefined,
+      chargeId: p.ziel_weinausbau_id ?? null,
+      charge: name(p.ziel_weinausbau_id),
+      gegenstelle: ein.filter(e => e.art === 'wein').map(e => text((e.quelle as R | null)?.name)).filter(Boolean).join(', ') || null,
+      beleg: null,
+      quelleId: p.id,
+      ...stornoFeld(p),
+    })
+  }
+
   // KAN-53: Zugangskorrektur (Mehrmenge, Inventur-Plus) – Zugang mit Grund
   for (const z of roh.zugangskorrekturen) {
     if (!z.datum) continue
@@ -735,7 +806,7 @@ export type BetriebsBewegungen = {
 }
 
 export async function ladeBewegungenBetrieb(supabase: any, tenantId: string): Promise<BetriebsBewegungen> {
-  const [chargen, umzuege, pressungen, fuellungenAlle, verkauf, zukauf, verschnAus, verschnEin, verarbeitungen, behandlungenZugang, zugangskorrekturen] = await Promise.all([
+  const [chargen, umzuege, pressungen, fuellungenAlle, verkauf, zukauf, verschnAus, verschnEin, verarbeitungen, behandlungenZugang, zugangskorrekturen, produktionAus, produktionEin] = await Promise.all([
     liste((supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, rebsorte, qualitaetsstufe, zusatzbezeichnung, erzeugnis, land_iso, weinart, menge_liter, status, aktiv, ist_eroeffnungsbestand, anfangsbestand_liter, created_at, transaktions_nr, storniert_am, storno_grund, storniert_von_name, behaelter_id, behaelter:behaelter_id(name)')
       .eq('tenant_id', tenantId)
@@ -803,6 +874,17 @@ export async function ladeBewegungenBetrieb(supabase: any, tenantId: string): Pr
       .eq('tenant_id', tenantId)
       .order('datum', { ascending: true })
       .order('id', { ascending: true }), 'keller_zugangskorrekturen'),
+    // KAN-118: Produktion (AB_VERAR je Quelle, ZU_PROD am Ziel); storno-sichtbar: Buchung und Gegenbuchung
+    liste((supabase.from('produktion_eingaenge') as any)
+      .select('id, menge, weinausbau_id, produktion:produktion_id(id, datum, art, erzeugnis, notizen, storniert_am, storno_grund, storniert_von_name, ziel:ziel_weinausbau_id(name))')
+      .eq('tenant_id', tenantId)
+      .eq('art', 'wein')
+      .order('id', { ascending: true }), 'produktion_eingaenge'),
+    liste((supabase.from('produktionen') as any)
+      .select('id, datum, art, erzeugnis, ziel_menge, wein_liter, notizen, ziel_weinausbau_id, storniert_am, storno_grund, storniert_von_name, eingaenge:produktion_eingaenge(art, menge, einheit, bezeichnung, weinausbau_id, quelle:weinausbau_id(name))')
+      .eq('tenant_id', tenantId)
+      .order('datum', { ascending: true })
+      .order('id', { ascending: true }), 'produktionen'),
   ])
 
   // Zuordnung wie in ladeRoh: Zugänge über nach_behaelter_id, Abgänge über die Quell-Charge
@@ -830,6 +912,8 @@ export async function ladeBewegungenBetrieb(supabase: any, tenantId: string): Pr
     behandlungen: behandlungenZugang,
     verarbeitungen,
     zugangskorrekturen,
+    produktionAus,
+    produktionEin,
     verschnAus: verschnAus.filter(v => (v.verschneidung as R | null)?.tenant_id === tenantId),
     verschnEin,
     quelleByBatch,
@@ -922,6 +1006,8 @@ export async function ladeBewegungsbuch(
   for (const v of roh.verkauf) if (!(v.verkaufsposten as R | null)?.storniert) plus(v.weinausbau_id, -num(v.menge))
   for (const v of roh.verarbeitungen) if (!istStorniert(v)) plus(v.weinausbau_id, -num(v.menge_liter))
   for (const z of roh.zugangskorrekturen) if (!istStorniert(z)) plus(z.weinausbau_id, num(z.menge_liter))   // KAN-53
+  for (const pe of roh.produktionAus) if (!istStorniert((pe.produktion ?? {}) as R)) plus(pe.weinausbau_id, -num(pe.menge))   // KAN-118
+  for (const p of roh.produktionEin) if (!istStorniert(p)) plus(p.ziel_weinausbau_id, num(p.ziel_menge))
   for (const b of roh.behandlungen) if (!istStorniert(b) && num(b.zugang_liter) > 0) plus(b.weinausbau_id, num(b.zugang_liter))
 
   const aktiveChargen = roh.chargen.filter(c => c.aktiv && !c.ist_eroeffnungsbestand && (literByCharge[c.id] ?? num(c.menge_liter)) > 0.001)

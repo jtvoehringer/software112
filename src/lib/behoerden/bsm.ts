@@ -310,6 +310,7 @@ export const BSM_ZUORDNUNG: readonly { vorgang: string; code: string; hinweis?: 
   { vorgang: 'Schwundbuchung, Schwund bei Umzug/Filtration, Füllverlust, Bruch, Eigenverbrauch, Inventur-Mindermenge', code: 'SCHWUND' },
   { vorgang: 'Flaschen „Anfangsbestand (Altbestand, ±)“ mit negativer Menge', code: 'SCHWUND', hinweis: 'Abgang (Altbestand-Korrektur), keine Eröffnung' },
   { vorgang: 'Verarbeitung (Traubensaft, Essig, Brennerei, Sonstiges)', code: 'AB_VERAR', hinweis: 'Abgang aus der Charge über „Verarbeiten“ (KAN-41)' },
+  { vorgang: 'Produktion: Quell-Charge / neue Charge (Spritzer, Weinmischgetränk, Perlwein, Schaumwein, PetNat)', code: 'AB_VERAR / ZU_PROD', hinweis: 'Zugang = Wein der Quellen plus Wasser, Saft, Aroma; Erzeugnis der neuen Charge (KAN-118)' },
   { vorgang: 'Kellerbehandlung mit Volumenzugang (Süßreserve, RTK …)', code: 'ZU_BEH', hinweis: 'Zugang an der Charge über „Volumenzugang“ der Behandlung (KAN-41)' },
   { vorgang: 'Umzug, Filtration', code: 'UMZUG / FILTRAT', hinweis: 'neutral' },
   { vorgang: 'Füllung (offen → Flasche)', code: 'FUELLUNG', hinweis: 'neutral: Abgang offen = Zugang Flasche' },
@@ -328,6 +329,8 @@ export function buchungsartBewegung(art: Bewegung['art'], k: { zukaufArt?: strin
     case 'verkauf': return k.kundeAusland ? 'VK_FA_AU' : 'VK_FA_AT'
     case 'schwund': return 'SCHWUND'
     case 'verarbeitung': return 'AB_VERAR'   // KAN-41 Paket 3a
+    case 'produktion_aus': return 'AB_VERAR'   // KAN-118: Quelle einer Produktion
+    case 'produktion_ein': return 'ZU_PROD'   // KAN-118: neue Charge (Spritzer, Perlwein, Schaumwein, PetNat)
     case 'zugangskorrektur': return 'INV_PLUS'   // KAN-53: keine BSM-Buchungsart – Warnung wie im Journal
     case 'behandlung': return 'ZU_BEH'   // KAN-41 Paket 3b: nur Behandlungen mit Volumenzugang haben eine Menge
     case 'verschneidung_aus': return 'VS_AB'

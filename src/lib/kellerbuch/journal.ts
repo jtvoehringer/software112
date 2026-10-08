@@ -70,6 +70,8 @@ export const JOURNAL_QUELLE_LABEL: Record<string, string> = {
   fuellungen_merkmale:  'Umstufung (Füllung)',
   weinausbau_bestand:   'Bestandskorrektur (Charge)',
   fuellungen_bestand:   'Bestandskorrektur (Füllung)',
+  keller_verarbeitungen: 'Verarbeitung',
+  produktionen:         'Produktion',   // KAN-118
 }
 
 export const JOURNAL_SPALTEN = 'id, beleg_nr, pos, datum, buchungsart_code, bestand, weinausbau_id, fuellung_id, menge_liter, menge_stk, partner_name, partner_land, quelle_tabelle, quelle_id, storno_von_id, rekonstruiert, charge_name, fuellung_name, qualitaetsstufe, zusatzbezeichnung, erzeugnis, weinart, land_iso, rebsorte, jahrgang, hinweis, erstellt_am'

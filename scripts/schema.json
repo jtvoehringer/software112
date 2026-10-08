@@ -1030,7 +1030,8 @@
 "notizen",
 "erstellt_von",
 "erstellt_von_name",
-"erstellt_am"
+"erstellt_am",
+"produktion_id"
 ],
 "keller_zugangskorrekturen": [
 "id",
@@ -2246,5 +2247,36 @@
 "geaendert_am",
 "geaendert_von",
 "geaendert_von_name"
+],
+"produktionen": [
+"id",
+"tenant_id",
+"datum",
+"art",
+"erzeugnis",
+"ziel_weinausbau_id",
+"wein_liter",
+"ziel_menge",
+"gebucht",
+"notizen",
+"erstellt_von",
+"erstellt_von_name",
+"erstellt_am",
+"storniert_am",
+"storniert_von",
+"storniert_von_name",
+"storno_grund"
+],
+"produktion_eingaenge": [
+"id",
+"tenant_id",
+"produktion_id",
+"art",
+"weinausbau_id",
+"kellermittel_id",
+"bezeichnung",
+"menge",
+"einheit",
+"volumen_liter"
 ]
 }
