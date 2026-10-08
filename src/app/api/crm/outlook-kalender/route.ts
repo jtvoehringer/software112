@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { getValidUserAccessToken } from '@/lib/m365/graph'
+import { M365TokenFehler, NEU_VERBINDEN_TEXT, istNeuVerbinden } from '@/lib/m365/tokenFehler'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 
@@ -32,7 +33,7 @@ export async function GET(req: NextRequest) {
 
     const [{ data: cfg }, { data: tenantCfg }] = await Promise.all([
       (admin.from('user_email_connections') as any)
-        .select('m365_aktiv, m365_access_token_enc, m365_refresh_token_enc, m365_token_expires_at')
+        .select('m365_aktiv, m365_access_token_enc, m365_refresh_token_enc, m365_token_expires_at, email_spiegel_info')
         .eq('tenant_id', tenantId).eq('user_id', user.id).maybeSingle(),
       (admin.from('tenant_einstellungen') as any)
         .select('m365_tenant_id, m365_client_id, m365_client_secret_enc')
@@ -40,6 +41,10 @@ export async function GET(req: NextRequest) {
     ])
     const c = cfg as R | null
 
+    // KAN-125: Verbindung muss neu hergestellt werden → Hinweis statt stiller Leere
+    if (c?.m365_aktiv && !c?.m365_access_token_enc && istNeuVerbinden(c.email_spiegel_info)) {
+      return NextResponse.json({ eintraege: [], fehler: NEU_VERBINDEN_TEXT, neuVerbinden: true })
+    }
     // Kein aktiv verbundenes M365-Konto → einfach keine Outlook-Termine anzeigen (kein Fehler)
     if (!c?.m365_aktiv || !c?.m365_access_token_enc) return NextResponse.json({ eintraege: [] })
 
@@ -53,6 +58,8 @@ export async function GET(req: NextRequest) {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       console.error(`[outlook-kalender] Token-Fehler für user=${user.id} tenant=${tenantId}:`, msg)
+      // KAN-125: eingestufte Token-Fehler sind schon lesbar (kein rohes JSON mehr)
+      if (err instanceof M365TokenFehler) return NextResponse.json({ eintraege: [], fehler: msg, neuVerbinden: err.art === 'neu_verbinden' })
       return NextResponse.json({ eintraege: [], fehler: `Token: ${msg}` })
     }
 

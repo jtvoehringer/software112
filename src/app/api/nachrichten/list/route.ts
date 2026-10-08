@@ -8,6 +8,7 @@ import { getCurrentMembership } from '@/lib/auth/roles'
 import { ladeAbsenderIndex, absenderStatus } from '@/lib/crm/absender'
 import { spiegleNebenbei } from '@/lib/email/spiegel'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { M365TokenFehler, NEU_VERBINDEN_TEXT, istNeuVerbinden } from '@/lib/m365/tokenFehler'
 
 export const dynamic = 'force-dynamic'
 // after()-Spiegelung (bis 12 s) muss in die Laufzeit passen
@@ -36,11 +37,16 @@ export async function GET(req: NextRequest) {
     if (!user) return NextResponse.json({ fehler: 'Nicht angemeldet' }, { status: 401 })
     const [{ data: cfg }, { data: tenantCfg }] = await Promise.all([
       (admin.from('user_email_connections') as any)
-        .select('m365_aktiv, m365_access_token_enc, m365_refresh_token_enc, m365_token_expires_at, imap_aktiv, imap_host, imap_port, imap_user, imap_pass_enc, monitored_email, email_address').eq('tenant_id', tenantId).eq('user_id', user?.id ?? '').maybeSingle(),
+        .select('m365_aktiv, m365_access_token_enc, m365_refresh_token_enc, m365_token_expires_at, imap_aktiv, imap_host, imap_port, imap_user, imap_pass_enc, monitored_email, email_address, email_spiegel_info').eq('tenant_id', tenantId).eq('user_id', user?.id ?? '').maybeSingle(),
       (admin.from('tenant_einstellungen') as any)
         .select('m365_tenant_id, m365_client_id, m365_client_secret_enc').eq('tenant_id', tenantId).maybeSingle(),
     ])
     const c = cfg as R | null
+
+    // KAN-125: Verbindung muss neu hergestellt werden (Tokens entfernt) – Hinweis mit „Neu verbinden“/„Trennen“
+    if (c?.m365_aktiv && !c?.m365_access_token_enc && istNeuVerbinden(c.email_spiegel_info)) {
+      return NextResponse.json({ fehler: NEU_VERBINDEN_TEXT, neuVerbinden: true }, { status: 409 })
+    }
 
     // M365
     if (c?.m365_aktiv && c?.m365_access_token_enc) {
@@ -120,6 +126,8 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ fehler: 'Kein E-Mail-Modul konfiguriert' }, { status: 400 })
   } catch (err) {
+    // KAN-125: eingestufte Token-Fehler lesbar, „neu verbinden“ mit eigenem Kennzeichen
+    if (err instanceof M365TokenFehler) return NextResponse.json({ fehler: err.message, neuVerbinden: err.art === 'neu_verbinden' }, { status: err.art === 'neu_verbinden' ? 409 : 502 })
     return NextResponse.json({ fehler: String(err) }, { status: 500 })
   }
 }

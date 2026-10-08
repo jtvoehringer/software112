@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { graphPost, getValidAccessToken } from '@/lib/m365/graph'
 import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
 import { ereignisMelden } from '@/lib/system/ereignis'
+import { M365TokenFehler } from '@/lib/m365/tokenFehler'
 import { erzeugeClientState } from '@/lib/m365/clientState'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
@@ -112,9 +113,14 @@ export async function POST(req: NextRequest) {
             })
             const sub = await res.json() as R
             if (sub.id) await (admin.from('tenant_einstellungen') as any).update({ m365_webhook_sub_id: sub.id, m365_webhook_expires: expiresAt }).eq('tenant_id', cfg.tenant_id)
+            // KAN-125: gescheitertes Abo nicht still übergehen
+            else void ereignisMelden({ art: 'server', quelle: 'm365/subscribe', meldung: `Webhook-Abo nicht erneuert: ${(sub?.error as R | undefined)?.code ?? res.status}`, tenantId: cfg.tenant_id })
           }
           renewed++
-        } catch { /* weiter */ }
+        } catch (e) {
+          // KAN-125: je Betrieb melden statt verschlucken; Token-Fehler meldet getValidAccessToken selbst
+          if (!(e instanceof M365TokenFehler)) void ereignisMelden({ art: 'server', quelle: 'm365/subscribe', meldung: `Webhook-Abo: ${e instanceof Error ? e.message : String(e)}`, tenantId: cfg.tenant_id })
+        }
       }
       return NextResponse.json({ ok: true, renewed })
     }
