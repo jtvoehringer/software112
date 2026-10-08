@@ -6,6 +6,9 @@ import Link from '@/components/ui/Link'
 import { BarChart3 } from 'lucide-react'
 import BehandlungenClient from './BehandlungenClient'
 import { ladeErnteSperren } from '@/lib/behandlungen/ernteSperre'
+import { ladePsmUebermittlungsStand } from '@/lib/uebermittlung/psm/laden'
+import { STATUS_TEXT, type UebermittlungsStatus } from '@/lib/uebermittlung/psm/stand'
+import UebermittlungPanel, { type UebermittlungUebersicht } from './UebermittlungPanel'
 import { erfassungsAmpel, erfassungsverzugH, fristAus, fristRelevant, nacherfasstText, type ErfassungsAmpel } from '@/lib/behandlungen/erfassungsfrist'
 
 export const metadata: Metadata = { title: 'Maßnahmen – software:112' }
@@ -43,6 +46,8 @@ export type Behandlung = {
   erfassung_ampel: ErfassungsAmpel | null
   /** KAN-169: Datum der Lese, die die Maßnahme sperrt (Ried nach der Maßnahme gelesen), sonst null */
   ernte_gesperrt: string | null
+  /** KAN-120: Übermittlungsstatus der Pflanzenschutz-Aufzeichnung (nur Maßnahmen mit Mittel), sonst null */
+  uebermittlung: { status: UebermittlungsStatus; text: string; am: string | null } | null
 }
 
 export default async function BehandlungenPage() {
@@ -132,6 +137,7 @@ export default async function BehandlungenPage() {
       nacherfasst:          nacherfasstText(verzug, psmFristH),
       erfassung_ampel:      verzug === null ? null : erfassungsAmpel(verzug, psmFristH),
       ernte_gesperrt:       null,
+      uebermittlung:        null as Behandlung['uebermittlung'],
       riedIds:              [...new Set([...(b.weingarten_id ? [b.weingarten_id as string] : []), ...wgs.keys()])],
     }
   })
@@ -139,7 +145,22 @@ export default async function BehandlungenPage() {
   const ernteSperren = tenantId
     ? await ladeErnteSperren(supabase, tenantId, behandlungenRoh.filter(b => !b.storniert_am).map(b => ({ id: b.id, datum: b.datum, rieden: b.riedIds })))
     : new Map<string, string>()
-  const behandlungen: Behandlung[] = behandlungenRoh.map(({ riedIds: _r, ...b }) => ({ ...b, ernte_gesperrt: ernteSperren.get(b.id) ?? null }))
+  // KAN-120: Übermittlungsstand je Pflanzenschutz-Aufzeichnung (Hash der Exportzeilen gegen den letzten Export)
+  const uStand = tenantId ? await ladePsmUebermittlungsStand(supabase, tenantId).catch(() => null) : null
+  const uJeId = new Map((uStand?.stand ?? []).map(s => [s.behandlungId, s]))
+  const uebersicht: UebermittlungUebersicht = {
+    offen: (uStand?.stand ?? []).filter(s => s.status === 'offen').length,
+    korrektur: (uStand?.stand ?? []).filter(s => s.status === 'korrektur').length,
+    letzterLauf: uStand?.laeufe[0] ?? null,
+  }
+  const behandlungen: Behandlung[] = behandlungenRoh.map(({ riedIds: _r, ...b }) => {
+    const u = uJeId.get(b.id)
+    return {
+      ...b,
+      ernte_gesperrt: ernteSperren.get(b.id) ?? null,
+      uebermittlung: u ? { status: u.status, text: STATUS_TEXT[u.status], am: u.letzterExport?.exportiert_am ?? null } : null,
+    }
+  })
 
   // Stats
   const heute = new Date().toISOString().split('T')[0]
@@ -188,6 +209,8 @@ export default async function BehandlungenPage() {
           <p className="text-xs text-s112-muted mt-1">Offene Wartezeiten</p>
         </div>
       </div>
+
+      {uStand && <UebermittlungPanel uebersicht={uebersicht} schreibOk={writeOk} />}
 
       <BehandlungenClient behandlungen={behandlungen} schreibOk={writeOk} />
     </div>

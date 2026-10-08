@@ -1023,6 +1023,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('buchhaltung_export_protokoll',  'SA,TA,W*{ea}',                           '-{ea}',                                  '-{ea}'),
     ('buchhaltung_kontenmapping',     'SA,TA{ea}',                              'SA,TA{ea}',                              'SA,TA{ea}'),
     ('charge_umstufungen',            '-',                                      '-',                                      '-'),   -- KAN-82: nur per RPC s112_charge_abstufen
+    ('psm_uebermittlungen',           '-',                                      '-',                                      '-'),   -- KAN-120: nur per RPC s112_psm_uebermittlung_protokollieren
     ('checklisten',                   'SA,TA,W*{betrieb}',                      'SA,TA,W*{betrieb}',                      'SA,TA,W*{betrieb}'),
     ('checklisten_punkte',            'SA,TA,W*{betrieb}',                      'SA,TA,W*{betrieb}',                      'SA,TA,W*{betrieb}'),
     ('crm_dubletten_ignoriert',       'SA,TA,W*{crm}',                          'SA,TA,W*{crm}',                          'SA,TA,W*{crm}'),
@@ -1269,6 +1270,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('trigger',       '--S', false, 's112_pn_workflow_schutz()'),
     ('trigger',       '--S', false, 's112_pn_chargen_pflegen()'),   -- KAN-99: Gültigkeit je Charge (Einreichen, Umzug, Zugang, Storno)   -- KAN-97: Status nur per RPC, Formular nur zum Entwurf
     ('mandant',       '-US', true , 's112_charge_status_setzen(p_tenant_id uuid, p_weinausbau_id uuid, p_status text, p_datum date)'),   -- KAN-41: datierter Statuswechsel Most ↔ Wein
+    ('mandant',       '-US', true , 's112_psm_uebermittlung_protokollieren(p_tenant_id uuid, p_kanal text, p_eintraege jsonb)'),   -- KAN-120: Export-Lauf der PSM-Aufzeichnungen protokollieren
     ('mandant',       '-US', true , 's112_charge_abstufen(p_tenant_id uuid, p_weinausbau_id uuid, p_datum date, p_neu jsonb, p_grund text, p_quelle_weinausbau_id uuid)'),   -- KAN-82: Charge abstufen (Datum, Grund, Protokoll)
     ('mandant',       '-US', true , 's112_fuellung_etikettieren(p_tenant_id uuid, p_fuellung_id uuid, p_datum date, p_menge_stk integer, p_notizen text)'),   -- KAN-41 Paket 3d: Etikettieren
     ('mandant',       '-US', true , 's112_etikettierung_stornieren(p_tenant_id uuid, p_id uuid, p_grund text)'),   -- KAN-41 Paket 3d: Storno der Etikettierung
