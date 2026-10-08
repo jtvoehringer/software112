@@ -337,17 +337,15 @@ describe('ladeFinanzen – Finanzübersicht', nurMitHooks, () => {
     assert.equal(Math.round(r.umsatz.ytd * 100) / 100, 100)
   })
 
-  // Befund: uebersicht.ts ruft letzteUvaPeriode(…, new Date(jahr, 11, 31)) auf – das liefert die
-  // Periode VOR Dezember bzw. vor Q4. Der Monatsabschluss im selben Aufruf zählt dagegen alle
-  // 12 Monate als abgelaufen. Dez bzw. Q4 2025 (fällig 15.02.2026) zeigt nur die Jahresansicht 2026
-  // (monatlich im Jänner, quartalsweise Jänner bis März).
-  test('Befund: abgelaufenes Jahr zeigt als letzte UVA Nov bzw. Q3 statt Dez bzw. Q4 (Monatsabschluss zählt dagegen 12 Monate)', async () => {
+  // KAN-247 (vorher Befund: letzteUvaPeriode(…, 31.12.) lieferte Nov bzw. Q3, der Monatsabschluss im selben Aufruf zählte
+  // dagegen alle 12 Monate): abgelaufenes Jahr zeigt Dez bzw. Q4, fällig am 15.02. des Folgejahres
+  test('abgelaufenes Jahr: letzte UVA ist Dez bzw. Q4 (wie der Monatsabschluss mit 12 Monaten)', async () => {
     const { r } = await lade({ jahr: 2025 })
-    assert.deepEqual(r.uva, { label: 'Nov 2025', status: 'fehlt', zahllast: null, faelligAm: '2026-01-15' })
+    assert.deepEqual(r.uva, { label: 'Dez 2025', status: 'fehlt', zahllast: null, faelligAm: '2026-02-15' })
     assert.equal(r.monatsabschluss.offeneMonate, 11, 'Monatsabschluss: 12 abgelaufene Monate, nur Dez abgeschlossen')
     const q = await lade({ jahr: 2025, uvaZeitraum: 'quartalsweise' })
-    assert.equal(q.r.uva.label, 'Q3 2025')
-    assert.equal(q.r.uva.faelligAm, '2025-11-15')
+    assert.equal(q.r.uva.label, 'Q4 2025')
+    assert.equal(q.r.uva.faelligAm, '2026-02-15')
   })
 
   test('E&A: keine Übergabe; Doppik: offene Rechnungen/Belege ohne BMD-Export und letzter Export', async () => {

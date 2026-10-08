@@ -203,7 +203,9 @@ export async function ladeFinanzen(ctx: Ctx, opts: { art: 'ea' | 'doppik'; uvaZe
   const konten = ((kontenRaw ?? []) as R[]).map(k => ({ id: k.id as string, name: k.name as string, typ: (k.typ ?? '') as string, saldo: salden.get(k.id) ?? 0 }))
 
   // ── UVA-Stand (letzte abgeschlossene Periode) ─────────────────────────────
-  const p = letzteUvaPeriode(opts.uvaZeitraum, istLaufend ? ctx.heute : new Date(jahr, 11, 31))
+  // KAN-247: abgelaufenes Jahr = Stand am 1.1. des Folgejahres → Dez bzw. Q4 (vorher 31.12. → Nov bzw. Q3, während der
+  // Monatsabschluss im selben Aufruf alle 12 Monate zählte)
+  const p = letzteUvaPeriode(opts.uvaZeitraum, istLaufend ? ctx.heute : new Date(jahr + 1, 0, 1))
   const uvaRow = ((uvaRaw ?? []) as R[]).find(u => Number(u.jahr) === p.jahr && u.zeitraum === p.zeitraum)
   const uva = { label: p.label, status: (uvaRow ? (uvaRow.gesperrt ? 'uebermittelt' : 'entwurf') : 'fehlt') as 'uebermittelt' | 'entwurf' | 'fehlt', zahllast: uvaRow ? Number(uvaRow.zahllast ?? 0) : null, faelligAm: p.faelligAm }
 
