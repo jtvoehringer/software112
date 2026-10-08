@@ -14,6 +14,7 @@ import {
   SEGMENTE, type Segment, type NewsletterBetrieb,
 } from '@/lib/newsletter/betrieb'
 import { neuesNewsletterToken, istNewsletterToken, newsletterTokenHash } from '@/lib/newsletter/token'
+import { ereignisMelden } from '@/lib/system/ereignis'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -230,7 +231,8 @@ export async function newsletterAbmelden(kontaktId: string, token: string): Prom
     .eq('tenant_id', tenantId)
   if (error) return { ok: false, betrieb }
 
-  await (supabase.from('datenschutz_consents') as any).insert({
+  // KAN-246: Nachweis der Abmeldung (DSGVO) – Fehler protokollieren statt verschlucken; die Abmeldung selbst gilt
+  const { error: nachweisFehler } = await (supabase.from('datenschutz_consents') as any).insert({
     tenant_id:   tenantId,
     kontakt_id:  kontakt.id,
     email:       kontakt.email,
@@ -238,6 +240,7 @@ export async function newsletterAbmelden(kontaktId: string, token: string): Prom
     quelle:      'abmelde_link',
     erstellt_am: now,
   })
+  if (nachweisFehler) void ereignisMelden({ art: 'db', quelle: 'newsletter/datenschutz_consents', meldung: nachweisFehler.message })
 
   if (betrieb?.zugang && kontakt.email) {
     for (const liste of new Set(Object.values(betrieb.listen).filter((x): x is number => !!x))) {

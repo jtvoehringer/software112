@@ -19,6 +19,7 @@ import { decryptPass } from '@/lib/email/crypto'
 import { getValidUserAccessToken } from '@/lib/m365/graph'
 import { renderVerkaufRechnungPdf } from '@/lib/pdf/verkaufRechnungPdf'
 import { ereignisMelden } from '@/lib/system/ereignis'
+import { wienTag } from '@/lib/datum/wien'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { kontaktAnzeigename } from '@/lib/crm/titel'
@@ -324,17 +325,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .eq('id', rechnung.id).eq('tenant_id', tenantId)
     if (e) void ereignisMelden({ art: 'db', quelle: 'send/rechnungen', meldung: e.message }) }
 
-  await (admin.from('aktivitaeten') as any).insert({
+  // KAN-246: die Rechnung ist schon versendet – ein Fehler beim CRM-Vermerk wird protokolliert statt verschluckt
+  const { error: aktFehler } = await (admin.from('aktivitaeten') as any).insert({
     tenant_id: tenantId,
     kontakt_id: posten.kontakt_id ?? null,
     firma_id: posten.firma_id ?? null,
     art: 'email',
     betreff: subject,
     beschreibung: `Rechnung ${posten.rechnungsnummer ?? ''} per E-Mail an ${recipient} versendet`.trim(),
-    datum: sentAt.split('T')[0],
+    datum: wienTag(sentAt),   // KAN-246: Wiener Kalendertag (vorher UTC – kurz nach Mitternacht der Vortag)
     erledigt: true,
     ganztags: true,
   })
+  if (aktFehler) void ereignisMelden({ art: 'db', quelle: 'send/aktivitaeten', meldung: aktFehler.message })
 
   return NextResponse.json({ ok: true, sentAt, sentTo: recipient, via: sentVia })
 }

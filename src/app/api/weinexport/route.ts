@@ -82,15 +82,22 @@ export async function POST(req: NextRequest) {
         taric_code:    p.taric_code ?? '2204.21',
         sort_order:    i,
       }))
+      // KAN-246: vorher nur protokolliert – der Auftrag stand ohne Positionen da, die Antwort war ok
       { const { error: e } = await (supabase.from('exportauftrag_positionen') as any).insert(posen)
-        if (e) void ereignisMelden({ art: 'db', quelle: 'weinexport/exportauftrag_positionen', meldung: e.message }) }
+        if (e) {
+          void ereignisMelden({ art: 'db', quelle: 'weinexport/exportauftrag_positionen', meldung: e.message })
+          return NextResponse.json({ fehler: `Der Exportauftrag ${referenz ?? ''} ist angelegt, die Positionen konnten aber nicht gespeichert werden: ${e.message}. Bitte im Auftrag ergänzen.`.replace('  ', ' '), id }, { status: 500 })
+        } }
     }
 
     // Standard-Dokumente anlegen
     { const { error: e } = await (supabase.from('export_dokumente') as any).insert(
       STANDARD_DOKUMENTE.map(art => ({ exportauftrag_id: id, dokument_art: art, status: 'ausstehend' }))
     )
-      if (e) void ereignisMelden({ art: 'db', quelle: 'weinexport/export_dokumente', meldung: e.message }) }
+      if (e) {
+        void ereignisMelden({ art: 'db', quelle: 'weinexport/export_dokumente', meldung: e.message })
+        return NextResponse.json({ fehler: `Der Exportauftrag ist angelegt, die Standard-Dokumente konnten aber nicht vorbereitet werden: ${e.message}.`, id }, { status: 500 })
+      } }
 
     return NextResponse.json({ ok: true, id })
   } catch (err) {

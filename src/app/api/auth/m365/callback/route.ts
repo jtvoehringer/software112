@@ -57,13 +57,17 @@ export async function GET(req: NextRequest) {
     const me = await meRes.json() as R
     const userEmail = me.mail ?? me.userPrincipalName ?? ''
 
-    await (admin.from('tenant_einstellungen') as any).update({
+    // KAN-246: Ergebnis prüfen – vorher meldete die Seite „verbunden“, auch wenn die Tokens nicht gespeichert wurden
+    const { data: gespeichert, error: speicherFehler } = await (admin.from('tenant_einstellungen') as any).update({
       m365_modul_aktiv:       true,
       m365_access_token_enc:  encryptPass(tokens.access_token),
       m365_refresh_token_enc: encryptPass(tokens.refresh_token),
       m365_token_expires_at:  new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
       m365_user_email:        userEmail,
-    }).eq('tenant_id', tenantId)
+    }).eq('tenant_id', tenantId).select('tenant_id')
+    if (speicherFehler || !((gespeichert ?? []) as unknown[]).length) {
+      throw new Error(`Die Verbindung konnte nicht gespeichert werden${speicherFehler ? `: ${speicherFehler.message}` : ' (keine Einstellungen für den Betrieb)'}`)
+    }
 
     return loescheNonceCookie(NextResponse.redirect(new URL(`${zurueck}?m365_ok=1`, req.url)))
   } catch (err) {

@@ -164,10 +164,12 @@ export async function POST(req: NextRequest) {
       clientState:          erzeugeClientState(c.tenant_id as string),  // S8: tenant_id + HMAC, im Webhook geprüft
     })
 
-    await (admin.from('tenant_einstellungen') as any).update({
+    // KAN-246: Fehler protokollieren – ohne gespeicherte Abo-ID läuft die Verlängerung ins Leere
+    { const { error: e } = await (admin.from('tenant_einstellungen') as any).update({
       m365_webhook_sub_id: (sub as R).id,
       m365_webhook_expires: expiresAt,
     }).eq('tenant_id', tenantId)
+      if (e) void ereignisMelden({ art: 'db', quelle: 'm365/subscribe/tenant_einstellungen', meldung: e.message }) }
 
     return NextResponse.json({ ok: true, aktion: 'erstellt', sub_id: (sub as R).id, expires: expiresAt })
   } catch (err) {
