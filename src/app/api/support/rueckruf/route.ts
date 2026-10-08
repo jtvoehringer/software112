@@ -41,9 +41,10 @@ export async function POST(req: NextRequest) {
     const accountId = await kundeSicherstellen(k.user.email!, k.benutzerName ?? k.user.email!)
     const limit = rateLimitFehler(await anfragenImFenster(accountId))
     if (limit) return NextResponse.json({ fehler: limit }, { status: 429, headers: KEIN_CACHE })
-    const organisationId = await organisationZuordnen(k.betriebName, accountId)
+    const organisationId = await organisationZuordnen(k.organisationName, accountId)   // KAN-214: Submandant → Hauptmandant
     const beschreibung = beschreibungMitKontext(text, {
       betriebName: k.betriebName,
+      hauptName: k.hauptName,
       tenantId: k.membership.tenantId,
       benutzerName: k.benutzerName,
       benutzerEmail: k.user.email!,

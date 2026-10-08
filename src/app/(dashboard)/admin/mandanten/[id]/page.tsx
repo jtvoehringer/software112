@@ -32,13 +32,12 @@ export type TenantDetail = {
 }
 /** KAN-215: Abrechnungsverbund des Betriebs (Reiter Stripe) */
 export type VerbundInfo = {
-  /** als Nebenmandant: Hauptmandant und vereinbarter Preis */
+  /** als Submandant: der Hauptmandant */
   hauptId: string | null
   hauptName: string | null
-  preisCent: number | null
-  /** als Hauptmandant: die Nebenmandanten */
-  neben: { id: string; name: string; preisCent: number | null }[]
-  /** mögliche Hauptmandanten (Premium mit Stripe-Abo, selbst kein Nebenmandant) */
+  /** als Hauptmandant: die Submandanten */
+  neben: { id: string; name: string }[]
+  /** mögliche Hauptmandanten (Premium, selbst kein Submandant; seit KAN-214 ohne Stripe-Abo-Pflicht) */
   kandidaten: { id: string; name: string }[]
 }
 export type TenantSettings = {
@@ -199,18 +198,17 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
     .select('premium_support_seit, premium_support_bis').eq('id', id).maybeSingle()
   const s = settingsRaw as R | null
 
-  // KAN-215: Abrechnungsverbund
+  // KAN-215/KAN-214: Hauptmandant und Submandanten
   const [{ data: hauptRaw }, { data: nebenRaw }, { data: kandRaw }] = await Promise.all([
     t.abrechnung_ueber ? (admin.from('tenants') as R).select('id, name').eq('id', t.abrechnung_ueber).maybeSingle() : Promise.resolve({ data: null }),
-    (admin.from('tenants') as R).select('id, name, zusatz_preis_cent').eq('abrechnung_ueber', id).order('name'),
-    (admin.from('tenants') as R).select('id, name').eq('stripe_plan', 'premium').not('stripe_subscription_id', 'is', null)
+    (admin.from('tenants') as R).select('id, name').eq('abrechnung_ueber', id).order('name'),
+    (admin.from('tenants') as R).select('id, name').eq('stripe_plan', 'premium')
       .is('abrechnung_ueber', null).neq('id', id).order('name').limit(200),   // alle-ausnahme: Auswahl möglicher Hauptmandanten, wenige Premium-Betriebe
   ])
   const verbund: VerbundInfo = {
     hauptId: (t.abrechnung_ueber as string | null) ?? null,
     hauptName: ((hauptRaw as R | null)?.name as string | undefined) ?? null,
-    preisCent: (t.zusatz_preis_cent as number | null) ?? null,
-    neben: ((nebenRaw ?? []) as R[]).map(n => ({ id: n.id as string, name: n.name as string, preisCent: (n.zusatz_preis_cent as number | null) ?? null })),
+    neben: ((nebenRaw ?? []) as R[]).map(n => ({ id: n.id as string, name: n.name as string })),
     kandidaten: ((kandRaw ?? []) as R[]).map(k => ({ id: k.id as string, name: k.name as string })),
   }
 

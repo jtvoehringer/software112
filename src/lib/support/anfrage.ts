@@ -102,6 +102,8 @@ function browserText(ua: string | null | undefined): string {
 
 export type AnfrageKontext = {
   betriebName: string
+  /** KAN-214: Hauptmandant eines Submandanten (Anfrage läuft in JSM unter ihm) */
+  hauptName?: string | null
   tenantId: string
   benutzerName: string | null
   benutzerEmail: string
@@ -112,6 +114,11 @@ export type AnfrageKontext = {
   zeitpunkt: string
 }
 
+/** KAN-214: JSM-Organisation einer Anfrage – bei einem Submandanten der Hauptmandant, sonst der Betrieb selbst */
+export function supportOrganisation(betriebName: string, hauptName: string | null | undefined): string {
+  return (hauptName ?? '').trim() || betriebName
+}
+
 /** Beschreibung für Jira: Text des Benutzers + Kontextblock (nur IDs und Namen, keine Geheimnisse) */
 export function beschreibungMitKontext(text: string, k: AnfrageKontext): string {
   const zeilen = [
@@ -119,7 +126,7 @@ export function beschreibungMitKontext(text: string, k: AnfrageKontext): string 
     '',
     '----',
     'Gemeldet aus software:112',
-    `Betrieb: ${k.betriebName} (${k.tenantId})`,
+    `Betrieb: ${k.betriebName} (${k.tenantId})${k.hauptName ? ` – Submandant von ${k.hauptName}` : ''}`,
     `Benutzer: ${k.benutzerName ? `${k.benutzerName} <${k.benutzerEmail}>` : k.benutzerEmail}, Rolle: ${k.rolle}`,
     `Seite: ${k.seite ?? 'unbekannt'}`,
     `Browser: ${browserText(k.userAgent)}`,

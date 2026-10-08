@@ -52,13 +52,16 @@ Nach dem Speichern im Produkt unter „Preise" die **Preis-ID** (`price_…`) ko
 - Dieselbe Einstellung für fehlgeschlagene Zahlungen nach der Testphase prüfen
   („Testphase endet ohne Zahlungsmethode“: kündigen bzw. pausieren – beide sperren).
 
-### 2a. Zusatzmandant für Abrechnungsverbünde (KAN-215)
-- Produkt **„software:112 Zusatzmandant“** anlegen, Standardpreis z. B. 99,00 EUR monatlich (Betrag mit Hohenstein
-  abstimmen). Preis-ID → Vercel `STRIPE_PRICE_ZUSATZMANDANT`, Produkt-ID (`prod_…`) → `STRIPE_PRODUCT_ZUSATZMANDANT`
-  (für vereinbarte Preise je Nebenmandant legt die App Positionen mit eigenem Betrag an diesem Produkt an).
-- Ablauf: Hauptmandant schließt Premium ab; Plattform-Admin ordnet unter Administration › Mandanten › Nebenmandant ›
-  Stripe „Über Hauptmandanten abrechnen“ zu (Rechnungsempfänger = Hauptmandant). Austritt setzt den Nebenmandanten auf
-  Nur-Lesen, bis er ein eigenes Abo abschließt (ohne neue Testphase).
+### 2a. Hauptmandant und Submandanten (KAN-215, seit KAN-214 ohne Stripe-Produkt)
+- **Kein Stripe-Produkt nötig:** Ein Submandant kostet 0 € (Entscheidung Jörgen 08.10.2026, KAN-214). Das frühere
+  Produkt „software:112 Zusatzmandant“ und die Variablen `STRIPE_PRICE_ZUSATZMANDANT`/`STRIPE_PRODUCT_ZUSATZMANDANT`
+  entfallen.
+- Ablauf: Der Hauptmandant hat Premium (mit Stripe-Abo oder – Pilotbetriebe – manuell gesetzt). Der Plattform-Admin
+  ordnet unter Administration › Mandanten › Submandant › Stripe „Als Submandant zuordnen“ zu. Der Submandant bekommt
+  Premium und – falls vorhanden – Stripe-Kunde, -Abo, Status und Testphase des Hauptmandanten; CRM und Kellergebinde
+  werden gemeinsam genutzt (Freigaben in beide Richtungen), Support-Anfragen laufen in JSM unter dem Hauptmandanten.
+- Austritt: mit geteiltem Stripe-Abo Nur-Lesen, bis ein eigenes Abo abgeschlossen ist (ohne neue Testphase); ohne
+  Stripe-Abo bleibt der Status. Die Gemeinschaften bleiben bestehen (Administration › Gemeinschaften).
 
 ### 2b. Premium-Support als Zusatzposition (KAN-226)
 - Produkt **„software:112 Premium-Support“** anlegen, Preis **79,00 EUR netto monatlich** (wiederkehrend, Steuer wie
