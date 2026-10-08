@@ -4,6 +4,8 @@ import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import { Headset, Mail, Phone, ShieldCheck } from 'lucide-react'
 import { PREMIUM_SUPPORT, premiumSupportStand, supportKontakt, tagText } from '@/lib/abo/premiumSupport'
+import { jsmKonfiguriert } from '@/lib/support/jsm'
+import SupportAnfrage from './SupportAnfrage'
 
 export const metadata: Metadata = { title: 'Support – software:112' }
 export const dynamic = 'force-dynamic'
@@ -12,7 +14,7 @@ export const dynamic = 'force-dynamic'
 type R = Record<string, any>
 
 // KAN-226 (08.10.2026): Support-Kontakt für alle, Premium-Support-Leistungen für Betriebe mit gebuchtem Paket.
-// Die Support-Anfrage über Jira Service Management folgt mit KAN-230.
+// KAN-230: „Problem melden“ und „Meine Anfragen“ über Jira Service Management, sobald JSM_API_* gesetzt ist.
 export default async function SupportPage() {
   const membership = await getCurrentMembership()
   const supabase = await createSupabaseServerClient()
@@ -39,6 +41,7 @@ export default async function SupportPage() {
       </div>
 
       <div className="space-y-4 max-w-3xl">
+        {jsmKonfiguriert() && <SupportAnfrage emailFallback={kontakt.email} />}
         {premium ? (
           <section className="card p-5 space-y-3 border-s112-ok">
             <div className="flex items-center gap-2">
