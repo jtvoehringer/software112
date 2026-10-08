@@ -130,8 +130,8 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
       .order('datum', { ascending: false })),
 
     // Zukauf-Eingang (Wein/Most direkt in diese Charge gekauft) – fehlte bisher komplett in
-    // diesem Bewegungsbuch (siehe zukauf_ein-CTE in v_behaelter_fuellstand, Migration 127, die
-    // ihn längst korrekt mitrechnet). Ohne diesen Zugang lief der hier lokal nachgerechnete
+    // diesem Bewegungsbuch (die damalige v_behaelter_fuellstand, Migration 127, rechnete ihn mit;
+    // seit KAN-44 Teil 2 ist der Füllstand der Bestand der Chargen). Ohne diesen Zugang lief der hier lokal nachgerechnete
     // Saldo für jede Zukauf-basierte Charge sobald abgefüllt/verkauft wurde ins Negative – und
     // der (fehlerhafte) Saldo wurde per Auto-Sync unten sogar in weinausbau.menge_liter
     // zurückgeschrieben.

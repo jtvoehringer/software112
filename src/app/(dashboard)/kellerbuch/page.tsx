@@ -62,14 +62,14 @@ export default async function KellerbuchPage({ searchParams }: { searchParams: P
     alle(tf((supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, rebsorte, weinart, menge_liter, status, aktiv, behaelter_id, ist_eroeffnungsbestand')
       .order('jahrgang', { ascending: false }).order('id'))),
-    // Event-basierter Füllstand pro Behälter (identisch zur Bewegungen-Page)
+    // Füllstand pro Behälter = Bestand der Chargen im Gebinde (KAN-44 Teil 2, = Saldo des Bewegungsjournals)
     tf((supabase.from('v_behaelter_fuellstand') as any)
       .select('behaelter_id, liter_aktuell')),
   ])
 
   const weinausbau = (weinausbauRaw ?? []) as R[]
 
-  // Füllstand-Map aus View (event-basiert, konsistent zur Bewegungen-Page)
+  // Füllstand-Map aus der View (Bestand der Chargen, konsistent zur Charge-Liste der Karte)
   const fuellstandMap = new Map<string, number>()
   for (const f of (fuellstandRaw ?? []) as R[]) {
     fuellstandMap.set(f.behaelter_id, parseFloat(f.liter_aktuell) || 0)
@@ -81,7 +81,7 @@ export default async function KellerbuchPage({ searchParams }: { searchParams: P
   // Reguläre Chargen (ohne Eröffnungsbestand, aktiv=true) für die Stats-Card
   const aktiveChargen  = alleAktiven.filter((w: R) => !w.ist_eroeffnungsbestand && w.aktiv)
 
-  // Gesamtliter aus event-basierter View (Summe aller Behälter, min. 0)
+  // Gesamtliter aus der View (Summe aller Behälter, min. 0)
   const gesamtLiter = Array.from(fuellstandMap.values())
     .filter(v => v > 0)
     .reduce((s, v) => s + v, 0)
