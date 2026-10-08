@@ -58,6 +58,13 @@ export type AnfrageEingabe = {
   screenshotZustimmung?: boolean
 }
 
+/** Typ und Größe des Screenshots – dieselbe Prüfung im Browser (Auswahl, Ziehen, Einfügen) und im Server (KAN-234) */
+export function screenshotFehler(s: { typ: string; groesse: number }): string | null {
+  if (!(SCREENSHOT_TYPEN as readonly string[]).includes(s.typ)) return 'Screenshot bitte als PNG, JPG oder WebP.'
+  if (s.groesse > MAX_SCREENSHOT_BYTES) return 'Der Screenshot darf höchstens 5 MB groß sein.'
+  return null
+}
+
 export function anfrageEingabeFehler(e: AnfrageEingabe, premiumAktiv: boolean): string | null {
   if (!istAnfrageArt(e.art) || !erlaubteArten(premiumAktiv).includes(e.art)) return 'Bitte eine Anfrageart wählen.'
   const betreff = typeof e.betreff === 'string' ? e.betreff.trim() : ''
@@ -69,8 +76,8 @@ export function anfrageEingabeFehler(e: AnfrageEingabe, premiumAktiv: boolean): 
   if (!istDringlichkeit(e.dringlichkeit)) return 'Bitte eine Dringlichkeit wählen.'
   if (e.screenshot) {
     if (!e.screenshotZustimmung) return 'Bitte bestätigen Sie, dass der Screenshot mitgesendet werden darf.'
-    if (!(SCREENSHOT_TYPEN as readonly string[]).includes(e.screenshot.typ)) return 'Screenshot bitte als PNG, JPG oder WebP.'
-    if (e.screenshot.groesse > MAX_SCREENSHOT_BYTES) return 'Der Screenshot darf höchstens 5 MB groß sein.'
+    const f = screenshotFehler(e.screenshot)
+    if (f) return f
   }
   return null
 }

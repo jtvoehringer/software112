@@ -4,7 +4,8 @@
 // /api/support/anfragen (Jira Service Management, Projekt SUP); der Screenshot geht nur mit Haken mit.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ExternalLink, Send } from 'lucide-react'
+import { ExternalLink, Paperclip, Send, X } from 'lucide-react'
+import { screenshotFehler } from '@/lib/support/anfrage'
 
 type Option = { wert: string; label: string }
 type Anfrage = { key: string; betreff: string; status: string; erledigt: boolean; erstellt: string; link: string }
@@ -35,6 +36,9 @@ export default function SupportAnfrage({ emailFallback }: { emailFallback: strin
   const [fehler, setFehler] = useState<string | null>(null)
   const [erfolg, setErfolg] = useState<{ key: string; link: string; hinweise: string[] } | null>(null)
   const dateiRef = useRef<HTMLInputElement>(null)
+  // KAN-234: Anhang per Knopf, Ziehen oder Einfügen (Strg+V) – mit sofortiger Prüfung von Typ und Größe
+  const [ziehen, setZiehen] = useState(false)
+  const [dateiFehler, setDateiFehler] = useState<string | null>(null)
 
   const [ladeZaehler, setLadeZaehler] = useState(0)
   const laden = useCallback(() => setLadeZaehler(z => z + 1), [])
@@ -64,6 +68,27 @@ export default function SupportAnfrage({ emailFallback }: { emailFallback: strin
     setZustimmung(false)
   }
 
+  /** Bild übernehmen (Auswahl, Ziehen, Einfügen) – ungültige Dateien mit Meldung abweisen */
+  const bildUebernehmen = (f: File | null | undefined) => {
+    if (!f) return
+    const fehlerText = screenshotFehler({ typ: f.type, groesse: f.size })
+    setDateiFehler(fehlerText)
+    if (fehlerText) return
+    dateiWaehlen(f)
+  }
+  const anhangEntfernen = () => {
+    dateiWaehlen(null)
+    setDateiFehler(null)
+    if (dateiRef.current) dateiRef.current.value = ''
+  }
+  /** Strg+V im Formular: ein Bild aus der Zwischenablage wird zum Screenshot (Text wird normal eingefügt) */
+  const einfuegen = (e: React.ClipboardEvent) => {
+    const bild = [...e.clipboardData.files].find(f => f.type.startsWith('image/'))
+    if (!bild) return
+    e.preventDefault()
+    bildUebernehmen(bild)
+  }
+
   const senden = async (e: React.FormEvent) => {
     e.preventDefault()
     setFehler(null)
@@ -83,8 +108,7 @@ export default function SupportAnfrage({ emailFallback }: { emailFallback: strin
       const d = await r.json().catch(() => ({}))
       if (!r.ok) throw new Error(d.fehler ?? `Fehler ${r.status}`)
       setErfolg(d)
-      setBetreff(''); setBeschreibung(''); setDringlichkeit('normal'); dateiWaehlen(null)
-      if (dateiRef.current) dateiRef.current.value = ''
+      setBetreff(''); setBeschreibung(''); setDringlichkeit('normal'); anhangEntfernen()
       laden()
     } catch (err) {
       setFehler((err as Error).message)
@@ -115,7 +139,7 @@ export default function SupportAnfrage({ emailFallback }: { emailFallback: strin
         )}
         {fehler && <p className="text-sm text-s112-err-fg" role="alert">{fehler}</p>}
 
-        <form onSubmit={senden} className="space-y-3">
+        <form onSubmit={senden} onPaste={einfuegen} className="space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label className="text-sm space-y-1 block">
               <span className="text-s112-text-2">Art der Anfrage</span>
@@ -141,11 +165,28 @@ export default function SupportAnfrage({ emailFallback }: { emailFallback: strin
               placeholder="Was haben Sie gemacht, was ist passiert, was hätten Sie erwartet?" className="form-input w-full" />
           </label>
           <div className="text-sm space-y-2">
-            <label className="space-y-1 block">
-              <span className="text-s112-text-2">Screenshot (optional, PNG/JPG/WebP, höchstens 5 MB)</span>
-              <input ref={dateiRef} type="file" accept="image/png,image/jpeg,image/webp"
-                onChange={e => dateiWaehlen(e.target.files?.[0] ?? null)} className="block text-sm" />
-            </label>
+            <span id="support-anhang-titel" className="text-s112-text-2 block">Screenshot (optional, PNG/JPG/WebP, höchstens 5 MB)</span>
+            <input ref={dateiRef} id="support-anhang" type="file" accept="image/png,image/jpeg,image/webp" className="sr-only"
+              aria-labelledby="support-anhang-titel" onChange={e => bildUebernehmen(e.target.files?.[0])} />
+            <div
+              onDragOver={e => { e.preventDefault(); setZiehen(true) }}
+              onDragLeave={() => setZiehen(false)}
+              onDrop={e => { e.preventDefault(); setZiehen(false); bildUebernehmen(e.dataTransfer.files?.[0]) }}
+              className={`rounded-lg border-2 border-dashed px-4 py-3 flex flex-wrap items-center gap-3 transition-colors ${ziehen ? 'border-s112-teal bg-s112-bg' : 'border-s112-line'}`}>
+              <button type="button" onClick={() => dateiRef.current?.click()}
+                className="inline-flex items-center gap-2 border border-s112-line-str bg-white text-s112-text-1 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-s112-bg">
+                <Paperclip className="w-4 h-4" aria-hidden /> {screenshot ? 'Anderen Screenshot wählen' : 'Screenshot anhängen'}
+              </button>
+              <span className="text-xs text-s112-muted min-w-0 truncate">
+                {screenshot ? screenshot.name || 'Bild aus der Zwischenablage' : 'oder Bild hierher ziehen bzw. mit Strg+V einfügen'}
+              </span>
+              {screenshot && (
+                <button type="button" onClick={anhangEntfernen} className="inline-flex items-center gap-1 text-xs text-s112-err-fg hover:underline">
+                  <X className="w-3 h-3" aria-hidden /> Entfernen
+                </button>
+              )}
+            </div>
+            {dateiFehler && <p className="text-xs text-s112-err-fg" role="alert">{dateiFehler}</p>}
             {vorschau && (
               <div className="space-y-2">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
