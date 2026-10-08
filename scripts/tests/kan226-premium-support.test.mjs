@@ -1,6 +1,6 @@
 // KAN-226 (08.10.2026): Premium-Support als Zusatzpaket – Stand am Betrieb (Beginn/Ende inklusive), Kündigung zum
 // Monatsende, Eingabeprüfung der Mandantenverwaltung und Verdrahtung (Admin, Hilfe, Abo, Navigation).
-// Die Datenbank-Regeln (Zeitraum, Benutzer dürfen nichts setzen) prüft DB-Test 68.
+// Die Datenbank-Regeln (Zeitraum, Benutzer dürfen nichts setzen) prüft DB-Test 67.
 //
 // Aufruf:  npm run -s test:csv  (Node ≥ 22.15 wegen module.registerHooks)
 
