@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { hatBestaetigtenFaktor } from '@/lib/auth/mfa'
 import { authCookieOptionen } from '@/lib/tenant/subdomain'
 import { elabelRewritePfad } from '@/lib/elabel/oeffentlich'
+import { sichererWeiterPfad, weiterFuerUmleitung } from '@/lib/tenant/waechter'
 
 // Routen die OHNE Login zugänglich sind
 // Öffentlich ohne Anmeldung. /signup und /newsletter fehlten bis 23.9.2026 – Registrierung und
@@ -55,11 +56,19 @@ export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname
   const isPublicRoute = PUBLIC_ROUTES.some(route => pathname.startsWith(route))
 
+  // KAN-78: Ziel der Anfrage für den Rücksprung nach Login, Zwei-Faktor und Betriebswahl (nur relative Pfade)
+  const umleiten = (ziel: string) => {
+    const url = request.nextUrl.clone()
+    url.pathname = ziel
+    url.search = ''
+    const weiter = weiterFuerUmleitung(pathname, request.nextUrl.search)
+    if (weiter) url.searchParams.set('weiter', weiter)
+    return NextResponse.redirect(url)
+  }
+
   // Nicht eingeloggt + geschützte Route → zum Login
   if (!user && !isPublicRoute && pathname !== '/') {
-    const url = request.nextUrl.clone()
-    url.pathname = '/login'
-    return NextResponse.redirect(url)
+    return umleiten('/login')
   }
 
   // Zwei-Faktor (Sicherheits-Welle 2, S3): Wer einen Authenticator eingerichtet hat, muss
@@ -72,18 +81,14 @@ export async function proxy(request: NextRequest) {
       && !pathname.startsWith('/w/') && !pathname.startsWith('/e/')) {   // KAN-217: öffentliche Seiten auch ohne zweiten Faktor
     const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
     if (hatBestaetigtenFaktor(user) && aal?.currentLevel !== 'aal2') {
-      const url = request.nextUrl.clone()
-      url.pathname = '/zwei-faktor'
-      url.search = ''
-      return NextResponse.redirect(url)
+      return umleiten('/zwei-faktor')
     }
   }
 
-  // Eingeloggt + Login-Seite → zum Dashboard
+  // Eingeloggt + Login-Seite → zum Ziel aus weiter (KAN-78), sonst zum Dashboard
   if (user && pathname === '/login') {
-    const url = request.nextUrl.clone()
-    url.pathname = '/dashboard'
-    return NextResponse.redirect(url)
+    const ziel = sichererWeiterPfad(request.nextUrl.searchParams.get('weiter')) ?? '/dashboard'
+    return NextResponse.redirect(new URL(ziel, request.nextUrl.origin))
   }
 
   return supabaseResponse

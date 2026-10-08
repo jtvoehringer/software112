@@ -4,6 +4,7 @@ import { alle } from '@/lib/supabase/alle'
 import BetriebListe, { type BetriebEintrag } from './BetriebListe'
 import { BetriebsPruefMelder } from '@/components/BetriebsWaechter'
 import AbmeldenKnopf from './AbmeldenKnopf'
+import { sichererWeiterPfad, wechselUrl } from '@/lib/tenant/waechter'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,7 +18,9 @@ const ROLE_LABEL: Record<string, string> = {
   system_admin: 'Super-Admin',
 }
 
-export default async function BetriebWaehlenPage() {
+export default async function BetriebWaehlenPage({ searchParams }: { searchParams: Promise<{ weiter?: string }> }) {
+  // KAN-78: Ziel aus dem Link (nach Login bzw. Zwei-Faktor) – nur sichere relative Pfade
+  const weiter = sichererWeiterPfad((await searchParams).weiter)
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -66,7 +69,7 @@ export default async function BetriebWaehlenPage() {
   // Einzelner Betrieb: über den Route Handler setzen (Cookies dürfen nicht
   // beim Rendern geschrieben werden – sonst Serverfehler beim ersten Login).
   if (memberships.length === 1) {
-    redirect(`/auth/betrieb?tenant_id=${(memberships[0] as R).tenant_id}`)
+    redirect(wechselUrl(String((memberships[0] as R).tenant_id), weiter))
   }
 
   // Anzeigenamen aus tenant_einstellungen laden
@@ -109,7 +112,7 @@ export default async function BetriebWaehlenPage() {
         </div>
 
         {/* Betrieb-Karten – ab 8 Betrieben mit Suchfeld und „zuletzt geöffnet“ */}
-        <BetriebListe betriebe={betriebe} />
+        <BetriebListe betriebe={betriebe} weiter={weiter} />
 
         <p className="text-center text-xs text-s112-muted mt-6">
           Angemeldet als {user.email}

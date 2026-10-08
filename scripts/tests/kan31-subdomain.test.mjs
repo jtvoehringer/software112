@@ -76,7 +76,10 @@ describe('Verdrahtung', () => {
     }
   })
   test('Betriebswahl und /auth/betrieb leiten auf die Subdomain', () => {
-    assert.match(quelle('src/app/(auth)/betrieb-waehlen/actions.ts'), /subdomainZiel\(supabase, tenantId, '\/dashboard'\)/)
+    // KAN-78: Ziel ist der geprüfte weiter-Pfad, ohne ihn wie bisher das Dashboard
+    const aktion = quelle('src/app/(auth)/betrieb-waehlen/actions.ts')
+    assert.match(aktion, /subdomainZiel\(supabase, tenantId, weiter\)/)
+    assert.match(aktion, /\?\? '\/dashboard'/)
     assert.match(quelle('src/app/auth/betrieb/route.ts'), /subdomainZiel\(supabase, tenantId, weiter\)/)
   })
   test('Subdomain setzen nur Plattform-Admins', () => {

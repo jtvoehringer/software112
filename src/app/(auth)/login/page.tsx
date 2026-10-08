@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import { mitWeiter } from '@/lib/tenant/waechter'
 
 // Hinweis: metadata muss in Server Components definiert werden.
 // Login-Page-Titel wird über das Root-Layout gesetzt.
@@ -31,7 +32,8 @@ export default function LoginPage() {
       )
       setLoading(false)
     } else {
-      router.push('/betrieb-waehlen')
+      // KAN-78: Ziel aus dem Link (weiter) über Zwei-Faktor und Betriebswahl mitnehmen
+      router.push(mitWeiter('/betrieb-waehlen', new URLSearchParams(window.location.search).get('weiter')))
       router.refresh()
     }
   }
