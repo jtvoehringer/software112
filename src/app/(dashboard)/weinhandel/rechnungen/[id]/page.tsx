@@ -10,6 +10,8 @@ import { kontaktAnzeigename } from '@/lib/crm/titel'
 import { losText } from '@/lib/handel/losnummer'
 import { alsBeleg, lieferscheineSelect } from '@/lib/verkauf/rechnungen'
 import { rechnungSummen } from '@/lib/verkauf/rechnungDruck'
+import { canWrite } from '@/lib/auth/roles'
+import RechnungVersandPanel from '../../verkauf/[id]/RechnungVersandPanel'
 
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'Rechnung – software:112' }
@@ -29,9 +31,10 @@ export default async function RechnungPage({ params }: { params: Promise<{ id: s
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('rechnungen') as any)
       .select(`id, rechnungsnummer, datum, leistung_von, leistung_bis, storniert, storniert_am, storno_grund, bezahlt, bezahlt_am,
+        rechnung_versendet_am, rechnung_versendet_an,
         skonto_pct, skonto_tage, skonto_aktiv, partner_daten, notizen, storno_positionen,
-        kontakt:kontakte!kontakt_id(id, titel, vorname, nachname, titel_nachgestellt, strasse, plz, ort, zahlungsziel_tage),
-        firma:firmen!firma_id(id, name, strasse, plz, ort, zahlungsziel_tage),
+        kontakt:kontakte!kontakt_id(id, titel, vorname, nachname, titel_nachgestellt, email, strasse, plz, ort, zahlungsziel_tage),
+        firma:firmen!firma_id(id, name, email, strasse, plz, ort, zahlungsziel_tage),
         zh_kontakt:kontakte!zh_kontakt_id(titel, vorname, nachname, titel_nachgestellt),
         ${lieferscheineSelect('id, typ, name, menge, einheit, preis_brutto, rabatt_pct, sonderrabatt_pct, ust_satz, fuellung:fuellungen(jahrgang, flaschengroesse_ml, pruefnummer, chargennummer, datum)')}`)
       .eq('id', id).eq('tenant_id', tenantId).maybeSingle(),
@@ -76,6 +79,13 @@ export default async function RechnungPage({ params }: { params: Promise<{ id: s
           <PrintButton />
         </div>
       </div>
+      {/* KAN-105: E-Mail-Versand (PDF mit allen Lieferscheinen) über einen Lieferschein der Rechnung */}
+      {!r.storniert && membership && canWrite(membership, 'warenwirtschaft') && r.verkaufsposten_ids.length > 0 && (
+        <div className="no-print">
+          <RechnungVersandPanel verkaufId={r.verkaufsposten_ids[0]} defaultEmail={String((r.kontakt as R | null)?.email ?? (r.firma as R | null)?.email ?? '')}
+            sentAt={r.rechnung_versendet_am ?? null} sentTo={r.rechnung_versendet_an ?? null} />
+        </div>
+      )}
       {r.storniert && (
         <p role="note" className="text-sm text-s112-err-fg bg-s112-err-bg border border-s112-err/30 rounded-lg px-3 py-2 no-print">
           Storniert{r.storniert_am ? ` am ${new Date(r.storniert_am).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}` : ''}{r.storno_grund ? ` – ${r.storno_grund}` : ''}

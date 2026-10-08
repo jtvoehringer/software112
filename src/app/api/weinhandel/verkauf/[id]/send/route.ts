@@ -60,7 +60,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     (supabase.from('verkaufsposten') as any)
       .select(`
         id, datum, rechnungsnummer, storniert, skonto_pct, skonto_tage, skonto_aktiv,
-        rechnung:rechnungen!rechnung_id(id, datum, storniert),
+        lieferscheinnummer,
+        rechnung:rechnungen!rechnung_id(id, datum, storniert, leistung_von, leistung_bis),
         kontakt_id, firma_id, partner_daten, lieferadresse,
         kontakt:kontakte!kontakt_id(titel, vorname, nachname, titel_nachgestellt, email, strasse, plz, ort, zahlungsziel_tage),
         firma:firmen(name, email, strasse, plz, ort, zahlungsziel_tage),
@@ -82,13 +83,29 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const posten = momentaufnahmeAnwenden(postenRaw as R, ['kontakt', 'firma', 'zh_kontakt'])   // KAN-150 F1c
   if (posten.storniert) return NextResponse.json({ error: 'Stornierte Verkäufe können nicht versendet werden' }, { status: 400 })
   // KAN-103: Lieferschein ohne (gültige) Rechnung – nichts zu versenden; Rechnungsdatum aus der Rechnung
-  const rechnung = (posten.rechnung ?? null) as { id: string; datum: string; storniert: boolean } | null
+  const rechnung = (posten.rechnung ?? null) as { id: string; datum: string; storniert: boolean; leistung_von: string | null; leistung_bis: string | null } | null
   if (!rechnung || rechnung.storniert || !posten.rechnungsnummer) {
     return NextResponse.json({ error: 'Für diesen Lieferschein gibt es noch keine Rechnung – bitte zuerst die Rechnung erstellen.' }, { status: 400 })
   }
   const rechnungsDatum = String(rechnung.datum ?? posten.datum)
 
-  const positionen = (posten.positionen ?? []) as R[]
+  // KAN-105: Sammelrechnung – Positionen aller Lieferscheine der Rechnung, je Lieferschein mit Zwischenzeile
+  // alle-ausnahme: Lieferscheine einer einzelnen Rechnung (Elternzeile), fachlich wenige
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: lsRaw } = await (supabase.from('verkaufsposten') as any)
+    .select(`id, lieferscheinnummer, datum, positionen:verkauf_positionen(
+      typ, name, menge, einheit, preis_brutto, rabatt_pct, sonderrabatt_pct, ust_satz,
+      fuellung:fuellungen(jahrgang, flaschengroesse_ml, pruefnummer, chargennummer, datum))`)
+    .eq('tenant_id', tenantId).eq('rechnung_id', rechnung.id).order('datum').order('id')
+  const lieferscheine = ((lsRaw ?? []) as R[])
+  const sammel = lieferscheine.length > 1
+  const datumDe = (d: string) => new Date(`${String(d).slice(0, 10)}T00:00:00`).toLocaleDateString('de-AT')
+  const positionen = sammel
+    ? lieferscheine.flatMap(l => ((l.positionen ?? []) as R[]).map(p => ({ ...p, abschnitt: `Lieferschein ${l.lieferscheinnummer ?? ''} vom ${datumDe(l.datum)}` })))
+    : (posten.positionen ?? []) as R[]
+  const lieferzeitraum = sammel && rechnung.leistung_von && rechnung.leistung_bis
+    ? (rechnung.leistung_von === rechnung.leistung_bis ? datumDe(rechnung.leistung_von) : `${datumDe(rechnung.leistung_von)} – ${datumDe(rechnung.leistung_bis)}`)
+    : null
   const einst = (einstRaw ?? {}) as R
 
   function kundenName(p: R): string {
@@ -155,6 +172,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const los = losText(pos.fuellung)
     if (los) sub.push(los)
     return {
+      abschnitt: (pos.abschnitt ?? null) as string | null,
       name: pos.name as string,
       sub: sub.length > 0 ? sub.join(' · ') : null,
       menge: Number(pos.menge),
@@ -184,6 +202,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         nummer: posten.rechnungsnummer ?? null,
         datumIso: rechnungsDatum,
         faelligkeitIso: faelligkeitsDatum.toISOString(),
+        lieferzeitraum,
       },
       kunde: {
         name: kundenName(posten),
