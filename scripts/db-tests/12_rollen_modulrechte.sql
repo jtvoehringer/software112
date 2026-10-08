@@ -4,7 +4,7 @@
 -- @ziel: explizite Soll-Matrix pg_temp.s112_soll() in _helfer.sql, in die jede neue Tabelle eingetragen werden muss.
 -- @mutation modul_egal: s112_darf_schreiben lässt jeden aktiven Winzer ohne Blick auf die Schreibmodule schreiben | rot: rolle:.*
 -- @mutation zeiterfassung_offen: PERMISSIVE-Policy ALL USING/WITH CHECK (true) auf zeiterfassung | rot: nur_admin:zeiterfassung|rolle:zeiterfassung:.*|leser_schreibt_nirgends
--- @mutation loeschen_offen: PERMISSIVE-DELETE-Policy USING (true) auf sonstige_artikel | rot: kein_delete:sonstige_artikel:.*|rolle:sonstige_artikel:DELETE:.*
+-- @mutation loeschen_offen: PERMISSIVE-DELETE-Policy USING (true) auf weinbaugebiete_custom | rot: kein_delete:weinbaugebiete_custom:.*|rolle:weinbaugebiete_custom:DELETE:.*
 -- @mutation neue_tabelle: neue Tabelle in public ohne Eintrag in s112_soll() | rot: soll_fehlt:s112test_neu
 -- @mutation eigner_aufgeweicht: Policy FOR ALL auf benachrichtigungen prüft nur noch den Betrieb, nicht den Empfänger | rot: eigner_fremd:benachrichtigungen:.*
 -- @mutation mitglied_selbst: Policy tenant_memberships FOR UPDATE USING/WITH CHECK (user_id = auth.uid()) – jeder ändert die eigene Mitgliedschaft | rot: mitglied_selbst:.*
@@ -198,8 +198,8 @@ DECLARE
     'user_email_connections:DELETE'];
   c_kein_delete constant text[] := ARRAY['ama_meldepositionen', 'behandlungen', 'dac_antrag', 'duengemittel_lager_bewegungen', 'ea_transaktionen', 'ernte_parzellen',
     'export_dokumente', 'exportauftraege', 'exportauftrag_positionen', 'fuellungen', 'konto_umbuchungen',
-    'pruefnummernantraege', 'psm_lager_bewegungen', 'sonstige_artikel', 'sumup_checkouts', 'transportbescheinigungen', 'verkauf_positionen',
-    'verkaufsposten', 'weinanalysen', 'weinausbau', 'weinbaugebiete_custom', 'zahlungen', 'zukauf_posten'];   -- fuellungen: KAN-145 B4, ernte_parzellen/weinausbau: KAN-148 C1d (nur über s112_storniert_loeschen);
+    'pruefnummernantraege', 'psm_lager_bewegungen', 'sumup_checkouts', 'transportbescheinigungen', 'verkauf_positionen',
+    'verkaufsposten', 'weinanalysen', 'weinausbau', 'weinbaugebiete_custom', 'zahlungen', 'zukauf_posten'];   -- sonstige_artikel seit KAN-242 löschbar (unbenutzte Produkte; mit Bewegung sperrt der FK); fuellungen: KAN-145 B4, ernte_parzellen/weinausbau: KAN-148 C1d (nur über s112_storniert_loeschen);
                                                                -- Verkauf/E-A: KAN-149 D3 (nur stornieren, keine Lösch-RPC)
                                                                -- Anträge/Analysen/Export: KAN-150 F2a (nur über s112_storniert_loeschen)
   c_kein_update constant text[] := ARRAY['aktivitaet_dokumente', 'konto_umbuchungen', 'behandlung_grundstuecke',
@@ -311,7 +311,7 @@ BEGIN
                         AND m.role IN ('system_admin', 'tenant_admin', 'winzer'))
     $fn$$m$);
   PERFORM pg_temp.s112_mutiere('zeiterfassung_offen', $m$CREATE POLICY s112test_ze ON public.zeiterfassung FOR ALL TO authenticated USING (true) WITH CHECK (true)$m$);
-  PERFORM pg_temp.s112_mutiere('loeschen_offen', $m$CREATE POLICY s112test_sa ON public.sonstige_artikel FOR DELETE TO authenticated USING (true)$m$);
+  PERFORM pg_temp.s112_mutiere('loeschen_offen', $m$CREATE POLICY s112test_wb ON public.weinbaugebiete_custom FOR DELETE TO authenticated USING (true)$m$);
   PERFORM pg_temp.s112_mutiere('neue_tabelle', $m$CREATE TABLE public.s112test_neu (id integer PRIMARY KEY)$m$);
   PERFORM pg_temp.s112_mutiere('eigner_aufgeweicht', $m$CREATE POLICY s112test_bn ON public.benachrichtigungen FOR ALL TO authenticated USING (tenant_id IN (SELECT public.s112_meine_tenants())) WITH CHECK (tenant_id IN (SELECT public.s112_meine_tenants()))$m$);
   PERFORM pg_temp.s112_mutiere('modul_entkoppelt', $m$
