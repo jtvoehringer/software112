@@ -646,7 +646,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
           )}
           {/* KAN-118: Produktion (Spritzer, Perlwein, Schaumwein, PetNat) mit dieser Charge als Quelle */}
           {writeOk && aktuell > 0.01 && (
-            <Link href={`/kellerbuch/produktion?quelle=${weinausbau.id}`}
+            <Link href={`/kellerbuch/produktion/neu?quelle=${weinausbau.id}`}
               className="mt-1 inline-flex items-center gap-1 text-xs border border-s112-border text-s112-blue-700 px-3 py-1 rounded-lg hover:bg-s112-bg transition-colors">
               <Sparkles size={13} strokeWidth={1.75} />Produktion
             </Link>

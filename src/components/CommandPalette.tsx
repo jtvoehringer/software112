@@ -13,7 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Search, Plus, ShoppingCart, Calendar, Wallet, Wine, FlaskConical, Droplets, Grape,
-  ScanLine, LogOut, ArrowLeftRight, Users, Building2, Package, FileText, MapPin, BookOpen,
+  ScanLine, LogOut, ArrowLeftRight, Users, Building2, Package, FileText, MapPin, BookOpen, Sparkles,
   type LucideIcon,
 } from 'lucide-react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
@@ -96,6 +96,8 @@ export default function CommandPalette({
       // Pilottest 30.09.2026: Pressungen im Kellerbuch
       { id: 'a:abstufen',   gruppe: 'Aktionen', label: 'Charge abstufen',          icon: Wine,         href: '/kellerbuch/abstufen',       keywords: 'abstufen downgrade qualität herkunft charge kellerbuch' },
       { id: 'a:pressung',   gruppe: 'Aktionen', label: 'Pressung erfassen',        icon: Wine,         href: '/kellerbuch/pressungen',     keywords: 'pressung most keltern charge neu' },
+      // KAN-119: Produktion (Spritzer, Mischgetränk, Perlwein, Schaumwein/Sekt, PetNat) – Assistent
+      { id: 'a:produktion', gruppe: 'Aktionen', label: 'Produktion',               icon: Sparkles,     href: '/kellerbuch/produktion/neu', keywords: 'produktion spritzer perlweinspritzer perlwein sekt schaumwein petnat mischgetränk weinmischgetränk charge kellerbuch neu' },
       // KAN-129: eine Lese im Jahrgang anlegen (Hauptlese, Eiswein …) – der Jahrgang entsteht bei Bedarf mit
       { id: 'a:lese',       gruppe: 'Aktionen', label: 'Neue Lese anlegen',        icon: Plus,         href: '/erntemeldung/neu',          keywords: 'lese eiswein hauptlese vorlese nachlese jahrgang ernte neu' },
       { id: 'a:ried',       gruppe: 'Aktionen', label: 'Neue Ried',                icon: Plus,         href: '/weingarten/neu',            keywords: 'weingarten anlegen neu' },

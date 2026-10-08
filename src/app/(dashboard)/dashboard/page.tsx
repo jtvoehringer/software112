@@ -7,7 +7,7 @@ import { ladeFinanzen } from '@/lib/finanzen/uebersicht'
 import { ladeMorgenbericht } from '@/lib/morgenbericht/erstellen'
 import { canWrite } from '@/lib/auth/roles'
 import MorgenberichtKarte from './morgenbericht/MorgenberichtKarte'
-import { TrendingUp, ArrowRightLeft } from 'lucide-react'
+import { TrendingUp, ArrowRightLeft, Sparkles } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'Übersicht – software:112' }
 export const dynamic = 'force-dynamic'
@@ -83,6 +83,16 @@ export default async function UebersichtPage() {
     { href: '/kellerbuch/umziehen?neu=1',    icon: ArrowRightLeft, label: 'Umziehen',      modul: 'kellerbuch' as const },
     { href: '/weinhandel/verkauf/neu',       icon: ShoppingCart,   label: 'Verkauf',       modul: 'warenwirtschaft' as const },
   ].filter(a => canWrite(ctx.role, a.modul))
+
+  // ── Schnellzugriff: „Produktion“ (KAN-119) nur mit Schreibrecht im Kellerbuch ──
+  const schnellzugriff = [
+    { href: '/weinhandel/verkauf/neu',    icon: ShoppingCart, label: 'Neuer Verkauf' },
+    { href: '/crm',                        icon: Calendar,     label: 'Aktivität' },
+    { href: '/weinhandel/offene-posten',   icon: Wallet,       label: 'Offene Posten' },
+    { href: '/erntemeldung',               icon: Wine,         label: 'Lese / Pressung' },
+    { href: '/behandlungen/neu',           icon: FlaskConical, label: 'Maßnahme erfassen' },
+    ...(canWrite(ctx.role, 'kellerbuch') ? [{ href: '/kellerbuch/produktion/neu', icon: Sparkles, label: 'Produktion' }] : []),
+  ]
 
   return (
     <div className="space-y-6 2xl:space-y-4">
@@ -197,14 +207,8 @@ export default async function UebersichtPage() {
       {/* am Handy durch die Schnellaktionen oben ersetzt – nur wenn es welche gibt (Leser behalten den Schnellzugriff) */}
       <div className={`${schnellaktionen.length > 0 ? 'max-sm:hidden ' : ''}lg:col-span-2 2xl:col-span-1`}>
         <h2 className="text-xs font-semibold text-s112-muted uppercase tracking-wider mb-3">Schnellzugriff</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 2xl:grid-cols-1 gap-3">
-          {[
-            { href: '/weinhandel/verkauf/neu',    icon: ShoppingCart, label: 'Neuer Verkauf' },
-            { href: '/crm',                        icon: Calendar,     label: 'Aktivität' },
-            { href: '/weinhandel/offene-posten',   icon: Wallet,       label: 'Offene Posten' },
-            { href: '/erntemeldung',               icon: Wine,         label: 'Lese / Pressung' },
-            { href: '/behandlungen/neu',           icon: FlaskConical, label: 'Maßnahme erfassen' },
-          ].map(item => (
+        <div className={`grid grid-cols-2 sm:grid-cols-3 ${schnellzugriff.length > 5 ? 'lg:grid-cols-6' : 'lg:grid-cols-5'} 2xl:grid-cols-1 gap-3`}>
+          {schnellzugriff.map(item => (
             <Link key={item.href} href={item.href}
               className="bg-white border border-s112-line rounded-xl p-4 flex items-center gap-3 hover:border-s112-teal hover:shadow-xs transition-all">
               <item.icon size={20} strokeWidth={1.75} className="text-s112-blue-700" />

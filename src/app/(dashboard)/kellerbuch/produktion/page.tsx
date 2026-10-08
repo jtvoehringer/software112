@@ -3,15 +3,13 @@ import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { schreibSperre } from '@/lib/auth/sperren'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
-import { alle } from '@/lib/supabase/alle'
-import { wienHeute } from '@/lib/csv'
+import { redirect } from 'next/navigation'
+import { Plus } from 'lucide-react'
 import { fmtNum } from '@/lib/format'
-import { ladeBehaelter } from '@/lib/keller/behaelter'
 import { KAT_ERZEUGNIS } from '@/lib/katalog/bki'
 import { PRODUKTION_ART_LABEL, PRODUKTION_ZUTAT_LABEL, type ProduktionArt } from '@/lib/kellerbuch/produktion'
 import StornoButton from '@/components/StornoButton'
-import ProduktionForm from './ProduktionForm'
-import { produktionBuchen, produktionStornieren } from './actions'
+import { produktionStornieren } from './actions'
 
 export const metadata: Metadata = { title: 'Produktion – software:112' }
 export const dynamic = 'force-dynamic'
@@ -20,38 +18,21 @@ export const dynamic = 'force-dynamic'
 type R = Record<string, any>
 
 // KAN-118 (08.10.2026): Produktion – Perlweinspritzer, Weinmischgetränk, Perlwein, Schaumwein/Sekt, PetNat. Aus Quell-Chargen
-// und Zutaten entsteht eine neue Charge (Journal AB_VERAR/ZU_PROD). ?quelle=<charge> belegt die erste Quelle vor.
+// und Zutaten entsteht eine neue Charge (Journal AB_VERAR/ZU_PROD). KAN-119: Erfassen im Assistenten unter /kellerbuch/produktion/neu;
+// ältere Links mit ?quelle=<charge> leiten dorthin weiter.
 export default async function ProduktionPage({ searchParams }: { searchParams: Promise<{ quelle?: string }> }) {
   const { quelle } = await searchParams
+  if (quelle) redirect(`/kellerbuch/produktion/neu?quelle=${encodeURIComponent(quelle)}`)
   const supabase = await createSupabaseServerClient()
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId ?? null
   const darf = !!membership && canWrite(membership, 'kellerbuch') && !(await schreibSperre(membership))
 
-  const [chargenRes, gebinde, mittelRes, prodRes] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    alle((supabase.from('weinausbau') as any)
-      .select('id, name, menge_liter, weinart, erzeugnis, behaelter_id, behaelter:behaelter_id(name)')
-      .eq('tenant_id', tenantId).eq('aktiv', true).is('storniert_am', null).gt('menge_liter', 0.01).order('name').order('id')),
-    ladeBehaelter(supabase, tenantId, { alsZiel: true }),
-    // alle-ausnahme: Stammdaten-Auswahl der aktiven Stoffe des Stoffkontos, wenige je Betrieb
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase.from('kellermittel') as any).select('id, name, einheit').eq('tenant_id', tenantId).eq('aktiv', true).order('name').order('id').limit(200),
-    // storno-sichtbar: stornierte Produktionen bleiben mit Kennzeichen in der Liste
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase.from('produktionen') as any)
-      .select('id, datum, art, erzeugnis, wein_liter, ziel_menge, notizen, erstellt_von_name, storniert_am, storno_grund, ziel:ziel_weinausbau_id(id, name), eingaenge:produktion_eingaenge(art, menge, einheit, bezeichnung, quelle:weinausbau_id(name))')
-      .eq('tenant_id', tenantId).order('datum', { ascending: false }).order('id').limit(50),
-  ])
-  const chargen = ((chargenRes.data ?? []) as R[]).map(c => ({
-    id: String(c.id), name: String(c.name ?? 'Charge'), menge: Number(c.menge_liter) || 0, weinart: c.weinart ?? null,
-    erzeugnis: c.erzeugnis ?? null, gebinde: (c.behaelter as R | null)?.name ?? null,
-  }))
-  // Ziel-Gebinde: nutzbar und ohne aktive Charge (die neue Charge braucht ein leeres Gebinde)
-  const belegt = new Set(((chargenRes.data ?? []) as R[]).map(c => c.behaelter_id).filter(Boolean))
-  const leer = gebinde.filter(b => !belegt.has(b.id) && (Number(b.eigen_liter) || 0) + (Number(b.fremd_liter) || 0) <= 0.01)
-    .map(b => ({ id: b.id, name: b.anzeigeName, volumen: b.volumen_liter ?? null }))
-  const mittel = ((mittelRes.data ?? []) as R[]).map(m => ({ id: String(m.id), name: String(m.name), einheit: String(m.einheit) }))
+  // storno-sichtbar: stornierte Produktionen bleiben mit Kennzeichen in der Liste
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const prodRes = await (supabase.from('produktionen') as any)
+    .select('id, datum, art, erzeugnis, wein_liter, ziel_menge, notizen, erstellt_von_name, storniert_am, storno_grund, ziel:ziel_weinausbau_id(id, name), eingaenge:produktion_eingaenge(art, menge, einheit, bezeichnung, quelle:weinausbau_id(name))')
+    .eq('tenant_id', tenantId).order('datum', { ascending: false }).order('id').limit(50)
   const liste = (prodRes.data ?? []) as R[]
   const erzeugnisText = (c: string) => KAT_ERZEUGNIS.find(k => k.code === c)?.bezeichnung ?? c
 
@@ -62,20 +43,24 @@ export default async function ProduktionPage({ searchParams }: { searchParams: P
         <span>/</span>
         <span className="text-s112-text-2">Produktion</span>
       </div>
-      <div>
-        <h1 className="text-xl font-semibold text-s112-text">Produktion</h1>
-        <p className="text-sm text-s112-muted mt-1">
-          Aus einer oder mehreren Chargen entsteht eine neue Charge mit eigenem Erzeugnis – Perlweinspritzer und
-          Weinmischgetränk (weinhaltiges Getränk, mindestens 50 % Wein), Perlwein, Schaumwein/Sekt oder PetNat. Die Quellen
-          buchen „Abgang durch Verarbeitung“, die neue Charge „Zugang durch Produktion“; Zutaten aus dem Stoffkonto werden
-          dort als Verwendung gebucht.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex-1 min-w-[16rem]">
+          <h1 className="text-xl font-semibold text-s112-text">Produktion</h1>
+          <p className="text-sm text-s112-muted mt-1">
+            Aus einer oder mehreren Chargen entsteht eine neue Charge mit eigenem Erzeugnis – Perlweinspritzer und
+            Weinmischgetränk (weinhaltiges Getränk, mindestens 50 % Wein), Perlwein, Schaumwein/Sekt oder PetNat. Die Quellen
+            buchen „Abgang durch Verarbeitung“, die neue Charge „Zugang durch Produktion“; Zutaten aus dem Stoffkonto werden
+            dort als Verwendung gebucht.
+          </p>
+        </div>
+        {darf && (
+          <Link href="/kellerbuch/produktion/neu" className="btn-primary inline-flex items-center gap-1.5 shrink-0">
+            <Plus size={15} aria-hidden /> Neue Produktion
+          </Link>
+        )}
       </div>
 
-      {darf ? (
-        <ProduktionForm chargen={chargen} gebinde={leer} mittel={mittel} heute={wienHeute()} quelle={quelle ?? null}
-          buchen={produktionBuchen} />
-      ) : (
+      {!darf && (
         <p className="card p-4 text-sm text-s112-muted">Nur lesend – für eine Produktion fehlt das Schreibrecht im Kellerbuch bzw. der Nur-Lesen-Modus ist aktiv.</p>
       )}
 

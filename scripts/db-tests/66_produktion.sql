@@ -3,7 +3,8 @@
 -- @ziel: 1.000 L weinhaltiges Getränk; die Quelle bucht AB_VERAR, das Ziel ZU_PROD (je Quelle mit Gegencharge, Wasser ohne),
 -- @ziel: CO2 wird im Stoffkonto verwendet, die Genealogie kennt die Quelle. Abgelehnt: unter 50 % Wein, gemischte Weinarten,
 -- @ziel: Wasser bei Perlwein, CO2 bei PetNat, Leser, fremde Charge, direktes Schreiben. Storno nur bei unveränderter Zielcharge;
--- @ziel: es bucht Menge, Journal und Stoffkonto zurück. Perlwein behält die Menge.
+-- @ziel: es bucht Menge, Journal und Stoffkonto zurück. Perlwein behält die Menge. KAN-119: Der Demo-Sekt des Musterhofs entsteht
+-- @ziel: über eine Produktion (Grundwein → Tirage-Charge SEKTGU → Füllung).
 -- @mutation ohne_weinanteil: 50-%-Prüfung ausgeschaltet | rot: weinanteil_unter_50
 -- @mutation journal_leer: Zeilenfunktion bucht nichts | rot: journal_zeilen
 -- @mutation storno_ohne_rueckbuchung: Storno bucht die Menge der Quelle nicht zurück | rot: storno_quelle
@@ -171,5 +172,12 @@ BEGIN
     (SELECT concat_ws('|', w.menge_liter::numeric(10, 0), w.erzeugnis) FROM public.produktionen p JOIN public.weinausbau w ON w.id = p.ziel_weinausbau_id
       WHERE p.tenant_id = v_b AND p.art = 'perlwein'), '400|PERLWEIN');
 
-  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 24);
+  -- ── 5. KAN-119: Demo-Sekt im Musterhof entsteht über die Produktion (Grundwein → Tirage-Charge SEKTGU → Füllung) ──
+  v_erg := v_erg || pg_temp.s112_erwarte('demo_sekt_produktion',
+    (SELECT concat_ws('|', p.art, p.erzeugnis, w.erzeugnis, (SELECT count(*) FROM public.produktion_eingaenge e WHERE e.produktion_id = p.id AND e.art = 'wein'))
+       FROM public.fuellungen f JOIN public.weinausbau w ON w.id = f.weinausbau_id
+       JOIN public.produktionen p ON p.ziel_weinausbau_id = w.id AND p.storniert_am IS NULL
+      WHERE f.id = public.demo_musterhof_id(19, 1)), 'schaumwein|SEKTGU|SEKTGU|1');
+
+  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 25);
 END $test$;
