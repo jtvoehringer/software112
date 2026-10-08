@@ -29,10 +29,10 @@ describe('KAN-217: Adresse, Umschreiben, Sprache', () => {
     assert.equal(o.elabelRewritePfad('software112.icp-consultants.at', '/ABCDEFGH23', h), null)
     assert.equal(o.elabelRewritePfad('e.hohenstein-partner.at', '/x', null), null)
   })
-  test('Sprache: ?lang vor Browsersprache, sonst Deutsch', () => {
+  test('Sprache: ?lang vor Browsersprache, ohne Angabe Deutsch', () => {
     assert.equal(o.elabelSprache('en', 'de-AT,de;q=0.9'), 'en')
     assert.equal(o.elabelSprache(null, 'en-GB,en;q=0.9,de;q=0.8'), 'en')
-    assert.equal(o.elabelSprache(null, 'fr-FR,fr;q=0.9'), 'de')
+    assert.equal(o.elabelSprache(null, 'fr-FR,fr;q=0.9'), 'fr')   // KAN-218: alle EU-Amtssprachen (vorher Deutsch)
     assert.equal(o.zahlText(12.5, 1, 'de'), '12,5')
     assert.equal(o.zahlText(12.5, 1, 'en'), '12.5')
   })
