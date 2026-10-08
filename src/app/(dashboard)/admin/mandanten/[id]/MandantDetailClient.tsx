@@ -35,6 +35,7 @@ import { fehlerText } from '@/lib/fehler'
 import { STRIPE_STATUS_META, STRIPE_PLAN_LABELS } from '@/lib/stripe/client'
 import type { TenantDetail, TenantSettings, TenantMember, VerbundInfo } from './page'
 import VerbundKarte from './VerbundKarte'
+import PremiumSupportKarte from './PremiumSupportKarte'
 import { bundeslandAusKundennummer } from '@/lib/tenant/kundennummer'
 import KontrastHinweis from '@/components/ui/KontrastHinweis'
 import { EINHEIT_ZEICHEN, type MostgewichtEinheit } from '@/lib/wein/mostgewicht'
@@ -1860,6 +1861,9 @@ function StripeTab({ tenant, verbund }: { tenant: TenantDetail; verbund: Verbund
 
       {/* KAN-215: Abrechnungsverbund */}
       <VerbundKarte tenantId={tenant.id} tenantName={tenant.name} verbund={verbund} hatEigenesAbo={!!tenant.stripe_subscription_id && !verbund.hauptId} />
+
+      {/* KAN-226: Premium-Support */}
+      <PremiumSupportKarte tenantId={tenant.id} zeitraum={tenant.premiumSupport} />
 
       {/* Customer anlegen */}
       {!tenant.stripe_customer_id && !verbund.hauptId && (

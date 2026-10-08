@@ -76,6 +76,7 @@ export default function MandantenClient({ mandanten, canCreate = true }: { manda
               <th className="text-left px-4 py-2 text-xs font-semibold text-s112-muted">Kundennummer</th>
               <th className="text-center px-4 py-2 text-xs font-semibold text-s112-muted">CD</th>
               <th className="text-center px-4 py-2 text-xs font-semibold text-s112-muted">Benutzer</th>
+              <th className="text-left px-4 py-2 text-xs font-semibold text-s112-muted">Premium-Support</th>
               <th className="text-left px-4 py-2 text-xs font-semibold text-s112-muted">Erstellt</th>
             </tr>
           </thead>
@@ -105,6 +106,9 @@ export default function MandantenClient({ mandanten, canCreate = true }: { manda
                   </div>
                 </td>
                 <td className="px-4 py-3 text-xs text-s112-muted text-center">{m.benutzer_anzahl}</td>
+                <td className={`px-4 py-3 text-xs ${m.premium_support_aktiv ? 'font-semibold text-s112-ok-fg' : 'text-s112-muted'}`}>
+                  {m.premium_support ?? '–'}
+                </td>
                 <td className="px-4 py-3 text-xs text-s112-muted tabular-nums">
                   {new Date(m.erstellt_am).toLocaleDateString('de-AT')}
                 </td>

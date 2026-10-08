@@ -23,6 +23,7 @@ import { mitgliedEinladen, EINLADUNG_REDIRECT } from '@/lib/auth/einladung'
 import { istMostgewichtEinheit } from '@/lib/wein/mostgewicht'
 import { austrittsWerte, beitrittFehler, beitrittsWerte, preisCentAusEingabe, type Nebenmandant, type VerbundBetrieb } from '@/lib/abo/verbund'
 import { verbundStripeAbgleichen } from '@/lib/abo/verbundStripe'
+import { premiumSupportEingabeFehler } from '@/lib/abo/premiumSupport'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -810,5 +811,23 @@ export async function verbundVerlassen(tenantId: string): Promise<{ error?: stri
   tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
   revalidatePath(`/admin/mandanten/${hauptId}`)
+  return {}
+}
+
+// ── Premium-Support (KAN-226) ──────────────────────────────────────────────────
+// Bis Stripe steht (KAN-11) setzt der Plattform-Admin Beginn und Ende von Hand; danach übernimmt der Webhook.
+
+export async function setPremiumSupport(tenantId: string, seitRoh: string, bisRoh: string): Promise<{ error?: string }> {
+  await assertSystemAdmin(tenantId, { sandboxFreigabe: false })
+  const fehler = premiumSupportEingabeFehler(seitRoh, bisRoh)
+  if (fehler) return { error: fehler }
+  const seit = seitRoh.trim() || null
+  const bis = bisRoh.trim() || null
+  const { error } = await (createSupabaseAdminClient().from('tenants') as R)
+    .update({ premium_support_seit: seit, premium_support_bis: bis }).eq('id', tenantId)
+  if (error) return { error: `Premium-Support konnte nicht gespeichert werden: ${(error as R).message}` }
+  tenantKopfInvalidieren(tenantId)
+  revalidatePath(`/admin/mandanten/${tenantId}`)
+  revalidatePath('/admin/mandanten')
   return {}
 }

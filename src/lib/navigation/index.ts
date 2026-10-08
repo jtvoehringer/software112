@@ -190,6 +190,7 @@ const NAV: NavGroup[] = [
       { href: '/hilfe/handbuch',       label: 'Handbuch',          keywords: 'hilfe anleitung' },
       { href: '/hilfe/faq',            label: 'FAQ',               keywords: 'hilfe fragen' },
       { href: '/hilfe/neuerungen',     label: 'Neuerungen',        keywords: 'release notes version änderungen was ist neu' },
+      { href: '/hilfe/support',        label: 'Support',           keywords: 'hilfe kontakt premium-support telefon anfrage problem melden' },
       { href: '/profil',               label: 'Profil',            keywords: 'passwort name' },
       { href: '/betrieb/einstellungen', label: 'Mein Betrieb',     adminOnly: true, keywords: 'einstellungen branding benutzer bawb' },
       // Administration: nur system_admin bzw. Sandbox-Sonderfreigabe (s.u.)
