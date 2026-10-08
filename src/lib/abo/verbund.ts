@@ -14,6 +14,7 @@
 
 import { paketAusPlan, type PaketKey } from '@/lib/pakete'
 import { zahlAus } from '@/lib/format'
+import { PREMIUM_ART } from '@/lib/abo/premiumStripe'
 
 type R = Record<string, unknown>
 
@@ -66,7 +67,8 @@ export function paketPosition<T extends { priceId: string | null; metadata?: Rec
   positionen: readonly T[], paketAusPreis: (priceId: string | null) => PaketKey | null,
 ): T | null {
   return positionen.find(p => paketAusPreis(p.priceId) !== null)
-    ?? positionen.find(p => !(p.metadata?.s112_art === ZUSATZ_STANDARD || p.metadata?.s112_art === ZUSATZ_EINZELN))
+    // KAN-226: auch die Premium-Support-Position ist kein Paket
+    ?? positionen.find(p => !(p.metadata?.s112_art === ZUSATZ_STANDARD || p.metadata?.s112_art === ZUSATZ_EINZELN || p.metadata?.s112_art === PREMIUM_ART))
     ?? null
 }
 

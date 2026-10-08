@@ -10,7 +10,8 @@ import { pruefeBenutzerlimit } from '@/lib/pakete-server'
 import AboClient from './AboClient'
 import { BetriebsPruefMelder } from '@/components/BetriebsWaechter'
 import Link from '@/components/ui/Link'
-import { PREMIUM_SUPPORT, premiumSupportStand, premiumSupportText } from '@/lib/abo/premiumSupport'
+import { PREMIUM_SUPPORT, heuteWien, kuendigungZumMonatsende, premiumSupportStand, premiumSupportText, tagText } from '@/lib/abo/premiumSupport'
+import PremiumSupportKnopf from './PremiumSupportKnopf'
 
 // Rückmeldung 31.8.2026 ("die Plattform soll sich selber abrechnen können,
 // damit wir zu unserem Geld kommen"): Selbstverwaltung von Abo und Zahlung.
@@ -83,6 +84,10 @@ export default async function AboPage() {
   const { data: psRow } = await (supabase.from('tenants') as R)
     .select('premium_support_seit, premium_support_bis').eq('id', membership.tenantId).maybeSingle()
   const psStand = premiumSupportStand({ seit: (psRow as R | null)?.premium_support_seit ?? null, bis: (psRow as R | null)?.premium_support_bis ?? null })
+  // KAN-226 Teil 2: selbst buchen/kündigen – nur Betriebsleitung, mit Stripe-Preis und eigenem Abo, nicht im Nur-Lesen-Modus
+  const psSelbst = canAdmin(role) && !!(process.env.STRIPE_PRICE_PREMIUM_SUPPORT ?? '').trim() && hatAbo && !t?.abrechnung_ueber && !abo.gesperrt
+  const psGebucht = psStand.status === 'aktiv' && !psStand.bis
+  const psKnopf = psSelbst && (psGebucht || psStand.status === 'ohne' || psStand.status === 'beendet')
   const premiumKarte = (
     <div className="max-w-3xl mx-auto px-6 pb-6">
       <div className="card p-4 text-sm space-y-1">
@@ -90,12 +95,11 @@ export default async function AboPage() {
         <p className="text-s112-text-2">
           {psStand.status === 'ohne' || psStand.status === 'beendet'
             ? <>Zu jedem Paket dazubuchbar: {PREMIUM_SUPPORT.preisMonatNetto} € netto pro Monat, monatlich kündbar – Reaktion
-                innerhalb von {PREMIUM_SUPPORT.reaktionszeit} ({PREMIUM_SUPPORT.servicezeiten}). Zum Buchen oder Kündigen
-                wenden Sie sich bitte an uns.</>
-            : <>{premiumSupportText(psStand)} · {PREMIUM_SUPPORT.preisMonatNetto} € netto pro Monat. Kündigung zum Monatsende –
-                wenden Sie sich bitte an uns.</>}
+                innerhalb von {PREMIUM_SUPPORT.reaktionszeit} ({PREMIUM_SUPPORT.servicezeiten}).{psKnopf ? '' : ' Zum Buchen oder Kündigen wenden Sie sich bitte an uns.'}</>
+            : <>{premiumSupportText(psStand)} · {PREMIUM_SUPPORT.preisMonatNetto} € netto pro Monat. Kündigung zum Monatsende{psKnopf ? '.' : ' – wenden Sie sich bitte an uns.'}</>}
           {' '}<Link href="/hilfe/support" className="text-s112-blue-700 hover:underline">Mehr zum Support</Link>
         </p>
+        {psKnopf && <PremiumSupportKnopf gebucht={psGebucht} preisNetto={PREMIUM_SUPPORT.preisMonatNetto} monatsende={tagText(kuendigungZumMonatsende(heuteWien()))} />}
       </div>
     </div>
   )

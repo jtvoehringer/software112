@@ -7,6 +7,9 @@ import Stripe from 'stripe'
 import { tenantKopfInvalidieren } from '@/lib/tenant/kopf'
 import { aboEreignisAbgleichen, type AbgleichDeps, type StripeAbo } from '@/lib/abo/stripeAbgleich'
 import { aboPositionAus, paketPosition } from '@/lib/abo/verbund'
+import { premiumAbgleichPlan, premiumPositionFuer } from '@/lib/abo/premiumStripe'
+import { heuteWien, kuendigungZumMonatsende } from '@/lib/abo/premiumSupport'
+import { ABO_BEENDET_STATUS } from '@/lib/abo/regeln'
 
 // Vercel streamt den Body — wir brauchen ihn als Buffer für die Signatur-Prüfung
 export const runtime = 'nodejs'
@@ -125,6 +128,35 @@ async function protokolliereZahlung(
   }
 }
 
+// ── Premium-Support (KAN-226 Teil 2) ──────────────────────────────────────────────────────────────────────
+// Kennzeichen tenants.premium_support_seit/_bis nach der Premium-Position im Abo: neu gebucht → seit heute, entfernt bzw.
+// Abo beendet → bis Monatsende. Beendet wird nur, was über Stripe lief (Position vorher im Abo, aus previous_attributes).
+async function premiumAbgleichen(
+  admin: ReturnType<typeof createSupabaseAdminClient>, kundeId: string, sub: Stripe.Subscription, vorherItems: R[] | null, beendet: boolean,
+) {
+  const preisId = (process.env.STRIPE_PRICE_PREMIUM_SUPPORT ?? '').trim() || null
+  const { data, error } = await (admin.from('tenants') as R)
+    .select('id, premium_support_seit, premium_support_bis').eq('stripe_customer_id', kundeId)
+  if (error) throw new Error(`Premium-Support: Betriebe zu ${kundeId} nicht lesbar: ${error.message}`)
+  const jetztPos = (((sub as unknown as R).items?.data ?? []) as R[]).map(aboPositionAus)
+  const vorherPos = vorherItems ? vorherItems.map(aboPositionAus) : null
+  const heute = heuteWien()
+  for (const t of (data ?? []) as R[]) {
+    const jetzt = !!premiumPositionFuer(jetztPos, t.id, preisId)
+    const vorher = vorherPos ? !!premiumPositionFuer(vorherPos, t.id, preisId) : jetzt
+    const plan = premiumAbgleichPlan({
+      jetzt, vorher, aboBeendet: beendet, heute, monatsende: kuendigungZumMonatsende(heute),
+      bisher: { seit: t.premium_support_seit ?? null, bis: t.premium_support_bis ?? null },
+    })
+    if (!plan) continue
+    const { error: ue } = await (admin.from('tenants') as R)
+      .update({ premium_support_seit: plan.seit, premium_support_bis: plan.bis }).eq('id', t.id)
+    if (ue) throw new Error(`Premium-Support von ${t.id} nicht gespeichert: ${ue.message}`)
+    tenantKopfInvalidieren(t.id)
+    console.info('[Stripe Webhook] Premium-Support', t.id, plan)
+  }
+}
+
 // zwei-faktor-ausnahme: Stripe-Webhook ohne Benutzersitzung – echt nur mit gültiger stripe-signature (constructEvent, STRIPE_WEBHOOK_SECRET)
 // schreibsperre-ausnahme: Stripe-Webhook ohne Benutzersitzung – setzt selbst den Abo-Status (Weg aus der Sperre)
 export async function POST(req: NextRequest) {
@@ -158,6 +190,10 @@ export async function POST(req: NextRequest) {
         const deps = abgleichDeps(admin)
         const abo = await deps.aboLaden(sub.id)
         await aboEreignisAbgleichen(deps, { ereignis: 'aktualisiert', kundeId, abo })
+        // KAN-226: Premium-Support-Position (vorher aus previous_attributes, sonst unverändert)
+        const vorher = (event.data as R).previous_attributes?.items?.data as R[] | undefined
+        await premiumAbgleichen(admin, kundeId, sub, event.type === 'customer.subscription.created' ? [] : vorher ?? null,
+          ABO_BEENDET_STATUS.includes(abo.status ?? ''))
         break
       }
 
@@ -167,6 +203,7 @@ export async function POST(req: NextRequest) {
         const kundeId = kundeVon(sub)
         if (!kundeId) break
         await aboEreignisAbgleichen(abgleichDeps(admin), { ereignis: 'geloescht', kundeId, abo: aboAus(sub) })
+        await premiumAbgleichen(admin, kundeId, sub, null, true)   // KAN-226: Abo beendet → Premium-Support bis Monatsende
         break
       }
 
