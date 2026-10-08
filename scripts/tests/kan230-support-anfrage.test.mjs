@@ -110,7 +110,9 @@ describe('KAN-230 Verdrahtung', () => {
     assert.match(route.slice(route.indexOf('export async function POST')), /seitenBetriebKonflikt\(k\.membership\.tenantId\)/)
   })
   test('Premium-Support kommt aus dem Kennzeichen am Betrieb, nicht vom Client', () => {
-    assert.match(route, /premiumSupportAktiv\(/)
+    // KAN-235: Kontext (Benutzer, Betrieb, Premium) gemeinsam für alle Support-Routen in lib/support/kontext.ts
+    assert.match(quelle('src/lib/support/kontext.ts'), /const premium = premiumSupportAktiv\(\{ seit: \(t as R \| null\)\?\.premium_support_seit/)
+    assert.match(route, /const kontext = supportKontext/)
     assert.match(route, /anfrageEingabeFehler\(eingabe, k\.premium\)/)
   })
   test('Token nur serverseitig: jsm.ts ist server-only, kein NEXT_PUBLIC_JSM', () => {

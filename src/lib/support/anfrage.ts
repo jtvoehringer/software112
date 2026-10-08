@@ -143,3 +143,41 @@ export function portalLink(issueKey: string): string {
 export function jqlString(v: string): string {
   return `"${v.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
 }
+
+// ── KAN-235: Verlauf und Antworten in software:112 (statt Portal-Login) ─────────────────────────────────────
+// Antworten schreibt die App über das Agent-Konto der Anbindung als öffentlichen Kommentar; die erste Zeile nennt den
+// Benutzer, damit Support und Verlauf erkennen, dass die Antwort vom Kunden kommt.
+
+export const MAX_ANTWORT = 5000
+const ANTWORT_KOPF = /^Antwort von (.+?) \(über software:112\):\n/
+
+/** Anfrage-Schlüssel des Projekts SUP (z. B. „SUP-12“) – alles andere wird abgelehnt */
+export function supportKeyGueltig(key: unknown): key is string {
+  return typeof key === 'string' && /^SUP-[1-9]\d{0,8}$/.test(key)
+}
+
+export function antwortFehler(text: unknown): string | null {
+  const t = typeof text === 'string' ? text.trim() : ''
+  if (t.length < 2) return 'Bitte eine Antwort eingeben.'
+  if (t.length > MAX_ANTWORT) return `Die Antwort darf höchstens ${MAX_ANTWORT} Zeichen haben.`
+  return null
+}
+
+/** Kommentartext einer Antwort aus software:112 (erste Zeile: wer antwortet) */
+export function antwortKommentar(benutzer: string, text: string): string {
+  return `Antwort von ${benutzer.replace(/[\r\n]+/g, ' ').trim()} (über software:112):\n${text.trim()}`
+}
+
+/** Kommentar zerlegen: Antwort aus software:112 (dann ohne Kopfzeile) oder Nachricht des Supports */
+export function kommentarZerlegen(body: string): { vonKunde: boolean; name: string | null; text: string } {
+  const m = ANTWORT_KOPF.exec(body.replace(/\r\n/g, '\n'))
+  if (!m) return { vonKunde: false, name: null, text: body.trim() }
+  return { vonKunde: true, name: m[1], text: body.replace(/\r\n/g, '\n').slice(m[0].length).trim() }
+}
+
+/** Beschreibung ohne den angehängten Kontextblock (beschreibungMitKontext) – der Benutzer sieht nur seinen Text */
+export function beschreibungOhneKontext(text: string): string {
+  const t = text.replace(/\r\n/g, '\n')
+  const i = t.lastIndexOf('\n----\nGemeldet aus software:112')
+  return (i >= 0 ? t.slice(0, i) : t).trim()
+}

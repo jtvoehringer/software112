@@ -4,7 +4,8 @@
 // /api/support/anfragen (Jira Service Management, Projekt SUP); der Screenshot geht nur mit Haken mit.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ExternalLink, Paperclip, Send, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, Paperclip, Send, X } from 'lucide-react'
+import AnfrageVerlauf from './AnfrageVerlauf'
 import { screenshotFehler } from '@/lib/support/anfrage'
 
 type Option = { wert: string; label: string }
@@ -41,6 +42,8 @@ export default function SupportAnfrage({ emailFallback }: { emailFallback: strin
   const [dateiFehler, setDateiFehler] = useState<string | null>(null)
 
   const [ladeZaehler, setLadeZaehler] = useState(0)
+  // KAN-235: aufgeklappte Anfrage (Verlauf in software:112 statt Portal-Link)
+  const [offen, setOffen] = useState<string | null>(null)
   const laden = useCallback(() => setLadeZaehler(z => z + 1), [])
 
   useEffect(() => {
@@ -126,14 +129,13 @@ export default function SupportAnfrage({ emailFallback }: { emailFallback: strin
       <section className="card p-5 space-y-3">
         <h2 className="text-base font-semibold text-s112-text">Problem melden</h2>
         <p className="text-sm text-s112-text-2">
-          Ihre Anfrage geht direkt an unser Support-Team. Sie bekommen eine E-Mail mit einem Link, unter dem Sie den
-          Bearbeitungsstand sehen und antworten können.
+          Ihre Anfrage geht direkt an unser Support-Team. Bearbeitungsstand und Antworten sehen Sie unten unter
+          „Meine Anfragen“ – dort können Sie auch antworten. Bei jeder Antwort des Supports kommt zusätzlich eine E-Mail.
         </p>
 
         {erfolg && (
           <div className="rounded-lg bg-s112-ok-bg text-s112-ok-fg p-3 text-sm space-y-1" role="status">
-            <p>Danke! Ihre Anfrage <strong>{erfolg.key}</strong> ist eingegangen.{' '}
-              <a href={erfolg.link} target="_blank" rel="noopener noreferrer" className="underline">Im Support-Portal ansehen</a></p>
+            <p>Danke! Ihre Anfrage <strong>{erfolg.key}</strong> ist eingegangen – Sie finden sie unten unter „Meine Anfragen“.</p>
             {erfolg.hinweise.map(h => <p key={h}>{h}</p>)}
           </div>
         )}
@@ -216,14 +218,18 @@ export default function SupportAnfrage({ emailFallback }: { emailFallback: strin
         ) : (
           <ul className="divide-y divide-s112-line text-sm">
             {stand.anfragen.map(a => (
-              <li key={a.key} className="py-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+              <li key={a.key} className="py-2">
+               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <span className="font-mono text-xs text-s112-muted">{a.key}</span>
                 <span className="flex-1 min-w-0 truncate">{a.betreff}</span>
                 <span className={`text-xs px-2 py-0.5 rounded ${a.erledigt ? 'bg-s112-ok-bg text-s112-ok-fg' : 'bg-s112-warn-bg text-s112-warn-fg'}`}>{a.status}</span>
                 <span className="text-xs text-s112-muted tabular-nums">{datum(a.erstellt)}</span>
-                <a href={a.link} target="_blank" rel="noopener noreferrer" className="text-s112-blue-700 hover:underline inline-flex items-center gap-1" aria-label={`${a.key} im Support-Portal öffnen`}>
-                  Öffnen <ExternalLink className="w-3 h-3" aria-hidden />
-                </a>
+                <button type="button" onClick={() => setOffen(o => (o === a.key ? null : a.key))} aria-expanded={offen === a.key}
+                  className="text-s112-blue-700 hover:underline inline-flex items-center gap-1" aria-label={`Verlauf von ${a.key} ${offen === a.key ? 'schließen' : 'anzeigen'}`}>
+                  {offen === a.key ? <ChevronDown className="w-3 h-3" aria-hidden /> : <ChevronRight className="w-3 h-3" aria-hidden />} Verlauf
+                </button>
+               </div>
+               {offen === a.key && <AnfrageVerlauf anfrageKey={a.key} onGeaendert={laden} />}
               </li>
             ))}
           </ul>

@@ -11,7 +11,7 @@ import 'server-only'
 // Anfrage im Namen des Kunden anlegen (raiseOnBehalfOf) → optional Screenshot anhängen → Priorität
 // aus der Dringlichkeit setzen (nicht im Kundenformular, deshalb nachträglich als Agent).
 
-import { JSM_SERVICEDESK_ID, JSM_SITE, jqlString, portalLink, RATE_LIMIT } from './anfrage'
+import { JSM_SERVICEDESK_ID, JSM_SITE, antwortKommentar, beschreibungOhneKontext, jqlString, kommentarZerlegen, portalLink, RATE_LIMIT } from './anfrage'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -196,4 +196,58 @@ export async function meineAnfragen(email: string): Promise<MeineAnfrage[]> {
     erstellt: String(i.fields?.created ?? ''),
     link: portalLink(String(i.key)),
   }))
+}
+
+// ── KAN-235: eine eigene Anfrage im Detail und Antworten ────────────────────────────────────────────────────
+
+export type AnfrageDetail = {
+  key: string
+  betreff: string
+  beschreibung: string
+  status: string
+  erledigt: boolean
+  erstellt: string
+  kommentare: { id: string; vonKunde: boolean; autor: string; text: string; am: string }[]
+}
+
+/**
+ * Anfrage mit öffentlichen Kommentaren – nur, wenn der Benutzer (E-Mail) sie gemeldet hat; sonst null (→ 404).
+ * Interne Kommentare des Supports bleiben verborgen (public=true, internal=false).
+ */
+export async function anfrageDetail(email: string, key: string): Promise<AnfrageDetail | null> {
+  const accountId = await kontoZurEmail(email)
+  if (!accountId) return null
+  const r = await jsm(`/rest/servicedeskapi/request/${encodeURIComponent(key)}?expand=status`)
+  if (r.status === 404 || r.status === 403) return null
+  if (!r.ok) throw new JsmFehler(`Support-System nicht erreichbar (Anfrage, HTTP ${r.status}).`)
+  const a = (await r.json()) as R
+  if (String(a.reporter?.accountId ?? '') !== accountId) return null
+  const feld = (id: string) => ((a.requestFieldValues ?? []) as R[]).find(f => f.fieldId === id)?.value
+  const k = await json(`/rest/servicedeskapi/request/${encodeURIComponent(key)}/comment?public=true&internal=false&limit=100`, {}, 'Kommentare')
+  return {
+    key,
+    betreff: String(feld('summary') ?? ''),
+    beschreibung: beschreibungOhneKontext(String(feld('description') ?? '')),
+    status: String(a.currentStatus?.status ?? ''),
+    erledigt: a.currentStatus?.statusCategory === 'DONE',
+    erstellt: String(a.createdDate?.iso8601 ?? ''),
+    kommentare: ((k.values ?? []) as R[]).filter(c => c.public !== false).map(c => {
+      const z = kommentarZerlegen(String(c.body ?? ''))
+      return {
+        id: String(c.id),
+        vonKunde: z.vonKunde,
+        autor: z.vonKunde ? (z.name ?? 'Sie') : 'Support',
+        text: z.text,
+        am: String(c.created?.iso8601 ?? ''),
+      }
+    }),
+  }
+}
+
+/** Antwort als öffentlicher Kommentar – vorher wie anfrageDetail prüfen, ob die Anfrage dem Benutzer gehört */
+export async function antwortSenden(key: string, benutzer: string, text: string): Promise<void> {
+  await json(`/rest/servicedeskapi/request/${encodeURIComponent(key)}/comment`, {
+    method: 'POST',
+    body: JSON.stringify({ body: antwortKommentar(benutzer, text), public: true }),
+  }, 'Antwort')
 }
