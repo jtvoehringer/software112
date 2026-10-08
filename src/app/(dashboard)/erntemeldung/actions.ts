@@ -11,7 +11,7 @@ import { istTraubenArt, pressungObergrenze } from '@/lib/zukauf/ware'
 import { createVerkaufspostenFuerTrauben, ermittleQuellenName, upsertTraubenverkauf } from '@/app/(dashboard)/weinhandel/traubenverkauf/actions'
 import { traubenverkaufStornieren } from '@/lib/verkauf/traubenverkaufStorno'
 import { GRUND_BEARBEITET, stornoGrundFehler } from '@/lib/storno/grund'
-import { getCurrentMembership, canAdmin, type Membership } from '@/lib/auth/roles'
+import { getCurrentMembership, canAdmin, canWrite, type Membership, type Modul } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { AktionsFehler, dbFehlerText, LESE_WAEHLEN_MELDUNG } from '@/lib/fehler'
@@ -39,16 +39,25 @@ import { bkiFarbe } from '@/lib/wein/bki_kuerzel'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
 
-async function getMembership(): Promise<Membership> {
+// KAN-244: Schreibrecht vorab wie RLS bzw. RPC (s112_darf_schreiben) – Jahrgang, Lese, Lesegut und Pressung: Rieden oder
+// Kellerbuch; Traubenverkauf: Rieden oder Warenwirtschaft; AMA-Erntemeldung: Rieden. Vorher prüfte nur die Datenbank.
+const TRAUBENVERKAUF_MODULE: Modul[] = ['rieden', 'warenwirtschaft']
+const AMA_MODULE: Modul[] = ['rieden']
+const MODUL_NAME: Record<string, string> = { rieden: 'Rieden', kellerbuch: 'Kellerbuch', warenwirtschaft: 'Warenwirtschaft' }
+
+async function getMembership(module: Modul[] = ['rieden', 'kellerbuch']): Promise<Membership> {
   const membership = await getCurrentMembership()
   if (!membership) throw new AktionsFehler('Kein aktiver Mandant gefunden')
   await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
   await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
+  if (!module.some(m => canWrite(membership, m))) {
+    throw new AktionsFehler(`Keine Berechtigung – dafür ist die Freigabe ${module.map(m => MODUL_NAME[m] ?? m).join(' oder ')} nötig.`)
+  }
   return membership
 }
 
-async function getTenantId(): Promise<string> {
-  return (await getMembership()).tenantId
+async function getTenantId(module?: Modul[]): Promise<string> {
+  return (await getMembership(module)).tenantId
 }
 
 // ── Hilfen für Meldungen und Eingaben (KAN-35) ───────────────────────────────
@@ -821,7 +830,7 @@ export async function stornoErnteParzelle(id: string, jahrgangId: string, grund:
 
 export async function createOrUpdateAMAMeldung(jahrgangId: string) {
   const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId()
+  const tenantId = await getTenantId(AMA_MODULE)
   // ernte_parzellen hat keine tenant_id – erst den Jahrgang des aktiven Betriebs prüfen
   const jgMeldung = await ladeJahrgang(supabase, tenantId, jahrgangId)
 
@@ -892,7 +901,7 @@ export async function createOrUpdateAMAMeldung(jahrgangId: string) {
 // Statuswechsel (RPC s112_ama_einreichen). Die abgegebene Datei bleibt so byte-gleich abrufbar.
 export async function amaStatusSetzen(meldungId: string, jahrgangId: string, status: AmaZielStatus, datum: string, referenznr: string) {
   const supabase = await createSupabaseServerClient()
-  const membership = await getMembership()
+  const membership = await getMembership(AMA_MODULE)
   const tenantId = membership.tenantId
   const jg = await ladeJahrgang(supabase, tenantId, jahrgangId)
   const heute = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Vienna' })
@@ -929,7 +938,7 @@ export async function amaStatusSetzen(meldungId: string, jahrgangId: string, sta
 // eingereichte Version bleibt unverändert. Danach „Neu berechnen“ übernimmt die aktuellen Lesedaten.
 export async function amaKorrekturAnlegen(meldungId: string, jahrgangId: string) {
   const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId()
+  const tenantId = await getTenantId(AMA_MODULE)
   await ladeJahrgang(supabase, tenantId, jahrgangId)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.rpc as any)('s112_ama_korrektur_anlegen', { p_tenant_id: tenantId, p_meldung_id: meldungId })
@@ -1769,7 +1778,10 @@ const AMA_GESPERRT: Record<string, string> = {
 
 export async function deleteJahrgang(id: string) {
   const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId()
+  const membership = await getMembership()
+  // KAN-244: Löschen erlaubt die Policy nur der Betriebsleitung – vorab statt nach allen Prüfungen
+  if (!canAdmin(membership.role)) throw new AktionsFehler('Einen Jahrgang löschen dürfen nur Betriebsleiter (Admin).')
+  const tenantId = membership.tenantId
   const jg = await ladeJahrgang(supabase, tenantId, id)
 
   const [epRes, pressRes, tvRes, amaRes] = await Promise.all([
@@ -1819,7 +1831,7 @@ export async function deleteJahrgang(id: string) {
 
 export async function createTraubenverkauf(fd: FormData) {
   const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId()
+  const tenantId = await getTenantId(TRAUBENVERKAUF_MODULE)
   // KAN-73: Trauben-Qualität = Stufen der Lese (traubenverkauf hat keinen CHECK) – vor jedem
   // Schreiben und vor der Liefernummer prüfen (keine Lücke im Nummernkreis)
   const qualitaetsstufe = (fd.get('qualitaetsstufe') as string) || null
@@ -1902,7 +1914,7 @@ export async function createTraubenverkauf(fd: FormData) {
 // Rechnungsposition (Menge, Preis, Bezeichnung) und Kopf werden mitgezogen. Bisher blieb die
 // Rechnung beim Bearbeiten über die Lese still auf dem alten Stand.
 export async function updateTraubenverkauf(id: string, fd: FormData) {
-  await getMembership()   // KAN-30/KAN-5: Betrieb und Schreibsperre vorab (upsertTraubenverkauf prüft erneut)
+  await getMembership(TRAUBENVERKAUF_MODULE)   // KAN-30/KAN-5: Betrieb und Schreibsperre vorab (upsertTraubenverkauf prüft erneut)
   const jahrgangId = fd.get('jahrgang_id') as string | null
   fd.set('existing_id', id)
   await upsertTraubenverkauf(fd)
@@ -1919,7 +1931,7 @@ export async function updateTraubenverkauf(id: string, fd: FormData) {
 // Positionen nur im Weinhandel stornieren. Gemeinsame Logik: lib/verkauf/traubenverkaufStorno.ts.
 export async function stornoTraubenverkauf(id: string, jahrgangId: string, grund: string) {
   const supabase = await createSupabaseServerClient()
-  const membership = await getMembership()
+  const membership = await getMembership(TRAUBENVERKAUF_MODULE)
   let postenId: string | null = null
   try {
     postenId = (await traubenverkaufStornieren(supabase, membership, id, grund)).postenId

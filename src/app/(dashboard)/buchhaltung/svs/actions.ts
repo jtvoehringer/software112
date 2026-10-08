@@ -21,7 +21,7 @@ async function ctx(schreiben = true) {
   if (!membership?.tenantId) throw new AktionsFehler('Kein Mandant')
   await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
   await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
-  if (schreiben && !canWrite(membership.role, 'ea')) throw new AktionsFehler('Keine Berechtigung')
+  if (schreiben && !canWrite(membership, 'ea')) throw new AktionsFehler('Keine Berechtigung')
   const supabase = await createSupabaseServerClient()
   return { supabase, tenantId: membership.tenantId, role: membership.role }
 }

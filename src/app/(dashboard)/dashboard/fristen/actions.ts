@@ -21,7 +21,7 @@ async function kontext() {
   if (!membership?.tenantId || !user) throw new AktionsFehler('Nicht angemeldet')
   await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
   await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
-  if (!canWrite(membership.role, 'betrieb')) throw new AktionsFehler('Keine Berechtigung')
+  if (!canWrite(membership, 'betrieb')) throw new AktionsFehler('Keine Berechtigung')
   return { supabase, tenantId: membership.tenantId, userId: user.id }
 }
 

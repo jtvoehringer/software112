@@ -48,7 +48,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!membership?.tenantId) return NextResponse.json({ error: 'Kein Betrieb' }, { status: 401 })
   const gesperrt = await schreibSperreKonflikt(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
   if (gesperrt) return gesperrt
-  if (!canWrite(membership.role, 'warenwirtschaft')) return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 })
+  if (!canWrite(membership, 'warenwirtschaft')) return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 })
   const tenantId = membership.tenantId
 
   let body: { to?: string; message?: string } = {}

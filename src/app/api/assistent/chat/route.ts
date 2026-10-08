@@ -168,7 +168,7 @@ export async function POST(req: NextRequest) {
     if (konflikt) return konflikt
     const gesperrt = await schreibSperreKonflikt(membership, 'ki')   // KAN-5: Nur-Lesen-Modus – KI gesperrt (Kosten)
     if (gesperrt) return gesperrt
-    if (!canWrite(membership.role, 'kellerbuch')) {
+    if (!canWrite(membership, 'kellerbuch')) {
       return NextResponse.json({ fehler: 'Keine Berechtigung für den Assistenten' }, { status: 403 })
     }
 

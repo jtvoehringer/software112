@@ -34,7 +34,7 @@ async function requireWrite(): Promise<{ tenantId: string }> {
   if (!membership) throw new AktionsFehler('Kein Betrieb gefunden')
   await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
   await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
-  if (!canWrite(membership.role, 'rieden')) {
+  if (!canWrite(membership, 'rieden')) {
     throw new AktionsFehler('Keine Berechtigung: Diese Aktion ist Betriebs-Manager, Super-Admin oder Mitarbeiter mit Modulrecht vorbehalten.')
   }
   return { tenantId: membership.tenantId }
