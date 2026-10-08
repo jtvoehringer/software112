@@ -30,6 +30,13 @@ describe('KAN-105: Baustein lib/verkauf/rechnungen', () => {
     assert.equal(b.verkauf_positionen.length, 2)
     assert.equal(b.rechnungsnummer, 'RE-1')
   })
+  test('KAN-103: stornierte Rechnung ohne Lieferscheine → Positionen aus storno_positionen', () => {
+    const b = alsBeleg({ id: 're2', storniert: true, lieferscheine: [], storno_positionen: [{ menge: 1, preis_brutto: 5 }] })
+    assert.deepEqual(b.verkauf_positionen, [{ menge: 1, preis_brutto: 5 }])
+    assert.deepEqual(b.verkaufsposten_ids, [])
+    // mit Lieferscheinen zählen die Lieferscheine, nicht die Momentaufnahme
+    assert.equal(alsBeleg({ ...r, storno_positionen: [{ menge: 99, preis_brutto: 1 }] }).verkauf_positionen.length, 2)
+  })
   test('Bruttobetrag je Position wie der Trigger (auf Cent gerundet)', () => {
     assert.equal(positionBrutto({ menge: 1, preis_brutto: 9.9, rabatt_pct: 10 }), 8.91)
     assert.equal(positionBrutto({ menge: 3, preis_brutto: 9.9, sonderrabatt_pct: 5 }), 28.22)   // 28,215 → 28,22

@@ -2,7 +2,8 @@
 -- @ziel: Ein Lieferschein mit „Rechnung später“ hat keine Rechnungsnummer und keine Rechnung. s112_rechnung_erstellen
 -- @ziel: berechnet ihn (Nummer, Preise, Leistungszeitraum), auch mehrere eines Empfängers; ein berechneter Lieferschein lässt
 -- @ziel: sich nicht stornieren. s112_rechnung_stornieren nur ohne gültige Zahlung; danach ist der Lieferschein wieder offen,
--- @ziel: die Rechnung behält ihre Nummer. Leser dürfen nicht; Spiegel-Rechnungen (sofort) stornieren wie bisher gemeinsam.
+-- @ziel: die Rechnung behält ihre Nummer und ihre Positionen (storno_positionen). Leser dürfen nicht; Spiegel-Rechnungen
+-- @ziel: (sofort) stornieren wie bisher gemeinsam.
 -- @mutation ohne_sperre: Storno-Sperre für berechnete Lieferscheine fehlt | rot: ls_storno_berechnet
 -- @mutation storno_mit_zahlung: Rechnungsstorno prüft keine Zahlungen | rot: storno_mit_zahlung
 --
@@ -98,6 +99,10 @@ BEGIN
   SELECT rechnungsnummer INTO v_nr FROM public.rechnungen WHERE id = v_re;
   v_erg := v_erg || pg_temp.s112_erwarte('rechnung_storniert',
     pg_temp.s112_fehlertext(format('SELECT public.s112_rechnung_stornieren(%L, %L, %L)', v_b, v_re, 'S112TEST Preis falsch')), 'ok');
+  -- KAN-103 Nachtrag: die stornierte Rechnung behält ihre Positionen als Momentaufnahme (Journal mit Beträgen)
+  v_erg := v_erg || pg_temp.s112_erwarte('storno_positionen',
+    (SELECT concat_ws('|', jsonb_array_length(r.storno_positionen), (r.storno_positionen -> 0 ->> 'preis_brutto')::numeric(10, 2))
+       FROM public.rechnungen r WHERE r.id = v_re), '1|12.00');
   v_erg := v_erg || pg_temp.s112_erwarte('ls_wieder_offen',
     (SELECT concat_ws('|', v.rechnung_id IS NULL, v.rechnungsnummer IS NULL, r.storniert, r.rechnungsnummer = v_nr)
        FROM public.verkaufsposten v, public.rechnungen r WHERE v.id = v_ls1 AND r.id = v_re), 't|t|t|t');
@@ -132,5 +137,5 @@ BEGIN
     (SELECT concat_ws('|', r.spiegel, r.storniert) FROM public.rechnungen r JOIN public.verkaufsposten v ON v.rechnung_id = r.id WHERE v.id = v_sof), 't|t');
   PERFORM pg_temp.s112_als_postgres();
 
-  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 16);
+  PERFORM pg_temp.s112_ende(c_datei, v_erg, v_t0, 17);
 END $test$;

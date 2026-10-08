@@ -189,7 +189,7 @@ function nummernVergleich(a: string | null, b: string | null): number {
 export async function ladeRechnungsjournal(supabase: any, tenantId: string, p: RechnungsjournalParameter): Promise<{ zeilen: RechnungsjournalZeile[]; warnungen: string[] }> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: roh, error } = await alle<R>((supabase.from('rechnungen') as any)
-    .select(`id, datum, rechnungsnummer, aktiv, storniert, storniert_am, storniert_von_name, storno_grund, bezahlt, bezahlt_am, partner_daten,
+    .select(`id, datum, rechnungsnummer, aktiv, storniert, storniert_am, storniert_von_name, storno_grund, bezahlt, bezahlt_am, partner_daten, storno_positionen,
       kontakt:kontakte!kontakt_id(vorname, nachname, accountnummer, debitor_nr, land),
       firma:firmen!firma_id(name, uid_nummer, accountnummer, debitor_nr, land),
       ${lieferscheineSelect('preis_brutto, menge, rabatt_pct, sonderrabatt_pct, ust_satz')}`)
