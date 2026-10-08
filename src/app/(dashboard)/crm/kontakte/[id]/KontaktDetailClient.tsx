@@ -23,6 +23,7 @@ import { fmtEur } from '@/lib/format'
 import { useDialog } from '@/components/ui/useDialog'
 import EmailHtmlAnzeige from '@/components/EmailHtmlAnzeige'
 import { kontaktAnzeigename } from '@/lib/crm/titel'
+import { heuteWien } from '@/lib/datum/wien'
 
 // Aktivitäts-Art -> Lucide-Icon (Timeline-Avatar). Gleiches Vokabular wie
 // FirmaDetailClient.tsx / CRM-Kalender.
@@ -63,7 +64,7 @@ function AktivitaetForm({ kontaktId, onDone }: { kontaktId: string; onDone: () =
         <select name="art" defaultValue="notiz" required className={inputCls()}>
           {AKTIVITAET_ARTEN.filter(a => !('nurAnzeige' in a)).map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
         </select>
-        <input name="datum" type="date" defaultValue={new Date().toISOString().split('T')[0]}
+        <input name="datum" type="date" defaultValue={heuteWien()}
           required className={inputCls()} />
       </div>
       <div className="flex items-center gap-3 flex-wrap">
@@ -798,7 +799,7 @@ export default function KontaktDetailClient({
                 if (!notizText.trim()) return
                 setNotizLaden(true)
                 const fd = new FormData()
-                fd.set('kontakt_id', kontakt.id); fd.set('art', 'notiz'); fd.set('betreff', notizText); fd.set('datum', new Date().toISOString().split('T')[0]); fd.set('ganztags', 'true'); fd.set('erledigt', 'false')
+                fd.set('kontakt_id', kontakt.id); fd.set('art', 'notiz'); fd.set('betreff', notizText); fd.set('datum', heuteWien()); fd.set('ganztags', 'true'); fd.set('erledigt', 'false')
                 await createAktivitaet(fd)
                 setNotizText(''); setNotizLaden(false)
               }} className="flex gap-2">

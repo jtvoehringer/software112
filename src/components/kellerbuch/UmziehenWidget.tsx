@@ -11,6 +11,7 @@ import { fmtNum, dezimal } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
 import Link from '@/components/ui/Link'
 import { verschnittHinweis, type VerschnittHinweisDaten } from '@/lib/kellerbuch/verschnittHinweis'
+import { heuteWien } from '@/lib/datum/wien'
 
 type Gebinde = { id: string; name: string; volumen_liter?: number | null }
 type Charge  = { id: string; name: string; menge_liter: number | null; behaelter_id?: string | null; rebsorte?: string | null; weinart?: string | null }
@@ -45,7 +46,7 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
   const [brutto, setBrutto] = useState('')
   const [netto,  setNetto]  = useState('')
   const [zielId, setZielId] = useState('')
-  const [datum,  setDatum]  = useState(new Date().toISOString().split('T')[0])
+  const [datum,  setDatum]  = useState(heuteWien())
   const [notizen, setNotizen] = useState('')
   const [error,  setError]  = useState<string | null>(null)
   // KAN-112: Hinweis „Als Verschnitt in … gebucht“ (statt Weiterleitung ins Verschneiden-Formular)

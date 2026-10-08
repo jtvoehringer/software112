@@ -5,6 +5,7 @@ import Link from '@/components/ui/Link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
 import { createKonto } from '../actions'
+import { heuteWien } from '@/lib/datum/wien'
 
 export const dynamic = 'force-dynamic'
 
@@ -66,7 +67,7 @@ export default async function KontoNeuPage() {
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Eröffnungsdatum *</label>
             <input aria-label="Eröffnungsdatum" type="date" name="eroeffnungsdatum" required
-              defaultValue={new Date().toISOString().slice(0, 10)}
+              defaultValue={heuteWien()}
               className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
             <p className="text-xs text-s112-muted mt-1">Datum des letzten Kontoauszugs, ab dem hier weitergeführt wird.</p>
           </div>

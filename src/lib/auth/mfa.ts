@@ -14,6 +14,7 @@
 // Users → Benutzer → MFA-Faktoren löschen); danach richtet der Benutzer neu ein.
 
 import type { UserRole } from '@/lib/auth/roles'
+import { heuteWien } from '@/lib/datum/wien'
 
 export const MFA_PFLICHT_AB = '2026-10-15'
 export const MFA_PFLICHT_ROLLEN: UserRole[] = ['system_admin', 'tenant_admin']
@@ -51,5 +52,5 @@ export function hatBestaetigtenFaktor(user: MfaUser): boolean {
 
 /** Zwei-Faktor-Pflicht für diese Rolle bereits in Kraft? */
 export function mfaPflichtAktiv(role: UserRole): boolean {
-  return MFA_PFLICHT_ROLLEN.includes(role) && new Date().toISOString().slice(0, 10) >= MFA_PFLICHT_AB
+  return MFA_PFLICHT_ROLLEN.includes(role) && heuteWien() >= MFA_PFLICHT_AB
 }

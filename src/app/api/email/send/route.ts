@@ -7,6 +7,7 @@ import { getCurrentMembership } from '@/lib/auth/roles'
 import { ereignisMelden } from '@/lib/system/ereignis'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
+import { heuteWien } from '@/lib/datum/wien'
 
 export const dynamic = 'force-dynamic'
 
@@ -64,7 +65,7 @@ export async function POST(req: NextRequest) {
       art:          'email',
       betreff,
       beschreibung: text?.slice(0, 200) ?? null,
-      datum:        new Date().toISOString().split('T')[0],
+      datum:        heuteWien(),
       erledigt:     true,
       ganztags:     true,
     })

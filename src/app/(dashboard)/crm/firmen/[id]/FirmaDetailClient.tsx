@@ -22,6 +22,7 @@ import {
 import { fmtEur } from '@/lib/format'
 import { useDialog } from '@/components/ui/useDialog'
 import EmailHtmlAnzeige from '@/components/EmailHtmlAnzeige'
+import { heuteWien } from '@/lib/datum/wien'
 
 // Aktivitäts-Art -> Lucide-Icon (Timeline-Avatar). Gleiches Vokabular wie im
 // CRM-Kalender (CRMUebersichtClient.tsx); dort werden Icons in Status-Chips
@@ -66,7 +67,7 @@ function AktivitaetForm({ firmaId, onDone }: { firmaId: string; onDone: () => vo
         <select name="art" defaultValue="notiz" required className={inputCls()}>
           {AKTIVITAET_ARTEN.filter(a => !('nurAnzeige' in a)).map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
         </select>
-        <input name="datum" type="date" defaultValue={new Date().toISOString().split('T')[0]}
+        <input name="datum" type="date" defaultValue={heuteWien()}
           required className={inputCls()} />
       </div>
 
@@ -925,7 +926,7 @@ export default function FirmaDetailClient({
                 const fd = new FormData()
                 fd.set('art', 'notiz'); fd.set('betreff', notizText)
                 fd.set('firma_id', firma.id)
-                fd.set('datum', new Date().toISOString().split('T')[0]); fd.set('ganztags', 'true'); fd.set('erledigt', 'false')
+                fd.set('datum', heuteWien()); fd.set('ganztags', 'true'); fd.set('erledigt', 'false')
                 await createAktivitaet(fd)
                 setNotizText(''); setNotizLaden(false)
               }} className="flex gap-2">

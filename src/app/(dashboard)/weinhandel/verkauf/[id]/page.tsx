@@ -20,6 +20,7 @@ import { lieferadresseKurz, lieferadresseZeilen, type LieferadresseMoment } from
 import { landAnzeige } from '@/lib/katalog/laender'
 import { tbsText } from '@/lib/handel/tbsNummer'
 import { TB_POSITIONSTYPEN } from '@/lib/behoerden/transportbescheinigung'
+import { heuteWien } from '@/lib/datum/wien'
 
 export const dynamic = 'force-dynamic'
 
@@ -691,7 +692,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <div>
                   <label className="block text-xs text-s112-text-2 mb-1">Datum</label>
-                  <input aria-label="Datum" name="datum" type="date" defaultValue={new Date().toISOString().slice(0, 10)} className="form-input py-2.5 sm:py-2 text-base sm:text-sm w-full" />
+                  <input aria-label="Datum" name="datum" type="date" defaultValue={heuteWien()} className="form-input py-2.5 sm:py-2 text-base sm:text-sm w-full" />
                 </div>
                 <div>
                   <label className="block text-xs text-s112-text-2 mb-1">Art</label>

@@ -9,6 +9,7 @@ import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import type { Zurechnung } from '@/lib/svs/berechnung'
 import { AktionsFehler } from '@/lib/fehler'
 import { dezimal } from '@/lib/format'
+import { heuteWien } from '@/lib/datum/wien'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -111,7 +112,7 @@ export async function speichereSvsOption(werte: { svs_option: 'pauschal' | 'opti
       svs_option: werte.svs_option,
       svs_einkuenfte_manuell: werte.svs_einkuenfte_manuell === null || Number.isNaN(werte.svs_einkuenfte_manuell) ? null : werte.svs_einkuenfte_manuell,
       svs_kv_angehoerige: !!werte.svs_kv_angehoerige,
-      svs_option_seit: werte.svs_option === 'option' ? (werte.svs_option_seit || new Date().toISOString().slice(0, 10)) : null,
+      svs_option_seit: werte.svs_option === 'option' ? (werte.svs_option_seit || heuteWien()) : null,
     })
     .eq('tenant_id', tenantId)
     .select('tenant_id')

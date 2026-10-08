@@ -6,6 +6,7 @@ import { AKTIVITAET_ARTEN } from '@/lib/crm/types'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { ladeMandantMitglieder } from '@/lib/aufgaben/mitglieder'
 import { ladeOutlookStatus } from '@/lib/m365/benutzer'
+import { heuteWien } from '@/lib/datum/wien'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,7 +16,7 @@ type AR = Record<string, any>
 export default async function CRMUebersichtPage({ searchParams }: { searchParams: Promise<{ aktivitaet?: string }> }) {
   const { aktivitaet: oeffneId } = await searchParams
   const supabase = await createSupabaseServerClient()
-  const heute = new Date().toISOString().split('T')[0]
+  const heute = heuteWien()
   const { data: { user } } = await supabase.auth.getUser()
   const currentUserId = user?.id ?? null
   const membership = await getCurrentMembership()

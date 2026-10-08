@@ -8,6 +8,7 @@ import { AlertTriangle, Lock } from 'lucide-react'
 import type { Bewegung } from './page'
 import { fmtEur } from '@/lib/format'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
+import { heuteWien } from '@/lib/datum/wien'
 
 type Konto = {
   id: string
@@ -172,7 +173,7 @@ export default function AbstimmungClient({
                 </div>
                 <div>
                   <label className="block text-xs text-s112-text-2 mb-1">Datum</label>
-                  <input aria-label="Datum" name="datum" type="date" defaultValue={new Date().toISOString().slice(0, 10)} className="form-input text-sm w-full" />
+                  <input aria-label="Datum" name="datum" type="date" defaultValue={heuteWien()} className="form-input text-sm w-full" />
                 </div>
                 <div>
                   <label className="block text-xs text-s112-text-2 mb-1">Betrag (€)</label>

@@ -34,6 +34,7 @@ import { statusDatumFehler, statusWechselBuchungsrelevant } from '@/lib/kellerbu
 import { verarbeitungFehler } from '@/lib/kellerbuch/verarbeitung'
 import { zugangskorrekturFehler } from '@/lib/kellerbuch/zugangskorrektur'
 import { NOTIZ_TYP, notizFehler } from '@/lib/keller/schnellerfassung'
+import { heuteWien } from '@/lib/datum/wien'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -159,7 +160,7 @@ async function protokolliereGebindeUmbenennung(
   const { error: behErr } = await (supabase.from('keller_behandlungen') as any).insert({
     tenant_id:         tenantId,
     behaelter_id:      behaelterId,
-    datum:             new Date().toISOString().slice(0, 10),
+    datum:             heuteWien(),
     typ_id:            typId,
     typ_name_snapshot: TYP_NAME,
     notizen:           `Gebinde umbenannt von „${alterName}" zu „${neuerName}"`,
@@ -754,7 +755,7 @@ export async function verschnittVorschau(formData: FormData): Promise<Verschnitt
     const quellen = verschnittQuellenAus(formData).filter(q => q.weinausbau_id && q.menge >= 0.01)
     if (!zielId || quellen.length === 0) return { fehler: 'Noch keine Quelle mit Menge.' }
     const r = await verschnittVorbereiten(supabase, tenantId, {
-      datum: (formData.get('datum') as string) || new Date().toISOString().slice(0, 10),
+      datum: (formData.get('datum') as string) || heuteWien(),
       ziel: { weinausbauId: zielId }, quellen, notizen: null, pnBestaetigt: true, rotWeissBestaetigt: true,
     })
     if (!('buchung' in r)) return { fehler: 'Vorschau nicht möglich.' }

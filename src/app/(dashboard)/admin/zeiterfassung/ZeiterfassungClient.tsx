@@ -7,6 +7,7 @@ import { createZeiteintrag, updateZeiteintrag, deleteZeiteintrag } from './actio
 import { fmtNum } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
 import { useDialog } from '@/components/ui/useDialog'
+import { heuteWien } from '@/lib/datum/wien'
 
 // ── Phasen ────────────────────────────────────────────────────────────────────
 
@@ -52,7 +53,7 @@ function ZeitForm({
 }) {
   const [pending, startTransition] = useTransition()
   const [err, setErr] = useState<string | null>(null)
-  const today = new Date().toISOString().split('T')[0]
+  const today = heuteWien()
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()

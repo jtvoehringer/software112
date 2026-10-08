@@ -20,6 +20,7 @@ import {
   OHNE_KUNDENRABATT, rabattFuerNeuePosition, wirksamerRabatt, wirksamerSonderrabatt,
   zeilenBetrag, gesamtBetrag, type KundenKonditionen,
 } from '@/lib/verkauf/rabatt'
+import { heuteWien } from '@/lib/datum/wien'
 
 // ── Typen ─────────────────────────────────────────────────────────────────────
 
@@ -240,7 +241,7 @@ export default function NeuerVerkaufPage() {
   const [ustStandard,     setUstStandard]     = useState(13)
 
   // Formular-State
-  const [datum,           setDatum]           = useState(new Date().toISOString().split('T')[0])
+  const [datum,           setDatum]           = useState(heuteWien())
   const [kontaktId,       setKontaktId]       = useState('')
   const [firmaId,         setFirmaId]         = useState('')
   // KAN-176: abweichende Lieferadresse (Auswahl aus den Adressen des Kunden oder neu)

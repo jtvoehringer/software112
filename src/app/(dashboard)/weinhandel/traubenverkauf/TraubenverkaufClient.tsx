@@ -19,6 +19,7 @@ import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
 import type { GespeichertesMostgewicht } from '@/lib/wein/mostgewichtFormular'
 import { leseOrtSchluessel, verfuegbarJeLese } from '@/lib/wein/leseBilanz'
 import { herkunftAnzeige } from '@/lib/zukauf/ware'   // KAN-80 Nachtrag: Code → Bezeichnung, Altwert unverändert
+import { heuteWien } from '@/lib/datum/wien'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -446,7 +447,7 @@ export default function TraubenverkaufClient({ verkaufe, ernteOptions: alleErnte
               <div>
                 <label className="block text-xs font-medium text-s112-text-2 mb-1">Lieferdatum *</label>
                 <input aria-label="Lieferdatum" name="datum" type="date" required
-                  defaultValue={editRow?.datum ?? new Date().toISOString().split('T')[0]}
+                  defaultValue={editRow?.datum ?? heuteWien()}
                   className={inp} />
               </div>
 

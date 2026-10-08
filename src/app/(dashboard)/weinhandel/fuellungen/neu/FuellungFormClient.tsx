@@ -19,6 +19,7 @@ import { pnStatusLabel } from '@/lib/dac/workflow'
 import { fehlerText } from '@/lib/fehler'
 import { KORREKTUR_NACH_OBEN_HINWEIS } from '@/lib/kellerbuch/hinweise'
 import { istSortenverschnitt, sortenAngabePruefen, sortenAngabeVorschlag, weinartAusSortenverschnitt, type SortenAnteil } from '@/lib/wein/sortenangabe'
+import { heuteWien } from '@/lib/datum/wien'
 
 type Charge = {
   id: string
@@ -442,7 +443,7 @@ export default function FuellungFormClient({
             <input aria-label="Abfülldatum"
               name="datum"
               type="date"
-              defaultValue={new Date().toISOString().split('T')[0]}
+              defaultValue={heuteWien()}
               required
               className={inputCls}
             />

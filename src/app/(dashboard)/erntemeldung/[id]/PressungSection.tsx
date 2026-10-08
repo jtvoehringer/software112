@@ -21,6 +21,7 @@ import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
 import { messwertText, mostgewichtAusGespeichert, type GespeichertesMostgewicht } from '@/lib/wein/mostgewichtFormular'
 import { abrunden, formatKmw, KMW_STELLEN, mischenMitAnteil, type Mostgewicht } from '@/lib/wein/mostgewicht'
 import { datumText, lesedatumFehler, lesetageFuerOrt, vorbelegterLesetag, type LeseEintrag, type Lesetag } from '@/lib/wein/pressungLesedatum'
+import { heuteWien } from '@/lib/datum/wien'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -138,7 +139,7 @@ function PressungForm({ jahrgangId, leseId, leseArt, pressung, wgOptions, behOpt
   zukaufTrauben: ZukaufTraubenOpt[]
   behaelterMitCharge?: Record<string, { weinausbau_id: string; name: string; rebsorte?: string | null; menge_liter?: number | null; qualitaetsstufe?: string | null; herkunft_code?: string | null }[]>; onDone: () => void
 }) {
-  const [datum, setDatum]                   = useState(pressung?.datum ?? new Date().toISOString().split('T')[0])
+  const [datum, setDatum]                   = useState(pressung?.datum ?? heuteWien())
   const [mostLiter, setMostLiter]           = useState(pressung?.most_liter_gesamt?.toString().replace('.', ',') ?? '')
   const [weinbezeichnung, setWeinbez]       = useState(pressung?.weinbezeichnung ?? '')
   const [notizen, setNotizen]               = useState(pressung?.notizen ?? '')

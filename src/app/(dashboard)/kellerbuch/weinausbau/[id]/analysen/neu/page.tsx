@@ -7,6 +7,7 @@ import { createAnalyse } from '@/app/(dashboard)/kellerbuch/actions'
 import { fehlerText } from '@/lib/fehler'
 import { dezimal } from '@/lib/format'
 import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
+import { heuteWien } from '@/lib/datum/wien'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -101,7 +102,7 @@ export default function AnalyseNeuPage({ params }: Props) {
                 name="analyse_datum"
                 type="date"
                 required
-                defaultValue={new Date().toISOString().slice(0, 10)}
+                defaultValue={heuteWien()}
                 className="form-input py-2.5 sm:py-2 text-base sm:text-sm"
               />
             </div>

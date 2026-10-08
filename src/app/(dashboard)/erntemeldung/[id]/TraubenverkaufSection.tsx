@@ -19,6 +19,7 @@ import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
 import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
 import type { GespeichertesMostgewicht } from '@/lib/wein/mostgewichtFormular'
 import { herkunftAnzeige } from '@/lib/zukauf/ware'   // KAN-80 Nachtrag: Code → Bezeichnung, Altwert unverändert
+import { heuteWien } from '@/lib/datum/wien'
 
 function Fehlermeldung({ text, onClose }: { text: string; onClose?: () => void }) {
   return (
@@ -102,7 +103,7 @@ function TVForm({ jahrgangId, leseId, tv, quelleOptions, zukaufOptions, onDone }
   const [buyerType, setBuyerType] = useState<'firma' | 'kontakt'>(initType)
   const [kontaktId, setKontakt] = useState(tv?.kontakt_id ?? '')
   const [firmaId, setFirma]     = useState(tv?.firma_id ?? '')
-  const [datum, setDatum]       = useState(tv?.datum ?? new Date().toISOString().split('T')[0])
+  const [datum, setDatum]       = useState(tv?.datum ?? heuteWien())
   const [mengeKg, setMengeKg]   = useState(tv?.menge_kg?.toString().replace('.', ',') ?? '')
   const [preis, setPreis]       = useState(tv?.preis_per_kg?.toString().replace('.', ',') ?? '')
   // Mostgewicht (KAN-128): Vorbelegung bzw. gespeicherter Wert – die Eingabe hält den Messwert selbst

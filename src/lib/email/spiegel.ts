@@ -25,6 +25,7 @@ import { ladeAbsenderIndex, findeAbsender, type AbsenderIndex } from '@/lib/crm/
 import { ereignisMelden } from '@/lib/system/ereignis'
 import { M365TokenFehler, istNeuVerbinden, verbindungName } from '@/lib/m365/tokenFehler'
 import { spiegelFreigabe, SPIEGEL_SPERR_TEXT, type SpiegelBetrieb, type SpiegelMitgliedschaft } from '@/lib/email/spiegelFreigabe'
+import { heuteWien, wienTag } from '@/lib/datum/wien'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -165,7 +166,7 @@ async function spiegleOrdner(
         firma_id: treffer.typ === 'firma' ? treffer.id : null,
         art: 'email', erledigt: false, ganztags: true,
         betreff: m.subject ?? '(kein Betreff)',
-        datum: String(m.receivedDateTime ?? m.sentDateTime ?? '').split('T')[0] || new Date().toISOString().slice(0, 10),
+        datum: (m.receivedDateTime ?? m.sentDateTime) ? wienTag(String(m.receivedDateTime ?? m.sentDateTime)) : heuteWien(),   // KAN-237: Wiener Kalendertag
         email_id: m.id, email_conversation_id: m.conversationId ?? null,
         email_von: m.from?.emailAddress?.address ?? null, email_von_name: m.from?.emailAddress?.name ?? null,
         email_an: (m.toRecipients ?? []).map((r: R) => r.emailAddress?.address).filter(Boolean).join(', ') || null,

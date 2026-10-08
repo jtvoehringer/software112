@@ -14,6 +14,7 @@ import { fmtNum } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
 import { weinartKonflikt, WEINART_LABEL } from '@/lib/keller/weinart'
 import { verschnittHinweis } from '@/lib/kellerbuch/verschnittHinweis'
+import { heuteWien } from '@/lib/datum/wien'
 
 type BehaelterMitCharge = {
   behaelter_id:   string
@@ -171,7 +172,7 @@ function UmziehenForm({ quellen, behaelter, vonBehaelter = null }: { quellen: Be
   const [success, setSuccess]     = useState(false)
   // KAN-112: Hinweise „Als Verschnitt in … gebucht“ – einer je Ziel-Gebinde mit Verschnitt
   const [verschnitt, setVerschnitt] = useState<{ zeilen: string[]; chargeId: string | null }[] | null>(null)
-  const [datum, setDatum]         = useState(new Date().toISOString().split('T')[0])
+  const [datum, setDatum]         = useState(heuteWien())
   const [notizen, setNotizen]     = useState('')
   const [umzugTyp, setUmzugTyp]   = useState<'normal' | 'filtration'>('normal')
   const router = useRouter()

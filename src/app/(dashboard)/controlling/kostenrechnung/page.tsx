@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { Check, Pencil, Trash2 } from 'lucide-react'
 import { fmtEur, fmtNum } from '@/lib/format'
+import { heuteWien } from '@/lib/datum/wien'
 
 type KS = { id: string; name: string; kuerzel?: string; beschreibung?: string }
 type KA = { id: string; name: string; kuerzel?: string; kategorie?: string }
@@ -154,7 +155,7 @@ export default function KostenrechnungPage() {
   const [editId, setEditId] = useState<string|null>(null)
   const [ksId, setKsId] = useState('')
   const [kaId, setKaId] = useState('')
-  const [datum, setDatum] = useState(new Date().toISOString().split('T')[0])
+  const [datum, setDatum] = useState(heuteWien())
   const [betrag, setBetrag] = useState('')
   const [beschreibung, setBeschreibung] = useState('')
   const [objektTyp, setObjektTyp] = useState('')
@@ -186,7 +187,7 @@ export default function KostenrechnungPage() {
 
   function resetForm() {
     setEditId(null); setKsId(''); setKaId('')
-    setDatum(new Date().toISOString().split('T')[0])
+    setDatum(heuteWien())
     setBetrag(''); setBeschreibung(''); setObjektTyp('')
     setSelWgs([]); setWgModus('gleich'); setWgAnteile({})
     setSelBhs([]); setBhModus('gleich'); setBhAnteile({})

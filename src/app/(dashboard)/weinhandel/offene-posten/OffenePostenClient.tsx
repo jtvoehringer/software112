@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from '@/components/ui/Link'
 import { createZahlung } from '../verkauf/actions'
 import { fmtEur, fmtNum } from '@/lib/format'
+import { heuteWien } from '@/lib/datum/wien'
 
 type Posten = {
   id: string
@@ -120,7 +121,7 @@ function PostenZeile({ p, writeOk, konten }: { p: Posten; writeOk: boolean; kont
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <div>
                   <label className="block text-xs text-s112-text-2 mb-1">Datum</label>
-                  <input aria-label="Datum" name="datum" type="date" defaultValue={new Date().toISOString().slice(0, 10)} className="form-input text-sm w-full" />
+                  <input aria-label="Datum" name="datum" type="date" defaultValue={heuteWien()} className="form-input text-sm w-full" />
                 </div>
                 <div>
                   <label className="block text-xs text-s112-text-2 mb-1">Art</label>

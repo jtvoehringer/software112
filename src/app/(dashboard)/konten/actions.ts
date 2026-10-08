@@ -8,6 +8,7 @@ import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { stornoGrundFehler } from '@/lib/storno/grund'
 import { dezimal } from '@/lib/format'
 import { pruefeModul } from '@/lib/auth/modul'
+import { heuteWien } from '@/lib/datum/wien'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -70,7 +71,7 @@ export async function createUmbuchung(formData: FormData) {
   const vonKontoId  = formData.get('von_konto_id') as string
   const nachKontoId = formData.get('nach_konto_id') as string
   const betrag      = parseFloat(dezimal((formData.get('betrag') as string || '')))
-  const datum       = (formData.get('datum') as string) || new Date().toISOString().slice(0, 10)
+  const datum       = (formData.get('datum') as string) || heuteWien()
   const beschreibung = (formData.get('beschreibung') as string) || null
 
   if (!vonKontoId || !nachKontoId) return { error: 'Bitte beide Konten wählen.' }

@@ -30,6 +30,7 @@ import {
   LITER_TOLERANZ,
   type BestandsBuchung,
 } from '@/lib/verkauf/bestand'
+import { heuteWien } from '@/lib/datum/wien'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -665,7 +666,7 @@ export async function markiereAlsBezahlt(id: string) {
       verkaufsposten_id: id,
       betrag: Math.round(offen * 100) / 100,
       art: 'sonstig',
-      datum: new Date().toISOString().slice(0, 10),
+      datum: heuteWien(),
       notizen: 'Als bezahlt markiert',
     })
     if (error) throw new AktionsFehler(dbFehlerText(error))
@@ -737,7 +738,7 @@ export async function createZahlung(
     verkaufsposten_id: verkaufspostenId,
     betrag,
     art,
-    datum: datum || new Date().toISOString().slice(0, 10),
+    datum: datum || heuteWien(),
     notizen, konto_id,
   })
   if (error) throw new AktionsFehler(dbFehlerText(error))

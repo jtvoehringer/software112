@@ -34,3 +34,16 @@ export function tageSeit(datum: string, heute: Date): number {
   const [j, m, t] = String(datum).slice(0, 10).split('-').map(Number)
   return Math.round((Date.UTC(heute.getFullYear(), heute.getMonth(), heute.getDate()) - Date.UTC(j, m - 1, t)) / 86400000)
 }
+
+/** Heute als 'JJJJ-MM-TT' in Wiener Zeit (KAN-237: statt new Date().toISOString().slice(0, 10), das bis 1 bzw. 2 Uhr
+ *  den UTC-Vortag lieferte – auf dem Server wie im Browser) */
+export function heuteWien(jetzt: Date = new Date()): string {
+  return lokalerTag(wienJetzt(jetzt))
+}
+
+const TAG_WIEN = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Vienna', year: 'numeric', month: '2-digit', day: '2-digit' })
+
+/** Wiener Kalendertag ('JJJJ-MM-TT') eines Zeitpunkts (ISO mit Zone, z. B. receivedDateTime von Microsoft Graph) */
+export function wienTag(zeitpunkt: string | Date): string {
+  return TAG_WIEN.format(typeof zeitpunkt === 'string' ? new Date(zeitpunkt) : zeitpunkt)
+}

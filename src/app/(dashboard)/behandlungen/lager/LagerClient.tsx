@@ -9,6 +9,7 @@ import LagerHinweise from './LagerHinweise'
 import { fmtNum } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
 import AnfangsbestandHinweis from './AnfangsbestandHinweis'
+import { heuteWien } from '@/lib/datum/wien'
 
 const TYP_LABEL: Record<string, string> = {
   anfangsbestand: 'Anfangsbestand',
@@ -45,7 +46,7 @@ function BuchungsForm({
   const [fehler, setFehler] = useState<string | null>(null)
   const [typ, setTyp] = useState<string>(edit?.typ ?? 'einkauf')
   const isKorrektur = typ === 'korrektur'
-  const [datum, setDatum] = useState<string>(edit?.datum ?? new Date().toISOString().split('T')[0])
+  const [datum, setDatum] = useState<string>(edit?.datum ?? heuteWien())
   const [richtung, setRichtung] = useState<'eingang' | 'ausgang'>(
     edit ? (edit.menge < 0 ? 'ausgang' : 'eingang') : 'eingang'
   )

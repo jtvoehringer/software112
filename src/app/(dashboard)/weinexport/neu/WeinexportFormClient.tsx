@@ -5,6 +5,7 @@ import Link from '@/components/ui/Link'
 import { Trash2 } from 'lucide-react'
 import { fmtNum } from '@/lib/format'
 import LandOptionen from '@/components/crm/LandOptionen'   // KAN-187: Bestimmungsland als ISO-Code aus dem Länderkatalog
+import { heuteWien } from '@/lib/datum/wien'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
 const INCOTERMS = ['EXW','FCA','FAS','FOB','CFR','CIF','CPT','CIP','DAP','DPU','DDP']
@@ -21,7 +22,7 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
   const [empfaengerTyp, setEmpfaengerTyp] = useState<'kontakt'|'firma'>('firma')
   const [kontaktId, setKontaktId]   = useState('')
   const [firmaId, setFirmaId]       = useState('')
-  const [datum, setDatum]           = useState(new Date().toISOString().split('T')[0])
+  const [datum, setDatum]           = useState(heuteWien())
   const [lieferdatum, setLieferdatum] = useState('')
   const [incoterms, setIncoterms]   = useState('EXW')
   const [transportArt, setTransportArt] = useState('LKW')
