@@ -34,6 +34,8 @@ const styles = StyleSheet.create({
   posName: { flex: 1, paddingRight: 6 },
   posTitle: { fontSize: 9.5, fontWeight: 700 },
   posSub: { fontSize: 8, color: '#888', marginTop: 1 },
+  abschnittRow: { paddingTop: 6, paddingBottom: 3, borderBottomWidth: 1, borderBottomColor: '#EDEEF1', backgroundColor: '#F7F8FA' },
+  abschnittText: { fontSize: 8, fontWeight: 700, color: '#555' },
   qty: { width: 55, fontSize: 9, textAlign: 'right' },
   unit: { width: 45, fontSize: 9, color: '#777' },
   unitPrice: { width: 65, fontSize: 9, textAlign: 'right' },
@@ -57,6 +59,8 @@ const styles = StyleSheet.create({
 })
 
 export type VerkaufRechnungPosition = {
+  /** KAN-105: Sammelrechnung – Zwischenzeile vor der ersten Position eines Lieferscheins („Lieferschein LS-… vom …“) */
+  abschnitt?: string | null
   name: string
   sub: string | null
   menge: number
@@ -81,6 +85,8 @@ export type VerkaufRechnungPdfProps = {
     nummer: string | null
     datumIso: string
     faelligkeitIso: string
+    /** KAN-105: Lieferzeitraum der Sammelrechnung (Text), sonst leer */
+    lieferzeitraum?: string | null
   }
   kunde: {
     name: string
@@ -133,6 +139,7 @@ export function VerkaufRechnungDocument(props: VerkaufRechnungPdfProps) {
             <Text style={[styles.title, { color }]}>RECHNUNG</Text>
             {rechnung.nummer && <Text style={styles.nr}>Nr. {rechnung.nummer}</Text>}
             <Text style={styles.metaText}>Datum: {fmtDate(rechnung.datumIso)}</Text>
+            {rechnung.lieferzeitraum && <Text style={styles.metaText}>Lieferzeitraum: {rechnung.lieferzeitraum}</Text>}
             <Text style={styles.metaText}>
               {bank.zahlungszielTage === 0 ? 'Zahlbar bei Erhalt' : `Zahlbar bis: ${fmtDate(rechnung.faelligkeitIso)}`}
             </Text>
@@ -162,7 +169,11 @@ export function VerkaufRechnungDocument(props: VerkaufRechnungPdfProps) {
         </View>
 
         {positionen.map((pos, i) => (
-          <View key={i} style={styles.posRow}>
+          <View key={i}>
+          {pos.abschnitt && pos.abschnitt !== positionen[i - 1]?.abschnitt && (
+            <View style={styles.abschnittRow}><Text style={styles.abschnittText}>{pos.abschnitt}</Text></View>
+          )}
+          <View style={styles.posRow}>
             <View style={styles.posName}>
               <Text style={styles.posTitle}>{pos.name}</Text>
               {pos.sub && <Text style={styles.posSub}>{pos.sub}</Text>}
@@ -172,6 +183,7 @@ export function VerkaufRechnungDocument(props: VerkaufRechnungPdfProps) {
             <Text style={styles.unitPrice}>{pos.preisBrutto != null ? fmt(pos.preisBrutto) : '–'}</Text>
             <Text style={styles.rabatt}>{pos.rabattPct > 0 ? `${pos.rabattPct}%` : '–'}</Text>
             <Text style={styles.amount}>{pos.summe != null ? fmt(pos.summe) : '–'}</Text>
+          </View>
           </View>
         ))}
 
