@@ -11,6 +11,7 @@ import { dezimal } from '@/lib/format'
 import { abgleichVerkaufsEinnahmen } from '@/lib/ea/verkaufEinnahmen'
 import { ladeRechnungsKontext } from '@/lib/verkauf/rechnungsKontext'
 import { pruefeModul } from '@/lib/auth/modul'
+import { ustSatzAus, UST_SATZ_FEHLER } from '@/lib/ea/ustSatz'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -22,6 +23,9 @@ async function getCtx(mitModul = true) {
   await pruefeSeitenBetrieb(membership.tenantId)   // KAN-30: Seite aus einem anderen Betrieb?
   await pruefeSchreibzugriff(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
   if (mitModul) await pruefeModul('modul_ea')   // KAN-6: Paket-Modul E&A (nicht nur die Seite)
+  // KAN-240: Freigabe E&A wie RLS (modul_insert/_update/_delete auf allen ea_*-Tabellen) – vorab statt technischer
+  // RLS-Meldung. Ohne Modul (Abgleich der Verkaufs-Einnahmen) gilt das Recht, Zahlungen zu erfassen (KAN-239).
+  if (mitModul && !canWrite(membership, 'ea')) throw new AktionsFehler('Keine Berechtigung für die E&A-Rechnung – dafür ist die Freigabe E&A nötig.')
   return { supabase, tenantId: membership.tenantId, membership }
 }
 
@@ -55,13 +59,14 @@ export async function createEaTransaktion(formData: FormData) {
   const beschreibung = formData.get('beschreibung') as string
   const kategorie_id = (formData.get('kategorie_id') as string) || null
   const betrag_netto = parseFloat(dezimal(formData.get('betrag_netto') as string))
-  const ust_satz     = parseFloat(dezimal(formData.get('ust_satz') as string))
+  const ust_satz     = ustSatzAus(formData.get('ust_satz'))   // KAN-240: 0 % bleibt 0 %
   const notizen      = (formData.get('notizen') as string) || null
   const konto_id     = (formData.get('konto_id') as string) || null
 
   if (!typ || !datum || !beschreibung || isNaN(betrag_netto)) {
     return { error: 'Pflichtfelder fehlen' }
   }
+  if (ust_satz === null) return { error: UST_SATZ_FEHLER }
 
   // Zeitraum darf weder abgeschlossen (Monatsabschluss) noch bereits per UVA
   // übermittelt sein – sonst könnte ein geschlossener Zeitraum durch eine
@@ -78,7 +83,7 @@ export async function createEaTransaktion(formData: FormData) {
 
   const { error } = await (supabase.from('ea_transaktionen') as any).insert({
     tenant_id: tenantId, typ, datum, beschreibung,
-    kategorie_id, betrag_netto, ust_satz: ust_satz || 20,
+    kategorie_id, betrag_netto, ust_satz,
     notizen, konto_id, abzugsfaehig_pct,
   })
 
@@ -129,13 +134,15 @@ export async function createEaKategorie(formData: FormData) {
   // beschränkt abzugsfähigen Ausgaben (z.B. Bewirtung/Repräsentation 50%).
   const abzugsfaehigRaw = parseFloat(dezimal(formData.get('abzugsfaehig_pct') as string))
   const abzugsfaehig_pct = isNaN(abzugsfaehigRaw) ? 100 : Math.min(100, Math.max(0, abzugsfaehigRaw))
+  const ustStd = ustSatzAus(formData.get('ust_satz_std'))   // KAN-240: 0 % bleibt 0 %
+  if (ustStd === null) return { error: UST_SATZ_FEHLER }
 
   const { error } = await (supabase.from('ea_kategorien') as any).insert({
     tenant_id:    tenantId,
     typ:          formData.get('typ'),
     name:         formData.get('name'),
     konto_nr:     formData.get('konto_nr') ? parseInt(dezimal(formData.get('konto_nr') as string)) : null,
-    ust_satz_std: parseFloat(dezimal(formData.get('ust_satz_std') as string)) || 20,
+    ust_satz_std: ustStd,
     abzugsfaehig_pct,
   })
 
@@ -148,6 +155,8 @@ export async function createEaKategorie(formData: FormData) {
 
 export async function createEaDauerauftrag(formData: FormData) {
   const { supabase, tenantId } = await getCtx()
+  const ust = ustSatzAus(formData.get('ust_satz'))   // KAN-240: 0 % bleibt 0 %
+  if (ust === null) return { error: UST_SATZ_FEHLER }
 
   const { error } = await (supabase.from('ea_dauerauftraege') as any).insert({
     tenant_id:          tenantId,
@@ -155,7 +164,7 @@ export async function createEaDauerauftrag(formData: FormData) {
     beschreibung:       formData.get('beschreibung'),
     kategorie_id:       (formData.get('kategorie_id') as string) || null,
     betrag_netto:       parseFloat(dezimal(formData.get('betrag_netto') as string)),
-    ust_satz:           parseFloat(dezimal(formData.get('ust_satz') as string)) || 20,
+    ust_satz:           ust,
     intervall:          formData.get('intervall'),
     tag_im_monat:       parseInt(dezimal(formData.get('tag_im_monat') as string)) || 1,
     naechste_faelligkeit: formData.get('naechste_faelligkeit'),
@@ -366,7 +375,7 @@ export async function verbucheBeleg(belegId: string, formData: FormData) {
   const beschreibung = formData.get('beschreibung') as string
   const kategorie_id = (formData.get('kategorie_id') as string) || null
   const betrag_netto = parseFloat(dezimal(formData.get('betrag_netto') as string))
-  const ust_satz     = parseFloat(dezimal(formData.get('ust_satz') as string))
+  const ust_satz     = ustSatzAus(formData.get('ust_satz'))   // KAN-240: 0 % bleibt 0 %
   const notizen      = (formData.get('notizen') as string) || null
   const konto_id     = (formData.get('konto_id') as string) || null
   // Migration 167 - optionaler Lieferant (aus Belege-OCR erkannt/bestätigt
@@ -376,6 +385,7 @@ export async function verbucheBeleg(belegId: string, formData: FormData) {
   if (!typ || !datum || !beschreibung || isNaN(betrag_netto)) {
     return { error: 'Pflichtfelder fehlen' }
   }
+  if (ust_satz === null) return { error: UST_SATZ_FEHLER }
 
   const { data: pruefRaw } = await (supabase.rpc as any)('pruefe_ea_zeitraum_offen', {
     p_tenant_id: tenantId, p_datum: datum,
@@ -390,7 +400,7 @@ export async function verbucheBeleg(belegId: string, formData: FormData) {
   const { data: neu, error } = await (supabase.from('ea_transaktionen') as any)
     .insert({
       tenant_id: tenantId, typ, datum, beschreibung,
-      kategorie_id, betrag_netto, ust_satz: ust_satz || 20,
+      kategorie_id, betrag_netto, ust_satz,
       notizen, konto_id, firma_id, abzugsfaehig_pct,
     })
     .select('id')
@@ -398,13 +408,19 @@ export async function verbucheBeleg(belegId: string, formData: FormData) {
 
   if (error) return { error: (error as R).message }
 
-  await (supabase.from('ea_belege') as any)
+  // KAN-240: scheitert das Markieren, darf der Beleg nicht still „erkannt“ bleiben – sonst ließe er sich ein zweites
+  // Mal verbuchen (doppelte Ausgabe). Die Buchung steht; Meldung wie beim Zahlungseingang (KAN-149): nicht erneut buchen.
+  { const { error: markErr } = await (supabase.from('ea_belege') as any)
     .update({
       ea_transaktion_id: (neu as R).id,
       status:             'verbucht',
       verbucht_am:         new Date().toISOString(),
     })
     .eq('id', belegId).eq('tenant_id', tenantId)
+    if (markErr) {
+      revalidatePath('/buchhaltung')
+      return { error: `Die Buchung ist angelegt (bitte nicht erneut verbuchen), der Beleg konnte aber nicht als verbucht markiert werden: ${dbFehlerText(markErr)}. Bitte die Belege prüfen (lassen).` }
+    } }
 
   revalidatePath('/buchhaltung')
   revalidatePath('/buchhaltung/belege')
