@@ -17,6 +17,8 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
   const router = useRouter()
   const [saving, setSaving] = useState(false)
   const [fehler, setFehler] = useState<string|null>(null)
+  // KAN-246: Auftrag schon angelegt, Positionen gescheitert – Link statt erneutem Speichern (sonst doppelter Auftrag)
+  const [angelegtId, setAngelegtId] = useState<string|null>(null)
 
   // Kopfdaten
   const [empfaengerTyp, setEmpfaengerTyp] = useState<'kontakt'|'firma'>('firma')
@@ -66,7 +68,7 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
         }),
       })
       const data = await res.json()
-      if (!res.ok) { setFehler(data.fehler ?? 'Fehler'); setSaving(false); return }
+      if (!res.ok) { setFehler(data.fehler ?? 'Fehler'); setAngelegtId(data.id ?? null); setSaving(false); return }
       router.push(`/weinexport/${data.id}`)
     } catch (err) { setFehler(String(err)); setSaving(false) }
   }
@@ -235,7 +237,7 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
             className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40 resize-none" />
         </div>
 
-        {fehler && <p className="text-s112-err-fg text-sm">{fehler}</p>}
+        {fehler && <p className="text-s112-err-fg text-sm">{fehler}{angelegtId && <> <Link href={`/weinexport/${angelegtId}`} className="underline">Zum angelegten Auftrag</Link></>}</p>}
         <div className="flex gap-3">
           <button type="submit" disabled={saving}
             className="bg-s112-teal text-s112-yellow px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-s112-teal/90 disabled:opacity-40">

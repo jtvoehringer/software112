@@ -29,6 +29,7 @@ import { istPaketKey, paketPriceId, PAKETE } from '@/lib/pakete'
 import { AktionsFehler } from '@/lib/fehler'
 import { sendEmail } from '@/lib/brevo/api'
 import { APP_URL, EINLADUNG_REDIRECT, findeKontoPerEmail } from '@/lib/auth/einladung'
+import { ereignisMelden } from '@/lib/system/ereignis'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -153,8 +154,10 @@ export async function registrierenAction(formData: FormData): Promise<Ergebnis> 
     return { ok: false, fehler: (memberError as R).message }
   }
 
-  await (admin.from('profiles') as R)
+  // KAN-246: Name im Profil – Fehler protokollieren (die Registrierung selbst ist durch)
+  { const { error: e } = await (admin.from('profiles') as R)
     .upsert({ id: userId, full_name: name, updated_at: new Date().toISOString() }, { onConflict: 'id' })
+    if (e) void ereignisMelden({ art: 'db', quelle: 'signup/profiles', meldung: (e as R).message }) }
 
   return neutraleAntwort(email)
 }

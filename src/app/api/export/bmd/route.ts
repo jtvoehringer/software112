@@ -117,8 +117,12 @@ export async function GET(req: NextRequest) {
     : `BMD_${art === 'ausgangsrechnungen' ? 'AR' : 'ER'}_${von}_${bis}.csv`
 
   // Protokoll + Markierung "übergeben"
+  // KAN-246: Protokoll- und Markierungsfehler kamen nie an – die Seite meldete „übergeben und im Protokoll vermerkt“,
+  // die Belege blieben aber „nicht übergeben“ und kamen beim nächsten Export mit „nur neue“ doppelt nach BMD
+  let protokolliert = false
+  const markierungsFehler: string[] = []
   if (protokollieren) {
-    const { data: prot } = await (supabase.from('buchhaltung_export_protokoll') as any)
+    const { data: prot, error: protErr } = await (supabase.from('buchhaltung_export_protokoll') as any)
       .insert({
         tenant_id: tenantId, art,
         zeitraum_von: art === 'stammdaten' ? null : von,
@@ -127,6 +131,11 @@ export async function GET(req: NextRequest) {
         dateiname, nur_neue: nurNeue, erstellt_von: user?.id ?? null,
       })
       .select('id').single()
+    if (protErr) {
+      markierungsFehler.push(`Protokoll: ${protErr.message}`)
+      void ereignisMelden({ art: 'db', quelle: 'bmd/buchhaltung_export_protokoll', meldung: protErr.message })
+    }
+    protokolliert = !protErr
     const protId = (prot as R | null)?.id
     if (protId) {
       // Admin-Client: ea_transaktionen sind nach Monatsabschluss gesperrt
@@ -138,15 +147,15 @@ export async function GET(req: NextRequest) {
       // KAN-105: die Rechnung trägt die Markierung; ihre Lieferscheine zusätzlich (Zähler „noch nicht übergeben“ lesen dort)
       for (const block of bloecke(belegIds.rechnungen ?? [])) {
         { const { error: e } = await admin.from('rechnungen').update({ bmd_export_id: protId }).eq('tenant_id', tenantId).in('id', block)
-          if (e) void ereignisMelden({ art: 'db', quelle: 'bmd/rechnungen', meldung: e.message }) }
+          if (e) { markierungsFehler.push(`Rechnungen: ${e.message}`); void ereignisMelden({ art: 'db', quelle: 'bmd/rechnungen', meldung: e.message }) } }
       }
       for (const block of bloecke(belegIds.verkaufsposten)) {
         { const { error: e } = await admin.from('verkaufsposten').update({ bmd_export_id: protId }).eq('tenant_id', tenantId).in('id', block)
-          if (e) void ereignisMelden({ art: 'db', quelle: 'bmd/verkaufsposten', meldung: e.message }) }
+          if (e) { markierungsFehler.push(`Lieferscheine: ${e.message}`); void ereignisMelden({ art: 'db', quelle: 'bmd/verkaufsposten', meldung: e.message }) } }
       }
       for (const block of bloecke(belegIds.ea)) {
         { const { error: e } = await admin.from('ea_transaktionen').update({ bmd_export_id: protId }).eq('tenant_id', tenantId).in('id', block)
-          if (e) void ereignisMelden({ art: 'db', quelle: 'bmd/ea_transaktionen', meldung: e.message }) }
+          if (e) { markierungsFehler.push(`E&A-Buchungen: ${e.message}`); void ereignisMelden({ art: 'db', quelle: 'bmd/ea_transaktionen', meldung: e.message }) } }
       }
     }
   }
@@ -155,7 +164,8 @@ export async function GET(req: NextRequest) {
   antwort.headers.set('X-BMD-Anzahl', String(anzahl))
   antwort.headers.set('X-BMD-Summe', String(Math.round(summe * 100) / 100))
   antwort.headers.set('X-BMD-Dateiname', dateiname)
-  antwort.headers.set('X-BMD-Protokolliert', protokollieren ? '1' : '0')
+  antwort.headers.set('X-BMD-Protokolliert', protokolliert ? '1' : '0')
+  if (markierungsFehler.length) antwort.headers.set('X-BMD-Markierung-Fehler', encodeURIComponent(markierungsFehler.join(' · ').slice(0, 1500)))
   antwort.headers.set('X-BMD-Nur-Lesen', nurLesen ? '1' : '0')
   antwort.headers.set('X-BMD-Sammelkonto', String(konten.aufSammelkonto))
   return antwort
@@ -168,8 +178,16 @@ class Personenkonten {
   private cache = new Map<string, string>()
   /** Kunden/Lieferanten ohne eigene Nummer, die über das Sammelkonto laufen (Nur-Lesen-Modus bzw. Fehler) */
   aufSammelkonto = 0
+  // ausgeschrieben statt Parameter-Properties: node:test lädt die Route im Strip-Modus (KAN-246)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  constructor(private supabase: any, private tenantId: string, private mapping: Mapping, private nurLesen = false) {}
+  private supabase: any
+  private tenantId: string
+  private mapping: Mapping
+  private nurLesen: boolean
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  constructor(supabase: any, tenantId: string, mapping: Mapping, nurLesen = false) {
+    this.supabase = supabase; this.tenantId = tenantId; this.mapping = mapping; this.nurLesen = nurLesen
+  }
 
   /** Debitorenkonto für Firma (bevorzugt) oder Kontakt - vergibt bei Bedarf eine neue Nummer */
   async debitor(firma: R | null, kontakt: R | null): Promise<string> {

@@ -106,6 +106,8 @@ function UebergabeTab({ offeneRechnungen, offeneAusgaben, darfUebergeben, nurLes
       const protokolliert = res.headers.get('X-BMD-Protokolliert') === '1'
       const serverNurLesen = res.headers.get('X-BMD-Nur-Lesen') === '1'
       const sammel = Number(res.headers.get('X-BMD-Sammelkonto') ?? 0)
+      // KAN-246: Protokoll bzw. Markierung „übergeben“ gescheitert – sonst kämen die Belege mit „nur neue“ doppelt
+      const markierungFehler = res.headers.get('X-BMD-Markierung-Fehler')
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a'); a.href = url; a.download = dateiname; a.click(); URL.revokeObjectURL(url)
       const zusatz = [
@@ -118,6 +120,10 @@ function UebergabeTab({ offeneRechnungen, offeneAusgaben, darfUebergeben, nurLes
           ? `${sammel} Kunde(n)/Lieferant(en) ohne Personenkonto über das Sammelkonto übergeben${serverNurLesen ? ' (im Nur-Lesen-Modus werden keine neuen Konten vergeben)' : ''}.`
           : '',
       ].filter(Boolean).join(' ')
+      if (markierungFehler) {
+        setMeldung({ typ: 'fehler', text: `Die Datei ${dateiname} wurde erstellt, aber nicht alle Belege konnten als „übergeben“ vermerkt werden (${decodeURIComponent(markierungFehler)}). Bitte die Datei nur einmal in BMD einlesen und vor der nächsten Übergabe mit „nur neue“ den Support informieren – sonst kommen diese Belege doppelt.` })
+        return
+      }
       setMeldung({
         typ: zusatz ? 'info' : 'ok',
         text: (art === 'stammdaten'
