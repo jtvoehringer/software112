@@ -75,6 +75,7 @@ export const NUR_LESEN_FREIE_PFADE: readonly { pfad: string; grund: string }[] =
   { pfad: '/api/nachrichten/disconnect', grund: 'gespeicherte Postfach-Zugangsdaten entfernen (Datenschutz)' },
   { pfad: '/api/betrieb/aktiv', grund: 'Betriebs-Wächter (nur lesend)' },
   { pfad: '/api/me', grund: 'Sitzungsdaten (nur lesend)' },
+  { pfad: '/api/support/anfragen', grund: 'Support-Anfrage an Jira (KAN-230) – keine Betriebsdaten, Support muss gerade im Nur-Lesen-Modus erreichbar sein' },
 ]
 
 /**
