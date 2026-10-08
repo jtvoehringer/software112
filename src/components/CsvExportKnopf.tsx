@@ -30,7 +30,8 @@ type Gemeinsam = {
   hinweis?: string
 }
 export type CsvExportKnopfProps =
-  | (Gemeinsam & { href: string; erzeugen?: undefined })
+  // KAN-120: methode 'POST' für Exporte mit Protokoll (Seiteneffekt nur per POST); nachErfolg z. B. router.refresh()
+  | (Gemeinsam & { href: string; erzeugen?: undefined; methode?: 'GET' | 'POST'; nachErfolg?: () => void })
   | (Gemeinsam & { erzeugen: () => CsvErzeugt | Promise<CsvErzeugt>; href?: undefined })
 
 type Meldung = { typ: 'ok' | 'hinweis' | 'fehler'; text: string; details?: string[] }
@@ -80,7 +81,7 @@ export default function CsvExportKnopf(props: CsvExportKnopfProps) {
   useEffect(() => () => { aktiv.current = false }, [])
 
   async function vomServer(href: string): Promise<Meldung> {
-    const res = await fetch(href, { cache: 'no-store', credentials: 'same-origin', headers: { Accept: 'text/csv, application/json' } })
+    const res = await fetch(href, { method: (props.href !== undefined && props.methode) || 'GET', cache: 'no-store', credentials: 'same-origin', headers: { Accept: 'text/csv, application/json' } })
     const typ = res.headers.get('Content-Type') ?? ''
     if (res.redirected && new URL(res.url, window.location.href).pathname === '/zwei-faktor') {
       return { typ: 'fehler', text: 'Bitte zuerst den Zwei-Faktor-Code bestätigen und den Export danach erneut starten.' }
@@ -100,6 +101,7 @@ export default function CsvExportKnopf(props: CsvExportKnopfProps) {
     const warnungen = dekodieren(res.headers.get('X-Warnungen')).split('\n').map(w => w.trim()).filter(Boolean)
     const anzahl = Math.max(Number(res.headers.get('X-Warnungen-Anzahl')) || 0, warnungen.length)
     herunterladen(blob, dateiname)
+    if (props.href !== undefined) props.nachErfolg?.()
     return ergebnisMeldung(dateiname, zeilen, warnungen, anzahl, href.startsWith('/meldungen/'))
   }
 

@@ -178,7 +178,8 @@
 "storniert_am",
 "storniert_von",
 "storniert_von_name",
-"storno_grund"
+"storno_grund",
+"version"
 ],
 "benachrichtigungen": [
 "id",
@@ -1498,6 +1499,21 @@
 "storniert_von",
 "storniert_von_name",
 "storno_grund"
+],
+"psm_uebermittlungen": [
+"id",
+"tenant_id",
+"behandlung_id",
+"export_id",
+"version",
+"kanal",
+"status",
+"hash",
+"zeilen",
+"referenz_extern",
+"exportiert_am",
+"exportiert_von",
+"exportiert_von_name"
 ],
 "rabattgruppen": [
 "id",

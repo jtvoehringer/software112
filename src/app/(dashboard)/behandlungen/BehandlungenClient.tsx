@@ -149,6 +149,7 @@ export default function BehandlungenClient({
                   <th className="px-3 py-2 text-left w-[11%]">Erntefrei ab</th>
                   <th className="px-3 py-2 text-left">Ried(en)</th>
                   <th className="px-3 py-2 text-right w-[8%]">Kosten</th>
+                  <th className="px-3 py-2 text-left w-[10%]">Übermittlung</th>
                   {schreibOk && <th className="px-3 py-2 text-right w-[8%]">Aktionen</th>}
                 </tr>
               </thead>
@@ -192,6 +193,15 @@ export default function BehandlungenClient({
                     </td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-xs">
                       {b.kosten_betrag != null ? <span className="text-s112-text-1 font-medium">{formatEuro(b.kosten_betrag)} €</span> : <span className="text-s112-muted">–</span>}
+                    </td>
+                    {/* KAN-120: Übermittlungsstatus der Pflanzenschutz-Aufzeichnung */}
+                    <td className="px-3 py-2.5 text-xs">
+                      {b.uebermittlung ? (
+                        <span title={b.uebermittlung.am ? `Zuletzt exportiert am ${new Date(b.uebermittlung.am).toLocaleString('de-AT', { timeZone: 'Europe/Vienna', dateStyle: 'short', timeStyle: 'short' })}` : 'Noch nicht exportiert'}
+                          className={`inline-block px-2 py-0.5 rounded-full ${b.uebermittlung.status === 'exportiert' ? 'bg-s112-ok-bg text-s112-ok-fg' : b.uebermittlung.status === 'korrektur' ? 'bg-s112-warn-bg text-s112-warn-fg' : 'bg-[#F2F3F5] text-s112-text-2'}`}>
+                          {b.uebermittlung.text}
+                        </span>
+                      ) : <span className="text-s112-muted">–</span>}
                     </td>
                     {schreibOk && (
                       <td className="px-3 py-2.5 text-right">
