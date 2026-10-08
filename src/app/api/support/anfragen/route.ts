@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
     const accountId = await kundeSicherstellen(k.user.email!, k.benutzerName ?? k.user.email!)
     const limit = rateLimitFehler(await anfragenImFenster(accountId))
     if (limit) return NextResponse.json({ fehler: limit }, { status: 429, headers: keinCache })
-    await organisationZuordnen(k.betriebName, accountId)
+    const organisationId = await organisationZuordnen(k.betriebName, accountId)
 
     const beschreibung = beschreibungMitKontext(String(eingabe.beschreibung), {
       betriebName: k.betriebName,
@@ -113,6 +113,7 @@ export async function POST(req: NextRequest) {
       anfragetypId: await anfragetypId(ANFRAGE_ARTEN[art].name),
       betreff: String(eingabe.betreff).trim(),
       beschreibung,
+      organisationId,
       prioritaet: art === 'premium' && dringlichkeit === 'hoch' ? 'Highest' : DRINGLICHKEITEN[dringlichkeit].prioritaet,
       screenshot: screenshot ? { datei: screenshot, name: screenshot.name || 'screenshot.png' } : null,
     })

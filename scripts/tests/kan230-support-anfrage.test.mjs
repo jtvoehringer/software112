@@ -119,6 +119,14 @@ describe('KAN-230 Verdrahtung', () => {
     assert.doesNotMatch(jsm + route, /NEXT_PUBLIC_JSM/)
     assert.doesNotMatch(quelle('src/app/(dashboard)/hilfe/support/SupportAnfrage.tsx'), /JSM_API|lib\/support\/jsm/)
   })
+  test('Anfrage wird der Organisation des Betriebs zugeordnet (Feld über den Typ gesucht, nicht fest verdrahtet)', () => {
+    const jsm = quelle('src/lib/support/jsm.ts')
+    assert.match(route, /const organisationId = await organisationZuordnen\(/)
+    assert.match(route, /organisationId,/)
+    assert.match(jsm, /sd-customer-organizations/)
+    assert.match(jsm, /fields\[orgFeld\] = \[a\.organisationId\]/)
+    assert.doesNotMatch(jsm, /customfield_10002/)
+  })
   test('Support-Seite zeigt das Formular nur mit Konfiguration', () => {
     assert.match(quelle('src/app/(dashboard)/hilfe/support/page.tsx'), /jsmKonfiguriert\(\) && <SupportAnfrage/)
   })

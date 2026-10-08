@@ -77,8 +77,9 @@ export async function kundeSicherstellen(email: string, anzeigename: string): Pr
   return accountId
 }
 
-/** Organisation = Betrieb; Kunde wird Mitglied. Fehler hier sind nicht kritisch (nur fürs Teilen). */
-export async function organisationZuordnen(betriebName: string, accountId: string): Promise<void> {
+/** Organisation = Betrieb; Kunde wird Mitglied. Liefert die Organisations-ID (für das Feld „Organizations“
+ *  der Anfrage). Fehler hier sind nicht kritisch (nur fürs Teilen im Betrieb) → null. */
+export async function organisationZuordnen(betriebName: string, accountId: string): Promise<number | null> {
   try {
     const vorhanden = await json(`/rest/servicedeskapi/servicedesk/${JSM_SERVICEDESK_ID}/organization?limit=200`, {}, 'Organisationen')
     let org = ((vorhanden.values ?? []) as R[]).find(o => o.name === betriebName)
@@ -87,9 +88,18 @@ export async function organisationZuordnen(betriebName: string, accountId: strin
       await json(`/rest/servicedeskapi/servicedesk/${JSM_SERVICEDESK_ID}/organization`, { method: 'POST', body: JSON.stringify({ organizationId: Number(org.id) }) }, 'Organisation zuordnen')
     }
     await json(`/rest/servicedeskapi/organization/${org.id}/user`, { method: 'POST', body: JSON.stringify({ accountIds: [accountId] }) }, 'Organisation Mitglied')
+    return Number(org.id)
   } catch (e) {
     console.error('[jsm] Organisation nicht zugeordnet:', (e as Error).message)
+    return null
   }
+}
+
+/** Feld-ID des JSM-Felds „Organizations“ (je Site verschieden, deshalb nachgeschlagen) */
+async function organisationsFeldId(): Promise<string | null> {
+  const felder = await json('/rest/api/3/field', {}, 'Felder') as unknown as R[]
+  const f = (Array.isArray(felder) ? felder : []).find(x => x.schema?.custom === 'com.atlassian.servicedesk:sd-customer-organizations')
+  return (f?.id as string | undefined) ?? null
 }
 
 // ── Anfrage ──────────────────────────────────────────────────────────────────────────────────────────────
@@ -116,6 +126,7 @@ export type NeueAnfrage = {
   betreff: string
   beschreibung: string
   prioritaet: string
+  organisationId: number | null
   screenshot: { datei: Blob; name: string } | null
 }
 
@@ -149,12 +160,19 @@ export async function anfrageAnlegen(a: NeueAnfrage): Promise<{ key: string; lin
     }
   }
 
+  // Priorität und Organisation (Betrieb) setzt der Agent nachträglich – beide stehen nicht im Kundenformular
   try {
-    await json(`/rest/api/3/issue/${encodeURIComponent(key)}`, {
-      method: 'PUT', body: JSON.stringify({ fields: { priority: { name: a.prioritaet } } }),
-    }, 'Priorität')
+    const fields: R = { priority: { name: a.prioritaet } }
+    const orgFeld = a.organisationId != null ? await organisationsFeldId() : null
+    if (orgFeld) fields[orgFeld] = [a.organisationId]
+    await json(`/rest/api/3/issue/${encodeURIComponent(key)}`, { method: 'PUT', body: JSON.stringify({ fields }) }, 'Priorität/Organisation')
   } catch (e) {
-    console.error('[jsm] Priorität nicht gesetzt:', (e as Error).message)
+    console.error('[jsm] Priorität/Organisation nicht gesetzt:', (e as Error).message)
+    try {   // Organisation scheitert z. B., wenn das Feld nicht auf dem Bearbeiten-Screen liegt – Priorität trotzdem setzen
+      await json(`/rest/api/3/issue/${encodeURIComponent(key)}`, { method: 'PUT', body: JSON.stringify({ fields: { priority: { name: a.prioritaet } } }) }, 'Priorität')
+    } catch (e2) {
+      console.error('[jsm] Priorität nicht gesetzt:', (e2 as Error).message)
+    }
   }
 
   return { key, link: portalLink(key), hinweise }
