@@ -41,7 +41,7 @@ const AUSNAHME = /alle-ausnahme\s*:\s*(.*)$/i
 const GROSSE_TABELLEN = [
   'kontakte', 'firmen', 'aktivitaeten', 'aktivitaet_dokumente', 'pipeline_eintraege', 'datenschutz_consents',
   'grundstuecke', 'behandlungen', 'behandlung_grundstuecke', 'wetter_stunden', 'zeiterfassung',
-  'verkaufsposten', 'verkauf_positionen', 'zahlungen', 'sumup_transaktionen',
+  'verkaufsposten', 'verkauf_positionen', 'zahlungen', 'sumup_transaktionen', 'rechnungen',   // KAN-102: rechnungen
   'ea_transaktionen', 'ea_belege', 'konto_umbuchungen', 'fibu_buchungssaetze',
   'kosteneintraege', 'kosteneintrag_weingaerten',
   'psm_lager_bewegungen', 'duengemittel_lager_bewegungen', 'betriebsmittel_lager_bewegungen',

@@ -1312,6 +1312,7 @@ LANGUAGE sql IMMUTABLE AS $f$
     ('trigger',       '--S', false, 's112_rechnung_id_schutz()'),   -- KAN-102: rechnung_id nicht per API
     ('trigger',       '--S', false, 's112_rechnung_spiegeln()'),   -- KAN-102: Spiegel Lieferschein → Rechnung
     ('trigger',       '--S', false, 's112_rechnung_aufraeumen()'),   -- KAN-102: Rechnung ohne Lieferschein (Wartung)
+    ('trigger',       '--S', false, 's112_zahlung_rechnung()'),   -- KAN-105: Zahlung an die Rechnung des Lieferscheins
     ('mandant',       '-US', true , 'get_next_transaktionsnr(p_tenant_id uuid, p_typ text)'),
     ('rls_hilfe',     '-US', false, 'get_user_role_in_tenant(p_tenant_id uuid)'),
     ('rls_hilfe',     '-US', false, 'get_user_tenant_ids()'),

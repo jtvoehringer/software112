@@ -80,7 +80,7 @@ const UMGESTELLT = [
   ['src/app/(dashboard)/behandlungen/page.tsx', 'kosteneintraege', 'Kosten je Maßnahme zu niedrig'],
   ['src/app/api/kostenrechnung/route.ts', 'kosteneintraege', 'Jahresauswertung Kostenrechnung unvollständig', { begrenztErlaubt: true }],
   ['src/app/api/kostenrechnung/route.ts', 'kosteneintrag_weingaerten', 'Aufteilung auf Rieden unvollständig'],
-  ['src/app/(dashboard)/weinhandel/offene-posten/page.tsx', 'verkaufsposten', 'offene Posten fehlten in Liste und Summe'],
+  ['src/app/(dashboard)/weinhandel/offene-posten/page.tsx', 'rechnungen', 'offene Posten fehlten in Liste und Summe (KAN-105: Quelle rechnungen)'],
   ['src/app/(dashboard)/weinhandel/offene-posten/page.tsx', 'zahlungen', 'Teilzahlungen nicht abgezogen'],
   ['src/app/(dashboard)/reports/(controlling)/page.tsx', 'verkaufsposten', 'Summe offener Posten zu niedrig'],
   ['src/app/(dashboard)/reports/(controlling)/page.tsx', 'pipeline_eintraege', 'Pipeline-Auswertung unvollständig'],
