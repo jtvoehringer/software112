@@ -67,7 +67,13 @@ function doppel(tabellen) {
     const q = {
       select() { return q },
       order(k, o) { sortierung.push([k, o?.ascending !== false]); return q },
-      eq(k, v) { protokoll.filter.push(['eq', k, v]); filter.push(r => r[k] === v); return q },
+      // „tabelle.spalte“ = Filter auf eine eingebettete Liste (wie !inner): Zeile bleibt, wenn ein Element passt
+      eq(k, v) {
+        protokoll.filter.push(['eq', k, v])
+        const [a, b] = k.split('.')
+        filter.push(b ? (r => (r[a] ?? []).some(x => x[b] === v)) : (r => r[k] === v))
+        return q
+      },
       neq(k, v) { filter.push(r => r[k] !== v); return q },
       gt(k, v) { filter.push(r => r[k] > v); return q },
       gte(k, v) { filter.push(r => r[k] >= v); return q },
@@ -382,6 +388,56 @@ describe('rechnungsausgangsjournal – Netto/USt je Satz, Storno, Lücken', () =
     assert.equal(r.zeilen.length, 1)
     assert.equal(r.zeilen[0].storniert, true)
     assert.equal(r.zeilen[0].brutto, 120)       // ohne Momentaufnahme stünde hier 0
+  })
+
+  // KAN-105 Teil B: Export-Rechnungen als eigener Nummernkreis; Link je Zeile zur Rechnung bzw. zum Exportauftrag
+  test('KAN-105: Export-Rechnungen (ausgestellt) mit Exportnummer, 0 %, eigene Lückenprüfung, Links', async () => {
+    const re = alsRechnung({ ...posten, id: 're1', rechnungsnummer: 'RE-2026-0001', storniert: false, storniert_am: null, datum: '2026-03-03' })
+    const ex = (id, referenz, datum, dok, extra = {}) => ({
+      id, tenant_id: T, datum, referenz, aktiv: true, storniert_am: null, storniert_von_name: null, storno_grund: null,
+      kontakt: null, firma: { name: 'Wine Imports Ltd', uid_nummer: null, accountnummer: null, debitor_nr: null, land: 'GB' },
+      exportauftrag_positionen: [{ preis_eur: 8.5, menge: 120 }, { preis_eur: 20, menge: 6 }],
+      export_dokumente: dok, ...extra,
+    })
+    const ausgestellt = [{ dokument_art: 'cmr', status: 'ausgestellt' }, { dokument_art: 'rechnung', status: 'ausgestellt' }]
+    const db = doppel({
+      rechnungen: [re],
+      exportauftraege: [
+        ex('e1', 'EX-2026-0001', '2026-03-05', ausgestellt),
+        ex('e3', 'EX-2026-0003', '2026-03-20', ausgestellt, { storniert_am: '2026-03-21T10:00:00Z', storniert_von_name: 'Jörgen', storno_grund: 'Lieferung abgesagt' }),
+        ex('e4', 'EX-2026-0004', '2026-03-22', [{ dokument_art: 'rechnung', status: 'ausstehend' }]),   // Rechnung nicht ausgestellt
+        ex('e5', 'EX-2026-0005', '2026-04-02', ausgestellt),                                              // anderer Zeitraum
+        { ...ex('e6', 'EX-2026-0006', '2026-03-23', ausgestellt), tenant_id: FREMD },
+      ],
+    })
+    const r = await rj.ladeRechnungsjournal(db, T, { von: '2026-03-01', bis: '2026-03-31' })
+    mandantGefiltert(db)
+    assert.deepEqual(r.zeilen.map(z => [z.rechnungsnummer, z.quelle, z.href]), [
+      ['RE-2026-0001', 'rechnung', '/weinhandel/rechnungen/re1'],
+      ['EX-2026-0001', 'export', '/weinexport/e1'],
+      ['EX-2026-0003', 'export', '/weinexport/e3'],
+    ])
+    const e1 = r.zeilen[1]
+    assert.equal(e1.netto0, 1140)              // 8,5·120 + 20·6, steuerfreie Ausfuhr
+    assert.equal(e1.ustGesamt, 0)
+    assert.equal(e1.brutto, 1140)
+    assert.equal(e1.land, 'GB')
+    assert.equal(e1.bezahlt, false)
+    assert.equal(r.zeilen[2].storniert, true)
+    assert.equal(r.zeilen[2].stornoGrund, 'Lieferung abgesagt')
+    assert.ok(r.warnungen.includes('Export-Rechnungen: Lücke in den Rechnungsnummern: EX-2026-0002 fehlt im Zeitraum.'), r.warnungen.join(' | '))
+    assert.ok(r.warnungen.includes('2 Export-Rechnungen sind mit der Exportnummer (eigener Nummernkreis, steuerfreie Ausfuhr) enthalten – ohne Zahlungsstatus.'))
+    assert.ok(!r.warnungen.some(w => /^Lücke/.test(w)), 'RE-Kreis ohne Lücke')
+    // CSV unverändert: Quelle und Link sind keine Spalten
+    assert.equal(zeilen(csvText([e1], rj.SPALTEN_RECHNUNGSJOURNAL))[1], 'EX-2026-0001;05.03.2026;Wine Imports Ltd;;;GB;;;;;;;1140,00;1140,00;0,00;1140,00;Nein;;;;Nein;')
+  })
+
+  test('KAN-105: exportAlsBeleg – Exportnummer, Positionen zu 0 %, Storno aus storniert_am', () => {
+    const b = rj.exportAlsBeleg({ id: 'x', referenz: 'EX-1', storniert_am: '2026-03-01T00:00:00Z', exportauftrag_positionen: [{ preis_eur: null, menge: 3 }, { preis_eur: 2, menge: 1 }] })
+    assert.equal(b.rechnungsnummer, 'EX-1')
+    assert.equal(b.storniert, true)
+    assert.deepEqual(b.verkauf_positionen, [{ preis_brutto: null, menge: 3, ust_satz: 0 }, { preis_brutto: 2, menge: 1, ust_satz: 0 }])
+    assert.equal(b.href, '/weinexport/x')
   })
 })
 

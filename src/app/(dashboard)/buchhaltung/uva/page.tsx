@@ -121,8 +121,9 @@ export default async function UvaPage({
         <div className="bg-s112-blue-50 border border-s112-blue-100 text-s112-blue-700 rounded-xl px-5 py-4 mb-6 text-sm">
           <p className="font-semibold mb-1">Die UVA meldet dein Steuerberater aus BMD.</p>
           <p>
-            Dieser Betrieb führt die doppelte Buchhaltung beim Steuerberater. Die Zahlen hier sind eine Kontroll-Vorschau
-            aus den in software:112 erfassten Belegen – bitte nicht zusätzlich in FinanzOnline eingeben. Entscheidend ist,
+            Dieser Betrieb führt die doppelte Buchhaltung beim Steuerberater. Die Zahlen hier sind eine Kontroll-Vorschau:
+            Umsätze aus den Rechnungen nach Rechnungsdatum, Vorsteuer aus den in software:112 erfassten Belegen – bitte
+            nicht zusätzlich in FinanzOnline eingeben. Entscheidend ist,
             dass alle Belege des Zeitraums übergeben sind:{' '}
             <Link href="/controlling/bmd" className="underline font-medium">zur BMD-Übergabe →</Link>
           </p>
@@ -162,7 +163,10 @@ export default async function UvaPage({
             </form>
             <p className="text-xs text-s112-muted mt-2">
               Berechnet USt und VSt aus den Buchungen und speichert die Meldung (kann beliebig oft wiederholt werden,
-              solange die Meldung noch nicht als übermittelt markiert ist).
+              solange die Meldung noch nicht als übermittelt markiert ist).{' '}
+              {doppik
+                ? 'Umsätze nach Rechnungsdatum (Rechnungen), Vorsteuer aus den Belegen.'
+                : 'Umsätze aus Verkäufen nach Zahlungseingang (Ist-Versteuerung), je Zahlung am Zahlungstag.'}
             </p>
           </>
         ) : (
