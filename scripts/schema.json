@@ -1520,6 +1520,35 @@
 "aktiv",
 "kuerzel_amtlich"
 ],
+"rechnungen": [
+"id",
+"tenant_id",
+"rechnungsnummer",
+"datum",
+"leistung_von",
+"leistung_bis",
+"kontakt_id",
+"firma_id",
+"zh_kontakt_id",
+"partner_daten",
+"skonto_pct",
+"skonto_tage",
+"skonto_aktiv",
+"notizen",
+"aktiv",
+"storniert",
+"storniert_am",
+"storniert_von",
+"storniert_von_name",
+"storno_grund",
+"bezahlt",
+"bezahlt_am",
+"rechnung_versendet_am",
+"rechnung_versendet_an",
+"bmd_export_id",
+"erstellt_am",
+"aktualisiert_am"
+],
 "release_notes": [
 "id",
 "version",
@@ -1754,7 +1783,10 @@
 "weinausbau_prefix",
 "weinausbau_stellen",
 "weinausbau_zaehler",
-"psm_erfassungsfrist_h"
+"psm_erfassungsfrist_h",
+"lieferschein_prefix",
+"lieferschein_stellen",
+"lieferschein_zaehler"
 ],
 "tenant_memberships": [
 "id",
@@ -1926,7 +1958,9 @@
 "storno_grund",
 "partner_daten",
 "lieferadresse",
-"lieferadresse_id"
+"lieferadresse_id",
+"lieferscheinnummer",
+"rechnung_id"
 ],
 "verschneidung_quellen": [
 "id",

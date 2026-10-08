@@ -41,14 +41,14 @@ export default async function VerkaufPage({ searchParams }: { searchParams: Prom
   const { data: postenRaw } = await tf(
     (supabase.from('verkaufsposten') as any)
       .select(`
-        id, datum, rechnungsnummer, transaktions_nr, notizen, erstellt_am, storniert, bezahlt,
+        id, datum, rechnungsnummer, lieferscheinnummer, transaktions_nr, notizen, erstellt_am, storniert, bezahlt,
         kontakt:kontakte!kontakt_id(id, vorname, nachname),
         firma:firmen(id, name),
         positionen:verkauf_positionen(id, name, menge, einheit, preis_brutto, typ, rabatt_pct, sonderrabatt_pct)
       `)
       .eq('aktiv', true)
   )
-    .or(q ? [`rechnungsnummer.ilike.*${qSicher}*`, `transaktions_nr.ilike.*${qSicher}*`, ...(tbsTreffer.length ? [`id.in.(${tbsTreffer.join(',')})`] : [])].join(',') : 'id.not.is.null')
+    .or(q ? [`rechnungsnummer.ilike.*${qSicher}*`, `lieferscheinnummer.ilike.*${qSicher}*`, `transaktions_nr.ilike.*${qSicher}*`, ...(tbsTreffer.length ? [`id.in.(${tbsTreffer.join(',')})`] : [])].join(',') : 'id.not.is.null')
     .order('datum', { ascending: false })
     .order('erstellt_am', { ascending: false })
     .limit(100)
@@ -179,6 +179,7 @@ export default async function VerkaufPage({ searchParams }: { searchParams: Prom
                           {p.rechnungsnummer ?? 'ohne Belegnr.'}
                         </Link>
                       </StopPropagation>
+                      {p.lieferscheinnummer && <div className="font-mono text-xs text-s112-muted mt-0.5">{p.lieferscheinnummer}</div>}
                       {p.transaktions_nr && <div className="font-mono text-xs text-s112-muted mt-0.5">{p.transaktions_nr}</div>}
                       {tbsJePosten.has(String(p.id)) && <div className="font-mono text-xs text-s112-muted mt-0.5">TBS {tbsJePosten.get(String(p.id))}</div>}
                     </td>

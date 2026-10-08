@@ -70,7 +70,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
   const [{ data: postenRaw }, settings, { data: zahlungenRaw }, { count: traubenverkaufAnzahl }, { data: tbRaw }] = await Promise.all([
     (supabase.from('verkaufsposten') as any)
       .select(`
-        id, datum, rechnungsnummer, notizen, erstellt_am, storniert, storniert_am, storniert_von_name, storno_grund,
+        id, datum, rechnungsnummer, lieferscheinnummer, notizen, erstellt_am, storniert, storniert_am, storniert_von_name, storno_grund,
         bezahlt, bezahlt_am, skonto_pct, skonto_tage, skonto_aktiv,
         rechnung_versendet_am, rechnung_versendet_an, partner_daten, lieferadresse,
         kontakt:kontakte!kontakt_id(id, titel, vorname, nachname, titel_nachgestellt, email, telefon, strasse, plz, ort, zahlungsziel_tage),
@@ -380,7 +380,9 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
             </div>
             <div className="text-right">
               <p className="text-2xl font-semibold">Lieferschein</p>
-              {posten.rechnungsnummer && <p className="text-sm">Nr. {posten.rechnungsnummer}</p>}
+              {/* KAN-102: eigener Lieferschein-Nummernkreis; die Rechnung steht als Bezug darunter */}
+              {posten.lieferscheinnummer && <p className="text-sm">Nr. {posten.lieferscheinnummer}</p>}
+              {posten.rechnungsnummer && <p className="text-xs text-s112-muted">zu Rechnung {posten.rechnungsnummer}</p>}
               <p className="text-sm">{new Date(posten.datum).toLocaleDateString('de-AT')}</p>
             </div>
           </div>
@@ -418,6 +420,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
             </h1>
             <p className="text-sm text-s112-muted mt-0.5">
               {new Date(posten.datum).toLocaleDateString('de-AT', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+              {posten.lieferscheinnummer && <> · Lieferschein <span className="font-mono">{posten.lieferscheinnummer}</span></>}
             </p>
           </div>
           {hasTank && (
