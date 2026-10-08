@@ -1,13 +1,15 @@
 // Öffentliche E-Label-Seite: /e/[code] bzw. https://<E-Label-Host>/<code> (KAN-217, 07.10.2026)
 // Keine Anmeldung, keine Cookies, kein Tracking, keine Werbung – nur Bezeichnung, Zutatenliste (Allergene hervorgehoben)
-// und Nährwertdeklaration je 100 ml eines FREIGEGEBENEN E-Labels (KAN-216). DE/EN nach Browsersprache, Umschalter ?lang=.
+// und Nährwertdeklaration je 100 ml eines FREIGEGEBENEN E-Labels (KAN-216). Sprache nach Browsersprache, Umschalter ?lang=.
+// KAN-218: alle 24 EU-Amtssprachen (Begriffe aus den amtlichen Verordnungstexten, lib/elabel/uebersetzungen.ts).
 
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
-import { ALLERGEN_LABEL, KATEGORIE_LABEL, zutatenGruppen, type KatalogEintrag } from '@/lib/elabel/katalog'
+import { zutatenGruppen, type Allergen, type KatalogEintrag } from '@/lib/elabel/katalog'
+import { allergenText, kategorieText, seitenTexte, sprachName, zutatName } from '@/lib/elabel/texte'
 import { geringfuegigeMengen } from '@/lib/elabel/naehrwerte'
-import { TEXTE, elabelSprache, folgeUmleitung, istElabelCode, zahlText, type Sprache } from '@/lib/elabel/oeffentlich'
+import { ELABEL_SPRACHLISTE, elabelSprache, geringfuegigSatz, folgeUmleitung, istElabelCode, zahlText, type Sprache } from '@/lib/elabel/oeffentlich'
 import { qualitaetAnzeigeOderNull } from '@/lib/wein/qualitaet'
 
 export const dynamic = 'force-dynamic'
@@ -65,16 +67,24 @@ export default async function ElabelSeite({ params, searchParams }: {
   const { code } = await params
   const { lang } = await searchParams
   const sprache: Sprache = elabelSprache(lang ?? null, (await headers()).get('accept-language'))
-  const T = TEXTE[sprache]
-  const andere: Sprache = sprache === 'de' ? 'en' : 'de'
+  const T = seitenTexte(sprache)
   const daten = await ladeElabel(decodeURIComponent(code).toUpperCase())
 
   return (
     <div className="min-h-screen bg-s112-bg flex items-start sm:items-center justify-center p-4" lang={sprache}>
       <main className="w-full max-w-md bg-white rounded-xl shadow-xl overflow-hidden">
-        <div className="flex justify-end px-4 pt-3">
-          <a href={`?lang=${andere}`} className="text-xs text-s112-blue-700 hover:underline" hrefLang={andere}>{T.sprache}</a>
-        </div>
+        {/* KAN-218: Sprachwahl ohne JavaScript – aufklappbare Liste aller Amtssprachen */}
+        <details className="px-4 pt-3 text-right">
+          <summary className="inline-block cursor-pointer text-xs text-s112-blue-700 hover:underline list-none">{T.sprache} ▾</summary>
+          <ul className="mt-2 grid grid-cols-3 gap-x-3 gap-y-1 text-left text-xs">
+            {ELABEL_SPRACHLISTE.map(s => (
+              <li key={s}>
+                <a href={`?lang=${s}`} hrefLang={s} lang={s}
+                  className={s === sprache ? 'font-semibold text-s112-text' : 'text-s112-blue-700 hover:underline'}>{sprachName(s)}</a>
+              </li>
+            ))}
+          </ul>
+        </details>
         {!daten ? (
           <p className="px-6 pb-8 pt-2 text-sm text-s112-text-2">{T.nichtGefunden}</p>
         ) : <Inhalt daten={daten} sprache={sprache} />}
@@ -84,14 +94,14 @@ export default async function ElabelSeite({ params, searchParams }: {
 }
 
 function Inhalt({ daten, sprache }: { daten: NonNullable<Awaited<ReturnType<typeof ladeElabel>>>; sprache: Sprache }) {
-  const T = TEXTE[sprache]
+  const T = seitenTexte(sprache)
   const { e, f, betrieb, katalog } = daten
   const ids = (e.zutaten_ids ?? []) as string[]
   const gruppen = zutatenGruppen(ids, katalog)
   const n = (x: unknown) => (x == null ? null : Number(x))
   const gering = geringfuegigeMengen({ fettG: n(e.fett_g) ?? 0, fettGesaettigtG: n(e.fett_gesaettigt_g) ?? 0, eiweissG: n(e.eiweiss_g) ?? 0, salzG: n(e.salz_g) ?? 0 })
   const geringText: Record<string, string> = { fett: T.fett, gesaettigt: T.gesaettigt, eiweiss: T.eiweiss, salz: T.salz }
-  const name = (k: KatalogEintrag) => (sprache === 'de' ? k.name_de : k.name_en)
+  const name = (k: KatalogEintrag) => zutatName(k, sprache)
   const zeile = (k: KatalogEintrag) => {
     const text = `${name(k)}${k.e_nummer ? ` (${k.e_nummer})` : ''}`
     return k.allergen ? <strong key={k.id}>{text}</strong> : <span key={k.id}>{text}</span>
@@ -116,7 +126,7 @@ function Inhalt({ daten, sprache }: { daten: NonNullable<Awaited<ReturnType<type
           {gruppen.map((g, i) => (
             <span key={g.kategorie}>
               {i > 0 ? '; ' : ''}
-              {g.kategorie !== 'zutat' ? `${KATEGORIE_LABEL[g.kategorie][sprache]}: ` : ''}
+              {g.kategorie !== 'zutat' ? `${kategorieText(g.kategorie, sprache)}: ` : ''}
               {g.eintraege.map((k, j) => <span key={k.id}>{j > 0 ? ', ' : ''}{zeile(k)}</span>)}
             </span>
           ))}
@@ -138,13 +148,13 @@ function Inhalt({ daten, sprache }: { daten: NonNullable<Awaited<ReturnType<type
             ))}
           </tbody>
         </table>
-        {gering.length > 0 && <p className="text-xs text-s112-text-2 mt-2">{T.geringfuegig} {gering.map(g => geringText[g]).join(', ')}.</p>}
+        {gering.length > 0 && <p className="text-xs text-s112-text-2 mt-2">{geringfuegigSatz(T.geringfuegig, gering.map(g => geringText[g]).join(', '))}</p>}
       </section>
 
       {(() => {
-        const allergene = [...new Set(gruppen.flatMap(g => g.eintraege.map(k => k.allergen)).filter(Boolean))] as (keyof typeof ALLERGEN_LABEL)[]
+        const allergene = [...new Set(gruppen.flatMap(g => g.eintraege.map(k => k.allergen)).filter(Boolean))] as Allergen[]
         return allergene.length > 0
-          ? <p className="text-sm"><strong>{T.enthaelt}: {allergene.map(a => ALLERGEN_LABEL[a][sprache]).join(', ')}</strong></p>
+          ? <p className="text-sm"><strong>{T.enthaelt}: {allergene.map(a => allergenText(a, sprache)).join(', ')}</strong></p>
           : null
       })()}
     </div>

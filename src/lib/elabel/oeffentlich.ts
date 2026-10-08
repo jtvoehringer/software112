@@ -1,4 +1,5 @@
 // KAN-217 (07.10.2026): öffentliche E-Label-Seite – Adresse, Sprache und Beschriftungen (DE/EN).
+// KAN-218 (08.10.2026): alle 24 EU-Amtssprachen (sprachen.ts, Begriffe uebersetzungen.ts, Zugriff texte.ts).
 // Isomorph und ohne '@/'-Importe (node:test).
 //
 // Adresse: ist NEXT_PUBLIC_ELABEL_HOST gesetzt (Entscheidung Jörgen 06.10.2026: Domain hohenstein-partner.at, z. B.
@@ -6,7 +7,9 @@
 // um. Ohne Variable (bis DNS und Vercel-Domain stehen) zeigt der QR-Code auf <App>/e/<code>; diese Adresse bleibt auch
 // danach gültig, gedruckte Etiketten funktionieren also weiter.
 
-export type Sprache = 'de' | 'en'
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung für node:test (wie lib/elabel/eingabe.ts)
+import { ELABEL_SPRACHEN, intlSprache, istSprache, type Sprache } from './sprachen.ts'
+export type { Sprache } from './sprachen.ts'
 
 /** Gültige E-Label-Kennung (CHECK elabels.code: 10 Zeichen ohne verwechselbare 0/O/1/I/L) */
 export function istElabelCode(x: string): boolean {
@@ -32,37 +35,57 @@ export function elabelRewritePfad(anfrageHost: string | null | undefined, pfad: 
   return pfad === '/' ? '/e' : `/e${pfad}`
 }
 
-/** Sprache: ?lang=de|en vor der Browsersprache (Accept-Language), sonst Deutsch */
+/**
+ * Sprache: ?lang=<Amtssprache> vor der Browsersprache (Accept-Language, erste EU-Amtssprache in der Reihenfolge des
+ * Browsers). KAN-218: Browser ohne EU-Amtssprache (z. B. Japanisch) bekommen Englisch, ohne Angabe Deutsch.
+ */
 export function elabelSprache(lang: string | null | undefined, acceptLanguage: string | null | undefined): Sprache {
-  if (lang === 'de' || lang === 'en') return lang
-  const bevorzugt = (acceptLanguage ?? '').split(',').map(s => s.trim().split(';')[0].toLowerCase()).filter(Boolean)
+  const l = (lang ?? '').trim().toLowerCase()
+  if (istSprache(l)) return l
+  const bevorzugt = (acceptLanguage ?? '').split(',').map(s => s.trim().split(';')[0].toLowerCase()).filter(b => b && b !== '*')
   for (const b of bevorzugt) {
-    if (b.startsWith('de')) return 'de'
-    if (b.startsWith('en')) return 'en'
+    const code = b.split('-')[0]
+    if (istSprache(code)) return code
   }
-  return 'de'
+  return bevorzugt.length > 0 ? 'en' : 'de'
 }
 
-export const TEXTE: Record<Sprache, Record<string, string>> = {
+/** Alle Sprachen für den Umschalter (Reihenfolge wie die Liste der Amtssprachen) */
+export const ELABEL_SPRACHLISTE: readonly Sprache[] = ELABEL_SPRACHEN
+
+export type TextSchluessel =
+  | 'titel' | 'zutaten' | 'naehrwerte' | 'je100' | 'energie' | 'fett' | 'gesaettigt' | 'kohlenhydrate' | 'zucker'
+  | 'eiweiss' | 'salz' | 'alkohol' | 'enthaelt' | 'geringfuegig' | 'allergenHinweis' | 'nichtGefunden' | 'sprache'
+
+/** Deutsch/Englisch; sprache = Name der Sprache in ihr selbst (Umschalter). Übrige Sprachen: uebersetzungen.ts */
+export const TEXTE: Record<'de' | 'en', Record<TextSchluessel, string>> = {
   de: {
     titel: 'Zutaten und Nährwerte', zutaten: 'Zutatenliste', naehrwerte: 'Nährwertdeklaration', je100: 'je 100 ml',
     energie: 'Brennwert', fett: 'Fett', gesaettigt: 'davon gesättigte Fettsäuren', kohlenhydrate: 'Kohlenhydrate',
     zucker: 'davon Zucker', eiweiss: 'Eiweiß', salz: 'Salz', alkohol: 'Alkohol', enthaelt: 'Enthält',
     geringfuegig: 'Enthält geringfügige Mengen von', allergenHinweis: 'Allergene sind fett hervorgehoben.',
-    nichtGefunden: 'Dieses E-Label gibt es nicht oder es ist nicht freigegeben.', sprache: 'English',
+    nichtGefunden: 'Dieses E-Label gibt es nicht oder es ist nicht freigegeben.', sprache: 'Deutsch',
   },
   en: {
     titel: 'Ingredients and nutrition', zutaten: 'List of ingredients', naehrwerte: 'Nutrition declaration', je100: 'per 100 ml',
     energie: 'Energy', fett: 'Fat', gesaettigt: 'of which saturates', kohlenhydrate: 'Carbohydrate',
     zucker: 'of which sugars', eiweiss: 'Protein', salz: 'Salt', alkohol: 'Alcohol', enthaelt: 'Contains',
     geringfuegig: 'Contains negligible amounts of', allergenHinweis: 'Allergens are shown in bold.',
-    nichtGefunden: 'This e-label does not exist or has not been released.', sprache: 'Deutsch',
+    nichtGefunden: 'This e-label does not exist or has not been released.', sprache: 'English',
   },
 }
 
-/** Zahl für die Anzeige (Komma im Deutschen, Punkt im Englischen) */
+/**
+ * „Enthält geringfügige Mengen von …“ (VO 1169/2011 Art. 34 Abs. 5) – in manchen Sprachen steht die Aufzählung
+ * mitten im Satz (amtliche Vorlage mit „…“, z. B. LT, GA, HU), sonst dahinter.
+ */
+export function geringfuegigSatz(vorlage: string, liste: string): string {
+  return vorlage.includes('…') ? `${vorlage.replace('…', liste)}.` : `${vorlage} ${liste}.`
+}
+
+/** Zahl für die Anzeige im Format der Sprache (Komma im Deutschen, Punkt im Englischen …) */
 export function zahlText(wert: number, stellen: number, sprache: Sprache): string {
-  return wert.toLocaleString(sprache === 'de' ? 'de-DE' : 'en-GB', { minimumFractionDigits: stellen, maximumFractionDigits: stellen })
+  return wert.toLocaleString(intlSprache(sprache), { minimumFractionDigits: stellen, maximumFractionDigits: stellen })
 }
 
 /**
