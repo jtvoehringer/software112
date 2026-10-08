@@ -1,7 +1,7 @@
 'use server'
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentMembership, type Membership } from '@/lib/auth/roles'
+import { canWrite, getCurrentMembership, type Membership } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { revalidatePath } from 'next/cache'
@@ -45,6 +45,16 @@ async function getMembership(): Promise<Membership> {
 
 async function getTenantId(): Promise<string> {
   return (await getMembership()).tenantId
+}
+
+/** KAN-239: Zahlungen erfassen, als bezahlt markieren, stornieren – wie RLS/RPC (modul_insert auf zahlungen,
+ *  s112_zahlung_stornieren): Freigabe Warenwirtschaft oder E&A. Vorab geprüft, damit statt einer technischen
+ *  RLS-Meldung eine verständliche kommt und nichts halb geschrieben wird. */
+const ZAHLUNG_RECHTE_MELDUNG = 'Keine Berechtigung für Zahlungen – dafür ist die Freigabe Warenwirtschaft oder E&A nötig.'
+async function getZahlungsKontext(): Promise<string> {
+  const m = await getMembership()
+  if (!canWrite(m, 'warenwirtschaft') && !canWrite(m, 'ea')) throw new AktionsFehler(ZAHLUNG_RECHTE_MELDUNG)
+  return m.tenantId
 }
 
 // KAN-149 Nebenbefund 2: Die Zahlung ist zu diesem Zeitpunkt schon gespeichert bzw. gelöscht.
@@ -640,7 +650,7 @@ export async function stornoVerkauf(id: string, grund: string, erstattetAm?: str
 
 export async function markiereAlsBezahlt(id: string) {
   const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId()
+  const tenantId = await getZahlungsKontext()   // KAN-239
 
   // KAN-105 Teil B: Restbetrag der ganzen Rechnung (Sammelrechnung: alle Lieferscheine, alle Zahlungen der Rechnung)
   const kontext = await ladeRechnungsKontext(supabase, tenantId, id, 'preis_brutto, menge, rabatt_pct, sonderrabatt_pct')
@@ -726,7 +736,7 @@ export async function createZahlung(
 ): Promise<void> {
   'use server'
   const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId()
+  const tenantId = await getZahlungsKontext()   // KAN-239
   const betrag   = parseFloat(dezimal((formData.get('betrag') as string || '')))
   const art      = formData.get('art') as string
   const datum    = formData.get('datum') as string
@@ -765,7 +775,7 @@ export async function stornoZahlung(
   if (fehler) throw new AktionsFehler(fehler)
   if (erstattetAm && !/^\d{4}-\d{2}-\d{2}$/.test(erstattetAm)) throw new AktionsFehler('Bitte ein gültiges Erstattungsdatum angeben.')
   const supabase = await createSupabaseServerClient()
-  const tenantId = await getTenantId()
+  const tenantId = await getZahlungsKontext()   // KAN-239
   // Zahlung muss zu diesem Verkauf gehören (die RPC prüft den Betrieb)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: z, error: zErr } = await (supabase.from('zahlungen') as any)
