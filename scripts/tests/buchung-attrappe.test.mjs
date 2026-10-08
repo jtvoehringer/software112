@@ -20,6 +20,14 @@ describe('Supabase-Attrappe (buchung-attrappe.mjs)', () => {
     assert.deepEqual((await db.from('t').select('id').maybeSingle()).data, { id: 1 })
   })
 
+  test('single(): genau eine Zeile, sonst PGRST116 – auch nach insert(...).select(...)', async () => {
+    const db = datenbank({ t: [{ id: 1 }, { id: 2 }] })
+    assert.deepEqual((await db.from('t').select('id').eq('id', 2).single()).data, { id: 2 })
+    assert.equal((await db.from('t').select('id').eq('id', 9).single()).error.code, 'PGRST116')
+    assert.equal((await db.from('t').select('id').single()).error.code, 'PGRST116')
+    assert.deepEqual((await db.from('t').insert({ id: 3, nr: 'A' }).select('nr').single()).data, { nr: 'A' })
+  })
+
   test('update/delete/insert mit .select(…): Rückgabe auf die Liste beschränkt, ohne .select() keine', async () => {
     const db = datenbank({ t: [{ id: 1, a: 'x', b: 2 }, { id: 2, a: 'y', b: 3 }] })
     assert.deepEqual((await db.from('t').update({ a: 'z' }).eq('id', 1).select('id')).data, [{ id: 1 }])

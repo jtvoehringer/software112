@@ -27,7 +27,7 @@
 //      (nullsFirst übersteuert); limit/range, count/head, maybeSingle
 //    - update/delete/insert ändern die Tabellen im Speicher
 //    Nicht nachgebildet: Schema (unbekannte Spaltennamen und Spaltentypen fallen nicht auf),
-//    Constraints, Trigger, Kaskaden, echte RLS (nur über den Eingriff rls), single(), Casts und
+//    Constraints, Trigger, Kaskaden, echte RLS (nur über den Eingriff rls), Casts und
 //    JSON-Pfade in der select-Liste, order auf eingebettete Tabellen.
 //    Jeder Aufruf landet mit Tabelle, Art, Filtern und Werten in `aufrufe`.
 //    Eingriffe:  vorher(eintrag, tabellen) läuft unmittelbar vor der Ausführung und kann
@@ -353,6 +353,16 @@ export function datenbank(tabellen, { vorher = () => null, rls = () => true, rpc
           if (r.error) return { data: null, error: r.error }
           if ((r.data ?? []).length > 1) return { data: null, error: { code: 'PGRST116', message: 'multiple rows returned' } }
           return { data: r.data?.[0] ?? null, error: null }
+        })
+      },
+      // wie PostgREST: genau eine Zeile, sonst PGRST116 (auch bei keiner) – z. B. insert(...).select('nr').single()
+      single() {
+        einzeln = true
+        return ausfuehren().then(r => {
+          if (r.error) return { data: null, error: r.error }
+          const n = (r.data ?? []).length
+          if (n !== 1) return { data: null, error: { code: 'PGRST116', message: n === 0 ? 'no rows returned' : 'multiple rows returned' } }
+          return { data: r.data[0], error: null }
         })
       },
       then(ok, fehler) { return ausfuehren().then(ok, fehler) },
