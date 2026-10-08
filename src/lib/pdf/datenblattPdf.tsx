@@ -30,7 +30,8 @@ function Zeile({ label, wert }: { label: string; wert: string | null }) {
   return (
     <View style={styles.zeile}>
       <Text style={styles.label}>{label}</Text>
-      <Text style={styles.wert}>{wert && wert.trim() ? wert : '–'}</Text>
+      {/* keine Silbentrennung: Codes, Prüfnummern und Links dürfen keinen Bindestrich bekommen */}
+      <Text style={styles.wert} hyphenationCallback={w => [w]}>{wert && wert.trim() ? wert : '–'}</Text>
     </View>
   )
 }
@@ -38,7 +39,7 @@ function Zeile({ label, wert }: { label: string; wert: string | null }) {
 function DatenblattDocument({ d, stand }: { d: DatenblattDaten; stand: string }) {
   const q = d.werte.quelle
   const quelle = !q ? null : q.art === 'elabel' ? 'Werte laut freigegebenem E-Label'
-    : `Werte laut Analyse vom ${new Date(`${q.datum}T00:00:00`).toLocaleDateString('de-DE')}`
+    : `Werte laut Analyse vom ${new Date(`${q.datum}T00:00:00`).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}`
   return (
     <Document title={`Datenblatt ${d.name}`} author={d.betrieb.name}>
       <Page size="A4" style={styles.page}>
