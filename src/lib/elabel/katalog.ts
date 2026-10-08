@@ -10,7 +10,7 @@ export const KATEGORIE_LABEL: Record<ElabelKategorie, { de: string; en: string }
   konservierung:       { de: 'Konservierungsstoffe und Antioxidationsmittel', en: 'Preservatives and antioxidants' },
   stabilisator:        { de: 'Stabilisatoren',                            en: 'Stabilising agents' },
   gas:                 { de: 'Gase und Packgase',                         en: 'Gases and packaging gases' },
-  dosage:              { de: 'Tirage- und Versanddosage',                 en: 'Tirage and expedition liqueur' },
+  dosage:              { de: 'Fülldosage und Versanddosage',              en: 'Tirage liqueur and expedition liqueur' },   // KAN-218: amtlich (VO 2023/1606, Art. 48a Abs. 7)
   allergen_hilfsstoff: { de: 'Allergene Verarbeitungshilfsstoffe',        en: 'Allergenic processing aids' },
 }
 
