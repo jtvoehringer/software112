@@ -7,6 +7,7 @@ import { MAPPING_FELDER, MAPPING_GRUPPEN, mappingAufloesen } from '@/lib/buchhal
 import { speichereKontenmapping, setzeKontenmappingZurueck } from './actions'
 import { fmtEur } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
+import { lokalerTag, wienJetzt } from '@/lib/datum/wien'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -79,10 +80,12 @@ export default function BmdClient({ overrides, protokoll, kategorien, offeneRech
 
 // ── Übergabe ────────────────────────────────────────────────────────────────
 function UebergabeTab({ offeneRechnungen, offeneAusgaben, darfUebergeben, nurLesen }: { offeneRechnungen: number; offeneAusgaben: number; darfUebergeben: boolean; nurLesen: boolean }) {
-  const heute = new Date()
+  // KAN-255: Vormonat in Wiener Zeit und über die lokalen Felder – toISOString() machte im Browser aus dem 1. den letzten
+  // Tag des Vormonats (und aus dem 30. den 29.), die Übergabe ließ den letzten Monatstag weg
+  const heute = wienJetzt()
   const [art, setArt] = useState<Art>('ausgangsrechnungen')
-  const [von, setVon] = useState(new Date(heute.getFullYear(), heute.getMonth() - 1, 1).toISOString().slice(0, 10))
-  const [bis, setBis] = useState(new Date(heute.getFullYear(), heute.getMonth(), 0).toISOString().slice(0, 10))
+  const [von, setVon] = useState(lokalerTag(new Date(heute.getFullYear(), heute.getMonth() - 1, 1)))
+  const [bis, setBis] = useState(lokalerTag(new Date(heute.getFullYear(), heute.getMonth(), 0)))
   const [nurNeue, setNurNeue] = useState(true)
   const [protokollieren, setProtokollieren] = useState(darfUebergeben)
   const [laden, setLaden] = useState(false)

@@ -10,6 +10,7 @@ import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { FRISTEN_VORLAGE } from './vorlage'
 import { AktionsFehler, dbFehlerText, NICHT_GESPEICHERT } from '@/lib/fehler'
+import { lokalerTag, wienJetzt } from '@/lib/datum/wien'
 
 const PFAD = '/dashboard/fristen'
 const revalidate = () => { revalidatePath(PFAD); revalidatePath('/dashboard') }
@@ -27,10 +28,11 @@ async function kontext() {
 
 /** Nächstes Vorkommen von Tag/Monat ab heute (heuer oder nächstes Jahr) */
 function naechstesDatum(monat: number, tag: number) {
-  const heute = new Date(); heute.setHours(0, 0, 0, 0)
+  // KAN-255: Wiener Kalendertag und lokale Felder (toISOString verschob ein lokal gebautes Datum je nach Zone um einen Tag)
+  const heute = wienJetzt(); heute.setHours(0, 0, 0, 0)
   let d = new Date(heute.getFullYear(), monat - 1, tag)
   if (d < heute) d = new Date(heute.getFullYear() + 1, monat - 1, tag)
-  return d.toISOString().split('T')[0]
+  return lokalerTag(d)
 }
 
 export async function standardfristenAnlegen() {
@@ -75,7 +77,7 @@ export async function fristErledigen(id: string) {
   if (error) throw new AktionsFehler(error.message)
   if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
   if (f.wiederholung === 'jaehrlich') {
-    const d = new Date(f.faellig_am); d.setFullYear(d.getFullYear() + 1)
+    const d = new Date(`${String(f.faellig_am).slice(0, 10)}T00:00:00Z`); d.setUTCFullYear(d.getUTCFullYear() + 1)   // KAN-255: durchgehend UTC
     { const { error: e } = await (supabase.from('fristen') as any).insert({
       tenant_id: tenantId, bezeichnung: f.bezeichnung, beschreibung: f.beschreibung, kategorie: f.kategorie,
       faellig_am: d.toISOString().split('T')[0], wiederholung: 'jaehrlich', href: f.href,

@@ -6,6 +6,7 @@ import { getCurrentMembership, canSeeAuswertungen } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { sperrAntwortKoerper } from '@/lib/abo/regeln'
+import { lokalerTag, wienJetzt } from '@/lib/datum/wien'
 
 export const dynamic = 'force-dynamic'
 
@@ -176,8 +177,9 @@ async function ladeSchemaText(supabase: R): Promise<string> {
 }
 
 function systemPrompt(schemaText: string): string {
-  const heute = new Date()
-  const heuteIso = heute.toISOString().slice(0, 10)
+  // KAN-255: Wiener Kalendertag – in UTC galt zwischen 0 und 1 bzw. 2 Uhr noch „gestern“ (Buchungen mit dem Vortag)
+  const heute = wienJetzt()
+  const heuteIso = lokalerTag(heute)
   return `Du bist ein SQL-Assistent für ein österreichisches Weinbau-ERP namens software:112 (PostgreSQL/Supabase).
 Du hilfst dem Winzer, seine eigenen Betriebsdaten in natürlicher Sprache abzufragen, indem du EINE einzelne,
 rein lesende SQL-Abfrage (SELECT, optional mit WITH/CTE) formulierst.

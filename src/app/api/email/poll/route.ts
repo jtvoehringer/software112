@@ -6,6 +6,7 @@ import { ImapFlow } from 'imapflow'
 import { decryptPass } from '@/lib/email/crypto'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { ereignisMelden } from '@/lib/system/ereignis'
+import { wienTag } from '@/lib/datum/wien'
 
 export const dynamic = 'force-dynamic'
 
@@ -77,7 +78,7 @@ export async function POST(req: NextRequest) {
         if (!match) continue
 
         const betreff = msg.envelope?.subject ?? '(kein Betreff)'
-        const datum   = (msg.envelope?.date ?? new Date()).toISOString().split('T')[0]
+        const datum   = wienTag(msg.envelope?.date ?? new Date())   // KAN-255: Wiener Kalendertag (wie beim M365-Webhook, KAN-237)
         const msgId   = msg.envelope?.messageId ?? null
 
         // Duplikat-Check über email_id (Sweep 20.9.2026: vorher .ilike('notizen') – Spalte gibt es
