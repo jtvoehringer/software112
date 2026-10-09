@@ -20,6 +20,7 @@ import { herkunftOptionen } from '@/lib/herkunft'
 import { flaschenPruefnummerPflicht, herkunftAnzeige, istFlaschenArt, istTraubenArt } from '@/lib/zukauf/ware'
 import { pruefnummerLabel } from '@/lib/zukauf/pruefnummerLabel'
 import type { CustomWeinbaugebiet } from '@/app/(dashboard)/weinbaugebiete/actions'
+import { rundText } from '@/lib/zahl/runden'
 
 interface Behaelter { id: string; name: string; typ: string; volumen_liter: number | null }
 
@@ -199,7 +200,7 @@ export default function ZukaufEditForm({
   }, [])
 
   const preisProEinheit = menge && preisGesamt && parseFloat(menge) > 0
-    ? (parseFloat(preisGesamt) / parseFloat(menge)).toFixed(4)
+    ? rundText(parseFloat(preisGesamt) / parseFloat(menge), 4)
     : null
 
   // Einstandspreis je Liter aus dem Preis vorbelegen, sobald sich Preis oder Einheit ändern – beim Rendern statt im

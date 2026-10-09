@@ -13,6 +13,7 @@ import { dezimal } from '@/lib/format'
 import { mostgewichtAusFormular, mostgewichtSpalten } from '@/lib/wein/mostgewichtFormular'
 import { reifeFelderFehler, reifeZahl } from '@/lib/wein/reifemessung'
 import { wienHeute } from '@/lib/csv'
+import { rund } from '@/lib/zahl/runden'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyRecord = Record<string, any>
@@ -510,7 +511,7 @@ export async function speichereRiedGeo(weingartenId: string, lat: number, lon: n
     const ids = await riedGeschwister(supabase, tenantId, weingartenId)
     if (!ids.length) return { error: 'Ried nicht gefunden' }
     const { data: geaendert, error } = await (supabase.from('weingarten') as any)
-      .update({ zentrum_lat: Number(lat.toFixed(6)), zentrum_lon: Number(lon.toFixed(6)), geo_quelle: 'manuell', geo_stand: new Date().toISOString() })
+      .update({ zentrum_lat: rund(lat, 6), zentrum_lon: rund(lon, 6), geo_quelle: 'manuell', geo_stand: new Date().toISOString() })
       .in('id', ids).eq('tenant_id', tenantId).select('id')
     if (error) return { error: error.message }
     if (!(geaendert as unknown[] | null)?.length) return { error: NICHT_GESPEICHERT }   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen

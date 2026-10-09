@@ -54,7 +54,61 @@ function pruefeText(text) {
     }
     funde.push({ zeile, text: 'Math.round(x * 10^n) / 10^n rundet binär (1,005 → 1,00) – rund(x, n) aus src/lib/zahl/runden.ts verwenden' })
   }
+  // Sweep 77: toFixed als Rundung – Number(x.toFixed(n)), parseFloat(x.toFixed(n)), +(x).toFixed(n): ebenso binär
+  const tf = /\.toFixed\(/g
+  while ((m = tf.exec(code))) {
+    const [, nach] = argumente(code, m.index + m[0].length - 1)
+    if (!alsZahl(code, m.index, nach)) continue
+    melde(m.index, 'toFixed() als Rundung (Ergebnis wieder als Zahl) rundet binär (1,005 → 1,00) – rund(x, n) aus src/lib/zahl/runden.ts verwenden')
+  }
   return { funde, ausnahmen }
+
+  function melde(index, meldung) {
+    const zeile = code.slice(0, index).split('\n').length
+    const marker = roh.slice(Math.max(0, zeile - 1 - VORLAUF), zeile).reverse().find(r => AUSNAHME.test(r))
+    if (marker) {
+      const grund = (AUSNAHME_GRUND.exec(marker.replace(/\r$/, ''))?.[1] ?? '').replace(/\*\/.*$/, '').trim()
+      if (grund.length >= MIN_GRUND) { ausnahmen++; return }
+      funde.push({ zeile, text: `„runden-ok“ ohne ausreichende Begründung (mind. ${MIN_GRUND} Zeichen)` })
+      return
+    }
+    funde.push({ zeile, text: meldung })
+  }
+}
+
+/** Wird das Ergebnis von „….toFixed(n)“ (Aufruf bei idx, Ende bei nach) wieder zur Zahl? – unmittelbar umschlossen von
+ *  Number( … ) bzw. parseFloat( … ) oder als +( … ) bzw. +x.toFixed(n). Die Klammer muss direkt nach dem Aufruf enden. */
+function alsZahl(code, idx, nach) {
+  let j = nach
+  while (/\s/.test(code[j] ?? '')) j++
+  // Beginn des Ausdrucks vor „.toFixed“ suchen: Bezeichner/Klammerausdruck rückwärts
+  let i = idx - 1
+  for (;;) {
+    while (i >= 0 && /\s/.test(code[i])) i--
+    if (code[i] === ')' || code[i] === ']') {
+      const zu = code[i], auf = zu === ')' ? '(' : '['
+      let t = 0
+      for (; i >= 0; i--) { if (code[i] === zu) t++; else if (code[i] === auf) { t--; if (t === 0) break } }
+      i--
+      continue
+    }
+    if (/[\w$]/.test(code[i] ?? '')) { while (i >= 0 && /[\w$]/.test(code[i])) i--; if (code[i] === '.' || (code[i] === '?' && code[i + 1] === '.')) { i--; continue } }
+    break
+  }
+  // i zeigt auf das Zeichen vor dem Ausdruck
+  let k = i
+  while (k >= 0 && /\s/.test(code[k])) k--
+  // unäres + (davor kein Operand – auch kein String-Ende: ' · ' + x.toFixed(2) ist Verkettung)
+  const OPERAND_ENDE = /[\w)\]$'"`]/
+  if (code[k] === '+' && !OPERAND_ENDE.test(code.slice(0, k).trimEnd().slice(-1) || '')) return true   // +x.toFixed(n)
+  if (code[k] === '(' && code[j] === ')') {
+    let v = k - 1
+    while (v >= 0 && /\s/.test(code[v])) v--
+    const vorher = code.slice(Math.max(0, v - 10), v + 1)
+    if (/(?:\bNumber|\bparseFloat)$/.test(vorher)) return true
+    if (code[v] === '+' && !OPERAND_ENDE.test(code.slice(0, v).trimEnd().slice(-1) || '')) return true   // +( x.toFixed(n) )
+  }
+  return false
 }
 
 function* dateien(dir) {
@@ -91,5 +145,5 @@ if (require.main === module) {
     console.error('  // runden-ok: <Grund ≥ 15 Zeichen>   (dieselbe Zeile oder bis zu vier Zeilen davor)\n')
     process.exit(1)
   }
-  console.log(`✓ check-runden: ${e.dateien} Dateien, keine Kommastellen über Math.round(x * 10^n) / 10^n, ${e.ausnahmen} begründete Ausnahme(n).`)
+  console.log(`✓ check-runden: ${e.dateien} Dateien, keine Kommastellen über Math.round(x * 10^n) / 10^n oder toFixed() als Rundung, ${e.ausnahmen} begründete Ausnahme(n).`)
 }

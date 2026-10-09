@@ -3,6 +3,7 @@
 // Geräte und eAMA (nach Umrechnung) verwenden.
 
 import { dezimal } from '@/lib/format'
+import { rund } from '@/lib/zahl/runden'
 
 export type RiedPunkt = {
   id: string
@@ -87,7 +88,7 @@ export function buildGeoJson(punkte: (RiedPunkt & { geometrie?: unknown })[]) {
     features: punkte.map(p => ({
       type: 'Feature',
       properties: { id: p.id, name: p.name, rebsorte: p.rebsorte ?? null, flaeche_ha: p.flaeche_ha ?? null, ama_feldnummer: p.ama_feldnummer ?? null },
-      geometry: p.geometrie ?? { type: 'Point', coordinates: [Number(p.lon.toFixed(6)), Number(p.lat.toFixed(6))] },
+      geometry: p.geometrie ?? { type: 'Point', coordinates: [rund(p.lon, 6), rund(p.lat, 6)] },
     })),
   }
 }

@@ -6,6 +6,7 @@ import { getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { normalisiereLand } from '@/lib/katalog/laender'
 import { modulKonflikt } from '@/lib/auth/modul'
+import { bruttogewichtText } from '@/lib/export/exportWerte'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -104,7 +105,7 @@ ${positionen.map((p: R, i: number) => `        <BodyRecordUniqueReference>${i + 
         <ExciseProductCode>W200</ExciseProductCode>
         <CnCode>${x(p.taric_code?.replace('.','') ?? '22042100')}</CnCode>
         <Quantity>${x(p.menge ?? 0)}</Quantity>
-        <GrossWeight>${((parseFloat(p.menge)||0) * 1.25).toFixed(2)}</GrossWeight>
+        <GrossWeight>${bruttogewichtText(p.menge)}</GrossWeight>
         <Description>${x(p.beschreibung ?? p.fuellungen?.bezeichnung)}</Description>`).join('\n')}
       </BodyEAD>
     </EAD>

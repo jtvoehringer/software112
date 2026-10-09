@@ -184,7 +184,7 @@ async function umzugMitVerschnitten(
     .map((id, i) => ({ weinausbau_id: id, menge: rund(uIdx.reduce((s, j) => s + auf.brutto[j][i], 0), 2) }))
     .filter(q => q.menge >= 0.01)
   const umzugZiele = umzugWahl.map(w => w.z)
-  const schwund = Math.max(0, +(umzugQuellen.reduce((s, q) => s + q.menge, 0) - umzugZiele.reduce((s, z) => s + z.menge, 0)).toFixed(3))
+  const schwund = Math.max(0, rund(umzugQuellen.reduce((s, q) => s + q.menge, 0) - umzugZiele.reduce((s, z) => s + z.menge, 0), 3))
   try {
     const abstufung = await umzugBuchen(supabase, tenantId, {
       quellen: umzugQuellen, ziele: umzugZiele, schwund, datum: p.datum, notizen: p.notizen, umzugTyp: p.umzugTyp,
@@ -242,7 +242,7 @@ export async function umziehen(fd: FormData): Promise<{ verschnitte?: UmzugVersc
   if (totalNach > totalVon + 0.01) {
     throw new AktionsFehler(`Die Ziel-Mengen (${fmtNum(totalNach, 2)} L) übersteigen die Quell-Mengen (${fmtNum(totalVon, 2)} L) – ein Umzug kann keinen Wein erzeugen.`)
   }
-  const schwund   = totalVon - totalNach > 0 ? +(totalVon - totalNach).toFixed(3) : 0
+  const schwund   = totalVon - totalNach > 0 ? rund(totalVon - totalNach, 3) : 0
 
   // Aktiv gewählten Betrieb respektieren (Cookie-basiert) statt einer beliebigen/ersten
   // tenant_memberships-Zeile – sonst können bei Mehrfach-Mitgliedschaft Daten des falschen
@@ -426,7 +426,7 @@ async function umzugBuchen(
     // Bestand reduzieren / Charge abschließen (Rest ≤ 0,01 L wird mit ausgebucht –
     // die Menge ist oben gegen den Bestand geprüft, hier wird nichts gekappt).
     // KAN-94: Zeilenzahl prüfen – sonst entstünde eine Umzugszeile ohne Bestandsänderung.
-    const restmenge = +(verfuegbar - q.menge).toFixed(3)
+    const restmenge = rund(verfuegbar - q.menge, 3)
     await aendereCharge(supabase, tenantId, von,
       restmenge <= 0.01 ? { menge_liter: 0, aktiv: false, status: 'abgeschlossen' } : { menge_liter: restmenge })
 
@@ -526,7 +526,7 @@ async function umzugBuchen(
       // Menge, Qualität, Herkunft, Mostgewicht und Vermerke in EINEM Update (KAN-94: mit Zeilenzahl-Prüfung)
       const bestehend = ((vorhanden.notizen as string | null) ?? '').trim()
       const werte: R = {
-        menge_liter:     +((parseFloat(vorhanden.menge_liter) || 0) + z.menge).toFixed(3),
+        menge_liter:     rund((parseFloat(vorhanden.menge_liter) || 0) + z.menge, 3),
         ...qualitaetsSpalten(neueQualitaet ?? altQualitaet),
         herkunft_code:   neueHerkunft,
         ...(mg.werte ?? {}),

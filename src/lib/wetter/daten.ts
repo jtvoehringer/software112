@@ -10,6 +10,7 @@ import { alle } from '@/lib/supabase/alle'
 import { mitHoechstens } from '@/lib/utils/parallel'
 import { holePrognose, holeRueckblick, type WetterStunde } from './geosphere'
 import { ereignisMelden } from '@/lib/system/ereignis'
+import { rund } from '@/lib/zahl/runden'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -28,7 +29,7 @@ export function wetterPunkte(rieden: WetterRied[]): WetterPunkt[] {
     // keine Schein-Punkte erzeugen (48.43/0.02 = 2421.4999…)
     const lat = Math.round(Math.round(r.lat * 1000) / (RASTER * 1000)) * RASTER, lon = Math.round(Math.round(r.lon * 1000) / (RASTER * 1000)) * RASTER
     const key = `${lat.toFixed(3)},${lon.toFixed(3)}`
-    const p = map.get(key) ?? { key, lat: Number(lat.toFixed(3)), lon: Number(lon.toFixed(3)), riedIds: [] }
+    const p = map.get(key) ?? { key, lat: rund(lat, 3), lon: rund(lon, 3), riedIds: [] }
     p.riedIds.push(r.id)
     map.set(key, p)
   }
