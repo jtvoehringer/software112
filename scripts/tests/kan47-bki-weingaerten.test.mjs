@@ -1,7 +1,7 @@
 // KAN-47 AP10 Schritt 1 (09.10.2026): BKI-Blatt „Weingärten“ aus den vorhandenen Ried- und Grundstücksdaten.
 // Annahmen W1–W6 im Kopf von src/lib/behoerden/bki-weingaerten.ts.
 // Schritt 2 (09.10.2026): Großlage, Gemeindeteil, DAC-Orts- und Riedenwein aus src/lib/wein/herkunftKatalog.ts (Thermenregion,
-// Kremstal, Wachau, Kamptal, Traisental, Carnuntum; Annahmen K1–K11 dort).
+// Kremstal, Wachau, Kamptal, Traisental, Carnuntum, Weinviertel; Annahmen K1–K12 dort).
 //
 // Aufruf:  npm run -s test:csv   (Node ≥ 22.15 wegen module.registerHooks)
 
@@ -108,8 +108,8 @@ describe('KAN-47 Schritt 2: Katalog Thermenregion', () => {
   })
 
   test('außerhalb der Kataloge leer; Gemeindeteil nur bei abweichendem KG-Namen (K4)', () => {
-    assert.deepEqual(kat.herkunftKatalog('10001', '31101'), { gebiet: null, grosslage: null, dacOrtswein: null, imDacGebiet: false })
-    assert.deepEqual(kat.herkunftKatalog(null, undefined), { gebiet: null, grosslage: null, dacOrtswein: null, imDacGebiet: false })
+    assert.deepEqual(kat.herkunftKatalog('80001', '70201'), { gebiet: null, grosslage: null, dacOrtswein: null, imDacGebiet: false, riedenwein: false })
+    assert.deepEqual(kat.herkunftKatalog(null, undefined), { gebiet: null, grosslage: null, dacOrtswein: null, imDacGebiet: false, riedenwein: false })
     assert.equal(kat.gemeindeteil('Tribuswinkel', 'Traiskirchen'), 'Tribuswinkel')
     assert.equal(kat.gemeindeteil('gumpoldskirchen', 'Gumpoldskirchen'), null)
     assert.equal(kat.gemeindeteil(null, 'Baden'), null)
@@ -122,8 +122,8 @@ describe('KAN-47 Schritt 2: Katalog Thermenregion', () => {
       ['Traiskirchen', 'Tribuswinkel', 'Badener Berg', 'Gumpoldskirchen', 'Kreuzweingarten', null, null])
     const hirtenberg = wg.weingartenZeile(ried(lage), gst({ katastralgemeinde: '4312' }))
     assert.deepEqual([hirtenberg.grosslage, hirtenberg.dacOrtswein, hirtenberg.dacRiedenwein], ['Vöslauer Hauerberg', null, null])
-    const r = wg.weingartenZeilen([ried(lage)], [gst({ katastralgemeinde: '10001' })])
-    assert.ok(r.warnungen.some(w => /außerhalb der erfassten Kataloge \(Thermenregion, Kremstal, Wachau, Kamptal, Traisental, Carnuntum\)/.test(w)), r.warnungen.join(' | '))
+    const r = wg.weingartenZeilen([ried(lage)], [gst({ katastralgemeinde: '80001' })])
+    assert.ok(r.warnungen.some(w => /außerhalb der erfassten Kataloge \(Thermenregion, Kremstal, Wachau, Kamptal, Traisental, Carnuntum, Weinviertel\)/.test(w)), r.warnungen.join(' | '))
   })
 })
 
@@ -136,7 +136,7 @@ describe('KAN-47 Schritt 2: Katalog Kremstal', () => {
   })
 
   test('KG ohne Ortsangabe in einer Kremstal-Gemeinde: DAC-Gebiet ohne Ortswein (K6); Mautern und Dürnstein gehören zur Wachau', () => {
-    assert.deepEqual(kat.herkunftKatalog('12125', '31343'), { gebiet: 'Kremstal', grosslage: null, dacOrtswein: null, imDacGebiet: true })   // Reichaueramt
+    assert.deepEqual(kat.herkunftKatalog('12125', '31343'), { gebiet: 'Kremstal', grosslage: null, dacOrtswein: null, imDacGebiet: true, riedenwein: false })   // Reichaueramt
     assert.equal(kat.herkunftKatalog('12138', '30101').imDacGebiet, true)                              // Weinzierl bei Krems
     assert.equal(kat.herkunftKatalog('12148', '31327').gebiet, 'Wachau')                                   // Baumgarten (Mautern)
     assert.equal(kat.herkunftKatalog('12105', '31304').gebiet, 'Wachau')                                   // Dürnstein
@@ -162,19 +162,19 @@ describe('KAN-47 Schritt 2: Katalog Kremstal', () => {
 })
 
 describe('KAN-47 Schritt 2: Katalog Wachau', () => {
-  test('Gemeindeangaben je KG (K8): Loiben, Arnsdorf, Rossatz/Rührsdorf, Spitz, Povat → Spitzer Graben, Aggsbach beidseits', () => {
+  test('Gemeindeangaben je KG (K8): Loiben, Arnsdorf, Rossatz/Rührsdorf, Spitz, Povat → Spitzer Graben, nur Aggsbach Markt', () => {
     const o = (kg, gkz) => kat.herkunftKatalog(kg, gkz).dacOrtswein
     assert.deepEqual([o('12116', '31304'), o('12117', '31304'), o('12105', '31304')], ['Loiben', 'Loiben', 'Dürnstein'])
     assert.deepEqual([o('12189', '31338'), o('12187', '31338'), o('12167', '31338'), o('12168', '31338')], ['Arnsdorf', 'Arnsdorf', 'Rossatz', 'Rührsdorf'])
     assert.deepEqual([o('12358', '31344'), o('12348', '31330'), o('12307', '31330')], ['Spitz', 'Spitzer Graben', 'Elsarn'])
-    assert.deepEqual([o('12301', '31301'), o('14101', '31542')], ['Aggsbach', 'Aggsbach'])
+    assert.deepEqual([o('12301', '31301'), o('14101', '31542')], ['Aggsbach', null], 'Aggsbach Dorf (Schönbühel-Aggsbach) liegt außerhalb des Weinbaugebiets')
     assert.deepEqual([o('12140', '31351'), o('12162', '31327')], ['Weißenkirchen', 'Mautern'])
   })
 
   test('Großlage Spitzer Graben je KG; übrige Wachau ohne Großlage, aber DAC-Gebiet', () => {
     assert.equal(kat.herkunftKatalog('12362', '31344').grosslage, 'Spitzer Graben')
     assert.equal(kat.herkunftKatalog('12357', '31344').grosslage, null, 'Schwallenbach gehört zur Gemeinde Spitz, nicht zur Großlage')
-    assert.deepEqual(kat.herkunftKatalog('12302', '31330'), { gebiet: 'Wachau', grosslage: null, dacOrtswein: null, imDacGebiet: true })   // Amstall
+    assert.deepEqual(kat.herkunftKatalog('12302', '31330'), { gebiet: 'Wachau', grosslage: null, dacOrtswein: null, imDacGebiet: true, riedenwein: false })   // Amstall
   })
 })
 
@@ -196,14 +196,14 @@ describe('KAN-47 Schritt 2: Katalog Kamptal', () => {
   })
 
   test('KG ohne Angabe (Grunddorf, Plank) im DAC-Gebiet ohne Ortswein; keine Großlage', () => {
-    assert.deepEqual(kat.herkunftKatalog('12234', '31308'), { gebiet: 'Kamptal', grosslage: null, dacOrtswein: null, imDacGebiet: true })
+    assert.deepEqual(kat.herkunftKatalog('12234', '31308'), { gebiet: 'Kamptal', grosslage: null, dacOrtswein: null, imDacGebiet: true, riedenwein: true })
     assert.equal(kat.herkunftKatalog('12222', '31355').imDacGebiet, true)
   })
 })
 
 describe('KAN-47 Schritt 2: Katalog Traisental (K10)', () => {
   test('Gebiet: Stadt und Bezirk St. Pölten, Atzenbrugg, Sitzenberg-Reidling, Würmla; Ortswein = Gemeindename', () => {
-    assert.deepEqual(kat.herkunftKatalog('19999', '31928', 'Nußdorf ob der Traisen'), { gebiet: 'Traisental', grosslage: null, dacOrtswein: 'Nußdorf ob der Traisen', imDacGebiet: true })
+    assert.deepEqual(kat.herkunftKatalog('19999', '31928', 'Nußdorf ob der Traisen'), { gebiet: 'Traisental', grosslage: null, dacOrtswein: 'Nußdorf ob der Traisen', imDacGebiet: true, riedenwein: true })
     assert.equal(kat.herkunftKatalog('1', '30201', 'St. Pölten').dacOrtswein, 'St. Pölten')
     assert.equal(kat.herkunftKatalog('1', '32132', 'Sitzenberg-Reidling').imDacGebiet, true)
     assert.equal(kat.herkunftKatalog('1', '32101', 'Tulln').gebiet, null, 'übriger Bezirk Tulln nicht im Traisental')
@@ -231,9 +231,30 @@ describe('KAN-47 Schritt 2: Katalog Carnuntum (K11)', () => {
   })
 
   test('übriges Gebiet (Bezirk Bruck an der Leitha samt Schwechat) ohne Ortswein, ohne Großlage', () => {
-    assert.deepEqual(kat.herkunftKatalog('5021', '30726'), { gebiet: 'Carnuntum', grosslage: null, dacOrtswein: null, imDacGebiet: true })   // KG Trautmannsdorf
+    assert.deepEqual(kat.herkunftKatalog('5021', '30726'), { gebiet: 'Carnuntum', grosslage: null, dacOrtswein: null, imDacGebiet: true, riedenwein: false })   // KG Trautmannsdorf
     assert.equal(kat.herkunftKatalog('1', '30704').imDacGebiet, true)                                  // Bruck an der Leitha
     assert.equal(kat.herkunftKatalog('1', '30740').gebiet, 'Carnuntum')                                // Schwechat
     assert.equal(kat.herkunftKatalog('1', '30721').dacOrtswein, null, 'Rohrau außer KG Hollern')
+  })
+})
+
+describe('KAN-47 Schritt 2: Katalog Weinviertel (K12)', () => {
+  test('Gebiet: fünf Bezirke ohne Stetteldorf und Gerasdorf; Ortswein = Gemeindename', () => {
+    assert.deepEqual(kat.herkunftKatalog('1', '31644', 'Poysdorf'), { gebiet: 'Weinviertel', grosslage: 'Falkensteiner Hügelland', dacOrtswein: 'Poysdorf', imDacGebiet: true, riedenwein: true })
+    assert.equal(kat.herkunftKatalog('1', '31120', 'Röschitz').dacOrtswein, 'Röschitz')     // Bezirk Horn
+    assert.equal(kat.herkunftKatalog('1', '31228', 'Stetteldorf am Wagram').gebiet, null)
+    assert.equal(kat.herkunftKatalog('1', '31235', 'Gerasdorf bei Wien').gebiet, null)
+  })
+
+  test('Großlagen: Liste je Gemeinde vor Bezirk (Pulkautal vor Retzer Land), Bisamberg-Kreuzenstein, ohne Großlage', () => {
+    const gl = gkz => kat.herkunftKatalog('1', gkz).grosslage
+    assert.deepEqual([gl('30838'), gl('31655'), gl('31037'), gl('31120'), gl('31022'), gl('31213'), gl('30817')],
+      ['Matzner Hügel', 'Wolkersdorfer Hochleiten', 'Pulkautal', 'Retzer Land', 'Retzer Land', 'Bisamberg-Kreuzenstein', null])
+  })
+
+  test('Riedenwein nur mit Ortswein (K3): Kremstal-KG ohne Ortsangabe leer, Kamptal auch ohne', { skip: !hooksMoeglich }, () => {
+    const lage = { lage: { amtliche_ried: 'Hochrain' } }
+    assert.equal(wg.weingartenZeile(ried(lage), gst({ katastralgemeinde: '12125', trauben_herkunft_code: null })).dacRiedenwein, null)   // Reichaueramt
+    assert.equal(wg.weingartenZeile(ried(lage), gst({ katastralgemeinde: '12234', trauben_herkunft_code: null })).dacRiedenwein, 'Hochrain')   // Grunddorf
   })
 })
