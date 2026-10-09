@@ -150,7 +150,7 @@ export default async function EditFuellungPage({
   }
   const fuellmenge = f.menge_liter_gefuellt != null
     ? Number(f.menge_liter_gefuellt) || 0
-    : ((Number(f.anzahl_flaschen) || 0) * (Number(f.flaschengroesse_ml) || 750)) / 1000
+    : ((Number(f.anzahl_flaschen) || 0) * (Number(f.flaschengroesse_ml) || 750)) / 1000   // null-vorgabe-ok: Flaschengröße 0 ml ist ungültig – 0,75 l
 
   // Aktuell verknüpfte Charge immer einschließen (auch wenn abgeschlossen)
   const chargeInListe = !f.weinausbau_id || chargen.find((c: R) => c.id === f.weinausbau_id)

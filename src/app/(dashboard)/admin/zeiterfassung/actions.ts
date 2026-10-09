@@ -5,7 +5,7 @@ import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { revalidatePath } from 'next/cache'
 import { AktionsFehler, NICHT_GESPEICHERT } from '@/lib/fehler'
-import { dezimal } from '@/lib/format'
+import { dezimal, zahlAus } from '@/lib/format'
 
 type AR = Record<string, any>
 
@@ -26,7 +26,7 @@ async function getTenantAdmin() {
 
 function parseForm(formData: FormData): AR {
   const stunden       = parseFloat(dezimal(formData.get('stunden') as string)) || 0
-  const stundensatz   = parseFloat(dezimal(formData.get('stundensatz') as string)) || 50
+  const stundensatz   = (zahlAus(formData.get('stundensatz')) ?? 50)
   const tokensInput   = formData.get('tokens_input')  as string
   const tokensOutput  = formData.get('tokens_output') as string
   const tokenKosten   = formData.get('token_kosten_euro') as string

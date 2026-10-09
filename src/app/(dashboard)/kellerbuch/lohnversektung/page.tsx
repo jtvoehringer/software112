@@ -65,7 +65,7 @@ export default async function LohnversektungPage() {
             {liste.map(l => {
               const rk = ((l.rueckkehr ?? []) as R[]).filter(f => !f.storniert_am)
               const literZurueck = rk.reduce((s, f) => s + (Number(f.menge_liter_gefuellt) || 0), 0)
-              const flaschenLiter = rk.reduce((s, f) => s + (Number(f.anzahl_flaschen) || 0) * (Number(f.flaschengroesse_ml) || 750) / 1000, 0)
+              const flaschenLiter = rk.reduce((s, f) => s + (Number(f.anzahl_flaschen) || 0) * (Number(f.flaschengroesse_ml) || 750) / 1000, 0)   // null-vorgabe-ok: Flaschengröße 0 ml ist ungültig – 0,75 l
               const stand = lohnversektungStand({ storniertAm: l.storniert_am, abgeschlossenAm: l.abgeschlossen_am, literZurueck })
               const offen = stand === 'unterwegs' || stand === 'teilweise'
               return (

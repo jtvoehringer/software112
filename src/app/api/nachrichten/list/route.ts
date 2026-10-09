@@ -98,7 +98,7 @@ export async function GET(req: NextRequest) {
     if (c?.imap_aktiv && c?.imap_host && c?.imap_pass_enc) {
       const pass = decryptPass(c.imap_pass_enc)
       const client = new ImapFlow({
-        host: c.imap_host, port: Number(c.imap_port) || 993,
+        host: c.imap_host, port: Number(c.imap_port) || 993,   // null-vorgabe-ok: Port 0 ist ungültig – Standardport des Protokolls
         secure: true, auth: { user: c.imap_user, pass }, logger: false,
       })
       await client.connect()

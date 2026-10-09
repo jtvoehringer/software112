@@ -170,7 +170,7 @@ export async function createEaDauerauftrag(formData: FormData) {
     betrag_netto:       parseFloat(dezimal(formData.get('betrag_netto') as string)),
     ust_satz:           ust,
     intervall:          formData.get('intervall'),
-    tag_im_monat:       parseInt(dezimal(formData.get('tag_im_monat') as string)) || 1,
+    tag_im_monat:       parseInt(dezimal(formData.get('tag_im_monat') as string)) || 1,   // null-vorgabe-ok: Tag im Monat 1–31, 0 ist ungültig
     naechste_faelligkeit: formData.get('naechste_faelligkeit'),
     konto_id:           (formData.get('konto_id') as string) || null,
   })

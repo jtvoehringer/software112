@@ -43,7 +43,7 @@ export default async function ZukaufPage({
   const membership = await getCurrentMembership()
 
   const sp    = await searchParams
-  const zjahr = parseInt(sp.zjahr ?? '') || wienJetzt().getFullYear()
+  const zjahr = parseInt(sp.zjahr ?? '') || wienJetzt().getFullYear()   // null-vorgabe-ok: Jahr 0 aus der URL ist ungültig – aktuelles Jahr
   const q     = (sp.q ?? '').trim()
   const tenantId = membership?.tenantId ?? null
 

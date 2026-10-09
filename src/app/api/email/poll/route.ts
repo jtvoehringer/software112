@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
     const pass   = decryptPass(c.email_imap_pass_enc)
     const client = new ImapFlow({
       host: c.email_imap_host,
-      port: Number(c.email_imap_port) || 993,
+      port: Number(c.email_imap_port) || 993,   // null-vorgabe-ok: Port 0 ist ungültig – Standardport des Protokolls
       secure: true,
       auth: { user: c.email_imap_user, pass },
       logger: false,

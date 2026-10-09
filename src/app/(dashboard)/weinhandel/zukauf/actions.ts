@@ -9,7 +9,7 @@ import { redirect } from 'next/navigation'
 import { zielNachAbschluss } from '@/lib/navigation/zurueck'
 import { AktionsFehler, dbFehlerText, fehlerText } from '@/lib/fehler'
 import { stornoGrundFehler } from '@/lib/storno/grund'
-import { dezimal, fmtNum } from '@/lib/format'
+import { dezimal, fmtNum, zahlAus } from '@/lib/format'
 import { qualitaetFehler, qualitaetsAngabeAusFormular, qualitaetsAngabeFehler } from '@/lib/wein/qualitaet'
 import { qualitaetsSpalten, type QualitaetsAngabe } from '@/lib/wein/qualitaetsrang'
 import { pruefePruefnummernSchaden } from '@/lib/kellerbuch/pruefnummerLaden'
@@ -158,7 +158,7 @@ function parseZukaufFormData(formData: FormData) {
   // KAN-80 Nachtrag (02.10.2026): der Jahrgang ist jetzt Pflicht (zukaufWareFehler) – der Rückfall bleibt nur
   // als Sicherheitsnetz, geprüft wird die Eingabe selbst (jahrgangEingabe)
   const jahrgangEingabe = parseInt(dezimal(formData.get('jahrgang') as string))
-  const jahrgang = !isNaN(jahrgangEingabe) ? jahrgangEingabe : (parseInt(datum.slice(0, 4)) || null)
+  const jahrgang = !isNaN(jahrgangEingabe) ? jahrgangEingabe : (parseInt(datum.slice(0, 4)) || null)   // null-vorgabe-ok: Jahrgang 0 ist ungültig – leer
   const art = (formData.get('art') as string) || 'wein'
   // KAN-73: die Stufe geht bei Wein/Most in die Zielcharge (weinausbau) – nur Werte des
   // CHECK weinausbau (QUALITAET_OPTS), sonst verständliche Meldung statt 23514.
@@ -210,20 +210,20 @@ function parseZukaufFormData(formData: FormData) {
     anreicherung:        formData.get('anreicherung') === 'true',
     mostgewicht:         mg.wert,
     mostgewichtUebermittelt: mg.uebermittelt,
-    alkohol:             parseFloat(dezimal(formData.get('alkohol_pct')    as string)) || null,
+    alkohol:             parseFloat(dezimal(formData.get('alkohol_pct')    as string)) || null,   // null-vorgabe-ok: Alkohol 0 % ist bei Wein keine gültige Angabe
     pruefnummer:         (formData.get('staatliche_pruefnummer')   as string)?.trim() || null,
     menge:               parseFloat(dezimal(formData.get('menge')          as string)) || 0,
     // KAN-41 Paket 2b: Flaschen immer in Stück
     einheit:             istFlaschenArt(art) ? 'Stk' : ((formData.get('einheit') as string) || 'kg'),
-    preisGesamt:         parseFloat(dezimal(formData.get('preis_gesamt')   as string)) || null,
-    einstandspreisLiter: parseFloat(dezimal(formData.get('einstandspreis_pro_liter') as string)) || null,
+    preisGesamt:         zahlAus(formData.get('preis_gesamt')  ),
+    einstandspreisLiter: zahlAus(formData.get('einstandspreis_pro_liter')),
     notizen:             (formData.get('notizen')                  as string)?.trim() || null,
     zielBehaelterId:     (formData.get('ziel_behaelter_id')        as string) || null,
     // KAN-41 Paket 2b: Weinlager-Artikel eines Flaschenzukaufs (nur beim Anlegen)
     fuellungName:        (formData.get('fuellung_name')            as string)?.trim() || null,
-    flaschengroesseMl:   parseInt(String(formData.get('flaschengroesse_ml') ?? '')) || null,
-    vkPreisBrutto:       parseFloat(dezimal(formData.get('vk_preis_brutto') as string)) || null,
-    mwstPct:             parseFloat(dezimal(formData.get('mwst_pct') as string)) || null,
+    flaschengroesseMl:   parseInt(String(formData.get('flaschengroesse_ml') ?? '')) || null,   // null-vorgabe-ok: Flaschengröße 0 ml ist ungültig – leer
+    vkPreisBrutto:       zahlAus(formData.get('vk_preis_brutto')),
+    mwstPct:             zahlAus(formData.get('mwst_pct')),
   }
 }
 

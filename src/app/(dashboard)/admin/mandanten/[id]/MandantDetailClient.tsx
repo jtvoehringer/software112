@@ -1345,7 +1345,7 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
               name="rechnung_stellen"
               type="number"
               value={stellen}
-              onChange={e => setStellen(Math.max(1, Math.min(8, parseInt(e.target.value) || 4)))}
+              onChange={e => setStellen(Math.max(1, Math.min(8, parseInt(e.target.value) || 4 /* null-vorgabe-ok: Stellenzahl 1–8, eine 0 ist keine gültige Eingabe */)))}
               min={1} max={8}
               className={inputCls()}
             />
@@ -1400,7 +1400,7 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
               name="account_stellen"
               type="number"
               value={kStellen}
-              onChange={e => setKStellen(Math.max(1, Math.min(8, parseInt(e.target.value) || 4)))}
+              onChange={e => setKStellen(Math.max(1, Math.min(8, parseInt(e.target.value) || 4 /* null-vorgabe-ok: Stellenzahl 1–8, eine 0 ist keine gültige Eingabe */)))}
               min={1} max={8}
               className={inputCls()}
             />

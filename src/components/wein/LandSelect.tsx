@@ -15,8 +15,8 @@ export interface LandSelectProps {
 
 export default function LandSelect({ laender, value, onChange, className = 'form-input' }: LandSelectProps) {
   const sortiert = [...laender].sort((a, b) =>
-    (a.iso2 === 'AT' ? -1 : b.iso2 === 'AT' ? 1 : 0)
-    || Number(!!b.eu) - Number(!!a.eu)
+    (a.iso2 === 'AT' ? -1 : b.iso2 === 'AT' ? 1 : 0)   // null-vorgabe-ok: Sortier-Vergleich: 0 heißt gleich, dann nächstes Kriterium
+    || Number(!!b.eu) - Number(!!a.eu)   // null-vorgabe-ok: Sortier-Vergleich: 0 heißt gleich, dann nächstes Kriterium
     || a.name_de.localeCompare(b.name_de, 'de'))
   const liste = sortiert.some(l => l.iso2 === value) || !value ? sortiert : [{ iso2: value, name_de: value }, ...sortiert]
   return (

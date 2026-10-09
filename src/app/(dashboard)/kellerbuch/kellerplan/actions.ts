@@ -35,8 +35,8 @@ export async function createKellerplan(formData: FormData) {
   const { data, error } = await (supabase.from('kellerplaene') as any).insert({
     tenant_id: tenantId,
     name:      formData.get('name') as string,
-    breite_m:  parseFloat(dezimal(formData.get('breite_m') as string)) || 20,
-    laenge_m:  parseFloat(dezimal(formData.get('laenge_m') as string)) || 10,
+    breite_m:  parseFloat(dezimal(formData.get('breite_m') as string)) || 20,   // null-vorgabe-ok: Kellermaß 0 m ist ungültig – Standardgröße
+    laenge_m:  parseFloat(dezimal(formData.get('laenge_m') as string)) || 10,   // null-vorgabe-ok: Kellermaß 0 m ist ungültig – Standardgröße
     notizen:   (formData.get('notizen') as string) || null,
   }).select('id').single()
 
@@ -52,8 +52,8 @@ export async function updateKellerplan(id: string, formData: FormData) {
   const tenantId  = await getTenantId()
   const { data: geaendert, error } = await (supabase.from('kellerplaene') as any).update({
     name:     formData.get('name') as string,
-    breite_m: parseFloat(dezimal(formData.get('breite_m') as string)) || 20,
-    laenge_m: parseFloat(dezimal(formData.get('laenge_m') as string)) || 10,
+    breite_m: parseFloat(dezimal(formData.get('breite_m') as string)) || 20,   // null-vorgabe-ok: Kellermaß 0 m ist ungültig – Standardgröße
+    laenge_m: parseFloat(dezimal(formData.get('laenge_m') as string)) || 10,   // null-vorgabe-ok: Kellermaß 0 m ist ungültig – Standardgröße
     notizen:  (formData.get('notizen') as string) || null,
     aktualisiert_am: new Date().toISOString(),
   }).eq('id', id).eq('tenant_id', tenantId).select('id')

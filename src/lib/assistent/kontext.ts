@@ -1,3 +1,4 @@
+import { zahlWert } from '@/lib/format'
 // Stammdaten-Kontext-Loader für den Prozess-Assistenten (Bot).
 //
 // Lädt bei jeder Chat-Anfrage frisch die für den Mandanten relevanten
@@ -162,7 +163,7 @@ export async function ladeAssistentKontext(
       id: w.id, name: w.name, jahrgang: w.jahrgang ?? null, rebsorte: w.rebsorte ?? null,
       menge_liter: Number(w.menge_liter ?? 0),
     })),
-    ustSatzStandard: Number((einstellungenRaw as R | null)?.ust_satz_standard) || 13,
+    ustSatzStandard: (zahlWert((einstellungenRaw as R | null)?.ust_satz_standard) ?? 13),
     mostgewichtEinheit: (einstellungenRaw as R | null)?.mostgewicht_einheit === 'oechsle' ? 'oechsle' : 'kmw',
     jahrgaenge: ((jahrgaengeRaw ?? []) as R[]).map(j => ({
       id: j.id, jahrgang: Number(j.jahrgang),

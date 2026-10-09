@@ -181,8 +181,8 @@ async function fuellungAnlegen(formData: FormData, eroeffnung: FlaschenEroeffnun
   // KAN-41 Paket 3d: unetikettiert abgefüllte Flaschen (leer = alle etikettiert)
   const unetikettiertText = String(formData.get('anzahl_unetikettiert') ?? '').trim()
   const unetikettiert = unetikettiertText ? Number(dezimal(unetikettiertText)) : null
-  const flGroesseML     = parseInt(dezimal(formData.get('flaschengroesse_ml') as string)) || 750
-  const mengeFormular   = parseFloat(dezimal(formData.get('menge_liter_gefuellt') as string)) || null
+  const flGroesseML     = parseInt(dezimal(formData.get('flaschengroesse_ml') as string)) || 750   // null-vorgabe-ok: Flaschengröße 0 ml ist ungültig – 0,75 l
+  const mengeFormular   = parseFloat(dezimal(formData.get('menge_liter_gefuellt') as string)) || null   // null-vorgabe-ok: 0 Liter heißt „nicht angegeben“ – Menge aus den Flaschen
   // Falls kein Literfeld ausgefüllt: aus Flaschenzahl berechnen. Auf 2 Stellen gerundet wie
   // fuellungen.menge_liter_gefuellt (numeric(10,2)) – Abbuchung von der Charge, gespeicherte
   // Füllmenge und fuellung_chargen.anteil_liter sind so identisch.
@@ -210,7 +210,7 @@ async function fuellungAnlegen(formData: FormData, eroeffnung: FlaschenEroeffnun
   let notizenZusatz = ''
   let charge: AR | null = null
   // KAN-84: Jahrgang und Rebsorte kommen aus der Charge (Formular bzw. Assistent nur ohne Wert an der Charge)
-  let jahrgang: number | null = parseInt(dezimal(formData.get('jahrgang') as string)) || null
+  let jahrgang: number | null = parseInt(dezimal(formData.get('jahrgang') as string)) || null   // null-vorgabe-ok: Jahrgang 0 ist ungültig – leer
   let rebsorte: string | null = ((formData.get('rebsorte') as string | null) ?? '').trim() || null
   const vorabHinweise: string[] = []
 
@@ -356,8 +356,8 @@ async function fuellungAnlegen(formData: FormData, eroeffnung: FlaschenEroeffnun
     dac_antrag_id:        dacAntragId,
     lohnversektung_id:    lohnversektungId,   // KAN-232: Journal LNSKT/LNSKT_ZU statt FUELLUNG
     chargennummer,
-    vk_preis_brutto:      parseFloat(dezimal(formData.get('vk_preis_brutto') as string)) || null,
-    einstandspreis:       parseFloat(dezimal(formData.get('einstandspreis') as string)) || null,
+    vk_preis_brutto:      zahlAus(formData.get('vk_preis_brutto')),
+    einstandspreis:       zahlAus(formData.get('einstandspreis')),
     zolltarifnummer:      (formData.get('zolltarifnummer') as string) || null,
     notizen:              notizen,
     // KAN-42: Flaschen-Eröffnungsbestand – Weinart/Land der Zeile und Kennzeichen für Berichte (Zugang am Stichtag)
@@ -477,8 +477,8 @@ export async function updateFuellung(id: string, formData: FormData): Promise<vo
   // Nur die Spalten der Positivliste (Freeze-Trigger) – Merkmale, Datum, Mengen und Los bleiben unangetastet
   const payload: AR = {
     name:            ((formData.get('name') as string | null) ?? '').trim(),
-    vk_preis_brutto: parseFloat(dezimal(formData.get('vk_preis_brutto') as string)) || null,
-    einstandspreis:  parseFloat(dezimal(formData.get('einstandspreis') as string)) || null,
+    vk_preis_brutto: zahlAus(formData.get('vk_preis_brutto')),
+    einstandspreis:  zahlAus(formData.get('einstandspreis')),
     zolltarifnummer: (formData.get('zolltarifnummer') as string) || null,
     notizen:         (formData.get('notizen') as string) || null,
     aktualisiert_am: new Date().toISOString(),
@@ -807,7 +807,7 @@ export async function deactivateFuellung(id: string, grund: string): Promise<voi
         throw new AktionsFehler(`Die Füllung „${f.name}“ kann nicht automatisch gelöscht werden: Zur Abfüllung gibt es mehrere Abschluss-Schwundbuchungen an der Charge „${charge.name}“. Bitte Support kontaktieren.`)
       }
       const schwund = kandidaten[0] ?? null
-      const schwundLiter = schwund ? r2(Number(schwund.brutto_liter ?? 0) || Number(schwund.schwund_liter ?? 0) || 0) : 0
+      const schwundLiter = schwund ? r2(Number(schwund.brutto_liter ?? 0) || Number(schwund.schwund_liter ?? 0) || 0) : 0   // null-vorgabe-ok: Brutto 0 = Altdaten ohne Brutto – Schwund
       if (schwund) {
         // Nur, wenn an der Charge seit dem Abschluss nichts mehr gebucht wurde
         const spaeter = await spaetereMengenbewegungen(supabase, tenantId, f.weinausbau_id as string, String(schwund.erstellt_am), {

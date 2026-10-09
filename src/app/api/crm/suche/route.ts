@@ -5,6 +5,7 @@ import type { PartnerTreffer } from '@/components/crm/PartnerSuche'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { suchWoerter } from '@/lib/crm/liste'
 import { fremderBetrieb, ladeCrmGemeinschaft, sichtbareBetriebe, type CrmGemeinschaft } from '@/lib/crm/gemeinschaft'
+import { zahlWert } from '@/lib/format'
 
 // Serverseitige Namenssuche für Auswahlfelder (17.9.2026):
 //   /api/crm/suche?art=kontakt|firma|kunde|lieferant&q=<text>
@@ -43,7 +44,7 @@ function konditionen(typ: 'kontakt' | 'firma', r: R, fremd: boolean) {
     rabatt_pct:       (r.rabattgruppe as R | null)?.rabatt_pct != null ? Number((r.rabattgruppe as R).rabatt_pct) : null,
     sonderrabatt_pct: parseFloat(r.sonderrabatt_pct) || 0,
     skonto_pct:       parseFloat(r.skonto_pct) || 0,
-    skonto_tage:      parseInt(r.skonto_tage) || 10,
+    skonto_tage:      (zahlWert(r.skonto_tage) ?? 10),
   }
 }
 

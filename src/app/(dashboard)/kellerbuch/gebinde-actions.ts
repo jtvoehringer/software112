@@ -118,7 +118,7 @@ async function insertEroeffnungsbestand(
   const payload: R = {
     tenant_id:            tenantId,
     name:                 formData.get('name') as string,
-    jahrgang:             parseInt(dezimal(formData.get('jahrgang') as string)) || null,
+    jahrgang:             parseInt(dezimal(formData.get('jahrgang') as string)) || null,   // null-vorgabe-ok: Jahrgang 0 ist ungültig – leer
     ...mostgewichtSpalten(mostgewicht.wert, 'kmw'),   // kmw, oechsle, mostgewicht_einheit
     menge_liter:          menge,
     anfangsbestand_liter: menge,
@@ -206,7 +206,7 @@ async function eroeffnungsbestandSpeichern(id: string, formData: FormData): Prom
   const epRaw2 = dezimal(formData.get('einstandspreis_pro_liter') as string) ?? ''
   const payload: R = {
     name:            formData.get('name') as string,
-    jahrgang:        parseInt(dezimal(formData.get('jahrgang') as string)) || null,
+    jahrgang:        parseInt(dezimal(formData.get('jahrgang') as string)) || null,   // null-vorgabe-ok: Jahrgang 0 ist ungültig – leer
     ...(mostgewicht.uebermittelt ? mostgewichtSpalten(mostgewicht.wert, 'kmw') : {}),
     ...qualitaetsSpalten(angabe),
     notizen:         (formData.get('notizen') as string) || null,

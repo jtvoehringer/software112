@@ -37,7 +37,7 @@ export default async function MonatsabschlussPage({
   const doppik = einst?.buchhaltungsart === 'doppik'
 
   const sp   = await searchParams
-  const jahr = parseInt(sp.jahr ?? '') || wienJetzt().getFullYear()
+  const jahr = parseInt(sp.jahr ?? '') || wienJetzt().getFullYear()   // null-vorgabe-ok: Jahr 0 aus der URL ist ungültig – aktuelles Jahr
   const jahre = Array.from({ length: 5 }, (_, i) => wienJetzt().getFullYear() - i)
 
   const { data: abschluesseRaw } = await (supabase.from('ea_monatsabschluss') as any)

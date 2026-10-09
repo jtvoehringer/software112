@@ -94,10 +94,25 @@ export function dezimal(s: unknown): string {
   return t.replace(TAUSENDERPUNKT, '$1')
 }
 
-/** Zahleneingabe → number oder null (leer/ungültig). */
+/** Zahleneingabe → number oder null (leer/ungültig). Eine 0 bleibt 0 – Vorgabe mit `zahlAus(x) ?? 13`, nie
+ *  `parseFloat(x) || 13` (Sweep 85: 0 % USt wurde 13 %, Wächter check-null-vorgabe). */
 export function zahlAus(s: unknown): number | null {
   const t = dezimal(s)
   if (!t) return null
   const n = Number(t)
+  return Number.isFinite(n) ? n : null
+}
+
+/** Ganzzahl-Eingabe (Tage, Prozent ohne Komma) → ganze Zahl (abgeschnitten wie parseInt) oder null. 0 bleibt 0. */
+export function ganzzahlAus(s: unknown): number | null {
+  const n = zahlAus(s)
+  return n === null ? null : Math.trunc(n)
+}
+
+/** Wert aus der Datenbank (number oder numeric-String „13.00“) → number oder null; ohne Tausenderpunkt-Deutung
+ *  (anders als zahlAus: „12.500“ aus numeric(…,3) ist 12,5). 0 bleibt 0. */
+export function zahlWert(v: unknown): number | null {
+  if (v === null || v === undefined || (typeof v === 'string' && v.trim() === '')) return null
+  const n = Number(v)
   return Number.isFinite(n) ? n : null
 }

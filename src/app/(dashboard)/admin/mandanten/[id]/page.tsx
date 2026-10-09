@@ -8,6 +8,7 @@ import type { Metadata } from 'next'
 import MandantDetailClient from './MandantDetailClient'
 import { geheimMaskiert } from '@/lib/email/geheimnis'
 import type { MostgewichtEinheit } from '@/lib/wein/mostgewicht'
+import { zahlWert } from '@/lib/format'
 
 export const dynamic = 'force-dynamic'
 
@@ -271,7 +272,7 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
     rechnung_bic:          s?.rechnung_bic ?? null,
     rechnung_zahlungsziel: s?.rechnung_zahlungsziel ?? 14,
     rechnung_fusstext:     s?.rechnung_fusstext ?? null,
-    ust_satz_standard:     parseFloat(s?.ust_satz_standard) || 13,
+    ust_satz_standard:     (zahlWert(s?.ust_satz_standard) ?? 13),
     email_modul_aktiv:    !!(s?.email_modul_aktiv),
     email_smtp_host:      s?.email_smtp_host ?? null,
     email_smtp_port:      s?.email_smtp_port ?? 587,
