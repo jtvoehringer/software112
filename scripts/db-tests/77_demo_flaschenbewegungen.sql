@@ -38,6 +38,9 @@ BEGIN
     RAISE EXCEPTION 'Staging-Demo unvollständig – demo_musterhof_zuruecksetzen() + demo_musterhof_y2_kette()';
   END IF;
 
+  -- Kontext wie in demo_musterhof_zuruecksetzen: Wartung des Demo-Betriebs passiert die Füllungssperre (KAN-97/101)
+  PERFORM set_config('s112.protokoll_aus', c_t::text, true);
+
   -- ── 1. Verkauf: eine Bewegung, Kette passt zum Bestand ────────────────────────────────────────────────
   PERFORM public.demo_musterhof_verkauf(v_vp, 9901, v_heute, NULL, NULL, '[{"t":"f","f":12,"m":6}]'::jsonb, NULL, false, 'S112TEST Verkauf');
   SELECT string_agg(art || ' ' || menge_stk, ', ') INTO v_txt
