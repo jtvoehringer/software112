@@ -1,6 +1,6 @@
 // ── Amtliche Herkunftskataloge für das BKI-Blatt „Weingärten“ (KAN-47 Schritt 2, 09.10.2026) ──
 //
-// Statisch erfasst aus dem RIS, je Weinbaugebiet ein Block (bisher: Thermenregion, Kremstal, Wachau, Kamptal, Traisental). Schlüssel sind die
+// Statisch erfasst aus dem RIS, je Weinbaugebiet ein Block (bisher: Thermenregion, Kremstal, Wachau, Kamptal, Traisental, Carnuntum). Schlüssel sind die
 // Gemeindekennziffer (GKZ, Statistik Austria) bzw. – wo eine Verordnung einzelne Katastralgemeinden nennt – die KG-Nr. (BEV).
 // Reihenfolge: Ried vor KG vor Gemeinde (Beispiel: KG Oeynhausen gehört zur Gemeinde Traiskirchen, aber zur Großlage
 // Steinfeld; die Kremser Großlagen sind über Rieden festgelegt, im Kamptal lenken einzelne Rieden den Ortswein um). Ohne `@/`-Importe (node:test).
@@ -13,6 +13,8 @@
 //   Kamptal: DAC-Verordnung „Kamptal“ i. d. F. BGBl. II Nr. 250/2024, Anlage 1 (ortsübergreifende Weinbaugemeinden)
 //   Traisental: DAC-Verordnung „Traisental“, BGBl. II Nr. 273/2017 i. d. F. 2023 (ohne Liste der Ortsangaben) und
 //      Produktspezifikation „Traisental DAC“ (BML, 28.06.2022), Abgrenzung des Gebiets
+//   Carnuntum: DAC-Verordnung „Carnuntum“, BGBl. II Nr. 284/2019 i. d. F. BGBl. II Nr. 30/2022, § 6 und Anhang
+//      (ortsübergreifende Gemeinden); Gebiet = politischer Bezirk Bruck an der Leitha und Gerichtsbezirk Schwechat
 //
 // Annahmen (am Ticket KAN-47 dokumentiert):
 //   K1 Wiener Neustadt (Statutarstadt, GKZ 30401) zählt zum Ortswein „Wiener Neustadt“, obwohl Anhang A nur die
@@ -39,6 +41,10 @@
 //      zählt keine Ortsangaben auf → Ortswein = Name der politischen Gemeinde. Großlage nur „Wölblinger Urgestein“
 //      (Wölbling, Obritzberg-Rust); Venusberg/Parapluiberg (östlich/westlich der Traisen) sind ohne Lagekarte nicht je KG
 //      zuordenbar und bleiben leer.
+//   K11 Carnuntum: Gebiet = alle GKZ 307xx (der Gerichtsbezirk Schwechat gehört seit 2017 zum Bezirk Bruck an der Leitha).
+//      Die Anhang-Namen sind Ortschaften: ganze Gemeinde, wo sie die Gemeinde bilden; Hollern (Gemeinde Rohrau),
+//      Wildungsmauer und Regelsbrunn (Scharndorf), Enzersdorf (KG Enzersdorf an der Fischa, samt der Ortschaft Karlsdorf),
+//      Sarasdorf, Gallbrunn und Stixneusiedl (Trautmannsdorf) je KG. Keine Großlage.
 
 type Gebiet = {
   name: string
@@ -198,7 +204,25 @@ const TRAISENTAL: Gebiet = {
   ortsweinGemeindename: true,
 }
 
-const GEBIETE: readonly Gebiet[] = [THERMENREGION, KREMSTAL, WACHAU, KAMPTAL, TRAISENTAL]
+const CARNUNTUM: Gebiet = {
+  name: 'Carnuntum',
+  grosslageKg: {},
+  grosslageGkz: {},
+  ortsweinKg: jeSchluessel({
+    'Petronell-Carnuntum': ['5023', '5115', '5111'],                    // Hollern, Wildungsmauer, Regelsbrunn
+    'Stixneusiedl': ['5005', '5018', '5006', '5020'],                   // Enzersdorf an der Fischa, Sarasdorf, Gallbrunn, Stixneusiedl
+  }),
+  ortsweinGkz: jeSchluessel({
+    'Göttlesbrunn': ['30708'],                                          // Göttlesbrunn-Arbesthal
+    'Hainburg': ['30702', '30710', '30728'],                            // Bad Deutsch-Altenburg, Hainburg, Wolfsthal
+    'Höflein': ['30712'],
+    'Petronell-Carnuntum': ['30718', '30711'],                          // Petronell-Carnuntum, Haslau-Maria Ellend
+    'Prellenkirchen': ['30703', '30719', '30715'],                      // Berg, Prellenkirchen (Deutsch Haslau, Schönabrunn), Hundsheim
+  }),
+  dacGkzPraefix: ['307'],
+}
+
+const GEBIETE: readonly Gebiet[] = [THERMENREGION, KREMSTAL, WACHAU, KAMPTAL, TRAISENTAL, CARNUNTUM]
 
 export type HerkunftKatalog = {
   gebiet: string | null

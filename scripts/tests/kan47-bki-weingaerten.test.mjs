@@ -1,7 +1,7 @@
 // KAN-47 AP10 Schritt 1 (09.10.2026): BKI-Blatt „Weingärten“ aus den vorhandenen Ried- und Grundstücksdaten.
 // Annahmen W1–W6 im Kopf von src/lib/behoerden/bki-weingaerten.ts.
 // Schritt 2 (09.10.2026): Großlage, Gemeindeteil, DAC-Orts- und Riedenwein aus src/lib/wein/herkunftKatalog.ts (Thermenregion,
-// Kremstal, Wachau, Kamptal, Traisental; Annahmen K1–K10 dort).
+// Kremstal, Wachau, Kamptal, Traisental, Carnuntum; Annahmen K1–K11 dort).
 //
 // Aufruf:  npm run -s test:csv   (Node ≥ 22.15 wegen module.registerHooks)
 
@@ -123,7 +123,7 @@ describe('KAN-47 Schritt 2: Katalog Thermenregion', () => {
     const hirtenberg = wg.weingartenZeile(ried(lage), gst({ katastralgemeinde: '4312' }))
     assert.deepEqual([hirtenberg.grosslage, hirtenberg.dacOrtswein, hirtenberg.dacRiedenwein], ['Vöslauer Hauerberg', null, null])
     const r = wg.weingartenZeilen([ried(lage)], [gst({ katastralgemeinde: '10001' })])
-    assert.ok(r.warnungen.some(w => /außerhalb der erfassten Kataloge \(Thermenregion, Kremstal, Wachau, Kamptal, Traisental\)/.test(w)), r.warnungen.join(' | '))
+    assert.ok(r.warnungen.some(w => /außerhalb der erfassten Kataloge \(Thermenregion, Kremstal, Wachau, Kamptal, Traisental, Carnuntum\)/.test(w)), r.warnungen.join(' | '))
   })
 })
 
@@ -218,5 +218,22 @@ describe('KAN-47 Schritt 2: Katalog Traisental (K10)', () => {
   test('Zeile: Gemeindename aus der KG-Nr. als Ortswein', { skip: !hooksMoeglich }, () => {
     const z = wg.weingartenZeile(ried(), gst({ katastralgemeinde: '19116', trauben_herkunft_code: null }))
     assert.deepEqual([z.gemeinde, z.dacOrtswein, z.grosslage], ['Traismauer', 'Traismauer', null])
+  })
+})
+
+describe('KAN-47 Schritt 2: Katalog Carnuntum (K11)', () => {
+  test('ortsübergreifende Gemeinden: je Gemeinde bzw. je KG (Hollern, Wildungsmauer, Regelsbrunn, Trautmannsdorfer KGs)', () => {
+    const o = (kg, gkz) => kat.herkunftKatalog(kg, gkz).dacOrtswein
+    assert.deepEqual([o('5001', '30708'), o('5104', '30710'), o('5116', '30728'), o('5011', '30712'), o('5113', '30719'), o('5107', '30715')],
+      ['Göttlesbrunn', 'Hainburg', 'Hainburg', 'Höflein', 'Prellenkirchen', 'Prellenkirchen'])
+    assert.deepEqual([o('5023', '30721'), o('5115', '30722'), o('5108', '30711'), o('5109', '30718')], Array(4).fill('Petronell-Carnuntum'))
+    assert.deepEqual([o('5005', '30706'), o('5018', '30726'), o('5006', '30726'), o('5020', '30726')], Array(4).fill('Stixneusiedl'))
+  })
+
+  test('übriges Gebiet (Bezirk Bruck an der Leitha samt Schwechat) ohne Ortswein, ohne Großlage', () => {
+    assert.deepEqual(kat.herkunftKatalog('5021', '30726'), { gebiet: 'Carnuntum', grosslage: null, dacOrtswein: null, imDacGebiet: true })   // KG Trautmannsdorf
+    assert.equal(kat.herkunftKatalog('1', '30704').imDacGebiet, true)                                  // Bruck an der Leitha
+    assert.equal(kat.herkunftKatalog('1', '30740').gebiet, 'Carnuntum')                                // Schwechat
+    assert.equal(kat.herkunftKatalog('1', '30721').dacOrtswein, null, 'Rohrau außer KG Hollern')
   })
 })
