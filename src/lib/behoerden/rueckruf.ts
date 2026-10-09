@@ -212,7 +212,8 @@ export async function ladeRueckruf(supabase: any, tenantId: string, start: Rueck
   let startName = ''
   const startFuellungen = new Set<string>()
   if (start.art === 'fuellung') {
-    const { data: f } = await q(supabase, 'fuellungen').select('id, name, chargennummer, weinausbau_id').eq('id', start.id).eq('tenant_id', tenantId).maybeSingle()
+    const { data: f, error: fErr } = await q(supabase, 'fuellungen').select('id, name, chargennummer, weinausbau_id').eq('id', start.id).eq('tenant_id', tenantId).maybeSingle()
+    if (fErr) throw fehler('Füllung', fErr)   // nicht als „nicht gefunden“ melden
     if (!f) return null
     startName = `${f.name}${f.chargennummer ? ` (Los ${f.chargennummer})` : ''}`
     startFuellungen.add(String(f.id))
@@ -220,12 +221,14 @@ export async function ladeRueckruf(supabase: any, tenantId: string, start: Rueck
     if (error) throw fehler('Chargen der Füllung', error)
     startChargen = [...new Set([...(f.weinausbau_id ? [String(f.weinausbau_id)] : []), ...fc.map(x => String(x.weinausbau_id)).filter(Boolean)])]
   } else if (start.art === 'charge') {
-    const { data: c } = await q(supabase, 'weinausbau').select('id, name').eq('id', start.id).eq('tenant_id', tenantId).maybeSingle()
+    const { data: c, error: cErr } = await q(supabase, 'weinausbau').select('id, name').eq('id', start.id).eq('tenant_id', tenantId).maybeSingle()
+    if (cErr) throw fehler('Charge', cErr)
     if (!c) return null
     startName = String(c.name)
     startChargen = [String(c.id)]
   } else {
-    const { data: p } = await q(supabase, 'pressungen').select('id, datum, weinbezeichnung').eq('id', start.id).eq('tenant_id', tenantId).maybeSingle()
+    const { data: p, error: pErr } = await q(supabase, 'pressungen').select('id, datum, weinbezeichnung').eq('id', start.id).eq('tenant_id', tenantId).maybeSingle()
+    if (pErr) throw fehler('Pressung', pErr)
     if (!p) return null
     startName = `Pressung ${p.weinbezeichnung ?? ''} ${p.datum ? String(p.datum).split('-').reverse().join('.') : ''}`.replace(/\s+/g, ' ').trim()
     const { data: pb, error } = await alle<R>(q(supabase, 'pressung_behaelter').select('id, weinausbau_id')
