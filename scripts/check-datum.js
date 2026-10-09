@@ -92,6 +92,17 @@ function pruefeText(text) {
       }
       melde(m.index, "Datum/Uhrzeit ohne timeZone in Server-Code (UTC) – { timeZone: 'Europe/Vienna' } ergänzen")
     }
+    // 4) Sweep 79: „jetzt“ als new Date() und dann Jahr/Monat/Tag/Stunde über get…() – auf dem UTC-Server am Monats-
+    //    bzw. Jahreswechsel bis 1 bzw. 2 Uhr noch der alte Monat/das alte Jahr. Richtig: wienJetzt().
+    const GET = 'getFullYear|getMonth|getDate|getHours|getDay'
+    const DIREKT = new RegExp('new Date\\(\\s*\\)\\s*\\.\\s*(?:' + GET + ')\\(', 'g')
+    while ((m = DIREKT.exec(code))) melde(m.index, '„jetzt“ über new Date().get…() in Server-Code (UTC) – wienJetzt() aus src/lib/datum/wien.ts verwenden')
+    const VARIABLE = /(?:const|let)\s+(\w+)\s*=\s*new Date\(\s*\)/g
+    while ((m = VARIABLE.exec(code))) {
+      if (new RegExp('\\b' + m[1] + '\\s*\\.\\s*(?:' + GET + ')\\(').test(code.slice(m.index))) {
+        melde(m.index, `„jetzt“ (${m[1]} = new Date()) über get…() in Server-Code (UTC) – wienJetzt() aus src/lib/datum/wien.ts verwenden`)
+      }
+    }
   }
   return { funde, ausnahmen }
 }
@@ -130,5 +141,5 @@ if (require.main === module) {
     console.error('  // datum-ok: <Grund ≥ 15 Zeichen>   (dieselbe Zeile oder bis zu vier Zeilen davor)\n')
     process.exit(1)
   }
-  console.log(`✓ check-datum: ${e.dateien} Dateien, keine Kalendertage über toISOString() eines lokalen Datums und keine Datumsanzeige ohne Zeitzone im Server-Code, ${e.ausnahmen} begründete Ausnahme(n).`)
+  console.log(`✓ check-datum: ${e.dateien} Dateien, keine Kalendertage über toISOString() eines lokalen Datums, keine Datumsanzeige ohne Zeitzone und kein „jetzt“ in UTC im Server-Code, ${e.ausnahmen} begründete Ausnahme(n).`)
 }

@@ -28,6 +28,7 @@ import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
 import { wienHeute } from '@/lib/csv'
 import { eroeffnungsTag, standardEroeffnungsStichtag, stichtagText } from '@/lib/kellerbuch/eroeffnungsStichtag'
 import { EB_NOTIZEN_HINWEIS } from '@/lib/kellerbuch/chargeRegeln'
+import { wienJetzt } from '@/lib/datum/wien'
 
 export const metadata: Metadata = { title: 'Gebinde – software:112' }
 export const dynamic = 'force-dynamic'
@@ -430,7 +431,7 @@ export default async function GebindePage({
                 <div>
                   <label className={labelCls}>Jahrgang</label>
                   <input aria-label="Jahrgang" name="jahrgang" type="number" min={1900} max={2100}
-                    defaultValue={new Date().getFullYear() - 1} className={inputCls} />
+                    defaultValue={wienJetzt().getFullYear() - 1} className={inputCls} />
                 </div>
                 <div>
                   {/* KAN-130 Etappe 3 (02.10.2026): Mostgewicht in °KMW oder °Oe – bevorzugte Einheit des Betriebs zuerst */}

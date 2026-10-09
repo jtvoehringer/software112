@@ -5,6 +5,7 @@ import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
 import { schliesseEaMonat } from '../actions'
 import ConfirmDeleteForm from '@/components/ui/ConfirmDeleteForm'
 import { Lock, LockOpen } from 'lucide-react'
+import { wienJetzt } from '@/lib/datum/wien'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,8 +37,8 @@ export default async function MonatsabschlussPage({
   const doppik = einst?.buchhaltungsart === 'doppik'
 
   const sp   = await searchParams
-  const jahr = parseInt(sp.jahr ?? '') || new Date().getFullYear()
-  const jahre = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i)
+  const jahr = parseInt(sp.jahr ?? '') || wienJetzt().getFullYear()
+  const jahre = Array.from({ length: 5 }, (_, i) => wienJetzt().getFullYear() - i)
 
   const { data: abschluesseRaw } = await (supabase.from('ea_monatsabschluss') as any)
     .select('monat, abgeschlossen_am')
@@ -45,7 +46,7 @@ export default async function MonatsabschlussPage({
     .eq('jahr', jahr)
   const abschluesse = new Map(((abschluesseRaw ?? []) as R[]).map(a => [a.monat, a.abgeschlossen_am]))
 
-  const heute = new Date()
+  const heute = wienJetzt()   // Sweep 79: Monatswechsel in Wiener Zeit
   const istZukunft = (monat: number) =>
     jahr > heute.getFullYear() || (jahr === heute.getFullYear() && monat > heute.getMonth() + 1)
 

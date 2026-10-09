@@ -71,6 +71,7 @@ export async function POST(req: NextRequest) {
     const lock = await client.getMailboxLock('INBOX')
     try {
       // Nur ungelesene Mails der letzten 7 Tage
+      // datum-ok: Zeitpunkt minus 7 Tage für den IMAP-Filter, kein Wiener Kalendertag nötig
       const seit = new Date(); seit.setDate(seit.getDate() - 7)
       for await (const msg of client.fetch({ since: seit }, { envelope: true, source: true })) {
         const from = msg.envelope?.from?.[0]?.address?.toLowerCase() ?? ''

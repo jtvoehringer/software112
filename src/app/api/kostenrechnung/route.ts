@@ -8,6 +8,7 @@ import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
 import { kostenAufteilung } from '@/lib/wein/massnahmeAnteile'
 import { modulKonflikt } from '@/lib/auth/modul'
+import { wienJetzt } from '@/lib/datum/wien'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -119,7 +120,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ behaelter: rows.map(b => ({ id: b.id, name: b.anzeigeName, typ: b.typ })) })
   }
   if (a === 'auswertung') {
-    const jahr = req.nextUrl.searchParams.get('jahr') ?? new Date().getFullYear().toString()
+    const jahr = req.nextUrl.searchParams.get('jahr') ?? wienJetzt().getFullYear().toString()
     // alle(): Jahresauswertung über alle Kosteneinträge, nicht nur die ersten 1.000
     const { data: ke, error: keErr } = await alle<R>((s.from('kosteneintraege') as any)
       .select('id, betrag, periode, objekt_typ, kostenstelle:kostenstelle_id(name), kostenart:kostenart_id(name), wg:weingarten_id(name), behaelter:behaelter_id(name)')
