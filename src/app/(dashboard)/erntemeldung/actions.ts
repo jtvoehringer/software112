@@ -230,7 +230,8 @@ export async function neueLese(formData: FormData): Promise<{ error?: string; ja
     if (neu) { jahrgangId = (neu as AR).id as string; jahrgangNeu = true }
     else {
       // gleichzeitig angelegt (23505) – dann den bestehenden verwenden
-      const { data: nochmal } = await ladeJg()
+      const { data: nochmal, error: nochmalErr } = await ladeJg()
+      if (nochmalErr) return { error: dbFehlerText(nochmalErr, 'Jahrgang konnte nicht geladen werden') }
       jahrgangId = (nochmal as AR | null)?.id as string | undefined
       if (!jahrgangId) return { error: `Jahrgang ${jahrgang} konnte nicht angelegt werden – bitte die Seite neu laden.` }
     }
@@ -1081,11 +1082,15 @@ async function chargenVorgabenErmitteln(
   if (weingaerten.length > 0) {
     const wgIds  = weingaerten.map(w => w.weingarten_id).filter(Boolean) as string[]
     const gstIds = weingaerten.map(w => w.grundstueck_id).filter(Boolean) as string[]
+    // alle-ausnahme: Rieden und Grundstücke einer einzelnen Pressung
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: wgRows } = await (supabase.from('weingarten') as any).select('rebsorte, weinart').in('id', wgIds).eq('tenant_id', tenantId)
-    const { data: gstRows } = gstIds.length > 0
+    const { data: wgRows, error: wgErr } = await (supabase.from('weingarten') as any).select('rebsorte, weinart').in('id', wgIds).eq('tenant_id', tenantId)
+    // alle-ausnahme: Grundstücke einer einzelnen Pressung
+    const { data: gstRows, error: gstErr } = gstIds.length > 0
       ? await (supabase.from('grundstuecke') as any).select('weinart').in('id', gstIds).eq('tenant_id', tenantId)
-      : { data: [] }
+      : { data: [], error: null }
+    // KAN-253: sonst würden Rebsorte und Weinart aus leeren Daten bestimmt
+    if (wgErr || gstErr) throw new AktionsFehler(dbFehlerText(wgErr ?? gstErr, 'Rieden der Pressung konnten nicht geladen werden'))
     const wgArr  = ((wgRows  ?? []) as AR[])
     const gstArr = ((gstRows ?? []) as AR[])
     // Rebsorte
@@ -1873,7 +1878,8 @@ export async function createTraubenverkauf(fd: FormData) {
 
   // Liefernummer auto-generieren – erst nach allen Prüfungen (keine Lücke im Nummernkreis)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: lnData } = await (supabase.rpc as any)('get_next_liefernummer', { p_tenant_id: tenantId })
+  const { data: lnData, error: lnErr } = await (supabase.rpc as any)('get_next_liefernummer', { p_tenant_id: tenantId })
+  if (lnErr) throw new AktionsFehler(dbFehlerText(lnErr, 'Liefernummer konnte nicht vergeben werden'))
   const liefernummer = lnData as string | null
 
   const weingartenName = await ermittleQuellenName(supabase, weingartenId, zukaufPostenId, tenantId)

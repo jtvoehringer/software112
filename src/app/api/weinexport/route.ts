@@ -47,7 +47,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ fehler: `Unbekanntes Land „${destLandRoh}“ – bitte ein Land aus der Liste wählen.` }, { status: 400 })
 
     // Referenznummer generieren
-    const { data: refData } = await (admin.rpc as any)('get_next_exportnummer', { p_tenant_id: tenantId })
+    const { data: refData, error: refDataErr } = await (admin.rpc as any)('get_next_exportnummer', { p_tenant_id: tenantId })
+    if (refDataErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${refDataErr.message}` }, { status: 500 })
     const referenz = refData ?? null
 
     const { data: auftrag, error } = await (supabase.from('exportauftraege') as any).insert({

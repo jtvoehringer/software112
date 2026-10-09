@@ -42,10 +42,12 @@ export async function POST(req: NextRequest) {
     const firmenDomain = domain && !FREEMAIL_DOMAINS.has(domain) ? domain : null
 
     // Auswahllisten für den Dialog
-    const [{ data: rRaw }, { data: fRaw }] = await Promise.all([
+    const [{ data: rRaw, error: rRawErr }, { data: fRaw, error: fRawErr }] = await Promise.all([
       (supabase.from('rabattgruppen') as any).select('id, name, rabatt_pct').eq('tenant_id', tenantId).order('rabatt_pct'),
       alle((supabase.from('firmen') as any).select('id, name, ort, segment, is_lead').eq('tenant_id', tenantId).eq('aktiv', true).order('name').order('id')),   // Sweep 20.9.: .limit(2000) wurde bei 1.000 gekappt
     ])
+    { const ladeFehler = [rRawErr, fRawErr].find(Boolean)
+      if (ladeFehler) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${ladeFehler.message}` }, { status: 500 }) }
     const rabattgruppen = ((rRaw ?? []) as R[]).map(r => ({ id: r.id as string, name: r.name as string, rabatt_pct: Number(r.rabatt_pct) }))
     const firmen = ((fRaw ?? []) as R[]).map(f => ({ id: f.id as string, name: f.name as string, ort: (f.ort ?? null) as string | null, segment: f.segment as string, is_lead: !!f.is_lead }))
 

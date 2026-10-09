@@ -13,8 +13,9 @@ export async function GET() {
   if (!user) return NextResponse.json({ note: null })
 
   // Neueste aktive Release Note holen
-  const { data: notes } = await (s.from('release_notes') as any)
+  const { data: notes, error: notesErr } = await (s.from('release_notes') as any)
     .select('*').eq('aktiv', true).order('veroeffentlicht_am', { ascending: false }).limit(1)
+  if (notesErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${notesErr.message}` }, { status: 500 })
   const note = (notes ?? [])[0] as R | undefined
   if (!note) return NextResponse.json({ note: null })
 

@@ -26,10 +26,12 @@ export async function DELETE(req: NextRequest) {
 
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ fehler: 'Nicht angemeldet' }, { status: 401 })
-    const [{ data: uc }, { data: tc }] = await Promise.all([
+    const [{ data: uc, error: ucErr }, { data: tc, error: tcErr }] = await Promise.all([
       (admin.from('user_email_connections') as any).select('m365_aktiv, m365_access_token_enc, m365_refresh_token_enc, m365_token_expires_at, imap_aktiv, imap_host, imap_port, imap_user, imap_pass_enc, monitored_email').eq('tenant_id', tenantId).eq('user_id', user?.id ?? '').maybeSingle(),
       (admin.from('tenant_einstellungen') as any).select('m365_tenant_id, m365_client_id, m365_client_secret_enc').eq('tenant_id', tenantId).maybeSingle(),
     ])
+    { const ladeFehler = [ucErr, tcErr].find(Boolean)
+      if (ladeFehler) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${ladeFehler.message}` }, { status: 500 }) }
     const token = await getValidUserAccessToken(uc as R, tc as R, admin, tenantId, user?.id ?? '')
 
     // In "Gelöschte Elemente" verschieben (nicht endgültig löschen)

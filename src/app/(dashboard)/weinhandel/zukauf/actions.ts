@@ -308,7 +308,9 @@ async function pruefeWeinartImGebinde(supabase: any, f: ZukaufFormular, imGebind
   const farbe = new Map<string, string>()
   if (sorten.length) {
     // tenant-isolation-ignore: rebsorten ist eine globale Stammtabelle ohne tenant_id
-    const { data: rs } = await (supabase.from('rebsorten') as any).select('name_de, farbe').in('name_de', sorten)
+    const { data: rs, error: rsErr } = await (supabase.from('rebsorten') as any).select('name_de, farbe').in('name_de', sorten)
+    // KAN-253: ohne Farben fände die Rot-/Weiß-Sperre bei Chargen ohne Weinart nichts
+    if (rsErr) throw new AktionsFehler(dbFehlerText(rsErr, 'Rebsorten konnten nicht geladen werden'))
     for (const r of (rs ?? []) as AR[]) farbe.set(r.name_de, r.farbe)
   }
   const artVon = (weinart: string | null | undefined, rebsorte: string | null | undefined): string =>

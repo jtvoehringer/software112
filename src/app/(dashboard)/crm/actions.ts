@@ -916,11 +916,13 @@ export async function pruefeKontaktDublette(d: { vorname: string; nachname: stri
     if (nachname) {
       let q = (supabase.from('kontakte') as any).select('vorname, nachname').eq('tenant_id', tenantId).eq('aktiv', true).ilike('nachname', nachname)
       q = vorname ? q.ilike('vorname', vorname) : q.or('vorname.is.null,vorname.eq.')
+      // abfrage-ohne-fehler: nur Hinweis auf eine mögliche Dublette – ohne Daten gibt es keinen Hinweis, nichts wird gesperrt
       const { data } = await q.limit(1)
       const k = ((data ?? []) as AR[])[0]
       if (k) out.name = `${k.vorname ? k.vorname + ' ' : ''}${k.nachname}`
     }
     if (d.strasse.trim() && d.plz.trim() && d.ort.trim()) {
+      // abfrage-ohne-fehler: nur Hinweis auf eine mögliche Dublette – ohne Daten gibt es keinen Hinweis, nichts wird gesperrt
       const { data } = await (supabase.from('kontakte') as any).select('vorname, nachname, strasse, plz, ort').eq('tenant_id', tenantId).eq('aktiv', true)
         .ilike('strasse', d.strasse.trim()).ilike('plz', d.plz.trim()).ilike('ort', d.ort.trim()).limit(1)
       const k = ((data ?? []) as AR[])[0]
@@ -936,11 +938,13 @@ export async function pruefeFirmaDublette(d: { name: string; strasse: string; pl
     const tenantId = await getTenantId()
     const out: { name?: string; adresse?: string } = {}
     if (d.name.trim()) {
+      // abfrage-ohne-fehler: nur Hinweis auf eine mögliche Dublette – ohne Daten gibt es keinen Hinweis, nichts wird gesperrt
       const { data } = await (supabase.from('firmen') as any).select('name').eq('tenant_id', tenantId).eq('aktiv', true).ilike('name', d.name.trim()).limit(1)
       const f = ((data ?? []) as AR[])[0]
       if (f) out.name = f.name
     }
     if (d.strasse.trim() && d.plz.trim() && d.ort.trim()) {
+      // abfrage-ohne-fehler: nur Hinweis auf eine mögliche Dublette – ohne Daten gibt es keinen Hinweis, nichts wird gesperrt
       const { data } = await (supabase.from('firmen') as any).select('name, strasse, plz, ort').eq('tenant_id', tenantId).eq('aktiv', true)
         .ilike('strasse', d.strasse.trim()).ilike('plz', d.plz.trim()).ilike('ort', d.ort.trim()).limit(1)
       const f = ((data ?? []) as AR[])[0]

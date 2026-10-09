@@ -87,11 +87,12 @@ export async function GET(
   const tenantId = membership?.tenantId
   if (!tenantId) return NextResponse.json({ error: 'Kein Betrieb' }, { status: 403 })
 
-  const { data } = await (supabase.from('aktivitaet_dokumente') as any)
+  const { data, error: dataErr } = await (supabase.from('aktivitaet_dokumente') as any)
     .select('id, dateiname, dateityp, groesse_bytes, erstellt_am')
     .eq('aktivitaet_id', aktivitaetId)
     .eq('tenant_id', tenantId)
     .order('erstellt_am', { ascending: true })
+  if (dataErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${dataErr.message}` }, { status: 500 })
 
   return NextResponse.json(data ?? [])
 }

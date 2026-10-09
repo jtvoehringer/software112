@@ -184,7 +184,8 @@ export async function lieferadressenDesKunden(kontaktId: string | null, firmaId:
   let q = (supabase.from('lieferadressen') as any).select('id, bezeichnung, empfaenger, strasse, plz, ort, land')
     .eq('tenant_id', membership.tenantId).eq('aktiv', true)
   q = firmaId ? q.eq('firma_id', firmaId) : q.eq('kontakt_id', kontaktId)
-  const { data } = await q.order('erstellt_am').limit(200)
+  const { data, error } = await q.order('erstellt_am').limit(200)
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Lieferadressen konnten nicht geladen werden'))
   return (data ?? []) as (Lieferadresse & { id: string })[]
 }
 
@@ -437,7 +438,9 @@ export async function createVerkauf(formData: FormData) {
   }
 
   // Transaktionsnummer vergeben
-  const { data: txnVk } = await (supabase.rpc as any)('get_next_transaktionsnr', { p_tenant_id: tenantId, p_typ: 'verkauf' })
+  const { data: txnVk, error: txnErr } = await (supabase.rpc as any)('get_next_transaktionsnr', { p_tenant_id: tenantId, p_typ: 'verkauf' })
+  // KAN-253: sonst Beleg ohne Transaktionsnummer – Bestand zurücknehmen wie bei jedem Abbruch nach der Abbuchung
+  if (txnErr) await abbruch(dbFehlerText(txnErr, 'Transaktionsnummer konnte nicht vergeben werden'), null)
 
   // 2. Verkaufsposten anlegen (UUID oben vergeben)
   const { data: postenNeu, error: postenErr } = await (supabase.from('verkaufsposten') as any).insert({
@@ -469,7 +472,8 @@ export async function createVerkauf(formData: FormData) {
     if (p.typ === 'trauben') {
       // Liefernummer auto-generieren
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: lnData } = await (supabase.rpc as any)('get_next_liefernummer', { p_tenant_id: tenantId })
+      const { data: lnData, error: lnErr } = await (supabase.rpc as any)('get_next_liefernummer', { p_tenant_id: tenantId })
+      if (lnErr) await abbruch(dbFehlerText(lnErr, 'Liefernummer konnte nicht vergeben werden'), postenId)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: tv, error: tvErr } = await (supabase.from('traubenverkauf') as any)
         .insert({
@@ -666,7 +670,9 @@ export async function markiereAlsBezahlt(id: string) {
 
   // KAN-149 D2b: stornierte Zahlungen zählen nicht
   const zq = (supabase.from('zahlungen') as any).select('betrag').eq('tenant_id', tenantId).is('storniert_am', null)
-  const { data: zahlungenRaw } = await (kontext?.rechnungId ? zq.eq('rechnung_id', kontext.rechnungId) : zq.eq('verkaufsposten_id', id))
+  const { data: zahlungenRaw, error: zahlungenErr } = await (kontext?.rechnungId ? zq.eq('rechnung_id', kontext.rechnungId) : zq.eq('verkaufsposten_id', id))
+  // KAN-253: sonst „noch nichts bezahlt“ – die volle Zahlung würde ein zweites Mal gebucht
+  if (zahlungenErr) throw new AktionsFehler(dbFehlerText(zahlungenErr, 'Bisherige Zahlungen konnten nicht geladen werden'))
   const bereitsBezahlt = ((zahlungenRaw ?? []) as AR[]).reduce((s, z) => s + Number(z.betrag ?? 0), 0)
   const offen = gesamt - bereitsBezahlt
 

@@ -12,7 +12,7 @@ import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { zentrum, type EamaFeldstueck, type EamaSchlag } from '@/lib/geo/eama'
-import { AktionsFehler, NICHT_GESPEICHERT } from '@/lib/fehler'
+import { AktionsFehler, dbFehlerText, NICHT_GESPEICHERT } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -42,11 +42,13 @@ async function kontext() {
 const fsKey = (v: unknown) => { const n = parseInt(String(v ?? '').trim()); return Number.isFinite(n) ? n : null }
 
 async function ladeBestand(supabase: any, tenantId: string) { // eslint-disable-line @typescript-eslint/no-explicit-any
-  const [{ data: w }, { data: g, error: gFehler }] = await Promise.all([
+  const [{ data: w, error: wFehler }, { data: g, error: gFehler }] = await Promise.all([
     (supabase.from('weingarten') as any).select('id, name, ried, ama_feldnummer, aktiv, geo_quelle, zentrum_lat, geometrie').eq('tenant_id', tenantId).eq('aktiv', true),
     // alle(): Abgleich über alle Grundstücke – sonst legte der Import vorhandene GST ab dem 1.001. doppelt an
     alle<R>((supabase.from('grundstuecke') as any).select('id, weingarten_id, gst_nr, ama_feldnummer').eq('tenant_id', tenantId).order('id')),
   ])
+  // KAN-253: ohne die vorhandenen Rieden legte der Import sie doppelt an
+  if (wFehler) throw new AktionsFehler(dbFehlerText(wFehler, 'Rieden konnten nicht geladen werden'))
   if (gFehler) throw new AktionsFehler(`Grundstücke nicht ladbar: ${gFehler.message}`)
   const rieden = ((w ?? []) as R[])
   const riedByFs = new Map<number, R[]>()

@@ -93,12 +93,14 @@ export async function GET(req: NextRequest) {
     // Empfänger-Vervollständigung: Name ODER Adresse enthält den Suchtext;
     // je Adresse (Standard + weitere) ein Eintrag { id: email, label: Name, sub: email }
     if (q.length < 2) return NextResponse.json({ treffer: [] })
-    const [{ data: kRaw }, { data: fRaw }] = await Promise.all([
+    const [{ data: kRaw, error: kRawErr }, { data: fRaw, error: fRawErr }] = await Promise.all([
       (supabase.from('kontakte') as any).select('id, vorname, nachname, email, email_weitere').eq('tenant_id', tenantId).eq('aktiv', true)
         .or(`nachname.ilike.%${q}%,vorname.ilike.%${q}%,email.ilike.%${q}%`).limit(20),
       (supabase.from('firmen') as any).select('id, name, email, email_weitere').eq('tenant_id', tenantId).eq('aktiv', true)
         .or(`name.ilike.%${q}%,email.ilike.%${q}%`).limit(20),
     ])
+    { const ladeFehler = [kRawErr, fRawErr].find(Boolean)
+      if (ladeFehler) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${ladeFehler.message}` }, { status: 500 }) }
     const out: SucheTreffer[] = []
     const gesehen = new Set<string>()
     const push = (label: string, email: string | null, weitere: boolean) => {
@@ -152,16 +154,21 @@ export async function GET(req: NextRequest) {
   }
 
   if (art === 'firma') {
-    const { data } = await firmenAbfrage(idsRoh, null)
+    const { data, error: dataErr } = await firmenAbfrage(idsRoh, null)
+    if (dataErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${dataErr.message}` }, { status: 500 })
     return NextResponse.json({ treffer: ((data ?? []) as R[]).map(f => firmaTreffer(f, h)) })
   }
 
   if (art === 'kontakt') {
     let alle = false
-    let { data } = await kontakteAbfrage(idsRoh, firmaId)
+    const kErg = await kontakteAbfrage(idsRoh, firmaId)
+    let data = kErg.data
+    const dataErr = kErg.error
+    if (dataErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${dataErr.message}` }, { status: 500 })
     if (firmaId && !idsRoh.length && !(data ?? []).length) {
       // Firma ohne zugeordnete Ansprechpersonen → alle Kontakte anbieten
       const r = await kontakteAbfrage([], null)
+      if (r.error) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${r.error.message}` }, { status: 500 })
       data = r.data; alle = true
     }
     return NextResponse.json({ treffer: ((data ?? []) as R[]).map(k => kontaktTreffer(k, h)), alle })
@@ -171,10 +178,12 @@ export async function GET(req: NextRequest) {
   const kIds = idsRoh.filter(i => i.startsWith('kontakt:')).map(i => i.slice(8))
   const fIds = idsRoh.filter(i => i.startsWith('firma:')).map(i => i.slice(6))
   const nurIds = idsRoh.length > 0
-  const [{ data: kRaw }, { data: fRaw }] = await Promise.all([
+  const [{ data: kRaw, error: kRawErr }, { data: fRaw, error: fRawErr }] = await Promise.all([
     nurIds && !kIds.length ? Promise.resolve({ data: [] }) : kontakteAbfrage(kIds, null),
     nurIds && !fIds.length ? Promise.resolve({ data: [] }) : firmenAbfrage(fIds, art),
   ])
+  { const ladeFehler = [kRawErr, fRawErr].find(Boolean)
+    if (ladeFehler) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${ladeFehler.message}` }, { status: 500 }) }
   const treffer: SucheTreffer[] = [
     ...((kRaw ?? []) as R[]).map(k => kontaktTreffer(k, h, 'kontakt:')),
     ...((fRaw ?? []) as R[]).map(f => firmaTreffer(f, h, 'firma:')),

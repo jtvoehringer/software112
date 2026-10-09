@@ -79,8 +79,9 @@ export async function POST(req: NextRequest) {
       // Tenant eines Users), siehe Kommentar oben. Läuft mit dem service-role Admin-Client
       // außerhalb jeder User-Session.
       // tenant-isolation-ignore: bewusst mandantenübergreifender Cron-Zweig, siehe Kommentar oben
-      const { data: allCfgs } = await (admin.from('tenant_einstellungen') as any)
+      const { data: allCfgs, error: allCfgsErr } = await (admin.from('tenant_einstellungen') as any)
         .select('*').eq('m365_modul_aktiv', true).not('m365_refresh_token_enc', 'is', null)
+      if (allCfgsErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${allCfgsErr.message}` }, { status: 500 })
       const cfgs = (allCfgs ?? []) as R[]
       let renewed = 0
       const host  = req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? 'software112.icp-consultants.at'

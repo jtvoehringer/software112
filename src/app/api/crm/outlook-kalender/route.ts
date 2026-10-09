@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ eintraege: [] })
 
-    const [{ data: cfg }, { data: tenantCfg }] = await Promise.all([
+    const [{ data: cfg, error: cfgErr }, { data: tenantCfg, error: tenantCfgErr }] = await Promise.all([
       (admin.from('user_email_connections') as any)
         .select('m365_aktiv, m365_access_token_enc, m365_refresh_token_enc, m365_token_expires_at, email_spiegel_info')
         .eq('tenant_id', tenantId).eq('user_id', user.id).maybeSingle(),
@@ -39,6 +39,8 @@ export async function GET(req: NextRequest) {
         .select('m365_tenant_id, m365_client_id, m365_client_secret_enc')
         .eq('tenant_id', tenantId).maybeSingle(),
     ])
+    { const ladeFehler = [cfgErr, tenantCfgErr].find(Boolean)
+      if (ladeFehler) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${ladeFehler.message}` }, { status: 500 }) }
     const c = cfg as R | null
 
     // KAN-125: Verbindung muss neu hergestellt werden → Hinweis statt stiller Leere

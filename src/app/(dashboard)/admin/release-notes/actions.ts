@@ -13,6 +13,7 @@ export async function releaseNotesGesehenZaehler(): Promise<Record<string, numbe
   const role = await getCurrentUserRole()
   if (!isSystemAdmin(role)) return {}
   const admin = createSupabaseAdminClient()
+  // abfrage-ohne-fehler: nur eine Zählung für die Admin-Übersicht – ohne Daten zeigt sie 0, entschieden wird nichts
   const { data } = await (admin.from('release_notes_gesehen') as any).select('release_note_id')
   const out: Record<string, number> = {}
   for (const z of (data ?? []) as R[]) out[z.release_note_id] = (out[z.release_note_id] ?? 0) + 1

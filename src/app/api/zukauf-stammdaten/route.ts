@@ -17,7 +17,7 @@ export async function GET() {
 
     const supabase = await createSupabaseServerClient()
 
-    const [behaelterRows, { data: weinausbau }, { data: laender }] = await Promise.all([
+    const [behaelterRows, { data: weinausbau, error: weinausbauErr }, { data: laender, error: laenderErr }] = await Promise.all([
       // eigene + freigegebene Gebinde, fremd belegte ausgenommen (Kellergemeinschaft, Migration 203)
       ladeBehaelter(supabase, tenantId, { alsZiel: true }),
       alle((supabase.from('weinausbau') as any)
@@ -29,6 +29,8 @@ export async function GET() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('kat_land') as any).select('iso2, name_de, eu').order('name_de'),
     ])
+    { const ladeFehler = [weinausbauErr, laenderErr].find(Boolean)
+      if (ladeFehler) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${ladeFehler.message}` }, { status: 500 }) }
 
     const behaelter = behaelterRows.map(b => ({ id: b.id, name: b.anzeigeName, typ: b.typ, volumen_liter: b.volumen_liter }))
     return NextResponse.json({ behaelter, weinausbau: weinausbau ?? [], laender: laender ?? [] })

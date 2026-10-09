@@ -324,7 +324,8 @@ export async function upsertTraubenverkauf(formData: FormData) {
     if (qualitaetUnzulaessig) throw new AktionsFehler(qualitaetUnzulaessig)
     // Liefernummer bei Neuanlage auto-generieren
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: lnData } = await (supabase.rpc as any)('get_next_liefernummer', { p_tenant_id: tenantId })
+    const { data: lnData, error: lnErr } = await (supabase.rpc as any)('get_next_liefernummer', { p_tenant_id: tenantId })
+    if (lnErr) throw new AktionsFehler(dbFehlerText(lnErr, 'Liefernummer konnte nicht vergeben werden'))
     if (lnData) payload.liefernummer = lnData
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

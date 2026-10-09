@@ -37,7 +37,7 @@ export async function GET(
   const tenantId = membership?.tenantId
   if (!tenantId) return NextResponse.json({ fehler: 'Nicht autorisiert' }, { status: 401 })
 
-  const [{ data: a }, { data: pos }, { data: b }] = await Promise.all([
+  const [{ data: a, error: aErr }, { data: pos, error: posErr }, { data: b, error: bErr }] = await Promise.all([
     (supabase.from('exportauftraege') as any)
       .select('*, kontakte(vorname,nachname), firmen(name)')
       .eq('id', id).eq('tenant_id', tenantId)
@@ -50,6 +50,9 @@ export async function GET(
       .eq('tenant_id', tenantId).maybeSingle(),
   ])
 
+  // KAN-253: sonst e-AD ohne Positionen bzw. mit „AT-UID-UNBEKANNT“ als Absender (nur „keine Zeile“ heißt 404)
+  const ladeFehler = (aErr && aErr.code !== 'PGRST116' ? aErr : null) ?? posErr ?? bErr
+  if (ladeFehler) return NextResponse.json({ fehler: `Exportauftrag konnte nicht geladen werden: ${ladeFehler.message}` }, { status: 500 })
   if (!a) return NextResponse.json({ fehler: 'Nicht gefunden' }, { status: 404 })
   const auftrag = a as R; const betrieb = (b ?? {}) as R
   const positionen = (pos ?? []) as R[]

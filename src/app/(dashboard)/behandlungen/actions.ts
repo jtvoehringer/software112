@@ -129,12 +129,14 @@ async function pruefeBioSperre(
   duengemittelId: string | null,
 ) {
   if (!psmId && !duengemittelId) return
-  const [{ data: tenantRow }, { data: mittelRow }] = await Promise.all([
+  const [{ data: tenantRow, error: tenantErr }, { data: mittelRow, error: mittelErr }] = await Promise.all([
     (supabase.from('tenants') as any).select('bio_status').eq('id', tenantId).maybeSingle(),
     psmId
       ? (supabase.from('pflanzenschutzmittel') as any).select('oeko_zugelassen').eq('id', psmId).or(`tenant_id.eq.${tenantId},tenant_id.is.null`).maybeSingle()
       : (supabase.from('duengemittel') as any).select('oeko_zugelassen').eq('id', duengemittelId).or(`tenant_id.eq.${tenantId},tenant_id.is.null`).maybeSingle(),
   ])
+  // KAN-253: sonst galt der Betrieb als „konventionell“ – die Bio-Sperre griff bei einem Lesefehler nicht
+  if (tenantErr || mittelErr) throw new AktionsFehler(dbFehlerText(tenantErr ?? mittelErr, 'Bio-Status bzw. Mittel konnten nicht geladen werden'))
   const bioStatus = (tenantRow as AR | null)?.bio_status ?? 'konventionell'
   const mittelOeko = (mittelRow as AR | null)?.oeko_zugelassen ?? false
   if (['bio_eu', 'biodynamisch'].includes(bioStatus) && !mittelOeko) {
@@ -163,9 +165,10 @@ async function ggfKostenEintragAnlegen(
   if (!betrag || betrag <= 0 || haByWeingarten.size === 0) return
 
   try {
-    const { data: transaktionsNr } = await (supabase.rpc as any)('get_next_transaktionsnr', {
+    const { data: transaktionsNr, error: txnErr } = await (supabase.rpc as any)('get_next_transaktionsnr', {
       p_tenant_id: tenantId, p_typ: 'kosteneintrag',
     })
+    if (txnErr) throw new Error(dbFehlerText(txnErr, 'Transaktionsnummer konnte nicht vergeben werden'))
 
     const { data: eintrag, error: keErr } = await (supabase.from('kosteneintraege') as any)
       .insert({
@@ -243,10 +246,12 @@ async function ggfKostenEintragAktualisieren(
 
   try {
     // Fläche je Weingarten aus der bestehenden Grundstück-Verknüpfung dieser Maßnahme ermitteln
+    // alle-ausnahme: Grundstücke einer einzigen Maßnahme
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: rawBG } = await (supabase.from('behandlung_grundstuecke') as any)
+    const { data: rawBG, error: bgErr } = await (supabase.from('behandlung_grundstuecke') as any)
       .select('flaeche_ha, grundstueck:grundstueck_id(weingarten_id)')
       .eq('behandlung_id', behandlungId)
+    if (bgErr) throw new AktionsFehler(dbFehlerText(bgErr, 'Flächen der Maßnahme konnten nicht geladen werden'))
     const haByWeingarten = new Map<string, number>()
     for (const bg of ((rawBG ?? []) as AR[])) {
       const wgId = bg.grundstueck?.weingarten_id
@@ -275,9 +280,10 @@ async function ggfKostenEintragAktualisieren(
         if (e) throw new AktionsFehler(`Speichern fehlgeschlagen (kosteneintrag_weingaerten): ${e.message}`) }
     } else {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: transaktionsNr } = await (supabase.rpc as any)('get_next_transaktionsnr', {
+      const { data: transaktionsNr, error: txnErr } = await (supabase.rpc as any)('get_next_transaktionsnr', {
         p_tenant_id: tenantId, p_typ: 'kosteneintrag',
       })
+      if (txnErr) throw new AktionsFehler(dbFehlerText(txnErr, 'Transaktionsnummer konnte nicht vergeben werden'))
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: neu, error: insErr } = await (supabase.from('kosteneintraege') as any)
         .insert({

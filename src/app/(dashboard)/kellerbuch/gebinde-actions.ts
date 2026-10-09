@@ -111,7 +111,8 @@ async function insertEroeffnungsbestand(
 
   const epRaw =dezimal(formData.get('einstandspreis_pro_liter') as string) ?? ''
   // Transaktionsnummer vergeben
-  const { data: txnEb } = await (supabase.rpc as any)('get_next_transaktionsnr', { p_tenant_id: tenantId, p_typ: 'eroeffnung' })
+  const { data: txnEb, error: txnErr } = await (supabase.rpc as any)('get_next_transaktionsnr', { p_tenant_id: tenantId, p_typ: 'eroeffnung' })
+  if (txnErr) throw new AktionsFehler(dbFehlerText(txnErr, 'Transaktionsnummer konnte nicht vergeben werden'))
 
   const payload: R = {
     tenant_id:            tenantId,

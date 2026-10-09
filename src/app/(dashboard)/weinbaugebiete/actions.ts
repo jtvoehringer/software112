@@ -40,11 +40,13 @@ async function schreibTenantId(): Promise<string> {
 export async function ladeCustomWeinbaugebiete(): Promise<CustomWeinbaugebiet[]> {
   const supabase = await createSupabaseServerClient()
   const tenantId = await getTenantId()
-  const { data } = await (supabase.from('weinbaugebiete_custom') as any)
+  // alle-ausnahme: eigene Weinbaugebiete eines Betriebs, wenige
+  const { data, error } = await (supabase.from('weinbaugebiete_custom') as any)
     .select('id, name')
     .eq('aktiv', true)
     .eq('tenant_id', tenantId)
     .order('name', { ascending: true })
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Weinbaugebiete konnten nicht geladen werden'))
   return (data ?? []) as CustomWeinbaugebiet[]
 }
 

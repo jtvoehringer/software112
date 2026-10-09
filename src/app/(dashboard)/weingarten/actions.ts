@@ -223,6 +223,7 @@ async function loeschSperre(supabase: any, tenantId: string, p: { weingartenIds?
 async function riedBezugsMeldung(supabase: any, tenantId: string, ids: string[]): Promise<string | null> {
   const summe = bezuegeSumme(await Promise.all(ids.map(id => ladeBezuege(supabase, tenantId, 'weingarten', id))))
   if (!hatBezug(summe)) return null
+  // abfrage-ohne-fehler: nur der Name für die Meldung – abgelehnt wird so oder so (Bezug vorhanden)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data } = await (supabase.from('weingarten') as any).select('name').in('id', ids).eq('tenant_id', tenantId).limit(1)
   const name = String(((data ?? []) as AnyRecord[])[0]?.name ?? 'Ried')

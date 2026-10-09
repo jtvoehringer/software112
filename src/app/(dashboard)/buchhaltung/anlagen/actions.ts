@@ -146,7 +146,8 @@ export async function loescheAnlage(id: string): Promise<{ ok: boolean; fehler?:
 export async function bucheAfa(jahr: number, zeilen: { anlageId: string; name: string; soll: number; buchungId: string | null }[]): Promise<{ ok: boolean; fehler?: string; gebucht?: number }> {
   const { supabase, tenantId } = await ctx()
   const stichtag = `${jahr}-12-31`
-  const { data: pruefRaw } = await (supabase.rpc as any)('pruefe_ea_zeitraum_offen', { p_tenant_id: tenantId, p_datum: stichtag })
+  const { data: pruefRaw, error: pruefErr } = await (supabase.rpc as any)('pruefe_ea_zeitraum_offen', { p_tenant_id: tenantId, p_datum: stichtag })
+  if (pruefErr) return { ok: false, fehler: dbFehlerText(pruefErr, 'Zeitraum konnte nicht geprüft werden') }
   const pruef = Array.isArray(pruefRaw) ? pruefRaw[0] : pruefRaw
   if (pruef && pruef.offen === false) return { ok: false, fehler: pruef.grund ?? `Dezember ${jahr} ist abgeschlossen.` }
 
@@ -193,7 +194,8 @@ export async function nimmAfaZurueck(jahr: number, buchungIds: string[], grund: 
   if (grundFehler) return { ok: false, fehler: grundFehler }
   const { supabase, tenantId } = await ctx()
   const stichtag = `${jahr}-12-31`
-  const { data: pruefRaw } = await (supabase.rpc as any)('pruefe_ea_zeitraum_offen', { p_tenant_id: tenantId, p_datum: stichtag })
+  const { data: pruefRaw, error: pruefErr } = await (supabase.rpc as any)('pruefe_ea_zeitraum_offen', { p_tenant_id: tenantId, p_datum: stichtag })
+  if (pruefErr) return { ok: false, fehler: dbFehlerText(pruefErr, 'Zeitraum konnte nicht geprüft werden') }
   const pruef = Array.isArray(pruefRaw) ? pruefRaw[0] : pruefRaw
   if (pruef && pruef.offen === false) return { ok: false, fehler: pruef.grund ?? `Dezember ${jahr} ist abgeschlossen.` }
   if (!buchungIds.length) return { ok: true }
