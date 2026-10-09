@@ -2,8 +2,8 @@
 //
 // Spalten nach der BKI-Schnittstelle („SchnittstelleDatenMitDefinitionTypen“, Blatt „Weingärten“, 26 Spalten). Eine
 // Zeile je Grundstück (Sorte, Fläche und Pflanzjahr stehen am Grundstück); eine Ried ohne Grundstücke bekommt eine
-// eigene Zeile mit Hinweis. Schritt 1 nutzt nur vorhandene Daten – die Katalogspalten (Großlage, Gemeindeteil, DAC-Orts-
-// und Riedenwein, Erste/Große Lage samt Höchstertrag) bleiben leer, bis die amtlichen Kataloge da sind (Schritt 2).
+// eigene Zeile mit Hinweis. Schritt 2: Großlage, Gemeindeteil, DAC-Orts- und Riedenwein aus den amtlichen Katalogen
+// (`herkunftKatalog`, bisher Thermenregion, Annahmen K1–K5 dort); Erste/Große Lage bleibt leer.
 //
 // Annahmen (wie AP11 nach bestem Wissen, im Workshop KAN-38 zu bestätigen):
 //   W1 Die Spezifikation führt „Katastralgemeinde“ zweimal: als int (Spalte B) und als Text (Spalte S). B = KG-Nr.
@@ -23,6 +23,7 @@ import { alle } from '@/lib/supabase/alle'
 import { bkiRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
 import { getKgBezeichnung } from '@/lib/wein/katastralgemeinden'
 import { gemeindeName, gemeindeVonKg } from '@/lib/wein/kgGemeinde'
+import { gemeindeteil, herkunftKatalog, KATALOG_GEBIETE } from '@/lib/wein/herkunftKatalog'
 import { herkunftKnotenTolerant } from '@/lib/herkunft'
 import { NUTZART_OPTIONS } from '@/lib/wein/nutzart'
 import { text, type R } from './kellerbuch-hilfen'
@@ -73,6 +74,10 @@ export function weingartenZeile(w: R | null, g: R | null): WeingartenZeile {
   const knoten = herkunftKnotenTolerant(text(g?.trauben_herkunft_code) ?? text(w?.trauben_herkunft_code))   // auch BKI-Kürzel („WLTH“)
   const rv = text(g?.rechtsverhaeltnis)
   const ha = g?.flaeche_ha == null || g.flaeche_ha === '' ? null : Number(g.flaeche_ha)
+  const gemeinde = gkz ? gemeindeName(gkz) ?? null : null
+  const kgName = text(g?.kg_bezeichnung) ?? (kgNr ? getKgBezeichnung(kgNr) ?? null : null)
+  const kat = herkunftKatalog(kgNr, gkz, gemeinde)
+  const ried = text((w?.lage as R | null | undefined)?.amtliche_ried)
   return {
     gstNr: text(g?.gst_nr),
     kgNr,
@@ -88,11 +93,13 @@ export function weingartenZeile(w: R | null, g: R | null): WeingartenZeile {
     pflanzjahr: g?.pflanzjahr == null ? null : Number(g.pflanzjahr),
     bundesland: gkz ? BUNDESLAND_GKZ[gkz[0]] ?? null : null,
     gU: knoten && knoten.ebene !== 'oesterreich' && knoten.ebene !== 'landwein' ? knoten.gebiet : null,
-    grosslage: null,
+    grosslage: kat.grosslage,
     dacGebiet: knoten && knoten.ebene.startsWith('dac_') ? knoten.gebiet : null,
-    gemeinde: gkz ? gemeindeName(gkz) ?? null : null,
-    katastralgemeinde: text(g?.kg_bezeichnung) ?? (kgNr ? getKgBezeichnung(kgNr) ?? null : null),
-    gemeindeteil: null, dacOrtswein: null, dacRiedenwein: null,
+    gemeinde,
+    katastralgemeinde: kgName,
+    gemeindeteil: gemeindeteil(kgName, gemeinde),
+    dacOrtswein: kat.dacOrtswein,
+    dacRiedenwein: kat.imDacGebiet ? ried : null,
     ersteLage: null, ersteLageMaxErtrag: null, grosseLage: null, grosseLageMaxErtrag: null,
   }
 }
@@ -114,14 +121,18 @@ export function weingartenZeilen(weingaerten: readonly R[], grundstuecke: readon
   if (ohneKuerzel.length) w.push(`Sorte ohne amtliches BKI-Kürzel (Name statt Kürzel): ${ohneKuerzel.join(', ')}`)
   const ohneKg = zeilen.filter(z => z.gstNr && !z.kgNr).length
   if (ohneKg) w.push(`${ohneKg} Grundstück(e) ohne KG-Nr.`)
-  w.push('Großlage, Gemeindeteil, DAC-Orts- und Riedenwein sowie Erste/Große Lage bleiben leer, bis die amtlichen Kataloge eingebunden sind (KAN-47 Schritt 2).')
+  const ausserhalb = zeilen.filter(z => z.kgNr && !z.grosslage && !z.dacOrtswein).length
+  if (ausserhalb) w.push(`${ausserhalb} Zeile(n) außerhalb der erfassten Kataloge (${KATALOG_GEBIETE.join(', ')}): Großlage und DAC-Orts-/Riedenwein leer.`)
+  const ohneRied = zeilen.filter(z => z.dacOrtswein && !z.dacRiedenwein).length
+  if (ohneRied) w.push(`${ohneRied} Zeile(n) im DAC-Gebiet ohne amtliche Ried an der Lage: DAC-Riedenwein leer.`)
+  w.push('DAC-Riedenwein = amtliche Ried der Lage, nicht gegen die NÖ Riedenverordnung geprüft; Erste/Große Lage bleibt leer (in den erfassten Gebieten nicht geregelt).')
   return { zeilen, warnungen: w }
 }
 
 export async function ladeBkiWeingaerten(supabase: any, tenantId: string, p: { nurAktiv?: boolean } = {}): Promise<{ zeilen: WeingartenZeile[]; warnungen: string[] }> {
   const [w, g] = await Promise.all([
     alle<R>((supabase.from('weingarten') as any)
-      .select('id, name, interne_bezeichnung, ama_feldnummer, flaeche_ha, trauben_herkunft_code, aktiv')
+      .select('id, name, interne_bezeichnung, ama_feldnummer, flaeche_ha, trauben_herkunft_code, aktiv, lage:lage_id(amtliche_ried)')
       .eq('tenant_id', tenantId).order('name').order('id')),
     alle<R>((supabase.from('grundstuecke') as any)
       .select('id, weingarten_id, gst_nr, katastralgemeinde, kg_bezeichnung, flaeche_ha, nutzart, rechtsverhaeltnis, rebsorte, pflanzjahr, trauben_herkunft_code, aktiv, deaktiviert_am')
