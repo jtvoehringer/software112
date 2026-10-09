@@ -5,7 +5,7 @@ import { canAdmin, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb, seitenBetriebFehler } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff, schreibSperreFehler } from '@/lib/auth/sperren'
 import { revalidatePath } from 'next/cache'
-import { AktionsFehler, NICHT_GESPEICHERT } from '@/lib/fehler'
+import { AktionsFehler, dbFehlerText, NICHT_GESPEICHERT } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -114,8 +114,10 @@ export async function assignWeingartenToLage(weingartenId: string, lageId: strin
   let riedName: string | null = null
   if (lageId) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: lage } = await (supabase.from('lagen') as any)
+    const { data: lage, error: lageErr } = await (supabase.from('lagen') as any)
       .select('name').eq('id', lageId).eq('tenant_id', tenantId).maybeSingle()
+    // KAN-251: sonst wäre der Ried-Name still geleert worden
+    if (lageErr) throw new AktionsFehler(dbFehlerText(lageErr, 'Lage konnte nicht geladen werden'))
     riedName = (lage as AR | null)?.name ?? null
   }
 

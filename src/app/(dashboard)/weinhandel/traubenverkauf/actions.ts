@@ -35,7 +35,9 @@ export async function ermittleQuellenName(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let q = (supabase.from('weingarten') as any).select('name').eq('id', weingartenId)
     if (tenantId) q = q.eq('tenant_id', tenantId)
-    const { data } = await q.single()
+    const { data, error } = await q.single()
+    // KAN-251: nur „keine Zeile“ (PGRST116) fällt auf den Ersatznamen zurück, ein Datenbankfehler nicht
+    if (error && (error as AR).code !== 'PGRST116') throw new AktionsFehler(dbFehlerText(error, 'Ried konnte nicht geladen werden'))
     return (data as AR | null)?.name as string ?? 'Weingarten'
   }
   if (zukaufPostenId) {
@@ -44,7 +46,8 @@ export async function ermittleQuellenName(
       .select('rebsorte, lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname), lieferant_firma:firmen!lieferant_firma_id(name)')
       .eq('id', zukaufPostenId)
     if (tenantId) q = q.eq('tenant_id', tenantId)
-    const { data } = await q.single()
+    const { data, error } = await q.single()
+    if (error && (error as AR).code !== 'PGRST116') throw new AktionsFehler(dbFehlerText(error, 'Zukauf konnte nicht geladen werden'))
     const z = data as AR | null
     const lieferant = z?.lieferant_kontakt
       ? [z.lieferant_kontakt.vorname, z.lieferant_kontakt.nachname].filter(Boolean).join(' ')

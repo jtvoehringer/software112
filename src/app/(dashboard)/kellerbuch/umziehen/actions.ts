@@ -400,8 +400,9 @@ async function umzugBuchen(
   for (let i = 0; i < quellen.length; i++) {
     const q = quellen[i]
 
-    const { data: vonRaw } = await (supabase.from('weinausbau') as any)
+    const { data: vonRaw, error: vonErr } = await (supabase.from('weinausbau') as any)
       .select('*').eq('id', q.weinausbau_id).eq('tenant_id', tenantId).maybeSingle()
+    if (vonErr) throw new AktionsFehler(dbFehlerText(vonErr, 'Quellcharge konnte nicht geladen werden'))
     const von = vonRaw as R
     if (!von) throw new AktionsFehler('Charge nicht gefunden')
 

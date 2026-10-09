@@ -4,7 +4,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
-import { AktionsFehler, NICHT_GESPEICHERT } from '@/lib/fehler'
+import { AktionsFehler, dbFehlerText, NICHT_GESPEICHERT } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -58,11 +58,13 @@ export async function createCustomWeinbaugebiet(name: string): Promise<CustomWei
   const supabase = await createSupabaseServerClient()
   const tenantId = await schreibTenantId()
 
-  const { data: bestehend } = await (supabase.from('weinbaugebiete_custom') as any)
+  const { data: bestehend, error: bestehendErr } = await (supabase.from('weinbaugebiete_custom') as any)
     .select('id, name, aktiv')
     .eq('tenant_id', tenantId)
     .ilike('name', trimmed)
     .maybeSingle()
+  // KAN-251: sonst legte ein Lesefehler das Gebiet doppelt an
+  if (bestehendErr) throw new AktionsFehler(dbFehlerText(bestehendErr, 'Weinbaugebiete konnten nicht geladen werden'))
 
   if (bestehend) {
     const b = bestehend as AR

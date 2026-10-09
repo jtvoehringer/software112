@@ -139,8 +139,13 @@ async function protokolliereGebindeUmbenennung(
   neuerName: string
 ) {
   const TYP_NAME = 'Umbenennung'
-  const { data: bestehenderTyp } = await (supabase.from('keller_behandlungstypen') as any)
+  const { data: bestehenderTyp, error: typLeseErr } = await (supabase.from('keller_behandlungstypen') as any)
     .select('id').eq('tenant_id', tenantId).ilike('name', TYP_NAME).maybeSingle()
+  // KAN-251: sonst legte ein Lesefehler den Typ ein zweites Mal an
+  if (typLeseErr) {
+    console.error('[protokolliereGebindeUmbenennung] Typ konnte nicht geladen werden:', (typLeseErr as R).message)
+    return
+  }
   let typId = (bestehenderTyp as R | null)?.id ?? null
   if (!typId) {
     const { data: neuerTyp, error: typErr } = await (supabase.from('keller_behandlungstypen') as any)
@@ -172,8 +177,10 @@ export async function updateBehaelter(id: string, formData: FormData) {
 
   const neuerName = formData.get('name') as string
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: altRow } = await (supabase.from('behaelter') as any)
+  const { data: altRow, error: altErr } = await (supabase.from('behaelter') as any)
     .select('name').eq('id', id).eq('tenant_id', tenantId).maybeSingle()
+  // KAN-251: sonst fehlte die Umbenennung still im Protokoll
+  if (altErr) throw new AktionsFehler(dbFehlerText(altErr, 'Gebinde konnte nicht geladen werden'))
   const alterName = (altRow as R | null)?.name ?? null
 
   const payload: R = {
@@ -924,8 +931,9 @@ export async function speichereKellerbehandlung(formData: FormData): Promise<Kel
   if (!typId) throw new AktionsFehler('Kein Behandlungstyp angegeben')
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: typRaw } = await (supabase.from('keller_behandlungstypen') as any)
+  const { data: typRaw, error: typErr } = await (supabase.from('keller_behandlungstypen') as any)
     .select('id, name, einheit_standard, pn_wirkung').eq('id', typId).eq('tenant_id', tenantId).maybeSingle()
+  if (typErr) throw new AktionsFehler(dbFehlerText(typErr, 'Behandlungstyp konnte nicht geladen werden'))
   if (!typRaw) throw new AktionsFehler('Behandlungstyp nicht gefunden')
   const typ = typRaw as R
 
@@ -970,8 +978,9 @@ export async function speichereKellerbehandlung(formData: FormData): Promise<Kel
   let hinweis: string | undefined
   if (weinausbauId) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: charge } = await (supabase.from('weinausbau') as any)
+    const { data: charge, error: chargeErr } = await (supabase.from('weinausbau') as any)
       .select('id, name').eq('id', weinausbauId).eq('tenant_id', tenantId).maybeSingle()
+    if (chargeErr) throw new AktionsFehler(dbFehlerText(chargeErr, 'Charge konnte nicht geladen werden'))
     if (!charge) throw new AktionsFehler('Charge nicht gefunden')
     const ziel = [{ chargeId: weinausbauId, name: (charge as R).name ?? null }]
     if (typ.pn_wirkung === 'veraenderung') {
@@ -995,8 +1004,9 @@ export async function speichereKellerbehandlung(formData: FormData): Promise<Kel
       const m = zahlAus(formData.get('kellermittel_menge'))
       if (m === null || !(m > 0)) throw new AktionsFehler('Bitte die verwendete Menge des Stoffs angeben.')
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: km } = await (supabase.from('kellermittel') as any)
+      const { data: km, error: kmErr } = await (supabase.from('kellermittel') as any)
         .select('id, name, einheit').eq('id', stoffId).eq('tenant_id', tenantId).eq('aktiv', true).maybeSingle()
+      if (kmErr) throw new AktionsFehler(dbFehlerText(kmErr, 'Stoff konnte nicht geladen werden'))
       if (!km) throw new AktionsFehler('Stoff nicht gefunden oder nicht aktiv.')
       stoff = { id: String((km as R).id), name: String((km as R).name), einheit: String((km as R).einheit), menge: m }
     } else if (istStoffkontoTyp(typ.name as string)) {
@@ -1025,13 +1035,16 @@ export async function speichereKellerbehandlung(formData: FormData): Promise<Kel
   if (id) {
     // KAN-206: Behandlung einer Charge mit Prüfnummer – nach dem Speichern nur noch Notizen (dieselbe Bedingung wie a_freeze)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: alt } = await (supabase.from('keller_behandlungen') as any)
+    const { data: alt, error: altErr } = await (supabase.from('keller_behandlungen') as any)
       .select('id, datum, typ_id, menge, einheit, volumen_liter_ist, zugang_liter, weinausbau_id, behaelter_id, storniert_am')
       .eq('id', id).eq('tenant_id', tenantId).is('storniert_am', null).maybeSingle()
+    // KAN-251: sonst wäre die Prüfnummer-Sperre übersprungen (die DB-Sperre a_freeze greift trotzdem, aber mit unklarer Meldung)
+    if (altErr) throw new AktionsFehler(dbFehlerText(altErr, 'Behandlung konnte nicht geladen werden'))
     if (alt && (alt as R).weinausbau_id) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: pn } = await (supabase.from('pruefnummer_chargen') as any)
+      const { data: pn, error: pnErr } = await (supabase.from('pruefnummer_chargen') as any)
         .select('weinausbau_id, gueltig_ab, gueltig_bis').eq('weinausbau_id', (alt as R).weinausbau_id).eq('tenant_id', tenantId)
+      if (pnErr) throw new AktionsFehler(dbFehlerText(pnErr, 'Prüfnummern der Charge konnten nicht geladen werden'))
       if (behandlungPnGesperrt(alt as R as { weinausbau_id: string; datum: string }, (pn ?? []) as PnGueltigkeit[])) {
         const a = alt as R
         const gleich = (x: unknown, y: unknown) => (x == null ? null : String(x)) === (y == null ? null : String(y))
@@ -1122,8 +1135,10 @@ export async function kellerNotizErfassen(formData: FormData): Promise<Kellerbeh
   const fehler = notizFehler(String(formData.get('notiz') ?? ''))
   if (fehler) throw new AktionsFehler(fehler)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: vorhanden } = await (supabase.from('keller_behandlungstypen') as any)
+  const { data: vorhanden, error: vorhandenErr } = await (supabase.from('keller_behandlungstypen') as any)
     .select('id').eq('tenant_id', tenantId).ilike('name', NOTIZ_TYP).order('id').limit(1).maybeSingle()
+  // KAN-251: sonst legte ein Lesefehler den Typ „Notiz“ ein zweites Mal an
+  if (vorhandenErr) throw new AktionsFehler(dbFehlerText(vorhandenErr, 'Der Typ „Notiz“ konnte nicht geladen werden'))
   let typId = (vorhanden as R | null)?.id as string | undefined
   if (!typId) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

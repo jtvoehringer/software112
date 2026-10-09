@@ -9,7 +9,7 @@ import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { FRISTEN_VORLAGE } from './vorlage'
-import { AktionsFehler, NICHT_GESPEICHERT } from '@/lib/fehler'
+import { AktionsFehler, dbFehlerText, NICHT_GESPEICHERT } from '@/lib/fehler'
 
 const PFAD = '/dashboard/fristen'
 const revalidate = () => { revalidatePath(PFAD); revalidatePath('/dashboard') }
@@ -63,7 +63,8 @@ export async function fristAnlegen(input: { bezeichnung: string; beschreibung: s
 /** Erledigt setzen – bei jährlicher Wiederholung wird automatisch die Frist des Folgejahres angelegt. */
 export async function fristErledigen(id: string) {
   const { supabase, tenantId, userId } = await kontext()
-  const { data: f } = await (supabase.from('fristen') as any).select('*').eq('id', id).eq('tenant_id', tenantId).maybeSingle()
+  const { data: f, error: fErr } = await (supabase.from('fristen') as any).select('*').eq('id', id).eq('tenant_id', tenantId).maybeSingle()
+  if (fErr) throw new AktionsFehler(dbFehlerText(fErr, 'Frist konnte nicht geladen werden'))
   if (!f) throw new AktionsFehler('Frist nicht gefunden')
   const { data: geaendert, error } = await (supabase.from('fristen') as any)
     .update({ status: 'erledigt', erledigt_am: new Date().toISOString(), erledigt_von: userId, aktualisiert_am: new Date().toISOString() })

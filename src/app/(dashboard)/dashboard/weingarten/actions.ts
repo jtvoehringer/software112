@@ -9,7 +9,7 @@ import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { LESE_VORLAGE } from './vorlage'
-import { AktionsFehler, NICHT_GESPEICHERT } from '@/lib/fehler'
+import { AktionsFehler, dbFehlerText, NICHT_GESPEICHERT } from '@/lib/fehler'
 
 const PFAD = '/dashboard/weingarten'
 
@@ -52,8 +52,9 @@ export async function punktHinzufuegen(checklisteId: string, text: string, zusta
   const { supabase, tenantId } = await kontext()
   const t = text.trim()
   if (!t) return
-  const { data: max } = await (supabase.from('checklisten_punkte') as any)
+  const { data: max, error: maxErr } = await (supabase.from('checklisten_punkte') as any)
     .select('sortierung').eq('checkliste_id', checklisteId).order('sortierung', { ascending: false }).limit(1).maybeSingle()
+  if (maxErr) throw new AktionsFehler(dbFehlerText(maxErr, 'Checkliste konnte nicht geladen werden'))
   const { error } = await (supabase.from('checklisten_punkte') as any).insert({
     tenant_id: tenantId, checkliste_id: checklisteId, text: t, zustaendig: zustaendig.trim() || null, faellig_hinweis: hinweis.trim() || null,
     sortierung: ((max as { sortierung?: number } | null)?.sortierung ?? 0) + 10,

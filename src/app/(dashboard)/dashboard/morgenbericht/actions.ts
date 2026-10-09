@@ -20,7 +20,8 @@ export async function aktualisiereMorgenbericht(): Promise<{ ok: boolean; fehler
   if (!canWrite(membership, 'betrieb')) return { ok: false, fehler: 'Nur Betriebs-Manager und Mitarbeiter können den Bericht neu erstellen.' }
   const admin = createSupabaseAdminClient()
   // tenant-isolation-ignore: tenants hat keine tenant_id-Spalte, Filter über die eigene id
-  const { data: t } = await (admin.from('tenants') as any).select('id, name, stripe_plan').eq('id', membership.tenantId).maybeSingle()
+  const { data: t, error: tErr } = await (admin.from('tenants') as any).select('id, name, stripe_plan').eq('id', membership.tenantId).maybeSingle()
+  if (tErr) return { ok: false, fehler: `Betrieb konnte nicht geladen werden: ${tErr.message}` }
   if (!t) return { ok: false, fehler: 'Betrieb nicht gefunden' }
   try {
     const b = await erstelleMorgenbericht({ id: (t as R).id, name: (t as R).name, stripe_plan: (t as R).stripe_plan }, 'manuell')

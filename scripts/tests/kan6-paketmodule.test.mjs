@@ -36,7 +36,8 @@ describe('KAN-6 Paket-Module in Actions und Routen', () => {
     assert.match(ea, /async function getCtx\(mitModul = true\)[\s\S]{0,600}if \(mitModul\) await pruefeModul\('modul_ea'\)/)
     // einzige Ausnahme: Einnahme aus dem Verkauf, die ohne Modul selbst überspringt
     assert.equal(ea.split('getCtx(false)').length - 1, 1)
-    assert.match(ea, /getCtx\(false\)[\s\S]{0,600}if \(!\(einst as R \| null\)\?\.modul_ea\) return \{ ok: true, skipped: true \}/)
+    // (Fenster 1000 seit KAN-251: dazwischen steht jetzt die Fehlerprüfung der Einstellungen)
+    assert.match(ea, /getCtx\(false\)[\s\S]{0,1000}if \(!\(einst as R \| null\)\?\.modul_ea\) return \{ ok: true, skipped: true \}/)
     assert.match(quelle('src/app/(dashboard)/buchhaltung/anlagen/actions.ts'), /await pruefeModul\('modul_ea'\)/)
     assert.match(quelle('src/app/(dashboard)/konten/actions.ts'), /await pruefeModul\('modul_ea'\)/)
     assert.equal(quelle('src/app/(dashboard)/controlling/bmd/actions.ts').split("hatModul('modul_ea')").length - 1, 2)

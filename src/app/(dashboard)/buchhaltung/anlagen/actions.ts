@@ -151,8 +151,9 @@ export async function bucheAfa(jahr: number, zeilen: { anlageId: string; name: s
   if (pruef && pruef.offen === false) return { ok: false, fehler: pruef.grund ?? `Dezember ${jahr} ist abgeschlossen.` }
 
   // tenant-isolation-ignore: Systemkategorie (tenant_id IS NULL) – gilt bewusst für alle Mandanten, kein Mandantendatum
-  const { data: kat } = await (supabase.from('ea_kategorien') as any)
+  const { data: kat, error: katErr } = await (supabase.from('ea_kategorien') as any)
     .select('id').is('tenant_id', null).eq('name', 'Abschreibung (AfA)').limit(1).maybeSingle()
+  if (katErr) return { ok: false, fehler: dbFehlerText(katErr, 'Kategorie „Abschreibung (AfA)“ konnte nicht geladen werden') }
   if (!kat?.id) return { ok: false, fehler: 'Die Systemkategorie „Abschreibung (AfA)“ fehlt (Migration 200).' }
 
   // Bestehende AfA dieser Anlagen: gleicher Betrag bleibt stehen, abweichende wird gegengebucht und neu gebucht

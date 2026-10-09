@@ -16,7 +16,7 @@ import { pruefeBenutzerlimit, benutzerlimitFehler, wendePaketAn, ladePaket } fro
 import { istPaketKey, paketAusPlan, paketPriceId, PAKETE } from '@/lib/pakete'
 import { tenantKopfInvalidieren } from '@/lib/tenant/kopf'
 import { stripeKundennummerSync } from '@/lib/stripe/kundennummer'
-import { AktionsFehler } from '@/lib/fehler'
+import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { dezimal } from '@/lib/format'
 import { weinbauBetriebsnummerPruefen } from '@/lib/betrieb/betriebsnummer'
 import { mitgliedEinladen, EINLADUNG_REDIRECT } from '@/lib/auth/einladung'
@@ -413,8 +413,10 @@ export async function saveM365Einstellungen(tenantId: string, formData: FormData
   const admin = createSupabaseAdminClient()
   const clientSecret = (formData.get('m365_client_secret') as string).trim()
 
-  const { data: existing } = await (admin.from('tenant_einstellungen') as any)
+  const { data: existing, error: existingErr } = await (admin.from('tenant_einstellungen') as any)
     .select('m365_client_secret_enc').eq('tenant_id', tenantId).maybeSingle()
+  // KAN-251: sonst überschriebe das Speichern das hinterlegte Client-Secret mit null
+  if (existingErr) throw new AktionsFehler(dbFehlerText(existingErr, 'M365-Einstellungen konnten nicht geladen werden'))
 
   const payload: Record<string, unknown> = {
     m365_tenant_id: (formData.get('m365_tenant_id') as string) || null,
@@ -443,9 +445,11 @@ export async function saveEmailEinstellungen(tenantId: string, formData: FormDat
   const imapPass = (formData.get('email_imap_pass') as string).trim()
 
   // Bestehende verschlüsselte Passwörter lesen (werden nur überschrieben wenn neu eingegeben)
-  const { data: existing } = await (admin.from('tenant_einstellungen') as any)
+  const { data: existing, error: existingErr } = await (admin.from('tenant_einstellungen') as any)
     .select('email_smtp_pass_enc, email_imap_pass_enc')
     .eq('tenant_id', tenantId).maybeSingle()
+  // KAN-251: sonst überschriebe das Speichern die hinterlegten Passwörter mit null
+  if (existingErr) throw new AktionsFehler(dbFehlerText(existingErr, 'E-Mail-Einstellungen konnten nicht geladen werden'))
   const existingR = (existing as Record<string,string> | null)
 
   const payload: Record<string, unknown> = {
@@ -592,8 +596,10 @@ export async function createStripeCustomer(tenantId: string, tenantName: string,
   const admin = createSupabaseAdminClient()
 
   // Prüfen ob schon ein Customer existiert
-  const { data: existing } = await (admin.from('tenants') as any)
+  const { data: existing, error: existingErr } = await (admin.from('tenants') as any)
     .select('stripe_customer_id').eq('id', tenantId).maybeSingle()
+  // KAN-251: sonst legte ein Lesefehler einen zweiten Stripe-Kunden an
+  if (existingErr) return { error: dbFehlerText(existingErr, 'Betrieb konnte nicht geladen werden') }
   if ((existing as R | null)?.stripe_customer_id) {
     return { error: 'Stripe Customer existiert bereits.' }
   }
@@ -791,7 +797,8 @@ export async function verbundBeitreten(tenantId: string, hauptId: string): Promi
 export async function verbundVerlassen(tenantId: string): Promise<{ error?: string }> {
   await assertSystemAdmin(tenantId, { sandboxFreigabe: false })
   const admin = createSupabaseAdminClient()
-  const { data: n } = await (admin.from('tenants') as R).select(VERBUND_SPALTEN).eq('id', tenantId).maybeSingle()
+  const { data: n, error: nErr } = await (admin.from('tenants') as R).select(VERBUND_SPALTEN).eq('id', tenantId).maybeSingle()
+  if (nErr) return { error: dbFehlerText(nErr, 'Betrieb konnte nicht geladen werden') }
   const hauptId = (n as R | null)?.abrechnung_ueber as string | null
   if (!n || !hauptId) return { error: 'Dieser Betrieb ist kein Submandant.' }
   const { error } = await (admin.from('tenants') as R).update(austrittsWerte(!!(n as R).stripe_subscription_id)).eq('id', tenantId)

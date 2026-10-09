@@ -49,12 +49,15 @@ export async function speichereElabel(fuellungId: string, e: ElabelEingabe): Pro
   if ('fehler' in erg) throw new AktionsFehler(erg.fehler)
   const supabase = await createSupabaseServerClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: fuellung } = await (supabase.from('fuellungen') as any)
+  const { data: fuellung, error: fErr } = await (supabase.from('fuellungen') as any)
     .select('id').eq('id', fuellungId).eq('tenant_id', m.tenantId).is('storniert_am', null).maybeSingle()
+  if (fErr) dbFehler(fErr, 'Füllung konnte nicht geladen werden')
   if (!fuellung) throw new AktionsFehler('Füllung nicht gefunden oder storniert.')
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: vorhanden } = await (supabase.from('elabels') as any)
+  const { data: vorhanden, error: vErr } = await (supabase.from('elabels') as any)
     .select('id').eq('fuellung_id', fuellungId).eq('tenant_id', m.tenantId).maybeSingle()
+  // KAN-251: sonst legte ein Lesefehler ein zweites E-Label zur Füllung an
+  if (vErr) dbFehler(vErr, 'E-Label konnte nicht geladen werden')
   if (vorhanden) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (supabase.from('elabels') as any)
@@ -76,9 +79,10 @@ export async function elabelFreigeben(fuellungId: string): Promise<void> {
   if (!UUID_RE.test(fuellungId)) throw new AktionsFehler('Ungültige Füllung.')
   const supabase = await createSupabaseServerClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: raw } = await (supabase.from('elabels') as any)
+  const { data: raw, error: rawErr } = await (supabase.from('elabels') as any)
     .select('id, status, zutaten_ids, energie_kj, energie_kcal, kohlenhydrate_g, zucker_g, manuell, alkohol_vol, restzucker_gl, gesamtsaeure_gl')
     .eq('fuellung_id', fuellungId).eq('tenant_id', m.tenantId).maybeSingle()
+  if (rawErr) dbFehler(rawErr, 'E-Label konnte nicht geladen werden')
   if (!raw) throw new AktionsFehler('Bitte das E-Label zuerst speichern.')
   const z = raw as R
   if (z.status === 'freigegeben') return
@@ -117,8 +121,9 @@ export async function elabelUmleiten(fuellungId: string, zielId: string | null, 
   if (gf) throw new AktionsFehler(gf)
   const supabase = await createSupabaseServerClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: e } = await (supabase.from('elabels') as any)
+  const { data: e, error: eErr } = await (supabase.from('elabels') as any)
     .select('id').eq('fuellung_id', fuellungId).eq('tenant_id', m.tenantId).maybeSingle()
+  if (eErr) dbFehler(eErr, 'E-Label konnte nicht geladen werden')
   if (!e) throw new AktionsFehler('E-Label nicht gefunden.')
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.rpc as any)('s112_elabel_umleiten', {
