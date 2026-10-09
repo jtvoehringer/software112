@@ -1,14 +1,16 @@
 // ── Amtliche Herkunftskataloge für das BKI-Blatt „Weingärten“ (KAN-47 Schritt 2, 09.10.2026) ──
 //
-// Statisch erfasst aus dem RIS, je Weinbaugebiet ein Block (bisher: Thermenregion, Kremstal). Schlüssel sind die
+// Statisch erfasst aus dem RIS, je Weinbaugebiet ein Block (bisher: Thermenregion, Kremstal, Wachau, Kamptal). Schlüssel sind die
 // Gemeindekennziffer (GKZ, Statistik Austria) bzw. – wo eine Verordnung einzelne Katastralgemeinden nennt – die KG-Nr. (BEV).
 // Reihenfolge: Ried vor KG vor Gemeinde (Beispiel: KG Oeynhausen gehört zur Gemeinde Traiskirchen, aber zur Großlage
-// Steinfeld; die Kremser Großlagen sind über Rieden festgelegt). Ohne `@/`-Importe (node:test).
+// Steinfeld; die Kremser Großlagen sind über Rieden festgelegt, im Kamptal lenken einzelne Rieden den Ortswein um). Ohne `@/`-Importe (node:test).
 //
 // Quellen:
 //   Großlagen: Großlagenverordnung 2018, BGBl. II Nr. 184/2018 i. d. F. BGBl. II Nr. 30/2022, § 1 Z 2
 //   Thermenregion: DAC-Verordnung „Thermenregion“, BGBl. II Nr. 191/2023 i. d. F. BGBl. II Nr. 250/2024, Anhang A und B
 //   Kremstal: DAC-Verordnung „Kremstal“, BGBl. II Nr. 273/2017 i. d. F. BGBl. II Nr. 30/2022, Anlage 1 (Ortsangaben)
+//   Wachau: DAC-Verordnung „Wachau“, BGBl. II Nr. 200/2020 i. d. F. 2023, § 3 Abs. 2 (Gemeindeangaben)
+//   Kamptal: DAC-Verordnung „Kamptal“ i. d. F. BGBl. II Nr. 250/2024, Anlage 1 (ortsübergreifende Weinbaugemeinden)
 //
 // Annahmen (am Ticket KAN-47 dokumentiert):
 //   K1 Wiener Neustadt (Statutarstadt, GKZ 30401) zählt zum Ortswein „Wiener Neustadt“, obwohl Anhang A nur die
@@ -22,7 +24,14 @@
 //      Senftenberg, Furth bei Göttweig und Paudorf (alle mit Ortsangabe in Anlage 1). KGs dieser Gemeinden ohne Ortsangabe
 //      (z. B. Neustift an der Donau ist Teil der Gemeinde Rohrendorf und zählt mit; Reichaueramt in Senftenberg nicht)
 //      sind DAC-Gebiet ohne Ortswein. „Rohrendorf (Ober- und Unterrohrendorf)“ = die ganze Gemeinde.
-//   K7 Ried-Großlagen: Vergleich mit der amtlichen Ried ohne Groß-/Kleinschreibung und ohne vorangestelltes „Ried“.
+//   K7 Ried-Zuordnungen: Vergleich mit der amtlichen Ried ohne Groß-/Kleinschreibung und ohne vorangestelltes „Ried“.
+//   K8 Wachau: die Gemeindeangaben sind fast durchwegs KG-Namen → Ortswein je KG. KG Rührsdorf → „Rührsdorf“ (steht auch
+//      unter „Rossatz“), KG Povat (Großlage Spitzer Graben ohne eigene Angabe) → „Spitzer Graben“, „Aggsbach“ = Aggsbach
+//      Markt und Aggsbach Dorf. DAC-Gebiet = die Gemeinden Dürnstein, Weißenkirchen, Spitz, Mühldorf, Rossatz-Arnsdorf,
+//      Mautern, Aggsbach, Schönbühel-Aggsbach und Bergern im Dunkelsteinerwald.
+//   K9 Kamptal: DAC-Gebiet = die Gemeinden Langenlois, Schönberg am Kamp, Straß im Straßertale, Hadersdorf-Kammern,
+//      Grafenegg und Lengenfeld. „Mittelberg“ umfasst die Langenloiser Rieden Am Loiser, Auf der Setz, Sommerleithen,
+//      Rothenbichl und Vogelberg; die Großlage „Retzer Land“ (Bezirk Horn) ist noch nicht erfasst.
 
 type Gebiet = {
   name: string
@@ -32,7 +41,9 @@ type Gebiet = {
   grosslageKg: Record<string, string>
   /** Großlage je GKZ */
   grosslageGkz: Record<string, string>
-  /** DAC-Ortswein je KG-Nr. (vorrangig) */
+  /** DAC-Ortswein je KG-Nr. und Riedname (vorrangig; Riedname klein geschrieben) */
+  ortsweinRied?: Record<string, Record<string, string>>
+  /** DAC-Ortswein je KG-Nr. */
   ortsweinKg: Record<string, string>
   /** DAC-Ortswein je GKZ; null = Gemeinde im DAC-Gebiet, Ortswein mit eigenem Gemeindenamen (Anhang B Thermenregion) */
   ortsweinGkz: Record<string, string | null>
@@ -104,7 +115,68 @@ const KREMSTAL: Gebiet = {
   dacGkz: ['30101', '31343', '31309', '31333'],                         // K6: Krems, Senftenberg, Furth, Paudorf (übrige KGs)
 }
 
-const GEBIETE: readonly Gebiet[] = [THERMENREGION, KREMSTAL]
+const WACHAU: Gebiet = {
+  name: 'Wachau',
+  grosslageKg: jeSchluessel({
+    'Spitzer Graben': ['12319', '12358', '12362', '12307', '12341', '12348'],   // Gut am Steg, Spitz, Vießling; Elsarn am Jauerling, Mühldorf, Povat
+  }),
+  grosslageGkz: {},
+  ortsweinKg: jeSchluessel({
+    'Loiben': ['12116', '12117'],                                       // Oberloiben, Unterloiben
+    'Spitzer Graben': ['12348'],                                        // Povat (K8)
+    'Arnsdorf': ['12189', '12187'],                                     // Oberarnsdorf, Mitterarnsdorf
+    'Rossatz': ['12167'],
+    'Rührsdorf': ['12168'],
+    'Dürnstein': ['12105'],
+    'Weißenkirchen': ['12140'],
+    'Joching': ['12185'],
+    'Wösendorf': ['12192'],
+    'St. Michael': ['12190'],
+    'Spitz': ['12358'],
+    'Gut am Steg': ['12319'],
+    'Vießling': ['12362'],
+    'Elsarn': ['12307'],                                                // Elsarn am Jauerling
+    'Mühldorf': ['12341'],
+    'Schwallenbach': ['12357'],
+    'Willendorf': ['12366'],
+    'Groisbach': ['12317'],
+    'Aggsbach': ['12301', '14101'],                                     // Aggsbach Markt, Aggsbach Dorf (K8)
+    'Unterbergern': ['12150'],
+    'Mauternbach': ['12163'],
+    'Mautern': ['12162'],
+    'Baumgarten': ['12148'],
+  }),
+  ortsweinGkz: {},
+  dacGkz: ['31304', '31351', '31344', '31330', '31338', '31327', '31301', '31542', '31303'],
+}
+
+const KAMPTAL: Gebiet = {
+  name: 'Kamptal',
+  grosslageKg: {},
+  grosslageGkz: {},
+  ortsweinRied: {
+    '12213': jeRied({ 'Zöbing': ['Heiligenstein'] }),                   // KG Kammern
+    '12215': jeRied({ 'Mittelberg': ['Am Loiser', 'Auf der Setz', 'Sommerleithen', 'Rothenbichl', 'Vogelberg'] }),   // KG Langenlois
+  },
+  ortsweinKg: jeSchluessel({
+    'Engabrunn': ['12206'],
+    'Grafenegg': ['12207', '12203', '12231', '12237'],                  // Etsdorf, Diendorf am Kamp, Walkersdorf, Sittendorf
+    'Strass': ['12229', '12205', '12232', '12220'],                     // Straß, Elsarn, Wiedendorf, Oberholz
+    'Hadersdorf': ['12211'],
+    'Kammern': ['12213'],
+    'Langenlois': ['12215', '12212', '12224', '12225'],                 // Langenlois, Haindorf, Oberreith, Unterreith
+    'Gobelsburg': ['12210'],
+    'Zöbing': ['12233'],
+    'Mittelberg': ['12217'],
+    'Schiltern': ['12226'],
+    'Schönberg': ['12227', '12219', '12218', '12228', '12230', '12201'], // Schönberg, Neustift, Mollands, Stiefern, Thürneustift, Altenhof
+    'Lengenfeld': ['12216'],
+  }),
+  ortsweinGkz: {},
+  dacGkz: ['31322', '31355', '31346', '31315', '31308', '31323'],
+}
+
+const GEBIETE: readonly Gebiet[] = [THERMENREGION, KREMSTAL, WACHAU, KAMPTAL]
 
 export type HerkunftKatalog = {
   gebiet: string | null
@@ -126,7 +198,7 @@ export function herkunftKatalog(kgNr: string | null | undefined, gkz: string | n
   const r = riedSchluessel(ried)
   for (const g of GEBIETE) {
     const grosslage = (gkz && r && g.grosslageRied?.[gkz]?.[r]) || (kg && g.grosslageKg[kg]) || (gkz && g.grosslageGkz[gkz]) || null
-    const ortKg = kg ? g.ortsweinKg[kg] : undefined
+    const ortKg = kg ? (r && g.ortsweinRied?.[kg]?.[r]) || g.ortsweinKg[kg] : undefined
     const gkzImAnhang = !!gkz && gkz in g.ortsweinGkz
     const imDac = !!ortKg || gkzImAnhang || (!!gkz && !!g.dacGkz?.includes(gkz))
     if (!grosslage && !imDac) continue
