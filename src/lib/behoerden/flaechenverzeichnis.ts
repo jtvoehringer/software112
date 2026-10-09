@@ -1,6 +1,6 @@
 import 'server-only'
 import { alle } from '@/lib/supabase/alle'
-import { NUTZART_OPTIONS } from '@/lib/wein/grundstueckStatus'
+import { NUTZART_OPTIONS } from '@/lib/wein/nutzart'
 import type { LadeErgebnis } from './typen'
 import { flaechenZeilen, hektar, type FlaechenZeile, type GstStamm, type RiedStamm } from './flaechenverzeichnis-zeilen'
 

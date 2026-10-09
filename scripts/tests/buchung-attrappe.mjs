@@ -10,7 +10,7 @@
 //    '@/lib/auth/roles' (Mitgliedschaft aus globalThis.__membership, canWrite wie das Original
 //    für Membership-Objekte).
 // 2. datenbank(): Supabase-Attrappe. Sie wertet aus:
-//    - Filter eq, neq, in, is, not(…, 'is', …), gte, lte, or (nur eq, gte, lte, is.null), contains;
+//    - Filter eq, neq, in, is, not(…, 'is', …), gt, gte, lt, lte, or (nur eq, gte, lte, is.null), contains;
 //      unbekannte Operatoren scheitern laut
 //    - die select-Liste: zurück kommen nur die genannten Spalten, auch bei .update/.delete/.insert
 //      mit .select('id'); '*' = alle Schlüssel der Testzeile, Alias 'a:spalte'. Fehlt eine
@@ -346,6 +346,8 @@ export function datenbank(tabellen, { vorher = () => null, rls = () => true, rpc
       },
       gte(k, v) { eintrag.filter.push(['gte', k, v]); bedingungen.push({ k, pruefe: w => { const c = vergleich(w, v); return c !== null && c >= 0 } }); return q },
       lte(k, v) { eintrag.filter.push(['lte', k, v]); bedingungen.push({ k, pruefe: w => { const c = vergleich(w, v); return c !== null && c <= 0 } }); return q },
+      gt(k, v) { eintrag.filter.push(['gt', k, v]); bedingungen.push({ k, pruefe: w => { const c = vergleich(w, v); return c !== null && c > 0 } }); return q },
+      lt(k, v) { eintrag.filter.push(['lt', k, v]); bedingungen.push({ k, pruefe: w => { const c = vergleich(w, v); return c !== null && c < 0 } }); return q },
       or(ausdruck) { eintrag.filter.push(['or', ausdruck]); bedingungen.push({ k: null, pruefe: orBedingung(ausdruck) }); return q },
       contains(k, v) {
         eintrag.filter.push(['contains', k, v])
