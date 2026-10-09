@@ -36,7 +36,7 @@ export async function laufMorgenberichte(budgetMs: number): Promise<{ betriebe: 
   const start = Date.now()
   const ende = start + budgetMs
   const admin = createSupabaseAdminClient()
-  const [{ data: tenants }, { data: einstRaw }, { data: letzteRaw }] = await Promise.all([
+  const [{ data: tenants, error: tenantsErr }, { data: einstRaw, error: einstErr }, { data: letzteRaw, error: letzteErr }] = await Promise.all([
     // tenant-isolation-ignore: Cron über alle aktiven Betriebe, Verarbeitung je Betrieb in erstelleMorgenbericht
     (admin.from('tenants') as any).select('id, name, created_at, stripe_plan, stripe_status, stripe_trial_ends_at, active').eq('active', true).order('created_at'),
     // tenant-isolation-ignore: Einstellungen aller Betriebe (nur Schalter morgenbericht_aktiv)
@@ -45,6 +45,9 @@ export async function laufMorgenberichte(budgetMs: number): Promise<{ betriebe: 
     (admin.from('morgenberichte') as any).select('tenant_id, datum, ausloeser')
       .gte('datum', new Date(start - REIHENFOLGE_TAGE * 86400000).toISOString().slice(0, 10)).order('datum', { ascending: false }).limit(1000),
   ])
+  // KAN-254: sonst „keine Betriebe“ – der Lauf endete still ohne Berichte (bzw. ohne Schalter/faire Reihenfolge)
+  const ladeFehler = tenantsErr ?? einstErr ?? letzteErr
+  if (ladeFehler) throw new Error(`Morgenberichte: Betriebe konnten nicht geladen werden: ${ladeFehler.message}`)
   const aktiv = new Map(((einstRaw ?? []) as R[]).map(e => [e.tenant_id, e.morgenbericht_aktiv !== false]))
   const berichte = (letzteRaw ?? []) as { tenant_id: string; datum: string; ausloeser: string }[]
   const reihe = fairReihenfolge((tenants ?? []) as Betrieb[], letzteBerichtstage(berichte.filter(b => b.ausloeser === 'cron')), letzteBerichtstage(berichte))

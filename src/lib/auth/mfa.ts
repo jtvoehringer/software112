@@ -26,10 +26,12 @@ export type MfaStand = { hatFaktor: boolean; stufe: 'aal1' | 'aal2' | null; pfli
 
 /** Stand der Zwei-Faktor-Anmeldung für den angemeldeten Benutzer (Server) */
 export async function ladeMfaStand(supabase: R, role: UserRole): Promise<MfaStand> {
-  const [{ data: aal }, { data: faktoren }] = await Promise.all([
+  const [{ data: aal, error: aalErr }, { data: faktoren, error: faktorErr }] = await Promise.all([
     supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
     supabase.auth.mfa.listFactors(),
   ])
+  // KAN-254: den Zwei-Faktor-Stand nie raten – sonst „kein Faktor“ bzw. „keine Stufe“
+  if (aalErr || faktorErr) throw new Error(`Zwei-Faktor-Stand konnte nicht geladen werden: ${(aalErr ?? faktorErr).message}`)
   const hatFaktor = ((faktoren?.totp ?? []) as R[]).some(f => f.status === 'verified')
   const pflicht = MFA_PFLICHT_ROLLEN.includes(role)
   return { hatFaktor, stufe: (aal?.currentLevel ?? null) as MfaStand['stufe'], pflicht, pflichtAktiv: mfaPflichtAktiv(role) }

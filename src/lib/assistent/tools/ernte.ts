@@ -214,8 +214,9 @@ export async function fuehreErnteErfassenAus(
   }
 
   // ── Jahrgang auflösen oder anlegen ──────────────────────────────────────────
-  const { data: bestehenderJahrgang } = await (supabase.from('weinjahrgaenge') as any)
+  const { data: bestehenderJahrgang, error: bestehenderJahrgangErr } = await (supabase.from('weinjahrgaenge') as any)
     .select('id').eq('tenant_id', tenantId).eq('jahrgang', jahrgangJahr).maybeSingle()
+  if (bestehenderJahrgangErr) return { erfolg: false, fehler: `Datenbankfehler: ${bestehenderJahrgangErr.message}` }
 
   let jahrgangId: string | null = (bestehenderJahrgang as R | null)?.id ?? null
   if (!jahrgangId) {
@@ -225,8 +226,9 @@ export async function fuehreErnteErfassenAus(
     if (jgResult?.error) {
       return { erfolg: false, fehler: jgResult.error }
     }
-    const { data: neuerJahrgang } = await (supabase.from('weinjahrgaenge') as any)
+    const { data: neuerJahrgang, error: neuerJahrgangErr } = await (supabase.from('weinjahrgaenge') as any)
       .select('id').eq('tenant_id', tenantId).eq('jahrgang', jahrgangJahr).maybeSingle()
+    if (neuerJahrgangErr) return { erfolg: false, fehler: `Datenbankfehler: ${neuerJahrgangErr.message}` }
     jahrgangId = (neuerJahrgang as R | null)?.id ?? null
     if (!jahrgangId) {
       return { erfolg: false, fehler: `Jahrgang ${jahrgangJahr} konnte nicht angelegt/gefunden werden.` }
@@ -256,8 +258,9 @@ export async function fuehreErnteErfassenAus(
   // ── Grundstücke → jeweils zugehörigen weingarten_id nachladen (für GSTEntry-Payload) ──
   const grundstueckJson: R[] = []
   for (const [i, g] of grundstueckeIn.entries()) {
-    const { data: gst } = await (supabase.from('grundstuecke') as any)
+    const { data: gst, error: gstErr } = await (supabase.from('grundstuecke') as any)
       .select('id, weingarten_id').eq('id', g.grundstueck_id).eq('tenant_id', tenantId).eq('nutzart', 'WI').maybeSingle()
+    if (gstErr) return { erfolg: false, fehler: `Datenbankfehler: ${gstErr.message}` }
     if (!gst) {
       return { erfolg: false, hinweis: `Grundstück mit ID ${g.grundstueck_id} nicht gefunden. Beim User nachfragen bzw. Stammdaten-Kontext erneut prüfen.` }
     }

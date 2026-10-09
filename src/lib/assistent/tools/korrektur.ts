@@ -91,8 +91,9 @@ export async function fuehreKorrekturMerkenAus(
 
   // Bereits vorhandenen Eintrag für denselben Begriff (case-insensitiv) aktualisieren statt
   // Duplikate anzuhäufen – analog zum "auflösen oder anlegen"-Muster bei Jahrgang/Behandlungstyp.
-  const { data: bestehend } = await (supabase.from('assistent_korrekturen') as any)
+  const { data: bestehend, error: bestehendErr } = await (supabase.from('assistent_korrekturen') as any)
     .select('id').eq('tenant_id', tenantId).ilike('begriff', begriff).maybeSingle()
+  if (bestehendErr) return { erfolg: false, fehler: `Datenbankfehler: ${bestehendErr.message}` }
 
   if ((bestehend as R | null)?.id) {
     const { data: geaendert, error: updateErr } = await (supabase.from('assistent_korrekturen') as any)

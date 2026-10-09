@@ -91,7 +91,9 @@ export async function ladeBehaelterEinzeln(client: any, tenantId: string | null 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function ladeKellergemeinschaft(client: any, tenantId: string | null | undefined): Promise<{ alsEigentuemer: { tenant_id: string; name: string }[]; alsNutzer: { tenant_id: string; name: string }[] }> {
   if (!tenantId) return { alsEigentuemer: [], alsNutzer: [] }
-  const { data } = await (client.rpc as any)('lade_kellergemeinschaft', { p_tenant_id: tenantId })
+  const { data, error } = await (client.rpc as any)('lade_kellergemeinschaft', { p_tenant_id: tenantId })
+  // KAN-254: sonst „keine Partner“ – Gebinde der Kellergemeinschaft fehlten still in den Auswahllisten
+  if (error) throw new Error(`Kellergemeinschaft konnte nicht geladen werden: ${error.message}`)
   const rows = (data ?? []) as R[]
   return {
     alsEigentuemer: rows.filter(r => r.rolle === 'eigentuemer').map(r => ({ tenant_id: r.partner_tenant_id, name: r.partner_name })),

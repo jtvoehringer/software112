@@ -68,6 +68,7 @@ export const getCurrentMembership = cache(async function getCurrentMembership():
   // ein Tab gebeshuber.… still in einen anderen Betrieb. Ohne Mitgliedschaft → null (Layout leitet zur Betriebswahl).
   const sub = await aktiveSubdomain()
   if (sub) {
+    // abfrage-ohne-fehler: bei einem Fehler gibt es keine Mitgliedschaft – Ablehnung bzw. Betriebswahl, nie eine Freigabe
     // tenant-isolation-ignore: Auflösung des Betriebs aus der Subdomain – eigene Mitgliedschaft (user_id), tenants!inner
     const { data } = await (supabase.from('tenant_memberships') as R)
       .select('tenant_id, role, schreibmodule, tenants!inner(subdomain)')
@@ -89,6 +90,7 @@ export const getCurrentMembership = cache(async function getCurrentMembership():
     // tenant_admin fälschlich die Rolle eines ANDEREN Mitglieds zuweisen (z.B. 'leser'
     // statt der eigenen 'system_admin'-Rolle), abhängig von einer nicht garantierten
     // Zeilenreihenfolge ohne ORDER BY.
+    // abfrage-ohne-fehler: bei einem Fehler gibt es keine Mitgliedschaft – Ablehnung bzw. Betriebswahl, nie eine Freigabe
     const { data } = await (supabase.from('tenant_memberships') as any)
       .select('tenant_id, role, schreibmodule')
       .eq('tenant_id', activeTenantId)
@@ -109,6 +111,7 @@ export const getCurrentMembership = cache(async function getCurrentMembership():
   // /betrieb-waehlen) – ohne ORDER BY lieferte Postgres „irgendeine“, der Fallback-Betrieb
   // konnte also von Aufruf zu Aufruf wechseln (Layout zeigt A, die Action schreibt in B; der
   // Betriebs-Wächter, KAN-30, verlässt sich auf einen stabilen Betrieb).
+  // abfrage-ohne-fehler: bei einem Fehler gibt es keine Mitgliedschaft – Ablehnung bzw. Betriebswahl, nie eine Freigabe
   // tenant-isolation-ignore: kanonischer Fallback ohne aktiven Tenant-Cookie, siehe Kommentar oben
   const { data } = await (supabase.from('tenant_memberships') as any)
     .select('tenant_id, role, schreibmodule')

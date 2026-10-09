@@ -64,8 +64,9 @@ export async function aktualisiereWetter(tenantId: string, punkte: WetterPunkt[]
     if (abgelaufen()) { zeitAusgelassen++; return null }
     try {
       // ── Rückblick (INCA) ──
-      const { data: letzte } = await (admin.from('wetter_stunden') as any).select('zeit')
+      const { data: letzte, error: letzteErr } = await (admin.from('wetter_stunden') as any).select('zeit')
         .eq('tenant_id', tenantId).eq('lat', p.lat).eq('lon', p.lon).eq('quelle', 'inca').order('zeit', { ascending: false }).limit(1).maybeSingle()
+      if (letzteErr) throw new Error(letzteErr.message)   // zählt unten als Abruffehler dieses Punkts
       const letzteZeit = letzte?.zeit ? new Date(letzte.zeit) : null
       const alterMin = letzteZeit ? (jetzt.getTime() - letzteZeit.getTime()) / 60000 : Infinity
       if (opts.erzwingen || alterMin >= 90) {
@@ -84,8 +85,9 @@ export async function aktualisiereWetter(tenantId: string, punkte: WetterPunkt[]
         }
       }
       // ── Prognose (NWP) ──
-      const { data: prog } = await (admin.from('wetter_stunden') as any).select('abgerufen_am')
+      const { data: prog, error: progErr } = await (admin.from('wetter_stunden') as any).select('abgerufen_am')
         .eq('tenant_id', tenantId).eq('lat', p.lat).eq('lon', p.lon).eq('quelle', 'nwp').order('abgerufen_am', { ascending: false }).limit(1).maybeSingle()
+      if (progErr) throw new Error(progErr.message)
       const progAlterMin = prog?.abgerufen_am ? (jetzt.getTime() - new Date(prog.abgerufen_am).getTime()) / 60000 : Infinity
       if (opts.erzwingen || progAlterMin >= 180) {
         const { stunden } = await holePrognose(p.lat, p.lon, signal)
@@ -124,8 +126,10 @@ export async function ladeWetterdaten(client: any, tenantId: string, punkte: Wet
   // Bis zu 7 Punkte × 35 Tage × 24 h + Prognose = mehrere tausend Zeilen - PostgREST
   // kappt bei 1.000, deshalb seitenweise über alle() (Rückmeldung 11.9.2026: sonst
   // endete der Rückblick Mitte August und die Prognose fehlte ganz).
-  const { data } = await alle<R>((client.from('wetter_stunden') as any).select('lat, lon, quelle, zeit, rr, t2m, rh2m, wind_ms, boe_ms, abgerufen_am')
+  const { data, error } = await alle<R>((client.from('wetter_stunden') as any).select('lat, lon, quelle, zeit, rr, t2m, rh2m, wind_ms, boe_ms, abgerufen_am')
     .eq('tenant_id', tenantId).gte('zeit', seit).order('zeit').order('quelle').order('lat').order('lon'))
+  // KAN-254: sonst „keine Wetterdaten“ – Spritzwarnungen und Regen-Auswertung fehlten still
+  if (error) throw new Error(`Wetterdaten konnten nicht geladen werden: ${error.message}`)
   const rows = (data ?? []) as R[]
   return punkte.map(p => {
     const eigene = rows.filter(r => Number(r.lat) === p.lat && Number(r.lon) === p.lon)

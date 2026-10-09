@@ -102,11 +102,14 @@ export async function ladeAbsenderIndex(client: any, tenantId: string, eigeneAdr
   // lag - jede Mail von ihm wurde erneut als Lead vorgeschlagen.
   let roh = rohCache.get(tenantId)
   if (!roh || Date.now() - roh.stamp > ROH_CACHE_MS) {
-    const [{ data: kRaw }, { data: fRaw }, { data: iRaw }] = await Promise.all([
+    const [{ data: kRaw, error: kErr }, { data: fRaw, error: fErr }, { data: iRaw, error: iErr }] = await Promise.all([
       alle((client.from('kontakte') as any).select('id, vorname, nachname, email, email_weitere, accountnummer, is_lead, firma_id').eq('tenant_id', tenantId).eq('aktiv', true).order('id')),
       alle((client.from('firmen') as any).select('id, name, email, email_weitere, website, accountnummer, is_lead').eq('tenant_id', tenantId).eq('aktiv', true).order('id')),
       alle((client.from('email_lead_ignoriert') as any).select('email').eq('tenant_id', tenantId).order('email')),
     ])
+    // KAN-254: sonst würde ein leerer Index 60 s zwischengespeichert – jeder Absender „unbekannt“, Lead-Vorschläge für Kunden
+    const ladeFehler = kErr ?? fErr ?? iErr
+    if (ladeFehler) throw new Error(`Kontakte/Firmen für die Absender-Erkennung konnten nicht geladen werden: ${ladeFehler.message}`)
     roh = { stamp: Date.now(), kRaw: (kRaw ?? []) as R[], fRaw: (fRaw ?? []) as R[], iRaw: (iRaw ?? []) as R[] }
     rohCache.set(tenantId, roh)
   }

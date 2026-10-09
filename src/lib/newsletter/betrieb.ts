@@ -41,6 +41,7 @@ const SPALTEN = 'tenant_id, anzeigename, logo_url, primary_color, modul_newslett
 
 async function ausZeile(e: R): Promise<NewsletterBetrieb> {
   const admin = createSupabaseAdminClient()
+  // abfrage-ohne-fehler: nur der Betriebsname als Ersatz für den Anzeigenamen (sonst „Newsletter“)
   const { data: t } = await (admin.from('tenants') as any).select('name').eq('id', e.tenant_id).maybeSingle()
   const name = (e.anzeigename as string | null) || ((t as R | null)?.name as string | undefined) || 'Newsletter'
 
@@ -75,6 +76,7 @@ async function ausZeile(e: R): Promise<NewsletterBetrieb> {
 export async function ladeNewsletterBetrieb(kurzname: string): Promise<NewsletterBetrieb | null> {
   if (!/^[a-z0-9][a-z0-9-]{1,39}$/.test(kurzname)) return null
   const admin = createSupabaseAdminClient()
+  // abfrage-ohne-fehler: öffentliche Seite – ein Fehler heißt „Betrieb nicht gefunden“, es wird nichts geschrieben
   // tenant-isolation-ignore: öffentliche Seite – der Betrieb wird erst über seinen eindeutigen Kurznamen ermittelt
   const { data } = await (admin.from('tenant_einstellungen') as any)
     .select(SPALTEN).eq('newsletter_kurzname', kurzname).maybeSingle()
@@ -84,6 +86,7 @@ export async function ladeNewsletterBetrieb(kurzname: string): Promise<Newslette
 /** Für Bestätigung/Abmeldung (Betrieb ergibt sich aus dem Kontakt). */
 export async function ladeNewsletterBetriebNachId(tenantId: string): Promise<NewsletterBetrieb | null> {
   const admin = createSupabaseAdminClient()
+  // abfrage-ohne-fehler: nur Darstellung (Logo, Name) und Brevo-Liste – ohne Betrieb wird die Bestätigung trotzdem gespeichert
   const { data } = await (admin.from('tenant_einstellungen') as any)
     .select(SPALTEN).eq('tenant_id', tenantId).maybeSingle()
   return data ? ausZeile(data as R) : null

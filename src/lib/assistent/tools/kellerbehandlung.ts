@@ -111,15 +111,17 @@ export async function fuehreKellerbehandlungErfassenAus(
   // ── Behandlungstyp auflösen oder anlegen ────────────────────────────────────
   let typId: string | null = input.typ_id ? String(input.typ_id) : null
   if (typId) {
-    const { data: typExists } = await (supabase.from('keller_behandlungstypen') as any)
+    const { data: typExists, error: typExistsErr } = await (supabase.from('keller_behandlungstypen') as any)
       .select('id').eq('id', typId).eq('tenant_id', tenantId).maybeSingle()
+    if (typExistsErr) return { erfolg: false, fehler: `Datenbankfehler: ${typExistsErr.message}` }
     if (!typExists) {
       return { erfolg: false, hinweis: `Behandlungstyp mit ID ${typId} nicht gefunden. Beim User nachfragen bzw. Stammdaten-Kontext erneut prüfen.` }
     }
   } else if (input.typ_name) {
     const typName = String(input.typ_name).trim()
-    const { data: bestehenderTyp } = await (supabase.from('keller_behandlungstypen') as any)
+    const { data: bestehenderTyp, error: bestehenderTypErr } = await (supabase.from('keller_behandlungstypen') as any)
       .select('id').eq('tenant_id', tenantId).ilike('name', typName).maybeSingle()
+    if (bestehenderTypErr) return { erfolg: false, fehler: `Datenbankfehler: ${bestehenderTypErr.message}` }
     if ((bestehenderTyp as R | null)?.id) {
       typId = (bestehenderTyp as R).id
     } else {

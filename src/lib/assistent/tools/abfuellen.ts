@@ -132,9 +132,10 @@ export async function fuehreAbfuellenAus(
     return { erfolg: false, fehler: 'Kein Betrieb gefunden – Abfüllung konnte nicht gespeichert werden.' }
   }
 
-  const { data: charge } = await (supabase.from('weinausbau') as any)
+  const { data: charge, error: chargeErr } = await (supabase.from('weinausbau') as any)
     .select('id, name, jahrgang, rebsorte, menge_liter, qualitaetsstufe, zusatzbezeichnung, erzeugnis, herkunft_code')
     .eq('id', input.weinausbau_id).eq('tenant_id', tenantId).eq('aktiv', true).maybeSingle()
+  if (chargeErr) return { erfolg: false, fehler: `Datenbankfehler: ${chargeErr.message}` }
   if (!charge) {
     return { erfolg: false, hinweis: `Charge mit ID ${input.weinausbau_id} nicht gefunden. Beim User nachfragen bzw. Stammdaten-Kontext erneut prüfen.` }
   }

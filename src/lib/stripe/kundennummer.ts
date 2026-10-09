@@ -9,8 +9,9 @@ import { getStripe } from '@/lib/stripe/client'
 export async function stripeKundennummerSync(tenantId: string): Promise<void> {
   try {
     const admin = createSupabaseAdminClient()
-    const { data } = await (admin.from('tenants') as any)
+    const { data, error } = await (admin.from('tenants') as any)
       .select('kundennummer, stripe_customer_id, name').eq('id', tenantId).maybeSingle()
+    if (error) throw new Error(error.message)   // landet unten im Protokoll (fehlertolerant)
     const t = data as { kundennummer: string | null; stripe_customer_id: string | null; name: string } | null
     if (!t?.kundennummer || !t.stripe_customer_id) return
     await getStripe().customers.update(t.stripe_customer_id, {

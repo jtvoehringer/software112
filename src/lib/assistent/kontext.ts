@@ -46,20 +46,20 @@ export async function ladeAssistentKontext(
   tenantId: string
 ): Promise<AssistentKontext> {
   const [
-    { data: weingaertenRaw },
-    { data: grundstueckeRaw },
-    { data: psmRaw },
-    { data: duengemittelRaw },
-    { data: kontakteRaw },
-    { data: firmenRaw },
-    { data: mitgliederRaw },
-    { data: fuellungenRaw },
-    { data: weinausbauRaw },
-    { data: einstellungenRaw },
-    { data: jahrgaengeRaw },
+    { data: weingaertenRaw, error: weingaertenRawErr },
+    { data: grundstueckeRaw, error: grundstueckeRawErr },
+    { data: psmRaw, error: psmRawErr },
+    { data: duengemittelRaw, error: duengemittelRawErr },
+    { data: kontakteRaw, error: kontakteRawErr },
+    { data: firmenRaw, error: firmenRawErr },
+    { data: mitgliederRaw, error: mitgliederRawErr },
+    { data: fuellungenRaw, error: fuellungenRawErr },
+    { data: weinausbauRaw, error: weinausbauRawErr },
+    { data: einstellungenRaw, error: einstellungenRawErr },
+    { data: jahrgaengeRaw, error: jahrgaengeRawErr },
     behaelterRows,
-    { data: behandlungstypenRaw },
-    { data: korrekturenRaw },
+    { data: behandlungstypenRaw, error: behandlungstypenRawErr },
+    { data: korrekturenRaw, error: korrekturenRawErr },
   ] = await Promise.all([
     (supabase.from('weingarten') as any)
       .select('id, name, ried, rebsorte')
@@ -128,6 +128,7 @@ export async function ladeAssistentKontext(
       .eq('tenant_id', tenantId)
       .order('erstellt_am', { ascending: false }).limit(200),
   ])
+  if ((weingaertenRawErr ?? grundstueckeRawErr ?? psmRawErr ?? duengemittelRawErr ?? kontakteRawErr ?? firmenRawErr ?? mitgliederRawErr ?? fuellungenRawErr ?? weinausbauRawErr ?? einstellungenRawErr ?? jahrgaengeRawErr ?? behandlungstypenRawErr ?? korrekturenRawErr)) throw new Error(`Daten konnten nicht geladen werden: ${(weingaertenRawErr ?? grundstueckeRawErr ?? psmRawErr ?? duengemittelRawErr ?? kontakteRawErr ?? firmenRawErr ?? mitgliederRawErr ?? fuellungenRawErr ?? weinausbauRawErr ?? einstellungenRawErr ?? jahrgaengeRawErr ?? behandlungstypenRawErr ?? korrekturenRawErr).message}`)
 
   return {
     weingaerten: ((weingaertenRaw ?? []) as R[]).map(w => ({

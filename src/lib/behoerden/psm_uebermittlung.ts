@@ -139,11 +139,13 @@ export async function ladePsmUebermittlung(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any, tenantId: string, betriebsnummer: string | null, p: PsmUebermittlungParameter,
 ): Promise<LadeErgebnis<PsmUebermittlungZeile>> {
-  const [{ behandlungen, warnungen }, { data: einst }] = await Promise.all([
+  const [{ behandlungen, warnungen }, { data: einst, error: einstErr }] = await Promise.all([
     ladeBehandlungen(supabase, tenantId, jahrZeitraum(p.jahr)),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('tenant_einstellungen') as any).select('psm_erfassungsfrist_h').eq('tenant_id', tenantId).maybeSingle(),
   ])
+  // KAN-254: sonst die Standardfrist statt der des Betriebs – falsche „verspätet“-Kennzeichen in der Meldung
+  if (einstErr) throw new Error(`Erfassungsfrist konnte nicht geladen werden: ${einstErr.message}`)
   const e = psmUebermittlungZeilen(behandlungen, betriebsnummer, fristAus(einst?.psm_erfassungsfrist_h))
   return { zeilen: e.zeilen, warnungen: [...warnungen, ...e.warnungen] }
 }

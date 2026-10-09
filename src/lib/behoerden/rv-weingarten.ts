@@ -219,6 +219,7 @@ export async function ladeRvWeingarten(supabase: any, tenantId: string, e: RvEin
     const ids = [...keyJePw.keys()]
     if (ids.length > 0) pw = pruefen(await alle<R>(pwAbfrage().in('id', ids).order('id')), 'Lesezeilen')
     const tabelle = art === 'charge' ? 'weinausbau' : 'fuellungen'
+    // abfrage-ohne-fehler: nur der Titel der Ansicht – die Rückverfolgung selbst lädt mit Fehlerprüfung
     const { data } = await (supabase.from(tabelle) as any).select('name').eq('tenant_id', tenantId).eq('id', id).maybeSingle()
     titel = text((data as R | null)?.name)
   } else if (e.lese) {

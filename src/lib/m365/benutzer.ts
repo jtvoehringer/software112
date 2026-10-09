@@ -32,7 +32,7 @@ export async function ladeOutlookVerbindung(): Promise<{ ok: true; v: OutlookVer
   const tenantId = membership?.tenantId
   if (!tenantId) return { ok: false, grund: 'kein_betrieb' }
 
-  const [{ data: cfg }, { data: tenantCfg }] = await Promise.all([
+  const [{ data: cfg, error: cfgErr }, { data: tenantCfg, error: tenantCfgErr }] = await Promise.all([
     (admin.from('user_email_connections') as any)
       .select('m365_aktiv, m365_access_token_enc, m365_refresh_token_enc, m365_token_expires_at, m365_scope, email_address')
       .eq('tenant_id', tenantId).eq('user_id', user.id).maybeSingle(),
@@ -40,6 +40,7 @@ export async function ladeOutlookVerbindung(): Promise<{ ok: true; v: OutlookVer
       .select('m365_tenant_id, m365_client_id, m365_client_secret_enc, m365_kalender_schreiben')
       .eq('tenant_id', tenantId).maybeSingle(),
   ])
+  if ((cfgErr ?? tenantCfgErr)) throw new Error(`Daten konnten nicht geladen werden: ${(cfgErr ?? tenantCfgErr).message}`)
   const c = cfg as R | null
   if (!c?.m365_aktiv || !c?.m365_access_token_enc) return { ok: false, grund: 'nicht_verbunden' }
   try {
@@ -66,11 +67,12 @@ export type OutlookStatus = {
 export async function ladeOutlookStatus(tenantId: string, userId: string): Promise<OutlookStatus> {
   const supabase = await createSupabaseServerClient()
   const admin = createSupabaseAdminClient()
-  const [{ data: cfg }, { data: tenantCfg }, kollegen] = await Promise.all([
+  const [{ data: cfg, error: cfgErr }, { data: tenantCfg, error: tenantCfgErr }, kollegen] = await Promise.all([
     (supabase.from('user_email_connections') as any).select('m365_aktiv, m365_scope').eq('tenant_id', tenantId).eq('user_id', userId).maybeSingle(),
     (admin.from('tenant_einstellungen') as any).select('m365_kalender_schreiben').eq('tenant_id', tenantId).maybeSingle(),
     ladeOutlookKollegen(tenantId, userId),
   ])
+  if ((cfgErr ?? tenantCfgErr)) throw new Error(`Daten konnten nicht geladen werden: ${(cfgErr ?? tenantCfgErr).message}`)
   const c = cfg as R | null
   return {
     verbunden: !!c?.m365_aktiv,
@@ -85,9 +87,10 @@ export type OutlookKollege = { id: string; email: string; name: string }
 /** Mitglieder des Betriebs mit verbundenem Outlook-Konto (für Einladungen und Frei/Belegt) */
 export async function ladeOutlookKollegen(tenantId: string, ohneUserId?: string | null): Promise<OutlookKollege[]> {
   const admin = createSupabaseAdminClient()
-  const { data } = await (admin.from('user_email_connections') as any)
+  const { data, error: dataErr } = await (admin.from('user_email_connections') as any)
     .select('user_id, email_address, anzeigename')
     .eq('tenant_id', tenantId).eq('m365_aktiv', true)
+  if (dataErr) throw new Error(`Daten konnten nicht geladen werden: ${dataErr.message}`)
   return ((data ?? []) as R[])
     .filter(r => r.email_address && r.user_id !== ohneUserId)
     .map(r => ({ id: r.user_id as string, email: r.email_address as string, name: (r.anzeigename as string) || (r.email_address as string) }))

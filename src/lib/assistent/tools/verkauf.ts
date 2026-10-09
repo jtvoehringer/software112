@@ -137,9 +137,10 @@ export async function fuehreVerkaufAnlegenAus(
             'Füllung gemeint ist, und die exakte ID aus dem Stammdaten-Kontext verwenden.',
         }
       }
-      const { data: f } = await (supabase.from('fuellungen') as any)
+      const { data: f, error: fErr } = await (supabase.from('fuellungen') as any)
         .select('id, name, jahrgang, flaschengroesse_ml, vk_preis_brutto')
         .eq('id', p.fuellung_id).eq('tenant_id', tenantId).eq('aktiv', true).maybeSingle()
+      if (fErr) return { erfolg: false, fehler: `Datenbankfehler: ${fErr.message}` }
       if (!f) {
         return { erfolg: false, hinweis: `Füllung mit ID ${p.fuellung_id} nicht gefunden. Beim User nachfragen bzw. Stammdaten-Kontext erneut prüfen.` }
       }
@@ -168,9 +169,10 @@ export async function fuehreVerkaufAnlegenAus(
             'welche Charge gemeint ist, und die exakte ID aus dem Stammdaten-Kontext verwenden.',
         }
       }
-      const { data: w } = await (supabase.from('weinausbau') as any)
+      const { data: w, error: wErr } = await (supabase.from('weinausbau') as any)
         .select('id, name')
         .eq('id', p.weinausbau_id).eq('tenant_id', tenantId).eq('aktiv', true).maybeSingle()
+      if (wErr) return { erfolg: false, fehler: `Datenbankfehler: ${wErr.message}` }
       if (!w) {
         return { erfolg: false, hinweis: `Weinausbau-Charge mit ID ${p.weinausbau_id} nicht gefunden. Beim User nachfragen bzw. Stammdaten-Kontext erneut prüfen.` }
       }

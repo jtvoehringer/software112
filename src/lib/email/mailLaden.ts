@@ -31,13 +31,14 @@ export async function ladeMailAusPostfach(
   // KAN-135: Zugangsdaten nur per Service-Role – eingeschränkt auf die eigene Zeile
   // (userId aus getUser() des Aufrufers, tenantId aus der Mitgliedschaft)
   const admin = createSupabaseAdminClient()
-  const [{ data: cfg }, { data: tenantCfg }] = await Promise.all([
+  const [{ data: cfg, error: cfgErr }, { data: tenantCfg, error: tenantCfgErr }] = await Promise.all([
     (admin.from('user_email_connections') as any)
       .select('m365_aktiv, m365_access_token_enc, m365_refresh_token_enc, m365_token_expires_at, m365_scope, monitored_email, email_address')
       .eq('tenant_id', tenantId).eq('user_id', userId).maybeSingle(),
     (admin.from('tenant_einstellungen') as any)
       .select('m365_tenant_id, m365_client_id, m365_client_secret_enc').eq('tenant_id', tenantId).maybeSingle(),
   ])
+  if ((cfgErr ?? tenantCfgErr)) throw new Error(`Daten konnten nicht geladen werden: ${(cfgErr ?? tenantCfgErr).message}`)
   const c = cfg as R | null
   if (!c?.m365_aktiv || !c.m365_access_token_enc || !tenantCfg) return null
 

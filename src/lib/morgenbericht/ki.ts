@@ -25,7 +25,8 @@ export async function fasseZusammen(client: any, tenantId: string, tenantName: s
   if (befunde.length === 0 && !wetter) return { text: null, modell: null, grund: 'nichts' }
   if (!process.env.ANTHROPIC_API_KEY) return { text: null, modell: null, grund: 'kein-schluessel' }
 
-  const { data: einst } = await (client.from('tenant_einstellungen') as any).select('ki_abfragen_aktiv').eq('tenant_id', tenantId).maybeSingle()
+  const { data: einst, error: einstErr } = await (client.from('tenant_einstellungen') as any).select('ki_abfragen_aktiv').eq('tenant_id', tenantId).maybeSingle()
+  if (einstErr) return { text: null, modell: null, grund: 'fehler' }
   if (!(einst as R | null)?.ki_abfragen_aktiv) return { text: null, modell: null, grund: 'inaktiv' }
 
   // KAN-123: vor der Zählung – ohne genug Restzeit weder Aufruf noch Abfrage im Kontingent

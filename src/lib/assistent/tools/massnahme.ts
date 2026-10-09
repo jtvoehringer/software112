@@ -251,14 +251,16 @@ export async function fuehreMassnahmeDokumentierenAus(
       return { erfolg: false, fehler: 'Kein Betrieb gefunden – Maßnahme konnte nicht gespeichert werden.' }
     }
     if (input.psm_id) {
-      const { data } = await (supabase.from('pflanzenschutzmittel') as any)
+      const { data, error: dataErr } = await (supabase.from('pflanzenschutzmittel') as any)
         .select('wartezeit_tage').eq('id', input.psm_id)
         .or(`tenant_id.eq.${tenantId},tenant_id.is.null`).maybeSingle()
+      if (dataErr) return { erfolg: false, fehler: `Datenbankfehler: ${dataErr.message}` }
       wartezeitTage = (data as R | null)?.wartezeit_tage ?? null
     } else if (input.duengemittel_id) {
-      const { data } = await (supabase.from('duengemittel') as any)
+      const { data, error: dataErr } = await (supabase.from('duengemittel') as any)
         .select('wartezeit_tage, einheit').eq('id', input.duengemittel_id)
         .or(`tenant_id.eq.${tenantId},tenant_id.is.null`).maybeSingle()
+      if (dataErr) return { erfolg: false, fehler: `Datenbankfehler: ${dataErr.message}` }
       wartezeitTage = (data as R | null)?.wartezeit_tage ?? null
       duengemittelEinheit = (data as R | null)?.einheit ?? null
     }

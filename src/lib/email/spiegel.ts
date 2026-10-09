@@ -85,7 +85,9 @@ export async function spiegleMailboxen(zeitbudgetMs = 40000, nurTenantId?: strin
     const tenantId = uc.tenant_id as string
     try {
       if (!tenantCfgCache.has(tenantId)) {
-        const { data: tc } = await (admin.from('tenant_einstellungen') as any).select('m365_tenant_id, m365_client_id, m365_client_secret_enc').eq('tenant_id', tenantId).maybeSingle()
+        const { data: tc, error: tcErr } = await (admin.from('tenant_einstellungen') as any).select('m365_tenant_id, m365_client_id, m365_client_secret_enc').eq('tenant_id', tenantId).maybeSingle()
+        // KAN-254: Fehler landet unten in erg.fehler (statt „keine M365-App-Einstellungen“ für diesen Lauf zwischenzuspeichern)
+        if (tcErr) throw new Error(`M365-Einstellungen nicht ladbar: ${tcErr.message}`)
         tenantCfgCache.set(tenantId, (tc as R | null) ?? null)
       }
       const tc = tenantCfgCache.get(tenantId)
@@ -184,7 +186,8 @@ async function spiegleOrdner(
     const ids = zeilen.map(z => z.email_id)
     // inBloecken (05.10.2026): Graph-IDs sind ~150 Zeichen lang – 200 davon (≈ 30 KB) sprengten die URL, der Fehler
     // wurde verworfen und jede Mail galt als neu. Blöcke nach Zeichen begrenzt (IN_ZEICHEN).
-    const { data: ex } = await inBloecken<R>(ids, b => (admin.from('aktivitaeten') as any).select('email_id').eq('tenant_id', tenantId).in('email_id', b))
+    const { data: ex, error: exErr } = await inBloecken<R>(ids, b => (admin.from('aktivitaeten') as any).select('email_id').eq('tenant_id', tenantId).in('email_id', b))
+    if (exErr) return { anzahl, angelegt, fehler: exErr.message, abgebrochen: true, aeltesteVerarbeitet }
     const vorhanden = new Set<string>(ex.map(e => e.email_id as string))
     const neu = zeilen.filter(z => !vorhanden.has(z.email_id))
     for (let i = 0; i < neu.length; i += 100) {
@@ -208,8 +211,9 @@ async function spiegleOrdner(
 export async function spiegleNebenbei(tenantId: string, userId: string, budgetMs = 12000): Promise<void> {
   try {
     const admin = createSupabaseAdminClient()
-    const { data } = await (admin.from('user_email_connections') as any)
+    const { data, error } = await (admin.from('user_email_connections') as any)
       .select('email_spiegel_stand, m365_aktiv').eq('tenant_id', tenantId).eq('user_id', userId).maybeSingle()
+    if (error) throw new Error(error.message)   // nur Protokoll (catch unten)
     const uc = data as R | null
     if (!uc?.m365_aktiv) return
     if (uc.email_spiegel_stand && Date.now() - new Date(uc.email_spiegel_stand).getTime() < 15 * 60000) return
