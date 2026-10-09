@@ -1,7 +1,7 @@
 // KAN-47 AP10 Schritt 1 (09.10.2026): BKI-Blatt „Weingärten“ aus den vorhandenen Ried- und Grundstücksdaten.
 // Annahmen W1–W6 im Kopf von src/lib/behoerden/bki-weingaerten.ts.
 // Schritt 2 (09.10.2026): Großlage, Gemeindeteil, DAC-Orts- und Riedenwein aus src/lib/wein/herkunftKatalog.ts (Thermenregion,
-// Kremstal, Wachau, Kamptal, Traisental, Carnuntum, Weinviertel; Annahmen K1–K12 dort).
+// Kremstal, Wachau, Kamptal, Traisental, Carnuntum, Weinviertel, Wagram, Wien, Burgenland; Annahmen K1–K15 dort).
 //
 // Aufruf:  npm run -s test:csv   (Node ≥ 22.15 wegen module.registerHooks)
 
@@ -123,7 +123,7 @@ describe('KAN-47 Schritt 2: Katalog Thermenregion', () => {
     const hirtenberg = wg.weingartenZeile(ried(lage), gst({ katastralgemeinde: '4312' }))
     assert.deepEqual([hirtenberg.grosslage, hirtenberg.dacOrtswein, hirtenberg.dacRiedenwein], ['Vöslauer Hauerberg', null, null])
     const r = wg.weingartenZeilen([ried(lage)], [gst({ katastralgemeinde: '80001' })])
-    assert.ok(r.warnungen.some(w => /außerhalb der erfassten Kataloge \(Thermenregion, Kremstal, Wachau, Kamptal, Traisental, Carnuntum, Weinviertel\)/.test(w)), r.warnungen.join(' | '))
+    assert.ok(r.warnungen.some(w => /außerhalb der erfassten Kataloge \(Thermenregion, Kremstal, Wachau, Kamptal, Traisental, Carnuntum, Weinviertel, Wagram, Wien, Leithaberg, Neusiedlersee, Mittelburgenland, Rosalia, Eisenberg\)/.test(w)), r.warnungen.join(' | '))
   })
 })
 
@@ -206,7 +206,7 @@ describe('KAN-47 Schritt 2: Katalog Traisental (K10)', () => {
     assert.deepEqual(kat.herkunftKatalog('19999', '31928', 'Nußdorf ob der Traisen'), { gebiet: 'Traisental', grosslage: null, dacOrtswein: 'Nußdorf ob der Traisen', imDacGebiet: true, riedenwein: true })
     assert.equal(kat.herkunftKatalog('1', '30201', 'St. Pölten').dacOrtswein, 'St. Pölten')
     assert.equal(kat.herkunftKatalog('1', '32132', 'Sitzenberg-Reidling').imDacGebiet, true)
-    assert.equal(kat.herkunftKatalog('1', '32101', 'Tulln').gebiet, null, 'übriger Bezirk Tulln nicht im Traisental')
+    assert.equal(kat.herkunftKatalog('1', '32135', 'Tulln an der Donau').gebiet, 'Wagram', 'übriger Bezirk Tulln gehört zum Wagram')
   })
 
   test('Großlage nur Wölblinger Urgestein; Venusberg/Parapluiberg bleiben leer', () => {
@@ -242,8 +242,8 @@ describe('KAN-47 Schritt 2: Katalog Weinviertel (K12)', () => {
   test('Gebiet: fünf Bezirke ohne Stetteldorf und Gerasdorf; Ortswein = Gemeindename', () => {
     assert.deepEqual(kat.herkunftKatalog('1', '31644', 'Poysdorf'), { gebiet: 'Weinviertel', grosslage: 'Falkensteiner Hügelland', dacOrtswein: 'Poysdorf', imDacGebiet: true, riedenwein: true })
     assert.equal(kat.herkunftKatalog('1', '31120', 'Röschitz').dacOrtswein, 'Röschitz')     // Bezirk Horn
-    assert.equal(kat.herkunftKatalog('1', '31228', 'Stetteldorf am Wagram').gebiet, null)
-    assert.equal(kat.herkunftKatalog('1', '31235', 'Gerasdorf bei Wien').gebiet, null)
+    assert.equal(kat.herkunftKatalog('1', '31228', 'Stetteldorf am Wagram').gebiet, 'Wagram')
+    assert.equal(kat.herkunftKatalog('1', '31235', 'Gerasdorf bei Wien').gebiet, 'Wagram')
   })
 
   test('Großlagen: Liste je Gemeinde vor Bezirk (Pulkautal vor Retzer Land), Bisamberg-Kreuzenstein, ohne Großlage', () => {
@@ -256,5 +256,56 @@ describe('KAN-47 Schritt 2: Katalog Weinviertel (K12)', () => {
     const lage = { lage: { amtliche_ried: 'Hochrain' } }
     assert.equal(wg.weingartenZeile(ried(lage), gst({ katastralgemeinde: '12125', trauben_herkunft_code: null })).dacRiedenwein, null)   // Reichaueramt
     assert.equal(wg.weingartenZeile(ried(lage), gst({ katastralgemeinde: '12234', trauben_herkunft_code: null })).dacRiedenwein, 'Hochrain')   // Grunddorf
+  })
+})
+
+describe('KAN-47 Schritt 2: Katalog Wagram (K13)', () => {
+  test('Ortsangaben je KG nördlich der Donau, Absdorf je Gemeinde, „Klosterneuburg“ südlich der Donau', () => {
+    const o = (kg, gkz) => kat.herkunftKatalog(kg, gkz).dacOrtswein
+    assert.deepEqual([o('20009', '32106'), o('20036', '32107'), o('20018', '32114'), o('11139', '31228'), o('20001', '32101')],
+      ['Fels', 'Wagram', 'Kirchberg', 'Starnwörth', 'Absdorf'])
+    assert.deepEqual([o('1705', '32144'), o('20189', '32135'), o('20104', '32142')], ['Klosterneuburg', 'Klosterneuburg', 'Klosterneuburg'])
+    assert.equal(o('20021', '32114'), null, 'KG Mallon (Kirchberg) ohne Ortsangabe')
+  })
+
+  test('Gebiet ohne die drei Traisental-Gemeinden, mit Gerasdorf; Großlagen Tullnerfeld und Klosterneuburg', () => {
+    assert.equal(kat.herkunftKatalog('20108', '32104').gebiet, 'Traisental')           // Atzenbrugg
+    assert.equal(kat.herkunftKatalog('1', '31235').gebiet, 'Wagram')                   // Gerasdorf bei Wien
+    assert.equal(kat.herkunftKatalog('20189', '32135').grosslage, 'Tullnerfeld')
+    assert.equal(kat.herkunftKatalog('1704', '32144').grosslage, 'Klosterneuburg')
+    assert.equal(kat.herkunftKatalog('20009', '32106').grosslage, null)
+  })
+})
+
+describe('KAN-47 Schritt 2: Katalog Wien (K14)', () => {
+  test('Großlagen je KG, kein Ortswein, Riedenwein möglich', () => {
+    assert.deepEqual(kat.herkunftKatalog('01616', '90001'), { gebiet: 'Wien', grosslage: 'Bisamberg-Wien', dacOrtswein: null, imDacGebiet: true, riedenwein: true })
+    assert.deepEqual(['1607', '1505', '1507', '1807', '1105', '1104'].map(k => kat.herkunftKatalog(k, '90001').grosslage),
+      ['Bisamberg-Wien', 'Kahlenberg', 'Nußberg', 'Maurerberg', 'Laaerberg', null])
+  })
+})
+
+describe('KAN-47 Schritt 2: Kataloge Burgenland (K15)', () => {
+  test('Leithaberg: Bezirk Eisenstadt-Umgebung, Eisenstadt, Rust, Jois, Winden; Neusiedl am See nur mit vier Rieden', () => {
+    assert.deepEqual(kat.herkunftKatalog('1', '10312', 'Purbach am Neusiedler See'), { gebiet: 'Leithaberg', grosslage: 'Sonnenberg', dacOrtswein: 'Purbach am Neusiedler See', imDacGebiet: true, riedenwein: true })
+    assert.equal(kat.herkunftKatalog('1', '10201', 'Rust').grosslage, 'Rusterberg')
+    assert.equal(kat.herkunftKatalog('1', '10710', 'Jois').gebiet, 'Leithaberg')
+    assert.equal(kat.herkunftKatalog('1', '10713', 'Neusiedl am See', 'Ried Hausberg').gebiet, 'Leithaberg')
+    assert.equal(kat.herkunftKatalog('1', '10713', 'Neusiedl am See', 'Kirchberg').gebiet, 'Neusiedlersee')
+  })
+
+  test('Neusiedlersee: ohne Orts- und Riedenwein; Heideboden ohne Parndorfer Platte', () => {
+    assert.deepEqual(kat.herkunftKatalog('1', '10707', 'Gols'), { gebiet: 'Neusiedlersee', grosslage: 'Heideboden', dacOrtswein: null, imDacGebiet: true, riedenwein: false })
+    assert.equal(kat.herkunftKatalog('1', '10717', 'Parndorf').grosslage, null)
+  })
+
+  test('Mittelburgenland, Rosalia: Gemeindename; Eisenberg nach § 7 Abs. 2, Großlage Südburgenland', () => {
+    assert.deepEqual([kat.herkunftKatalog('1', '10801', 'Deutschkreutz').dacOrtswein, kat.herkunftKatalog('1', '10801').grosslage], ['Deutschkreutz', 'Goldbachtal'])
+    assert.equal(kat.herkunftKatalog('1', '10606', 'Mattersburg').gebiet, 'Rosalia')
+    const o = (kg, gkz) => kat.herkunftKatalog(kg, gkz).dacOrtswein
+    assert.deepEqual([o('34017', '10903'), o('34012', '10903'), o('34062', '10919'), o('34046', '10913'), o('31029', '10428'), o('1', '10917')],
+      ['Eisenberg a. d. P.', 'Deutsch Schützen', 'Rechnitz', 'Rechnitz', 'Gaas', null])
+    assert.equal(kat.herkunftKatalog('1', '10504').grosslage, 'Südburgenland')
+    assert.equal(kat.herkunftKatalog('1', '10917').riedenwein, false, 'Oberwart ohne Ortsangabe → kein Riedenwein')
   })
 })

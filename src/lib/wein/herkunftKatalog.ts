@@ -1,6 +1,6 @@
 // ── Amtliche Herkunftskataloge für das BKI-Blatt „Weingärten“ (KAN-47 Schritt 2, 09.10.2026) ──
 //
-// Statisch erfasst aus dem RIS, je Weinbaugebiet ein Block (bisher: Thermenregion, Kremstal, Wachau, Kamptal, Traisental, Carnuntum, Weinviertel). Schlüssel sind die
+// Statisch erfasst aus dem RIS, je Weinbaugebiet ein Block (bisher: Niederösterreich vollständig, Wien, Burgenland; Steiermark fehlt noch). Schlüssel sind die
 // Gemeindekennziffer (GKZ, Statistik Austria) bzw. – wo eine Verordnung einzelne Katastralgemeinden nennt – die KG-Nr. (BEV).
 // Reihenfolge: Ried vor KG vor Gemeinde (Beispiel: KG Oeynhausen gehört zur Gemeinde Traiskirchen, aber zur Großlage
 // Steinfeld; die Kremser Großlagen sind über Rieden festgelegt, im Kamptal lenken einzelne Rieden den Ortswein um). Ohne `@/`-Importe (node:test).
@@ -18,6 +18,13 @@
 //      (ortsübergreifende Gemeinden); Gebiet = politischer Bezirk Bruck an der Leitha und Gerichtsbezirk Schwechat
 //   Weinviertel: DAC-Verordnung „Weinviertel“, BGBl. II Nr. 58/2010 i. d. F. BGBl. II Nr. 587/2020, § 1 Z 9 (Gemeinde,
 //      Ried oder Großlage als kleinere Einheit); Großlagen § 1 Z 2 lit. m–r der Großlagenverordnung
+//   Wagram: DAC-Verordnung „Wagram“, BGBl. II Nr. 30/2022, § 1 (Gebiet), § 7 Abs. 2 (27 Ortsangaben), § 8 (Ried);
+//      Großlagen § 1 Z 2 lit. k, l
+//   Wien: Weingesetz § 21 Abs. 3 Z 1 lit. i; Großlagen § 1 Z 5 (je KG)
+//   Burgenland: DAC-Verordnungen „Leithaberg“ (§ 1 Gebiet samt vier Neusiedler Rieden), „Neusiedlersee“ (BGBl. II
+//      Nr. 431/2020, § 1), „Mittelburgenland“ (BGBl. II Nr. 56/2010 i. d. F. 184/2018, § 1 Z 5), „Rosalia“ (BGBl. II
+//      Nr. 59/2018 i. d. F. 191/2023, § 1), „Eisenberg“ (BGBl. II Nr. 191/2023 i. d. F. 250/2024, § 1, § 7);
+//      Großlagen § 1 Z 1
 //
 // Annahmen (am Ticket KAN-47 dokumentiert):
 //   K1 Wiener Neustadt (Statutarstadt, GKZ 30401) zählt zum Ortswein „Wiener Neustadt“, obwohl Anhang A nur die
@@ -55,6 +62,19 @@
 //      zählt keine Gemeinden auf → Ortswein = Name der politischen Gemeinde. Großlagen: Matzner Hügel, Wolkersdorfer
 //      Hochleiten, Falkensteiner Hügelland, Pulkautal je Gemeinde; Retzer Land = übrige Gemeinden der Bezirke Hollabrunn
 //      und Horn (Pulkautal geht vor); Bisamberg-Kreuzenstein = Bezirk Korneuburg (ohne die beiden Wagram-Gemeinden).
+//   K13 Wagram: Gebiet = Bezirk Tulln ohne Atzenbrugg, Sitzenberg-Reidling, Würmla, dazu Stetteldorf am Wagram und
+//      Gerasdorf bei Wien (Klosterneuburg gehört seit 2017 zum Bezirk Tulln). Die 26 Ortsangaben nördlich der Donau sind
+//      KG-Namen („Absdorf“ = die ganze Gemeinde, eine KG); „Klosterneuburg“ = alle Wagram-Gemeinden südlich der Donau
+//      (Klosterneuburg und die Gemeinden der Großlage Tullnerfeld). Großlage Klosterneuburg = Gemeinde Klosterneuburg
+//      (die übrigen Gemeinden südlich der Donau stehen ausdrücklich unter Tullnerfeld).
+//   K14 Wien: Gebiet = Wien; der Wiener Gemischte Satz DAC kennt keine Ortsangaben, Riedenwein ohne Ortswein möglich.
+//      Großlage Bisamberg-Wien umfasst Großjedlersdorf I und II.
+//   K15 Burgenland: Ortswein = Gemeindename, wo die Verordnung eine Gemeinde als nähere Herkunft zulässt (Leithaberg,
+//      Mittelburgenland, Rosalia); Neusiedlersee DAC hat keine Orts- und Riedenweine; Eisenberg nach § 7 Abs. 2 (KG Eisenberg
+//      an der Pinka vor der Gemeinde Deutsch Schützen-Eisenberg). In der Gemeinde Neusiedl am See gehören nur die Rieden
+//      Hausberg, Neuberg, Marthalwald und Landstraße Hutweide zum Leithaberg. Ruster Ausbruch (nur Süßwein, Rust) ist über
+//      den Leithaberg abgedeckt. Großlagen: Heideboden = Neusiedlersee ohne Parndorfer Platte, Sonnenberg, Rusterberg,
+//      Goldbachtal, Südburgenland.
 
 type Gebiet = {
   name: string
@@ -82,6 +102,10 @@ type Gebiet = {
   ausserGkz?: readonly string[]
   /** Riedenwein auch ohne Ortswein (Kamptal, K3) */
   riedenweinOhneOrtswein?: boolean
+  /** Gemeinden, die nur mit bestimmten Rieden zum Gebiet gehören (K15, Riedname klein geschrieben) */
+  dacRied?: Record<string, Record<string, string>>
+  /** Gemeinden ohne Großlage trotz GKZ-Anfang (Parndorfer Platte) */
+  ohneGrosslageGkz?: readonly string[]
 }
 
 const jeSchluessel = (zuordnung: Record<string, readonly string[]>) =>
@@ -258,7 +282,109 @@ const WEINVIERTEL: Gebiet = {
   ortsweinGemeindename: true,
 }
 
-const GEBIETE: readonly Gebiet[] = [THERMENREGION, KREMSTAL, WACHAU, KAMPTAL, TRAISENTAL, CARNUNTUM, WEINVIERTEL]
+const WAGRAM_SUED = ['32144', '32120', '32119', '32141', '32112', '32131', '32134', '32135', '32116', '32143', '32140', '32142']
+
+const WAGRAM: Gebiet = {
+  name: 'Wagram',
+  grosslageKg: {},
+  grosslageGkz: {
+    ...jeSchluessel({ 'Klosterneuburg': ['32144'] }),
+    ...jeSchluessel({ 'Tullnerfeld': WAGRAM_SUED.filter(g => g !== '32144') }),
+  },
+  ortsweinKg: jeSchluessel({
+    'Fels': ['20009'], 'Gösing': ['20013'], 'Thürnthal': ['20033'], 'Feuersbrunn': ['20010'], 'Wagram': ['20036'],
+    'Großriedenthal': ['20025'], 'Ottenthal': ['20024'], 'Neudegg': ['20022'], 'Ameisthal': ['20004'], 'Baumgarten': ['20005'],
+    'Großweikersdorf': ['20037'], 'Großwiesendorf': ['20038'], 'Ruppersthal': ['20026'], 'Tiefenthal': ['20034'],
+    'Zaussenberg': ['20041'], 'Engelmannsbrunn': ['20008'], 'Kirchberg': ['20018'], 'Mitterstockstall': ['20030'],
+    'Oberstockstall': ['20031'], 'Unterstockstall': ['20032'], 'Königsbrunn': ['20020'], 'Hippersdorf': ['20015'],
+    'Eggendorf': ['11102'], 'Starnwörth': ['11139'], 'Stetteldorf': ['11141'],
+  }),
+  ortsweinGkz: { ...jeSchluessel({ 'Absdorf': ['32101'], 'Klosterneuburg': WAGRAM_SUED }) },
+  dacGkzPraefix: ['321'],
+  dacGkz: ['31228', '31235'],                                           // Stetteldorf am Wagram, Gerasdorf bei Wien
+  ausserGkz: ['32104', '32132', '32139'],                               // Atzenbrugg, Sitzenberg-Reidling, Würmla (Traisental)
+}
+
+const WIEN: Gebiet = {
+  name: 'Wien',
+  grosslageKg: jeSchluessel({
+    'Bisamberg-Wien': ['1617', '1616', '1606', '1607'],                 // Strebersdorf, Stammersdorf, Großjedlersdorf I/II
+    'Kahlenberg': ['1505', '1504'],                                     // Kahlenbergerdorf, Josefsdorf
+    'Nußberg': ['1507', '1503'],                                        // Nußdorf, Heiligenstadt
+    'Maurerberg': ['1806', '1804', '1807', '1805'],                     // Mauer, Kalksburg, Rodaun, Liesing
+    'Laaerberg': ['1105'],                                              // Oberlaa Stadt
+  }),
+  grosslageGkz: {},
+  ortsweinKg: {},
+  ortsweinGkz: {},
+  dacGkzPraefix: ['9'],
+  riedenweinOhneOrtswein: true,
+}
+
+const LEITHABERG: Gebiet = {
+  name: 'Leithaberg',
+  grosslageKg: {},
+  grosslageGkz: jeSchluessel({ 'Sonnenberg': ['10101'], 'Rusterberg': ['10201'] }),
+  grosslagePraefix: { '103': 'Sonnenberg' },
+  ortsweinKg: {},
+  ortsweinGkz: {},
+  dacGkz: ['10101', '10201', '10710', '10723'],                         // Eisenstadt, Rust, Jois, Winden am See
+  dacGkzPraefix: ['103'],                                               // Bezirk Eisenstadt-Umgebung
+  dacRied: { '10713': jeRied({ 'Leithaberg': ['Hausberg', 'Neuberg', 'Marthalwald', 'Landstraße Hutweide'] }) },   // Neusiedl am See
+  ortsweinGemeindename: true,
+}
+
+const NEUSIEDLERSEE: Gebiet = {
+  name: 'Neusiedlersee',
+  grosslageKg: {},
+  grosslageGkz: {},
+  grosslagePraefix: { '107': 'Heideboden' },
+  ohneGrosslageGkz: ['10717', '10725', '10703', '10706', '10724', '10714', '10704', '10715', '10727', '10726', '10711'],   // Parndorfer Platte
+  ortsweinKg: {},
+  ortsweinGkz: {},
+  dacGkzPraefix: ['107'],
+  ausserGkz: ['10710', '10723'],                                        // Jois, Winden am See (Leithaberg)
+}
+
+const MITTELBURGENLAND: Gebiet = {
+  name: 'Mittelburgenland',
+  grosslageKg: {},
+  grosslageGkz: {},
+  grosslagePraefix: { '108': 'Goldbachtal' },
+  ortsweinKg: {},
+  ortsweinGkz: {},
+  dacGkzPraefix: ['108'],                                               // Bezirk Oberpullendorf
+  ortsweinGemeindename: true,
+}
+
+const ROSALIA: Gebiet = {
+  name: 'Rosalia',
+  grosslageKg: {},
+  grosslageGkz: {},
+  ortsweinKg: {},
+  ortsweinGkz: {},
+  dacGkzPraefix: ['106'],                                               // Bezirk Mattersburg
+  ortsweinGemeindename: true,
+}
+
+const EISENBERG: Gebiet = {
+  name: 'Eisenberg',
+  grosslageKg: {},
+  grosslageGkz: {},
+  grosslagePraefix: { '104': 'Südburgenland', '105': 'Südburgenland', '109': 'Südburgenland' },
+  ortsweinKg: jeSchluessel({ 'Eisenberg a. d. P.': ['34017'] }),       // KG Eisenberg an der Pinka
+  ortsweinGkz: jeSchluessel({
+    'Deutsch Schützen': ['10903'],                                      // übrige KGs von Deutsch Schützen-Eisenberg
+    'Hannersdorf': ['10906'],
+    'Kohfidisch': ['10908'],
+    'Rechnitz': ['10919', '10913'],                                     // Rechnitz, Markt Neuhodis
+    'Gaas': ['10403', '10428'],                                         // Eberau, Moschendorf
+  }),
+  dacGkzPraefix: ['104', '105', '109'],                                 // Bezirke Güssing, Jennersdorf, Oberwart
+}
+
+const GEBIETE: readonly Gebiet[] = [THERMENREGION, KREMSTAL, WACHAU, KAMPTAL, TRAISENTAL, CARNUNTUM, WEINVIERTEL, WAGRAM,
+  WIEN, LEITHABERG, NEUSIEDLERSEE, MITTELBURGENLAND, ROSALIA, EISENBERG]
 
 export type HerkunftKatalog = {
   gebiet: string | null
@@ -282,11 +408,12 @@ export function herkunftKatalog(kgNr: string | null | undefined, gkz: string | n
   const r = riedSchluessel(ried)
   for (const g of GEBIETE) {
     if (gkz && g.ausserGkz?.includes(gkz)) continue
-    const praefix = gkz ? Object.keys(g.grosslagePraefix ?? {}).find(p => gkz.startsWith(p)) : undefined
+    const riedGebiet = !!gkz && !!r && !!g.dacRied?.[gkz]?.[r]
+    const praefix = gkz && !g.ohneGrosslageGkz?.includes(gkz) ? Object.keys(g.grosslagePraefix ?? {}).find(p => gkz.startsWith(p)) : undefined
     const grosslage = (gkz && r && g.grosslageRied?.[gkz]?.[r]) || (kg && g.grosslageKg[kg]) || (gkz && g.grosslageGkz[gkz]) || (praefix && g.grosslagePraefix![praefix]) || null
     const ortKg = kg ? (r && g.ortsweinRied?.[kg]?.[r]) || g.ortsweinKg[kg] : undefined
     const gkzImAnhang = !!gkz && gkz in g.ortsweinGkz
-    const imDac = !!ortKg || gkzImAnhang || (!!gkz && (!!g.dacGkz?.includes(gkz) || !!g.dacGkzPraefix?.some(p => gkz.startsWith(p))))
+    const imDac = !!ortKg || gkzImAnhang || riedGebiet || (!!gkz && (!!g.dacGkz?.includes(gkz) || !!g.dacGkzPraefix?.some(p => gkz.startsWith(p))))
     if (!grosslage && !imDac) continue
     const ort = ortKg ?? (gkzImAnhang ? g.ortsweinGkz[gkz!] ?? gemeinde ?? null : null) ?? (g.ortsweinGemeindename && imDac ? gemeinde ?? null : null)
     return { gebiet: g.name, grosslage, dacOrtswein: ort, imDacGebiet: imDac, riedenwein: imDac && (!!ort || !!g.riedenweinOhneOrtswein) }

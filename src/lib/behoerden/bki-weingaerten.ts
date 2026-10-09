@@ -3,7 +3,7 @@
 // Spalten nach der BKI-Schnittstelle („SchnittstelleDatenMitDefinitionTypen“, Blatt „Weingärten“, 26 Spalten). Eine
 // Zeile je Grundstück (Sorte, Fläche und Pflanzjahr stehen am Grundstück); eine Ried ohne Grundstücke bekommt eine
 // eigene Zeile mit Hinweis. Schritt 2: Großlage, Gemeindeteil, DAC-Orts- und Riedenwein aus den amtlichen Katalogen
-// (`herkunftKatalog`, bisher Thermenregion, Kremstal, Wachau, Kamptal, Traisental, Carnuntum und Weinviertel, Annahmen K1–K12 dort); Erste/Große Lage bleibt leer.
+// (`herkunftKatalog`, Niederösterreich, Wien und Burgenland, Annahmen K1–K15 dort); Erste/Große Lage bleibt leer.
 //
 // Annahmen (wie AP11 nach bestem Wissen, im Workshop KAN-38 zu bestätigen):
 //   W1 Die Spezifikation führt „Katastralgemeinde“ zweimal: als int (Spalte B) und als Text (Spalte S). B = KG-Nr.
