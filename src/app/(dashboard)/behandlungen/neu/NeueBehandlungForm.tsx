@@ -32,6 +32,7 @@ import RiedAuswahlListe from './RiedAuswahlListe'
 import AnwendungFelder, { type MitgliedAuswahl } from './AnwendungFelder'
 import { PSM_FRIST_STANDARD_H, wienHeute } from '@/lib/behandlungen/erfassungsfrist'
 import BienenschutzHinweis from '@/components/behandlungen/BienenschutzHinweis'
+import { rundText } from '@/lib/zahl/runden'
 
 // Welche Felder je Maßnahmenart sichtbar/pflicht sind, steht in FELD_MATRIX (feldMatrix.ts), die
 // Mengenfelder in MENGEN_SICHT (mengenFelder.ts, über mengenSicht: Aufwand bei Sonstiges nur mit Mittel) –
@@ -270,7 +271,7 @@ export default function NeueBehandlungForm({
   useEffect(() => {
     if (!kostenAktiv) return
     if (betragManuellGeaendert.current) return
-    setKostenBetrag(kostenVorschlag > 0 ? kostenVorschlag.toFixed(2) : '')
+    setKostenBetrag(kostenVorschlag > 0 ? rundText(kostenVorschlag, 2) : '')
   }, [kostenAktiv, kostenVorschlag])
 
   // Beschreibung automatisch vorschlagen, solange leer/unverändert

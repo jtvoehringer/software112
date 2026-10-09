@@ -9,6 +9,7 @@ import { druckCsp, druckleiste, DRUCKLEISTE_CSS } from '@/lib/utils/druckknopf'
 import { landAnzeige } from '@/lib/katalog/laender'   // KAN-187: ISO-Code → Ländername (Altdaten mit Namen unverändert)
 import { kontaktAnzeigename } from '@/lib/crm/titel'
 import { modulKonflikt } from '@/lib/auth/modul'
+import { eurText, gesamtWert, positionsWert } from '@/lib/export/exportWerte'   // Sweep 77: kaufmännisch, Gesamt = Σ Zeilen
 export const dynamic = 'force-dynamic'
 // KAN-141 (01.10.2026): Dokument-CSP plus genau ein per Hash freigegebenes Skript für den Drucken-Knopf
 const DRUCK_CSP = druckCsp(DOKUMENT_CSP)
@@ -88,7 +89,7 @@ export async function GET(
   const b   = (betriebData ?? {}) as R
   momentaufnahmeAnwenden(a, { kontakte: 'kontakt', firmen: 'firma' })   // KAN-150 F1c: Empfänger wie beim Anlegen des Auftrags
   const importeur = a.firmen?.name ?? (a.kontakte ? kontaktAnzeigename(a.kontakte) : '') ?? '–'
-  const gesamtEUR = pos.reduce((s, p) => s + (parseFloat(p.menge)||0) * (parseFloat(p.preis_eur)||0), 0)
+  const gesamtEUR = gesamtWert(pos)
 
   // KAN-138: jede Interpolation aus DB-/Benutzerdaten läuft über e() (escHtml) bzw.
   // escHtmlMehrzeilig – nur css() und header(b) liefern bewusst fertiges HTML.
@@ -129,9 +130,9 @@ export async function GET(
           <td>${i+1}</td><td>${e(p.beschreibung ?? p.fuellungen?.bezeichnung ?? '–')}</td>
           <td style="text-align:right">${e(p.menge)}</td><td>${e(p.einheit)}</td>
           <td style="font-family:monospace">${e(p.taric_code)}</td>
-          <td style="text-align:right">${e(((parseFloat(p.menge)||0)*(parseFloat(p.preis_eur)||0)).toFixed(2))}</td>
+          <td style="text-align:right">${e(eurText(positionsWert(p)))}</td>
         </tr>`).join('')}
-        <tr class="total"><td colspan="5" style="text-align:right">Gesamtwert EUR</td><td style="text-align:right">${gesamtEUR.toFixed(2)}</td></tr>
+        <tr class="total"><td colspan="5" style="text-align:right">Gesamtwert EUR</td><td style="text-align:right">${e(eurText(gesamtEUR))}</td></tr>
         </tbody></table>
         <div class="sign">
           <div class="sign-box">Ort, Datum</div>
@@ -182,9 +183,9 @@ export async function GET(
           <td>${e(p.beschreibung ?? p.fuellungen?.bezeichnung ?? '–')}</td>
           <td style="text-align:right">${e(p.menge)}</td><td>${e(p.einheit)}</td>
           <td style="font-family:monospace">${e(p.taric_code)}</td>
-          <td style="text-align:right">${e(((parseFloat(p.menge)||0)*(parseFloat(p.preis_eur)||0)).toFixed(2))}</td>
+          <td style="text-align:right">${e(eurText(positionsWert(p)))}</td>
         </tr>`).join('')}
-        <tr class="total"><td colspan="4" style="text-align:right">Gesamtwert EUR</td><td style="text-align:right">${gesamtEUR.toFixed(2)}</td></tr>
+        <tr class="total"><td colspan="4" style="text-align:right">Gesamtwert EUR</td><td style="text-align:right">${e(eurText(gesamtEUR))}</td></tr>
         </tbody></table>
         <div class="grid2" style="margin-top:6mm">
           <div class="stamp"><div style="font-weight:bold;margin-bottom:2mm">10. Sichtvermerk der Zollbehörde</div>Bescheinigung erteilt<br/><br/>Ort:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Datum:<br/>Stempel:</div>
@@ -242,7 +243,7 @@ export async function GET(
         <div class="grid3" style="margin-top:4mm">
           <div class="box"><div class="label">7. Frachtzahlung</div><div class="value">${e(a.incoterms ?? '–')}</div></div>
           <div class="box"><div class="label">8. TARIC / Zolltarif</div><div class="value">${e(pos[0]?.taric_code ?? '2204')}</div></div>
-          <div class="box"><div class="label">9. Warenwert EUR</div><div class="value">${gesamtEUR.toFixed(2)}</div></div>
+          <div class="box"><div class="label">9. Warenwert EUR</div><div class="value">${e(eurText(gesamtEUR))}</div></div>
         </div>
         <div class="sign" style="margin-top:10mm">
           <div class="sign-box">Ort, Datum<br/>Absender<br/>Stempel / Unterschrift</div>
@@ -285,9 +286,9 @@ export async function GET(
           <td>${e(p.beschreibung ?? p.fuellungen?.bezeichnung ?? '–')} (Austrian Wine)</td>
           <td style="text-align:right">${e(p.menge)}</td><td>${e(p.einheit)}</td>
           <td style="font-family:monospace">${e(p.taric_code ?? '2204')}</td>
-          <td style="text-align:right">${e(((parseFloat(p.menge)||0)*(parseFloat(p.preis_eur)||0)).toFixed(2))}</td>
+          <td style="text-align:right">${e(eurText(positionsWert(p)))}</td>
         </tr>`).join('')}
-        <tr class="total"><td colspan="4" style="text-align:right">Total Value EUR</td><td style="text-align:right">${gesamtEUR.toFixed(2)}</td></tr>
+        <tr class="total"><td colspan="4" style="text-align:right">Total Value EUR</td><td style="text-align:right">${e(eurText(gesamtEUR))}</td></tr>
         </tbody></table>
         <div class="grid2" style="margin-top:8mm">
           <div class="stamp">
@@ -392,18 +393,18 @@ export async function GET(
           <td style="text-align:right">${e(p.menge)}</td>
           <td>${e(p.einheit)}</td>
           <td style="font-family:monospace;font-size:9pt">${e(p.taric_code)}</td>
-          <td style="text-align:right">${e(parseFloat(p.preis_eur).toFixed(2))}</td>
-          <td style="text-align:right;font-weight:bold">${e(((parseFloat(p.menge)||0)*(parseFloat(p.preis_eur)||0)).toFixed(2))}</td>
+          <td style="text-align:right">${e(eurText(parseFloat(p.preis_eur)))}</td>
+          <td style="text-align:right;font-weight:bold">${e(eurText(positionsWert(p)))}</td>
         </tr>`).join('')}
         <tr class="total">
           <td colspan="6" style="text-align:right">Gesamtwert / Total Value EUR</td>
-          <td style="text-align:right">${gesamtEUR.toFixed(2)}</td>
+          <td style="text-align:right">${e(eurText(gesamtEUR))}</td>
         </tr>
         </tbody></table>
         <div class="box" style="margin-top:4mm;font-size:9pt">
           <strong>Zahlungsbedingungen / Payment Terms:</strong> ${e(a.incoterms ?? '–')} · 
           Währung / Currency: EUR · 
-          Versicherungswert / Insurance Value: EUR ${e(a.versicherungswert ? parseFloat(a.versicherungswert).toFixed(2) : gesamtEUR.toFixed(2))}
+          Versicherungswert / Insurance Value: EUR ${e(a.versicherungswert ? eurText(parseFloat(a.versicherungswert)) : eurText(gesamtEUR))}
         </div>
         ${b.rechnung_iban ? `<div class="box" style="font-size:9pt"><strong>Bankverbindung / Bank Details:</strong> IBAN: ${e(b.rechnung_iban)}${b.rechnung_bic ? ` · BIC: ${e(b.rechnung_bic)}` : ''}</div>` : ''}
         <div class="sign" style="margin-top:12mm">

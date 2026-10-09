@@ -15,6 +15,7 @@ import { istTag, zeitraumAnzeige } from '@/lib/behoerden/kellerbuch-hilfen'
 import { wienHeute } from '@/lib/csv'
 import DruckKnopf from '../../../_behoerden/DruckKnopf'
 import ZeitraumFormular from '../../../_behoerden/ZeitraumFormular'
+import { rundText } from '@/lib/zahl/runden'
 
 export const metadata: Metadata = { title: 'Bewegungsbuch – software:112' }
 export const dynamic = 'force-dynamic'
@@ -183,8 +184,8 @@ export default async function BehaelterBewegungsPage({
                 inputMode="decimal"
                 step="0.01"
                 min="0.01"
-                max={nichtVerbuchterSchwund.toFixed(2)}
-                defaultValue={nichtVerbuchterSchwund.toFixed(2)}
+                max={rundText(nichtVerbuchterSchwund, 2)}
+                defaultValue={rundText(nichtVerbuchterSchwund, 2)}
                 required
                 className={`w-full sm:w-28 ${inputCls}`}
               />
