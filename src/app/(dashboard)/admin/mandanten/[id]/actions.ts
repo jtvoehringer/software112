@@ -18,7 +18,7 @@ import { tenantKopfInvalidieren } from '@/lib/tenant/kopf'
 import { stripeKundennummerSync } from '@/lib/stripe/kundennummer'
 import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { dezimal } from '@/lib/format'
-import { weinbauBetriebsnummerPruefen } from '@/lib/betrieb/betriebsnummer'
+import { betriebsartAus, weinbauBetriebsnummerPruefen } from '@/lib/betrieb/betriebsnummer'
 import { mitgliedEinladen, EINLADUNG_REDIRECT } from '@/lib/auth/einladung'
 import { istMostgewichtEinheit } from '@/lib/wein/mostgewicht'
 import { austrittsWerte, beitrittFehler, beitrittsWerte, gemeinschaftsFreigaben, type VerbundBetrieb } from '@/lib/abo/verbund'
@@ -306,8 +306,9 @@ export async function removeMemberAdmin(membershipId: string, tenantId: string) 
 
 export async function saveBetriebEinstellungen(tenantId: string, formData: FormData) {
   await assertSystemAdmin(tenantId)
-  // Weinbau-Betriebsnummer ist Pflichtfeld (25.09.2026) – nur Ziffern, Leerzeichen werden entfernt
-  const betriebsnummer = weinbauBetriebsnummerPruefen(formData.get('betrieb_betriebsnummer'))
+  // Weinbau-Betriebsnummer – nur Ziffern, Leerzeichen werden entfernt; Pflicht nur für Weinproduzenten (KAN-261)
+  const betriebsart = betriebsartAus(formData.get('betriebsart'))
+  const betriebsnummer = weinbauBetriebsnummerPruefen(formData.get('betrieb_betriebsnummer'), betriebsart)
   if (!betriebsnummer.ok) throw new AktionsFehler(betriebsnummer.fehler)
   const admin = createSupabaseAdminClient()
 
@@ -323,6 +324,7 @@ export async function saveBetriebEinstellungen(tenantId: string, formData: FormD
       betrieb_website:           (formData.get('betrieb_website') as string) || null,
       betrieb_uid:               (formData.get('betrieb_uid')           as string) || null,
       betrieb_betriebsnummer:    betriebsnummer.wert,
+      betriebsart,
       rechnung_iban:             (formData.get('rechnung_iban')   as string) || null,
       rechnung_bic:              (formData.get('rechnung_bic')    as string) || null,
       // rechnung_zahlungsziel wird hier bewusst NICHT mehr geschrieben - das

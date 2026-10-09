@@ -34,15 +34,16 @@ export function tbDatumGueltig(tag?: string, monat?: string, jahr?: string): boo
   return d.getUTCFullYear() === j && d.getUTCMonth() === m - 1 && d.getUTCDate() === t
 }
 
-/** Fehlende Pflichtangaben (leer = ausstellbar); die laufende Nummer darf fehlen, wenn sie vergeben wird */
-export function tbPflichtFehler(d: TBKopf, opt: { nummerWirdVergeben?: boolean } = {}): string[] {
+/** Fehlende Pflichtangaben (leer = ausstellbar); die laufende Nummer darf fehlen, wenn sie vergeben wird.
+ *  versenderOhneBetriebsnummer: Versender ist ein Weinhändler (KAN-261) – seine Betriebsnummer ist dann optional. */
+export function tbPflichtFehler(d: TBKopf, opt: { nummerWirdVergeben?: boolean; versenderOhneBetriebsnummer?: boolean } = {}): string[] {
   const f: string[] = []
   if (!opt.nummerWirdVergeben && leer(d.laufende_nr)) f.push('Laufende Nummer')
   if (!/^\d{4}$/.test(String(d.jahr ?? '').trim())) f.push('Jahr (vierstellig)')
   if (!tbDatumGueltig(d.datum_tag, d.datum_monat, d.datum_jahr)) f.push('Datum der Lieferung (TT, MM, JJJJ)')
   if (leer(d.zugmaschine)) f.push('Kennzeichen der Zugmaschine')
   if (leer(d.v_name)) f.push('Name des Versenders')
-  if (leer(d.v_betriebsnummer)) f.push('Betriebsnummer des Versenders')
+  if (!opt.versenderOhneBetriebsnummer && leer(d.v_betriebsnummer)) f.push('Betriebsnummer des Versenders')
   if (leer(d.e_name)) f.push('Name des Empfängers')
   if (leer(d.e_betriebsnummer)) f.push('Betriebsnummer des Empfängers')
   const pos = Array.isArray(d.positionen) ? d.positionen : []

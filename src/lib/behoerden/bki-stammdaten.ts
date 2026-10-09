@@ -60,7 +60,10 @@ export function betriebsdatenZeile(e: Record<string, unknown>, bioStatus: string
   const plz = text(e.betrieb_plz)
   if (plz && plz.length > 8) w.push(`PLZ „${plz}“ ist länger als 8 Zeichen.`)
   const betriebsnummer = text(e.betrieb_betriebsnummer)
-  if (!betriebsnummer) w.push('Weinbau-Betriebsnummer fehlt in den Betriebseinstellungen.')
+  // KAN-261: Weinhändler haben meist keine Weinbau-Betriebsnummer – Hinweis statt Pflicht
+  if (!betriebsnummer) w.push(e.betriebsart === 'weinhaendler'
+    ? 'Keine Betriebsnummer eingetragen (Weinhändler) – die Weindatenbank führt Betriebe über die Betriebsnummer; hat der Betrieb eine LFBIS-Nummer, bitte unter Betrieb › Einstellungen eintragen.'
+    : 'Weinbau-Betriebsnummer fehlt in den Betriebseinstellungen.')
   return {
     zeile: {
       betriebsnummer, vorname, nachname,
@@ -75,7 +78,7 @@ export function betriebsdatenZeile(e: Record<string, unknown>, bioStatus: string
 export async function ladeBetriebsdaten(supabase: any, tenantId: string): Promise<{ zeilen: BetriebsdatenZeile[]; warnungen: string[] }> {
   const [eRes, tRes] = await Promise.all([
     (supabase.from('tenant_einstellungen') as any)
-      .select('betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort, betrieb_betriebsnummer, betrieb_rechtsform, betrieb_vorname, betrieb_nachname, betrieb_betriebsstaette')
+      .select('betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort, betrieb_betriebsnummer, betriebsart, betrieb_rechtsform, betrieb_vorname, betrieb_nachname, betrieb_betriebsstaette')
       .eq('tenant_id', tenantId).maybeSingle(),
     (supabase.from('tenants') as any).select('bio_status').eq('id', tenantId).maybeSingle(),
   ])

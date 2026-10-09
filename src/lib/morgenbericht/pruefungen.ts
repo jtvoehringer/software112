@@ -132,11 +132,12 @@ export async function pruefeBetrieb(ctx: Ctx, einst: Einstellungen, paket: { ist
     const tage = Math.round((new Date(t.stripe_trial_ends_at).getTime() - heute.getTime()) / 86400000)
     if (tage >= 0 && tage <= 7 && !t.stripe_plan) befunde.push({ key: 'abo:trial', bereich: 'Abo', stufe: 'mittel', titel: `Testphase endet in ${tage} ${tage === 1 ? 'Tag' : 'Tagen'}`, detail: 'Paket wählen, damit der Zugang bestehen bleibt', href: '/abo' })
   }
-  // 9b. Stammdaten: Weinbau-Betriebsnummer ist Pflichtfeld (25.09.2026) – ohne sie fehlen Angaben auf
-  //     Transportbescheinigung und Prüfnummernantrag, und die BKI-Berichte haben keinen gültigen Dateinamen
-  const { data: stamm, error: stammErr } = await ctx.tf(ctx.q('tenant_einstellungen').select('betrieb_betriebsnummer')).maybeSingle()
+  // 9b. Stammdaten: Weinbau-Betriebsnummer ist für Weinproduzenten Pflichtfeld (25.09.2026, KAN-261: nicht für
+  //     Weinhändler) – ohne sie fehlen Angaben auf Transportbescheinigung und Prüfnummernantrag, und die BKI-Berichte
+  //     haben keinen gültigen Dateinamen
+  const { data: stamm, error: stammErr } = await ctx.tf(ctx.q('tenant_einstellungen').select('betrieb_betriebsnummer, betriebsart')).maybeSingle()
   if (stammErr) throw new Error(`Daten konnten nicht geladen werden: ${stammErr.message}`)
-  if (weinbauBetriebsnummerFehlt((stamm as R | null)?.betrieb_betriebsnummer)) befunde.push({
+  if (weinbauBetriebsnummerFehlt((stamm as R | null)?.betrieb_betriebsnummer, (stamm as R | null)?.betriebsart)) befunde.push({
     key: 'betrieb:betriebsnummer', bereich: 'Betrieb', stufe: 'mittel', titel: 'Weinbau-Betriebsnummer fehlt',
     detail: 'Pflichtfeld unter Mein Betrieb → Betrieb – gebraucht für Transportbescheinigung, Prüfnummernantrag und BKI-Berichte',
     href: '/betrieb/einstellungen',

@@ -59,22 +59,85 @@ describe('weinbauBetriebsnummerPruefen()', () => {
   })
 })
 
-describe('Verdrahtung', () => {
-  test('beide Speicher-Actions prüfen vor dem Schreiben und speichern den bereinigten Wert', () => {
-    for (const p of ['src/app/(dashboard)/betrieb/einstellungen/actions.ts', 'src/app/(dashboard)/admin/mandanten/[id]/actions.ts']) {
-      const s = quelle(p)
-      assert.match(s, /weinbauBetriebsnummerPruefen\(formData\.get\('betrieb_betriebsnummer'\)\)/, p)
-      assert.match(s, /betrieb_betriebsnummer:\s+betriebsnummer\.wert/, p)
-      assert.doesNotMatch(s, /formData\.get\('betrieb_betriebsnummer'\) as string\) \|\| null/, p)
+describe('KAN-261: Betriebsart – Pflicht nur für Weinproduzenten', () => {
+  test('Weinhändler: leer ist erlaubt (wert = null), eine vorhandene Nummer wird wie bisher geprüft', () => {
+    for (const v of ['', '   ', null, undefined]) {
+      assert.deepEqual(bnr.weinbauBetriebsnummerPruefen(v, 'weinhaendler'), { ok: true, wert: null }, String(v))
+    }
+    assert.deepEqual(bnr.weinbauBetriebsnummerPruefen(' 448 9781 ', 'weinhaendler'), { ok: true, wert: '4489781' })
+    assert.equal(bnr.weinbauBetriebsnummerPruefen('AT4489781', 'weinhaendler').ok, false)
+  })
+
+  test('Weinproduzent und unbekannte Betriebsart: weiterhin Pflicht', () => {
+    for (const art of ['weinproduzent', undefined, null, 'quatsch']) {
+      const r = bnr.weinbauBetriebsnummerPruefen('', art)
+      assert.equal(r.ok, false, String(art))
+      assert.match(r.fehler, /Pflichtfeld/)
     }
   })
 
-  test('beide Formulare markieren das Feld als Pflichtfeld', () => {
-    for (const p of ['src/app/(dashboard)/betrieb/einstellungen/EinstellungenClient.tsx', 'src/app/(dashboard)/admin/mandanten/[id]/MandantDetailClient.tsx']) {
-      const s = quelle(p)
-      assert.match(s, /Weinbau-Betriebsnummer \*/, p)
-      assert.match(s, /name="betrieb_betriebsnummer"[^>]*required/, p)
+  test('nur Nullen sind keine Betriebsnummer (Spaetrot hatte „0“ als Platzhalter)', () => {
+    for (const art of ['weinproduzent', 'weinhaendler']) {
+      for (const v of ['0', '000', ' 0 0 ']) {
+        const r = bnr.weinbauBetriebsnummerPruefen(v, art)
+        assert.equal(r.ok, false, `${art}: ${v}`)
+        assert.match(r.fehler, /keine Weinbau-Betriebsnummer/)
+      }
     }
+    assert.match(bnr.weinbauBetriebsnummerPruefen('0', 'weinhaendler').fehler, /leer lassen/)
+    assert.equal(bnr.weinbauBetriebsnummerPruefen('0123', 'weinproduzent').ok, true, 'führende Null mit Ziffer ≠ 0 bleibt gültig')
+  })
+
+  test('Fehlt-Hinweis, Pflicht und Zweck je Betriebsart', () => {
+    assert.equal(bnr.weinbauBetriebsnummerFehlt(null, 'weinhaendler'), false)
+    assert.equal(bnr.weinbauBetriebsnummerFehlt(null, 'weinproduzent'), true)
+    assert.equal(bnr.betriebsnummerPflicht('weinhaendler'), false)
+    assert.equal(bnr.betriebsnummerPflicht('weinproduzent'), true)
+    assert.equal(bnr.betriebsartAus('weinhaendler'), 'weinhaendler')
+    assert.equal(bnr.betriebsartAus('irgendwas'), 'weinproduzent')
+    assert.match(bnr.betriebsnummerZweck('weinhaendler'), /falls vorhanden/)
+    assert.match(bnr.betriebsnummerZweck('weinproduzent'), /Pflichtfeld/)
+  })
+})
+
+describe('Verdrahtung', () => {
+  test('beide Speicher-Actions prüfen mit der Betriebsart vor dem Schreiben und speichern den bereinigten Wert', () => {
+    const e = quelle('src/app/(dashboard)/betrieb/einstellungen/actions.ts')
+    assert.match(e, /\.select\('betriebsart'\)\.eq\('tenant_id', auth\.tenantId\)\.maybeSingle\(\)/)
+    assert.match(e, /if \(artErr\) return/)
+    assert.match(e, /weinbauBetriebsnummerPruefen\(formData\.get\('betrieb_betriebsnummer'\), artZeile\?\.betriebsart\)/)
+    const m = quelle('src/app/(dashboard)/admin/mandanten/[id]/actions.ts')
+    assert.match(m, /const betriebsart = betriebsartAus\(formData\.get\('betriebsart'\)\)/)
+    assert.match(m, /weinbauBetriebsnummerPruefen\(formData\.get\('betrieb_betriebsnummer'\), betriebsart\)/)
+    assert.match(m, /\r?\n\s+betriebsart,\r?\n/)
+    for (const s of [e, m]) {
+      assert.match(s, /betrieb_betriebsnummer:\s+betriebsnummer\.wert/)
+      assert.doesNotMatch(s, /formData\.get\('betrieb_betriebsnummer'\) as string\) \|\| null/)
+    }
+  })
+
+  test('beide Formulare nutzen BetriebsnummerFeld – Betriebsart nur in der Mandantenverwaltung wählbar', () => {
+    const e = quelle('src/app/(dashboard)/betrieb/einstellungen/EinstellungenClient.tsx')
+    assert.match(e, /<BetriebsnummerFeld betriebsart=\{daten\.betriebsart\}[^>]*waehlbar=\{false\}/)
+    const m = quelle('src/app/(dashboard)/admin/mandanten/[id]/MandantDetailClient.tsx')
+    assert.match(m, /<BetriebsnummerFeld betriebsart=\{settings\.betriebsart\}[\s\S]{0,120}waehlbar inputClassName/)
+    const k = quelle('src/components/BetriebsnummerFeld.tsx')
+    assert.match(k, /required=\{pflicht\}/)
+    assert.match(k, /name="betriebsart"/)
+    assert.match(k, /'Weinbau-Betriebsnummer \*' : 'Weinbau-Betriebsnummer \(falls vorhanden\)'/)
+    assert.match(k, /pattern=\{BETRIEBSNUMMER_MUSTER\}/)
+  })
+
+  test('Morgenbericht, BKI-Betriebsdaten und Transportbescheinigung richten sich nach der Betriebsart', () => {
+    const mb = quelle('src/lib/morgenbericht/pruefungen.ts')
+    assert.match(mb, /select\('betrieb_betriebsnummer, betriebsart'\)/)
+    assert.match(mb, /weinbauBetriebsnummerFehlt\(\(stamm as R \| null\)\?\.betrieb_betriebsnummer, \(stamm as R \| null\)\?\.betriebsart\)/)
+    const bki = quelle('src/lib/behoerden/bki-stammdaten.ts')
+    assert.match(bki, /betrieb_betriebsnummer, betriebsart, betrieb_rechtsform/)
+    assert.match(bki, /e\.betriebsart === 'weinhaendler'/)
+    const tb = quelle('src/app/(dashboard)/weinhandel/verkauf/[id]/transportbescheinigung/actions.ts')
+    assert.match(tb, /versenderOhneBetriebsnummer: !betriebsnummerPflicht\(\(art as R \| null\)\?\.betriebsart\)/)
+    assert.match(tb, /if \(artErr\) throw new AktionsFehler/)
   })
 
   test('Mandantenverwaltung zeigt Aktionsfehler lesbar an (fehlerText statt maskierter err.message)', () => {

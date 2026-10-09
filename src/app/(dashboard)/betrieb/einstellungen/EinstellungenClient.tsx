@@ -4,7 +4,7 @@ import { useState, useRef, useTransition } from 'react'
 import Link from '@/components/ui/Link'
 import { saveBrandingOwn, uploadLogoOwn, saveBetriebOwn, saveBawbOwn, saveKellerwirtschaftOwn } from './actions'
 import type { MostgewichtEinheit } from '@/lib/wein/mostgewicht'
-import { BETRIEBSNUMMER_MUSTER, BETRIEBSNUMMER_ZWECK, weinbauBetriebsnummerFehlt } from '@/lib/betrieb/betriebsnummer'
+import { BetriebsnummerFeld } from '@/components/BetriebsnummerFeld'
 import { RECHTSFORMEN } from '@/lib/betrieb/rechtsform'
 import type { EigeneBetriebsdaten } from './page'
 import BenutzerClient from '../../benutzer/BenutzerClient'
@@ -408,15 +408,9 @@ function BetriebTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
               <label className="block text-xs font-medium text-s112-text-2 mb-1">UID-Nummer</label>
               <input aria-label="UID-Nummer" name="betrieb_uid" defaultValue={daten.betrieb_uid ?? ''} className={inputCls()} placeholder="ATU12345678" />
             </div>
-            <div>
-              <label className="block text-xs font-medium text-s112-text-2 mb-1">Weinbau-Betriebsnummer *</label>
-              <input aria-label="Weinbau-Betriebsnummer" name="betrieb_betriebsnummer" defaultValue={daten.betrieb_betriebsnummer ?? ''} required
-                inputMode="numeric" pattern={BETRIEBSNUMMER_MUSTER} title="Nur Ziffern (höchstens 10), z. B. 4489781"
-                className={inputCls()} placeholder="z.B. 4489781" />
-              {weinbauBetriebsnummerFehlt(daten.betrieb_betriebsnummer)
-                ? <p className="text-[11px] text-s112-err-fg mt-0.5">Fehlt – bitte ergänzen. {BETRIEBSNUMMER_ZWECK}.</p>
-                : <p className="text-[11px] text-s112-tertiary mt-0.5">{BETRIEBSNUMMER_ZWECK}</p>}
-            </div>
+            {/* KAN-261: Betriebsart nur Anzeige, Betriebsnummer nur für Weinproduzenten Pflicht */}
+            <BetriebsnummerFeld betriebsart={daten.betriebsart} betriebsnummer={daten.betrieb_betriebsnummer}
+              waehlbar={false} inputClassName={inputCls()} />
             {/* Betriebsbeginn / Systemstart der E&A-Rechnung (Migration 180) */}
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Betriebsbeginn E&amp;A-Rechnung</label>

@@ -43,6 +43,7 @@ export type EigeneBetriebsdaten = {
   betrieb_website: string | null
   betrieb_uid: string | null
   betrieb_betriebsnummer: string | null
+  betriebsart: string | null   // KAN-261
   // KAN-48 AP11: BKI-Betriebsdaten
   betrieb_rechtsform: string | null
   betrieb_vorname: string | null
@@ -84,7 +85,7 @@ export default async function MeinBetriebPage() {
         anzeigename, logo_url, primary_color, secondary_color, session_timeout_minuten,
         gaerung_messintervall_tage, fristen_vorwarnung_tage, psm_erfassungsfrist_h, morgenbericht_aktiv, wetter_aktiv, wetter_abwasch_mm, wetter_intervall_tage,
         betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort, betrieb_telefon,
-        betrieb_email, betrieb_website, betrieb_uid, betrieb_betriebsnummer, betrieb_rechtsform, betrieb_vorname, betrieb_nachname, betrieb_betriebsstaette, ea_betriebsbeginn, modul_ea, buchhaltungsart,
+        betrieb_email, betrieb_website, betrieb_uid, betrieb_betriebsnummer, betriebsart, betrieb_rechtsform, betrieb_vorname, betrieb_nachname, betrieb_betriebsstaette, ea_betriebsbeginn, modul_ea, buchhaltungsart,
         rechnung_iban, rechnung_bic, rechnung_fusstext,
         bawb_kennung, bawb_passwort, mostgewicht_einheit
       `)
@@ -125,6 +126,7 @@ export default async function MeinBetriebPage() {
     betrieb_website:   s?.betrieb_website ?? null,
     betrieb_uid:       s?.betrieb_uid ?? null,
     betrieb_betriebsnummer: s?.betrieb_betriebsnummer ?? null,
+    betriebsart: s?.betriebsart ?? null,
     betrieb_rechtsform: s?.betrieb_rechtsform ?? null,
     betrieb_vorname: s?.betrieb_vorname ?? null,
     betrieb_nachname: s?.betrieb_nachname ?? null,
