@@ -3,7 +3,7 @@
 // Spalten nach der BKI-Schnittstelle („SchnittstelleDatenMitDefinitionTypen“, Blatt „Weingärten“, 26 Spalten). Eine
 // Zeile je Grundstück (Sorte, Fläche und Pflanzjahr stehen am Grundstück); eine Ried ohne Grundstücke bekommt eine
 // eigene Zeile mit Hinweis. Schritt 2: Großlage, Gemeindeteil, DAC-Orts- und Riedenwein aus den amtlichen Katalogen
-// (`herkunftKatalog`, Niederösterreich, Wien und Burgenland, Annahmen K1–K15 dort); Erste/Große Lage bleibt leer.
+// (`herkunftKatalog`, alle Weinbaugebiete, Annahmen K1–K16 dort); Erste/Große Lage bleibt leer.
 //
 // Annahmen (wie AP11 nach bestem Wissen, im Workshop KAN-38 zu bestätigen):
 //   W1 Die Spezifikation führt „Katastralgemeinde“ zweimal: als int (Spalte B) und als Text (Spalte S). B = KG-Nr.
@@ -60,6 +60,8 @@ export type WeingartenZeile = {
   ersteLageMaxErtrag: number | null
   grosseLage: string | null
   grosseLageMaxErtrag: number | null
+  /** nicht in der CSV: Hinweis des Katalogs (Ortsangabe ohne Karte nicht bestimmbar) */
+  katalogHinweis: string | null
 }
 
 const nurZiffern = (v: unknown) => { const s = String(v ?? '').replace(/[^0-9]/g, ''); return s || null }
@@ -101,6 +103,7 @@ export function weingartenZeile(w: R | null, g: R | null): WeingartenZeile {
     dacOrtswein: kat.dacOrtswein,
     dacRiedenwein: kat.riedenwein ? ried : null,
     ersteLage: null, ersteLageMaxErtrag: null, grosseLage: null, grosseLageMaxErtrag: null,
+    katalogHinweis: kat.hinweis ?? null,
   }
 }
 
@@ -122,9 +125,11 @@ export function weingartenZeilen(weingaerten: readonly R[], grundstuecke: readon
   const ohneKg = zeilen.filter(z => z.gstNr && !z.kgNr).length
   if (ohneKg) w.push(`${ohneKg} Grundstück(e) ohne KG-Nr.`)
   const ausserhalb = zeilen.filter(z => z.kgNr && !z.grosslage && !z.dacOrtswein).length
-  if (ausserhalb) w.push(`${ausserhalb} Zeile(n) außerhalb der erfassten Kataloge (${KATALOG_GEBIETE.join(', ')}): Großlage und DAC-Orts-/Riedenwein leer.`)
+  if (ausserhalb) w.push(`${ausserhalb} Zeile(n) außerhalb der erfassten Weinbaugebiete (${KATALOG_GEBIETE.length} Gebiete mit DAC bzw. Großlagen; leer z. B. Bergland, Graz-Umgebung): Großlage und DAC-Orts-/Riedenwein leer.`)
   const ohneRied = zeilen.filter(z => z.dacOrtswein && !z.dacRiedenwein).length
   if (ohneRied) w.push(`${ohneRied} Zeile(n) im DAC-Gebiet ohne amtliche Ried an der Lage: DAC-Riedenwein leer.`)
+  const unklar = zeilen.filter(z => z.katalogHinweis).map(z => z.gstNr ?? z.bezeichnung ?? '?')
+  if (unklar.length) w.push(`${unklar.length} Zeile(n) mit DAC-Ortsangabe je nach Flussufer (Steiermark: links/rechts von Sulm, Laßnitz, Mur bzw. östlich/westlich des Gnasbachs) – DAC-Ortswein leer, bitte prüfen: ${unklar.slice(0, 5).join(', ')}${unklar.length > 5 ? ' …' : ''}`)
   w.push('DAC-Riedenwein = amtliche Ried der Lage, nicht gegen die NÖ Riedenverordnung geprüft; Erste/Große Lage bleibt leer (in den erfassten Gebieten nicht geregelt).')
   return { zeilen, warnungen: w }
 }
