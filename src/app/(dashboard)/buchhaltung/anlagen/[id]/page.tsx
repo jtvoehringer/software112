@@ -36,7 +36,7 @@ export default async function AnlagePage({ params }: { params: Promise<{ id: str
 
   return (
     <div className="space-y-6">
-      <DashHeader title={a.name} sub={a.gruppe ? `${a.gruppe} · angeschafft ${new Date(String(a.anschaffung_am)).toLocaleDateString('de-AT')}` : `angeschafft ${new Date(String(a.anschaffung_am)).toLocaleDateString('de-AT')}`} />
+      <DashHeader title={a.name} sub={a.gruppe ? `${a.gruppe} · angeschafft ${new Date(String(a.anschaffung_am)).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}` : `angeschafft ${new Date(String(a.anschaffung_am)).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}`} />
       <p className="text-[11.5px] text-s112-tertiary -mt-3">
         <Link href="/buchhaltung" className="hover:text-s112-blue-700">{einst.doppik ? 'Belege & BMD' : 'E&A-Rechnung'}</Link> · <Link href="/buchhaltung/anlagen" className="hover:text-s112-blue-700">Anlagen & AfA</Link> · {a.name}
       </p>

@@ -264,7 +264,7 @@ function uvaPerioden(zeitraum: 'monatlich' | 'quartalsweise', heute: Date) {
     for (let i = 12; i >= 1; i--) {
       const d = new Date(y, m - i, 1)
       const due = new Date(d.getFullYear(), d.getMonth() + 2, 15)
-      out.push({ jahr: d.getFullYear(), zeitraum: String(d.getMonth() + 1).padStart(2, '0'), label: d.toLocaleDateString('de-AT', { month: 'long', year: 'numeric' }), faelligAm: toDateStr(due) })
+      out.push({ jahr: d.getFullYear(), zeitraum: String(d.getMonth() + 1).padStart(2, '0'), label: d.toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna', month: 'long', year: 'numeric' }), faelligAm: toDateStr(due) })
     }
   } else {
     for (let i = 4; i >= 1; i--) {
@@ -312,7 +312,7 @@ export async function ladeFristen(ctx: Ctx, opts: { modulEa: boolean; uvaZeitrau
     fristen.push({
       key: `f:${f.id}`, id: f.id, bezeichnung: f.bezeichnung, hinweis: f.beschreibung ?? '', kategorie: f.kategorie,
       faelligAm: f.faellig_am, status: st,
-      statusText: st === 'erledigt' ? `erledigt ${f.erledigt_am ? new Date(f.erledigt_am).toLocaleDateString('de-AT') : ''}`.trim() : `bis ${new Date(f.faellig_am).toLocaleDateString('de-AT')}`,
+      statusText: st === 'erledigt' ? `erledigt ${f.erledigt_am ? new Date(f.erledigt_am).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' }) : ''}`.trim() : `bis ${new Date(f.faellig_am).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}`,
       href: f.href ?? undefined, quelle: 'betrieb',
     })
   }
@@ -335,7 +335,7 @@ export async function ladeFristen(ctx: Ctx, opts: { modulEa: boolean; uvaZeitrau
       fristen.push({
         key: `bmd:${p.jahr}:${p.zeitraum}`, bezeichnung: `BMD-Übergabe ${p.label}`, kategorie: 'steuer',
         hinweis: 'Belege an den Steuerberater (BMD NTCS) übergeben', faelligAm, status: st,
-        statusText: anzahl === 0 ? 'alle Belege übergeben' : `${anzahl} ${anzahl === 1 ? 'Beleg' : 'Belege'} noch nicht übergeben · bis ${new Date(faelligAm).toLocaleDateString('de-AT')}`,
+        statusText: anzahl === 0 ? 'alle Belege übergeben' : `${anzahl} ${anzahl === 1 ? 'Beleg' : 'Belege'} noch nicht übergeben · bis ${new Date(faelligAm).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}`,
         href: '/controlling/bmd', quelle: 'system',
       })
     }
@@ -365,7 +365,7 @@ export async function ladeFristen(ctx: Ctx, opts: { modulEa: boolean; uvaZeitrau
         fristen.push({
           key: `afa:${vj}`, bezeichnung: `AfA ${vj} buchen`, kategorie: 'steuer',
           hinweis: `Abschreibung lt. Anlagenverzeichnis ${fmtEurKurz(st.soll)} als Betriebsausgabe per 31.12.${vj}`, faelligAm, status,
-          statusText: st.komplett ? `gebucht · ${fmtEurKurz(st.ist)}` : `${st.offen} ${st.offen === 1 ? 'Position' : 'Positionen'} offen · bis ${new Date(faelligAm).toLocaleDateString('de-AT')}`,
+          statusText: st.komplett ? `gebucht · ${fmtEurKurz(st.ist)}` : `${st.offen} ${st.offen === 1 ? 'Position' : 'Positionen'} offen · bis ${new Date(faelligAm).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}`,
           href: `/buchhaltung/anlagen?jahr=${vj}`, quelle: 'system',
         })
       }
@@ -387,7 +387,7 @@ export async function ladeFristen(ctx: Ctx, opts: { modulEa: boolean; uvaZeitrau
       const eintrag: Frist = {
         key: `uva:${p.jahr}:${p.zeitraum}`, bezeichnung: `UVA ${p.label}`, kategorie: 'steuer',
         hinweis: 'Aus E/A-Rechnung · Kennzahlen für FinanzOnline (Druck & CSV)', faelligAm: p.faelligAm, status: st,
-        statusText: erledigt ? `übermittelt ${row?.gesperrt_am ? new Date(row.gesperrt_am).toLocaleDateString('de-AT') : ''}`.trim() : `bis ${new Date(p.faelligAm).toLocaleDateString('de-AT')}`,
+        statusText: erledigt ? `übermittelt ${row?.gesperrt_am ? new Date(row.gesperrt_am).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' }) : ''}`.trim() : `bis ${new Date(p.faelligAm).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}`,
         href: '/buchhaltung/uva', quelle: 'system',
       }
       if (erledigt) letzteErledigt = eintrag
@@ -412,14 +412,14 @@ export async function ladeFristen(ctx: Ctx, opts: { modulEa: boolean; uvaZeitrau
       key: `ernte-stichtag:${jahr}`, bezeichnung: `Erntemeldung ${jahr} – Stichtag`, kategorie: 'weinrecht',
       hinweis: 'Lese, Pressungen und Traubenverkäufe bis zum Stichtag vollständig erfassen – daraus entsteht die Erntemeldung',
       faelligAm: stichtag, status: statusAus(stichtag, eingereicht || stichtag < ctx.heuteStr, ctx.heuteStr, vt),
-      statusText: `Stichtag ${new Date(stichtag).toLocaleDateString('de-AT')}`,
+      statusText: `Stichtag ${new Date(stichtag).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}`,
       href: jg ? `/erntemeldung/${jg.id}` : '/erntemeldung', quelle: 'system',
     })
     fristen.push({
       key: `ernte:${jahr}`, bezeichnung: `Erntemeldung ${jahr}`, kategorie: 'weinrecht',
       hinweis: jg ? (eingereicht ? 'Über eAMA gemeldet' : `Stichtag 30.11. · Abgabe bis 15.12. · Entwurf entsteht aus den Pressungen · Status ${am?.status ?? 'entwurf'}`) : `Jahrgang ${jahr} noch nicht angelegt`,
       faelligAm, status: st,
-      statusText: eingereicht ? `gemeldet ${jg?.ama_meldedatum ? new Date(jg.ama_meldedatum).toLocaleDateString('de-AT') : ''}`.trim() : `bis ${new Date(faelligAm).toLocaleDateString('de-AT')}`,
+      statusText: eingereicht ? `gemeldet ${jg?.ama_meldedatum ? new Date(jg.ama_meldedatum).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' }) : ''}`.trim() : `bis ${new Date(faelligAm).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}`,
       href: jg ? `/erntemeldung/${jg.id}` : '/erntemeldung', quelle: 'system',
     })
   }
@@ -431,7 +431,7 @@ export async function ladeFristen(ctx: Ctx, opts: { modulEa: boolean; uvaZeitrau
       key: `dac:${d.id}`, bezeichnung: `Prüfnummernantrag ${d.bezeichnung}`, kategorie: 'weinrecht',
       hinweis: eingereicht ? 'Eingereicht · Bescheid ausständig' : 'Vor Vermarktung einreichen · Antrag aus Charge befüllt',
       faelligAm: null, status: eingereicht ? 'laufend' : 'offen',
-      statusText: eingereicht ? `eingereicht ${d.eingereicht_am ? new Date(d.eingereicht_am).toLocaleDateString('de-AT') : ''}`.trim() : 'Entwurf',
+      statusText: eingereicht ? `eingereicht ${d.eingereicht_am ? new Date(d.eingereicht_am).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' }) : ''}`.trim() : 'Entwurf',
       href: `/dac/${d.id}`, quelle: 'system',
     })
   }
@@ -443,7 +443,7 @@ export async function ladeFristen(ctx: Ctx, opts: { modulEa: boolean; uvaZeitrau
       key: 'wartefristen', bezeichnung: 'Wartefristen Pflanzenschutz', kategorie: 'weinrecht',
       hinweis: 'Frühester Lesetermin je Behandlung (Wartezeit des Mittels)',
       faelligAm: wf[0]?.ernte_fruehesteins ?? null, status: 'laufend',
-      statusText: wf.length ? `${wf.length} aktiv · frei ab ${new Date(wf[0].ernte_fruehesteins).toLocaleDateString('de-AT')}` : 'keine aktiven Wartefristen',
+      statusText: wf.length ? `${wf.length} aktiv · frei ab ${new Date(wf[0].ernte_fruehesteins).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}` : 'keine aktiven Wartefristen',
       href: '/behandlungen', quelle: 'system',
     })
   }

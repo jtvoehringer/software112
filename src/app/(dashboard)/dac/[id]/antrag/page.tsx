@@ -37,7 +37,7 @@ export default async function PruefnummernantragPage({ params }: { params: Promi
   // KAN-97: ab „Eingereicht“ sperrt die Datenbank das Formular (a_freeze) – Storno erst mit dem DAC-Antrag selbst
   const gesperrt = !pna.dac.storniert && pna.dac.status && pna.dac.status !== 'entwurf'
     ? { grund: 'Prüfnummernantrag eingereicht', seit: pna.dac.eingereichtAm } : null
-  const sperrDatum = gesperrt?.seit ? new Date(gesperrt.seit).toLocaleDateString('de-AT') : null
+  const sperrDatum = gesperrt?.seit ? new Date(gesperrt.seit).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' }) : null
 
   return (
     <div className="max-w-4xl space-y-4">

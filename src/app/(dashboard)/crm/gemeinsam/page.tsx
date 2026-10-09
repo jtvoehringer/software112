@@ -19,7 +19,7 @@ export const dynamic = 'force-dynamic'
 type R = Record<string, any>
 
 const ANZAHL = 100
-const datum = (d: unknown) => (typeof d === 'string' && d ? new Date(d).toLocaleDateString('de-AT') : '')
+const datum = (d: unknown) => (typeof d === 'string' && d ? new Date(d).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' }) : '')
 
 export default async function GemeinsamesCrmPage({ searchParams }: { searchParams: Promise<{ q?: string; art?: string }> }) {
   const sp = await searchParams

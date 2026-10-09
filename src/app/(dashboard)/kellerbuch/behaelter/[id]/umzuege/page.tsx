@@ -207,7 +207,7 @@ export default async function BehaelterUmzuegePage({ params }: { params: Promise
                   <tr key={u.id}
                     className={`border-b border-s112-border/30 last:border-0 hover:bg-s112-bg/40 ${istQuelle ? 'bg-s112-err-bg/20' : 'bg-s112-ok-bg/20'}`}>
                     <td className="px-4 py-2.5 text-xs text-s112-text-2 whitespace-nowrap">
-                      {new Date(u.datum).toLocaleDateString('de-AT')}
+                      {new Date(u.datum).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}
                     </td>
                     <td className="px-4 py-2.5">
                       <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium ${artBadge.cls}`}>

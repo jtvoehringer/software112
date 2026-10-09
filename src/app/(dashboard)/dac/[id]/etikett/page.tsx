@@ -125,7 +125,7 @@ export default async function EtikettPage({ params }: { params: Promise<{ id: st
               <p className="text-2xl font-semibold text-s112-blue-700 font-mono mt-0.5">{dac.pruefnummer}</p>
               {dac.bescheid_am && (
                 <p className="text-xs text-s112-tertiary mt-0.5">
-                  Bescheid: {new Date(dac.bescheid_am).toLocaleDateString('de-AT')}
+                  Bescheid: {new Date(dac.bescheid_am).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}
                 </p>
               )}
             </div>

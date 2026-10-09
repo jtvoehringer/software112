@@ -75,6 +75,24 @@ function pruefeText(text) {
   // 2) new Date().toISOString().slice(0, 10) u. ä.
   HEUTE_UTC.lastIndex = 0
   while ((m = HEUTE_UTC.exec(code))) melde(m.index, '„heute“ in UTC – bis 1 bzw. 2 Uhr der Vortag; heuteWien() bzw. wienTag() verwenden')
+  // 3) Sweep 78: Datum/Uhrzeit formatieren ohne timeZone in Server-Code (Vercel läuft in UTC) – Zeitstempel zeigen die
+  //    UTC-Uhrzeit (1–2 h zu früh) und zwischen 0 und 2 Uhr den Vortag. Client-Komponenten laufen im Browser (Wien).
+  if (!/^\s*['"]use client['"]/.test(text)) {
+    const FORMAT = /\.(toLocaleDateString|toLocaleString|toLocaleTimeString)\(|new Intl\.DateTimeFormat\(/g
+    while ((m = FORMAT.exec(code))) {
+      const [, nach] = argumente(code, m.index + m[0].length - 1)
+      const argsRoh = text.slice(m.index + m[0].length, nach - 1)
+      if (/timeZone/.test(argsRoh)) continue
+      if (m[1] === 'toLocaleString') {
+        // nur Datumswerte – Zahlen (n.toLocaleString('de-DE', { maximumFractionDigits … })) sind nicht gemeint
+        const vor = text.slice(Math.max(0, m.index - 70), m.index)
+        const datumOpt = /\b(day|month|year|hour|minute|weekday|dateStyle|timeStyle)\b/.test(argsRoh)
+        const datumEmpf = /(new Date\([^)]*\)|Date\)|[Dd]atum|zeit|_am\b|_at\b|At\b|stamp|jetzt|heute)\s*\)?\s*$/.test(vor)
+        if (!datumOpt && !datumEmpf) continue
+      }
+      melde(m.index, "Datum/Uhrzeit ohne timeZone in Server-Code (UTC) – { timeZone: 'Europe/Vienna' } ergänzen")
+    }
+  }
   return { funde, ausnahmen }
 }
 
@@ -112,5 +130,5 @@ if (require.main === module) {
     console.error('  // datum-ok: <Grund ≥ 15 Zeichen>   (dieselbe Zeile oder bis zu vier Zeilen davor)\n')
     process.exit(1)
   }
-  console.log(`✓ check-datum: ${e.dateien} Dateien, keine Kalendertage über toISOString() eines lokalen Datums, ${e.ausnahmen} begründete Ausnahme(n).`)
+  console.log(`✓ check-datum: ${e.dateien} Dateien, keine Kalendertage über toISOString() eines lokalen Datums und keine Datumsanzeige ohne Zeitzone im Server-Code, ${e.ausnahmen} begründete Ausnahme(n).`)
 }

@@ -16,7 +16,7 @@ type R = Record<string, any>
 
 function fmtDate(d: string | null | undefined) {
   if (!d) return '–'
-  return new Date(d).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  return new Date(d).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna', day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 function fmtNum(v: number | null | undefined, dec = 2): string {
@@ -130,7 +130,7 @@ export default async function AnalysenPage({ params }: { params: Promise<{ id: s
                   </p>
                   {a.storniert_am && (
                     <p className="text-[11px] text-s112-warn-fg">
-                      storniert am {new Date(a.storniert_am).toLocaleDateString('de-AT')}{a.storniert_von_name ? ` von ${a.storniert_von_name}` : ''}{a.storno_grund ? ` – ${a.storno_grund}` : ''}
+                      storniert am {new Date(a.storniert_am).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}{a.storniert_von_name ? ` von ${a.storniert_von_name}` : ''}{a.storno_grund ? ` – ${a.storno_grund}` : ''}
                     </p>
                   )}
                 </div>

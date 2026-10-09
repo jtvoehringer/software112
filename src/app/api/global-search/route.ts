@@ -109,7 +109,7 @@ export async function GET(req: NextRequest) {
       kategorie:  'verkauf',
       titel:      v.rechnungsnummer ?? v.lieferscheinnummer ?? `Beleg ${v.id.slice(0, 8)}`,
       untertitel: [v.rechnungsnummer && v.lieferscheinnummer ? v.lieferscheinnummer : null,
-        v.datum ? new Date(v.datum).toLocaleDateString('de-AT') : null, status].filter(Boolean).join(' · '),
+        v.datum ? new Date(v.datum).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' }) : null, status].filter(Boolean).join(' · '),
       href:       `/weinhandel/verkauf/${v.id}`,
     })
   })
@@ -127,7 +127,7 @@ export async function GET(req: NextRequest) {
       id:         r.id,
       kategorie:  'verkauf',
       titel:      `Rechnung ${r.rechnungsnummer}`,
-      untertitel: [r.datum ? new Date(r.datum).toLocaleDateString('de-AT') : null, r.storniert ? 'storniert' : r.bezahlt ? 'bezahlt' : 'offen'].filter(Boolean).join(' · '),
+      untertitel: [r.datum ? new Date(r.datum).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' }) : null, r.storniert ? 'storniert' : r.bezahlt ? 'bezahlt' : 'offen'].filter(Boolean).join(' · '),
       href:       `/weinhandel/rechnungen/${r.id}`,
     })
   })

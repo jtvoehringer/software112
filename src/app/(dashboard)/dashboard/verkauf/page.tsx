@@ -154,7 +154,7 @@ export default async function DashboardPage() {
   }
   const absatzSeries = Array.from(absatzMap.entries()).map(([key, value]) => {
     const [y, m] = key.split('-').map(Number)
-    return { label: new Date(y, m, 1).toLocaleDateString('de-AT', { month: 'short' }), value }
+    return { label: new Date(y, m, 1).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna', month: 'short' }), value }
   })
   const absatzMax = Math.max(1, ...absatzSeries.map(s => s.value))
 
@@ -226,7 +226,7 @@ export default async function DashboardPage() {
           Flaschenbestand nach Rebsorte. */}
       <DashHeader
         title="Verkauf & CRM"
-        sub={`Umsatz, Aufträge und offene Posten laufend im Blick – Stand ${heute.toLocaleDateString('de-AT', { weekday: 'long', day: '2-digit', month: 'long' })}${tenantName ? ` · ${tenantName}` : ''}`}
+        sub={`Umsatz, Aufträge und offene Posten laufend im Blick – Stand ${heute.toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna', weekday: 'long', day: '2-digit', month: 'long' })}${tenantName ? ` · ${tenantName}` : ''}`}
       />
 
       {/* ── KPI-Kacheln ─────────────────────────────────────────────── */}
@@ -379,7 +379,7 @@ export default async function DashboardPage() {
                       <p className="text-xs font-medium text-s112-text truncate">{a.betreff}</p>
                       {who && <p className="text-[11px] text-s112-muted truncate">{who}</p>}
                     </div>
-                    <span className="text-[11px] text-s112-muted shrink-0">{new Date(a.datum).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit' })}</span>
+                    <span className="text-[11px] text-s112-muted shrink-0">{new Date(a.datum).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna', day: '2-digit', month: '2-digit' })}</span>
                   </div>
                 )
               })}
@@ -408,7 +408,7 @@ export default async function DashboardPage() {
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-s112-text truncate">{a.betreff || a.art}</p>
                     <p className="text-xs text-s112-muted">
-                      {new Date(a.datum).toLocaleDateString('de-AT')}
+                      {new Date(a.datum).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}
                       {aktKundenName(a) && <span className="ml-1">· {aktKundenName(a)}</span>}
                     </p>
                   </div>

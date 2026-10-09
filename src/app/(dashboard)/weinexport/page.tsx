@@ -85,14 +85,14 @@ export default async function WeinexportPage() {
                     {[a.bestimmungsort, landAnzeige(a.bestimmungsland)].filter(Boolean).join(', ') || '–'}
                   </td>
                   <td className="px-5 py-3 text-s112-muted">
-                    {a.datum ? new Date(a.datum).toLocaleDateString('de-AT') : '–'}
+                    {a.datum ? new Date(a.datum).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' }) : '–'}
                   </td>
                   <td className="px-5 py-3 text-s112-text-2">{a.incoterms ?? '–'}</td>
                   <td className="px-5 py-3">
                     {a.storniertAm ? (
                       // KAN-150 F2: stornierter Auftrag bleibt gekennzeichnet stehen
                       <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-s112-err-bg text-s112-err-fg"
-                        title={`storniert am ${new Date(a.storniertAm).toLocaleDateString('de-AT')}${a.storniertVon ? ` von ${a.storniertVon}` : ''}${a.stornoGrund ? ` – ${a.stornoGrund}` : ''}`}>
+                        title={`storniert am ${new Date(a.storniertAm).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}${a.storniertVon ? ` von ${a.storniertVon}` : ''}${a.stornoGrund ? ` – ${a.stornoGrund}` : ''}`}>
                         Storniert
                       </span>
                     ) : (

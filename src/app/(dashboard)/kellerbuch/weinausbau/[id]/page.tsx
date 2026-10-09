@@ -596,7 +596,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
             {/* KAN-232: außer Haus beim Versekter */}
             {lvOffen && (
               <Link href="/kellerbuch/lohnversektung" className="text-xs px-2 py-0.5 rounded-full bg-s112-warn-bg text-s112-warn-fg hover:underline">
-                in Lohnversektung{lvOffen.firma?.name ? ` bei ${lvOffen.firma.name}` : ''} seit {new Date(`${lvOffen.datum}T00:00:00`).toLocaleDateString('de-AT')}
+                in Lohnversektung{lvOffen.firma?.name ? ` bei ${lvOffen.firma.name}` : ''} seit {new Date(`${lvOffen.datum}T00:00:00`).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}
               </Link>
             )}
             {/* KAN-131: Mostgewicht der Charge (Pressung, Zukauf, Eröffnungsbestand bzw. Umzug) */}
@@ -611,7 +611,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
             )}
             {pnErloschen && (
               <Link href={`/dac/${pnErloschen.dac_antrag_id}`} className="text-xs bg-s112-warn-bg text-s112-warn-fg px-2 py-0.5 rounded-full hover:underline">
-                PN {(pnErloschen.antrag as R).pruefnummer} – für Tankbestand erloschen am {new Date(pnErloschen.gueltig_bis).toLocaleDateString('de-AT')}
+                PN {(pnErloschen.antrag as R).pruefnummer} – für Tankbestand erloschen am {new Date(pnErloschen.gueltig_bis).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}
               </Link>
             )}
             {pnOffen && (
@@ -759,7 +759,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
                 return (
                   <tr key={i} className={`border-b border-s112-border/30 last:border-0 ${rowBg}`}>
                     <td className="px-4 py-2.5 text-xs text-s112-text-2 whitespace-nowrap">
-                      {bew.datum ? new Date(bew.datum).toLocaleDateString('de-AT') : '–'}
+                      {bew.datum ? new Date(bew.datum).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' }) : '–'}
                     </td>
                     <td className="px-4 py-2.5">
                       <p className="text-s112-text-1">{bew.beschreibung}</p>

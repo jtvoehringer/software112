@@ -140,7 +140,7 @@ export default async function WeinpassPage({ params }: { params: Promise<{ charg
           {f.datum && (
             <div className="flex justify-between text-sm">
               <span className="text-s112-text-2">Abgefüllt</span>
-              <span className="font-semibold text-s112-text">{new Date(f.datum).toLocaleDateString('de-AT')}</span>
+              <span className="font-semibold text-s112-text">{new Date(f.datum).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}</span>
             </div>
           )}
           {f.flaschengroesse_ml && (
@@ -175,7 +175,7 @@ export default async function WeinpassPage({ params }: { params: Promise<{ charg
                 </p>
                 <div className="flex flex-wrap gap-x-3 text-xs text-s112-text-2">
                   {wg.trauben_kg && <span>{fmtNum(parseFloat(wg.trauben_kg))} kg</span>}
-                  {wg.ernte_datum && <span>{new Date(wg.ernte_datum).toLocaleDateString('de-AT')}</span>}
+                  {wg.ernte_datum && <span>{new Date(wg.ernte_datum).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}</span>}
                   {mgText(wg) && <span>{mgText(wg)}</span>}
                 </div>
               </div>

@@ -196,7 +196,7 @@ export default async function DashboardLayout({
             Rechnung, Lieferschein, Etiketten und Behördenausdrucken */}
         {mfaHinweis && (
           <div data-print="hide" className="print:hidden mb-4 px-4 py-2.5 rounded-lg bg-s112-blue-50 border border-s112-blue-100 text-s112-blue-700 text-sm flex items-center justify-between gap-3 flex-wrap">
-            <span>Für Administratoren wird die Zwei-Faktor-Anmeldung ab {new Date(MFA_PFLICHT_AB + 'T00:00:00').toLocaleDateString('de-AT')} Pflicht. Richte sie jetzt in zwei Minuten ein.</span>
+            <span>Für Administratoren wird die Zwei-Faktor-Anmeldung ab {new Date(MFA_PFLICHT_AB + 'T00:00:00').toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })} Pflicht. Richte sie jetzt in zwei Minuten ein.</span>
             <Link href="/zwei-faktor" className="font-semibold underline whitespace-nowrap">Jetzt einrichten →</Link>
           </div>
         )}

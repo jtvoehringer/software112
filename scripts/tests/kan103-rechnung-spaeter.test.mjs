@@ -69,7 +69,7 @@ describe('KAN-103: Oberfläche', () => {
     assert.match(d, /\{writeOk && !posten\.storniert && !berechnet && \(\n\s+<RechnungErstellenPanel/)
     assert.match(d, /\{writeOk && !posten\.storniert && !eigeneRechnung && \(\n\s+<StornoKnopf/)
     assert.match(d, /const isRechnung       = modusRechnung && berechnet/)
-    assert.match(d, /Datum: \{new Date\(rechnungsDatum\)\.toLocaleDateString\('de-AT'\)\}/)
+    assert.match(d, /Datum: \{new Date\(rechnungsDatum\)\.toLocaleDateString\('de-AT', \{ timeZone: 'Europe\/Vienna' \}\)\}/)   // Sweep 78
   })
   test('Versand nur mit gültiger Rechnung; Vermerk auch an der Rechnung', () => {
     const s = quelle('src/app/api/weinhandel/verkauf/[id]/send/route.ts')

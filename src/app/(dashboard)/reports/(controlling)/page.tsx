@@ -110,7 +110,7 @@ export default async function ReportsPage() {
     const bis = lokalerTag(new Date(d.getFullYear(), d.getMonth() + 1, 0))
     const m = umsatzProMonat[von.slice(0, 7)] ?? { umsatz: 0, anzahl: 0 }
     umsatzMonate.push({
-      monat: d.toLocaleDateString('de-AT', { month: 'short', year: '2-digit' }),
+      monat: d.toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna', month: 'short', year: '2-digit' }),
       umsatz: m.umsatz, anzahl: m.anzahl, von, bis,
     })
   }

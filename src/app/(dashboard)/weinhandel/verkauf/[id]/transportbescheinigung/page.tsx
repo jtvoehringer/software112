@@ -42,7 +42,7 @@ export default async function TransportbescheinigungPage({ params }: { params: P
         <Link href="/weinhandel/verkauf" className="hover:text-s112-blue-700 transition-colors">Verkauf</Link>
         <span>/</span>
         <Link href={`/weinhandel/verkauf/${id}`} className="hover:text-s112-blue-700 transition-colors">
-          {posten.rechnungsnummer ?? (posten.datum ? new Date(posten.datum).toLocaleDateString('de-AT') : 'Verkauf')}
+          {posten.rechnungsnummer ?? (posten.datum ? new Date(posten.datum).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' }) : 'Verkauf')}
         </Link>
         <span>/</span>
         <span className="text-s112-text-1 font-medium">Transportbescheinigung</span>

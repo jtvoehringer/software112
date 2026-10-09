@@ -105,7 +105,7 @@ export default async function BlendProtokollFuellungPage({ params }: { params: P
               <p className="text-lg font-semibold text-s112-blue-700 font-mono mt-0.5">{fuellung.pruefnummer}</p>
             )}
             <p className="text-xs text-s112-tertiary mt-0.5">
-              Stand: {new Date().toLocaleDateString('de-AT')}
+              Stand: {new Date().toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}
             </p>
           </div>
         </div>

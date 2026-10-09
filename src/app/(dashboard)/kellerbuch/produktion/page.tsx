@@ -72,7 +72,7 @@ export default async function ProduktionPage({ searchParams }: { searchParams: P
               const ein = (p.eingaenge ?? []) as R[]
               return (
                 <li key={p.id} className={`py-2 flex flex-wrap gap-x-4 gap-y-1 items-start ${p.storniert_am ? 'opacity-60' : ''}`}>
-                  <span className="tabular-nums text-s112-muted w-24">{new Date(`${p.datum}T00:00:00`).toLocaleDateString('de-DE')}</span>
+                  <span className="tabular-nums text-s112-muted w-24">{new Date(`${p.datum}T00:00:00`).toLocaleDateString('de-DE', { timeZone: 'Europe/Vienna' })}</span>
                   <span className="flex-1 min-w-[16rem]">
                     <span className="font-medium">{PRODUKTION_ART_LABEL[p.art as ProduktionArt] ?? p.art}</span>
                     {' → '}

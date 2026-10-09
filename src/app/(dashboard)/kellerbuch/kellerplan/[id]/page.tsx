@@ -172,7 +172,7 @@ export default async function KellerplanEditorPage({ params }: { params: Promise
 
       {/* Print-Datum */}
       <div className="print-only mt-4 text-xs text-s112-tertiary text-right" style={{ display: 'none' }}>
-        Gedruckt: {new Date().toLocaleDateString('de-AT')}
+        Gedruckt: {new Date().toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}
       </div>
     </div>
   )

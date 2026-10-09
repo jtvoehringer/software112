@@ -195,7 +195,7 @@ export default async function ZukaufPage({
                 return (
                   <ClickableTableRow key={p.id} href={`/weinhandel/zukauf/${p.id}/edit`} className="hover:bg-s112-bg/50 transition-colors">
                     <td className="px-4 py-3 text-s112-text-1 whitespace-nowrap">
-                      {new Date(p.datum).toLocaleDateString('de-AT')}
+                      {new Date(p.datum).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}
                     </td>
                     <td className="px-4 py-3">
                       {/* Sweep Namenslinks: Rechnungsnummer als echter Link (Tastatur), Zeile bleibt klickbar */}

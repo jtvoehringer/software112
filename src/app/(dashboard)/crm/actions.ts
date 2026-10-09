@@ -305,7 +305,7 @@ export async function kontaktZuFirmaUmwandeln(
     if (k.firma_id) return { error: 'Dieser Kontakt ist bereits einer Firma zugeordnet – bitte dort weiterarbeiten.' }
 
     const personName = [k.vorname, k.nachname].filter(Boolean).join(' ')
-    const heute = new Date().toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    const heute = new Date().toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna', day: '2-digit', month: '2-digit', year: 'numeric' })
     const hinweis = `Umgewandelt aus Kontakt „${personName}" am ${heute}`
     const notizen = k.notizen ? `${hinweis}\n${k.notizen}` : hinweis
 

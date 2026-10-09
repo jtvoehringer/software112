@@ -194,7 +194,7 @@ export default async function DauerauftraegePage() {
                   </td>
                   <td className="px-4 py-2.5 text-s112-text-2">
                     {d.naechste_faelligkeit
-                      ? new Date(d.naechste_faelligkeit).toLocaleDateString('de-AT')
+                      ? new Date(d.naechste_faelligkeit).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })
                       : '–'}
                   </td>
                   <td className="px-4 py-2.5 text-s112-text-2 text-xs">{d.konten?.name ?? '–'}</td>
@@ -227,7 +227,7 @@ export default async function DauerauftraegePage() {
               {(log as R[]).map(l => (
                 <tr key={l.id} className="border-b border-s112-border/40 last:border-0">
                   <td className="px-4 py-2 text-s112-text-2 whitespace-nowrap">
-                    {new Date(l.erstellt_am).toLocaleString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    {new Date(l.erstellt_am).toLocaleString('de-AT', { timeZone: 'Europe/Vienna', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                   </td>
                   <td className="px-4 py-2 text-s112-text">{l.ea_dauerauftraege?.beschreibung ?? '–'}</td>
                   <td className="px-4 py-2">

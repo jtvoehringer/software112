@@ -13,7 +13,7 @@ function fmtEur(n: number) {
   return `€ ${fmt(n)}` // CD-Manual: €-Zeichen vorne
 }
 function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString('de-AT')
+  return new Date(iso).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })
 }
 
 const styles = StyleSheet.create({

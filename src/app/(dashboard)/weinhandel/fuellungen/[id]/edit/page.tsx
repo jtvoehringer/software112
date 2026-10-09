@@ -172,7 +172,7 @@ export default async function EditFuellungPage({
     : { data: [] }
   const nachtragAntraege = ((antrRaw ?? []) as NachtragAntrag[])
     .filter(a => !f.dac_antrag_id || a.id === f.dac_antrag_id)
-  const gespeichertAm = f.erstellt_am ? new Date(f.erstellt_am).toLocaleDateString('de-AT') : null
+  const gespeichertAm = f.erstellt_am ? new Date(f.erstellt_am).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' }) : null
 
   const inputCls = 'w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40'
   const labelCls = 'block text-xs font-medium text-s112-text-2 mb-1'
