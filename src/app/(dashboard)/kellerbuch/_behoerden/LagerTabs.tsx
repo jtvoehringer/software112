@@ -1,10 +1,11 @@
 import Link from '@/components/ui/Link'
 
-// KAN-44: Reiter der beiden BKI-Blätter „Lagerstand zum Datum“ und „Lagerbewegungen“
-export default function LagerTabs({ aktiv }: { aktiv: 'lagerstand' | 'lagerbewegungen' }) {
+// KAN-44: Reiter der BKI-Blätter „Lagerstand zum Datum“ und „Lagerbewegungen“; KAN-48: „Betriebsdaten & Gebinde“
+export default function LagerTabs({ aktiv }: { aktiv: 'lagerstand' | 'lagerbewegungen' | 'stammdaten' }) {
   const reiter = [
     { key: 'lagerstand', href: '/kellerbuch/lagerstand', label: 'Lagerstand zum Datum' },
     { key: 'lagerbewegungen', href: '/kellerbuch/lagerbewegungen', label: 'Lagerbewegungen' },
+    { key: 'stammdaten', href: '/kellerbuch/bki-stammdaten', label: 'Betriebsdaten & Gebinde' },
   ] as const
   return (
     <div className="space-y-3 print:hidden">

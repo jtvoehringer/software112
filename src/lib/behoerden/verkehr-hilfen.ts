@@ -9,6 +9,7 @@
 
 import { rundeText } from '@/lib/csv'
 import { zahlAus } from '@/lib/format'
+import { strasseHausnummer } from '@/lib/adresse/strasse'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type R = Record<string, any>
@@ -112,10 +113,9 @@ export function formularZahl(n: number | null | undefined, stellen = 2): string 
 }
 
 /** „Hauptstraße 12“ → { strasse: 'Hauptstraße', hausnr: '12' }; ohne Nummer bleibt alles in strasse */
+// KAN-48: eine Regel für alle (lib/adresse/strasse.ts) – vorher wurde das letzte Wort zur Hausnummer („Am Berg“ → „Berg“)
 export function strasseTeilen(v: unknown): { strasse: string; hausnr: string } {
-  const teile = feld(v).split(/\s+/).filter(Boolean)
-  if (teile.length < 2) return { strasse: teile[0] ?? '', hausnr: '' }
-  return { strasse: teile.slice(0, -1).join(' '), hausnr: teile[teile.length - 1] }
+  return strasseHausnummer(feld(v))
 }
 
 /** Liste in Blöcke teilen (z. B. .in('id', block) mit höchstens 100 UUIDs je Abfrage) */

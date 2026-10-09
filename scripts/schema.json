@@ -128,7 +128,9 @@
 "gemeinsam",
 "stapler",
 "notizen",
-"lp_pickerl"
+"lp_pickerl",
+"material",
+"bezeichnung_lang"
 ],
 "behandlung_grundstuecke": [
 "behandlung_id",
@@ -1823,7 +1825,11 @@
 "psm_erfassungsfrist_h",
 "lieferschein_prefix",
 "lieferschein_stellen",
-"lieferschein_zaehler"
+"lieferschein_zaehler",
+"betrieb_rechtsform",
+"betrieb_vorname",
+"betrieb_nachname",
+"betrieb_betriebsstaette"
 ],
 "tenant_memberships": [
 "id",

@@ -57,7 +57,8 @@
 CREATE FUNCTION pg_temp.t16_anders(p_spalte text, p_typ text) RETURNS text LANGUAGE sql IMMUTABLE AS $f$
   SELECT CASE
     WHEN p_spalte IN ('bio_status', 'plan', 'stripe_status', 'svs_option', 'buchhaltungsart', 'ea_buchung_modus',
-                      'ea_uva_zeitraum', 'mostgewicht_einheit', 'newsletter_kurzname', 'newsletter_datenschutz_url') THEN
+                      'ea_uva_zeitraum', 'mostgewicht_einheit', 'newsletter_kurzname', 'newsletter_datenschutz_url',
+                      'betrieb_rechtsform') THEN
       format('CASE WHEN %I IS NOT DISTINCT FROM %L THEN %L ELSE %L END', p_spalte,
              w.a, w.b, w.a)
     WHEN p_typ = 'uuid' THEN 'gen_random_uuid()'
@@ -74,12 +75,14 @@ CREATE FUNCTION pg_temp.t16_anders(p_spalte text, p_typ text) RETURNS text LANGU
                  WHEN 'svs_option' THEN 'option' WHEN 'buchhaltungsart' THEN 'doppik' WHEN 'ea_buchung_modus' THEN 'netto'
                  WHEN 'ea_uva_zeitraum' THEN 'monatlich' WHEN 'mostgewicht_einheit' THEN 'oechsle'
                  WHEN 'newsletter_kurzname' THEN 's112test' WHEN 'newsletter_datenschutz_url' THEN 'https://s112test.invalid/a'
+                 WHEN 'betrieb_rechtsform' THEN 'kapitalgesellschaft'   -- KAN-48: CHECK tenant_einstellungen_rechtsform_check
                END AS a,
                CASE p_spalte
                  WHEN 'bio_status' THEN 'kip' WHEN 'plan' THEN 'starter' WHEN 'stripe_status' THEN 'past_due'
                  WHEN 'svs_option' THEN 'pauschal' WHEN 'buchhaltungsart' THEN 'ea' WHEN 'ea_buchung_modus' THEN 'brutto'
                  WHEN 'ea_uva_zeitraum' THEN 'quartalsweise' WHEN 'mostgewicht_einheit' THEN 'kmw'
                  WHEN 'newsletter_kurzname' THEN 's112test-b' WHEN 'newsletter_datenschutz_url' THEN 'https://s112test.invalid/b'
+                 WHEN 'betrieb_rechtsform' THEN 'natuerliche_person'
                END AS b) w
 $f$;
 

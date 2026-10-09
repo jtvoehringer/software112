@@ -126,6 +126,23 @@ export const KATALOG_KELLERBUCH = katalogGruppe('kellerbuch', {
     rechtsgrundlage: KELLERBUCH_RECHT,
     beschreibung: 'Jede Buchung des Bewegungsjournals im Zeitraum mit Anfangs- und Buchungsmenge, Buchungsart (BSM) sowie Käufer bzw. Verkäufer.',
   },
+  // KAN-48 AP11: Stammdaten-Blätter der BKI-Schnittstelle (eine Seite für beide)
+  'bki-betriebsdaten': {
+    titel: 'Betriebsdaten (BKI-Schnittstelle)',
+    behoerde: 'BKI (Weindatenbank)',
+    zugriff: 'mitglied',
+    druckPfad: '/kellerbuch/bki-stammdaten',
+    rechtsgrundlage: KELLERBUCH_RECHT,
+    beschreibung: 'Betriebsnummer, Name bzw. Firmenname, Betriebsstätte, Adresse (Straße und Hausnummer getrennt) und Bio-Kennzeichen.',
+  },
+  'bki-gebindeverzeichnis': {
+    titel: 'Gebindeverzeichnis (BKI-Schnittstelle)',
+    behoerde: 'BKI (Weindatenbank)',
+    zugriff: 'mitglied',
+    druckPfad: '/kellerbuch/bki-stammdaten',
+    rechtsgrundlage: KELLERBUCH_RECHT,
+    beschreibung: 'Bezeichnung, Langbezeichnung, Material, Aufstellungsort und Nenninhalt je Gebinde, mit den mitbenutzten Gebinden der Kellergemeinschaft.',
+  },
   'keller-auswertungen': {
     titel: 'Keller-Auswertungen: Umzüge, Filtrationen und Schwund',
     behoerde: 'BKI (Kellerbuchführung)',
