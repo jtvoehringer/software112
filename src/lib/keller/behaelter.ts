@@ -36,6 +36,9 @@ export type BehaelterZeile = {
   anzeigeName: string
   /** KAN-174 F: Hinweis Lohnproduktion („LP + …“), nur Anzeige */
   lp_pickerl: string | null
+  /** KAN-48 AP11: Material (Edelstahl, Holz …) und Langbezeichnung – BKI-Gebindeverzeichnis */
+  material: string | null
+  bezeichnung_lang: string | null
 }
 
 const num = (v: unknown) => v === null || v === undefined ? 0 : Number(v) || 0
@@ -53,6 +56,7 @@ export function zuBehaelterZeile(r: R): BehaelterZeile {
     gesperrt: fremdLiter > 0,
     anzeigeName: fremd ? `${r.name} · ${r.eigentuemer_name ?? 'Partnerbetrieb'}` : r.name,
     lp_pickerl: r.lp_pickerl ?? null,
+    material: r.material ?? null, bezeichnung_lang: r.bezeichnung_lang ?? null,
   }
 }
 

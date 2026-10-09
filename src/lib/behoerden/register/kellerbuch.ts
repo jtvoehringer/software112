@@ -13,6 +13,7 @@ import { ladeBlendProtokoll, SPALTEN_BLEND, type BlendArt } from '../blend'
 import { ladeKellerUmzuege, SPALTEN_KELLER_UMZUEGE } from '../keller-auswertungen'
 import { ladeAenderungsprotokoll, SPALTEN_AENDERUNGSPROTOKOLL } from '../aenderungsprotokoll'
 import { ladeLagerbewegungen, ladeLagerstand, lagerstandStichtag, SPALTEN_LAGERBEWEGUNGEN, SPALTEN_LAGERSTAND } from '../lagerstand'
+import { ladeBetriebsdaten, ladeBkiGebindeverzeichnis, SPALTEN_BETRIEBSDATEN, SPALTEN_BKI_GEBINDE } from '../bki-stammdaten'
 
 // Register der Behördenmeldungen – Gruppe „Kellerbuch“ (24.09.2026).
 // Je Katalog-Eintrag aus katalog/kellerbuch.ts genau ein Eintrag mit CSV (laden + spalten).
@@ -235,6 +236,26 @@ export const MELDUNGEN_KELLERBUCH = {
     spalten: SPALTEN_LAGERBEWEGUNGEN,
     dateiteile: (p, betrieb) => ['Lagerbewegungen', betrieb.betriebsnummer, zeitraumTeil(p)],
     bki: p => ({ bericht: 'Lagerbewegungen', von: p.von, bis: p.bis }),
+  }),
+
+  'bki-betriebsdaten': definiereMeldung(KATALOG_KELLERBUCH['bki-betriebsdaten'], {
+    parameter: () => ({}),
+    laden: (ctx) => ladeBetriebsdaten(ctx.supabase, ctx.tenantId),
+    spalten: SPALTEN_BETRIEBSDATEN,
+    dateiteile: (_p, betrieb) => ['Betriebsdaten', betrieb.betriebsnummer],
+    bki: () => ({ bericht: 'Betriebsdaten' }),
+  }),
+
+  'bki-gebindeverzeichnis': definiereMeldung(KATALOG_KELLERBUCH['bki-gebindeverzeichnis'], {
+    parameter: sp => {
+      const aktiv = sp.get('aktiv')?.trim() ?? ''
+      if (aktiv && aktiv !== '1' && aktiv !== '0') return parameterFehler('Parameter „aktiv“ nur 1 oder 0.')
+      return { nurAktiv: aktiv === '1' }
+    },
+    laden: (ctx, p) => ladeBkiGebindeverzeichnis(ctx.supabase, ctx.tenantId, p),
+    spalten: SPALTEN_BKI_GEBINDE,
+    dateiteile: (p, betrieb) => ['GebindeVerzeichnis', betrieb.betriebsnummer, p.nurAktiv ? 'aktive' : null],
+    bki: p => ({ bericht: ['GebindeVerzeichnis', p.nurAktiv ? 'aktive' : null] }),
   }),
 
   'keller-auswertungen': definiereMeldung(KATALOG_KELLERBUCH['keller-auswertungen'], {

@@ -12,6 +12,7 @@ import { getCurrentMembership, canWrite, canAdmin, type Modul } from '@/lib/auth
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { AktionsFehler, dbFehlerText, NICHT_GESPEICHERT } from '@/lib/fehler'
+import { gebindeNameDoppelt, materialFelder } from '@/lib/keller/gebindeMaterial'
 import { pickerlFehler, schwundGrundFehler } from '@/lib/keller/gebindeAnzeige'
 import { istStoffkontoTyp } from '@/lib/kellerbuch/stoffkonto'
 import { dezimal, zahlAus, fmtNum } from '@/lib/format'
@@ -100,6 +101,8 @@ export async function createBehaelter(formData: FormData) {
     volumen_liter: formData.get('volumen_liter') ? Number(dezimal((formData.get('volumen_liter') as string))) : null,
     standort:      (formData.get('standort') as string) || null,
     notizen:       (formData.get('notizen') as string)?.trim() || null,
+    // KAN-48 AP11: Material (ohne Angabe aus dem Typ) und Langbezeichnung – BKI-Gebindeverzeichnis
+    ...materialFelder(formData.get('material'), formData.get('bezeichnung_lang'), (formData.get('typ') as string) || null),
     ...pickerlAusFormular(formData),   // KAN-174 F
     stapler:       formData.get('stapler') === 'true',
     // Kellergemeinschaft (Migration 203): Checkbox nur im Formular, wenn Partner bestehen -
@@ -109,7 +112,7 @@ export async function createBehaelter(formData: FormData) {
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from('behaelter') as any).insert(payload)
-  if (error) throw new AktionsFehler((error as R).message)
+  if (error) throw new AktionsFehler(gebindeNameDoppelt(error, String(payload.name ?? '')) ?? (error as R).message)
   revalidatePath('/kellerbuch')
 }
 
@@ -183,10 +186,12 @@ export async function updateBehaelter(id: string, formData: FormData) {
     stapler:       formData.get('stapler') === 'true',
     ...(formData.has('gemeinsam_sichtbar') ? { gemeinsam: formData.get('gemeinsam') === 'true' } : {}),
     aktiv:         formData.get('aktiv') === 'true',
+    // KAN-48 AP11: nur, wenn das Formular die Felder schickt (sonst bleiben die gespeicherten Werte)
+    ...(formData.has('material') ? materialFelder(formData.get('material'), formData.get('bezeichnung_lang'), (formData.get('typ') as string) || null) : {}),
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: geaendert, error } = await (supabase.from('behaelter') as any).update(payload).eq('id', id).eq('tenant_id', tenantId).select('id')
-  if (error) throw new AktionsFehler((error as R).message)
+  if (error) throw new AktionsFehler(gebindeNameDoppelt(error, String(neuerName ?? '')) ?? (error as R).message)
   if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
 
   if (alterName && neuerName && alterName.trim() !== neuerName.trim()) {

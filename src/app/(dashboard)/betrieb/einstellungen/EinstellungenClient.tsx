@@ -5,6 +5,7 @@ import Link from '@/components/ui/Link'
 import { saveBrandingOwn, uploadLogoOwn, saveBetriebOwn, saveBawbOwn, saveKellerwirtschaftOwn } from './actions'
 import type { MostgewichtEinheit } from '@/lib/wein/mostgewicht'
 import { BETRIEBSNUMMER_MUSTER, BETRIEBSNUMMER_ZWECK, weinbauBetriebsnummerFehlt } from '@/lib/betrieb/betriebsnummer'
+import { RECHTSFORMEN } from '@/lib/betrieb/rechtsform'
 import type { EigeneBetriebsdaten } from './page'
 import BenutzerClient from '../../benutzer/BenutzerClient'
 import type { BenutzerlimitStatus } from '@/lib/pakete-server'
@@ -351,6 +352,29 @@ function BetriebTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Betriebsname *</label>
             <input aria-label="Betriebsname" name="betrieb_name" defaultValue={daten.betrieb_name ?? ''} required className={inputCls()} placeholder="Weingut Gebeshuber" />
           </div>
+          {/* KAN-48 AP11: Angaben für das BKI-Blatt „Betriebsdaten“ */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Rechtsform</label>
+              <select aria-label="Rechtsform" name="betrieb_rechtsform" defaultValue={daten.betrieb_rechtsform ?? ''} className={inputCls()}>
+                <option value="">– nicht angegeben –</option>
+                {Object.entries(RECHTSFORMEN).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Bezeichnung der Betriebsstätte</label>
+              <input aria-label="Bezeichnung der Betriebsstätte" name="betrieb_betriebsstaette" defaultValue={daten.betrieb_betriebsstaette ?? ''} className={inputCls()} placeholder="leer = Betriebsname" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Vorname (natürliche Person)</label>
+              <input aria-label="Vorname" name="betrieb_vorname" defaultValue={daten.betrieb_vorname ?? ''} className={inputCls()} />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-s112-text-2 mb-1">Nachname (natürliche Person)</label>
+              <input aria-label="Nachname" name="betrieb_nachname" defaultValue={daten.betrieb_nachname ?? ''} className={inputCls()} />
+            </div>
+          </div>
+          <p className="text-[11px] text-s112-tertiary -mt-1">Für die BKI-Schnittstelle: Bei einer natürlichen Person werden Vor- und Nachname gemeldet, sonst der Betriebsname als Firmenname.</p>
           <div className="grid grid-cols-3 gap-2">
             <div className="col-span-2">
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Straße + Nr.</label>

@@ -7,6 +7,7 @@ import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import { Pencil } from 'lucide-react'
 import GebindeClient from '@/components/kellerbuch/GebindeClient'
+import { GEBINDE_MATERIALIEN } from '@/lib/keller/gebindeMaterial'
 import LoeschenButton from '@/components/kellerbuch/LoeschenButton'
 import { createBehaelter, updateBehaelter, deleteBehaelter } from '../actions'
 import { createEroeffnungsbestand, deleteEroeffnungsbestand, deleteUmzug } from '../gebinde-actions'
@@ -243,6 +244,16 @@ export default async function GebindePage({
                 <div className="sm:col-span-2">
                   <label className={labelCls}>Standort</label>
                   <input aria-label="Standort" name="standort" placeholder="z.B. Keller 1, Reihe A" className={inputCls} />
+                </div>
+                {/* KAN-48 AP11: BKI-Gebindeverzeichnis – Material (Vorschläge, ohne Angabe aus dem Typ) und Langbezeichnung */}
+                <div>
+                  <label className={labelCls}>Material</label>
+                  <input aria-label="Material" name="material" list="gebinde-materialien" placeholder="leer = aus dem Typ" className={inputCls} />
+                  <datalist id="gebinde-materialien">{GEBINDE_MATERIALIEN.map(m => <option key={m} value={m} />)}</datalist>
+                </div>
+                <div>
+                  <label className={labelCls}>Bezeichnung lang</label>
+                  <input aria-label="Bezeichnung lang" name="bezeichnung_lang" placeholder="z.B. Edelstahltank 5000 l mit Kühlmantel" className={inputCls} />
                 </div>
                 <div className="sm:col-span-2">
                   <label className={labelCls}>Notizen</label>

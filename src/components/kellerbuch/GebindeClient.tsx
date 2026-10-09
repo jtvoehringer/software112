@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Pencil } from 'lucide-react'
 import { useDialog } from '@/components/ui/useDialog'
+import { GEBINDE_MATERIALIEN } from '@/lib/keller/gebindeMaterial'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -74,6 +75,16 @@ export default function GebindeClient({ gebinde, action, inputCls, labelCls, par
               <div>
                 <label className={labelCls}>Standort</label>
                 <input aria-label="Standort" name="standort" defaultValue={gebinde.standort ?? ''} className={inputCls} />
+              </div>
+              {/* KAN-48 AP11: BKI-Gebindeverzeichnis – Material (Vorschläge, ohne Angabe aus dem Typ) und Langbezeichnung */}
+              <div>
+                <label className={labelCls}>Material</label>
+                <input aria-label="Material" name="material" list={`gebinde-materialien-${gebinde.id}`} defaultValue={gebinde.material ?? ''} placeholder="leer = aus dem Typ" className={inputCls} />
+                <datalist id={`gebinde-materialien-${gebinde.id}`}>{GEBINDE_MATERIALIEN.map(m => <option key={m} value={m} />)}</datalist>
+              </div>
+              <div>
+                <label className={labelCls}>Bezeichnung lang</label>
+                <input aria-label="Bezeichnung lang" name="bezeichnung_lang" defaultValue={gebinde.bezeichnung_lang ?? ''} placeholder="z.B. Edelstahltank 5000 l mit Kühlmantel" className={inputCls} />
               </div>
               <div>
                 <label className={labelCls}>Notizen</label>

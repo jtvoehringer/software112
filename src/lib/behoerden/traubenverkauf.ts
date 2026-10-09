@@ -28,6 +28,7 @@ import { alle } from '@/lib/supabase/alle'
 import { bkiFarbe, bkiRebsorteKuerzel, herkunftPruefen, qualitaetBki } from '@/lib/wein/bki_kuerzel'
 import { HERKUNFT_LABEL } from '@/lib/herkunft'
 import { MeldungsFehler } from './typen'
+import { strasseHausnummer } from '@/lib/adresse/strasse'
 import { Hinweise, datumAT, textOderNull, zahlOderNull } from './ernte_hilfen'
 import { gemessenInText, mostgewichtFuerExport } from './mostgewicht_export'
 
@@ -42,10 +43,7 @@ type Client = any
  * (getrennte Straße/Hausnr-Spalten) heuristisch auftrennen.
  */
 export function splitStrasseHausnr(full: string | null | undefined): { strasse: string; hausnr: string } {
-  if (!full) return { strasse: '', hausnr: '' }
-  const m = full.trim().match(/^(.*?),?\s+(\d+[a-zA-Z\-/]*)$/)
-  if (m) return { strasse: m[1].trim(), hausnr: m[2].trim() }
-  return { strasse: full.trim(), hausnr: '' }
+  return strasseHausnummer(full)   // KAN-48: eine Regel für alle (lib/adresse/strasse.ts)
 }
 
 // ── BKI-Datenblatt ──────────────────────────────────────────────────────────
