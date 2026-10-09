@@ -36,16 +36,20 @@ export default function SignupClient() {
     if (!paket) { setError('Bitte ein Paket auswählen.'); return }
 
     setLoading(true)
-    const fd = new FormData()
-    fd.set('betrieb', betrieb)
-    fd.set('name', name)
-    fd.set('email', email)
-    fd.set('paket', paket)
+    try {
+      const fd = new FormData()
+      fd.set('betrieb', betrieb)
+      fd.set('name', name)
+      fd.set('email', email)
+      fd.set('paket', paket)
 
-    const res = await registrierenAction(fd)
-    setLoading(false)
-    if (!res.ok) { setError(res.fehler); return }
-    setErledigt(res.hinweis)
+      const res = await registrierenAction(fd)
+      setLoading(false)
+      if (!res.ok) { setError(res.fehler); return }
+      setErledigt(res.hinweis)
+    } finally {
+      setLoading(false)
+    }
   }
 
   if (erledigt) {

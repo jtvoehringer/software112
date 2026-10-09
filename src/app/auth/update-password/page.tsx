@@ -16,10 +16,15 @@ export default function UpdatePasswordPage() {
     e.preventDefault()
     if (password !== confirm) { setError('Passwörter stimmen nicht überein.'); return }
     { const f = pruefePasswort(password); if (f) { setError(f); return } }
-    setLoading(true); setError(null)
+    setLoading(true);
+    try { setError(null)
     const { error } = await supabase.auth.updateUser({ password })
     if (error) { setError(passwortFehlerText(error)); setLoading(false) }
     else { router.push('/dashboard'); router.refresh() }
+
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (

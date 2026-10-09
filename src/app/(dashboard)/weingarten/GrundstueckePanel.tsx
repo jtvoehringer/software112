@@ -206,21 +206,25 @@ function GSTForm({ weingartenId, gst, customWeinbaugebiete, onNeuesWeinbaugebiet
     const gstNr = (document.querySelector('input[name="gst_nr"]') as HTMLInputElement)?.value
     if (!gstNr) { setBevMsg('Bitte zuerst GST-Nr eingeben'); setBevOk(false); return }
     setBevLoading(true)
-    setBevMsg(null)
-    setBevAlleNutzungen(null)
-    const result = await fetchBevFlaeche(kgnr, gstNr)
-    setBevLoading(false)
-    if (result.ok) {
-      setKatasterHa(String(result.ha))
-      const detail = result.nutzungen.map(n => n.nutzung + ': ' + n.ha.toFixed(4) + ' ha').join(', ')
-      setBevMsg(result.ha.toFixed(4) + ' ha (' + detail + ')')
-      setBevOk(true)
-    } else {
-      setBevMsg(result.message)
-      setBevOk(false)
-      if ('alleNutzungen' in result && result.alleNutzungen) {
-        setBevAlleNutzungen(result.alleNutzungen)
+    try {
+      setBevMsg(null)
+      setBevAlleNutzungen(null)
+      const result = await fetchBevFlaeche(kgnr, gstNr)
+      setBevLoading(false)
+      if (result.ok) {
+        setKatasterHa(String(result.ha))
+        const detail = result.nutzungen.map(n => n.nutzung + ': ' + n.ha.toFixed(4) + ' ha').join(', ')
+        setBevMsg(result.ha.toFixed(4) + ' ha (' + detail + ')')
+        setBevOk(true)
+      } else {
+        setBevMsg(result.message)
+        setBevOk(false)
+        if ('alleNutzungen' in result && result.alleNutzungen) {
+          setBevAlleNutzungen(result.alleNutzungen)
+        }
       }
+    } finally {
+      setBevLoading(false)
     }
   }
 

@@ -230,7 +230,8 @@ export default function KostenrechnungPage() {
       const t = selBhs.reduce((s, id) => s + (bhAnteile[id]??0), 0)
       if (Math.abs(t-100) > 0.5) { setFehler(`Behälter-Anteile: ${t.toFixed(1)}% ≠ 100%`); return }
     }
-    setSaving(true); setFehler(null); setErfolg(false)
+    setSaving(true);
+    try { setFehler(null); setErfolg(false)
     const res = await api({
       action: editId ? 'aktualisieren' : 'eintrag', id: editId,
       kostenstelle_id: ksId||null, kostenart_id: kaId||null,
@@ -241,6 +242,10 @@ export default function KostenrechnungPage() {
     if (res.fehler) { setFehler(res.fehler); setSaving(false); return }
     setErfolg(true); resetForm(); await ladeDaten()
     setSaving(false); setTimeout(() => setErfolg(false), 3000)
+
+    } finally {
+      setSaving(false)
+    }
   }
 
   const gesamtJahr = eintraege.filter(e=>e.datum?.startsWith(new Date().getFullYear().toString())).reduce((s,e)=>s+e.betrag,0)

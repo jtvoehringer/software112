@@ -25,7 +25,8 @@ function InviteContent() {
   }, [])
 
   async function annehmen() {
-    setLoading(true); setError(null)
+    setLoading(true);
+    try { setError(null)
     const supabase = createSupabaseBrowserClient()
 
     if (code) {
@@ -46,6 +47,10 @@ function InviteContent() {
     }
 
     router.push('/auth/update-password')
+
+    } finally {
+      setLoading(false)
+    }
   }
 
   const isValid = code || hasHash

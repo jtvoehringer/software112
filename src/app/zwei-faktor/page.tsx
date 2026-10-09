@@ -73,7 +73,8 @@ function ZweiFaktor() {
   const bestaetigen = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!faktor) return
-    setLaeuft(true); setFehler(null)
+    setLaeuft(true);
+    try { setFehler(null)
     const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: faktor.id, code: code.replace(/\s/g, '') })
     if (error) {
       setLaeuft(false)
@@ -84,16 +85,25 @@ function ZweiFaktor() {
     setBestaetigt(true)
     setCode(''); setQr(null); setGeheimnis(null)
     weiter()
+
+    } finally {
+      setLaeuft(false)
+    }
   }
 
   const entfernen = async () => {
     if (!faktor || !confirm('Zwei-Faktor-Anmeldung wirklich entfernen? Das Konto ist dann nur noch durch das Passwort geschützt.')) return
-    setLaeuft(true); setFehler(null)
+    setLaeuft(true);
+    try { setFehler(null)
     const { error } = await supabase.auth.mfa.unenroll({ factorId: faktor.id })
     setLaeuft(false)
     if (error) { setFehler(error.message); return }
     await supabase.auth.refreshSession()
     await laden()
+
+    } finally {
+      setLaeuft(false)
+    }
   }
 
   const abmelden = async () => { await supabase.auth.signOut(); router.push('/login') }

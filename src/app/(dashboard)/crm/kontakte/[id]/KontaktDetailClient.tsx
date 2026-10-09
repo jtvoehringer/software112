@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import LieferadressenKarte, { type LieferadresseZeile } from '@/components/crm/LieferadressenKarte'
 import { landAnzeige } from '@/lib/katalog/laender'
 import { useRouter } from 'next/navigation'
+import { fehlerText } from '@/lib/fehler'
 import Link from '@/components/ui/Link'
 import { createAktivitaet, createPipelineEintrag, toggleAktivitaetErledigt, updateAktivitaet, deleteAktivitaet, deleteKontakt, setzeKontaktAktiv, kontaktZuFirmaUmwandeln } from '../../actions'
 import { loeschenOderDeaktivieren } from '@/lib/stammdaten/loeschDialog'
@@ -150,6 +151,7 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
   const [replyOpen, setReplyOpen]   = useState(false)
   const [replyText, setReplyText]   = useState('')
   const [replySending, setReplySending] = useState(false)
+  const [replyFehler, setReplyFehler] = useState<string | null>(null)   // Sweep 82: Senden fehlgeschlagen → Text bleibt
   const [emailOpen, setEmailOpen]   = useState(false)
   const [ganztags, setGanztags]   = useState(a.ganztags ?? true)
   const artDef = AKTIVITAET_ARTEN.find(x => x.value === a.art)
@@ -347,11 +349,20 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
               <button type="button" disabled={replySending || !replyText.trim()} onClick={async () => {
                 if (!kontaktEmail || !replyText.trim()) return
                 setReplySending(true)
-                await fetch('/api/email/unified', {
-                  method: 'POST', headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ an: kontaktEmail, betreff: `Re: ${a.betreff ?? ''}`, text: replyText, kontakt_id: kontaktId ?? null }),
-                })
-                setReplySending(false); setReplyOpen(false); setReplyText('')
+                setReplyFehler(null)
+                try {
+                  const res = await fetch('/api/email/unified', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ an: kontaktEmail, betreff: `Re: ${a.betreff ?? ''}`, text: replyText, kontakt_id: kontaktId ?? null }),
+                  })
+                  const d = await res.json().catch(() => ({} as { fehler?: string }))
+                  if (!res.ok || d.fehler) { setReplyFehler(`Senden fehlgeschlagen: ${d.fehler ?? res.status} – der Text bleibt erhalten.`); return }
+                  setReplyOpen(false); setReplyText('')
+                } catch (e) {
+                  setReplyFehler(fehlerText(e))
+                } finally {
+                  setReplySending(false)
+                }
               }} className="text-xs bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg hover:bg-s112-teal/90 disabled:opacity-40">
                 {replySending ? 'Senden…' : 'Senden'}
               </button>
@@ -360,6 +371,7 @@ function AktivitaetKarte({ a, writeOk, kontaktEmail, kontaktId }: { a: Aktivitae
                 Abbrechen
               </button>
             </div>
+            {replyFehler && <p role="alert" className="text-xs text-s112-err-fg">{replyFehler}</p>}
           </div>
         )}
       </div>
@@ -482,6 +494,7 @@ export default function KontaktDetailClient({
   const [showAktForm, setShowAktForm] = useState(false)
   const [notizText, setNotizText]   = useState('')
   const [notizLaden, setNotizLaden] = useState(false)
+  const [notizFehler, setNotizFehler] = useState<string | null>(null)   // Sweep 82
   const [notizEditId, setNotizEditId] = useState<string|null>(null)
   const [notizEditText, setNotizEditText] = useState('')
   const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set())
@@ -786,10 +799,17 @@ export default function KontaktDetailClient({
                 e.preventDefault()
                 if (!notizText.trim()) return
                 setNotizLaden(true)
-                const fd = new FormData()
-                fd.set('kontakt_id', kontakt.id); fd.set('art', 'notiz'); fd.set('betreff', notizText); fd.set('datum', heuteWien()); fd.set('ganztags', 'true'); fd.set('erledigt', 'false')
-                await createAktivitaet(fd)
-                setNotizText(''); setNotizLaden(false)
+                setNotizFehler(null)
+                try {
+                  const fd = new FormData()
+                  fd.set('kontakt_id', kontakt.id); fd.set('art', 'notiz'); fd.set('betreff', notizText); fd.set('datum', heuteWien()); fd.set('ganztags', 'true'); fd.set('erledigt', 'false')
+                  await createAktivitaet(fd)
+                  setNotizText('')
+                } catch (e) {
+                  setNotizFehler(fehlerText(e))   // Text bleibt stehen
+                } finally {
+                  setNotizLaden(false)
+                }
               }} className="flex gap-2">
                 <input value={notizText} onChange={e => setNotizText(e.target.value)}
                   placeholder="Neue Notiz…" required
@@ -800,6 +820,7 @@ export default function KontaktDetailClient({
                 </button>
               </form>
             )}
+            {notizFehler && <p role="alert" className="text-xs text-s112-err-fg">{notizFehler}</p>}
             {/* Notizen-Liste */}
             <div className="space-y-1 max-h-48 overflow-y-auto">
               {[...aktivitaeten.filter(a => a.art === 'notiz')].sort((a,b) => Number(a.erledigt) - Number(b.erledigt)).map(n => (

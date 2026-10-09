@@ -13,12 +13,17 @@ export default function ResetPage() {
 
   async function handleReset(e: React.FormEvent) {
     e.preventDefault()
-    setLoading(true); setError(null)
+    setLoading(true);
+    try { setError(null)
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/auth/callback?next=/auth/update-password&type=recovery`,
     })
     if (error) { setError(error.message); setLoading(false) }
     else setDone(true)
+
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
