@@ -35,6 +35,9 @@ concurrency:
 
 jobs:
   vorab:
+    # KAN-269: jedes Deployment meldet mehrere Zustände (pending, in_progress, success …), auch für
+    # Production – ohne diese Bedingung startete jeder davon einen Runner (≈ 1 Minute je Ereignis)
+    if: github.event_name == 'workflow_dispatch' || (github.event.deployment_status.state == 'success' && startsWith(github.event.deployment.environment, 'Preview'))
     runs-on: ubuntu-latest
     outputs:
       aktiv: ${{ steps.pruefen.outputs.aktiv }}

@@ -1,14 +1,19 @@
 name: Prüfungen (verify)
 
-# Läuft bei jedem Push/PR gegen main. Job „check“ = npm run verify (Typprüfung, ESLint, Unit-Tests,
+# Läuft bei jedem PR gegen main. Job „check“ = npm run verify (Typprüfung, ESLint, Unit-Tests,
 # alle prebuild-Wächter), Job „abhaengigkeiten“ = npm audit. Dieselben Wächter laufen zusätzlich
 # bei jedem Vercel-Build blockierend (package.json „prebuild“).
+# KAN-269 (10.10.2026, Actions-Minuten): kein zweiter Lauf mehr beim Push auf main – main ist geschützt,
+# jeder Merge hat den PR-Lauf schon grün hinter sich, und der Vercel-Build prüft die Wächter erneut.
+# Ein neuer Push auf denselben PR bricht den älteren Lauf ab.
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
+
+concurrency:
+  group: verify-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   check:
