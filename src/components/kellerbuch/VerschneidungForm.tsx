@@ -11,6 +11,7 @@ import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { fmtNum, dezimal } from '@/lib/format'
 import { fehlerText } from '@/lib/fehler'
 import { heuteWien } from '@/lib/datum/wien'
+import { rund } from '@/lib/zahl/runden'
 
 type ChargeOpt = { id: string; name: string; menge_liter: number | null; qualitaetsstufe?: string | null; zusatzbezeichnung?: string | null; erzeugnis?: string | null; herkunft_code?: string | null; rebsorte?: string | null; weinart?: string | null; behaelter_id?: string | null; behaelter_volumen_liter?: number | null }
 
@@ -111,7 +112,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
       }
     }
     const dominante = Object.entries(anteile).sort((a, b) => b[1] - a[1])[0]
-    const anteilPct = dominante && total > 0 ? Math.round(dominante[1] / total * 1000) / 10 : 0
+    const anteilPct = dominante && total > 0 ? rund(dominante[1] / total * 100, 1) : 0
     if (anteilPct >= 100) return { typ: 'unveraendert' as const, anteilPct, rebsorte: dominante![0] }
     if (dominante && dominante[1] / total >= SCHWELLE - 1e-9)  return { typ: 'bezeichnungsunschaedlich' as const, anteilPct, rebsorte: dominante[0] }
     return { typ: 'sortenverschnitt' as const, anteilPct: null, rebsorte: null }
@@ -261,7 +262,7 @@ export default function VerschneidungForm({ zielCharge, alleChargen, onDone, ini
         {quellen.map((q, i) => {
           const src = verfuegbar.find(c => c.id === q.weinausbau_id)
           const menge = parseFloat(dezimal(q.menge))
-          const anteil = gesamtLiter > 0 && !isNaN(menge) ? Math.round(menge / gesamtLiter * 1000) / 10 : null
+          const anteil = gesamtLiter > 0 && !isNaN(menge) ? rund(menge / gesamtLiter * 100, 1) : null
           // KAN-74: dieselbe Rangfolge wie der Server (vorher Index in QUALITAET_ORDER – DAC lag dort über TBA)
           const isNiederwertig = !!src && istAbstufungQualitaet(zielAngabe, normalisiereQualitaet(src))
           return (

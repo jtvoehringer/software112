@@ -31,6 +31,7 @@ import {
   folgebuchungenDerZielcharge, zielchargeText, zukaufVerweise, traubenGebundenText, loeschSperreText,
 } from './sperren'
 import { heuteWien } from '@/lib/datum/wien'
+import { rund } from '@/lib/zahl/runden'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -47,7 +48,7 @@ type AR = Record<string, any>
 
 // Mengenvergleich (Formular: Schrittweite 0,001)
 const TOLERANZ = 0.0005
-const runde = (v: number) => Math.round(v * 10000) / 10000
+const runde = (v: number) => rund(v, 4)
 
 /** Aktiver Mandant + Schreibrecht Warenwirtschaft. RLS prüft zusätzlich – hier für eine
  *  klare Meldung statt eines still weggefilterten Updates. KAN-193: darfKellerbuch für den Verschnitt beim Zukauf

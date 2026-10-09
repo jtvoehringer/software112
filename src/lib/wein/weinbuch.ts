@@ -49,7 +49,8 @@ import {
   WB_JOURNAL_SPALTEN, eroeffnungEreignis, fassverkaufEreignis, journalAbweichungHinweis, journalEreignisse, journalSaldo,
   vorJournal, zukaufEreignis, type WbJournalZeile,
 } from '@/lib/wein/weinbuchBestand'
-
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { rund } from '../zahl/runden.ts'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
@@ -404,7 +405,7 @@ export async function buildWeinbuch(
     const b = x.b
     const artText = massnahmenArtLabel(b.art)
     const flaeche = [...x.flaeche.values()].reduce((a, v) => a + v, 0)
-    const menge = Math.round([...x.menge.values()].reduce((a, v) => a + v, 0) * 1000) / 1000
+    const menge = rund([...x.menge.values()].reduce((a, v) => a + v, 0), 3)
     events.push({
       datum: tag(b.datum),
       typ: 'feldbehandlung',

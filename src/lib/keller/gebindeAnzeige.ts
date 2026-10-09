@@ -1,3 +1,5 @@
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { rund } from '../zahl/runden.ts'
 // ── Gebinde-Anzeige im Kellerbuch (KAN-174, 07.10.2026) ─────────────────────────────────────────────────
 // Rückmeldung Jörgen (Ticket KAN-174):
 //  C  Bei der Gebinde-Auswahl (Umziehen, Pressen, Zukauf …) keine Kapazität, sondern „Inhalt – Charge | frei“.
@@ -21,7 +23,7 @@ export function pickerlText(p: string | null | undefined): string | null {
   return t ? `LP + ${t}` : null
 }
 
-const liter = (n: number) => `${(Math.round(n * 100) / 100).toLocaleString('de-DE', { maximumFractionDigits: 0 })} L`
+const liter = (n: number) => `${(rund(n, 2)).toLocaleString('de-DE', { maximumFractionDigits: 0 })} L`
 
 /**
  * Text einer Gebinde-Auswahl: „T5 · 800 L GV Kellerberg | frei 200 L“, leer „T5 · leer | frei 1.000 L“; ohne Volumen

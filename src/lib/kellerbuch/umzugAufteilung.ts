@@ -13,7 +13,8 @@
 // verteilt verteileLiter im Verhältnis der Netto-Anteile n_ij auf die Ziele.
 
 import { verteileLiter } from '../wein/mischungsrechnung'
-
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { rund } from '../zahl/runden.ts'
 export type UmzugAufteilung = {
   /** netto[j][i] = Liter aus Quelle i in Ziel j */
   netto: number[][]
@@ -28,7 +29,7 @@ export type UmzugAufteilung = {
 }
 
 const cent = (n: number): number => Math.round(n * 100)
-const rund2 = (n: number): number => Math.round(n * 100) / 100
+const rund2 = (n: number): number => rund(n, 2)
 
 /**
  * KAN-112: Quellen (`brutto` je Quelle) auf Ziele (`ziele` = netto je Ziel) aufteilen – siehe Dateikopf.

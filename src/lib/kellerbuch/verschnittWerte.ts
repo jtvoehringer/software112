@@ -24,7 +24,8 @@ import { herkunftKnoten } from '@/lib/herkunft'
 import { minHerkunft, maxHerkunft, istNiedrigerAls as herkunftIstNiedrigerAls, HERKUNFT_LABEL } from '@/lib/herkunft'
 import { mostgewichtNeu, mostgewichtZusammenfuehren, teilweiseVermerk } from '@/lib/kellerbuch/mostgewichtKette'
 import { weinartKonflikt } from '@/lib/keller/weinart'
-
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { rund } from '../zahl/runden.ts'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
@@ -127,7 +128,7 @@ const num = (v: unknown): number => {
   const n = typeof v === 'number' ? v : parseFloat(String(v ?? ''))
   return Number.isFinite(n) ? n : 0
 }
-const rund2 = (n: number): number => Math.round(n * 100) / 100
+const rund2 = (n: number): number => rund(n, 2)
 
 /** Weinart einer neuen Verschnitt-Charge aus den Quellen (Rosé + Rot → Rot; sonst die erste bekannte) */
 export function weinartAusQuellen(arten: readonly string[]): string {

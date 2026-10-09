@@ -15,6 +15,7 @@ import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
+import { rund } from '@/lib/zahl/runden'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -153,7 +154,7 @@ export async function POST(req: NextRequest) {
     const ustSatz = GUELTIGE_UST_SAETZE.includes(Number(input.ust_satz)) ? Number(input.ust_satz) : 20
     const betragBruttoGueltig = isFinite(betragBrutto) ? betragBrutto : null
     const betragNetto = betragBruttoGueltig != null
-      ? Math.round((betragBruttoGueltig / (1 + ustSatz / 100)) * 100) / 100
+      ? rund((betragBruttoGueltig / (1 + ustSatz / 100)), 2)
       : null
 
     // Kategorie-Vorschlag validieren – muss wirklich existieren, sonst lieber leer lassen

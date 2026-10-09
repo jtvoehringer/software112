@@ -1,3 +1,5 @@
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { rund } from '../zahl/runden.ts'
 // ── Gültigkeit der staatlichen Prüfnummer einer Charge (KAN-72, 25.09.2026) ──
 //
 // Reiner Kern ohne Importe (isomorph, node:test-fähig: scripts/tests/pruefnummer.test.mjs).
@@ -191,7 +193,7 @@ export function pnNormiert(v: string | null | undefined): string {
   return (v ?? '').replace(/\s+/g, '').toUpperCase()
 }
 
-const r2 = (x: number) => Math.round(x * 100) / 100
+const r2 = (x: number) => rund(x, 2)
 
 /**
  * Beginn eines Antrags für die Zugangsregel samt Herkunft des Datums: die Einreichung; fehlt sie,

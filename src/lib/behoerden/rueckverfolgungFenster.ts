@@ -371,6 +371,7 @@ export const HINWEIS_OHNE_FENSTER = 'Weder Lese- noch Pressungsdatum bekannt –
 
 /** Menge für Hinweistexte: ganze kg bzw. eine Nachkommastelle mit Dezimalkomma */
 function kgText(v: number): string {
+  // runden-ok: Fenstermodul bleibt importfrei (node:test), nur kg-Hinweistext mit einer Stelle
   return `${String(Math.round(v * 10) / 10).replace('.', ',')} kg`
 }
 

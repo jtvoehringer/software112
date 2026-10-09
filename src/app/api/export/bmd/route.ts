@@ -15,6 +15,7 @@ import { schreibSperre } from '@/lib/auth/sperren'
 import { wienHeute } from '@/lib/csv'
 import { csvAntwort, fehlerAntwort } from '@/lib/csv/antwort'
 import { alsBeleg, lieferscheineSelect } from '@/lib/verkauf/rechnungen'
+import { rund } from '@/lib/zahl/runden'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -134,7 +135,7 @@ export async function GET(req: NextRequest) {
         tenant_id: tenantId, art,
         zeitraum_von: art === 'stammdaten' ? null : von,
         zeitraum_bis: art === 'stammdaten' ? null : bis,
-        anzahl, summe_brutto: art === 'stammdaten' ? null : Math.round(summe * 100) / 100,
+        anzahl, summe_brutto: art === 'stammdaten' ? null : rund(summe, 2),
         dateiname, nur_neue: nurNeue, erstellt_von: user?.id ?? null,
       })
       .select('id').single()
@@ -169,7 +170,7 @@ export async function GET(req: NextRequest) {
 
   const antwort = csvAntwort(csv, dateiname, csvZeilen)
   antwort.headers.set('X-BMD-Anzahl', String(anzahl))
-  antwort.headers.set('X-BMD-Summe', String(Math.round(summe * 100) / 100))
+  antwort.headers.set('X-BMD-Summe', String(rund(summe, 2)))
   antwort.headers.set('X-BMD-Dateiname', dateiname)
   antwort.headers.set('X-BMD-Protokolliert', protokolliert ? '1' : '0')
   if (markierungsFehler.length) antwort.headers.set('X-BMD-Markierung-Fehler', encodeURIComponent(markierungsFehler.join(' · ').slice(0, 1500)))
@@ -278,14 +279,14 @@ async function ausgangsrechnungen(supabase: any, tenantId: string, m: Mapping, k
 
     const debitor = await konten.debitor(firma, kontakt)
     for (const g of gruppen.values()) {
-      const brutto = Math.round(g.brutto * 100) / 100
-      const netto = Math.round(brutto / (1 + g.satz / 100) * 100) / 100
+      const brutto = rund(g.brutto, 2)
+      const netto = rund(brutto / (1 + g.satz / 100), 2)
       zeilen.push({
         satzart: '0', konto: debitor, gkonto: m[g.schluessel],
         belegnr, belegdatum: bmdDatum(p.datum), buchdatum: bmdDatum(p.datum),
         buchsymbol: m.buchsymbol_ar, buchcode: '1',
         prozent: g.satz, steuercode: steuercodeFuer(g.fall, m),
-        betrag: brutto, steuer: Math.round((brutto - netto) * 100) / 100,
+        betrag: brutto, steuer: rund((brutto - netto), 2),
         text: bmdText(`${name} RE ${belegnr}`), kost: '', extbelegnr: '',
         nettodatum: bmdDatum(datumPlusTage(p.datum, zahlungsziel)),
         skontopz: p.skonto_aktiv && Number(p.skonto_pct) > 0 ? Number(p.skonto_pct) : 0,

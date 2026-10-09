@@ -23,6 +23,7 @@
 // Signal des Aufrufers (Zeitgrenze des Betriebs), das Zeitlimit hier nur den einzelnen Abruf.
 
 import { startTakt } from '@/lib/utils/parallel'
+import { rund as rundKfm } from '@/lib/zahl/runden'
 
 const BASIS = 'https://dataset.api.hub.geosphere.at/v1'
 const ABRUF_TIMEOUT_MS = 25_000
@@ -38,7 +39,7 @@ export type WetterStunde = {
 }
 
 const iso = (d: Date) => d.toISOString().slice(0, 16)  // YYYY-MM-DDTHH:MM
-const rund = (n: number | null | undefined, st = 2) => n === null || n === undefined || Number.isNaN(Number(n)) ? null : Math.round(Number(n) * 10 ** st) / 10 ** st
+const rund = (n: number | null | undefined, st = 2) => n === null || n === undefined || Number.isNaN(Number(n)) ? null : rundKfm(Number(n), st)
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>

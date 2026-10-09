@@ -1,3 +1,5 @@
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { rund } from '../zahl/runden.ts'
 // ── Mischungsrechnung (KAN-76, 29.09.2026): Herkunftsanteile einer Charge zeitrichtig ─────────────────────────
 //
 // Reiner Rechenkern ohne Datenbank (isomorph, node:test). Alle Bewegungen der beteiligten Chargen werden
@@ -219,7 +221,7 @@ function gruppiere(a: readonly Herkunftsanteil[], wert: (h: Herkunftsanteil) => 
   for (const h of a) m.set(wert(h), (m.get(wert(h)) ?? 0) + h.liter)
   const liste = [...m.entries()].sort((x, y) => (y[1] - x[1]) || x[0].localeCompare(y[0], 'de'))
   const pct = verteileGerundet(liste.map(([, l]) => l), 100, 1)
-  return liste.map(([w, l], i) => ({ wert: w, liter: Math.round(l * 100) / 100, anteil_pct: pct[i] }))
+  return liste.map(([w, l], i) => ({ wert: w, liter: rund(l, 2), anteil_pct: pct[i] }))
 }
 
 /** Rebsorten-Anteile, absteigend (Gleichstand alphabetisch); ohne Rebsorte: „unbekannt“ */
@@ -237,7 +239,7 @@ export function jahrgangsAnteile(a: readonly Herkunftsanteil[]): GruppenAnteil[]
 export type Zusammensetzung = { anteile: Herkunftsanteil[]; warnungen: string[]; saldoLiter: number }
 
 function lt(n: number): string {
-  return `${(Math.round(n * 100) / 100).toLocaleString('de-AT', { maximumFractionDigits: 2 })} L`
+  return `${(rund(n, 2)).toLocaleString('de-AT', { maximumFractionDigits: 2 })} L`
 }
 
 /**

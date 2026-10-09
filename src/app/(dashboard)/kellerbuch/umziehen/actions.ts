@@ -21,6 +21,7 @@ import { verschnitteVorbereiten, verschnitteAusfuehren, type VerschnittEingabe }
 import { teileUmzugAuf } from '@/lib/kellerbuch/umzugAufteilung'
 import { mostgewichtNeu, mostgewichtZusammenfuehren, teilweiseVermerk, umzugMomentaufnahme, type Anteil } from '@/lib/kellerbuch/mostgewichtKette'
 import { bkiFarbe } from '@/lib/wein/bki_kuerzel'
+import { rund } from '@/lib/zahl/runden'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -180,7 +181,7 @@ async function umzugMitVerschnitten(
   // Übrige Ziele: bisheriger Umzugsweg mit dem Brutto-Anteil jeder Quelle an diesen Zielen (Schwund wie bisher an der
   // ersten Quellzeile). Scheitert er, sind die Verschnitte schon gebucht – das sagt die Meldung.
   const umzugQuellen = quellIds
-    .map((id, i) => ({ weinausbau_id: id, menge: Math.round(uIdx.reduce((s, j) => s + auf.brutto[j][i], 0) * 100) / 100 }))
+    .map((id, i) => ({ weinausbau_id: id, menge: rund(uIdx.reduce((s, j) => s + auf.brutto[j][i], 0), 2) }))
     .filter(q => q.menge >= 0.01)
   const umzugZiele = umzugWahl.map(w => w.z)
   const schwund = Math.max(0, +(umzugQuellen.reduce((s, q) => s + q.menge, 0) - umzugZiele.reduce((s, z) => s + z.menge, 0)).toFixed(3))

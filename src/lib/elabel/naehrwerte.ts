@@ -6,7 +6,8 @@
 // Rundung nach dem Leitfaden der Kommission zu Toleranzen (Dezember 2012): Energie ganzzahlig; Kohlenhydrate, Zucker,
 // Fett, Eiweiß ≥ 10 g auf 1 g, > 0,5 g auf 0,1 g, sonst 0; gesättigte Fettsäuren ≥ 10 g auf 1 g, > 0,1 g auf 0,1 g,
 // sonst 0; Salz ≥ 1 g auf 0,1 g, > 0,0125 g auf 0,01 g, sonst 0.
-
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { rund as rundKfm } from '../zahl/runden.ts'
 export const ALKOHOL_DICHTE = 0.789
 
 export type NaehrwertEingabe = {
@@ -30,8 +31,7 @@ export type Naehrwerte = {
 export type NaehrwertArt = 'energie' | 'makro' | 'gesaettigt' | 'salz'
 
 function rund(wert: number, stellen: number): number {
-  const f = 10 ** stellen
-  return Math.round((wert + Number.EPSILON) * f) / f
+  return rundKfm(wert, stellen)   // Number.EPSILON half nicht (2,135 → 2,13)
 }
 
 /** Rundung nach dem Leitfaden der Kommission (siehe Kopf). */

@@ -66,7 +66,7 @@ describe('KAN-107: Datenbank und Verdrahtung', () => {
   })
   test('Kellerbehandlung bucht die Verwendung, Storno die Gegenbuchung; Pflicht bei Stoffkonto-Typen', () => {
     const a = quelle(`${D}/kellerbuch/actions.ts`)
-    assert.match(a, /art: 'verwendung', menge: -Math\.round\(stoff\.menge \* 1000\) \/ 1000/)
+    assert.match(a, /art: 'verwendung', menge: -rund\(stoff\.menge, 3\)/)   // Sweep 76: kaufmännisch auf 3 Stellen
     assert.match(a, /\} else if \(istStoffkontoTyp\(typ\.name as string\)\) \{/)
     assert.match(a, /art: 'storno', menge: -Number\(b\.menge\),\n\s+storno_von_id: b\.id, keller_behandlung_id: id/)
     const f = quelle(`${D}/kellerbuch/behaelter/[id]/behandlungen/page.tsx`)

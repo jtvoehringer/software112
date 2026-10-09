@@ -245,7 +245,7 @@ export function runden(n: number, stellen: number): number {
 
 function legacyText(n: number, stellen: number): string {
   const f = Math.pow(10, stellen)
-  return (Math.round(n * f) / f).toFixed(stellen)
+  return (Math.round(n * f) / f).toFixed(stellen)   // runden-ok: Profil „legacy“ bildet das alte Rundungsverhalten bewusst nach
 }
 
 // ── Wiener Zeit ─────────────────────────────────────────────────────────────

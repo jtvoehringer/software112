@@ -10,7 +10,8 @@
 // Reine Funktionen (node:test); der Lader steht in kellerbuch/weinausbau/[id]/HerkunftJournalKarte.tsx.
 
 import type { Ereignis } from '@/lib/wein/mischungsrechnung'
-
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { rund } from '../zahl/runden.ts'
 /** Eine Zeile der Sicht charge_herkunft */
 export type HerkunftZeile = {
   beleg_nr: number
@@ -44,7 +45,7 @@ export type HerkunftAbweichung = { chargeId: string; journal: number; rechnung: 
 /** Toleranz für den Abgleich (Liter) */
 export const HERKUNFT_TOLERANZ_LITER = 0.5
 
-const l3 = (x: number) => Math.round(x * 1000) / 1000
+const l3 = (x: number) => rund(x, 3)
 const zahl = (v: unknown) => { const n = typeof v === 'number' ? v : Number(v); return Number.isFinite(n) ? n : 0 }
 
 /** Zeilen der Sicht für eine Charge verdichten: je Gegenstelle bzw. Wurzel-Art Nettoliter, Zeitraum, Belege */

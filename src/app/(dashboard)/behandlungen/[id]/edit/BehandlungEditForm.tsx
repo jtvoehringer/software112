@@ -32,6 +32,7 @@ import MengenZusammenfassung from '../../neu/MengenZusammenfassung'
 import BetriebsmittelFeld, { bmStandardAufwand, type BmMassnahmeOption } from '../../neu/BetriebsmittelFeld'
 import { artMitBetriebsmittel } from '@/lib/behandlungen/betriebsmittel'
 import BienenschutzHinweis from '@/components/behandlungen/BienenschutzHinweis'
+import { rund } from '@/lib/zahl/runden'
 
 // Welche Mengen-Felder pro Art sichtbar/pflicht sind, kommt aus MENGEN_SICHT (neu/mengenFelder.ts) -
 // identisch zum Anlegen-Formular, damit Anlegen und Bearbeiten konsistent sind (siehe "Analyse
@@ -153,7 +154,7 @@ export default function BehandlungEditForm({
   const auswahlHa = weingaerten.filter(w => selectedWGs.has(w.id)).reduce((s, w) => s + w.gst_ha_aktiv, 0)
     + [...selectedGSTs.keys()].reduce((s, id) => s + (gstFlaeche.get(id) ?? 0), 0)
   const auswahlLeer = selectedWGs.size === 0 && selectedGSTs.size === 0
-  const flaecheAktuell = auswahlLeer ? flaecheHa : (auswahlHa > 0 ? Math.round(auswahlHa * 10000) / 10000 : null)
+  const flaecheAktuell = auswahlLeer ? flaecheHa : (auswahlHa > 0 ? rund(auswahlHa, 4) : null)
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const startArt = (behandlung.art as Art) ?? 'spritzung'

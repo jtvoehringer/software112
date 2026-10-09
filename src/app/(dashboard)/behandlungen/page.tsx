@@ -11,6 +11,7 @@ import { STATUS_TEXT, type UebermittlungsStatus } from '@/lib/uebermittlung/psm/
 import UebermittlungPanel, { type UebermittlungUebersicht } from './UebermittlungPanel'
 import { erfassungsAmpel, erfassungsverzugH, fristAus, fristRelevant, nacherfasstText, type ErfassungsAmpel } from '@/lib/behandlungen/erfassungsfrist'
 import { heuteWien } from '@/lib/datum/wien'
+import { rund } from '@/lib/zahl/runden'
 
 export const metadata: Metadata = { title: 'Maßnahmen – software:112' }
 export const dynamic = 'force-dynamic'
@@ -122,7 +123,7 @@ export default async function BehandlungenPage() {
       weingarten_name:      wgName,
       weingarten_ried:      wgRied,
       rieden,
-      flaeche_ha:           flaeche > 0 ? Math.round(flaeche * 10000) / 10000 : null,
+      flaeche_ha:           flaeche > 0 ? rund(flaeche, 4) : null,
       psm_name:             b.psm?.name ?? null,
       psm_wartezeit:        b.psm?.wartezeit_tage ?? null,
       aufwandmenge:         b.aufwandmenge,

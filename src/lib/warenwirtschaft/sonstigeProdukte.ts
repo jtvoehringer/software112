@@ -1,3 +1,5 @@
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { rund } from '../zahl/runden.ts'
 // Sonstige Produkte mit Lagerstand – KAN-115 (07.10.2026)
 //
 // Traubensaft, Essig und Destillat sind kein Wein (§ 1 Abs. 1 Z 1 WeinG, R10 der BKI-Sitzung 24.09.2026): sie entstehen
@@ -61,7 +63,7 @@ export interface KontoZeile<B extends ProduktBewegung = ProduktBewegung> {
   storniert: boolean
 }
 
-const runden3 = (x: number) => Math.round(x * 1000) / 1000
+const runden3 = (x: number) => rund(x, 3)
 
 /** Lagerstand = Summe aller Bewegungen (Storno-Gegenbuchungen eingeschlossen) */
 export function lagerstand(bewegungen: ProduktBewegung[]): number {

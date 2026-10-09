@@ -22,7 +22,8 @@ import { HERKUNFT_KATALOG, herkunftKnotenTolerant } from '@/lib/herkunft'
 import { bkiRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
 import { mostgewichtAusWert } from '@/lib/wein/mostgewichtFormular'
 import { stichtagText } from '@/lib/kellerbuch/eroeffnungsStichtag'
-
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { rund } from '../zahl/runden.ts'
 export type EroeffnungsArt = 'tank' | 'flaschen'
 export type RohZeile = Record<string, string>
 
@@ -404,7 +405,7 @@ export function pruefeTankZeilen(
       hinweise,
       eingabe: ok ? {
         behaelterId: g!.id, gebinde: g!.anzeigeName, name, rebsorte, jahrgang,
-        liter: Math.round(liter! * 100) / 100, angabe,
+        liter: rund(liter!, 2), angabe,
         weinart: wa === 'unbekannt' ? null : wa,
         herkunftCode: hk === 'unbekannt' ? null : hk,
         mostgewicht, pruefnummer: w('pruefnummer') || null, notiz: w('notiz') || null,
@@ -528,7 +529,7 @@ export function pruefeFlaschenZeilen(
         weinart: wa === 'unbekannt' ? null : wa, angabe,
         herkunftCode: hk === 'unbekannt' ? null : hk, land: land!,
         ml: ml!, anzahl: anzahl as number, pruefnummer: w('pruefnummer') || null,
-        vkPreis: vkPreis != null ? Math.round(vkPreis * 100) / 100 : null, notiz: w('notiz') || null,
+        vkPreis: vkPreis != null ? rund(vkPreis, 2) : null, notiz: w('notiz') || null,
       } : null,
     }
   })

@@ -1,3 +1,5 @@
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { rund } from '../zahl/runden.ts'
 // ── Weinbuch: Mengenbewegungen aus dem Bewegungsjournal (KAN-44 Teil 3, 08.10.2026) ──────────────────────────────
 //
 // Bis KAN-44 kannte die Zeitleiste des Weinbuchs (lib/wein/weinbuch.ts) nur Pressung, Umzug, Schwund, Verschnitt und
@@ -75,7 +77,7 @@ export function mengenTyp(code: string, quelle: string): WeinbuchMengenTyp {
   return quelle === 'zukauf_posten' ? 'zukauf' : 'bestand'
 }
 
-const runde = (n: number) => Math.round(n * 1000) / 1000
+const runde = (n: number) => rund(n, 3)
 
 /** Liter mit Vorzeichen, österreichisch formatiert („+1.200 L“, „−35,5 L“) */
 export function literMitVorzeichen(l: number): string {

@@ -40,17 +40,26 @@ const SERVICE_ROLE = /\b\w*[aA]dmin\w*\s*\.from\(|createSupabaseAdminClient\(\)\
 const FROM = /(?<!Buffer|Array)\.from\(/
 const VORLAUF = 4
 
-/** Ersetzt Kommentare und String-Inhalte durch Leerzeichen (Zeilen und Längen bleiben) */
+/** Ersetzt Kommentare und String-Inhalte durch Leerzeichen (Zeilen und Längen bleiben). Ausdrücke in `${…}` eines
+ *  Template-Strings bleiben Code (Sweep 76: vorher wurden sie mit geleert – alle Wächter übersahen z. B.
+ *  `${Math.round(x * 100) / 100}` oder `${new Date().toISOString().slice(0, 10)}` in Template-Strings). */
 function ohneKommentare(s) {
+  return codeTeil(s, 0, false)[0]
+}
+
+const leer = z => (z === '\n' || z === '\r' ? z : ' ')
+
+/** Code ab i; imAusdruck: endet vor der schließenden „}“ eines `${…}` → [Ausgabe, Index der „}“ bzw. Textende] */
+function codeTeil(s, i, imAusdruck) {
   let out = ''
-  let i = 0
+  let tiefe = 0
   while (i < s.length) {
     const c = s[i], n = s[i + 1]
     if (c === '/' && n === '/') { const e = s.indexOf('\n', i); const ende = e < 0 ? s.length : e; out += ' '.repeat(ende - i); i = ende; continue }
     if (c === '/' && n === '*') { const e = s.indexOf('*/', i + 2); const ende = e < 0 ? s.length : e + 2; out += s.slice(i, ende).replace(/[^\r\n]/g, ' '); i = ende; continue }
-    if (c === "'" || c === '"' || c === '`') {
+    if (c === "'" || c === '"') {
       let j = i + 1
-      while (j < s.length && s[j] !== c) { if (s[j] === '\\') j++; else if (c !== '`' && s[j] === '\n') break; j++ }
+      while (j < s.length && s[j] !== c) { if (s[j] === '\\') j++; else if (s[j] === '\n') break; j++ }
       // nicht geschlossen (Zeilenende, z. B. ein Apostroph in einer Regex): Zeilenumbruch NICHT verschlucken – sonst
       // verschieben sich alle folgenden Zeilennummern gegenüber dem Original (KAN-248)
       const geschlossen = j < s.length && s[j] === c
@@ -58,10 +67,32 @@ function ohneKommentare(s) {
       i = geschlossen ? j + 1 : j
       continue
     }
+    if (c === '`') {
+      out += c
+      let j = i + 1
+      while (j < s.length && s[j] !== '`') {
+        if (s[j] === '\\') { out += leer(s[j]) + (j + 1 < s.length ? leer(s[j + 1]) : ''); j += 2; continue }
+        if (s[j] === '$' && s[j + 1] === '{') {
+          const [ausdruck, k] = codeTeil(s, j + 2, true)
+          out += '${' + ausdruck + (k < s.length ? '}' : '')
+          j = k + 1
+          continue
+        }
+        out += leer(s[j])
+        j++
+      }
+      if (j < s.length) out += '`'
+      i = j + 1
+      continue
+    }
+    if (imAusdruck) {
+      if (c === '{') tiefe++
+      else if (c === '}') { if (tiefe === 0) return [out, i]; tiefe-- }
+    }
     out += c
     i++
   }
-  return out
+  return [out, i]
 }
 
 /** Text der Methodenkette ab code[idx][pos] (".update(") bis zum Ende der Anweisung: Klammern werden gezählt, danach

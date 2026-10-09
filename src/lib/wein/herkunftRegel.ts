@@ -16,7 +16,8 @@
 //    (§ 9 Landwein aus einer Region, § 10 Qualitätswein aus einem Gebiet) – angewendet in KAN-111.
 
 import { herkunftBundesland, herkunftKette, herkunftKnoten, herkunftKnotenTolerant, minHerkunft, HERKUNFT_LABEL, type HerkunftKnoten } from '@/lib/herkunft'
-
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { rund } from '../zahl/runden.ts'
 /** Mindestanteil einer Ried bzw. Gemeinde (§ 21 Abs. 1 WeinG) */
 export const RIED_ORT_MINDESTANTEIL = 0.85
 
@@ -58,7 +59,7 @@ function ortSchluessel(ort: string | null | undefined): string | null {
   return /^\d+$/.test(s) ? kgSchluessel(s) : s
 }
 
-const pct = (x: number) => `${Math.round(x * 1000) / 10} %`.replace('.', ',')
+const pct = (x: number) => `${rund(x * 100, 1)} %`.replace('.', ',')
 const label = (c: string) => HERKUNFT_LABEL[c] ?? c
 
 function knotenMitEbene(code: string, ebene: HerkunftKnoten['ebene']): string | null {

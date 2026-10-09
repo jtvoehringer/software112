@@ -177,7 +177,7 @@ export default function FuellungFormClient({
   const berechneteLiter = useMemo(() => {
     const n = parseInt(anzahl)
     const g = parseInt(groesse)
-    if (n > 0 && g > 0) return Math.round(n * g) / 1000
+    if (n > 0 && g > 0) return (n * g) / 1000   // ganze ml → Liter, keine Rundung nötig
     return null
   }, [anzahl, groesse])
 

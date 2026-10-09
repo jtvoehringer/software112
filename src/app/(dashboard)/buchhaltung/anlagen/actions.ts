@@ -8,6 +8,7 @@ import type { AfaMethode } from '@/lib/ea/anlagen'
 import { AktionsFehler, dbFehlerText, NICHT_GESPEICHERT } from '@/lib/fehler'
 import { stornoGrundFehler } from '@/lib/storno/grund'
 import { pruefeModul } from '@/lib/auth/modul'
+import { rund } from '@/lib/zahl/runden'
 
 // ── Anlagenverzeichnis: Server-Aktionen (Migration 200) ──────────────────────
 // Schreiben dürfen Betriebsleiter und Winzer (RLS ea_anlagen_write). Die
@@ -94,13 +95,13 @@ export async function speichereAnlage(a: AnlageEingabe): Promise<{ ok: true; id:
     gruppe: a.gruppe?.trim() || null,
     konto_nr: a.konto_nr ?? null,
     anschaffung_am: a.anschaffung_am,
-    ak_netto: Math.round(a.ak_netto * 100) / 100,
+    ak_netto: rund(a.ak_netto, 2),
     nutzungsdauer_jahre: a.methode === 'gwg' ? 1 : Math.round(a.nutzungsdauer_jahre),
     methode: a.methode,
     degressiv_satz: a.methode === 'degressiv' ? Math.min(30, Math.max(0.5, a.degressiv_satz || 30)) : null,
-    restwert: Math.round((a.restwert || 0) * 100) / 100,
+    restwert: rund((a.restwert || 0), 2),
     abgang_am: a.abgang_am || null,
-    veraeusserungserloes: a.abgang_am ? Math.round((a.veraeusserungserloes || 0) * 100) / 100 : null,
+    veraeusserungserloes: a.abgang_am ? rund((a.veraeusserungserloes || 0), 2) : null,
     transaktion_id: a.transaktion_id || null,
     notizen: a.notizen?.trim() || null,
   }
@@ -168,7 +169,7 @@ export async function bucheAfa(jahr: number, zeilen: { anlageId: string; name: s
     const weg: string[] = []
     for (const z of alt) {
       const ist = g.buchungen.get(z.buchungId as string) ?? 0
-      if (z.soll > 0 && Math.abs(ist - Math.round(z.soll * 100) / 100) < 0.005) bleibt.add(z.anlageId)
+      if (z.soll > 0 && Math.abs(ist - rund(z.soll, 2)) < 0.005) bleibt.add(z.anlageId)
       else weg.push(z.buchungId as string)
     }
     const fehler = await afaStornieren(supabase, tenantId, weg, grundAfaNeu(jahr), stichtag)
@@ -177,7 +178,7 @@ export async function bucheAfa(jahr: number, zeilen: { anlageId: string; name: s
   const neu = zeilen.filter(z => z.soll > 0 && !bleibt.has(z.anlageId)).map(z => ({
     tenant_id: tenantId, typ: 'ausgabe', datum: stichtag,
     beschreibung: `AfA ${jahr}: ${z.name}`,
-    kategorie_id: kat.id, betrag_netto: Math.round(z.soll * 100) / 100, ust_satz: 0,
+    kategorie_id: kat.id, betrag_netto: rund(z.soll, 2), ust_satz: 0,
     konto_id: null, abzugsfaehig_pct: 100, anlage_id: z.anlageId, import_quelle: 'manuell',
   }))
   if (neu.length) {

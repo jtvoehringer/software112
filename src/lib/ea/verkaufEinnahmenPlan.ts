@@ -1,3 +1,5 @@
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { rund } from '../zahl/runden.ts'
 // E&A-Einnahmen aus Verkaufszahlungen je Zahlung planen (KAN-149 D2b, 30.09.2026). Isomorph und ohne Datenbank –
 // die Ausführung (Gegenbuchung per RPC, Anlegen per Service-Role) steht in verkaufEinnahmen.ts.
 //
@@ -33,7 +35,7 @@ export type EinnahmenPlan = {
   anlegen: NeueEinnahme[]
 }
 
-const cent = (x: number) => Math.round(x * 100) / 100
+const cent = (x: number) => rund(x, 2)
 
 /** Rechnungssumme je USt-Satz (brutto/netto) – wie der Rechnungsdruck */
 export function gruppenJeSatz(positionen: readonly PlanPosition[]): Map<number, { brutto: number; netto: number }> {

@@ -35,6 +35,7 @@ import { verkaufKundeFehler } from '@/lib/handel/partnerPflicht'
 import { ladePartner } from '@/lib/handel/partnerLaden'
 import { pressungSortenverschnitt } from '@/lib/wein/sortenangabe'
 import { bkiFarbe } from '@/lib/wein/bki_kuerzel'
+import { rund } from '@/lib/zahl/runden'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -92,7 +93,7 @@ function textOderNull(v: unknown): string | null {
 }
 
 function runde2(n: number): number {
-  return Math.round(n * 100) / 100
+  return rund(n, 2)
 }
 
 /** Jahrgang muss zum aktiven Mandanten gehören (ernte_parzellen/pressung_* haben keine tenant_id) */

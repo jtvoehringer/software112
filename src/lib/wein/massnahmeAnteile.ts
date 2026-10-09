@@ -27,6 +27,7 @@
 // Rein (keine Datenbank, kein server-only): Client-Komponenten und node:test nutzen dieselbe Rechnung.
 
 import { mittelmenge, mittelmengeKg, spritzbruehe, type MittelEinheit, type PsmBehandlung, type PsmGrundstueck } from '@/lib/behoerden/psm'
+import { rund } from '@/lib/zahl/runden'
 
 export const STELLEN_ANTEIL = { menge: 3, cu: 4, np: 3, eur: 2 } as const
 
@@ -284,7 +285,7 @@ function schluesselJe(a: GstAnteil, ebene: Ebene): { schluessel: string; name: s
 
 /** Summen der gerundeten GST-Anteile je Ebene (Regel 8); Werte auf die jeweilige Stelle gerundet */
 export function summiereJe(verteilungen: readonly Verteilung[], ebene: Ebene): Map<string, EbenenSumme> {
-  const r = (x: number, s: number) => Math.round(x * 10 ** s) / 10 ** s
+  const r = rund
   const erg = new Map<string, EbenenSumme>()
   for (const v of verteilungen) {
     for (const a of v.anteile) {

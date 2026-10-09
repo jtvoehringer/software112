@@ -21,7 +21,8 @@ import {
   gebindeAmTag, GEBINDE_REKONSTRUIERT, type UmzugGebinde, type VerschnittGebinde,
 } from '../kellerbuch/quellGebindeKern'
 import { ladeBehaelterNamen, UMZUG_GEBINDE_SELECT } from '../kellerbuch/quellGebinde'
-
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { rund } from '../zahl/runden.ts'
 type R = Record<string, any>
 
 export type SchrittVorgang = 'Umzug' | 'Filtration' | 'Verschnitt'
@@ -72,7 +73,7 @@ function num(v: unknown): number {
   const n = typeof v === 'number' ? v : parseFloat(String(v ?? ''))
   return Number.isFinite(n) ? n : 0
 }
-const r2 = (n: number) => Math.round(n * 100) / 100
+const r2 = (n: number) => rund(n, 2)
 const tagVon = (v: unknown) => (typeof v === 'string' ? v.slice(0, 10) : '')
 
 /** Schritte aus den Rohdaten – reine Umformung, testbar */

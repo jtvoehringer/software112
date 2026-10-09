@@ -31,6 +31,7 @@ import {
   type BestandsBuchung,
 } from '@/lib/verkauf/bestand'
 import { heuteWien } from '@/lib/datum/wien'
+import { rund } from '@/lib/zahl/runden'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -680,7 +681,7 @@ export async function markiereAlsBezahlt(id: string) {
     const { error } = await (supabase.from('zahlungen') as any).insert({
       tenant_id: tenantId,
       verkaufsposten_id: id,
-      betrag: Math.round(offen * 100) / 100,
+      betrag: rund(offen, 2),
       art: 'sonstig',
       datum: heuteWien(),
       notizen: 'Als bezahlt markiert',
