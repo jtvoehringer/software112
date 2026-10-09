@@ -1829,7 +1829,8 @@
 "betrieb_rechtsform",
 "betrieb_vorname",
 "betrieb_nachname",
-"betrieb_betriebsstaette"
+"betrieb_betriebsstaette",
+"betriebsart"
 ],
 "tenant_memberships": [
 "id",

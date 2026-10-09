@@ -31,6 +31,12 @@ describe('KAN-209 Pflichtangaben', nurMitHooks, () => {
     const f = r.tbPflichtFehler({ ...VOLL, datum_tag: '31', datum_monat: '02', zugmaschine: ' ', v_betriebsnummer: '', e_name: '', jahr: '26' })
     assert.deepEqual(f, ['Jahr (vierstellig)', 'Datum der Lieferung (TT, MM, JJJJ)', 'Kennzeichen der Zugmaschine', 'Betriebsnummer des Versenders', 'Name des Empfängers'])
   })
+  test('KAN-261: Weinhändler als Versender – eigene Betriebsnummer optional, Empfänger-Nummer bleibt Pflicht', () => {
+    const ohne = { ...VOLL, v_betriebsnummer: '' }
+    assert.deepEqual(r.tbPflichtFehler(ohne, { versenderOhneBetriebsnummer: true }), [])
+    assert.deepEqual(r.tbPflichtFehler(ohne), ['Betriebsnummer des Versenders'])
+    assert.deepEqual(r.tbPflichtFehler({ ...ohne, e_betriebsnummer: '' }, { versenderOhneBetriebsnummer: true }), ['Betriebsnummer des Empfängers'])
+  })
   test('Positionen: mindestens eine; je Position Menge, Farbe, Sorte, Qualität, Jahrgang, Herkunft, Alkohol bzw. Mostgewicht', () => {
     assert.deepEqual(r.tbPflichtFehler({ ...VOLL, positionen: [] }), ['mindestens eine Weinposition'])
     assert.deepEqual(r.tbPflichtFehler({ ...VOLL, positionen: [{ ...POS, menge_liter: '0', herkunft: '', alkohol_pct: '' }] }),
@@ -52,7 +58,7 @@ describe('KAN-209 Verdrahtung', () => {
     const a = quelle('src/app/(dashboard)/weinhandel/verkauf/[id]/transportbescheinigung/actions.ts')
     assert.match(a, /if \(existing\?\.status === 'ausgestellt'\) \{/)
     assert.match(a, /export async function tbAusstellen\(/)
-    assert.match(a, /const fehlt = tbPflichtFehler\(daten, \{ nummerWirdVergeben: !nummerEingabe \}\)/)
+    assert.match(a, /const fehlt = tbPflichtFehler\(daten, \{\s+nummerWirdVergeben: !nummerEingabe,\s+versenderOhneBetriebsnummer:/)   // KAN-261
     assert.match(a, /\.update\(\{ status: 'ausgestellt', aktualisiert_am:/)
     assert.match(a, /await alle<R>\(\(supabase\.from\('transportbescheinigungen'\) as any\)/)
   })

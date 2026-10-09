@@ -30,7 +30,7 @@ import {
   wendePaketVorgabenAn,
 } from './actions'
 import { PAKETE, PAKET_REIHENFOLGE, paketAusPlan, paketPriceId, preisText, type PaketKey } from '@/lib/pakete'
-import { BETRIEBSNUMMER_MUSTER, BETRIEBSNUMMER_ZWECK, weinbauBetriebsnummerFehlt } from '@/lib/betrieb/betriebsnummer'
+import { BetriebsnummerFeld } from '@/components/BetriebsnummerFeld'
 import { fehlerText } from '@/lib/fehler'
 import { STRIPE_STATUS_META, STRIPE_PLAN_LABELS } from '@/lib/stripe/client'
 import type { TenantDetail, TenantSettings, TenantMember, VerbundInfo } from './page'
@@ -829,15 +829,9 @@ function BetriebTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
               <label className="block text-xs font-medium text-s112-text-2 mb-1">UID-Nummer</label>
               <input aria-label="UID-Nummer" name="betrieb_uid" defaultValue={settings.betrieb_uid ?? ''} className={inputCls()} placeholder="ATU12345678" />
             </div>
-            <div>
-              <label className="block text-xs font-medium text-s112-text-2 mb-1">Weinbau-Betriebsnummer *</label>
-              <input aria-label="Weinbau-Betriebsnummer" name="betrieb_betriebsnummer" defaultValue={settings.betrieb_betriebsnummer ?? ''} required
-                inputMode="numeric" pattern={BETRIEBSNUMMER_MUSTER} title="Nur Ziffern (höchstens 10), z. B. 4489781"
-                className={inputCls()} placeholder="z.B. 4489781" />
-              {weinbauBetriebsnummerFehlt(settings.betrieb_betriebsnummer)
-                ? <p className="text-[11px] text-s112-err-fg mt-0.5">Fehlt – bitte ergänzen. {BETRIEBSNUMMER_ZWECK}.</p>
-                : <p className="text-[11px] text-s112-tertiary mt-0.5">{BETRIEBSNUMMER_ZWECK}</p>}
-            </div>
+            {/* KAN-261: Betriebsart wählbar (Feld „betriebsart“), Betriebsnummer nur für Weinproduzenten Pflicht */}
+            <BetriebsnummerFeld betriebsart={settings.betriebsart} betriebsnummer={settings.betrieb_betriebsnummer}
+              waehlbar inputClassName={inputCls()} />
           </div>
         </div>
       </div>

@@ -79,6 +79,7 @@ export type TenantSettings = {
   betrieb_website:          string | null
   betrieb_uid:              string | null
   betrieb_betriebsnummer:   string | null
+  betriebsart:              string | null   // KAN-261
   rechnung_iban:            string | null
   rechnung_bic:             string | null
   rechnung_zahlungsziel:    number
@@ -265,6 +266,7 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
     betrieb_website:   s?.betrieb_website ?? null,
     betrieb_uid:       s?.betrieb_uid ?? null,
     betrieb_betriebsnummer: s?.betrieb_betriebsnummer ?? null,
+    betriebsart:       s?.betriebsart ?? null,
     rechnung_iban:         s?.rechnung_iban ?? null,
     rechnung_bic:          s?.rechnung_bic ?? null,
     rechnung_zahlungsziel: s?.rechnung_zahlungsziel ?? 14,

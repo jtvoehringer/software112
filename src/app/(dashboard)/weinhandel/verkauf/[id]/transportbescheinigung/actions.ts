@@ -9,6 +9,7 @@ import { AktionsFehler, dbFehlerText, NICHT_GESPEICHERT } from '@/lib/fehler'
 import { stornoGrundFehler } from '@/lib/storno/grund'
 import { alle } from '@/lib/supabase/alle'
 import { naechsteTbNummer, tbNummerVergeben, tbPflichtFehler } from '@/lib/behoerden/tbPflicht'
+import { betriebsnummerPflicht } from '@/lib/betrieb/betriebsnummer'
 import { tbsDuplikatText } from '@/lib/handel/tbsNummer'
 
 /** KAN-90: Duplikat der TBS-Nr. im selben Jahr (UNIQUE transportbescheinigungen_tbs_nummer_uq) verständlich melden */
@@ -106,7 +107,15 @@ export async function tbAusstellen(verkaufspostenId: string, daten: R): Promise<
   const tenantId = await tbSchreibrecht()
   const jahr = String(daten?.jahr ?? '').trim()
   const nummerEingabe = String(daten?.laufende_nr ?? '').trim()
-  const fehlt = tbPflichtFehler(daten, { nummerWirdVergeben: !nummerEingabe })
+  // KAN-261: Weinhändler brauchen als Versender keine Weinbau-Betriebsnummer
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase-Typen ohne Tabellenschema (Konvention)
+  const { data: art, error: artErr } = await (supabase.from('tenant_einstellungen') as any)
+    .select('betriebsart').eq('tenant_id', tenantId).maybeSingle()
+  if (artErr) throw new AktionsFehler(dbFehlerText(artErr, 'Betriebsart konnte nicht geladen werden'))
+  const fehlt = tbPflichtFehler(daten, {
+    nummerWirdVergeben: !nummerEingabe,
+    versenderOhneBetriebsnummer: !betriebsnummerPflicht((art as R | null)?.betriebsart),
+  })
   if (fehlt.length > 0) throw new AktionsFehler(`Zum Ausstellen fehlen noch: ${fehlt.join('; ')}.`)
 
   // Laufende Nummern des Jahres (nicht storniert, andere Verkäufe – KAN-90: auch Entwürfe mit Nummer, die DB lehnt
