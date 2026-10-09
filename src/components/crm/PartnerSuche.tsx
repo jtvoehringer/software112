@@ -49,6 +49,7 @@ export default function PartnerSuche({ art, firmaId, value, onChange, placeholde
   useEffect(() => {
     if (!open) return
     let aktiv = true
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Laden/Abonnieren im Effekt: Lade- bzw. Startzustand setzen, Ergebnis kommt asynchron
     setLaden(true)
     const t = setTimeout(() => {
       const p = new URLSearchParams({ art, q: query })

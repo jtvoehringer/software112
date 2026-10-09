@@ -2,7 +2,7 @@
 
 import Link from '@/components/ui/Link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useState, useEffect, useTransition, useRef, Suspense } from 'react'
+import { useState, useTransition, useRef, Suspense } from 'react'
 import { CheckCircle2, AlertTriangle, Pencil } from 'lucide-react'
 import {
   saveTenantSettings,
@@ -606,10 +606,13 @@ function ModuleTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenan
   const [saved, setSaved]          = useState(false)
 
   // Props nach router.refresh() (Paket-Vorgaben, Stripe-Webhook) übernehmen
-  useEffect(() => {
+  // (beim Rendern statt im Effekt – kein Durchlauf mit den alten Werten)
+  const [settingsVorher, setSettingsVorher] = useState(settings)
+  if (settings !== settingsVorher) {
+    setSettingsVorher(settings)
     setBuchhaltungsart(settings.modul_ea ? (settings.buchhaltungsart ?? 'ea') : '')
     setSumup(settings.modul_sumup ?? false)
-  }, [settings])
+  }
 
   const gewaehlt = paketWahl ? PAKETE[paketWahl] : (paket ? PAKETE[paket] : null)
   const brauchtBuchhaltungsart = !!gewaehlt?.module.modul_ea

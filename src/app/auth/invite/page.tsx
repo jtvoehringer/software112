@@ -18,6 +18,7 @@ function InviteContent() {
     // Supabase kann Token entweder als ?code= oder als #access_token= übergeben
     const hash = window.location.hash
     if (hash && hash.includes('access_token')) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Browser-Wert (localStorage/URL/Feature) erst nach dem Einhängen lesen – beim Rendern gäbe es einen Hydration-Fehler
       setHasHash(true)
     }
     setReady(true)

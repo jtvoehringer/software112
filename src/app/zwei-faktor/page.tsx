@@ -49,6 +49,7 @@ function ZweiFaktor() {
     }
   }, [supabase])
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- Laden/Abonnieren im Effekt: Lade- bzw. Startzustand setzen, Ergebnis kommt asynchron
   useEffect(() => { void laden() }, [laden])
 
   // KAN-78: Ziel aus dem Link (weiter) an die Betriebswahl weiterreichen
