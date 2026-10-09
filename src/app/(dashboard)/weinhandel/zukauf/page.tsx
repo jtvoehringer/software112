@@ -11,6 +11,7 @@ import { fmtEur, fmtNum } from '@/lib/format'
 import { gstImJahr } from '@/lib/wein/grundstueckAktiv'
 import { listeTrifft, tbsText } from '@/lib/handel/tbsNummer'
 import ListenSuche from '@/components/ui/ListenSuche'
+import { wienJetzt } from '@/lib/datum/wien'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,7 +43,7 @@ export default async function ZukaufPage({
   const membership = await getCurrentMembership()
 
   const sp    = await searchParams
-  const zjahr = parseInt(sp.zjahr ?? '') || new Date().getFullYear()
+  const zjahr = parseInt(sp.zjahr ?? '') || wienJetzt().getFullYear()
   const q     = (sp.q ?? '').trim()
   const tenantId = membership?.tenantId ?? null
 

@@ -23,6 +23,7 @@ import { mitgliedEinladen, EINLADUNG_REDIRECT } from '@/lib/auth/einladung'
 import { istMostgewichtEinheit } from '@/lib/wein/mostgewicht'
 import { austrittsWerte, beitrittFehler, beitrittsWerte, gemeinschaftsFreigaben, type VerbundBetrieb } from '@/lib/abo/verbund'
 import { premiumSupportEingabeFehler } from '@/lib/abo/premiumSupport'
+import { wienJetzt } from '@/lib/datum/wien'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -489,7 +490,7 @@ export async function resetRechnungsZaehler(tenantId: string, auf: number) {
       // der automatische Jahreswechsel-Reset (Migration 189, falls ein
       // Jahres-Platzhalter im Suffix gesetzt ist) den Wert beim nächsten Aufruf
       // von get_next_rechnungsnummer() sofort wieder überschreiben.
-      rechnung_zaehler_jahr: new Date().getFullYear(),
+      rechnung_zaehler_jahr: wienJetzt().getFullYear(),   // Sweep 79: Neujahrsnacht nicht im alten Jahr
       aktualisiert_am:   new Date().toISOString(),
     }, { onConflict: 'tenant_id' })
 

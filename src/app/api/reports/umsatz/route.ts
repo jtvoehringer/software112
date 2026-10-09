@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { alsBeleg, lieferscheineSelect } from '@/lib/verkauf/rechnungen'
 import { umsatzBasis, type UmsatzBasis } from '@/lib/verkauf/umsatzBasis'
-import { lokalerTag } from '@/lib/datum/wien'
+import { lokalerTag, wienJetzt } from '@/lib/datum/wien'
 
 export const dynamic = 'force-dynamic'
 
@@ -113,7 +113,7 @@ export async function GET(req: NextRequest) {
     }
     ziele = monatsBereich(von, bis)
   } else {
-    const heute = new Date()
+    const heute = wienJetzt()   // Sweep 79: letzte 12 Monate ab dem Wiener Monat
     for (let i = 11; i >= 0; i--) {
       const d = new Date(heute.getFullYear(), heute.getMonth() - i, 1)
       ziele.push({ jahr: d.getFullYear(), monatIdx: d.getMonth() })
