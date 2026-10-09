@@ -1,7 +1,7 @@
 // KAN-47 AP10 Schritt 1 (09.10.2026): BKI-Blatt „Weingärten“ aus den vorhandenen Ried- und Grundstücksdaten.
 // Annahmen W1–W6 im Kopf von src/lib/behoerden/bki-weingaerten.ts.
 // Schritt 2 (09.10.2026): Großlage, Gemeindeteil, DAC-Orts- und Riedenwein aus src/lib/wein/herkunftKatalog.ts (Thermenregion,
-// Kremstal, Wachau, Kamptal; Annahmen K1–K9 dort).
+// Kremstal, Wachau, Kamptal, Traisental; Annahmen K1–K10 dort).
 //
 // Aufruf:  npm run -s test:csv   (Node ≥ 22.15 wegen module.registerHooks)
 
@@ -123,7 +123,7 @@ describe('KAN-47 Schritt 2: Katalog Thermenregion', () => {
     const hirtenberg = wg.weingartenZeile(ried(lage), gst({ katastralgemeinde: '4312' }))
     assert.deepEqual([hirtenberg.grosslage, hirtenberg.dacOrtswein, hirtenberg.dacRiedenwein], ['Vöslauer Hauerberg', null, null])
     const r = wg.weingartenZeilen([ried(lage)], [gst({ katastralgemeinde: '10001' })])
-    assert.ok(r.warnungen.some(w => /außerhalb der erfassten Kataloge \(Thermenregion, Kremstal, Wachau, Kamptal\)/.test(w)), r.warnungen.join(' | '))
+    assert.ok(r.warnungen.some(w => /außerhalb der erfassten Kataloge \(Thermenregion, Kremstal, Wachau, Kamptal, Traisental\)/.test(w)), r.warnungen.join(' | '))
   })
 })
 
@@ -198,5 +198,25 @@ describe('KAN-47 Schritt 2: Katalog Kamptal', () => {
   test('KG ohne Angabe (Grunddorf, Plank) im DAC-Gebiet ohne Ortswein; keine Großlage', () => {
     assert.deepEqual(kat.herkunftKatalog('12234', '31308'), { gebiet: 'Kamptal', grosslage: null, dacOrtswein: null, imDacGebiet: true })
     assert.equal(kat.herkunftKatalog('12222', '31355').imDacGebiet, true)
+  })
+})
+
+describe('KAN-47 Schritt 2: Katalog Traisental (K10)', () => {
+  test('Gebiet: Stadt und Bezirk St. Pölten, Atzenbrugg, Sitzenberg-Reidling, Würmla; Ortswein = Gemeindename', () => {
+    assert.deepEqual(kat.herkunftKatalog('19999', '31928', 'Nußdorf ob der Traisen'), { gebiet: 'Traisental', grosslage: null, dacOrtswein: 'Nußdorf ob der Traisen', imDacGebiet: true })
+    assert.equal(kat.herkunftKatalog('1', '30201', 'St. Pölten').dacOrtswein, 'St. Pölten')
+    assert.equal(kat.herkunftKatalog('1', '32132', 'Sitzenberg-Reidling').imDacGebiet, true)
+    assert.equal(kat.herkunftKatalog('1', '32101', 'Tulln').gebiet, null, 'übriger Bezirk Tulln nicht im Traisental')
+  })
+
+  test('Großlage nur Wölblinger Urgestein; Venusberg/Parapluiberg bleiben leer', () => {
+    assert.equal(kat.herkunftKatalog('1', '31948', 'Wölbling').grosslage, 'Wölblinger Urgestein')
+    assert.equal(kat.herkunftKatalog('1', '31930', 'Obritzberg-Rust').grosslage, 'Wölblinger Urgestein')
+    assert.equal(kat.herkunftKatalog('1', '31943', 'Traismauer').grosslage, null)
+  })
+
+  test('Zeile: Gemeindename aus der KG-Nr. als Ortswein', { skip: !hooksMoeglich }, () => {
+    const z = wg.weingartenZeile(ried(), gst({ katastralgemeinde: '19116', trauben_herkunft_code: null }))
+    assert.deepEqual([z.gemeinde, z.dacOrtswein, z.grosslage], ['Traismauer', 'Traismauer', null])
   })
 })
