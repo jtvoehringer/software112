@@ -474,7 +474,7 @@ export default function FirmenClient({
     startTransition(() => router.replace(`${pathname}${paramsAusFilter(neu)}`, { scroll: false }))
   }
   // Suchfeld überlebt den Neuaufbau der Seite bei URL-Änderung (lib/crm/listenSuche.ts)
-  const sucheFeld = useListenSuche('firmen', filter.q, q => setzeFilter({ q }))
+  const { ref: sucheRef, suche, onChange: sucheOnChange, onKeyDown: sucheOnKeyDown } = useListenSuche('firmen', filter.q, q => setzeFilter({ q }))
   const segment = filter.segment
   const filterLead = filter.lead
   const filterKunde = filter.kunde
@@ -502,7 +502,7 @@ export default function FirmenClient({
       </div>
 
               <input type="search" placeholder="Name, Accountnummer, E-Mail, Ort…"
-          ref={sucheFeld.ref} value={sucheFeld.suche} onChange={sucheFeld.onChange} onKeyDown={sucheFeld.onKeyDown} autoComplete="off"
+          ref={sucheRef} value={suche} onChange={sucheOnChange} onKeyDown={sucheOnKeyDown} autoComplete="off"
           className="border border-s112-border rounded-lg px-3 py-1.5 text-sm w-64 focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         <div className="flex gap-1">
           <button onClick={() => setzeFilter({ segment: 'alle' })}

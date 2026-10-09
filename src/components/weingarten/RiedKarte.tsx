@@ -6,7 +6,7 @@
 // oder viele Pins (Rieden-Übersicht/Dashboard). Leaflet wird erst im Browser
 // geladen (kein SSR) – deshalb dynamischer Import in useEffect.
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import type { Map as LeafletMap, LayerGroup } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
@@ -38,7 +38,9 @@ export default function RiedKarte({
   const mapRef = useRef<LeafletMap | null>(null)
   const layerRef = useRef<LayerGroup | null>(null)
   const onPickRef = useRef(onPick)
-  onPickRef.current = onPick
+  // Zeichnen mit den Daten des LETZTEN Renders: Beide Effekte warten erst auf import('leaflet') – ohne Ref
+  // zeichnete der Aufbau mit dem ersten Stand, wenn sich Pins/Umriss währenddessen geändert hatten.
+  const zeichnenRef = useRef<(L: typeof import('leaflet')) => void>(() => {})
 
   // Karte einmalig aufbauen
   useEffect(() => {
@@ -56,7 +58,7 @@ export default function RiedKarte({
       map.on('click', e => { if (onPickRef.current) onPickRef.current(e.latlng.lat, e.latlng.lng) })
       mapRef.current = map
       layerRef.current = L.layerGroup().addTo(map)
-      zeichnen(L)
+      zeichnenRef.current(L)
     })()
     return () => { cancelled = true; mapRef.current?.remove(); mapRef.current = null; layerRef.current = null }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -67,9 +69,8 @@ export default function RiedKarte({
     ;(async () => {
       if (!mapRef.current) return
       const L = (await import('leaflet')).default
-      zeichnen(L)
+      zeichnenRef.current(L)
     })()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pins, geometrie, weitere, editable])
 
   function zeichnen(L: typeof import('leaflet')) {
@@ -108,6 +109,8 @@ export default function RiedKarte({
       else map.fitBounds(bounds.pad(0.2), { maxZoom: zoom ?? 17 })
     }
   }
+  // nach jedem Commit (vor den Effekten oben) – nicht beim Rendern schreiben
+  useLayoutEffect(() => { onPickRef.current = onPick; zeichnenRef.current = zeichnen })
 
   return (
     <div className="relative">

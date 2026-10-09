@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 // Suchfeld der serverseitig gefilterten Listen (Kontakte, Firmen), 20.9.2026.
 //
@@ -28,7 +28,8 @@ export function useListenSuche(schluessel: string, urlWert: string, anwenden: (q
   const ref = useRef<HTMLInputElement>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const anwendenRef = useRef(anwenden)
-  anwendenRef.current = anwenden
+  // aktuellen Callback nach jedem Commit merken (nicht beim Rendern schreiben) – gelesen nur im Timer bzw. bei Enter
+  useLayoutEffect(() => { anwendenRef.current = anwenden })
 
   // Nach einem Neuaufbau während des Tippens: Fokus und Cursor zurückholen
   useEffect(() => {

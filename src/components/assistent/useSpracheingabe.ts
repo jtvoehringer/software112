@@ -14,7 +14,7 @@
 // bei Dialekt und Nebengeräuschen) ersetzt nur diesen Hook - Widget und Bot
 // bleiben identisch.
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 // Die Web Speech API ist (noch) nicht in lib.dom.d.ts enthalten - Minimal-Typen
 // für das, was hier gebraucht wird.
@@ -77,7 +77,8 @@ export function useSpracheingabe(onFertig: (text: string) => void): Spracheingab
   const [fehler, setFehler]             = useState<string | null>(null)
   const recRef     = useRef<SpeechRecognitionLike | null>(null)
   const onFertigRef = useRef(onFertig)
-  onFertigRef.current = onFertig
+  // aktuellen Callback nach jedem Commit merken (nicht beim Rendern schreiben) – gelesen nur im Erkennungs-Ereignis
+  useLayoutEffect(() => { onFertigRef.current = onFertig })
 
   // Erst im Effect prüfen (nicht beim Rendern), damit Server- und Client-HTML
   // übereinstimmen und kein Hydration-Mismatch entsteht.
