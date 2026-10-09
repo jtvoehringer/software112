@@ -32,7 +32,8 @@ async function kontext(id: string): Promise<NextResponse | { m: Membership; supa
   if (!UUID_RE.test(id)) return fehler(400, 'Ungültige Füllung')
   const supabase = await createSupabaseServerClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: f } = await (supabase.from('fuellungen') as any).select('id').eq('id', id).eq('tenant_id', m.tenantId).maybeSingle()
+  const { data: f, error: fErr } = await (supabase.from('fuellungen') as any).select('id').eq('id', id).eq('tenant_id', m.tenantId).maybeSingle()
+  if (fErr) return fehler(500, `Füllung konnte nicht geladen werden: ${fErr.message}`)
   if (!f) return fehler(404, 'Füllung nicht gefunden')
   return { m, supabase }
 }

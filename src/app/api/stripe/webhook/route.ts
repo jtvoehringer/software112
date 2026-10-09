@@ -99,8 +99,10 @@ async function protokolliereZahlung(
   customerId: string,
   inv: Stripe.Invoice,
 ) {
-  const { data: tenantRow } = await (admin.from('tenants') as any)
+  const { data: tenantRow, error: tenantErr } = await (admin.from('tenants') as any)
     .select('id, stripe_plan').eq('stripe_customer_id', customerId).maybeSingle()
+  // KAN-252: Lesefehler hieß „kein Mandant“ – die Zahlung blieb unprotokolliert, Stripe bekam 200. Werfen → 500 → erneut
+  if (tenantErr) throw new Error(`Mandant zum Stripe-Kunden nicht ladbar: ${(tenantErr as R).message}`)
   const tenantId = (tenantRow as R | null)?.id as string | undefined
   if (!tenantId) {
     console.error('[Stripe Webhook] Kein Mandant zu Stripe-Customer gefunden, Zahlung nicht protokolliert:', customerId)

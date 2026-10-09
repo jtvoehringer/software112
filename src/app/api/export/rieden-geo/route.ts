@@ -33,6 +33,7 @@ export async function GET(req: NextRequest) {
   if (id) q = q.eq('id', id)
   const { data, error } = await alle<R>(q)
   if (error) return NextResponse.json({ fehler: 'Export fehlgeschlagen' }, { status: 500 })
+  // einzelabfrage-ohne-fehler: nur der Anzeigename im Dateikopf, sonst „software:112“
   const { data: t } = await (supabase.from('tenant_einstellungen') as any).select('anzeigename').eq('tenant_id', tenantId).maybeSingle()
   const betrieb = (t as R | null)?.anzeigename ?? 'software:112'
 

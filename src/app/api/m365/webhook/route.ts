@@ -26,8 +26,11 @@ export async function POST(req: NextRequest) {
       if (!cs) { console.warn('M365 Webhook: ungültiger clientState verworfen'); continue }
       const tenantId = cs.tenantId
 
-      const { data: cfg } = await (admin.from('tenant_einstellungen') as any)
+      const { data: cfg, error: cfgErr } = await (admin.from('tenant_einstellungen') as any)
         .select('*').eq('tenant_id', tenantId).maybeSingle()
+      // KAN-252: Graph bekommt bewusst immer 200 (sonst schaltet es das Abo ab) – darum den Fehler protokollieren,
+      // statt die eingehende Mail still zu übergehen
+      if (cfgErr) { void ereignisMelden({ art: 'db', quelle: 'm365/webhook/tenant_einstellungen', meldung: cfgErr.message, tenantId }); continue }
       if (!cfg) continue
       if (!notification.subscriptionId || notification.subscriptionId !== (cfg as R).m365_webhook_sub_id) {
         console.warn('M365 Webhook: unbekannte subscriptionId verworfen'); continue
@@ -35,10 +38,12 @@ export async function POST(req: NextRequest) {
 
       // Kontakte + Firmen laden für Matching
       // Standard- und weitere Adressen (Migration 211)
-      const [{ data: kRaw }, { data: fRaw }] = await Promise.all([
+      const [{ data: kRaw, error: kErr }, { data: fRaw, error: fErr }] = await Promise.all([
         alle((admin.from('kontakte') as any).select('id, email, email_weitere').eq('aktiv', true).eq('tenant_id', tenantId).order('id')),
         alle((admin.from('firmen') as any).select('id, email, email_weitere').eq('aktiv', true).eq('tenant_id', tenantId).order('id')),
       ])
+      // ohne vollständige Kontakte/Firmen fände die Zuordnung keinen Absender – die Mail ginge still verloren
+      if (kErr || fErr) { void ereignisMelden({ art: 'db', quelle: 'm365/webhook/kontakte', meldung: (kErr ?? fErr)!.message, tenantId }); continue }
       const emailMap: Record<string, { kontakt_id?: string; firma_id?: string }> = {}
       ;(fRaw ?? []).forEach((f: R) => { for (const e of [f.email, ...(f.email_weitere ?? [])]) if (e) emailMap[String(e).toLowerCase()] = { firma_id: f.id } })
       ;(kRaw ?? []).forEach((k: R) => { for (const e of [k.email, ...(k.email_weitere ?? [])]) if (e) emailMap[String(e).toLowerCase()] = { kontakt_id: k.id } })

@@ -46,20 +46,29 @@ export async function POST(req: NextRequest) {
   }
 
   // Mandant + SumUp-Konfiguration laden
-  const { data: einst } = await (supabaseAdmin.from('tenant_einstellungen') as any)
+  const { data: einst, error: einstErr } = await (supabaseAdmin.from('tenant_einstellungen') as any)
     .select('modul_sumup, sumup_api_key')
     .eq('tenant_id', tenantId)
     .maybeSingle()
+  // KAN-252: Lesefehler → 500, damit SumUp erneut zustellt (403/404 hieße „nie wieder“)
+  if (einstErr) {
+    console.error('[SumUp Webhook] Einstellungen nicht ladbar:', einstErr.message)
+    return NextResponse.json({ error: 'Vorübergehender Fehler' }, { status: 500 })
+  }
 
   if (!einst?.modul_sumup || !einst.sumup_api_key) {
     return NextResponse.json({ error: 'SumUp nicht aktiviert' }, { status: 403 })
   }
 
-  const { data: checkout } = await (supabaseAdmin.from('sumup_checkouts') as any)
+  const { data: checkout, error: checkoutErr } = await (supabaseAdmin.from('sumup_checkouts') as any)
     .select('id, sumup_checkout_id')
     .eq('id', checkoutId)
     .eq('tenant_id', tenantId)
     .maybeSingle()
+  if (checkoutErr) {
+    console.error('[SumUp Webhook] Checkout nicht ladbar:', checkoutErr.message)
+    return NextResponse.json({ error: 'Vorübergehender Fehler' }, { status: 500 })
+  }
 
   if (!checkout?.sumup_checkout_id) {
     return NextResponse.json({ error: 'Checkout nicht gefunden' }, { status: 404 })

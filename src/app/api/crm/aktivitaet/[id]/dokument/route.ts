@@ -28,8 +28,9 @@ export async function POST(
   }
 
   // Prüfen ob Aktivität zu diesem Tenant gehört
-  const { data: akt } = await (supabase.from('aktivitaeten') as any)
+  const { data: akt, error: aktErr } = await (supabase.from('aktivitaeten') as any)
     .select('id').eq('id', aktivitaetId).eq('tenant_id', tenantId).single()
+  if (aktErr && aktErr.code !== 'PGRST116') return NextResponse.json({ error: `Aktivität konnte nicht geladen werden: ${aktErr.message}` }, { status: 500 })
   if (!akt) return NextResponse.json({ error: 'Aktivität nicht gefunden' }, { status: 404 })
 
   const formData = await req.formData()

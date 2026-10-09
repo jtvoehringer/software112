@@ -274,8 +274,10 @@ export async function POST(req: NextRequest) {
       const key = name.trim().toLowerCase()
       const cached = lageCache.get(key)
       if (cached) return cached
-      const { data: bestehend } = await (supabase.from('lagen') as any)
+      const { data: bestehend, error: bestehendErr } = await (supabase.from('lagen') as any)
         .select('id').eq('tenant_id', tenantId).ilike('name', name.trim()).maybeSingle()
+      // KAN-252: sonst legte ein Lesefehler die Ried ein zweites Mal an
+      if (bestehendErr) throw new Error(`Ried "${name}" konnte nicht geladen werden: ${bestehendErr.message}`)
       if ((bestehend as R | null)?.id) {
         lageCache.set(key, (bestehend as R).id)
         return (bestehend as R).id
@@ -292,8 +294,10 @@ export async function POST(req: NextRequest) {
       const key = name.trim().toLowerCase()
       const cached = weingartenCache.get(key)
       if (cached) return cached
-      const { data } = await (supabase.from('weingarten') as any)
+      const { data, error } = await (supabase.from('weingarten') as any)
         .select('id').eq('tenant_id', tenantId).ilike('name', name.trim()).maybeSingle()
+      // KAN-252: sonst bliebe die Zeile still ohne Weingarten
+      if (error) throw new Error(`Weingarten "${name}" konnte nicht geladen werden: ${error.message}`)
       const id = (data as R | null)?.id ?? null
       if (id) weingartenCache.set(key, id)
       return id

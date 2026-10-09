@@ -28,8 +28,9 @@ export async function GET(req: NextRequest) {
   // KAN-5: Betriebs-Postfach verbinden speichert Tokens in tenant_einstellungen – nicht im Nur-Lesen-Modus
   if (await schreibSperre(membership)) return NextResponse.json(sperrAntwortKoerper(), { status: 403 })
 
-  const { data: cfg } = await (admin.from('tenant_einstellungen') as any)
+  const { data: cfg, error: cfgErr } = await (admin.from('tenant_einstellungen') as any)
     .select('m365_tenant_id, m365_client_id').eq('tenant_id', tenantId).maybeSingle()
+  if (cfgErr) return NextResponse.json({ fehler: `M365-Einstellungen konnten nicht geladen werden: ${cfgErr.message}` }, { status: 500 })
   const c = cfg as R | null
   if (!c?.m365_tenant_id || !c?.m365_client_id)
     return NextResponse.redirect(new URL('/admin/mandanten', req.url))

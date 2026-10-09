@@ -22,8 +22,9 @@ export async function GET(req: NextRequest) {
   if (!tenantId) return NextResponse.redirect(new URL('/dashboard', req.url))
 
   // Azure-App-Credentials aus tenant_einstellungen (geteilt von allen Usern des Mandanten)
-  const { data: cfg } = await (admin.from('tenant_einstellungen') as any)
+  const { data: cfg, error: cfgErr } = await (admin.from('tenant_einstellungen') as any)
     .select('m365_tenant_id, m365_client_id, m365_kalender_schreiben').eq('tenant_id', tenantId).maybeSingle()
+  if (cfgErr) return NextResponse.redirect(new URL('/nachrichten?fehler=db_fehler', req.url))
   const c = cfg as R | null
   if (!c?.m365_tenant_id || !c?.m365_client_id)
     return NextResponse.redirect(new URL('/nachrichten?fehler=m365_not_configured', req.url))

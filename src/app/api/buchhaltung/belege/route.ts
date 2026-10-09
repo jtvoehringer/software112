@@ -82,8 +82,9 @@ export async function POST(req: NextRequest) {
   if (gesperrt) return gesperrt
   if (!canWrite(membership, 'ea')) return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 })
 
-  const { data: einst } = await (supabase.from('tenant_einstellungen') as any)
+  const { data: einst, error: einstErr } = await (supabase.from('tenant_einstellungen') as any)
     .select('modul_ea').eq('tenant_id', tenantId).maybeSingle()
+  if (einstErr) return NextResponse.json({ error: `Betriebseinstellungen konnten nicht geladen werden: ${einstErr.message}` }, { status: 500 })
   if (!(einst as R | null)?.modul_ea) return NextResponse.json({ error: 'E&A-Modul für diesen Betrieb nicht aktiv' }, { status: 403 })
 
   const formData = await req.formData()

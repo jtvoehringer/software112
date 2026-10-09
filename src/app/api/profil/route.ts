@@ -11,7 +11,8 @@ export async function GET() {
   const { data: { user } } = await s.auth.getUser()
   if (!user) return NextResponse.json({ fehler: 'Nicht angemeldet' }, { status: 401 })
   // id = auth.users.id (PK ist direkt die Auth-User-ID)
-  const { data } = await (s.from('profiles') as any).select('*').eq('id', user.id).maybeSingle()
+  const { data, error } = await (s.from('profiles') as any).select('*').eq('id', user.id).maybeSingle()
+  if (error) return NextResponse.json({ fehler: `Profil konnte nicht geladen werden: ${error.message}` }, { status: 500 })
   return NextResponse.json({ profil: data ?? null })
 }
 
@@ -31,8 +32,10 @@ export async function POST(req: NextRequest) {
   // selbst falls ein Client es trotzdem mitschickt.
 
   // Prüfen ob Profil bereits existiert
-  const { data: existing } = await (s.from('profiles') as any)
+  const { data: existing, error: existingErr } = await (s.from('profiles') as any)
     .select('id').eq('id', user.id).maybeSingle()
+  // KAN-252: sonst „kein Profil“ → Anlegen statt Ändern
+  if (existingErr) return NextResponse.json({ fehler: `Profil konnte nicht geladen werden: ${existingErr.message}` }, { status: 500 })
 
   // benachrichtigung_email (Migration 224): E-Mail bei Aufgabenzuweisung/@Erwähnung – nur übernehmen, wenn mitgeschickt
   const werte: R = { telefon: body.telefon || null, updated_at: now }

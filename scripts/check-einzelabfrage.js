@@ -11,6 +11,9 @@
  *   // einzelabfrage-ohne-fehler: <Grund, mind. 15 Zeichen>
  * in derselben Zeile oder in einer der vier Zeilen davor.
  *
+ * KAN-252 (09.10.2026): dasselbe für alle Route-Handler (route.ts) – Webhooks antworteten bei einem Lesefehler mit
+ * 2xx/4xx, der Anbieter (Stripe, SumUp, M365) stellte das Ereignis dann nicht erneut zu. Dort bei einem Fehler 500.
+ *
  * Aufruf: node scripts/check-einzelabfrage.js   (Exit 1 bei Funden)
  * Für Tests: require('./check-einzelabfrage.js') → { pruefeText, pruefeWurzel } ohne Seiteneffekte;
  * S112_GUARD_ROOT prüft ein anderes Projektverzeichnis (scripts/tests/check-einzelabfrage.test.mjs).
@@ -54,11 +57,11 @@ function klammerInhalt(s, i) {
   return [s.slice(i + 1), s.length]
 }
 
-/** → { funde: [{ zeile, text }], ausnahmen, geprueft } */
-function pruefeText(text) {
+/** → { funde: [{ zeile, text }], ausnahmen, geprueft }; route = Route-Handler (route.ts, KAN-252) */
+function pruefeText(text, { route = false } = {}) {
   const funde = []
   let ausnahmen = 0, geprueft = 0
-  if (!istActionDatei(text)) return { funde, ausnahmen, geprueft }
+  if (!route && !istActionDatei(text)) return { funde, ausnahmen, geprueft }
   const roh = text.split('\n')
   const code = ohneKommentare(text)
   const re = /\b(?:const|let)\s+\{/g
@@ -100,9 +103,10 @@ function pruefeWurzel(root) {
   let anzahl = 0, ausnahmen = 0, geprueft = 0
   for (const f of dateien(path.join(root, 'src'))) {
     const t = fs.readFileSync(f, 'utf8')
-    if (!istActionDatei(t)) continue
+    const route = path.basename(f) === 'route.ts'
+    if (!route && !istActionDatei(t)) continue
     anzahl++
-    const e = pruefeText(t)
+    const e = pruefeText(t, { route })
     ausnahmen += e.ausnahmen
     geprueft += e.geprueft
     const r = path.relative(root, f).split(path.sep).join('/')
@@ -123,5 +127,5 @@ if (require.main === module) {
     console.error('  // einzelabfrage-ohne-fehler: <Grund ≥ 15 Zeichen>   (dieselbe Zeile oder bis zu vier Zeilen davor)\n')
     process.exit(1)
   }
-  console.log(`✓ check-einzelabfrage: ${e.dateien} Server-Action-Dateien, ${e.geprueft} Einzelabfragen mit Fehlerprüfung, ${e.ausnahmen} begründete Ausnahme(n).`)
+  console.log(`✓ check-einzelabfrage: ${e.dateien} Server-Action- und Route-Dateien, ${e.geprueft} Einzelabfragen mit Fehlerprüfung, ${e.ausnahmen} begründete Ausnahme(n).`)
 }

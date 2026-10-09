@@ -23,9 +23,10 @@ export async function POST(req: NextRequest) {
     const gesperrt = await schreibSperreKonflikt(membership)   // KAN-5: Nur-Lesen-Modus bei gesperrtem Abo
     if (gesperrt) return gesperrt
 
-    const { data: cfg } = await (admin.from('tenant_einstellungen') as any)
+    const { data: cfg, error: cfgErr } = await (admin.from('tenant_einstellungen') as any)
       .select('m365_modul_aktiv, m365_tenant_id, m365_client_id, m365_client_secret_enc, m365_access_token_enc, m365_refresh_token_enc, m365_token_expires_at, m365_user_email, tenant_id')
       .eq('tenant_id', tenantId).maybeSingle()
+    if (cfgErr) return NextResponse.json({ fehler: `M365-Einstellungen konnten nicht geladen werden: ${cfgErr.message}` }, { status: 500 })
     const c = cfg as R | null
     if (!c?.m365_modul_aktiv) return NextResponse.json({ fehler: 'M365-Modul nicht aktiv' }, { status: 400 })
 

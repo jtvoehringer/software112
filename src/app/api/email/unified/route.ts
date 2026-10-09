@@ -37,21 +37,24 @@ export async function POST(req: NextRequest) {
     if (!authUser) return NextResponse.json({ fehler: 'Nicht angemeldet' }, { status: 401 })
     // KAN-135: Zugangsdaten (Token/Passwörter) nur per Service-Role lesen – immer auf die
     // eigene Zeile (tenant_id aus der Mitgliedschaft, user_id aus getUser()) eingeschränkt
-    const { data: userCfg } = await (admin.from('user_email_connections') as any)
+    const { data: userCfg, error: userCfgErr } = await (admin.from('user_email_connections') as any)
       .select('m365_aktiv, m365_access_token_enc, m365_refresh_token_enc, m365_token_expires_at, imap_aktiv, imap_host, imap_port, imap_user, imap_pass_enc, monitored_email').eq('tenant_id', tenantId).eq('user_id', authUser?.id ?? '').maybeSingle()
+    if (userCfgErr) return NextResponse.json({ fehler: `Postfach-Verbindung konnte nicht geladen werden: ${userCfgErr.message}` }, { status: 500 })
     const uc = userCfg as R | null
 
     // Tenant-Einstellungen als Fallback (für admin-gesendete M365)
-    const { data: tenantCfg } = await (admin.from('tenant_einstellungen') as any)
+    const { data: tenantCfg, error: tenantCfgErr } = await (admin.from('tenant_einstellungen') as any)
       .select('m365_modul_aktiv, m365_access_token_enc, m365_refresh_token_enc, m365_token_expires_at, m365_tenant_id, m365_client_id, m365_client_secret_enc, tenant_id, email_modul_aktiv, email_smtp_host, email_smtp_port, email_smtp_user, email_smtp_pass_enc, email_smtp_from_name')
       .eq('tenant_id', tenantId).maybeSingle()
+    if (tenantCfgErr) return NextResponse.json({ fehler: `E-Mail-Einstellungen konnten nicht geladen werden: ${tenantCfgErr.message}` }, { status: 500 })
     const c = tenantCfg as R | null
 
     // ── Per-User M365 hat höchste Priorität ─────────────────────────────────
     if (uc?.m365_aktiv && uc?.m365_access_token_enc) {
       const { getValidUserAccessToken, getMailboxBase } = await import('@/lib/m365/graph')
-      const { data: tcfg } = await (admin.from('tenant_einstellungen') as any)
+      const { data: tcfg, error: tcfgErr } = await (admin.from('tenant_einstellungen') as any)
         .select('m365_tenant_id, m365_client_id, m365_client_secret_enc').eq('tenant_id', tenantId).maybeSingle()
+      if (tcfgErr) return NextResponse.json({ fehler: `M365-Einstellungen konnten nicht geladen werden: ${tcfgErr.message}` }, { status: 500 })
       const token = await getValidUserAccessToken(uc, tcfg as R, admin, tenantId, authUser?.id ?? '')
       // Mehrere Empfänger: Komma-getrennt parsen
       const empfaenger = an.split(',').map((e: string) => e.trim()).filter(Boolean)

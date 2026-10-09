@@ -19,6 +19,7 @@ export async function GET() {
   if (!note) return NextResponse.json({ note: null })
 
   // Schon gesehen?
+  // einzelabfrage-ohne-fehler: im Zweifel wird der Hinweis noch einmal gezeigt – harmlos
   const { data: gesehen } = await (s.from('release_notes_gesehen') as any)
     .select('id').eq('user_id', user.id).eq('release_note_id', note.id).maybeSingle()
   if (gesehen) return NextResponse.json({ note: null }) // bereits gesehen
