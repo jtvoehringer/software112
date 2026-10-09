@@ -16,7 +16,7 @@ import { wendePaketAn } from '@/lib/pakete-server'
 import { revalidatePath } from 'next/cache'
 import { tenantKopfInvalidieren } from '@/lib/tenant/kopf'
 import { stripeKundennummerSync } from '@/lib/stripe/kundennummer'
-import { AktionsFehler } from '@/lib/fehler'
+import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { paketEntscheidung, paketwechselParameter, testphaseTage } from '@/lib/abo/regeln'
 import { schreibSperreFehler } from '@/lib/auth/sperren'
 import { aboPositionAus, paketPosition, paketwechselVerbundFehler } from '@/lib/abo/verbund'
@@ -35,10 +35,11 @@ export async function createOwnStripePortalSession() {
   }
 
   const supabase = await createSupabaseServerClient()
-  const { data: tenantRow } = await (supabase.from('tenants') as any)
+  const { data: tenantRow, error: tenantErr } = await (supabase.from('tenants') as any)
     .select('stripe_customer_id, abrechnung_ueber')
     .eq('id', membership.tenantId)
     .maybeSingle()
+  if (tenantErr) return { error: dbFehlerText(tenantErr, 'Betrieb konnte nicht geladen werden') }
 
   // KAN-215: Nebenmandanten teilen sich den Stripe-Kunden des Hauptmandanten – dessen Zahlungsdaten und Rechnungen
   // verwaltet nur der Hauptmandant
@@ -85,10 +86,12 @@ export async function starteZahlungAction(paketWunsch?: string, buchhaltungsart?
 
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const { data: tenantRow } = await (supabase.from('tenants') as R)
+  const { data: tenantRow, error: tenantErr } = await (supabase.from('tenants') as R)
     .select('name, stripe_customer_id, stripe_subscription_id, stripe_status, abrechnung_ueber')
     .eq('id', membership.tenantId)
     .maybeSingle()
+  // KAN-251: sonst „kein Kunde, kein Abo, kein Verbund“ – ein zweiter Stripe-Kunde bzw. ein Abo am Verbund vorbei
+  if (tenantErr) return { error: dbFehlerText(tenantErr, 'Betrieb konnte nicht geladen werden') }
 
   const t = tenantRow as R | null
   if (!t) return { error: 'Betrieb nicht gefunden.' }
@@ -183,10 +186,12 @@ export async function wechslePaketAction(paketWunsch: string, buchhaltungsart?: 
   if (!priceId) return { error: `Für das Paket ${PAKETE[paket].label} ist noch kein Stripe-Preis hinterlegt – bitte kontaktieren Sie uns.` }
 
   const admin = createSupabaseAdminClient()
-  const { data: tenantRow } = await (admin.from('tenants') as R)
+  const { data: tenantRow, error: tenantErr } = await (admin.from('tenants') as R)
     .select('stripe_subscription_id, stripe_plan, abrechnung_ueber')
     .eq('id', membership.tenantId)
     .maybeSingle()
+  // KAN-251: sonst wäre ein Nebenmandant (Abrechnungsverbund) nicht erkannt worden
+  if (tenantErr) return { error: dbFehlerText(tenantErr, 'Betrieb konnte nicht geladen werden') }
   const t = tenantRow as R | null
   // KAN-215: Nebenmandanten wechseln nicht selbst, Hauptmandanten mit Verbund nur innerhalb Premium
   if (t?.abrechnung_ueber) return { error: 'Ihr Betrieb wird über einen anderen Betrieb abgerechnet (Abrechnungsverbund) – das Paket ist dort festgelegt.' }
@@ -310,8 +315,9 @@ async function premiumKontext() {
   const gesperrt = await schreibSperreFehler(membership)
   if (gesperrt) return { error: gesperrt } as const
   const admin = createSupabaseAdminClient()
-  const { data } = await (admin.from('tenants') as R)
+  const { data, error } = await (admin.from('tenants') as R)
     .select('stripe_subscription_id, abrechnung_ueber, premium_support_seit, premium_support_bis').eq('id', membership.tenantId).maybeSingle()
+  if (error) return { error: dbFehlerText(error, 'Betrieb konnte nicht geladen werden') } as const
   const t = (data ?? {}) as R
   const stand = premiumSupportStand({ seit: t.premium_support_seit ?? null, bis: t.premium_support_bis ?? null })
   return { membership, admin, t, stand } as const

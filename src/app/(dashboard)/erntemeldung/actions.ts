@@ -127,6 +127,7 @@ export async function createJahrgang(formData: FormData): Promise<{ error?: stri
       const meldung = `Jahrgang ${jahrgang} existiert bereits für diesen Betrieb.`
       // KAN-129: bestehenden Jahrgang nachladen, damit das Formular direkt dorthin führt
       // (die Lese wird am Jahrgang erfasst); schlägt das fehl, bleibt es bei der Meldung
+      // einzelabfrage-ohne-fehler: nur Komfort-Link zum bestehenden Jahrgang, die Meldung kommt in jedem Fall
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: vorhanden } = await (supabase.from('weinjahrgaenge') as any)
         .select('id').eq('tenant_id', tenantId).eq('jahrgang', jahrgang).maybeSingle()
@@ -367,8 +368,10 @@ export async function upsertErnteParzelle(jahrgangId: string, formData: FormData
   let notizenZusatz = ''
   if (grundstueckId) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: gst } = await (supabase.from('grundstuecke') as any)
+    const { data: gst, error: gstErr } = await (supabase.from('grundstuecke') as any)
       .select('trauben_herkunft_code, rebsorte').eq('id', grundstueckId).eq('tenant_id', tenantId).maybeSingle()
+    // KAN-251: ohne Grundstück wäre der Herkunft-Code still aus „keiner Herkunft“ bestimmt worden
+    if (gstErr) throw new AktionsFehler(dbFehlerText(gstErr, 'Grundstück konnte nicht geladen werden'))
     const gstHerkunft = (gst as AR | null)?.trauben_herkunft_code as string | null ?? null
     const gstRebsorte = (gst as AR | null)?.rebsorte as string | null ?? null
     const passend = findePassendeHerkunftsstufe(gstHerkunft, gstRebsorte)
@@ -850,8 +853,10 @@ export async function createOrUpdateAMAMeldung(jahrgangId: string) {
   // Herkunft-Code der Grundstücke (Bundesland-Gebiet, lib/behoerden/erntemeldung.ts gebietDerLese); der Kopf nennt
   // alle Gebiete der Meldung (je Bundesland das genaue Gebiet, wenn eindeutig) – vorher still das erste
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: einst } = await (supabase.from('tenant_einstellungen') as any)
+  const { data: einst, error: einstErr } = await (supabase.from('tenant_einstellungen') as any)
     .select('betrieb_betriebsnummer').eq('tenant_id', tenantId).maybeSingle()
+  // KAN-251: sonst stünde die Meldung still ohne Betriebsnummer da
+  if (einstErr) throw new AktionsFehler(dbFehlerText(einstErr, 'Betriebsnummer konnte nicht geladen werden'))
   const tenant = {
     betriebsnummer: (einst as AR | null)?.betrieb_betriebsnummer ?? null,
     weinbaugebiet:  kopfGebiete(lese).join(', ') || null,

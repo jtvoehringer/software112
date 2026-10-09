@@ -213,11 +213,13 @@ async function ggfKostenEintragAktualisieren(
   behandlungId: string,
 ) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: bestehend } = await (supabase.from('kosteneintraege') as any)
+  const { data: bestehend, error: bestehendErr } = await (supabase.from('kosteneintraege') as any)
     .select('id')
     .eq('behandlung_id', behandlungId)
     .eq('tenant_id', tenantId)
     .maybeSingle()
+  // KAN-251: sonst legte ein Lesefehler einen zweiten Kosteneintrag zur Maßnahme an
+  if (bestehendErr) throw new AktionsFehler(dbFehlerText(bestehendErr, 'Kosteneintrag konnte nicht geladen werden'))
   const bestehendId = (bestehend as AR | null)?.id as string | undefined
 
   const kostenAktiv = formData.get('kosten_aktiv') === 'on'
@@ -429,8 +431,10 @@ async function anwendungSpalten(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function ladePsmFrist(supabase: any, tenantId: string): Promise<number> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (supabase.from('tenant_einstellungen') as any)
+  const { data, error } = await (supabase.from('tenant_einstellungen') as any)
     .select('psm_erfassungsfrist_h').eq('tenant_id', tenantId).maybeSingle()
+  // KAN-251: sonst galt still die Standardfrist statt der des Betriebs
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Erfassungsfrist konnte nicht geladen werden'))
   return fristAus((data as AR | null)?.psm_erfassungsfrist_h)
 }
 

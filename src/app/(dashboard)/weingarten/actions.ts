@@ -106,9 +106,11 @@ export async function updateWeingarten(id: string, formData: FormData) {
   // diesen einen Datensatz). Nur bei Datensätzen ganz ohne Lage-Verknüpfung
   // wird "ried" direkt auf dieser Zeile mitgesetzt.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: existing } = await (supabase.from('weingarten') as any)
+  const { data: existing, error: existingErr } = await (supabase.from('weingarten') as any)
     .select('lage_id')
     .eq('id', id).eq('tenant_id', tenantId).maybeSingle()
+  // KAN-251: sonst würde nur diese Zeile umbenannt, Lage und übrige Datensätze der Ried nicht
+  if (existingErr) throw new AktionsFehler(dbFehlerText(existingErr, 'Ried konnte nicht geladen werden'))
 
   if (existing?.lage_id) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -382,6 +384,7 @@ export async function deleteGrundstueck(id: string, weingartenId: string): Promi
     // KAN-150 F1: mit Bezug nur deaktivieren
     const bezug = await ladeBezuege(supabase, tenantId, 'grundstuecke', id)
     if (hatBezug(bezug)) {
+      // einzelabfrage-ohne-fehler: nur die GST-Nr. für die Meldung – abgelehnt wird so oder so (Bezug vorhanden)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data } = await (supabase.from('grundstuecke') as any).select('gst_nr').eq('id', id).eq('tenant_id', tenantId).maybeSingle()
       return { error: bezugsMeldung(`Grundstück ${(data as AnyRecord | null)?.gst_nr ?? ''}`.trim(), bezug, 'das Grundstück'), deaktivierbar: true }
@@ -482,13 +485,17 @@ export async function fetchBevFlaeche(kgnr: string, gstNr: string): Promise<BevR
 // Der Pin wird deshalb auf ALLE Zeilen derselben Ried geschrieben – analog zum
 // Umbenennen in updateWeingarten().
 async function riedGeschwister(supabase: any, tenantId: string, weingartenId: string): Promise<string[]> { // eslint-disable-line @typescript-eslint/no-explicit-any
-  const { data: w } = await (supabase.from('weingarten') as any).select('id, lage_id, ried').eq('id', weingartenId).eq('tenant_id', tenantId).maybeSingle()
+  const { data: w, error: wErr } = await (supabase.from('weingarten') as any).select('id, lage_id, ried').eq('id', weingartenId).eq('tenant_id', tenantId).maybeSingle()
+  // KAN-251: sonst „keine Datensätze“ – loescheRiedGeo meldete dann still Erfolg
+  if (wErr) throw new AktionsFehler(dbFehlerText(wErr, 'Ried konnte nicht geladen werden'))
   if (!w) return []
   let q = (supabase.from('weingarten') as any).select('id').eq('tenant_id', tenantId)
   if (w.lage_id) q = q.eq('lage_id', w.lage_id)
   else if (w.ried) q = q.eq('ried', w.ried).is('lage_id', null)
   else return [w.id]
-  const { data: rows } = await q
+  // alle-ausnahme: Datensätze einer einzigen Ried – fachlich wenige Zeilen
+  const { data: rows, error: rowsErr } = await q
+  if (rowsErr) throw new AktionsFehler(dbFehlerText(rowsErr, 'Datensätze der Ried konnten nicht geladen werden'))
   const ids = ((rows ?? []) as { id: string }[]).map(r => r.id)
   return ids.length ? ids : [w.id]
 }

@@ -164,11 +164,13 @@ export async function newsletterBestaetigen(token: string): Promise<Bestaetigung
 
   const supabase = createSupabaseAdminClient()
   // tenant-isolation-ignore: öffentlicher Bestätigungslink – der Betrieb ergibt sich aus dem zufälligen Token
-  const { data } = await (supabase.from('kontakte') as any)
+  const { data, error: leseErr } = await (supabase.from('kontakte') as any)
     .select('id, tenant_id, email, vorname, nachname, segment, newsletter_opt_in_am, newsletter_bestaetigt')
     .eq('newsletter_token_hash', newsletterTokenHash(token))
     .limit(1)
     .maybeSingle()
+  // KAN-251: ein Datenbankfehler ist kein „ungültiger Link“ – der Link bleibt gültig, später erneut versuchen
+  if (leseErr) return { ok: false, error: 'Bestätigung derzeit nicht möglich. Bitte später erneut versuchen.', betrieb: null }
 
   const kontakt = data as AR | null
   if (!kontakt) return { ok: false, error: 'Dieser Bestätigungslink ist ungültig oder bereits verwendet.', betrieb: null }
@@ -217,8 +219,9 @@ export async function newsletterAbmelden(kontaktId: string, token: string): Prom
   if (!pruefeAbmeldeToken(kontaktId, token)) return { ok: false, betrieb: null }
   const supabase = createSupabaseAdminClient()
   // tenant-isolation-ignore: öffentlicher Abmeldelink – Kontakt per signierter ID, Betrieb aus dem Datensatz
-  const { data } = await (supabase.from('kontakte') as any)
+  const { data, error: leseErr } = await (supabase.from('kontakte') as any)
     .select('id, tenant_id, email').eq('id', kontaktId).maybeSingle()
+  if (leseErr) return { ok: false, betrieb: null }
   const kontakt = data as AR | null
   if (!kontakt) return { ok: false, betrieb: null }
   const tenantId = kontakt.tenant_id as string

@@ -40,11 +40,13 @@ async function getCtx(mitModul = true) {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function getKategorieAbzugsfaehigPct(supabase: any, tenantId: string, kategorieId: string | null): Promise<number> {
   if (!kategorieId) return 100
-  const { data } = await supabase.from('ea_kategorien')
+  const { data, error } = await supabase.from('ea_kategorien')
     .select('abzugsfaehig_pct')
     .eq('id', kategorieId)
     .or(`tenant_id.is.null,tenant_id.eq.${tenantId}`)
     .maybeSingle()
+  // KAN-251: ein Lesefehler fiel sonst still auf 100 % abzugsfähig zurück
+  if (error) throw new AktionsFehler(dbFehlerText(error, 'Abzugsfähiger Anteil der Kategorie konnte nicht geladen werden'))
   const pct = (data as R | null)?.abzugsfaehig_pct
   return pct == null ? 100 : Number(pct)
 }
@@ -201,10 +203,11 @@ export async function berechneUndSpeichereUva(jahr: number, zeitraum: string) {
   const { supabase, tenantId } = await getCtx()
 
   // Bereits übermittelte (gesperrte) Meldungen nie überschreiben
-  const { data: bestehend } = await (supabase.from('ea_uva') as any)
+  const { data: bestehend, error: bestehendErr } = await (supabase.from('ea_uva') as any)
     .select('gesperrt')
     .eq('tenant_id', tenantId).eq('jahr', jahr).eq('zeitraum', zeitraum)
     .maybeSingle()
+  if (bestehendErr) return { error: dbFehlerText(bestehendErr, 'UVA-Meldung konnte nicht geladen werden') }
   if ((bestehend as R | null)?.gesperrt) {
     return { error: 'Diese Meldung ist bereits als übermittelt markiert (gesperrt) und kann nicht neu berechnet werden.' }
   }
@@ -258,8 +261,10 @@ export async function syncEaEinnahmeFuerVerkauf(
   }
 
   // Nur relevant, wenn das E&A-Modul für diesen Mandanten aktiv ist
-  const { data: einst } = await (supabase.from('tenant_einstellungen') as any)
+  const { data: einst, error: einstErr } = await (supabase.from('tenant_einstellungen') as any)
     .select('modul_ea').eq('tenant_id', tenantId).maybeSingle()
+  // KAN-251: ein Lesefehler hieß sonst „E&A-Modul aus“ – die Einnahme wäre still nicht gebucht worden
+  if (einstErr) return { ok: false, error: dbFehlerText(einstErr, 'Betriebseinstellungen konnten nicht geladen werden') }
   if (!(einst as R | null)?.modul_ea) return { ok: true, skipped: true }
 
   // KAN-105 Teil B: bei einer Rechnung über mehrere Lieferscheine alle Lieferscheine und alle Zahlungen der Rechnung;
@@ -309,9 +314,10 @@ export async function markiereUvaAlsUebermittelt(uvaId: string): Promise<{ ok: b
     return { ok: false, error: 'Keine Berechtigung – nur Admins dürfen eine UVA als übermittelt markieren.' }
   }
 
-  const { data: uvaRaw } = await (supabase.from('ea_uva') as any)
+  const { data: uvaRaw, error: uvaErr } = await (supabase.from('ea_uva') as any)
     .select('jahr, zeitraum, gesperrt')
     .eq('id', uvaId).eq('tenant_id', tenantId).maybeSingle()
+  if (uvaErr) return { ok: false, error: dbFehlerText(uvaErr, 'UVA-Meldung konnte nicht geladen werden') }
   const uva = uvaRaw as R | null
   if (!uva) return { ok: false, error: 'UVA-Meldung nicht gefunden' }
   if (uva.gesperrt) return { ok: true }
@@ -364,9 +370,10 @@ export async function schliesseEaMonat(jahr: number, monat: number): Promise<{ o
 export async function verbucheBeleg(belegId: string, formData: FormData) {
   const { supabase, tenantId } = await getCtx()
 
-  const { data: belegRaw } = await (supabase.from('ea_belege') as any)
+  const { data: belegRaw, error: belegErr } = await (supabase.from('ea_belege') as any)
     .select('id, status')
     .eq('id', belegId).eq('tenant_id', tenantId).maybeSingle()
+  if (belegErr) return { error: dbFehlerText(belegErr, 'Beleg konnte nicht geladen werden') }
   const beleg = belegRaw as R | null
   if (!beleg) return { error: 'Beleg nicht gefunden' }
   if (beleg.status === 'verbucht') return { error: 'Dieser Beleg wurde bereits verbucht.' }
@@ -440,9 +447,10 @@ export async function verbucheBeleg(belegId: string, formData: FormData) {
 export async function verwerfeBeleg(belegId: string): Promise<void> {
   const { supabase, tenantId } = await getCtx()
 
-  const { data: belegRaw } = await (supabase.from('ea_belege') as any)
+  const { data: belegRaw, error: belegErr } = await (supabase.from('ea_belege') as any)
     .select('storage_pfad, status')
     .eq('id', belegId).eq('tenant_id', tenantId).maybeSingle()
+  if (belegErr) throw new AktionsFehler(dbFehlerText(belegErr, 'Beleg konnte nicht geladen werden'))
   const beleg = belegRaw as R | null
 
   if (beleg && beleg.status !== 'verbucht') {

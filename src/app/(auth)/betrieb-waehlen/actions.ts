@@ -18,6 +18,7 @@ export async function selectBetriebAction(formData: FormData) {
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return
+  // einzelabfrage-ohne-fehler: ein Fehler heißt hier „kein Zugriff“ – die Auswahl bleibt stehen, nichts wird freigegeben
   const { data } = await (supabase.from('tenant_memberships') as any)
     .select('tenant_id').eq('tenant_id', tenantId).eq('user_id', user.id).eq('aktiv', true).limit(1).maybeSingle()
 

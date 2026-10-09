@@ -542,6 +542,7 @@ export async function pruefnummerNachtragen(fuellungId: string, dacAntragId: str
     p_tenant_id: tenantId, p_fuellung_id: fuellungId, p_weinausbau_id: null, p_dac_antrag_id: dacAntragId,
   })
   if (error) throw new AktionsFehler(dbFehlerText(error, 'Nachtrag fehlgeschlagen'))
+  // einzelabfrage-ohne-fehler: Nachtrag ist schon gespeichert, nur die Anzeige – die Seite lädt sie ohnehin neu
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: neu } = await (supabase.from('fuellungen') as any)
     .select('pruefnummer').eq('id', fuellungId).eq('tenant_id', tenantId).maybeSingle()

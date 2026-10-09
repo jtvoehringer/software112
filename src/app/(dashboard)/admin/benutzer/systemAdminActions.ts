@@ -79,6 +79,7 @@ export async function inviteSystemAdmin(email: string) {
   if (konto.neuesKonto) return { success: true, hinweis: `Einladung an ${email.trim().toLowerCase()} versandt.` }
 
   // Bestehendes Konto: Person über die neue Super-Admin-Rolle informieren
+  // einzelabfrage-ohne-fehler: nur der Name des Einladenden in der Info-Mail, fehlt er, geht die Mail ohne ihn
   const { data: eigenesProfil } = await (admin.from('profiles') as any).select('full_name').eq('id', eigeneId).maybeSingle()
   const versandt = await sendeZuordnungsMail({
     email: konto.bestehendesKonto?.email ?? email.trim().toLowerCase(),

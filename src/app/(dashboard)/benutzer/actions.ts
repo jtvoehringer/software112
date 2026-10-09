@@ -8,6 +8,7 @@ import { seitenBetriebFehler } from '@/lib/auth/seitenBetrieb'
 import { schreibSperreFehler } from '@/lib/auth/sperren'
 import { pruefeBenutzerlimit, benutzerlimitFehler } from '@/lib/pakete-server'
 import { mitgliedEinladen, EINLADUNG_REDIRECT } from '@/lib/auth/einladung'
+import { dbFehlerText } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -140,8 +141,9 @@ export async function resendInvite(userId: string) {
 
   const supabase = await createSupabaseServerClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: target } = await (supabase.from('tenant_memberships') as any)
+  const { data: target, error: targetErr } = await (supabase.from('tenant_memberships') as any)
     .select('id').eq('tenant_id', membership.tenantId).eq('user_id', userId).maybeSingle()
+  if (targetErr) return { error: dbFehlerText(targetErr, 'Mitgliedschaft konnte nicht geladen werden') }
   if (!target) return { error: 'Benutzer ist kein Mitglied dieses Betriebs.' }
 
   const admin = createSupabaseAdminClient()
@@ -245,8 +247,9 @@ export async function toggleMemberAktiv(membershipId: string, aktiv: boolean) {
   // Eigene Mitgliedschaft kann man nicht selbst deaktivieren (Selbstaussperrung
   // verhindern) - analog zu "Sich selbst kann man nicht entfernen" bei removeMember.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: target } = await (supabase.from('tenant_memberships') as any)
+  const { data: target, error: targetErr } = await (supabase.from('tenant_memberships') as any)
     .select('user_id').eq('id', membershipId).eq('tenant_id', membership.tenantId).maybeSingle()
+  if (targetErr) return { error: dbFehlerText(targetErr, 'Mitgliedschaft konnte nicht geladen werden') }
   if (!target) return { error: 'Eintrag nicht gefunden.' }
   if ((target as R).user_id === user.id) {
     return { error: 'Die eigene Mitgliedschaft kann nicht deaktiviert werden.' }

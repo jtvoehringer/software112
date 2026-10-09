@@ -6,7 +6,7 @@ import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { AktionsFehler, NICHT_GESPEICHERT } from '@/lib/fehler'
+import { AktionsFehler, dbFehlerText, NICHT_GESPEICHERT } from '@/lib/fehler'
 import { dezimal } from '@/lib/format'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -76,8 +76,9 @@ export async function upsertKellerplanPosition(
   // Ein Gebinde steht nur einem Standort (Kellerplan) zur Verfügung – falls es
   // bereits auf einem anderen Plan platziert ist, wird es hierher verschoben
   // (onConflict auf behaelter_id allein statt der Kombination mit kellerplan_id).
-  const { data: existing } = await (supabase.from('kellerplan_positionen') as any)
+  const { data: existing, error: existingErr } = await (supabase.from('kellerplan_positionen') as any)
     .select('kellerplan_id').eq('behaelter_id', behaelterId).eq('tenant_id', tenantId).maybeSingle()
+  if (existingErr) throw new AktionsFehler(dbFehlerText(existingErr, 'Position im Kellerplan konnte nicht geladen werden'))
   const alterPlanId = (existing as AR | null)?.kellerplan_id ?? null
 
   const { error } = await (supabase.from('kellerplan_positionen') as any)

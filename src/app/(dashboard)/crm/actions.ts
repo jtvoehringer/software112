@@ -58,6 +58,7 @@ async function crmLoeschen(tabelle: 'kontakte' | 'firmen', id: string, name: (r:
     const tenantId = await crmSchreibTenant()
     const bezug = await ladeBezuege(supabase, tenantId, tabelle, id)
     if (hatBezug(bezug)) {
+      // einzelabfrage-ohne-fehler: nur der Name für die Meldung – abgelehnt wird so oder so (Bezug vorhanden)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data } = await (supabase.from(tabelle) as any).select('*').eq('id', id).eq('tenant_id', tenantId).maybeSingle()
       return { error: bezugsMeldung(name((data ?? {}) as AR), bezug, tabelle === 'kontakte' ? 'der Kontakt' : 'die Firma'), deaktivierbar: true }
@@ -224,7 +225,8 @@ export async function updateKontakt(id: string, formData: FormData): Promise<{ e
     const em = emailFelder(formData)
     if (em.fehler) return { error: em.fehler }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase-Typen ohne Tabellenschema (Konvention)
-    const { data: titelAlt } = await (supabase.from('kontakte') as any).select('titel').eq('id', id).eq('tenant_id', tenantId).maybeSingle()
+    const { data: titelAlt, error: titelErr } = await (supabase.from('kontakte') as any).select('titel').eq('id', id).eq('tenant_id', tenantId).maybeSingle()
+    if (titelErr) return { error: dbFehlerText(titelErr, 'Kontakt konnte nicht geladen werden') }
     const payload: AR = nurGesendeteFelder(formData, {
       ...kontaktPositionQuelle(formData),
       ...kontaktTitel(formData, (titelAlt as AR | null)?.titel ?? null),
@@ -548,8 +550,9 @@ export async function updateAktivitaet(id: string, formData: FormData) {
   if (formData.has('beschreibung')) payload.beschreibung = (formData.get('beschreibung') as string) || null
   // Zuweisung nur übernehmen, wenn das Formular sie mitschickt (Detailseiten-Formulare kennen sie nicht)
   if (formData.has('verantwortlich')) Object.assign(payload, zuweisung(formData))
-  const { data: vorher } = await (supabase.from('aktivitaeten') as any)
+  const { data: vorher, error: vorherErr } = await (supabase.from('aktivitaeten') as any)
     .select('verantwortlich_id, fuer_alle, beschreibung').eq('id', id).eq('tenant_id', tenantId).maybeSingle()
+  if (vorherErr) throw new AktionsFehler(dbFehlerText(vorherErr, 'Aktivität konnte nicht geladen werden'))
   const { data: geaendert, error } = await (supabase.from('aktivitaeten') as any).update(payload).eq('id', id).eq('tenant_id', tenantId).select('id')
   if (error) throw new AktionsFehler((error as AR).message)
   if (!(geaendert as unknown[] | null)?.length) throw new AktionsFehler(NICHT_GESPEICHERT)   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
@@ -792,7 +795,8 @@ export async function createLeadAusEmail(d: LeadAusEmailDaten): Promise<{ kontak
     // Firma: neu (als Lead) oder bestehende
     let firmaId: string | null = null
     if (d.firma.modus === 'bestehend' && d.firma.id) {
-      const { data: f } = await (supabase.from('firmen') as any).select('id').eq('tenant_id', tenantId).eq('id', d.firma.id).maybeSingle()
+      const { data: f, error: fErr } = await (supabase.from('firmen') as any).select('id').eq('tenant_id', tenantId).eq('id', d.firma.id).maybeSingle()
+      if (fErr) return { error: dbFehlerText(fErr, 'Firma konnte nicht geladen werden') }
       if (!f) return { error: 'Gewählte Firma nicht gefunden' }
       firmaId = (f as AR).id
     } else if (d.firma.modus === 'neu' && d.firma.name?.trim()) {
