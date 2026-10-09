@@ -1,6 +1,6 @@
 // ── Amtliche Herkunftskataloge für das BKI-Blatt „Weingärten“ (KAN-47 Schritt 2, 09.10.2026) ──
 //
-// Statisch erfasst aus dem RIS, je Weinbaugebiet ein Block (bisher: Niederösterreich vollständig, Wien, Burgenland; Steiermark fehlt noch). Schlüssel sind die
+// Statisch erfasst aus dem RIS, je Weinbaugebiet ein Block (alle österreichischen Weinbaugebiete mit DAC bzw. Großlagen). Schlüssel sind die
 // Gemeindekennziffer (GKZ, Statistik Austria) bzw. – wo eine Verordnung einzelne Katastralgemeinden nennt – die KG-Nr. (BEV).
 // Reihenfolge: Ried vor KG vor Gemeinde (Beispiel: KG Oeynhausen gehört zur Gemeinde Traiskirchen, aber zur Großlage
 // Steinfeld; die Kremser Großlagen sind über Rieden festgelegt, im Kamptal lenken einzelne Rieden den Ortswein um). Ohne `@/`-Importe (node:test).
@@ -25,6 +25,9 @@
 //      Nr. 431/2020, § 1), „Mittelburgenland“ (BGBl. II Nr. 56/2010 i. d. F. 184/2018, § 1 Z 5), „Rosalia“ (BGBl. II
 //      Nr. 59/2018 i. d. F. 191/2023, § 1), „Eisenberg“ (BGBl. II Nr. 191/2023 i. d. F. 250/2024, § 1, § 7);
 //      Großlagen § 1 Z 1
+//   Steiermark: DAC-Verordnungen „Südsteiermark“, „Vulkanland Steiermark“, „Weststeiermark“ (§ 8 und Anhang: ortsübergreifende
+//      Gemeinden, § 9 Riedenwein); Weingesetz § 21 Abs. 3 Z 3; Großlage Oststeiermark § 1 Z 4; KG-Namen nach dem
+//      BEV-Katastralgemeindenverzeichnis (Stichtag 24.01.2022)
 //
 // Annahmen (am Ticket KAN-47 dokumentiert):
 //   K1 Wiener Neustadt (Statutarstadt, GKZ 30401) zählt zum Ortswein „Wiener Neustadt“, obwohl Anhang A nur die
@@ -75,6 +78,14 @@
 //      Hausberg, Neuberg, Marthalwald und Landstraße Hutweide zum Leithaberg. Ruster Ausbruch (nur Süßwein, Rust) ist über
 //      den Leithaberg abgedeckt. Großlagen: Heideboden = Neusiedlersee ohne Parndorfer Platte, Sonnenberg, Rusterberg,
 //      Goldbachtal, Südburgenland.
+//   K16 Steiermark: Gebiete Südsteiermark = Bezirk Leibnitz, Weststeiermark = Bezirke Deutschlandsberg und Voitsberg,
+//      Vulkanland = Bezirke Hartberg-Fürstenfeld, Südoststeiermark, Weiz sowie die Leibnitzer Gemeinden/KGs der Vulkanland-
+//      Ortsweinliste (St. Peter). Die Gemeinden „links der Mur“ in Leibnitz und Graz-Umgebung sind ohne Karte nicht
+//      abgrenzbar: Leibnitz zählt sonst zur Südsteiermark, Graz und Graz-Umgebung bleiben leer. Ortsangaben, die nur
+//      „Weinbauflächen links/rechts der Sulm, Laßnitz, Mur“ bzw. „östlich/westlich des Gnasbachs“ nennen (Heimschuh, Leibnitz,
+//      Lang, Tillmitsch, Wagna, Straß in Steiermark; KG Trössing), bleiben leer mit Hinweis; KG Fresing (Kitzeck) steht in
+//      keiner Ortsangabe. Feldbach (Raabau, Gniebing, Auersbach) und Edelsbach zählen zu Riegersburg; Haselbach bei Straden
+//      = KG in Deutsch Goritz. Riedenwein auch außerhalb der Ortsweingebiete (§ 9 Abs. 7).
 
 type Gebiet = {
   name: string
@@ -106,6 +117,11 @@ type Gebiet = {
   dacRied?: Record<string, Record<string, string>>
   /** Gemeinden ohne Großlage trotz GKZ-Anfang (Parndorfer Platte) */
   ohneGrosslageGkz?: readonly string[]
+  /** Ortswein je GKZ-Anfang (nachrangig, Oststeiermark) */
+  ortsweinPraefix?: Record<string, string>
+  /** Gemeinden bzw. KGs, deren Ortsangabe vom Flussufer abhängt (K16) – Ortswein leer, mit Hinweis */
+  unklarGkz?: readonly string[]
+  unklarKg?: readonly string[]
 }
 
 const jeSchluessel = (zuordnung: Record<string, readonly string[]>) =>
@@ -383,8 +399,72 @@ const EISENBERG: Gebiet = {
   dacGkzPraefix: ['104', '105', '109'],                                 // Bezirke Güssing, Jennersdorf, Oberwart
 }
 
+const VULKANLAND: Gebiet = {
+  name: 'Vulkanland Steiermark',
+  grosslageKg: {},
+  grosslageGkz: {},
+  grosslagePraefix: { '622': 'Oststeiermark', '617': 'Oststeiermark' },
+  ortsweinKg: jeSchluessel({
+    'Riegersburg': ['62032', '62023', '62031', '62008', '62010', '62013', '62035', '62015', '62147', '62116', '62102', '62109'],
+    'Kapfenstein': ['62024', '62012', '62004', '62030', '62025', '62026', '62002'],
+    'Straden': ['66212', '66239', '66222', '66248', '62146', '62108', '62118'],
+    'St. Peter': ['62303', '62324', '62149', '62302', '66211', '66231', '66241', '66234', '66166'],
+    'Gleichenberg': ['62115', '62112', '62122', '62134', '62167', '62141', '62117', '62137', '62131', '62111', '62163', '62143', '62145'],
+  }),
+  ortsweinGkz: jeSchluessel({
+    'Kapfenstein': ['62332'],
+    'St. Anna': ['62387'],
+    'Tieschen': ['62368'],
+    'Klöch': ['62335'],
+    'Straden': ['62390'],
+    'Gleichenberg': ['62375'],
+    'St. Peter': ['62388', '62383', '62343', '61057', '62330', '62389', '62381', '62385'],
+    'Riegersburg': ['62273', '62267', '62252', '62269', '62271', '62232', '61716', '62386', '62372'],
+  }),
+  ortsweinPraefix: { '622': 'Oststeiermark', '617': 'Oststeiermark' },
+  unklarKg: ['66236'],                                                  // Trössing: östlich des Gnasbachs Straden, westlich St. Peter
+  dacGkzPraefix: ['622', '623', '617'],
+  riedenweinOhneOrtswein: true,
+}
+
+const SUEDSTEIERMARK: Gebiet = {
+  name: 'Südsteiermark',
+  grosslageKg: {},
+  grosslageGkz: {},
+  ortsweinKg: jeSchluessel({
+    'Kitzeck-Sausal': ['66105', '66108', '66115', '66119', '66150', '66178', '66038'],
+    'Eichberg': ['66002', '66022', '66006', '66017', '66005', '66037', '66041', '66027', '66024', '66026'],
+    'Gamlitz': ['66186'],
+    'Ehrenhausen': ['66180'],
+  }),
+  ortsweinGkz: jeSchluessel({
+    'Kitzeck-Sausal': ['61030', '61033'],
+    'Leutschach': ['61054'],
+    'Gamlitz': ['61050'],
+    'Ehrenhausen': ['61049'],
+  }),
+  unklarGkz: ['61016', '61053', '61020', '61043', '61045', '61061'],   // Heimschuh, Leibnitz, Lang, Tillmitsch, Wagna, Straß
+  dacGkzPraefix: ['610'],
+  riedenweinOhneOrtswein: true,
+}
+
+const WESTSTEIERMARK: Gebiet = {
+  name: 'Weststeiermark',
+  grosslageKg: {},
+  grosslageGkz: {},
+  ortsweinKg: jeSchluessel({
+    'Ligist': ['63337', '63312', '63364', '63335', '63307', '63309', '63319', '63333', '63345', '63352', '63357', '63341', '63365', '63306', '63344', '63370'],
+    'Stainz': ['61214', '61216', '61215', '61250', '61222', '61237', '61249', '61232', '61238', '61242', '61208', '61219', '61239', '61233', '61246', '61228', '61217', '61245', '61225', '61218'],
+    'Deutschlandsberg': ['61209', '61205', '61226', '61059', '61004', '61066', '61207', '61201', '61073', '61072', '61022', '61045', '61005', '61068', '61055', '61076', '61012', '61023', '61024', '61063', '61001', '61043', '61037', '61057', '61040', '61054'],
+    'Eibiswald': ['61127', '61128', '61109', '61115', '61150', '61136', '61104', '61103', '61113', '61146', '61122', '61147', '61145', '61151', '61132', '61118', '61131', '61124', '61114', '61119', '61143', '61102', '61101', '61141', '61133', '61144', '61123', '61116', '61078', '61077', '61120', '61108'],
+  }),
+  ortsweinGkz: {},
+  dacGkzPraefix: ['603', '616'],                                        // Bezirke Deutschlandsberg, Voitsberg
+  riedenweinOhneOrtswein: true,
+}
+
 const GEBIETE: readonly Gebiet[] = [THERMENREGION, KREMSTAL, WACHAU, KAMPTAL, TRAISENTAL, CARNUNTUM, WEINVIERTEL, WAGRAM,
-  WIEN, LEITHABERG, NEUSIEDLERSEE, MITTELBURGENLAND, ROSALIA, EISENBERG]
+  WIEN, LEITHABERG, NEUSIEDLERSEE, MITTELBURGENLAND, ROSALIA, EISENBERG, VULKANLAND, SUEDSTEIERMARK, WESTSTEIERMARK]
 
 export type HerkunftKatalog = {
   gebiet: string | null
@@ -394,6 +474,8 @@ export type HerkunftKatalog = {
   imDacGebiet: boolean
   /** DAC-Riedenwein möglich (K3): im DAC-Gebiet mit Ortswein, im Kamptal auch ohne */
   riedenwein: boolean
+  /** nur gesetzt, wenn die Ortsangabe ohne Karte nicht bestimmbar ist (K16) */
+  hinweis?: string
 }
 
 const LEER: HerkunftKatalog = { gebiet: null, grosslage: null, dacOrtswein: null, imDacGebiet: false, riedenwein: false }
@@ -415,8 +497,14 @@ export function herkunftKatalog(kgNr: string | null | undefined, gkz: string | n
     const gkzImAnhang = !!gkz && gkz in g.ortsweinGkz
     const imDac = !!ortKg || gkzImAnhang || riedGebiet || (!!gkz && (!!g.dacGkz?.includes(gkz) || !!g.dacGkzPraefix?.some(p => gkz.startsWith(p))))
     if (!grosslage && !imDac) continue
-    const ort = ortKg ?? (gkzImAnhang ? g.ortsweinGkz[gkz!] ?? gemeinde ?? null : null) ?? (g.ortsweinGemeindename && imDac ? gemeinde ?? null : null)
-    return { gebiet: g.name, grosslage, dacOrtswein: ort, imDacGebiet: imDac, riedenwein: imDac && (!!ort || !!g.riedenweinOhneOrtswein) }
+    const unklar = (!!kg && !!g.unklarKg?.includes(kg)) || (!!gkz && !!g.unklarGkz?.includes(gkz))
+    const ortPraefix = gkz && !unklar ? Object.entries(g.ortsweinPraefix ?? {}).find(([p]) => gkz.startsWith(p))?.[1] : undefined
+    const ort = unklar ? null
+      : ortKg ?? (gkzImAnhang ? g.ortsweinGkz[gkz!] ?? gemeinde ?? null : null) ?? (g.ortsweinGemeindename && imDac ? gemeinde ?? null : null) ?? ortPraefix ?? null
+    return {
+      gebiet: g.name, grosslage, dacOrtswein: ort, imDacGebiet: imDac, riedenwein: imDac && (!!ort || !!g.riedenweinOhneOrtswein),
+      ...(unklar ? { hinweis: 'Ortsangabe hängt von der Lage zum Fluss bzw. Bach ab (links/rechts, östlich/westlich) – bitte prüfen' } : {}),
+    }
   }
   return LEER
 }

@@ -123,7 +123,7 @@ describe('KAN-47 Schritt 2: Katalog Thermenregion', () => {
     const hirtenberg = wg.weingartenZeile(ried(lage), gst({ katastralgemeinde: '4312' }))
     assert.deepEqual([hirtenberg.grosslage, hirtenberg.dacOrtswein, hirtenberg.dacRiedenwein], ['Vöslauer Hauerberg', null, null])
     const r = wg.weingartenZeilen([ried(lage)], [gst({ katastralgemeinde: '80001' })])
-    assert.ok(r.warnungen.some(w => /außerhalb der erfassten Kataloge \(Thermenregion, Kremstal, Wachau, Kamptal, Traisental, Carnuntum, Weinviertel, Wagram, Wien, Leithaberg, Neusiedlersee, Mittelburgenland, Rosalia, Eisenberg\)/.test(w)), r.warnungen.join(' | '))
+    assert.ok(r.warnungen.some(w => /außerhalb der erfassten Weinbaugebiete \(17 Gebiete mit DAC bzw\. Großlagen; leer z\. B\. Bergland, Graz-Umgebung\)/.test(w)), r.warnungen.join(' | '))
   })
 })
 
@@ -307,5 +307,46 @@ describe('KAN-47 Schritt 2: Kataloge Burgenland (K15)', () => {
       ['Eisenberg a. d. P.', 'Deutsch Schützen', 'Rechnitz', 'Rechnitz', 'Gaas', null])
     assert.equal(kat.herkunftKatalog('1', '10504').grosslage, 'Südburgenland')
     assert.equal(kat.herkunftKatalog('1', '10917').riedenwein, false, 'Oberwart ohne Ortsangabe → kein Riedenwein')
+  })
+})
+
+describe('KAN-47 Schritt 2: Kataloge Steiermark (K16)', () => {
+  test('Südsteiermark: Ortsangaben je Gemeinde bzw. KG, Ausnahmen (Sulz → Ehrenhausen, Fresing ohne), Riedenwein auch ohne', () => {
+    const o = (kg, gkz) => kat.herkunftKatalog(kg, gkz).dacOrtswein
+    assert.deepEqual([o('66114', '61050'), o('66180', '61050'), o('66186', '61049'), o('66038', '61035'), o('66105', '61019'), o('66022', '61002')],
+      ['Gamlitz', 'Ehrenhausen', 'Gamlitz', 'Kitzeck-Sausal', 'Kitzeck-Sausal', 'Eichberg'])
+    assert.deepEqual(kat.herkunftKatalog('66112', '61019'), { gebiet: 'Südsteiermark', grosslage: null, dacOrtswein: null, imDacGebiet: true, riedenwein: true })   // Fresing
+  })
+
+  test('Flussufer-Gemeinden (Leibnitz, Heimschuh …) und KG Trössing: Ortswein leer mit Hinweis', () => {
+    const l = kat.herkunftKatalog('1', '61053')
+    assert.deepEqual([l.gebiet, l.dacOrtswein], ['Südsteiermark', null])
+    assert.match(l.hinweis, /Lage zum Fluss/)
+    assert.match(kat.herkunftKatalog('66236', '62380').hinweis, /Fluss bzw\. Bach/)
+    assert.equal(kat.herkunftKatalog('66114', '61050').hinweis, undefined)
+  })
+
+  test('Vulkanland: Gemeinden und KGs der Anlage, sonst Oststeiermark (Großlage Oststeiermark in Hartberg-Fürstenfeld und Weiz)', () => {
+    const o = (kg, gkz) => kat.herkunftKatalog(kg, gkz).dacOrtswein
+    assert.deepEqual([o('66318', '62335'), o('62024', '62381'), o('62032', '62381'), o('1', '62273'), o('1', '62267'), o('1', '62239')],
+      ['Klöch', 'Kapfenstein', 'Riegersburg', 'Riegersburg', 'Riegersburg', 'Oststeiermark'])
+    assert.equal(kat.herkunftKatalog('1', '62239').grosslage, 'Oststeiermark')
+    assert.equal(kat.herkunftKatalog('1', '62335').grosslage, null, 'Südoststeiermark ohne Großlage')
+    assert.equal(kat.herkunftKatalog('1', '61057').gebiet, 'Vulkanland Steiermark', 'Schwarzautal (Bezirk Leibnitz) über die St.-Peter-Liste')
+  })
+
+  test('Weststeiermark: KGs der Anlage, übrige Bezirke Deutschlandsberg/Voitsberg ohne Ortswein; Graz-Umgebung leer', () => {
+    const o = (kg, gkz) => kat.herkunftKatalog(kg, gkz).dacOrtswein
+    assert.deepEqual([o('61127', '60344'), o('61245', '60346')], ['Eibiswald', 'Stainz'])
+    assert.deepEqual(kat.herkunftKatalog('61011', '60349'), { gebiet: 'Weststeiermark', grosslage: null, dacOrtswein: null, imDacGebiet: true, riedenwein: true })   // Garanas
+    assert.equal(kat.herkunftKatalog('1', '60611').gebiet, null)
+  })
+})
+
+describe('KAN-47: KG-Verzeichnis vollständig (BEV, Stichtag 24.01.2022)', () => {
+  test('alle 7.850 KGs mit Namen, auch die bisher fehlenden steirischen', async () => {
+    const v = await import('../../src/lib/wein/katastralgemeinden.ts')
+    assert.equal(Object.keys(v.KATASTRALGEMEINDEN).length, 7850)
+    assert.deepEqual(['66112', '66236', '61011', '5020', '5018'].map(v.getKgBezeichnung), ['Fresing', 'Trössing', 'Garanas', 'Stixneusiedl', 'Sarasdorf'])
   })
 })
