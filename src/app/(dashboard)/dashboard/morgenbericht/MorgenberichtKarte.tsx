@@ -74,7 +74,7 @@ export default function MorgenberichtKarte({ bericht, darfSchreiben, wetterHinwe
   }
   const top = bericht.befunde.slice(0, 6)
   return (
-    <Card title={<span className="inline-flex items-center gap-1.5"><Sunrise size={16} strokeWidth={1.75} className="text-s112-tertiary" />Morgenbericht {new Date(bericht.datum + 'T00:00:00').toLocaleDateString('de-AT', { weekday: 'long', day: 'numeric', month: 'long' })}</span>} right={right}>
+    <Card title={<span className="inline-flex items-center gap-1.5"><Sunrise size={16} strokeWidth={1.75} className="text-s112-tertiary" />Morgenbericht {new Date(bericht.datum + 'T00:00:00').toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna', weekday: 'long', day: 'numeric', month: 'long' })}</span>} right={right}>
       <p className="text-[13.5px] text-s112-text leading-relaxed">{bericht.zusammenfassung}</p>
       <div className="mt-2 flex items-center gap-2 flex-wrap">
         {bericht.anzahl.hoch > 0 && <Badge tone="err">{bericht.anzahl.hoch} dringend</Badge>}

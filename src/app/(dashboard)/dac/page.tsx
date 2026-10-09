@@ -133,7 +133,7 @@ export default async function DacPage() {
                       <Link href={`/dac/${a.id}`} className="hover:text-s112-blue-700 hover:underline">{a.bezeichnung}</Link>
                       {a.storniertAm && (
                         <p className="text-[11px] font-normal text-s112-warn-fg">
-                          storniert am {new Date(a.storniertAm).toLocaleDateString('de-AT')}{a.storniertVon ? ` von ${a.storniertVon}` : ''}{a.stornoGrund ? ` – ${a.stornoGrund}` : ''}
+                          storniert am {new Date(a.storniertAm).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}{a.storniertVon ? ` von ${a.storniertVon}` : ''}{a.stornoGrund ? ` – ${a.stornoGrund}` : ''}
                         </p>
                       )}
                     </td>
@@ -150,7 +150,7 @@ export default async function DacPage() {
                       ) : '–'}
                     </td>
                     <td className="px-4 py-3 text-s112-muted text-xs">
-                      {a.eingereichtAm ? new Date(a.eingereichtAm).toLocaleDateString('de-AT') : '–'}
+                      {a.eingereichtAm ? new Date(a.eingereichtAm).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' }) : '–'}
                     </td>
                     <td className="px-4 py-3 text-right">
                       {writeOk && (

@@ -18,7 +18,7 @@ export function zeilenChronologisch<B extends { datum: string }>(
 }
 
 function fmtDate(d: string) {
-  return new Date(d).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  return new Date(d).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna', day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 /** Zeile „Verbrauch“ einer Maßnahme (read-only) */

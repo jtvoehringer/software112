@@ -210,8 +210,8 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
           <span>/</span>
           <span className="text-s112-text-1 font-medium">Gesperrt</span>
         </div>
-        <h1 className="text-2xl font-semibold text-s112-text">Maßnahme vom {new Date(b0.datum).toLocaleDateString('de-AT')}</h1>
-        <GesperrtHinweis grund={MASSNAHME_ERNTE_GRUND} seit={new Date(ernteGesperrt).toLocaleDateString('de-AT')} betriebsleitung={betriebsleitung} />
+        <h1 className="text-2xl font-semibold text-s112-text">Maßnahme vom {new Date(b0.datum).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}</h1>
+        <GesperrtHinweis grund={MASSNAHME_ERNTE_GRUND} seit={new Date(ernteGesperrt).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })} betriebsleitung={betriebsleitung} />
         {betriebsleitung && (
           <FreezeKorrektur tabelle="behandlungen" id={id} felder={KORREKTUR_FELDER.behandlungen} werte={b0}
             hinweis="Nur für die Betriebsleitung – z. B. Tippfehler in Datum oder Aufwandmenge. Ried, Mittel und Grundstücke bleiben (Storno der Lese gibt die Maßnahme frei). Alt/Neu, Benutzer und Grund stehen im Änderungsprotokoll." />

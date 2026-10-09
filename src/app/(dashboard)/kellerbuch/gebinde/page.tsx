@@ -569,7 +569,7 @@ export default async function GebindePage({
                   <tr key={u.key} className={`border-b border-s112-border/30 last:border-0 ${u.storno ? 'text-s112-muted opacity-70' : i % 2 === 1 ? 'bg-s112-bg/30' : ''}`}>
                     <td className="px-4 py-2.5 text-xs font-mono text-s112-muted whitespace-nowrap">{u.transaktions_nr ?? '–'}</td>
                     <td className="px-4 py-2.5 text-s112-text-2 whitespace-nowrap">
-                      {new Date(u.datum).toLocaleDateString('de-AT')}
+                      {new Date(u.datum).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}
                     </td>
                     <td className="px-4 py-2.5 text-s112-text">
                       {u.quellenNames.join(' · ')}
@@ -578,7 +578,7 @@ export default async function GebindePage({
                       )}
                       {u.storno && (
                         <span className="block text-[11px] text-s112-warn-fg">
-                          storniert am {new Date(u.storno.am).toLocaleDateString('de-AT')}{u.storno.von ? ` von ${u.storno.von}` : ''}{u.storno.grund ? ` – ${u.storno.grund}` : ''}
+                          storniert am {new Date(u.storno.am).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}{u.storno.von ? ` von ${u.storno.von}` : ''}{u.storno.grund ? ` – ${u.storno.grund}` : ''}
                         </span>
                       )}
                     </td>

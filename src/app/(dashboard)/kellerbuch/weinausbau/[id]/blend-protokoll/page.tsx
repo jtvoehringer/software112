@@ -104,7 +104,7 @@ export default async function BlendProtokollPage({ params, searchParams }: {
               <p className="text-lg font-semibold text-s112-blue-700 font-mono mt-0.5">{kopf.pruefnummer}</p>
             )}
             <p className="text-xs text-s112-tertiary mt-0.5">
-              Stand: {(stichtag ? new Date(`${stichtag}T12:00:00`) : new Date()).toLocaleDateString('de-AT')}
+              Stand: {(stichtag ? new Date(`${stichtag}T12:00:00`) : new Date()).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}
             </p>
           </div>
         </div>

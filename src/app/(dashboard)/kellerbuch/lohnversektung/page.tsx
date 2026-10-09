@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
-const datumText = (d: string) => new Date(`${String(d).slice(0, 10)}T00:00:00`).toLocaleDateString('de-AT')
+const datumText = (d: string) => new Date(`${String(d).slice(0, 10)}T00:00:00`).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })
 
 // KAN-232 (08.10.2026): Lohnversektung – Grundwein beim Versekter (eigener Bestand bei Dritten), Rückkehr als Sekt in
 // Flaschen (je Lieferung eine Füllung). Versand und Storno über die RPCs, Rückkehr im Füllungsformular.

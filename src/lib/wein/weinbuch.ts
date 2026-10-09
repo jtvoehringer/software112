@@ -579,8 +579,8 @@ export async function buildWeinbuch(
       badge: statusBadge,
       details: [
         dac.pruefnummer && `Prüfnummer: ${dac.pruefnummer}`,
-        dac.eingereicht_am && `Eingereicht: ${new Date(dac.eingereicht_am).toLocaleDateString('de-AT')}`,
-        dac.bescheid_am && `Bescheid: ${new Date(dac.bescheid_am).toLocaleDateString('de-AT')}`,
+        dac.eingereicht_am && `Eingereicht: ${new Date(dac.eingereicht_am).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}`,
+        dac.bescheid_am && `Bescheid: ${new Date(dac.bescheid_am).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}`,
       ].filter(Boolean) as string[],
     })
   }

@@ -20,7 +20,7 @@ export function fmtEur(v: number, digits = 2) {
 export function fmtDate(d: string | Date | null | undefined, opts: Intl.DateTimeFormatOptions = { day: '2-digit', month: '2-digit', year: 'numeric' }) {
   if (!d) return '–'
   const x = typeof d === 'string' ? new Date(d) : d
-  return Number.isNaN(x.getTime()) ? '–' : x.toLocaleDateString('de-AT', opts)
+  return Number.isNaN(x.getTime()) ? '–' : x.toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna', ...opts })
 }
 export function tageBis(d: string | Date) {
   const x = typeof d === 'string' ? new Date(d) : d

@@ -117,7 +117,7 @@ function ChargeKette({
             {umzuege.map((u: R, i: number) => (
               <div key={i} className="flex items-center gap-2 text-sm">
                 <span className="text-xs text-s112-muted tabular-nums w-24 shrink-0">
-                  {new Date(u.datum).toLocaleDateString('de-AT')}
+                  {new Date(u.datum).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}
                 </span>
                 <span className="text-s112-text-2">{(u.von_behaelter as R | null)?.name ?? '?'}</span>
                 <span className="text-s112-muted">→</span>
@@ -146,7 +146,7 @@ function ChargeKette({
               <div key={i} className={i > 0 ? 'pt-3 border-t border-s112-border/60' : ''}>
                 <div className="flex items-center gap-3 mb-2">
                   <span className="text-xs text-s112-muted tabular-nums">
-                    {p.datum ? new Date(p.datum).toLocaleDateString('de-AT') : ''}
+                    {p.datum ? new Date(p.datum).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' }) : ''}
                   </span>
                   <span className="text-sm font-medium text-s112-text-1">Pressung</span>
                   {/* KAN-129 Soll 7: Lese der Pressung („2026/2 Eiswein“) */}
@@ -185,7 +185,7 @@ function ChargeKette({
                           <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-s112-text-2">
                             {wg.trauben_kg && <span>{fmtNum(parseFloat(wg.trauben_kg))} kg</span>}
                             {wg.rebsorte && <span>{formatRebsorteMitKuerzel(wg.rebsorte)}</span>}
-                            {wg.ernte_datum && <span>Lese: {new Date(wg.ernte_datum).toLocaleDateString('de-AT')}</span>}
+                            {wg.ernte_datum && <span>Lese: {new Date(wg.ernte_datum).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}</span>}
                             {(wg.kmw != null || wg.oechsle != null) && <span><MostgewichtAnzeige wert={{ kmw: wg.kmw, oechsle: wg.oechsle, einheit: wg.mostgewicht_einheit }} /></span>}
                           </div>
                         </div>
@@ -221,7 +221,7 @@ function ChargeKette({
                 {analysen.map((a: R, i: number) => (
                   <tr key={i} className="border-b border-s112-border/30 last:border-0">
                     <td className="px-2 py-1.5 text-xs text-s112-muted tabular-nums whitespace-nowrap">
-                      {new Date(a.analyse_datum).toLocaleDateString('de-AT')}
+                      {new Date(a.analyse_datum).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}
                     </td>
                     <td className="px-2 py-1.5 text-right tabular-nums">{a.alkohol_vol != null ? `${a.alkohol_vol} % vol` : '–'}</td>
                     <td className="px-2 py-1.5 text-right tabular-nums">{a.restzucker_gl != null ? `${a.restzucker_gl} g/l` : '–'}</td>
@@ -455,7 +455,7 @@ export default async function RueckverfolgungPage({
             <InfoRow label="Qualität" value={fuellung.qualitaet ? qualitaetAnzeige(fuellung) : null} />
             <InfoRow label="Anbaugebiet" value={fuellung.anbaugebiet} />
             <InfoRow label="Ried / Bezeichnung" value={fuellung.bezeichnung} />
-            <InfoRow label="Abfülldatum" value={fuellung.datum ? new Date(fuellung.datum).toLocaleDateString('de-AT') : null} />
+            <InfoRow label="Abfülldatum" value={fuellung.datum ? new Date(fuellung.datum).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' }) : null} />
             <InfoRow label="Flaschengröße" value={fuellung.flaschengroesse_ml ? `${fuellung.flaschengroesse_ml} ml` : null} />
             <InfoRow label="Anzahl Flaschen" value={(fuellung.anzahl_flaschen == null ? undefined : fmtNum(fuellung.anzahl_flaschen))} />
             <InfoRow label="Liter abgefüllt" value={fuellung.menge_liter_gefuellt ? `${fmtNum(parseFloat(fuellung.menge_liter_gefuellt), { min: 2 })} L` : null} />

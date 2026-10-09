@@ -70,7 +70,7 @@ async function ladeMonat(supabase: any, ziel: MonatsZiel, tenantId: string, basi
     }, 0), 0)
 
   return {
-    monat: new Date(ziel.jahr, ziel.monatIdx, 1).toLocaleDateString('de-AT', { month: 'short', year: '2-digit' }),
+    monat: new Date(ziel.jahr, ziel.monatIdx, 1).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna', month: 'short', year: '2-digit' }),
     umsatz: summe,
     anzahl: posten.length,
     von, bis,

@@ -59,7 +59,7 @@ export default async function RechnungPage({ params }: { params: Promise<{ id: s
   const anschrift = (r.kontakt ?? r.firma ?? {}) as R
   const zahlZiel = Number((r.kontakt as R | null)?.zahlungsziel_tage ?? (r.firma as R | null)?.zahlungsziel_tage ?? 14)
   const faellig = new Date(`${r.datum}T00:00:00`); faellig.setDate(faellig.getDate() + zahlZiel)
-  const d = (x: string | null) => (x ? new Date(`${String(x).slice(0, 10)}T00:00:00`).toLocaleDateString('de-AT') : '–')
+  const d = (x: string | null) => (x ? new Date(`${String(x).slice(0, 10)}T00:00:00`).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' }) : '–')
   const leistung = r.leistung_von && r.leistung_bis && r.leistung_von !== r.leistung_bis ? `${d(r.leistung_von)} – ${d(r.leistung_bis)}` : d(r.leistung_von ?? r.datum)
 
   return (
@@ -112,7 +112,7 @@ export default async function RechnungPage({ params }: { params: Promise<{ id: s
             <p className="text-base font-semibold mt-1">Nr. {r.rechnungsnummer}</p>
             <p className="text-s112-text-2 mt-0.5">Datum: {d(r.datum)}</p>
             <p className="text-s112-text-2">Lieferzeitraum: {leistung}</p>
-            <p className="text-s112-text-2">{zahlZiel === 0 ? 'Zahlbar bei Erhalt' : `Zahlbar bis: ${faellig.toLocaleDateString('de-AT')}`}</p>
+            <p className="text-s112-text-2">{zahlZiel === 0 ? 'Zahlbar bei Erhalt' : `Zahlbar bis: ${faellig.toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}`}</p>
           </div>
         </div>
         {/* Empfänger */}

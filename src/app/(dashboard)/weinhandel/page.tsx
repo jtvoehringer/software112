@@ -276,7 +276,7 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
                           : <span className="text-s112-muted font-normal">–</span>}
                       </td>
                       <td className="px-4 py-3 text-right text-s112-muted whitespace-nowrap">
-                        {new Date(f.datum).toLocaleDateString('de-AT')}
+                        {new Date(f.datum).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}
                       </td>
                       {writeOk && (
                         <td className="px-4 py-3 text-right whitespace-nowrap">
@@ -390,7 +390,7 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
                   {direktTank.map((d: R) => (
                     <tr key={d.id} className="border-b border-s112-border last:border-0 hover:bg-s112-bg/30">
                       <td className="px-4 py-3 font-medium text-s112-text">{(d.behaelter as R | null)?.name ?? '–'}</td>
-                      <td className="px-4 py-3 text-s112-muted text-xs">{(d.pressung as R | null)?.weinbezeichnung ?? new Date((d.pressung as R)?.datum ?? '').toLocaleDateString('de-AT')}</td>
+                      <td className="px-4 py-3 text-s112-muted text-xs">{(d.pressung as R | null)?.weinbezeichnung ?? new Date((d.pressung as R)?.datum ?? '').toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}</td>
                       <td className="px-4 py-3 text-s112-muted text-xs">{((d.pressung as R | null)?.jahrgang as R | null)?.jahrgang ?? '–'}</td>
                       <td className="px-4 py-3 text-right tabular-nums font-semibold text-s112-blue-700">{fmtNum(Number(d.menge_liter))} L</td>
                       <td className="px-4 py-3 text-right">
@@ -447,7 +447,7 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
                       <td className="px-4 py-3 text-s112-muted text-xs">{lieferant}</td>
                       <td className="px-4 py-3 text-s112-muted text-xs max-w-xs truncate">{z.notizen ?? '–'}</td>
                       <td className="px-4 py-3 text-s112-muted text-xs whitespace-nowrap">
-                        {new Date(z.datum).toLocaleDateString('de-AT')}
+                        {new Date(z.datum).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums font-semibold text-s112-blue-700 whitespace-nowrap">
                         {fmtNum(Number(z.menge))} {z.einheit}

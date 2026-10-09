@@ -50,7 +50,7 @@ function systemPrompt(kontext: string): string {
   // KAN-255: Wiener Kalendertag – in UTC galt zwischen 0 und 1 bzw. 2 Uhr noch „gestern“ (Buchungen mit dem Vortag)
   const heute = wienJetzt()
   const heuteIso = lokalerTag(heute)
-  const heuteLesbar = heute.toLocaleDateString('de-AT', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+  const heuteLesbar = heute.toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
 
   return `Du bist bot:112, der Prozess-Assistent von software:112, einem österreichischen Weinbau-ERP.
 Wenn du dich vorstellst oder auf deinen Namen angesprochen wirst, nenne dich "bot:112".

@@ -98,7 +98,7 @@ export default async function VerkaufPage({ searchParams }: { searchParams: Prom
     return '–'
   }
 
-  const monatName = heute.toLocaleDateString('de-AT', { month: 'long', year: 'numeric' })
+  const monatName = heute.toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna', month: 'long', year: 'numeric' })
 
   return (
     <div className="space-y-6">
@@ -172,7 +172,7 @@ export default async function VerkaufPage({ searchParams }: { searchParams: Prom
                 return (
                   <ClickableTableRow key={p.id} href={`/weinhandel/verkauf/${p.id}`} className={`border-b border-s112-border last:border-0 hover:bg-s112-bg/50 transition-colors ${i % 2 === 1 ? 'bg-s112-bg/30' : ''}`}>
                     <td className="px-4 py-3 text-s112-muted whitespace-nowrap">
-                      {new Date(p.datum).toLocaleDateString('de-AT')}
+                      {new Date(p.datum).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}
                     </td>
                     <td className="px-4 py-3">
                       <StopPropagation className="font-mono text-xs">

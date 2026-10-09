@@ -581,7 +581,7 @@ export default function KellerbehandlungenPage() {
                       {b.notizen && <p className="text-xs text-s112-muted">{b.notizen}</p>}
                       {b.storniert_am && (
                         <p className="text-[11px] text-s112-warn-fg">
-                          storniert am {new Date(b.storniert_am).toLocaleDateString('de-AT')}{b.storniert_von_name ? ` von ${b.storniert_von_name}` : ''}{b.storno_grund ? ` – ${b.storno_grund}` : ''}
+                          storniert am {new Date(b.storniert_am).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}{b.storniert_von_name ? ` von ${b.storniert_von_name}` : ''}{b.storno_grund ? ` – ${b.storno_grund}` : ''}
                         </p>
                       )}
                     </td>

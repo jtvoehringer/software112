@@ -44,7 +44,7 @@ export default async function NeuerungenPage() {
               </p>
               <h2 className={`text-lg font-semibold ${i === 0 ? 'text-white' : 'text-s112-text'}`}>{n.titel}</h2>
               <p className={`text-xs mt-0.5 ${i === 0 ? 'text-s112-yellow/80' : 'text-s112-muted'}`}>
-                {new Date(n.veroeffentlicht_am).toLocaleDateString('de-AT', { day: 'numeric', month: 'long', year: 'numeric' })}
+                {new Date(n.veroeffentlicht_am).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna', day: 'numeric', month: 'long', year: 'numeric' })}
               </p>
             </div>
             <div className="px-6 py-5 space-y-5">

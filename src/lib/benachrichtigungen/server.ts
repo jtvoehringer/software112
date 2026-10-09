@@ -148,7 +148,7 @@ export async function benachrichtigeAktivitaet(a: AktivitaetBenachrichtigung): P
     const istTermin = a.art !== 'aufgabe'
     const wort = istTermin ? 'Termin' : 'Aufgabe'
     const href = `/crm?aktivitaet=${a.id}`
-    const wann = a.datum ? ` · ${new Date(a.datum + 'T00:00:00').toLocaleDateString('de-AT')}` : ''
+    const wann = a.datum ? ` · ${new Date(a.datum + 'T00:00:00').toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}` : ''
     const beschreibung = a.beschreibung
     const textMit = beschreibung ? beschreibung.slice(0, 500) + wann : (wann.replace(/^ · /, '') || null)
     const basis = { tenantId: a.tenantId, ausgeloestVon: a.userId, href, quelleTyp: 'aktivitaet', quelleId: a.id }

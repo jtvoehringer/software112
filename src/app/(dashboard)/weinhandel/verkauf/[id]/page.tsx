@@ -40,7 +40,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const d = data as R | null
   const label = d?.rechnungsnummer
     ? `Beleg ${d.rechnungsnummer}`
-    : d?.datum ? `Verkauf ${new Date(d.datum).toLocaleDateString('de-AT')}` : 'Verkauf'
+    : d?.datum ? `Verkauf ${new Date(d.datum).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}` : 'Verkauf'
   return { title: `${label} – software:112` }
 }
 
@@ -260,7 +260,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
           <Link href="/weinhandel/verkauf" className="hover:text-s112-blue-700">Verkauf</Link>
           <span>/</span>
           <span className="text-s112-text font-medium">
-            {posten.rechnungsnummer ?? new Date(posten.datum).toLocaleDateString('de-AT')}
+            {posten.rechnungsnummer ?? new Date(posten.datum).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}
           </span>
         </nav>
         <div className="flex items-center gap-3">
@@ -317,7 +317,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
       {eigeneRechnung && (
         <p className="text-sm text-s112-text-2 no-print">
           {sammelrechnung ? 'Teil der Sammelrechnung ' : 'Berechnet mit Rechnung '}
-          <Link href={`/weinhandel/rechnungen/${rechnung?.id}`} className="font-mono text-s112-blue-700 hover:underline">{rechnung?.rechnungsnummer}</Link> vom {new Date(rechnungsDatum).toLocaleDateString('de-AT')}
+          <Link href={`/weinhandel/rechnungen/${rechnung?.id}`} className="font-mono text-s112-blue-700 hover:underline">{rechnung?.rechnungsnummer}</Link> vom {new Date(rechnungsDatum).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}
           {' '}– zum Stornieren des Lieferscheins zuerst die Rechnung stornieren.
         </p>
       )}
@@ -335,7 +335,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
           ) : posten.rechnung_versendet_am ? (
             <span className="inline-flex items-center gap-1 text-xs font-medium bg-s112-bg text-s112-blue-700 px-2.5 py-1 rounded-full">
               <Mail size={12} />
-              Versendet am {new Date(posten.rechnung_versendet_am).toLocaleDateString('de-AT')}
+              Versendet am {new Date(posten.rechnung_versendet_am).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}
               {posten.rechnung_versendet_an ? ` an ${posten.rechnung_versendet_an}` : ''}
             </span>
           ) : null}
@@ -370,10 +370,10 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
                   <p className="text-base font-semibold mt-1">Nr. {posten.rechnungsnummer}</p>
                 )}
                 <p className="text-s112-text-2 mt-0.5">
-                  Datum: {new Date(rechnungsDatum).toLocaleDateString('de-AT')}
+                  Datum: {new Date(rechnungsDatum).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}
                 </p>
                 <p className="text-s112-text-2">
-                  {zahlZiel === 0 ? 'Zahlbar bei Erhalt' : `Zahlbar bis: ${faelligkeitsDatum.toLocaleDateString('de-AT')}`}
+                  {zahlZiel === 0 ? 'Zahlbar bei Erhalt' : `Zahlbar bis: ${faelligkeitsDatum.toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}`}
                 </p>
               </div>
             </div>
@@ -413,7 +413,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
               {/* KAN-102: eigener Lieferschein-Nummernkreis; die Rechnung steht als Bezug darunter */}
               {posten.lieferscheinnummer && <p className="text-sm">Nr. {posten.lieferscheinnummer}</p>}
               {posten.rechnungsnummer && <p className="text-xs text-s112-muted">zu Rechnung {posten.rechnungsnummer}</p>}
-              <p className="text-sm">{new Date(posten.datum).toLocaleDateString('de-AT')}</p>
+              <p className="text-sm">{new Date(posten.datum).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}</p>
             </div>
           </div>
         )}
@@ -449,7 +449,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
                 : 'Verkauf'}
             </h1>
             <p className="text-sm text-s112-muted mt-0.5">
-              {new Date(posten.datum).toLocaleDateString('de-AT', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+              {new Date(posten.datum).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
               {posten.lieferscheinnummer && <> · Lieferschein <span className="font-mono">{posten.lieferscheinnummer}</span></>}
             </p>
           </div>
@@ -565,7 +565,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
           {skontoAktiv && skontoDatum && (
             <div className="bg-s112-warn-bg border border-s112-warn/30 rounded-sm px-3 py-2">
               <p className="font-semibold text-s112-warn-fg flex items-center gap-1.5">
-                <Info size={14} /> {posten.skonto_pct}% Skonto bei Zahlung bis {skontoDatum.toLocaleDateString('de-AT')}
+                <Info size={14} /> {posten.skonto_pct}% Skonto bei Zahlung bis {skontoDatum.toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}
               </p>
               <p className="text-s112-warn-fg text-xs mt-0.5">
                 Bei fristgerechter Zahlung: {fmtEur((gesamt - skontoBetrag))}
@@ -581,7 +581,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
               <p className="text-s112-text-2 mt-0.5">
                 {zahlZiel === 0
                   ? 'Zahlungsziel: bei Erhalt'
-                  : `Zahlungsziel: ${zahlZiel} Tage (${faelligkeitsDatum.toLocaleDateString('de-AT')})`}
+                  : `Zahlungsziel: ${zahlZiel} Tage (${faelligkeitsDatum.toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })})`}
               </p>
             </div>
           )}
@@ -623,7 +623,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
                 <tbody>
                   {zahlungen.map((z: R) => (
                     <tr key={z.id} className={`border-b border-s112-border last:border-0 ${z.storniert_am ? 'text-s112-muted' : ''}`}>
-                      <td className="px-3 py-2 text-s112-text-1">{new Date(z.datum).toLocaleDateString('de-AT')}</td>
+                      <td className="px-3 py-2 text-s112-text-1">{new Date(z.datum).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}</td>
                       <td className="px-3 py-2">
                         {ART_LABELS[z.art] ?? z.art}
                         {/* KAN-149 D2b: stornierte Zahlung mit Datum, Benutzer und Grund */}
@@ -677,7 +677,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
               <span>Skonto {posten.skonto_pct}% bei Zahlung bis{' '}
               {new Date(new Date(rechnungsDatum).setDate(
                 new Date(rechnungsDatum).getDate() + (posten.skonto_tage ?? 0)
-              )).toLocaleDateString('de-AT')}
+              )).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}
               {' '}(−{fmtEur(((gesamt * (posten.skonto_pct ?? 0)) / 100))})
               </span>
             </div>

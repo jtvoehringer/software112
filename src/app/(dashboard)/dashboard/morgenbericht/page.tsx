@@ -22,7 +22,7 @@ const SCHUTZ: Record<string, { label: string; tone: 'ok' | 'warn' | 'err' | 'inf
   ok: { label: 'Schutz gegeben', tone: 'ok' }, nachlassend: { label: 'nachlassend', tone: 'warn' }, abgewaschen: { label: 'abgewaschen', tone: 'err' },
   intervall: { label: 'Intervall abgelaufen', tone: 'warn' }, keine: { label: 'keine Behandlung', tone: 'gray' }, unbekannt: { label: 'ohne Koordinaten', tone: 'gray' },
 }
-const datumDe = (iso: string | null) => iso ? new Date(iso + 'T00:00:00').toLocaleDateString('de-AT') : '–'
+const datumDe = (iso: string | null) => iso ? new Date(iso + 'T00:00:00').toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' }) : '–'
 
 export default async function MorgenberichtPage() {
   const ctx = await getCtx()
@@ -49,7 +49,7 @@ export default async function MorgenberichtPage() {
         <MorgenberichtKarte bericht={null} darfSchreiben={darfSchreiben} wetterHinweis={we.erlaubt ? null : `Wetter & Empfehlungen: ${we.grund}.`} />
       ) : (
         <>
-          <Card title={`Zusammenfassung · ${new Date(bericht.datum + 'T00:00:00').toLocaleDateString('de-AT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}`}
+          <Card title={`Zusammenfassung · ${new Date(bericht.datum + 'T00:00:00').toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}`}
             right={<div className="flex items-center gap-2">{bericht.anzahl.hoch > 0 && <Badge tone="err">{bericht.anzahl.hoch} dringend</Badge>}{bericht.anzahl.mittel > 0 && <Badge tone="warn">{bericht.anzahl.mittel} zu erledigen</Badge>}{bericht.anzahl.info > 0 && <Badge tone="info">{bericht.anzahl.info} Hinweise</Badge>}{bericht.befunde.length === 0 && <Badge tone="ok">keine Befunde</Badge>}</div>}>
             <p className="text-[14px] text-s112-text leading-relaxed max-w-[80ch]">{bericht.zusammenfassung}</p>
             {bericht.kiModell ? <p className="mt-2 text-[11px] text-s112-tertiary">Zusammenfassung mit KI ({bericht.kiModell}) aus den geprüften Befunden – zählt als eine Abfrage im KI-Kontingent.</p> : <p className="mt-2 text-[11px] text-s112-tertiary">Ohne KI-Zusammenfassung (Kontingent, Schlüssel, KI-Modul, Zeitgrenze oder Fehler beim Aufruf) – die Befunde unten gelten unverändert.</p>}

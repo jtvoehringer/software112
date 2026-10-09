@@ -103,7 +103,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (lsRawErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${lsRawErr.message}` }, { status: 500 })
   const lieferscheine = ((lsRaw ?? []) as R[])
   const sammel = lieferscheine.length > 1
-  const datumDe = (d: string) => new Date(`${String(d).slice(0, 10)}T00:00:00`).toLocaleDateString('de-AT')
+  const datumDe = (d: string) => new Date(`${String(d).slice(0, 10)}T00:00:00`).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })
   const positionen = sammel
     ? lieferscheine.flatMap(l => ((l.positionen ?? []) as R[]).map(p => ({ ...p, abschnitt: `Lieferschein ${l.lieferscheinnummer ?? ''} vom ${datumDe(l.datum)}` })))
     : (posten.positionen ?? []) as R[]

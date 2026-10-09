@@ -16,7 +16,7 @@ type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explic
 
 function fmt(d: string | null) {
   if (!d) return '–'
-  return new Date(d).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  return new Date(d).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna', day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 function css() {

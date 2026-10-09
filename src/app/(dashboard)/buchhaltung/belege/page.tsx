@@ -53,8 +53,8 @@ export default async function BelegePage() {
             {e.beschreibung || b.dateiname}
           </Link>
           <p className="text-xs text-s112-muted truncate">
-            {b.dateiname} · hochgeladen {new Date(b.hochgeladen_am).toLocaleDateString('de-AT')}
-            {e.datum ? ` · Belegdatum ${new Date(e.datum).toLocaleDateString('de-AT')}` : ''}
+            {b.dateiname} · hochgeladen {new Date(b.hochgeladen_am).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}
+            {e.datum ? ` · Belegdatum ${new Date(e.datum).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })}` : ''}
           </p>
           {b.status === 'fehler' && (
             <p className="text-xs text-s112-warn-fg flex items-center gap-1 mt-0.5">

@@ -17,7 +17,7 @@ export type { Befund }
 export type Einstellungen = Awaited<ReturnType<typeof import('@/app/(dashboard)/dashboard/_shared/data').ladeEinstellungen>>
 
 const eur = (n: number) => `€ ${n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-const datumDe = (iso: string) => new Date(iso).toLocaleDateString('de-AT')
+const datumDe = (iso: string) => new Date(iso).toLocaleDateString('de-AT', { timeZone: 'Europe/Vienna' })
 
 export async function pruefeBetrieb(ctx: Ctx, einst: Einstellungen, paket: { istBasis: boolean }): Promise<Befund[]> {
   const befunde: Befund[] = []
