@@ -11,7 +11,7 @@ import type { Lieferadresse } from '@/lib/crm/lieferadressen'
 import { Check } from 'lucide-react'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import { LESE_QUALITAETEN, mitGespeichertemWert } from '@/lib/wein/qualitaet'
-import { fmtEur, fmtNum } from '@/lib/format'
+import { fmtEur, fmtNum, zahlWert } from '@/lib/format'
 import PartnerSuche from '@/components/crm/PartnerSuche'
 import { fehlerText } from '@/lib/fehler'
 import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
@@ -370,10 +370,10 @@ export default function NeuerVerkaufPage() {
       name:          p.name,
       menge:         parseFloat(p.menge) || 0,
       einheit:       p.einheit,
-      preis_brutto:  parseFloat(p.preis_brutto) || null,
+      preis_brutto:  zahlWert(p.preis_brutto),
       rabatt_pct:       wirksamerRabatt(p),
       sonderrabatt_pct: wirksamerSonderrabatt(p),
-      ust_satz:         parseFloat(p.ust_satz) || ustStandard,
+      ust_satz:         (zahlWert(p.ust_satz) ?? ustStandard),
       trauben_weingarten_id:   p.trauben_weingarten_id   || null,
       trauben_jahrgang_id:     p.trauben_jahrgang_id     || null,
       trauben_lese_id:         p.typ === 'trauben' ? (p.trauben_lese_id || null) : null,
@@ -787,7 +787,7 @@ export default function NeuerVerkaufPage() {
                         preis_brutto: a.default_preis != null ? String(a.default_preis) : '',
                       })}
                       onSpeichern={async (name) => {
-                        const defaultPreis = parseFloat(pos.preis_brutto) || null
+                        const defaultPreis = zahlWert(pos.preis_brutto)
                         const neu = await createSonstigesArtikel(name, pos.einheit, defaultPreis)
                         if (neu) setSonstigeArtikel(prev => [...prev, neu])
                       }}

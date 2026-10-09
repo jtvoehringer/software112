@@ -301,7 +301,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       const pass = decryptPass(c.email_smtp_pass_enc)
       const transporter = nodemailer.createTransport({
         host: c.email_smtp_host,
-        port: Number(c.email_smtp_port) || 587,
+        port: Number(c.email_smtp_port) || 587,   // null-vorgabe-ok: Port 0 ist ungültig – Standardport des Protokolls
         secure: Number(c.email_smtp_port) === 465,
         auth: { user: c.email_smtp_user, pass },
       })

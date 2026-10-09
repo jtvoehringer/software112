@@ -368,7 +368,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
 
     // Schwundbuchung (schwund_buchen, Abfüllschwund, Nachbuchung): brutto = schwund = Verlust
     if (u.umzug_typ === 'schwund') {
-      const verlust = parseFloat(u.brutto_liter) || parseFloat(u.schwund_liter) || 0
+      const verlust = parseFloat(u.brutto_liter) || parseFloat(u.schwund_liter) || 0   // null-vorgabe-ok: Brutto 0 = Altdaten ohne Brutto – aus Netto und Schwund
       if (verlust <= 0) continue
       bewegungen.push({
         datum: u.datum,
@@ -385,7 +385,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
 
     if (u.zeilen_typ === 'quelle') {
       // Neues Format: brutto_liter ist der tatsächliche Abgang
-      abgangLiter = parseFloat(u.brutto_liter) || parseFloat(u.menge_liter) || 0
+      abgangLiter = parseFloat(u.brutto_liter) || parseFloat(u.menge_liter) || 0   // null-vorgabe-ok: Brutto 0 = Altdaten ohne Brutto – aus Netto und Schwund
       const zielRecs  = zielRecsByBatch[u.umzug_batch_id] ?? []
       const zielNames = zielRecs.map((z: R) => {
         // nach_behaelter bevorzugen, nach_weinausbau als Fallback
@@ -401,7 +401,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
       const netto   = parseFloat(u.menge_liter) || 0
       const schwund = parseFloat(u.schwund_liter) || 0
       // brutto_liter bevorzugen, sonst netto + schwund
-      abgangLiter   = parseFloat(u.brutto_liter) || (netto + schwund) || netto
+      abgangLiter   = parseFloat(u.brutto_liter) || (netto + schwund) || netto   // null-vorgabe-ok: Brutto 0 = Altdaten ohne Brutto – aus Netto und Schwund
       const destName = (u.nach_behaelter as R | null)?.name ?? '?'
       beschreibung   = `Umziehen → ${destName}${schwund > 0.01 ? ` (Schwund: ${fmtNum(schwund, 2)} L)` : ''}`
     }
@@ -417,7 +417,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
 
   // Abfüllungen (Abgänge)
   for (const f of ((fuellungenRaw ?? []) as R[])) {
-    const liter = parseFloat(f.menge_liter_gefuellt) || (parseInt(f.anzahl_flaschen) * parseInt(f.flaschengroesse_ml) / 1000)
+    const liter = parseFloat(f.menge_liter_gefuellt) || (parseInt(f.anzahl_flaschen) * parseInt(f.flaschengroesse_ml) / 1000)   // null-vorgabe-ok: Füllmenge 0 = nicht erfasst – aus den Flaschen
     bewegungen.push({
       datum: f.datum,
       art: 'abfuellung',

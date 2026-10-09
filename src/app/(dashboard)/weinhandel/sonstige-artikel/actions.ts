@@ -6,7 +6,7 @@ import { canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { AktionsFehler, dbFehlerText, NICHT_GESPEICHERT } from '@/lib/fehler'
-import { dezimal, zahlAus } from '@/lib/format'
+import { zahlAus } from '@/lib/format'
 import { alle } from '@/lib/supabase/alle'
 import { wienHeute } from '@/lib/csv'
 import { stornoGrundFehler } from '@/lib/storno/grund'
@@ -32,7 +32,7 @@ export async function upsertSonstigesArtikel(formData: FormData) {
   const id           = (formData.get('id')           as string).trim() || null
   const name         = (formData.get('name')         as string).trim()
   const einheit      = (formData.get('einheit')      as string).trim() || 'Stk'
-  const defaultPreis = parseFloat(dezimal(formData.get('default_preis') as string)) || null
+  const defaultPreis = zahlAus(formData.get('default_preis'))
 
   if (!name) throw new AktionsFehler('Name darf nicht leer sein')
 

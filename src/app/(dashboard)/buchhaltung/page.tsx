@@ -51,7 +51,7 @@ export default async function BuchhaltungPage({
 
   const sp       = await searchParams
   const aktJahr  = Number(wienHeute().slice(0, 4))
-  const jahr     = parseInt(sp.jahr ?? '') || aktJahr
+  const jahr     = parseInt(sp.jahr ?? '') || aktJahr   // null-vorgabe-ok: Jahr 0 aus der URL ist ungültig – aktuelles Jahr
   const typFilter = sp.typ === 'einnahme' || sp.typ === 'ausgabe' ? sp.typ : ''
   const q        = (sp.q ?? '').trim().slice(0, 200)
 

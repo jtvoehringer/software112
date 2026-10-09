@@ -89,8 +89,8 @@ export default function AnlageForm({ initial, buchungen = [], darfSchreiben }: {
     return {
       id: 'neu', name: form.name, gruppe: form.gruppe || null, konto_nr: form.konto_nr ? Number(form.konto_nr) : null,
       anschaffung_am: form.anschaffung_am, ak_netto: kosten,
-      nutzungsdauer_jahre: Math.max(1, Number(form.nutzungsdauer_jahre) || 1),
-      methode: form.methode, degressiv_satz: form.methode === 'degressiv' ? Number(form.degressiv_satz) || 30 : null,
+      nutzungsdauer_jahre: Math.max(1, Number(form.nutzungsdauer_jahre) || 1),   // null-vorgabe-ok: Nutzungsdauer bzw. degressiver Satz 0 ist ungültig
+      methode: form.methode, degressiv_satz: form.methode === 'degressiv' ? Number(form.degressiv_satz) || 30 : null,   // null-vorgabe-ok: Nutzungsdauer bzw. degressiver Satz 0 ist ungültig
       restwert: parseBetrag(form.restwert) ?? 0,
       abgang_am: form.abgang_am || null, veraeusserungserloes: parseBetrag(form.veraeusserungserloes),
     }
@@ -106,7 +106,7 @@ export default function AnlageForm({ initial, buchungen = [], darfSchreiben }: {
         konto_nr: form.konto_nr.trim() ? Number(form.konto_nr.trim()) : null,
         anschaffung_am: form.anschaffung_am, ak_netto: kosten,
         nutzungsdauer_jahre: Number(form.nutzungsdauer_jahre) || 0, methode: form.methode,
-        degressiv_satz: form.methode === 'degressiv' ? Number(form.degressiv_satz) || 30 : null,
+        degressiv_satz: form.methode === 'degressiv' ? Number(form.degressiv_satz) || 30 : null,   // null-vorgabe-ok: Nutzungsdauer bzw. degressiver Satz 0 ist ungültig
         restwert: parseBetrag(form.restwert) ?? 0,
         abgang_am: form.abgang_am || null, veraeusserungserloes: parseBetrag(form.veraeusserungserloes),
         transaktion_id: form.transaktion_id || null, notizen: form.notizen || null,

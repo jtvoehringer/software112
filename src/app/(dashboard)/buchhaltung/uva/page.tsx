@@ -58,7 +58,7 @@ export default async function UvaPage({
   const sp   = await searchParams
   const heute = wienHeute()
   const aktJahr = Number(heute.slice(0, 4))
-  const jahr = parseInt(sp.jahr ?? '') || aktJahr
+  const jahr = parseInt(sp.jahr ?? '') || aktJahr   // null-vorgabe-ok: Jahr 0 aus der URL ist ungültig – aktuelles Jahr
   const uvaZeitraum = einst?.ea_uva_zeitraum ?? 'quartalsweise'
 
   // Gespeicherte UVA-Meldungen für dieses Jahr – Kennzahlen wie in der CSV

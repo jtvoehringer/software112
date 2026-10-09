@@ -7,7 +7,7 @@ import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import { revalidatePath } from 'next/cache'
 import { AktionsFehler, dbFehlerText, NICHT_GESPEICHERT } from '@/lib/fehler'
 import { stornoGrundFehler } from '@/lib/storno/grund'
-import { dezimal } from '@/lib/format'
+import { dezimal, zahlAus, ganzzahlAus } from '@/lib/format'
 import { MASSNAHMEN_ARTEN, MASSNAHMEN_ART_LABEL, istMassnahmenArt } from '@/lib/behandlungen/arten'
 import { eppoCodeFehler, eppoCodeNormal, registernummerFehler, registernummerNormal } from '@/lib/behandlungen/psmStamm'
 
@@ -176,12 +176,12 @@ export async function upsertPSM(fd: FormData) {
     bienengefaehrlich:  fd.get('bienengefaehrlich') === 'true',
     handelsname:        (fd.get('handelsname') as string) || null,
     wirkstoff:          (fd.get('wirkstoff') as string) || null,
-    wirkstoffgehalt_pct: parseFloat(dezimal(fd.get('wirkstoffgehalt_pct') as string)) || null,
-    cu_gehalt_pct:      parseFloat(dezimal(fd.get('cu_gehalt_pct') as string)) || null,
+    wirkstoffgehalt_pct: zahlAus(fd.get('wirkstoffgehalt_pct')),
+    cu_gehalt_pct:      zahlAus(fd.get('cu_gehalt_pct')),
     kategorie:          (fd.get('kategorie') as string) || null,
-    wartezeit_tage:     parseInt(dezimal(fd.get('wartezeit_tage') as string)) || null,
-    max_aufwand_kg_ha:  parseFloat(dezimal(fd.get('max_aufwand_kg_ha') as string)) || null,
-    max_anwendungen:    parseInt(dezimal(fd.get('max_anwendungen') as string)) || null,
+    wartezeit_tage:     ganzzahlAus(fd.get('wartezeit_tage')),
+    max_aufwand_kg_ha:  zahlAus(fd.get('max_aufwand_kg_ha')),
+    max_anwendungen:    ganzzahlAus(fd.get('max_anwendungen')),
     oeko_zugelassen:    fd.get('oeko_zugelassen') === 'true',
     aktiv:              true,
     notizen:            (fd.get('notizen') as string) || null,
@@ -233,13 +233,13 @@ export async function upsertDuengemittel(fd: FormData) {
     name:                      fd.get('name') as string,
     handelsname:               (fd.get('handelsname') as string) || null,
     typ:                       (fd.get('typ') as string) || null,
-    naehrstoff_n_pct:          parseFloat(dezimal(fd.get('naehrstoff_n_pct') as string)) || null,
-    naehrstoff_p_pct:          parseFloat(dezimal(fd.get('naehrstoff_p_pct') as string)) || null,
-    naehrstoff_k_pct:          parseFloat(dezimal(fd.get('naehrstoff_k_pct') as string)) || null,
-    wartezeit_tage:            parseInt(dezimal(fd.get('wartezeit_tage') as string)) || null,
+    naehrstoff_n_pct:          zahlAus(fd.get('naehrstoff_n_pct')),
+    naehrstoff_p_pct:          zahlAus(fd.get('naehrstoff_p_pct')),
+    naehrstoff_k_pct:          zahlAus(fd.get('naehrstoff_k_pct')),
+    wartezeit_tage:            ganzzahlAus(fd.get('wartezeit_tage')),
     oeko_zugelassen:           fd.get('oeko_zugelassen') === 'true',
     einarbeitung_erforderlich: fd.get('einarbeitung_erforderlich') === 'true',
-    preis_pro_einheit:         parseFloat(dezimal(fd.get('preis_pro_einheit') as string)) || null,
+    preis_pro_einheit:         zahlAus(fd.get('preis_pro_einheit')),
     einheit:                   (fd.get('einheit') as string) || null,
     aktiv:                     true,
     notizen:                   (fd.get('notizen') as string) || null,

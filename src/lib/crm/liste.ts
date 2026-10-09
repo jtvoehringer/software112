@@ -89,7 +89,7 @@ export type ListenFilter = {
 
 export function filterAusParams(sp: Record<string, string | string[] | undefined>, art: 'kontakt' | 'firma'): ListenFilter {
   const s = (k: string) => { const v = sp[k]; return (Array.isArray(v) ? v[0] : v) ?? '' }
-  const n = Math.min(LISTE_MAX, Math.max(LISTE_SCHRITT, parseInt(s('n'), 10) || LISTE_SCHRITT))
+  const n = Math.min(LISTE_MAX, Math.max(LISTE_SCHRITT, parseInt(s('n'), 10) || LISTE_SCHRITT))   // null-vorgabe-ok: Listenlänge 0 ist ungültig – ein Schritt
   const leadRaw = s('lead') || s('filter')
   const b = s('buchstabe').toUpperCase()
   return {

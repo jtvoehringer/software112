@@ -138,7 +138,7 @@ export default async function GebindePage({
       } else {
         // Altes Format (transfer)
         const haupt = batch.find((r: R) => r.brutto_liter != null) ?? batch[0]
-        const bruttoVal = parseFloat(haupt.brutto_liter) || batch.reduce((s: number, r: R) =>
+        const bruttoVal = parseFloat(haupt.brutto_liter) || batch.reduce((s: number, r: R) =>   // null-vorgabe-ok: Brutto 0 = Altdaten ohne Brutto – aus Netto und Schwund
           s + (parseFloat(r.menge_liter) || 0) + (parseFloat(r.schwund_liter) || 0), 0)
         umzuege.push({
           key:          batchId,
@@ -154,7 +154,7 @@ export default async function GebindePage({
         })
       }
     } else {
-      const bruttoVal = parseFloat(u.brutto_liter) || ((parseFloat(u.menge_liter) || 0) + (parseFloat(u.schwund_liter) || 0))
+      const bruttoVal = parseFloat(u.brutto_liter) || ((parseFloat(u.menge_liter) || 0) + (parseFloat(u.schwund_liter) || 0))   // null-vorgabe-ok: Brutto 0 = Altdaten ohne Brutto – aus Netto und Schwund
       umzuege.push({
         key:          u.id,
         datum:        u.datum,

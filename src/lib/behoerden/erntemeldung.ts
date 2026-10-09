@@ -613,7 +613,7 @@ export async function ladeErntemeldung(supabase: Client, tenantId: string, jg: J
   const warnungen: string[] = []
   // KAN-148 C2: nach dem Einreichen hilft nur noch eine Korrekturmeldung (neue Version), vorher „Neu berechnen“
   const aktualisieren = amaAktualisierenText(meldung ? textOderNull(meldung.status) : null)
-  const version = meldung ? Number(meldung.version ?? 1) || 1 : 1
+  const version = meldung ? Number(meldung.version ?? 1) || 1 : 1   // null-vorgabe-ok: Version 0 gibt es nicht – erste Version
   if (version > 1) {
     warnungen.push(`Korrekturmeldung: Version ${version} ersetzt die eingereichte Version ${version - 1}.`)
   }

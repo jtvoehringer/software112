@@ -22,7 +22,7 @@ export default async function FinanzUebersichtPage({ searchParams }: { searchPar
 
   const sp = await searchParams
   const jahrAktuell = ctx.heute.getFullYear()
-  const jahr = Math.min(jahrAktuell, Math.max(jahrAktuell - 5, parseInt(sp.jahr ?? '') || jahrAktuell))
+  const jahr = Math.min(jahrAktuell, Math.max(jahrAktuell - 5, parseInt(sp.jahr ?? '') || jahrAktuell))   // null-vorgabe-ok: Jahr 0 aus der URL ist ungültig – aktuelles Jahr
   const art = einst.doppik ? 'doppik' : 'ea'
   const f = await ladeFinanzen(ctx, { art, uvaZeitraum: einst.uvaZeitraum, jahr })
 

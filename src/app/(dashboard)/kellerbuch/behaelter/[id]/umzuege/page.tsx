@@ -85,7 +85,7 @@ export default async function BehaelterUmzuegePage({ params }: { params: Promise
         vonCharge: (u.von_weinausbau as R | null)?.name ?? null,
         nachCharge: (u.nach_weinausbau as R | null)?.name ?? null,
         istQuelle: (u.von_behaelter as R | null)?.id === id,
-        brutto: parseFloat(u.brutto_liter) || ((parseFloat(u.menge_liter) || 0) + (parseFloat(u.schwund_liter) || 0)),
+        brutto: parseFloat(u.brutto_liter) || ((parseFloat(u.menge_liter) || 0) + (parseFloat(u.schwund_liter) || 0)),   // null-vorgabe-ok: Brutto 0 = Altdaten ohne Brutto – aus Netto und Schwund
         netto: parseFloat(u.menge_liter) || 0,
         schwund: parseFloat(u.schwund_liter) || 0,
       })
