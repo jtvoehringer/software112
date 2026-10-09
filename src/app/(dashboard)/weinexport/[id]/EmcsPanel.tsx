@@ -28,7 +28,8 @@ export default function EmcsPanel({ auftragId, initialArc, initialStatus }: Prop
         </select>
         <button type="button" disabled={saving}
           onClick={async () => {
-            setSaving(true); setFehler(null)
+            setSaving(true);
+            try { setFehler(null)
             const res = await fetch('/api/weinexport/' + auftragId, {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
@@ -36,6 +37,10 @@ export default function EmcsPanel({ auftragId, initialArc, initialStatus }: Prop
             })
             if (!res.ok) setFehler((await res.json().catch(() => null))?.fehler ?? `Fehler (Status ${res.status})`)
             setSaving(false)
+
+            } finally {
+              setSaving(false)
+            }
           }}
           className="w-full text-xs bg-s112-teal text-s112-yellow py-1.5 rounded-lg hover:bg-s112-teal/90 disabled:opacity-40">
           {saving ? 'Speichern...' : 'EMCS speichern'}

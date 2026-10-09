@@ -67,7 +67,8 @@ export default function AboClient({
 
   async function handleBuchhaltungsart(art: Buchhaltungsart) {
     if (art === buchhaltungsartAktuell) return
-    setArtSpeichern(true); setError(null); setHinweis(null)
+    setArtSpeichern(true);
+    try { setError(null); setHinweis(null)
     const res = await setzeBuchhaltungsartAction(art)
     if ('error' in res && res.error) setError(res.error)
     else {
@@ -78,56 +79,72 @@ export default function AboClient({
     }
     setArtSpeichern(false)
     router.refresh()
+
+    } finally {
+      setArtSpeichern(false)
+    }
   }
 
   async function handlePortal() {
     setLoading(true)
-    setError(null)
-    const res = await createOwnStripePortalSession()
-    if ('error' in res && res.error) {
-      setError(res.error)
+    try {
+      setError(null)
+      const res = await createOwnStripePortalSession()
+      if ('error' in res && res.error) {
+        setError(res.error)
+        setLoading(false)
+        return
+      }
+      if ('url' in res && res.url) {
+        window.location.href = res.url
+        return
+      }
       setLoading(false)
-      return
+    } finally {
+      setLoading(false)
     }
-    if ('url' in res && res.url) {
-      window.location.href = res.url
-      return
-    }
-    setLoading(false)
   }
 
   async function handleZahlungNachholen(paket?: PaketKey) {
     setLoading(true)
-    setError(null)
-    const res = await starteZahlungAction(paket, buchhaltungsWahl || undefined)
-    if ('error' in res && res.error) {
-      setError(res.error)
+    try {
+      setError(null)
+      const res = await starteZahlungAction(paket, buchhaltungsWahl || undefined)
+      if ('error' in res && res.error) {
+        setError(res.error)
+        setLoading(false)
+        return
+      }
+      if ('url' in res && res.url) {
+        window.location.href = res.url
+        return
+      }
       setLoading(false)
-      return
+    } finally {
+      setLoading(false)
     }
-    if ('url' in res && res.url) {
-      window.location.href = res.url
-      return
-    }
-    setLoading(false)
   }
 
   async function handlePaketwechsel(paket: PaketKey) {
     setLoading(true)
-    setError(null)
-    setHinweis(null)
-    const res = await wechslePaketAction(paket, buchhaltungsWahl || undefined)
-    if ('error' in res && res.error) {
-      setError(res.error)
+    try {
+      setError(null)
+      setHinweis(null)
+      const res = await wechslePaketAction(paket, buchhaltungsWahl || undefined)
+      if ('error' in res && res.error) {
+        setError(res.error)
+        setLoading(false)
+        return
+      }
+      setWahl(null)
+      // KAN-5: bei offener Zahlung schaltet der Server das neue Paket erst nach Zahlungseingang frei
+      setHinweisWarnung('hinweisArt' in res && res.hinweisArt === 'warnung')
+      setHinweis('hinweis' in res && res.hinweis ? res.hinweis : `Ihr Paket wurde auf ${PAKETE[paket].label} umgestellt. Die Abrechnung erfolgt anteilig ab heute.`)
       setLoading(false)
-      return
+      router.refresh()
+    } finally {
+      setLoading(false)
     }
-    setWahl(null)
-    // KAN-5: bei offener Zahlung schaltet der Server das neue Paket erst nach Zahlungseingang frei
-    setHinweisWarnung('hinweisArt' in res && res.hinweisArt === 'warnung')
-    setHinweis('hinweis' in res && res.hinweis ? res.hinweis : `Ihr Paket wurde auf ${PAKETE[paket].label} umgestellt. Die Abrechnung erfolgt anteilig ab heute.`)
-    setLoading(false)
-    router.refresh()
   }
 
   function istDowngrade(paket: PaketKey): boolean {

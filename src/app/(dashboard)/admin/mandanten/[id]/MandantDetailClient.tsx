@@ -1731,7 +1731,8 @@ function SumUpTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
-    setSaving(true); setMsg(null)
+    setSaving(true);
+    try { setMsg(null)
     const fd = new FormData()
     fd.set('sumup_api_key',       apiKey.trim() || ((settings as any).sumup_api_key ?? ''))
     fd.set('sumup_merchant_code', merchantCode)
@@ -1739,6 +1740,10 @@ function SumUpTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
     setMsgIsError(!!res?.error)
     setMsg(res?.error ?? 'Gespeichert')
     setSaving(false)
+
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (

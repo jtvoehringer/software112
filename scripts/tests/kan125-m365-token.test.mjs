@@ -83,7 +83,7 @@ describe('KAN-125: Verdrahtung', () => {
     assert.match(l, /return NextResponse\.json\(\{ fehler: NEU_VERBINDEN_TEXT, neuVerbinden: true \}, \{ status: 409 \}\)/)
     const n = quelle('src/app/(dashboard)/nachrichten/NachrichtenClient.tsx')
     assert.match(n, /\{neuVerbinden \? 'Neu verbinden' : 'Mit Microsoft 365 verbinden'\}/)
-    assert.match(n, /await fetch\('\/api\/nachrichten\/disconnect', \{ method: 'POST' \}\)[\s\S]{0,320}\n\s+Trennen\n/)
+    assert.match(n, /await fetch\('\/api\/nachrichten\/disconnect', \{ method: 'POST' \}\)[\s\S]{0,700}\n\s+Trennen\n/)   // Sweep 82: Fehlerprüfung dazwischen
     assert.match(quelle('src/app/(dashboard)/crm/CRMUebersichtClient.tsx'), /setOutlookNeuVerbinden\(json\.neuVerbinden \?/)
     const c = quelle('src/app/api/auth/m365/user/callback/route.ts')
     assert.match(c, /\.update\(\{ email_spiegel_info: null \}\)\n\s+\.eq\('tenant_id', tenantId\)\.eq\('user_id', userId\)\.like\('email_spiegel_info', 'Neu verbinden nötig%'\)/)

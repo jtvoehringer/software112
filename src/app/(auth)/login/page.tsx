@@ -20,21 +20,25 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    setError(null)
+    try {
+      setError(null)
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
 
-    if (error) {
-      setError(
-        error.message === 'Invalid login credentials'
-          ? 'E-Mail oder Passwort falsch.'
-          : error.message
-      )
+      if (error) {
+        setError(
+          error.message === 'Invalid login credentials'
+            ? 'E-Mail oder Passwort falsch.'
+            : error.message
+        )
+        setLoading(false)
+      } else {
+        // KAN-78: Ziel aus dem Link (weiter) über Zwei-Faktor und Betriebswahl mitnehmen
+        router.push(mitWeiter('/betrieb-waehlen', new URLSearchParams(window.location.search).get('weiter')))
+        router.refresh()
+      }
+    } finally {
       setLoading(false)
-    } else {
-      // KAN-78: Ziel aus dem Link (weiter) über Zwei-Faktor und Betriebswahl mitnehmen
-      router.push(mitWeiter('/betrieb-waehlen', new URLSearchParams(window.location.search).get('weiter')))
-      router.refresh()
     }
   }
 

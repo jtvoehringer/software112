@@ -53,7 +53,8 @@ export default function ReleaseNotesAdminClient({ readOnly = false }: { readOnly
   async function speichern(e: React.FormEvent) {
     e.preventDefault()
     if (readOnly) return
-    setSaving(true); setErfolg(false); setMeldung(null)
+    setSaving(true);
+    try { setErfolg(false); setMeldung(null)
     const { error } = await (s.from('release_notes') as any).insert({
       version, titel,
       features: features.split('\n').map((l:string)=>l.trim()).filter(Boolean),
@@ -69,6 +70,10 @@ export default function ReleaseNotesAdminClient({ readOnly = false }: { readOnly
     setVersion(''); setTitel(''); setFeatures(''); setFixes('')
     setErfolg(true); laden()
     setTimeout(() => setErfolg(false), 3000)
+
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (

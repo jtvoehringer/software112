@@ -22,6 +22,7 @@ export default function ReleaseNotesModal() {
   async function schliessen() {
     if (!note) return
     setOpen(false)
+    // laden-ok: „gesehen“ merken ist Nebensache – scheitert es, erscheint die Notiz beim nächsten Mal wieder
     await fetch('/api/release-notes', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ release_note_id: note.id }),

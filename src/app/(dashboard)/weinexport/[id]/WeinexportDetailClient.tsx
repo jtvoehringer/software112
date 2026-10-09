@@ -37,7 +37,8 @@ export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dok
   const importeur = importeurName(auftrag) ?? '–'
 
   async function updateStatus(newStatus: string) {
-    setSaving(true); setFehler(null)
+    setSaving(true);
+    try { setFehler(null)
     const res = await fetch(`/api/weinexport/${auftrag.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -46,6 +47,10 @@ export default function WeinexportDetailClient({ auftrag, zeilen, gesamtEur, dok
     if (res.ok) setStatus(newStatus)
     else setFehler((await res.json().catch(() => null))?.fehler ?? `Fehler (Status ${res.status})`)
     setSaving(false)
+
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function updateDokStatus(dokId: string, newStatus: string) {

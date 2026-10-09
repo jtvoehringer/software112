@@ -1,5 +1,6 @@
 'use client'
 
+import { fehlerText } from '@/lib/fehler'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from '@/components/ui/Link'
 import { Mail, Inbox, Send, Trash2, FileText, Folder, X, UserPlus, Paperclip } from 'lucide-react'
@@ -142,249 +143,260 @@ export default function NachrichtenClient() {
   async function spiegeln(voll: boolean) {
     setSpiegelLaeuft(true)
     try {
-      const r = await fetch(`/api/nachrichten/spiegeln${voll ? '?voll=1' : ''}`, { method: 'POST' })
-      const d = await r.json()
-      if (typeof d.fehler === 'string') { setFehler(d.fehler); return }
-      const probleme: string[] = Array.isArray(d.fehler) ? d.fehler : []
-      const teile = [`${new Date().toISOString().slice(0, 16)}`, `${d.nachrichten ?? 0} geprüft`, `${d.angelegt ?? 0} neu`]
-      // KAN-69 (01.10.2026): übersprungen = Mitgliedschaft inaktiv bzw. Abo gesperrt – Grund statt „kein Postfach“
-      const uebersprungen: string[] = Array.isArray(d.uebersprungen) ? d.uebersprungen : []
-      if (uebersprungen.length) teile.push(`übersprungen – ${uebersprungen[0]}`)
-      else if ((d.postfaecher ?? 0) === 0) teile.push('kein verbundenes Postfach')
-      if (probleme.length) teile.push(probleme[0])
-      setSpiegelInfo(teile.join(' · '))
-    } catch (e) { setFehler(String(e)) }
-    finally { setSpiegelLaeuft(false) }
-  }
-  const [deleteConfirm, setDeleteConfirm]       = useState(false)
-  const [moveMode, setMoveMode]                 = useState(false)
-  const [moveTarget, setMoveTarget]             = useState('')
-  const [moving, setMoving]                     = useState(false)
-  const [forwardAn, setForwardAn]               = useState('')
-  const [forwardMode, setForwardMode]           = useState(false)
-  const [sendVon, setSendVon]                   = useState<'own'|'shared'>('own')
-  const [threadMsgs, setThreadMsgs]             = useState<Msg[]>([])
-  const [threadLaden, setThreadLaden]           = useState(false)
-  const loadGenRef = useRef(0)
-  const pendingEmailIdRef = useRef<string | null>(null)
-  const [folders, setFolders]     = useState<MailFolder[]>([])
-  // Seitenweise laden (50 je Seite): weitere ältere Nachrichten anhängen
-  const [hatMehr, setHatMehr]     = useState(false)
-  const [naechsteSeite, setNaechsteSeite] = useState(0)
-  const [mehrLaden, setMehrLaden] = useState(false)
-  // Antwort / Allen antworten: Originalnachricht über Graph zitiert mitschicken
-  const [cc, setCc]               = useState('')
-  const [antwortAuf, setAntwortAuf] = useState<{ id: string; modus: 'reply' | 'replyAll'; mailbox: 'own' | 'shared'; zitat: string; von: string; datum: string } | null>(null)
-  const [folderId, setFolderId]   = useState<string | null>(null)  // null = inbox
-  const isFirstMailboxRender = useRef(true)
+        const r = await fetch(`/api/nachrichten/spiegeln${voll ? '?voll=1' : ''}`, { method: 'POST' })
+        const d = await r.json()
+        if (typeof d.fehler === 'string') { setFehler(d.fehler); return }
+        const probleme: string[] = Array.isArray(d.fehler) ? d.fehler : []
+        const teile = [`${new Date().toISOString().slice(0, 16)}`, `${d.nachrichten ?? 0} geprüft`, `${d.angelegt ?? 0} neu`]
+        // KAN-69 (01.10.2026): übersprungen = Mitgliedschaft inaktiv bzw. Abo gesperrt – Grund statt „kein Postfach“
+        const uebersprungen: string[] = Array.isArray(d.uebersprungen) ? d.uebersprungen : []
+        if (uebersprungen.length) teile.push(`übersprungen – ${uebersprungen[0]}`)
+        else if ((d.postfaecher ?? 0) === 0) teile.push('kein verbundenes Postfach')
+        if (probleme.length) teile.push(probleme[0])
+        setSpiegelInfo(teile.join(' · '))
+      } catch (e) { setFehler(String(e)) }
+      finally { setSpiegelLaeuft(false) }
+    }
+    const [deleteConfirm, setDeleteConfirm]       = useState(false)
+    const [moveMode, setMoveMode]                 = useState(false)
+    const [moveTarget, setMoveTarget]             = useState('')
+    const [moving, setMoving]                     = useState(false)
+    const [forwardAn, setForwardAn]               = useState('')
+    const [forwardMode, setForwardMode]           = useState(false)
+    const [sendVon, setSendVon]                   = useState<'own'|'shared'>('own')
+    const [threadMsgs, setThreadMsgs]             = useState<Msg[]>([])
+    const [threadLaden, setThreadLaden]           = useState(false)
+    const loadGenRef = useRef(0)
+    const pendingEmailIdRef = useRef<string | null>(null)
+    const [folders, setFolders]     = useState<MailFolder[]>([])
+    // Seitenweise laden (50 je Seite): weitere ältere Nachrichten anhängen
+    const [hatMehr, setHatMehr]     = useState(false)
+    const [naechsteSeite, setNaechsteSeite] = useState(0)
+    const [mehrLaden, setMehrLaden] = useState(false)
+    // Antwort / Allen antworten: Originalnachricht über Graph zitiert mitschicken
+    const [cc, setCc]               = useState('')
+    const [antwortAuf, setAntwortAuf] = useState<{ id: string; modus: 'reply' | 'replyAll'; mailbox: 'own' | 'shared'; zitat: string; von: string; datum: string } | null>(null)
+    const [folderId, setFolderId]   = useState<string | null>(null)  // null = inbox
+    const isFirstMailboxRender = useRef(true)
 
-  // Ordnerstruktur für eine bestimmte Mailbox ('own' oder 'shared') laden.
-  // Wiederverwendet vom initialen Verbindungscheck und beim Umschalten der
-  // aktiven Mailbox.
-  const ladeFolders = useCallback(async (mb: 'own'|'shared') => {
-    try {
-      const res = await fetch(`/api/nachrichten/folders?mailbox=${mb}`)
-      const d = await res.json()
-      // Vorher wurde d.fehler hier nie ausgewertet - bei einem Graph-API-Fehler
-      // (z.B. fehlende "Vollzugriff"-Berechtigung auf eine geteilte Mailbox)
-      // blieb die Ordnerliste einfach leer, ohne dass der Grund sichtbar war.
-      if (d.folders) { setFolders(sortFolders(d.folders)); setFehler(null) }
-      else if (d.fehler) setFehler(d.fehler)
-    } catch (e) { setFehler(String(e)) }
-  }, [])
+    // Ordnerstruktur für eine bestimmte Mailbox ('own' oder 'shared') laden.
+    // Wiederverwendet vom initialen Verbindungscheck und beim Umschalten der
+    // aktiven Mailbox.
+    const ladeFolders = useCallback(async (mb: 'own'|'shared') => {
+      try {
+        const res = await fetch(`/api/nachrichten/folders?mailbox=${mb}`)
+        const d = await res.json()
+        // Vorher wurde d.fehler hier nie ausgewertet - bei einem Graph-API-Fehler
+        // (z.B. fehlende "Vollzugriff"-Berechtigung auf eine geteilte Mailbox)
+        // blieb die Ordnerliste einfach leer, ohne dass der Grund sichtbar war.
+        if (d.folders) { setFolders(sortFolders(d.folders)); setFehler(null) }
+        else if (d.fehler) setFehler(d.fehler)
+      } catch (e) { setFehler(String(e)) }
+    }, [])
 
-  useEffect(() => {
-    // URL-Params prüfen
-    const params = new URLSearchParams(window.location.search)
-    if (params.get('verbunden') === '1') {
-      window.history.replaceState({}, '', '/nachrichten')
-      ladeMessages()
-    }
-    if (params.get('fehler')) {
-      const errParam = params.get('fehler') ?? ''
-      const friendlyErr = errParam.includes('access_denied') ? 'Zugriff verweigert – Berechtigungen prüfen.'
-        : errParam.includes('AADSTS') ? 'Azure AD Fehler – bitte Administrator kontaktieren.'
-        : 'Verbindungsfehler: ' + errParam
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- Browser-Wert (localStorage/URL/Feature) erst nach dem Einhängen lesen – beim Rendern gäbe es einen Hydration-Fehler
-      setFehler(friendlyErr)
-      window.history.replaceState({}, '', '/nachrichten')
-    }
-    // emailId aus CRM-Link: in Ref speichern, nach Verbindungscheck öffnen
-    const emailId = params.get('emailId')
-    if (emailId) {
-      window.history.replaceState({}, '', '/nachrichten')
-      pendingEmailIdRef.current = emailId
-    }
-    // Gespeicherte "Funktionale Mailbox" laden - bisher gab es dafür keinen
-    // GET-Endpunkt, der State startete daher nach jedem Reload wieder leer.
-    fetch('/api/nachrichten/monitored').then(r => r.json()).then(d => {
-      if (d.monitored_email) setMonitoredEmail(d.monitored_email)
-      if (d.spiegel_info) setSpiegelInfo(d.spiegel_info)
-    }).catch(() => {})
-    // Verbindungsstatus prüfen
-    fetch('/api/nachrichten/list?folder=inbox').then(async r => {
-      const data = await r.json()
-      if (!r.ok || data.fehler) {
-        setNeuVerbinden(!!data.neuVerbinden)
-        setFehler(data.neuVerbinden ? String(data.fehler)
-          : data.fehler ? 'Verbindungsfehler: ' + data.fehler
-          : 'Mailbox nicht erreichbar – bitte neu verbinden.')
-        setVerbunden(false)
-      } else {
-        setVerbunden(true)
-        setVerbEmail(data.email ?? '')
-        // Pending Email aus CRM-Link öffnen
-        if (pendingEmailIdRef.current) {
-          const eid = pendingEmailIdRef.current
-          pendingEmailIdRef.current = null
-          fetch(`/api/nachrichten/message?id=${encodeURIComponent(eid)}`)
-            .then(r => r.json())
-            .then(d => { if (!d.fehler) setSelected(d) })
-            .catch(() => {})
-        }
-        // Ordnerstruktur aus Mailbox laden (eigene Mailbox - beim ersten Laden
-        // immer activeMailbox==='own'; das separate Effect unten übernimmt
-        // das Nachladen beim Umschalten auf die geteilte Mailbox)
-        ladeFolders('own')
+    useEffect(() => {
+      // URL-Params prüfen
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('verbunden') === '1') {
+        window.history.replaceState({}, '', '/nachrichten')
+        ladeMessages()
       }
-    }).catch(() => setVerbunden(false))
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+      if (params.get('fehler')) {
+        const errParam = params.get('fehler') ?? ''
+        const friendlyErr = errParam.includes('access_denied') ? 'Zugriff verweigert – Berechtigungen prüfen.'
+          : errParam.includes('AADSTS') ? 'Azure AD Fehler – bitte Administrator kontaktieren.'
+          : 'Verbindungsfehler: ' + errParam
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- Browser-Wert (localStorage/URL/Feature) erst nach dem Einhängen lesen – beim Rendern gäbe es einen Hydration-Fehler
+        setFehler(friendlyErr)
+        window.history.replaceState({}, '', '/nachrichten')
+      }
+      // emailId aus CRM-Link: in Ref speichern, nach Verbindungscheck öffnen
+      const emailId = params.get('emailId')
+      if (emailId) {
+        window.history.replaceState({}, '', '/nachrichten')
+        pendingEmailIdRef.current = emailId
+      }
+      // Gespeicherte "Funktionale Mailbox" laden - bisher gab es dafür keinen
+      // GET-Endpunkt, der State startete daher nach jedem Reload wieder leer.
+      fetch('/api/nachrichten/monitored').then(r => r.json()).then(d => {
+        if (d.monitored_email) setMonitoredEmail(d.monitored_email)
+        if (d.spiegel_info) setSpiegelInfo(d.spiegel_info)
+      }).catch(() => {})
+      // Verbindungsstatus prüfen
+      fetch('/api/nachrichten/list?folder=inbox').then(async r => {
+        const data = await r.json()
+        if (!r.ok || data.fehler) {
+          setNeuVerbinden(!!data.neuVerbinden)
+          setFehler(data.neuVerbinden ? String(data.fehler)
+            : data.fehler ? 'Verbindungsfehler: ' + data.fehler
+            : 'Mailbox nicht erreichbar – bitte neu verbinden.')
+          setVerbunden(false)
+        } else {
+          setVerbunden(true)
+          setVerbEmail(data.email ?? '')
+          // Pending Email aus CRM-Link öffnen
+          if (pendingEmailIdRef.current) {
+            const eid = pendingEmailIdRef.current
+            pendingEmailIdRef.current = null
+            fetch(`/api/nachrichten/message?id=${encodeURIComponent(eid)}`)
+              .then(r => r.json())
+              .then(d => { if (!d.fehler) setSelected(d) })
+              .catch(() => {})
+          }
+          // Ordnerstruktur aus Mailbox laden (eigene Mailbox - beim ersten Laden
+          // immer activeMailbox==='own'; das separate Effect unten übernimmt
+          // das Nachladen beim Umschalten auf die geteilte Mailbox)
+          ladeFolders('own')
+        }
+      }).catch(() => setVerbunden(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
 
-  const ladeMessages = useCallback(async () => {
-    const gen = ++loadGenRef.current
-    setLaden(true); setFehler(null); setSelected(null)
-    try {
-      const res = await fetch(`/api/nachrichten/list?folder=${folder}${folderId ? `&folderId=${folderId}` : ''}&mailbox=${activeMailbox}`)
+    const ladeMessages = useCallback(async () => {
+      const gen = ++loadGenRef.current
+      setLaden(true); setFehler(null); setSelected(null)
+      try {
+        const res = await fetch(`/api/nachrichten/list?folder=${folder}${folderId ? `&folderId=${folderId}` : ''}&mailbox=${activeMailbox}`)
+        const data = await res.json()
+        if (gen !== loadGenRef.current) return  // veraltete Antwort – ignorieren
+        if (!res.ok || data.fehler) { setFehler(data.fehler ?? 'Fehler'); return }
+        setMessages(data.messages ?? [])
+        setHatMehr(!!data.hatMehr); setNaechsteSeite(data.naechsteSeite ?? (data.messages?.length ?? 0))
+        // Oberste Nachricht direkt öffnen (Rückmeldung 18.9.2026) - außer im Verfassen-Modus
+        const erste = (data.messages ?? [])[0] as Msg | undefined
+        if (erste && !composeRef.current) autoOeffnen.current = erste
+      } catch (e) { if (gen === loadGenRef.current) setFehler(String(e)) }
+      finally { if (gen === loadGenRef.current) setLaden(false) }
+    }, [folder, folderId, activeMailbox])
+
+    // Ältere Nachrichten nachladen (Rückmeldung 17.9.2026: bisher nur die 30 neuesten)
+    async function ladeWeitere() {
+      if (mehrLaden || !hatMehr) return
+      setMehrLaden(true)
+      const gen = loadGenRef.current
+      try {
+        const res = await fetch(`/api/nachrichten/list?folder=${folder}${folderId ? `&folderId=${folderId}` : ''}&mailbox=${activeMailbox}&skip=${naechsteSeite}`)
+        const data = await res.json()
+        if (gen !== loadGenRef.current) return
+        if (!res.ok || data.fehler) { setFehler(data.fehler ?? 'Fehler'); return }
+        setMessages(prev => { const ids = new Set(prev.map(m => m.id)); return [...prev, ...((data.messages ?? []) as Msg[]).filter(m => !ids.has(m.id))] })
+        setHatMehr(!!data.hatMehr); setNaechsteSeite(data.naechsteSeite ?? naechsteSeite + 50)
+      } catch (e) { setFehler(String(e)) }
+      finally { setMehrLaden(false) }
+    }
+
+    // Eigene Adressen (für „Allen antworten“: nicht an sich selbst)
+    const eigeneAdressen = () => new Set([verbEmail, monitoredEmail].map(e => e.trim().toLowerCase()).filter(Boolean))
+    const splitAdr = (v: string | null | undefined) => (v ?? '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean)
+    const zitatVon = (m: { von: string; vonName: string; datum: string; bodyText?: string | null }) =>
+      `Am ${new Date(m.datum).toLocaleString('de-AT')} schrieb ${m.vonName || m.von} <${m.von}>:\n` + (m.bodyText ?? '').replace(/<[^>]*>/g, '').trim().split('\n').map(z => `> ${z}`).join('\n')
+
+    function antworten(m: MsgDetail | (Msg & { bodyText?: string | null; cc?: string }), modus: 'reply' | 'replyAll') {
+      const eigene = eigeneAdressen()
+      const anListe = [m.von.toLowerCase()]
+      let ccListe: string[] = []
+      if (modus === 'replyAll') {
+        for (const e of splitAdr(m.an)) if (!eigene.has(e) && !anListe.includes(e)) anListe.push(e)
+        ccListe = splitAdr(m.cc).filter(e => !eigene.has(e) && !anListe.includes(e))
+      }
+      setForwardMode(false); setCompose(true)
+      setAn(anListe.join(', ')); setCc(ccListe.join(', '))
+      setBetreff(/^(re|aw|wg):/i.test(m.betreff.trim()) ? m.betreff : `Re: ${m.betreff}`)
+      setText('')
+      setAntwortAuf({ id: m.id, modus, mailbox: activeMailbox, zitat: zitatVon({ von: m.von, vonName: m.vonName, datum: m.datum, bodyText: (m as MsgDetail).bodyText ?? '' }), von: m.vonName || m.von, datum: m.datum })
+    }
+
+    useEffect(() => { ladeMessages() }, [ladeMessages])
+
+    // Mailbox gewechselt (Eigene ↔ geteilte Mailbox): Ordnerliste neu laden und
+    // Auswahl zurücksetzen, da Ordner-IDs zwischen Mailboxen nicht kompatibel sind.
+    // Der erste Render lädt bereits über den obigen Verbindungscheck-Effect.
+    useEffect(() => {
+      if (isFirstMailboxRender.current) { isFirstMailboxRender.current = false; return }
+      setFolderId(null); setFolder('inbox'); setSelected(null)
+      ladeFolders(activeMailbox)
+    }, [activeMailbox, ladeFolders])
+
+    // Löschen mit Sprung zur nächsten Nachricht (18.9.2026): aus der Liste
+    // (Hover-Papierkorb) und aus dem Detail; die nächste Mail in der Liste (oder
+    // die vorige, wenn die letzte gelöscht wurde) wird direkt geöffnet.
+    async function loescheNachricht(id: string) {
+      const idx = messages.findIndex(m => m.id === id)
+      const rest = messages.filter(m => m.id !== id)
+      const naechste = idx >= 0 ? (rest[idx] ?? rest[idx - 1] ?? null) : null
+      setDeleteConfirm(false)
+      loadGenRef.current++  // in-flight ladeMessages ignorieren
+      setMessages(rest)
+      if (!selected || selected.id === id) {
+        if (naechste) void openMessage(naechste)
+        else setSelected(null)
+      }
+      const r = await fetch(`/api/nachrichten/delete?id=${id}&mailbox=${activeMailbox}`, { method: 'DELETE' })
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}))
+        setFehler('Löschen fehlgeschlagen: ' + (d.fehler ?? r.status))
+      }
+    }
+
+    async function openMessage(msg: Msg) {
+      setDeleteConfirm(false)
+      setMoveMode(false); setMoveTarget('')
+      setThreadMsgs([]); setForwardMode(false); setLeadDialog(false)
+      if (msg.quelle !== 'm365') { setSelected({ ...msg, bodyHtml: null, bodyText: msg.vorschau, conversationId: null, kontaktInfo: null }); return }
+      setDetailLaden(true); setSelected(null)
+      let data
+      try {
+        const res = await fetch(`/api/nachrichten/message?id=${msg.id}&mailbox=${activeMailbox}`)
+        data = await res.json()
+      } catch (e) {
+        setFehler(fehlerText(e))   // Sweep 82: Netzwerkfehler bzw. keine JSON-Antwort – vorher hing die Ladeanzeige
+        return
+      } finally {
+        setDetailLaden(false)
+      }
+      if (data.fehler) return
+      setSelected(data)
+      // Gelesen markieren in Liste
+      setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, gelesen: true } : m))
+      // Thread-Nachrichten nachladen (cross-folder)
+      if (data.conversationId) {
+        setThreadLaden(true)
+        fetch(`/api/nachrichten/conversation?id=${encodeURIComponent(data.conversationId)}&mailbox=${activeMailbox}`)
+          .then(r => r.json()).then(d => {
+            if (d.messages) setThreadMsgs(d.messages.filter((m: Msg) => m.id !== data.id))
+          }).catch(() => {}).finally(() => setThreadLaden(false))
+      }
+      // Unread-Zähler im Ordner dekrementieren wenn Nachricht war ungelesen
+      if (!msg.gelesen) {
+        setFolders(prev => prev.map(f =>
+          f.id === (folderId ?? '') || (!folderId && (f.name === 'Inbox' || f.name === 'Posteingang'))
+            ? { ...f, unread: Math.max(0, f.unread - 1) }
+            : f
+        ))
+      }
+    }
+
+    async function sendEmail(e: React.FormEvent) {
+      e.preventDefault()
+      setSending(true);
+      try { setSendResult(null)
+      const res = await fetch('/api/email/unified', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          an, cc, betreff, text, useSharedMailbox: sendVon === 'shared' && !!monitoredEmail,
+          antwortAuf: antwortAuf ? { id: antwortAuf.id, modus: antwortAuf.modus, mailbox: antwortAuf.mailbox } : null,
+          zitat: antwortAuf?.zitat ?? null,
+        }),
+      })
       const data = await res.json()
-      if (gen !== loadGenRef.current) return  // veraltete Antwort – ignorieren
-      if (!res.ok || data.fehler) { setFehler(data.fehler ?? 'Fehler'); return }
-      setMessages(data.messages ?? [])
-      setHatMehr(!!data.hatMehr); setNaechsteSeite(data.naechsteSeite ?? (data.messages?.length ?? 0))
-      // Oberste Nachricht direkt öffnen (Rückmeldung 18.9.2026) - außer im Verfassen-Modus
-      const erste = (data.messages ?? [])[0] as Msg | undefined
-      if (erste && !composeRef.current) autoOeffnen.current = erste
-    } catch (e) { if (gen === loadGenRef.current) setFehler(String(e)) }
-    finally { if (gen === loadGenRef.current) setLaden(false) }
-  }, [folder, folderId, activeMailbox])
-
-  // Ältere Nachrichten nachladen (Rückmeldung 17.9.2026: bisher nur die 30 neuesten)
-  async function ladeWeitere() {
-    if (mehrLaden || !hatMehr) return
-    setMehrLaden(true)
-    const gen = loadGenRef.current
-    try {
-      const res = await fetch(`/api/nachrichten/list?folder=${folder}${folderId ? `&folderId=${folderId}` : ''}&mailbox=${activeMailbox}&skip=${naechsteSeite}`)
-      const data = await res.json()
-      if (gen !== loadGenRef.current) return
-      if (!res.ok || data.fehler) { setFehler(data.fehler ?? 'Fehler'); return }
-      setMessages(prev => { const ids = new Set(prev.map(m => m.id)); return [...prev, ...((data.messages ?? []) as Msg[]).filter(m => !ids.has(m.id))] })
-      setHatMehr(!!data.hatMehr); setNaechsteSeite(data.naechsteSeite ?? naechsteSeite + 50)
-    } catch (e) { setFehler(String(e)) }
-    finally { setMehrLaden(false) }
-  }
-
-  // Eigene Adressen (für „Allen antworten“: nicht an sich selbst)
-  const eigeneAdressen = () => new Set([verbEmail, monitoredEmail].map(e => e.trim().toLowerCase()).filter(Boolean))
-  const splitAdr = (v: string | null | undefined) => (v ?? '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean)
-  const zitatVon = (m: { von: string; vonName: string; datum: string; bodyText?: string | null }) =>
-    `Am ${new Date(m.datum).toLocaleString('de-AT')} schrieb ${m.vonName || m.von} <${m.von}>:\n` + (m.bodyText ?? '').replace(/<[^>]*>/g, '').trim().split('\n').map(z => `> ${z}`).join('\n')
-
-  function antworten(m: MsgDetail | (Msg & { bodyText?: string | null; cc?: string }), modus: 'reply' | 'replyAll') {
-    const eigene = eigeneAdressen()
-    const anListe = [m.von.toLowerCase()]
-    let ccListe: string[] = []
-    if (modus === 'replyAll') {
-      for (const e of splitAdr(m.an)) if (!eigene.has(e) && !anListe.includes(e)) anListe.push(e)
-      ccListe = splitAdr(m.cc).filter(e => !eigene.has(e) && !anListe.includes(e))
+      if (!res.ok || data.fehler) { setSendResult('Fehler: ' + (data.fehler ?? 'Unbekannt')); setSending(false); return }
+      setSendResult('Gesendet')
+      setTimeout(() => { setCompose(false); setSendResult(null); setAn(''); setCc(''); setBetreff(''); setText(''); setAntwortAuf(null) }, 1500)
+      setSending(false)
+      if (folder === 'sent') ladeMessages()
+    } finally {
+      setSending(false)
     }
-    setForwardMode(false); setCompose(true)
-    setAn(anListe.join(', ')); setCc(ccListe.join(', '))
-    setBetreff(/^(re|aw|wg):/i.test(m.betreff.trim()) ? m.betreff : `Re: ${m.betreff}`)
-    setText('')
-    setAntwortAuf({ id: m.id, modus, mailbox: activeMailbox, zitat: zitatVon({ von: m.von, vonName: m.vonName, datum: m.datum, bodyText: (m as MsgDetail).bodyText ?? '' }), von: m.vonName || m.von, datum: m.datum })
-  }
-
-  useEffect(() => { ladeMessages() }, [ladeMessages])
-
-  // Mailbox gewechselt (Eigene ↔ geteilte Mailbox): Ordnerliste neu laden und
-  // Auswahl zurücksetzen, da Ordner-IDs zwischen Mailboxen nicht kompatibel sind.
-  // Der erste Render lädt bereits über den obigen Verbindungscheck-Effect.
-  useEffect(() => {
-    if (isFirstMailboxRender.current) { isFirstMailboxRender.current = false; return }
-    setFolderId(null); setFolder('inbox'); setSelected(null)
-    ladeFolders(activeMailbox)
-  }, [activeMailbox, ladeFolders])
-
-  // Löschen mit Sprung zur nächsten Nachricht (18.9.2026): aus der Liste
-  // (Hover-Papierkorb) und aus dem Detail; die nächste Mail in der Liste (oder
-  // die vorige, wenn die letzte gelöscht wurde) wird direkt geöffnet.
-  async function loescheNachricht(id: string) {
-    const idx = messages.findIndex(m => m.id === id)
-    const rest = messages.filter(m => m.id !== id)
-    const naechste = idx >= 0 ? (rest[idx] ?? rest[idx - 1] ?? null) : null
-    setDeleteConfirm(false)
-    loadGenRef.current++  // in-flight ladeMessages ignorieren
-    setMessages(rest)
-    if (!selected || selected.id === id) {
-      if (naechste) void openMessage(naechste)
-      else setSelected(null)
-    }
-    const r = await fetch(`/api/nachrichten/delete?id=${id}&mailbox=${activeMailbox}`, { method: 'DELETE' })
-    if (!r.ok) {
-      const d = await r.json().catch(() => ({}))
-      setFehler('Löschen fehlgeschlagen: ' + (d.fehler ?? r.status))
-    }
-  }
-
-  async function openMessage(msg: Msg) {
-    setDeleteConfirm(false)
-    setMoveMode(false); setMoveTarget('')
-    setThreadMsgs([]); setForwardMode(false); setLeadDialog(false)
-    if (msg.quelle !== 'm365') { setSelected({ ...msg, bodyHtml: null, bodyText: msg.vorschau, conversationId: null, kontaktInfo: null }); return }
-    setDetailLaden(true); setSelected(null)
-    const res = await fetch(`/api/nachrichten/message?id=${msg.id}&mailbox=${activeMailbox}`)
-    const data = await res.json()
-    setDetailLaden(false)
-    if (data.fehler) return
-    setSelected(data)
-    // Gelesen markieren in Liste
-    setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, gelesen: true } : m))
-    // Thread-Nachrichten nachladen (cross-folder)
-    if (data.conversationId) {
-      setThreadLaden(true)
-      fetch(`/api/nachrichten/conversation?id=${encodeURIComponent(data.conversationId)}&mailbox=${activeMailbox}`)
-        .then(r => r.json()).then(d => {
-          if (d.messages) setThreadMsgs(d.messages.filter((m: Msg) => m.id !== data.id))
-        }).catch(() => {}).finally(() => setThreadLaden(false))
-    }
-    // Unread-Zähler im Ordner dekrementieren wenn Nachricht war ungelesen
-    if (!msg.gelesen) {
-      setFolders(prev => prev.map(f =>
-        f.id === (folderId ?? '') || (!folderId && (f.name === 'Inbox' || f.name === 'Posteingang'))
-          ? { ...f, unread: Math.max(0, f.unread - 1) }
-          : f
-      ))
-    }
-  }
-
-  async function sendEmail(e: React.FormEvent) {
-    e.preventDefault()
-    setSending(true); setSendResult(null)
-    const res = await fetch('/api/email/unified', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        an, cc, betreff, text, useSharedMailbox: sendVon === 'shared' && !!monitoredEmail,
-        antwortAuf: antwortAuf ? { id: antwortAuf.id, modus: antwortAuf.modus, mailbox: antwortAuf.mailbox } : null,
-        zitat: antwortAuf?.zitat ?? null,
-      }),
-    })
-    const data = await res.json()
-    if (!res.ok || data.fehler) { setSendResult('Fehler: ' + (data.fehler ?? 'Unbekannt')); setSending(false); return }
-    setSendResult('Gesendet')
-    setTimeout(() => { setCompose(false); setSendResult(null); setAn(''); setCc(''); setBetreff(''); setText(''); setAntwortAuf(null) }, 1500)
-    setSending(false)
-    if (folder === 'sent') ladeMessages()
   }
 
   if (verbunden === false) {
@@ -405,7 +417,11 @@ export default function NachrichtenClient() {
           </a>
           {neuVerbinden && (
             <button type="button" onClick={async () => {
-              await fetch('/api/nachrichten/disconnect', { method: 'POST' })
+              // Sweep 82: Ergebnis prüfen – vorher lud die Seite auch bei einem Fehler neu, als wäre getrennt
+              try {
+                const res = await fetch('/api/nachrichten/disconnect', { method: 'POST' })
+                if (!res.ok) { const d = await res.json().catch(() => ({} as { fehler?: string })); setFehler(`Trennen fehlgeschlagen: ${d.fehler ?? res.status}`); return }
+              } catch (e) { setFehler(fehlerText(e)); return }
               window.location.reload()
             }} className="text-sm border border-s112-err/30 text-s112-err px-4 py-3 rounded-xl hover:bg-s112-err-bg">
               Trennen
@@ -421,12 +437,23 @@ export default function NachrichtenClient() {
               className="flex-1 border border-s112-border rounded-lg px-3 py-1.5 text-xs focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
             <button onClick={async () => {
               setMonitoredSaving(true)
-              await fetch('/api/nachrichten/monitored', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ monitored_email: monitoredEmail || null }),
-              })
-              setMonitoredSaving(false)
-              window.location.reload()
+              try {
+                const res = await fetch('/api/nachrichten/monitored', {
+                  method: 'POST', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ monitored_email: monitoredEmail || null }),
+                })
+                if (!res.ok) {
+                  const d = await res.json().catch(() => ({} as { fehler?: string }))
+                  setFehler(`Mailbox konnte nicht gespeichert werden: ${d.fehler ?? res.status}`)   // Sweep 82: vorher still neu geladen
+                  return
+                }
+                setMonitoredSaving(false)
+                window.location.reload()
+              } catch (e) {
+                setFehler(fehlerText(e))
+              } finally {
+                setMonitoredSaving(false)
+              }
             }} disabled={monitoredSaving}
               className="text-xs border border-s112-border px-3 py-1.5 rounded-lg hover:bg-s112-bg disabled:opacity-40">
               {monitoredSaving ? '…' : 'Speichern'}
@@ -507,7 +534,11 @@ export default function NachrichtenClient() {
               <div className="space-y-1">
                 <p className="text-[11px] text-s112-muted font-medium uppercase tracking-wide">Verbindung</p>
                 <button onClick={async () => {
-                  await fetch('/api/nachrichten/disconnect', { method: 'POST' })
+                  // Sweep 82: Ergebnis prüfen – vorher lud die Seite auch bei einem Fehler neu, als wäre getrennt
+                  try {
+                    const res = await fetch('/api/nachrichten/disconnect', { method: 'POST' })
+                    if (!res.ok) { const d = await res.json().catch(() => ({} as { fehler?: string })); setFehler(`Trennen fehlgeschlagen: ${d.fehler ?? res.status}`); return }
+                  } catch (e) { setFehler(fehlerText(e)); return }
                   window.location.reload()
                 }} className="w-full text-[11px] border border-s112-err/30 text-s112-err px-2 py-1 rounded-sm hover:bg-s112-err-bg">
                   Trennen &amp; neu verbinden
@@ -536,12 +567,23 @@ export default function NachrichtenClient() {
                   className="w-full border border-s112-border rounded-sm px-2 py-1 text-[11px] focus:outline-hidden" />
                 <button onClick={async () => {
                   setMonitoredSaving(true)
-                  await fetch('/api/nachrichten/monitored', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ monitored_email: monitoredEmail || null }),
-                  })
-                  setMonitoredSaving(false); setShowSettings(false)
-                  window.location.reload()
+                  try {
+                    const res = await fetch('/api/nachrichten/monitored', {
+                      method: 'POST', headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ monitored_email: monitoredEmail || null }),
+                    })
+                    if (!res.ok) {
+                      const d = await res.json().catch(() => ({} as { fehler?: string }))
+                      setFehler(`Mailbox konnte nicht gespeichert werden: ${d.fehler ?? res.status}`)   // Sweep 82: vorher still neu geladen
+                      return
+                    }
+                    setMonitoredSaving(false); setShowSettings(false)
+                    window.location.reload()
+                  } catch (e) {
+                    setFehler(fehlerText(e))
+                  } finally {
+                    setMonitoredSaving(false)
+                  }
                 }} disabled={monitoredSaving}
                   className="w-full text-[11px] bg-s112-teal text-s112-yellow px-2 py-1 rounded-sm hover:bg-s112-teal/90 disabled:opacity-40">
                   {monitoredSaving ? '…' : monitoredEmail ? 'Speichern' : 'Eigene Mailbox'}
@@ -623,15 +665,19 @@ export default function NachrichtenClient() {
             <button onClick={async () => {
               if (!forwardAn) return
               setSending(true)
-              const body = `---------- Weitergeleitet von ${selected.vonName} <${selected.von}> ----------\n${selected.bodyText ?? ''}`
-              const r = await fetch('/api/email/unified', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ an: forwardAn, betreff: `Fwd: ${selected.betreff}`, text: body }),
-              })
-              const d = await r.json()
-              setSending(false)
-              if (!r.ok) { setFehler('Weiterleiten fehlgeschlagen: ' + (d.fehler ?? r.status)); return }
-              setForwardMode(false)
+              try {
+                const body = `---------- Weitergeleitet von ${selected.vonName} <${selected.von}> ----------\n${selected.bodyText ?? ''}`
+                const r = await fetch('/api/email/unified', {
+                  method: 'POST', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ an: forwardAn, betreff: `Fwd: ${selected.betreff}`, text: body }),
+                })
+                const d = await r.json()
+                setSending(false)
+                if (!r.ok) { setFehler('Weiterleiten fehlgeschlagen: ' + (d.fehler ?? r.status)); return }
+                setForwardMode(false)
+              } finally {
+                setSending(false)
+              }
             }} disabled={sending || !forwardAn}
               className="text-sm bg-s112-teal text-s112-yellow px-4 py-2 rounded-lg hover:bg-s112-teal/90 disabled:opacity-40">
               {sending ? 'Senden…' : 'Weiterleiten'}
@@ -661,12 +707,16 @@ export default function NachrichtenClient() {
                     {selected.namensTreffer!.map(t => (
                       <button key={t.id} disabled={emailHinzu} onClick={async () => {
                         setEmailHinzu(true)
-                        const r = await emailHinzufuegen(t.typ, t.id, selected.von)
-                        setEmailHinzu(false)
-                        if (r.error) { setFehler('Adresse konnte nicht hinzugefügt werden: ' + r.error); return }
-                        const info = { typ: t.typ, id: t.id, name: t.name, accountnummer: t.accountnummer, istLead: t.istLead, ueber: 'email' as const }
-                        setSelected(prev => prev ? { ...prev, leadVorschlag: false, namensTreffer: [], kontaktInfo: info } : prev)
-                        setMessages(prev => prev.map(m => m.von.toLowerCase() === selected.von.toLowerCase() ? { ...m, absender: t.istLead ? 'lead' : t.typ } : m))
+                        try {
+                          const r = await emailHinzufuegen(t.typ, t.id, selected.von)
+                          setEmailHinzu(false)
+                          if (r.error) { setFehler('Adresse konnte nicht hinzugefügt werden: ' + r.error); return }
+                          const info = { typ: t.typ, id: t.id, name: t.name, accountnummer: t.accountnummer, istLead: t.istLead, ueber: 'email' as const }
+                          setSelected(prev => prev ? { ...prev, leadVorschlag: false, namensTreffer: [], kontaktInfo: info } : prev)
+                          setMessages(prev => prev.map(m => m.von.toLowerCase() === selected.von.toLowerCase() ? { ...m, absender: t.istLead ? 'lead' : t.typ } : m))
+                        } finally {
+                          setEmailHinzu(false)
+                        }
                       }} className="text-xs bg-s112-teal text-s112-yellow px-3 py-1.5 rounded-lg font-semibold hover:bg-s112-teal/90 disabled:opacity-50"
                         title={t.email ? `bisher: ${t.email}` : 'bisher ohne E-Mail-Adresse'}>
                         Ja, zu {t.name}{t.accountnummer ? ` (${t.accountnummer})` : ''}{t.typ === 'firma' ? ' · Firma' : ''} hinzufügen
@@ -685,11 +735,15 @@ export default function NachrichtenClient() {
                   <button onClick={() => setLeadSpaeter(prev => new Set(prev).add(selected.von.toLowerCase()))} className="text-xs border border-s112-line-str text-s112-text-2 px-3 py-1.5 rounded-lg hover:bg-white">Jetzt nicht</button>
                   <button disabled={leadIgnoriere} onClick={async () => {
                     setLeadIgnoriere(true)
-                    const r = await ignoriereAbsender(selected.von)
-                    setLeadIgnoriere(false)
-                    if (r.error) { setFehler('Konnte Absender nicht merken: ' + r.error); return }
-                    setSelected(prev => prev ? { ...prev, leadVorschlag: false } : prev)
-                    setMessages(prev => prev.map(m => m.von.toLowerCase() === selected.von.toLowerCase() ? { ...m, absender: 'ignoriert' } : m))
+                    try {
+                      const r = await ignoriereAbsender(selected.von)
+                      setLeadIgnoriere(false)
+                      if (r.error) { setFehler('Konnte Absender nicht merken: ' + r.error); return }
+                      setSelected(prev => prev ? { ...prev, leadVorschlag: false } : prev)
+                      setMessages(prev => prev.map(m => m.von.toLowerCase() === selected.von.toLowerCase() ? { ...m, absender: 'ignoriert' } : m))
+                    } finally {
+                      setLeadIgnoriere(false)
+                    }
                   }} className="text-xs text-s112-text-2 px-2 py-1.5 rounded-lg hover:bg-white hover:text-s112-text disabled:opacity-50" title="Für diesen Absender nicht mehr fragen (z. B. Newsletter, Lieferant)">Nein, nicht mehr fragen</button>
                 </div>
               )}
@@ -735,21 +789,25 @@ export default function NachrichtenClient() {
                         if (!moveTarget) return
                         const moveId = selected.id
                         setMoving(true)
-                        const r = await fetch('/api/nachrichten/move', {
-                          method: 'POST', headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ id: moveId, destinationId: moveTarget, mailbox: activeMailbox }),
-                        })
-                        setMoving(false)
-                        if (!r.ok) {
-                          const d = await r.json().catch(() => ({}))
-                          setFehler('Verschieben fehlgeschlagen: ' + (d.fehler ?? r.status))
-                          return
+                        try {
+                          const r = await fetch('/api/nachrichten/move', {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ id: moveId, destinationId: moveTarget, mailbox: activeMailbox }),
+                          })
+                          setMoving(false)
+                          if (!r.ok) {
+                            const d = await r.json().catch(() => ({}))
+                            setFehler('Verschieben fehlgeschlagen: ' + (d.fehler ?? r.status))
+                            return
+                          }
+                          setMoveMode(false); setMoveTarget('')
+                          loadGenRef.current++  // in-flight ladeMessages ignorieren
+                          setMessages(prev => prev.filter(m => m.id !== moveId))
+                          setSelected(null)
+                          ladeFolders(activeMailbox)  // Ordner-Zähler aktualisieren
+                        } finally {
+                          setMoving(false)
                         }
-                        setMoveMode(false); setMoveTarget('')
-                        loadGenRef.current++  // in-flight ladeMessages ignorieren
-                        setMessages(prev => prev.filter(m => m.id !== moveId))
-                        setSelected(null)
-                        ladeFolders(activeMailbox)  // Ordner-Zähler aktualisieren
                       }} disabled={moving || !moveTarget}
                         className="text-xs bg-s112-teal text-s112-yellow px-2 py-1 rounded-sm hover:bg-s112-teal/90 disabled:opacity-40">
                         {moving ? '…' : 'OK'}
