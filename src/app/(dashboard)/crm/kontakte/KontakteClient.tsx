@@ -708,7 +708,7 @@ export default function KontakteClient({
     startTransition(() => router.replace(`${pathname}${paramsAusFilter(neu)}`, { scroll: false }))
   }
   // Suchfeld überlebt den Neuaufbau der Seite bei URL-Änderung (lib/crm/listenSuche.ts)
-  const sucheFeld = useListenSuche('kontakte', filter.q, q => setzeFilter({ q }))
+  const { ref: sucheRef, suche, onChange: sucheOnChange, onKeyDown: sucheOnKeyDown } = useListenSuche('kontakte', filter.q, q => setzeFilter({ q }))
   const segment = filter.segment
   const filterLead = filter.lead
   const buchstabe = filter.buchstabe
@@ -735,7 +735,7 @@ export default function KontakteClient({
       <div className="flex flex-wrap items-center gap-3">
         <input
           type="search" placeholder="Name, Accountnummer, E-Mail, Telefon…"
-          ref={sucheFeld.ref} value={sucheFeld.suche} onChange={sucheFeld.onChange} onKeyDown={sucheFeld.onKeyDown} autoComplete="off"
+          ref={sucheRef} value={suche} onChange={sucheOnChange} onKeyDown={sucheOnKeyDown} autoComplete="off"
           className="border border-s112-border rounded-lg px-3 py-1.5 text-sm w-64 focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40"
         />
         <div className="flex gap-1">

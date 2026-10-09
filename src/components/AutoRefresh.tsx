@@ -21,9 +21,10 @@ const INTERVALL_MS = 3 * 60_000
 
 export default function AutoRefresh() {
   const router = useRouter()
-  const letzte = useRef(Date.now())
+  const letzte = useRef(0)
 
   useEffect(() => {
+    if (!letzte.current) letzte.current = Date.now()   // Startzeitpunkt beim ersten Einhängen (nicht beim Rendern)
     const tippt = () => {
       const el = document.activeElement as HTMLElement | null
       return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)

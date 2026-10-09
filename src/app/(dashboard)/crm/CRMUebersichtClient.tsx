@@ -316,8 +316,10 @@ function ZeitachseView({
 }) {
   const router    = useRouter()
   const scrollRef = useRef<HTMLDivElement>(null)
-  const monday    = useMemo(() => startOfWeek(current), [current.toDateString()])
-  const days      = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(monday, i)), [monday.getTime()])
+  // Wochenbeginn als Zahl: monday/days behalten ihre Identität, solange die Woche gleich bleibt
+  const wocheMs   = startOfWeek(current).getTime()
+  const monday    = useMemo(() => new Date(wocheMs), [wocheMs])
+  const days      = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(monday, i)), [monday])
   const [pending, startTransition] = useTransition()
   const [filterUser, setFilterUser] = useState<string>('alle')
   // Nur User mit aufloesbarem Namen (userProfiles) bekommen einen eigenen
@@ -381,7 +383,7 @@ function ZeitachseView({
       const top = Math.max(0, (now.getHours() - 1) * HOUR_H)
       scrollRef.current.scrollTop = top
     }
-  }, [monday.getTime()])
+  }, [monday])
 
   const byDay = useMemo(() => {
     const map: Record<string, { ganztags: KalenderEintrag[]; timed: KalenderEintrag[] }> = {}
@@ -394,7 +396,7 @@ function ZeitachseView({
       else map[e.datum].timed.push(e)
     })
     return map
-  }, [gefilterteEintraege, monday.getTime()])
+  }, [gefilterteEintraege, days])
 
   // Mehrtägige Ganztags-Events sichtbar in dieser Woche
   const multiDayGanztags = useMemo(() => {
@@ -406,7 +408,7 @@ function ZeitachseView({
       e.datum    <= weekEnd &&
       e.bis_datum >= weekStart
     )
-  }, [gefilterteEintraege, monday.getTime()])
+  }, [gefilterteEintraege, days])
 
   const now    = new Date()
   const nowTop = (now.getHours() * 60 + now.getMinutes()) / 60 * HOUR_H
@@ -1418,9 +1420,11 @@ export default function CRMUebersichtClient({ eintraege, heute, userProfiles = {
   const [outlookEintraege, setOutlookEintraege] = useState<KalenderEintrag[]>([])
   // KAN-125: Outlook-Verbindung muss neu hergestellt werden (Hinweis statt stiller Leere)
   const [outlookNeuVerbinden, setOutlookNeuVerbinden] = useState<string | null>(null)
+  // nur bei einem Monatswechsel neu laden (Jahr/Monat als Zahlen)
+  const outlookJahr = current.getFullYear(), outlookMonat = current.getMonth()
   useEffect(() => {
-    const von = new Date(current.getFullYear(), current.getMonth() - 2, 1)
-    const bis = new Date(current.getFullYear(), current.getMonth() + 3, 0)
+    const von = new Date(outlookJahr, outlookMonat - 2, 1)
+    const bis = new Date(outlookJahr, outlookMonat + 3, 0)
     const vonStr = toDateStr(von)
     const bisStr = toDateStr(bis)
     let cancelled = false
@@ -1438,7 +1442,7 @@ export default function CRMUebersichtClient({ eintraege, heute, userProfiles = {
       })
       .catch(() => { /* Netzwerkfehler: zuletzt erfolgreich geladene Termine unveraendert lassen */ })
     return () => { cancelled = true }
-  }, [current.getFullYear(), current.getMonth()])
+  }, [outlookJahr, outlookMonat])
 
   const alleEintraege = useMemo(
     () => [...eintraege, ...outlookEintraege].sort((a, b) => a.datum.localeCompare(b.datum)),
@@ -1457,7 +1461,8 @@ export default function CRMUebersichtClient({ eintraege, heute, userProfiles = {
 
   function goToday() { setCurrent(new Date()) }
 
-  const periodLabel = useMemo(() => {
+  // nur ein Text – ohne useMemo (die Abhängigkeit current.toDateString() war kein einfacher Ausdruck)
+  const periodLabel = (() => {
     if (view === 'zeitachse') {
       const mon = startOfWeek(current)
       const sun = addDays(mon, 6)
@@ -1469,7 +1474,7 @@ export default function CRMUebersichtClient({ eintraege, heute, userProfiles = {
     }
     if (view === 'monat') return `${MONATE[current.getMonth()]} ${current.getFullYear()}`
     return `${current.getFullYear()}`
-  }, [view, current.toDateString()])
+  })()
 
   const ueberfaelligCount = useMemo(
     () => alleEintraege.filter(e => e.ueberfaellig).length,

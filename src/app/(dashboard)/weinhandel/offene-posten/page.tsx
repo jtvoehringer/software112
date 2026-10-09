@@ -60,6 +60,7 @@ export default async function OffenePostenPage() {
     }
   }
 
+  // eslint-disable-next-line react-hooks/purity -- Server-Komponente: Zeitpunkt je Anfrage ist gewollt, kein erneutes Rendern im Browser
   const heuteMs = Date.now()
   const posten = raw.map((p: R) => {
     const gesamt = ((p.verkauf_positionen ?? []) as R[]).reduce((s: number, pos: R) => {

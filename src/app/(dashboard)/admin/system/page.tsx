@@ -42,6 +42,7 @@ export default async function SystemberichtPage({ searchParams }: { searchParams
 
   const sp = await searchParams
   const tage = sp.tage === '7' ? 7 : sp.tage === '30' ? 30 : 1
+  // eslint-disable-next-line react-hooks/purity -- Server-Komponente: Zeitpunkt je Anfrage ist gewollt, kein erneutes Rendern im Browser
   const seit = new Date(Date.now() - tage * 86400000)
 
   const admin = createSupabaseAdminClient()

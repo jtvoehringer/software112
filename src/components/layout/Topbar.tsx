@@ -109,6 +109,7 @@ export default function Topbar({
   }
   const artText = (a: string) => a === 'aufgabe_zugewiesen' ? 'Zugewiesen' : a === 'aufgabe_alle' ? 'Für alle' : a === 'erwaehnung' ? 'Erwähnung' : 'System'
   const wannText = (iso: string) => {
+    // eslint-disable-next-line react-hooks/purity -- nur im geöffneten Benachrichtigungs-Menü (nach Klick, nie beim Server-Rendern); relative Zeit soll aktuell sein
     const d = new Date(iso), diff = (Date.now() - d.getTime()) / 60000
     if (diff < 60) return `vor ${Math.max(1, Math.round(diff))} Min.`
     if (diff < 60 * 24) return `vor ${Math.round(diff / 60)} Std.`

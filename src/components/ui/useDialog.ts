@@ -6,14 +6,15 @@
 //  - role="dialog" + aria-modal + Name für Vorleseprogramme
 //  - Fokus beim Öffnen ins Dialog, Tab bleibt im Dialog (Fokusfalle)
 //  - Escape schließt, Fokus kehrt danach zum auslösenden Element zurück
-import { useEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 
 const FOKUSSIERBAR = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
 export function useDialog(offen: boolean, onClose: (() => void) | undefined, name: string) {
   const ref = useRef<HTMLDivElement>(null)
   const schliessen = useRef(onClose)
-  schliessen.current = onClose
+  // aktuellen Callback nach jedem Commit merken (nicht beim Rendern schreiben) – gelesen nur im Tastendruck
+  useLayoutEffect(() => { schliessen.current = onClose })
 
   useEffect(() => {
     if (!offen) return

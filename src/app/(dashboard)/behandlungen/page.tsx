@@ -165,6 +165,7 @@ export default async function BehandlungenPage() {
 
   // Stats
   const heute = heuteWien()
+  // eslint-disable-next-line react-hooks/purity -- Server-Komponente: Zeitpunkt je Anfrage ist gewollt, kein erneutes Rendern im Browser
   const letzten30 = behandlungen.filter(b => b.datum >= new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]).length
   const offeneWartezeiten = behandlungen.filter(b => b.ernte_fruehesteins && b.ernte_fruehesteins > heute).length
 

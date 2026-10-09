@@ -2,15 +2,10 @@
   "regeln": {
     "@typescript-eslint/no-explicit-any": 846,
     "react-hooks/set-state-in-effect": 26,
-    "react-hooks/exhaustive-deps": 18,
-    "react-hooks/refs": 12,
-    "react-hooks/purity": 5,
-    "react-hooks/use-memo": 5,
+    "react-hooks/exhaustive-deps": 4,
     "@next/next/no-location-assign-relative-destination": 3,
     "@next/next/no-html-link-for-pages": 2,
     "@next/next/no-img-element": 2,
-    "react-hooks/static-components": 2,
-    "@typescript-eslint/no-unused-vars": 1,
-    "react-hooks/immutability": 1
+    "@typescript-eslint/no-unused-vars": 1
   }
 }
