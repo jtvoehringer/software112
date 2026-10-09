@@ -25,10 +25,11 @@ export async function supportKontext() {
   if (!user?.email) return { fehler: NextResponse.json({ fehler: 'Nicht angemeldet' }, { status: 401, headers: KEIN_CACHE }) } as const
   const membership = await getCurrentMembership()
   if (!membership) return { fehler: NextResponse.json({ fehler: 'Kein Betrieb ausgewählt' }, { status: 403, headers: KEIN_CACHE }) } as const
-  const [{ data: t }, { data: p }] = await Promise.all([
+  const [{ data: t, error: tErr }, { data: p, error: pErr }] = await Promise.all([
     (supabase.from('tenants') as R).select('name, premium_support_seit, premium_support_bis, abrechnung_ueber').eq('id', membership.tenantId).maybeSingle(),
     (supabase.from('profiles') as R).select('full_name').eq('id', user.id).maybeSingle(),
   ])
+  if ((tErr ?? pErr)) throw new Error(`Daten konnten nicht geladen werden: ${(tErr ?? pErr).message}`)
   const hauptId = ((t as R | null)?.abrechnung_ueber as string | null | undefined) ?? null
   const { data: h } = hauptId
     ? await (createSupabaseAdminClient().from('tenants') as R).select('name, premium_support_seit, premium_support_bis').eq('id', hauptId).maybeSingle()

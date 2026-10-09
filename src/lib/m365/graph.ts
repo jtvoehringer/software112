@@ -167,8 +167,9 @@ export async function getValidUserAccessToken(
   // mit offline_access anfordern (sonst kein neuer Refresh-Token).
   let gespeichert: unknown = userCfg.m365_scope
   if (gespeichert === undefined) {
-    const { data: sc } = await admin.from('user_email_connections')
+    const { data: sc, error: scErr } = await admin.from('user_email_connections')
       .select('m365_scope').eq('tenant_id', tenantId).eq('user_id', userId).maybeSingle()
+    if (scErr) throw new Error(`Daten konnten nicht geladen werden: ${scErr.message}`)
     gespeichert = (sc as R | null)?.m365_scope ?? null
   }
   let tokens: Awaited<ReturnType<typeof refreshAccessToken>>

@@ -286,8 +286,8 @@ export async function umziehen(fd: FormData): Promise<{ verschnitte?: UmzugVersc
     const sorten = [...new Set([...(qRows ?? []), ...(zRows ?? [])].map((r: R) => r.rebsorte).filter(Boolean))] as string[]
     const farbe = new Map<string, string>()
     if (sorten.length) {
-      // tenant-isolation-ignore: rebsorten ist eine globale Stammtabelle ohne tenant_id
       // alle-ausnahme: Rebsorten der gewählten Quell- und Ziel-Chargen, wenige
+      // tenant-isolation-ignore: rebsorten ist eine globale Stammtabelle ohne tenant_id
       const { data: rs, error: rsErr } = await (supabase.from('rebsorten') as any).select('name_de, farbe').in('name_de', sorten)
       if (rsErr) throw new AktionsFehler(dbFehlerText(rsErr, 'Rebsorten konnten nicht geladen werden'))
       for (const r of (rs ?? []) as R[]) farbe.set(r.name_de, r.farbe)

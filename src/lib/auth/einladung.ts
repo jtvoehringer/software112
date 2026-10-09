@@ -138,7 +138,9 @@ export async function mitgliedEinladen(admin: SupabaseClient, p: {
 
   // Klarname: bei neuen Konten setzen; ein bestehendes Konto gehört der Person
   // selbst (und ggf. anderen Betrieben) – dort nur ergänzen, wenn noch leer.
-  const { data: profil } = await (admin.from('profiles') as R).select('full_name').eq('id', userId).maybeSingle()
+  const { data: profil, error: profilErr } = await (admin.from('profiles') as R).select('full_name').eq('id', userId).maybeSingle()
+  // KAN-254: sonst „noch kein Name“ – ein bestehender Profilname würde überschrieben
+  if (profilErr) return { error: (profilErr as R).message }
   const bisherigerName = ((profil as R | null)?.full_name as string | null | undefined)?.trim() || null
   if (neuesKonto || !bisherigerName) {
     const { error: profileError } = await (admin.from('profiles') as R)
@@ -149,6 +151,7 @@ export async function mitgliedEinladen(admin: SupabaseClient, p: {
   if (neuesKonto) return { success: true, hinweis: `Einladung an ${mail} versandt.` }
 
   // Bestehendes, bestätigtes Konto: Person informieren (Mail + Glocke)
+  // abfrage-ohne-fehler: nur Betriebs- und Absendername in der Einladungs-Mail (Ersatz „software:112“ bzw. ohne Namen)
   const [{ data: tenant }, { data: einladender }] = await Promise.all([
     (admin.from('tenants') as R).select('name').eq('id', p.tenantId).maybeSingle(),
     p.eingeladenVon

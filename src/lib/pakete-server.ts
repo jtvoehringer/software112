@@ -15,6 +15,8 @@ export type BenutzerlimitStatus = {
   limit: number | null
   /** darf noch ein Benutzer eingeladen werden? */
   erlaubt: boolean
+  /** KAN-254: Limit nicht prüfbar (Datenbankfehler) – dann nie erlaubt */
+  fehler?: string
 }
 
 /**
@@ -26,7 +28,7 @@ export type BenutzerlimitStatus = {
  * manuell betreute Kunden) sind unbegrenzt.
  */
 export async function pruefeBenutzerlimit(admin: AdminClient, tenantId: string): Promise<BenutzerlimitStatus> {
-  const [{ data: tenant }, { count }] = await Promise.all([
+  const [{ data: tenant, error: tenantErr }, { count, error: countErr }] = await Promise.all([
     (admin.from('tenants') as any).select('max_benutzer').eq('id', tenantId).maybeSingle(),
     (admin.from('tenant_memberships') as any)
       .select('id', { count: 'exact', head: true })
@@ -34,12 +36,16 @@ export async function pruefeBenutzerlimit(admin: AdminClient, tenantId: string):
       .neq('role', 'system_admin')
       .eq('aktiv', true),
   ])
+  // KAN-254: ein Lesefehler hieß sonst „max_benutzer NULL = unbegrenzt“ bzw. „0 Benutzer“ – das Limit wäre ausgehebelt
+  const ladeFehler = tenantErr ?? countErr
+  if (ladeFehler) return { anzahl: 0, limit: null, erlaubt: false, fehler: `Benutzerlimit konnte nicht geprüft werden: ${(ladeFehler as R).message}` }
   const limit = ((tenant as R | null)?.max_benutzer ?? null) as number | null
   const anzahl = count ?? 0
   return { anzahl, limit, erlaubt: limit === null || anzahl < limit }
 }
 
 export function benutzerlimitFehler(s: BenutzerlimitStatus): string {
+  if (s.fehler) return s.fehler
   return `Benutzerlimit erreicht: Ihr Paket umfasst ${s.limit} Benutzer (${s.anzahl} aktiv). Für weitere Benutzer bitte das Paket unter „Abo" erweitern.`
 }
 
@@ -63,6 +69,7 @@ export async function wendePaketAn(admin: AdminClient, tenantId: string, paket: 
 
 /** Paket eines Mandanten aus tenants.stripe_plan (inkl. Alt-Slugs). */
 export async function ladePaket(admin: AdminClient, tenantId: string): Promise<PaketKey | null> {
-  const { data } = await (admin.from('tenants') as any).select('stripe_plan').eq('id', tenantId).maybeSingle()
+  const { data, error } = await (admin.from('tenants') as any).select('stripe_plan').eq('id', tenantId).maybeSingle()
+  if (error) throw new Error(`Paket konnte nicht geladen werden: ${(error as R).message}`)
   return paketAusPlan((data as R | null)?.stripe_plan)
 }

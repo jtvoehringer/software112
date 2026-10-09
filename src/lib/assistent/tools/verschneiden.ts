@@ -121,8 +121,9 @@ export async function fuehreVerschneidenAus(
     return { erfolg: false, fehler: 'Kein Betrieb gefunden – Verschneidung konnte nicht gespeichert werden.' }
   }
 
-  const { data: ziel } = await (supabase.from('weinausbau') as any)
+  const { data: ziel, error: zielErr } = await (supabase.from('weinausbau') as any)
     .select('id').eq('id', input.ziel_weinausbau_id).eq('tenant_id', tenantId).eq('aktiv', true).maybeSingle()
+  if (zielErr) return { erfolg: false, fehler: `Datenbankfehler: ${zielErr.message}` }
   if (!ziel) {
     return { erfolg: false, hinweis: `Ziel-Charge mit ID ${input.ziel_weinausbau_id} nicht gefunden. Beim User nachfragen bzw. Stammdaten-Kontext erneut prüfen.` }
   }

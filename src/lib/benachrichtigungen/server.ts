@@ -45,7 +45,9 @@ function esc(s: string): string {
 async function ladeMitgliederMitEmail(tenantId: string): Promise<Mitglied[]> {
   try {
     const admin = createSupabaseAdminClient()
-    const { data } = await (admin as any).rpc('s112_mandant_mitglieder_mit_email', { p_tenant_id: tenantId })
+    const { data, error } = await (admin as any).rpc('s112_mandant_mitglieder_mit_email', { p_tenant_id: tenantId })
+    // „best effort“ (wirft nie) – aber den Fehler sichtbar machen, statt still niemanden zu benachrichtigen
+    if (error) { console.error('benachrichtigungen (mitglieder):', error.message); return [] }
     return ((data ?? []) as R[]).map(m => ({ user_id: m.user_id, name: m.name, email: m.email, benachrichtigung_email: m.benachrichtigung_email !== false }))
   } catch { return [] }
 }

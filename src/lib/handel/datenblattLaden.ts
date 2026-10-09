@@ -44,12 +44,14 @@ export function herkunftText(f: R): string | null {
 /** Bilder einer Füllung (Ordner <tenant>/<fuellung>) mit signierten Adressen */
 export async function ladeBilder(supabase: Client, tenantId: string, fuellungId: string, sekunden = 300): Promise<DatenblattDaten['bilder']> {
   const ordner = `${tenantId}/${fuellungId}`
-  const { data } = await supabase.storage.from(BILD_BUCKET).list(ordner, { limit: 10 })
+  const { data, error } = await supabase.storage.from(BILD_BUCKET).list(ordner, { limit: 10 })
+  if (error) throw new Error(`Bilder der Füllung konnten nicht geladen werden: ${error.message}`)
   const bilder: DatenblattDaten['bilder'] = {}
   for (const o of (data ?? []) as R[]) {
     const art = bildArtAusName(String(o.name ?? ''))
     if (!art) continue
     const pfad = `${ordner}/${o.name}`
+    // abfrage-ohne-fehler: ein nicht signierbares Bild fehlt im Datenblatt, der Rest bleibt vollständig
     const { data: s } = await supabase.storage.from(BILD_BUCKET).createSignedUrl(pfad, sekunden)
     if (s?.signedUrl) bilder[art] = { url: s.signedUrl, pfad }
   }
@@ -57,12 +59,14 @@ export async function ladeBilder(supabase: Client, tenantId: string, fuellungId:
 }
 
 export async function ladeDatenblatt(supabase: Client, tenantId: string, fuellungId: string): Promise<DatenblattDaten | null> {
-  const { data: fRaw } = await supabase.from('fuellungen').select(SPALTEN).eq('id', fuellungId).eq('tenant_id', tenantId).maybeSingle()
+  const { data: fRaw, error: fErr } = await supabase.from('fuellungen').select(SPALTEN).eq('id', fuellungId).eq('tenant_id', tenantId).maybeSingle()
+  if (fErr) throw new Error(`Füllung konnte nicht geladen werden: ${fErr.message}`)
   if (!fRaw) return null
   const f = fRaw as R
 
   // alle-ausnahme: Chargen einer einzelnen Füllung, wenige
-  const { data: fc } = await supabase.from('fuellung_chargen').select('weinausbau_id').eq('tenant_id', tenantId).eq('fuellung_id', fuellungId).limit(100)
+  const { data: fc, error: fcErr } = await supabase.from('fuellung_chargen').select('weinausbau_id').eq('tenant_id', tenantId).eq('fuellung_id', fuellungId).limit(100)
+  if (fcErr) throw new Error(`Chargen der Füllung konnten nicht geladen werden: ${fcErr.message}`)
   const chargen = [...new Set([f.weinausbau_id, ...((fc ?? []) as R[]).map(c => c.weinausbau_id)].filter(Boolean))] as string[]
 
   const [anaRes, elRes, einstRes, bilder] = await Promise.all([
@@ -78,6 +82,9 @@ export async function ladeDatenblatt(supabase: Client, tenantId: string, fuellun
       .eq('tenant_id', tenantId).maybeSingle(),
     ladeBilder(supabase, tenantId, fuellungId),
   ])
+  // KAN-254: sonst Datenblatt ohne Analysen, E-Label bzw. Betriebsdaten
+  const ladeFehler = ('error' in anaRes ? anaRes.error : null) ?? elRes.error ?? einstRes.error
+  if (ladeFehler) throw new Error(`Datenblatt konnte nicht geladen werden: ${ladeFehler.message}`)
   const el = (elRes.data ?? null) as R | null
   const einst = (einstRes.data ?? {}) as R
   const freigegeben = el?.status === 'freigegeben'

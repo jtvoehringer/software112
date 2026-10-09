@@ -156,7 +156,8 @@ export type Zaehler = {
 export async function ladeZaehler(client: any, tenantId: string | null, art: 'kontakt' | 'firma'): Promise<Zaehler> {
   const z: Zaehler = { gesamt: 0, segment: {}, lead: 0, kunde: 0, istKunde: 0, istLieferant: 0 }
   if (!tenantId) return z
-  const { data } = await (client.rpc as any)('crm_zaehler', { p_tenant_id: tenantId })
+  const { data, error } = await (client.rpc as any)('crm_zaehler', { p_tenant_id: tenantId })
+  if (error) throw new Error(`Zähler konnten nicht geladen werden: ${error.message}`)
   for (const r of ((data ?? []) as R[]).filter(r => r.art === art)) {
     const n = Number(r.anzahl) || 0
     z.gesamt += n
