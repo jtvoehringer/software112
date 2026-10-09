@@ -1,7 +1,7 @@
 // KAN-47 AP10 Schritt 1 (09.10.2026): BKI-Blatt „Weingärten“ aus den vorhandenen Ried- und Grundstücksdaten.
 // Annahmen W1–W6 im Kopf von src/lib/behoerden/bki-weingaerten.ts.
 // Schritt 2 (09.10.2026): Großlage, Gemeindeteil, DAC-Orts- und Riedenwein aus src/lib/wein/herkunftKatalog.ts (Thermenregion,
-// Kremstal; Annahmen K1–K7 dort).
+// Kremstal, Wachau, Kamptal; Annahmen K1–K9 dort).
 //
 // Aufruf:  npm run -s test:csv   (Node ≥ 22.15 wegen module.registerHooks)
 
@@ -108,7 +108,7 @@ describe('KAN-47 Schritt 2: Katalog Thermenregion', () => {
   })
 
   test('außerhalb der Kataloge leer; Gemeindeteil nur bei abweichendem KG-Namen (K4)', () => {
-    assert.deepEqual(kat.herkunftKatalog('12345', '31301'), { gebiet: null, grosslage: null, dacOrtswein: null, imDacGebiet: false })
+    assert.deepEqual(kat.herkunftKatalog('10001', '31101'), { gebiet: null, grosslage: null, dacOrtswein: null, imDacGebiet: false })
     assert.deepEqual(kat.herkunftKatalog(null, undefined), { gebiet: null, grosslage: null, dacOrtswein: null, imDacGebiet: false })
     assert.equal(kat.gemeindeteil('Tribuswinkel', 'Traiskirchen'), 'Tribuswinkel')
     assert.equal(kat.gemeindeteil('gumpoldskirchen', 'Gumpoldskirchen'), null)
@@ -123,7 +123,7 @@ describe('KAN-47 Schritt 2: Katalog Thermenregion', () => {
     const hirtenberg = wg.weingartenZeile(ried(lage), gst({ katastralgemeinde: '4312' }))
     assert.deepEqual([hirtenberg.grosslage, hirtenberg.dacOrtswein, hirtenberg.dacRiedenwein], ['Vöslauer Hauerberg', null, null])
     const r = wg.weingartenZeilen([ried(lage)], [gst({ katastralgemeinde: '10001' })])
-    assert.ok(r.warnungen.some(w => /außerhalb der erfassten Kataloge \(Thermenregion, Kremstal\)/.test(w)), r.warnungen.join(' | '))
+    assert.ok(r.warnungen.some(w => /außerhalb der erfassten Kataloge \(Thermenregion, Kremstal, Wachau, Kamptal\)/.test(w)), r.warnungen.join(' | '))
   })
 })
 
@@ -135,11 +135,11 @@ describe('KAN-47 Schritt 2: Katalog Kremstal', () => {
     assert.deepEqual([o('12127', '31337'), o('12119', '31337'), o('12102', '31310'), o('12103', '31356')], ['Rohrendorf', 'Rohrendorf', 'Gedersdorf', 'Stratzing'])
   })
 
-  test('KG ohne Ortsangabe in einer Kremstal-Gemeinde: DAC-Gebiet ohne Ortswein (K6); Wachau/Mautern außerhalb', () => {
+  test('KG ohne Ortsangabe in einer Kremstal-Gemeinde: DAC-Gebiet ohne Ortswein (K6); Mautern und Dürnstein gehören zur Wachau', () => {
     assert.deepEqual(kat.herkunftKatalog('12125', '31343'), { gebiet: 'Kremstal', grosslage: null, dacOrtswein: null, imDacGebiet: true })   // Reichaueramt
     assert.equal(kat.herkunftKatalog('12138', '30101').imDacGebiet, true)                              // Weinzierl bei Krems
-    assert.equal(kat.herkunftKatalog('12148', '31327').gebiet, null)                                   // Baumgarten (Mautern)
-    assert.equal(kat.herkunftKatalog('12105', '31304').gebiet, null)                                   // Dürnstein
+    assert.equal(kat.herkunftKatalog('12148', '31327').gebiet, 'Wachau')                                   // Baumgarten (Mautern)
+    assert.equal(kat.herkunftKatalog('12105', '31304').gebiet, 'Wachau')                                   // Dürnstein
   })
 
   test('Großlagen: Kaiserstiege, Göttweiger Berg je Gemeinde; Kremser Großlagen über die amtliche Ried (K7)', () => {
@@ -158,5 +158,45 @@ describe('KAN-47 Schritt 2: Katalog Kremstal', () => {
   test('Zeile Musterhof-Art: Unterrohrendorf mit amtlicher Ried', { skip: !hooksMoeglich }, () => {
     const z = wg.weingartenZeile(ried({ lage: { amtliche_ried: 'Gebling' } }), gst({ katastralgemeinde: '12127', kg_bezeichnung: 'Unterrohrendorf', trauben_herkunft_code: null }))
     assert.deepEqual([z.gemeinde, z.gemeindeteil, z.grosslage, z.dacOrtswein, z.dacRiedenwein], ['Rohrendorf bei Krems', 'Unterrohrendorf', 'Kaiserstiege', 'Rohrendorf', 'Gebling'])
+  })
+})
+
+describe('KAN-47 Schritt 2: Katalog Wachau', () => {
+  test('Gemeindeangaben je KG (K8): Loiben, Arnsdorf, Rossatz/Rührsdorf, Spitz, Povat → Spitzer Graben, Aggsbach beidseits', () => {
+    const o = (kg, gkz) => kat.herkunftKatalog(kg, gkz).dacOrtswein
+    assert.deepEqual([o('12116', '31304'), o('12117', '31304'), o('12105', '31304')], ['Loiben', 'Loiben', 'Dürnstein'])
+    assert.deepEqual([o('12189', '31338'), o('12187', '31338'), o('12167', '31338'), o('12168', '31338')], ['Arnsdorf', 'Arnsdorf', 'Rossatz', 'Rührsdorf'])
+    assert.deepEqual([o('12358', '31344'), o('12348', '31330'), o('12307', '31330')], ['Spitz', 'Spitzer Graben', 'Elsarn'])
+    assert.deepEqual([o('12301', '31301'), o('14101', '31542')], ['Aggsbach', 'Aggsbach'])
+    assert.deepEqual([o('12140', '31351'), o('12162', '31327')], ['Weißenkirchen', 'Mautern'])
+  })
+
+  test('Großlage Spitzer Graben je KG; übrige Wachau ohne Großlage, aber DAC-Gebiet', () => {
+    assert.equal(kat.herkunftKatalog('12362', '31344').grosslage, 'Spitzer Graben')
+    assert.equal(kat.herkunftKatalog('12357', '31344').grosslage, null, 'Schwallenbach gehört zur Gemeinde Spitz, nicht zur Großlage')
+    assert.deepEqual(kat.herkunftKatalog('12302', '31330'), { gebiet: 'Wachau', grosslage: null, dacOrtswein: null, imDacGebiet: true })   // Amstall
+  })
+})
+
+describe('KAN-47 Schritt 2: Katalog Kamptal', () => {
+  test('ortsübergreifende Weinbaugemeinden je KG (Anlage 1)', () => {
+    const o = (kg, gkz) => kat.herkunftKatalog(kg, gkz).dacOrtswein
+    assert.deepEqual([o('12206', '31308'), o('12203', '31308'), o('12232', '31346'), o('12210', '31322'), o('12224', '31322'), o('12218', '31355'), o('12216', '31323')],
+      ['Engabrunn', 'Grafenegg', 'Strass', 'Gobelsburg', 'Langenlois', 'Schönberg', 'Lengenfeld'])
+  })
+
+  test('Rieden lenken um (K9): Heiligenstein in KG Kammern → Zöbing, Langenloiser Rieden → Mittelberg', () => {
+    const o = (kg, gkz, ried) => kat.herkunftKatalog(kg, gkz, null, ried).dacOrtswein
+    assert.equal(o('12213', '31315', 'Heiligenstein'), 'Zöbing')
+    assert.equal(o('12213', '31315', 'Gaisberg'), 'Kammern')
+    assert.equal(o('12213', '31315'), 'Kammern')
+    assert.equal(o('12215', '31322', 'Ried Vogelberg'), 'Mittelberg')
+    assert.equal(o('12215', '31322', 'Loiserberg'), 'Langenlois')
+    assert.equal(o('12233', '31322', 'Heiligenstein'), 'Zöbing')
+  })
+
+  test('KG ohne Angabe (Grunddorf, Plank) im DAC-Gebiet ohne Ortswein; keine Großlage', () => {
+    assert.deepEqual(kat.herkunftKatalog('12234', '31308'), { gebiet: 'Kamptal', grosslage: null, dacOrtswein: null, imDacGebiet: true })
+    assert.equal(kat.herkunftKatalog('12222', '31355').imDacGebiet, true)
   })
 })
