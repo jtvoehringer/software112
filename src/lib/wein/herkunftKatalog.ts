@@ -1,6 +1,6 @@
 // ── Amtliche Herkunftskataloge für das BKI-Blatt „Weingärten“ (KAN-47 Schritt 2, 09.10.2026) ──
 //
-// Statisch erfasst aus dem RIS, je Weinbaugebiet ein Block (bisher: Thermenregion, Kremstal, Wachau, Kamptal). Schlüssel sind die
+// Statisch erfasst aus dem RIS, je Weinbaugebiet ein Block (bisher: Thermenregion, Kremstal, Wachau, Kamptal, Traisental). Schlüssel sind die
 // Gemeindekennziffer (GKZ, Statistik Austria) bzw. – wo eine Verordnung einzelne Katastralgemeinden nennt – die KG-Nr. (BEV).
 // Reihenfolge: Ried vor KG vor Gemeinde (Beispiel: KG Oeynhausen gehört zur Gemeinde Traiskirchen, aber zur Großlage
 // Steinfeld; die Kremser Großlagen sind über Rieden festgelegt, im Kamptal lenken einzelne Rieden den Ortswein um). Ohne `@/`-Importe (node:test).
@@ -11,6 +11,8 @@
 //   Kremstal: DAC-Verordnung „Kremstal“, BGBl. II Nr. 273/2017 i. d. F. BGBl. II Nr. 30/2022, Anlage 1 (Ortsangaben)
 //   Wachau: DAC-Verordnung „Wachau“, BGBl. II Nr. 200/2020 i. d. F. 2023, § 3 Abs. 2 (Gemeindeangaben)
 //   Kamptal: DAC-Verordnung „Kamptal“ i. d. F. BGBl. II Nr. 250/2024, Anlage 1 (ortsübergreifende Weinbaugemeinden)
+//   Traisental: DAC-Verordnung „Traisental“, BGBl. II Nr. 273/2017 i. d. F. 2023 (ohne Liste der Ortsangaben) und
+//      Produktspezifikation „Traisental DAC“ (BML, 28.06.2022), Abgrenzung des Gebiets
 //
 // Annahmen (am Ticket KAN-47 dokumentiert):
 //   K1 Wiener Neustadt (Statutarstadt, GKZ 30401) zählt zum Ortswein „Wiener Neustadt“, obwohl Anhang A nur die
@@ -32,6 +34,11 @@
 //   K9 Kamptal: DAC-Gebiet = die Gemeinden Langenlois, Schönberg am Kamp, Straß im Straßertale, Hadersdorf-Kammern,
 //      Grafenegg und Lengenfeld. „Mittelberg“ umfasst die Langenloiser Rieden Am Loiser, Auf der Setz, Sommerleithen,
 //      Rothenbichl und Vogelberg; die Großlage „Retzer Land“ (Bezirk Horn) ist noch nicht erfasst.
+//   K10 Traisental: Gebiet = Stadt St. Pölten, politischer Bezirk St. Pölten (alle GKZ 319xx, auch die 2017 zugekommenen
+//      Gemeinden des früheren Bezirks Wien-Umgebung) sowie Atzenbrugg, Sitzenberg-Reidling und Würmla. Die Verordnung
+//      zählt keine Ortsangaben auf → Ortswein = Name der politischen Gemeinde. Großlage nur „Wölblinger Urgestein“
+//      (Wölbling, Obritzberg-Rust); Venusberg/Parapluiberg (östlich/westlich der Traisen) sind ohne Lagekarte nicht je KG
+//      zuordenbar und bleiben leer.
 
 type Gebiet = {
   name: string
@@ -49,6 +56,10 @@ type Gebiet = {
   ortsweinGkz: Record<string, string | null>
   /** weitere Gemeinden im DAC-Gebiet ohne eigenen Ortswein (K6) */
   dacGkz?: readonly string[]
+  /** GKZ-Anfänge im DAC-Gebiet (ganzer politischer Bezirk, K10) */
+  dacGkzPraefix?: readonly string[]
+  /** Ortswein = Name der politischen Gemeinde, wo keine Ortsangabe gilt (K10) */
+  ortsweinGemeindename?: boolean
 }
 
 const jeSchluessel = (zuordnung: Record<string, readonly string[]>) =>
@@ -176,7 +187,18 @@ const KAMPTAL: Gebiet = {
   dacGkz: ['31322', '31355', '31346', '31315', '31308', '31323'],
 }
 
-const GEBIETE: readonly Gebiet[] = [THERMENREGION, KREMSTAL, WACHAU, KAMPTAL]
+const TRAISENTAL: Gebiet = {
+  name: 'Traisental',
+  grosslageKg: {},
+  grosslageGkz: jeSchluessel({ 'Wölblinger Urgestein': ['31948', '31930'] }),   // Wölbling, Obritzberg-Rust (lit. u)
+  ortsweinKg: {},
+  ortsweinGkz: {},
+  dacGkz: ['30201', '32104', '32132', '32139'],                         // St. Pölten, Atzenbrugg, Sitzenberg-Reidling, Würmla
+  dacGkzPraefix: ['319'],                                               // politischer Bezirk St. Pölten
+  ortsweinGemeindename: true,
+}
+
+const GEBIETE: readonly Gebiet[] = [THERMENREGION, KREMSTAL, WACHAU, KAMPTAL, TRAISENTAL]
 
 export type HerkunftKatalog = {
   gebiet: string | null
@@ -200,9 +222,9 @@ export function herkunftKatalog(kgNr: string | null | undefined, gkz: string | n
     const grosslage = (gkz && r && g.grosslageRied?.[gkz]?.[r]) || (kg && g.grosslageKg[kg]) || (gkz && g.grosslageGkz[gkz]) || null
     const ortKg = kg ? (r && g.ortsweinRied?.[kg]?.[r]) || g.ortsweinKg[kg] : undefined
     const gkzImAnhang = !!gkz && gkz in g.ortsweinGkz
-    const imDac = !!ortKg || gkzImAnhang || (!!gkz && !!g.dacGkz?.includes(gkz))
+    const imDac = !!ortKg || gkzImAnhang || (!!gkz && (!!g.dacGkz?.includes(gkz) || !!g.dacGkzPraefix?.some(p => gkz.startsWith(p))))
     if (!grosslage && !imDac) continue
-    const ort = ortKg ?? (gkzImAnhang ? g.ortsweinGkz[gkz!] ?? gemeinde ?? null : null)
+    const ort = ortKg ?? (gkzImAnhang ? g.ortsweinGkz[gkz!] ?? gemeinde ?? null : null) ?? (g.ortsweinGemeindename && imDac ? gemeinde ?? null : null)
     return { gebiet: g.name, grosslage, dacOrtswein: ort, imDacGebiet: imDac }
   }
   return LEER
