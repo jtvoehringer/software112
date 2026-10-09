@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { paramsAusFilter, LISTE_SCHRITT, POSITION_MAX, QUELLE_MAX, QUELLE_OHNE, type ListenFilter, type Zaehler, type QuellenZaehler } from '@/lib/crm/liste'
 import { useListenSuche } from '@/lib/crm/listenSuche'
@@ -65,9 +65,12 @@ export function KontaktForm({
   const [dubletteWarnung, setDubletteWarnung] = useState<string | null>(null)
   const [dubletteIgnorieren, setDubletteIgnorieren] = useState(false)
 
-  useEffect(() => {
+  // (beim Rendern statt im Effekt: nur wenn sich Vorgabe-Segment oder Datensatz ändern)
+  const [segmentAnlass, setSegmentAnlass] = useState({ defaultSegment, initial })
+  if (segmentAnlass.defaultSegment !== defaultSegment || segmentAnlass.initial !== initial) {
+    setSegmentAnlass({ defaultSegment, initial })
     if (!initial && defaultSegment) setSegmentVal(defaultSegment)
-  }, [defaultSegment, initial])
+  }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()

@@ -60,6 +60,7 @@ export default function AssistantPanel() {
   // Zustand aus localStorage wiederherstellen
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY)
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Browser-Wert (localStorage/URL/Feature) erst nach dem Einhängen lesen – beim Rendern gäbe es einen Hydration-Fehler
     if (stored !== null) setOpen(stored === 'true')
     setHydrated(true)
   }, [])

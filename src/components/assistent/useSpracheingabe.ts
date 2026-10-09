@@ -82,6 +82,7 @@ export function useSpracheingabe(onFertig: (text: string) => void): Spracheingab
 
   // Erst im Effect prüfen (nicht beim Rendern), damit Server- und Client-HTML
   // übereinstimmen und kein Hydration-Mismatch entsteht.
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- Browser-Wert (localStorage/URL/Feature) erst nach dem Einhängen lesen – beim Rendern gäbe es einen Hydration-Fehler
   useEffect(() => { setUnterstuetzt(getCtor() !== null) }, [])
 
   useEffect(() => () => { recRef.current?.abort() }, [])

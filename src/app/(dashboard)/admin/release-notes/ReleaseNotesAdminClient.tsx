@@ -36,6 +36,7 @@ export default function ReleaseNotesAdminClient({ readOnly = false }: { readOnly
     laden()
     setTimeout(() => setMeldung(null), 4000)
   }
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- Laden/Abonnieren im Effekt: Lade- bzw. Startzustand setzen, Ergebnis kommt asynchron
   useEffect(() => { laden() }, [])
 
   // Aktivieren/Deaktivieren: ein von RLS abgelehntes UPDATE liefert keinen Fehler,

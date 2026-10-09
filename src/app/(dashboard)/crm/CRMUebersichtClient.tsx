@@ -127,6 +127,7 @@ function OutlookBlock({ outlook, datum, aktiv, setAktiv, teilnehmer, setTeilnehm
   useEffect(() => {
     if (outlook.kollegen.length === 0) return
     let cancelled = false
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Laden/Abonnieren im Effekt: Lade- bzw. Startzustand setzen, Ergebnis kommt asynchron
     setFrei(null)
     fetch(`/api/crm/outlook-frei?datum=${datum}`).then(r => r.json()).then(j => { if (!cancelled) setFrei(j.ok ? j.kollegen : []) }).catch(() => { if (!cancelled) setFrei([]) })
     return () => { cancelled = true }
@@ -352,12 +353,14 @@ function ZeitachseView({
   const [viewAkt,    setViewAkt]    = useState<KalenderEintrag | null>(null)
   // KAN-17: fremde private Termine sind nur ein Zeitblock – kein Detail-Dialog
   const zeigeEintrag = (e: KalenderEintrag) => { if (e.typ !== 'privat') setViewAkt(e) }
-  useEffect(() => {
-    if (!oeffneId) return
-    const e = eintraege.find(x => x.id === `a_${oeffneId}`)
+  // Termin aus dem Link (?oeffne=) öffnen – beim Rendern statt im Effekt; Startwert null, damit es wie bisher
+  // auch beim ersten Anzeigen greift
+  const [oeffneIdVorher, setOeffneIdVorher] = useState<string | null>(null)
+  if ((oeffneId ?? null) !== oeffneIdVorher) {
+    setOeffneIdVorher(oeffneId ?? null)
+    const e = oeffneId ? eintraege.find(x => x.id === `a_${oeffneId}`) : undefined
     if (e) setViewAkt(e)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [oeffneId])
+  }
   const [editAktMode,  setEditAktMode]  = useState(false)
   const [editPipeMode, setEditPipeMode] = useState(false)
 

@@ -205,6 +205,7 @@ export default function NachrichtenClient() {
       const friendlyErr = errParam.includes('access_denied') ? 'Zugriff verweigert – Berechtigungen prüfen.'
         : errParam.includes('AADSTS') ? 'Azure AD Fehler – bitte Administrator kontaktieren.'
         : 'Verbindungsfehler: ' + errParam
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Browser-Wert (localStorage/URL/Feature) erst nach dem Einhängen lesen – beim Rendern gäbe es einen Hydration-Fehler
       setFehler(friendlyErr)
       window.history.replaceState({}, '', '/nachrichten')
     }

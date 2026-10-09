@@ -34,7 +34,9 @@ export default function UmziehenWidget({ chargeId, chargeName, verfuegbarLiter, 
   // Rückmeldung Jörgen 07.10.2026: nach dem Buchen klar bestätigen, dass der Umzug abgeschlossen ist – das Formular
   // „Charge bearbeiten“ darunter ist kein weiterer Schritt
   const [erfolg, setErfolg] = useState<{ liter: number; gebindeId: string; gebindeName: string } | null>(null)
-  useEffect(() => { setOpen(initialOpen) }, [initialOpen])
+  // (beim Rendern statt im Effekt)
+  const [initialOpenVorher, setInitialOpenVorher] = useState(initialOpen)
+  if (initialOpen !== initialOpenVorher) { setInitialOpenVorher(initialOpen); setOpen(initialOpen) }
   // KAN-181: über ?form=umziehen geöffnet steht das Formular weit unten – einmalig hinscrollen
   const sectionRef = useRef<HTMLElement>(null)
   const gescrollt  = useRef(false)

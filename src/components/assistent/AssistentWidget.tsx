@@ -51,6 +51,7 @@ export default function AssistentWidget() {
   const [vorlesenMoeglich, setVorlesenMoeglich] = useState(false)
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Browser-Wert (localStorage/URL/Feature) erst nach dem Einhängen lesen – beim Rendern gäbe es einen Hydration-Fehler
     setVorlesenMoeglich(kannVorlesen())
     try { setVorlesenAn(localStorage.getItem(VORLESEN_KEY) === '1') } catch { /* privater Modus o.ä. */ }
   }, [])

@@ -143,9 +143,14 @@ export default function ZukaufNeuPage() {
     ? (parseFloat(preisGesamt) / parseFloat(menge)).toFixed(4)
     : null
 
-  useEffect(() => {
+  // Einstandspreis je Liter aus dem Preis vorbelegen, sobald sich Preis oder Einheit ändern – beim Rendern statt im
+  // Effekt; Startwert null, damit es wie bisher auch beim ersten Anzeigen greift
+  const preisAnlass = `${einheit}|${preisProEinheit ?? ''}`
+  const [preisAnlassVorher, setPreisAnlassVorher] = useState<string | null>(null)
+  if (preisAnlass !== preisAnlassVorher) {
+    setPreisAnlassVorher(preisAnlass)
     if (einheit === 'L' && preisProEinheit) setEinstandspreisLiter(preisProEinheit)
-  }, [preisProEinheit, einheit])
+  }
 
   // Rückmeldung Jörgen 07.10.2026: dieselbe Regel wie der Server (zukaufLieferantFehler), sofort bei der Auswahl
   const lieferantHinweis = lieferantInfo

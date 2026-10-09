@@ -97,6 +97,7 @@ export default function OnboardingPage() {
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY)
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Browser-Wert (localStorage/URL/Feature) erst nach dem Einhängen lesen – beim Rendern gäbe es einen Hydration-Fehler
       if (saved) setErledigt(new Set(JSON.parse(saved)))
     } catch { /* ignore */ }
   }, [])
