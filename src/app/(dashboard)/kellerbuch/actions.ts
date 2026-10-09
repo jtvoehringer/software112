@@ -944,9 +944,12 @@ export async function speichereKellerbehandlung(formData: FormData): Promise<Kel
   if (mengeFehler) throw new AktionsFehler(mengeFehler)
 
   // Aktive Chargen im Gebinde: Volumen-Vorschlag und Charge (KAN-206)
+  // alle-ausnahme: aktive Chargen eines einzelnen Behälters
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: chargenImBehaelter } = await (supabase.from('weinausbau') as any)
+  const { data: chargenImBehaelter, error: chargenErr } = await (supabase.from('weinausbau') as any)
     .select('id, menge_liter').eq('behaelter_id', behaelterId).eq('aktiv', true).eq('tenant_id', tenantId)
+  // KAN-253: sonst würde das Ist-Volumen aus einer leeren Liste errechnet
+  if (chargenErr) throw new AktionsFehler(dbFehlerText(chargenErr, 'Chargen im Gebinde konnten nicht geladen werden'))
   const chargenListe = (chargenImBehaelter ?? []) as R[]
 
   // Volumen Ist: beim Anlegen ohne Angabe der aktuelle Gesamtinhalt des Behälters (Summe aktiver Chargen)

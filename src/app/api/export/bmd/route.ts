@@ -82,8 +82,10 @@ export async function GET(req: NextRequest) {
   }
 
   // Mapping des Mandanten
-  const { data: overrides } = await (supabase.from('buchhaltung_kontenmapping') as any)
+  const { data: overrides, error: overridesErr } = await (supabase.from('buchhaltung_kontenmapping') as any)
     .select('schluessel, wert').eq('tenant_id', tenantId)
+  // KAN-253: sonst exportierte ein Lesefehler still mit den Standardkonten
+  if (overridesErr) return fehlerAntwort(500, `Kontenzuordnung konnte nicht geladen werden: ${overridesErr.message}`)
   const mapping = mappingAufloesen(Object.fromEntries(((overrides ?? []) as R[]).map(o => [o.schluessel, o.wert])))
 
   const konten = new Personenkonten(supabase, tenantId, mapping, nurLesen)
@@ -94,15 +96,20 @@ export async function GET(req: NextRequest) {
   let summe = 0
   let belegIds: { verkaufsposten: string[]; ea: string[]; rechnungen?: string[] } = { verkaufsposten: [], ea: [] }
 
-  if (art === 'ausgangsrechnungen') {
-    const r = await ausgangsrechnungen(supabase, tenantId, mapping, konten, von, bis, nurNeue)
-    csv = bmdCsv(r.zeilen); anzahl = r.anzahl; csvZeilen = r.zeilen.length; summe = r.summe; belegIds = r.ids
-  } else if (art === 'eingangsbelege') {
-    const r = await eingangsbelege(supabase, tenantId, mapping, konten, von, bis, nurNeue)
-    csv = bmdCsv(r.zeilen); anzahl = r.anzahl; csvZeilen = r.zeilen.length; summe = r.summe; belegIds = r.ids
-  } else {
-    const r = await stammdaten(supabase, tenantId)
-    csv = personenkontenCsv(r.zeilen); anzahl = r.zeilen.length; csvZeilen = r.zeilen.length
+  // KAN-253: ein Lesefehler bricht den Export ab – sonst ginge eine unvollständige Datei an die Steuerberatung
+  try {
+    if (art === 'ausgangsrechnungen') {
+      const r = await ausgangsrechnungen(supabase, tenantId, mapping, konten, von, bis, nurNeue)
+      csv = bmdCsv(r.zeilen); anzahl = r.anzahl; csvZeilen = r.zeilen.length; summe = r.summe; belegIds = r.ids
+    } else if (art === 'eingangsbelege') {
+      const r = await eingangsbelege(supabase, tenantId, mapping, konten, von, bis, nurNeue)
+      csv = bmdCsv(r.zeilen); anzahl = r.anzahl; csvZeilen = r.zeilen.length; summe = r.summe; belegIds = r.ids
+    } else {
+      const r = await stammdaten(supabase, tenantId)
+      csv = personenkontenCsv(r.zeilen); anzahl = r.zeilen.length; csvZeilen = r.zeilen.length
+    }
+  } catch (e) {
+    return fehlerAntwort(500, e instanceof Error ? e.message : 'Export fehlgeschlagen')
   }
 
   if (anzahl === 0) {
@@ -242,7 +249,8 @@ async function ausgangsrechnungen(supabase: any, tenantId: string, m: Mapping, k
     .eq('tenant_id', tenantId).eq('aktiv', true).eq('storniert', false)
     .gte('datum', von).lte('datum', bis)
   if (nurNeue) q = q.is('bmd_export_id', null)
-  const { data: roh } = await alle<R>(q.order('datum').order('id'))
+  const { data: roh, error: rohErr } = await alle<R>(q.order('datum').order('id'))
+  if (rohErr) throw new Error(`Verkäufe konnten nicht geladen werden: ${rohErr.message}`)
   const posten = roh.map(alsBeleg)
 
   for (const p of posten) {
@@ -300,7 +308,8 @@ async function ausgangsrechnungen(supabase: any, tenantId: string, m: Mapping, k
     .eq('tenant_id', tenantId).eq('typ', 'einnahme').is('verkaufsposten_id', null)
     .gte('datum', von).lte('datum', bis)
   if (nurNeue) qe = qe.is('bmd_export_id', null)
-  const { data: einnahmen } = await alle<R>(qe.order('datum').order('id'))
+  const { data: einnahmen, error: einnahmenErr } = await alle<R>(qe.order('datum').order('id'))
+  if (einnahmenErr) throw new Error(`E&A-Einnahmen konnten nicht geladen werden: ${einnahmenErr.message}`)
   const eaBelegnr = await belegnrMitStorno(supabase, tenantId, einnahmen)
 
   for (const t of einnahmen) {
@@ -337,7 +346,8 @@ async function belegnrMitStorno(supabase: any, tenantId: string, zeilen: R[]): P
   const original = new Map<string, R>()
   if (ids.length) {
     // inBloecken: viele Stornos in einem Exportzeitraum sprengten sonst die URL (≈ 350 IDs)
-    const { data } = await inBloecken<R>(ids, b => alle<R>(supabase.from('ea_transaktionen').select('id, bank_ref').eq('tenant_id', tenantId).in('id', b).order('id')))
+    const { data, error } = await inBloecken<R>(ids, b => alle<R>(supabase.from('ea_transaktionen').select('id, bank_ref').eq('tenant_id', tenantId).in('id', b).order('id')))
+    if (error) throw new Error(`Stornierte Buchungen konnten nicht geladen werden: ${error.message}`)
     for (const o of data) original.set(o.id, o)
   }
   return t => {
@@ -361,7 +371,8 @@ async function eingangsbelege(supabase: any, tenantId: string, m: Mapping, konte
     .eq('tenant_id', tenantId).eq('typ', 'ausgabe')
     .gte('datum', von).lte('datum', bis)
   if (nurNeue) q = q.is('bmd_export_id', null)
-  const { data: ausgaben } = await alle<R>(q.order('datum').order('id'))
+  const { data: ausgaben, error: ausgabenErr } = await alle<R>(q.order('datum').order('id'))
+  if (ausgabenErr) throw new Error(`E&A-Ausgaben konnten nicht geladen werden: ${ausgabenErr.message}`)
   const eaBelegnr = await belegnrMitStorno(supabase, tenantId, ausgaben)
 
   for (const t of ausgaben) {
@@ -395,10 +406,11 @@ async function stammdaten(supabase: any, tenantId: string) { // eslint-disable-l
   const zeilen: PersonenkontoZeile[] = []
   const tel = (vw: string | null, nr: string | null) => nr ? [vw, nr].filter(Boolean).join(' ') : ''
 
-  const { data: firmen } = await alle<R>((supabase.from('firmen') as any)
+  const { data: firmen, error: firmenErr } = await alle<R>((supabase.from('firmen') as any)
     .select('id, name, strasse, plz, ort, land, uid_nummer, email, telefon_vorwahl, telefon, zahlungsziel_tage, skonto_pct, skonto_tage, accountnummer, debitor_nr, kreditor_nr')
     .eq('tenant_id', tenantId).or('debitor_nr.not.is.null,kreditor_nr.not.is.null')
     .order('name').order('id'))
+  if (firmenErr) throw new Error(`Firmen konnten nicht geladen werden: ${firmenErr.message}`)
   for (const f of firmen) {
     const basis = {
       name: f.name ?? '', strasse: f.strasse ?? '', plz: f.plz ?? '', ort: f.ort ?? '', land: f.land ?? 'AT',
@@ -410,10 +422,11 @@ async function stammdaten(supabase: any, tenantId: string) { // eslint-disable-l
     if (f.kreditor_nr) zeilen.push({ kontonummer: String(f.kreditor_nr), kontoart: 'K', ...basis })
   }
 
-  const { data: kontakte } = await alle<R>((supabase.from('kontakte') as any)
+  const { data: kontakte, error: kontakteErr } = await alle<R>((supabase.from('kontakte') as any)
     .select('id, vorname, nachname, strasse, plz, ort, land, email, telefon_vorwahl, telefon, zahlungsziel_tage, skonto_pct, skonto_tage, accountnummer, debitor_nr')
     .eq('tenant_id', tenantId).not('debitor_nr', 'is', null)
     .order('nachname').order('id'))
+  if (kontakteErr) throw new Error(`Kontakte konnten nicht geladen werden: ${kontakteErr.message}`)
   for (const k of kontakte) {
     zeilen.push({
       kontonummer: String(k.debitor_nr), kontoart: 'D',

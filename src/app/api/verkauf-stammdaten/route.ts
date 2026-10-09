@@ -25,16 +25,16 @@ export async function GET() {
     const ustStandard: number = parseFloat((einstellungen as any)?.ust_satz_standard) || 13
 
     const [
-      { data: fuellungen },
-      { data: weinausbau },
-      { data: sonstigeArtikel },
-      { data: weingaertenRaw },
-      { data: jahrgaenge },
-      { data: grundstuecke },
-      { data: lesemeldungenRaw },
-      { data: pressungWGRaw },
-      { data: tvSoldRaw },
-      { data: lesenRaw },
+      { data: fuellungen, error: fuellungenErr },
+      { data: weinausbau, error: weinausbauErr },
+      { data: sonstigeArtikel, error: sonstigeArtikelErr },
+      { data: weingaertenRaw, error: weingaertenRawErr },
+      { data: jahrgaenge, error: jahrgaengeErr },
+      { data: grundstuecke, error: grundstueckeErr },
+      { data: lesemeldungenRaw, error: lesemeldungenRawErr },
+      { data: pressungWGRaw, error: pressungWGRawErr },
+      { data: tvSoldRaw, error: tvSoldRawErr },
+      { data: lesenRaw, error: lesenRawErr },
     ] = await Promise.all([
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       alle((supabase.from('fuellungen') as any)
@@ -97,6 +97,8 @@ export async function GET() {
         .select('id, jahrgang_id, lfd_nr, art, bezeichnung, jahrgang:weinjahrgaenge!lesen_jahrgang_fkey(jahrgang)')
         .eq('tenant_id', tenantId),
     ])
+    { const ladeFehler = [fuellungenErr, weinausbauErr, sonstigeArtikelErr, weingaertenRawErr, jahrgaengeErr, grundstueckeErr, lesemeldungenRawErr, pressungWGRawErr, tvSoldRawErr, lesenRawErr].find(Boolean)
+      if (ladeFehler) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${ladeFehler.message}` }, { status: 500 }) }
 
     // ── Verfügbare kg je Lese und Ort (KAN-129: kg-Bilanz je Lese, lib/wein/leseBilanz.ts) ──
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

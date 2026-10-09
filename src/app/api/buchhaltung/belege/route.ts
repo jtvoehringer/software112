@@ -109,11 +109,12 @@ export async function POST(req: NextRequest) {
   try {
     if (!process.env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY nicht gesetzt')
 
-    const { data: kategorienRaw } = await (supabase.from('ea_kategorien') as any)
+    const { data: kategorienRaw, error: kategorienRawErr } = await (supabase.from('ea_kategorien') as any)
       .select('id, name, typ')
       .or(`tenant_id.is.null,tenant_id.eq.${tenantId}`)
       .eq('aktiv', true)
       .order('sortierung')
+    if (kategorienRawErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${kategorienRawErr.message}` }, { status: 500 })
     const kategorien = (kategorienRaw ?? []) as R[]
 
     const bytes = Buffer.from(await file.arrayBuffer())
@@ -181,10 +182,11 @@ export async function POST(req: NextRequest) {
     // brauchen bewusst keine Firmenzuordnung (siehe Beleg-Buchen-Formular).
     if (erkannteDaten.typ === 'ausgabe' && lieferantName) {
       // alle(): Abgleich über alle Lieferanten, nicht nur die ersten 1.000
-      const { data: lieferantenRaw } = await alle<R>((supabase.from('firmen') as any)
+      const { data: lieferantenRaw, error: lieferantenRawErr } = await alle<R>((supabase.from('firmen') as any)
         .select('id, name')
         .eq('tenant_id', tenantId).eq('ist_lieferant', true)
         .order('id'))
+      if (lieferantenRawErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${lieferantenRawErr.message}` }, { status: 500 })
       const lieferanten = lieferantenRaw
       const normalisiert = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ')
       const gesucht = normalisiert(lieferantName)

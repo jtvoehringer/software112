@@ -66,7 +66,7 @@ export async function GET(
   const tenantId = membership?.tenantId
   if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
 
-  const [{ data: auftrag }, { data: positionen }, { data: betriebData }] = await Promise.all([
+  const [{ data: auftrag, error: auftragErr }, { data: positionen, error: posErr }, { data: betriebData, error: betriebErr }] = await Promise.all([
     // storno-sichtbar: der Druck zeigt auch stornierte Aufträge, mit Vermerk (KAN-150 F2)
     (supabase.from('exportauftraege') as any)
       .select('*, kontakte(titel,vorname,nachname,titel_nachgestellt,email), firmen(name,email)')
@@ -78,6 +78,9 @@ export async function GET(
       .eq('tenant_id', tenantId).maybeSingle(),
   ])
 
+  // KAN-253: sonst entstünde ein Dokument ohne Positionen bzw. ohne Betriebsdaten (nur „keine Zeile“ heißt 404)
+  const ladeFehler = (auftragErr && auftragErr.code !== 'PGRST116' ? auftragErr : null) ?? posErr ?? betriebErr
+  if (ladeFehler) return NextResponse.json({ fehler: 'Exportauftrag konnte nicht geladen werden: ' + ladeFehler.message }, { status: 500 })
   if (!auftrag) return NextResponse.json({ fehler: 'Nicht gefunden' }, { status: 404 })
 
   const a   = auftrag as R

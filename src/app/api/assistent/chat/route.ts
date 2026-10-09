@@ -226,13 +226,14 @@ export async function POST(req: NextRequest) {
     // (z.B. bei einer lange offen gehaltenen Chat-Sitzung über mehrere
     // Prozesse hinweg) – das führte dazu, dass der Bot mitten im Gespräch auf
     // einmal wieder eine längst beantwortete, viel ältere Frage stellte.
-    const { data: verlaufRaw } = await (supabase.from('assistent_nachrichten') as any)
+    const { data: verlaufRaw, error: verlaufRawErr } = await (supabase.from('assistent_nachrichten') as any)
       .select('rolle, inhalt')
       .eq('unterhaltung_id', unterhaltungId)
       .in('rolle', ['user', 'assistant'])
       .is('tool_name', null)
       .order('erstellt_am', { ascending: false })
       .limit(MAX_VERLAUF_NACHRICHTEN)
+    if (verlaufRawErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${verlaufRawErr.message}` }, { status: 500 })
 
     const verlaufMessages = ((verlaufRaw ?? []) as R[])
       .filter(m => m.inhalt)

@@ -274,17 +274,22 @@ export async function umziehen(fd: FormData): Promise<{ verschnitte?: UmzugVersc
   // weitere Chargen im Gebinde neben der Anker-Charge).
   const weinartSperren: { behaelterId: string | null; chargeId: string | null; text: string }[] = []
   {
-    const { data: qRows } = await (supabase.from('weinausbau') as any)
+    // alle-ausnahme: Quell- und Zielchargen eines einzelnen Umzugs
+    const { data: qRows, error: qErr } = await (supabase.from('weinausbau') as any)
       .select('id, name, weinart, rebsorte').in('id', quellen.map(q => q.weinausbau_id)).eq('tenant_id', tenantId)
-    const { data: zRows } = await (supabase.from('weinausbau') as any)
+    // alle-ausnahme: Chargen in den Zielgebinden eines einzelnen Umzugs
+    const { data: zRows, error: zErr } = await (supabase.from('weinausbau') as any)
       .select('id, name, weinart, rebsorte, behaelter_id').in('behaelter_id', ziele.map(z => z.behaelter_id))
       .eq('aktiv', true).neq('status', 'abgeschlossen').eq('tenant_id', tenantId)
+    // KAN-253: mit leeren Listen fände die Rot-/Weiß-Sperre (Weingesetz) nichts und ließe den Umzug zu
+    if (qErr || zErr) throw new AktionsFehler(dbFehlerText(qErr ?? zErr, 'Chargen konnten nicht geladen werden'))
     const sorten = [...new Set([...(qRows ?? []), ...(zRows ?? [])].map((r: R) => r.rebsorte).filter(Boolean))] as string[]
     const farbe = new Map<string, string>()
     if (sorten.length) {
       // tenant-isolation-ignore: rebsorten ist eine globale Stammtabelle ohne tenant_id
       // alle-ausnahme: Rebsorten der gewählten Quell- und Ziel-Chargen, wenige
-      const { data: rs } = await (supabase.from('rebsorten') as any).select('name_de, farbe').in('name_de', sorten)
+      const { data: rs, error: rsErr } = await (supabase.from('rebsorten') as any).select('name_de, farbe').in('name_de', sorten)
+      if (rsErr) throw new AktionsFehler(dbFehlerText(rsErr, 'Rebsorten konnten nicht geladen werden'))
       for (const r of (rs ?? []) as R[]) farbe.set(r.name_de, r.farbe)
     }
     const artVon = (r: R): string => weinartBekannt(r.weinart) ? r.weinart : weinartAusFarbe(farbe.get(r.rebsorte) ?? bkiFarbe(r.rebsorte) ?? undefined)

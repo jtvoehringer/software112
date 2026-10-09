@@ -224,17 +224,19 @@ export async function POST(req: NextRequest) {
     if (leadImport && (typ === 'kontakte' || typ === 'firmen')) {
       if (typ === 'kontakte') {
         // alle(): seitenweise – sonst nur die ersten 1.000 Zeilen (Fix 05.10.2026, siehe findFirmaId)
-        const { data: bestehende } = await alle((supabase.from('kontakte') as any)
+        const { data: bestehende, error: bestehendeErr } = await alle((supabase.from('kontakte') as any)
           .select('id, vorname, nachname, email')
           .eq('tenant_id', tenantId).eq('aktiv', true).eq('is_lead', false).order('id'))
+        if (bestehendeErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${bestehendeErr.message}` }, { status: 500 })
         for (const k of (bestehende ?? []) as R[]) {
           kundenNameSet.add(normName([k.vorname, k.nachname].filter(Boolean).join(' ')))
           if (k.email) kundenEmailSet.add(normName(k.email))
         }
       } else {
-        const { data: bestehende } = await alle((supabase.from('firmen') as any)
+        const { data: bestehende, error: bestehendeErr } = await alle((supabase.from('firmen') as any)
           .select('id, name, email')
           .eq('tenant_id', tenantId).eq('aktiv', true).eq('is_lead', false).order('id'))
+        if (bestehendeErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${bestehendeErr.message}` }, { status: 500 })
         for (const f of (bestehende ?? []) as R[]) {
           kundenNameSet.add(normName(f.name))
           if (f.email) kundenEmailSet.add(normName(f.email))

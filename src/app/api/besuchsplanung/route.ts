@@ -104,7 +104,8 @@ export async function POST(req: NextRequest) {
     // beide = kein Filter
 
     kq = kq.order('plz').order('nachname').order('id')
-    const { data: kontakteRaw } = await alle(kq)
+    const { data: kontakteRaw, error: kontakteRawErr } = await alle(kq)
+    if (kontakteRawErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${kontakteRawErr.message}` }, { status: 500 })
     const kontakte = (kontakteRaw ?? []) as R[]
 
     // Letzten Kontakt je Person laden
@@ -115,12 +116,13 @@ export async function POST(req: NextRequest) {
       // lang. Stattdessen alle erledigten Aktivitäten des Mandanten seitenweise
       // laden und im Speicher auf die geladenen Kontakte einschränken.
       const idSet = new Set(ids)
-      const { data: aktsAlle } = await alle((supabase.from('aktivitaeten') as any)
+      const { data: aktsAlle, error: aktsAlleErr } = await alle((supabase.from('aktivitaeten') as any)
         .select('kontakt_id, datum')
         .eq('tenant_id', tenantId)
         .eq('erledigt', true)
         .not('kontakt_id', 'is', null)
         .order('datum', { ascending: false }).order('id'))
+      if (aktsAlleErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${aktsAlleErr.message}` }, { status: 500 })
       const akts = (aktsAlle as R[]).filter(a => idSet.has(a.kontakt_id))
       const seen = new Set<string>()
       ;(akts ?? []).forEach((a: R) => {

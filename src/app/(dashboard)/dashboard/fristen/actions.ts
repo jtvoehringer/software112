@@ -35,7 +35,10 @@ function naechstesDatum(monat: number, tag: number) {
 
 export async function standardfristenAnlegen() {
   const { supabase, tenantId } = await kontext()
-  const { data: vorhanden } = await (supabase.from('fristen') as any).select('bezeichnung').eq('tenant_id', tenantId)
+  // alle-ausnahme: Fristen eines Betriebs – Vorlagen-Abgleich, wenige Dutzend
+  const { data: vorhanden, error: vorhandenErr } = await (supabase.from('fristen') as any).select('bezeichnung').eq('tenant_id', tenantId)
+  // KAN-253: sonst legte ein Lesefehler alle Standardfristen doppelt an
+  if (vorhandenErr) throw new AktionsFehler(dbFehlerText(vorhandenErr, 'Fristen konnten nicht geladen werden'))
   const namen = new Set(((vorhanden ?? []) as { bezeichnung: string }[]).map(v => v.bezeichnung))
   const rows = FRISTEN_VORLAGE.filter(v => !namen.has(v.bezeichnung)).map(v => ({
     tenant_id: tenantId, bezeichnung: v.bezeichnung, beschreibung: v.beschreibung, kategorie: v.kategorie,

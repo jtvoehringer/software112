@@ -73,9 +73,11 @@ export async function createEaTransaktion(formData: FormData) {
   // Zeitraum darf weder abgeschlossen (Monatsabschluss) noch bereits per UVA
   // übermittelt sein – sonst könnte ein geschlossener Zeitraum durch eine
   // neue, ungesperrte Buchung unterlaufen werden.
-  const { data: pruefRaw } = await (supabase.rpc as any)('pruefe_ea_zeitraum_offen', {
+  const { data: pruefRaw, error: pruefErr } = await (supabase.rpc as any)('pruefe_ea_zeitraum_offen', {
     p_tenant_id: tenantId, p_datum: datum,
   })
+  // KAN-253: ein Fehler der Prüfung hieß sonst „Zeitraum offen“
+  if (pruefErr) return { error: dbFehlerText(pruefErr, 'Zeitraum konnte nicht geprüft werden') }
   const pruef = Array.isArray(pruefRaw) ? pruefRaw[0] : pruefRaw
   if (pruef && pruef.offen === false) {
     return { error: pruef.grund ?? 'Zeitraum ist geschlossen.' }
@@ -395,9 +397,11 @@ export async function verbucheBeleg(belegId: string, formData: FormData) {
   }
   if (ust_satz === null) return { error: UST_SATZ_FEHLER }
 
-  const { data: pruefRaw } = await (supabase.rpc as any)('pruefe_ea_zeitraum_offen', {
+  const { data: pruefRaw, error: pruefErr } = await (supabase.rpc as any)('pruefe_ea_zeitraum_offen', {
     p_tenant_id: tenantId, p_datum: datum,
   })
+  // KAN-253: ein Fehler der Prüfung hieß sonst „Zeitraum offen“
+  if (pruefErr) return { error: dbFehlerText(pruefErr, 'Zeitraum konnte nicht geprüft werden') }
   const pruef = Array.isArray(pruefRaw) ? pruefRaw[0] : pruefRaw
   if (pruef && pruef.offen === false) {
     return { error: pruef.grund ?? 'Zeitraum ist geschlossen.' }

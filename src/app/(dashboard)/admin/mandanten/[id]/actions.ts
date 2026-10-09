@@ -763,11 +763,13 @@ const VERBUND_SPALTEN = 'id, name, abrechnung_ueber, zusatz_preis_cent, stripe_c
 export async function verbundBeitreten(tenantId: string, hauptId: string): Promise<{ error?: string }> {
   await assertSystemAdmin(tenantId, { sandboxFreigabe: false })
   const admin = createSupabaseAdminClient()
-  const [{ data: n }, { data: h }, { count }] = await Promise.all([
+  const [{ data: n, error: nErr }, { data: h, error: hErr }, { count, error: cErr }] = await Promise.all([
     (admin.from('tenants') as R).select(VERBUND_SPALTEN).eq('id', tenantId).maybeSingle(),
     (admin.from('tenants') as R).select(VERBUND_SPALTEN).eq('id', hauptId).maybeSingle(),
     (admin.from('tenants') as R).select('id', { count: 'exact', head: true }).eq('abrechnung_ueber', tenantId),
   ])
+  const ladeFehler = nErr ?? hErr ?? cErr
+  if (ladeFehler) return { error: dbFehlerText(ladeFehler, 'Betriebe konnten nicht geladen werden') }
   if (!n || !h) return { error: 'Betrieb nicht gefunden.' }
   const fehler = beitrittFehler(n as VerbundBetrieb, h as VerbundBetrieb, (count ?? 0) > 0)
   if (fehler) return { error: fehler }

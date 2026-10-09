@@ -29,12 +29,14 @@ export async function GET(req: NextRequest) {
 
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ fehler: 'Nicht angemeldet' }, { status: 401 })
-    const [{ data: cfg }, { data: tenantCfg }] = await Promise.all([
+    const [{ data: cfg, error: cfgErr }, { data: tenantCfg, error: tenantCfgErr }] = await Promise.all([
       (admin.from('user_email_connections') as any)
         .select('m365_aktiv, m365_access_token_enc, m365_refresh_token_enc, m365_token_expires_at, monitored_email, email_address').eq('tenant_id', tenantId).eq('user_id', user?.id ?? '').maybeSingle(),
       (admin.from('tenant_einstellungen') as any)
         .select('m365_tenant_id, m365_client_id, m365_client_secret_enc').eq('tenant_id', tenantId).maybeSingle(),
     ])
+    { const ladeFehler = [cfgErr, tenantCfgErr].find(Boolean)
+      if (ladeFehler) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${ladeFehler.message}` }, { status: 500 }) }
     const c = cfg as R | null
     if (!c?.m365_aktiv || !c?.m365_access_token_enc) return NextResponse.json({ fehler: 'Mailbox nicht verbunden' }, { status: 400 })
 

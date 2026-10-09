@@ -34,12 +34,13 @@ export async function GET(req: NextRequest) {
   const results: SearchResult[] = []
 
   // ── Kontakte ────────────────────────────────────────────────────────────
-  const { data: kontakte } = await (supabase.from('kontakte') as any)
+  const { data: kontakte, error: kontakteErr } = await (supabase.from('kontakte') as any)
     .select('id, vorname, nachname, email, segment, accountnummer')
     .or(`vorname.ilike.%${q}%,nachname.ilike.%${q}%,email.ilike.%${q}%,accountnummer.ilike.%${q}%`)
     .eq('tenant_id', tenantId)
     .eq('aktiv', true)
     .limit(5)
+  if (kontakteErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${kontakteErr.message}` }, { status: 500 })
 
   ;(kontakte as R[] ?? []).forEach((k: R) => {
     results.push({
@@ -52,12 +53,13 @@ export async function GET(req: NextRequest) {
   })
 
   // ── Firmen ──────────────────────────────────────────────────────────────
-  const { data: firmen } = await (supabase.from('firmen') as any)
+  const { data: firmen, error: firmenErr } = await (supabase.from('firmen') as any)
     .select('id, name, email, segment, accountnummer')
     .or(`name.ilike.%${q}%,email.ilike.%${q}%,accountnummer.ilike.%${q}%`)
     .eq('tenant_id', tenantId)
     .eq('aktiv', true)
     .limit(5)
+  if (firmenErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${firmenErr.message}` }, { status: 500 })
 
   ;(firmen as R[] ?? []).forEach((f: R) => {
     results.push({
@@ -70,12 +72,13 @@ export async function GET(req: NextRequest) {
   })
 
   // ── Füllungen (Warenlager) ───────────────────────────────────────────────
-  const { data: fuellungen } = await (supabase.from('fuellungen') as any)
+  const { data: fuellungen, error: fuellungenErr } = await (supabase.from('fuellungen') as any)
     .select('id, name, jahrgang, rebsorte, chargennummer')
     .or(`name.ilike.%${q}%,chargennummer.ilike.%${q}%,rebsorte.ilike.%${q}%`)
     .eq('tenant_id', tenantId)
     .eq('aktiv', true)
     .limit(5)
+  if (fuellungenErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${fuellungenErr.message}` }, { status: 500 })
 
   ;(fuellungen as R[] ?? []).forEach((f: R) => {
     results.push({
@@ -89,12 +92,13 @@ export async function GET(req: NextRequest) {
 
   // ── Verkaufsposten ───────────────────────────────────────────────────────
   // KAN-105: auch über die Lieferscheinnummer; nicht berechnete Lieferscheine mit ihrer LS-Nummer
-  const { data: verkauf } = await (supabase.from('verkaufsposten') as any)
+  const { data: verkauf, error: verkaufErr } = await (supabase.from('verkaufsposten') as any)
     .select('id, rechnungsnummer, lieferscheinnummer, datum, bezahlt, storniert')
     .or(`rechnungsnummer.ilike.%${q}%,lieferscheinnummer.ilike.%${q}%`)
     .eq('tenant_id', tenantId)
     .eq('aktiv', true)
     .limit(5)
+  if (verkaufErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${verkaufErr.message}` }, { status: 500 })
 
   const gefundeneNummern = new Set<string>()
   ;(verkauf as R[] ?? []).forEach((v: R) => {
@@ -112,11 +116,12 @@ export async function GET(req: NextRequest) {
 
   // KAN-105: Rechnungen (Sammelrechnungen, stornierte Rechnungen – deren Lieferscheine tragen die Nummer nicht mehr)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rechnungen } = await (supabase.from('rechnungen') as any)
+  const { data: rechnungen, error: rechnungenErr } = await (supabase.from('rechnungen') as any)
     .select('id, rechnungsnummer, datum, bezahlt, storniert')
     .ilike('rechnungsnummer', `%${q}%`)
     .eq('tenant_id', tenantId)
     .limit(5)
+  if (rechnungenErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${rechnungenErr.message}` }, { status: 500 })
   ;(rechnungen as R[] ?? []).filter((r: R) => !gefundeneNummern.has(String(r.rechnungsnummer))).forEach((r: R) => {
     results.push({
       id:         r.id,
@@ -128,12 +133,13 @@ export async function GET(req: NextRequest) {
   })
 
   // ── Weingärten ──────────────────────────────────────────────────────────
-  const { data: weingaerten } = await (supabase.from('weingarten') as any)
+  const { data: weingaerten, error: weingaertenErr } = await (supabase.from('weingarten') as any)
     .select('id, name, ried, rebsorte')
     .or(`name.ilike.%${q}%,ried.ilike.%${q}%,rebsorte.ilike.%${q}%`)
     .eq('tenant_id', tenantId)
     .eq('aktiv', true)
     .limit(5)
+  if (weingaertenErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${weingaertenErr.message}` }, { status: 500 })
 
   ;(weingaerten as R[] ?? []).forEach((w: R) => {
     results.push({
@@ -146,12 +152,13 @@ export async function GET(req: NextRequest) {
   })
 
   // ── Grundstücke (GST) ──────────────────────────────────────────────────────
-  const { data: grundstuecke } = await (supabase.from('grundstuecke') as any)
+  const { data: grundstuecke, error: grundstueckeErr } = await (supabase.from('grundstuecke') as any)
     .select('id, weingarten_id, gst_nr, rebsorte, katastralgemeinde, weingarten:weingarten_id(name)')
     .or(`gst_nr.ilike.%${q}%,rebsorte.ilike.%${q}%,katastralgemeinde.ilike.%${q}%`)
     .eq('tenant_id', tenantId)
     .eq('nutzart', 'WI')
     .limit(5)
+  if (grundstueckeErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${grundstueckeErr.message}` }, { status: 500 })
 
   ;(grundstuecke as R[] ?? []).forEach((g: R) => {
     results.push({
@@ -164,11 +171,12 @@ export async function GET(req: NextRequest) {
   })
 
   // ── Jahrgänge (Erntemeldung) ─────────────────────────────────────────────
-  const { data: jahrgaenge } = await (supabase.from('weinjahrgaenge') as any)
+  const { data: jahrgaenge, error: jahrgaengeErr } = await (supabase.from('weinjahrgaenge') as any)
     .select('id, jahrgang, qualitaet_gesamt, abgeschlossen, lesen(lfd_nr, art, bezeichnung)')
     .or(`jahrgang::text.ilike.%${q}%`)
     .eq('tenant_id', tenantId)
     .limit(5)
+  if (jahrgaengeErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${jahrgaengeErr.message}` }, { status: 500 })
 
   ;(jahrgaenge as R[] ?? []).forEach((j: R) => {
     results.push({
@@ -191,11 +199,12 @@ export async function GET(req: NextRequest) {
   const arten = LESE_ARTEN.filter(a => LESE_ART_LABEL[a].toLowerCase().includes(qKlein))
   if (arten.length > 0) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: lesenTreffer } = await (supabase.from('lesen') as any)
+    const { data: lesenTreffer, error: lesenTrefferErr } = await (supabase.from('lesen') as any)
       .select('id, jahrgang_id, lfd_nr, art, bezeichnung, jahrgang:weinjahrgaenge!lesen_jahrgang_fkey(jahrgang)')
       .in('art', arten)
       .eq('tenant_id', tenantId)
       .limit(5)
+    if (lesenTrefferErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${lesenTrefferErr.message}` }, { status: 500 })
     ;(lesenTreffer as R[] ?? []).forEach((l: R) => {
       const jahr = Number((l.jahrgang as R | null)?.jahrgang)
       results.push({
@@ -208,12 +217,13 @@ export async function GET(req: NextRequest) {
   }
 
   // ── Kellerbuch (Weinausbau-Chargen) ──────────────────────────────────────
-  const { data: chargen } = await (supabase.from('weinausbau') as any)
+  const { data: chargen, error: chargenErr } = await (supabase.from('weinausbau') as any)
     .select('id, name, jahrgang, rebsorte, qualitaetsstufe, zusatzbezeichnung, erzeugnis, status')
     .or(`name.ilike.%${q}%,rebsorte.ilike.%${q}%,jahrgang::text.ilike.%${q}%`)
     .eq('tenant_id', tenantId)
     .eq('aktiv', true)
     .limit(5)
+  if (chargenErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${chargenErr.message}` }, { status: 500 })
 
   ;(chargen as R[] ?? []).forEach((c: R) => {
     results.push({

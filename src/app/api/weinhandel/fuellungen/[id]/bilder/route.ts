@@ -41,7 +41,9 @@ async function kontext(id: string): Promise<NextResponse | { m: Membership; supa
 /** Vorhandene Dateien dieser Art (beliebige Endung) im Ordner der Füllung */
 async function vorhandene(supabase: R, tenantId: string, id: string, art: BildArt): Promise<string[]> {
   const ordner = `${tenantId}/${id}`
-  const { data } = await supabase.storage.from(BILD_BUCKET).list(ordner, { limit: 10 })
+  const { data, error: dataErr } = await supabase.storage.from(BILD_BUCKET).list(ordner, { limit: 10 })
+  // KAN-253: sonst blieben alte Bilder liegen (Ersetzen legte eine zweite Datei daneben) – Next antwortet 500
+  if (dataErr) throw new Error(`Bilder der Füllung konnten nicht geladen werden: ${dataErr.message}`)
   return ((data ?? []) as R[]).filter(o => bildArtAusName(String(o.name ?? '')) === art).map(o => `${ordner}/${o.name}`)
 }
 

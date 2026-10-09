@@ -46,10 +46,12 @@ export async function POST(req: NextRequest) {
     // Kontakte + Firmen E-Mail-Adressen laden
     // alle(): Gebeshuber hat über 8.000 Kontakte und 4.600 Firmen – ohne Paging wurden
     // E-Mails von Adressen ab dem 1.001. Datensatz keinem Kontakt bzw. keiner Firma zugeordnet
-    const [{ data: kontakteRaw }, { data: firmenRaw }] = await Promise.all([
+    const [{ data: kontakteRaw, error: kontakteRawErr }, { data: firmenRaw, error: firmenRawErr }] = await Promise.all([
       alle<R>((supabase.from('kontakte') as any).select('id, email').eq('tenant_id', tenantId).eq('aktiv', true).not('email', 'is', null).order('id')),
       alle<R>((supabase.from('firmen') as any).select('id, email').eq('tenant_id', tenantId).eq('aktiv', true).not('email', 'is', null).order('id')),
     ])
+    { const ladeFehler = [kontakteRawErr, firmenRawErr].find(Boolean)
+      if (ladeFehler) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${ladeFehler.message}` }, { status: 500 }) }
     const emailMap: Record<string, { kontakt_id?: string; firma_id?: string }> = {}
     ;(kontakteRaw ?? []).forEach((k: R) => { if (k.email) emailMap[k.email.toLowerCase()] = { kontakt_id: k.id } })
     ;(firmenRaw ?? []).forEach((f: R) => { if (f.email) emailMap[f.email.toLowerCase()] = { firma_id: f.id } })

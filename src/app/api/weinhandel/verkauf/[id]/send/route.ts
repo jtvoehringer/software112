@@ -57,7 +57,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   // ── Rechnung + Betriebsdaten laden (RLS-scoped, zusätzlich explizit auf den
   // aktiven Mandanten gefiltert - siehe check-tenant-isolation.js) ───────────
-  const [{ data: postenRaw }, { data: einstRaw }] = await Promise.all([
+  const [{ data: postenRaw, error: postenRawErr }, { data: einstRaw, error: einstRawErr }] = await Promise.all([
     (supabase.from('verkaufsposten') as any)
       .select(`
         id, datum, rechnungsnummer, storniert, skonto_pct, skonto_tage, skonto_aktiv,
@@ -79,6 +79,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
                rechnung_iban, rechnung_bic, rechnung_zahlungsziel, rechnung_fusstext`)
       .eq('tenant_id', tenantId).maybeSingle(),
   ])
+  { const ladeFehler = [postenRawErr, einstRawErr].find(Boolean)
+    if (ladeFehler) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${ladeFehler.message}` }, { status: 500 }) }
 
   if (!postenRaw) return NextResponse.json({ error: 'Verkauf nicht gefunden' }, { status: 404 })
   const posten = momentaufnahmeAnwenden(postenRaw as R, ['kontakt', 'firma', 'zh_kontakt'])   // KAN-150 F1c
@@ -93,11 +95,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // KAN-105: Sammelrechnung – Positionen aller Lieferscheine der Rechnung, je Lieferschein mit Zwischenzeile
   // alle-ausnahme: Lieferscheine einer einzelnen Rechnung (Elternzeile), fachlich wenige
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: lsRaw } = await (supabase.from('verkaufsposten') as any)
+  const { data: lsRaw, error: lsRawErr } = await (supabase.from('verkaufsposten') as any)
     .select(`id, lieferscheinnummer, datum, positionen:verkauf_positionen(
       typ, name, menge, einheit, preis_brutto, rabatt_pct, sonderrabatt_pct, ust_satz,
       fuellung:fuellungen(jahrgang, flaschengroesse_ml, pruefnummer, chargennummer, datum))`)
     .eq('tenant_id', tenantId).eq('rechnung_id', rechnung.id).order('datum').order('id')
+  if (lsRawErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${lsRawErr.message}` }, { status: 500 })
   const lieferscheine = ((lsRaw ?? []) as R[])
   const sammel = lieferscheine.length > 1
   const datumDe = (d: string) => new Date(`${String(d).slice(0, 10)}T00:00:00`).toLocaleDateString('de-AT')

@@ -41,11 +41,14 @@ export async function getTenantMembers(): Promise<MemberWithEmail[]> {
 
   // Memberships laden (inkl. inaktive - die Verwaltung muss sie sehen können,
   // um sie ggf. wieder zu aktivieren, siehe toggleMemberAktiv unten)
+  // alle-ausnahme: Mitglieder eines Betriebs (Benutzerlimit des Pakets)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: memberships } = await (supabase.from('tenant_memberships') as any)
+  const { data: memberships, error: membershipsErr } = await (supabase.from('tenant_memberships') as any)
     .select('id, user_id, role, created_at, aktiv, schreibmodule')
     .eq('tenant_id', membership.tenantId)
     .order('created_at')
+  // KAN-253: sonst sähe die Verwaltung „keine Benutzer“
+  if (membershipsErr) throw new Error(dbFehlerText(membershipsErr, 'Benutzer konnten nicht geladen werden'))
 
   if (!memberships || memberships.length === 0) return []
 
