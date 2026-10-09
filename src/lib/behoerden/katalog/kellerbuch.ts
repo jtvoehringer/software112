@@ -143,6 +143,15 @@ export const KATALOG_KELLERBUCH = katalogGruppe('kellerbuch', {
     rechtsgrundlage: KELLERBUCH_RECHT,
     beschreibung: 'Bezeichnung, Langbezeichnung, Material, Aufstellungsort und Nenninhalt je Gebinde, mit den mitbenutzten Gebinden der Kellergemeinschaft.',
   },
+  // KAN-47 AP10 Schritt 1: Blatt „Weingärten“ aus den vorhandenen Ried- und Grundstücksdaten
+  'bki-weingaerten': {
+    titel: 'Weingärten (BKI-Schnittstelle)',
+    behoerde: 'BKI (Weindatenbank)',
+    zugriff: 'mitglied',
+    druckPfad: '/kellerbuch/bki-weingaerten',
+    rechtsgrundlage: KELLERBUCH_RECHT,
+    beschreibung: 'Eine Zeile je Grundstück: KG, Feldstück, Nutzungsart, Eigen/Pacht, Sorte mit Fläche und Pflanzjahr, Bundesland, Gemeinde, g.U. und DAC-Gebiet; Großlage und Lagen folgen mit den amtlichen Katalogen.',
+  },
   'keller-auswertungen': {
     titel: 'Keller-Auswertungen: Umzüge, Filtrationen und Schwund',
     behoerde: 'BKI (Kellerbuchführung)',
