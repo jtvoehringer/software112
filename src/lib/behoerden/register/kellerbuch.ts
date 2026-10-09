@@ -14,6 +14,7 @@ import { ladeKellerUmzuege, SPALTEN_KELLER_UMZUEGE } from '../keller-auswertunge
 import { ladeAenderungsprotokoll, SPALTEN_AENDERUNGSPROTOKOLL } from '../aenderungsprotokoll'
 import { ladeLagerbewegungen, ladeLagerstand, lagerstandStichtag, SPALTEN_LAGERBEWEGUNGEN, SPALTEN_LAGERSTAND } from '../lagerstand'
 import { ladeBetriebsdaten, ladeBkiGebindeverzeichnis, SPALTEN_BETRIEBSDATEN, SPALTEN_BKI_GEBINDE } from '../bki-stammdaten'
+import { ladeBkiWeingaerten, SPALTEN_BKI_WEINGAERTEN } from '../bki-weingaerten'
 
 // Register der Behördenmeldungen – Gruppe „Kellerbuch“ (24.09.2026).
 // Je Katalog-Eintrag aus katalog/kellerbuch.ts genau ein Eintrag mit CSV (laden + spalten).
@@ -256,6 +257,18 @@ export const MELDUNGEN_KELLERBUCH = {
     spalten: SPALTEN_BKI_GEBINDE,
     dateiteile: (p, betrieb) => ['GebindeVerzeichnis', betrieb.betriebsnummer, p.nurAktiv ? 'aktive' : null],
     bki: p => ({ bericht: ['GebindeVerzeichnis', p.nurAktiv ? 'aktive' : null] }),
+  }),
+
+  'bki-weingaerten': definiereMeldung(KATALOG_KELLERBUCH['bki-weingaerten'], {
+    parameter: sp => {
+      const aktiv = sp.get('aktiv')?.trim() ?? ''
+      if (aktiv && aktiv !== '1' && aktiv !== '0') return parameterFehler('Parameter „aktiv“ nur 1 oder 0.')
+      return { nurAktiv: aktiv === '1' }
+    },
+    laden: (ctx, p) => ladeBkiWeingaerten(ctx.supabase, ctx.tenantId, p),
+    spalten: SPALTEN_BKI_WEINGAERTEN,
+    dateiteile: (p, betrieb) => ['Weingaerten', betrieb.betriebsnummer, p.nurAktiv ? 'aktive' : null],
+    bki: p => ({ bericht: ['Weingaerten', p.nurAktiv ? 'aktive' : null] }),
   }),
 
   'keller-auswertungen': definiereMeldung(KATALOG_KELLERBUCH['keller-auswertungen'], {
