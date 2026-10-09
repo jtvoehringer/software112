@@ -16,6 +16,7 @@ export async function hatModul(flag: ModulFlag): Promise<boolean> {
   const membership = await getCurrentMembership()
   if (!membership?.tenantId) return false
   const supabase = await createSupabaseServerClient()
+  // abfrage-ohne-fehler: bei einem Fehler gilt das Modul als aus – abgelehnt, nie fälschlich freigegeben (DB sperrt zusätzlich)
   const { data } = await (supabase.from('tenant_einstellungen') as any)
     .select(flag).eq('tenant_id', membership.tenantId).maybeSingle()
   return !!(data as Record<string, unknown> | null)?.[flag]

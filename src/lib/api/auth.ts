@@ -44,12 +44,14 @@ export async function getM365Token(
   tenantId: string,
   userId: string
 ): Promise<{ uc: R | null; token: string | null }> {
-  const [{ data: uc }, { data: tc }] = await Promise.all([
+  const [{ data: uc, error: ucErr }, { data: tc, error: tcErr }] = await Promise.all([
     (adminClient.from('user_email_connections') as any)
       .select(USER_EMAIL_CONN_SELECT).eq('tenant_id', tenantId).eq('user_id', userId).maybeSingle(),
     (adminClient.from('tenant_einstellungen') as any)
       .select('m365_tenant_id, m365_client_id, m365_client_secret_enc').eq('tenant_id', tenantId).maybeSingle(),
   ])
+  // KAN-254: ein Lesefehler ist nicht „nicht verbunden“
+  if (ucErr || tcErr) throw new Error(`Postfach-Verbindung konnte nicht geladen werden: ${(ucErr ?? tcErr).message}`)
   if (!(uc as R | null)?.m365_aktiv || !(uc as R | null)?.m365_access_token_enc)
     return { uc: uc as R | null, token: null }
   try {

@@ -318,11 +318,13 @@ export async function buildWeinbuch(
   const zielByBatch: Record<string, R> = {}
   if (batchIds.length > 0) {
     // alle-ausnahme: Umzüge einer einzelnen Charge im Weinbuch, wenige
-    const { data: zielRows } = await tf((supabase.from('keller_umzuege') as any)
+    const { data: zielRows, error: zielErr } = await tf((supabase.from('keller_umzuege') as any)
       .select('umzug_batch_id, nach_behaelter:nach_behaelter_id(name)')
       // storno-sichtbar: nur der Name des Ziel-Gebindes (die Zeilen einer Buchung sind gemeinsam storniert)
       .in('umzug_batch_id', batchIds)
       .eq('zeilen_typ', 'ziel'))
+    // KAN-254: sonst fehlten im Weinbuch (Aufzeichnung für die Behörde) still die Ziel-Gebinde der Umzüge
+    if (zielErr) throw new Error(`Ziel-Gebinde der Umzüge konnten nicht geladen werden: ${zielErr.message}`)
     for (const z of ((zielRows ?? []) as R[])) {
       if (!zielByBatch[z.umzug_batch_id]) zielByBatch[z.umzug_batch_id] = z
     }

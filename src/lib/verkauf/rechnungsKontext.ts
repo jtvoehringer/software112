@@ -28,9 +28,11 @@ export function ankerLieferschein(ids: readonly string[]): string {
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function ladeRechnungsKontext(supabase: any, tenantId: string, verkaufspostenId: string, positionenFelder: string): Promise<RechnungsKontext | null> {
-  const { data: lsRaw } = await supabase.from('verkaufsposten')
+  const { data: lsRaw, error: lsErr } = await supabase.from('verkaufsposten')
     .select(`id, rechnung_id, rechnungsnummer, positionen:verkauf_positionen(${positionenFelder})`)
     .eq('id', verkaufspostenId).eq('tenant_id', tenantId).maybeSingle()
+  // KAN-254: sonst „kein Lieferschein“ bzw. zu wenige Positionen – die Rechnungssumme (Zahlungen, E&A) wäre zu klein
+  if (lsErr) throw new Error(`Lieferschein konnte nicht geladen werden: ${lsErr.message}`)
   const ls = lsRaw as R | null
   if (!ls) return null
   if (!ls.rechnung_id) {
@@ -38,9 +40,10 @@ export async function ladeRechnungsKontext(supabase: any, tenantId: string, verk
   }
   // alle Lieferscheine der Rechnung (eine Rechnung hat wenige Lieferscheine – Sammelrechnung eines Kunden)
   // alle-ausnahme: Lieferscheine einer einzelnen Rechnung (Elternzeile), fachlich wenige
-  const { data: alleRaw } = await supabase.from('verkaufsposten')
+  const { data: alleRaw, error: alleErr } = await supabase.from('verkaufsposten')
     .select(`id, positionen:verkauf_positionen(${positionenFelder})`)
     .eq('tenant_id', tenantId).eq('rechnung_id', ls.rechnung_id).order('id')
+  if (alleErr) throw new Error(`Lieferscheine der Rechnung konnten nicht geladen werden: ${alleErr.message}`)
   const alle = (alleRaw ?? []) as R[]
   const ids = alle.map(l => String(l.id))
   return {

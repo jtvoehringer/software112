@@ -12,7 +12,9 @@ export type MitgliedOption = { id: string; name: string; role?: string }
 
 export async function ladeMandantMitglieder(tenantId: string): Promise<MitgliedOption[]> {
   const supabase = await createSupabaseServerClient()
-  const { data } = await (supabase as any).rpc('s112_mandant_mitglieder', { p_tenant_id: tenantId })
+  const { data, error } = await (supabase as any).rpc('s112_mandant_mitglieder', { p_tenant_id: tenantId })
+  // KAN-254: sonst „keine Mitglieder“ – Auswahl leer, „für alle“ ginge an niemanden
+  if (error) throw new Error(`Mitglieder des Betriebs konnten nicht geladen werden: ${error.message}`)
   return ((data ?? []) as R[])
     .map(r => ({ id: r.user_id as string, name: (r.name as string) || 'Unbekannt', role: r.role as string }))
     .sort((a, b) => a.name.localeCompare(b.name, 'de'))

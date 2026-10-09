@@ -20,6 +20,10 @@
  * Ausnahme: // abfrage-ohne-fehler: <Grund, mind. 15 Zeichen> (einzelabfrage-ohne-fehler gilt ebenso).
  * Nicht erfasst: supabase.auth.* (Benutzer null = nicht angemeldet), Stripe (wirft selbst), fetch/res.json(), Graph.
  *
+ * KAN-254 (09.10.2026): auch alle Dateien unter src/lib – Befunde: Benutzerlimit bei Lesefehler „unbegrenzt“, Rechnungssumme
+ * zu klein (Zahlungen, E&A), PSM-Meldung mit Standardfrist, Absender-Index 60 s leer zwischengespeichert, Weinbuch ohne
+ * Ziel-Gebinde. Fail-closed-Stellen (Rolle, Modul: Fehler = Ablehnung) sind begründet ausgenommen.
+ *
  * Aufruf: node scripts/check-einzelabfrage.js   (Exit 1 bei Funden)
  * Für Tests: require('./check-einzelabfrage.js') → { pruefeText, pruefeWurzel } ohne Seiteneffekte;
  * S112_GUARD_ROOT prüft ein anderes Projektverzeichnis (scripts/tests/kan251-einzelabfrage.test.mjs).
@@ -122,7 +126,8 @@ function pruefeText(text, { route = false } = {}) {
     for (let k = 0; k < liste.length; k++) {
       if (liste[k] !== '{') continue
       const [inhalt, nach] = klammerInhalt(liste, k)
-      if (hat(inhalt, 'data')) pruefe(inhalt, zeileVon(auf + 1 + k), 'liste')
+      // data: { user } u. ä. kommt nur aus supabase.auth.* (ohne Supabase-Fehlerobjekt im Sinn dieser Regel)
+      if (hat(inhalt, 'data') && !/(^|,)\s*data\s*:\s*\{/.test(inhalt)) pruefe(inhalt, zeileVon(auf + 1 + k), 'liste')
       k = nach - 1
     }
   }
@@ -143,7 +148,8 @@ function pruefeWurzel(root) {
   let anzahl = 0, ausnahmen = 0, geprueft = 0
   for (const f of dateien(path.join(root, 'src'))) {
     const t = fs.readFileSync(f, 'utf8')
-    const route = path.basename(f) === 'route.ts'
+    // KAN-254: Bibliotheken (src/lib) ebenso – dort liegen Rechte, Benutzerlimit, Rechnungssumme, Meldungs-Lader
+    const route = path.basename(f) === 'route.ts' || path.relative(path.join(root, 'src', 'lib'), f).split(path.sep)[0] !== '..'
     if (!route && !istActionDatei(t)) continue
     anzahl++
     const e = pruefeText(t, { route })
@@ -167,5 +173,5 @@ if (require.main === module) {
     console.error('  // abfrage-ohne-fehler: <Grund ≥ 15 Zeichen>   (dieselbe Zeile oder bis zu vier Zeilen davor)\n')
     process.exit(1)
   }
-  console.log(`✓ check-einzelabfrage: ${e.dateien} Server-Action- und Route-Dateien, ${e.geprueft} Abfragen mit Fehlerprüfung, ${e.ausnahmen} begründete Ausnahme(n).`)
+  console.log(`✓ check-einzelabfrage: ${e.dateien} Server-Action-, Route- und Bibliotheksdateien, ${e.geprueft} Abfragen mit Fehlerprüfung, ${e.ausnahmen} begründete Ausnahme(n).`)
 }

@@ -403,6 +403,7 @@ export async function verkaufspostenStornieren(
     if (setzErr) {
       grund = dbFehlerText(setzErr, 'Storno fehlgeschlagen (verkaufsposten)')
     } else {
+      // abfrage-ohne-fehler: nur die Wahl der Meldung – abgelehnt wird in jedem Fall
       const { data: jetzt } = await (supabase.from('verkaufsposten') as any)
         .select('storniert')
         .eq('id', postenId)

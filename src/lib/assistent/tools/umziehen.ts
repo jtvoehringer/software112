@@ -112,11 +112,12 @@ export async function fuehreUmziehenAus(
     return { erfolg: false, fehler: 'Kein Betrieb gefunden – Umzug konnte nicht gespeichert werden.' }
   }
 
-  const [{ data: quelle }, zielRow] = await Promise.all([
+  const [{ data: quelle, error: quelleErr }, zielRow] = await Promise.all([
     (supabase.from('weinausbau') as any).select('id, menge_liter').eq('id', input.weinausbau_id).eq('tenant_id', tenantId).eq('aktiv', true).maybeSingle(),
     // eigene + freigegebene Gebinde (Kellergemeinschaft, Migration 203)
     ladeBehaelterEinzeln(supabase, tenantId, input.ziel_behaelter_id),
   ])
+  if (quelleErr) return { erfolg: false, fehler: `Datenbankfehler: ${quelleErr.message}` }
   const ziel = zielRow && zielRow.aktiv ? zielRow : null
   if (ziel?.gesperrt) {
     return { erfolg: false, hinweis: `Ziel-Gebinde „${ziel.name}“ ist durch ${ziel.fremd_betrieb ?? 'einen anderen Betrieb'} belegt – dorthin kann nicht umgezogen werden. Anderes Gebinde vorschlagen.` }
