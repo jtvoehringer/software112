@@ -1,7 +1,7 @@
 // KAN-47 AP10 Schritt 1 (09.10.2026): BKI-Blatt „Weingärten“ aus den vorhandenen Ried- und Grundstücksdaten.
 // Annahmen W1–W6 im Kopf von src/lib/behoerden/bki-weingaerten.ts.
 // Schritt 2 (09.10.2026): Großlage, Gemeindeteil, DAC-Orts- und Riedenwein aus src/lib/wein/herkunftKatalog.ts (Thermenregion,
-// Annahmen K1–K5 dort).
+// Kremstal; Annahmen K1–K7 dort).
 //
 // Aufruf:  npm run -s test:csv   (Node ≥ 22.15 wegen module.registerHooks)
 
@@ -123,6 +123,40 @@ describe('KAN-47 Schritt 2: Katalog Thermenregion', () => {
     const hirtenberg = wg.weingartenZeile(ried(lage), gst({ katastralgemeinde: '4312' }))
     assert.deepEqual([hirtenberg.grosslage, hirtenberg.dacOrtswein, hirtenberg.dacRiedenwein], ['Vöslauer Hauerberg', null, null])
     const r = wg.weingartenZeilen([ried(lage)], [gst({ katastralgemeinde: '10001' })])
-    assert.ok(r.warnungen.some(w => /außerhalb der erfassten Kataloge \(Thermenregion\)/.test(w)), r.warnungen.join(' | '))
+    assert.ok(r.warnungen.some(w => /außerhalb der erfassten Kataloge \(Thermenregion, Kremstal\)/.test(w)), r.warnungen.join(' | '))
+  })
+})
+
+describe('KAN-47 Schritt 2: Katalog Kremstal', () => {
+  test('Ortsangaben nach Anlage 1: je KG (Krems, Stein, Senftenberg, Furth, Höbenbach, Krustetten) bzw. Gemeinde (Rohrendorf, Gedersdorf, Stratzing/Droß)', () => {
+    const o = (kg, gkz) => kat.herkunftKatalog(kg, gkz).dacOrtswein
+    assert.deepEqual([o('12114', '30101'), o('12132', '30101'), o('12112', '31343'), o('12166', '31309'), o('12147', '31333'), o('12153', '31333')],
+      ['Krems', 'Stein', 'Senftenberg', 'Furth', 'Höbenbach', 'Krustetten'])
+    assert.deepEqual([o('12127', '31337'), o('12119', '31337'), o('12102', '31310'), o('12103', '31356')], ['Rohrendorf', 'Rohrendorf', 'Gedersdorf', 'Stratzing'])
+  })
+
+  test('KG ohne Ortsangabe in einer Kremstal-Gemeinde: DAC-Gebiet ohne Ortswein (K6); Wachau/Mautern außerhalb', () => {
+    assert.deepEqual(kat.herkunftKatalog('12125', '31343'), { gebiet: 'Kremstal', grosslage: null, dacOrtswein: null, imDacGebiet: true })   // Reichaueramt
+    assert.equal(kat.herkunftKatalog('12138', '30101').imDacGebiet, true)                              // Weinzierl bei Krems
+    assert.equal(kat.herkunftKatalog('12148', '31327').gebiet, null)                                   // Baumgarten (Mautern)
+    assert.equal(kat.herkunftKatalog('12105', '31304').gebiet, null)                                   // Dürnstein
+  })
+
+  test('Großlagen: Kaiserstiege, Göttweiger Berg je Gemeinde; Kremser Großlagen über die amtliche Ried (K7)', () => {
+    assert.equal(kat.herkunftKatalog('12119', '31337').grosslage, 'Kaiserstiege')
+    assert.equal(kat.herkunftKatalog('12101', '31310').grosslage, 'Kaiserstiege')
+    assert.equal(kat.herkunftKatalog('12160', '31333').grosslage, 'Göttweiger Berg')
+    assert.equal(kat.herkunftKatalog('12132', '30101', null, 'Steiner Hund').grosslage, 'Kremser Kreuzberg')
+    assert.equal(kat.herkunftKatalog('12114', '30101', null, 'ried  wachtberg').grosslage, 'Kremser Kreuzberg')
+    assert.equal(kat.herkunftKatalog('12114', '30101', null, 'Obere Sandgrube').grosslage, 'Kremser Sandgrube')
+    assert.equal(kat.herkunftKatalog('12123', '30101', null, 'Groß Rehberg').grosslage, 'Kremser Sommerleithen')
+    assert.equal(kat.herkunftKatalog('12114', '30101', null, 'Pfaffenberg').grosslage, null, 'Ried ohne Großlage')
+    assert.equal(kat.herkunftKatalog('12114', '30101').grosslage, null, 'ohne Ried keine Kremser Großlage')
+    assert.equal(kat.herkunftKatalog('12127', '31337', null, 'Steiner Hund').grosslage, 'Kaiserstiege', 'Ried-Großlage nur in Krems')
+  })
+
+  test('Zeile Musterhof-Art: Unterrohrendorf mit amtlicher Ried', { skip: !hooksMoeglich }, () => {
+    const z = wg.weingartenZeile(ried({ lage: { amtliche_ried: 'Gebling' } }), gst({ katastralgemeinde: '12127', kg_bezeichnung: 'Unterrohrendorf', trauben_herkunft_code: null }))
+    assert.deepEqual([z.gemeinde, z.gemeindeteil, z.grosslage, z.dacOrtswein, z.dacRiedenwein], ['Rohrendorf bei Krems', 'Unterrohrendorf', 'Kaiserstiege', 'Rohrendorf', 'Gebling'])
   })
 })

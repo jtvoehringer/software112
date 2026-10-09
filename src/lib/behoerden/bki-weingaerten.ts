@@ -3,7 +3,7 @@
 // Spalten nach der BKI-Schnittstelle („SchnittstelleDatenMitDefinitionTypen“, Blatt „Weingärten“, 26 Spalten). Eine
 // Zeile je Grundstück (Sorte, Fläche und Pflanzjahr stehen am Grundstück); eine Ried ohne Grundstücke bekommt eine
 // eigene Zeile mit Hinweis. Schritt 2: Großlage, Gemeindeteil, DAC-Orts- und Riedenwein aus den amtlichen Katalogen
-// (`herkunftKatalog`, bisher Thermenregion, Annahmen K1–K5 dort); Erste/Große Lage bleibt leer.
+// (`herkunftKatalog`, bisher Thermenregion und Kremstal, Annahmen K1–K7 dort); Erste/Große Lage bleibt leer.
 //
 // Annahmen (wie AP11 nach bestem Wissen, im Workshop KAN-38 zu bestätigen):
 //   W1 Die Spezifikation führt „Katastralgemeinde“ zweimal: als int (Spalte B) und als Text (Spalte S). B = KG-Nr.
@@ -76,8 +76,8 @@ export function weingartenZeile(w: R | null, g: R | null): WeingartenZeile {
   const ha = g?.flaeche_ha == null || g.flaeche_ha === '' ? null : Number(g.flaeche_ha)
   const gemeinde = gkz ? gemeindeName(gkz) ?? null : null
   const kgName = text(g?.kg_bezeichnung) ?? (kgNr ? getKgBezeichnung(kgNr) ?? null : null)
-  const kat = herkunftKatalog(kgNr, gkz, gemeinde)
   const ried = text((w?.lage as R | null | undefined)?.amtliche_ried)
+  const kat = herkunftKatalog(kgNr, gkz, gemeinde, ried)
   return {
     gstNr: text(g?.gst_nr),
     kgNr,
