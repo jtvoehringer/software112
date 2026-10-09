@@ -9,6 +9,7 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
 import type { Map as LeafletMap, LayerGroup } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import { riedPopupHtml, tooltipText } from '@/lib/weingarten/kartePopup'
 
 export type KartenPin = { id: string; name: string; lat: number; lon: number; sub?: string; href?: string }
 
@@ -88,7 +89,7 @@ export default function RiedKarte({
       if (!u.geometrie || typeof u.geometrie !== 'object') continue
       try {
         const gj = L.geoJSON(u.geometrie as GeoJSON.GeoJsonObject, { style: { color: '#2F63AC', weight: 1.5, dashArray: '4 3', fillColor: '#4F86D6', fillOpacity: 0.08 } })
-        gj.bindTooltip(u.name, { sticky: true }); gj.addTo(layer); bounds.extend(gj.getBounds())
+        gj.bindTooltip(tooltipText(u.name), { sticky: true });   // KAN-256: Leaflet setzt den Text als HTML gj.addTo(layer); bounds.extend(gj.getBounds())
       } catch { /* ungültige Geometrie ignorieren */ }
     }
     for (const p of pins) {
@@ -98,10 +99,9 @@ export default function RiedKarte({
         iconSize: [14, 14], iconAnchor: [7, 7],
       })
       const m = L.marker([p.lat, p.lon], { icon, title: p.name }).addTo(layer)
-      const sub = p.sub ? `<br><span style="color:#6E717A;font-size:11px">${p.sub}</span>` : ''
-      const link = p.href ? `<br><a href="${p.href}" style="font-size:11px">Ried öffnen →</a>` : ''
-      m.bindPopup(`<b style="font-size:13px">${p.name}</b>${sub}${link}`)
-      if (pins.length > 1) m.bindTooltip(p.name, { direction: 'top', offset: [0, -8] })
+      // KAN-256: Popup und Tooltip sind HTML – Namen aus der Datenbank nur maskiert (vorher gespeichertes XSS)
+      m.bindPopup(riedPopupHtml(p))
+      if (pins.length > 1) m.bindTooltip(tooltipText(p.name), { direction: 'top', offset: [0, -8] })
       bounds.extend([p.lat, p.lon])
     }
     if (bounds.isValid()) {
