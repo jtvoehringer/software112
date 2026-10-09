@@ -18,8 +18,10 @@ export async function GET() {
 
     const supabase = await createSupabaseServerClient()
 
-    const { data: einstellungen } = await (supabase.from('tenant_einstellungen') as any)
+    const { data: einstellungen, error: einstErr } = await (supabase.from('tenant_einstellungen') as any)
       .select('ust_satz_standard').eq('tenant_id', tenantId).maybeSingle()
+    // KAN-252: sonst stünde im Verkauf still 13 % statt des Standard-Satzes des Betriebs (Weinhändler 20 %)
+    if (einstErr) return NextResponse.json({ error: `Betriebseinstellungen konnten nicht geladen werden: ${einstErr.message}` }, { status: 500 })
     const ustStandard: number = parseFloat((einstellungen as any)?.ust_satz_standard) || 13
 
     const [

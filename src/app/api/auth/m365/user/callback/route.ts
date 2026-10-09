@@ -33,9 +33,10 @@ export async function GET(req: NextRequest) {
   if (!code) return loescheNonceCookie(NextResponse.redirect(new URL('/nachrichten?fehler=no_code', req.url)))
   const admin = createSupabaseAdminClient()
 
-  const { data: cfg } = await (admin.from('tenant_einstellungen') as any)
+  const { data: cfg, error: cfgErr } = await (admin.from('tenant_einstellungen') as any)
     .select('m365_tenant_id, m365_client_id, m365_client_secret_enc, m365_kalender_schreiben')
     .eq('tenant_id', tenantId).maybeSingle()
+  if (cfgErr) return NextResponse.redirect(new URL('/nachrichten?fehler=db_fehler', req.url))
   const c = cfg as R | null
   if (!c) return NextResponse.redirect(new URL('/nachrichten?fehler=tenant_not_found', req.url))
 

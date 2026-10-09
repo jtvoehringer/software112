@@ -32,9 +32,10 @@ export async function POST(req: NextRequest) {
 
     // KAN-135: SMTP-Passwort nur per Service-Role (Benutzer haben keinen SELECT darauf);
     // Mitgliedschaft ist über getCurrentMembership() geprüft, Zeile über tenant_id eingeschränkt
-    const { data: cfg } = await (createSupabaseAdminClient().from('tenant_einstellungen') as any)
+    const { data: cfg, error: cfgErr } = await (createSupabaseAdminClient().from('tenant_einstellungen') as any)
       .select('email_modul_aktiv, email_smtp_host, email_smtp_port, email_smtp_user, email_smtp_pass_enc, email_smtp_from_name')
       .eq('tenant_id', tenantId).maybeSingle()
+    if (cfgErr) return NextResponse.json({ fehler: `E-Mail-Einstellungen konnten nicht geladen werden: ${cfgErr.message}` }, { status: 500 })
 
     const c = (cfg as R | null)
     if (!c?.email_modul_aktiv) return NextResponse.json({ fehler: 'E-Mail-Modul nicht aktiviert' }, { status: 403 })

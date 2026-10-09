@@ -33,10 +33,11 @@ export async function POST(req: NextRequest) {
 
   // SumUp-Konfiguration laden – KAN-135: API-Key nur per Service-Role (Benutzer haben
   // keinen SELECT darauf); Mitgliedschaft ist geprüft, Zeile über tenant_id eingeschränkt
-  const { data: einst } = await (createSupabaseAdminClient().from('tenant_einstellungen') as any)
+  const { data: einst, error: einstErr } = await (createSupabaseAdminClient().from('tenant_einstellungen') as any)
     .select('modul_sumup, sumup_api_key, sumup_merchant_code')
     .eq('tenant_id', tenantId)
     .maybeSingle()
+  if (einstErr) return NextResponse.json({ error: `SumUp-Einstellungen konnten nicht geladen werden: ${einstErr.message}` }, { status: 500 })
 
   if (!einst?.modul_sumup) {
     return NextResponse.json({ error: 'SumUp-Modul nicht aktiviert' }, { status: 403 })
@@ -140,11 +141,12 @@ export async function GET(req: NextRequest) {
   const id = req.nextUrl.searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'id fehlt' }, { status: 400 })
 
-  const { data } = await (supabase.from('sumup_checkouts') as any)
+  const { data, error } = await (supabase.from('sumup_checkouts') as any)
     .select('*, sumup_transaktionen(status, betrag, kartennetz, letzten_4_ziffern)')
     .eq('id', id)
     .eq('tenant_id', tenantId)
     .maybeSingle()
+  if (error) return NextResponse.json({ error: `Checkout konnte nicht geladen werden: ${error.message}` }, { status: 500 })
 
   if (!data) return NextResponse.json({ error: 'Checkout nicht gefunden' }, { status: 404 })
 

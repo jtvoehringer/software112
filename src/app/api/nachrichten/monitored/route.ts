@@ -21,9 +21,10 @@ export async function GET() {
     if (!tenantId) return NextResponse.json({ fehler: 'Kein Betrieb' }, { status: 401 })
     const { data: { user } } = await supabase.auth.getUser()
 
-    const { data } = await (supabase.from('user_email_connections') as any)
+    const { data, error } = await (supabase.from('user_email_connections') as any)
       .select('monitored_email, email_spiegel_stand, email_spiegel_info')
       .eq('tenant_id', tenantId).eq('user_id', user?.id ?? '').maybeSingle()
+    if (error) return NextResponse.json({ fehler: `Postfach-Verbindung konnte nicht geladen werden: ${error.message}` }, { status: 500 })
 
     const d = data as R | null
     return NextResponse.json({ monitored_email: d?.monitored_email ?? null, spiegel_stand: d?.email_spiegel_stand ?? null, spiegel_info: d?.email_spiegel_info ?? null })

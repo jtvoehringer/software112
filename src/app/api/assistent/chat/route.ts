@@ -173,10 +173,11 @@ export async function POST(req: NextRequest) {
     }
 
     const admin = createSupabaseAdminClient()
-    const { data: cfg } = await (admin.from('tenant_einstellungen') as any)
+    const { data: cfg, error: cfgErr } = await (admin.from('tenant_einstellungen') as any)
       .select('assistent_aktiv')
       .eq('tenant_id', membership.tenantId)
       .maybeSingle()
+    if (cfgErr) return NextResponse.json({ fehler: `Betriebseinstellungen konnten nicht geladen werden: ${cfgErr.message}` }, { status: 500 })
     if (!(cfg as R | null)?.assistent_aktiv) {
       return NextResponse.json({ fehler: 'Der Assistent ist für diesen Betrieb noch nicht freigeschaltet.' }, { status: 403 })
     }
@@ -188,6 +189,7 @@ export async function POST(req: NextRequest) {
     // ── Unterhaltung laden oder neu anlegen ─────────────────────────────────
     let unterhaltungId = unterhaltungIdIn
     if (unterhaltungId) {
+      // einzelabfrage-ohne-fehler: nicht ladbar heißt hier „neue Unterhaltung“ – es geht nichts verloren
       const { data: bestehend } = await (supabase.from('assistent_unterhaltungen') as any)
         .select('id').eq('id', unterhaltungId).eq('tenant_id', membership.tenantId).eq('user_id', user.id).eq('status', 'aktiv').maybeSingle()
       if (!bestehend) unterhaltungId = undefined // ungültig/fremd/abgeschlossen -> neu anlegen

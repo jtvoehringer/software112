@@ -31,6 +31,7 @@ export async function GET(request: Request) {
   if (!user || !tenantId) return NextResponse.redirect(`${origin}/login`)
 
   // Sicherheit: nur eigene, aktive Mitgliedschaften
+  // einzelabfrage-ohne-fehler: ein Fehler heißt hier „kein Zugriff“ – zurück zur Betriebswahl, nichts wird freigegeben
   const { data } = await (supabase.from('tenant_memberships') as any)
     .select('tenant_id').eq('tenant_id', tenantId).eq('user_id', user.id).eq('aktiv', true)
     .limit(1).maybeSingle()

@@ -125,8 +125,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, renewed })
     }
 
-    const { data: cfg } = await (admin.from('tenant_einstellungen') as any)
+    const { data: cfg, error: cfgErr } = await (admin.from('tenant_einstellungen') as any)
       .select('*').eq('tenant_id', tenantId).maybeSingle()
+    if (cfgErr) return NextResponse.json({ fehler: `M365-Einstellungen konnten nicht geladen werden: ${cfgErr.message}` }, { status: 500 })
     const c = cfg as R | null
     if (!c?.m365_modul_aktiv) return NextResponse.json({ fehler: 'M365 nicht aktiv' }, { status: 400 })
 

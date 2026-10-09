@@ -45,8 +45,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // Sicherstellen, dass der Exportauftrag tatsächlich zum aktiven Tenant gehört,
   // bevor überhaupt ein Dokument dafür angelegt wird (IDOR-Schutz).
   // storno-sichtbar: nur Eigentumsprüfung – Schreiben an einem stornierten Auftrag lehnt die DB ab (a_export_kind_schutz)
-  const { data: auftrag } = await (supabase.from('exportauftraege') as any)
+  const { data: auftrag, error: auftragErr } = await (supabase.from('exportauftraege') as any)
     .select('id').eq('id', id).eq('tenant_id', tenantId).maybeSingle()
+  if (auftragErr) return NextResponse.json({ fehler: `Exportauftrag konnte nicht geladen werden: ${auftragErr.message}` }, { status: 500 })
   if (!auftrag) return NextResponse.json({ fehler: 'Nicht gefunden' }, { status: 404 })
 
   const { data, error } = await (supabase.from('export_dokumente') as any)
@@ -87,8 +88,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // export_dokumente hat keine eigene tenant_id-Spalte: zuerst prüfen, ob der Exportauftrag
   // aus der URL zum aktiven Tenant gehört (IDOR-Schutz) …
   // storno-sichtbar: nur Eigentumsprüfung – Schreiben an einem stornierten Auftrag lehnt die DB ab (a_export_kind_schutz)
-  const { data: auftrag } = await (supabase.from('exportauftraege') as any)
+  const { data: auftrag, error: auftragErr } = await (supabase.from('exportauftraege') as any)
     .select('id').eq('id', auftragId).eq('tenant_id', tenantId).maybeSingle()
+  if (auftragErr) return NextResponse.json({ fehler: `Exportauftrag konnte nicht geladen werden: ${auftragErr.message}` }, { status: 500 })
   if (!auftrag) return NextResponse.json({ fehler: 'Nicht gefunden' }, { status: 404 })
 
   const update: Record<string, unknown> = { status }
