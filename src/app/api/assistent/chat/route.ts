@@ -26,6 +26,7 @@ import { ereignisMelden } from '@/lib/system/ereignis'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
+import { lokalerTag, wienJetzt } from '@/lib/datum/wien'
 
 export const dynamic = 'force-dynamic'
 
@@ -46,8 +47,9 @@ function systemPrompt(kontext: string): string {
   // Claude kennt das tatsächliche "heute" nicht von selbst (Trainingsdaten-Stichtag)
   // – deshalb muss das aktuelle Serverdatum explizit mitgegeben werden, sonst rät
   // das Modell bei "heute"/"morgen"/"gestern" ein falsches (z.T. deutlich älteres) Datum.
-  const heute = new Date()
-  const heuteIso = heute.toISOString().slice(0, 10)
+  // KAN-255: Wiener Kalendertag – in UTC galt zwischen 0 und 1 bzw. 2 Uhr noch „gestern“ (Buchungen mit dem Vortag)
+  const heute = wienJetzt()
+  const heuteIso = lokalerTag(heute)
   const heuteLesbar = heute.toLocaleDateString('de-AT', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
 
   return `Du bist bot:112, der Prozess-Assistent von software:112, einem österreichischen Weinbau-ERP.

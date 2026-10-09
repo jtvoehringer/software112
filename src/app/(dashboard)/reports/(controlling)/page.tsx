@@ -8,6 +8,7 @@ import {
   ART_LABEL, jahrZeitraum, ladeBehandlungen, ladeWeingaerten, mittelmenge, mittelName, spritzbruehe,
 } from '@/lib/behoerden/psm'
 import { cuBilanz } from '@/lib/behoerden/cu'
+import { heuteWien, lokalerTag, wienJetzt } from '@/lib/datum/wien'
 
 export const metadata: Metadata = { title: 'Reports – software:112' }
 export const dynamic = 'force-dynamic'
@@ -25,8 +26,10 @@ export default async function ReportsPage() {
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   const heute = new Date()
-  const thisYear  = heute.getFullYear()
-  const thisMonth = heute.getMonth()
+  // KAN-255: Jahr und Monat in Wiener Zeit (heute.getTime() bleibt für Fälligkeiten unverändert)
+  const wien      = wienJetzt(heute)
+  const thisYear  = wien.getFullYear()
+  const thisMonth = wien.getMonth()
 
   // Performance (17.9.2026, Rückmeldung "Controlling dauert 4 s"): vorher zwölf
   // Monatsabfragen nacheinander, dann acht weitere Abfragen nacheinander und
@@ -35,8 +38,8 @@ export default async function ReportsPage() {
   // parallel, Orte/Länder per RPC crm_filterwerte (Migration 210), Kunde als
   // serverseitige Suche im Client (PartnerSuche).
   const monatStart = new Date(thisYear, thisMonth - 11, 1)
-  const von12 = monatStart.toISOString().split('T')[0]
-  const bis12 = new Date(thisYear, thisMonth + 1, 0).toISOString().split('T')[0]
+  const von12 = lokalerTag(monatStart)
+  const bis12 = lokalerTag(new Date(thisYear, thisMonth + 1, 0))
 
   // Tab „Behörden“: Katalog der Behördenmeldungen, nach Rolle/Modulen gefiltert (parallel zu den Abfragen)
   // wirft nicht: bei einem Datenbankfehler null (protokolliert) – der Tab „Behörden“ zeigt dann einen Hinweis
@@ -103,8 +106,8 @@ export default async function ReportsPage() {
   const umsatzMonate: { monat: string; umsatz: number; anzahl: number; von: string; bis: string }[] = []
   for (let i = 11; i >= 0; i--) {
     const d = new Date(thisYear, thisMonth - i, 1)
-    const von = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0]
-    const bis = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split('T')[0]
+    const von = lokalerTag(new Date(d.getFullYear(), d.getMonth(), 1))
+    const bis = lokalerTag(new Date(d.getFullYear(), d.getMonth() + 1, 0))
     const m = umsatzProMonat[von.slice(0, 7)] ?? { umsatz: 0, anzahl: 0 }
     umsatzMonate.push({
       monat: d.toLocaleDateString('de-AT', { month: 'short', year: '2-digit' }),
@@ -202,7 +205,7 @@ export default async function ReportsPage() {
       pipeline={pipeline}
       kontaktFrequenz={kontaktFrequenz}
       offene={offene}
-      heute={heute.toISOString().split('T')[0]}
+      heute={heuteWien(heute)}
       vsJahrgaenge={vsJahrgaenge}
       vsSorten={vsSorten}
       vsBezeichnungen={vsBezeichnungen}

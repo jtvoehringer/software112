@@ -8,6 +8,7 @@ import { fmtEur } from '@/lib/format'
 import { inBloecken } from '@/lib/supabase/alle'
 import { tbsSuche, tbsText } from '@/lib/handel/tbsNummer'
 import ListenSuche from '@/components/ui/ListenSuche'
+import { lokalerTag, wienJetzt } from '@/lib/datum/wien'
 
 export const metadata: Metadata = { title: 'Verkauf – software:112' }
 export const dynamic = 'force-dynamic'
@@ -69,9 +70,9 @@ export default async function VerkaufPage({ searchParams }: { searchParams: Prom
   }
 
   // Umsatz-KPIs
-  const heute   = new Date()
-  const monatVon = new Date(heute.getFullYear(), heute.getMonth(), 1).toISOString().split('T')[0]
-  const monatBis = new Date(heute.getFullYear(), heute.getMonth() + 1, 0).toISOString().split('T')[0]
+  const heute   = wienJetzt()   // KAN-255: Monatswechsel in Wiener Zeit
+  const monatVon = lokalerTag(new Date(heute.getFullYear(), heute.getMonth(), 1))
+  const monatBis = lokalerTag(new Date(heute.getFullYear(), heute.getMonth() + 1, 0))
 
   const monatPosten = posten.filter((p: R) => p.datum >= monatVon && p.datum <= monatBis)
 

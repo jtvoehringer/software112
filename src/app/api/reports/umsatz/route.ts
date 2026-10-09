@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { alsBeleg, lieferscheineSelect } from '@/lib/verkauf/rechnungen'
 import { umsatzBasis, type UmsatzBasis } from '@/lib/verkauf/umsatzBasis'
+import { lokalerTag } from '@/lib/datum/wien'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,8 +43,8 @@ function monatsBereich(von: MonatsZiel, bis: MonatsZiel): MonatsZiel[] {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function ladeMonat(supabase: any, ziel: MonatsZiel, tenantId: string, basis: UmsatzBasis): Promise<UmsatzMonat> {
-  const von = new Date(ziel.jahr, ziel.monatIdx, 1).toISOString().split('T')[0]
-  const bis = new Date(ziel.jahr, ziel.monatIdx + 1, 0).toISOString().split('T')[0]
+  const von = lokalerTag(new Date(ziel.jahr, ziel.monatIdx, 1))   // KAN-255: über die lokalen Felder, nie toISOString()
+  const bis = lokalerTag(new Date(ziel.jahr, ziel.monatIdx + 1, 0))
 
   // alle(): Monatsumsatz über alle Verkäufe, nicht nur die ersten 1.000.
   // KAN-105: basis 'rechnung' = Rechnungen nach Rechnungsdatum (Positionen aller Lieferscheine), sonst Lieferscheine nach Lieferdatum

@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "prebuild": "node scripts/check-tenant-isolation.js && node scripts/check-api-zwei-faktor.js && node scripts/check-seiten-betrieb.js && node scripts/check-schreibsperre.js && node scripts/check-schema.js && node scripts/check-a11y.js && node scripts/check-behoerden-csv.js && node scripts/check-replica.js && node scripts/check-storno.js && node scripts/check-alle.js && node scripts/check-loeschen.js && node scripts/check-einzelabfrage.js",
+    "prebuild": "node scripts/check-tenant-isolation.js && node scripts/check-api-zwei-faktor.js && node scripts/check-seiten-betrieb.js && node scripts/check-schreibsperre.js && node scripts/check-schema.js && node scripts/check-a11y.js && node scripts/check-behoerden-csv.js && node scripts/check-replica.js && node scripts/check-storno.js && node scripts/check-alle.js && node scripts/check-loeschen.js && node scripts/check-einzelabfrage.js && node scripts/check-datum.js",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
@@ -19,6 +19,7 @@
     "check-replica": "node scripts/check-replica.js",
     "check-storno": "node scripts/check-storno.js",
     "check-einzelabfrage": "node scripts/check-einzelabfrage.js",
+    "check-datum": "node scripts/check-datum.js",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "verify": "npm run -s typecheck && npm run -s lint:verify && npm run -s test:csv && npm run -s prebuild",
     "test:csv": "node --experimental-strip-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"scripts/tests/*.test.mjs\"",

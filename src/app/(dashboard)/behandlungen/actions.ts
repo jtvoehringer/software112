@@ -489,8 +489,8 @@ export async function createBehandlung(formData: FormData) {
   // Frühester Erntetermin berechnen
   let ernteFruehesteins: string | null = null
   if (datum && wartezeit != null) {
-    const d = new Date(datum)
-    d.setDate(d.getDate() + wartezeit)
+    const d = new Date(`${String(datum).slice(0, 10)}T00:00:00Z`)   // KAN-255: durchgehend UTC (vorher lokales setDate)
+    d.setUTCDate(d.getUTCDate() + wartezeit)
     ernteFruehesteins = d.toISOString().split('T')[0]
   }
 
@@ -627,8 +627,8 @@ export async function updateBehandlung(id: string, formData: FormData) {
 
   let ernteFruehesteins: string | null = null
   if (datum && wartezeit != null) {
-    const d = new Date(datum)
-    d.setDate(d.getDate() + wartezeit)
+    const d = new Date(`${String(datum).slice(0, 10)}T00:00:00Z`)   // KAN-255: durchgehend UTC (vorher lokales setDate)
+    d.setUTCDate(d.getUTCDate() + wartezeit)
     ernteFruehesteins = d.toISOString().split('T')[0]
   }
 
