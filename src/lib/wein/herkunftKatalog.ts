@@ -1,11 +1,12 @@
 // ── Amtliche Herkunftskataloge für das BKI-Blatt „Weingärten“ (KAN-47 Schritt 2, 09.10.2026) ──
 //
-// Statisch erfasst aus dem RIS, je Weinbaugebiet ein Block (bisher: Thermenregion, Kremstal, Wachau, Kamptal, Traisental). Schlüssel sind die
+// Statisch erfasst aus dem RIS, je Weinbaugebiet ein Block (bisher: Thermenregion, Kremstal, Wachau, Kamptal, Traisental, Carnuntum, Weinviertel). Schlüssel sind die
 // Gemeindekennziffer (GKZ, Statistik Austria) bzw. – wo eine Verordnung einzelne Katastralgemeinden nennt – die KG-Nr. (BEV).
 // Reihenfolge: Ried vor KG vor Gemeinde (Beispiel: KG Oeynhausen gehört zur Gemeinde Traiskirchen, aber zur Großlage
 // Steinfeld; die Kremser Großlagen sind über Rieden festgelegt, im Kamptal lenken einzelne Rieden den Ortswein um). Ohne `@/`-Importe (node:test).
 //
 // Quellen:
+//   Weinbaugebiete: Weingesetz 2009 § 21 Abs. 3 Z 1 (räumliche Abgrenzung je Gebiet)
 //   Großlagen: Großlagenverordnung 2018, BGBl. II Nr. 184/2018 i. d. F. BGBl. II Nr. 30/2022, § 1 Z 2
 //   Thermenregion: DAC-Verordnung „Thermenregion“, BGBl. II Nr. 191/2023 i. d. F. BGBl. II Nr. 250/2024, Anhang A und B
 //   Kremstal: DAC-Verordnung „Kremstal“, BGBl. II Nr. 273/2017 i. d. F. BGBl. II Nr. 30/2022, Anlage 1 (Ortsangaben)
@@ -13,13 +14,18 @@
 //   Kamptal: DAC-Verordnung „Kamptal“ i. d. F. BGBl. II Nr. 250/2024, Anlage 1 (ortsübergreifende Weinbaugemeinden)
 //   Traisental: DAC-Verordnung „Traisental“, BGBl. II Nr. 273/2017 i. d. F. 2023 (ohne Liste der Ortsangaben) und
 //      Produktspezifikation „Traisental DAC“ (BML, 28.06.2022), Abgrenzung des Gebiets
+//   Carnuntum: DAC-Verordnung „Carnuntum“, BGBl. II Nr. 284/2019 i. d. F. BGBl. II Nr. 30/2022, § 6 und Anhang
+//      (ortsübergreifende Gemeinden); Gebiet = politischer Bezirk Bruck an der Leitha und Gerichtsbezirk Schwechat
+//   Weinviertel: DAC-Verordnung „Weinviertel“, BGBl. II Nr. 58/2010 i. d. F. BGBl. II Nr. 587/2020, § 1 Z 9 (Gemeinde,
+//      Ried oder Großlage als kleinere Einheit); Großlagen § 1 Z 2 lit. m–r der Großlagenverordnung
 //
 // Annahmen (am Ticket KAN-47 dokumentiert):
 //   K1 Wiener Neustadt (Statutarstadt, GKZ 30401) zählt zum Ortswein „Wiener Neustadt“, obwohl Anhang A nur die
 //      umliegenden Gemeinden aufzählt.
 //   K2 Gemeinden aus Anhang B tragen ihren eigenen Gemeindenamen als Ortswein; Sollenau steht in A und B → „Wiener Neustadt“.
-//   K3 DAC-Riedenwein = amtliche Ried der Lage, wenn die Gemeinde im DAC-Gebiet liegt. Ob die Ried in der NÖ
-//      Riedenverordnung steht, wird nicht geprüft.
+//   K3 DAC-Riedenwein = amtliche Ried der Lage, wenn die Stelle einen DAC-Ortswein hat (Riedenweine setzen die
+//      Ortsangabe voraus, z. B. Kremstal, Carnuntum § 7, Wachau § 4 Abs. 5); im Kamptal genügt eine Ried im Gebiet
+//      (§ 2 Abs. 2 Z 3). Ob die Ried in der NÖ Riedenverordnung steht, wird nicht geprüft.
 //   K4 Gemeindeteil = Name der KG, wenn er vom Gemeindenamen abweicht (die BKI-Spezifikation definiert das Feld nicht).
 //   K5 Erste/Große Lage: in Thermenregion und Kremstal nicht gesetzlich geregelt (ÖTW-Lagen sind privat) → leer.
 //   K6 Kremstal-DAC-Gebiet = die Gemeinden Krems an der Donau, Rohrendorf bei Krems, Gedersdorf, Stratzing, Droß,
@@ -30,7 +36,8 @@
 //   K8 Wachau: die Gemeindeangaben sind fast durchwegs KG-Namen → Ortswein je KG. KG Rührsdorf → „Rührsdorf“ (steht auch
 //      unter „Rossatz“), KG Povat (Großlage Spitzer Graben ohne eigene Angabe) → „Spitzer Graben“, „Aggsbach“ = Aggsbach
 //      Markt und Aggsbach Dorf. DAC-Gebiet = die Gemeinden Dürnstein, Weißenkirchen, Spitz, Mühldorf, Rossatz-Arnsdorf,
-//      Mautern, Aggsbach, Schönbühel-Aggsbach und Bergern im Dunkelsteinerwald.
+//      Mautern, Aggsbach und Bergern im Dunkelsteinerwald (Weingesetz § 21 Abs. 3 Z 1 lit. g – Schönbühel-Aggsbach mit
+//      Aggsbach Dorf gehört nicht zum Weinbaugebiet Wachau).
 //   K9 Kamptal: DAC-Gebiet = die Gemeinden Langenlois, Schönberg am Kamp, Straß im Straßertale, Hadersdorf-Kammern,
 //      Grafenegg und Lengenfeld. „Mittelberg“ umfasst die Langenloiser Rieden Am Loiser, Auf der Setz, Sommerleithen,
 //      Rothenbichl und Vogelberg; die Großlage „Retzer Land“ (Bezirk Horn) ist noch nicht erfasst.
@@ -39,6 +46,15 @@
 //      zählt keine Ortsangaben auf → Ortswein = Name der politischen Gemeinde. Großlage nur „Wölblinger Urgestein“
 //      (Wölbling, Obritzberg-Rust); Venusberg/Parapluiberg (östlich/westlich der Traisen) sind ohne Lagekarte nicht je KG
 //      zuordenbar und bleiben leer.
+//   K11 Carnuntum: Gebiet = alle GKZ 307xx (der Gerichtsbezirk Schwechat gehört seit 2017 zum Bezirk Bruck an der Leitha).
+//      Die Anhang-Namen sind Ortschaften: ganze Gemeinde, wo sie die Gemeinde bilden; Hollern (Gemeinde Rohrau),
+//      Wildungsmauer und Regelsbrunn (Scharndorf), Enzersdorf (KG Enzersdorf an der Fischa, samt der Ortschaft Karlsdorf),
+//      Sarasdorf, Gallbrunn und Stixneusiedl (Trautmannsdorf) je KG. Keine Großlage.
+//   K12 Weinviertel: Gebiet = Bezirke Gänserndorf, Mistelbach, Hollabrunn, Horn und Korneuburg ohne Stetteldorf am Wagram
+//      und Gerasdorf bei Wien (beide Weinbaugebiet Wagram; Gerasdorf kam 2017 zum Bezirk Korneuburg). Die Verordnung
+//      zählt keine Gemeinden auf → Ortswein = Name der politischen Gemeinde. Großlagen: Matzner Hügel, Wolkersdorfer
+//      Hochleiten, Falkensteiner Hügelland, Pulkautal je Gemeinde; Retzer Land = übrige Gemeinden der Bezirke Hollabrunn
+//      und Horn (Pulkautal geht vor); Bisamberg-Kreuzenstein = Bezirk Korneuburg (ohne die beiden Wagram-Gemeinden).
 
 type Gebiet = {
   name: string
@@ -60,6 +76,12 @@ type Gebiet = {
   dacGkzPraefix?: readonly string[]
   /** Ortswein = Name der politischen Gemeinde, wo keine Ortsangabe gilt (K10) */
   ortsweinGemeindename?: boolean
+  /** Großlage je GKZ-Anfang (ganzer Bezirk; nachrangig) */
+  grosslagePraefix?: Record<string, string>
+  /** Gemeinden, die trotz GKZ-Anfang nicht zum Gebiet gehören */
+  ausserGkz?: readonly string[]
+  /** Riedenwein auch ohne Ortswein (Kamptal, K3) */
+  riedenweinOhneOrtswein?: boolean
 }
 
 const jeSchluessel = (zuordnung: Record<string, readonly string[]>) =>
@@ -151,14 +173,14 @@ const WACHAU: Gebiet = {
     'Schwallenbach': ['12357'],
     'Willendorf': ['12366'],
     'Groisbach': ['12317'],
-    'Aggsbach': ['12301', '14101'],                                     // Aggsbach Markt, Aggsbach Dorf (K8)
+    'Aggsbach': ['12301'],                                              // Aggsbach Markt (K8)
     'Unterbergern': ['12150'],
     'Mauternbach': ['12163'],
     'Mautern': ['12162'],
     'Baumgarten': ['12148'],
   }),
   ortsweinGkz: {},
-  dacGkz: ['31304', '31351', '31344', '31330', '31338', '31327', '31301', '31542', '31303'],
+  dacGkz: ['31304', '31351', '31344', '31330', '31338', '31327', '31301', '31303'],
 }
 
 const KAMPTAL: Gebiet = {
@@ -185,6 +207,7 @@ const KAMPTAL: Gebiet = {
   }),
   ortsweinGkz: {},
   dacGkz: ['31322', '31355', '31346', '31315', '31308', '31323'],
+  riedenweinOhneOrtswein: true,
 }
 
 const TRAISENTAL: Gebiet = {
@@ -198,17 +221,56 @@ const TRAISENTAL: Gebiet = {
   ortsweinGemeindename: true,
 }
 
-const GEBIETE: readonly Gebiet[] = [THERMENREGION, KREMSTAL, WACHAU, KAMPTAL, TRAISENTAL]
+const CARNUNTUM: Gebiet = {
+  name: 'Carnuntum',
+  grosslageKg: {},
+  grosslageGkz: {},
+  ortsweinKg: jeSchluessel({
+    'Petronell-Carnuntum': ['5023', '5115', '5111'],                    // Hollern, Wildungsmauer, Regelsbrunn
+    'Stixneusiedl': ['5005', '5018', '5006', '5020'],                   // Enzersdorf an der Fischa, Sarasdorf, Gallbrunn, Stixneusiedl
+  }),
+  ortsweinGkz: jeSchluessel({
+    'Göttlesbrunn': ['30708'],                                          // Göttlesbrunn-Arbesthal
+    'Hainburg': ['30702', '30710', '30728'],                            // Bad Deutsch-Altenburg, Hainburg, Wolfsthal
+    'Höflein': ['30712'],
+    'Petronell-Carnuntum': ['30718', '30711'],                          // Petronell-Carnuntum, Haslau-Maria Ellend
+    'Prellenkirchen': ['30703', '30719', '30715'],                      // Berg, Prellenkirchen (Deutsch Haslau, Schönabrunn), Hundsheim
+  }),
+  dacGkzPraefix: ['307'],
+}
+
+const WEINVIERTEL: Gebiet = {
+  name: 'Weinviertel',
+  grosslageKg: {},
+  grosslageGkz: jeSchluessel({
+    'Matzner Hügel': ['30803', '30804', '30805', '30811', '30812', '30814', '30824', '30828', '30838', '30848', '30852', '30854', '30859', '30860'],
+    'Wolkersdorfer Hochleiten': ['31605', '31615', '31622', '31627', '31642', '31651', '31655'],
+    'Falkensteiner Hügelland': ['31601', '31603', '31604', '31606', '30810', '31608', '31609', '31611', '31612', '31613', '31616', '31617', '31620',
+      '30826', '31621', '30827', '30829', '31628', '31629', '31630', '31633', '31634', '30841', '31636', '31658', '30845', '31644', '30850', '31646',
+      '31650', '30857', '31652', '31653', '31654', '30863'],
+    'Pulkautal': ['31035', '31052', '31037', '31038', '31033', '31018', '31001', '31015', '31042', '31025', '31014', '31051'],
+  }),
+  grosslagePraefix: { '310': 'Retzer Land', '311': 'Retzer Land', '312': 'Bisamberg-Kreuzenstein' },
+  ortsweinKg: {},
+  ortsweinGkz: {},
+  dacGkzPraefix: ['308', '310', '311', '312', '316'],
+  ausserGkz: ['31228', '31235'],                                        // Stetteldorf am Wagram, Gerasdorf bei Wien
+  ortsweinGemeindename: true,
+}
+
+const GEBIETE: readonly Gebiet[] = [THERMENREGION, KREMSTAL, WACHAU, KAMPTAL, TRAISENTAL, CARNUNTUM, WEINVIERTEL]
 
 export type HerkunftKatalog = {
   gebiet: string | null
   grosslage: string | null
   dacOrtswein: string | null
-  /** liegt im DAC-Gebiet – Voraussetzung für DAC-Riedenwein */
+  /** liegt im DAC-Gebiet */
   imDacGebiet: boolean
+  /** DAC-Riedenwein möglich (K3): im DAC-Gebiet mit Ortswein, im Kamptal auch ohne */
+  riedenwein: boolean
 }
 
-const LEER: HerkunftKatalog = { gebiet: null, grosslage: null, dacOrtswein: null, imDacGebiet: false }
+const LEER: HerkunftKatalog = { gebiet: null, grosslage: null, dacOrtswein: null, imDacGebiet: false, riedenwein: false }
 
 /** K7: amtliche Ried für den Vergleich – klein, ohne „Ried“ davor, Leerzeichen vereinheitlicht */
 const riedSchluessel = (ried: string | null | undefined) =>
@@ -219,13 +281,15 @@ export function herkunftKatalog(kgNr: string | null | undefined, gkz: string | n
   const kg = kgNr ? String(Number(kgNr)) : null   // ohne führende Nullen
   const r = riedSchluessel(ried)
   for (const g of GEBIETE) {
-    const grosslage = (gkz && r && g.grosslageRied?.[gkz]?.[r]) || (kg && g.grosslageKg[kg]) || (gkz && g.grosslageGkz[gkz]) || null
+    if (gkz && g.ausserGkz?.includes(gkz)) continue
+    const praefix = gkz ? Object.keys(g.grosslagePraefix ?? {}).find(p => gkz.startsWith(p)) : undefined
+    const grosslage = (gkz && r && g.grosslageRied?.[gkz]?.[r]) || (kg && g.grosslageKg[kg]) || (gkz && g.grosslageGkz[gkz]) || (praefix && g.grosslagePraefix![praefix]) || null
     const ortKg = kg ? (r && g.ortsweinRied?.[kg]?.[r]) || g.ortsweinKg[kg] : undefined
     const gkzImAnhang = !!gkz && gkz in g.ortsweinGkz
     const imDac = !!ortKg || gkzImAnhang || (!!gkz && (!!g.dacGkz?.includes(gkz) || !!g.dacGkzPraefix?.some(p => gkz.startsWith(p))))
     if (!grosslage && !imDac) continue
     const ort = ortKg ?? (gkzImAnhang ? g.ortsweinGkz[gkz!] ?? gemeinde ?? null : null) ?? (g.ortsweinGemeindename && imDac ? gemeinde ?? null : null)
-    return { gebiet: g.name, grosslage, dacOrtswein: ort, imDacGebiet: imDac }
+    return { gebiet: g.name, grosslage, dacOrtswein: ort, imDacGebiet: imDac, riedenwein: imDac && (!!ort || !!g.riedenweinOhneOrtswein) }
   }
   return LEER
 }
