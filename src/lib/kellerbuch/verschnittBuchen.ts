@@ -1,4 +1,6 @@
 import 'server-only'
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { rund } from '../zahl/runden.ts'
 /* eslint-disable @typescript-eslint/no-explicit-any -- Projektkonvention (supabase.from('…') as any), siehe CLAUDE.md */
 
 // ── Verschnitt buchen – gemeinsamer Service (KAN-112, 03.10.2026) ──────────────────────────────────────────────
@@ -97,7 +99,7 @@ const num = (v: unknown): number => {
   return Number.isFinite(n) ? n : 0
 }
 
-const rund2 = (n: number): number => Math.round(n * 100) / 100
+const rund2 = (n: number): number => rund(n, 2)
 
 /**
  * KAN-112: Verschnitt prüfen und die RPC-Argumente berechnen, OHNE zu buchen – siehe Dateikopf. `entnommen` = Liter

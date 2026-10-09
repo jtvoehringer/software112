@@ -28,6 +28,7 @@ import { herkunftKnoten } from '@/lib/herkunft'
 import { eroeffnungsStichtagFehler, eroeffnungsZeitpunkt, standardEroeffnungsStichtag } from '@/lib/kellerbuch/eroeffnungsStichtag'
 import { ladeGebindeStand } from '@/lib/kellerbuch/eroeffnungsGebinde'
 import { eroeffnungsVermerk, pruefeTankZeilen, tankFormularWerte, type DateiBefund, type TankEingabe } from '@/lib/import/eroeffnungsbestand'
+import { rund } from '@/lib/zahl/runden'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -61,7 +62,7 @@ const num = (v: unknown): number => {
   const n = parseFloat(String(v ?? ''))
   return Number.isFinite(n) ? n : 0
 }
-const rund2 = (n: number): number => Math.round(n * 100) / 100
+const rund2 = (n: number): number => rund(n, 2)
 
 // EROEFFNUNGSBESTAND
 

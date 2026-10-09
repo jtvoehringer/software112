@@ -36,6 +36,7 @@ import { verarbeitungFehler } from '@/lib/kellerbuch/verarbeitung'
 import { zugangskorrekturFehler } from '@/lib/kellerbuch/zugangskorrektur'
 import { NOTIZ_TYP, notizFehler } from '@/lib/keller/schnellerfassung'
 import { heuteWien } from '@/lib/datum/wien'
+import { rund } from '@/lib/zahl/runden'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -54,7 +55,7 @@ async function kellerbuchSchreibrecht(module: Modul[] = ['kellerbuch']): Promise
   return membership.tenantId
 }
 
-const rund2 = (n: number): number => Math.round(n * 100) / 100
+const rund2 = (n: number): number => rund(n, 2)
 
 /** Qualitätsangabe einer Charge aus dem Formular – KAN-73: nur Werte des CHECK weinausbau
  *  (QUALITAET_OPTS), sonst verständliche Meldung statt 23514; leer bleibt null wie bisher.
@@ -1086,7 +1087,7 @@ export async function speichereKellerbehandlung(formData: FormData): Promise<Kel
       // KAN-107: Verwendung im Stoffkonto (append-only, Menge negativ)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error: kErr } = await (supabase.from('kellermittel_buchungen') as any).insert({
-        tenant_id: tenantId, kellermittel_id: stoff.id, datum, art: 'verwendung', menge: -Math.round(stoff.menge * 1000) / 1000,
+        tenant_id: tenantId, kellermittel_id: stoff.id, datum, art: 'verwendung', menge: -rund(stoff.menge, 3),
         keller_behandlung_id: neueId, weinausbau_id: weinausbauId, behaelter_id: behaelterId, zweck: typ.name as string,
       })
       if (kErr) throw new AktionsFehler(`Die Behandlung ist gespeichert, aber die Verwendung von „${stoff.name}“ konnte nicht ins Stoffkonto gebucht werden: ${dbFehlerText(kErr)} – bitte unter Besondere Konten nachbuchen.`)

@@ -30,7 +30,8 @@ import { csvText, PROFIL_BMD, type CsvSpalte } from '../csv/index.ts'
 // KAN-187: EU-Kennzeichen aus dem Länderkatalog (kat_land) statt eigener EU-Liste
 // @ts-expect-error TS5097 – siehe oben
 import { istEuLand } from '../katalog/laender.ts'
-
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { rund } from '../zahl/runden.ts'
 export type MappingGruppe = 'erloese' | 'personenkonten' | 'steuercodes' | 'sonstiges'
 
 export type MappingFeld = {
@@ -167,7 +168,7 @@ export function datumPlusTage(iso: string, tage: number): string {
 }
 
 export function bmdBetrag(n: number): string {
-  return (Math.round(n * 100) / 100).toFixed(2).replace('.', ',')
+  return (rund(n, 2)).toFixed(2).replace('.', ',')
 }
 
 /** Spalten des Buchungsstapels für csvText(…, PROFIL_BMD): Kopf = BMD-Feldname,

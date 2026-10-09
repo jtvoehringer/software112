@@ -1,3 +1,5 @@
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { rund } from '../zahl/runden.ts'
 // ── SVS-Beiträge (Bäuerliche Sozialversicherung) – Rechenkern ───────────────
 //
 // Rückmeldung 8.9.2026. Pauschalsystem: Beitragsgrundlage = Versicherungswert,
@@ -84,7 +86,7 @@ export function versicherungswert(einheitswert: number, staffel: SvsStaffelStufe
     unten = oben
     if (rest <= 0) break
   }
-  return Math.round(vw * 100) / 100
+  return rund(vw, 2)
 }
 
 export type Beitraege = {
@@ -102,7 +104,7 @@ export function beitraege(bgRoh: number, p: SvsParameter, kvAngehoerige = false)
   if (bg < p.min_bg_kv_pv) { bg = p.min_bg_kv_pv; begrenzt = 'min' }
   if (bg > p.hoechst_bg) { bg = p.hoechst_bg; begrenzt = 'max' }
   const bgUv = Math.min(p.hoechst_bg, Math.max(bgRoh, p.min_bg_uv))
-  const r2 = (n: number) => Math.round(n * 100) / 100
+  const r2 = (n: number) => rund(n, 2)
   const pv = r2(bg * p.satz_pv / 100), kv = r2(bg * p.satz_kv / 100), uv = r2(bgUv * p.satz_uv / 100), bh = r2(bg * p.satz_bh / 100)
   const kvZusatz = kvAngehoerige ? r2(bg * p.satz_kv_zusatz / 100) : 0
   const monat = r2(pv + kv + uv + bh + kvZusatz)
@@ -136,6 +138,6 @@ export function vergleiche(gst: Parameters<typeof summiereEinheitswerte>[0], p: 
   return {
     einheitswert: ew, versicherungswert: vw, pauschal, option,
     optionEinkuenfte: opts.einkuenfteJahr ?? null,
-    ersparnisOptionJahr: option ? Math.round((pauschal.jahr - option.jahr) * 100) / 100 : null,
+    ersparnisOptionJahr: option ? rund((pauschal.jahr - option.jahr), 2) : null,
   }
 }

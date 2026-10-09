@@ -3,6 +3,7 @@ import { getCurrentMembership } from '@/lib/auth/roles'
 import Link from '@/components/ui/Link'
 import SonstigeArtikelClient from './SonstigeArtikelClient'
 import { alle } from '@/lib/supabase/alle'
+import { rund } from '@/lib/zahl/runden'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,7 +23,7 @@ export default async function SonstigeArtikelPage() {
         .select('artikel_id, menge').eq('tenant_id', tenantId).order('id'))
     : { data: [] as { artikel_id: string; menge: number | string }[] }
   const lager: Record<string, number> = {}
-  for (const b of bew ?? []) lager[b.artikel_id] = Math.round(((lager[b.artikel_id] ?? 0) + (Number(b.menge) || 0)) * 1000) / 1000
+  for (const b of bew ?? []) lager[b.artikel_id] = rund(((lager[b.artikel_id] ?? 0) + (Number(b.menge) || 0)), 3)
 
   return (
     <div className="space-y-6 max-w-2xl">

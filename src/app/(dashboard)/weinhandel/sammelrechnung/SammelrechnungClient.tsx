@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation'
 import { fehlerText } from '@/lib/fehler'
 import { fmtEur } from '@/lib/format'
 import type { KundeMitLieferscheinen } from '@/lib/verkauf/sammelrechnung'
+import { rund } from '@/lib/zahl/runden'
 
 const d = (x: string) => new Date(`${x.slice(0, 10)}T00:00:00`).toLocaleDateString('de-AT')
 
@@ -27,7 +28,7 @@ export default function SammelrechnungClient({ kunden, heute, darf, erstellen }:
 
   const k = kunden.find(x => x.schluessel === kunde) ?? kunden[0]
   const gewaehlt = k.lieferscheine.filter(l => auswahl.has(l.id))
-  const summe = Math.round(gewaehlt.reduce((s, l) => s + l.betrag, 0) * 100) / 100
+  const summe = rund(gewaehlt.reduce((s, l) => s + l.betrag, 0), 2)
   const spaetestes = gewaehlt.reduce((m, l) => (l.datum > m ? l.datum : m), '')
 
   function kundeWaehlen(schluessel: string) {

@@ -1,3 +1,5 @@
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { rund } from '../zahl/runden.ts'
 // KAN-117 (07.10.2026): Schnellerfassung auf der Behälterseite (Ziel des QR-Codes am Gebinde).
 // Inhalt des Gebindes, die letzten Maßnahmen und die Ziele der Kacheln – gemeinsam für Seite und Tests.
 // Isomorph und ohne '@/'-Importe (node:test).
@@ -20,7 +22,7 @@ const zahl = (x: unknown): number => {
 
 /** Gesamtinhalt der aktiven Chargen (L) */
 export function inhaltLiter(chargen: readonly SchnellCharge[]): number {
-  return Math.round(chargen.reduce((s, c) => s + zahl(c.menge_liter), 0) * 100) / 100
+  return rund(chargen.reduce((s, c) => s + zahl(c.menge_liter), 0), 2)
 }
 
 /** Füllgrad in Prozent (ganzzahlig) – null ohne Volumen */

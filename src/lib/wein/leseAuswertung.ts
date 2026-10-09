@@ -11,7 +11,8 @@
 
 import { mischen } from './mostgewicht'
 import type { CsvSpalte } from '../csv'
-
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { rund } from '../zahl/runden.ts'
 /** Lesezeile (Ausschnitt von LeseZeile aus lib/behoerden/erntemeldung.ts) */
 export type LeseDaten = {
   weingartenId: string | null
@@ -64,7 +65,7 @@ export type Fortschritt = {
 
 export type VorjahrZeile = { rebsorte: string; jahre: Record<number, { kg: number; kmw: number | null }> }
 
-const r2 = (n: number) => Math.round(n * 100) / 100
+const r2 = (n: number) => rund(n, 2)
 const kgVon = (z: LeseDaten) => (z.mengeKg != null && z.mengeKg > 0 ? z.mengeKg : 0)
 const kmwListe = (zs: readonly LeseDaten[]) => zs.map(z => z.kmw).filter((k): k is number => k != null && Number.isFinite(k))
 

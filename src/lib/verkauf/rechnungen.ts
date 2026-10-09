@@ -5,7 +5,8 @@
 
 // @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt (wie lib/buchhaltung/bmd.ts)
 import { dezimal } from '../format.ts'
-
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { rund } from '../zahl/runden.ts'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
@@ -41,8 +42,8 @@ export function alsBeleg<T extends R>(r: T): T & { verkauf_positionen: R[]; lief
 
 /** Bruttobetrag einer Position wie im Trigger sync_*_bezahlt (je Position auf Cent gerundet) */
 export function positionBrutto(p: R): number {
-  return Math.round((Number(p.menge) || 0) * (Number(p.preis_brutto) || 0)
-    * (1 - (Number(p.rabatt_pct) || 0) / 100) * (1 - (Number(p.sonderrabatt_pct) || 0) / 100) * 100) / 100
+  return rund((Number(p.menge) || 0) * (Number(p.preis_brutto) || 0)
+    * (1 - (Number(p.rabatt_pct) || 0) / 100) * (1 - (Number(p.sonderrabatt_pct) || 0) / 100), 2)
 }
 
 /**

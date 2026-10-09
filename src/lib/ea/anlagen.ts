@@ -14,6 +14,8 @@
 // Keine Datenbankzugriffe - reine Funktionen (gegen die Testfälle der
 // KPS-Vorlage geprüft, siehe docs/Anlagen_AfA.md).
 
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { rund2 } from '../zahl/runden.ts'
 export type AfaMethode = 'linear' | 'degressiv' | 'gwg'
 
 export type Anlage = {
@@ -43,7 +45,7 @@ export type AfaZeile = {
   abgang: boolean
 }
 
-const rund = (n: number) => Math.round(n * 100) / 100
+const rund = rund2
 const jahrVon = (iso: string) => Number(iso.slice(0, 4))
 const zweitesHalbjahr = (iso: string) => Number(iso.slice(5, 7)) >= 7
 

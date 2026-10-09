@@ -6,7 +6,8 @@
 // oder vergleichen, die Stufe kommt nur aus °KMW).
 
 import { zahlAus } from '../format'
-
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { rund } from '../zahl/runden.ts'
 export interface ReifeFelder {
   datum: string
   gesamtsaeure_gl: number | null
@@ -59,7 +60,7 @@ export function reifeVerlauf<M extends ReifeMessung>(messungen: M[]): ReifeZeile
     const kv = vor?.kmw == null ? null : Number(vor.kmw)
     return {
       messung: m,
-      zuwachsKmw: k !== null && kv !== null ? Math.round((k - kv) * 100) / 100 : null,
+      zuwachsKmw: k !== null && kv !== null ? rund((k - kv), 2) : null,
       tage: vor ? tagNr(m.datum) - tagNr(vor.datum) : null,
     }
   })

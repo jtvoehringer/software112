@@ -1,5 +1,6 @@
 import 'server-only'
-
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { rund } from '../zahl/runden.ts'
 // ── Storno von Umzug und Verschnitt (KAN-35, 24.09.2026; KAN-145, 30.09.2026) ──
 // Ein Umzug bzw. Verschnitt wird storniert: Rückbuchung der Bestände, danach bleibt die Buchung stehen und
 // bekommt das Storno-Kennzeichen (storniert_am/-von/-von_name, storno_grund – Grund Pflicht, Zeitpunkt und
@@ -130,7 +131,7 @@ const num = (v: unknown): number => {
   const n = parseFloat(String(v ?? ''))
   return Number.isFinite(n) ? n : 0
 }
-const rund2 = (n: number): number => Math.round(n * 100) / 100
+const rund2 = (n: number): number => rund(n, 2)
 
 /** „2026-09-24“ → „24.09.2026“ */
 export function datumText(d: string | null | undefined): string {

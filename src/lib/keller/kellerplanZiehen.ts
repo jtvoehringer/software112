@@ -9,7 +9,8 @@
 
 import { waehleZielCharge, merkmaleText } from '../kellerbuch/umzugZiel'
 import { weinartKonflikt } from './weinart'
-
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { rund } from '../zahl/runden.ts'
 /** Eigene, aktive Charge in einem Gebinde (Merkmale wie in weinausbau) */
 export type PlanCharge = {
   id: string
@@ -55,7 +56,7 @@ export const ZIEL_FARBE: Readonly<Record<ZielArt, string>> = {
   gesperrt: '#C9564E',         // rot
 }
 
-const l = (n: number) => `${(Math.round(n * 100) / 100).toLocaleString('de-DE', { maximumFractionDigits: 2 })} L`
+const l = (n: number) => `${(rund(n, 2)).toLocaleString('de-DE', { maximumFractionDigits: 2 })} L`
 
 /**
  * Bewertung eines Ziel-Gebindes für `menge` Liter der Charge `quelle` aus `quellGebinde`. `zielChargen` = eigene aktive

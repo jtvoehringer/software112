@@ -1,3 +1,5 @@
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { rund } from '../zahl/runden.ts'
 // ── Stoffkonto im Kellerbuch – besondere Konten (KAN-107, 07.10.2026) ───────────────────────────────────────
 // R11 „besondere konten … geführt wie spritzmittelkonto“; Del. VO (EU) 2018/273, § 31 WeinG (in AP0 zu verifizieren).
 // Entscheidung Jörgen 06.10.2026: Stoffe legt der Betrieb an, Einheit l oder kg. Buchungen sind append-only
@@ -34,7 +36,7 @@ export type KontoBuchung = {
 
 export type AuszugZeile = KontoBuchung & { saldo: number; storniert: boolean }
 
-const r3 = (n: number) => Math.round(n * 1000) / 1000
+const r3 = (n: number) => rund(n, 3)
 
 /** Kontoauszug: chronologisch (Datum, dann Erfassung), laufender Saldo; stornierte Buchungen gekennzeichnet */
 export function kontoauszug(buchungen: readonly KontoBuchung[]): { zeilen: AuszugZeile[]; saldo: number; warnungen: string[] } {

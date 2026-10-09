@@ -12,7 +12,8 @@
 /** Toleranz gegen Rundung (kg) – wie pruefeLesemengeGedeckt */
 // @ts-expect-error TS5097 – Pfad mit .ts-Endung für node:test (wie lib/buchhaltung/bmd.ts)
 import { alle, inBloecken } from '../supabase/alle.ts'
-
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { rund } from '../zahl/runden.ts'
 export const KG_TOLERANZ = 0.01
 
 export type Mengenzeile = { weingarten_id: string | null; grundstueck_id: string | null; kg: number }
@@ -101,12 +102,12 @@ export function verfuegbarJeLese(
       if (gst.has(kg)) add(gst, kg, -(Number(z.kg) || 0))
     }
   }
-  for (const m of [ried, gst]) for (const [k, v] of m) m.set(k, Math.max(0, Math.round(v * 100) / 100))
+  for (const m of [ried, gst]) for (const [k, v] of m) m.set(k, Math.max(0, rund(v, 2)))
   return { ried, gst }
 }
 
 function kgText(n: number): string {
-  return `${(Math.round(n * 10) / 10).toLocaleString('de-AT', { maximumFractionDigits: 1 })} kg`
+  return `${(rund(n, 1)).toLocaleString('de-AT', { maximumFractionDigits: 1 })} kg`
 }
 
 /** Klartext der ersten Überdeckung, z. B. für eine Pressung oder einen Traubenverkauf */

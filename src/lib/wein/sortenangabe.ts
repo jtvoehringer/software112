@@ -1,3 +1,5 @@
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { rund } from '../zahl/runden.ts'
 // Sorten- und Jahrgangsangabe nach einem Verschnitt aus den tatsächlichen Anteilen (KAN-93, 02.10.2026)
 //
 // Vorher rechnete der Verschnitt den GESAMTEN Zielbestand der aktuellen Rebsorte der Ziel-Charge zu (1.000 L Riesling
@@ -75,7 +77,7 @@ export interface SortenErgebnis {
   hinweise: string[]
 }
 
-const pct = (x: number) => `${(Math.round(x * 1000) / 10).toLocaleString('de-AT')} %`
+const pct = (x: number) => `${(rund(x * 100, 1)).toLocaleString('de-AT')} %`
 
 /**
  * Angaben der Ziel-Charge nach dem Verschnitt. `bisher` = Rebsorte/Jahrgang der Ziel-Charge vorher (bleiben, wenn es
@@ -149,7 +151,7 @@ export const SORTEN_TRENNER = ' – '
 
 const gewicht = (a: SortenAnteil) => (a.liter != null && a.liter > 0 ? a.liter : a.anteil_pct > 0 ? a.anteil_pct : 0)
 const istUnbekannt = (w: string) => w.trim() === '' || w === 'unbekannt'
-const fmtPct = (x: number) => `${(Math.round(x * 10) / 10).toLocaleString('de-DE', { maximumFractionDigits: 1 })} %`
+const fmtPct = (x: number) => `${(rund(x, 1)).toLocaleString('de-DE', { maximumFractionDigits: 1 })} %`
 
 function aufbereitet(anteile: readonly SortenAnteil[]) {
   const mit = anteile.filter(a => gewicht(a) > 0)

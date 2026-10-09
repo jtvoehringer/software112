@@ -1,3 +1,5 @@
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { rund } from '../zahl/runden.ts'
 // KAN-104 (08.10.2026): Sammelrechnung – nicht berechnete Lieferscheine je Kunde (ein Empfänger = gleiche kontakt_id und
 // firma_id, wie s112_rechnung_erstellen prüft), mit Bruttobetrag je Lieferschein für die Freigabeliste.
 
@@ -15,7 +17,7 @@ export function lieferscheinBetrag(positionen: readonly R[]): { betrag: number; 
     if (p.preis_brutto == null) { ohnePreis = true; continue }
     betrag += Number(p.preis_brutto) * Number(p.menge) * (1 - Number(p.rabatt_pct ?? 0) / 100) * (1 - Number(p.sonderrabatt_pct ?? 0) / 100)
   }
-  return { betrag: Math.round(betrag * 100) / 100, ohnePreis }
+  return { betrag: rund(betrag, 2), ohnePreis }
 }
 
 /** Lieferscheine (verkaufsposten ohne Rechnung) je Empfänger, Kunden nach Name, Lieferscheine nach Datum und Nummer */
@@ -26,7 +28,7 @@ export function offeneLieferscheineJeKunde(zeilen: readonly R[], name: (l: R) =>
     const k = je.get(schluessel) ?? { schluessel, name: name(l), lieferscheine: [], summe: 0 }
     const { betrag, ohnePreis } = lieferscheinBetrag((l.verkauf_positionen ?? []) as R[])
     k.lieferscheine.push({ id: String(l.id), nummer: l.lieferscheinnummer ?? null, datum: String(l.datum), betrag, ohnePreis })
-    k.summe = Math.round((k.summe + betrag) * 100) / 100
+    k.summe = rund((k.summe + betrag), 2)
     je.set(schluessel, k)
   }
   for (const k of je.values()) {

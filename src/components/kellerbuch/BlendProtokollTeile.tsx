@@ -10,6 +10,7 @@ import type { KompositionUrsprung } from '@/lib/wein/blendKomposition'
 import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
 import { sortenAnteile } from '@/lib/wein/mischungsrechnung'
 import { sortenAngabeVorschlag } from '@/lib/wein/sortenangabe'
+import { rund } from '@/lib/zahl/runden'
 
 const TH = 'py-2 font-semibold text-s112-text-2 text-xs uppercase tracking-wide'
 
@@ -103,7 +104,7 @@ export function BlendHerkunftTabelle({ komposition, zeilen, bezugLiter }: {
         <tr className="border-t border-s112-border">
           <th scope="row" colSpan={4} className="pt-2 text-xs text-s112-text-2 font-semibold text-left">Summe</th>
           <td className="pt-2 text-xs text-s112-text-2 font-semibold text-right tabular-nums whitespace-nowrap">
-            {bezugLiter != null ? `${fmtNum(Math.round(summeLiter * 100) / 100, 2)} L` : '–'}
+            {bezugLiter != null ? `${fmtNum(rund(summeLiter, 2), 2)} L` : '–'}
           </td>
           <td className="pt-2 text-xs text-s112-text-2 font-semibold text-right tabular-nums whitespace-nowrap">
             {fmtNum(komposition.reduce((s, u) => s + u.anteil_pct, 0), 1)} %

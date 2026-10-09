@@ -10,7 +10,8 @@
 // Storno-Paare (Buchung am Buchungstag, Gegenbuchung am Storno-Tag, KAN-145) rechnen sich von selbst richtig.
 //
 // Isomorph, ohne '@/'-Importe – geprüft in scripts/tests/kan43-stichtag.test.mjs.
-
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { rund } from '../zahl/runden.ts'
 /** Eine datierte Mengenbuchung (+ Zugang, − Abgang); datum '' = unbekannt (zählt als vor jedem Stichtag) */
 export type MengenBuchung = { datum: string; menge: number }
 
@@ -23,11 +24,8 @@ export type StichtagsBestand = {
   ungeklaert: number
 }
 
-const runde = (x: number, stellen: number) => {
-  const f = 10 ** stellen
-  const r = Math.round((x + Number.EPSILON * Math.sign(x)) * f) / f
-  return Object.is(r, -0) ? 0 : r
-}
+// kaufmännisch über die Dezimaldarstellung – Number.EPSILON half nicht (2,135 → 2,13); liefert nie −0
+const runde = (x: number, stellen: number) => rund(x, stellen)
 
 /** Standard-Stichtag der Weinbestandsmeldung: 31.07. des laufenden Weinwirtschaftsjahres (1.8.–31.7.) –
  *  vor dem 1. August der 31.07. des Vorjahres, sonst der 31.07. dieses Jahres */

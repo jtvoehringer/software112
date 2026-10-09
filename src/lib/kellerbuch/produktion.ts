@@ -1,3 +1,5 @@
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { rund } from '../zahl/runden.ts'
 // KAN-118 (08.10.2026): Produktion – aus Quell-Chargen und Zutaten entsteht eine neue Charge mit eigenem Erzeugnis
 // (Perlweinspritzer/Weinmischgetränk = weinhaltiges Getränk, Perlwein, Schaumwein/Sekt, PetNat). Dieselben Regeln wie die
 // RPC s112_produktion_buchen – für Formular, Server Action und Tests. Isomorph und ohne '@/'-Importe (node:test).
@@ -44,14 +46,14 @@ export type ZutatEingang = { art: ZutatArt; menge: number; einheit: Einheit; kel
 /** Weinanteil in Prozent (eine Nachkommastelle) */
 export function weinanteil(weinLiter: number, zusatzLiter: number): number {
   const gesamt = weinLiter + zusatzLiter
-  return gesamt > 0 ? Math.round((1000 * weinLiter) / gesamt) / 10 : 0
+  return gesamt > 0 ? rund((100 * weinLiter) / gesamt, 1) : 0
 }
 
 /** Menge der neuen Charge: Wein plus Volumen-Zutaten (Liter) */
 export function zielMenge(wein: readonly WeinEingang[], zutaten: readonly ZutatEingang[]): { wein: number; zusatz: number; ziel: number } {
-  const w = Math.round(wein.reduce((s, x) => s + x.menge, 0) * 100) / 100
-  const z = Math.round(zutaten.filter(x => VOLUMEN_ZUTATEN.includes(x.art)).reduce((s, x) => s + x.menge, 0) * 100) / 100
-  return { wein: w, zusatz: z, ziel: Math.round((w + z) * 100) / 100 }
+  const w = rund(wein.reduce((s, x) => s + x.menge, 0), 2)
+  const z = rund(zutaten.filter(x => VOLUMEN_ZUTATEN.includes(x.art)).reduce((s, x) => s + x.menge, 0), 2)
+  return { wein: w, zusatz: z, ziel: rund((w + z), 2) }
 }
 
 /** Schritte des Assistenten (KAN-119): 1 = Art, Erzeugnis, Datum · 2 = Eingänge · 3 = neue Charge und Gebinde */

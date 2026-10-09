@@ -32,6 +32,7 @@ import { eroeffnungsVermerk, flaschenFormularWerte, pruefeFlaschenZeilen, type D
 import { fuellungNameFehler } from '@/lib/handel/partnerPflicht'
 import { etikettierenFehler, unetikettiertFehler } from '@/lib/handel/etikettierung'
 import { losnummerFehler } from '@/lib/handel/losnummer'
+import { rund } from '@/lib/zahl/runden'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -49,7 +50,7 @@ type AR = Record<string, any>
 
 /** Rundungstoleranz: weinausbau/keller_umzuege speichern numeric(10,2) */
 const RUNDUNG = 0.005
-const r2 = (x: number) => Math.round(x * 100) / 100
+const r2 = (x: number) => rund(x, 2)
 const DATUM_RE = /^\d{4}-\d{2}-\d{2}$/
 
 async function getMembership(): Promise<Membership> {

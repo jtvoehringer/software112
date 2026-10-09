@@ -17,6 +17,7 @@
 
 import type { WetterStunde } from './geosphere'
 import type { WetterDaten } from './daten'
+import { rund as rundKfm } from '@/lib/zahl/runden'
 
 export type Stufe = 'hoch' | 'mittel' | 'info'
 export type Befund = { key: string; bereich: string; stufe: Stufe; titel: string; detail: string; href?: string }
@@ -51,7 +52,7 @@ export type WetterAuswertung = {
   empfehlungen: Befund[]
 }
 
-const rund = (n: number, st = 1) => Math.round(n * 10 ** st) / 10 ** st
+const rund = (n: number, st = 1) => rundKfm(n, st)
 const kmh = (ms: number | null) => ms === null ? null : rund(ms * 3.6, 0)
 const tageZwischen = (von: string, bis: string) => Math.round((new Date(bis + 'T00:00:00Z').getTime() - new Date(von + 'T00:00:00Z').getTime()) / 86400000)
 const summeRr = (st: WetterStunde[], ab: Date, bis?: Date) => rund(st.filter(s => new Date(s.zeit) >= ab && (!bis || new Date(s.zeit) < bis)).reduce((a, s) => a + (s.rr ?? 0), 0))

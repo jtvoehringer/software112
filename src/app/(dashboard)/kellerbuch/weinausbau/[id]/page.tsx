@@ -27,6 +27,7 @@ import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 import FreezeKorrektur from '@/components/FreezeKorrektur'
 import { KORREKTUR_FELDER } from '@/lib/freeze/korrektur'
 import { Wine, ArrowLeftRight, GitMerge, BookOpen, Microscope, Award, TrendingDown, ArrowDownWideNarrow, Factory, PlusCircle, Sparkles } from 'lucide-react'
+import { rund } from '@/lib/zahl/runden'
 
 export const metadata: Metadata = { title: 'Charge bearbeiten – software:112' }
 export const dynamic = 'force-dynamic'
@@ -535,7 +536,7 @@ export default async function WeinausbauDetailPage({ params, searchParams }: { p
       ...v,
       quellen: ((v.quellen ?? []) as R[]).map(q => {
         const l = parseFloat(q.menge_liter) || 0
-        return { ...q, gebinde: gebindeDerQuelle(v, q), anteil_ergebnis_pct: ergebnis && ergebnis > 0.005 ? Math.round(l / ergebnis * 1000) / 10 : null }
+        return { ...q, gebinde: gebindeDerQuelle(v, q), anteil_ergebnis_pct: ergebnis && ergebnis > 0.005 ? rund(l / ergebnis * 100, 1) : null }
       }),
     }
   })

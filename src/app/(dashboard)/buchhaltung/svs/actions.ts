@@ -10,6 +10,7 @@ import type { Zurechnung } from '@/lib/svs/berechnung'
 import { AktionsFehler, NICHT_GESPEICHERT } from '@/lib/fehler'
 import { dezimal } from '@/lib/format'
 import { heuteWien } from '@/lib/datum/wien'
+import { rund } from '@/lib/zahl/runden'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -34,7 +35,7 @@ export async function speichereEinheitswerte(zeilen: { id: string; einheitswert:
     if (!ZURECHNUNGEN.includes(z.svs_zurechnung as Zurechnung)) return { ok: false, fehler: `Ungültige Zurechnung: ${z.svs_zurechnung}` }
     const { data: geaendert, error } = await (supabase.from('grundstuecke') as any)
       .update({
-        einheitswert: z.einheitswert === null || Number.isNaN(z.einheitswert) ? null : Math.round(z.einheitswert * 100) / 100,
+        einheitswert: z.einheitswert === null || Number.isNaN(z.einheitswert) ? null : rund(z.einheitswert, 2),
         svs_zurechnung: z.svs_zurechnung,
         einheitswert_bescheid: z.einheitswert_bescheid || null,
         einheitswert_quelle: 'manuell',
@@ -86,7 +87,7 @@ export async function importiereEinheitswerte(text: string, bescheidDatum?: stri
     if (kg) treffer = treffer.filter(g => norm(g.katastralgemeinde) === kg || norm(g.kg_bezeichnung) === kg)
     if (treffer.length === 0) { nichtGefunden.push(`${kg ? kg + ' ' : ''}${gstNr}`); continue }
     if (treffer.length > 1) { mehrdeutig.push(`${gstNr} (${treffer.length}×)`); continue }
-    const update: R = { einheitswert: Math.round(ew * 100) / 100, einheitswert_quelle: 'import', einheitswert_bescheid: (iDatum >= 0 && felder[iDatum]) ? isoDatum(felder[iDatum]) : (bescheidDatum || null) }
+    const update: R = { einheitswert: rund(ew, 2), einheitswert_quelle: 'import', einheitswert_bescheid: (iDatum >= 0 && felder[iDatum]) ? isoDatum(felder[iDatum]) : (bescheidDatum || null) }
     if (iZur >= 0 && felder[iZur]) { const z = zurMap[felder[iZur].toLowerCase().trim()]; if (z) update.svs_zurechnung = z }   // aenderung-ohne-pruefung: Grundstück eben gefunden (treffer) – der Import zählt die übernommenen
     const { error } = await (supabase.from('grundstuecke') as any).update(update).eq('id', treffer[0].id).eq('tenant_id', tenantId)
     if (error) return { ok: false, fehler: (error as R).message }

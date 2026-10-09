@@ -13,6 +13,7 @@ import { wienHeute } from '@/lib/csv'
 import { kontoauszug, weinwirtschaftsjahr } from '@/lib/kellerbuch/stoffkonto'
 import { ladeKontoBuchungen, ladeStoffe } from '@/lib/behoerden/besondereKonten'
 import { Kontoauszug, KontoBuchen, StoffAktiv, StoffAnlegen } from './StoffkontoClient'
+import { rund } from '@/lib/zahl/runden'
 
 export const metadata: Metadata = { title: 'Besondere Konten – software:112' }
 export const dynamic = 'force-dynamic'
@@ -33,7 +34,7 @@ export default async function BesondereKontenPage({ searchParams }: { searchPara
   const stoffe = await ladeStoffe(supabase, tenantId)
   const alleBuchungen = await ladeKontoBuchungen(supabase, tenantId, null)
   const saldoJe = new Map<string, number>()
-  for (const b of alleBuchungen) saldoJe.set(b.kellermittel_id, Math.round(((saldoJe.get(b.kellermittel_id) ?? 0) + b.menge) * 1000) / 1000)
+  for (const b of alleBuchungen) saldoJe.set(b.kellermittel_id, rund(((saldoJe.get(b.kellermittel_id) ?? 0) + b.menge), 3))
   const gewaehlt = stoffe.find(s => s.id === sp.stoff) ?? stoffe.find(s => s.aktiv) ?? stoffe[0] ?? null
   const auszug = gewaehlt ? kontoauszug(alleBuchungen.filter(b => b.kellermittel_id === gewaehlt.id)) : null
   const wwjHeute = weinwirtschaftsjahr(wienHeute())

@@ -6,7 +6,8 @@
 import { alle } from '@/lib/supabase/alle'
 import type { CsvSpalte } from '@/lib/csv'
 import { kontoauszug, KONTO_ART_LABEL, weinwirtschaftsjahr, type BesondereKontenZeile, type KontoArt, type KontoBuchung } from '@/lib/kellerbuch/stoffkonto'
-
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { rund } from '../zahl/runden.ts'
 type R = Record<string, any>
 
 export type Stoff = { id: string; name: string; einheit: string; aktiv: boolean }
@@ -45,7 +46,7 @@ export async function ladeBesondereKonten(supabase: any, tenantId: string, jahrS
     const vorher = eigene.filter(b => b.datum < wwj.von)
     const imJahr = eigene.filter(b => b.datum >= wwj.von)
     if (!vorher.length && !imJahr.length) continue
-    const uebertrag = Math.round(vorher.reduce((a, b) => a + b.menge, 0) * 1000) / 1000
+    const uebertrag = rund(vorher.reduce((a, b) => a + b.menge, 0), 3)
     zeilen.push({ stoff: s.name, einheit: s.einheit, datum: wwj.von, art: 'Übertrag', menge: uebertrag, saldo: uebertrag, lieferant: null, beleg: null, los: null, charge: null, behaelter: null, zweck: null, storniert: false })
     const a = kontoauszug([{ id: '0', datum: wwj.von, art: 'anfangsbestand', menge: uebertrag, erstellt_am: '' }, ...imJahr])
     for (const z of a.zeilen.slice(1)) {
