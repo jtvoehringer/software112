@@ -1,11 +1,14 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { sichererWeiterPfad } from '@/lib/tenant/waechter'
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code  = searchParams.get('code')
   const type  = searchParams.get('type')
-  const next  = searchParams.get('next') ?? '/dashboard'
+  // KAN-257: nur ein relativer Pfad der App – `${origin}${next}` mit next=„@boese.example“ bzw. „.boese.example“ führte
+  // nach dem Login auf eine fremde Seite (offene Weiterleitung)
+  const next  = sichererWeiterPfad(searchParams.get('next')) ?? '/dashboard'
 
   if (code) {
     const supabase = await createSupabaseServerClient()
