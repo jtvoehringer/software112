@@ -15,6 +15,7 @@ import { fehlerText } from '@/lib/fehler'
 import { weinartKonflikt, WEINART_LABEL } from '@/lib/keller/weinart'
 import { verschnittHinweis } from '@/lib/kellerbuch/verschnittHinweis'
 import { heuteWien } from '@/lib/datum/wien'
+import { rund } from '@/lib/zahl/runden'
 
 type BehaelterMitCharge = {
   behaelter_id:   string
@@ -190,7 +191,7 @@ function UmziehenForm({ quellen, behaelter, vonBehaelter = null }: { quellen: Be
 
   const totalVon  = quellenState.reduce((s, q) => s + (parseFloat(q.menge) || 0), 0)
   const totalNach = ziele.reduce((s, z)         => s + (parseFloat(z.menge) || 0), 0)
-  const schwund   = Math.max(0, +(totalVon - totalNach).toFixed(3))
+  const schwund   = Math.max(0, rund(totalVon - totalNach, 3))
 
   // Rebsortenmix-Vorschau (wie im Umziehen-Widget auf der einzelnen Charge-Seite): nur für
   // den häufigsten Fall genau EINE Quelle → genau EIN Ziel sicher berechenbar - bei mehreren

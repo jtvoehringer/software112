@@ -13,6 +13,12 @@ export function rund(n: number, stellen: number): number {
   return Number.isFinite(n) ? runden(Number(n.toPrecision(15)), stellen) : n
 }
 
+/** Text mit genau `stellen` Nachkommastellen (Dezimalpunkt), kaufmännisch wie rund() – Ersatz für x.toFixed(n), das
+ *  ebenso binär rundet ((1.005).toFixed(2) = „1.00“). NaN/±∞ wie toFixed („NaN“, „Infinity“). Sweep 77. */
+export function rundText(n: number, stellen: number): string {
+  return Number.isFinite(n) ? rund(n, stellen).toFixed(stellen) : n.toFixed(stellen)
+}
+
 /** Geldbetrag auf Cent (2 Stellen) */
 export const rund2 = (n: number): number => rund(n, 2)
 

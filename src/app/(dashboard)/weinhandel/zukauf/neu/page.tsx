@@ -23,6 +23,7 @@ import ZusatzErzeugnisFelder from '@/components/wein/ZusatzErzeugnisFelder'
 import LandSelect, { type Land } from '@/components/wein/LandSelect'
 import { ladeCustomWeinbaugebiete, type CustomWeinbaugebiet } from '@/app/(dashboard)/weinbaugebiete/actions'
 import { heuteWien } from '@/lib/datum/wien'
+import { rundText } from '@/lib/zahl/runden'
 
 interface Behaelter { id: string; name: string; typ: string; volumen_liter: number | null }
 
@@ -140,7 +141,7 @@ export default function ZukaufNeuPage() {
   }, [])
 
   const preisProEinheit = menge && preisGesamt && parseFloat(menge) > 0
-    ? (parseFloat(preisGesamt) / parseFloat(menge)).toFixed(4)
+    ? rundText(parseFloat(preisGesamt) / parseFloat(menge), 4)
     : null
 
   // Einstandspreis je Liter aus dem Preis vorbelegen, sobald sich Preis oder Einheit ändern – beim Rendern statt im
