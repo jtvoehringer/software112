@@ -48,8 +48,10 @@ export default function VerschneidungWidget({ bestehtAus = null, zielCharge, all
   const router = useRouter()
   const [showForm, setShowForm] = useState(initialOpen)
   const sectionRef = useRef<HTMLElement>(null)
+  // Offen-Zustand beim Rendern übernehmen (nicht im Effekt); der Effekt scrollt nur noch
+  const [initialOpenVorher, setInitialOpenVorher] = useState(initialOpen)
+  if (initialOpen !== initialOpenVorher) { setInitialOpenVorher(initialOpen); setShowForm(initialOpen) }
   useEffect(() => {
-    setShowForm(initialOpen)
     // Nach automatischem Öffnen (z.B. Redirect aus dem Umziehen nach erkanntem
     // Rebsortenmix) liegt diese Sektion oft weit unten auf der Seite (nach
     // Bewegungsbuch + Umziehen-Formular) - ohne aktives Hinscrollen sieht es dann so

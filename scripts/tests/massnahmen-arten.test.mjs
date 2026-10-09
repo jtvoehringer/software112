@@ -983,8 +983,13 @@ describe('Neue Maßnahme: Knopf ohne Auswahl nicht gesperrt, Klick zeigt den Gru
     assert.match(neu, /const mittel = psmRef\.current \?\? duengemittelRef\.current/)
     // Sperre nur für ein Mittel, dessen Feld die Art zeigt; ausgeblendete Mittel werden beim Artwechsel geleert
     assert.match(neu, /felder\.psm !== 'hidden'\s+\? selectedPsm\?\.oeko_zugelassen/)
-    assert.match(neu, /if \(FELD_MATRIX\[art\]\.psm === 'hidden'\) setSelectedPsmId\(''\)/)
-    assert.match(neu, /if \(FELD_MATRIX\[art\]\.duengemittel === 'hidden'\) setSelectedDuengemittelId\(''\)/)
+    // (seit Sweep 65 im Handler artWechseln statt in einem Effekt – der Art-Knopf muss ihn aufrufen)
+    const wechsel = neu.match(/function artWechseln\(neu: Art\) \{[^]*?\n {2}\}/)?.[0]
+    assert.ok(wechsel, 'Handler artWechseln')
+    assert.match(wechsel, /if \(FELD_MATRIX\[neu\]\.psm === 'hidden'\) setSelectedPsmId\(''\)/)
+    assert.match(wechsel, /if \(FELD_MATRIX\[neu\]\.duengemittel === 'hidden'\) setSelectedDuengemittelId\(''\)/)
+    assert.match(neu, /name="art" value=\{o\.value\}[^>]*onChange=\{\(\) => artWechseln\(o\.value\)\}/)
+    assert.doesNotMatch(neu, /setArt\(o\.value\)/, 'Art nie ohne Zurücksetzen wechseln')
   })
 
   test('Server-Prüfung bleibt: createBehandlung ohne Ried und Grundstück abgelehnt, nichts geschrieben', nurMitHooks, async () => {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { paramsAusFilter, LISTE_SCHRITT, type ListenFilter, type Zaehler } from '@/lib/crm/liste'
 import { useListenSuche } from '@/lib/crm/listenSuche'
@@ -57,9 +57,12 @@ export function FirmaForm({
   const [dubletteIgnorieren, setDubletteIgnorieren] = useState(false)
   const v = (field: keyof FirmaRow) => (initial?.[field] ?? '') as string
 
-  useEffect(() => {
+  // (beim Rendern statt im Effekt: nur wenn sich Vorgabe-Segment oder Datensatz ändern)
+  const [segmentAnlass, setSegmentAnlass] = useState({ defaultSegment, initial })
+  if (segmentAnlass.defaultSegment !== defaultSegment || segmentAnlass.initial !== initial) {
+    setSegmentAnlass({ defaultSegment, initial })
     if (!initial && defaultSegment) setSegmentVal(defaultSegment)
-  }, [defaultSegment, initial])
+  }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()

@@ -134,10 +134,12 @@ export default function NeueBehandlungForm({
   // Beim Wechsel der Art eine Mittel-Auswahl zurücksetzen, deren Feld die neue Art laut Feld-Matrix nicht zeigt –
   // auch das Spritzmittel bei Sonstiges: Sonst sperrte ein nicht öko-zugelassenes Mittel aus der Spritzung das
   // Speichern, ohne dass es im Formular zu sehen ist (KAN-153)
-  useEffect(() => {
-    if (FELD_MATRIX[art].psm === 'hidden') setSelectedPsmId('')
-    if (FELD_MATRIX[art].duengemittel === 'hidden') setSelectedDuengemittelId('')
-    if (!artMitBetriebsmittel(art)) { setSelectedBmId(''); setBmAufwand('') }
+  // (im Handler statt im Effekt: kein Render mit der neuen Art und den alten Werten; die Startwerte oben sind bereits leer)
+  function artWechseln(neu: Art) {
+    setArt(neu)
+    if (FELD_MATRIX[neu].psm === 'hidden') setSelectedPsmId('')
+    if (FELD_MATRIX[neu].duengemittel === 'hidden') setSelectedDuengemittelId('')
+    if (!artMitBetriebsmittel(neu)) { setSelectedBmId(''); setBmAufwand('') }
     setSelectedSatzId('')
     // Menge und Aufwand bedeuten je Art etwas anderes (Spritzbrühe in l bzw. Düngermenge, Mittel bzw.
     // Dünger; g/hl nur bei Spritzungen) – nicht in die neue Art übernehmen
@@ -150,7 +152,7 @@ export default function NeueBehandlungForm({
     // sichtbare Felder ändern (Feld-Matrix)
     setMengeQuelle(null)
     setFolge([])
-  }, [art])
+  }
 
   // Gewähltes PSM / Düngemittel
   const selectedPsm = psm.find(p => p.id === selectedPsmId)
@@ -272,13 +274,15 @@ export default function NeueBehandlungForm({
   }, [kostenAktiv, kostenVorschlag])
 
   // Beschreibung automatisch vorschlagen, solange leer/unverändert
-  useEffect(() => {
-    if (!kostenAktiv) return
-    if (kostenBeschreibung) return
-    const artLabel = MASSNAHMEN_ART_LABEL[art] ?? art
-    setKostenBeschreibung(`${artLabel}${gewaehlterSatz ? ` – ${gewaehlterSatz.bezeichnung}` : ''}`)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kostenAktiv, art])
+  // (beim Rendern angepasst statt im Effekt: nur wenn sich kostenAktiv oder die Art ändert)
+  const [beschreibungAnlass, setBeschreibungAnlass] = useState({ kostenAktiv, art })
+  if (beschreibungAnlass.kostenAktiv !== kostenAktiv || beschreibungAnlass.art !== art) {
+    setBeschreibungAnlass({ kostenAktiv, art })
+    if (kostenAktiv && !kostenBeschreibung) {
+      const artLabel = MASSNAHMEN_ART_LABEL[art] ?? art
+      setKostenBeschreibung(`${artLabel}${gewaehlterSatz ? ` – ${gewaehlterSatz.bezeichnung}` : ''}`)
+    }
+  }
 
   // „Alle auswählen“ bzw. „Alle abwählen“, sobald alle spritzbaren ausgewählt sind (KAN-155)
   const spritzbareIds = weingaerten.filter(w => w.spritzbar).map(w => w.id)
@@ -335,7 +339,7 @@ export default function NeueBehandlungForm({
                   ? 'bg-s112-teal text-s112-yellow border-s112-teal'
                   : 'bg-white text-s112-text-1 border-s112-border hover:border-s112-teal/50'}`}>
                 <input type="radio" name="art" value={o.value} checked={art === o.value}
-                  onChange={() => setArt(o.value)} className="sr-only" />
+                  onChange={() => artWechseln(o.value)} className="sr-only" />
                 <o.icon size={14} />{o.label}
               </label>
             ))}

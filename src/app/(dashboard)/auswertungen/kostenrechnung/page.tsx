@@ -66,6 +66,7 @@ export default function KostenAuswertungPage() {
     setSplits(d.splits ?? [])
   }
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- Laden/Abonnieren im Effekt: Lade- bzw. Startzustand setzen, Ergebnis kommt asynchron
   useEffect(() => { laden(jahr) }, [])
 
   const gesamt = daten.reduce((s, e) => s + e.betrag, 0)

@@ -45,6 +45,7 @@ export default function SessionTimeout({ timeoutMinuten }: Props) {
     if (!timeoutMinuten) return
     const events = ['mousedown','keydown','touchstart','scroll']
     events.forEach(e => window.addEventListener(e, aktivitaet, { passive: true }))
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Laden/Abonnieren im Effekt: Lade- bzw. Startzustand setzen, Ergebnis kommt asynchron
     reset()
     return () => {
       events.forEach(e => window.removeEventListener(e, aktivitaet))

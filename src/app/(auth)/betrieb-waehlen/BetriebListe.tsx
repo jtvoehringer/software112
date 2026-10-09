@@ -29,6 +29,7 @@ export default function BetriebListe({ betriebe, weiter }: { betriebe: BetriebEi
   const [suche, setSuche] = useState('')
   const [zuletzt, setZuletzt] = useState<string[]>([])
   const ersteForm = useRef<HTMLFormElement>(null)
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- Browser-Wert (localStorage/URL/Feature) erst nach dem Einhängen lesen – beim Rendern gäbe es einen Hydration-Fehler
   useEffect(() => { setZuletzt(zuletztLesen()) }, [])
 
   const mitSuche = betriebe.length >= SUCHE_AB

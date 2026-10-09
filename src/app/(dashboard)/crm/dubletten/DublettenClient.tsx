@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState, useTransition } from 'react'
+import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from '@/components/ui/Link'
 import { Mail, User, Merge, EyeOff, Search, CheckCircle2, AlertTriangle } from 'lucide-react'
@@ -64,7 +64,9 @@ export default function DublettenClient({ gruppen: gruppenProp, writeOk }: { gru
 
   // Nach router.refresh() kommen neue Props (z.B. weil ein zusammengeführter Kontakt
   // auch in einer anderen Gruppe stand) – lokalen Stand übernehmen
-  useEffect(() => { setGruppen(gruppenProp) }, [gruppenProp])
+  // (beim Rendern statt im Effekt)
+  const [gruppenPropVorher, setGruppenPropVorher] = useState(gruppenProp)
+  if (gruppenProp !== gruppenPropVorher) { setGruppenPropVorher(gruppenProp); setGruppen(gruppenProp) }
 
   const sichtbar = useMemo(() => {
     const s = suche.trim().toLowerCase()
