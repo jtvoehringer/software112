@@ -4,7 +4,7 @@ import React, { useState, useTransition } from 'react'
 import { Pencil, Trash2, PowerOff, RotateCcw } from 'lucide-react'
 import { createGrundstueck, updateGrundstueck, deleteGrundstueck, setzeGrundstueckAktiv, fetchBevFlaeche, type BevNutzung } from './actions'
 import { wienHeute } from '@/lib/csv'
-import { fmtHa, ZAHL_LOCALE } from '@/lib/format'
+import { fmtHa, zahlLokal } from '@/lib/format'
 import { getKgBezeichnung } from '@/lib/wein/katastralgemeinden'
 import { HERKUNFT_LABEL, herkunftOptionen } from '@/lib/herkunft'
 
@@ -67,7 +67,7 @@ export type MassnahmeHistorie = {
 const AUFWAND_JE_FLAECHE = new Set(['kg_ha', 'l_ha', 'g_hl', 'ml_hl'])
 
 function zahlDe(n: number, stellen = 3) {
-  return n.toLocaleString(ZAHL_LOCALE, { maximumFractionDigits: stellen })
+  return zahlLokal(n, { maximumFractionDigits: stellen })
 }
 
 // Bezeichnungen der Maßnahmenarten (lib/behandlungen/arten.ts, seit KAN-143 mit Laubschneiden)
@@ -152,7 +152,7 @@ function GstMassnahmenPanel({ massnahmen }: { massnahmen: MassnahmeHistorie[] })
                 {m.anteil_pct != null && <span className="block text-[10px] text-s112-muted">{zahlDe(m.anteil_pct, 1)} %</span>}
               </td>
               <td className="py-1 pl-3 text-right font-mono text-s112-text-2">
-                {m.kosten_eur != null ? m.kosten_eur.toLocaleString(ZAHL_LOCALE, { style: 'currency', currency: 'EUR' }) : '–'}
+                {m.kosten_eur != null ? zahlLokal(m.kosten_eur, { style: 'currency', currency: 'EUR' }) : '–'}
               </td>
             </tr>
           ))}

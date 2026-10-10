@@ -17,9 +17,26 @@ function stellenOpts(st: Stellen | undefined): Intl.NumberFormatOptions {
   return { minimumFractionDigits: min, maximumFractionDigits: Math.max(min, max) }
 }
 
+// Sweep 110 (10.10.2026): Rundungsreste aus Gleitkommarechnung (0,1 + 0,2 − 0,3 = 5,6e-17, Saldo nach Zahlung und
+// Gegenbuchung, Behälter nach Umzug) erschienen als „€ -0,00“ bzw. „-0,00 L“. Werte, die bei der angezeigten Stellenzahl
+// zu 0 gerundet würden, gelten als 0 – ohne Minuszeichen.
+/** Wert ohne „Minus-Null“: |v| unter einer halben Einheit der letzten angezeigten Stelle → 0 */
+export function ohneMinusNull(v: number, maxStellen: number): number {
+  return Math.abs(v) < 0.5 * 10 ** -maxStellen ? 0 : v
+}
+
+/** toLocaleString mit ZAHL_LOCALE, ohne „-0,00“ – für Formate, die kein fmt…-Helfer abdeckt (Währung, eigene Stellen) */
+export function zahlLokal(v: number, opts: Intl.NumberFormatOptions = {}): string {
+  return zahlText(v, opts.style === 'currency' && opts.maximumFractionDigits === undefined ? { ...opts, maximumFractionDigits: 2 } : opts)
+}
+
+function zahlText(v: number, opts: Intl.NumberFormatOptions): string {
+  return ohneMinusNull(v, opts.maximumFractionDigits ?? 3).toLocaleString(ZAHL_LOCALE, opts)
+}
+
 /** Zahl mit Tausenderpunkt/Dezimalkomma. `stellen`: feste Anzahl Nachkommastellen oder { min, max } */
 export function fmtNum(v: number, stellen?: Stellen): string {
-  return v.toLocaleString(ZAHL_LOCALE, stellenOpts(stellen))
+  return zahlText(v, stellenOpts(stellen))
 }
 
 /** Betrag „€ 1.234,50“ – laut Manual zwei Nachkommastellen (abweichend nur, wenn explizit gesetzt) */
@@ -33,7 +50,7 @@ export function fmtEur(v: number, stellen: Stellen = 2): string {
  */
 export function fmtLiter(n: number | null | undefined, opts?: { noUnit?: boolean }): string {
   if (n == null) return '–'
-  const s = n.toLocaleString(ZAHL_LOCALE, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const s = zahlText(n, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   return opts?.noUnit ? s : `${s} L`
 }
 
@@ -42,7 +59,7 @@ export function fmtLiter(n: number | null | undefined, opts?: { noUnit?: boolean
  */
 export function fmtMenge(n: number | null | undefined): string {
   if (n == null) return '–'
-  return n.toLocaleString(ZAHL_LOCALE, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return zahlText(n, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 /**
@@ -50,7 +67,7 @@ export function fmtMenge(n: number | null | undefined): string {
  */
 export function fmtHa(n: number | null | undefined, digits = 4): string {
   if (n == null) return '–'
-  return n.toLocaleString(ZAHL_LOCALE, { minimumFractionDigits: digits, maximumFractionDigits: digits })
+  return zahlText(n, { minimumFractionDigits: digits, maximumFractionDigits: digits })
 }
 
 /**
@@ -58,7 +75,7 @@ export function fmtHa(n: number | null | undefined, digits = 4): string {
  */
 export function fmtEuro(n: number | null | undefined): string {
   if (n == null) return '–'
-  return n.toLocaleString(ZAHL_LOCALE, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return zahlText(n, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 /**
@@ -66,7 +83,7 @@ export function fmtEuro(n: number | null | undefined): string {
  */
 export function fmtProzent(n: number | null | undefined, digits = 1): string {
   if (n == null) return '–'
-  return n.toLocaleString(ZAHL_LOCALE, { minimumFractionDigits: digits, maximumFractionDigits: digits })
+  return zahlText(n, { minimumFractionDigits: digits, maximumFractionDigits: digits })
 }
 
 /**
@@ -74,7 +91,7 @@ export function fmtProzent(n: number | null | undefined, digits = 1): string {
  */
 export function fmtZahl(n: number | null | undefined, maxDigits = 3): string {
   if (n == null) return '–'
-  return n.toLocaleString(ZAHL_LOCALE, { maximumFractionDigits: maxDigits })
+  return zahlText(n, { maximumFractionDigits: maxDigits })
 }
 
 // ── Eingaben lesen ────────────────────────────────────────────────────────────

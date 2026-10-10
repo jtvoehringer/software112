@@ -5,7 +5,7 @@
 // Ausdruck und CSV (Route /meldungen/<id>/csv) dieselben Zahlen zeigen.
 
 import { useMemo, useState } from 'react'
-import { ZAHL_LOCALE } from '@/lib/format'
+import { zahlLokal } from '@/lib/format'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { csvPfad } from '@/lib/behoerden/katalog'
 import {
@@ -18,10 +18,10 @@ import { summiereJe, verteileMassnahme, type Verteilung } from '@/lib/wein/massn
 type Tab = 'ried' | 'mittel' | 'cu'
 
 function fmtNum(n: number, dec = 3) {
-  return n.toLocaleString(ZAHL_LOCALE, { maximumFractionDigits: dec })
+  return zahlLokal(n, { maximumFractionDigits: dec })
 }
 function fmtHa(n: number) {
-  return n.toLocaleString(ZAHL_LOCALE, { maximumFractionDigits: 4 }) + ' ha'
+  return zahlLokal(n, { maximumFractionDigits: 4 }) + ' ha'
 }
 
 /** KAN-132: Ried = Entität weingarten – Schlüssel ist die weingarten-id */
@@ -290,7 +290,7 @@ function TabCu({ behandlungen, weingaerten }: { behandlungen: PsmBehandlung[]; w
                 <div className="absolute top-0 bottom-0 border-l-2 border-dashed border-s112-warn/50 opacity-60" style={{ left: `${CU_WARNSCHWELLE * 100}%` }} />
                 <div className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-s112-text-1 mix-blend-multiply">
                   {pct !== null
-                    ? `${pct.toLocaleString(ZAHL_LOCALE, { maximumFractionDigits: 1 })} % des Grenzwerts`
+                    ? `${zahlLokal(pct, { maximumFractionDigits: 1 })} % des Grenzwerts`
                     : '– (keine WI-Fläche)'}
                 </div>
               </div>

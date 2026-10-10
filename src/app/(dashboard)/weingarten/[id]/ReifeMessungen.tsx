@@ -9,11 +9,11 @@ import { Pencil, Trash2 } from 'lucide-react'
 import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
 import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
 import { reifeVerlauf, type ReifeMessung } from '@/lib/wein/reifemessung'
-import { ZAHL_LOCALE } from '@/lib/format'
+import { zahlLokal } from '@/lib/format'
 import { reifemessungLoeschen, reifemessungSpeichern } from '../actions'
 
 const zahl = (v: unknown, stellen: number) =>
-  v == null || v === '' ? '–' : Number(v).toLocaleString(ZAHL_LOCALE, { minimumFractionDigits: stellen, maximumFractionDigits: stellen })
+  v == null || v === '' ? '–' : zahlLokal(Number(v), { minimumFractionDigits: stellen, maximumFractionDigits: stellen })
 const datumText = (d: string) => `${d.slice(8, 10)}.${d.slice(5, 7)}.${d.slice(0, 4)}`
 
 export default function ReifeMessungen({ weingartenId, messungen, writeOk, heute }: {

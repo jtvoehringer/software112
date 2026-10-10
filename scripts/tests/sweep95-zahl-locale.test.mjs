@@ -41,7 +41,9 @@ describe('Erkennung', () => {
     assert.deepEqual(zeilen("const a = new Date(x).toLocaleString('de-AT')"), [])
     assert.deepEqual(zeilen("const a = d.toLocaleString('de-AT', { timeZone: 'Europe/Vienna' })"), [])
     assert.deepEqual(zeilen("const a = d.toLocaleDateString('de-AT')"), [])
-    assert.deepEqual(zeilen("const a = n.toLocaleString(ZAHL_LOCALE, { maximumFractionDigits: 2 })"), [])
+    assert.deepEqual(zeilen("const a = zahlLokal(n, { maximumFractionDigits: 2 })"), [])
+    // Sweep 110: direkt mit ZAHL_LOCALE ist seither ein Fund („-0,00“ bei Rundungsresten) – zahlLokal bzw. fmt…-Helfer
+    assert.deepEqual(zeilen("const a = n.toLocaleString(ZAHL_LOCALE, { maximumFractionDigits: 2 })"), [1])
     assert.deepEqual(zeilen("// n.toLocaleString('de-AT')"), [])
   })
 

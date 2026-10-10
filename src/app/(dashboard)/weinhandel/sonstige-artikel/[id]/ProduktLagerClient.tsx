@@ -7,7 +7,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from '@/components/ui/Link'
 import StornoButton from '@/components/StornoButton'
-import { ZAHL_LOCALE } from '@/lib/format'
+import { zahlLokal } from '@/lib/format'
 import {
   BEWEGUNG_ART_LABEL, PRODUKT_ARTEN, produktKonto, type ProduktBewegung,
 } from '@/lib/warenwirtschaft/sonstigeProdukte'
@@ -26,7 +26,7 @@ export interface ProduktZeile {
   liter_je_stk: number | string | null
 }
 
-const zahl = (v: number) => v.toLocaleString(ZAHL_LOCALE, { maximumFractionDigits: 3 })
+const zahl = (v: number) => zahlLokal(v, { maximumFractionDigits: 3 })
 const datumText = (d: string) => `${d.slice(8, 10)}.${d.slice(5, 7)}.${d.slice(0, 4)}`
 const inp = 'input w-full py-2.5 sm:py-2 text-base sm:text-sm'
 

@@ -14,7 +14,7 @@ import { kontaktAnzeigename } from '@/lib/crm/titel'
 import ListenSuche from '@/components/ui/ListenSuche'
 import Link from '@/components/ui/Link'
 import type { Metadata } from 'next'
-import { ZAHL_LOCALE } from '@/lib/format'
+import { zahlLokal } from '@/lib/format'
 
 export const metadata: Metadata = { title: 'Gemeinsames CRM – software:112' }
 export const dynamic = 'force-dynamic'
@@ -120,7 +120,7 @@ export default async function GemeinsamesCrmPage({ searchParams }: { searchParam
                       <div>
                         <p className="font-semibold text-s112-text-1 mb-1">Offene Pipeline</p>
                         {pipe.length === 0 ? <p className="text-s112-muted">–</p> : pipe.map(p => (
-                          <p key={p.id}>{p.titel || p.stufe}{p.wert_euro != null ? ` · ${Number(p.wert_euro).toLocaleString(ZAHL_LOCALE, { style: 'currency', currency: 'EUR' })}` : ''}{p.erwartetes_datum ? ` · bis ${datum(p.erwartetes_datum)}` : ''}</p>
+                          <p key={p.id}>{p.titel || p.stufe}{p.wert_euro != null ? ` · ${zahlLokal(Number(p.wert_euro), { style: 'currency', currency: 'EUR' })}` : ''}{p.erwartetes_datum ? ` · bis ${datum(p.erwartetes_datum)}` : ''}</p>
                         ))}
                       </div>
                     </div>

@@ -1,7 +1,7 @@
 // @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
 import { rund } from '../zahl/runden.ts'
 // @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
-import { ZAHL_LOCALE } from '../format.ts'
+import { zahlLokal } from '../format.ts'
 // ── Weinbuch: Mengenbewegungen aus dem Bewegungsjournal (KAN-44 Teil 3, 08.10.2026) ──────────────────────────────
 //
 // Bis KAN-44 kannte die Zeitleiste des Weinbuchs (lib/wein/weinbuch.ts) nur Pressung, Umzug, Schwund, Verschnitt und
@@ -84,12 +84,12 @@ const runde = (n: number) => rund(n, 3)
 /** Liter mit Vorzeichen, österreichisch formatiert („+1.200 L“, „−35,5 L“) */
 export function literMitVorzeichen(l: number): string {
   const r = runde(l)
-  const betrag = Math.abs(r).toLocaleString(ZAHL_LOCALE, { maximumFractionDigits: 3 })
+  const betrag = zahlLokal(Math.abs(r), { maximumFractionDigits: 3 })
   return `${r > 0 ? '+' : r < 0 ? '−' : '±'}${betrag} L`
 }
 
 export function liter(l: number): string {
-  return `${runde(l).toLocaleString(ZAHL_LOCALE, { maximumFractionDigits: 3 })} L`
+  return `${zahlLokal(runde(l), { maximumFractionDigits: 3 })} L`
 }
 
 /** Journalzeilen in Buchungsreihenfolge (Datum, Beleg, Position) */
@@ -171,7 +171,7 @@ export function zukaufEreignis(z: R): WeinbuchMengenEreignis | null {
   return {
     datum, typ: 'zukauf', titel: ZUKAUF_TEXT[z.art] ?? 'Zukauf',
     details: [
-      menge != null && Number.isFinite(menge) ? `Menge: +${menge.toLocaleString(ZAHL_LOCALE, { maximumFractionDigits: 3 })} ${z.einheit ?? 'l'}` : null,
+      menge != null && Number.isFinite(menge) ? `Menge: +${zahlLokal(menge, { maximumFractionDigits: 3 })} ${z.einheit ?? 'l'}` : null,
       name ? `von ${name}` : null,
       [z.rebsorte, z.jahrgang].filter(Boolean).join(' ') || null,
     ].filter((x): x is string => !!x),

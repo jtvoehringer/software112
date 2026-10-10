@@ -87,6 +87,11 @@ function pruefeText(text, opts = {}) {
     const auf = m.index + m[0].length - 1
     if (DE_AT.test(text.slice(auf + 1, auf + 12))) melde(m.index, "Intl.NumberFormat('de-AT') gruppiert mit Leerzeichen – ZAHL_LOCALE aus src/lib/format.ts verwenden")
   }
+  // Sweep 110: x.toLocaleString(ZAHL_LOCALE, …) zeigt Rundungsreste als „-0,00“ – zahlLokal(x, …) bzw. fmt…-Helfer
+  if (!opts.formatDatei) {
+    const zl = /\.toLocaleString\(\s*ZAHL_LOCALE\b/g
+    while ((m = zl.exec(code))) melde(m.index, 'toLocaleString(ZAHL_LOCALE) zeigt Rundungsreste als „-0,00“ – zahlLokal(x, …) bzw. fmtNum/fmtEur aus src/lib/format.ts verwenden')
+  }
   if (opts.anzeige) {
     const tf = /\.toFixed\(/g
     while ((m = tf.exec(code))) {
@@ -127,7 +132,7 @@ function pruefeWurzel(root) {
   for (const f of dateien(path.join(root, 'src'))) {
     anzahl++
     const r = path.relative(root, f).split(path.sep).join('/')
-    const e = pruefeText(fs.readFileSync(f, 'utf8'), { anzeige: /^src\/(app|components)\//.test(r) })
+    const e = pruefeText(fs.readFileSync(f, 'utf8'), { anzeige: /^src\/(app|components)\//.test(r), formatDatei: r === 'src/lib/format.ts' })
     ausnahmen += e.ausnahmen
     for (const x of e.funde) funde.push(`${r}:${x.zeile}  ${x.text}`)
   }
