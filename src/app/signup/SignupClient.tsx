@@ -134,6 +134,7 @@ export default function SignupClient() {
             <label className="flex items-start gap-2 text-[12.5px] text-s112-muted">
               <input type="checkbox" className="mt-0.5" checked={zustimmung} onChange={e => setZustimmung(e.target.checked)} />
               <span>
+                {/* link-ok: AGB und Datenschutzerklärung sind noch einzurichten (KAN-300, In Abklärung) */}
                 Ich habe die <a href="/agb" target="_blank" className="text-s112-blue-700 hover:underline">AGB</a> und{' '}
                 <a href="/datenschutz" target="_blank" className="text-s112-blue-700 hover:underline">Datenschutzerklärung</a> gelesen und stimme zu.
               </span>
