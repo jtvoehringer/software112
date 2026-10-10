@@ -7,8 +7,8 @@ import StornoButton from '@/components/StornoButton'
 import { fehlerText } from '@/lib/fehler'
 import { fmtNum } from '@/lib/format'
 import { wienHeute } from '@/lib/csv'
-import { KONTO_ART_LABEL, type AuszugZeile } from '@/lib/kellerbuch/stoffkonto'
-import { kontoBuchen, kontoStornieren, stoffAktivSetzen, stoffAnlegen } from './actions'
+import { KONTO_ART_LABEL, STOFF_ARTEN, type AuszugZeile, type StoffArt } from '@/lib/kellerbuch/stoffkonto'
+import { kontoBuchen, kontoStornieren, stoffAktivSetzen, stoffAnlegen, stoffArtSetzen } from './actions'
 
 const inp = 'form-input text-sm'
 
@@ -32,9 +32,27 @@ export function StoffAnlegen() {
       <label className="text-xs text-s112-text-2">Einheit
         <select name="einheit" defaultValue="kg" className={`${inp} block`}><option value="kg">kg</option><option value="l">l</option></select>
       </label>
+      <label className="text-xs text-s112-text-2">Art
+        <select name="art" required defaultValue="" className={`${inp} block`}>
+          <option value="" disabled>– bitte wählen –</option>
+          {STOFF_ARTEN.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
+        </select>
+      </label>
       <button disabled={pending} className="px-3 py-2 rounded-lg text-sm font-semibold bg-s112-teal text-s112-yellow disabled:opacity-50">Anlegen</button>
       {fehler && <p role="alert" className="basis-full text-sm text-s112-err-fg">{fehler}</p>}
     </form>
+  )
+}
+
+/** KAN-45: Art des Stoffs (für das BKI-Blatt und die KTM/RTK-Bestände der BSM) */
+export function StoffArtWahl({ id, art, name }: { id: string; art: StoffArt; name: string }) {
+  const router = useRouter()
+  const [pending, start] = useTransition()
+  return (
+    <select aria-label={`Art von ${name}`} value={art} disabled={pending} className="form-input text-xs py-0.5"
+      onChange={e => { const neu = e.target.value; start(async () => { try { await stoffArtSetzen(id, neu); router.refresh() } catch (err) { window.alert(fehlerText(err)) } }) }}>
+      {STOFF_ARTEN.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
+    </select>
   )
 }
 

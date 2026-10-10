@@ -7,7 +7,7 @@ import { ladeKellerBehandlungen, SPALTEN_KELLER_BEHANDLUNGEN } from '../keller-b
 import { ladeGebindeverzeichnis, SPALTEN_GEBINDEVERZEICHNIS } from '../gebindeverzeichnis'
 import { ladeWeinbuch, ladeWeinbuchSammlung, SPALTEN_WEINBUCH } from '../weinbuch'
 import { ladeRueckverfolgung, SPALTEN_RUECKVERFOLGUNG } from '../rueckverfolgung'
-import { ladeBesondereKonten, SPALTEN_BESONDERE_KONTEN } from '../besondereKonten'
+import { ladeBesondereKonten, ladeBkiBesondereKonten, SPALTEN_BESONDERE_KONTEN, SPALTEN_BKI_BESONDERE_KONTEN } from '../besondereKonten'
 import { ladeRueckruf, SPALTEN_RUECKRUF, type RueckrufStart } from '../rueckruf'
 import { ladeBlendProtokoll, SPALTEN_BLEND, type BlendArt } from '../blend'
 import { ladeKellerUmzuege, SPALTEN_KELLER_UMZUEGE } from '../keller-auswertungen'
@@ -221,6 +221,14 @@ export const MELDUNGEN_KELLERBUCH = {
   }),
 
   // KAN-44 Teil 1: BKI-Schnittstelle aus dem Bewegungsjournal
+  'bki-besondere-konten': definiereMeldung(KATALOG_KELLERBUCH['bki-besondere-konten'], {
+    parameter: sp => zeitraumAus(sp),
+    laden: (ctx, p) => ladeBkiBesondereKonten(ctx.supabase, ctx.tenantId, p),
+    spalten: SPALTEN_BKI_BESONDERE_KONTEN,
+    dateiteile: (p, betrieb) => ['Besondere Konten', betrieb.betriebsnummer, zeitraumTeil(p)],
+    bki: p => ({ bericht: 'Besondere-Konten', von: p.von, bis: p.bis }),
+  }),
+
   'bki-lagerstand': definiereMeldung(KATALOG_KELLERBUCH['bki-lagerstand'], {
     parameter: sp => lagerstandStichtag(sp),
     laden: async (ctx, p) => {

@@ -1,4 +1,4 @@
-// behoerdenmeldung: besondere-konten
+// behoerdenmeldung: besondere-konten, bki-besondere-konten
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, getCurrentUserRole, canWrite } from '@/lib/auth/roles'
 import { schreibSperre } from '@/lib/auth/sperren'
@@ -12,7 +12,8 @@ import { fmtNum } from '@/lib/format'
 import { wienHeute } from '@/lib/csv'
 import { kontoauszug, weinwirtschaftsjahr } from '@/lib/kellerbuch/stoffkonto'
 import { ladeKontoBuchungen, ladeStoffe } from '@/lib/behoerden/besondereKonten'
-import { Kontoauszug, KontoBuchen, StoffAktiv, StoffAnlegen } from './StoffkontoClient'
+import { Kontoauszug, KontoBuchen, StoffAktiv, StoffAnlegen, StoffArtWahl } from './StoffkontoClient'
+import { STOFF_ART_LABEL } from '@/lib/kellerbuch/stoffkonto'
 import { rund } from '@/lib/zahl/runden'
 
 export const metadata: Metadata = { title: 'Besondere Konten – software:112' }
@@ -61,6 +62,8 @@ export default async function BesondereKontenPage({ searchParams }: { searchPara
             <button className="px-2 py-1.5 rounded-lg text-xs border border-s112-border">OK</button>
           </form>
           <CsvExportKnopf href={csvPfad('besondere-konten', { jahr: String(jahrStart) })} />
+          {/* KAN-45: dasselbe Weinwirtschaftsjahr im Format der BKI-Schnittstelle (je Buchung, Anfangsstand, Empfangscharge) */}
+          <CsvExportKnopf href={csvPfad('bki-besondere-konten', { von: weinwirtschaftsjahr(`${jahrStart}-08-01`).von, bis: weinwirtschaftsjahr(`${jahrStart}-08-01`).bis })} label="CSV (BKI-Schnittstelle)" ariaLabel="CSV exportieren: Besondere Konten im Format der BKI-Schnittstelle" />
           <DruckFormatKnopf klein />
         </div>
       </div>
@@ -73,6 +76,7 @@ export default async function BesondereKontenPage({ searchParams }: { searchPara
               <span key={s.id} className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm ${s.id === gewaehlt?.id ? 'border-s112-teal bg-s112-teal/5' : 'border-s112-border'} ${s.aktiv ? '' : 'opacity-60'}`}>
                 <Link href={`/kellerbuch/besondere-konten?stoff=${s.id}`} className="font-medium text-s112-text hover:underline">{s.name}</Link>
                 <span className={`tabular-nums ${(saldoJe.get(s.id) ?? 0) < 0 ? 'text-s112-err-fg font-semibold' : 'text-s112-text-2'}`}>{fmtNum(saldoJe.get(s.id) ?? 0, { max: 3 })} {s.einheit}</span>
+                {schreiben ? <StoffArtWahl id={s.id} art={s.art} name={s.name} /> : <span className="text-xs text-s112-muted">{STOFF_ART_LABEL[s.art]}</span>}
                 {!s.aktiv && <span className="text-xs text-s112-muted">inaktiv</span>}
                 {schreiben && <StoffAktiv id={s.id} aktiv={s.aktiv} />}
               </span>

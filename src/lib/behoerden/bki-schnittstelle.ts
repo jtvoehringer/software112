@@ -12,7 +12,7 @@
 //
 // Annahmen (am Ticket KAN-50 dokumentiert):
 //   S1 Zeitraum: ein gemeinsamer Zeitraum von–bis für Lagerbewegungen und BSM; Lagerstand zum Ende des Zeitraums (bzw.
-//      zum gewählten Stichtag); besondere Konten für das Weinwirtschaftsjahr, in dem das Ende liegt.
+//      zum gewählten Stichtag); besondere Konten (seit KAN-45 Blatt im Format der Spezifikation) für denselben Zeitraum.
 //   S2 Mindestangaben je Blatt (die Spezifikation kennt keine Pflichtfelder): siehe MINDESTANGABEN – fehlt eine, meldet
 //      der Prüfbericht die Anzahl der Zeilen.
 //   S3 Längen: die in der Spezifikation kürzer als 255 Zeichen definierten Felder (LAENGEN), sonst 255 für jedes Textfeld.
@@ -43,7 +43,7 @@ export const BKI_BLAETTER: readonly BkiBlatt[] = [
   { blatt: 'Einkauf im Zeitraum', meldung: null, folgt: 'KAN-49' },
   { blatt: 'TBS-Aufstellung', meldung: null, folgt: 'KAN-49' },
   { blatt: 'Lagerbewegungen', meldung: 'bki-lagerbewegungen' },
-  { blatt: 'Besondere Konten', meldung: 'besondere-konten' },
+  { blatt: 'Besondere Konten', meldung: 'bki-besondere-konten' },
   { blatt: 'BSM', meldung: 'bsm' },
 ]
 
@@ -62,6 +62,7 @@ export function parameterFuer(meldung: string, z: BkiZeitraum): URLSearchParams 
   switch (meldung) {
     case 'bki-lagerstand': return new URLSearchParams({ stichtag: z.stichtag })
     case 'bki-lagerbewegungen':
+    case 'bki-besondere-konten':
     case 'bsm': return new URLSearchParams({ von: z.von, bis: z.bis })
     case 'besondere-konten': return new URLSearchParams({ jahr: String(weinwirtschaftsjahr(z.bis)) })
     default: return new URLSearchParams()
@@ -79,6 +80,7 @@ export const LAENGEN: Readonly<Record<string, Readonly<Record<string, number>>>>
   'bki-qualitaetsstufen': { 'Kürzel': 8 },
   'bki-erzeugnisse': { 'Kürzel': 8 },
   'bki-buchungsarten': { 'Kürzel': 50 },
+  'bki-besondere-konten': { Buchungsart: 50, Art: 50, 'Los-Nr': 50, Empfangscharge: 50 },
 }
 const MAX_TEXT = 255
 
@@ -89,6 +91,7 @@ export const MINDESTANGABEN: Readonly<Record<string, readonly string[]>> = {
   'bki-gebindeverzeichnis': ['Bezeichnung', 'Nenninhalt (l)'],
   'bki-lagerstand': ['Erzeugnis lt. Liste', 'Farbe', 'Qualitätsstufe', 'IST-Menge in lt.'],
   'bki-lagerbewegungen': ['Datum', 'BelegNr.', 'Erzeugnis lt. Liste', 'Buchungsart BSM'],
+  'bki-besondere-konten': ['Datum', 'Buchungsart', 'Bezeichnung', 'Art', 'Menge'],
 }
 
 /** BelegNr. ist laut Spezifikation int(10) */

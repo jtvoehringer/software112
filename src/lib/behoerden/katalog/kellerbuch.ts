@@ -109,6 +109,16 @@ export const KATALOG_KELLERBUCH = katalogGruppe('kellerbuch', {
     rechtsgrundlage: 'Del. VO (EU) 2018/273, § 31 WeinG (besondere Konten) – zu prüfen',
     beschreibung: 'Kontoauszug je Stoff (Zucker, RTK, Säuerungs- und Entsäuerungsmittel …) im Weinwirtschaftsjahr 01.08.–31.07.: Übertrag, Zugänge, Verwendungen mit Charge und Behälter, Inventur, Saldo.',
   },
+  // KAN-45: Blatt „Besondere Konten“ der BKI-Schnittstelle (je Buchung, Anfangsstand, Empfangscharge)
+  'bki-besondere-konten': {
+    titel: 'Besondere Konten (BKI-Schnittstelle)',
+    behoerde: 'BKI (Weindatenbank)',
+    zugriff: 'mitglied',
+    druckPfad: '/kellerbuch/besondere-konten',
+    standardParameter: abJahresbeginn,
+    rechtsgrundlage: 'Del. VO (EU) 2018/273, § 31 WeinG (besondere Konten) – zu prüfen',
+    beschreibung: 'Jede Buchung des Stoffkontos im Zeitraum mit Art des Stoffs (Zucker, RTK, Säuerungs-, Entsäuerungsmittel), Los, Anfangsstand, Menge und Empfangscharge.',
+  },
   'bki-lagerstand': {
     titel: 'Lagerstand zum Datum (BKI-Schnittstelle)',
     behoerde: 'BKI (Weindatenbank)',
