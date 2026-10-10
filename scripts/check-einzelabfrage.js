@@ -24,8 +24,14 @@
  * zu klein (Zahlungen, E&A), PSM-Meldung mit Standardfrist, Absender-Index 60 s leer zwischengespeichert, Weinbuch ohne
  * Ziel-Gebinde. Fail-closed-Stellen (Rolle, Modul: Fehler = Ablehnung) sind begründet ausgenommen.
  *
- * Aufruf: node scripts/check-einzelabfrage.js   (Exit 1 bei Funden)
- * Für Tests: require('./check-einzelabfrage.js') → { pruefeText, pruefeWurzel } ohne Seiteneffekte;
+ * Sweep 86 (KAN-278, 10.10.2026): auch Seiten – alle Server-Dateien unter src/app (page.tsx, layout.tsx, Lader; nicht
+ * 'use client'). Befund: 345 Stellen in 105 Dateien, u. a. öffentliches E-Label ohne Zutaten/Allergene, Erntemeldung ohne
+ * Lesedaten, Abo-Seite „kein Abo“. Seiten werfen mit geladen(res, was) aus src/lib/supabase/geladen.ts (Fehlergrenze).
+ * Die Altfälle stehen je Datei in scripts/einzelabfrage-baseline.json: rot bei einem neuen Fund oder mehr Funden als dem
+ * Ausgangswert, ebenso bei weniger (Abbau festschreiben mit --baseline, die JSON-Datei mit committen).
+ *
+ * Aufruf: node scripts/check-einzelabfrage.js   (Exit 1 bei Funden; --baseline schreibt die Ausgangswerte der Seiten neu)
+ * Für Tests: require('./check-einzelabfrage.js') → { pruefeText, pruefeWurzel, schreibeBaseline } ohne Seiteneffekte;
  * S112_GUARD_ROOT prüft ein anderes Projektverzeichnis (scripts/tests/kan251-einzelabfrage.test.mjs).
  */
 const fs = require('fs')
@@ -143,35 +149,76 @@ function* dateien(dir) {
   }
 }
 
+const BASELINE = 'scripts/einzelabfrage-baseline.json'
+const istClientDatei = text => /^(['"])use client\1/.test(
+  text.replace(/^﻿/, '').replace(/^(?:\s+|\/\/[^\n]*|\/\*[\s\S]*?\*\/)*/, ''))
+const innerhalb = (basis, f) => path.relative(basis, f).split(path.sep)[0] !== '..'
+
+/** Sweep 86: Ausgangswerte der Seiten (Datei → Anzahl Altfälle); fehlt die Datei: keine */
+function ladeBaseline(root) {
+  const p = path.join(root, BASELINE)
+  return fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, 'utf8')) : {}
+}
+
 function pruefeWurzel(root) {
   const funde = []
+  /** Sweep 86: Funde je Seiten-Datei (Pfad → Funde) */
+  const seiten = {}
   let anzahl = 0, ausnahmen = 0, geprueft = 0
   for (const f of dateien(path.join(root, 'src'))) {
     const t = fs.readFileSync(f, 'utf8')
     // KAN-254: Bibliotheken (src/lib) ebenso – dort liegen Rechte, Benutzerlimit, Rechnungssumme, Meldungs-Lader
-    const route = path.basename(f) === 'route.ts' || path.relative(path.join(root, 'src', 'lib'), f).split(path.sep)[0] !== '..'
-    if (!route && !istActionDatei(t)) continue
+    const route = path.basename(f) === 'route.ts' || innerhalb(path.join(root, 'src', 'lib'), f)
+    // Sweep 86: Server-Dateien unter src/app (Seiten, Layouts, Lader) – mit Ausgangswert je Datei
+    const seite = !route && !istActionDatei(t) && innerhalb(path.join(root, 'src', 'app'), f) && !istClientDatei(t)
+    if (!route && !seite && !istActionDatei(t)) continue
     anzahl++
-    const e = pruefeText(t, { route })
+    const e = pruefeText(t, { route: route || seite })
     ausnahmen += e.ausnahmen
     geprueft += e.geprueft
     const r = path.relative(root, f).split(path.sep).join('/')
+    if (seite) { if (e.funde.length) seiten[r] = e.funde; continue }
     for (const x of e.funde) funde.push(`${r}:${x.zeile}  ${x.text}`)
   }
-  return { funde, dateien: anzahl, ausnahmen, geprueft }
+  const baseline = ladeBaseline(root)
+  for (const [r, liste] of Object.entries(seiten)) {
+    const soll = baseline[r] ?? 0
+    if (liste.length > soll) for (const x of liste) funde.push(`${r}:${x.zeile}  ${x.text} (Seite: ${liste.length} Funde, Ausgangswert ${soll})`)
+  }
+  for (const [r, soll] of Object.entries(baseline)) {
+    const ist = seiten[r]?.length ?? 0
+    if (ist < soll) funde.push(`${r}  Ausgangswert ${soll}, jetzt ${ist} – Abbau festschreiben: node scripts/check-einzelabfrage.js --baseline`)
+  }
+  const altfaelle = Object.values(baseline).reduce((s, n) => s + n, 0)
+  return { funde, dateien: anzahl, ausnahmen, geprueft, seiten, altfaelle }
 }
 
-module.exports = { pruefeText, pruefeWurzel }
+/** Sweep 86: Ausgangswerte der Seiten neu schreiben (nur Dateien mit Funden, sortiert) */
+function schreibeBaseline(root) {
+  const { seiten } = pruefeWurzel(root)
+  const aus = Object.fromEntries(Object.entries(seiten).map(([r, l]) => [r, l.length]).sort(([a], [b]) => a.localeCompare(b)))
+  fs.writeFileSync(path.join(root, BASELINE), JSON.stringify(aus, null, 2) + '\n')
+  return aus
+}
+
+module.exports = { pruefeText, pruefeWurzel, schreibeBaseline }
 
 if (require.main === module) {
   const ROOT = process.env.S112_GUARD_ROOT ? path.resolve(process.env.S112_GUARD_ROOT) : path.resolve(__dirname, '..')
+  if (process.argv.includes('--baseline')) {
+    const b = schreibeBaseline(ROOT)
+    console.log(`✓ check-einzelabfrage: Ausgangswerte geschrieben (${BASELINE}) – ${Object.keys(b).length} Seiten-Dateien, ${Object.values(b).reduce((s, n) => s + n, 0)} Altfälle.`)
+    process.exit(0)
+  }
   const e = pruefeWurzel(ROOT)
   if (e.funde.length) {
-    console.error(`\n✖ check-einzelabfrage: ${e.funde.length} Fund(e) – Abfrage in einer Server Action bzw. Route ohne Fehlerprüfung:\n`)
+    console.error(`\n✖ check-einzelabfrage: ${e.funde.length} Fund(e) – Abfrage in einer Server Action, Route, Bibliothek bzw. Seite ohne Fehlerprüfung:\n`)
     for (const x of e.funde) console.error('  ' + x)
-    console.error('\n`error` mit übernehmen und auswerten (const { data, error: e } = … ; if (e) …) – oder begründen:')
-    console.error('  // abfrage-ohne-fehler: <Grund ≥ 15 Zeichen>   (dieselbe Zeile oder bis zu vier Zeilen davor)\n')
+    console.error('\n`error` mit übernehmen und auswerten (const { data, error: e } = … ; if (e) …), auf Seiten geladen(res, \'<was>\') aus')
+    console.error('src/lib/supabase/geladen.ts – oder begründen:')
+    console.error('  // abfrage-ohne-fehler: <Grund ≥ 15 Zeichen>   (dieselbe Zeile oder bis zu vier Zeilen davor)')
+    console.error(`Altfälle in Seiten abgebaut? Ausgangswerte festschreiben: node scripts/check-einzelabfrage.js --baseline (${BASELINE} mit committen)\n`)
     process.exit(1)
   }
-  console.log(`✓ check-einzelabfrage: ${e.dateien} Server-Action-, Route- und Bibliotheksdateien, ${e.geprueft} Abfragen mit Fehlerprüfung, ${e.ausnahmen} begründete Ausnahme(n).`)
+  console.log(`✓ check-einzelabfrage: ${e.dateien} Server-Action-, Route-, Bibliotheks- und Seiten-Dateien, ${e.geprueft} Abfragen mit Fehlerprüfung, ${e.ausnahmen} begründete Ausnahme(n), ${e.altfaelle} Altfälle in Seiten (${BASELINE}).`)
 }

@@ -12,6 +12,7 @@ import { BetriebsPruefMelder } from '@/components/BetriebsWaechter'
 import Link from '@/components/ui/Link'
 import { PREMIUM_SUPPORT, heuteWien, kuendigungZumMonatsende, premiumSupportStand, premiumSupportText, tagText } from '@/lib/abo/premiumSupport'
 import PremiumSupportKnopf from './PremiumSupportKnopf'
+import { geladen } from '@/lib/supabase/geladen'
 
 // Rückmeldung 31.8.2026 ("die Plattform soll sich selber abrechnen können,
 // damit wir zu unserem Geld kommen"): Selbstverwaltung von Abo und Zahlung.
@@ -36,10 +37,11 @@ export default async function AboPage() {
   const membership = await getCurrentMembership()
   if (!membership) redirect('/betrieb-waehlen')
 
-  const { data: tenantRow } = await (supabase.from('tenants') as any)
+  // Sweep 86 (KAN-278): ein Lesefehler wirft (error.tsx) – sonst sähe der Betrieb „kein Abo“ bzw. „Zahlung nachholen“
+  const tenantRow = geladen(await (supabase.from('tenants') as any)
     .select('name, kundennummer, stripe_status, stripe_plan, stripe_customer_id, stripe_subscription_id, stripe_trial_ends_at, abrechnung_ueber')
     .eq('id', membership.tenantId)
-    .maybeSingle()
+    .maybeSingle(), 'Betrieb')
 
   const t = tenantRow as R | null
   const stripeStatus = (t?.stripe_status ?? null) as string | null
@@ -68,19 +70,22 @@ export default async function AboPage() {
   const verfuegbarePakete = PAKET_REIHENFOLGE.filter(k => !!paketPriceId(k))
   const limit = await pruefeBenutzerlimit(createSupabaseAdminClient(), membership.tenantId)
   // Migration 197: Buchhaltungsart (E&A in software:112 / Doppik beim Steuerberater)
-  const { data: einstRow } = await (supabase.from('tenant_einstellungen') as any)
-    .select('modul_ea, buchhaltungsart').eq('tenant_id', membership.tenantId).maybeSingle()
+  const einstRow = geladen(await (supabase.from('tenant_einstellungen') as any)
+    .select('modul_ea, buchhaltungsart').eq('tenant_id', membership.tenantId).maybeSingle(), 'Einstellungen')
   const einst = einstRow as R | null
 
   // KAN-215/KAN-214: Submandant (über den Hauptmandanten) bzw. Hauptmandant mit Submandanten
   const adminClient = createSupabaseAdminClient()
-  const [{ data: hauptRow }, { data: nebenRows }] = await Promise.all([
-    t?.abrechnung_ueber ? (adminClient.from('tenants') as R).select('name').eq('id', t.abrechnung_ueber).maybeSingle() : Promise.resolve({ data: null }),
+  const [hauptRes, nebenRes] = await Promise.all([
+    t?.abrechnung_ueber ? (adminClient.from('tenants') as R).select('name').eq('id', t.abrechnung_ueber).maybeSingle() : Promise.resolve({ data: null, error: null }),
     (adminClient.from('tenants') as R).select('name').eq('abrechnung_ueber', membership.tenantId).order('name'),
   ])
+  const hauptRow = geladen(hauptRes, 'Hauptbetrieb')
+  const nebenRows = geladen(nebenRes, 'Submandanten')
   const hauptName = (hauptRow as R | null)?.name as string | undefined
 
   // KAN-226: Premium-Support – getrennt und fehlertolerant (vor der Migration gibt es die Spalten nicht)
+  // abfrage-ohne-fehler: Premium-Support bewusst fehlertolerant (KAN-226) – ohne Spalten bzw. bei Fehler „ohne“
   const { data: psRow } = await (supabase.from('tenants') as R)
     .select('premium_support_seit, premium_support_bis').eq('id', membership.tenantId).maybeSingle()
   const psStand = premiumSupportStand({ seit: (psRow as R | null)?.premium_support_seit ?? null, bis: (psRow as R | null)?.premium_support_bis ?? null })

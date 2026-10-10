@@ -20,6 +20,7 @@ import { istErntebar } from '@/lib/wein/leseErfassung'
 import { gewaehlteLese, leseLoeschsperre, type Lese } from '@/lib/wein/lesen'
 import type { LeseMitSperre } from './LeseReiter'
 import { amaAbweichungen, neuesteAmaVersion } from '@/lib/behoerden/amaMeldung'
+import { geladen } from '@/lib/supabase/geladen'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AR = Record<string, any>
@@ -52,21 +53,21 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
   const tf = (query: any) => query.eq('tenant_id', tenantId)
 
   const [
-    { data: jg },
+    jgRes,
     lese,
-    { data: rawW },
-    { data: rawA },
-    { data: rawPressungen },
+    wRes,
+    aRes,
+    pressungenRes,
     behRows,
-    { data: rawWA },
-    { data: rawGST },
-    { data: rawGstAlle },
-    { data: rawTV },
+    waRes,
+    gstRes,
+    gstAlleRes,
+    tvRes,
     { betrieb, module },
-    { data: rawLesen },
+    lesenRes,
   ] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    tf((supabase.from('weinjahrgaenge') as any).select('*').eq('id', id).single()),
+    tf((supabase.from('weinjahrgaenge') as any).select('*').eq('id', id).maybeSingle()),
 
     // Lesedaten: dieselbe Ladefunktion wie die CSV „Lesedaten“ (/meldungen/lesedaten/csv).
     // ernte_parzellen hat keine tenant_id – der Jahrgang wird oben mandantengefiltert
@@ -129,7 +130,17 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
       .select('id, lfd_nr, art, bezeichnung, beginn, ende, notizen').eq('jahrgang_id', id).order('lfd_nr')),
   ])
 
+  // Sweep 86 (KAN-278): ein Lesefehler wirft (Fehlergrenze) statt still leerer Lesedaten, Pressungen, AMA-Versionen
+  const jg = geladen(jgRes, 'Jahrgang') as AR | null
   if (!jg) notFound()
+  const rawW = geladen(wRes, 'Rieden') as AR[] | null
+  const rawA = geladen(aRes, 'AMA-Erntemeldungen') as AR[] | null
+  const rawPressungen = geladen(pressungenRes, 'Pressungen') as AR[] | null
+  const rawWA = geladen(waRes, 'Chargen') as AR[]
+  const rawGST = geladen(gstRes, 'Grundstücke') as AR[]
+  const rawGstAlle = geladen(gstAlleRes, 'Grundstücke') as AR[]
+  const rawTV = geladen(tvRes, 'Traubenverkäufe') as AR[] | null
+  const rawLesen = geladen(lesenRes, 'Lesen') as AR[] | null
 
   // ── KAN-129: gewählte Lese (?lese=<Nr.>, sonst die höchste) ─────────────────
   // Lesedaten, Pressungen, Traubenverkäufe aus eigener Ernte und die verfügbaren kg gelten für diese Lese;
@@ -160,7 +171,7 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
   // Quelle für Pressungs-Vorschlag und Traubenverkauf zur Verfügung.
   // KAN-41: auch zugekaufte Maische (art='maische') – nur Quelle der Pressung, nicht des Traubenverkaufs.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawZukaufTrauben } = await alle(tf((supabase.from('zukauf_posten') as any)
+  const rawZukaufTrauben = geladen(await alle(tf((supabase.from('zukauf_posten') as any)
     .select(`
       id, art, datum, menge, rebsorte, herkunft, qualitaetsstufe, kmw, oechsle, mostgewicht_einheit,
       lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname),
@@ -169,7 +180,7 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
     .in('art', ['trauben', 'maische'])
     .eq('aktiv', true)
     .eq('jahrgang', (jg as AR).jahrgang)
-    .order('datum', { ascending: false }).order('id')))
+    .order('datum', { ascending: false }).order('id'))), 'Trauben-Zukäufe')
 
   // Anzeige wie bisher: neueste Lese zuerst (Postgres-DESC: ohne Datum ganz oben); bei mehreren Lesen je Lese
   // gruppiert (höchste Nummer oben). Die Tabelle und der Druck zeigen immer den ganzen Jahrgang (Ticket Soll 4),
@@ -214,8 +225,8 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
   const abgabeJe = new Map<string, { id: string; csv_sha256: string }>()
   if (amaIds.length > 0) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: rawAbg } = await (supabase.from('meldung_abgaben') as any)
-      .select('id, ama_meldung_id, csv_sha256').eq('tenant_id', tenantId).in('ama_meldung_id', amaIds)
+    const rawAbg = geladen(await (supabase.from('meldung_abgaben') as any)
+      .select('id, ama_meldung_id, csv_sha256').eq('tenant_id', tenantId).in('ama_meldung_id', amaIds), 'Abgaben der Erntemeldung')
     for (const a of (rawAbg ?? []) as AR[]) abgabeJe.set(a.ama_meldung_id, { id: a.id, csv_sha256: a.csv_sha256 })
   }
   const amaVersionen: AMAVersion[] = ((rawA ?? []) as AR[])
@@ -223,8 +234,8 @@ export async function ladeLeseKontext(id: string, leseParam: string | string[] |
   const amaNeueste = neuesteAmaVersion(amaVersionen)
   if (amaNeueste) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: rawPos } = await (supabase.from('ama_meldepositionen') as any)
-      .select('rebsorte_name, flaeche_ha, menge_kg').eq('meldung_id', amaNeueste.id).order('rebsorte_name')
+    const rawPos = geladen(await (supabase.from('ama_meldepositionen') as any)
+      .select('rebsorte_name, flaeche_ha, menge_kg').eq('meldung_id', amaNeueste.id).order('rebsorte_name'), 'Positionen der Erntemeldung')
     amaMeldung = {
       ...amaNeueste,
       positionen: (rawPos ?? []) as AMAMeldung['positionen'],
