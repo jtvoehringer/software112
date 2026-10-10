@@ -7,6 +7,7 @@ import { ereignisMelden } from '@/lib/system/ereignis'
 import { sumupWebhookUrl } from '@/lib/sumup/webhook'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
+import { jsonBody, ungueltigeAnfrage } from '@/lib/api/body'
 
 // POST /api/sumup/checkout
 // Erstellt einen SumUp Checkout für einen Verkaufsposten.
@@ -46,7 +47,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'SumUp API-Key nicht konfiguriert' }, { status: 400 })
   }
 
-  const body: R = await req.json()
+  const body = await jsonBody(req)   // Sweep 103: leerer/kaputter Inhalt → 400 statt HTML-500
+  if (!body) return ungueltigeAnfrage('error')
   const { verkaufsposten_id, betrag, beschreibung } = body
 
   if (!betrag || betrag <= 0) {

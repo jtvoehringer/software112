@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { ereignisMelden } from '@/lib/system/ereignis'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { jsonBody, UNGUELTIGE_ANFRAGE } from '@/lib/api/body'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -35,7 +36,9 @@ export async function POST(req: NextRequest) {
   const s = await createSupabaseServerClient()
   const { data: { user } } = await s.auth.getUser()
   if (!user) return NextResponse.json({ ok: false })
-  const { release_note_id } = await req.json() as R
+  const body = await jsonBody(req)   // Sweep 103: leerer/kaputter Inhalt → 400 statt HTML-500
+  if (!body) return NextResponse.json({ ok: false, fehler: UNGUELTIGE_ANFRAGE }, { status: 400 })
+  const { release_note_id } = body
   { const { error: e } = await (s.from('release_notes_gesehen') as any).upsert(
     { user_id: user.id, release_note_id },
     { onConflict: 'user_id,release_note_id' }

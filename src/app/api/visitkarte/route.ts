@@ -4,6 +4,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
+import { jsonBody, ungueltigeAnfrage } from '@/lib/api/body'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -20,7 +21,9 @@ export async function POST(req: NextRequest) {
   const gesperrt = await schreibSperreKonflikt(await getCurrentMembership(), 'ki')   // KAN-5: KI gesperrt (Kosten)
   if (gesperrt) return gesperrt
 
-  const { imageBase64, mediaType } = await req.json() as R
+  const body = await jsonBody(req)   // Sweep 103: leerer/kaputter Inhalt → 400 statt HTML-500
+  if (!body) return ungueltigeAnfrage()
+  const { imageBase64, mediaType } = body
 
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
   try {

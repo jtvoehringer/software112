@@ -9,6 +9,7 @@ import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { BILD_BUCKET, bildArtAusName, bildFehler, bildPfad, istBildArt, type BildArt } from '@/lib/handel/datenblatt'
+import { formBody, ungueltigeAnfrage } from '@/lib/api/body'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -53,7 +54,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { id } = await params
   const k = await kontext(id)
   if (k instanceof NextResponse) return k
-  const fd = await req.formData()
+  const fd = await formBody(req)   // Sweep 103: leerer/kaputter Inhalt → 400 statt HTML-500
+  if (!fd) return ungueltigeAnfrage()
   const art = fd.get('art')
   if (!istBildArt(art)) return fehler(400, 'Unbekannte Bildart')
   const datei = fd.get('datei')
