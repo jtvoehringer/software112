@@ -1,6 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
-import { hatBestaetigtenFaktor } from '@/lib/auth/mfa'
+import { hatBestaetigtenFaktor, zweiFaktorErfuellt } from '@/lib/auth/mfa'
 import { authCookieOptionen } from '@/lib/tenant/subdomain'
 import { elabelRewritePfad } from '@/lib/elabel/oeffentlich'
 import { sichererWeiterPfad, weiterFuerUmleitung } from '@/lib/tenant/waechter'
@@ -104,7 +104,7 @@ export async function proxy(request: NextRequest) {
   if (user && pathname !== '/zwei-faktor' && !pathname.startsWith('/auth/') && !pathname.startsWith('/.well-known/') && pathname !== '/login'
       && !pathname.startsWith('/w/') && !pathname.startsWith('/e/')) {   // KAN-217: öffentliche Seiten auch ohne zweiten Faktor
     const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
-    if (hatBestaetigtenFaktor(user) && aal?.currentLevel !== 'aal2') {
+    if (hatBestaetigtenFaktor(user) && !zweiFaktorErfuellt(aal)) {   // KAN-287: auch Passkey-Anmeldung
       return umleiten('/zwei-faktor')
     }
   }

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { isAuthSessionMissingError } from '@supabase/supabase-js'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
-import { hatBestaetigtenFaktor, mfaPflichtAktiv } from '@/lib/auth/mfa'
+import { hatBestaetigtenFaktor, zweiFaktorErfuellt, mfaPflichtAktiv } from '@/lib/auth/mfa'
 
 // ── Zwei-Faktor-Prüfung für API-Routen (KAN-54, 24.9.2026) ───────────────────
 //
@@ -39,7 +39,7 @@ export async function pruefeZweiFaktor(): Promise<NextResponse | null> {
   // currentLevel aus dem signierten Zugriffstoken (von getUser() bestätigt),
   // Faktoren aus dem geprüften User – nicht aus dem Cookie (siehe lib/auth/mfa.ts)
   const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
-  if (aal?.currentLevel === 'aal2') return null
+  if (zweiFaktorErfuellt(aal)) return null   // KAN-287: auch Passkey-Anmeldung
   if (hatBestaetigtenFaktor(user)) {
     return verweigert('Zwei-Faktor-Anmeldung erforderlich – bitte zuerst den Code aus der Authenticator-App eingeben.')
   }
