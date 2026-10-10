@@ -34,7 +34,8 @@ export async function ladeMfaStand(supabase: R, role: UserRole): Promise<MfaStan
   if (aalErr || faktorErr) throw new Error(`Zwei-Faktor-Stand konnte nicht geladen werden: ${(aalErr ?? faktorErr).message}`)
   const hatFaktor = ((faktoren?.totp ?? []) as R[]).some(f => f.status === 'verified')
   const pflicht = MFA_PFLICHT_ROLLEN.includes(role)
-  return { hatFaktor, stufe: (aal?.currentLevel ?? null) as MfaStand['stufe'], pflicht, pflichtAktiv: mfaPflichtAktiv(role) }
+  // KAN-287: Passkey-Anmeldung gilt als Zwei-Faktor (Stufe wie aal2)
+  return { hatFaktor, stufe: (zweiFaktorErfuellt(aal) ? 'aal2' : aal?.currentLevel ?? null) as MfaStand['stufe'], pflicht, pflichtAktiv: mfaPflichtAktiv(role) }
 }
 
 // ── Prüfung für Proxy und API-Routen (KAN-54, 24.9.2026) ─────────────────────
@@ -46,6 +47,18 @@ export async function ladeMfaStand(supabase: R, role: UserRole): Promise<MfaStan
 // getUser() im selben Request beim Auth-Server bestätigt hat.
 
 type MfaUser = { factors?: { status: string }[] | null } | null | undefined
+
+// ── Passkey als Zwei-Faktor (KAN-287, Entscheidung Jörgen 10.10.2026) ────────────────────────────────────────────
+// Supabase stuft eine Passkey-Anmeldung als aal1 ein (gemessen: auth.sessions.aal = aal1, amr „passkey“). Ein Passkey ist
+// aber Gerät plus Biometrie bzw. PIN – er ersetzt den Code. Gleiche Regel in der Datenbank (s112_aal_ok, Migration
+// kan287_passkey_aal). Methoden und Stufe stammen aus demselben signierten Zugriffstoken, das getUser() bestätigt.
+type AalStand = { currentLevel?: string | null; currentAuthenticationMethods?: readonly (string | { method?: string })[] | null } | null | undefined
+
+/** Zwei-Faktor erfüllt: Stufe aal2 oder Anmeldung per Passkey */
+export function zweiFaktorErfuellt(aal: AalStand): boolean {
+  if (aal?.currentLevel === 'aal2') return true
+  return (aal?.currentAuthenticationMethods ?? []).some(m => (typeof m === 'string' ? m : m?.method) === 'passkey')
+}
 
 /** Bestätigter Faktor vorhanden? `user` muss aus supabase.auth.getUser() stammen. */
 export function hatBestaetigtenFaktor(user: MfaUser): boolean {

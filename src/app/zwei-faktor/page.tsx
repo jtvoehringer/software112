@@ -13,6 +13,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { BetriebsPruefMelder } from '@/components/BetriebsWaechter'
 import { mitWeiter } from '@/lib/tenant/waechter'
+import { zweiFaktorErfuellt } from '@/lib/auth/mfa'
 import PasskeyVerwaltung from '@/components/PasskeyVerwaltung'
 
 type Modus = 'laden' | 'code' | 'einrichten' | 'aktiv'
@@ -45,7 +46,7 @@ function ZweiFaktor() {
     const verifiziert = (fl?.totp ?? []).find(f => f.status === 'verified') as Faktor | undefined
     if (verifiziert) {
       setFaktor(verifiziert)
-      setModus(aal?.currentLevel === 'aal2' ? 'aktiv' : 'code')
+      setModus(zweiFaktorErfuellt(aal) ? 'aktiv' : 'code')   // KAN-287: Passkey-Anmeldung gilt
     } else {
       setFaktor(null)
       setModus('einrichten')

@@ -1,7 +1,7 @@
 import { cache } from 'react'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getActiveTenantCookie } from '@/lib/auth/activeTenant'
-import { hatBestaetigtenFaktor } from '@/lib/auth/mfa'
+import { hatBestaetigtenFaktor, zweiFaktorErfuellt } from '@/lib/auth/mfa'
 import { aktiveSubdomain } from '@/lib/tenant/subdomainServer'
 
 export type UserRole = 'system_admin' | 'tenant_admin' | 'winzer' | 'leser' | null
@@ -60,7 +60,7 @@ export const getCurrentMembership = cache(async function getCurrentMembership():
   // kan136_zwei_faktor_datenbank.sql.) currentLevel stammt aus dem von getUser() geprüften JWT.
   if (hatBestaetigtenFaktor(user)) {
     const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
-    if (aal?.currentLevel !== 'aal2') return null
+    if (!zweiFaktorErfuellt(aal)) return null   // KAN-287: auch Passkey-Anmeldung
   }
 
   // KAN-31: Auf einer Betriebs-Subdomain gilt NUR dieser Betrieb (Host jeder Anfrage, auch Server Actions und /api) –
