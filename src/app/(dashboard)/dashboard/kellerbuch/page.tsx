@@ -5,6 +5,7 @@ import { DashHeader, Tile, Note, fmtNum } from '../_shared/ui'
 import { getCtx, ladeKeller, ladeEinstellungen } from '../_shared/data'
 import { canWrite } from '@/lib/auth/roles'
 import ChargenKanban from './ChargenKanban'
+import { journalAbweichungenAnzahl } from '@/lib/kellerbuch/journal'
 
 export const metadata: Metadata = { title: 'Kellerbuch – Übersicht – software:112' }
 export const dynamic = 'force-dynamic'
@@ -17,7 +18,11 @@ export const dynamic = 'force-dynamic'
 export default async function KellerbuchSichtPage() {
   const ctx = await getCtx()
   const einst = await ladeEinstellungen(ctx)
-  const keller = await ladeKeller(ctx, einst.messintervallTage)
+  const [keller, abweichungen] = await Promise.all([
+    ladeKeller(ctx, einst.messintervallTage),
+    // KAN-51: Konsistenz Ist ↔ Bewegungsjournal (journal_konsistenz) – Grundlage von BSM und BKI-Schnittstelle
+    ctx.tenantId ? journalAbweichungenAnzahl(ctx.supabase, ctx.tenantId) : Promise.resolve(null),
+  ])
 
   return (
     <div className="space-y-6">
@@ -26,6 +31,13 @@ export default async function KellerbuchSichtPage() {
         sub={<>Alle Chargen im Fluss – von der Übernahme bis zur Füllung. <b className="font-semibold text-s112-text">Auf eine Charge klicken</b> öffnet Details{einst.assistentAktiv ? ' mit KI-Unterstützung durch bot:112' : ''}.</>}
         right={<Link href="/kellerbuch" className="text-[12.5px] text-s112-blue-700 hover:underline whitespace-nowrap">Zum Kellerbuch (Behälter) →</Link>}
       />
+
+      {abweichungen !== null && abweichungen > 0 && (
+        <div role="status" className="bg-s112-warn-bg border border-s112-warn/30 text-s112-warn-fg rounded-lg px-4 py-3 text-[12.5px]">
+          Das Bewegungsjournal weicht bei <b className="font-semibold">{abweichungen} Posten</b> vom Ist-Bestand ab – Bestandsmeldung und BKI-Schnittstelle rechnen mit dem Journal.{' '}
+          <Link href="/kellerbuch/journal" className="underline">Abweichungen ansehen →</Link>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
         <Tile label="Gebinde belegt" icon={Warehouse} href="/kellerbuch"

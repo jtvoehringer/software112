@@ -112,6 +112,17 @@ export async function ladeJournalAbweichungen(supabase: any, tenantId: string): 
   })) as JournalAbweichung[]
 }
 
+/** KAN-51: Dashboard-Hinweis – Zahl der Abweichungen Ist ↔ Journal; null = Journal nicht aktiv bzw. Prüfung gescheitert
+ *  (das Dashboard soll an einer fehlgeschlagenen Prüfung nicht scheitern – die Journalseite zeigt den Fehler). */
+export async function journalAbweichungenAnzahl(supabase: any, tenantId: string): Promise<number | null> {
+  try {
+    if (!(await ladeJournalBeginn(supabase, tenantId))) return null
+    return (await ladeJournalAbweichungen(supabase, tenantId)).length
+  } catch {
+    return null
+  }
+}
+
 /** Menge einer Journalzeile für die Anzeige (Flaschen in Stück, sonst Liter) */
 export function journalMenge(z: Pick<JournalBuchung, 'bestand' | 'menge_liter' | 'menge_stk'>): { wert: number; einheit: 'l' | 'Stk' } {
   return z.bestand === 'flasche' ? { wert: z.menge_stk, einheit: 'Stk' } : { wert: z.menge_liter, einheit: 'l' }
