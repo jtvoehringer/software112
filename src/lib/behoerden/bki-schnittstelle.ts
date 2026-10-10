@@ -41,9 +41,9 @@ export const BKI_BLAETTER: readonly BkiBlatt[] = [
   { blatt: 'RV zum Eingang', meldung: 'bki-rv-eingang', nurEinzeln: 'je Charge oder Grundstück unter Kellerbuch › BKI-Schnittstelle › Rückverfolgung' },
   { blatt: 'RV zum Ausgang', meldung: 'bki-rv-ausgang', nurEinzeln: 'je Charge oder Füllung unter Kellerbuch › BKI-Schnittstelle › Rückverfolgung' },
   { blatt: 'Lagerstand zum Zeitraum', meldung: 'bki-lagerstand' },
-  { blatt: 'Verkauf im Zeitraum', meldung: null, folgt: 'KAN-49' },
-  { blatt: 'Einkauf im Zeitraum', meldung: null, folgt: 'KAN-49' },
-  { blatt: 'TBS-Aufstellung', meldung: null, folgt: 'KAN-49' },
+  { blatt: 'Verkauf im Zeitraum', meldung: 'bki-verkauf' },
+  { blatt: 'Einkauf im Zeitraum', meldung: 'bki-einkauf' },
+  { blatt: 'TBS-Aufstellung', meldung: 'bki-tbs' },
   { blatt: 'Lagerbewegungen', meldung: 'bki-lagerbewegungen' },
   { blatt: 'Besondere Konten', meldung: 'bki-besondere-konten' },
   { blatt: 'BSM', meldung: 'bsm' },
@@ -65,6 +65,9 @@ export function parameterFuer(meldung: string, z: BkiZeitraum): URLSearchParams 
     case 'bki-lagerstand': return new URLSearchParams({ stichtag: z.stichtag })
     case 'bki-lagerbewegungen':
     case 'bki-besondere-konten':
+    case 'bki-verkauf':
+    case 'bki-einkauf':
+    case 'bki-tbs':
     case 'bsm': return new URLSearchParams({ von: z.von, bis: z.bis })
     case 'besondere-konten': return new URLSearchParams({ jahr: String(weinwirtschaftsjahr(z.bis)) })
     default: return new URLSearchParams()
@@ -83,6 +86,8 @@ export const LAENGEN: Readonly<Record<string, Readonly<Record<string, number>>>>
   'bki-erzeugnisse': { 'Kürzel': 8 },
   'bki-buchungsarten': { 'Kürzel': 50 },
   'bki-besondere-konten': { Buchungsart: 50, Art: 50, 'Los-Nr': 50, Empfangscharge: 50 },
+  'bki-verkauf': { 'Erzeugnis lt. Liste': 8, Farbe: 8, 'Länderkürzel': 4, 'Qualitätsstufe': 8, 'Buchungsart BSM': 50, Buchungsart: 50 },
+  'bki-einkauf': { 'Erzeugnis lt. Liste': 8, Farbe: 8, 'Länderkürzel': 4, 'Qualitätsstufe': 8, 'Buchungsart BSM': 50, Buchungsart: 50 },
 }
 const MAX_TEXT = 255
 
@@ -94,6 +99,9 @@ export const MINDESTANGABEN: Readonly<Record<string, readonly string[]>> = {
   'bki-lagerstand': ['Erzeugnis lt. Liste', 'Farbe', 'Qualitätsstufe', 'IST-Menge in lt.'],
   'bki-lagerbewegungen': ['Datum', 'BelegNr.', 'Erzeugnis lt. Liste', 'Buchungsart BSM'],
   'bki-besondere-konten': ['Datum', 'Buchungsart', 'Bezeichnung', 'Art', 'Menge'],
+  'bki-verkauf': ['Datum', 'BelegNr.', 'Erzeugnis lt. Liste', 'Buchungsart BSM'],
+  'bki-einkauf': ['Datum', 'BelegNr.', 'Erzeugnis lt. Liste', 'Buchungsart BSM'],
+  'bki-tbs': ['Datum', 'TBS Nummer', 'Menge'],
 }
 
 /** BelegNr. ist laut Spezifikation int(10) */

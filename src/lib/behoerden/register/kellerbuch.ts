@@ -7,6 +7,7 @@ import { ladeKellerBehandlungen, SPALTEN_KELLER_BEHANDLUNGEN } from '../keller-b
 import { ladeGebindeverzeichnis, SPALTEN_GEBINDEVERZEICHNIS } from '../gebindeverzeichnis'
 import { ladeWeinbuch, ladeWeinbuchSammlung, SPALTEN_WEINBUCH } from '../weinbuch'
 import { ladeRueckverfolgung, SPALTEN_RUECKVERFOLGUNG } from '../rueckverfolgung'
+import { ladeEinkaufImZeitraum, ladeTbsAufstellung, ladeVerkaufImZeitraum, SPALTEN_EINKAUF_IM_ZEITRAUM, SPALTEN_TBS_AUFSTELLUNG, SPALTEN_VERKAUF_IM_ZEITRAUM, zeitraumStufeAus } from '../bki-verkauf-einkauf'
 import { ladeRvAusgang, ladeRvEingang, SPALTEN_RV_AUSGANG, SPALTEN_RV_EINGANG } from '../bki-rv'
 import { ladeBesondereKonten, ladeBkiBesondereKonten, SPALTEN_BESONDERE_KONTEN, SPALTEN_BKI_BESONDERE_KONTEN } from '../besondereKonten'
 import { ladeRueckruf, SPALTEN_RUECKRUF, type RueckrufStart } from '../rueckruf'
@@ -263,6 +264,31 @@ export const MELDUNGEN_KELLERBUCH = {
     spalten: SPALTEN_RV_AUSGANG,
     dateiteile: (p, betrieb) => ['RV-Ausgang', betrieb.betriebsnummer, zeitraumTeil(p)],
     bki: p => ({ bericht: 'RV-zum-Ausgang', von: p.von, bis: p.bis }),
+  }),
+
+  // KAN-49
+  'bki-verkauf': definiereMeldung(KATALOG_KELLERBUCH['bki-verkauf'], {
+    parameter: sp => zeitraumStufeAus(sp),
+    laden: (ctx, p) => ladeVerkaufImZeitraum(ctx.supabase, ctx.tenantId, p),
+    spalten: SPALTEN_VERKAUF_IM_ZEITRAUM,
+    dateiteile: (p, betrieb) => ['Verkauf', betrieb.betriebsnummer, zeitraumTeil(p), p.stufe],
+    bki: p => ({ bericht: ['Verkauf-im-Zeitraum', p.stufe], von: p.von, bis: p.bis }),
+  }),
+
+  'bki-einkauf': definiereMeldung(KATALOG_KELLERBUCH['bki-einkauf'], {
+    parameter: sp => zeitraumStufeAus(sp),
+    laden: (ctx, p) => ladeEinkaufImZeitraum(ctx.supabase, ctx.tenantId, p),
+    spalten: SPALTEN_EINKAUF_IM_ZEITRAUM,
+    dateiteile: (p, betrieb) => ['Einkauf', betrieb.betriebsnummer, zeitraumTeil(p), p.stufe],
+    bki: p => ({ bericht: ['Einkauf-im-Zeitraum', p.stufe], von: p.von, bis: p.bis }),
+  }),
+
+  'bki-tbs': definiereMeldung(KATALOG_KELLERBUCH['bki-tbs'], {
+    parameter: sp => zeitraumStufeAus(sp),
+    laden: (ctx, p) => ladeTbsAufstellung(ctx.supabase, ctx.tenantId, { ...p, betriebName: ctx.betrieb.name }),
+    spalten: SPALTEN_TBS_AUFSTELLUNG,
+    dateiteile: (p, betrieb) => ['TBS-Aufstellung', betrieb.betriebsnummer, zeitraumTeil(p), p.stufe],
+    bki: p => ({ bericht: ['TBS-Aufstellung', p.stufe], von: p.von, bis: p.bis }),
   }),
 
   'bki-lagerstand': definiereMeldung(KATALOG_KELLERBUCH['bki-lagerstand'], {

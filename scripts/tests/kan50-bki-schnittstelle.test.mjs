@@ -136,12 +136,11 @@ describe('BKI-Schnittstelle: Prüfung und Mappe', nurMitHooks, () => {
       ? { blatt: b, daten: { spalten: SP, zeilen: [{ d: '2026-10-01', b: '1', e: 'WEIN', a: 'ERNTE', m: 1 }], warnungen: ['Ladehinweis'] }, hinweise: [] }
       : { blatt: b, daten: null, hinweise: b.meldung ? [{ blatt: b.blatt, art: 'fehler', text: 'kein Zugriff: x' }] : [] })
     const bericht = s.pruefbericht(erg)
-    assert.deepEqual(bericht.filter(h => h.art === 'fehlt').map(h => h.blatt), ['Verkauf im Zeitraum', 'Einkauf im Zeitraum', 'TBS-Aufstellung'])   // RV seit KAN-46
+    assert.deepEqual(bericht.filter(h => h.art === 'fehlt').map(h => h.blatt), [])   // RV seit KAN-46, Verkauf/Einkauf/TBS seit KAN-49
     assert.ok(bericht.some(h => h.blatt === 'Lagerbewegungen' && h.text === '1 Zeile(n)'))
     assert.ok(bericht.some(h => h.blatt === 'Lagerbewegungen' && h.text === 'Ladehinweis'))
     const z = zipLesen(s.bkiMappe(erg, { betrieb: 'Testbetrieb', zeitraum: { von: '2026-08-01', bis: '2026-10-10', stichtag: '2026-10-10' } }))
     assert.match(z.get('xl/workbook.xml'), /<sheets><sheet name="Prüfbericht"[^>]*\/><sheet name="Lagerbewegungen"[^>]*\/><\/sheets>/)
-    assert.match(z.get('xl/worksheets/sheet1.xml'), /folgt mit KAN-49/)
     assert.match(z.get('xl/worksheets/sheet1.xml'), /braucht eine Auswahl/)
   })
 
