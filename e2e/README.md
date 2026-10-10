@@ -126,7 +126,13 @@ Traces sind in CI aus, weil sie Sitzungs-Cookies enthalten.
   - `kellerbuch.spec.ts`: Teilmenge umziehen und stornieren (KAN-321), Füllung anlegen und stornieren
   - `verkauf.spec.ts`: Zahlung und Zahlungsstorno (KAN-321)
   - `mandantentrennung.spec.ts`: Fremdbetrieb per SQL, 22 Detailseiten, Suche, Exporte, CSV, API (Befund: globale Suche HTTP 500)
-- Offen: Verschnitt und Füllung im Kellerbuch (Rest von 1), Aufräumen (6)
+- Aufräumen (6): Jeder schreibende Test storniert seine Buchung selbst und storniert zu Beginn die Reste abgebrochener
+  Läufe („E2E-Test …“). Stornierte Zeilen bleiben stehen (Stornieren statt Löschen, KAN-145); endgültig gelöscht wird bewusst nicht.
+- Bewusst nicht automatisiert: **Verschnitt**. Sein Storno stellt die Rebsorte der Ziel-Charge nicht wieder her (keine
+  Momentaufnahme, `src/lib/kellerbuch/storno.ts`) – jeder Lauf würde Chargen auf Staging dauerhaft verändern. Erst mit eigenen
+  Test-Chargen, die sich danach wieder entfernen lassen.
+- Schreibende Tests teilen sich Staging: Kellerbuch-Tests laufen nacheinander (eine Füllung lässt sich nach einer späteren
+  Buchung an der Charge nicht mehr stornieren), der Verkaufstest verkauft nie aus einer „E2E-Test“-Füllung.
 - Einzelne Dateien per Workflow-Eingabe „auswahl“ starten (z. B. `e2e/verkauf.spec.ts`)
 
 Sobald es eine Test-Umgebung gibt (eigenes Supabase-Projekt oder Supabase-Branch mit
