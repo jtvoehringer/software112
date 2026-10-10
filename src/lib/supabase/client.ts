@@ -12,6 +12,11 @@ export function createSupabaseBrowserClient() {
   return createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    cookieOptions ? { cookieOptions } : undefined
+    {
+      ...(cookieOptions ? { cookieOptions } : {}),
+      // KAN-287: Anmeldung per Passkey (Fingerabdruck, Gesicht, Windows Hello) – bei Supabase noch experimentell;
+      // im Projekt unter Authentication → Passkeys eingeschaltet (Jörgen, 10.10.2026)
+      auth: { experimental: { passkey: true } },
+    },
   )
 }

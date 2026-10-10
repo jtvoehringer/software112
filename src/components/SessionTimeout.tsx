@@ -5,22 +5,11 @@ import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { Bell } from 'lucide-react'
 import { useDialog } from '@/components/ui/useDialog'
 
-import { SITZUNG_COOKIE, sitzungWert, timeoutMinuten as zeitspanne } from '@/lib/auth/sitzung'
-import { authCookieOptionen } from '@/lib/tenant/subdomain'
+import { timeoutMinuten as zeitspanne } from '@/lib/auth/sitzung'
+// KAN-286: Sitzungs-Cookie (ohne Ablaufdatum) mit letzter Aktivität und Zeitspanne – der Proxy prüft es serverseitig
+import { sitzungsCookieSchreiben } from '@/lib/auth/sitzungCookie'
 
 interface Props { timeoutMinuten?: number | null }
-
-/** KAN-286: Sitzungs-Cookie (ohne Ablaufdatum) mit letzter Aktivität und Zeitspanne – der Proxy prüft es serverseitig */
-function sitzungsCookieSchreiben(minuten: number, loeschen = false) {
-  try {
-    const domain = authCookieOptionen(window.location.host)?.domain
-    const teile = [`${SITZUNG_COOKIE}=${loeschen ? '' : sitzungWert(Date.now(), minuten)}`, 'path=/', 'samesite=lax']
-    if (loeschen) teile.push('max-age=0')
-    if (window.location.protocol === 'https:') teile.push('secure')
-    if (domain) teile.push(`domain=${domain}`)
-    document.cookie = teile.join('; ')
-  } catch { /* Cookie ist Zusatznutzen – der Proxy setzt es beim nächsten Seitenaufruf ebenfalls */ }
-}
 
 export default function SessionTimeout({ timeoutMinuten: eingestellt }: Props) {
   // KAN-286: ohne Einstellung des Betriebs gilt der Standard (60 Minuten) – vorher lief die Sitzung dann nie ab

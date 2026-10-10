@@ -6,12 +6,14 @@
 //  - kein Faktor → Authenticator-App einrichten (QR-Code scannen, Code bestätigen)
 //  - Faktor vorhanden und bestätigt (aal2) → Status, entfernen
 // Liegt bewusst außerhalb von (dashboard), damit die Pflicht-Weiterleitung keine Schleife bildet.
+// KAN-287 (10.10.2026): zusätzlich Passkeys für die Anmeldung ohne Passwort (PasskeyVerwaltung).
 
 import { Suspense, useCallback, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { BetriebsPruefMelder } from '@/components/BetriebsWaechter'
 import { mitWeiter } from '@/lib/tenant/waechter'
+import PasskeyVerwaltung from '@/components/PasskeyVerwaltung'
 
 type Modus = 'laden' | 'code' | 'einrichten' | 'aktiv'
 type Faktor = { id: string; status: string; friendly_name?: string | null; created_at?: string }
@@ -185,6 +187,7 @@ function ZweiFaktor() {
                   {codeFeld}
                 </>
               )}
+              {!qr && <PasskeyVerwaltung />}
             </>
           )}
 
@@ -196,6 +199,7 @@ function ZweiFaktor() {
                 <button type="button" onClick={() => router.push('/profil')} className="flex-1 bg-s112-teal text-s112-yellow py-2 rounded-lg text-sm font-semibold">Zurück zum Profil</button>
                 <button type="button" onClick={entfernen} disabled={laeuft} className="px-3 py-2 rounded-lg text-sm border border-s112-line-str text-s112-err-fg hover:bg-s112-err-bg disabled:opacity-40">Entfernen</button>
               </div>
+              <PasskeyVerwaltung />
             </>
           )}
 
