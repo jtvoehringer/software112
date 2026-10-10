@@ -47,6 +47,17 @@ test.describe('Kellerbuch (schreibend)', () => {
     const marke = `E2E-Test ${Date.now()}`
     page.on('dialog', d => d.accept())   // Rückfragen (z. B. Prüfnummer) bestätigen
 
+    // Aufräumen: nicht stornierte Umzüge abgebrochener früherer Läufe zurückbuchen (sonst fehlen Menge bzw. leere Gebinde)
+    await formularOeffnen(page)
+    for (let i = 0; i < 10; i++) {
+      const rest = page.locator('tr', { hasText: 'E2E-Test' }).filter({ hasNotText: 'storniert am' }).filter({ has: page.getByRole('button', { name: 'Stornieren' }) }).first()
+      if (await rest.count() === 0) break
+      await rest.getByRole('button', { name: 'Stornieren' }).first().click()
+      await rest.getByLabel(/Grund des Stornos/).fill('E2E-Test: Rest eines abgebrochenen Laufs')
+      await rest.getByRole('button', { name: 'Stornieren' }).last().click()
+      await expect(rest.getByText(/storniert am/)).toBeVisible({ timeout: 20_000 })
+    }
+
     await formularOeffnen(page)
     const quelle = auswahl(page, QUELLE_LEER)
     const q = (await optionen(quelle)).find(o => o.wert && literAmEnde(o.text) >= MENGE * 4)
@@ -63,7 +74,8 @@ test.describe('Kellerbuch (schreibend)', () => {
     await ziel.locator('xpath=following-sibling::input[1]').fill(String(MENGE))
     await page.getByLabel('Notizen').fill(marke)
     await page.getByRole('button', { name: /^Umziehen \(/ }).click()
-    await page.waitForURL(url => !url.pathname.startsWith('/kellerbuch/umziehen') || url.search === '', { timeout: 30_000 })
+    // erst weiter, wenn die Buchung fertig ist – vorher las der Test die Quelle schon abgebucht, das Ziel noch leer
+    await expect(page.getByText('Gespeichert – weiterleiten…')).toBeVisible({ timeout: 30_000 })
 
     const nachUmzug = await stand(page, q!.wert, z!.wert)
     expect(nachUmzug.quelleLiter, 'Quelle nach dem Umzug').toBeCloseTo(vorher - MENGE, 2)
