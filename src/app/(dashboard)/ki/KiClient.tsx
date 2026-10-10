@@ -5,6 +5,7 @@ import Link from '@/components/ui/Link'
 import { Bot, ExternalLink } from 'lucide-react'
 import { exportCSV } from '@/lib/utils/csv'
 import { csvDateiname } from '@/lib/csv'
+import { fehlerText } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -99,7 +100,7 @@ export default function KiClient({ aktiv, paket, verbraucht }: Props) {
       const data = await res.json()
       if (!res.ok || data.fehler) { setFehler(data.fehler ?? 'Fehler'); setLaden(false); return }
       setErgebnis(data)
-    } catch (err) { setFehler(String(err)) }
+    } catch (err) { setFehler(fehlerText(err)) }
     finally { setLaden(false) }
   }
 

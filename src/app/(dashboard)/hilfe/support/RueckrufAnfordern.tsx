@@ -5,6 +5,7 @@
 
 import { useState } from 'react'
 import { PhoneCall } from 'lucide-react'
+import { fehlerText } from '@/lib/fehler'
 
 export default function RueckrufAnfordern() {
   const [telefon, setTelefon] = useState('')
@@ -28,7 +29,7 @@ export default function RueckrufAnfordern() {
       setErfolg(d.key ?? '')
       setZeitfenster(''); setAnliegen('')
     } catch (err) {
-      setFehler((err as Error).message)
+      setFehler(fehlerText(err))
     } finally {
       setSendet(false)
     }

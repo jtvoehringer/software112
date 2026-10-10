@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from 'react'
 import { X, Send, Loader2, Mic, Square, Volume2, VolumeX } from 'lucide-react'
 import { BotIcon } from './BotIcon'
 import { useSpracheingabe, kannVorlesen, vorlesen, vorlesenStoppen } from './useSpracheingabe'
+import { fehlerText } from '@/lib/fehler'
 
 // Sprachsteuerung (Rückmeldung 2.9.2026, Paket "Premium: Bot:112 mit
 // Sprachsteuerung"): Mikrofon-Button neben dem Eingabefeld (Web Speech API,
@@ -97,7 +98,7 @@ export default function AssistentWidget() {
       setNachrichten(prev => [...prev, { rolle: 'assistant', inhalt: data.antwort }])
       if (vorlesenAn) vorlesen(String(data.antwort ?? ''))
     } catch (err) {
-      setFehler(String(err))
+      setFehler(fehlerText(err))
     } finally {
       setLaden(false)
       // Eingabefeld bleibt absichtlich WÄHREND des Ladens aktiv nutzbar (siehe

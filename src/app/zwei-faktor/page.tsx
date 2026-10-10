@@ -16,6 +16,7 @@ import { mitWeiter } from '@/lib/tenant/waechter'
 import { zweiFaktorErfuellt } from '@/lib/auth/mfa'
 import PasskeyVerwaltung from '@/components/PasskeyVerwaltung'
 import { authFehlerText } from '@/lib/auth/authFehler'
+import { fehlerText } from '@/lib/fehler'
 
 type Modus = 'laden' | 'code' | 'einrichten' | 'aktiv'
 type Faktor = { id: string; status: string; friendly_name?: string | null; created_at?: string }
@@ -71,7 +72,7 @@ function ZweiFaktor() {
       setFaktor({ id: data.id, status: 'unverified' })
       setQr(data.totp.qr_code)
       setGeheimnis(data.totp.secret)
-    } catch (e) { setFehler(e instanceof Error ? e.message : String(e)) }
+    } catch (e) { setFehler(fehlerText(e)) }
     finally { setLaeuft(false) }
   }
 

@@ -15,6 +15,7 @@
 // bleiben identisch.
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { fehlerText } from '@/lib/fehler'
 
 // Die Web Speech API ist (noch) nicht in lib.dom.d.ts enthalten - Minimal-Typen
 // für das, was hier gebraucht wird.
@@ -135,7 +136,7 @@ export function useSpracheingabe(onFertig: (text: string) => void): Spracheingab
       if (text) onFertigRef.current(text)
     }
     recRef.current = rec
-    try { rec.start() } catch (err) { recRef.current = null; setFehler(String(err)) }
+    try { rec.start() } catch (err) { recRef.current = null; setFehler(fehlerText(err)) }
   }, [])
 
   return { unterstuetzt, hoert, zwischenstand, fehler, start, stop, abbrechen }

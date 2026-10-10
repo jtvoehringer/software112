@@ -13,6 +13,7 @@ import BehoerdenUebersicht from '@/components/behoerden/BehoerdenUebersicht'
 import type { UebersichtGruppe } from '@/lib/behoerden/uebersicht'
 import { CU_GRENZWERT_KG_HA_JAHR, type CuStatus } from '@/lib/behoerden/cu'
 import { tageSeit } from '@/lib/datum/wien'
+import { fehlerText } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -361,7 +362,7 @@ export default function ReportsClient({
       const json = await res.json()
       if (!res.ok || json.fehler) { setVsFehler(json.fehler ?? 'Fehler beim Laden.'); return }
       setVsResult(json)
-    } catch (err) { setVsFehler(String(err)) }
+    } catch (err) { setVsFehler(fehlerText(err)) }
     finally { setVsLaden(false) }
   }
 
@@ -426,7 +427,7 @@ export default function ReportsClient({
       const json = await res.json()
       if (!res.ok || json.fehler) { setWbFehler(json.fehler ?? 'Fehler beim Laden.'); return }
       setWbResult(json)
-    } catch (err) { setWbFehler(String(err)) }
+    } catch (err) { setWbFehler(fehlerText(err)) }
     finally { setWbLaden(false) }
   }
 
@@ -447,7 +448,7 @@ export default function ReportsClient({
       const json = await res.json()
       if (!res.ok || json.fehler) { setBFehler(json.fehler ?? 'Fehler'); return }
       setBResult(json)
-    } catch (err) { setBFehler(String(err)) }
+    } catch (err) { setBFehler(fehlerText(err)) }
     finally { setBLaden(false) }
   }
 

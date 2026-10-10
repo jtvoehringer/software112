@@ -183,6 +183,9 @@ const SYNTAX_RE = /invalid input syntax for type ([a-z ]+): "([^"]*)"/
 const NICHT_NULL_RE = /null value in column "([^"]+)"(?: of relation "([^"]+)")? violates not-null constraint/
 const UEBERLAUF_RE = /numeric field overflow/
 const DATUM_RE = /date\/time field value out of range: "([^"]*)"/
+// Sweep 109: Netz- und Antwortfehler des Browsers (Chrome/Edge, Firefox, Safari)
+const NETZ_RE = /(?:TypeError:\s*)?(?:Failed to fetch|NetworkError when attempting to fetch resource\.?|Load failed|Network request failed)/
+const JSON_RE = /(?:SyntaxError:\s*)?(?:Unexpected token '?<'?[^\n]*?(?:JSON|is not valid JSON)[^\n]*|Unexpected end of JSON input|JSON\.parse: [^\n]*)/
 
 const TYP_NAME: Record<string, string> = {
   date: 'ein Datum', uuid: 'eine Auswahl', numeric: 'eine Zahl', integer: 'eine ganze Zahl', smallint: 'eine ganze Zahl',
@@ -235,6 +238,11 @@ export function uebersetzeDbMeldung(text: string): string {
   if (m) return ersetze(m[0], 'Eine Zahl ist zu groß für dieses Feld.')
   m = DATUM_RE.exec(text)
   if (m) return ersetze(m[0], `„${m[1]}“ ist kein gültiges Datum.`)
+  // Sweep 109: Fehler des Browsers bei fetch – vorher „Fehler: TypeError: Failed to fetch“ bzw. „Unexpected token <“
+  m = NETZ_RE.exec(text)
+  if (m) return ersetze(m[0], 'Keine Verbindung zum Server – bitte die Internetverbindung prüfen und erneut versuchen.')
+  m = JSON_RE.exec(text)
+  if (m) return ersetze(m[0], 'Die Antwort des Servers konnte nicht gelesen werden – bitte die Seite neu laden und erneut versuchen.')
   return text
 }
 

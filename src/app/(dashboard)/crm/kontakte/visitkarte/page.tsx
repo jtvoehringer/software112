@@ -112,7 +112,7 @@ export default function VisitkartenScannerPage() {
       setKontakt(data.kontakt)
       setPhase('bestaetigen')
     } catch (e) {
-      setFehler(String(e)); setPhase('start')
+      setFehler(fehlerText(e)); setPhase('start')
     }
   }
 

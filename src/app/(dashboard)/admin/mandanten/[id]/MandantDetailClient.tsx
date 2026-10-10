@@ -981,7 +981,7 @@ function M365Tab({ tenant, settings }: { tenant: TenantDetail; settings: TenantS
       const json = await res.json()
       if (!res.ok || json.fehler) { setSubResult('Fehler: ' + (json.fehler ?? 'Unbekannt')); return }
       setSubResult(`Webhook ${json.aktion} · gültig bis ${new Date(json.expires).toLocaleString('de-AT')}`)
-    } catch (err) { setSubResult('Fehler: ' + String(err)) }
+    } catch (err) { setSubResult('Fehler: ' + fehlerText(err)) }
     finally { setSubLoading(false) }
   }
 
@@ -1140,7 +1140,7 @@ function EmailTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
       const res = await fetch('/api/email/poll', { method: 'POST' })
       const json = await res.json()
       setPollResult(json.fehler ? `Fehler: ${json.fehler}` : `${json.neu} neue E-Mail(s) importiert`)
-    } catch (err) { setPollResult(`Fehler: ${err}`) }
+    } catch (err) { setPollResult(`Fehler: ${fehlerText(err)}`) }
     finally { setPolling(false) }
   }
 

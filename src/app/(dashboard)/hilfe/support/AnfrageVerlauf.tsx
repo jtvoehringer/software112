@@ -5,6 +5,7 @@
 
 import { useEffect, useState } from 'react'
 import { Send } from 'lucide-react'
+import { fehlerText } from '@/lib/fehler'
 
 type Kommentar = { id: string; vonKunde: boolean; autor: string; text: string; am: string }
 type Detail = { key: string; betreff: string; beschreibung: string; status: string; erledigt: boolean; erstellt: string; kommentare: Kommentar[] }
@@ -26,7 +27,7 @@ export default function AnfrageVerlauf({ anfrageKey, onGeaendert }: { anfrageKey
         return d as Detail
       })
       .then(d => { if (!abgebrochen) setDetail(d) })
-      .catch(e => { if (!abgebrochen) setFehler((e as Error).message) })
+      .catch(e => { if (!abgebrochen) setFehler(fehlerText(e)) })
     return () => { abgebrochen = true }
   }, [anfrageKey])
 
@@ -44,7 +45,7 @@ export default function AnfrageVerlauf({ anfrageKey, onGeaendert }: { anfrageKey
       setAntwort('')
       onGeaendert?.()
     } catch (err) {
-      setFehler((err as Error).message)
+      setFehler(fehlerText(err))
     } finally {
       setSendet(false)
     }

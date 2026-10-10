@@ -7,6 +7,7 @@ import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { FileText, ImagePlus, Trash2 } from 'lucide-react'
 import { BILD_ARTEN, BILD_LABEL, bildFehler, type BildArt } from '@/lib/handel/datenblatt'
+import { fehlerText } from '@/lib/fehler'
 
 export default function DatenblattKarte({ fuellungId, bilder, schreiben }: {
   fuellungId: string
@@ -38,7 +39,7 @@ export default function DatenblattKarte({ fuellungId, bilder, schreiben }: {
         await antwortPruefen(await fetch(`${basis}/bilder`, { method: 'POST', body: fd }), 'Das Bild konnte nicht gespeichert werden.')
         router.refresh()
       } catch (e) {
-        setFehler(e instanceof Error ? e.message : 'Das Bild konnte nicht gespeichert werden.')
+        setFehler(fehlerText(e, 'Das Bild konnte nicht gespeichert werden.'))
       } finally {
         const el = eingaben.current[art]
         if (el) el.value = ''
@@ -54,7 +55,7 @@ export default function DatenblattKarte({ fuellungId, bilder, schreiben }: {
         await antwortPruefen(await fetch(`${basis}/bilder?art=${art}`, { method: 'DELETE' }), 'Das Bild konnte nicht entfernt werden.')
         router.refresh()
       } catch (e) {
-        setFehler(e instanceof Error ? e.message : 'Das Bild konnte nicht entfernt werden.')
+        setFehler(fehlerText(e, 'Das Bild konnte nicht entfernt werden.'))
       }
     })
   }

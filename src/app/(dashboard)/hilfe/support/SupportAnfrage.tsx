@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ChevronDown, ChevronRight, Paperclip, Send, X } from 'lucide-react'
 import AnfrageVerlauf from './AnfrageVerlauf'
 import { screenshotFehler } from '@/lib/support/anfrage'
+import { fehlerText } from '@/lib/fehler'
 
 type Option = { wert: string; label: string }
 type Anfrage = { key: string; betreff: string; status: string; erledigt: boolean; erstellt: string; link: string }
@@ -59,7 +60,7 @@ export default function SupportAnfrage({ emailFallback }: { emailFallback: strin
         setStand(d)
         setArt(a => a || d.arten?.[0]?.wert || '')
       })
-      .catch(e => { if (!abgebrochen) setLadeFehler((e as Error).message) })
+      .catch(e => { if (!abgebrochen) setLadeFehler(fehlerText(e)) })
     return () => { abgebrochen = true }
   }, [ladeZaehler])
   useEffect(() => () => { if (vorschau) URL.revokeObjectURL(vorschau) }, [vorschau])
@@ -114,7 +115,7 @@ export default function SupportAnfrage({ emailFallback }: { emailFallback: strin
       setBetreff(''); setBeschreibung(''); setDringlichkeit('normal'); anhangEntfernen()
       laden()
     } catch (err) {
-      setFehler((err as Error).message)
+      setFehler(fehlerText(err))
     } finally {
       setSendet(false)
     }

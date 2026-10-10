@@ -475,7 +475,7 @@ export default function FirmaDetailClient({
       if (!res.ok || json.fehler) { setEmailResult('Fehler: ' + (json.fehler ?? 'Unbekannt')); return }
       setEmailResult('E-Mail gesendet'); setEmailBetreff(''); setEmailText('')
       setTimeout(() => { setShowEmailModal(false); setEmailResult(null) }, 1500)
-    } catch (err) { setEmailResult('Fehler: ' + String(err)) }
+    } catch (err) { setEmailResult('Fehler: ' + fehlerText(err)) }
     finally { setEmailSending(false) }
   }
 
