@@ -62,7 +62,8 @@ test.describe('Kellerbuch (schreibend)', () => {
       // die stornierte Zeile fällt aus dem Filter – daher auf weniger offene Reste warten, nicht auf „storniert am“ in ihr
       await expect(reste, 'Rest nicht storniert').toHaveCount(anzahl - 1, { timeout: 20_000 })
       // „storniert am“ kommt aus der gespeicherten Zeile – erst dann ist die Rückbuchung auch in den Beständen
-      await expect(storniert, 'Storno nicht gespeichert').toHaveCount(stornierteVorher + 1, { timeout: 20_000 })
+      // (ein Umzug kann mehrere Zeilen haben, Quelle und Ziel – daher „mehr als vorher“)
+      await expect.poll(() => storniert.count(), { message: 'Storno nicht gespeichert', timeout: 20_000 }).toBeGreaterThan(stornierteVorher)
     }
 
     await formularOeffnen(page)
