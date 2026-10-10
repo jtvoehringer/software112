@@ -160,7 +160,7 @@ export default function DacForm({ dac, weinausbau, analysen = [], preChargeId, a
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div>
             <label className="form-label">Jahrgang</label>
-            <input aria-label="Jahrgang" name="jahrgang" type="number" disabled={gesperrt('jahrgang')} min="1900" max="2100" value={jahrgang} onChange={e => setJahrgang(e.target.value)} className="form-input" />
+            <input aria-label="Jahrgang" name="jahrgang" type="number" step="1" disabled={gesperrt('jahrgang')} min="1900" max="2100" value={jahrgang} onChange={e => setJahrgang(e.target.value)} className="form-input" />
           </div>
           <div>
             <label className="form-label">Rebsorte</label>

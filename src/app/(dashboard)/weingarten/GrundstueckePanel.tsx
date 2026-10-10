@@ -321,7 +321,7 @@ function GSTForm({ weingartenId, gst, customWeinbaugebiete, onNeuesWeinbaugebiet
         {/* Pflanzjahr & Bewirtschaftung */}
         <div>
           <label className={labelCls}>Pflanzjahr</label>
-          <input aria-label="Pflanzjahr" name="pflanzjahr" type="number" min="1900" max="2100" defaultValue={gst?.pflanzjahr ?? ''} className={inputCls} />
+          <input aria-label="Pflanzjahr" name="pflanzjahr" type="number" step="1" min="1900" max="2100" defaultValue={gst?.pflanzjahr ?? ''} className={inputCls} />
         </div>
         <div>
           <label className={labelCls}>Bewirtschaftung</label>

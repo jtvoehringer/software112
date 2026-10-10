@@ -194,7 +194,7 @@ export default function AnlageForm({ initial, buchungen = [], darfSchreiben }: {
             {form.methode !== 'gwg' && (
               <div>
                 <label htmlFor="an-nd" className={lbl}>Nutzungsdauer (Jahre) *</label>
-                <input id="an-nd" type="number" min={1} max={100} className={`${inp} font-mono`} value={form.nutzungsdauer_jahre} onChange={e => set('nutzungsdauer_jahre', e.target.value)} disabled={ro} />
+                <input id="an-nd" type="number" step="1" min={1} max={100} className={`${inp} font-mono`} value={form.nutzungsdauer_jahre} onChange={e => set('nutzungsdauer_jahre', e.target.value)} disabled={ro} />
               </div>
             )}
             {form.methode === 'degressiv' && (

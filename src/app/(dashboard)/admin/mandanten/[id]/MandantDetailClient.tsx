@@ -207,7 +207,7 @@ function BrandingTab({ tenant, settings }: { tenant: TenantDetail; settings: Ten
         <label className="block text-xs font-medium text-s112-text-2 mb-1">
           Session Timeout (Minuten)
         </label>
-        <input aria-label="Session Timeout (Minuten)" name="session_timeout_minuten" type="number" min="5" max="480"
+        <input aria-label="Session Timeout (Minuten)" name="session_timeout_minuten" type="number" step="1" min="5" max="480"
           defaultValue={settings.session_timeout_minuten ?? ''}
           placeholder="Leer = kein Timeout" className={inputCls()} style={{ maxWidth: '180px' }} />
         <p className="text-xs text-s112-muted mt-1">
@@ -540,7 +540,7 @@ function BrevoTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
             <div key={f.name}>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">{f.label}</label>
               <input name={f.name} defaultValue={f.val ?? ''}
-                placeholder="z.B. 3" type="number" min="1"
+                placeholder="z.B. 3" type="number" step="1" min="1"
                 className="w-full border border-s112-border rounded-lg px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
             </div>
           ))}
@@ -1169,7 +1169,7 @@ function EmailTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Port</label>
-              <input aria-label="Port" name="email_smtp_port" type="number" defaultValue={settings.email_smtp_port} className={inputCls()} />
+              <input aria-label="Port" name="email_smtp_port" type="number" step="1" defaultValue={settings.email_smtp_port} className={inputCls()} />
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Benutzername / E-Mail</label>
@@ -1196,7 +1196,7 @@ function EmailTab({ tenant, settings }: { tenant: TenantDetail; settings: Tenant
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Port</label>
-              <input aria-label="Port" name="email_imap_port" type="number" defaultValue={settings.email_imap_port} className={inputCls()} />
+              <input aria-label="Port" name="email_imap_port" type="number" step="1" defaultValue={settings.email_imap_port} className={inputCls()} />
             </div>
             <div className="col-span-2">
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Benutzername / E-Mail</label>
@@ -1343,7 +1343,7 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Stellen</label>
             <input aria-label="Stellen"
               name="rechnung_stellen"
-              type="number"
+              type="number" step="1"
               value={stellen}
               onChange={e => setStellen(Math.max(1, Math.min(8, parseInt(e.target.value) || 4 /* null-vorgabe-ok: Stellenzahl 1–8, eine 0 ist keine gültige Eingabe */)))}
               min={1} max={8}
@@ -1398,7 +1398,7 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Stellen</label>
             <input aria-label="Stellen"
               name="account_stellen"
-              type="number"
+              type="number" step="1"
               value={kStellen}
               onChange={e => setKStellen(Math.max(1, Math.min(8, parseInt(e.target.value) || 4 /* null-vorgabe-ok: Stellenzahl 1–8, eine 0 ist keine gültige Eingabe */)))}
               min={1} max={8}
@@ -1431,7 +1431,7 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
         </div>
         <div className="flex items-center gap-2">
           <input
-            type="number"
+            type="number" step="1"
             value={resetVal}
             onChange={e => setResetVal(e.target.value)}
             min={1}
@@ -1464,7 +1464,7 @@ function VerkaufTab({ tenant, settings }: { tenant: TenantDetail; settings: Tena
         </div>
         <div className="flex items-center gap-2">
           <input
-            type="number"
+            type="number" step="1"
             value={kResetVal}
             onChange={e => setKResetVal(e.target.value)}
             min={1}

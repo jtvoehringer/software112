@@ -101,7 +101,7 @@ function PipelineForm({
         </div>
         <div>
           <label className="block text-xs font-medium text-s112-text-2 mb-1">Wahrscheinlichkeit (%)</label>
-          <input aria-label="Wahrscheinlichkeit (%)" name="wahrscheinlichkeit" type="number" defaultValue={v('wahrscheinlichkeit')}
+          <input aria-label="Wahrscheinlichkeit (%)" name="wahrscheinlichkeit" type="number" step="1" defaultValue={v('wahrscheinlichkeit')}
             min="0" max="100" placeholder="z.B. 60" className={inputCls()} />
         </div>
         <div>

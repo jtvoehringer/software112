@@ -52,7 +52,7 @@ export default function NeueLeseForm({ vorschlag, vorhandene = [] }: {
         <label htmlFor="lese-jahrgang" className="block text-sm font-medium text-s112-text-1 mb-1">
           Jahrgang <span className="text-s112-err">*</span>
         </label>
-        <input id="lese-jahrgang" name="jahrgang" type="number" required min="1900" max="2100"
+        <input id="lese-jahrgang" name="jahrgang" type="number" step="1" required min="1900" max="2100"
           value={jahr} onChange={e => setJahr(e.target.value)}
           aria-describedby={HINWEIS_ID}
           className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />

@@ -252,7 +252,7 @@ function BrandingTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
 
       <div>
         <label className="block text-xs font-medium text-s112-text-2 mb-1">Session Timeout (Minuten)</label>
-        <input aria-label="Session Timeout (Minuten)" name="session_timeout_minuten" type="number" min="5" max="480"
+        <input aria-label="Session Timeout (Minuten)" name="session_timeout_minuten" type="number" step="1" min="5" max="480"
           defaultValue={daten.session_timeout_minuten ?? ''}
           placeholder="Leer = kein Timeout" className={inputCls()} style={{ maxWidth: '180px' }} />
         <p className="text-xs text-s112-muted mt-1">
@@ -267,19 +267,19 @@ function BrandingTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Gärkontrolle fällig nach (Tage)</label>
-            <input aria-label="Gärkontrolle fällig nach (Tage)" name="gaerung_messintervall_tage" type="number" min="1" max="60" required
+            <input aria-label="Gärkontrolle fällig nach (Tage)" name="gaerung_messintervall_tage" type="number" step="1" min="1" max="60" required
               defaultValue={daten.gaerung_messintervall_tage} className={inputCls()} style={{ maxWidth: '180px' }} />
             <p className="text-xs text-s112-muted mt-1">Charge in Gärung ohne Weinanalyse seit so vielen Tagen gilt als „Messung fällig“ (Kellerbuch-Kanban, Übersicht, Glocke).</p>
           </div>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Fristen-Vorwarnung (Tage)</label>
-            <input aria-label="Fristen-Vorwarnung (Tage)" name="fristen_vorwarnung_tage" type="number" min="1" max="365" required
+            <input aria-label="Fristen-Vorwarnung (Tage)" name="fristen_vorwarnung_tage" type="number" step="1" min="1" max="365" required
               defaultValue={daten.fristen_vorwarnung_tage} className={inputCls()} style={{ maxWidth: '180px' }} />
             <p className="text-xs text-s112-muted mt-1">So viele Tage vor dem Termin springt eine Frist von „offen“ auf „fällig“ (Ampel, Glocke, Offene Aufgaben).</p>
           </div>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Erfassungsfrist Pflanzenschutz (Stunden)</label>
-            <input aria-label="Erfassungsfrist Pflanzenschutz (Stunden)" name="psm_erfassungsfrist_h" type="number" min="1" max="720" required
+            <input aria-label="Erfassungsfrist Pflanzenschutz (Stunden)" name="psm_erfassungsfrist_h" type="number" step="1" min="1" max="720" required
               defaultValue={daten.psm_erfassungsfrist_h} className={inputCls()} style={{ maxWidth: '180px' }} />
             <p className="text-xs text-s112-muted mt-1">Ab Ende des Anwendungstags (24:00); später erfasste Pflanzenschutz-Maßnahmen und Düngungen gelten als „nacherfasst“ (Ampel bis 72 h gelb, darüber rot).</p>
           </div>
@@ -300,12 +300,12 @@ function BrandingTabOwn({ daten }: { daten: EigeneBetriebsdaten }) {
           </label>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Belag abgewaschen ab (mm Regen seit Behandlung)</label>
-            <input aria-label="Belag abgewaschen ab (mm Regen seit Behandlung)" name="wetter_abwasch_mm" type="number" min="5" max="100" required defaultValue={daten.wetter_abwasch_mm} className={inputCls()} style={{ maxWidth: '180px' }} />
+            <input aria-label="Belag abgewaschen ab (mm Regen seit Behandlung)" name="wetter_abwasch_mm" type="number" step="1" min="5" max="100" required defaultValue={daten.wetter_abwasch_mm} className={inputCls()} style={{ maxWidth: '180px' }} />
             <p className="text-xs text-s112-muted mt-1">Faustregel 20–30 mm; ab 60 % davon gilt der Belag als nachlassend.</p>
           </div>
           <div>
             <label className="block text-xs font-medium text-s112-text-2 mb-1">Spritzintervall (Tage, Mai–August)</label>
-            <input aria-label="Spritzintervall (Tage, Mai–August)" name="wetter_intervall_tage" type="number" min="5" max="60" required defaultValue={daten.wetter_intervall_tage} className={inputCls()} style={{ maxWidth: '180px' }} />
+            <input aria-label="Spritzintervall (Tage, Mai–August)" name="wetter_intervall_tage" type="number" step="1" min="5" max="60" required defaultValue={daten.wetter_intervall_tage} className={inputCls()} style={{ maxWidth: '180px' }} />
             <p className="text-xs text-s112-muted mt-1">Länger ohne Behandlung → Hinweis „Spritzintervall abgelaufen“ im Morgenbericht.</p>
           </div>
         </div>

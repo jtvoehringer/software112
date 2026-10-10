@@ -142,7 +142,7 @@ export default async function EroeffnungsbestandEditPage({ params, searchParams 
           </div>
           <div>
             <label className={labelCls}>Jahrgang</label>
-            <input aria-label="Jahrgang" name="jahrgang" type="number" min={1900} max={2100}
+            <input aria-label="Jahrgang" name="jahrgang" type="number" step="1" min={1900} max={2100}
               defaultValue={eintrag.jahrgang ?? ''} className={inputCls} />
           </div>
           <div>

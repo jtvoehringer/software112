@@ -107,12 +107,12 @@ function ZeitForm({
         <div className="grid grid-cols-3 gap-2">
           <div>
             <label className="block text-xs text-s112-text-2 mb-1">Input Tokens</label>
-            <input aria-label="Input Tokens" type="number" name="tokens_input" min="0"
+            <input aria-label="Input Tokens" type="number" step="1" name="tokens_input" min="0"
               defaultValue={initial?.tokens_input ?? ''} className={inputCls} />
           </div>
           <div>
             <label className="block text-xs text-s112-text-2 mb-1">Output Tokens</label>
-            <input aria-label="Output Tokens" type="number" name="tokens_output" min="0"
+            <input aria-label="Output Tokens" type="number" step="1" name="tokens_output" min="0"
               defaultValue={initial?.tokens_output ?? ''} className={inputCls} />
           </div>
           <div>

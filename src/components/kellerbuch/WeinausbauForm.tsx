@@ -155,7 +155,7 @@ export default function WeinausbauForm({ weinausbau, weingaerten, behaelter, sel
                 <div className={rdOnly}>{weinausbau?.jahrgang ?? '–'}</div>
               </>
             ) : (
-              <input aria-label="Jahrgang" name="jahrgang" type="number" min="1900" max="2100" required={!istEB} defaultValue={weinausbau?.jahrgang ?? (istEB ? '' : new Date().getFullYear())} className="form-input" />
+              <input aria-label="Jahrgang" name="jahrgang" type="number" step="1" min="1900" max="2100" required={!istEB} defaultValue={weinausbau?.jahrgang ?? (istEB ? '' : new Date().getFullYear())} className="form-input" />
             )}
           </div>
         </div>
