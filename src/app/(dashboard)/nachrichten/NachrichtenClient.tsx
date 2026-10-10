@@ -155,7 +155,7 @@ export default function NachrichtenClient() {
         else if ((d.postfaecher ?? 0) === 0) teile.push('kein verbundenes Postfach')
         if (probleme.length) teile.push(probleme[0])
         setSpiegelInfo(teile.join(' · '))
-      } catch (e) { setFehler(String(e)) }
+      } catch (e) { setFehler(fehlerText(e)) }
       finally { setSpiegelLaeuft(false) }
     }
     const [deleteConfirm, setDeleteConfirm]       = useState(false)
@@ -192,7 +192,7 @@ export default function NachrichtenClient() {
         // blieb die Ordnerliste einfach leer, ohne dass der Grund sichtbar war.
         if (d.folders) { setFolders(sortFolders(d.folders)); setFehler(null) }
         else if (d.fehler) setFehler(d.fehler)
-      } catch (e) { setFehler(String(e)) }
+      } catch (e) { setFehler(fehlerText(e)) }
     }, [])
 
     useEffect(() => {
@@ -266,7 +266,7 @@ export default function NachrichtenClient() {
         // Oberste Nachricht direkt öffnen (Rückmeldung 18.9.2026) - außer im Verfassen-Modus
         const erste = (data.messages ?? [])[0] as Msg | undefined
         if (erste && !composeRef.current) autoOeffnen.current = erste
-      } catch (e) { if (gen === loadGenRef.current) setFehler(String(e)) }
+      } catch (e) { if (gen === loadGenRef.current) setFehler(fehlerText(e)) }
       finally { if (gen === loadGenRef.current) setLaden(false) }
     }, [folder, folderId, activeMailbox])
 
@@ -282,7 +282,7 @@ export default function NachrichtenClient() {
         if (!res.ok || data.fehler) { setFehler(data.fehler ?? 'Fehler'); return }
         setMessages(prev => { const ids = new Set(prev.map(m => m.id)); return [...prev, ...((data.messages ?? []) as Msg[]).filter(m => !ids.has(m.id))] })
         setHatMehr(!!data.hatMehr); setNaechsteSeite(data.naechsteSeite ?? naechsteSeite + 50)
-      } catch (e) { setFehler(String(e)) }
+      } catch (e) { setFehler(fehlerText(e)) }
       finally { setMehrLaden(false) }
     }
 

@@ -7,6 +7,7 @@ import { fmtNum } from '@/lib/format'
 import LandOptionen from '@/components/crm/LandOptionen'   // KAN-187: Bestimmungsland als ISO-Code aus dem Länderkatalog
 import { heuteWien } from '@/lib/datum/wien'
 import { INCOTERMS, TRANSPORTARTEN as TRANSPORT, EXPORT_EINHEITEN, EXPORT_MAX } from '@/lib/export/auftragEingabe'
+import { fehlerText } from '@/lib/fehler'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
 
@@ -69,7 +70,7 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
       const data = await res.json()
       if (!res.ok) { setFehler(data.fehler ?? 'Fehler'); setAngelegtId(data.id ?? null); setSaving(false); return }
       router.push(`/weinexport/${data.id}`)
-    } catch (err) { setFehler(String(err)); setSaving(false) }
+    } catch (err) { setFehler(fehlerText(err)); setSaving(false) }
   }
 
   const gesamtEUR = positionen.reduce((s, p) => s + (parseFloat(p.menge)||0) * (parseFloat(p.preis_eur)||0), 0)

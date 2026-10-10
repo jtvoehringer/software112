@@ -32,6 +32,10 @@ const MUSTER = [
   // Sweep 107: Cast-Schreibweise ({ error: (error as R).message }) – 56 Stellen rutschten so durch; „as Error“ (Stripe,
   // eigene Ausnahmen) bleibt erlaubt
   /\b(?:error|fehler):\s*\(\s*(?:error|err|e|[a-zA-Z]+Err(?:or)?)\s+as\s+(?!Error\b)[A-Za-z]+\s*\)\.message\b/,
+  // Sweep 109: gefangener Fehler roh angezeigt – String(e), (e as Error).message, `${e}`, e instanceof Error ? e.message : …
+  // In Produktion trägt ein Fehler aus einer Server Action nur den ausgeblendeten Next-Text; die Meldung steckt im digest,
+  // den nur fehlerText(e) liest (dazu Übersetzung von „Failed to fetch“ und JSON-Fehlern)
+  /\b(?:set[A-Z]\w*|alert|toast)\([^;]*(?:String\(\s*(?:e|err|error)\s*\)|\(\s*(?:e|err|error)\s+as\s+Error\s*\)\.message|\$\{\s*(?:e|err|error)\s*\}|\b(?:e|err|error)\s+instanceof\s+Error\s*\?\s*(?:e|err|error)\.message)/,
   // Sweep 107: Rohmeldung im Fehler-Template ({ error: `Daten konnten nicht geladen werden: ${err.message}` }) – 78 Stellen
   /\b(?:error|fehler):\s*`[^`]*\$\{\s*(?:\(\s*(?:error|err|e|[a-zA-Z]+Err(?:or)?)\s+as\s+(?!Error\b)[A-Za-z]+\s*\)|(?:error|err|e|[a-zA-Z]+Err(?:or)?))\??\.message\s*\}/,
 ]
@@ -44,7 +48,8 @@ function pruefeText(text) {
   let ausnahmen = 0
   zeilen.forEach((z, i) => {
     const code = z.replace(/\/\/.*$/, '')
-    if (/instanceof/.test(code) || !MUSTER.some(m => m.test(code))) return
+    // eigene Fehlerklassen mit deutscher Meldung (JsmFehler, M365TokenFehler …) – nicht „instanceof Error“ (Sweep 109)
+    if (/instanceof\s+(?!Error\b)[A-Z]\w*/.test(code) || !MUSTER.some(m => m.test(code))) return
     const marker = zeilen.slice(Math.max(0, i - 2), i + 1).reverse().map(r => AUSNAHME.exec(r.replace(/\r$/, ''))).find(Boolean)
     if (marker) {
       if (marker[1].trim().length >= MIN_GRUND) { ausnahmen++; return }

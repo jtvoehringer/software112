@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { fmtNum } from '@/lib/format'
 import { versandFehler } from '@/lib/kellerbuch/lohnversektung'
 import { lohnversektungVersenden } from '../actions'
+import { fehlerText } from '@/lib/fehler'
 
 type Charge = { id: string; name: string; liter: number; gebinde: string | null }
 type Firma = { id: string; name: string }
@@ -31,7 +32,7 @@ export default function VersandForm({ chargen, firmen, heute, vorauswahl }: { ch
         await lohnversektungVersenden({ weinausbauId, firmaId, datum, notizen })
         router.push('/kellerbuch/lohnversektung')
       } catch (err) {
-        setFehler(err instanceof Error ? err.message : String(err))
+        setFehler(fehlerText(err))
       }
     })
   }

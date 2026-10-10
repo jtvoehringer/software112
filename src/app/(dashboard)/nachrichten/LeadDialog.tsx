@@ -17,6 +17,7 @@ import LandOptionen from '@/components/crm/LandOptionen'
 import type { LeadVorbelegung } from '@/lib/crm/leadEmail'
 import { createLeadAusEmail, type LeadAusEmailDaten } from '../crm/actions'
 import { useDialog } from '@/components/ui/useDialog'
+import { fehlerText } from '@/lib/fehler'
 
 export type LeadMail = {
   id: string; conversationId: string | null; betreff: string; von: string; vonName: string; an: string; datum: string
@@ -93,7 +94,7 @@ export default function LeadDialog({ mail, onClose, onAngelegt }: Props) {
         setPhase('form')
       } catch (e) {
         if (!aktiv) return
-        setFehler('Analyse fehlgeschlagen: ' + String(e)); setEmail(mail.von); setPhase('form')
+        setFehler('Analyse fehlgeschlagen: ' + fehlerText(e)); setEmail(mail.von); setPhase('form')
       }
     })()
     return () => { aktiv = false }
