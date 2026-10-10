@@ -41,7 +41,8 @@ test.describe('Verkauf (schreibend)', () => {
     const fuellung = page.getByLabel('Füllung (Lager)').first()
     await expect(fuellung.locator('option'), 'Füllungen nicht geladen').not.toHaveCount(1, { timeout: 20_000 })
     const optionen = await fuellung.locator('option').evaluateAll(os => os.map(o => ({ wert: (o as HTMLOptionElement).value, text: o.textContent ?? '' })))
-    const mitBestand = optionen.find(o => o.wert && Number(/Bestand:\s*(\d+)/.exec(o.text)?.[1] ?? 0) >= 1)
+    // nie die Füllung des parallel laufenden Kellerbuch-Tests („E2E-Test …“) – deren Storno scheitert nach einem Verkauf
+    const mitBestand = optionen.find(o => o.wert && !o.text.includes('E2E-Test') && Number(/Bestand:\s*(\d+)/.exec(o.text)?.[1] ?? 0) >= 1)
     test.skip(!mitBestand, 'keine Füllung mit Bestand im Testbetrieb')
     const fuellungId = mitBestand!.wert
     const vorher = Number(/Bestand:\s*(\d+)/.exec(mitBestand!.text)![1])
