@@ -1,5 +1,6 @@
 // behoerdenmeldung: uva
 import { redirect } from 'next/navigation'
+import { geladen } from '@/lib/supabase/geladen'
 import Link from '@/components/ui/Link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
@@ -46,8 +47,8 @@ export default async function UvaPage({
   const tenantId = membership.tenantId
   const adminOk  = canAdmin(membership.role)
 
-  const { data: einst } = await (supabase.from('tenant_einstellungen') as any)
-    .select('modul_ea, ea_uva_zeitraum, buchhaltungsart, betrieb_name, betrieb_uid').eq('tenant_id', tenantId).maybeSingle()
+  const einst = geladen(await (supabase.from('tenant_einstellungen') as any)
+    .select('modul_ea, ea_uva_zeitraum, buchhaltungsart, betrieb_name, betrieb_uid').eq('tenant_id', tenantId).maybeSingle(), 'Einstellungen')
   if (!einst?.modul_ea) redirect('/dashboard')
   // Migration 197: bei doppelter Buchhaltung beim Steuerberater ist die UVA hier
   // nur eine Kontroll-Vorschau - die Meldung macht die Kanzlei aus BMD. Deshalb
@@ -67,8 +68,8 @@ export default async function UvaPage({
   // Abgeschlossene Monate dieses Jahres – Voraussetzung für UVA-Übermittlung
   // (siehe Migration 165: sperre_ea_uva prüft das serverseitig ohnehin, hier
   // nur zur besseren UX vorab angezeigt statt erst nach einem Fehlversuch).
-  const { data: abschluesseRaw } = await (supabase.from('ea_monatsabschluss') as any)
-    .select('monat').eq('tenant_id', tenantId).eq('jahr', jahr)
+  const abschluesseRaw = geladen(await (supabase.from('ea_monatsabschluss') as any)
+    .select('monat').eq('tenant_id', tenantId).eq('jahr', jahr), 'Monatsabschlüsse')
   const abgeschlosseneMonate = new Set(((abschluesseRaw ?? []) as R[]).map(a => a.monat as number))
 
   const benoetigteMonate = (z: string): number[] =>

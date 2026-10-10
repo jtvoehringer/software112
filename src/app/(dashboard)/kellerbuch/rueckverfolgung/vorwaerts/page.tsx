@@ -1,5 +1,6 @@
 // behoerdenmeldung: rueckverfolgung-vorwaerts
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
@@ -32,7 +33,7 @@ export default async function RueckrufPage({ searchParams }: { searchParams: Pro
   const tf = (q: AR) => q.eq('tenant_id', tenantId)
 
   // Auswahllisten (bewusst begrenzt: die jüngsten Einträge; ältere über die Los-Nr.)
-  const [{ data: fl }, { data: ch }, { data: pr }] = await Promise.all([
+  const [flRes, chRes, prRes] = await Promise.all([
     // alle-ausnahme: Auswahlliste der jüngsten 300 Füllungen – ältere per Los-Nr. suchen
     tf((supabase.from('fuellungen') as AR).select('id, name, chargennummer, datum').is('storniert_am', null).order('datum', { ascending: false }).order('id').limit(300)),
     // alle-ausnahme: Auswahlliste der jüngsten 300 Chargen – ältere über Los bzw. Pressung
@@ -40,6 +41,9 @@ export default async function RueckrufPage({ searchParams }: { searchParams: Pro
     // alle-ausnahme: Auswahlliste der jüngsten 200 Pressungen
     tf((supabase.from('pressungen') as AR).select('id, datum, weinbezeichnung').is('storniert_am', null).order('datum', { ascending: false }).order('id').limit(200)),
   ])
+  const fl = geladen(flRes, 'Füllungen')
+  const ch = geladen(chRes, 'Chargen')
+  const pr = geladen(prRes, 'Pressungen')
 
   // Startpunkt: Los-Nr. → Füllung; sonst fuellung | charge | pressung
   let start: RueckrufStart | null = null
@@ -47,7 +51,7 @@ export default async function RueckrufPage({ searchParams }: { searchParams: Pro
   const los = (sp.los ?? '').trim()
   if (los) {
     // alle-ausnahme: Suche nach einer Los-Nr. (eindeutig je Betrieb, KAN-92)
-    const { data: treffer } = await tf((supabase.from('fuellungen') as AR).select('id').eq('chargennummer', los).is('storniert_am', null).limit(2))
+    const treffer = geladen(await tf((supabase.from('fuellungen') as AR).select('id').eq('chargennummer', los).is('storniert_am', null).limit(2)), 'Füllungen')
     const t = (treffer ?? []) as AR[]
     if (t.length === 1) start = { art: 'fuellung', id: t[0].id }
     else losFehler = t.length === 0 ? `Keine Füllung mit der Los-Nr. „${los}“.` : `Los-Nr. „${los}“ ist nicht eindeutig.`

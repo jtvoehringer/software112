@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { alle } from '@/lib/supabase/alle'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
@@ -21,7 +22,7 @@ export default async function PipelinePage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
-  const [{ data: pRaw }, { data: kRaw }, { data: fRaw }] = await Promise.all([
+  const [pRawRes, kRawRes, fRawRes] = await Promise.all([
     alle(tf((supabase.from('pipeline_eintraege') as any)
       .select('id, stufe, titel, kategorie, wert_euro, wahrscheinlichkeit, erwartetes_datum, ganztags, uhrzeit_von, uhrzeit_bis, erledigt, erledigt_am, notizen, aktualisiert_am, kontakt_id, kontakte:kontakt_id(vorname,nachname), firma_id, firmen:firma_id(name)')
       .order('aktualisiert_am', { ascending: false }).order('id'))),
@@ -36,6 +37,9 @@ export default async function PipelinePage() {
       .eq('aktiv', true)
       .order('name').order('id'))),
   ])
+  const pRaw = geladen(pRawRes, 'Pipeline')
+  const kRaw = geladen(kRawRes, 'Kontakte')
+  const fRaw = geladen(fRawRes, 'Firmen')
 
   const eintraege: PipelineEintragRow[] = ((pRaw ?? []) as R[]).map(p => {
     const k = p.kontakte as R | null

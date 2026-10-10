@@ -1,6 +1,7 @@
 // KAN-115 (07.10.2026): Sonstiges Produkt – Art, Lagerstand führen, Liter je Stück und Lagerkonto (Anfangsbestand,
 // Zugang, Verarbeitung aus der Charge, Verkauf, Inventur, Storno). Außerhalb von Weinbuch und Bestandsmeldung.
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { getCurrentMembership, getCurrentUserRole, canWrite } from '@/lib/auth/roles'
 import { schreibSperre } from '@/lib/auth/sperren'
 import { notFound } from 'next/navigation'
@@ -24,9 +25,9 @@ export default async function ProduktPage({ params }: { params: Promise<{ id: st
   const nurLesen = !!(await schreibSperre(membership))
   const writeOk = canWrite(role, 'warenwirtschaft') && !nurLesen
 
-  const { data: artikel } = await (supabase.from('sonstige_artikel') as unknown as AR)
+  const artikel = geladen(await (supabase.from('sonstige_artikel') as unknown as AR)
     .select('id, name, einheit, default_preis, aktiv, art, bestand_fuehren, liter_je_stk')
-    .eq('id', id).eq('tenant_id', membership.tenantId).maybeSingle()
+    .eq('id', id).eq('tenant_id', membership.tenantId).maybeSingle(), 'Produkte')
   if (!artikel) notFound()
 
   const { data: bewegungen, error } = await alle<ProduktBewegung & AR>((supabase.from('sonstige_artikel_bewegungen') as unknown as AR)

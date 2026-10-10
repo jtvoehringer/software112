@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { getCurrentUserRole, canWrite, canAdmin, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
@@ -31,14 +32,14 @@ export default async function KellerplanListPage() {
   // des Nutzers, nicht nur dem aktiv gewählten Betrieb – ohne diesen Filter könnten bei
   // Mehrfach-Mitgliedschaft Daten vom falschen Betrieb angezeigt werden.
   if (tenantId) query = query.eq('tenant_id', tenantId)
-  const { data: raw } = await query
+  const raw = geladen(await query, 'Kellerpläne')
 
   const plaene = (raw ?? []) as R[]
 
   let posQuery = (supabase.from('kellerplan_positionen') as any)
     .select('kellerplan_id')
   if (tenantId) posQuery = posQuery.eq('tenant_id', tenantId)
-  const { data: posRaw } = await posQuery
+  const posRaw = geladen(await posQuery, 'Kellerplan-Positionen')
   const posCounts: Record<string, number> = {}
   for (const p of (posRaw ?? []) as R[]) {
     posCounts[p.kellerplan_id] = (posCounts[p.kellerplan_id] ?? 0) + 1

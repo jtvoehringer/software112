@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { alle } from '@/lib/supabase/alle'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
@@ -38,7 +39,7 @@ export default async function NeuePage({
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId ?? null
 
-  const [{ data: raw }, { data: anRaw }, { data: offenRaw }] = await Promise.all([
+  const [rawRes, anRawRes, offenRawRes] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     alle((supabase.from('weinausbau') as any).select('id, name, jahrgang, rebsorte, menge_liter').eq('aktiv', true).eq('tenant_id', tenantId).order('name').order('id')),
     preCharge
@@ -49,7 +50,7 @@ export default async function NeuePage({
           .eq('tenant_id', tenantId)
           .is('storniert_am', null)   // KAN-150 F2: stornierte Analysen gelten nicht
           .order('analyse_datum', { ascending: false })
-      : Promise.resolve({ data: [] }),
+      : Promise.resolve({ data: [], error: null }),
     // KAN-98: je Charge höchstens ein offener Antrag
     preCharge
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -57,8 +58,11 @@ export default async function NeuePage({
           .select('id, bezeichnung, status')
           .eq('tenant_id', tenantId).eq('weinausbau_id', preCharge).is('storniert_am', null)
           .in('status', [...PN_OFFENE_ANTRAGS_STATUS]).limit(1)
-      : Promise.resolve({ data: [] }),
+      : Promise.resolve({ data: [], error: null }),
   ])
+  const raw = geladen(rawRes, 'Chargen')
+  const anRaw = geladen(anRawRes, 'Analysen')
+  const offenRaw = geladen(offenRawRes, 'Prüfnummernanträge')
 
   type NameRow = { id: string; name: string; jahrgang: number | null; rebsorte: string | null; menge_liter: number | null }
   const weinausbau = (raw ?? []) as NameRow[]

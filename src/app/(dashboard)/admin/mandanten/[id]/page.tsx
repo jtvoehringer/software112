@@ -1,4 +1,5 @@
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import { geladen } from '@/lib/supabase/geladen'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { isSandboxAdminUnlock } from '@/lib/auth/roles'
 import { istPlattformAdmin } from '@/lib/auth/plattformAdmin'
@@ -138,7 +139,7 @@ export type TenantMember = {
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params
   const admin = createSupabaseAdminClient()
-  const { data } = await (admin.from('tenants') as any).select('name').eq('id', id).single()
+  const data = geladen(await (admin.from('tenants') as any).select('name').eq('id', id).maybeSingle(), 'Betrieb')
   return { title: `${(data as R | null)?.name ?? 'Mandant'} – software:112` }
 }
 
@@ -159,19 +160,22 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
   }
 
   const [
-    { data: tenantRaw },
-    { data: settingsRaw },
-    { data: memberships },
+    tenantRawRes,
+    settingsRawRes,
+    membershipsRes,
     { data: { users } },
   ] = await Promise.all([
     (admin.from('tenants') as any)
-      .select('id, name, slug, plan, created_at, kundennummer, stripe_customer_id, stripe_subscription_id, stripe_status, stripe_plan, stripe_current_period_end, max_benutzer, bio_status, abrechnung_ueber, zusatz_preis_cent').eq('id', id).single(),
+      .select('id, name, slug, plan, created_at, kundennummer, stripe_customer_id, stripe_subscription_id, stripe_status, stripe_plan, stripe_current_period_end, max_benutzer, bio_status, abrechnung_ueber, zusatz_preis_cent').eq('id', id).maybeSingle(),
     (admin.from('tenant_einstellungen') as any)
       .select('*').eq('tenant_id', id).maybeSingle(),
     (admin.from('tenant_memberships') as any)
       .select('id, user_id, role, created_at').eq('tenant_id', id).order('created_at'),
     admin.auth.admin.listUsers({ perPage: 1000 }),
   ])
+  const tenantRaw = geladen(tenantRawRes, 'Betrieb')
+  const settingsRaw = geladen(settingsRawRes, 'Einstellungen')
+  const memberships = geladen(membershipsRes, 'Mitglieder')
 
   if (!tenantRaw) notFound()
 
@@ -187,8 +191,8 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
   const memberUserIds = [...new Set(((memberships ?? []) as R[]).map((m: R) => m.user_id))]
   const nameMap: Record<string, string | null> = {}
   if (memberUserIds.length > 0) {
-    const { data: profilesRaw } = await (admin.from('profiles') as any)
-      .select('id, full_name').in('id', memberUserIds)
+    const profilesRaw = geladen(await (admin.from('profiles') as any)
+      .select('id, full_name').in('id', memberUserIds), 'Benutzer')
     ;(profilesRaw as R[] ?? []).forEach((p: R) => { nameMap[p.id] = p.full_name ?? null })
   }
 
@@ -201,12 +205,15 @@ export default async function MandantDetailPage({ params }: { params: Promise<{ 
   const s = settingsRaw as R | null
 
   // KAN-215/KAN-214: Hauptmandant und Submandanten
-  const [{ data: hauptRaw }, { data: nebenRaw }, { data: kandRaw }] = await Promise.all([
-    t.abrechnung_ueber ? (admin.from('tenants') as R).select('id, name').eq('id', t.abrechnung_ueber).maybeSingle() : Promise.resolve({ data: null }),
+  const [hauptRawRes, nebenRawRes, kandRawRes] = await Promise.all([
+    t.abrechnung_ueber ? (admin.from('tenants') as R).select('id, name').eq('id', t.abrechnung_ueber).maybeSingle() : Promise.resolve({ data: null, error: null }),
     (admin.from('tenants') as R).select('id, name').eq('abrechnung_ueber', id).order('name'),
     (admin.from('tenants') as R).select('id, name').eq('stripe_plan', 'premium')
       .is('abrechnung_ueber', null).neq('id', id).order('name').limit(200),   // alle-ausnahme: Auswahl möglicher Hauptmandanten, wenige Premium-Betriebe
   ])
+  const hauptRaw = geladen(hauptRawRes, 'Betrieb')
+  const nebenRaw = geladen(nebenRawRes, 'Betrieb')
+  const kandRaw = geladen(kandRawRes, 'Betrieb')
   const verbund: VerbundInfo = {
     hauptId: (t.abrechnung_ueber as string | null) ?? null,
     hauptName: ((hauptRaw as R | null)?.name as string | undefined) ?? null,

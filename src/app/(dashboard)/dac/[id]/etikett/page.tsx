@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
@@ -41,7 +42,7 @@ export default async function EtikettPage({ params }: { params: Promise<{ id: st
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
-  const [{ data: rows }, { data: settingsRaw }] = await Promise.all([
+  const [rowsRes, settingsRawRes] = await Promise.all([
     tf((supabase.from('dac_antrag') as any)
       .select('id, bezeichnung, dac_region, jahrgang, rebsorte, menge_liter, alkohol_prozent, status, pruefnummer, bescheid_am, weinausbau_id')
       .eq('id', id)
@@ -51,6 +52,8 @@ export default async function EtikettPage({ params }: { params: Promise<{ id: st
       .select('betrieb_name, betrieb_strasse, betrieb_plz, betrieb_ort, betrieb_uid, logo_url')
       .limit(1)).maybeSingle(),
   ])
+  const rows = geladen(rowsRes, 'Prüfnummernanträge')
+  const settingsRaw = geladen(settingsRawRes, 'Einstellungen')
 
   const dac = (((rows ?? []) as R[])[0] ?? null) as R | null
   if (!dac) notFound()

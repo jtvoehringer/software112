@@ -1,4 +1,5 @@
 import { zielNachAbschluss } from '@/lib/navigation/zurueck'
+import { geladen } from '@/lib/supabase/geladen'
 import { AbbrechenKnopf, ZurueckFeld } from '@/components/navigation/Abbrechen'
 import { redirect } from 'next/navigation'
 import Link from '@/components/ui/Link'
@@ -25,24 +26,24 @@ export default async function BuchhaltungNeuPage() {
   if (!membership?.tenantId) redirect('/login')
   const tenantId = membership.tenantId
 
-  const { data: einst } = await (supabase.from('tenant_einstellungen') as any)
-    .select('modul_ea, ust_satz_standard').eq('tenant_id', tenantId).maybeSingle()
+  const einst = geladen(await (supabase.from('tenant_einstellungen') as any)
+    .select('modul_ea, ust_satz_standard').eq('tenant_id', tenantId).maybeSingle(), 'Einstellungen')
   if (!einst?.modul_ea) redirect('/dashboard')
 
   const ustStandard = einst?.ust_satz_standard ?? 20
 
   // Kategorien laden
-  const { data: kategorien } = await (supabase.from('ea_kategorien') as any)
+  const kategorien = geladen(await (supabase.from('ea_kategorien') as any)
     .select('id, name, typ, ust_satz_std, abzugsfaehig_pct')
     .or(`tenant_id.is.null,tenant_id.eq.${tenantId}`)
     .eq('aktiv', true)
-    .order('sortierung')
+    .order('sortierung'), 'Kategorien')
 
   // Konten laden (optional – nur wenn welche angelegt sind)
-  const { data: konten } = await (supabase.from('konten') as any)
+  const konten = geladen(await (supabase.from('konten') as any)
     .select('id, name')
     .eq('tenant_id', tenantId).eq('aktiv', true)
-    .order('sortierung').order('name')
+    .order('sortierung').order('name'), 'Konten')
 
   async function handleSubmit(formData: FormData) {
     'use server'

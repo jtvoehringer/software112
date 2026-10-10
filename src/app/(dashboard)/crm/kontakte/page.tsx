@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { alle, inBloecken } from '@/lib/supabase/alle'
 import { filterAusParams, ladeKontakteSeite, ladeZaehler, zaehleQuellen, kontaktAusZeile } from '@/lib/crm/liste'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
@@ -33,13 +34,13 @@ export default async function KontaktePage({ searchParams }: { searchParams: Pro
   // Quellen (02.10.2026): ohne RPC – nur die Spalte quelle der Kontakte des
   // Betriebs laden (inaktive nur bei ?inaktiv=1, wie die Liste) und zählen.
   const quellenAbfrage = (() => {
-    if (!tenantId) return Promise.resolve({ data: [] as R[] })
+    if (!tenantId) return Promise.resolve({ data: [] as R[], error: null })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let q = (supabase.from('kontakte') as any).select('id, quelle').eq('tenant_id', tenantId)
     if (!filter.inaktiv) q = q.eq('aktiv', true)
     return alle(q.order('id'))
   })()
-  const [{ rows: kRaw, gesamt }, zaehler, { data: fRaw }, { data: qRaw }] = await Promise.all([
+  const [{ rows: kRaw, gesamt }, zaehler, fRawRes, qRawRes] = await Promise.all([
     ladeKontakteSeite(supabase, tenantId, filter),
     ladeZaehler(supabase, tenantId, 'kontakt'),
     alle(tf((supabase.from('firmen') as any)
@@ -48,11 +49,13 @@ export default async function KontaktePage({ searchParams }: { searchParams: Pro
       .order('name').order('id'))),
     quellenAbfrage,
   ])
+  const fRaw = geladen(fRawRes, 'Firmen')
+  const qRaw = geladen(qRawRes, 'Quellen der Kontakte')
   const quellenZaehler = zaehleQuellen((qRaw ?? []) as R[])
   const ids = kRaw.map(k => k.id as string)
   // inBloecken: die Liste lädt bis zu 1.000 Kontakte – 1.000 IDs in einer URL scheitern (ab ≈ 350), die Aktivitäten
   // blieben dann leer. Ein Kontakt liegt immer ganz in einem Block, die Reihenfolge je Kontakt bleibt.
-  const [{ data: aRaw }, { data: pRaw }] = await Promise.all([
+  const [aRawRes, pRawRes] = await Promise.all([
     inBloecken(ids, b => alle(tf((supabase.from('aktivitaeten') as any)
       .select('id, art, betreff, beschreibung, datum, erledigt, kontakt_id')
       .in('kontakt_id', b)
@@ -62,6 +65,8 @@ export default async function KontaktePage({ searchParams }: { searchParams: Pro
       .in('kontakt_id', b)
       .order('aktualisiert_am', { ascending: false }).order('id')))),
   ])
+  const aRaw = geladen(aRawRes, 'Aktivitäten')
+  const pRaw = geladen(pRawRes, 'Pipeline')
 
   const kontakte: KontaktRow[] = ((kRaw ?? []) as R[]).map(kontaktAusZeile)
 
@@ -72,8 +77,8 @@ export default async function KontaktePage({ searchParams }: { searchParams: Pro
   // Rabattgruppen (non-fatal – Tabelle existiert erst nach Migration 031)
   let rRaw: R[] = []
   try {
-    const { data: r } = await tf((supabase.from('rabattgruppen') as any)
-      .select('id, name, rabatt_pct').order('rabatt_pct'))
+    const r = geladen(await tf((supabase.from('rabattgruppen') as any)
+      .select('id, name, rabatt_pct').order('rabatt_pct')), 'Rabattgruppen')
     rRaw = (r ?? []) as R[]
   } catch { /* Tabelle noch nicht vorhanden */ }
 

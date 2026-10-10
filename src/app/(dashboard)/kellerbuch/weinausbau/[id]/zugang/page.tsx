@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { getCurrentUserRole, canWrite, canAdmin, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
@@ -25,7 +26,7 @@ export default async function ZugangPage({ params }: { params: Promise<{ id: str
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
-  const [{ data: waRaw }, { data: zRaw }] = await Promise.all([
+  const [waRawRes, zRawRes] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tf((supabase.from('weinausbau') as any)
       .select('id, name, menge_liter, aktiv, storniert_am').eq('id', id).maybeSingle()),
@@ -35,6 +36,8 @@ export default async function ZugangPage({ params }: { params: Promise<{ id: str
       .select('id, datum, menge_liter, art, grund, erstellt_von_name, storniert_am, storno_grund')
       .eq('weinausbau_id', id).order('datum', { ascending: false }).order('id')),
   ])
+  const waRaw = geladen(waRawRes, 'Chargen')
+  const zRaw = geladen(zRawRes, 'Zugangskorrekturen')
   if (!waRaw) notFound()
   const wa = waRaw as R
   const moeglich = darf && !wa.storniert_am && wa.aktiv !== false

@@ -5,6 +5,7 @@
 // Betrieb des Eigentümers; verwenden in eigenen Belegen über die Kunden-/Lieferantensuche (Hinweis „aus <Betrieb>“).
 // Kundennummer des Eigentümers nur zur Anzeige – sie geht nicht auf eigene Belege (Momentaufnahme, Migration KAN-212).
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { inBloecken } from '@/lib/supabase/alle'
 import { suchFilter, KONTAKT_SUCHSPALTEN, FIRMA_SUCHSPALTEN } from '@/lib/crm/liste'
@@ -42,10 +43,10 @@ export default async function GemeinsamesCrmPage({ searchParams }: { searchParam
     abfrage = abfrage.eq('aktiv', true)
     for (const f of suchFilter(art === 'kontakte' ? KONTAKT_SUCHSPALTEN : FIRMA_SUCHSPALTEN, q)) abfrage = abfrage.or(f)
     abfrage = art === 'kontakte' ? abfrage.order('nachname').order('vorname', { nullsFirst: false }) : abfrage.order('name')
-    const { data } = await abfrage.order('id')   // erste 100 Treffer (limit oben), die Suche grenzt ein
+    const data = geladen(await abfrage.order('id'), 'Kontakte der Gemeinschaft')   // erste 100 Treffer (limit oben), die Suche grenzt ein
     rows = (data ?? []) as R[]
     const ids = rows.map(r => String(r.id))
-    const [{ data: akt }, { data: pipe }] = await Promise.all([
+    const [aktRes, pipeRes] = await Promise.all([
       inBloecken<R>(ids, b =>
         // tenant-isolation-ignore: KAN-212 CRM-Gemeinschaft – Aktivitäten der freigebenden Betriebe (ohne private, RLS akt_crm_partner)
         (supabase.from('aktivitaeten') as any).select(`id, ${fk}, art, betreff, datum, erledigt`).in('tenant_id', eigentuemer).in(fk, b)
@@ -55,6 +56,8 @@ export default async function GemeinsamesCrmPage({ searchParams }: { searchParam
         (supabase.from('pipeline_eintraege') as any).select(`id, ${fk}, titel, stufe, wert_euro, erwartetes_datum`).in('tenant_id', eigentuemer).in(fk, b)
           .order('aktualisiert_am', { ascending: false }).limit(500)),   // alle-ausnahme: offene Chancen je Block, Anzeige je Datensatz
     ])
+    const akt = geladen(aktRes, 'Aktivitäten')
+    const pipe = geladen(pipeRes, 'Pipeline')
     for (const a of (akt ?? []) as R[]) { const k = String(a[fk]); aktJe.set(k, [...(aktJe.get(k) ?? []), a]) }
     for (const p of (pipe ?? []) as R[]) { const k = String(p[fk]); pipeJe.set(k, [...(pipeJe.get(k) ?? []), p]) }
   }

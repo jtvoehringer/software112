@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { geladen } from '@/lib/supabase/geladen'
 import type { Metadata } from 'next'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
@@ -78,8 +79,8 @@ export default async function MeinBetriebPage() {
   // Schreib-Aktionen zu bleiben - die Auswahl der Spalten selbst ist die
   // eigentliche Sicherheitsgrenze hier, nicht RLS.
   const admin = createSupabaseAdminClient()
-  const [{ data: tenantRaw }, { data: settingsRaw }, members, benutzerlimit] = await Promise.all([
-    (admin.from('tenants') as any).select('id, name, kundennummer, bio_status, stripe_plan, stripe_status, max_benutzer').eq('id', membership.tenantId).single(),
+  const [tenantRawRes, settingsRawRes, members, benutzerlimit] = await Promise.all([
+    (admin.from('tenants') as any).select('id, name, kundennummer, bio_status, stripe_plan, stripe_status, max_benutzer').eq('id', membership.tenantId).maybeSingle(),
     (admin.from('tenant_einstellungen') as any)
       .select(`
         anzeigename, logo_url, primary_color, secondary_color, session_timeout_minuten,
@@ -94,6 +95,8 @@ export default async function MeinBetriebPage() {
     getTenantMembers(),
     pruefeBenutzerlimit(admin, membership.tenantId),
   ])
+  const tenantRaw = geladen(tenantRawRes, 'Betrieb')
+  const settingsRaw = geladen(settingsRawRes, 'Einstellungen')
 
   if (!tenantRaw) redirect('/dashboard')
 

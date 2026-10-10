@@ -1,5 +1,6 @@
 // behoerdenmeldung: psm-aufzeichnung, psm-mittelverbrauch, cu-bilanz, cu-bilanz-behandlungen
 import { redirect } from 'next/navigation'
+import { geladen } from '@/lib/supabase/geladen'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
@@ -32,7 +33,7 @@ export default async function BerichtePage() {
   let betriebName = betrieb.name
   if (!betriebName) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: tenant } = await (supabase.from('tenants') as any).select('name').eq('id', tenantId).maybeSingle()
+    const tenant = geladen(await (supabase.from('tenants') as any).select('name').eq('id', tenantId).maybeSingle(), 'Betrieb')
     betriebName = typeof tenant?.name === 'string' && tenant.name.trim() ? tenant.name.trim() : null
   }
 

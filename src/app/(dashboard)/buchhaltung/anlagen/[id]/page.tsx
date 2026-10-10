@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { geladen } from '@/lib/supabase/geladen'
 import Link from '@/components/ui/Link'
 import { notFound, redirect } from 'next/navigation'
 import { canWrite } from '@/lib/auth/roles'
@@ -18,7 +19,7 @@ export default async function AnlagePage({ params }: { params: Promise<{ id: str
   const einst = await ladeEinstellungen(ctx)
   if (!einst.modulEa) redirect('/dashboard')
 
-  const { data: aRaw } = await ctx.tf(ctx.q('ea_anlagen').select('*').eq('id', id)).maybeSingle()
+  const aRaw = geladen(await ctx.tf(ctx.q('ea_anlagen').select('*').eq('id', id)).maybeSingle(), 'Anlagen')
   const a = aRaw as R | null
   if (!a) notFound()
 

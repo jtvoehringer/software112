@@ -1,5 +1,6 @@
 // behoerdenmeldung: exportauftraege
 import { redirect } from 'next/navigation'
+import { geladen } from '@/lib/supabase/geladen'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
@@ -26,8 +27,8 @@ export default async function WeinexportPage() {
 
   // Exportaufträge ist ein optionales Modul (Migration 152) - pro Mandant unter
   // Admin > Mandant > Module ein-/ausschaltbar, da nicht jeder Betrieb exportiert.
-  const { data: einst } = await (supabase.from('tenant_einstellungen') as any)
-    .select('modul_export').eq('tenant_id', tenantId).maybeSingle()
+  const einst = geladen(await (supabase.from('tenant_einstellungen') as any)
+    .select('modul_export').eq('tenant_id', tenantId).maybeSingle(), 'Einstellungen')
   if (!einst?.modul_export || !tenantId) redirect('/dashboard')
 
   // Dieselbe Ladefunktion wie die CSV (/meldungen/exportauftraege/csv)

@@ -1,5 +1,6 @@
 // behoerdenmeldung: pruefnummernantrag
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import StornoKarte from '@/components/StornoKarte'
 import { stornoPNA, loeschePNA } from './actions'
@@ -27,11 +28,11 @@ export default async function PruefnummernantragPage({ params }: { params: Promi
 
   // KAN-150 F2: stornierte Fassungen (gekennzeichnet, endgültig löschbar) – die gültige lädt die Ladefunktion
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: stornRaw } = await (supabase.from('pruefnummernantraege') as any)
+  const stornRaw = geladen(await (supabase.from('pruefnummernantraege') as any)
     // storno-sichtbar: nur die stornierten Fassungen für den Vermerk und „Endgültig löschen“
     .select('id, storniert_am, storniert_von_name, storno_grund')
     .eq('tenant_id', tenantId).eq('dac_antrag_id', id).not('storniert_am', 'is', null)
-    .order('storniert_am', { ascending: false })
+    .order('storniert_am', { ascending: false }), 'Prüfnummernanträge')
   const stornierte = (stornRaw ?? []) as { id: string; storniert_am: string; storniert_von_name: string | null; storno_grund: string | null }[]
   const schreiben = !!membership && canWrite(membership, 'kellerbuch')
   // KAN-97: ab „Eingereicht“ sperrt die Datenbank das Formular (a_freeze) – Storno erst mit dem DAC-Antrag selbst

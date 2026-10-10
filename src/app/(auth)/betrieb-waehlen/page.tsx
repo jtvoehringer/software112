@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { geladen } from '@/lib/supabase/geladen'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { alle } from '@/lib/supabase/alle'
 import BetriebListe, { type BetriebEintrag } from './BetriebListe'
@@ -36,11 +37,12 @@ export default async function BetriebWaehlenPage({ searchParams }: { searchParam
   // .eq('aktiv', true) blendet zusätzlich gesperrte Mitgliedschaften aus,
   // konsistent mit dem Mitgliedschaft-Aktiv-Toggle (Migration 159).
   // alle(): auch bei mehreren hundert Betrieben vollständig (PostgREST kappt bei 1.000)
-  const { data: memberships } = await alle((supabase.from('tenant_memberships') as any)
+  // Sweep 89 (KAN-281): ein Lesefehler wirft (error.tsx) – sonst hieße er „Kein aktiver Betrieb“
+  const memberships = geladen(await alle((supabase.from('tenant_memberships') as any)
     .select('tenant_id, role, tenants(name, slug)')
     .eq('user_id', user.id)
     .eq('aktiv', true)
-    .order('created_at', { ascending: true }).order('tenant_id'))
+    .order('created_at', { ascending: true }).order('tenant_id')), 'Betriebe')
 
   // Kein aktiver Betrieb (Mitgliedschaft deaktiviert oder Betrieb deaktiviert, KAN-159 B16 – RLS blendet beide aus):
   // Hinweis statt Umleitung auf /login (dort landete man ohne Erklärung wieder hier)
@@ -78,6 +80,7 @@ export default async function BetriebWaehlenPage({ searchParams }: { searchParam
   // zur Auswahl anzuzeigen (bevor ein „aktiver“ Tenant gewählt wurde).
   // Ohne .in(): bei mehreren hundert Betrieben würde die URL zu lang; RLS liefert ohnehin
   // nur die Einstellungen der eigenen Betriebe, gefiltert wird zusätzlich über tenantIds.
+  // abfrage-ohne-fehler: nur Anzeigename, Logo und Farbe der Karten – ohne sie bleibt der Betriebsname
   // tenant-isolation-ignore: mandantenübergreifende Auswahlseite, siehe Kommentar oben
   const { data: einstellungen } = await alle((supabase.from('tenant_einstellungen') as any)
     .select('tenant_id, anzeigename, logo_url, primary_color').order('tenant_id'))

@@ -1,4 +1,5 @@
 import 'server-only'
+import { geladen } from '@/lib/supabase/geladen'
 
 // Ried- und GST-Optionen der Maßnahmen-Formulare (Neue Maßnahme und – seit 30.09.2026 – Maßnahme bearbeiten):
 // aktive Rieden mit Lage, Spritzbarkeit (nur mit Grundstück der Nutzart WI, KAN-132 Frage 6) und die WI-GST je Ried.
@@ -14,7 +15,7 @@ type AR = Record<string, any>
 // KAN-150 F1: nur Grundstücke, die am Stichtag bewirtschaftet werden (Neue Maßnahme: heute, Bearbeiten: Tag der Maßnahme)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function ladeRiedOptionen(supabase: any, tenantId: string, stichtag: string = wienHeute()): Promise<{ weingaerten: WeingartenOption[]; gstByWeingarten: Record<string, GSTOption[]> }> {
-  const [{ data: rawW }, { data: rawG }] = await Promise.all([
+  const [rawWRes, rawGRes] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('weingarten') as any)
       .select('id, name, ried, lage_id, lagen:lage_id(name)')
@@ -31,6 +32,8 @@ export async function ladeRiedOptionen(supabase: any, tenantId: string, stichtag
         .order('id'),
     ),
   ])
+  const rawW = geladen(rawWRes, 'Rieden')
+  const rawG = geladen(rawGRes, 'Grundstücke')
   const gstAktiv = ((rawG ?? []) as AR[]).filter(g => gstAktivAm(g, stichtag))
   const gstByWG = new Map<string, { nutzart: string | null; ha: number }[]>()
   for (const g of gstAktiv) {

@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { alle } from '@/lib/supabase/alle'
 import ZeiterfassungClient from './ZeiterfassungClient'
@@ -24,12 +25,12 @@ export default async function ZeiterfassungPage() {
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId ?? null
   // alle(): Summen über die ganze Projektzeit – PostgREST kappt sonst still bei 1.000 Einträgen
-  const { data } = await alle<Zeiteintrag>((supabase.from('zeiterfassung') as any)
+  const data = geladen(await alle<Zeiteintrag>((supabase.from('zeiterfassung') as any)
     .select('id, datum, phase, beschreibung, stunden, stundensatz, tokens_input, tokens_output, token_kosten_euro, lizenzkosten_euro, erstellt_am')
     .eq('tenant_id', tenantId)
     .order('datum', { ascending: true })
     .order('erstellt_am', { ascending: true })
-    .order('id'))
+    .order('id')), 'Zeiterfassung')
 
   return <ZeiterfassungClient eintraege={(data ?? []) as Zeiteintrag[]} />
 }

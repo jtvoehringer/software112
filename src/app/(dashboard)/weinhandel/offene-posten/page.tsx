@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { alle, inBloecken } from '@/lib/supabase/alle'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
@@ -32,7 +33,7 @@ export default async function OffenePostenPage() {
   // KAN-105: offene Posten sind Rechnungen (rechnungen) mit den Positionen aller ihrer Lieferscheine; nicht berechnete
   // Lieferscheine sind keine offenen Posten. Zahlungen zählen je Rechnung (zahlungen.rechnung_id).
   // alle(): sonst fehlen ab der 1.001. Rechnung offene Posten in Liste und Summe
-  const { data: rohRechnungen } = await alle(tf((supabase.from('rechnungen') as any)
+  const rohRechnungen = geladen(await alle(tf((supabase.from('rechnungen') as any)
     .select(`
       id, datum, rechnungsnummer, storniert, bezahlt, bezahlt_am, erstellt_am,
       kontakt:kontakte!kontakt_id(id, vorname, nachname),
@@ -42,18 +43,18 @@ export default async function OffenePostenPage() {
     .eq('storniert', false)
     .eq('aktiv',     true)
     .order('datum', { ascending: false })
-    .order('id')))
+    .order('id'))), 'Rechnungen')
   const raw = ((rohRechnungen ?? []) as R[]).map(alsBeleg).filter(r => r.verkaufsposten_ids.length > 0)
 
   const offeneIds = raw.filter(p => !p.bezahlt).map(p => p.id as string)
   const bereitsBezahltMap = new Map<string, number>()
   if (offeneIds.length > 0) {
     // inBloecken: alle offenen Posten – ab ≈ 350 IDs scheiterte die URL und Teilzahlungen fehlten
-    const { data: zahlungenRaw } = await inBloecken(offeneIds, b => alle(tf((supabase.from('zahlungen') as any)
+    const zahlungenRaw = geladen(await inBloecken(offeneIds, b => alle(tf((supabase.from('zahlungen') as any)
       .select('rechnung_id, betrag')
       .in('rechnung_id', b)
       .is('storniert_am', null)   // KAN-149 D2b: stornierte Zahlungen zählen nicht
-      .order('id'))))
+      .order('id')))), 'Zahlungen')
     for (const z of (zahlungenRaw ?? []) as R[]) {
       const key = z.rechnung_id as string
       bereitsBezahltMap.set(key, (bereitsBezahltMap.get(key) ?? 0) + Number(z.betrag ?? 0))
@@ -104,8 +105,8 @@ export default async function OffenePostenPage() {
   const bezahlte   = posten.filter(p => p.bezahlt)
   const summeOffen = offene.reduce((s, p) => s + p.gesamt, 0)
 
-  const { data: kontenRaw } = await tf((supabase.from('konten') as any)
-    .select('id, name').eq('aktiv', true).order('sortierung').order('name'))
+  const kontenRaw = geladen(await tf((supabase.from('konten') as any)
+    .select('id, name').eq('aktiv', true).order('sortierung').order('name')), 'Konten')
   const konten = ((kontenRaw ?? []) as R[]).map(k => ({ id: k.id as string, name: k.name as string }))
 
   return (

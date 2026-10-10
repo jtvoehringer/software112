@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
@@ -29,17 +30,17 @@ export default async function ElabelPage({ params }: { params: Promise<{ id: str
   const supabase = await createSupabaseServerClient()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: fRaw } = await (supabase.from('fuellungen') as any)
+  const fRaw = geladen(await (supabase.from('fuellungen') as any)
     .select('id, name, jahrgang, flaschengroesse_ml, chargennummer, weinausbau_id, storniert_am')
-    .eq('id', id).eq('tenant_id', tenantId).maybeSingle()
+    .eq('id', id).eq('tenant_id', tenantId).maybeSingle(), 'Füllungen')
   if (!fRaw) redirect('/weinhandel')
   const f = fRaw as R
 
   // Chargen der Füllung: Hauptcharge und Anteile (fuellung_chargen) – wenige je Füllung
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: fcRaw } = await (supabase.from('fuellung_chargen') as any)
+  const fcRaw = geladen(await (supabase.from('fuellung_chargen') as any)
     .select('weinausbau_id').eq('tenant_id', tenantId).eq('fuellung_id', id)
-    .limit(200)   // alle-ausnahme: Chargenanteile einer einzelnen Füllung
+    .limit(200), 'Chargen der Füllung')   // alle-ausnahme: Chargenanteile einer einzelnen Füllung
   const chargen = [...new Set([f.weinausbau_id, ...((fcRaw ?? []) as R[]).map(c => c.weinausbau_id)].filter(Boolean).map(String))]
 
   const [katalogRes, elabelRes, analysenRes, behandlungenRes] = await Promise.all([

@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import type { LieferadresseZeile } from '@/components/crm/LieferadressenKarte'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { notFound } from 'next/navigation'
@@ -17,6 +18,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const membership = await getCurrentMembership()
   let query = (supabase.from('firmen') as any).select('name').eq('id', id)
   if (membership) query = query.eq('tenant_id', membership.tenantId)
+  // abfrage-ohne-fehler: nur Seitentitel (generateMetadata) – bei einem Lesefehler genügt der Ersatztitel
   const { data } = await query.single()
   return { title: `${(data as R | null)?.name ?? 'Firma'} – software:112` }
 }
@@ -34,17 +36,17 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   const [
-    { data: fRaw },
-    { data: kRaw },
-    { data: aRawAll },
-    { data: pRaw },
-    { data: rgRaw },
-    { data: vRaw },
+    fRawRes,
+    kRawRes,
+    aRawAllRes,
+    pRawRes,
+    rgRawRes,
+    vRawRes,
   ] = await Promise.all([
     tf((supabase.from('firmen') as any)
       .select('id, accountnummer, name, segment, strasse, plz, ort, land, email, email_weitere, telefon, telefon_vorwahl, mobil, mobil_vorwahl, website, uid_nummer, betrieb_nr, debitor_nr, kreditlimit, zahlungsziel_tage, skonto_pct, skonto_tage, waehrung, notizen, aktiv, is_lead, ist_kunde, ist_lieferant, sonderrabatt_pct, rabattgruppe_id, rabattgruppe:rabattgruppe_id(id, name, rabatt_pct)')
       .eq('id', id)
-      .single()),
+      .maybeSingle()),
 
     tf((supabase.from('kontakte') as any)
       .select('id, vorname, nachname, segment, firma_id, email, telefon, mobil, ort, land, newsletter, newsletter_bestaetigt, stammkunde, notizen, aktiv, erstellt_am, mobil, zahlungsziel_tage')
@@ -77,6 +79,12 @@ export default async function FirmaDetailPage({ params }: { params: Promise<{ id
       .eq('aktiv', true)
       .order('datum', { ascending: false })),
   ])
+  const fRaw = geladen(fRawRes, 'Firmen')
+  const kRaw = geladen(kRawRes, 'Kontakte')
+  const aRawAll = geladen(aRawAllRes, 'Aktivitäten')
+  const pRaw = geladen(pRawRes, 'Pipeline')
+  const rgRaw = geladen(rgRawRes, 'Rabattgruppen')
+  const vRaw = geladen(vRawRes, 'Verkäufe')
 
   if (!fRaw) notFound()
 

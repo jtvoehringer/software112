@@ -185,9 +185,9 @@ export default async function BehandlungEditPage({ params }: { params: Promise<{
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rawBm = geladen(await (supabase.from('betriebsmittel') as any)
     .select('id, name, gruppe, einheit, preis_pro_einheit')
-    .eq('tenant_id', tenantId), 'Betriebsmittel')
+    .eq('tenant_id', tenantId)
     // die gespeicherte Auswahl auch dann, wenn das Mittel inzwischen deaktiviert ist (Speichern verlangt ein aktives)
-    .or(`aktiv.eq.true${b.betriebsmittel_id ? `,id.eq.${b.betriebsmittel_id}` : ''}`).order('name')
+    .or(`aktiv.eq.true${b.betriebsmittel_id ? `,id.eq.${b.betriebsmittel_id}` : ''}`).order('name'), 'Betriebsmittel')
   const betriebsmittel: BmMassnahmeOption[] = ((rawBm ?? []) as AR[]).map(m => ({
     id: m.id, name: m.name, gruppe: m.gruppe, einheit: m.einheit,
     preis_pro_einheit: m.preis_pro_einheit == null ? null : Number(m.preis_pro_einheit),

@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { alle } from '@/lib/supabase/alle'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { redirect } from 'next/navigation'
@@ -37,9 +38,9 @@ export default async function NeueFuellungPage({
   // KAN-232: Rückkehr aus der Lohnversektung – Charge = versandter Grundwein, nur bei offenem Versand
   let lohnversektung: { id: string; firma: string | null; datum: string; literVersandt: number } | null = null
   if (lvParam && tenantId) {
-    const { data: lv } = await (supabase.from('lohnversektungen') as R)
+    const lv = geladen(await (supabase.from('lohnversektungen') as R)
       .select('id, weinausbau_id, datum, liter_versandt, storniert_am, abgeschlossen_am, firma:firmen!firma_id(name)')
-      .eq('id', lvParam).eq('tenant_id', tenantId).maybeSingle()
+      .eq('id', lvParam).eq('tenant_id', tenantId).maybeSingle(), 'Lohnversektungen')
     const l = lv as R | null
     if (l && !l.storniert_am && !l.abgeschlossen_am) {
       lohnversektung = { id: l.id, firma: l.firma?.name ?? null, datum: String(l.datum), literVersandt: Number(l.liter_versandt) }
@@ -51,7 +52,7 @@ export default async function NeueFuellungPage({
 
   // Alle aktiven Weinausbau-Chargen + DAC-Anträge parallel laden. KAN-72: keine abgelehnten
   // oder inaktiven Anträge mehr (früher wählbar, samt ihrer Prüfnummer)
-  const [{ data: chargenRaw }, { data: dacRaw }] = await Promise.all([
+  const [chargenRawRes, dacRawRes] = await Promise.all([
   alle(tf((supabase.from('weinausbau') as any)
     .select('id, name, jahrgang, rebsorte, weinart, menge_liter, status, qualitaetsstufe, zusatzbezeichnung, erzeugnis, herkunft_code')
     .eq('aktiv', true)
@@ -64,6 +65,8 @@ export default async function NeueFuellungPage({
     .neq('status', 'abgelehnt')
     .order('jahrgang', { ascending: false }).order('id'))),
   ])
+  const chargenRaw = geladen(chargenRawRes, 'Chargen')
+  const dacRaw = geladen(dacRawRes, 'Prüfnummernanträge')
 
   const alleAntraege = (dacRaw ?? []) as R[]
   let chargen = (chargenRaw ?? []) as R[]
@@ -80,10 +83,10 @@ export default async function NeueFuellungPage({
   // Wenn über "Abfüllen"-Button mit chargeId aufgerufen: diese Charge immer mitladen,
   // auch wenn Status 'abgeschlossen' ist (Füllung kann trotzdem angelegt werden)
   if (chargeId && !chargen.find((c: R) => c.id === chargeId)) {
-    const { data: extraRaw } = await tf((supabase.from('weinausbau') as any)
+    const extraRaw = geladen(await tf((supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, rebsorte, weinart, menge_liter, status, qualitaetsstufe, zusatzbezeichnung, erzeugnis, herkunft_code')
       .eq('id', chargeId))
-      .single()
+      .maybeSingle(), 'Chargen')
     if (extraRaw) chargen = [extraRaw as R, ...chargen]
   }
 

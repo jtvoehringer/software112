@@ -1,4 +1,5 @@
 import { qualitaetAnzeige } from '@/lib/wein/qualitaet'
+import { geladen } from '@/lib/supabase/geladen'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { alle, inBloecken } from '@/lib/supabase/alle'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
@@ -44,11 +45,11 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   const [
-    { data: fuellungenRaw },
-    { data: tanksRaw },
-    { data: zukaufRaw },
-    { data: direktTankRaw },
-    { data: tvRaw },
+    fuellungenRawRes,
+    tanksRawRes,
+    zukaufRawRes,
+    direktTankRawRes,
+    tvRawRes,
   ] = await Promise.all([
     alle(tf((supabase.from('fuellungen') as any)
       .select('id, name, jahrgang, rebsorte, qualitaet, zusatzbezeichnung, erzeugnis, anbaugebiet, bezeichnung, datum, flaschengroesse_ml, anzahl_flaschen, bestand_flaschen, vk_preis_brutto, einstandspreis, aktiv, zukauf_posten_id, bestand_unetikettiert')
@@ -87,6 +88,11 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
       .order('datum', { ascending: false })
       .limit(5)),
   ])
+  const fuellungenRaw = geladen(fuellungenRawRes, 'Füllungen')
+  const tanksRaw = geladen(tanksRawRes, 'Chargen')
+  const zukaufRaw = geladen(zukaufRawRes, 'Zukäufe')
+  const direktTankRaw = geladen(direktTankRawRes, 'Mostzeilen')
+  const tvRaw = geladen(tvRawRes, 'Traubenverkäufe')
 
   const alleFuellungen = (fuellungenRaw ?? []) as R[]
   const ausverkaufteAnzahl = alleFuellungen.filter(f => (Number(f.bestand_flaschen) || 0) <= 0).length
@@ -106,7 +112,7 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
     const ids = fuellungen.map(f => f.id as string)
     // inBloecken + alle(): Füllungen sammeln sich über die Jahre (URL-Grenze ≈ 350 IDs), Verkaufspositionen je Füllung
     // gehen schnell über 1.000 – sonst fehlte die Sperre bei manchen Füllungen
-    const [{ data: vkRaw }, { data: bwRaw }] = await Promise.all([
+    const [vkRawRes, bwRawRes] = await Promise.all([
       inBloecken(ids, b => alle(tf((supabase.from('verkauf_positionen') as any)
         .select('fuellung_id, verkaufsposten!inner(storniert)')
         .in('fuellung_id', b)
@@ -118,6 +124,8 @@ export default async function WeinhandelPage({ searchParams }: { searchParams: P
         .in('fuellung_id', b)
         .order('id')))),
     ])
+    const vkRaw = geladen(vkRawRes, 'Verkaufspositionen')
+    const bwRaw = geladen(bwRawRes, 'Füllungsbewegungen')
     for (const v of (vkRaw ?? []) as R[]) loeschSperre.set(v.fuellung_id, 'Nicht löschbar: Zu dieser Füllung gibt es bereits Verkäufe – sie bleibt als Historie erhalten.')
     for (const b of (bwRaw ?? []) as R[]) {
       if (!loeschSperre.has(b.fuellung_id)) loeschSperre.set(b.fuellung_id, 'Nicht löschbar: Zu dieser Füllung gibt es bereits Bestandsbuchungen – sie bleibt als Historie erhalten.')

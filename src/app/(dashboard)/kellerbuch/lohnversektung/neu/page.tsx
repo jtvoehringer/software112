@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { alle } from '@/lib/supabase/alle'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import { schreibSperre } from '@/lib/auth/sperren'
@@ -22,7 +23,7 @@ export default async function LohnversektungNeuPage({ searchParams }: { searchPa
   const tenantId = membership.tenantId
   const supabase = await createSupabaseServerClient()
 
-  const [{ data: chargenRaw }, { data: offenRaw }, { data: firmenRaw }] = await Promise.all([
+  const [chargenRawRes, offenRawRes, firmenRawRes] = await Promise.all([
     alle<R>((supabase.from('weinausbau') as R)
       .select('id, name, menge_liter, behaelter:behaelter_id(name)')
       .eq('tenant_id', tenantId).eq('aktiv', true).is('storniert_am', null).gt('menge_liter', 0).not('behaelter_id', 'is', null)
@@ -32,6 +33,9 @@ export default async function LohnversektungNeuPage({ searchParams }: { searchPa
     alle<R>((supabase.from('firmen') as R)
       .select('id, name').eq('tenant_id', tenantId).eq('aktiv', true).order('name').order('id')),
   ])
+  const chargenRaw = geladen(chargenRawRes, 'Chargen')
+  const offenRaw = geladen(offenRawRes, 'Lohnversektungen')
+  const firmenRaw = geladen(firmenRawRes, 'Firmen')
   const offen = new Set(((offenRaw ?? []) as R[]).map(o => String(o.weinausbau_id)))
   const chargen = ((chargenRaw ?? []) as R[]).filter(c => !offen.has(String(c.id)))
     .map(c => ({ id: String(c.id), name: String(c.name ?? ''), liter: Number(c.menge_liter) || 0, gebinde: c.behaelter?.name ?? null }))

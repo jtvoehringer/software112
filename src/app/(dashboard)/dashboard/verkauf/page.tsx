@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
@@ -43,7 +44,7 @@ export default async function DashboardPage() {
   const { data: { user: currentUser } } = await supabase.auth.getUser()
   let tenantName: string | null = null
   if (tenantId) {
-    const { data: tenantRow } = await (supabase.from('tenants') as any).select('name').eq('id', tenantId).maybeSingle()
+    const tenantRow = geladen(await (supabase.from('tenants') as any).select('name').eq('id', tenantId).maybeSingle(), 'Betrieb')
     tenantName = (tenantRow as { name?: string } | null)?.name ?? null
   }
 
@@ -67,13 +68,13 @@ export default async function DashboardPage() {
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   const [
-    { data: offenePostenRaw },
-    { data: letzteVerkaeufRaw },
+    offenePostenRes,
+    letzteVerkaeufRes,
     { count: leadCount },
     { count: firmaLeadCount },
     { count: auftraegeWocheCount },
     { count: auftraegeVorwocheCount },
-    { data: absatzSeriesRaw },
+    absatzSeriesRes,
   ] = await Promise.all([
     // Offene Posten (unbezahlt, nicht storniert) — inkl. Datum für Überfällig-/Ø-Tage-Berechnung
     tf(q('verkaufsposten')
@@ -107,6 +108,10 @@ export default async function DashboardPage() {
       .select('datum, verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
       .eq('aktiv', true).eq('storniert', false).gte('datum', absatzVon)),
   ])
+  // Sweep 89 (KAN-281): Lesefehler werfen (Fehlergrenze) statt falscher Umsätze und offener Posten
+  const offenePostenRaw = geladen(offenePostenRes, 'Offene Posten')
+  const letzteVerkaeufRaw = geladen(letzteVerkaeufRes, 'Verkäufe')
+  const absatzSeriesRaw = geladen(absatzSeriesRes, 'Umsatzreihe')
 
   const ctx = await getCtx()
   const flaschen = await ladeFlaschenlager(ctx)
@@ -182,11 +187,11 @@ export default async function DashboardPage() {
   // art-Ausschluss analog zum Kalender (crm/page.tsx) ergänzt (7.8.2026): automatisch
   // angelegte E-Mail-/Verkaufs-/Notiz-Einträge sind keine "Termine" und haben hier bisher
   // die wenigen Plätze (limit 4) belegt, wodurch die Sektion faelschlich leer wirkte.
-  const { data: naechsteAktivitaetenRaw } = await tf(q('aktivitaeten')
+  const naechsteAktivitaetenRaw = geladen(await tf(q('aktivitaeten')
     .select('id, art, betreff, datum, erledigt, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen(name)')
     .eq('erledigt', false).gte('datum', heuteStr)
     .not('art', 'in', '(verkauf,notiz,email)')
-    .order('datum', { ascending: true }).limit(4))
+    .order('datum', { ascending: true }).limit(4)), 'Termine')
   const naechsteAkt = (naechsteAktivitaetenRaw ?? []) as R[]
   function aktKundenName(a: R): string {
     if (a.kontakt) return [a.kontakt.vorname, a.kontakt.nachname].filter(Boolean).join(' ')

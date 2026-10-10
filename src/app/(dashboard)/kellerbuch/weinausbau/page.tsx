@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { alle } from '@/lib/supabase/alle'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { fmtLiter } from '@/lib/format'
@@ -79,7 +80,7 @@ export default async function WeinausbauListePage() {
   // Mehrfach-Mitgliedschaft Daten vom falschen Betrieb angezeigt werden.
   if (tenantId) query = query.eq('tenant_id', tenantId)
   // alle(): Chargen sammeln sich über die Jahrgänge – PostgREST kappt sonst still bei 1.000
-  const { data: raw } = await alle(query.order('id'))
+  const raw = geladen(await alle(query.order('id')), 'Daten')
 
   const chargen = (raw ?? []) as R[]
   const aktive  = chargen.filter((w: R) => w.status !== 'abgeschlossen' && !w.ist_eroeffnungsbestand)

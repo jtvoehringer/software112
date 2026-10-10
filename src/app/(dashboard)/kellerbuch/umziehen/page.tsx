@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { alle } from '@/lib/supabase/alle'
 import { ladeBehaelter } from '@/lib/keller/behaelter'
 import { stornoAngaben } from '@/lib/kellerbuch/stornoFilter'
@@ -30,9 +31,9 @@ export default async function UmziehenPage({ searchParams }: { searchParams: Pro
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   const [
-    { data: waRaw },
+    waRawRes,
     bhRows,
-    { data: umzugRaw },
+    umzugRawRes,
   ] = await Promise.all([
     // Aktive Chargen mit Behälter-Info (für Quellen-Auflösung)
     alle(tf((supabase.from('weinausbau') as any)
@@ -55,6 +56,8 @@ export default async function UmziehenPage({ searchParams }: { searchParams: Pro
       .order('id', { ascending: false })
       .limit(50)),
   ])
+  const waRaw = geladen(waRawRes, 'Chargen')
+  const umzugRaw = geladen(umzugRawRes, 'Umzüge')
 
   // Behälter-mit-Charge-Mapping für Quell-Picker
   // Ein Behälter kann theoretisch mehrere Chargen haben → wir nehmen alle aktiven

@@ -76,6 +76,7 @@ export default async function DashboardLayout({
   const mfaHinweis = mfa.pflicht && !mfa.hatFaktor
 
   // Anzahl Betriebe des Users (Betrieb-Wechsel-Button) und Profilname parallel
+  // abfrage-ohne-fehler: Layout – ein Wurf hier sperrte die ganze App (Fehlergrenze liegt darunter); Betriebszahl und Name nur Anzeige
   const [{ count: betriebCount }, { data: profil }] = await Promise.all([
     (supabase.from('tenant_memberships') as any)
       .select('tenant_id', { count: 'exact', head: true }),

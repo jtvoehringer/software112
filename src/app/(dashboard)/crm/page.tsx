@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { inBloecken } from '@/lib/supabase/alle'
 import CRMUebersichtClient from './CRMUebersichtClient'
 import type { KalenderEintrag } from './CRMUebersichtClient'
@@ -25,14 +26,14 @@ export default async function CRMUebersichtPage({ searchParams }: { searchParams
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   // Alle Aktivitäten mit Datum
-  const { data: aktivRawAll } = await tf((supabase.from('aktivitaeten') as any)
+  const aktivRawAll = geladen(await tf((supabase.from('aktivitaeten') as any)
     .select('id, art, betreff, datum, ganztags, uhrzeit_von, uhrzeit_bis, erledigt, kontakt_id, firma_id, ist_privat, erstellt_von, bis_datum, verantwortlich_id, fuer_alle, beschreibung')
     .not('datum', 'is', null)
     // Verkauf/Notiz/E-Mail erscheinen nicht im Kalender - gar nicht erst laden
     // (E-Mail-Aktivitäten wachsen mit jeder geöffneten Nachricht, 17.9.2026)
     .not('art', 'in', '("verkauf","notiz","email")')
     .order('datum', { ascending: true })
-    .limit(5000))
+    .limit(5000)), 'Aktivitäten')
 
   // "Nur für mich sichtbar"-Termine anderer Nutzer serverseitig herausfiltern (seit KAN-17 sperrt das auch die
   // Datenbank, Policy akt_privat) – sie erscheinen nur als Zeitblock „Privat“ (s112_privat_bloecke, unten)
@@ -72,9 +73,9 @@ export default async function CRMUebersichtPage({ searchParams }: { searchParams
     // Name im Kalender-Filter vom im Profil hinterlegten Namen abweichen konnte
     // (z.B. "Jörgen Vöhringer" statt des spaeter auf "Jörgen" geaenderten Namens).
     // alle-ausnahme: Benutzer des Betriebs (Ersteller der Aktivitäten), wenige
-    const { data: profilesRaw } = await (supabase.from('profiles') as any)
+    const profilesRaw = geladen(await (supabase.from('profiles') as any)
       .select('id, full_name, display_name')
-      .in('id', uniqueUserIds)
+      .in('id', uniqueUserIds), 'Benutzer')
     ;(profilesRaw as AR[] ?? []).forEach((p: AR) => {
       const name = p.full_name || p.display_name
       if (name && p.id) userProfiles[p.id] = name

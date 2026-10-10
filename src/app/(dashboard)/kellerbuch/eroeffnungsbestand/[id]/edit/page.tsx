@@ -1,4 +1,5 @@
 import { AbbrechenKnopf, ZurueckFeld } from '@/components/navigation/Abbrechen'
+import { geladen } from '@/lib/supabase/geladen'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { ladeBehaelter } from '@/lib/keller/behaelter'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
@@ -41,13 +42,14 @@ export default async function EroeffnungsbestandEditPage({ params, searchParams 
   // Mehrfach-Mitgliedschaft Daten vom falschen Betrieb angezeigt werden.
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
-  const [{ data: rowRaw }, gebindeRows] = await Promise.all([
+  const [rowRawRes, gebindeRows] = await Promise.all([
     tf((supabase.from('weinausbau') as any)
       .select('id, name, jahrgang, kmw, oechsle, mostgewicht_einheit, menge_liter, anfangsbestand_liter, qualitaetsstufe, zusatzbezeichnung, erzeugnis, behaelter_id, notizen, einstandspreis_pro_liter, referenz_altsystem, created_at')
       .eq('id', id).eq('ist_eroeffnungsbestand', true).limit(1)),
     // Ziele: eigene + freigegebene Gebinde, fremd belegte ausgenommen (Migration 203)
     ladeBehaelter(supabase, tenantId, { alsZiel: true }),
   ])
+  const rowRaw = geladen(rowRawRes, 'Chargen')
 
   const eintrag = (((rowRaw ?? []) as R[])[0] ?? null) as R | null
   if (!eintrag) notFound()

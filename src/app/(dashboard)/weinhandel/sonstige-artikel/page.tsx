@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import Link from '@/components/ui/Link'
 import SonstigeArtikelClient from './SonstigeArtikelClient'
@@ -13,9 +14,9 @@ export default async function SonstigeArtikelPage() {
   const tenantId = membership?.tenantId ?? null
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
-  const { data } = await tf((supabase.from('sonstige_artikel') as any)
+  const data = geladen(await tf((supabase.from('sonstige_artikel') as any)
     .select('id, name, einheit, default_preis, aktiv, erstellt_am, art, bestand_fuehren')
-    .order('name'))
+    .order('name')), 'Produkte')
   // KAN-115: Lagerstand je Produkt (Summe der Bewegungen)
   const { data: bew } = tenantId
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

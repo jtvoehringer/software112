@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { alle } from '@/lib/supabase/alle'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import Link from '@/components/ui/Link'
@@ -47,7 +48,7 @@ export default async function ZukaufPage({
   const q     = (sp.q ?? '').trim()
   const tenantId = membership?.tenantId ?? null
 
-  const { data } = await alle((supabase.from('zukauf_posten') as any)
+  const data = geladen(await alle((supabase.from('zukauf_posten') as any)
     .select(`
       id, datum, art, menge, einheit, preis_gesamt, rebsorte, jahrgang, notizen,
       eingangsrechnungsnummer, tbs_nummer_lieferant, tbs_jahr_lieferant,
@@ -57,7 +58,7 @@ export default async function ZukaufPage({
     `)
     .eq('aktiv', true)
     .eq('tenant_id', tenantId ?? '')
-    .order('datum', { ascending: false }).order('id'))
+    .order('datum', { ascending: false }).order('id')), 'Zukäufe')
 
   const allePosten = (data ?? []) as R[]
   // KAN-90: Suche nach TBS-Nr. des Lieferanten (genau bzw. Nr./Jahr), Belegnr., Lieferant, Rebsorte
@@ -78,12 +79,12 @@ export default async function ZukaufPage({
   } | null = null
 
   if (membership?.tenantId) {
-    const { data: einst } = await (supabase.from('tenant_einstellungen') as any)
-      .select('ust_satz_standard').eq('tenant_id', membership.tenantId).maybeSingle()
+    const einst = geladen(await (supabase.from('tenant_einstellungen') as any)
+      .select('ust_satz_standard').eq('tenant_id', membership.tenantId).maybeSingle(), 'Einstellungen')
     const istWeinproduzent = Number((einst as R | null)?.ust_satz_standard) === 13
 
     if (istWeinproduzent) {
-      const [{ data: rawGSTFl }, { data: rawTraubenZukauf }] = await Promise.all([
+      const [rawGSTFlRes, rawTraubenZukaufRes] = await Promise.all([
         // alle(): Betriebsfläche über alle Grundstücke, nicht nur die ersten 1.000
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         alle((supabase.from('grundstuecke') as any).select('flaeche_ha, aktiv, deaktiviert_am').eq('nutzart', 'WI').eq('tenant_id', membership.tenantId).order('id')),
@@ -95,6 +96,8 @@ export default async function ZukaufPage({
           .gte('datum', `${zjahr}-01-01`)
           .lte('datum', `${zjahr}-12-31`).order('id')),
       ])
+      const rawGSTFl = geladen(rawGSTFlRes, 'Grundstücke')
+      const rawTraubenZukauf = geladen(rawTraubenZukaufRes, 'Zukäufe')
       // KAN-150 F1: deaktivierte Grundstücke nur, wenn sie am 1.1. des Jahres noch bewirtschaftet wurden
       const gesamtFlaecheHaBetrieb = ((rawGSTFl ?? []) as R[]).filter(g => gstImJahr(g, zjahr)).reduce((s, g) => s + (Number(g.flaeche_ha) || 0), 0)
       const summeKg = ((rawTraubenZukauf ?? []) as R[]).reduce((s, z) => s + (Number(z.menge) || 0), 0)

@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { geladen } from '@/lib/supabase/geladen'
 import Link from '@/components/ui/Link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
@@ -15,15 +16,15 @@ export default async function KategorienPage() {
   if (!membership?.tenantId) redirect('/login')
   const tenantId = membership.tenantId
 
-  const { data: einst } = await (supabase.from('tenant_einstellungen') as any)
-    .select('modul_ea').eq('tenant_id', tenantId).maybeSingle()
+  const einst = geladen(await (supabase.from('tenant_einstellungen') as any)
+    .select('modul_ea').eq('tenant_id', tenantId).maybeSingle(), 'Einstellungen')
   if (!einst?.modul_ea) redirect('/dashboard')
 
-  const { data: kategorien } = await (supabase.from('ea_kategorien') as any)
+  const kategorien = geladen(await (supabase.from('ea_kategorien') as any)
     .select('*')
     .or(`tenant_id.is.null,tenant_id.eq.${tenantId}`)
     .eq('aktiv', true)
-    .order('sortierung')
+    .order('sortierung'), 'Kategorien')
 
   const systemKat   = (kategorien as R[])?.filter(k => !k.tenant_id) ?? []
   const mandantKat  = (kategorien as R[])?.filter(k => k.tenant_id)  ?? []

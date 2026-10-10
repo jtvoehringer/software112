@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { geladen } from '@/lib/supabase/geladen'
 import Link from '@/components/ui/Link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
@@ -24,15 +25,15 @@ export default async function BelegePage() {
   if (!membership?.tenantId) redirect('/login')
   const tenantId = membership.tenantId
 
-  const { data: einst } = await (supabase.from('tenant_einstellungen') as any)
-    .select('modul_ea').eq('tenant_id', tenantId).maybeSingle()
+  const einst = geladen(await (supabase.from('tenant_einstellungen') as any)
+    .select('modul_ea').eq('tenant_id', tenantId).maybeSingle(), 'Einstellungen')
   if (!einst?.modul_ea) redirect('/dashboard')
 
-  const { data: belegeRaw } = await (supabase.from('ea_belege') as any)
+  const belegeRaw = geladen(await (supabase.from('ea_belege') as any)
     .select('id, dateiname, dateityp, status, erkannte_daten, fehler_details, hochgeladen_am')
     .eq('tenant_id', tenantId)
     .order('hochgeladen_am', { ascending: false })
-    .limit(150)
+    .limit(150), 'Belege')
 
   const belege   = (belegeRaw ?? []) as R[]
   const offen    = belege.filter(b => b.status !== 'verbucht')

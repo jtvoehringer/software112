@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { geladen } from '@/lib/supabase/geladen'
 import type { Metadata } from 'next'
 import { getCurrentUserRole } from '@/lib/auth/roles'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
@@ -47,7 +48,7 @@ export default async function SystemberichtPage({ searchParams }: { searchParams
 
   const admin = createSupabaseAdminClient()
   const jetzt = new Date()
-  const [zeilen, { data: tenantsRaw }, { data: cronHeute }] = await Promise.all([
+  const [zeilen, tenantsRawRes, cronHeuteRes] = await Promise.all([
     ereignisseLaden(seit),
     // tenant-isolation-ignore: Namen aller Betriebe für die Anzeige (Super-Admin)
     (admin.from('tenants') as any).select('id, name'),
@@ -55,6 +56,8 @@ export default async function SystemberichtPage({ searchParams }: { searchParams
     (admin.from('system_ereignisse') as any).select('erstellt_am').eq('art', 'cron').eq('quelle', TAEGLICH_QUELLE)
       .gte('erstellt_am', cronLaufBeginn(jetzt).toISOString()).order('erstellt_am', { ascending: false }).limit(1).maybeSingle(),
   ])
+  const tenantsRaw = geladen(tenantsRawRes, 'Betrieb')
+  const cronHeute = geladen(cronHeuteRes, 'Systemereignisse')
   const tenantName = new Map(((tenantsRaw ?? []) as R[]).map(t => [t.id as string, t.name as string]))
   // KAN-123: Reißt der Lauf das Zeitlimit, fehlt sein Protokolleintrag ganz – dann steht unten nichts
   const cronOhneProtokoll = cronProtokollFehlt(jetzt, (cronHeute as R | null)?.erstellt_am ?? null)

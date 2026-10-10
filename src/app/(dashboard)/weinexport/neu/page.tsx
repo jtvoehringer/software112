@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { alle } from '@/lib/supabase/alle'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
@@ -23,18 +24,21 @@ export default async function NeuPage() {
 
   // Exportaufträge ist ein optionales Modul (Migration 152) - pro Mandant unter
   // Admin > Mandant > Module ein-/ausschaltbar.
-  const { data: einst } = await (supabase.from('tenant_einstellungen') as any)
-    .select('modul_export').eq('tenant_id', tenantId).maybeSingle()
+  const einst = geladen(await (supabase.from('tenant_einstellungen') as any)
+    .select('modul_export').eq('tenant_id', tenantId).maybeSingle(), 'Einstellungen')
   if (!einst?.modul_export) {
     const { redirect } = await import('next/navigation')
     redirect('/dashboard')
   }
 
-  const [{ data: kontakte }, { data: firmen }, { data: fuellungen }] = await Promise.all([
+  const [kontakteRes, firmenRes, fuellungenRes] = await Promise.all([
     alle((supabase.from('kontakte') as any).select('id,vorname,nachname').eq('tenant_id', tenantId).eq('aktiv', true).order('nachname').order('id')),
     alle((supabase.from('firmen') as any).select('id,name').eq('tenant_id', tenantId).eq('aktiv', true).order('name').order('id')),
     alle((supabase.from('fuellungen') as any).select('id,name,bezeichnung,jahrgang,flaschengroesse_ml,bestand_flaschen,zolltarifnummer').eq('tenant_id', tenantId).eq('aktiv', true).gt('bestand_flaschen', 0).order('name').order('id')),
   ])
+  const kontakte = geladen(kontakteRes, 'Kontakte')
+  const firmen = geladen(firmenRes, 'Firmen')
+  const fuellungen = geladen(fuellungenRes, 'Füllungen')
 
   return <WeinexportFormClient
     kontakte={(kontakte ?? []) as R[]}

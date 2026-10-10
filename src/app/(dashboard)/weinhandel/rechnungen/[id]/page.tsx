@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { momentaufnahmeAnwenden } from '@/lib/stammdaten/momentaufnahme'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { notFound } from 'next/navigation'
@@ -27,7 +28,7 @@ export default async function RechnungPage({ params }: { params: Promise<{ id: s
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId ?? ''
 
-  const [{ data: roh }, { data: einst }] = await Promise.all([
+  const [rohRes, einstRes] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase.from('rechnungen') as any)
       .select(`id, rechnungsnummer, datum, leistung_von, leistung_bis, storniert, storniert_am, storno_grund, bezahlt, bezahlt_am,
@@ -44,6 +45,8 @@ export default async function RechnungPage({ params }: { params: Promise<{ id: s
                betrieb_website, betrieb_uid, rechnung_iban, rechnung_bic, rechnung_fusstext`)
       .eq('tenant_id', tenantId).limit(1).maybeSingle(),
   ])
+  const roh = geladen(rohRes, 'Rechnungen')
+  const einst = geladen(einstRes, 'Einstellungen')
   if (!roh) notFound()
   const r = alsBeleg(momentaufnahmeAnwenden(roh as R, ['kontakt', 'firma', 'zh_kontakt']))
   const s = (einst ?? {}) as R

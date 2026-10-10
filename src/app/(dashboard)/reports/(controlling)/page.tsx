@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { geladen } from '@/lib/supabase/geladen'
 import { alle } from '@/lib/supabase/alle'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
@@ -55,14 +56,14 @@ export default async function ReportsPage() {
     : Promise.resolve(null)
 
   const [
-    { data: umsatzRaw },
-    { data: lagerRaw },
-    { data: pipelineRaw },
-    { data: kontakteRaw },
-    { data: offeneRaw },
-    { data: vsFuellungenRaw },
-    { data: filterwerteRaw },
-    { data: wbChargenRaw },
+    umsatzRawRes,
+    lagerRawRes,
+    pipelineRawRes,
+    kontakteRawRes,
+    offeneRawRes,
+    vsFuellungenRawRes,
+    filterwerteRawRes,
+    wbChargenRawRes,
   ] = await Promise.all([
     alle(tf((supabase.from('verkaufsposten') as any)
       .select('id, datum, verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
@@ -84,12 +85,20 @@ export default async function ReportsPage() {
     // Bewusst NICHT auf aktiv=true eingeschränkt, damit auch historische
     // (inzwischen inaktive/ausverkaufte) Füllungen filterbar bleiben.
     alle(tf((supabase.from('fuellungen') as any).select('jahrgang, rebsorte, bezeichnung').order('id'))),
-    tenantId ? (supabase as any).rpc('crm_filterwerte', { p_tenant_id: tenantId }) : Promise.resolve({ data: [] }),
+    tenantId ? (supabase as any).rpc('crm_filterwerte', { p_tenant_id: tenantId }) : Promise.resolve({ data: [], error: null }),
     // Weinbuch-Sammlung: über ALLE Weinausbau-Chargen (aktiv + abgeschlossen),
     // da die Sammlung gerade für Prüfungen (BKI) auch historische Chargen
     // auffindbar machen soll.
     alle(tf((supabase.from('weinausbau') as any).select('jahrgang, rebsorte, name').order('id'))),
   ])
+  const umsatzRaw = geladen(umsatzRawRes, 'Verkäufe')
+  const lagerRaw = geladen(lagerRawRes, 'Füllungen')
+  const pipelineRaw = geladen(pipelineRawRes, 'Pipeline')
+  const kontakteRaw = geladen(kontakteRawRes, 'Kontakte')
+  const offeneRaw = geladen(offeneRawRes, 'Verkäufe')
+  const vsFuellungenRaw = geladen(vsFuellungenRawRes, 'Füllungen')
+  const filterwerteRaw = geladen(filterwerteRawRes, 'Filterwerte')
+  const wbChargenRaw = geladen(wbChargenRawRes, 'Chargen')
 
   // ── Monats-Umsatz (12 Monate rückwärts) ─────────────────────────────────
   const brutto = (p: R) => ((p.verkauf_positionen ?? []) as R[]).reduce((ps: number, pos: R) => {
@@ -148,11 +157,11 @@ export default async function ReportsPage() {
 
   const kontaktFrequenz: { id: string; name: string; accountnummer: string | null; letzterKontakt: string | null; tage: number }[] = []
   if (kontakte.length > 0) {
-    const { data: letzteAktsRaw } = await tf((supabase.from('aktivitaeten') as any)
+    const letzteAktsRaw = geladen(await tf((supabase.from('aktivitaeten') as any)
       .select('kontakt_id, datum')
       .in('kontakt_id', kontakte.map(k => k.id))
       .eq('erledigt', true)
-      .order('datum', { ascending: false }))
+      .order('datum', { ascending: false })), 'Aktivitäten')
     const letzteAkts = (letzteAktsRaw ?? []) as R[]
     const letztMap: Record<string, string> = {}
     letzteAkts.forEach((a: R) => { if (!letztMap[a.kontakt_id]) letztMap[a.kontakt_id] = a.datum })

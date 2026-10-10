@@ -24,6 +24,7 @@ export default async function WillkommenPage() {
   const membership = await getCurrentMembership()
   if (!membership) redirect('/dashboard')
 
+  // abfrage-ohne-fehler: nur der Hinweis zur Testphase auf der Willkommensseite – ohne ihn bleibt der Einstieg nutzbar
   const { data: tenantRow } = await (supabase.from('tenants') as R)
     .select('stripe_status, stripe_trial_ends_at')
     .eq('id', membership.tenantId)

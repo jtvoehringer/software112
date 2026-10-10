@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { geladen } from '@/lib/supabase/geladen'
 import Link from '@/components/ui/Link'
 import { redirect } from 'next/navigation'
 import { Landmark, Printer, Plus } from 'lucide-react'
@@ -32,11 +33,12 @@ export default async function AnlagenPage({ searchParams }: { searchParams: Prom
   const jahre = anlagenJahre(anlagen, aktJahr)
   const jahr = jahre.includes(Number(jahrParam)) ? Number(jahrParam) : aktJahr
 
-  const [afaBuchungen, offeneKaeufe, { data: dezRaw }] = await Promise.all([
+  const [afaBuchungen, offeneKaeufe, dezRawRes] = await Promise.all([
     ladeAfaBuchungen(ctx, jahr),
     ladeKandidaten(ctx),
     ctx.tf(ctx.q('ea_monatsabschluss').select('id').eq('jahr', jahr).eq('monat', 12).limit(1).maybeSingle()),
   ])
+  const dezRaw = geladen(dezRawRes, 'Monatsabschlüsse')
   const spiegel = anlagenspiegel(anlagen, jahr)
   const afaStatus = afaBuchungsStatus(anlagen, jahr, afaBuchungen)
   const dezemberGesperrt = !!(dezRaw as R | null)?.id
