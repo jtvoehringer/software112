@@ -33,6 +33,7 @@ export default async function WeingartenSichtPage() {
   const pinMap = new Map<string, KartenPin>()
   for (const r of wg.rieden) {
     if (r.lat == null || r.lon == null) continue
+    // zahl-locale-ok: Gruppierungsschlüssel, wird nicht angezeigt
     const key = `${r.ried ?? r.name}|${r.lat.toFixed(5)}|${r.lon.toFixed(5)}`
     if (!pinMap.has(key)) pinMap.set(key, { id: r.id, name: r.ried ?? r.name, lat: r.lat, lon: r.lon, sub: [r.rebsorte, `${fmtNum(r.flaeche_ha, 2)} ha`].filter(Boolean).join(' · '), href: `/weingarten/${r.id}` })
   }

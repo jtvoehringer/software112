@@ -872,7 +872,7 @@ export default function PressungSection({ jahrgangId, leseId, leseArt, pressunge
           {pressungen.length > 0 && (
             <span className="text-xs text-s112-muted">
               {fmt(gesamtKg)} kg → {fmt(gesamtLiter)} L
-              {ausbeute && <span className="ml-1 font-medium text-s112-text-1">({ausbeute.toFixed(1)} %)</span>}
+              {ausbeute && <span className="ml-1 font-medium text-s112-text-1">({fmtNum(ausbeute, 1)} %)</span>}
             </span>
           )}
           {writeOk && !showForm && (
@@ -904,7 +904,7 @@ export default function PressungSection({ jahrgangId, leseId, leseArt, pressunge
           </div>
           <div className="bg-s112-bg rounded-xl p-3 text-center">
             <p className={`text-lg font-semibold ${ausbeute && ausbeute < 65 ? 'text-s112-warn-fg' : 'text-s112-ok-fg'}`}>
-              {ausbeute ? `${ausbeute.toFixed(1)} %` : '–'}
+              {ausbeute ? `${fmtNum(ausbeute, 1)} %` : '–'}
             </p>
             <p className="text-xs text-s112-muted">Ausbeute (FK 70 %)</p>
           </div>

@@ -224,11 +224,11 @@ export default function KostenrechnungPage() {
     const b = parseFloat(betrag)
     if (objektTyp === 'weingarten' && selWgs.length > 1 && wgModus === 'prozent') {
       const t = selWgs.reduce((s, id) => s + (wgAnteile[id]??0), 0)
-      if (Math.abs(t-100) > 0.5) { setFehler(`WG-Anteile: ${t.toFixed(1)}% ≠ 100%`); return }
+      if (Math.abs(t-100) > 0.5) { setFehler(`WG-Anteile: ${fmtNum(t, 1)} % ≠ 100 %`); return }
     }
     if (objektTyp === 'keller' && selBhs.length > 1 && bhModus === 'prozent') {
       const t = selBhs.reduce((s, id) => s + (bhAnteile[id]??0), 0)
-      if (Math.abs(t-100) > 0.5) { setFehler(`Behälter-Anteile: ${t.toFixed(1)}% ≠ 100%`); return }
+      if (Math.abs(t-100) > 0.5) { setFehler(`Behälter-Anteile: ${fmtNum(t, 1)} % ≠ 100 %`); return }
     }
     setSaving(true);
     try { setFehler(null); setErfolg(false)

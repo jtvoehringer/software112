@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react'
 import Link from '@/components/ui/Link'
 import { useRouter } from 'next/navigation'
 import { Pencil, Trash2, MapPin, RotateCcw } from 'lucide-react'
-import { googleMapsUrl } from '@/lib/geo/rieden'
+import { googleMapsUrl, fmtKoord } from '@/lib/geo/rieden'
 import { deleteWeingarten, deleteRied, setzeWeingartenAktiv } from './actions'
 import { fmtHa } from '@/lib/format'
 import { NutzungBadge } from '@/lib/wein/grundstueckStatus'
@@ -407,7 +407,7 @@ function LageGruppe({
                 {/* Geo-Pin immer sichtbar: mit Koordinaten → Google Maps, ohne → Detailseite zum Setzen */}
                 {istEchteLage && (geo
                   ? <a href={googleMapsUrl(Number(geo.zentrum_lat), Number(geo.zentrum_lon))} target="_blank" rel="noopener"
-                      onClick={e => e.stopPropagation()} title={`In Google Maps öffnen (${Number(geo.zentrum_lat).toFixed(5)}, ${Number(geo.zentrum_lon).toFixed(5)})`} aria-label="In Google Maps öffnen"
+                      onClick={e => e.stopPropagation()} title={`In Google Maps öffnen (${fmtKoord(Number(geo.zentrum_lat), Number(geo.zentrum_lon))})`} aria-label="In Google Maps öffnen"
                       className="text-s112-blue-700 hover:opacity-75"><MapPin size={13} strokeWidth={1.75} /></a>
                   : stammdatenId && (
                     <Link href={`/weingarten/${stammdatenId}`} onClick={e => e.stopPropagation()}

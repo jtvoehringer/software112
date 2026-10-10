@@ -1,6 +1,7 @@
 'use client'
 
 import { fehlerText } from '@/lib/fehler'
+import { fmtNum } from '@/lib/format'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from '@/components/ui/Link'
 import { Mail, Inbox, Send, Trash2, FileText, Folder, X, UserPlus, Paperclip } from 'lucide-react'
@@ -32,7 +33,7 @@ type MsgDetail = Msg & {
 }
 
 function fmtGroesse(b: number) {
-  if (b >= 1024 * 1024) return `${(b / 1024 / 1024).toFixed(1)} MB`
+  if (b >= 1024 * 1024) return `${fmtNum(b / 1024 / 1024, 1)} MB`
   if (b >= 1024) return `${Math.round(b / 1024)} KB`
   return `${b} B`
 }

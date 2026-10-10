@@ -213,8 +213,8 @@ function GSTForm({ weingartenId, gst, customWeinbaugebiete, onNeuesWeinbaugebiet
       setBevLoading(false)
       if (result.ok) {
         setKatasterHa(String(result.ha))
-        const detail = result.nutzungen.map(n => n.nutzung + ': ' + n.ha.toFixed(4) + ' ha').join(', ')
-        setBevMsg(result.ha.toFixed(4) + ' ha (' + detail + ')')
+        const detail = result.nutzungen.map(n => n.nutzung + ': ' + fmtHa(n.ha) + ' ha').join(', ')
+        setBevMsg(fmtHa(result.ha) + ' ha (' + detail + ')')
         setBevOk(true)
       } else {
         setBevMsg(result.message)
@@ -384,13 +384,13 @@ function GSTForm({ weingartenId, gst, customWeinbaugebiete, onNeuesWeinbaugebiet
                     <tr key={i} className="border-t border-s112-warn/30">
                       <td className="px-2 py-1 font-mono text-s112-warn-fg">{n.ns}</td>
                       <td className="px-2 py-1 text-s112-text-1">{n.nutzung}</td>
-                      <td className="px-2 py-1 text-right font-mono text-s112-text-1">{n.ha.toFixed(4)}</td>
+                      <td className="px-2 py-1 text-right font-mono text-s112-text-1">{fmtHa(n.ha)}</td>
                     </tr>
                   ))}
                   <tr className="border-t border-s112-warn/30 bg-s112-warn-bg font-semibold">
                     <td className="px-2 py-1 text-s112-warn-fg" colSpan={2}>Gesamt</td>
                     <td className="px-2 py-1 text-right font-mono text-s112-warn-fg">
-                      {bevAlleNutzungen.reduce((s, n) => s + n.ha, 0).toFixed(4)}
+                      {fmtHa(bevAlleNutzungen.reduce((s, n) => s + n.ha, 0))}
                     </td>
                   </tr>
                 </tbody>

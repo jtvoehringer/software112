@@ -607,7 +607,7 @@ export default function ReportsClient({
                         <div>
                           <p className="text-xs text-s112-muted">Veränderung {a.monat} → {b.monat}</p>
                           <p className={`text-lg font-semibold tabular-nums mt-1 ${positiv ? 'text-s112-ok-fg' : 'text-s112-err'}`}>
-                            {positiv ? '+' : ''}{eur(diff)} ({positiv ? '+' : ''}{pct.toFixed(1)}%)
+                            {positiv ? '+' : ''}{eur(diff)} ({positiv ? '+' : ''}{fmtNum(pct, 1)} %)
                           </p>
                         </div>
                         <p className="text-xs text-s112-muted">{a.anzahl} → {b.anzahl} Verkäufe</p>
