@@ -144,6 +144,8 @@ function klettere(start) {
       if (istAlleAufruf(p)) { inAlle = true; break }
       // Mandanten-Wrapper tf(q) (hängt nur .eq('tenant_id', …) an): weiter nach außen, z. B. alle(tf(q))
       if (ts.isIdentifier(p.expression) && WRAPPER.test(p.expression.text) && p.arguments[0] === cur) { cur = p; continue }
+      // Sweep 93: ebenso ctx.tf(q) (Dashboard, Morgenbericht, Finanzübersicht)
+      if (ts.isPropertyAccessExpression(p.expression) && WRAPPER.test(p.expression.name.text) && p.arguments[0] === cur) { cur = p; continue }
       if (ts.isIdentifier(p.expression)) aufruf = { name: p.expression.text, index: p.arguments.indexOf(cur) }
       break
     }
@@ -239,8 +241,11 @@ function abfragen(text, datei = '') {
   const sf = ts.createSourceFile(datei || 'x.tsx', text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
   const out = []
   function besuche(node) {
-    if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) && node.expression.name.text === 'from' &&
-      node.arguments.length > 0 && ts.isStringLiteralLike(node.arguments[0]) && GROSSE_TABELLEN.includes(node.arguments[0].text)) {
+    // Sweep 93 (KAN-288): auch die Helfer q('…') und ctx.q('…') (Dashboard, Morgenbericht) – sie liefen am Wächter vorbei
+    const tabellenAufruf = ts.isCallExpression(node) && (
+      (ts.isPropertyAccessExpression(node.expression) && (node.expression.name.text === 'from' || node.expression.name.text === 'q')) ||
+      (ts.isIdentifier(node.expression) && node.expression.text === 'q'))
+    if (tabellenAufruf && node.arguments.length > 0 && ts.isStringLiteralLike(node.arguments[0]) && GROSSE_TABELLEN.includes(node.arguments[0].text)) {
       const a = klettere(node)
       if (a.operation === 'select') {
         const gepaged = a.inAlle || aufrufBegrenzt(sf, a.aufruf) ||

@@ -379,9 +379,10 @@ export default async function LagerPage({
     .or(tenantId ? `tenant_id.is.null,tenant_id.eq.${tenantId}` : 'tenant_id.is.null')
     .order('name'), 'Kategorien')
   const kategorien = ((rawKat ?? []) as AR[]).map(k => ({ id: k.id as string, name: k.name as string }))
+  // Sweep 93 (KAN-288): Lieferanten-Auswahl vollständig – vorher .limit(500), weitere Lieferanten fehlten still
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const rawLief = geladen(await tf((supabase.from('firmen') as any)
-    .select('id, name').eq('ist_lieferant', true).eq('aktiv', true).order('name').limit(500)), 'Firmen')
+  const rawLief = geladen(await alle<AR>(tf((supabase.from('firmen') as any)
+    .select('id, name').eq('ist_lieferant', true).eq('aktiv', true)).order('name').order('id')), 'Firmen')
   const lieferanten = ((rawLief ?? []) as AR[]).map(l => ({ id: l.id as string, name: l.name as string }))
   // Einkauf (mit Pflicht-E/A-Ausgabe) nur mit Modul E&A bzw. Belege und Schreibrecht E&A – KAN-223 (Entscheidung 07.10.2026):
   // auch Doppik-Betriebe (Belege & BMD-Übergabe), dieselbe Regel wie s112_betriebsmittel_einkauf

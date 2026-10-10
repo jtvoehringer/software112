@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { alle } from '@/lib/supabase/alle'
 import { geladen, gezaehlt } from '@/lib/supabase/geladen'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
@@ -77,9 +78,10 @@ export default async function DashboardPage() {
     absatzSeriesRes,
   ] = await Promise.all([
     // Offene Posten (unbezahlt, nicht storniert) — inkl. Datum für Überfällig-/Ø-Tage-Berechnung
-    tf(q('verkaufsposten')
+    // Sweep 93 (KAN-288): vollständig über alle() – PostgREST kappt sonst still bei 1.000 Zeilen (Summe offener Posten)
+    alle<R>(tf(q('verkaufsposten')
       .select('id, datum, verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
-      .eq('aktiv', true).eq('bezahlt', false).eq('storniert', false)),
+      .eq('aktiv', true).eq('bezahlt', false).eq('storniert', false)).order('id')),
 
     // Überfällige Rechnungen (bis 5.8.2026: letzte 5 Belege unabhängig vom Status - auf
     // Wunsch auf ausschließlich überfällige umgestellt). Weiter gefasste Vorab-Filterung
@@ -104,9 +106,10 @@ export default async function DashboardPage() {
     // Umsatzreihe der letzten 12 Monate für das Balkendiagramm (bis 5.8.2026: Flaschen-
     // Absatz/Menge statt Umsatz - auf Wunsch umgestellt, daher jetzt Preis/Rabatt-Felder
     // statt nur Menge, um wie bei posSum() den tatsächlichen Netto-Umsatz zu berechnen)
-    tf(q('verkaufsposten')
-      .select('datum, verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
-      .eq('aktiv', true).eq('storniert', false).gte('datum', absatzVon)),
+    // Sweep 93 (KAN-288): vollständig über alle() – PostgREST kappt sonst still bei 1.000 Zeilen (Umsatzreihe 12 Monate)
+    alle<R>(tf(q('verkaufsposten')
+      .select('id, datum, verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
+      .eq('aktiv', true).eq('storniert', false).gte('datum', absatzVon)).order('id')),
   ])
   // Sweep 89 (KAN-281): Lesefehler werfen (Fehlergrenze) statt falscher Umsätze und offener Posten
   const offenePostenRaw = geladen(offenePostenRes, 'Offene Posten')
