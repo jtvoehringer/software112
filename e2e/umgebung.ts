@@ -213,8 +213,10 @@ export function fremdeDatensaetze(): FremderDatensatz[] {
   })
 }
 
-/** Header für geschützte Vercel-Previews (Protection Bypass for Automation) */
+/** Header für Vercel-Deployments: Protection Bypass for Automation (geschützte Previews/Staging) und ohne
+ *  Vercel-Toolbar – sie lädt https://vercel.live/ in einem Frame, und die CSP der App meldet das als Konsolenfehler
+ *  (erster Staging-Lauf 10.10.2026: jede Seite rot). Lokal schadet der Header nicht. */
 export function vercelBypassHeader(): Record<string, string> {
   const v = env('E2E_VERCEL_BYPASS')
-  return v ? { 'x-vercel-protection-bypass': v, 'x-vercel-set-bypass-cookie': 'true' } : {}
+  return { 'x-vercel-skip-toolbar': '1', ...(v ? { 'x-vercel-protection-bypass': v, 'x-vercel-set-bypass-cookie': 'true' } : {}) }
 }

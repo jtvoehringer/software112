@@ -336,7 +336,9 @@ export default async function LagerPage({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rawBmBew = geladen(await alle<AR>(tf((supabase.from('betriebsmittel_lager_bewegungen') as any)
     // storno-sichtbar: stornierte Buchungen stehen gekennzeichnet in der Liste, zählen aber nicht zum Bestand
-    .select('id, betriebsmittel_id, datum, typ, menge, einheit, betrag_netto, ust_satz, notizen, storniert_am, storniert_von_name, storno_grund, lieferant:firmen!lieferant_firma_id(name)')
+    // Lieferant über den Namen des Fremdschlüssels: (lieferant_firma_id, tenant_id) ist ein Verbund-FK, der Spalten-
+    // Hinweis „firmen!lieferant_firma_id“ findet ihn nicht (PGRST200 – Seite 500, gefunden im ersten E2E-Lauf 10.10.2026)
+    .select('id, betriebsmittel_id, datum, typ, menge, einheit, betrag_netto, ust_satz, notizen, storniert_am, storniert_von_name, storno_grund, lieferant:firmen!betriebsmittel_lager_bewegungen_lieferant_fkey(name)')
     .order('datum', { ascending: true }).order('id'))), 'Betriebsmittel-Lagerbewegungen')
   // Verbrauch aus Maßnahmen (Sonstiges, Laubarbeit) mit Betriebsmittel – Aufwand × behandelte Fläche bzw. gesamt
   const { data: rawBmVerbrauch } = brauchtBm
