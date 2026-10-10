@@ -16,7 +16,7 @@
 // UI/Formular-Schreiblogik, die wiederverwendet werden könnte).
 
 import { getCurrentMembership } from '@/lib/auth/roles'
-import { NICHT_GESPEICHERT } from '@/lib/fehler'
+import { NICHT_GESPEICHERT, dbFehlerText } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -99,7 +99,7 @@ export async function fuehreKorrekturMerkenAus(
     const { data: geaendert, error: updateErr } = await (supabase.from('assistent_korrekturen') as any)
       .update({ interpretation, kategorie, erstellt_von: userId })
       .eq('id', (bestehend as R).id).eq('tenant_id', tenantId).select('id')
-    if (updateErr) return { erfolg: false, fehler: (updateErr as R).message }
+    if (updateErr) return { erfolg: false, fehler: dbFehlerText(updateErr) }
     if (!(geaendert as unknown[] | null)?.length) return { erfolg: false, fehler: NICHT_GESPEICHERT }   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
     return { erfolg: true, korrektur_id: (bestehend as R).id, aktualisiert: true }
   }
@@ -107,6 +107,6 @@ export async function fuehreKorrekturMerkenAus(
   const { data: neu, error: insertErr } = await (supabase.from('assistent_korrekturen') as any)
     .insert({ tenant_id: tenantId, begriff, interpretation, kategorie, erstellt_von: userId })
     .select('id').single()
-  if (insertErr) return { erfolg: false, fehler: (insertErr as R).message }
+  if (insertErr) return { erfolg: false, fehler: dbFehlerText(insertErr) }
   return { erfolg: true, korrektur_id: (neu as R).id, aktualisiert: false }
 }

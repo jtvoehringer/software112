@@ -25,6 +25,19 @@ export class AktionsFehler extends Error {
   }
 }
 
+/** Ergebnis einer Server Action, die Fehler zurückgibt ({ error } bzw. { fehler } bzw. { ok: false }), auswerten – im Fehlerfall
+ *  als AktionsFehler werfen (die Fehlerseite bzw. fehlerText() zeigt die Meldung). Sweep 107: Monatsabschluss, UVA,
+ *  Daueraufträge und E&A-Kategorien verwarfen das Ergebnis – Fehler wie „bereits übermittelt“ verschwanden still. */
+export function ergebnisPruefen<T>(r: T): T {
+  const x = r as { error?: unknown; fehler?: unknown; ok?: unknown } | null | undefined
+  if (x && typeof x === 'object') {
+    const meldung = typeof x.error === 'string' && x.error ? x.error : typeof x.fehler === 'string' && x.fehler ? x.fehler : null
+    if (meldung) throw new AktionsFehler(meldung)
+    if (x.ok === false) throw new AktionsFehler('Die Aktion ist fehlgeschlagen – bitte erneut versuchen.')
+  }
+  return r
+}
+
 /** Lesbare Meldung eines gefangenen Fehlers – auch in Produktion.
  *  Bekannte englische Datenbankmeldungen (Prüfregeln, Fremdschlüssel, RLS) werden
  *  dabei ins Deutsche übersetzt (uebersetzeDbMeldung). */

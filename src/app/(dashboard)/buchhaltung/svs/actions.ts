@@ -7,7 +7,7 @@ import { getCurrentMembership, canWrite, canAdmin, isSystemAdmin } from '@/lib/a
 import { pruefeSeitenBetrieb } from '@/lib/auth/seitenBetrieb'
 import { pruefeSchreibzugriff } from '@/lib/auth/sperren'
 import type { Zurechnung } from '@/lib/svs/berechnung'
-import { AktionsFehler, NICHT_GESPEICHERT } from '@/lib/fehler'
+import { AktionsFehler, NICHT_GESPEICHERT, dbFehlerText } from '@/lib/fehler'
 import { dezimal } from '@/lib/format'
 import { heuteWien } from '@/lib/datum/wien'
 import { rund } from '@/lib/zahl/runden'
@@ -90,7 +90,7 @@ export async function importiereEinheitswerte(text: string, bescheidDatum?: stri
     const update: R = { einheitswert: rund(ew, 2), einheitswert_quelle: 'import', einheitswert_bescheid: (iDatum >= 0 && felder[iDatum]) ? isoDatum(felder[iDatum]) : (bescheidDatum || null) }
     if (iZur >= 0 && felder[iZur]) { const z = zurMap[felder[iZur].toLowerCase().trim()]; if (z) update.svs_zurechnung = z }   // aenderung-ohne-pruefung: Grundstück eben gefunden (treffer) – der Import zählt die übernommenen
     const { error } = await (supabase.from('grundstuecke') as any).update(update).eq('id', treffer[0].id).eq('tenant_id', tenantId)
-    if (error) return { ok: false, fehler: (error as R).message }
+    if (error) return { ok: false, fehler: dbFehlerText(error) }
     uebernommen++
   }
   revalidatePath('/buchhaltung/svs')
@@ -119,7 +119,7 @@ export async function speichereSvsOption(werte: { svs_option: 'pauschal' | 'opti
     })
     .eq('tenant_id', tenantId)
     .select('tenant_id')
-  if (error) return { ok: false, fehler: (error as R).message }
+  if (error) return { ok: false, fehler: dbFehlerText(error) }
   if (!data || (data as R[]).length === 0) return { ok: false, fehler: 'Einstellungen nicht gespeichert – keine Berechtigung oder Betrieb nicht eingerichtet.' }
   revalidatePath('/buchhaltung/svs')
   return { ok: true }
@@ -133,7 +133,7 @@ export async function speichereSvsParameter(p: { jahr: number; staffel: { bis: n
   if (!Array.isArray(p.staffel) || p.staffel.length === 0 || p.staffel.some(s => typeof s.prozent !== 'number')) return { ok: false, fehler: 'Staffel unvollständig' }
   const admin = createSupabaseAdminClient()
   const { error } = await (admin.from('svs_parameter') as any).upsert({ ...p, aktualisiert_am: new Date().toISOString() }, { onConflict: 'jahr' })
-  if (error) return { ok: false, fehler: (error as R).message }
+  if (error) return { ok: false, fehler: dbFehlerText(error) }
   revalidatePath('/buchhaltung/svs')
   return { ok: true }
 }

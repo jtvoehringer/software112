@@ -135,7 +135,7 @@ export async function createJahrgang(formData: FormData): Promise<{ error?: stri
       const vorhandenId = (vorhanden as AR | null)?.id as string | undefined
       return vorhandenId ? { error: meldung, vorhandenId } : { error: meldung }
     }
-    return { error: (error as AR).message }
+    return { error: dbFehlerText(error) }
   }
   revalidatePath('/erntemeldung')
   return {}
@@ -214,7 +214,7 @@ export async function neueLese(formData: FormData): Promise<{ error?: string; ja
   const jahrgang = jahrgangAusEingabe(formData.get('jahrgang'))
   if (jahrgang == null) return { error: 'Bitte einen gültigen Jahrgang (1900–2100) angeben.' }
   let angaben: LeseAngaben
-  try { angaben = leseAngaben(formData, jahrgang) } catch (err) { return { error: (err as Error).message } }
+  try { angaben = leseAngaben(formData, jahrgang) } catch (err) { return { error: dbFehlerText(err) } }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const ladeJg = async () => (supabase.from('weinjahrgaenge') as any)

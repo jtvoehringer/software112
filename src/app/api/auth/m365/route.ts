@@ -7,6 +7,7 @@ import { getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperre } from '@/lib/auth/sperren'
 import { sperrAntwortKoerper } from '@/lib/abo/regeln'
+import { dbFehlerText } from '@/lib/fehler'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -30,7 +31,7 @@ export async function GET(req: NextRequest) {
 
   const { data: cfg, error: cfgErr } = await (admin.from('tenant_einstellungen') as any)
     .select('m365_tenant_id, m365_client_id').eq('tenant_id', tenantId).maybeSingle()
-  if (cfgErr) return NextResponse.json({ fehler: `M365-Einstellungen konnten nicht geladen werden: ${cfgErr.message}` }, { status: 500 })
+  if (cfgErr) return NextResponse.json({ fehler: `M365-Einstellungen konnten nicht geladen werden: ${dbFehlerText(cfgErr)}` }, { status: 500 })
   const c = cfg as R | null
   if (!c?.m365_tenant_id || !c?.m365_client_id)
     return NextResponse.redirect(new URL('/admin/mandanten', req.url))

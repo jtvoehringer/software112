@@ -25,7 +25,7 @@ export async function GET() {
     const { data, error } = await (supabase.from('user_email_connections') as any)
       .select('monitored_email, email_spiegel_stand, email_spiegel_info')
       .eq('tenant_id', tenantId).eq('user_id', user?.id ?? '').maybeSingle()
-    if (error) return NextResponse.json({ fehler: `Postfach-Verbindung konnte nicht geladen werden: ${error.message}` }, { status: 500 })
+    if (error) return NextResponse.json({ fehler: `Postfach-Verbindung konnte nicht geladen werden: ${dbFehlerText(error)}` }, { status: 500 })
 
     const d = data as R | null
     return NextResponse.json({ monitored_email: d?.monitored_email ?? null, spiegel_stand: d?.email_spiegel_stand ?? null, spiegel_info: d?.email_spiegel_info ?? null })

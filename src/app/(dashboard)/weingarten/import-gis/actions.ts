@@ -111,7 +111,7 @@ export async function uebernehmeEamaGis(
       if (pinSetzen && z) { payload.zentrum_lat = z.lat; payload.zentrum_lon = z.lon; payload.geo_quelle = 'eama' }
       else if (!r.geo_quelle) payload.geo_quelle = 'eama'
       const { data: geaendert, error } = await (supabase.from('weingarten') as any).update(payload).eq('id', r.id).eq('tenant_id', tenantId).select('id')
-      if (error) return { rieden, pins, grundstuecke, fehler: `${fs.fsname}: ${error.message}` }
+      if (error) return { rieden, pins, grundstuecke, fehler: `${fs.fsname}: ${dbFehlerText(error)}` }
       if (!(geaendert as unknown[] | null)?.length) return { rieden, pins, grundstuecke, fehler: `${fs.fsname}: ${NICHT_GESPEICHERT}` }   // KAN-248
       rieden++; if (pinSetzen) pins++
     }
@@ -125,7 +125,7 @@ export async function uebernehmeEamaGis(
     const ziele = treffer.flatMap(t => gstByRied.get(t.id) ?? []).filter(x => fsKey(x.ama_feldnummer) === s.slnr)
     if (!ziele.length) continue
     const { error } = await (supabase.from('grundstuecke') as any).update({ geometrie: s.geometrie }).in('id', ziele.map(x => x.id)).eq('tenant_id', tenantId)   // aenderung-ohne-pruefung: Geometrie der Grundstücke des Schlags – Liste eben aus der Datenbank
-    if (error) return { rieden, pins, grundstuecke, fehler: `Schlag ${s.fsnr}/${s.slnr}: ${error.message}` }
+    if (error) return { rieden, pins, grundstuecke, fehler: `Schlag ${s.fsnr}/${s.slnr}: ${dbFehlerText(error)}` }
     grundstuecke += ziele.length
   }
 

@@ -51,7 +51,7 @@ function BewegungsZeile({ b, kontoId, writeOk }: { b: Bewegung; kontoId: string;
           type="checkbox"
           checked={b.abgeglichen}
           disabled={!writeOk || pending || !!b.gegenzeile}
-          onChange={() => startTransition(() => { setzeAbgeglichen(kontoId, b.quelle, b.id, !b.abgeglichen) })}
+          onChange={() => startTransition(async () => { const r = await setzeAbgeglichen(kontoId, b.quelle, b.id, !b.abgeglichen); if (r && 'error' in r && r.error) alert(r.error) })}
           className="rounded-sm accent-s112-teal cursor-pointer disabled:cursor-not-allowed"
           title="Gegen Kontoauszug abgeglichen"
         />

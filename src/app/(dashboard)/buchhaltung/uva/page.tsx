@@ -15,6 +15,7 @@ import { csvPfad } from '@/lib/behoerden/katalog'
 import { ladeUva, uvaZeitraumLabel, UVA_MONATE, type UvaMeldung, type UvaSchluessel } from '@/lib/behoerden/uva'
 import { datumText } from '@/lib/behoerden/buchhaltung-gemeinsam'
 import SendenKnopf from '@/components/ui/SendenKnopf'
+import { ergebnisPruefen } from '@/lib/fehler'
 
 export const dynamic = 'force-dynamic'
 
@@ -91,12 +92,12 @@ export default async function UvaPage({
     'use server'
     const j = parseInt(dezimal(formData.get('jahr') as string))
     const z = formData.get('zeitraum') as string
-    await berechneUndSpeichereUva(j, z)
+    ergebnisPruefen(await berechneUndSpeichereUva(j, z))   // Sweep 107: z. B. „bereits übermittelt (gesperrt)“ nicht verwerfen
   }
 
   async function handleUebermitteln(uvaId: string) {
     'use server'
-    await markiereUvaAlsUebermittelt(uvaId)
+    ergebnisPruefen(await markiereUvaAlsUebermittelt(uvaId))
   }
 
   return (

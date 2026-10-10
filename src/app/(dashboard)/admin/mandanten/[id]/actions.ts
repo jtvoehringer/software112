@@ -260,7 +260,7 @@ export async function updateMemberNameAdmin(userId: string, fullName: string, te
   const { error } = await (admin.from('profiles') as any)
     .upsert({ id: userId, full_name: name, updated_at: new Date().toISOString() }, { onConflict: 'id' })
 
-  if (error) return { error: (error as R).message }
+  if (error) return { error: dbFehlerText(error) }
   tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
   return { success: true }
@@ -279,7 +279,7 @@ export async function updateMemberRoleAdmin(membershipId: string, role: string, 
     .eq('tenant_id', tenantId)
     .neq('role', 'system_admin')
 
-  if (error) return { error: (error as R).message }
+  if (error) return { error: dbFehlerText(error) }
   if (count === 0) return { error: 'Eintrag nicht gefunden oder keine Änderung möglich.' }
   tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
@@ -298,7 +298,7 @@ export async function removeMemberAdmin(membershipId: string, tenantId: string) 
     .eq('tenant_id', tenantId)
     .neq('role', 'system_admin')
 
-  if (error) return { error: (error as R).message }
+  if (error) return { error: dbFehlerText(error) }
   if (count === 0) return { error: 'Eintrag nicht gefunden oder keine Änderung möglich.' }
   // KEIN revalidatePath – Client entfernt den Eintrag aus dem State
   return { success: true }
@@ -565,7 +565,7 @@ export async function saveSumUpConfig(tenantId: string, formData: FormData) {
     aktualisiert_am:     new Date().toISOString(),
   }, { onConflict: 'tenant_id' })
 
-  if (error) return { error: (error as any).message }
+  if (error) return { error: dbFehlerText(error) }
   tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
   return null
@@ -587,7 +587,7 @@ export async function saveBawbZugangsdaten(tenantId: string, formData: FormData)
     aktualisiert_am: new Date().toISOString(),
   }, { onConflict: 'tenant_id' })
 
-  if (error) return { error: (error as any).message }
+  if (error) return { error: dbFehlerText(error) }
   tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
   return null
@@ -621,7 +621,7 @@ export async function createStripeCustomer(tenantId: string, tenantName: string,
 
   const { error } = await (admin.from('tenants') as any)
     .update({ stripe_customer_id: customer.id }).eq('id', tenantId)
-  if (error) return { error: (error as R).message }
+  if (error) return { error: dbFehlerText(error) }
 
   tenantKopfInvalidieren(tenantId)
   await stripeKundennummerSync(tenantId)
@@ -748,7 +748,7 @@ export async function wendePaketVorgabenAn(tenantId: string, paketWunsch?: strin
   if (buchhaltungsart === 'ea' || buchhaltungsart === 'doppik') {
     const { error } = await (admin.from('tenant_einstellungen') as any)
       .update({ buchhaltungsart }).eq('tenant_id', tenantId)
-    if (error) return { error: `Buchhaltungsart konnte nicht gesetzt werden: ${(error as R).message}` }
+    if (error) return { error: `Buchhaltungsart konnte nicht gesetzt werden: ${dbFehlerText(error)}` }
   }
   tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
@@ -779,7 +779,7 @@ export async function verbundBeitreten(tenantId: string, hauptId: string): Promi
   if (fehler) return { error: fehler }
 
   const { error } = await (admin.from('tenants') as R).update(beitrittsWerte(h as R)).eq('id', tenantId)
-  if (error) return { error: `Submandant konnte nicht gespeichert werden: ${(error as R).message}` }
+  if (error) return { error: `Submandant konnte nicht gespeichert werden: ${dbFehlerText(error)}` }
   // CRM und Kellergebinde gemeinschaftlich (beide Richtungen)
   for (const tab of ['keller_freigaben', 'crm_freigaben']) {
     // tenant-isolation-ignore: mandantenübergreifende Verwaltungstabelle (Plattform-Admin, Service-Role)
@@ -808,7 +808,7 @@ export async function verbundVerlassen(tenantId: string): Promise<{ error?: stri
   const hauptId = (n as R | null)?.abrechnung_ueber as string | null
   if (!n || !hauptId) return { error: 'Dieser Betrieb ist kein Submandant.' }
   const { error } = await (admin.from('tenants') as R).update(austrittsWerte(!!(n as R).stripe_subscription_id)).eq('id', tenantId)
-  if (error) return { error: `Austritt konnte nicht gespeichert werden: ${(error as R).message}` }
+  if (error) return { error: `Austritt konnte nicht gespeichert werden: ${dbFehlerText(error)}` }
   tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
   revalidatePath(`/admin/mandanten/${hauptId}`)
@@ -826,7 +826,7 @@ export async function setPremiumSupport(tenantId: string, seitRoh: string, bisRo
   const bis = bisRoh.trim() || null
   const { error } = await (createSupabaseAdminClient().from('tenants') as R)
     .update({ premium_support_seit: seit, premium_support_bis: bis }).eq('id', tenantId)
-  if (error) return { error: `Premium-Support konnte nicht gespeichert werden: ${(error as R).message}` }
+  if (error) return { error: `Premium-Support konnte nicht gespeichert werden: ${dbFehlerText(error)}` }
   tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
   revalidatePath('/admin/mandanten')

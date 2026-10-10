@@ -32,7 +32,7 @@ export async function POST(
   // Prüfen ob Aktivität zu diesem Tenant gehört
   const { data: akt, error: aktErr } = await (supabase.from('aktivitaeten') as any)
     .select('id').eq('id', aktivitaetId).eq('tenant_id', tenantId).single()
-  if (aktErr && aktErr.code !== 'PGRST116') return NextResponse.json({ error: `Aktivität konnte nicht geladen werden: ${aktErr.message}` }, { status: 500 })
+  if (aktErr && aktErr.code !== 'PGRST116') return NextResponse.json({ error: `Aktivität konnte nicht geladen werden: ${dbFehlerText(aktErr)}` }, { status: 500 })
   if (!akt) return NextResponse.json({ error: 'Aktivität nicht gefunden' }, { status: 404 })
 
   const formData = await formBody(req)   // Sweep 103: leerer/kaputter Inhalt → 400 statt HTML-500
@@ -95,7 +95,7 @@ export async function GET(
     .eq('aktivitaet_id', aktivitaetId)
     .eq('tenant_id', tenantId)
     .order('erstellt_am', { ascending: true })
-  if (dataErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${dataErr.message}` }, { status: 500 })
+  if (dataErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${dbFehlerText(dataErr)}` }, { status: 500 })
 
   return NextResponse.json(data ?? [])
 }

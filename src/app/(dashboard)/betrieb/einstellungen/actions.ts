@@ -131,7 +131,7 @@ export async function saveBetriebOwn(formData: FormData) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase-Typen ohne Tabellenschema (Konvention)
   const { data: artZeile, error: artErr } = await (admin.from('tenant_einstellungen') as any)
     .select('betriebsart').eq('tenant_id', auth.tenantId).maybeSingle()
-  if (artErr) return { error: `Betriebsart konnte nicht geladen werden: ${artErr.message}` }
+  if (artErr) return { error: `Betriebsart konnte nicht geladen werden: ${dbFehlerText(artErr)}` }
   const betriebsnummer = weinbauBetriebsnummerPruefen(formData.get('betrieb_betriebsnummer'), artZeile?.betriebsart)
   if (!betriebsnummer.ok) return { error: betriebsnummer.fehler }
 

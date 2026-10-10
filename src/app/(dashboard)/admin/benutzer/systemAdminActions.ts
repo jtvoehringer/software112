@@ -6,7 +6,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
-import { AktionsFehler } from '@/lib/fehler'
+import { AktionsFehler, dbFehlerText } from '@/lib/fehler'
 import { kontoFuerEinladung, sendeZuordnungsMail } from '@/lib/auth/einladung'
 import { plattformAdminMitgliedschaften, type Mitgliedschaft } from '@/lib/auth/plattformAdminMitglied'
 
@@ -72,7 +72,7 @@ export async function inviteSystemAdmin(email: string) {
   if (neu.length > 0) {
     const { error: memberError } = await (admin.from('tenant_memberships') as any)
       .insert(neu.map(tenantId => ({ tenant_id: tenantId, user_id: userId, role: 'system_admin' })))
-    if (memberError) return { error: (memberError as R).message }
+    if (memberError) return { error: dbFehlerText(memberError) }
   }
 
   revalidatePath('/admin/benutzer')
@@ -102,7 +102,7 @@ export async function removeSystemAdmin(membershipId: string) {
 
   const { data: ziel, error: zielError } = await (admin.from('tenant_memberships') as any)
     .select('user_id').eq('id', membershipId).eq('role', 'system_admin').maybeSingle()
-  if (zielError) return { error: (zielError as R).message }
+  if (zielError) return { error: dbFehlerText(zielError) }
   if (!ziel) return { error: 'Eintrag nicht gefunden.' }
   const userId = (ziel as R).user_id as string
 
@@ -116,7 +116,7 @@ export async function removeSystemAdmin(membershipId: string) {
   const { error } = await (admin.from('tenant_memberships') as any)
     .delete().eq('id', membershipId).eq('role', 'system_admin')
 
-  if (error) return { error: (error as R).message }
+  if (error) return { error: dbFehlerText(error) }
 
   // Letzte system_admin-Mitgliedschaft entfernt → auch aus plattform_admins austragen
   if (count <= 1) {

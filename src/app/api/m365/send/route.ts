@@ -6,6 +6,7 @@ import { ereignisMelden } from '@/lib/system/ereignis'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { heuteWien } from '@/lib/datum/wien'
+import { dbFehlerText } from '@/lib/fehler'
 
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -26,7 +27,7 @@ export async function POST(req: NextRequest) {
     const { data: cfg, error: cfgErr } = await (admin.from('tenant_einstellungen') as any)
       .select('m365_modul_aktiv, m365_tenant_id, m365_client_id, m365_client_secret_enc, m365_access_token_enc, m365_refresh_token_enc, m365_token_expires_at, m365_user_email, tenant_id')
       .eq('tenant_id', tenantId).maybeSingle()
-    if (cfgErr) return NextResponse.json({ fehler: `M365-Einstellungen konnten nicht geladen werden: ${cfgErr.message}` }, { status: 500 })
+    if (cfgErr) return NextResponse.json({ fehler: `M365-Einstellungen konnten nicht geladen werden: ${dbFehlerText(cfgErr)}` }, { status: 500 })
     const c = cfg as R | null
     if (!c?.m365_modul_aktiv) return NextResponse.json({ fehler: 'M365-Modul nicht aktiv' }, { status: 400 })
 

@@ -4,6 +4,7 @@ import { getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { LESE_ARTEN, LESE_ART_LABEL, leseTitel } from '@/lib/wein/lesen'
 import { qualitaetAnzeigeOderNull } from '@/lib/wein/qualitaet'
+import { dbFehlerText } from '@/lib/fehler'
 
 export const dynamic = 'force-dynamic'
 
@@ -40,7 +41,7 @@ export async function GET(req: NextRequest) {
     .eq('tenant_id', tenantId)
     .eq('aktiv', true)
     .limit(5)
-  if (kontakteErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${kontakteErr.message}` }, { status: 500 })
+  if (kontakteErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${dbFehlerText(kontakteErr)}` }, { status: 500 })
 
   ;(kontakte as R[] ?? []).forEach((k: R) => {
     results.push({
@@ -59,7 +60,7 @@ export async function GET(req: NextRequest) {
     .eq('tenant_id', tenantId)
     .eq('aktiv', true)
     .limit(5)
-  if (firmenErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${firmenErr.message}` }, { status: 500 })
+  if (firmenErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${dbFehlerText(firmenErr)}` }, { status: 500 })
 
   ;(firmen as R[] ?? []).forEach((f: R) => {
     results.push({
@@ -78,7 +79,7 @@ export async function GET(req: NextRequest) {
     .eq('tenant_id', tenantId)
     .eq('aktiv', true)
     .limit(5)
-  if (fuellungenErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${fuellungenErr.message}` }, { status: 500 })
+  if (fuellungenErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${dbFehlerText(fuellungenErr)}` }, { status: 500 })
 
   ;(fuellungen as R[] ?? []).forEach((f: R) => {
     results.push({
@@ -98,7 +99,7 @@ export async function GET(req: NextRequest) {
     .eq('tenant_id', tenantId)
     .eq('aktiv', true)
     .limit(5)
-  if (verkaufErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${verkaufErr.message}` }, { status: 500 })
+  if (verkaufErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${dbFehlerText(verkaufErr)}` }, { status: 500 })
 
   const gefundeneNummern = new Set<string>()
   ;(verkauf as R[] ?? []).forEach((v: R) => {
@@ -122,7 +123,7 @@ export async function GET(req: NextRequest) {
     .ilike('rechnungsnummer', `%${q}%`)
     .eq('tenant_id', tenantId)
     .limit(5)
-  if (rechnungenErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${rechnungenErr.message}` }, { status: 500 })
+  if (rechnungenErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${dbFehlerText(rechnungenErr)}` }, { status: 500 })
   ;(rechnungen as R[] ?? []).filter((r: R) => !gefundeneNummern.has(String(r.rechnungsnummer))).forEach((r: R) => {
     results.push({
       id:         r.id,
@@ -140,7 +141,7 @@ export async function GET(req: NextRequest) {
     .eq('tenant_id', tenantId)
     .eq('aktiv', true)
     .limit(5)
-  if (weingaertenErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${weingaertenErr.message}` }, { status: 500 })
+  if (weingaertenErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${dbFehlerText(weingaertenErr)}` }, { status: 500 })
 
   ;(weingaerten as R[] ?? []).forEach((w: R) => {
     results.push({
@@ -159,7 +160,7 @@ export async function GET(req: NextRequest) {
     .eq('tenant_id', tenantId)
     .eq('nutzart', 'WI')
     .limit(5)
-  if (grundstueckeErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${grundstueckeErr.message}` }, { status: 500 })
+  if (grundstueckeErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${dbFehlerText(grundstueckeErr)}` }, { status: 500 })
 
   ;(grundstuecke as R[] ?? []).forEach((g: R) => {
     results.push({
@@ -177,7 +178,7 @@ export async function GET(req: NextRequest) {
     .or(`jahrgang::text.ilike.%${q}%`)
     .eq('tenant_id', tenantId)
     .limit(5)
-  if (jahrgaengeErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${jahrgaengeErr.message}` }, { status: 500 })
+  if (jahrgaengeErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${dbFehlerText(jahrgaengeErr)}` }, { status: 500 })
 
   ;(jahrgaenge as R[] ?? []).forEach((j: R) => {
     results.push({
@@ -205,7 +206,7 @@ export async function GET(req: NextRequest) {
       .in('art', arten)
       .eq('tenant_id', tenantId)
       .limit(5)
-    if (lesenTrefferErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${lesenTrefferErr.message}` }, { status: 500 })
+    if (lesenTrefferErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${dbFehlerText(lesenTrefferErr)}` }, { status: 500 })
     ;(lesenTreffer as R[] ?? []).forEach((l: R) => {
       const jahr = Number((l.jahrgang as R | null)?.jahrgang)
       results.push({
@@ -224,7 +225,7 @@ export async function GET(req: NextRequest) {
     .eq('tenant_id', tenantId)
     .eq('aktiv', true)
     .limit(5)
-  if (chargenErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${chargenErr.message}` }, { status: 500 })
+  if (chargenErr) return NextResponse.json({ error: `Daten konnten nicht geladen werden: ${dbFehlerText(chargenErr)}` }, { status: 500 })
 
   ;(chargen as R[] ?? []).forEach((c: R) => {
     results.push({

@@ -74,7 +74,7 @@ export async function deleteSonstigesArtikel(id: string): Promise<{ error?: stri
       .select('id')
     if (error) {
       if ((error as AR).code === '23503') return { error: 'Das Produkt hat Lagerbewegungen oder Verkäufe und kann nicht gelöscht werden – bitte deaktivieren.' }
-      return { error: (error as AR).message }
+      return { error: dbFehlerText(error) }
     }
     // KAN-242: RLS filtert still (0 Zeilen) – vorher meldete die Seite „gelöscht“, das Produkt blieb aber stehen
     if (((data ?? []) as unknown[]).length !== 1) return { error: 'Das Produkt wurde nicht gelöscht (nicht gefunden oder keine Berechtigung) – bitte deaktivieren.' }

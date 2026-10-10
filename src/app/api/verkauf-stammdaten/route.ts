@@ -6,6 +6,7 @@ import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { leseOrtSchluessel, verfuegbarJeLese } from '@/lib/wein/leseBilanz'
 import { leseTitel } from '@/lib/wein/lesen'
 import { zahlWert } from '@/lib/format'
+import { dbFehlerText } from '@/lib/fehler'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,7 +23,7 @@ export async function GET() {
     const { data: einstellungen, error: einstErr } = await (supabase.from('tenant_einstellungen') as any)
       .select('ust_satz_standard').eq('tenant_id', tenantId).maybeSingle()
     // KAN-252: sonst stünde im Verkauf still 13 % statt des Standard-Satzes des Betriebs (Weinhändler 20 %)
-    if (einstErr) return NextResponse.json({ error: `Betriebseinstellungen konnten nicht geladen werden: ${einstErr.message}` }, { status: 500 })
+    if (einstErr) return NextResponse.json({ error: `Betriebseinstellungen konnten nicht geladen werden: ${dbFehlerText(einstErr)}` }, { status: 500 })
     const ustStandard: number = (zahlWert((einstellungen as any)?.ust_satz_standard) ?? 13)
 
     const [

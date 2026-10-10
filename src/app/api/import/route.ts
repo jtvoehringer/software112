@@ -11,6 +11,7 @@ import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
 import { alle } from '@/lib/supabase/alle'
+import { dbFehlerText } from '@/lib/fehler'
 export const dynamic = 'force-dynamic'
 // Große Importe (Dynamics-Leads 3.9.2026: 4.200 Firmen / 7.900 Kontakte) kommen
 // vom Client in Blöcken (siehe ImportClient.tsx, IMPORT_BLOCKGROESSE) - ein
@@ -227,7 +228,7 @@ export async function POST(req: NextRequest) {
         const { data: bestehende, error: bestehendeErr } = await alle((supabase.from('kontakte') as any)
           .select('id, vorname, nachname, email')
           .eq('tenant_id', tenantId).eq('aktiv', true).eq('is_lead', false).order('id'))
-        if (bestehendeErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${bestehendeErr.message}` }, { status: 500 })
+        if (bestehendeErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${dbFehlerText(bestehendeErr)}` }, { status: 500 })
         for (const k of (bestehende ?? []) as R[]) {
           kundenNameSet.add(normName([k.vorname, k.nachname].filter(Boolean).join(' ')))
           if (k.email) kundenEmailSet.add(normName(k.email))
@@ -236,7 +237,7 @@ export async function POST(req: NextRequest) {
         const { data: bestehende, error: bestehendeErr } = await alle((supabase.from('firmen') as any)
           .select('id, name, email')
           .eq('tenant_id', tenantId).eq('aktiv', true).eq('is_lead', false).order('id'))
-        if (bestehendeErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${bestehendeErr.message}` }, { status: 500 })
+        if (bestehendeErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${dbFehlerText(bestehendeErr)}` }, { status: 500 })
         for (const f of (bestehende ?? []) as R[]) {
           kundenNameSet.add(normName(f.name))
           if (f.email) kundenEmailSet.add(normName(f.email))

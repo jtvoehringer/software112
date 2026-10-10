@@ -27,6 +27,7 @@ import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
 import { lokalerTag, wienJetzt } from '@/lib/datum/wien'
+import { dbFehlerText } from '@/lib/fehler'
 
 export const dynamic = 'force-dynamic'
 
@@ -179,7 +180,7 @@ export async function POST(req: NextRequest) {
       .select('assistent_aktiv')
       .eq('tenant_id', membership.tenantId)
       .maybeSingle()
-    if (cfgErr) return NextResponse.json({ fehler: `Betriebseinstellungen konnten nicht geladen werden: ${cfgErr.message}` }, { status: 500 })
+    if (cfgErr) return NextResponse.json({ fehler: `Betriebseinstellungen konnten nicht geladen werden: ${dbFehlerText(cfgErr)}` }, { status: 500 })
     if (!(cfg as R | null)?.assistent_aktiv) {
       return NextResponse.json({ fehler: 'Der Assistent ist für diesen Betrieb noch nicht freigeschaltet.' }, { status: 403 })
     }
@@ -235,7 +236,7 @@ export async function POST(req: NextRequest) {
       .is('tool_name', null)
       .order('erstellt_am', { ascending: false })
       .limit(MAX_VERLAUF_NACHRICHTEN)
-    if (verlaufRawErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${verlaufRawErr.message}` }, { status: 500 })
+    if (verlaufRawErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${dbFehlerText(verlaufRawErr)}` }, { status: 500 })
 
     const verlaufMessages = ((verlaufRaw ?? []) as R[])
       .filter(m => m.inhalt)

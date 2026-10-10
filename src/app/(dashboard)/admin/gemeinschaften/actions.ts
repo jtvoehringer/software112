@@ -11,7 +11,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { pruefePlattformAdmin } from '@/lib/auth/plattformAdmin'
 import { revalidatePath } from 'next/cache'
-type AR = Record<string, any>
+import { dbFehlerText } from '@/lib/fehler'
 
 export type GemeinschaftArt = 'keller' | 'crm'
 const TABELLE: Record<GemeinschaftArt, string> = { keller: 'keller_freigaben', crm: 'crm_freigaben' }
@@ -42,7 +42,7 @@ export async function createFreigabe(formData: FormData): Promise<{ error?: stri
     // tenant-isolation-ignore: mandantenübergreifende Verwaltungstabelle (system_admin, Service-Role)
     const { error } = await (admin.from(tab) as any)
       .upsert({ eigentuemer_tenant_id: eigentuemer, nutzer_tenant_id: nutzer, aktiv: true, notizen, erstellt_von: user?.id ?? null }, { onConflict: 'eigentuemer_tenant_id,nutzer_tenant_id' })
-    if (error) return { error: (error as AR).message }
+    if (error) return { error: dbFehlerText(error) }
     revalidatePath(PFAD)
     return {}
   } catch (err) {
@@ -56,7 +56,7 @@ export async function setFreigabeAktiv(art: GemeinschaftArt, id: string, aktiv: 
     const admin = createSupabaseAdminClient()
     // tenant-isolation-ignore: mandantenübergreifende Verwaltungstabelle (system_admin, Service-Role)
     const { error } = await (admin.from(tabelle(art)) as any).update({ aktiv }).eq('id', id)
-    if (error) return { error: (error as AR).message }
+    if (error) return { error: dbFehlerText(error) }
     revalidatePath(PFAD)
     return {}
   } catch (err) {
@@ -71,7 +71,7 @@ export async function deleteFreigabe(art: GemeinschaftArt, id: string): Promise<
     // loeschen-ohne-pruefung: Service-Role (keine RLS), nur Plattform-Admins
     // storno-ausnahme: Freigabe-Verwaltung (keller_freigaben/crm_freigaben), keine berichtsrelevante Buchung
     const { error } = await (admin.from(tabelle(art)) as any).delete().eq('id', id)   // tenant-isolation-ignore: mandantenübergreifende Verwaltungstabelle (system_admin, Service-Role)
-    if (error) return { error: (error as AR).message }
+    if (error) return { error: dbFehlerText(error) }
     revalidatePath(PFAD)
     return {}
   } catch (err) {

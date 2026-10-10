@@ -10,6 +10,7 @@ import { kostenAufteilung } from '@/lib/wein/massnahmeAnteile'
 import { modulKonflikt } from '@/lib/auth/modul'
 import { wienJetzt } from '@/lib/datum/wien'
 import { jsonBody, ungueltigeAnfrage } from '@/lib/api/body'
+import { dbFehlerText } from '@/lib/fehler'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -69,7 +70,7 @@ export async function GET(req: NextRequest) {
     const { data, error: dataErr } = await (s.from('kosteneintraege') as any)
       .select('id, datum, betrag, beschreibung, objekt_typ, periode, transaktions_nr, kostenstelle:kostenstelle_id(name), kostenart:kostenart_id(name), wg:weingarten_id(name), behaelter:behaelter_id(name)')
       .eq('tenant_id', t).order('datum', { ascending: false }).limit(300)
-    if (dataErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${dataErr.message}` }, { status: 500 })
+    if (dataErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${dbFehlerText(dataErr)}` }, { status: 500 })
     // WG-Splits nachladen
     const ids = (data ?? []).map((e: R) => e.id)
     let splits: R[] = []
@@ -80,7 +81,7 @@ export async function GET(req: NextRequest) {
         .select('kosteneintrag_id, weingarten_id, anteil_pct, betrag_anteil, wg:weingarten_id(name)')
         .in('kosteneintrag_id', b)
         .order('id')))
-      if (sdErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${sdErr.message}` }, { status: 500 })
+      if (sdErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${dbFehlerText(sdErr)}` }, { status: 500 })
       splits = sd ?? []
     }
     // KAN-245: Behälter-Aufteilung (Kellerkosten) ebenfalls laden – das Formular zeigt und bearbeitet sie
@@ -90,7 +91,7 @@ export async function GET(req: NextRequest) {
         .select('kosteneintrag_id, behaelter_id, anteil_pct, betrag_anteil, bh:behaelter_id(name)')
         .in('kosteneintrag_id', b)
         .order('id')))
-      if (bdErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${bdErr.message}` }, { status: 500 })
+      if (bdErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${dbFehlerText(bdErr)}` }, { status: 500 })
       bhSplits = bd ?? []
     }
     const eintraege = (data ?? []).map((e: R) => ({
@@ -102,17 +103,17 @@ export async function GET(req: NextRequest) {
   }
   if (a === 'kostenstellen') {
     const { data, error: dataErr } = await (s.from('kostenstellen') as any).select('id, name, kuerzel').eq('tenant_id', t).eq('aktiv', true).order('name')
-    if (dataErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${dataErr.message}` }, { status: 500 })
+    if (dataErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${dbFehlerText(dataErr)}` }, { status: 500 })
     return NextResponse.json({ kostenstellen: data ?? [] })
   }
   if (a === 'kostenarten') {
     const { data, error: dataErr } = await (s.from('kostenarten') as any).select('id, name, kategorie').eq('tenant_id', t).eq('aktiv', true).order('name')
-    if (dataErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${dataErr.message}` }, { status: 500 })
+    if (dataErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${dbFehlerText(dataErr)}` }, { status: 500 })
     return NextResponse.json({ kostenarten: data ?? [] })
   }
   if (a === 'weingaerten') {
     const { data, error: dataErr } = await (s.from('weingarten') as any).select('id, name').eq('tenant_id', t).order('name')
-    if (dataErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${dataErr.message}` }, { status: 500 })
+    if (dataErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${dbFehlerText(dataErr)}` }, { status: 500 })
     return NextResponse.json({ weingaerten: data ?? [] })
   }
   if (a === 'behaelter') {
@@ -126,14 +127,14 @@ export async function GET(req: NextRequest) {
     const { data: ke, error: keErr } = await alle<R>((s.from('kosteneintraege') as any)
       .select('id, betrag, periode, objekt_typ, kostenstelle:kostenstelle_id(name), kostenart:kostenart_id(name), wg:weingarten_id(name), behaelter:behaelter_id(name)')
       .eq('tenant_id', t).gte('datum', `${jahr}-01-01`).lte('datum', `${jahr}-12-31`).order('id'))
-    if (keErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${keErr.message}` }, { status: 500 })
+    if (keErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${dbFehlerText(keErr)}` }, { status: 500 })
     const ids = (ke ?? []).map((e: R) => e.id)
     let splits: R[] = []
     if (ids.length > 0) {
       // inBloecken: alle Kosteneinträge des Jahres – ab ≈ 350 IDs scheiterte die URL
       const { data: sd, error: sdErr } = await inBloecken<R>(ids, b => alle<R>((s.from('kosteneintrag_weingaerten') as any)
         .select('kosteneintrag_id, anteil_pct, betrag_anteil, wg:weingarten_id(name, lagen:lage_id(name))').in('kosteneintrag_id', b).order('id')))
-      if (sdErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${sdErr.message}` }, { status: 500 })
+      if (sdErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${dbFehlerText(sdErr)}` }, { status: 500 })
       splits = sd ?? []
     }
     return NextResponse.json({ eintraege: ke ?? [], splits, jahr })
@@ -168,7 +169,7 @@ export async function POST(req: NextRequest) {
 
   if (b.action === 'eintrag') {
     const { data: txnKe, error: txnKeErr } = await (s.rpc as any)('get_next_transaktionsnr', { p_tenant_id: t, p_typ: 'kosteneintrag' })
-    if (txnKeErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${txnKeErr.message}` }, { status: 500 })
+    if (txnKeErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${dbFehlerText(txnKeErr)}` }, { status: 500 })
     const { data, error } = await (s.from('kosteneintraege') as any).insert({ tenant_id: t, transaktions_nr: txnKe ?? null, ...fields }).select().single()
     if (error) return fehlerAntwort(error.message)
     const aufteilungFehler = await speichereAufteilungen(s, (data as R).id, b)

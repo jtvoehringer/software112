@@ -17,6 +17,7 @@ import { sendEmail } from '@/lib/brevo/api'
 import { sendeBenachrichtigung } from '@/lib/benachrichtigungen/server'
 import { roleLabel, type UserRole } from '@/lib/auth/roles'
 import { authFehlerText } from './authFehler'
+import { dbFehlerText } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -149,18 +150,18 @@ export async function mitgliedEinladen(admin: SupabaseClient, p: {
   const zeile: R = { tenant_id: p.tenantId, user_id: userId, role: p.role }
   if (p.schreibmodule !== undefined) zeile.schreibmodule = p.schreibmodule
   const { error: memberError } = await (admin.from('tenant_memberships') as R).insert(zeile)
-  if (memberError) { await aufraeumen(); return { error: (memberError as R).message } }
+  if (memberError) { await aufraeumen(); return { error: dbFehlerText(memberError) } }
 
   // Klarname: bei neuen Konten setzen; ein bestehendes Konto gehört der Person
   // selbst (und ggf. anderen Betrieben) – dort nur ergänzen, wenn noch leer.
   const { data: profil, error: profilErr } = await (admin.from('profiles') as R).select('full_name').eq('id', userId).maybeSingle()
   // KAN-254: sonst „noch kein Name“ – ein bestehender Profilname würde überschrieben
-  if (profilErr) return { error: (profilErr as R).message }
+  if (profilErr) return { error: dbFehlerText(profilErr) }
   const bisherigerName = ((profil as R | null)?.full_name as string | null | undefined)?.trim() || null
   if (neuesKonto || !bisherigerName) {
     const { error: profileError } = await (admin.from('profiles') as R)
       .upsert({ id: userId, full_name: p.name, updated_at: new Date().toISOString() }, { onConflict: 'id' })
-    if (profileError) return { error: (profileError as R).message }
+    if (profileError) return { error: dbFehlerText(profileError) }
   }
 
   if (neuesKonto) return { success: true, hinweis: `Einladung an ${mail} versandt.` }

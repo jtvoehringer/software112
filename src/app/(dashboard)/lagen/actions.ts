@@ -95,7 +95,7 @@ export async function deleteLage(id: string): Promise<{ error?: string }> {
       .eq('id', id)
       .eq('tenant_id', membership.tenantId)
       .select('id')
-    if (error) return { error: (error as AR).message }
+    if (error) return { error: dbFehlerText(error) }
     if (((data ?? []) as unknown[]).length !== 1) return { error: 'Die Ried wurde nicht gelöscht (nicht gefunden oder keine Berechtigung) – bitte die Seite neu laden.' }
 
     revalidatePath('/lagen')

@@ -91,7 +91,7 @@ export async function createEaTransaktion(formData: FormData) {
     notizen, konto_id, abzugsfaehig_pct,
   })
 
-  if (error) return { error: (error as R).message }
+  if (error) return { error: dbFehlerText(error) }
   revalidatePath('/buchhaltung')
   return { ok: true }
 }
@@ -151,7 +151,7 @@ export async function createEaKategorie(formData: FormData) {
     abzugsfaehig_pct,
   })
 
-  if (error) return { error: (error as R).message }
+  if (error) return { error: dbFehlerText(error) }
   revalidatePath('/buchhaltung/kategorien')
   return { ok: true }
 }
@@ -176,7 +176,7 @@ export async function createEaDauerauftrag(formData: FormData) {
     konto_id:           (formData.get('konto_id') as string) || null,
   })
 
-  if (error) return { error: (error as R).message }
+  if (error) return { error: dbFehlerText(error) }
   revalidatePath('/buchhaltung/dauerauftraege')
   return { ok: true }
 }
@@ -194,7 +194,7 @@ export async function deaktiviereEaDauerauftrag(id: string) {
     .update({ aktiv: false })
     .eq('id', id).eq('tenant_id', tenantId).select('id')
 
-  if (error) return { error: (error as R).message }
+  if (error) return { error: dbFehlerText(error) }
   if (!(geaendert as unknown[] | null)?.length) return { error: NICHT_GESPEICHERT }   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
   revalidatePath('/buchhaltung/dauerauftraege')
   return { ok: true }
@@ -222,7 +222,7 @@ export async function berechneUndSpeichereUva(jahr: number, zeitraum: string) {
     p_zeitraum:  zeitraum,
   })
 
-  if (error) return { error: (error as R).message }
+  if (error) return { error: dbFehlerText(error) }
   const row = Array.isArray(data) ? data[0] : data
   if (!row) return { error: 'Keine Daten für diesen Zeitraum' }
 
@@ -243,7 +243,7 @@ export async function berechneUndSpeichereUva(jahr: number, zeitraum: string) {
     vst_20:      row.vst_20  || 0,
   }, { onConflict: 'tenant_id,jahr,zeitraum' })
 
-  if (upsertErr) return { error: (upsertErr as R).message }
+  if (upsertErr) return { error: dbFehlerText(upsertErr) }
   revalidatePath('/buchhaltung/uva')
   return { ok: true, data: row }
 }
@@ -285,7 +285,7 @@ export async function syncEaEinnahmeFuerVerkauf(
   const { data: zahlungenRaw, error: zahlErr } = await (kontext.rechnungId
     ? zq.eq('rechnung_id', kontext.rechnungId)
     : zq.eq('verkaufsposten_id', verkaufspostenId))
-  if (zahlErr) return { ok: false, error: `Zahlungen konnten nicht geladen werden: ${(zahlErr as R).message}` }
+  if (zahlErr) return { ok: false, error: `Zahlungen konnten nicht geladen werden: ${dbFehlerText(zahlErr)}` }
   const zahlungen = ((zahlungenRaw ?? []) as R[]).map(z => ({
     id: z.id as string, betrag: Number(z.betrag ?? 0), datum: z.datum as string, erstelltAm: z.erstellt_am ?? null, storniertAm: z.storniert_am ?? null,
   }))
@@ -331,7 +331,7 @@ export async function markiereUvaAlsUebermittelt(uvaId: string): Promise<{ ok: b
     p_jahr:      uva.jahr,
     p_zeitraum:  uva.zeitraum,
   })
-  if (error) return { ok: false, error: (error as R).message }
+  if (error) return { ok: false, error: dbFehlerText(error) }
 
   revalidatePath('/buchhaltung/uva')
   revalidatePath('/buchhaltung')
@@ -355,7 +355,7 @@ export async function schliesseEaMonat(jahr: number, monat: number): Promise<{ o
     p_jahr:      jahr,
     p_monat:     monat,
   })
-  if (error) return { ok: false, error: (error as R).message }
+  if (error) return { ok: false, error: dbFehlerText(error) }
 
   revalidatePath('/buchhaltung/monatsabschluss')
   revalidatePath('/buchhaltung')
@@ -420,7 +420,7 @@ export async function verbucheBeleg(belegId: string, formData: FormData) {
     .select('id')
     .single()
 
-  if (error) return { error: (error as R).message }
+  if (error) return { error: dbFehlerText(error) }
 
   // KAN-240: scheitert das Markieren, darf der Beleg nicht still „erkannt“ bleiben – sonst ließe er sich ein zweites
   // Mal verbuchen (doppelte Ausgabe). Die Buchung steht; Meldung wie beim Zahlungseingang (KAN-149): nicht erneut buchen.

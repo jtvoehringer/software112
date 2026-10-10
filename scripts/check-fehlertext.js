@@ -29,6 +29,11 @@ const MUSTER = [
   // Sweep 100: Vergleich der Rohmeldung („=== 'Invalid login credentials'“, „.includes('Invalid')“) – bricht, sobald
   // Supabase den Text ändert, und lässt alle übrigen Meldungen englisch; authFehlerText() bzw. error.code verwenden
   new RegExp(`\\b${VAR}\\.message\\s*(?:===|!==|\\.includes\\(|\\.startsWith\\()`),
+  // Sweep 107: Cast-Schreibweise ({ error: (error as R).message }) – 56 Stellen rutschten so durch; „as Error“ (Stripe,
+  // eigene Ausnahmen) bleibt erlaubt
+  /\b(?:error|fehler):\s*\(\s*(?:error|err|e|[a-zA-Z]+Err(?:or)?)\s+as\s+(?!Error\b)[A-Za-z]+\s*\)\.message\b/,
+  // Sweep 107: Rohmeldung im Fehler-Template ({ error: `Daten konnten nicht geladen werden: ${err.message}` }) – 78 Stellen
+  /\b(?:error|fehler):\s*`[^`]*\$\{\s*(?:\(\s*(?:error|err|e|[a-zA-Z]+Err(?:or)?)\s+as\s+(?!Error\b)[A-Za-z]+\s*\)|(?:error|err|e|[a-zA-Z]+Err(?:or)?))\??\.message\s*\}/,
 ]
 const AUSNAHME = /fehlertext-ok\s*:\s*(.*)$/i
 const MIN_GRUND = 15

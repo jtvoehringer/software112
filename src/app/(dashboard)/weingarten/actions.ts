@@ -244,10 +244,10 @@ export async function deleteWeingarten(id: string): Promise<LoeschErgebnis> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: weg, error } = await (supabase.from('weingarten') as any).delete().eq('id', id).eq('tenant_id', tenantId).select('id')
     if (error) {
-      if (istBezugsSperre(error)) return { error: (error as AnyRecord).message, deaktivierbar: true }
+      if (istBezugsSperre(error)) return { error: dbFehlerText(error), deaktivierbar: true }
       const friendly = friendlyFkError(error as AnyRecord)
       if (friendly) return { error: friendly }
-      return { error: (error as AnyRecord).message }
+      return { error: dbFehlerText(error) }
     }
     if (((weg ?? []) as unknown[]).length === 0) return { error: 'Die Ried wurde nicht gelöscht (nicht gefunden oder keine Berechtigung) – bitte die Seite neu laden.' }   // KAN-243
     revalidatePath('/weingarten')
@@ -282,10 +282,10 @@ export async function deleteRied(weingartenIds: string[]): Promise<LoeschErgebni
       .eq('tenant_id', tenantId)
       .select('id')
     if (error) {
-      if (istBezugsSperre(error)) return { error: (error as AnyRecord).message, deaktivierbar: true }
+      if (istBezugsSperre(error)) return { error: dbFehlerText(error), deaktivierbar: true }
       const friendly = friendlyFkError(error as AnyRecord)
       if (friendly) return { error: friendly }
-      return { error: (error as AnyRecord).message }
+      return { error: dbFehlerText(error) }
     }
     // KAN-243: alle oder keine – weniger gelöschte Zeilen heißt nicht gefunden bzw. RLS (still)
     if (((weg ?? []) as unknown[]).length !== new Set(weingartenIds).size) return { error: 'Die Ried wurde nicht (vollständig) gelöscht (nicht gefunden oder keine Berechtigung) – bitte die Seite neu laden.' }
@@ -396,7 +396,7 @@ export async function deleteGrundstueck(id: string, weingartenId: string): Promi
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: weg, error } = await (supabase.from('grundstuecke') as any).delete().eq('id', id).eq('tenant_id', tenantId).select('id')
     if (error) {
-      if (istBezugsSperre(error)) return { error: (error as AnyRecord).message, deaktivierbar: true }
+      if (istBezugsSperre(error)) return { error: dbFehlerText(error), deaktivierbar: true }
       return { error: dbFehlerText(error, 'Grundstück konnte nicht gelöscht werden') }
     }
     if (((weg ?? []) as unknown[]).length === 0) return { error: 'Das Grundstück wurde nicht gelöscht (nicht gefunden oder keine Berechtigung) – bitte die Seite neu laden.' }   // KAN-243

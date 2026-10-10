@@ -27,7 +27,7 @@ export async function GET(
 
   const { data: dok, error: dokErr } = await (supabase.from('aktivitaet_dokumente') as any)
     .select('storage_pfad, dateiname').eq('id', dok_id).eq('tenant_id', tenantId).single()
-  if (dokErr && dokErr.code !== 'PGRST116') return NextResponse.json({ error: `Dokument konnte nicht geladen werden: ${dokErr.message}` }, { status: 500 })
+  if (dokErr && dokErr.code !== 'PGRST116') return NextResponse.json({ error: `Dokument konnte nicht geladen werden: ${dbFehlerText(dokErr)}` }, { status: 500 })
   if (!dok) return NextResponse.json({ error: 'Dokument nicht gefunden' }, { status: 404 })
 
   const { data: signed, error } = await supabase.storage
@@ -64,7 +64,7 @@ export async function DELETE(
 
   const { data: dok, error: dokErr } = await (supabase.from('aktivitaet_dokumente') as any)
     .select('id, storage_pfad, tenant_id').eq('id', dok_id).eq('tenant_id', tenantId).single()
-  if (dokErr && dokErr.code !== 'PGRST116') return NextResponse.json({ error: `Dokument konnte nicht geladen werden: ${dokErr.message}` }, { status: 500 })
+  if (dokErr && dokErr.code !== 'PGRST116') return NextResponse.json({ error: `Dokument konnte nicht geladen werden: ${dbFehlerText(dokErr)}` }, { status: 500 })
   if (!dok) return NextResponse.json({ error: 'Dokument nicht gefunden' }, { status: 404 })
 
   // DB-Eintrag löschen - explizit zusätzlich auf tenant_id gefiltert (die vorausgehende
