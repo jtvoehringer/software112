@@ -1,0 +1,233 @@
+{
+  "_hinweis": "Sweep 98 (10.10.2026): Spalten mit Längengrenze in der Datenbank (varchar(n) bzw. CHECK length(…) <= n) und ihre Formularfelder. scripts/check-textlaenge.js verlangt an jedem Feld maxLength <= max. Abfrage für neue Grenzen: scripts/text-grenzen.sql. Spalten ohne Freitextfeld stehen unter ohne_formular mit Grund.",
+  "spalten": [
+    {
+      "spalte": "lieferadressen.bezeichnung",
+      "max": 80,
+      "felder": [
+        {
+          "datei": "src/components/crm/LieferadressenKarte.tsx",
+          "feld": "id=\"la-bez\""
+        }
+      ]
+    },
+    {
+      "spalte": "lieferadressen.empfaenger",
+      "max": 120,
+      "felder": [
+        {
+          "datei": "src/components/crm/LieferadressenKarte.tsx",
+          "feld": "id=\"la-empf\""
+        }
+      ]
+    },
+    {
+      "spalte": "lieferadressen.strasse",
+      "max": 120,
+      "felder": [
+        {
+          "datei": "src/components/crm/LieferadressenKarte.tsx",
+          "feld": "id=\"la-str\""
+        }
+      ]
+    },
+    {
+      "spalte": "lieferadressen.plz",
+      "max": 12,
+      "felder": [
+        {
+          "datei": "src/components/crm/LieferadressenKarte.tsx",
+          "feld": "id=\"la-plz\""
+        }
+      ]
+    },
+    {
+      "spalte": "lieferadressen.ort",
+      "max": 80,
+      "felder": [
+        {
+          "datei": "src/components/crm/LieferadressenKarte.tsx",
+          "feld": "id=\"la-ort\""
+        }
+      ]
+    },
+    {
+      "spalte": "behaelter.material",
+      "max": 255,
+      "felder": [
+        {
+          "datei": "src/app/(dashboard)/kellerbuch/gebinde/page.tsx",
+          "feld": "name=\"material\""
+        },
+        {
+          "datei": "src/components/kellerbuch/GebindeClient.tsx",
+          "feld": "name=\"material\""
+        }
+      ]
+    },
+    {
+      "spalte": "behaelter.bezeichnung_lang",
+      "max": 255,
+      "felder": [
+        {
+          "datei": "src/app/(dashboard)/kellerbuch/gebinde/page.tsx",
+          "feld": "name=\"bezeichnung_lang\""
+        },
+        {
+          "datei": "src/components/kellerbuch/GebindeClient.tsx",
+          "feld": "name=\"bezeichnung_lang\""
+        }
+      ]
+    },
+    {
+      "spalte": "behaelter.lp_pickerl",
+      "max": 60,
+      "felder": [
+        {
+          "datei": "src/components/kellerbuch/BehaelterForm.tsx",
+          "feld": "name=\"lp_pickerl\""
+        }
+      ]
+    },
+    {
+      "spalte": "zukauf_posten.tbs_nummer_lieferant",
+      "max": 30,
+      "felder": [
+        {
+          "datei": "src/app/(dashboard)/weinhandel/zukauf/neu/page.tsx",
+          "feld": "aria-label=\"Transportschein-Nr. des Lieferanten\""
+        },
+        {
+          "datei": "src/app/(dashboard)/weinhandel/zukauf/[id]/edit/ZukaufEditForm.tsx",
+          "feld": "aria-label=\"Transportschein-Nr. des Lieferanten\""
+        }
+      ]
+    },
+    {
+      "spalte": "exportauftraege.eori_kunde",
+      "max": 30,
+      "felder": [
+        {
+          "datei": "src/app/(dashboard)/weinexport/neu/WeinexportFormClient.tsx",
+          "feld": "aria-label=\"EORI-Nummer Importeur\""
+        }
+      ]
+    },
+    {
+      "spalte": "exportauftraege.destination_stadt",
+      "max": 100,
+      "felder": [
+        {
+          "datei": "src/app/(dashboard)/weinexport/neu/WeinexportFormClient.tsx",
+          "feld": "aria-label=\"Destination Stadt\""
+        }
+      ]
+    },
+    {
+      "spalte": "kontakte.position",
+      "max": 120,
+      "felder": [
+        {
+          "datei": "src/app/(dashboard)/crm/kontakte/KontakteClient.tsx",
+          "feld": "name=\"position\""
+        }
+      ]
+    },
+    {
+      "spalte": "kontakte.titel_nachgestellt",
+      "max": 60,
+      "felder": [
+        {
+          "datei": "src/app/(dashboard)/crm/kontakte/KontakteClient.tsx",
+          "feld": "name=\"titel_nachgestellt\""
+        }
+      ]
+    },
+    {
+      "spalte": "kontakte.quelle",
+      "max": 80,
+      "felder": [
+        {
+          "datei": "src/app/(dashboard)/crm/kontakte/KontakteClient.tsx",
+          "feld": "aria-label=\"Neue Quelle\""
+        }
+      ]
+    },
+    {
+      "spalte": "dac_antrag.antragsnummer",
+      "max": 60,
+      "felder": [
+        {
+          "datei": "src/components/dac/DacForm.tsx",
+          "feld": "name=\"antragsnummer\""
+        }
+      ]
+    },
+    {
+      "spalte": "dac_antrag.untersuchungsnummer",
+      "max": 60,
+      "felder": [
+        {
+          "datei": "src/components/dac/DacForm.tsx",
+          "feld": "name=\"untersuchungsnummer\""
+        }
+      ]
+    },
+    {
+      "spalte": "behandlungen.anwender_name",
+      "max": 120,
+      "felder": [
+        {
+          "datei": "src/app/(dashboard)/behandlungen/neu/AnwendungFelder.tsx",
+          "feld": "name=\"anwender_name\""
+        }
+      ]
+    },
+    {
+      "spalte": "kellerbuch_abschluesse.bemerkung",
+      "max": 500,
+      "felder": [
+        {
+          "datei": "src/app/(dashboard)/kellerbuch/journal/AbschlussForm.tsx",
+          "feld": "id=\"abschluss-bemerkung\""
+        }
+      ]
+    },
+    {
+      "spalte": "kellermittel.name",
+      "max": 80,
+      "felder": [
+        {
+          "datei": "src/app/(dashboard)/kellerbuch/besondere-konten/StoffkontoClient.tsx",
+          "feld": "placeholder=\"z. B. Saccharose, RTK, Weinsäure\""
+        }
+      ]
+    }
+  ],
+  "ohne_formular": {
+    "kontakte.titel": "Auswahlliste (TITEL_OPTS), kein Freitext",
+    "produktion_eingaenge.bezeichnung": "wird aus dem Kellermittel übernommen, kein Freitextfeld",
+    "exportauftraege.referenz": "vergibt der Nummernkreis get_next_exportnummer",
+    "exportauftraege.incoterms": "Auswahlliste INCOTERMS, Route prüft (exportauftragFehler)",
+    "exportauftraege.transport_art": "Auswahlliste TRANSPORTARTEN, Route prüft (exportauftragFehler)",
+    "exportauftraege.destination_land": "Länderkatalog (ISO-Code), Route prüft",
+    "exportauftrag_positionen.einheit": "Auswahlliste EXPORT_EINHEITEN, Route prüft (exportauftragFehler)",
+    "exportauftrag_positionen.taric_code": "aus der Füllung übernommen, Route prüft die Länge",
+    "fuellungen.zolltarifnummer": "Auswahlliste",
+    "meldung_abgaben.dateiname": "erzeugt die App",
+    "export_dokumente.dokument_art": "setzt die App (Dokumentart aus fester Liste)",
+    "export_dokumente.status": "setzt die App (Status)",
+    "exportauftraege.emcs_status": "setzt die App (EMCS-Status)",
+    "exportauftraege.status": "setzt die App (Status)",
+    "exportauftraege.ursprungsland": "Vorgabe AT, kein Eingabefeld",
+    "exportauftraege.waehrung": "Vorgabe EUR, kein Eingabefeld",
+    "firmen.telefon_vorwahl": "Auswahlliste DIAL_CODES",
+    "kontakte.telefon_vorwahl": "Auswahlliste DIAL_CODES",
+    "kontakte.mobil_vorwahl": "Auswahlliste DIAL_CODES",
+    "tenant_einstellungen.export_prefix": "in der App nicht verwendet",
+    "tenant_einstellungen.ki_abfragen_paket": "Auswahlliste der Pakete (Plattform-Admin)",
+    "tenant_einstellungen.weinexport_paket": "Auswahlliste der Pakete (Plattform-Admin)",
+    "exportauftraege.taric_code": "nicht im Formular, Kopfwert bleibt leer bzw. Vorgabe"
+  },
+  "_datenbank_stand": "10.10.2026 (Produktion, scripts/text-grenzen.sql): 42 Spalten"
+}

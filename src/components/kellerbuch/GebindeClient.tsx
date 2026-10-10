@@ -80,12 +80,12 @@ export default function GebindeClient({ gebinde, action, inputCls, labelCls, par
               {/* KAN-48 AP11: BKI-Gebindeverzeichnis – Material (Vorschläge, ohne Angabe aus dem Typ) und Langbezeichnung */}
               <div>
                 <label className={labelCls}>Material</label>
-                <input aria-label="Material" name="material" list={`gebinde-materialien-${gebinde.id}`} defaultValue={gebinde.material ?? ''} placeholder="leer = aus dem Typ" className={inputCls} />
+                <input aria-label="Material" name="material" maxLength={255} list={`gebinde-materialien-${gebinde.id}`} defaultValue={gebinde.material ?? ''} placeholder="leer = aus dem Typ" className={inputCls} />
                 <datalist id={`gebinde-materialien-${gebinde.id}`}>{GEBINDE_MATERIALIEN.map(m => <option key={m} value={m} />)}</datalist>
               </div>
               <div>
                 <label className={labelCls}>Bezeichnung lang</label>
-                <input aria-label="Bezeichnung lang" name="bezeichnung_lang" defaultValue={gebinde.bezeichnung_lang ?? ''} placeholder="z.B. Edelstahltank 5000 l mit Kühlmantel" className={inputCls} />
+                <input aria-label="Bezeichnung lang" name="bezeichnung_lang" maxLength={255} defaultValue={gebinde.bezeichnung_lang ?? ''} placeholder="z.B. Edelstahltank 5000 l mit Kühlmantel" className={inputCls} />
               </div>
               <div>
                 <label className={labelCls}>Notizen</label>

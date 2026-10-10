@@ -6,10 +6,9 @@ import { Trash2 } from 'lucide-react'
 import { fmtNum } from '@/lib/format'
 import LandOptionen from '@/components/crm/LandOptionen'   // KAN-187: Bestimmungsland als ISO-Code aus dem Länderkatalog
 import { heuteWien } from '@/lib/datum/wien'
+import { INCOTERMS, TRANSPORTARTEN as TRANSPORT, EXPORT_EINHEITEN, EXPORT_MAX } from '@/lib/export/auftragEingabe'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
-const INCOTERMS = ['EXW','FCA','FAS','FOB','CFR','CIF','CPT','CIP','DAP','DPU','DDP']
-const TRANSPORT = ['LKW','Bahn','Schiff','Flugzeug','Kurier']
 
 interface Props { kontakte: R[]; firmen: R[]; fuellungen: R[]; tenantId: string }
 
@@ -116,7 +115,7 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
           <div className="grid grid-cols-2 gap-4 mt-4">
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">EORI-Nummer Importeur</label>
-              <input aria-label="EORI-Nummer Importeur" value={eori} onChange={e => setEori(e.target.value)} placeholder="z.B. AT1234567890"
+              <input aria-label="EORI-Nummer Importeur" maxLength={EXPORT_MAX.eori} value={eori} onChange={e => setEori(e.target.value)} placeholder="z.B. AT1234567890"
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
             </div>
             <div>
@@ -165,7 +164,7 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
             </div>
             <div>
               <label className="block text-xs font-medium text-s112-text-2 mb-1">Destination Stadt</label>
-              <input aria-label="Destination Stadt" value={destStadt} onChange={e => setDestStadt(e.target.value)} placeholder="z.B. München"
+              <input aria-label="Destination Stadt" maxLength={EXPORT_MAX.stadt} value={destStadt} onChange={e => setDestStadt(e.target.value)} placeholder="z.B. München"
                 className="w-full border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
             </div>
           </div>
@@ -209,7 +208,7 @@ export default function WeinexportFormClient({ kontakte, firmen, fuellungen, ten
               <div className="col-span-1">
                 <select value={pos.einheit} onChange={e => updatePos(i, 'einheit', e.target.value)}
                   className="w-full border border-s112-border rounded-sm px-2 py-1.5 text-xs focus:outline-hidden">
-                  <option>Fl</option><option>Kiste</option><option>HL</option>
+                  {EXPORT_EINHEITEN.map(e => <option key={e}>{e}</option>)}
                 </select>
               </div>
               <div className="col-span-2">
