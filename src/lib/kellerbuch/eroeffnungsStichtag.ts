@@ -64,10 +64,16 @@ export function stichtagText(stichtag: string): string {
  */
 export function eroeffnungsStichtagFehler(stichtag: unknown, heute: string): string | null {
   if (!istKalendertag(stichtag)) return 'Bitte einen gültigen Stichtag angeben (TT.MM.JJJJ).'
-  if (stichtag < '2000-01-01') return `Der Stichtag ${stichtagText(stichtag)} liegt vor dem Jahr 2000 – bitte prüfen.`
-  const spaetestens = `${Number(heute.slice(0, 4)) + 1}-12-31`
-  if (stichtag > spaetestens) return `Der Stichtag ${stichtagText(stichtag)} liegt zu weit in der Zukunft – höchstens bis ${stichtagText(spaetestens)}.`
+  const { min, max } = eroeffnungsStichtagGrenzen(heute)
+  if (stichtag < min) return `Der Stichtag ${stichtagText(stichtag)} liegt vor dem Jahr 2000 – bitte prüfen.`
+  if (stichtag > max) return `Der Stichtag ${stichtagText(stichtag)} liegt zu weit in der Zukunft – höchstens bis ${stichtagText(max)}.`
   return null
+}
+
+/** Sweep 120: dieselben Grenzen für das Datumsfeld (min/max) wie für die Prüfung am Server – das Formular bietet nur
+ *  zulässige Tage an, statt erst nach dem Absenden abzulehnen. */
+export function eroeffnungsStichtagGrenzen(heute: string): { min: string; max: string } {
+  return { min: '2000-01-01', max: `${Number(heute.slice(0, 4)) + 1}-12-31` }
 }
 
 /**

@@ -380,7 +380,8 @@ describe('KAN-42 Verdrahtung (Quelltext)', () => {
 
   test('Oberfläche: Stichtag in beiden Einzelformularen, neue Import-Typen, Vorlage über CsvExportKnopf', () => {
     for (const p of ['src/app/(dashboard)/kellerbuch/gebinde/page.tsx', 'src/app/(dashboard)/admin/import/ImportClient.tsx']) {
-      assert.match(quelle(p), /name="stichtag" type="date" required\s+defaultValue=\{standardEroeffnungsStichtag\(wienHeute\(\)\)\}/, p)
+      // Sweep 120: zusätzlich die Grenzen des Servers (eroeffnungsStichtagGrenzen) am Feld
+      assert.match(quelle(p), /name="stichtag" type="date" required \{\.\.\.eroeffnungsStichtagGrenzen\(wienHeute\(\)\)\}\s+defaultValue=\{standardEroeffnungsStichtag\(wienHeute\(\)\)\}/, p)
     }
     const C = quelle('src/app/(dashboard)/admin/import/ImportClient.tsx')
     assert.match(C, /eroeffnung_tank: 'Eröffnungsbestand Tank',/)
