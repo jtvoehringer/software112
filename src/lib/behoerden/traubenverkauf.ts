@@ -31,6 +31,7 @@ import { MeldungsFehler } from './typen'
 import { strasseHausnummer } from '@/lib/adresse/strasse'
 import { Hinweise, datumAT, textOderNull, zahlOderNull } from './ernte_hilfen'
 import { gemessenInText, mostgewichtFuerExport } from './mostgewicht_export'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -259,7 +260,7 @@ export async function ladeBkiTraubenverkauf(
       .eq('tenant_id', tenantId)
       .eq('jahrgang', p.jahrgang)
       .maybeSingle()
-    if (error) throw new Error(`Laden fehlgeschlagen (weinjahrgaenge): ${error.message}`)
+    if (error) throw new AktionsFehler(`Laden fehlgeschlagen (weinjahrgaenge): ${error.message}`)
     if (!jg) throw new MeldungsFehler(400, `Den Jahrgang ${p.jahrgang} gibt es in diesem Betrieb nicht.`)
     jahrgangId = (jg as R).id
   }
@@ -284,8 +285,8 @@ export async function ladeBkiTraubenverkauf(
     einstellungen,
     alle<R>(abfrage.order('datum', { ascending: true }).order('id')),
   ])
-  if (eFehler) throw new Error(`Laden fehlgeschlagen (tenant_einstellungen): ${eFehler.message}`)
-  if (vFehler) throw new Error(`Laden fehlgeschlagen (traubenverkauf): ${vFehler.message}`)
+  if (eFehler) throw new AktionsFehler(`Laden fehlgeschlagen (tenant_einstellungen): ${eFehler.message}`)
+  if (vFehler) throw new AktionsFehler(`Laden fehlgeschlagen (traubenverkauf): ${vFehler.message}`)
   return bkiZeilen(momentaufnahmenAnwenden(verkaeufe, ['kontakt', 'firma']), (betrieb ?? null) as R | null)   // KAN-150 F1c: Empfänger wie beim Verkauf
 }
 

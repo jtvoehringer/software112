@@ -23,6 +23,7 @@ import { rundeText, runden, type CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
 import { text, zahl } from './buchhaltung-gemeinsam'
 import { alsBeleg, lieferscheineSelect } from '@/lib/verkauf/rechnungen'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -224,7 +225,7 @@ export async function ladeRechnungsjournal(supabase: any, tenantId: string, p: R
     .gte('datum', p.von)
     .lte('datum', p.bis)
     .order('datum').order('id'))
-  if (error) throw new Error(`Laden fehlgeschlagen (rechnungen): ${error.message}`)
+  if (error) throw new AktionsFehler(`Laden fehlgeschlagen (rechnungen): ${error.message}`)
 
   // KAN-105: Export-Rechnungen – Exportaufträge des Zeitraums mit ausgestellter Exportrechnung
   // storno-sichtbar: stornierte Export-Rechnungen bleiben gekennzeichnet im Journal (Lückenlosigkeit der Nummern)
@@ -241,7 +242,7 @@ export async function ladeRechnungsjournal(supabase: any, tenantId: string, p: R
     .gte('datum', p.von)
     .lte('datum', p.bis)
     .order('datum').order('id'))
-  if (exErr) throw new Error(`Laden fehlgeschlagen (exportauftraege): ${exErr.message}`)
+  if (exErr) throw new AktionsFehler(`Laden fehlgeschlagen (exportauftraege): ${exErr.message}`)
 
   const data: R[] = [
     ...roh.map(r => ({ ...alsBeleg(r), quelle: 'rechnung', href: `/weinhandel/rechnungen/${r.id}` })),

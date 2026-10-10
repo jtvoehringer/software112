@@ -10,6 +10,7 @@ import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { BILD_BUCKET, bildArtAusName, bildFehler, bildPfad, istBildArt, type BildArt } from '@/lib/handel/datenblatt'
 import { formBody, ungueltigeAnfrage } from '@/lib/api/body'
+import { AktionsFehler } from '@/lib/fehler'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -44,7 +45,7 @@ async function vorhandene(supabase: R, tenantId: string, id: string, art: BildAr
   const ordner = `${tenantId}/${id}`
   const { data, error: dataErr } = await supabase.storage.from(BILD_BUCKET).list(ordner, { limit: 10 })
   // KAN-253: sonst blieben alte Bilder liegen (Ersetzen legte eine zweite Datei daneben) – Next antwortet 500
-  if (dataErr) throw new Error(`Bilder der Füllung konnten nicht geladen werden: ${dataErr.message}`)
+  if (dataErr) throw new AktionsFehler(`Bilder der Füllung konnten nicht geladen werden: ${dataErr.message}`)
   return ((data ?? []) as R[]).filter(o => bildArtAusName(String(o.name ?? '')) === art).map(o => `${ordner}/${o.name}`)
 }
 

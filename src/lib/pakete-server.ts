@@ -3,6 +3,7 @@
 
 import type { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { PAKETE, MODULE_OHNE_PAKET, paketAusPlan, type PaketKey } from '@/lib/pakete'
+import { AktionsFehler } from '@/lib/fehler'
 
 type AdminClient = ReturnType<typeof createSupabaseAdminClient>
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -70,6 +71,6 @@ export async function wendePaketAn(admin: AdminClient, tenantId: string, paket: 
 /** Paket eines Mandanten aus tenants.stripe_plan (inkl. Alt-Slugs). */
 export async function ladePaket(admin: AdminClient, tenantId: string): Promise<PaketKey | null> {
   const { data, error } = await (admin.from('tenants') as any).select('stripe_plan').eq('id', tenantId).maybeSingle()
-  if (error) throw new Error(`Paket konnte nicht geladen werden: ${(error as R).message}`)
+  if (error) throw new AktionsFehler(`Paket konnte nicht geladen werden: ${(error as R).message}`)
   return paketAusPlan((data as R | null)?.stripe_plan)
 }

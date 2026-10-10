@@ -11,14 +11,14 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { pruefePlattformAdmin } from '@/lib/auth/plattformAdmin'
 import { revalidatePath } from 'next/cache'
-import { dbFehlerText } from '@/lib/fehler'
+import { dbFehlerText, AktionsFehler } from '@/lib/fehler'
 
 export type GemeinschaftArt = 'keller' | 'crm'
 const TABELLE: Record<GemeinschaftArt, string> = { keller: 'keller_freigaben', crm: 'crm_freigaben' }
 const PFAD = '/admin/gemeinschaften'
 
 function tabelle(art: unknown): string {
-  if (art !== 'keller' && art !== 'crm') throw new Error('Unbekannte Gemeinschaft')
+  if (art !== 'keller' && art !== 'crm') throw new AktionsFehler('Unbekannte Gemeinschaft')
   return TABELLE[art]
 }
 

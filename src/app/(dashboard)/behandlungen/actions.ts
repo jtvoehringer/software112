@@ -168,7 +168,7 @@ async function ggfKostenEintragAnlegen(
     const { data: transaktionsNr, error: txnErr } = await (supabase.rpc as any)('get_next_transaktionsnr', {
       p_tenant_id: tenantId, p_typ: 'kosteneintrag',
     })
-    if (txnErr) throw new Error(dbFehlerText(txnErr, 'Transaktionsnummer konnte nicht vergeben werden'))
+    if (txnErr) throw new AktionsFehler(dbFehlerText(txnErr, 'Transaktionsnummer konnte nicht vergeben werden'))
 
     const { data: eintrag, error: keErr } = await (supabase.from('kosteneintraege') as any)
       .insert({

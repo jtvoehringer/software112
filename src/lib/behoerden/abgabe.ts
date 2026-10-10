@@ -4,6 +4,7 @@ import { meldungFinden } from './register'
 import { meldungsDateiname } from './dateiname'
 import { betriebUndModuleLaden } from './zugriff'
 import { istParameterFehler, type LadeKontext } from './typen'
+import { AktionsFehler } from '@/lib/fehler'
 
 // ── Snapshot einer abgegebenen Behördenmeldung (KAN-37 Etappe B, 02.10.2026) ──
 //
@@ -30,9 +31,9 @@ export async function abgabeErzeugen(
   parameter: Record<string, string>,
 ): Promise<AbgabeSnapshot> {
   const meldung = meldungFinden(id)
-  if (!meldung) throw new Error(`Unbekannte Behördenmeldung „${id}“.`)
+  if (!meldung) throw new AktionsFehler(`Unbekannte Behördenmeldung „${id}“.`)
   const p = meldung.parameter(new URLSearchParams(parameter))
-  if (istParameterFehler(p)) throw new Error(p.fehler)
+  if (istParameterFehler(p)) throw new AktionsFehler(p.fehler)
   const { betrieb } = await betriebUndModuleLaden(ctx.supabase, ctx.tenantId)
   const ergebnis = await meldung.laden({ ...ctx, betrieb }, p)
   const profil = meldung.profil ?? PROFIL_EXCEL_AT

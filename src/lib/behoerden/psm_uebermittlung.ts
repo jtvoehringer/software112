@@ -14,6 +14,7 @@ import {
 } from './psm'
 import { verteileMassnahme } from '@/lib/wein/massnahmeAnteile'
 import { erfassungsverzugH, fristAus, PSM_FRIST_STANDARD_H } from '@/lib/behandlungen/erfassungsfrist'
+import { AktionsFehler } from '@/lib/fehler'
 
 export type PsmUebermittlungZeile = {
   datensatzId: string
@@ -145,7 +146,7 @@ export async function ladePsmUebermittlung(
     (supabase.from('tenant_einstellungen') as any).select('psm_erfassungsfrist_h').eq('tenant_id', tenantId).maybeSingle(),
   ])
   // KAN-254: sonst die Standardfrist statt der des Betriebs – falsche „verspätet“-Kennzeichen in der Meldung
-  if (einstErr) throw new Error(`Erfassungsfrist konnte nicht geladen werden: ${einstErr.message}`)
+  if (einstErr) throw new AktionsFehler(`Erfassungsfrist konnte nicht geladen werden: ${einstErr.message}`)
   const e = psmUebermittlungZeilen(behandlungen, betriebsnummer, fristAus(einst?.psm_erfassungsfrist_h))
   return { zeilen: e.zeilen, warnungen: [...warnungen, ...e.warnungen] }
 }

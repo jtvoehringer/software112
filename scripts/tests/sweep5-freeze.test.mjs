@@ -33,7 +33,7 @@ describe('KAN-169: sperrende Lese', nurMitHooks, () => {
     const s = quelle('src/lib/behandlungen/ernteSperre.ts')
     assert.equal((s.match(/\.is\('storniert_am', null\)/g) ?? []).length, 2)
     assert.equal((s.match(/\.eq\('jahrgang\.tenant_id', tenantId\)/g) ?? []).length, 2)
-    assert.equal((s.match(/throw new Error/g) ?? []).length, 3)
+    assert.equal((s.match(/throw new AktionsFehler/g) ?? []).length, 3)   // Sweep 108: AktionsFehler statt Error
   })
   test('Trigger: dieselbe Regel wie die App (Ried direkt oder über das Grundstück, Lesedatum ≥ Maßnahme)', () => {
     const m = migration()

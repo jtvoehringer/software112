@@ -21,6 +21,7 @@ import { HERKUNFT_LABEL } from '@/lib/herkunft'
 import { formatKmw } from '@/lib/wein/mostgewicht'
 import { UUID_RE, datumAusEingabe, feld, strasseTeilen, textOderNull, zahlFeld, type R } from './verkehr-hilfen'
 import { FORMULAR_GESPEICHERT, FORMULAR_VORBELEGUNG } from './transportbescheinigung'
+import { AktionsFehler } from '@/lib/fehler'
 
 // ── Formular (JSONB) ─────────────────────────────────────────────────────────
 
@@ -400,9 +401,9 @@ export async function ladePruefnummernantrag(supabase: Client, tenantId: string,
       .is('storniert_am', null)   // KAN-150 F2: ein stornierter Antrag gilt nicht mehr – danach wieder die Vorbelegung
       .maybeSingle(),
   ])
-  if (dacRes.error) throw new Error(`Laden fehlgeschlagen (dac_antrag): ${dacRes.error.message}`)
-  if (cfgRes.error) throw new Error(`Laden fehlgeschlagen (tenant_einstellungen): ${cfgRes.error.message}`)
-  if (pnaRes.error) throw new Error(`Laden fehlgeschlagen (pruefnummernantraege): ${pnaRes.error.message}`)
+  if (dacRes.error) throw new AktionsFehler(`Laden fehlgeschlagen (dac_antrag): ${dacRes.error.message}`)
+  if (cfgRes.error) throw new AktionsFehler(`Laden fehlgeschlagen (tenant_einstellungen): ${cfgRes.error.message}`)
+  if (pnaRes.error) throw new AktionsFehler(`Laden fehlgeschlagen (pruefnummernantraege): ${pnaRes.error.message}`)
   const dac = dacRes.data as R | null
   if (!dac) return null
 
@@ -418,7 +419,7 @@ export async function ladePruefnummernantrag(supabase: Client, tenantId: string,
       .eq('id', dac.weinausbau_id)
       .eq('tenant_id', tenantId)
       .maybeSingle()
-    if (chRes.error) throw new Error(`Laden fehlgeschlagen (weinausbau): ${chRes.error.message}`)
+    if (chRes.error) throw new AktionsFehler(`Laden fehlgeschlagen (weinausbau): ${chRes.error.message}`)
     charge = (chRes.data ?? null) as R | null
   }
   const formular: PNADaten = gespeicherteDaten

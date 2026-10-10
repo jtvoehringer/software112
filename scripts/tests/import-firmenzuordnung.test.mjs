@@ -22,7 +22,7 @@ function rumpf(text, kopf) {
 test('findFirmaId lädt alle Firmen seitenweise (alle() mit .order) und bricht bei Fehlern ab', () => {
   const r = rumpf(route, 'async function findFirmaId(')
   assert.match(r, /await alle\(\(supabase\.from\('firmen'\) as any\)\s*\.select\('id, name'\)\.eq\('tenant_id', tenantId\)\.order\('id'\)\)/)
-  assert.match(r, /if \(error\) throw new Error\(/)
+  assert.match(r, /if \(error\) throw new AktionsFehler\(/)   // Sweep 108: AktionsFehler statt Error
 })
 
 test('Duplikat-Abgleich des Lead-Imports lädt Kontakte und Firmen seitenweise', () => {

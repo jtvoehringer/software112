@@ -9,6 +9,7 @@ import { meldungsDateiname } from '@/lib/behoerden/dateiname'
 import { betriebUndModuleLaden, zugriffsFehler } from '@/lib/behoerden/zugriff'
 import { istParameterFehler, MeldungsFehler } from '@/lib/behoerden/typen'
 import { SPERR_TEXT, sitzungsSperre } from '@/lib/auth/sperren'
+import { AktionsFehler } from '@/lib/fehler'
 
 // ── Zentrale CSV-Ausgabe aller Behördenmeldungen (24.09.2026) ─────────────────
 //
@@ -58,7 +59,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ meld
       const { data: abgabe, error } = await (supabase.from('meldung_abgaben') as any)
         .select('csv_text, csv_sha256, dateiname, zeilen_anzahl, eingereicht_am')
         .eq('tenant_id', tenantId).eq('meldung', id).eq('id', abgabeId).maybeSingle()
-      if (error) throw new Error(`Laden fehlgeschlagen (meldung_abgaben): ${error.message}`)
+      if (error) throw new AktionsFehler(`Laden fehlgeschlagen (meldung_abgaben): ${error.message}`)
       if (!abgabe) return fehlerAntwort(404, 'Diese abgegebene Meldung gibt es nicht (mehr).')
       const am = String(abgabe.eingereicht_am).split('-').reverse().join('.')
       return csvAntwort(abgabe.csv_text, abgabe.dateiname, Number(abgabe.zeilen_anzahl) || 0,

@@ -19,6 +19,7 @@ import { momentaufnahmeAnwenden } from '../stammdaten/momentaufnahme'
 import { STELLEN, runden, type CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
 import { UUID_RE, feld, inBloecken, textOderNull, type R } from './verkehr-hilfen'
+import { AktionsFehler } from '@/lib/fehler'
 
 export const EXPORT_STATUS_LABEL: Record<string, string> = {
   entwurf: 'Entwurf', bestaetigt: 'Bestätigt', versendet: 'Versendet', abgeschlossen: 'Abgeschlossen',
@@ -220,10 +221,10 @@ export async function ladeExportauftrag(supabase: Client, tenantId: string, p: {
       .eq('tenant_id', tenantId)
       .maybeSingle(),
   ])
-  if (auftragRes.error) throw new Error(`Laden fehlgeschlagen (exportauftraege): ${auftragRes.error.message}`)
-  if (posRes.error) throw new Error(`Laden fehlgeschlagen (exportauftrag_positionen): ${posRes.error.message}`)
-  if (dokRes.error) throw new Error(`Laden fehlgeschlagen (export_dokumente): ${dokRes.error.message}`)
-  if (cfgRes.error) throw new Error(`Laden fehlgeschlagen (tenant_einstellungen): ${cfgRes.error.message}`)
+  if (auftragRes.error) throw new AktionsFehler(`Laden fehlgeschlagen (exportauftraege): ${auftragRes.error.message}`)
+  if (posRes.error) throw new AktionsFehler(`Laden fehlgeschlagen (exportauftrag_positionen): ${posRes.error.message}`)
+  if (dokRes.error) throw new AktionsFehler(`Laden fehlgeschlagen (export_dokumente): ${dokRes.error.message}`)
+  if (cfgRes.error) throw new AktionsFehler(`Laden fehlgeschlagen (tenant_einstellungen): ${cfgRes.error.message}`)
   const auftrag = auftragRes.data as R | null
   if (!auftrag) return null
 
@@ -354,7 +355,7 @@ export async function ladeExportauftraege(supabase: Client, tenantId: string): P
     .eq('aktiv', true)
     .order('created_at', { ascending: false })
     .order('id'))
-  if (auftraegeRes.error) throw new Error(`Laden fehlgeschlagen (exportauftraege): ${auftraegeRes.error.message}`)
+  if (auftraegeRes.error) throw new AktionsFehler(`Laden fehlgeschlagen (exportauftraege): ${auftraegeRes.error.message}`)
   const auftraege = auftraegeRes.data
   const ids = auftraege.map(a => String(a.id))
 
@@ -375,8 +376,8 @@ export async function ladeExportauftraege(supabase: Client, tenantId: string): P
         .order('exportauftrag_id')
         .order('id')),
     ])
-    if (pos.error) throw new Error(`Laden fehlgeschlagen (exportauftrag_positionen): ${pos.error.message}`)
-    if (dok.error) throw new Error(`Laden fehlgeschlagen (export_dokumente): ${dok.error.message}`)
+    if (pos.error) throw new AktionsFehler(`Laden fehlgeschlagen (exportauftrag_positionen): ${pos.error.message}`)
+    if (dok.error) throw new AktionsFehler(`Laden fehlgeschlagen (export_dokumente): ${dok.error.message}`)
     for (const p of pos.data) posJe.set(String(p.exportauftrag_id), [...(posJe.get(String(p.exportauftrag_id)) ?? []), p])
     for (const d of dok.data) dokJe.set(String(d.exportauftrag_id), [...(dokJe.get(String(d.exportauftrag_id)) ?? []), d])
   }

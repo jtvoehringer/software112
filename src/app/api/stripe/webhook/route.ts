@@ -10,6 +10,7 @@ import { aboPositionAus, paketPosition } from '@/lib/abo/verbund'
 import { premiumAbgleichPlan, premiumPositionFuer } from '@/lib/abo/premiumStripe'
 import { heuteWien, kuendigungZumMonatsende } from '@/lib/abo/premiumSupport'
 import { ABO_BEENDET_STATUS } from '@/lib/abo/regeln'
+import { AktionsFehler } from '@/lib/fehler'
 
 // Vercel streamt den Body — wir brauchen ihn als Buffer für die Signatur-Prüfung
 export const runtime = 'nodejs'
@@ -102,7 +103,7 @@ async function protokolliereZahlung(
   const { data: tenantRow, error: tenantErr } = await (admin.from('tenants') as any)
     .select('id, stripe_plan').eq('stripe_customer_id', customerId).maybeSingle()
   // KAN-252: Lesefehler hieß „kein Mandant“ – die Zahlung blieb unprotokolliert, Stripe bekam 200. Werfen → 500 → erneut
-  if (tenantErr) throw new Error(`Mandant zum Stripe-Kunden nicht ladbar: ${(tenantErr as R).message}`)
+  if (tenantErr) throw new AktionsFehler(`Mandant zum Stripe-Kunden nicht ladbar: ${(tenantErr as R).message}`)
   const tenantId = (tenantRow as R | null)?.id as string | undefined
   if (!tenantId) {
     console.error('[Stripe Webhook] Kein Mandant zu Stripe-Customer gefunden, Zahlung nicht protokolliert:', customerId)
@@ -126,7 +127,7 @@ async function protokolliereZahlung(
     })
   if (error && (error as R).code !== '23505') {
     // 23505 = unique_violation (bereits protokolliert, z.B. erneut zugestelltes Webhook-Event)
-    throw new Error(`Zahlung konnte nicht protokolliert werden: ${(error as R).message}`)
+    throw new AktionsFehler(`Zahlung konnte nicht protokolliert werden: ${(error as R).message}`)
   }
 }
 
@@ -139,7 +140,7 @@ async function premiumAbgleichen(
   const preisId = (process.env.STRIPE_PRICE_PREMIUM_SUPPORT ?? '').trim() || null
   const { data, error } = await (admin.from('tenants') as R)
     .select('id, premium_support_seit, premium_support_bis').eq('stripe_customer_id', kundeId)
-  if (error) throw new Error(`Premium-Support: Betriebe zu ${kundeId} nicht lesbar: ${error.message}`)
+  if (error) throw new AktionsFehler(`Premium-Support: Betriebe zu ${kundeId} nicht lesbar: ${error.message}`)
   const jetztPos = (((sub as unknown as R).items?.data ?? []) as R[]).map(aboPositionAus)
   const vorherPos = vorherItems ? vorherItems.map(aboPositionAus) : null
   const heute = heuteWien()
@@ -153,7 +154,7 @@ async function premiumAbgleichen(
     if (!plan) continue
     const { error: ue } = await (admin.from('tenants') as R)
       .update({ premium_support_seit: plan.seit, premium_support_bis: plan.bis }).eq('id', t.id)
-    if (ue) throw new Error(`Premium-Support von ${t.id} nicht gespeichert: ${ue.message}`)
+    if (ue) throw new AktionsFehler(`Premium-Support von ${t.id} nicht gespeichert: ${ue.message}`)
     tenantKopfInvalidieren(t.id)
     console.info('[Stripe Webhook] Premium-Support', t.id, plan)
   }

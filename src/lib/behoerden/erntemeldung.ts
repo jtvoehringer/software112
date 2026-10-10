@@ -49,6 +49,7 @@ export function unterliegtHoechstertrag(stufe: string | null | undefined): boole
 export { HOECHSTERTRAG_RECHTSFOLGE } from './hoechstertragText'
 import { qualitaetsRang } from '../wein/qualitaetsrang'
 import { HOECHSTERTRAG_RECHTSFOLGE } from './hoechstertragText'
+import { AktionsFehler } from '@/lib/fehler'
 /** Umrechnung Trauben → Most, wenn keine hl erfasst sind */
 export const KG_JE_HL = 130
 /** Schlüssel für Lesedaten ohne Rebsorte (wie bisher in „AMA-Meldung erstellen“) */
@@ -72,7 +73,7 @@ export async function jahrgangFinden(supabase: Client, tenantId: string, jahrgan
     .eq('tenant_id', tenantId)
     .eq('jahrgang', jahrgang)
     .maybeSingle()
-  if (error) throw new Error(`Laden fehlgeschlagen (weinjahrgaenge): ${error.message}`)
+  if (error) throw new AktionsFehler(`Laden fehlgeschlagen (weinjahrgaenge): ${error.message}`)
   if (!data) return null
   return { id: (data as R).id, jahrgang: Number((data as R).jahrgang) }
 }
@@ -230,7 +231,7 @@ export async function ladeLesedaten(
     // storno-sichtbar: stornierte nur mit opt.mitStornierten (gekennzeichnet in Druck, CSV und Liste)
   if (!opt.mitStornierten) abfrage = abfrage.is('storniert_am', null)
   const { data, error } = await alle<R>(abfrage.order('ernte_datum', { ascending: true }).order('id'))
-  if (error) throw new Error(`Laden fehlgeschlagen (ernte_parzellen): ${error.message}`)
+  if (error) throw new AktionsFehler(`Laden fehlgeschlagen (ernte_parzellen): ${error.message}`)
   const zeilen = data.map(zuLeseZeile).sort(vergleicheLese)
   // X-Warnung nur, wenn die exportierte Rundung eines Messwerts die Stufe ändert (KAN-128, Absicherung)
   const mostgewicht = new Hinweise(['Lese', 'Lesen'])
@@ -439,7 +440,7 @@ async function ladeWeinbauflaecheHa(supabase: Client, tenantId: string, jahr: nu
       .eq('nutzart', 'WI')
       .order('id'),
   )
-  if (error) throw new Error(`Laden fehlgeschlagen (grundstuecke): ${error.message}`)
+  if (error) throw new AktionsFehler(`Laden fehlgeschlagen (grundstuecke): ${error.message}`)
   return weinbauflaecheHa(data.filter(g => gstImJahr(g, jahr)))
 }
 
@@ -572,7 +573,7 @@ async function ladeVerkaufteTraubenJeRebsorte(supabase: Client, tenantId: string
       .eq('jahrgang_id', jahrgangId)
       .order('id'),
   )
-  if (error) throw new Error(`Laden fehlgeschlagen (traubenverkauf): ${error.message}`)
+  if (error) throw new AktionsFehler(`Laden fehlgeschlagen (traubenverkauf): ${error.message}`)
   const eigene = data.filter(v => !!v.weingarten_id)   // Zukauf-Trauben sind keine eigene Ernte
   const { gueltig, hinweis } = ohneStornierte(eigene)
   const je = new Map<string, number>()
@@ -608,7 +609,7 @@ export async function ladeErntemeldung(supabase: Client, tenantId: string, jg: J
     ladeWeinbauflaecheHa(supabase, tenantId, jg.jahrgang),
     ladeVerkaufteTraubenJeRebsorte(supabase, tenantId, jg.id),
   ])
-  if (meldungRes.error) throw new Error(`Laden fehlgeschlagen (ama_erntemeldungen): ${meldungRes.error.message}`)
+  if (meldungRes.error) throw new AktionsFehler(`Laden fehlgeschlagen (ama_erntemeldungen): ${meldungRes.error.message}`)
   const meldung = (meldungRes.data ?? null) as R | null
   const warnungen: string[] = []
   // KAN-148 C2: nach dem Einreichen hilft nur noch eine Korrekturmeldung (neue Version), vorher „Neu berechnen“
@@ -647,7 +648,7 @@ export async function ladeErntemeldung(supabase: Client, tenantId: string, jg: J
         .order('rebsorte_name')
         .order('id'),
     )
-    if (error) throw new Error(`Laden fehlgeschlagen (ama_meldepositionen): ${error.message}`)
+    if (error) throw new AktionsFehler(`Laden fehlgeschlagen (ama_meldepositionen): ${error.message}`)
     roh = data.map(p => {
       const rebsorte = textOderNull(p.rebsorte_name) ?? REBSORTE_UNBEKANNT
       const weinbaugebiet = textOderNull(p.weinbaugebiet) ?? einzigesGebiet

@@ -26,6 +26,8 @@ import { mostgewichtNeu, mostgewichtZusammenfuehren, teilweiseVermerk } from '@/
 import { weinartKonflikt } from '@/lib/keller/weinart'
 // @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
 import { rund } from '../zahl/runden.ts'
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { AktionsFehler } from '../fehler.ts'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
@@ -232,7 +234,7 @@ export function verschnittWerte(e: VerschnittWerteEingabe): VerschnittWerte {
     kopf.ziel_menge_erwartet = zielBestand   // ungerundet: die RPC vergleicht auf 0,005 L
   } else {
     const n = e.neueCharge
-    if (!n?.behaelterId) throw new Error('verschnittWerte: Ziel-Charge oder Gebinde der neuen Charge fehlt')
+    if (!n?.behaelterId) throw new AktionsFehler('verschnittWerte: Ziel-Charge oder Gebinde der neuen Charge fehlt')
     const laender = [...new Set(quellRows.map(q => (q.land_iso as string | null) ?? null).filter(Boolean))]
     kopf.neue_ziel_charge = {
       name: n.name?.trim() || [angabe.rebsorte ?? 'Verschnitt', angabe.jahrgang].filter(x => x != null && x !== '').join(' '),

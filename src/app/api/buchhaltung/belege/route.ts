@@ -16,7 +16,7 @@ import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
 import { rund } from '@/lib/zahl/runden'
-import { dbFehlerText } from '@/lib/fehler'
+import { dbFehlerText, AktionsFehler } from '@/lib/fehler'
 import { formBody, ungueltigeAnfrage } from '@/lib/api/body'
 
 export const runtime = 'nodejs'
@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
   let fehlerDetails: string | null = null
 
   try {
-    if (!process.env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY nicht gesetzt')
+    if (!process.env.ANTHROPIC_API_KEY) throw new AktionsFehler('ANTHROPIC_API_KEY nicht gesetzt')
 
     const { data: kategorienRaw, error: kategorienRawErr } = await (supabase.from('ea_kategorien') as any)
       .select('id, name, typ')
@@ -150,7 +150,7 @@ export async function POST(req: NextRequest) {
     })
 
     const toolUse = msg.content.find((b): b is Anthropic.ToolUseBlock => b.type === 'tool_use')
-    if (!toolUse) throw new Error('Keine strukturierte Antwort von Claude erhalten')
+    if (!toolUse) throw new AktionsFehler('Keine strukturierte Antwort von Claude erhalten')
     const input = toolUse.input as R
 
     const betragBrutto = Number(input.betrag_brutto)

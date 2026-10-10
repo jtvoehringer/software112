@@ -24,7 +24,7 @@ import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { kontaktAnzeigename } from '@/lib/crm/titel'
 import { losText } from '@/lib/handel/losnummer'
-import { dbFehlerText } from '@/lib/fehler'
+import { dbFehlerText, AktionsFehler } from '@/lib/fehler'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -279,13 +279,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           }],
         }),
       })
-      if (!draftRes.ok) throw new Error(`Graph-Entwurf fehlgeschlagen: ${draftRes.status} ${await draftRes.text()}`)
+      if (!draftRes.ok) throw new AktionsFehler(`Graph-Entwurf fehlgeschlagen: ${draftRes.status} ${await draftRes.text()}`)
       const draft = await draftRes.json() as R
       if (draft.id) {
         const sendRes = await fetch(`https://graph.microsoft.com/v1.0/me/messages/${draft.id}/send`, {
           method: 'POST', headers: { Authorization: `Bearer ${token}` },
         })
-        if (!sendRes.ok) throw new Error(`Graph-Versand fehlgeschlagen: ${sendRes.status} ${await sendRes.text()}`)
+        if (!sendRes.ok) throw new AktionsFehler(`Graph-Versand fehlgeschlagen: ${sendRes.status} ${await sendRes.text()}`)
       }
       sentVia = 'm365'
     } else {

@@ -12,6 +12,7 @@ import { STELLEN, type CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
 import { ZURECHNUNG_LABEL, type Zurechnung } from '@/lib/svs/berechnung'
 import { betrag, istIsoDatum, text, zahl } from './buchhaltung-gemeinsam'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -86,7 +87,7 @@ export async function ladeSvsEinheitswerte(supabase: any, tenantId: string): Pro
     .select('id, gst_nr, katastralgemeinde, kg_bezeichnung, einlagezahl, flaeche_ha, flaeche_ha_kataster, nutzart, rechtsverhaeltnis, einheitswert, einheitswert_bescheid, einheitswert_quelle, svs_zurechnung, weingarten:weingarten!weingarten_id(name, ried)')
     .eq('tenant_id', tenantId)
     .order('katastralgemeinde').order('gst_nr').order('id'))
-  if (error) throw new Error(`Laden fehlgeschlagen (grundstuecke): ${error.message}`)
+  if (error) throw new AktionsFehler(`Laden fehlgeschlagen (grundstuecke): ${error.message}`)
 
   const zeilen = data.map(svsEinheitswertZeile)
   const warnungen: string[] = []

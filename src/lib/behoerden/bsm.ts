@@ -66,6 +66,7 @@ import { stornoText, type Bewegung } from './bewegungsbuch'
 import { datumAT, textOderNull, zahlOderNull } from './ernte_hilfen'
 import { istTag, tag } from './kellerbuch-hilfen'
 import { parameterFehler, type ParameterFehler } from './typen'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -546,10 +547,10 @@ async function ladeBsmAusJournal(supabase: Client, tenantId: string, z: BsmZeitr
     (supabase.rpc as any)('journal_konsistenz', { p_tenant_id: tenantId }),
     ladeTraubenverkauf(supabase, tenantId),
   ])
-  if (tvRes.error) throw new Error(`Laden fehlgeschlagen (traubenverkauf): ${tvRes.error.message}`)
-  if (jRes.error) throw new Error(`Laden fehlgeschlagen (kellerbuch_buchungen): ${jRes.error.message}`)
-  if (tzRes.error) throw new Error(`Laden fehlgeschlagen (zukauf_posten): ${tzRes.error.message}`)
-  if (pwRes.error) throw new Error(`Laden fehlgeschlagen (pressung_weingaerten): ${pwRes.error.message}`)
+  if (tvRes.error) throw new AktionsFehler(`Laden fehlgeschlagen (traubenverkauf): ${tvRes.error.message}`)
+  if (jRes.error) throw new AktionsFehler(`Laden fehlgeschlagen (kellerbuch_buchungen): ${jRes.error.message}`)
+  if (tzRes.error) throw new AktionsFehler(`Laden fehlgeschlagen (zukauf_posten): ${tzRes.error.message}`)
+  if (pwRes.error) throw new AktionsFehler(`Laden fehlgeschlagen (pressung_weingaerten): ${pwRes.error.message}`)
   const abweichungen = kRes?.error ? null : ((kRes?.data ?? []) as unknown[]).length
   return berechneBsmAusJournal(jRes.data, {
     verkaufsposten: new Map(), traubenZukauf: tzRes.data, pressungWeingaerten: pwRes.data, traubenverkauf: tvRes.data,
@@ -588,11 +589,11 @@ export async function ladeBsm(supabase: Client, tenantId: string, z: BsmZeitraum
     ),
     ladeTraubenverkauf(supabase, tenantId),
   ])
-  if (tvRes.error) throw new Error(`Laden fehlgeschlagen (traubenverkauf): ${tvRes.error.message}`)
-  if (vpRes.error) throw new Error(`Laden fehlgeschlagen (verkaufsposten): ${vpRes.error.message}`)
-  if (tzRes.error) throw new Error(`Laden fehlgeschlagen (zukauf_posten): ${tzRes.error.message}`)
-  if (pwRes.error) throw new Error(`Laden fehlgeschlagen (pressung_weingaerten): ${pwRes.error.message}`)
-  if (exRes.error) throw new Error(`Laden fehlgeschlagen (exportauftraege): ${exRes.error.message}`)
+  if (tvRes.error) throw new AktionsFehler(`Laden fehlgeschlagen (traubenverkauf): ${tvRes.error.message}`)
+  if (vpRes.error) throw new AktionsFehler(`Laden fehlgeschlagen (verkaufsposten): ${vpRes.error.message}`)
+  if (tzRes.error) throw new AktionsFehler(`Laden fehlgeschlagen (zukauf_posten): ${tzRes.error.message}`)
+  if (pwRes.error) throw new AktionsFehler(`Laden fehlgeschlagen (pressung_weingaerten): ${pwRes.error.message}`)
+  if (exRes.error) throw new AktionsFehler(`Laden fehlgeschlagen (exportauftraege): ${exRes.error.message}`)
   const verkaufsposten = new Map<string, R>()
   for (const vp of vpRes.data) verkaufsposten.set(vp.id, momentaufnahmeAnwenden(vp, ['kontakt', 'firma']))
   return berechneBsm(g, {

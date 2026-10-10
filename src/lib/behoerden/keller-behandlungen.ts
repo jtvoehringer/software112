@@ -16,6 +16,7 @@ import { alle } from '@/lib/supabase/alle'
 import { ladeBehaelter, type BehaelterZeile } from '@/lib/keller/behaelter'
 import { chargeAmTag, ladeBelegungen, type Belegung } from './bewegungsbuch'
 import { numOderNull, tag, text, type R, type Zeitraum } from './kellerbuch-hilfen'
+import { AktionsFehler } from '@/lib/fehler'
 
 export type Zuordnung = 'erfasst' | 'belegung' | 'mehrdeutig' | 'offen'
 
@@ -85,7 +86,7 @@ export async function ladeKellerBehandlungen(
   if (p.von) q = q.gte('datum', p.von)
   if (p.bis) q = q.lte('datum', p.bis)
   const { data, error } = await alle<R>(q.order('datum', { ascending: true }).order('id', { ascending: true }))
-  if (error) throw new Error(`Kellerbehandlungen konnten nicht geladen werden: ${error.message}`)
+  if (error) throw new AktionsFehler(`Kellerbehandlungen konnten nicht geladen werden: ${error.message}`)
 
   // Belegungszeiträume nur für Gebinde mit Einträgen ohne Charge (selten, teuer)
   const ohneCharge = [...new Set(data.filter(b => !b.weinausbau_id && b.behaelter_id).map(b => b.behaelter_id as string))]

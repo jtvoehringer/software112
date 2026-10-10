@@ -28,6 +28,7 @@ import { mostgewichtCsvSpalten } from './mostgewicht_export'
 import {
   UUID_RE, datumAusTeilen, feld, formularZahl, inBloecken, jaNeinFeld, strasseTeilen, textOderNull, zahlFeld, type R,
 } from './verkehr-hilfen'
+import { AktionsFehler } from '@/lib/fehler'
 
 // ── Formular (JSONB) ─────────────────────────────────────────────────────────
 
@@ -523,7 +524,7 @@ async function betriebLaden(supabase: Client, tenantId: string): Promise<R> {
     .select(CFG_SELECT)
     .eq('tenant_id', tenantId)
     .limit(1).maybeSingle()
-  if (error) throw new Error(`Laden fehlgeschlagen (tenant_einstellungen): ${error.message}`)
+  if (error) throw new AktionsFehler(`Laden fehlgeschlagen (tenant_einstellungen): ${error.message}`)
   return (data ?? {}) as R
 }
 
@@ -581,8 +582,8 @@ export async function ladeTransportbescheinigung(supabase: Client, tenantId: str
       .is('storniert_am', null)   // KAN-150 F2: eine stornierte Bescheinigung gilt nicht mehr – danach wieder die Vorbelegung
       .maybeSingle(),
   ])
-  if (postenRes.error) throw new Error(`Laden fehlgeschlagen (verkaufsposten): ${postenRes.error.message}`)
-  if (tbRes.error) throw new Error(`Laden fehlgeschlagen (transportbescheinigungen): ${tbRes.error.message}`)
+  if (postenRes.error) throw new AktionsFehler(`Laden fehlgeschlagen (verkaufsposten): ${postenRes.error.message}`)
+  if (tbRes.error) throw new AktionsFehler(`Laden fehlgeschlagen (transportbescheinigungen): ${tbRes.error.message}`)
   const posten = postenRes.data as R | null
   if (!posten) return null
 
@@ -647,7 +648,7 @@ export async function ladeTransportbescheinigungen(supabase: Client, tenantId: s
       .order('id')),
     betriebLaden(supabase, tenantId),
   ])
-  if (postenRes.error) throw new Error(`Laden fehlgeschlagen (verkaufsposten): ${postenRes.error.message}`)
+  if (postenRes.error) throw new AktionsFehler(`Laden fehlgeschlagen (verkaufsposten): ${postenRes.error.message}`)
 
   const ids = postenRes.data.map(v => String(v.id))
   const tbJePosten = new Map<string, R>()
@@ -658,7 +659,7 @@ export async function ladeTransportbescheinigungen(supabase: Client, tenantId: s
       .is('storniert_am', null)   // KAN-150 F2: stornierte Bescheinigungen gelten nicht
       .in('verkaufsposten_id', block)
       .order('id'))
-    if (error) throw new Error(`Laden fehlgeschlagen (transportbescheinigungen): ${error.message}`)
+    if (error) throw new AktionsFehler(`Laden fehlgeschlagen (transportbescheinigungen): ${error.message}`)
     for (const t of data) tbJePosten.set(String(t.verkaufsposten_id), t)
   }
 

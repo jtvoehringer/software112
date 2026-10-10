@@ -30,6 +30,7 @@ import { istTag, num, numOderNull, tag, text, type R, type Zeitraum } from './ke
 import { parameterFehler, type ParameterFehler } from './typen'
 import type { Behandlungskennzahlen } from '@/lib/kellerbuch/behandlungskennzahlen'
 import { ladeBehandlungskennzahlen, type KennzahlLookup } from './kennzahlen-laden'
+import { AktionsFehler } from '@/lib/fehler'
 
 /** Spalten der Journalzeilen für beide Blätter */
 const JOURNAL_SPALTEN_LAGER = 'id, beleg_nr, pos, datum, buchungsart_code, bestand, weinausbau_id, fuellung_id, behaelter_id, menge_liter, menge_stk, partner_name, partner_land, quelle_tabelle, storno_von_id, charge_name, fuellung_name, flaschengroesse_ml, erzeugnis, qualitaetsstufe, zusatzbezeichnung, weinart, herkunft_code, land_iso, rebsorte, jahrgang, hinweis'
@@ -310,7 +311,7 @@ async function ladeStamm(supabase: any, tenantId: string, bis: string | null): P
     ladeBehandlungskennzahlen(supabase, tenantId, bis),
   ])
   for (const [n, res] of [['weinausbau', cRes], ['fuellungen', fRes], ['fuellung_etikettierungen', eRes]] as const) {
-    if (res.error) throw new Error(`Laden fehlgeschlagen (${n}): ${res.error.message}`)
+    if (res.error) throw new AktionsFehler(`Laden fehlgeschlagen (${n}): ${res.error.message}`)
   }
   return {
     chargen: new Map(cRes.data.map(c => [c.id, c])),
@@ -326,7 +327,7 @@ async function ladeJournal(supabase: any, tenantId: string, bis: string | null):
   let q = (supabase.from('kellerbuch_buchungen') as any).select(JOURNAL_SPALTEN_LAGER).eq('tenant_id', tenantId)
   if (bis) q = q.lte('datum', bis)
   const res = await alle<R>(q.order('beleg_nr').order('pos'))
-  if (res.error) throw new Error(`Laden fehlgeschlagen (kellerbuch_buchungen): ${res.error.message}`)
+  if (res.error) throw new AktionsFehler(`Laden fehlgeschlagen (kellerbuch_buchungen): ${res.error.message}`)
   return res.data
 }
 

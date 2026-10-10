@@ -14,6 +14,7 @@ import { alle, inBloecken } from '@/lib/supabase/alle'
 import { antragVerletzung, pnDatumDe, pnZugangText, type PnChargeDaten } from '@/lib/kellerbuch/pruefnummer'
 import { ladePruefnummerDaten } from '@/lib/kellerbuch/pruefnummerLaden'
 import { pnStatusLabel } from './workflow'
+import { AktionsFehler } from '@/lib/fehler'
 
 type R = Record<string, any>
 
@@ -66,14 +67,14 @@ export async function ladeAltantragPruefung(supabase: any, tenantId: string, heu
     .is('storniert_am', null)
     .neq('status', 'entwurf')
     .order('id'))
-  if (aRes.error) throw new Error(`Prüfnummernanträge konnten nicht geladen werden: ${aRes.error.message}`)
+  if (aRes.error) throw new AktionsFehler(`Prüfnummernanträge konnten nicht geladen werden: ${aRes.error.message}`)
   if (aRes.data.length === 0) return []
   const eRes = await inBloecken<R>(aRes.data.map(a => a.id), block => alle<R>((supabase.from('pruefnummer_ereignisse') as any)
     .select('id, dac_antrag_id')
     .eq('tenant_id', tenantId)
     .in('dac_antrag_id', block)
     .order('id')))
-  if (eRes.error) throw new Error(`Ereignisse der Prüfnummernanträge konnten nicht geladen werden: ${eRes.error.message}`)
+  if (eRes.error) throw new AktionsFehler(`Ereignisse der Prüfnummernanträge konnten nicht geladen werden: ${eRes.error.message}`)
   const mitEreignis = new Set(eRes.data.map(e => String(e.dac_antrag_id)))
   const alt = aRes.data.filter(a => !mitEreignis.has(String(a.id)))
   if (alt.length === 0) return []

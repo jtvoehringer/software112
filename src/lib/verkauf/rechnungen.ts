@@ -7,6 +7,8 @@
 import { dezimal } from '../format.ts'
 // @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
 import { rund } from '../zahl/runden.ts'
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { AktionsFehler } from '../fehler.ts'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
@@ -55,7 +57,7 @@ export function rechnungPreiseAusFormular(formData: { forEach(cb: (wert: unknown
     const t = dezimal(v)   // „1.250,50“ wie „1250.50“ (lib/format)
     if (t === '') return null
     const n = Number(t)
-    if (!Number.isFinite(n) || n < 0) throw new Error('Bitte gültige Preise bzw. Rabatte angeben.')
+    if (!Number.isFinite(n) || n < 0) throw new AktionsFehler('Bitte gültige Preise bzw. Rabatte angeben.')
     return n
   }
   const preise = new Map<string, { position_id: string; preis_brutto: number; rabatt_pct?: number }>()
@@ -64,7 +66,7 @@ export function rechnungPreiseAusFormular(formData: { forEach(cb: (wert: unknown
     const p = /^preis_([0-9a-f-]{36})$/.exec(schluessel)
     const r = /^rabatt_([0-9a-f-]{36})$/.exec(schluessel)
     if (p) { const n = zahl(wert); if (n != null) preise.set(p[1], { position_id: p[1], preis_brutto: n }) }
-    if (r) { const n = zahl(wert); if (n != null) { if (n > 100) throw new Error('Rabatt höchstens 100 %.'); rabatte.set(r[1], n) } }
+    if (r) { const n = zahl(wert); if (n != null) { if (n > 100) throw new AktionsFehler('Rabatt höchstens 100 %.'); rabatte.set(r[1], n) } }
   })
   for (const [id, n] of rabatte) {
     const e = preise.get(id)

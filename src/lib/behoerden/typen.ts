@@ -19,6 +19,7 @@ import type { CsvProfil, CsvSpalte } from '@/lib/csv'
 import type { Membership } from '@/lib/auth/roles'
 import type { ModulFlag } from '@/lib/auth/modul'
 import type { Modul } from '@/lib/auth/module'
+import { AktionsFehler } from '@/lib/fehler'
 
 /** Gruppen der Meldungen – je Gruppe eine Datei katalog/<gruppe>.ts und register/<gruppe>.ts */
 export type MeldungsGruppe = 'ernte' | 'pflanzenschutz' | 'verkehr' | 'kellerbuch' | 'buchhaltung' | 'flaechen'
@@ -82,7 +83,7 @@ export function katalogGruppe<T extends Record<string, KatalogAngaben>>(
 ): { [K in keyof T & string]: KatalogEintrag & { id: K } } {
   const out: Record<string, KatalogEintrag> = {}
   for (const [id, e] of Object.entries(eintraege)) {
-    if (!ID_RE.test(id)) throw new Error(`Behördenmeldung „${id}“: id nur aus a–z, 0–9 und Bindestrich`)
+    if (!ID_RE.test(id)) throw new AktionsFehler(`Behördenmeldung „${id}“: id nur aus a–z, 0–9 und Bindestrich`)
     out[id] = { ...e, id, gruppe }
   }
   return out as { [K in keyof T & string]: KatalogEintrag & { id: K } }

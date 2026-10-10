@@ -13,6 +13,7 @@ import { alle } from '@/lib/supabase/alle'
 import { feld, textOderNull, type R } from './verkehr-hilfen'
 import { PN_STATUS_LABEL, pnFormatHinweis } from '../dac/workflow'
 import { sortenKuerzel } from '@/lib/wein/bki_kuerzel'
+import { AktionsFehler } from '@/lib/fehler'
 
 export const DAC_REGION_LABEL: Record<string, string> = {
   weinviertel: 'Weinviertel', kamptal: 'Kamptal', kremstal: 'Kremstal',
@@ -112,7 +113,7 @@ export async function ladeDacAntraege(supabase: Client, tenantId: string): Promi
     .eq('tenant_id', tenantId)
     .order('created_at', { ascending: false })
     .order('id'))
-  if (error) throw new Error(`Laden fehlgeschlagen (dac_antrag): ${error.message}`)
+  if (error) throw new AktionsFehler(`Laden fehlgeschlagen (dac_antrag): ${error.message}`)
   const zeilen = data.map(dacZeile)
   // KAN-98: Prüfnummern in ungewöhnlichem Format als Warnung (nicht gesperrt – die Nummer vergibt das Bundesamt)
   const warnungen = zeilen.filter(z => !z.storniertAm).map(z => {

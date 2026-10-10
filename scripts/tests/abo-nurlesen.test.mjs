@@ -676,7 +676,7 @@ describe('Bausteine bleiben frei von Server- und React-Importen', () => {
     for (const datei of ['regeln.ts', 'nurLesen.ts', 'stripeAbgleich.ts']) {
       const text = readFileSync(path.join(ROOT, 'src', 'lib', 'abo', datei), 'utf8')
       const importe = [...text.matchAll(/^(?:import|export) .* from '([^']+)'/gm)].map(m => m[1])
-      for (const i of importe) assert.ok(['@/lib/pakete', '@/lib/abo/regeln'].includes(i), `${datei} importiert ${i}`)
+      for (const i of importe) assert.ok(['@/lib/pakete', '@/lib/abo/regeln', '@/lib/fehler'].includes(i), `${datei} importiert ${i}`)
     }
   })
 })

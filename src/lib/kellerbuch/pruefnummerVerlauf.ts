@@ -9,6 +9,7 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Projektkonvention (supabase.from('…') as any), siehe CLAUDE.md */
 import { alle, inBloecken } from '@/lib/supabase/alle'
+import { AktionsFehler } from '@/lib/fehler'
 
 type R = Record<string, any>
 
@@ -77,7 +78,7 @@ export async function ladePnVerlauf(supabase: any, tenantId: string, chargeIds: 
     .eq('tenant_id', tenantId)
     .in('weinausbau_id', block)
     .order('id')))
-  if (res.error) throw new Error(`Prüfnummer je Charge konnte nicht geladen werden: ${res.error.message}`)
+  if (res.error) throw new AktionsFehler(`Prüfnummer je Charge konnte nicht geladen werden: ${res.error.message}`)
   for (const r of res.data) {
     const v = zuPnVerlauf(r)
     if (v) out.set(v.chargeId, [...(out.get(v.chargeId) ?? []), v])

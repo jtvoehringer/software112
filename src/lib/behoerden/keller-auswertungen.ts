@@ -16,6 +16,7 @@ import { ladeBehaelter, type BehaelterZeile } from '@/lib/keller/behaelter'
 import { bkiRebsorteKuerzel } from '@/lib/wein/bki_kuerzel'
 import { ladeKellerBehandlungen, behandlungenJeTyp, type KellerBehandlungZeile } from './keller-behandlungen'
 import { istTag, num, tag, text, type R, type Zeitraum } from './kellerbuch-hilfen'
+import { AktionsFehler } from '@/lib/fehler'
 
 /**
  * Zeitraum der Seite /reports/keller aus ?von=&bis= (KAN-177, 01.10.2026).
@@ -87,7 +88,7 @@ export async function ladeKellerUmzuege(
   if (z.von) q = q.gte('datum', z.von)
   if (z.bis) q = q.lte('datum', z.bis)
   const { data, error } = await alle<R>(q.order('datum', { ascending: false }).order('id', { ascending: true }))
-  if (error) throw new Error(`Umzüge konnten nicht geladen werden: ${error.message}`)
+  if (error) throw new AktionsFehler(`Umzüge konnten nicht geladen werden: ${error.message}`)
 
   // Ziel-Gebinde der n:n-Umzüge (Quell-Zeile trägt kein Ziel) über die Batch-Ziele
   const batchIds = [...new Set(data.filter(u => u.zeilen_typ === 'quelle' && u.umzug_batch_id).map(u => u.umzug_batch_id as string))]
@@ -101,7 +102,7 @@ export async function ladeKellerUmzuege(
       .in('umzug_batch_id', b)
       .eq('zeilen_typ', 'ziel')
       .order('id')))
-    if (ziele.error) throw new Error(`Umzüge konnten nicht geladen werden: ${ziele.error.message}`)
+    if (ziele.error) throw new AktionsFehler(`Umzüge konnten nicht geladen werden: ${ziele.error.message}`)
     for (const zr of ziele.data) {
       const n = (zr.nach_behaelter_id ? gebindeName.get(zr.nach_behaelter_id) : null) ?? (zr.nach_behaelter as R | null)?.name ?? '?'
       const liste = zieleJeBatch.get(zr.umzug_batch_id) ?? []
@@ -210,8 +211,8 @@ export async function ladeKellerAuswertungen(supabase: any, tenantId: string, z:
     ladeKellerUmzuege(supabase, tenantId, z, { gebindeListe: gebindeAlle }),
     alle<R>(fq.order('datum', { ascending: false }).order('id')),
   ])
-  if (chargenRes.error) throw new Error(`Chargen konnten nicht geladen werden: ${chargenRes.error.message}`)
-  if (fuellungenRes.error) throw new Error(`Füllungen konnten nicht geladen werden: ${fuellungenRes.error.message}`)
+  if (chargenRes.error) throw new AktionsFehler(`Chargen konnten nicht geladen werden: ${chargenRes.error.message}`)
+  if (fuellungenRes.error) throw new AktionsFehler(`Füllungen konnten nicht geladen werden: ${fuellungenRes.error.message}`)
 
   const gebinde = gebindeAlle.filter(g => g.aktiv)
   const gebindeName = new Map(gebindeAlle.map(g => [g.id, g.anzeigeName]))

@@ -5,6 +5,7 @@
 import { alle } from '@/lib/supabase/alle'
 import { kennzahlBehandlungen, kennzahlHinweise, kennzahlenIndex, type Behandlungskennzahlen } from '@/lib/kellerbuch/behandlungskennzahlen'
 import { num, type R } from './kellerbuch-hilfen'
+import { AktionsFehler } from '@/lib/fehler'
 
 export type KennzahlLookup = (weinausbauId: string | null | undefined, bis: string | null) => Behandlungskennzahlen
 
@@ -23,7 +24,7 @@ export async function ladeBehandlungskennzahlen(supabase: any, tenantId: string,
     alle<R>((supabase.from('weinausbau') as any).select('id, menge_liter').eq('tenant_id', tenantId).order('id')),
   ])
   for (const [n, res] of [['keller_behandlungen', b], ['kellermittel_buchungen', s], ['weinausbau', c]] as const) {
-    if (res.error) throw new Error(`Laden fehlgeschlagen (${n}): ${res.error.message}`)
+    if (res.error) throw new AktionsFehler(`Laden fehlgeschlagen (${n}): ${res.error.message}`)
   }
   const { liste, mitSchaetzvolumen } = kennzahlBehandlungen(b.data, s.data, new Map(c.data.map(x => [String(x.id), num(x.menge_liter)])))
   return { kennzahl: kennzahlenIndex(liste), hinweise: kennzahlHinweise(liste, mitSchaetzvolumen) }

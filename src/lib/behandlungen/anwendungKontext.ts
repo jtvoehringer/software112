@@ -4,6 +4,7 @@
 
 import { ladeMandantMitglieder } from '@/lib/aufgaben/mitglieder'
 import { fristAus, PSM_FRIST_STANDARD_H } from '@/lib/behandlungen/erfassungsfrist'
+import { AktionsFehler } from '@/lib/fehler'
 
 export type AnwendungKontext = { mitglieder: { id: string; name: string }[]; ichId: string | null; psmFristH: number }
 
@@ -17,7 +18,7 @@ export async function anwendungKontext(supabase: any, tenantId: string | null | 
     (supabase.from('tenant_einstellungen') as any).select('psm_erfassungsfrist_h').eq('tenant_id', tenantId).maybeSingle(),
   ])
   // KAN-254: sonst galt still die Standardfrist statt der des Betriebs
-  if (einstErr) throw new Error(`Erfassungsfrist konnte nicht geladen werden: ${einstErr.message}`)
+  if (einstErr) throw new AktionsFehler(`Erfassungsfrist konnte nicht geladen werden: ${einstErr.message}`)
   return {
     mitglieder: mitglieder.map(m => ({ id: m.id, name: m.name })),
     ichId: user?.id ?? null,

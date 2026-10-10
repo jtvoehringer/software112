@@ -11,6 +11,7 @@ import { runden, STELLEN, type CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
 import { afaSatzProzent, anlagenspiegelZeilen, type Anlage, type SpiegelZeile } from '@/lib/ea/anlagen'
 import { sachkonto, summe, text } from './buchhaltung-gemeinsam'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -152,7 +153,7 @@ export async function ladeAnlagenverzeichnis(supabase: any, tenantId: string, p:
     .select('id, name, gruppe, konto_nr, anschaffung_am, ak_netto, nutzungsdauer_jahre, methode, degressiv_satz, restwert, abgang_am, veraeusserungserloes')
     .eq('tenant_id', tenantId)
     .order('anschaffung_am').order('name').order('id'))
-  if (error) throw new Error(`Laden fehlgeschlagen (ea_anlagen): ${error.message}`)
+  if (error) throw new AktionsFehler(`Laden fehlgeschlagen (ea_anlagen): ${error.message}`)
 
   const anlagen = data.map(anlageAusZeile)
   return { ...anlagenverzeichnis(anlagen, p.jahr), anlagen }

@@ -12,6 +12,7 @@ import { momentaufnahmeAnwenden } from '../stammdaten/momentaufnahme'
 import { STELLEN, wienDatum, type CsvSpalte } from '@/lib/csv'
 import { alle } from '@/lib/supabase/alle'
 import { betrag, istIsoDatum, text, zahl } from './buchhaltung-gemeinsam'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -99,7 +100,7 @@ export async function ladeBelegverzeichnis(supabase: any, tenantId: string, p: B
       buchung:ea_transaktionen!ea_transaktion_id(datum, typ, beschreibung, betrag_brutto, storniert_am, stamm_daten, kategorie:ea_kategorien!kategorie_id(name))`)
     .eq('tenant_id', tenantId)
     .order('hochgeladen_am').order('id'))
-  if (error) throw new Error(`Laden fehlgeschlagen (ea_belege): ${error.message}`)
+  if (error) throw new AktionsFehler(`Laden fehlgeschlagen (ea_belege): ${error.message}`)
 
   for (const b of data) momentaufnahmeAnwenden(b.buchung, ['kategorie'], 'stamm_daten')   // KAN-150 F1c
   const imJahr = data.filter(b => belegJahr(b) === p.jahr)

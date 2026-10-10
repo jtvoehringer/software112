@@ -11,7 +11,7 @@ import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
 import { alle } from '@/lib/supabase/alle'
-import { dbFehlerText } from '@/lib/fehler'
+import { dbFehlerText, AktionsFehler } from '@/lib/fehler'
 export const dynamic = 'force-dynamic'
 // Große Importe (Dynamics-Leads 3.9.2026: 4.200 Firmen / 7.900 Kontakte) kommen
 // vom Client in Blöcken (siehe ImportClient.tsx, IMPORT_BLOCKGROESSE) - ein
@@ -264,7 +264,7 @@ export async function POST(req: NextRequest) {
         firmenIndex = new Map()
         const { data, error } = await alle((supabase.from('firmen') as any)
           .select('id, name').eq('tenant_id', tenantId).order('id'))
-        if (error) throw new Error(`Firmen für die Zuordnung konnten nicht geladen werden: ${error.message}`)
+        if (error) throw new AktionsFehler(`Firmen für die Zuordnung konnten nicht geladen werden: ${error.message}`)
         for (const f of (data ?? []) as R[]) {
           const key = normName(f.name)
           if (key && !firmenIndex.has(key)) firmenIndex.set(key, f.id as string)
@@ -280,7 +280,7 @@ export async function POST(req: NextRequest) {
       const { data: bestehend, error: bestehendErr } = await (supabase.from('lagen') as any)
         .select('id').eq('tenant_id', tenantId).ilike('name', name.trim()).maybeSingle()
       // KAN-252: sonst legte ein Lesefehler die Ried ein zweites Mal an
-      if (bestehendErr) throw new Error(`Ried "${name}" konnte nicht geladen werden: ${bestehendErr.message}`)
+      if (bestehendErr) throw new AktionsFehler(`Ried "${name}" konnte nicht geladen werden: ${bestehendErr.message}`)
       if ((bestehend as R | null)?.id) {
         lageCache.set(key, (bestehend as R).id)
         return (bestehend as R).id
@@ -288,7 +288,7 @@ export async function POST(req: NextRequest) {
       const { data: neu, error } = await (supabase.from('lagen') as any)
         .insert({ tenant_id: tenantId, name: name.trim(), amtliche_ried: name.trim() || null, notizen: mitHerkunft(null), ...herkunftFelder })   // KAN-110
         .select('id').single()
-      if (error) throw new Error(`Ried "${name}" konnte nicht angelegt werden: ${error.message}`)
+      if (error) throw new AktionsFehler(`Ried "${name}" konnte nicht angelegt werden: ${error.message}`)
       lageCache.set(key, (neu as R).id)
       return (neu as R).id
     }
@@ -300,7 +300,7 @@ export async function POST(req: NextRequest) {
       const { data, error } = await (supabase.from('weingarten') as any)
         .select('id').eq('tenant_id', tenantId).ilike('name', name.trim()).maybeSingle()
       // KAN-252: sonst bliebe die Zeile still ohne Weingarten
-      if (error) throw new Error(`Weingarten "${name}" konnte nicht geladen werden: ${error.message}`)
+      if (error) throw new AktionsFehler(`Weingarten "${name}" konnte nicht geladen werden: ${error.message}`)
       const id = (data as R | null)?.id ?? null
       if (id) weingartenCache.set(key, id)
       return id

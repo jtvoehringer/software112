@@ -51,6 +51,8 @@ import {
 } from '@/lib/wein/weinbuchBestand'
 // @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
 import { rund } from '../zahl/runden.ts'
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { AktionsFehler } from '../fehler.ts'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
@@ -325,7 +327,7 @@ export async function buildWeinbuch(
       .in('umzug_batch_id', batchIds)
       .eq('zeilen_typ', 'ziel'))
     // KAN-254: sonst fehlten im Weinbuch (Aufzeichnung für die Behörde) still die Ziel-Gebinde der Umzüge
-    if (zielErr) throw new Error(`Ziel-Gebinde der Umzüge konnten nicht geladen werden: ${zielErr.message}`)
+    if (zielErr) throw new AktionsFehler(`Ziel-Gebinde der Umzüge konnten nicht geladen werden: ${zielErr.message}`)
     for (const z of ((zielRows ?? []) as R[])) {
       if (!zielByBatch[z.umzug_batch_id]) zielByBatch[z.umzug_batch_id] = z
     }

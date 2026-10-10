@@ -26,6 +26,7 @@ import { ereignisMelden } from '@/lib/system/ereignis'
 import { M365TokenFehler, istNeuVerbinden, verbindungName } from '@/lib/m365/tokenFehler'
 import { spiegelFreigabe, SPIEGEL_SPERR_TEXT, type SpiegelBetrieb, type SpiegelMitgliedschaft } from '@/lib/email/spiegelFreigabe'
 import { heuteWien, wienTag } from '@/lib/datum/wien'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -87,7 +88,7 @@ export async function spiegleMailboxen(zeitbudgetMs = 40000, nurTenantId?: strin
       if (!tenantCfgCache.has(tenantId)) {
         const { data: tc, error: tcErr } = await (admin.from('tenant_einstellungen') as any).select('m365_tenant_id, m365_client_id, m365_client_secret_enc').eq('tenant_id', tenantId).maybeSingle()
         // KAN-254: Fehler landet unten in erg.fehler (statt „keine M365-App-Einstellungen“ für diesen Lauf zwischenzuspeichern)
-        if (tcErr) throw new Error(`M365-Einstellungen nicht ladbar: ${tcErr.message}`)
+        if (tcErr) throw new AktionsFehler(`M365-Einstellungen nicht ladbar: ${tcErr.message}`)
         tenantCfgCache.set(tenantId, (tc as R | null) ?? null)
       }
       const tc = tenantCfgCache.get(tenantId)
@@ -213,7 +214,7 @@ export async function spiegleNebenbei(tenantId: string, userId: string, budgetMs
     const admin = createSupabaseAdminClient()
     const { data, error } = await (admin.from('user_email_connections') as any)
       .select('email_spiegel_stand, m365_aktiv').eq('tenant_id', tenantId).eq('user_id', userId).maybeSingle()
-    if (error) throw new Error(error.message)   // nur Protokoll (catch unten)
+    if (error) throw new AktionsFehler(error.message)   // nur Protokoll (catch unten)
     const uc = data as R | null
     if (!uc?.m365_aktiv) return
     if (uc.email_spiegel_stand && Date.now() - new Date(uc.email_spiegel_stand).getTime() < 15 * 60000) return

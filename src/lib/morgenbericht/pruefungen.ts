@@ -13,6 +13,7 @@ import { betriebeOhneMorgenberichtAmVortag } from './vortag'
 import { SANDBOX_TENANT_ID } from '@/lib/abo/regeln'
 import { BEHANDLUNG_RIEDEN_SELECT, riedText } from '@/lib/behandlungen/rieden'
 import { tageBis, wienTag } from '@/lib/datum/wien'
+import { AktionsFehler } from '@/lib/fehler'
 
 export type { Befund }
 export type Einstellungen = Awaited<ReturnType<typeof import('@/app/(dashboard)/dashboard/_shared/data').ladeEinstellungen>>
@@ -46,7 +47,7 @@ export async function pruefeBetrieb(ctx: Ctx, einst: Einstellungen, paket: { ist
     ctx.tf(ctx.q('behandlungen').select(`id, datum, ernte_fruehesteins, ${BEHANDLUNG_RIEDEN_SELECT}`).is('storniert_am', null).gte('ernte_fruehesteins', new Date(heute.getTime() - 60 * 86400000).toISOString().slice(0, 10)).limit(500)),
     ctx.tf(ctx.q('pressungen').select('id, datum, weinbezeichnung').gte('datum', `${heute.getFullYear()}-01-01`).limit(500)),
   ])
-  if ((offeneVpErr ?? ohneKatErr ?? belegeErkanntErr ?? txJahrErr ?? fuellNegErr ?? chargenNegErr ?? dublettenRawErr ?? tenantErr ?? wartefristenErr ?? pressungenErr)) throw new Error(`Daten konnten nicht geladen werden: ${(offeneVpErr ?? ohneKatErr ?? txJahrErr ?? fuellNegErr ?? chargenNegErr ?? dublettenRawErr ?? tenantErr ?? wartefristenErr ?? pressungenErr).message}`)
+  if ((offeneVpErr ?? ohneKatErr ?? belegeErkanntErr ?? txJahrErr ?? fuellNegErr ?? chargenNegErr ?? dublettenRawErr ?? tenantErr ?? wartefristenErr ?? pressungenErr)) throw new AktionsFehler(`Daten konnten nicht geladen werden: ${(offeneVpErr ?? ohneKatErr ?? txJahrErr ?? fuellNegErr ?? chargenNegErr ?? dublettenRawErr ?? tenantErr ?? wartefristenErr ?? pressungenErr).message}`)
 
   // 1. Fristen: überfällig = hoch, fällig = mittel (UVA, BMD-Übergabe, Erntemeldung, AfA, eigene Fristen)
   for (const f of fristen) {
@@ -138,7 +139,7 @@ export async function pruefeBetrieb(ctx: Ctx, einst: Einstellungen, paket: { ist
   //     Weinhändler) – ohne sie fehlen Angaben auf Transportbescheinigung und Prüfnummernantrag, und die BKI-Berichte
   //     haben keinen gültigen Dateinamen
   const { data: stamm, error: stammErr } = await ctx.tf(ctx.q('tenant_einstellungen').select('betrieb_betriebsnummer, betriebsart')).maybeSingle()
-  if (stammErr) throw new Error(`Daten konnten nicht geladen werden: ${stammErr.message}`)
+  if (stammErr) throw new AktionsFehler(`Daten konnten nicht geladen werden: ${stammErr.message}`)
   if (weinbauBetriebsnummerFehlt((stamm as R | null)?.betrieb_betriebsnummer, (stamm as R | null)?.betriebsart)) befunde.push({
     key: 'betrieb:betriebsnummer', bereich: 'Betrieb', stufe: 'mittel', titel: 'Weinbau-Betriebsnummer fehlt',
     detail: 'Pflichtfeld unter Mein Betrieb → Betrieb – gebraucht für Transportbescheinigung, Prüfnummernantrag und BKI-Berichte',

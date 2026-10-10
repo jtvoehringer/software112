@@ -16,6 +16,8 @@ import { alle, inBloecken } from '../supabase/alle.ts'
 import { rund } from '../zahl/runden.ts'
 // @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
 import { ZAHL_LOCALE } from '../format.ts'
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { AktionsFehler } from '../fehler.ts'
 export const KG_TOLERANZ = 0.01
 
 export type Mengenzeile = { weingarten_id: string | null; grundstueck_id: string | null; kg: number }
@@ -154,7 +156,7 @@ export async function ladeLeseVerbrauch(supabase: Client, tenantId: string, jahr
       .eq('jahrgang_id', jahrgangId).eq('lese_id', leseId).eq('tenant_id', tenantId).is('storniert_am', null),
   ])
   for (const [tabelle, res] of [['ernte_parzellen', ep], ['pressungen', pr], ['traubenverkauf', tv]] as const) {
-    if (res.error) throw new Error(`Lesemenge konnte nicht geprüft werden (${tabelle}): ${res.error.message}`)
+    if (res.error) throw new AktionsFehler(`Lesemenge konnte nicht geprüft werden (${tabelle}): ${res.error.message}`)
   }
   const pressIds = ((pr.data ?? []) as R[]).map(p => p.id as string)
   let pw: R[] = []
@@ -163,7 +165,7 @@ export async function ladeLeseVerbrauch(supabase: Client, tenantId: string, jahr
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await inBloecken<R>(pressIds, b => alle<R>((supabase.from('pressung_weingaerten') as any)
       .select('pressung_id, weingarten_id, grundstueck_id, trauben_kg').in('pressung_id', b).not('weingarten_id', 'is', null).is('storniert_am', null).order('id')))
-    if (error) throw new Error(`Lesemenge konnte nicht geprüft werden (pressung_weingaerten): ${error.message}`)
+    if (error) throw new AktionsFehler(`Lesemenge konnte nicht geprüft werden (pressung_weingaerten): ${error.message}`)
     pw = (data ?? []) as R[]
   }
   const namen = new Map<string, OrtName>()
@@ -209,7 +211,7 @@ export async function ladeLesenDesJahrgangs(supabase: Client, tenantId: string, 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase.from('lesen') as any)
     .select('id, lfd_nr, beginn, art').eq('jahrgang_id', jahrgangId).eq('tenant_id', tenantId).order('lfd_nr')
-  if (error) throw new Error(`Lesen konnten nicht geladen werden: ${error.message}`)
+  if (error) throw new AktionsFehler(`Lesen konnten nicht geladen werden: ${error.message}`)
   return ((data ?? []) as R[]).map(l => ({ id: l.id as string, lfd_nr: Number(l.lfd_nr), beginn: (l.beginn as string | null) ?? null, art: (l.art as string | null) ?? null }))
 }
 
@@ -247,7 +249,7 @@ export async function traubenverkaufLese(supabase: Client, tenantId: string, p: 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: jg, error: jgErr } = await (supabase.from('weinjahrgaenge') as any)
     .select('id, jahrgang').eq('id', p.jahrgangId).eq('tenant_id', tenantId).maybeSingle()
-  if (jgErr) throw new Error(`Jahrgang konnte nicht geladen werden: ${jgErr.message}`)
+  if (jgErr) throw new AktionsFehler(`Jahrgang konnte nicht geladen werden: ${jgErr.message}`)
   if (!jg) return { leseId: null, fehler: 'Der Jahrgang gehört nicht zu diesem Betrieb oder wurde gelöscht – bitte die Seite neu laden.' }
   const jahrgang = Number((jg as R).jahrgang)
   const lesen = await ladeLesenDesJahrgangs(supabase, tenantId, p.jahrgangId)

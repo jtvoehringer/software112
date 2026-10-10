@@ -33,6 +33,7 @@ import type { Behandlungskennzahlen } from '@/lib/kellerbuch/behandlungskennzahl
 import { ladeRueckruf, type RueckrufZeile } from './rueckruf'
 import { MeldungsFehler } from './typen'
 import { num, text, type R } from './kellerbuch-hilfen'
+import { AktionsFehler } from '@/lib/fehler'
 
 const WEINAUSBAU_SPALTEN = 'id, name, chargennummer, erzeugnis, land_iso, qualitaetsstufe, rebsorte, jahrgang, weinart, herkunft_code, zusatzbezeichnung, menge_liter, storniert_am, behaelter:behaelter_id(name, volumen_liter)'
 
@@ -42,7 +43,7 @@ const l3 = (n: number) => runden(n, 3)
 /** Charge im Betrieb laden (null = gibt es nicht) */
 async function ladeCharge(supabase: any, tenantId: string, id: string): Promise<R | null> {
   const { data, error } = await (supabase.from('weinausbau') as any).select(WEINAUSBAU_SPALTEN).eq('tenant_id', tenantId).eq('id', id).maybeSingle()
-  if (error) throw new Error(`Charge konnte nicht geladen werden (${error.message})`)
+  if (error) throw new AktionsFehler(`Charge konnte nicht geladen werden (${error.message})`)
   return data ?? null
 }
 
@@ -147,18 +148,18 @@ export async function ladeRvEingang(supabase: any, tenantId: string, p: RvEingan
   }
   // GST-Einstieg (R2): Lesezeilen des Grundstücks im Zeitraum → Chargen der Pressungen
   const gstNr = await (supabase.from('grundstuecke') as any).select('gst_nr, katastralgemeinde').eq('tenant_id', tenantId).eq('id', p.gst).maybeSingle()
-  if (gstNr.error) throw new Error(`Grundstück konnte nicht geladen werden (${gstNr.error.message})`)
+  if (gstNr.error) throw new AktionsFehler(`Grundstück konnte nicht geladen werden (${gstNr.error.message})`)
   if (!gstNr.data) throw new MeldungsFehler(404, 'Grundstück nicht gefunden.')
   // tenant-isolation-ignore: pressung_weingaerten ohne tenant_id, Mandant über die Pressung (!inner) und das Grundstück oben
   const lz = await alle<R>((supabase.from('pressung_weingaerten') as any)
     .select('id, ernte_datum, grundstueck_id, storniert_am, pressung:pressung_id!inner(id, tenant_id, storniert_am, pressung_behaelter(weinausbau_id, storniert_am))')
     .eq('pressung.tenant_id', tenantId).eq('grundstueck_id', p.gst).is('storniert_am', null).order('id'))
-  if (lz.error) throw new Error(`Lesezeilen konnten nicht geladen werden (${lz.error.message})`)
+  if (lz.error) throw new AktionsFehler(`Lesezeilen konnten nicht geladen werden (${lz.error.message})`)
   const imZeitraum = lz.data.filter(z => !z.pressung?.storniert_am && (!p.von || String(z.ernte_datum ?? '') >= p.von) && (!p.bis || String(z.ernte_datum ?? '') <= p.bis))
   const chargenIds = [...new Set(imZeitraum.flatMap(z => ((z.pressung?.pressung_behaelter ?? []) as R[]).filter(b => !b.storniert_am).map(b => String(b.weinausbau_id))))]
   if (!chargenIds.length) return { zeilen: [], warnungen: ['Keine Lese dieses Grundstücks im Zeitraum.'] }
   const ch = await inBloecken<R>(chargenIds, b => alle((supabase.from('weinausbau') as any).select(WEINAUSBAU_SPALTEN).eq('tenant_id', tenantId).in('id', b).order('id')))
-  if (ch.error) throw new Error(`Chargen konnten nicht geladen werden (${ch.error.message})`)
+  if (ch.error) throw new AktionsFehler(`Chargen konnten nicht geladen werden (${ch.error.message})`)
   const zeilen: RvEingangZeile[] = []
   const kz = await ladeBehandlungskennzahlen(supabase, tenantId, p.bis)
   warnungen.push(...kz.hinweise)
@@ -244,7 +245,7 @@ export async function ladeRvAusgang(supabase: any, tenantId: string, p: RvAusgan
   } else {
     const { data: f, error } = await (supabase.from('fuellungen') as any)
       .select('id, name, pruefnummer, weinausbau:weinausbau_id(' + WEINAUSBAU_SPALTEN + ')').eq('tenant_id', tenantId).eq('id', p.fuellung).maybeSingle()
-    if (error) throw new Error(`Füllung konnte nicht geladen werden (${error.message})`)
+    if (error) throw new AktionsFehler(`Füllung konnte nicht geladen werden (${error.message})`)
     if (!f) throw new MeldungsFehler(404, 'Füllung nicht gefunden.')
     merkmale = { ...chargeMerkmale(f.weinausbau ?? {}), produkt: text(f.name), pruefnummer: text(f.pruefnummer) }
     startCharge = text(f.weinausbau?.id)

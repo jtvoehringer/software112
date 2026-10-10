@@ -9,6 +9,8 @@
 //                  fängt es zusätzlich ab, hier nur die Vorauswahl)
 // Anzeige-Konvention: fremde Gebinde heißen „a1 · Weingut X“ (anzeigeName).
 
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { AktionsFehler } from '../fehler.ts'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
 
@@ -73,7 +75,7 @@ export async function ladeBehaelter(
 ): Promise<BehaelterZeile[]> {
   if (!tenantId) return []
   const { data, error } = await (client.rpc as any)('lade_behaelter', { p_tenant_id: tenantId })
-  if (error) throw new Error(`Gebinde konnten nicht geladen werden: ${error.message}`)
+  if (error) throw new AktionsFehler(`Gebinde konnten nicht geladen werden: ${error.message}`)
   let rows = ((data ?? []) as R[]).map(zuBehaelterZeile)
   if (opts.nurAktiv || opts.alsZiel) rows = rows.filter(b => b.aktiv)
   if (opts.alsZiel) rows = rows.filter(b => !b.gesperrt)
@@ -93,7 +95,7 @@ export async function ladeKellergemeinschaft(client: any, tenantId: string | nul
   if (!tenantId) return { alsEigentuemer: [], alsNutzer: [] }
   const { data, error } = await (client.rpc as any)('lade_kellergemeinschaft', { p_tenant_id: tenantId })
   // KAN-254: sonst „keine Partner“ – Gebinde der Kellergemeinschaft fehlten still in den Auswahllisten
-  if (error) throw new Error(`Kellergemeinschaft konnte nicht geladen werden: ${error.message}`)
+  if (error) throw new AktionsFehler(`Kellergemeinschaft konnte nicht geladen werden: ${error.message}`)
   const rows = (data ?? []) as R[]
   return {
     alsEigentuemer: rows.filter(r => r.rolle === 'eigentuemer').map(r => ({ tenant_id: r.partner_tenant_id, name: r.partner_name })),

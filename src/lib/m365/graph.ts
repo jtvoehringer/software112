@@ -1,6 +1,7 @@
 import { decryptPass, encryptPass } from '@/lib/email/crypto'
 import { ereignisMelden } from '@/lib/system/ereignis'
 import { M365TokenFehler, neuVerbindenVermerk, refreshScope, tokenFehler, istNeuVerbinden, NEU_VERBINDEN_TEXT } from './tokenFehler'
+import { AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -53,7 +54,7 @@ export async function exchangeCodeForTokens(
       scope,
     }),
   })
-  if (!res.ok) throw new Error(`Token-Austausch fehlgeschlagen: ${await res.text()}`)
+  if (!res.ok) throw new AktionsFehler(`Token-Austausch fehlgeschlagen: ${await res.text()}`)
   return res.json()
 }
 
@@ -78,7 +79,7 @@ export async function graphGet(accessToken: string, path: string): Promise<R> {
   const res = await fetch(`${GRAPH_BASE}${path}`, {
     headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
   })
-  if (!res.ok) throw new Error(`Graph GET ${path} fehlgeschlagen: ${res.status}`)
+  if (!res.ok) throw new AktionsFehler(`Graph GET ${path} fehlgeschlagen: ${res.status}`)
   return res.json()
 }
 
@@ -88,14 +89,14 @@ export async function graphPost(accessToken: string, path: string, body: unknown
     headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
-  if (!res.ok) throw new Error(`Graph POST ${path} fehlgeschlagen: ${res.status} ${await res.text()}`)
+  if (!res.ok) throw new AktionsFehler(`Graph POST ${path} fehlgeschlagen: ${res.status} ${await res.text()}`)
   return (res.status === 202 || res.status === 204) ? null : res.json()
 }
 
 // Gültigen Access-Token aus DB laden (ggf. refreshen)
 export async function getValidAccessToken(cfg: R, admin: R): Promise<string> {
   if (!cfg.m365_access_token_enc || !cfg.m365_refresh_token_enc)
-    throw new Error('M365 nicht verbunden – bitte OAuth2-Verbindung in den Admin-Einstellungen herstellen')
+    throw new AktionsFehler('M365 nicht verbunden – bitte OAuth2-Verbindung in den Admin-Einstellungen herstellen')
 
   const expiresAt = cfg.m365_token_expires_at ? new Date(cfg.m365_token_expires_at) : new Date(0)
   const needsRefresh = expiresAt.getTime() - Date.now() < 5 * 60 * 1000  // 5 min Puffer
@@ -149,7 +150,7 @@ export async function getValidUserAccessToken(
   if (!userCfg.m365_access_token_enc) {
     // KAN-125: markierte Verbindung – nicht bei Microsoft nachfragen
     if (istNeuVerbinden(userCfg.email_spiegel_info)) throw new M365TokenFehler('neu_verbinden', null, NEU_VERBINDEN_TEXT)
-    throw new Error('Mailbox nicht verbunden')
+    throw new AktionsFehler('Mailbox nicht verbunden')
   }
 
   const expiresAt = userCfg.m365_token_expires_at ? new Date(userCfg.m365_token_expires_at) : new Date(0)
@@ -169,7 +170,7 @@ export async function getValidUserAccessToken(
   if (gespeichert === undefined) {
     const { data: sc, error: scErr } = await admin.from('user_email_connections')
       .select('m365_scope').eq('tenant_id', tenantId).eq('user_id', userId).maybeSingle()
-    if (scErr) throw new Error(`Daten konnten nicht geladen werden: ${scErr.message}`)
+    if (scErr) throw new AktionsFehler(`Daten konnten nicht geladen werden: ${scErr.message}`)
     gespeichert = (sc as R | null)?.m365_scope ?? null
   }
   let tokens: Awaited<ReturnType<typeof refreshAccessToken>>
@@ -288,7 +289,7 @@ export async function kalenderFreiBelegt(accessToken: string, emails: string[], 
       availabilityViewInterval: 30,
     }),
   })
-  if (!res.ok) throw new Error(`Graph getSchedule fehlgeschlagen: ${res.status} ${(await res.text()).slice(0, 300)}`)
+  if (!res.ok) throw new AktionsFehler(`Graph getSchedule fehlgeschlagen: ${res.status} ${(await res.text()).slice(0, 300)}`)
   const data = await res.json() as R
   return ((data.value ?? []) as R[]).map(s => ({
     email: s.scheduleId as string,

@@ -52,6 +52,8 @@
  *  zeitpunkt TT.MM.JJJJ HH:MM in Europe/Vienna
  *  janein    boolean → „Ja“/„Nein“ (Profil BKI: „J“/leer)
  */
+// @ts-expect-error TS5097 – Pfad mit .ts-Endung, damit Node die Datei in den Tests ohne Bundler lädt
+import { AktionsFehler } from '../fehler.ts'
 export type CsvTyp = 'text' | 'code' | 'ganzzahl' | 'dezimal' | 'betrag' | 'prozent' | 'datum' | 'zeitpunkt' | 'janein'
 
 export type CsvSpalte<Z> = {
@@ -475,7 +477,7 @@ function zeileVerbinden(zellen: string[], profil: CsvProfil): string {
 
 /** Datei als Text plus Warnungen zu ungültigen Werten (je Spalte zusammengefasst). */
 export function csvDatei<Z>(zeilen: readonly Z[], spalten: readonly CsvSpalte<Z>[], profil: CsvProfil = PROFIL_EXCEL_AT): CsvErgebnis {
-  if (spalten.length === 0) throw new Error('csvDatei: keine Spalten definiert')
+  if (spalten.length === 0) throw new AktionsFehler('csvDatei: keine Spalten definiert')
   const linien: string[] = []
   for (const v of profil.vorspann ?? []) linien.push(quoten(textZelle(v, 'text', { ...profil, formelschutz: false }), profil))
 

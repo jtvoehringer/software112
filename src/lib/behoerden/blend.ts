@@ -30,6 +30,7 @@ import { antragAusZeile, chargenDerAntraege, ladePruefnummerDaten, PN_ANTRAG_SEL
 import { num, numOderNull, tag, text, type R } from './kellerbuch-hilfen'
 import { mostgewichtCsvSpalten } from './mostgewicht_export'
 import { ladeBlendSchritte, type BlendSchritt } from './blendSchritte'
+import { AktionsFehler } from '@/lib/fehler'
 
 export type BlendArt = 'fuellung' | 'charge'
 
@@ -147,7 +148,7 @@ export async function ladeBlendProtokoll(
       .eq('tenant_id', tenantId)
       .eq('id', p.id)
       .maybeSingle()
-    if (error) throw new Error(`Blend-Protokoll: Füllung konnte nicht geladen werden (${error.message})`)
+    if (error) throw new AktionsFehler(`Blend-Protokoll: Füllung konnte nicht geladen werden (${error.message})`)
     const f = data as R | null
     if (!f) return null
     // Prüfnummer der Füllung (Stichtag = Abfüllung); ohne eigene Nummer die des verknüpften,
@@ -163,7 +164,7 @@ export async function ladeBlendProtokoll(
         .eq('tenant_id', tenantId)
         .eq('id', f.dac_antrag_id)
         .maybeSingle()
-      if (dacErr) throw new Error(`Blend-Protokoll: DAC-Antrag der Füllung konnte nicht geladen werden (${dacErr.message})`)
+      if (dacErr) throw new AktionsFehler(`Blend-Protokoll: DAC-Antrag der Füllung konnte nicht geladen werden (${dacErr.message})`)
       const antrag = dac ? antragAusZeile(dac as R) : null
       // KAN-99: Charge per Umzug weitergegeben → der Antrag gilt auch für sie
       if (antrag) antrag.weitereChargen = (await chargenDerAntraege(supabase, tenantId, [antrag.id])).get(antrag.id) ?? []
@@ -204,7 +205,7 @@ export async function ladeBlendProtokoll(
       // TBS-Vorbelegung und Füllungsvorschlag) – nicht mehr „jüngster Antrag mit Nummer“
       ladePruefnummerDaten(supabase, tenantId, [p.id], { heute }),
     ])
-    if (waRes.error) throw new Error(`Blend-Protokoll: Charge konnte nicht geladen werden (${waRes.error.message})`)
+    if (waRes.error) throw new AktionsFehler(`Blend-Protokoll: Charge konnte nicht geladen werden (${waRes.error.message})`)
     const wa = waRes.data as R | null
     if (!wa) return null
     const daten = pnDaten.get(p.id)

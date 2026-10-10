@@ -9,6 +9,7 @@ import TraubenverkaufClient from './TraubenverkaufClient'
 import { KATALOG_ERNTE } from '@/lib/behoerden/katalog/ernte'
 import { betriebUndModuleLaden, zugriffsFehler } from '@/lib/behoerden/zugriff'
 import { leseTitel } from '@/lib/wein/lesen'
+import { AktionsFehler } from '@/lib/fehler'
 
 export const metadata: Metadata = { title: 'Traubenverkauf – software:112' }
 export const dynamic = 'force-dynamic'
@@ -52,7 +53,7 @@ export default async function TraubenverkaufPage() {
   const { data: jahrgaengeRaw, error: jgFehler } = await (supabase.from('weinjahrgaenge') as any)
     .select('id')
     .eq('tenant_id', membership.tenantId)
-  if (jgFehler) throw new Error(`Jahrgänge konnten nicht geladen werden: ${jgFehler.message}`)
+  if (jgFehler) throw new AktionsFehler(`Jahrgänge konnten nicht geladen werden: ${jgFehler.message}`)
   const jahrgangIds = ((jahrgaengeRaw ?? []) as R[]).map(j => j.id as string)
 
   // Ernte-Parzellen als Basis für WG/GST-Optionen (alle geernteten)
@@ -77,7 +78,7 @@ export default async function TraubenverkaufPage() {
   const { data: lesenRaw, error: leseFehler } = await (supabase.from('lesen') as any)
     .select('id, jahrgang_id, lfd_nr, art, bezeichnung, jahrgang:weinjahrgaenge!lesen_jahrgang_fkey(jahrgang)')
     .eq('tenant_id', membership.tenantId)
-  if (leseFehler) throw new Error(`Lesen konnten nicht geladen werden: ${leseFehler.message}`)
+  if (leseFehler) throw new AktionsFehler(`Lesen konnten nicht geladen werden: ${leseFehler.message}`)
   const lesen = ((lesenRaw ?? []) as R[]).map(l => {
     const jahr = Number((l.jahrgang as R | null)?.jahrgang)
     return { id: l.id as string, jahrgang_id: l.jahrgang_id as string, jahrgang: jahr, lfd_nr: Number(l.lfd_nr),
@@ -90,7 +91,7 @@ export default async function TraubenverkaufPage() {
     .is('storniert_am', null)
     .not('weingarten_id', 'is', null)
     .order('id'))
-  if (pwFehler) throw new Error(`Pressungen konnten nicht geladen werden: ${pwFehler.message}`)
+  if (pwFehler) throw new AktionsFehler(`Pressungen konnten nicht geladen werden: ${pwFehler.message}`)
   const verpresst = ((pwRaw ?? []) as R[]).map(p => ({
     lese_id: ((p.pressung as R | null)?.lese_id as string | null) ?? null,
     weingarten_id: p.weingarten_id as string, grundstueck_id: (p.grundstueck_id as string | null) ?? null,

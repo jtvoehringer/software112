@@ -17,7 +17,7 @@ import { sendEmail } from '@/lib/brevo/api'
 import { sendeBenachrichtigung } from '@/lib/benachrichtigungen/server'
 import { roleLabel, type UserRole } from '@/lib/auth/roles'
 import { authFehlerText } from './authFehler'
-import { dbFehlerText } from '@/lib/fehler'
+import { dbFehlerText, AktionsFehler } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -37,11 +37,11 @@ export async function alleKonten(admin: SupabaseClient): Promise<User[]> {
   const out: User[] = []
   for (let seite = 1; seite <= 100; seite++) {
     const { data, error } = await admin.auth.admin.listUsers({ page: seite, perPage: proSeite })
-    if (error) throw new Error(`Benutzerliste konnte nicht geladen werden: ${authFehlerText(error)}`)
+    if (error) throw new AktionsFehler(`Benutzerliste konnte nicht geladen werden: ${authFehlerText(error)}`)
     out.push(...data.users)
     if (data.users.length < proSeite) return out
   }
-  throw new Error('Benutzerliste konnte nicht vollständig geladen werden (mehr als 100.000 Konten).')
+  throw new AktionsFehler('Benutzerliste konnte nicht vollständig geladen werden (mehr als 100.000 Konten).')
 }
 
 /** Auth-Konto per E-Mail suchen (Groß-/Kleinschreibung egal, blättert über alle Seiten). */
@@ -50,7 +50,7 @@ export async function findeKontoPerEmail(admin: SupabaseClient, email: string): 
   const proSeite = 1000
   for (let seite = 1; seite <= 50; seite++) {
     const { data, error } = await admin.auth.admin.listUsers({ page: seite, perPage: proSeite })
-    if (error) throw new Error(`Benutzerliste konnte nicht geladen werden: ${error.message}`)
+    if (error) throw new AktionsFehler(`Benutzerliste konnte nicht geladen werden: ${error.message}`)
     const treffer = data.users.find(u => u.email?.toLowerCase() === gesucht)
     if (treffer) return treffer
     if (data.users.length < proSeite) return null

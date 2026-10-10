@@ -23,6 +23,7 @@ import { ladeLagerbewegungen, SPALTEN_LAGERBEWEGUNGEN, type LagerbewegungZeile }
 import { ladeTransportbescheinigungen, type TBZeile } from './transportbescheinigung'
 import { parameterFehler, type ParameterFehler } from './typen'
 import { text, type R } from './kellerbuch-hilfen'
+import { AktionsFehler } from '@/lib/fehler'
 
 export const VERKAUF_CODES: readonly string[] = ['VK_FA_AT', 'VK_FA_AU', 'VK_FL_AT', 'VK_FL_AU']
 export const EINKAUF_CODES: readonly string[] = ['ZK_FASS', 'ZK_TRAUB', 'ZK_MAISC', 'ZK_MOST', 'ZK_FLA']
@@ -127,7 +128,7 @@ export async function ladeTbsAufstellung(supabase: any, tenantId: string, p: Zei
       .select('id, datum, art, menge, einheit, rebsorte, jahrgang, qualitaetsstufe, eingangsrechnungsnummer, tbs_nummer_lieferant, tbs_jahr_lieferant, partner_daten, storniert_am, aktiv, lieferant_firma:firmen!lieferant_firma_id(name), lieferant_kontakt:kontakte!lieferant_kontakt_id(vorname, nachname)')
       .eq('tenant_id', tenantId).gte('datum', von).lte('datum', bis).is('storniert_am', null).order('datum').order('id')),
   ])
-  if (ein.error) throw new Error(`Zukäufe konnten nicht geladen werden (${ein.error.message})`)
+  if (ein.error) throw new AktionsFehler(`Zukäufe konnten nicht geladen werden (${ein.error.message})`)
   const warnungen = [...aus.warnungen]
   const ausgang = aus.zeilen.filter(z => !z.storniertAm).map(tbsAusgang)
   const zukaeufe = ein.data.filter(z => z.aktiv !== false && z.art !== 'flaschen')
