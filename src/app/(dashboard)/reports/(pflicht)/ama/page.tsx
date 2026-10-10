@@ -140,7 +140,7 @@ export default async function AMAPage({ searchParams }: { searchParams: Promise<
             {s.betrieb_uid && <p className="text-xs text-s112-tertiary">UID: {s.betrieb_uid}</p>}
           </div>
           <div className="text-right">
-            <p className="text-lg font-semibold text-s112-text">AMA Weinerntemeldung</p>
+            <h1 className="text-lg font-semibold text-s112-text">AMA Weinerntemeldung</h1>
             <p className="text-2xl font-semibold text-s112-blue-700">Jahrgang {aktJahrgang?.jahrgang ?? '–'}</p>
             <p className="text-xs text-s112-tertiary mt-1">Erstellt: {heute}</p>
           </div>

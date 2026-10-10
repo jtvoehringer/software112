@@ -75,6 +75,8 @@ export default async function EtikettPage({ params }: { params: Promise<{ id: st
 
   return (
     <div className="max-w-2xl space-y-6">
+      {/* Sweep 114: Hauptüberschrift für Screenreader – sichtbar ist nur die Etikett-Vorschau */}
+      <h1 className="sr-only">Weinetikett {dac.bezeichnung}</h1>
 
       {/* Breadcrumb + Aktionen (ausgeblendet beim Drucken) */}
       <div className="flex items-center justify-between print:hidden">

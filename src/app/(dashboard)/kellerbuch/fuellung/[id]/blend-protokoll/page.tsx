@@ -100,9 +100,9 @@ export default async function BlendProtokollFuellungPage({ params }: { params: P
             )}
           </div>
           <div className="text-right">
-            <p className="text-xs text-s112-tertiary font-medium uppercase tracking-wide flex items-center justify-end gap-1.5">
+            <h1 className="text-xs text-s112-tertiary font-medium uppercase tracking-wide flex items-center justify-end gap-1.5">
               <GitMerge size={13} strokeWidth={1.75} />Blend-Protokoll
-            </p>
+            </h1>
             {fuellung.pruefnummer && (
               <p className="text-lg font-semibold text-s112-blue-700 font-mono mt-0.5">{fuellung.pruefnummer}</p>
             )}
