@@ -8,6 +8,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
@@ -26,7 +27,25 @@ const STAGING = 'https://staging.software112.icp-consultants.at'
 const STAGING_DB = 'https://sjpeghrlhsowmquacjhb.supabase.co'
 
 test('Staging mit Staging-Datenbank: schreiben erlaubt, Fremddatensätze hinterlegt', () => {
-  assert.deepEqual(pruefe(STAGING, STAGING_DB), { p: false, s: true, f: 3 })
+  const r = pruefe(STAGING, STAGING_DB)
+  assert.deepEqual({ p: r.p, s: r.s }, { p: false, s: true })
+  // seit E2E-Ausbau 3 (11.10.2026): 22 Detailseiten über 11 Datensätze des Fremdbetriebs
+  assert.ok(r.f >= 22, `nur ${r.f} Fremddatensätze`)
+})
+
+test('jeder Fremddatensatz der Tests ist in e2e/fremdbetrieb.sql angelegt und gehört dem Fremdbetrieb', () => {
+  const sql = readFileSync(path.join(ROOT, 'e2e', 'fremdbetrieb.sql'), 'utf8')
+  const aus = execFileSync(process.execPath, ['--experimental-strip-types', '--disable-warning=ExperimentalWarning', '--disable-warning=MODULE_TYPELESS_PACKAGE_JSON', '-e',
+    "import('./e2e/umgebung.ts').then(u => console.log(JSON.stringify({ t: u.FREMD_TENANT, ids: Object.values(u.FREMD_ID), pfade: u.STAGING_FREMDE.map(d => d.pfad) })))"],
+    { cwd: ROOT, encoding: 'utf8' })
+  const { t, ids, pfade } = JSON.parse(aus.trim().split('\n').pop())
+  for (const id of ids) {
+    const zeile = sql.split('\n').find(z => z.includes(`'${id}'`) && z.startsWith('VALUES'))
+    assert.ok(zeile, `${id} fehlt in e2e/fremdbetrieb.sql`)
+    assert.ok(zeile.includes(`'${t}'`), `${id} gehört in e2e/fremdbetrieb.sql nicht zum Fremdbetrieb`)
+  }
+  for (const p of pfade) assert.ok(ids.some(id => p.includes(id)), `${p} zeigt auf keinen Datensatz des Fremdbetriebs`)
+  assert.equal(new Set(pfade).size, pfade.length, 'doppelter Pfad')
 })
 
 test('Produktion (Haupt- und Betriebs-Subdomain), Produktions-DB, unbekannte DB, Preview ohne DB: gesperrt', () => {
