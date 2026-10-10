@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { NextRequest, NextResponse } from 'next/server'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { dbFehlerText } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -27,7 +28,7 @@ export async function GET(req: NextRequest) {
     .order('erstellt_am', { ascending: false })
     .limit(50)
 
-  if (error) return NextResponse.json({ fehler: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ fehler: dbFehlerText(error) }, { status: 500 })
 
   const pos = (posRaw ?? []) as R[]
 

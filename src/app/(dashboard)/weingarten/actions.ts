@@ -513,7 +513,7 @@ export async function speichereRiedGeo(weingartenId: string, lat: number, lon: n
     const { data: geaendert, error } = await (supabase.from('weingarten') as any)
       .update({ zentrum_lat: rund(lat, 6), zentrum_lon: rund(lon, 6), geo_quelle: 'manuell', geo_stand: new Date().toISOString() })
       .in('id', ids).eq('tenant_id', tenantId).select('id')
-    if (error) return { error: error.message }
+    if (error) return { error: dbFehlerText(error) }
     if (!(geaendert as unknown[] | null)?.length) return { error: NICHT_GESPEICHERT }   // KAN-248: RLS bzw. fehlende Zeile ändern still 0 Zeilen
     revalidatePath(`/weingarten/${weingartenId}`); revalidatePath('/weingarten'); revalidatePath('/dashboard/weingarten')
     return { anzahl: ids.length }
@@ -530,7 +530,7 @@ export async function loescheRiedGeo(weingartenId: string): Promise<{ error?: st
     const { error } = await (supabase.from('weingarten') as any)
       .update({ zentrum_lat: null, zentrum_lon: null, geometrie: null, geo_quelle: null, geo_stand: null })   // aenderung-ohne-pruefung: Koordinaten aller Datensätze der Ried entfernen – ohne Datensätze ist nichts zu tun
       .in('id', ids).eq('tenant_id', tenantId)
-    if (error) return { error: error.message }
+    if (error) return { error: dbFehlerText(error) }
     revalidatePath(`/weingarten/${weingartenId}`); revalidatePath('/weingarten'); revalidatePath('/dashboard/weingarten')
     return {}
   } catch (e) {

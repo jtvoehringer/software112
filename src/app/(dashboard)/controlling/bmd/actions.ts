@@ -6,6 +6,7 @@ import { seitenBetriebFehler } from '@/lib/auth/seitenBetrieb'
 import { schreibSperreFehler } from '@/lib/auth/sperren'
 import { MAPPING_FELDER } from '@/lib/buchhaltung/bmd'
 import { hatModul, modulAusMeldung } from '@/lib/auth/modul'
+import { dbFehlerText } from '@/lib/fehler'
 
 // Konten-Mapping speichern (Migration 196): es werden nur Abweichungen von der
 // Vorbelegung abgelegt - ein Wert, der der Vorbelegung entspricht oder leer
@@ -38,12 +39,12 @@ export async function speichereKontenmapping(werte: Record<string, string>): Pro
     // loeschen-ohne-pruefung: Abweichungen auf die Vorbelegung zurücksetzen – nicht vorhandene sind schon zurückgesetzt
     const { error } = await (supabase.from('buchhaltung_kontenmapping') as any)
       .delete().eq('tenant_id', tenantId).in('schluessel', loeschen)
-    if (error) return { ok: false, fehler: error.message }
+    if (error) return { ok: false, fehler: dbFehlerText(error) }
   }
   if (upserts.length) {
     const { error } = await (supabase.from('buchhaltung_kontenmapping') as any)
       .upsert(upserts, { onConflict: 'tenant_id,schluessel' })
-    if (error) return { ok: false, fehler: error.message }
+    if (error) return { ok: false, fehler: dbFehlerText(error) }
   }
   revalidatePath('/controlling/bmd')
   return { ok: true }
@@ -62,7 +63,7 @@ export async function setzeKontenmappingZurueck(): Promise<{ ok: boolean; fehler
   const supabase = await createSupabaseServerClient()
   // loeschen-ohne-pruefung: alle Abweichungen entfernen – ohne Abweichung sind 0 Zeilen richtig (nur Admins, vorab geprüft)
   const { error } = await (supabase.from('buchhaltung_kontenmapping') as any).delete().eq('tenant_id', membership.tenantId)
-  if (error) return { ok: false, fehler: error.message }
+  if (error) return { ok: false, fehler: dbFehlerText(error) }
   revalidatePath('/controlling/bmd')
   return { ok: true }
 }

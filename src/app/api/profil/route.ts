@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { dbFehlerText } from '@/lib/fehler'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -50,6 +51,6 @@ export async function POST(req: NextRequest) {
   } else {
     ;({ error } = await (s.from('profiles') as any).insert({ id: user.id, ...werte }))
   }
-  if (error) return NextResponse.json({ fehler: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ fehler: dbFehlerText(error) }, { status: 500 })
   return NextResponse.json({ ok: true })
 }

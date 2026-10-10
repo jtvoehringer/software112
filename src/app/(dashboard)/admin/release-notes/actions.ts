@@ -4,6 +4,7 @@
 
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUserRole, isSystemAdmin } from '@/lib/auth/roles'
+import { dbFehlerText } from '@/lib/fehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -30,6 +31,6 @@ export async function releaseNoteErneutAnzeigen(releaseNoteId: string): Promise<
   const { error, count } = await (admin.from('release_notes_gesehen') as any)
     .delete({ count: 'exact' })
     .eq('release_note_id', releaseNoteId)
-  if (error) return { error: error.message }
+  if (error) return { error: dbFehlerText(error) }
   return { anzahl: count ?? 0 }
 }

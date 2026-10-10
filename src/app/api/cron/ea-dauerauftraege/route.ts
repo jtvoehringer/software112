@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCurrentMembership, isSystemAdmin } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { dbFehlerText } from '@/lib/fehler'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -44,7 +45,7 @@ async function handle(req: NextRequest) {
   const { data, error } = await (admin.rpc as any)('process_ea_dauerauftraege')
 
   if (error) {
-    return NextResponse.json({ fehler: error.message }, { status: 500 })
+    return NextResponse.json({ fehler: dbFehlerText(error) }, { status: 500 })
   }
 
   const row = (Array.isArray(data) ? data[0] : data) as R | null

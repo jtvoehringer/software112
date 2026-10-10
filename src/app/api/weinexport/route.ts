@@ -9,6 +9,7 @@ import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
 import { normalisiereLand } from '@/lib/katalog/laender'
 import { modulKonflikt } from '@/lib/auth/modul'
 import { exportauftragFehler } from '@/lib/export/auftragEingabe'
+import { dbFehlerText } from '@/lib/fehler'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -73,7 +74,7 @@ export async function POST(req: NextRequest) {
       status:            'entwurf',
     }).select().single()
 
-    if (error) return NextResponse.json({ fehler: error.message }, { status: 500 })
+    if (error) return NextResponse.json({ fehler: dbFehlerText(error) }, { status: 500 })
     const id = (auftrag as R).id
 
     // Positionen

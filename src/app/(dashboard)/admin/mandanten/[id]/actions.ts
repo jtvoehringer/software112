@@ -153,7 +153,7 @@ export async function uploadTenantLogo(tenantId: string, formData: FormData): Pr
   const { error: uploadErr } = await admin.storage
     .from('mandant-logos')
     .upload(path, file, { contentType: file.type, upsert: true })
-  if (uploadErr) return { error: uploadErr.message }
+  if (uploadErr) return { error: dbFehlerText(uploadErr) }
 
   const { data: pub } = admin.storage.from('mandant-logos').getPublicUrl(path)
 
@@ -162,7 +162,7 @@ export async function uploadTenantLogo(tenantId: string, formData: FormData): Pr
       { tenant_id: tenantId, logo_url: pub.publicUrl, aktualisiert_am: new Date().toISOString() },
       { onConflict: 'tenant_id' }
     )
-  if (dbErr) return { error: dbErr.message }
+  if (dbErr) return { error: dbFehlerText(dbErr) }
 
   tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)
@@ -239,7 +239,7 @@ export async function resendInvite(userId: string, tenantId: string) {
   const { error } = await admin.auth.admin.inviteUserByEmail(user.email, {
     redirectTo: EINLADUNG_REDIRECT,
   })
-  if (error) return { error: error.message }
+  if (error) return { error: dbFehlerText(error) }
 
   tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)

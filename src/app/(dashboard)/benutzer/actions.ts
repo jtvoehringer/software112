@@ -161,7 +161,7 @@ export async function resendInvite(userId: string) {
   const { error } = await admin.auth.admin.inviteUserByEmail(user.email, {
     redirectTo: EINLADUNG_REDIRECT,
   })
-  if (error) return { error: error.message }
+  if (error) return { error: dbFehlerText(error) }
 
   revalidatePath('/benutzer')
   revalidatePath('/betrieb/einstellungen')
@@ -194,7 +194,7 @@ export async function updateMemberRole(membershipId: string, newRole: string, mo
     .eq('tenant_id', membership.tenantId)
     .neq('role', 'system_admin')   // Super-Admins werden hier nicht verändert (siehe BenutzerClient)
 
-  if (error) return { error: error.message }
+  if (error) return { error: dbFehlerText(error) }
   if (count === 0) return { error: 'Eintrag nicht gefunden oder keine Änderung möglich.' }
   revalidatePath('/benutzer')
   return { success: true }
@@ -217,7 +217,7 @@ export async function updateMemberModule(membershipId: string, module: Modul[]) 
     .eq('id', membershipId)
     .eq('tenant_id', membership.tenantId)
     .eq('role', 'winzer')
-  if (error) return { error: error.message }
+  if (error) return { error: dbFehlerText(error) }
   if (count === 0) return { error: 'Nur bei Mitarbeitern lässt sich die Modulmatrix ändern.' }
   revalidatePath('/benutzer')
   return { success: true }
@@ -272,7 +272,7 @@ export async function toggleMemberAktiv(membershipId: string, aktiv: boolean) {
     .eq('id', membershipId)
     .eq('tenant_id', membership.tenantId)
 
-  if (error) return { error: error.message }
+  if (error) return { error: dbFehlerText(error) }
   if (count === 0) return { error: 'Eintrag nicht gefunden oder keine Änderung möglich.' }
   revalidatePath('/benutzer')
   return { success: true }
@@ -296,7 +296,7 @@ export async function removeMember(membershipId: string) {
     .eq('id', membershipId)
     .eq('tenant_id', membership.tenantId)
 
-  if (error) return { error: error.message }
+  if (error) return { error: dbFehlerText(error) }
   if (count === 0) return { error: 'Eintrag nicht gefunden oder keine Änderung möglich.' }
   revalidatePath('/benutzer')
   return { success: true }

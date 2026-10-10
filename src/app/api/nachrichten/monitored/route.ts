@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
 import { schreibSperreKonflikt } from '@/lib/auth/sperren'
+import { dbFehlerText } from '@/lib/fehler'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -52,7 +53,7 @@ export async function POST(req: NextRequest) {
     const { error } = await (createSupabaseAdminClient().from('user_email_connections') as any)
       .update({ monitored_email: adresse || null, aktualisiert_am: new Date().toISOString() })
       .eq('tenant_id', tenantId).eq('user_id', user.id)
-    if (error) return NextResponse.json({ fehler: error.message }, { status: 500 })
+    if (error) return NextResponse.json({ fehler: dbFehlerText(error) }, { status: 500 })
 
     return NextResponse.json({ ok: true })
   } catch (err) { return NextResponse.json({ fehler: String(err) }, { status: 500 }) }

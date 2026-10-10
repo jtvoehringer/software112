@@ -7,6 +7,7 @@ import { LAUF_RESERVE_MS, TAEGLICH_QUELLE, ergebnisArt, laufBilanz } from '@/lib
 import { spiegleMailboxen } from '@/lib/email/spiegel'
 import { ereignisMelden, ereignisseBereinigen } from '@/lib/system/ereignis'
 import { journalAbgleichAlle } from '@/lib/kellerbuch/journal'
+import { dbFehlerText } from '@/lib/fehler'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 800
@@ -45,7 +46,7 @@ async function handle(req: NextRequest) {
   const admin = createSupabaseAdminClient()
   const { data: daRaw, error: daErr } = await (admin.rpc as any)('process_ea_dauerauftraege')
   const da = (Array.isArray(daRaw) ? daRaw[0] : daRaw) as R | null
-  const dauerauftraege = daErr ? { fehler: daErr.message } : { verarbeitet: da?.verarbeitet ?? 0, erstellt: da?.erstellt ?? 0, uebersprungen: da?.uebersprungen ?? 0, fehler: da?.fehler ?? 0 }
+  const dauerauftraege = daErr ? { fehler: dbFehlerText(daErr) } : { verarbeitet: da?.verarbeitet ?? 0, erstellt: da?.erstellt ?? 0, uebersprungen: da?.uebersprungen ?? 0, fehler: da?.fehler ?? 0 }
 
   // 1b. Bewegungsjournal (KAN-40 E1): Mengenänderungen ohne Bewegung als Korrekturbuchung nachtragen – nur Betriebe
   //     mit eröffnetem Journal (journal_ab); Musterhof bleibt vorerst ohne Journal (Jörgen 03.10.2026)

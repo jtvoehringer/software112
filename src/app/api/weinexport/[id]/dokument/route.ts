@@ -6,6 +6,7 @@ import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
 import { modulKonflikt } from '@/lib/auth/modul'
 import { heuteWien } from '@/lib/datum/wien'
+import { dbFehlerText } from '@/lib/fehler'
 export const dynamic = 'force-dynamic'
 
 // Erlaubte Werte laut Schema (Migration 043) – alles andere wird mit 400 abgelehnt
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .select().single()
   if (error?.code === '23505')   // UNIQUE(exportauftrag_id, dokument_art)
     return NextResponse.json({ fehler: 'Dieses Dokument ist bereits vorhanden' }, { status: 409 })
-  if (error) return NextResponse.json({ fehler: error.message }, { status: error.code === '42501' ? 409 : 500 })   // KAN-150 F2: stornierter Auftrag
+  if (error) return NextResponse.json({ fehler: dbFehlerText(error) }, { status: error.code === '42501' ? 409 : 500 })   // KAN-150 F2: stornierter Auftrag
   return NextResponse.json(data)
 }
 
@@ -101,7 +102,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // anderen Auftrags trifft dann keine Zeile.
   const { data: getroffen, error } = await (supabase.from('export_dokumente') as any)
     .update(update).eq('id', dokId).eq('exportauftrag_id', auftragId).select('id')
-  if (error) return NextResponse.json({ fehler: error.message }, { status: error.code === '42501' ? 409 : 500 })   // KAN-150 F2: stornierter Auftrag
+  if (error) return NextResponse.json({ fehler: dbFehlerText(error) }, { status: error.code === '42501' ? 409 : 500 })   // KAN-150 F2: stornierter Auftrag
   if (!getroffen?.length) return NextResponse.json({ fehler: 'Nicht gefunden' }, { status: 404 })
   return NextResponse.json({ ok: true })
 }

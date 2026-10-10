@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { pruefeZweiFaktor } from '@/lib/api/zweiFaktor'
+import { dbFehlerText } from '@/lib/fehler'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,6 +26,6 @@ export async function POST(req: NextRequest) {
   else if (Array.isArray(body.ids) && body.ids.length > 0) q = q.in('id', body.ids.slice(0, 100))
   else return NextResponse.json({ error: 'ids oder alle erforderlich' }, { status: 400 })
   const { error } = await q
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: dbFehlerText(error) }, { status: 500 })
   return NextResponse.json({ ok: true })
 }

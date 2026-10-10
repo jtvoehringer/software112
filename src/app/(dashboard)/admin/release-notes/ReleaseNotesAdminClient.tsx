@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { releaseNotesGesehenZaehler, releaseNoteErneutAnzeigen } from './actions'
+import { dbFehlerText } from '@/lib/fehler'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
 // readOnly=true für die Sandbox-Sonderfreigabe (siehe isSandboxAdminUnlock in
@@ -24,7 +25,7 @@ export default function ReleaseNotesAdminClient({ readOnly = false }: { readOnly
   const laden = async () => {
     const { data, error } = await (s.from('release_notes') as any).select('*').order('erstellt_am', { ascending: false }).limit(10)
     // Sweep 91 (KAN-283): Lesefehler nicht als „keine Neuerungen“ zeigen
-    if (error) { setMeldung(`Fehler: Neuerungen konnten nicht geladen werden – ${error.message}`); return }
+    if (error) { setMeldung(`Fehler: Neuerungen konnten nicht geladen werden – ${dbFehlerText(error)}`); return }
     setNotes(data ?? [])
     if (!readOnly) setGesehen(await releaseNotesGesehenZaehler())
   }
@@ -66,7 +67,7 @@ export default function ReleaseNotesAdminClient({ readOnly = false }: { readOnly
     // Felder nur bei Erfolg leeren - sonst geht die Eingabe verloren
     if (error) {
       console.error('[release-notes] release_notes:', error.message)
-      setMeldung(`Fehler: Release Note wurde nicht veröffentlicht – ${error.message}`)
+      setMeldung(`Fehler: Release Note wurde nicht veröffentlicht – ${dbFehlerText(error)}`)
       return
     }
     setVersion(''); setTitel(''); setFeatures(''); setFixes('')

@@ -163,6 +163,19 @@ const CHECK_RE = /new row for relation "([^"]+)" violates check constraint "([^"
 const FK_RE = /(update or delete|insert or update) on table "([^"]+)" violates foreign key constraint "([^"]+)"(?: on table "([^"]+)")?/
 const RLS_RE = /new row violates row-level security policy(?: for table "([^"]+)")?/
 const RECHTE_RE = /permission denied for (?:table|relation) ([A-Za-z_0-9."]+)/
+// Sweep 99 (10.10.2026): PostgreSQL-Standardfehler, die bisher englisch beim Benutzer ankamen
+const DOPPELT_RE = /duplicate key value violates unique constraint "([^"]+)"/
+const ZU_LANG_RE = /value too long for type character varying\((\d+)\)/
+const SYNTAX_RE = /invalid input syntax for type ([a-z ]+): "([^"]*)"/
+const NICHT_NULL_RE = /null value in column "([^"]+)"(?: of relation "([^"]+)")? violates not-null constraint/
+const UEBERLAUF_RE = /numeric field overflow/
+const DATUM_RE = /date\/time field value out of range: "([^"]*)"/
+
+const TYP_NAME: Record<string, string> = {
+  date: 'ein Datum', uuid: 'eine Auswahl', numeric: 'eine Zahl', integer: 'eine ganze Zahl', smallint: 'eine ganze Zahl',
+  bigint: 'eine ganze Zahl', 'double precision': 'eine Zahl', boolean: 'ja/nein', 'timestamp with time zone': 'ein Zeitpunkt',
+  time: 'eine Uhrzeit', 'time without time zone': 'eine Uhrzeit',
+}
 
 function pruefregelText(constraint: string, tabelle?: string): string {
   return PRUEFREGEL_MELDUNG[constraint]
@@ -194,6 +207,21 @@ export function uebersetzeDbMeldung(text: string): string {
   if (m) return ersetze(m[0], `Keine Berechtigung für diese Änderung${m[1] ? ` („${m[1]}“)` : ''} – Rolle oder Modulfreigabe prüfen`)
   m = RECHTE_RE.exec(text)
   if (m) return ersetze(m[0], `Keine Berechtigung für „${m[1].replace(/"/g, '')}“`)
+  m = DOPPELT_RE.exec(text)
+  if (m) return ersetze(m[0], `Diesen Eintrag gibt es bereits – ein Datensatz mit denselben Angaben ist schon gespeichert („${m[1]}“).`)
+  m = ZU_LANG_RE.exec(text)
+  if (m) return ersetze(m[0], `Eine Eingabe ist zu lang – höchstens ${m[1]} Zeichen.`)
+  m = SYNTAX_RE.exec(text)
+  if (m) {
+    const was = TYP_NAME[m[1]] ?? `ein Wert vom Typ ${m[1]}`
+    return ersetze(m[0], m[2] === '' ? `Eine Pflichtangabe ist leer – erwartet wird ${was}.` : `„${m[2]}“ ist ungültig – erwartet wird ${was}.`)
+  }
+  m = NICHT_NULL_RE.exec(text)
+  if (m) return ersetze(m[0], `Pflichtangabe fehlt: „${m[1]}“${m[2] ? ` (${m[2]})` : ''}.`)
+  m = UEBERLAUF_RE.exec(text)
+  if (m) return ersetze(m[0], 'Eine Zahl ist zu groß für dieses Feld.')
+  m = DATUM_RE.exec(text)
+  if (m) return ersetze(m[0], `„${m[1]}“ ist kein gültiges Datum.`)
   return text
 }
 
