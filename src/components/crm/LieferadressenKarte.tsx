@@ -91,15 +91,15 @@ export default function LieferadressenKarte({ adressen, kontaktId, firmaId, writ
           {!a && firmaId && <input type="hidden" name="firma_id" value={firmaId} />}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div><label htmlFor="la-bez" className="block text-xs text-s112-text-2 mb-0.5">Bezeichnung</label>
-              <input id="la-bez" name="bezeichnung" defaultValue={a?.bezeichnung ?? ''} placeholder="z. B. Lager, Filiale Wien" className={inp} /></div>
+              <input id="la-bez" name="bezeichnung" maxLength={80} defaultValue={a?.bezeichnung ?? ''} placeholder="z. B. Lager, Filiale Wien" className={inp} /></div>
             <div><label htmlFor="la-empf" className="block text-xs text-s112-text-2 mb-0.5">Empfänger (z. H.)</label>
-              <input id="la-empf" name="empfaenger" defaultValue={a?.empfaenger ?? ''} className={inp} /></div>
+              <input id="la-empf" name="empfaenger" maxLength={120} defaultValue={a?.empfaenger ?? ''} className={inp} /></div>
             <div className="sm:col-span-2"><label htmlFor="la-str" className="block text-xs text-s112-text-2 mb-0.5">Straße und Hausnummer *</label>
-              <input id="la-str" name="strasse" required defaultValue={a?.strasse ?? ''} className={inp} /></div>
+              <input id="la-str" name="strasse" required maxLength={120} defaultValue={a?.strasse ?? ''} className={inp} /></div>
             <div><label htmlFor="la-plz" className="block text-xs text-s112-text-2 mb-0.5">PLZ *</label>
-              <input id="la-plz" name="plz" required defaultValue={a?.plz ?? ''} className={inp} /></div>
+              <input id="la-plz" name="plz" required maxLength={12} defaultValue={a?.plz ?? ''} className={inp} /></div>
             <div><label htmlFor="la-ort" className="block text-xs text-s112-text-2 mb-0.5">Ort *</label>
-              <input id="la-ort" name="ort" required defaultValue={a?.ort ?? ''} className={inp} /></div>
+              <input id="la-ort" name="ort" required maxLength={80} defaultValue={a?.ort ?? ''} className={inp} /></div>
             <div><label htmlFor="la-land" className="block text-xs text-s112-text-2 mb-0.5">Land (ISO, z. B. AT, DE)</label>
               <input id="la-land" name="land" defaultValue={a?.land ?? 'AT'} className={inp} /></div>
           </div>

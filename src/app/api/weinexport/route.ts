@@ -8,6 +8,7 @@ import { schreibSperreKonflikt } from '@/lib/auth/sperren'
 import { seitenBetriebKonflikt } from '@/lib/auth/seitenBetrieb'
 import { normalisiereLand } from '@/lib/katalog/laender'
 import { modulKonflikt } from '@/lib/auth/modul'
+import { exportauftragFehler } from '@/lib/export/auftragEingabe'
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -46,6 +47,10 @@ export async function POST(req: NextRequest) {
     if (destLandRoh && !destinationLand)
       return NextResponse.json({ fehler: `Unbekanntes Land „${destLandRoh}“ – bitte ein Land aus der Liste wählen.` }, { status: 400 })
 
+    // Sweep 98: Listenwerte und varchar-Längen prüfen – sonst roher Datenbankfehler „value too long …“
+    const eingabeFehler = exportauftragFehler(body)
+    if (eingabeFehler) return NextResponse.json({ fehler: eingabeFehler }, { status: 400 })
+
     // Referenznummer generieren
     const { data: refData, error: refDataErr } = await (admin.rpc as any)('get_next_exportnummer', { p_tenant_id: tenantId })
     if (refDataErr) return NextResponse.json({ fehler: `Daten konnten nicht geladen werden: ${refDataErr.message}` }, { status: 500 })
@@ -61,8 +66,8 @@ export async function POST(req: NextRequest) {
       incoterms:         body.incoterms,
       transport_art:     body.transport_art,
       destination_land:  destinationLand,
-      destination_stadt: body.destination_stadt,
-      eori_kunde:        body.eori_kunde,
+      destination_stadt: (typeof body.destination_stadt === 'string' ? body.destination_stadt.trim() : '') || null,
+      eori_kunde:        (typeof body.eori_kunde === 'string' ? body.eori_kunde.trim() : '') || null,
       versicherungswert: body.versicherungswert,
       notizen:           body.notizen,
       status:            'entwurf',
