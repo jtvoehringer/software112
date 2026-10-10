@@ -17,7 +17,9 @@ async function csv(page: Page, id: string, parameter: Record<string, string>) {
 
 /** Jahr aus dem Seitenkopf („Jahr 2026“ bzw. „Saison 2026“) */
 async function jahrDerSeite(page: Page): Promise<string> {
-  const m = /(?:Jahr|Saison)\s+(\d{4})/.exec(await page.locator('main').innerText())
+  // erst lesen, wenn der Inhalt da ist – die Seite streamt, vorher steht der Ladeplatzhalter (loading.tsx) im main
+  await expect(page.locator('main').last()).toContainText(/(?:Jahr|Saison)\s+\d{4}/, { timeout: 20_000 })
+  const m = /(?:Jahr|Saison)\s+(\d{4})/.exec(await page.locator('main').last().innerText())
   expect(m, 'Jahr im Seitenkopf nicht gefunden').not.toBeNull()
   return m![1]
 }
@@ -53,7 +55,7 @@ test.describe('Behördenmeldungen – Druck = CSV', { tag: '@lesend' }, () => {
   test('Behandlungsprotokoll: angezeigte Grundstückszeilen = Zeilen der CSV', async ({ page }) => {
     await page.goto('/reports/behandlungsprotokoll')
     const jahr = await jahrDerSeite(page)
-    const m = /·\s*([\d.]+)\s+Grundstückszeilen/.exec(await page.locator('main').innerText())
+    const m = /·\s*([\d.]+)\s+Grundstückszeilen/.exec(await page.locator('main').last().innerText())
     expect(m, 'Angabe „… Grundstückszeilen“ fehlt').not.toBeNull()
     const { zeilen, tabelle } = await csv(page, 'psm-aufzeichnung', { jahr })
     expect(zeilen, 'X-Zeilen').toBe(tabelle.zeilen.length)

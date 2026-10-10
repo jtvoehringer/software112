@@ -10,7 +10,10 @@ import { test, expect, schreibend } from './fixtures'
 /** Bestand einer Füllung aus der Auswahlliste von „Neuer Verkauf“ („… · Bestand: 42“) */
 async function bestandLaut(page: Page, fuellungId: string): Promise<number> {
   await page.goto('/weinhandel/verkauf/neu')
-  const text = await page.getByLabel('Füllung (Lager)').first().locator(`option[value="${fuellungId}"]`).textContent()
+  // Füllungen kommen per Abruf nach dem Laden – auf die Option warten
+  const option = page.getByLabel('Füllung (Lager)').first().locator(`option[value="${fuellungId}"]`)
+  await expect(option).toHaveCount(1, { timeout: 20_000 })
+  const text = await option.textContent()
   const m = /Bestand:\s*(-?\d+)/.exec(text ?? '')
   expect(m, `Bestand der Füllung ${fuellungId} nicht lesbar: ${text}`).not.toBeNull()
   return Number(m![1])
@@ -23,9 +26,11 @@ test.describe('Verkauf (schreibend)', () => {
     const marke = `E2E-Test ${Date.now()}`
 
     await page.goto('/weinhandel/verkauf/neu')
+    await page.waitForLoadState('networkidle')   // Formular erst nach der Übernahme durch React bedienen
 
     // Kunde: erster Treffer der Suche (Liste öffnet sich beim Fokus mit den ersten 30)
-    const suche = page.getByLabel('Kunde suchen')
+    // Beschriftung „Kunde suchen“ (seit dem E2E-Ausbau); Platzhalter als Rückfall für ältere Stände
+    const suche = page.getByLabel('Kunde suchen').or(page.getByPlaceholder('Name oder Firma suchen…')).first()
     await suche.click()
     const ersterKunde = suche.locator('xpath=..').getByRole('button').first()
     await expect(ersterKunde, 'kein Kunde im Testbetrieb').toBeVisible()
@@ -34,6 +39,7 @@ test.describe('Verkauf (schreibend)', () => {
     // Position: Flasche aus einer Füllung mit Bestand
     await page.getByLabel('Flasche', { exact: true }).first().check()
     const fuellung = page.getByLabel('Füllung (Lager)').first()
+    await expect(fuellung.locator('option'), 'Füllungen nicht geladen').not.toHaveCount(1, { timeout: 20_000 })
     const optionen = await fuellung.locator('option').evaluateAll(os => os.map(o => ({ wert: (o as HTMLOptionElement).value, text: o.textContent ?? '' })))
     const mitBestand = optionen.find(o => o.wert && Number(/Bestand:\s*(\d+)/.exec(o.text)?.[1] ?? 0) >= 1)
     test.skip(!mitBestand, 'keine Füllung mit Bestand im Testbetrieb')
