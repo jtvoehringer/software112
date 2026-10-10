@@ -14,7 +14,7 @@ import LagerTabs from '../_behoerden/LagerTabs'
 // KAN-48 AP11: BKI-Blätter „Betriebsdaten“ und „GebindeVerzeichnis“ – dieselben Ladefunktionen liefern die CSV
 // (/meldungen/bki-betriebsdaten/csv, /meldungen/bki-gebindeverzeichnis/csv). Annahmen A1–A6 in lib/behoerden/bki-stammdaten.ts.
 
-export const metadata: Metadata = { title: 'Betriebsdaten & Gebinde (BKI) – software:112' }
+export const metadata: Metadata = { title: 'Betriebsdaten & Gebinde (BKI)' }
 export const dynamic = 'force-dynamic'
 
 function Hinweise({ liste }: { liste: string[] }) {

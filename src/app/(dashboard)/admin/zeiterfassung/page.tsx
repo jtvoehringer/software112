@@ -3,6 +3,9 @@ import { geladen } from '@/lib/supabase/geladen'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { alle } from '@/lib/supabase/alle'
 import ZeiterfassungClient from './ZeiterfassungClient'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Zeiterfassung' }
 
 export const dynamic = 'force-dynamic'
 

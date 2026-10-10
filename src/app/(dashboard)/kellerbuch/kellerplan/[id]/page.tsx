@@ -27,7 +27,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   if (tenantId) query = query.eq('tenant_id', tenantId)
   // abfrage-ohne-fehler: nur Seitentitel (generateMetadata) – bei einem Lesefehler genügt der Ersatztitel
   const { data } = await query.single()
-  return { title: `${(data as R | null)?.name ?? 'Kellerplan'} – software:112` }
+  return { title: `${(data as R | null)?.name ?? 'Kellerplan'}` }
 }
 
 export default async function KellerplanEditorPage({ params }: { params: Promise<{ id: string }> }) {

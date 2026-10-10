@@ -30,6 +30,10 @@ test.describe('Smoke – Navigation', { tag: '@lesend' }, () => {
 
       await keinFehlerbild(page)
       await expect(page).toHaveTitle(/\S/)
+      // Sweep 115: eigener Seitentitel, Markenname nur einmal (die Vorlage im Root-Layout hängt „| software:112“ an)
+      const titel = await page.title()
+      expect(titel, 'Seite ohne eigenen Titel').not.toBe('software:112')
+      expect(titel, 'Markenname doppelt im Titel').not.toMatch(/software:112.*software:112/)
       await expect(page.locator('h1, h2, [role="heading"]').first(), 'keine Überschrift').toBeVisible()
 
       const knopf = SCHREIB_KNOEPFE[pfad]

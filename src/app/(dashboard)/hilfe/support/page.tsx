@@ -8,7 +8,7 @@ import { jsmKonfiguriert } from '@/lib/support/jsm'
 import SupportAnfrage from './SupportAnfrage'
 import RueckrufAnfordern from './RueckrufAnfordern'
 
-export const metadata: Metadata = { title: 'Support – software:112' }
+export const metadata: Metadata = { title: 'Support' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

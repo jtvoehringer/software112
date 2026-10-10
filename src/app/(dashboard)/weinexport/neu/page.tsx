@@ -4,7 +4,7 @@ import { alle } from '@/lib/supabase/alle'
 import { getCurrentMembership, canWrite } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import WeinexportFormClient from './WeinexportFormClient'
-export const metadata: Metadata = { title: 'Neuer Exportauftrag – software:112' }
+export const metadata: Metadata = { title: 'Neuer Exportauftrag' }
 export const dynamic = 'force-dynamic'
 type R = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 

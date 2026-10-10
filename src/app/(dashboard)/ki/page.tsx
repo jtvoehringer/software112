@@ -3,7 +3,7 @@ import { geladen } from '@/lib/supabase/geladen'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import KiClient from './KiClient'
-export const metadata: Metadata = { title: 'Frag dein Weingut – software:112' }
+export const metadata: Metadata = { title: 'Frag dein Weingut' }
 export const dynamic = 'force-dynamic'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>

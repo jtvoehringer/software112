@@ -7,7 +7,7 @@ import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import { formatRebsorteMitKuerzel } from '@/lib/wein/bki_kuerzel'
 
-export const metadata: Metadata = { title: 'Weinausbau – software:112' }
+export const metadata: Metadata = { title: 'Weinausbau' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

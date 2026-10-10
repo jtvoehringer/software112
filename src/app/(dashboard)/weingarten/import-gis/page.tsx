@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 import { getCurrentUserRole, canWrite } from '@/lib/auth/roles'
 import ImportGisClient from './ImportGisClient'
 
-export const metadata: Metadata = { title: 'eAMA-GIS importieren – software:112' }
+export const metadata: Metadata = { title: 'eAMA-GIS importieren' }
 export const dynamic = 'force-dynamic'
 
 // ── eAMA-GIS-Import (Stufe 2 Rieden-Koordinaten, 27.8.2026) ─────────────────

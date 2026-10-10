@@ -16,7 +16,7 @@ import {
   riedenMitLage, spritzbruehe, windText, witterungText, type PsmBehandlung,
 } from '@/lib/behoerden/psm'
 
-export const metadata: Metadata = { title: 'Behandlungsprotokoll – software:112' }
+export const metadata: Metadata = { title: 'Behandlungsprotokoll' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

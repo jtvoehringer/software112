@@ -22,7 +22,7 @@ import { stammLager, type StammLager } from './LagerJahrSpalten'
 import { StartJahrRahmen } from './AnfangsbestandHinweis'
 import { riedText } from '@/lib/behandlungen/rieden'
 
-export const metadata: Metadata = { title: 'Betriebsmittel – software:112' }
+export const metadata: Metadata = { title: 'Betriebsmittel' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -16,7 +16,7 @@ import { Kontoauszug, KontoBuchen, StoffAktiv, StoffAnlegen, StoffArtWahl } from
 import { STOFF_ART_LABEL } from '@/lib/kellerbuch/stoffkonto'
 import { rund } from '@/lib/zahl/runden'
 
-export const metadata: Metadata = { title: 'Besondere Konten – software:112' }
+export const metadata: Metadata = { title: 'Besondere Konten' }
 export const dynamic = 'force-dynamic'
 
 // ── Besondere Konten – Stoffkonto (KAN-107, 07.10.2026) ──

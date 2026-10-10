@@ -9,7 +9,7 @@ import { DashHeader, Card, BarRow, Empty, fmtNum, fmtEur } from '../_shared/ui'
 import { getCtx, ladeFlaschenlager } from '../_shared/data'
 import { wienJetzt, lokalerTag, tageSeit } from '@/lib/datum/wien'
 
-export const metadata: Metadata = { title: 'Verkauf & CRM – software:112' }
+export const metadata: Metadata = { title: 'Verkauf & CRM' }
 export const dynamic = 'force-dynamic'
 type AR = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 

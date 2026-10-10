@@ -5,6 +5,9 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentMembership, canAdmin } from '@/lib/auth/roles'
 import { Landmark, CreditCard, Wallet, Circle, type LucideIcon } from 'lucide-react'
 import { fmtEur } from '@/lib/format'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Konten' }
 
 export const dynamic = 'force-dynamic'
 

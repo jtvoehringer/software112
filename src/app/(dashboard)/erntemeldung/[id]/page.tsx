@@ -9,7 +9,7 @@ import LeseReiter from './LeseReiter'
 import { type AmaAbweichung } from '@/lib/behoerden/amaMeldung'
 import { ladeLeseKontext } from './leseKontext'
 
-export const metadata: Metadata = { title: 'Lese – software:112' }
+export const metadata: Metadata = { title: 'Lese' }
 export const dynamic = 'force-dynamic'
 
 interface Props { params: Promise<{ id: string }>; searchParams: Promise<{ lese?: string | string[]; erfassen?: string }> }

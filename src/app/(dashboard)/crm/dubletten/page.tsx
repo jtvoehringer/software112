@@ -4,7 +4,7 @@ import type { Metadata } from 'next'
 import Link from '@/components/ui/Link'
 import DublettenClient, { type DublettenGruppe } from './DublettenClient'
 
-export const metadata: Metadata = { title: 'Kontakt-Dubletten – software:112' }
+export const metadata: Metadata = { title: 'Kontakt-Dubletten' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -21,7 +21,7 @@ import type { Metadata } from 'next'
 import { EB_NOTIZEN_HINWEIS } from '@/lib/kellerbuch/chargeRegeln'
 import SendenKnopf from '@/components/ui/SendenKnopf'
 
-export const metadata: Metadata = { title: 'Eröffnungsbestand bearbeiten – software:112' }
+export const metadata: Metadata = { title: 'Eröffnungsbestand bearbeiten' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -14,7 +14,7 @@ import { fmtNum } from '@/lib/format'
 import { datumDe, jahrAus } from '@/lib/behoerden/psm'
 import { ladeNaehrstoffbilanz, N_RICHTWERT_KG_HA, P_RICHTWERT_KG_HA } from '@/lib/behoerden/naehrstoff'
 
-export const metadata: Metadata = { title: 'Nährstoffbilanz – software:112' }
+export const metadata: Metadata = { title: 'Nährstoffbilanz' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

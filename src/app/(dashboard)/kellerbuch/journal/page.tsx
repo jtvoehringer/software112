@@ -17,7 +17,7 @@ import {
 // journal_eroeffnen/journal_abgleichen (Betriebsleitung bzw. Wartung).
 // KAN-192: Kellerbuch-Abschluss (Periodensperre) – Stand für alle, Abschließen nur für die Betriebsleitung.
 
-export const metadata: Metadata = { title: 'Bewegungsjournal – software:112' }
+export const metadata: Metadata = { title: 'Bewegungsjournal' }
 export const dynamic = 'force-dynamic'
 
 const ART_LABEL = new Map(KAT_BUCHUNGSART.map(b => [b.code, b.bezeichnung]))

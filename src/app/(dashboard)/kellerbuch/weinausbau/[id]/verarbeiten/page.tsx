@@ -10,7 +10,7 @@ import { VERARBEITUNG_ZWECK_LABEL, istVerarbeitungZweck } from '@/lib/kellerbuch
 import VerarbeitenForm, { type ZielProdukt } from './VerarbeitenForm'
 import VerarbeitungStorno from './VerarbeitungStorno'
 
-export const metadata: Metadata = { title: 'Charge verarbeiten – software:112' }
+export const metadata: Metadata = { title: 'Charge verarbeiten' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

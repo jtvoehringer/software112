@@ -9,7 +9,7 @@ import { zahlLokal } from '@/lib/format'
 import AnalyseStorno from './AnalyseStorno'
 import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
 
-export const metadata: Metadata = { title: 'Laboranalysen – software:112' }
+export const metadata: Metadata = { title: 'Laboranalysen' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

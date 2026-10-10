@@ -13,6 +13,9 @@ import { gstImJahr } from '@/lib/wein/grundstueckAktiv'
 import { listeTrifft, tbsText } from '@/lib/handel/tbsNummer'
 import ListenSuche from '@/components/ui/ListenSuche'
 import { wienJetzt } from '@/lib/datum/wien'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Zukäufe' }
 
 export const dynamic = 'force-dynamic'
 

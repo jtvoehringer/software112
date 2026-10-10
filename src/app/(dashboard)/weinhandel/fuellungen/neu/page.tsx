@@ -16,7 +16,7 @@ import { ladeZusammensetzungCharge } from '@/lib/wein/blendKomposition'
 import { sortenAnteile, type GruppenAnteil } from '@/lib/wein/mischungsrechnung'
 import { istSortenverschnitt } from '@/lib/wein/sortenangabe'
 
-export const metadata: Metadata = { title: 'Neue Füllung – software:112' }
+export const metadata: Metadata = { title: 'Neue Füllung' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

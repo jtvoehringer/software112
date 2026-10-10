@@ -14,7 +14,7 @@ import { datumText, istIsoDatum, istUuid, standardZeitraum, summe } from '@/lib/
 import { ladeKassaKonten, ladeKassabuch } from '@/lib/behoerden/kassabuch'
 import DruckenKnopf from '../anlagen/DruckenKnopf'
 
-export const metadata: Metadata = { title: 'Kassabuch – software:112' }
+export const metadata: Metadata = { title: 'Kassabuch' }
 export const dynamic = 'force-dynamic'
 
 // ── Kassabuch – /buchhaltung/kassabuch?konto=&von=&bis= (Behördenmeldung, 24.09.2026) ──

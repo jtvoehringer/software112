@@ -15,7 +15,7 @@ import LagerTabs from '../_behoerden/LagerTabs'
 // KAN-44 Teil 1: BKI-Blatt „Lagerstand zum Datum“ aus dem Bewegungsjournal – dieselbe Ladefunktion liefert die CSV
 // (/meldungen/bki-lagerstand/csv?stichtag=…). Die Seite zeigt die wichtigsten Spalten, die CSV alle Spalten des Blatts.
 
-export const metadata: Metadata = { title: 'Lagerstand zum Datum – software:112' }
+export const metadata: Metadata = { title: 'Lagerstand zum Datum' }
 export const dynamic = 'force-dynamic'
 
 const datum = (d: string) => d.split('-').reverse().join('.')

@@ -14,7 +14,7 @@ import { datumText, istIsoDatum, standardZeitraum, summe } from '@/lib/behoerden
 import { ladeRechnungsjournal, type RechnungsjournalZeile } from '@/lib/behoerden/rechnungsausgang'
 import DruckenKnopf from '../anlagen/DruckenKnopf'
 
-export const metadata: Metadata = { title: 'Rechnungsausgangsjournal – software:112' }
+export const metadata: Metadata = { title: 'Rechnungsausgangsjournal' }
 export const dynamic = 'force-dynamic'
 
 // ── Rechnungsausgangsjournal – /buchhaltung/rechnungsjournal?von=&bis= (24.09.2026) ──

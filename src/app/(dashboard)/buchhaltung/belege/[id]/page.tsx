@@ -7,6 +7,9 @@ import { getCurrentMembership } from '@/lib/auth/roles'
 import { verwerfeBeleg } from '../../actions'
 import BelegBuchenForm from './BelegBuchenForm'
 import type { FirmaRow } from '@/lib/crm/types'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Beleg buchen' }
 
 export const dynamic = 'force-dynamic'
 

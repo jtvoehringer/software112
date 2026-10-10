@@ -10,7 +10,7 @@ import type { Befund } from '@/lib/wetter/regeln'
 import MorgenberichtKarte, { BefundZeile, WetterStreifen, zeitText } from './MorgenberichtKarte'
 import AktualisierenKnopf from './AktualisierenKnopf'
 
-export const metadata: Metadata = { title: 'Morgenbericht – software:112' }
+export const metadata: Metadata = { title: 'Morgenbericht' }
 export const dynamic = 'force-dynamic'
 
 // ── Sicht "Morgenbericht" – /dashboard/morgenbericht (Jour fixe 9.9.2026) ────

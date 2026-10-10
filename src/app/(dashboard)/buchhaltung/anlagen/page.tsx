@@ -12,7 +12,7 @@ import JahrWaehler from './JahrWaehler'
 import AfaBuchen from './AfaBuchen'
 import { ladeAnlagen, ladeAfaBuchungen, ladeKandidaten, anlagenJahre, kontoText } from './daten'
 
-export const metadata: Metadata = { title: 'Anlagen & AfA – software:112' }
+export const metadata: Metadata = { title: 'Anlagen & AfA' }
 export const dynamic = 'force-dynamic'
 
 // ── Anlagenverzeichnis – /buchhaltung/anlagen (Migration 200) ─────────────────

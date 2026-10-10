@@ -15,7 +15,7 @@ import { canWrite } from '@/lib/auth/roles'
 import RechnungVersandPanel from '../../verkauf/[id]/RechnungVersandPanel'
 
 export const dynamic = 'force-dynamic'
-export const metadata: Metadata = { title: 'Rechnung – software:112' }
+export const metadata: Metadata = { title: 'Rechnung' }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>

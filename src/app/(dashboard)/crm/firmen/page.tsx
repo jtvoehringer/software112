@@ -9,7 +9,7 @@ import Link from '@/components/ui/Link'
 import FirmenClient from './FirmenClient'
 import type { FirmaRow } from '@/lib/crm/types'
 
-export const metadata: Metadata = { title: 'Firmen – software:112' }
+export const metadata: Metadata = { title: 'Firmen' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

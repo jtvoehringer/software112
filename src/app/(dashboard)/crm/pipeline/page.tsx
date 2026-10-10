@@ -7,7 +7,7 @@ import Link from '@/components/ui/Link'
 import PipelineClient from './PipelineClient'
 import type { PipelineEintragRow } from '@/lib/crm/types'
 
-export const metadata: Metadata = { title: 'Pipeline – software:112' }
+export const metadata: Metadata = { title: 'Pipeline' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

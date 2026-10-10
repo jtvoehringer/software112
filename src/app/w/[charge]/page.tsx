@@ -21,7 +21,7 @@ type R = Record<string, any>
 
 export async function generateMetadata({ params }: { params: Promise<{ charge: string }> }): Promise<Metadata> {
   const { charge } = await params
-  return { title: istWeinpassCode(decodeURIComponent(charge)) ? 'Weinpass – software:112' : `Weinpass ${decodeURIComponent(charge)} – software:112` }
+  return { title: istWeinpassCode(decodeURIComponent(charge)) ? 'Weinpass' : `Weinpass ${decodeURIComponent(charge)}` }
 }
 
 export default async function WeinpassPage({ params }: { params: Promise<{ charge: string }> }) {

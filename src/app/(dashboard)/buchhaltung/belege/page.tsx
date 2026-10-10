@@ -8,6 +8,9 @@ import ConfirmDeleteForm from '@/components/ui/ConfirmDeleteForm'
 import BelegUpload from './BelegUpload'
 import { AlertTriangle, FileText, Image as ImageIcon, Trash2, Info } from 'lucide-react'
 import { fmtNum } from '@/lib/format'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Belege' }
 
 export const dynamic = 'force-dynamic'
 

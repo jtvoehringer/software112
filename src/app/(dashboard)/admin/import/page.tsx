@@ -4,7 +4,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { ladeBehaelter } from '@/lib/keller/behaelter'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import { redirect } from 'next/navigation'
-export const metadata: Metadata = { title: 'Datenimport – software:112' }
+export const metadata: Metadata = { title: 'Datenimport' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -13,7 +13,7 @@ import { WeinbuchTimeline } from './WeinbuchTimeline'
 import PrintButton from './PrintButton'
 import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
 
-export const metadata: Metadata = { title: 'Weinbuch – software:112' }
+export const metadata: Metadata = { title: 'Weinbuch' }
 export const dynamic = 'force-dynamic'
 
 export default async function WeinbuchPage({

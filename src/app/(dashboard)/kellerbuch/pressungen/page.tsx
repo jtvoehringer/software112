@@ -11,7 +11,7 @@ import { ladeLeseKontext } from '@/app/(dashboard)/erntemeldung/[id]/leseKontext
 import { leseTitel } from '@/lib/wein/lesen'
 import { AktionsFehler } from '@/lib/fehler'
 
-export const metadata: Metadata = { title: 'Pressungen – software:112' }
+export const metadata: Metadata = { title: 'Pressungen' }
 export const dynamic = 'force-dynamic'
 
 interface Props { searchParams: Promise<{ jahrgang?: string | string[]; lese?: string | string[] }> }

@@ -9,7 +9,7 @@ import Link from '@/components/ui/Link'
 import { notFound } from 'next/navigation'
 import { Boxes } from 'lucide-react'
 
-export const metadata: Metadata = { title: 'Umzüge – software:112' }
+export const metadata: Metadata = { title: 'Umzüge' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

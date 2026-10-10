@@ -18,7 +18,7 @@ import ZeitraumFormular from '../../../_behoerden/ZeitraumFormular'
 import { rundText } from '@/lib/zahl/runden'
 import SendenKnopf from '@/components/ui/SendenKnopf'
 
-export const metadata: Metadata = { title: 'Bewegungsbuch – software:112' }
+export const metadata: Metadata = { title: 'Bewegungsbuch' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -12,7 +12,7 @@ import { wienHeute } from '@/lib/csv'
 import { fmtNum } from '@/lib/format'
 import AbstufenForm from './AbstufenForm'
 
-export const metadata: Metadata = { title: 'Charge abstufen – software:112' }
+export const metadata: Metadata = { title: 'Charge abstufen' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

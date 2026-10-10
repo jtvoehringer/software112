@@ -1,4 +1,8 @@
 import { requireModul, requireAuswertungen } from '@/lib/auth/modul'
+import type { Metadata } from 'next'
+
+// Sweep 115: Seitentitel der Client-Seite (die Seite selbst kann keine Metadaten exportieren)
+export const metadata: Metadata = { title: 'Kostenrechnung' }
 
 // Modul-Guard "Controlling" (Migration 193, Rückmeldung 2.9.2026): ohne
 // Freischaltung ist dieser Bereich nur über die Sidebar ausgeblendet - dieser

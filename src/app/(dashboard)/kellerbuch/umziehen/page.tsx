@@ -7,7 +7,7 @@ import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/r
 import type { Metadata } from 'next'
 import UmziehenClient from './UmziehenClient'
 
-export const metadata: Metadata = { title: 'Umziehen – software:112' }
+export const metadata: Metadata = { title: 'Umziehen' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

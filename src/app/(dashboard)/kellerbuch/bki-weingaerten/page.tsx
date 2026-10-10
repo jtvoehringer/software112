@@ -14,7 +14,7 @@ import LagerTabs from '../_behoerden/LagerTabs'
 // KAN-47 AP10 Schritt 1: BKI-Blatt „Weingärten“ – dieselbe Ladefunktion liefert die CSV (/meldungen/bki-weingaerten/csv).
 // Die Seite zeigt die wichtigsten Spalten, die CSV alle 26. Annahmen W1–W6 in lib/behoerden/bki-weingaerten.ts.
 
-export const metadata: Metadata = { title: 'Weingärten (BKI) – software:112' }
+export const metadata: Metadata = { title: 'Weingärten (BKI)' }
 export const dynamic = 'force-dynamic'
 
 export default async function BkiWeingaertenPage({ searchParams }: { searchParams: Promise<{ aktiv?: string }> }) {

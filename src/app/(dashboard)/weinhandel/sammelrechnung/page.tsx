@@ -10,7 +10,7 @@ import { offeneLieferscheineJeKunde } from '@/lib/verkauf/sammelrechnung'
 import { rechnungErstellen } from '../verkauf/actions'
 import SammelrechnungClient from './SammelrechnungClient'
 
-export const metadata: Metadata = { title: 'Sammelrechnung – software:112' }
+export const metadata: Metadata = { title: 'Sammelrechnung' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

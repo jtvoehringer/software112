@@ -16,7 +16,7 @@ import { fmtNum } from '@/lib/format'
 import { wienHeute } from '@/lib/csv'
 import { AktionsFehler } from '@/lib/fehler'
 
-export const metadata: Metadata = { title: 'AMA Erntemeldung – software:112' }
+export const metadata: Metadata = { title: 'AMA Erntemeldung' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

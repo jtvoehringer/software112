@@ -7,7 +7,7 @@ import { wienHeute } from '@/lib/csv'
 import { kellerZeitraum, ladeKellerAuswertungen } from '@/lib/behoerden/keller-auswertungen'
 import KellerAuswertungenClient from './KellerAuswertungenClient'
 
-export const metadata: Metadata = { title: 'Keller-Auswertungen – software:112' }
+export const metadata: Metadata = { title: 'Keller-Auswertungen' }
 export const dynamic = 'force-dynamic'
 
 // Seit 24.09.2026: Zeitraum frei wählbar (?von=&bis=, Standard: 1.1. des laufenden Jahres

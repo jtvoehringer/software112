@@ -30,7 +30,7 @@ import { KORREKTUR_FELDER } from '@/lib/freeze/korrektur'
 import { Wine, ArrowLeftRight, GitMerge, BookOpen, Microscope, Award, TrendingDown, ArrowDownWideNarrow, Factory, PlusCircle, Sparkles } from 'lucide-react'
 import { rund } from '@/lib/zahl/runden'
 
-export const metadata: Metadata = { title: 'Charge bearbeiten – software:112' }
+export const metadata: Metadata = { title: 'Charge bearbeiten' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

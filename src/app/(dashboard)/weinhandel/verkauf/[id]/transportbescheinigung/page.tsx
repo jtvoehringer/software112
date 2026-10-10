@@ -12,7 +12,7 @@ import { ladeTransportbescheinigung } from '@/lib/behoerden/transportbescheinigu
 import { csvPfad } from '@/lib/behoerden/katalog'
 
 export const dynamic = 'force-dynamic'
-export const metadata: Metadata = { title: 'Transportbescheinigung – software:112' }
+export const metadata: Metadata = { title: 'Transportbescheinigung' }
 
 // Formular (gespeichert oder Vorbelegung) kommt aus derselben Ladefunktion wie die CSV
 // (/meldungen/transportbescheinigung/csv) – siehe lib/behoerden/transportbescheinigung.ts.

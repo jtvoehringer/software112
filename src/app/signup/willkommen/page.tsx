@@ -2,6 +2,9 @@ import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCurrentUserRole, getCurrentMembership } from '@/lib/auth/roles'
 import { aboStandBerechnen } from '@/lib/abo/regeln'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Willkommen' }
 
 // ── Zwischenseite nach erfolgreichem Stripe-Checkout ─────────────────────────
 // Rückmeldung 31.8.2026: der Webhook (customer.subscription.created), der

@@ -14,7 +14,7 @@ import { datumText } from '@/lib/behoerden/buchhaltung-gemeinsam'
 import { BELEG_STATUS, ladeBelegverzeichnis } from '@/lib/behoerden/belege'
 import DruckenKnopf from '../../anlagen/DruckenKnopf'
 
-export const metadata: Metadata = { title: 'Belegverzeichnis – software:112' }
+export const metadata: Metadata = { title: 'Belegverzeichnis' }
 export const dynamic = 'force-dynamic'
 
 // ── Belegverzeichnis – /buchhaltung/belege/verzeichnis?jahr= (24.09.2026) ────────

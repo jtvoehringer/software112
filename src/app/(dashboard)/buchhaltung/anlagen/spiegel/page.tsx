@@ -15,7 +15,7 @@ import JahrWaehler from '../JahrWaehler'
 import DruckenKnopf from '../DruckenKnopf'
 import { anlagenJahre } from '../daten'
 
-export const metadata: Metadata = { title: 'Anlagenspiegel – software:112' }
+export const metadata: Metadata = { title: 'Anlagenspiegel' }
 export const dynamic = 'force-dynamic'
 
 // ── Anlagenspiegel – /buchhaltung/anlagen/spiegel?jahr= (Migration 200) ──────

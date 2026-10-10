@@ -9,7 +9,7 @@ import Link from '@/components/ui/Link'
 import SmokeTestClient from './SmokeTestClient'
 import SchluesselClient from './SchluesselClient'
 
-export const metadata: Metadata = { title: 'Systembericht – software:112' }
+export const metadata: Metadata = { title: 'Systembericht' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

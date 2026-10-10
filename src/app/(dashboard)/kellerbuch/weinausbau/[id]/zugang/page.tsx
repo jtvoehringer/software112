@@ -9,7 +9,7 @@ import { fmtNum } from '@/lib/format'
 import { ZUGANGSKORREKTUR_ART_LABEL, istZugangskorrekturArt } from '@/lib/kellerbuch/zugangskorrektur'
 import ZugangForm, { ZugangStorno } from './ZugangForm'
 
-export const metadata: Metadata = { title: 'Zugang korrigieren – software:112' }
+export const metadata: Metadata = { title: 'Zugang korrigieren' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -16,7 +16,7 @@ import LagerTabs from '../_behoerden/LagerTabs'
 // KAN-49: BKI-Blätter „Verkauf im Zeitraum“, „Einkauf im Zeitraum“ und „TBS-Aufstellung“ – dieselben Ladefunktionen
 // liefern die CSV (/meldungen/bki-verkauf|bki-einkauf|bki-tbs/csv) und die Blätter des Gesamtexports (KAN-50).
 
-export const metadata: Metadata = { title: 'Verkauf, Einkauf, TBS (BKI) – software:112' }
+export const metadata: Metadata = { title: 'Verkauf, Einkauf, TBS (BKI)' }
 export const dynamic = 'force-dynamic'
 
 const datumAT = (d: string | null) => (d ? d.slice(0, 10).split('-').reverse().join('.') : '')

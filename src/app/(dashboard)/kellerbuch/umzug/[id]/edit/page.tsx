@@ -15,7 +15,7 @@ import { Info } from 'lucide-react'
 import type { Metadata } from 'next'
 import SendenKnopf from '@/components/ui/SendenKnopf'
 
-export const metadata: Metadata = { title: 'Umzug bearbeiten – software:112' }
+export const metadata: Metadata = { title: 'Umzug bearbeiten' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

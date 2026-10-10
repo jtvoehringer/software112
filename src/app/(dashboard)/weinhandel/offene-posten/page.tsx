@@ -7,7 +7,7 @@ import OffenePostenClient from './OffenePostenClient'
 import { alsBeleg, lieferscheineSelect } from '@/lib/verkauf/rechnungen'
 import { tageSeit, wienJetzt } from '@/lib/datum/wien'
 
-export const metadata: Metadata = { title: 'Offene Posten – software:112' }
+export const metadata: Metadata = { title: 'Offene Posten' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

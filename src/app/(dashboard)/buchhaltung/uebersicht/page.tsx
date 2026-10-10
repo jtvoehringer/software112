@@ -6,7 +6,7 @@ import { DashHeader, Tile, Card, Badge, Note, BarRow, Th, Td, fmtEur, fmtDate } 
 import { getCtx, ladeEinstellungen } from '@/app/(dashboard)/dashboard/_shared/data'
 import { ladeFinanzen, monatLabel, OHNE_KATEGORIE } from '@/lib/finanzen/uebersicht'
 
-export const metadata: Metadata = { title: 'Finanzübersicht – software:112' }
+export const metadata: Metadata = { title: 'Finanzübersicht' }
 export const dynamic = 'force-dynamic'
 
 // ── Finanzübersicht "Wo stehe ich?" (Rückmeldung 8.9.2026) ─────────────────

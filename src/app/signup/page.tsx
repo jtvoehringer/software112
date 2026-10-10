@@ -10,7 +10,7 @@ import SignupClient from './SignupClient'
 // funktionsfähig, damit nur noch ein Link/Button von der künftigen Homepage
 // hierher zeigen muss.
 
-export const metadata: Metadata = { title: 'Jetzt registrieren – software:112' }
+export const metadata: Metadata = { title: 'Jetzt registrieren' }
 export const dynamic = 'force-dynamic'
 
 export default async function SignupPage() {

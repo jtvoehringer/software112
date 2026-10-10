@@ -17,7 +17,7 @@ import type { BehandlungEdit, PSMOption, DuengemittelOption, BestehenderKostenEi
 import type { KostenartOption } from '../../neu/page'
 import { summeFlaecheHa } from '@/lib/behandlungen/massnahmeMengen'
 
-export const metadata: Metadata = { title: 'Maßnahme bearbeiten – software:112' }
+export const metadata: Metadata = { title: 'Maßnahme bearbeiten' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

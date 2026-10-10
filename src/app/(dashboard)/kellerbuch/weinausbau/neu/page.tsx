@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 
-export const metadata = { title: 'Neue Charge – software:112' }
+export const metadata = { title: 'Neue Charge' }
 export const dynamic = 'force-dynamic'
 
 // Chargen werden ausschließlich über Pressungen oder Verschneidungen angelegt – Pressungen seit dem Pilottest

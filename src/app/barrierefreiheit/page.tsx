@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Barrierefreiheit – software:112',
+  title: 'Barrierefreiheit',
   description: 'Informationen zur Barrierefreiheit von software:112: Stand, bekannte Einschränkungen und Kontakt.',
 }
 

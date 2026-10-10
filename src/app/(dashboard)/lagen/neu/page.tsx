@@ -6,7 +6,7 @@ import { createLage } from '../actions'
 import type { Metadata } from 'next'
 import SendenKnopf from '@/components/ui/SendenKnopf'
 
-export const metadata: Metadata = { title: 'Neue Ried – software:112' }
+export const metadata: Metadata = { title: 'Neue Ried' }
 
 export default async function NeueLagePage() {
   const role = await getCurrentUserRole()

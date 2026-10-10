@@ -10,6 +10,9 @@ import { fmtNum } from '@/lib/format'
 import { heuteWien } from '@/lib/datum/wien'
 import SendenKnopf from '@/components/ui/SendenKnopf'
 import { ergebnisPruefen } from '@/lib/fehler'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Daueraufträge' }
 
 export const dynamic = 'force-dynamic'
 

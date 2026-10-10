@@ -6,7 +6,7 @@ import Link from '@/components/ui/Link'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { Users, Building2, Package, ShoppingCart, type LucideIcon } from 'lucide-react'
 
-export const metadata: Metadata = { title: 'Datenexport – software:112' }
+export const metadata: Metadata = { title: 'Datenexport' }
 export const dynamic = 'force-dynamic'
 
 // Tooltip des Knopfs (statt des Hinweises auf KG-Nr./BBCH der Behördenmeldungen)

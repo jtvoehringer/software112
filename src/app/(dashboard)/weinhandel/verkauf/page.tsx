@@ -11,7 +11,7 @@ import { tbsSuche, tbsText } from '@/lib/handel/tbsNummer'
 import ListenSuche from '@/components/ui/ListenSuche'
 import { lokalerTag, wienJetzt } from '@/lib/datum/wien'
 
-export const metadata: Metadata = { title: 'Verkauf – software:112' }
+export const metadata: Metadata = { title: 'Verkauf' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

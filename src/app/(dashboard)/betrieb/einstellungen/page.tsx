@@ -10,7 +10,7 @@ import { pruefeBenutzerlimit } from '@/lib/pakete-server'
 import { paketAusPlan } from '@/lib/pakete'
 import type { MostgewichtEinheit } from '@/lib/wein/mostgewicht'
 
-export const metadata: Metadata = { title: 'Mein Betrieb – software:112' }
+export const metadata: Metadata = { title: 'Mein Betrieb' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

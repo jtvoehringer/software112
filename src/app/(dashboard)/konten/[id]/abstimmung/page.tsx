@@ -7,6 +7,9 @@ import AbstimmungClient from './AbstimmungClient'
 import { wienHeute } from '@/lib/csv'
 import { csvPfad } from '@/lib/behoerden/katalog'
 import { standardZeitraum } from '@/lib/behoerden/buchhaltung-gemeinsam'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Kontoabstimmung' }
 
 export const dynamic = 'force-dynamic'
 

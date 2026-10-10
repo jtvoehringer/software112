@@ -8,6 +8,9 @@ import { getCurrentMembership } from '@/lib/auth/roles'
 import { ladeMandantMitglieder } from '@/lib/aufgaben/mitglieder'
 import { ladeOutlookStatus } from '@/lib/m365/benutzer'
 import { heuteWien } from '@/lib/datum/wien'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'CRM' }
 
 export const dynamic = 'force-dynamic'
 

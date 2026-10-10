@@ -12,7 +12,7 @@ import { ladePruefnummernantrag } from '@/lib/behoerden/pruefnummernantrag'
 import { csvPfad } from '@/lib/behoerden/katalog'
 
 export const dynamic = 'force-dynamic'
-export const metadata: Metadata = { title: 'Prüfnummernantrag – software:112' }
+export const metadata: Metadata = { title: 'Prüfnummernantrag' }
 
 // Formular (gespeichert oder Vorbelegung) kommt aus derselben Ladefunktion wie die CSV
 // (/meldungen/pruefnummernantrag/csv) – siehe lib/behoerden/pruefnummernantrag.ts.

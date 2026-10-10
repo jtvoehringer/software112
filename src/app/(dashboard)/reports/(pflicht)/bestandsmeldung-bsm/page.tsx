@@ -20,7 +20,7 @@ import { wienHeute } from '@/lib/csv'
 import { ladeKonzentratBestaende } from '@/lib/behoerden/besondereKonten'
 import { AktionsFehler } from '@/lib/fehler'
 
-export const metadata: Metadata = { title: 'Bestandsmeldung (BSM) – software:112' }
+export const metadata: Metadata = { title: 'Bestandsmeldung (BSM)' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

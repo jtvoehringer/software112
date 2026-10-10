@@ -13,7 +13,7 @@ import { fmtNum } from '@/lib/format'
 import DruckKnopf from './DruckKnopf'
 
 export const dynamic = 'force-dynamic'
-export const metadata: Metadata = { title: 'Transportbescheinigungen – software:112' }
+export const metadata: Metadata = { title: 'Transportbescheinigungen' }
 
 // Zeitraumliste aller Transportbescheinigungen (Behördenmeldung „transportbescheinigungen“):
 // Druckansicht und CSV nutzen dieselbe Ladefunktion wie die einzelne Transportbescheinigung

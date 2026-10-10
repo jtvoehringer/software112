@@ -18,7 +18,7 @@ import {
 } from '@/lib/behoerden/rv-weingarten'
 import RueckverfolgungPrintButton from '@/app/(dashboard)/kellerbuch/rueckverfolgung/PrintButton'
 
-export const metadata: Metadata = { title: 'Rückverfolgung Weingarten – software:112' }
+export const metadata: Metadata = { title: 'Rückverfolgung Weingarten' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

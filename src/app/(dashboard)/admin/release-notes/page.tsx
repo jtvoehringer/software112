@@ -5,7 +5,7 @@ import { getCurrentUserRole, getCurrentMembership, isSandboxAdminUnlock } from '
 import { SANDBOX_TENANT_ID } from '@/lib/abo/regeln'
 import ReleaseNotesAdminClient from './ReleaseNotesAdminClient'
 
-export const metadata: Metadata = { title: 'Release Notes – software:112' }
+export const metadata: Metadata = { title: 'Release Notes' }
 export const dynamic = 'force-dynamic'
 
 // Diese Seite war bisher komplett ungeschützt (reine 'use client'-Komponente

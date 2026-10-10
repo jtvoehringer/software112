@@ -7,7 +7,7 @@ import { lokalerTag, wienJetzt } from '@/lib/datum/wien'
 import { jahrgangAusEingabe, vorgeschlagenerJahrgang } from '@/lib/wein/lesen'
 import NeueLeseForm, { type VorhandenerJahrgang } from './NeueLeseForm'
 
-export const metadata: Metadata = { title: 'Neue Lese – software:112' }
+export const metadata: Metadata = { title: 'Neue Lese' }
 export const dynamic = 'force-dynamic'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

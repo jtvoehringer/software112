@@ -10,7 +10,7 @@ import CsvExportKnopf from '@/components/CsvExportKnopf'
 import { csvPfad } from '@/lib/behoerden/katalog'
 import { ladeExportauftraege } from '@/lib/behoerden/exportauftrag'
 import { landAnzeige } from '@/lib/katalog/laender'
-export const metadata: Metadata = { title: 'Weinexport – software:112' }
+export const metadata: Metadata = { title: 'Weinexport' }
 export const dynamic = 'force-dynamic'
 
 const STATUS_COLOR: Record<string, string> = {
