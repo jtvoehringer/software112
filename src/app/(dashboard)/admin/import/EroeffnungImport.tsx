@@ -12,7 +12,7 @@ import { fehlerText } from '@/lib/fehler'
 import { wienHeute } from '@/lib/csv'
 import { parseCsv, csvDekodieren } from '@/lib/import/csvLesen'
 import { felderFuer, vorlageCsv, type DateiBefund, type EroeffnungsArt } from '@/lib/import/eroeffnungsbestand'
-import { standardEroeffnungsStichtag, stichtagText } from '@/lib/kellerbuch/eroeffnungsStichtag'
+import { eroeffnungsStichtagGrenzen, standardEroeffnungsStichtag, stichtagText } from '@/lib/kellerbuch/eroeffnungsStichtag'
 import { pruefeEroeffnungTank, importiereEroeffnungTank } from '@/app/(dashboard)/kellerbuch/gebinde-actions'
 import { pruefeEroeffnungFlaschen, importiereEroeffnungFlaschen } from '@/app/(dashboard)/weinhandel/actions'
 
@@ -141,7 +141,7 @@ export default function EroeffnungImport({ art, herkunft }: { art: EroeffnungsAr
       <div className="bg-white rounded-xl border border-s112-border p-6 flex flex-wrap items-end gap-4">
         <div>
           <label htmlFor={`eb-stichtag-${art}`} className="block text-xs font-medium text-s112-text-2 mb-1">Stichtag *</label>
-          <input id={`eb-stichtag-${art}`} type="date" value={stichtag} required
+          <input id={`eb-stichtag-${art}`} type="date" value={stichtag} required {...eroeffnungsStichtagGrenzen(wienHeute())}
             onChange={e => { setStichtag(e.target.value); zuruecksetzen() }}
             className="border border-s112-border rounded-lg px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-s112-teal/40" />
         </div>

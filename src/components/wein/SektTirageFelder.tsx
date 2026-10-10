@@ -5,6 +5,7 @@
 // `gaermethode`, `tirage_datum`; die Server Action prüft mit tirageAusFormular() (lib/wein/sekt.ts).
 
 import { GAERMETHODEN } from '@/lib/wein/sekt'
+import { wienHeute } from '@/lib/csv'
 
 export default function SektTirageFelder({ feldKlasse = 'form-input', labelKlasse = 'form-label' }: { feldKlasse?: string; labelKlasse?: string }) {
   return (
@@ -23,7 +24,8 @@ export default function SektTirageFelder({ feldKlasse = 'form-input', labelKlass
         </div>
         <div>
           <label htmlFor="sekt-tirage" className={labelKlasse}>Tirage (Beginn der Zweitgärung)</label>
-          <input id="sekt-tirage" name="tirage_datum" type="date" className={feldKlasse} />
+          {/* Sweep 120: tirageAusFormular() lehnt ein Datum in der Zukunft ab */}
+          <input id="sekt-tirage" name="tirage_datum" type="date" max={wienHeute()} className={feldKlasse} />
           <p className="text-[11px] text-s112-muted mt-1">Leer = Datum der Füllung (Flaschengärung).</p>
         </div>
       </div>

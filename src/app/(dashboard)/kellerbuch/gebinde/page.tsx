@@ -27,7 +27,7 @@ import ZusatzErzeugnisFelder from '@/components/wein/ZusatzErzeugnisFelder'
 import MostgewichtEingabe from '@/components/wein/MostgewichtEingabe'
 import MostgewichtAnzeige from '@/components/wein/MostgewichtAnzeige'
 import { wienHeute } from '@/lib/csv'
-import { eroeffnungsTag, standardEroeffnungsStichtag, stichtagText } from '@/lib/kellerbuch/eroeffnungsStichtag'
+import { eroeffnungsStichtagGrenzen, eroeffnungsTag, standardEroeffnungsStichtag, stichtagText } from '@/lib/kellerbuch/eroeffnungsStichtag'
 import { EB_NOTIZEN_HINWEIS } from '@/lib/kellerbuch/chargeRegeln'
 import { wienJetzt } from '@/lib/datum/wien'
 import SendenKnopf from '@/components/ui/SendenKnopf'
@@ -416,7 +416,7 @@ export default async function GebindePage({
                 <div>
                   {/* KAN-42: Stichtag wählbar (gespeichert 00:00 Uhr Wiener Zeit) */}
                   <label className={labelCls}>Stichtag *</label>
-                  <input aria-label="Stichtag" name="stichtag" type="date" required
+                  <input aria-label="Stichtag" name="stichtag" type="date" required {...eroeffnungsStichtagGrenzen(wienHeute())}
                     defaultValue={standardEroeffnungsStichtag(wienHeute())} className={inputCls} />
                 </div>
                 <div className="sm:col-span-2">

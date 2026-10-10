@@ -13,6 +13,7 @@ import { bkiZeitraumAus, ladeBkiSchnittstelle } from '@/lib/behoerden/bki-schnit
 import { buchungsartZeilen, erzeugnisZeilen, KATALOG_HINWEIS, qualitaetsstufenZeilen, type KatalogZeile } from '@/lib/behoerden/bki-kataloge'
 import { datumAT } from '@/lib/behoerden/ernte_hilfen'
 import LagerTabs from '../_behoerden/LagerTabs'
+import { wienHeute } from '@/lib/csv'
 
 // KAN-50 AP13: Gesamtexport der BKI-Schnittstelle (eine XLSX-Datei, ein Blatt je Spezifikationsblatt, Prüfbericht vorne)
 // und die drei Katalogblätter. Jedes Blatt einzeln weiterhin als CSV über /meldungen/<id>/csv.
@@ -61,6 +62,8 @@ export default async function BkiSchnittstellePage({ searchParams }: { searchPar
   const zeitraum = bkiZeitraumAus(url)
   const fehler = istParameterFehler(zeitraum) ? zeitraum.fehler : null
   const z = istParameterFehler(zeitraum) ? bkiZeitraumAus(new URLSearchParams()) : zeitraum
+  // Sweep 120: bkiZeitraumAus lehnt Zeitraum und Stichtag in der Zukunft ab – die Datumsfelder bieten sie gar nicht an
+  const heute = wienHeute()
   if (istParameterFehler(z)) notFound()
   const qs = new URLSearchParams({ von: z.von, bis: z.bis, stichtag: z.stichtag }).toString()
 
@@ -83,13 +86,13 @@ export default async function BkiSchnittstellePage({ searchParams }: { searchPar
 
       <form method="get" className="card flex flex-wrap items-end gap-3 print:hidden">
         <label className="text-xs text-s112-text-2">Von
-          <input type="date" name="von" defaultValue={z.von} className="form-input block mt-1" />
+          <input type="date" name="von" max={heute} defaultValue={z.von} className="form-input block mt-1" />
         </label>
         <label className="text-xs text-s112-text-2">Bis
-          <input type="date" name="bis" defaultValue={z.bis} className="form-input block mt-1" />
+          <input type="date" name="bis" max={heute} defaultValue={z.bis} className="form-input block mt-1" />
         </label>
         <label className="text-xs text-s112-text-2">Lagerstand zum
-          <input type="date" name="stichtag" defaultValue={z.stichtag} className="form-input block mt-1" />
+          <input type="date" name="stichtag" max={heute} defaultValue={z.stichtag} className="form-input block mt-1" />
         </label>
         <button type="submit" name="pruefen" value="1" className="btn-primary text-sm">Prüfen</button>
         <CsvExportKnopf href={`/meldungen/bki-schnittstelle/xlsx?${qs}`} format="xlsx" label="XLSX herunterladen" />
