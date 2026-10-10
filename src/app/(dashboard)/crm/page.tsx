@@ -1,6 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { geladen } from '@/lib/supabase/geladen'
-import { inBloecken } from '@/lib/supabase/alle'
+import { alle, inBloecken } from '@/lib/supabase/alle'
 import CRMUebersichtClient from './CRMUebersichtClient'
 import type { KalenderEintrag } from './CRMUebersichtClient'
 import { AKTIVITAET_ARTEN } from '@/lib/crm/types'
@@ -26,14 +26,14 @@ export default async function CRMUebersichtPage({ searchParams }: { searchParams
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   // Alle Aktivitäten mit Datum
-  const aktivRawAll = geladen(await tf((supabase.from('aktivitaeten') as any)
+  // Sweep 102: vollständig über alle() – vorher aufsteigend mit .limit(5000), über der Grenze fehlten die kommenden Termine
+  const aktivRawAll = geladen(await alle(tf((supabase.from('aktivitaeten') as any)
     .select('id, art, betreff, datum, ganztags, uhrzeit_von, uhrzeit_bis, erledigt, kontakt_id, firma_id, ist_privat, erstellt_von, bis_datum, verantwortlich_id, fuer_alle, beschreibung')
     .not('datum', 'is', null)
     // Verkauf/Notiz/E-Mail erscheinen nicht im Kalender - gar nicht erst laden
     // (E-Mail-Aktivitäten wachsen mit jeder geöffneten Nachricht, 17.9.2026)
     .not('art', 'in', '("verkauf","notiz","email")')
-    .order('datum', { ascending: true })
-    .limit(5000)), 'Aktivitäten')
+    .order('datum', { ascending: true }).order('id'))), 'Aktivitäten')
 
   // "Nur für mich sichtbar"-Termine anderer Nutzer serverseitig herausfiltern (seit KAN-17 sperrt das auch die
   // Datenbank, Policy akt_privat) – sie erscheinen nur als Zeitblock „Privat“ (s112_privat_bloecke, unten)

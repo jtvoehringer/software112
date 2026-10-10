@@ -118,9 +118,16 @@ function filterSpalten(methode, args) {
  *  - variable: die Kette ist Initialisierer/rechte Seite von `x = …` (Abfrage wird später weitergebaut)
  *  - aufruf:   die Kette geht als Argument an eine Funktion (Name, Position) – z. B. liste(q, 'tabelle')
  */
+// Sweep 102 (10.10.2026): nach einer Datums-/Zeitspalte AUFSTEIGEND sortiert und dann begrenzt → behält die ältesten Zeilen.
+// Befund: CRM-Kalender (.order('datum', { ascending: true }).limit(5000)) – über der Grenze fehlten die kommenden Termine.
+// Gewollt bei „die nächsten N ab heute“ (Filter .gte('datum', heute)) – solche Stellen mit // alle-ausnahme: <Grund>.
+const DATUM_SPALTE = /^(datum|[a-z_]*_datum|datum_[a-z_]+|[a-z_]*_am|created_at|updated_at|zeit|zeitpunkt|[a-z_]*_zeit)$/
+
 function klettere(start) {
   let cur = start
   let operation = null, begrenzt = false, eingeschraenkt = false, inAlle = false, sortiert = false, variable = null, aufruf = null
+  let ersteOrder = null, limit = false   // Sweep 102: erste Sortierung { spalte, aufsteigend } und .limit(n)
+  const untergrenzen = new Set()         // Sweep 102: .gte/.gt(spalte, …) – „die nächsten N ab …“ ist gewollt
   for (;;) {
     const p = cur.parent
     if (!p) break
@@ -130,7 +137,13 @@ function klettere(start) {
         if (!operation && ['select', 'insert', 'update', 'upsert', 'delete'].includes(m)) {
           operation = m
           if (m === 'select' && p.arguments[1] && /head\s*:\s*true/.test(p.arguments[1].getText())) begrenzt = true
-        } else if (m === 'order') sortiert = true
+        } else if (m === 'order') {
+          sortiert = true
+          if (!ersteOrder && p.arguments[0] && ts.isStringLiteralLike(p.arguments[0]))
+            ersteOrder = { spalte: p.arguments[0].text, aufsteigend: !(p.arguments[1] && /ascending\s*:\s*false/.test(p.arguments[1].getText())) }
+        }
+        else if (m === 'limit') { limit = true; begrenzt = true }
+        if ((m === 'gte' || m === 'gt') && p.arguments[0] && ts.isStringLiteralLike(p.arguments[0])) untergrenzen.add(p.arguments[0].text)
         else if (BEGRENZT.has(m)) begrenzt = true
         else if (SUCHE.has(m)) eingeschraenkt = true
         else if (FILTER.has(m) && filterSpalten(m, p.arguments).some(istEinschraenkendeSpalte)) eingeschraenkt = true
@@ -161,7 +174,7 @@ function klettere(start) {
       ts.isVariableDeclaration(p.parent) && ts.isIdentifier(p.parent.name)) aufruf = { fabrik: p.parent.name.text }
     break
   }
-  return { operation, begrenzt, eingeschraenkt, inAlle, sortiert, variable, aufruf }
+  return { operation, begrenzt, eingeschraenkt, inAlle, sortiert, variable, aufruf, ersteOrder: ersteOrder && untergrenzen.has(ersteOrder.spalte) ? null : ersteOrder, limit }
 }
 
 /** Fabrik ohne Parameter: jede Aufrufstelle name() muss gepaged, begrenzt oder eingeschränkt sein (mindestens eine) */
@@ -253,6 +266,8 @@ function abfragen(text, datei = '') {
         out.push({
           tabelle: node.arguments[0].text, zeile: sf.getLineAndCharacterOfPosition(node.getStart()).line + 1,
           gepaged, direktInAlle: a.inAlle, begrenzt: a.begrenzt, eingeschraenkt: a.eingeschraenkt, sortiert: a.sortiert,
+          aeltesteBehalten: !a.inAlle && a.limit && !!a.ersteOrder && a.ersteOrder.aufsteigend && DATUM_SPALTE.test(a.ersteOrder.spalte),
+          ordnung: a.ersteOrder?.spalte,
         })
       }
     }
@@ -395,9 +410,21 @@ function pruefeText(text, datei = '') {
         : `.in('${l.spalte}', …) mit Werten aus '${l.quelle}' ohne Blöcke – ab ≈ 350 IDs scheitert die URL; inBloecken(liste, b => … .in('${l.spalte}', b) …) verwenden`,
     })
   }
+  // Sweep 102: auth.admin.listUsers liefert je Aufruf eine Seite (höchstens perPage Konten) – ohne page/Blättern fehlen
+  // Konten still (Benutzerverwaltung: perPage 1000). Richtig: alleKonten() bzw. findeKontoPerEmail() aus lib/auth/einladung.
+  { const re = /\.listUsers\(([^)]*)\)/g; let m
+    while ((m = re.exec(text))) {
+      if (/\bpage\s*:/.test(m[1])) continue
+      const zeile = text.slice(0, m.index).split('\n').length
+      const grund = ausnahmeGrund(zeilen, zeile - 1)
+      if (grund) { ausnahmen.push({ datei, zeile, tabelle: 'auth.users', regel: 'LISTUSERS_OHNE_SEITE', grund }); continue }
+      funde.push({ datei, zeile, tabelle: 'auth.users', regel: 'LISTUSERS_OHNE_SEITE',
+        text: grund === '' ? `alle-ausnahme ohne ausreichenden Grund (mind. ${MIN_GRUND} Zeichen)` : 'auth.admin.listUsers() ohne page – liefert nur die erste Seite; alleKonten() aus src/lib/auth/einladung.ts verwenden' })
+    } }
   for (const q of abfragen(text, datei)) {
     let regel = null
     if (q.direktInAlle && !q.sortiert) regel = 'ALLE_OHNE_ORDER'
+    else if (q.aeltesteBehalten) regel = 'AELTESTE_BEHALTEN'
     else if (!q.gepaged && !q.begrenzt && !q.eingeschraenkt) regel = 'VOLLABFRAGE'
     if (!regel) continue
     const grund = ausnahmeGrund(zeilen, q.zeile - 1)
@@ -406,6 +433,8 @@ function pruefeText(text, datei = '') {
       datei, zeile: q.zeile, tabelle: q.tabelle, regel,
       text: grund === ''
         ? `alle-ausnahme ohne ausreichenden Grund (mind. ${MIN_GRUND} Zeichen)`
+        : regel === 'AELTESTE_BEHALTEN'
+          ? `.order('${q.ordnung}') aufsteigend mit .limit() behält die ältesten Zeilen – neue fehlen still (alle() verwenden bzw. absteigend sortieren)`
         : regel === 'ALLE_OHNE_ORDER'
           ? `alle(.from('${q.tabelle}')…) ohne .order() – die Blöcke brauchen eine stabile Reihenfolge (eindeutige Spalte, z. B. .order('id'))`
           : `.from('${q.tabelle}').select(…) ohne alle(), .range() oder .limit() – PostgREST kappt still bei 1.000 Zeilen`,

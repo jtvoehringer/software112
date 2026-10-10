@@ -29,6 +29,20 @@ export function normalisiereEmail(email: string): string {
   return email.trim().toLowerCase()
 }
 
+/** Alle Auth-Konten (blättert über alle Seiten; Sweep 102: /benutzer lud nur die erste Seite mit 1.000 Konten und
+ *  verwarf den Fehler). Wirft bei einem Fehler – nie mit einer Teilmenge weiterrechnen. */
+export async function alleKonten(admin: SupabaseClient): Promise<User[]> {
+  const proSeite = 1000
+  const out: User[] = []
+  for (let seite = 1; seite <= 100; seite++) {
+    const { data, error } = await admin.auth.admin.listUsers({ page: seite, perPage: proSeite })
+    if (error) throw new Error(`Benutzerliste konnte nicht geladen werden: ${authFehlerText(error)}`)
+    out.push(...data.users)
+    if (data.users.length < proSeite) return out
+  }
+  throw new Error('Benutzerliste konnte nicht vollständig geladen werden (mehr als 100.000 Konten).')
+}
+
 /** Auth-Konto per E-Mail suchen (Groß-/Kleinschreibung egal, blättert über alle Seiten). */
 export async function findeKontoPerEmail(admin: SupabaseClient, email: string): Promise<User | null> {
   const gesucht = normalisiereEmail(email)

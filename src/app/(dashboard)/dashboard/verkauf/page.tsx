@@ -88,6 +88,7 @@ export default async function DashboardPage() {
     // (unbezahlt + nicht storniert, größeres Limit) - die eigentliche >30-Tage-Filterung
     // und Sortierung nach längster Überfälligkeit passiert unten in JS wie bei den übrigen
     // Überfällig-Berechnungen dieser Seite (ZAHLUNGSZIEL_TAGE).
+    // alle-ausnahme: die ältesten offenen Rechnungen zuerst – Anzeige der längsten Überfälligkeit, keine Summe
     tf(q('verkaufsposten')
       .select('id, datum, rechnungsnummer, bezahlt, storniert, kontakt:kontakte!kontakt_id(vorname, nachname), firma:firmen(name), positionen:verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
       .eq('aktiv', true).eq('bezahlt', false).eq('storniert', false).order('datum', { ascending: true }).limit(200)),
