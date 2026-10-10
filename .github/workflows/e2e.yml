@@ -79,9 +79,12 @@ jobs:
       - name: Chromium installieren
         run: npx playwright install --with-deps chromium
       - name: Playwright-Tests
-        run: npx playwright test
+        # Systematischer Fehler (z. B. Sitzung ungültig): nach 10 Fehlschlägen abbrechen statt ins Zeitlimit zu laufen
+        # (erster Staging-Lauf 10.10.2026: 30 min ohne Fehlertexte, weil der Job vor dem Bericht abgebrochen wurde)
+        run: npx playwright test --max-failures=10
       - name: Bericht hochladen
-        if: failure()
+        # auch bei Abbruch durch das Zeitlimit (dann ist failure() falsch)
+        if: ${{ !success() }}
         uses: actions/upload-artifact@v4
         with:
           name: playwright-bericht
