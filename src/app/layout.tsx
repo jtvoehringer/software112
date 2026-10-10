@@ -18,6 +18,7 @@ import '@fontsource/ibm-plex-mono/latin-400.css'
 import '@fontsource/ibm-plex-mono/latin-500.css'
 import './globals.css'
 import ServiceWorker from '@/components/pwa/ServiceWorker'
+import ZahlenfeldMausrad from '@/components/ZahlenfeldMausrad'
 
 export const metadata: Metadata = {
   title: {
@@ -59,6 +60,8 @@ export default function RootLayout({
         {children}
         {/* KAN-180: Service Worker (Offline-Seite, Hinweis auf neue Version) – nur Produktion */}
         <ServiceWorker />
+        {/* Sweep 117: Mausrad ändert keine Zahlenfelder mehr (Wert bleibt, Seite scrollt) */}
+        <ZahlenfeldMausrad />
       </body>
     </html>
   )

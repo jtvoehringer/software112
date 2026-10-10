@@ -15,7 +15,7 @@ export default function StornierteUmschalter({ anzahl, sichtbar, onChange, class
   return (
     <label className={`inline-flex items-center gap-1.5 text-xs text-s112-text-2 cursor-pointer select-none ${className}`} data-print="hide">
       <input type="checkbox" checked={sichtbar} onChange={e => onChange(e.target.checked)}
-        className="rounded-sm border-s112-border text-s112-teal focus:ring-s112-teal/40" />
+        className="rounded-sm border-s112-border text-s112-teal focus:ring-2 focus:ring-s112-teal/40" />
       Stornierte anzeigen ({anzahl})
     </label>
   )

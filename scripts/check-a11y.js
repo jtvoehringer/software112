@@ -12,6 +12,8 @@
  *  4. KLICK_OHNE_TASTATUR – onClick auf <div>, <tr>, <th> … ohne Tastaturbedienung (Sweep 116, WCAG 2.1.1): nur mit der
  *     Maus erreichbar. Abhilfe {...tastaturBedienbar(aktion)} aus @/lib/ui/tastatur; Überlagerungen zum Schließen
  *     („fixed inset-0“) und reines stopPropagation() sind ausgenommen, Komfortflächen mit Link/Knopf darin per a11y-ignore.
+ *  5. FOKUS_UNSICHTBAR – <input|select|textarea> mit „focus:ring“ in der Klasse, aber ohne Ringbreite (Sweep 117, WCAG
+ *     2.4.7): globals.css lässt den Fokusrahmen dann weg, der Ring ist 0 px – beim Tabben nicht zu sehen.
  * Labels mit dynamischem Text ({…}) werden nur als Hinweis gemeldet.
  * Ausnahme je Stelle: Kommentar „a11y-ignore: <Grund>“ in der Zeile davor oder derselben Zeile.
  * Behebt Fälle 1 automatisch: python3 scripts/a11y-labels.py --schreiben
@@ -99,7 +101,25 @@ function klickOhneTastatur(s, datei = 'x.tsx') {
   return out
 }
 
-module.exports = { symbolOhneName, klickOhneTastatur }
+/** Sweep 117: Eingabefeld mit „focus:ring“ in der Klasse, aber ohne Ringbreite – globals.css nimmt solche Felder vom
+ *  Fokusrahmen aus (eigener Ring), der Ring selbst ist aber 0 px breit: beim Tabben unsichtbar (WCAG 2.4.7). */
+function fokusUnsichtbar(s, datei = 'x.tsx') {
+  const sf = ts.createSourceFile(datei, s, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+  const out = []
+  function besuch(n) {
+    if ((ts.isJsxOpeningElement(n) || ts.isJsxSelfClosingElement(n)) && ['input', 'select', 'textarea'].includes(n.tagName.getText())) {
+      const cls = n.attributes.properties.find(p => ts.isJsxAttribute(p) && p.name.getText() === 'className')
+      const t = cls?.initializer?.getText() ?? ''
+      const breite = /focus:ring(?![-\w])|focus:ring-(\d|\[)/.test(t.replace(/focus:ring-0\b/g, ''))
+      if (t.includes('focus:ring') && !breite) out.push({ pos: n.getStart(), tag: n.tagName.getText() })
+    }
+    ts.forEachChild(n, besuch)
+  }
+  besuch(sf)
+  return out
+}
+
+module.exports = { symbolOhneName, klickOhneTastatur, fokusUnsichtbar }
 if (require.main !== module) return
 
 for (const f of dateien(SRC)) {
@@ -142,6 +162,12 @@ for (const f of dateien(SRC)) {
   for (const k of klickOhneTastatur(s, f)) {
     if (ignoriert(s, k.pos)) continue
     funde.push(`${rel}:${zeile(s, k.pos)}  KLICK_OHNE_TASTATUR  <${k.tag} onClick> nur mit der Maus bedienbar – {...tastaturBedienbar(…)} aus @/lib/ui/tastatur ergänzen`)
+  }
+
+  // 5) Fokusring ohne Breite (Sweep 117)
+  for (const k of fokusUnsichtbar(s, f)) {
+    if (ignoriert(s, k.pos)) continue
+    funde.push(`${rel}:${zeile(s, k.pos)}  FOKUS_UNSICHTBAR  <${k.tag}> mit focus:ring-Farbe, aber ohne Breite – focus:ring-2 ergänzen`)
   }
 
   // 3) Bilder ohne alt
