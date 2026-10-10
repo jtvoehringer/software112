@@ -24,11 +24,6 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  # Staging-Läufe nie parallel (schreibende Tests teilen sich die Datenbank); ein neuer Merge ersetzt einen wartenden Lauf
-  group: e2e-staging
-  cancel-in-progress: false
-
 jobs:
   vorab:
     # KAN-269: jedes Deployment meldet mehrere Zustände (pending, in_progress, success …) und auch Preview/Production –
@@ -48,6 +43,12 @@ jobs:
   e2e:
     needs: vorab
     if: needs.vorab.outputs.aktiv == 'true'
+    # Staging-Läufe nie parallel (schreibende Tests teilen sich die Datenbank); ein neuer Merge ersetzt einen wartenden
+    # Lauf. Bewusst am Job, nicht am Workflow: sonst verdrängt jedes andere Deployment-Ereignis (Production, Preview,
+    # pending …), das danach ohnehin übersprungen wird, einen wartenden Staging-Lauf (beobachtet 10.10.2026).
+    concurrency:
+      group: e2e-staging
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:

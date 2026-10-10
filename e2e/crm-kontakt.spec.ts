@@ -20,8 +20,10 @@ test.describe('CRM – Kontakt anlegen und löschen (schreibend)', () => {
     await page.getByLabel('Nachname', { exact: true }).fill(nachname)
     await page.getByRole('button', { name: 'Anlegen', exact: true }).click()
 
-    // Formular schließt sich nach dem Speichern; eine Dublettenwarnung wäre ein Testdatenproblem
-    await expect(page.getByRole('button', { name: 'Anlegen', exact: true })).toHaveCount(0, { timeout: 15_000 })
+    // Formular schließt sich nach dem Speichern; eine Dublettenwarnung wäre ein Testdatenproblem.
+    // Während des Speicherns heißt der Knopf „Wird gespeichert…“ – erst wenn auch der verschwunden ist, ist der
+    // Kontakt angelegt (erster Staging-Lauf 10.10.2026: Test navigierte zu früh weg, die Server Action brach ab)
+    await expect(page.getByRole('button', { name: /^(Anlegen|Wird gespeichert…)$/ })).toHaveCount(0, { timeout: 15_000 })
     await expect(page.getByText(/bereits vorhanden/)).toHaveCount(0)
 
     // Über die Suche finden (die Liste ist seitenweise geladen)

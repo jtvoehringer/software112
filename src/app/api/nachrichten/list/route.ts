@@ -126,7 +126,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ messages: messages.reverse().slice(0, 30), quelle: 'imap' })
     }
 
-    return NextResponse.json({ fehler: 'Kein E-Mail-Modul konfiguriert' }, { status: 400 })
+    // Keine Mailbox verbunden ist ein Zustand, kein Fehler: 200 mit Kennzeichen (bisher 400 – Konsolenfehler im
+    // Browser und „Verbindungsfehler: …“ auf der Seite; gefunden im ersten E2E-Lauf 10.10.2026)
+    return NextResponse.json({ nichtVerbunden: true, messages: [] })
   } catch (err) {
     // KAN-125: eingestufte Token-Fehler lesbar, „neu verbinden“ mit eigenem Kennzeichen
     if (err instanceof M365TokenFehler) return NextResponse.json({ fehler: err.message, neuVerbinden: err.art === 'neu_verbinden' }, { status: err.art === 'neu_verbinden' ? 409 : 502 })
