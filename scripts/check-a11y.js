@@ -5,7 +5,9 @@
  * Läuft im prebuild wie check-tenant-isolation.js und check-schema.js und bricht den Build ab bei:
  *  1. LABEL_OHNE_FELD  – <label>Text</label> direkt vor <input|select|textarea>, ohne htmlFor
  *     und ohne aria-label/aria-labelledby/id am Feld (Vorleseprogramm liest nur „Eingabefeld“)
- *  2. SYMBOL_OHNE_NAME – <button> enthält nur ein Symbol (<X />, <Pencil /> …) ohne aria-label/title
+ *  2. SYMBOL_OHNE_NAME – <button>, <a> oder <Link> enthält nur Symbole (<X />, <Pencil /> …) ohne aria-label/title
+ *     (Sweep 105: über den TypeScript-Syntaxbaum statt Textmuster – vorher fielen Links und Knöpfe mit verschachteltem
+ *     onClick-Template durch: Jahr-Pfeile im Anlagenverzeichnis, Löschen in der Kostenrechnung)
  *  3. BILD_OHNE_ALT    – <img> ohne alt
  * Labels mit dynamischem Text ({…}) werden nur als Hinweis gemeldet.
  * Ausnahme je Stelle: Kommentar „a11y-ignore: <Grund>“ in der Zeile davor oder derselben Zeile.
@@ -13,6 +15,7 @@
  */
 const fs = require('fs')
 const path = require('path')
+const ts = require('typescript')
 
 const SRC = path.join(__dirname, '..', 'src')
 const IGNORE = /a11y-ignore\s*:/i
@@ -46,6 +49,28 @@ function ignoriert(s, pos) {
   return IGNORE.test(zeilen[z - 1] ?? '') || IGNORE.test(zeilen[z - 2] ?? '')
 }
 
+/** Knöpfe/Links, deren Inhalt nur aus Symbol-Komponenten besteht (Großbuchstabe, ohne Kinder), ohne aria-label/title.
+ *  Liefert die Zeilen samt Symbolnamen. Spread-Attribute ({...p}) gelten als benannt. */
+function symbolOhneName(s, datei = 'x.tsx') {
+  const sf = ts.createSourceFile(datei, s, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+  const out = []
+  function besuch(n) {
+    if (ts.isJsxElement(n) && ['button', 'a', 'Link'].includes(n.openingElement.tagName.getText())) {
+      const kinder = n.children.filter(c => !(ts.isJsxText(c) && !c.getText().trim()))
+      const nurSymbol = kinder.length > 0 && kinder.every(c => ts.isJsxSelfClosingElement(c) && /^[A-Z]/.test(c.tagName.getText()))
+      const attr = n.openingElement.attributes.properties
+      const benannt = attr.some(p => ts.isJsxSpreadAttribute(p) || ['aria-label', 'aria-labelledby', 'title'].includes(p.name.getText()))
+      if (nurSymbol && !benannt) out.push({ pos: n.getStart(), tag: n.openingElement.tagName.getText(), symbol: kinder[0].tagName.getText() })
+    }
+    ts.forEachChild(n, besuch)
+  }
+  besuch(sf)
+  return out
+}
+
+module.exports = { symbolOhneName }
+if (require.main !== module) return
+
 for (const f of dateien(SRC)) {
   const s = fs.readFileSync(f, 'utf8')
   const rel = path.relative(path.join(__dirname, '..'), f)
@@ -77,10 +102,9 @@ for (const f of dateien(SRC)) {
   }
 
   // 2) Symbol-Schaltflächen ohne Namen
-  const btn = /<button\b((?:[^<>{}]|\{(?:[^{}]|\{[^{}]*\})*\})*?)>\s*<([A-Z][A-Za-z0-9]*)\b[^<>]*\/>\s*<\/button>/gs
-  for (const m of s.matchAll(btn)) {
-    if (/aria-label|title=/.test(m[1]) || ignoriert(s, m.index)) continue
-    funde.push(`${rel}:${zeile(s, m.index)}  SYMBOL_OHNE_NAME  <button> nur mit <${m[2]} /> – aria-label ergänzen`)
+  for (const b of symbolOhneName(s, f)) {
+    if (ignoriert(s, b.pos)) continue
+    funde.push(`${rel}:${zeile(s, b.pos)}  SYMBOL_OHNE_NAME  <${b.tag}> nur mit <${b.symbol} /> – aria-label ergänzen`)
   }
 
   // 3) Bilder ohne alt
