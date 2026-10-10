@@ -26,13 +26,13 @@ export async function pruefeBetrieb(ctx: Ctx, einst: Einstellungen, paket: { ist
   const seit7 = new Date(heute.getTime() - 7 * 86400000).toISOString().slice(0, 10)
   const seit365 = new Date(heute.getTime() - 365 * 86400000).toISOString().slice(0, 10)
 
-  const [fristen, keller, { data: offeneVp, error: offeneVpErr }, { data: ohneKat, error: ohneKatErr }, { count: belegeErkannt }, { data: txJahr, error: txJahrErr }, { data: fuellNeg, error: fuellNegErr }, { data: chargenNeg, error: chargenNegErr }, { data: dublettenRaw, error: dublettenRawErr }, { data: tenant, error: tenantErr }, { data: wartefristen, error: wartefristenErr }, { data: pressungen, error: pressungenErr }] = await Promise.all([
+  const [fristen, keller, { data: offeneVp, error: offeneVpErr }, { data: ohneKat, error: ohneKatErr }, { count: belegeErkannt, error: belegeErkanntErr }, { data: txJahr, error: txJahrErr }, { data: fuellNeg, error: fuellNegErr }, { data: chargenNeg, error: chargenNegErr }, { data: dublettenRaw, error: dublettenRawErr }, { data: tenant, error: tenantErr }, { data: wartefristen, error: wartefristenErr }, { data: pressungen, error: pressungenErr }] = await Promise.all([
     ladeFristen(ctx, { modulEa: einst.modulEa, uvaZeitraum: einst.uvaZeitraum, vorwarnungTage: einst.vorwarnungTage, betriebsbeginn: einst.betriebsbeginn, doppik: einst.doppik, psmFristH: einst.psmFristH }),
     ladeKeller(ctx, einst.messintervallTage),
     ctx.tf(ctx.q('verkaufsposten').select('id, rechnungsnummer, datum, verkauf_positionen(preis_brutto, menge, rabatt_pct, sonderrabatt_pct)')
       .eq('aktiv', true).eq('storniert', false).eq('bezahlt', false).lt('datum', new Date(heute.getTime() - ZAHLUNGSZIEL_TAGE * 86400000).toISOString().slice(0, 10)).limit(500)),
     einst.modulEa ? ctx.tf(ctx.q('ea_transaktionen').select('id').is('kategorie_id', null).is('storniert_am', null).is('storno_von_id', null).gte('datum', seit90).limit(200)) : Promise.resolve({ data: [], error: null }),
-    einst.modulEa ? ctx.tf(ctx.q('ea_belege').select('id', { count: 'exact', head: true }).eq('status', 'erkannt')) : Promise.resolve({ count: 0 }),
+    einst.modulEa ? ctx.tf(ctx.q('ea_belege').select('id', { count: 'exact', head: true }).eq('status', 'erkannt')) : Promise.resolve({ count: 0, error: null }),
     einst.modulEa ? alle(ctx.tf(ctx.q('ea_transaktionen').select('id, datum, beschreibung, betrag_netto, kategorie_id, typ').gte('datum', seit365).is('anlage_id', null).is('storniert_am', null).is('storno_von_id', null).order('datum').order('id'))) : Promise.resolve({ data: [], error: null }),   // Sweep 20.9.: .limit(5000) wurde bei 1.000 gekappt
     ctx.tf(ctx.q('fuellungen').select('id, name, jahrgang, bestand_flaschen').eq('aktiv', true).lt('bestand_flaschen', 0).limit(20)),
     ctx.tf(ctx.q('weinausbau').select('id, name, jahrgang, menge_liter').eq('aktiv', true).lt('menge_liter', 0).limit(20)),
@@ -44,7 +44,7 @@ export async function pruefeBetrieb(ctx: Ctx, einst: Einstellungen, paket: { ist
     ctx.tf(ctx.q('behandlungen').select(`id, datum, ernte_fruehesteins, ${BEHANDLUNG_RIEDEN_SELECT}`).is('storniert_am', null).gte('ernte_fruehesteins', new Date(heute.getTime() - 60 * 86400000).toISOString().slice(0, 10)).limit(500)),
     ctx.tf(ctx.q('pressungen').select('id, datum, weinbezeichnung').gte('datum', `${heute.getFullYear()}-01-01`).limit(500)),
   ])
-  if ((offeneVpErr ?? ohneKatErr ?? txJahrErr ?? fuellNegErr ?? chargenNegErr ?? dublettenRawErr ?? tenantErr ?? wartefristenErr ?? pressungenErr)) throw new Error(`Daten konnten nicht geladen werden: ${(offeneVpErr ?? ohneKatErr ?? txJahrErr ?? fuellNegErr ?? chargenNegErr ?? dublettenRawErr ?? tenantErr ?? wartefristenErr ?? pressungenErr).message}`)
+  if ((offeneVpErr ?? ohneKatErr ?? belegeErkanntErr ?? txJahrErr ?? fuellNegErr ?? chargenNegErr ?? dublettenRawErr ?? tenantErr ?? wartefristenErr ?? pressungenErr)) throw new Error(`Daten konnten nicht geladen werden: ${(offeneVpErr ?? ohneKatErr ?? txJahrErr ?? fuellNegErr ?? chargenNegErr ?? dublettenRawErr ?? tenantErr ?? wartefristenErr ?? pressungenErr).message}`)
 
   // 1. Fristen: überfällig = hoch, fällig = mittel (UVA, BMD-Übergabe, Erntemeldung, AfA, eigene Fristen)
   for (const f of fristen) {

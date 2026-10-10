@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { geladen } from '@/lib/supabase/geladen'
+import { geladen, gezaehlt } from '@/lib/supabase/geladen'
 import { momentaufnahmeAnwenden } from '@/lib/stammdaten/momentaufnahme'
 import { getCurrentUserRole, canWrite, getCurrentMembership } from '@/lib/auth/roles'
 import { notFound } from 'next/navigation'
@@ -72,7 +72,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
   const membership = await getCurrentMembership()
   const tenantId = membership?.tenantId ?? null
 
-  const [postenRawRes, settings, zahlungenRawRes, { count: traubenverkaufAnzahl }, tbRawRes] = await Promise.all([
+  const [postenRawRes, settings, zahlungenRawRes, traubenverkaufRes, tbRawRes] = await Promise.all([
     (supabase.from('verkaufsposten') as any)
       .select(`
         id, datum, rechnungsnummer, lieferscheinnummer, notizen, erstellt_am, storniert, storniert_am, storniert_von_name, storno_grund,
@@ -116,6 +116,7 @@ export default async function VerkaufDetailPage({ params, searchParams }: { para
   const postenRaw = geladen(postenRawRes, 'Verkäufe')
   const zahlungenRaw = geladen(zahlungenRawRes, 'Zahlungen')
   const tbRaw = geladen(tbRawRes, 'Transportbescheinigungen')
+  const traubenverkaufAnzahl = gezaehlt(traubenverkaufRes, 'Traubenverkäufe')
   const tbsNr = tbsText((tbRaw as R | null)?.tbs_nummer, (tbRaw as R | null)?.tbs_jahr)
 
   if (!postenRaw) notFound()

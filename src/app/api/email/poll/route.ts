@@ -85,10 +85,13 @@ export async function POST(req: NextRequest) {
         // Duplikat-Check über email_id (Sweep 20.9.2026: vorher .ilike('notizen') – Spalte gibt es
         // auf aktivitaeten nicht, die Prüfung scheiterte still und jede Abfrage legte die Mail neu an)
         if (msgId) {
-          const { count } = await (admin.from('aktivitaeten') as any)
+          const { count, error: dupErr } = await (admin.from('aktivitaeten') as any)
             .select('*', { count: 'exact', head: true })
             .eq('tenant_id', tenantId)
             .eq('email_id', msgId)
+          // Sweep 90 (KAN-282): Lesefehler hieß „neu“ – dieselbe Mail wurde bei jedem Abruf erneut angelegt.
+          // Überspringen: der nächste Abruf versucht es wieder (die Mail bleibt im Postfach).
+          if (dupErr) { console.error('E-Mail-Abruf: Duplikat-Prüfung fehlgeschlagen:', dupErr.message); continue }
           if ((count ?? 0) > 0) continue
         }
 

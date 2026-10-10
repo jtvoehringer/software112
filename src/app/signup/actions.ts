@@ -106,8 +106,11 @@ export async function registrierenAction(formData: FormData): Promise<Ergebnis> 
   if (bestehend) {
     // Unbestätigtes Konto (offene Einladung oder nie bestätigte Registrierung): Link
     // erneut senden – das Passwort legt erst fest, wer den Link aus dem Postfach öffnet.
-    const { count } = await (admin.from('tenant_memberships') as R)
+    const { count, error: mitglErr } = await (admin.from('tenant_memberships') as R)
       .select('id', { count: 'exact', head: true }).eq('user_id', bestehend.id)
+    // Sweep 90 (KAN-282): Lesefehler hieß „keinem Betrieb zugeordnet“ – ein zweiter Betrieb wurde angelegt.
+    // Neutrale Antwort wie bei einem bestehenden Konto (kein Hinweis auf Konten), nichts anlegen.
+    if (mitglErr) { console.error('Signup: Mitgliedschaften nicht prüfbar (KAN-282):', mitglErr.message); return neutraleAntwort(email) }
     const { error: e } = await admin.auth.admin.inviteUserByEmail(email, { redirectTo: EINLADUNG_REDIRECT })
     if (e) console.error('Signup: Einladung erneut senden (KAN-139):', e.message)
     // Schon einem Betrieb zugeordnet → keinen weiteren anlegen

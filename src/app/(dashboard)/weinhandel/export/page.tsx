@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { gezaehlt } from '@/lib/supabase/geladen'
 import { getCurrentMembership } from '@/lib/auth/roles'
 import type { Metadata } from 'next'
 import CsvExportKnopf from '@/components/CsvExportKnopf'
@@ -15,12 +16,17 @@ export default async function ExportPage() {
   const tf = (query: any) => tenantId ? query.eq('tenant_id', tenantId) : query
 
   // Zähler für Info
-  const [{ count: kontakteCount }, { count: firmenCount }, { count: fuellungenCount }, { count: verkaufCount }] = await Promise.all([
+  const [kontakteRes, firmenRes, fuellungenRes, verkaufRes] = await Promise.all([
     tf((supabase.from('kontakte') as any).select('*', { count: 'exact', head: true }).eq('aktiv', true)),
     tf((supabase.from('firmen') as any).select('*', { count: 'exact', head: true }).eq('aktiv', true)),
     tf((supabase.from('fuellungen') as any).select('*', { count: 'exact', head: true }).eq('aktiv', true)),
     tf((supabase.from('verkaufsposten') as any).select('*', { count: 'exact', head: true }).eq('aktiv', true)),
   ])
+  // Sweep 90 (KAN-282): Lesefehler wirft (Fehlergrenze) statt „0 Datensätze“
+  const kontakteCount = gezaehlt(kontakteRes, 'Kontakte')
+  const firmenCount = gezaehlt(firmenRes, 'Firmen')
+  const fuellungenCount = gezaehlt(fuellungenRes, 'Füllungen')
+  const verkaufCount = gezaehlt(verkaufRes, 'Verkäufe')
 
   const exports: {
     title: string

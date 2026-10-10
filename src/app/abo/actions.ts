@@ -195,7 +195,9 @@ export async function wechslePaketAction(paketWunsch: string, buchhaltungsart?: 
   const t = tenantRow as R | null
   // KAN-215: Nebenmandanten wechseln nicht selbst, Hauptmandanten mit Verbund nur innerhalb Premium
   if (t?.abrechnung_ueber) return { error: 'Ihr Betrieb wird über einen anderen Betrieb abgerechnet (Abrechnungsverbund) – das Paket ist dort festgelegt.' }
-  { const { count } = await (admin.from('tenants') as R).select('id', { count: 'exact', head: true }).eq('abrechnung_ueber', membership.tenantId)
+  { const { count, error: verbundErr } = await (admin.from('tenants') as R).select('id', { count: 'exact', head: true }).eq('abrechnung_ueber', membership.tenantId)
+    // Sweep 90 (KAN-282): Lesefehler hieß „keine Submandanten“ – Paketwechsel trotz Abrechnungsverbund
+    if (verbundErr) return { error: dbFehlerText(verbundErr, 'Abrechnungsverbund konnte nicht geprüft werden') }
     const vf = paketwechselVerbundFehler(paket, count ?? 0)
     if (vf) return { error: vf } }
   if (!t?.stripe_subscription_id) {

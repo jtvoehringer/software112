@@ -57,10 +57,15 @@ export async function POST(req: NextRequest) {
       const match = emailMap[from]
       if (!match) continue
 
-      const { count } = await (admin.from('aktivitaeten') as any)
+      const { count, error: dupErr } = await (admin.from('aktivitaeten') as any)
         .select('*', { count: 'exact', head: true })
         .eq('tenant_id', tenantId).eq('art', 'email')
         .ilike('beschreibung', `%${msg.internetMessageId ?? ''}%`)
+      // Sweep 90 (KAN-282): Lesefehler hieß „neu“ – Duplikat. 500, damit Microsoft Graph erneut zustellt (wie KAN-252).
+      if (dupErr) {
+        console.error('M365-Webhook: Duplikat-Prüfung fehlgeschlagen:', dupErr.message)
+        return NextResponse.json({ fehler: 'Duplikat-Prüfung fehlgeschlagen' }, { status: 500 })
+      }
       if ((count ?? 0) > 0) continue
 
       // KAN-246: Fehler protokollieren – sonst ging die eingehende E-Mail still verloren (Webhook antwortet trotzdem 202)

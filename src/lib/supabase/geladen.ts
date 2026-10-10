@@ -12,3 +12,9 @@ export function geladen<E extends Ergebnis>(res: E, was: string): E['data'] {
   if (res.error) throw new Error(`${was} konnte nicht geladen werden (${res.error.message ?? 'unbekannter Fehler'})`)
   return res.data
 }
+
+/** Sweep 90 (KAN-282): Anzahl einer Zählabfrage ({ count: 'exact', head: true }); wirft bei error statt 0 zu melden */
+export function gezaehlt(res: { count?: number | null; error: { message?: string } | null }, was: string): number {
+  if (res.error) throw new Error(`${was} konnte nicht gezählt werden (${res.error.message ?? 'unbekannter Fehler'})`)
+  return res.count ?? 0
+}

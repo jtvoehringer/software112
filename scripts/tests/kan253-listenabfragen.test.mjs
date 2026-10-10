@@ -18,7 +18,7 @@ const { pruefeText } = require(path.join(HIER, '..', 'check-einzelabfrage.js'))
 
 const US = "'use " + "server'"
 const M = 'abfrage-ohne-' + 'fehler'
-const funde = t => pruefeText(`${US}\n${t}`).funde.map(f => [f.zeile, /leere Liste/.test(f.text) ? 'L' : 'E'])
+const funde = t => pruefeText(`${US}\n${t}`).funde.map(f => [f.zeile, /leere Liste/.test(f.text) ? 'L' : /Zählabfrage/.test(f.text) ? 'Z' : 'E'])
 
 describe('check-einzelabfrage: Listen und Promise.all', () => {
   test('Liste ohne error → Fund; mit error → geprüft; alle()/inBloecken()/rpc/Abfrage-Variable ebenso', () => {
@@ -31,15 +31,15 @@ describe('check-einzelabfrage: Listen und Promise.all', () => {
     assert.deepEqual(funde(`const { data } = await s.storage.from('b').list('x')\n`), [[2, 'L']])
   })
 
-  test('kein Supabase-Fehlerobjekt: auth, Stripe, fetch/json, Graph und Destrukturierung ohne data', () => {
+  test('kein Supabase-Fehlerobjekt: auth, Stripe, fetch/json, Graph; { count } seit KAN-282 als Zählabfrage', () => {
     assert.deepEqual(funde(`const { data: { user } } = await supabase.auth.getUser()\nconst { data: { user: u } } = await (supabase.auth as any).getUser()\n`), [])
     assert.deepEqual(funde(`const { data } = await stripe.invoices.list({ customer: c })\nconst { data } = await (await fetch(u)).json()\nconst { value } = await graphGet(t, '/me')\n`), [])
-    assert.deepEqual(funde(`const { count } = await s.from('t').select('id', { count: 'exact', head: true })\n`), [])
+    assert.deepEqual(funde(`const { count } = await s.from('t').select('id', { count: 'exact', head: true })\n`), [[2, 'Z']])
   })
 
   test('Promise.all: jedes Element mit data braucht error – je Element ein Fund, Zeile des Elements', () => {
     const t = `const [\n  { data: a },\n  { data: b, error: bErr },\n  { count },\n] = await Promise.all([x, y, z])\n`
-    assert.deepEqual(funde(t), [[3, 'L']])
+    assert.deepEqual(funde(t), [[3, 'L'], [5, 'Z']])   // { count } seit Sweep 90 (KAN-282) ebenfalls
     assert.deepEqual(funde(`const [{ data: a }, { data: b }] = await Promise.all([x, y])\n`), [[2, 'L'], [2, 'L']])
     assert.deepEqual(funde(`const [a, b] = await Promise.all([x, y])\nconst [{ data: c }] = await Promise.allSettled([x])\n`), [], 'nur Destrukturierung mit data aus Promise.all')
   })

@@ -127,9 +127,11 @@ export async function GET(req: NextRequest) {
                 .eq('tenant_id', tenantId)
               upd = kontaktInfo.typ === 'kontakt' ? upd.eq('kontakt_id', kontaktInfo.id) : upd.is('kontakt_id', null)
               upd = kontaktInfo.typ === 'firma'   ? upd.eq('firma_id', kontaktInfo.id)   : upd.is('firma_id', null)
-              const { count } = await upd
+              const { count, error: updErr } = await upd
                 .eq('art', 'email').eq('betreff', msg.subject ?? '').is('email_id', null)
                 .select('*', { count: 'exact', head: true })
+              // Sweep 90 (KAN-282): gescheitertes Aktualisieren hieß „nichts aktualisiert“ – zusätzlicher Eintrag
+              if (updErr) { void ereignisMelden({ art: 'db', quelle: 'message/aktivitaeten', meldung: updErr.message }); return }
               // Wenn nichts aktualisiert → neu anlegen
               if (!count || count === 0) {
                 { const { error: e } = await (supabase.from('aktivitaeten') as any).upsert({
