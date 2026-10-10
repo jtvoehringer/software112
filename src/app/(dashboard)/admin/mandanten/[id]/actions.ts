@@ -24,6 +24,7 @@ import { istMostgewichtEinheit } from '@/lib/wein/mostgewicht'
 import { austrittsWerte, beitrittFehler, beitrittsWerte, gemeinschaftsFreigaben, type VerbundBetrieb } from '@/lib/abo/verbund'
 import { premiumSupportEingabeFehler } from '@/lib/abo/premiumSupport'
 import { wienJetzt } from '@/lib/datum/wien'
+import { authFehlerText } from '@/lib/auth/authFehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -239,7 +240,7 @@ export async function resendInvite(userId: string, tenantId: string) {
   const { error } = await admin.auth.admin.inviteUserByEmail(user.email, {
     redirectTo: EINLADUNG_REDIRECT,
   })
-  if (error) return { error: dbFehlerText(error) }
+  if (error) return { error: authFehlerText(error) }
 
   tenantKopfInvalidieren(tenantId)
   revalidatePath(`/admin/mandanten/${tenantId}`)

@@ -15,6 +15,7 @@ import { BetriebsPruefMelder } from '@/components/BetriebsWaechter'
 import { mitWeiter } from '@/lib/tenant/waechter'
 import { zweiFaktorErfuellt } from '@/lib/auth/mfa'
 import PasskeyVerwaltung from '@/components/PasskeyVerwaltung'
+import { authFehlerText } from '@/lib/auth/authFehler'
 
 type Modus = 'laden' | 'code' | 'einrichten' | 'aktiv'
 type Faktor = { id: string; status: string; friendly_name?: string | null; created_at?: string }
@@ -82,7 +83,7 @@ function ZweiFaktor() {
     const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: faktor.id, code: code.replace(/\s/g, '') })
     if (error) {
       setLaeuft(false)
-      setFehler(error.message.includes('Invalid') ? 'Der Code stimmt nicht – bitte den aktuellen Code aus der App eingeben.' : error.message)
+      setFehler(authFehlerText(error))   // Sweep 100: falscher bzw. abgelaufener Code, zu viele Versuche
       return
     }
     // KAN-233: Formular bleibt nicht leer stehen – Bestätigung anzeigen, bis die Weiterleitung greift
@@ -101,8 +102,7 @@ function ZweiFaktor() {
     try { setFehler(null)
     const { error } = await supabase.auth.mfa.unenroll({ factorId: faktor.id })
     setLaeuft(false)
-    // fehlertext-ok: Supabase-Auth-Meldung, kein Datenbankfehler (dbFehlerText passt nicht)
-    if (error) { setFehler(error.message); return }
+    if (error) { setFehler(authFehlerText(error)); return }
     await supabase.auth.refreshSession()
     await laden()
 

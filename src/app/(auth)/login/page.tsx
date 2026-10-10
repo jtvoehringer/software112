@@ -8,6 +8,7 @@ import { abmeldeHinweis } from '@/lib/auth/sitzung'
 import { sitzungsCookieSchreiben } from '@/lib/auth/sitzungCookie'
 import { passkeyFehlerText, passkeyMoeglich } from '@/lib/auth/passkey'
 import { subdomainAusHost, subdomainUrl } from '@/lib/tenant/subdomain'
+import { authFehlerText } from '@/lib/auth/authFehler'
 
 // Hinweis: metadata muss in Server Components definiert werden.
 // Login-Page-Titel wird über das Root-Layout gesetzt.
@@ -61,11 +62,7 @@ export default function LoginPage() {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
 
       if (error) {
-        setError(
-          error.message === 'Invalid login credentials'
-            ? 'E-Mail oder Passwort falsch.'
-            : error.message
-        )
+        setError(authFehlerText(error))   // Sweep 100: auch Sperrzeit, nicht bestätigte E-Mail …
         setLoading(false)
       } else {
         // KAN-78: Ziel aus dem Link (weiter) über Zwei-Faktor und Betriebswahl mitnehmen

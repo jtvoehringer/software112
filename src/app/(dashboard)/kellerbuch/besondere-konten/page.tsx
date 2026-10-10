@@ -75,7 +75,7 @@ export default async function BesondereKontenPage({ searchParams }: { searchPara
             {stoffe.map(s => (
               <span key={s.id} className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm ${s.id === gewaehlt?.id ? 'border-s112-teal bg-s112-teal/5' : 'border-s112-border'} ${s.aktiv ? '' : 'opacity-60'}`}>
                 <Link href={`/kellerbuch/besondere-konten?stoff=${s.id}`} className="font-medium text-s112-text hover:underline">{s.name}</Link>
-                <span className={`tabular-nums ${(saldoJe.get(s.id) ?? 0) < 0 ? 'text-s112-err-fg font-semibold' : 'text-s112-text-2'}`}>{fmtNum(saldoJe.get(s.id) ?? 0, { max: 3 })} {s.einheit}</span>
+                <span className={`tabular-nums whitespace-nowrap ${(saldoJe.get(s.id) ?? 0) < 0 ? 'text-s112-err-fg font-semibold' : 'text-s112-text-2'}`}>{fmtNum(saldoJe.get(s.id) ?? 0, { max: 3 })} {s.einheit}</span>
                 {schreiben ? <StoffArtWahl id={s.id} art={s.art} name={s.name} /> : <span className="text-xs text-s112-muted">{STOFF_ART_LABEL[s.art]}</span>}
                 {!s.aktiv && <span className="text-xs text-s112-muted">inaktiv</span>}
                 {schreiben && <StoffAktiv id={s.id} aktiv={s.aktiv} />}

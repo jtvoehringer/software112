@@ -3,6 +3,7 @@ import { useState } from 'react'
 import Link from '@/components/ui/Link'
 import { createSupabaseBrowserClient } from '@/lib/supabase/client'
 import { Mail } from 'lucide-react'
+import { authFehlerText } from '@/lib/auth/authFehler'
 
 export default function ResetPage() {
   const supabase = createSupabaseBrowserClient()
@@ -18,8 +19,7 @@ export default function ResetPage() {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/auth/callback?next=/auth/update-password&type=recovery`,
     })
-    // fehlertext-ok: Supabase-Auth-Meldung, kein Datenbankfehler (dbFehlerText passt nicht)
-    if (error) { setError(error.message); setLoading(false) }
+    if (error) { setError(authFehlerText(error)); setLoading(false) }   // Sweep 100: z. B. Wartezeit zwischen zwei Anforderungen
     else setDone(true)
 
     } finally {

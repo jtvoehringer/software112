@@ -16,6 +16,7 @@ import type { SupabaseClient, User } from '@supabase/supabase-js'
 import { sendEmail } from '@/lib/brevo/api'
 import { sendeBenachrichtigung } from '@/lib/benachrichtigungen/server'
 import { roleLabel, type UserRole } from '@/lib/auth/roles'
+import { authFehlerText } from './authFehler'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type R = Record<string, any>
@@ -65,7 +66,7 @@ export async function kontoFuerEinladung(admin: SupabaseClient, email: string, n
     redirectTo: EINLADUNG_REDIRECT,
     ...(name ? { data: { display_name: name } } : {}),
   })
-  if (error || !data.user) return { ok: false, fehler: error?.message ?? 'Einladung fehlgeschlagen' }
+  if (error || !data.user) return { ok: false, fehler: error ? authFehlerText(error) : 'Einladung fehlgeschlagen' }
   return { ok: true, userId: data.user.id, neuesKonto: true, bestehendesKonto: null }
 }
 
