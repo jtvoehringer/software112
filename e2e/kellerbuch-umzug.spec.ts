@@ -50,8 +50,10 @@ test.describe('Kellerbuch (schreibend)', () => {
     // Aufräumen: nicht stornierte Umzüge abgebrochener früherer Läufe zurückbuchen (sonst fehlen Menge bzw. leere Gebinde)
     await formularOeffnen(page)
     const reste = page.locator('tr', { hasText: 'E2E-Test' }).filter({ hasNotText: 'storniert am' }).filter({ has: page.getByRole('button', { name: 'Stornieren' }) })
+    const storniert = page.locator('tr', { hasText: 'E2E-Test' }).filter({ hasText: 'storniert am' })
     for (let i = 0; i < 10; i++) {
       const anzahl = await reste.count()
+      const stornierteVorher = await storniert.count()
       if (anzahl === 0) break
       const rest = reste.first()
       await rest.getByRole('button', { name: 'Stornieren' }).first().click()
@@ -59,6 +61,8 @@ test.describe('Kellerbuch (schreibend)', () => {
       await rest.getByRole('button', { name: 'Stornieren' }).last().click()
       // die stornierte Zeile fällt aus dem Filter – daher auf weniger offene Reste warten, nicht auf „storniert am“ in ihr
       await expect(reste, 'Rest nicht storniert').toHaveCount(anzahl - 1, { timeout: 20_000 })
+      // „storniert am“ kommt aus der gespeicherten Zeile – erst dann ist die Rückbuchung auch in den Beständen
+      await expect(storniert, 'Storno nicht gespeichert').toHaveCount(stornierteVorher + 1, { timeout: 20_000 })
     }
 
     await formularOeffnen(page)
@@ -80,9 +84,10 @@ test.describe('Kellerbuch (schreibend)', () => {
     // erst weiter, wenn die Buchung fertig ist – vorher las der Test die Quelle schon abgebucht, das Ziel noch leer
     await expect(page.getByText('Gespeichert – weiterleiten…')).toBeVisible({ timeout: 30_000 })
 
-    const nachUmzug = await stand(page, q!.wert, z!.wert)
-    expect(nachUmzug.quelleLiter, 'Quelle nach dem Umzug').toBeCloseTo(vorher - MENGE, 2)
-    expect(nachUmzug.zielText, 'Ziel nach dem Umzug').toMatch(new RegExp(`· ${MENGE},00 L`))
+    // Bestände je neu geladen abfragen, bis sie stimmen (die Liste wird nach der Buchung erst neu aufgebaut)
+    const zielMitMenge = new RegExp(`· ${MENGE}(,0+)? L`)   // „Betonei · 5 L Chardonnay (CH) | frei 795 L“
+    await expect.poll(async () => (await stand(page, q!.wert, z!.wert)).quelleLiter, { message: 'Quelle nach dem Umzug', timeout: 30_000 }).toBeCloseTo(vorher - MENGE, 2)
+    await expect.poll(async () => (await stand(page, q!.wert, z!.wert)).zielText, { message: 'Ziel nach dem Umzug', timeout: 30_000 }).toMatch(zielMitMenge)
 
     // Storno: Zeile an der Notiz erkennen
     const zeile = page.locator('tr', { hasText: marke })
@@ -92,8 +97,7 @@ test.describe('Kellerbuch (schreibend)', () => {
     await zeile.getByRole('button', { name: 'Stornieren' }).last().click()
     await expect(zeile.getByText(/storniert am/)).toBeVisible({ timeout: 20_000 })
 
-    const nachStorno = await stand(page, q!.wert, z!.wert)
-    expect(nachStorno.quelleLiter, 'Quelle nach dem Storno').toBeCloseTo(vorher, 2)
-    expect(nachStorno.zielText, 'Ziel nach dem Storno').toContain(' · leer')
+    await expect.poll(async () => (await stand(page, q!.wert, z!.wert)).quelleLiter, { message: 'Quelle nach dem Storno', timeout: 30_000 }).toBeCloseTo(vorher, 2)
+    await expect.poll(async () => (await stand(page, q!.wert, z!.wert)).zielText, { message: 'Ziel nach dem Storno', timeout: 30_000 }).toContain(' · leer')
   })
 })
